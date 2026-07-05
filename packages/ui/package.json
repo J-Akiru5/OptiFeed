@@ -1,0 +1,16 @@
+{
+	"name": "@optifeed/ui",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"lint": "echo 'TODO(karl): add Biome lint script'",
+		"typecheck": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"typescript": "^5.0.0"
+	}
+}

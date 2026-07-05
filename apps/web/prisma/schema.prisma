@@ -1,0 +1,86 @@
+// TODO(karl): Confirm indexes, cascading deletes, and row-level security policies once the access model is finalized.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Pond {
+  id              String   @id @default(cuid())
+  ownerId         String
+  name            String
+  feedingRatePct  Float
+  feedsPerDay     Int
+  scheduleStart   DateTime @db.Time()
+  scheduleEnd     DateTime @db.Time()
+  createdAt       DateTime @default(now())
+
+  devices      Device[]
+  biomassLogs  BiomassLog[]
+  fcrReports   FcrReport[]
+  notifications Notification[]
+}
+
+model Device {
+  id             String    @id @default(cuid())
+  pondId         String
+  name           String
+  connectivity   String
+  lastSyncedAt   DateTime?
+  hopperLevelPct Float
+
+  pond          Pond           @relation(fields: [pondId], references: [id])
+  feedingEvents FeedingEvent[]
+}
+
+model BiomassLog {
+  id              String   @id @default(cuid())
+  pondId          String
+  sampleWeightKg  Float
+  sampleLengthCm  Float
+  sampleCount     Int
+  avgWeightKg     Float
+  recordedAt      DateTime @default(now())
+
+  pond Pond @relation(fields: [pondId], references: [id])
+}
+
+model FeedingEvent {
+  id                String   @id @default(cuid())
+  deviceId          String
+  scheduledTime     DateTime
+  dispensedVolumeG  Float
+  status            String
+  createdAt         DateTime @default(now())
+
+  device Device @relation(fields: [deviceId], references: [id])
+}
+
+model FcrReport {
+  id            String   @id @default(cuid())
+  pondId        String
+  periodStart   DateTime
+  periodEnd     DateTime
+  totalFeedKg   Float
+  biomassGainKg Float
+  fcrValue      Float
+
+  pond Pond @relation(fields: [pondId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  pondId    String
+  tier      String
+  message   String
+  linkTo    String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  pond Pond @relation(fields: [pondId], references: [id])
+}

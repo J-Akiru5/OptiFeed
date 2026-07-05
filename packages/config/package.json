@@ -1,0 +1,12 @@
+{
+	"name": "@optifeed/config",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./tsconfig.base.json": "./tsconfig.base.json"
+	},
+	"scripts": {
+		"lint": "echo 'TODO(karl): add Biome lint script'"
+	}
+}

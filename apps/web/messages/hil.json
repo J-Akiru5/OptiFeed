@@ -1,0 +1,18 @@
+{
+	"__comment": "TODO(karl): translate — Hiligaynon translations are pending review.",
+	"nav": {
+		"dashboard": "Dashboard",
+		"schedule": "Schedule",
+		"logSample": "Log Sample",
+		"history": "History",
+		"growth": "Growth",
+		"settings": "Settings",
+		"notifications": "Notifications"
+	},
+	"button": {
+		"feedNow": "Feed Now",
+		"saveSample": "Save Sample",
+		"login": "Log In",
+		"logout": "Log Out"
+	}
+}

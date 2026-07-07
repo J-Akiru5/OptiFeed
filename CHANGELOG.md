@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-07
+
+### Added
+- Wired Dashboard Home (Hero, FCR sparkline, and secondary metrics cards) to live Prisma data
+
 ## [1.0.1] - 2026-07-07
 
 ### Added

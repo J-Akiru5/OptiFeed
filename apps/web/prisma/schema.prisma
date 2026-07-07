@@ -31,6 +31,7 @@ model Device {
   pondId         String
   name           String
   connectivity   String
+  isPaused       Boolean   @default(false)
   lastSyncedAt   DateTime?
   hopperLevelPct Float
 

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## --- KARL'S PROGRESS (Branch) ---
 
+## [1.3.0] - 2026-07-08
+
+### Added
+- Implemented Feeding History screen with recent activity stats and events log
+- Implemented Growth & FCR screen with custom SVG/CSS charts and biomass history table
+
 ## [1.2.0] - 2026-07-07
 
 ### Added

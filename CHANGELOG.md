@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## --- KARL'S PROGRESS (Branch) ---
 
+## [1.6.0] - 2026-07-08
+
+### Added
+- Implemented rule-based Chat Bubble assistant UI
+- Added `submitChatMessage` Server Action to parse intents (Next Feed, Log Sample, FCR, Missed Feedings) and return live database data
+
+
 ## [1.5.0] - 2026-07-08
 
 ### Added

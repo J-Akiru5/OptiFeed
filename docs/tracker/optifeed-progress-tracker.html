@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OptiFeed — Development Progress Tracker</title>
+<style>
+  :root{
+    --base:#0A3D62;
+    --base-deep:#072943;
+    --action:#FF6B35;
+    --bg:#F4F7F6;
+    --bg-card:#FFFFFF;
+    --success:#28A745;
+    --critical:#DC3545;
+    --warning:#F0A202;
+    --line:#DCE3E1;
+    --ink:#0F1F2B;
+    --ink-soft:#526270;
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink); line-height:1.55;}
+  a{color:var(--base);}
+
+  header.top{
+    background:var(--base); color:#fff; padding:22px 28px;
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px;
+  }
+  header.top .brand{display:flex; align-items:center; gap:10px;}
+  header.top .dot{width:11px; height:11px; border-radius:50%; background:var(--success); box-shadow:0 0 0 3px rgba(40,167,69,0.25);}
+  header.top .wordmark{font-size:1.3rem; font-weight:700; letter-spacing:-0.02em;}
+  header.top .wordmark span{color:var(--action);}
+  header.top .meta{font-size:0.78rem; opacity:0.85; font-family:ui-monospace, "SF Mono", Consolas, monospace;}
+  header.top .tag-pill{
+    background:rgba(255,255,255,0.14); border:1px solid rgba(255,255,255,0.3);
+    padding:4px 12px; border-radius:20px; font-size:0.75rem; font-family:ui-monospace, monospace;
+  }
+
+  main{max-width:980px; margin:0 auto; padding:32px 24px 90px 24px;}
+
+  .progress-hero{
+    background:var(--bg-card); border:1px solid var(--line); border-radius:14px;
+    padding:26px 28px; margin-bottom:34px; box-shadow:0 2px 10px rgba(10,61,98,0.05);
+  }
+  .progress-hero .row{display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:10px;}
+  .progress-hero h1{font-size:1.05rem; margin:0; color:var(--ink-soft); font-weight:600; text-transform:uppercase; letter-spacing:0.04em;}
+  .progress-hero .pct{font-size:2.6rem; font-weight:800; color:var(--base-deep);}
+  .bar-track{width:100%; height:14px; background:var(--bg); border:1px solid var(--line); border-radius:20px; overflow:hidden; margin-top:14px;}
+  .bar-fill{height:100%; background:linear-gradient(90deg, var(--action), #ff8c5c); border-radius:20px; transition:width 0.3s ease; width:0%;}
+  .progress-hero .sub{font-size:0.85rem; color:var(--ink-soft); margin-top:10px;}
+
+  section{margin-bottom:38px;}
+  .sec-title{display:flex; align-items:center; gap:10px; margin-bottom:14px;}
+  .sec-title h2{font-size:1.15rem; margin:0; color:var(--base-deep);}
+  .sec-title .idx{font-family:ui-monospace, monospace; font-size:0.78rem; color:var(--action); background:#FFF1EA; padding:2px 9px; border-radius:12px;}
+
+  /* rules checklist */
+  .rules-card{background:var(--bg-card); border:1px solid var(--line); border-radius:12px; padding:6px 8px;}
+  .rule-row{
+    display:flex; align-items:flex-start; gap:12px; padding:12px 14px; border-bottom:1px solid var(--line);
+  }
+  .rule-row:last-child{border-bottom:none;}
+  .rule-row input[type="checkbox"]{width:20px; height:20px; margin-top:2px; accent-color:var(--success); flex-shrink:0; cursor:pointer;}
+  .rule-row label{font-size:0.9rem; cursor:pointer;}
+  .rule-row.checked label{color:var(--ink-soft); text-decoration:line-through; text-decoration-color:var(--line);}
+
+  /* branch diagram */
+  .diagram-wrap{background:var(--bg-card); border:1px solid var(--line); border-radius:12px; padding:14px;}
+
+  /* task cards */
+  .task-card{
+    background:var(--bg-card); border:1px solid var(--line); border-radius:12px;
+    padding:20px 22px; margin-bottom:16px; position:relative; transition:box-shadow 0.2s ease;
+  }
+  .task-card.complete{border-color:var(--success);}
+  .task-card .top-row{display:flex; align-items:flex-start; gap:14px;}
+  .task-card .num{
+    font-family:ui-monospace, monospace; font-weight:700; font-size:1.1rem; color:var(--action);
+    width:30px; flex-shrink:0;
+  }
+  .task-card h3{margin:0 0 6px 0; font-size:1.02rem; color:var(--base-deep);}
+  .task-card p{margin:0 0 14px 0; font-size:0.88rem; color:var(--ink-soft); max-width:640px;}
+  .task-card .status-pill{
+    font-size:0.68rem; font-family:ui-monospace, monospace; padding:2px 9px; border-radius:20px;
+    background:#F1F5F0; color:var(--ink-soft); margin-left:auto; flex-shrink:0; white-space:nowrap;
+  }
+  .task-card .status-pill.done{background:#E8F6EC; color:var(--success);}
+  .task-card .status-pill.progress{background:#FFF4E8; color:#B36A00;}
+
+  .subchecks{display:flex; gap:18px; flex-wrap:wrap; padding-left:44px;}
+  .subcheck{display:flex; align-items:center; gap:8px; font-size:0.82rem; color:var(--ink-soft);}
+  .subcheck input[type="checkbox"]{width:17px; height:17px; accent-color:var(--base); cursor:pointer;}
+  .subcheck label{cursor:pointer;}
+  .subcheck.checked label{color:var(--success); font-weight:600;}
+
+  .toolbar{display:flex; justify-content:flex-end; gap:10px; margin-bottom:6px;}
+  .btn-reset{
+    background:none; border:1px solid var(--line); color:var(--ink-soft); font-size:0.78rem;
+    padding:6px 14px; border-radius:20px; cursor:pointer; font-family:inherit;
+  }
+  .btn-reset:hover{border-color:var(--critical); color:var(--critical);}
+
+  footer{
+    max-width:980px; margin:0 auto; padding:0 24px 50px 24px; font-size:0.78rem; color:var(--ink-soft);
+    font-family:ui-monospace, monospace; border-top:1px solid var(--line); padding-top:16px;
+  }
+  footer div{margin-bottom:4px;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <span class="dot"></span>
+    <span class="wordmark">Opti<span>Feed</span></span>
+  </div>
+  <div style="display:flex; align-items:center; gap:14px;">
+    <span class="tag-pill">v1.0.0 · develop</span>
+    <span class="meta">J-Akiru5/OptiFeed</span>
+  </div>
+</header>
+
+<main>
+
+  <div class="progress-hero">
+    <div class="row">
+      <h1>Overall Development Progress</h1>
+      <div class="pct" id="overallPct">0%</div>
+    </div>
+    <div class="bar-track"><div class="bar-fill" id="overallBar"></div></div>
+    <div class="sub" id="overallSub">0 of 9 tasks complete · 0 of 27 checks done</div>
+  </div>
+
+  <section>
+    <div class="sec-title"><span class="idx">00</span><h2>Branch &amp; Workflow Rules — acknowledged</h2></div>
+    <div class="rules-card" id="rulesList"></div>
+  </section>
+
+  <section>
+    <div class="sec-title"><span class="idx">01</span><h2>Branch Structure</h2></div>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 860 220" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:auto; display:block;">
+        <defs>
+          <marker id="arw" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L8,3 z" fill="#0A3D62"/>
+          </marker>
+        </defs>
+        <rect x="30" y="20" width="220" height="56" rx="8" fill="#0A3D62"/>
+        <text x="140" y="44" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">main</text>
+        <text x="140" y="62" text-anchor="middle" fill="#cfe0ea" font-size="10" font-family="ui-monospace, monospace">protected · no direct pushes</text>
+
+        <rect x="30" y="100" width="220" height="56" rx="8" fill="#FFF1EA" stroke="#FF6B35" stroke-width="1.5"/>
+        <text x="140" y="124" text-anchor="middle" fill="#7a3210" font-size="13" font-weight="700">develop</text>
+        <text x="140" y="142" text-anchor="middle" fill="#a15a2e" font-size="10" font-family="ui-monospace, monospace">v1.0.0 tagged here</text>
+
+        <rect x="30" y="164" width="220" height="46" rx="8" fill="#F1F5F0" stroke="#28A745" stroke-width="1.5"/>
+        <text x="140" y="192" text-anchor="middle" fill="#155724" font-size="12" font-weight="700">Karl</text>
+
+        <line x1="140" y1="76" x2="140" y2="100" stroke="#0A3D62" stroke-width="1.5" marker-end="url(#arw)" transform="rotate(180 140 88)"/>
+        <line x1="140" y1="156" x2="140" y2="164" stroke="#28A745" stroke-width="1.5" marker-end="url(#arw)"/>
+
+        <text x="270" y="150" font-size="11" fill="#526270" font-family="ui-monospace, monospace">branched from develop</text>
+
+        <rect x="470" y="20" width="360" height="190" rx="10" fill="#F4F7F6" stroke="#DCE3E1" stroke-width="1.5"/>
+        <text x="486" y="42" font-size="11" fill="#526270" font-family="ui-monospace, monospace" letter-spacing="1">FLOW</text>
+        <text x="486" y="66" font-size="12.5" fill="#0F1F2B">1. Karl commits &amp; pushes to `Karl`</text>
+        <text x="486" y="90" font-size="12.5" fill="#0F1F2B">2. Opens PR: Karl → develop</text>
+        <text x="486" y="114" font-size="12.5" fill="#0F1F2B">3. Jeff reviews, CI must pass</text>
+        <text x="486" y="138" font-size="12.5" fill="#0F1F2B">4. Merge into develop</text>
+        <text x="486" y="162" font-size="12.5" fill="#0F1F2B">5. develop → main only when a</text>
+        <text x="500" y="180" font-size="12.5" fill="#0F1F2B">milestone is approved by Jeff</text>
+      </svg>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-title"><span class="idx">02</span><h2>Development Tasks</h2></div>
+    <div class="toolbar"><button class="btn-reset" id="resetBtn">Reset all progress</button></div>
+    <div id="taskList"></div>
+  </section>
+
+</main>
+
+<footer>
+  <div><b>Repo:</b> J-Akiru5/OptiFeed</div>
+  <div><b>Default branch:</b> develop — protected, PR-before-merge policy</div>
+  <div><b>Karl's branch:</b> Karl — branched from develop</div>
+  <div><b>Release tag:</b> v1.0.0 (annotated, on develop)</div>
+  <div style="margin-top:8px; opacity:0.7;">Progress is saved locally in this browser. Definition of done per task: builds clean, passes lint, has something concrete to point to.</div>
+</footer>
+
+<script>
+  const RULES = [
+    "Work exclusively on the Karl branch — no extra personal branches without asking first.",
+    "Never push directly to develop or main. Every change reaches develop through a reviewed PR.",
+    "Sync before starting each task: checkout Karl, pull develop, rebase (or merge) — don't let Karl drift far behind.",
+    "Keep PRs small and scoped to one task. One clear title, one clear purpose.",
+    "Run pnpm lint and pnpm build locally before opening a PR — don't rely on CI to catch it first.",
+    "Write commit messages as Conventional Commits (feat:, fix:, chore:, refactor:).",
+    "Never commit .env, .env.local, or any Supabase service-role key.",
+    "main is off-limits — only Jeff promotes develop into main, only when approved.",
+    "Search for // TODO(karl): comments in a file before assuming something needs to be built from scratch."
+  ];
+
+  const TASKS = [
+    { id: 1, title: "Prisma seed data", desc: "prisma/seed.ts — one demo farmer/pond/device (online, hopper 82%), 3–4 biomass log entries over the last month, ~2 weeks of feeding events including exactly one \u201cmissed\u201d status, a trending-downward FCR history." },
+    { id: 2, title: "Dashboard Home", desc: "Wire the hero (next feeding time + device connectivity), FCR sparkline, and secondary cards to real Supabase/Prisma data via a Server Component." },
+    { id: 3, title: "Log Sample form", desc: "Build the form, wire it to the saveBiomassLog Server Action and volumeCalc.ts, implement the live \u201cthis will set your next feeding to ~Xg\u201d preview before submit." },
+    { id: 4, title: "Feeding History + Growth/FCR screens", desc: "List + charts, Server Components reading Prisma data directly." },
+    { id: 5, title: "Schedule screen", desc: "Pause/resume toggle, \u201cFeed Now\u201d manual override with a confirm step, both via Server Actions." },
+    { id: 6, title: "Notifications", desc: "Supabase Realtime subscription so a new Notification row live-updates the bell badge and (for critical tier) the sticky banner. Critical = sticky banner + bell, Warning/Success = toast + bell only." },
+    { id: 7, title: "Chat bubble", desc: "Rule-based responses scoped to: next feeding time, how to log a sample, current FCR, and why a feeding was missed — from the same data sources as the dashboard." },
+    { id: 8, title: "Settings", desc: "Feeding rate / feeds-per-day fields (update the Pond record), language toggle using next-intl, logout." },
+    { id: 9, title: "i18n content", desc: "Replace placeholder Hiligaynon strings in messages/hil.json with real translations once English copy is final." },
+  ];
+
+  const SUBCHECKS = ["Implemented", "Lint + build passing", "Proof attached"];
+  const STORAGE_KEY = "optifeed-progress-tracker-v1";
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) throw new Error("none");
+      return JSON.parse(raw);
+    } catch {
+      return { rules: Array(RULES.length).fill(false), tasks: TASKS.map(() => [false, false, false]) };
+    }
+  }
+  let state = loadState();
+
+  function saveState() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+  }
+
+  function renderRules() {
+    const el = document.getElementById("rulesList");
+    el.innerHTML = "";
+    RULES.forEach((text, i) => {
+      const row = document.createElement("div");
+      row.className = "rule-row" + (state.rules[i] ? " checked" : "");
+      row.innerHTML = `
+        <input type="checkbox" id="rule-${i}" ${state.rules[i] ? "checked" : ""}>
+        <label for="rule-${i}">${text}</label>`;
+      row.querySelector("input").addEventListener("change", (e) => {
+        state.rules[i] = e.target.checked;
+        saveState();
+        renderRules();
+      });
+      el.appendChild(row);
+    });
+  }
+
+  function renderTasks() {
+    const el = document.getElementById("taskList");
+    el.innerHTML = "";
+    TASKS.forEach((task, i) => {
+      const checks = state.tasks[i];
+      const doneCount = checks.filter(Boolean).length;
+      const complete = doneCount === 3;
+      const card = document.createElement("div");
+      card.className = "task-card" + (complete ? " complete" : "");
+      const pillClass = complete ? "done" : (doneCount > 0 ? "progress" : "");
+      const pillText = complete ? "Complete" : (doneCount > 0 ? `${doneCount}/3` : "Not started");
+
+      card.innerHTML = `
+        <div class="top-row">
+          <div class="num">${String(task.id).padStart(2,"0")}</div>
+          <div style="flex:1;">
+            <h3>${task.title}</h3>
+            <p>${task.desc}</p>
+          </div>
+          <div class="status-pill ${pillClass}">${pillText}</div>
+        </div>
+        <div class="subchecks">
+          ${SUBCHECKS.map((label, j) => `
+            <div class="subcheck ${checks[j] ? "checked" : ""}">
+              <input type="checkbox" id="task-${i}-${j}" ${checks[j] ? "checked" : ""}>
+              <label for="task-${i}-${j}">${label}</label>
+            </div>`).join("")}
+        </div>
+      `;
+      SUBCHECKS.forEach((_, j) => {
+        card.querySelector(`#task-${i}-${j}`).addEventListener("change", (e) => {
+          state.tasks[i][j] = e.target.checked;
+          saveState();
+          renderTasks();
+          renderOverall();
+        });
+      });
+      el.appendChild(card);
+    });
+  }
+
+  function renderOverall() {
+    const totalChecks = TASKS.length * 3;
+    const doneChecks = state.tasks.reduce((sum, c) => sum + c.filter(Boolean).length, 0);
+    const completeTasks = state.tasks.filter(c => c.every(Boolean)).length;
+    const pct = Math.round((doneChecks / totalChecks) * 100);
+    document.getElementById("overallPct").textContent = pct + "%";
+    document.getElementById("overallBar").style.width = pct + "%";
+    document.getElementById("overallSub").textContent =
+      `${completeTasks} of ${TASKS.length} tasks complete · ${doneChecks} of ${totalChecks} checks done`;
+  }
+
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    if (!confirm("Reset all progress? This clears every checkbox on this device.")) return;
+    state = { rules: Array(RULES.length).fill(false), tasks: TASKS.map(() => [false, false, false]) };
+    saveState();
+    renderRules();
+    renderTasks();
+    renderOverall();
+  });
+
+  renderRules();
+  renderTasks();
+  renderOverall();
+</script>
+
+</body>
+</html>

@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## --- KARL'S PROGRESS (Branch) ---
 
+## [1.5.0] - 2026-07-08
+
+### Added
+- Implemented global Realtime Notifications via Supabase WebSocket subscriptions
+- Added sticky banners for `CRITICAL` alerts and toast notifications for `WARNING`/`SUCCESS` alerts
+- Wired up the navigation bell to instantly reflect live unread counts
+
+
+## [1.4.0] - 2026-07-08
+
+### Added
+- Implemented Schedule screen with Server Actions for pause/resume and manual override (Feed Now)
+- Added `isPaused` field to `Device` model in Prisma schema
+
 ## [1.3.0] - 2026-07-08
 
 ### Added

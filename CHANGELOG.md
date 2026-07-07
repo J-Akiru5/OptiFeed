@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-07
+
+### Added
+- Created Biomass Log Sample form with live volume calculation preview
+- Added `saveBiomassLog` Server Action and `calculateNextFeeding` math utility
+
 ## [1.1.0] - 2026-07-07
 
 ### Added

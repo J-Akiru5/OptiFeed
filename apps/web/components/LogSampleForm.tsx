@@ -3,6 +3,7 @@
 import { saveBiomassLog } from "@/lib/actions/biomass";
 import { calculateNextFeeding } from "@/lib/volumeCalc";
 import { Fish, Loader2, Ruler, Scale } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
@@ -13,6 +14,7 @@ interface LogSampleFormProps {
 }
 
 export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSampleFormProps) {
+	const t = useTranslations("button");
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 
@@ -152,7 +154,7 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 							<Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" /> Saving...
 						</>
 					) : (
-						"Save Sample"
+						t("saveSample")
 					)}
 				</button>
 			</div>

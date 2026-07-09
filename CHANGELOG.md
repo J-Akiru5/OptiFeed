@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## --- KARL'S PROGRESS (Branch) ---
 
+## [1.7.1] - 2026-07-09
+
+### Fixed
+- Completed real Hiligaynon (Ilonggo) translations in `hil.json`, replacing all English placeholders
+
+
+## [1.7.0] - 2026-07-09
+
+### Added
+- Implemented Settings page to manage pond configuration (Feeding Rate & Feeds Per Day)
+- Added Server Action to update Pond database records
+- Wired up LocaleSwitcher to seamlessly toggle between English and Hiligaynon using `next-intl`
+- Added secure Sign Out functionality via Supabase Auth
+
+
 ## [1.6.0] - 2026-07-08
 
 ### Added

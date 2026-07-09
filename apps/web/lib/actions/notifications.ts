@@ -3,10 +3,16 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-export async function markAllNotificationsRead(pondId: string) {
+export async function markAllNotificationsRead() {
+	const pond = await prisma.pond.findFirst({
+		where: { ownerId: "demo-farmer-1" },
+	});
+
+	if (!pond) return;
+
 	await prisma.notification.updateMany({
 		where: {
-			pondId,
+			pondId: pond.id,
 			read: false,
 		},
 		data: {

@@ -5,8 +5,6 @@ import { cn } from "@/lib/utils";
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import { createContext, useContext, useEffect, useState } from "react";
 
-type NotificationTier = "CRITICAL" | "WARNING" | "SUCCESS" | "INFO";
-
 interface NotificationPayload {
 	id: string;
 	tier: string;

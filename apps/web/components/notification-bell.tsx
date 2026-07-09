@@ -1,14 +1,26 @@
 "use client";
 
+import { Link } from "@/i18n/routing";
+import { markAllNotificationsRead } from "@/lib/actions/notifications";
 import { useNotifications } from "./notification-provider";
 
 // TODO(karl): Implement dropdown once the notifications feature is built.
 export function NotificationBell() {
-	const { unreadCount } = useNotifications();
+	const { unreadCount, markAllAsReadClient } = useNotifications();
+
+	const handleClick = async () => {
+		if (unreadCount > 0) {
+			// Optimistically clear the badge immediately
+			markAllAsReadClient();
+			// Then persist to DB
+			await markAllNotificationsRead();
+		}
+	};
 
 	return (
-		<button
-			type="button"
+		<Link
+			href="/dashboard/notifications"
+			onClick={handleClick}
 			aria-label="Notifications"
 			className="relative flex h-[var(--ofd-touch-min)] w-[var(--ofd-touch-min)] items-center justify-center transition-transform hover:scale-110 active:scale-95"
 		>
@@ -18,6 +30,6 @@ export function NotificationBell() {
 					{unreadCount > 99 ? "99+" : unreadCount}
 				</span>
 			)}
-		</button>
+		</Link>
 	);
 }

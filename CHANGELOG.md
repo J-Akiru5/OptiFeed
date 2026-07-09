@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## --- KARL'S PROGRESS (Branch) ---
 
+## [1.7.1] - 2026-07-09
+
+### Fixed
+- Completed real Hiligaynon (Ilonggo) translations in `hil.json`, replacing all English placeholders
+
+
 ## [1.7.0] - 2026-07-09
 
 ### Added

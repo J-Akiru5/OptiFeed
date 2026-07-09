@@ -1,18 +1,17 @@
 {
-	"__comment": "TODO(karl): translate — Hiligaynon translations are pending review.",
 	"nav": {
 		"dashboard": "Dashboard",
-		"schedule": "Schedule",
-		"logSample": "Log Sample",
-		"history": "History",
-		"growth": "Growth",
-		"settings": "Settings",
-		"notifications": "Notifications"
+		"schedule": "Iskedyul",
+		"logSample": "Ilista ang Sampol",
+		"history": "Kasaysayan",
+		"growth": "Pagtubo",
+		"settings": "Mga Setting",
+		"notifications": "Mga Notipikasyon"
 	},
 	"button": {
-		"feedNow": "Feed Now",
-		"saveSample": "Save Sample",
-		"login": "Log In",
-		"logout": "Log Out"
+		"feedNow": "Pakauna Subong",
+		"saveSample": "I-save",
+		"login": "Mag-login",
+		"logout": "Mag-logout"
 	}
 }

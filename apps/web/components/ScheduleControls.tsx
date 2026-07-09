@@ -3,6 +3,7 @@
 import { toggleDevicePause, triggerManualFeed } from "@/lib/actions/schedule";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Loader2, Pause, Play, Power } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
 interface ScheduleControlsProps {
@@ -11,6 +12,7 @@ interface ScheduleControlsProps {
 }
 
 export function ScheduleControls({ deviceId, initialIsPaused }: ScheduleControlsProps) {
+	const t = useTranslations("button");
 	const [isPaused, setIsPaused] = useState(initialIsPaused);
 	const [isPendingPause, startPauseTransition] = useTransition();
 
@@ -113,7 +115,7 @@ export function ScheduleControls({ deviceId, initialIsPaused }: ScheduleControls
 						) : (
 							<Power size={20} />
 						)}
-						<span>{feedSuccess ? "Feed Triggered!" : "Feed Now (Manual)"}</span>
+						<span>{feedSuccess ? "Feed Triggered!" : t("feedNow")}</span>
 					</button>
 				)}
 			</div>

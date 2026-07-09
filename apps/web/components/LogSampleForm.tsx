@@ -1,9 +1,10 @@
 "use client";
 
+import { useRouter } from "@/i18n/routing";
 import { saveBiomassLog } from "@/lib/actions/biomass";
 import { calculateNextFeeding } from "@/lib/volumeCalc";
 import { Fish, Loader2, Ruler, Scale } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
 interface LogSampleFormProps {
@@ -13,6 +14,7 @@ interface LogSampleFormProps {
 }
 
 export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSampleFormProps) {
+	const t = useTranslations("button");
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 
@@ -42,7 +44,7 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 		startTransition(async () => {
 			try {
 				await saveBiomassLog(formData);
-				router.push("/en/dashboard");
+				router.push("/dashboard");
 			} catch (err) {
 				setError("Failed to save biomass log. Please check your inputs.");
 			}
@@ -152,7 +154,7 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 							<Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" /> Saving...
 						</>
 					) : (
-						"Save Sample"
+						t("saveSample")
 					)}
 				</button>
 			</div>

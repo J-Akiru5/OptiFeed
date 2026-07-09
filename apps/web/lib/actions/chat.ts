@@ -56,7 +56,7 @@ export async function submitChatMessage(message: string): Promise<string> {
 		// INTENT 4: Missed feeding
 		if (lower.includes("missed") || lower.includes("failed") || lower.includes("error")) {
 			const missedEvent = await prisma.feedingEvent.findFirst({
-				where: { status: "MISSED" },
+				where: { status: "missed" },
 				orderBy: { scheduledTime: "desc" },
 			});
 			if (!missedEvent) {

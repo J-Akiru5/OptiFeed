@@ -9,10 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## --- KARL'S PROGRESS (Branch) ---
 
-## [1.7.1] - 2026-07-09
+## [1.7.2] - 2026-07-09
 
 ### Fixed
 - Completed real Hiligaynon (Ilonggo) translations in `hil.json`, replacing all English placeholders
+- Wired up navigation links and buttons to next-intl translation messages
+- Wrapped dashboard layout Prisma queries in try/catch to prevent silent 404 page crashes on database errors
+- Standardized FeedingEvent status casing to lowercase to ensure consistency across seeds, schedule actions, history filters, and chat intents
+- Made Log Sample redirects locale-aware by utilizing the i18n router
+- Wired up notification bell to navigate to the notifications page and mark unread items as read in the database
+- Built out the notifications page with real data fetching, status badges, and timestamps
 
 
 ## [1.7.0] - 2026-07-09

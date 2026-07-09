@@ -1,10 +1,10 @@
 "use client";
 
+import { useRouter } from "@/i18n/routing";
 import { saveBiomassLog } from "@/lib/actions/biomass";
 import { calculateNextFeeding } from "@/lib/volumeCalc";
 import { Fish, Loader2, Ruler, Scale } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 interface LogSampleFormProps {
@@ -44,7 +44,7 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 		startTransition(async () => {
 			try {
 				await saveBiomassLog(formData);
-				router.push("/en/dashboard");
+				router.push("/dashboard");
 			} catch (err) {
 				setError("Failed to save biomass log. Please check your inputs.");
 			}

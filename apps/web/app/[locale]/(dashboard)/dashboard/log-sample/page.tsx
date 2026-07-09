@@ -1,6 +1,5 @@
 import { LogSampleForm } from "@/components/LogSampleForm";
 import prisma from "@/lib/prisma";
-import { redirect } from "next/navigation";
 
 export const revalidate = 0; // Ensure data is fresh
 

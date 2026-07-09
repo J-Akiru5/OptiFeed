@@ -26,7 +26,7 @@ export async function triggerManualFeed(deviceId: string) {
 			deviceId,
 			scheduledTime: new Date(),
 			dispensedVolumeG: MANUAL_FEED_AMOUNT_G,
-			status: "COMPLETED",
+			status: "completed",
 		},
 	});
 

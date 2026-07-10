@@ -4,6 +4,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { Inter } from "next/font/google";
 import { notFound } from "next/navigation";
+import { Toaster } from "sonner";
 import "../globals.css";
 
 const inter = Inter({
@@ -34,7 +35,10 @@ export default async function LocaleLayout({
 	return (
 		<html lang={locale} className={`${inter.variable} h-full antialiased`}>
 			<body className="min-h-full flex flex-col bg-[var(--ofd-bg)] font-sans">
-				<NextIntlClientProvider messages={messages}>{children}</NextIntlClientProvider>
+				<NextIntlClientProvider messages={messages}>
+					{children}
+					<Toaster position="top-right" richColors />
+				</NextIntlClientProvider>
 			</body>
 		</html>
 	);

@@ -1,3 +1,4 @@
+import { EnergyControllerCard } from "@/components/EnergyControllerCard";
 import prisma from "@/lib/prisma";
 import { Activity, Clock, Droplets, Fish, Wifi, WifiOff } from "lucide-react";
 
@@ -18,6 +19,12 @@ export default async function DashboardHomePage() {
 	}
 
 	const device = pond.devices[0];
+
+	// Fetch ESP32 energy controller (optional — card only renders if present)
+	const energyDevice = await prisma.energyDevice.findFirst({
+		where: { pondId: pond.id },
+		orderBy: { createdAt: "asc" },
+	});
 
 	// Fetch data
 	const latestBiomass = await prisma.biomassLog.findFirst({
@@ -243,6 +250,18 @@ export default async function DashboardHomePage() {
 					</div>
 				</div>
 			</div>
+
+			{energyDevice && (
+				<section className="max-w-md">
+					<EnergyControllerCard
+						deviceId={energyDevice.id}
+						label={energyDevice.label}
+						mac={energyDevice.mac}
+						initialRelayState={energyDevice.relayState}
+						lastSeenAt={energyDevice.lastSeenAt}
+					/>
+				</section>
+			)}
 		</div>
 	);
 }

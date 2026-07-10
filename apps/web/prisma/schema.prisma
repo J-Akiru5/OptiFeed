@@ -20,10 +20,11 @@ model Pond {
   scheduleEnd     DateTime @db.Time()
   createdAt       DateTime @default(now())
 
-  devices      Device[]
-  biomassLogs  BiomassLog[]
-  fcrReports   FcrReport[]
-  notifications Notification[]
+  devices        Device[]
+  biomassLogs    BiomassLog[]
+  fcrReports     FcrReport[]
+  notifications  Notification[]
+  energyDevices  EnergyDevice[]
 }
 
 model Device {
@@ -84,4 +85,30 @@ model Notification {
   createdAt DateTime @default(now())
 
   pond Pond @relation(fields: [pondId], references: [id])
+}
+
+model EnergyDevice {
+  id         String    @id @default(cuid())
+  mac        String    @unique
+  token      String    @unique
+  label      String
+  pondId     String?
+  relayState Boolean   @default(true)
+  lastSeenAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  pond     Pond?           @relation(fields: [pondId], references: [id])
+  readings EnergyReading[]
+}
+
+model EnergyReading {
+  id         String   @id @default(cuid())
+  deviceId   String
+  timestamp  DateTime
+  relayState Boolean
+  createdAt  DateTime @default(now())
+
+  device EnergyDevice @relation(fields: [deviceId], references: [id])
+
+  @@index([deviceId, timestamp])
 }

@@ -6,6 +6,8 @@ async function main() {
 	console.log("Seeding database...");
 
 	// Clean up existing data to ensure idempotent seeding
+	await prisma.energyReading.deleteMany();
+	await prisma.energyDevice.deleteMany();
 	await prisma.notification.deleteMany();
 	await prisma.fcrReport.deleteMany();
 	await prisma.feedingEvent.deleteMany();
@@ -33,6 +35,18 @@ async function main() {
 			connectivity: "online",
 			hopperLevelPct: 82.0,
 			lastSyncedAt: new Date(),
+		},
+	});
+
+	// 2b. Create ESP32 Energy Controller (linked to the demo pond)
+	await prisma.energyDevice.create({
+		data: {
+			mac: "A4:CF:12:7E:3B:09",
+			token: "esp32-tok-cict-001",
+			label: "CICT Building A Feeder",
+			pondId: pond.id,
+			relayState: true,
+			lastSeenAt: new Date(),
 		},
 	});
 

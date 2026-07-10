@@ -1,9 +1,14 @@
+import { formatDateTimeLocal } from "@/lib/date-local";
 import prisma from "@/lib/prisma";
 import { Activity, Fish, Scale, TrendingUp } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0;
 
 export default async function GrowthPage() {
+	const t = await getTranslations("dashboard.growth");
+	const tSch = await getTranslations("dashboard.schedule");
+	const tDates = await getTranslations("dates");
 	const pond = await prisma.pond.findFirst({
 		where: { ownerId: "demo-farmer-1" },
 	});
@@ -11,7 +16,7 @@ export default async function GrowthPage() {
 	if (!pond) {
 		return (
 			<div className="flex h-[50vh] items-center justify-center">
-				<p className="text-lg text-gray-500">No pond data found.</p>
+				<p className="text-lg text-gray-500">{tSch("noPondData")}</p>
 			</div>
 		);
 	}
@@ -35,8 +40,7 @@ export default async function GrowthPage() {
 	const biomassGrowthPct =
 		previousBiomass > 0 ? ((latestBiomass - previousBiomass) / previousBiomass) * 100 : 0;
 
-	const formatDate = (d: Date) =>
-		new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(d);
+	const formatDate = (d: Date) => formatDateTimeLocal(d, tDates).date;
 
 	// Custom SVG Line Chart generator for Biomass
 	const maxBiomass = Math.max(...biomassLogs.map((l) => l.avgWeightKg), 0.01) * 1.1; // Add 10% padding top
@@ -58,11 +62,9 @@ export default async function GrowthPage() {
 		<div className="space-y-8 pb-20 animate-in fade-in duration-500">
 			<header>
 				<h1 className="text-3xl font-extrabold tracking-tight text-[var(--ofd-base-deep)]">
-					Growth & FCR
+					{t("title")}
 				</h1>
-				<p className="text-gray-500 mt-1">
-					Biomass tracking and Feed Conversion Ratio for {pond.name}
-				</p>
+				<p className="text-gray-500 mt-1">{t("desc", { pond: pond.name })}</p>
 			</header>
 
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -71,7 +73,7 @@ export default async function GrowthPage() {
 					<div className="flex justify-between items-start mb-4 relative z-10">
 						<div>
 							<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
-								Latest ABW
+								{t("latestAbw")}
 							</p>
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
 								{(latestBiomass * 1000).toFixed(1)}{" "}
@@ -79,7 +81,8 @@ export default async function GrowthPage() {
 							</p>
 							{biomassGrowthPct > 0 && (
 								<p className="text-sm text-green-600 font-medium mt-1 flex items-center gap-1">
-									<TrendingUp className="h-4 w-4" /> +{biomassGrowthPct.toFixed(1)}% vs last sample
+									<TrendingUp className="h-4 w-4" />{" "}
+									{t("vsLastSample", { pct: biomassGrowthPct.toFixed(1) })}
 								</p>
 							)}
 						</div>
@@ -138,13 +141,13 @@ export default async function GrowthPage() {
 					<div className="flex justify-between items-start mb-4">
 						<div>
 							<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
-								Current FCR
+								{t("currentFcr")}
 							</p>
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
 								{latestFcr.toFixed(2)}
 							</p>
 							<p className="text-sm text-green-600 font-medium mt-1 flex items-center gap-1">
-								Trending downwards <Activity className="h-4 w-4" />
+								{t("trendingDown")} <Activity className="h-4 w-4" />
 							</p>
 						</div>
 						<div className="h-14 w-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -187,17 +190,17 @@ export default async function GrowthPage() {
 			{/* Biomass Log Table */}
 			<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mt-8">
 				<div className="p-6 border-b border-gray-100 bg-gray-50/50">
-					<h3 className="font-bold text-gray-800">Biomass Sample History</h3>
+					<h3 className="font-bold text-gray-800">{t("historyTitle")}</h3>
 				</div>
 				<div className="overflow-x-auto">
 					<table className="w-full text-left text-sm text-gray-600">
 						<thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
 							<tr>
-								<th className="px-6 py-4">Date</th>
-								<th className="px-6 py-4">Total Weight</th>
-								<th className="px-6 py-4">Fish Count</th>
-								<th className="px-6 py-4">Avg Length</th>
-								<th className="px-6 py-4 text-right text-[var(--ofd-base-deep)]">ABW (g)</th>
+								<th className="px-6 py-4">{t("dateCol")}</th>
+								<th className="px-6 py-4">{t("totalWeightCol")}</th>
+								<th className="px-6 py-4">{t("fishCountCol")}</th>
+								<th className="px-6 py-4">{t("avgLengthCol")}</th>
+								<th className="px-6 py-4 text-right text-[var(--ofd-base-deep)]">{t("abwCol")}</th>
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-gray-100">
@@ -207,9 +210,7 @@ export default async function GrowthPage() {
 								.map((log) => (
 									<tr key={log.id} className="hover:bg-gray-50 transition-colors">
 										<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-											{new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(
-												log.recordedAt,
-											)}
+											{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
 										</td>
 										<td className="px-6 py-4">{log.sampleWeightKg.toFixed(2)} kg</td>
 										<td className="px-6 py-4">{log.sampleCount}</td>
@@ -222,7 +223,7 @@ export default async function GrowthPage() {
 							{biomassLogs.length === 0 && (
 								<tr>
 									<td colSpan={5} className="px-6 py-10 text-center text-gray-500">
-										No biomass samples recorded yet.
+										{t("noSamples")}
 									</td>
 								</tr>
 							)}

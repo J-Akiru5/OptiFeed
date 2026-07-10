@@ -14,7 +14,8 @@ interface LogSampleFormProps {
 }
 
 export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSampleFormProps) {
-	const t = useTranslations("button");
+	const tBtn = useTranslations("button");
+	const tLog = useTranslations("dashboard.logSample");
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 
@@ -46,7 +47,7 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 				await saveBiomassLog(formData);
 				router.push("/dashboard");
 			} catch (err) {
-				setError("Failed to save biomass log. Please check your inputs.");
+				setError(tLog("errorSave"));
 			}
 		});
 	};
@@ -62,7 +63,7 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 				<div className="space-y-2">
 					<label htmlFor="sampleWeightKg" className="block text-sm font-semibold text-gray-700">
-						Total Sample Weight (kg)
+						{tLog("weightLabel")}
 					</label>
 					<div className="relative">
 						<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
@@ -85,7 +86,7 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 
 				<div className="space-y-2">
 					<label htmlFor="sampleCount" className="block text-sm font-semibold text-gray-700">
-						Number of Fish
+						{tLog("fishCountLabel")}
 					</label>
 					<div className="relative">
 						<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
@@ -107,7 +108,7 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 
 				<div className="space-y-2 md:col-span-2">
 					<label htmlFor="sampleLengthCm" className="block text-sm font-semibold text-gray-700">
-						Average Length (cm)
+						{tLog("lengthLabel")}
 					</label>
 					<div className="relative">
 						<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
@@ -132,14 +133,22 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 			{nextFeedingG > 0 && (
 				<div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 mt-8 animate-in slide-in-from-bottom-2 fade-in duration-300">
 					<h4 className="text-blue-800 font-bold mb-1 flex items-center gap-2">
-						<Fish className="h-5 w-5" /> Live Preview
+						<Fish className="h-5 w-5" /> {tLog("livePreview")}
 					</h4>
-					<p className="text-sm text-blue-700 leading-relaxed">
-						Calculated Average Body Weight (ABW): <strong>{avgWeightG.toFixed(1)}g</strong>. <br />
-						Assuming 5,000 fish at a {feedingRatePct}% daily feeding rate across {feedsPerDay}{" "}
-						feeds, this sample will set your next scheduled feeding to approximately{" "}
-						<strong>{nextFeedingG.toLocaleString()}g</strong>.
-					</p>
+					<p
+						className="text-sm text-blue-700 leading-relaxed"
+						// biome-ignore lint/security/noDangerouslySetInnerHtml: We control the translation payload
+						dangerouslySetInnerHTML={{
+							__html: tLog("previewDesc", {
+								abw: avgWeightG.toFixed(1),
+								rate: feedingRatePct,
+								feeds: feedsPerDay,
+								nextFeed: nextFeedingG.toLocaleString(),
+							})
+								.replace("<bold>", "<strong>")
+								.replace("</bold>", "</strong>"),
+						}}
+					/>
 				</div>
 			)}
 
@@ -151,10 +160,10 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 				>
 					{isPending ? (
 						<>
-							<Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" /> Saving...
+							<Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" /> {tLog("saving")}
 						</>
 					) : (
-						t("saveSample")
+						tBtn("saveSample")
 					)}
 				</button>
 			</div>

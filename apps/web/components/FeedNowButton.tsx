@@ -2,6 +2,7 @@
 
 import { triggerManualFeed } from "@/lib/actions/schedule";
 import { Activity } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -20,6 +21,9 @@ export function FeedNowButton({
 	deviceName = "ILO-POND-01",
 	connectionStatus = "online",
 }: FeedNowButtonProps) {
+	const t = useTranslations("feedNowModal");
+	const tBtn = useTranslations("button");
+
 	const [dispensing, setDispensing] = useState(false);
 	const [showConfirm, setShowConfirm] = useState(false);
 
@@ -28,9 +32,9 @@ export function FeedNowButton({
 		setShowConfirm(false);
 		try {
 			await triggerManualFeed(deviceId);
-			toast.success(`Successfully dispensed ${nextFeedingVolume} of feed!`);
+			toast.success(t("success", { volume: nextFeedingVolume }));
 		} catch (error) {
-			toast.error("Failed to trigger manual feed.");
+			toast.error(t("error"));
 		} finally {
 			setDispensing(false);
 		}
@@ -52,20 +56,25 @@ export function FeedNowButton({
 					<div className="bg-white rounded-[32px] p-6 md:p-8 max-w-md w-full border border-gray-200 shadow-2xl space-y-6">
 						<div>
 							<h3 className="font-black text-xl md:text-2xl uppercase tracking-tight text-[#C42B3A] mb-2">
-								Trigger Manual Feeding?
+								{t("triggerTitle")}
 							</h3>
-							<p className="text-sm text-[#3D5568] leading-relaxed">
-								This will send an immediate auger motor manual override request of{" "}
-								<strong className="text-[#0A3D62] font-black">{nextFeedingVolume}</strong> directly
-								to the physical ESP32 automatic feeder controller.
-							</p>
+							<p
+								className="text-sm text-[#3D5568] leading-relaxed"
+								// biome-ignore lint/security/noDangerouslySetInnerHtml: Controlled translation string
+								dangerouslySetInnerHTML={{
+									__html: t("triggerDesc", { volume: nextFeedingVolume }),
+								}}
+							/>
 						</div>
 						<div className="bg-[#F4F7F6] p-4 rounded-2xl border border-gray-200 text-xs text-[#3D5568] space-y-1">
+							<p
+								// biome-ignore lint/security/noDangerouslySetInnerHtml: Controlled translation string
+								dangerouslySetInnerHTML={{
+									__html: t("feederNode", { name: deviceName }),
+								}}
+							/>
 							<p>
-								📍 Feeder Node: <strong className="font-mono text-[#0A3D62]">{deviceName}</strong>
-							</p>
-							<p>
-								📍 Connection Link:{" "}
+								{t("connectionLink")}
 								<strong
 									className={
 										connectionStatus === "online"
@@ -73,15 +82,15 @@ export function FeedNowButton({
 											: "text-[#C42B3A] font-bold"
 									}
 								>
-									{connectionStatus === "online" ? "Connected • RSSI −58dB" : "Offline"}
+									{connectionStatus === "online" ? t("connected") : t("offline")}
 								</strong>
 							</p>
-							<p>
-								📍 Feed Portion:{" "}
-								<strong className="text-[#E85A2A] font-extrabold">
-									{nextFeedingVolume} of 4mm pellets
-								</strong>
-							</p>
+							<p
+								// biome-ignore lint/security/noDangerouslySetInnerHtml: Controlled translation string
+								dangerouslySetInnerHTML={{
+									__html: t("feedPortion", { volume: nextFeedingVolume }),
+								}}
+							/>
 						</div>
 						<div className="flex gap-4">
 							<button
@@ -89,14 +98,14 @@ export function FeedNowButton({
 								onClick={() => setShowConfirm(false)}
 								className="flex-1 bg-[#F4F7F6] text-[#3D5568] font-bold text-sm py-3.5 rounded-xl hover:bg-gray-100 transition-all"
 							>
-								Cancel
+								{tBtn("cancel")}
 							</button>
 							<button
 								type="button"
 								onClick={handleFeedNow}
 								className="flex-1 bg-[#E85A2A] text-white font-extrabold text-sm py-3.5 rounded-xl hover:bg-[#d04a1f] shadow-lg transition-all"
 							>
-								Yes, Dispense Now
+								{tBtn("yesDispenseNow")}
 							</button>
 						</div>
 					</div>

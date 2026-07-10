@@ -1,5 +1,6 @@
 import { FeedNowButton } from "@/components/FeedNowButton";
 import { Link } from "@/i18n/routing";
+import { formatDateTimeLocal } from "@/lib/date-local";
 import prisma from "@/lib/prisma";
 import {
 	Activity,
@@ -10,10 +11,16 @@ import {
 	Sparkles,
 	TrendingUp,
 } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0; // Ensure data is always fresh
 
 export default async function DashboardHomePage() {
+	const t = await getTranslations("dashboard.home");
+	const tBtn = await getTranslations("button");
+	const tHist = await getTranslations("dashboard.history");
+	const tDates = await getTranslations("dates");
+
 	const pond = await prisma.pond.findFirst({
 		where: { ownerId: "demo-farmer-1" },
 		include: { devices: true },
@@ -22,7 +29,7 @@ export default async function DashboardHomePage() {
 	if (!pond || !pond.devices.length) {
 		return (
 			<div className="flex h-[50vh] items-center justify-center">
-				<p className="text-lg text-gray-500">No pond data found. Please run the seed script.</p>
+				<p className="text-lg text-gray-500">{t("noData")}</p>
 			</div>
 		);
 	}
@@ -72,13 +79,8 @@ export default async function DashboardHomePage() {
 		nextFeedTimeObj.setHours(startHour, 0, 0, 0);
 	}
 
-	const formatTime = (d: Date) =>
-		new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).format(
-			d,
-		);
-
-	const formatDate = (d: Date) =>
-		new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(d);
+	const formatTime = (d: Date) => formatDateTimeLocal(d, tDates).time;
+	const formatDate = (d: Date) => formatDateTimeLocal(d, tDates).date;
 
 	const nextFeedingTimeStr = formatTime(nextFeedTimeObj);
 	const nextFeedingVolumeG = 330; // Hardcoded representation for now
@@ -95,18 +97,23 @@ export default async function DashboardHomePage() {
 			<div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
 				<div>
 					<h1 className="text-2xl md:text-3xl font-black text-[#0A3D62] tracking-tight flex items-center gap-2">
-						Welcome back, Jeff! <Sparkles className="w-6 h-6 text-[#E85A2A]" />
+						{t("welcome", { name: "Jeff" })} <Sparkles className="w-6 h-6 text-[#E85A2A]" />
 					</h1>
-					<p className="text-[#3D5568] text-xs md:text-sm mt-0.5">
-						Monitoring <strong>{pond.name}</strong> remotely from <strong>Western Visayas</strong>{" "}
-						node.
-					</p>
+					<p
+						className="text-[#3D5568] text-xs md:text-sm mt-0.5"
+						// biome-ignore lint/security/noDangerouslySetInnerHtml: We control the translation payload
+						dangerouslySetInnerHTML={{
+							__html: t("monitoring", { pond: pond.name })
+								.replace("<bold>", "<strong>")
+								.replace("</bold>", "</strong>"),
+						}}
+					/>
 				</div>
 
 				<FeedNowButton
 					deviceId={device.id}
 					nextFeedingVolume={`${nextFeedingVolumeG}g`}
-					label="Feed Now"
+					label={tBtn("feedNow")}
 					deviceName={device.name}
 					connectionStatus={device.connectivity}
 				/>
@@ -121,7 +128,7 @@ export default async function DashboardHomePage() {
 					<div>
 						<div className="flex items-center gap-2.5">
 							<span className="text-[#3D5568] text-xs font-bold uppercase tracking-[0.2em]">
-								NEXT SCHEDULED FEEDING
+								{t("nextFeedingLabel")}
 							</span>
 							<span
 								className={`w-2.5 h-2.5 rounded-full ${
@@ -142,11 +149,12 @@ export default async function DashboardHomePage() {
 										: "bg-[#1E7B34]/10 border-[#1E7B34]/20 text-[#1E7B34]"
 								}`}
 							>
-								{device.isPaused ? "Schedule Paused" : "ESP32 Auto-Timer On"}
+								{device.isPaused ? t("schedulePaused") : t("timerOn")}
 							</span>
 							<span className="text-[#3D5568] text-xs font-medium">
-								Based on latest weight sample logged on{" "}
-								{latestBiomass ? formatDate(latestBiomass.recordedAt) : "N/A"}
+								{latestBiomass
+									? t("basedOnLog", { date: formatDate(latestBiomass.recordedAt) })
+									: t("na")}
 							</span>
 						</div>
 					</div>
@@ -155,7 +163,7 @@ export default async function DashboardHomePage() {
 						<div className="flex gap-8">
 							<div>
 								<p className="text-[#3D5568] text-[10px] font-bold uppercase tracking-wider">
-									FEED VOLUME
+									{t("feedVolumeLabel")}
 								</p>
 								<p className="text-2xl md:text-3xl font-black text-[#E85A2A]">
 									{nextFeedingVolumeG}g
@@ -163,9 +171,12 @@ export default async function DashboardHomePage() {
 							</div>
 							<div>
 								<p className="text-[#3D5568] text-[10px] font-bold uppercase tracking-wider">
-									Feeding Rate
+									{t("feedRateLabel")}
 								</p>
-								<p className="text-2xl md:text-3xl font-black">{pond.feedingRatePct}% BW/Day</p>
+								<p className="text-2xl md:text-3xl font-black">
+									{pond.feedingRatePct}
+									{t("feedRateSuffix")}
+								</p>
 							</div>
 						</div>
 
@@ -173,7 +184,7 @@ export default async function DashboardHomePage() {
 							href="/dashboard/log-sample"
 							className="bg-[#0A3D62] hover:bg-[#12588c] text-white px-5 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 self-stretch sm:self-auto justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
 						>
-							Update Biomass Weight <ChevronRight className="w-4 h-4" />
+							{tBtn("updateBiomass")} <ChevronRight className="w-4 h-4" />
 						</Link>
 					</div>
 				</div>
@@ -187,10 +198,10 @@ export default async function DashboardHomePage() {
 					<div className="flex justify-between items-start">
 						<div>
 							<p className="text-xs font-extrabold uppercase tracking-widest text-white/60">
-								CURRENT FCR
+								{t("currentFcrLabel")}
 							</p>
 							<span className="text-[10px] font-mono bg-white/10 px-2 py-0.5 rounded-full mt-1 inline-block">
-								African Catfish Rate
+								{t("fcrTag")}
 							</span>
 						</div>
 						<div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
@@ -202,7 +213,7 @@ export default async function DashboardHomePage() {
 						<h2 className="text-5xl md:text-6xl font-black text-white tracking-tight">
 							{latestFcr.toFixed(2)}
 						</h2>
-						<p className="text-xs text-white/70 mt-1.5 font-medium">Optimal downward trend</p>
+						<p className="text-xs text-white/70 mt-1.5 font-medium">{t("fcrOptimal")}</p>
 					</div>
 
 					{/* Mini sparkline SVG */}
@@ -233,14 +244,16 @@ export default async function DashboardHomePage() {
 					</div>
 					<div>
 						<p className="text-[10px] font-extrabold uppercase text-[#3D5568] tracking-wider">
-							Physical Weighing Due
+							{t("weighingDue")}
 						</p>
-						<p className="text-lg md:text-xl font-black text-[#0A3D62]">{daysUntilSample} Days</p>
+						<p className="text-lg md:text-xl font-black text-[#0A3D62]">
+							{t("days", { count: daysUntilSample })}
+						</p>
 						<Link
 							href="/dashboard/log-sample"
 							className="text-xs text-[#E85A2A] font-extrabold hover:underline flex items-center gap-0.5 mt-0.5 focus-visible:outline-none"
 						>
-							Schedule Sampling <ChevronRight className="w-3 h-3" />
+							{tBtn("scheduleSampling")} <ChevronRight className="w-3 h-3" />
 						</Link>
 					</div>
 				</div>
@@ -252,13 +265,13 @@ export default async function DashboardHomePage() {
 					</div>
 					<div className="flex-1">
 						<p className="text-[10px] font-extrabold uppercase text-[#3D5568] tracking-wider">
-							Last Biomass ABW
+							{t("lastBiomassLabel")}
 						</p>
 						<p className="text-lg md:text-xl font-black text-[#0A3D62]">
-							{latestBiomass ? `${latestBiomass.avgWeightKg * 1000}g` : "N/A"}
+							{latestBiomass ? `${latestBiomass.avgWeightKg * 1000}g` : t("na")}
 						</p>
 						<p className="text-[10px] text-[#3D5568]">
-							Based on {latestBiomass?.sampleCount ?? 0} sample fish measured.
+							{t("lastBiomassBased", { count: latestBiomass?.sampleCount ?? 0 })}
 						</p>
 					</div>
 				</div>
@@ -270,10 +283,12 @@ export default async function DashboardHomePage() {
 					</div>
 					<div>
 						<p className="text-[10px] font-extrabold uppercase text-[#3D5568] tracking-wider">
-							Pond Population
+							{t("populationLabel")}
 						</p>
-						<p className="text-lg md:text-xl font-black text-[#0A3D62]">200 Catfish</p>
-						<span className="text-[10px] text-[#3D5568] font-mono">Stable stocked quantity</span>
+						<p className="text-lg md:text-xl font-black text-[#0A3D62]">
+							{t("populationValue", { count: 200 })}
+						</p>
+						<span className="text-[10px] text-[#3D5568] font-mono">{t("populationStable")}</span>
 					</div>
 				</div>
 
@@ -282,18 +297,15 @@ export default async function DashboardHomePage() {
 					<div className="flex justify-between items-center mb-6">
 						<div>
 							<h3 className="text-lg md:text-xl font-black uppercase tracking-tight text-[#0A3D62]">
-								Feeding Logs —{" "}
-								<span className="text-[#3D5568] font-bold opacity-65">Western Visayas Hub</span>
+								{t("feedingLogsTitle")}
 							</h3>
-							<p className="text-xs text-[#3D5568]">
-								Auditable chronological logs fetched from your automatic dispenser.
-							</p>
+							<p className="text-xs text-[#3D5568]">{t("feedingLogsDesc")}</p>
 						</div>
 						<Link
 							href="/dashboard/history"
 							className="text-[#0A3D62] font-extrabold text-sm hover:underline focus-visible:outline-none"
 						>
-							View complete history
+							{tBtn("viewHistory")}
 						</Link>
 					</div>
 
@@ -317,7 +329,8 @@ export default async function DashboardHomePage() {
 											</span>
 										</div>
 										<p className="text-xs text-[#3D5568]">
-											{item.status === "completed" ? "Scheduled Automatic Dispense" : "Missed"}
+											{/* Use the history strings for these labels */}
+											{item.status === "completed" ? tHist("completed") : tHist("missed")}
 										</p>
 									</div>
 								</div>
@@ -327,7 +340,7 @@ export default async function DashboardHomePage() {
 											{item.dispensedVolumeG}g
 										</p>
 										<p className="text-[10px] font-bold uppercase text-[#3D5568] opacity-50">
-											Amount
+											{tHist("amount")}
 										</p>
 									</div>
 									<span
@@ -337,7 +350,7 @@ export default async function DashboardHomePage() {
 												: "bg-[#C42B3A] text-white"
 										}`}
 									>
-										{item.status.toUpperCase()}
+										{item.status === "completed" ? tHist("completed") : tHist("missed")}
 									</span>
 								</div>
 							</div>

@@ -1,9 +1,11 @@
 import { LogSampleForm } from "@/components/LogSampleForm";
 import prisma from "@/lib/prisma";
+import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0; // Ensure data is fresh
 
 export default async function LogSamplePage() {
+	const t = await getTranslations("dashboard.logSample");
 	const pond = await prisma.pond.findFirst({
 		where: { ownerId: "demo-farmer-1" },
 	});
@@ -20,13 +22,17 @@ export default async function LogSamplePage() {
 		<div className="space-y-6 pb-20 animate-in fade-in duration-500 max-w-4xl">
 			<header className="mb-10">
 				<h1 className="text-3xl font-extrabold tracking-tight text-[var(--ofd-base-deep)]">
-					Log Biomass Sample
+					{t("title")}
 				</h1>
-				<p className="text-gray-500 mt-2 text-lg">
-					Record new biomass samples for{" "}
-					<span className="font-semibold text-gray-700">{pond.name}</span>. This helps calibrate the
-					auto-feeder and track FCR.
-				</p>
+				<p
+					className="text-gray-500 mt-2 text-lg"
+					// biome-ignore lint/security/noDangerouslySetInnerHtml: We control the translation payload
+					dangerouslySetInnerHTML={{
+						__html: t("desc", { pond: pond.name })
+							.replace("<bold>", '<span class="font-semibold text-gray-700">')
+							.replace("</bold>", "</span>"),
+					}}
+				/>
 			</header>
 
 			<div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">

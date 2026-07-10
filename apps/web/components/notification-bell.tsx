@@ -1,33 +1,25 @@
 "use client";
 
 import { Link } from "@/i18n/routing";
-import { markAllNotificationsRead } from "@/lib/actions/notifications";
+import { Bell } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useNotifications } from "./notification-provider";
 
-// TODO(karl): Implement dropdown once the notifications feature is built.
 export function NotificationBell() {
-	const { unreadCount, markAllAsReadClient } = useNotifications();
-
-	const handleClick = async () => {
-		if (unreadCount > 0) {
-			// Optimistically clear the badge immediately
-			markAllAsReadClient();
-			// Then persist to DB
-			await markAllNotificationsRead();
-		}
-	};
+	const { unreadCount: count } = useNotifications();
+	const t = useTranslations("dashboard.notifications");
 
 	return (
 		<Link
 			href="/dashboard/notifications"
-			onClick={handleClick}
-			aria-label="Notifications"
-			className="relative flex h-[var(--ofd-touch-min)] w-[var(--ofd-touch-min)] items-center justify-center transition-transform hover:scale-110 active:scale-95"
+			className="relative w-9 h-9 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-all border border-white/10 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+			title={t("title")}
+			aria-label={t("title")}
 		>
-			<span className="text-2xl">🔔</span>
-			{unreadCount > 0 && (
-				<span className="absolute top-1 right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white shadow-sm ring-2 ring-white">
-					{unreadCount > 99 ? "99+" : unreadCount}
+			<Bell className="w-4 h-4" />
+			{count > 0 && (
+				<span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#C42B3A] px-1 text-[9px] font-black leading-none text-white ring-2 ring-[#0A3D62]">
+					{count > 99 ? "99+" : count}
 				</span>
 			)}
 		</Link>

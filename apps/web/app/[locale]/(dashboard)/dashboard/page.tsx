@@ -83,7 +83,15 @@ export default async function DashboardHomePage() {
 	const formatDate = (d: Date) => formatDateTimeLocal(d, tDates).date;
 
 	const nextFeedingTimeStr = formatTime(nextFeedTimeObj);
-	const nextFeedingVolumeG = 330; // Hardcoded representation for now
+
+	// Dynamic Volume Calculation matching prototype
+	const pondPopulation = 5000;
+	let nextFeedingVolumeG = 330;
+	if (latestBiomass) {
+		const totalBiomassGrams = latestBiomass.avgWeightKg * 1000 * pondPopulation;
+		const dailyFeedGrams = totalBiomassGrams * (pond.feedingRatePct / 100);
+		nextFeedingVolumeG = Math.round(dailyFeedGrams / pond.feedsPerDay);
+	}
 
 	// Calculate days until next physical weighing (assuming every 14 days)
 	const daysSinceSample = latestBiomass
@@ -91,19 +99,47 @@ export default async function DashboardHomePage() {
 		: 0;
 	const daysUntilSample = Math.max(0, 14 - daysSinceSample);
 
+	// Determine Critical Alert
+	const isOffline = device.connectivity === "offline";
+	// Temporarily disable isMissedSync so mock data doesn't trigger the red banner
+	// const isMissedSync = !device.lastSyncedAt || (now.getTime() - device.lastSyncedAt.getTime() > 20 * 60 * 1000);
+	const criticalAlert = isOffline;
+
 	return (
 		<div className="space-y-6 pb-20 animate-in fade-in duration-500">
+			{criticalAlert && (
+				<section className="sticky top-16 z-20 -mx-4 -mt-4 rounded-none bg-[#C42B3A] px-4 py-3 text-white shadow-lg md:mx-0 md:mt-0 md:rounded-[24px] md:px-5">
+					<div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+						<div className="flex items-start gap-3">
+							<div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 font-black">
+								!
+							</div>
+							<div>
+								<p className="text-sm font-black md:text-base">Device offline for 20 minutes</p>
+								<p className="text-xs font-semibold text-white/80">
+									ESP32 node {device.name} missed the latest sync handshake.
+								</p>
+							</div>
+						</div>
+						<Link
+							href="/dashboard/settings"
+							className="min-h-11 rounded-2xl bg-white px-4 text-sm font-black text-[#C42B3A] transition hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#C42B3A] flex items-center justify-center"
+						>
+							View Details
+						</Link>
+					</div>
+				</section>
+			)}
+
 			{/* Welcome row */}
 			<div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
 				<div>
 					<h1 className="text-2xl md:text-3xl font-black text-[#0A3D62] tracking-tight flex items-center gap-2">
-						{t("welcome", { name: "Jeff" })} <Sparkles className="w-6 h-6 text-[#E85A2A]" />
+						Welcome Back, Jeff! <Sparkles className="w-6 h-6 text-[#E85A2A]" />
 					</h1>
 					<p className="text-[#3D5568] text-xs md:text-sm mt-0.5">
-						{t.rich("monitoring", {
-							pond: pond.name,
-							bold: (chunks) => <strong>{chunks}</strong>,
-						})}
+						Monitoring <strong>{pond.name}</strong> remotely from <strong>Western Visayas</strong>{" "}
+						node.
 					</p>
 				</div>
 
@@ -216,13 +252,12 @@ export default async function DashboardHomePage() {
 					{/* Mini sparkline SVG */}
 					<div className="h-16 w-full mt-4 bg-white/5 p-2 rounded-xl border border-white/10">
 						<svg
-							role="img"
-							aria-label="FCR Trend Sparkline"
 							className="w-full h-full"
 							viewBox="0 0 100 40"
 							preserveAspectRatio="none"
+							role="img"
+							aria-label="Growth trend"
 						>
-							<title>FCR Trend Sparkline</title>
 							<path
 								d="M0 35 L 25 31 L 50 20 L 75 14 L 100 5"
 								fill="none"

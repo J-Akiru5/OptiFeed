@@ -12,7 +12,8 @@ interface ScheduleControlsProps {
 }
 
 export function ScheduleControls({ deviceId, initialIsPaused }: ScheduleControlsProps) {
-	const t = useTranslations("button");
+	const tBtn = useTranslations("button");
+	const tSch = useTranslations("dashboard.schedule");
 	const [isPaused, setIsPaused] = useState(initialIsPaused);
 	const [isPendingPause, startPauseTransition] = useTransition();
 
@@ -51,12 +52,10 @@ export function ScheduleControls({ deviceId, initialIsPaused }: ScheduleControls
 				</div>
 				<div>
 					<h3 className="font-semibold text-gray-900 text-lg">
-						{isPaused ? "Schedule Paused" : "Schedule Active"}
+						{isPaused ? tSch("pausedStatus") : tSch("activeStatus")}
 					</h3>
 					<p className="text-sm text-gray-500">
-						{isPaused
-							? "Automatic feeding is currently suspended."
-							: "The feeder is running on the automated schedule."}
+						{isPaused ? tSch("pausedDesc") : tSch("activeDesc")}
 					</p>
 				</div>
 				<button
@@ -74,9 +73,9 @@ export function ScheduleControls({ deviceId, initialIsPaused }: ScheduleControls
 					{isPendingPause ? (
 						<Loader2 size={18} className="animate-spin mx-auto" />
 					) : isPaused ? (
-						"Resume Schedule"
+						tBtn("resumeSchedule")
 					) : (
-						"Pause Schedule"
+						tBtn("pauseSchedule")
 					)}
 				</button>
 			</div>
@@ -85,14 +84,14 @@ export function ScheduleControls({ deviceId, initialIsPaused }: ScheduleControls
 			<div className="relative border-t sm:border-t-0 sm:border-l border-gray-100 pt-6 sm:pt-0 sm:pl-6 w-full sm:w-auto flex flex-col items-center">
 				{showConfirm ? (
 					<div className="flex flex-col items-center animate-in fade-in zoom-in duration-200">
-						<p className="text-sm text-gray-700 font-medium mb-3">Dispense 500g right now?</p>
+						<p className="text-sm text-gray-700 font-medium mb-3">{tSch("dispensePrompt")}</p>
 						<div className="flex gap-2">
 							<button
 								type="button"
 								onClick={() => setShowConfirm(false)}
 								className="px-3 py-1.5 rounded-md text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
 							>
-								Cancel
+								{tBtn("cancel")}
 							</button>
 							<button
 								type="button"
@@ -100,7 +99,7 @@ export function ScheduleControls({ deviceId, initialIsPaused }: ScheduleControls
 								disabled={isPendingFeed}
 								className="px-3 py-1.5 rounded-md text-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors flex items-center justify-center min-w-[80px]"
 							>
-								{isPendingFeed ? <Loader2 size={16} className="animate-spin" /> : "Confirm"}
+								{isPendingFeed ? <Loader2 size={16} className="animate-spin" /> : tBtn("confirm")}
 							</button>
 						</div>
 					</div>
@@ -115,7 +114,7 @@ export function ScheduleControls({ deviceId, initialIsPaused }: ScheduleControls
 						) : (
 							<Power size={20} />
 						)}
-						<span>{feedSuccess ? "Feed Triggered!" : t("feedNow")}</span>
+						<span>{feedSuccess ? tBtn("feedTriggered") : tBtn("feedNow")}</span>
 					</button>
 				)}
 			</div>

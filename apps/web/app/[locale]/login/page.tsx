@@ -2,10 +2,13 @@
 
 import { useRouter } from "@/i18n/routing";
 import { ArrowLeft, CheckCircle, KeyRound, ShieldAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { type FormEvent, useState } from "react";
 
 export default function LoginPage() {
 	const router = useRouter();
+	const t = useTranslations("login");
+	const tBtn = useTranslations("button");
 	const [farmId, setFarmId] = useState("ILO-POND-01");
 	const [pin, setPin] = useState("");
 	const [error, setError] = useState<string | null>(null);
@@ -17,11 +20,11 @@ export default function LoginPage() {
 		setError(null);
 
 		if (!farmId.trim()) {
-			setError("Please enter your registered Farm ID.");
+			setError(t("errorEmpty"));
 			return;
 		}
 		if (pin.length < 4 || pin.length > 6) {
-			setError("PIN must be between 4 and 6 digits long.");
+			setError(t("errorPinLength"));
 			return;
 		}
 
@@ -35,7 +38,7 @@ export default function LoginPage() {
 				setTimeout(() => router.push("/dashboard"), 800);
 			} else {
 				setIsLoading(false);
-				setError("Invalid PIN code. Please use prototype default PIN: 1234");
+				setError(t("errorInvalid"));
 			}
 		}, 1000);
 	};
@@ -49,7 +52,7 @@ export default function LoginPage() {
 					onClick={() => router.push("/")}
 					className="text-[#3D5568] hover:text-[#0A3D62] flex items-center gap-1.5 font-bold text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
 				>
-					<ArrowLeft className="w-4 h-4" /> Back to Home
+					<ArrowLeft className="w-4 h-4" /> {tBtn("backToHome")}
 				</button>
 				<div className="flex items-center gap-2">
 					<div className="w-6 h-6 rounded-lg bg-[#0A3D62] flex items-center justify-center text-white font-black text-sm">
@@ -66,9 +69,9 @@ export default function LoginPage() {
 					<div className="bg-[#0A3D62] text-white p-6 md:p-8 text-center relative overflow-hidden">
 						<div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full translate-x-8 -translate-y-8" />
 						<KeyRound className="w-10 h-10 mx-auto text-[#E85A2A] mb-3" />
-						<h1 className="text-xl md:text-2xl font-black tracking-tight">Access Control Panel</h1>
+						<h1 className="text-xl md:text-2xl font-black tracking-tight">{t("topBannerTitle")}</h1>
 						<p className="text-xs text-blue-100 mt-1.5 uppercase tracking-widest font-mono">
-							Secure ESP32 Node Auth
+							{t("topBannerSub")}
 						</p>
 					</div>
 
@@ -83,7 +86,7 @@ export default function LoginPage() {
 									htmlFor="farmId"
 									className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568]"
 								>
-									Registered Farm ID
+									{t("farmIdLabel")}
 								</label>
 								<input
 									id="farmId"
@@ -91,7 +94,7 @@ export default function LoginPage() {
 									value={farmId}
 									onChange={(e) => setFarmId(e.target.value)}
 									className="w-full px-4 py-3.5 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl font-mono text-sm focus:outline-none focus:ring-2 focus:ring-[#E85A2A] transition-all"
-									placeholder="e.g. ILO-POND-01"
+									placeholder={t("farmIdPlaceholder")}
 								/>
 							</div>
 
@@ -100,7 +103,7 @@ export default function LoginPage() {
 									htmlFor="pin"
 									className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568]"
 								>
-									4–6 Digit Security PIN
+									{t("pinLabel")}
 								</label>
 								<input
 									id="pin"
@@ -116,7 +119,7 @@ export default function LoginPage() {
 									autoFocus
 								/>
 								<span className="block text-[11px] text-center text-[#3D5568] font-mono">
-									Prototype Default PIN: <span className="font-extrabold text-[#0A3D62]">1234</span>
+									{t("pinDesc")} <span className="font-extrabold text-[#0A3D62]">1234</span>
 								</span>
 							</div>
 
@@ -124,7 +127,7 @@ export default function LoginPage() {
 								<div className="bg-red-50 text-[#C42B3A] text-xs p-3 rounded-xl border border-red-200 flex items-start gap-2">
 									<ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
 									<div>
-										<span className="font-bold">Authentication Error:</span> {error}
+										<span className="font-bold">{t("errorPrefix")}</span> {error}
 									</div>
 								</div>
 							)}
@@ -132,7 +135,7 @@ export default function LoginPage() {
 							{isSuccess && (
 								<div className="bg-green-50 text-green-700 text-xs p-3 rounded-xl border border-green-200 flex items-center gap-2">
 									<CheckCircle className="w-4 h-4 shrink-0" />
-									<span className="font-bold">Verified. Redirecting to Dashboard...</span>
+									<span className="font-bold">{t("success")}</span>
 								</div>
 							)}
 						</div>
@@ -150,12 +153,12 @@ export default function LoginPage() {
 								{isLoading ? (
 									<>
 										<span className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-										Authorizing Controller...
+										{tBtn("authorizing")}
 									</>
 								) : isSuccess ? (
-									"Connection Established!"
+									tBtn("connected")
 								) : (
-									"Log In to Controller"
+									tBtn("logInController")
 								)}
 							</button>
 						</div>
@@ -165,7 +168,7 @@ export default function LoginPage() {
 
 			{/* Footer */}
 			<footer className="py-4 px-6 text-center text-xs text-[#3D5568] bg-white border-t border-gray-200 shrink-0">
-				ESP32 Device Auth Node • Firmware v1.4.2 • Western Visayas Catfish Operations
+				{t("footer")}
 			</footer>
 		</div>
 	);

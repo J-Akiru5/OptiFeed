@@ -24,15 +24,12 @@ export default async function LogSamplePage() {
 				<h1 className="text-3xl font-extrabold tracking-tight text-[var(--ofd-base-deep)]">
 					{t("title")}
 				</h1>
-				<p
-					className="text-gray-500 mt-2 text-lg"
-					// biome-ignore lint/security/noDangerouslySetInnerHtml: We control the translation payload
-					dangerouslySetInnerHTML={{
-						__html: t("desc", { pond: pond.name })
-							.replace("<bold>", '<span class="font-semibold text-gray-700">')
-							.replace("</bold>", "</span>"),
-					}}
-				/>
+				<p className="text-gray-500 mt-2 text-lg">
+					{t.rich("desc", {
+						pond: pond.name,
+						bold: (chunks) => <strong className="font-semibold text-gray-700">{chunks}</strong>,
+					})}
+				</p>
 			</header>
 
 			<div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">

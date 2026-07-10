@@ -135,20 +135,15 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 					<h4 className="text-blue-800 font-bold mb-1 flex items-center gap-2">
 						<Fish className="h-5 w-5" /> {tLog("livePreview")}
 					</h4>
-					<p
-						className="text-sm text-blue-700 leading-relaxed"
-						// biome-ignore lint/security/noDangerouslySetInnerHtml: We control the translation payload
-						dangerouslySetInnerHTML={{
-							__html: tLog("previewDesc", {
-								abw: avgWeightG.toFixed(1),
-								rate: feedingRatePct,
-								feeds: feedsPerDay,
-								nextFeed: nextFeedingG.toLocaleString(),
-							})
-								.replace("<bold>", "<strong>")
-								.replace("</bold>", "</strong>"),
-						}}
-					/>
+					<p className="text-sm text-blue-700 leading-relaxed">
+						{tLog.rich("previewDesc", {
+							abw: avgWeightG.toFixed(1),
+							rate: feedingRatePct,
+							feeds: feedsPerDay,
+							nextFeed: nextFeedingG.toLocaleString(),
+							bold: (chunks) => <strong>{chunks}</strong>,
+						})}
+					</p>
 				</div>
 			)}
 

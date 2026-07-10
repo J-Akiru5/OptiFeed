@@ -99,15 +99,12 @@ export default async function DashboardHomePage() {
 					<h1 className="text-2xl md:text-3xl font-black text-[#0A3D62] tracking-tight flex items-center gap-2">
 						{t("welcome", { name: "Jeff" })} <Sparkles className="w-6 h-6 text-[#E85A2A]" />
 					</h1>
-					<p
-						className="text-[#3D5568] text-xs md:text-sm mt-0.5"
-						// biome-ignore lint/security/noDangerouslySetInnerHtml: We control the translation payload
-						dangerouslySetInnerHTML={{
-							__html: t("monitoring", { pond: pond.name })
-								.replace("<bold>", "<strong>")
-								.replace("</bold>", "</strong>"),
-						}}
-					/>
+					<p className="text-[#3D5568] text-xs md:text-sm mt-0.5">
+						{t.rich("monitoring", {
+							pond: pond.name,
+							bold: (chunks) => <strong>{chunks}</strong>,
+						})}
+					</p>
 				</div>
 
 				<FeedNowButton

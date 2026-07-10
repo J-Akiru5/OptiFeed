@@ -58,21 +58,20 @@ export function FeedNowButton({
 							<h3 className="font-black text-xl md:text-2xl uppercase tracking-tight text-[#C42B3A] mb-2">
 								{t("triggerTitle")}
 							</h3>
-							<p
-								className="text-sm text-[#3D5568] leading-relaxed"
-								// biome-ignore lint/security/noDangerouslySetInnerHtml: Controlled translation string
-								dangerouslySetInnerHTML={{
-									__html: t("triggerDesc", { volume: nextFeedingVolume }),
-								}}
-							/>
+							<p className="text-sm text-[#3D5568] leading-relaxed">
+								{t.rich("triggerDesc", {
+									volume: nextFeedingVolume,
+									bold: (chunks) => <strong>{chunks}</strong>,
+								})}
+							</p>
 						</div>
 						<div className="bg-[#F4F7F6] p-4 rounded-2xl border border-gray-200 text-xs text-[#3D5568] space-y-1">
-							<p
-								// biome-ignore lint/security/noDangerouslySetInnerHtml: Controlled translation string
-								dangerouslySetInnerHTML={{
-									__html: t("feederNode", { name: deviceName }),
-								}}
-							/>
+							<p>
+								{t.rich("feederNode", {
+									name: deviceName,
+									bold: (chunks) => <strong>{chunks}</strong>,
+								})}
+							</p>
 							<p>
 								{t("connectionLink")}
 								<strong
@@ -85,12 +84,12 @@ export function FeedNowButton({
 									{connectionStatus === "online" ? t("connected") : t("offline")}
 								</strong>
 							</p>
-							<p
-								// biome-ignore lint/security/noDangerouslySetInnerHtml: Controlled translation string
-								dangerouslySetInnerHTML={{
-									__html: t("feedPortion", { volume: nextFeedingVolume }),
-								}}
-							/>
+							<p>
+								{t.rich("feedPortion", {
+									volume: nextFeedingVolume,
+									bold: (chunks) => <strong>{chunks}</strong>,
+								})}
+							</p>
 						</div>
 						<div className="flex gap-4">
 							<button

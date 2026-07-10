@@ -4,7 +4,8 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
 const nextConfig: NextConfig = {
-	// TODO(karl): Add image domains, rewrites, and any production-specific settings here.
+	serverExternalPackages: ["@prisma/client"], // Good practice for prisma
+	allowedDevOrigins: ["192.168.1.10"],
 };
 
 export default withNextIntl(nextConfig);

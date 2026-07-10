@@ -3,6 +3,7 @@
 import { submitChatMessage } from "@/lib/actions/chat";
 import { cn } from "@/lib/utils";
 import { Bot, Loader2, MessageSquare, Send, User, X } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 
 interface ChatMessage {
@@ -12,6 +13,8 @@ interface ChatMessage {
 }
 
 export function ChatBubble() {
+	const t = useTranslations("chat");
+	const locale = useLocale();
 	const [isOpen, setIsOpen] = useState(false);
 	const [input, setInput] = useState("");
 	const [isPending, setIsPending] = useState(false);
@@ -19,7 +22,7 @@ export function ChatBubble() {
 		{
 			id: "intro",
 			role: "bot",
-			text: "Hi! I'm your OptiFeed assistant. Ask me about your next feeding time, current FCR, missed feedings, or how to log a sample!",
+			text: t("intro"),
 		},
 	]);
 
@@ -44,7 +47,7 @@ export function ChatBubble() {
 		setIsPending(true);
 
 		try {
-			const replyText = await submitChatMessage(trimmed);
+			const replyText = await submitChatMessage(trimmed, locale);
 			const botMsg: ChatMessage = { id: (Date.now() + 1).toString(), role: "bot", text: replyText };
 			setMessages((prev) => [...prev, botMsg]);
 		} catch (error) {
@@ -53,7 +56,7 @@ export function ChatBubble() {
 				{
 					id: Date.now().toString(),
 					role: "bot",
-					text: "Oops, something went wrong. Please try again.",
+					text: t("error"),
 				},
 			]);
 		} finally {
@@ -70,7 +73,7 @@ export function ChatBubble() {
 					<div className="bg-[var(--ofd-base)] px-4 py-3 flex items-center justify-between text-white">
 						<div className="flex items-center gap-2">
 							<Bot size={20} />
-							<h3 className="font-semibold text-sm">OptiFeed Assistant</h3>
+							<h3 className="font-semibold text-sm">{t("title")}</h3>
 						</div>
 						<button
 							type="button"
@@ -140,7 +143,7 @@ export function ChatBubble() {
 					>
 						<input
 							type="text"
-							placeholder="Ask me something..."
+							placeholder={t("placeholder")}
 							value={input}
 							onChange={(e) => setInput(e.target.value)}
 							className="flex-1 px-4 py-2 bg-gray-100 rounded-full text-sm outline-none focus:ring-2 focus:ring-[var(--ofd-base)]/20 transition-all"

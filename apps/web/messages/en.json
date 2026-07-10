@@ -276,5 +276,21 @@
 		},
 		"am": "AM",
 		"pm": "PM"
+	},
+	"chat": {
+		"title": "OptiFeed Assistant",
+		"placeholder": "Ask me something...",
+		"intro": "Hi! I'm your OptiFeed assistant. Ask me about your next feeding time, current FCR, missed feedings, or how to log a sample!",
+		"error": "Oops, something went wrong. Please try again.",
+		"intentScheduleNoPond": "I couldn't find your pond schedule. Please ensure your devices are configured.",
+		"intentSchedulePaused": "Your automated schedule is currently **Paused**. No feedings will occur until you resume it on the Schedule page.",
+		"intentScheduleActive": "Your device is active and scheduled to feed **{feedsPerDay} times per day** between **{startTime}** and **{endTime}**.",
+		"intentLogSample": "To log a new biomass sample:\n1. Navigate to the **Log Sample** tab in the sidebar.\n2. Enter the average weight and count of your sampled fish.\n3. The system will automatically calculate your new recommended daily feed volume based on your feeding rate!",
+		"intentFcrNoData": "I couldn't find any recent FCR reports for your pond.",
+		"intentFcrActive": "Your most recent Feed Conversion Ratio (FCR) is **{fcr}**. You can view your full historical performance on the Growth tab.",
+		"intentMissedNoData": "Good news! I don't see any recent missed feedings in your logs.",
+		"intentMissedActive": "I see a missed feeding event from {time}. Missed feedings usually occur when the **hopper is empty** or the device **loses its Wi-Fi connection** before dispensing. Please check the physical feeder.",
+		"fallback": "I'm your OptiFeed support assistant! You can ask me things like:\n- \"When is the next feeding time?\"\n- \"What is my current FCR?\"\n- \"How do I log a sample?\"\n- \"Why was a feeding missed?\"",
+		"serverError": "Sorry, I ran into an error trying to fetch that data. Please try again."
 	}
 }

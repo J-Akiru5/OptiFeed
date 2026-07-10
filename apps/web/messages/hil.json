@@ -276,5 +276,21 @@
 		},
 		"am": "AM",
 		"pm": "PM"
+	},
+	"chat": {
+		"title": "Asistant sang OptiFeed",
+		"placeholder": "Mamangkot sang bisan ano...",
+		"intro": "Kamusta! Ako ang imo OptiFeed asistant. Mamangkot ka parte sa imo masunod nga iskedyul sang pagpakaon, ang FCR subong, mga na-miss nga pagpakaon, ukon paano maglista sang sampol!",
+		"error": "Ay, may ara sang deperensya. Palihug sulayi liwat.",
+		"intentScheduleNoPond": "Wala ko makita ang iskedyul sang imo punong. Siguraduha nga nakakonekta ang imo mga gamit.",
+		"intentSchedulePaused": "Ang imo awtomatik nga iskedyul subong naka-**Pause**. Wala sang pagpakaon nga matabo tubtob imo ini padayunon sa pahina sang Iskedyul.",
+		"intentScheduleActive": "Ang imo device aktibo kag naka-iskedyul nga magpakaon **{feedsPerDay} ka beses kada adlaw** halin sa **{startTime}** tubtob **{endTime}**.",
+		"intentLogSample": "Para maglista sang bag-o nga sampol sang biomass:\n1. Kadto sa **Paglista sang Sampol** nga tab.\n2. Ibutang ang kabug-aton kag kadamuon sang imo sampol nga isda.\n3. Ang sistema awtomatik nga magakwenta sang imo bag-o nga kinahanglanon nga feed volume!",
+		"intentFcrNoData": "Wala ko makita ang mga nagligad nga FCR report para sa imo punong.",
+		"intentFcrActive": "Ang imo pinaka-ulihi nga Feed Conversion Ratio (FCR) amo **{fcr}**. Makita mo ang imo bilog nga performance sa Growth tab.",
+		"intentMissedNoData": "Maayo nga balita! Wala ko sing may nakita nga na-miss nga pagpakaon sa imo mga log subong.",
+		"intentMissedActive": "May nakita ako nga na-miss nga pagpakaon sadtong {time}. Ini nagakatabo kon **wala na unod ang hopper** ukon **nadula ang Wi-Fi connection** antes magpakaon. Palihug tsekyara ang imo feeder.",
+		"fallback": "Ako ang imo OptiFeed asistant! Pwede mo ako pamangkuton sang parehas sini:\n- \"San-o ang masunod nga pagpakaon?\"\n- \"Ano ang akon FCR subong?\"\n- \"Paano maglista sang sampol?\"\n- \"Ngaa may na-miss nga pagpakaon?\"",
+		"serverError": "Pasensya, may naguba samtang ginakuha ang data. Palihug sulayi liwat."
 	}
 }

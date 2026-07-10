@@ -1,3 +1,4 @@
+import { BottomNav } from "@/components/bottom-nav";
 import { ChatBubble } from "@/components/chat-bubble";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { NotificationBell } from "@/components/notification-bell";
@@ -71,9 +72,10 @@ export default async function DashboardLayout({
 						<LocaleSwitcher />
 					</div>
 				</header>
-				<main className="flex-1 p-4 md:p-6">{children}</main>
+				<main className="flex-1 p-4 md:p-6 pb-24 md:pb-6">{children}</main>
 			</NotificationProvider>
 			<ChatBubble />
+			<BottomNav />
 		</div>
 	);
 }

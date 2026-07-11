@@ -50,6 +50,8 @@ model BiomassLog {
   recordedAt      DateTime @default(now())
 
   pond Pond @relation(fields: [pondId], references: [id])
+
+  @@index([pondId, recordedAt])
 }
 
 model FeedingEvent {
@@ -107,6 +109,7 @@ model EnergyDevice {
 model FeedEvent {
   id            String   @id @default(cuid())
   deviceId      String
+  eventId       String?  @unique
   eventType     String   // "heartbeat" | "feed_dispensed"
   timestamp     String
   grams         Float?
@@ -114,11 +117,11 @@ model FeedEvent {
   feedRequestId String?
   rtcOk         Boolean?
   feederActive  Boolean?
-  createdAt     DateTime @default(now())
+  receivedAt    DateTime @default(now())
 
   device EnergyDevice @relation(fields: [deviceId], references: [id])
 
-  @@index([deviceId, createdAt])
+  @@index([deviceId, receivedAt])
 }
 
 model FeedRequest {

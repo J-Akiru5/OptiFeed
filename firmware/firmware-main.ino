@@ -102,9 +102,9 @@ unsigned long feedStartTime = 0;
 unsigned long feedDurationMs = 0;
 float currentFeedGrams = 0;
 const char* currentFeedSource = "";
-String currentFeedRequestId = ""; // set only when a dashboard request triggers a dispense
+String currentFeedRequestId = "";
 
-float cachedScheduledGrams = DEFAULT_SCHEDULED_GRAMS; // updated opportunistically from backend
+float cachedScheduledGrams = DEFAULT_SCHEDULED_GRAMS;
 unsigned long lastPoll = 0;
 
 // WiFi maintenance
@@ -115,6 +115,17 @@ unsigned long lastWifiRetry = 0;
 int lastButtonReading = HIGH;
 unsigned long lastButtonChangeMs = 0;
 unsigned long lastHandledButtonChangeMs = 0;
+
+// Event ID counter — combined with esp_random() for uniqueness across reboots
+static uint32_t eventCounter = 0;
+
+String generateEventId() {
+  eventCounter++;
+  uint32_t r = esp_random();
+  char buf[24];
+  snprintf(buf, sizeof(buf), "evt-%08lx-%04lx", r, eventCounter & 0xFFFF);
+  return String(buf);
+}
 
 void setup() {
   Serial.begin(115200);
@@ -288,9 +299,11 @@ bool postFeedEvent(QueuedEvent &ev) {
   https.addHeader("Content-Type", "application/json");
   https.addHeader("X-Device-Token", DEVICE_TOKEN);
 
-  StaticJsonDocument<224> doc;
+  String eventId = generateEventId();
+  StaticJsonDocument<256> doc;
   doc["device_id"]       = DEVICE_MAC;
   doc["event_type"]      = "feed_dispensed";
+  doc["event_id"]        = eventId;
   doc["grams"]           = ev.grams;
   doc["source"]          = ev.source;
   doc["feed_request_id"] = ev.requestId.length() ? ev.requestId : (char*)nullptr;
@@ -310,9 +323,11 @@ void sendTelemetry() {
   https.addHeader("Content-Type", "application/json");
   https.addHeader("X-Device-Token", DEVICE_TOKEN);
 
-  StaticJsonDocument<160> doc;
+  String eventId = generateEventId();
+  StaticJsonDocument<192> doc;
   doc["device_id"]     = DEVICE_MAC;
   doc["event_type"]    = "heartbeat";
+  doc["event_id"]      = eventId;
   doc["timestamp"]     = rtcAvailable ? getRTCiso8601() : "unknown";
   doc["rtc_ok"]        = rtcAvailable;
   doc["feeder_active"] = feederActive;

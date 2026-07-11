@@ -6,6 +6,14 @@ import { revalidatePath } from "next/cache";
 
 export async function requestFeed(deviceId: string, grams: number) {
 	try {
+		const existing = await prisma.feedRequest.findFirst({
+			where: { deviceId, status: "pending" },
+		});
+
+		if (existing) {
+			return { success: true, message: "Feed already pending" };
+		}
+
 		await prisma.feedRequest.create({
 			data: {
 				deviceId,

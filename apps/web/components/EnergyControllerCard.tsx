@@ -2,7 +2,7 @@
 
 import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
 import { cn } from "@/lib/utils";
-import { Clock, Loader2, Utensils, Wifi, WifiOff } from "lucide-react";
+import { AlertTriangle, Clock, Loader2, Utensils, Wifi, WifiOff } from "lucide-react";
 import { useState, useTransition } from "react";
 
 interface EnergyControllerCardProps {
@@ -13,6 +13,7 @@ interface EnergyControllerCardProps {
 	feederActive: boolean;
 	gramsPerFeeding: number;
 	lastSeenAt: Date | null;
+	isOffline: boolean;
 }
 
 function formatLastSeen(lastSeenAt: Date | null): string {
@@ -35,6 +36,7 @@ export function EnergyControllerCard({
 	feederActive,
 	gramsPerFeeding,
 	lastSeenAt,
+	isOffline,
 }: EnergyControllerCardProps) {
 	const [feedGrams, setFeedGrams] = useState(gramsPerFeeding);
 	const [isPending, startTransition] = useTransition();
@@ -68,18 +70,36 @@ export function EnergyControllerCard({
 				<span
 					className={cn(
 						"inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
-						feederActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600",
+						isOffline
+							? "bg-red-100 text-red-700"
+							: feederActive
+								? "bg-green-100 text-green-700"
+								: "bg-gray-100 text-gray-600",
 					)}
 				>
 					<span
 						className={cn(
 							"h-2 w-2 rounded-full",
-							feederActive ? "bg-green-500 animate-pulse" : "bg-gray-400",
+							isOffline
+								? "bg-red-500"
+								: feederActive
+									? "bg-green-500 animate-pulse"
+									: "bg-gray-400",
 						)}
 					/>
-					{feederActive ? "Feeding..." : "Idle"}
+					{isOffline ? "Offline" : feederActive ? "Feeding..." : "Idle"}
 				</span>
 			</div>
+
+			{isOffline && (
+				<div className="mb-4 flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
+					<AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
+					<p className="text-xs text-red-700 font-medium">
+						Device offline — last seen {formatLastSeen(lastSeenAt)}. Scheduled and button feeds
+						still work; dashboard commands will queue.
+					</p>
+				</div>
+			)}
 
 			<div className="grid grid-cols-2 gap-3 mb-4">
 				<div className="flex items-center gap-2 rounded-xl bg-gray-50 p-3">

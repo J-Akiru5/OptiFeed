@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -6,7 +7,8 @@ export const dynamic = "force-dynamic";
 const baseSchema = z.object({
 	device_id: z.string().min(1),
 	event_type: z.enum(["heartbeat", "feed_dispensed"]),
-	timestamp: z.string(),
+	timestamp: z.string().min(1),
+	event_id: z.string().min(8).optional(),
 });
 
 const heartbeatSchema = baseSchema.extend({
@@ -21,6 +23,10 @@ const feedDispensedSchema = baseSchema.extend({
 });
 
 const RATE_LIMIT_MS = 1000;
+
+function isUniqueConstraintError(error: unknown): boolean {
+	return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
 
 export async function POST(request: Request) {
 	const token = request.headers.get("x-device-token");
@@ -58,60 +64,83 @@ export async function POST(request: Request) {
 	}
 
 	const eventType = baseParsed.data.event_type;
+	const eventId = baseParsed.data.event_id ?? null;
 
 	if (eventType === "heartbeat") {
-		const parsed = heartbeatSchema.parse(body);
+		const parsed = heartbeatSchema.safeParse(body);
+		if (!parsed.success) {
+			return new Response("Unprocessable Entity", { status: 422 });
+		}
 
-		await prisma.$transaction([
-			prisma.energyDevice.update({
-				where: { id: device.id },
-				data: {
-					lastSeenAt: new Date(),
-					rtcOk: parsed.rtc_ok,
-					feederActive: parsed.feeder_active,
-				},
-			}),
-			prisma.feedEvent.create({
-				data: {
-					deviceId: device.id,
-					eventType: "heartbeat",
-					timestamp: parsed.timestamp,
-					rtcOk: parsed.rtc_ok,
-					feederActive: parsed.feeder_active,
-				},
-			}),
-		]);
+		try {
+			await prisma.$transaction([
+				prisma.energyDevice.update({
+					where: { id: device.id },
+					data: {
+						lastSeenAt: new Date(),
+						rtcOk: parsed.data.rtc_ok,
+						feederActive: parsed.data.feeder_active,
+					},
+				}),
+				prisma.feedEvent.create({
+					data: {
+						deviceId: device.id,
+						eventId,
+						eventType: "heartbeat",
+						timestamp: parsed.data.timestamp,
+						rtcOk: parsed.data.rtc_ok,
+						feederActive: parsed.data.feeder_active,
+					},
+				}),
+			]);
+		} catch (error) {
+			if (isUniqueConstraintError(error)) {
+				return new Response(null, { status: 204 });
+			}
+			throw error;
+		}
 	} else if (eventType === "feed_dispensed") {
-		const parsed = feedDispensedSchema.parse(body);
+		const parsed = feedDispensedSchema.safeParse(body);
+		if (!parsed.success) {
+			return new Response("Unprocessable Entity", { status: 422 });
+		}
 
-		await prisma.$transaction([
-			prisma.energyDevice.update({
-				where: { id: device.id },
-				data: { lastSeenAt: new Date() },
-			}),
-			prisma.feedEvent.create({
-				data: {
-					deviceId: device.id,
-					eventType: "feed_dispensed",
-					timestamp: parsed.timestamp,
-					grams: parsed.grams,
-					source: parsed.source,
-					feedRequestId: parsed.feed_request_id ?? null,
-				},
-			}),
-			...(parsed.feed_request_id
-				? [
-						prisma.feedRequest.updateMany({
-							where: {
-								id: parsed.feed_request_id,
-								deviceId: device.id,
-								status: "dispatched",
-							},
-							data: { status: "completed" },
-						}),
-					]
-				: []),
-		]);
+		try {
+			await prisma.$transaction([
+				prisma.energyDevice.update({
+					where: { id: device.id },
+					data: { lastSeenAt: new Date() },
+				}),
+				prisma.feedEvent.create({
+					data: {
+						deviceId: device.id,
+						eventId,
+						eventType: "feed_dispensed",
+						timestamp: parsed.data.timestamp,
+						grams: parsed.data.grams,
+						source: parsed.data.source,
+						feedRequestId: parsed.data.feed_request_id ?? null,
+					},
+				}),
+				...(parsed.data.feed_request_id
+					? [
+							prisma.feedRequest.updateMany({
+								where: {
+									id: parsed.data.feed_request_id,
+									deviceId: device.id,
+									status: "dispatched",
+								},
+								data: { status: "completed" },
+							}),
+						]
+					: []),
+			]);
+		} catch (error) {
+			if (isUniqueConstraintError(error)) {
+				return new Response(null, { status: 204 });
+			}
+			throw error;
+		}
 	}
 
 	return new Response(null, { status: 204 });

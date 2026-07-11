@@ -1,7 +1,8 @@
-import { randomUUID } from "node:crypto";
 import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+
+const REQUEST_EXPIRY_MS = 60_000;
 
 export async function GET(request: Request) {
 	const token = request.headers.get("x-device-token");
@@ -23,6 +24,17 @@ export async function GET(request: Request) {
 	if (!device || device.mac !== deviceId) {
 		return new Response("Unauthorized", { status: 401 });
 	}
+
+	// Lazy expiry: mark any pending requests older than 60s as expired.
+	// No cron needed — checked on every poll.
+	await prisma.feedRequest.updateMany({
+		where: {
+			deviceId: device.id,
+			status: "pending",
+			createdAt: { lt: new Date(Date.now() - REQUEST_EXPIRY_MS) },
+		},
+		data: { status: "expired" },
+	});
 
 	const pendingRequest = await prisma.feedRequest.findFirst({
 		where: {

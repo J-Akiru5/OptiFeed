@@ -3,10 +3,21 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-const ingestSchema = z.object({
+const baseSchema = z.object({
 	device_id: z.string().min(1),
-	timestamp: z.string().datetime({ offset: true }),
-	relay_state: z.boolean(),
+	event_type: z.enum(["heartbeat", "feed_dispensed"]),
+	timestamp: z.string(),
+});
+
+const heartbeatSchema = baseSchema.extend({
+	rtc_ok: z.boolean(),
+	feeder_active: z.boolean(),
+});
+
+const feedDispensedSchema = baseSchema.extend({
+	grams: z.number().positive(),
+	source: z.enum(["scheduled", "dashboard", "button"]),
+	feed_request_id: z.string().nullable().optional(),
 });
 
 const RATE_LIMIT_MS = 1000;
@@ -33,13 +44,12 @@ export async function POST(request: Request) {
 		return new Response("Unprocessable Entity", { status: 422 });
 	}
 
-	const parsed = ingestSchema.safeParse(body);
-	if (!parsed.success) {
+	const baseParsed = baseSchema.safeParse(body);
+	if (!baseParsed.success) {
 		return new Response("Unprocessable Entity", { status: 422 });
 	}
 
-	const payload = parsed.data;
-	if (payload.device_id !== device.mac) {
+	if (baseParsed.data.device_id !== device.mac) {
 		return new Response("Unauthorized", { status: 401 });
 	}
 
@@ -47,21 +57,62 @@ export async function POST(request: Request) {
 		return new Response("Too Many Requests", { status: 429 });
 	}
 
-	const timestamp = new Date(payload.timestamp);
+	const eventType = baseParsed.data.event_type;
 
-	await prisma.$transaction([
-		prisma.energyDevice.update({
-			where: { id: device.id },
-			data: { lastSeenAt: new Date() },
-		}),
-		prisma.energyReading.create({
-			data: {
-				deviceId: device.id,
-				timestamp,
-				relayState: payload.relay_state,
-			},
-		}),
-	]);
+	if (eventType === "heartbeat") {
+		const parsed = heartbeatSchema.parse(body);
+
+		await prisma.$transaction([
+			prisma.energyDevice.update({
+				where: { id: device.id },
+				data: {
+					lastSeenAt: new Date(),
+					rtcOk: parsed.rtc_ok,
+					feederActive: parsed.feeder_active,
+				},
+			}),
+			prisma.feedEvent.create({
+				data: {
+					deviceId: device.id,
+					eventType: "heartbeat",
+					timestamp: parsed.timestamp,
+					rtcOk: parsed.rtc_ok,
+					feederActive: parsed.feeder_active,
+				},
+			}),
+		]);
+	} else if (eventType === "feed_dispensed") {
+		const parsed = feedDispensedSchema.parse(body);
+
+		await prisma.$transaction([
+			prisma.energyDevice.update({
+				where: { id: device.id },
+				data: { lastSeenAt: new Date() },
+			}),
+			prisma.feedEvent.create({
+				data: {
+					deviceId: device.id,
+					eventType: "feed_dispensed",
+					timestamp: parsed.timestamp,
+					grams: parsed.grams,
+					source: parsed.source,
+					feedRequestId: parsed.feed_request_id ?? null,
+				},
+			}),
+			...(parsed.feed_request_id
+				? [
+						prisma.feedRequest.updateMany({
+							where: {
+								id: parsed.feed_request_id,
+								deviceId: device.id,
+								status: "dispatched",
+							},
+							data: { status: "completed" },
+						}),
+					]
+				: []),
+		]);
+	}
 
 	return new Response(null, { status: 204 });
 }

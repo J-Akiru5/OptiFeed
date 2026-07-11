@@ -88,27 +88,48 @@ model Notification {
 }
 
 model EnergyDevice {
-  id         String    @id @default(cuid())
-  mac        String    @unique
-  token      String    @unique
-  label      String
-  pondId     String?
-  relayState Boolean   @default(true)
-  lastSeenAt DateTime?
-  createdAt  DateTime  @default(now())
+  id               String    @id @default(cuid())
+  mac              String    @unique
+  token            String    @unique
+  label            String
+  pondId           String?
+  rtcOk            Boolean   @default(true)
+  feederActive     Boolean   @default(false)
+  gramsPerFeeding  Float     @default(150)
+  lastSeenAt       DateTime?
+  createdAt        DateTime  @default(now())
 
-  pond     Pond?           @relation(fields: [pondId], references: [id])
-  readings EnergyReading[]
+  pond         Pond?          @relation(fields: [pondId], references: [id])
+  feedEvents   FeedEvent[]
+  feedRequests FeedRequest[]
 }
 
-model EnergyReading {
-  id         String   @id @default(cuid())
-  deviceId   String
-  timestamp  DateTime
-  relayState Boolean
-  createdAt  DateTime @default(now())
+model FeedEvent {
+  id            String   @id @default(cuid())
+  deviceId      String
+  eventType     String   // "heartbeat" | "feed_dispensed"
+  timestamp     String
+  grams         Float?
+  source        String?  // "scheduled" | "dashboard" | "button"
+  feedRequestId String?
+  rtcOk         Boolean?
+  feederActive  Boolean?
+  createdAt     DateTime @default(now())
 
   device EnergyDevice @relation(fields: [deviceId], references: [id])
 
-  @@index([deviceId, timestamp])
+  @@index([deviceId, createdAt])
+}
+
+model FeedRequest {
+  id        String   @id @default(cuid())
+  deviceId  String
+  grams     Float    @default(100)
+  status    String   @default("pending") // "pending" | "dispatched" | "completed" | "expired"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  device EnergyDevice @relation(fields: [deviceId], references: [id])
+
+  @@index([deviceId, status])
 }

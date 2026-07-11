@@ -404,7 +404,9 @@ export default async function DashboardHomePage() {
 						deviceId={energyDevice.id}
 						label={energyDevice.label}
 						mac={energyDevice.mac}
-						initialRelayState={energyDevice.relayState}
+						rtcOk={energyDevice.rtcOk}
+						feederActive={energyDevice.feederActive}
+						gramsPerFeeding={energyDevice.gramsPerFeeding}
 						lastSeenAt={energyDevice.lastSeenAt}
 					/>
 				</section>

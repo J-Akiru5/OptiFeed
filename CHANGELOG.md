@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Renamed `apps/web/middleware.ts` → `proxy.ts` to avoid conflict with Next.js middleware conventions.
-- `FeedNowButton` now calls `requestFeed` from `lib/actions/energy.ts` (the `FeedRequest` polling path the ESP32 reads) instead of the legacy `triggerManualFeed` from `lib/actions/schedule.ts` (which only wrote a `FeedingEvent` log row and never reached the hardware).
+- `FeedNowButton` and `ScheduleControls` now call `requestFeed` from `lib/actions/energy.ts` (the `FeedRequest` polling path the ESP32 reads) instead of the legacy `triggerManualFeed` from `lib/actions/schedule.ts` (which only wrote a `FeedingEvent` log row and never reached the hardware).
 - Updated migration `20260711000001_audit_fixes` — adds `FeedEvent.eventId` unique column, `BiomassLog` index, and `FeedRequest.status` expiry support.
 
 ## [1.8.7] - 2026-07-11

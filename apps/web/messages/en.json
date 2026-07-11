@@ -196,7 +196,6 @@
 			"connected": "Connected • RSSI −58dB",
 			"offline": "Offline",
 			"feedPortion": "📍 Feed Portion: <strong class=\"text-[#E85A2A] font-extrabold\">{volume} of 4mm pellets</strong>",
-			"success": "Successfully dispensed {volume} of feed!",
 			"requestSent": "Feed request sent — device will dispense within 5s",
 			"alreadyQueued": "Feed already queued — awaiting device",
 			"awaitingDevice": "Awaiting device…",

@@ -196,7 +196,6 @@
 			"connected": "Konektado • RSSI −58dB",
 			"offline": "Offline",
 			"feedPortion": "📍 Bahin sang Pagkaon: <strong class=\"text-[#E85A2A] font-extrabold\">{volume} nga 4mm pellets</strong>",
-			"success": "Madinalag-on nga naka-dispense sang {volume} nga patuka!",
 			"requestSent": "Ang pangayo sang pagpakaon naipadala — magadispense ang aparato sa sulod sang 5s",
 			"alreadyQueued": "Ang pagpakaon nasuksok na — nagahulat sa aparato",
 			"awaitingDevice": "Nagahulat sa aparato…",

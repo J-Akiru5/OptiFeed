@@ -105,6 +105,7 @@ export async function POST(request: Request) {
 			return new Response("Unprocessable Entity", { status: 422 });
 		}
 
+		const isManualSource = parsed.data.source === "dashboard" || parsed.data.source === "button";
 		const sourceLabel = { scheduled: "Scheduled", dashboard: "Dashboard", button: "Button" }[
 			parsed.data.source
 		];
@@ -138,13 +139,13 @@ export async function POST(request: Request) {
 							}),
 						]
 					: []),
-				...(device.pondId
+				...(device.pondId && isManualSource
 					? [
 							prisma.notification.create({
 								data: {
 									pondId: device.pondId,
 									tier: "SUCCESS",
-									message: `Manual feed completed — ${parsed.data.grams}g dispensed by ${device.label}`,
+									message: `${sourceLabel} feed completed — ${parsed.data.grams}g dispensed by ${device.label}`,
 								},
 							}),
 						]

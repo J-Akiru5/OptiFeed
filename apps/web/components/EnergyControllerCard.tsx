@@ -4,6 +4,7 @@ import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, Clock, Loader2, Utensils, Wifi, WifiOff } from "lucide-react";
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 
 interface EnergyControllerCardProps {
 	deviceId: string;
@@ -56,6 +57,8 @@ export function EnergyControllerCard({
 					setFeedSent(true);
 					setTimeout(() => setFeedSent(false), 3000);
 				}
+			} else {
+				toast.error("Failed to create feed request");
 			}
 		});
 	};

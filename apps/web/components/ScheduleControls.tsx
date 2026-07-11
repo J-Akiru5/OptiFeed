@@ -1,10 +1,12 @@
 "use client";
 
-import { toggleDevicePause, triggerManualFeed } from "@/lib/actions/schedule";
+import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
+import { toggleDevicePause } from "@/lib/actions/schedule";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Loader2, Pause, Play, Power } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 
 interface ScheduleControlsProps {
 	deviceId: string;
@@ -14,6 +16,7 @@ interface ScheduleControlsProps {
 export function ScheduleControls({ deviceId, initialIsPaused }: ScheduleControlsProps) {
 	const tBtn = useTranslations("button");
 	const tSch = useTranslations("dashboard.schedule");
+	const tModal = useTranslations("dashboard.feedNowModal");
 	const [isPaused, setIsPaused] = useState(initialIsPaused);
 	const [isPendingPause, startPauseTransition] = useTransition();
 
@@ -31,10 +34,23 @@ export function ScheduleControls({ deviceId, initialIsPaused }: ScheduleControls
 
 	const handleFeedNow = () => {
 		startFeedTransition(async () => {
-			await triggerManualFeed(deviceId);
-			setShowConfirm(false);
-			setFeedSuccess(true);
-			setTimeout(() => setFeedSuccess(false), 3000); // Hide success message after 3s
+			try {
+				const result = await requestFeedAction(deviceId, 500);
+				if (result.success) {
+					if (result.message === "Feed already pending") {
+						toast.info(tModal("alreadyQueued"));
+					} else {
+						toast.success(tModal("requestSent", { volume: "500g" }));
+					}
+					setShowConfirm(false);
+					setFeedSuccess(true);
+					setTimeout(() => setFeedSuccess(false), 3000);
+				} else {
+					toast.error(tModal("error"));
+				}
+			} catch {
+				toast.error(tModal("error"));
+			}
 		});
 	};
 

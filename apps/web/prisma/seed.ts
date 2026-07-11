@@ -6,7 +6,8 @@ async function main() {
 	console.log("Seeding database...");
 
 	// Clean up existing data to ensure idempotent seeding
-	await prisma.energyReading.deleteMany();
+	await prisma.feedRequest.deleteMany();
+	await prisma.feedEvent.deleteMany();
 	await prisma.energyDevice.deleteMany();
 	await prisma.notification.deleteMany();
 	await prisma.fcrReport.deleteMany();
@@ -45,7 +46,9 @@ async function main() {
 			token: "esp32-tok-cict-001",
 			label: "CICT Building A Feeder",
 			pondId: pond.id,
-			relayState: true,
+			rtcOk: true,
+			feederActive: false,
+			gramsPerFeeding: 150,
 			lastSeenAt: new Date(),
 		},
 	});

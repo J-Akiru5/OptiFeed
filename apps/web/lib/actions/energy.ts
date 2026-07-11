@@ -4,18 +4,29 @@ import { randomUUID } from "node:crypto";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-export async function setRelayState(deviceId: string, state: boolean) {
+export async function requestFeed(deviceId: string, grams: number) {
 	try {
-		await prisma.energyDevice.update({
-			where: { id: deviceId },
-			data: { relayState: state },
+		const existing = await prisma.feedRequest.findFirst({
+			where: { deviceId, status: "pending" },
+		});
+
+		if (existing) {
+			return { success: true, message: "Feed already pending" };
+		}
+
+		await prisma.feedRequest.create({
+			data: {
+				deviceId,
+				grams,
+				status: "pending",
+			},
 		});
 
 		revalidatePath("/[locale]/(dashboard)/dashboard", "page");
 		return { success: true };
 	} catch (error) {
-		console.error("Failed to update relay state:", error);
-		return { success: false, error: "Failed to update relay state" };
+		console.error("Failed to create feed request:", error);
+		return { success: false, error: "Failed to create feed request" };
 	}
 }
 
@@ -31,7 +42,6 @@ export async function registerEnergyDevice(
 			token,
 			label,
 			pondId: pondId ?? null,
-			relayState: true,
 		},
 	});
 	return token;

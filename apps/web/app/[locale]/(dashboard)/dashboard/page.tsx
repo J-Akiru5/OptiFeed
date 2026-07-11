@@ -106,11 +106,12 @@ export default async function DashboardHomePage() {
 		: 0;
 	const daysUntilSample = Math.max(0, 14 - daysSinceSample);
 
-	// Determine Critical Alert
-	const isOffline = device.connectivity === "offline";
-	// Temporarily disable isMissedSync so mock data doesn't trigger the red banner
-	// const isMissedSync = !device.lastSyncedAt || (now.getTime() - device.lastSyncedAt.getTime() > 20 * 60 * 1000);
-	const criticalAlert = isOffline;
+	// Determine Critical Alert — lazy offline detection from energyDevice.lastSeenAt
+	const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
+	const esp32Offline =
+		!energyDevice?.lastSeenAt ||
+		now.getTime() - energyDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+	const criticalAlert = esp32Offline && !!energyDevice;
 
 	return (
 		<div className="space-y-6 pb-20 animate-in fade-in duration-500">
@@ -404,8 +405,11 @@ export default async function DashboardHomePage() {
 						deviceId={energyDevice.id}
 						label={energyDevice.label}
 						mac={energyDevice.mac}
-						initialRelayState={energyDevice.relayState}
+						rtcOk={energyDevice.rtcOk}
+						feederActive={energyDevice.feederActive}
+						gramsPerFeeding={energyDevice.gramsPerFeeding}
 						lastSeenAt={energyDevice.lastSeenAt}
+						isOffline={esp32Offline}
 					/>
 				</section>
 			)}

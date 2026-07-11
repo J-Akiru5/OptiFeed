@@ -65,7 +65,7 @@ export function ChatBubble() {
 	};
 
 	return (
-		<div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+		<div className="fixed bottom-24 md:bottom-6 right-6 z-50 flex flex-col items-end">
 			{/* Chat Window */}
 			{isOpen && (
 				<div className="mb-4 w-[350px] max-w-[calc(100vw-3rem)] rounded-2xl bg-white shadow-2xl border border-gray-100 flex flex-col overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-2 duration-200">

@@ -33,7 +33,7 @@ export default async function HistoryPage() {
 
 	// Calculate stats
 	const completedEvents = events.filter((e) => e.status === "completed");
-	const totalDispensed = completedEvents.reduce((sum, e) => sum + e.amountG, 0);
+	const totalDispensed = completedEvents.reduce((sum, e) => sum + e.dispensedVolumeG, 0);
 	const missedCount = events.filter((e) => e.status !== "completed").length;
 
 	// Use next-intl for localization

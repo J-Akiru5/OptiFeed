@@ -59,13 +59,34 @@ export default async function GrowthPage() {
 	};
 
 	return (
-		<div className="space-y-8 pb-20 animate-in fade-in duration-500">
-			<header>
-				<h1 className="text-3xl font-extrabold tracking-tight text-[var(--ofd-base-deep)]">
-					{t("title")}
-				</h1>
-				<p className="text-gray-500 mt-1">{t("desc", { pond: pond.name })}</p>
-			</header>
+		<div className="space-y-8 pb-20 animate-in fade-in duration-500 max-w-5xl">
+			{/* FCR big glance box from Prototype */}
+			<div className="bg-[#0A3D62] text-white p-6 md:p-8 rounded-[32px] shadow-lg relative overflow-hidden">
+				<div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full translate-x-12 -translate-y-12" />
+				<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
+					<div>
+						<span className="text-xs uppercase font-extrabold text-blue-200 tracking-wider">
+							Current Feed Conversion Ratio
+						</span>
+						<div className="text-5xl md:text-6xl font-black mt-2 tracking-tight">
+							{latestFcr.toFixed(2)}
+						</div>
+						<p className="text-xs text-blue-100 mt-2 max-w-md">
+							An FCR of <strong>{latestFcr.toFixed(2)}</strong> means your African Catfish consume{" "}
+							{latestFcr.toFixed(2)}kg of feed pellets for every 1.0kg of raw muscle gain. This
+							represents premium commercial growth efficiency.
+						</p>
+					</div>
+					<div className="bg-white/10 px-4 py-3 rounded-2xl border border-white/10 shrink-0">
+						<p className="text-[10px] text-gray-300 uppercase tracking-widest font-mono">
+							Stock Health Rating
+						</p>
+						<p className="text-base font-extrabold text-green-400 flex items-center gap-1.5">
+							<TrendingUp className="w-4 h-4" /> EXCELLENT • OPTIMAL
+						</p>
+					</div>
+				</div>
+			</div>
 
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 				{/* Latest ABW Card */}

@@ -157,6 +157,7 @@ export default async function DashboardHomePage() {
 					label={tBtn("feedNow")}
 					deviceName={device.name}
 					connectionStatus={device.connectivity}
+					hopperLevelPct={device.hopperLevelPct}
 				/>
 			</div>
 

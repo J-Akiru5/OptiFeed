@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.8] - 2026-07-12
+
+### Added
+- Added `hopperLevelPct` prop to `FeedNowButton` — the confirm modal now shows a red critical warning when hopper is below 10% and an amber warning below 25%.
+- Added offline awareness to `FeedNowButton` — a red `AlertTriangle` banner appears in the confirm modal when the ESP32 has not sent a heartbeat within the offline threshold.
+- Added `"Awaiting device…"` label state to `FeedNowButton` while the feed request is in-flight, replacing the static button label during `dispensing`.
+- Added distinct `toast.info("Feed already queued — awaiting device")` when a duplicate "Feed Now" click is detected (suppressed silently before).
+- Added live `Notification` row creation in `/api/ingest` on every `feed_dispensed` event — the Notification Center now receives real data, not only seeded rows.
+- Added `requestFeed` duplicate-request guard in `lib/actions/energy.ts` — returns `{ success: true, message: "Feed already pending" }` instead of creating duplicate `FeedRequest` rows.
+- Added `EnergyControllerCard` offline banner prop (`isOffline`) with red `AlertTriangle` alert and updated status badge to show `"Offline"` state in red.
+- Added `event_id` deduplication to `/api/ingest` — firmware retries with the same `event_id` are safely ignored via `FeedEvent.eventId @unique` and `P2002` error handling.
+- Added lazy-expiry logic to `/api/feed-command` — pending `FeedRequest` rows older than 60 seconds are marked `"expired"` before dispatching, preventing an offline device from firing a backlog of stale commands on reconnect.
+- Added `@@index([pondId, recordedAt])` to `BiomassLog` to speed up the latest-sample query on every dashboard load.
+- Added `docs/audit-report.html` and `optifeed-feed-request-roadmap.html` — visual audit report and interactive roadmap tracking the feed request flow implementation status.
+
+### Fixed
+- Fixed success toast wording in `FeedNowButton` from an implied "done" message to `"Feed request sent — device will dispense within 5s"` to accurately reflect that the DB write succeeded, not the physical dispense.
+- Fixed `EnergyControllerCard` status badge — now correctly renders `"Offline"` with a red dot (previously only showed `"Feeding..."` or `"Idle"`).
+- Fixed `FeedEvent.createdAt` renamed to `receivedAt` for semantic clarity (server receipt time, not device event time).
+
+### Changed
+- Renamed `apps/web/middleware.ts` → `proxy.ts` to avoid conflict with Next.js middleware conventions.
+- `FeedNowButton` now calls `requestFeed` from `lib/actions/energy.ts` (the `FeedRequest` polling path the ESP32 reads) instead of the legacy `triggerManualFeed` from `lib/actions/schedule.ts` (which only wrote a `FeedingEvent` log row and never reached the hardware).
+- Updated migration `20260711000001_audit_fixes` — adds `FeedEvent.eventId` unique column, `BiomassLog` index, and `FeedRequest.status` expiry support.
+
 ## [1.8.7] - 2026-07-11
 
 ### Added

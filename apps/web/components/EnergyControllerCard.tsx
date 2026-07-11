@@ -41,14 +41,21 @@ export function EnergyControllerCard({
 	const [feedGrams, setFeedGrams] = useState(gramsPerFeeding);
 	const [isPending, startTransition] = useTransition();
 	const [feedSent, setFeedSent] = useState(false);
+	const [alreadyQueued, setAlreadyQueued] = useState(false);
 
 	const handleFeedNow = () => {
 		setFeedSent(false);
+		setAlreadyQueued(false);
 		startTransition(async () => {
 			const result = await requestFeedAction(deviceId, feedGrams);
 			if (result.success) {
-				setFeedSent(true);
-				setTimeout(() => setFeedSent(false), 3000);
+				if (result.message === "Feed already pending") {
+					setAlreadyQueued(true);
+					setTimeout(() => setAlreadyQueued(false), 3000);
+				} else {
+					setFeedSent(true);
+					setTimeout(() => setFeedSent(false), 3000);
+				}
 			}
 		});
 	};
@@ -157,9 +164,11 @@ export function EnergyControllerCard({
 					disabled={isPending || feederActive || feedGrams <= 0}
 					className={cn(
 						"flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 font-medium text-white transition-all shadow-md hover:shadow-lg disabled:opacity-50",
-						feedSent
-							? "bg-green-500 hover:bg-green-600"
-							: "bg-[var(--ofd-base)] hover:bg-[#1a4a6e]",
+						alreadyQueued
+							? "bg-amber-500 hover:bg-amber-600"
+							: feedSent
+								? "bg-green-500 hover:bg-green-600"
+								: "bg-[var(--ofd-base)] hover:bg-[#1a4a6e]",
 					)}
 				>
 					{isPending ? (
@@ -168,11 +177,13 @@ export function EnergyControllerCard({
 						<Utensils className="h-5 w-5" />
 					)}
 					<span>
-						{feedSent
-							? "Feed Request Sent!"
-							: feederActive
-								? "Feeding in Progress..."
-								: `Feed Now (${feedGrams}g)`}
+						{alreadyQueued
+							? "Already Queued"
+							: feedSent
+								? "Feed Request Sent!"
+								: feederActive
+									? "Feeding in Progress..."
+									: `Feed Now (${feedGrams}g)`}
 					</span>
 				</button>
 			</div>

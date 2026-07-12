@@ -123,7 +123,7 @@ export default async function DashboardHomePage() {
 								!
 							</div>
 							<div>
-								<p className="text-sm font-black md:text-base">Device offline for 20 minutes</p>
+								<p className="text-sm font-black md:text-base">Device offline for 15 minutes</p>
 								<p className="text-xs font-semibold text-white/80">
 									ESP32 node {device.name} missed the latest sync handshake.
 								</p>
@@ -152,11 +152,12 @@ export default async function DashboardHomePage() {
 				</div>
 
 				<FeedNowButton
-					deviceId={device.id}
+					deviceId={energyDevice?.id ?? device.id}
 					nextFeedingVolume={`${nextFeedingVolumeG}g`}
 					label={tBtn("feedNow")}
-					deviceName={device.name}
-					connectionStatus={device.connectivity}
+					deviceName={energyDevice?.label ?? device.name}
+					connectionStatus={esp32Offline ? "offline" : "online"}
+					hopperLevelPct={device.hopperLevelPct}
 				/>
 			</div>
 

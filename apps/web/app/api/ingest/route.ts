@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 
 	const device = await prisma.energyDevice.findUnique({
 		where: { token },
-		select: { id: true, mac: true, lastSeenAt: true },
+		select: { id: true, mac: true, lastSeenAt: true, pondId: true, label: true },
 	});
 
 	if (!device) {
@@ -105,6 +105,11 @@ export async function POST(request: Request) {
 			return new Response("Unprocessable Entity", { status: 422 });
 		}
 
+		const isManualSource = parsed.data.source === "dashboard" || parsed.data.source === "button";
+		const sourceLabel = { scheduled: "Scheduled", dashboard: "Dashboard", button: "Button" }[
+			parsed.data.source
+		];
+
 		try {
 			await prisma.$transaction([
 				prisma.energyDevice.update({
@@ -131,6 +136,17 @@ export async function POST(request: Request) {
 									status: "dispatched",
 								},
 								data: { status: "completed" },
+							}),
+						]
+					: []),
+				...(device.pondId && isManualSource
+					? [
+							prisma.notification.create({
+								data: {
+									pondId: device.pondId,
+									tier: "SUCCESS",
+									message: `${sourceLabel} feed completed — ${parsed.data.grams}g dispensed by ${device.label}`,
+								},
 							}),
 						]
 					: []),

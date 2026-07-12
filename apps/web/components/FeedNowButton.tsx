@@ -1,7 +1,7 @@
 "use client";
 
-import { triggerManualFeed } from "@/lib/actions/schedule";
-import { Activity } from "lucide-react";
+import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
+import { Activity, AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ interface FeedNowButtonProps {
 	label: string;
 	deviceName?: string;
 	connectionStatus?: string;
+	hopperLevelPct?: number;
 }
 
 export function FeedNowButton({
@@ -20,6 +21,7 @@ export function FeedNowButton({
 	label,
 	deviceName = "ILO-POND-01",
 	connectionStatus = "online",
+	hopperLevelPct = 100,
 }: FeedNowButtonProps) {
 	const t = useTranslations("feedNowModal");
 	const tBtn = useTranslations("button");
@@ -27,12 +29,21 @@ export function FeedNowButton({
 	const [dispensing, setDispensing] = useState(false);
 	const [showConfirm, setShowConfirm] = useState(false);
 
+	const isOffline = connectionStatus === "offline";
+
 	async function handleFeedNow() {
 		setDispensing(true);
 		setShowConfirm(false);
 		try {
-			await triggerManualFeed(deviceId);
-			toast.success(t("success", { volume: nextFeedingVolume }));
+			const grams = Number.parseInt(nextFeedingVolume.replace("g", "")) || 500;
+			const result = await requestFeedAction(deviceId, grams);
+			if (result.success && result.message === "Feed already pending") {
+				toast.info(t("alreadyQueued"));
+			} else if (result.success) {
+				toast.success(t("requestSent", { volume: nextFeedingVolume }));
+			} else {
+				toast.error(t("error"));
+			}
 		} catch (error) {
 			toast.error(t("error"));
 		} finally {
@@ -48,12 +59,38 @@ export function FeedNowButton({
 				disabled={dispensing}
 				className="bg-[#E85A2A] text-white font-black text-sm md:text-base px-6 py-3 rounded-2xl hover:bg-[#d04a1f] shadow-lg hover:shadow-xl transition-all transform active:scale-95 flex items-center gap-2 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
 			>
-				<Activity className={`w-4 h-4 ${dispensing ? "animate-spin" : "animate-pulse"}`} /> {label}
+				<Activity className={`w-4 h-4 ${dispensing ? "animate-spin" : "animate-pulse"}`} />
+				{dispensing ? t("awaitingDevice") : label}
 			</button>
 
 			{showConfirm && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
 					<div className="bg-white rounded-[32px] p-6 md:p-8 max-w-md w-full border border-gray-200 shadow-2xl space-y-6">
+						{isOffline && (
+							<div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
+								<AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
+								<p className="text-xs text-red-700 font-medium">{t("offlineWarning")}</p>
+							</div>
+						)}
+
+						{hopperLevelPct < 10 && (
+							<div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
+								<AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
+								<p className="text-xs text-red-700 font-medium">
+									{t("hopperCritical", { level: hopperLevelPct })}
+								</p>
+							</div>
+						)}
+
+						{hopperLevelPct >= 10 && hopperLevelPct < 25 && (
+							<div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
+								<AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+								<p className="text-xs text-amber-700 font-medium">
+									{t("hopperLow", { level: hopperLevelPct })}
+								</p>
+							</div>
+						)}
+
 						<div>
 							<h3 className="font-black text-xl md:text-2xl uppercase tracking-tight text-[#C42B3A] mb-2">
 								{t("triggerTitle")}
@@ -75,13 +112,9 @@ export function FeedNowButton({
 							<p>
 								{t("connectionLink")}
 								<strong
-									className={
-										connectionStatus === "online"
-											? "text-[#1E7B34] font-bold"
-											: "text-[#C42B3A] font-bold"
-									}
+									className={!isOffline ? "text-[#1E7B34] font-bold" : "text-[#C42B3A] font-bold"}
 								>
-									{connectionStatus === "online" ? t("connected") : t("offline")}
+									{!isOffline ? t("connected") : t("offline")}
 								</strong>
 							</p>
 							<p>

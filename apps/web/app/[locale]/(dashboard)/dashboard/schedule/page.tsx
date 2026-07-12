@@ -22,6 +22,11 @@ export default async function SchedulePage() {
 
 	const device = pond.devices[0];
 
+	const energyDevice = await prisma.energyDevice.findFirst({
+		where: { pondId: pond.id },
+		orderBy: { createdAt: "asc" },
+	});
+
 	// Helper to format Prisma DateTime to a readable time (HH:MM AM/PM)
 	const formatTime = (date: Date) => {
 		return new Intl.DateTimeFormat("en-US", {
@@ -39,7 +44,10 @@ export default async function SchedulePage() {
 			</div>
 
 			{/* Interactive Controls (Client Component) */}
-			<ScheduleControls deviceId={device.id} initialIsPaused={device.isPaused} />
+			<ScheduleControls
+				deviceId={energyDevice?.id ?? device.id}
+				initialIsPaused={device.isPaused}
+			/>
 
 			{/* Read-Only Schedule Details */}
 			<div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

@@ -196,7 +196,12 @@
 			"connected": "Connected • RSSI −58dB",
 			"offline": "Offline",
 			"feedPortion": "📍 Feed Portion: <strong class=\"text-[#E85A2A] font-extrabold\">{volume} of 4mm pellets</strong>",
-			"success": "Successfully dispensed {volume} of feed!",
+			"requestSent": "Feed request sent — device will dispense within 5s",
+			"alreadyQueued": "Feed already queued — awaiting device",
+			"awaitingDevice": "Awaiting device…",
+			"offlineWarning": "Device offline — request will queue. Feed may be delayed until the device reconnects.",
+			"hopperLow": "Hopper level is low ({level}%). Consider refilling soon.",
+			"hopperCritical": "Hopper level is critically low ({level}%)! Refill to avoid missed feedings.",
 			"error": "Failed to trigger manual feed."
 		},
 		"growth": {

@@ -2,7 +2,16 @@
 
 import { Link, usePathname } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
-import { Clock, Cpu, History, Home, PlusCircle, Settings, TrendingUp } from "lucide-react";
+import {
+	Clock,
+	Cpu,
+	FileText,
+	History,
+	Home,
+	PlusCircle,
+	Settings,
+	TrendingUp,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 
 export function Sidebar({ hopperLevelPct = 82 }: { hopperLevelPct?: number }) {
@@ -15,6 +24,7 @@ export function Sidebar({ hopperLevelPct = 82 }: { hopperLevelPct?: number }) {
 		{ href: "/dashboard/log-sample", label: t("logSample"), icon: PlusCircle },
 		{ href: "/dashboard/history", label: t("history"), icon: History },
 		{ href: "/dashboard/growth", label: t("growth"), icon: TrendingUp },
+		{ href: "/dashboard/audit", label: t("audit"), icon: FileText },
 		{ href: "/dashboard/settings", label: t("settings"), icon: Settings },
 	];
 

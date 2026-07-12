@@ -1,3 +1,7 @@
+// Phase 0: Device state & command event model foundation.
+// Single event log (DeviceStateEvent) is the source of truth for audit trail,
+// notifications, and schedule sync. Three features are thin read/filter views.
+//
 // TODO(karl): Confirm indexes, cascading deletes, and row-level security policies once the access model is finalized.
 
 generator client {
@@ -20,14 +24,18 @@ model Pond {
   scheduleEnd     DateTime @db.Time()
   createdAt       DateTime @default(now())
 
-  devices        Device[]
-  biomassLogs    BiomassLog[]
-  fcrReports     FcrReport[]
-  notifications  Notification[]
-  energyDevices  EnergyDevice[]
+  devices           Device[]
+  biomassLogs       BiomassLog[]
+  fcrReports        FcrReport[]
+  notifications     Notification[]
+  energyDevices     EnergyDevice[]
+  scheduleCommands  ScheduleCommand[]
 }
 
 model Device {
+  // @deprecated — prefer EnergyDevice for all device interactions.
+  // FeedingEvent and this model are kept for seed data backward compat.
+  // No new code should write to this model.
   id             String    @id @default(cuid())
   pondId         String
   name           String
@@ -54,6 +62,8 @@ model BiomassLog {
   @@index([pondId, recordedAt])
 }
 
+// @deprecated — use DeviceStateEvent + FeedEvent for new dispense tracking.
+// Kept for seed data and existing chat intent system.
 model FeedingEvent {
   id                String   @id @default(cuid())
   deviceId          String
@@ -78,13 +88,17 @@ model FcrReport {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  pondId    String
-  tier      String
-  message   String
-  linkTo    String?
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id              String    @id @default(cuid())
+  pondId          String
+  tier            String
+  message         String
+  linkTo          String?
+  read            Boolean   @default(false)
+  category        String?   // "connectivity" | "feeding" | "pellet" | "pge" | "schedule" | "system"
+  acknowledgedAt  DateTime?
+  acknowledgedBy  String?
+  autoCleared     Boolean   @default(false)
+  createdAt       DateTime  @default(now())
 
   pond Pond @relation(fields: [pondId], references: [id])
 }
@@ -98,26 +112,30 @@ model EnergyDevice {
   rtcOk            Boolean   @default(true)
   feederActive     Boolean   @default(false)
   gramsPerFeeding  Float     @default(150)
+  buttonFeedGrams  Float     @default(80)     // configurable button dose — pushed via poll response, no OTA needed
   lastSeenAt       DateTime?
   createdAt        DateTime  @default(now())
 
-  pond         Pond?          @relation(fields: [pondId], references: [id])
-  feedEvents   FeedEvent[]
-  feedRequests FeedRequest[]
+  pond            Pond?             @relation(fields: [pondId], references: [id])
+  feedEvents      FeedEvent[]
+  feedRequests    FeedRequest[]
+  stateEvents     DeviceStateEvent[]
+  scheduleCommands ScheduleCommand[]
 }
 
 model FeedEvent {
   id            String   @id @default(cuid())
   deviceId      String
   eventId       String?  @unique
-  eventType     String   // "heartbeat" | "feed_dispensed"
-  timestamp     String
+  eventType     String   // "heartbeat" | "feed_dispensed" | "schedule_acked"
+  timestamp     String   // device RTC time — may be "unknown" if RTC unavailable
   grams         Float?
   source        String?  // "scheduled" | "dashboard" | "button"
   feedRequestId String?
+  commandId     String?  // links to ScheduleCommand id for schedule_acked events
   rtcOk         Boolean?
   feederActive  Boolean?
-  receivedAt    DateTime @default(now())
+  receivedAt    DateTime @default(now())   // server receipt time
 
   device EnergyDevice @relation(fields: [deviceId], references: [id])
 
@@ -128,11 +146,53 @@ model FeedRequest {
   id        String   @id @default(cuid())
   deviceId  String
   grams     Float    @default(100)
-  status    String   @default("pending") // "pending" | "dispatched" | "completed" | "expired"
+  status    String   @default("pending") // "pending" | "dispatched" | "completed" | "expired" | "fulfilled_by_other_trigger"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   device EnergyDevice @relation(fields: [deviceId], references: [id])
+
+  @@index([deviceId, status])
+}
+
+// Unified event log — source of truth for audit trail, notifications, and schedule sync.
+// Every device write becomes a queued command; every device read becomes a state event.
+model DeviceStateEvent {
+  id          String   @id @default(cuid())
+  deviceId    String
+  eventType   String   // "connected" | "disconnected" | "command_sent" | "command_acked" | "command_failed" | "schedule_changed" | "schedule_applied" | "feed_dispensed" | "feed_reconciled" | "pge_reading" | "pellet_low" | "pellet_refilled" | "manual_trigger"
+  source      String   // "system" | "user" | "device"
+  actorId     String?  // userId who triggered it (nullable for device-originated)
+  metadata    Json?    // flexible payload (old/new values, request IDs, error details)
+  deviceTime  String?  // RTC timestamp from device — may be "unknown", null for user-originated events
+  createdAt   DateTime @default(now())
+
+  device EnergyDevice @relation(fields: [deviceId], references: [id])
+
+  @@index([deviceId, createdAt])
+  @@index([eventType, createdAt])
+}
+
+// Schedule edits as queued commands — never write directly to Pond.
+// The Pond fields reflect the last applied command.
+model ScheduleCommand {
+  id              String    @id @default(cuid())
+  deviceId        String
+  pondId          String
+  scheduleStart   DateTime  @db.Time()
+  scheduleEnd     DateTime  @db.Time()
+  feedsPerDay     Int
+  feedingRatePct  Float
+  buttonFeedGrams Float     @default(80)
+  status          String    @default("pending") // "pending" | "sent" | "acked" | "applied" | "failed"
+  createdBy       String?   // userId
+  appliedAt       DateTime? // server timestamp when device confirmed
+  deviceTime      String?   // RTC timestamp from device ack
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  device  EnergyDevice @relation(fields: [deviceId], references: [id])
+  pond    Pond         @relation(fields: [pondId], references: [id])
 
   @@index([deviceId, status])
 }

@@ -23,7 +23,7 @@ export function FeedNowButton({
 	connectionStatus = "online",
 	hopperLevelPct = 100,
 }: FeedNowButtonProps) {
-	const t = useTranslations("feedNowModal");
+	const t = useTranslations("dashboard.feedNowModal");
 	const tBtn = useTranslations("button");
 
 	const [dispensing, setDispensing] = useState(false);

@@ -32,12 +32,7 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 
 	if (!Number.isNaN(w) && !Number.isNaN(c) && c > 0) {
 		avgWeightG = w;
-		const avgWeightKg = avgWeightG / 1000;
-		// Based on prototype formula: (AvgWeight * Population * (Rate/100)) / FeedsPerDay
-		const pondPopulation = 5000;
-		const totalBiomassGrams = avgWeightG * pondPopulation;
-		const dailyFeedGrams = totalBiomassGrams * (feedingRatePct / 100);
-		nextFeedingG = Math.round(dailyFeedGrams / feedsPerDay);
+		nextFeedingG = calculateNextFeeding(w / 1000, feedingRatePct, feedsPerDay);
 	}
 
 	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

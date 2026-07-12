@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 
 	const device = await prisma.energyDevice.findUnique({
 		where: { token },
-		select: { id: true, mac: true, gramsPerFeeding: true },
+		select: { id: true, mac: true, gramsPerFeeding: true, buttonFeedGrams: true },
 	});
 
 	if (!device || device.mac !== deviceId) {
@@ -55,6 +55,7 @@ export async function GET(request: Request) {
 			feed_request_id: pendingRequest.id,
 			grams: pendingRequest.grams,
 			grams_per_feeding: device.gramsPerFeeding,
+			button_feed_grams: device.buttonFeedGrams,
 		});
 	}
 
@@ -63,5 +64,6 @@ export async function GET(request: Request) {
 		feed_request_id: null,
 		grams: 0,
 		grams_per_feeding: device.gramsPerFeeding,
+		button_feed_grams: device.buttonFeedGrams,
 	});
 }

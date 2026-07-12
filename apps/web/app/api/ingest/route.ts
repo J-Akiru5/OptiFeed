@@ -4,9 +4,18 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
+// Devices are considered disconnected if no heartbeat for 15 minutes.
+// Matches the dashboard's offline threshold.
+const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
+
+// How far back to search for orphaned FeedRequests during reconciliation.
+const RECONCILIATION_LOOKBACK_HOURS = 4;
+
+const RATE_LIMIT_MS = 1000;
+
 const baseSchema = z.object({
 	device_id: z.string().min(1),
-	event_type: z.enum(["heartbeat", "feed_dispensed"]),
+	event_type: z.enum(["heartbeat", "feed_dispensed", "schedule_acked"]),
 	timestamp: z.string().min(1),
 	event_id: z.string().min(8).optional(),
 });
@@ -22,10 +31,16 @@ const feedDispensedSchema = baseSchema.extend({
 	feed_request_id: z.string().nullable().optional(),
 });
 
-const RATE_LIMIT_MS = 1000;
+const scheduleAckedSchema = baseSchema.extend({
+	command_id: z.string().min(1),
+});
 
 function isUniqueConstraintError(error: unknown): boolean {
 	return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
+
+function now(): Date {
+	return new Date();
 }
 
 export async function POST(request: Request) {
@@ -72,8 +87,11 @@ export async function POST(request: Request) {
 			return new Response("Unprocessable Entity", { status: 422 });
 		}
 
+		const wasOffline =
+			!device.lastSeenAt || Date.now() - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+
 		try {
-			await prisma.$transaction([
+			const operations: Prisma.PrismaPromise<unknown>[] = [
 				prisma.energyDevice.update({
 					where: { id: device.id },
 					data: {
@@ -92,7 +110,49 @@ export async function POST(request: Request) {
 						feederActive: parsed.data.feeder_active,
 					},
 				}),
-			]);
+				prisma.deviceStateEvent.create({
+					data: {
+						deviceId: device.id,
+						eventType: "connected",
+						source: "device",
+						deviceTime: parsed.data.timestamp,
+					},
+				}),
+			];
+
+			if (wasOffline && device.lastSeenAt) {
+				operations.push(
+					prisma.deviceStateEvent.create({
+						data: {
+							deviceId: device.id,
+							eventType: "disconnected",
+							source: "system",
+							deviceTime: device.lastSeenAt.toISOString(),
+							metadata: { durationMs: Date.now() - device.lastSeenAt.getTime() },
+						},
+					}),
+				);
+			}
+
+			// Phase 3: auto-clear disconnected notifications on reconnect.
+			if (wasOffline && device.pondId) {
+				operations.push(
+					prisma.notification.updateMany({
+						where: {
+							pondId: device.pondId,
+							category: "connectivity",
+							autoCleared: false,
+							acknowledgedAt: null,
+						},
+						data: {
+							autoCleared: true,
+							read: true,
+						},
+					}),
+				);
+			}
+
+			await prisma.$transaction(operations);
 		} catch (error) {
 			if (isUniqueConstraintError(error)) {
 				return new Response(null, { status: 204 });
@@ -111,7 +171,7 @@ export async function POST(request: Request) {
 		];
 
 		try {
-			await prisma.$transaction([
+			const operations: Prisma.PrismaPromise<unknown>[] = [
 				prisma.energyDevice.update({
 					where: { id: device.id },
 					data: { lastSeenAt: new Date() },
@@ -127,30 +187,145 @@ export async function POST(request: Request) {
 						feedRequestId: parsed.data.feed_request_id ?? null,
 					},
 				}),
-				...(parsed.data.feed_request_id
-					? [
-							prisma.feedRequest.updateMany({
-								where: {
-									id: parsed.data.feed_request_id,
-									deviceId: device.id,
-									status: "dispatched",
+				prisma.deviceStateEvent.create({
+					data: {
+						deviceId: device.id,
+						eventType: "feed_dispensed",
+						source: "device",
+						actorId: parsed.data.source === "dashboard" ? "system" : null,
+						deviceTime: parsed.data.timestamp,
+						metadata: {
+							grams: parsed.data.grams,
+							source: parsed.data.source,
+							feedRequestId: parsed.data.feed_request_id ?? null,
+						},
+					},
+				}),
+			];
+
+			if (parsed.data.feed_request_id) {
+				operations.push(
+					prisma.feedRequest.updateMany({
+						where: {
+							id: parsed.data.feed_request_id,
+							deviceId: device.id,
+							status: "dispatched",
+						},
+						data: { status: "completed" },
+					}),
+				);
+			} else {
+				// Gap 1 reconciliation: late-arriving button/scheduled event without a feed_request_id.
+				// Check for orphaned expired/pending FeedRequests within the lookback window.
+				const orphanedRequests = await prisma.feedRequest.findMany({
+					where: {
+						deviceId: device.id,
+						status: { in: ["pending", "expired"] },
+						createdAt: {
+							gte: new Date(Date.now() - RECONCILIATION_LOOKBACK_HOURS * 60 * 60 * 1000),
+						},
+					},
+					orderBy: { createdAt: "desc" },
+					take: 5,
+				});
+
+				for (const req of orphanedRequests) {
+					operations.push(
+						prisma.feedRequest.update({
+							where: { id: req.id },
+							data: { status: "fulfilled_by_other_trigger" },
+						}),
+					);
+					operations.push(
+						prisma.deviceStateEvent.create({
+							data: {
+								deviceId: device.id,
+								eventType: "feed_reconciled",
+								source: "system",
+								deviceTime: parsed.data.timestamp,
+								metadata: {
+									expiredRequestId: req.id,
+									originalGrams: req.grams,
+									actualGrams: parsed.data.grams,
+									actualSource: parsed.data.source,
 								},
-								data: { status: "completed" },
-							}),
-						]
-					: []),
-				...(device.pondId && isManualSource
-					? [
-							prisma.notification.create({
-								data: {
-									pondId: device.pondId,
-									tier: "SUCCESS",
-									message: `${sourceLabel} feed completed — ${parsed.data.grams}g dispensed by ${device.label}`,
-								},
-							}),
-						]
-					: []),
-			]);
+							},
+						}),
+					);
+				}
+			}
+
+			if (device.pondId && isManualSource) {
+				operations.push(
+					prisma.notification.create({
+						data: {
+							pondId: device.pondId,
+							tier: "SUCCESS",
+							category: "feeding",
+							message: `${sourceLabel} feed completed — ${parsed.data.grams}g dispensed by ${device.label}`,
+						},
+					}),
+				);
+			}
+
+			await prisma.$transaction(operations);
+		} catch (error) {
+			if (isUniqueConstraintError(error)) {
+				return new Response(null, { status: 204 });
+			}
+			throw error;
+		}
+	} else if (eventType === "schedule_acked") {
+		const parsed = scheduleAckedSchema.safeParse(body);
+		if (!parsed.success) {
+			return new Response("Unprocessable Entity", { status: 422 });
+		}
+
+		try {
+			const scheduleCommand = await prisma.scheduleCommand.findFirst({
+				where: { id: parsed.data.command_id, deviceId: device.id },
+			});
+
+			if (scheduleCommand) {
+				await prisma.$transaction([
+					prisma.energyDevice.update({
+						where: { id: device.id },
+						data: { lastSeenAt: new Date() },
+					}),
+					prisma.scheduleCommand.update({
+						where: { id: scheduleCommand.id },
+						data: {
+							status: "applied",
+							appliedAt: now(),
+							deviceTime: parsed.data.timestamp,
+						},
+					}),
+					prisma.feedEvent.create({
+						data: {
+							deviceId: device.id,
+							eventId,
+							eventType: "schedule_acked",
+							timestamp: parsed.data.timestamp,
+							commandId: scheduleCommand.id,
+						},
+					}),
+					prisma.deviceStateEvent.create({
+						data: {
+							deviceId: device.id,
+							eventType: "command_acked",
+							source: "device",
+							deviceTime: parsed.data.timestamp,
+							metadata: {
+								commandId: scheduleCommand.id,
+								scheduleStart: scheduleCommand.scheduleStart.toISOString(),
+								scheduleEnd: scheduleCommand.scheduleEnd.toISOString(),
+								feedsPerDay: scheduleCommand.feedsPerDay,
+								feedingRatePct: scheduleCommand.feedingRatePct,
+							},
+						},
+					}),
+				]);
+			}
 		} catch (error) {
 			if (isUniqueConstraintError(error)) {
 				return new Response(null, { status: 204 });

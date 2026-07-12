@@ -1,9 +1,17 @@
 import { ScheduleControls } from "@/components/ScheduleControls";
+import { ScheduleEditor } from "@/components/ScheduleEditor";
+import { StuckRequestBanner } from "@/components/StuckRequestBanner";
 import prisma from "@/lib/prisma";
-import { Calendar, Clock, Droplets } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0;
+
+const STALE_THRESHOLD_MS = 10 * 60 * 1000;
+const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
+
+function fmtTime(date: Date): string {
+	return `${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}`;
+}
 
 export default async function SchedulePage() {
 	const t = await getTranslations("dashboard.schedule");
@@ -25,15 +33,70 @@ export default async function SchedulePage() {
 	const energyDevice = await prisma.energyDevice.findFirst({
 		where: { pondId: pond.id },
 		orderBy: { createdAt: "asc" },
+		select: { id: true, lastSeenAt: true },
 	});
 
-	// Helper to format Prisma DateTime to a readable time (HH:MM AM/PM)
-	const formatTime = (date: Date) => {
-		return new Intl.DateTimeFormat("en-US", {
-			hour: "numeric",
-			minute: "2-digit",
-			hour12: true,
-		}).format(date);
+	if (!energyDevice) {
+		return (
+			<div className="flex h-[50vh] items-center justify-center">
+				<p className="text-lg text-gray-500">{t("noPondData")}</p>
+			</div>
+		);
+	}
+
+	const [latestAppliedCommand, pendingCommands, stuckFeedRequests, stuckScheduleCommands] =
+		await Promise.all([
+			prisma.scheduleCommand.findFirst({
+				where: { deviceId: energyDevice.id, status: "applied" },
+				orderBy: { appliedAt: "desc" },
+			}),
+			prisma.scheduleCommand.findMany({
+				where: { deviceId: energyDevice.id, status: { in: ["pending", "sent"] } },
+				orderBy: { createdAt: "desc" },
+				take: 1,
+			}),
+			// Stuck dispatched feed requests — picked up by device but never confirmed
+			prisma.feedRequest.findMany({
+				where: {
+					deviceId: energyDevice.id,
+					status: "dispatched",
+					updatedAt: { lt: new Date(Date.now() - STALE_THRESHOLD_MS) },
+				},
+				orderBy: { createdAt: "asc" },
+				take: 10,
+				select: { id: true, grams: true, createdAt: true },
+			}),
+			// Stuck sent schedule commands — picked up by device but never acked
+			prisma.scheduleCommand.findMany({
+				where: {
+					deviceId: energyDevice.id,
+					status: "sent",
+					updatedAt: { lt: new Date(Date.now() - STALE_THRESHOLD_MS) },
+				},
+				orderBy: { createdAt: "asc" },
+				take: 5,
+				select: { id: true, createdAt: true },
+			}),
+		]);
+
+	const pendingCommand = pendingCommands.length > 0 ? pendingCommands[0] : null;
+
+	const deviceOffline =
+		!energyDevice.lastSeenAt ||
+		Date.now() - energyDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+
+	const serializeCommand = (cmd: typeof latestAppliedCommand) => {
+		if (!cmd) return null;
+		return {
+			id: cmd.id,
+			status: cmd.status,
+			scheduleStart: fmtTime(cmd.scheduleStart),
+			scheduleEnd: fmtTime(cmd.scheduleEnd),
+			feedsPerDay: cmd.feedsPerDay,
+			feedingRatePct: cmd.feedingRatePct,
+			appliedAt: cmd.appliedAt?.toISOString() ?? null,
+			deviceTime: cmd.deviceTime,
+		};
 	};
 
 	return (
@@ -43,59 +106,38 @@ export default async function SchedulePage() {
 				<p className="mt-2 text-gray-700">{t("desc")}</p>
 			</div>
 
-			{/* Interactive Controls (Client Component) */}
-			<ScheduleControls
-				deviceId={energyDevice?.id ?? device.id}
-				initialIsPaused={device.isPaused}
+			<StuckRequestBanner
+				stuckFeedRequests={stuckFeedRequests.map((r) => ({
+					id: r.id,
+					grams: r.grams,
+					createdAt: r.createdAt.toISOString(),
+				}))}
+				stuckScheduleCommands={stuckScheduleCommands.map((c) => ({
+					id: c.id,
+					createdAt: c.createdAt.toISOString(),
+				}))}
+				deviceOffline={deviceOffline}
+				deviceLastSeenAt={energyDevice.lastSeenAt?.toISOString() ?? null}
+				deviceId={energyDevice.id}
+				pondId={pond.id}
+				scheduleStart={fmtTime(pond.scheduleStart)}
+				scheduleEnd={fmtTime(pond.scheduleEnd)}
+				feedsPerDay={pond.feedsPerDay}
+				feedingRatePct={pond.feedingRatePct}
 			/>
 
-			{/* Read-Only Schedule Details */}
-			<div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-				<div className="border-b border-gray-100 bg-gray-50/50 px-6 py-4">
-					<h3 className="font-semibold text-gray-900">{t("configTitle")}</h3>
-				</div>
-				<div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-					{/* Active Window */}
-					<div className="flex items-start gap-4">
-						<div className="bg-blue-50 p-3 rounded-lg text-blue-600">
-							<Clock size={24} />
-						</div>
-						<div>
-							<p className="text-sm text-gray-500 font-medium mb-1">{t("activeWindow")}</p>
-							<p className="text-gray-900 font-semibold text-lg">
-								{formatTime(pond.scheduleStart)} - {formatTime(pond.scheduleEnd)}
-							</p>
-							<p className="text-xs text-gray-400 mt-1">{t("activeWindowDesc")}</p>
-						</div>
-					</div>
+			<ScheduleControls deviceId={energyDevice.id} initialIsPaused={device.isPaused} />
 
-					{/* Feeds Per Day */}
-					<div className="flex items-start gap-4">
-						<div className="bg-purple-50 p-3 rounded-lg text-purple-600">
-							<Calendar size={24} />
-						</div>
-						<div>
-							<p className="text-sm text-gray-500 font-medium mb-1">{t("frequency")}</p>
-							<p className="text-gray-900 font-semibold text-lg">
-								{t("timesPerDay", { count: pond.feedsPerDay })}
-							</p>
-							<p className="text-xs text-gray-400 mt-1">{t("frequencyDesc")}</p>
-						</div>
-					</div>
-
-					{/* Feeding Rate */}
-					<div className="flex items-start gap-4">
-						<div className="bg-emerald-50 p-3 rounded-lg text-emerald-600">
-							<Droplets size={24} />
-						</div>
-						<div>
-							<p className="text-sm text-gray-500 font-medium mb-1">{t("feedRateTitle")}</p>
-							<p className="text-gray-900 font-semibold text-lg">{pond.feedingRatePct}%</p>
-							<p className="text-xs text-gray-400 mt-1">{t("feedRateDesc")}</p>
-						</div>
-					</div>
-				</div>
-			</div>
+			<ScheduleEditor
+				pondId={pond.id}
+				deviceId={energyDevice.id}
+				initialStart={fmtTime(pond.scheduleStart)}
+				initialEnd={fmtTime(pond.scheduleEnd)}
+				initialFeedsPerDay={pond.feedsPerDay}
+				initialFeedingRatePct={pond.feedingRatePct}
+				pendingCommand={serializeCommand(pendingCommand)}
+				latestAppliedCommand={serializeCommand(latestAppliedCommand)}
+			/>
 		</div>
 	);
 }

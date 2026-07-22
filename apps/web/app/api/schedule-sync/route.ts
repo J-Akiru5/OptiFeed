@@ -21,7 +21,15 @@ export async function GET(request: Request) {
 
 	const device = await prisma.energyDevice.findUnique({
 		where: { token },
-		select: { id: true, mac: true, gramsPerFeeding: true, buttonFeedGrams: true, pondId: true },
+		select: {
+			id: true,
+			mac: true,
+			gramsPerFeeding: true,
+			buttonFeedGrams: true,
+			pondId: true,
+			hopperEmptyCm: true,
+			hopperFullCm: true,
+		},
 	});
 
 	if (!device || device.mac !== deviceId) {
@@ -38,6 +46,8 @@ export async function GET(request: Request) {
 			feeding_rate_pct: null,
 			grams_per_feeding: device.gramsPerFeeding,
 			button_feed_grams: device.buttonFeedGrams,
+			hopper_empty_cm: device.hopperEmptyCm,
+			hopper_full_cm: device.hopperFullCm,
 		});
 	}
 
@@ -81,6 +91,8 @@ export async function GET(request: Request) {
 			feeding_rate_pct: pendingCommand.feedingRatePct,
 			grams_per_feeding: device.gramsPerFeeding,
 			button_feed_grams: device.buttonFeedGrams,
+			hopper_empty_cm: device.hopperEmptyCm,
+			hopper_full_cm: device.hopperFullCm,
 		});
 	}
 
@@ -100,6 +112,8 @@ export async function GET(request: Request) {
 			feeding_rate_pct: pond.feedingRatePct,
 			grams_per_feeding: device.gramsPerFeeding,
 			button_feed_grams: device.buttonFeedGrams,
+			hopper_empty_cm: device.hopperEmptyCm,
+			hopper_full_cm: device.hopperFullCm,
 		});
 	}
 
@@ -112,5 +126,7 @@ export async function GET(request: Request) {
 		feeding_rate_pct: null,
 		grams_per_feeding: device.gramsPerFeeding,
 		button_feed_grams: device.buttonFeedGrams,
+		hopper_empty_cm: device.hopperEmptyCm,
+		hopper_full_cm: device.hopperFullCm,
 	});
 }

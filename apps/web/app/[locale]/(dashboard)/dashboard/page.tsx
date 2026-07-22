@@ -1,4 +1,5 @@
 import { EnergyControllerCard } from "@/components/EnergyControllerCard";
+import { FeedLevelCard } from "@/components/FeedLevelCard";
 import { FeedNowButton } from "@/components/FeedNowButton";
 import { Link } from "@/i18n/routing";
 import { formatDateTimeLocal } from "@/lib/date-local";
@@ -41,6 +42,18 @@ export default async function DashboardHomePage() {
 	const energyDevice = await prisma.energyDevice.findFirst({
 		where: { pondId: pond.id },
 		orderBy: { createdAt: "asc" },
+		select: {
+			id: true,
+			mac: true,
+			label: true,
+			rtcOk: true,
+			feederActive: true,
+			gramsPerFeeding: true,
+			lastSeenAt: true,
+			feedLevelPercent: true,
+			feedLevelUpdatedAt: true,
+			hopperCapacityG: true,
+		},
 	});
 
 	// Fetch data
@@ -401,7 +414,14 @@ export default async function DashboardHomePage() {
 			</div>
 
 			{energyDevice && (
-				<section className="max-w-md">
+				<section className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
+					<FeedLevelCard
+						levelPercent={energyDevice.feedLevelPercent}
+						updatedAt={energyDevice.feedLevelUpdatedAt}
+						hopperCapacityG={energyDevice.hopperCapacityG}
+						gramsPerFeeding={energyDevice.gramsPerFeeding}
+						feedsPerDay={pond.feedsPerDay}
+					/>
 					<EnergyControllerCard
 						deviceId={energyDevice.id}
 						label={energyDevice.label}

@@ -61,6 +61,27 @@ export async function requestFeed(deviceId: string, grams?: number) {
 	}
 }
 
+export async function saveHopperCalibration(
+	deviceId: string,
+	data: { hopperFullCm: number; hopperEmptyCm: number; hopperCapacityG: number },
+) {
+	try {
+		await prisma.energyDevice.update({
+			where: { id: deviceId },
+			data: {
+				hopperFullCm: data.hopperFullCm,
+				hopperEmptyCm: data.hopperEmptyCm,
+				hopperCapacityG: data.hopperCapacityG,
+			},
+		});
+		revalidatePath("/[locale]/(dashboard)/dashboard/app-settings", "page");
+		return { success: true };
+	} catch (error) {
+		console.error("Failed to save hopper calibration:", error);
+		return { success: false, error: "Failed to save hopper calibration" };
+	}
+}
+
 export async function registerEnergyDevice(
 	mac: string,
 	label: string,

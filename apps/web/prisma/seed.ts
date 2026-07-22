@@ -6,8 +6,11 @@ async function main() {
 	console.log("Seeding database...");
 
 	// Clean up existing data to ensure idempotent seeding
+	await prisma.feedLevelLog.deleteMany();
 	await prisma.feedRequest.deleteMany();
 	await prisma.feedEvent.deleteMany();
+	await prisma.deviceStateEvent.deleteMany();
+	await prisma.scheduleCommand.deleteMany();
 	await prisma.energyDevice.deleteMany();
 	await prisma.notification.deleteMany();
 	await prisma.fcrReport.deleteMany();
@@ -40,7 +43,7 @@ async function main() {
 	});
 
 	// 2b. Create ESP32 Energy Controller (linked to the demo pond)
-	await prisma.energyDevice.create({
+	const energyDevice = await prisma.energyDevice.create({
 		data: {
 			mac: "A4:CF:12:7E:3B:09",
 			token: "esp32-tok-cict-001",
@@ -50,11 +53,33 @@ async function main() {
 			feederActive: false,
 			gramsPerFeeding: 150,
 			lastSeenAt: new Date(),
+			feedLevelPercent: 82,
+			feedLevelCm: 9.5,
+			feedLevelUpdatedAt: new Date(),
+			hopperFullCm: 5,
+			hopperEmptyCm: 30,
+			hopperCapacityG: 7000,
 		},
 	});
 
 	// 3. Create Biomass Logs (4 entries over the last month)
 	const now = new Date();
+
+	// 3a. Create FeedLevelLog history (10 entries over 2 weeks showing gradual decline)
+	for (let i = 10; i >= 1; i--) {
+		const recordedAt = new Date(now.getTime() - i * 1.5 * 24 * 60 * 60 * 1000);
+		const levelPercent = 95 - (10 - i) * 1.5;
+		const distanceCm = 5 + (10 - i) * 2;
+		await prisma.feedLevelLog.create({
+			data: {
+				deviceId: energyDevice.id,
+				levelPercent,
+				distanceCm,
+				recordedAt,
+			},
+		});
+	}
+
 	const logs = [];
 	for (let i = 4; i >= 1; i--) {
 		const recordedAt = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000); // 4, 3, 2, 1 weeks ago

@@ -46,6 +46,8 @@
 #define BUTTON_PIN      27          // pick any free GPIO; wired to GND via INPUT_PULLUP
 #define RTC_SDA         21
 #define RTC_SCL         22
+#define TRIG_PIN        32          // HC-SR04 ultrasonic trigger
+#define ECHO_PIN        33          // HC-SR04 ultrasonic echo
 
 #define RELAY_ON        HIGH        // energizes coil, closes NO contacts -> dispensing
 #define RELAY_OFF       LOW         // rest state, contacts open -> not dispensing
@@ -105,6 +107,11 @@ String currentFeedRequestId = "";
 
 float cachedScheduledGrams = DEFAULT_SCHEDULED_GRAMS;
 float cachedButtonFeedGrams = DEFAULT_BUTTON_FEED_GRAMS;  // mutable — set from backend poll
+
+// Feed hopper calibration (linear conversion for cylindrical 10L bottle)
+float hopperEmptyCm = 30.0;   // sensor distance when hopper is empty — overridden by backend
+float hopperFullCm  = 5.0;    // sensor distance when hopper is full — overridden by backend
+
 unsigned long lastPoll = 0;
 
 // WiFi maintenance
@@ -135,6 +142,10 @@ void setup() {
   feederActive = false;
 
   pinMode(BUTTON_PIN, INPUT_PULLUP);    // press pulls LOW
+
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  digitalWrite(TRIG_PIN, LOW);
 
   for (int i = 0; i < EVENT_QUEUE_SIZE; i++) eventQueue[i].used = false;
 
@@ -258,6 +269,15 @@ void pollDashboardFeedCommand() {
           cachedButtonFeedGrams = bfg;
         }
       }
+      // Hopper calibration — overrides compile-time defaults
+      if (doc.containsKey("hopper_full_cm")) {
+        float hf = doc["hopper_full_cm"];
+        if (hf > 0) hopperFullCm = hf;
+      }
+      if (doc.containsKey("hopper_empty_cm")) {
+        float he = doc["hopper_empty_cm"];
+        if (he > 0) hopperEmptyCm = he;
+      }
       bool requested = doc["feed_requested"] | false;
       if (requested) {
         float grams = doc["grams"] | DEFAULT_MANUAL_GRAMS;
@@ -370,6 +390,40 @@ void handleButton() {
   }
 }
 
+// ==================== Feed level monitoring (HC-SR04) ====================
+
+float readFeedLevelPercent() {
+  // Take 3 readings, return median, then linear convert to percent
+  float readings[3];
+  for (int i = 0; i < 3; i++) {
+    digitalWrite(TRIG_PIN, LOW);
+    delayMicroseconds(2);
+    digitalWrite(TRIG_PIN, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TRIG_PIN, LOW);
+    long duration = pulseIn(ECHO_PIN, HIGH, 30000); // 30ms timeout ~5m max range
+    readings[i] = (duration == 0) ? -1 : duration * 0.034 / 2;
+    delay(10);
+  }
+
+  // Bubble-sort 3 elements for median
+  for (int i = 0; i < 2; i++) {
+    for (int j = 0; j < 2 - i; j++) {
+      if (readings[j] > readings[j + 1]) {
+        float tmp = readings[j];
+        readings[j] = readings[j + 1];
+        readings[j + 1] = tmp;
+      }
+    }
+  }
+
+  float distance = readings[1]; // median
+  if (distance < 0 || distance >= hopperEmptyCm) return 0;
+  if (distance <= hopperFullCm) return 100;
+  // Linear interpolation for cylindrical bottle
+  return ((hopperEmptyCm - distance) / (hopperEmptyCm - hopperFullCm)) * 100.0;
+}
+
 // ==================== Telemetry + offline event queue ====================
 
 void enqueueEvent(float grams, const char* source, const String &requestId) {
@@ -430,13 +484,39 @@ void sendTelemetry() {
   https.addHeader("X-Device-Token", DEVICE_TOKEN);
 
   String eventId = generateEventId();
-  StaticJsonDocument<192> doc;
-  doc["device_id"]     = DEVICE_MAC;
-  doc["event_type"]    = "heartbeat";
-  doc["event_id"]      = eventId;
-  doc["timestamp"]     = rtcAvailable ? getRTCiso8601() : "unknown";
-  doc["rtc_ok"]        = rtcAvailable;
-  doc["feeder_active"] = feederActive;
+  StaticJsonDocument<256> doc;
+  doc["device_id"]         = DEVICE_MAC;
+  doc["event_type"]        = "heartbeat";
+  doc["event_id"]          = eventId;
+  doc["timestamp"]         = rtcAvailable ? getRTCiso8601() : "unknown";
+  doc["rtc_ok"]            = rtcAvailable;
+  doc["feeder_active"]     = feederActive;
+  doc["feed_level_percent"] = readFeedLevelPercent();
+  doc["feed_level_cm"]     = 0; // filled below with actual median distance
+
+  // Re-read for the cm value (minimal overhead — 3 reads already cached by readFeedLevelPercent)
+  float readings[3];
+  for (int i = 0; i < 3; i++) {
+    digitalWrite(TRIG_PIN, LOW);
+    delayMicroseconds(2);
+    digitalWrite(TRIG_PIN, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TRIG_PIN, LOW);
+    long duration = pulseIn(ECHO_PIN, HIGH, 30000);
+    readings[i] = (duration == 0) ? -1 : duration * 0.034 / 2;
+    delay(10);
+  }
+  for (int i = 0; i < 2; i++) {
+    for (int j = 0; j < 2 - i; j++) {
+      if (readings[j] > readings[j + 1]) {
+        float tmp = readings[j];
+        readings[j] = readings[j + 1];
+        readings[j + 1] = tmp;
+      }
+    }
+  }
+  doc["feed_level_cm"] = readings[1] >= 0 ? readings[1] : 0;
+
   String out;
   serializeJson(doc, out);
 

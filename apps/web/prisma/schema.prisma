@@ -87,6 +87,19 @@ model FcrReport {
   pond Pond @relation(fields: [pondId], references: [id])
 }
 
+// Historical feed level readings for trend charts on /growth and /history.
+// Mirrors the shape of BiomassLog. Logged sparingly to avoid bloat.
+model FeedLevelLog {
+  id           String       @id @default(cuid())
+  deviceId     String
+  device       EnergyDevice @relation(fields: [deviceId], references: [id])
+  levelPercent Float
+  distanceCm   Float
+  recordedAt   DateTime     @default(now())
+
+  @@index([deviceId, recordedAt])
+}
+
 model Notification {
   id              String    @id @default(cuid())
   pondId          String
@@ -116,11 +129,22 @@ model EnergyDevice {
   lastSeenAt       DateTime?
   createdAt        DateTime  @default(now())
 
+  // Feed level monitoring (HC-SR04 ultrasonic)
+  feedLevelPercent   Float?    // 0-100, null until first reading arrives
+  feedLevelCm        Float?    // raw ultrasonic distance, kept for debugging/recalibration
+  feedLevelUpdatedAt DateTime? // last time a reading was ingested
+
+  // Per-device calibration
+  hopperEmptyCm      Float?    // sensor distance when hopper is empty (~30cm for 10L bottle)
+  hopperFullCm       Float?    // sensor distance when hopper is full (~5cm)
+  hopperCapacityG    Float?    // total hopper capacity in grams (e.g. 7000 for 10L)
+
   pond            Pond?             @relation(fields: [pondId], references: [id])
   feedEvents      FeedEvent[]
   feedRequests    FeedRequest[]
   stateEvents     DeviceStateEvent[]
   scheduleCommands ScheduleCommand[]
+  feedLevelLogs   FeedLevelLog[]
 }
 
 model FeedEvent {

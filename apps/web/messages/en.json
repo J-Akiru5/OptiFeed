@@ -138,7 +138,9 @@
 			"populationValue": "{count} Catfish",
 			"populationStable": "Stable stocked quantity",
 			"feedingLogsTitle": "FEEDING LOGS — WESTERN VISAYAS HUB",
-			"feedingLogsDesc": "Auditable chronological logs fetched from your automatic dispenser."
+			"feedingLogsDesc": "Auditable chronological logs fetched from your automatic dispenser.",
+			"feedLevelLabel": "Feed Level",
+			"daysRemaining": "~{count}d of feed remaining"
 		},
 		"schedule": {
 			"title": "Feeding Schedule",
@@ -214,7 +216,9 @@
 			"eventLog": "Event Log (Last 50)",
 			"successDispense": "Successfully dispensed feed",
 			"offlineEmpty": "Feeder was offline or empty",
-			"noEvents": "No feeding events found."
+			"noEvents": "No feeding events found.",
+			"feedLevel": "Feed Level",
+			"feedLevelDesc": "Current hopper fill level from ultrasonic sensor"
 		},
 		"feedNowModal": {
 			"triggerTitle": "Trigger Manual Feeding?",
@@ -240,12 +244,18 @@
 			"currentFcr": "Current FCR",
 			"trendingDown": "Trending downwards",
 			"historyTitle": "Biomass Sample History",
+			"feedLevelTitle": "Feed Level Trend",
+			"feedLevelDesc": "Hopper fill level over time",
+			"feedLevelTableTitle": "Feed Level History",
 			"dateCol": "Date",
 			"totalWeightCol": "Total Weight",
 			"fishCountCol": "Fish Count",
 			"avgLengthCol": "Avg Length",
 			"abwCol": "ABW (g)",
-			"noSamples": "No biomass samples recorded yet."
+			"feedLevelCol": "Level %",
+			"distanceCol": "Distance (cm)",
+			"noSamples": "No biomass samples recorded yet.",
+			"noFeedLevel": "No feed level readings recorded yet."
 		},
 		"settings": {
 			"title": "Settings",
@@ -304,6 +314,16 @@
 			"wifiPassword": "WiFi Password",
 			"serverUrl": "Server WebSocket URL",
 			"saveNetwork": "Save Network Settings",
+			"hopperCalibration": "Hopper Calibration",
+			"hopperCalibrationDesc": "Set the ultrasonic sensor distances for your hopper. Used to calculate feed level percent and days-remaining estimates.",
+			"hopperFullCm": "Full Distance (cm)",
+			"hopperFullCmDesc": "Sensor reading when hopper is full",
+			"hopperEmptyCm": "Empty Distance (cm)",
+			"hopperEmptyCmDesc": "Sensor reading when hopper is empty",
+			"hopperCapacityG": "Hopper Capacity (grams)",
+			"hopperCapacityGDesc": "Total feed weight the hopper can hold",
+			"saveCalibration": "Save Calibration",
+			"calibrationSaved": "Calibration saved!",
 			"deviceActions": "Device Actions",
 			"deviceActionsDesc": "Perform maintenance actions on your device.",
 			"syncNow": "Sync Now",

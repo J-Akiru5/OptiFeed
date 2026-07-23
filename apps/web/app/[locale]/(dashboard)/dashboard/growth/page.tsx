@@ -1,6 +1,6 @@
 import { formatDateTimeLocal } from "@/lib/date-local";
 import prisma from "@/lib/prisma";
-import { Activity, Fish, Scale, TrendingUp } from "lucide-react";
+import { Activity, Fish, Package, Scale, TrendingUp } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0;
@@ -31,6 +31,21 @@ export default async function GrowthPage() {
 		orderBy: { periodEnd: "asc" },
 	});
 
+	const energyDevice = await prisma.energyDevice.findFirst({
+		where: { pondId: pond.id },
+		orderBy: { createdAt: "asc" },
+		select: { id: true },
+	});
+
+	let feedLevelLogs: Awaited<ReturnType<typeof prisma.feedLevelLog.findMany>> = [];
+	if (energyDevice) {
+		feedLevelLogs = await prisma.feedLevelLog.findMany({
+			where: { deviceId: energyDevice.id },
+			orderBy: { recordedAt: "asc" },
+			take: 30,
+		});
+	}
+
 	const latestFcr = fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : 0;
 	const latestBiomass =
 		biomassLogs.length > 0 ? biomassLogs[biomassLogs.length - 1].avgWeightKg : 0;
@@ -53,6 +68,22 @@ export default async function GrowthPage() {
 		const points = biomassLogs.map((log, i) => {
 			const x = (i / (biomassLogs.length - 1)) * w;
 			const y = h - ((log.avgWeightKg - minBiomass) / (maxBiomass - minBiomass)) * h;
+			return `${x},${y}`;
+		});
+		return `M ${points.join(" L ")}`;
+	};
+
+	// Feed level sparkline
+	const maxLevel = Math.max(...feedLevelLogs.map((l) => l.levelPercent), 50);
+	const minLevel = Math.min(...feedLevelLogs.map((l) => l.levelPercent), 0);
+
+	const generateFeedLevelPath = () => {
+		if (feedLevelLogs.length < 2) return "";
+		const w = 400;
+		const h = 100;
+		const points = feedLevelLogs.map((log, i) => {
+			const x = (i / (feedLevelLogs.length - 1)) * w;
+			const y = h - ((log.levelPercent - minLevel) / (maxLevel - minLevel)) * h;
 			return `${x},${y}`;
 		});
 		return `M ${points.join(" L ")}`;
@@ -207,6 +238,109 @@ export default async function GrowthPage() {
 					</div>
 				</div>
 			</div>
+
+			{/* Feed Level Trend Card */}
+			{feedLevelLogs.length > 0 && (
+				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+					<div className="flex items-center justify-between mb-4">
+						<div>
+							<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+								{t("feedLevelTitle")}
+							</p>
+							<p className="text-xs text-gray-400 mt-0.5">{t("feedLevelDesc")}</p>
+						</div>
+						<Package className="h-6 w-6 text-orange-500" />
+					</div>
+					<div className="h-24 w-full relative">
+						<svg
+							viewBox="0 0 400 100"
+							preserveAspectRatio="none"
+							className="h-full w-full overflow-visible"
+							role="img"
+							aria-label="Feed Level Trend"
+						>
+							<defs>
+								<linearGradient id="feedLevelGrad" x1="0" y1="0" x2="0" y2="1">
+									<stop offset="0%" stopColor="#f97316" stopOpacity="0.2" />
+									<stop offset="100%" stopColor="#f97316" stopOpacity="0" />
+								</linearGradient>
+							</defs>
+							<path
+								d={`${generateFeedLevelPath()} L 400,100 L 0,100 Z`}
+								fill="url(#feedLevelGrad)"
+							/>
+							<path
+								d={generateFeedLevelPath()}
+								fill="none"
+								stroke="#f97316"
+								strokeWidth="4"
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								className="drop-shadow-md"
+							/>
+							{feedLevelLogs.length >= 2 &&
+								feedLevelLogs.map((log, i) => {
+									const x = (i / (feedLevelLogs.length - 1)) * 400;
+									const y = 100 - ((log.levelPercent - minLevel) / (maxLevel - minLevel)) * 100;
+									return (
+										<circle
+											key={log.id}
+											cx={x}
+											cy={y}
+											r="5"
+											fill="white"
+											stroke="#f97316"
+											strokeWidth="3"
+										/>
+									);
+								})}
+						</svg>
+					</div>
+				</div>
+			)}
+
+			{/* Feed Level Log Table */}
+			{feedLevelLogs.length > 0 && (
+				<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+					<div className="p-6 border-b border-gray-100 bg-gray-50/50">
+						<h3 className="font-bold text-gray-800">{t("feedLevelTableTitle")}</h3>
+					</div>
+					<div className="overflow-x-auto">
+						<table className="w-full text-left text-sm text-gray-600">
+							<thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
+								<tr>
+									<th className="px-6 py-4">{t("dateCol")}</th>
+									<th className="px-6 py-4">{t("feedLevelCol")}</th>
+									<th className="px-6 py-4">{t("distanceCol")}</th>
+								</tr>
+							</thead>
+							<tbody className="divide-y divide-gray-100">
+								{[...feedLevelLogs].reverse().map((log) => (
+									<tr key={log.id} className="hover:bg-gray-50 transition-colors">
+										<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+											{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+										</td>
+										<td className="px-6 py-4">
+											<span
+												className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+													log.levelPercent <= 5
+														? "bg-red-100 text-red-700"
+														: log.levelPercent <= 20
+															? "bg-amber-100 text-amber-700"
+															: "bg-green-100 text-green-700"
+												}`}
+											>
+												{Math.round(log.levelPercent)}%
+											</span>
+										</td>
+										<td className="px-6 py-4 font-mono">{log.distanceCm.toFixed(1)} cm</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			)}
 
 			{/* Biomass Log Table */}
 			<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mt-8">

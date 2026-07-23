@@ -5,7 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.10.0] - 2026-07-22
+
+### Added
+- **Feed Level Monitoring (HC-SR04 Ultrasonic Sensor)**
+  - Added `FeedLevelLog` model and 6 new fields to `EnergyDevice` (`feedLevelPercent`, `feedLevelCm`, `feedLevelUpdatedAt`, `hopperEmptyCm`, `hopperFullCm`, `hopperCapacityG`) for hopper level tracking.
+  - Extended ESP32 firmware with HC-SR04 support: median-of-3 ultrasonic readings, linear distance-to-level conversion for cylindrical 10L bottle, and piggyback on existing heartbeat payload.
+  - Extended `POST /api/ingest` heartbeat handler to ingest `feed_level_percent` and `feed_level_cm`, update `EnergyDevice`, log to `FeedLevelLog` (30-min or >5% delta), and create tiered notifications (≤5% CRITICAL, ≤20% WARNING, ≤2 days remaining WARNING) reusing the "pellet" category.
+  - Extended `GET /api/feed-command` and `GET /api/schedule-sync` to return `hopper_empty_cm` and `hopper_full_cm` calibration values — ESP32 receives dynamic calibration on every poll cycle.
+  - Added `FeedLevelCard` dashboard component showing level percent, color-coded progress bar, days-remaining estimate, and last-updated timestamp.
+  - Added `HopperCalibrationForm` client component and `saveHopperCalibration()` server action for per-device empty/full distance and capacity settings in App & Hardware Settings.
+  - Added feed level trend sparkline (SVG) and history table to Growth & FCR page.
+  - Added feed level stat card to History page (3-column grid).
+  - Added i18n strings (English + Hiligaynon) for all new feed level UI.
+  - Updated seed data with `EnergyDevice` calibration values and 10 historical `FeedLevelLog` entries showing gradual decline from 95% to 82%.
+
+### Changed
+- Dashboard home renders `FeedLevelCard` alongside `EnergyControllerCard` in a 2-column grid.
+- `EnergyDevice` Prisma query on dashboard home, history, growth, and app-settings pages now selects feed level fields.
+- App-settings page fetches `EnergyDevice` alongside legacy `Device` for calibration form.
+- History page grid expanded from 2-col to 3-col to accommodate feed level stat card.
 
 ## [1.9.0] - 2026-07-12
 

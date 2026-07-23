@@ -1,6 +1,6 @@
 import { formatDateTimeLocal } from "@/lib/date-local";
 import prisma from "@/lib/prisma";
-import { CalendarDays, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock, Package, XCircle } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0;
@@ -23,6 +23,18 @@ export default async function HistoryPage() {
 	}
 
 	const device = pond.devices[0];
+
+	// Fetch energy device for feed level
+	const energyDevice = await prisma.energyDevice.findFirst({
+		where: { pondId: pond.id },
+		orderBy: { createdAt: "asc" },
+		select: {
+			feedLevelPercent: true,
+			feedLevelUpdatedAt: true,
+			hopperCapacityG: true,
+			gramsPerFeeding: true,
+		},
+	});
 
 	// Get recent feeding events
 	const events = await prisma.feedingEvent.findMany({
@@ -54,7 +66,7 @@ export default async function HistoryPage() {
 				<p className="text-gray-500 mt-1">{t("desc", { pond: pond.name })}</p>
 			</header>
 
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
 					<div className="h-14 w-14 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center">
 						<CheckCircle2 className="h-7 w-7" />
@@ -82,6 +94,23 @@ export default async function HistoryPage() {
 							{missedCount}{" "}
 							<span className="text-base text-gray-400 font-medium">{t("events")}</span>
 						</p>
+					</div>
+				</div>
+				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
+					<div className="h-14 w-14 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center">
+						<Package className="h-7 w-7" />
+					</div>
+					<div>
+						<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+							{t("feedLevel")}
+						</p>
+						<p className="text-2xl font-extrabold text-[var(--ofd-base-deep)]">
+							{energyDevice?.feedLevelPercent !== null &&
+							energyDevice?.feedLevelPercent !== undefined
+								? `${Math.round(energyDevice.feedLevelPercent)}%`
+								: "—"}
+						</p>
+						<p className="text-xs text-gray-400 mt-0.5">{t("feedLevelDesc")}</p>
 					</div>
 				</div>
 			</div>

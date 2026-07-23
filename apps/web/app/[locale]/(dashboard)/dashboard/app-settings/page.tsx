@@ -1,11 +1,13 @@
+import { HopperCalibrationForm } from "@/components/HopperCalibrationForm";
 import prisma from "@/lib/prisma";
-import { Cpu, RefreshCw, Settings, Wifi } from "lucide-react";
+import { Cpu, RefreshCw, Ruler, Settings, Wifi } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export default async function AppSettingsPage() {
 	const t = await getTranslations("dashboard.appSettings");
 
 	let device = null;
+	let energyDevice = null;
 	try {
 		const pond = await prisma.pond.findFirst({
 			where: { ownerId: "demo-farmer-1" },
@@ -13,6 +15,19 @@ export default async function AppSettingsPage() {
 		});
 		if (pond && pond.devices.length > 0) {
 			device = pond.devices[0];
+		}
+		if (pond) {
+			energyDevice = await prisma.energyDevice.findFirst({
+				where: { pondId: pond.id },
+				orderBy: { createdAt: "asc" },
+				select: {
+					id: true,
+					feedLevelPercent: true,
+					hopperFullCm: true,
+					hopperEmptyCm: true,
+					hopperCapacityG: true,
+				},
+			});
 		}
 	} catch (err) {
 		console.error("[AppSettingsPage] Prisma error:", err);
@@ -126,6 +141,32 @@ export default async function AppSettingsPage() {
 						</button>
 					</div>
 				</section>
+
+				{/* Hopper Calibration */}
+				{energyDevice && (
+					<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+						<div className="mb-6 border-b border-gray-100 pb-4">
+							<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800">
+								<Ruler size={20} />
+								{t("hopperCalibration")}
+							</h2>
+							<p className="mt-1 text-sm text-gray-500">{t("hopperCalibrationDesc")}</p>
+						</div>
+
+						<div className="mb-4 rounded-xl bg-blue-50 border border-blue-200 p-3">
+							<p className="text-xs text-blue-700 font-medium">
+								Current level: <strong>{energyDevice.feedLevelPercent ?? "—"}%</strong>
+							</p>
+						</div>
+
+						<HopperCalibrationForm
+							deviceId={energyDevice.id}
+							hopperFullCm={energyDevice.hopperFullCm}
+							hopperEmptyCm={energyDevice.hopperEmptyCm}
+							hopperCapacityG={energyDevice.hopperCapacityG}
+						/>
+					</section>
+				)}
 
 				{/* Device Actions */}
 				<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">

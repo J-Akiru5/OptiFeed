@@ -1,0 +1,259 @@
+# ESP32 Energy Controller — Integration Plan
+
+## Background
+
+The project has two components that need to be merged:
+
+1. **OptiFeed** (`apps/web`) — an aquaculture feed management Next.js app using Prisma + Supabase, handling fish ponds, FCR, biomass, feeding schedules.
+2. **`energy-monitoring-model.html`** — a standalone interactive reference document describing an ESP32-WROOM-32U acting as a 3-phase energy monitor for CICT ISUFST, using three PZEM-004T v3.0 sensors, a DS3231 RTC, and a relay on GPIO 25.
+
+**Decisions confirmed by user:**
+- The ESP32 replaces the existing feeder device concept — it becomes the unified OptiFeed controller (energy monitoring + relay = feeding trigger).
+- **PZEM-004T integration is removed** — only the ESP32 relay (GPIO 25) and the energy/relay state telemetry pipeline are built. No per-phase voltage/current/kWh readings are needed.
+- Ingest is a Next.js API route (`/api/ingest`) with Zod validation + `X-Device-Token` auth.
+- Relay commands flow: Dashboard → WebSocket (browser → ESP32 direct WS endpoint).
+- New Prisma models: `EnergyDevice` and `EnergyReading`.
+
+---
+
+## Firmware Audit Results
+
+### Hardware Pinout — Confirmed Changes
+
+> [!IMPORTANT]
+> User confirmed: **PZEM integration is completely removed.** All UART pins for PZEM are freed.
+
+| Pin | HTML Model Usage | Post-Audit Usage |
+|-----|-----------------|------------------|
+| GPIO 16 | PZEM-A RX (UART2) | **Freed — unused** |
+| GPIO 17 | PZEM-A TX (UART2) | **Freed — unused** |
+| GPIO 5 | PZEM-B RX (UART1) | **Freed — unused** |
+| GPIO 4 | PZEM-B TX (UART1) | **Freed — unused** |
+| GPIO 18 | PZEM-C RX (SoftSerial/UART0) ⚠️ | **Freed — unused** |
+| GPIO 19 | PZEM-C TX (SoftSerial/UART0) ⚠️ | **Freed — unused** |
+| GPIO 21 | DS3231 SDA (I²C) | **Retained — RTC** |
+| GPIO 22 | DS3231 SCL (I²C) | **Retained — RTC** |
+| GPIO 25 | Relay OUT (Active HIGH) | **Retained — Load relay** |
+| GPIO 1 | TX0 (USB debug UART) | **Retained for debug** |
+| GPIO 3 | RX0 (USB debug UART) | **Retained for debug** |
+
+> [!WARNING]
+> The original model used GPIO 18/19 for PZEM-C via SoftSerial sharing UART0. This would have **conflicted** with USB debug serial on GPIO 1/3 during flash/reset cycles. Since PZEM is now removed, this conflict is eliminated entirely.
+
+> [!NOTE]
+> GPIO 0 must still float during boot (boot mode). GPIO 25 relay init must be `HIGH` (CLOSED) at boot to maintain default feeding state.
+
+### Firmware Logic Retained (simplified)
+
+```cpp
+void setup() {
+  Serial.begin(115200);           // debug
+  Wire.begin(21, 22);             // DS3231 RTC
+  if (!rtc.begin()) halt("RTC not found");
+  pinMode(25, OUTPUT);
+  digitalWrite(25, HIGH);          // relay CLOSED at boot
+  connectWiFi();
+  syncNTP();
+  connectWebSocket();              // CMD_RELAY_ON / CMD_RELAY_OFF listener
+}
+
+void loop() {
+  // Every 5s: build minimal payload (device_id, ts, relay_state) → POST /api/ingest
+  if (millis() - lastPost >= 5000) {
+    String payload = buildPayload();   // no PZEM fields
+    sendTelemetry(payload);
+    lastPost = millis();
+  }
+  wsClient.loop();                   // process relay commands
+}
+```
+
+### Firmware Logic Removed
+- All `PZEM004Tv30` library calls and objects (`pzemA`, `pzemB`, `pzemC`)
+- All `Serial1.begin()` / `Serial2.begin()` / `pzemC.begin()` UART inits
+- `safetyCheck()` overvoltage/blackout trip (no sensor to read voltage from)
+- Phase voltage/current/watts/kWh/PF/frequency fields in JSON payload
+
+### Retained Firmware Functions
+| Function | Status |
+|----------|--------|
+| `setup()` boot sequence | ✅ Retained (stripped of PZEM init) |
+| `connectWiFi()` | ✅ Retained |
+| `syncNTP()` | ✅ Retained |
+| `connectWebSocket()` | ✅ Retained |
+| `onWsEvent()` relay handler | ✅ Retained |
+| `wsClient.enableHeartbeat(15000, 3000, 2)` | ✅ Retained |
+| `sendTelemetry()` HTTPS POST | ✅ Retained |
+| `buildPayload()` JSON builder | ✅ Retained (simplified) |
+| `getRTCiso8601()` timestamp | ✅ Retained |
+| `safetyCheck()` | ❌ Removed |
+| PZEM read loop | ❌ Removed |
+
+---
+
+## Open Questions
+
+> [!IMPORTANT]
+> The following items need confirmation before or during implementation:
+
+1. **WebSocket URL** — the ESP32 connects to a WS host on boot. Where should the WS server be hosted?
+   - Option A: The Next.js app hosts the WS server (requires a persistent server, Vercel Edge doesn't support long-lived WS without a paid addon).
+   - Option B: A lightweight standalone WS server (e.g. `ws` npm package on a VPS or Raspberry Pi).
+   - Option C: Supabase Realtime channel (ESP32 subscribes to Supabase Realtime via MQTT bridge or REST polling).
+   - **For the plan below, we assume a Supabase Realtime-backed relay: dashboard writes relay state → `relay_config` table → ESP32 polls `/api/relay-state` every 5s alongside telemetry POST.**
+
+2. **X-Device-Token value** — should we generate a random token per-device stored in `EnergyDevice.token`, or use a fixed shared secret for now?
+
+3. **Does the OptiFeed feeder device (Prisma `Device` model) need to be linked to `EnergyDevice`?** — e.g., `pondId` on `EnergyDevice` so energy data appears on the pond dashboard.
+
+---
+
+## Proposed Changes
+
+### 1. Database Schema
+
+#### [MODIFY] [schema.prisma](file:///c:/Users/Client/CApstone/OptiFeed/apps/web/prisma/schema.prisma)
+Add two new models:
+
+```prisma
+model EnergyDevice {
+  id          String   @id @default(cuid())
+  mac         String   @unique  // ESP32 MAC address (device_id)
+  token       String   @unique  // X-Device-Token
+  label       String            // e.g. "CICT Building A"
+  pondId      String?           // optional link to Pond
+  relayState  Boolean  @default(true)  // current commanded relay state
+  lastSeenAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  pond     Pond?          @relation(fields: [pondId], references: [id])
+  readings EnergyReading[]
+}
+
+model EnergyReading {
+  id           String   @id @default(cuid())
+  deviceId     String
+  timestamp    DateTime
+  relayState   Boolean
+  createdAt    DateTime @default(now())
+
+  device EnergyDevice @relation(fields: [deviceId], references: [id])
+
+  @@index([deviceId, timestamp])
+}
+```
+
+> [!NOTE]
+> `EnergyReading` stores only relay state + timestamp (no PZEM phase data) since PZEM is removed. The index on `(deviceId, timestamp)` keeps the 5s-interval telemetry queries fast.
+
+---
+
+### 2. API Ingest Route
+
+#### [NEW] [route.ts](file:///c:/Users/Client/CApstone/OptiFeed/apps/web/app/api/ingest/route.ts)
+
+A Next.js Route Handler:
+- `POST /api/ingest`
+- Auth: validates `X-Device-Token` header against `EnergyDevice.token` in DB
+- Zod schema validation of the minimal JSON payload:
+  ```json
+  {
+    "device_id": "A4:CF:12:7E:3B:09",
+    "timestamp": "2026-07-10T15:00:00+08:00",
+    "relay_state": true
+  }
+  ```
+- On success: upsert `EnergyDevice.lastSeenAt`, create `EnergyReading`, return `204 No Content`
+- Rate limit: 1 req/s per device (checked via `lastSeenAt`)
+- Errors: `401` for bad token, `429` for rate limit, `422` for Zod failure
+
+---
+
+### 3. Relay State API (for ESP32 polling)
+
+#### [NEW] [route.ts](file:///c:/Users/Client/CApstone/OptiFeed/apps/web/app/api/relay-state/route.ts)
+
+A simple `GET /api/relay-state?device_id=<MAC>` endpoint:
+- Validates `X-Device-Token` header
+- Returns `{ "relay_state": true }` (current commanded state from `EnergyDevice.relayState`)
+- The ESP32 polls this every 5s alongside its POST cycle as an alternative to raw WebSocket
+
+> [!NOTE]
+> This is a Supabase Realtime-free fallback. The ESP32's existing `wsLoop()` WebSocket code handles real-time relay commands when WS is available. The polling endpoint is a fallback / simpler bootstrap path.
+
+---
+
+### 4. Dashboard Controller Card
+
+#### [NEW] [EnergyControllerCard.tsx](file:///c:/Users/Client/CApstone/OptiFeed/apps/web/components/EnergyControllerCard.tsx)
+
+A new Client Component for the OptiFeed dashboard home page showing:
+- **Relay status** — live-updated badge (CLOSED / OPEN)
+- **Relay toggle button** — calls a Server Action that updates `EnergyDevice.relayState` in DB
+- **Last seen timestamp** — how recently the ESP32 checked in
+- **Device label** — configurable name (e.g. "CICT Building A Feeder")
+
+This card replaces the existing `device.connectivity` card on the dashboard home, or appears as a new section below it.
+
+#### [MODIFY] [dashboard/page.tsx](file:///c:/Users/Client/CApstone/OptiFeed/apps/web/app/%5Blocale%5D/%28dashboard%29/dashboard/page.tsx)
+Add `EnergyControllerCard` to the dashboard page, passing the `EnergyDevice` record fetched from Prisma.
+
+---
+
+### 5. Server Actions for Relay Control
+
+#### [NEW] [energy.ts](file:///c:/Users/Client/CApstone/OptiFeed/apps/web/lib/actions/energy.ts)
+
+```typescript
+"use server";
+export async function setRelayState(deviceId: string, state: boolean)
+export async function registerEnergyDevice(mac: string, label: string, pondId?: string): Promise<string> // returns token
+```
+
+- `setRelayState`: updates `EnergyDevice.relayState`, revalidates dashboard path
+- `registerEnergyDevice`: creates new `EnergyDevice` with a generated UUID token
+
+---
+
+### 6. Prisma Seed Update
+
+#### [MODIFY] [seed.ts](file:///c:/Users/Client/CApstone/OptiFeed/apps/web/prisma/seed.ts)
+Add a demo `EnergyDevice` with:
+- `mac: "A4:CF:12:7E:3B:09"`
+- `token: "esp32-tok-cict-001"` (matches the HTML model's demo token)
+- `label: "CICT Building A Feeder"`
+- `relayState: true`
+
+---
+
+### 7. Firmware Reference Document
+
+#### [NEW] [docs/firmware-main.ino.md](file:///c:/Users/Client/CApstone/OptiFeed/docs/firmware-main.ino.md)
+A Markdown document (suitable for Arduino IDE copy-paste) containing:
+- The audited, PZEM-stripped firmware
+- Corrected pinout table
+- Config constants placeholder block (`WIFI_SSID`, `WIFI_PASS`, `INGEST_URL`, `WS_HOST`, `WS_PORT`, `DEVICE_TOKEN`)
+
+---
+
+## Verification Plan
+
+### Automated Tests
+- `pnpm lint` — Biome lint must pass with zero errors
+- `pnpm typecheck` — TypeScript must compile clean across all packages
+
+### Manual Verification
+1. Run `pnpm prisma:migrate` — migration should apply cleanly
+2. Run `pnpm prisma:generate` — new Prisma client should include `EnergyDevice` and `EnergyReading`
+3. Run `pnpm -r run prisma:seed` — seed should create demo `EnergyDevice`
+4. Start dev server (`pnpm dev`) — dashboard page should render the `EnergyControllerCard`
+5. Simulate ESP32 POST:
+   ```bash
+   curl -X POST http://localhost:3000/api/ingest \
+     -H "Content-Type: application/json" \
+     -H "X-Device-Token: esp32-tok-cict-001" \
+     -d '{"device_id":"A4:CF:12:7E:3B:09","timestamp":"2026-07-10T15:00:00Z","relay_state":true}'
+   ```
+   → expect `204 No Content`
+6. Toggle relay in dashboard → DB `relayState` flips → `/api/relay-state` returns new value
+7. Check `EnergyReading` table has a row after the POST simulation

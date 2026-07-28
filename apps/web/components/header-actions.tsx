@@ -7,7 +7,30 @@ import { Globe, LogOut, Settings as SettingsIcon, UserRound, X } from "lucide-re
 import { useLocale } from "next-intl";
 import { useState } from "react";
 
-export function HeaderActions() {
+interface HeaderActionsProps {
+	pondName?: string;
+	lastSeenAt?: string | null;
+	esp32Status?: "online" | "offline" | "missing";
+}
+
+function formatRelativeTime(dateStr: string | null): string {
+	if (!dateStr) return "NEVER";
+	const date = new Date(dateStr);
+	const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+	if (seconds < 60) return "JUST NOW";
+	const minutes = Math.floor(seconds / 60);
+	if (minutes < 60) return `${minutes} ${minutes === 1 ? "MINUTE" : "MINUTES"} AGO`;
+	const hours = Math.floor(minutes / 60);
+	if (hours < 24) return `${hours} ${hours === 1 ? "HOUR" : "HOURS"} AGO`;
+	const days = Math.floor(hours / 24);
+	return `${days} ${days === 1 ? "DAY" : "DAYS"} AGO`;
+}
+
+export function HeaderActions({
+	pondName = "ILO-POND-01",
+	lastSeenAt = null,
+	esp32Status = "missing",
+}: HeaderActionsProps) {
 	const [showProfileMenu, setShowProfileMenu] = useState(false);
 	const router = useRouter();
 	const locale = useLocale();
@@ -20,9 +43,9 @@ export function HeaderActions() {
 	return (
 		<div className="flex items-center gap-2 md:gap-3 relative">
 			<div className="text-right hidden sm:block">
-				<p className="text-xs font-bold text-white">ILO-POND-01</p>
-				<p className="text-[10px] text-white/60 uppercase tracking-wider">
-					LAST SYNCED: 12 MINUTES AGO
+				<p className="text-xs font-bold text-white uppercase">{pondName}</p>
+				<p className="text-[10px] text-white/60 uppercase tracking-wider" suppressHydrationWarning>
+					LAST SYNCED: {formatRelativeTime(lastSeenAt)}
 				</p>
 			</div>
 
@@ -76,7 +99,9 @@ export function HeaderActions() {
 							<div>
 								<p className="text-base font-black">Juan Miguel</p>
 								<p className="text-xs font-bold text-[#3D5568]">Pond Operator</p>
-								<p className="mt-0.5 font-mono text-[11px] font-bold text-[#3D5568]">ILO-POND-01</p>
+								<p className="mt-0.5 font-mono text-[11px] font-bold text-[#3D5568] uppercase">
+									{pondName}
+								</p>
 							</div>
 						</div>
 						<button
@@ -96,7 +121,17 @@ export function HeaderActions() {
 						</div>
 						<div className="rounded-2xl bg-[#F4F7F6] p-3">
 							<p className="font-black uppercase tracking-wide text-[#3D5568]">Device</p>
-							<p className="mt-1 text-sm font-black text-[#1E7B34]">online</p>
+							<p
+								className={`mt-1 text-sm font-black uppercase ${
+									esp32Status === "online"
+										? "text-[#1E7B34]"
+										: esp32Status === "offline"
+											? "text-[#C42B3A]"
+											: "text-gray-500"
+								}`}
+							>
+								{esp32Status}
+							</p>
 						</div>
 					</div>
 

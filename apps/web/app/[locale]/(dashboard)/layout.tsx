@@ -17,6 +17,9 @@ export default async function DashboardLayout({
 	let pondId = "";
 	let initialUnreadCount = 0;
 	let hopperLevelPct = 0;
+	let esp32Status: "online" | "offline" | "missing" = "missing";
+	let pondName = "ILO-POND-01";
+	let lastSeenAtStr: string | null = null;
 
 	try {
 		const pond = await prisma.pond.findFirst({
@@ -26,12 +29,28 @@ export default async function DashboardLayout({
 
 		if (pond) {
 			pondId = pond.id;
+			pondName = pond.name;
 			if (pond.devices.length > 0) {
 				hopperLevelPct = pond.devices[0].hopperLevelPct;
 			}
 			initialUnreadCount = await prisma.notification.count({
 				where: { pondId: pond.id, read: false },
 			});
+
+			const energyDevice = await prisma.energyDevice.findFirst({
+				where: { pondId: pond.id },
+				orderBy: { createdAt: "asc" },
+			});
+
+			if (energyDevice) {
+				const now = new Date();
+				const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
+				const isOffline =
+					!energyDevice.lastSeenAt ||
+					now.getTime() - energyDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+				esp32Status = isOffline ? "offline" : "online";
+				lastSeenAtStr = energyDevice.lastSeenAt ? energyDevice.lastSeenAt.toISOString() : null;
+			}
 		}
 	} catch (err) {
 		// Log the error but allow the layout (and child pages) to render normally
@@ -54,16 +73,24 @@ export default async function DashboardLayout({
 						<span className="font-extrabold text-lg md:text-xl tracking-tight text-white">
 							Opti<span className="text-[#E85A2A]">Feed</span>
 						</span>
-						<div className="hidden md:flex items-center gap-2 border-l border-white/20 pl-3">
-							<span className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] transition-all duration-500 bg-[#1E7B34]" />
-							<span className="text-[10px] text-white/50 uppercase tracking-wider">
-								ESP32 Online
-							</span>
-						</div>
+						{esp32Status !== "missing" && (
+							<div className="hidden md:flex items-center gap-2 border-l border-white/20 pl-3">
+								<span
+									className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] transition-all duration-500 ${
+										esp32Status === "online"
+											? "bg-[#1E7B34] text-[#1E7B34]"
+											: "bg-[#C42B3A] text-[#C42B3A]"
+									}`}
+								/>
+								<span className="text-[10px] text-white/50 uppercase tracking-wider">
+									ESP32 {esp32Status}
+								</span>
+							</div>
+						)}
 					</div>
 
 					{/* Right: Actions */}
-					<HeaderActions />
+					<HeaderActions pondName={pondName} lastSeenAt={lastSeenAtStr} esp32Status={esp32Status} />
 				</header>
 
 				<div className="flex w-full flex-1 min-h-[calc(100vh-4rem)]">

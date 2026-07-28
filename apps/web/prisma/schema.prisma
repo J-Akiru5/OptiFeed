@@ -134,6 +134,11 @@ model EnergyDevice {
   feedLevelCm        Float?    // raw ultrasonic distance, kept for debugging/recalibration
   feedLevelUpdatedAt DateTime? // last time a reading was ingested
 
+  // Water temperature (DS18B20 probe)
+  waterTempC         Float?    // last reading in °C, null until first reading arrives
+  waterTempOk        Boolean   @default(false) // false if probe undetected on last heartbeat
+  waterTempUpdatedAt DateTime? // last time a reading was ingested
+
   // Per-device calibration
   hopperEmptyCm      Float?    // sensor distance when hopper is empty (~30cm for 10L bottle)
   hopperFullCm       Float?    // sensor distance when hopper is full (~5cm)

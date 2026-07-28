@@ -1,6 +1,7 @@
 import { EnergyControllerCard } from "@/components/EnergyControllerCard";
 import { FeedLevelCard } from "@/components/FeedLevelCard";
 import { FeedNowButton } from "@/components/FeedNowButton";
+import { WaterTempCard } from "@/components/WaterTempCard";
 import { Link } from "@/i18n/routing";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import prisma from "@/lib/prisma";
@@ -53,6 +54,9 @@ export default async function DashboardHomePage() {
 			feedLevelPercent: true,
 			feedLevelUpdatedAt: true,
 			hopperCapacityG: true,
+			waterTempC: true,
+			waterTempOk: true,
+			waterTempUpdatedAt: true,
 		},
 	});
 
@@ -421,6 +425,11 @@ export default async function DashboardHomePage() {
 						hopperCapacityG={energyDevice.hopperCapacityG}
 						gramsPerFeeding={energyDevice.gramsPerFeeding}
 						feedsPerDay={pond.feedsPerDay}
+					/>
+					<WaterTempCard
+						tempC={energyDevice.waterTempC}
+						tempOk={energyDevice.waterTempOk}
+						updatedAt={energyDevice.waterTempUpdatedAt}
 					/>
 					<EnergyControllerCard
 						deviceId={energyDevice.id}

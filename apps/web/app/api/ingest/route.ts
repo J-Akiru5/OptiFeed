@@ -26,6 +26,9 @@ const heartbeatSchema = baseSchema.extend({
 	// Feed level monitoring — piggybacked on existing heartbeat
 	feed_level_percent: z.number().min(0).max(100).optional(),
 	feed_level_cm: z.number().min(0).optional(),
+	// Water temperature (DS18B20 probe) — piggybacked on existing heartbeat
+	water_temp_c: z.number().optional(),
+	water_temp_ok: z.boolean().optional(),
 });
 
 const feedDispensedSchema = baseSchema.extend({
@@ -213,6 +216,29 @@ export async function POST(request: Request) {
 						}
 					}
 				}
+			}
+
+			// Water temperature sensor reading piggybacked on heartbeat
+			if (typeof parsed.data.water_temp_c === "number" && parsed.data.water_temp_ok === true) {
+				operations.push(
+					prisma.energyDevice.update({
+						where: { id: device.id },
+						data: {
+							waterTempC: parsed.data.water_temp_c,
+							waterTempOk: true,
+							waterTempUpdatedAt: new Date(),
+						},
+					}),
+				);
+			} else {
+				// Probe undetected (or field omitted) — flag offline without overwriting
+				// the last real reading with the -127 disconnect sentinel.
+				operations.push(
+					prisma.energyDevice.update({
+						where: { id: device.id },
+						data: { waterTempOk: false },
+					}),
+				);
 			}
 
 			if (wasOffline && device.lastSeenAt) {

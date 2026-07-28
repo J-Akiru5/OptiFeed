@@ -24,15 +24,11 @@ export default async function DashboardLayout({
 	try {
 		const pond = await prisma.pond.findFirst({
 			where: { ownerId: "demo-farmer-1" },
-			include: { devices: true },
 		});
 
 		if (pond) {
 			pondId = pond.id;
 			pondName = pond.name;
-			if (pond.devices.length > 0) {
-				hopperLevelPct = pond.devices[0].hopperLevelPct;
-			}
 			initialUnreadCount = await prisma.notification.count({
 				where: { pondId: pond.id, read: false },
 			});
@@ -43,6 +39,7 @@ export default async function DashboardLayout({
 			});
 
 			if (energyDevice) {
+				hopperLevelPct = energyDevice.feedLevelPercent ?? 0;
 				const now = new Date();
 				const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 				const isOffline =

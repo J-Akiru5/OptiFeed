@@ -174,7 +174,7 @@ export default async function DashboardHomePage() {
 					label={tBtn("feedNow")}
 					deviceName={energyDevice?.label ?? device.name}
 					connectionStatus={esp32Offline ? "offline" : "online"}
-					hopperLevelPct={device.hopperLevelPct}
+					hopperLevelPct={energyDevice?.feedLevelPercent ?? 0}
 				/>
 			</div>
 

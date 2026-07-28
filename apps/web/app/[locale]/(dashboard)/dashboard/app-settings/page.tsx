@@ -72,7 +72,9 @@ export default async function AppSettingsPage() {
 								<p className="text-xs font-bold uppercase tracking-wide text-[#3D5568]">
 									{t("hopperLevel")}
 								</p>
-								<p className="mt-1 text-sm font-bold text-[#0A3D62]">{device.hopperLevelPct}%</p>
+								<p className="mt-1 text-sm font-bold text-[#0A3D62]">
+									{energyDevice?.feedLevelPercent ?? 0}%
+								</p>
 							</div>
 							<div className="rounded-xl bg-[#F4F7F6] p-4">
 								<p className="text-xs font-bold uppercase tracking-wide text-[#3D5568]">

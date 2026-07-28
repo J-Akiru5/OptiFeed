@@ -22,6 +22,7 @@ async function buildPondContext() {
 	if (!pond) return null;
 
 	const device = pond.devices[0] ?? null;
+	const energyDevice = await prisma.energyDevice.findFirst({ where: { pondId: pond.id } });
 	const latestFcr = pond.fcrReports[0] ?? null;
 	const latestBiomass = pond.biomassLogs[0] ?? null;
 	const events = device?.feedingEvents ?? [];
@@ -36,7 +37,7 @@ async function buildPondContext() {
 		scheduleEnd: pond.scheduleEnd,
 		deviceOnline: device?.connectivity === "online",
 		devicePaused: device?.isPaused ?? false,
-		hopperLevelPct: device?.hopperLevelPct ?? 0,
+		hopperLevelPct: energyDevice?.feedLevelPercent ?? 0,
 		latestFcr: latestFcr?.fcrValue ?? null,
 		latestAbw: latestBiomass ? latestBiomass.avgWeightKg * 1000 : null,
 		sampleCount: latestBiomass?.sampleCount ?? null,

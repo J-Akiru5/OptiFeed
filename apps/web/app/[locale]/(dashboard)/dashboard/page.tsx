@@ -49,6 +49,7 @@ export default async function DashboardHomePage() {
 			label: true,
 			rtcOk: true,
 			feederActive: true,
+			isPaused: true,
 			gramsPerFeeding: true,
 			lastSeenAt: true,
 			feedLevelPercent: true,
@@ -129,6 +130,7 @@ export default async function DashboardHomePage() {
 		!energyDevice?.lastSeenAt ||
 		now.getTime() - energyDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
 	const criticalAlert = esp32Offline && !!energyDevice;
+	const isPaused = energyDevice?.isPaused ?? false;
 
 	return (
 		<div className="space-y-6 pb-20 animate-in fade-in duration-500">
@@ -191,24 +193,24 @@ export default async function DashboardHomePage() {
 							</span>
 							<span
 								className={`w-2.5 h-2.5 rounded-full ${
-									device.isPaused ? "bg-[#C42B3A]" : "bg-[#1E7B34] animate-pulse"
+									isPaused ? "bg-[#C42B3A]" : "bg-[#1E7B34] animate-pulse"
 								}`}
 							/>
 						</div>
 
 						<div className="text-6xl md:text-8xl font-black text-[#0A3D62] tracking-tighter my-4">
-							{device.isPaused ? "—:—" : nextFeedingTimeStr}
+							{isPaused ? "—:—" : nextFeedingTimeStr}
 						</div>
 
 						<div className="flex flex-wrap items-center gap-3">
 							<span
 								className={`px-4 py-1.5 rounded-full font-bold text-xs border ${
-									device.isPaused
+									isPaused
 										? "bg-red-50 border-red-200 text-[#C42B3A]"
 										: "bg-[#1E7B34]/10 border-[#1E7B34]/20 text-[#1E7B34]"
 								}`}
 							>
-								{device.isPaused ? t("schedulePaused") : t("timerOn")}
+								{isPaused ? t("schedulePaused") : t("timerOn")}
 							</span>
 							<span className="text-[#3D5568] text-xs font-medium">
 								{latestBiomass

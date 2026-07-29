@@ -124,6 +124,7 @@ model EnergyDevice {
   pondId           String?
   rtcOk            Boolean   @default(true)
   feederActive     Boolean   @default(false)
+  isPaused         Boolean   @default(false) // schedule pause state — replaces deprecated Device.isPaused
   gramsPerFeeding  Float     @default(150)
   buttonFeedGrams  Float     @default(80)     // configurable button dose — pushed via poll response, no OTA needed
   lastSeenAt       DateTime?

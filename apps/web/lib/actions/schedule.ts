@@ -4,7 +4,8 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
 export async function toggleDevicePause(deviceId: string, isPaused: boolean) {
-	await prisma.device.update({
+	// deviceId is an EnergyDevice id (see dashboard/schedule/page.tsx).
+	await prisma.energyDevice.update({
 		where: { id: deviceId },
 		data: { isPaused },
 	});

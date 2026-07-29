@@ -36,7 +36,7 @@ async function buildPondContext() {
 		scheduleStart: pond.scheduleStart,
 		scheduleEnd: pond.scheduleEnd,
 		deviceOnline: device?.connectivity === "online",
-		devicePaused: device?.isPaused ?? false,
+		devicePaused: energyDevice?.isPaused ?? false,
 		hopperLevelPct: energyDevice?.feedLevelPercent ?? 0,
 		latestFcr: latestFcr?.fcrValue ?? null,
 		latestAbw: latestBiomass ? latestBiomass.avgWeightKg * 1000 : null,
@@ -134,8 +134,10 @@ export async function submitChatMessage(message: string, locale: string): Promis
 			if (!pond || pond.devices.length === 0) {
 				return t("intentScheduleNoPond");
 			}
-			const device = pond.devices[0];
-			if (device.isPaused) {
+			const energyDevice = await prisma.energyDevice.findFirst({
+				where: { pondId: pond.id },
+			});
+			if (energyDevice?.isPaused) {
 				return t("intentSchedulePaused");
 			}
 

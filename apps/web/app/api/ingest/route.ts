@@ -407,7 +407,7 @@ export async function POST(request: Request) {
 				where: { id: parsed.data.command_id, deviceId: device.id },
 			});
 
-			if (scheduleCommand) {
+			if (scheduleCommand && device.pondId) {
 				await prisma.$transaction([
 					prisma.energyDevice.update({
 						where: { id: device.id },
@@ -443,6 +443,15 @@ export async function POST(request: Request) {
 								feedsPerDay: scheduleCommand.feedsPerDay,
 								feedingRatePct: scheduleCommand.feedingRatePct,
 							},
+						},
+					}),
+					prisma.pond.update({
+						where: { id: device.pondId },
+						data: {
+							feedingRatePct: scheduleCommand.feedingRatePct,
+							feedsPerDay: scheduleCommand.feedsPerDay,
+							scheduleStart: scheduleCommand.scheduleStart,
+							scheduleEnd: scheduleCommand.scheduleEnd,
 						},
 					}),
 				]);

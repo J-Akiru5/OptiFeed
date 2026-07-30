@@ -52,6 +52,16 @@ export async function requestFeed(deviceId: string, grams?: number) {
 			},
 		});
 
+		await prisma.deviceStateEvent.create({
+			data: {
+				deviceId,
+				eventType: "manual_trigger",
+				source: "user",
+				actorId: "demo-farmer-1",
+				metadata: { grams: feedGrams, triggerSource: "energy_actions" },
+			},
+		});
+
 		revalidatePath("/[locale]/(dashboard)/dashboard", "page");
 		revalidatePath("/[locale]/(dashboard)/dashboard/schedule", "page");
 		return { success: true };
@@ -74,6 +84,21 @@ export async function saveHopperCalibration(
 				hopperCapacityG: data.hopperCapacityG,
 			},
 		});
+
+		await prisma.deviceStateEvent.create({
+			data: {
+				deviceId,
+				eventType: "hopper_calibrated",
+				source: "user",
+				actorId: "demo-farmer-1",
+				metadata: {
+					hopperFullCm: data.hopperFullCm,
+					hopperEmptyCm: data.hopperEmptyCm,
+					hopperCapacityG: data.hopperCapacityG,
+				},
+			},
+		});
+
 		revalidatePath("/[locale]/(dashboard)/dashboard/app-settings", "page");
 		return { success: true };
 	} catch (error) {
@@ -88,7 +113,7 @@ export async function registerEnergyDevice(
 	pondId?: string,
 ): Promise<string> {
 	const token = `esp32-tok-${randomUUID()}`;
-	await prisma.energyDevice.create({
+	const device = await prisma.energyDevice.create({
 		data: {
 			mac,
 			token,
@@ -96,5 +121,16 @@ export async function registerEnergyDevice(
 			pondId: pondId ?? null,
 		},
 	});
+
+	await prisma.deviceStateEvent.create({
+		data: {
+			deviceId: device.id,
+			eventType: "device_registered",
+			source: "user",
+			actorId: "demo-farmer-1",
+			metadata: { mac },
+		},
+	});
+
 	return token;
 }

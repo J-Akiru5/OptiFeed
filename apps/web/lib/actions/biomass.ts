@@ -64,6 +64,25 @@ export async function saveBiomassLog(formData: FormData) {
 			console.warn(
 				`[biomass] rejected auto-adjust: ${currentGrams}g → ${newGrams}g (${(deviation * 100).toFixed(1)}% deviation, threshold ${DEVIATION_THRESHOLD * 100}%) — biomassLogId=${log.id}`,
 			);
+
+			await tx.deviceStateEvent.create({
+				data: {
+					deviceId: energyDevice.id,
+					eventType: "biomass_logged",
+					source: "user",
+					actorId: "demo-farmer-1",
+					metadata: {
+						biomassLogId: log.id,
+						avgWeightKg,
+						sampleCount,
+						autoAdjustRejected: true,
+						deviationPct: deviation,
+						gramsProposed: newGrams,
+						gramsCurrent: currentGrams,
+					},
+				},
+			});
+
 			return log;
 		}
 
@@ -75,6 +94,22 @@ export async function saveBiomassLog(formData: FormData) {
 		console.log(
 			`[biomass] gramsPerFeeding: ${currentGrams}g → ${newGrams}g (biomassLogId=${log.id})`,
 		);
+
+		await tx.deviceStateEvent.create({
+			data: {
+				deviceId: energyDevice.id,
+				eventType: "biomass_logged",
+				source: "user",
+				actorId: "demo-farmer-1",
+				metadata: {
+					biomassLogId: log.id,
+					avgWeightKg,
+					sampleCount,
+					gramsAdjusted: newGrams,
+					gramsPrevious: currentGrams,
+				},
+			},
+		});
 
 		return log;
 	});

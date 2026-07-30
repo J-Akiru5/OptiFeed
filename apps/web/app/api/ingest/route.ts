@@ -172,6 +172,15 @@ export async function POST(request: Request) {
 								linkTo: "/en/dashboard/settings",
 							},
 						}),
+						prisma.deviceStateEvent.create({
+							data: {
+								deviceId: device.id,
+								eventType: "pellet_low",
+								source: "device",
+								deviceTime: parsed.data.timestamp,
+								metadata: { levelPercent: parsed.data.feed_level_percent },
+							},
+						}),
 					);
 				} else if (device.pondId && parsed.data.feed_level_percent <= 20) {
 					operations.push(
@@ -215,6 +224,24 @@ export async function POST(request: Request) {
 							);
 						}
 					}
+				}
+
+				// Detect hopper refill: previously low level is now above threshold
+				if (lastLog && lastLog.levelPercent <= 20 && parsed.data.feed_level_percent > 20) {
+					operations.push(
+						prisma.deviceStateEvent.create({
+							data: {
+								deviceId: device.id,
+								eventType: "pellet_refilled",
+								source: "device",
+								deviceTime: parsed.data.timestamp,
+								metadata: {
+									previousLevel: lastLog.levelPercent,
+									currentLevel: parsed.data.feed_level_percent,
+								},
+							},
+						}),
+					);
 				}
 			}
 
@@ -434,6 +461,21 @@ export async function POST(request: Request) {
 						data: {
 							deviceId: device.id,
 							eventType: "command_acked",
+							source: "device",
+							deviceTime: parsed.data.timestamp,
+							metadata: {
+								commandId: scheduleCommand.id,
+								scheduleStart: scheduleCommand.scheduleStart.toISOString(),
+								scheduleEnd: scheduleCommand.scheduleEnd.toISOString(),
+								feedsPerDay: scheduleCommand.feedsPerDay,
+								feedingRatePct: scheduleCommand.feedingRatePct,
+							},
+						},
+					}),
+					prisma.deviceStateEvent.create({
+						data: {
+							deviceId: device.id,
+							eventType: "schedule_applied",
 							source: "device",
 							deviceTime: parsed.data.timestamp,
 							metadata: {

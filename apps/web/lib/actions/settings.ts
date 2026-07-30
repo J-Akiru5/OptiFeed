@@ -32,6 +32,16 @@ export async function updatePondSettings(
 					feedingRatePct,
 				});
 
+				await prisma.deviceStateEvent.create({
+					data: {
+						deviceId: energyDevice.id,
+						eventType: "settings_changed",
+						source: "user",
+						actorId: "demo-farmer-1",
+						metadata: { feedingRatePct, feedsPerDay },
+					},
+				});
+
 				revalidatePath("/[locale]/(dashboard)", "layout");
 				return { success: true };
 			}

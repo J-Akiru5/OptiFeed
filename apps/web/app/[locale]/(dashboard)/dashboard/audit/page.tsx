@@ -6,8 +6,13 @@ import {
 	ChevronRight,
 	Clock,
 	Cpu,
+	PauseCircle,
+	Plug,
 	RefreshCw,
+	Ruler,
+	Settings,
 	User,
+	Weight,
 	Wifi,
 	WifiOff,
 } from "lucide-react";
@@ -80,6 +85,31 @@ const eventTypeConfig: Record<
 		className: "border-gray-200 bg-gray-50 text-gray-700",
 		filterGroup: "commands",
 	},
+	pause_toggled: {
+		icon: PauseCircle,
+		className: "border-yellow-200 bg-yellow-50 text-yellow-700",
+		filterGroup: "schedule",
+	},
+	hopper_calibrated: {
+		icon: Ruler,
+		className: "border-blue-200 bg-blue-50 text-blue-700",
+		filterGroup: "feeding",
+	},
+	settings_changed: {
+		icon: Settings,
+		className: "border-purple-200 bg-purple-50 text-purple-700",
+		filterGroup: "schedule",
+	},
+	device_registered: {
+		icon: Plug,
+		className: "border-green-200 bg-green-50 text-green-700",
+		filterGroup: "connectivity",
+	},
+	biomass_logged: {
+		icon: Weight,
+		className: "border-teal-200 bg-teal-50 text-teal-700",
+		filterGroup: "feeding",
+	},
 };
 
 const defaultEventConfig = {
@@ -100,9 +130,16 @@ export default async function AuditPage({
 
 	const filterGroupToTypes: Record<string, string[]> = {
 		all: [],
-		feeding: ["feed_dispensed", "feed_reconciled", "pellet_low", "pellet_refilled"],
-		connectivity: ["connected", "disconnected"],
-		schedule: ["schedule_changed", "schedule_applied"],
+		feeding: [
+			"feed_dispensed",
+			"feed_reconciled",
+			"pellet_low",
+			"pellet_refilled",
+			"hopper_calibrated",
+			"biomass_logged",
+		],
+		connectivity: ["connected", "disconnected", "device_registered"],
+		schedule: ["schedule_changed", "schedule_applied", "pause_toggled", "settings_changed"],
 		commands: ["command_sent", "command_acked", "command_failed", "manual_trigger"],
 	};
 

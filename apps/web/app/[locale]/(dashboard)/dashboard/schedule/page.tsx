@@ -33,7 +33,7 @@ export default async function SchedulePage() {
 	const energyDevice = await prisma.energyDevice.findFirst({
 		where: { pondId: pond.id },
 		orderBy: { createdAt: "asc" },
-		select: { id: true, lastSeenAt: true },
+		select: { id: true, lastSeenAt: true, isPaused: true },
 	});
 
 	if (!energyDevice) {
@@ -126,7 +126,7 @@ export default async function SchedulePage() {
 				feedingRatePct={pond.feedingRatePct}
 			/>
 
-			<ScheduleControls deviceId={energyDevice.id} initialIsPaused={device.isPaused} />
+			<ScheduleControls deviceId={energyDevice.id} initialIsPaused={energyDevice.isPaused} />
 
 			<ScheduleEditor
 				pondId={pond.id}

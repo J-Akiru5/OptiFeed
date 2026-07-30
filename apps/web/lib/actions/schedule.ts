@@ -4,9 +4,19 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
 export async function toggleDevicePause(deviceId: string, isPaused: boolean) {
-	await prisma.device.update({
+	await prisma.energyDevice.update({
 		where: { id: deviceId },
 		data: { isPaused },
+	});
+
+	await prisma.deviceStateEvent.create({
+		data: {
+			deviceId,
+			eventType: "pause_toggled",
+			source: "user",
+			actorId: "demo-farmer-1",
+			metadata: { isPaused },
+		},
 	});
 
 	revalidatePath("/[locale]/(dashboard)/dashboard/schedule", "page");
@@ -21,6 +31,16 @@ export async function triggerManualFeed(deviceId: string) {
 			scheduledTime: new Date(),
 			dispensedVolumeG: MANUAL_FEED_AMOUNT_G,
 			status: "completed",
+		},
+	});
+
+	await prisma.deviceStateEvent.create({
+		data: {
+			deviceId,
+			eventType: "manual_trigger",
+			source: "user",
+			actorId: "demo-farmer-1",
+			metadata: { grams: MANUAL_FEED_AMOUNT_G, triggerSource: "schedule_controls" },
 		},
 	});
 
@@ -52,14 +72,33 @@ export async function updateScheduleCommand(
 	try {
 		// Expire stale sent commands that were picked up by the device
 		// but never acked. Prevents zombie commands from blocking future edits.
-		await prisma.scheduleCommand.updateMany({
+		const staleCommands = await prisma.scheduleCommand.findMany({
 			where: {
 				deviceId,
 				status: "sent",
 				updatedAt: { lt: new Date(Date.now() - STALE_SENT_MS) },
 			},
-			data: { status: "failed" },
 		});
+
+		for (const cmd of staleCommands) {
+			await prisma.scheduleCommand.update({
+				where: { id: cmd.id },
+				data: { status: "failed" },
+			});
+
+			await prisma.deviceStateEvent.create({
+				data: {
+					deviceId,
+					eventType: "command_failed",
+					source: "system",
+					metadata: {
+						commandId: cmd.id,
+						scheduleStart: `${String(cmd.scheduleStart.getUTCHours()).padStart(2, "0")}:${String(cmd.scheduleStart.getUTCMinutes()).padStart(2, "0")}`,
+						scheduleEnd: `${String(cmd.scheduleEnd.getUTCHours()).padStart(2, "0")}:${String(cmd.scheduleEnd.getUTCMinutes()).padStart(2, "0")}`,
+					},
+				},
+			});
+		}
 
 		const [startHours, startMinutes] = data.scheduleStart.split(":").map(Number);
 		const [endHours, endMinutes] = data.scheduleEnd.split(":").map(Number);

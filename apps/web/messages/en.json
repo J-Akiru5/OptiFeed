@@ -39,6 +39,7 @@
 		"heroDesc": "The ultimate catfish feed management app built for remote fish farm monitoring in the Philippines. Protect your margins, eliminate staff feed theft or neglect, and optimize your Feed Conversion Ratio (FCR).",
 		"heroTarget": "Current Target: ",
 		"heroTargetValue": "Western Visayas Farms",
+		"heroImageAlt": "Overhead view of a catfish farm pond in Western Visayas with floating feed pellets on the water surface",
 		"hiddenBleedTitle": "The Hidden Bleed: Why Remote Feeding Fails",
 		"hiddenBleedDesc": "Remote catfish farm owners in the Philippines face a serious trust-and-visibility gap. When you cannot physically step onto the pond dike every day, you are exposed to costly operational leaks.",
 		"feat1Title": "Feed Waste & Theft",

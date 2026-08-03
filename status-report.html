@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OptiFeed — System Status Report</title>
+<style>
+	:root {
+		--navy: #0a3d62;
+		--navy-deep: #08314f;
+		--orange: #e85a2a;
+		--green: #1e7b34;
+		--bg: #f4f7f6;
+		--card: #ffffff;
+		--text: #1f2937;
+		--muted: #6b7280;
+		--border: #e5e7eb;
+		--good: #16a34a;
+		--warn: #d97706;
+		--bad: #dc2626;
+	}
+	* { box-sizing: border-box; margin: 0; padding: 0; }
+	body {
+		font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+		background: var(--bg);
+		color: var(--text);
+		line-height: 1.6;
+	}
+	.container { max-width: 1060px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+
+	/* Header */
+	header.hero {
+		background: linear-gradient(135deg, var(--navy) 0%, var(--navy-deep) 100%);
+		color: #fff;
+		border-radius: 20px;
+		padding: 2.5rem 2rem;
+		margin-bottom: 2rem;
+		position: relative;
+		overflow: hidden;
+	}
+	header.hero::after {
+		content: "";
+		position: absolute; right: -60px; top: -60px;
+		width: 240px; height: 240px; border-radius: 50%;
+		background: rgba(232, 90, 42, 0.25);
+	}
+	header.hero h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.02em; }
+	header.hero .sub { color: #cfe3f2; margin-top: 0.4rem; font-size: 1.05rem; }
+	.meta {
+		display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.25rem;
+	}
+	.meta .chip {
+		background: rgba(255,255,255,0.12);
+		border: 1px solid rgba(255,255,255,0.22);
+		border-radius: 999px;
+		padding: 0.3rem 0.85rem;
+		font-size: 0.8rem;
+		font-family: Consolas, "Cascadia Mono", monospace;
+	}
+
+	/* Sections */
+	section {
+		background: var(--card);
+		border: 1px solid var(--border);
+		border-radius: 16px;
+		padding: 1.5rem 1.75rem;
+		margin-bottom: 1.5rem;
+		box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+	}
+	h2 {
+		font-size: 1.25rem;
+		font-weight: 800;
+		color: var(--navy);
+		border-bottom: 2px solid var(--orange);
+		padding-bottom: 0.4rem;
+		margin-bottom: 1.1rem;
+	}
+	h3 { font-size: 1.02rem; font-weight: 700; color: var(--text); margin: 1.1rem 0 0.45rem; }
+	p { margin-bottom: 0.6rem; }
+	.muted { color: var(--muted); font-size: 0.88rem; }
+
+	/* Status pills */
+	.pill {
+		display: inline-block;
+		border-radius: 999px;
+		padding: 0.15rem 0.7rem;
+		font-size: 0.75rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+	.pill.good { background: #e7f7ec; color: var(--good); border: 1px solid #b8e6c6; }
+	.pill.warn { background: #fef3e2; color: var(--warn); border: 1px solid #f5d9a8; }
+	.pill.bad  { background: #fdeaea; color: var(--bad); border: 1px solid #f5c1c1; }
+	.pill.info { background: #eaf2fb; color: var(--navy); border: 1px solid #c5dcef; }
+
+	/* Tables */
+	table { width: 100%; border-collapse: collapse; margin-top: 0.6rem; font-size: 0.9rem; }
+	th, td { text-align: left; padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+	th { background: #f8fafb; color: var(--navy); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+	tr:last-child td { border-bottom: none; }
+	td.mono, .mono { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.82rem; }
+	code {
+		background: #f1f5f7;
+		border: 1px solid #e2e8ec;
+		border-radius: 5px;
+		padding: 0.08rem 0.35rem;
+		font-family: Consolas, "Cascadia Mono", monospace;
+		font-size: 0.82rem;
+	}
+
+	/* Grid */
+	.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.9rem; margin-top: 0.6rem; }
+	.kpi {
+		background: #f8fafb;
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		padding: 0.9rem 1rem;
+	}
+	.kpi .k { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 700; }
+	.kpi .v { font-size: 1.35rem; font-weight: 800; color: var(--navy); margin-top: 0.15rem; }
+	.kpi .v small { font-size: 0.75rem; font-weight: 600; color: var(--muted); }
+
+	/* Lists */
+	ul, ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+	li { margin-bottom: 0.3rem; }
+	.tight li { margin-bottom: 0.15rem; }
+
+	/* Banner */
+	.banner {
+		border-radius: 12px; padding: 0.9rem 1.1rem; margin: 1rem 0;
+		font-size: 0.9rem;
+	}
+	.banner.good { background: #e7f7ec; border: 1px solid #b8e6c6; color: #14532d; }
+	.banner.warn { background: #fef3e2; border: 1px solid #f5d9a8; color: #78350f; }
+
+	footer {
+		text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 2rem;
+	}
+</style>
+</head>
+<body>
+<div class="container">
+
+	<header class="hero">
+		<h1>OptiFeed — System Status Report</h1>
+		<p class="sub">Pond feeding automation dashboard · Shrimp/fish farm operator console</p>
+		<div class="meta">
+			<span class="chip">repo: J-Akiru5/OptiFeed</span>
+			<span class="chip">branch: Karl (local)</span>
+			<span class="chip">root pkg: optifeed@1.10.0</span>
+			<span class="chip">web app: @optifeed/web@1.8.8</span>
+			<span class="chip">pnpm@10.33.3</span>
+			<span class="chip">generated: 2026-08-03</span>
+		</div>
+	</header>
+
+	<!-- 1. Executive Summary -->
+	<section>
+		<h2>1 &middot; Executive Summary</h2>
+		<p>
+			OptiFeed is a monorepo web application for automating pond feeding on shrimp/fish farms. An ESP32
+			energy controller dispenses feed and reports telemetry (hopper level, water temperature, feed events)
+			via authenticated device endpoints; a farmer-facing dashboard (English + Hiligaynon) drives schedule,
+			settings, biomass logging, feeding history, growth/FCR charts, notifications, and an AI chat assistant.
+		</p>
+		<p>
+			All <strong>10 remediation work packages (WP-0&nbsp;…&nbsp;WP-9)</strong> are now implemented and verified
+			on the local <span class="mono">Karl</span> branch, including the final one (WP-2 — schedule/settings
+			persistence) completed this session. The app builds clean: lint, typecheck, and production build all pass.
+		</p>
+		<div class="banner good">
+			<strong>Status: FUNCTIONAL.</strong> Real Supabase authentication is wired (one login per pond, Farm&nbsp;ID + PIN),
+			every dashboard read is scoped to the signed-in owner, and the previously-broken pause toggle, stale hopper
+			reads, dual-source-of-truth settings, and wrong-table feeding history are all corrected.
+		</div>
+	</section>
+
+	<!-- 2. KPI / Scorecard -->
+	<section>
+		<h2>2 &middot; Health Scorecard</h2>
+		<div class="grid">
+			<div class="kpi"><div class="k">Work packages</div><div class="v">10 / 10 <small>done</small></div></div>
+			<div class="kpi"><div class="k">Verification</div><div class="v">Passing <small>lint · tsc · build</small></div></div>
+			<div class="kpi"><div class="k">Prisma models</div><div class="v">12 <small>2 deprecated</small></div></div>
+			<div class="kpi"><div class="k">DB migrations</div><div class="v">6 <small>applied</small></div></div>
+			<div class="kpi"><div class="k">i18n locales</div><div class="v">2 <small>en · hil</small></div></div>
+			<div class="kpi"><div class="k">API routes</div><div class="v">3 <small>+ proxy</small></div></div>
+		</div>
+		<h3>Notable risks</h3>
+		<ul>
+			<li><strong>Zero automated tests</strong> — no test files, no test runner installed; CI gates are lint + build only.</li>
+			<li><strong>Deprecated schema remnants</strong> — <span class="mono">Device</span> / <span class="mono">FeedingEvent</span> models remain (now read-only), pending cleanup.</li>
+			<li><strong>Full <span class="mono">pnpm build</span></strong> still intermittently fails with <span class="mono">EPERM</span> while the dev server holds the Prisma engine DLL; use <span class="mono">pnpm exec next build</span> (verified) or stop the dev server.</li>
+			<li><strong>brand-1 (logo)</strong> — original handwritten note is illegible; three candidate interpretations pending Jeff's input.</li>
+		</ul>
+	</section>
+
+	<!-- 3. Tech Stack & Architecture -->
+	<section>
+		<h2>3 &middot; Tech Stack &amp; Architecture</h2>
+		<div class="grid">
+			<div class="kpi"><div class="k">Framework</div><div class="v">Next.js 16.2.10 <small>Turbopack</small></div></div>
+			<div class="kpi"><div class="k">ORM</div><div class="v">Prisma 6.19.3</div></div>
+			<div class="kpi"><div class="k">Auth</div><div class="v">Supabase <small>@supabase/ssr 0.6.1</small></div></div>
+			<div class="kpi"><div class="k">i18n</div><div class="v">next-intl 4.13.1 <small>en / hil</small></div></div>
+			<div class="kpi"><div class="k">Linting</div><div class="v">Biome</div></div>
+			<div class="kpi"><div class="k">Runtime</div><div class="v">Node 24.13.0 <small>Windows / CRLF</small></div></div>
+		</div>
+
+		<h3>Request pipeline</h3>
+		<p>
+			<span class="mono">proxy.ts</span> (Next 16 middleware) runs <span class="mono">next-intl/middleware</span> once,
+			then refreshes the Supabase session and gates navigation: unauthenticated <span class="mono">/dashboard*</span> → login,
+			authenticated <span class="mono">/login</span> → dashboard. Redirects apply to GET/HEAD only, so Server Action POSTs
+			reach their route handler and keep their RSC / <span class="mono">x-action-redirect</span> response (fixes the
+			"An unexpected response was received from the server." failure). Locale rewriting, cookie refresh, and auth
+			cookies all mutate the single intl response.
+		</p>
+
+		<h3>Routes</h3>
+		<table>
+			<thead><tr><th>Route</th><th>Kind</th><th>Notes</th></tr></thead>
+			<tbody>
+				<tr><td class="mono">/login</td><td>Page</td><td>Farm ID + PIN → Supabase sign-in (prefills demo-farmer-1)</td></tr>
+				<tr><td class="mono">/dashboard</td><td>Page</td><td>Home: feed level, next feed, FCR, water temp, feed events</td></tr>
+				<tr><td class="mono">/dashboard/schedule</td><td>Page</td><td>Schedule editor, pause/resume, stuck-request recovery</td></tr>
+				<tr><td class="mono">/dashboard/settings</td><td>Page</td><td>Consolidated settings landing (IA) → pond / hardware / profile</td></tr>
+				<tr><td class="mono">/dashboard/settings/pond</td><td>Page</td><td>Feeding rate + feeds/day form, sign-out</td></tr>
+				<tr><td class="mono">/dashboard/settings/hardware</td><td>Page</td><td>Hopper calibration + live feed level</td></tr>
+				<tr><td class="mono">/dashboard/settings/profile</td><td>Page</td><td>Profile settings</td></tr>
+				<tr><td class="mono">/dashboard/app-settings</td><td>Page</td><td>Redirect → settings/hardware</td></tr>
+				<tr><td class="mono">/dashboard/profile-settings</td><td>Page</td><td>Redirect → settings/profile</td></tr>
+				<tr><td class="mono">/dashboard/log-sample</td><td>Page</td><td>Biomass logging ("Biomass Log" label)</td></tr>
+				<tr><td class="mono">/dashboard/history</td><td>Page</td><td>Live feed events, paginated + search</td></tr>
+				<tr><td class="mono">/dashboard/growth</td><td>Page</td><td>Biomass/FCR charts + FeedLevelLog, paginated + search</td></tr>
+				<tr><td class="mono">/dashboard/audit</td><td>Page</td><td>DeviceStateEvent audit trail, cursor-paginated</td></tr>
+				<tr><td class="mono">/dashboard/notifications</td><td>Page</td><td>Alert list + realtime via Supabase channel</td></tr>
+				<tr><td class="mono">/api/ingest</td><td>API</td><td>ESP32 heartbeat/telemetry + feed_dispensed (device token auth)</td></tr>
+				<tr><td class="mono">/api/schedule-sync</td><td>API</td><td>Device pulls/acks schedule commands</td></tr>
+				<tr><td class="mono">/api/feed-command</td><td>API</td><td>Device command endpoint</td></tr>
+			</tbody>
+		</table>
+	</section>
+
+	<!-- 4. Data Model -->
+	<section>
+		<h2>4 &middot; Data Model</h2>
+		<p>12 Prisma models. The <span class="mono">Device</span> / <span class="mono">FeedingEvent</span> pair is deprecated;
+			the live equivalents are <span class="mono">EnergyDevice</span> / <span class="mono">FeedEvent</span> (+
+			<span class="mono">FeedRequest</span>). All UI reads now use the live models.</p>
+		<table>
+			<thead><tr><th>Model</th><th>Status</th><th>Purpose</th></tr></thead>
+			<tbody>
+				<tr><td class="mono">Pond</td><td><span class="pill good">live</span></td><td>Owner-scoped farm row; fallback schedule/feeding config</td></tr>
+				<tr><td class="mono">EnergyDevice</td><td><span class="pill good">live</span></td><td>ESP32 controller: feedLevelPercent, isPaused, waterTempC, calibration</td></tr>
+				<tr><td class="mono">FeedEvent</td><td><span class="pill good">live</span></td><td>Device-confirmed dispenses (via /api/ingest)</td></tr>
+				<tr><td class="mono">FeedRequest</td><td><span class="pill good">live</span></td><td>Queued "Feed Now" / scheduled commands awaiting device pickup</td></tr>
+				<tr><td class="mono">ScheduleCommand</td><td><span class="pill good">live</span></td><td>Pending → sent → applied/failed schedule config queue</td></tr>
+				<tr><td class="mono">DeviceStateEvent</td><td><span class="pill good">live</span></td><td>Audit trail (pause, schedule, manual trigger, connectivity, …)</td></tr>
+				<tr><td class="mono">BiomassLog</td><td><span class="pill good">live</span></td><td>Biomass samples; auto-adjusts grams/feeding</td></tr>
+				<tr><td class="mono">FeedLevelLog</td><td><span class="pill good">live</span></td><td>Hopper level history (growth chart + table)</td></tr>
+				<tr><td class="mono">FcrReport</td><td><span class="pill good">live</span></td><td>Feed-conversion-ratio reports</td></tr>
+				<tr><td class="mono">Notification</td><td><span class="pill good">live</span></td><td>Alerts (offline, hopper low, temp) + ack state</td></tr>
+				<tr><td class="mono">Device</td><td><span class="pill bad">deprecated</span></td><td>Legacy device row; no longer read by UI</td></tr>
+				<tr><td class="mono">FeedingEvent</td><td><span class="pill bad">deprecated</span></td><td>Legacy feeding row; superseded by FeedEvent</td></tr>
+			</tbody>
+		</table>
+		<h3>Migrations (6)</h3>
+		<ul class="tight">
+			<li class="mono">20260707130129_fresh_migrate</li>
+			<li class="mono">20260707194615_add_device_ispaused</li>
+			<li class="mono">20260710120000_add_energy_device_reading</li>
+			<li class="mono">20260711000001_audit_fixes</li>
+			<li class="mono">20260728145734_add_water_temp</li>
+			<li class="mono">20260731120000_add_energydevice_ispaused</li>
+		</ul>
+	</section>
+
+	<!-- 5. Auth & Security -->
+	<section>
+		<h2>5 &middot; Auth &amp; Security</h2>
+		<div class="grid">
+			<div class="kpi"><div class="k">Human login</div><div class="v">Farm ID + PIN</div></div>
+			<div class="kpi"><div class="k">Backing auth</div><div class="v">Supabase</div></div>
+			<div class="kpi"><div class="k">Device auth</div><div class="v">x-device-token</div></div>
+			<div class="kpi"><div class="k">Session scoping</div><div class="v">ownerId</div></div>
+		</div>
+		<ul>
+			<li><strong>One login per pond.</strong> Farm ID maps to a synthetic email
+				(<span class="mono">farmId@pond.optifeed.local</span>); the static 4–6 digit PIN is the Supabase password.
+				No shared hardcoded PIN — <span class="mono">loginWithPin()</span> calls
+				<span class="mono">signInWithPassword()</span>.</li>
+			<li><strong>Owner-scoped reads/writes.</strong> <span class="mono">getCurrentPondOwnerId()</span> derives the owner
+				from the Supabase session; every Server Component/action replaces the former literal
+				<span class="mono">"demo-farmer-1"</span>. <span class="mono">saveBiomassLog()</span> validates the submitted
+				pond belongs to the owner (cross-tenant guard).</li>
+			<li><strong>Proxy gate.</strong> Dashboard routes redirect unauthenticated visitors to
+				<span class="mono">/login</span>; sign-out clears the session and returns to login.</li>
+			<li><strong>Device side is independently secured</strong> — <span class="mono">/api/ingest</span> requires a
+				per-device token checked against the DB.</li>
+			<li><strong>Demo fixture.</strong> <span class="mono">scripts/provision-demo-user.ts</span> (idempotent, service role)
+				provisions the demo user. Login: Farm ID <span class="mono">demo-farmer-1</span> / PIN <span class="mono">1234</span>
+				(user <span class="mono">4e838850-1e93-442e-9168-0e59145a044e</span>). PIN hint removed from UI copy.</li>
+		</ul>
+	</section>
+
+	<!-- 6. Remediation Work-Package Tracker -->
+	<section>
+		<h2>6 &middot; Remediation Work-Package Tracker</h2>
+		<p>All ten packages from the remediation plan are implemented and verified against the codebase.</p>
+		<table>
+			<thead><tr><th>WP</th><th>Fix</th><th>Status</th><th>Evidence (verified in code)</th></tr></thead>
+			<tbody>
+				<tr>
+					<td class="mono">WP-0</td><td>Pause/resume crash (wrong table)</td>
+					<td><span class="pill good">done</span></td>
+					<td><span class="mono">EnergyDevice.isPaused</span> + migration; <span class="mono">toggleDevicePause()</span> targets <span class="mono">energyDevice</span> and logs <span class="mono">pause_toggled</span></td>
+				</tr>
+				<tr>
+					<td class="mono">WP-1</td><td>Stale hopper-level reads</td>
+					<td><span class="pill good">done</span></td>
+					<td>Sidebar, Feed Now badge, hardware settings, chat all read live <span class="mono">energyDevice.feedLevelPercent</span></td>
+				</tr>
+				<tr>
+					<td class="mono">WP-2</td><td>Settings/schedule don't persist</td>
+					<td><span class="pill good">done</span></td>
+					<td>New <span class="mono">lib/schedule/resolve-current.ts</span> merges <span class="mono">pending → applied → pond.*</span>; applied on schedule, dashboard, settings/pond, log-sample (<em>this session</em>)</td>
+				</tr>
+				<tr>
+					<td class="mono">WP-3</td><td>Audit trail coverage gaps</td>
+					<td><span class="pill good">done</span></td>
+					<td><span class="mono">pause_toggled</span>, <span class="mono">schedule_changed</span>, <span class="mono">command_failed</span>, <span class="mono">settings_changed</span>, <span class="mono">manual_trigger</span> logged; <span class="mono">triggerManualFeed</span> removed → <span class="mono">requestFeed()</span></td>
+				</tr>
+				<tr>
+					<td class="mono">WP-4</td><td>Feeding history reads wrong table</td>
+					<td><span class="pill good">done</span></td>
+					<td><span class="mono">getFeedEvents()</span> → live <span class="mono">FeedEvent</span> via <span class="mono">FeedEventHistoryTable</span></td>
+				</tr>
+				<tr>
+					<td class="mono">WP-5</td><td>Pagination + search (history/growth)</td>
+					<td><span class="pill good">done</span></td>
+					<td>Reusable <span class="mono">ui/paginated-search-table.tsx</span> (cursor + debounced search) wired into history and FeedLevelLog</td>
+				</tr>
+				<tr>
+					<td class="mono">WP-6</td><td>"Log Sample" → "Biomass Log"</td>
+					<td><span class="pill good">done</span></td>
+					<td>en <span class="mono">"Biomass Log"</span>, hil <span class="mono">"Log sang Biomass"</span>; route unchanged</td>
+				</tr>
+				<tr>
+					<td class="mono">WP-7</td><td>UX quick wins</td>
+					<td><span class="pill good">done</span></td>
+					<td><span class="mono">BackToDashboard</span>, <span class="mono">LiveClock</span> in header; growth widened to <span class="mono">max-w-7xl</span></td>
+				</tr>
+				<tr>
+					<td class="mono">WP-8</td><td>Settings IA consolidation</td>
+					<td><span class="pill good">done</span></td>
+					<td>Single <span class="mono">/settings</span> landing → pond/hardware/profile; old routes redirect</td>
+				</tr>
+				<tr>
+					<td class="mono">WP-9</td><td>Real Supabase auth</td>
+					<td><span class="pill good">done</span></td>
+					<td><span class="mono">loginWithPin()</span> → Supabase; proxy gate; <span class="mono">getCurrentPondOwnerId()</span> scoping across all pages/actions</td>
+				</tr>
+			</tbody>
+		</table>
+		<h3>Open follow-ups</h3>
+		<ul>
+			<li><strong>brand-1</strong> — logo improvement; original note illegible. Awaiting Jeff's pick of interpretation (scalability, favicon variant, or contrast).</li>
+			<li><strong>Deprecated model cleanup</strong> — drop <span class="mono">Device</span>/<span class="mono">FeedingEvent</span> and their seeds once migration is coordinated.</li>
+			<li><strong>Test coverage</strong> — add a runner (e.g. Vitest) and first tests for session scoping and the current-config resolver.</li>
+		</ul>
+	</section>
+
+	<!-- 7. Verification -->
+	<section>
+		<h2>7 &middot; Verification Status</h2>
+		<p>All three gates pass on the current working tree (run 2026-08-03):</p>
+		<table>
+			<thead><tr><th>Command</th><th>Result</th><th>Details</th></tr></thead>
+			<tbody>
+				<tr><td class="mono">pnpm lint</td><td><span class="pill good">PASS</span></td><td>Biome check — 82 files, no issues</td></tr>
+				<tr><td class="mono">pnpm typecheck</td><td><span class="pill good">PASS</span></td><td><span class="mono">tsc --noEmit</span> — clean</td></tr>
+				<tr><td class="mono">pnpm exec next build</td><td><span class="pill good">PASS</span></td><td>Production build compiles; 18 routes; proxy compiled</td></tr>
+				<tr><td class="mono">pnpm build</td><td><span class="pill warn">BLOCKED</span></td><td>EPERM while dev server holds Prisma engine DLL; works with dev server stopped</td></tr>
+			</tbody>
+		</table>
+		<p class="muted">
+			Runtime fix verified by code inspection this session: proxy redirects gated to GET/HEAD so Server Action
+			POSTs aren't met with a 302 ("An unexpected response was received from the server."), and
+			<span class="mono">setAll</span> mutates the single intl response instead of re-running the middleware.
+		</p>
+	</section>
+
+	<!-- 8. Current Working Tree -->
+	<section>
+		<h2>8 &middot; Uncommitted Changes (WP-2)</h2>
+		<p>The only outstanding working-tree changes are this session's WP-2 persistence fix (not committed):</p>
+		<table>
+			<thead><tr><th>Path</th><th>Change</th></tr></thead>
+			<tbody>
+				<tr><td class="mono">apps/web/lib/schedule/resolve-current.ts</td><td>New — shared current-config resolver (<span class="mono">pending → applied → pond.*</span>)</td></tr>
+				<tr><td class="mono">apps/web/app/[locale]/(dashboard)/dashboard/schedule/page.tsx</td><td>Editor + banner use merged current config</td></tr>
+				<tr><td class="mono">apps/web/app/[locale]/(dashboard)/dashboard/page.tsx</td><td>Next-feed calc, volume calc, rate display use merged config</td></tr>
+				<tr><td class="mono">apps/web/app/[locale]/(dashboard)/dashboard/settings/pond/page.tsx</td><td>PondSettingsForm seeds from resolved values</td></tr>
+				<tr><td class="mono">apps/web/app/[locale]/(dashboard)/dashboard/log-sample/page.tsx</td><td>Biomass preview uses current rate/feeds</td></tr>
+			</tbody>
+		</table>
+		<p class="muted">Branch history: <span class="mono">42de8ea</span> auth/dashboard/chat · <span class="mono">16db195</span> i18n + settings · <span class="mono">58df823</span> growth · <span class="mono">dc9e601</span> locales · <span class="mono">4d1da3f</span> history/growth · <span class="mono">32d4132</span> PaginatedSearchTable · <span class="mono">59b6227</span> seed + history · <span class="mono">bfe6e14</span> audit system.</p>
+	</section>
+
+	<!-- 9. Known Issues & Debt -->
+	<section>
+		<h2>9 &middot; Known Issues &amp; Technical Debt</h2>
+		<table>
+			<thead><tr><th>Item</th><th>Severity</th><th>Notes</th></tr></thead>
+			<tbody>
+				<tr><td>No automated tests / test runner</td><td><span class="pill warn">high</span></td><td>Manual QA only; CI has no test gate</td></tr>
+				<tr><td>Deprecated <span class="mono">Device</span>/<span class="mono">FeedingEvent</span> models</td><td><span class="pill warn">medium</span></td><td>Read-only now; removal requires coordinated migration + seed change</td></tr>
+				<tr><td>Full <span class="mono">pnpm build</span> EPERM</td><td><span class="pill warn">low</span></td><td>Prisma engine DLL locked by running dev server</td></tr>
+				<tr><td>README references <span class="mono">.env.example</span></td><td><span class="pill warn">low</span></td><td>File not present in repo; env is configured in <span class="mono">apps/web/.env</span></td></tr>
+				<tr><td>brand-1 logo note illegible</td><td><span class="pill info">pending</span></td><td>Awaiting Jeff's interpretation choice</td></tr>
+				<tr><td>Plan doc authored vs <span class="mono">develop</span></td><td><span class="pill info">info</span></td><td>Remediation plan targeted <span class="mono">develop</span>; work implemented on local <span class="mono">Karl</span>. No GitHub operations performed (no commit/push/PR).</td></tr>
+			</tbody>
+		</table>
+	</section>
+
+	<!-- 10. Appendix -->
+	<section>
+		<h2>10 &middot; Appendix — Server Code Inventory</h2>
+		<h3>lib/</h3>
+		<p class="mono" style="font-size:0.85rem; white-space:pre-wrap;">actions/  auth · audit · biomass · chat · energy · growth · history · notifications · query-filters · schedule · settings
+auth/     session.ts            (getCurrentPondOwnerId, buildPondEmail, farmIdFromEmail)
+schedule/ resolve-current.ts    (NEW — WP-2)
+supabase/ client.ts · server.ts (SSR browser/server clients, official patterns)
+gemini.ts · prisma.ts · date-local.ts · volumeCalc.ts · utils.ts</p>
+		<h3>Scripts</h3>
+		<ul class="tight">
+			<li class="mono">scripts/provision-demo-user.ts — idempotent service-role demo user (RUN, verified)</li>
+			<li class="mono">prisma/seed.ts — demo pond, device, biomass logs (ownerId demo-farmer-1, intentional)</li>
+		</ul>
+		<h3>Verification commands</h3>
+		<p class="mono" style="font-size:0.85rem;">pnpm lint<br/>pnpm typecheck<br/>pnpm exec next build</p>
+	</section>
+
+	<footer>
+		OptiFeed · Syntaxure Labs · System Status Report · generated from the local <span class="mono">Karl</span> working tree · no GitHub operations performed
+	</footer>
+
+</div>
+</body>
+</html>

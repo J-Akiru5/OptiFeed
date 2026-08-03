@@ -1,5 +1,6 @@
 "use client";
 
+import { clearChatHistory } from "@/components/chat/chat-storage";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { useRouter } from "@/i18n/routing";
@@ -38,6 +39,7 @@ export function HeaderActions({
 
 	const handleLogout = async () => {
 		setShowProfileMenu(false);
+		clearChatHistory();
 		const supabase = createClient();
 		await supabase.auth.signOut();
 		router.replace("/login");

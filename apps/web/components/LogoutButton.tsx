@@ -1,5 +1,6 @@
 "use client";
 
+import { clearChatHistory } from "@/components/chat/chat-storage";
 import { useRouter } from "@/i18n/routing";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, LogOut } from "lucide-react";
@@ -12,6 +13,7 @@ export function LogoutButton() {
 
 	const handleLogout = async () => {
 		setIsPending(true);
+		clearChatHistory();
 		await supabase.auth.signOut();
 		// Redirect to home/login page after logout
 		router.replace("/");

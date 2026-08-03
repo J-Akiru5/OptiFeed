@@ -422,6 +422,9 @@
 	"chat": {
 		"title": "Asistant sang OptiFeed",
 		"placeholder": "Mamangkot sang bisan ano...",
+		"suggestionSchedule": "San-o ang masunod nga pagpakaon?",
+		"suggestionFcr": "Ano ang akon FCR subong?",
+		"suggestionLogSample": "Paano maglista sang sampol?",
 		"intro": "Kamusta! Ako ang imo OptiFeed asistant. Mamangkot ka parte sa imo masunod nga iskedyul sang pagpakaon, ang FCR subong, mga na-miss nga pagpakaon, ukon paano maglista sang sampol!",
 		"error": "Ay, may ara sang deperensya. Palihug sulayi liwat.",
 		"intentScheduleNoPond": "Wala ko makita ang iskedyul sang imo punong. Siguraduha nga nakakonekta ang imo mga gamit.",

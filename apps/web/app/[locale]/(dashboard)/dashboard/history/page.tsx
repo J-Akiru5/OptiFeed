@@ -1,4 +1,5 @@
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { FeedEventHistoryTable } from "@/components/FeedEventHistoryTable";
+import { getFeedEvents } from "@/lib/actions/history";
 import prisma from "@/lib/prisma";
 import { CalendarDays, CheckCircle2, Clock, Package } from "lucide-react";
 import { getTranslations } from "next-intl/server";
@@ -14,7 +15,6 @@ const SOURCE_LABELS: Record<string, string> = {
 export default async function HistoryPage() {
 	const t = await getTranslations("dashboard.history");
 	const tSch = await getTranslations("dashboard.schedule");
-	const tDates = await getTranslations("dates");
 	const pond = await prisma.pond.findFirst({
 		where: { ownerId: "demo-farmer-1" },
 	});
@@ -42,14 +42,11 @@ export default async function HistoryPage() {
 	const energyDevice = energyDevices[0];
 
 	// Live device-confirmed dispenses written by POST /api/ingest (FeedEvent).
-	const events = await prisma.feedEvent.findMany({
-		where: {
-			deviceId: { in: energyDevices.map((d) => d.id) },
-			eventType: "feed_dispensed",
-		},
-		orderBy: { receivedAt: "desc" },
-		take: 50,
+	const initialPage = await getFeedEvents({
+		deviceIds: energyDevices.map((d) => d.id),
+		cursor: null,
 	});
+	const events = initialPage.items;
 
 	// Calculate stats
 	const totalDispensed = events.reduce((sum, e) => sum + (e.grams ?? 0), 0);
@@ -63,15 +60,6 @@ export default async function HistoryPage() {
 	const sourceLabel = (s: string) => {
 		const key = SOURCE_LABELS[s] ?? "dashboard";
 		return t(`source_${key}`);
-	};
-
-	// Use next-intl for localization
-	const formatDate = (date: Date) => {
-		return formatDateTimeLocal(date, tDates).fullDate;
-	};
-
-	const formatTime = (date: Date) => {
-		return formatDateTimeLocal(date, tDates).time;
 	};
 
 	return (
@@ -142,38 +130,12 @@ export default async function HistoryPage() {
 						<CalendarDays className="h-5 w-5 text-gray-400" /> {t("eventLog")}
 					</h3>
 				</div>
-				<div className="divide-y divide-gray-100">
-					{events.map((event) => (
-						<div
-							key={event.id}
-							className="p-4 sm:p-6 flex items-center justify-between hover:bg-gray-50 transition-colors"
-						>
-							<div className="flex items-center gap-4">
-								<div className="h-10 w-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
-									<CheckCircle2 className="h-5 w-5" />
-								</div>
-								<div>
-									<p className="font-semibold text-gray-900">{formatDate(event.receivedAt)}</p>
-									<p className="font-semibold text-gray-900 flex items-center gap-2">
-										<span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 flex items-center gap-1">
-											<Clock className="h-3 w-3" /> {formatTime(event.receivedAt)}
-										</span>
-									</p>
-									<p className="text-sm text-gray-500 mt-0.5">
-										{event.source ? sourceLabel(event.source) : t("confirmedDispense")}
-									</p>
-								</div>
-							</div>
-							<div className="text-right">
-								<p className="font-bold text-gray-900">{event.grams ?? 0}g</p>
-							</div>
-						</div>
-					))}
-
-					{events.length === 0 && (
-						<div className="p-10 text-center text-gray-500">{t("noEvents")}</div>
-					)}
-				</div>
+				<FeedEventHistoryTable
+					deviceIds={energyDevices.map((d) => d.id)}
+					initialItems={initialPage.items}
+					initialHasMore={initialPage.hasMore}
+					initialNextCursor={initialPage.nextCursor}
+				/>
 			</div>
 		</div>
 	);

@@ -1,3 +1,5 @@
+import { FeedLevelLogTable } from "@/components/FeedLevelLogTable";
+import { getFeedLevelLogs } from "@/lib/actions/growth";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import prisma from "@/lib/prisma";
 import { Activity, Fish, Package, Scale, TrendingUp } from "lucide-react";
@@ -38,11 +40,16 @@ export default async function GrowthPage() {
 	});
 
 	let feedLevelLogs: Awaited<ReturnType<typeof prisma.feedLevelLog.findMany>> = [];
+	let feedLevelLogPage: Awaited<ReturnType<typeof getFeedLevelLogs>> | null = null;
 	if (energyDevice) {
 		feedLevelLogs = await prisma.feedLevelLog.findMany({
 			where: { deviceId: energyDevice.id },
 			orderBy: { recordedAt: "asc" },
 			take: 30,
+		});
+		feedLevelLogPage = await getFeedLevelLogs({
+			deviceId: energyDevice.id,
+			cursor: null,
 		});
 	}
 
@@ -300,45 +307,17 @@ export default async function GrowthPage() {
 			)}
 
 			{/* Feed Level Log Table */}
-			{feedLevelLogs.length > 0 && (
+			{energyDevice && feedLevelLogPage && feedLevelLogs.length > 0 && (
 				<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
 					<div className="p-6 border-b border-gray-100 bg-gray-50/50">
 						<h3 className="font-bold text-gray-800">{t("feedLevelTableTitle")}</h3>
 					</div>
-					<div className="overflow-x-auto">
-						<table className="w-full text-left text-sm text-gray-600">
-							<thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
-								<tr>
-									<th className="px-6 py-4">{t("dateCol")}</th>
-									<th className="px-6 py-4">{t("feedLevelCol")}</th>
-									<th className="px-6 py-4">{t("distanceCol")}</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-gray-100">
-								{[...feedLevelLogs].reverse().map((log) => (
-									<tr key={log.id} className="hover:bg-gray-50 transition-colors">
-										<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-											{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
-										</td>
-										<td className="px-6 py-4">
-											<span
-												className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
-													log.levelPercent <= 5
-														? "bg-red-100 text-red-700"
-														: log.levelPercent <= 20
-															? "bg-amber-100 text-amber-700"
-															: "bg-green-100 text-green-700"
-												}`}
-											>
-												{Math.round(log.levelPercent)}%
-											</span>
-										</td>
-										<td className="px-6 py-4 font-mono">{log.distanceCm.toFixed(1)} cm</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
+					<FeedLevelLogTable
+						deviceId={energyDevice.id}
+						initialItems={feedLevelLogPage.items}
+						initialHasMore={feedLevelLogPage.hasMore}
+						initialNextCursor={feedLevelLogPage.nextCursor}
+					/>
 				</div>
 			)}
 

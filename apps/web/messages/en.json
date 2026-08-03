@@ -210,10 +210,13 @@
 			"source_dashboard": "Dashboard",
 			"source_button": "Button",
 			"confirmedDispense": "Confirmed dispense",
-			"eventLog": "Event Log (Last 50)",
+			"eventLog": "Event Log",
 			"noEvents": "No feeding events found.",
 			"feedLevel": "Feed Level",
-			"feedLevelDesc": "Current hopper fill level from ultrasonic sensor"
+			"feedLevelDesc": "Current hopper fill level from ultrasonic sensor",
+			"searchPlaceholder": "Filter by source (scheduled, dashboard, button) or date (YYYY-MM-DD)",
+			"loadMore": "Load more",
+			"loading": "Loading…"
 		},
 		"feedNowModal": {
 			"triggerTitle": "Trigger Manual Feeding?",
@@ -250,7 +253,10 @@
 			"feedLevelCol": "Level %",
 			"distanceCol": "Distance (cm)",
 			"noSamples": "No biomass samples recorded yet.",
-			"noFeedLevel": "No feed level readings recorded yet."
+			"noFeedLevel": "No feed level readings recorded yet.",
+			"searchPlaceholder": "Search by date (YYYY-MM-DD)",
+			"loadMore": "Load more",
+			"loading": "Loading…"
 		},
 		"settings": {
 			"title": "Settings",

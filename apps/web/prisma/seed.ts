@@ -65,11 +65,11 @@ async function main() {
 	// 3. Create Biomass Logs (4 entries over the last month)
 	const now = new Date();
 
-	// 3a. Create FeedLevelLog history (10 entries over 2 weeks showing gradual decline)
-	for (let i = 10; i >= 1; i--) {
-		const recordedAt = new Date(now.getTime() - i * 1.5 * 24 * 60 * 60 * 1000);
-		const levelPercent = 95 - (10 - i) * 1.5;
-		const distanceCm = 5 + (10 - i) * 2;
+	// 3a. Create FeedLevelLog history (45 entries over ~11 days showing gradual decline)
+	for (let i = 45; i >= 1; i--) {
+		const recordedAt = new Date(now.getTime() - i * 0.25 * 24 * 60 * 60 * 1000);
+		const levelPercent = Math.max(8, 95 - (45 - i) * 1.8);
+		const distanceCm = 5 + (95 - levelPercent) * 0.35;
 		await prisma.feedLevelLog.create({
 			data: {
 				deviceId: energyDevice.id,

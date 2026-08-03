@@ -210,10 +210,13 @@
 			"source_dashboard": "Dashboard",
 			"source_button": "Button",
 			"confirmedDispense": "Gin-kumpirma nga dispense",
-			"eventLog": "Log sang Panghitabo (Katapusan na 50)",
+			"eventLog": "Log sang Panghitabo",
 			"noEvents": "Wala nakit-an nga mga panghitabo sa pagpakaon.",
 			"feedLevel": "Feed Level",
-			"feedLevelDesc": "Kasamtangan nga lebel sang hopper halin sa ultrasonic sensor"
+			"feedLevelDesc": "Kasamtangan nga lebel sang hopper halin sa ultrasonic sensor",
+			"searchPlaceholder": "I-filter base sa tinubdan (scheduled, dashboard, button) ukon petsa (YYYY-MM-DD)",
+			"loadMore": "Magkarga pa",
+			"loading": "Gina-karga…"
 		},
 		"feedNowModal": {
 			"triggerTitle": "Magpa-Kaon Subong?",
@@ -250,7 +253,10 @@
 			"feedLevelCol": "Level %",
 			"distanceCol": "Distansya (cm)",
 			"noSamples": "Wala pa sang narekord nga biomass samples.",
-			"noFeedLevel": "Wala pa sang narekord nga pagbasa sang feed level."
+			"noFeedLevel": "Wala pa sang narekord nga pagbasa sang feed level.",
+			"searchPlaceholder": "Mangita base sa petsa (YYYY-MM-DD)",
+			"loadMore": "Magkarga pa",
+			"loading": "Gina-karga…"
 		},
 		"settings": {
 			"title": "Mga Setting",

@@ -2,7 +2,7 @@
 	"nav": {
 		"dashboard": "Dashboard",
 		"schedule": "Schedule",
-		"logSample": "Log Sample",
+		"logSample": "Biomass Log",
 		"history": "History",
 		"growth": "Growth",
 		"settings": "Settings",
@@ -189,7 +189,7 @@
 			}
 		},
 		"logSample": {
-			"title": "Log Biomass Sample",
+			"title": "Biomass Log",
 			"desc": "Record new biomass samples for <bold>{pond}</bold>. This helps calibrate the auto-feeder and track FCR.",
 			"weightLabel": "Total Sample Weight (kg)",
 			"fishCountLabel": "Number of Fish",
@@ -420,7 +420,7 @@
 		"intentScheduleNoPond": "I couldn't find your pond schedule. Please ensure your devices are configured.",
 		"intentSchedulePaused": "Your automated schedule is currently **Paused**. No feedings will occur until you resume it on the Schedule page.",
 		"intentScheduleActive": "Your device is active and scheduled to feed **{feedsPerDay} times per day** between **{startTime}** and **{endTime}**.",
-		"intentLogSample": "To log a new biomass sample:\n1. Navigate to the **Log Sample** tab in the sidebar.\n2. Enter the average weight and count of your sampled fish.\n3. The system will automatically calculate your new recommended daily feed volume based on your feeding rate!",
+		"intentLogSample": "To log a new biomass sample:\n1. Navigate to the **Biomass Log** tab in the sidebar.\n2. Enter the average weight and count of your sampled fish.\n3. The system will automatically calculate your new recommended daily feed volume based on your feeding rate!",
 		"intentFcrNoData": "I couldn't find any recent FCR reports for your pond.",
 		"intentFcrActive": "Your most recent Feed Conversion Ratio (FCR) is **{fcr}**. You can view your full historical performance on the Growth tab.",
 		"intentMissedNoData": "Good news! I don't see any recent missed feedings in your logs.",

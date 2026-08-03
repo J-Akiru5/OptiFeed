@@ -2,7 +2,7 @@
 	"nav": {
 		"dashboard": "Dashboard",
 		"schedule": "Iskedyul",
-		"logSample": "Ilista ang Sampol",
+		"logSample": "Log sang Biomass",
 		"history": "Kasaysayan",
 		"growth": "Pagtubo",
 		"settings": "Mga Setting",
@@ -189,7 +189,7 @@
 			}
 		},
 		"logSample": {
-			"title": "Ilista ang Sampol sang Biomass",
+			"title": "Log sang Biomass",
 			"desc": "Maglista sang bag-o nga sampol sang biomass para sa <bold>{pond}</bold>. Nagabulig ini sa pag-calibrate sang auto-feeder kag pag-track sang FCR.",
 			"weightLabel": "Kabilugan nga Timbang sang Sampol (kg)",
 			"fishCountLabel": "Kadamuon sang Isda",
@@ -419,7 +419,7 @@
 		"intentScheduleNoPond": "Wala ko makita ang iskedyul sang imo punong. Siguraduha nga nakakonekta ang imo mga gamit.",
 		"intentSchedulePaused": "Ang imo awtomatik nga iskedyul subong naka-**Pause**. Wala sang pagpakaon nga matabo tubtob imo ini padayunon sa pahina sang Iskedyul.",
 		"intentScheduleActive": "Ang imo device aktibo kag naka-iskedyul nga magpakaon **{feedsPerDay} ka beses kada adlaw** halin sa **{startTime}** tubtob **{endTime}**.",
-		"intentLogSample": "Para maglista sang bag-o nga sampol sang biomass:\n1. Kadto sa **Paglista sang Sampol** nga tab.\n2. Ibutang ang kabug-aton kag kadamuon sang imo sampol nga isda.\n3. Ang sistema awtomatik nga magakwenta sang imo bag-o nga kinahanglanon nga feed volume!",
+		"intentLogSample": "Para maglista sang bag-o nga sampol sang biomass:\n1. Kadto sa **Log sang Biomass** nga tab.\n2. Ibutang ang kabug-aton kag kadamuon sang imo sampol nga isda.\n3. Ang sistema awtomatik nga magakwenta sang imo bag-o nga kinahanglanon nga feed volume!",
 		"intentFcrNoData": "Wala ko makita ang mga nagligad nga FCR report para sa imo punong.",
 		"intentFcrActive": "Ang imo pinaka-ulihi nga Feed Conversion Ratio (FCR) amo **{fcr}**. Makita mo ang imo bilog nga performance sa Growth tab.",
 		"intentMissedNoData": "Maayo nga balita! Wala ko sing may nakita nga na-miss nga pagpakaon sa imo mga log subong.",

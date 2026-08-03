@@ -1,5 +1,7 @@
 import { LogSampleForm } from "@/components/LogSampleForm";
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
+import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0; // Ensure data is fresh
@@ -7,7 +9,7 @@ export const revalidate = 0; // Ensure data is fresh
 export default async function LogSamplePage() {
 	const t = await getTranslations("dashboard.logSample");
 	const pond = await prisma.pond.findFirst({
-		where: { ownerId: "demo-farmer-1" },
+		where: { ownerId: await getCurrentPondOwnerId() },
 	});
 
 	if (!pond) {
@@ -17,6 +19,15 @@ export default async function LogSamplePage() {
 			</div>
 		);
 	}
+
+	const energyDevice = await prisma.energyDevice.findFirst({
+		where: { pondId: pond.id },
+		select: { id: true },
+	});
+
+	// `pond.*` goes stale when a device is paired (saves queue ScheduleCommands);
+	// prefer the newest pending/sent command, then the last applied one.
+	const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice?.id ?? null);
 
 	return (
 		<div className="space-y-6 pb-20 animate-in fade-in duration-500 max-w-4xl">
@@ -35,8 +46,8 @@ export default async function LogSamplePage() {
 			<div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
 				<LogSampleForm
 					pondId={pond.id}
-					feedingRatePct={pond.feedingRatePct}
-					feedsPerDay={pond.feedsPerDay}
+					feedingRatePct={currentConfig?.feedingRatePct ?? pond.feedingRatePct}
+					feedsPerDay={currentConfig?.feedsPerDay ?? pond.feedsPerDay}
 				/>
 			</div>
 		</div>

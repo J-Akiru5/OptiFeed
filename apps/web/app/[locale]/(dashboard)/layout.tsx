@@ -1,3 +1,5 @@
+import { BackToDashboard } from "@/components/BackToDashboard";
+import { LiveClock } from "@/components/LiveClock";
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { BottomNav } from "@/components/bottom-nav";
 import { ChatBubble } from "@/components/chat-bubble";
@@ -5,6 +7,7 @@ import { HeaderActions } from "@/components/header-actions";
 import { NotificationProvider } from "@/components/notification-provider";
 import { Sidebar } from "@/components/sidebar";
 import { Link } from "@/i18n/routing";
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 
 export default async function DashboardLayout({
@@ -12,6 +15,8 @@ export default async function DashboardLayout({
 }: {
 	children: React.ReactNode;
 }) {
+	const ownerId = await getCurrentPondOwnerId();
+
 	// Fetch demo pond and initial unread notification count
 	// Wrapped in try/catch — a Prisma error must never cause a layout crash (which Next.js renders as 404)
 	let pondId = "";
@@ -23,7 +28,7 @@ export default async function DashboardLayout({
 
 	try {
 		const pond = await prisma.pond.findFirst({
-			where: { ownerId: "demo-farmer-1" },
+			where: { ownerId },
 		});
 
 		if (pond) {
@@ -84,6 +89,7 @@ export default async function DashboardLayout({
 								</span>
 							</div>
 						)}
+						<LiveClock />
 					</div>
 
 					{/* Right: Actions */}
@@ -92,7 +98,10 @@ export default async function DashboardLayout({
 
 				<div className="flex w-full flex-1 min-h-[calc(100vh-4rem)]">
 					<Sidebar hopperLevelPct={hopperLevelPct} />
-					<main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 relative z-10">{children}</main>
+					<main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 relative z-10">
+						<BackToDashboard />
+						{children}
+					</main>
 				</div>
 			</NotificationProvider>
 

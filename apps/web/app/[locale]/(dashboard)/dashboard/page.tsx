@@ -3,8 +3,10 @@ import { FeedLevelCard } from "@/components/FeedLevelCard";
 import { FeedNowButton } from "@/components/FeedNowButton";
 import { WaterTempCard } from "@/components/WaterTempCard";
 import { Link } from "@/i18n/routing";
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import prisma from "@/lib/prisma";
+import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 import {
 	Activity,
 	Calendar,
@@ -25,7 +27,7 @@ export default async function DashboardHomePage() {
 	const tDates = await getTranslations("dates");
 
 	const pond = await prisma.pond.findFirst({
-		where: { ownerId: "demo-farmer-1" },
+		where: { ownerId: await getCurrentPondOwnerId() },
 		include: { devices: true },
 	});
 
@@ -67,14 +69,20 @@ export default async function DashboardHomePage() {
 		orderBy: { recordedAt: "desc" },
 	});
 
+	// `pond.*` goes stale when a device is paired (saves queue ScheduleCommands);
+	// prefer the newest pending/sent command, then the last applied one.
+	const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice?.id ?? null);
+
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
 
-	const feedingHistory = await prisma.feedingEvent.findMany({
-		where: { deviceId: device.id },
-		orderBy: { scheduledTime: "desc" },
-		take: 5,
-	});
+	const feedingHistory = energyDevice
+		? await prisma.feedEvent.findMany({
+				where: { deviceId: energyDevice.id, eventType: "feed_dispensed" },
+				orderBy: { receivedAt: "desc" },
+				take: 5,
+			})
+		: [];
 
 	const fcrReports = await prisma.fcrReport.findMany({
 		where: { pondId: pond.id },
@@ -85,12 +93,14 @@ export default async function DashboardHomePage() {
 
 	// Calculate next feeding time
 	const now = new Date();
-	const startHour = pond.scheduleStart.getUTCHours();
-	const endHour = pond.scheduleEnd.getUTCHours();
-	const feedInterval = (endHour - startHour) / Math.max(1, pond.feedsPerDay - 1);
+	const startHour = (currentConfig?.scheduleStart ?? pond.scheduleStart).getUTCHours();
+	const endHour = (currentConfig?.scheduleEnd ?? pond.scheduleEnd).getUTCHours();
+	const feedsPerDay = currentConfig?.feedsPerDay ?? pond.feedsPerDay;
+	const feedingRatePct = currentConfig?.feedingRatePct ?? pond.feedingRatePct;
+	const feedInterval = (endHour - startHour) / Math.max(1, feedsPerDay - 1);
 
 	let nextFeedTimeObj = null;
-	for (let i = 0; i < pond.feedsPerDay; i++) {
+	for (let i = 0; i < feedsPerDay; i++) {
 		const feedTime = new Date();
 		feedTime.setHours(startHour + i * feedInterval, 0, 0, 0);
 		if (feedTime > now) {
@@ -114,8 +124,8 @@ export default async function DashboardHomePage() {
 	let nextFeedingVolumeG = 330;
 	if (latestBiomass) {
 		const totalBiomassGrams = latestBiomass.avgWeightKg * 1000 * pondPopulation;
-		const dailyFeedGrams = totalBiomassGrams * (pond.feedingRatePct / 100);
-		nextFeedingVolumeG = Math.round(dailyFeedGrams / pond.feedsPerDay);
+		const dailyFeedGrams = totalBiomassGrams * (feedingRatePct / 100);
+		nextFeedingVolumeG = Math.round(dailyFeedGrams / feedsPerDay);
 	}
 
 	// Calculate days until next physical weighing (assuming every 14 days)
@@ -234,7 +244,7 @@ export default async function DashboardHomePage() {
 									{t("feedRateLabel")}
 								</p>
 								<p className="text-2xl md:text-3xl font-black">
-									{pond.feedingRatePct}
+									{feedingRatePct}
 									{t("feedRateSuffix")}
 								</p>
 							</div>
@@ -381,35 +391,26 @@ export default async function DashboardHomePage() {
 									<div>
 										<div className="flex items-center gap-2">
 											<p className="font-extrabold text-base text-[#0A3D62]">
-												{formatTime(item.scheduledTime)}
+												{formatTime(item.receivedAt)}
 											</p>
 											<span className="text-[10px] text-[#3D5568] bg-white border border-gray-200 px-1.5 py-0.5 rounded-full font-mono">
-												{formatDate(item.scheduledTime)}
+												{formatDate(item.receivedAt)}
 											</span>
 										</div>
 										<p className="text-xs text-[#3D5568]">
-											{/* Use the history strings for these labels */}
-											{item.status === "completed" ? tHist("completed") : tHist("missed")}
+											{tHist(item.source ? `source_${item.source}` : "confirmedDispense")}
 										</p>
 									</div>
 								</div>
 								<div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-2 sm:pt-0 border-gray-200">
 									<div className="text-left sm:text-right">
-										<p className="font-extrabold text-base text-[#0A3D62]">
-											{item.dispensedVolumeG}g
-										</p>
+										<p className="font-extrabold text-base text-[#0A3D62]">{item.grams ?? 0}g</p>
 										<p className="text-[10px] font-bold uppercase text-[#3D5568] opacity-50">
 											{tHist("amount")}
 										</p>
 									</div>
-									<span
-										className={`px-4 py-1.5 rounded-full font-bold text-xs text-center min-w-[80px] shadow-sm ${
-											item.status === "completed"
-												? "bg-[#1E7B34] text-white"
-												: "bg-[#C42B3A] text-white"
-										}`}
-									>
-										{item.status === "completed" ? tHist("completed") : tHist("missed")}
+									<span className="px-4 py-1.5 rounded-full font-bold text-xs text-center min-w-[80px] shadow-sm bg-[#1E7B34] text-white">
+										{tHist("confirmedDispense")}
 									</span>
 								</div>
 							</div>

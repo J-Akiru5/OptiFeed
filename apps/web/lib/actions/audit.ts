@@ -1,5 +1,6 @@
 "use server";
 
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 
 export interface AuditFilter {
@@ -28,8 +29,9 @@ export interface AuditResult {
 }
 
 export async function getAuditLog(filters: AuditFilter = {}): Promise<AuditResult> {
+	const ownerId = await getCurrentPondOwnerId();
 	const pond = await prisma.pond.findFirst({
-		where: { ownerId: "demo-farmer-1" },
+		where: { ownerId },
 		select: { id: true },
 	});
 

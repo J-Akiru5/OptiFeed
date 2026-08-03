@@ -1,5 +1,6 @@
 "use server";
 
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { updateScheduleCommand } from "./schedule";
@@ -10,6 +11,7 @@ export async function updatePondSettings(
 	feedsPerDay: number,
 ) {
 	try {
+		const ownerId = await getCurrentPondOwnerId();
 		const energyDevice = await prisma.energyDevice.findFirst({
 			where: { pondId },
 			select: { id: true },
@@ -37,7 +39,7 @@ export async function updatePondSettings(
 						deviceId: energyDevice.id,
 						eventType: "settings_changed",
 						source: "user",
-						actorId: "demo-farmer-1",
+						actorId: ownerId,
 						metadata: { feedingRatePct, feedsPerDay },
 					},
 				});

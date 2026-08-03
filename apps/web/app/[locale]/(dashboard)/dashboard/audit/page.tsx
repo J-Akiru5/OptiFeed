@@ -2,6 +2,7 @@ import { getAuditLog } from "@/lib/actions/audit";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import {
 	AlertCircle,
+	Bell,
 	CheckCircle2,
 	ChevronRight,
 	Clock,
@@ -110,6 +111,11 @@ const eventTypeConfig: Record<
 		className: "border-teal-200 bg-teal-50 text-teal-700",
 		filterGroup: "feeding",
 	},
+	notification_acknowledged: {
+		icon: Bell,
+		className: "border-blue-200 bg-blue-50 text-blue-700",
+		filterGroup: "commands",
+	},
 };
 
 const defaultEventConfig = {
@@ -140,7 +146,13 @@ export default async function AuditPage({
 		],
 		connectivity: ["connected", "disconnected", "device_registered"],
 		schedule: ["schedule_changed", "schedule_applied", "pause_toggled", "settings_changed"],
-		commands: ["command_sent", "command_acked", "command_failed", "manual_trigger"],
+		commands: [
+			"command_sent",
+			"command_acked",
+			"command_failed",
+			"manual_trigger",
+			"notification_acknowledged",
+		],
 	};
 
 	const eventTypes = filterGroupToTypes[filterParam ?? "all"] ?? [];
@@ -211,6 +223,7 @@ export default async function AuditPage({
 							const schedStart = m?.scheduleStart;
 							const schedEnd = m?.scheduleEnd;
 							const feedsPerDayMeta = m?.feedsPerDay;
+							const count = m?.count;
 
 							return (
 								<div
@@ -259,6 +272,11 @@ export default async function AuditPage({
 											<span className="mt-1 block text-xs text-[#3D5568]/70">
 												Schedule: {String(schedStart)} - {String(schedEnd)},{" "}
 												{String(feedsPerDayMeta ?? "")} feeds/day
+											</span>
+										)}
+										{count && (
+											<span className="mt-1 block text-xs font-semibold text-[#3D5568]/70">
+												{String(count)} notification(s) marked as read
 											</span>
 										)}
 									</span>

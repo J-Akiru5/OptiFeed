@@ -1,6 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { getCurrentPondOwnerId, getCurrentPondOwnerIdSafe } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
@@ -13,6 +14,7 @@ const STALE_DISPATCHED_MS = 10 * 60 * 1000;
 
 export async function requestFeed(deviceId: string, grams?: number) {
 	try {
+		const ownerId = await getCurrentPondOwnerId();
 		const device = await prisma.energyDevice.findUnique({
 			where: { id: deviceId },
 			select: { gramsPerFeeding: true },
@@ -57,7 +59,7 @@ export async function requestFeed(deviceId: string, grams?: number) {
 				deviceId,
 				eventType: "manual_trigger",
 				source: "user",
-				actorId: "demo-farmer-1",
+				actorId: ownerId,
 				metadata: { grams: feedGrams, triggerSource: "energy_actions" },
 			},
 		});
@@ -76,6 +78,7 @@ export async function saveHopperCalibration(
 	data: { hopperFullCm: number; hopperEmptyCm: number; hopperCapacityG: number },
 ) {
 	try {
+		const ownerId = await getCurrentPondOwnerId();
 		await prisma.energyDevice.update({
 			where: { id: deviceId },
 			data: {
@@ -90,7 +93,7 @@ export async function saveHopperCalibration(
 				deviceId,
 				eventType: "hopper_calibrated",
 				source: "user",
-				actorId: "demo-farmer-1",
+				actorId: ownerId,
 				metadata: {
 					hopperFullCm: data.hopperFullCm,
 					hopperEmptyCm: data.hopperEmptyCm,
@@ -112,6 +115,7 @@ export async function registerEnergyDevice(
 	label: string,
 	pondId?: string,
 ): Promise<string> {
+	const ownerId = await getCurrentPondOwnerIdSafe();
 	const token = `esp32-tok-${randomUUID()}`;
 	const device = await prisma.energyDevice.create({
 		data: {
@@ -127,7 +131,7 @@ export async function registerEnergyDevice(
 			deviceId: device.id,
 			eventType: "device_registered",
 			source: "user",
-			actorId: "demo-farmer-1",
+			actorId: ownerId,
 			metadata: { mac },
 		},
 	});

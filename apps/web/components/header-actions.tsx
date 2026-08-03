@@ -3,7 +3,7 @@
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { useRouter } from "@/i18n/routing";
-import { Globe, LogOut, Settings as SettingsIcon, UserRound, X } from "lucide-react";
+import { Globe, LogOut, X } from "lucide-react";
 import { useLocale } from "next-intl";
 import { useState } from "react";
 
@@ -136,60 +136,6 @@ export function HeaderActions({
 					</div>
 
 					<div className="mt-4 space-y-2">
-						<button
-							type="button"
-							onClick={() => {
-								setShowProfileMenu(false);
-								router.push("/dashboard/profile-settings");
-							}}
-							className="flex min-h-14 w-full items-center justify-between rounded-2xl border border-[#0A3D62]/10 bg-white px-4 font-black text-[#0A3D62] transition hover:bg-[#F4F7F6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
-						>
-							<span className="flex items-center gap-3">
-								<UserRound className="h-5 w-5 text-[#E85A2A]" /> Profile settings
-							</span>
-							<svg
-								className="h-5 w-5 text-[#3D5568]"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								role="img"
-								aria-label="Navigate"
-							>
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									strokeWidth={2}
-									d="M9 5l7 7-7 7"
-								/>
-							</svg>
-						</button>
-						<button
-							type="button"
-							onClick={() => {
-								setShowProfileMenu(false);
-								router.push("/dashboard/app-settings");
-							}}
-							className="flex min-h-14 w-full items-center justify-between rounded-2xl border border-[#0A3D62]/10 bg-white px-4 font-black text-[#0A3D62] transition hover:bg-[#F4F7F6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
-						>
-							<span className="flex items-center gap-3">
-								<SettingsIcon className="h-5 w-5 text-[#E85A2A]" /> App & hardware settings
-							</span>
-							<svg
-								className="h-5 w-5 text-[#3D5568]"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								role="img"
-								aria-label="Navigate"
-							>
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									strokeWidth={2}
-									d="M9 5l7 7-7 7"
-								/>
-							</svg>
-						</button>
 						<button
 							type="button"
 							onClick={() => {

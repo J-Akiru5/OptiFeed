@@ -24,19 +24,30 @@ export function ChatConversation({
 }: ChatConversationProps) {
 	const t = useTranslations("chat");
 	const [input, setInput] = useState("");
+	const [nearBottom, setNearBottom] = useState(true);
 	const scrollRef = useRef<HTMLDivElement>(null);
 
 	const chips = [t("suggestionSchedule"), t("suggestionFcr"), t("suggestionLogSample")];
 	const last = messages[messages.length - 1];
 	const showTyping = isStreaming && (last?.role === "user" || last?.content === "");
 
-	// Auto-scroll to the newest message.
+	const handleScroll = () => {
+		const el = scrollRef.current;
+		if (!el) return;
+		setNearBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 64);
+	};
+
+	// Auto-scroll to the newest message, but only while the user is near the
+	// bottom (or just sent a message) so reading older turns mid-stream works.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Intentional trigger on stream updates.
 	useEffect(() => {
-		if (scrollRef.current) {
-			scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+		const el = scrollRef.current;
+		if (!el) return;
+		const isNewUserTurn = last?.role === "user";
+		if (nearBottom || isNewUserTurn) {
+			el.scrollTop = el.scrollHeight;
 		}
-	}, [messages, isStreaming]);
+	}, [messages, isStreaming, nearBottom]);
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
@@ -46,7 +57,7 @@ export function ChatConversation({
 	};
 
 	return (
-		<div className={cn("flex flex-col bg-white", className)}>
+		<div className={cn("flex min-h-0 flex-col overflow-hidden bg-white", className)}>
 			{/* Header */}
 			<div className="flex items-center justify-between bg-[#0A3D62] px-4 py-3 text-white shrink-0">
 				<div className="flex items-center gap-2">
@@ -65,7 +76,11 @@ export function ChatConversation({
 			</div>
 
 			{/* Message list */}
-			<div ref={scrollRef} className="flex flex-1 flex-col gap-4 overflow-y-auto bg-gray-50 p-4">
+			<div
+				ref={scrollRef}
+				onScroll={handleScroll}
+				className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto bg-gray-50 p-4"
+			>
 				{messages.map((m, i) => (
 					<div
 						key={`${m.role}-${i}`}

@@ -1,3 +1,5 @@
+import { BackToDashboard } from "@/components/BackToDashboard";
+import { LiveClock } from "@/components/LiveClock";
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { BottomNav } from "@/components/bottom-nav";
 import { ChatBubble } from "@/components/chat-bubble";
@@ -84,6 +86,7 @@ export default async function DashboardLayout({
 								</span>
 							</div>
 						)}
+						<LiveClock />
 					</div>
 
 					{/* Right: Actions */}
@@ -92,7 +95,10 @@ export default async function DashboardLayout({
 
 				<div className="flex w-full flex-1 min-h-[calc(100vh-4rem)]">
 					<Sidebar hopperLevelPct={hopperLevelPct} />
-					<main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 relative z-10">{children}</main>
+					<main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 relative z-10">
+						<BackToDashboard />
+						{children}
+					</main>
 				</div>
 			</NotificationProvider>
 

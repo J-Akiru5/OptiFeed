@@ -97,7 +97,7 @@ export default async function GrowthPage() {
 	};
 
 	return (
-		<div className="space-y-8 pb-20 animate-in fade-in duration-500 max-w-5xl">
+		<div className="space-y-8 pb-20 animate-in fade-in duration-500 max-w-7xl mx-auto">
 			{/* FCR big glance box from Prototype */}
 			<div className="bg-[#0A3D62] text-white p-6 md:p-8 rounded-[32px] shadow-lg relative overflow-hidden">
 				<div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full translate-x-12 -translate-y-12" />
@@ -307,62 +307,66 @@ export default async function GrowthPage() {
 			)}
 
 			{/* Feed Level Log Table */}
-			{energyDevice && feedLevelLogPage && feedLevelLogs.length > 0 && (
-				<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-					<div className="p-6 border-b border-gray-100 bg-gray-50/50">
-						<h3 className="font-bold text-gray-800">{t("feedLevelTableTitle")}</h3>
+			<div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+				{energyDevice && feedLevelLogPage && feedLevelLogs.length > 0 && (
+					<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+						<div className="p-6 border-b border-gray-100 bg-gray-50/50">
+							<h3 className="font-bold text-gray-800">{t("feedLevelTableTitle")}</h3>
+						</div>
+						<FeedLevelLogTable
+							deviceId={energyDevice.id}
+							initialItems={feedLevelLogPage.items}
+							initialHasMore={feedLevelLogPage.hasMore}
+							initialNextCursor={feedLevelLogPage.nextCursor}
+						/>
 					</div>
-					<FeedLevelLogTable
-						deviceId={energyDevice.id}
-						initialItems={feedLevelLogPage.items}
-						initialHasMore={feedLevelLogPage.hasMore}
-						initialNextCursor={feedLevelLogPage.nextCursor}
-					/>
-				</div>
-			)}
+				)}
 
-			{/* Biomass Log Table */}
-			<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mt-8">
-				<div className="p-6 border-b border-gray-100 bg-gray-50/50">
-					<h3 className="font-bold text-gray-800">{t("historyTitle")}</h3>
-				</div>
-				<div className="overflow-x-auto">
-					<table className="w-full text-left text-sm text-gray-600">
-						<thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
-							<tr>
-								<th className="px-6 py-4">{t("dateCol")}</th>
-								<th className="px-6 py-4">{t("totalWeightCol")}</th>
-								<th className="px-6 py-4">{t("fishCountCol")}</th>
-								<th className="px-6 py-4">{t("avgLengthCol")}</th>
-								<th className="px-6 py-4 text-right text-[var(--ofd-base-deep)]">{t("abwCol")}</th>
-							</tr>
-						</thead>
-						<tbody className="divide-y divide-gray-100">
-							{biomassLogs
-								.slice()
-								.reverse()
-								.map((log) => (
-									<tr key={log.id} className="hover:bg-gray-50 transition-colors">
-										<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-											{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
-										</td>
-										<td className="px-6 py-4">{log.sampleWeightKg.toFixed(2)} kg</td>
-										<td className="px-6 py-4">{log.sampleCount}</td>
-										<td className="px-6 py-4">{log.sampleLengthCm.toFixed(1)} cm</td>
-										<td className="px-6 py-4 text-right font-bold text-[var(--ofd-base-deep)]">
-											{(log.avgWeightKg * 1000).toFixed(1)}g
+				{/* Biomass Log Table */}
+				<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mt-8 xl:mt-0">
+					<div className="p-6 border-b border-gray-100 bg-gray-50/50">
+						<h3 className="font-bold text-gray-800">{t("historyTitle")}</h3>
+					</div>
+					<div className="overflow-x-auto">
+						<table className="w-full text-left text-sm text-gray-600">
+							<thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
+								<tr>
+									<th className="px-6 py-4">{t("dateCol")}</th>
+									<th className="px-6 py-4">{t("totalWeightCol")}</th>
+									<th className="px-6 py-4">{t("fishCountCol")}</th>
+									<th className="px-6 py-4">{t("avgLengthCol")}</th>
+									<th className="px-6 py-4 text-right text-[var(--ofd-base-deep)]">
+										{t("abwCol")}
+									</th>
+								</tr>
+							</thead>
+							<tbody className="divide-y divide-gray-100">
+								{biomassLogs
+									.slice()
+									.reverse()
+									.map((log) => (
+										<tr key={log.id} className="hover:bg-gray-50 transition-colors">
+											<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+												{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+											</td>
+											<td className="px-6 py-4">{log.sampleWeightKg.toFixed(2)} kg</td>
+											<td className="px-6 py-4">{log.sampleCount}</td>
+											<td className="px-6 py-4">{log.sampleLengthCm.toFixed(1)} cm</td>
+											<td className="px-6 py-4 text-right font-bold text-[var(--ofd-base-deep)]">
+												{(log.avgWeightKg * 1000).toFixed(1)}g
+											</td>
+										</tr>
+									))}
+								{biomassLogs.length === 0 && (
+									<tr>
+										<td colSpan={5} className="px-6 py-10 text-center text-gray-500">
+											{t("noSamples")}
 										</td>
 									</tr>
-								))}
-							{biomassLogs.length === 0 && (
-								<tr>
-									<td colSpan={5} className="px-6 py-10 text-center text-gray-500">
-										{t("noSamples")}
-									</td>
-								</tr>
-							)}
-						</tbody>
-					</table>
+								)}
+							</tbody>
+						</table>
+					</div>
 				</div>
 			</div>
 		</div>

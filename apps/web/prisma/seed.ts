@@ -123,6 +123,40 @@ async function main() {
 	}
 	await prisma.feedingEvent.createMany({ data: feedingEvents });
 
+	// 4b. Create live dispense history (FeedEvent + FeedRequest — read by /dashboard/history).
+	// Mirrors the deprecated seed above but against the live table the ESP32 actually writes to.
+	const feedSources = ["scheduled", "scheduled", "scheduled", "scheduled"];
+	feedSources[3] = "dashboard"; // latest feed was a dashboard "Feed Now"
+	feedSources[1] = "button"; // one feed via physical button
+
+	for (let day = 14; day >= 1; day--) {
+		for (let feed = 0; feed < 4; feed++) {
+			const receivedAt = new Date(now.getTime() - day * 24 * 60 * 60 * 1000);
+			receivedAt.setHours(6 + feed * 4, 0, 0, 0);
+
+			const feedRequest = await prisma.feedRequest.create({
+				data: {
+					deviceId: energyDevice.id,
+					grams: 1500,
+					status: "completed",
+					createdAt: receivedAt,
+				},
+			});
+
+			await prisma.feedEvent.create({
+				data: {
+					deviceId: energyDevice.id,
+					eventType: "feed_dispensed",
+					timestamp: receivedAt.toISOString(),
+					grams: 1500,
+					source: feedSources[feed],
+					feedRequestId: feedRequest.id,
+					receivedAt,
+				},
+			});
+		}
+	}
+
 	// 5. Create FCR Reports (trending-downward history)
 	const fcrReports = [
 		{

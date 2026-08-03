@@ -22,32 +22,6 @@ export async function toggleDevicePause(deviceId: string, isPaused: boolean) {
 	revalidatePath("/[locale]/(dashboard)/dashboard/schedule", "page");
 }
 
-export async function triggerManualFeed(deviceId: string) {
-	const MANUAL_FEED_AMOUNT_G = 500;
-
-	await prisma.feedingEvent.create({
-		data: {
-			deviceId,
-			scheduledTime: new Date(),
-			dispensedVolumeG: MANUAL_FEED_AMOUNT_G,
-			status: "completed",
-		},
-	});
-
-	await prisma.deviceStateEvent.create({
-		data: {
-			deviceId,
-			eventType: "manual_trigger",
-			source: "user",
-			actorId: "demo-farmer-1",
-			metadata: { grams: MANUAL_FEED_AMOUNT_G, triggerSource: "schedule_controls" },
-		},
-	});
-
-	revalidatePath("/[locale]/(dashboard)/dashboard/schedule", "page");
-	revalidatePath("/[locale]/(dashboard)/dashboard/history", "page");
-}
-
 export interface UpdateScheduleResult {
 	success: boolean;
 	commandId?: string;

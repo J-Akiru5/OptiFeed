@@ -70,11 +70,13 @@ export default async function DashboardHomePage() {
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
 
-	const feedingHistory = await prisma.feedingEvent.findMany({
-		where: { deviceId: device.id },
-		orderBy: { scheduledTime: "desc" },
-		take: 5,
-	});
+	const feedingHistory = energyDevice
+		? await prisma.feedEvent.findMany({
+				where: { deviceId: energyDevice.id, eventType: "feed_dispensed" },
+				orderBy: { receivedAt: "desc" },
+				take: 5,
+			})
+		: [];
 
 	const fcrReports = await prisma.fcrReport.findMany({
 		where: { pondId: pond.id },
@@ -381,35 +383,26 @@ export default async function DashboardHomePage() {
 									<div>
 										<div className="flex items-center gap-2">
 											<p className="font-extrabold text-base text-[#0A3D62]">
-												{formatTime(item.scheduledTime)}
+												{formatTime(item.receivedAt)}
 											</p>
 											<span className="text-[10px] text-[#3D5568] bg-white border border-gray-200 px-1.5 py-0.5 rounded-full font-mono">
-												{formatDate(item.scheduledTime)}
+												{formatDate(item.receivedAt)}
 											</span>
 										</div>
 										<p className="text-xs text-[#3D5568]">
-											{/* Use the history strings for these labels */}
-											{item.status === "completed" ? tHist("completed") : tHist("missed")}
+											{tHist(item.source ? `source_${item.source}` : "confirmedDispense")}
 										</p>
 									</div>
 								</div>
 								<div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-2 sm:pt-0 border-gray-200">
 									<div className="text-left sm:text-right">
-										<p className="font-extrabold text-base text-[#0A3D62]">
-											{item.dispensedVolumeG}g
-										</p>
+										<p className="font-extrabold text-base text-[#0A3D62]">{item.grams ?? 0}g</p>
 										<p className="text-[10px] font-bold uppercase text-[#3D5568] opacity-50">
 											{tHist("amount")}
 										</p>
 									</div>
-									<span
-										className={`px-4 py-1.5 rounded-full font-bold text-xs text-center min-w-[80px] shadow-sm ${
-											item.status === "completed"
-												? "bg-[#1E7B34] text-white"
-												: "bg-[#C42B3A] text-white"
-										}`}
-									>
-										{item.status === "completed" ? tHist("completed") : tHist("missed")}
+									<span className="px-4 py-1.5 rounded-full font-bold text-xs text-center min-w-[80px] shadow-sm bg-[#1E7B34] text-white">
+										{tHist("confirmedDispense")}
 									</span>
 								</div>
 							</div>

@@ -113,12 +113,18 @@ importers:
 
   packages/types:
     devDependencies:
+      '@optifeed/config':
+        specifier: workspace:*
+        version: link:../config
       typescript:
         specifier: ^5.0.0
         version: 5.9.3
 
   packages/ui:
     devDependencies:
+      '@optifeed/config':
+        specifier: workspace:*
+        version: link:../config
       typescript:
         specifier: ^5.0.0
         version: 5.9.3

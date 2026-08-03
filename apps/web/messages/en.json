@@ -423,6 +423,9 @@
 	"chat": {
 		"title": "OptiFeed Assistant",
 		"placeholder": "Ask me something...",
+		"suggestionSchedule": "When is the next feeding time?",
+		"suggestionFcr": "What is my current FCR?",
+		"suggestionLogSample": "How do I log a sample?",
 		"intro": "Hi! I'm your OptiFeed assistant. Ask me about your next feeding time, current FCR, missed feedings, or how to log a sample!",
 		"error": "Oops, something went wrong. Please try again.",
 		"intentScheduleNoPond": "I couldn't find your pond schedule. Please ensure your devices are configured.",

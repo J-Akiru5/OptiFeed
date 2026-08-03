@@ -100,6 +100,10 @@ export default async function SchedulePage() {
 		};
 	};
 
+	// `pond.*` only reflects the current config when no EnergyDevice is paired;
+	// otherwise the newest pending/sent command wins, then the last applied one.
+	const currentCommand = serializeCommand(pendingCommand ?? latestAppliedCommand);
+
 	return (
 		<div className="space-y-8 max-w-5xl">
 			<div>
@@ -121,10 +125,10 @@ export default async function SchedulePage() {
 				deviceLastSeenAt={energyDevice.lastSeenAt?.toISOString() ?? null}
 				deviceId={energyDevice.id}
 				pondId={pond.id}
-				scheduleStart={fmtTime(pond.scheduleStart)}
-				scheduleEnd={fmtTime(pond.scheduleEnd)}
-				feedsPerDay={pond.feedsPerDay}
-				feedingRatePct={pond.feedingRatePct}
+				scheduleStart={currentCommand?.scheduleStart ?? fmtTime(pond.scheduleStart)}
+				scheduleEnd={currentCommand?.scheduleEnd ?? fmtTime(pond.scheduleEnd)}
+				feedsPerDay={currentCommand?.feedsPerDay ?? pond.feedsPerDay}
+				feedingRatePct={currentCommand?.feedingRatePct ?? pond.feedingRatePct}
 			/>
 
 			<ScheduleControls deviceId={energyDevice.id} initialIsPaused={energyDevice.isPaused} />
@@ -132,10 +136,10 @@ export default async function SchedulePage() {
 			<ScheduleEditor
 				pondId={pond.id}
 				deviceId={energyDevice.id}
-				initialStart={fmtTime(pond.scheduleStart)}
-				initialEnd={fmtTime(pond.scheduleEnd)}
-				initialFeedsPerDay={pond.feedsPerDay}
-				initialFeedingRatePct={pond.feedingRatePct}
+				initialStart={currentCommand?.scheduleStart ?? fmtTime(pond.scheduleStart)}
+				initialEnd={currentCommand?.scheduleEnd ?? fmtTime(pond.scheduleEnd)}
+				initialFeedsPerDay={currentCommand?.feedsPerDay ?? pond.feedsPerDay}
+				initialFeedingRatePct={currentCommand?.feedingRatePct ?? pond.feedingRatePct}
 				pendingCommand={serializeCommand(pendingCommand)}
 				latestAppliedCommand={serializeCommand(latestAppliedCommand)}
 			/>

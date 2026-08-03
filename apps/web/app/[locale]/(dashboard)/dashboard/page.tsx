@@ -6,6 +6,7 @@ import { Link } from "@/i18n/routing";
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import prisma from "@/lib/prisma";
+import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 import {
 	Activity,
 	Calendar,
@@ -68,6 +69,10 @@ export default async function DashboardHomePage() {
 		orderBy: { recordedAt: "desc" },
 	});
 
+	// `pond.*` goes stale when a device is paired (saves queue ScheduleCommands);
+	// prefer the newest pending/sent command, then the last applied one.
+	const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice?.id ?? null);
+
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
 
@@ -88,12 +93,14 @@ export default async function DashboardHomePage() {
 
 	// Calculate next feeding time
 	const now = new Date();
-	const startHour = pond.scheduleStart.getUTCHours();
-	const endHour = pond.scheduleEnd.getUTCHours();
-	const feedInterval = (endHour - startHour) / Math.max(1, pond.feedsPerDay - 1);
+	const startHour = (currentConfig?.scheduleStart ?? pond.scheduleStart).getUTCHours();
+	const endHour = (currentConfig?.scheduleEnd ?? pond.scheduleEnd).getUTCHours();
+	const feedsPerDay = currentConfig?.feedsPerDay ?? pond.feedsPerDay;
+	const feedingRatePct = currentConfig?.feedingRatePct ?? pond.feedingRatePct;
+	const feedInterval = (endHour - startHour) / Math.max(1, feedsPerDay - 1);
 
 	let nextFeedTimeObj = null;
-	for (let i = 0; i < pond.feedsPerDay; i++) {
+	for (let i = 0; i < feedsPerDay; i++) {
 		const feedTime = new Date();
 		feedTime.setHours(startHour + i * feedInterval, 0, 0, 0);
 		if (feedTime > now) {
@@ -117,8 +124,8 @@ export default async function DashboardHomePage() {
 	let nextFeedingVolumeG = 330;
 	if (latestBiomass) {
 		const totalBiomassGrams = latestBiomass.avgWeightKg * 1000 * pondPopulation;
-		const dailyFeedGrams = totalBiomassGrams * (pond.feedingRatePct / 100);
-		nextFeedingVolumeG = Math.round(dailyFeedGrams / pond.feedsPerDay);
+		const dailyFeedGrams = totalBiomassGrams * (feedingRatePct / 100);
+		nextFeedingVolumeG = Math.round(dailyFeedGrams / feedsPerDay);
 	}
 
 	// Calculate days until next physical weighing (assuming every 14 days)
@@ -237,7 +244,7 @@ export default async function DashboardHomePage() {
 									{t("feedRateLabel")}
 								</p>
 								<p className="text-2xl md:text-3xl font-black">
-									{pond.feedingRatePct}
+									{feedingRatePct}
 									{t("feedRateSuffix")}
 								</p>
 							</div>

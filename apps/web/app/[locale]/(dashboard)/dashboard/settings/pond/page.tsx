@@ -2,6 +2,7 @@ import { LogoutButton } from "@/components/LogoutButton";
 import { PondSettingsForm } from "@/components/PondSettingsForm";
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
+import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 import { Settings, User } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -22,6 +23,15 @@ export default async function PondSettingsPage() {
 		);
 	}
 
+	const energyDevice = await prisma.energyDevice.findFirst({
+		where: { pondId: pond.id },
+		select: { id: true },
+	});
+
+	// `pond.*` goes stale when a device is paired (saves queue ScheduleCommands);
+	// prefer the newest pending/sent command, then the last applied one.
+	const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice?.id ?? null);
+
 	return (
 		<div className="mx-auto max-w-4xl space-y-8">
 			<div>
@@ -35,7 +45,13 @@ export default async function PondSettingsPage() {
 			<div className="space-y-8">
 				{/* Pond Configuration Section */}
 				<section>
-					<PondSettingsForm pond={pond} />
+					<PondSettingsForm
+						pond={{
+							id: pond.id,
+							feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
+							feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
+						}}
+					/>
 				</section>
 
 				{/* Account Section */}

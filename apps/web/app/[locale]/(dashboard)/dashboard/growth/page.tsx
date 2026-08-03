@@ -1,5 +1,6 @@
 import { FeedLevelLogTable } from "@/components/FeedLevelLogTable";
 import { getFeedLevelLogs } from "@/lib/actions/growth";
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import prisma from "@/lib/prisma";
 import { Activity, Fish, Package, Scale, TrendingUp } from "lucide-react";
@@ -12,7 +13,7 @@ export default async function GrowthPage() {
 	const tSch = await getTranslations("dashboard.schedule");
 	const tDates = await getTranslations("dates");
 	const pond = await prisma.pond.findFirst({
-		where: { ownerId: "demo-farmer-1" },
+		where: { ownerId: await getCurrentPondOwnerId() },
 	});
 
 	if (!pond) {

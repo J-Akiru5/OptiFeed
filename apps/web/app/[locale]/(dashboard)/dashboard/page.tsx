@@ -3,6 +3,7 @@ import { FeedLevelCard } from "@/components/FeedLevelCard";
 import { FeedNowButton } from "@/components/FeedNowButton";
 import { WaterTempCard } from "@/components/WaterTempCard";
 import { Link } from "@/i18n/routing";
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import prisma from "@/lib/prisma";
 import {
@@ -25,7 +26,7 @@ export default async function DashboardHomePage() {
 	const tDates = await getTranslations("dates");
 
 	const pond = await prisma.pond.findFirst({
-		where: { ownerId: "demo-farmer-1" },
+		where: { ownerId: await getCurrentPondOwnerId() },
 		include: { devices: true },
 	});
 

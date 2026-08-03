@@ -1,9 +1,11 @@
 "use server";
 
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
 export async function toggleDevicePause(deviceId: string, isPaused: boolean) {
+	const ownerId = await getCurrentPondOwnerId();
 	await prisma.energyDevice.update({
 		where: { id: deviceId },
 		data: { isPaused },
@@ -14,7 +16,7 @@ export async function toggleDevicePause(deviceId: string, isPaused: boolean) {
 			deviceId,
 			eventType: "pause_toggled",
 			source: "user",
-			actorId: "demo-farmer-1",
+			actorId: ownerId,
 			metadata: { isPaused },
 		},
 	});
@@ -44,6 +46,8 @@ export async function updateScheduleCommand(
 	},
 ): Promise<UpdateScheduleResult> {
 	try {
+		const ownerId = await getCurrentPondOwnerId();
+
 		// Expire stale sent commands that were picked up by the device
 		// but never acked. Prevents zombie commands from blocking future edits.
 		const staleCommands = await prisma.scheduleCommand.findMany({
@@ -92,7 +96,7 @@ export async function updateScheduleCommand(
 				feedingRatePct: data.feedingRatePct,
 				buttonFeedGrams: data.buttonFeedGrams ?? 80,
 				status: "pending",
-				createdBy: "demo-farmer-1",
+				createdBy: ownerId,
 			},
 		});
 
@@ -101,7 +105,7 @@ export async function updateScheduleCommand(
 				deviceId,
 				eventType: "schedule_changed",
 				source: "user",
-				actorId: "demo-farmer-1",
+				actorId: ownerId,
 				metadata: {
 					commandId: command.id,
 					scheduleStart: data.scheduleStart,

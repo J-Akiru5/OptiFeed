@@ -1,6 +1,7 @@
 import { ScheduleControls } from "@/components/ScheduleControls";
 import { ScheduleEditor } from "@/components/ScheduleEditor";
 import { StuckRequestBanner } from "@/components/StuckRequestBanner";
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import { getTranslations } from "next-intl/server";
 
@@ -16,7 +17,7 @@ function fmtTime(date: Date): string {
 export default async function SchedulePage() {
 	const t = await getTranslations("dashboard.schedule");
 	const pond = await prisma.pond.findFirst({
-		where: { ownerId: "demo-farmer-1" },
+		where: { ownerId: await getCurrentPondOwnerId() },
 		include: { devices: true },
 	});
 

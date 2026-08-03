@@ -1,5 +1,6 @@
 "use server";
 
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import { calculateNextFeeding } from "@/lib/volumeCalc";
 import { revalidatePath } from "next/cache";
@@ -7,6 +8,7 @@ import { revalidatePath } from "next/cache";
 const DEVIATION_THRESHOLD = 0.5; // 50% — reject if new value differs this much from current
 
 export async function saveBiomassLog(formData: FormData) {
+	const ownerId = await getCurrentPondOwnerId();
 	const pondId = formData.get("pondId") as string;
 	const sampleWeightKg = Number.parseFloat(formData.get("sampleWeightKg") as string);
 	const sampleLengthCm = Number.parseFloat(formData.get("sampleLengthCm") as string);
@@ -25,6 +27,15 @@ export async function saveBiomassLog(formData: FormData) {
 	const avgWeightKg = sampleWeightKg / sampleCount;
 
 	const biomassLog = await prisma.$transaction(async (tx) => {
+		const pond = await tx.pond.findUnique({
+			where: { id: pondId },
+			select: { ownerId: true, feedingRatePct: true, feedsPerDay: true },
+		});
+
+		if (!pond || pond.ownerId !== ownerId) {
+			throw new Error("Pond not found");
+		}
+
 		const log = await tx.biomassLog.create({
 			data: {
 				pondId,
@@ -35,12 +46,7 @@ export async function saveBiomassLog(formData: FormData) {
 			},
 		});
 
-		const pond = await tx.pond.findUnique({
-			where: { id: pondId },
-			select: { feedingRatePct: true, feedsPerDay: true },
-		});
-
-		if (!pond || pond.feedingRatePct <= 0 || pond.feedsPerDay <= 0) {
+		if (pond.feedingRatePct <= 0 || pond.feedsPerDay <= 0) {
 			console.log(
 				`[biomass] skipped device update: pond config incomplete (feedingRatePct=${pond?.feedingRatePct}, feedsPerDay=${pond?.feedsPerDay})`,
 			);
@@ -70,7 +76,7 @@ export async function saveBiomassLog(formData: FormData) {
 					deviceId: energyDevice.id,
 					eventType: "biomass_logged",
 					source: "user",
-					actorId: "demo-farmer-1",
+					actorId: ownerId,
 					metadata: {
 						biomassLogId: log.id,
 						avgWeightKg,
@@ -100,7 +106,7 @@ export async function saveBiomassLog(formData: FormData) {
 				deviceId: energyDevice.id,
 				eventType: "biomass_logged",
 				source: "user",
-				actorId: "demo-farmer-1",
+				actorId: ownerId,
 				metadata: {
 					biomassLogId: log.id,
 					avgWeightKg,

@@ -1,5 +1,6 @@
 "use server";
 
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { askGemini, isGeminiEnabled } from "@/lib/gemini";
 import prisma from "@/lib/prisma";
@@ -7,7 +8,7 @@ import { getTranslations } from "next-intl/server";
 
 async function buildPondContext() {
 	const pond = await prisma.pond.findFirst({
-		where: { ownerId: "demo-farmer-1" },
+		where: { ownerId: await getCurrentPondOwnerId() },
 		include: {
 			devices: {
 				include: {
@@ -96,6 +97,7 @@ export async function submitChatMessage(message: string, locale: string): Promis
 	const lower = message.toLowerCase();
 	const t = await getTranslations({ locale, namespace: "chat" });
 	const tDates = await getTranslations({ locale, namespace: "dates" });
+	const ownerId = await getCurrentPondOwnerId();
 
 	try {
 		// If Gemini is enabled, use LLM with pond context
@@ -128,7 +130,7 @@ export async function submitChatMessage(message: string, locale: string): Promis
 
 		if (isScheduleIntent) {
 			const pond = await prisma.pond.findFirst({
-				where: { ownerId: "demo-farmer-1" },
+				where: { ownerId },
 				include: { devices: true },
 			});
 			if (!pond || pond.devices.length === 0) {
@@ -171,7 +173,7 @@ export async function submitChatMessage(message: string, locale: string): Promis
 
 		if (isFcrIntent) {
 			const pond = await prisma.pond.findFirst({
-				where: { ownerId: "demo-farmer-1" },
+				where: { ownerId },
 				include: { fcrReports: { orderBy: { periodEnd: "desc" }, take: 1 } },
 			});
 			if (!pond || pond.fcrReports.length === 0) {

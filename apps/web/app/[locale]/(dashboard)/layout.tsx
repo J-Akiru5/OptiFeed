@@ -7,6 +7,7 @@ import { HeaderActions } from "@/components/header-actions";
 import { NotificationProvider } from "@/components/notification-provider";
 import { Sidebar } from "@/components/sidebar";
 import { Link } from "@/i18n/routing";
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 
 export default async function DashboardLayout({
@@ -14,6 +15,8 @@ export default async function DashboardLayout({
 }: {
 	children: React.ReactNode;
 }) {
+	const ownerId = await getCurrentPondOwnerId();
+
 	// Fetch demo pond and initial unread notification count
 	// Wrapped in try/catch — a Prisma error must never cause a layout crash (which Next.js renders as 404)
 	let pondId = "";
@@ -25,7 +28,7 @@ export default async function DashboardLayout({
 
 	try {
 		const pond = await prisma.pond.findFirst({
-			where: { ownerId: "demo-farmer-1" },
+			where: { ownerId },
 		});
 
 		if (pond) {

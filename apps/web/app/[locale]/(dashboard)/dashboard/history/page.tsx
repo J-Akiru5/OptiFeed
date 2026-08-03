@@ -1,5 +1,6 @@
 import { FeedEventHistoryTable } from "@/components/FeedEventHistoryTable";
 import { getFeedEvents } from "@/lib/actions/history";
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import { CalendarDays, CheckCircle2, Clock, Package } from "lucide-react";
 import { getTranslations } from "next-intl/server";
@@ -16,7 +17,7 @@ export default async function HistoryPage() {
 	const t = await getTranslations("dashboard.history");
 	const tSch = await getTranslations("dashboard.schedule");
 	const pond = await prisma.pond.findFirst({
-		where: { ownerId: "demo-farmer-1" },
+		where: { ownerId: await getCurrentPondOwnerId() },
 	});
 
 	if (!pond) {

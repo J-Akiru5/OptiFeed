@@ -3,6 +3,7 @@
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { useRouter } from "@/i18n/routing";
+import { createClient } from "@/lib/supabase/client";
 import { Globe, LogOut, X } from "lucide-react";
 import { useLocale } from "next-intl";
 import { useState } from "react";
@@ -35,9 +36,11 @@ export function HeaderActions({
 	const router = useRouter();
 	const locale = useLocale();
 
-	const handleLogout = () => {
+	const handleLogout = async () => {
 		setShowProfileMenu(false);
-		router.replace("/");
+		const supabase = createClient();
+		await supabase.auth.signOut();
+		router.replace("/login");
 	};
 
 	return (

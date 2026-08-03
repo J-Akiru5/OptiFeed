@@ -1,16 +1,18 @@
 import { HopperCalibrationForm } from "@/components/HopperCalibrationForm";
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import { Cpu, RefreshCw, Ruler, Settings, Wifi } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export default async function HardwareSettingsPage() {
 	const t = await getTranslations("dashboard.appSettings");
+	const ownerId = await getCurrentPondOwnerId();
 
 	let device = null;
 	let energyDevice = null;
 	try {
 		const pond = await prisma.pond.findFirst({
-			where: { ownerId: "demo-farmer-1" },
+			where: { ownerId },
 			include: { devices: true },
 		});
 		if (pond && pond.devices.length > 0) {

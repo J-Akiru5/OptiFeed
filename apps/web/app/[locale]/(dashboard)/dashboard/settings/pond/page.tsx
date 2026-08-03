@@ -1,5 +1,6 @@
 import { LogoutButton } from "@/components/LogoutButton";
 import { PondSettingsForm } from "@/components/PondSettingsForm";
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import { Settings, User } from "lucide-react";
 import { getTranslations } from "next-intl/server";
@@ -8,7 +9,7 @@ export default async function PondSettingsPage() {
 	const t = await getTranslations("dashboard.settings");
 	// Fetch demo pond configuration
 	const pond = await prisma.pond.findFirst({
-		where: { ownerId: "demo-farmer-1" },
+		where: { ownerId: await getCurrentPondOwnerId() },
 		select: { id: true, feedingRatePct: true, feedsPerDay: true },
 	});
 

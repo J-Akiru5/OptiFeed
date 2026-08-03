@@ -325,6 +325,7 @@
 			"eventType_settings_changed": "Ginbag-o ang Settings",
 			"eventType_device_registered": "Nakarehistro ang Device",
 			"eventType_biomass_logged": "Nakalog ang Biomass",
+			"eventType_notification_acknowledged": "Gin-acknowledge ang Notification",
 			"source_system": "System",
 			"source_user": "User",
 			"source_device": "Device",

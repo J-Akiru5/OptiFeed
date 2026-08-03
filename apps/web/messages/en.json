@@ -357,6 +357,7 @@
 			"eventType_settings_changed": "Settings Changed",
 			"eventType_device_registered": "Device Registered",
 			"eventType_biomass_logged": "Biomass Logged",
+			"eventType_notification_acknowledged": "Notification Acknowledged",
 			"source_system": "System",
 			"source_user": "User",
 			"source_device": "Device",

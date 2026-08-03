@@ -10,7 +10,7 @@ export async function markAllNotificationsRead() {
 
 	if (!pond) return;
 
-	await prisma.notification.updateMany({
+	const result = await prisma.notification.updateMany({
 		where: {
 			pondId: pond.id,
 			read: false,
@@ -19,6 +19,25 @@ export async function markAllNotificationsRead() {
 			read: true,
 		},
 	});
+
+	if (result.count > 0) {
+		const energyDevice = await prisma.energyDevice.findFirst({
+			where: { pondId: pond.id },
+			select: { id: true },
+		});
+
+		if (energyDevice) {
+			await prisma.deviceStateEvent.create({
+				data: {
+					deviceId: energyDevice.id,
+					eventType: "notification_acknowledged",
+					source: "user",
+					actorId: "demo-farmer-1",
+					metadata: { scope: "all", count: result.count },
+				},
+			});
+		}
+	}
 
 	revalidatePath("/[locale]/(dashboard)/dashboard/notifications", "page");
 	revalidatePath("/[locale]/(dashboard)", "layout");
@@ -31,7 +50,18 @@ export async function acknowledgeNotification(notificationId: string) {
 
 	if (!pond) return;
 
-	await prisma.notification.update({
+	const existing = await prisma.notification.findFirst({
+		where: { id: notificationId, pondId: pond.id },
+		select: { acknowledgedAt: true },
+	});
+
+	if (!existing) return;
+	if (existing.acknowledgedAt) {
+		revalidatePath("/[locale]/(dashboard)/dashboard/notifications", "page");
+		return;
+	}
+
+	const notification = await prisma.notification.update({
 		where: { id: notificationId, pondId: pond.id },
 		data: {
 			acknowledgedAt: new Date(),
@@ -39,6 +69,27 @@ export async function acknowledgeNotification(notificationId: string) {
 			read: true,
 		},
 	});
+
+	const energyDevice = await prisma.energyDevice.findFirst({
+		where: { pondId: pond.id },
+		select: { id: true },
+	});
+
+	if (energyDevice) {
+		await prisma.deviceStateEvent.create({
+			data: {
+				deviceId: energyDevice.id,
+				eventType: "notification_acknowledged",
+				source: "user",
+				actorId: "demo-farmer-1",
+				metadata: {
+					notificationId,
+					tier: notification.tier,
+					category: notification.category ?? null,
+				},
+			},
+		});
+	}
 
 	revalidatePath("/[locale]/(dashboard)/dashboard/notifications", "page");
 }

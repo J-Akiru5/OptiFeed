@@ -190,7 +190,7 @@ model FeedRequest {
 model DeviceStateEvent {
   id          String   @id @default(cuid())
   deviceId    String
-  eventType   String   // "connected" | "disconnected" | "command_sent" | "command_acked" | "command_failed" | "schedule_changed" | "schedule_applied" | "feed_dispensed" | "feed_reconciled" | "pge_reading" | "pellet_low" | "pellet_refilled" | "manual_trigger" | "notification_acknowledged"
+  eventType   String   // "connected" | "disconnected" | "command_sent" | "command_acked" | "command_failed" | "schedule_changed" | "schedule_applied" | "feed_dispensed" | "feed_reconciled" | "pge_reading" | "pellet_low" | "pellet_refilled" | "manual_trigger" | "notification_acknowledged" | "set_time" | "data_imported" | "data_exported"
   source      String   // "system" | "user" | "device"
   actorId     String?  // userId who triggered it (nullable for device-originated)
   metadata    Json?    // flexible payload (old/new values, request IDs, error details)

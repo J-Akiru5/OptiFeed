@@ -1,6 +1,7 @@
 import { EnergyControllerCard } from "@/components/EnergyControllerCard";
 import { FeedLevelCard } from "@/components/FeedLevelCard";
 import { FeedNowButton } from "@/components/FeedNowButton";
+import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
 import { WaterTempCard } from "@/components/WaterTempCard";
 import { Link } from "@/i18n/routing";
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
@@ -443,6 +444,7 @@ export default async function DashboardHomePage() {
 						lastSeenAt={energyDevice.lastSeenAt}
 						isOffline={esp32Offline}
 					/>
+					<TimeCalibrationForm deviceId={energyDevice.id} />
 				</section>
 			)}
 		</div>

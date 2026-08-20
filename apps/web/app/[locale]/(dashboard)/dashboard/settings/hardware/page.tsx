@@ -1,7 +1,9 @@
+import { DurationCalibrationForm } from "@/components/DurationCalibrationForm";
 import { HopperCalibrationForm } from "@/components/HopperCalibrationForm";
+import { TemperatureCalibrationForm } from "@/components/TemperatureCalibrationForm";
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
-import { Cpu, RefreshCw, Ruler, Settings, Wifi } from "lucide-react";
+import { Cpu, RefreshCw, Ruler, Settings, Thermometer, Timer, Wifi } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export default async function HardwareSettingsPage() {
@@ -28,6 +30,10 @@ export default async function HardwareSettingsPage() {
 					hopperFullCm: true,
 					hopperEmptyCm: true,
 					hopperCapacityG: true,
+					gramsPerSecond: true,
+					gramsPerFeeding: true,
+					tempOffsetC: true,
+					waterTempC: true,
 				},
 			});
 		}
@@ -168,6 +174,74 @@ export default async function HardwareSettingsPage() {
 							hopperFullCm={energyDevice.hopperFullCm}
 							hopperEmptyCm={energyDevice.hopperEmptyCm}
 							hopperCapacityG={energyDevice.hopperCapacityG}
+						/>
+					</section>
+				)}
+
+				{/* Duration Calibration */}
+				{energyDevice && (
+					<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+						<div className="mb-6 border-b border-gray-100 pb-4">
+							<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800">
+								<Timer size={20} />
+								Duration Calibration
+							</h2>
+							<p className="mt-1 text-sm text-gray-500">
+								Calibrate how fast the motor dispenses feed (grams per second)
+							</p>
+						</div>
+
+						<div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 p-3">
+							<p className="text-xs text-amber-700 font-medium">
+								Current rate: <strong>{energyDevice.gramsPerSecond} g/s</strong> &middot;{" "}
+								{energyDevice.gramsPerFeeding}g feed ={" "}
+								<strong>
+									{(energyDevice.gramsPerFeeding / energyDevice.gramsPerSecond).toFixed(1)}s
+								</strong>
+							</p>
+						</div>
+
+						<DurationCalibrationForm
+							deviceId={energyDevice.id}
+							currentGramsPerSecond={energyDevice.gramsPerSecond}
+							currentGramsPerFeeding={energyDevice.gramsPerFeeding}
+						/>
+					</section>
+				)}
+
+				{/* Temperature Calibration */}
+				{energyDevice && (
+					<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+						<div className="mb-6 border-b border-gray-100 pb-4">
+							<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800">
+								<Thermometer size={20} />
+								Temperature Calibration
+							</h2>
+							<p className="mt-1 text-sm text-gray-500">
+								Apply an offset to correct DS18B20 sensor readings
+							</p>
+						</div>
+
+						<div className="mb-4 rounded-xl bg-sky-50 border border-sky-200 p-3">
+							<p className="text-xs text-sky-700 font-medium">
+								Current offset:{" "}
+								<strong>
+									{energyDevice.tempOffsetC >= 0 ? "+" : ""}
+									{energyDevice.tempOffsetC}°C
+								</strong>
+								{energyDevice.waterTempC !== null && (
+									<>
+										{" "}
+										&middot; Last reading: <strong>{energyDevice.waterTempC?.toFixed(1)}°C</strong>
+									</>
+								)}
+							</p>
+						</div>
+
+						<TemperatureCalibrationForm
+							deviceId={energyDevice.id}
+							currentTempOffsetC={energyDevice.tempOffsetC}
+							currentTempC={energyDevice.waterTempC}
 						/>
 					</section>
 				)}

@@ -30,6 +30,8 @@ export async function GET(request: Request) {
 				pondId: true,
 				hopperEmptyCm: true,
 				hopperFullCm: true,
+				gramsPerSecond: true,
+				tempOffsetC: true,
 			},
 		});
 
@@ -49,6 +51,8 @@ export async function GET(request: Request) {
 				button_feed_grams: device.buttonFeedGrams,
 				hopper_empty_cm: device.hopperEmptyCm,
 				hopper_full_cm: device.hopperFullCm,
+				grams_per_second: device.gramsPerSecond,
+				temp_offset_c: device.tempOffsetC,
 			});
 		}
 
@@ -94,6 +98,8 @@ export async function GET(request: Request) {
 				button_feed_grams: device.buttonFeedGrams,
 				hopper_empty_cm: device.hopperEmptyCm,
 				hopper_full_cm: device.hopperFullCm,
+				grams_per_second: device.gramsPerSecond,
+				temp_offset_c: device.tempOffsetC,
 			});
 		}
 
@@ -115,6 +121,8 @@ export async function GET(request: Request) {
 				button_feed_grams: device.buttonFeedGrams,
 				hopper_empty_cm: device.hopperEmptyCm,
 				hopper_full_cm: device.hopperFullCm,
+				grams_per_second: device.gramsPerSecond,
+				temp_offset_c: device.tempOffsetC,
 			});
 		}
 
@@ -129,6 +137,8 @@ export async function GET(request: Request) {
 			button_feed_grams: device.buttonFeedGrams,
 			hopper_empty_cm: device.hopperEmptyCm,
 			hopper_full_cm: device.hopperFullCm,
+			grams_per_second: device.gramsPerSecond,
+			temp_offset_c: device.tempOffsetC,
 		});
 	} catch (error) {
 		console.error("[schedule-sync] error:", error);
@@ -144,6 +154,8 @@ export async function GET(request: Request) {
 			button_feed_grams: 80,
 			hopper_empty_cm: null,
 			hopper_full_cm: null,
+			grams_per_second: 4.0,
+			temp_offset_c: 0,
 		});
 	}
 }

@@ -150,6 +150,8 @@ model EnergyDevice {
   hopperEmptyCm      Float?    // sensor distance when hopper is empty (~30cm for 10L bottle)
   hopperFullCm       Float?    // sensor distance when hopper is full (~5cm)
   hopperCapacityG    Float?    // total hopper capacity in grams (e.g. 7000 for 10L)
+  gramsPerSecond     Float     @default(4.0)   // motor dispense rate — pushed via poll response
+  tempOffsetC        Float     @default(0)     // DS18B20 calibration offset in °C
 
   pond            Pond?             @relation(fields: [pondId], references: [id])
   feedEvents      FeedEvent[]

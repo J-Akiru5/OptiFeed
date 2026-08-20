@@ -98,7 +98,7 @@ export function FeedNowButton({
 							<p className="text-sm text-[#3D5568] leading-relaxed">
 								{t.rich("triggerDesc", {
 									volume: nextFeedingVolume,
-									bold: (chunks) => <strong>{chunks}</strong>,
+									bold: (chunks) => <strong className="text-[#0A3D62] font-black">{chunks}</strong>,
 								})}
 							</p>
 						</div>
@@ -106,7 +106,7 @@ export function FeedNowButton({
 							<p>
 								{t.rich("feederNode", {
 									name: deviceName,
-									bold: (chunks) => <strong>{chunks}</strong>,
+									bold: (chunks) => <strong className="font-mono text-[#0A3D62]">{chunks}</strong>,
 								})}
 							</p>
 							<p>
@@ -120,7 +120,9 @@ export function FeedNowButton({
 							<p>
 								{t.rich("feedPortion", {
 									volume: nextFeedingVolume,
-									bold: (chunks) => <strong>{chunks}</strong>,
+									bold: (chunks) => (
+										<strong className="text-[#E85A2A] font-extrabold">{chunks}</strong>
+									),
 								})}
 							</p>
 						</div>

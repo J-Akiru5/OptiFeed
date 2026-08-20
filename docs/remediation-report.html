@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OptiFeed — Remediation Report</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-light: #334155;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --accent: #3b82f6;
+    --accent-light: #60a5fa;
+    --critical: #ef4444;
+    --critical-bg: #450a0a;
+    --high: #f59e0b;
+    --high-bg: #451a03;
+    --medium: #eab308;
+    --medium-bg: #422006;
+    --low: #22c55e;
+    --low-bg: #052e16;
+    --blue: #3b82f6;
+    --blue-bg: #1e3a5f;
+    --code-bg: #0d1117;
+    --code-border: #30363d;
+    --code-text: #e6edf3;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+  }
+  .hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+    padding: 60px 40px;
+    border-bottom: 1px solid var(--surface-light);
+  }
+  .hero h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 12px;
+  }
+  .hero h1 span {
+    background: linear-gradient(to right, #ef4444, #f59e0b, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero .subtitle {
+    font-size: 1.15rem;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+  }
+  .hero .meta {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+  }
+  .hero .meta-item { display: flex; align-items: center; gap: 8px; }
+  .hero .meta-item strong { color: var(--text); }
+  .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
+  section { margin-bottom: 64px; }
+  h2 {
+    font-size: 1.75rem; font-weight: 700; margin-bottom: 20px;
+    padding-bottom: 12px; border-bottom: 2px solid var(--surface-light);
+  }
+  h3 { font-size: 1.3rem; font-weight: 600; margin-top: 32px; margin-bottom: 12px; color: var(--accent-light); }
+  h4 { font-size: 1.1rem; font-weight: 600; margin-top: 20px; margin-bottom: 8px; color: var(--text); }
+  p { margin-bottom: 16px; color: var(--text-muted); }
+  p strong { color: var(--text); }
+  ul, ol { margin: 8px 0 16px 20px; }
+  li { margin-bottom: 6px; color: var(--text-muted); }
+  li strong { color: var(--text); }
+  a { color: var(--accent-light); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    background: var(--code-bg); border: 1px solid var(--code-border);
+    border-radius: 4px; padding: 2px 6px;
+    font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em;
+    color: var(--code-text);
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 999px;
+    font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; white-space: nowrap;
+  }
+  .badge-critical { background: var(--critical-bg); color: var(--critical); border: 1px solid var(--critical); }
+  .badge-high { background: var(--high-bg); color: var(--high); border: 1px solid var(--high); }
+  .badge-medium { background: var(--medium-bg); color: var(--medium); border: 1px solid var(--medium); }
+  .badge-low { background: var(--low-bg); color: var(--low); border: 1px solid var(--low); }
+  .badge-done { background: #052e16; color: #22c55e; border: 1px solid #22c55e; }
+  .badge-todo { background: #1e3a5f; color: #60a5fa; border: 1px solid #3b82f6; }
+  .badge-blocked { background: #451a03; color: #f59e0b; border: 1px solid #f59e0b; }
+  table {
+    width: 100%; border-collapse: collapse;
+    background: var(--surface); border: 1px solid var(--surface-light);
+    border-radius: 12px; overflow: hidden; margin-bottom: 24px;
+  }
+  th {
+    background: var(--surface-light); padding: 12px 16px;
+    text-align: left; font-size: 0.8rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);
+  }
+  td {
+    padding: 12px 16px; border-top: 1px solid var(--surface-light);
+    font-size: 0.9rem; color: var(--text-muted);
+  }
+  td strong { color: var(--text); }
+  .callout {
+    background: var(--blue-bg); border: 1px solid var(--accent);
+    border-radius: 12px; padding: 20px 24px; margin: 24px 0;
+  }
+  .callout p { margin-bottom: 0; color: var(--text); }
+  .callout strong { color: var(--accent-light); }
+  .status-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px; margin: 24px 0;
+  }
+  .status-card {
+    background: var(--surface); border: 1px solid var(--surface-light);
+    border-radius: 12px; padding: 20px; text-align: center;
+  }
+  .status-card .number {
+    font-size: 2rem; font-weight: 800; margin-bottom: 4px;
+  }
+  .status-card .label {
+    font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .footer {
+    text-align: center; padding: 40px 24px;
+    border-top: 1px solid var(--surface-light);
+    color: var(--text-muted); font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div style="max-width:1100px; margin:0 auto;">
+    <h1><span>OptiFeed</span> Remediation Report</h1>
+    <p class="subtitle">Audit findings status, implementation details, and remaining work items</p>
+    <div class="meta">
+      <div class="meta-item"><strong>Branch:</strong> Karl</div>
+      <div class="meta-item"><strong>Commit:</strong> 2e3ca1b</div>
+      <div class="meta-item"><strong>Date:</strong> August 21, 2026</div>
+      <div class="meta-item"><strong>Files changed:</strong> 48 (+2,666 / -452)</div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- STATUS OVERVIEW -->
+<section>
+  <h2>Status Overview</h2>
+  <div class="status-grid">
+    <div class="status-card">
+      <div class="number" style="color:#22c55e">22</div>
+      <div class="label">Completed</div>
+    </div>
+    <div class="status-card">
+      <div class="number" style="color:#f59e0b">5</div>
+      <div class="label">Blocked (need partner)</div>
+    </div>
+    <div class="status-card">
+      <div class="number" style="color:#94a3b8">2</div>
+      <div class="label">N/A or Deferred</div>
+    </div>
+    <div class="status-card">
+      <div class="number" style="color:#3b82f6">1</div>
+      <div class="label">Partial</div>
+    </div>
+  </div>
+  <p><strong>Quality gates:</strong> <code>pnpm lint</code> &#10003; clean | <code>pnpm typecheck</code> &#10003; clean (0 errors introduced)</p>
+</section>
+
+<!-- FINDING STATUS TABLE -->
+<section>
+  <h2>Finding Status (All 30)</h2>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Finding</th><th>Severity</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>.env Committed to Git</td><td><span class="badge badge-critical">Critical</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>2</td><td>Hardcoded Device Token in Seed</td><td><span class="badge badge-critical">Critical</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>3</td><td>Brute-Forceable PIN Auth</td><td><span class="badge badge-critical">Critical</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>4</td><td>No Rate Limiting</td><td><span class="badge badge-high">High</span></td><td><span class="badge badge-blocked">Done*</span></td></tr>
+      <tr><td>5</td><td>API Routes Excluded from Middleware Auth</td><td><span class="badge badge-high">High</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>6</td><td>Missing Ownership Validation</td><td><span class="badge badge-high">High</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>7</td><td>No Security Headers</td><td><span class="badge badge-high">High</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>8</td><td>No CORS Configuration</td><td><span class="badge badge-high">High</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>9</td><td>No Row-Level Security</td><td><span class="badge badge-high">High</span></td><td><span class="badge badge-blocked">Blocked</span></td></tr>
+      <tr><td>10</td><td>Error Details Leaked to Client</td><td><span class="badge badge-high">High</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>11</td><td>Device API Zero Error Handling</td><td><span class="badge badge-high">High</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>12</td><td>N+1 Query in Import</td><td><span class="badge badge-high">High</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>13</td><td>No Test Framework</td><td><span class="badge badge-medium">Medium</span></td><td><span class="badge badge-blocked">Blocked</span></td></tr>
+      <tr><td>14</td><td>No Health Check Endpoint</td><td><span class="badge badge-medium">Medium</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>15</td><td>No Graceful Shutdown</td><td><span class="badge badge-medium">Medium</span></td><td><span class="badge badge-low">N/A (Vercel)</span></td></tr>
+      <tr><td>16</td><td>No Structured Logging</td><td><span class="badge badge-medium">Medium</span></td><td><span class="badge badge-done">Partial</span></td></tr>
+      <tr><td>17</td><td>Gemini API Key Prefix Logged</td><td><span class="badge badge-medium">Medium</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>18</td><td>No Prompt Injection Protection</td><td><span class="badge badge-medium">Medium</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>19</td><td>Hardcoded User Data in UI</td><td><span class="badge badge-medium">Medium</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>20</td><td>Dashboard Page Monolith (452 lines)</td><td><span class="badge badge-medium">Medium</span></td><td><span class="badge badge-low">Deferred</span></td></tr>
+      <tr><td>21</td><td>Duplicated Constants Across Codebase</td><td><span class="badge badge-medium">Medium</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>22</td><td>Unbounded Export Queries</td><td><span class="badge badge-medium">Medium</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>23</td><td>Missing Database Indexes</td><td><span class="badge badge-medium">Medium</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>24</td><td>Cursor Pagination Bug in Audit Log</td><td><span class="badge badge-medium">Medium</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>25</td><td>Empty Monorepo Packages</td><td><span class="badge badge-low">Low</span></td><td><span class="badge badge-blocked">Blocked</span></td></tr>
+      <tr><td>26</td><td>Deprecated Models Still Active</td><td><span class="badge badge-low">Low</span></td><td><span class="badge badge-blocked">Blocked</span></td></tr>
+      <tr><td>27</td><td>Chat History Not Cleared on Logout</td><td><span class="badge badge-low">Low</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>28</td><td>Only One Error Boundary</td><td><span class="badge badge-low">Low</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>29</td><td>No try/catch in Server Actions</td><td><span class="badge badge-low">Low</span></td><td><span class="badge badge-done">Done</span></td></tr>
+      <tr><td>30</td><td>CSV Import Dynamic Typing Risk</td><td><span class="badge badge-low">Low</span></td><td><span class="badge badge-done">Done</span></td></tr>
+    </tbody>
+  </table>
+  <p>*Finding #4 requires <code>UPSTASH_REDIS_REST_URL</code> + <code>UPSTASH_REDIS_REST_TOKEN</code> on Vercel to function in production.</p>
+</section>
+
+<!-- WHAT WE DID -->
+<section>
+  <h2>What We Did — Detailed Breakdown</h2>
+
+  <h3>Security Fixes (Critical + High)</h3>
+
+  <h4>Finding #1 — .env Block in Pre-commit Hook</h4>
+  <p>Added a guard in <code>.husky/pre-commit</code> that blocks commits containing <code>.env</code> files. Defense-in-depth layer on top of <code>.gitignore</code>.</p>
+
+  <h4>Finding #2 — Hardcoded Device Token Removed</h4>
+  <p><code>prisma/seed.ts</code> previously had a hardcoded token. Replaced with a <code>requireEnv("DEVICE_TOKEN")</code> helper that reads from <code>process.env</code> and throws at startup if missing.</p>
+
+  <h4>Finding #3 — Account Lockout System</h4>
+  <p>Created a full lockout system: new <code>UserLockout</code> Prisma model, <code>lib/auth/lockout.ts</code> with <code>recordFailedAttempt()</code>, <code>checkLockout()</code>, <code>resetLockout()</code>. Updated login flow and added i18n keys for both English and Hiligaynon.</p>
+
+  <h4>Finding #4 — Upstash Rate Limiting</h4>
+  <p>Created <code>lib/rate-limit.ts</code> with two rate limiters: <code>loginRateLimit</code> (5 attempts/60s) and <code>apiRateLimit</code> (30 requests/60s). Applied to all 6 API endpoints. Dependencies: <code>@upstash/ratelimit@2.0.8</code>, <code>@upstash/redis@1.38.2</code>.</p>
+
+  <h4>Finding #5 — withAuth Wrapper + CI Auth Check</h4>
+  <p>Created <code>lib/auth/with-auth.ts</code> — a higher-order function wrapping API route handlers to verify sessions. Added CI workflow step scanning for auth checks with allowlist for token-authed routes.</p>
+
+  <h4>Finding #6 — Ownership Validation</h4>
+  <p>Added <code>ownerId</code> checks to <code>settings.ts</code>, <code>time.ts</code>, <code>energy.ts</code> (requestFeed, saveHopperCalibration, registerEnergyDevice), and <code>notifications.ts</code> (createDemoNotification).</p>
+
+  <h4>Finding #7 — Security Headers</h4>
+  <p>Added via <code>next.config.ts</code>: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy, CSP.</p>
+
+  <h4>Finding #8 — CORS Configuration</h4>
+  <p>Added per-route CORS for <code>/api/ingest</code>, <code>/api/feed-command</code>, <code>/api/schedule-sync</code>.</p>
+
+  <h4>Finding #10 — Error Sanitization</h4>
+  <p>Removed <code>details: String(error)</code> from import/confirm response. Server returns generic "Import failed".</p>
+
+  <h4>Finding #11 — Device API Error Handling</h4>
+  <p>Wrapped <code>feed-command</code> and <code>schedule-sync</code> in try/catch with safe default responses.</p>
+
+  <h4>Finding #12 — N+1 Fix</h4>
+  <p>Replaced individual <code>create()</code> loops in import/confirm with <code>createMany()</code> for all 6 import types.</p>
+
+  <h4>Finding #17 — Gemini Key Prefix Removed</h4>
+  <p>Removed <code>keyPrefix</code> from <code>geminiDebugInfo()</code>. Debug output no longer includes any part of the API key.</p>
+
+  <h3>Code Quality Fixes (Medium + Low)</h3>
+
+  <h4>Finding #14 — Health Check Endpoint</h4>
+  <p>Created <code>app/api/health/route.ts</code> — runs <code>SELECT 1</code> against DB, returns 503 on failure.</p>
+
+  <h4>Finding #18 — Prompt Injection Protection</h4>
+  <p>Three-layer defense: <code>sanitizeInput()</code> + <code>enforcePromptLimit()</code> in prompt.ts, pondName sanitization in context.ts, per-message 2000-char cap in chat/route.ts.</p>
+
+  <h4>Finding #19 — Hardcoded User Data Replaced</h4>
+  <p>Removed all hardcoded "Juan Miguel", "Jeff!", "ILO-POND-01", and <code>pondPopulation = 5000</code>. All now derived from session or constants.</p>
+
+  <h4>Finding #21 — Shared Constants</h4>
+  <p>Created <code>lib/constants.ts</code> with <code>DEFAULT_FISH_COUNT</code>, <code>HOPPER_CAPACITY_KG</code>, <code>GRAMS_PER_FEEDING</code>, <code>EXPORT_ROW_LIMIT</code>, <code>MAX_PROMPT_LENGTH</code>, <code>PH_TZ</code>.</p>
+
+  <h4>Finding #22 — Export Query Row Limits</h4>
+  <p>Added <code>take: EXPORT_ROW_LIMIT</code> (50,000) to all 12 queries in export routes.</p>
+
+  <h4>Finding #23 — Database Indexes</h4>
+  <p>Added via migration: <code>Pond(ownerId)</code>, <code>Notification(pondId, read)</code>, <code>FcrReport(pondId, periodStart)</code>.</p>
+
+  <h4>Finding #24 — Audit Cursor Fix</h4>
+  <p>Changed cursor from <code>createdAt</code> to <code>id</code> (primary key, stable pagination).</p>
+
+  <h4>Finding #27 — Chat History Cleared on Logout</h4>
+  <p>Exposed <code>clearMessages()</code> from ChatWidgetProvider context. Both logout handlers call it.</p>
+
+  <h4>Finding #28 — Error Boundaries</h4>
+  <p>Created <code>app/global-error.tsx</code> + <code>app/[locale]/(dashboard)/not-found.tsx</code>.</p>
+
+  <h4>Finding #29 — try/catch in Server Actions</h4>
+  <p>Added try/catch to all unprotected server actions: notifications (3 functions), audit, biomass (all), schedule (toggleDevicePause).</p>
+
+  <h4>Finding #30 — CSV Dynamic Typing Fix</h4>
+  <p>Set <code>dynamicTyping: false</code> + type validation in <code>lib/csv.ts</code>. Filters rows with non-primitive values.</p>
+
+  <h3>Infrastructure Fixes</h3>
+
+  <h4>Migration Chain Repair</h4>
+  <p>Discovered 5 tables had no migration. Created <code>20260710180000_add_missing_tables/migration.sql</code> and ran <code>prisma migrate reset</code> + <code>prisma migrate dev</code>.</p>
+
+  <h4>Schema Drift Cleanup</h4>
+  <p>Dropped orphaned <code>EnergyReading</code> table and <code>relayState</code> column during migration reset.</p>
+</section>
+
+<!-- REMAINING BLOCKED ITEMS -->
+<section>
+  <h2>Remaining Blocked Items (Need Partner Confirmation)</h2>
+  <table>
+    <thead>
+      <tr><th>Item</th><th>Why Blocked</th><th>What to Confirm</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Vercel Env Vars</strong></td>
+        <td>Need access to Vercel dashboard</td>
+        <td>Add <code>UPSTASH_REDIS_REST_URL</code> + <code>UPSTASH_REDIS_REST_TOKEN</code></td>
+      </tr>
+      <tr>
+        <td><strong>Finding #9: Row-Level Security</strong></td>
+        <td>Need Supabase dashboard access</td>
+        <td>Generate RLS SQL, run in SQL Editor, update lockout.ts + add Prisma middleware</td>
+      </tr>
+      <tr>
+        <td><strong>Finding #13: Test Framework</strong></td>
+        <td>Partner priority decision</td>
+        <td>Set up Vitest with ~16 initial tests?</td>
+      </tr>
+      <tr>
+        <td><strong>Finding #26: Deprecated Models</strong></td>
+        <td>Partner decision</td>
+        <td>Remove <code>Device</code> + <code>FeedingEvent</code> tables?</td>
+      </tr>
+      <tr>
+        <td><strong>Finding #25: Empty Monorepo Packages</strong></td>
+        <td>Partner decision</td>
+        <td>Remove <code>@optifeed/types</code> + <code>@optifeed/ui</code>?</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- FILES CHANGED -->
+<section>
+  <h2>Files Changed (48 total)</h2>
+  <table>
+    <thead><tr><th>Category</th><th>Files</th></tr></thead>
+    <tbody>
+      <tr><td><strong>New files</strong></td><td><code>app/api/health/route.ts</code>, <code>app/global-error.tsx</code>, <code>app/[locale]/(dashboard)/not-found.tsx</code>, <code>lib/constants.ts</code>, <code>lib/auth/lockout.ts</code>, <code>lib/auth/with-auth.ts</code>, <code>lib/rate-limit.ts</code>, 2 migrations, <code>docs/system-audit-report.html</code>, <code>docs/vercel-deployment-checklist.md</code></td></tr>
+      <tr><td><strong>Modified</strong></td><td>38 existing files (security headers, CORS, auth, actions, components, exports, chat, CSV, indexes, etc.)</td></tr>
+      <tr><td><strong>Total</strong></td><td>48 files changed, +2,666 / -452 lines</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- NEXT STEPS -->
+<section>
+  <h2>Recommended Next Steps</h2>
+  <ol>
+    <li><strong>Add Upstash env vars to Vercel</strong> — Rate limiting won't work without them</li>
+    <li><strong>Apply Prisma migration</strong> — Ensure <code>prisma migrate deploy</code> runs in Vercel build step</li>
+    <li><strong>Ask partner</strong> about deprecated models, test framework, RLS, monorepo packages</li>
+    <li><strong>Deploy to production</strong> — Once env vars are set</li>
+  </ol>
+</section>
+
+</div>
+
+<div class="footer">
+  <p>OptiFeed Remediation Report &mdash; Generated August 21, 2026</p>
+  <p style="margin-top: 8px;">Branch: Karl | Commit: 2e3ca1b | 48 files changed, +2,666 / -452 lines</p>
+</div>
+
+</body>
+</html>

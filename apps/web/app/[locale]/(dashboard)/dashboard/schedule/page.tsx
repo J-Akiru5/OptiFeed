@@ -1,6 +1,7 @@
 import { ScheduleControls } from "@/components/ScheduleControls";
 import { ScheduleEditor } from "@/components/ScheduleEditor";
 import { StuckRequestBanner } from "@/components/StuckRequestBanner";
+import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import { getTranslations } from "next-intl/server";
@@ -110,6 +111,8 @@ export default async function SchedulePage() {
 				<h1 className="text-3xl font-bold text-[var(--ofd-base)]">{t("title")}</h1>
 				<p className="mt-2 text-gray-700">{t("desc")}</p>
 			</div>
+
+			<TimeCalibrationForm deviceId={energyDevice.id} />
 
 			<StuckRequestBanner
 				stuckFeedRequests={stuckFeedRequests.map((r) => ({

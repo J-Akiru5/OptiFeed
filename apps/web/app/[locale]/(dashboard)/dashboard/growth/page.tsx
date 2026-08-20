@@ -1,3 +1,5 @@
+import { DataExportButton, DataImportDialog } from "@/components/DataImportExport";
+import { FcrCalculator } from "@/components/FcrCalculator";
 import { FeedLevelLogTable } from "@/components/FeedLevelLogTable";
 import { getFeedLevelLogs } from "@/lib/actions/growth";
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
@@ -99,6 +101,20 @@ export default async function GrowthPage() {
 
 	return (
 		<div className="space-y-8 pb-20 animate-in fade-in duration-500 max-w-7xl mx-auto">
+			{/* Header with import/export buttons */}
+			<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+				<div>
+					<h1 className="text-3xl font-extrabold tracking-tight text-[var(--ofd-base-deep)]">
+						{t("title")}
+					</h1>
+					<p className="text-gray-500 mt-1">{t("desc", { pond: pond.name })}</p>
+				</div>
+				<div className="flex items-center gap-3">
+					<DataImportDialog />
+					<DataExportButton />
+				</div>
+			</div>
+
 			{/* FCR big glance box from Prototype */}
 			<div className="bg-[#0A3D62] text-white p-6 md:p-8 rounded-[32px] shadow-lg relative overflow-hidden">
 				<div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full translate-x-12 -translate-y-12" />
@@ -126,6 +142,9 @@ export default async function GrowthPage() {
 					</div>
 				</div>
 			</div>
+
+			{/* FCR Calculator */}
+			<FcrCalculator latestFcr={latestFcr} />
 
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 				{/* Latest ABW Card */}

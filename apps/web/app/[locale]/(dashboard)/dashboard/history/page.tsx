@@ -1,3 +1,4 @@
+import { DataExportButton, DataImportDialog } from "@/components/DataImportExport";
 import { FeedEventHistoryTable } from "@/components/FeedEventHistoryTable";
 import { getFeedEvents } from "@/lib/actions/history";
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
@@ -65,11 +66,17 @@ export default async function HistoryPage() {
 
 	return (
 		<div className="space-y-8 pb-20 animate-in fade-in duration-500">
-			<header>
-				<h1 className="text-3xl font-extrabold tracking-tight text-[var(--ofd-base-deep)]">
-					{t("title")}
-				</h1>
-				<p className="text-gray-500 mt-1">{t("desc", { pond: pond.name })}</p>
+			<header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+				<div>
+					<h1 className="text-3xl font-extrabold tracking-tight text-[var(--ofd-base-deep)]">
+						{t("title")}
+					</h1>
+					<p className="text-gray-500 mt-1">{t("desc", { pond: pond.name })}</p>
+				</div>
+				<div className="flex items-center gap-3">
+					<DataImportDialog />
+					<DataExportButton />
+				</div>
 			</header>
 
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">

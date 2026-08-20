@@ -1,5 +1,5 @@
 import { Link } from "@/i18n/routing";
-import { Cpu, Settings, User } from "lucide-react";
+import { Cpu, Database, Settings, User } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export default async function SettingsPage() {
@@ -24,6 +24,12 @@ export default async function SettingsPage() {
 			desc: t("profileCardDesc"),
 			icon: User,
 		},
+		{
+			href: "/dashboard/settings/data",
+			title: t("dataCardTitle"),
+			desc: t("dataCardDesc"),
+			icon: Database,
+		},
 	];
 
 	return (
@@ -36,7 +42,7 @@ export default async function SettingsPage() {
 				<p className="mt-2 text-gray-500">{t("desc")}</p>
 			</div>
 
-			<div className="grid gap-4 md:grid-cols-3">
+			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
 				{cards.map((card) => (
 					<Link
 						key={card.href}

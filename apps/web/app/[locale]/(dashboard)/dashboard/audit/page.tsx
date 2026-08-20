@@ -1,3 +1,4 @@
+import { DataExportButton } from "@/components/DataImportExport";
 import { getAuditLog } from "@/lib/actions/audit";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import {
@@ -179,6 +180,9 @@ export default async function AuditPage({
 							{t("title")}
 						</h1>
 						<p className="mt-1 max-w-xl text-sm font-semibold text-[#3D5568]">{t("desc")}</p>
+					</div>
+					<div className="flex items-center gap-3">
+						<DataExportButton />
 					</div>
 				</div>
 

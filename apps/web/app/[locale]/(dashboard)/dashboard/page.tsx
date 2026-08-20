@@ -5,6 +5,7 @@ import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
 import { WaterTempCard } from "@/components/WaterTempCard";
 import { Link } from "@/i18n/routing";
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
@@ -121,7 +122,7 @@ export default async function DashboardHomePage() {
 	const nextFeedingTimeStr = formatTime(nextFeedTimeObj);
 
 	// Dynamic Volume Calculation matching prototype
-	const pondPopulation = 5000;
+	const pondPopulation = DEFAULT_FISH_COUNT;
 	let nextFeedingVolumeG = 330;
 	if (latestBiomass) {
 		const totalBiomassGrams = latestBiomass.avgWeightKg * 1000 * pondPopulation;
@@ -172,7 +173,7 @@ export default async function DashboardHomePage() {
 			<div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
 				<div>
 					<h1 className="text-2xl md:text-3xl font-black text-[#0A3D62] tracking-tight flex items-center gap-2">
-						Welcome Back, Jeff! <Sparkles className="w-6 h-6 text-[#E85A2A]" />
+						Welcome Back! <Sparkles className="w-6 h-6 text-[#E85A2A]" />
 					</h1>
 					<p className="text-[#3D5568] text-xs md:text-sm mt-0.5">
 						Monitoring <strong>{pond.name}</strong> remotely from <strong>Western Visayas</strong>{" "}

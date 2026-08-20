@@ -9,6 +9,12 @@ export async function setDeviceTime(deviceId: string, customTime: string) {
 		const ownerId = await getCurrentPondOwnerIdSafe();
 		if (!ownerId) return { success: false, error: "Not authenticated" };
 
+		const device = await prisma.energyDevice.findFirst({
+			where: { id: deviceId, pond: { ownerId } },
+			select: { id: true },
+		});
+		if (!device) return { success: false, error: "Device not found" };
+
 		const parsedDate = new Date(customTime);
 		if (Number.isNaN(parsedDate.getTime())) {
 			return { success: false, error: "Invalid date format" };

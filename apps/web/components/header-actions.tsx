@@ -1,13 +1,14 @@
 "use client";
 
 import { clearChatHistory } from "@/components/chat/chat-storage";
+import { useChatWidget } from "@/components/chat/chat-widget-provider";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { useRouter } from "@/i18n/routing";
 import { createClient } from "@/lib/supabase/client";
 import { Globe, LogOut, X } from "lucide-react";
 import { useLocale } from "next-intl";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface HeaderActionsProps {
 	pondName?: string;
@@ -34,11 +35,22 @@ export function HeaderActions({
 	esp32Status = "missing",
 }: HeaderActionsProps) {
 	const [showProfileMenu, setShowProfileMenu] = useState(false);
+	const [userEmail, setUserEmail] = useState<string | null>(null);
 	const router = useRouter();
 	const locale = useLocale();
+	const { clearMessages } = useChatWidget();
+
+	useEffect(() => {
+		createClient()
+			.auth.getUser()
+			.then(({ data }) => {
+				setUserEmail(data.user?.email ?? null);
+			});
+	}, []);
 
 	const handleLogout = async () => {
 		setShowProfileMenu(false);
+		clearMessages();
 		clearChatHistory();
 		const supabase = createClient();
 		await supabase.auth.signOut();
@@ -90,7 +102,7 @@ export function HeaderActions({
 				aria-label="Open profile and settings menu"
 				aria-expanded={showProfileMenu}
 			>
-				JM
+				{userEmail ? userEmail.split("@")[0].slice(0, 2).toUpperCase() : "\u00B7\u00B7"}
 			</button>
 
 			{/* Profile dropdown */}
@@ -99,10 +111,12 @@ export function HeaderActions({
 					<div className="flex items-start justify-between gap-3 border-b border-gray-100 pb-4">
 						<div className="flex items-center gap-3">
 							<div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#E85A2A] text-lg font-black text-white">
-								JM
+								{userEmail ? userEmail.split("@")[0].slice(0, 2).toUpperCase() : "\u00B7\u00B7"}
 							</div>
 							<div>
-								<p className="text-base font-black">Juan Miguel</p>
+								<p className="text-base font-black">
+									{userEmail ? userEmail.split("@")[0] : "User"}
+								</p>
 								<p className="text-xs font-bold text-[#3D5568]">Pond Operator</p>
 								<p className="mt-0.5 font-mono text-[11px] font-bold text-[#3D5568] uppercase">
 									{pondName}

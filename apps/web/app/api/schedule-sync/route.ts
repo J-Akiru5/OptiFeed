@@ -19,24 +19,105 @@ export async function GET(request: Request) {
 		return new Response("Unprocessable Entity", { status: 422 });
 	}
 
-	const device = await prisma.energyDevice.findUnique({
-		where: { token },
-		select: {
-			id: true,
-			mac: true,
-			gramsPerFeeding: true,
-			buttonFeedGrams: true,
-			pondId: true,
-			hopperEmptyCm: true,
-			hopperFullCm: true,
-		},
-	});
+	try {
+		const device = await prisma.energyDevice.findUnique({
+			where: { token },
+			select: {
+				id: true,
+				mac: true,
+				gramsPerFeeding: true,
+				buttonFeedGrams: true,
+				pondId: true,
+				hopperEmptyCm: true,
+				hopperFullCm: true,
+			},
+		});
 
-	if (!device || device.mac !== deviceId) {
-		return new Response("Unauthorized", { status: 401 });
-	}
+		if (!device || device.mac !== deviceId) {
+			return new Response("Unauthorized", { status: 401 });
+		}
 
-	if (!device.pondId) {
+		if (!device.pondId) {
+			return Response.json({
+				schedule_changed: false,
+				command_id: null,
+				schedule_start: null,
+				schedule_end: null,
+				feeds_per_day: null,
+				feeding_rate_pct: null,
+				grams_per_feeding: device.gramsPerFeeding,
+				button_feed_grams: device.buttonFeedGrams,
+				hopper_empty_cm: device.hopperEmptyCm,
+				hopper_full_cm: device.hopperFullCm,
+			});
+		}
+
+		// Find the latest pending/sent schedule command for this device.
+		const pendingCommand = await prisma.scheduleCommand.findFirst({
+			where: {
+				deviceId: device.id,
+				status: { in: ["pending", "sent"] },
+			},
+			orderBy: { createdAt: "desc" },
+		});
+
+		if (pendingCommand) {
+			// Mark as "sent" so we don't return it again until it's acked or failed.
+			await prisma.scheduleCommand.update({
+				where: { id: pendingCommand.id },
+				data: { status: "sent" },
+			});
+
+			await prisma.deviceStateEvent.create({
+				data: {
+					deviceId: device.id,
+					eventType: "command_sent",
+					source: "system",
+					metadata: {
+						commandId: pendingCommand.id,
+						scheduleStart: formatTime(pendingCommand.scheduleStart),
+						scheduleEnd: formatTime(pendingCommand.scheduleEnd),
+						feedsPerDay: pendingCommand.feedsPerDay,
+						feedingRatePct: pendingCommand.feedingRatePct,
+					},
+				},
+			});
+
+			return Response.json({
+				schedule_changed: true,
+				command_id: pendingCommand.id,
+				schedule_start: formatTime(pendingCommand.scheduleStart),
+				schedule_end: formatTime(pendingCommand.scheduleEnd),
+				feeds_per_day: pendingCommand.feedsPerDay,
+				feeding_rate_pct: pendingCommand.feedingRatePct,
+				grams_per_feeding: device.gramsPerFeeding,
+				button_feed_grams: device.buttonFeedGrams,
+				hopper_empty_cm: device.hopperEmptyCm,
+				hopper_full_cm: device.hopperFullCm,
+			});
+		}
+
+		// No pending changes — return current pond settings as baseline.
+		const pond = await prisma.pond.findUnique({
+			where: { id: device.pondId },
+			select: { scheduleStart: true, scheduleEnd: true, feedsPerDay: true, feedingRatePct: true },
+		});
+
+		if (pond) {
+			return Response.json({
+				schedule_changed: false,
+				command_id: null,
+				schedule_start: formatTime(pond.scheduleStart),
+				schedule_end: formatTime(pond.scheduleEnd),
+				feeds_per_day: pond.feedsPerDay,
+				feeding_rate_pct: pond.feedingRatePct,
+				grams_per_feeding: device.gramsPerFeeding,
+				button_feed_grams: device.buttonFeedGrams,
+				hopper_empty_cm: device.hopperEmptyCm,
+				hopper_full_cm: device.hopperFullCm,
+			});
+		}
+
 		return Response.json({
 			schedule_changed: false,
 			command_id: null,
@@ -49,84 +130,20 @@ export async function GET(request: Request) {
 			hopper_empty_cm: device.hopperEmptyCm,
 			hopper_full_cm: device.hopperFullCm,
 		});
-	}
-
-	// Find the latest pending/sent schedule command for this device.
-	const pendingCommand = await prisma.scheduleCommand.findFirst({
-		where: {
-			deviceId: device.id,
-			status: { in: ["pending", "sent"] },
-		},
-		orderBy: { createdAt: "desc" },
-	});
-
-	if (pendingCommand) {
-		// Mark as "sent" so we don't return it again until it's acked or failed.
-		await prisma.scheduleCommand.update({
-			where: { id: pendingCommand.id },
-			data: { status: "sent" },
-		});
-
-		await prisma.deviceStateEvent.create({
-			data: {
-				deviceId: device.id,
-				eventType: "command_sent",
-				source: "system",
-				metadata: {
-					commandId: pendingCommand.id,
-					scheduleStart: formatTime(pendingCommand.scheduleStart),
-					scheduleEnd: formatTime(pendingCommand.scheduleEnd),
-					feedsPerDay: pendingCommand.feedsPerDay,
-					feedingRatePct: pendingCommand.feedingRatePct,
-				},
-			},
-		});
-
-		return Response.json({
-			schedule_changed: true,
-			command_id: pendingCommand.id,
-			schedule_start: formatTime(pendingCommand.scheduleStart),
-			schedule_end: formatTime(pendingCommand.scheduleEnd),
-			feeds_per_day: pendingCommand.feedsPerDay,
-			feeding_rate_pct: pendingCommand.feedingRatePct,
-			grams_per_feeding: device.gramsPerFeeding,
-			button_feed_grams: device.buttonFeedGrams,
-			hopper_empty_cm: device.hopperEmptyCm,
-			hopper_full_cm: device.hopperFullCm,
-		});
-	}
-
-	// No pending changes — return current pond settings as baseline.
-	const pond = await prisma.pond.findUnique({
-		where: { id: device.pondId },
-		select: { scheduleStart: true, scheduleEnd: true, feedsPerDay: true, feedingRatePct: true },
-	});
-
-	if (pond) {
+	} catch (error) {
+		console.error("[schedule-sync] error:", error);
+		// Return safe defaults so ESP32 doesn't hang
 		return Response.json({
 			schedule_changed: false,
 			command_id: null,
-			schedule_start: formatTime(pond.scheduleStart),
-			schedule_end: formatTime(pond.scheduleEnd),
-			feeds_per_day: pond.feedsPerDay,
-			feeding_rate_pct: pond.feedingRatePct,
-			grams_per_feeding: device.gramsPerFeeding,
-			button_feed_grams: device.buttonFeedGrams,
-			hopper_empty_cm: device.hopperEmptyCm,
-			hopper_full_cm: device.hopperFullCm,
+			schedule_start: null,
+			schedule_end: null,
+			feeds_per_day: null,
+			feeding_rate_pct: null,
+			grams_per_feeding: 150,
+			button_feed_grams: 80,
+			hopper_empty_cm: null,
+			hopper_full_cm: null,
 		});
 	}
-
-	return Response.json({
-		schedule_changed: false,
-		command_id: null,
-		schedule_start: null,
-		schedule_end: null,
-		feeds_per_day: null,
-		feeding_rate_pct: null,
-		grams_per_feeding: device.gramsPerFeeding,
-		button_feed_grams: device.buttonFeedGrams,
-		hopper_empty_cm: device.hopperEmptyCm,
-		hopper_full_cm: device.hopperFullCm,
-	});
 }

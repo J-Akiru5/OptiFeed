@@ -5,23 +5,28 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
 export async function toggleDevicePause(deviceId: string, isPaused: boolean) {
-	const ownerId = await getCurrentPondOwnerId();
-	await prisma.energyDevice.update({
-		where: { id: deviceId },
-		data: { isPaused },
-	});
+	try {
+		const ownerId = await getCurrentPondOwnerId();
+		await prisma.energyDevice.update({
+			where: { id: deviceId },
+			data: { isPaused },
+		});
 
-	await prisma.deviceStateEvent.create({
-		data: {
-			deviceId,
-			eventType: "pause_toggled",
-			source: "user",
-			actorId: ownerId,
-			metadata: { isPaused },
-		},
-	});
+		await prisma.deviceStateEvent.create({
+			data: {
+				deviceId,
+				eventType: "pause_toggled",
+				source: "user",
+				actorId: ownerId,
+				metadata: { isPaused },
+			},
+		});
 
-	revalidatePath("/[locale]/(dashboard)/dashboard/schedule", "page");
+		revalidatePath("/[locale]/(dashboard)/dashboard/schedule", "page");
+	} catch (error) {
+		console.error("Failed to toggle device pause:", error);
+		throw new Error("Failed to toggle device pause");
+	}
 }
 
 export interface UpdateScheduleResult {

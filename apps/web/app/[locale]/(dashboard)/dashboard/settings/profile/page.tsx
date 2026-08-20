@@ -1,8 +1,22 @@
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import prisma from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { Bell, Shield, User } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export default async function ProfileSettingsPage() {
 	const t = await getTranslations("dashboard.profileSettings");
+
+	const supabase = await createClient();
+	const {
+		data: { user },
+	} = await supabase.auth.getUser();
+	const email = user?.email ?? "";
+	const displayName = email.split("@")[0] || "User";
+
+	const ownerId = await getCurrentPondOwnerId();
+	const pond = await prisma.pond.findFirst({ where: { ownerId }, select: { name: true } });
+	const pondName = pond?.name ?? "\u2014";
 
 	return (
 		<div className="mx-auto max-w-4xl space-y-8">
@@ -33,7 +47,7 @@ export default async function ProfileSettingsPage() {
 							<input
 								id="fullName"
 								type="text"
-								defaultValue="Juan Miguel"
+								defaultValue={displayName}
 								className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
 							/>
 						</div>
@@ -56,7 +70,7 @@ export default async function ProfileSettingsPage() {
 							<input
 								id="farmId"
 								type="text"
-								defaultValue="ILO-POND-01"
+								defaultValue={pondName}
 								disabled
 								className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 font-mono text-gray-500"
 							/>

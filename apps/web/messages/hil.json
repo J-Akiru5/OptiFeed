@@ -112,6 +112,8 @@
 		"errorEmpty": "Palihog isulod ang imo rehistrado nga Farm ID.",
 		"errorPinLength": "Ang PIN dapat sa ulot sang 4 kag 6 ka numero.",
 		"errorInvalid": "Sala nga Farm ID ukon PIN. Palihog tsek kag i-try liwat.",
+		"errorLocked": "Raan ka na sang sobra nga pagsulay. Palihog uli nga maga {minutes} ka minuton.",
+		"errorRateLimited": "Sobra nga request. Palihog maghulat kag i-try liwat.",
 		"success": "Na-verify na. Ginapadulong sa Dashboard...",
 		"footer": "ESP32 Device Auth Node • Firmware v1.4.2 • Nakatundan nga Kabisay-an Catfish Operations"
 	},

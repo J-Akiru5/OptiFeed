@@ -1,6 +1,7 @@
 import { farmIdFromEmail } from "@/lib/auth/session";
 import { type ExportableType, parseCsvString } from "@/lib/csv";
 import prisma from "@/lib/prisma";
+import { apiRateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,12 @@ export async function POST(request: Request) {
 	const ownerId = user?.email ? farmIdFromEmail(user.email) : null;
 	if (!ownerId) {
 		return Response.json({ error: "Unauthorized" }, { status: 401 });
+	}
+
+	// Rate limit: 30 requests per 60 seconds per user
+	const { success } = await apiRateLimit.limit(ownerId);
+	if (!success) {
+		return Response.json({ error: "Too Many Requests" }, { status: 429 });
 	}
 
 	const pond = await prisma.pond.findFirst({ where: { ownerId } });

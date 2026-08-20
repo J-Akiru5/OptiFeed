@@ -112,6 +112,8 @@
 		"errorEmpty": "Please enter your registered Farm ID.",
 		"errorPinLength": "PIN must be between 4 and 6 digits long.",
 		"errorInvalid": "Invalid Farm ID or PIN. Please check and try again.",
+		"errorLocked": "Too many failed attempts. Please try again in {minutes} minute(s).",
+		"errorRateLimited": "Too many requests. Please wait a moment and try again.",
 		"success": "Verified. Redirecting to Dashboard...",
 		"footer": "ESP32 Device Auth Node • Firmware v1.4.2 • Western Visayas Catfish Operations"
 	},

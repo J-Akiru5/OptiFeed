@@ -1,6 +1,8 @@
 import { farmIdFromEmail } from "@/lib/auth/session";
+import { EXPORT_ROW_LIMIT } from "@/lib/constants";
 import { type ExportableType, toCsvString } from "@/lib/csv";
 import prisma from "@/lib/prisma";
+import { apiRateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +25,12 @@ export async function GET(request: Request) {
 	const ownerId = user?.email ? farmIdFromEmail(user.email) : null;
 	if (!ownerId) {
 		return Response.json({ error: "Unauthorized" }, { status: 401 });
+	}
+
+	// Rate limit: 30 requests per 60 seconds per user
+	const { success } = await apiRateLimit.limit(ownerId);
+	if (!success) {
+		return Response.json({ error: "Too Many Requests" }, { status: 429 });
 	}
 
 	const { searchParams } = new URL(request.url);
@@ -53,6 +61,7 @@ export async function GET(request: Request) {
 			const logs = await prisma.biomassLog.findMany({
 				where: { pondId: pond.id },
 				orderBy: { recordedAt: "asc" },
+				take: EXPORT_ROW_LIMIT,
 			});
 			rows = logs.map((l) => ({
 				id: l.id,
@@ -75,6 +84,7 @@ export async function GET(request: Request) {
 			const events = await prisma.feedEvent.findMany({
 				where: { deviceId: { in: deviceIds } },
 				orderBy: { receivedAt: "asc" },
+				take: EXPORT_ROW_LIMIT,
 			});
 			rows = events.map((e) => ({
 				id: e.id,
@@ -96,6 +106,7 @@ export async function GET(request: Request) {
 			const reports = await prisma.fcrReport.findMany({
 				where: { pondId: pond.id },
 				orderBy: { periodEnd: "asc" },
+				take: EXPORT_ROW_LIMIT,
 			});
 			rows = reports.map((r) => ({
 				id: r.id,
@@ -115,6 +126,7 @@ export async function GET(request: Request) {
 			const logs = await prisma.feedLevelLog.findMany({
 				where: { deviceId: device.id },
 				orderBy: { recordedAt: "asc" },
+				take: EXPORT_ROW_LIMIT,
 			});
 			rows = logs.map((l) => ({
 				id: l.id,
@@ -129,6 +141,7 @@ export async function GET(request: Request) {
 			const notifs = await prisma.notification.findMany({
 				where: { pondId: pond.id },
 				orderBy: { createdAt: "asc" },
+				take: EXPORT_ROW_LIMIT,
 			});
 			rows = notifs.map((n) => ({
 				id: n.id,
@@ -155,6 +168,7 @@ export async function GET(request: Request) {
 			const events = await prisma.deviceStateEvent.findMany({
 				where: { deviceId: { in: deviceIds } },
 				orderBy: { createdAt: "asc" },
+				take: EXPORT_ROW_LIMIT,
 			});
 			rows = events.map((e) => ({
 				id: e.id,

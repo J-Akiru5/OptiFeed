@@ -15,16 +15,16 @@ const STALE_DISPATCHED_MS = 10 * 60 * 1000;
 export async function requestFeed(deviceId: string, grams?: number) {
 	try {
 		const ownerId = await getCurrentPondOwnerId();
-		const device = await prisma.energyDevice.findUnique({
-			where: { id: deviceId },
+		const device = await prisma.energyDevice.findFirst({
+			where: { id: deviceId, pond: { ownerId } },
 			select: { gramsPerFeeding: true },
 		});
 
-		// Remote "Feed Now" carries the real scheduled dose (gramsPerFeeding),
-		// not the button's fixed snack override — the farmer is remote because
-		// he can't be at the pond, so this feed stands in for what he'd do
-		// himself. Default to gramsPerFeeding (150g), not buttonFeedGrams (80g).
-		const feedGrams = grams ?? device?.gramsPerFeeding ?? 150;
+		if (!device) {
+			return { success: false, error: "Device not found" };
+		}
+
+		const feedGrams = grams ?? device.gramsPerFeeding;
 
 		// Expire stale dispatched requests that were picked up by the device
 		// but never confirmed. This prevents zombie requests from accumulating
@@ -79,6 +79,15 @@ export async function saveHopperCalibration(
 ) {
 	try {
 		const ownerId = await getCurrentPondOwnerId();
+		const device = await prisma.energyDevice.findFirst({
+			where: { id: deviceId, pond: { ownerId } },
+			select: { id: true },
+		});
+
+		if (!device) {
+			return { success: false, error: "Device not found" };
+		}
+
 		await prisma.energyDevice.update({
 			where: { id: deviceId },
 			data: {
@@ -116,6 +125,15 @@ export async function registerEnergyDevice(
 	pondId?: string,
 ): Promise<string> {
 	const ownerId = await getCurrentPondOwnerIdSafe();
+
+	if (pondId && ownerId) {
+		const pond = await prisma.pond.findFirst({
+			where: { id: pondId, ownerId },
+			select: { id: true },
+		});
+		if (!pond) throw new Error("Pond not found");
+	}
+
 	const token = `esp32-tok-${randomUUID()}`;
 	const device = await prisma.energyDevice.create({
 		data: {

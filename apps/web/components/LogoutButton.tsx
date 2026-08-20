@@ -1,6 +1,7 @@
 "use client";
 
 import { clearChatHistory } from "@/components/chat/chat-storage";
+import { useChatWidget } from "@/components/chat/chat-widget-provider";
 import { useRouter } from "@/i18n/routing";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, LogOut } from "lucide-react";
@@ -10,9 +11,11 @@ export function LogoutButton() {
 	const [isPending, setIsPending] = useState(false);
 	const router = useRouter();
 	const supabase = createClient();
+	const { clearMessages } = useChatWidget();
 
 	const handleLogout = async () => {
 		setIsPending(true);
+		clearMessages();
 		clearChatHistory();
 		await supabase.auth.signOut();
 		// Redirect to home/login page after logout

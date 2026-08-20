@@ -1,6 +1,7 @@
 "use client";
 
 import { Link, usePathname } from "@/i18n/routing";
+import { HOPPER_CAPACITY_KG } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import {
 	Clock,
@@ -29,7 +30,7 @@ export function Sidebar({ hopperLevelPct = 82 }: { hopperLevelPct?: number }) {
 	];
 
 	// Math for remaining metrics
-	const capacityKg = 22.19; // ~22kg full capacity
+	const capacityKg = HOPPER_CAPACITY_KG;
 	const remainingKg = (capacityKg * (hopperLevelPct / 100)).toFixed(1);
 	const scheduledFeedings = Math.floor(Number.parseFloat(remainingKg) / 0.35);
 

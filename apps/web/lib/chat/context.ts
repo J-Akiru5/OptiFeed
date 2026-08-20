@@ -84,7 +84,10 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 		!!energyDevice?.lastSeenAt && now - energyDevice.lastSeenAt.getTime() <= OFFLINE_THRESHOLD_MS;
 
 	return {
-		pondName: pond.name,
+		pondName: pond.name
+			.replace(/[\r\n]+/g, " ")
+			.trim()
+			.slice(0, 100),
 		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
 		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
 		scheduleStart: currentConfig?.scheduleStart ?? pond.scheduleStart,

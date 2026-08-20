@@ -21,6 +21,7 @@ interface ChatWidgetContextValue {
 	messages: ChatMessage[];
 	isStreaming: boolean;
 	send: (content: string) => void;
+	clearMessages: () => void;
 }
 
 const ChatWidgetContext = createContext<ChatWidgetContextValue | null>(null);
@@ -63,6 +64,10 @@ export function ChatWidgetProvider({ children }: { children: ReactNode }) {
 	const open = useCallback(() => setIsOpen(true), []);
 	const close = useCallback(() => setIsOpen(false), []);
 	const toggle = useCallback(() => setIsOpen((v) => !v), []);
+	const clearMessages = useCallback(() => {
+		abortRef.current?.abort();
+		setMessages([{ role: "assistant", content: t("intro") }]);
+	}, [t]);
 
 	const send = useCallback(
 		async (content: string) => {
@@ -148,8 +153,8 @@ export function ChatWidgetProvider({ children }: { children: ReactNode }) {
 	);
 
 	const value = useMemo<ChatWidgetContextValue>(
-		() => ({ isOpen, open, close, toggle, messages, isStreaming, send }),
-		[isOpen, open, close, toggle, messages, isStreaming, send],
+		() => ({ isOpen, open, close, toggle, messages, isStreaming, send, clearMessages }),
+		[isOpen, open, close, toggle, messages, isStreaming, send, clearMessages],
 	);
 
 	return <ChatWidgetContext.Provider value={value}>{children}</ChatWidgetContext.Provider>;

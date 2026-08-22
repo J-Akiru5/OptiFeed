@@ -1,3 +1,4 @@
+import { MAX_PROMPT_LENGTH } from "../constants";
 import type { ChatContext } from "./context";
 
 function scheduleTime(d: Date): string {
@@ -50,5 +51,19 @@ CONVERSATION RULE:
 - You are in a multi-turn conversation. Use the chat history to answer follow-ups correctly (e.g. "what about tomorrow?" refers to the schedule you just described).
 - Do not repeat information the user already knows unless they ask.
 
-IMPORTANT: Do not fabricate data. Only use the data provided above. If information is not available, say so honestly.`;
+	IMPORTANT: Do not fabricate data. Only use the data provided above. If information is not available, say so honestly.`;
+}
+
+/** Sanitize user-supplied text to prevent prompt injection. */
+export function sanitizeInput(input: string, maxLen = 200): string {
+	return input
+		.replace(/[\r\n]+/g, " ")
+		.replace(/[^\S ]+/g, "")
+		.trim()
+		.slice(0, maxLen);
+}
+
+/** Enforce a maximum total prompt length to bound API costs. */
+export function enforcePromptLimit(prompt: string): string {
+	return prompt.length > MAX_PROMPT_LENGTH ? prompt.slice(0, MAX_PROMPT_LENGTH) : prompt;
 }

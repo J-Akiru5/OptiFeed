@@ -11,9 +11,14 @@ import { toast } from "sonner";
 interface ScheduleControlsProps {
 	deviceId: string;
 	initialIsPaused: boolean;
+	gramsPerFeeding?: number;
 }
 
-export function ScheduleControls({ deviceId, initialIsPaused }: ScheduleControlsProps) {
+export function ScheduleControls({
+	deviceId,
+	initialIsPaused,
+	gramsPerFeeding = 150,
+}: ScheduleControlsProps) {
 	const tBtn = useTranslations("button");
 	const tSch = useTranslations("dashboard.schedule");
 	const tModal = useTranslations("dashboard.feedNowModal");
@@ -35,12 +40,12 @@ export function ScheduleControls({ deviceId, initialIsPaused }: ScheduleControls
 	const handleFeedNow = () => {
 		startFeedTransition(async () => {
 			try {
-				const result = await requestFeedAction(deviceId, 500);
+				const result = await requestFeedAction(deviceId, gramsPerFeeding);
 				if (result.success) {
 					if (result.message === "Feed already pending") {
 						toast.info(tModal("alreadyQueued"));
 					} else {
-						toast.success(tModal("requestSent", { volume: "500g" }));
+						toast.success(tModal("requestSent", { volume: `${gramsPerFeeding}g` }));
 					}
 					setShowConfirm(false);
 					setFeedSuccess(true);

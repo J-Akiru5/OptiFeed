@@ -30,6 +30,8 @@ model Pond {
   notifications     Notification[]
   energyDevices     EnergyDevice[]
   scheduleCommands  ScheduleCommand[]
+
+  @@index([ownerId])
 }
 
 model Device {
@@ -85,6 +87,8 @@ model FcrReport {
   fcrValue      Float
 
   pond Pond @relation(fields: [pondId], references: [id])
+
+  @@index([pondId, periodStart])
 }
 
 // Historical feed level readings for trend charts on /growth and /history.
@@ -114,6 +118,8 @@ model Notification {
   createdAt       DateTime  @default(now())
 
   pond Pond @relation(fields: [pondId], references: [id])
+
+  @@index([pondId, read])
 }
 
 model EnergyDevice {
@@ -144,6 +150,8 @@ model EnergyDevice {
   hopperEmptyCm      Float?    // sensor distance when hopper is empty (~30cm for 10L bottle)
   hopperFullCm       Float?    // sensor distance when hopper is full (~5cm)
   hopperCapacityG    Float?    // total hopper capacity in grams (e.g. 7000 for 10L)
+  gramsPerSecond     Float     @default(4.0)   // motor dispense rate — pushed via poll response
+  tempOffsetC        Float     @default(0)     // DS18B20 calibration offset in °C
 
   pond            Pond?             @relation(fields: [pondId], references: [id])
   feedEvents      FeedEvent[]
@@ -225,4 +233,17 @@ model ScheduleCommand {
   pond    Pond         @relation(fields: [pondId], references: [id])
 
   @@index([deviceId, status])
+}
+
+// Per-farm brute-force lockout tracking.
+// Supabase Auth has IP-level rate limits but no per-account lockout.
+model UserLockout {
+  farmId         String     @id
+  failedAttempts Int        @default(0)
+  lockedUntil    DateTime?
+  lastFailedAt   DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@map("user_lockout")
 }

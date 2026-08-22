@@ -1,3 +1,5 @@
+import { DEFAULT_FISH_COUNT } from "./constants";
+
 /**
  * Calculates the recommended next feeding volume based on the latest biomass average weight.
  *
@@ -14,7 +16,7 @@ export function calculateNextFeeding(
 	avgWeightKg: number,
 	feedingRatePct: number,
 	feedsPerDay: number,
-	assumedFishCount = 5000,
+	assumedFishCount = DEFAULT_FISH_COUNT,
 ): number {
 	if (feedsPerDay <= 0) return 0;
 

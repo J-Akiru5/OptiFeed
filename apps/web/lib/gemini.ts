@@ -22,7 +22,6 @@ export function getGeminiClient(): GoogleGenerativeAI | null {
 export function geminiDebugInfo() {
 	return {
 		hasKey: isGeminiEnabled(),
-		keyPrefix: apiKey ? apiKey.slice(0, 6) : "none",
 		nodeEnv: process.env.NODE_ENV ?? "unknown",
 		model: getGeminiModelId(),
 	};

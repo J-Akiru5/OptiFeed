@@ -10,7 +10,7 @@ export default function LoginPage() {
 	const router = useRouter();
 	const t = useTranslations("login");
 	const tBtn = useTranslations("button");
-	const [farmId, setFarmId] = useState("demo-farmer-1");
+	const [farmId, setFarmId] = useState("");
 	const [pin, setPin] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [isPending, startTransition] = useTransition();
@@ -30,7 +30,12 @@ export default function LoginPage() {
 
 		startTransition(async () => {
 			const result = await loginWithPin(farmId, pin);
-			if (result?.error) {
+			if (result?.error === "locked") {
+				const minutes = result.secondsRemaining ? Math.ceil(result.secondsRemaining / 60) : 15;
+				setError(t("errorLocked", { minutes }));
+			} else if (result?.error === "rate_limited") {
+				setError(t("errorRateLimited"));
+			} else if (result?.error) {
 				setError(t("errorInvalid"));
 			}
 		});

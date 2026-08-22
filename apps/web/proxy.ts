@@ -62,7 +62,11 @@ export default async function proxy(request: NextRequest) {
 }
 
 export const config = {
-	// Matches all pages but excludes API routes (device endpoints use their own auth)
-	// and static assets.
+	// Middleware matcher excludes all /api/* routes — auth for API routes is
+	// enforced at the route level via @/lib/auth/with-auth or inline session
+	// checks. This is a deliberate tradeoff: middleware auth is "impossible to
+	// forget" but middleware cannot access cookies/headers in the same way as
+	// route handlers in Next.js 16. The CI step "Check API route auth" ensures
+	// every new API route imports from @/lib/auth/session or @/lib/auth/with-auth.
 	matcher: ["/((?!api|_next|_vercel|.*\\..*).*)"],
 };

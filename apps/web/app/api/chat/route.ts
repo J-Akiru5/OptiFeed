@@ -1,8 +1,9 @@
 import { farmIdFromEmail } from "@/lib/auth/session";
 import { buildChatContext } from "@/lib/chat/context";
 import { createNamespaceTranslator, runFallbackIntent } from "@/lib/chat/fallback";
-import { buildSystemPrompt } from "@/lib/chat/prompt";
+import { buildSystemPrompt, enforcePromptLimit, sanitizeInput } from "@/lib/chat/prompt";
 import { geminiDebugInfo, isGeminiEnabled, isGeminiQuotaError, streamGemini } from "@/lib/gemini";
+import { apiRateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,12 @@ export async function POST(request: Request) {
 		return new Response("Unauthorized", { status: 401 });
 	}
 
+	// Rate limit: 30 requests per 60 seconds per user
+	const { success } = await apiRateLimit.limit(ownerId);
+	if (!success) {
+		return new Response("Too Many Requests", { status: 429 });
+	}
+
 	let locale = "en";
 	let history: ChatHistoryItem[] = [];
 	try {
@@ -47,6 +54,13 @@ export async function POST(request: Request) {
 
 	// Keep the conversation window bounded to the most recent turns.
 	history = history.slice(-20);
+
+	// Enforce per-message length limit to prevent prompt injection.
+	const MAX_MSG_LEN = 2000;
+	history = history.map((m) => ({
+		...m,
+		content: m.content.slice(0, MAX_MSG_LEN),
+	}));
 
 	const stream = new ReadableStream<Uint8Array>({
 		async start(controller) {

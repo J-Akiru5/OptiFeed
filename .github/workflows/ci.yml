@@ -28,6 +28,28 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Check API route auth
+        run: |
+          # All API route files must either:
+          # 1. Import from lib/auth/session or lib/auth/with-auth (session auth)
+          # 2. Be in the allowlist (device token-authed routes, no session needed)
+          ALLOWLIST="api/ingest|api/feed-command|api/schedule-sync"
+
+          FAIL=0
+          for f in $(find apps/web/app/api -name 'route.ts' -o -name 'route.tsx' | grep -v node_modules); do
+            # Skip allowlisted routes
+            if echo "$f" | grep -qE "($ALLOWLIST)"; then
+              continue
+            fi
+            # Check for auth import
+            if ! grep -qE "from ['\"]@/lib/auth/(session|with-auth)['\"]" "$f"; then
+              echo "::error file=$f::Missing auth import. API routes must import from @/lib/auth/session or @/lib/auth/with-auth."
+              FAIL=1
+            fi
+          done
+          if [ "$FAIL" -eq 1 ]; then exit 1; fi
+          echo "All API routes have auth imports."
+
       - name: Generate Prisma client
         run: pnpm prisma generate
         env:

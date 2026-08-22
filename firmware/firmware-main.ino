@@ -32,6 +32,8 @@
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 // ==================== Config — fill in before flashing ====================
 #define WIFI_SSID       "YOUR_WIFI_SSID"
@@ -48,6 +50,7 @@
 #define RTC_SCL         22
 #define TRIG_PIN        32          // HC-SR04 ultrasonic trigger
 #define ECHO_PIN        33          // HC-SR04 ultrasonic echo
+#define DS18B20_PIN     26          // DS18B20 water temperature probe
 
 #define RELAY_ON        HIGH        // energizes coil, closes NO contacts -> dispensing
 #define RELAY_OFF       LOW         // rest state, contacts open -> not dispensing
@@ -58,10 +61,9 @@
 
 // ---- Calibration: how fast the feeder dispenses ----
 // Measure by running the feeder for a fixed time and weighing the output:
-// GRAMS_PER_SECOND = grams_dispensed / seconds_run.
-// TODO: replace with AI-driven auto-calibration later — this constant is
-// the manual placeholder that auto-calibration will eventually tune.
-#define GRAMS_PER_SECOND   4.0
+// gramsPerSecond = grams_dispensed / seconds_run.
+// Mutable — overridden by backend poll response (grams_per_second).
+float gramsPerSecond = 4.0;
 
 // ---- Default dispense amounts per trigger source ----
 #define DEFAULT_SCHEDULED_GRAMS 150.0  // used until backend gives us a real value
@@ -112,6 +114,13 @@ float cachedButtonFeedGrams = DEFAULT_BUTTON_FEED_GRAMS;  // mutable — set fro
 float hopperEmptyCm = 30.0;   // sensor distance when hopper is empty — overridden by backend
 float hopperFullCm  = 5.0;    // sensor distance when hopper is full — overridden by backend
 
+// Temperature calibration offset (°C) — overridden by backend
+float tempOffsetC = 0.0;
+
+// DS18B20 water temperature probe
+OneWire oneWire(DS18B20_PIN);
+DallasTemperature tempSensor(&oneWire);
+
 unsigned long lastPoll = 0;
 
 // WiFi maintenance
@@ -146,6 +155,10 @@ void setup() {
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
   digitalWrite(TRIG_PIN, LOW);
+
+  // DS18B20 temperature probe
+  tempSensor.begin();
+  Serial.println("[INIT] DS18B20 temperature probe initialized");
 
   for (int i = 0; i < EVENT_QUEUE_SIZE; i++) eventQueue[i].used = false;
 
@@ -208,7 +221,7 @@ void dispenseFeed(float grams, const char* source, const String &requestId = "")
     Serial.printf("[FEED] busy — ignoring %s trigger (mutex held)\n", source);
     return;
   }
-  feedDurationMs = (unsigned long)((grams / GRAMS_PER_SECOND) * 1000.0);
+  feedDurationMs = (unsigned long)((grams / gramsPerSecond) * 1000.0);
   Serial.printf("[FEED] dispensing %.0fg (~%lums) — source: %s\n", grams, feedDurationMs, source);
 
   digitalWrite(RELAY_PIN, RELAY_ON);
@@ -278,6 +291,15 @@ void pollDashboardFeedCommand() {
         float he = doc["hopper_empty_cm"];
         if (he > 0) hopperEmptyCm = he;
       }
+      // Duration calibration — motor dispense rate
+      if (doc.containsKey("grams_per_second")) {
+        float gps = doc["grams_per_second"];
+        if (gps > 0) gramsPerSecond = gps;
+      }
+      // Temperature calibration offset
+      if (doc.containsKey("temp_offset_c")) {
+        tempOffsetC = doc["temp_offset_c"];
+      }
       bool requested = doc["feed_requested"] | false;
       if (requested) {
         float grams = doc["grams"] | DEFAULT_MANUAL_GRAMS;
@@ -339,6 +361,15 @@ void pollScheduleCommand() {
           if (doc.containsKey("button_feed_grams")) {
             float bfg = doc["button_feed_grams"];
             if (bfg > 0) cachedButtonFeedGrams = bfg;
+          }
+          // Duration calibration — motor dispense rate
+          if (doc.containsKey("grams_per_second")) {
+            float gps = doc["grams_per_second"];
+            if (gps > 0) gramsPerSecond = gps;
+          }
+          // Temperature calibration offset
+          if (doc.containsKey("temp_offset_c")) {
+            tempOffsetC = doc["temp_offset_c"];
           }
 
           // Ack the schedule change
@@ -484,7 +515,7 @@ void sendTelemetry() {
   https.addHeader("X-Device-Token", DEVICE_TOKEN);
 
   String eventId = generateEventId();
-  StaticJsonDocument<256> doc;
+  StaticJsonDocument<384> doc;
   doc["device_id"]         = DEVICE_MAC;
   doc["event_type"]        = "heartbeat";
   doc["event_id"]          = eventId;
@@ -516,6 +547,17 @@ void sendTelemetry() {
     }
   }
   doc["feed_level_cm"] = readings[1] >= 0 ? readings[1] : 0;
+
+  // Water temperature (DS18B20)
+  tempSensor.requestTemperatures();
+  float rawTempC = tempSensor.getTempCByIndex(0);
+  bool tempOk = (rawTempC != DEVICE_DISCONNECTED_C && rawTempC > -10 && rawTempC < 80);
+  if (tempOk) {
+    doc["water_temp_c"] = rawTempC + tempOffsetC;
+    doc["water_temp_ok"] = true;
+  } else {
+    doc["water_temp_ok"] = false;
+  }
 
   String out;
   serializeJson(doc, out);

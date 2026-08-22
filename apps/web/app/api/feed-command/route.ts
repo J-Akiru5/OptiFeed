@@ -16,65 +16,87 @@ export async function GET(request: Request) {
 		return new Response("Unprocessable Entity", { status: 422 });
 	}
 
-	const device = await prisma.energyDevice.findUnique({
-		where: { token },
-		select: {
-			id: true,
-			mac: true,
-			gramsPerFeeding: true,
-			buttonFeedGrams: true,
-			hopperEmptyCm: true,
-			hopperFullCm: true,
-		},
-	});
-
-	if (!device || device.mac !== deviceId) {
-		return new Response("Unauthorized", { status: 401 });
-	}
-
-	// Lazy expiry: mark any pending requests older than 60s as expired.
-	// No cron needed — checked on every poll.
-	await prisma.feedRequest.updateMany({
-		where: {
-			deviceId: device.id,
-			status: "pending",
-			createdAt: { lt: new Date(Date.now() - REQUEST_EXPIRY_MS) },
-		},
-		data: { status: "expired" },
-	});
-
-	const pendingRequest = await prisma.feedRequest.findFirst({
-		where: {
-			deviceId: device.id,
-			status: "pending",
-		},
-		orderBy: { createdAt: "asc" },
-	});
-
-	if (pendingRequest) {
-		await prisma.feedRequest.update({
-			where: { id: pendingRequest.id },
-			data: { status: "dispatched" },
+	try {
+		const device = await prisma.energyDevice.findUnique({
+			where: { token },
+			select: {
+				id: true,
+				mac: true,
+				gramsPerFeeding: true,
+				buttonFeedGrams: true,
+				hopperEmptyCm: true,
+				hopperFullCm: true,
+				gramsPerSecond: true,
+				tempOffsetC: true,
+			},
 		});
 
+		if (!device || device.mac !== deviceId) {
+			return new Response("Unauthorized", { status: 401 });
+		}
+
+		// Lazy expiry: mark any pending requests older than 60s as expired.
+		// No cron needed — checked on every poll.
+		await prisma.feedRequest.updateMany({
+			where: {
+				deviceId: device.id,
+				status: "pending",
+				createdAt: { lt: new Date(Date.now() - REQUEST_EXPIRY_MS) },
+			},
+			data: { status: "expired" },
+		});
+
+		const pendingRequest = await prisma.feedRequest.findFirst({
+			where: {
+				deviceId: device.id,
+				status: "pending",
+			},
+			orderBy: { createdAt: "asc" },
+		});
+
+		if (pendingRequest) {
+			await prisma.feedRequest.update({
+				where: { id: pendingRequest.id },
+				data: { status: "dispatched" },
+			});
+
+			return Response.json({
+				feed_requested: true,
+				feed_request_id: pendingRequest.id,
+				grams: pendingRequest.grams,
+				grams_per_feeding: device.gramsPerFeeding,
+				button_feed_grams: device.buttonFeedGrams,
+				hopper_empty_cm: device.hopperEmptyCm,
+				hopper_full_cm: device.hopperFullCm,
+				grams_per_second: device.gramsPerSecond,
+				temp_offset_c: device.tempOffsetC,
+			});
+		}
+
 		return Response.json({
-			feed_requested: true,
-			feed_request_id: pendingRequest.id,
-			grams: pendingRequest.grams,
+			feed_requested: false,
+			feed_request_id: null,
+			grams: 0,
 			grams_per_feeding: device.gramsPerFeeding,
 			button_feed_grams: device.buttonFeedGrams,
 			hopper_empty_cm: device.hopperEmptyCm,
 			hopper_full_cm: device.hopperFullCm,
+			grams_per_second: device.gramsPerSecond,
+			temp_offset_c: device.tempOffsetC,
+		});
+	} catch (error) {
+		console.error("[feed-command] error:", error);
+		// Return safe idle state so ESP32 doesn't hang
+		return Response.json({
+			feed_requested: false,
+			feed_request_id: null,
+			grams: 0,
+			grams_per_feeding: 150,
+			button_feed_grams: 80,
+			hopper_empty_cm: null,
+			hopper_full_cm: null,
+			grams_per_second: 4.0,
+			temp_offset_c: 0,
 		});
 	}
-
-	return Response.json({
-		feed_requested: false,
-		feed_request_id: null,
-		grams: 0,
-		grams_per_feeding: device.gramsPerFeeding,
-		button_feed_grams: device.buttonFeedGrams,
-		hopper_empty_cm: device.hopperEmptyCm,
-		hopper_full_cm: device.hopperFullCm,
-	});
 }

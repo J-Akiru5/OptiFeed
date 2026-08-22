@@ -30,9 +30,24 @@ export function parseCsvString(csv: string): { data: CsvRow[]; errors: Papa.Pars
 	const result = Papa.parse(csv, {
 		header: true,
 		skipEmptyLines: true,
-		dynamicTyping: true,
+		dynamicTyping: false,
 	});
-	return { data: result.data as CsvRow[], errors: result.errors };
+
+	const typedData = (result.data as Record<string, unknown>[]).filter((row) =>
+		Object.values(row).every(
+			(v) => v === null || typeof v === "string" || typeof v === "number" || typeof v === "boolean",
+		),
+	);
+	const errors = [...result.errors];
+	if (typedData.length < result.data.length) {
+		errors.push({
+			type: "FieldMismatch",
+			row: -1,
+			message: `${result.data.length - typedData.length} row(s) dropped due to unexpected value types`,
+		} as Papa.ParseError);
+	}
+
+	return { data: typedData as CsvRow[], errors };
 }
 
 export function downloadCsv(filename: string, csvString: string) {

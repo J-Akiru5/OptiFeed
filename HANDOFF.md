@@ -1,5 +1,12 @@
 # OptiFeed — Handoff to Karl
 
+> **CRITICAL WARNING: NEVER run `prisma migrate reset` on production.**
+> It drops the entire database and recreates it from scratch, destroying all data.
+> Use `prisma migrate deploy` for production migrations.
+> Use `prisma migrate dev` only for local development with test data.
+> This lesson was learned the hard way — a `prisma migrate reset` in a previous session
+> wiped all production data including ponds, devices, and feeding history.
+
 Scaffold release: **v1.0.0** (tag on `develop`) — Next.js + Supabase + Prisma + next-intl, structure and design tokens finalized, no feature logic implemented yet. That's your job from here.
 
 ## Branch & workflow rules — read this before writing any code

@@ -2,6 +2,14 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+function requireEnv(name: string): string {
+	const value = process.env[name];
+	if (!value) {
+		throw new Error(`${name} env var is required for seeding. See HANDOFF.md.`);
+	}
+	return value;
+}
+
 async function main() {
 	console.log("Seeding database...");
 
@@ -46,7 +54,7 @@ async function main() {
 	const energyDevice = await prisma.energyDevice.create({
 		data: {
 			mac: "A4:CF:12:7E:3B:09",
-			token: "esp32-tok-cict-001",
+			token: requireEnv("DEVICE_TOKEN"),
 			label: "CICT Building A Feeder",
 			pondId: pond.id,
 			rtcOk: true,

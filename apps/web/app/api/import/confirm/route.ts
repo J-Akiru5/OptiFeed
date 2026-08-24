@@ -76,6 +76,16 @@ export async function POST(request: Request) {
 				importedCount = result.count;
 				break;
 			}
+			case "fish_samples": {
+				const rows = data.map((row) => ({
+					biomassLogId: String(row.biomassLogId),
+					weightGrams: Number(row.weightGrams),
+					lengthCm: Number(row.lengthCm),
+				}));
+				const result = await prisma.fishSample.createMany({ data: rows });
+				importedCount = result.count;
+				break;
+			}
 			case "feed_events": {
 				if (!device) throw new Error("No device found");
 				const rows = data.map((row) => ({

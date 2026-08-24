@@ -13,6 +13,7 @@ interface ImportPreviewRequest {
 
 const REQUIRED_FIELDS: Record<ExportableType, string[]> = {
 	biomass_logs: ["sampleWeightKg", "sampleCount"],
+	fish_samples: ["biomassLogId", "weightGrams"],
 	feed_events: ["eventType", "timestamp"],
 	fcr_reports: ["periodStart", "periodEnd", "totalFeedKg", "biomassGainKg", "fcrValue"],
 	feed_level_logs: ["levelPercent", "distanceCm"],

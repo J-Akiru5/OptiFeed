@@ -134,7 +134,7 @@ export default async function DashboardHomePage() {
 	const daysSinceSample = latestBiomass
 		? Math.floor((now.getTime() - latestBiomass.recordedAt.getTime()) / (1000 * 60 * 60 * 24))
 		: 0;
-	const daysUntilSample = Math.max(0, 14 - daysSinceSample);
+	const daysUntilSample = Math.max(0, (pond.sampleIntervalDays ?? 14) - daysSinceSample);
 
 	// Determine Critical Alert — lazy offline detection from energyDevice.lastSeenAt
 	const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;

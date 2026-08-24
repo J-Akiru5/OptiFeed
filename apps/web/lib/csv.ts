@@ -2,6 +2,7 @@ import Papa from "papaparse";
 
 export type ExportableType =
 	| "biomass_logs"
+	| "fish_samples"
 	| "feed_events"
 	| "fcr_reports"
 	| "feed_level_logs"
@@ -10,6 +11,7 @@ export type ExportableType =
 
 export const EXPORT_LABELS: Record<ExportableType, string> = {
 	biomass_logs: "Biomass Logs",
+	fish_samples: "Fish Samples",
 	feed_events: "Feed Events",
 	fcr_reports: "FCR Reports",
 	feed_level_logs: "Feed Level Logs",

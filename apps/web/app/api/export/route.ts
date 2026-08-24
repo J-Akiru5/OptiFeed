@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 
 const EXPORT_TYPES: ExportableType[] = [
 	"biomass_logs",
+	"fish_samples",
 	"feed_events",
 	"fcr_reports",
 	"feed_level_logs",
@@ -71,6 +72,26 @@ export async function GET(request: Request) {
 				sampleCount: l.sampleCount,
 				avgWeightKg: l.avgWeightKg,
 				recordedAt: l.recordedAt.toISOString(),
+			}));
+			break;
+		}
+		case "fish_samples": {
+			const logs = await prisma.biomassLog.findMany({
+				where: { pondId: pond.id },
+				select: { id: true },
+				take: EXPORT_ROW_LIMIT,
+			});
+			const logIds = logs.map((l) => l.id);
+			const samples = await prisma.fishSample.findMany({
+				where: { biomassLogId: { in: logIds } },
+				orderBy: { id: "asc" },
+				take: EXPORT_ROW_LIMIT,
+			});
+			rows = samples.map((s) => ({
+				id: s.id,
+				biomassLogId: s.biomassLogId,
+				weightGrams: s.weightGrams,
+				lengthCm: s.lengthCm,
 			}));
 			break;
 		}

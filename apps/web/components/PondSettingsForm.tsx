@@ -10,6 +10,7 @@ interface PondSettingsFormProps {
 		id: string;
 		feedingRatePct: number;
 		feedsPerDay: number;
+		sampleIntervalDays: number;
 	};
 }
 
@@ -17,6 +18,7 @@ export function PondSettingsForm({ pond }: PondSettingsFormProps) {
 	const t = useTranslations("dashboard.settings");
 	const [feedingRate, setFeedingRate] = useState(pond.feedingRatePct.toString());
 	const [feedsPerDay, setFeedsPerDay] = useState(pond.feedsPerDay.toString());
+	const [sampleInterval, setSampleInterval] = useState(pond.sampleIntervalDays.toString());
 	const [isPending, startTransition] = useTransition();
 	const [success, setSuccess] = useState(false);
 
@@ -26,11 +28,12 @@ export function PondSettingsForm({ pond }: PondSettingsFormProps) {
 
 		const rate = Number.parseFloat(feedingRate);
 		const feeds = Number.parseInt(feedsPerDay, 10);
+		const interval = Number.parseInt(sampleInterval, 10);
 
-		if (Number.isNaN(rate) || Number.isNaN(feeds)) return;
+		if (Number.isNaN(rate) || Number.isNaN(feeds) || Number.isNaN(interval)) return;
 
 		startTransition(async () => {
-			const result = await updatePondSettings(pond.id, rate, feeds);
+			const result = await updatePondSettings(pond.id, rate, feeds, interval);
 			if (result.success) {
 				setSuccess(true);
 				setTimeout(() => setSuccess(false), 3000);
@@ -45,7 +48,7 @@ export function PondSettingsForm({ pond }: PondSettingsFormProps) {
 		>
 			<h2 className="text-xl font-semibold text-gray-800">{t("configTitle")}</h2>
 
-			<div className="grid gap-6 md:grid-cols-2">
+			<div className="grid gap-6 md:grid-cols-3">
 				<div className="flex flex-col gap-2">
 					<label htmlFor="feedingRate" className="text-sm font-medium text-gray-700">
 						{t("rateLabel")}
@@ -78,6 +81,25 @@ export function PondSettingsForm({ pond }: PondSettingsFormProps) {
 						required
 					/>
 					<p className="text-xs text-gray-500">{t("freqDesc")}</p>
+				</div>
+
+				<div className="flex flex-col gap-2">
+					<label htmlFor="sampleInterval" className="text-sm font-medium text-gray-700">
+						Sample Interval (days)
+					</label>
+					<input
+						id="sampleInterval"
+						type="number"
+						min="1"
+						max="90"
+						value={sampleInterval}
+						onChange={(e) => setSampleInterval(e.target.value)}
+						className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+						required
+					/>
+					<p className="text-xs text-gray-500">
+						How often fish samples are taken (e.g. 15 or 30 days)
+					</p>
 				</div>
 			</div>
 

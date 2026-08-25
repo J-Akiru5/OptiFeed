@@ -5,7 +5,15 @@ import { getFeedLevelLogs } from "@/lib/actions/growth";
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import prisma from "@/lib/prisma";
-import { Activity, Fish, Package, Scale, TrendingUp } from "lucide-react";
+import {
+	Activity,
+	ChevronDown,
+	ChevronRight,
+	Fish,
+	Package,
+	Scale,
+	TrendingUp,
+} from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0;
@@ -29,6 +37,7 @@ export default async function GrowthPage() {
 	const biomassLogs = await prisma.biomassLog.findMany({
 		where: { pondId: pond.id },
 		orderBy: { recordedAt: "asc" },
+		include: { fishSamples: true },
 	});
 
 	const fcrReports = await prisma.fcrReport.findMany({
@@ -342,6 +351,95 @@ export default async function GrowthPage() {
 					</div>
 				)}
 
+				{/* Growth Summary Table */}
+				{biomassLogs.length >= 2 && (
+					<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+						<div className="p-6 border-b border-gray-100 bg-gray-50/50">
+							<h3 className="font-bold text-gray-800">Growth Summary</h3>
+							<p className="text-xs text-gray-500 mt-1">
+								Weight and length gain between sample periods
+							</p>
+						</div>
+						<div className="overflow-x-auto">
+							<table className="w-full text-left text-sm text-gray-600">
+								<thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
+									<tr>
+										<th className="px-6 py-4">Date</th>
+										<th className="px-6 py-4 text-right">Avg Weight (g)</th>
+										<th className="px-6 py-4 text-right">Avg Length (cm)</th>
+										<th className="px-6 py-4 text-right">Weight Gain (g)</th>
+										<th className="px-6 py-4 text-right">Length Gain (cm)</th>
+										<th className="px-6 py-4 text-right">Days Since Last</th>
+									</tr>
+								</thead>
+								<tbody className="divide-y divide-gray-100">
+									{biomassLogs
+										.slice()
+										.reverse()
+										.map((log, i) => {
+											const prevLog =
+												i < biomassLogs.length - 1
+													? biomassLogs[biomassLogs.length - 1 - i - 1]
+													: null;
+											const currentWeightG = log.avgWeightKg * 1000;
+											const prevWeightG = prevLog ? prevLog.avgWeightKg * 1000 : null;
+											const weightGain = prevWeightG !== null ? currentWeightG - prevWeightG : null;
+
+											const lengthGain =
+												prevLog !== null ? log.sampleLengthCm - prevLog.sampleLengthCm : null;
+
+											const daysSinceLast = prevLog
+												? Math.round(
+														(log.recordedAt.getTime() - prevLog.recordedAt.getTime()) /
+															(1000 * 60 * 60 * 24),
+													)
+												: null;
+
+											return (
+												<tr key={log.id} className="hover:bg-gray-50 transition-colors">
+													<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+														{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+													</td>
+													<td className="px-6 py-4 text-right">{currentWeightG.toFixed(1)}</td>
+													<td className="px-6 py-4 text-right">{log.sampleLengthCm.toFixed(1)}</td>
+													<td className="px-6 py-4 text-right font-bold">
+														{weightGain !== null ? (
+															<span className={weightGain >= 0 ? "text-green-600" : "text-red-500"}>
+																{weightGain >= 0 ? "+" : ""}
+																{weightGain.toFixed(1)}
+															</span>
+														) : (
+															<span className="text-gray-400">—</span>
+														)}
+													</td>
+													<td className="px-6 py-4 text-right font-bold">
+														{lengthGain !== null ? (
+															<span className={lengthGain >= 0 ? "text-green-600" : "text-red-500"}>
+																{lengthGain >= 0 ? "+" : ""}
+																{lengthGain.toFixed(1)}
+															</span>
+														) : (
+															<span className="text-gray-400">—</span>
+														)}
+													</td>
+													<td className="px-6 py-4 text-right">
+														{daysSinceLast !== null ? (
+															<span className="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full">
+																{daysSinceLast}d
+															</span>
+														) : (
+															<span className="text-gray-400">—</span>
+														)}
+													</td>
+												</tr>
+											);
+										})}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				)}
+
 				{/* Biomass Log Table */}
 				<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mt-8 xl:mt-0">
 					<div className="p-6 border-b border-gray-100 bg-gray-50/50">
@@ -358,6 +456,7 @@ export default async function GrowthPage() {
 									<th className="px-6 py-4 text-right text-[var(--ofd-base-deep)]">
 										{t("abwCol")}
 									</th>
+									<th className="px-6 py-4 text-center">Type</th>
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-gray-100">
@@ -375,11 +474,24 @@ export default async function GrowthPage() {
 											<td className="px-6 py-4 text-right font-bold text-[var(--ofd-base-deep)]">
 												{(log.avgWeightKg * 1000).toFixed(1)}g
 											</td>
+											<td className="px-6 py-4 text-center">
+												{log.fishSamples.length > 0 ? (
+													<span className="inline-flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 text-xs font-bold rounded-full">
+														<Fish className="w-3 h-3" />
+														{log.fishSamples.length} fish
+													</span>
+												) : (
+													<span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 text-xs font-bold rounded-full">
+														<Scale className="w-3 h-3" />
+														Avg
+													</span>
+												)}
+											</td>
 										</tr>
 									))}
 								{biomassLogs.length === 0 && (
 									<tr>
-										<td colSpan={5} className="px-6 py-10 text-center text-gray-500">
+										<td colSpan={6} className="px-6 py-10 text-center text-gray-500">
 											{t("noSamples")}
 										</td>
 									</tr>

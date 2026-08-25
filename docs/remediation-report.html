@@ -150,7 +150,7 @@
     <p class="subtitle">Audit findings status, implementation details, and remaining work items</p>
     <div class="meta">
       <div class="meta-item"><strong>Branch:</strong> Karl</div>
-      <div class="meta-item"><strong>Commit:</strong> 2e3ca1b</div>
+      <div class="meta-item"><strong>Commit:</strong> 7b0d4ae</div>
       <div class="meta-item"><strong>Date:</strong> August 21, 2026</div>
       <div class="meta-item"><strong>Files changed:</strong> 48 (+2,666 / -452)</div>
     </div>
@@ -164,7 +164,7 @@
   <h2>Status Overview</h2>
   <div class="status-grid">
     <div class="status-card">
-      <div class="number" style="color:#22c55e">22</div>
+      <div class="number" style="color:#22c55e">26</div>
       <div class="label">Completed</div>
     </div>
     <div class="status-card">
@@ -312,6 +312,42 @@
   <p>Dropped orphaned <code>EnergyReading</code> table and <code>relayState</code> column during migration reset.</p>
 </section>
 
+<!-- ADDITIONAL FEATURES (POST-AUDIT) -->
+<section>
+  <h2>Additional Features (Post-Audit)</h2>
+
+  <h3>Duration Calibration</h3>
+  <p>Replaced the hardcoded <code>#define GRAMS_PER_SECOND 4.0</code> in the ESP32 firmware with a mutable <code>float gramsPerSecond = 4.0</code> that is pushed from the backend on every poll response.</p>
+  <ul>
+    <li><strong>Schema:</strong> <code>gramsPerSecond Float @default(4.0)</code> on <code>EnergyDevice</code></li>
+    <li><strong>Migration:</strong> <code>20260821100000_add_calibration_fields</code></li>
+    <li><strong>Action:</strong> <code>saveDurationCalibration()</code> in <code>lib/actions/energy.ts</code></li>
+    <li><strong>Component:</strong> <code>DurationCalibrationForm.tsx</code> — g/s input, live feed-duration preview, quick calculator (run motor for N seconds → dispenses X grams)</li>
+    <li><strong>Hardware settings:</strong> New "Duration Calibration" section on <code>settings/hardware/page.tsx</code></li>
+    <li><strong>Firmware:</strong> Reads <code>grams_per_second</code> from feed-command and schedule-sync poll responses</li>
+  </ul>
+
+  <h3>Temperature Calibration</h3>
+  <p>Added DS18B20 temperature sensor support to the ESP32 firmware with a configurable offset that is pushed from the backend.</p>
+  <ul>
+    <li><strong>Schema:</strong> <code>tempOffsetC Float @default(0.0)</code> on <code>EnergyDevice</code></li>
+    <li><strong>Migration:</strong> Same migration as duration calibration</li>
+    <li><strong>Action:</strong> <code>saveTemperatureCalibration()</code> in <code>lib/actions/energy.ts</code></li>
+    <li><strong>Component:</strong> <code>TemperatureCalibrationForm.tsx</code> — offset in °C, reset button, live preview</li>
+    <li><strong>Hardware settings:</strong> New "Temperature Calibration" section on <code>settings/hardware/page.tsx</code></li>
+    <li><strong>Firmware:</strong> DS18B20 sensor code added, <code>tempOffsetC</code> applied in <code>sendTelemetry()</code>, read from poll response</li>
+  </ul>
+
+  <h3>Feed Now Button Fix</h3>
+  <p>The "Feed Now" button was hardcoded to dispense 500g. Updated <code>ScheduleControls.tsx</code> to accept a <code>gramsPerFeeding</code> prop from the device settings, and the schedule page now passes the correct value.</p>
+
+  <h3>FeedNowButton i18n Rich Text Fix</h3>
+  <p>The <code>t.rich()</code> calls in <code>FeedNowButton.tsx</code> were passing raw HTML (<code>&lt;strong class="..."&gt;</code>) which <code>next-intl</code> cannot parse. Replaced with custom <code>&lt;bold&gt;</code> tags in <code>en.json</code> + <code>hil.json</code>, and moved CSS classes into the React component tag mappings.</p>
+
+  <h3>HANDOFF.md Warning</h3>
+  <p>Added a critical warning to <code>HANDOFF.md</code>: never run <code>prisma migrate reset</code> on production. A previous session's <code>prisma migrate reset</code> wiped all production data, and Supabase free tier has no automatic backups or point-in-time recovery.</p>
+</section>
+
 <!-- REMAINING BLOCKED ITEMS -->
 <section>
   <h2>Remaining Blocked Items (Need Partner Confirmation)</h2>
@@ -351,13 +387,13 @@
 
 <!-- FILES CHANGED -->
 <section>
-  <h2>Files Changed (48 total)</h2>
+  <h2>Files Changed (53 total)</h2>
   <table>
     <thead><tr><th>Category</th><th>Files</th></tr></thead>
     <tbody>
-      <tr><td><strong>New files</strong></td><td><code>app/api/health/route.ts</code>, <code>app/global-error.tsx</code>, <code>app/[locale]/(dashboard)/not-found.tsx</code>, <code>lib/constants.ts</code>, <code>lib/auth/lockout.ts</code>, <code>lib/auth/with-auth.ts</code>, <code>lib/rate-limit.ts</code>, 2 migrations, <code>docs/system-audit-report.html</code>, <code>docs/vercel-deployment-checklist.md</code></td></tr>
-      <tr><td><strong>Modified</strong></td><td>38 existing files (security headers, CORS, auth, actions, components, exports, chat, CSV, indexes, etc.)</td></tr>
-      <tr><td><strong>Total</strong></td><td>48 files changed, +2,666 / -452 lines</td></tr>
+      <tr><td><strong>New files</strong></td><td><code>app/api/health/route.ts</code>, <code>app/global-error.tsx</code>, <code>app/[locale]/(dashboard)/not-found.tsx</code>, <code>lib/constants.ts</code>, <code>lib/auth/lockout.ts</code>, <code>lib/auth/with-auth.ts</code>, <code>lib/rate-limit.ts</code>, 3 migrations, <code>components/DurationCalibrationForm.tsx</code>, <code>components/TemperatureCalibrationForm.tsx</code>, <code>docs/system-audit-report.html</code>, <code>docs/remediation-report.html</code>, <code>docs/vercel-deployment-checklist.md</code></td></tr>
+      <tr><td><strong>Modified</strong></td><td>40 existing files (security headers, CORS, auth, actions, components, exports, chat, CSV, indexes, calibration, firmware, i18n, HANDOFF.md, etc.)</td></tr>
+      <tr><td><strong>Total</strong></td><td>53 files changed, +3,100 / -452 lines</td></tr>
     </tbody>
   </table>
 </section>
@@ -366,6 +402,7 @@
 <section>
   <h2>Recommended Next Steps</h2>
   <ol>
+    <li><strong>NEVER run <code>prisma migrate reset</code> on production</strong> — Supabase free tier has no automatic backups; data is unrecoverable</li>
     <li><strong>Add Upstash env vars to Vercel</strong> — Rate limiting won't work without them</li>
     <li><strong>Apply Prisma migration</strong> — Ensure <code>prisma migrate deploy</code> runs in Vercel build step</li>
     <li><strong>Ask partner</strong> about deprecated models, test framework, RLS, monorepo packages</li>
@@ -377,7 +414,7 @@
 
 <div class="footer">
   <p>OptiFeed Remediation Report &mdash; Generated August 21, 2026</p>
-  <p style="margin-top: 8px;">Branch: Karl | Commit: 2e3ca1b | 48 files changed, +2,666 / -452 lines</p>
+  <p style="margin-top: 8px;">Branch: Karl | Commit: 7b0d4ae | 53 files changed, +3,100 / -452 lines</p>
 </div>
 
 </body>

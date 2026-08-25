@@ -7,12 +7,27 @@ import { revalidatePath } from "next/cache";
 
 const DEVIATION_THRESHOLD = 0.5; // 50% — reject if new value differs this much from current
 
+interface FishSampleInput {
+	weightGrams: number;
+	lengthCm: number;
+}
+
 export async function saveBiomassLog(formData: FormData) {
 	const ownerId = await getCurrentPondOwnerId();
 	const pondId = formData.get("pondId") as string;
 	const sampleWeightKg = Number.parseFloat(formData.get("sampleWeightKg") as string);
 	const sampleLengthCm = Number.parseFloat(formData.get("sampleLengthCm") as string);
 	const sampleCount = Number.parseInt(formData.get("sampleCount") as string, 10);
+
+	const fishSamplesJson = formData.get("fishSamples") as string | null;
+	let fishSamples: FishSampleInput[] = [];
+	if (fishSamplesJson) {
+		try {
+			fishSamples = JSON.parse(fishSamplesJson);
+		} catch {
+			// Ignore parse errors — treat as average mode
+		}
+	}
 
 	if (
 		!pondId ||
@@ -45,6 +60,16 @@ export async function saveBiomassLog(formData: FormData) {
 				avgWeightKg,
 			},
 		});
+
+		if (fishSamples.length > 0) {
+			await tx.fishSample.createMany({
+				data: fishSamples.map((fs) => ({
+					biomassLogId: log.id,
+					weightGrams: fs.weightGrams,
+					lengthCm: fs.lengthCm,
+				})),
+			});
+		}
 
 		if (pond.feedingRatePct <= 0 || pond.feedsPerDay <= 0) {
 			console.log(

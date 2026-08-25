@@ -9,6 +9,7 @@ export async function updatePondSettings(
 	pondId: string,
 	feedingRatePct: number,
 	feedsPerDay: number,
+	sampleIntervalDays?: number,
 ) {
 	try {
 		const ownerId = await getCurrentPondOwnerId();
@@ -24,6 +25,18 @@ export async function updatePondSettings(
 			where: { pondId },
 			select: { id: true },
 		});
+
+		const pondUpdateData: {
+			feedingRatePct: number;
+			feedsPerDay: number;
+			sampleIntervalDays?: number;
+		} = {
+			feedingRatePct,
+			feedsPerDay,
+		};
+		if (sampleIntervalDays !== undefined && sampleIntervalDays > 0) {
+			pondUpdateData.sampleIntervalDays = sampleIntervalDays;
+		}
 
 		if (energyDevice) {
 			const fmt = (d: Date) =>
@@ -42,8 +55,17 @@ export async function updatePondSettings(
 					eventType: "settings_changed",
 					source: "user",
 					actorId: ownerId,
-					metadata: { feedingRatePct, feedsPerDay },
+					metadata: {
+						feedingRatePct,
+						feedsPerDay,
+						sampleIntervalDays: pondUpdateData.sampleIntervalDays,
+					},
 				},
+			});
+
+			await prisma.pond.update({
+				where: { id: pondId },
+				data: pondUpdateData,
 			});
 
 			revalidatePath("/[locale]/(dashboard)", "layout");
@@ -52,10 +74,7 @@ export async function updatePondSettings(
 
 		await prisma.pond.update({
 			where: { id: pondId },
-			data: {
-				feedingRatePct,
-				feedsPerDay,
-			},
+			data: pondUpdateData,
 		});
 
 		revalidatePath("/[locale]/(dashboard)", "layout");

@@ -11,7 +11,7 @@ export default async function PondSettingsPage() {
 	// Fetch demo pond configuration
 	const pond = await prisma.pond.findFirst({
 		where: { ownerId: await getCurrentPondOwnerId() },
-		select: { id: true, feedingRatePct: true, feedsPerDay: true },
+		select: { id: true, feedingRatePct: true, feedsPerDay: true, sampleIntervalDays: true },
 	});
 
 	if (!pond) {
@@ -50,6 +50,7 @@ export default async function PondSettingsPage() {
 							id: pond.id,
 							feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
 							feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
+							sampleIntervalDays: pond.sampleIntervalDays,
 						}}
 					/>
 				</section>

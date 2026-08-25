@@ -15,14 +15,15 @@ datasource db {
 }
 
 model Pond {
-  id              String   @id @default(cuid())
-  ownerId         String
-  name            String
-  feedingRatePct  Float
-  feedsPerDay     Int
-  scheduleStart   DateTime @db.Time()
-  scheduleEnd     DateTime @db.Time()
-  createdAt       DateTime @default(now())
+  id                 String   @id @default(cuid())
+  ownerId            String
+  name               String
+  feedingRatePct     Float
+  feedsPerDay        Int
+  sampleIntervalDays Int      @default(14)
+  scheduleStart      DateTime @db.Time()
+  scheduleEnd        DateTime @db.Time()
+  createdAt          DateTime @default(now())
 
   devices           Device[]
   biomassLogs       BiomassLog[]
@@ -59,9 +60,21 @@ model BiomassLog {
   avgWeightKg     Float
   recordedAt      DateTime @default(now())
 
-  pond Pond @relation(fields: [pondId], references: [id])
+  pond        Pond         @relation(fields: [pondId], references: [id])
+  fishSamples FishSample[]
 
   @@index([pondId, recordedAt])
+}
+
+model FishSample {
+  id           String    @id @default(cuid())
+  biomassLogId String
+  weightGrams  Float
+  lengthCm     Float
+
+  biomassLog BiomassLog @relation(fields: [biomassLogId], references: [id], onDelete: Cascade)
+
+  @@index([biomassLogId])
 }
 
 // @deprecated — use DeviceStateEvent + FeedEvent for new dispense tracking.

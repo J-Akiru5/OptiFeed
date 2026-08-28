@@ -182,6 +182,9 @@ void setup() {
     if (rtcAvailable) syncNTP();
   }
 
+  Serial.print("[DEVICE MAC] ");
+  Serial.println(WiFi.macAddress());
+
   Serial.println("[READY] OptiFeed controller online.");
 }
 

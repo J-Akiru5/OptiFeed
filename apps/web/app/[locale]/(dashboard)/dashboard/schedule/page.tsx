@@ -30,8 +30,6 @@ export default async function SchedulePage() {
 		);
 	}
 
-	const device = pond.devices[0];
-
 	const energyDevice = await prisma.energyDevice.findFirst({
 		where: { pondId: pond.id },
 		orderBy: { createdAt: "asc" },

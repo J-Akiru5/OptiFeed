@@ -26,11 +26,23 @@ async function main() {
 	await prisma.biomassLog.deleteMany();
 	await prisma.device.deleteMany();
 	await prisma.pond.deleteMany();
+	await prisma.user.deleteMany();
+
+	// 0. Create Demo User (admin)
+	const demoUser = await prisma.user.create({
+		data: {
+			supabaseId: "00000000-0000-0000-0000-000000000001",
+			farmId: "demo-farmer-1",
+			email: "demo-farmer-1@pond.optifeed.local",
+			displayName: "Juan Miguel",
+			role: "ADMIN",
+		},
+	});
 
 	// 1. Create Demo Pond
 	const pond = await prisma.pond.create({
 		data: {
-			ownerId: "demo-farmer-1",
+			ownerId: demoUser.farmId,
 			name: "Demo Pond",
 			feedingRatePct: 4.5,
 			feedsPerDay: 4,
@@ -54,7 +66,7 @@ async function main() {
 	const energyDevice = await prisma.energyDevice.create({
 		data: {
 			mac: "A4:CF:12:7E:3B:09",
-			token: requireEnv("DEVICE_TOKEN"),
+			token: process.env.DEVICE_TOKEN ?? "demo-device-token-001",
 			label: "CICT Building A Feeder",
 			pondId: pond.id,
 			rtcOk: true,

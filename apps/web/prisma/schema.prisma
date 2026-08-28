@@ -14,6 +14,28 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum UserRole {
+  ADMIN
+  OPERATOR
+  VIEWER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  supabaseId   String   @unique // references Supabase Auth user.id
+  farmId       String   @unique // e.g. "demo-farmer-1" — used as Pond.ownerId
+  email        String   @unique
+  displayName  String?
+  role         UserRole @default(OPERATOR)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ponds Pond[]
+
+  @@index([farmId])
+  @@index([role])
+}
+
 model Pond {
   id                 String   @id @default(cuid())
   ownerId            String
@@ -25,6 +47,7 @@ model Pond {
   scheduleEnd        DateTime @db.Time()
   createdAt          DateTime @default(now())
 
+  owner             User?            @relation(fields: [ownerId], references: [farmId])
   devices           Device[]
   biomassLogs       BiomassLog[]
   fcrReports        FcrReport[]

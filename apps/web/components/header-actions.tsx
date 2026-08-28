@@ -6,7 +6,7 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { useRouter } from "@/i18n/routing";
 import { createClient } from "@/lib/supabase/client";
-import { Globe, LogOut, X } from "lucide-react";
+import { Globe, LogOut, Shield, X } from "lucide-react";
 import { useLocale } from "next-intl";
 import { useEffect, useState } from "react";
 
@@ -36,16 +36,27 @@ export function HeaderActions({
 }: HeaderActionsProps) {
 	const [showProfileMenu, setShowProfileMenu] = useState(false);
 	const [userEmail, setUserEmail] = useState<string | null>(null);
+	const [userRole, setUserRole] = useState<string | null>(null);
 	const router = useRouter();
 	const locale = useLocale();
 	const { clearMessages } = useChatWidget();
 
 	useEffect(() => {
-		createClient()
-			.auth.getUser()
-			.then(({ data }) => {
-				setUserEmail(data.user?.email ?? null);
-			});
+		const supabase = createClient();
+		supabase.auth.getUser().then(({ data }) => {
+			const email = data.user?.email ?? null;
+			setUserEmail(email);
+			if (email) {
+				const farmId = email.split("@")[0]?.toLowerCase();
+				if (farmId) {
+					// Fetch user role from the DB via a lightweight API call
+					fetch(`/api/user-role?farmId=${farmId}`)
+						.then((r) => r.json())
+						.then((d) => setUserRole(d.role))
+						.catch(() => {});
+				}
+			}
+		});
 	}, []);
 
 	const handleLogout = async () => {
@@ -155,6 +166,35 @@ export function HeaderActions({
 					</div>
 
 					<div className="mt-4 space-y-2">
+						{userRole === "ADMIN" && (
+							<button
+								type="button"
+								onClick={() => {
+									setShowProfileMenu(false);
+									router.push("/admin");
+								}}
+								className="flex min-h-14 w-full items-center justify-between rounded-2xl border border-[#E85A2A]/30 bg-[#E85A2A]/5 px-4 font-black text-[#E85A2A] transition hover:bg-[#E85A2A]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
+							>
+								<span className="flex items-center gap-3">
+									<Shield className="h-5 w-5" /> Admin Panel
+								</span>
+								<svg
+									className="h-5 w-5"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									role="img"
+									aria-label="Navigate"
+								>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={2}
+										d="M9 5l7 7-7 7"
+									/>
+								</svg>
+							</button>
+						)}
 						<button
 							type="button"
 							onClick={() => {

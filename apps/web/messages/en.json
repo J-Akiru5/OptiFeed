@@ -318,6 +318,7 @@
 			"deviceId": "Device ID",
 			"connectionStatus": "Connection Status",
 			"online": "Online",
+			"offline": "Offline",
 			"hopperLevel": "Hopper Level",
 			"firmware": "Firmware Version",
 			"noDevice": "No device found. Please check your hardware setup.",

@@ -6,6 +6,7 @@ interface FeedLevelCardProps {
 	hopperCapacityG: number | null;
 	gramsPerFeeding: number;
 	feedsPerDay: number;
+	isDeviceOffline?: boolean;
 }
 
 export function FeedLevelCard({
@@ -14,8 +15,10 @@ export function FeedLevelCard({
 	hopperCapacityG,
 	gramsPerFeeding,
 	feedsPerDay,
+	isDeviceOffline = false,
 }: FeedLevelCardProps) {
 	const hasReading = levelPercent !== null;
+	const isStale = hasReading && isDeviceOffline;
 	const isCritical = hasReading && levelPercent <= 5;
 	const isLow = hasReading && levelPercent <= 20;
 
@@ -70,27 +73,31 @@ export function FeedLevelCard({
 				</div>
 				<span
 					className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
-						isCritical
-							? "bg-red-100 text-red-700"
-							: isLow
-								? "bg-amber-100 text-amber-700"
-								: hasReading
-									? "bg-green-100 text-green-700"
-									: "bg-gray-100 text-gray-600"
+						isStale
+							? "bg-amber-100 text-amber-700"
+							: isCritical
+								? "bg-red-100 text-red-700"
+								: isLow
+									? "bg-amber-100 text-amber-700"
+									: hasReading
+										? "bg-green-100 text-green-700"
+										: "bg-gray-100 text-gray-600"
 					}`}
 				>
 					<span
 						className={`h-2 w-2 rounded-full ${
-							isCritical
-								? "bg-red-500"
-								: isLow
-									? "bg-amber-500"
-									: hasReading
-										? "bg-green-500"
-										: "bg-gray-400"
+							isStale
+								? "bg-amber-500"
+								: isCritical
+									? "bg-red-500"
+									: isLow
+										? "bg-amber-500"
+										: hasReading
+											? "bg-green-500"
+											: "bg-gray-400"
 						}`}
 					/>
-					{isCritical ? "Empty" : isLow ? "Low" : hasReading ? "OK" : "No data"}
+					{isStale ? "Stale" : isCritical ? "Empty" : isLow ? "Low" : hasReading ? "OK" : "No data"}
 				</span>
 			</div>
 

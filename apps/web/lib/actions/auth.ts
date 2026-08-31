@@ -3,7 +3,7 @@
 import { redirect } from "@/i18n/routing";
 import { checkLockout, recordFailedAttempt, resetLockout } from "@/lib/auth/lockout";
 import { buildPondEmail } from "@/lib/auth/session";
-import { getClientIp, loginRateLimit } from "@/lib/rate-limit";
+import { checkLoginRateLimit, getClientIp } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { getLocale } from "next-intl/server";
 
@@ -19,7 +19,7 @@ export async function loginWithPin(farmId: string, pin: string): Promise<LoginRe
 
 	// Rate limit: 5 attempts per 60 seconds per IP
 	const ip = await getClientIp();
-	const { success } = await loginRateLimit.limit(ip);
+	const { success } = checkLoginRateLimit(ip);
 	if (!success) {
 		return { error: "rate_limited" };
 	}

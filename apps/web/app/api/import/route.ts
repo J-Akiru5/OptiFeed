@@ -1,7 +1,7 @@
 import { farmIdFromEmail } from "@/lib/auth/session";
 import { type ExportableType, parseCsvString } from "@/lib/csv";
 import prisma from "@/lib/prisma";
-import { apiRateLimit } from "@/lib/rate-limit";
+import { checkApiRateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 	}
 
 	// Rate limit: 30 requests per 60 seconds per user
-	const { success } = await apiRateLimit.limit(ownerId);
+	const { success } = checkApiRateLimit(ownerId);
 	if (!success) {
 		return Response.json({ error: "Too Many Requests" }, { status: 429 });
 	}

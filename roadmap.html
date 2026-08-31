@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OptiFeed — Production Roadmap</title>
+    <style>
+        :root {
+            --ofd-base: #0A3D62;
+            --ofd-action: #E85A2A;
+            --ofd-action-hover: #d04a1f;
+            --ofd-green: #1E7B34;
+            --ofd-red: #C42B3A;
+            --ofd-yellow: #D4A017;
+            --ofd-bg: #F4F7F6;
+            --ofd-text: #3D5568;
+            --ofd-white: #ffffff;
+            --ofd-card: #ffffff;
+            --ofd-border: #e2e8f0;
+            --ofd-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+            --ofd-shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+            --ofd-shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+            --ofd-radius: 16px;
+            --ofd-radius-sm: 10px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--ofd-bg);
+            color: var(--ofd-text);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ─── Header ─────────────────────────────────────────── */
+        .header {
+            background: var(--ofd-base);
+            color: white;
+            padding: 48px 24px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 400px;
+            height: 400px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 50%;
+        }
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -10%;
+            width: 300px;
+            height: 300px;
+            background: rgba(232,90,42,0.08);
+            border-radius: 50%;
+        }
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 900;
+            letter-spacing: -0.02em;
+            position: relative;
+            z-index: 1;
+        }
+        .header h1 span { color: var(--ofd-action); }
+        .header .subtitle {
+            font-size: 1rem;
+            opacity: 0.7;
+            margin-top: 8px;
+            font-weight: 500;
+            position: relative;
+            z-index: 1;
+        }
+        .header .version-badge {
+            display: inline-block;
+            background: var(--ofd-action);
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 4px 12px;
+            border-radius: 20px;
+            margin-top: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ─── Container ──────────────────────────────────────── */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        /* ─── Status Dashboard ───────────────────────────────── */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+            margin-bottom: 40px;
+        }
+        .status-card {
+            background: var(--ofd-card);
+            border-radius: var(--ofd-radius);
+            padding: 20px;
+            text-align: center;
+            box-shadow: var(--ofd-shadow);
+            border: 1px solid var(--ofd-border);
+        }
+        .status-card .grade {
+            font-size: 2rem;
+            font-weight: 900;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+        .status-card .label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--ofd-text);
+        }
+        .grade-a { color: var(--ofd-green); }
+        .grade-b { color: #2563eb; }
+        .grade-c { color: var(--ofd-yellow); }
+        .grade-d { color: var(--ofd-action); }
+        .grade-f { color: var(--ofd-red); }
+
+        /* ─── Phase Sections ─────────────────────────────────── */
+        .phase {
+            background: var(--ofd-card);
+            border-radius: var(--ofd-radius);
+            box-shadow: var(--ofd-shadow);
+            border: 1px solid var(--ofd-border);
+            margin-bottom: 32px;
+            overflow: hidden;
+        }
+        .phase-header {
+            padding: 24px 28px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.15s;
+        }
+        .phase-header:hover { background: #f8fafc; }
+        .phase-number {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: 900;
+            color: white;
+            flex-shrink: 0;
+        }
+        .phase-1 .phase-number { background: var(--ofd-red); }
+        .phase-2 .phase-number { background: var(--ofd-action); }
+        .phase-3 .phase-number { background: var(--ofd-base); }
+        .phase-4 .phase-number { background: #7c3aed; }
+        .phase-5 .phase-number { background: var(--ofd-green); }
+        .phase-6 .phase-number { background: #2563eb; }
+
+        .phase-title-group { flex: 1; }
+        .phase-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--ofd-base);
+        }
+        .phase-subtitle {
+            font-size: 0.85rem;
+            color: var(--ofd-text);
+            margin-top: 2px;
+        }
+        .phase-priority {
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 4px 10px;
+            border-radius: 20px;
+            flex-shrink: 0;
+        }
+        .priority-must { background: #fef2f2; color: var(--ofd-red); }
+        .priority-high { background: #fff7ed; color: var(--ofd-action); }
+        .priority-medium { background: #eff6ff; color: #2563eb; }
+        .priority-low { background: #f0fdf4; color: var(--ofd-green); }
+
+        .phase-toggle {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: var(--ofd-bg);
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+        .phase.open .phase-toggle { transform: rotate(180deg); }
+        .phase-body {
+            display: none;
+            padding: 0 28px 28px;
+        }
+        .phase.open .phase-body { display: block; }
+
+        /* ─── Task Groups ────────────────────────────────────── */
+        .task-group {
+            margin-top: 20px;
+        }
+        .task-group-title {
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--ofd-base);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--ofd-bg);
+        }
+
+        /* ─── Task Table ─────────────────────────────────────── */
+        .task-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 0.85rem;
+        }
+        .task-table thead th {
+            text-align: left;
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--ofd-text);
+            padding: 8px 12px;
+            background: var(--ofd-bg);
+            border-bottom: 1px solid var(--ofd-border);
+        }
+        .task-table thead th:first-child { border-radius: 8px 0 0 0; }
+        .task-table thead th:last-child { border-radius: 0 8px 0 0; }
+        .task-table tbody tr {
+            transition: background 0.1s;
+        }
+        .task-table tbody tr:hover { background: #f8fafc; }
+        .task-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--ofd-bg);
+            vertical-align: top;
+        }
+        .task-table td:first-child { font-weight: 600; color: var(--ofd-base); }
+        .task-table tr:last-child td { border-bottom: none; }
+
+        .effort-badge {
+            display: inline-block;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .effort-small { background: #dcfce7; color: #166534; }
+        .effort-medium { background: #fef9c3; color: #854d0e; }
+        .effort-large { background: #fee2e2; color: #991b1b; }
+
+        /* ─── Architecture Diagram ───────────────────────────── */
+        .arch-section {
+            background: var(--ofd-card);
+            border-radius: var(--ofd-radius);
+            box-shadow: var(--ofd-shadow);
+            border: 1px solid var(--ofd-border);
+            padding: 32px;
+            margin-bottom: 32px;
+        }
+        .arch-section h2 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--ofd-base);
+            margin-bottom: 20px;
+        }
+        .arch-diagram {
+            background: var(--ofd-base);
+            color: #e2e8f0;
+            border-radius: var(--ofd-radius-sm);
+            padding: 24px;
+            font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+            font-size: 0.78rem;
+            line-height: 1.7;
+            overflow-x: auto;
+            white-space: pre;
+        }
+        .arch-diagram .highlight { color: var(--ofd-action); font-weight: 700; }
+        .arch-diagram .label { color: #93c5fd; font-weight: 600; }
+        .arch-diagram .dim { color: #64748b; }
+
+        /* ─── Sprint Cards ───────────────────────────────────── */
+        .sprint-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+        .sprint-card {
+            background: var(--ofd-card);
+            border-radius: var(--ofd-radius);
+            box-shadow: var(--ofd-shadow);
+            border: 1px solid var(--ofd-border);
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+        .sprint-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+        }
+        .sprint-card.sprint-1::before { background: var(--ofd-red); }
+        .sprint-card.sprint-2::before { background: #7c3aed; }
+        .sprint-card.sprint-3::before { background: var(--ofd-action); }
+        .sprint-card.sprint-4::before { background: var(--ofd-base); }
+        .sprint-card.sprint-5::before { background: var(--ofd-green); }
+        .sprint-card h3 {
+            font-size: 1rem;
+            font-weight: 800;
+            color: var(--ofd-base);
+            margin-bottom: 4px;
+        }
+        .sprint-card .sprint-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 12px;
+        }
+        .sprint-card.sprint-1 .sprint-label { color: var(--ofd-red); }
+        .sprint-card.sprint-2 .sprint-label { color: #7c3aed; }
+        .sprint-card.sprint-3 .sprint-label { color: var(--ofd-action); }
+        .sprint-card.sprint-4 .sprint-label { color: var(--ofd-base); }
+        .sprint-card.sprint-5 .sprint-label { color: var(--ofd-green); }
+        .sprint-card ul {
+            list-style: none;
+            padding: 0;
+        }
+        .sprint-card li {
+            padding: 6px 0;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            border-bottom: 1px solid var(--ofd-bg);
+        }
+        .sprint-card li:last-child { border-bottom: none; }
+        .sprint-card li::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--ofd-action);
+            flex-shrink: 0;
+            margin-top: 7px;
+        }
+
+        /* ─── Decision Cards ─────────────────────────────────── */
+        .decision-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+        .decision-card {
+            background: var(--ofd-card);
+            border-radius: var(--ofd-radius);
+            box-shadow: var(--ofd-shadow);
+            border: 1px solid var(--ofd-border);
+            padding: 24px;
+            border-left: 4px solid var(--ofd-base);
+        }
+        .decision-card h4 {
+            font-size: 0.9rem;
+            font-weight: 800;
+            color: var(--ofd-base);
+            margin-bottom: 8px;
+        }
+        .decision-card p {
+            font-size: 0.85rem;
+            color: var(--ofd-text);
+            margin-bottom: 12px;
+        }
+        .recommendation {
+            background: #eff6ff;
+            border-radius: var(--ofd-radius-sm);
+            padding: 12px;
+            font-size: 0.8rem;
+            color: #1e40af;
+            font-weight: 500;
+        }
+        .recommendation strong { font-weight: 700; }
+
+        /* ─── Data Flow ──────────────────────────────────────── */
+        .data-flow {
+            background: var(--ofd-card);
+            border-radius: var(--ofd-radius);
+            box-shadow: var(--ofd-shadow);
+            border: 1px solid var(--ofd-border);
+            padding: 32px;
+            margin-bottom: 32px;
+        }
+        .data-flow h2 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--ofd-base);
+            margin-bottom: 20px;
+        }
+        .flow-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+        .flow-step {
+            display: flex;
+            gap: 16px;
+            position: relative;
+        }
+        .flow-connector {
+            width: 32px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .flow-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--ofd-action);
+            flex-shrink: 0;
+            margin-top: 4px;
+        }
+        .flow-line {
+            width: 2px;
+            flex: 1;
+            background: var(--ofd-border);
+            margin-top: 4px;
+        }
+        .flow-step:last-child .flow-line { display: none; }
+        .flow-content {
+            padding-bottom: 24px;
+        }
+        .flow-content h4 {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--ofd-base);
+        }
+        .flow-content .endpoint {
+            font-family: 'Cascadia Code', 'Fira Code', monospace;
+            font-size: 0.75rem;
+            background: var(--ofd-bg);
+            padding: 2px 8px;
+            border-radius: 6px;
+            color: var(--ofd-action);
+            font-weight: 600;
+        }
+        .flow-content p {
+            font-size: 0.82rem;
+            color: var(--ofd-text);
+            margin-top: 4px;
+        }
+
+        /* ─── Checklist ──────────────────────────────────────── */
+        .checklist-section {
+            background: var(--ofd-card);
+            border-radius: var(--ofd-radius);
+            box-shadow: var(--ofd-shadow);
+            border: 1px solid var(--ofd-border);
+            padding: 32px;
+            margin-bottom: 32px;
+        }
+        .checklist-section h2 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--ofd-base);
+            margin-bottom: 20px;
+        }
+        .checklist-columns {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+        .checklist-col h3 {
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--ofd-base);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--ofd-bg);
+        }
+        .checklist-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 8px 0;
+            font-size: 0.85rem;
+            border-bottom: 1px solid var(--ofd-bg);
+        }
+        .checklist-item:last-child { border-bottom: none; }
+        .check-box {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--ofd-border);
+            border-radius: 4px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .check-box.done { background: var(--ofd-green); border-color: var(--ofd-green); }
+        .check-box.partial { background: var(--ofd-yellow); border-color: var(--ofd-yellow); }
+
+        /* ─── Footer ─────────────────────────────────────────── */
+        .footer {
+            text-align: center;
+            padding: 32px 24px;
+            font-size: 0.8rem;
+            color: var(--ofd-text);
+            border-top: 1px solid var(--ofd-border);
+        }
+        .footer strong { color: var(--ofd-base); }
+
+        /* ─── Responsive ─────────────────────────────────────── */
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.8rem; }
+            .status-grid { grid-template-columns: repeat(3, 1fr); }
+            .phase-header { flex-wrap: wrap; }
+            .arch-diagram { font-size: 0.65rem; }
+            .sprint-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ─── Print ──────────────────────────────────────────── */
+        @media print {
+            .phase-body { display: block !important; }
+            .phase { break-inside: avoid; }
+            body { background: white; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- HEADER                                                      -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<header class="header">
+    <h1>Opti<span>Feed</span> — Production Roadmap</h1>
+    <p class="subtitle">Comprehensive guide from working prototype to industry-grade product</p>
+    <span class="version-badge">For Karl — Internal Use Only</span>
+</header>
+
+<div class="container">
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- STATUS DASHBOARD                                            -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="status-grid">
+    <div class="status-card">
+        <div class="grade grade-b">B+</div>
+        <div class="label">Core Functionality</div>
+    </div>
+    <div class="status-card">
+        <div class="grade grade-c">C+</div>
+        <div class="label">Auth & Security</div>
+    </div>
+    <div class="status-card">
+        <div class="grade grade-f">F</div>
+        <div class="label">Testing</div>
+    </div>
+    <div class="status-card">
+        <div class="grade grade-d">D</div>
+        <div class="label">Multi-Pond</div>
+    </div>
+    <div class="status-card">
+        <div class="grade grade-c">C</div>
+        <div class="label">ESP32 Networking</div>
+    </div>
+    <div class="status-card">
+        <div class="grade grade-d">D+</div>
+        <div class="label">Production Ready</div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- ARCHITECTURE OVERVIEW                                       -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="arch-section">
+    <h2>System Architecture Overview</h2>
+    <div class="arch-diagram"><span class="dim">┌─────────────────────────────────────────────────────────────────────┐</span>
+<span class="dim">│</span>                        <span class="label">OptiFeed System Architecture</span>                       <span class="dim">│</span>
+<span class="dim">└─────────────────────────────────────────────────────────────────────┘</span>
+
+  <span class="label">ESP32 Device</span>                                    <span class="label">Next.js (Vercel)</span>
+  <span class="dim">┌──────────────┐</span>                               <span class="dim">┌──────────────────────────┐</span>
+  <span class="dim">│</span> <span class="highlight">firmware-main</span> <span class="dim">│</span>────── HTTPS/JSON ──────<span class="highlight">▶</span><span class="dim">│</span> <span class="highlight">/api/ingest</span>               <span class="dim">│</span>
+  <span class="dim">│</span>  WiFi WPA2    <span class="dim">│</span>   POST (every 5s)        <span class="dim">│</span> <span class="highlight">/api/feed-command</span>        <span class="dim">│</span>
+  <span class="dim">│</span>  X-Device-Token<span class="dim">│</span>─── GET (every 5s) ────<span class="highlight">▶</span><span class="dim">│</span> <span class="highlight">/api/schedule-sync</span>      <span class="dim">│</span>
+  <span class="dim">└──────────────┘</span>                               <span class="dim">│</span>                          <span class="dim">│</span>
+                                                  <span class="dim">│</span>  <span class="dim">├─</span> <span class="label">Supabase Auth</span>         <span class="dim">│</span>
+  <span class="label">Browser (Farmer)</span>                               <span class="dim">│</span>  <span class="dim">├─</span> <span class="label">Prisma → PostgreSQL</span>   <span class="dim">│</span>
+  <span class="dim">┌──────────────┐</span>                               <span class="dim">│</span>  <span class="dim">├─</span> <span class="label">Upstash Redis</span>         <span class="dim">│</span>
+  <span class="dim">│</span> <span class="highlight">Dashboard</span>     <span class="dim">│</span>──── Server Actions ───<span class="highlight">▶</span><span class="dim">│</span>  <span class="dim">└─</span> <span class="label">Google Gemini AI</span>      <span class="dim">│</span>
+  <span class="dim">│</span> <span class="highlight">Admin Panel</span>   <span class="dim">│</span>──── Supabase SSR ────<span class="highlight">▶</span><span class="dim">│</span>                          <span class="dim">│</span>
+  <span class="dim">└──────────────┘</span>                               <span class="dim">└──────────────────────────┘</span>
+
+  <span class="dim">┌─────────────────────────────────────────────────────────────────┐</span>
+  <span class="dim">│</span> <span class="label">Database Models:</span>  User · Pond · EnergyDevice · FeedEvent       <span class="dim">│</span>
+  <span class="dim">│</span>                  FeedRequest · ScheduleCommand · Notification  <span class="dim">│</span>
+  <span class="dim">│</span>                  BiomassLog · FcrReport · DeviceStateEvent     <span class="dim">│</span>
+  <span class="dim">└─────────────────────────────────────────────────────────────────┘</span></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- ESP32 DATA FLOW                                             -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="data-flow">
+    <h2>ESP32 Communication Flow (Every 5 Seconds)</h2>
+    <div class="flow-steps">
+        <div class="flow-step">
+            <div class="flow-connector">
+                <div class="flow-dot"></div>
+                <div class="flow-line"></div>
+            </div>
+            <div class="flow-content">
+                <h4>1. Heartbeat Telemetry <span class="endpoint">POST /api/ingest</span></h4>
+                <p>Device sends: WiFi signal, feed level %, water temperature, feeder status, RTC status. Server updates <code>EnergyDevice.lastSeenAt</code> and creates <code>FeedLevelLog</code> entries (throttled to every 30min or >5% delta).</p>
+            </div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-connector">
+                <div class="flow-dot"></div>
+                <div class="flow-line"></div>
+            </div>
+            <div class="flow-content">
+                <h4>2. Feed Command Poll <span class="endpoint">GET /api/feed-command?device_id=X</span></h4>
+                <p>Device checks for pending "Feed Now" requests from the dashboard. Server returns: pending feed request (grams) OR idle. Response also pushes: <code>grams_per_feeding</code>, <code>button_feed_grams</code>, calibration config.</p>
+            </div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-connector">
+                <div class="flow-dot"></div>
+                <div class="flow-line"></div>
+            </div>
+            <div class="flow-content">
+                <h4>3. Schedule Sync Poll <span class="endpoint">GET /api/schedule-sync?device_id=X</span></h4>
+                <p>Device checks for pending schedule changes. Server returns: new schedule command (start/end times, feeds/day, feeding rate) OR "no change". Response also pushes: calibration config (<code>hopper_empty_cm</code>, <code>hopper_full_cm</code>, <code>grams_per_second</code>).</p>
+            </div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-connector">
+                <div class="flow-dot"></div>
+                <div class="flow-line"></div>
+            </div>
+            <div class="flow-content">
+                <h4>4. Feed Dispensed Event <span class="endpoint">POST /api/ingest</span></h4>
+                <p>After a scheduled or manual feed completes, device sends: <code>event_type: "feed_dispensed"</code>, grams dispensed, source (scheduled/dashboard/button). Server creates <code>FeedEvent</code> + <code>FeedRequest</code> records.</p>
+            </div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-connector">
+                <div class="flow-dot"></div>
+                <div class="flow-line"></div>
+            </div>
+            <div class="flow-content">
+                <h4>5. Schedule Acknowledgment <span class="endpoint">POST /api/ingest</span></h4>
+                <p>After device applies a new schedule, sends: <code>event_type: "schedule_acked"</code>, command_id. Server marks <code>ScheduleCommand</code> as "applied" and updates <code>Pond</code> schedule fields.</p>
+            </div>
+        </div>
+        <div class="flow-step">
+            <div class="flow-connector">
+                <div class="flow-dot"></div>
+                <div class="flow-line"></div>
+            </div>
+            <div class="flow-content">
+                <h4>6. Offline Queue Flush <span class="endpoint">POST /api/ingest (batch)</span></h4>
+                <p>If WiFi was down, device queues events in a 10-slot array. On reconnect, flushes all queued events sequentially. <strong>Current limitation:</strong> only 10 events stored; older events are lost if queue overflows.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- PHASE 1: SECURITY & STABILITY                               -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="phase phase-1 open">
+    <div class="phase-header" onclick="this.parentElement.classList.toggle('open')">
+        <div class="phase-number">1</div>
+        <div class="phase-title-group">
+            <div class="phase-title">Security & Stability</div>
+            <div class="phase-subtitle">Critical fixes — must complete before any real usage</div>
+        </div>
+        <span class="phase-priority priority-must">Must Do</span>
+        <div class="phase-toggle">▼</div>
+    </div>
+    <div class="phase-body">
+        <div class="task-group">
+            <div class="task-group-title">Security Hardening</div>
+            <table class="task-table">
+                <thead>
+                    <tr><th>Task</th><th>Effort</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Protect <code>/api/user-role</code> with auth</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Currently exposes user roles to anonymous users via unauthenticated GET. Add <code>withAuth</code> wrapper or session check. This is the most exposed endpoint right now.</td>
+                    </tr>
+                    <tr>
+                        <td>Add ownership verification to <code>schedule.ts</code></td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td><code>updateScheduleCommand()</code> and <code>toggleDevicePause()</code> get the caller's <code>ownerId</code> but never verify that the <code>pondId</code>/<code>deviceId</code> actually belongs to that owner. A malicious user could pass another user's pondId.</td>
+                    </tr>
+                    <tr>
+                        <td>Add ownership verification to <code>history.ts</code></td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td><code>getFeedEvents()</code> accepts a <code>deviceIds</code> array directly from the caller with no ownership check. Should verify all device IDs belong to the caller's pond.</td>
+                    </tr>
+                    <tr>
+                        <td>Add ownership verification to <code>growth.ts</code></td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td><code>getFeedLevelLogs()</code> accepts a <code>deviceId</code> from the caller with no ownership check. Should verify device belongs to the caller's pond.</td>
+                    </tr>
+                    <tr>
+                        <td>Restrict CORS on device API routes</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Currently <code>Access-Control-Allow-Origin: *</code> on <code>/api/ingest</code>, <code>/api/feed-command</code>, <code>/api/schedule-sync</code>. Since ESP32 doesn't enforce CORS, this only exposes the endpoints to browser-based abuse. Change to specific origins or remove entirely.</td>
+                    </tr>
+                    <tr>
+                        <td>Add Row-Level Security (RLS) to Supabase</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>The deployment checklist documents a proposed SQL migration. Apply it so the Supabase anon key (exposed client-side) can't bypass application-level authorization. Without RLS, any user can read/write any data if they know the anon key.</td>
+                    </tr>
+                    <tr>
+                        <td>Rotate secrets and clean up <code>.env</code></td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Real Supabase credentials and Gemini API key exist on disk. Rotate all keys and ensure they're only in Vercel environment variables.</td>
+                    </tr>
+                    <tr>
+                        <td>Remove <code>'unsafe-eval'</code> from CSP</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Current Content-Security-Policy includes <code>script-src 'self' 'unsafe-inline' 'unsafe-eval'</code>. Audit whether Gemini or chat actually needs eval, and remove if not.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="task-group">
+            <div class="task-group-title">Build & Deploy Fixes</div>
+            <table class="task-table">
+                <thead>
+                    <tr><th>Task</th><th>Effort</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Add <code>prisma migrate deploy</code> to build</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Current <code>build</code> script only runs <code>prisma generate</code>. Schema migrations won't be applied to production automatically. Add to the build or postbuild script.</td>
+                    </tr>
+                    <tr>
+                        <td>Add missing env vars to <code>.env.example</code></td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td><code>UPSTASH_REDIS_REST_URL</code> and <code>UPSTASH_REDIS_REST_TOKEN</code> are not documented. Rate limiting will crash at runtime if these are missing in Vercel.</td>
+                    </tr>
+                    <tr>
+                        <td>Clean up duplicate migration</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td><code>20260731120000_add_energydevice_ispaused</code> was deleted locally but may exist on other branches. Ensure it's marked as applied in the database.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- PHASE 2: MULTI-POND & MULTI-FEEDER                         -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="phase phase-2">
+    <div class="phase-header" onclick="this.parentElement.classList.toggle('open')">
+        <div class="phase-number">2</div>
+        <div class="phase-title-group">
+            <div class="phase-title">Multi-Pond & Multi-Feeder Support</div>
+            <div class="phase-subtitle">Core scaling feature — a farmer with 5 ponds needs this</div>
+        </div>
+        <span class="phase-priority priority-high">High</span>
+        <div class="phase-toggle">▼</div>
+    </div>
+    <div class="phase-body">
+        <div class="task-group">
+            <div class="task-group-title">Database & Data Model</div>
+            <table class="task-table">
+                <thead>
+                    <tr><th>Task</th><th>Effort</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Clarify <code>EnergyDevice.pondId</code> semantics</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Currently nullable. Decide: should a device belong to exactly one pond, or can it be shared across ponds? This affects the entire device management flow.</td>
+                    </tr>
+                    <tr>
+                        <td>Add <code>UserPond</code> junction table (if needed)</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>If operators can manage ponds they don't own (e.g., farm workers), add a many-to-many junction. Otherwise <code>Pond.ownerId</code> is sufficient for single-owner scenarios.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="task-group">
+            <div class="task-group-title">Backend Changes</div>
+            <table class="task-table">
+                <thead>
+                    <tr><th>Task</th><th>Effort</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Create <code>getCurrentUserPonds()</code> helper</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Returns all ponds where <code>ownerId = farmId</code>. Replaces the <code>findFirst</code> pattern used everywhere. Add to <code>lib/auth/session.ts</code>.</td>
+                    </tr>
+                    <tr>
+                        <td>Replace <code>findFirst</code> with <code>findMany</code> in layout</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Dashboard layout currently fetches one pond. Fetch all ponds for the user and pass them to the header/sidebar for the pond selector.</td>
+                    </tr>
+                    <tr>
+                        <td>Update all server actions to accept <code>pondId</code></td>
+                        <td><span class="effort-badge effort-large">Large</span></td>
+                        <td>Every action (<code>updateScheduleCommand</code>, <code>requestFeed</code>, <code>saveBiomassLog</code>, etc.) currently hardcodes the single pond. Each should accept <code>pondId</code> and validate ownership.</td>
+                    </tr>
+                    <tr>
+                        <td>Add pond switching API</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>A server action that returns the pond list and sets the active pond selection (stored in a cookie).</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="task-group">
+            <div class="task-group-title">Frontend Changes</div>
+            <table class="task-table">
+                <thead>
+                    <tr><th>Task</th><th>Effort</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Add pond selector dropdown to header</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Dropdown in the header bar showing all ponds with current selection. Persist selection via cookie (<code>optifeed:pondId</code>) or URL param. Middleware reads the cookie and injects into server components.</td>
+                    </tr>
+                    <tr>
+                        <td>Update sidebar to show devices for selected pond</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>List energy devices under the selected pond with status indicators (online/offline, feed level). Replace the single-device hopper widget with a per-device view.</td>
+                    </tr>
+                    <tr>
+                        <td>Update all dashboard pages to use selected pond</td>
+                        <td><span class="effort-badge effort-large">Large</span></td>
+                        <td>Every page (dashboard home, schedule, history, growth, audit, notifications, settings) currently uses <code>findFirst</code>. Needs to accept <code>pondId</code> from context/URL params/cookie.</td>
+                    </tr>
+                    <tr>
+                        <td>Add "Add Pond" flow for admins</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Admin page to create ponds and assign owners. Form: pond name, owner (user dropdown), feeding rate, feeds/day, schedule times.</td>
+                    </tr>
+                    <tr>
+                        <td>Update seed script for multi-pond demo</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Create 2-3 ponds with different devices, different owners, different feed levels for testing the pond selector and multi-pond queries.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="task-group">
+            <div class="task-group-title">Multi-Feeder Coordination</div>
+            <table class="task-table">
+                <thead>
+                    <tr><th>Task</th><th>Effort</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Design: independent vs coordinated feeders</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>If 2 feeders are on the same pond, should they both feed at the same time (independent), or split the schedule (coordinated)? Independent is simpler; coordinated requires a scheduler that assigns time slots.</td>
+                    </tr>
+                    <tr>
+                        <td>Add feeder assignment UI</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Allow assigning specific feeders to specific time slots or feed percentages. E.g., "Feeder A: 60% of feed, Feeder B: 40%".</td>
+                    </tr>
+                    <tr>
+                        <td>Update <code>resolveCurrentSchedule()</code> for multi-device</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Currently resolves one device per pond. Needs to handle multiple devices with potentially different schedules. Consider a "master schedule" per pond that devices reference.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- PHASE 3: ESP32 NETWORK & DEVICE MANAGEMENT                 -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="phase phase-3">
+    <div class="phase-header" onclick="this.parentElement.classList.toggle('open')">
+        <div class="phase-number">3</div>
+        <div class="phase-title-group">
+            <div class="phase-title">ESP32 Network & Device Management</div>
+            <div class="phase-subtitle">Device reliability is critical — a dead feeder means dead fish</div>
+        </div>
+        <span class="phase-priority priority-high">High</span>
+        <div class="phase-toggle">▼</div>
+    </div>
+    <div class="phase-body">
+        <div class="task-group">
+            <div class="task-group-title">Device Provisioning</div>
+            <table class="task-table">
+                <thead>
+                    <tr><th>Task</th><th>Effort</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Create device registration flow in admin panel</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Admin registers device (enters MAC address, gets token), then flashes token to ESP32. The <code>registerEnergyDevice()</code> server action already exists — just needs a UI in the admin panel.</td>
+                    </tr>
+                    <tr>
+                        <td>Add device claim/pair flow</td>
+                        <td><span class="effort-badge effort-large">Large</span></td>
+                        <td>ESP32 boots → creates temporary WiFi AP → farmer connects phone → enters WiFi creds + claim code from dashboard → device registers with server. More user-friendly but significantly more firmware complexity.</td>
+                    </tr>
+                    <tr>
+                        <td>Store WiFi credentials in EEPROM/LittleFS</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Instead of <code>#define</code> constants, store WiFi SSID/password in flash so they survive reboots without reflashing. Use <code>Preferences.h</code> or LittleFS.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="task-group">
+            <div class="task-group-title">Firmware Improvements</div>
+            <table class="task-table">
+                <thead>
+                    <tr><th>Task</th><th>Effort</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Add OTA (over-the-air) update support</td>
+                        <td><span class="effort-badge effort-large">Large</span></td>
+                        <td>Integrate ArduinoOTA or HTTPS-based OTA so firmware can be updated without physical USB access. Critical for field deployments. Consider signed firmware for security.</td>
+                    </tr>
+                    <tr>
+                        <td>Add WiFi reconnection robustness</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Current <code>maintainWiFi()</code> retries every 10s with fixed interval. Add exponential backoff (10s → 30s → 60s) and deep sleep on prolonged failure (>5 min).</td>
+                    </tr>
+                    <tr>
+                        <td>Increase offline event queue</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Current 10-slot <code>QueuedEvent</code> array is too small. If WiFi is down for >50 seconds of feeding activity, events are lost. Increase to 50+ or use LittleFS for persistent storage.</td>
+                    </tr>
+                    <tr>
+                        <td>Add device health self-reporting</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Report free heap, WiFi signal strength (RSSI), reboot count, uptime in heartbeat payload. Helps diagnose field issues remotely.</td>
+                    </tr>
+                    <tr>
+                        <td>Add NTP fallback</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>If NTP sync fails, use device uptime or last-known time. Currently <code>timestamp: "unknown"</code> breaks event ordering in the database.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="task-group">
+            <div class="task-group-title">API Route Improvements</div>
+            <table class="task-table">
+                <thead>
+                    <tr><th>Task</th><th>Effort</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Add per-device rate limiting to poll routes</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Currently only <code>/api/ingest</code> has rate limiting (1 req/s per device). <code>/api/feed-command</code> and <code>/api/schedule-sync</code> have no per-device limits.</td>
+                    </tr>
+                    <tr>
+                        <td>Add request body size limits</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Protect against oversized payloads on POST routes. Next.js has no built-in body size limit for route handlers.</td>
+                    </tr>
+                    <tr>
+                        <td>Add idempotency keys for feed events</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Prevent duplicate feed events from queued retries. The <code>eventId</code> field on <code>FeedEvent</code> already supports this — just need to enforce uniqueness on the firmware side.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- PHASE 4: TESTING INFRASTRUCTURE                            -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="phase phase-4">
+    <div class="phase-header" onclick="this.parentElement.classList.toggle('open')">
+        <div class="phase-number">4</div>
+        <div class="phase-title-group">
+            <div class="phase-title">Testing Infrastructure</div>
+            <div class="phase-subtitle">Cannot ship a product with zero tests — this is the biggest gap</div>
+        </div>
+        <span class="phase-priority priority-high">High</span>
+        <div class="phase-toggle">▼</div>
+    </div>
+    <div class="phase-body">
+        <div class="task-group">
+            <div class="task-group-title">Unit & Integration Tests</div>
+            <table class="task-table">
+                <thead>
+                    <tr><th>Task</th><th>Effort</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Set up Vitest</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Add <code>vitest</code> + <code>@testing-library/react</code> to the web app. Configure in <code>vitest.config.ts</code>. Add <code>test</code> and <code>test:watch</code> scripts to <code>package.json</code>.</td>
+                    </tr>
+                    <tr>
+                        <td>Write tests for server actions</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Test: <code>loginWithPin</code>, <code>createUser</code>, <code>requestFeed</code>, <code>updateScheduleCommand</code>, <code>saveBiomassLog</code>. Mock Prisma client and Supabase Auth. Verify ownership checks, error handling, edge cases.</td>
+                    </tr>
+                    <tr>
+                        <td>Write tests for <code>resolveCurrentSchedule()</code></td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Pure function — test with various combinations: no pending + no applied, pending only, applied only, both. Verify priority logic.</td>
+                    </tr>
+                    <tr>
+                        <td>Write tests for <code>volumeCalc.ts</code></td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Pure calculation function. Test with known inputs/outputs, edge cases (zero, negative, overflow).</td>
+                    </tr>
+                    <tr>
+                        <td>Write tests for <code>fcr-calculation.ts</code></td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Pure calculation function. Test FCR formula correctness with known biomass gain and feed input values.</td>
+                    </tr>
+                    <tr>
+                        <td>Write tests for <code>lib/auth/session.ts</code></td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Test <code>buildPondEmail()</code>, <code>farmIdFromEmail()</code>. Verify email format, edge cases (empty string, missing @, multiple @).</td>
+                    </tr>
+                    <tr>
+                        <td>Write tests for <code>lib/chat/prompt.ts</code></td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Test <code>sanitizeInput()</code>, <code>enforcePromptLimit()</code>. Verify newline stripping, length capping, whitespace collapse.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="task-group">
+            <div class="task-group-title">E2E Tests (Playwright)</div>
+            <table class="task-table">
+                <thead>
+                    <tr><th>Task</th><th>Effort</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Set up Playwright</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Add <code>@playwright/test</code> with config for Chromium/Firefox. Configure base URL, retries, screenshots on failure. Add <code>test:e2e</code> script.</td>
+                    </tr>
+                    <tr>
+                        <td>E2E: Login flow</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Navigate to <code>/login</code>, enter farm ID + PIN, verify redirect to <code>/dashboard</code>, verify dashboard content loads.</td>
+                    </tr>
+                    <tr>
+                        <td>E2E: Signup flow (admin)</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Login as admin → navigate to <code>/signup</code> → fill form → submit → verify success message → verify user appears in <code>/admin/users</code>.</td>
+                    </tr>
+                    <tr>
+                        <td>E2E: Dashboard loads</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Login → verify dashboard shows: pond name, device status badge, FCR sparkline, feed level bar, notification bell with count.</td>
+                    </tr>
+                    <tr>
+                        <td>E2E: Schedule editing</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Login → navigate to schedule → change feed times → save → verify confirmation → refresh → verify change persisted.</td>
+                    </tr>
+                    <tr>
+                        <td>E2E: Feed Now</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Login → click Feed Now → verify confirmation dialog → confirm → verify feed event created in history page.</td>
+                    </tr>
+                    <tr>
+                        <td>E2E: Notifications</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Login → verify notification bell shows count → click bell → verify notification list loads → mark as read → verify count decreases.</td>
+                    </tr>
+                    <tr>
+                        <td>E2E: Admin panel</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Login as admin → navigate to <code>/admin</code> → verify stats cards → navigate to users → verify user list → navigate to ponds → verify pond cards.</td>
+                    </tr>
+                    <tr>
+                        <td>E2E: Pond switching</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>(After multi-pond) Login → open pond selector → switch to different pond → verify dashboard data changes → verify URL/cookie updated.</td>
+                    </tr>
+                    <tr>
+                        <td>E2E: Device offline detection</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Seed device with <code>lastSeenAt</code> > 15 min ago → login → verify "offline" badge appears in header and sidebar.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="task-group">
+            <div class="task-group-title">CI Integration</div>
+            <table class="task-table">
+                <thead>
+                    <tr><th>Task</th><th>Effort</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Add <code>pnpm test</code> script</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Add test script to root and web <code>package.json</code>. Run Vitest for unit/integration tests.</td>
+                    </tr>
+                    <tr>
+                        <td>Add test step to CI workflow</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Add <code>pnpm test</code> step in <code>.github/workflows/ci.yml</code> between lint and build. PRs should not merge if tests fail.</td>
+                    </tr>
+                    <tr>
+                        <td>Add Playwright to CI</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Use <code>npx playwright install --with-deps chromium</code> in CI. Run E2E tests against Vercel preview deploy (from PR). Upload screenshots on failure as artifacts.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- PHASE 5: PRODUCTION HARDENING                              -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="phase phase-5">
+    <div class="phase-header" onclick="this.parentElement.classList.toggle('open')">
+        <div class="phase-number">5</div>
+        <div class="phase-title-group">
+            <div class="phase-title">Production Hardening</div>
+            <div class="phase-subtitle">Monitoring, notifications, performance — needed for real users</div>
+        </div>
+        <span class="phase-priority priority-medium">Medium</span>
+        <div class="phase-toggle">▼</div>
+    </div>
+    <div class="phase-body">
+        <div class="task-group">
+            <div class="task-group-title">Monitoring & Observability</div>
+            <table class="task-table">
+                <thead>
+                    <tr><th>Task</th><th>Effort</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Add Sentry for error tracking</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td><code>@sentry/nextjs</code> — captures errors with stack traces, user context, breadcrumbs. Free tier handles most needs. Set up source maps upload in CI.</td>
+                    </tr>
+                    <tr>
+                        <td>Add Vercel Analytics</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td><code>@vercel/analytics</code> — Web Vitals (LCP, FID, CLS), page views. Zero config needed, just import in root layout.</td>
+                    </tr>
+                    <tr>
+                        <td>Add structured logging</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Replace <code>console.error</code> with <code>pino</code> or similar. Add request IDs, correlation IDs, user context. Structured JSON logs are searchable in Vercel.</td>
+                    </tr>
+                    <tr>
+                        <td>Add uptime monitoring</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Use Vercel's built-in monitoring or external service (BetterUptime, UptimeRobot) on <code>/api/health</code>. Alert on downtime.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="task-group">
+            <div class="task-group-title">Notifications</div>
+            <table class="task-table">
+                <thead>
+                    <tr><th>Task</th><th>Effort</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Add email notifications</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Use Resend or SendGrid for critical alerts (device offline, hopper empty). Farmers need to know even when not looking at the dashboard.</td>
+                    </tr>
+                    <tr>
+                        <td>Add web push notifications</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Use <code>web-push</code> + service worker for browser push even when dashboard is closed. Requires user opt-in and service worker registration.</td>
+                    </tr>
+                    <tr>
+                        <td>Add notification preferences</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Let users choose which alerts go to email vs in-app vs push. Per-category (connectivity, feeding, pellet, schedule) and per-tier (critical, warning, info).</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="task-group">
+            <div class="task-group-title">Performance</div>
+            <table class="task-table">
+                <thead>
+                    <tr><th>Task</th><th>Effort</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Add ISR to landing page</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Static generation for marketing page. Currently fully dynamic (<code>revalidate = 0</code>). Landing page doesn't need real-time data.</td>
+                    </tr>
+                    <tr>
+                        <td>Add <code>next/image</code> for hero image</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Lazy loading, responsive sizing, WebP conversion. Currently loads raw <code>&lt;img&gt;</code> from Unsplash.</td>
+                    </tr>
+                    <tr>
+                        <td>Add React Suspense boundaries</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Stream dashboard sections so page loads faster. Wrap slow queries in <code>&lt;Suspense&gt;</code> with skeleton fallbacks.</td>
+                    </tr>
+                    <tr>
+                        <td>Add <code>cache()</code> for deduplication</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Wrap Prisma queries in React <code>cache()</code> to dedupe within a single request. Prevents redundant DB calls when multiple components read the same data.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="task-group">
+            <div class="task-group-title">SEO</div>
+            <table class="task-table">
+                <thead>
+                    <tr><th>Task</th><th>Effort</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Add <code>generateMetadata</code> to all pages</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Per-page titles, descriptions, OG images. Currently landing page sets metadata via <code>useEffect</code> DOM manipulation (invisible to crawlers).</td>
+                    </tr>
+                    <tr>
+                        <td>Add <code>sitemap.xml</code></td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Dynamic sitemap via <code>app/sitemap.ts</code>. Include landing page and login. Exclude dashboard/admin (authenticated routes).</td>
+                    </tr>
+                    <tr>
+                        <td>Add <code>robots.txt</code></td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Allow crawlers on landing page, block dashboard and admin routes.</td>
+                    </tr>
+                    <tr>
+                        <td>Add Open Graph meta tags</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Social sharing preview images for the landing page. Use a branded OG image template.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- PHASE 6: PRODUCT POLISH                                    -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="phase phase-6">
+    <div class="phase-header" onclick="this.parentElement.classList.toggle('open')">
+        <div class="phase-number">6</div>
+        <div class="phase-title-group">
+            <div class="phase-title">Product Polish</div>
+            <div class="phase-subtitle">Nice-to-have features for a polished launch experience</div>
+        </div>
+        <span class="phase-priority priority-low">Low</span>
+        <div class="phase-toggle">▼</div>
+    </div>
+    <div class="phase-body">
+        <div class="task-group">
+            <div class="task-group-title">User Experience</div>
+            <table class="task-table">
+                <thead>
+                    <tr><th>Task</th><th>Effort</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Add onboarding flow</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>First-time user tour: "Here's your dashboard, here's how to log a sample, here's the schedule." Use a library like <code>driver.js</code> or <code>shepherd.js</code>.</td>
+                    </tr>
+                    <tr>
+                        <td>Add dark mode</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>System-preference detection + toggle. Tailwind <code>dark:</code> classes. Store preference in localStorage.</td>
+                    </tr>
+                    <tr>
+                        <td>Add loading skeletons</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Replace blank screens with skeleton loaders during data fetch. Use Tailwind <code>animate-pulse</code> with gray placeholders matching the layout shape.</td>
+                    </tr>
+                    <tr>
+                        <td>Add export to PDF</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Generate printable feeding reports. Use <code>react-pdf</code> or <code>@react-pdf/renderer</code> for client-side PDF generation.</td>
+                    </tr>
+                    <tr>
+                        <td>Add mobile responsive improvements</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Bottom nav already exists, but some pages (schedule editor, growth charts) need mobile optimization. Test on real devices.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="task-group">
+            <div class="task-group-title">Admin & Operations</div>
+            <table class="task-table">
+                <thead>
+                    <tr><th>Task</th><th>Effort</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Add audit log export</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>CSV/JSON export of audit events for compliance. Use the existing <code>/api/export</code> pattern.</td>
+                    </tr>
+                    <tr>
+                        <td>Add user activity tracking</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Log when users log in, which pages they visit. Store in a <code>UserActivity</code> table. Useful for support and feature adoption analysis.</td>
+                    </tr>
+                    <tr>
+                        <td>Add system health dashboard</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Show DB connection pool status, API response times, error rates, active devices. Read from Vercel function logs or a metrics endpoint.</td>
+                    </tr>
+                    <tr>
+                        <td>Add batch device provisioning</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Upload CSV of MAC addresses to register multiple devices at once. Useful for farms with 10+ feeders.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="task-group">
+            <div class="task-group-title">Documentation</div>
+            <table class="task-table">
+                <thead>
+                    <tr><th>Task</th><th>Effort</th><th>Details</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Write API documentation</td>
+                        <td><span class="effort-badge effort-medium">Medium</span></td>
+                        <td>Document all API routes, auth methods, request/response formats. Use OpenAPI/Swagger or a simple Markdown doc.</td>
+                    </tr>
+                    <tr>
+                        <td>Write firmware setup guide</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>Step-by-step: flash firmware, configure WiFi, register device, verify connection. Include troubleshooting section.</td>
+                    </tr>
+                    <tr>
+                        <td>Write farmer quick-start guide</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>"Turn on device → open dashboard → login → view status → log a sample → check schedule." Include screenshots.</td>
+                    </tr>
+                    <tr>
+                        <td>Add inline code documentation</td>
+                        <td><span class="effort-badge effort-small">Small</span></td>
+                        <td>JSDoc on key functions, especially server actions. Document complex business logic (schedule resolution, feed volume calculation).</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SPRINT PLAN                                                -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="arch-section">
+    <h2>Recommended Sprint Plan for Karl</h2>
+    <p style="font-size: 0.9rem; color: var(--ofd-text); margin-bottom: 20px;">
+        Work in 1-2 week sprints. Each sprint has a clear theme and deliverable. Ship incrementally.
+    </p>
+    <div class="sprint-grid">
+        <div class="sprint-card sprint-1">
+            <div class="sprint-label">Sprint 1 — Week 1-2</div>
+            <h3>Security & Stability</h3>
+            <ul>
+                <li>Protect <code>/api/user-role</code> with auth</li>
+                <li>Add ownership verification to <code>schedule.ts</code>, <code>history.ts</code>, <code>growth.ts</code></li>
+                <li>Add <code>prisma migrate deploy</code> to build script</li>
+                <li>Add <code>UPSTASH</code> vars to <code>.env.example</code></li>
+                <li>Restrict CORS on device API routes</li>
+                <li>Rotate secrets and clean up <code>.env</code></li>
+            </ul>
+        </div>
+        <div class="sprint-card sprint-2">
+            <div class="sprint-label">Sprint 2 — Week 3-4</div>
+            <h3>Testing Foundation</h3>
+            <ul>
+                <li>Set up Vitest + write unit tests for pure functions</li>
+                <li>Write tests for server actions (mock Prisma)</li>
+                <li>Set up Playwright</li>
+                <li>Write E2E: login, dashboard load, signup</li>
+                <li>Add test step to CI workflow</li>
+            </ul>
+        </div>
+        <div class="sprint-card sprint-3">
+            <div class="sprint-label">Sprint 3 — Week 5-7</div>
+            <h3>Multi-Pond Support</h3>
+            <ul>
+                <li>Create <code>getCurrentUserPonds()</code> helper</li>
+                <li>Add pond selector to header</li>
+                <li>Update dashboard layout to fetch all ponds</li>
+                <li>Update all pages to use selected pond</li>
+                <li>Add "Add Pond" admin page</li>
+                <li>Write E2E: pond switching</li>
+            </ul>
+        </div>
+        <div class="sprint-card sprint-4">
+            <div class="sprint-label">Sprint 4 — Week 8-9</div>
+            <h3>Device Management</h3>
+            <ul>
+                <li>Add device registration UI to admin panel</li>
+                <li>Store WiFi credentials in EEPROM/LittleFS</li>
+                <li>Expand offline event queue to 50+</li>
+                <li>Add per-device rate limiting to poll routes</li>
+                <li>Add device health self-reporting</li>
+            </ul>
+        </div>
+        <div class="sprint-card sprint-5">
+            <div class="sprint-label">Sprint 5 — Week 10-12</div>
+            <h3>Production Launch</h3>
+            <ul>
+                <li>Add Sentry for error tracking</li>
+                <li>Add Vercel Analytics</li>
+                <li>Add email notifications for critical alerts</li>
+                <li>Add ISR to landing page</li>
+                <li>Add <code>next/image</code> optimization</li>
+                <li>Add <code>generateMetadata</code> to all pages</li>
+                <li>Write farmer quick-start guide</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- DESIGN DECISIONS                                            -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="arch-section">
+    <h2>Key Design Decisions to Make</h2>
+    <p style="font-size: 0.9rem; color: var(--ofd-text); margin-bottom: 20px;">
+        These decisions affect multiple phases. Make them early to avoid rework.
+    </p>
+    <div class="decision-grid">
+        <div class="decision-card">
+            <h4>Multi-pond: Cookie vs URL Param vs Context?</h4>
+            <p>How should the selected pond be persisted across page navigations?</p>
+            <div class="recommendation">
+                <strong>Recommendation:</strong> Use a cookie (<code>optifeed:pondId</code>) that the middleware reads and injects into server components via <code>searchParams</code>. Cookies persist across tabs and survive page refreshes. URL params cause ugly URLs. React context doesn't work across server components.
+            </div>
+        </div>
+        <div class="decision-card">
+            <h4>Multi-feeder: Independent or Coordinated?</h4>
+            <p>If a pond has 2 feeders, do they both execute the same schedule independently, or split the feeding?</p>
+            <div class="recommendation">
+                <strong>Recommendation:</strong> Start with <strong>independent</strong> (each feeder runs the full schedule). It's simpler, and in practice most farms have 1 feeder per pond. Add coordinated mode later as an advanced feature if needed.
+            </div>
+        </div>
+        <div class="decision-card">
+            <h4>Device Provisioning: Simple vs Full Captive Portal?</h4>
+            <p>How do farmers connect new ESP32 devices to WiFi and register them?</p>
+            <div class="recommendation">
+                <strong>Recommendation:</strong> For MVP, use the <strong>admin-flash flow</strong> (register on dashboard, flash token to ESP32 via USB). A full captive portal is more user-friendly but adds significant firmware complexity (AP mode, web server, WiFi config page). Add it in Phase 3.
+            </div>
+        </div>
+        <div class="decision-card">
+            <h4>OTA Updates: When to Add?</h4>
+            <p>Over-the-air firmware updates are critical for field devices but add security surface.</p>
+            <div class="recommendation">
+                <strong>Recommendation:</strong> Add OTA in <strong>Phase 3</strong> (after multi-pond is stable). Use HTTPS-based OTA (not ArduinoOTA which uses multicast DNS). Sign firmware images with a private key to prevent tampering.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- PRODUCTION CHECKLIST                                        -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="checklist-section">
+    <h2>Pre-Launch Checklist</h2>
+    <div class="checklist-columns">
+        <div class="checklist-col">
+            <h3>Security</h3>
+            <div class="checklist-item"><div class="check-box done"></div> Supabase Auth with session management</div>
+            <div class="checklist-item"><div class="check-box done"></div> Device token authentication</div>
+            <div class="checklist-item"><div class="check-box done"></div> Rate limiting (Upstash Redis)</div>
+            <div class="checklist-item"><div class="check-box done"></div> Account lockout (5 attempts / 15 min)</div>
+            <div class="checklist-item"><div class="check-box done"></div> Security headers (CSP, X-Frame, etc.)</div>
+            <div class="checklist-item"><div class="check-box"></div> Row-Level Security (RLS) in Supabase</div>
+            <div class="checklist-item"><div class="check-box"></div> All API routes have auth checks</div>
+            <div class="checklist-item"><div class="check-box"></div> Ownership verification in all server actions</div>
+            <div class="checklist-item"><div class="check-box"></div> CORS restricted on device API routes</div>
+            <div class="checklist-item"><div class="check-box"></div> Secrets rotated and managed in Vercel only</div>
+        </div>
+        <div class="checklist-col">
+            <h3>Testing</h3>
+            <div class="checklist-item"><div class="check-box"></div> Vitest configured and working</div>
+            <div class="checklist-item"><div class="check-box"></div> Unit tests for pure functions</div>
+            <div class="checklist-item"><div class="check-box"></div> Integration tests for server actions</div>
+            <div class="checklist-item"><div class="checkbox"></div> Playwright configured</div>
+            <div class="checklist-item"><div class="check-box"></div> E2E: Login flow</div>
+            <div class="checklist-item"><div class="check-box"></div> E2E: Dashboard loads correctly</div>
+            <div class="checklist-item"><div class="check-box"></div> E2E: Schedule editing</div>
+            <div class="checklist-item"><div class="check-box"></div> E2E: Feed Now action</div>
+            <div class="checklist-item"><div class="check-box"></div> E2E: Admin panel access control</div>
+            <div class="checklist-item"><div class="check-box"></div> Tests run in CI pipeline</div>
+        </div>
+        <div class="checklist-col">
+            <h3>Infrastructure</h3>
+            <div class="checklist-item"><div class="check-box done"></div> Vercel deployment configured</div>
+            <div class="checklist-item"><div class="check-box done"></div> CI pipeline (lint + build)</div>
+            <div class="checklist-item"><div class="check-box done"></div> Pre-commit hooks (husky + lint-staged)</div>
+            <div class="checklist-item"><div class="check-box done"></div> Conventional commits enforced</div>
+            <div class="checklist-item"><div class="check-box"></div> <code>prisma migrate deploy</code> in build</div>
+            <div class="checklist-item"><div class="check-box"></div> Sentry error tracking</div>
+            <div class="checklist-item"><div class="check-box"></div> Vercel Analytics</div>
+            <div class="checklist-item"><div class="check-box"></div> Uptime monitoring</div>
+            <div class="checklist-item"><div class="check-box"></div> Database backup strategy</div>
+            <div class="checklist-item"><div class="check-box"></div> Environment variable validation</div>
+        </div>
+        <div class="checklist-col">
+            <h3>Product</h3>
+            <div class="checklist-item"><div class="check-box done"></div> Dashboard with real data</div>
+            <div class="checklist-item"><div class="check-box done"></div> Schedule management</div>
+            <div class="checklist-item"><div class="check-box done"></div> Feed Now manual override</div>
+            <div class="checklist-item"><div class="check-box done"></div> Notifications (Supabase Realtime)</div>
+            <div class="checklist-item"><div class="check-box done"></div> Biomass logging</div>
+            <div class="checklist-item"><div class="check-box done"></div> Growth/FCR charts</div>
+            <div class="checklist-item"><div class="check-box done"></div> AI chat assistant</div>
+            <div class="checklist-item"><div class="check-box done"></div> Data import/export</div>
+            <div class="checklist-item"><div class="check-box done"></div> Admin panel with user management</div>
+            <div class="checklist-item"><div class="check-box"></div> Multi-pond support</div>
+            <div class="checklist-item"><div class="check-box"></div> Email notifications</div>
+            <div class="checklist-item"><div class="check-box"></div> Farmer quick-start guide</div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- KEY FILE REFERENCE                                          -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="arch-section">
+    <h2>Key File Reference</h2>
+    <div class="checklist-columns">
+        <div class="checklist-col">
+            <h3>Authentication & Auth</h3>
+            <div class="checklist-item"><div class="check-box partial"></div> <code>lib/auth/session.ts</code> — Session resolution, role checks</div>
+            <div class="checklist-item"><div class="check-box partial"></div> <code>lib/auth/with-auth.ts</code> — API route auth wrapper</div>
+            <div class="checklist-item"><div class="check-box done"></div> <code>lib/auth/lockout.ts</code> — Account lockout logic</div>
+            <div class="checklist-item"><div class="check-box done"></div> <code>lib/actions/auth.ts</code> — Login server action</div>
+            <div class="checklist-item"><div class="check-box done"></div> <code>proxy.ts</code> — Middleware (auth redirects)</div>
+            <div class="checklist-item"><div class="check-box"></div> <code>app/api/user-role/route.ts</code> — <strong>NO AUTH</strong></div>
+        </div>
+        <div class="checklist-col">
+            <h3>Device Communication</h3>
+            <div class="checklist-item"><div class="check-box done"></div> <code>api/ingest/route.ts</code> — Device heartbeat/data</div>
+            <div class="checklist-item"><div class="check-box done"></div> <code>api/feed-command/route.ts</code> — Feed polling</div>
+            <div class="checklist-item"><div class="check-box done"></div> <code>api/schedule-sync/route.ts</code> — Schedule polling</div>
+            <div class="checklist-item"><div class="check-box done"></div> <code>firmware/firmware-main/</code> — ESP32 firmware</div>
+            <div class="checklist-item"><div class="check-box done"></div> <code>lib/actions/energy.ts</code> — Feed requests, calibration</div>
+        </div>
+        <div class="checklist-col">
+            <h3>Data Model</h3>
+            <div class="checklist-item"><div class="check-box done"></div> <code>prisma/schema.prisma</code> — 15 models</div>
+            <div class="checklist-item"><div class="check-box done"></div> <code>prisma/seed.ts</code> — Demo data</div>
+            <div class="checklist-item"><div class="check-box done"></div> <code>lib/prisma.ts</code> — Prisma singleton</div>
+            <div class="checklist-item"><div class="check-box partial"></div> <code>prisma/migrations/</code> — 10+ migrations</div>
+        </div>
+        <div class="checklist-col">
+            <h3>Admin & Multi-Pond</h3>
+            <div class="checklist-item"><div class="check-box done"></div> <code>lib/actions/admin.ts</code> — Admin CRUD</div>
+            <div class="checklist-item"><div class="check-box done"></div> <code>(admin)/layout.tsx</code> — Role guard</div>
+            <div class="checklist-item"><div class="check-box done"></div> <code>components/admin-sidebar.tsx</code> — Admin nav</div>
+            <div class="checklist-item"><div class="check-box"></div> <code>components/pond-selector.tsx</code> — <strong>DOES NOT EXIST</strong></div>
+            <div class="checklist-item"><div class="check-box"></div> Multi-pond query pattern — <strong>USES findFirst</strong></div>
+        </div>
+    </div>
+</div>
+
+</div><!-- /container -->
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- FOOTER                                                      -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<footer class="footer">
+    <p><strong>OptiFeed</strong> — Production Roadmap v1.0</p>
+    <p>Generated for Karl. Last updated: August 2026.</p>
+    <p style="margin-top: 8px; font-size: 0.75rem;">This document is a living reference. Update it as tasks are completed and new requirements emerge.</p>
+</footer>
+
+</body>
+</html>

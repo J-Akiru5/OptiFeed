@@ -7,6 +7,12 @@ import { revalidatePath } from "next/cache";
 export async function toggleDevicePause(deviceId: string, isPaused: boolean) {
 	try {
 		const ownerId = await getCurrentPondOwnerId();
+
+		const device = await prisma.energyDevice.findFirst({
+			where: { id: deviceId, pond: { ownerId } },
+		});
+		if (!device) throw new Error("Device not found or access denied");
+
 		await prisma.energyDevice.update({
 			where: { id: deviceId },
 			data: { isPaused },
@@ -52,6 +58,11 @@ export async function updateScheduleCommand(
 ): Promise<UpdateScheduleResult> {
 	try {
 		const ownerId = await getCurrentPondOwnerId();
+
+		const device = await prisma.energyDevice.findFirst({
+			where: { id: deviceId, pondId, pond: { ownerId } },
+		});
+		if (!device) return { success: false, error: "Device not found or access denied" };
 
 		// Expire stale sent commands that were picked up by the device
 		// but never acked. Prevents zombie commands from blocking future edits.

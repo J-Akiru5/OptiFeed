@@ -13,7 +13,7 @@ const securityHeaders = [
 		key: "Content-Security-Policy",
 		value: [
 			"default-src 'self'",
-			"script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+			`script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
 			"style-src 'self' 'unsafe-inline'",
 			"img-src 'self' data: blob:",
 			"font-src 'self'",
@@ -32,32 +32,6 @@ const nextConfig: NextConfig = {
 			{
 				source: "/(.*)",
 				headers: securityHeaders,
-			},
-			{
-				// CORS headers for device API routes only (ESP32 doesn't enforce
-				// CORS, but browser dev tools and future web dashboards benefit).
-				source: "/api/ingest/:path*",
-				headers: [
-					{ key: "Access-Control-Allow-Origin", value: "*" },
-					{ key: "Access-Control-Allow-Methods", value: "POST, OPTIONS" },
-					{ key: "Access-Control-Allow-Headers", value: "Content-Type, x-device-token" },
-				],
-			},
-			{
-				source: "/api/feed-command/:path*",
-				headers: [
-					{ key: "Access-Control-Allow-Origin", value: "*" },
-					{ key: "Access-Control-Allow-Methods", value: "GET, OPTIONS" },
-					{ key: "Access-Control-Allow-Headers", value: "x-device-token" },
-				],
-			},
-			{
-				source: "/api/schedule-sync/:path*",
-				headers: [
-					{ key: "Access-Control-Allow-Origin", value: "*" },
-					{ key: "Access-Control-Allow-Methods", value: "GET, OPTIONS" },
-					{ key: "Access-Control-Allow-Headers", value: "x-device-token" },
-				],
 			},
 		];
 	},

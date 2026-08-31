@@ -2,7 +2,7 @@ import { ScheduleControls } from "@/components/ScheduleControls";
 import { ScheduleEditor } from "@/components/ScheduleEditor";
 import { StuckRequestBanner } from "@/components/StuckRequestBanner";
 import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
-import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { getTranslations } from "next-intl/server";
 
@@ -17,10 +17,7 @@ function fmtTime(date: Date): string {
 
 export default async function SchedulePage() {
 	const t = await getTranslations("dashboard.schedule");
-	const pond = await prisma.pond.findFirst({
-		where: { ownerId: await getCurrentPondOwnerId() },
-		include: { devices: true },
-	});
+	const pond = await getActivePond({ devices: true });
 
 	if (!pond || !pond.devices.length) {
 		return (

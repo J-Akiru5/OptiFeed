@@ -5,14 +5,18 @@
 	"type": "module",
 	"scripts": {
 		"dev": "next dev",
-		"build": "prisma generate && next build",
+		"build": "prisma generate && prisma migrate deploy && next build",
 		"start": "next start",
 		"lint": "biome check .",
 		"lint:fix": "biome check . --write",
 		"format": "biome format . --write",
 		"prisma:generate": "prisma generate",
 		"prisma:migrate": "prisma migrate dev",
-		"typecheck": "tsc --noEmit"
+		"typecheck": "tsc --noEmit",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:e2e": "playwright test",
+		"seed:dev": "tsx prisma/seed-dev.ts"
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.6.0",
@@ -40,15 +44,20 @@
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
+		"@playwright/test": "^1.62.1",
 		"@tailwindcss/postcss": "^4",
+		"@testing-library/jest-dom": "^7.0.1",
+		"@testing-library/react": "^16.3.3",
 		"@types/node": "^20",
 		"@types/papaparse": "^5.5.2",
 		"@types/react": "^19",
 		"@types/react-dom": "^19",
+		"jsdom": "^30.0.1",
 		"prisma": "^6.6.0",
 		"tailwindcss": "^4",
 		"tsx": "^4.19.0",
-		"typescript": "^5"
+		"typescript": "^5",
+		"vitest": "^3.2.7"
 	},
 	"prisma": {
 		"seed": "tsx prisma/seed.ts"

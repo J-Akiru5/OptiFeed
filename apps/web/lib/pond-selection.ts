@@ -1,6 +1,5 @@
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
 import { cookies } from "next/headers";
 
 const COOKIE_NAME = "optifeed:pondId";
@@ -13,18 +12,20 @@ export async function getActivePondId(): Promise<string | null> {
 	return cookieStore.get(COOKIE_NAME)?.value ?? null;
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: Prisma include types require generated client
+type AnyObj = Record<string, any>;
+
 /**
  * Get the active pond for the current user.
  * Falls back to the first pond if no selection or invalid selection.
  * Pass `include` to fetch relations (e.g., `{ devices: true }`).
  */
-export async function getActivePond<T extends Prisma.PondInclude = Record<string, never>>(
-	include?: T,
-): Promise<Prisma.PondGetPayload<{ include: T }> | null> {
+export async function getActivePond(include?: AnyObj): Promise<AnyObj | null> {
 	const ownerId = await getCurrentPondOwnerId();
 	const activePondId = await getActivePondId();
 
-	const ponds = await prisma.pond.findMany({
+	// biome-ignore lint/suspicious/noExplicitAny: Dynamic include makes strict typing impossible
+	const ponds: AnyObj[] = await prisma.pond.findMany({
 		where: { ownerId },
 		orderBy: { createdAt: "asc" },
 		...(include ? { include } : {}),
@@ -34,8 +35,8 @@ export async function getActivePond<T extends Prisma.PondInclude = Record<string
 
 	if (activePondId) {
 		const found = ponds.find((p) => p.id === activePondId);
-		if (found) return found as Prisma.PondGetPayload<{ include: T }>;
+		if (found) return found;
 	}
 
-	return ponds[0] as Prisma.PondGetPayload<{ include: T }>;
+	return ponds[0];
 }

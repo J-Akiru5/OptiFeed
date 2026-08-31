@@ -25,6 +25,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma client
+        run: pnpm prisma generate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+
       - name: Lint
         run: pnpm lint
 
@@ -55,12 +61,6 @@ jobs:
           done
           if [ "$FAIL" -eq 1 ]; then exit 1; fi
           echo "All API routes have auth imports."
-
-      - name: Generate Prisma client
-        run: pnpm prisma generate
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
 
       - name: Build
         run: pnpm build

@@ -16,7 +16,8 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"test:e2e": "playwright test",
-		"seed:dev": "tsx prisma/seed-dev.ts"
+		"seed:dev": "tsx prisma/seed-dev.ts",
+		"manage-user": "tsx prisma/manage-users.ts"
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.6.0",

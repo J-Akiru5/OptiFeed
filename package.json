@@ -13,7 +13,8 @@
 		"prisma:generate": "pnpm --filter web run prisma:generate",
 		"prisma:migrate": "pnpm --filter web run prisma:migrate",
 		"prepare": "husky",
-		"typecheck": "pnpm -r typecheck"
+		"typecheck": "pnpm -r typecheck",
+		"test": "pnpm --filter web test"
 	},
 	"lint-staged": {
 		"*.{js,ts,tsx,json,css,md}": ["biome check --write --staged --no-errors-on-unmatched"]

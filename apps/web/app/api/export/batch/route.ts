@@ -2,7 +2,7 @@ import { farmIdFromEmail } from "@/lib/auth/session";
 import { EXPORT_ROW_LIMIT } from "@/lib/constants";
 import { type ExportableType, toCsvString } from "@/lib/csv";
 import prisma from "@/lib/prisma";
-import { apiRateLimit } from "@/lib/rate-limit";
+import { checkApiRateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import JSZip from "jszip";
 
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 	}
 
 	// Rate limit: 30 requests per 60 seconds per user
-	const { success } = await apiRateLimit.limit(ownerId);
+	const { success } = checkApiRateLimit(ownerId);
 	if (!success) {
 		return Response.json({ error: "Too Many Requests" }, { status: 429 });
 	}

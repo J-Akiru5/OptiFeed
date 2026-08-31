@@ -355,6 +355,7 @@
 			"deviceId": "Device ID",
 			"connectionStatus": "Estado sang Koneksyon",
 			"online": "Online",
+			"offline": "Offline",
 			"hopperLevel": "Lebel sang Hopper",
 			"firmware": "Version sang Firmware",
 			"noDevice": "Wala sing nakita nga device. Palihug i-check ang imo hardware setup.",

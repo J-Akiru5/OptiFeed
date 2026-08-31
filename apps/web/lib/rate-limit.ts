@@ -1,26 +1,35 @@
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
+const buckets = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(
+	key: string,
+	maxRequests: number,
+	windowMs: number,
+): { success: boolean; remaining: number } {
+	const now = Date.now();
+	const entry = buckets.get(key);
+	if (!entry || now > entry.resetAt) {
+		buckets.set(key, { count: 1, resetAt: now + windowMs });
+		return { success: true, remaining: maxRequests - 1 };
+	}
+	entry.count++;
+	return {
+		success: entry.count <= maxRequests,
+		remaining: Math.max(0, maxRequests - entry.count),
+	};
+}
 
 // Login rate limit: 5 attempts per 60 seconds per IP.
-// Combined with the account lockout (5 failures → 15-min lockout),
-// this gives ~20 guesses/hour maximum.
-export const loginRateLimit = new Ratelimit({
-	redis: Redis.fromEnv(),
-	limiter: Ratelimit.slidingWindow(5, "60 s"),
-	prefix: "rl:login",
-});
+export function checkLoginRateLimit(ip: string) {
+	return checkRateLimit(`rl:login:${ip}`, 5, 60_000);
+}
 
 // General API rate limit: 30 requests per 60 seconds per user.
-// Applied to chat, export, and import endpoints.
-export const apiRateLimit = new Ratelimit({
-	redis: Redis.fromEnv(),
-	limiter: Ratelimit.slidingWindow(30, "60 s"),
-	prefix: "rl:api",
-});
+export function checkApiRateLimit(ownerId: string) {
+	return checkRateLimit(`rl:api:${ownerId}`, 30, 60_000);
+}
 
 /**
  * Extract client IP from Vercel-proxied headers.
- * On Vercel, x-forwarded-for is the canonical source.
  */
 export async function getClientIp(): Promise<string> {
 	const { headers } = await import("next/headers");

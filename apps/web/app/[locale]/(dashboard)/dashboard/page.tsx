@@ -141,6 +141,21 @@ export default async function DashboardHomePage() {
 	const criticalAlert = esp32Offline && !!energyDevice;
 	const isPaused = energyDevice?.isPaused ?? false;
 
+	function formatOfflineDuration(lastSeenAt: Date | null): string {
+		if (!lastSeenAt) return "not connected";
+		const ms = now.getTime() - lastSeenAt.getTime();
+		const totalMinutes = Math.floor(ms / 60000);
+		const hours = Math.floor(totalMinutes / 60);
+		const minutes = totalMinutes % 60;
+		if (hours > 24) {
+			const days = Math.floor(hours / 24);
+			const remainHours = hours % 24;
+			return remainHours > 0 ? `${days}d ${remainHours}h` : `${days}d`;
+		}
+		if (hours > 0) return `${hours}h ${minutes}m`;
+		return `${minutes}m`;
+	}
+
 	return (
 		<div className="space-y-6 pb-20 animate-in fade-in duration-500">
 			{criticalAlert && (
@@ -151,7 +166,9 @@ export default async function DashboardHomePage() {
 								!
 							</div>
 							<div>
-								<p className="text-sm font-black md:text-base">Device offline for 15 minutes</p>
+								<p className="text-sm font-black md:text-base">
+									Device offline for {formatOfflineDuration(energyDevice?.lastSeenAt ?? null)}
+								</p>
 								<p className="text-xs font-semibold text-white/80">
 									ESP32 node {device.name} missed the latest sync handshake.
 								</p>
@@ -427,11 +444,13 @@ export default async function DashboardHomePage() {
 						hopperCapacityG={energyDevice.hopperCapacityG}
 						gramsPerFeeding={energyDevice.gramsPerFeeding}
 						feedsPerDay={pond.feedsPerDay}
+						isDeviceOffline={esp32Offline}
 					/>
 					<WaterTempCard
 						tempC={energyDevice.waterTempC}
 						tempOk={energyDevice.waterTempOk}
 						updatedAt={energyDevice.waterTempUpdatedAt}
+						isDeviceOffline={esp32Offline}
 					/>
 					<EnergyControllerCard
 						deviceId={energyDevice.id}

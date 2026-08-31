@@ -2,8 +2,8 @@ import { DataExportButton, DataImportDialog } from "@/components/DataImportExpor
 import { FcrCalculator } from "@/components/FcrCalculator";
 import { FeedLevelLogTable } from "@/components/FeedLevelLogTable";
 import { getFeedLevelLogs } from "@/lib/actions/growth";
-import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import {
 	Activity,
@@ -22,9 +22,7 @@ export default async function GrowthPage() {
 	const t = await getTranslations("dashboard.growth");
 	const tSch = await getTranslations("dashboard.schedule");
 	const tDates = await getTranslations("dates");
-	const pond = await prisma.pond.findFirst({
-		where: { ownerId: await getCurrentPondOwnerId() },
-	});
+	const pond = await getActivePond();
 
 	if (!pond) {
 		return (

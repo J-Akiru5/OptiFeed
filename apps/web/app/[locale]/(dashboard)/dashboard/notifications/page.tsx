@@ -1,5 +1,5 @@
 import { NotificationList } from "@/components/NotificationList";
-import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { getTranslations } from "next-intl/server";
 
@@ -12,9 +12,7 @@ export default async function NotificationsPage({
 }) {
 	const t = await getTranslations("dashboard.notifications");
 	const params = await searchParams;
-	const pond = await prisma.pond.findFirst({
-		where: { ownerId: await getCurrentPondOwnerId() },
-	});
+	const pond = await getActivePond();
 
 	if (!pond) {
 		return (

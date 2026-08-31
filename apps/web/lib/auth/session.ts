@@ -86,3 +86,14 @@ export async function requireRole(...roles: UserRole[]): Promise<void> {
 		redirect({ href: "/dashboard", locale });
 	}
 }
+
+/**
+ * Get all ponds owned by the current user.
+ */
+export async function getCurrentUserPonds() {
+	const ownerId = await getCurrentPondOwnerId();
+	return prisma.pond.findMany({
+		where: { ownerId },
+		orderBy: { createdAt: "asc" },
+	});
+}

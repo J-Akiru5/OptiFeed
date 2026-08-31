@@ -1,6 +1,7 @@
 "use server";
 
 import { parseQueryFilters } from "@/lib/actions/query-filters";
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 
 const PAGE_SIZE = 30;
@@ -23,6 +24,14 @@ export async function getFeedLevelLogs(params: {
 	cursor?: string | null;
 	query?: string;
 }): Promise<FeedLevelLogPage> {
+	const ownerId = await getCurrentPondOwnerId();
+
+	const device = await prisma.energyDevice.findFirst({
+		where: { id: params.deviceId, pond: { ownerId } },
+		select: { id: true },
+	});
+	if (!device) throw new Error("Device not found or access denied");
+
 	const filters = parseQueryFilters(params.query ?? "");
 	const rows = await prisma.feedLevelLog.findMany({
 		where: {

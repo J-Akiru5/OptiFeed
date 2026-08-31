@@ -1,16 +1,26 @@
+import { Link } from "@/i18n/routing";
 import { getPonds } from "@/lib/actions/admin";
-import { Cpu, Droplets } from "lucide-react";
+import { Cpu, Droplets, Plus } from "lucide-react";
 
 export default async function AdminPondsPage() {
 	const ponds = await getPonds();
 
 	return (
 		<div className="space-y-6">
-			<div>
-				<h1 className="text-2xl font-black text-[#0A3D62]">Pond Management</h1>
-				<p className="text-sm text-[#3D5568] mt-1">
-					{ponds.length} pond{ponds.length !== 1 ? "s" : ""} registered
-				</p>
+			<div className="flex items-center justify-between">
+				<div>
+					<h1 className="text-2xl font-black text-[#0A3D62]">Pond Management</h1>
+					<p className="text-sm text-[#3D5568] mt-1">
+						{ponds.length} pond{ponds.length !== 1 ? "s" : ""} registered
+					</p>
+				</div>
+				<Link
+					href="/admin/ponds/new"
+					className="inline-flex items-center gap-2 rounded-xl bg-[#E85A2A] px-4 py-2.5 text-sm font-black text-white hover:bg-[#d04a1f] transition-colors"
+				>
+					<Plus className="w-4 h-4" />
+					Add Pond
+				</Link>
 			</div>
 
 			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

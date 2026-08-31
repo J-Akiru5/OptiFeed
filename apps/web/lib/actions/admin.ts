@@ -127,6 +127,50 @@ export async function getPonds() {
 	});
 }
 
+export type CreatePondResult = { success: true; pondId: string } | { error: string };
+
+export async function createPond(data: {
+	name: string;
+	ownerFarmId: string;
+	feedingRatePct: number;
+	feedsPerDay: number;
+	scheduleStart: string;
+	scheduleEnd: string;
+}): Promise<CreatePondResult> {
+	await requireRole("ADMIN");
+
+	try {
+		const owner = await prisma.user.findUnique({
+			where: { farmId: data.ownerFarmId },
+		});
+		if (!owner) return { error: `User with farm ID "${data.ownerFarmId}" not found.` };
+
+		const [startHours, startMinutes] = data.scheduleStart.split(":").map(Number);
+		const [endHours, endMinutes] = data.scheduleEnd.split(":").map(Number);
+
+		const scheduleStart = new Date();
+		scheduleStart.setUTCHours(startHours, startMinutes, 0, 0);
+		const scheduleEnd = new Date();
+		scheduleEnd.setUTCHours(endHours, endMinutes, 0, 0);
+
+		const pond = await prisma.pond.create({
+			data: {
+				name: data.name,
+				ownerId: data.ownerFarmId,
+				feedingRatePct: data.feedingRatePct,
+				feedsPerDay: data.feedsPerDay,
+				scheduleStart,
+				scheduleEnd,
+			},
+		});
+
+		return { success: true, pondId: pond.id };
+	} catch (e) {
+		console.error("[admin] createPond error:", e);
+		return { error: "Failed to create pond." };
+	}
+}
+
 // ─── Device Management ───────────────────────────────────────────────────────
 
 export async function getDevices() {

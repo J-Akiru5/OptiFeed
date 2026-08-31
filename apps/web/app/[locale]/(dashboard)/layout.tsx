@@ -10,6 +10,7 @@ import { NotificationProvider } from "@/components/notification-provider";
 import { Sidebar } from "@/components/sidebar";
 import { Link } from "@/i18n/routing";
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 
 export default async function DashboardLayout({
@@ -19,22 +20,29 @@ export default async function DashboardLayout({
 }) {
 	const ownerId = await getCurrentPondOwnerId();
 
-	// Fetch demo pond and initial unread notification count
-	// Wrapped in try/catch — a Prisma error must never cause a layout crash (which Next.js renders as 404)
 	let pondId = "";
 	let initialUnreadCount = 0;
 	let hopperLevelPct = 0;
 	let esp32Status: "online" | "offline" | "missing" = "missing";
 	let pondName = "ILO-POND-01";
 	let lastSeenAtStr: string | null = null;
+	let ponds: { id: string; name: string }[] = [];
+	let activePondId = "";
 
 	try {
-		const pond = await prisma.pond.findFirst({
+		const allPonds = await prisma.pond.findMany({
 			where: { ownerId },
+			orderBy: { createdAt: "asc" },
 		});
+
+		ponds = allPonds.map((p) => ({ id: p.id, name: p.name }));
+
+		const selectedId = await getActivePondId();
+		const pond = allPonds.find((p) => p.id === selectedId) ?? allPonds[0];
 
 		if (pond) {
 			pondId = pond.id;
+			activePondId = pond.id;
 			pondName = pond.name;
 			initialUnreadCount = await prisma.notification.count({
 				where: { pondId: pond.id, read: false },
@@ -57,7 +65,6 @@ export default async function DashboardLayout({
 			}
 		}
 	} catch (err) {
-		// Log the error but allow the layout (and child pages) to render normally
 		console.error("[DashboardLayout] Prisma error:", err);
 	}
 
@@ -65,9 +72,7 @@ export default async function DashboardLayout({
 		<ChatWidgetProvider>
 			<div className="flex flex-col min-h-screen bg-[#F4F7F6]">
 				<NotificationProvider pondId={pondId} initialUnreadCount={initialUnreadCount}>
-					{/* Header — dark blue across all breakpoints */}
 					<header className="sticky top-0 z-30 w-full h-16 bg-[#0A3D62] px-4 md:px-8 flex items-center justify-between shadow-md shrink-0">
-						{/* Left: connectivity dot + wordmark */}
 						<div className="flex items-center gap-3">
 							<Link
 								href="/dashboard"
@@ -95,8 +100,9 @@ export default async function DashboardLayout({
 							<LiveClock />
 						</div>
 
-						{/* Right: Actions */}
 						<HeaderActions
+							ponds={ponds}
+							activePondId={activePondId}
 							pondName={pondName}
 							lastSeenAt={lastSeenAtStr}
 							esp32Status={esp32Status}

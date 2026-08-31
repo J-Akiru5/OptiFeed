@@ -1,5 +1,5 @@
 import { LogSampleForm } from "@/components/LogSampleForm";
-import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 import { getTranslations } from "next-intl/server";
@@ -8,9 +8,7 @@ export const revalidate = 0; // Ensure data is fresh
 
 export default async function LogSamplePage() {
 	const t = await getTranslations("dashboard.logSample");
-	const pond = await prisma.pond.findFirst({
-		where: { ownerId: await getCurrentPondOwnerId() },
-	});
+	const pond = await getActivePond();
 
 	if (!pond) {
 		return (

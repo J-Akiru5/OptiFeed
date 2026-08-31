@@ -1,5 +1,4 @@
-import { getCurrentPondOwnerId } from "@/lib/auth/session";
-import prisma from "@/lib/prisma";
+import { getActivePond } from "@/lib/pond-selection";
 import { createClient } from "@/lib/supabase/server";
 import { Bell, Shield, User } from "lucide-react";
 import { getTranslations } from "next-intl/server";
@@ -14,8 +13,7 @@ export default async function ProfileSettingsPage() {
 	const email = user?.email ?? "";
 	const displayName = email.split("@")[0] || "User";
 
-	const ownerId = await getCurrentPondOwnerId();
-	const pond = await prisma.pond.findFirst({ where: { ownerId }, select: { name: true } });
+	const pond = await getActivePond();
 	const pondName = pond?.name ?? "\u2014";
 
 	return (

@@ -1,6 +1,7 @@
 "use server";
 
 import { parseQueryFilters } from "@/lib/actions/query-filters";
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 
 const PAGE_SIZE = 50;
@@ -23,10 +24,18 @@ export async function getFeedEvents(params: {
 	cursor?: string | null;
 	query?: string;
 }): Promise<FeedEventPage> {
+	const ownerId = await getCurrentPondOwnerId();
+
+	const validDevices = await prisma.energyDevice.findMany({
+		where: { id: { in: params.deviceIds }, pond: { ownerId } },
+		select: { id: true },
+	});
+	const validIds = validDevices.map((d) => d.id);
+
 	const filters = parseQueryFilters(params.query ?? "");
 	const rows = await prisma.feedEvent.findMany({
 		where: {
-			deviceId: { in: params.deviceIds },
+			deviceId: { in: validIds },
 			eventType: "feed_dispensed",
 			...(filters.source ? { source: filters.source } : {}),
 			...(filters.recordedBetween ? { receivedAt: filters.recordedBetween } : {}),

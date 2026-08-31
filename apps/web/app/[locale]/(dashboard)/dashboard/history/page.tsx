@@ -1,7 +1,7 @@
 import { DataExportButton, DataImportDialog } from "@/components/DataImportExport";
 import { FeedEventHistoryTable } from "@/components/FeedEventHistoryTable";
 import { getFeedEvents } from "@/lib/actions/history";
-import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { CalendarDays, CheckCircle2, Clock, Package } from "lucide-react";
 import { getTranslations } from "next-intl/server";
@@ -17,9 +17,7 @@ const SOURCE_LABELS: Record<string, string> = {
 export default async function HistoryPage() {
 	const t = await getTranslations("dashboard.history");
 	const tSch = await getTranslations("dashboard.schedule");
-	const pond = await prisma.pond.findFirst({
-		where: { ownerId: await getCurrentPondOwnerId() },
-	});
+	const pond = await getActivePond();
 
 	if (!pond) {
 		return (

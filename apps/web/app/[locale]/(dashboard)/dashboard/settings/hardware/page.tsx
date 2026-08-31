@@ -1,22 +1,17 @@
 import { DurationCalibrationForm } from "@/components/DurationCalibrationForm";
 import { HopperCalibrationForm } from "@/components/HopperCalibrationForm";
 import { TemperatureCalibrationForm } from "@/components/TemperatureCalibrationForm";
-import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { Cpu, RefreshCw, Ruler, Settings, Thermometer, Timer, Wifi } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export default async function HardwareSettingsPage() {
 	const t = await getTranslations("dashboard.appSettings");
-	const ownerId = await getCurrentPondOwnerId();
-
 	let device = null;
 	let energyDevice = null;
 	try {
-		const pond = await prisma.pond.findFirst({
-			where: { ownerId },
-			include: { devices: true },
-		});
+		const pond = await getActivePond({ devices: true });
 		if (pond && pond.devices.length > 0) {
 			device = pond.devices[0];
 		}

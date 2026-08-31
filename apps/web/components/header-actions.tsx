@@ -4,6 +4,7 @@ import { clearChatHistory } from "@/components/chat/chat-storage";
 import { useChatWidget } from "@/components/chat/chat-widget-provider";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { NotificationBell } from "@/components/notification-bell";
+import { PondSelector } from "@/components/pond-selector";
 import { useRouter } from "@/i18n/routing";
 import { createClient } from "@/lib/supabase/client";
 import { Globe, LogOut, Shield, X } from "lucide-react";
@@ -11,6 +12,8 @@ import { useLocale } from "next-intl";
 import { useEffect, useState } from "react";
 
 interface HeaderActionsProps {
+	ponds?: { id: string; name: string }[];
+	activePondId?: string;
 	pondName?: string;
 	lastSeenAt?: string | null;
 	esp32Status?: "online" | "offline" | "missing";
@@ -30,6 +33,8 @@ function formatRelativeTime(dateStr: string | null): string {
 }
 
 export function HeaderActions({
+	ponds = [],
+	activePondId = "",
 	pondName = "ILO-POND-01",
 	lastSeenAt = null,
 	esp32Status = "missing",
@@ -46,16 +51,11 @@ export function HeaderActions({
 		supabase.auth.getUser().then(({ data }) => {
 			const email = data.user?.email ?? null;
 			setUserEmail(email);
-			if (email) {
-				const farmId = email.split("@")[0]?.toLowerCase();
-				if (farmId) {
-					// Fetch user role from the DB via a lightweight API call
-					fetch(`/api/user-role?farmId=${farmId}`)
-						.then((r) => r.json())
-						.then((d) => setUserRole(d.role))
-						.catch(() => {});
-				}
-			}
+			// Session-based auth — the API route derives ownerId from the session
+			fetch("/api/user-role")
+				.then((r) => r.json())
+				.then((d) => setUserRole(d.role))
+				.catch(() => {});
 		});
 	}, []);
 
@@ -71,7 +71,11 @@ export function HeaderActions({
 	return (
 		<div className="flex items-center gap-2 md:gap-3 relative">
 			<div className="text-right hidden sm:block">
-				<p className="text-xs font-bold text-white uppercase">{pondName}</p>
+				{ponds.length > 1 ? (
+					<PondSelector ponds={ponds} activePondId={activePondId} />
+				) : (
+					<p className="text-xs font-bold text-white uppercase">{pondName}</p>
+				)}
 				<p className="text-[10px] text-white/60 uppercase tracking-wider" suppressHydrationWarning>
 					LAST SYNCED: {formatRelativeTime(lastSeenAt)}
 				</p>
@@ -130,7 +134,7 @@ export function HeaderActions({
 								</p>
 								<p className="text-xs font-bold text-[#3D5568]">Pond Operator</p>
 								<p className="mt-0.5 font-mono text-[11px] font-bold text-[#3D5568] uppercase">
-									{pondName}
+									{ponds.find((p) => p.id === activePondId)?.name ?? pondName}
 								</p>
 							</div>
 						</div>

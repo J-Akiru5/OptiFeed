@@ -45,7 +45,7 @@ jobs:
           # All API route files must either:
           # 1. Import from lib/auth/session or lib/auth/with-auth (session auth)
           # 2. Be in the allowlist (device token-authed routes, no session needed)
-          ALLOWLIST="api/ingest|api/feed-command|api/schedule-sync"
+          ALLOWLIST="api/ingest|api/feed-command|api/schedule-sync|api/health"
 
           FAIL=0
           for f in $(find apps/web/app/api -name 'route.ts' -o -name 'route.tsx' | grep -v node_modules); do

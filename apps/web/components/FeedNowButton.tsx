@@ -13,6 +13,7 @@ interface FeedNowButtonProps {
 	deviceName?: string;
 	connectionStatus?: string;
 	hopperLevelPct?: number;
+	"data-onboard"?: string;
 }
 
 export function FeedNowButton({
@@ -22,6 +23,7 @@ export function FeedNowButton({
 	deviceName = "ILO-POND-01",
 	connectionStatus = "online",
 	hopperLevelPct = 100,
+	"data-onboard": dataOnboard,
 }: FeedNowButtonProps) {
 	const t = useTranslations("dashboard.feedNowModal");
 	const tBtn = useTranslations("button");
@@ -58,6 +60,7 @@ export function FeedNowButton({
 				onClick={() => setShowConfirm(true)}
 				disabled={dispensing}
 				className="bg-[#E85A2A] text-white font-black text-sm md:text-base px-6 py-3 rounded-2xl hover:bg-[#d04a1f] shadow-lg hover:shadow-xl transition-all transform active:scale-95 flex items-center gap-2 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
+				data-onboard={dataOnboard}
 			>
 				<Activity className={`w-4 h-4 ${dispensing ? "animate-spin" : "animate-pulse"}`} />
 				{dispensing ? t("awaitingDevice") : label}

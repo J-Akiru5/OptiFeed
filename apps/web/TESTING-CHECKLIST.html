@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OptiFeed Manual Testing Checklist</title>
+<style>
+  :root {
+    --bg: #f4f7f6;
+    --card: #ffffff;
+    --text: #0a3d62;
+    --text-secondary: #3d5568;
+    --accent: #e85a2a;
+    --success: #1e7b34;
+    --border: #e5e7eb;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .dark {
+    --bg: #0f1419;
+    --card: #1a2332;
+    --text: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --accent: #ff8a5c;
+    --success: #4ade80;
+    --border: #334155;
+    --shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 20px;
+    transition: background 0.2s, color 0.2s;
+  }
+  .container { max-width: 900px; margin: 0 auto; }
+
+  header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+  }
+  header h1 { font-size: 1.5rem; font-weight: 800; }
+  header h1 span { color: var(--accent); }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .header-actions button {
+    padding: 8px 16px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--card); color: var(--text); cursor: pointer;
+    font-weight: 600; font-size: 0.85rem; transition: all 0.15s;
+  }
+  .header-actions button:hover { border-color: var(--accent); }
+  .reset-btn { color: #dc3545 !important; border-color: #dc3545 !important; }
+  .reset-btn:hover { background: #dc3545 !important; color: white !important; }
+
+  .progress-bar-container {
+    background: var(--card); border-radius: 14px; padding: 16px 20px;
+    margin-bottom: 24px; border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+  .progress-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+  .progress-header span { font-weight: 700; font-size: 0.9rem; }
+  .progress-track {
+    height: 10px; background: var(--border); border-radius: 99px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; background: linear-gradient(90deg, var(--success), #28a745);
+    border-radius: 99px; transition: width 0.4s ease;
+  }
+
+  .section {
+    background: var(--card); border-radius: 16px; margin-bottom: 16px;
+    border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden;
+  }
+  .section-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 20px; cursor: pointer; user-select: none;
+    transition: background 0.15s;
+  }
+  .section-header:hover { background: rgba(0,0,0,0.02); }
+  .dark .section-header:hover { background: rgba(255,255,255,0.03); }
+  .section-title { font-weight: 800; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+  .section-badge {
+    font-size: 0.7rem; padding: 2px 8px; border-radius: 99px;
+    background: var(--accent); color: white; font-weight: 700;
+  }
+  .section-badge.done { background: var(--success); }
+  .chevron { transition: transform 0.2s; font-size: 0.8rem; color: var(--text-secondary); }
+  .section.open .chevron { transform: rotate(90deg); }
+  .section-body { display: none; padding: 0 20px 16px; }
+  .section.open .section-body { display: block; }
+
+  .checklist { list-style: none; }
+  .checklist li {
+    display: flex; gap: 12px; padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: flex-start;
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .checklist input[type="checkbox"] {
+    width: 20px; height: 20px; margin-top: 2px; accent-color: var(--success);
+    cursor: pointer; flex-shrink: 0;
+  }
+  .check-content { flex: 1; }
+  .check-title { font-weight: 700; font-size: 0.9rem; }
+  .check-desc { font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px; }
+  .check-steps {
+    font-size: 0.78rem; color: var(--text-secondary); margin-top: 4px;
+    padding: 8px 12px; background: rgba(0,0,0,0.03); border-radius: 8px;
+    border-left: 3px solid var(--accent);
+  }
+  .dark .check-steps { background: rgba(255,255,255,0.04); }
+  .checklist li.done .check-title { text-decoration: line-through; opacity: 0.5; }
+  .checklist li.done .check-desc,
+  .checklist li.done .check-steps { opacity: 0.4; }
+
+  .code { font-family: 'SF Mono', 'Fira Code', monospace; background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; font-size: 0.8rem; }
+  .dark .code { background: rgba(255,255,255,0.1); }
+
+  footer {
+    text-align: center; padding: 20px; font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Opti<span>Feed</span> Testing Checklist</h1>
+    <div class="header-actions">
+      <button onclick="toggleTheme()" id="themeBtn">Dark Mode</button>
+      <button class="reset-btn" onclick="resetAll()">Reset All</button>
+    </div>
+  </header>
+
+  <div class="progress-bar-container">
+    <div class="progress-header">
+      <span>Progress</span>
+      <span id="progressText">0 / 0</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div id="sections"></div>
+
+  <footer>OptiFeed Capstone Project &mdash; Manual Testing Checklist</footer>
+</div>
+
+<script>
+const SECTIONS = [
+  {
+    title: "1. Environment & Rate Limiting",
+    items: [
+      { title: ".env.example has Upstash vars", desc: "Check that DIRECT_URL, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN are present", steps: "Open apps/web/.env.example in a text editor. Verify all three variables exist." },
+      { title: "Rate limiting on /api/feed-command", desc: "API returns 429 after 20 requests per 60s per device", steps: "Open browser DevTools → Network tab. Send 21+ rapid requests to /api/feed-command. Confirm the 21st request returns HTTP 429." },
+      { title: "Rate limiting on /api/schedule-sync", desc: "API returns 429 after 20 requests per 60s per device", steps: "Same test as above but for /api/schedule-sync endpoint. Confirm 429 after threshold." }
+    ]
+  },
+  {
+    title: "2. Firmware (ESP32)",
+    items: [
+      { title: "WiFi credential storage via Preferences", desc: "Credentials persist in NVS across reboots", steps: "Flash firmware to ESP32. Enter WiFi credentials on first boot. Reboot ESP32. Confirm it reconnects without re-entering credentials." },
+      { title: "Exponential backoff on WiFi failure", desc: "Retry intervals increase 10s→60s, deep sleep after 5min", steps: "Disconnect WiFi. Watch Serial Monitor. Confirm retry intervals: 10s → 20s → 40s → 60s. After 5 minutes, confirm deep sleep." },
+      { title: "Device health self-reporting", desc: "Payload includes free_heap, uptime_ms, reboot_count, wifi_rssi", steps: "Send a health report via MQTT/WebSocket. Inspect the payload JSON for all four fields." },
+      { title: "Queue supports 50 commands", desc: "No crash when queue is full", steps: "Queue 50+ commands. Confirm no crash. Oldest commands should be dropped or processed." }
+    ]
+  },
+  {
+    title: "3. Unit Tests",
+    items: [
+      { title: "All 80 tests pass", desc: "npx vitest run shows 80 passed, 0 failed", steps: "Run: cd apps/web && npx vitest run. Confirm output shows '80 passed' in green." },
+      { title: "Session tests (12)", desc: "lib/__tests__/session.test.ts — session creation, validation, expiry", steps: "Check vitest output for 'session.test.ts — 12 tests' with green checkmark." },
+      { title: "Schedule resolver tests (6)", desc: "lib/__tests__/resolve-current.test.ts — pending/applied priority", steps: "Check vitest output for 'resolve-current.test.ts — 6 tests' with green checkmark." },
+      { title: "Server action tests (7)", desc: "lib/__tests__/server-actions.test.ts — feed, schedule, settings", steps: "Check vitest output for 'server-actions.test.ts — 7 tests' with green checkmark." },
+      { title: "Rate limit tests (6)", desc: "lib/__tests__/rate-limit.test.ts — sliding window logic", steps: "Check vitest output for 'rate-limit.test.ts — 6 tests' with green checkmark." },
+      { title: "E2E tests exist", desc: "e2e/dashboard-actions.spec.ts covers schedule, feed now, admin", steps: "Verify file exists at apps/web/e2e/dashboard-actions.spec.ts." }
+    ]
+  },
+  {
+    title: "4. Sentry Error Tracking",
+    items: [
+      { title: "Sentry config files exist", desc: "sentry.client.config.ts, sentry.server.config.ts, sentry.edge.config.ts", steps: "Run: ls apps/web/sentry.*.config.ts. Confirm all three files exist." },
+      { title: "next.config.ts wrapped with Sentry", desc: "withSentryConfig wraps the Next.js config", steps: "Open apps/web/next.config.ts. Confirm it imports and uses withSentryConfig." },
+      { title: "Sentry DSN in .env", desc: "SENTRY_AUTH_TOKEN, SENTRY_ORG, SENTRY_PROJECT are set", steps: "Check .env or .env.local for SENTRY_ variables. Without them, Sentry will be in disabled mode." }
+    ]
+  },
+  {
+    title: "5. Vercel Analytics & SEO",
+    items: [
+      { title: "Vercel Analytics loads", desc: "Network tab shows /_vercel/insights/view requests", steps: "Open dashboard. Open DevTools → Network. Filter by 'insights'. Confirm requests appear." },
+      { title: "Speed Insights loads", desc: "Network tab shows /_vercel/speed-insights requests", steps: "Same as above, filter by 'speed-insights'." },
+      { title: "Sitemap exists", desc: "/sitemap.xml returns valid XML", steps: "Navigate to http://localhost:3000/sitemap.xml. Confirm XML with URLs." },
+      { title: "Robots.txt exists", desc: "/robots.txt has crawl rules", steps: "Navigate to http://localhost:3000/robots.txt. Confirm content." },
+      { title: "SEO meta tags present", desc: "og:title, twitter:card, description in <head>", steps: "Right-click page → View Page Source. Search for 'og:title', 'twitter:card', 'description'." },
+      { title: "next/image used for hero", desc: "No ImageWithFallback — uses next/image with priority", steps: "Inspect the hero image on dashboard. Confirm it's a <img> from next/image, not a custom component." }
+    ]
+  },
+  {
+    title: "6. Notification Preferences",
+    items: [
+      { title: "Toggle UI visible", desc: "Three toggles on Settings → Profile page", steps: "Navigate to Dashboard → Settings → Profile. Scroll to 'Notifications' section. Confirm three toggle switches." },
+      { title: "Toggle persists to DB", desc: "Toggle OFF, refresh, stays OFF", steps: "Toggle 'Missed Feeding Alerts' OFF. Refresh page. Confirm toggle is still OFF." },
+      { title: "Server action works", desc: "Network tab shows successful POST on toggle", steps: "Toggle any switch. Open DevTools → Network. Confirm a POST request returns 200." },
+      { title: "Success toast appears", desc: "Green toast: 'Notification preferences saved'", steps: "Toggle a switch. Confirm green toast notification in top-right." },
+      { title: "notificationPrefs column exists", desc: "Prisma schema has Json field on Pond model", steps: "Run: npx prisma db pull (or check schema.prisma). Confirm 'notificationPrefs Json' on Pond model." }
+    ]
+  },
+  {
+    title: "7. Dark Mode",
+    items: [
+      { title: "Toggle button in header", desc: "Moon/Sun icon in dashboard header", steps: "Look at the dashboard header. Confirm a moon (🌙) icon button exists near the top-right." },
+      { title: "Switches to dark theme", desc: "Background, cards, text all change", steps: "Click the moon icon. Confirm: page bg turns dark gray, cards turn dark, text becomes light." },
+      { title: "Persists across refresh", desc: "localStorage stores theme preference", steps: "Toggle dark mode. Refresh page. Confirm it stays dark. Check DevTools → Application → localStorage → 'optifeed:theme' = 'dark'." },
+      { title: "Dashboard hero tile is dark", desc: "Main hero card has dark background", steps: "In dark mode, confirm the large 'Next Feeding' tile has a dark background (#1a2332 or similar)." },
+      { title: "FCR tile is dark", desc: "The FCR tile (dark blue) adjusts", steps: "Confirm the FCR tile (top-right of grid) has adjusted colors for dark mode." },
+      { title: "Small tiles are dark", desc: "Weighing, Biomass, Population tiles", steps: "Confirm the three small tiles (Weighing Due, Last Biomass, Population) have dark backgrounds." },
+      { title: "Profile dropdown is dark", desc: "Click avatar → dropdown is dark themed", steps: "Click the avatar button. Confirm the dropdown menu has dark background, light text." }
+    ]
+  },
+  {
+    title: "8. Loading Skeletons",
+    items: [
+      { title: "Dashboard skeleton visible", desc: "Gray pulsing placeholders on /dashboard", steps: "Navigate to /dashboard. Before content loads (or during slow load), confirm gray pulsing skeleton blocks appear." },
+      { title: "Settings skeleton visible", desc: "Skeleton on /dashboard/settings", steps: "Navigate to /dashboard/settings. Confirm skeleton placeholders appear while loading." },
+      { title: "Profile skeleton visible", desc: "Skeleton on /dashboard/settings/profile", steps: "Navigate to /dashboard/settings/profile. Confirm skeleton placeholders." }
+    ]
+  },
+  {
+    title: "9. PDF Export",
+    items: [
+      { title: "Export PDF button visible", desc: "Next to Feed Now button on dashboard", steps: "On the dashboard, look next to the orange 'Feed Now' button. Confirm an 'Export PDF' button with a download icon." },
+      { title: "PDF downloads successfully", desc: "Click button → .pdf file downloads", steps: "Click 'Export PDF'. Confirm a file downloads with .pdf extension. Check your Downloads folder." },
+      { title: "PDF contains correct sections", desc: "Pond summary, biomass, FCR, feedings", steps: "Open the downloaded PDF. Confirm sections: 'Pond Summary' table, 'Biomass Data', 'FCR History', 'Recent Feedings'." },
+      { title: "Loading state shows", desc: "Button text changes to 'Generating...'", steps: "Click 'Export PDF'. Confirm button text changes to 'Generating...' and is disabled while loading." }
+    ]
+  },
+  {
+    title: "10. Onboarding (driver.js)",
+    items: [
+      { title: "Tour auto-starts on first visit", desc: "Guided tour appears after 1.5s on first load", steps: "Clear localStorage (DevTools → Application → localStorage → clear). Refresh dashboard. Wait 1.5s. Confirm a guided tour popup appears." },
+      { title: "Tour has 5 steps", desc: "Welcome → Next Feeding → Feed Now → FCR → Settings", steps: "Click through the tour. Confirm 5 distinct steps with different highlighted elements." },
+      { title: "Tour dismiss persists", desc: "Tour does NOT reappear after completing/dismissing", steps: "Complete or close the tour. Refresh page. Confirm the tour does NOT auto-start again." },
+      { title: "Re-trigger via help button", desc: "Click '?' button in bottom-right → tour restarts", steps: "Look for a circular '?' button in the bottom-right corner. Click it. Confirm the tour restarts." },
+      { title: "Step highlights correct elements", desc: "Each step highlights its target element", steps: "During the tour, confirm: Step 1 highlights the welcome area, Step 2 highlights the hero tile, Step 3 highlights Feed Now, Step 4 highlights FCR, Step 5 highlights Settings in sidebar." }
+    ]
+  },
+  {
+    title: "11. Quick Smoke Test",
+    items: [
+      { title: "TypeScript compiles clean", desc: "npx tsc --noEmit returns no errors", steps: "Run: cd apps/web && npx tsc --noEmit. Confirm no output (no errors)." },
+      { title: "Dev server starts", desc: "pnpm dev runs without errors", steps: "Run: cd apps/web && pnpm dev. Confirm server starts and http://localhost:3000 loads." },
+      { title: "Dashboard loads with data", desc: "No errors, cards show data", steps: "Open http://localhost:3000/en/dashboard. Confirm all tiles render with data (not 'No Data' error)." },
+      { title: "All pages navigate", desc: "Click every sidebar link — no crashes", steps: "Click each item in the sidebar: Dashboard, Schedule, Log Sample, History, Growth, Audit, Settings. Confirm no errors or blank pages." }
+    ]
+  }
+];
+
+const STORAGE_KEY = "optifeed:testing-checklist";
+let checked = {};
+
+function loadState() {
+  try { checked = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { checked = {}; }
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(checked));
+}
+
+function getItemId(sectionIdx, itemIdx) {
+  return `s${sectionIdx}-i${itemIdx}`;
+}
+
+function updateProgress() {
+  let total = 0, done = 0;
+  SECTIONS.forEach((sec, si) => {
+    sec.items.forEach((_, ii) => {
+      total++;
+      if (checked[getItemId(si, ii)]) done++;
+    });
+  });
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  document.getElementById("progressText").textContent = `${done} / ${total} (${pct}%)`;
+  document.getElementById("progressFill").style.width = pct + "%";
+
+  // Update section badges
+  SECTIONS.forEach((sec, si) => {
+    const badge = document.getElementById(`badge-${si}`);
+    if (!badge) return;
+    let secDone = 0;
+    sec.items.forEach((_, ii) => { if (checked[getItemId(si, ii)]) secDone++; });
+    badge.textContent = `${secDone}/${sec.items.length}`;
+    badge.className = "section-badge" + (secDone === sec.items.length ? " done" : "");
+  });
+}
+
+function toggleItem(si, ii, cb) {
+  const id = getItemId(si, ii);
+  if (cb.checked) { checked[id] = true; } else { delete checked[id]; }
+  saveState();
+  const li = cb.closest("li");
+  li.classList.toggle("done", cb.checked);
+  updateProgress();
+}
+
+function toggleSection(si) {
+  const sec = document.getElementById(`section-${si}`);
+  sec.classList.toggle("open");
+}
+
+function toggleTheme() {
+  document.documentElement.classList.toggle("dark");
+  const isDark = document.documentElement.classList.contains("dark");
+  localStorage.setItem("optifeed:testing-theme", isDark ? "dark" : "light");
+  document.getElementById("themeBtn").textContent = isDark ? "Light Mode" : "Dark Mode";
+}
+
+function resetAll() {
+  if (!confirm("Reset all checklist progress? This cannot be undone.")) return;
+  checked = {};
+  saveState();
+  document.querySelectorAll('.checklist input[type="checkbox"]').forEach(cb => {
+    cb.checked = false;
+    cb.closest("li").classList.remove("done");
+  });
+  updateProgress();
+}
+
+function render() {
+  loadState();
+  const container = document.getElementById("sections");
+  let html = "";
+
+  SECTIONS.forEach((sec, si) => {
+    let secDone = 0;
+    sec.items.forEach((_, ii) => { if (checked[getItemId(si, ii)]) secDone++; });
+    const isOpen = secDone < sec.items.length;
+
+    html += `<div class="section${isOpen ? " open" : ""}" id="section-${si}">`;
+    html += `<div class="section-header" onclick="toggleSection(${si})">`;
+    html += `<div class="section-title">${sec.title} <span class="section-badge${secDone === sec.items.length ? " done" : ""}" id="badge-${si}">${secDone}/${sec.items.length}</span></div>`;
+    html += `<span class="chevron">&#9654;</span>`;
+    html += `</div>`;
+    html += `<div class="section-body"><ul class="checklist">`;
+
+    sec.items.forEach((item, ii) => {
+      const id = getItemId(si, ii);
+      const isChecked = !!checked[id];
+      html += `<li class="${isChecked ? "done" : ""}">`;
+      html += `<input type="checkbox" ${isChecked ? "checked" : ""} onchange="toggleItem(${si},${ii},this)">`;
+      html += `<div class="check-content">`;
+      html += `<div class="check-title">${item.title}</div>`;
+      html += `<div class="check-desc">${item.desc}</div>`;
+      html += `<div class="check-steps">${item.steps}</div>`;
+      html += `</div></li>`;
+    });
+
+    html += `</ul></div></div>`;
+  });
+
+  container.innerHTML = html;
+  updateProgress();
+}
+
+// Init theme
+(function() {
+  const saved = localStorage.getItem("optifeed:testing-theme");
+  if (saved === "dark" || (!saved && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+    document.documentElement.classList.add("dark");
+    setTimeout(() => { document.getElementById("themeBtn").textContent = "Light Mode"; }, 0);
+  }
+})();
+
+render();
+</script>
+</body>
+</html>

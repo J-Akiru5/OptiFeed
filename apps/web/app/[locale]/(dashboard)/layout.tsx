@@ -7,6 +7,7 @@ import { ChatWidgetProvider } from "@/components/chat/chat-widget-provider";
 import { DashboardContentShell } from "@/components/chat/dashboard-content-shell";
 import { HeaderActions } from "@/components/header-actions";
 import { NotificationProvider } from "@/components/notification-provider";
+import { OnboardingProvider } from "@/components/onboarding-provider";
 import { Sidebar } from "@/components/sidebar";
 import { Link } from "@/i18n/routing";
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
@@ -70,57 +71,59 @@ export default async function DashboardLayout({
 
 	return (
 		<ChatWidgetProvider>
-			<div className="flex flex-col min-h-screen bg-[#F4F7F6]">
-				<NotificationProvider pondId={pondId} initialUnreadCount={initialUnreadCount}>
-					<header className="sticky top-0 z-30 w-full h-16 bg-[#0A3D62] px-4 md:px-8 flex items-center justify-between shadow-md shrink-0">
-						<div className="flex items-center gap-3">
-							<Link
-								href="/dashboard"
-								className="flex items-center justify-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-lg"
-							>
-								<OptiFeedLogo size={32} />
-							</Link>
-							<span className="font-extrabold text-lg md:text-xl tracking-tight text-white">
-								Opti<span className="text-[#E85A2A]">Feed</span>
-							</span>
-							{esp32Status !== "missing" && (
-								<div className="hidden md:flex items-center gap-2 border-l border-white/20 pl-3">
-									<span
-										className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] transition-all duration-500 ${
-											esp32Status === "online"
-												? "bg-[#1E7B34] text-[#1E7B34]"
-												: "bg-[#C42B3A] text-[#C42B3A]"
-										}`}
-									/>
-									<span className="text-[10px] text-white/50 uppercase tracking-wider">
-										ESP32 {esp32Status}
-									</span>
-								</div>
-							)}
-							<LiveClock />
-						</div>
+			<OnboardingProvider>
+				<div className="flex flex-col min-h-screen bg-[#F4F7F6] dark:bg-gray-950">
+					<NotificationProvider pondId={pondId} initialUnreadCount={initialUnreadCount}>
+						<header className="sticky top-0 z-30 w-full h-16 bg-[#0A3D62] px-4 md:px-8 flex items-center justify-between shadow-md shrink-0">
+							<div className="flex items-center gap-3">
+								<Link
+									href="/dashboard"
+									className="flex items-center justify-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-lg"
+								>
+									<OptiFeedLogo size={32} />
+								</Link>
+								<span className="font-extrabold text-lg md:text-xl tracking-tight text-white">
+									Opti<span className="text-[#E85A2A]">Feed</span>
+								</span>
+								{esp32Status !== "missing" && (
+									<div className="hidden md:flex items-center gap-2 border-l border-white/20 pl-3">
+										<span
+											className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] transition-all duration-500 ${
+												esp32Status === "online"
+													? "bg-[#1E7B34] text-[#1E7B34]"
+													: "bg-[#C42B3A] text-[#C42B3A]"
+											}`}
+										/>
+										<span className="text-[10px] text-white/50 uppercase tracking-wider">
+											ESP32 {esp32Status}
+										</span>
+									</div>
+								)}
+								<LiveClock />
+							</div>
 
-						<HeaderActions
-							ponds={ponds}
-							activePondId={activePondId}
-							pondName={pondName}
-							lastSeenAt={lastSeenAtStr}
-							esp32Status={esp32Status}
-						/>
-					</header>
+							<HeaderActions
+								ponds={ponds}
+								activePondId={activePondId}
+								pondName={pondName}
+								lastSeenAt={lastSeenAtStr}
+								esp32Status={esp32Status}
+							/>
+						</header>
 
-					<DashboardContentShell>
-						<Sidebar hopperLevelPct={hopperLevelPct} />
-						<main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 relative z-10">
-							<BackToDashboard />
-							{children}
-						</main>
-					</DashboardContentShell>
-				</NotificationProvider>
+						<DashboardContentShell>
+							<Sidebar hopperLevelPct={hopperLevelPct} />
+							<main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 relative z-10">
+								<BackToDashboard />
+								{children}
+							</main>
+						</DashboardContentShell>
+					</NotificationProvider>
 
-				<ChatWidget />
-				<BottomNav />
-			</div>
+					<ChatWidget />
+					<BottomNav />
+				</div>
+			</OnboardingProvider>
 		</ChatWidgetProvider>
 	);
 }

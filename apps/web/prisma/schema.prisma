@@ -45,6 +45,7 @@ model Pond {
   sampleIntervalDays Int      @default(14)
   scheduleStart      DateTime @db.Time()
   scheduleEnd        DateTime @db.Time()
+  notificationPrefs  Json     @default("{\"missedFeeding\":true,\"deviceOffline\":true,\"hopperLow\":true}")
   createdAt          DateTime @default(now())
 
   owner             User?            @relation(fields: [ownerId], references: [farmId])

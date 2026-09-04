@@ -28,6 +28,12 @@ export function checkApiRateLimit(ownerId: string) {
 	return checkRateLimit(`rl:api:${ownerId}`, 30, 60_000);
 }
 
+// Device poll rate limit: 20 requests per 60 seconds per device.
+// ESP32 polls every 5s (12 req/min nominal); 20 gives headroom for retries.
+export function checkDeviceRateLimit(deviceId: string) {
+	return checkRateLimit(`rl:device:${deviceId}`, 20, 60_000);
+}
+
 /**
  * Extract client IP from Vercel-proxied headers.
  */

@@ -3,6 +3,7 @@ import { FeedLevelCard } from "@/components/FeedLevelCard";
 import { FeedNowButton } from "@/components/FeedNowButton";
 import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
 import { WaterTempCard } from "@/components/WaterTempCard";
+import { ExportPdfButton } from "@/components/export-pdf-button";
 import { Link } from "@/i18n/routing";
 import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
@@ -33,7 +34,7 @@ export default async function DashboardHomePage() {
 	if (!pond || !pond.devices.length) {
 		return (
 			<div className="flex h-[50vh] items-center justify-center">
-				<p className="text-lg text-gray-500">{t("noData")}</p>
+				<p className="text-lg text-gray-500 dark:text-gray-400">{t("noData")}</p>
 			</div>
 		);
 	}
@@ -157,7 +158,7 @@ export default async function DashboardHomePage() {
 	}
 
 	return (
-		<div className="space-y-6 pb-20 animate-in fade-in duration-500">
+		<div className="space-y-6 pb-20 animate-in fade-in duration-500" data-onboard="welcome">
 			{criticalAlert && (
 				<section className="sticky top-16 z-20 -mx-4 -mt-4 rounded-none bg-[#C42B3A] px-4 py-3 text-white shadow-lg md:mx-0 md:mt-0 md:rounded-[24px] md:px-5">
 					<div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -187,10 +188,10 @@ export default async function DashboardHomePage() {
 			{/* Welcome row */}
 			<div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
 				<div>
-					<h1 className="text-2xl md:text-3xl font-black text-[#0A3D62] tracking-tight flex items-center gap-2">
-						Welcome Back! <Sparkles className="w-6 h-6 text-[#E85A2A]" />
+					<h1 className="text-2xl md:text-3xl font-black text-[#0A3D62] dark:text-[#5b9bd5] tracking-tight flex items-center gap-2">
+						Welcome Back! <Sparkles className="w-6 h-6 text-[#E85A2A] dark:text-[#ff8a5c]" />
 					</h1>
-					<p className="text-[#3D5568] text-xs md:text-sm mt-0.5">
+					<p className="text-[#3D5568] dark:text-gray-400 text-xs md:text-sm mt-0.5">
 						Monitoring <strong>{pond.name}</strong> remotely from <strong>Western Visayas</strong>{" "}
 						node.
 					</p>
@@ -203,18 +204,23 @@ export default async function DashboardHomePage() {
 					deviceName={energyDevice?.label ?? device.name}
 					connectionStatus={esp32Offline ? "offline" : "online"}
 					hopperLevelPct={energyDevice?.feedLevelPercent ?? 0}
+					data-onboard="feed-now"
 				/>
+				<ExportPdfButton />
 			</div>
 
 			{/* Bento Grid */}
 			<div className="grid grid-cols-1 md:grid-cols-12 gap-6">
 				{/* Tile 1: Hero — next feeding time (8 cols) */}
-				<div className="col-span-1 md:col-span-8 bg-white rounded-[32px] p-6 md:p-8 shadow-md border border-[#0A3D62]/5 flex flex-col justify-between min-h-[300px] relative overflow-hidden">
-					<div className="absolute top-0 right-0 w-32 h-32 bg-[#0A3D62]/5 rounded-full translate-x-12 -translate-y-12" />
+				<div
+					className="col-span-1 md:col-span-8 bg-white dark:bg-gray-900 rounded-[32px] p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50 flex flex-col justify-between min-h-[300px] relative overflow-hidden"
+					data-onboard="next-feeding"
+				>
+					<div className="absolute top-0 right-0 w-32 h-32 bg-[#0A3D62]/5 dark:bg-[#5b9bd5]/10 rounded-full translate-x-12 -translate-y-12" />
 
 					<div>
 						<div className="flex items-center gap-2.5">
-							<span className="text-[#3D5568] text-xs font-bold uppercase tracking-[0.2em]">
+							<span className="text-[#3D5568] dark:text-gray-400 text-xs font-bold uppercase tracking-[0.2em]">
 								{t("nextFeedingLabel")}
 							</span>
 							<span
@@ -224,7 +230,7 @@ export default async function DashboardHomePage() {
 							/>
 						</div>
 
-						<div className="text-6xl md:text-8xl font-black text-[#0A3D62] tracking-tighter my-4">
+						<div className="text-6xl md:text-8xl font-black text-[#0A3D62] dark:text-[#5b9bd5] tracking-tighter my-4">
 							{isPaused ? "—:—" : nextFeedingTimeStr}
 						</div>
 
@@ -232,13 +238,13 @@ export default async function DashboardHomePage() {
 							<span
 								className={`px-4 py-1.5 rounded-full font-bold text-xs border ${
 									isPaused
-										? "bg-red-50 border-red-200 text-[#C42B3A]"
-										: "bg-[#1E7B34]/10 border-[#1E7B34]/20 text-[#1E7B34]"
+										? "bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-[#C42B3A] dark:text-red-400"
+										: "bg-[#1E7B34]/10 dark:bg-green-900/30 border-[#1E7B34]/20 dark:border-green-800 text-[#1E7B34] dark:text-green-400"
 								}`}
 							>
 								{isPaused ? t("schedulePaused") : t("timerOn")}
 							</span>
-							<span className="text-[#3D5568] text-xs font-medium">
+							<span className="text-[#3D5568] dark:text-gray-400 text-xs font-medium">
 								{latestBiomass
 									? t("basedOnLog", { date: formatDate(latestBiomass.recordedAt) })
 									: t("na")}
@@ -246,21 +252,21 @@ export default async function DashboardHomePage() {
 						</div>
 					</div>
 
-					<div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 pt-6 border-t border-gray-100 mt-6">
+					<div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 pt-6 border-t border-gray-100 dark:border-gray-700 mt-6">
 						<div className="flex gap-8">
 							<div>
-								<p className="text-[#3D5568] text-[10px] font-bold uppercase tracking-wider">
+								<p className="text-[#3D5568] dark:text-gray-400 text-[10px] font-bold uppercase tracking-wider">
 									{t("feedVolumeLabel")}
 								</p>
-								<p className="text-2xl md:text-3xl font-black text-[#E85A2A]">
+								<p className="text-2xl md:text-3xl font-black text-[#E85A2A] dark:text-[#ff8a5c]">
 									{nextFeedingVolumeG}g
 								</p>
 							</div>
 							<div>
-								<p className="text-[#3D5568] text-[10px] font-bold uppercase tracking-wider">
+								<p className="text-[#3D5568] dark:text-gray-400 text-[10px] font-bold uppercase tracking-wider">
 									{t("feedRateLabel")}
 								</p>
-								<p className="text-2xl md:text-3xl font-black">
+								<p className="text-2xl md:text-3xl font-black dark:text-white">
 									{feedingRatePct}
 									{t("feedRateSuffix")}
 								</p>
@@ -269,7 +275,7 @@ export default async function DashboardHomePage() {
 
 						<Link
 							href="/dashboard/log-sample"
-							className="bg-[#0A3D62] hover:bg-[#12588c] text-white px-5 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 self-stretch sm:self-auto justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
+							className="bg-[#0A3D62] dark:bg-[#5b9bd5] hover:bg-[#12588c] dark:hover:bg-[#7dbbea] text-white px-5 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 self-stretch sm:self-auto justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
 						>
 							{tBtn("updateBiomass")} <ChevronRight className="w-4 h-4" />
 						</Link>
@@ -280,6 +286,7 @@ export default async function DashboardHomePage() {
 				<Link
 					href="/dashboard/growth"
 					className="col-span-1 md:col-span-4 bg-[#0A3D62] rounded-[32px] p-6 md:p-8 text-white flex flex-col justify-between min-h-[300px] relative overflow-hidden shadow-md hover:bg-[#0d4a76] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
+					data-onboard="fcr"
 				>
 					<div className="absolute bottom-0 right-0 w-32 h-32 bg-white/5 rounded-full translate-x-8 translate-y-8" />
 					<div className="flex justify-between items-start">
@@ -324,20 +331,20 @@ export default async function DashboardHomePage() {
 				</Link>
 
 				{/* Tile 3: Days until sample (4 cols) */}
-				<div className="col-span-1 md:col-span-4 bg-white rounded-3xl p-6 shadow-sm border border-[#0A3D62]/5 flex items-center gap-5">
-					<div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center shrink-0">
-						<Calendar className="w-7 h-7 text-amber-600" />
+				<div className="col-span-1 md:col-span-4 bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-[#0A3D62]/5 dark:border-gray-700/50 flex items-center gap-5">
+					<div className="w-14 h-14 bg-amber-50 dark:bg-amber-900/30 rounded-2xl flex items-center justify-center shrink-0">
+						<Calendar className="w-7 h-7 text-amber-600 dark:text-amber-400" />
 					</div>
 					<div>
-						<p className="text-[10px] font-extrabold uppercase text-[#3D5568] tracking-wider">
+						<p className="text-[10px] font-extrabold uppercase text-[#3D5568] dark:text-gray-400 tracking-wider">
 							{t("weighingDue")}
 						</p>
-						<p className="text-lg md:text-xl font-black text-[#0A3D62]">
+						<p className="text-lg md:text-xl font-black text-[#0A3D62] dark:text-[#5b9bd5]">
 							{t("days", { count: daysUntilSample })}
 						</p>
 						<Link
 							href="/dashboard/log-sample"
-							className="text-xs text-[#E85A2A] font-extrabold hover:underline flex items-center gap-0.5 mt-0.5 focus-visible:outline-none"
+							className="text-xs text-[#E85A2A] dark:text-[#ff8a5c] font-extrabold hover:underline flex items-center gap-0.5 mt-0.5 focus-visible:outline-none"
 						>
 							{tBtn("scheduleSampling")} <ChevronRight className="w-3 h-3" />
 						</Link>
@@ -345,51 +352,53 @@ export default async function DashboardHomePage() {
 				</div>
 
 				{/* Tile 4: Last biomass weight (4 cols) */}
-				<div className="col-span-1 md:col-span-4 bg-white rounded-3xl p-6 shadow-sm border border-[#0A3D62]/5 flex items-center gap-5">
-					<div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center shrink-0">
-						<Sliders className="w-7 h-7 text-[#0A3D62]" />
+				<div className="col-span-1 md:col-span-4 bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-[#0A3D62]/5 dark:border-gray-700/50 flex items-center gap-5">
+					<div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center shrink-0">
+						<Sliders className="w-7 h-7 text-[#0A3D62] dark:text-[#5b9bd5]" />
 					</div>
 					<div className="flex-1">
-						<p className="text-[10px] font-extrabold uppercase text-[#3D5568] tracking-wider">
+						<p className="text-[10px] font-extrabold uppercase text-[#3D5568] dark:text-gray-400 tracking-wider">
 							{t("lastBiomassLabel")}
 						</p>
-						<p className="text-lg md:text-xl font-black text-[#0A3D62]">
+						<p className="text-lg md:text-xl font-black text-[#0A3D62] dark:text-[#5b9bd5]">
 							{latestBiomass ? `${latestBiomass.avgWeightKg * 1000}g` : t("na")}
 						</p>
-						<p className="text-[10px] text-[#3D5568]">
+						<p className="text-[10px] text-[#3D5568] dark:text-gray-500">
 							{t("lastBiomassBased", { count: latestBiomass?.sampleCount ?? 0 })}
 						</p>
 					</div>
 				</div>
 
 				{/* Tile 5: Pond population (4 cols) */}
-				<div className="col-span-1 md:col-span-4 bg-white rounded-3xl p-6 shadow-sm border border-[#0A3D62]/5 flex items-center gap-5">
-					<div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center shrink-0">
-						<Layers className="w-7 h-7 text-green-700" />
+				<div className="col-span-1 md:col-span-4 bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-[#0A3D62]/5 dark:border-gray-700/50 flex items-center gap-5">
+					<div className="w-14 h-14 bg-green-50 dark:bg-green-900/30 rounded-2xl flex items-center justify-center shrink-0">
+						<Layers className="w-7 h-7 text-green-700 dark:text-green-400" />
 					</div>
 					<div>
-						<p className="text-[10px] font-extrabold uppercase text-[#3D5568] tracking-wider">
+						<p className="text-[10px] font-extrabold uppercase text-[#3D5568] dark:text-gray-400 tracking-wider">
 							{t("populationLabel")}
 						</p>
-						<p className="text-lg md:text-xl font-black text-[#0A3D62]">
+						<p className="text-lg md:text-xl font-black text-[#0A3D62] dark:text-[#5b9bd5]">
 							{t("populationValue", { count: 200 })}
 						</p>
-						<span className="text-[10px] text-[#3D5568] font-mono">{t("populationStable")}</span>
+						<span className="text-[10px] text-[#3D5568] dark:text-gray-500 font-mono">
+							{t("populationStable")}
+						</span>
 					</div>
 				</div>
 
 				{/* Tile 6: Recent feeding logs (12 cols) */}
-				<div className="col-span-1 md:col-span-12 bg-white rounded-[32px] p-6 md:p-8 shadow-md border border-[#0A3D62]/5">
+				<div className="col-span-1 md:col-span-12 bg-white dark:bg-gray-900 rounded-[32px] p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50">
 					<div className="flex justify-between items-center mb-6">
 						<div>
-							<h3 className="text-lg md:text-xl font-black uppercase tracking-tight text-[#0A3D62]">
+							<h3 className="text-lg md:text-xl font-black uppercase tracking-tight text-[#0A3D62] dark:text-[#5b9bd5]">
 								{t("feedingLogsTitle")}
 							</h3>
-							<p className="text-xs text-[#3D5568]">{t("feedingLogsDesc")}</p>
+							<p className="text-xs text-[#3D5568] dark:text-gray-400">{t("feedingLogsDesc")}</p>
 						</div>
 						<Link
 							href="/dashboard/history"
-							className="text-[#0A3D62] font-extrabold text-sm hover:underline focus-visible:outline-none"
+							className="text-[#0A3D62] dark:text-[#5b9bd5] font-extrabold text-sm hover:underline focus-visible:outline-none"
 						>
 							{tBtn("viewHistory")}
 						</Link>
@@ -399,34 +408,36 @@ export default async function DashboardHomePage() {
 						{feedingHistory.map((item, idx) => (
 							<div
 								key={item.id}
-								className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-[#F4F7F6] rounded-2xl border border-[#0A3D62]/5 gap-4"
+								className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-[#F4F7F6] dark:bg-gray-800 rounded-2xl border border-[#0A3D62]/5 dark:border-gray-700/50 gap-4"
 							>
 								<div className="flex items-center gap-4">
-									<div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-extrabold text-xs text-[#0A3D62] border border-gray-200 shrink-0">
+									<div className="w-10 h-10 bg-white dark:bg-gray-700 rounded-xl flex items-center justify-center font-extrabold text-xs text-[#0A3D62] dark:text-[#5b9bd5] border border-gray-200 dark:border-gray-600 shrink-0">
 										0{idx + 1}
 									</div>
 									<div>
 										<div className="flex items-center gap-2">
-											<p className="font-extrabold text-base text-[#0A3D62]">
+											<p className="font-extrabold text-base text-[#0A3D62] dark:text-[#5b9bd5]">
 												{formatTime(item.receivedAt)}
 											</p>
-											<span className="text-[10px] text-[#3D5568] bg-white border border-gray-200 px-1.5 py-0.5 rounded-full font-mono">
+											<span className="text-[10px] text-[#3D5568] dark:text-gray-400 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-1.5 py-0.5 rounded-full font-mono">
 												{formatDate(item.receivedAt)}
 											</span>
 										</div>
-										<p className="text-xs text-[#3D5568]">
+										<p className="text-xs text-[#3D5568] dark:text-gray-400">
 											{tHist(item.source ? `source_${item.source}` : "confirmedDispense")}
 										</p>
 									</div>
 								</div>
-								<div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-2 sm:pt-0 border-gray-200">
+								<div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-2 sm:pt-0 border-gray-200 dark:border-gray-700">
 									<div className="text-left sm:text-right">
-										<p className="font-extrabold text-base text-[#0A3D62]">{item.grams ?? 0}g</p>
-										<p className="text-[10px] font-bold uppercase text-[#3D5568] opacity-50">
+										<p className="font-extrabold text-base text-[#0A3D62] dark:text-[#5b9bd5]">
+											{item.grams ?? 0}g
+										</p>
+										<p className="text-[10px] font-bold uppercase text-[#3D5568] dark:text-gray-500 opacity-50">
 											{tHist("amount")}
 										</p>
 									</div>
-									<span className="px-4 py-1.5 rounded-full font-bold text-xs text-center min-w-[80px] shadow-sm bg-[#1E7B34] text-white">
+									<span className="px-4 py-1.5 rounded-full font-bold text-xs text-center min-w-[80px] shadow-sm bg-[#1E7B34] dark:bg-green-800 text-white">
 										{tHist("confirmedDispense")}
 									</span>
 								</div>

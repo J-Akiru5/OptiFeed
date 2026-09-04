@@ -26,7 +26,7 @@ export function Sidebar({ hopperLevelPct = 82 }: { hopperLevelPct?: number }) {
 		{ href: "/dashboard/history", label: t("history"), icon: History },
 		{ href: "/dashboard/growth", label: t("growth"), icon: TrendingUp },
 		{ href: "/dashboard/audit", label: t("audit"), icon: FileText },
-		{ href: "/dashboard/settings", label: t("settings"), icon: Settings },
+		{ href: "/dashboard/settings", label: t("settings"), icon: Settings, onboard: "settings" },
 	];
 
 	// Math for remaining metrics
@@ -49,6 +49,7 @@ export function Sidebar({ hopperLevelPct = 82 }: { hopperLevelPct?: number }) {
 						<Link
 							key={item.href}
 							href={item.href}
+							data-onboard={item.onboard}
 							className={cn(
 								"w-full flex items-center gap-3 p-3.5 rounded-2xl font-bold transition-all text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]",
 								isActive

@@ -2,8 +2,43 @@
 
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
+import type { InputJsonValue } from "@prisma/client/runtime/library";
 import { revalidatePath } from "next/cache";
 import { updateScheduleCommand } from "./schedule";
+
+export interface NotificationPrefs {
+	missedFeeding: boolean;
+	deviceOffline: boolean;
+	hopperLow: boolean;
+}
+
+export async function updateNotificationPrefs(
+	pondId: string,
+	prefs: NotificationPrefs,
+): Promise<{ success: boolean; error?: string }> {
+	try {
+		const ownerId = await getCurrentPondOwnerId();
+		const pond = await prisma.pond.findFirst({
+			where: { id: pondId, ownerId },
+			select: { id: true },
+		});
+
+		if (!pond) {
+			return { success: false, error: "Pond not found" };
+		}
+
+		await prisma.pond.update({
+			where: { id: pondId },
+			data: { notificationPrefs: prefs as unknown as InputJsonValue },
+		});
+
+		revalidatePath("/[locale]/(dashboard)/dashboard/settings/profile", "page");
+		return { success: true };
+	} catch (error) {
+		console.error("Failed to update notification prefs:", error);
+		return { success: false, error: "Failed to update notification preferences" };
+	}
+}
 
 export async function updatePondSettings(
 	pondId: string,

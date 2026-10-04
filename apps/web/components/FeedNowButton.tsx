@@ -37,8 +37,9 @@ export function FeedNowButton({
 		setDispensing(true);
 		setShowConfirm(false);
 		try {
-			const grams = Number.parseInt(nextFeedingVolume.replace("g", "")) || 500;
-			const result = await requestFeedAction(deviceId, grams);
+			// 2-decimal doses like "29.63g"; NaN → let the server use the device default
+			const grams = Number.parseFloat(nextFeedingVolume.replace("g", ""));
+			const result = await requestFeedAction(deviceId, Number.isNaN(grams) ? undefined : grams);
 			if (result.success && result.message === "Feed already pending") {
 				toast.info(t("alreadyQueued"));
 			} else if (result.success) {

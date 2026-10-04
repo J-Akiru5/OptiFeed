@@ -186,6 +186,7 @@ export async function createPond(data: {
 	ownerFarmId: string;
 	feedingRatePct: number;
 	feedsPerDay: number;
+	population?: number | null;
 	scheduleStart: string;
 	scheduleEnd: string;
 }): Promise<CreatePondResult> {
@@ -224,6 +225,7 @@ export async function createPond(data: {
 					farmId: farm.id,
 					feedingRatePct: data.feedingRatePct,
 					feedsPerDay: data.feedsPerDay,
+					population: data.population ?? null,
 					scheduleStart,
 					scheduleEnd,
 				},

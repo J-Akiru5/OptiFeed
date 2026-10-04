@@ -1,8 +1,7 @@
-"use server";
+﻿"use server";
 
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
-import type { PondStatus, UserRole } from "@prisma/client";
 
 export type FarmOverview = {
 	ownerId: string;
@@ -33,7 +32,7 @@ export async function getFarmOverview(): Promise<FarmOverview | null> {
 export type RenameFarmResult = { success: true; name: string } | { error: string };
 
 /**
- * Renames the current user's own farm (ownership-scoped — never touches
+ * Renames the current user's own farm (ownership-scoped â€” never touches
  * another farmer's farm).
  */
 export async function renameFarm(name: string): Promise<RenameFarmResult> {
@@ -54,67 +53,4 @@ export async function renameFarm(name: string): Promise<RenameFarmResult> {
 		console.error("[farm] renameFarm error:", e);
 		return { error: "Failed to rename farm." };
 	}
-}
-
-export type FarmHierarchy = {
-	user: {
-		id: string;
-		displayName: string | null;
-		email: string | null;
-		farmId: string;
-		role: UserRole;
-	};
-	farm: { id: string; name: string; ownerId: string };
-	ponds: {
-		id: string;
-		name: string;
-		status: PondStatus;
-		devices: { id: string; label: string; lastSeenAt: string | null }[];
-	}[];
-};
-
-/**
- * Full User → Farm → Ponds → Devices hierarchy for the current farmer.
- * Dates are serialized to ISO strings so the result is safe to pass
- * from a server page into client components.
- */
-export async function getFarmHierarchy(): Promise<FarmHierarchy | null> {
-	const ownerId = await getCurrentPondOwnerId();
-
-	const user = await prisma.user.findUnique({
-		where: { farmId: ownerId },
-		select: { id: true, displayName: true, email: true, farmId: true, role: true },
-	});
-	if (!user) return null;
-
-	const farm = await prisma.farm.findUnique({
-		where: { ownerId },
-		include: {
-			ponds: {
-				orderBy: { createdAt: "asc" },
-				include: {
-					energyDevices: {
-						orderBy: { createdAt: "asc" },
-						select: { id: true, label: true, lastSeenAt: true },
-					},
-				},
-			},
-		},
-	});
-	if (!farm) return null;
-
-	return {
-		user,
-		farm: { id: farm.id, name: farm.name, ownerId: farm.ownerId },
-		ponds: farm.ponds.map((pond) => ({
-			id: pond.id,
-			name: pond.name,
-			status: pond.status,
-			devices: pond.energyDevices.map((device) => ({
-				id: device.id,
-				label: device.label,
-				lastSeenAt: device.lastSeenAt?.toISOString() ?? null,
-			})),
-		})),
-	};
 }

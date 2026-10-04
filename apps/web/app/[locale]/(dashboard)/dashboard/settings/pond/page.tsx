@@ -48,6 +48,7 @@ export default async function PondSettingsPage() {
 							feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
 							feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
 							sampleIntervalDays: pond.sampleIntervalDays,
+							population: pond.population,
 						}}
 					/>
 				</section>

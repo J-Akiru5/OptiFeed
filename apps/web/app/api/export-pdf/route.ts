@@ -1,4 +1,6 @@
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { DEFAULT_FISH_COUNT } from "@/lib/constants";
+import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 import { jsPDF } from "jspdf";
@@ -73,12 +75,16 @@ export async function GET() {
 		const scheduleStart = currentConfig?.scheduleStart ?? pond.scheduleStart;
 		const scheduleEnd = currentConfig?.scheduleEnd ?? pond.scheduleEnd;
 
-		const pondPopulation = 200;
-		let nextFeedingVolumeG = 330;
+		// Daily Feed (g) = Total Biomass (g) × Feeding Rate (%)
+		// Feed per Meal (g) = Daily Feed (g) ÷ Feeds Per Day  (see lib/feed-calc.ts)
+		const pondPopulation = pond.population;
+		let nextFeedingVolumeG = energyDevice?.gramsPerFeeding ?? 330;
 		if (latestBiomass) {
-			const totalBiomassGrams = latestBiomass.avgWeightKg * 1000 * pondPopulation;
-			const dailyFeedGrams = totalBiomassGrams * (feedingRatePct / 100);
-			nextFeedingVolumeG = Math.round(dailyFeedGrams / feedsPerDay);
+			nextFeedingVolumeG = feedPerMealG(
+				totalBiomassG(pondPopulation, latestBiomass.avgWeightKg),
+				feedingRatePct,
+				feedsPerDay,
+			);
 		}
 
 		autoTable(doc, {
@@ -90,7 +96,7 @@ export async function GET() {
 				["Feeds Per Day", `${feedsPerDay}`],
 				["Feeding Rate", `${feedingRatePct}%`],
 				["Feed Volume", `${nextFeedingVolumeG}g`],
-				["Population", `${pondPopulation}`],
+				["Population", `${pondPopulation ?? DEFAULT_FISH_COUNT}`],
 				["Sample Interval", `${pond.sampleIntervalDays ?? 14} days`],
 			],
 			theme: "grid",

@@ -1,6 +1,7 @@
 "use server";
 
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { syncDeviceGramsForPond } from "@/lib/feed-grams";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
@@ -130,6 +131,12 @@ export async function updateScheduleCommand(
 					feedingRatePct: data.feedingRatePct,
 				},
 			},
+		});
+
+		// Keep the device's dispensed grams in sync with the new rate/feeds config.
+		await syncDeviceGramsForPond(pondId, {
+			feedsPerDay: data.feedsPerDay,
+			feedingRatePct: data.feedingRatePct,
 		});
 
 		revalidatePath("/[locale]/(dashboard)/dashboard/schedule", "page");

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+﻿import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
 	default: {
@@ -35,7 +35,7 @@ vi.mock("next-intl/server", () => ({
 }));
 
 import { getAllFarmHierarchies, setPondStatus } from "@/lib/actions/admin";
-import { getFarmHierarchy, getFarmOverview, renameFarm } from "@/lib/actions/farm";
+import { getFarmOverview, renameFarm } from "@/lib/actions/farm";
 import { requireRole } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 
@@ -155,84 +155,6 @@ describe("setPondStatus", () => {
 		mockPond.update.mockRejectedValue(new Error("Record not found"));
 		const result = await setPondStatus("missing", "ARCHIVED");
 		expect(result).toEqual({ error: "Failed to update pond status." });
-	});
-});
-
-describe("getFarmHierarchy", () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-	});
-
-	it("returns null when the user row is missing", async () => {
-		mockUser.findUnique.mockResolvedValue(null);
-		expect(await getFarmHierarchy()).toBeNull();
-		expect(mockFarm.findUnique).not.toHaveBeenCalled();
-	});
-
-	it("returns null when the user has no farm row", async () => {
-		mockUser.findUnique.mockResolvedValue({
-			id: "u1",
-			displayName: "Juan",
-			email: "juan@x.test",
-			farmId: "test-farm",
-			role: "ADMIN",
-		} as never);
-		mockFarm.findUnique.mockResolvedValue(null);
-		expect(await getFarmHierarchy()).toBeNull();
-		expect(mockUser.findUnique).toHaveBeenCalledWith(
-			expect.objectContaining({ where: { farmId: "test-farm" } }),
-		);
-	});
-
-	it("builds the user → farm → ponds → devices tree with ISO dates", async () => {
-		mockUser.findUnique.mockResolvedValue({
-			id: "u1",
-			displayName: "Juan",
-			email: "juan@x.test",
-			farmId: "test-farm",
-			role: "ADMIN",
-		} as never);
-		mockFarm.findUnique.mockResolvedValue({
-			id: "farm_1",
-			ownerId: "test-farm",
-			name: "Test Farm",
-			ponds: [
-				{
-					id: "p1",
-					name: "Pond One",
-					status: "ACTIVE",
-					energyDevices: [
-						{ id: "d1", label: "Feeder", lastSeenAt: new Date("2026-01-01T00:00:00.000Z") },
-					],
-				},
-				{ id: "p2", name: "Pond Two", status: "ARCHIVED", energyDevices: [] },
-			],
-		} as never);
-
-		const result = await getFarmHierarchy();
-
-		expect(result).toEqual({
-			user: {
-				id: "u1",
-				displayName: "Juan",
-				email: "juan@x.test",
-				farmId: "test-farm",
-				role: "ADMIN",
-			},
-			farm: { id: "farm_1", name: "Test Farm", ownerId: "test-farm" },
-			ponds: [
-				{
-					id: "p1",
-					name: "Pond One",
-					status: "ACTIVE",
-					devices: [{ id: "d1", label: "Feeder", lastSeenAt: "2026-01-01T00:00:00.000Z" }],
-				},
-				{ id: "p2", name: "Pond Two", status: "ARCHIVED", devices: [] },
-			],
-		});
-		expect(mockFarm.findUnique).toHaveBeenCalledWith(
-			expect.objectContaining({ where: { ownerId: "test-farm" } }),
-		);
 	});
 });
 

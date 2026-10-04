@@ -22,6 +22,9 @@ export function CreatePondForm({ users }: CreatePondFormProps) {
 			ownerFarmId: formData.get("ownerFarmId") as string,
 			feedingRatePct: Number.parseFloat(formData.get("feedingRatePct") as string),
 			feedsPerDay: Number.parseInt(formData.get("feedsPerDay") as string, 10),
+			population: formData.get("population")
+				? Number.parseInt(formData.get("population") as string, 10)
+				: null,
 			scheduleStart: formData.get("scheduleStart") as string,
 			scheduleEnd: formData.get("scheduleEnd") as string,
 		});
@@ -84,7 +87,7 @@ export function CreatePondForm({ users }: CreatePondFormProps) {
 				</select>
 			</div>
 
-			<div className="grid grid-cols-2 gap-4">
+			<div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
 				<div>
 					<label
 						htmlFor="feedingRatePct"
@@ -119,6 +122,22 @@ export function CreatePondForm({ users }: CreatePondFormProps) {
 						max="10"
 						defaultValue="3"
 						required
+						className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+					/>
+				</div>
+				<div>
+					<label
+						htmlFor="population"
+						className="block text-xs font-bold uppercase text-[#3D5568] tracking-wider mb-1.5"
+					>
+						Population
+					</label>
+					<input
+						id="population"
+						name="population"
+						type="number"
+						min="0"
+						placeholder="Optional"
 						className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
 					/>
 				</div>

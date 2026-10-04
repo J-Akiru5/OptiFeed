@@ -7,8 +7,7 @@
 		"growth": "Pagtubo",
 		"settings": "Mga Setting",
 		"notifications": "Mga Notipikasyon",
-		"audit": "Talaan ng Audit",
-		"farmHierarchy": "Pagkahanay"
+		"audit": "Talaan ng Audit"
 	},
 	"button": {
 		"feedNow": "Pakauna Subong",
@@ -293,16 +292,6 @@
 			"accountDesc": "Dumalaha ang imo sesyon kag access.",
 			"signOutTitle": "Mag-Sign Out",
 			"signOutDesc": "Tapusa ang imo kasamtangan nga sesyon sing luwas."
-		},
-		"hierarchy": {
-			"title": "Pagkahanay sang Farm",
-			"desc": "Ang imo account, farm, mga punong, kag mga device sa isa ka pagtan-aw.",
-			"noFarm": "Wala pay farm nga na-set up. Silingi ang imo admin para makahimo sang farm.",
-			"farmId": "Farm ID: {id}",
-			"archived": "Naka-Archive",
-			"online": "Online",
-			"offline": "Offline",
-			"devicesCount": "{count, plural, =0 {Wala pay device} other {# device}}"
 		},
 		"profileSettings": {
 			"title": "Mga Setting sang Profile",

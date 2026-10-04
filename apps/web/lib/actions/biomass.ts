@@ -44,7 +44,7 @@ export async function saveBiomassLog(formData: FormData) {
 	const biomassLog = await prisma.$transaction(async (tx) => {
 		const pond = await tx.pond.findUnique({
 			where: { id: pondId },
-			select: { ownerId: true, feedingRatePct: true, feedsPerDay: true },
+			select: { ownerId: true, feedingRatePct: true, feedsPerDay: true, population: true },
 		});
 
 		if (!pond || pond.ownerId !== ownerId) {
@@ -87,7 +87,12 @@ export async function saveBiomassLog(formData: FormData) {
 			return log;
 		}
 
-		const newGrams = calculateNextFeeding(avgWeightKg, pond.feedingRatePct, pond.feedsPerDay);
+		const newGrams = calculateNextFeeding(
+			avgWeightKg,
+			pond.feedingRatePct,
+			pond.feedsPerDay,
+			pond.population,
+		);
 		const currentGrams = energyDevice.gramsPerFeeding;
 		const deviation = Math.abs(newGrams - currentGrams) / currentGrams;
 

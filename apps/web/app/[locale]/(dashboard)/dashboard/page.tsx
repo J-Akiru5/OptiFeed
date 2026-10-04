@@ -7,6 +7,7 @@ import { ExportPdfButton } from "@/components/export-pdf-button";
 import { Link } from "@/i18n/routing";
 import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
@@ -119,13 +120,16 @@ export default async function DashboardHomePage() {
 
 	const nextFeedingTimeStr = formatTime(nextFeedTimeObj);
 
-	// Dynamic Volume Calculation matching prototype
-	const pondPopulation = DEFAULT_FISH_COUNT;
-	let nextFeedingVolumeG = 330;
+	// Daily Feed (g) = Total Biomass (g) × Feeding Rate (%)
+	// Feed per Meal (g) = Daily Feed (g) ÷ Feeds Per Day  (see lib/feed-calc.ts)
+	const pondPopulation = pond.population;
+	let nextFeedingVolumeG = energyDevice?.gramsPerFeeding ?? 330;
 	if (latestBiomass) {
-		const totalBiomassGrams = latestBiomass.avgWeightKg * 1000 * pondPopulation;
-		const dailyFeedGrams = totalBiomassGrams * (feedingRatePct / 100);
-		nextFeedingVolumeG = Math.round(dailyFeedGrams / feedsPerDay);
+		nextFeedingVolumeG = feedPerMealG(
+			totalBiomassG(pondPopulation, latestBiomass.avgWeightKg),
+			feedingRatePct,
+			feedsPerDay,
+		);
 	}
 
 	// Calculate days until next physical weighing (assuming every 14 days)
@@ -379,7 +383,7 @@ export default async function DashboardHomePage() {
 							{t("populationLabel")}
 						</p>
 						<p className="text-lg md:text-xl font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-							{t("populationValue", { count: 200 })}
+							{t("populationValue", { count: pond.population ?? DEFAULT_FISH_COUNT })}
 						</p>
 						<span className="text-[10px] text-[#3D5568] dark:text-gray-500 font-mono">
 							{t("populationStable")}

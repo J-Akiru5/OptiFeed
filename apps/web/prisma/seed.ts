@@ -53,6 +53,7 @@ async function main() {
 			name: "Demo Pond",
 			feedingRatePct: 4.5,
 			feedsPerDay: 4,
+			population: 200,
 			scheduleStart: new Date("2024-01-01T06:00:00Z"),
 			scheduleEnd: new Date("2024-01-01T18:00:00Z"),
 		},

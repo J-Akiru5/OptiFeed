@@ -2,7 +2,8 @@
 
 import { useRouter } from "@/i18n/routing";
 import { saveBiomassLog } from "@/lib/actions/biomass";
-import { calculateNextFeeding } from "@/lib/volumeCalc";
+import { DEFAULT_FISH_COUNT } from "@/lib/constants";
+import { dailyFeedG, feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { Fish, Loader2, Plus, Ruler, Scale, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
@@ -11,6 +12,7 @@ interface LogSampleFormProps {
 	pondId: string;
 	feedingRatePct: number;
 	feedsPerDay: number;
+	population?: number | null;
 }
 
 type InputMode = "average" | "individual";
@@ -21,10 +23,19 @@ interface IndividualFishEntry {
 	lengthCm: string;
 }
 
-export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSampleFormProps) {
+export function LogSampleForm({
+	pondId,
+	feedingRatePct,
+	feedsPerDay,
+	population = null,
+}: LogSampleFormProps) {
 	const tBtn = useTranslations("button");
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
+
+	const effectivePopulation = population && population > 0 ? population : DEFAULT_FISH_COUNT;
+	const fmtG2 = (g: number) =>
+		g.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 	const [inputMode, setInputMode] = useState<InputMode>("average");
 
@@ -43,6 +54,8 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 	const l = Number.parseFloat(lengthCm);
 	const c = Number.parseInt(count, 10);
 
+	let biomassG = 0;
+	let dailyFeed = 0;
 	let nextFeedingG = 0;
 	let avgWeightG = 0;
 	let avgLengthCm = 0;
@@ -51,7 +64,9 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 	if (inputMode === "average") {
 		if (!Number.isNaN(w) && !Number.isNaN(c) && c > 0) {
 			avgWeightG = w;
-			nextFeedingG = calculateNextFeeding(w / 1000, feedingRatePct, feedsPerDay);
+			biomassG = totalBiomassG(population, w / 1000);
+			dailyFeed = dailyFeedG(biomassG, feedingRatePct);
+			nextFeedingG = feedPerMealG(biomassG, feedingRatePct, feedsPerDay);
 		}
 	} else {
 		const validFish = individualFish.filter(
@@ -74,7 +89,9 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 				avgLengthCm = totalLength / validLengthFish.length;
 			}
 
-			nextFeedingG = calculateNextFeeding(avgWeightG / 1000, feedingRatePct, feedsPerDay);
+			biomassG = totalBiomassG(population, avgWeightG / 1000);
+			dailyFeed = dailyFeedG(biomassG, feedingRatePct);
+			nextFeedingG = feedPerMealG(biomassG, feedingRatePct, feedsPerDay);
 		}
 	}
 
@@ -363,14 +380,74 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 							Average Length: <strong className="text-[#0A3D62]">{avgLengthCm.toFixed(1)}cm</strong>
 						</>
 					)}
-					<br />
-					Assuming 5,000 fish at a {feedingRatePct}% daily feeding rate across {feedsPerDay} feeds,
-					this sample will set your next scheduled feeding to approximately{" "}
-					<strong className="text-[#E85A2A] text-sm">
-						{nextFeedingG > 0 ? nextFeedingG : "—"}g
-					</strong>
-					.
 				</p>
+
+				<div className="mt-3 space-y-1.5 border-t border-[#0A3D62]/10 pt-3 text-xs">
+					<div className="flex items-baseline justify-between gap-4">
+						<span className="font-medium text-[#3D5568]">
+							Total Biomass
+							{biomassG === 0 && (
+								<span className="block text-[11px] font-normal text-[#3D5568]/60">
+									= {effectivePopulation.toLocaleString("en-US")} fish × avg weight
+								</span>
+							)}
+						</span>
+						<span className="text-right text-[#3D5568]">
+							<strong className="text-[#0A3D62]">
+								{biomassG > 0 ? Math.round(biomassG).toLocaleString("en-US") : "—"}
+							</strong>
+							{biomassG > 0 && (
+								<>
+									g{" "}
+									<span>
+										({effectivePopulation.toLocaleString("en-US")} fish × {avgWeightG.toFixed(1)}g)
+									</span>
+								</>
+							)}
+						</span>
+					</div>
+					<div className="flex items-baseline justify-between gap-4">
+						<span className="font-medium text-[#3D5568]">
+							Daily Feed
+							{dailyFeed === 0 && (
+								<span className="block text-[11px] font-normal text-[#3D5568]/60">
+									= biomass × {feedingRatePct}%
+								</span>
+							)}
+						</span>
+						<span className="text-right text-[#3D5568]">
+							<strong className="text-[#0A3D62]">{dailyFeed > 0 ? fmtG2(dailyFeed) : "—"}</strong>
+							{dailyFeed > 0 && (
+								<>
+									g{" "}
+									<span>
+										({Math.round(biomassG).toLocaleString("en-US")}g × {feedingRatePct}%)
+									</span>
+								</>
+							)}
+						</span>
+					</div>
+					<div className="flex items-baseline justify-between gap-4">
+						<span className="font-medium text-[#3D5568]">
+							Feed per Meal
+							{nextFeedingG === 0 && (
+								<span className="block text-[11px] font-normal text-[#3D5568]/60">
+									= daily ÷ {feedsPerDay} feeds
+								</span>
+							)}
+						</span>
+						<span className="text-right text-[#3D5568]">
+							<strong className="text-sm text-[#E85A2A]">
+								{nextFeedingG > 0 ? fmtG2(nextFeedingG) : "—"}
+							</strong>
+							{nextFeedingG > 0 && (
+								<>
+									g <span>(÷ {feedsPerDay} feeds)</span>
+								</>
+							)}
+						</span>
+					</div>
+				</div>
 			</div>
 
 			<div className="flex justify-end pt-4 border-t border-gray-100">

@@ -18,6 +18,9 @@ CURRENT POND DATA:
 - Pond name: ${ctx.pondName}
 - Feeds per day: ${ctx.feedsPerDay}
 - Feeding rate: ${ctx.feedingRatePct}% of body weight per day
+- Population: ${ctx.population} fish
+- Total biomass: ${ctx.totalBiomassG !== null ? `${ctx.totalBiomassG}g` : "No data yet"}
+- Feed math: Daily Feed (g) = Total Biomass (g) × Feeding Rate (%) ; Feed per meal = Daily Feed ÷ Feeds per day
 - Schedule window: ${scheduleTime(ctx.scheduleStart)} to ${scheduleTime(ctx.scheduleEnd)}
 - Device online: ${ctx.deviceOnline ? "Yes" : "No"}
 - Device paused: ${ctx.devicePaused ? "Yes" : "No"}

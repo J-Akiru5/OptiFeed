@@ -9,7 +9,7 @@ export async function calculateFcrFeed(input: FcrCalculationInput) {
 		const ownerId = await getCurrentPondOwnerIdSafe();
 		if (!ownerId) return { success: false, error: "Not authenticated" };
 
-		const pond = await prisma.pond.findFirst({ where: { ownerId } });
+		const pond = await prisma.pond.findFirst({ where: { ownerId, status: "ACTIVE" } });
 		if (!pond) return { success: false, error: "No pond found" };
 
 		const fcrReports = await prisma.fcrReport.findMany({

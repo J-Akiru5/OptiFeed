@@ -24,9 +24,8 @@ export async function getActivePond(include?: AnyObj): Promise<AnyObj | null> {
 	const ownerId = await getCurrentPondOwnerId();
 	const activePondId = await getActivePondId();
 
-	// biome-ignore lint/suspicious/noExplicitAny: Dynamic include makes strict typing impossible
 	const ponds: AnyObj[] = await prisma.pond.findMany({
-		where: { ownerId },
+		where: { ownerId, status: "ACTIVE" },
 		orderBy: { createdAt: "asc" },
 		...(include ? { include } : {}),
 	});

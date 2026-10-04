@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 		return Response.json({ error: "Too Many Requests" }, { status: 429 });
 	}
 
-	const pond = await prisma.pond.findFirst({ where: { ownerId } });
+	const pond = await prisma.pond.findFirst({ where: { ownerId, status: "ACTIVE" } });
 	if (!pond) {
 		return Response.json({ error: "No pond found" }, { status: 404 });
 	}

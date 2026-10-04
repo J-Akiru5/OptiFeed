@@ -8,7 +8,7 @@ export async function markAllNotificationsRead() {
 	try {
 		const ownerId = await getCurrentPondOwnerId();
 		const pond = await prisma.pond.findFirst({
-			where: { ownerId },
+			where: { ownerId, status: "ACTIVE" },
 		});
 
 		if (!pond) return;
@@ -53,7 +53,7 @@ export async function acknowledgeNotification(notificationId: string) {
 	try {
 		const ownerId = await getCurrentPondOwnerId();
 		const pond = await prisma.pond.findFirst({
-			where: { ownerId },
+			where: { ownerId, status: "ACTIVE" },
 		});
 
 		if (!pond) return;

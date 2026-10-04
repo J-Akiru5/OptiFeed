@@ -25,7 +25,7 @@ export interface ChatContext {
 // from resolveCurrentSchedule instead of the raw Pond row.
 export async function buildChatContext(ownerId: string): Promise<ChatContext | null> {
 	const pond = await prisma.pond.findFirst({
-		where: { ownerId },
+		where: { ownerId, status: "ACTIVE" },
 		include: { devices: true },
 	});
 

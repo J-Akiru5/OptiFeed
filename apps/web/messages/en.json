@@ -7,7 +7,8 @@
 		"growth": "Growth",
 		"settings": "Settings",
 		"notifications": "Notifications",
-		"audit": "Audit Trail"
+		"audit": "Audit Trail",
+		"farmHierarchy": "Hierarchy"
 	},
 	"button": {
 		"feedNow": "Feed Now",
@@ -281,10 +282,27 @@
 			"profileCardDesc": "Personal information, security, and notification preferences.",
 			"dataCardTitle": "Data Management",
 			"dataCardDesc": "Import and export farm data for backup or analysis.",
+			"farmCardTitle": "Farm",
+			"farmCardDesc": "Your farm's identity and its ponds.",
+			"farmIdLabel": "Farm ID",
+			"farmNameLabel": "Farm Name",
+			"pondsLabel": "Ponds",
+			"noPonds": "No ponds yet.",
+			"archived": "Archived",
 			"accountTitle": "Account",
 			"accountDesc": "Manage your session and access.",
 			"signOutTitle": "Sign Out",
 			"signOutDesc": "End your current session safely."
+		},
+		"hierarchy": {
+			"title": "Farm Hierarchy",
+			"desc": "Your account, farm, ponds, and devices at a glance.",
+			"noFarm": "No farm found yet. Ask an admin to set up your farm.",
+			"farmId": "Farm ID: {id}",
+			"archived": "Archived",
+			"online": "Online",
+			"offline": "Offline",
+			"devicesCount": "{count, plural, =0 {No devices} one {# device} other {# devices}}"
 		},
 		"profileSettings": {
 			"title": "Profile Settings",

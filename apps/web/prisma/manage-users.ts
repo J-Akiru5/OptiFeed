@@ -86,14 +86,23 @@ async function createUser(args: Record<string, string>) {
 		process.exit(1);
 	}
 
-	const user = await prisma.user.create({
-		data: {
-			supabaseId: authUser.user.id,
-			farmId: normalizedFarmId,
-			email,
-			displayName: name,
-			role: role as "ADMIN" | "OPERATOR" | "VIEWER",
-		},
+	const user = await prisma.$transaction(async (tx) => {
+		const created = await tx.user.create({
+			data: {
+				supabaseId: authUser.user.id,
+				farmId: normalizedFarmId,
+				email,
+				displayName: name,
+				role: role as "ADMIN" | "OPERATOR" | "VIEWER",
+			},
+		});
+		await tx.farm.create({
+			data: {
+				ownerId: created.farmId,
+				name: `${name || normalizedFarmId} Farm`,
+			},
+		});
+		return created;
 	});
 
 	console.log(`\n✓ Created user: ${user.farmId} (${user.displayName}) [${user.role}]`);
@@ -150,7 +159,35 @@ async function deleteUser(args: Record<string, string>) {
 
 	const supabase = createAdminClient();
 	await supabase.auth.admin.deleteUser(user.supabaseId);
-	await prisma.user.delete({ where: { farmId: normalizedFarmId } });
+
+	// Delete the farmer's whole subtree in FK-safe order:
+	// event rows and devices (RESTRICT) → ponds → farm → user.
+	await prisma.$transaction(async (tx) => {
+		const pondIds = (
+			await tx.pond.findMany({ where: { ownerId: user.farmId }, select: { id: true } })
+		).map((p) => p.id);
+
+		if (pondIds.length > 0) {
+			const wherePond = { pondId: { in: pondIds } };
+			const whereDevicePond = { device: { pondId: { in: pondIds } } };
+
+			await tx.feedLevelLog.deleteMany({ where: whereDevicePond });
+			await tx.feedRequest.deleteMany({ where: whereDevicePond });
+			await tx.feedEvent.deleteMany({ where: whereDevicePond });
+			await tx.deviceStateEvent.deleteMany({ where: whereDevicePond });
+			await tx.scheduleCommand.deleteMany({ where: { OR: [whereDevicePond, wherePond] } });
+			await tx.notification.deleteMany({ where: wherePond });
+			await tx.fcrReport.deleteMany({ where: wherePond });
+			await tx.biomassLog.deleteMany({ where: wherePond });
+			await tx.feedingEvent.deleteMany({ where: whereDevicePond });
+			await tx.energyDevice.deleteMany({ where: wherePond });
+			await tx.device.deleteMany({ where: wherePond });
+			await tx.pond.deleteMany({ where: { id: { in: pondIds } } });
+		}
+
+		await tx.farm.deleteMany({ where: { ownerId: user.farmId } });
+		await tx.user.delete({ where: { id: user.id } });
+	});
 
 	console.log(`\n✓ Deleted user "${user.farmId}" (${user.displayName})\n`);
 }

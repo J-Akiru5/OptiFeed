@@ -1,4 +1,5 @@
 import { NotificationPrefsForm } from "@/components/notification-prefs-form";
+import { getCurrentUser } from "@/lib/auth/session";
 import { getActivePond } from "@/lib/pond-selection";
 import { createClient } from "@/lib/supabase/server";
 import { Shield, User } from "lucide-react";
@@ -14,8 +15,10 @@ export default async function ProfileSettingsPage() {
 	const email = user?.email ?? "";
 	const displayName = email.split("@")[0] || "User";
 
+	const currentUser = await getCurrentUser();
+	const farmId = currentUser?.farmId ?? "\u2014";
+
 	const pond = await getActivePond();
-	const pondName = pond?.name ?? "\u2014";
 	const notificationPrefs = pond?.notificationPrefs ?? {
 		missedFeeding: true,
 		deviceOffline: true,
@@ -74,7 +77,7 @@ export default async function ProfileSettingsPage() {
 							<input
 								id="farmId"
 								type="text"
-								defaultValue={pondName}
+								defaultValue={farmId}
 								disabled
 								className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 font-mono text-gray-500"
 							/>

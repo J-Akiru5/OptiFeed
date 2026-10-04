@@ -32,7 +32,7 @@ export default async function DashboardLayout({
 
 	try {
 		const allPonds = await prisma.pond.findMany({
-			where: { ownerId },
+			where: { ownerId, status: "ACTIVE" },
 			orderBy: { createdAt: "asc" },
 		});
 

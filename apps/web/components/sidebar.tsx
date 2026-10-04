@@ -7,6 +7,7 @@ import {
 	Clock,
 	Cpu,
 	FileText,
+	FolderTree,
 	History,
 	Home,
 	PlusCircle,
@@ -26,6 +27,7 @@ export function Sidebar({ hopperLevelPct = 82 }: { hopperLevelPct?: number }) {
 		{ href: "/dashboard/history", label: t("history"), icon: History },
 		{ href: "/dashboard/growth", label: t("growth"), icon: TrendingUp },
 		{ href: "/dashboard/audit", label: t("audit"), icon: FileText },
+		{ href: "/dashboard/hierarchy", label: t("farmHierarchy"), icon: FolderTree },
 		{ href: "/dashboard/settings", label: t("settings"), icon: Settings, onboard: "settings" },
 	];
 

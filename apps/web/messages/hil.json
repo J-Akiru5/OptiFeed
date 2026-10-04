@@ -7,7 +7,8 @@
 		"growth": "Pagtubo",
 		"settings": "Mga Setting",
 		"notifications": "Mga Notipikasyon",
-		"audit": "Talaan ng Audit"
+		"audit": "Talaan ng Audit",
+		"farmHierarchy": "Pagkahanay"
 	},
 	"button": {
 		"feedNow": "Pakauna Subong",
@@ -281,10 +282,27 @@
 			"profileCardDesc": "Personal nga impormasyon, kaluwasan, kag mga preferensya sang notipikasyon.",
 			"dataCardTitle": "Pagdumala sang Datos",
 			"dataCardDesc": "I-import kag i-export ang datos sang farm para sa backup ukon analisis.",
+			"farmCardTitle": "Farm",
+			"farmCardDesc": "Ang pag-ila sang imo farm kag ang mga punong niya.",
+			"farmIdLabel": "Farm ID",
+			"farmNameLabel": "Ngaran sang Farm",
+			"pondsLabel": "Mga Punong",
+			"noPonds": "Wala pa nga punong.",
+			"archived": "Naka-Archive",
 			"accountTitle": "Account",
 			"accountDesc": "Dumalaha ang imo sesyon kag access.",
 			"signOutTitle": "Mag-Sign Out",
 			"signOutDesc": "Tapusa ang imo kasamtangan nga sesyon sing luwas."
+		},
+		"hierarchy": {
+			"title": "Pagkahanay sang Farm",
+			"desc": "Ang imo account, farm, mga punong, kag mga device sa isa ka pagtan-aw.",
+			"noFarm": "Wala pay farm nga na-set up. Silingi ang imo admin para makahimo sang farm.",
+			"farmId": "Farm ID: {id}",
+			"archived": "Naka-Archive",
+			"online": "Online",
+			"offline": "Offline",
+			"devicesCount": "{count, plural, =0 {Wala pay device} other {# device}}"
 		},
 		"profileSettings": {
 			"title": "Mga Setting sang Profile",

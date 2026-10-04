@@ -182,7 +182,7 @@ const SECTIONS = [
     items: [
       { title: "Sentry config files exist", desc: "sentry.client.config.ts, sentry.server.config.ts, sentry.edge.config.ts", steps: "Run: ls apps/web/sentry.*.config.ts. Confirm all three files exist." },
       { title: "next.config.ts wrapped with Sentry", desc: "withSentryConfig wraps the Next.js config", steps: "Open apps/web/next.config.ts. Confirm it imports and uses withSentryConfig." },
-      { title: "Sentry DSN in .env", desc: "SENTRY_AUTH_TOKEN, SENTRY_ORG, SENTRY_PROJECT are set", steps: "Check .env or .env.local for SENTRY_ variables. Without them, Sentry will be in disabled mode." }
+      { title: "Sentry DSN in .env", desc: "SENTRY_AUTH_TOKEN, SENTRY_ORG, SENTRY_PROJECT are set", steps: "Check .env or .env.local for SENTRY_ variables. Without them, Sentry runs in disabled/silent mode. The sourcemaps option uses 'sourcemaps: { disable: true }' in next.config.ts." }
     ]
   },
   {
@@ -199,6 +199,7 @@ const SECTIONS = [
   {
     title: "6. Notification Preferences",
     items: [
+      { title: "Run notification preferences migration", desc: "SQL migration file must be applied to the database", steps: "Run: cd apps/web && npx prisma migrate dev --name add_notification_prefs. Confirm it succeeds. If db drift, run the ALTER TABLE SQL from prisma/migrations/20260901000000_add_notification_prefs/migration.sql manually." },
       { title: "Toggle UI visible", desc: "Three toggles on Settings → Profile page", steps: "Navigate to Dashboard → Settings → Profile. Scroll to 'Notifications' section. Confirm three toggle switches." },
       { title: "Toggle persists to DB", desc: "Toggle OFF, refresh, stays OFF", steps: "Toggle 'Missed Feeding Alerts' OFF. Refresh page. Confirm toggle is still OFF." },
       { title: "Server action works", desc: "Network tab shows successful POST on toggle", steps: "Toggle any switch. Open DevTools → Network. Confirm a POST request returns 200." },
@@ -252,6 +253,15 @@ const SECTIONS = [
       { title: "Dev server starts", desc: "pnpm dev runs without errors", steps: "Run: cd apps/web && pnpm dev. Confirm server starts and http://localhost:3000 loads." },
       { title: "Dashboard loads with data", desc: "No errors, cards show data", steps: "Open http://localhost:3000/en/dashboard. Confirm all tiles render with data (not 'No Data' error)." },
       { title: "All pages navigate", desc: "Click every sidebar link — no crashes", steps: "Click each item in the sidebar: Dashboard, Schedule, Log Sample, History, Growth, Audit, Settings. Confirm no errors or blank pages." }
+    ]
+  },
+  {
+    title: "12. Biome Lint & Code Quality",
+    items: [
+      { title: "Biome check passes", desc: "npx biome check --staged --no-errors-on-unmatched returns 0 errors", steps: "Run: cd apps/web && npx biome check --staged --no-errors-on-unmatched. Confirm 'No fixes applied' and 0 errors." },
+      { title: "No untyped as any in source code", desc: "All as any casts in test files have biome-ignore comments", steps: "Run: cd apps/web && npx grep -rn 'as any' lib/__tests__/. Every match should have '// biome-ignore lint/suspicious/noExplicitAny: test mock' on the line above it." },
+      { title: "Sentry config uses sourcemaps option", desc: "next.config.ts uses sourcemaps: { disable: true }, not hideSourceMaps", steps: "Open apps/web/next.config.ts. Confirm withSentryConfig uses 'sourcemaps: { disable: true }' not 'hideSourceMaps'." },
+      { title: "PDF export uses typed interface", desc: "export-pdf/route.ts uses JsPDFWithAutoTable, not as any", steps: "Open apps/web/app/api/export-pdf/route.ts. Confirm it defines and uses 'JsPDFWithAutoTable' interface instead of (doc as any)." }
     ]
   }
 ];

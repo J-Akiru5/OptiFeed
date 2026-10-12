@@ -113,6 +113,7 @@ struct QueuedEvent {
   char source[12];       // "scheduled" | "dashboard" | "button"
   String requestId;      // non-empty only for dashboard-sourced feeds
   String isoTimestamp;   // best-effort; may be "unknown" if RTC unavailable
+  String eventId;        // generated ONCE at enqueue; retries resend the same id
 };
 #define EVENT_QUEUE_SIZE 50
 QueuedEvent eventQueue[EVENT_QUEUE_SIZE];
@@ -682,6 +683,7 @@ void enqueueEvent(float grams, const char* source, const String &requestId) {
       strncpy(eventQueue[i].source, source, sizeof(eventQueue[i].source) - 1);
       eventQueue[i].requestId = requestId;
       eventQueue[i].isoTimestamp = rtcAvailable ? getRTCiso8601() : "unknown";
+      eventQueue[i].eventId = generateEventId();  // id fixed at creation (Gap #2)
       return;
     }
   }
@@ -707,11 +709,12 @@ bool postFeedEvent(QueuedEvent &ev) {
   https.addHeader("Content-Type", "application/json");
   https.addHeader("X-Device-Token", DEVICE_TOKEN);
 
-  String eventId = generateEventId();
+  // eventId was generated once when this event was enqueued; retries of the
+  // same queued event must resend the same id so the server can dedupe.
   StaticJsonDocument<256> doc;
   doc["device_id"]       = DEVICE_MAC;
   doc["event_type"]      = "feed_dispensed";
-  doc["event_id"]        = eventId;
+  doc["event_id"]        = ev.eventId;
   doc["grams"]           = ev.grams;
   doc["source"]          = ev.source;
   doc["feed_request_id"] = ev.requestId.length() ? ev.requestId : (char*)nullptr;

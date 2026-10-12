@@ -1,10 +1,12 @@
 import { DataExportButton, DataImportDialog } from "@/components/DataImportExport";
 import { Link } from "@/i18n/routing";
+import { canWrite } from "@/lib/auth/session";
 import { ChevronLeft, Database, Download, Upload } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export default async function DataSettingsPage() {
 	const t = await getTranslations("dashboard.dataSettings");
+	const writeAccess = await canWrite();
 
 	return (
 		<div className="mx-auto max-w-4xl space-y-8">
@@ -48,7 +50,7 @@ export default async function DataSettingsPage() {
 						</div>
 					</div>
 					<p className="text-sm text-[#3D5568] mb-4">{t("importBody")}</p>
-					<DataImportDialog />
+					<DataImportDialog canWrite={writeAccess} />
 				</div>
 			</div>
 		</div>

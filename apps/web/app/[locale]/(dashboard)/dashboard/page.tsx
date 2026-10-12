@@ -5,6 +5,7 @@ import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
 import { WaterTempCard } from "@/components/WaterTempCard";
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { Link } from "@/i18n/routing";
+import { canWrite } from "@/lib/auth/session";
 import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
@@ -28,6 +29,7 @@ export default async function DashboardHomePage() {
 	const t = await getTranslations("dashboard.home");
 	const tBtn = await getTranslations("button");
 	const tHist = await getTranslations("dashboard.history");
+	const writeAccess = await canWrite();
 	const tDates = await getTranslations("dates");
 
 	const pond = await getActivePond({ devices: true });
@@ -207,6 +209,7 @@ export default async function DashboardHomePage() {
 					deviceName={energyDevice?.label ?? device.name}
 					connectionStatus={esp32Offline ? "offline" : "online"}
 					hopperLevelPct={energyDevice?.feedLevelPercent ?? 0}
+					canWrite={writeAccess}
 					data-onboard="feed-now"
 				/>
 				<ExportPdfButton />
@@ -475,8 +478,9 @@ export default async function DashboardHomePage() {
 						gramsPerFeeding={energyDevice.gramsPerFeeding}
 						lastSeenAt={energyDevice.lastSeenAt}
 						isOffline={esp32Offline}
+						canWrite={writeAccess}
 					/>
-					<TimeCalibrationForm deviceId={energyDevice.id} />
+					<TimeCalibrationForm deviceId={energyDevice.id} canWrite={writeAccess} />
 				</section>
 			)}
 		</div>

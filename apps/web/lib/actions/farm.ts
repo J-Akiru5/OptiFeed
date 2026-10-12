@@ -1,6 +1,6 @@
 ﻿"use server";
 
-import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 
 export type FarmOverview = {
@@ -36,6 +36,12 @@ export type RenameFarmResult = { success: true; name: string } | { error: string
  * another farmer's farm).
  */
 export async function renameFarm(name: string): Promise<RenameFarmResult> {
+	try {
+		await requireWriteAccess();
+	} catch {
+		return { error: "Write access required (ADMIN or OPERATOR)" };
+	}
+
 	const ownerId = await getCurrentPondOwnerId();
 
 	const trimmed = name.trim();

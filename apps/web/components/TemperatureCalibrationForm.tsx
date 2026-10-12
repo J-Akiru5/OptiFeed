@@ -8,12 +8,14 @@ interface TemperatureCalibrationFormProps {
 	deviceId: string;
 	currentTempOffsetC: number;
 	currentTempC: number | null;
+	canWrite?: boolean;
 }
 
 export function TemperatureCalibrationForm({
 	deviceId,
 	currentTempOffsetC,
 	currentTempC,
+	canWrite = true,
 }: TemperatureCalibrationFormProps) {
 	const [offset, setOffset] = useState(currentTempOffsetC);
 	const [isPending, startTransition] = useTransition();
@@ -86,7 +88,7 @@ export function TemperatureCalibrationForm({
 			<button
 				type="button"
 				onClick={handleSave}
-				disabled={isPending}
+				disabled={isPending || !canWrite}
 				className="flex min-h-[var(--ofd-touch-min)] min-w-[120px] items-center justify-center rounded-lg bg-[var(--ofd-action)] px-6 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
 			>
 				{isPending ? "Saving..." : "Save Calibration"}

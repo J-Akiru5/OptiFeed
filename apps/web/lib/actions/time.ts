@@ -1,11 +1,12 @@
 "use server";
 
-import { getCurrentPondOwnerIdSafe } from "@/lib/auth/session";
+import { getCurrentPondOwnerIdSafe, requireWriteAccess } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
 export async function setDeviceTime(deviceId: string, customTime: string) {
 	try {
+		await requireWriteAccess();
 		const ownerId = await getCurrentPondOwnerIdSafe();
 		if (!ownerId) return { success: false, error: "Not authenticated" };
 

@@ -13,9 +13,10 @@ interface PondSettingsFormProps {
 		sampleIntervalDays: number;
 		population: number | null;
 	};
+	canWrite?: boolean;
 }
 
-export function PondSettingsForm({ pond }: PondSettingsFormProps) {
+export function PondSettingsForm({ pond, canWrite = true }: PondSettingsFormProps) {
 	const t = useTranslations("dashboard.settings");
 	const [feedingRate, setFeedingRate] = useState(pond.feedingRatePct.toString());
 	const [feedsPerDay, setFeedsPerDay] = useState(pond.feedsPerDay.toString());
@@ -132,7 +133,7 @@ export function PondSettingsForm({ pond }: PondSettingsFormProps) {
 			<div className="flex items-center gap-4">
 				<button
 					type="submit"
-					disabled={isPending}
+					disabled={isPending || !canWrite}
 					className="flex min-h-[var(--ofd-touch-min)] min-w-[120px] items-center justify-center rounded-lg bg-[var(--ofd-action)] px-6 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
 				>
 					{isPending ? <Loader2 size={18} className="animate-spin" /> : t("saveSettings")}

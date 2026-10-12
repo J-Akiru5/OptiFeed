@@ -1,6 +1,7 @@
 import { DurationCalibrationForm } from "@/components/DurationCalibrationForm";
 import { HopperCalibrationForm } from "@/components/HopperCalibrationForm";
 import { TemperatureCalibrationForm } from "@/components/TemperatureCalibrationForm";
+import { canWrite } from "@/lib/auth/session";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
@@ -9,6 +10,7 @@ import { getTranslations } from "next-intl/server";
 
 export default async function HardwareSettingsPage() {
 	const t = await getTranslations("dashboard.appSettings");
+	const writeAccess = await canWrite();
 	let device = null;
 	let energyDevice = null;
 	try {
@@ -192,6 +194,7 @@ export default async function HardwareSettingsPage() {
 							hopperFullCm={energyDevice.hopperFullCm}
 							hopperEmptyCm={energyDevice.hopperEmptyCm}
 							hopperCapacityG={energyDevice.hopperCapacityG}
+							canWrite={writeAccess}
 						/>
 					</section>
 				)}
@@ -223,6 +226,7 @@ export default async function HardwareSettingsPage() {
 							deviceId={energyDevice.id}
 							currentGramsPerSecond={energyDevice.gramsPerSecond}
 							currentGramsPerFeeding={energyDevice.gramsPerFeeding}
+							canWrite={writeAccess}
 						/>
 					</section>
 				)}
@@ -260,6 +264,7 @@ export default async function HardwareSettingsPage() {
 							deviceId={energyDevice.id}
 							currentTempOffsetC={energyDevice.tempOffsetC}
 							currentTempC={energyDevice.waterTempC}
+							canWrite={writeAccess}
 						/>
 					</section>
 				)}

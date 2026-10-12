@@ -1,6 +1,6 @@
 "use server";
 
-import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { biomassLogSchema, feedGramsSchema, formatZodError } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import { calculateNextFeeding } from "@/lib/volumeCalc";
@@ -14,6 +14,7 @@ interface FishSampleInput {
 }
 
 export async function saveBiomassLog(formData: FormData) {
+	await requireWriteAccess();
 	const ownerId = await getCurrentPondOwnerId();
 	const pondId = formData.get("pondId") as string;
 	const sampleWeightKg = Number.parseFloat(formData.get("sampleWeightKg") as string);

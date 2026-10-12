@@ -7,9 +7,10 @@ import { useState } from "react";
 
 interface FarmRenameFormProps {
 	initialName: string;
+	canWrite?: boolean;
 }
 
-export function FarmRenameForm({ initialName }: FarmRenameFormProps) {
+export function FarmRenameForm({ initialName, canWrite = true }: FarmRenameFormProps) {
 	const router = useRouter();
 	const t = useTranslations("dashboard.settings");
 	const [name, setName] = useState(initialName);
@@ -52,13 +53,14 @@ export function FarmRenameForm({ initialName }: FarmRenameFormProps) {
 						minLength={2}
 						maxLength={60}
 						required
+						disabled={!canWrite}
 						value={name}
 						onChange={(e) => setName(e.target.value)}
-						className="min-w-[240px] flex-1 rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+						className="min-w-[240px] flex-1 rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] disabled:opacity-50"
 					/>
 					<button
 						type="submit"
-						disabled={loading}
+						disabled={loading || !canWrite}
 						className="min-h-[var(--ofd-touch-min)] rounded-lg bg-[var(--ofd-action)] px-6 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
 					>
 						{loading ? "…" : t("saveSettings")}

@@ -28,6 +28,7 @@ interface StuckRequestBannerProps {
 	scheduleEnd: string;
 	feedsPerDay: number;
 	feedingRatePct: number;
+	canWrite?: boolean;
 }
 
 export function StuckRequestBanner({
@@ -41,6 +42,7 @@ export function StuckRequestBanner({
 	scheduleEnd,
 	feedsPerDay,
 	feedingRatePct,
+	canWrite = true,
 }: StuckRequestBannerProps) {
 	const t = useTranslations("dashboard.schedule.stuckBanner");
 	const [isPendingFeed, startFeedTransition] = useTransition();
@@ -101,7 +103,7 @@ export function StuckRequestBanner({
 					</div>
 					<button
 						type="button"
-						disabled={isPendingFeed}
+						disabled={isPendingFeed || !canWrite}
 						className="shrink-0 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50"
 						onClick={() => {
 							startFeedTransition(async () => {
@@ -131,7 +133,7 @@ export function StuckRequestBanner({
 					</div>
 					<button
 						type="button"
-						disabled={isPendingFeed}
+						disabled={isPendingFeed || !canWrite}
 						className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-50 disabled:opacity-50"
 						onClick={() => {
 							startFeedTransition(async () => {
@@ -163,7 +165,7 @@ export function StuckRequestBanner({
 					</div>
 					<button
 						type="button"
-						disabled={isPendingSchedule}
+						disabled={isPendingSchedule || !canWrite}
 						className="shrink-0 rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-50 disabled:opacity-50"
 						onClick={() => {
 							startScheduleTransition(async () => {

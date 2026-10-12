@@ -13,6 +13,7 @@ interface LogSampleFormProps {
 	feedingRatePct: number;
 	feedsPerDay: number;
 	population?: number | null;
+	canWrite?: boolean;
 }
 
 type InputMode = "average" | "individual";
@@ -28,6 +29,7 @@ export function LogSampleForm({
 	feedingRatePct,
 	feedsPerDay,
 	population = null,
+	canWrite = true,
 }: LogSampleFormProps) {
 	const tBtn = useTranslations("button");
 	const router = useRouter();
@@ -456,7 +458,7 @@ export function LogSampleForm({
 			<div className="flex justify-end pt-4 border-t border-gray-100">
 				<button
 					type="submit"
-					disabled={isPending || avgWeightG === 0}
+					disabled={isPending || avgWeightG === 0 || !canWrite}
 					className="w-full md:w-auto bg-[#E85A2A] text-white px-8 py-3.5 rounded-2xl font-black shadow-lg hover:bg-[#d04a1f] hover:shadow-xl transition-all transform active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex justify-center items-center gap-2"
 				>
 					{isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : tBtn("saveSample")}

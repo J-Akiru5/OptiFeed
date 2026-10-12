@@ -37,6 +37,7 @@
 #include <DallasTemperature.h>
 #include <Preferences.h>
 #include <ArduinoOTA.h>
+#include <esp_task_wdt.h>
 
 // ==================== Config — fill in before flashing ====================
 #define INGEST_URL      "https://optifeed.example.com/api/ingest"
@@ -74,6 +75,22 @@ float gramsPerSecond = 4.0;
 #define DEFAULT_SCHEDULED_GRAMS 150.0  // used until backend gives us a real value
 #define DEFAULT_BUTTON_FEED_GRAMS 80.0 // overridden by backend poll response
 #define DEFAULT_MANUAL_GRAMS    100.0  // used if dashboard omits a grams value
+
+// ---- Safety caps — MUST equal server apps/web/lib/limits.ts ----
+#define MAX_DISPENSE_MS        300000UL  // = limits.ts MAX_DISPENSE_MS (5 min)
+#define MAX_GRAMS_PER_DISPENSE 1000.0    // = limits.ts MAX_FEED_GRAMS_PER_REQUEST
+#define MAX_GRAMS_PER_DAY      5000.0    // = limits.ts MAX_FEED_GRAMS_PER_DAY_PER_DEVICE
+
+// ---- Validation ranges for server-pushed values (match limits.ts) ----
+#define GRAMS_PER_FEEDING_MIN  1.0
+#define GRAMS_PER_FEEDING_MAX  MAX_GRAMS_PER_DISPENSE
+#define BUTTON_FEED_GRAMS_MIN  1.0
+#define BUTTON_FEED_GRAMS_MAX  500.0
+#define GRAMS_PER_SECOND_MIN   0.5
+#define GRAMS_PER_SECOND_MAX   50.0
+#define TEMP_OFFSET_C_MIN     -20.0
+#define TEMP_OFFSET_C_MAX      20.0
+#define HOPPER_CM_MAX          500.0    // HC-SR04 practical max (~5 m)
 
 // ---- Max feed times (schedule supports up to 24 feeds per day) ----
 #define MAX_FEED_TIMES 24
@@ -122,6 +139,25 @@ float hopperFullCm  = 5.0;    // sensor distance when hopper is full — overrid
 
 // Temperature calibration offset (°C) — overridden by backend
 float tempOffsetC = 0.0;
+
+// ---- Daily dispense budget (RAM; reset at local midnight from the RTC) ----
+float dailyGramsDispensed = 0.0;
+int lastDailyResetDay = -1;
+unsigned long lastDailyResetMs = 0;
+
+void maybeResetDailyBudget() {
+  if (rtcAvailable) {
+    DateTime now = rtc.now();
+    if ((int)now.day() != lastDailyResetDay) {
+      lastDailyResetDay = now.day();
+      dailyGramsDispensed = 0.0;
+      lastDailyResetMs = millis();
+    }
+  } else if (millis() - lastDailyResetMs >= 24UL * 3600UL * 1000UL) {
+    dailyGramsDispensed = 0.0;   // RTC unavailable: 24h window from boot
+    lastDailyResetMs = millis();
+  }
+}
 
 // DS18B20 water temperature probe
 OneWire oneWire(DS18B20_PIN);
@@ -248,6 +284,19 @@ void setup() {
   Serial.print("[DEVICE MAC] ");
   Serial.println(WiFi.macAddress());
 
+  // Task watchdog — a hung loop() reboots the board; boot already forced RELAY_OFF.
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
+  esp_task_wdt_config_t wdtConfig = {
+    .timeout_ms = 30000,
+    .idle_core_mask = 0,
+    .trigger_panic = true,
+  };
+  esp_task_wdt_init(&wdtConfig);
+#else
+  esp_task_wdt_init(30, true);
+#endif
+  esp_task_wdt_add(NULL);  // subscribe the Arduino loop task
+
   Serial.println("[READY] OptiFeed controller online.");
 }
 
@@ -262,12 +311,17 @@ void loop() {
   if (millis() - lastPoll >= POST_INTERVAL_MS) {
     sendTelemetry();
     pollDashboardFeedCommand();
+    esp_task_wdt_reset();
     pollScheduleCommand();
     flushQueuedEvents();
     lastPoll = millis();
   }
 
   if (feederActive && (millis() - feedStartTime >= feedDurationMs)) {
+    stopFeedCycle();
+  }
+  // Safety hard stop — never leave the relay energized past MAX_DISPENSE_MS.
+  if (feederActive && (millis() - feedStartTime >= MAX_DISPENSE_MS)) {
     stopFeedCycle();
   }
 }
@@ -281,6 +335,67 @@ void buildDefaultSchedule() {
   Serial.println("[SCHEDULE] default schedule loaded (06:00, 19:00)");
 }
 
+// ==================== Safety caps + config validation ====================
+
+// Best-effort report when a safety cap refuses a dose (audited server-side).
+void reportFeedError(const char* reason, float grams, const char* source) {
+  Serial.printf("[FEED] REFUSED %s: %.0fg from %s\n", reason, grams, source);
+  if (WiFi.status() != WL_CONNECTED) return;
+  HTTPClient https;
+  if (!https.begin(secureClient, INGEST_URL)) return;
+  https.addHeader("Content-Type", "application/json");
+  https.addHeader("X-Device-Token", DEVICE_TOKEN);
+  StaticJsonDocument<256> doc;
+  doc["device_id"]  = DEVICE_MAC;
+  doc["event_type"] = "feed_refused";
+  doc["event_id"]   = generateEventId();
+  doc["grams"]      = grams;
+  doc["source"]     = source;
+  doc["reason"]     = reason;
+  doc["timestamp"]  = rtcAvailable ? getRTCiso8601() : "unknown";
+  String out;
+  serializeJson(doc, out);
+  int code = https.POST(out);
+  https.end();
+  Serial.printf("[FEED] refusal report -> %d\n", code);
+}
+
+// Validates every server-pushed value BEFORE anything is stored.
+// Returns false if any present value is out of range — callers must then
+// ignore the whole response (no stores, no dispense, no schedule update).
+bool validateServerConfig(const JsonDocument &doc) {
+  float v;
+  if (doc.containsKey("grams_per_feeding")) {
+    v = doc["grams_per_feeding"];
+    if (!(v >= GRAMS_PER_FEEDING_MIN && v <= GRAMS_PER_FEEDING_MAX)) return false;
+  }
+  if (doc.containsKey("button_feed_grams")) {
+    v = doc["button_feed_grams"];
+    if (!(v >= BUTTON_FEED_GRAMS_MIN && v <= BUTTON_FEED_GRAMS_MAX)) return false;
+  }
+  if (doc.containsKey("grams_per_second")) {
+    v = doc["grams_per_second"];
+    if (!(v >= GRAMS_PER_SECOND_MIN && v <= GRAMS_PER_SECOND_MAX)) return false;
+  }
+  if (doc.containsKey("temp_offset_c")) {
+    v = doc["temp_offset_c"];
+    if (!(v >= TEMP_OFFSET_C_MIN && v <= TEMP_OFFSET_C_MAX)) return false;
+  }
+  if (doc.containsKey("hopper_full_cm")) {
+    v = doc["hopper_full_cm"];
+    if (!(v > 0 && v <= HOPPER_CM_MAX)) return false;
+  }
+  if (doc.containsKey("hopper_empty_cm")) {
+    v = doc["hopper_empty_cm"];
+    if (!(v > 0 && v <= HOPPER_CM_MAX)) return false;
+  }
+  // Cross-field: hopper full distance must be nearer than the empty distance.
+  float fullCm = doc.containsKey("hopper_full_cm") ? (float)doc["hopper_full_cm"] : hopperFullCm;
+  float emptyCm = doc.containsKey("hopper_empty_cm") ? (float)doc["hopper_empty_cm"] : hopperEmptyCm;
+  if (fullCm >= emptyCm) return false;
+  return true;
+}
+
 // ==================== Shared dispense logic ====================
 
 void dispenseFeed(float grams, const char* source, const String &requestId = "") {
@@ -288,7 +403,30 @@ void dispenseFeed(float grams, const char* source, const String &requestId = "")
     Serial.printf("[FEED] busy — ignoring %s trigger (mutex held)\n", source);
     return;
   }
-  feedDurationMs = (unsigned long)((grams / gramsPerSecond) * 1000.0);
+
+  maybeResetDailyBudget();
+
+  if (grams <= 0 || grams > MAX_GRAMS_PER_DISPENSE) {
+    reportFeedError("grams_out_of_range", grams, source);
+    return;
+  }
+
+  unsigned long durationMs = (unsigned long)((grams / gramsPerSecond) * 1000.0);
+  if (durationMs > MAX_DISPENSE_MS) {
+    // REFUSE, never truncate: a slow calibration must not silently halve a
+    // valid dose (e.g. 1000 g at 2 g/s = 500 s, over the 300 s cap).
+    reportFeedError("dose_time_exceeds_cap", grams, source);
+    return;
+  }
+
+  if (dailyGramsDispensed + grams > MAX_GRAMS_PER_DAY) {
+    reportFeedError("daily_gram_cap_exceeded", grams, source);
+    return;
+  }
+
+  // Backstop clamp only — unreachable while the refusals above hold.
+  feedDurationMs = (durationMs < MAX_DISPENSE_MS) ? durationMs : MAX_DISPENSE_MS;
+
   Serial.printf("[FEED] dispensing %.0fg (~%lums) — source: %s\n", grams, feedDurationMs, source);
 
   digitalWrite(RELAY_PIN, RELAY_ON);
@@ -297,6 +435,7 @@ void dispenseFeed(float grams, const char* source, const String &requestId = "")
   currentFeedGrams = grams;
   currentFeedSource = source;
   currentFeedRequestId = requestId;
+  dailyGramsDispensed += grams;
 }
 
 void stopFeedCycle() {
@@ -338,40 +477,45 @@ void pollDashboardFeedCommand() {
   if (code == 200) {
     StaticJsonDocument<256> doc;
     if (!deserializeJson(doc, https.getString())) {
-      if (doc.containsKey("grams_per_feeding")) {
-        cachedScheduledGrams = doc["grams_per_feeding"] | cachedScheduledGrams;
-      }
-      // Dynamic button dose — overrides compile-time default.
-      // The backend returns button_feed_grams from EnergyDevice.buttonFeedGrams.
-      if (doc.containsKey("button_feed_grams")) {
-        float bfg = doc["button_feed_grams"];
-        if (bfg > 0) {
-          cachedButtonFeedGrams = bfg;
+      if (!validateServerConfig(doc)) {
+        // N9: ignore the whole config when any pushed value is out of range.
+        Serial.println("[POLL] invalid config from server — ignoring whole response");
+      } else {
+        if (doc.containsKey("grams_per_feeding")) {
+          cachedScheduledGrams = doc["grams_per_feeding"] | cachedScheduledGrams;
         }
-      }
-      // Hopper calibration — overrides compile-time defaults
-      if (doc.containsKey("hopper_full_cm")) {
-        float hf = doc["hopper_full_cm"];
-        if (hf > 0) hopperFullCm = hf;
-      }
-      if (doc.containsKey("hopper_empty_cm")) {
-        float he = doc["hopper_empty_cm"];
-        if (he > 0) hopperEmptyCm = he;
-      }
-      // Duration calibration — motor dispense rate
-      if (doc.containsKey("grams_per_second")) {
-        float gps = doc["grams_per_second"];
-        if (gps > 0) gramsPerSecond = gps;
-      }
-      // Temperature calibration offset
-      if (doc.containsKey("temp_offset_c")) {
-        tempOffsetC = doc["temp_offset_c"];
-      }
-      bool requested = doc["feed_requested"] | false;
-      if (requested) {
-        float grams = doc["grams"] | DEFAULT_MANUAL_GRAMS;
-        String requestId = doc["feed_request_id"] | "";
-        dispenseFeed(grams, "dashboard", requestId);
+        // Dynamic button dose — overrides compile-time default.
+        // The backend returns button_feed_grams from EnergyDevice.buttonFeedGrams.
+        if (doc.containsKey("button_feed_grams")) {
+          float bfg = doc["button_feed_grams"];
+          if (bfg > 0) {
+            cachedButtonFeedGrams = bfg;
+          }
+        }
+        // Hopper calibration — overrides compile-time defaults
+        if (doc.containsKey("hopper_full_cm")) {
+          float hf = doc["hopper_full_cm"];
+          if (hf > 0) hopperFullCm = hf;
+        }
+        if (doc.containsKey("hopper_empty_cm")) {
+          float he = doc["hopper_empty_cm"];
+          if (he > 0) hopperEmptyCm = he;
+        }
+        // Duration calibration — motor dispense rate
+        if (doc.containsKey("grams_per_second")) {
+          float gps = doc["grams_per_second"];
+          if (gps > 0) gramsPerSecond = gps;
+        }
+        // Temperature calibration offset
+        if (doc.containsKey("temp_offset_c")) {
+          tempOffsetC = doc["temp_offset_c"];
+        }
+        bool requested = doc["feed_requested"] | false;
+        if (requested) {
+          float grams = doc["grams"] | DEFAULT_MANUAL_GRAMS;
+          String requestId = doc["feed_request_id"] | "";
+          dispenseFeed(grams, "dashboard", requestId);
+        }
       }
     }
   }
@@ -392,6 +536,11 @@ void pollScheduleCommand() {
     StaticJsonDocument<384> doc;
     if (!deserializeJson(doc, https.getString())) {
       bool changed = doc["schedule_changed"] | false;
+      if (changed && !validateServerConfig(doc)) {
+        // N9: ignore the whole command when any pushed value is out of range.
+        Serial.println("[SCHEDULE] invalid config from server — ignoring whole command");
+        changed = false;
+      }
       if (changed) {
         const char* startStr = doc["schedule_start"] | "";
         const char* endStr = doc["schedule_end"] | "";
@@ -547,6 +696,7 @@ void flushQueuedEvents() {
         eventQueue[i].synced = true;
         eventQueue[i].used = false;
       }
+      esp_task_wdt_reset();  // progress between network posts — not a hang
     }
   }
 }

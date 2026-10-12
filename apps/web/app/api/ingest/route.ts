@@ -15,7 +15,7 @@ const RATE_LIMIT_MS = 1000;
 
 const baseSchema = z.object({
 	device_id: z.string().min(1),
-	event_type: z.enum(["heartbeat", "feed_dispensed", "schedule_acked"]),
+	event_type: z.enum(["heartbeat", "feed_dispensed", "schedule_acked", "feed_refused"]),
 	timestamp: z.string().min(1),
 	event_id: z.string().min(8).optional(),
 });
@@ -39,6 +39,12 @@ const feedDispensedSchema = baseSchema.extend({
 
 const scheduleAckedSchema = baseSchema.extend({
 	command_id: z.string().min(1),
+});
+
+const feedRefusedSchema = baseSchema.extend({
+	grams: z.number().positive(),
+	source: z.enum(["scheduled", "dashboard", "button"]),
+	reason: z.string().min(1),
 });
 
 function isUniqueConstraintError(error: unknown): boolean {
@@ -498,6 +504,40 @@ export async function POST(request: Request) {
 					}),
 				]);
 			}
+		} catch (error) {
+			if (isUniqueConstraintError(error)) {
+				return new Response(null, { status: 204 });
+			}
+			throw error;
+		}
+	} else if (eventType === "feed_refused") {
+		// Firmware safety caps refused a dose (over per-dose grams, dose time,
+		// or the daily budget) — audit-only; no FeedEvent is created.
+		const parsed = feedRefusedSchema.safeParse(body);
+		if (!parsed.success) {
+			return new Response("Unprocessable Entity", { status: 422 });
+		}
+
+		try {
+			await prisma.$transaction([
+				prisma.energyDevice.update({
+					where: { id: device.id },
+					data: { lastSeenAt: new Date() },
+				}),
+				prisma.deviceStateEvent.create({
+					data: {
+						deviceId: device.id,
+						eventType: "feed_refused",
+						source: "device",
+						deviceTime: parsed.data.timestamp,
+						metadata: {
+							grams: parsed.data.grams,
+							source: parsed.data.source,
+							reason: parsed.data.reason,
+						},
+					},
+				}),
+			]);
 		} catch (error) {
 			if (isUniqueConstraintError(error)) {
 				return new Response(null, { status: 204 });

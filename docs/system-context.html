@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OptiFeed — System Context Briefing for AI</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-light: #334155;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --accent: #3b82f6;
+    --accent-light: #60a5fa;
+    --critical: #ef4444;
+    --critical-bg: #450a0a;
+    --high: #f59e0b;
+    --high-bg: #451a03;
+    --medium: #eab308;
+    --medium-bg: #422006;
+    --low: #22c55e;
+    --low-bg: #052e16;
+    --code-bg: #0d1117;
+    --code-border: #30363d;
+    --code-text: #e6edf3;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7;
+  }
+  .hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+    padding: 56px 40px; border-bottom: 1px solid var(--surface-light);
+  }
+  .hero h1 {
+    font-size: 2.4rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 12px;
+    background: linear-gradient(to right, #3b82f6, #60a5fa, #22c55e);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .hero .subtitle { font-size: 1.1rem; color: var(--text-muted); margin-bottom: 22px; max-width: 900px; }
+  .hero .meta { display: flex; gap: 28px; flex-wrap: wrap; font-size: 0.875rem; color: var(--text-muted); }
+  .hero .meta strong { color: var(--text); }
+  .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
+  .toc {
+    background: var(--surface); border: 1px solid var(--surface-light); border-radius: 12px;
+    padding: 24px 28px; margin-bottom: 44px;
+  }
+  .toc h2 { font-size: 1.05rem; font-weight: 700; color: var(--accent-light); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .toc ol { list-style: none; counter-reset: toc; columns: 2; column-gap: 32px; }
+  .toc li { counter-increment: toc; margin-bottom: 7px; break-inside: avoid; }
+  .toc li::before {
+    content: counter(toc, decimal-leading-zero); color: var(--accent); font-weight: 700;
+    font-family: 'SF Mono', 'Fira Code', monospace; margin-right: 10px;
+  }
+  .toc a { color: var(--text-muted); text-decoration: none; }
+  .toc a:hover { color: var(--accent-light); }
+  section { margin-bottom: 56px; }
+  h2 {
+    font-size: 1.65rem; font-weight: 700; margin-bottom: 18px;
+    padding-bottom: 10px; border-bottom: 2px solid var(--surface-light);
+  }
+  h3 { font-size: 1.2rem; font-weight: 600; margin-top: 28px; margin-bottom: 10px; color: var(--accent-light); }
+  h4 { font-size: 1rem; font-weight: 600; margin-top: 18px; margin-bottom: 8px; color: var(--text); }
+  p { margin-bottom: 14px; }
+  ul, ol { margin: 0 0 16px 24px; }
+  li { margin-bottom: 6px; }
+  code {
+    font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 0.86em;
+    background: var(--code-bg); border: 1px solid var(--code-border); border-radius: 5px;
+    padding: 1px 6px; color: var(--code-text);
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--code-border); border-radius: 10px;
+    padding: 16px 18px; overflow-x: auto; margin-bottom: 16px;
+    font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 0.85rem; line-height: 1.55; color: var(--code-text);
+  }
+  pre code { background: none; border: none; padding: 0; font-size: inherit; }
+  table {
+    width: 100%; border-collapse: collapse; margin-bottom: 20px;
+    background: var(--surface); border: 1px solid var(--surface-light); border-radius: 10px; overflow: hidden;
+    font-size: 0.9rem;
+  }
+  th, td { padding: 9px 13px; text-align: left; border-bottom: 1px solid var(--surface-light); vertical-align: top; }
+  th { background: #17233a; color: var(--accent-light); font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  tr:last-child td { border-bottom: none; }
+  td code { font-size: 0.82em; white-space: nowrap; }
+  .card {
+    background: var(--surface); border: 1px solid var(--surface-light);
+    border-radius: 14px; padding: 24px 26px; margin-bottom: 24px;
+  }
+  .card.danger { border-left: 4px solid var(--critical); background: linear-gradient(90deg, var(--critical-bg), var(--surface) 40%); }
+  .card.warn { border-left: 4px solid var(--high); background: linear-gradient(90deg, var(--high-bg), var(--surface) 40%); }
+  .card.ok { border-left: 4px solid var(--low); }
+  .card.info { border-left: 4px solid var(--accent); }
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: 999px;
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .badge.crit { background: var(--critical-bg); color: var(--critical); border: 1px solid var(--critical); }
+  .badge.high { background: var(--high-bg); color: var(--high); border: 1px solid var(--high); }
+  .badge.med { background: var(--medium-bg); color: var(--medium); border: 1px solid var(--medium); }
+  .badge.low { background: var(--low-bg); color: var(--low); border: 1px solid var(--low); }
+  .badge.info { background: #082f49; color: var(--accent-light); border: 1px solid var(--accent); }
+  .path { color: var(--accent-light); font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 0.85em; }
+  .muted { color: var(--text-muted); font-size: 0.9rem; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } .toc ol { columns: 1; } }
+  .fileidx { font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 0.82rem; line-height: 1.8; white-space: pre-wrap; color: var(--text-muted); }
+  .fileidx b { color: var(--text); }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>OptiFeed — System Context Briefing</h1>
+  <p class="subtitle">A complete, self-contained description of the OptiFeed system as of the audit date, written so an AI with <strong>no repo access</strong> can understand the system and execute a plan correctly. Read this entire document before acting.</p>
+  <div class="meta">
+    <span class="meta-item">Repo: <strong>J-Akiru5/OptiFeed</strong></span>
+    <span class="meta-item">Branch: <strong>Karl</strong> (from develop)</span>
+    <span class="meta-item">Version: <strong>1.10.0</strong></span>
+    <span class="meta-item">Audit date: <strong>2026-10-12</strong></span>
+    <span class="meta-item">Package manager: <strong>pnpm@10.33.3</strong></span>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ================= TOC ================= -->
+<div class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#howto">How to use this document</a></li>
+    <li><a href="#rules">Critical rules &amp; landmines</a></li>
+    <li><a href="#product">Product overview</a></li>
+    <li><a href="#monorepo">Monorepo structure</a></li>
+    <li><a href="#stack">Tech stack</a></li>
+    <li><a href="#architecture">Architecture &amp; data flow</a></li>
+    <li><a href="#datamodel">Prisma data model</a></li>
+    <li><a href="#auth">Auth &amp; authorization</a></li>
+    <li><a href="#api">API surface &amp; server actions</a></li>
+    <li><a href="#firmware">ESP32 firmware</a></li>
+    <li><a href="#domain">Domain logic &amp; formulas</a></li>
+    <li><a href="#realtime">Realtime &amp; notifications</a></li>
+    <li><a href="#i18n">Internationalization</a></li>
+    <li><a href="#testing">Testing, CI/CD</a></li>
+    <li><a href="#env">Environment variables</a></li>
+    <li><a href="#index">File path index</a></li>
+    <li><a href="#debt">Known issues &amp; tech debt</a></li>
+    <li><a href="#gitstate">Git / working-tree state</a></li>
+    <li><a href="#pr">Production-readiness assessment</a></li>
+    <li><a href="#plan">Execution plan &amp; review</a></li>
+  </ol>
+</div>
+
+<!-- ================= 1. HOW TO USE ================= -->
+<section id="howto">
+  <h2>1. How to use this document</h2>
+  <div class="card info">
+    <p>This file is the <strong>single source of truth about the system</strong> for an AI that cannot browse the repository. It was produced by a full read-only audit of the code.</p>
+    <ul>
+      <li><strong>Section 2 is non-negotiable.</strong> Those rules exist because real damage has already happened (a production database wipe). Violating them is a failure.</li>
+      <li>The person giving you a plan will paste it <em>alongside</em> this document. The plan defines <em>what</em> to build; this document defines <em>how the system works</em> and what you must respect.</li>
+      <li>If your plan conflicts with a rule in Section 2, <strong>stop and ask the user</strong> rather than proceeding.</li>
+      <li><strong>Section 19</strong> is a third-party production-readiness assessment of this system (with independent verification) — if your plan touches feeding safety, data integrity, auth, CI, or monitoring, read it first.</li>
+      <li><strong>Section 20</strong> names the single authoritative execution plan (<span class="path">docs/OPTIFEED-INDUSTRY-GRADE-PLAN v3.md</span>) and records the independent review that corrected it — if you were handed a different plan file, check §20 first.</li>
+      <li>When you do write code: match the existing conventions (Biome formatting — tabs, 100-col, double quotes; Conventional Commits; Server Actions in <span class="path">lib/actions/</span>; no code comments unless asked), run <code>pnpm lint</code>, <code>pnpm typecheck</code>, <code>pnpm build</code>, and <code>pnpm test</code> before declaring work done.</li>
+      <li>Prefer editing existing files over creating new ones. Prefer small, single-purpose changes over rewrites.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================= 2. RULES ================= -->
+<section id="rules">
+  <h2>2. Critical rules &amp; landmines</h2>
+
+  <div class="card danger">
+    <span class="badge crit">Critical</span>
+    <h3>Never run <code>prisma migrate reset</code> against production</h3>
+    <p>It drops the entire database and recreates it from scratch. <strong>This already happened once</strong> and wiped all production data (ponds, devices, feeding history).</p>
+    <ul>
+      <li>Production migrations: <code>prisma migrate deploy</code></li>
+      <li>Local dev only: <code>prisma migrate dev</code></li>
+      <li><code>prisma migrate reset</code>: only on a local dev database you are willing to destroy.</li>
+    </ul>
+  </div>
+
+  <div class="card danger">
+    <span class="badge crit">Critical</span>
+    <h3>Branch workflow</h3>
+    <ul>
+      <li>Work exclusively on the <strong><code>Karl</code></strong> branch (already exists, branched from <code>develop</code>).</li>
+      <li><strong>Never push directly to <code>develop</code> or <code>main</code>.</strong> Every change reaches <code>develop</code> via a PR from <code>Karl</code>.</li>
+      <li><code>main</code> is off-limits entirely — it is promoted from <code>develop</code> only by Jeff, only when a milestone is approved.</li>
+      <li>Sync before each task: <code>git checkout Karl &amp;&amp; git pull origin develop --rebase</code>.</li>
+      <li>Keep PRs small and scoped to one task. Before opening a PR run <code>pnpm lint</code>, <code>pnpm build</code>, and the tests.</li>
+      <li>Commit messages must be <strong>Conventional Commits</strong> (<code>feat:</code>, <code>fix:</code>, <code>chore:</code>, <code>refactor:</code>) — commitlint enforces this on commit.</li>
+      <li>Never commit <code>.env</code>, <code>.env.local</code>, or any Supabase service-role key. Husky pre-commit hard-blocks staged <code>.env*</code> files.</li>
+      <li>Search for existing <code>// TODO(karl):</code> comments before building something from scratch.</li>
+    </ul>
+  </div>
+
+  <div class="card danger">
+    <span class="badge crit">Critical</span>
+    <h3>"This is NOT the Next.js you know"</h3>
+    <p>The app uses <strong>Next.js 16.2.10</strong>, which contains breaking changes. <span class="path">apps/web/AGENTS.md</span> (injected into every tool call) instructs: <em>read the relevant guide in <code>node_modules/next/dist/docs/</code> before writing any code, and heed deprecation notices.</em></p>
+    <ul>
+      <li><strong><code>middleware.ts</code> no longer exists — the file is <code>proxy.ts</code></strong> (see <span class="path">apps/web/proxy.ts</span>).</li>
+      <li>Local docs bundle lives at <span class="path">apps/web/node_modules/next/dist/docs/</span> (e.g. <code>15-route-handlers.md</code>, <code>07-mutating-data.md</code>, <code>18-upgrading.md</code>, <code>production-checklist.md</code>).</li>
+      <li><span class="path">apps/web/CLAUDE.md</span> is just an import of <span class="path">AGENTS.md</span>.</li>
+    </ul>
+  </div>
+
+  <div class="card warn">
+    <span class="badge high">High</span>
+    <h3>Security &amp; correctness traps to not repeat</h3>
+    <ul>
+      <li><strong>RLS policy mismatch:</strong> migration <code>20260831120000_add_rls_policies</code> compares <code>"ownerId" = current_setting('request.jwt.claims')-&gt;&gt;'email'</code>, but <code>Pond.ownerId</code> stores a <em>farmId slug</em> (e.g. <code>demo-farmer-1</code>), not an email. If RLS is ever enforced, policies match nothing. Do not "fix" RLS casually — read the migration header first.</li>
+      <li><strong>API auth is per-route, not middleware:</strong> <code>proxy.ts</code> matcher excludes <code>/api/*</code> entirely. Every new API route must do its own session check (<code>@/lib/auth/session</code> or <code>@/lib/auth/with-auth</code>) — a CI grep gate fails the build otherwise (allowlist: <code>api/ingest</code>, <code>api/feed-command</code>, <code>api/schedule-sync</code>, <code>api/health</code>).</li>
+      <li><strong>Rate limiting is in-memory</strong> (a <code>Map</code>) — it does not work across serverless instances on Vercel. Do not assume it protects production endpoints.</li>
+      <li><strong><code>/signup</code> is publicly renderable.</strong> The admin check inside <code>createUser</code> (<code>requireRole("ADMIN")</code>) mitigates actual abuse, but <span class="path">proxy.ts</span> has a dead/stub branch where a signup guard was intended.</li>
+      <li>Telemetry tables carry an <strong>immutable <code>farmId</code> stamp with no FK</strong> — never strip it, it must survive farm lifecycle deletes.</li>
+    </ul>
+  </div>
+
+  <div class="card warn">
+    <span class="badge high">High</span>
+    <h3>Stale docs that contradict the code (trust the code)</h3>
+    <ul>
+      <li><span class="path">docs/vercel-deployment-checklist.md</span> claims the app fails without <strong>Upstash Redis</strong> — false. Upstash was removed (commit <code>098771f</code>); rate limiting is in-memory now. <code>UPSTASH_*</code> env vars are dead.</li>
+      <li><span class="path">Firmware-Implementation</span> (root) says the relay boots HIGH/closed — <strong>stale</strong>. Current firmware forces <code>RELAY_OFF</code> at boot (feeder must never dispense at boot). It also references <code>EnergyReading</code>, <code>/api/relay-state</code>, <code>setRelayState()</code> — none exist.</li>
+      <li><span class="path">guidelines/Guidelines.md</span> is an unfilled template; <span class="path">apps/web/README.md</span> is the default create-next-app README. Neither is authoritative.</li>
+      <li><code>energy-monitoring-architecture-v2.html</code> describes a <em>different</em> product line (EMU energy monitoring, PZEM-004T) that was merged/abandoned — most of it is not implemented here.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================= 3. PRODUCT ================= -->
+<section id="product">
+  <h2>3. Product overview</h2>
+  <p><strong>OptiFeed</strong> is an aquaculture smart feeding management platform. A farmer manages ponds, logs biomass samples, and sets feeding parameters; an <strong>ESP32-controlled hopper feeder</strong> dispenses feed on schedule or on demand and reports telemetry back to a Next.js dashboard.</p>
+
+  <div class="grid2">
+    <div class="card">
+      <h4>Main actors</h4>
+      <ul>
+        <li><strong>Farmer / Operator / Viewer</strong> — logs into the web dashboard (farmId + PIN), manages ponds, views FCR/growth, triggers "Feed Now".</li>
+        <li><strong>Admin</strong> — manages users, ponds, devices, hierarchy, audit trail.</li>
+        <li><strong>ESP32 feeder</strong> — polls the API every 5 s, dispenses feed, posts telemetry.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Core loop</h4>
+      <ul>
+        <li>Farmer logs a biomass sample → feed grams auto-recalculated (with deviation guard).</li>
+        <li>Schedule edits queue a <code>ScheduleCommand</code> → ESP32 polls, ACKs → Pond updated.</li>
+        <li>"Feed Now" queues a <code>FeedRequest</code> → ESP32 polls within 5 s, dispenses, posts <code>feed_dispensed</code>.</li>
+        <li>Heartbeats update feed level / water temp / connectivity and raise notifications.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card warn">
+    <span class="badge med">Note</span>
+    <strong>Terminology is inconsistent across the repo:</strong> root <span class="path">README.md</span> says <em>"Smart shrimp feeding management"</em>, the landing page meta says <em>"Remote Feeding Control for Catfish Farms"</em>, and <code>pantat_biomass_dataset.html</code> refers to Pantat (a fish). Assume <strong>fish (catfish) in ponds</strong> unless a plan says otherwise — and if a task touches user-facing copy, ask which species is correct.
+  </div>
+</section>
+
+<!-- ================= 4. MONOREPO ================= -->
+<section id="monorepo">
+  <h2>4. Monorepo structure</h2>
+  <p>pnpm workspaces (<span class="path">pnpm-workspace.yaml</span> → <code>apps/*</code>, <code>packages/*</code>). Root package <code>optifeed</code> v1.10.0, <code>type: module</code>.</p>
+  <table>
+    <thead><tr><th>Path</th><th>Package</th><th>Status</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>apps/web</code></td><td><code>@optifeed/web</code> v1.9.0</td><td><span class="badge low">active</span></td><td><strong>The entire product</strong> — Next.js 16 App Router app (UI, API, actions, Prisma).</td></tr>
+      <tr><td><code>packages/types</code></td><td><code>@optifeed/types</code> 0.0.0</td><td><span class="badge high">stub</span></td><td><code>src/index.ts</code> is one line: <code>// TODO(karl): Export shared TypeScript types...</code> — nothing exported.</td></tr>
+      <tr><td><code>packages/ui</code></td><td><code>@optifeed/ui</code> 0.0.0</td><td><span class="badge high">stub</span></td><td>Same — one TODO line. Real UI lives in <span class="path">apps/web/components/</span>.</td></tr>
+      <tr><td><code>packages/config</code></td><td><code>@optifeed/config</code></td><td><span class="badge low">active</span></td><td>Shared <code>tsconfig.base.json</code> only.</td></tr>
+      <tr><td><code>firmware/</code></td><td>—</td><td><span class="badge low">active</span></td><td>ESP32 Arduino firmware (<code>README.md</code> + <code>firmware-main/firmware-main.ino</code>, 713 lines).</td></tr>
+      <tr><td><code>guidelines/</code></td><td>—</td><td><span class="badge med">template</span></td><td><code>Guidelines.md</code> is an unfilled template — no project rules live there.</td></tr>
+      <tr><td><code>docs/</code></td><td>—</td><td><span class="badge info">docs</span></td><td>HTML audit reports, this file, deployment checklist, progress tracker.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Root scripts</h3>
+  <table>
+    <thead><tr><th>Script</th><th>Runs</th></tr></thead>
+    <tbody>
+      <tr><td><code>pnpm dev</code></td><td><code>pnpm --filter web dev</code></td></tr>
+      <tr><td><code>pnpm build</code></td><td><code>pnpm --filter web build</code></td></tr>
+      <tr><td><code>pnpm lint</code> / <code>lint:fix</code> / <code>format</code></td><td>Biome check / auto-fix / format (repo-wide)</td></tr>
+      <tr><td><code>pnpm typecheck</code></td><td><code>pnpm -r typecheck</code> (all packages)</td></tr>
+      <tr><td><code>pnpm test</code></td><td><code>pnpm --filter web test</code> (Vitest run)</td></tr>
+      <tr><td><code>pnpm prisma:generate</code> / <code>pnpm prisma:migrate</code></td><td>Delegate to <code>apps/web</code></td></tr>
+    </tbody>
+  </table>
+  <p class="muted">Hooks: Husky <code>pre-commit</code> runs lint-staged (Biome on staged files, blocks <code>.env*</code>); <code>commit-msg</code> runs commitlint (Conventional Commits).</p>
+</section>
+
+<!-- ================= 5. STACK ================= -->
+<section id="stack">
+  <h2>5. Tech stack</h2>
+  <table>
+    <thead><tr><th>Layer</th><th>Choice</th></tr></thead>
+    <tbody>
+      <tr><td>Framework</td><td><strong>Next.js 16.2.10</strong> (App Router), React 19.2.4, TypeScript ^5 — source root <code>apps/web/app/</code> (no <code>src/</code>)</td></tr>
+      <tr><td>Database</td><td>PostgreSQL via <strong>Supabase</strong> (pooled <code>DATABASE_URL</code> + <code>DIRECT_URL</code> for migrations)</td></tr>
+      <tr><td>ORM</td><td>Prisma ^6.6.0 (<code>apps/web/prisma/schema.prisma</code>, 353 lines)</td></tr>
+      <tr><td>Auth</td><td>Supabase Auth (<code>@supabase/ssr</code> ^0.6.1) + Prisma <code>User</code> role — <em>not</em> NextAuth</td></tr>
+      <tr><td>i18n</td><td>next-intl ^4.1.0 — locales <code>en</code> (default) + <code>hil</code> (Hiligaynon)</td></tr>
+      <tr><td>Styling</td><td>Tailwind CSS 4 + shadcn/ui + <code>default_shadcn_theme.css</code>; dark mode via <code>ThemeContext</code></td></tr>
+      <tr><td>State</td><td>React Context only (notification, chat, theme). No Redux/Zustand. Cross-request state = cookie <code>optifeed:pondId</code> + server-side Prisma reads.</td></tr>
+      <tr><td>AI</td><td>Google Gemini (<code>@google/generative-ai</code> ^0.24.1), default model <code>gemini-2.5-flash</code></td></tr>
+      <tr><td>Export/Import</td><td>PapaParse (CSV), JSZip, jsPDF + jspdf-autotable</td></tr>
+      <tr><td>Validation</td><td>Zod ^4.4.3</td></tr>
+      <tr><td>Observability</td><td>Sentry (<code>@sentry/nextjs</code> ^10.73.0), Vercel Analytics + Speed Insights</td></tr>
+      <tr><td>Testing</td><td>Vitest ^3.2.7 + Testing Library (jsdom); Playwright ^1.62.1 (e2e)</td></tr>
+      <tr><td>Lint</td><td>Biome ^1.9.4 — <strong>tab indent, 100 col, double quotes</strong></td></tr>
+      <tr><td>Deploy</td><td>Vercel (GitHub Actions <code>deploy.yml</code> on push to <code>main</code>)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ================= 6. ARCHITECTURE ================= -->
+<section id="architecture">
+  <h2>6. Architecture &amp; data flow</h2>
+  <pre>
+┌─────────────┐   HTTPS/JSON, every 5s (X-Device-Token)   ┌──────────────────────────────┐
+│  ESP32-WROOM │ ───────────────────────────────────────► │  Next.js 16 route handlers   │
+│  feeder      │  GET  /api/feed-command  (pending dose)  │  app/api/{ingest,feed-       │
+│  (3-way:     │  GET  /api/schedule-sync (schedule/ACK)  │  command,schedule-sync,...}  │
+│  schedule /  │  POST /api/ingest (heartbeat,            └──────────────┬───────────────┘
+│  button /    │    feed_dispensed, schedule_acked)                     │ Prisma
+│  dashboard)  │ ◄──────────────────────────────────────┐               ▼
+└─────────────┘   responses push config/calibration     │      ┌─────────────────┐
+                                                        │      │  PostgreSQL     │
+        ┌───────────────────────────────────────┐       │      │  (Supabase)     │
+        │  Browser (Server Components + actions)│       │      └────────┬────────┘
+        │  app/[locale]/{dashboard,admin}/...   │       │               │ postgres_changes
+        │  lib/actions/*.ts (mutations +        ├───────┘               ▼
+        │  revalidatePath)                      │            ┌──────────────────────┐
+        │  5s poll of feed-command/             │            │ NotificationContext  │
+        │  schedule-sync (device status)        │            │ (bell + sticky       │
+        └───────────────────────────────────────┘            │  banner + toasts)    │
+                                                             └──────────────────────┘
+        Browser ── SSE ──► /api/chat ──► Gemini (streaming, keyword fallback)</pre>
+
+  <ul>
+    <li><strong>Two API patterns:</strong> Server Actions for all UI mutations (Prisma directly + <code>revalidatePath</code>); REST route handlers for device communication, streaming (SSE), and export/import.</li>
+    <li><strong>No tRPC, no WebSockets server-side.</strong> Realtime = Supabase Realtime (<code>postgres_changes</code> on <code>Notification</code>) + 5-second polling by the ESP32.</li>
+    <li><strong>Session plumbing:</strong> <span class="path">apps/web/proxy.ts</span> runs next-intl middleware, refreshes the Supabase session, redirects unauthenticated GET/HEAD requests hitting <code>/dashboard</code> or <code>/admin</code> to <code>/{locale}/login</code>. It deliberately only redirects GET/HEAD so Server Action POSTs are not broken. Matcher: <code>["/((?!api|_next|_vercel|.*\..*).*)"]</code>.</li>
+  </ul>
+</section>
+
+<!-- ================= 7. DATA MODEL ================= -->
+<section id="datamodel">
+  <h2>7. Prisma data model</h2>
+  <p><span class="path">apps/web/prisma/schema.prisma</span> — PostgreSQL, 20 models, 3 enums. 20 migration folders in <span class="path">apps/web/prisma/migrations/</span> (fresh_migrate 2026-07-07 → add_pond_population 2026-10-05).</p>
+
+  <h3>Enums</h3>
+  <pre><code>enum UserRole            { ADMIN  OPERATOR  VIEWER }
+enum PondStatus          { ACTIVE  ARCHIVED }
+enum PondOwnershipEventType { CREATED  TRANSFERRED }</code></pre>
+
+  <h3>Models</h3>
+  <table>
+    <thead><tr><th>Model</th><th>Key fields</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td><code>User</code></td><td><code>supabaseId @unique</code>, <code>farmId @unique</code> (login slug), <code>email @unique</code>, <code>displayName?</code>, <code>role</code></td><td><code>farm Farm?</code>, <code>ponds Pond[]</code></td></tr>
+      <tr><td><code>Farm</code></td><td><code>ownerId @unique</code> (1 farm per farmer), <code>name</code></td><td>owner FK → <code>User.farmId</code>, Cascade</td></tr>
+      <tr><td><code>Pond</code></td><td><code>feedingRatePct</code>, <code>feedsPerDay</code>, <code>population Int?</code>, <code>sampleIntervalDays @default(14)</code>, <code>scheduleStart/End @db.Time()</code>, <code>notificationPrefs Json</code>, <code>status</code></td><td>Central config entity. Cascade from Farm, Restrict from User.</td></tr>
+      <tr><td><code>EnergyDevice</code></td><td><code>mac @unique</code>, <code>token @unique</code>, <code>pondId?</code>, <code>gramsPerFeeding @default(150)</code>, <code>buttonFeedGrams @default(80)</code>, <code>lastSeenAt</code>, feed level (<code>feedLevelPercent/Cm/UpdatedAt</code>), temp (<code>waterTempC/Ok/UpdatedAt</code>), calibration (<code>hopperEmptyCm?</code>, <code>hopperFullCm?</code>, <code>hopperCapacityG?</code>, <code>gramsPerSecond @default(4.0)</code>, <code>tempOffsetC @default(0)</code>), <code>isPaused</code>, <code>rtcOk</code>, <code>feederActive</code></td><td><strong>Central device record</strong> (name is a legacy holdover from the energy-monitoring merge)</td></tr>
+      <tr><td><code>DeviceStateEvent</code></td><td><code>eventType</code> (17 types), <code>source</code> (system|user|device), <code>actorId?</code>, <code>metadata Json?</code>, <code>deviceTime?</code>, <code>farmId?</code></td><td><strong>Unified audit log / source of truth</strong> for audit trail, notifications, schedule sync. Event types: <code>connected, disconnected, command_sent, command_acked, command_failed, schedule_changed, schedule_applied, feed_dispensed, feed_reconciled, pge_reading, pellet_low, pellet_refilled, manual_trigger, notification_acknowledged, set_time, data_imported, data_exported</code></td></tr>
+      <tr><td><code>FeedRequest</code></td><td><code>deviceId</code>, <code>grams @default(100)</code>, <code>status</code> (pending|dispatched|completed|expired|fulfilled_by_other_trigger)</td><td>"Feed Now" queue — polled by ESP32</td></tr>
+      <tr><td><code>ScheduleCommand</code></td><td><code>scheduleStart/End</code>, <code>feedsPerDay</code>, <code>feedingRatePct</code>, <code>buttonFeedGrams</code>, <code>status</code> (pending|sent|acked|applied|failed), <code>createdBy?</code>, <code>appliedAt?</code></td><td>Queued write — <strong>Pond is only updated when the device ACKs</strong></td></tr>
+      <tr><td><code>FeedEvent</code></td><td><code>eventId? @unique</code>, <code>eventType</code> (heartbeat|feed_dispensed|schedule_acked), <code>timestamp</code> (device RTC), <code>grams?</code>, <code>source?</code> (scheduled|dashboard|button), <code>rtcOk?</code>, <code>feederActive?</code></td><td>Device-reported history; idempotent via <code>event_id</code></td></tr>
+      <tr><td><code>BiomassLog</code></td><td><code>sampleWeightKg</code>, <code>sampleLengthCm</code>, <code>sampleCount</code>, <code>avgWeightKg</code>, <code>recordedAt</code></td><td>has <code>FishSample[]</code></td></tr>
+      <tr><td><code>FishSample</code></td><td><code>biomassLogId</code>, <code>weightGrams</code>, <code>lengthCm</code></td><td>Cascade delete</td></tr>
+      <tr><td><code>FcrReport</code></td><td><code>periodStart/End</code>, <code>totalFeedKg</code>, <code>biomassGainKg</code>, <code>fcrValue</code></td><td>FCR history per pond</td></tr>
+      <tr><td><code>FeedLevelLog</code></td><td><code>deviceId</code>, <code>levelPercent</code>, <code>distanceCm</code>, <code>recordedAt</code></td><td>Hopper trend chart data</td></tr>
+      <tr><td><code>Notification</code></td><td><code>pondId</code>, <code>tier</code> (CRITICAL|WARNING|SUCCESS|INFO), <code>message</code>, <code>linkTo?</code>, <code>read</code>, <code>category?</code> (connectivity|feeding|pellet|pge|schedule|system), <code>acknowledgedAt?</code>, <code>autoCleared</code></td><td>Realtime stream to bell/banner</td></tr>
+      <tr><td><code>PondOwnershipHistory</code></td><td><code>previousFarmId?</code>, <code>eventType</code>, <code>changedById?</code></td><td>Written by <strong>DB triggers</strong>, never app code</td></tr>
+      <tr><td><code>UserLockout</code></td><td><code>farmId @id</code>, <code>failedAttempts</code>, <code>lockedUntil?</code></td><td><code>@@map("user_lockout")</code></td></tr>
+      <tr><td><code>Device</code> <span class="badge med">deprecated</span></td><td><code>pondId</code>, <code>connectivity</code>, <code>isPaused</code>, <code>hopperLevelPct</code></td><td>Seed back-compat only — <em>"No new code should write to this model"</em></td></tr>
+      <tr><td><code>FeedingEvent</code> <span class="badge med">deprecated</span></td><td><code>deviceId</code>, <code>scheduledTime</code>, <code>dispensedVolumeG</code>, <code>status</code></td><td>Legacy; superseded by <code>FeedEvent</code>/<code>DeviceStateEvent</code></td></tr>
+    </tbody>
+  </table>
+  <p class="muted">Also: <code>FeedEvent</code>, <code>FeedLevelLog</code>, <code>BiomassLog</code>, <code>FcrReport</code>, <code>Notification</code>, <code>DeviceStateEvent</code> each carry an optional immutable <code>farmId</code> stamp with no FK.</p>
+
+  <h3>Seed &amp; tooling scripts</h3>
+  <ul>
+    <li><span class="path">prisma/seed.ts</span> — demo farmer/pond/device (device token <code>esp32-tok-cict-001</code>, MAC <code>A4:CF:12:7E:3B:09</code>), biomass entries, feeding events, FCR trend. Still writes deprecated <code>Device</code>/<code>FeedingEvent</code>.</li>
+    <li><span class="path">prisma/seed-dev.ts</span> — dev seed, run via <code>pnpm --filter web seed:dev</code>.</li>
+    <li><span class="path">prisma/manage-users.ts</span> — CLI account creation / PIN reset (<code>pnpm --filter web manage-user</code>).</li>
+  </ul>
+</section>
+
+<!-- ================= 8. AUTH ================= -->
+<section id="auth">
+  <h2>8. Auth &amp; authorization</h2>
+  <div class="card">
+    <h3>Login flow (farmId + PIN)</h3>
+    <ol>
+      <li>Farmer enters <strong>farmId</strong> (e.g. <code>demo-farmer-1</code>) + 4–6 digit PIN.</li>
+      <li><span class="path">lib/actions/auth.ts → loginWithPin</span> builds a synthetic email: <code>`${farmId}@pond.optifeed.local`</code> (<code>buildPondEmail()</code> in <span class="path">lib/auth/session.ts</span>) and calls <code>supabase.auth.signInWithPassword(email, password = pin)</code>.</li>
+      <li>Prisma <code>User</code> is looked up by the email local-part (= farmId) to get the role.</li>
+      <li>IP rate limit: 5 attempts / 60 s / IP. Lockout: <strong>5 failed attempts → 15-minute lockout</strong> per farmId (<code>UserLockout</code> table, <span class="path">lib/auth/lockout.ts</span>).</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h3>Roles &amp; gating</h3>
+    <ul>
+      <li><code>ADMIN | OPERATOR | VIEWER</code>.</li>
+      <li><strong><code>requireRole(...roles)</code></strong> (<span class="path">lib/auth/session.ts</span>) — redirects to <code>/dashboard</code> on failure. Used in <span class="path">app/[locale]/(admin)/layout.tsx</span> <em>and again inside every admin server action</em>.</li>
+      <li>Route handlers use <strong><code>withAuth</code></strong> (<span class="path">lib/auth/with-auth.ts</span>) — 401 without a Supabase session, passes <code>{ ownerId, user }</code>.</li>
+      <li>Active pond selection = httpOnly cookie <code>optifeed:pondId</code> (1-year), set by <code>switchPond(pondId)</code> server action.</li>
+      <li>Client/server Supabase clients: <span class="path">lib/supabase/client.ts</span>, <span class="path">lib/supabase/server.ts</span> (both carry <code>TODO(karl)</code> notes).</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================= 9. API ================= -->
+<section id="api">
+  <h2>9. API surface &amp; server actions</h2>
+
+  <h3>Device-facing REST (auth = <code>X-Device-Token</code> header; CI-auth-allowlisted)</h3>
+  <table>
+    <thead><tr><th>Endpoint</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>POST /api/ingest</code> <span class="muted">(510 lines)</span></td><td>Telemetry: <strong>heartbeat</strong> (lastSeen, RTC, feed level, water temp, connected/disconnected events, pellet low/refill notifications, reconnect auto-clear), <strong><code>feed_dispensed</code></strong> (FeedEvent + completes FeedRequest + reconciles orphans, 4-h lookback), <strong><code>schedule_acked</code></strong> (applies ScheduleCommand → updates Pond). Zod-validated, idempotent via <code>event_id</code> (dup → 204), 1-s device rate limit, returns 204.</td></tr>
+      <tr><td><code>GET /api/feed-command?device_id=</code></td><td>ESP32 poll — returns pending <code>FeedRequest</code> (marks dispatched) + config push (<code>grams_per_feeding</code>, <code>button_feed_grams</code>, hopper calibration, <code>grams_per_second</code>, <code>temp_offset_c</code>); expires requests &gt;60 s old.</td></tr>
+      <tr><td><code>GET /api/schedule-sync?device_id=</code></td><td>ESP32 poll — returns pending <code>ScheduleCommand</code> (marks <code>sent</code>, logs <code>command_sent</code>) or current Pond schedule baseline + calibration values.</td></tr>
+      <tr><td><code>GET /api/health</code></td><td><code>SELECT 1</code> DB probe → 200/503 JSON (only route allowed to be static).</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Session-protected REST</h3>
+  <table>
+    <thead><tr><th>Endpoint</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>POST /api/chat</code></td><td>SSE streaming AI assistant — Gemini (<code>streamGemini</code>) + keyword-intent fallback (<code>runFallbackIntent</code>), 30 req/60 s rate limit.</td></tr>
+      <tr><td><code>GET /api/export?type=</code></td><td>Single-type CSV export (7 types, 50 000-row cap).</td></tr>
+      <tr><td><code>GET /api/export/batch?types=</code></td><td>Multi-type CSV bundle as ZIP (JSZip).</td></tr>
+      <tr><td><code>GET /api/export-pdf</code></td><td>jsPDF feeding/FCR/biomass report.</td></tr>
+      <tr><td><code>POST /api/import</code> + <code>/api/import/confirm</code></td><td>CSV import preview → commit (<code>createMany</code>, batched).</td></tr>
+      <tr><td><code>GET /api/user-role</code></td><td>Current user's <code>UserRole</code> (via <code>withAuth</code>).</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Server actions — all in <span class="path">apps/web/lib/actions/</span> (<code>"use server"</code>)</h3>
+  <table>
+    <thead><tr><th>File</th><th>Exports</th></tr></thead>
+    <tbody>
+      <tr><td><code>auth.ts</code></td><td><code>loginWithPin(farmId, pin)</code></td></tr>
+      <tr><td><code>admin.ts</code> (358 ln)</td><td><code>createUser, updateUser, deleteUser, getUsers, getUserById, getPonds, createPond, getDevices, getAllFarmHierarchies, getAdminStats, getAuditLog, updatePondOwner, setPondStatus</code> — all gated by <code>requireRole("ADMIN")</code></td></tr>
+      <tr><td><code>biomass.ts</code></td><td><code>saveBiomassLog(formData)</code> — BiomassLog + FishSample[], then auto-adjusts device grams (50 % deviation guard)</td></tr>
+      <tr><td><code>energy.ts</code></td><td><code>requestFeed(deviceId, grams?)</code>, <code>saveHopperCalibration</code>, <code>saveDurationCalibration</code>, <code>saveTemperatureCalibration</code>, <code>registerEnergyDevice</code></td></tr>
+      <tr><td><code>schedule.ts</code></td><td><code>toggleDevicePause(deviceId, isPaused)</code>, <code>updateScheduleCommand(pondId, deviceId, data)</code> — queues ScheduleCommand</td></tr>
+      <tr><td><code>settings.ts</code></td><td><code>updateNotificationPrefs</code>, <code>updatePondSettings(pondId, feedingRatePct, feedsPerDay, sampleIntervalDays?, population?)</code></td></tr>
+      <tr><td><code>notifications.ts</code></td><td><code>markAllNotificationsRead, acknowledgeNotification, createDemoNotification</code></td></tr>
+      <tr><td><code>pond-selection.ts</code></td><td><code>switchPond(pondId)</code> — sets cookie, redirects</td></tr>
+      <tr><td><code>farm.ts</code></td><td><code>getFarmOverview(), renameFarm(name)</code></td></tr>
+      <tr><td><code>fcr.ts</code></td><td><code>calculateFcrFeed(input)</code> — wraps <code>calculateFeedRequirement</code> with latest DB FCR</td></tr>
+      <tr><td><code>growth.ts</code> / <code>history.ts</code> / <code>audit.ts</code></td><td><code>getFeedLevelLogs</code> (cursor, 30/page) · <code>getFeedEvents</code> (cursor, 50/page) · <code>getAuditLog(filters)</code></td></tr>
+      <tr><td><code>time.ts</code></td><td><code>setDeviceTime(deviceId, customTime)</code> — writes <code>set_time</code> event</td></tr>
+      <tr><td><code>query-filters.ts</code></td><td><em>No <code>"use server"</code></em> — pure helper <code>parseQueryFilters(query)</code> (free-text → source/UTC-day filter)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Pages (route map)</h3>
+  <pre><code>app/[locale]/page.tsx                     landing ("use client")
+app/[locale]/login/page.tsx               farmId + PIN login
+app/[locale]/signup/page.tsx              public signup form (see §2!)
+app/[locale]/(dashboard)/dashboard/       page, schedule, history, growth,
+                                          log-sample, notifications, audit,
+                                          app-settings, profile-settings,
+                                          settings/{pond,profile,hardware,data}
+app/[locale]/(admin)/admin/               page, users(+create), ponds(+new),
+                                          devices, hierarchy, audit, settings
+app/global-error.tsx, robots.ts, sitemap.ts</code></pre>
+</section>
+
+<!-- ================= 10. FIRMWARE ================= -->
+<section id="firmware">
+  <h2>10. ESP32 firmware</h2>
+  <p><span class="path">firmware/firmware-main/firmware-main.ino</span> (713 lines) — target <strong>ESP32-WROOM-32U</strong>, the "unified OptiFeed controller" with a <strong>three-way fallback</strong>:</p>
+  <ol>
+    <li><strong>SCHEDULED</strong> — DS3231 RTC-driven feeding; works with WiFi down.</li>
+    <li><strong>DASHBOARD</strong> — polled every 5 s from the backend.</li>
+    <li><strong>PHYSICAL BUTTON</strong> — GPIO 27; works when WiFi is down.</li>
+  </ol>
+
+  <table>
+    <thead><tr><th>Hardware</th><th>Pin</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Relay (feeder motor, NO)</td><td>GPIO 25</td><td><code>RELAY_ON = HIGH</code> when dispensing; <strong>forced OFF at boot</strong></td></tr>
+      <tr><td>Push button</td><td>GPIO 27</td><td><code>INPUT_PULLUP</code>, local manual dose (<code>buttonFeedGrams</code>)</td></tr>
+      <tr><td>DS3231 RTC</td><td>GPIO 21/22 (I²C)</td><td>Offline scheduling, default feed times 06:00 &amp; 19:00</td></tr>
+      <tr><td>HC-SR04 ultrasonic</td><td>TRIG 32 / ECHO 33</td><td>Hopper feed level, ~5 m range, 30 ms <code>pulseIn</code> timeout</td></tr>
+      <tr><td>DS18B20 water temp</td><td>GPIO 26</td><td>Valid −10…80 °C; raw + per-device <code>tempOffsetC</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Protocol</h3>
+  <ul>
+    <li><strong>HTTPS/JSON polling only — no MQTT, no WebSocket.</strong> Auth = <code>X-Device-Token</code> header; identity cross-checked against <code>device_id</code> (MAC).</li>
+    <li>Config: <code>INGEST_URL</code>, <code>FEED_POLL_URL</code>, <code>SCHEDULE_SYNC_URL</code>, <code>DEVICE_TOKEN "esp32-tok-cict-001"</code>, <code>DEVICE_MAC "A4:CF:12:7E:3B:09"</code>.</li>
+    <li><code>dispenseFeed(grams, source, requestId)</code> — mutex first-acquire-wins; <code>feedDurationMs = (grams / gramsPerSecond) * 1000</code>.</li>
+    <li><strong>Offline event queue</strong>: <code>EVENT_QUEUE_SIZE = 50</code> — button feeds during outages are enqueued and flushed when back online.</li>
+    <li>Feed level: 3 ultrasonic reads → bubble-sort <strong>median</strong> → linear interpolation between <code>hopperFullCm</code> (=100 %) and <code>hopperEmptyCm</code> (=0 %).</li>
+    <li><code>pollScheduleCommand()</code> <strong>distributes <code>feeds_per_day</code> evenly</strong> across <code>schedule_start → schedule_end</code> (<code>interval = totalMinutes / (feedsPerDay − 1)</code>, midnight wrap), max 24 feed times.</li>
+    <li>OTA (<code>setupOTA()</code>, password = device token), NVS <code>Preferences</code> for WiFi creds + reboot count, exponential WiFi backoff (10 s → 60 s).</li>
+  </ul>
+  <p class="muted">Docs: <span class="path">firmware/README.md</span> (authoritative), <span class="path">Firmware-Implementation</span> at repo root (partly stale — see §2), <span class="path">docs/esp32-nextjs-connection.html</span>.</p>
+</section>
+
+<!-- ================= 11. DOMAIN ================= -->
+<section id="domain">
+  <h2>11. Domain logic &amp; formulas</h2>
+
+  <div class="card ok">
+    <h3>Core feed calculation — <span class="path">apps/web/lib/feed-calc.ts</span></h3>
+    <pre><code>DEFAULT_FISH_COUNT = 5000                                  // lib/constants.ts
+
+totalBiomassG(population, avgWeightKg) = round2(avgWeightKg * 1000 * (population || 5000))
+dailyFeedG(biomassG, feedingRatePct)   = round2(biomassG * feedingRatePct / 100)
+feedPerMealG(biomassG, ratePct, feedsPerDay) = round2(dailyFeedG(...) / feedsPerDay)  // 0 if feedsPerDay &lt;= 0</code></pre>
+    <p><strong>Locked reference values</strong> (asserted by <span class="path">lib/__tests__/feed-calc.test.ts</span> — do not change without updating tests):</p>
+    <pre><code>86 fish × 13.78 g  = 1185.08 g        (total biomass)
+1185.08 g × 5 %    = 59.25 g/day
+59.25 g ÷ 2        = 29.63 g/meal
+1185 g × 3 % ÷ 3   = 11.85 g/meal</code></pre>
+    <p class="muted"><code>round2</code> adds an epsilon guard against floating-point half-value artifacts. All rounding is 2 decimals.</p>
+  </div>
+
+  <div class="card ok">
+    <h3>Derived helpers</h3>
+    <ul>
+      <li><span class="path">lib/volumeCalc.ts → calculateNextFeeding(avgWeightKg, feedingRatePct, feedsPerDay, population)</span> — <em>the</em> "next feeding amount" function used by Log Sample preview, PDF export, and device sync.</li>
+      <li><span class="path">lib/feed-grams.ts → syncDeviceGramsForPond(pondId, config?)</span> — recomputes and writes <code>EnergyDevice.gramsPerFeeding</code> from the latest <code>BiomassLog.avgWeightKg</code> + pond config; returns null if no sample exists.</li>
+      <li><span class="path">lib/fcr-calculation.ts → calculateFeedRequirement(input)</span>, <code>DEFAULT_FCR = 1.5</code>:
+        <pre><code>totalBiomassGainKg = max(0, targetWeightKg - currentBiomassKg)
+totalFeedNeededKg  = totalBiomassGainKg * fcr
+dailyFeedRationKg  = totalFeedNeededKg / days
+suggestedFeedingRatePct = (dailyFeedPerFishG / avgBodyWeightG) * 100</code></pre>
+      </li>
+    </ul>
+  </div>
+
+  <div class="card warn">
+    <span class="badge high">Guardrail</span>
+    <h3>Biomass auto-adjust deviation guard — <span class="path">lib/actions/biomass.ts</span></h3>
+    <p><code>avgWeightKg = sampleWeightKg / sampleCount</code>. On save: ownership check → create <code>BiomassLog</code> + <code>FishSample[]</code> → compute <code>calculateNextFeeding</code> → <strong><code>DEVIATION_THRESHOLD = 0.5</code> (50 %)</strong>: if <code>|new − current| / current &gt; 0.5</code> the auto-adjust is <strong>rejected</strong> and a <code>biomass_logged</code> <code>DeviceStateEvent</code> with <code>autoAdjustRejected: true</code> is recorded; otherwise <code>gramsPerFeeding</code> is updated. Sampling cadence = <code>Pond.sampleIntervalDays</code> (default 14).</p>
+  </div>
+
+  <div class="card">
+    <h3>Schedule change lifecycle</h3>
+    <pre><code>UI edit → ScheduleCommand(status: pending)
+        → ESP32 GET /api/schedule-sync → status: sent  (+ DeviceStateEvent "command_sent")
+        → device applies, POST /api/ingest schedule_acked → status: applied
+        → Pond.scheduleStart/End, feedsPerDay, feedingRatePct updated</code></pre>
+    <ul>
+      <li>Display value resolved by <span class="path">lib/schedule/resolve-current.ts → resolveCurrentSchedule()</span>: pending/sent command → latest applied command → Pond row.</li>
+      <li>Stale-command expiry: <code>STALE_SENT_MS = 10 min</code> (<code>actions/schedule.ts</code>); stale feed-request expiry: <code>STALE_DISPATCHED_MS = 10 min</code> (<code>actions/energy.ts</code>); lazy <code>FeedRequest</code> expiry <code>REQUEST_EXPIRY_MS = 60 s</code> on every device poll.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Thresholds &amp; constants</h3>
+    <table>
+      <thead><tr><th>Constant</th><th>Value</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td><code>OFFLINE_THRESHOLD_MS</code></td><td>15 minutes</td><td><strong>copy-pasted in 6 files</strong> (ingest, dashboard layout/page, hardware settings, hierarchy, chat context)</td></tr>
+        <tr><td>Hopper critical</td><td><code>feed_level_percent ≤ 5</code> → CRITICAL "nearly empty"</td><td><code>api/ingest</code></td></tr>
+        <tr><td>Hopper warning</td><td><code>≤ 20</code> → WARNING "running low"; refill detected on <code>≤20 → &gt;20</code> (<code>pellet_refilled</code>)</td><td><code>api/ingest</code></td></tr>
+        <tr><td>2-day runway warning</td><td><code>daysRemaining = (hopperCapacityG × pct/100) / (gramsPerFeeding × feedsPerDay)</code></td><td><code>api/ingest</code></td></tr>
+        <tr><td>FeedLevelLog throttle</td><td>write only if &gt;30 min since last log <em>or</em> delta &gt;5 %</td><td><code>api/ingest</code></td></tr>
+        <tr><td>Ingest rate limit</td><td>1 s min-interval per device (<code>RATE_LIMIT_MS</code>)</td><td><code>api/ingest</code></td></tr>
+        <tr><td>Reconciliation lookback</td><td><code>RECONCILIATION_LOOKBACK_HOURS = 4</code></td><td><code>api/ingest</code></td></tr>
+        <tr><td>Rate limits</td><td>login 5/60 s/IP · API 30/60 s/user · device 20/60 s/device (in-memory)</td><td><code>lib/rate-limit.ts</code></td></tr>
+        <tr><td>Lockout</td><td>5 attempts / 15 min per farmId</td><td><code>lib/auth/lockout.ts</code></td></tr>
+        <tr><td>Chat rate limit</td><td>30 req / 60 s</td><td><code>api/chat</code></td></tr>
+        <tr><td>Duplicated constants</td><td><code>HOPPER_CAPACITY_KG = 22.19</code>, <code>GRAMS_PER_FEEDING = 350</code> in <code>lib/constants.ts</code> vs DB defaults (<code>gramsPerFeeding @default(150)</code>, per-device <code>hopperCapacityG</code>) — DB wins at runtime</td><td>see §17</td></tr>
+      </tbody>
+    </table>
+    <p class="muted"><strong>No dissolved-oxygen, pH, or TDS sensors exist anywhere</strong> — only hopper level + water temperature.</p>
+  </div>
+</section>
+
+<!-- ================= 12. REALTIME ================= -->
+<section id="realtime">
+  <h2>12. Realtime &amp; notifications</h2>
+  <ul>
+    <li><strong>Supabase Realtime</strong> (<code>postgres_changes</code> INSERT on <code>Notification</code>, filter <code>pondId=eq.&lt;id&gt;</code>) in <span class="path">components/notification-provider.tsx</span>.</li>
+    <li><strong>Visual tiering (exact, by design):</strong> <code>CRITICAL</code> → sticky red banner + bell; <code>WARNING</code>/<code>SUCCESS</code> → 5-second toast + bell only; <code>INFO</code> → bell.</li>
+    <li>Categories: <code>connectivity | feeding | pellet | pge | schedule | system</code>. Reconnect auto-clears <code>connectivity</code> notifications.</li>
+    <li>ESP32 status in the dashboard comes from <strong>5-second polling</strong> of <code>/api/feed-command</code> and <code>/api/schedule-sync</code> (not realtime).</li>
+    <li>Chat streams over <strong>SSE</strong> (<code>data: {"text": ...}\n\n</code> in <code>api/chat/route.ts</code>).</li>
+    <li>Contexts: <code>NotificationContext</code>, <code>ChatWidgetContext</code>, <code>ThemeContext</code>. No global state library.</li>
+  </ul>
+</section>
+
+<!-- ================= 13. I18N ================= -->
+<section id="i18n">
+  <h2>13. Internationalization</h2>
+  <ul>
+    <li>next-intl; <span class="path">i18n/routing.ts</span>: <code>locales = ["en", "hil"]</code>, <code>defaultLocale = "en"</code>; exports <code>Link/redirect/usePathname/useRouter/getPathname</code> via <code>createNavigation</code>.</li>
+    <li><span class="path">i18n/request.ts</span> dynamically imports <code>../messages/${locale}.json</code>.</li>
+    <li><span class="path">messages/en.json</span> (516 lines) &amp; <span class="path">messages/hil.json</span> (515 lines). Top-level namespaces: <code>nav, button, landing, login, dashboard, dates, chat</code>.</li>
+    <li><strong><code>hil</code> = Hiligaynon</strong> (Philippine language); timezone constant <code>PH_TZ = "Asia/Manila"</code> in <code>lib/constants.ts</code>. Switcher: <span class="path">components/locale-switcher.tsx</span>.</li>
+    <li>Rule from the roadmap: <strong>don't translate placeholder text</strong> — translate into Hiligaynon only after English copy is final.</li>
+    <li>Known bug: <code>Notification.linkTo</code> hardcodes <code>/en/dashboard/...</code> — breaks locale for <code>hil</code> users (§17).</li>
+  </ul>
+</section>
+
+<!-- ================= 14. TESTING / CI ================= -->
+<section id="testing">
+  <h2>14. Testing, CI/CD</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>Tests</h3>
+      <ul>
+        <li><strong>Vitest</strong> — <span class="path">apps/web/vitest.config.ts</span>: jsdom, globals, setup <code>./test/setup.ts</code>, include <code>lib/**/*.test.ts(x)</code>.</li>
+        <li><strong>13 unit files</strong> in <span class="path">lib/__tests__/</span>: feed-calc, volumeCalc, fcr-calculation, resolve-current, farm-actions, server-actions, session, csv, date-local, query-filters, rate-limit, pond-status-filter, chat-prompt.</li>
+        <li><strong>Playwright e2e</strong> — <code>e2e/</code>: auth (5), dashboard-actions (6), pond-switching (3); <code>pnpm test:e2e</code> (needs running server + seeded demo user; <strong>not run in CI</strong>).</li>
+        <li>Manual QA: <span class="path">apps/web/TESTING-CHECKLIST.html</span>.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>CI — <span class="path">.github/workflows/ci.yml</span></h3>
+      <ol>
+        <li>Triggers: push + PR → <strong><code>main</code> only</strong> (PRs to <code>develop</code>/<code>Karl</code> do <em>not</em> run CI).</li>
+        <li>Node 22, pnpm, <code>pnpm install --frozen-lockfile</code>.</li>
+        <li><code>prisma:generate</code> → <code>lint</code> → <code>typecheck</code> → <code>test</code>.</li>
+        <li><strong>Custom gate:</strong> every <code>apps/web/app/api/**/route.ts</code> must grep-match <code>from "@/lib/auth/(session|with-auth)"</code> unless allowlisted (<code>api/ingest|api/feed-command|api/schedule-sync|api/health</code>).</li>
+        <li><code>pnpm build</code> with DB + Supabase env secrets.</li>
+      </ol>
+      <h3>Deploy — <span class="path">deploy.yml</span></h3>
+      <p>Push to <code>main</code>: pnpm 10 + Node 22 → <code>vercel pull</code> → <code>vercel build --prod</code> → <code>vercel deploy --prebuilt --prod</code>.</p>
+      <p class="muted">Production build command must be: <code>prisma generate &amp;&amp; prisma migrate deploy &amp;&amp; next build</code>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 15. ENV ================= -->
+<section id="env">
+  <h2>15. Environment variables</h2>
+  <h3><code>apps/web/.env.example</code> (authoritative for local setup)</h3>
+  <pre><code>DATABASE_URL=                  # Supabase Postgres (pooled / transaction pooler)
+DIRECT_URL=                    # direct connection for migrations (has directUrl in schema)
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=     # never commit; never log
+GEMINI_API_KEY=
+DEVICE_TOKEN=                  # ESP32 token used by seed script
+UPSTASH_REDIS_REST_URL=        # DEAD — no longer read by any code
+UPSTASH_REDIS_REST_TOKEN=      # DEAD</code></pre>
+
+  <h3>Used in code but missing from <code>.env.example</code></h3>
+  <table>
+    <thead><tr><th>Variable</th><th>Used by</th></tr></thead>
+    <tbody>
+      <tr><td><code>SENTRY_DSN</code></td><td><code>sentry.{client,server,edge}.config.ts</code></td></tr>
+      <tr><td><code>SENTRY_ORG</code>, <code>SENTRY_PROJECT</code></td><td><code>next.config.ts</code> (build-time, <code>withSentryConfig</code>)</td></tr>
+      <tr><td><code>GEMINI_MODEL</code></td><td><code>lib/gemini.ts</code> (default <code>gemini-2.5-flash</code>)</td></tr>
+      <tr><td><code>NEXT_PUBLIC_BASE_URL</code></td><td><code>app/sitemap.ts</code>, <code>app/robots.ts</code> (default <code>https://optifeed.app</code>)</td></tr>
+      <tr><td><code>DEMO_PIN</code></td><td><code>scripts/provision-demo-user.ts</code>, <code>e2e/auth.spec.ts</code> (default <code>1234</code>)</td></tr>
+    </tbody>
+  </table>
+  <p class="muted">CI secrets: <code>DATABASE_URL</code>, <code>DIRECT_URL</code>, <code>NEXT_PUBLIC_SUPABASE_URL</code>, <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>, <code>VERCEL_TOKEN</code>; vars: <code>VERCEL_ORG_ID</code>, <code>VERCEL_PROJECT_ID</code>.</p>
+
+  <h3>Security headers / next.config.ts highlights</h3>
+  <p><code>X-Content-Type-Options: nosniff</code>, <code>X-Frame-Options: DENY</code>, <code>X-XSS-Protection</code>, <code>Referrer-Policy</code>, <code>Permissions-Policy</code>, CSP (<code>default-src 'self'</code>; <code>connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.sentry.io</code>; <code>unsafe-eval</code> only in dev). <code>serverExternalPackages: ["@prisma/client"]</code>, <code>allowedDevOrigins: ["192.168.1.10"]</code>.</p>
+</section>
+
+<!-- ================= 16. FILE INDEX ================= -->
+<section id="index">
+  <h2>16. File path index</h2>
+  <div class="card fileidx"><b>Root</b>
+  package.json · pnpm-workspace.yaml · biome.json · README.md · HANDOFF.md (rulebook) · CHANGELOG.md
+  Firmware-Implementation (stale) · roadmap.html · energy-monitoring-architecture-v2.html (other product) · pantat_biomass_dataset.html
+
+<b>CI / hooks</b>
+  .github/workflows/ci.yml · .github/workflows/deploy.yml · .husky/pre-commit · .husky/commit-msg
+
+<b>apps/web — config</b>
+  package.json · next.config.ts · proxy.ts (NOT middleware.ts) · vitest.config.ts · playwright.config.ts
+  .env.example · AGENTS.md (read first!) · CLAUDE.md · sentry.{client,server,edge}.config.ts · components.json
+
+<b>apps/web — app/</b>
+  app/[locale]/page.tsx · login/ · signup/
+  app/[locale]/(dashboard)/dashboard/{page,schedule,history,growth,log-sample,notifications,audit,settings/*}
+  app/[locale]/(admin)/admin/{page,users,ponds,devices,hierarchy,audit,settings}
+  app/api/{ingest,feed-command,schedule-sync,health,chat,export,export/batch,export-pdf,import,import/confirm,user-role}/route.ts
+
+<b>apps/web — logic</b>
+  lib/actions/{auth,admin,biomass,energy,schedule,settings,notifications,pond-selection,farm,fcr,growth,history,audit,time,query-filters}.ts
+  lib/feed-calc.ts · lib/volumeCalc.ts · lib/fcr-calculation.ts · lib/feed-grams.ts
+  lib/constants.ts · lib/rate-limit.ts · lib/csv.ts · lib/pond-selection.ts · lib/gemini.ts
+  lib/auth/{session,with-auth,lockout}.ts · lib/supabase/{client,server}.ts
+  lib/chat/{context,prompt,fallback}.ts · lib/schedule/resolve-current.ts
+  lib/__tests__/*.test.ts (13 files) · e2e/*.spec.ts (3 files)
+
+<b>apps/web — data &amp; UI</b>
+  prisma/schema.prisma · prisma/migrations/ (20) · prisma/{seed,seed-dev,manage-users}.ts
+  i18n/{routing,request}.ts · messages/{en,hil}.json
+  components/ (53 flat .tsx) + components/{admin,chat,ui}/ · app/globals.css · default_shadcn_theme.css (root)
+
+<b>packages</b>
+  packages/types/src/index.ts (STUB) · packages/ui/src/index.ts (STUB) · packages/config/tsconfig.base.json
+
+<b>firmware</b>
+  firmware/README.md · firmware/firmware-main/firmware-main.ino
+
+<b>docs</b>
+  docs/system-context.html (THIS FILE) · docs/system-audit-report.html · docs/audit-report.html
+  docs/remediation-report.html · docs/feed-level-implementation-report.html · docs/esp32-nextjs-connection.html
+  docs/vercel-deployment-checklist.md (partly stale) · docs/diagram-audit-report.md · docs/tracker/optifeed-progress-tracker.html
+  guidelines/Guidelines.md (empty template)</div>
+</section>
+
+<!-- ================= 17. DEBT ================= -->
+<section id="debt">
+  <h2>17. Known issues &amp; tech debt</h2>
+  <p>Know these before planning. Do not "discover" them as new findings; decide whether your plan should touch them. Items 18–22 are cross-references to the production-readiness assessment in Section 19.</p>
+
+  <table>
+    <thead><tr><th>#</th><th>Issue</th><th>Severity</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><strong>RLS policy mismatch</strong> — policies compare JWT email against <code>ownerId</code> which stores a farmId slug; would match nothing if enforced. Migration header says Prisma can't manage RLS and it must be applied manually.</td><td><span class="badge crit">critical</span></td></tr>
+      <tr><td>2</td><td><strong><code>/signup</code> publicly renderable</strong> — admin check only exists inside <code>createUser</code>; <code>proxy.ts</code> has a dead/stub branch for a signup guard.</td><td><span class="badge high">high</span></td></tr>
+      <tr><td>3</td><td><strong>In-memory rate limiting</strong> — useless across Vercel serverless instances (the original reason Redis was required).</td><td><span class="badge high">high</span></td></tr>
+      <tr><td>4</td><td><strong>Session lookup by farmId only</strong> — <code>getCurrentUser()</code> does <code>findUnique({ where: { farmId } })</code> from the email local-part; no Supabase <code>supabaseId</code> verification in that path.</td><td><span class="badge high">high</span></td></tr>
+      <tr><td>5</td><td><strong><code>@optifeed/types</code> and <code>@optifeed/ui</code> are empty stubs</strong> yet declared as workspace deps — all shared types/UI live inside <code>apps/web</code>.</td><td><span class="badge med">medium</span></td></tr>
+      <tr><td>6</td><td><strong>Constant duplication</strong> — <code>OFFLINE_THRESHOLD_MS</code> (15 min) copy-pasted in 6 files; <code>STALE_SENT_MS</code>/<code>STALE_DISPATCHED_MS</code> (10 min) in 2; hopper/gram constants differ between <code>lib/constants.ts</code> and DB defaults.</td><td><span class="badge med">medium</span></td></tr>
+      <tr><td>7</td><td><strong>Deprecated <code>Device</code> &amp; <code>FeedingEvent</code> models</strong> still present and still written by <code>prisma/seed.ts</code>; removal has been a blocked checklist item.</td><td><span class="badge med">medium</span></td></tr>
+      <tr><td>8</td><td><strong>CI only runs on <code>main</code></strong> — the actual working branches (<code>develop</code>, <code>Karl</code>) never get CI until promotion.</td><td><span class="badge med">medium</span></td></tr>
+      <tr><td>9</td><td><strong>Playwright e2e never runs in CI</strong> (<code>pnpm test</code> = vitest only).</td><td><span class="badge med">medium</span></td></tr>
+      <tr><td>10</td><td><strong>53 flat components</strong> — no feature-folder organization.</td><td><span class="badge low">low</span></td></tr>
+      <tr><td>11</td><td><strong><code>Notification.linkTo</code> hardcodes <code>/en/...</code></strong> — wrong locale for Hiligaynon users.</td><td><span class="badge med">medium</span></td></tr>
+      <tr><td>12</td><td><strong><code>proxy.ts</code> dead code</strong> — signup branch that does nothing.</td><td><span class="badge low">low</span></td></tr>
+      <tr><td>13</td><td><strong>pnpm version drift</strong> — root pins <code>10.33.3</code>, <code>deploy.yml</code> pins <code>10</code>, <code>ci.yml</code> uses action default; unmerged branch <code>fix/pnpm-version-alignment</code>.</td><td><span class="badge low">low</span></td></tr>
+      <tr><td>14</td><td><strong>Firmware duplication</strong> — <code>readFeedLevelPercent()</code> result re-computed inline in <code>sendTelemetry()</code> for the cm value.</td><td><span class="badge low">low</span></td></tr>
+      <tr><td>15</td><td><strong>Stale docs</strong> — vercel checklist (Upstash), Firmware-Implementation (relay boot state, <code>EnergyReading</code>), <code>apps/web/README.md</code> (create-next-app default), <code>guidelines/Guidelines.md</code> (empty).</td><td><span class="badge med">medium</span></td></tr>
+      <tr><td>16</td><td><strong>9 <code>TODO(karl)</code> comments</strong> — packages stubs (×2), package lint scripts (×3), schema.prisma index/RLS note, supabase clients (×2). <code>HANDOFF.md</code> says search these first.</td><td><span class="badge low">low</span></td></tr>
+      <tr><td>17</td><td><strong>Energy-monitoring leftovers</strong> — <code>EnergyDevice</code>/<code>EnergyControllerCard</code> naming and the 279 KB <code>energy-monitoring-architecture-v2.html</code> describe cut scope (PZEM, per-phase readings, relay permissions).</td><td><span class="badge low">low</span></td></tr>
+      <tr><td>18</td><td><strong>No server-side bounds on feed amounts</strong> — <code>requestFeed(grams)</code>, <code>updateScheduleCommand</code>, and <code>updatePondSettings</code> accept any number; firmware converts grams to relay-on time uncapped. <em>(Assessment gap #1 — see §19.)</em></td><td><span class="badge crit">critical</span></td></tr>
+      <tr><td>19</td><td><strong>Firmware retries re-generate <code>event_id</code></strong> — idempotency defeated when a POST succeeds server-side but the reply is lost; duplicate rows inflate grams and corrupt FCR. <em>(Assessment gap #2 — see §19.)</em></td><td><span class="badge crit">critical</span></td></tr>
+      <tr><td>20</td><td><strong>Notification spam + unbounded telemetry growth</strong> — a new CRITICAL pellet notification (and <code>pellet_low</code> event) is created on <em>every</em> heartbeat while ≤5 % full (no dedup); every heartbeat writes a <code>FeedEvent</code> row with no cleanup/retention policy. <em>(Assessment gap #3 — see §19.)</em></td><td><span class="badge high">high</span></td></tr>
+      <tr><td>21</td><td><strong>Roles not enforced on mutations</strong> — <code>requireRole</code> exists only in <code>admin.ts</code>; VIEWER can still call feed/schedule/settings actions (ownership is checked, role is not). <em>(Assessment gap #6 — see §19.)</em></td><td><span class="badge high">high</span></td></tr>
+      <tr><td>22</td><td><strong>Dead deploy workflow</strong> — <code>deploy.yml</code> reads <code>secrets</code> in a job-level <code>if:</code>, which GitHub Actions does not allow; actual deploys come from Vercel's Git integration. <em>(Assessment gap #8 — see §19.)</em></td><td><span class="badge med">medium</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ================= 18. GIT STATE ================= -->
+<section id="gitstate">
+  <h2>18. Git / working-tree state <span class="muted">(as of audit, 2026-10-12)</span></h2>
+  <div class="card">
+    <ul>
+      <li><strong>Branch:</strong> <code>Karl</code>, up to date with <code>origin/Karl</code>. Remote: <code>origin → https://github.com/J-Akiru5/OptiFeed.git</code>.</li>
+      <li><strong>Remote branch state (live, after fetch on 2026-10-12):</strong>
+        <ul>
+          <li><code>origin/main</code> = <code>d22e8cb</code> — <strong>production</strong> (Vercel). Lacks all recent Karl work.</li>
+          <li><code>origin/develop</code> = <code>ae8d2b1</code> — contains <code>main</code> entirely plus 5 commits (Karl's 3 feature commits + merge <strong>PR #33</strong> Karl→develop). So <em>Karl's work has reached develop, but not production.</em></li>
+          <li><code>origin/staging</code> = <code>58b959b</code> — 55 commits behind <code>main</code>, 0 ahead (stale).</li>
+          <li><code>Karl</code> local = 3 commits ahead of <code>main</code>.</li>
+        </ul>
+      </li>
+      <li><strong>Other local branches:</strong> <code>develop</code> (stale — 14 behind <code>main</code>), <code>main</code>, <code>feat/audit-notification-acks</code>. Remote also has <code>merge/main-to-staging</code>, <code>fix/pnpm-version-alignment</code>, <code>fix/schedule-pause-energy-device</code>.</li>
+      <li><strong>Dirty working tree:</strong> deleted (unstaged) <code>maam suganob pdf.pdf</code>; untracked: <code>.gitattributes</code>, <code>diagram/</code> (5 PNGs), <code>docs/diagram-audit-report.md</code>, <code>docs/PakaonAI-Production-Readiness-Assessment.pdf</code>, <code>docs/system-context.html</code>, <code>energy-monitoring-architecture-v2.html</code>.</li>
+      <li><strong>Recent history (latest first):</strong>
+        <pre><code>b829247 feat: biomass-based feed formula with pond population, remove farmer hierarchy view
+0059938 feat: add farm hierarchy view, pond lifecycle, telemetry farm stamps, and RLS fixes
+8291308 feat: implement core feed command API, pond settings management, and landing page foundation
+d22e8cb fix: restore directUrl for prisma migrate deploy on transaction pooler
+7ea22c6 Merge pull request #32 from J-Akiru5/Karl
+098771f chore: remove upstash deps from lockfile
+dde6310 feat: implement data import/export API routes with rate limiting...
+22866cd feat: add manage-user CLI for account creation and PIN reset
+b01eb84 fix: remove directUrl from schema, use session pooler only
+156dada feat: scaffold dashboard modules, actions, and testing infrastructure...
+499847e feat: add admin panel with user management and role-based access</code></pre>
+      </li>
+      <li>Authors: <code>Karlcalimotan</code> (active, Oct 2026), <code>Jeff</code> (maintainer of <code>main</code>).</li>
+      <li><strong>Changelog</strong> latest: <code>1.10.0 – 2026-07-22</code> (HC-SR04 feed-level monitoring); <code>1.9.0 – 2026-07-12</code> (device-state/command event model). Keep-a-Changelog format.</li>
+    </ul>
+  </div>
+
+  <div class="card ok">
+    <h3>Definition of done (from the project's own rulebook)</h3>
+    <ol>
+      <li><code>pnpm lint</code>, <code>pnpm typecheck</code>, <code>pnpm build</code>, <code>pnpm test</code> all pass.</li>
+      <li>Conventional Commit message.</li>
+      <li>Something concrete to point to — a screenshot, a passing test, or a short screen recording — not just a claim that it works.</li>
+      <li>PR is small and scoped to a single task.</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ================= 19. PRODUCTION-READINESS ASSESSMENT ================= -->
+<section id="pr">
+  <h2>19. Production-readiness assessment <span class="muted">(PakaonAI, Jeff Martinez, 2026-10-12)</span></h2>
+
+  <div class="card danger">
+    <span class="badge crit">Verdict</span>
+    <p style="margin-top:10px; font-size:1.05rem;"><strong>"PakaonAI is not industry-grade yet. It is a strong capstone and pilot system, but it should not feed real fish unattended."</strong></p>
+    <p class="muted">Source: <span class="path">docs/PakaonAI-Production-Readiness-Assessment.pdf</span> (5 pages, untracked). "PakaonAI" is the Hiligaynon-derived name (<em>pakaon</em> = to feed) used for <strong>this same repository</strong>. Assessment was based on a full clone of the repo, Vercel deployments and runtime errors, Supabase logs, and a lint/typecheck/test run — findings marked <em>verified</em> (seen in code/logs/tests) vs <em>unverified</em> (plausible, needs one check). No code was changed by the assessor.</p>
+    <p><strong>Every finding below was independently re-verified against the code during this audit</strong> — verification notes and <code>file:line</code> evidence are given per item.</p>
+  </div>
+
+  <h3>19.1 What is working <span class="muted">(all verified)</span></h3>
+  <div class="card ok">
+    <ul>
+      <li><strong>Quality gates pass</strong> — on <code>Karl</code>: lint and typecheck clean, <strong>109 unit tests in 13 files pass</strong>.</li>
+      <li><strong>Production is up</strong> — live deployment is <code>main</code> at <code>d22e8cb</code>, last build READY.</li>
+      <li><strong>Ownership checks</strong> — every user action examined checks the pond belongs to the signed-in user (re-verified: e.g. <code>requestFeed</code> scopes the device lookup by <code>ownerId</code>, <span class="path">lib/actions/energy.ts:17-21</span>).</li>
+      <li><strong>Careful device code</strong> — device-route DB writes are transactional (<code>prisma.$transaction</code> in <span class="path">api/ingest/route.ts</span>), events carry idempotency keys, firmware keeps a 50-event offline queue.</li>
+      <li><strong>Safe boot</strong> — feeder relay defaults OFF at ESP32 startup.</li>
+      <li><strong>Process</strong> — CI blocks API routes lacking an auth import; commits follow Conventional Commits.</li>
+    </ul>
+  </div>
+
+  <h3>19.2 Branch / production state</h3>
+  <table>
+    <thead><tr><th>Branch</th><th>Latest commit</th><th>State (per assessment)</th></tr></thead>
+    <tbody>
+      <tr><td><code>main</code></td><td><code>d22e8cb</code> (Aug 31)</td><td><strong>Production.</strong> 55 commits ahead of <code>staging</code>, 12 ahead of <code>develop</code> (as measured by assessor)</td></tr>
+      <tr><td><code>staging</code></td><td><code>58b959b</code> (Jul 12)</td><td>Stale: 55 behind <code>main</code>, 0 ahead</td></tr>
+      <tr><td><code>develop</code></td><td><code>0c86a87</code> (Aug 31)</td><td>Almost identical to <code>main</code> (as measured by assessor)</td></tr>
+      <tr><td><code>Karl</code></td><td><code>b829247</code> (Oct 5)</td><td>3 commits ahead of <code>main</code>; deployed only as Vercel previews</td></tr>
+    </tbody>
+  </table>
+  <div class="card warn">
+    <span class="badge high">Updated since the PDF</span>
+    <p style="margin-top:8px;">Live re-check during this audit (after <code>git fetch</code>): <strong>PR #33 has since merged <code>Karl</code> → <code>develop</code></strong> (<code>origin/develop</code> = <code>ae8d2b1</code>, now <strong>5 ahead / 0 behind</strong> <code>main</code>). <strong>Production <code>origin/main</code> is still <code>d22e8cb</code></strong> — it lacks all three Karl feature commits (feed-command API, farm hierarchy/pond lifecycle, biomass feed formula) and the security-policy fixes. The core message stands: <em>what runs in production is older than the newest verified code.</em></p>
+  </div>
+
+  <h3>19.3 Verified gaps <span class="muted">(10 — each independently re-confirmed in this audit)</span></h3>
+  <table>
+    <thead><tr><th>#</th><th>Gap</th><th>Assessment's observation</th><th>Independent verification</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td><strong>Unchecked feed amounts</strong> <span class="badge crit">critical</span></td>
+        <td><code>requestFeed(grams)</code> and schedule settings accept any number; firmware turns grams straight into relay-on time with no cap. A typo of 100 000 g would run the feeder ~7 hours.</td>
+        <td><strong>Confirmed.</strong> <code>energy.ts:27</code> — <code>feedGrams = grams ?? device.gramsPerFeeding</code>, no bounds (contrast: calibration actions <em>do</em> validate ranges, e.g. <code>gramsPerSecond 0–100</code> at <code>energy.ts:134</code>). <code>schedule.ts</code>/<code>settings.ts</code> pass <code>feedingRatePct</code>/<code>feedsPerDay</code> through unchecked. Firmware <code>feedDurationMs = grams / gramsPerSecond × 1000</code> uncapped.</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td><strong>Retries double-count feed</strong> <span class="badge crit">critical</span></td>
+        <td>Firmware creates a new <code>event_id</code> on every retry; if the server saved the event but the device missed the reply, the retry is stored again — inflating grams and corrupting FCR.</td>
+        <td><strong>Confirmed.</strong> <code>firmware-main.ino:560</code> — <code>generateEventId()</code> runs inside <code>postFeedEvent()</code> on <em>every call</em>; <code>enqueueEvent()</code> (<code>:527</code>) stores only grams/source/requestId/timestamp, <strong>no event id</strong>. <code>flushQueuedEvents()</code> retries until 2xx → a lost response yields a duplicate with a fresh id.</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td><strong>Heartbeat flood</strong> <span class="badge high">high</span></td>
+        <td>One heartbeat every 5 s writes ~34 500 rows/day/device with no cleanup; a CRITICAL pellet notification is created on <em>every</em> heartbeat while hopper ≤5 % (~17 000/day).</td>
+        <td><strong>Confirmed.</strong> Every heartbeat creates a <code>FeedEvent</code> row (<code>ingest/route.ts:109</code>). Pellet branch (<code>:164-184</code>) calls <code>notification.create</code> + <code>deviceStateEvent.create</code> on <strong>every</strong> heartbeat ≤5 % — no dedup. (Only <code>FeedLevelLog</code> is throttled: 30 min / 5 % delta, <code>:142-161</code>.)</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td><strong>No alert when a device dies</strong> <span class="badge high">high</span></td>
+        <td>No scheduled jobs; the <code>disconnected</code> event is written only when the device comes back.</td>
+        <td><strong>Confirmed.</strong> <code>ingest/route.ts:271</code> — <code>if (wasOffline &amp;&amp; device.lastSeenAt)</code> creates the <code>disconnected</code> event <em>inside the heartbeat handler</em>. No cron/scheduler exists anywhere in the repo; offline display is client-side (<code>lastSeenAt</code> + 15-min threshold).</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td><strong>Device routes untested</strong> <span class="badge med">medium</span></td>
+        <td><code>/api/ingest</code>, <code>/api/feed-command</code>, <code>/api/schedule-sync</code> have no tests.</td>
+        <td><strong>Confirmed.</strong> Zero matches for these routes in any <code>*.test.ts</code>/<code>*.spec.ts</code> file (unit or e2e).</td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td><strong>Roles not enforced</strong> <span class="badge high">high</span></td>
+        <td>The UI calls VIEWER "read-only", but feed and schedule actions never check the role.</td>
+        <td><strong>Confirmed.</strong> <code>requireRole</code> appears <strong>only</strong> in <code>lib/actions/admin.ts</code> (14 call sites) + the admin layout. <code>requestFeed</code>, <code>updateScheduleCommand</code>, <code>updatePondSettings</code> check ownership only.</td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td><strong>One shared database</strong> <span class="badge high">high</span></td>
+        <td>Production, localhost dev, and Playwright tests all use the same Supabase project; a past <code>prisma migrate reset</code> wiped production (recorded in HANDOFF.md), and the build script runs <code>prisma migrate deploy</code> on every build, including CI.</td>
+        <td><strong>Partially verifiable from repo.</strong> HANDOFF.md reset incident ✓ (§2). Build command is configured in Vercel's dashboard (not in repo) per the deployment checklist. Env separation cannot be confirmed from code — treat as the assessor states.</td>
+      </tr>
+      <tr>
+        <td>8</td>
+        <td><strong>CI and deploy gaps</strong> <span class="badge med">medium</span></td>
+        <td>CI runs only on PRs to <code>main</code> (workflow says PRs go to <code>develop</code>); <code>deploy.yml</code> reads <code>secrets</code> in a job-level <code>if:</code>, so it looks broken — Vercel's Git integration is what actually deploys.</td>
+        <td><strong>Confirmed with one nuance.</strong> <code>ci.yml</code> triggers on <em>push + PR</em> to <code>main</code> only — so PRs to <code>develop</code>/<code>Karl</code> get <strong>no CI</strong>. <code>deploy.yml:9</code> uses <code>secrets.VERCEL_TOKEN</code> in a job-level <code>if:</code> — the <code>secrets</code> context is not available there, so the job condition is invalid; deploys really do ride on Vercel's Git integration.</td>
+      </tr>
+      <tr>
+        <td>9</td>
+        <td><strong>Thin monitoring</strong> <span class="badge med">medium</span></td>
+        <td>No error tracker; only <code>console</code> logging and a health check. Vercel Hobby keeps 1 hour of runtime logs.</td>
+        <td><strong>Confirmed in effect.</strong> Sentry is fully wired (<code>sentry.*.config.ts</code>, <code>withSentryConfig</code> in <code>next.config.ts</code>) but <code>SENTRY_DSN</code> is absent from <code>.env.example</code> → with no DSN, <code>Sentry.init</code> is a no-op. Only <code>/api/health</code> + console logging are observability.</td>
+      </tr>
+      <tr>
+        <td>10</td>
+        <td><strong>Production login errors</strong> <span class="badge med">medium</span></td>
+        <td>Vercel shows 5 <code>/login</code> errors in 7 days (latest Oct 12, 07:21 UTC): "tenant/user not found". Supabase project alive; cause unknown.</td>
+        <td><strong>Not verifiable from the repo</strong> (runtime logs). Related suspect: session lookup resolves users by email local-part only (§17 #4).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card info">
+    <span class="badge info">Not counted against the project</span>
+    <ul style="margin-top:8px;">
+      <li><strong><code>registerEnergyDevice</code> has a missing-auth path, but nothing calls it</strong> — re-verified: the only match in the repo is its own definition (<code>lib/actions/energy.ts:200</code>). Safe to delete.</li>
+      <li><strong>The old security policies on <code>main</code> matched nothing (they fail closed)</strong> — <code>Karl</code> already fixes them.</li>
+    </ul>
+  </div>
+
+  <h3>19.4 Likely but unverified risks <span class="muted">(with quick checks — as stated in the assessment)</span></h3>
+  <table>
+    <thead><tr><th>Risk</th><th>Why it matters</th><th>How to check</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Open sign-up with email-prefix identity</strong></td>
+        <td>The app identifies a user by the part of the email before <code>@</code> and ignores the domain. If public sign-up is on, anyone could register <code>farm-01@anything.com</code> and act as that farm.</td>
+        <td>In Supabase, confirm Auth "Allow new users to sign up" is off. <span class="muted">(Code-side: confirmed — <code>farmIdFromEmail()</code> in <code>lib/auth/session.ts</code>; ties to §17 #2/#4.)</span></td>
+      </tr>
+      <tr>
+        <td><strong><code>User</code> table without row-level security</strong></td>
+        <td>No migration enables RLS on <code>User</code>. Whether the public key can reach it depends on the Data API settings.</td>
+        <td>Run <code>select tablename, rowsecurity from pg_tables where schemaname='public';</code> <span class="muted">(Code-side: confirmed — the RLS migration covers 12 tables: Pond, EnergyDevice, FeedEvent, FeedRequest, DeviceStateEvent, ScheduleCommand, BiomassLog, FishSample, FcrReport, FeedLevelLog, Notification, user_lockout — but <strong>not <code>User</code> or <code>Farm</code></strong>.)</span></td>
+      </tr>
+      <tr>
+        <td><strong>Firmware TLS verification</strong></td>
+        <td>The firmware sets no certificate, so it may not verify the server's identity, depending on the ESP32 core version.</td>
+        <td>Check the core version and test with a wrong certificate. <span class="muted">(Code-side: confirmed no <code>setCACert</code>/<code>setInsecure</code> call anywhere — <code>WiFiClientSecure secureClient</code> at <code>firmware-main.ino:105</code>.)</span></td>
+      </tr>
+      <tr>
+        <td><strong>In-memory rate limiter</strong></td>
+        <td>Lives in memory on serverless, so it probably does not hold across instances.</td>
+        <td>Load-test the login route. <span class="muted">(Already in §17 #3 — confirmed.)</span></td>
+      </tr>
+      <tr>
+        <td><strong>Login lockout abuse</strong></td>
+        <td>The lockout is per Farm ID, so someone could lock out another farm's account.</td>
+        <td>Try five bad logins on a test account. <span class="muted">(Code-side: confirmed — <code>UserLockout.farmId @id</code> keys the lockout; <code>lib/auth/lockout.ts</code>.)</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>19.5 Recommended fix order <span class="muted">(from the assessment — first three are small and protect the fish and the FCR data)</span></h3>
+  <div class="card">
+    <ol>
+      <li><strong>Add limits</strong> on grams, feeding rate and feeds per day <strong>on the server</strong>, and a <strong>maximum relay time in the firmware</strong>. <em>(Fixes gap #1 → §17 #18.)</em></li>
+      <li><strong>Generate <code>event_id</code> once when an event is queued</strong>, not on each retry. <em>(Fixes gap #2 → §17 #19.)</em></li>
+      <li><strong>Stop duplicate notifications</strong> (dedup pellet alerts), and <strong>thin out or expire heartbeat rows</strong>. <em>(Fixes gap #3 → §17 #20.)</em></li>
+      <li><strong>Confirm sign-up is off</strong> and run the <code>pg_tables</code> check. Then promote <code>Karl</code> → <code>develop</code> → <code>main</code>, give dev and tests their own Supabase project, and make CI run on <code>develop</code>.</li>
+      <li><strong>Add tests for the three device routes</strong> and an <strong>error tracker</strong>.</li>
+    </ol>
+    <p class="muted" style="margin-bottom:0;">Two decisions belong to Jeff, because they change production behavior: <strong>promoting <code>Karl</code> to production</strong>, and <strong>splitting the database</strong>.</p>
+  </div>
+</section>
+
+<!-- ================= 20. EXECUTION PLAN & REVIEW ================= -->
+<section id="plan">
+  <h2>20. Execution plan &amp; independent review</h2>
+
+  <div class="card info">
+    <span class="badge info">Authoritative plan</span>
+    <p style="margin-top:10px;">The one execution plan for this repository is <span class="path">docs/OPTIFEED-INDUSTRY-GRADE-PLAN v3.md</span>. Paste it alongside this briefing: this document defines how the system works; the plan defines what to change, in what order, and how to prove each change worked. The plan was independently reviewed line-by-line against the code on 2026-10-12 and corrected wherever the review disagreed.</p>
+    <p>The earlier <span class="path">OPTIFEED-INDUSTRY-GRADE-PLAN (1).md</span> was superseded and <strong>deleted</strong> — it contained several claims the review disproved. If you were handed any other plan file, treat v3 as the source of truth.</p>
+    <p class="muted" style="margin-bottom:0;">Plan map: §0 hard rules → §0.5 locked decisions D1–D4 and approved caps → §1 findings N1–N15 → §2 tasks in Phases 0–6 → §4 <code>pnpm self-check</code> script → §5 human tasks H1–H11 → §6 PR order → §7 definition of done.</p>
+  </div>
+
+  <h3>20.1 Review verdicts for the plan's findings</h3>
+  <p class="muted">Status legend: <span class="badge info">confirmed</span> = verified true in the code. <span class="badge high">corrected</span> = the earlier plan claim was wrong or overstated; v3 now carries the corrected version. <span class="badge low">theory</span> = plausible but not verifiable from the repo.</p>
+  <table>
+    <thead><tr><th>#</th><th>Status</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>N1</td><td><span class="badge high">corrected</span></td><td>Firmware divide-by-zero is already guarded (<code>feedsPerDay &gt; 1</code> ternary) — <strong>no bug; do not change the interval logic</strong>, regression check only.</td></tr>
+      <tr><td>N2</td><td><span class="badge high">corrected</span></td><td>The pending check already exists (<span class="path">lib/actions/energy.ts:41-47</span>); the real gap is that a <code>dispatched</code> request is not checked → double feeding.</td></tr>
+      <tr><td>N3</td><td><span class="badge info">confirmed</span></td><td><code>population || 5000</code> fallback feeds a pond with no population as if it had 5,000 fish.</td></tr>
+      <tr><td>N4</td><td><span class="badge info">confirmed</span></td><td><span class="path">lib/actions/biomass.ts</span> deviation guard divides by <code>gramsPerFeeding</code>; at 0 the result is <code>Infinity</code>, so the guard always rejects.</td></tr>
+      <tr><td>N5</td><td><span class="badge info">confirmed</span></td><td><strong>Most serious.</strong> <span class="path">apps/web/package.json</span> build = <code>prisma generate &amp;&amp; prisma migrate deploy &amp;&amp; next build</code> and CI runs it with production <code>DATABASE_URL</code> — every CI build can migrate the production database (plan task 0.3, stop-point on H3).</td></tr>
+      <tr><td>N6</td><td><span class="badge info">confirmed</span></td><td>Token <code>esp32-tok-cict-001</code> hardcoded in seed and firmware; <code>ArduinoOTA.setPassword(DEVICE_TOKEN)</code> — OTA password equals the device token.</td></tr>
+      <tr><td>N7</td><td><span class="badge low">theory</span></td><td>Login "tenant/user not found" errors look like Supabase pooler connection failures from <code>DATABASE_URL</code>; needs one runtime check (H4).</td></tr>
+      <tr><td>N8</td><td><span class="badge info">confirmed</span></td><td>Lockout per <code>farmId</code> only, 4-digit PINs → lockout DoS and brute-force surface.</td></tr>
+      <tr><td>N9</td><td><span class="badge high">corrected</span></td><td>Firmware already checks <code>&gt; 0</code> on several fields; real holes: no check at all on <code>grams_per_feeding</code>, no upper bounds, no <code>hopper_full &lt; hopper_empty</code> cross-check, unchecked <code>temp_offset_c</code>.</td></tr>
+      <tr><td>N10</td><td><span class="badge info">confirmed</span></td><td>Offline "Feed Now" queues and expires silently after 60 s; the button is never disabled. <strong>Decision locked: hard-reject server-side, disable the button, rewrite the queueing copy</strong> — see §20.2.</td></tr>
+      <tr><td>N11</td><td><span class="badge high">corrected</span></td><td>The ~34,500 rows/day figure is right: every heartbeat writes two rows (<code>FeedEvent</code> + unconditional <code>"connected"</code> <code>DeviceStateEvent</code>) = 17,280 × 2.</td></tr>
+      <tr><td>N12</td><td><span class="badge high">corrected</span></td><td><code>Farm</code> RLS and the repaired policies already exist in migration <code>20261004010000_fix_rls_policies_and_farm</code>; only <code>User</code> lacks RLS (plan task 2.3 is User-only — do not redo Farm).</td></tr>
+      <tr><td>N13</td><td><span class="badge info">confirmed</span></td><td><code>Notification.linkTo</code> hardcodes <code>/en/</code> — wrong locale for Hiligaynon users.</td></tr>
+      <tr><td>N14</td><td><span class="badge info">confirmed</span></td><td><code>OFFLINE_THRESHOLD_MS</code> copy-pasted in 6 files; hopper and gram constants conflict with DB defaults.</td></tr>
+      <tr><td>N15</td><td><span class="badge info">new + confirmed</span></td><td>Found during review: the <code>"connected"</code> event is written on <em>every</em> heartbeat, not only on reconnect — 17,280 junk rows per device per day that also flood the audit page (plan task 1.4).</td></tr>
+    </tbody>
+  </table>
+
+  <h3>20.2 Decisions locked during the review</h3>
+  <div class="card ok">
+    <span class="badge info">Do not reopen</span>
+    <ul>
+      <li><strong>Offline feed requests are hard-rejected.</strong> <code>requestFeed</code> rejects when <code>lastSeenAt</code> is older than the offline threshold, the Feed Now button is disabled with the warning still visible, and every copy that promises queueing is rewritten: <code>offlineWarning</code> and <code>offlineDesc</code> in <span class="path">messages/en.json</span> + <span class="path">messages/hil.json</span>, and the hardcoded string in <span class="path">components/EnergyControllerCard.tsx</span> (~line 108). <code>alreadyQueued</code> stays unchanged (pending-while-online is still valid).</li>
+      <li><strong>The self-check never runs <code>pnpm build</code> while the build script still contains <code>migrate deploy</code></strong> (task 0.3 open, blocked on H3) — it records a FAIL instead, so a full run cannot migrate any database by accident.</li>
+      <li><strong>RLS acceptance is scoped:</strong> after task 2.3 every table must show <code>rowsecurity = true</code> <em>except</em> the deprecated <code>Device</code> and <code>FeedingEvent</code> (dropped later under H9).</li>
+      <li><strong>The superseded plan file was deleted.</strong> <span class="path">docs/OPTIFEED-INDUSTRY-GRADE-PLAN (1).md</span> no longer exists; only the v3 file is valid.</li>
+    </ul>
+  </div>
+
+  <div class="card info">
+    <span class="badge info">Baseline</span>
+    <p style="margin-top:10px; margin-bottom:0;">Expected starting state before any plan task: <strong>109 tests in 13 files pass</strong>, lint and typecheck clean on branch <code>Karl</code>. The self-check's static checks are a progress meter — many of them FAIL at baseline by design.</p>
+  </div>
+</section>
+
+<div class="card info" style="margin-top: 40px;">
+  <span class="badge info">End of briefing</span>
+  <p style="margin-top: 10px;">You now know the system. The execution plan is <span class="path">docs/OPTIFEED-INDUSTRY-GRADE-PLAN v3.md</span> (§20) — if the user hands you a plan, it should be that one. Apply the rules in Section 2, and make it happen.</p>
+</div>
+
+</div>
+</body>
+</html>

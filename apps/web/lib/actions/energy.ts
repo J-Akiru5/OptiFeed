@@ -1,11 +1,6 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
-import {
-	getCurrentPondOwnerId,
-	getCurrentPondOwnerIdSafe,
-	requireWriteAccess,
-} from "@/lib/auth/session";
+import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import {
 	MAX_DISPENSE_MS,
 	OFFLINE_THRESHOLD_MS,
@@ -271,42 +266,4 @@ export async function saveTemperatureCalibration(deviceId: string, tempOffsetC: 
 		console.error("Failed to save temperature calibration:", error);
 		return { success: false, error: "Failed to save temperature calibration" };
 	}
-}
-
-export async function registerEnergyDevice(
-	mac: string,
-	label: string,
-	pondId?: string,
-): Promise<string> {
-	const ownerId = await getCurrentPondOwnerIdSafe();
-
-	if (pondId && ownerId) {
-		const pond = await prisma.pond.findFirst({
-			where: { id: pondId, ownerId },
-			select: { id: true },
-		});
-		if (!pond) throw new Error("Pond not found");
-	}
-
-	const token = `esp32-tok-${randomUUID()}`;
-	const device = await prisma.energyDevice.create({
-		data: {
-			mac,
-			token,
-			label,
-			pondId: pondId ?? null,
-		},
-	});
-
-	await prisma.deviceStateEvent.create({
-		data: {
-			deviceId: device.id,
-			eventType: "device_registered",
-			source: "user",
-			actorId: ownerId,
-			metadata: { mac },
-		},
-	});
-
-	return token;
 }

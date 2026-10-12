@@ -38,6 +38,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { POST } from "@/app/api/ingest/route";
+import { hashToken } from "@/lib/device-auth";
 import prisma from "@/lib/prisma";
 
 const mockEnergyDevice = vi.mocked(prisma.energyDevice);
@@ -54,6 +55,9 @@ const DEVICE = {
 	lastSeenAt: null as Date | null,
 	pondId: null as string | null,
 	label: "Feeder A",
+	// Auth goes through hash lookup (device-auth) — the mock row must carry
+	// the matching hash for the "test-token" header used by ingestRequest().
+	tokenHash: hashToken("test-token"),
 };
 
 function ingestRequest(body: Record<string, unknown>): Request {

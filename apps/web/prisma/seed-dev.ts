@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -123,6 +124,7 @@ async function main() {
 		data: {
 			mac: DEMO_MAC,
 			token: DEMO_TOKEN,
+			tokenHash: createHash("sha256").update(DEMO_TOKEN).digest("hex"),
 			label: "Demo Feeder",
 			pondId: pond.id,
 			rtcOk: true,

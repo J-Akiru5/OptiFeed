@@ -1,4 +1,5 @@
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { verifyDeviceToken } from "@/lib/device-auth";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -68,11 +69,7 @@ export async function POST(request: Request) {
 		return new Response("Unauthorized", { status: 401 });
 	}
 
-	const device = await prisma.energyDevice.findUnique({
-		where: { token },
-		select: { id: true, mac: true, lastSeenAt: true, pondId: true, label: true },
-	});
-
+	const device = await verifyDeviceToken(token);
 	if (!device) {
 		return new Response("Unauthorized", { status: 401 });
 	}

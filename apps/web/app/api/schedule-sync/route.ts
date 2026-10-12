@@ -1,3 +1,4 @@
+import { verifyDeviceToken } from "@/lib/device-auth";
 import {
 	BUTTON_FEED_GRAMS_MAX,
 	BUTTON_FEED_GRAMS_MIN,
@@ -67,26 +68,13 @@ export async function GET(request: Request) {
 		return new Response("Unprocessable Entity", { status: 422 });
 	}
 
-	const { success } = checkDeviceRateLimit(deviceId);
+	const { success } = await checkDeviceRateLimit(deviceId);
 	if (!success) {
 		return new Response("Too Many Requests", { status: 429 });
 	}
 
 	try {
-		const device = await prisma.energyDevice.findUnique({
-			where: { token },
-			select: {
-				id: true,
-				mac: true,
-				gramsPerFeeding: true,
-				buttonFeedGrams: true,
-				pondId: true,
-				hopperEmptyCm: true,
-				hopperFullCm: true,
-				gramsPerSecond: true,
-				tempOffsetC: true,
-			},
-		});
+		const device = await verifyDeviceToken(token);
 
 		if (!device || device.mac !== deviceId) {
 			return new Response("Unauthorized", { status: 401 });

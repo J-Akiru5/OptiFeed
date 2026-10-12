@@ -1,6 +1,7 @@
+import prisma from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { type NextRequest, NextResponse } from "next/server";
-import { farmIdFromEmail } from "./session";
+import { farmIdFromPondEmail } from "./session";
 
 type AuthenticatedHandler = (
 	request: NextRequest,
@@ -23,11 +24,18 @@ export function withAuth(handler: AuthenticatedHandler) {
 			data: { user },
 		} = await supabase.auth.getUser();
 
-		if (!user?.email) {
+		if (!user?.id || !user?.email) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 
-		const ownerId = farmIdFromEmail(user.email);
+		// Resolve ownerId from the DB row (by Supabase auth id), never from the
+		// email local part alone — a lookalike domain must not act as the farm.
+		const dbUser = await prisma.user.findUnique({
+			where: { supabaseId: user.id },
+			select: { farmId: true },
+		});
+		const emailFarmId = farmIdFromPondEmail(user.email);
+		const ownerId = dbUser && emailFarmId === dbUser.farmId ? dbUser.farmId : null;
 		if (!ownerId) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}

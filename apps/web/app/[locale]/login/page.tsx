@@ -2,7 +2,7 @@
 
 import { useRouter } from "@/i18n/routing";
 import { loginWithPin } from "@/lib/actions/auth";
-import { ArrowLeft, KeyRound, ShieldAlert, UserPlus } from "lucide-react";
+import { ArrowLeft, KeyRound, ShieldAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type FormEvent, useState, useTransition } from "react";
 
@@ -35,6 +35,8 @@ export default function LoginPage() {
 				setError(t("errorLocked", { minutes }));
 			} else if (result?.error === "rate_limited") {
 				setError(t("errorRateLimited"));
+			} else if (result?.error === "service") {
+				setError(t("errorService"));
 			} else if (result?.error) {
 				setError(t("errorInvalid"));
 			}
@@ -155,18 +157,7 @@ export default function LoginPage() {
 
 			{/* Footer */}
 			<footer className="py-4 px-6 text-center text-xs text-[#3D5568] bg-white border-t border-gray-200 shrink-0">
-				<div className="flex items-center justify-center gap-4">
-					{t("footer")}
-					<span className="text-gray-300">|</span>
-					<button
-						type="button"
-						onClick={() => router.push("/signup")}
-						className="inline-flex items-center gap-1.5 font-bold text-[#E85A2A] hover:text-[#d04a1f] transition-colors"
-					>
-						<UserPlus className="w-3.5 h-3.5" />
-						Create Account
-					</button>
-				</div>
+				{t("footer")}
 			</footer>
 		</div>
 	);

@@ -34,8 +34,9 @@ export function FeedNowButton({
 	const isOffline = connectionStatus === "offline";
 
 	async function handleFeedNow() {
-		setDispensing(true);
 		setShowConfirm(false);
+		if (isOffline) return;
+		setDispensing(true);
 		try {
 			// 2-decimal doses like "29.63g"; NaN → let the server use the device default
 			const grams = Number.parseFloat(nextFeedingVolume.replace("g", ""));
@@ -45,7 +46,7 @@ export function FeedNowButton({
 			} else if (result.success) {
 				toast.success(t("requestSent", { volume: nextFeedingVolume }));
 			} else {
-				toast.error(t("error"));
+				toast.error(result.error || t("error"));
 			}
 		} catch (error) {
 			toast.error(t("error"));
@@ -59,13 +60,20 @@ export function FeedNowButton({
 			<button
 				type="button"
 				onClick={() => setShowConfirm(true)}
-				disabled={dispensing}
+				disabled={dispensing || isOffline}
 				className="bg-[#E85A2A] text-white font-black text-sm md:text-base px-6 py-3 rounded-2xl hover:bg-[#d04a1f] shadow-lg hover:shadow-xl transition-all transform active:scale-95 flex items-center gap-2 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
 				data-onboard={dataOnboard}
 			>
 				<Activity className={`w-4 h-4 ${dispensing ? "animate-spin" : "animate-pulse"}`} />
 				{dispensing ? t("awaitingDevice") : label}
 			</button>
+
+			{isOffline && (
+				<div className="mt-3 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+					<AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
+					<p className="text-xs font-medium text-red-700">{t("offlineWarning")}</p>
+				</div>
+			)}
 
 			{showConfirm && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">

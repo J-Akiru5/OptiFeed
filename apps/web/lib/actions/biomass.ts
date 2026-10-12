@@ -1,6 +1,7 @@
 "use server";
 
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { biomassLogSchema, feedGramsSchema, formatZodError } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import { calculateNextFeeding } from "@/lib/volumeCalc";
 import { revalidatePath } from "next/cache";
@@ -29,14 +30,13 @@ export async function saveBiomassLog(formData: FormData) {
 		}
 	}
 
-	if (
-		!pondId ||
-		Number.isNaN(sampleWeightKg) ||
-		Number.isNaN(sampleLengthCm) ||
-		Number.isNaN(sampleCount) ||
-		sampleCount <= 0
-	) {
-		throw new Error("Invalid form data");
+	if (!pondId) {
+		throw new Error("Missing pond");
+	}
+
+	const parsed = biomassLogSchema.safeParse({ sampleCount, sampleWeightKg, sampleLengthCm });
+	if (!parsed.success) {
+		throw new Error(formatZodError(parsed.error));
 	}
 
 	const avgWeightKg = sampleWeightKg / sampleCount;
@@ -87,16 +87,59 @@ export async function saveBiomassLog(formData: FormData) {
 			return log;
 		}
 
+		if (!pond.population || pond.population <= 0) {
+			await tx.deviceStateEvent.create({
+				data: {
+					deviceId: energyDevice.id,
+					eventType: "biomass_logged",
+					source: "user",
+					actorId: ownerId,
+					metadata: {
+						biomassLogId: log.id,
+						avgWeightKg,
+						sampleCount,
+						autoAdjustSkipped: true,
+						reason: "population not set — cannot compute biomass without a fish count",
+					},
+				},
+			});
+			return log;
+		}
+
 		const newGrams = calculateNextFeeding(
 			avgWeightKg,
 			pond.feedingRatePct,
 			pond.feedsPerDay,
 			pond.population,
 		);
-		const currentGrams = energyDevice.gramsPerFeeding;
-		const deviation = Math.abs(newGrams - currentGrams) / currentGrams;
 
-		if (deviation > DEVIATION_THRESHOLD) {
+		const newGramsCheck = feedGramsSchema.safeParse(newGrams);
+		if (!newGramsCheck.success) {
+			await tx.deviceStateEvent.create({
+				data: {
+					deviceId: energyDevice.id,
+					eventType: "biomass_logged",
+					source: "user",
+					actorId: ownerId,
+					metadata: {
+						biomassLogId: log.id,
+						avgWeightKg,
+						sampleCount,
+						autoAdjustRejected: true,
+						reason: formatZodError(newGramsCheck.error),
+						gramsProposed: newGrams,
+						gramsCurrent: energyDevice.gramsPerFeeding,
+					},
+				},
+			});
+			return log;
+		}
+
+		const currentGrams = energyDevice.gramsPerFeeding;
+		const currentValid = Number.isFinite(currentGrams) && currentGrams > 0;
+		const deviation = currentValid ? Math.abs(newGrams - currentGrams) / currentGrams : 0;
+
+		if (currentValid && deviation > DEVIATION_THRESHOLD) {
 			console.warn(
 				`[biomass] rejected auto-adjust: ${currentGrams}g → ${newGrams}g (${(deviation * 100).toFixed(1)}% deviation, threshold ${DEVIATION_THRESHOLD * 100}%) — biomassLogId=${log.id}`,
 			);

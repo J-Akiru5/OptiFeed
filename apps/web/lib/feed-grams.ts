@@ -35,11 +35,34 @@ export async function syncDeviceGramsForPond(
 	});
 	if (!latestBiomass) return null;
 
+	const population = config?.population !== undefined ? config.population : pond.population;
+	if (!population || population <= 0) {
+		const device = await prisma.energyDevice.findFirst({
+			where: { pondId },
+			select: { id: true },
+		});
+		if (device) {
+			await prisma.deviceStateEvent.create({
+				data: {
+					deviceId: device.id,
+					eventType: "auto_adjust_skipped",
+					source: "system",
+					metadata: {
+						reason: "population not set — cannot compute biomass without a fish count",
+						pondId,
+						avgWeightKg: latestBiomass.avgWeightKg,
+					},
+				},
+			});
+		}
+		return null;
+	}
+
 	const grams = calculateNextFeeding(
 		latestBiomass.avgWeightKg,
 		config?.feedingRatePct ?? pond.feedingRatePct,
 		config?.feedsPerDay ?? pond.feedsPerDay,
-		config?.population !== undefined ? config.population : pond.population,
+		population,
 	);
 
 	await prisma.energyDevice.updateMany({

@@ -34,6 +34,7 @@ export function LogSampleForm({
 	const [isPending, startTransition] = useTransition();
 
 	const effectivePopulation = population && population > 0 ? population : DEFAULT_FISH_COUNT;
+	const populationUnset = effectivePopulation !== population;
 	const fmtG2 = (g: number) =>
 		g.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -388,7 +389,8 @@ export function LogSampleForm({
 							Total Biomass
 							{biomassG === 0 && (
 								<span className="block text-[11px] font-normal text-[#3D5568]/60">
-									= {effectivePopulation.toLocaleString("en-US")} fish × avg weight
+									= {populationUnset ? "estimate assuming " : ""}
+									{effectivePopulation.toLocaleString("en-US")} fish × avg weight
 								</span>
 							)}
 						</span>
@@ -400,7 +402,8 @@ export function LogSampleForm({
 								<>
 									g{" "}
 									<span>
-										({effectivePopulation.toLocaleString("en-US")} fish × {avgWeightG.toFixed(1)}g)
+										({populationUnset ? "estimate: " : ""}
+										{effectivePopulation.toLocaleString("en-US")} fish × {avgWeightG.toFixed(1)}g)
 									</span>
 								</>
 							)}

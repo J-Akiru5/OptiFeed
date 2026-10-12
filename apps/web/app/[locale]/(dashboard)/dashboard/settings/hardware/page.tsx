@@ -1,6 +1,7 @@
 import { DurationCalibrationForm } from "@/components/DurationCalibrationForm";
 import { HopperCalibrationForm } from "@/components/HopperCalibrationForm";
 import { TemperatureCalibrationForm } from "@/components/TemperatureCalibrationForm";
+import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { Cpu, RefreshCw, Ruler, Settings, Thermometer, Timer, Wifi } from "lucide-react";
@@ -37,7 +38,6 @@ export default async function HardwareSettingsPage() {
 		console.error("[HardwareSettingsPage] Prisma error:", err);
 	}
 
-	const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 	const now = new Date();
 	const isDeviceOffline =
 		!energyDevice?.lastSeenAt ||

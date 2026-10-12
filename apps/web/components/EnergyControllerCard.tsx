@@ -58,7 +58,7 @@ export function EnergyControllerCard({
 					setTimeout(() => setFeedSent(false), 3000);
 				}
 			} else {
-				toast.error("Failed to create feed request");
+				toast.error(result.error || "Failed to create feed request");
 			}
 		});
 	};
@@ -105,8 +105,8 @@ export function EnergyControllerCard({
 				<div className="mb-4 flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
 					<AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
 					<p className="text-xs text-red-700 font-medium">
-						Device offline — last seen {formatLastSeen(lastSeenAt)}. Scheduled and button feeds
-						still work; dashboard commands will queue.
+						Device offline — last seen {formatLastSeen(lastSeenAt)}. Dashboard feed requests are
+						rejected while offline; device-scheduled and physical button feeds still work.
 					</p>
 				</div>
 			)}
@@ -164,7 +164,7 @@ export function EnergyControllerCard({
 				<button
 					type="button"
 					onClick={handleFeedNow}
-					disabled={isPending || feederActive || feedGrams <= 0}
+					disabled={isPending || feederActive || feedGrams <= 0 || isOffline}
 					className={cn(
 						"flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 font-medium text-white transition-all shadow-md hover:shadow-lg disabled:opacity-50",
 						alreadyQueued

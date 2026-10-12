@@ -1,7 +1,7 @@
 "use client";
 
 import { updatePondSettings } from "@/lib/actions/settings";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
@@ -23,10 +23,12 @@ export function PondSettingsForm({ pond }: PondSettingsFormProps) {
 	const [population, setPopulation] = useState(pond.population?.toString() ?? "");
 	const [isPending, startTransition] = useTransition();
 	const [success, setSuccess] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
 		setSuccess(false);
+		setError(null);
 
 		const rate = Number.parseFloat(feedingRate);
 		const feeds = Number.parseInt(feedsPerDay, 10);
@@ -41,6 +43,8 @@ export function PondSettingsForm({ pond }: PondSettingsFormProps) {
 			if (result.success) {
 				setSuccess(true);
 				setTimeout(() => setSuccess(false), 3000);
+			} else {
+				setError(result.error ?? "Failed to save settings");
 			}
 		});
 	};
@@ -135,8 +139,14 @@ export function PondSettingsForm({ pond }: PondSettingsFormProps) {
 				</button>
 				{success && (
 					<span className="flex items-center gap-1 text-sm font-medium text-green-600 animate-in fade-in">
-						<CheckCircle2 size={16} />
+						<CheckCircle2 size={18} />
 						{t("success")}
+					</span>
+				)}
+				{error && (
+					<span className="flex items-center gap-1 text-sm font-medium text-red-600">
+						<XCircle size={18} />
+						{error}
 					</span>
 				)}
 			</div>

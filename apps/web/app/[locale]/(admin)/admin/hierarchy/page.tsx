@@ -1,9 +1,8 @@
 import { type HierarchyNode, HierarchyTree } from "@/components/hierarchy-tree";
 import { getAllFarmHierarchies } from "@/lib/actions/admin";
+import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 
 export const revalidate = 0;
-
-const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 
 export default async function AdminHierarchyPage() {
 	const hierarchies = await getAllFarmHierarchies();

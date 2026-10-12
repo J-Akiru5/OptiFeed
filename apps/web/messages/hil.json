@@ -179,7 +179,7 @@
 			"error": "Wala naka-save",
 			"stuckBanner": {
 				"offlineTitle": "Nadiskonekta ang Device",
-				"offlineDesc": "Ang imo device wala nakakonekta halin pa sang {time}. Ang mga request sang pagpakaon kag pagbag-o sang iskedyul i-apply kon magkonekta na liwat ini.",
+				"offlineDesc": "Ang imo device wala nakakonekta halin pa sang {time}. Ang mga request sang pagpakaon ma-reject habang wala nakakonekta; ang pagbag-o sang iskedyul na-save na kag i-apply gihapon kon magkonekta na liwat ini.",
 				"stuckFeedTitle": "Wala Nakumpirma nga Pagpakaon",
 				"stuckFeedDesc": "Ang request sang pagpakaon halin sang {time} ginpulot sang device pero wala nakumpirma nga natapos. Mahimo nga nagkaproblema samtang nagapakaon.",
 				"stuckFeedRepeatTitle": "Pirme Nagakapakyas ang Pagpakaon",
@@ -231,7 +231,7 @@
 			"requestSent": "Ang pangayo sang pagpakaon naipadala — magadispense ang aparato sa sulod sang 5s",
 			"alreadyQueued": "Ang pagpakaon nasuksok na — nagahulat sa aparato",
 			"awaitingDevice": "Nagahulat sa aparato…",
-			"offlineWarning": "Offline ang aparato — maga-queue ang pangayo. Ang pagpakaon posible nga madelatso hasta magkonektar liwat ang aparato.",
+			"offlineWarning": "Offline ang aparato — ang mga pangayo sang pagpakaon ma-reject habang offline ang aparato. Suksukon liwat kon magkonekta na ini.",
 			"hopperLow": "Manubo ang hopper level ({level}%). Paminsaron ang pag-refill madali.",
 			"hopperCritical": "Grabe kamanubo ang hopper level ({level}%)! Mag-refill agud malikawan ang wala nga pagpakaon.",
 			"error": "Pagtublag sa manual nga pagpakaon napaslawan."

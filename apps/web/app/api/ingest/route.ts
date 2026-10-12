@@ -324,6 +324,22 @@ export async function POST(request: Request) {
 			parsed.data.source
 		];
 
+		// Gap #2: a retry of the same feed (same requestId + source) must not
+		// double-count, even when the firmware regenerated its event_id.
+		if (parsed.data.feed_request_id) {
+			const existing = await prisma.feedEvent.findFirst({
+				where: {
+					feedRequestId: parsed.data.feed_request_id,
+					source: parsed.data.source,
+					eventType: "feed_dispensed",
+				},
+				select: { id: true },
+			});
+			if (existing) {
+				return new Response(null, { status: 204 });
+			}
+		}
+
 		try {
 			const operations: Prisma.PrismaPromise<unknown>[] = [
 				prisma.energyDevice.update({

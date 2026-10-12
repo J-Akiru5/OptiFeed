@@ -13,6 +13,13 @@ const RECONCILIATION_LOOKBACK_HOURS = 4;
 
 const RATE_LIMIT_MS = 1000;
 
+// Heartbeat FeedEvent rows are thinned: at most one per device per 5 minutes
+// unless a stored value changed (N11 — was 17,280 rows/device/day).
+const HEARTBEAT_ROW_INTERVAL_MS = 5 * 60 * 1000;
+
+// Pellet alerts fire on a tier transition or at most this often while still low.
+const PELLET_ALERT_WINDOW_MS = 6 * 60 * 60 * 1000;
+
 const baseSchema = z.object({
 	device_id: z.string().min(1),
 	event_type: z.enum(["heartbeat", "feed_dispensed", "schedule_acked", "feed_refused"]),
@@ -102,6 +109,21 @@ export async function POST(request: Request) {
 		const wasOffline =
 			!device.lastSeenAt || Date.now() - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
 
+		// Thinning (N11): look up the last heartbeat row so we only write a new
+		// one when 5 minutes have passed or a stored value changed.
+		const lastHeartbeat = await prisma.feedEvent.findFirst({
+			where: { deviceId: device.id, eventType: "heartbeat" },
+			orderBy: { receivedAt: "desc" },
+			select: { receivedAt: true, rtcOk: true, feederActive: true },
+		});
+		const heartbeatChanged =
+			!lastHeartbeat ||
+			lastHeartbeat.rtcOk !== parsed.data.rtc_ok ||
+			lastHeartbeat.feederActive !== parsed.data.feeder_active;
+		const heartbeatDue =
+			!lastHeartbeat ||
+			Date.now() - lastHeartbeat.receivedAt.getTime() >= HEARTBEAT_ROW_INTERVAL_MS;
+
 		try {
 			const operations: Prisma.PrismaPromise<unknown>[] = [
 				prisma.energyDevice.update({
@@ -112,25 +134,36 @@ export async function POST(request: Request) {
 						feederActive: parsed.data.feeder_active,
 					},
 				}),
-				prisma.feedEvent.create({
-					data: {
-						deviceId: device.id,
-						eventId,
-						eventType: "heartbeat",
-						timestamp: parsed.data.timestamp,
-						rtcOk: parsed.data.rtc_ok,
-						feederActive: parsed.data.feeder_active,
-					},
-				}),
-				prisma.deviceStateEvent.create({
-					data: {
-						deviceId: device.id,
-						eventType: "connected",
-						source: "device",
-						deviceTime: parsed.data.timestamp,
-					},
-				}),
 			];
+
+			if (heartbeatChanged || heartbeatDue) {
+				operations.push(
+					prisma.feedEvent.create({
+						data: {
+							deviceId: device.id,
+							eventId,
+							eventType: "heartbeat",
+							timestamp: parsed.data.timestamp,
+							rtcOk: parsed.data.rtc_ok,
+							feederActive: parsed.data.feeder_active,
+						},
+					}),
+				);
+			}
+
+			// N15: "connected" only on first contact or offline→online, not every beat.
+			if (wasOffline) {
+				operations.push(
+					prisma.deviceStateEvent.create({
+						data: {
+							deviceId: device.id,
+							eventType: "connected",
+							source: "device",
+							deviceTime: parsed.data.timestamp,
+						},
+					}),
+				);
+			}
 
 			// Feed level sensor reading piggybacked on heartbeat
 			if (typeof parsed.data.feed_level_percent === "number") {
@@ -166,40 +199,65 @@ export async function POST(request: Request) {
 					);
 				}
 
-				// Tiered notifications using existing "pellet" category
-				if (device.pondId && parsed.data.feed_level_percent <= 5) {
-					operations.push(
-						prisma.notification.create({
-							data: {
-								pondId: device.pondId,
-								tier: "CRITICAL",
-								category: "pellet",
-								message: "Feed hopper is nearly empty — refill immediately",
-								linkTo: "/en/dashboard/settings",
-							},
-						}),
-						prisma.deviceStateEvent.create({
-							data: {
-								deviceId: device.id,
-								eventType: "pellet_low",
-								source: "device",
-								deviceTime: parsed.data.timestamp,
-								metadata: { levelPercent: parsed.data.feed_level_percent },
-							},
-						}),
-					);
-				} else if (device.pondId && parsed.data.feed_level_percent <= 20) {
-					operations.push(
-						prisma.notification.create({
-							data: {
-								pondId: device.pondId,
-								tier: "WARNING",
-								category: "pellet",
-								message: "Feed hopper is running low — schedule a refill soon",
-								linkTo: "/en/dashboard/settings",
-							},
-						}),
-					);
+				// Pellet alert dedup (N11): fire only on a tier transition or at most
+				// once per 6h while still low. Gate uses the most recent
+				// unacknowledged pellet notification for this pond (if any).
+				const pelletLevel = parsed.data.feed_level_percent;
+				let pelletTier: "WARNING" | "CRITICAL" | null = null;
+				if (pelletLevel <= 5) pelletTier = "CRITICAL";
+				else if (pelletLevel <= 20) pelletTier = "WARNING";
+
+				let recentPelletAlert: { tier: string; createdAt: Date } | null = null;
+				if (pelletTier && device.pondId) {
+					recentPelletAlert = await prisma.notification.findFirst({
+						where: { pondId: device.pondId, category: "pellet", acknowledgedAt: null },
+						orderBy: { createdAt: "desc" },
+						select: { tier: true, createdAt: true },
+					});
+				}
+				const shouldFirePelletAlert = (tier: "WARNING" | "CRITICAL"): boolean => {
+					if (!device.pondId) return false;
+					if (!recentPelletAlert) return true;
+					const withinWindow =
+						Date.now() - recentPelletAlert.createdAt.getTime() < PELLET_ALERT_WINDOW_MS;
+					return recentPelletAlert.tier !== tier || !withinWindow;
+				};
+
+				if (pelletTier && device.pondId && shouldFirePelletAlert(pelletTier)) {
+					if (pelletTier === "CRITICAL") {
+						operations.push(
+							prisma.notification.create({
+								data: {
+									pondId: device.pondId,
+									tier: "CRITICAL",
+									category: "pellet",
+									message: "Feed hopper is nearly empty — refill immediately",
+									linkTo: "/en/dashboard/settings",
+								},
+							}),
+							prisma.deviceStateEvent.create({
+								data: {
+									deviceId: device.id,
+									eventType: "pellet_low",
+									source: "device",
+									deviceTime: parsed.data.timestamp,
+									metadata: { levelPercent: parsed.data.feed_level_percent },
+								},
+							}),
+						);
+					} else {
+						operations.push(
+							prisma.notification.create({
+								data: {
+									pondId: device.pondId,
+									tier: "WARNING",
+									category: "pellet",
+									message: "Feed hopper is running low — schedule a refill soon",
+									linkTo: "/en/dashboard/settings",
+								},
+							}),
+						);
+					}
 				}
 
 				// 2-days-of-feed-remaining advance warning
@@ -216,7 +274,7 @@ export async function POST(request: Request) {
 						const dailyConsumptionG = deviceFull.gramsPerFeeding * pond.feedsPerDay;
 						const remainingG = deviceFull.hopperCapacityG * (parsed.data.feed_level_percent / 100);
 						const daysRemaining = dailyConsumptionG > 0 ? remainingG / dailyConsumptionG : 99;
-						if (daysRemaining <= 2 && daysRemaining > 0) {
+						if (daysRemaining <= 2 && daysRemaining > 0 && shouldFirePelletAlert("WARNING")) {
 							operations.push(
 								prisma.notification.create({
 									data: {

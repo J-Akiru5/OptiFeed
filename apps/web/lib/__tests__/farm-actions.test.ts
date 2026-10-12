@@ -19,6 +19,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/auth/session", () => ({
 	getCurrentPondOwnerId: vi.fn().mockResolvedValue("test-farm"),
 	requireRole: vi.fn().mockResolvedValue(undefined),
+	requireWriteAccess: vi.fn().mockResolvedValue(undefined),
 	buildPondEmail: vi.fn((farmId: string) => `${farmId}@pond.optifeed.local`),
 }));
 

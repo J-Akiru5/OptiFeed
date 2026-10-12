@@ -2,6 +2,7 @@ import { DataExportButton, DataImportDialog } from "@/components/DataImportExpor
 import { FcrCalculator } from "@/components/FcrCalculator";
 import { FeedLevelLogTable } from "@/components/FeedLevelLogTable";
 import { getFeedLevelLogs } from "@/lib/actions/growth";
+import { canWrite } from "@/lib/auth/session";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
@@ -31,6 +32,8 @@ export default async function GrowthPage() {
 			</div>
 		);
 	}
+
+	const writeAccess = await canWrite();
 
 	const biomassLogs = await prisma.biomassLog.findMany({
 		where: { pondId: pond.id },
@@ -117,7 +120,7 @@ export default async function GrowthPage() {
 					<p className="text-gray-500 mt-1">{t("desc", { pond: pond.name })}</p>
 				</div>
 				<div className="flex items-center gap-3">
-					<DataImportDialog />
+					<DataImportDialog canWrite={writeAccess} />
 					<DataExportButton />
 				</div>
 			</div>

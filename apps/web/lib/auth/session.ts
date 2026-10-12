@@ -88,6 +88,27 @@ export async function requireRole(...roles: UserRole[]): Promise<void> {
 }
 
 /**
+ * Require write access (ADMIN or OPERATOR). Throws instead of redirecting —
+ * for server actions and API routes, where a redirect is the wrong signal.
+ * VIEWER and unauthenticated callers are rejected before any write happens.
+ */
+export async function requireWriteAccess(): Promise<void> {
+	const userRole = await getCurrentUserRole();
+	if (userRole !== "ADMIN" && userRole !== "OPERATOR") {
+		throw new Error("Write access required (ADMIN or OPERATOR)");
+	}
+}
+
+/**
+ * True when the current user may perform write operations.
+ * Use in server components to disable VIEWER-only-readonly UI.
+ */
+export async function canWrite(): Promise<boolean> {
+	const userRole = await getCurrentUserRole();
+	return userRole === "ADMIN" || userRole === "OPERATOR";
+}
+
+/**
  * Get all ponds owned by the current user.
  */
 export async function getCurrentUserPonds() {

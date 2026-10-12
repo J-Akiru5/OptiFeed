@@ -1,6 +1,6 @@
 "use server";
 
-import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
 import { formatZodError, notificationPrefsSchema, pondSettingsSchema } from "@/lib/limits";
 import prisma from "@/lib/prisma";
@@ -19,6 +19,7 @@ export async function updateNotificationPrefs(
 	prefs: NotificationPrefs,
 ): Promise<{ success: boolean; error?: string }> {
 	try {
+		await requireWriteAccess();
 		const parsed = notificationPrefsSchema.safeParse(prefs);
 		if (!parsed.success) {
 			return { success: false, error: formatZodError(parsed.error) };
@@ -55,6 +56,7 @@ export async function updatePondSettings(
 	population?: number | null,
 ) {
 	try {
+		await requireWriteAccess();
 		const parsed = pondSettingsSchema.safeParse({ feedingRatePct, feedsPerDay, population });
 		if (!parsed.success) {
 			return { success: false, error: formatZodError(parsed.error) };

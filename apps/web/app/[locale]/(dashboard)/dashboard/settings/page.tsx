@@ -1,12 +1,14 @@
 import { FarmRenameForm } from "@/components/farm-rename-form";
 import { Link } from "@/i18n/routing";
 import { getFarmOverview } from "@/lib/actions/farm";
+import { canWrite } from "@/lib/auth/session";
 import { Cpu, Database, Droplets, Settings, Sprout, User } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export default async function SettingsPage() {
 	const t = await getTranslations("dashboard.settings");
 	const farm = await getFarmOverview();
+	const writeAccess = await canWrite();
 
 	const cards = [
 		{
@@ -61,7 +63,7 @@ export default async function SettingsPage() {
 							<div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 font-mono text-gray-500">
 								{farm.ownerId}
 							</div>
-							<FarmRenameForm initialName={farm.name} />
+							<FarmRenameForm initialName={farm.name} canWrite={writeAccess} />
 						</div>
 
 						<div className="space-y-2">

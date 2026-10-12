@@ -1,4 +1,5 @@
 import { LogSampleForm } from "@/components/LogSampleForm";
+import { canWrite } from "@/lib/auth/session";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
@@ -26,6 +27,7 @@ export default async function LogSamplePage() {
 	// `pond.*` goes stale when a device is paired (saves queue ScheduleCommands);
 	// prefer the newest pending/sent command, then the last applied one.
 	const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice?.id ?? null);
+	const writeAccess = await canWrite();
 
 	return (
 		<div className="space-y-6 pb-20 animate-in fade-in duration-500 max-w-4xl">
@@ -47,6 +49,7 @@ export default async function LogSamplePage() {
 					feedingRatePct={currentConfig?.feedingRatePct ?? pond.feedingRatePct}
 					feedsPerDay={currentConfig?.feedsPerDay ?? pond.feedsPerDay}
 					population={pond.population}
+					canWrite={writeAccess}
 				/>
 			</div>
 		</div>

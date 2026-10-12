@@ -1,12 +1,15 @@
 "use server";
 
-import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
 import { MAX_DISPENSE_MS, dailyFeedCapG, formatZodError, scheduleInputSchema } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
 export async function toggleDevicePause(deviceId: string, isPaused: boolean) {
+	// Guard outside try: the catch below rethrows a generic message and would
+	// hide the write-access reason from the caller.
+	await requireWriteAccess();
 	try {
 		const ownerId = await getCurrentPondOwnerId();
 
@@ -59,6 +62,7 @@ export async function updateScheduleCommand(
 	},
 ): Promise<UpdateScheduleResult> {
 	try {
+		await requireWriteAccess();
 		const parsed = scheduleInputSchema.safeParse(data);
 		if (!parsed.success) {
 			return { success: false, error: formatZodError(parsed.error) };

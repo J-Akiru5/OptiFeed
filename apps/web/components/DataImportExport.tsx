@@ -154,7 +154,7 @@ export function DataExportButton() {
 	);
 }
 
-export function DataImportDialog() {
+export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 	const t = useTranslations("dashboard.importExport");
 	const [open, setOpen] = useState(false);
 	const [type, setType] = useState<ExportableType>("biomass_logs");
@@ -219,7 +219,8 @@ export function DataImportDialog() {
 			<button
 				type="button"
 				onClick={() => setOpen(true)}
-				className="flex items-center gap-2 bg-white border border-gray-200 hover:bg-[#F4F7F6] text-[#0A3D62] font-bold py-2.5 px-4 rounded-xl text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
+				disabled={!canWrite}
+				className="flex items-center gap-2 bg-white border border-gray-200 hover:bg-[#F4F7F6] text-[#0A3D62] font-bold py-2.5 px-4 rounded-xl text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] disabled:opacity-50"
 			>
 				<Upload className="w-4 h-4" /> {t("import")}
 			</button>

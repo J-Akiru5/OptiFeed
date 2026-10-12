@@ -1,4 +1,4 @@
-import { farmIdFromEmail } from "@/lib/auth/session";
+import { farmIdFromEmail, requireWriteAccess } from "@/lib/auth/session";
 import { type ExportableType, parseCsvString } from "@/lib/csv";
 import prisma from "@/lib/prisma";
 import { checkApiRateLimit } from "@/lib/rate-limit";
@@ -21,6 +21,12 @@ export async function POST(request: Request) {
 	const ownerId = user?.email ? farmIdFromEmail(user.email) : null;
 	if (!ownerId) {
 		return Response.json({ error: "Unauthorized" }, { status: 401 });
+	}
+
+	try {
+		await requireWriteAccess();
+	} catch {
+		return Response.json({ error: "Write access required (ADMIN or OPERATOR)" }, { status: 403 });
 	}
 
 	// Rate limit: 30 requests per 60 seconds per user

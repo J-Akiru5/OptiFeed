@@ -33,6 +33,10 @@ vi.mock("@/lib/prisma", () => ({
 			findFirst: vi.fn(),
 			update: vi.fn(),
 		},
+		farm: {
+			findUnique: vi.fn(),
+			update: vi.fn(),
+		},
 		$transaction: vi.fn((fns: (() => Promise<unknown>)[]) =>
 			fns.reduce<Promise<unknown>>((prev, fn) => prev.then(() => fn()), Promise.resolve()),
 		),
@@ -42,6 +46,9 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/auth/session", () => ({
 	getCurrentPondOwnerId: vi.fn().mockResolvedValue("test-farm"),
 	getCurrentPondOwnerIdSafe: vi.fn().mockResolvedValue("test-farm"),
+	getCurrentUser: vi.fn().mockResolvedValue({ farmId: "test-farm", role: "ADMIN" }),
+	getCurrentUserRole: vi.fn().mockResolvedValue("ADMIN"),
+	requireWriteAccess: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("next/cache", () => ({
@@ -52,6 +59,7 @@ vi.mock("next-intl/server", () => ({
 	getLocale: vi.fn().mockResolvedValue("en"),
 }));
 
+import { requireWriteAccess } from "@/lib/auth/session";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 
@@ -60,6 +68,8 @@ const mockFeedRequest = vi.mocked(prisma.feedRequest);
 const mockDeviceStateEvent = vi.mocked(prisma.deviceStateEvent);
 const mockScheduleCommand = vi.mocked(prisma.scheduleCommand);
 const mockPond = vi.mocked(prisma.pond);
+const mockFarm = vi.mocked(prisma.farm);
+const mockRequireWriteAccess = vi.mocked(requireWriteAccess);
 
 // biome-ignore lint/suspicious/noExplicitAny: test fixture
 function onlineDevice(overrides: Record<string, unknown> = {}): any {
@@ -398,5 +408,122 @@ describe("updateNotificationPrefs validation", () => {
 			error: expect.stringContaining("missedFeeding"),
 		});
 		expect(mockPond.update).not.toHaveBeenCalled();
+	});
+});
+
+describe("write access enforcement — VIEWER denied, nothing written (1.5)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockRequireWriteAccess.mockResolvedValue(undefined);
+	});
+
+	function denyWrite() {
+		mockRequireWriteAccess.mockRejectedValue(
+			new Error("Write access required (ADMIN or OPERATOR)"),
+		);
+	}
+
+	it("requestFeed returns an error and writes nothing", async () => {
+		denyWrite();
+		const { requestFeed } = await import("@/lib/actions/energy");
+		const result = await requestFeed("device-1");
+		expect(result.success).toBe(false);
+		expect(mockEnergyDevice.findFirst).not.toHaveBeenCalled();
+		expect(mockFeedRequest.create).not.toHaveBeenCalled();
+	});
+
+	it("toggleDevicePause throws and writes nothing", async () => {
+		denyWrite();
+		const { toggleDevicePause } = await import("@/lib/actions/schedule");
+		await expect(toggleDevicePause("device-1", true)).rejects.toThrow(/Write access required/);
+		expect(mockEnergyDevice.update).not.toHaveBeenCalled();
+		expect(mockDeviceStateEvent.create).not.toHaveBeenCalled();
+	});
+
+	it("updateScheduleCommand returns an error and writes nothing", async () => {
+		denyWrite();
+		const { updateScheduleCommand } = await import("@/lib/actions/schedule");
+		const result = await updateScheduleCommand("pond-1", "device-1", {
+			scheduleStart: "08:00",
+			scheduleEnd: "18:00",
+			feedsPerDay: 2,
+			feedingRatePct: 3,
+		});
+		expect(result.success).toBe(false);
+		expect(mockScheduleCommand.create).not.toHaveBeenCalled();
+		expect(mockScheduleCommand.update).not.toHaveBeenCalled();
+	});
+
+	it("updatePondSettings returns an error and writes nothing", async () => {
+		denyWrite();
+		const { updatePondSettings } = await import("@/lib/actions/settings");
+		const result = await updatePondSettings("pond-1", 3, 2);
+		expect(result.success).toBe(false);
+		expect(mockPond.update).not.toHaveBeenCalled();
+	});
+
+	it("updateNotificationPrefs returns an error and writes nothing", async () => {
+		denyWrite();
+		const { updateNotificationPrefs } = await import("@/lib/actions/settings");
+		const result = await updateNotificationPrefs("pond-1", {
+			missedFeeding: true,
+			deviceOffline: true,
+			hopperLow: true,
+		});
+		expect(result.success).toBe(false);
+		expect(mockPond.update).not.toHaveBeenCalled();
+	});
+
+	it("saveBiomassLog throws and writes nothing", async () => {
+		denyWrite();
+		const { saveBiomassLog } = await import("@/lib/actions/biomass");
+		await expect(saveBiomassLog(new FormData())).rejects.toThrow(/Write access required/);
+		const mockBiomassLog = vi.mocked(prisma.biomassLog);
+		expect(mockBiomassLog.create).not.toHaveBeenCalled();
+	});
+
+	it("saveHopperCalibration returns an error and writes nothing", async () => {
+		denyWrite();
+		const { saveHopperCalibration } = await import("@/lib/actions/energy");
+		const result = await saveHopperCalibration("device-1", {
+			hopperFullCm: 5,
+			hopperEmptyCm: 30,
+			hopperCapacityG: 7000,
+		});
+		expect(result.success).toBe(false);
+		expect(mockEnergyDevice.update).not.toHaveBeenCalled();
+		expect(mockDeviceStateEvent.create).not.toHaveBeenCalled();
+	});
+
+	it("saveDurationCalibration returns an error and writes nothing", async () => {
+		denyWrite();
+		const { saveDurationCalibration } = await import("@/lib/actions/energy");
+		const result = await saveDurationCalibration("device-1", 4);
+		expect(result.success).toBe(false);
+		expect(mockEnergyDevice.update).not.toHaveBeenCalled();
+	});
+
+	it("saveTemperatureCalibration returns an error and writes nothing", async () => {
+		denyWrite();
+		const { saveTemperatureCalibration } = await import("@/lib/actions/energy");
+		const result = await saveTemperatureCalibration("device-1", 1.5);
+		expect(result.success).toBe(false);
+		expect(mockEnergyDevice.update).not.toHaveBeenCalled();
+	});
+
+	it("setDeviceTime returns an error and writes nothing", async () => {
+		denyWrite();
+		const { setDeviceTime } = await import("@/lib/actions/time");
+		const result = await setDeviceTime("device-1", "2026-10-13T08:00");
+		expect(result.success).toBe(false);
+		expect(mockDeviceStateEvent.create).not.toHaveBeenCalled();
+	});
+
+	it("renameFarm returns an error and writes nothing", async () => {
+		denyWrite();
+		const { renameFarm } = await import("@/lib/actions/farm");
+		const result = await renameFarm("New Farm Name");
+		expect(result).toEqual({ error: expect.stringContaining("Write access required") });
+		expect(mockFarm.update).not.toHaveBeenCalled();
 	});
 });

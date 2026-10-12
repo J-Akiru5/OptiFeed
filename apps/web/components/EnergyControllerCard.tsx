@@ -15,6 +15,7 @@ interface EnergyControllerCardProps {
 	gramsPerFeeding: number;
 	lastSeenAt: Date | null;
 	isOffline: boolean;
+	canWrite?: boolean;
 }
 
 function formatLastSeen(lastSeenAt: Date | null): string {
@@ -38,6 +39,7 @@ export function EnergyControllerCard({
 	gramsPerFeeding,
 	lastSeenAt,
 	isOffline,
+	canWrite = true,
 }: EnergyControllerCardProps) {
 	const [feedGrams, setFeedGrams] = useState(gramsPerFeeding);
 	const [isPending, startTransition] = useTransition();
@@ -164,7 +166,7 @@ export function EnergyControllerCard({
 				<button
 					type="button"
 					onClick={handleFeedNow}
-					disabled={isPending || feederActive || feedGrams <= 0 || isOffline}
+					disabled={isPending || feederActive || feedGrams <= 0 || isOffline || !canWrite}
 					className={cn(
 						"flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 font-medium text-white transition-all shadow-md hover:shadow-lg disabled:opacity-50",
 						alreadyQueued

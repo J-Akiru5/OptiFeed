@@ -8,12 +8,14 @@ interface DurationCalibrationFormProps {
 	deviceId: string;
 	currentGramsPerSecond: number;
 	currentGramsPerFeeding: number;
+	canWrite?: boolean;
 }
 
 export function DurationCalibrationForm({
 	deviceId,
 	currentGramsPerSecond,
 	currentGramsPerFeeding,
+	canWrite = true,
 }: DurationCalibrationFormProps) {
 	const [gps, setGps] = useState(currentGramsPerSecond);
 	const [testSeconds, setTestSeconds] = useState(10);
@@ -95,7 +97,7 @@ export function DurationCalibrationForm({
 			<button
 				type="button"
 				onClick={handleSave}
-				disabled={isPending}
+				disabled={isPending || !canWrite}
 				className="flex min-h-[var(--ofd-touch-min)] min-w-[120px] items-center justify-center rounded-lg bg-[var(--ofd-action)] px-6 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
 			>
 				{isPending ? "Saving..." : "Save Calibration"}

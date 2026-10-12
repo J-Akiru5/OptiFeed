@@ -6,7 +6,10 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 
-export function TimeCalibrationForm({ deviceId }: { deviceId: string }) {
+export function TimeCalibrationForm({
+	deviceId,
+	canWrite = true,
+}: { deviceId: string; canWrite?: boolean }) {
 	const t = useTranslations("dashboard.timeCalibration");
 	const [selectedTime, setSelectedTime] = useState(() => {
 		const now = new Date();
@@ -72,7 +75,7 @@ export function TimeCalibrationForm({ deviceId }: { deviceId: string }) {
 					<button
 						type="button"
 						onClick={handleSetTime}
-						disabled={saving}
+						disabled={saving || !canWrite}
 						className="w-full sm:w-auto bg-[#0A3D62] hover:bg-[#12588c] text-white font-bold py-3 px-6 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
 					>
 						{success ? (

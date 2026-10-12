@@ -2,6 +2,7 @@ import { ScheduleControls } from "@/components/ScheduleControls";
 import { ScheduleEditor } from "@/components/ScheduleEditor";
 import { StuckRequestBanner } from "@/components/StuckRequestBanner";
 import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
+import { canWrite } from "@/lib/auth/session";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
@@ -99,6 +100,7 @@ export default async function SchedulePage() {
 	// `pond.*` only reflects the current config when no EnergyDevice is paired;
 	// otherwise the newest pending/sent command wins, then the last applied one.
 	const currentCommand = serializeCommand(pendingCommand ?? latestAppliedCommand);
+	const writeAccess = await canWrite();
 
 	return (
 		<div className="space-y-8 max-w-5xl">
@@ -107,7 +109,7 @@ export default async function SchedulePage() {
 				<p className="mt-2 text-gray-700">{t("desc")}</p>
 			</div>
 
-			<TimeCalibrationForm deviceId={energyDevice.id} />
+			<TimeCalibrationForm deviceId={energyDevice.id} canWrite={writeAccess} />
 
 			<StuckRequestBanner
 				stuckFeedRequests={stuckFeedRequests.map((r) => ({
@@ -127,12 +129,14 @@ export default async function SchedulePage() {
 				scheduleEnd={currentCommand?.scheduleEnd ?? fmtTime(pond.scheduleEnd)}
 				feedsPerDay={currentCommand?.feedsPerDay ?? pond.feedsPerDay}
 				feedingRatePct={currentCommand?.feedingRatePct ?? pond.feedingRatePct}
+				canWrite={writeAccess}
 			/>
 
 			<ScheduleControls
 				deviceId={energyDevice.id}
 				initialIsPaused={energyDevice.isPaused}
 				gramsPerFeeding={energyDevice.gramsPerFeeding}
+				canWrite={writeAccess}
 			/>
 
 			<ScheduleEditor
@@ -144,6 +148,7 @@ export default async function SchedulePage() {
 				initialFeedingRatePct={currentCommand?.feedingRatePct ?? pond.feedingRatePct}
 				pendingCommand={serializeCommand(pendingCommand)}
 				latestAppliedCommand={serializeCommand(latestAppliedCommand)}
+				canWrite={writeAccess}
 			/>
 		</div>
 	);

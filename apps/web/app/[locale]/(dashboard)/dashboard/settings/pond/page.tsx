@@ -1,5 +1,6 @@
 import { LogoutButton } from "@/components/LogoutButton";
 import { PondSettingsForm } from "@/components/PondSettingsForm";
+import { canWrite } from "@/lib/auth/session";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
@@ -28,6 +29,7 @@ export default async function PondSettingsPage() {
 	// `pond.*` goes stale when a device is paired (saves queue ScheduleCommands);
 	// prefer the newest pending/sent command, then the last applied one.
 	const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice?.id ?? null);
+	const writeAccess = await canWrite();
 
 	return (
 		<div className="mx-auto max-w-4xl space-y-8">
@@ -50,6 +52,7 @@ export default async function PondSettingsPage() {
 							sampleIntervalDays: pond.sampleIntervalDays,
 							population: pond.population,
 						}}
+						canWrite={writeAccess}
 					/>
 				</section>
 

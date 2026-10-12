@@ -132,7 +132,11 @@ export default async function ProfileSettingsPage() {
 				</section>
 
 				{/* Notification Preferences */}
-				<NotificationPrefsForm pondId={pond?.id ?? ""} initialPrefs={notificationPrefs} />
+				<NotificationPrefsForm
+					pondId={pond?.id ?? ""}
+					initialPrefs={notificationPrefs}
+					canWrite={currentUser?.role === "ADMIN" || currentUser?.role === "OPERATOR"}
+				/>
 			</div>
 		</div>
 	);

@@ -1,7 +1,11 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { getCurrentPondOwnerId, getCurrentPondOwnerIdSafe } from "@/lib/auth/session";
+import {
+	getCurrentPondOwnerId,
+	getCurrentPondOwnerIdSafe,
+	requireWriteAccess,
+} from "@/lib/auth/session";
 import {
 	MAX_DISPENSE_MS,
 	OFFLINE_THRESHOLD_MS,
@@ -28,6 +32,7 @@ function manilaDayRange(nowMs: number = Date.now()): { start: Date; end: Date } 
 
 export async function requestFeed(deviceId: string, grams?: number) {
 	try {
+		await requireWriteAccess();
 		const ownerId = await getCurrentPondOwnerId();
 		const device = await prisma.energyDevice.findFirst({
 			where: { id: deviceId, pond: { ownerId } },
@@ -146,6 +151,7 @@ export async function saveHopperCalibration(
 	data: { hopperFullCm: number; hopperEmptyCm: number; hopperCapacityG: number },
 ) {
 	try {
+		await requireWriteAccess();
 		const ownerId = await getCurrentPondOwnerId();
 		const device = await prisma.energyDevice.findFirst({
 			where: { id: deviceId, pond: { ownerId } },
@@ -189,6 +195,7 @@ export async function saveHopperCalibration(
 
 export async function saveDurationCalibration(deviceId: string, gramsPerSecond: number) {
 	try {
+		await requireWriteAccess();
 		const ownerId = await getCurrentPondOwnerId();
 		const device = await prisma.energyDevice.findFirst({
 			where: { id: deviceId, pond: { ownerId } },
@@ -228,6 +235,7 @@ export async function saveDurationCalibration(deviceId: string, gramsPerSecond: 
 
 export async function saveTemperatureCalibration(deviceId: string, tempOffsetC: number) {
 	try {
+		await requireWriteAccess();
 		const ownerId = await getCurrentPondOwnerId();
 		const device = await prisma.energyDevice.findFirst({
 			where: { id: deviceId, pond: { ownerId } },

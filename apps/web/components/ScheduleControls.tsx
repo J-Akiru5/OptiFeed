@@ -12,12 +12,14 @@ interface ScheduleControlsProps {
 	deviceId: string;
 	initialIsPaused: boolean;
 	gramsPerFeeding?: number;
+	canWrite?: boolean;
 }
 
 export function ScheduleControls({
 	deviceId,
 	initialIsPaused,
 	gramsPerFeeding = 150,
+	canWrite = true,
 }: ScheduleControlsProps) {
 	const tBtn = useTranslations("button");
 	const tSch = useTranslations("dashboard.schedule");
@@ -82,7 +84,7 @@ export function ScheduleControls({
 				<button
 					type="button"
 					onClick={handleTogglePause}
-					disabled={isPendingPause}
+					disabled={isPendingPause || !canWrite}
 					className={cn(
 						"ml-4 px-4 py-2 rounded-lg font-medium text-sm transition-all border",
 						isPaused
@@ -128,7 +130,8 @@ export function ScheduleControls({
 					<button
 						type="button"
 						onClick={() => setShowConfirm(true)}
-						className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-white bg-[var(--ofd-base)] hover:bg-[#1a4a6e] transition-all shadow-md hover:shadow-lg w-full sm:w-auto justify-center"
+						disabled={!canWrite}
+						className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-white bg-[var(--ofd-base)] hover:bg-[#1a4a6e] transition-all shadow-md hover:shadow-lg w-full sm:w-auto justify-center disabled:opacity-50"
 					>
 						{feedSuccess ? (
 							<CheckCircle2 size={20} className="text-green-400" />

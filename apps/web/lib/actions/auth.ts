@@ -1,50 +1,94 @@
 "use server";
 
 import { redirect } from "@/i18n/routing";
-import { checkLockout, recordFailedAttempt, resetLockout } from "@/lib/auth/lockout";
+import {
+	GLOBAL_SLOWDOWN_MS,
+	checkLockout,
+	recordFailedAttempt,
+	resetLockout,
+	shouldSlowLogin,
+} from "@/lib/auth/lockout";
 import { buildPondEmail } from "@/lib/auth/session";
+import { reportError } from "@/lib/observability";
 import { checkLoginRateLimit, getClientIp } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { getLocale } from "next-intl/server";
 
 export type LoginResult =
-	| { error: "invalid" | "locked" | "rate_limited"; secondsRemaining?: number }
+	| { error: "invalid" | "locked" | "rate_limited" | "service"; secondsRemaining?: number }
 	| undefined;
 
+// Prisma "cannot reach database" / "timeout on startup" — worth one retry.
+function isTransientDbError(error: unknown): boolean {
+	if (typeof error !== "object" || error === null || !("code" in error)) return false;
+	const code = (error as { code?: unknown }).code;
+	return code === "P1001" || code === "P1002";
+}
+
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+	try {
+		return await fn();
+	} catch (error) {
+		if (isTransientDbError(error)) return fn();
+		throw error;
+	}
+}
+
 export async function loginWithPin(farmId: string, pin: string): Promise<LoginResult> {
-	if (!farmId.trim()) return { error: "invalid" };
-	if (pin.length < 4 || pin.length > 6) return { error: "invalid" };
+	try {
+		if (!farmId.trim()) return { error: "invalid" };
+		if (pin.length < 4 || pin.length > 6) return { error: "invalid" };
 
-	const normalizedFarmId = farmId.trim().toLowerCase();
+		const normalizedFarmId = farmId.trim().toLowerCase();
 
-	// Rate limit: 5 attempts per 60 seconds per IP
-	const ip = await getClientIp();
-	const { success } = checkLoginRateLimit(ip);
-	if (!success) {
-		return { error: "rate_limited" };
+		// Rate limit: 5 attempts per 60 seconds per IP (fail-closed in the store)
+		const ip = await getClientIp();
+		const { success } = await checkLoginRateLimit(ip);
+		if (!success) {
+			return { error: "rate_limited" };
+		}
+
+		// Per-(farm, IP) hard lockout before calling Supabase
+		const lockout = await withRetry(() => checkLockout(normalizedFarmId, ip));
+		if (lockout.locked) {
+			return { error: "locked", secondsRemaining: lockout.secondsRemaining };
+		}
+
+		// Global farm counter: many failures across IPs slow the next attempt
+		// and notify the farm, but never lock the real farmer out.
+		if (await shouldSlowLogin(normalizedFarmId)) {
+			await new Promise((resolve) => setTimeout(resolve, GLOBAL_SLOWDOWN_MS));
+		}
+
+		const locale = await getLocale();
+		const supabase = await createClient();
+
+		const { error } = await supabase.auth.signInWithPassword({
+			email: buildPondEmail(normalizedFarmId),
+			password: pin,
+		});
+
+		if (error) {
+			console.error("[auth] login failed:", error.message);
+			await withRetry(() => recordFailedAttempt(normalizedFarmId, ip));
+			return { error: "invalid" };
+		}
+
+		// Successful login — reset this pair's lockout counter
+		await withRetry(() => resetLockout(normalizedFarmId, ip));
+		redirect({ href: "/dashboard", locale });
+	} catch (error) {
+		// redirect() throws NEXT_REDIRECT — never swallow it.
+		if (
+			typeof error === "object" &&
+			error !== null &&
+			"digest" in error &&
+			typeof (error as { digest?: unknown }).digest === "string" &&
+			(error as { digest: string }).digest.startsWith("NEXT_REDIRECT")
+		) {
+			throw error;
+		}
+		reportError(error, { action: "loginWithPin", farmId });
+		return { error: "service" };
 	}
-
-	// Check account lockout before calling Supabase
-	const lockout = await checkLockout(normalizedFarmId);
-	if (lockout.locked) {
-		return { error: "locked", secondsRemaining: lockout.secondsRemaining };
-	}
-
-	const locale = await getLocale();
-	const supabase = await createClient();
-
-	const { error } = await supabase.auth.signInWithPassword({
-		email: buildPondEmail(normalizedFarmId),
-		password: pin,
-	});
-
-	if (error) {
-		console.error("[auth] login failed:", error.message);
-		await recordFailedAttempt(normalizedFarmId);
-		return { error: "invalid" };
-	}
-
-	// Successful login — reset lockout counter
-	await resetLockout(normalizedFarmId);
-	redirect({ href: "/dashboard", locale });
 }

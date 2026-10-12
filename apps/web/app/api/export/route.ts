@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 	}
 
 	// Rate limit: 30 requests per 60 seconds per user
-	const { success } = checkApiRateLimit(ownerId);
+	const { success } = await checkApiRateLimit(ownerId);
 	if (!success) {
 		return Response.json({ error: "Too Many Requests" }, { status: 429 });
 	}

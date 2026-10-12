@@ -48,7 +48,7 @@ export async function GET(request: Request) {
 		return new Response("Unprocessable Entity", { status: 422 });
 	}
 
-	const { success } = checkDeviceRateLimit(deviceId);
+	const { success } = await checkDeviceRateLimit(deviceId);
 	if (!success) {
 		return new Response("Too Many Requests", { status: 429 });
 	}

@@ -35,6 +35,8 @@ export default function LoginPage() {
 				setError(t("errorLocked", { minutes }));
 			} else if (result?.error === "rate_limited") {
 				setError(t("errorRateLimited"));
+			} else if (result?.error === "service") {
+				setError(t("errorService"));
 			} else if (result?.error) {
 				setError(t("errorInvalid"));
 			}

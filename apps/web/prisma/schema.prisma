@@ -343,6 +343,8 @@ model PondOwnershipHistory {
 // Per-farm brute-force lockout tracking.
 // Supabase Auth has IP-level rate limits but no per-account lockout.
 model UserLockout {
+  // Global per-farm failure counter: >= 20 fails/hour slows the next login
+  // and notifies the farm (security category), but NEVER locks the farmer out.
   farmId         String     @id
   failedAttempts Int        @default(0)
   lockedUntil    DateTime?
@@ -351,4 +353,18 @@ model UserLockout {
   updatedAt      DateTime   @updatedAt
 
   @@map("user_lockout")
+}
+
+// Per (farm, IP) hard lockout: 5 failed PIN attempts lock this pair for
+// 15 minutes. Split by IP so a stranger hammering the login cannot lock
+// the real farmer out of their own account.
+model LoginLockout {
+  farmId         String
+  ip             String
+  failedAttempts Int       @default(0)
+  lockedUntil    DateTime?
+  lastFailedAt   DateTime?
+
+  @@id([farmId, ip])
+  @@map("login_lockout")
 }

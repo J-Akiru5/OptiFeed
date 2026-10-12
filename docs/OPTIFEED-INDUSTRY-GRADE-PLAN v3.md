@@ -238,7 +238,9 @@ function posix(p) {
 }
 
 const web = "apps/web";
-const sourceFiles = walk(web).filter((f) => /\.(ts|tsx)$/.test(f)).map(posix);
+const sourceFiles = walk(web)
+	.filter((f) => /\.(ts|tsx)$/.test(f))
+	.map(posix);
 const resetCmd = ["migrate", "reset"].join(" ");
 
 const branch = sh("git branch --show-current").stdout.trim();
@@ -252,23 +254,41 @@ const guarded = [
 	"package.json",
 	`${web}/package.json`,
 	...walk(".github").map(posix),
-	...walk("scripts").map(posix).filter((f) => !f.endsWith("self-check.mjs")),
+	...walk("scripts")
+		.map(posix)
+		.filter((f) => !f.endsWith("self-check.mjs")),
 ];
 const resetHits = guarded.filter((f) => read(f).includes(resetCmd));
-record("no destructive reset command in scripts or workflows", resetHits.length === 0, resetHits.join(", "));
+record(
+	"no destructive reset command in scripts or workflows",
+	resetHits.length === 0,
+	resetHits.join(", "),
+);
 
 const buildScript = JSON.parse(read(`${web}/package.json`) || "{}").scripts?.build ?? "";
-record("web build script does not run migrate deploy", !buildScript.includes("migrate"), buildScript);
+record(
+	"web build script does not run migrate deploy",
+	!buildScript.includes("migrate"),
+	buildScript,
+);
 
 const diffRes = sh(
 	`git diff --name-only --diff-filter=A origin/develop -- ${web}/prisma/migrations`,
 );
-record("can diff against origin/develop", diffRes.status === 0, diffRes.status === 0 ? "" : "run git fetch origin");
+record(
+	"can diff against origin/develop",
+	diffRes.status === 0,
+	diffRes.status === 0 ? "" : "run git fetch origin",
+);
 const newMigrations = diffRes.stdout.split("\n").filter((f) => f.endsWith(".sql"));
 const destructive = newMigrations.filter((f) =>
 	/DROP\s+(TABLE|SCHEMA|DATABASE|COLUMN)|TRUNCATE/i.test(read(f)),
 );
-record("new migrations are additive (no DROP/TRUNCATE)", destructive.length === 0, destructive.join(", "));
+record(
+	"new migrations are additive (no DROP/TRUNCATE)",
+	destructive.length === 0,
+	destructive.join(", "),
+);
 
 record("no middleware.ts (Next 16 uses proxy.ts)", !existsSync(`${web}/middleware.ts`));
 
@@ -291,7 +311,10 @@ for (const f of writeActions) {
 		read(`${web}/lib/actions/${f}.ts`).includes("requireWriteAccess"),
 	);
 }
-record("requireWriteAccess defined", read(`${web}/lib/auth/session.ts`).includes("requireWriteAccess"));
+record(
+	"requireWriteAccess defined",
+	read(`${web}/lib/auth/session.ts`).includes("requireWriteAccess"),
+);
 
 for (const f of ["import", "import/confirm"]) {
 	record(
@@ -305,13 +328,17 @@ record(
 	!sourceFiles.some((f) => read(f).includes("registerEnergyDevice")),
 );
 
-const deviceRoutes = sourceFiles.filter((f) => /app\/api\/(ingest|feed-command|schedule-sync)\/route\.ts$/.test(f));
-const timingHelper = sourceFiles.some((f) => f.startsWith("apps/web/lib/") && read(f).includes("timingSafeEqual"));
+const deviceRoutes = sourceFiles.filter((f) =>
+	/app\/api\/(ingest|feed-command|schedule-sync)\/route\.ts$/.test(f),
+);
+const timingHelper = sourceFiles.some(
+	(f) => f.startsWith("apps/web/lib/") && read(f).includes("timingSafeEqual"),
+);
 record(
 	"device routes verify tokens with timingSafeEqual",
-	deviceRoutes.length === 3
-		&& timingHelper
-		&& deviceRoutes.every((f) => /timingSafeEqual|@\/lib\/auth\//.test(read(f))),
+	deviceRoutes.length === 3 &&
+		timingHelper &&
+		deviceRoutes.every((f) => /timingSafeEqual|@\/lib\/auth\//.test(read(f))),
 );
 
 record(
@@ -336,7 +363,10 @@ record("no hardcoded /en/ in notification links", hardLinks.length === 0, hardLi
 
 const fw = read("firmware/firmware-main/firmware-main.ino");
 record("firmware: MAX_DISPENSE_MS defined", /MAX_DISPENSE_MS/.test(fw));
-record("firmware: queued event stores its own eventId", /struct\s+\w+\s*\{[^}]*eventId[^}]*\}/.test(fw));
+record(
+	"firmware: queued event stores its own eventId",
+	/struct\s+\w+\s*\{[^}]*eventId[^}]*\}/.test(fw),
+);
 record("firmware: TLS certificate set", /setCACert|attachBundle/.test(fw));
 record("firmware: watchdog enabled", /esp_task_wdt_init/.test(fw));
 
@@ -349,30 +379,42 @@ for (const route of ["ingest", "feed-command", "schedule-sync"]) {
 }
 
 const envExample = read(`${web}/.env.example`);
-for (const key of ["SENTRY_DSN", "SENTRY_ORG", "SENTRY_PROJECT", "GEMINI_MODEL", "NEXT_PUBLIC_BASE_URL", "DEMO_PIN", "CRON_SECRET", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]) {
+for (const key of [
+	"SENTRY_DSN",
+	"SENTRY_ORG",
+	"SENTRY_PROJECT",
+	"GEMINI_MODEL",
+	"NEXT_PUBLIC_BASE_URL",
+	"DEMO_PIN",
+	"CRON_SECRET",
+	"TELEGRAM_BOT_TOKEN",
+	"TELEGRAM_CHAT_ID",
+]) {
 	record(`.env.example documents ${key}`, envExample.includes(key));
 }
 
 const ci = read(".github/workflows/ci.yml");
 record("CI runs for develop", ci.includes("develop"));
-record("deploy.yml deleted (Vercel Git integration deploys)", !existsSync(".github/workflows/deploy.yml"));
+record(
+	"deploy.yml deleted (Vercel Git integration deploys)",
+	!existsSync(".github/workflows/deploy.yml"),
+);
 record("device-watch cron route exists", existsSync(`${web}/app/api/cron/device-watch/route.ts`));
 record("cron SQL file exists", existsSync("docs/sql/cron-device-watch.sql"));
 record("telegram helper exists", existsSync(`${web}/lib/notify/telegram.ts`));
-record(
-	"no Upstash dependency (D1 uses Postgres)",
-	!/@upstash\//.test(read(`${web}/package.json`)),
+record("no Upstash dependency (D1 uses Postgres)", !/@upstash\//.test(read(`${web}/package.json`)));
+const limiterFiles = sourceFiles.filter(
+	(f) => /rate-limit|limiter/.test(f) && !f.includes("__tests__"),
 );
-const limiterFiles = sourceFiles.filter((f) => /rate-limit|limiter/.test(f) && !f.includes("__tests__"));
 record(
 	"rate limiter has no in-memory Map store",
-	limiterFiles.length > 0 && !limiterFiles.some((f) => /new Map\s*\(/.test(read(f))),
-	limiterFiles.filter((f) => /new Map\s*\(/.test(read(f))).join(", "),
+	limiterFiles.length > 0 && !limiterFiles.some((f) => /new Map/.test(read(f))),
+	limiterFiles.filter((f) => /new Map/.test(read(f))).join(", "),
 );
 
 function run(name, cmd) {
 	const r = sh(cmd);
-	record(name, r.status === 0, r.status === 0 ? "" : "exit " + r.status);
+	record(name, r.status === 0, r.status === 0 ? "" : `exit ${r.status}`);
 	if (r.status !== 0) console.log((r.stdout + r.stderr).split("\n").slice(-25).join("\n"));
 }
 
@@ -380,7 +422,11 @@ run("pnpm lint", "pnpm lint");
 run("pnpm typecheck", "pnpm typecheck");
 run("pnpm test", "pnpm test");
 if (!quick && buildScript.includes("migrate")) {
-	record("pnpm build skipped: build script still runs migrate deploy (task 0.3)", false, "merge 0.3 first");
+	record(
+		"pnpm build skipped: build script still runs migrate deploy (task 0.3)",
+		false,
+		"merge 0.3 first",
+	);
 } else if (!quick) {
 	run("pnpm build", "pnpm build");
 }
@@ -393,7 +439,7 @@ if (arduino.status === 0) {
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
 if (failed.length > 0) {
-	console.log("Failed:\n" + failed.map((r) => `  - ${r.name}`).join("\n"));
+	console.log(`Failed:\n${failed.map((r) => `  - ${r.name}`).join("\n")}`);
 	process.exit(1);
 }
 ```

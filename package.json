@@ -14,7 +14,8 @@
 		"prisma:migrate": "pnpm --filter web run prisma:migrate",
 		"prepare": "husky",
 		"typecheck": "pnpm -r typecheck",
-		"test": "pnpm --filter web test"
+		"test": "pnpm --filter web test",
+		"self-check": "node scripts/self-check.mjs"
 	},
 	"lint-staged": {
 		"*.{js,ts,tsx,json,css,md}": ["biome check --write --staged --no-errors-on-unmatched"]

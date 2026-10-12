@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -71,10 +72,12 @@ async function main() {
 	});
 
 	// 2b. Create ESP32 Energy Controller (linked to the demo pond)
+	const deviceToken = process.env.DEVICE_TOKEN ?? "demo-device-token-001";
 	const energyDevice = await prisma.energyDevice.create({
 		data: {
 			mac: "A4:CF:12:7E:3B:09",
-			token: process.env.DEVICE_TOKEN ?? "demo-device-token-001",
+			token: deviceToken,
+			tokenHash: createHash("sha256").update(deviceToken).digest("hex"),
 			label: "CICT Building A Feeder",
 			pondId: pond.id,
 			rtcOk: true,

@@ -203,7 +203,8 @@ model Notification {
 model EnergyDevice {
   id               String    @id @default(cuid())
   mac              String    @unique
-  token            String    @unique
+  token            String    @unique // plaintext token — for display/provisioning only; never used for lookup
+  tokenHash        String?   @unique // sha256(token) hex — all auth lookups go through this
   label            String
   pondId           String?
   rtcOk            Boolean   @default(true)

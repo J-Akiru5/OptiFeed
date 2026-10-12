@@ -5,7 +5,7 @@ import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
 import { WaterTempCard } from "@/components/WaterTempCard";
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { Link } from "@/i18n/routing";
-import { DEFAULT_FISH_COUNT } from "@/lib/constants";
+import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { getActivePond } from "@/lib/pond-selection";
@@ -139,7 +139,6 @@ export default async function DashboardHomePage() {
 	const daysUntilSample = Math.max(0, (pond.sampleIntervalDays ?? 14) - daysSinceSample);
 
 	// Determine Critical Alert — lazy offline detection from energyDevice.lastSeenAt
-	const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 	const esp32Offline =
 		!energyDevice?.lastSeenAt ||
 		now.getTime() - energyDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;

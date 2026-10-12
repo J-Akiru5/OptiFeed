@@ -11,6 +11,7 @@ import { OnboardingProvider } from "@/components/onboarding-provider";
 import { Sidebar } from "@/components/sidebar";
 import { Link } from "@/i18n/routing";
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 
@@ -57,7 +58,6 @@ export default async function DashboardLayout({
 			if (energyDevice) {
 				hopperLevelPct = energyDevice.feedLevelPercent ?? 0;
 				const now = new Date();
-				const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 				const isOffline =
 					!energyDevice.lastSeenAt ||
 					now.getTime() - energyDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;

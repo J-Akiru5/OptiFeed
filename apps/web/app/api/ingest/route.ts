@@ -1,12 +1,12 @@
+import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-// Devices are considered disconnected if no heartbeat for 15 minutes.
-// Matches the dashboard's offline threshold.
-const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
+// Devices are considered disconnected if no heartbeat for OFFLINE_THRESHOLD_MS
+// (lib/constants.ts) — matches the dashboard's offline threshold.
 
 // How far back to search for orphaned FeedRequests during reconciliation.
 const RECONCILIATION_LOOKBACK_HOURS = 4;

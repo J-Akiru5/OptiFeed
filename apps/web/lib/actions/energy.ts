@@ -2,6 +2,13 @@
 
 import { randomUUID } from "node:crypto";
 import { getCurrentPondOwnerId, getCurrentPondOwnerIdSafe } from "@/lib/auth/session";
+import {
+	MAX_DISPENSE_MS,
+	OFFLINE_THRESHOLD_MS,
+	dailyFeedCapG,
+	feedGramsSchema,
+	formatZodError,
+} from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
@@ -12,19 +19,29 @@ import { revalidatePath } from "next/cache";
 //   Recalibrate if gramsPerSecond changes or max dose changes.
 const STALE_DISPATCHED_MS = 10 * 60 * 1000;
 
+function manilaDayRange(nowMs: number = Date.now()): { start: Date; end: Date } {
+	const HOUR_MS = 60 * 60 * 1000;
+	const DAY_MS = 24 * HOUR_MS;
+	const startOfLocalDay = Math.floor((nowMs + 8 * HOUR_MS) / DAY_MS) * DAY_MS - 8 * HOUR_MS;
+	return { start: new Date(startOfLocalDay), end: new Date(startOfLocalDay + DAY_MS) };
+}
+
 export async function requestFeed(deviceId: string, grams?: number) {
 	try {
 		const ownerId = await getCurrentPondOwnerId();
 		const device = await prisma.energyDevice.findFirst({
 			where: { id: deviceId, pond: { ownerId } },
-			select: { gramsPerFeeding: true },
+			select: {
+				gramsPerFeeding: true,
+				gramsPerSecond: true,
+				lastSeenAt: true,
+				hopperCapacityG: true,
+			},
 		});
 
 		if (!device) {
 			return { success: false, error: "Device not found" };
 		}
-
-		const feedGrams = grams ?? device.gramsPerFeeding;
 
 		// Expire stale dispatched requests that were picked up by the device
 		// but never confirmed. This prevents zombie requests from accumulating
@@ -38,12 +55,63 @@ export async function requestFeed(deviceId: string, grams?: number) {
 			data: { status: "expired" },
 		});
 
+		// N10: reject while the device is offline — it cannot pick the request
+		// up, so queueing it would silently strand the dose.
+		if (!device.lastSeenAt || Date.now() - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS) {
+			return {
+				success: false,
+				error: "Device is offline — feed request rejected. Retry once the device reconnects.",
+			};
+		}
+
+		const feedGrams = grams ?? device.gramsPerFeeding;
+		const gramsCheck = feedGramsSchema.safeParse(feedGrams);
+		if (!gramsCheck.success) {
+			return { success: false, error: formatZodError(gramsCheck.error) };
+		}
+
+		if (device.gramsPerSecond > 0 && feedGrams / device.gramsPerSecond > MAX_DISPENSE_MS / 1000) {
+			return {
+				success: false,
+				error: `Dose would need more than ${MAX_DISPENSE_MS / 1000} s of relay time at ${device.gramsPerSecond} g/s — reduce the feed amount.`,
+			};
+		}
+
 		const existing = await prisma.feedRequest.findFirst({
 			where: { deviceId, status: "pending" },
 		});
 
 		if (existing) {
 			return { success: true, message: "Feed already pending" };
+		}
+
+		const dispatched = await prisma.feedRequest.findFirst({
+			where: { deviceId, status: "dispatched" },
+		});
+
+		if (dispatched) {
+			return {
+				success: false,
+				error: "A feed is already in progress — wait for it to finish before requesting another.",
+			};
+		}
+
+		const day = manilaDayRange();
+		const today = await prisma.feedRequest.aggregate({
+			where: {
+				deviceId,
+				status: { in: ["pending", "dispatched", "completed"] },
+				createdAt: { gte: day.start, lt: day.end },
+			},
+			_sum: { grams: true },
+		});
+		const usedTodayG = today._sum.grams ?? 0;
+		const dailyCapG = dailyFeedCapG(device.hopperCapacityG);
+		if (usedTodayG + feedGrams > dailyCapG) {
+			return {
+				success: false,
+				error: `Daily feed limit reached — ${Math.round(dailyCapG)} g/day cap with ${Math.round(usedTodayG)} g already used today. Try again after midnight (Asia/Manila).`,
+			};
 		}
 
 		await prisma.feedRequest.create({

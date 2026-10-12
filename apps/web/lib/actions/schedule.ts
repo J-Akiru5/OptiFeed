@@ -2,6 +2,7 @@
 
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
+import { MAX_DISPENSE_MS, dailyFeedCapG, formatZodError, scheduleInputSchema } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
@@ -58,12 +59,37 @@ export async function updateScheduleCommand(
 	},
 ): Promise<UpdateScheduleResult> {
 	try {
+		const parsed = scheduleInputSchema.safeParse(data);
+		if (!parsed.success) {
+			return { success: false, error: formatZodError(parsed.error) };
+		}
+		const input = parsed.data;
+
 		const ownerId = await getCurrentPondOwnerId();
 
 		const device = await prisma.energyDevice.findFirst({
 			where: { id: deviceId, pondId, pond: { ownerId } },
 		});
 		if (!device) return { success: false, error: "Device not found or access denied" };
+
+		const dailyCapG = dailyFeedCapG(device.hopperCapacityG);
+		const scheduledDailyG = input.feedsPerDay * device.gramsPerFeeding;
+		if (scheduledDailyG > dailyCapG) {
+			return {
+				success: false,
+				error: `Schedule would dispense ${Math.round(scheduledDailyG)} g/day — over the ${Math.round(dailyCapG)} g/day limit. Lower feeds per day or the feed amount.`,
+			};
+		}
+
+		if (
+			device.gramsPerSecond > 0 &&
+			device.gramsPerFeeding / device.gramsPerSecond > MAX_DISPENSE_MS / 1000
+		) {
+			return {
+				success: false,
+				error: `Feed amount of ${device.gramsPerFeeding} g would take more than ${MAX_DISPENSE_MS / 1000} s of relay time at ${device.gramsPerSecond} g/s.`,
+			};
+		}
 
 		// Expire stale sent commands that were picked up by the device
 		// but never acked. Prevents zombie commands from blocking future edits.
@@ -95,8 +121,8 @@ export async function updateScheduleCommand(
 			});
 		}
 
-		const [startHours, startMinutes] = data.scheduleStart.split(":").map(Number);
-		const [endHours, endMinutes] = data.scheduleEnd.split(":").map(Number);
+		const [startHours, startMinutes] = input.scheduleStart.split(":").map(Number);
+		const [endHours, endMinutes] = input.scheduleEnd.split(":").map(Number);
 
 		const scheduleStart = new Date();
 		scheduleStart.setUTCHours(startHours, startMinutes, 0, 0);
@@ -109,9 +135,9 @@ export async function updateScheduleCommand(
 				pondId,
 				scheduleStart,
 				scheduleEnd,
-				feedsPerDay: data.feedsPerDay,
-				feedingRatePct: data.feedingRatePct,
-				buttonFeedGrams: data.buttonFeedGrams ?? 80,
+				feedsPerDay: input.feedsPerDay,
+				feedingRatePct: input.feedingRatePct,
+				buttonFeedGrams: input.buttonFeedGrams ?? 80,
 				status: "pending",
 				createdBy: ownerId,
 			},
@@ -125,18 +151,18 @@ export async function updateScheduleCommand(
 				actorId: ownerId,
 				metadata: {
 					commandId: command.id,
-					scheduleStart: data.scheduleStart,
-					scheduleEnd: data.scheduleEnd,
-					feedsPerDay: data.feedsPerDay,
-					feedingRatePct: data.feedingRatePct,
+					scheduleStart: input.scheduleStart,
+					scheduleEnd: input.scheduleEnd,
+					feedsPerDay: input.feedsPerDay,
+					feedingRatePct: input.feedingRatePct,
 				},
 			},
 		});
 
 		// Keep the device's dispensed grams in sync with the new rate/feeds config.
 		await syncDeviceGramsForPond(pondId, {
-			feedsPerDay: data.feedsPerDay,
-			feedingRatePct: data.feedingRatePct,
+			feedsPerDay: input.feedsPerDay,
+			feedingRatePct: input.feedingRatePct,
 		});
 
 		revalidatePath("/[locale]/(dashboard)/dashboard/schedule", "page");

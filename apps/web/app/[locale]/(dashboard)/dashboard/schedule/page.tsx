@@ -2,6 +2,7 @@ import { ScheduleControls } from "@/components/ScheduleControls";
 import { ScheduleEditor } from "@/components/ScheduleEditor";
 import { StuckRequestBanner } from "@/components/StuckRequestBanner";
 import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
+import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { getTranslations } from "next-intl/server";
@@ -9,7 +10,6 @@ import { getTranslations } from "next-intl/server";
 export const revalidate = 0;
 
 const STALE_THRESHOLD_MS = 10 * 60 * 1000;
-const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 
 function fmtTime(date: Date): string {
 	return `${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}`;

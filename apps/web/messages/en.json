@@ -179,7 +179,7 @@
 			"error": "Failed to save changes",
 			"stuckBanner": {
 				"offlineTitle": "Device Offline",
-				"offlineDesc": "Your device has been offline since {time}. Feed requests and schedule changes will be applied when it reconnects.",
+				"offlineDesc": "Your device has been offline since {time}. Feed requests are rejected while it is offline; schedule changes are saved and still apply when it reconnects.",
 				"stuckFeedTitle": "Unconfirmed Feed Request",
 				"stuckFeedDesc": "A feed request from {time} was picked up by your device but never confirmed complete. It may have failed mid-dispense.",
 				"stuckFeedRepeatTitle": "Multiple Feed Failures",
@@ -231,7 +231,7 @@
 			"requestSent": "Feed request sent — device will dispense within 5s",
 			"alreadyQueued": "Feed already queued — awaiting device",
 			"awaitingDevice": "Awaiting device…",
-			"offlineWarning": "Device offline — request will queue. Feed may be delayed until the device reconnects.",
+			"offlineWarning": "Device offline — feed requests are rejected while it is offline. Retry once the device reconnects.",
 			"hopperLow": "Hopper level is low ({level}%). Consider refilling soon.",
 			"hopperCritical": "Hopper level is critically low ({level}%)! Refill to avoid missed feedings.",
 			"error": "Failed to trigger manual feed."

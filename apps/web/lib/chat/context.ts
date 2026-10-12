@@ -1,4 +1,4 @@
-import { DEFAULT_FISH_COUNT } from "@/lib/constants";
+import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { totalBiomassG } from "@/lib/feed-calc";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
@@ -82,7 +82,6 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 			: Promise.resolve(null),
 	]);
 
-	const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 	const now = Date.now();
 	const deviceOnline =
 		!!energyDevice?.lastSeenAt && now - energyDevice.lastSeenAt.getTime() <= OFFLINE_THRESHOLD_MS;

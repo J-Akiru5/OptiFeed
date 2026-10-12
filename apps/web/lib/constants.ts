@@ -4,3 +4,4 @@ export const GRAMS_PER_FEEDING = 350;
 export const EXPORT_ROW_LIMIT = 50_000;
 export const MAX_PROMPT_LENGTH = 10_000;
 export const PH_TZ = "Asia/Manila";
+export const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;

@@ -72,6 +72,11 @@ const eventTypeConfig: Record<
 		className: "border-amber-200 bg-amber-50 text-amber-700",
 		filterGroup: "feeding",
 	},
+	feed_refused: {
+		icon: AlertCircle,
+		className: "border-red-200 bg-red-50 text-red-700",
+		filterGroup: "feeding",
+	},
 	pellet_low: {
 		icon: AlertCircle,
 		className: "border-orange-200 bg-orange-50 text-orange-700",
@@ -140,6 +145,7 @@ export default async function AuditPage({
 		feeding: [
 			"feed_dispensed",
 			"feed_reconciled",
+			"feed_refused",
 			"pellet_low",
 			"pellet_refilled",
 			"hopper_calibrated",

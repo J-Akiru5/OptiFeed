@@ -23,6 +23,7 @@
   Libraries required (Arduino Library Manager):
     - "RTClib" by Adafruit
     - "ArduinoJson" by Benoit Blanchon
+    - "ArduinoOTA" (built-in, ESP32 core)
     - WiFi / HTTPClient / WiFiClientSecure (built-in, ESP32 core)
 */
 
@@ -34,15 +35,19 @@
 #include <WiFiClientSecure.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <Preferences.h>
+#include <ArduinoOTA.h>
 
 // ==================== Config — fill in before flashing ====================
-#define WIFI_SSID       "YOUR_WIFI_SSID"
-#define WIFI_PASS       "YOUR_WIFI_PASSWORD"
 #define INGEST_URL      "https://optifeed.example.com/api/ingest"
 #define FEED_POLL_URL   "https://optifeed.example.com/api/feed-command?device_id=A4:CF:12:7E:3B:09"
 #define SCHEDULE_SYNC_URL "https://optifeed.example.com/api/schedule-sync?device_id=A4:CF:12:7E:3B:09"
 #define DEVICE_TOKEN    "esp32-tok-cict-001"
 #define DEVICE_MAC      "A4:CF:12:7E:3B:09"
+
+// Default WiFi credentials (overridden by stored values in NVS)
+#define DEFAULT_WIFI_SSID "YOUR_WIFI_SSID"
+#define DEFAULT_WIFI_PASS "YOUR_WIFI_PASSWORD"
 
 #define RELAY_PIN       25
 #define BUTTON_PIN      27          // pick any free GPIO; wired to GND via INPUT_PULLUP
@@ -92,12 +97,13 @@ struct QueuedEvent {
   String requestId;      // non-empty only for dashboard-sourced feeds
   String isoTimestamp;   // best-effort; may be "unknown" if RTC unavailable
 };
-#define EVENT_QUEUE_SIZE 10
+#define EVENT_QUEUE_SIZE 50
 QueuedEvent eventQueue[EVENT_QUEUE_SIZE];
 
 // ==================== State ====================
 RTC_DS3231 rtc;
 WiFiClientSecure secureClient;
+Preferences prefs;  // NVS storage for WiFi credentials and device state
 
 bool rtcAvailable = false;
 bool feederActive = false;
@@ -123,9 +129,12 @@ DallasTemperature tempSensor(&oneWire);
 
 unsigned long lastPoll = 0;
 
-// WiFi maintenance
+// WiFi maintenance with exponential backoff
 bool wifiWasConnected = false;
 unsigned long lastWifiRetry = 0;
+int wifiRetryCount = 0;
+#define WIFI_INITIAL_RETRY_MS 10000
+#define WIFI_MAX_RETRY_MS     60000
 
 // button debounce
 int lastButtonReading = HIGH;
@@ -135,6 +144,10 @@ unsigned long lastHandledButtonChangeMs = 0;
 // Event ID counter — combined with esp_random() for uniqueness across reboots
 static uint32_t eventCounter = 0;
 
+// Device health tracking
+uint32_t rebootCount = 0;
+unsigned long bootTime = 0;
+
 String generateEventId() {
   eventCounter++;
   uint32_t r = esp_random();
@@ -143,8 +156,49 @@ String generateEventId() {
   return String(buf);
 }
 
+// ==================== OTA Setup ====================
+
+void setupOTA() {
+  ArduinoOTA.setHostname("optifeed-feeder");
+  ArduinoOTA.setPassword(DEVICE_TOKEN);
+
+  ArduinoOTA.onStart([]() {
+    String type = (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "filesystem";
+    Serial.println("[OTA] Start updating " + type);
+  });
+
+  ArduinoOTA.onEnd([]() {
+    Serial.println("\n[OTA] Update complete");
+  });
+
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("[OTA] Progress: %u%%\r", (progress / (total / 100)));
+  });
+
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("[OTA] Error[%u]: ", error);
+  });
+
+  ArduinoOTA.begin();
+  Serial.println("[OTA] Ready for over-the-air updates");
+}
+
+// ==================== WiFi Credential Storage ====================
+
+void loadWiFiCredentials(String &ssid, String &pass) {
+  ssid = prefs.getString("wifi_ssid", DEFAULT_WIFI_SSID);
+  pass = prefs.getString("wifi_pass", DEFAULT_WIFI_PASS);
+}
+
+void saveWiFiCredentials(const String &ssid, const String &pass) {
+  prefs.putString("wifi_ssid", ssid);
+  prefs.putString("wifi_pass", pass);
+  Serial.println("[WiFi] Credentials saved to NVS");
+}
+
 void setup() {
   Serial.begin(115200);
+  bootTime = millis();
 
   pinMode(RELAY_PIN, OUTPUT);
   digitalWrite(RELAY_PIN, RELAY_OFF);   // feeder must NEVER default to dispensing at boot
@@ -161,6 +215,12 @@ void setup() {
   Serial.println("[INIT] DS18B20 temperature probe initialized");
 
   for (int i = 0; i < EVENT_QUEUE_SIZE; i++) eventQueue[i].used = false;
+
+  // Load stored WiFi credentials from NVS, fallback to defaults
+  prefs.begin("optifeed", false);
+  rebootCount = prefs.getUInt("rebootCount", 0) + 1;
+  prefs.putUInt("rebootCount", rebootCount);
+  Serial.printf("[INIT] Boot #%lu\n", rebootCount);
 
   // Seed default schedule: 06:00 and 19:00
   buildDefaultSchedule();
@@ -182,6 +242,9 @@ void setup() {
     if (rtcAvailable) syncNTP();
   }
 
+  // Setup OTA updates
+  setupOTA();
+
   Serial.print("[DEVICE MAC] ");
   Serial.println(WiFi.macAddress());
 
@@ -189,6 +252,7 @@ void setup() {
 }
 
 void loop() {
+  ArduinoOTA.handle();  // Handle OTA updates
   maintainWiFi();
 
   handleButton();
@@ -518,7 +582,7 @@ void sendTelemetry() {
   https.addHeader("X-Device-Token", DEVICE_TOKEN);
 
   String eventId = generateEventId();
-  StaticJsonDocument<384> doc;
+  StaticJsonDocument<512> doc;
   doc["device_id"]         = DEVICE_MAC;
   doc["event_type"]        = "heartbeat";
   doc["event_id"]          = eventId;
@@ -562,6 +626,12 @@ void sendTelemetry() {
     doc["water_temp_ok"] = false;
   }
 
+  // Device health metrics
+  doc["free_heap"] = ESP.getFreeHeap();
+  doc["uptime_ms"] = millis() - bootTime;
+  doc["reboot_count"] = rebootCount;
+  doc["wifi_rssi"] = WiFi.RSSI();
+
   String out;
   serializeJson(doc, out);
 
@@ -573,8 +643,11 @@ void sendTelemetry() {
 // ==================== WiFi / NTP / RTC helpers ====================
 
 void connectWiFi() {
-  Serial.printf("[WiFi] connecting to %s", WIFI_SSID);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  String ssid, pass;
+  loadWiFiCredentials(ssid, pass);
+
+  Serial.printf("[WiFi] connecting to %s", ssid.c_str());
+  WiFi.begin(ssid.c_str(), pass.c_str());
   unsigned long start = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
     delay(500);
@@ -590,15 +663,32 @@ void maintainWiFi() {
       if (rtcAvailable) syncNTP();
     }
     wifiWasConnected = true;
+    wifiRetryCount = 0;  // Reset backoff on successful connection
     return;
   }
 
   wifiWasConnected = false;
-  if (millis() - lastWifiRetry >= WIFI_RETRY_INTERVAL_MS) {
-    Serial.println("[WiFi] disconnected — attempting reconnect");
+
+  // Exponential backoff: 10s, 20s, 40s, 60s max
+  unsigned long retryInterval = WIFI_INITIAL_RETRY_MS * (1UL << min(wifiRetryCount, 3));
+  if (retryInterval > WIFI_MAX_RETRY_MS) retryInterval = WIFI_MAX_RETRY_MS;
+
+  if (millis() - lastWifiRetry >= retryInterval) {
+    Serial.printf("[WiFi] disconnected — attempting reconnect (attempt %d, interval %lums)\n",
+                  wifiRetryCount + 1, retryInterval);
     WiFi.disconnect();
-    WiFi.begin(WIFI_SSID, WIFI_PASS);
+    String ssid, pass;
+    loadWiFiCredentials(ssid, pass);
+    WiFi.begin(ssid.c_str(), pass.c_str());
     lastWifiRetry = millis();
+    wifiRetryCount++;
+
+    // Deep sleep after prolonged failure (>5 min of retries)
+    if (wifiRetryCount > 30) {
+      Serial.println("[WiFi] prolonged failure — entering deep sleep for 5 minutes");
+      esp_sleep_enable_timer_wakeup(5 * 60 * 1000000ULL);  // 5 minutes in microseconds
+      esp_deep_sleep_start();
+    }
   }
 }
 

@@ -2,6 +2,7 @@
 
 import { clearChatHistory } from "@/components/chat/chat-storage";
 import { useChatWidget } from "@/components/chat/chat-widget-provider";
+import { DarkModeToggle } from "@/components/dark-mode-toggle";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { PondSelector } from "@/components/pond-selector";
@@ -81,6 +82,7 @@ export function HeaderActions({
 				</p>
 			</div>
 
+			<DarkModeToggle />
 			<LocaleSwitcher />
 
 			<button
@@ -122,8 +124,8 @@ export function HeaderActions({
 
 			{/* Profile dropdown */}
 			{showProfileMenu && (
-				<div className="absolute top-12 right-0 z-50 w-[calc(100vw-2rem)] sm:w-auto sm:min-w-[320px] rounded-[28px] border border-gray-200 bg-white p-4 text-[#0A3D62] shadow-xl origin-top-right animate-in zoom-in-95 duration-200">
-					<div className="flex items-start justify-between gap-3 border-b border-gray-100 pb-4">
+				<div className="absolute top-12 right-0 z-50 w-[calc(100vw-2rem)] sm:w-auto sm:min-w-[320px] rounded-[28px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 text-[#0A3D62] dark:text-gray-100 shadow-xl origin-top-right animate-in zoom-in-95 duration-200">
+					<div className="flex items-start justify-between gap-3 border-b border-gray-100 dark:border-gray-700 pb-4">
 						<div className="flex items-center gap-3">
 							<div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#E85A2A] text-lg font-black text-white">
 								{userEmail ? userEmail.split("@")[0].slice(0, 2).toUpperCase() : "\u00B7\u00B7"}
@@ -132,8 +134,8 @@ export function HeaderActions({
 								<p className="text-base font-black">
 									{userEmail ? userEmail.split("@")[0] : "User"}
 								</p>
-								<p className="text-xs font-bold text-[#3D5568]">Pond Operator</p>
-								<p className="mt-0.5 font-mono text-[11px] font-bold text-[#3D5568] uppercase">
+								<p className="text-xs font-bold text-[#3D5568] dark:text-gray-400">Pond Operator</p>
+								<p className="mt-0.5 font-mono text-[11px] font-bold text-[#3D5568] dark:text-gray-400 uppercase">
 									{ponds.find((p) => p.id === activePondId)?.name ?? pondName}
 								</p>
 							</div>
@@ -149,12 +151,18 @@ export function HeaderActions({
 					</div>
 
 					<div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-						<div className="rounded-2xl bg-[#F4F7F6] p-3">
-							<p className="font-black uppercase tracking-wide text-[#3D5568]">Language</p>
-							<p className="mt-1 text-lg font-black uppercase text-[#0A3D62]">{locale}</p>
+						<div className="rounded-2xl bg-[#F4F7F6] dark:bg-gray-800 p-3">
+							<p className="font-black uppercase tracking-wide text-[#3D5568] dark:text-gray-400">
+								Language
+							</p>
+							<p className="mt-1 text-lg font-black uppercase text-[#0A3D62] dark:text-[#5b9bd5]">
+								{locale}
+							</p>
 						</div>
-						<div className="rounded-2xl bg-[#F4F7F6] p-3">
-							<p className="font-black uppercase tracking-wide text-[#3D5568]">Device</p>
+						<div className="rounded-2xl bg-[#F4F7F6] dark:bg-gray-800 p-3">
+							<p className="font-black uppercase tracking-wide text-[#3D5568] dark:text-gray-400">
+								Device
+							</p>
 							<p
 								className={`mt-1 text-sm font-black uppercase ${
 									esp32Status === "online"
@@ -177,7 +185,7 @@ export function HeaderActions({
 									setShowProfileMenu(false);
 									router.push("/admin");
 								}}
-								className="flex min-h-14 w-full items-center justify-between rounded-2xl border border-[#E85A2A]/30 bg-[#E85A2A]/5 px-4 font-black text-[#E85A2A] transition hover:bg-[#E85A2A]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
+								className="flex min-h-14 w-full items-center justify-between rounded-2xl border border-[#E85A2A]/30 bg-[#E85A2A]/5 dark:bg-[#E85A2A]/10 px-4 font-black text-[#E85A2A] transition hover:bg-[#E85A2A]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
 							>
 								<span className="flex items-center gap-3">
 									<Shield className="h-5 w-5" /> Admin Panel
@@ -208,19 +216,19 @@ export function HeaderActions({
 								);
 								setShowProfileMenu(false);
 							}}
-							className="flex min-h-14 w-full items-center justify-between rounded-2xl border border-[#0A3D62]/10 bg-white px-4 font-black text-[#0A3D62] transition hover:bg-[#F4F7F6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
+							className="flex min-h-14 w-full items-center justify-between rounded-2xl border border-[#0A3D62]/10 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 font-black text-[#0A3D62] dark:text-gray-100 transition hover:bg-[#F4F7F6] dark:hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
 						>
 							<span className="flex items-center gap-3">
-								<Globe className="h-5 w-5 text-[#E85A2A]" /> Switch language
+								<Globe className="h-5 w-5 text-[#E85A2A] dark:text-[#ff8a5c]" /> Switch language
 							</span>
-							<span className="rounded-lg bg-[#0A3D62]/10 px-2 py-1 text-xs uppercase">
+							<span className="rounded-lg bg-[#0A3D62]/10 dark:bg-gray-700 px-2 py-1 text-xs uppercase">
 								{locale}
 							</span>
 						</button>
 						<button
 							type="button"
 							onClick={handleLogout}
-							className="flex min-h-14 w-full items-center justify-between rounded-2xl border border-red-100 bg-red-50 px-4 font-black text-[#C42B3A] transition hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C42B3A]"
+							className="flex min-h-14 w-full items-center justify-between rounded-2xl border border-red-100 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 px-4 font-black text-[#C42B3A] dark:text-red-400 transition hover:bg-red-100 dark:hover:bg-red-900/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C42B3A]"
 						>
 							<span className="flex items-center gap-3">
 								<LogOut className="h-5 w-5" /> Sign out

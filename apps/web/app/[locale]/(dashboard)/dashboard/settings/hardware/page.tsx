@@ -21,6 +21,7 @@ export default async function HardwareSettingsPage() {
 				orderBy: { createdAt: "asc" },
 				select: {
 					id: true,
+					lastSeenAt: true,
 					feedLevelPercent: true,
 					hopperFullCm: true,
 					hopperEmptyCm: true,
@@ -34,6 +35,22 @@ export default async function HardwareSettingsPage() {
 		}
 	} catch (err) {
 		console.error("[HardwareSettingsPage] Prisma error:", err);
+	}
+
+	const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
+	const now = new Date();
+	const isDeviceOffline =
+		!energyDevice?.lastSeenAt ||
+		now.getTime() - energyDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+
+	function formatOfflineDuration(lastSeenAt: Date | null): string {
+		if (!lastSeenAt) return "";
+		const ms = now.getTime() - lastSeenAt.getTime();
+		const totalMinutes = Math.floor(ms / 60000);
+		const hours = Math.floor(totalMinutes / 60);
+		const minutes = totalMinutes % 60;
+		if (hours > 0) return `${hours}h ${minutes}m`;
+		return `${minutes}m`;
 	}
 
 	return (
@@ -69,7 +86,13 @@ export default async function HardwareSettingsPage() {
 								<p className="text-xs font-bold uppercase tracking-wide text-[#3D5568]">
 									{t("connectionStatus")}
 								</p>
-								<p className="mt-1 text-sm font-bold text-[#1E7B34]">{t("online")}</p>
+								<p
+									className={`mt-1 text-sm font-bold ${isDeviceOffline ? "text-[#C42B3A]" : "text-[#1E7B34]"}`}
+								>
+									{isDeviceOffline
+										? `${t("offline")}${energyDevice?.lastSeenAt ? ` for ${formatOfflineDuration(energyDevice.lastSeenAt)}` : ""}`
+										: t("online")}
+								</p>
 							</div>
 							<div className="rounded-xl bg-[#F4F7F6] p-4">
 								<p className="text-xs font-bold uppercase tracking-wide text-[#3D5568]">

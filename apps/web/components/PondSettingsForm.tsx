@@ -11,6 +11,7 @@ interface PondSettingsFormProps {
 		feedingRatePct: number;
 		feedsPerDay: number;
 		sampleIntervalDays: number;
+		population: number | null;
 	};
 }
 
@@ -19,6 +20,7 @@ export function PondSettingsForm({ pond }: PondSettingsFormProps) {
 	const [feedingRate, setFeedingRate] = useState(pond.feedingRatePct.toString());
 	const [feedsPerDay, setFeedsPerDay] = useState(pond.feedsPerDay.toString());
 	const [sampleInterval, setSampleInterval] = useState(pond.sampleIntervalDays.toString());
+	const [population, setPopulation] = useState(pond.population?.toString() ?? "");
 	const [isPending, startTransition] = useTransition();
 	const [success, setSuccess] = useState(false);
 
@@ -29,11 +31,13 @@ export function PondSettingsForm({ pond }: PondSettingsFormProps) {
 		const rate = Number.parseFloat(feedingRate);
 		const feeds = Number.parseInt(feedsPerDay, 10);
 		const interval = Number.parseInt(sampleInterval, 10);
+		const pop = population.trim() === "" ? null : Number.parseInt(population, 10);
 
 		if (Number.isNaN(rate) || Number.isNaN(feeds) || Number.isNaN(interval)) return;
+		if (pop !== null && (Number.isNaN(pop) || pop < 0)) return;
 
 		startTransition(async () => {
-			const result = await updatePondSettings(pond.id, rate, feeds, interval);
+			const result = await updatePondSettings(pond.id, rate, feeds, interval, pop);
 			if (result.success) {
 				setSuccess(true);
 				setTimeout(() => setSuccess(false), 3000);
@@ -48,7 +52,7 @@ export function PondSettingsForm({ pond }: PondSettingsFormProps) {
 		>
 			<h2 className="text-xl font-semibold text-gray-800">{t("configTitle")}</h2>
 
-			<div className="grid gap-6 md:grid-cols-3">
+			<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
 				<div className="flex flex-col gap-2">
 					<label htmlFor="feedingRate" className="text-sm font-medium text-gray-700">
 						{t("rateLabel")}
@@ -99,6 +103,24 @@ export function PondSettingsForm({ pond }: PondSettingsFormProps) {
 					/>
 					<p className="text-xs text-gray-500">
 						How often fish samples are taken (e.g. 15 or 30 days)
+					</p>
+				</div>
+
+				<div className="flex flex-col gap-2">
+					<label htmlFor="population" className="text-sm font-medium text-gray-700">
+						Population (fish)
+					</label>
+					<input
+						id="population"
+						type="number"
+						min="0"
+						value={population}
+						onChange={(e) => setPopulation(e.target.value)}
+						placeholder="e.g. 200"
+						className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+					/>
+					<p className="text-xs text-gray-500">
+						Number of fish — used for total biomass and daily feed
 					</p>
 				</div>
 			</div>

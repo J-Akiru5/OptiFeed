@@ -2,13 +2,23 @@
 
 import { Link, usePathname } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
-import { BarChart3, Cpu, Droplets, FileText, Home, Settings, Users } from "lucide-react";
+import {
+	BarChart3,
+	Cpu,
+	Droplets,
+	FileText,
+	FolderTree,
+	Home,
+	Settings,
+	Users,
+} from "lucide-react";
 
 const navItems = [
 	{ href: "/admin", label: "Overview", icon: Home },
 	{ href: "/admin/users", label: "Users", icon: Users },
 	{ href: "/admin/ponds", label: "Ponds", icon: Droplets },
 	{ href: "/admin/devices", label: "Devices", icon: Cpu },
+	{ href: "/admin/hierarchy", label: "Hierarchy", icon: FolderTree },
 	{ href: "/admin/audit", label: "Audit Log", icon: FileText },
 	{ href: "/admin/settings", label: "Settings", icon: Settings },
 ];

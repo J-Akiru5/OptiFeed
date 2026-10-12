@@ -2,10 +2,17 @@ interface WaterTempCardProps {
 	tempC: number | null;
 	tempOk: boolean;
 	updatedAt: Date | null;
+	isDeviceOffline?: boolean;
 }
 
-export function WaterTempCard({ tempC, tempOk, updatedAt }: WaterTempCardProps) {
+export function WaterTempCard({
+	tempC,
+	tempOk,
+	updatedAt,
+	isDeviceOffline = false,
+}: WaterTempCardProps) {
 	const hasReading = tempOk && tempC !== null;
+	const isStale = hasReading && isDeviceOffline;
 
 	const formatTimeAgo = (date: Date) => {
 		const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -50,11 +57,17 @@ export function WaterTempCard({ tempC, tempOk, updatedAt }: WaterTempCardProps) 
 				</div>
 				<span
 					className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
-						hasReading ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
+						isStale
+							? "bg-amber-100 text-amber-700"
+							: hasReading
+								? "bg-green-100 text-green-700"
+								: "bg-gray-100 text-gray-600"
 					}`}
 				>
-					<span className={`h-2 w-2 rounded-full ${hasReading ? "bg-green-500" : "bg-gray-400"}`} />
-					{hasReading ? "OK" : "Sensor Offline"}
+					<span
+						className={`h-2 w-2 rounded-full ${isStale ? "bg-amber-500" : hasReading ? "bg-green-500" : "bg-gray-400"}`}
+					/>
+					{isStale ? "Stale" : hasReading ? "OK" : "Sensor Offline"}
 				</span>
 			</div>
 

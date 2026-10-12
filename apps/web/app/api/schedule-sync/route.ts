@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { checkDeviceRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,11 @@ export async function GET(request: Request) {
 	const deviceId = searchParams.get("device_id");
 	if (!deviceId) {
 		return new Response("Unprocessable Entity", { status: 422 });
+	}
+
+	const { success } = checkDeviceRateLimit(deviceId);
+	if (!success) {
+		return new Response("Too Many Requests", { status: 429 });
 	}
 
 	try {

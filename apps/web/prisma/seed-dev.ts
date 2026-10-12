@@ -28,21 +28,36 @@ async function main() {
 	});
 	console.log("✓ Demo user:", demoUser.farmId);
 
+	// ── 1b. Upsert Demo Farm (exactly 1 farm per farmer) ──────────────────
+	const farm = await prisma.farm.upsert({
+		where: { ownerId: DEMO_FARM_ID },
+		update: {},
+		create: {
+			ownerId: DEMO_FARM_ID,
+			name: `${demoUser.displayName ?? DEMO_FARM_ID} Farm`,
+		},
+	});
+	console.log("✓ Demo farm:", farm.name, `(${farm.id})`);
+
 	// ── 2. Upsert Demo Pond ────────────────────────────────────────────────
 	const pond = await prisma.pond.upsert({
 		where: { id: "demo-pond-001" },
 		update: {
+			farmId: farm.id,
 			feedingRatePct: 4.5,
 			feedsPerDay: 4,
+			population: 200,
 			scheduleStart: new Date("2024-01-01T06:00:00Z"),
 			scheduleEnd: new Date("2024-01-01T18:00:00Z"),
 		},
 		create: {
 			id: "demo-pond-001",
 			ownerId: DEMO_FARM_ID,
+			farmId: farm.id,
 			name: "Demo Pond",
 			feedingRatePct: 4.5,
 			feedsPerDay: 4,
+			population: 200,
 			scheduleStart: new Date("2024-01-01T06:00:00Z"),
 			scheduleEnd: new Date("2024-01-01T18:00:00Z"),
 		},

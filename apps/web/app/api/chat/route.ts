@@ -3,7 +3,7 @@ import { buildChatContext } from "@/lib/chat/context";
 import { createNamespaceTranslator, runFallbackIntent } from "@/lib/chat/fallback";
 import { buildSystemPrompt, enforcePromptLimit, sanitizeInput } from "@/lib/chat/prompt";
 import { geminiDebugInfo, isGeminiEnabled, isGeminiQuotaError, streamGemini } from "@/lib/gemini";
-import { apiRateLimit } from "@/lib/rate-limit";
+import { checkApiRateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 	}
 
 	// Rate limit: 30 requests per 60 seconds per user
-	const { success } = await apiRateLimit.limit(ownerId);
+	const { success } = checkApiRateLimit(ownerId);
 	if (!success) {
 		return new Response("Too Many Requests", { status: 429 });
 	}

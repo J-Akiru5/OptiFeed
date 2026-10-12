@@ -1,15 +1,52 @@
 "use server";
 
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { syncDeviceGramsForPond } from "@/lib/feed-grams";
 import prisma from "@/lib/prisma";
+import type { InputJsonValue } from "@prisma/client/runtime/library";
 import { revalidatePath } from "next/cache";
 import { updateScheduleCommand } from "./schedule";
+
+export interface NotificationPrefs {
+	missedFeeding: boolean;
+	deviceOffline: boolean;
+	hopperLow: boolean;
+}
+
+export async function updateNotificationPrefs(
+	pondId: string,
+	prefs: NotificationPrefs,
+): Promise<{ success: boolean; error?: string }> {
+	try {
+		const ownerId = await getCurrentPondOwnerId();
+		const pond = await prisma.pond.findFirst({
+			where: { id: pondId, ownerId },
+			select: { id: true },
+		});
+
+		if (!pond) {
+			return { success: false, error: "Pond not found" };
+		}
+
+		await prisma.pond.update({
+			where: { id: pondId },
+			data: { notificationPrefs: prefs as unknown as InputJsonValue },
+		});
+
+		revalidatePath("/[locale]/(dashboard)/dashboard/settings/profile", "page");
+		return { success: true };
+	} catch (error) {
+		console.error("Failed to update notification prefs:", error);
+		return { success: false, error: "Failed to update notification preferences" };
+	}
+}
 
 export async function updatePondSettings(
 	pondId: string,
 	feedingRatePct: number,
 	feedsPerDay: number,
 	sampleIntervalDays?: number,
+	population?: number | null,
 ) {
 	try {
 		const ownerId = await getCurrentPondOwnerId();
@@ -30,12 +67,16 @@ export async function updatePondSettings(
 			feedingRatePct: number;
 			feedsPerDay: number;
 			sampleIntervalDays?: number;
+			population?: number | null;
 		} = {
 			feedingRatePct,
 			feedsPerDay,
 		};
 		if (sampleIntervalDays !== undefined && sampleIntervalDays > 0) {
 			pondUpdateData.sampleIntervalDays = sampleIntervalDays;
+		}
+		if (population !== undefined) {
+			pondUpdateData.population = population;
 		}
 
 		if (energyDevice) {
@@ -59,6 +100,7 @@ export async function updatePondSettings(
 						feedingRatePct,
 						feedsPerDay,
 						sampleIntervalDays: pondUpdateData.sampleIntervalDays,
+						population: pondUpdateData.population,
 					},
 				},
 			});
@@ -68,6 +110,13 @@ export async function updatePondSettings(
 				data: pondUpdateData,
 			});
 
+			// Keep the device's dispensed grams in sync with the new config/biomass.
+			await syncDeviceGramsForPond(pondId, {
+				feedingRatePct,
+				feedsPerDay,
+				population: pondUpdateData.population,
+			});
+
 			revalidatePath("/[locale]/(dashboard)", "layout");
 			return { success: true };
 		}
@@ -75,6 +124,12 @@ export async function updatePondSettings(
 		await prisma.pond.update({
 			where: { id: pondId },
 			data: pondUpdateData,
+		});
+
+		await syncDeviceGramsForPond(pondId, {
+			feedingRatePct,
+			feedsPerDay,
+			population: pondUpdateData.population,
 		});
 
 		revalidatePath("/[locale]/(dashboard)", "layout");

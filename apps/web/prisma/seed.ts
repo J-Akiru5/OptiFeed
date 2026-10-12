@@ -26,9 +26,10 @@ async function main() {
 	await prisma.biomassLog.deleteMany();
 	await prisma.device.deleteMany();
 	await prisma.pond.deleteMany();
+	await prisma.farm.deleteMany();
 	await prisma.user.deleteMany();
 
-	// 0. Create Demo User (admin)
+	// 0. Create Demo User (admin) + their single Farm
 	const demoUser = await prisma.user.create({
 		data: {
 			supabaseId: "00000000-0000-0000-0000-000000000001",
@@ -36,16 +37,23 @@ async function main() {
 			email: "demo-farmer-1@pond.optifeed.local",
 			displayName: "Juan Miguel",
 			role: "ADMIN",
+			farm: {
+				create: { name: "Juan Miguel Farm" },
+			},
 		},
+		include: { farm: true },
 	});
+	if (!demoUser.farm) throw new Error("Failed to create demo farm");
 
-	// 1. Create Demo Pond
+	// 1. Create Demo Pond (under the farmer's farm)
 	const pond = await prisma.pond.create({
 		data: {
 			ownerId: demoUser.farmId,
+			farmId: demoUser.farm.id,
 			name: "Demo Pond",
 			feedingRatePct: 4.5,
 			feedsPerDay: 4,
+			population: 200,
 			scheduleStart: new Date("2024-01-01T06:00:00Z"),
 			scheduleEnd: new Date("2024-01-01T18:00:00Z"),
 		},

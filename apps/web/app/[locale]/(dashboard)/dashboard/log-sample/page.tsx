@@ -46,6 +46,7 @@ export default async function LogSamplePage() {
 					pondId={pond.id}
 					feedingRatePct={currentConfig?.feedingRatePct ?? pond.feedingRatePct}
 					feedsPerDay={currentConfig?.feedsPerDay ?? pond.feedsPerDay}
+					population={pond.population}
 				/>
 			</div>
 		</div>

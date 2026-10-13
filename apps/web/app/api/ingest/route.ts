@@ -234,7 +234,7 @@ export async function POST(request: Request) {
 									tier: "CRITICAL",
 									category: "pellet",
 									message: "Feed hopper is nearly empty — refill immediately",
-									linkTo: "/en/dashboard/settings",
+									linkTo: "/dashboard/settings",
 								},
 							}),
 							prisma.deviceStateEvent.create({
@@ -255,7 +255,7 @@ export async function POST(request: Request) {
 									tier: "WARNING",
 									category: "pellet",
 									message: "Feed hopper is running low — schedule a refill soon",
-									linkTo: "/en/dashboard/settings",
+									linkTo: "/dashboard/settings",
 								},
 							}),
 						);
@@ -288,7 +288,7 @@ export async function POST(request: Request) {
 										tier: "WARNING",
 										category: "pellet",
 										message: `Feed will run out in ~${Math.ceil(daysRemaining)} day(s) — refill hopper soon`,
-										linkTo: "/en/dashboard/settings",
+										linkTo: "/dashboard/settings",
 									},
 								}),
 							);

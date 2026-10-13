@@ -129,7 +129,7 @@ async function notifyBruteForce(farmId: string, ip: string): Promise<void> {
 				tier: "WARNING",
 				category: "security",
 				message: `Unusual number of failed login attempts from ${ip}. If this wasn't you, change the PIN.`,
-				linkTo: "/en/dashboard/settings/profile",
+				linkTo: "/dashboard/settings/profile",
 			},
 		});
 	} catch (error) {

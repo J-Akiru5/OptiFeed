@@ -8,6 +8,7 @@ import {
 	RECONCILIATION_LOOKBACK_HOURS,
 } from "@/lib/constants";
 import { verifyDeviceToken } from "@/lib/device-auth";
+import { absoluteAppUrl, sendTelegramMessage } from "@/lib/notify/telegram";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
@@ -120,6 +121,10 @@ export async function POST(request: Request) {
 			!lastHeartbeat ||
 			Date.now() - lastHeartbeat.receivedAt.getTime() >= HEARTBEAT_ROW_INTERVAL_MS;
 
+		// Set when this request queues a CRITICAL pellet notification, so the
+		// Telegram fan-out (3.5) runs once, after the transaction commits.
+		let pelletCriticalAlert = false;
+
 		try {
 			const operations: Prisma.PrismaPromise<unknown>[] = [
 				prisma.energyDevice.update({
@@ -221,6 +226,7 @@ export async function POST(request: Request) {
 
 				if (pelletTier && device.pondId && shouldFirePelletAlert(pelletTier)) {
 					if (pelletTier === "CRITICAL") {
+						pelletCriticalAlert = true;
 						operations.push(
 							prisma.notification.create({
 								data: {
@@ -369,6 +375,15 @@ export async function POST(request: Request) {
 			}
 
 			await prisma.$transaction(operations);
+
+			// 3.5: Telegram fan-out only after the row exists (one message per
+			// alert — repeats are already suppressed by the dedup gate above).
+			if (pelletCriticalAlert) {
+				const link = absoluteAppUrl("/dashboard/settings");
+				await sendTelegramMessage(
+					`CRITICAL — ${device.label}: feed hopper is nearly empty (${parsed.data.feed_level_percent}%). Refill immediately.${link ? `\n${link}` : ""}`,
+				);
+			}
 		} catch (error) {
 			if (isUniqueConstraintError(error)) {
 				return new Response(null, { status: 204 });

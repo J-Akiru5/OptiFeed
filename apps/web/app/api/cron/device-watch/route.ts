@@ -1,5 +1,6 @@
 import { withCronAuth } from "@/lib/auth/with-auth";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { absoluteAppUrl, sendTelegramMessage } from "@/lib/notify/telegram";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
 import { cleanupExpiredRateLimitBuckets } from "@/lib/rate-limit";
@@ -20,6 +21,7 @@ export const GET = withCronAuth(async () => {
 		});
 
 		let offlineAlerts = 0;
+		const offlineMessages: string[] = [];
 		for (const device of staleDevices) {
 			if (!device.lastSeenAt || !device.pondId) continue;
 
@@ -57,6 +59,21 @@ export const GET = withCronAuth(async () => {
 				}),
 			]);
 			offlineAlerts++;
+			offlineMessages.push(
+				`CRITICAL — ${device.label} is offline — no heartbeat for ~${offlineHours}h.`,
+			);
+		}
+
+		// 3.5: one Telegram message per new outage, sent in parallel after the
+		// loop. The dedup marker above guarantees no repeats; a Telegram
+		// outage never fails the endpoint (the helper swallows its own errors).
+		if (offlineMessages.length > 0) {
+			const link = absoluteAppUrl("/dashboard/notifications");
+			await Promise.all(
+				offlineMessages.map((message) =>
+					sendTelegramMessage(link ? `${message}\n${link}` : message),
+				),
+			);
 		}
 
 		// 2. Batched housekeeping so each run stays under the Vercel Hobby

@@ -30,8 +30,14 @@ vi.mock("@/lib/rate-limit", () => ({
 vi.mock("@/i18n/routing", () => ({ redirect: vi.fn() }));
 vi.mock("next-intl/server", () => ({ getLocale: vi.fn(async () => "en") }));
 
+vi.mock("@/lib/notify/telegram", () => ({
+	sendTelegramMessage: vi.fn().mockResolvedValue(true),
+	absoluteAppUrl: vi.fn().mockReturnValue(null),
+}));
+
 import { GET } from "@/app/api/cron/device-watch/route";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { sendTelegramMessage } from "@/lib/notify/telegram";
 import prisma from "@/lib/prisma";
 import { cleanupExpiredRateLimitBuckets } from "@/lib/rate-limit";
 import { deleteOldHeartbeatEvents } from "@/lib/retention";
@@ -115,6 +121,10 @@ describe("api/cron/device-watch", () => {
 			}),
 		});
 
+		// 3.5: one Telegram message on the first detection, none on the repeat.
+		expect(sendTelegramMessage).toHaveBeenCalledTimes(1);
+		expect(sendTelegramMessage).toHaveBeenCalledWith(expect.stringContaining("Feeder A"));
+
 		// Second run: the disconnected event now exists after lastSeenAt.
 		mockDeviceStateEvent.findFirst.mockResolvedValue({ id: "evt-1" } as never);
 		const second = await GET(cronRequest("Bearer test-cron-secret"));
@@ -123,6 +133,7 @@ describe("api/cron/device-watch", () => {
 
 		expect(mockDeviceStateEvent.create).toHaveBeenCalledTimes(1);
 		expect(mockNotification.create).toHaveBeenCalledTimes(1);
+		expect(sendTelegramMessage).toHaveBeenCalledTimes(1);
 	});
 
 	it("skips devices that are offline but already have a newer disconnected event", async () => {

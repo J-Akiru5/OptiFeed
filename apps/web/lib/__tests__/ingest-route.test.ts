@@ -37,8 +37,14 @@ vi.mock("@/lib/prisma", () => ({
 	},
 }));
 
+vi.mock("@/lib/notify/telegram", () => ({
+	sendTelegramMessage: vi.fn().mockResolvedValue(true),
+	absoluteAppUrl: vi.fn().mockReturnValue(null),
+}));
+
 import { POST } from "@/app/api/ingest/route";
 import { hashToken } from "@/lib/device-auth";
+import { sendTelegramMessage } from "@/lib/notify/telegram";
 import prisma from "@/lib/prisma";
 
 const mockEnergyDevice = vi.mocked(prisma.energyDevice);
@@ -207,6 +213,11 @@ describe("POST /api/ingest — heartbeat dedup and thinning (1.4)", () => {
 			([arg]) => (arg as { data: { eventType: string } }).data.eventType === "connected",
 		);
 		expect(connectedCalls).toHaveLength(0);
+
+		// 3.5: exactly one Telegram message — the same dedup that gates the
+		// notification gates the fan-out (none of the 99 repeats).
+		expect(sendTelegramMessage).toHaveBeenCalledTimes(1);
+		expect(sendTelegramMessage).toHaveBeenCalledWith(expect.stringContaining("nearly empty"));
 	});
 
 	it("fires CRITICAL immediately after WARNING (tier transition, even inside window)", async () => {
@@ -231,6 +242,46 @@ describe("POST /api/ingest — heartbeat dedup and thinning (1.4)", () => {
 		expect(mockNotification.create).toHaveBeenCalledWith(
 			expect.objectContaining({ data: expect.objectContaining({ tier: "CRITICAL" }) }),
 		);
+	});
+
+	it("does not Telegram-blast on WARNING-level pellet alerts (3.5: CRITICAL only)", async () => {
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			pondId: "pond-1",
+			lastSeenAt: new Date(Date.now() - 5000),
+		} as never);
+		mockFeedEvent.findFirst.mockResolvedValue({
+			receivedAt: new Date(),
+			rtcOk: true,
+			feederActive: false,
+		} as never);
+		mockNotification.findFirst.mockResolvedValue(null as never);
+
+		const res = await POST(ingestRequest(heartbeatBody("hb-warning", { feedLevelPercent: 10 })));
+		expect(res.status).toBe(204);
+		expect(mockNotification.create).toHaveBeenCalledWith(
+			expect.objectContaining({ data: expect.objectContaining({ tier: "WARNING" }) }),
+		);
+		expect(sendTelegramMessage).not.toHaveBeenCalled();
+	});
+
+	it("a failing Telegram sender never breaks ingest (3.5)", async () => {
+		vi.mocked(sendTelegramMessage).mockResolvedValueOnce(false as never);
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			pondId: "pond-1",
+			lastSeenAt: new Date(Date.now() - 5000),
+		} as never);
+		mockFeedEvent.findFirst.mockResolvedValue({
+			receivedAt: new Date(),
+			rtcOk: true,
+			feederActive: false,
+		} as never);
+		mockNotification.findFirst.mockResolvedValue(null as never);
+
+		const res = await POST(ingestRequest(heartbeatBody("hb-tg-down", { feedLevelPercent: 3 })));
+		expect(res.status).toBe(204);
+		expect(sendTelegramMessage).toHaveBeenCalledTimes(1);
 	});
 
 	it("thins heartbeat FeedEvents: 100 beats with unchanged values write one row", async () => {

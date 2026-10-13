@@ -1,6 +1,7 @@
 "use server";
 
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
+import { STALE_SENT_MS } from "@/lib/constants";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
 import { MAX_DISPENSE_MS, dailyFeedCapG, formatZodError, scheduleInputSchema } from "@/lib/limits";
 import prisma from "@/lib/prisma";
@@ -46,9 +47,8 @@ export interface UpdateScheduleResult {
 	error?: string;
 }
 
-// Stale sent threshold: 10 minutes (matches energy.ts STALE_DISPATCHED_MS).
-// The device should ack within the dispense window; past this, something went wrong.
-const STALE_SENT_MS = 10 * 60 * 1000;
+// STALE_SENT_MS (lib/constants.ts): 10 minutes — the device should ack
+// within the dispense window; past this, something went wrong.
 
 export async function updateScheduleCommand(
 	pondId: string,

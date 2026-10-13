@@ -1,4 +1,5 @@
 import { getDevices } from "@/lib/actions/admin";
+import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { Cpu, Wifi, WifiOff } from "lucide-react";
 
 export default async function AdminDevicesPage() {
@@ -43,7 +44,7 @@ export default async function AdminDevicesPage() {
 								const now = new Date();
 								const isOffline =
 									!device.lastSeenAt ||
-									now.getTime() - device.lastSeenAt.getTime() > 15 * 60 * 1000;
+									now.getTime() - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
 
 								return (
 									<tr

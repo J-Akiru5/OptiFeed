@@ -13,6 +13,7 @@ import {
 	TEMP_OFFSET_C_MIN,
 	clamp,
 } from "@/lib/limits";
+import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
 import { checkDeviceRateLimit } from "@/lib/rate-limit";
 
@@ -73,8 +74,9 @@ export async function GET(request: Request) {
 		return new Response("Too Many Requests", { status: 429 });
 	}
 
+	let device: Awaited<ReturnType<typeof verifyDeviceToken>> = null;
 	try {
-		const device = await verifyDeviceToken(token);
+		device = await verifyDeviceToken(token);
 
 		if (!device || device.mac !== deviceId) {
 			return new Response("Unauthorized", { status: 401 });
@@ -158,7 +160,7 @@ export async function GET(request: Request) {
 			...deviceConfig(device),
 		});
 	} catch (error) {
-		console.error("[schedule-sync] error:", error);
+		reportError(error, { route: "schedule-sync", deviceId: device?.id ?? deviceId });
 		// Return safe defaults so ESP32 doesn't hang
 		return Response.json({
 			schedule_changed: false,

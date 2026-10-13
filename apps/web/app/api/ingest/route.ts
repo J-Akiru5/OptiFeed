@@ -1,5 +1,14 @@
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import {
+	FEED_DAYS_WARNING,
+	HEARTBEAT_ROW_INTERVAL_MS,
+	OFFLINE_THRESHOLD_MS,
+	PELLET_ALERT_WINDOW_MS,
+	PELLET_CRITICAL_PCT,
+	PELLET_LOW_PCT,
+	RECONCILIATION_LOOKBACK_HOURS,
+} from "@/lib/constants";
 import { verifyDeviceToken } from "@/lib/device-auth";
+import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -9,17 +18,7 @@ export const dynamic = "force-dynamic";
 // Devices are considered disconnected if no heartbeat for OFFLINE_THRESHOLD_MS
 // (lib/constants.ts) — matches the dashboard's offline threshold.
 
-// How far back to search for orphaned FeedRequests during reconciliation.
-const RECONCILIATION_LOOKBACK_HOURS = 4;
-
 const RATE_LIMIT_MS = 1000;
-
-// Heartbeat FeedEvent rows are thinned: at most one per device per 5 minutes
-// unless a stored value changed (N11 — was 17,280 rows/device/day).
-const HEARTBEAT_ROW_INTERVAL_MS = 5 * 60 * 1000;
-
-// Pellet alerts fire on a tier transition or at most this often while still low.
-const PELLET_ALERT_WINDOW_MS = 6 * 60 * 60 * 1000;
 
 const baseSchema = z.object({
 	device_id: z.string().min(1),
@@ -201,8 +200,8 @@ export async function POST(request: Request) {
 				// unacknowledged pellet notification for this pond (if any).
 				const pelletLevel = parsed.data.feed_level_percent;
 				let pelletTier: "WARNING" | "CRITICAL" | null = null;
-				if (pelletLevel <= 5) pelletTier = "CRITICAL";
-				else if (pelletLevel <= 20) pelletTier = "WARNING";
+				if (pelletLevel <= PELLET_CRITICAL_PCT) pelletTier = "CRITICAL";
+				else if (pelletLevel <= PELLET_LOW_PCT) pelletTier = "WARNING";
 
 				let recentPelletAlert: { tier: string; createdAt: Date } | null = null;
 				if (pelletTier && device.pondId) {
@@ -271,7 +270,11 @@ export async function POST(request: Request) {
 						const dailyConsumptionG = deviceFull.gramsPerFeeding * pond.feedsPerDay;
 						const remainingG = deviceFull.hopperCapacityG * (parsed.data.feed_level_percent / 100);
 						const daysRemaining = dailyConsumptionG > 0 ? remainingG / dailyConsumptionG : 99;
-						if (daysRemaining <= 2 && daysRemaining > 0 && shouldFirePelletAlert("WARNING")) {
+						if (
+							daysRemaining <= FEED_DAYS_WARNING &&
+							daysRemaining > 0 &&
+							shouldFirePelletAlert("WARNING")
+						) {
 							operations.push(
 								prisma.notification.create({
 									data: {
@@ -288,7 +291,11 @@ export async function POST(request: Request) {
 				}
 
 				// Detect hopper refill: previously low level is now above threshold
-				if (lastLog && lastLog.levelPercent <= 20 && parsed.data.feed_level_percent > 20) {
+				if (
+					lastLog &&
+					lastLog.levelPercent <= PELLET_LOW_PCT &&
+					parsed.data.feed_level_percent > PELLET_LOW_PCT
+				) {
 					operations.push(
 						prisma.deviceStateEvent.create({
 							data: {
@@ -366,6 +373,7 @@ export async function POST(request: Request) {
 			if (isUniqueConstraintError(error)) {
 				return new Response(null, { status: 204 });
 			}
+			reportError(error, { route: "ingest", deviceId: device.id });
 			throw error;
 		}
 	} else if (eventType === "feed_dispensed") {
@@ -498,6 +506,7 @@ export async function POST(request: Request) {
 			if (isUniqueConstraintError(error)) {
 				return new Response(null, { status: 204 });
 			}
+			reportError(error, { route: "ingest", deviceId: device.id });
 			throw error;
 		}
 	} else if (eventType === "schedule_acked") {
@@ -579,6 +588,7 @@ export async function POST(request: Request) {
 			if (isUniqueConstraintError(error)) {
 				return new Response(null, { status: 204 });
 			}
+			reportError(error, { route: "ingest", deviceId: device.id });
 			throw error;
 		}
 	} else if (eventType === "feed_refused") {
@@ -613,6 +623,7 @@ export async function POST(request: Request) {
 			if (isUniqueConstraintError(error)) {
 				return new Response(null, { status: 204 });
 			}
+			reportError(error, { route: "ingest", deviceId: device.id });
 			throw error;
 		}
 	}

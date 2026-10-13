@@ -1,3 +1,4 @@
+import { REQUEST_EXPIRY_MS } from "@/lib/constants";
 import { verifyDeviceToken } from "@/lib/device-auth";
 import {
 	BUTTON_FEED_GRAMS_MAX,
@@ -9,12 +10,11 @@ import {
 	TEMP_OFFSET_C_MIN,
 	clamp,
 } from "@/lib/limits";
+import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
 import { checkDeviceRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
-
-const REQUEST_EXPIRY_MS = 60_000;
 
 type DeviceConfig = {
 	gramsPerFeeding: number;
@@ -53,8 +53,9 @@ export async function GET(request: Request) {
 		return new Response("Too Many Requests", { status: 429 });
 	}
 
+	let device: Awaited<ReturnType<typeof verifyDeviceToken>> = null;
 	try {
-		const device = await verifyDeviceToken(token);
+		device = await verifyDeviceToken(token);
 
 		if (!device || device.mac !== deviceId) {
 			return new Response("Unauthorized", { status: 401 });
@@ -100,7 +101,7 @@ export async function GET(request: Request) {
 			...deviceConfig(device),
 		});
 	} catch (error) {
-		console.error("[feed-command] error:", error);
+		reportError(error, { route: "feed-command", deviceId: device?.id ?? deviceId });
 		// Return safe idle state so ESP32 doesn't hang
 		return Response.json({
 			feed_requested: false,

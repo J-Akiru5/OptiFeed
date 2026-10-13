@@ -2,9 +2,10 @@
 
 import { useRouter } from "@/i18n/routing";
 import { loginWithPin } from "@/lib/actions/auth";
+import { createClient } from "@/lib/supabase/client";
 import { ArrowLeft, KeyRound, ShieldAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { type FormEvent, useState, useTransition } from "react";
+import { type FormEvent, useEffect, useState, useTransition } from "react";
 
 export default function LoginPage() {
 	const router = useRouter();
@@ -14,6 +15,20 @@ export default function LoginPage() {
 	const [pin, setPin] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [isPending, startTransition] = useTransition();
+
+	// The proxy no longer redirects authenticated users away from /login (its
+	// optimistic cookie check cannot distinguish a valid session from an
+	// expired one without a network refresh, which raced and looped). A single
+	// client-side getUser() is safe here — one call, no parallel middleware
+	// invocations — so already-logged-in visitors still land on the dashboard.
+	useEffect(() => {
+		const supabase = createClient();
+		supabase.auth.getUser().then(({ data: { user } }) => {
+			if (user) {
+				router.replace("/dashboard");
+			}
+		});
+	}, [router]);
 
 	const handleSubmit = (e: FormEvent) => {
 		e.preventDefault();

@@ -51,14 +51,30 @@ export default async function proxy(request: NextRequest) {
 	// "An unexpected response was received from the server."
 	const isNavigationRequest = request.method === "GET" || request.method === "HEAD";
 
+	// When supabase.auth.getUser() refreshes an expired access token, it
+	// ROTATES the single-use refresh token and persists it via setAll onto
+	// `response`. The redirect branches below return a NEW NextResponse,
+	// which would discard that rotated token and leave the browser holding a
+	// consumed one — the next refresh then fails (refresh_token_not_found)
+	// and the session is destroyed, causing an infinite /dashboard <->
+	// /login redirect loop. Copy every cookie supabase set onto the redirect
+	// so the refreshed session is always saved.
+	function redirectWithSessionCookies(url: string): NextResponse {
+		const redirect = NextResponse.redirect(new URL(url, request.url));
+		for (const cookie of response.cookies.getAll()) {
+			redirect.cookies.set(cookie);
+		}
+		return redirect;
+	}
+
 	// Unauthenticated users -> redirect to login
 	if (isNavigationRequest && (isDashboard || isAdmin) && !user) {
-		return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
+		return redirectWithSessionCookies(`/${locale}/login`);
 	}
 
 	// Authenticated users on login page -> redirect to dashboard
 	if (isNavigationRequest && isLogin && user) {
-		return NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url));
+		return redirectWithSessionCookies(`/${locale}/dashboard`);
 	}
 
 	return response;

@@ -1,4 +1,3 @@
-import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
@@ -18,7 +17,7 @@ const securityHeaders = [
 			"style-src 'self' 'unsafe-inline'",
 			"img-src 'self' data: blob: https://images.unsplash.com",
 			"font-src 'self'",
-			"connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.sentry.io",
+			"connect-src 'self' https://*.supabase.co wss://*.supabase.co",
 			"frame-ancestors 'none'",
 		].join("; "),
 	},
@@ -46,10 +45,4 @@ const nextConfig: NextConfig = {
 	},
 };
 
-export default withSentryConfig(withNextIntl(nextConfig), {
-	org: process.env.SENTRY_ORG,
-	project: process.env.SENTRY_PROJECT,
-	silent: !process.env.CI,
-	widenClientFileUpload: true,
-	sourcemaps: { disable: true },
-});
+export default withNextIntl(nextConfig);

@@ -135,7 +135,7 @@ record(
 	"device routes verify tokens with timingSafeEqual",
 	deviceRoutes.length === 3 &&
 		timingHelper &&
-		deviceRoutes.every((f) => /timingSafeEqual|@\/lib\/auth\//.test(read(f))),
+		deviceRoutes.every((f) => /timingSafeEqual|@\/lib\/(auth|device-auth)\//.test(read(f))),
 );
 
 record(

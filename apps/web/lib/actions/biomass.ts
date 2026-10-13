@@ -1,7 +1,7 @@
 "use server";
 
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
-import { biomassLogSchema, feedGramsSchema, formatZodError } from "@/lib/limits";
+import { biomassLogSchema, feedGramsSchema, fishSamplesSchema, formatZodError } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import { calculateNextFeeding } from "@/lib/volumeCalc";
 import { revalidatePath } from "next/cache";
@@ -13,7 +13,9 @@ interface FishSampleInput {
 	lengthCm: number;
 }
 
-export async function saveBiomassLog(formData: FormData) {
+export type SaveBiomassResult = { success: true } | { success: false; error: string };
+
+export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassResult> {
 	await requireWriteAccess();
 	const ownerId = await getCurrentPondOwnerId();
 	const pondId = formData.get("pondId") as string;
@@ -25,24 +27,40 @@ export async function saveBiomassLog(formData: FormData) {
 	let fishSamples: FishSampleInput[] = [];
 	if (fishSamplesJson) {
 		try {
-			fishSamples = JSON.parse(fishSamplesJson);
+			const parsedRows: unknown = JSON.parse(fishSamplesJson);
+			if (!Array.isArray(parsedRows)) {
+				return { success: false, error: "Individual measurements could not be read." };
+			}
+			const rows = fishSamplesSchema.safeParse(parsedRows);
+			if (!rows.success) {
+				const issue = rows.error.issues[0];
+				const rowIndex = issue.path[0];
+				return {
+					success: false,
+					error: `Fish #${Number(rowIndex) + 1}: ${issue.message}`,
+				};
+			}
+			fishSamples = rows.data;
 		} catch {
-			// Ignore parse errors — treat as average mode
+			return {
+				success: false,
+				error: "Individual measurements could not be read — please re-enter them.",
+			};
 		}
 	}
 
 	if (!pondId) {
-		throw new Error("Missing pond");
+		return { success: false, error: "Missing pond" };
 	}
 
 	const parsed = biomassLogSchema.safeParse({ sampleCount, sampleWeightKg, sampleLengthCm });
 	if (!parsed.success) {
-		throw new Error(formatZodError(parsed.error));
+		return { success: false, error: formatZodError(parsed.error) };
 	}
 
 	const avgWeightKg = sampleWeightKg / sampleCount;
 
-	const biomassLog = await prisma.$transaction(async (tx) => {
+	await prisma.$transaction(async (tx) => {
 		const pond = await tx.pond.findUnique({
 			where: { id: pondId },
 			select: { ownerId: true, feedingRatePct: true, feedsPerDay: true, population: true },
@@ -196,5 +214,5 @@ export async function saveBiomassLog(formData: FormData) {
 
 	revalidatePath("/[locale]/dashboard", "layout");
 
-	return biomassLog;
+	return { success: true };
 }

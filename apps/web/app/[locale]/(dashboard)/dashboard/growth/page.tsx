@@ -477,10 +477,40 @@ export default async function GrowthPage() {
 											</td>
 											<td className="px-6 py-4 text-center">
 												{log.fishSamples.length > 0 ? (
-													<span className="inline-flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 text-xs font-bold rounded-full">
-														<Fish className="w-3 h-3" />
-														{log.fishSamples.length} fish
-													</span>
+													<details className="inline-block text-left">
+														<summary className="inline-flex cursor-pointer list-none items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 text-xs font-bold rounded-full hover:bg-teal-100 transition-colors">
+															<Fish className="w-3 h-3" />
+															{log.fishSamples.length} fish
+														</summary>
+														<div className="mt-2 min-w-[180px] rounded-xl border border-teal-100 bg-teal-50/50 overflow-hidden">
+															<table className="w-full text-xs text-gray-600">
+																<thead>
+																	<tr className="text-[10px] uppercase text-teal-700">
+																		<th className="px-3 py-1.5 text-left font-bold">#</th>
+																		<th className="px-3 py-1.5 text-right font-bold">Weight</th>
+																		<th className="px-3 py-1.5 text-right font-bold">Length</th>
+																	</tr>
+																</thead>
+																<tbody className="divide-y divide-teal-100">
+																	{log.fishSamples.map((sample, sampleIndex) => (
+																		<tr key={sample.id}>
+																			<td className="px-3 py-1.5 text-gray-500">
+																				{sampleIndex + 1}
+																			</td>
+																			<td className="px-3 py-1.5 text-right font-medium text-gray-800">
+																				{sample.weightGrams.toFixed(1)} g
+																			</td>
+																			<td className="px-3 py-1.5 text-right">
+																				{sample.lengthCm > 0
+																					? `${sample.lengthCm.toFixed(1)} cm`
+																					: "—"}
+																			</td>
+																		</tr>
+																	))}
+																</tbody>
+															</table>
+														</div>
+													</details>
 												) : (
 													<span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 text-xs font-bold rounded-full">
 														<Scale className="w-3 h-3" />

@@ -126,7 +126,7 @@ export async function createDemoNotification(
 				tier,
 				category: category ?? null,
 				message,
-				linkTo: "/en/dashboard",
+				linkTo: "/dashboard",
 			},
 		});
 	} catch (error) {

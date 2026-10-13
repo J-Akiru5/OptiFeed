@@ -17,23 +17,23 @@ const inter = Inter({
 
 export const metadata: Metadata = {
 	title: {
-		default: "OptiFeed — Smart Fish Feeding Management",
+		default: "OptiFeed — Smart Catfish Feeding Management",
 		template: "%s | OptiFeed",
 	},
 	description:
-		"Monitor and control your fish farm's feeding schedule remotely. Reduce feed costs, track FCR, and manage your ESP32 feeder from anywhere.",
-	keywords: ["fish farm", "aquaculture", "feeding automation", "ESP32", "FCR", "catfish"],
+		"Monitor and control your catfish farm's feeding schedule remotely. Reduce feed costs, track FCR, and manage your ESP32 feeder from anywhere.",
+	keywords: ["catfish farm", "catfish", "aquaculture", "feeding automation", "ESP32", "FCR"],
 	openGraph: {
-		title: "OptiFeed — Smart Fish Feeding Management",
+		title: "OptiFeed — Smart Catfish Feeding Management",
 		description:
-			"Monitor and control your fish farm's feeding schedule remotely. Built for farm owners who can't be on-site every day.",
+			"Monitor and control your catfish farm's feeding schedule remotely. Built for farm owners who can't be on-site every day.",
 		type: "website",
 		siteName: "OptiFeed",
 	},
 	twitter: {
 		card: "summary_large_image",
-		title: "OptiFeed — Smart Fish Feeding Management",
-		description: "Monitor and control your fish farm's feeding schedule remotely.",
+		title: "OptiFeed — Smart Catfish Feeding Management",
+		description: "Monitor and control your catfish farm's feeding schedule remotely.",
 	},
 	robots: {
 		index: true,

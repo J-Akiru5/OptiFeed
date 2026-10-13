@@ -60,18 +60,8 @@ async function main() {
 		},
 	});
 
-	// 2. Create Device
-	const device = await prisma.device.create({
-		data: {
-			pondId: pond.id,
-			name: "Smart Feeder 1",
-			connectivity: "online",
-			hopperLevelPct: 82.0,
-			lastSyncedAt: new Date(),
-		},
-	});
-
-	// 2b. Create ESP32 Energy Controller (linked to the demo pond)
+	// 2. Create ESP32 Energy Controller (linked to the demo pond)
+	// (The deprecated Device model is no longer written — task 5.2.)
 	const deviceToken = process.env.DEVICE_TOKEN ?? "demo-device-token-001";
 	const energyDevice = await prisma.energyDevice.create({
 		data: {
@@ -126,36 +116,9 @@ async function main() {
 	}
 	await prisma.biomassLog.createMany({ data: logs });
 
-	// 4. Create ~2 weeks of Feeding Events
-	const feedingEvents = [];
-	let missedInserted = false;
-
-	for (let day = 14; day >= 1; day--) {
-		for (let feed = 0; feed < 4; feed++) {
-			const scheduledTime = new Date(now.getTime() - day * 24 * 60 * 60 * 1000);
-			scheduledTime.setHours(6 + feed * 4, 0, 0, 0); // 06:00, 10:00, 14:00, 18:00
-
-			let status = "completed";
-
-			// Exactly one "missed" status
-			if (!missedInserted && day === 5 && feed === 2) {
-				status = "missed";
-				missedInserted = true;
-			}
-
-			feedingEvents.push({
-				deviceId: device.id,
-				scheduledTime,
-				dispensedVolumeG: status === "completed" ? 1500 : 0,
-				status,
-				createdAt: scheduledTime,
-			});
-		}
-	}
-	await prisma.feedingEvent.createMany({ data: feedingEvents });
-
-	// 4b. Create live dispense history (FeedEvent + FeedRequest — read by /dashboard/history).
-	// Mirrors the deprecated seed above but against the live table the ESP32 actually writes to.
+	// 4. Create ~2 weeks of live dispense history
+	// (FeedEvent + FeedRequest — read by /dashboard/history. The deprecated
+	// FeedingEvent model is no longer written — task 5.2.)
 	const feedSources = ["scheduled", "scheduled", "scheduled", "scheduled"];
 	feedSources[3] = "dashboard"; // latest feed was a dashboard "Feed Now"
 	feedSources[1] = "button"; // one feed via physical button

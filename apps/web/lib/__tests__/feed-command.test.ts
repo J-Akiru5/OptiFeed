@@ -1,0 +1,153 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/prisma", () => ({
+	default: {
+		energyDevice: {
+			findUnique: vi.fn(),
+		},
+		feedRequest: {
+			findFirst: vi.fn(),
+			update: vi.fn(),
+			updateMany: vi.fn(),
+		},
+	},
+}));
+
+vi.mock("@/lib/rate-limit", () => ({
+	checkDeviceRateLimit: vi.fn().mockResolvedValue({ success: true }),
+}));
+
+import { GET } from "@/app/api/feed-command/route";
+import { hashToken } from "@/lib/device-auth";
+import prisma from "@/lib/prisma";
+import { checkDeviceRateLimit } from "@/lib/rate-limit";
+
+const mockEnergyDevice = vi.mocked(prisma.energyDevice);
+const mockFeedRequest = vi.mocked(prisma.feedRequest);
+const mockRateLimit = vi.mocked(checkDeviceRateLimit);
+
+const DEVICE = {
+	id: "dev-1",
+	mac: "AA:BB:CC:DD:EE:FF",
+	pondId: "pond-1",
+	gramsPerFeeding: 150,
+	buttonFeedGrams: 80,
+	hopperEmptyCm: 30,
+	hopperFullCm: 5,
+	gramsPerSecond: 4,
+	tempOffsetC: 0,
+	tokenHash: hashToken("test-token"),
+};
+
+function pollRequest(token?: string): Request {
+	const url = `http://test.local/api/feed-command?device_id=${DEVICE.mac}`;
+	return new Request(url, {
+		method: "GET",
+		headers: token !== undefined ? { "x-device-token": token } : {},
+	});
+}
+
+describe("GET /api/feed-command", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockRateLimit.mockResolvedValue({ success: true } as never);
+		mockEnergyDevice.findUnique.mockResolvedValue({ ...DEVICE } as never);
+		mockFeedRequest.updateMany.mockResolvedValue({ count: 0 } as never);
+		mockFeedRequest.findFirst.mockResolvedValue(null);
+		mockFeedRequest.update.mockResolvedValue({} as never);
+	});
+
+	it("returns 401 when the device token header is missing", async () => {
+		const res = await GET(pollRequest(undefined));
+		expect(res.status).toBe(401);
+	});
+
+	it("returns 422 when device_id is missing", async () => {
+		const res = await GET(
+			new Request("http://test.local/api/feed-command", {
+				method: "GET",
+				headers: { "x-device-token": "test-token" },
+			}),
+		);
+		expect(res.status).toBe(422);
+	});
+
+	it("returns 429 when the device rate limit is exceeded", async () => {
+		mockRateLimit.mockResolvedValue({ success: false } as never);
+		const res = await GET(pollRequest("test-token"));
+		expect(res.status).toBe(429);
+	});
+
+	it("returns 401 when the token does not resolve to a device", async () => {
+		mockEnergyDevice.findUnique.mockResolvedValue(null as never);
+		const res = await GET(pollRequest("wrong-token"));
+		expect(res.status).toBe(401);
+	});
+
+	it("returns 401 when the token resolves to a different mac than device_id", async () => {
+		const res = await GET(
+			new Request("http://test.local/api/feed-command?device_id=11:22:33:44:55:66", {
+				method: "GET",
+				headers: { "x-device-token": "test-token" },
+			}),
+		);
+		expect(res.status).toBe(401);
+	});
+
+	it("returns an idle body when no request is pending", async () => {
+		const res = await GET(pollRequest("test-token"));
+		expect(res.status).toBe(200);
+		const body = await res.json();
+		expect(body.feed_requested).toBe(false);
+		expect(body.feed_request_id).toBeNull();
+		expect(body.grams).toBe(0);
+		expect(body.grams_per_feeding).toBe(150);
+	});
+
+	it("marks stale pending requests expired before polling (lazy 60s expiry)", async () => {
+		await GET(pollRequest("test-token"));
+		expect(mockFeedRequest.updateMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: expect.objectContaining({
+					deviceId: DEVICE.id,
+					status: "pending",
+					createdAt: { lt: expect.any(Date) },
+				}),
+				data: { status: "expired" },
+			}),
+		);
+	});
+
+	it("dispatches a pending request and clamps its grams", async () => {
+		mockFeedRequest.findFirst.mockResolvedValue({
+			id: "req-1",
+			grams: 999_999,
+			status: "pending",
+			createdAt: new Date(),
+		} as never);
+
+		const res = await GET(pollRequest("test-token"));
+		expect(res.status).toBe(200);
+		const body = await res.json();
+		expect(body.feed_requested).toBe(true);
+		expect(body.feed_request_id).toBe("req-1");
+		// Clamped to MAX_FEED_GRAMS_PER_REQUEST (1000)
+		expect(body.grams).toBe(1000);
+		expect(mockFeedRequest.update).toHaveBeenCalledWith({
+			where: { id: "req-1" },
+			data: { status: "dispatched" },
+		});
+	});
+
+	it("returns safe idle defaults when the route throws", async () => {
+		mockEnergyDevice.findUnique.mockRejectedValue(new Error("db down") as never);
+		const res = await GET(pollRequest("test-token"));
+		const body = await res.json();
+		expect(body.feed_requested).toBe(false);
+		expect(body.feed_request_id).toBeNull();
+		expect(body.grams).toBe(0);
+		// Hardcoded safe fallbacks so the ESP32 never hangs
+		expect(body.grams_per_feeding).toBe(150);
+		expect(body.grams_per_second).toBe(4.0);
+	});
+});

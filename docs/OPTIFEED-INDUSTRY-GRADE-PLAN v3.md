@@ -133,6 +133,24 @@ Acceptance: a test sends 100 heartbeats at 3 percent and gets at most one CRITIC
 
 Acceptance: tests show a VIEWER gets an error and nothing is written for every action listed.
 
+**1.6 Fix individual fish measurements (added 2026-10-13; teammate report: "individual measurements don't save").**
+- Root causes found in review: (a) `biomassLogSchema` requires `sampleLengthCm > 0`, but individual mode makes length optional — a weight-only entry makes the whole save throw; (b) the form silently drops rows whose weight parses to NaN or <= 0, so filled rows vanish with no per-row warning; (c) the form catch swallows the real server error behind a generic message; (d) `FishSample` rows are stored but never displayed anywhere — the only surface is a "{n} fish" badge, so saved data looks lost.
+- Fix `lib/limits.ts`: allow `sampleLengthCm` of 0 in the schema (average mode still requires length in the form, so the normal path is unchanged). Keep every other rule.
+- Fix `lib/actions/biomass.ts`: validate the `fishSamples` payload with a per-row Zod schema (weight > 0 required, length >= 0) instead of an unvalidated `JSON.parse`; a malformed payload returns `{ success: false, error }` naming the problem — never a silent parse-and-continue. Align with the 1.5 convention: return `{ success, error }` instead of throwing for user-input failures.
+- Fix `LogSampleForm.tsx`: mark invalid rows with an inline error instead of filtering them out; surface the server's actual error message.
+- Fix `growth/page.tsx`: make each history row expandable and render the per-fish table (weight, length) from `fishSamples` (already fetched via `include`).
+
+Acceptance: a weight-only individual entry saves; an invalid row shows a named per-row error; VIEWER is still denied; the saved individual rows are visible on Growth; tests cover parse failure, per-row validation, and persistence.
+
+**1.7 Batch label on biomass logs (added 2026-10-13; request: know which batch a measurement belongs to and the date).**
+- One additive migration: `ALTER TABLE "BiomassLog" ADD COLUMN "batchLabel" TEXT` (nullable; no change to the farmId-stamp trigger, which keys off the parent row).
+- `LogSampleForm.tsx`: optional "Batch" text field with a datalist of labels previously used on this pond (no batch-management UI; free text is fine).
+- `growth/page.tsx` history table: add a Batch column next to Date; the expanded per-fish view shows batch and date as its header.
+- Exports: `biomass_logs` CSV gains `batchLabel`; `fish_samples` CSV gains `batchLabel` and `recordedAt` so every individual row answers "which batch, what date".
+- Do not touch `avgWeightKg`, the feed formula, or FCR inputs — locked.
+
+Acceptance: the label round-trips (form → DB → Growth table → CSV export); tests cover storage and export columns. Migration follows the same H7 gate as the other migrations in this batch, and runs on the dev database first (H8).
+
 ### Phase 2: Security
 
 | ID | Task | Acceptance |
@@ -488,7 +506,8 @@ Karl or Jeff must do these. The AI cannot.
 8. `feat: hashed device tokens, TLS verification` (2.4, 2.5)
 9. `feat: shared rate limiter, safer lockout, login error handling` (2.6 to 2.8)
 10. `feat: RLS for User` (2.3, only after H7 and on the dev database first)
-11. `feat: device-watch cron endpoint, cron SQL file, Sentry, central constants` (3.1 to 3.3), then `feat: telegram alerts` (3.5, only after PR 5)
+10a. `fix: individual fish measurements save and display` (1.6), then `feat: batch label on biomass logs` (1.7; the batchLabel migration shares the H7 gate)
+11. `feat: device-watch cron endpoint, cron SQL file, Sentry, central constants` (3.1 to 3.3), then `feat: telegram alerts` (3.5, only after PR 5). Decision (2026-10-13): 10a and 11 ship stacked in ONE PR on top of the Phase 2 commits; 3.6 stays optional and is skipped for now.
 12. `test: device routes and new behavior`, then `ci: run on develop` (4.x)
 13. `chore: cleanup, docs, stale code` (5.x)
 

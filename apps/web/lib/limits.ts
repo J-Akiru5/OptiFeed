@@ -77,8 +77,23 @@ export const biomassLogSchema = z.object({
 		.refine((v) => v > 0, "Sample weight must be greater than 0"),
 	sampleLengthCm: z
 		.number("Sample length must be a number")
-		.refine((v) => v > 0, "Sample length must be greater than 0"),
+		.refine((v) => v >= 0, "Sample length must be 0 or greater"),
+	batchLabel: z
+		.string("Batch label must be a text value")
+		.max(64, "Batch label must be 64 characters or fewer")
+		.nullish(),
 });
+
+export const fishSampleRowSchema = z.object({
+	weightGrams: z
+		.number("Weight must be a number")
+		.refine((v) => v > 0, "Weight must be greater than 0"),
+	lengthCm: z
+		.number("Length must be a number")
+		.refine((v) => v >= 0, "Length must be 0 or greater"),
+});
+
+export const fishSamplesSchema = z.array(fishSampleRowSchema);
 
 export const notificationPrefsSchema = z.object({
 	missedFeeding: z.boolean(),

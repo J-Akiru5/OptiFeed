@@ -14,6 +14,7 @@ interface LogSampleFormProps {
 	feedsPerDay: number;
 	population?: number | null;
 	canWrite?: boolean;
+	batchLabels?: string[];
 }
 
 type InputMode = "average" | "individual";
@@ -30,6 +31,7 @@ export function LogSampleForm({
 	feedsPerDay,
 	population = null,
 	canWrite = true,
+	batchLabels = [],
 }: LogSampleFormProps) {
 	const tBtn = useTranslations("button");
 	const router = useRouter();
@@ -41,6 +43,7 @@ export function LogSampleForm({
 		g.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 	const [inputMode, setInputMode] = useState<InputMode>("average");
+	const [batchLabel, setBatchLabel] = useState<string>("");
 
 	const [weightGrams, setWeightGrams] = useState<string>("");
 	const [lengthCm, setLengthCm] = useState<string>("");
@@ -52,6 +55,7 @@ export function LogSampleForm({
 	]);
 
 	const [error, setError] = useState<string | null>(null);
+	const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
 
 	const w = Number.parseFloat(weightGrams);
 	const l = Number.parseFloat(lengthCm);
@@ -114,11 +118,16 @@ export function LogSampleForm({
 		const updated = [...individualFish];
 		updated[index] = { ...updated[index], [field]: value };
 		setIndividualFish(updated);
+		if (rowErrors[index]) {
+			const { [index]: _removed, ...rest } = rowErrors;
+			setRowErrors(rest);
+		}
 	};
 
 	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		setError(null);
+		setRowErrors({});
 
 		let sampleWeightKg: number;
 		let sampleLengthCm: number;
@@ -134,19 +143,38 @@ export function LogSampleForm({
 			sampleLengthCm = l;
 			sampleCount = c;
 		} else {
-			const validFish = individualFish.filter(
-				(f) =>
-					!Number.isNaN(Number.parseFloat(f.weightGrams)) && Number.parseFloat(f.weightGrams) > 0,
-			);
-			if (validFish.length === 0) {
+			const errors: Record<number, string> = {};
+			const validRows: Array<{ weightGrams: number; lengthCm: number }> = [];
+
+			individualFish.forEach((fish, index) => {
+				const weightRaw = fish.weightGrams.trim();
+				const lengthRaw = fish.lengthCm.trim();
+				if (weightRaw === "" && lengthRaw === "") return;
+
+				const weightValue = Number.parseFloat(weightRaw);
+				if (weightRaw === "" || Number.isNaN(weightValue) || weightValue <= 0) {
+					errors[index] = "Weight must be greater than 0";
+					return;
+				}
+				const lengthValue = lengthRaw === "" ? 0 : Number.parseFloat(lengthRaw);
+				if (Number.isNaN(lengthValue) || lengthValue < 0) {
+					errors[index] = "Length must be 0 or greater";
+					return;
+				}
+				validRows.push({ weightGrams: weightValue, lengthCm: lengthValue });
+			});
+
+			if (Object.keys(errors).length > 0) {
+				setRowErrors(errors);
+				setError("Please fix the highlighted fish rows.");
+				return;
+			}
+			if (validRows.length === 0) {
 				setError("Please add at least one fish with a valid weight.");
 				return;
 			}
 
-			fishSamplesData = validFish.map((f) => ({
-				weightGrams: Number.parseFloat(f.weightGrams),
-				lengthCm: Number.parseFloat(f.lengthCm) || 0,
-			}));
+			fishSamplesData = validRows;
 
 			const totalWeightG = fishSamplesData.reduce((sum, f) => sum + f.weightGrams, 0);
 			sampleWeightKg = totalWeightG / 1000;
@@ -157,7 +185,7 @@ export function LogSampleForm({
 					? validLengthFish.reduce((sum, f) => sum + f.lengthCm, 0) / validLengthFish.length
 					: 0;
 
-			sampleCount = validFish.length;
+			sampleCount = validRows.length;
 		}
 
 		const formData = new FormData();
@@ -165,6 +193,7 @@ export function LogSampleForm({
 		formData.append("sampleWeightKg", sampleWeightKg.toString());
 		formData.append("sampleLengthCm", sampleLengthCm.toString());
 		formData.append("sampleCount", sampleCount.toString());
+		formData.append("batchLabel", batchLabel.trim());
 
 		if (inputMode === "individual" && fishSamplesData.length > 0) {
 			formData.append("fishSamples", JSON.stringify(fishSamplesData));
@@ -172,10 +201,14 @@ export function LogSampleForm({
 
 		startTransition(async () => {
 			try {
-				await saveBiomassLog(formData);
+				const result = await saveBiomassLog(formData);
+				if (!result.success) {
+					setError(result.error);
+					return;
+				}
 				router.push("/dashboard");
-			} catch (err) {
-				setError("Failed to save biomass log. Please check your inputs.");
+			} catch {
+				setError("Failed to save biomass log. Please try again.");
 			}
 		});
 	};
@@ -219,6 +252,35 @@ export function LogSampleForm({
 					<Fish className="inline-block w-4 h-4 mr-1.5 -mt-0.5" />
 					Individual Mode
 				</button>
+			</div>
+
+			<div className="space-y-1.5">
+				<label
+					htmlFor="batchLabel"
+					className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568]"
+				>
+					Batch (optional)
+				</label>
+				<div className="relative">
+					<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+						<Fish className="h-5 w-5" />
+					</div>
+					<input
+						type="text"
+						id="batchLabel"
+						maxLength={64}
+						list="batchLabelOptions"
+						className={fieldCls}
+						placeholder="e.g. Batch 2026-10 A"
+						value={batchLabel}
+						onChange={(e) => setBatchLabel(e.target.value)}
+					/>
+					<datalist id="batchLabelOptions">
+						{batchLabels.map((label) => (
+							<option key={label} value={label} />
+						))}
+					</datalist>
+				</div>
 			</div>
 
 			{inputMode === "average" ? (
@@ -314,49 +376,51 @@ export function LogSampleForm({
 
 					<div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
 						{individualFish.map((fish, index) => (
-							<div
-								key={fish.id}
-								className="flex items-center gap-2 p-3 bg-[#F4F7F6] rounded-xl border border-gray-200"
-							>
-								<span className="text-xs font-bold text-[#3D5568] w-6 text-center shrink-0">
-									#{index + 1}
-								</span>
-								<div className="flex-1 relative">
-									<div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
-										<Scale className="h-3.5 w-3.5" />
+							<div key={fish.id} className="p-3 bg-[#F4F7F6] rounded-xl border border-gray-200">
+								<div className="flex items-center gap-2">
+									<span className="text-xs font-bold text-[#3D5568] w-6 text-center shrink-0">
+										#{index + 1}
+									</span>
+									<div className="flex-1 relative">
+										<div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
+											<Scale className="h-3.5 w-3.5" />
+										</div>
+										<input
+											type="number"
+											step="0.1"
+											min="0.1"
+											placeholder="Weight (g)"
+											className={fishFieldCls}
+											value={fish.weightGrams}
+											onChange={(e) => updateFishEntry(index, "weightGrams", e.target.value)}
+										/>
 									</div>
-									<input
-										type="number"
-										step="0.1"
-										min="0.1"
-										placeholder="Weight (g)"
-										className={fishFieldCls}
-										value={fish.weightGrams}
-										onChange={(e) => updateFishEntry(index, "weightGrams", e.target.value)}
-									/>
-								</div>
-								<div className="flex-1 relative">
-									<div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
-										<Ruler className="h-3.5 w-3.5" />
+									<div className="flex-1 relative">
+										<div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
+											<Ruler className="h-3.5 w-3.5" />
+										</div>
+										<input
+											type="number"
+											step="0.1"
+											min="0"
+											placeholder="Length (cm)"
+											className={fishFieldCls}
+											value={fish.lengthCm}
+											onChange={(e) => updateFishEntry(index, "lengthCm", e.target.value)}
+										/>
 									</div>
-									<input
-										type="number"
-										step="0.1"
-										min="0"
-										placeholder="Length (cm)"
-										className={fishFieldCls}
-										value={fish.lengthCm}
-										onChange={(e) => updateFishEntry(index, "lengthCm", e.target.value)}
-									/>
+									<button
+										type="button"
+										onClick={() => removeFishEntry(index)}
+										disabled={individualFish.length <= 1}
+										className="p-1.5 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-30 disabled:pointer-events-none shrink-0"
+									>
+										<X className="w-4 h-4" />
+									</button>
 								</div>
-								<button
-									type="button"
-									onClick={() => removeFishEntry(index)}
-									disabled={individualFish.length <= 1}
-									className="p-1.5 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-30 disabled:pointer-events-none shrink-0"
-								>
-									<X className="w-4 h-4" />
-								</button>
+								{rowErrors[index] && (
+									<p className="mt-1.5 pl-8 text-xs font-bold text-red-500">{rowErrors[index]}</p>
+								)}
 							</div>
 						))}
 					</div>

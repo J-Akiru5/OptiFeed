@@ -113,6 +113,7 @@ model BiomassLog {
   sampleLengthCm  Float
   sampleCount     Int
   avgWeightKg     Float
+  batchLabel      String? // optional free-text label shared by all fish in this log session
   recordedAt      DateTime @default(now())
   farmId          String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
 

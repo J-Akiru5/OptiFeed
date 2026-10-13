@@ -1,6 +1,7 @@
 "use server";
 
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
+import { STALE_DISPATCHED_MS } from "@/lib/constants";
 import {
 	MAX_DISPENSE_MS,
 	OFFLINE_THRESHOLD_MS,
@@ -11,12 +12,11 @@ import {
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-// Stale dispatched threshold: 10 minutes.
+// STALE_DISPATCHED_MS (lib/constants.ts): 10 minutes.
 // Calculated from default gramsPerSecond = 4.0:
 //   500g feed dispenses in ~125s + 5s queue flush = ~130s total.
 //   10min gives 4.6x margin even for hypothetical 1000g feed (255s).
 //   Recalibrate if gramsPerSecond changes or max dose changes.
-const STALE_DISPATCHED_MS = 10 * 60 * 1000;
 
 function manilaDayRange(nowMs: number = Date.now()): { start: Date; end: Date } {
 	const HOUR_MS = 60 * 60 * 1000;

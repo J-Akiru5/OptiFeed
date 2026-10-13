@@ -451,6 +451,7 @@ export default async function GrowthPage() {
 							<thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
 								<tr>
 									<th className="px-6 py-4">{t("dateCol")}</th>
+									<th className="px-6 py-4">{t("batchCol")}</th>
 									<th className="px-6 py-4">{t("totalWeightCol")}</th>
 									<th className="px-6 py-4">{t("fishCountCol")}</th>
 									<th className="px-6 py-4">{t("avgLengthCol")}</th>
@@ -469,6 +470,9 @@ export default async function GrowthPage() {
 											<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
 												{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
 											</td>
+											<td className="px-6 py-4 whitespace-nowrap">
+												{log.batchLabel ?? <span className="text-gray-400">—</span>}
+											</td>
 											<td className="px-6 py-4">{log.sampleWeightKg.toFixed(2)} kg</td>
 											<td className="px-6 py-4">{log.sampleCount}</td>
 											<td className="px-6 py-4">{log.sampleLengthCm.toFixed(1)} cm</td>
@@ -477,10 +481,46 @@ export default async function GrowthPage() {
 											</td>
 											<td className="px-6 py-4 text-center">
 												{log.fishSamples.length > 0 ? (
-													<span className="inline-flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 text-xs font-bold rounded-full">
-														<Fish className="w-3 h-3" />
-														{log.fishSamples.length} fish
-													</span>
+													<details className="inline-block text-left">
+														<summary className="inline-flex cursor-pointer list-none items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 text-xs font-bold rounded-full hover:bg-teal-100 transition-colors">
+															<Fish className="w-3 h-3" />
+															{log.fishSamples.length} fish
+														</summary>
+														<div className="mt-2 min-w-[180px] rounded-xl border border-teal-100 bg-teal-50/50 overflow-hidden">
+															<div className="flex items-baseline justify-between gap-3 px-3 py-1.5 bg-teal-100/70 text-[10px] font-bold uppercase text-teal-700">
+																<span className="truncate">{log.batchLabel ?? "Unlabeled"}</span>
+																<span className="font-medium normal-case text-teal-600 shrink-0">
+																	{formatDateTimeLocal(log.recordedAt, tDates).date}
+																</span>
+															</div>
+															<table className="w-full text-xs text-gray-600">
+																<thead>
+																	<tr className="text-[10px] uppercase text-teal-700">
+																		<th className="px-3 py-1.5 text-left font-bold">#</th>
+																		<th className="px-3 py-1.5 text-right font-bold">Weight</th>
+																		<th className="px-3 py-1.5 text-right font-bold">Length</th>
+																	</tr>
+																</thead>
+																<tbody className="divide-y divide-teal-100">
+																	{log.fishSamples.map((sample, sampleIndex) => (
+																		<tr key={sample.id}>
+																			<td className="px-3 py-1.5 text-gray-500">
+																				{sampleIndex + 1}
+																			</td>
+																			<td className="px-3 py-1.5 text-right font-medium text-gray-800">
+																				{sample.weightGrams.toFixed(1)} g
+																			</td>
+																			<td className="px-3 py-1.5 text-right">
+																				{sample.lengthCm > 0
+																					? `${sample.lengthCm.toFixed(1)} cm`
+																					: "—"}
+																			</td>
+																		</tr>
+																	))}
+																</tbody>
+															</table>
+														</div>
+													</details>
 												) : (
 													<span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 text-xs font-bold rounded-full">
 														<Scale className="w-3 h-3" />
@@ -492,7 +532,7 @@ export default async function GrowthPage() {
 									))}
 								{biomassLogs.length === 0 && (
 									<tr>
-										<td colSpan={6} className="px-6 py-10 text-center text-gray-500">
+										<td colSpan={7} className="px-6 py-10 text-center text-gray-500">
 											{t("noSamples")}
 										</td>
 									</tr>

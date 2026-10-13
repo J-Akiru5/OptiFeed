@@ -249,6 +249,7 @@
 			"feedLevelDesc": "Hopper fill level over time",
 			"feedLevelTableTitle": "Feed Level History",
 			"dateCol": "Date",
+			"batchCol": "Batch",
 			"totalWeightCol": "Total Weight",
 			"fishCountCol": "Fish Count",
 			"avgLengthCol": "Avg Length",

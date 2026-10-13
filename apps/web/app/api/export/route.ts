@@ -71,6 +71,7 @@ export async function GET(request: Request) {
 				sampleLengthCm: l.sampleLengthCm,
 				sampleCount: l.sampleCount,
 				avgWeightKg: l.avgWeightKg,
+				batchLabel: l.batchLabel,
 				recordedAt: l.recordedAt.toISOString(),
 			}));
 			break;
@@ -78,9 +79,10 @@ export async function GET(request: Request) {
 		case "fish_samples": {
 			const logs = await prisma.biomassLog.findMany({
 				where: { pondId: pond.id },
-				select: { id: true },
+				select: { id: true, batchLabel: true, recordedAt: true },
 				take: EXPORT_ROW_LIMIT,
 			});
+			const logMeta = new Map(logs.map((l) => [l.id, l]));
 			const logIds = logs.map((l) => l.id);
 			const samples = await prisma.fishSample.findMany({
 				where: { biomassLogId: { in: logIds } },
@@ -90,8 +92,10 @@ export async function GET(request: Request) {
 			rows = samples.map((s) => ({
 				id: s.id,
 				biomassLogId: s.biomassLogId,
+				batchLabel: logMeta.get(s.biomassLogId)?.batchLabel ?? null,
 				weightGrams: s.weightGrams,
 				lengthCm: s.lengthCm,
+				recordedAt: logMeta.get(s.biomassLogId)?.recordedAt.toISOString() ?? null,
 			}));
 			break;
 		}

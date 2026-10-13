@@ -64,3 +64,15 @@ export async function getClientIp(): Promise<string> {
 	const hdrs = await headers();
 	return hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "127.0.0.1";
 }
+
+/**
+ * Delete rate-limit windows older than one hour (windows are at most 60 s).
+ * The 3.1 device-watch cron calls this each run so the table stays small
+ * without needing a separate pg_cron job (task 2.6).
+ */
+export async function cleanupExpiredRateLimitBuckets(): Promise<number> {
+	const cutoff = new Date(Date.now() - 60 * 60 * 1000);
+	const deleted =
+		await prisma.$executeRaw`DELETE FROM rate_limit_bucket WHERE "window_start" < ${cutoff}`;
+	return Number(deleted);
+}

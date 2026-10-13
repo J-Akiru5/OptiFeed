@@ -135,7 +135,7 @@ record(
 	"device routes verify tokens with timingSafeEqual",
 	deviceRoutes.length === 3 &&
 		timingHelper &&
-		deviceRoutes.every((f) => /timingSafeEqual|@\/lib\/auth\//.test(read(f))),
+		deviceRoutes.every((f) => /timingSafeEqual|@\/lib\/(auth\/|device-auth)/.test(read(f))),
 );
 
 record(
@@ -177,9 +177,6 @@ for (const route of ["ingest", "feed-command", "schedule-sync"]) {
 
 const envExample = read(`${web}/.env.example`);
 for (const key of [
-	"SENTRY_DSN",
-	"SENTRY_ORG",
-	"SENTRY_PROJECT",
 	"GEMINI_MODEL",
 	"NEXT_PUBLIC_BASE_URL",
 	"DEMO_PIN",

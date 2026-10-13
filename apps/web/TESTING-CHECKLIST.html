@@ -178,11 +178,9 @@ const SECTIONS = [
     ]
   },
   {
-    title: "4. Sentry Error Tracking",
+    title: "4. Error Reporting (Sentry removed 2026-10-13)",
     items: [
-      { title: "Sentry config files exist", desc: "sentry.client.config.ts, sentry.server.config.ts, sentry.edge.config.ts", steps: "Run: ls apps/web/sentry.*.config.ts. Confirm all three files exist." },
-      { title: "next.config.ts wrapped with Sentry", desc: "withSentryConfig wraps the Next.js config", steps: "Open apps/web/next.config.ts. Confirm it imports and uses withSentryConfig." },
-      { title: "Sentry DSN in .env", desc: "SENTRY_AUTH_TOKEN, SENTRY_ORG, SENTRY_PROJECT are set", steps: "Check .env or .env.local for SENTRY_ variables. Without them, Sentry runs in disabled/silent mode. The sourcemaps option uses 'sourcemaps: { disable: true }' in next.config.ts." }
+      { title: "No Sentry leftovers", desc: "no @sentry/nextjs dep, no sentry.*.config.ts, no SENTRY_ env vars", steps: "Run: grep -r sentry apps/web/package.json apps/web/next.config.ts apps/web/.env.example — expect no matches. Errors surface via console.error('[obs]', ...) in Vercel function logs." }
     ]
   },
   {

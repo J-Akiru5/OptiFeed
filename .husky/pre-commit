@@ -1,5 +1,6 @@
-# Block accidental .env commits (defense-in-depth — .gitignore should catch these)
-if git diff --cached --name-only | grep -qE '\.env$|\.env\.'; then
+# Block accidental .env commits (defense-in-depth — .gitignore should catch these).
+# The template .env.example is intentionally tracked and allowed (self-check does the same).
+if git diff --cached --name-only | grep -E '\.env' | grep -vqE '\.env\.example$'; then
   echo "ERROR: Attempting to commit .env file. This is blocked by policy."
   echo "Remove it from staging with: git reset HEAD <file>"
   exit 1

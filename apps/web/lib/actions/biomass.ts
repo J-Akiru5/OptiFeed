@@ -22,6 +22,9 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 	const sampleWeightKg = Number.parseFloat(formData.get("sampleWeightKg") as string);
 	const sampleLengthCm = Number.parseFloat(formData.get("sampleLengthCm") as string);
 	const sampleCount = Number.parseInt(formData.get("sampleCount") as string, 10);
+	const batchLabelRaw = formData.get("batchLabel");
+	const batchLabel =
+		typeof batchLabelRaw === "string" && batchLabelRaw.trim() !== "" ? batchLabelRaw.trim() : null;
 
 	const fishSamplesJson = formData.get("fishSamples") as string | null;
 	let fishSamples: FishSampleInput[] = [];
@@ -53,7 +56,12 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 		return { success: false, error: "Missing pond" };
 	}
 
-	const parsed = biomassLogSchema.safeParse({ sampleCount, sampleWeightKg, sampleLengthCm });
+	const parsed = biomassLogSchema.safeParse({
+		sampleCount,
+		sampleWeightKg,
+		sampleLengthCm,
+		batchLabel,
+	});
 	if (!parsed.success) {
 		return { success: false, error: formatZodError(parsed.error) };
 	}
@@ -77,6 +85,7 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 				sampleLengthCm,
 				sampleCount,
 				avgWeightKg,
+				batchLabel,
 			},
 		});
 

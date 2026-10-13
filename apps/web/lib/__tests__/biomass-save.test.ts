@@ -63,6 +63,25 @@ describe("biomassLogSchema", () => {
 		});
 		expect(result.success).toBe(false);
 	});
+
+	it("accepts logs without a batch label (null or omitted)", () => {
+		const base = { sampleCount: 3, sampleWeightKg: 1.5, sampleLengthCm: 24 };
+		expect(biomassLogSchema.safeParse(base).success).toBe(true);
+		expect(biomassLogSchema.safeParse({ ...base, batchLabel: null }).success).toBe(true);
+		expect(biomassLogSchema.safeParse({ ...base, batchLabel: "Batch 2026-10 A" }).success).toBe(
+			true,
+		);
+	});
+
+	it("rejects batch labels longer than 64 characters", () => {
+		const result = biomassLogSchema.safeParse({
+			sampleCount: 3,
+			sampleWeightKg: 1.5,
+			sampleLengthCm: 24,
+			batchLabel: "x".repeat(65),
+		});
+		expect(result.success).toBe(false);
+	});
 });
 
 describe("fishSampleRowSchema", () => {
@@ -126,6 +145,15 @@ describe("saveBiomassLog result shape", () => {
 		}
 	});
 
+	it("returns an error for a batch label over 64 characters", async () => {
+		const fd = buildFormData({ batchLabel: "x".repeat(65) });
+		const result = await saveBiomassLog(fd);
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error).toMatch(/64 characters/);
+		}
+	});
+
 	it("accepts weight-only individual rows end to end (validation reaches the transaction)", async () => {
 		const prisma = (await import("@/lib/prisma")).default;
 		const mockTx = {
@@ -152,6 +180,7 @@ describe("saveBiomassLog result shape", () => {
 			sampleLengthCm: "0",
 			sampleCount: "2",
 			sampleWeightKg: "0.44",
+			batchLabel: "Batch 2026-10 A",
 			fishSamples: JSON.stringify([
 				{ weightGrams: 220, lengthCm: 0 },
 				{ weightGrams: 220, lengthCm: 0 },
@@ -159,6 +188,9 @@ describe("saveBiomassLog result shape", () => {
 		});
 		const result = await saveBiomassLog(fd);
 		expect(result).toEqual({ success: true });
+		expect(mockTx.biomassLog.create).toHaveBeenCalledWith({
+			data: expect.objectContaining({ batchLabel: "Batch 2026-10 A" }),
+		});
 		expect(mockTx.fishSample.createMany).toHaveBeenCalledWith({
 			data: [
 				{ biomassLogId: "log-1", weightGrams: 220, lengthCm: 0 },

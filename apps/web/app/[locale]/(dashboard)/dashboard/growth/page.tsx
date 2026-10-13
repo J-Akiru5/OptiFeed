@@ -451,6 +451,7 @@ export default async function GrowthPage() {
 							<thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
 								<tr>
 									<th className="px-6 py-4">{t("dateCol")}</th>
+									<th className="px-6 py-4">{t("batchCol")}</th>
 									<th className="px-6 py-4">{t("totalWeightCol")}</th>
 									<th className="px-6 py-4">{t("fishCountCol")}</th>
 									<th className="px-6 py-4">{t("avgLengthCol")}</th>
@@ -469,6 +470,9 @@ export default async function GrowthPage() {
 											<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
 												{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
 											</td>
+											<td className="px-6 py-4 whitespace-nowrap">
+												{log.batchLabel ?? <span className="text-gray-400">—</span>}
+											</td>
 											<td className="px-6 py-4">{log.sampleWeightKg.toFixed(2)} kg</td>
 											<td className="px-6 py-4">{log.sampleCount}</td>
 											<td className="px-6 py-4">{log.sampleLengthCm.toFixed(1)} cm</td>
@@ -483,6 +487,12 @@ export default async function GrowthPage() {
 															{log.fishSamples.length} fish
 														</summary>
 														<div className="mt-2 min-w-[180px] rounded-xl border border-teal-100 bg-teal-50/50 overflow-hidden">
+															<div className="flex items-baseline justify-between gap-3 px-3 py-1.5 bg-teal-100/70 text-[10px] font-bold uppercase text-teal-700">
+																<span className="truncate">{log.batchLabel ?? "Unlabeled"}</span>
+																<span className="font-medium normal-case text-teal-600 shrink-0">
+																	{formatDateTimeLocal(log.recordedAt, tDates).date}
+																</span>
+															</div>
 															<table className="w-full text-xs text-gray-600">
 																<thead>
 																	<tr className="text-[10px] uppercase text-teal-700">
@@ -522,7 +532,7 @@ export default async function GrowthPage() {
 									))}
 								{biomassLogs.length === 0 && (
 									<tr>
-										<td colSpan={6} className="px-6 py-10 text-center text-gray-500">
+										<td colSpan={7} className="px-6 py-10 text-center text-gray-500">
 											{t("noSamples")}
 										</td>
 									</tr>

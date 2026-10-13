@@ -14,6 +14,7 @@ interface LogSampleFormProps {
 	feedsPerDay: number;
 	population?: number | null;
 	canWrite?: boolean;
+	batchLabels?: string[];
 }
 
 type InputMode = "average" | "individual";
@@ -30,6 +31,7 @@ export function LogSampleForm({
 	feedsPerDay,
 	population = null,
 	canWrite = true,
+	batchLabels = [],
 }: LogSampleFormProps) {
 	const tBtn = useTranslations("button");
 	const router = useRouter();
@@ -41,6 +43,7 @@ export function LogSampleForm({
 		g.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 	const [inputMode, setInputMode] = useState<InputMode>("average");
+	const [batchLabel, setBatchLabel] = useState<string>("");
 
 	const [weightGrams, setWeightGrams] = useState<string>("");
 	const [lengthCm, setLengthCm] = useState<string>("");
@@ -190,6 +193,7 @@ export function LogSampleForm({
 		formData.append("sampleWeightKg", sampleWeightKg.toString());
 		formData.append("sampleLengthCm", sampleLengthCm.toString());
 		formData.append("sampleCount", sampleCount.toString());
+		formData.append("batchLabel", batchLabel.trim());
 
 		if (inputMode === "individual" && fishSamplesData.length > 0) {
 			formData.append("fishSamples", JSON.stringify(fishSamplesData));
@@ -248,6 +252,35 @@ export function LogSampleForm({
 					<Fish className="inline-block w-4 h-4 mr-1.5 -mt-0.5" />
 					Individual Mode
 				</button>
+			</div>
+
+			<div className="space-y-1.5">
+				<label
+					htmlFor="batchLabel"
+					className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568]"
+				>
+					Batch (optional)
+				</label>
+				<div className="relative">
+					<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+						<Fish className="h-5 w-5" />
+					</div>
+					<input
+						type="text"
+						id="batchLabel"
+						maxLength={64}
+						list="batchLabelOptions"
+						className={fieldCls}
+						placeholder="e.g. Batch 2026-10 A"
+						value={batchLabel}
+						onChange={(e) => setBatchLabel(e.target.value)}
+					/>
+					<datalist id="batchLabelOptions">
+						{batchLabels.map((label) => (
+							<option key={label} value={label} />
+						))}
+					</datalist>
+				</div>
 			</div>
 
 			{inputMode === "average" ? (

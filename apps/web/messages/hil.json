@@ -249,6 +249,7 @@
 			"feedLevelDesc": "Lebel sang hopper sa paglabay sang tion",
 			"feedLevelTableTitle": "Kasaysayan sang Feed Level",
 			"dateCol": "Petsa",
+			"batchCol": "Batch",
 			"totalWeightCol": "Kabug-atan",
 			"fishCountCol": "Bilang sang Isda",
 			"avgLengthCol": "Katas-on (Average)",

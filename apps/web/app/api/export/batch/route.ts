@@ -72,6 +72,7 @@ export async function GET(request: Request) {
 					sampleLengthCm: l.sampleLengthCm,
 					sampleCount: l.sampleCount,
 					avgWeightKg: l.avgWeightKg,
+					batchLabel: l.batchLabel,
 					recordedAt: l.recordedAt.toISOString(),
 				}));
 				break;

@@ -32,12 +32,6 @@ importers:
       '@google/generative-ai':
         specifier: ^0.24.1
         version: 0.24.1
-      '@optifeed/types':
-        specifier: workspace:*
-        version: link:../../packages/types
-      '@optifeed/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
       '@prisma/client':
         specifier: ^6.6.0
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
@@ -149,24 +143,6 @@ importers:
         version: 3.2.7(@types/node@20.19.43)(jiti@2.7.0)(jsdom@30.0.1)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.0)(yaml@2.9.0)
 
   packages/config: {}
-
-  packages/types:
-    devDependencies:
-      '@optifeed/config':
-        specifier: workspace:*
-        version: link:../config
-      typescript:
-        specifier: ^5.0.0
-        version: 5.9.3
-
-  packages/ui:
-    devDependencies:
-      '@optifeed/config':
-        specifier: workspace:*
-        version: link:../config
-      typescript:
-        specifier: ^5.0.0
-        version: 5.9.3
 
 packages:
 

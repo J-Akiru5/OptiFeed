@@ -2,7 +2,8 @@
 // Single event log (DeviceStateEvent) is the source of truth for audit trail,
 // notifications, and schedule sync. Three features are thin read/filter views.
 //
-// TODO(karl): Confirm indexes, cascading deletes, and row-level security policies once the access model is finalized.
+// RLS is enabled via migration 20261013020000_enable_rls_on_user (User table);
+// core indexes on Pond/Notification/FcrReport were added in Phase 1.
 
 generator client {
   provider = "prisma-client-js"
@@ -92,8 +93,8 @@ model Pond {
 
 model Device {
   // @deprecated — prefer EnergyDevice for all device interactions.
-  // FeedingEvent and this model are kept for seed data backward compat.
-  // No new code should write to this model.
+  // FeedingEvent and this model are no longer written (task 5.2; seeds were
+  // the last writers). Kept until a later release drops the tables (H9).
   id             String    @id @default(cuid())
   pondId         String
   name           String

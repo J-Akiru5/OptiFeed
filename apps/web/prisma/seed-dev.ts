@@ -67,6 +67,8 @@ async function main() {
 
 	// ── 3. Delete only demo-owned data ─────────────────────────────────────
 	//    Scoped to demo pond/devices — never touches other users' data.
+	//    (The deprecated Device/FeedingEvent models are no longer written or
+	//    cleaned up here — task 5.2. Live EnergyDevice rows are cleared.)
 	const demoDeviceIds = (
 		await prisma.energyDevice.findMany({
 			where: { pondId: pond.id },
@@ -74,43 +76,22 @@ async function main() {
 		})
 	).map((d) => d.id);
 
-	const legacyDeviceIds = (
-		await prisma.device.findMany({
-			where: { pondId: pond.id },
-			select: { id: true },
-		})
-	).map((d) => d.id);
-
-	const allDeviceIds = [...demoDeviceIds, ...legacyDeviceIds];
-
-	if (allDeviceIds.length > 0) {
-		await prisma.feedLevelLog.deleteMany({ where: { deviceId: { in: allDeviceIds } } });
-		await prisma.feedRequest.deleteMany({ where: { deviceId: { in: allDeviceIds } } });
-		await prisma.feedEvent.deleteMany({ where: { deviceId: { in: allDeviceIds } } });
-		await prisma.deviceStateEvent.deleteMany({ where: { deviceId: { in: allDeviceIds } } });
+	if (demoDeviceIds.length > 0) {
+		await prisma.feedLevelLog.deleteMany({ where: { deviceId: { in: demoDeviceIds } } });
+		await prisma.feedRequest.deleteMany({ where: { deviceId: { in: demoDeviceIds } } });
+		await prisma.feedEvent.deleteMany({ where: { deviceId: { in: demoDeviceIds } } });
+		await prisma.deviceStateEvent.deleteMany({ where: { deviceId: { in: demoDeviceIds } } });
 	}
 
 	await prisma.scheduleCommand.deleteMany({ where: { pondId: pond.id } });
 	await prisma.fcrReport.deleteMany({ where: { pondId: pond.id } });
 	await prisma.biomassLog.deleteMany({ where: { pondId: pond.id } });
-	await prisma.feedingEvent.deleteMany({ where: { deviceId: { in: allDeviceIds } } });
 	await prisma.notification.deleteMany({ where: { pondId: pond.id } });
 	await prisma.energyDevice.deleteMany({ where: { pondId: pond.id } });
-	await prisma.device.deleteMany({ where: { pondId: pond.id } });
 
 	console.log("✓ Cleared demo data for pond:", pond.id);
 
-	// ── 4. Re-create Devices ───────────────────────────────────────────────
-	const device = await prisma.device.create({
-		data: {
-			pondId: pond.id,
-			name: "Smart Feeder 1",
-			connectivity: "online",
-			hopperLevelPct: 82.0,
-			lastSyncedAt: new Date(),
-		},
-	});
-
+	// ── 4. Re-create demo Energy Device ───────────────────────────────────
 	const DEMO_MAC = "DE:AD:DE:MO:00:01";
 	const DEMO_TOKEN = "demo-token-dev-only-001";
 
@@ -170,31 +151,8 @@ async function main() {
 	await prisma.biomassLog.createMany({ data: logs });
 	console.log("✓ Created 4 biomass logs");
 
-	// ── 7. Feeding Events (2 weeks) ───────────────────────────────────────
-	const feedingEvents = [];
-	let missedInserted = false;
-	for (let day = 14; day >= 1; day--) {
-		for (let feed = 0; feed < 4; feed++) {
-			const scheduledTime = new Date(now.getTime() - day * 24 * 60 * 60 * 1000);
-			scheduledTime.setHours(6 + feed * 4, 0, 0, 0);
-			let status = "completed";
-			if (!missedInserted && day === 5 && feed === 2) {
-				status = "missed";
-				missedInserted = true;
-			}
-			feedingEvents.push({
-				deviceId: device.id,
-				scheduledTime,
-				dispensedVolumeG: status === "completed" ? 1500 : 0,
-				status,
-				createdAt: scheduledTime,
-			});
-		}
-	}
-	await prisma.feedingEvent.createMany({ data: feedingEvents });
-	console.log("✓ Created 56 feeding events");
-
-	// ── 8. FeedEvent + FeedRequest (2 weeks) ──────────────────────────────
+	// ── 7. FeedEvent + FeedRequest (2 weeks) ──────────────────────────────
+	// (The deprecated FeedingEvent model is no longer written — task 5.2.)
 	const feedSources = ["scheduled", "scheduled", "scheduled", "scheduled"];
 	feedSources[3] = "dashboard";
 	feedSources[1] = "button";

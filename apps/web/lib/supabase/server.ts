@@ -10,7 +10,8 @@ function requireEnv(name: string): string {
 	return value;
 }
 
-// TODO(karl): Use this server client in Server Components, Server Actions, and Route Handlers that need an authenticated Supabase session.
+// Server-side Supabase client: use in Server Components, Server Actions, and
+// Route Handlers that need an authenticated Supabase session.
 export async function createClient() {
 	const cookieStore = await cookies();
 

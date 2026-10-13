@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [Karl, develop]
   pull_request:
-    branches: [main]
+    branches: [develop]
 
 jobs:
   ci:
@@ -28,7 +28,7 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter web prisma:generate
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: postgresql://user:pass@localhost:5432/ci_dummy
 
       - name: Lint
         run: pnpm lint
@@ -61,10 +61,13 @@ jobs:
           if [ "$FAIL" -eq 1 ]; then exit 1; fi
           echo "All API routes have auth imports."
 
+      # next build directly (not pnpm build) so CI never runs
+      # `prisma migrate deploy` — dummy DB env, zero production access.
       - name: Build
-        run: pnpm build
+        run: npx next build
+        working-directory: apps/web
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          DATABASE_URL: postgresql://user:pass@localhost:5432/ci_dummy
+          DIRECT_URL: postgresql://user:pass@localhost:5432/ci_dummy
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-dummy.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-dummy-anon-key

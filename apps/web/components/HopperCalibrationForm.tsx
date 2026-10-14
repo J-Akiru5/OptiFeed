@@ -9,6 +9,7 @@ interface HopperCalibrationFormProps {
 	hopperFullCm: number | null;
 	hopperEmptyCm: number | null;
 	hopperCapacityG: number | null;
+	canWrite?: boolean;
 }
 
 export function HopperCalibrationForm({
@@ -16,6 +17,7 @@ export function HopperCalibrationForm({
 	hopperFullCm,
 	hopperEmptyCm,
 	hopperCapacityG,
+	canWrite = true,
 }: HopperCalibrationFormProps) {
 	const [fullCm, setFullCm] = useState(hopperFullCm ?? 5);
 	const [emptyCm, setEmptyCm] = useState(hopperEmptyCm ?? 30);
@@ -90,7 +92,7 @@ export function HopperCalibrationForm({
 			<button
 				type="button"
 				onClick={handleSave}
-				disabled={isPending}
+				disabled={isPending || !canWrite}
 				className="flex min-h-[var(--ofd-touch-min)] min-w-[120px] items-center justify-center rounded-lg bg-[var(--ofd-action)] px-6 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
 			>
 				{isPending ? "Saving..." : "Save Calibration"}

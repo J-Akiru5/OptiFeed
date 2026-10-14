@@ -26,6 +26,7 @@ interface ScheduleEditorProps {
 	initialFeedingRatePct: number;
 	pendingCommand: ScheduleCommandInfo | null;
 	latestAppliedCommand: ScheduleCommandInfo | null;
+	canWrite?: boolean;
 }
 
 function fmtTimeFromDate(d: Date): string {
@@ -48,6 +49,7 @@ export function ScheduleEditor({
 	initialFeedingRatePct,
 	pendingCommand,
 	latestAppliedCommand,
+	canWrite = true,
 }: ScheduleEditorProps) {
 	const t = useTranslations("dashboard.schedule");
 	const [start, setStart] = useState(initialStart);
@@ -244,7 +246,7 @@ export function ScheduleEditor({
 					<button
 						type="button"
 						onClick={handleForceResync}
-						disabled={isPending}
+						disabled={isPending || !canWrite}
 						className="mt-3 flex items-center gap-1.5 rounded-lg border border-[#0A3D62]/20 bg-white px-3 py-1.5 text-xs font-bold text-[#0A3D62] transition-colors hover:bg-[#0A3D62]/5 disabled:opacity-50"
 					>
 						{isPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
@@ -255,7 +257,7 @@ export function ScheduleEditor({
 				<div className="flex items-center gap-4">
 					<button
 						type="submit"
-						disabled={isPending}
+						disabled={isPending || !canWrite}
 						className="flex min-h-[44px] min-w-[120px] items-center justify-center rounded-lg bg-[var(--ofd-action)] px-6 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
 					>
 						{isPending ? <Loader2 size={18} className="animate-spin" /> : t("saveChanges")}

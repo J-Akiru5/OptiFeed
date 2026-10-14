@@ -38,7 +38,7 @@ export default async function AdminUsersPage() {
 									User
 								</th>
 								<th className="text-left px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider">
-									Farm ID
+									Farm
 								</th>
 								<th className="text-left px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider">
 									Role
@@ -72,8 +72,9 @@ export default async function AdminUsersPage() {
 												</div>
 											</div>
 										</td>
-										<td className="px-6 py-4 font-mono text-xs font-bold text-[#3D5568]">
-											{user.farmId}
+										<td className="px-6 py-4">
+											<p className="font-black text-[#0A3D62]">{user.farm?.name ?? user.farmId}</p>
+											<p className="text-[11px] font-mono text-[#3D5568]">{user.farmId}</p>
 										</td>
 										<td className="px-6 py-4">
 											<span

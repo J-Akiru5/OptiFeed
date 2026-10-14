@@ -17,7 +17,7 @@ export async function switchPond(pondId: string) {
 	const ownerId = await getCurrentPondOwnerId();
 
 	const pond = await prisma.pond.findFirst({
-		where: { id: pondId, ownerId },
+		where: { id: pondId, ownerId, status: "ACTIVE" },
 		select: { id: true },
 	});
 

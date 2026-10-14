@@ -49,13 +49,15 @@ async function createUser(args: Record<string, string>) {
 
 	if (!farmId || !name || !pin) {
 		console.error(
-			"Usage: pnpm manage-user create --farm-id <id> --name <name> [--role ADMIN|OPERATOR|VIEWER] --pin <4-6 digits>",
+			"Usage: pnpm manage-user create --farm-id <id> --name <name> [--role ADMIN|OPERATOR|VIEWER] --pin <6+ digits>",
 		);
 		process.exit(1);
 	}
 
-	if (!/^\d{4,6}$/.test(pin)) {
-		console.error("PIN must be 4-6 digits.");
+	// Set-time policy (task 2.7): new PINs are at least 6 digits.
+	// Existing 4-6 digit PINs keep working at login.
+	if (!/^\d{6,}$/.test(pin)) {
+		console.error("PIN must be at least 6 digits.");
 		process.exit(1);
 	}
 
@@ -86,14 +88,23 @@ async function createUser(args: Record<string, string>) {
 		process.exit(1);
 	}
 
-	const user = await prisma.user.create({
-		data: {
-			supabaseId: authUser.user.id,
-			farmId: normalizedFarmId,
-			email,
-			displayName: name,
-			role: role as "ADMIN" | "OPERATOR" | "VIEWER",
-		},
+	const user = await prisma.$transaction(async (tx) => {
+		const created = await tx.user.create({
+			data: {
+				supabaseId: authUser.user.id,
+				farmId: normalizedFarmId,
+				email,
+				displayName: name,
+				role: role as "ADMIN" | "OPERATOR" | "VIEWER",
+			},
+		});
+		await tx.farm.create({
+			data: {
+				ownerId: created.farmId,
+				name: `${name || normalizedFarmId} Farm`,
+			},
+		});
+		return created;
 	});
 
 	console.log(`\n✓ Created user: ${user.farmId} (${user.displayName}) [${user.role}]`);
@@ -105,12 +116,14 @@ async function resetPin(args: Record<string, string>) {
 	const pin = args["--pin"];
 
 	if (!farmId || !pin) {
-		console.error("Usage: pnpm manage-user reset-pin --farm-id <id> --pin <4-6 digits>");
+		console.error("Usage: pnpm manage-user reset-pin --farm-id <id> --pin <6+ digits>");
 		process.exit(1);
 	}
 
-	if (!/^\d{4,6}$/.test(pin)) {
-		console.error("PIN must be 4-6 digits.");
+	// Set-time policy (task 2.7): new PINs are at least 6 digits.
+	// Existing 4-6 digit PINs keep working at login.
+	if (!/^\d{6,}$/.test(pin)) {
+		console.error("PIN must be at least 6 digits.");
 		process.exit(1);
 	}
 
@@ -150,7 +163,35 @@ async function deleteUser(args: Record<string, string>) {
 
 	const supabase = createAdminClient();
 	await supabase.auth.admin.deleteUser(user.supabaseId);
-	await prisma.user.delete({ where: { farmId: normalizedFarmId } });
+
+	// Delete the farmer's whole subtree in FK-safe order:
+	// event rows and devices (RESTRICT) → ponds → farm → user.
+	await prisma.$transaction(async (tx) => {
+		const pondIds = (
+			await tx.pond.findMany({ where: { ownerId: user.farmId }, select: { id: true } })
+		).map((p) => p.id);
+
+		if (pondIds.length > 0) {
+			const wherePond = { pondId: { in: pondIds } };
+			const whereDevicePond = { device: { pondId: { in: pondIds } } };
+
+			await tx.feedLevelLog.deleteMany({ where: whereDevicePond });
+			await tx.feedRequest.deleteMany({ where: whereDevicePond });
+			await tx.feedEvent.deleteMany({ where: whereDevicePond });
+			await tx.deviceStateEvent.deleteMany({ where: whereDevicePond });
+			await tx.scheduleCommand.deleteMany({ where: { OR: [whereDevicePond, wherePond] } });
+			await tx.notification.deleteMany({ where: wherePond });
+			await tx.fcrReport.deleteMany({ where: wherePond });
+			await tx.biomassLog.deleteMany({ where: wherePond });
+			await tx.feedingEvent.deleteMany({ where: whereDevicePond });
+			await tx.energyDevice.deleteMany({ where: wherePond });
+			await tx.device.deleteMany({ where: wherePond });
+			await tx.pond.deleteMany({ where: { id: { in: pondIds } } });
+		}
+
+		await tx.farm.deleteMany({ where: { ownerId: user.farmId } });
+		await tx.user.delete({ where: { id: user.id } });
+	});
 
 	console.log(`\n✓ Deleted user "${user.farmId}" (${user.displayName})\n`);
 }
@@ -201,9 +242,9 @@ Commands:
   list                                    List all users
   create    --farm-id <id> --name <name>  Create a new user
             [--role ADMIN|OPERATOR|VIEWER]
-            --pin <4-6 digits>
+            --pin <6+ digits>
   reset-pin --farm-id <id>               Reset a user's PIN
-            --pin <4-6 digits>
+            --pin <6+ digits>
   delete    --farm-id <id>               Delete a user
 `);
 			break;

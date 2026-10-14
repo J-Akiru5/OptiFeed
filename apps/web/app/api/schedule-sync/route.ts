@@ -1,10 +1,60 @@
+import { verifyDeviceToken } from "@/lib/device-auth";
+import {
+	BUTTON_FEED_GRAMS_MAX,
+	BUTTON_FEED_GRAMS_MIN,
+	FEEDING_RATE_PCT_MAX,
+	FEEDING_RATE_PCT_MIN,
+	FEEDS_PER_DAY_MAX,
+	FEEDS_PER_DAY_MIN,
+	GRAMS_PER_SECOND_MAX,
+	GRAMS_PER_SECOND_MIN,
+	MAX_FEED_GRAMS_PER_REQUEST,
+	TEMP_OFFSET_C_MAX,
+	TEMP_OFFSET_C_MIN,
+	clamp,
+} from "@/lib/limits";
+import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
+import { checkDeviceRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 // Formats a Prisma Time (DateTime mapped to JS Date) to "HH:MM" 24h string.
 function formatTime(date: Date): string {
 	return `${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}`;
+}
+
+type DeviceConfig = {
+	gramsPerFeeding: number;
+	buttonFeedGrams: number;
+	hopperEmptyCm: number | null;
+	hopperFullCm: number | null;
+	gramsPerSecond: number;
+	tempOffsetC: number;
+};
+
+function deviceConfig(device: DeviceConfig) {
+	return {
+		grams_per_feeding: clamp(device.gramsPerFeeding, 0, MAX_FEED_GRAMS_PER_REQUEST),
+		button_feed_grams: clamp(device.buttonFeedGrams, BUTTON_FEED_GRAMS_MIN, BUTTON_FEED_GRAMS_MAX),
+		hopper_empty_cm: device.hopperEmptyCm,
+		hopper_full_cm: device.hopperFullCm,
+		grams_per_second: clamp(device.gramsPerSecond, GRAMS_PER_SECOND_MIN, GRAMS_PER_SECOND_MAX),
+		temp_offset_c: clamp(device.tempOffsetC, TEMP_OFFSET_C_MIN, TEMP_OFFSET_C_MAX),
+	};
+}
+
+function scheduleValues(feedsPerDay: number | null, feedingRatePct: number | null) {
+	return {
+		feeds_per_day:
+			feedsPerDay === null
+				? null
+				: Math.round(clamp(feedsPerDay, FEEDS_PER_DAY_MIN, FEEDS_PER_DAY_MAX)),
+		feeding_rate_pct:
+			feedingRatePct === null
+				? null
+				: clamp(feedingRatePct, FEEDING_RATE_PCT_MIN, FEEDING_RATE_PCT_MAX),
+	};
 }
 
 export async function GET(request: Request) {
@@ -19,21 +69,14 @@ export async function GET(request: Request) {
 		return new Response("Unprocessable Entity", { status: 422 });
 	}
 
+	const { success } = await checkDeviceRateLimit(deviceId);
+	if (!success) {
+		return new Response("Too Many Requests", { status: 429 });
+	}
+
+	let device: Awaited<ReturnType<typeof verifyDeviceToken>> = null;
 	try {
-		const device = await prisma.energyDevice.findUnique({
-			where: { token },
-			select: {
-				id: true,
-				mac: true,
-				gramsPerFeeding: true,
-				buttonFeedGrams: true,
-				pondId: true,
-				hopperEmptyCm: true,
-				hopperFullCm: true,
-				gramsPerSecond: true,
-				tempOffsetC: true,
-			},
-		});
+		device = await verifyDeviceToken(token);
 
 		if (!device || device.mac !== deviceId) {
 			return new Response("Unauthorized", { status: 401 });
@@ -45,14 +88,8 @@ export async function GET(request: Request) {
 				command_id: null,
 				schedule_start: null,
 				schedule_end: null,
-				feeds_per_day: null,
-				feeding_rate_pct: null,
-				grams_per_feeding: device.gramsPerFeeding,
-				button_feed_grams: device.buttonFeedGrams,
-				hopper_empty_cm: device.hopperEmptyCm,
-				hopper_full_cm: device.hopperFullCm,
-				grams_per_second: device.gramsPerSecond,
-				temp_offset_c: device.tempOffsetC,
+				...scheduleValues(null, null),
+				...deviceConfig(device),
 			});
 		}
 
@@ -92,14 +129,8 @@ export async function GET(request: Request) {
 				command_id: pendingCommand.id,
 				schedule_start: formatTime(pendingCommand.scheduleStart),
 				schedule_end: formatTime(pendingCommand.scheduleEnd),
-				feeds_per_day: pendingCommand.feedsPerDay,
-				feeding_rate_pct: pendingCommand.feedingRatePct,
-				grams_per_feeding: device.gramsPerFeeding,
-				button_feed_grams: device.buttonFeedGrams,
-				hopper_empty_cm: device.hopperEmptyCm,
-				hopper_full_cm: device.hopperFullCm,
-				grams_per_second: device.gramsPerSecond,
-				temp_offset_c: device.tempOffsetC,
+				...scheduleValues(pendingCommand.feedsPerDay, pendingCommand.feedingRatePct),
+				...deviceConfig(device),
 			});
 		}
 
@@ -115,14 +146,8 @@ export async function GET(request: Request) {
 				command_id: null,
 				schedule_start: formatTime(pond.scheduleStart),
 				schedule_end: formatTime(pond.scheduleEnd),
-				feeds_per_day: pond.feedsPerDay,
-				feeding_rate_pct: pond.feedingRatePct,
-				grams_per_feeding: device.gramsPerFeeding,
-				button_feed_grams: device.buttonFeedGrams,
-				hopper_empty_cm: device.hopperEmptyCm,
-				hopper_full_cm: device.hopperFullCm,
-				grams_per_second: device.gramsPerSecond,
-				temp_offset_c: device.tempOffsetC,
+				...scheduleValues(pond.feedsPerDay, pond.feedingRatePct),
+				...deviceConfig(device),
 			});
 		}
 
@@ -131,17 +156,11 @@ export async function GET(request: Request) {
 			command_id: null,
 			schedule_start: null,
 			schedule_end: null,
-			feeds_per_day: null,
-			feeding_rate_pct: null,
-			grams_per_feeding: device.gramsPerFeeding,
-			button_feed_grams: device.buttonFeedGrams,
-			hopper_empty_cm: device.hopperEmptyCm,
-			hopper_full_cm: device.hopperFullCm,
-			grams_per_second: device.gramsPerSecond,
-			temp_offset_c: device.tempOffsetC,
+			...scheduleValues(null, null),
+			...deviceConfig(device),
 		});
 	} catch (error) {
-		console.error("[schedule-sync] error:", error);
+		reportError(error, { route: "schedule-sync", deviceId: device?.id ?? deviceId });
 		// Return safe defaults so ESP32 doesn't hang
 		return Response.json({
 			schedule_changed: false,

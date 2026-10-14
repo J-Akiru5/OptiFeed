@@ -1,6 +1,7 @@
 import { DataExportButton, DataImportDialog } from "@/components/DataImportExport";
 import { FeedEventHistoryTable } from "@/components/FeedEventHistoryTable";
 import { getFeedEvents } from "@/lib/actions/history";
+import { canWrite } from "@/lib/auth/session";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { CalendarDays, CheckCircle2, Clock, Package } from "lucide-react";
@@ -62,6 +63,8 @@ export default async function HistoryPage() {
 		return t(`source_${key}`);
 	};
 
+	const writeAccess = await canWrite();
+
 	return (
 		<div className="space-y-8 pb-20 animate-in fade-in duration-500">
 			<header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -72,7 +75,7 @@ export default async function HistoryPage() {
 					<p className="text-gray-500 mt-1">{t("desc", { pond: pond.name })}</p>
 				</div>
 				<div className="flex items-center gap-3">
-					<DataImportDialog />
+					<DataImportDialog canWrite={writeAccess} />
 					<DataExportButton />
 				</div>
 			</header>

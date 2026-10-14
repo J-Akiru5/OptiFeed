@@ -1,6 +1,12 @@
+import { PondStatusToggle } from "@/components/admin/pond-status-toggle";
 import { Link } from "@/i18n/routing";
 import { getPonds } from "@/lib/actions/admin";
 import { Cpu, Droplets, Plus } from "lucide-react";
+
+const statusStyles: Record<string, { bg: string; text: string }> = {
+	ACTIVE: { bg: "bg-green-100", text: "text-green-700" },
+	ARCHIVED: { bg: "bg-gray-200", text: "text-[#3D5568]" },
+};
 
 export default async function AdminPondsPage() {
 	const ponds = await getPonds();
@@ -31,7 +37,16 @@ export default async function AdminPondsPage() {
 					>
 						<div className="flex items-start justify-between">
 							<div>
-								<h3 className="font-black text-[#0A3D62] text-lg">{pond.name}</h3>
+								<div className="flex items-center gap-2">
+									<h3 className="font-black text-[#0A3D62] text-lg">{pond.name}</h3>
+									<span
+										className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+											statusStyles[pond.status]?.bg ?? statusStyles.ACTIVE.bg
+										} ${statusStyles[pond.status]?.text ?? statusStyles.ACTIVE.text}`}
+									>
+										{pond.status === "ARCHIVED" ? "Archived" : "Active"}
+									</span>
+								</div>
 								<p className="text-[11px] text-[#3D5568] font-mono mt-0.5">
 									ID: {pond.id.slice(0, 12)}...
 								</p>
@@ -47,6 +62,9 @@ export default async function AdminPondsPage() {
 								<p className="font-bold text-[#0A3D62] mt-0.5">
 									{pond.owner?.displayName || pond.ownerId}
 								</p>
+								{pond.farm && (
+									<p className="text-[#3D5568] text-[10px] mt-0.5">Farm: {pond.farm.name}</p>
+								)}
 							</div>
 							<div className="rounded-xl bg-[#F4F7F6] p-2.5">
 								<p className="font-black uppercase text-[#3D5568] text-[10px]">Feeds/Day</p>
@@ -63,6 +81,14 @@ export default async function AdminPondsPage() {
 								<p className="font-black uppercase text-[#3D5568] text-[10px]">Logs</p>
 								<p className="font-bold text-[#0A3D62] mt-0.5">{pond._count.biomassLogs}</p>
 							</div>
+						</div>
+
+						<div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-3">
+							<p className="text-[11px] font-bold text-[#3D5568]">
+								Ownership history: {pond._count.ownershipHistory} event
+								{pond._count.ownershipHistory !== 1 ? "s" : ""}
+							</p>
+							<PondStatusToggle pondId={pond.id} status={pond.status} />
 						</div>
 					</div>
 				))}

@@ -17,17 +17,23 @@ export function farmIdFromEmail(email: string | undefined | null): string | null
 	return local.toLowerCase();
 }
 
+/**
+ * Extract the farmId from a pond-provisioned email, requiring the trusted
+ * domain. Returns null for any other domain, so a lookalike account
+ * (demo-farmer-1@evil.com) can never resolve to a farm.
+ */
+export function farmIdFromPondEmail(email: string | undefined | null): string | null {
+	if (!email) return null;
+	const normalized = email.toLowerCase();
+	if (!normalized.endsWith(`@${POND_EMAIL_DOMAIN}`)) return null;
+	return farmIdFromEmail(normalized);
+}
+
 export async function getCurrentPondOwnerId(): Promise<string> {
-	const locale = await getLocale();
-	const supabase = await createClient();
-
-	const {
-		data: { user },
-	} = await supabase.auth.getUser();
-
-	const ownerId = user?.email ? farmIdFromEmail(user.email) : null;
+	const ownerId = await getCurrentPondOwnerIdSafe();
 
 	if (!ownerId) {
+		const locale = await getLocale();
 		redirect({ href: "/login", locale });
 		return ""; // unreachable — redirect aborts the request
 	}
@@ -36,19 +42,18 @@ export async function getCurrentPondOwnerId(): Promise<string> {
 }
 
 export async function getCurrentPondOwnerIdSafe(): Promise<string | null> {
-	const supabase = await createClient();
-
-	const {
-		data: { user },
-	} = await supabase.auth.getUser();
-
-	if (!user) return null;
-	return farmIdFromEmail(user.email);
+	const currentUser = await getCurrentUser();
+	return currentUser?.farmId ?? null;
 }
 
 /**
  * Get the current user's database record (with role info).
  * Returns null if not authenticated or user not found in DB.
+ *
+ * Lookup is by Supabase auth user id (User.supabaseId) — never by the
+ * email local part alone. The email must also be a pond-provisioned
+ * address for this row's farm, so a lookalike domain
+ * (demo-farmer-1@evil.com) can never act as the farm.
  */
 export async function getCurrentUser() {
 	const supabase = await createClient();
@@ -56,14 +61,17 @@ export async function getCurrentUser() {
 		data: { user },
 	} = await supabase.auth.getUser();
 
-	if (!user?.email) return null;
+	if (!user?.id || !user?.email) return null;
 
-	const farmId = farmIdFromEmail(user.email);
-	if (!farmId) return null;
-
-	return prisma.user.findUnique({
-		where: { farmId },
+	const dbUser = await prisma.user.findUnique({
+		where: { supabaseId: user.id },
 	});
+	if (!dbUser) return null;
+
+	const emailFarmId = farmIdFromPondEmail(user.email);
+	if (!emailFarmId || emailFarmId !== dbUser.farmId) return null;
+
+	return dbUser;
 }
 
 /**
@@ -85,6 +93,27 @@ export async function requireRole(...roles: UserRole[]): Promise<void> {
 	if (!userRole || !roles.includes(userRole)) {
 		redirect({ href: "/dashboard", locale });
 	}
+}
+
+/**
+ * Require write access (ADMIN or OPERATOR). Throws instead of redirecting —
+ * for server actions and API routes, where a redirect is the wrong signal.
+ * VIEWER and unauthenticated callers are rejected before any write happens.
+ */
+export async function requireWriteAccess(): Promise<void> {
+	const userRole = await getCurrentUserRole();
+	if (userRole !== "ADMIN" && userRole !== "OPERATOR") {
+		throw new Error("Write access required (ADMIN or OPERATOR)");
+	}
+}
+
+/**
+ * True when the current user may perform write operations.
+ * Use in server components to disable VIEWER-only-readonly UI.
+ */
+export async function canWrite(): Promise<boolean> {
+	const userRole = await getCurrentUserRole();
+	return userRole === "ADMIN" || userRole === "OPERATOR";
 }
 
 /**

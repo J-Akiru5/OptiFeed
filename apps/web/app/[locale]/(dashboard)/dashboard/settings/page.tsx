@@ -1,9 +1,14 @@
+import { FarmRenameForm } from "@/components/farm-rename-form";
 import { Link } from "@/i18n/routing";
-import { Cpu, Database, Settings, User } from "lucide-react";
+import { getFarmOverview } from "@/lib/actions/farm";
+import { canWrite } from "@/lib/auth/session";
+import { Cpu, Database, Droplets, Settings, Sprout, User } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export default async function SettingsPage() {
 	const t = await getTranslations("dashboard.settings");
+	const farm = await getFarmOverview();
+	const writeAccess = await canWrite();
 
 	const cards = [
 		{
@@ -41,6 +46,47 @@ export default async function SettingsPage() {
 				</h1>
 				<p className="mt-2 text-gray-500">{t("desc")}</p>
 			</div>
+
+			{farm && (
+				<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+					<div className="mb-6 border-b border-gray-100 pb-4">
+						<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800">
+							<Sprout size={20} />
+							{t("farmCardTitle")}
+						</h2>
+						<p className="mt-1 text-sm text-gray-500">{t("farmCardDesc")}</p>
+					</div>
+
+					<div className="grid gap-6 md:grid-cols-2">
+						<div className="space-y-2">
+							<p className="text-sm font-medium text-gray-700">{t("farmIdLabel")}</p>
+							<div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 font-mono text-gray-500">
+								{farm.ownerId}
+							</div>
+							<FarmRenameForm initialName={farm.name} canWrite={writeAccess} />
+						</div>
+
+						<div className="space-y-2">
+							<p className="text-sm font-medium text-gray-700">{t("pondsLabel")}</p>
+							{farm.ponds.length === 0 ? (
+								<p className="text-sm text-gray-500">{t("noPonds")}</p>
+							) : (
+								<ul className="space-y-2">
+									{farm.ponds.map((pond) => (
+										<li
+											key={pond.id}
+											className="flex items-center gap-2 rounded-lg border border-gray-100 bg-[#F4F7F6] px-4 py-2 text-sm font-medium text-gray-800"
+										>
+											<Droplets className="h-4 w-4 shrink-0 text-[#0A3D62]" aria-hidden />
+											{pond.name}
+										</li>
+									))}
+								</ul>
+							)}
+						</div>
+					</div>
+				</section>
+			)}
 
 			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
 				{cards.map((card) => (

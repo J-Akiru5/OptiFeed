@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 	}
 
 	// Rate limit: 30 requests per 60 seconds per user
-	const { success } = checkApiRateLimit(ownerId);
+	const { success } = await checkApiRateLimit(ownerId);
 	if (!success) {
 		return new Response("Too Many Requests", { status: 429 });
 	}

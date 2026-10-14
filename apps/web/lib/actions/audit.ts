@@ -32,7 +32,7 @@ export async function getAuditLog(filters: AuditFilter = {}): Promise<AuditResul
 	try {
 		const ownerId = await getCurrentPondOwnerId();
 		const pond = await prisma.pond.findFirst({
-			where: { ownerId },
+			where: { ownerId, status: "ACTIVE" },
 			select: { id: true },
 		});
 

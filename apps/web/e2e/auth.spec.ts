@@ -25,6 +25,21 @@ test.describe("Login flow", () => {
 	});
 });
 
+test.describe("Demo admin login", () => {
+	test("logs in with demo-farmer-1 and reaches dashboard", async ({ page }) => {
+		const pin = process.env.DEMO_PIN ?? "1234";
+		await page.goto("/en/login");
+		await page.locator("#farmId").fill("demo-farmer-1");
+		await page.locator("#pin").fill(pin);
+		await page.locator('button[type="submit"]').click();
+
+		// Generous timeout: the server action may cold-compile on first hit in dev.
+		await expect(page).toHaveURL(/dashboard/, { timeout: 15_000 });
+		// Logged in = the login form is gone.
+		await expect(page.locator("#farmId")).toHaveCount(0);
+	});
+});
+
 test.describe("Dashboard loads", () => {
 	test("redirects unauthenticated user to login", async ({ page }) => {
 		await page.goto("/en/dashboard");

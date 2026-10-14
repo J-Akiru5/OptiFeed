@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -26,9 +27,10 @@ async function main() {
 	await prisma.biomassLog.deleteMany();
 	await prisma.device.deleteMany();
 	await prisma.pond.deleteMany();
+	await prisma.farm.deleteMany();
 	await prisma.user.deleteMany();
 
-	// 0. Create Demo User (admin)
+	// 0. Create Demo User (admin) + their single Farm
 	const demoUser = await prisma.user.create({
 		data: {
 			supabaseId: "00000000-0000-0000-0000-000000000001",
@@ -36,37 +38,36 @@ async function main() {
 			email: "demo-farmer-1@pond.optifeed.local",
 			displayName: "Juan Miguel",
 			role: "ADMIN",
+			farm: {
+				create: { name: "Juan Miguel Farm" },
+			},
 		},
+		include: { farm: true },
 	});
+	if (!demoUser.farm) throw new Error("Failed to create demo farm");
 
-	// 1. Create Demo Pond
+	// 1. Create Demo Pond (under the farmer's farm)
 	const pond = await prisma.pond.create({
 		data: {
 			ownerId: demoUser.farmId,
+			farmId: demoUser.farm.id,
 			name: "Demo Pond",
 			feedingRatePct: 4.5,
 			feedsPerDay: 4,
+			population: 200,
 			scheduleStart: new Date("2024-01-01T06:00:00Z"),
 			scheduleEnd: new Date("2024-01-01T18:00:00Z"),
 		},
 	});
 
-	// 2. Create Device
-	const device = await prisma.device.create({
-		data: {
-			pondId: pond.id,
-			name: "Smart Feeder 1",
-			connectivity: "online",
-			hopperLevelPct: 82.0,
-			lastSyncedAt: new Date(),
-		},
-	});
-
-	// 2b. Create ESP32 Energy Controller (linked to the demo pond)
+	// 2. Create ESP32 Energy Controller (linked to the demo pond)
+	// (The deprecated Device model is no longer written — task 5.2.)
+	const deviceToken = process.env.DEVICE_TOKEN ?? "demo-device-token-001";
 	const energyDevice = await prisma.energyDevice.create({
 		data: {
 			mac: "A4:CF:12:7E:3B:09",
-			token: process.env.DEVICE_TOKEN ?? "demo-device-token-001",
+			token: deviceToken,
+			tokenHash: createHash("sha256").update(deviceToken).digest("hex"),
 			label: "CICT Building A Feeder",
 			pondId: pond.id,
 			rtcOk: true,
@@ -115,36 +116,9 @@ async function main() {
 	}
 	await prisma.biomassLog.createMany({ data: logs });
 
-	// 4. Create ~2 weeks of Feeding Events
-	const feedingEvents = [];
-	let missedInserted = false;
-
-	for (let day = 14; day >= 1; day--) {
-		for (let feed = 0; feed < 4; feed++) {
-			const scheduledTime = new Date(now.getTime() - day * 24 * 60 * 60 * 1000);
-			scheduledTime.setHours(6 + feed * 4, 0, 0, 0); // 06:00, 10:00, 14:00, 18:00
-
-			let status = "completed";
-
-			// Exactly one "missed" status
-			if (!missedInserted && day === 5 && feed === 2) {
-				status = "missed";
-				missedInserted = true;
-			}
-
-			feedingEvents.push({
-				deviceId: device.id,
-				scheduledTime,
-				dispensedVolumeG: status === "completed" ? 1500 : 0,
-				status,
-				createdAt: scheduledTime,
-			});
-		}
-	}
-	await prisma.feedingEvent.createMany({ data: feedingEvents });
-
-	// 4b. Create live dispense history (FeedEvent + FeedRequest — read by /dashboard/history).
-	// Mirrors the deprecated seed above but against the live table the ESP32 actually writes to.
+	// 4. Create ~2 weeks of live dispense history
+	// (FeedEvent + FeedRequest — read by /dashboard/history. The deprecated
+	// FeedingEvent model is no longer written — task 5.2.)
 	const feedSources = ["scheduled", "scheduled", "scheduled", "scheduled"];
 	feedSources[3] = "dashboard"; // latest feed was a dashboard "Feed Now"
 	feedSources[1] = "button"; // one feed via physical button

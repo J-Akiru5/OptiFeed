@@ -1,39 +1,34 @@
-import { createServerClient } from "@supabase/ssr";
-import type { SetAllCookies } from "@supabase/ssr";
 import createMiddleware from "next-intl/middleware";
 import { type NextRequest, NextResponse } from "next/server";
 import { routing } from "./i18n/routing";
 
 const nextIntlMiddleware = createMiddleware(routing);
 
-export default async function proxy(request: NextRequest) {
+// Mirrors the @supabase/ssr cookie naming scheme: a base session cookie
+// `sb-<project-ref>-auth-token` plus optional numbered chunks
+// (`sb-<project-ref>-auth-token.0`, `.1`, ...) used when the session JSON
+// exceeds the library's 3180-char chunk size.
+const SUPABASE_SESSION_COOKIE = /^sb-.+-auth-token(\.\d+)?$/;
+
+/**
+ * Optimistic session check: true when any non-empty Supabase auth cookie is
+ * present. Deliberately does NOT call supabase.auth.getUser() — that makes a
+ * network request and can rotate the single-use refresh token. Under Next.js
+ * parallel middleware invocations (document + RSC prefetches), concurrent
+ * refreshes race, Supabase reuse-detection revokes the session, and the user
+ * flips present/null across alternating requests — an infinite
+ * /login <-> /dashboard redirect loop (ERR_TOO_MANY_REDIRECTS). Authoritative
+ * validation lives in the server layer: getCurrentPondOwnerId() and
+ * requireRole() call getUser() and redirect unauthenticated users to /login.
+ */
+function hasSessionCookie(request: NextRequest): boolean {
+	return request.cookies
+		.getAll()
+		.some(({ name, value }) => SUPABASE_SESSION_COOKIE.test(name) && value !== "");
+}
+
+export default function proxy(request: NextRequest) {
 	const response = nextIntlMiddleware(request);
-
-	const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-	const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-	if (!supabaseUrl || !supabaseAnonKey) {
-		throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
-	}
-
-	const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-		cookies: {
-			getAll() {
-				return request.cookies.getAll();
-			},
-			setAll: ((cookiesToSet) => {
-				for (const { name, value, options } of cookiesToSet) {
-					request.cookies.set(name, value);
-					response.cookies.set(name, value, options);
-				}
-			}) as SetAllCookies,
-		},
-	});
-
-	// Refresh the session and get the current user (if any).
-	const {
-		data: { user },
-	} = await supabase.auth.getUser();
 
 	const pathname = request.nextUrl.pathname;
 	const segments = pathname.split("/");
@@ -43,8 +38,6 @@ export default async function proxy(request: NextRequest) {
 
 	const isDashboard = pathname.includes("/dashboard");
 	const isAdmin = pathname.includes("/admin");
-	const isLogin = pathname.endsWith("/login");
-	const isSignup = pathname.includes("/signup");
 
 	// Only redirect navigation requests (GET/HEAD). Non-GET requests such as
 	// Server Action POSTs must reach the route handler so their RSC /
@@ -52,28 +45,14 @@ export default async function proxy(request: NextRequest) {
 	// "An unexpected response was received from the server."
 	const isNavigationRequest = request.method === "GET" || request.method === "HEAD";
 
-	// Unauthenticated users -> redirect to login
-	if (isNavigationRequest && (isDashboard || isAdmin) && !user) {
+	// No session cookie at all -> redirect to login. With a cookie present we
+	// pass the request through: the page's getCurrentUser() validates the
+	// session and redirects to /login if it is invalid or expired. The
+	// login -> dashboard redirect is intentionally NOT done here — it needs a
+	// *validated* user, which an optimistic cookie check cannot provide; the
+	// login page itself performs a one-shot client-side skip instead.
+	if (isNavigationRequest && (isDashboard || isAdmin) && !hasSessionCookie(request)) {
 		return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
-	}
-
-	// Authenticated users on login page -> redirect to dashboard
-	if (isNavigationRequest && isLogin && user) {
-		return NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url));
-	}
-
-	// Authenticated users on signup page who are NOT admin -> redirect to dashboard
-	if (isNavigationRequest && isSignup && user) {
-		// Check role via DB lookup — use the farmId from email
-		const email = user.email;
-		if (email) {
-			const local = email.split("@")[0]?.toLowerCase();
-			if (local) {
-				// Import prisma is not allowed in middleware, so we use a lightweight check
-				// We'll use a cookie-based approach instead: set a cookie on login with the role
-				// For now, allow signup page access (admin check happens server-side in the page)
-			}
-		}
 	}
 
 	return response;

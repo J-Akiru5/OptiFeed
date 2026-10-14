@@ -136,6 +136,14 @@
 	--sidebar-accent-foreground: oklch(0.985 0 0);
 	--sidebar-border: oklch(1 0 0 / 10%);
 	--sidebar-ring: oklch(0.556 0 0);
+
+	/* OptiFeed design tokens — dark */
+	--ofd-base: #5b9bd5;
+	--ofd-action: #ff8a5c;
+	--ofd-bg: #0f1419;
+	--ofd-success: #4ade80;
+	--ofd-critical: #f87171;
+	--ofd-warning: #fbbf24;
 }
 
 @layer base {

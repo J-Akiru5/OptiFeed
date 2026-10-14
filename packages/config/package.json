@@ -7,6 +7,6 @@
 		"./tsconfig.base.json": "./tsconfig.base.json"
 	},
 	"scripts": {
-		"lint": "echo 'TODO(karl): add Biome lint script'"
+		"lint": "biome check ."
 	}
 }

@@ -1,4 +1,4 @@
-import { farmIdFromEmail } from "@/lib/auth/session";
+import { farmIdFromEmail, requireWriteAccess } from "@/lib/auth/session";
 import { type ExportableType, parseCsvString } from "@/lib/csv";
 import prisma from "@/lib/prisma";
 import { checkApiRateLimit } from "@/lib/rate-limit";
@@ -32,13 +32,19 @@ export async function POST(request: Request) {
 		return Response.json({ error: "Unauthorized" }, { status: 401 });
 	}
 
+	try {
+		await requireWriteAccess();
+	} catch {
+		return Response.json({ error: "Write access required (ADMIN or OPERATOR)" }, { status: 403 });
+	}
+
 	// Rate limit: 30 requests per 60 seconds per user
-	const { success } = checkApiRateLimit(ownerId);
+	const { success } = await checkApiRateLimit(ownerId);
 	if (!success) {
 		return Response.json({ error: "Too Many Requests" }, { status: 429 });
 	}
 
-	const pond = await prisma.pond.findFirst({ where: { ownerId } });
+	const pond = await prisma.pond.findFirst({ where: { ownerId, status: "ACTIVE" } });
 	if (!pond) {
 		return Response.json({ error: "No pond found" }, { status: 404 });
 	}

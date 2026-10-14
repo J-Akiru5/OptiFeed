@@ -1,3 +1,5 @@
+import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { totalBiomassG } from "@/lib/feed-calc";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 
@@ -5,6 +7,8 @@ export interface ChatContext {
 	pondName: string;
 	feedsPerDay: number;
 	feedingRatePct: number;
+	population: number;
+	totalBiomassG: number | null;
 	scheduleStart: Date;
 	scheduleEnd: Date;
 	deviceOnline: boolean;
@@ -25,7 +29,7 @@ export interface ChatContext {
 // from resolveCurrentSchedule instead of the raw Pond row.
 export async function buildChatContext(ownerId: string): Promise<ChatContext | null> {
 	const pond = await prisma.pond.findFirst({
-		where: { ownerId },
+		where: { ownerId, status: "ACTIVE" },
 		include: { devices: true },
 	});
 
@@ -78,7 +82,6 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 			: Promise.resolve(null),
 	]);
 
-	const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 	const now = Date.now();
 	const deviceOnline =
 		!!energyDevice?.lastSeenAt && now - energyDevice.lastSeenAt.getTime() <= OFFLINE_THRESHOLD_MS;
@@ -90,6 +93,8 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 			.slice(0, 100),
 		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
 		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
+		population: pond.population ?? DEFAULT_FISH_COUNT,
+		totalBiomassG: latestBiomass ? totalBiomassG(pond.population, latestBiomass.avgWeightKg) : null,
 		scheduleStart: currentConfig?.scheduleStart ?? pond.scheduleStart,
 		scheduleEnd: currentConfig?.scheduleEnd ?? pond.scheduleEnd,
 		deviceOnline,

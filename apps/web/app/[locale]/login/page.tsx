@@ -2,9 +2,10 @@
 
 import { useRouter } from "@/i18n/routing";
 import { loginWithPin } from "@/lib/actions/auth";
-import { ArrowLeft, KeyRound, ShieldAlert, UserPlus } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { ArrowLeft, KeyRound, ShieldAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { type FormEvent, useState, useTransition } from "react";
+import { type FormEvent, useEffect, useState, useTransition } from "react";
 
 export default function LoginPage() {
 	const router = useRouter();
@@ -14,6 +15,20 @@ export default function LoginPage() {
 	const [pin, setPin] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [isPending, startTransition] = useTransition();
+
+	// The proxy no longer redirects authenticated users away from /login (its
+	// optimistic cookie check cannot distinguish a valid session from an
+	// expired one without a network refresh, which raced and looped). A single
+	// client-side getUser() is safe here — one call, no parallel middleware
+	// invocations — so already-logged-in visitors still land on the dashboard.
+	useEffect(() => {
+		const supabase = createClient();
+		supabase.auth.getUser().then(({ data: { user } }) => {
+			if (user) {
+				router.replace("/dashboard");
+			}
+		});
+	}, [router]);
 
 	const handleSubmit = (e: FormEvent) => {
 		e.preventDefault();
@@ -35,6 +50,8 @@ export default function LoginPage() {
 				setError(t("errorLocked", { minutes }));
 			} else if (result?.error === "rate_limited") {
 				setError(t("errorRateLimited"));
+			} else if (result?.error === "service") {
+				setError(t("errorService"));
 			} else if (result?.error) {
 				setError(t("errorInvalid"));
 			}
@@ -155,18 +172,7 @@ export default function LoginPage() {
 
 			{/* Footer */}
 			<footer className="py-4 px-6 text-center text-xs text-[#3D5568] bg-white border-t border-gray-200 shrink-0">
-				<div className="flex items-center justify-center gap-4">
-					{t("footer")}
-					<span className="text-gray-300">|</span>
-					<button
-						type="button"
-						onClick={() => router.push("/signup")}
-						className="inline-flex items-center gap-1.5 font-bold text-[#E85A2A] hover:text-[#d04a1f] transition-colors"
-					>
-						<UserPlus className="w-3.5 h-3.5" />
-						Create Account
-					</button>
-				</div>
+				{t("footer")}
 			</footer>
 		</div>
 	);

@@ -1,8 +1,40 @@
+import { REQUEST_EXPIRY_MS } from "@/lib/constants";
+import { verifyDeviceToken } from "@/lib/device-auth";
+import {
+	BUTTON_FEED_GRAMS_MAX,
+	BUTTON_FEED_GRAMS_MIN,
+	GRAMS_PER_SECOND_MAX,
+	GRAMS_PER_SECOND_MIN,
+	MAX_FEED_GRAMS_PER_REQUEST,
+	TEMP_OFFSET_C_MAX,
+	TEMP_OFFSET_C_MIN,
+	clamp,
+} from "@/lib/limits";
+import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
+import { checkDeviceRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
-const REQUEST_EXPIRY_MS = 60_000;
+type DeviceConfig = {
+	gramsPerFeeding: number;
+	buttonFeedGrams: number;
+	hopperEmptyCm: number | null;
+	hopperFullCm: number | null;
+	gramsPerSecond: number;
+	tempOffsetC: number;
+};
+
+function deviceConfig(device: DeviceConfig) {
+	return {
+		grams_per_feeding: clamp(device.gramsPerFeeding, 0, MAX_FEED_GRAMS_PER_REQUEST),
+		button_feed_grams: clamp(device.buttonFeedGrams, BUTTON_FEED_GRAMS_MIN, BUTTON_FEED_GRAMS_MAX),
+		hopper_empty_cm: device.hopperEmptyCm,
+		hopper_full_cm: device.hopperFullCm,
+		grams_per_second: clamp(device.gramsPerSecond, GRAMS_PER_SECOND_MIN, GRAMS_PER_SECOND_MAX),
+		temp_offset_c: clamp(device.tempOffsetC, TEMP_OFFSET_C_MIN, TEMP_OFFSET_C_MAX),
+	};
+}
 
 export async function GET(request: Request) {
 	const token = request.headers.get("x-device-token");
@@ -16,20 +48,14 @@ export async function GET(request: Request) {
 		return new Response("Unprocessable Entity", { status: 422 });
 	}
 
+	const { success } = await checkDeviceRateLimit(deviceId);
+	if (!success) {
+		return new Response("Too Many Requests", { status: 429 });
+	}
+
+	let device: Awaited<ReturnType<typeof verifyDeviceToken>> = null;
 	try {
-		const device = await prisma.energyDevice.findUnique({
-			where: { token },
-			select: {
-				id: true,
-				mac: true,
-				gramsPerFeeding: true,
-				buttonFeedGrams: true,
-				hopperEmptyCm: true,
-				hopperFullCm: true,
-				gramsPerSecond: true,
-				tempOffsetC: true,
-			},
-		});
+		device = await verifyDeviceToken(token);
 
 		if (!device || device.mac !== deviceId) {
 			return new Response("Unauthorized", { status: 401 });
@@ -63,13 +89,8 @@ export async function GET(request: Request) {
 			return Response.json({
 				feed_requested: true,
 				feed_request_id: pendingRequest.id,
-				grams: pendingRequest.grams,
-				grams_per_feeding: device.gramsPerFeeding,
-				button_feed_grams: device.buttonFeedGrams,
-				hopper_empty_cm: device.hopperEmptyCm,
-				hopper_full_cm: device.hopperFullCm,
-				grams_per_second: device.gramsPerSecond,
-				temp_offset_c: device.tempOffsetC,
+				grams: clamp(pendingRequest.grams, 0, MAX_FEED_GRAMS_PER_REQUEST),
+				...deviceConfig(device),
 			});
 		}
 
@@ -77,15 +98,10 @@ export async function GET(request: Request) {
 			feed_requested: false,
 			feed_request_id: null,
 			grams: 0,
-			grams_per_feeding: device.gramsPerFeeding,
-			button_feed_grams: device.buttonFeedGrams,
-			hopper_empty_cm: device.hopperEmptyCm,
-			hopper_full_cm: device.hopperFullCm,
-			grams_per_second: device.gramsPerSecond,
-			temp_offset_c: device.tempOffsetC,
+			...deviceConfig(device),
 		});
 	} catch (error) {
-		console.error("[feed-command] error:", error);
+		reportError(error, { route: "feed-command", deviceId: device?.id ?? deviceId });
 		// Return safe idle state so ESP32 doesn't hang
 		return Response.json({
 			feed_requested: false,

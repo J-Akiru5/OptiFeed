@@ -2,7 +2,8 @@
 
 import { useRouter } from "@/i18n/routing";
 import { saveBiomassLog } from "@/lib/actions/biomass";
-import { calculateNextFeeding } from "@/lib/volumeCalc";
+import { DEFAULT_FISH_COUNT } from "@/lib/constants";
+import { dailyFeedG, feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { Fish, Loader2, Plus, Ruler, Scale, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
@@ -11,6 +12,9 @@ interface LogSampleFormProps {
 	pondId: string;
 	feedingRatePct: number;
 	feedsPerDay: number;
+	population?: number | null;
+	canWrite?: boolean;
+	batchLabels?: string[];
 }
 
 type InputMode = "average" | "individual";
@@ -21,12 +25,25 @@ interface IndividualFishEntry {
 	lengthCm: string;
 }
 
-export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSampleFormProps) {
+export function LogSampleForm({
+	pondId,
+	feedingRatePct,
+	feedsPerDay,
+	population = null,
+	canWrite = true,
+	batchLabels = [],
+}: LogSampleFormProps) {
 	const tBtn = useTranslations("button");
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 
+	const effectivePopulation = population && population > 0 ? population : DEFAULT_FISH_COUNT;
+	const populationUnset = effectivePopulation !== population;
+	const fmtG2 = (g: number) =>
+		g.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 	const [inputMode, setInputMode] = useState<InputMode>("average");
+	const [batchLabel, setBatchLabel] = useState<string>("");
 
 	const [weightGrams, setWeightGrams] = useState<string>("");
 	const [lengthCm, setLengthCm] = useState<string>("");
@@ -38,11 +55,14 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 	]);
 
 	const [error, setError] = useState<string | null>(null);
+	const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
 
 	const w = Number.parseFloat(weightGrams);
 	const l = Number.parseFloat(lengthCm);
 	const c = Number.parseInt(count, 10);
 
+	let biomassG = 0;
+	let dailyFeed = 0;
 	let nextFeedingG = 0;
 	let avgWeightG = 0;
 	let avgLengthCm = 0;
@@ -51,7 +71,9 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 	if (inputMode === "average") {
 		if (!Number.isNaN(w) && !Number.isNaN(c) && c > 0) {
 			avgWeightG = w;
-			nextFeedingG = calculateNextFeeding(w / 1000, feedingRatePct, feedsPerDay);
+			biomassG = totalBiomassG(population, w / 1000);
+			dailyFeed = dailyFeedG(biomassG, feedingRatePct);
+			nextFeedingG = feedPerMealG(biomassG, feedingRatePct, feedsPerDay);
 		}
 	} else {
 		const validFish = individualFish.filter(
@@ -74,7 +96,9 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 				avgLengthCm = totalLength / validLengthFish.length;
 			}
 
-			nextFeedingG = calculateNextFeeding(avgWeightG / 1000, feedingRatePct, feedsPerDay);
+			biomassG = totalBiomassG(population, avgWeightG / 1000);
+			dailyFeed = dailyFeedG(biomassG, feedingRatePct);
+			nextFeedingG = feedPerMealG(biomassG, feedingRatePct, feedsPerDay);
 		}
 	}
 
@@ -94,11 +118,16 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 		const updated = [...individualFish];
 		updated[index] = { ...updated[index], [field]: value };
 		setIndividualFish(updated);
+		if (rowErrors[index]) {
+			const { [index]: _removed, ...rest } = rowErrors;
+			setRowErrors(rest);
+		}
 	};
 
 	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		setError(null);
+		setRowErrors({});
 
 		let sampleWeightKg: number;
 		let sampleLengthCm: number;
@@ -114,19 +143,38 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 			sampleLengthCm = l;
 			sampleCount = c;
 		} else {
-			const validFish = individualFish.filter(
-				(f) =>
-					!Number.isNaN(Number.parseFloat(f.weightGrams)) && Number.parseFloat(f.weightGrams) > 0,
-			);
-			if (validFish.length === 0) {
+			const errors: Record<number, string> = {};
+			const validRows: Array<{ weightGrams: number; lengthCm: number }> = [];
+
+			individualFish.forEach((fish, index) => {
+				const weightRaw = fish.weightGrams.trim();
+				const lengthRaw = fish.lengthCm.trim();
+				if (weightRaw === "" && lengthRaw === "") return;
+
+				const weightValue = Number.parseFloat(weightRaw);
+				if (weightRaw === "" || Number.isNaN(weightValue) || weightValue <= 0) {
+					errors[index] = "Weight must be greater than 0";
+					return;
+				}
+				const lengthValue = lengthRaw === "" ? 0 : Number.parseFloat(lengthRaw);
+				if (Number.isNaN(lengthValue) || lengthValue < 0) {
+					errors[index] = "Length must be 0 or greater";
+					return;
+				}
+				validRows.push({ weightGrams: weightValue, lengthCm: lengthValue });
+			});
+
+			if (Object.keys(errors).length > 0) {
+				setRowErrors(errors);
+				setError("Please fix the highlighted fish rows.");
+				return;
+			}
+			if (validRows.length === 0) {
 				setError("Please add at least one fish with a valid weight.");
 				return;
 			}
 
-			fishSamplesData = validFish.map((f) => ({
-				weightGrams: Number.parseFloat(f.weightGrams),
-				lengthCm: Number.parseFloat(f.lengthCm) || 0,
-			}));
+			fishSamplesData = validRows;
 
 			const totalWeightG = fishSamplesData.reduce((sum, f) => sum + f.weightGrams, 0);
 			sampleWeightKg = totalWeightG / 1000;
@@ -137,7 +185,7 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 					? validLengthFish.reduce((sum, f) => sum + f.lengthCm, 0) / validLengthFish.length
 					: 0;
 
-			sampleCount = validFish.length;
+			sampleCount = validRows.length;
 		}
 
 		const formData = new FormData();
@@ -145,6 +193,7 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 		formData.append("sampleWeightKg", sampleWeightKg.toString());
 		formData.append("sampleLengthCm", sampleLengthCm.toString());
 		formData.append("sampleCount", sampleCount.toString());
+		formData.append("batchLabel", batchLabel.trim());
 
 		if (inputMode === "individual" && fishSamplesData.length > 0) {
 			formData.append("fishSamples", JSON.stringify(fishSamplesData));
@@ -152,10 +201,14 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 
 		startTransition(async () => {
 			try {
-				await saveBiomassLog(formData);
+				const result = await saveBiomassLog(formData);
+				if (!result.success) {
+					setError(result.error);
+					return;
+				}
 				router.push("/dashboard");
-			} catch (err) {
-				setError("Failed to save biomass log. Please check your inputs.");
+			} catch {
+				setError("Failed to save biomass log. Please try again.");
 			}
 		});
 	};
@@ -199,6 +252,35 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 					<Fish className="inline-block w-4 h-4 mr-1.5 -mt-0.5" />
 					Individual Mode
 				</button>
+			</div>
+
+			<div className="space-y-1.5">
+				<label
+					htmlFor="batchLabel"
+					className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568]"
+				>
+					Batch (optional)
+				</label>
+				<div className="relative">
+					<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+						<Fish className="h-5 w-5" />
+					</div>
+					<input
+						type="text"
+						id="batchLabel"
+						maxLength={64}
+						list="batchLabelOptions"
+						className={fieldCls}
+						placeholder="e.g. Batch 2026-10 A"
+						value={batchLabel}
+						onChange={(e) => setBatchLabel(e.target.value)}
+					/>
+					<datalist id="batchLabelOptions">
+						{batchLabels.map((label) => (
+							<option key={label} value={label} />
+						))}
+					</datalist>
+				</div>
 			</div>
 
 			{inputMode === "average" ? (
@@ -294,49 +376,51 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 
 					<div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
 						{individualFish.map((fish, index) => (
-							<div
-								key={fish.id}
-								className="flex items-center gap-2 p-3 bg-[#F4F7F6] rounded-xl border border-gray-200"
-							>
-								<span className="text-xs font-bold text-[#3D5568] w-6 text-center shrink-0">
-									#{index + 1}
-								</span>
-								<div className="flex-1 relative">
-									<div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
-										<Scale className="h-3.5 w-3.5" />
+							<div key={fish.id} className="p-3 bg-[#F4F7F6] rounded-xl border border-gray-200">
+								<div className="flex items-center gap-2">
+									<span className="text-xs font-bold text-[#3D5568] w-6 text-center shrink-0">
+										#{index + 1}
+									</span>
+									<div className="flex-1 relative">
+										<div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
+											<Scale className="h-3.5 w-3.5" />
+										</div>
+										<input
+											type="number"
+											step="0.1"
+											min="0.1"
+											placeholder="Weight (g)"
+											className={fishFieldCls}
+											value={fish.weightGrams}
+											onChange={(e) => updateFishEntry(index, "weightGrams", e.target.value)}
+										/>
 									</div>
-									<input
-										type="number"
-										step="0.1"
-										min="0.1"
-										placeholder="Weight (g)"
-										className={fishFieldCls}
-										value={fish.weightGrams}
-										onChange={(e) => updateFishEntry(index, "weightGrams", e.target.value)}
-									/>
-								</div>
-								<div className="flex-1 relative">
-									<div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
-										<Ruler className="h-3.5 w-3.5" />
+									<div className="flex-1 relative">
+										<div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
+											<Ruler className="h-3.5 w-3.5" />
+										</div>
+										<input
+											type="number"
+											step="0.1"
+											min="0"
+											placeholder="Length (cm)"
+											className={fishFieldCls}
+											value={fish.lengthCm}
+											onChange={(e) => updateFishEntry(index, "lengthCm", e.target.value)}
+										/>
 									</div>
-									<input
-										type="number"
-										step="0.1"
-										min="0"
-										placeholder="Length (cm)"
-										className={fishFieldCls}
-										value={fish.lengthCm}
-										onChange={(e) => updateFishEntry(index, "lengthCm", e.target.value)}
-									/>
+									<button
+										type="button"
+										onClick={() => removeFishEntry(index)}
+										disabled={individualFish.length <= 1}
+										className="p-1.5 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-30 disabled:pointer-events-none shrink-0"
+									>
+										<X className="w-4 h-4" />
+									</button>
 								</div>
-								<button
-									type="button"
-									onClick={() => removeFishEntry(index)}
-									disabled={individualFish.length <= 1}
-									className="p-1.5 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-30 disabled:pointer-events-none shrink-0"
-								>
-									<X className="w-4 h-4" />
-								</button>
+								{rowErrors[index] && (
+									<p className="mt-1.5 pl-8 text-xs font-bold text-red-500">{rowErrors[index]}</p>
+								)}
 							</div>
 						))}
 					</div>
@@ -363,20 +447,82 @@ export function LogSampleForm({ pondId, feedingRatePct, feedsPerDay }: LogSample
 							Average Length: <strong className="text-[#0A3D62]">{avgLengthCm.toFixed(1)}cm</strong>
 						</>
 					)}
-					<br />
-					Assuming 5,000 fish at a {feedingRatePct}% daily feeding rate across {feedsPerDay} feeds,
-					this sample will set your next scheduled feeding to approximately{" "}
-					<strong className="text-[#E85A2A] text-sm">
-						{nextFeedingG > 0 ? nextFeedingG : "—"}g
-					</strong>
-					.
 				</p>
+
+				<div className="mt-3 space-y-1.5 border-t border-[#0A3D62]/10 pt-3 text-xs">
+					<div className="flex items-baseline justify-between gap-4">
+						<span className="font-medium text-[#3D5568]">
+							Total Biomass
+							{biomassG === 0 && (
+								<span className="block text-[11px] font-normal text-[#3D5568]/60">
+									= {populationUnset ? "estimate assuming " : ""}
+									{effectivePopulation.toLocaleString("en-US")} fish × avg weight
+								</span>
+							)}
+						</span>
+						<span className="text-right text-[#3D5568]">
+							<strong className="text-[#0A3D62]">
+								{biomassG > 0 ? Math.round(biomassG).toLocaleString("en-US") : "—"}
+							</strong>
+							{biomassG > 0 && (
+								<>
+									g{" "}
+									<span>
+										({populationUnset ? "estimate: " : ""}
+										{effectivePopulation.toLocaleString("en-US")} fish × {avgWeightG.toFixed(1)}g)
+									</span>
+								</>
+							)}
+						</span>
+					</div>
+					<div className="flex items-baseline justify-between gap-4">
+						<span className="font-medium text-[#3D5568]">
+							Daily Feed
+							{dailyFeed === 0 && (
+								<span className="block text-[11px] font-normal text-[#3D5568]/60">
+									= biomass × {feedingRatePct}%
+								</span>
+							)}
+						</span>
+						<span className="text-right text-[#3D5568]">
+							<strong className="text-[#0A3D62]">{dailyFeed > 0 ? fmtG2(dailyFeed) : "—"}</strong>
+							{dailyFeed > 0 && (
+								<>
+									g{" "}
+									<span>
+										({Math.round(biomassG).toLocaleString("en-US")}g × {feedingRatePct}%)
+									</span>
+								</>
+							)}
+						</span>
+					</div>
+					<div className="flex items-baseline justify-between gap-4">
+						<span className="font-medium text-[#3D5568]">
+							Feed per Meal
+							{nextFeedingG === 0 && (
+								<span className="block text-[11px] font-normal text-[#3D5568]/60">
+									= daily ÷ {feedsPerDay} feeds
+								</span>
+							)}
+						</span>
+						<span className="text-right text-[#3D5568]">
+							<strong className="text-sm text-[#E85A2A]">
+								{nextFeedingG > 0 ? fmtG2(nextFeedingG) : "—"}
+							</strong>
+							{nextFeedingG > 0 && (
+								<>
+									g <span>(÷ {feedsPerDay} feeds)</span>
+								</>
+							)}
+						</span>
+					</div>
+				</div>
 			</div>
 
 			<div className="flex justify-end pt-4 border-t border-gray-100">
 				<button
 					type="submit"
-					disabled={isPending || avgWeightG === 0}
+					disabled={isPending || avgWeightG === 0 || !canWrite}
 					className="w-full md:w-auto bg-[#E85A2A] text-white px-8 py-3.5 rounded-2xl font-black shadow-lg hover:bg-[#d04a1f] hover:shadow-xl transition-all transform active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex justify-center items-center gap-2"
 				>
 					{isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : tBtn("saveSample")}

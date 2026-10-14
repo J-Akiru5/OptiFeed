@@ -1,6 +1,7 @@
 "use server";
 
-import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
+import { biomassLogSchema, feedGramsSchema, fishSamplesSchema, formatZodError } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import { calculateNextFeeding } from "@/lib/volumeCalc";
 import { revalidatePath } from "next/cache";
@@ -12,39 +13,65 @@ interface FishSampleInput {
 	lengthCm: number;
 }
 
-export async function saveBiomassLog(formData: FormData) {
+export type SaveBiomassResult = { success: true } | { success: false; error: string };
+
+export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassResult> {
+	await requireWriteAccess();
 	const ownerId = await getCurrentPondOwnerId();
 	const pondId = formData.get("pondId") as string;
 	const sampleWeightKg = Number.parseFloat(formData.get("sampleWeightKg") as string);
 	const sampleLengthCm = Number.parseFloat(formData.get("sampleLengthCm") as string);
 	const sampleCount = Number.parseInt(formData.get("sampleCount") as string, 10);
+	const batchLabelRaw = formData.get("batchLabel");
+	const batchLabel =
+		typeof batchLabelRaw === "string" && batchLabelRaw.trim() !== "" ? batchLabelRaw.trim() : null;
 
 	const fishSamplesJson = formData.get("fishSamples") as string | null;
 	let fishSamples: FishSampleInput[] = [];
 	if (fishSamplesJson) {
 		try {
-			fishSamples = JSON.parse(fishSamplesJson);
+			const parsedRows: unknown = JSON.parse(fishSamplesJson);
+			if (!Array.isArray(parsedRows)) {
+				return { success: false, error: "Individual measurements could not be read." };
+			}
+			const rows = fishSamplesSchema.safeParse(parsedRows);
+			if (!rows.success) {
+				const issue = rows.error.issues[0];
+				const rowIndex = issue.path[0];
+				return {
+					success: false,
+					error: `Fish #${Number(rowIndex) + 1}: ${issue.message}`,
+				};
+			}
+			fishSamples = rows.data;
 		} catch {
-			// Ignore parse errors — treat as average mode
+			return {
+				success: false,
+				error: "Individual measurements could not be read — please re-enter them.",
+			};
 		}
 	}
 
-	if (
-		!pondId ||
-		Number.isNaN(sampleWeightKg) ||
-		Number.isNaN(sampleLengthCm) ||
-		Number.isNaN(sampleCount) ||
-		sampleCount <= 0
-	) {
-		throw new Error("Invalid form data");
+	if (!pondId) {
+		return { success: false, error: "Missing pond" };
+	}
+
+	const parsed = biomassLogSchema.safeParse({
+		sampleCount,
+		sampleWeightKg,
+		sampleLengthCm,
+		batchLabel,
+	});
+	if (!parsed.success) {
+		return { success: false, error: formatZodError(parsed.error) };
 	}
 
 	const avgWeightKg = sampleWeightKg / sampleCount;
 
-	const biomassLog = await prisma.$transaction(async (tx) => {
+	await prisma.$transaction(async (tx) => {
 		const pond = await tx.pond.findUnique({
 			where: { id: pondId },
-			select: { ownerId: true, feedingRatePct: true, feedsPerDay: true },
+			select: { ownerId: true, feedingRatePct: true, feedsPerDay: true, population: true },
 		});
 
 		if (!pond || pond.ownerId !== ownerId) {
@@ -58,6 +85,7 @@ export async function saveBiomassLog(formData: FormData) {
 				sampleLengthCm,
 				sampleCount,
 				avgWeightKg,
+				batchLabel,
 			},
 		});
 
@@ -87,11 +115,59 @@ export async function saveBiomassLog(formData: FormData) {
 			return log;
 		}
 
-		const newGrams = calculateNextFeeding(avgWeightKg, pond.feedingRatePct, pond.feedsPerDay);
-		const currentGrams = energyDevice.gramsPerFeeding;
-		const deviation = Math.abs(newGrams - currentGrams) / currentGrams;
+		if (!pond.population || pond.population <= 0) {
+			await tx.deviceStateEvent.create({
+				data: {
+					deviceId: energyDevice.id,
+					eventType: "biomass_logged",
+					source: "user",
+					actorId: ownerId,
+					metadata: {
+						biomassLogId: log.id,
+						avgWeightKg,
+						sampleCount,
+						autoAdjustSkipped: true,
+						reason: "population not set — cannot compute biomass without a fish count",
+					},
+				},
+			});
+			return log;
+		}
 
-		if (deviation > DEVIATION_THRESHOLD) {
+		const newGrams = calculateNextFeeding(
+			avgWeightKg,
+			pond.feedingRatePct,
+			pond.feedsPerDay,
+			pond.population,
+		);
+
+		const newGramsCheck = feedGramsSchema.safeParse(newGrams);
+		if (!newGramsCheck.success) {
+			await tx.deviceStateEvent.create({
+				data: {
+					deviceId: energyDevice.id,
+					eventType: "biomass_logged",
+					source: "user",
+					actorId: ownerId,
+					metadata: {
+						biomassLogId: log.id,
+						avgWeightKg,
+						sampleCount,
+						autoAdjustRejected: true,
+						reason: formatZodError(newGramsCheck.error),
+						gramsProposed: newGrams,
+						gramsCurrent: energyDevice.gramsPerFeeding,
+					},
+				},
+			});
+			return log;
+		}
+
+		const currentGrams = energyDevice.gramsPerFeeding;
+		const currentValid = Number.isFinite(currentGrams) && currentGrams > 0;
+		const deviation = currentValid ? Math.abs(newGrams - currentGrams) / currentGrams : 0;
+
+		if (currentValid && deviation > DEVIATION_THRESHOLD) {
 			console.warn(
 				`[biomass] rejected auto-adjust: ${currentGrams}g → ${newGrams}g (${(deviation * 100).toFixed(1)}% deviation, threshold ${DEVIATION_THRESHOLD * 100}%) — biomassLogId=${log.id}`,
 			);
@@ -147,5 +223,5 @@ export async function saveBiomassLog(formData: FormData) {
 
 	revalidatePath("/[locale]/dashboard", "layout");
 
-	return biomassLog;
+	return { success: true };
 }

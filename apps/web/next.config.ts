@@ -13,9 +13,9 @@ const securityHeaders = [
 		key: "Content-Security-Policy",
 		value: [
 			"default-src 'self'",
-			`script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
+			`script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
 			"style-src 'self' 'unsafe-inline'",
-			"img-src 'self' data: blob:",
+			"img-src 'self' data: blob: https://images.unsplash.com",
 			"font-src 'self'",
 			"connect-src 'self' https://*.supabase.co wss://*.supabase.co",
 			"frame-ancestors 'none'",
@@ -27,6 +27,14 @@ const nextConfig: NextConfig = {
 	serverExternalPackages: ["@prisma/client"],
 	allowedDevOrigins: ["192.168.1.10"],
 	devIndicators: false,
+	images: {
+		remotePatterns: [
+			{
+				protocol: "https",
+				hostname: "images.unsplash.com",
+			},
+		],
+	},
 	async headers() {
 		return [
 			{

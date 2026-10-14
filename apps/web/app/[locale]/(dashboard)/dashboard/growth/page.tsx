@@ -354,7 +354,7 @@ export default async function GrowthPage() {
 
 				{/* Growth Summary Table */}
 				{biomassLogs.length >= 2 && (
-					<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+					<div className="@container bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
 						<div className="p-6 border-b border-gray-100 bg-gray-50/50">
 							<h3 className="font-bold text-gray-800">Growth Summary</h3>
 							<p className="text-xs text-gray-500 mt-1">
@@ -365,12 +365,14 @@ export default async function GrowthPage() {
 							<table className="w-full text-left text-sm text-gray-600">
 								<thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
 									<tr>
-										<th className="px-6 py-4">Date</th>
-										<th className="px-6 py-4 text-right">Avg Weight (g)</th>
-										<th className="px-6 py-4 text-right">Avg Length (cm)</th>
-										<th className="px-6 py-4 text-right">Weight Gain (g)</th>
-										<th className="px-6 py-4 text-right">Length Gain (cm)</th>
-										<th className="px-6 py-4 text-right">Days Since Last</th>
+										<th className="px-3 py-3 lg:px-4">Date</th>
+										<th className="px-3 py-3 text-right lg:px-4">Avg Weight (g)</th>
+										<th className="px-3 py-3 text-right lg:px-4">Avg Length (cm)</th>
+										<th className="px-3 py-3 text-right lg:px-4">Weight Gain (g)</th>
+										<th className="px-3 py-3 text-right lg:px-4">Length Gain (cm)</th>
+										<th className="px-3 py-3 text-right hidden @[560px]:table-cell lg:px-4">
+											Days Since Last
+										</th>
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-gray-100">
@@ -398,12 +400,16 @@ export default async function GrowthPage() {
 
 											return (
 												<tr key={log.id} className="hover:bg-gray-50 transition-colors">
-													<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+													<td className="px-3 py-3 font-medium text-gray-900 whitespace-nowrap lg:px-4">
 														{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
 													</td>
-													<td className="px-6 py-4 text-right">{currentWeightG.toFixed(1)}</td>
-													<td className="px-6 py-4 text-right">{log.sampleLengthCm.toFixed(1)}</td>
-													<td className="px-6 py-4 text-right font-bold">
+													<td className="px-3 py-3 text-right lg:px-4">
+														{currentWeightG.toFixed(1)}
+													</td>
+													<td className="px-3 py-3 text-right lg:px-4">
+														{log.sampleLengthCm.toFixed(1)}
+													</td>
+													<td className="px-3 py-3 text-right font-bold lg:px-4">
 														{weightGain !== null ? (
 															<span className={weightGain >= 0 ? "text-green-600" : "text-red-500"}>
 																{weightGain >= 0 ? "+" : ""}
@@ -413,7 +419,7 @@ export default async function GrowthPage() {
 															<span className="text-gray-400">—</span>
 														)}
 													</td>
-													<td className="px-6 py-4 text-right font-bold">
+													<td className="px-3 py-3 text-right font-bold lg:px-4">
 														{lengthGain !== null ? (
 															<span className={lengthGain >= 0 ? "text-green-600" : "text-red-500"}>
 																{lengthGain >= 0 ? "+" : ""}
@@ -423,7 +429,7 @@ export default async function GrowthPage() {
 															<span className="text-gray-400">—</span>
 														)}
 													</td>
-													<td className="px-6 py-4 text-right">
+													<td className="px-3 py-3 text-right hidden @[560px]:table-cell lg:px-4">
 														{daysSinceLast !== null ? (
 															<span className="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full">
 																{daysSinceLast}d
@@ -442,7 +448,7 @@ export default async function GrowthPage() {
 				)}
 
 				{/* Biomass Log Table */}
-				<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mt-8 xl:mt-0">
+				<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mt-8 xl:mt-0 xl:col-span-2">
 					<div className="p-6 border-b border-gray-100 bg-gray-50/50">
 						<h3 className="font-bold text-gray-800">{t("historyTitle")}</h3>
 					</div>
@@ -450,15 +456,15 @@ export default async function GrowthPage() {
 						<table className="w-full text-left text-sm text-gray-600">
 							<thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
 								<tr>
-									<th className="px-6 py-4">{t("dateCol")}</th>
-									<th className="px-6 py-4">{t("batchCol")}</th>
-									<th className="px-6 py-4">{t("totalWeightCol")}</th>
-									<th className="px-6 py-4">{t("fishCountCol")}</th>
-									<th className="px-6 py-4">{t("avgLengthCol")}</th>
-									<th className="px-6 py-4 text-right text-[var(--ofd-base-deep)]">
+									<th className="px-3 py-3 lg:px-4">{t("dateCol")}</th>
+									<th className="px-3 py-3 hidden lg:table-cell lg:px-4">{t("batchCol")}</th>
+									<th className="px-3 py-3 lg:px-4">{t("totalWeightCol")}</th>
+									<th className="px-3 py-3 lg:px-4">{t("fishCountCol")}</th>
+									<th className="px-3 py-3 lg:px-4">{t("avgLengthCol")}</th>
+									<th className="px-3 py-3 text-right text-[var(--ofd-base-deep)] lg:px-4">
 										{t("abwCol")}
 									</th>
-									<th className="px-6 py-4 text-center">Type</th>
+									<th className="px-3 py-3 text-center hidden lg:table-cell lg:px-4">Type</th>
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-gray-100">
@@ -467,19 +473,19 @@ export default async function GrowthPage() {
 									.reverse()
 									.map((log) => (
 										<tr key={log.id} className="hover:bg-gray-50 transition-colors">
-											<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+											<td className="px-3 py-3 font-medium text-gray-900 whitespace-nowrap lg:px-4">
 												{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
 											</td>
-											<td className="px-6 py-4 whitespace-nowrap">
+											<td className="px-3 py-3 whitespace-nowrap hidden lg:table-cell lg:px-4">
 												{log.batchLabel ?? <span className="text-gray-400">—</span>}
 											</td>
-											<td className="px-6 py-4">{log.sampleWeightKg.toFixed(2)} kg</td>
-											<td className="px-6 py-4">{log.sampleCount}</td>
-											<td className="px-6 py-4">{log.sampleLengthCm.toFixed(1)} cm</td>
-											<td className="px-6 py-4 text-right font-bold text-[var(--ofd-base-deep)]">
-												{(log.avgWeightKg * 1000).toFixed(1)}g
+											<td className="px-3 py-3 lg:px-4">{log.sampleWeightKg.toFixed(2)}</td>
+											<td className="px-3 py-3 lg:px-4">{log.sampleCount}</td>
+											<td className="px-3 py-3 lg:px-4">{log.sampleLengthCm.toFixed(1)}</td>
+											<td className="px-3 py-3 text-right font-bold text-[var(--ofd-base-deep)] lg:px-4">
+												{(log.avgWeightKg * 1000).toFixed(1)}
 											</td>
-											<td className="px-6 py-4 text-center">
+											<td className="px-3 py-3 text-center hidden lg:table-cell lg:px-4">
 												{log.fishSamples.length > 0 ? (
 													<details className="inline-block text-left">
 														<summary className="inline-flex cursor-pointer list-none items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 text-xs font-bold rounded-full hover:bg-teal-100 transition-colors">
@@ -532,7 +538,7 @@ export default async function GrowthPage() {
 									))}
 								{biomassLogs.length === 0 && (
 									<tr>
-										<td colSpan={7} className="px-6 py-10 text-center text-gray-500">
+										<td colSpan={5} className="px-6 py-10 text-center text-gray-500">
 											{t("noSamples")}
 										</td>
 									</tr>

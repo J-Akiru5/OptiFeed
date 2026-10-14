@@ -111,7 +111,7 @@ export function NotificationProvider({
 
 			{/* Toast Portal */}
 			{activeToast && (
-				<div className="fixed bottom-6 right-6 z-[100] animate-in slide-in-from-bottom-5 fade-in duration-300 max-w-sm w-full">
+				<div className="fixed bottom-6 right-[var(--ofd-fab-inset)] z-[100] animate-in slide-in-from-bottom-5 fade-in duration-300 max-w-sm w-full">
 					<div
 						className={cn(
 							"bg-white rounded-xl shadow-2xl border-l-4 p-4 flex items-start gap-3",

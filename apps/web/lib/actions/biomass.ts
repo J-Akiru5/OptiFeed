@@ -1,6 +1,7 @@
 "use server";
 
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
+import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { biomassLogSchema, feedGramsSchema, fishSamplesSchema, formatZodError } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import { calculateNextFeeding } from "@/lib/volumeCalc";
@@ -13,7 +14,35 @@ interface FishSampleInput {
 	lengthCm: number;
 }
 
-export type SaveBiomassResult = { success: true } | { success: false; error: string };
+export type FeedScheduleStatus =
+	| "updated"
+	| "unchanged"
+	| "rejected_deviation"
+	| "rejected_out_of_range"
+	| "skipped_config"
+	| "skipped_no_device"
+	| "skipped_no_population";
+
+export interface FeedCalculationResult {
+	/** Recommendation computed from this sample (null when not computable). */
+	calculatedGrams: number | null;
+	/** What the device will actually dispense per feeding after this save. */
+	effectiveGrams: number | null;
+	/** Scheduled amount before this save (null when no device is linked). */
+	previousGrams: number | null;
+	/** calculatedGrams × feedsPerDay (null when not computable). */
+	dailyFeedG: number | null;
+	feedsPerDay: number;
+	feedingRatePct: number;
+	population: number;
+	status: FeedScheduleStatus;
+	deviceOffline: boolean;
+	batchLabel: string | null;
+}
+
+export type SaveBiomassResult =
+	| { success: true; feed: FeedCalculationResult }
+	| { success: false; error: string };
 
 export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassResult> {
 	await requireWriteAccess();
@@ -68,7 +97,7 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 
 	const avgWeightKg = sampleWeightKg / sampleCount;
 
-	await prisma.$transaction(async (tx) => {
+	const txResult = await prisma.$transaction(async (tx) => {
 		const pond = await tx.pond.findUnique({
 			where: { id: pondId },
 			select: { ownerId: true, feedingRatePct: true, feedsPerDay: true, population: true },
@@ -99,20 +128,45 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 			});
 		}
 
+		const energyDevice = await tx.energyDevice.findFirst({
+			where: { pondId },
+		});
+		const previousGrams = energyDevice?.gramsPerFeeding ?? null;
+		const deviceOffline = energyDevice
+			? Date.now() - (energyDevice.lastSeenAt?.getTime() ?? 0) > OFFLINE_THRESHOLD_MS
+			: false;
+		const population = pond.population ?? 0;
+
+		const finish = (
+			status: FeedScheduleStatus,
+			calculatedGrams: number | null,
+			effectiveGrams: number | null,
+		): FeedCalculationResult => ({
+			calculatedGrams,
+			effectiveGrams,
+			previousGrams,
+			dailyFeedG:
+				calculatedGrams !== null && pond.feedsPerDay > 0
+					? Math.round(calculatedGrams * pond.feedsPerDay * 100) / 100
+					: null,
+			feedsPerDay: pond.feedsPerDay,
+			feedingRatePct: pond.feedingRatePct,
+			population,
+			status,
+			deviceOffline,
+			batchLabel,
+		});
+
 		if (pond.feedingRatePct <= 0 || pond.feedsPerDay <= 0) {
 			console.log(
 				`[biomass] skipped device update: pond config incomplete (feedingRatePct=${pond?.feedingRatePct}, feedsPerDay=${pond?.feedsPerDay})`,
 			);
-			return log;
+			return finish("skipped_config", null, previousGrams);
 		}
-
-		const energyDevice = await tx.energyDevice.findFirst({
-			where: { pondId },
-		});
 
 		if (!energyDevice) {
 			console.log("[biomass] skipped device update: no linked EnergyDevice");
-			return log;
+			return finish("skipped_no_device", null, null);
 		}
 
 		if (!pond.population || pond.population <= 0) {
@@ -131,7 +185,7 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 					},
 				},
 			});
-			return log;
+			return finish("skipped_no_population", null, previousGrams);
 		}
 
 		const newGrams = calculateNextFeeding(
@@ -160,7 +214,7 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 					},
 				},
 			});
-			return log;
+			return finish("rejected_out_of_range", newGrams, previousGrams);
 		}
 
 		const currentGrams = energyDevice.gramsPerFeeding;
@@ -190,8 +244,11 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 				},
 			});
 
-			return log;
+			return finish("rejected_deviation", newGrams, previousGrams);
 		}
+
+		const status: FeedScheduleStatus =
+			currentValid && newGrams === currentGrams ? "unchanged" : "updated";
 
 		await tx.energyDevice.update({
 			where: { id: energyDevice.id },
@@ -218,10 +275,10 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 			},
 		});
 
-		return log;
+		return finish(status, newGrams, newGrams);
 	});
 
 	revalidatePath("/[locale]/dashboard", "layout");
 
-	return { success: true };
+	return { success: true, feed: txResult };
 }

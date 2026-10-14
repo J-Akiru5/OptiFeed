@@ -200,7 +200,14 @@
 			"errorSave": "Napaslawan sa pag-save sang biomass log. Palihog i-check ang imo mga input.",
 			"livePreview": "Live nga Preview",
 			"previewDesc": "Ginkuwenta nga Kasagaran nga Timbang sang Lawas (ABW): <bold>{abw}g</bold>. <br /> Ginabanta nga may 5,000 ka isda sa {rate}% nga adlaw-adlaw nga rate sang pagpakaon sa {feeds} ka pagpakaon, ini nga sampol magaset sang imo masunod nga iskedyul sang pagpakaon sa mga <bold>{nextFeed}g</bold>.",
-			"saving": "Gina-save..."
+			"saving": "Gina-save...",
+			"savedBatches": "Mga Na-save nga Batch",
+			"noBatches": "Wala pa sample nga nasave - i-save ang una mo nga sample sa ibabaw.",
+			"unlabeled": "Walay Batch",
+			"entries": "{count, plural, one {# entry} other {# entries}}",
+			"lastSaved": "Huli nga nasave {date}",
+			"totalSamples": "Total nga Sample",
+			"avgWeight": "Avg nga Kabug-atan"
 		},
 		"history": {
 			"amount": "KADAM-ON",
@@ -250,9 +257,9 @@
 			"feedLevelTableTitle": "Kasaysayan sang Feed Level",
 			"dateCol": "Petsa",
 			"batchCol": "Batch",
-			"totalWeightCol": "Kabug-atan",
+			"totalWeightCol": "Kabug-atan (kg)",
 			"fishCountCol": "Bilang sang Isda",
-			"avgLengthCol": "Katas-on (Average)",
+			"avgLengthCol": "Katas-on (cm)",
 			"abwCol": "ABW (g)",
 			"feedLevelCol": "Level %",
 			"distanceCol": "Distansya (cm)",

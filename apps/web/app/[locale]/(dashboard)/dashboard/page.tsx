@@ -454,7 +454,7 @@ export default async function DashboardHomePage() {
 			</div>
 
 			{energyDevice && (
-				<section className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
+				<section className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl">
 					<FeedLevelCard
 						levelPercent={energyDevice.feedLevelPercent}
 						updatedAt={energyDevice.feedLevelUpdatedAt}
@@ -469,18 +469,22 @@ export default async function DashboardHomePage() {
 						updatedAt={energyDevice.waterTempUpdatedAt}
 						isDeviceOffline={esp32Offline}
 					/>
-					<EnergyControllerCard
-						deviceId={energyDevice.id}
-						label={energyDevice.label}
-						mac={energyDevice.mac}
-						rtcOk={energyDevice.rtcOk}
-						feederActive={energyDevice.feederActive}
-						gramsPerFeeding={energyDevice.gramsPerFeeding}
-						lastSeenAt={energyDevice.lastSeenAt}
-						isOffline={esp32Offline}
-						canWrite={writeAccess}
-					/>
-					<TimeCalibrationForm deviceId={energyDevice.id} canWrite={writeAccess} />
+					<div className="md:col-span-2">
+						<EnergyControllerCard
+							deviceId={energyDevice.id}
+							label={energyDevice.label}
+							mac={energyDevice.mac}
+							rtcOk={energyDevice.rtcOk}
+							feederActive={energyDevice.feederActive}
+							gramsPerFeeding={energyDevice.gramsPerFeeding}
+							lastSeenAt={energyDevice.lastSeenAt}
+							isOffline={esp32Offline}
+							canWrite={writeAccess}
+						/>
+					</div>
+					<div className="md:col-span-2">
+						<TimeCalibrationForm deviceId={energyDevice.id} canWrite={writeAccess} />
+					</div>
 				</section>
 			)}
 		</div>

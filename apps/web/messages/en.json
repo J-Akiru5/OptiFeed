@@ -200,7 +200,14 @@
 			"errorSave": "Failed to save biomass log. Please check your inputs.",
 			"livePreview": "Live Preview",
 			"previewDesc": "Calculated Average Body Weight (ABW): <bold>{abw}g</bold>. <br /> Assuming 5,000 fish at a {rate}% daily feeding rate across {feeds} feeds, this sample will set your next scheduled feeding to approximately <bold>{nextFeed}g</bold>.",
-			"saving": "Saving..."
+			"saving": "Saving...",
+			"savedBatches": "Saved Batches",
+			"noBatches": "No samples saved yet - save your first sample above.",
+			"unlabeled": "No Batch",
+			"entries": "{count, plural, one {# entry} other {# entries}}",
+			"lastSaved": "Last saved {date}",
+			"totalSamples": "Total Samples",
+			"avgWeight": "Avg Weight"
 		},
 		"history": {
 			"amount": "AMOUNT",
@@ -250,9 +257,9 @@
 			"feedLevelTableTitle": "Feed Level History",
 			"dateCol": "Date",
 			"batchCol": "Batch",
-			"totalWeightCol": "Total Weight",
+			"totalWeightCol": "Total Weight (kg)",
 			"fishCountCol": "Fish Count",
-			"avgLengthCol": "Avg Length",
+			"avgLengthCol": "Avg Length (cm)",
 			"abwCol": "ABW (g)",
 			"feedLevelCol": "Level %",
 			"distanceCol": "Distance (cm)",

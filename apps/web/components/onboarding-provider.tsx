@@ -2,11 +2,18 @@
 
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
-import { HelpCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef } from "react";
 
 const STORAGE_KEY = "optifeed:onboarded";
+
+const OnboardingContext = createContext<{ startTour: () => void }>({
+	startTour: () => {},
+});
+
+export function useOnboarding() {
+	return useContext(OnboardingContext);
+}
 
 export function OnboardingProvider({ children }: { children: React.ReactNode }) {
 	const hasRun = useRef(false);
@@ -79,17 +86,5 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 		}
 	}, [startTour]);
 
-	return (
-		<>
-			{children}
-			<button
-				type="button"
-				onClick={startTour}
-				className="fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-[#0A3D62] text-white shadow-lg hover:bg-[#12588c] transition-colors"
-				aria-label="Start onboarding tour"
-			>
-				<HelpCircle className="h-5 w-5" />
-			</button>
-		</>
-	);
+	return <OnboardingContext.Provider value={{ startTour }}>{children}</OnboardingContext.Provider>;
 }

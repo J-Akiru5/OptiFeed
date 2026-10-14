@@ -3,8 +3,8 @@
 import { MessageSquare, X } from "lucide-react";
 import { useChatWidget } from "./chat-widget-provider";
 
-// Floating action button, bottom-right. Sits above the mobile BottomNav
-// (bottom-24) and at a standard position on desktop (md:bottom-6).
+// Chat assistant toggle. Positioned and stacked by the FabStack
+// (see ../fab-stack.tsx); here it only renders the button itself.
 export function ChatToggleButton() {
 	const { isOpen, toggle } = useChatWidget();
 
@@ -13,7 +13,7 @@ export function ChatToggleButton() {
 			type="button"
 			aria-label={isOpen ? "Close chat" : "Open chat"}
 			onClick={toggle}
-			className="fixed bottom-24 right-4 z-40 flex h-[var(--ofd-touch-min)] w-[var(--ofd-touch-min)] items-center justify-center rounded-full bg-[#E85A2A] text-white shadow-lg transition-transform hover:scale-110 active:scale-95 md:bottom-6 md:right-6"
+			className="flex h-[var(--ofd-fab-size)] w-[var(--ofd-fab-size)] items-center justify-center rounded-full bg-[#E85A2A] text-white shadow-lg transition-transform hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] focus-visible:ring-offset-2"
 		>
 			{isOpen ? <X size={24} /> : <MessageSquare size={24} />}
 		</button>

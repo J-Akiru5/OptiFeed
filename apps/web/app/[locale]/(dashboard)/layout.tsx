@@ -5,6 +5,7 @@ import { BottomNav } from "@/components/bottom-nav";
 import { ChatWidget } from "@/components/chat/chat-widget";
 import { ChatWidgetProvider } from "@/components/chat/chat-widget-provider";
 import { DashboardContentShell } from "@/components/chat/dashboard-content-shell";
+import { FabStack } from "@/components/fab-stack";
 import { HeaderActions } from "@/components/header-actions";
 import { NotificationProvider } from "@/components/notification-provider";
 import { OnboardingProvider } from "@/components/onboarding-provider";
@@ -122,6 +123,7 @@ export default async function DashboardLayout({
 
 					<ChatWidget />
 					<BottomNav />
+					<FabStack />
 				</div>
 			</OnboardingProvider>
 		</ChatWidgetProvider>

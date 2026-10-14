@@ -86,15 +86,21 @@ export function PaginatedSearchTable<T>({
 }: PaginatedSearchTableProps<T>) {
 	const [query, setQuery] = useState("");
 	const hasMounted = useRef(false);
+	// Keep the latest onSearch in a ref so the debounce effect below depends
+	// only on `query`. Parents pass inline handlers whose identity changes
+	// every render; listing `onSearch` in the deps re-triggered the effect
+	// after each parent render and spammed the server action in a loop.
+	const onSearchRef = useRef(onSearch);
+	onSearchRef.current = onSearch;
 
 	useEffect(() => {
 		if (!hasMounted.current) {
 			hasMounted.current = true;
 			return;
 		}
-		const timer = setTimeout(() => onSearch(query.trim()), searchDebounceMs);
+		const timer = setTimeout(() => onSearchRef.current(query.trim()), searchDebounceMs);
 		return () => clearTimeout(timer);
-	}, [query, onSearch, searchDebounceMs]);
+	}, [query, searchDebounceMs]);
 
 	const showEmpty = !isLoading && items.length === 0;
 

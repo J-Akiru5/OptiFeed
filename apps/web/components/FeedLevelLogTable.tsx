@@ -46,23 +46,33 @@ export function FeedLevelLogTable({
 	const handleSearch = async (query: string) => {
 		queryRef.current = query;
 		setIsLoading(true);
-		const result = await loadPage(null, query);
-		if (!result) return;
-		setItems(result.items);
-		setHasMore(result.hasMore);
-		setNextCursor(result.nextCursor);
-		setIsLoading(false);
+		try {
+			const result = await loadPage(null, query);
+			if (!result) return;
+			setItems(result.items);
+			setHasMore(result.hasMore);
+			setNextCursor(result.nextCursor);
+		} catch {
+			// Keep the current items; the next search retries.
+		} finally {
+			setIsLoading(false);
+		}
 	};
 
 	const handleLoadMore = async () => {
 		if (isLoading || !nextCursor) return;
 		setIsLoading(true);
-		const result = await loadPage(nextCursor, queryRef.current);
-		if (!result) return;
-		setItems((prev) => [...prev, ...result.items]);
-		setHasMore(result.hasMore);
-		setNextCursor(result.nextCursor);
-		setIsLoading(false);
+		try {
+			const result = await loadPage(nextCursor, queryRef.current);
+			if (!result) return;
+			setItems((prev) => [...prev, ...result.items]);
+			setHasMore(result.hasMore);
+			setNextCursor(result.nextCursor);
+		} catch {
+			// Keep the current items; the next click retries.
+		} finally {
+			setIsLoading(false);
+		}
 	};
 
 	const renderRow = (log: FeedLevelLogListItem) => (

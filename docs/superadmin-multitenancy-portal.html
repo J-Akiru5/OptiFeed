@@ -53,6 +53,33 @@ td.c{text-align:center}
 .tabs button:focus-visible{outline:2px solid var(--orange);outline-offset:-4px;border-radius:var(--r-sm)}
 .avatar{flex:none;width:34px;height:34px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font:600 12px var(--mono)}
 
+.search-wrap{position:relative;flex:none}
+.search-field{display:flex;align-items:center;gap:7px;width:190px;height:36px;padding:0 10px;border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--surface);transition:width .15s,border-color .15s,background .15s}
+.search-field:focus-within{width:260px;border-color:var(--blue);background:#fff;box-shadow:0 0 0 3px var(--blue-soft)}
+.search-field svg{flex:none;color:var(--muted)}
+.search-field input{flex:1;min-width:0;border:none;background:none;outline:none;font:500 13.5px var(--sans);color:var(--text)}
+.search-field input::placeholder{color:var(--muted)}
+.search-field .clear{flex:none;display:none;width:18px;height:18px;border:none;background:var(--line-2);color:var(--muted);border-radius:50%;cursor:pointer;font-size:12px;line-height:1;align-items:center;justify-content:center}
+.search-field.has-text .clear{display:flex}
+.search-results{display:none;position:absolute;right:0;top:calc(100% + 8px);width:360px;max-width:min(92vw,420px);max-height:min(70vh,480px);overflow-y:auto;
+  background:#fff;border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:0 12px 32px rgba(15,27,42,.16);z-index:70;padding:6px}
+.search-results.open{display:block}
+.search-results .sr-empty{padding:16px 14px;font-size:13.5px;color:var(--muted)}
+.search-results .sr-group{font:600 10.5px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:9px 10px 4px}
+.search-results a{display:block;padding:8px 10px;border-radius:var(--r-sm);text-decoration:none;color:var(--text)}
+.search-results a:hover,.search-results a.active{background:var(--blue-soft)}
+.search-results a b{display:block;font-size:13.5px;font-weight:650;color:var(--blue);margin-bottom:2px}
+.search-results a span{display:block;font-size:12.5px;color:var(--ink-2);line-height:1.45}
+.search-results mark{background:var(--orange-soft);color:var(--orange-ink);border-radius:2px;padding:0 1px}
+.section mark{background:var(--orange-soft);color:var(--orange-ink);border-radius:2px;padding:0 1px;scroll-margin-top:calc(var(--topbar-h) + 24px)}
+@media (max-width:640px){
+  .tabs{flex:1 1 auto;min-width:0}
+  .search-field{width:40px;padding:0;justify-content:center;border-color:transparent;background:none;flex:none}
+  .search-field input{display:none;width:0}
+  .search-field.open{position:fixed;left:8px;right:8px;top:10px;width:auto;height:44px;padding:0 10px;border-color:var(--blue);background:#fff;z-index:71;box-shadow:0 8px 24px rgba(15,27,42,.18)}
+  .search-field.open input{display:block}
+  .search-results{position:fixed;left:8px;right:8px;top:62px;width:auto;max-width:none;max-height:min(75vh,520px)}}
+
 .shell{display:grid;grid-template-columns:var(--side-w) minmax(0,1fr) var(--rail-w);gap:clamp(20px,2.4vw,40px);
   padding:28px clamp(16px,2.5vw,32px) 96px;align-items:start;max-width:1680px;margin:0 auto}
 .sidebar,.rail{position:sticky;top:calc(var(--topbar-h) + 20px);max-height:calc(100vh - var(--topbar-h) - 40px);overflow-y:auto}
@@ -174,6 +201,16 @@ main{min-width:0}
     <button role="tab" id="tab-roadmap" aria-controls="panel-roadmap" aria-selected="false" data-tab="roadmap" tabindex="-1">Roadmap &amp; Risks</button>
     <button role="tab" id="tab-open" aria-controls="panel-open" aria-selected="false" data-tab="open" tabindex="-1">Open Questions</button>
   </nav>
+  <div class="search-wrap">
+    <div class="search-field" id="searchField">
+      <button type="button" id="searchIcon" aria-label="Search this document" style="all:unset;display:flex;cursor:pointer">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+      <input type="search" id="searchInput" placeholder="Search this document…" autocomplete="off" aria-label="Search sections and text">
+      <button type="button" class="clear" id="searchClear" aria-label="Clear search">✕</button>
+    </div>
+    <div class="search-results" id="searchResults" role="listbox" aria-label="Search results"></div>
+  </div>
   <div class="avatar" title="Jeff Martinez">JM</div>
 </header>
 <div class="backdrop"></div>
@@ -882,6 +919,116 @@ stateDiagram-v2
     closeDrawer();
     requestAnimationFrame(()=>{const el=document.getElementById(id); if(el) el.scrollIntoView({behavior:'smooth'});});
   });
+  // ---- Search: indexes every section's title + body text across all tabs,
+  // filters live, and jumps across tabs to the chosen result. Not decorative —
+  // it is the only way to find a term that lives in a tab you are not on.
+  const searchField=document.getElementById('searchField'), searchIcon=document.getElementById('searchIcon'),
+    searchInput=document.getElementById('searchInput'), searchClear=document.getElementById('searchClear'),
+    searchResults=document.getElementById('searchResults');
+  const TAB_LABEL={}; tabs.forEach(t=>TAB_LABEL[t.dataset.tab]=t.textContent.trim());
+  const searchIndex=[...document.querySelectorAll('.section[data-title]')].map(sec=>{
+    const panel=sec.closest('[data-panel]').dataset.panel;
+    const clone=sec.cloneNode(true);
+    clone.querySelectorAll('svg,pre,code.mono-skip').forEach(n=>n.remove());
+    const text=clone.textContent.replace(/\s+/g,' ').trim();
+    return {id:sec.id, panel:panel, title:sec.dataset.title.replace(/<[^>]+>/g,''), text:text};
+  });
+  function escRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+  function snippetAround(text,q){
+    const i=text.toLowerCase().indexOf(q.toLowerCase());
+    if(i<0) return text.slice(0,120);
+    const start=Math.max(0,i-50), end=Math.min(text.length,i+q.length+70);
+    return (start>0?'…':'')+text.slice(start,end)+(end<text.length?'…':'');
+  }
+  function mark(str,q){ return str.replace(new RegExp('('+escRe(q)+')','ig'),'<mark>$1</mark>'); }
+  let activeResultIdx=-1, lastMatches=[];
+  function renderResults(q){
+    searchResults.innerHTML='';
+    if(!q){ searchResults.classList.remove('open'); lastMatches=[]; return; }
+    const ql=q.toLowerCase();
+    lastMatches=searchIndex.filter(s=>s.title.toLowerCase().includes(ql)||s.text.toLowerCase().includes(ql));
+    activeResultIdx=-1;
+    if(!lastMatches.length){
+      searchResults.innerHTML='<div class="sr-empty">No matches for "'+q.replace(/</g,'&lt;')+'".</div>';
+      searchResults.classList.add('open');
+      return;
+    }
+    let lastPanel=null;
+    lastMatches.slice(0,30).forEach((m,i)=>{
+      if(m.panel!==lastPanel){
+        const g=document.createElement('div'); g.className='sr-group'; g.textContent=TAB_LABEL[m.panel]||m.panel;
+        searchResults.appendChild(g); lastPanel=m.panel;
+      }
+      const a=document.createElement('a');
+      a.href='#'+m.id; a.dataset.idx=i; a.setAttribute('role','option');
+      a.innerHTML='<b>'+mark(m.title,q)+'</b><span>'+mark(snippetAround(m.text,q),q)+'</span>';
+      a.addEventListener('click',e=>{ e.preventDefault(); goToResult(m,q); });
+      searchResults.appendChild(a);
+    });
+    searchResults.classList.add('open');
+  }
+  function goToResult(m,q){
+    activate(m.panel,{keepScroll:true});
+    closeDrawer();
+    searchResults.classList.remove('open');
+    requestAnimationFrame(()=>{
+      const el=document.getElementById(m.id);
+      if(!el) return;
+      el.scrollIntoView({behavior:'smooth',block:'start'});
+      el.querySelectorAll('mark[data-sr]').forEach(n=>{n.replaceWith(document.createTextNode(n.textContent));});
+      if(q){
+        const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement.closest('script,style')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
+        const re=new RegExp(escRe(q),'i'); let node, hit=null;
+        while((node=walker.nextNode())){
+          const idx=node.nodeValue.search(re);
+          if(idx>=0){
+            const len=q.length, before=node.nodeValue.slice(0,idx), matchTxt=node.nodeValue.slice(idx,idx+len), after=node.nodeValue.slice(idx+len);
+            const span=document.createElement('mark'); span.setAttribute('data-sr',''); span.textContent=matchTxt;
+            const frag=document.createDocumentFragment();
+            frag.appendChild(document.createTextNode(before)); frag.appendChild(span); frag.appendChild(document.createTextNode(after));
+            node.parentNode.replaceChild(frag,node);
+            hit=span; break;
+          }
+        }
+        if(hit){ hit.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(()=>{hit.style.transition='background .6s';hit.style.background='transparent';},2200); }
+      }
+    });
+  }
+  searchInput.addEventListener('input',()=>{
+    searchField.classList.toggle('has-text',!!searchInput.value);
+    renderResults(searchInput.value.trim());
+  });
+  searchInput.addEventListener('keydown',e=>{
+    const opts=[...searchResults.querySelectorAll('a')];
+    if(e.key==='Escape'){ searchResults.classList.remove('open'); searchInput.blur(); return; }
+    if(e.key==='Enter'){ e.preventDefault(); const pick=opts[Math.max(activeResultIdx,0)]; if(pick) pick.click(); return; }
+    if((e.key==='ArrowDown'||e.key==='ArrowUp')&&opts.length){
+      e.preventDefault();
+      activeResultIdx=(activeResultIdx+(e.key==='ArrowDown'?1:-1)+opts.length)%opts.length;
+      opts.forEach((o,i)=>o.classList.toggle('active',i===activeResultIdx));
+      opts[activeResultIdx].scrollIntoView({block:'nearest'});
+    }
+  });
+  searchClear.addEventListener('click',()=>{ searchInput.value=''; searchField.classList.remove('has-text'); renderResults(''); searchInput.focus(); });
+  searchIcon.addEventListener('click',()=>{
+    if(window.matchMedia('(max-width:640px)').matches && !searchField.classList.contains('open')){
+      searchField.classList.add('open'); searchInput.focus();
+    } else { searchInput.focus(); }
+  });
+  document.addEventListener('click',e=>{
+    if(!searchField.contains(e.target) && !searchResults.contains(e.target)){
+      searchResults.classList.remove('open');
+      if(window.matchMedia('(max-width:640px)').matches && !searchInput.value) searchField.classList.remove('open');
+    }
+  });
+  document.addEventListener('keydown',e=>{
+    if((e.key==='/'||((e.ctrlKey||e.metaKey)&&e.key==='k')) && document.activeElement!==searchInput && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)){
+      e.preventDefault();
+      if(window.matchMedia('(max-width:640px)').matches) searchField.classList.add('open');
+      searchInput.focus();
+    }
+  });
+
   const KEY='pakaonai-superadmin-plan-read-v1';
   let read=new Set();
   try{read=new Set(JSON.parse(localStorage.getItem(KEY)||'[]'));}catch(e){}

@@ -370,3 +370,106 @@ model LoginLockout {
   @@id([farmId, ip])
   @@map("login_lockout")
 }
+
+enum OrgType {
+  INDIVIDUAL
+  COOPERATIVE
+  COMPANY
+  LGU
+  ACADEMIC
+}
+
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_DELETION
+  PURGED
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  OPERATOR
+  VIEWER
+}
+
+model Organization {
+  id                  String    @id @default(cuid())
+  name                String
+  type                OrgType   @default(INDIVIDUAL)
+  status              OrgStatus @default(ACTIVE)
+  parentId            String?
+  suspendedAt         DateTime?
+  suspendedReason     String?
+  deletionRequestedAt DateTime?
+  purgeAfter          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([status])
+}
+
+model Membership {
+  id        String     @id @default(cuid())
+  orgId     String
+  userId    String
+  role      MemberRole
+  invitedBy String?
+  createdAt DateTime   @default(now())
+  revokedAt DateTime?
+
+  @@unique([orgId, userId])
+  @@index([userId])
+}
+
+model MembershipPermission {
+  id           String    @id @default(cuid())
+  membershipId String
+  permission   String
+  grantedAt    DateTime  @default(now())
+  revokedAt    DateTime?
+
+  @@unique([membershipId, permission])
+}
+
+model PlatformAdmin {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  grantedBy     String?
+  expiresAt     DateTime?
+  revokedAt     DateTime?
+  mfaEnrolledAt DateTime?
+  createdAt     DateTime  @default(now())
+}
+
+model PlatformAuditLog {
+  id              String   @id @default(cuid())
+  actorUserId     String
+  action          String
+  targetType      String
+  targetId        String?
+  orgId           String?
+  reason          String
+  stepUpAt        DateTime?
+  temporaryGrant  Boolean  @default(false)
+  impersonationId String?
+  before          Json?
+  after           Json?
+  ip              String?
+  userAgent       String?
+  createdAt       DateTime @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+model ImpersonationSession {
+  id          String    @id @default(cuid())
+  actorUserId String
+  orgId       String
+  mode        String
+  reason      String
+  startedAt   DateTime  @default(now())
+  expiresAt   DateTime
+  endedAt     DateTime?
+}

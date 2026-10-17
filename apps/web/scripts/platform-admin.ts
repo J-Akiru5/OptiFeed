@@ -158,6 +158,44 @@ async function revoke(args: Args) {
 	console.log(`✓ Revoked platform admin for "${user.farmId}". Audit row written.\n`);
 }
 
+async function deleteRow(args: Args) {
+	const reason = requireReason(args);
+	const user = await resolveUser(args);
+
+	const existing = await prisma.platformAdmin.findUnique({
+		where: { userId: user.id },
+	});
+	if (!existing) {
+		console.error(`"${user.farmId}" has no platform admin row to delete.`);
+		process.exit(1);
+	}
+
+	// Hard delete: restores the pre-grant state (no row at all), unlike revoke,
+	// which keeps the row and only stamps revokedAt. The audit trail lives in
+	// the append-only PlatformAuditLog, so removing the row loses no history.
+	await prisma.$transaction([
+		prisma.platformAdmin.delete({ where: { userId: user.id } }),
+		prisma.platformAuditLog.create({
+			data: {
+				actorUserId: args["--granted-by"]?.trim() || "cli",
+				action: "platform_admin.delete",
+				targetType: "platform_admin",
+				targetId: user.id,
+				reason,
+				temporaryGrant: existing.expiresAt !== null,
+				before: {
+					platformAdminId: existing.id,
+					grantedBy: existing.grantedBy,
+					expiresAt: existing.expiresAt?.toISOString() ?? null,
+					revokedAt: existing.revokedAt?.toISOString() ?? null,
+				},
+			},
+		}),
+	]);
+
+	console.log(`✓ Deleted platform admin row for "${user.farmId}". Audit row written.\n`);
+}
+
 async function list() {
 	const rows = await prisma.platformAdmin.findMany({ orderBy: { createdAt: "desc" } });
 
@@ -194,6 +232,9 @@ async function main() {
 		case "revoke":
 			await revoke(args);
 			break;
+		case "delete":
+			await deleteRow(args);
+			break;
 		case "list":
 			await list();
 			break;
@@ -205,6 +246,7 @@ Commands:
   grant   --farm-id <id> --reason "<at least 10 chars>"
           [--expires-at <ISO 8601>] [--granted-by <name>]
   revoke  --farm-id <id> --reason "<at least 10 chars>"
+  delete  --farm-id <id> --reason "<at least 10 chars>"
   list
 `);
 			break;

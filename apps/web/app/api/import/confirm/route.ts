@@ -74,6 +74,23 @@ export const POST = withAuth(async (request, { ownerId }) => {
 				break;
 			}
 			case "fish_samples": {
+				// Ownership check: every referenced biomass log must sit on a pond
+				// this owner holds. Without it a crafted CSV could attach samples
+				// to another tenant's log (F-004). Reject the whole batch on any
+				// foreign id — no partial write.
+				const referencedIds = [...new Set(data.map((row) => String(row.biomassLogId)))];
+				const ownedLogs = await prisma.biomassLog.findMany({
+					where: { id: { in: referencedIds }, pond: { ownerId } },
+					select: { id: true },
+				});
+				const ownedIds = new Set(ownedLogs.map((l) => l.id));
+				if (referencedIds.some((id) => !ownedIds.has(id))) {
+					return Response.json(
+						{ error: "One or more biomassLogId values are not owned by this farm" },
+						{ status: 400 },
+					);
+				}
+
 				const rows = data.map((row) => ({
 					biomassLogId: String(row.biomassLogId),
 					weightGrams: Number(row.weightGrams),

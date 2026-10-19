@@ -21,3 +21,20 @@ describe("security headers (F-013)", () => {
 		expect(config.poweredByHeader).toBe(false);
 	});
 });
+
+describe("CSP (F-025)", () => {
+	it("pins form submissions and <base> to the origin in the enforced policy", async () => {
+		const csp = headerValue(await globalHeaders(), "Content-Security-Policy");
+		expect(csp).toContain("form-action 'self'");
+		expect(csp).toContain("base-uri 'self'");
+	});
+
+	it("ships a stricter Report-Only policy without 'unsafe-inline' scripts", async () => {
+		const reportOnly = headerValue(await globalHeaders(), "Content-Security-Policy-Report-Only");
+		expect(reportOnly).toBeTruthy();
+		expect(reportOnly).toContain("script-src 'self'");
+		expect(reportOnly).not.toContain("script-src 'self' 'unsafe-inline'");
+		expect(reportOnly).toContain("form-action 'self'");
+		expect(reportOnly).toContain("base-uri 'self'");
+	});
+});

@@ -16,16 +16,21 @@ vi.mock("@/lib/rate-limit", () => ({
 	checkApiRateLimit: vi.fn(() => ({ success: true })),
 }));
 
-vi.mock("@/lib/prisma", () => ({
-	default: {
+vi.mock("@/lib/prisma", () => {
+	// $transaction hands the callback this same client, so tx.* writes land on
+	// the same spies the assertions inspect.
+	const client = {
 		user: { findUnique: vi.fn() },
 		pond: { findMany: vi.fn() },
 		energyDevice: { findFirst: vi.fn() },
-		biomassLog: { findMany: vi.fn() },
+		biomassLog: { findMany: vi.fn(), createMany: vi.fn() },
 		fishSample: { createMany: vi.fn() },
 		deviceStateEvent: { create: vi.fn() },
-	},
-}));
+	};
+	const $transaction = vi.fn();
+	$transaction.mockImplementation((fn: (tx: typeof client) => Promise<unknown>) => fn(client));
+	return { default: { ...client, $transaction } };
+});
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 

@@ -6,7 +6,9 @@ const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 const securityHeaders = [
 	{ key: "X-Content-Type-Options", value: "nosniff" },
 	{ key: "X-Frame-Options", value: "DENY" },
-	{ key: "X-XSS-Protection", value: "1; mode=block" },
+	// "0" disables the legacy IE/Edge XSS auditor — "1; mode=block" can
+	// itself be abused to mute parts of a page (F-013).
+	{ key: "X-XSS-Protection", value: "0" },
 	{ key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
 	{ key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
 	{
@@ -27,6 +29,8 @@ const nextConfig: NextConfig = {
 	serverExternalPackages: ["@prisma/client"],
 	allowedDevOrigins: ["192.168.1.10"],
 	devIndicators: false,
+	// Don't ship the "X-Powered-By: Next.js" disclosure header (F-013).
+	poweredByHeader: false,
 	images: {
 		remotePatterns: [
 			{

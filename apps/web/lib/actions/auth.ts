@@ -1,13 +1,7 @@
 "use server";
 
 import { redirect } from "@/i18n/routing";
-import {
-	GLOBAL_SLOWDOWN_MS,
-	checkLockout,
-	recordFailedAttempt,
-	resetLockout,
-	shouldSlowLogin,
-} from "@/lib/auth/lockout";
+import { checkLockout, recordFailedAttempt, resetLockout } from "@/lib/auth/lockout";
 import { isPlatformAdminFarmId } from "@/lib/auth/require-platform-admin";
 import { buildPondEmail } from "@/lib/auth/session";
 import { reportError } from "@/lib/observability";
@@ -49,16 +43,10 @@ export async function loginWithPin(farmId: string, pin: string): Promise<LoginRe
 			return { error: "rate_limited" };
 		}
 
-		// Per-(farm, IP) hard lockout before calling Supabase
+		// Per-(farm, IP) hard lockout + farm-wide cap (F-031) before Supabase
 		const lockout = await withRetry(() => checkLockout(normalizedFarmId, ip));
 		if (lockout.locked) {
 			return { error: "locked", secondsRemaining: lockout.secondsRemaining };
-		}
-
-		// Global farm counter: many failures across IPs slow the next attempt
-		// and notify the farm, but never lock the real farmer out.
-		if (await shouldSlowLogin(normalizedFarmId)) {
-			await new Promise((resolve) => setTimeout(resolve, GLOBAL_SLOWDOWN_MS));
 		}
 
 		const locale = await getLocale();

@@ -7,7 +7,7 @@ biomass/FCR tracking, ESP32 feeder control, and low-pellet / offline alerts.
 
 - **Next.js 16** (App Router, next-intl for en/hil) + **Prisma** + **Supabase** (PostgreSQL + Auth)
 - **ESP32** feeder over device-token REST (`/api/ingest`, `/api/feed-command`, `/api/schedule-sync`)
-- **Telegram** alerts for CRITICAL events, **Google Gemini** chat assistant
+- **Telegram** alerts for CRITICAL events, **OpenRouter (DeepSeek)** chat assistant
 - pnpm workspaces monorepo (`apps/web`, `packages/config`)
 
 ## Setup
@@ -30,7 +30,7 @@ Key env vars (full list in `apps/web/.env.example`):
 | `CRON_SECRET` | Bearer secret for `/api/cron/device-watch` (H10 runs the pg_cron SQL) |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | CRITICAL alerts (no-op until set) |
 | `NEXT_PUBLIC_BASE_URL` | Absolute links in alerts/exports |
-| `GEMINI_API_KEY` / `GEMINI_MODEL` | Chat assistant |
+| `OPENROUTER_API_KEY` / `OPENROUTER_MODEL` / `OPENROUTER_REASONING_EFFORT` | AI chat + feeding prediction |
 | `E2E_ALLOWED_DB_HOST` | Playwright guard: e2e only runs against this DB host |
 
 ## Commands (repo root)

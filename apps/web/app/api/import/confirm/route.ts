@@ -75,6 +75,7 @@ export async function POST(request: Request) {
 						sampleLengthCm,
 						sampleCount,
 						avgWeightKg,
+						source: "import",
 						recordedAt: row.recordedAt ? new Date(String(row.recordedAt)) : new Date(),
 					};
 				});

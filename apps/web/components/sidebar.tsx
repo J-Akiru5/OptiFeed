@@ -35,10 +35,10 @@ export function Sidebar({ hopperLevelPct = 82 }: { hopperLevelPct?: number }) {
 	const scheduledFeedings = Math.floor(Number.parseFloat(remainingKg) / 0.35);
 
 	return (
-		<aside className="hidden lg:flex w-64 bg-white border-r border-[#0A3D62]/10 flex-col p-6 shrink-0 sticky top-[64px] h-[calc(100vh-64px)] z-20 overflow-y-auto scrollbar-none">
+		<aside className="hidden lg:flex w-64 bg-white dark:bg-gray-900 border-r border-[#0A3D62]/10 dark:border-gray-700/50 flex-col p-6 shrink-0 sticky top-[64px] h-[calc(100vh-64px)] z-20 overflow-y-auto scrollbar-none">
 			<div className="space-y-1">
-				<p className="text-[10px] font-extrabold uppercase text-[#3D5568] tracking-widest px-3 mb-3">
-					Pond Operator Menu
+				<p className="text-[10px] font-extrabold uppercase text-[#3D5568] dark:text-gray-400 tracking-widest px-3 mb-3">
+					{t("operatorMenu")}
 				</p>
 				{navItems.map((item) => {
 					// Exact match for dashboard home, startsWith for child routes
@@ -54,7 +54,7 @@ export function Sidebar({ hopperLevelPct = 82 }: { hopperLevelPct?: number }) {
 								"w-full flex items-center gap-3 p-3.5 rounded-2xl font-bold transition-all text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]",
 								isActive
 									? "bg-[#0A3D62] text-white shadow-md transform translate-x-1"
-									: "text-[#3D5568] hover:bg-[#F4F7F6]",
+									: "text-[#3D5568] hover:bg-[#F4F7F6] dark:text-gray-300 dark:hover:bg-gray-800",
 							)}
 						>
 							<item.icon className="w-5 h-5 shrink-0" />
@@ -65,15 +65,15 @@ export function Sidebar({ hopperLevelPct = 82 }: { hopperLevelPct?: number }) {
 			</div>
 
 			{/* Hopper level widget */}
-			<div className="bg-[#0A3D62]/5 rounded-2xl p-4 border border-[#0A3D62]/10 space-y-3 mt-auto">
-				<p className="text-[10px] uppercase font-extrabold text-[#3D5568] tracking-widest flex items-center gap-1.5">
-					<Cpu className="w-3.5 h-3.5 text-[#E85A2A]" /> Hopper level
+			<div className="bg-[#0A3D62]/5 dark:bg-gray-800/60 rounded-2xl p-4 border border-[#0A3D62]/10 dark:border-gray-700/50 space-y-3 mt-auto">
+				<p className="text-[10px] uppercase font-extrabold text-[#3D5568] dark:text-gray-400 tracking-widest flex items-center gap-1.5">
+					<Cpu className="w-3.5 h-3.5 text-[#E85A2A]" /> {t("hopperLevel")}
 				</p>
-				<div className="flex items-center justify-between text-xs font-extrabold text-[#0A3D62]">
-					<span>Pond Feed Pellet</span>
+				<div className="flex items-center justify-between text-xs font-extrabold text-[#0A3D62] dark:text-[#5b9bd5]">
+					<span>{t("pondFeedPellet")}</span>
 					<span>{hopperLevelPct}%</span>
 				</div>
-				<div className="w-full bg-[#3D5568]/20 h-2 rounded-full overflow-hidden">
+				<div className="w-full bg-[#3D5568]/20 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
 					<div
 						className={cn(
 							"h-full rounded-full transition-all duration-1000",
@@ -82,8 +82,8 @@ export function Sidebar({ hopperLevelPct = 82 }: { hopperLevelPct?: number }) {
 						style={{ width: `${hopperLevelPct}%` }}
 					/>
 				</div>
-				<div className="text-[10px] text-[#3D5568] leading-tight font-mono">
-					Approx. {remainingKg}kg remaining. Enough for {scheduledFeedings} scheduled feedings.
+				<div className="text-[10px] text-[#3D5568] dark:text-gray-400 leading-tight font-mono">
+					{t("hopperRemaining", { kg: remainingKg, count: scheduledFeedings })}
 				</div>
 			</div>
 		</aside>

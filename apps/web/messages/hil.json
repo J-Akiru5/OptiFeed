@@ -7,7 +7,11 @@
 		"growth": "Pagtubo",
 		"settings": "Mga Setting",
 		"notifications": "Mga Notipikasyon",
-		"audit": "Talaan ng Audit"
+		"audit": "Talaan ng Audit",
+		"operatorMenu": "Menu sang Operator sang Punong",
+		"hopperLevel": "Lebel sang hopper",
+		"pondFeedPellet": "Pond Feed Pellet",
+		"hopperRemaining": "Mga {kg}kg ang nabilin. Igo para sa {count} ka scheduled feeding."
 	},
 	"button": {
 		"feedNow": "Pakauna Subong",
@@ -120,7 +124,7 @@
 	},
 	"dashboard": {
 		"home": {
-			"noData": "Wala sang datos ang punong. Palihog padalagana ang seed script.",
+			"noData": "Wala pa sang punong nga na-assign. Palihog pamangkot ang imo administrator.",
 			"welcome": "Maayong pagbalik, {name}!",
 			"monitoring": "Gina-monitor ang <bold>{pond}</bold> halin sa <bold>Western Visayas</bold> node.",
 			"nextFeedingLabel": "MASUNOD NGA ISKEDYUL SANG PAGPAKAON",
@@ -147,7 +151,8 @@
 			"daysRemaining": "~{count}d nga feed nabilin",
 			"biomassLogsTitle": "MGA PINAKABAG-O NGA BIOMASS SAMPLE",
 			"biomassLogsDesc": "Ang mga kinahamunan nga weigh-in nga nalog para sa kundi nga",
-			"viewGrowth": "Tan-awa ang pagdako"
+			"viewGrowth": "Tan-awa ang pagdako",
+			"noFeedings": "Wala pa sang na-rekord nga feeding."
 		},
 		"schedule": {
 			"title": "Iskedyul sang Pagpakaon",
@@ -384,7 +389,9 @@
 			"deviceOfflineAlerts": "Alerto sang Device Offline",
 			"deviceOfflineAlertsDesc": "Makabaton sang notipikasyon kon mag-offline ang imo ESP32 device.",
 			"hopperLowAlerts": "Alerto sang Hopper Low Level",
-			"hopperLowAlertsDesc": "Makabaton sang notipikasyon kon nagnubo na ang lebel sang feed hopper."
+			"hopperLowAlertsDesc": "Makabaton sang notipikasyon kon nagnubo na ang lebel sang feed hopper.",
+			"managedByAdmin": "Ang detalye sang profile gina-manage sang imo administrator.",
+			"pinManagedByAdmin": "Ang pagbag-o sang PIN gina-atipan sang imo administrator."
 		},
 		"audit": {
 			"title": "Talaan ng Audit",
@@ -454,7 +461,9 @@
 			"deviceActions": "Mga Aksyon sang Device",
 			"deviceActionsDesc": "Maghimo sang mga aksyon sa pagmentinar sang imo device.",
 			"syncNow": "I-sync Subong",
-			"restartDevice": "I-restart ang Device"
+			"restartDevice": "I-restart ang Device",
+			"notConfigured": "Wala pa available ang remote configuration. Ang Wi-Fi kag server settings gina-apply sa device console.",
+			"actionsUnavailable": "Wala pa available ang mga aksyon sa device."
 		},
 		"notifications": {
 			"title": "Mga Notipikasyon",
@@ -473,7 +482,8 @@
 				"batteryLow": "Nagnubo ang baterya sa Feeder #{feeder}.",
 				"hopperEmpty": "HILINGAGAWON: Wala gid unod ang hopper sang feeder!",
 				"feedingCompleted": "Madinalag-on nga nahatag ang na-iskedyul nga {amount}g."
-			}
+			},
+			"acknowledge": "Kilalahon"
 		},
 		"timeCalibration": {
 			"title": "Kalibrasyon sang Oras",

@@ -251,3 +251,42 @@ push `staging` or `main`: promotions are PRs that the human merges. The
 repository's explicit `staging+main` decision; the repository policy is kept
 unless Jeff changes it.
 
+
+---
+
+# Post-reconciliation status — 2026-10-22
+
+## Database migrations
+
+prisma migrate status against the production connection reports **28
+migrations found** and **"Database schema is up to date"**.
+
+This includes `20261021000000_add_biomass_log_source`, which was applied
+out-of-band by an `xtra` preview build before the `VERCEL_ENV` guard
+existed. The migration is additive (`ADD COLUMN` only), so this is safe.
+
+- No pending migrations; running `migrate deploy` now is a no-op.
+- The reconciliation branch can be promoted to staging without a schema gap.
+- The guard added in PR #50 prevents future preview builds from migrating the
+  shared database; the `xtra` previews that applied this one are frozen and
+  will not receive new commits.
+
+## Branch state
+
+| Branch | Tip | Notes |
+| --- | --- | --- |
+| `main` | `2795bef` | production, unchanged |
+| `staging` | `9b0ca27` | release candidate; does not include the reconciliation |
+| `develop` | `f73ae89` | reconciliation merged (PR #64) |
+| `xtra` | `f8de64b` | superseded by #64, left for its author |
+
+## Production release
+
+PR #63 is still **blocked on the required review** (a review was requested from
+Karl). No bypass was used and `main` was not pushed.
+
+## Quality pass (RBAC and polish)
+
+Two read-only audits were started: an RBAC enforcement/UI-gating audit and a
+UI/UX polish audit across dashboard, admin and superadmin screens. Findings and
+fixes from that pass are recorded below as they are completed.

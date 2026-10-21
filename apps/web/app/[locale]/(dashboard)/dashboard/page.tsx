@@ -319,9 +319,11 @@ export default async function DashboardHomePage() {
 
 					<div className="my-4">
 						<h2 className="text-5xl md:text-6xl font-black text-white tracking-tight">
-							{latestFcr.toFixed(2)}
+							{fcrReports.length > 0 ? latestFcr.toFixed(2) : "—"}
 						</h2>
-						<p className="text-xs text-white/70 mt-1.5 font-medium">{t("fcrOptimal")}</p>
+						{fcrReports.length > 0 && (
+							<p className="text-xs text-white/70 mt-1.5 font-medium">{t("fcrOptimal")}</p>
+						)}
 					</div>
 
 					{/* Mini sparkline SVG */}
@@ -418,46 +420,52 @@ export default async function DashboardHomePage() {
 						</Link>
 					</div>
 
-					<div className="space-y-3">
-						{feedingHistory.map((item, idx) => (
-							<div
-								key={item.id}
-								className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-[#F4F7F6] dark:bg-gray-800 rounded-2xl border border-[#0A3D62]/5 dark:border-gray-700/50 gap-4"
-							>
-								<div className="flex items-center gap-4">
-									<div className="w-10 h-10 bg-white dark:bg-gray-700 rounded-xl flex items-center justify-center font-extrabold text-xs text-[#0A3D62] dark:text-[#5b9bd5] border border-gray-200 dark:border-gray-600 shrink-0">
-										0{idx + 1}
-									</div>
-									<div>
-										<div className="flex items-center gap-2">
-											<p className="font-extrabold text-base text-[#0A3D62] dark:text-[#5b9bd5]">
-												{formatTime(item.receivedAt)}
-											</p>
-											<span className="text-[10px] text-[#3D5568] dark:text-gray-400 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-1.5 py-0.5 rounded-full font-mono">
-												{formatDate(item.receivedAt)}
-											</span>
+					{feedingHistory.length === 0 ? (
+						<p className="py-8 text-center text-sm text-[#3D5568] dark:text-gray-400">
+							{t("noFeedings")}
+						</p>
+					) : (
+						<div className="space-y-3">
+							{feedingHistory.map((item, idx) => (
+								<div
+									key={item.id}
+									className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-[#F4F7F6] dark:bg-gray-800 rounded-2xl border border-[#0A3D62]/5 dark:border-gray-700/50 gap-4"
+								>
+									<div className="flex items-center gap-4">
+										<div className="w-10 h-10 bg-white dark:bg-gray-700 rounded-xl flex items-center justify-center font-extrabold text-xs text-[#0A3D62] dark:text-[#5b9bd5] border border-gray-200 dark:border-gray-600 shrink-0">
+											0{idx + 1}
 										</div>
-										<p className="text-xs text-[#3D5568] dark:text-gray-400">
-											{tHist(item.source ? `source_${item.source}` : "confirmedDispense")}
-										</p>
+										<div>
+											<div className="flex items-center gap-2">
+												<p className="font-extrabold text-base text-[#0A3D62] dark:text-[#5b9bd5]">
+													{formatTime(item.receivedAt)}
+												</p>
+												<span className="text-[10px] text-[#3D5568] dark:text-gray-400 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-1.5 py-0.5 rounded-full font-mono">
+													{formatDate(item.receivedAt)}
+												</span>
+											</div>
+											<p className="text-xs text-[#3D5568] dark:text-gray-400">
+												{tHist(item.source ? `source_${item.source}` : "confirmedDispense")}
+											</p>
+										</div>
+									</div>
+									<div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-2 sm:pt-0 border-gray-200 dark:border-gray-700">
+										<div className="text-left sm:text-right">
+											<p className="font-extrabold text-base text-[#0A3D62] dark:text-[#5b9bd5]">
+												{item.grams ?? 0}g
+											</p>
+											<p className="text-[10px] font-bold uppercase text-[#3D5568] dark:text-gray-500 opacity-50">
+												{tHist("amount")}
+											</p>
+										</div>
+										<span className="px-4 py-1.5 rounded-full font-bold text-xs text-center min-w-[80px] shadow-sm bg-[#1E7B34] dark:bg-green-800 text-white">
+											{tHist("confirmedDispense")}
+										</span>
 									</div>
 								</div>
-								<div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-2 sm:pt-0 border-gray-200 dark:border-gray-700">
-									<div className="text-left sm:text-right">
-										<p className="font-extrabold text-base text-[#0A3D62] dark:text-[#5b9bd5]">
-											{item.grams ?? 0}g
-										</p>
-										<p className="text-[10px] font-bold uppercase text-[#3D5568] dark:text-gray-500 opacity-50">
-											{tHist("amount")}
-										</p>
-									</div>
-									<span className="px-4 py-1.5 rounded-full font-bold text-xs text-center min-w-[80px] shadow-sm bg-[#1E7B34] dark:bg-green-800 text-white">
-										{tHist("confirmedDispense")}
-									</span>
-								</div>
-							</div>
-						))}
-					</div>
+							))}
+						</div>
+					)}
 				</div>
 
 				{/* Tile 7: Recent biomass logs (12 cols) */}

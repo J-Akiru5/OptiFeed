@@ -117,47 +117,63 @@ export default async function HardwareSettingsPage() {
 				</section>
 
 				{/* Network Settings */}
-				<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-					<div className="mb-6 border-b border-gray-100 pb-4">
-						<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800">
+				<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
+					<div className="mb-6 border-b border-gray-100 pb-4 dark:border-gray-700/50">
+						<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800 dark:text-gray-100">
 							<Wifi size={20} />
 							{t("network")}
 						</h2>
-						<p className="mt-1 text-sm text-gray-500">{t("networkDesc")}</p>
+						<p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("networkDesc")}</p>
 					</div>
+
+					<p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300">
+						{t("notConfigured")}
+					</p>
 
 					<div className="space-y-4">
 						<div className="flex flex-col gap-2">
-							<label htmlFor="wifiSsid" className="text-sm font-medium text-gray-700">
+							<label
+								htmlFor="wifiSsid"
+								className="text-sm font-medium text-gray-700 dark:text-gray-300"
+							>
 								{t("wifiSsid")}
 							</label>
 							<input
 								id="wifiSsid"
 								type="text"
-								defaultValue="OptiFeed-Farm-5G"
-								className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+								placeholder="Your Wi-Fi network"
+								disabled
+								className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400"
 							/>
 						</div>
 						<div className="flex flex-col gap-2">
-							<label htmlFor="wifiPassword" className="text-sm font-medium text-gray-700">
+							<label
+								htmlFor="wifiPassword"
+								className="text-sm font-medium text-gray-700 dark:text-gray-300"
+							>
 								{t("wifiPassword")}
 							</label>
 							<input
 								id="wifiPassword"
 								type="password"
-								defaultValue="••••••••"
-								className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+								placeholder="Managed on the device"
+								disabled
+								className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400"
 							/>
 						</div>
 						<div className="flex flex-col gap-2">
-							<label htmlFor="serverUrl" className="text-sm font-medium text-gray-700">
+							<label
+								htmlFor="serverUrl"
+								className="text-sm font-medium text-gray-700 dark:text-gray-300"
+							>
 								{t("serverUrl")}
 							</label>
 							<input
 								id="serverUrl"
 								type="text"
-								defaultValue="wss://optifeed.local:8080"
-								className="rounded-lg border border-gray-200 px-4 py-2 font-mono text-sm outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+								placeholder="wss://"
+								disabled
+								className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 font-mono text-sm text-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400"
 							/>
 						</div>
 					</div>
@@ -165,7 +181,8 @@ export default async function HardwareSettingsPage() {
 					<div className="mt-6">
 						<button
 							type="button"
-							className="flex min-h-[var(--ofd-touch-min)] min-w-[120px] items-center justify-center rounded-lg bg-[var(--ofd-action)] px-6 font-medium text-white transition-opacity hover:opacity-90"
+							disabled
+							className="flex min-h-[var(--ofd-touch-min)] min-w-[120px] items-center justify-center rounded-lg bg-[var(--ofd-action)] px-6 font-medium text-white opacity-50 cursor-not-allowed"
 						>
 							{t("saveNetwork")}
 						</button>
@@ -270,19 +287,26 @@ export default async function HardwareSettingsPage() {
 				)}
 
 				{/* Device Actions */}
-				<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-					<div className="mb-6 border-b border-gray-100 pb-4">
-						<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800">
+				<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
+					<div className="mb-6 border-b border-gray-100 pb-4 dark:border-gray-700/50">
+						<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800 dark:text-gray-100">
 							<RefreshCw size={20} />
 							{t("deviceActions")}
 						</h2>
-						<p className="mt-1 text-sm text-gray-500">{t("deviceActionsDesc")}</p>
+						<p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+							{t("deviceActionsDesc")}
+						</p>
 					</div>
+
+					<p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300">
+						{t("actionsUnavailable")}
+					</p>
 
 					<div className="space-y-3">
 						<button
 							type="button"
-							className="flex min-h-[var(--ofd-touch-min)] w-full items-center justify-between rounded-xl border border-[#0A3D62]/10 bg-white px-4 font-bold text-[#0A3D62] transition hover:bg-[#F4F7F6]"
+							disabled
+							className="flex min-h-[var(--ofd-touch-min)] w-full cursor-not-allowed items-center justify-between rounded-xl border border-[#0A3D62]/10 bg-white px-4 font-bold text-[#0A3D62] opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
 						>
 							<span className="flex items-center gap-3">
 								<RefreshCw className="h-5 w-5 text-[#E85A2A]" />
@@ -306,7 +330,8 @@ export default async function HardwareSettingsPage() {
 						</button>
 						<button
 							type="button"
-							className="flex min-h-[var(--ofd-touch-min)] w-full items-center justify-between rounded-xl border border-red-100 bg-red-50 px-4 font-bold text-[#C42B3A] transition hover:bg-red-100"
+							disabled
+							className="flex min-h-[var(--ofd-touch-min)] w-full cursor-not-allowed items-center justify-between rounded-xl border border-red-100 bg-red-50 px-4 font-bold text-[#C42B3A] opacity-50 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300"
 						>
 							<span className="flex items-center gap-3">
 								<Cpu className="h-5 w-5" />

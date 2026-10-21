@@ -11,15 +11,14 @@ export const revalidate = 0; // Ensure data is fresh
 
 export default async function LogSamplePage() {
 	const t = await getTranslations("dashboard.logSample");
+	const tSch = await getTranslations("dashboard.schedule");
 	const tDates = await getTranslations("dates");
 	const pond = await getActivePond();
 
 	if (!pond) {
 		return (
 			<div className="flex h-[50vh] items-center justify-center">
-				<p className="text-lg text-gray-500 dark:text-gray-400">
-					No pond data found. Please run the seed script.
-				</p>
+				<p className="text-lg text-gray-500 dark:text-gray-400">{tSch("noPondData")}</p>
 			</div>
 		);
 	}
@@ -117,7 +116,7 @@ export default async function LogSamplePage() {
 										<p className="text-[11px] uppercase font-bold tracking-wider text-gray-400">
 											{t("totalSamples")}
 										</p>
-										<p className="text-sm font-black text-gray-700 mt-0.5">
+										<p className="text-sm font-black text-gray-700 dark:text-gray-100 mt-0.5">
 											{batch.totalSampleCount}
 										</p>
 									</div>
@@ -125,7 +124,7 @@ export default async function LogSamplePage() {
 										<p className="text-[11px] uppercase font-bold tracking-wider text-gray-400">
 											{t("avgWeight")}
 										</p>
-										<p className="text-sm font-black text-gray-700 mt-0.5">
+										<p className="text-sm font-black text-gray-700 dark:text-gray-100 mt-0.5">
 											{(batch.avgWeightKg * 1000).toFixed(1)}g
 										</p>
 									</div>

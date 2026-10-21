@@ -7,7 +7,11 @@
 		"growth": "Growth",
 		"settings": "Settings",
 		"notifications": "Notifications",
-		"audit": "Audit Trail"
+		"audit": "Audit Trail",
+		"operatorMenu": "Pond Operator Menu",
+		"hopperLevel": "Hopper level",
+		"pondFeedPellet": "Pond Feed Pellet",
+		"hopperRemaining": "Approx. {kg}kg remaining. Enough for {count} scheduled feedings."
 	},
 	"button": {
 		"feedNow": "Feed Now",
@@ -120,7 +124,7 @@
 	},
 	"dashboard": {
 		"home": {
-			"noData": "No pond data found. Please run the seed script.",
+			"noData": "No pond is assigned yet. Ask your administrator to set one up.",
 			"welcome": "Welcome back, {name}!",
 			"monitoring": "Monitoring <bold>{pond}</bold> remotely from <bold>Western Visayas</bold> node.",
 			"nextFeedingLabel": "NEXT SCHEDULED FEEDING",
@@ -147,7 +151,8 @@
 			"daysRemaining": "~{count}d of feed remaining",
 			"biomassLogsTitle": "RECENT BIOMASS SAMPLES",
 			"biomassLogsDesc": "Latest weigh-ins logged for this pond.",
-			"viewGrowth": "View growth"
+			"viewGrowth": "View growth",
+			"noFeedings": "No feedings recorded yet."
 		},
 		"schedule": {
 			"title": "Feeding Schedule",
@@ -384,7 +389,9 @@
 			"deviceOfflineAlerts": "Device Offline Alerts",
 			"deviceOfflineAlertsDesc": "Get notified when your ESP32 device goes offline.",
 			"hopperLowAlerts": "Hopper Low Level Alerts",
-			"hopperLowAlertsDesc": "Get notified when feed hopper level is low."
+			"hopperLowAlertsDesc": "Get notified when feed hopper level is low.",
+			"managedByAdmin": "Profile details are managed by your administrator.",
+			"pinManagedByAdmin": "PIN changes are handled by your administrator."
 		},
 		"appSettings": {
 			"title": "App & Hardware Settings",
@@ -417,7 +424,9 @@
 			"deviceActions": "Device Actions",
 			"deviceActionsDesc": "Perform maintenance actions on your device.",
 			"syncNow": "Sync Now",
-			"restartDevice": "Restart Device"
+			"restartDevice": "Restart Device",
+			"notConfigured": "Remote configuration is not available yet. Wi-Fi and server settings are applied on the device console.",
+			"actionsUnavailable": "Device actions are not available yet."
 		},
 		"audit": {
 			"title": "Audit Trail",

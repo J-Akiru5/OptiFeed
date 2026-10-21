@@ -65,6 +65,13 @@ export function SuperadminSidebar() {
 			</div>
 
 			<div className="mt-auto pt-6 border-t border-white/10">
+				<Link
+					href="/dashboard"
+					className="flex items-center gap-3 p-3.5 rounded-2xl font-bold text-white/50 hover:text-white hover:bg-white/10 transition-all text-sm"
+				>
+					<BarChart3 className="w-4 h-4 shrink-0" />
+					Back to Dashboard
+				</Link>
 				<button
 					type="button"
 					onClick={handleSignOut}

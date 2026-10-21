@@ -61,9 +61,10 @@ DIRECT_URL=<target direct url> pnpm --filter web exec prisma migrate deploy
 - CI (`.github/workflows/ci.yml`) runs lint/typecheck/tests/auth-gate/Prisma
   validation and a dummy-env `next build` on `develop`, `staging`, and `main`
   — it never touches a database and never deploys.
-- **Open blocker:** Production and Preview still share the same environment
-  variables, so the staging deployment uses the production database. See
-  `docs/deployment-workflow.md` §6 before smoke-testing staging.
+- **Shared database (accepted):** Production and Preview use the same
+  environment variables by decision (prototyping stage), so the staging
+  deployment uses the production database. Migrations are still production-only.
+  See `docs/deployment-workflow.md` §6.
 
 ## 4. Migrations
 

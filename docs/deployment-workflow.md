@@ -190,51 +190,60 @@ Then open a separate reconciliation PR from that fix branch (or `main`) into
 `develop`. Never rely on an automatic back-merge, and never assume `main` and
 `staging` are identical after a hotfix.
 
-## 6. Environment isolation — open blocker
+## 6. Shared staging/production database — accepted decision
 
-The Vercel project has a single set of environment variables scoped to both
-`production` and `preview`:
+Decision (2026-10-21): OptiFeed is still in the prototyping stage, so staging
+and production intentionally use the same Supabase project and the same Vercel
+environment variables. No separate staging database is provisioned. Imported
+data is accepted as disposable for this phase.
 
-| Variable | Scope today | Intended scope |
-| --- | --- | --- |
-| `DATABASE_URL` | production + preview | production; separate staging value for preview |
-| `DIRECT_URL` | production + preview | production; separate staging value for preview |
-| `NEXT_PUBLIC_SUPABASE_URL` | production + preview | production; separate staging value for preview |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | production + preview | production; separate staging value for preview |
-| `SUPABASE_SERVICE_ROLE_KEY` | production + preview | production only |
-| `DEVICE_TOKEN` | production + preview | production; separate staging value |
-| `GEMINI_API_KEY` | production + preview | production; separate staging value |
+The Vercel project has one set of variables scoped to both `production` and
+`preview`:
 
-Consequence: **the staging deployment currently reads and writes the production
-database with service-role privileges.** Any data created, edited, or deleted
-while smoke-testing staging is production data.
+| Variable | Scope |
+| --- | --- |
+| `DATABASE_URL` | production + preview |
+| `DIRECT_URL` | production + preview |
+| `NEXT_PUBLIC_SUPABASE_URL` | production + preview |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | production + preview |
+| `SUPABASE_SERVICE_ROLE_KEY` | production + preview |
+| `DEVICE_TOKEN` | production + preview |
+| `GEMINI_API_KEY` | production + preview |
 
-Until this is fixed:
+Consequences:
 
-- Treat the staging URL as a read-only preview.
-- Do not smoke-test flows that write (log sample, feed now, create user, create
-  pond, admin actions).
-- Do not point users, demos, or the ESP32 at staging.
+- The staging deployment reads and writes production data. A smoke test that
+  logs a sample, creates a user, or sends a feed command changes real records.
+- Migrations are still gated: only the production deployment of `main` runs
+  `prisma migrate deploy`. Staging builds skip migrations, so a staging build
+  cannot change the schema.
+- Preview deployments remain disabled (`apps/web/vercel.json`). If they are
+  re-enabled, they inherit the same production access.
 
-Remediation (Jeff, in Vercel and Supabase):
+Rules while this decision stands:
+
+- Do not run destructive tests (bulk deletes, resets, load tests) against
+  staging. Use a local database for that.
+- Never run `prisma migrate reset` anywhere except a local database.
+- Treat every staging data change as a production data change.
+
+Revisit this decision when real customer data, external users, paid tenants, or
+a production incident window makes shared data unacceptable. The isolation
+steps, when needed, are:
 
 1. Create a separate Supabase project for staging.
-2. Apply migrations to it from a trusted machine:
-   `DIRECT_URL=<staging direct url> pnpm --filter web exec prisma migrate deploy`.
-3. In Vercel → `opti-feed-web` → Settings → Environment Variables, add
-   **Preview-only** values for `DATABASE_URL`, `DIRECT_URL`,
-   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-   `SUPABASE_SERVICE_ROLE_KEY`, `DEVICE_TOKEN`, `GEMINI_API_KEY`.
-4. Keep the existing values scoped to **Production only**.
-5. Redeploy `staging` and confirm the app talks to the staging database (check
-   a record created in staging does not appear in production).
-6. Seed staging data if needed — never copy production data into staging.
-
-Only after step 6 should the staging URL be used for write-path smoke tests.
+2. Apply migrations to it from a trusted machine.
+3. Add **Preview-only** values for the variables above in Vercel, keeping the
+   current values scoped to **Production only**.
+4. Redeploy `staging` and confirm a record created there does not appear in
+   production.
 
 ## 7. Staging smoke test
 
-Run against the staging deployment of the candidate SHA:
+Run against the staging deployment of the candidate SHA. Because staging shares
+the production database (section 6), every write step below changes production
+data — use a disposable account/pond and do not run these steps while
+production users are active.
 
 - [ ] Login with a staging account; session persists across a refresh.
 - [ ] Dashboard loads pond, device status, and next feeding time.
@@ -290,19 +299,18 @@ the human rule stands: only Jeff merges `main`.
 | CI validates PRs into `develop`/`staging`/`main` | Verified | PR #50 `quality` pass; PR #51 `quality` pass |
 | CI validates pushes to `develop`/`staging` | Verified | Runs 39537076187 and 39538117781, both pass |
 | `develop`/`staging` protection | Configured on GitHub | PR + `quality`, no force push, no deletion, admins enforced |
-| Staging uses isolated credentials | **Blocked** | Section 6 — Preview still shares production variables |
+| Staging database | Shared with production **by decision** (section 6) |
 | Production deploy executed | **Not performed** | Requires an authorised promotion by Jeff |
 
 ## 11. Manual actions that remain with Jeff
 
-1. Provision the staging Supabase project and Preview-scoped env vars
-   (section 6).
-2. Review and merge any promotion into `main`; agents must not do this.
-3. Confirm GitHub plan/permissions for required reviewers, if enforcement of a
+1. Review and merge any promotion into `main`; agents must not do this.
+2. Confirm GitHub plan/permissions for required reviewers, if enforcement of a
    second human approval on `main` is required beyond the current settings.
-4. Delete the three CI secrets that no workflow uses (`DATABASE_URL`,
-   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`) if they are not
-   needed elsewhere. They hold database/API credentials for a project whose CI
-   no longer references them.
-5. Decide the fate of the unmerged security branch `audit/phase-1-critical`
-   (9 commits) and open PR #45 (`docs/superadmin-multitenancy-plan`).
+3. Revisit the shared staging/production database decision when real customer
+   data, external users, or paid tenants arrive (section 6).
+
+Completed on 2026-10-21: the three unused CI secrets
+(`DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`) were deleted; the `audit/phase-1-critical`
+fixes and PR #45 were merged through the normal PR flow.

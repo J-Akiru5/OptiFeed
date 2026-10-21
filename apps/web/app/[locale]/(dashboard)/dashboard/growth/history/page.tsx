@@ -1,4 +1,5 @@
 import { Pagination } from "@/components/ui/pagination";
+import { Link } from "@/i18n/routing";
 import { parseQueryFilters } from "@/lib/actions/query-filters";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import {
@@ -16,7 +17,6 @@ import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { ArrowLeft, Package, Scale, TrendingUp } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import Link from "next/link";
 
 export const revalidate = 0;
 

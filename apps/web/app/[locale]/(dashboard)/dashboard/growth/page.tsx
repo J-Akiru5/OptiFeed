@@ -1,6 +1,7 @@
 import { DataExportButton, DataImportDialog } from "@/components/DataImportExport";
 import { FcrCalculator } from "@/components/FcrCalculator";
 import { FeedingPredictionCard } from "@/components/FeedingPredictionCard";
+import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
 import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
@@ -10,7 +11,6 @@ import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 import { Activity, ChevronRight, Fish, Package, Scale, TrendingUp } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import Link from "next/link";
 
 export const revalidate = 0;
 

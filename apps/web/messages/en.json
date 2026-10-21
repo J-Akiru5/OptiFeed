@@ -437,6 +437,7 @@
 			"eventType_schedule_applied": "Schedule Applied",
 			"eventType_feed_dispensed": "Feed Dispensed",
 			"eventType_feed_reconciled": "Feed Reconciled",
+			"eventType_feed_refused": "Feed Refused",
 			"eventType_pge_reading": "PGE Reading",
 			"eventType_pellet_low": "Pellet Low",
 			"eventType_pellet_refilled": "Pellet Refilled",
@@ -454,7 +455,13 @@
 			"source_user": "User",
 			"source_device": "Device",
 			"deviceTime": "Device Time",
-			"serverTime": "Server Time"
+			"serverTime": "Server Time",
+			"byActor": "by {actor}",
+			"viaSource": "via {source}",
+			"reconciledFrom": "Reconciled from expired request {id}...",
+			"scheduleRange": "Schedule: {start} - {end}, {feedsPerDay} feeds/day",
+			"markedRead": "{count} notification(s) marked as read",
+			"loadMore": "Load more"
 		},
 		"notifications": {
 			"title": "Notifications",
@@ -464,6 +471,24 @@
 			"noUnread": "No unread notifications",
 			"empty": "No notifications yet.",
 			"allClear": "All clear!",
+			"noPondData": "No pond data found.",
+			"count": "{count} notification(s)",
+			"tierAll": "All",
+			"tierCritical": "Critical",
+			"tierWarning": "Warning",
+			"tierInfo": "Info",
+			"tierSuccess": "Success",
+			"categoryAll": "All Categories",
+			"categoryConnectivity": "Connectivity",
+			"categoryFeeding": "Feeding",
+			"categoryPellet": "Pellet",
+			"categoryPge": "PGE",
+			"categorySchedule": "Schedule",
+			"categorySystem": "System",
+			"autoCleared": "Auto-cleared",
+			"acknowledged": "Acknowledged",
+			"alert": "Alert",
+			"auditLink": "Audit",
 			"tiers": {
 				"CRITICAL": "CRITICAL",
 				"WARNING": "WARNING",
@@ -535,6 +560,15 @@
 			"importDesc": "Upload data from a CSV file",
 			"importBody": "Import data from previously exported CSV files or from external sources. The system will validate your data before importing and show a preview for confirmation."
 		}
+	},
+	"errors": {
+		"title": "Something went wrong!",
+		"desc": "We encountered an unexpected error while loading this page. This might be due to a temporary database connection issue.",
+		"unknown": "Unknown error occurred",
+		"tryAgain": "Try again",
+		"notFoundTitle": "Page not found",
+		"notFoundDesc": "The page you are looking for does not exist.",
+		"backToDashboard": "Back to Dashboard"
 	},
 	"dates": {
 		"months": {

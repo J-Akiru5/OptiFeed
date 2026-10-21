@@ -1,4 +1,4 @@
-import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { withAuth } from "@/lib/auth/with-auth";
 import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import prisma from "@/lib/prisma";
@@ -11,9 +11,8 @@ interface JsPDFWithAutoTable extends jsPDF {
 	lastAutoTable?: { finalY: number };
 }
 
-export async function GET() {
+export const GET = withAuth(async (_request, { ownerId }) => {
 	try {
-		const ownerId = await getCurrentPondOwnerId();
 		const pond = await prisma.pond.findFirst({
 			where: { ownerId },
 			include: { devices: true },
@@ -200,4 +199,4 @@ export async function GET() {
 		console.error("PDF export failed:", error);
 		return NextResponse.json({ error: "Export failed" }, { status: 500 });
 	}
-}
+});

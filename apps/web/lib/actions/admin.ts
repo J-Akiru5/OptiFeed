@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "@/i18n/routing";
+import { deleteUserSubtree } from "@/lib/actions/admin-internal";
 import { resolveOrgScope } from "@/lib/auth/org-scope";
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { requireRole } from "@/lib/auth/session";
@@ -28,6 +29,24 @@ async function platformAdminUserIds(): Promise<string[]> {
 	return rows.map((r) => r.userId);
 }
 
+/**
+ * True when the user holds an unrevoked PlatformAdmin grant.
+ *
+ * Tenant admins must never edit or delete a platform admin — the grant is
+ * managed from /superadmin, and a tenant console able to reassign or remove it
+ * would be a privilege-escalation path out of the tenant.
+ */
+async function hasPlatformAdminGrant(userId: string): Promise<boolean> {
+	const grant = await prisma.platformAdmin.findFirst({
+		where: { userId, revokedAt: null },
+		select: { id: true },
+	});
+	return grant !== null;
+}
+
+const PLATFORM_ADMIN_MANAGED_ELSEWHERE =
+	"Platform administrators must be managed from the platform console.";
+
 // ─── User Management ─────────────────────────────────────────────────────────
 //
 // There is deliberately no createUser here. Farmers are created by
@@ -46,6 +65,11 @@ export async function updateUser(
 	const scope = await resolveOrgScope();
 	if (!scope.memberUserIds.includes(userId)) {
 		return { error: "That user is outside your organization." };
+	}
+	// Platform admins are managed from /superadmin; a tenant console must not
+	// be able to change their role or details.
+	if (await hasPlatformAdminGrant(userId)) {
+		return { error: PLATFORM_ADMIN_MANAGED_ELSEWHERE };
 	}
 
 	try {
@@ -71,6 +95,10 @@ export async function deleteUser(userId: string): Promise<DeleteUserResult> {
 	if (!scope.memberUserIds.includes(userId)) {
 		return { error: "That user is outside your organization." };
 	}
+	// A platform admin's account (and its grant) is the superadmin's to remove.
+	if (await hasPlatformAdminGrant(userId)) {
+		return { error: PLATFORM_ADMIN_MANAGED_ELSEWHERE };
+	}
 
 	try {
 		// Get the user to also delete from Supabase
@@ -90,6 +118,9 @@ export async function deleteUser(userId: string): Promise<DeleteUserResult> {
 
 		// Delete from DB: the farmer's whole subtree (ponds → devices → events → farm)
 		await prisma.$transaction(async (tx) => {
+			// Safety net: the guard above refuses active grants, but a revoked
+			// row must not outlive its user (PlatformAdmin has no FK to User).
+			await tx.platformAdmin.deleteMany({ where: { userId } });
 			await deleteUserSubtree(tx, userId, user.farmId);
 		});
 
@@ -104,43 +135,9 @@ export async function deleteUser(userId: string): Promise<DeleteUserResult> {
  * Deletes a farmer's entire record in FK-safe order: event rows and devices
  * (RESTRICT), then ponds, then the Farm (CASCADE target), then the User.
  *
- * Exported for the superadmin console's account-removal path.
- *
- * Note: Membership has no FK relation to User (by design), so callers that
- * remove a user must delete its Membership rows themselves.
+ * Moved to admin-internal.ts — a plain server-only module without "use server",
+ * so this transaction helper is not itself callable as a server action.
  */
-export async function deleteUserSubtree(
-	client: Prisma.TransactionClient,
-	userId: string,
-	farmId: string,
-): Promise<void> {
-	const pondIds = (
-		await client.pond.findMany({ where: { ownerId: farmId }, select: { id: true } })
-	).map((p) => p.id);
-
-	if (pondIds.length > 0) {
-		const wherePond = { pondId: { in: pondIds } };
-		const whereDevicePond = { device: { pondId: { in: pondIds } } };
-
-		await client.feedLevelLog.deleteMany({ where: whereDevicePond });
-		await client.feedRequest.deleteMany({ where: whereDevicePond });
-		await client.feedEvent.deleteMany({ where: whereDevicePond });
-		await client.deviceStateEvent.deleteMany({ where: whereDevicePond });
-		await client.scheduleCommand.deleteMany({
-			where: { OR: [whereDevicePond, wherePond] },
-		});
-		await client.notification.deleteMany({ where: wherePond });
-		await client.fcrReport.deleteMany({ where: wherePond });
-		await client.biomassLog.deleteMany({ where: wherePond });
-		await client.feedingEvent.deleteMany({ where: whereDevicePond });
-		await client.energyDevice.deleteMany({ where: wherePond });
-		await client.device.deleteMany({ where: wherePond });
-		await client.pond.deleteMany({ where: { id: { in: pondIds } } });
-	}
-
-	await client.farm.deleteMany({ where: { ownerId: farmId } });
-	await client.user.delete({ where: { id: userId } });
-}
 
 export async function getUsers() {
 	await requireRole("ADMIN");
@@ -384,7 +381,18 @@ export async function getDevices() {
 
 	return prisma.energyDevice.findMany({
 		where: { pondId: { in: scope.pondIds } },
-		include: { pond: true },
+		// Explicit display fields only: token/tokenHash are device credentials
+		// and must never leave the server through an admin list.
+		select: {
+			id: true,
+			label: true,
+			mac: true,
+			pondId: true,
+			lastSeenAt: true,
+			feedLevelPercent: true,
+			gramsPerFeeding: true,
+			pond: { select: { id: true, name: true } },
+		},
 		orderBy: { createdAt: "desc" },
 	});
 }

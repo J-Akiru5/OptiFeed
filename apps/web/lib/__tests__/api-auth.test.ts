@@ -1,3 +1,5 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { join, relative, sep } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // session.ts (and therefore with-auth.ts) pulls in next-intl, which cannot
@@ -139,5 +141,59 @@ describe("API routes accept a valid pond-email session (F-002/F-005)", () => {
 			}),
 		);
 		expect(res.status).toBe(200);
+	});
+});
+
+// ─── Static route-authorization sweep ────────────────────────────────────────
+//
+// The tests above exercise a handful of routes; this sweep asserts the
+// invariant for the whole tree — every app/api route handler authenticates via
+// withAuth/withCronAuth, a device token, or an explicit allowlist entry.
+
+const API_DIR = join(process.cwd(), "app", "api");
+
+function routeFiles(dir: string): string[] {
+	return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+		const full = join(dir, entry.name);
+		if (entry.isDirectory()) return routeFiles(full);
+		return entry.name === "route.ts" ? [full] : [];
+	});
+}
+
+const WRAPPED_HANDLER = /export const (GET|POST|PUT|PATCH|DELETE)\s*=\s*(withAuth|withCronAuth)\(/;
+
+// Device endpoints authenticate with a provisioning token instead of a session.
+const DEVICE_TOKEN_ROUTES = new Set([
+	"ingest/route.ts",
+	"feed-command/route.ts",
+	"schedule-sync/route.ts",
+]);
+
+// Unauthenticated by design: liveness probe, no tenant data.
+const ALLOWLIST = new Set(["health/route.ts"]);
+
+describe("every API route is authenticated or explicitly allowlisted (static)", () => {
+	const routes = routeFiles(API_DIR).map((file) => ({
+		path: relative(API_DIR, file).split(sep).join("/"),
+		source: readFileSync(file, "utf8"),
+	}));
+
+	it("finds the route tree", () => {
+		expect(routes.length).toBeGreaterThan(0);
+	});
+
+	it("wraps each handler with withAuth/withCronAuth, device auth, or allowlists it", () => {
+		const unguarded = routes
+			.filter((route) => {
+				if (ALLOWLIST.has(route.path)) return false;
+				if (WRAPPED_HANDLER.test(route.source)) return false;
+				if (DEVICE_TOKEN_ROUTES.has(route.path)) {
+					return !route.source.includes("verifyDeviceToken");
+				}
+				return true;
+			})
+			.map((route) => route.path);
+
+		expect(unguarded).toEqual([]);
 	});
 });

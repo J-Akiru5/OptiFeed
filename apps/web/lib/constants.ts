@@ -1,6 +1,9 @@
 export const DEFAULT_FISH_COUNT = 5000;
 export const HOPPER_CAPACITY_KG = 22.19;
 export const EXPORT_ROW_LIMIT = 50_000;
+// A single CSV import is capped far below the export ceiling so one request
+// cannot demand an unbounded transaction (F-003).
+export const IMPORT_ROW_LIMIT = 5_000;
 export const MAX_PROMPT_LENGTH = 10_000;
 export const PH_TZ = "Asia/Manila";
 

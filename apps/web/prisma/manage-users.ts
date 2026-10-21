@@ -49,14 +49,14 @@ async function createUser(args: Record<string, string>) {
 
 	if (!farmId || !name || !pin) {
 		console.error(
-			"Usage: pnpm manage-user create --farm-id <id> --name <name> [--role ADMIN|OPERATOR|VIEWER] --pin <6+ digits>",
+			"Usage: pnpm manage-user create --farm-id <id> --name <name> [--role ADMIN|OPERATOR|VIEWER] --pin <6 digits>",
 		);
 		process.exit(1);
 	}
 
 	// Set-time policy (task 2.7): new PINs are at least 6 digits.
 	// Existing 4-6 digit PINs keep working at login.
-	if (!/^\d{6,}$/.test(pin)) {
+	if (!/^\d{6}$/.test(pin)) {
 		console.error("PIN must be at least 6 digits.");
 		process.exit(1);
 	}
@@ -116,13 +116,13 @@ async function resetPin(args: Record<string, string>) {
 	const pin = args["--pin"];
 
 	if (!farmId || !pin) {
-		console.error("Usage: pnpm manage-user reset-pin --farm-id <id> --pin <6+ digits>");
+		console.error("Usage: pnpm manage-user reset-pin --farm-id <id> --pin <6 digits>");
 		process.exit(1);
 	}
 
 	// Set-time policy (task 2.7): new PINs are at least 6 digits.
 	// Existing 4-6 digit PINs keep working at login.
-	if (!/^\d{6,}$/.test(pin)) {
+	if (!/^\d{6}$/.test(pin)) {
 		console.error("PIN must be at least 6 digits.");
 		process.exit(1);
 	}
@@ -242,9 +242,9 @@ Commands:
   list                                    List all users
   create    --farm-id <id> --name <name>  Create a new user
             [--role ADMIN|OPERATOR|VIEWER]
-            --pin <6+ digits>
+            --pin <6 digits>
   reset-pin --farm-id <id>               Reset a user's PIN
-            --pin <6+ digits>
+            --pin <6 digits>
   delete    --farm-id <id>               Delete a user
 `);
 			break;

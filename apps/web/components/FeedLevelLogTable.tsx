@@ -77,7 +77,7 @@ export function FeedLevelLogTable({
 
 	const renderRow = (log: FeedLevelLogListItem) => (
 		<div className="flex items-center justify-between py-4">
-			<div className="font-medium text-gray-900 whitespace-nowrap">
+			<div className="font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
 				{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
 			</div>
 			<div>
@@ -87,7 +87,9 @@ export function FeedLevelLogTable({
 					{Math.round(log.levelPercent)}%
 				</span>
 			</div>
-			<div className="font-mono">{log.distanceCm.toFixed(1)} cm</div>
+			<div className="font-mono text-gray-600 dark:text-gray-300">
+				{log.distanceCm.toFixed(1)} cm
+			</div>
 		</div>
 	);
 

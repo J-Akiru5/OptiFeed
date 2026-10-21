@@ -28,7 +28,7 @@ export default async function GrowthPage() {
 	if (!pond) {
 		return (
 			<div className="flex h-[50vh] items-center justify-center">
-				<p className="text-lg text-gray-500">{tSch("noPondData")}</p>
+				<p className="text-lg text-gray-500 dark:text-gray-400">{tSch("noPondData")}</p>
 			</div>
 		);
 	}
@@ -117,7 +117,7 @@ export default async function GrowthPage() {
 					<h1 className="text-3xl font-extrabold tracking-tight text-[var(--ofd-base-deep)]">
 						{t("title")}
 					</h1>
-					<p className="text-gray-500 mt-1">{t("desc", { pond: pond.name })}</p>
+					<p className="text-gray-500 dark:text-gray-400 mt-1">{t("desc", { pond: pond.name })}</p>
 				</div>
 				<div className="flex items-center gap-3">
 					<DataImportDialog canWrite={writeAccess} />
@@ -158,10 +158,10 @@ export default async function GrowthPage() {
 
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 				{/* Latest ABW Card */}
-				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden">
+				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex flex-col justify-between relative overflow-hidden">
 					<div className="flex justify-between items-start mb-4 relative z-10">
 						<div>
-							<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+							<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 								{t("latestAbw")}
 							</p>
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
@@ -226,10 +226,10 @@ export default async function GrowthPage() {
 				</div>
 
 				{/* Latest FCR Card */}
-				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
+				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex flex-col justify-between">
 					<div className="flex justify-between items-start mb-4">
 						<div>
-							<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+							<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 								{t("currentFcr")}
 							</p>
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
@@ -278,10 +278,10 @@ export default async function GrowthPage() {
 
 			{/* Feed Level Trend Card */}
 			{feedLevelLogs.length > 0 && (
-				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50">
 					<div className="flex items-center justify-between mb-4">
 						<div>
-							<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+							<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 								{t("feedLevelTitle")}
 							</p>
 							<p className="text-xs text-gray-400 mt-0.5">{t("feedLevelDesc")}</p>
@@ -339,9 +339,11 @@ export default async function GrowthPage() {
 			{/* Feed Level Log Table */}
 			<div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 				{energyDevice && feedLevelLogPage && feedLevelLogs.length > 0 && (
-					<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-						<div className="p-6 border-b border-gray-100 bg-gray-50/50">
-							<h3 className="font-bold text-gray-800">{t("feedLevelTableTitle")}</h3>
+					<div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden">
+						<div className="p-6 border-b border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50">
+							<h3 className="font-bold text-gray-800 dark:text-gray-100">
+								{t("feedLevelTableTitle")}
+							</h3>
 						</div>
 						<FeedLevelLogTable
 							deviceId={energyDevice.id}
@@ -354,16 +356,16 @@ export default async function GrowthPage() {
 
 				{/* Growth Summary Table */}
 				{biomassLogs.length >= 2 && (
-					<div className="@container bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-						<div className="p-6 border-b border-gray-100 bg-gray-50/50">
-							<h3 className="font-bold text-gray-800">Growth Summary</h3>
-							<p className="text-xs text-gray-500 mt-1">
+					<div className="@container bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden">
+						<div className="p-6 border-b border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50">
+							<h3 className="font-bold text-gray-800 dark:text-gray-100">Growth Summary</h3>
+							<p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
 								Weight and length gain between sample periods
 							</p>
 						</div>
 						<div className="overflow-x-auto">
-							<table className="w-full text-left text-sm text-gray-600">
-								<thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
+							<table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+								<thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 uppercase text-xs font-semibold">
 									<tr>
 										<th className="px-3 py-3 lg:px-4">Date</th>
 										<th className="px-3 py-3 text-right lg:px-4">Avg Weight (g)</th>
@@ -375,7 +377,7 @@ export default async function GrowthPage() {
 										</th>
 									</tr>
 								</thead>
-								<tbody className="divide-y divide-gray-100">
+								<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
 									{biomassLogs
 										.slice()
 										.reverse()
@@ -399,8 +401,11 @@ export default async function GrowthPage() {
 												: null;
 
 											return (
-												<tr key={log.id} className="hover:bg-gray-50 transition-colors">
-													<td className="px-3 py-3 font-medium text-gray-900 whitespace-nowrap lg:px-4">
+												<tr
+													key={log.id}
+													className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+												>
+													<td className="px-3 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap lg:px-4">
 														{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
 													</td>
 													<td className="px-3 py-3 text-right lg:px-4">
@@ -448,13 +453,13 @@ export default async function GrowthPage() {
 				)}
 
 				{/* Biomass Log Table */}
-				<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mt-8 xl:mt-0 xl:col-span-2">
-					<div className="p-6 border-b border-gray-100 bg-gray-50/50">
-						<h3 className="font-bold text-gray-800">{t("historyTitle")}</h3>
+				<div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden mt-8 xl:mt-0 xl:col-span-2">
+					<div className="p-6 border-b border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50">
+						<h3 className="font-bold text-gray-800 dark:text-gray-100">{t("historyTitle")}</h3>
 					</div>
 					<div className="overflow-x-auto">
-						<table className="w-full text-left text-sm text-gray-600">
-							<thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
+						<table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+							<thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 uppercase text-xs font-semibold">
 								<tr>
 									<th className="px-3 py-3 lg:px-4">{t("dateCol")}</th>
 									<th className="px-3 py-3 hidden lg:table-cell lg:px-4">{t("batchCol")}</th>
@@ -467,13 +472,16 @@ export default async function GrowthPage() {
 									<th className="px-3 py-3 text-center hidden lg:table-cell lg:px-4">Type</th>
 								</tr>
 							</thead>
-							<tbody className="divide-y divide-gray-100">
+							<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
 								{biomassLogs
 									.slice()
 									.reverse()
 									.map((log) => (
-										<tr key={log.id} className="hover:bg-gray-50 transition-colors">
-											<td className="px-3 py-3 font-medium text-gray-900 whitespace-nowrap lg:px-4">
+										<tr
+											key={log.id}
+											className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+										>
+											<td className="px-3 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap lg:px-4">
 												{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
 											</td>
 											<td className="px-3 py-3 whitespace-nowrap hidden lg:table-cell lg:px-4">
@@ -499,7 +507,7 @@ export default async function GrowthPage() {
 																	{formatDateTimeLocal(log.recordedAt, tDates).date}
 																</span>
 															</div>
-															<table className="w-full text-xs text-gray-600">
+															<table className="w-full text-xs text-gray-600 dark:text-gray-300">
 																<thead>
 																	<tr className="text-[10px] uppercase text-teal-700">
 																		<th className="px-3 py-1.5 text-left font-bold">#</th>
@@ -510,10 +518,10 @@ export default async function GrowthPage() {
 																<tbody className="divide-y divide-teal-100">
 																	{log.fishSamples.map((sample, sampleIndex) => (
 																		<tr key={sample.id}>
-																			<td className="px-3 py-1.5 text-gray-500">
+																			<td className="px-3 py-1.5 text-gray-500 dark:text-gray-400">
 																				{sampleIndex + 1}
 																			</td>
-																			<td className="px-3 py-1.5 text-right font-medium text-gray-800">
+																			<td className="px-3 py-1.5 text-right font-medium text-gray-800 dark:text-gray-100">
 																				{sample.weightGrams.toFixed(1)} g
 																			</td>
 																			<td className="px-3 py-1.5 text-right">
@@ -528,7 +536,7 @@ export default async function GrowthPage() {
 														</div>
 													</details>
 												) : (
-													<span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 text-xs font-bold rounded-full">
+													<span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 dark:text-gray-400 text-xs font-bold rounded-full">
 														<Scale className="w-3 h-3" />
 														Avg
 													</span>
@@ -538,7 +546,10 @@ export default async function GrowthPage() {
 									))}
 								{biomassLogs.length === 0 && (
 									<tr>
-										<td colSpan={5} className="px-6 py-10 text-center text-gray-500">
+										<td
+											colSpan={5}
+											className="px-6 py-10 text-center text-gray-500 dark:text-gray-400"
+										>
 											{t("noSamples")}
 										</td>
 									</tr>

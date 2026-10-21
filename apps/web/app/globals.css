@@ -98,6 +98,7 @@
 	--ofd-success: #28a745;
 	--ofd-critical: #dc3545;
 	--ofd-warning: #f0a202;
+	--ofd-base-deep: #0a3d62;
 	--ofd-touch-min: 56px;
 
 	/* Layout tokens — bottom-right FAB cluster (help + chat assistant) */
@@ -159,6 +160,7 @@
 	--ofd-success: #4ade80;
 	--ofd-critical: #f87171;
 	--ofd-warning: #fbbf24;
+	--ofd-base-deep: #5b9bd5;
 }
 
 @layer base {

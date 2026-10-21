@@ -11,6 +11,7 @@ interface FeedLevelLogTableProps {
 	initialItems: FeedLevelLogListItem[];
 	initialHasMore: boolean;
 	initialNextCursor: string | null;
+	pageSize?: number;
 }
 
 function levelBadgeClass(levelPercent: number): string {
@@ -24,6 +25,7 @@ export function FeedLevelLogTable({
 	initialItems,
 	initialHasMore,
 	initialNextCursor,
+	pageSize,
 }: FeedLevelLogTableProps) {
 	const t = useTranslations("dashboard.growth");
 	const tDates = useTranslations("dates");
@@ -38,7 +40,7 @@ export function FeedLevelLogTable({
 
 	const loadPage = async (cursor: string | null, query: string) => {
 		const seq = ++seqRef.current;
-		const result = await getFeedLevelLogs({ deviceId, cursor, query });
+		const result = await getFeedLevelLogs({ deviceId, cursor, query, pageSize });
 		if (seq !== seqRef.current) return null;
 		return result;
 	};

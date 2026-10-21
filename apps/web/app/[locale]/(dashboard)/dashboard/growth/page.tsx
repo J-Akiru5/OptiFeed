@@ -2,23 +2,19 @@ import { BiomassLogTable } from "@/components/BiomassLogTable";
 import { DataExportButton, DataImportDialog } from "@/components/DataImportExport";
 import { FcrCalculator } from "@/components/FcrCalculator";
 import { FeedLevelLogTable } from "@/components/FeedLevelLogTable";
+import { Link } from "@/i18n/routing";
 import { getFeedLevelLogs } from "@/lib/actions/growth";
 import { canWrite } from "@/lib/auth/session";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
-import {
-	Activity,
-	ChevronDown,
-	ChevronRight,
-	Fish,
-	Package,
-	Scale,
-	TrendingUp,
-} from "lucide-react";
+import { Activity, ChevronRight, Fish, Package, Scale, TrendingUp } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0;
+
+const COMPACT_ROWS = 10;
+const COMPACT_POINTS = 12;
 
 export default async function GrowthPage() {
 	const t = await getTranslations("dashboard.growth");
@@ -56,14 +52,16 @@ export default async function GrowthPage() {
 	let feedLevelLogs: Awaited<ReturnType<typeof prisma.feedLevelLog.findMany>> = [];
 	let feedLevelLogPage: Awaited<ReturnType<typeof getFeedLevelLogs>> | null = null;
 	if (energyDevice) {
-		feedLevelLogs = await prisma.feedLevelLog.findMany({
+		const recentFeedLevelLogs = await prisma.feedLevelLog.findMany({
 			where: { deviceId: energyDevice.id },
-			orderBy: { recordedAt: "asc" },
-			take: 30,
+			orderBy: { recordedAt: "desc" },
+			take: COMPACT_POINTS,
 		});
+		feedLevelLogs = recentFeedLevelLogs.slice().reverse();
 		feedLevelLogPage = await getFeedLevelLogs({
 			deviceId: energyDevice.id,
 			cursor: null,
+			pageSize: COMPACT_ROWS,
 		});
 	}
 
@@ -78,16 +76,20 @@ export default async function GrowthPage() {
 
 	const formatDate = (d: Date) => formatDateTimeLocal(d, tDates).date;
 
+	// Compact chart slices: most recent points only
+	const chartBiomassLogs = biomassLogs.slice(-COMPACT_POINTS);
+	const chartFcrReports = fcrReports.slice(-COMPACT_POINTS);
+
 	// Custom SVG Line Chart generator for Biomass
-	const maxBiomass = Math.max(...biomassLogs.map((l) => l.avgWeightKg), 0.01) * 1.1; // Add 10% padding top
-	const minBiomass = Math.min(...biomassLogs.map((l) => l.avgWeightKg), 0);
+	const maxBiomass = Math.max(...chartBiomassLogs.map((l) => l.avgWeightKg), 0.01) * 1.1; // Add 10% padding top
+	const minBiomass = Math.min(...chartBiomassLogs.map((l) => l.avgWeightKg), 0);
 
 	const generateBiomassPath = () => {
-		if (biomassLogs.length < 2) return "";
+		if (chartBiomassLogs.length < 2) return "";
 		const w = 400;
 		const h = 100;
-		const points = biomassLogs.map((log, i) => {
-			const x = (i / (biomassLogs.length - 1)) * w;
+		const points = chartBiomassLogs.map((log, i) => {
+			const x = (i / (chartBiomassLogs.length - 1)) * w;
 			const y = h - ((log.avgWeightKg - minBiomass) / (maxBiomass - minBiomass)) * h;
 			return `${x},${y}`;
 		});
@@ -206,9 +208,9 @@ export default async function GrowthPage() {
 								strokeLinejoin="round"
 								className="drop-shadow-md"
 							/>
-							{biomassLogs.map((log, i) => {
-								if (biomassLogs.length < 2) return null;
-								const x = (i / (biomassLogs.length - 1)) * 400;
+							{chartBiomassLogs.map((log, i) => {
+								if (chartBiomassLogs.length < 2) return null;
+								const x = (i / (chartBiomassLogs.length - 1)) * 400;
 								const y = 100 - ((log.avgWeightKg - minBiomass) / (maxBiomass - minBiomass)) * 100;
 								return (
 									<circle
@@ -247,8 +249,8 @@ export default async function GrowthPage() {
 
 					{/* FCR Bar Chart (Tailwind CSS) */}
 					<div className="mt-4 flex items-end justify-between h-24 gap-2">
-						{fcrReports.map((report) => {
-							const maxFcr = Math.max(...fcrReports.map((r) => r.fcrValue), 2.5);
+						{chartFcrReports.map((report) => {
+							const maxFcr = Math.max(...chartFcrReports.map((r) => r.fcrValue), 2.5);
 							const heightPct = (report.fcrValue / maxFcr) * 100;
 							return (
 								<div
@@ -287,7 +289,15 @@ export default async function GrowthPage() {
 							</p>
 							<p className="text-xs text-gray-400 mt-0.5">{t("feedLevelDesc")}</p>
 						</div>
-						<Package className="h-6 w-6 text-orange-500" />
+						<div className="flex items-center gap-3">
+							<Link
+								href="/dashboard/growth/feed-level"
+								className="text-sm font-extrabold text-[#0A3D62] dark:text-[#5b9bd5] hover:underline"
+							>
+								{t("viewMore")} <ChevronRight className="inline h-4 w-4" />
+							</Link>
+							<Package className="h-6 w-6 text-orange-500" />
+						</div>
 					</div>
 					<div className="h-24 w-full relative">
 						<svg
@@ -341,16 +351,23 @@ export default async function GrowthPage() {
 			<div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 				{energyDevice && feedLevelLogPage && feedLevelLogs.length > 0 && (
 					<div className="bg-white rounded-3xl shadow-sm border border-gray-100 dark:bg-gray-900 dark:border-gray-700/60 overflow-hidden">
-						<div className="p-6 border-b border-gray-100 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-800/60">
+						<div className="p-6 border-b border-gray-100 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-800/60 flex items-center justify-between">
 							<h3 className="font-bold text-gray-800 dark:text-gray-100">
 								{t("feedLevelTableTitle")}
 							</h3>
+							<Link
+								href="/dashboard/growth/feed-level"
+								className="text-sm font-extrabold text-[#0A3D62] dark:text-[#5b9bd5] hover:underline"
+							>
+								{t("viewMore")} <ChevronRight className="inline h-4 w-4" />
+							</Link>
 						</div>
 						<FeedLevelLogTable
 							deviceId={energyDevice.id}
 							initialItems={feedLevelLogPage.items}
 							initialHasMore={feedLevelLogPage.hasMore}
 							initialNextCursor={feedLevelLogPage.nextCursor}
+							pageSize={COMPACT_ROWS}
 						/>
 					</div>
 				)}
@@ -358,11 +375,19 @@ export default async function GrowthPage() {
 				{/* Growth Summary Table */}
 				{biomassLogs.length >= 2 && (
 					<div className="@container bg-white rounded-3xl shadow-sm border border-gray-100 dark:bg-gray-900 dark:border-gray-700/60 overflow-hidden">
-						<div className="p-6 border-b border-gray-100 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-800/60">
-							<h3 className="font-bold text-gray-800 dark:text-gray-100">Growth Summary</h3>
-							<p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-								Weight and length gain between sample periods
-							</p>
+						<div className="p-6 border-b border-gray-100 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-800/60 flex items-start justify-between gap-4">
+							<div>
+								<h3 className="font-bold text-gray-800 dark:text-gray-100">Growth Summary</h3>
+								<p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+									Weight and length gain between sample periods
+								</p>
+							</div>
+							<Link
+								href="/dashboard/growth/biomass"
+								className="text-sm font-extrabold text-[#0A3D62] dark:text-[#5b9bd5] hover:underline shrink-0"
+							>
+								{t("viewMore")} <ChevronRight className="inline h-4 w-4" />
+							</Link>
 						</div>
 						<div className="overflow-x-auto">
 							<table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
@@ -382,6 +407,7 @@ export default async function GrowthPage() {
 									{biomassLogs
 										.slice()
 										.reverse()
+										.slice(0, COMPACT_ROWS)
 										.map((log, i) => {
 											const prevLog =
 												i < biomassLogs.length - 1
@@ -467,6 +493,8 @@ export default async function GrowthPage() {
 
 				{/* Biomass Log Table */}
 				<BiomassLogTable
+					limit={COMPACT_ROWS}
+					viewMoreHref="/dashboard/growth/biomass"
 					logs={biomassLogs.map((log) => ({
 						id: log.id,
 						recordedAt: log.recordedAt,

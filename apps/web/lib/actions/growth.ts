@@ -23,7 +23,9 @@ export async function getFeedLevelLogs(params: {
 	deviceId: string;
 	cursor?: string | null;
 	query?: string;
+	pageSize?: number;
 }): Promise<FeedLevelLogPage> {
+	const pageSize = Math.min(Math.max(params.pageSize ?? PAGE_SIZE, 1), 100);
 	const ownerId = await getCurrentPondOwnerId();
 
 	const device = await prisma.energyDevice.findFirst({
@@ -39,13 +41,13 @@ export async function getFeedLevelLogs(params: {
 			...(filters.recordedBetween ? { recordedAt: filters.recordedBetween } : {}),
 		},
 		orderBy: [{ recordedAt: "desc" }, { id: "desc" }],
-		take: PAGE_SIZE + 1,
+		take: pageSize + 1,
 		...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),
 		select: { id: true, recordedAt: true, levelPercent: true, distanceCm: true },
 	});
 
-	const hasMore = rows.length > PAGE_SIZE;
-	const items = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
+	const hasMore = rows.length > pageSize;
+	const items = hasMore ? rows.slice(0, pageSize) : rows;
 
 	return {
 		items,

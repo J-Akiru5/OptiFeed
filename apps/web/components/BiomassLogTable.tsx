@@ -1,7 +1,8 @@
 "use client";
 
+import { Link } from "@/i18n/routing";
 import { formatDateTimeLocal } from "@/lib/date-local";
-import { Fish, Scale } from "lucide-react";
+import { ChevronRight, Fish, Scale } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 
@@ -42,7 +43,15 @@ function sourceBadge(t: (key: string) => string, source: string | null) {
 	return null;
 }
 
-export function BiomassLogTable({ logs }: { logs: BiomassLogEntry[] }) {
+export function BiomassLogTable({
+	logs,
+	limit,
+	viewMoreHref,
+}: {
+	logs: BiomassLogEntry[];
+	limit?: number;
+	viewMoreHref?: string;
+}) {
 	const t = useTranslations("dashboard.growth");
 	const tDates = useTranslations("dates");
 	const [batchFilter, setBatchFilter] = useState("");
@@ -77,6 +86,8 @@ export function BiomassLogTable({ logs }: { logs: BiomassLogEntry[] }) {
 		});
 		return filtered.slice().reverse();
 	}, [logs, batchFilter, dateQuery, tDates]);
+
+	const limitedRows = limit ? rows.slice(0, limit) : rows;
 
 	return (
 		<div className="bg-white rounded-3xl shadow-sm border border-gray-100 dark:bg-gray-900 dark:border-gray-700/60 overflow-hidden mt-8 xl:mt-0 xl:col-span-2">
@@ -122,7 +133,7 @@ export function BiomassLogTable({ logs }: { logs: BiomassLogEntry[] }) {
 						</tr>
 					</thead>
 					<tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
-						{rows.map((log) => {
+						{limitedRows.map((log) => {
 							const srcBadge = sourceBadge(t, log.source);
 							return (
 								<tr
@@ -209,6 +220,17 @@ export function BiomassLogTable({ logs }: { logs: BiomassLogEntry[] }) {
 					</tbody>
 				</table>
 			</div>
+			{viewMoreHref && rows.length > limitedRows.length && (
+				<div className="border-t border-gray-100 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-800/60 p-4 text-center">
+					<Link
+						href={viewMoreHref}
+						className="inline-flex items-center gap-1 text-sm font-extrabold text-[#0A3D62] dark:text-[#5b9bd5] hover:underline"
+					>
+						{t("viewMore")}
+						<ChevronRight className="h-4 w-4" />
+					</Link>
+				</div>
+			)}
 		</div>
 	);
 }

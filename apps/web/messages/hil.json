@@ -277,7 +277,8 @@
 			"noFeedLevel": "Wala pa sang narekord nga pagbasa sang feed level.",
 			"searchPlaceholder": "Mangita base sa petsa (YYYY-MM-DD)",
 			"loadMore": "Magkarga pa",
-			"loading": "Gina-karga…"
+			"loading": "Gina-karga…",
+			"viewMore": "Tan-awa ang tanan"
 		},
 		"settings": {
 			"title": "Mga Setting",

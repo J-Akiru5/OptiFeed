@@ -277,7 +277,8 @@
 			"noFeedLevel": "No feed level readings recorded yet.",
 			"searchPlaceholder": "Search by date (YYYY-MM-DD)",
 			"loadMore": "Load more",
-			"loading": "Loading…"
+			"loading": "Loading…",
+			"viewMore": "View more"
 		},
 		"settings": {
 			"title": "Settings",

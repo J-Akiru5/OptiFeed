@@ -144,7 +144,10 @@
 			"feedingLogsTitle": "MGA LOG SANG PAGPAKAON",
 			"feedingLogsDesc": "Makita kag ma-audit nga log halin sa awtomatik nga dispenser.",
 			"feedLevelLabel": "Lebel sang Feed",
-			"daysRemaining": "~{count}d nga feed nabilin"
+			"daysRemaining": "~{count}d nga feed nabilin",
+			"biomassLogsTitle": "MGA PINAKABAG-O NGA BIOMASS SAMPLE",
+			"biomassLogsDesc": "Ang mga kinahamunan nga weigh-in nga nalog para sa kundi nga",
+			"viewGrowth": "Tan-awa ang pagdako"
 		},
 		"schedule": {
 			"title": "Iskedyul sang Pagpakaon",
@@ -261,6 +264,13 @@
 			"fishCountCol": "Bilang sang Isda",
 			"avgLengthCol": "Katas-on (cm)",
 			"abwCol": "ABW (g)",
+			"typeCol": "Matang",
+			"allBatches": "Tanan nga batch",
+			"unlabeledBatch": "Wala label",
+			"importedBadge": "Gi-import",
+			"seedBadge": "Seed",
+			"batchFilterLabel": "I-filter base sa batch",
+			"noFilteredSamples": "Wala samples nga angkunon sang mga filter.",
 			"feedLevelCol": "Level %",
 			"distanceCol": "Distansya (cm)",
 			"noSamples": "Wala pa sang narekord nga biomass samples.",
@@ -297,6 +307,26 @@
 					"showing": "Ginapakita {from}–{to} sang {total}"
 				},
 				"empty": "Wala sang rekord nga nagapakita."
+			},
+			"prediction": {
+				"title": "AI nga Pagpredik sang Pagpakaon",
+				"subtitle": "Gitambagan nga gramos kada pagpakaon, gi-refine sang AI",
+				"refresh": "Bag-oha",
+				"refreshError": "Wala ma-refresh ang prediksyon. Sulayi liwat.",
+				"noData": "Maglista sang biomass sample kag maghulat sang usa ka cycle sang pagpakaon para makakuha sang prediksyon.",
+				"predictedLabel": "Gitambagan",
+				"currentLabel": "Kasamtangan",
+				"confidence": "Kasalig-an",
+				"confidence_high": "Mataas",
+				"confidence_medium": "Katamtaman",
+				"confidence_low": "Ubos",
+				"sourceAi": "Gi-refine sang AI",
+				"sourceFormula": "Pormula",
+				"apply": "I-apply sa iskedyul",
+				"applying": "Gina-apply…",
+				"applied": "Na-apply na",
+				"applyError": "Wala ma-apply ang prediksyon. Sulayi liwat.",
+				"disclaimer": "Pang-tambag lang — magbag-o lang ang iskedyul sa imo device kon i-apply mo ini."
 			}
 		},
 		"settings": {
@@ -538,7 +568,7 @@
 		"suggestionSchedule": "San-o ang masunod nga pagpakaon?",
 		"suggestionFcr": "Ano ang akon FCR subong?",
 		"suggestionLogSample": "Paano maglista sang sampol?",
-		"intro": "Kamusta! Ako ang imo OptiFeed asistant. Mamangkot ka parte sa imo masunod nga iskedyul sang pagpakaon, ang FCR subong, mga na-miss nga pagpakaon, ukon paano maglista sang sampol!",
+		"intro": "Kamusta! Ako ang imo OptiFeed asistant. Mamangkot ka parte sa imo masunod nga iskedyul sang pagpakaon, kadakuon sang feed, ang FCR subong, mga na-miss nga pagpakaon, ukon paano maglista sang sampol!",
 		"error": "Ay, may ara sang deperensya. Palihug sulayi liwat.",
 		"intentScheduleNoPond": "Wala ko makita ang iskedyul sang imo punong. Siguraduha nga nakakonekta ang imo mga gamit.",
 		"intentSchedulePaused": "Ang imo awtomatik nga iskedyul subong naka-**Pause**. Wala sang pagpakaon nga matabo tubtob imo ini padayunon sa pahina sang Iskedyul.",
@@ -549,6 +579,10 @@
 		"intentMissedNoData": "Maayo nga balita! Wala ko sing may nakita nga na-miss nga pagpakaon sa imo mga log subong.",
 		"intentMissedActive": "May nakita ako nga na-miss nga pagpakaon sadtong {time}. Ini nagakatabo kon **wala na unod ang hopper** ukon **nadula ang Wi-Fi connection** antes magpakaon. Palihug tsekyara ang imo feeder.",
 		"fallback": "Ako ang imo OptiFeed asistant! Pwede mo ako pamangkuton sang parehas sini:\n- \"San-o ang masunod nga pagpakaon?\"\n- \"Ano ang akon FCR subong?\"\n- \"Paano maglista sang sampol?\"\n- \"Ngaa may na-miss nga pagpakaon?\"",
-		"serverError": "Pasensya, may naguba samtang ginakuha ang data. Palihug sulayi liwat."
+		"serverError": "Pasensya, may naguba samtang ginakuha ang data. Palihug sulayi liwat.",
+		"suggestionPredict": "Pila ka gramos ang akon ipakaon?",
+		"intentPredictActive": "Base sa imo pinakabag-o nga biomass sample kag FCR, ang akon tambag nga **{grams}g kada pagpakaon** (ang imo device subong naka-set sa **{current}g**). Tan-awa ang AI Feeding Prediction card sa Growth page para e-review kag i-apply ini.",
+		"intentPredictActiveNoCurrent": "Base sa imo pinakabag-o nga biomass sample kag FCR, ang akon tambag nga **{grams}g kada pagpakaon**. Tan-awa ang AI Feeding Prediction card sa Growth page para e-review kag i-apply ini.",
+		"intentPredictNoData": "Kinahanglan ko sang bag-o nga biomass sample para magpredik sang kadakuon sang imo feed. Maglista sining **Log sang Biomass** kag sulayi liwat — ukon tan-awa ang AI Feeding Prediction card sa Growth page."
 	}
 }

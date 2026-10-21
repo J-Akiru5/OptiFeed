@@ -233,7 +233,7 @@ export function LogSampleForm({
 		"w-full pl-10 pr-4 py-3 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#E85A2A] font-bold text-lg transition-colors";
 
 	const fishFieldCls =
-		"w-full px-3 py-2.5 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#E85A2A] font-bold text-sm transition-colors";
+		"w-full pl-8 pr-3 py-2.5 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#E85A2A] font-bold text-sm transition-colors";
 
 	if (feedResult) {
 		const headlineGrams = feedResult.calculatedGrams ?? feedResult.effectiveGrams;
@@ -486,11 +486,11 @@ export function LogSampleForm({
 					<div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
 						{individualFish.map((fish, index) => (
 							<div key={fish.id} className="p-3 bg-[#F4F7F6] rounded-xl border border-gray-200">
-								<div className="flex items-center gap-2">
+								<div className="flex flex-wrap items-center gap-2">
 									<span className="text-xs font-bold text-[#3D5568] w-6 text-center shrink-0">
 										#{index + 1}
 									</span>
-									<div className="flex-1 relative">
+									<div className="flex-1 min-w-[7.5rem] relative">
 										<div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
 											<Scale className="h-3.5 w-3.5" />
 										</div>
@@ -504,7 +504,7 @@ export function LogSampleForm({
 											onChange={(e) => updateFishEntry(index, "weightGrams", e.target.value)}
 										/>
 									</div>
-									<div className="flex-1 relative">
+									<div className="flex-1 min-w-[7.5rem] relative">
 										<div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
 											<Ruler className="h-3.5 w-3.5" />
 										</div>
@@ -522,7 +522,7 @@ export function LogSampleForm({
 										type="button"
 										onClick={() => removeFishEntry(index)}
 										disabled={individualFish.length <= 1}
-										className="p-1.5 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-30 disabled:pointer-events-none shrink-0"
+										className="p-1.5 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-30 disabled:pointer-events-none shrink-0 ml-auto sm:ml-0"
 									>
 										<X className="w-4 h-4" />
 									</button>

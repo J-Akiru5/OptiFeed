@@ -111,6 +111,7 @@ async function main() {
 			sampleLengthCm: 5 + (5 - i) * 2,
 			sampleCount: 50,
 			avgWeightKg: avgWeightGrams / 1000,
+			source: "seed",
 			recordedAt,
 		});
 	}

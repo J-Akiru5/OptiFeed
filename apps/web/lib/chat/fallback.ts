@@ -47,13 +47,39 @@ export async function runFallbackIntent(params: {
 	const formatTime = (d: Date) => formatDateTimeLocal(d, tDates).time;
 	const formatFull = (d: Date) => formatDateTimeLocal(d, tDates).full;
 
-	// INTENT 1: Next feeding time
+	// INTENT 1: How much feed / grams prediction.
+	// Checked before the schedule intent because the Hiligaynon schedule
+	// triggers include the generic word "pakaon", which also appears in
+	// questions like "pila ka gramos ang akon ipakaon?"
+	const isPredictIntent =
+		locale === "hil"
+			? lower.includes("magkado") ||
+				lower.includes("pila") ||
+				lower.includes("gramos") ||
+				lower.includes("grames")
+			: lower.includes("how much feed") ||
+				lower.includes("how many grams") ||
+				lower.includes("how much gram") ||
+				lower.includes("predict") ||
+				lower.includes("grams should");
+
+	if (isPredictIntent) {
+		if (!ctx || ctx.predictedFeedGrams === null) {
+			return t("intentPredictNoData");
+		}
+		if (ctx.currentGramsPerFeeding !== null) {
+			return t("intentPredictActive", {
+				grams: ctx.predictedFeedGrams.toFixed(1),
+				current: ctx.currentGramsPerFeeding.toFixed(1),
+			});
+		}
+		return t("intentPredictActiveNoCurrent", { grams: ctx.predictedFeedGrams.toFixed(1) });
+	}
+
+	// INTENT 2: Next feeding time
 	const isScheduleIntent =
 		locale === "hil"
-			? lower.includes("masunod") ||
-				lower.includes("iskedyul") ||
-				lower.includes("pakaon") ||
-				lower.includes("san-o")
+			? lower.includes("masunod") || lower.includes("iskedyul") || lower.includes("san-o")
 			: lower.includes("next feed") ||
 				lower.includes("when is the") ||
 				lower.includes("feeding time") ||
@@ -73,7 +99,7 @@ export async function runFallbackIntent(params: {
 		});
 	}
 
-	// INTENT 2: How to log a sample
+	// INTENT 3: How to log a sample
 	const isLogSampleIntent =
 		locale === "hil"
 			? lower.includes("lista") ||
@@ -89,7 +115,7 @@ export async function runFallbackIntent(params: {
 		return t("intentLogSample");
 	}
 
-	// INTENT 3: Current FCR
+	// INTENT 4: Current FCR
 	const isFcrIntent = lower.includes("fcr") || lower.includes("feed conversion");
 
 	if (isFcrIntent) {
@@ -99,7 +125,7 @@ export async function runFallbackIntent(params: {
 		return t("intentFcrActive", { fcr: ctx.latestFcr.toFixed(2) });
 	}
 
-	// INTENT 4: Missed/failed feeding
+	// INTENT 5: Missed/failed feeding
 	const isMissedIntent =
 		locale === "hil"
 			? lower.includes("miss") ||

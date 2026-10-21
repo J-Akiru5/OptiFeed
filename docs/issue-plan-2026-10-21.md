@@ -208,6 +208,20 @@ Recommended reconciliation (after the production release):
    notifications) separately if it is still wanted.
 5. Keep `xtra` untouched for its author; the replacement PR supersedes #55.
 
+**Status: implemented on `feat/xtra-reconciled` (PR #64).** Deviations from the
+steps above, for review:
+
+- `b999458` and `32e4b74` were not replayed; the merged #58/#59 versions win.
+- The new `predict-feeding` route was converted from manual Supabase auth to
+  `withAuth` to match the audit standard.
+- `BiomassLogTable` (a client-side table with its own filters) was removed as
+  dead code; its source badges were added to the server-paginated biomass
+  history table instead.
+- The additive migration `20261021000000_add_biomass_log_source` ships with the
+  branch and applies only on a production deployment.
+- The AI switch retires `GEMINI_*`; set `OPENROUTER_API_KEY` in Vercel before
+  this branch is promoted to production.
+
 This is not part of the release candidate below.
 
 ## Release candidate

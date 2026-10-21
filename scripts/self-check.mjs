@@ -178,7 +178,7 @@ for (const route of ["ingest", "feed-command", "schedule-sync"]) {
 
 const envExample = read(`${web}/.env.example`);
 for (const key of [
-	"GEMINI_MODEL",
+	"OPENCODE_GO_MODEL",
 	"NEXT_PUBLIC_BASE_URL",
 	"DEMO_PIN",
 	"CRON_SECRET",

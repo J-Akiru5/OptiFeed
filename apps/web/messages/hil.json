@@ -508,8 +508,7 @@
 				"batteryLow": "Nagnubo ang baterya sa Feeder #{feeder}.",
 				"hopperEmpty": "HILINGAGAWON: Wala gid unod ang hopper sang feeder!",
 				"feedingCompleted": "Madinalag-on nga nahatag ang na-iskedyul nga {amount}g."
-			},
-			"acknowledge": "Kilalahon"
+			}
 		},
 		"timeCalibration": {
 			"title": "Kalibrasyon sang Oras",

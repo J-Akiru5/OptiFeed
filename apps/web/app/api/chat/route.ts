@@ -1,8 +1,8 @@
+import { aiDebugInfo, isAiEnabled, isAiQuotaError, streamAi } from "@/lib/ai";
 import { farmIdFromEmail } from "@/lib/auth/session";
 import { buildChatContext } from "@/lib/chat/context";
 import { createNamespaceTranslator, runFallbackIntent } from "@/lib/chat/fallback";
 import { buildSystemPrompt, enforcePromptLimit, sanitizeInput } from "@/lib/chat/prompt";
-import { geminiDebugInfo, isGeminiEnabled, isGeminiQuotaError, streamGemini } from "@/lib/gemini";
 import { checkApiRateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
@@ -71,27 +71,27 @@ export async function POST(request: Request) {
 				const ctx = await buildChatContext(ownerId);
 				const systemPrompt = buildSystemPrompt(ctx, locale);
 
-				if (isGeminiEnabled() && history.length > 0) {
+				if (isAiEnabled() && history.length > 0) {
 					// First log line on any chat call: which model is requested and
 					// whether a key exists, so a silent fallback is always traceable.
-					console.log("[chat-debug]", geminiDebugInfo());
+					console.log("[chat-debug]", aiDebugInfo());
 
 					const turns = history
 						.map((m) => ({
-							role: m.role === "assistant" ? ("model" as const) : ("user" as const),
+							role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
 							text: m.content,
 						}))
 						.filter((m) => m.text.trim().length > 0);
 
-					// Gemini expects the conversation to start with a user turn;
-					// drop any leading assistant/model turns (e.g. the intro).
+					// Prefer conversations that start with a user turn; drop any
+					// leading assistant turns (e.g. the intro).
 					const firstUserIndex = turns.findIndex((m) => m.role === "user");
 					const normalizedTurns = firstUserIndex > 0 ? turns.slice(firstUserIndex) : turns;
 
 					if (normalizedTurns.length > 0) {
 						try {
 							let sentAny = false;
-							for await (const chunk of streamGemini(normalizedTurns, systemPrompt)) {
+							for await (const chunk of streamAi(normalizedTurns, systemPrompt)) {
 								push(chunk);
 								sentAny = true;
 							}
@@ -102,10 +102,10 @@ export async function POST(request: Request) {
 							// Always log the real failure (auth/quota/network + model)
 							// before falling back — never swallow it silently.
 							console.error(
-								"[chat-debug] gemini call failed, falling back:",
+								"[chat-debug] ai call failed, falling back:",
 								{
-									model: geminiDebugInfo().model,
-									reason: isGeminiQuotaError(error) ? "quota" : "error",
+									model: aiDebugInfo().model,
+									reason: isAiQuotaError(error) ? "quota" : "error",
 								},
 								error,
 							);

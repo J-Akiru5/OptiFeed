@@ -1,0 +1,19 @@
+# Check text files out with LF on every platform.
+#
+# Without this, Windows checkouts (core.autocrlf=true) produce CRLF files and
+# `pnpm lint` fails on Biome's formatter for files that are LF in the index.
+# Both developers must be able to run the same checks locally.
+* text=auto eol=lf
+
+# Binary assets must never be normalised.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.zip binary

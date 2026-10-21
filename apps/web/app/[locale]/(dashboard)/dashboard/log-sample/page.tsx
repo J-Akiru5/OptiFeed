@@ -17,7 +17,9 @@ export default async function LogSamplePage() {
 	if (!pond) {
 		return (
 			<div className="flex h-[50vh] items-center justify-center">
-				<p className="text-lg text-gray-500">No pond data found. Please run the seed script.</p>
+				<p className="text-lg text-gray-500 dark:text-gray-400">
+					No pond data found. Please run the seed script.
+				</p>
 			</div>
 		);
 	}
@@ -56,7 +58,7 @@ export default async function LogSamplePage() {
 				<h1 className="text-3xl font-extrabold tracking-tight text-[var(--ofd-base-deep)]">
 					{t("title")}
 				</h1>
-				<p className="text-gray-500 mt-2 text-lg">
+				<p className="text-gray-500 dark:text-gray-400 mt-2 text-lg">
 					{t.rich("desc", {
 						pond: pond.name,
 						bold: (chunks) => <strong className="font-semibold text-gray-700">{chunks}</strong>,
@@ -64,7 +66,7 @@ export default async function LogSamplePage() {
 				</p>
 			</header>
 
-			<div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
+			<div className="bg-white dark:bg-gray-900 rounded-3xl p-8 shadow-sm border border-gray-100 dark:border-gray-700/50">
 				<LogSampleForm
 					pondId={pond.id}
 					feedingRatePct={currentConfig?.feedingRatePct ?? pond.feedingRatePct}
@@ -84,7 +86,7 @@ export default async function LogSamplePage() {
 				</h2>
 
 				{batches.length === 0 ? (
-					<p className="rounded-3xl bg-white border border-gray-100 shadow-sm p-6 text-sm text-gray-500">
+					<p className="rounded-3xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700/50 shadow-sm p-6 text-sm text-gray-500 dark:text-gray-400">
 						{t("noBatches")}
 					</p>
 				) : (
@@ -92,14 +94,14 @@ export default async function LogSamplePage() {
 						{batches.map((batch) => (
 							<div
 								key={batch.label ?? "__unlabeled__"}
-								className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100"
+								className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50"
 							>
 								<div className="flex items-start justify-between gap-3">
 									<div className="min-w-0">
 										<p className="truncate font-bold text-[var(--ofd-base-deep)]">
 											{batch.label ?? t("unlabeled")}
 										</p>
-										<p className="text-xs text-gray-500 mt-0.5">
+										<p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
 											{t("lastSaved", {
 												date: formatDateTimeLocal(batch.lastSavedAt, tDates).full,
 											})}
@@ -110,7 +112,7 @@ export default async function LogSamplePage() {
 									</span>
 								</div>
 
-								<div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-4">
+								<div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 dark:border-gray-700/50 pt-4">
 									<div>
 										<p className="text-[11px] uppercase font-bold tracking-wider text-gray-400">
 											{t("totalSamples")}

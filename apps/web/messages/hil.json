@@ -267,7 +267,37 @@
 			"noFeedLevel": "Wala pa sang narekord nga pagbasa sang feed level.",
 			"searchPlaceholder": "Mangita base sa petsa (YYYY-MM-DD)",
 			"loadMore": "Magkarga pa",
-			"loading": "Gina-karga…"
+			"loading": "Gina-karga…",
+			"viewAll": "Ipakita tanan",
+			"history": {
+				"title": "Kasaysayan sang Pagtubo",
+				"desc": "Bug-os nga feed level, pagtubo kag biomass nga rekord para sa {pond}",
+				"backToGrowth": "Balik sa Pagtubo",
+				"tabs": {
+					"feed": "Feed level",
+					"growth": "Sumaryo sang Pagtubo",
+					"biomass": "Biomass samples"
+				},
+				"filters": {
+					"search": "Mangita",
+					"from": "Gikan",
+					"to": "Sa",
+					"apply": "I-apply",
+					"clear": "Limpyohan"
+				},
+				"columns": {
+					"avgWeight": "Average nga Kabug-atan (g)",
+					"weightGain": "Gin-agnay nga Kabug-atan (g)",
+					"lengthGain": "Gin-agnay nga Katas-on (cm)",
+					"daysSince": "Mga Adlaw Halin sang Ulihi"
+				},
+				"pagination": {
+					"previous": "Nagligad",
+					"next": "Sunod",
+					"showing": "Ginapakita {from}–{to} sang {total}"
+				},
+				"empty": "Wala sang rekord nga nagapakita."
+			}
 		},
 		"settings": {
 			"title": "Mga Setting",

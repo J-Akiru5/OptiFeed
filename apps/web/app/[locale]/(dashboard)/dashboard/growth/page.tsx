@@ -1,7 +1,5 @@
 import { DataExportButton, DataImportDialog } from "@/components/DataImportExport";
 import { FcrCalculator } from "@/components/FcrCalculator";
-import { FeedLevelLogTable } from "@/components/FeedLevelLogTable";
-import { getFeedLevelLogs } from "@/lib/actions/growth";
 import { canWrite } from "@/lib/auth/session";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { getActivePond } from "@/lib/pond-selection";
@@ -16,8 +14,12 @@ import {
 	TrendingUp,
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
+import Link from "next/link";
 
 export const revalidate = 0;
+
+const PREVIEW_ROWS = 5;
+const GROWTH_PREVIEW_ROWS = 6;
 
 export default async function GrowthPage() {
 	const t = await getTranslations("dashboard.growth");
@@ -28,7 +30,7 @@ export default async function GrowthPage() {
 	if (!pond) {
 		return (
 			<div className="flex h-[50vh] items-center justify-center">
-				<p className="text-lg text-gray-500">{tSch("noPondData")}</p>
+				<p className="text-lg text-gray-500 dark:text-gray-400">{tSch("noPondData")}</p>
 			</div>
 		);
 	}
@@ -39,6 +41,19 @@ export default async function GrowthPage() {
 		where: { pondId: pond.id },
 		orderBy: { recordedAt: "asc" },
 		include: { fishSamples: true },
+	});
+
+	// Newest first, with the period-over-period gains precomputed once. The
+	// compact card and the growth-history page share the same calculation.
+	const biomassDesc = biomassLogs.slice().reverse();
+	const growthRows = biomassDesc.map((log, index) => {
+		const previous = biomassDesc[index + 1] ?? null;
+		const weightGain = previous ? log.avgWeightKg * 1000 - previous.avgWeightKg * 1000 : null;
+		const lengthGain = previous ? log.sampleLengthCm - previous.sampleLengthCm : null;
+		const daysSinceLast = previous
+			? Math.round((log.recordedAt.getTime() - previous.recordedAt.getTime()) / 86_400_000)
+			: null;
+		return { log, weightGain, lengthGain, daysSinceLast };
 	});
 
 	const fcrReports = await prisma.fcrReport.findMany({
@@ -53,16 +68,23 @@ export default async function GrowthPage() {
 	});
 
 	let feedLevelLogs: Awaited<ReturnType<typeof prisma.feedLevelLog.findMany>> = [];
-	let feedLevelLogPage: Awaited<ReturnType<typeof getFeedLevelLogs>> | null = null;
+	let feedLevelPreview: {
+		id: string;
+		recordedAt: Date;
+		levelPercent: number;
+		distanceCm: number;
+	}[] = [];
 	if (energyDevice) {
 		feedLevelLogs = await prisma.feedLevelLog.findMany({
 			where: { deviceId: energyDevice.id },
 			orderBy: { recordedAt: "asc" },
 			take: 30,
 		});
-		feedLevelLogPage = await getFeedLevelLogs({
-			deviceId: energyDevice.id,
-			cursor: null,
+		feedLevelPreview = await prisma.feedLevelLog.findMany({
+			where: { deviceId: energyDevice.id },
+			orderBy: { recordedAt: "desc" },
+			take: PREVIEW_ROWS,
+			select: { id: true, recordedAt: true, levelPercent: true, distanceCm: true },
 		});
 	}
 
@@ -117,7 +139,7 @@ export default async function GrowthPage() {
 					<h1 className="text-3xl font-extrabold tracking-tight text-[var(--ofd-base-deep)]">
 						{t("title")}
 					</h1>
-					<p className="text-gray-500 mt-1">{t("desc", { pond: pond.name })}</p>
+					<p className="text-gray-500 dark:text-gray-400 mt-1">{t("desc", { pond: pond.name })}</p>
 				</div>
 				<div className="flex items-center gap-3">
 					<DataImportDialog canWrite={writeAccess} />
@@ -158,10 +180,10 @@ export default async function GrowthPage() {
 
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 				{/* Latest ABW Card */}
-				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden">
+				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex flex-col justify-between relative overflow-hidden">
 					<div className="flex justify-between items-start mb-4 relative z-10">
 						<div>
-							<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+							<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 								{t("latestAbw")}
 							</p>
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
@@ -226,10 +248,10 @@ export default async function GrowthPage() {
 				</div>
 
 				{/* Latest FCR Card */}
-				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
+				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex flex-col justify-between">
 					<div className="flex justify-between items-start mb-4">
 						<div>
-							<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+							<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 								{t("currentFcr")}
 							</p>
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
@@ -278,10 +300,10 @@ export default async function GrowthPage() {
 
 			{/* Feed Level Trend Card */}
 			{feedLevelLogs.length > 0 && (
-				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50">
 					<div className="flex items-center justify-between mb-4">
 						<div>
-							<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+							<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 								{t("feedLevelTitle")}
 							</p>
 							<p className="text-xs text-gray-400 mt-0.5">{t("feedLevelDesc")}</p>
@@ -336,34 +358,69 @@ export default async function GrowthPage() {
 				</div>
 			)}
 
-			{/* Feed Level Log Table */}
+			{/* Feed Level Log preview */}
 			<div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-				{energyDevice && feedLevelLogPage && feedLevelLogs.length > 0 && (
-					<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-						<div className="p-6 border-b border-gray-100 bg-gray-50/50">
-							<h3 className="font-bold text-gray-800">{t("feedLevelTableTitle")}</h3>
+				{energyDevice && feedLevelPreview.length > 0 && (
+					<div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden">
+						<div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/50 p-6 dark:border-gray-700/50 dark:bg-gray-800/50">
+							<h3 className="font-bold text-gray-800 dark:text-gray-100">
+								{t("feedLevelTableTitle")}
+							</h3>
+							<Link
+								href="/dashboard/growth/history?tab=feed"
+								className="text-sm font-bold text-[var(--ofd-base-deep)] hover:underline"
+							>
+								{t("viewAll")}
+							</Link>
 						</div>
-						<FeedLevelLogTable
-							deviceId={energyDevice.id}
-							initialItems={feedLevelLogPage.items}
-							initialHasMore={feedLevelLogPage.hasMore}
-							initialNextCursor={feedLevelLogPage.nextCursor}
-						/>
+						<div className="divide-y divide-gray-100 px-6 dark:divide-gray-700/50">
+							{feedLevelPreview.map((log) => (
+								<div key={log.id} className="flex items-center justify-between py-3.5">
+									<div className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
+										{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+									</div>
+									<div>
+										<span
+											className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+												log.levelPercent <= 5
+													? "bg-red-100 text-red-700"
+													: log.levelPercent <= 20
+														? "bg-amber-100 text-amber-700"
+														: "bg-green-100 text-green-700"
+											}`}
+										>
+											{Math.round(log.levelPercent)}%
+										</span>
+									</div>
+									<div className="font-mono text-gray-600 dark:text-gray-300">
+										{log.distanceCm.toFixed(1)} cm
+									</div>
+								</div>
+							))}
+						</div>
 					</div>
 				)}
 
 				{/* Growth Summary Table */}
-				{biomassLogs.length >= 2 && (
-					<div className="@container bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-						<div className="p-6 border-b border-gray-100 bg-gray-50/50">
-							<h3 className="font-bold text-gray-800">Growth Summary</h3>
-							<p className="text-xs text-gray-500 mt-1">
-								Weight and length gain between sample periods
-							</p>
+				{growthRows.length >= 2 && (
+					<div className="@container bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden">
+						<div className="flex items-start justify-between gap-3 border-b border-gray-100 bg-gray-50/50 p-6 dark:border-gray-700/50 dark:bg-gray-800/50">
+							<div>
+								<h3 className="font-bold text-gray-800 dark:text-gray-100">Growth Summary</h3>
+								<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+									Weight and length gain between sample periods
+								</p>
+							</div>
+							<Link
+								href="/dashboard/growth/history?tab=growth"
+								className="text-sm font-bold text-[var(--ofd-base-deep)] hover:underline"
+							>
+								{t("viewAll")}
+							</Link>
 						</div>
 						<div className="overflow-x-auto">
-							<table className="w-full text-left text-sm text-gray-600">
-								<thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
+							<table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+								<thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 uppercase text-xs font-semibold">
 									<tr>
 										<th className="px-3 py-3 lg:px-4">Date</th>
 										<th className="px-3 py-3 text-right lg:px-4">Avg Weight (g)</th>
@@ -375,72 +432,54 @@ export default async function GrowthPage() {
 										</th>
 									</tr>
 								</thead>
-								<tbody className="divide-y divide-gray-100">
-									{biomassLogs
-										.slice()
-										.reverse()
-										.map((log, i) => {
-											const prevLog =
-												i < biomassLogs.length - 1
-													? biomassLogs[biomassLogs.length - 1 - i - 1]
-													: null;
-											const currentWeightG = log.avgWeightKg * 1000;
-											const prevWeightG = prevLog ? prevLog.avgWeightKg * 1000 : null;
-											const weightGain = prevWeightG !== null ? currentWeightG - prevWeightG : null;
-
-											const lengthGain =
-												prevLog !== null ? log.sampleLengthCm - prevLog.sampleLengthCm : null;
-
-											const daysSinceLast = prevLog
-												? Math.round(
-														(log.recordedAt.getTime() - prevLog.recordedAt.getTime()) /
-															(1000 * 60 * 60 * 24),
-													)
-												: null;
-
-											return (
-												<tr key={log.id} className="hover:bg-gray-50 transition-colors">
-													<td className="px-3 py-3 font-medium text-gray-900 whitespace-nowrap lg:px-4">
-														{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
-													</td>
-													<td className="px-3 py-3 text-right lg:px-4">
-														{currentWeightG.toFixed(1)}
-													</td>
-													<td className="px-3 py-3 text-right lg:px-4">
-														{log.sampleLengthCm.toFixed(1)}
-													</td>
-													<td className="px-3 py-3 text-right font-bold lg:px-4">
-														{weightGain !== null ? (
-															<span className={weightGain >= 0 ? "text-green-600" : "text-red-500"}>
-																{weightGain >= 0 ? "+" : ""}
-																{weightGain.toFixed(1)}
-															</span>
-														) : (
-															<span className="text-gray-400">—</span>
-														)}
-													</td>
-													<td className="px-3 py-3 text-right font-bold lg:px-4">
-														{lengthGain !== null ? (
-															<span className={lengthGain >= 0 ? "text-green-600" : "text-red-500"}>
-																{lengthGain >= 0 ? "+" : ""}
-																{lengthGain.toFixed(1)}
-															</span>
-														) : (
-															<span className="text-gray-400">—</span>
-														)}
-													</td>
-													<td className="px-3 py-3 text-right hidden @[560px]:table-cell lg:px-4">
-														{daysSinceLast !== null ? (
-															<span className="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full">
-																{daysSinceLast}d
-															</span>
-														) : (
-															<span className="text-gray-400">—</span>
-														)}
-													</td>
-												</tr>
-											);
-										})}
+								<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+									{growthRows
+										.slice(0, GROWTH_PREVIEW_ROWS)
+										.map(({ log, weightGain, lengthGain, daysSinceLast }) => (
+											<tr
+												key={log.id}
+												className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+											>
+												<td className="px-3 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap lg:px-4">
+													{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+												</td>
+												<td className="px-3 py-3 text-right lg:px-4">
+													{(log.avgWeightKg * 1000).toFixed(1)}
+												</td>
+												<td className="px-3 py-3 text-right lg:px-4">
+													{log.sampleLengthCm.toFixed(1)}
+												</td>
+												<td className="px-3 py-3 text-right font-bold lg:px-4">
+													{weightGain !== null ? (
+														<span className={weightGain >= 0 ? "text-green-600" : "text-red-500"}>
+															{weightGain >= 0 ? "+" : ""}
+															{weightGain.toFixed(1)}
+														</span>
+													) : (
+														<span className="text-gray-400">—</span>
+													)}
+												</td>
+												<td className="px-3 py-3 text-right font-bold lg:px-4">
+													{lengthGain !== null ? (
+														<span className={lengthGain >= 0 ? "text-green-600" : "text-red-500"}>
+															{lengthGain >= 0 ? "+" : ""}
+															{lengthGain.toFixed(1)}
+														</span>
+													) : (
+														<span className="text-gray-400">—</span>
+													)}
+												</td>
+												<td className="px-3 py-3 text-right hidden @[560px]:table-cell lg:px-4">
+													{daysSinceLast !== null ? (
+														<span className="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full">
+															{daysSinceLast}d
+														</span>
+													) : (
+														<span className="text-gray-400">—</span>
+													)}
+												</td>
+											</tr>
+										))}
 								</tbody>
 							</table>
 						</div>
@@ -448,13 +487,19 @@ export default async function GrowthPage() {
 				)}
 
 				{/* Biomass Log Table */}
-				<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mt-8 xl:mt-0 xl:col-span-2">
-					<div className="p-6 border-b border-gray-100 bg-gray-50/50">
-						<h3 className="font-bold text-gray-800">{t("historyTitle")}</h3>
+				<div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden mt-8 xl:mt-0 xl:col-span-2">
+					<div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/50 p-6 dark:border-gray-700/50 dark:bg-gray-800/50">
+						<h3 className="font-bold text-gray-800 dark:text-gray-100">{t("historyTitle")}</h3>
+						<Link
+							href="/dashboard/growth/history?tab=biomass"
+							className="text-sm font-bold text-[var(--ofd-base-deep)] hover:underline"
+						>
+							{t("viewAll")}
+						</Link>
 					</div>
 					<div className="overflow-x-auto">
-						<table className="w-full text-left text-sm text-gray-600">
-							<thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
+						<table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+							<thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 uppercase text-xs font-semibold">
 								<tr>
 									<th className="px-3 py-3 lg:px-4">{t("dateCol")}</th>
 									<th className="px-3 py-3 hidden lg:table-cell lg:px-4">{t("batchCol")}</th>
@@ -467,78 +512,81 @@ export default async function GrowthPage() {
 									<th className="px-3 py-3 text-center hidden lg:table-cell lg:px-4">Type</th>
 								</tr>
 							</thead>
-							<tbody className="divide-y divide-gray-100">
-								{biomassLogs
-									.slice()
-									.reverse()
-									.map((log) => (
-										<tr key={log.id} className="hover:bg-gray-50 transition-colors">
-											<td className="px-3 py-3 font-medium text-gray-900 whitespace-nowrap lg:px-4">
-												{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
-											</td>
-											<td className="px-3 py-3 whitespace-nowrap hidden lg:table-cell lg:px-4">
-												{log.batchLabel ?? <span className="text-gray-400">—</span>}
-											</td>
-											<td className="px-3 py-3 lg:px-4">{log.sampleWeightKg.toFixed(2)}</td>
-											<td className="px-3 py-3 lg:px-4">{log.sampleCount}</td>
-											<td className="px-3 py-3 lg:px-4">{log.sampleLengthCm.toFixed(1)}</td>
-											<td className="px-3 py-3 text-right font-bold text-[var(--ofd-base-deep)] lg:px-4">
-												{(log.avgWeightKg * 1000).toFixed(1)}
-											</td>
-											<td className="px-3 py-3 text-center hidden lg:table-cell lg:px-4">
-												{log.fishSamples.length > 0 ? (
-													<details className="inline-block text-left">
-														<summary className="inline-flex cursor-pointer list-none items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 text-xs font-bold rounded-full hover:bg-teal-100 transition-colors">
-															<Fish className="w-3 h-3" />
-															{log.fishSamples.length} fish
-														</summary>
-														<div className="mt-2 min-w-[180px] rounded-xl border border-teal-100 bg-teal-50/50 overflow-hidden">
-															<div className="flex items-baseline justify-between gap-3 px-3 py-1.5 bg-teal-100/70 text-[10px] font-bold uppercase text-teal-700">
-																<span className="truncate">{log.batchLabel ?? "Unlabeled"}</span>
-																<span className="font-medium normal-case text-teal-600 shrink-0">
-																	{formatDateTimeLocal(log.recordedAt, tDates).date}
-																</span>
-															</div>
-															<table className="w-full text-xs text-gray-600">
-																<thead>
-																	<tr className="text-[10px] uppercase text-teal-700">
-																		<th className="px-3 py-1.5 text-left font-bold">#</th>
-																		<th className="px-3 py-1.5 text-right font-bold">Weight</th>
-																		<th className="px-3 py-1.5 text-right font-bold">Length</th>
-																	</tr>
-																</thead>
-																<tbody className="divide-y divide-teal-100">
-																	{log.fishSamples.map((sample, sampleIndex) => (
-																		<tr key={sample.id}>
-																			<td className="px-3 py-1.5 text-gray-500">
-																				{sampleIndex + 1}
-																			</td>
-																			<td className="px-3 py-1.5 text-right font-medium text-gray-800">
-																				{sample.weightGrams.toFixed(1)} g
-																			</td>
-																			<td className="px-3 py-1.5 text-right">
-																				{sample.lengthCm > 0
-																					? `${sample.lengthCm.toFixed(1)} cm`
-																					: "—"}
-																			</td>
-																		</tr>
-																	))}
-																</tbody>
-															</table>
+							<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+								{biomassDesc.slice(0, PREVIEW_ROWS).map((log) => (
+									<tr
+										key={log.id}
+										className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+									>
+										<td className="px-3 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap lg:px-4">
+											{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+										</td>
+										<td className="px-3 py-3 whitespace-nowrap hidden lg:table-cell lg:px-4">
+											{log.batchLabel ?? <span className="text-gray-400">—</span>}
+										</td>
+										<td className="px-3 py-3 lg:px-4">{log.sampleWeightKg.toFixed(2)}</td>
+										<td className="px-3 py-3 lg:px-4">{log.sampleCount}</td>
+										<td className="px-3 py-3 lg:px-4">{log.sampleLengthCm.toFixed(1)}</td>
+										<td className="px-3 py-3 text-right font-bold text-[var(--ofd-base-deep)] lg:px-4">
+											{(log.avgWeightKg * 1000).toFixed(1)}
+										</td>
+										<td className="px-3 py-3 text-center hidden lg:table-cell lg:px-4">
+											{log.fishSamples.length > 0 ? (
+												<details className="inline-block text-left">
+													<summary className="inline-flex cursor-pointer list-none items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 text-xs font-bold rounded-full hover:bg-teal-100 transition-colors">
+														<Fish className="w-3 h-3" />
+														{log.fishSamples.length} fish
+													</summary>
+													<div className="mt-2 min-w-[180px] rounded-xl border border-teal-100 bg-teal-50/50 overflow-hidden">
+														<div className="flex items-baseline justify-between gap-3 px-3 py-1.5 bg-teal-100/70 text-[10px] font-bold uppercase text-teal-700">
+															<span className="truncate">{log.batchLabel ?? "Unlabeled"}</span>
+															<span className="font-medium normal-case text-teal-600 shrink-0">
+																{formatDateTimeLocal(log.recordedAt, tDates).date}
+															</span>
 														</div>
-													</details>
-												) : (
-													<span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 text-xs font-bold rounded-full">
-														<Scale className="w-3 h-3" />
-														Avg
-													</span>
-												)}
-											</td>
-										</tr>
-									))}
+														<table className="w-full text-xs text-gray-600 dark:text-gray-300">
+															<thead>
+																<tr className="text-[10px] uppercase text-teal-700">
+																	<th className="px-3 py-1.5 text-left font-bold">#</th>
+																	<th className="px-3 py-1.5 text-right font-bold">Weight</th>
+																	<th className="px-3 py-1.5 text-right font-bold">Length</th>
+																</tr>
+															</thead>
+															<tbody className="divide-y divide-teal-100">
+																{log.fishSamples.map((sample, sampleIndex) => (
+																	<tr key={sample.id}>
+																		<td className="px-3 py-1.5 text-gray-500 dark:text-gray-400">
+																			{sampleIndex + 1}
+																		</td>
+																		<td className="px-3 py-1.5 text-right font-medium text-gray-800 dark:text-gray-100">
+																			{sample.weightGrams.toFixed(1)} g
+																		</td>
+																		<td className="px-3 py-1.5 text-right">
+																			{sample.lengthCm > 0
+																				? `${sample.lengthCm.toFixed(1)} cm`
+																				: "—"}
+																		</td>
+																	</tr>
+																))}
+															</tbody>
+														</table>
+													</div>
+												</details>
+											) : (
+												<span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 dark:text-gray-400 text-xs font-bold rounded-full">
+													<Scale className="w-3 h-3" />
+													Avg
+												</span>
+											)}
+										</td>
+									</tr>
+								))}
 								{biomassLogs.length === 0 && (
 									<tr>
-										<td colSpan={5} className="px-6 py-10 text-center text-gray-500">
+										<td
+											colSpan={5}
+											className="px-6 py-10 text-center text-gray-500 dark:text-gray-400"
+										>
 											{t("noSamples")}
 										</td>
 									</tr>

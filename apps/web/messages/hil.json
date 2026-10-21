@@ -144,7 +144,10 @@
 			"feedingLogsTitle": "MGA LOG SANG PAGPAKAON",
 			"feedingLogsDesc": "Makita kag ma-audit nga log halin sa awtomatik nga dispenser.",
 			"feedLevelLabel": "Lebel sang Feed",
-			"daysRemaining": "~{count}d nga feed nabilin"
+			"daysRemaining": "~{count}d nga feed nabilin",
+			"biomassLogsTitle": "MGA PINAKABAG-O NGA BIOMASS SAMPLE",
+			"biomassLogsDesc": "Ang mga kinahamunan nga weigh-in nga nalog para sa kundi nga",
+			"viewGrowth": "Tan-awa ang pagdako"
 		},
 		"schedule": {
 			"title": "Iskedyul sang Pagpakaon",
@@ -261,6 +264,13 @@
 			"fishCountCol": "Bilang sang Isda",
 			"avgLengthCol": "Katas-on (cm)",
 			"abwCol": "ABW (g)",
+			"typeCol": "Matang",
+			"allBatches": "Tanan nga batch",
+			"unlabeledBatch": "Wala label",
+			"importedBadge": "Gi-import",
+			"seedBadge": "Seed",
+			"batchFilterLabel": "I-filter base sa batch",
+			"noFilteredSamples": "Wala samples nga angkunon sang mga filter.",
 			"feedLevelCol": "Level %",
 			"distanceCol": "Distansya (cm)",
 			"noSamples": "Wala pa sang narekord nga biomass samples.",

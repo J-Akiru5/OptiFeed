@@ -144,7 +144,10 @@
 			"feedingLogsTitle": "FEEDING LOGS — WESTERN VISAYAS HUB",
 			"feedingLogsDesc": "Auditable chronological logs fetched from your automatic dispenser.",
 			"feedLevelLabel": "Feed Level",
-			"daysRemaining": "~{count}d of feed remaining"
+			"daysRemaining": "~{count}d of feed remaining",
+			"biomassLogsTitle": "RECENT BIOMASS SAMPLES",
+			"biomassLogsDesc": "Latest weigh-ins logged for this pond.",
+			"viewGrowth": "View growth"
 		},
 		"schedule": {
 			"title": "Feeding Schedule",
@@ -261,6 +264,13 @@
 			"fishCountCol": "Fish Count",
 			"avgLengthCol": "Avg Length (cm)",
 			"abwCol": "ABW (g)",
+			"typeCol": "Type",
+			"allBatches": "All batches",
+			"unlabeledBatch": "Unlabeled",
+			"importedBadge": "Imported",
+			"seedBadge": "Seed",
+			"batchFilterLabel": "Filter by batch",
+			"noFilteredSamples": "No samples match the current filters.",
 			"feedLevelCol": "Level %",
 			"distanceCol": "Distance (cm)",
 			"noSamples": "No biomass samples recorded yet.",

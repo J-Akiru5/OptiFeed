@@ -98,6 +98,7 @@ export const POST = withAuth(async (request, { ownerId }) => {
 								sampleLengthCm,
 								sampleCount,
 								avgWeightKg,
+								source: "import",
 								recordedAt: row.recordedAt ? new Date(String(row.recordedAt)) : new Date(),
 							};
 						});

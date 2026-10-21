@@ -66,14 +66,14 @@ export function EnergyControllerCard({
 	};
 
 	return (
-		<div className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100 transition-shadow hover:shadow-md">
+		<div className="rounded-3xl bg-white dark:bg-gray-900 p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 transition-shadow hover:shadow-md">
 			<div className="flex items-center justify-between mb-5">
 				<div className="flex items-center gap-3">
 					<div className="h-11 w-11 rounded-xl bg-[var(--ofd-base)]/10 text-[var(--ofd-base)] flex items-center justify-center">
 						<Utensils className="h-6 w-6" />
 					</div>
 					<div>
-						<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+						<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 							ESP32 Controller
 						</p>
 						<h3 className="text-lg font-bold text-[var(--ofd-base-deep)]">{label}</h3>
@@ -104,9 +104,9 @@ export function EnergyControllerCard({
 			</div>
 
 			{isOffline && (
-				<div className="mb-4 flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
+				<div className="mb-4 flex items-center gap-2 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3">
 					<AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
-					<p className="text-xs text-red-700 font-medium">
+					<p className="text-xs text-red-700 dark:text-red-300 font-medium">
 						Device offline — last seen {formatLastSeen(lastSeenAt)}. Dashboard feed requests are
 						rejected while offline; device-scheduled and physical button feeds still work.
 					</p>
@@ -116,43 +116,50 @@ export function EnergyControllerCard({
 			<div className="grid gap-6 lg:grid-cols-2">
 				<div className="space-y-4">
 					<div className="grid grid-cols-2 gap-3">
-						<div className="flex items-center gap-2 rounded-xl bg-gray-50 p-3">
+						<div className="flex items-center gap-2 rounded-xl bg-gray-50 dark:bg-gray-800 p-3">
 							{rtcOk ? (
 								<Wifi className="h-4 w-4 text-green-500" />
 							) : (
 								<WifiOff className="h-4 w-4 text-red-500" />
 							)}
 							<div>
-								<p className="text-xs text-gray-500 font-medium">RTC</p>
+								<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">RTC</p>
 								<p className={cn("text-sm font-medium", rtcOk ? "text-green-600" : "text-red-600")}>
 									{rtcOk ? "OK" : "Offline"}
 								</p>
 							</div>
 						</div>
-						<div className="flex items-center gap-2 rounded-xl bg-gray-50 p-3">
-							<Clock className="h-4 w-4 text-gray-400" />
+						<div className="flex items-center gap-2 rounded-xl bg-gray-50 dark:bg-gray-800 p-3">
+							<Clock className="h-4 w-4 text-gray-400 dark:text-gray-500" />
 							<div>
-								<p className="text-xs text-gray-500 font-medium">Last seen</p>
-								<p className="text-sm text-gray-700">{formatLastSeen(lastSeenAt)}</p>
+								<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Last seen</p>
+								<p className="text-sm text-gray-700 dark:text-gray-200">
+									{formatLastSeen(lastSeenAt)}
+								</p>
 							</div>
 						</div>
 					</div>
 
-					<div className="flex items-center justify-between gap-4 rounded-2xl bg-gray-50 p-4">
+					<div className="flex items-center justify-between gap-4 rounded-2xl bg-gray-50 dark:bg-gray-800 p-4">
 						<div>
-							<p className="text-xs text-gray-500 font-medium">MAC Address</p>
-							<p className="text-sm font-mono text-gray-700">{mac}</p>
+							<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">MAC Address</p>
+							<p className="text-sm font-mono text-gray-700 dark:text-gray-200">{mac}</p>
 						</div>
 						<div className="text-right">
-							<p className="text-xs text-gray-500 font-medium">Default Feed</p>
-							<p className="text-sm font-medium text-gray-700">{gramsPerFeeding}g</p>
+							<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Default Feed</p>
+							<p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+								{gramsPerFeeding}g
+							</p>
 						</div>
 					</div>
 				</div>
 
 				<div className="space-y-3">
 					<div>
-						<label htmlFor="feed-grams" className="block text-xs text-gray-500 font-medium mb-1">
+						<label
+							htmlFor="feed-grams"
+							className="block text-xs text-gray-500 dark:text-gray-400 font-medium mb-1"
+						>
 							Feed Amount (grams)
 						</label>
 						<input
@@ -162,7 +169,7 @@ export function EnergyControllerCard({
 							max={500}
 							value={feedGrams}
 							onChange={(e) => setFeedGrams(Number(e.target.value))}
-							className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ofd-base)]/30 focus:border-[var(--ofd-base)]"
+							className="w-full rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--ofd-base)]/30 focus:border-[var(--ofd-base)]"
 						/>
 					</div>
 
@@ -171,7 +178,7 @@ export function EnergyControllerCard({
 						onClick={handleFeedNow}
 						disabled={isPending || feederActive || feedGrams <= 0 || isOffline || !canWrite}
 						className={cn(
-							"flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 font-medium text-white transition-all shadow-md hover:shadow-lg disabled:opacity-50",
+							"flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 font-medium text-white transition-all shadow-md hover:shadow-lg disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 disabled:shadow-none dark:disabled:bg-gray-700 dark:disabled:text-gray-400",
 							alreadyQueued
 								? "bg-amber-500 hover:bg-amber-600"
 								: feedSent

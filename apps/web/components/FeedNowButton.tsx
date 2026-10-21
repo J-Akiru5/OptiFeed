@@ -63,7 +63,7 @@ export function FeedNowButton({
 				type="button"
 				onClick={() => setShowConfirm(true)}
 				disabled={dispensing || isOffline || !canWrite}
-				className="bg-[#E85A2A] text-white font-black text-sm md:text-base px-6 py-3 rounded-2xl hover:bg-[#d04a1f] shadow-lg hover:shadow-xl transition-all transform active:scale-95 flex items-center gap-2 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
+				className="bg-[#E85A2A] text-white font-black text-sm md:text-base px-6 py-3 rounded-2xl hover:bg-[#d04a1f] shadow-lg hover:shadow-xl transition-all transform active:scale-95 flex items-center gap-2 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600 disabled:shadow-none dark:disabled:bg-gray-700 dark:disabled:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
 				data-onboard={dataOnboard}
 			>
 				<Activity className={`w-4 h-4 ${dispensing ? "animate-spin" : "animate-pulse"}`} />

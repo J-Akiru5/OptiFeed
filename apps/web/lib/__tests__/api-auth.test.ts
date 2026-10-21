@@ -31,11 +31,12 @@ vi.mock("@/lib/chat/prompt", () => ({
 	enforcePromptLimit: vi.fn((s: string) => s),
 	sanitizeInput: vi.fn((s: string) => s),
 }));
-vi.mock("@/lib/gemini", () => ({
-	geminiDebugInfo: vi.fn(() => ({ model: "t" })),
-	isGeminiEnabled: vi.fn(() => false),
-	isGeminiQuotaError: vi.fn(() => false),
-	streamGemini: vi.fn(async function* () {}),
+vi.mock("@/lib/ai", () => ({
+	aiDebugInfo: vi.fn(() => ({ provider: "opencode-go", model: "t" })),
+	isAiEnabled: vi.fn(() => false),
+	isAiQuotaError: vi.fn(() => false),
+	stableSessionId: vi.fn(() => "test-session"),
+	streamAi: vi.fn(async function* () {}),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 

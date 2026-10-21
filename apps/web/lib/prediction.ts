@@ -1,4 +1,4 @@
-import { completeAi, isAiEnabled } from "@/lib/ai";
+import { completeAi, isAiEnabled, stableSessionId } from "@/lib/ai";
 import { MAX_FEED_GRAMS_PER_REQUEST, dailyFeedCapG } from "@/lib/limits";
 import { calculateNextFeeding } from "@/lib/volumeCalc";
 
@@ -201,6 +201,7 @@ Respond with ONLY a JSON object, no other text:
 export async function refinePredictionWithAi(
 	inputs: PredictionInputs,
 	baseline: FeedingPrediction,
+	sessionId: string = stableSessionId("prediction", new Date().toISOString().slice(0, 10)),
 ): Promise<FeedingPrediction> {
 	if (!isAiEnabled() || baseline.grams === null) return baseline;
 
@@ -208,6 +209,7 @@ export async function refinePredictionWithAi(
 		const result = await completeAi(
 			[{ role: "user", text: buildAiPrompt(inputs, baseline) }],
 			"You output strict JSON only. No markdown, no prose outside the JSON object.",
+			sessionId,
 		);
 		if (!result?.content) return baseline;
 
@@ -254,7 +256,8 @@ export async function refinePredictionWithAi(
 export async function predictFeeding(
 	inputs: PredictionInputs,
 	now: Date = new Date(),
+	sessionId: string = stableSessionId("prediction", now.toISOString().slice(0, 10)),
 ): Promise<FeedingPrediction> {
 	const baseline = computeDeterministicPrediction(inputs, now);
-	return refinePredictionWithAi(inputs, baseline);
+	return refinePredictionWithAi(inputs, baseline, sessionId);
 }

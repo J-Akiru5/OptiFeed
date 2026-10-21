@@ -1,3 +1,4 @@
+import { stableSessionId } from "@/lib/ai";
 import { withAuth } from "@/lib/auth/with-auth";
 import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { type PredictionInputs, predictFeeding } from "@/lib/prediction";
@@ -51,7 +52,11 @@ export const POST = withAuth(async (_request, { ownerId }) => {
 		lastSampleAt: latestBiomass?.recordedAt ?? null,
 	};
 
-	const prediction = await predictFeeding(inputs);
+	const prediction = await predictFeeding(
+		inputs,
+		new Date(),
+		stableSessionId("prediction", ownerId, pond.id, new Date().toISOString().slice(0, 10)),
+	);
 
 	return Response.json({
 		grams: prediction.grams,

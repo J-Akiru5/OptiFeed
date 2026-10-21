@@ -1,4 +1,4 @@
-import { aiDebugInfo, isAiEnabled, isAiQuotaError, streamAi } from "@/lib/ai";
+import { aiDebugInfo, isAiEnabled, isAiQuotaError, stableSessionId, streamAi } from "@/lib/ai";
 import { withAuth } from "@/lib/auth/with-auth";
 import { buildChatContext } from "@/lib/chat/context";
 import { createNamespaceTranslator, runFallbackIntent } from "@/lib/chat/fallback";
@@ -74,9 +74,12 @@ export const POST = withAuth(async (request, { ownerId }) => {
 					const normalizedTurns = firstUserIndex > 0 ? turns.slice(firstUserIndex) : turns;
 
 					if (normalizedTurns.length > 0) {
+						// Stable for the life of one conversation: OpenCode Go routes
+						// and caches per session id, so it must not change per turn.
+						const sessionId = stableSessionId("chat", ownerId, normalizedTurns[0]?.text ?? "");
 						try {
 							let sentAny = false;
-							for await (const chunk of streamAi(normalizedTurns, systemPrompt)) {
+							for await (const chunk of streamAi(normalizedTurns, systemPrompt, sessionId)) {
 								push(chunk);
 								sentAny = true;
 							}

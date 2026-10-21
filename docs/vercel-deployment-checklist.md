@@ -26,25 +26,44 @@ Notes:
 - **No `SENTRY_*`.** Sentry was removed entirely (2026-10-13); errors log to
   the console (`[obs]`) in Vercel function logs.
 
-## 2. Build Command (H3)
+## 2. Build Command (H3, revised 2026-10-21)
 
-Vercel Build Command must be:
+Vercel runs the `build` script from `apps/web/package.json`:
 
 ```
-prisma generate && prisma migrate deploy && next build
+prisma generate && node scripts/migrate-if-production.mjs && next build
 ```
 
-This is how merged migrations reach production. Task 0.3 (removing
-`migrate deploy` from the repo's `pnpm build`) is blocked until this is
-confirmed in writing.
+`scripts/migrate-if-production.mjs` runs `prisma migrate deploy` **only when
+`VERCEL_ENV=production`**, i.e. only for the production deployment of `main`.
+Staging (`preview`) builds, feature previews, local builds, and CI skip it.
 
-## 3. Git integration
+This keeps the H3 mechanism — merged migrations reach production with the
+production deployment — while removing the previous behaviour where any
+preview build could migrate the shared database. Do not put
+`prisma migrate deploy` back into the build script directly.
 
-- Vercel Git integration deploys `develop` (preview) and `main` (production).
+To apply migrations to a non-production database deliberately, run it with an
+explicit target:
+
+```bash
+DIRECT_URL=<target direct url> pnpm --filter web exec prisma migrate deploy
+```
+
+## 3. Git integration (revised 2026-10-21)
+
+- Deployments are restricted by `apps/web/vercel.json`
+  (`git.deploymentEnabled`): only `staging` and `main` may create deployments.
+  `develop` and all work branches are validation-only.
+- `staging` deploys to the Preview environment; `main` deploys to Production.
 - There is **no** GitHub Actions deploy workflow (`deploy.yml` deleted,
-  decision D4).
-- CI (`.github/workflows/ci.yml`) runs lint/typecheck/tests/auth-gate and a
-  dummy-env `next build` on `Karl`/`develop` — it never touches a database.
+  decision D4). Do not add one, and do not run `vercel deploy` by hand.
+- CI (`.github/workflows/ci.yml`) runs lint/typecheck/tests/auth-gate/Prisma
+  validation and a dummy-env `next build` on `develop`, `staging`, and `main`
+  — it never touches a database and never deploys.
+- **Open blocker:** Production and Preview still share the same environment
+  variables, so the staging deployment uses the production database. See
+  `docs/deployment-workflow.md` §6 before smoke-testing staging.
 
 ## 4. Migrations
 

@@ -27,7 +27,7 @@ export function ChatConversation({
 	const [nearBottom, setNearBottom] = useState(true);
 	const scrollRef = useRef<HTMLDivElement>(null);
 
-	const chips = [t("suggestionSchedule"), t("suggestionFcr"), t("suggestionLogSample")];
+	const chips = [t("suggestionSchedule"), t("suggestionPredict"), t("suggestionFcr")];
 	const last = messages[messages.length - 1];
 	const showTyping = isStreaming && (last?.role === "user" || last?.content === "");
 

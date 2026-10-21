@@ -307,6 +307,26 @@
 					"showing": "Showing {from}–{to} of {total}"
 				},
 				"empty": "No records match these filters."
+			},
+			"prediction": {
+				"title": "AI Feeding Prediction",
+				"subtitle": "Recommended grams per feeding, refined by AI",
+				"refresh": "Refresh",
+				"refreshError": "Could not refresh the prediction. Try again.",
+				"noData": "Log a biomass sample and wait for a feeding cycle to get a prediction.",
+				"predictedLabel": "Recommended",
+				"currentLabel": "Current",
+				"confidence": "Confidence",
+				"confidence_high": "High",
+				"confidence_medium": "Medium",
+				"confidence_low": "Low",
+				"sourceAi": "AI refined",
+				"sourceFormula": "Formula",
+				"apply": "Apply to schedule",
+				"applying": "Applying…",
+				"applied": "Applied",
+				"applyError": "Could not apply the prediction. Try again.",
+				"disclaimer": "Advisory only — your device schedule changes only when you apply."
 			}
 		},
 		"settings": {
@@ -549,7 +569,7 @@
 		"suggestionSchedule": "When is the next feeding time?",
 		"suggestionFcr": "What is my current FCR?",
 		"suggestionLogSample": "How do I log a sample?",
-		"intro": "Hi! I'm your OptiFeed assistant. Ask me about your next feeding time, current FCR, missed feedings, or how to log a sample!",
+		"intro": "Hi! I'm your OptiFeed assistant. Ask me about your next feeding time, feed amounts, current FCR, missed feedings, or how to log a sample!",
 		"error": "Oops, something went wrong. Please try again.",
 		"intentScheduleNoPond": "I couldn't find your pond schedule. Please ensure your devices are configured.",
 		"intentSchedulePaused": "Your automated schedule is currently **Paused**. No feedings will occur until you resume it on the Schedule page.",
@@ -559,7 +579,11 @@
 		"intentFcrActive": "Your most recent Feed Conversion Ratio (FCR) is **{fcr}**. You can view your full historical performance on the Growth tab.",
 		"intentMissedNoData": "Good news! I don't see any recent missed feedings in your logs.",
 		"intentMissedActive": "I see a missed feeding event from {time}. Missed feedings usually occur when the **hopper is empty** or the device **loses its Wi-Fi connection** before dispensing. Please check the physical feeder.",
-		"fallback": "I'm your OptiFeed support assistant! You can ask me things like:\n- \"When is the next feeding time?\"\n- \"What is my current FCR?\"\n- \"How do I log a sample?\"\n- \"Why was a feeding missed?\"",
-		"serverError": "Sorry, I ran into an error trying to fetch that data. Please try again."
+		"fallback": "I'm your OptiFeed support assistant! You can ask me things like:\n- \"When is the next feeding time?\"\n- \"How many grams should I feed?\"\n- \"What is my current FCR?\"\n- \"How do I log a sample?\"\n- \"Why was a feeding missed?\"",
+		"serverError": "Sorry, I ran into an error trying to fetch that data. Please try again.",
+		"suggestionPredict": "How many grams should I feed?",
+		"intentPredictActive": "Based on your latest biomass sample and FCR, I recommend **{grams}g per feeding** (your device is currently set to **{current}g**). Check the AI Feeding Prediction card on the Growth page to review and apply this recommendation.",
+		"intentPredictActiveNoCurrent": "Based on your latest biomass sample and FCR, I recommend **{grams}g per feeding**. Check the AI Feeding Prediction card on the Growth page to review and apply this recommendation.",
+		"intentPredictNoData": "I need a recent biomass sample to predict your feed amount. Log one from the **Log Biomass** form and then try again — or check the AI Feeding Prediction card on the Growth page."
 	}
 }

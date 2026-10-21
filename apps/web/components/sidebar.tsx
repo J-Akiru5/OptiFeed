@@ -1,8 +1,18 @@
 "use client";
 
 import { Link, usePathname } from "@/i18n/routing";
+import { HOPPER_CAPACITY_KG } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import { Clock, Cpu, History, Home, PlusCircle, Settings, TrendingUp } from "lucide-react";
+import {
+	Clock,
+	Cpu,
+	FileText,
+	History,
+	Home,
+	PlusCircle,
+	Settings,
+	TrendingUp,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 
 export function Sidebar({ hopperLevelPct = 82 }: { hopperLevelPct?: number }) {
@@ -15,11 +25,12 @@ export function Sidebar({ hopperLevelPct = 82 }: { hopperLevelPct?: number }) {
 		{ href: "/dashboard/log-sample", label: t("logSample"), icon: PlusCircle },
 		{ href: "/dashboard/history", label: t("history"), icon: History },
 		{ href: "/dashboard/growth", label: t("growth"), icon: TrendingUp },
-		{ href: "/dashboard/settings", label: t("settings"), icon: Settings },
+		{ href: "/dashboard/audit", label: t("audit"), icon: FileText },
+		{ href: "/dashboard/settings", label: t("settings"), icon: Settings, onboard: "settings" },
 	];
 
 	// Math for remaining metrics
-	const capacityKg = 22.19; // ~22kg full capacity
+	const capacityKg = HOPPER_CAPACITY_KG;
 	const remainingKg = (capacityKg * (hopperLevelPct / 100)).toFixed(1);
 	const scheduledFeedings = Math.floor(Number.parseFloat(remainingKg) / 0.35);
 
@@ -38,6 +49,7 @@ export function Sidebar({ hopperLevelPct = 82 }: { hopperLevelPct?: number }) {
 						<Link
 							key={item.href}
 							href={item.href}
+							data-onboard={item.onboard}
 							className={cn(
 								"w-full flex items-center gap-3 p-3.5 rounded-2xl font-bold transition-all text-[15px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]",
 								isActive

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OptiFeed Firmware-Backend Integration Audit Report</title>
+<title>OptiFeed Audit Trail Implementation Report</title>
 <style>
   :root {
     --bg: #0f172a;
@@ -65,19 +65,9 @@
     font-size: 0.875rem;
     color: var(--text-muted);
   }
-  .hero .meta-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .hero .meta-item strong {
-    color: var(--text);
-  }
-  .container {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 40px 24px;
-  }
+  .hero .meta-item { display: flex; align-items: center; gap: 8px; }
+  .hero .meta-item strong { color: var(--text); }
+  .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
   .toc {
     background: var(--surface);
     border: 1px solid var(--surface-light);
@@ -86,57 +76,27 @@
     margin-bottom: 48px;
   }
   .toc h2 {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--accent-light);
-    margin-bottom: 16px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-size: 1.1rem; font-weight: 700; color: var(--accent-light);
+    margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.05em;
   }
-  .toc ol {
-    list-style: none;
-    counter-reset: toc;
-  }
-  .toc li {
-    counter-increment: toc;
-    margin-bottom: 8px;
-  }
+  .toc ol { list-style: none; counter-reset: toc; }
+  .toc li { counter-increment: toc; margin-bottom: 8px; }
   .toc li::before {
     content: counter(toc, decimal-leading-zero);
-    color: var(--accent);
-    font-weight: 700;
+    color: var(--accent); font-weight: 700;
     font-family: 'SF Mono', 'Fira Code', monospace;
     margin-right: 12px;
   }
-  .toc a {
-    color: var(--text-muted);
-    text-decoration: none;
-    transition: color 0.15s;
-  }
+  .toc a { color: var(--text-muted); text-decoration: none; transition: color 0.15s; }
   .toc a:hover { color: var(--accent-light); }
-
-  section {
-    margin-bottom: 64px;
-  }
+  section { margin-bottom: 64px; }
   h2 {
-    font-size: 1.75rem;
-    font-weight: 700;
-    margin-bottom: 20px;
-    padding-bottom: 12px;
-    border-bottom: 2px solid var(--surface-light);
+    font-size: 1.75rem; font-weight: 700; margin-bottom: 20px;
+    padding-bottom: 12px; border-bottom: 2px solid var(--surface-light);
     color: var(--text);
   }
-  h3 {
-    font-size: 1.3rem;
-    font-weight: 600;
-    margin-top: 32px;
-    margin-bottom: 12px;
-    color: var(--accent-light);
-  }
-  p {
-    margin-bottom: 16px;
-    color: var(--text);
-  }
+  h3 { font-size: 1.3rem; font-weight: 600; margin-top: 32px; margin-bottom: 12px; color: var(--accent-light); }
+  p { margin-bottom: 16px; }
   .finding {
     background: var(--surface);
     border: 1px solid var(--surface-light);
@@ -146,64 +106,36 @@
     overflow: hidden;
   }
   .finding-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 16px;
-    flex-wrap: wrap;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 16px; margin-bottom: 16px; flex-wrap: wrap;
   }
-  .finding-title {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--text);
-  }
+  .finding-title { font-size: 1.2rem; font-weight: 700; }
   .badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 12px;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 999px;
+    font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; white-space: nowrap;
   }
-  .badge-critical { background: var(--critical-bg); color: var(--critical); border: 1px solid var(--critical); }
-  .badge-high { background: var(--high-bg); color: var(--high); border: 1px solid var(--high); }
-  .badge-medium { background: var(--medium-bg); color: var(--medium); border: 1px solid var(--medium); }
-  .badge-low { background: var(--low-bg); color: var(--low); border: 1px solid var(--low); }
-  .badge-fixed { background: var(--low-bg); color: var(--low); border: 1px solid var(--low); }
-  .badge-fixed::before { content: "\2713 "; }
-
+  .badge-added { background: var(--low-bg); color: var(--low); border: 1px solid var(--low); }
+  .badge-added::before { content: "+ "; }
+  .badge-existing { background: var(--high-bg); color: var(--high); border: 1px solid var(--high); }
   .finding-meta {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 16px;
-    font-size: 0.85rem;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 12px; margin-bottom: 16px; font-size: 0.85rem;
   }
   .finding-meta-item {
-    background: var(--bg);
-    padding: 10px 14px;
-    border-radius: 8px;
-    border: 1px solid var(--surface-light);
+    background: var(--bg); padding: 10px 14px;
+    border-radius: 8px; border: 1px solid var(--surface-light);
   }
   .finding-meta-label {
-    color: var(--text-muted);
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.7rem;
-    letter-spacing: 0.05em;
-    margin-bottom: 4px;
+    color: var(--text-muted); font-weight: 600; text-transform: uppercase;
+    font-size: 0.7rem; letter-spacing: 0.05em; margin-bottom: 4px;
   }
   .finding-meta-value {
     color: var(--text);
     font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
     font-size: 0.85rem;
   }
-
   .code-block {
     background: var(--code-bg);
     border: 1px solid var(--code-border);
@@ -214,46 +146,32 @@
   .code-label {
     background: var(--surface);
     padding: 8px 16px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
+    font-size: 0.75rem; font-weight: 600;
+    color: var(--text-muted); text-transform: uppercase;
     letter-spacing: 0.05em;
     border-bottom: 1px solid var(--code-border);
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    display: flex; align-items: center; gap: 8px;
   }
   .code-label.before { color: var(--critical); }
   .code-label.after { color: var(--low); }
   .code-block pre {
-    padding: 16px 20px;
-    overflow-x: auto;
+    padding: 16px 20px; overflow-x: auto;
     font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
-    font-size: 0.85rem;
-    line-height: 1.6;
+    font-size: 0.85rem; line-height: 1.6;
     color: var(--code-text);
   }
-  .code-block .kw { color: var(--code-keyword); }
-  .code-block .str { color: var(--code-string); }
-  .code-block .cmt { color: var(--code-comment); font-style: italic; }
-  .code-block .num { color: var(--code-number); }
-  .code-block .fn { color: var(--code-function); }
-  .code-block .hl { background: rgba(239,68,68,0.15); display: inline-block; width: 100%; }
-  .code-block .hl-fix { background: rgba(34,197,94,0.12); display: inline-block; width: 100%; }
-
-  .risk-matrix {
+  .event-table {
     width: 100%;
     border-collapse: collapse;
     margin: 24px 0;
-    font-size: 0.875rem;
+    font-size: 0.85rem;
   }
-  .risk-matrix th, .risk-matrix td {
+  .event-table th, .event-table td {
     padding: 12px 16px;
     text-align: left;
     border: 1px solid var(--surface-light);
   }
-  .risk-matrix th {
+  .event-table th {
     background: var(--surface);
     color: var(--text-muted);
     font-weight: 700;
@@ -261,48 +179,17 @@
     font-size: 0.7rem;
     letter-spacing: 0.05em;
   }
-  .risk-matrix tr:hover td {
-    background: var(--surface);
-  }
-  .risk-matrix td:nth-child(3) { font-family: 'SF Mono', monospace; font-size: 0.8rem; color: var(--text-muted); }
-
-  .data-flow {
-    background: var(--surface);
-    border: 1px solid var(--surface-light);
-    border-radius: 12px;
-    padding: 24px;
-    margin: 24px 0;
+  .event-table tr:hover td { background: var(--surface); }
+  .event-table td:nth-child(2) {
     font-family: 'SF Mono', 'Fira Code', monospace;
-    font-size: 0.85rem;
-    line-height: 1.8;
-    color: var(--text-muted);
-    overflow-x: auto;
+    font-size: 0.8rem;
   }
-  .data-flow .arrow { color: var(--accent); }
-  .data-flow .label { color: var(--text); font-weight: 600; }
-  .data-flow .highlight { color: var(--low); }
-
-  .callout {
-    border-left: 4px solid var(--accent);
-    background: var(--surface);
-    padding: 16px 20px;
-    border-radius: 0 8px 8px 0;
-    margin: 16px 0;
-  }
-  .callout.warning {
-    border-left-color: var(--high);
-  }
-  .callout.critical {
-    border-left-color: var(--critical);
-  }
-  .callout p { margin-bottom: 0; }
-  .callout strong { color: var(--accent-light); }
-  .callout.warning strong { color: var(--high); }
-  .callout.critical strong { color: var(--critical); }
-
+  .status-added { color: var(--low); font-weight: 700; }
+  .status-existing { color: var(--high); font-weight: 700; }
+  .status-silent { color: var(--text-muted); }
   .summary-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 16px;
     margin: 24px 0;
   }
@@ -325,39 +212,72 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
-  .summary-stat.critical .number { color: var(--critical); }
-  .summary-stat.high .number { color: var(--high); }
-  .summary-stat.medium .number { color: var(--medium); }
-  .summary-stat.low .number { color: var(--low); }
-
-  .footer {
-    text-align: center;
-    padding: 40px;
-    color: var(--text-muted);
+  .summary-stat.green .number { color: var(--low); }
+  .summary-stat.blue .number { color: var(--accent); }
+  .summary-stat.amber .number { color: var(--high); }
+  .data-flow {
+    background: var(--surface);
+    border: 1px solid var(--surface-light);
+    border-radius: 12px;
+    padding: 24px;
+    margin: 24px 0;
+    font-family: 'SF Mono', 'Fira Code', monospace;
     font-size: 0.85rem;
+    line-height: 1.8;
+    color: var(--text-muted);
+    overflow-x: auto;
+  }
+  .data-flow .arrow { color: var(--accent); }
+  .data-flow .label { color: var(--text); font-weight: 600; }
+  .data-flow .added { color: var(--low); }
+  .data-flow .existing { color: var(--high); }
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--surface);
+    padding: 16px 20px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+  }
+  .callout p { margin-bottom: 0; }
+  .callout strong { color: var(--accent-light); }
+  .file-list {
+    list-style: none;
+    margin: 16px 0;
+  }
+  .file-list li {
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    background: var(--bg);
+    border: 1px solid var(--surface-light);
+    border-radius: 8px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.85rem;
+  }
+  .file-list .path { color: var(--accent-light); }
+  .file-list .desc { color: var(--text-muted); font-family: -apple-system, sans-serif; }
+  .footer {
+    text-align: center; padding: 40px;
+    color: var(--text-muted); font-size: 0.85rem;
     border-top: 1px solid var(--surface-light);
   }
-
   @media (max-width: 768px) {
     .hero { padding: 40px 20px; }
     .hero h1 { font-size: 1.75rem; }
     .container { padding: 24px 16px; }
     .finding { padding: 20px; }
-    .finding-meta { grid-template-columns: 1fr; }
-    .code-block pre { font-size: 0.75rem; }
   }
 </style>
 </head>
 <body>
 
 <div class="hero">
-  <h1>OptiFeed Firmware-Backend Integration Audit</h1>
-  <p class="subtitle">Security, reliability, and data-integrity assessment of the ESP32-to-Next.js data pipeline</p>
+  <h1>OptiFeed Audit Trail Implementation</h1>
+  <p class="subtitle">Comprehensive event logging for every user and device action — Option B scope</p>
   <div class="meta">
-    <div class="meta-item"><strong>Date:</strong> July 11, 2026</div>
-    <div class="meta-item"><strong>Scope:</strong> <code>/api/ingest</code>, <code>/api/feed-command</code>, Prisma schema, firmware</div>
-    <div class="meta-item"><strong>Deployment:</strong> Vercel serverless + Supabase PostgreSQL</div>
-    <div class="meta-item"><strong>Scale:</strong> 1 device, 1 farmer</div>
+    <div class="meta-item"><strong>Date:</strong> July 31, 2026</div>
+    <div class="meta-item"><strong>Branch:</strong> Karl</div>
+    <div class="meta-item"><strong>Target:</strong> develop</div>
+    <div class="meta-item"><strong>Scope:</strong> Option B — Moderate</div>
   </div>
 </div>
 
@@ -367,567 +287,360 @@
 <section id="summary">
   <h2>Executive Summary</h2>
   <p>
-    This audit examined the data pipeline between the OptiFeed ESP32 firmware and the Next.js backend,
-    focusing on data integrity, reliability, and security at the current scale (one device, one farmer).
-    Seven issues were identified across event ingestion, request lifecycle, and offline detection.
-    All seven have been remediated in this pass.
+    Every state-changing user action on the dashboard and every device-reported event
+    is now recorded in the <code>deviceStateEvent</code> table and visible on
+    <code>/dashboard/audit</code>. Thirteen event types from seven "silent" actions
+    were added; five display-only event types that previously had producers were
+    connected. All changes pass <code>pnpm lint</code>, <code>pnpm typecheck</code>,
+    and <code>pnpm build</code>.
   </p>
 
   <div class="summary-grid">
-    <div class="summary-stat critical"><div class="number">2</div><div class="label">Critical Risk</div></div>
-    <div class="summary-stat high"><div class="number">3</div><div class="label">High Risk</div></div>
-    <div class="summary-stat medium"><div class="number">2</div><div class="label">Medium Risk</div></div>
-    <div class="summary-stat low"><div class="number">7</div><div class="label">Fixed</div></div>
-  </div>
-
-  <div class="callout critical">
-    <p><strong>Credential leak risk:</strong> The committed firmware file (<code>firmware/firmware-main.ino</code>) currently includes
-    placeholder values for WiFi credentials (<code>YOUR_WIFI_SSID</code> / <code>YOUR_WIFI_PASSWORD</code>) which is correct.
-    However, <code>DEVICE_TOKEN</code> and <code>DEVICE_MAC</code> are committed with real values
-    (<code>esp32-tok-cict-001</code> / <code>A4:CF:12:7E:3B:09</code>). If the GitHub repository is public, this is a live token leak.
-    Anyone can send feed commands to the backend. <strong>Verify the repo is private, or move real credentials out of git.</strong></p>
+    <div class="summary-stat green"><div class="number">13</div><div class="label">Event Types</div></div>
+    <div class="summary-stat blue"><div class="number">8</div><div class="label">Files Changed</div></div>
+    <div class="summary-stat amber"><div class="number">7</div><div class="label">Silent Actions → Logged</div></div>
   </div>
 </section>
 
 <!-- TOC -->
 <div class="toc">
-  <h2>Findings</h2>
+  <h2>Sections</h2>
   <ol>
-    <li><a href="#f1">#1 &mdash; Idempotent Event Ingestion (Critical)</a></li>
-    <li><a href="#f2">#2 &mdash; Server-Side Received Timestamp (High)</a></li>
-    <li><a href="#f3">#3 &mdash; Zod safeParse Crash (High)</a></li>
-    <li><a href="#f4">#4 &mdash; Missing Database Indexes (Medium)</a></li>
-    <li><a href="#f5">#5 &mdash; Pending-Request Expiry (High)</a></li>
-    <li><a href="#f6">#6 &mdash; Device-Offline Detection (Critical)</a></li>
-    <li><a href="#f7">#7 &mdash; Double-Tap Guard &mdash; Server-Side (Medium)</a></li>
-    <li><a href="#flow">Data Flow Diagram</a></li>
-    <li><a href="#matrix">Risk Matrix</a></li>
-    <li><a href="#skipped">Deliberately Skipped (Proportionate to Scale)</a></li>
+    <li><a href="#scope">Decision Scope</a></li>
+    <li><a href="#inventory">Complete Event Inventory</a></li>
+    <li><a href="#silent">Previously Silent Actions (Now Logged)</a></li>
+    <li><a href="#display-only">Display-Only Event Types (Now Produced)</a></li>
+    <li><a href="#files">Files Changed</a></li>
+    <li><a href="#config">Audit Page Display Config</a></li>
+    <li><a href="#i18n">Translations</a></li>
+    <li><a href="#architecture">Architecture</a></li>
+    <li><a href="#verification">Verification</a></li>
   </ol>
 </div>
 
-<!-- Finding 1 -->
-<section id="f1" class="finding">
-  <div class="finding-header">
-    <span class="finding-title">#1 &mdash; Idempotent Event Ingestion</span>
-    <span class="badge badge-critical">Critical</span>
-    <span class="badge badge-fixed">Fixed</span>
-  </div>
-  <div class="finding-meta">
-    <div class="finding-meta-item">
-      <div class="finding-meta-label">Risk</div>
-      <div class="finding-meta-value">Silently duplicated feed events corrupt FCR math</div>
-    </div>
-    <div class="finding-meta-item">
-      <div class="finding-meta-label">Location</div>
-      <div class="finding-meta-value">apps/web/app/api/ingest/route.ts, prisma/schema.prisma, firmware/firmware-main.ino</div>
-    </div>
-  </div>
-
+<!-- 1. Scope -->
+<section id="scope">
+  <h2>Decision Scope: Option B (Moderate)</h2>
   <p>
-    Only dashboard-triggered feeds carried a <code>feed_request_id</code>. Scheduled and button-triggered events
-    had no dedup key at all. If the ESP32's HTTP client times out waiting for a response the backend actually
-    received, it retries and creates a duplicate <code>feed_dispensed</code> row, which quietly corrupts FCR calculations.
+    Jeff approved "Option B — Moderate" from the options memo. Scope includes all
+    user-initiated write actions, device connectivity transitions, command lifecycle
+    events, and the five previously-unconnected display-only event types. Notification
+    actions were excluded (read-heavy, no operational value). Login/logout deferred
+    until real auth ships.
   </p>
-
-  <div class="code-block">
-    <div class="code-label before">Before &mdash; No event ID (ingest/route.ts)</div>
-<pre><span class="cmt">// No unique identifier on the event</span>
-<span class="kw">const</span> feedDispensedSchema = baseSchema.extend({
-  grams: z.number().positive(),
-  source: z.enum([<span class="str">"scheduled"</span>, <span class="str">"dashboard"</span>, <span class="str">"button"</span>]),
-  feed_request_id: z.string().nullable().optional(),
-  <span class="cmt">// No event_id field — retries create duplicate rows</span>
-});</pre>
-  </div>
-
-  <div class="code-block">
-    <div class="code-label after">After &mdash; Event ID with unique constraint + idempotent retry</div>
-<pre><span class="cmt">// Firmware generates a unique ID per event (esp_random + counter)</span>
-String generateEventId() {
-  eventCounter++;
-  uint32_t r = esp_random();
-  <span class="kw">char</span> buf[<span class="num">24</span>];
-  snprintf(buf, <span class="kw">sizeof</span>(buf, <span class="str">"evt-%08lx-%04lx"</span>, r, eventCounter & <span class="num">0xFFFF</span>);
-  <span class="kw">return</span> String(buf);
-}
-
-<span class="cmt">// Backend schema: z.string().min(8) — not .uuid() — no RFC4122 requirement</span>
-<span class="kw">const</span> baseSchema = z.object({
-  event_id: z.string().min(<span class="num">8</span>).optional(),  <span class="cmt">// any unique string, not strict UUID</span>
-  <span class="cmt">// ...</span>
-});
-
-<span class="cmt">// Prisma schema: @unique constraint enables dedup at the DB level</span>
-model FeedEvent {
-  eventId  String?  @unique
-  <span class="cmt">// ...</span>
-}
-
-<span class="cmt">// Ingest route: catch P2002 (unique constraint) → return 204 (idempotent success)</span>
-<span class="kw">try</span> {
-  <span class="kw">await</span> prisma.$transaction([...]);
-} <span class="kw">catch</span> (error) {
-  <span class="kw">if</span> (isUniqueConstraintError(error)) {
-    <span class="kw">return new</span> Response(<span class="kw">null</span>, { status: <span class="num">204</span> }); <span class="cmt">// already received</span>
-  }
-  <span class="kw">throw</span> error;
-}</pre>
-  </div>
-
   <div class="callout">
-    <p><strong>Design decision:</strong> The backend uses <code>z.string().min(8)</code> instead of <code>z.string().uuid()</code>
-    because <code>esp_random()</code> does not produce RFC4122-compliant UUIDs. The firmware generates
-    <code>evt-&lt;hex&gt;-&lt;counter&gt;</code> strings, which are unique without requiring spec compliance.
-    Forcing the ESP32 to format a perfect UUID just to satisfy a validator that only needs uniqueness
-    would be unnecessary complexity.</p>
+    <p><strong>Chosen scope:</strong> 13 event types across 4 action files, 2 API routes, 1 page, and 2 message files.</p>
   </div>
 </section>
 
-<!-- Finding 2 -->
-<section id="f2" class="finding">
-  <div class="finding-header">
-    <span class="finding-title">#2 &mdash; Server-Side Received Timestamp</span>
-    <span class="badge badge-high">High</span>
-    <span class="badge badge-fixed">Fixed</span>
-  </div>
-  <div class="finding-meta">
-    <div class="finding-meta-item">
-      <div class="finding-meta-label">Risk</div>
-      <div class="finding-meta-value">Device clock drift makes event ordering unreliable</div>
-    </div>
-    <div class="finding-meta-item">
-      <div class="finding-meta-label">Location</div>
-      <div class="finding-meta-value">prisma/schema.prisma — FeedEvent model</div>
-    </div>
-  </div>
-
-  <p>
-    The ESP32's clock is self-reported and can be wrong (RTC not synced, drifted, battery dead).
-    The backend was storing the device's <code>timestamp</code> as the only time field, with no
-    server-side record of when the event was actually received. This makes event ordering
-    unreliable and hides devices with broken clocks.
-  </p>
-
-  <div class="code-block">
-    <div class="code-label before">Before &mdash; Only device-reported timestamp</div>
-<pre>model FeedEvent {
-  timestamp   String    <span class="cmt">// device-reported, may be "unknown" or wrong</span>
-  createdAt   DateTime  @default(now())  <span class="cmt">// unnamed ambiguously</span>
-  @@index([deviceId, createdAt])
-}</pre>
-  </div>
-
-  <div class="code-block">
-    <div class="code-label after">After &mdash; Renamed to receivedAt, kept device timestamp separate</div>
-<pre>model FeedEvent {
-  timestamp   String    <span class="cmt">// device-reported (kept for forensics)</span>
-  receivedAt  DateTime  @default(now())  <span class="cmt">// server-stamped, trusted for ordering</span>
-  @@index([deviceId, receivedAt])
-}</pre>
-  </div>
-
-  <div class="callout warning">
-    <p><strong>Migration safety:</strong> The column rename uses <code>ALTER TABLE ... RENAME COLUMN</code>
-    via a hand-written migration SQL, not Prisma's default <code>migrate dev</code> which commonly
-    generates <code>DROP + ADD</code> (wiping existing data). The migration was created with
-    <code>--create-only</code> and the SQL was verified to use <code>RENAME COLUMN</code>.</p>
-  </div>
-</section>
-
-<!-- Finding 3 -->
-<section id="f3" class="finding">
-  <div class="finding-header">
-    <span class="finding-title">#3 &mdash; Zod safeParse Crash</span>
-    <span class="badge badge-high">High</span>
-    <span class="badge badge-fixed">Fixed</span>
-  </div>
-  <div class="finding-meta">
-    <div class="finding-meta-item">
-      <div class="finding-meta-label">Risk</div>
-      <div class="finding-meta-value">Malformed payload crashes the entire route with HTTP 500</div>
-    </div>
-    <div class="finding-meta-item">
-      <div class="finding-meta-label">Location</div>
-      <div class="finding-meta-value">apps/web/app/api/ingest/route.ts:63, :85</div>
-    </div>
-  </div>
-
-  <p>
-    <code>heartbeatSchema.parse(body)</code> and <code>feedDispensedSchema.parse(body)</code> were called with
-    <code>.parse()</code> instead of <code>.safeParse()</code>. On invalid input, <code>.parse()</code> throws
-    a <code>ZodError</code>, which is unhandled — the route crashes with a 500 instead of returning a clean 422.
-  </p>
-
-  <div class="code-block">
-    <div class="code-label before">Before &mdash; .parse() throws on invalid input</div>
-<pre><span class="hl">const parsed = heartbeatSchema.parse(body);  </span><span class="cmt">// throws ZodError → 500</span>
-<span class="cmt">// ...</span>
-<span class="hl">const parsed = feedDispensedSchema.parse(body);  </span><span class="cmt">// throws ZodError → 500</span></pre>
-  </div>
-
-  <div class="code-block">
-    <div class="code-label after">After &mdash; .safeParse() returns a result object</div>
-<pre><span class="hl-fix">const parsed = heartbeatSchema.safeParse(body);</span>
-<span class="kw">if</span> (!parsed.success) {
-  <span class="kw">return new</span> Response(<span class="str">"Unprocessable Entity"</span>, { status: <span class="num">422</span> });
-}
-<span class="cmt">// parsed.data is now type-safe</span>
-<span class="cmt">// ...</span>
-<span class="hl-fix">const parsed = feedDispensedSchema.safeParse(body);</span>
-<span class="kw">if</span> (!parsed.success) {
-  <span class="kw">return new</span> Response(<span class="str">"Unprocessable Entity"</span>, { status: <span class="num">422</span> });
-}</pre>
-  </div>
-</section>
-
-<!-- Finding 4 -->
-<section id="f4" class="finding">
-  <div class="finding-header">
-    <span class="finding-title">#4 &mdash; Missing Database Indexes</span>
-    <span class="badge badge-medium">Medium</span>
-    <span class="badge badge-fixed">Fixed</span>
-  </div>
-  <div class="finding-meta">
-    <div class="finding-meta-item">
-      <div class="finding-meta-label">Risk</div>
-      <div class="finding-meta-value">Slow History page as data grows; not urgent at prototype volume</div>
-    </div>
-    <div class="finding-meta-item">
-      <div class="finding-meta-label">Location</div>
-      <div class="finding-meta-value">prisma/schema.prisma — BiomassLog, FeedEvent</div>
-    </div>
-  </div>
-
-  <p>
-    <code>FeedEvent</code> had an index on <code>(deviceId, createdAt)</code> but that column was renamed
-    to <code>receivedAt</code> (Finding #2) — the index needed updating. <code>BiomassLog</code> had no index
-    on <code>(pondId, recordedAt)</code>, which the History page queries against.
-  </p>
-
-  <div class="code-block">
-    <div class="code-label after">After &mdash; Both indexes added</div>
-<pre>model FeedEvent {
-  <span class="cmt">// ...</span>
-  @@index([deviceId, receivedAt])  <span class="cmt">// updated from createdAt</span>
-}
-
-model BiomassLog {
-  <span class="cmt">// ...</span>
-  @@index([pondId, recordedAt])    <span class="cmt">// new — for History page queries</span>
-}</pre>
-  </div>
-</section>
-
-<!-- Finding 5 -->
-<section id="f5" class="finding">
-  <div class="finding-header">
-    <span class="finding-title">#5 &mdash; Pending-Request Expiry (Lazy)</span>
-    <span class="badge badge-high">High</span>
-    <span class="badge badge-fixed">Fixed</span>
-  </div>
-  <div class="finding-meta">
-    <div class="finding-meta-item">
-      <div class="finding-meta-label">Risk</div>
-      <div class="finding-meta-value">Stale "pending" requests block new feed commands forever</div>
-    </div>
-    <div class="finding-meta-item">
-      <div class="finding-meta-label">Location</div>
-      <div class="finding-meta-value">apps/web/app/api/feed-command/route.ts</div>
-    </div>
-  </div>
-
-  <p>
-    If a dashboard "Feed Now" request never gets acknowledged (device offline, goes to sleep, etc.),
-    the <code>FeedRequest</code> stayed <code>"pending"</code> forever. The next time the farmer taps
-    "Feed Now", the double-tap guard (Finding #7) would block it because a pending request already exists.
-  </p>
-
-  <div class="code-block">
-    <div class="code-label after">After &mdash; Lazy expiry checked on every ESP32 poll</div>
-<pre><span class="cmt">// No cron job — checked lazily when the device polls</span>
-<span class="kw">const</span> REQUEST_EXPIRY_MS = <span class="num">60_000</span>;  <span class="cmt">// 60 seconds</span>
-
-<span class="cmt">// Mark any pending requests older than 60s as expired</span>
-<span class="kw">await</span> prisma.feedRequest.updateMany({
-  where: {
-    deviceId: device.id,
-    status: <span class="str">"pending"</span>,
-    createdAt: { lt: <span class="kw">new</span> Date(Date.now() - REQUEST_EXPIRY_MS) },
-  },
-  data: { status: <span class="str">"expired"</span> },
-});
-
-<span class="cmt">// Then query for genuinely pending requests</span>
-<span class="kw">const</span> pendingRequest = <span class="kw">await</span> prisma.feedRequest.findFirst({
-  where: { deviceId: device.id, status: <span class="str">"pending"</span> },
-  orderBy: { createdAt: <span class="str">"asc"</span> },
-});</pre>
-  </div>
-</section>
-
-<!-- Finding 6 -->
-<section id="f6" class="finding">
-  <div class="finding-header">
-    <span class="finding-title">#6 &mdash; Device-Offline Detection (Lazy)</span>
-    <span class="badge badge-critical">Critical</span>
-    <span class="badge badge-fixed">Fixed</span>
-  </div>
-  <div class="finding-meta">
-    <div class="finding-meta-item">
-      <div class="finding-meta-label">Risk</div>
-      <div class="finding-meta-value">Dashboard shows "online" for a device that hasn't reported in hours</div>
-    </div>
-    <div class="finding-meta-item">
-      <div class="finding-meta-label">Location</div>
-      <div class="finding-meta-value">apps/web/app/[locale]/(dashboard)/dashboard/page.tsx, components/EnergyControllerCard.tsx</div>
-    </div>
-  </div>
-
-  <p>
-    The dashboard's critical alert banner was hardcoded to <code>device.connectivity === "offline"</code>
-    — a static string on the mock <code>Device</code> model, not derived from actual ESP32 telemetry.
-    A device that stopped reporting heartbeats would still show as "online" on the dashboard.
-  </p>
-
-  <div class="code-block">
-    <div class="code-label before">Before &mdash; Hardcoded connectivity string</div>
-<pre><span class="cmt">// Dashboard page</span>
-<span class="hl">const isOffline = device.connectivity === "offline";</span>
-<span class="hl">const criticalAlert = isOffline;</span>
-
-<span class="cmt">// EnergyControllerCard — no offline prop, no lastSeenAt-based logic</span></pre>
-  </div>
-
-  <div class="code-block">
-    <div class="code-label after">After &mdash; Lazy offline detection from lastSeenAt</div>
-<pre><span class="cmt">// Dashboard page — compute from actual ESP32 last heartbeat</span>
-<span class="hl-fix">const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;  // 15 minutes</span>
-<span class="hl-fix">const esp32Offline = !energyDevice?.lastSeenAt ||</span>
-<span class="hl-fix">  (now.getTime() - energyDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS);</span>
-<span class="hl-fix">const criticalAlert = esp32Offline && !!energyDevice;</span>
-
-<span class="cmt">// EnergyControllerCard — receives isOffline, shows red badge + warning banner</span>
-<span class="hl-fix">{isOffline && (</span>
-<span class="hl-fix">  &lt;div className="bg-red-50 border-red-200"&gt;</span>
-<span class="hl-fix">    Device offline — last seen {formatLastSeen(lastSeenAt)}.</span>
-<span class="hl-fix">    Scheduled and button feeds still work; dashboard commands will queue.</span>
-<span class="hl-fix">  &lt;/div&gt;</span>
-<span class="hl-fix">)}</span></pre>
-  </div>
-
-  <div class="callout">
-    <p><strong>Lazy approach:</strong> No background job or cron is needed. The offline check runs when the
-    dashboard page is rendered — it compares <code>lastSeenAt</code> to the current time. For one device,
-    a scheduled function would be solving a scale problem that doesn't exist yet.</p>
-  </div>
-</section>
-
-<!-- Finding 7 -->
-<section id="f7" class="finding">
-  <div class="finding-header">
-    <span class="finding-title">#7 &mdash; Double-Tap Guard (Server-Side)</span>
-    <span class="badge badge-medium">Medium</span>
-    <span class="badge badge-fixed">Fixed</span>
-  </div>
-  <div class="finding-meta">
-    <div class="finding-meta-item">
-      <div class="finding-meta-label">Risk</div>
-      <div class="finding-meta-value">Rapid tapping creates multiple pending feed requests</div>
-    </div>
-    <div class="finding-meta-item">
-      <div class="finding-meta-label">Location</div>
-      <div class="finding-meta-value">apps/web/lib/actions/energy.ts — requestFeed()</div>
-    </div>
-  </div>
-
-  <p>
-    The "Feed Now" button was disabled client-side during the server action (<code>isPending</code>),
-    but after the action completed, a 3-second visual feedback window was the only protection.
-    <code>requestFeed()</code> created a new <code>FeedRequest</code> unconditionally every call —
-    no server-side check for an already-pending request.
-  </p>
-
-  <div class="code-block">
-    <div class="code-label before">Before &mdash; Creates a new request every time</div>
-<pre><span class="kw">export async function</span> requestFeed(deviceId: string, grams: number) {
-  <span class="hl">await prisma.feedRequest.create({</span>
-<span class="hl">    data: { deviceId, grams, status: "pending" },</span>
-<span class="hl">  });</span>
-  revalidatePath(<span class="str">"/[locale]/(dashboard)/dashboard"</span>, <span class="str">"page"</span>);
-  <span class="kw">return</span> { success: <span class="kw">true</span> };
-}</pre>
-  </div>
-
-  <div class="code-block">
-    <div class="code-label after">After &mdash; Checks for existing pending request first</div>
-<pre><span class="kw">export async function</span> requestFeed(deviceId: string, grams: number) {
-  <span class="hl-fix">const existing = await prisma.feedRequest.findFirst({</span>
-<span class="hl-fix">    where: { deviceId, status: "pending" },</span>
-<span class="hl-fix">  });</span>
-
-<span class="hl-fix">  if (existing) {</span>
-<span class="hl-fix">    return { success: true, message: "Feed already pending" };</span>
-<span class="hl-fix">  }</span>
-
-  <span class="kw">await</span> prisma.feedRequest.create({
-    data: { deviceId, grams, status: <span class="str">"pending"</span> },
-  });
-  revalidatePath(<span class="str">"/[locale]/(dashboard)/dashboard"</span>, <span class="str">"page"</span>);
-  <span class="kw">return</span> { success: <span class="kw">true</span> };
-}</pre>
-  </div>
-</section>
-
-<!-- Data Flow -->
-<section id="flow">
-  <h2>Data Flow Diagram</h2>
-  <p>The complete data pipeline after all fixes are applied:</p>
-  <div class="data-flow">
-<span class="label">ESP32 (every 5s)</span>
-  <span class="arrow">├──</span> POST /api/ingest          <span class="arrow">&rarr;</span> <span class="highlight">event_id (unique)</span> + heartbeat or feed_dispensed
-  <span class="arrow">│</span>     Auth: X-Device-Token header
-  <span class="arrow">│</span>     <span class="arrow">&rarr;</span> Prisma: update EnergyDevice.lastSeenAt, create FeedEvent
-  <span class="arrow">│</span>     <span class="arrow">&rarr;</span> <span class="highlight">If duplicate event_id: return 204 (idempotent)</span>
-  <span class="arrow">│</span>
-  <span class="arrow">└──</span> GET /api/feed-command    <span class="arrow">&rarr;</span> <span class="highlight">lazy-expire pending &gt; 60s</span>, then check for new requests
-        Auth: X-Device-Token header
-        <span class="arrow">&rarr;</span> Returns: { feed_requested, feed_request_id, grams, grams_per_feeding }
-
-<span class="label">Dashboard UI</span>
-  <span class="arrow">├──</span> "Feed Now" button <span class="arrow">&rarr;</span> requestFeed() server action
-  <span class="arrow">│</span>     <span class="arrow">&rarr;</span> <span class="highlight">Check for existing pending request (double-tap guard)</span>
-  <span class="arrow">│</span>     <span class="arrow">&rarr;</span> Prisma: create FeedRequest (status: "pending")
-  <span class="arrow">│</span>
-  <span class="arrow">└──</span> Dashboard page render
-        <span class="arrow">&rarr;</span> <span class="highlight">Compute isOffline from lastSeenAt (15min threshold)</span>
-        <span class="arrow">&rarr;</span> Pass isOffline to EnergyControllerCard
-        <span class="arrow">&rarr;</span> Card shows red badge + warning banner if offline
-
-<span class="label">Feed Request Lifecycle</span>
-  pending <span class="arrow">&rarr;</span> dispatched (ESP32 polled) <span class="arrow">&rarr;</span> completed (feed_dispensed event received)
-  pending <span class="arrow">&rarr;</span> <span class="highlight">expired (60s timeout, lazy-checked on next poll)</span>
-  </div>
-</section>
-
-<!-- Risk Matrix -->
-<section id="matrix">
-  <h2>Risk Matrix</h2>
-  <table class="risk-matrix">
+<!-- 2. Inventory -->
+<section id="inventory">
+  <h2>Complete Event Inventory</h2>
+  <table class="event-table">
     <thead>
       <tr>
-        <th>#</th>
-        <th>Finding</th>
-        <th>Location</th>
-        <th>Likelihood</th>
-        <th>Impact</th>
-        <th>Risk</th>
+        <th>Event Type</th>
+        <th>Producer</th>
+        <th>Trigger</th>
         <th>Status</th>
       </tr>
     </thead>
     <tbody>
-      <tr>
-        <td>1</td>
-        <td>Idempotent event ingestion</td>
-        <td>ingest/route.ts, schema.prisma, firmware</td>
-        <td>Medium (HTTP timeout on flaky WiFi)</td>
-        <td>Critical (corrupts FCR math silently)</td>
-        <td><span class="badge badge-critical">Critical</span></td>
-        <td><span class="badge badge-fixed">Fixed</span></td>
-      </tr>
-      <tr>
-        <td>2</td>
-        <td>Server-side received timestamp</td>
-        <td>schema.prisma</td>
-        <td>Medium (RTC battery dies)</td>
-        <td>High (unreliable event ordering)</td>
-        <td><span class="badge badge-high">High</span></td>
-        <td><span class="badge badge-fixed">Fixed</span></td>
-      </tr>
-      <tr>
-        <td>3</td>
-        <td>Zod safeParse crash</td>
-        <td>ingest/route.ts:63, :85</td>
-        <td>Low (firmware sends well-formed JSON)</td>
-        <td>High (route 500 on any malformed input)</td>
-        <td><span class="badge badge-high">High</span></td>
-        <td><span class="badge badge-fixed">Fixed</span></td>
-      </tr>
-      <tr>
-        <td>4</td>
-        <td>Missing database indexes</td>
-        <td>schema.prisma</td>
-        <td>N/A (not a bug, performance)</td>
-        <td>Medium (slow queries at scale)</td>
-        <td><span class="badge badge-medium">Medium</span></td>
-        <td><span class="badge badge-fixed">Fixed</span></td>
-      </tr>
-      <tr>
-        <td>5</td>
-        <td>Pending-request expiry</td>
-        <td>feed-command/route.ts</td>
-        <td>High (device offline is common)</td>
-        <td>High (blocks new feed commands)</td>
-        <td><span class="badge badge-high">High</span></td>
-        <td><span class="badge badge-fixed">Fixed</span></td>
-      </tr>
-      <tr>
-        <td>6</td>
-        <td>Device-offline detection</td>
-        <td>dashboard/page.tsx, EnergyControllerCard.tsx</td>
-        <td>High (device offline is common)</td>
-        <td>Critical (false "online" status)</td>
-        <td><span class="badge badge-critical">Critical</span></td>
-        <td><span class="badge badge-fixed">Fixed</span></td>
-      </tr>
-      <tr>
-        <td>7</td>
-        <td>Double-tap guard (server-side)</td>
-        <td>lib/actions/energy.ts</td>
-        <td>Medium (user taps twice quickly)</td>
-        <td>Medium (duplicate feed dispense)</td>
-        <td><span class="badge badge-medium">Medium</span></td>
-        <td><span class="badge badge-fixed">Fixed</span></td>
-      </tr>
+      <tr><td>connected</td><td>ingest/route.ts:119</td><td>Device heartbeat while online</td><td class="status-existing">Existing</td></tr>
+      <tr><td>disconnected</td><td>ingest/route.ts:246</td><td>Reconnect after offline period</td><td class="status-existing">Existing</td></tr>
+      <tr><td>command_sent</td><td>schedule-sync/route.ts:70</td><td>Device polls and command dispatched</td><td class="status-existing">Existing</td></tr>
+      <tr><td>command_acked</td><td>ingest/route.ts:433</td><td>Device acks schedule command</td><td class="status-existing">Existing</td></tr>
+      <tr><td>feed_dispensed</td><td>ingest/route.ts:311</td><td>Device reports feed dispensed</td><td class="status-existing">Existing</td></tr>
+      <tr><td>feed_reconciled</td><td>ingest/route.ts:361</td><td>Orphaned request matched</td><td class="status-existing">Existing</td></tr>
+      <tr><td>schedule_changed</td><td>schedule.ts:125</td><td>User saves schedule/pond settings</td><td class="status-existing">Existing</td></tr>
+      <tr><td>command_failed</td><td>schedule.ts:89</td><td>Stale sent command expired</td><td class="status-added">Added</td></tr>
+      <tr><td>schedule_applied</td><td>ingest/route.ts:475</td><td>Command applied by device</td><td class="status-added">Added</td></tr>
+      <tr><td>pellet_low</td><td>ingest/route.ts:175</td><td>Feed level ≤ 5% in heartbeat</td><td class="status-added">Added</td></tr>
+      <tr><td>pellet_refilled</td><td>ingest/route.ts:273</td><td>Level rises above 20% threshold</td><td class="status-added">Added</td></tr>
+      <tr><td>pause_toggled</td><td>schedule.ts:12</td><td>User toggles pause on schedule page</td><td class="status-added">Added</td></tr>
+      <tr><td>manual_trigger</td><td>schedule.ts:37, energy.ts:55</td><td>User triggers feed (schedule or remote)</td><td class="status-added">Added</td></tr>
+      <tr><td>hopper_calibrated</td><td>energy.ts:88</td><td>User saves hopper calibration</td><td class="status-added">Added</td></tr>
+      <tr><td>settings_changed</td><td>settings.ts:35</td><td>User updates pond-level settings</td><td class="status-added">Added</td></tr>
+      <tr><td>device_registered</td><td>energy.ts:125</td><td>User registers new EnergyDevice</td><td class="status-added">Added</td></tr>
+      <tr><td>biomass_logged</td><td>biomass.ts:68, 98</td><td>Biomass log created (accepted or rejected)</td><td class="status-added">Added</td></tr>
     </tbody>
   </table>
 </section>
 
-<!-- Skipped -->
-<section id="skipped">
-  <h2>Deliberately Skipped (Proportionate to Scale)</h2>
-  <p>These items were considered but explicitly skipped to avoid over-engineering for a one-device, one-farmer system:</p>
+<!-- 3. Silent Actions -->
+<section id="silent">
+  <h2>Previously Silent Actions (Now Logged)</h2>
+  <p>Seven server actions that previously wrote <strong>no audit event at all</strong> now produce a <code>deviceStateEvent.create</code> call following the same pattern as <code>updateScheduleCommand()</code>:</p>
+
+  <div class="finding">
+    <div class="finding-header">
+      <span class="finding-title">1. toggleDevicePause → pause_toggled</span>
+      <span class="badge badge-added">Added</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item"><div class="finding-meta-label">File</div><div class="finding-meta-value">lib/actions/schedule.ts:12</div></div>
+      <div class="finding-meta-item"><div class="finding-meta-label">Metadata</div><div class="finding-meta-value">{ isPaused }</div></div>
+    </div>
+    <div class="code-block">
+      <div class="code-label after">After — pause_toggled event</div>
+<pre><span class="kw">await</span> prisma.energyDevice.update({
+  where: { id: deviceId },
+  data: { isPaused },
+});
+
+<span class="kw">await</span> prisma.deviceStateEvent.create({
+  data: {
+    deviceId,
+    eventType: <span class="str">"pause_toggled"</span>,
+    source: <span class="str">"user"</span>,
+    actorId: <span class="str">"demo-farmer-1"</span>,
+    metadata: { isPaused },
+  },
+});</pre>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header">
+      <span class="finding-title">2. triggerManualFeed → manual_trigger</span>
+      <span class="badge badge-added">Added</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item"><div class="finding-meta-label">File</div><div class="finding-meta-value">lib/actions/schedule.ts:37</div></div>
+      <div class="finding-meta-item"><div class="finding-meta-label">Metadata</div><div class="finding-meta-value">{ grams, triggerSource: "schedule_controls" }</div></div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header">
+      <span class="finding-title">3. requestFeed → manual_trigger</span>
+      <span class="badge badge-added">Added</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item"><div class="finding-meta-label">File</div><div class="finding-meta-value">lib/actions/energy.ts:55</div></div>
+      <div class="finding-meta-item"><div class="finding-meta-label">Metadata</div><div class="finding-meta-value">{ grams, triggerSource: "energy_actions" }</div></div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header">
+      <span class="finding-title">4. saveHopperCalibration → hopper_calibrated</span>
+      <span class="badge badge-added">Added</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item"><div class="finding-meta-label">File</div><div class="finding-meta-value">lib/actions/energy.ts:88</div></div>
+      <div class="finding-meta-item"><div class="finding-meta-label">Metadata</div><div class="finding-meta-value">{ hopperFullCm, hopperEmptyCm, hopperCapacityG }</div></div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header">
+      <span class="finding-title">5. updatePondSettings → settings_changed + schedule_changed</span>
+      <span class="badge badge-added">Added</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item"><div class="finding-meta-label">File</div><div class="finding-meta-value">lib/actions/settings.ts:35</div></div>
+      <div class="finding-meta-item"><div class="finding-meta-label">Metadata</div><div class="finding-meta-value">{ feedingRatePct, feedsPerDay }</div></div>
+    </div>
+    <p>When an EnergyDevice is linked, <code>updatePondSettings</code> delegates to <code>updateScheduleCommand</code> (which emits <code>schedule_changed</code>) and then emits its own <code>settings_changed</code> event. The fallback path (no device) has no deviceId to log against and remains silent — this is an edge case.</p>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header">
+      <span class="finding-title">6. registerEnergyDevice → device_registered</span>
+      <span class="badge badge-added">Added</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item"><div class="finding-meta-label">File</div><div class="finding-meta-value">lib/actions/energy.ts:125</div></div>
+      <div class="finding-meta-item"><div class="finding-meta-label">Metadata</div><div class="finding-meta-value">{ mac, label }</div></div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header">
+      <span class="finding-title">7. saveBiomassLog → biomass_logged</span>
+      <span class="badge badge-added">Added</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item"><div class="finding-meta-label">File</div><div class="finding-meta-value">lib/actions/biomass.ts:68, 98</div></div>
+      <div class="finding-meta-item"><div class="finding-meta-label">Metadata</div><div class="finding-meta-value">{ avgWeightKg, sampleCount, gramsAdjusted|gramsProposed }</div></div>
+    </div>
+    <p>Two emission points inside the Prisma transaction: one when the auto-adjust is rejected (deviation > 50%), one when it succeeds. Both use <code>tx.deviceStateEvent.create</code> so the event is atomic with the biomass log.</p>
+  </div>
+</section>
+
+<!-- 4. Display-only -->
+<section id="display-only">
+  <h2>Display-Only Event Types (Now Produced)</h2>
+  <p>Five event types had display config in <code>audit/page.tsx</code> and i18n translations but were <strong>never emitted</strong> anywhere in the codebase. Each now has a producer:</p>
+
+  <table class="event-table">
+    <thead>
+      <tr><th>Event Type</th><th>Producer Location</th><th>When Emitted</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>command_failed</td><td>schedule.ts:89</td><td>Stale "sent" commands expired in updateScheduleCommand</td></tr>
+      <tr><td>schedule_applied</td><td>ingest/route.ts:475</td><td>Alongside command_acked when device acks schedule</td></tr>
+      <tr><td>pellet_low</td><td>ingest/route.ts:175</td><td>Feed level ≤ 5% in heartbeat (alongside CRITICAL notification)</td></tr>
+      <tr><td>pellet_refilled</td><td>ingest/route.ts:273</td><td>Last-log level ≤ 20% and current > 20% (refill detected)</td></tr>
+      <tr><td>manual_trigger</td><td>schedule.ts:37, energy.ts:55</td><td>User triggers feed via schedule controls or remote action</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 5. Files -->
+<section id="files">
+  <h2>Files Changed</h2>
+  <p>Eight files were touched across the implementation:</p>
+  <ul class="file-list">
+    <li><span class="path">apps/web/lib/actions/schedule.ts</span> <span class="desc">— pause_toggled, manual_trigger, command_failed, schedule_changed</span></li>
+    <li><span class="path">apps/web/lib/actions/energy.ts</span> <span class="desc">— manual_trigger (requestFeed), hopper_calibrated, device_registered</span></li>
+    <li><span class="path">apps/web/lib/actions/settings.ts</span> <span class="desc">— settings_changed</span></li>
+    <li><span class="path">apps/web/lib/actions/biomass.ts</span> <span class="desc">— biomass_logged (accepted + rejected)</span></li>
+    <li><span class="path">apps/web/app/api/ingest/route.ts</span> <span class="desc">— pellet_low, pellet_refilled, schedule_applied</span></li>
+    <li><span class="path">apps/web/app/[locale]/(dashboard)/dashboard/audit/page.tsx</span> <span class="desc">— eventTypeConfig + filterGroupToTypes for new event types</span></li>
+    <li><span class="path">apps/web/messages/en.json</span> <span class="desc">— English translations for 5 new event types</span></li>
+    <li><span class="path">apps/web/messages/hil.json</span> <span class="desc">— Hiligaynon translations for 5 new event types</span></li>
+  </ul>
+  <p>The <code>schedule-sync/route.ts</code> and <code>lib/actions/audit.ts</code> were <strong>not modified</strong> — they already had the correct event producers and query logic.</p>
+</section>
+
+<!-- 6. Config -->
+<section id="config">
+  <h2>Audit Page Display Configuration</h2>
+  <p>New <code>eventTypeConfig</code> entries in <code>audit/page.tsx</code>:</p>
+
+  <div class="code-block">
+    <div class="code-label after">eventTypeConfig — new entries</div>
+<pre>pause_toggled: {
+  icon: PauseCircle,
+  className: <span class="str">"border-yellow-200 bg-yellow-50 text-yellow-700"</span>,
+  filterGroup: <span class="str">"schedule"</span>,
+},
+hopper_calibrated: {
+  icon: Ruler,
+  className: <span class="str">"border-blue-200 bg-blue-50 text-blue-700"</span>,
+  filterGroup: <span class="str">"feeding"</span>,
+},
+settings_changed: {
+  icon: Settings,
+  className: <span class="str">"border-purple-200 bg-purple-50 text-purple-700"</span>,
+  filterGroup: <span class="str">"schedule"</span>,
+},
+device_registered: {
+  icon: Plug,
+  className: <span class="str">"border-green-200 bg-green-50 text-green-700"</span>,
+  filterGroup: <span class="str">"connectivity"</span>,
+},
+biomass_logged: {
+  icon: Weight,
+  className: <span class="str">"border-teal-200 bg-teal-50 text-teal-700"</span>,
+  filterGroup: <span class="str">"feeding"</span>,
+},</pre>
+  </div>
+
+  <p>Updated <code>filterGroupToTypes</code> to include the new types in their respective filter groups:</p>
+
+  <div class="code-block">
+    <div class="code-label after">filterGroupToTypes — updated</div>
+<pre>feeding: [
+  "feed_dispensed", "feed_reconciled",
+  "pellet_low", "pellet_refilled",
+  "hopper_calibrated", "biomass_logged"
+],
+connectivity: ["connected", "disconnected", "device_registered"],
+schedule: ["schedule_changed", "schedule_applied", "pause_toggled", "settings_changed"],
+commands: ["command_sent", "command_acked", "command_failed", "manual_trigger"],</pre>
+  </div>
+</section>
+
+<!-- 7. i18n -->
+<section id="i18n">
+  <h2>Translations</h2>
+  <p>Five new message keys added to both locale files under <code>dashboard.audit</code>:</p>
+
+  <table class="event-table">
+    <thead>
+      <tr><th>Key</th><th>English</th><th>Hiligaynon</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>eventType_pause_toggled</td><td>Pause Toggled</td><td>Gin-toggle ang Pause</td></tr>
+      <tr><td>eventType_hopper_calibrated</td><td>Hopper Calibrated</td><td>Gin-calibrate ang Hopper</td></tr>
+      <tr><td>eventType_settings_changed</td><td>Settings Changed</td><td>Ginbag-o ang Settings</td></tr>
+      <tr><td>eventType_device_registered</td><td>Device Registered</td><td>Nakarehistro ang Device</td></tr>
+      <tr><td>eventType_biomass_logged</td><td>Biomass Logged</td><td>Nakalog ang Biomass</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 8. Architecture -->
+<section id="architecture">
+  <h2>Architecture</h2>
+  <p>The audit trail flows through three layers. Stars indicate new or modified producers:</p>
+
+  <div class="data-flow">
+<span class="label">User Actions (lib/actions/*.ts)</span>
+  <span class="arrow">├──</span> schedule.ts<span class="arrow"> ─</span> toggleDevicePause          <span class="added">★ pause_toggled</span>
+  <span class="arrow">├──</span> schedule.ts<span class="arrow"> ─</span> triggerManualFeed         <span class="added">★ manual_trigger</span>
+  <span class="arrow">├──</span> schedule.ts<span class="arrow"> ─</span> updateScheduleCommand    <span class="existing">◆ schedule_changed</span> <span class="added">★ command_failed</span>
+  <span class="arrow">├──</span> energy.ts<span class="arrow"> ───</span> requestFeed               <span class="added">★ manual_trigger</span>
+  <span class="arrow">├──</span> energy.ts<span class="arrow"> ───</span> saveHopperCalibration     <span class="added">★ hopper_calibrated</span>
+  <span class="arrow">├──</span> energy.ts<span class="arrow"> ───</span> registerEnergyDevice      <span class="added">★ device_registered</span>
+  <span class="arrow">├──</span> settings.ts<span class="arrow"> ─</span> updatePondSettings        <span class="added">★ settings_changed</span>
+  <span class="arrow">└──</span> biomass.ts<span class="arrow"> ─</span> saveBiomassLog            <span class="added">★ biomass_logged</span>
+
+<span class="label">Device Events (app/api/ingest/route.ts)</span>
+  <span class="arrow">├──</span> heartbeat<span class="arrow"> ──────────</span> connected                 <span class="existing">◆ connected</span>
+  <span class="arrow">├──</span> heartbeat<span class="arrow"> ──────────</span> disconnect detection       <span class="existing">◆ disconnected</span>
+  <span class="arrow">├──</span> heartbeat<span class="arrow"> ──────────</span> pellet low (≤5%)          <span class="added">★ pellet_low</span>
+  <span class="arrow">├──</span> heartbeat<span class="arrow"> ──────────</span> pellet refilled           <span class="added">★ pellet_refilled</span>
+  <span class="arrow">├──</span> feed_dispensed<span class="arrow"> ───</span> device-reported feed       <span class="existing">◆ feed_dispensed</span>
+  <span class="arrow">├──</span> feed_dispensed<span class="arrow"> ───</span> orphaned request match     <span class="existing">◆ feed_reconciled</span>
+  <span class="arrow">└──</span> schedule_acked<span class="arrow"> ─</span> device acks command       <span class="existing">◆ command_acked</span> <span class="added">★ schedule_applied</span>
+
+<span class="label">Device Poll (app/api/schedule-sync/route.ts)</span>
+  <span class="arrow">└──</span> GET<span class="arrow"> ─────────────────</span> dispatch pending command   <span class="existing">◆ command_sent</span>
+
+<span class="label">Storage → Query → Display</span>
+  <span class="arrow">└──</span> deviceStateEvent table
+        <span class="arrow">└──</span> getAuditLog() <span class="arrow">→</span> audit/page.tsx
+              <span class="existing">◆</span> = existing   <span class="added">★</span> = added in this pass
+  </div>
+</section>
+
+<!-- 9. Verification -->
+<section id="verification">
+  <h2>Verification</h2>
+  <p>All three validation commands pass without errors:</p>
+
+  <div class="code-block">
+    <div class="code-label after">pnpm lint</div>
+<pre><span class="cmt"># biome check — 67 files checked, 15 files auto-fixed (formatting only)</span>
+Checked 67 files in 131ms. Fixed 15 files.</pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-label after">pnpm typecheck</div>
+<pre><span class="cmt"># tsc --noEmit — zero type errors</span>
+<span class="str">(no output — success)</span></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-label after">pnpm build</div>
+<pre><span class="cmt"># prisma generate && next build — zero build errors</span>
+<span class="str">(no output — success)</span></pre>
+  </div>
 
   <div class="callout">
-    <p><strong>Per-device token rotation/revocation</strong> &mdash; One device, one token. Revisit if this becomes multi-farm.</p>
-  </div>
-  <div class="callout">
-    <p><strong>Rate limiting beyond basic token validation</strong> &mdash; 5-second polling from one device is ~17k requests/day, trivial load. Add when the URL is more discoverable.</p>
-  </div>
-  <div class="callout">
-    <p><strong>Dedicated cron/scheduler service</strong> &mdash; Offline-detection and request-expiry are handled lazily at render/poll time. No background jobs needed.</p>
-  </div>
-  <div class="callout">
-    <p><strong>Observability tooling (Sentry, Datadog)</strong> &mdash; Vercel's built-in function logs are sufficient at this scale. Add when there's an incident history.</p>
-  </div>
-  <div class="callout">
-    <p><strong>mTLS or signed-request schemes</strong> &mdash; HTTPS + a static bearer token is proportionate for one device. The threat model doesn't justify the complexity.</p>
-  </div>
-
-  <div class="callout warning">
-    <p><strong>Naming debt flagged but not fixed:</strong> The Prisma models are still named <code>EnergyDevice</code> / <code>EnergyReading</code>
-    (carried over from the original energy-monitoring template). Now is the cheapest time to rename them
-    (e.g. <code>FeederDevice</code> / <code>FeedEvent</code>), while only two developers touch this code.
-    Once more screens and migrations are built against these names, the cost increases permanently.
-    This was outside this audit's scope but worth a deliberate decision.</p>
+    <p><strong>Runtime verification:</strong> Triggering a pause toggle and a manual feed on the dashboard, then loading <code>/dashboard/audit</code>, confirms both appear as entries with the correct <code>eventType</code> (<code>pause_toggled</code>, <code>manual_trigger</code>) and metadata (<code>{ isPaused }</code>, <code>{ grams, triggerSource }</code>).</p>
   </div>
 </section>
 
 </div>
 
 <div class="footer">
-  OptiFeed Firmware-Backend Integration Audit &mdash; July 11, 2026<br>
-  Generated as part of the OptiFeed capstone project
+  OptiFeed Audit Trail Implementation Report &mdash; July 31, 2026<br>
+  Branch: Karl &rarr; Target: develop &mdash; Repo: J-Akiru5/OptiFeed
 </div>
 
 </body>

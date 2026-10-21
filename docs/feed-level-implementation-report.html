@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OptiFeed — Feed Level Monitoring Implementation Report</title>
+  <style>
+    :root {
+      --ofd-base: #0a3d62;
+      --ofd-action: #e85a2a;
+      --ofd-bg: #f4f7f6;
+      --ofd-success: #1e7b34;
+      --ofd-critical: #c42b3a;
+      --ofd-warning: #f0a202;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--ofd-bg);
+      color: #1a1a2e;
+      line-height: 1.6;
+    }
+    .container { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+
+    /* Header */
+    header {
+      background: linear-gradient(135deg, var(--ofd-base) 0%, #12588c 100%);
+      color: white;
+      padding: 3rem 0;
+      text-align: center;
+    }
+    header h1 { font-size: 2.5rem; font-weight: 900; letter-spacing: -0.02em; }
+    header p { font-size: 1.1rem; opacity: 0.85; margin-top: 0.5rem; }
+    header .version { display: inline-block; background: rgba(255,255,255,0.15); padding: 0.25rem 1rem; border-radius: 999px; font-size: 0.85rem; margin-top: 0.75rem; font-weight: 600; }
+
+    /* Summary cards */
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin: 2rem 0; }
+    .summary-card { background: white; border-radius: 1.5rem; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid rgba(10,61,98,0.08); }
+    .summary-card .number { font-size: 2rem; font-weight: 900; color: var(--ofd-base); }
+    .summary-card .label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #6b7280; margin-top: 0.25rem; }
+
+    /* Section */
+    .section { background: white; border-radius: 2rem; padding: 2rem; margin: 1.5rem 0; box-shadow: 0 2px 12px rgba(0,0,0,0.05); border: 1px solid rgba(10,61,98,0.06); }
+    .section h2 { font-size: 1.5rem; font-weight: 900; color: var(--ofd-base); margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.75rem; }
+    .section h2 .tag { font-size: 0.65rem; background: var(--ofd-action); color: white; padding: 0.2rem 0.75rem; border-radius: 999px; font-weight: 700; text-transform: uppercase; }
+    .section h3 { font-size: 1.1rem; font-weight: 800; color: #1a1a2e; margin: 1.25rem 0 0.5rem; }
+    .section p, .section li { color: #374151; font-size: 0.95rem; }
+    .section ul { padding-left: 1.25rem; }
+    .section ul li { margin-bottom: 0.35rem; }
+
+    /* Diff-style */
+    .change { border-left: 4px solid var(--ofd-success); background: #f0fdf4; padding: 0.75rem 1rem; border-radius: 0.75rem; margin: 0.75rem 0; }
+    .change.added { border-left-color: var(--ofd-success); background: #f0fdf4; }
+    .change.modified { border-left-color: var(--ofd-action); background: #fff7ed; }
+    .change.removed { border-left-color: var(--ofd-critical); background: #fef2f2; }
+    .change .file { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--ofd-base); font-weight: 700; }
+    .change .desc { font-size: 0.9rem; margin-top: 0.2rem; }
+
+    /* Stack */
+    .stack-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.25rem; }
+    .stack-card { background: var(--ofd-bg); border-radius: 1.25rem; padding: 1.25rem; border: 1px solid rgba(10,61,98,0.08); }
+    .stack-card h4 { font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ofd-base); margin-bottom: 0.5rem; }
+    .stack-card ul { list-style: none; padding: 0; }
+    .stack-card ul li { padding: 0.3rem 0; font-size: 0.85rem; border-bottom: 1px solid rgba(0,0,0,0.04); }
+    .stack-card ul li:last-child { border-bottom: none; }
+    .stack-card ul li .badge { display: inline-block; font-size: 0.6rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 999px; margin-left: 0.5rem; }
+    .badge.new { background: #dcfce7; color: #166534; }
+    .badge.changed { background: #ffedd5; color: #9a3412; }
+
+    /* Status dots */
+    .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.4rem; }
+    .dot.green { background: var(--ofd-success); }
+    .dot.orange { background: var(--ofd-warning); }
+    .dot.red { background: var(--ofd-critical); }
+
+    /* Footer */
+    footer { text-align: center; padding: 2rem 0; color: #9ca3af; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>OptiFeed</h1>
+    <p>Smart Shrimp Feeding Management — Implementation Report</p>
+    <span class="version">v1.9.0 &middot; Feed Level Monitoring Feature</span>
+  </header>
+
+  <div class="container">
+    <!-- Summary -->
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="number">3</div>
+        <div class="label">New Files Created</div>
+      </div>
+      <div class="summary-card">
+        <div class="number">13</div>
+        <div class="label">Existing Files Modified</div>
+      </div>
+      <div class="summary-card">
+        <div class="number">6</div>
+        <div class="label">Layers Touched</div>
+      </div>
+      <div class="summary-card">
+        <div class="number">0</div>
+        <div class="label">Lint / Build Errors</div>
+      </div>
+    </div>
+
+    <!-- System Overview -->
+    <div class="section">
+      <h2>System Overview</h2>
+      <p>OptiFeed is a full-stack IoT shrimp feeding management platform. An ESP32 microcontroller runs an automatic feeder with 3-way fallback (RTC schedule, remote dashboard commands, physical button). The web app — Next.js 16 + Supabase/Postgres + Prisma — provides real-time monitoring, biomass tracking, and bilingual UI (English + Hiligaynon). The newly added <strong>Feed Level Monitoring</strong> feature integrates an HC-SR04 ultrasonic sensor into the existing hardware, telemetry pipeline, database, and dashboard.</p>
+    </div>
+
+    <!-- Tech Stack -->
+    <div class="section">
+      <h2>Technology Stack</h2>
+      <div class="stack-grid">
+        <div class="stack-card">
+          <h4>Frontend</h4>
+          <ul>
+            <li>Next.js 16 (App Router)</li>
+            <li>React 19 &middot; Tailwind CSS 4</li>
+            <li>shadcn/ui + @base-ui/react</li>
+            <li>next-intl v4 (en + hil)</li>
+            <li><span class="dot green"></span> FeedLevelCard.tsx <span class="badge new">NEW</span></li>
+            <li><span class="dot green"></span> HopperCalibrationForm.tsx <span class="badge new">NEW</span></li>
+          </ul>
+        </div>
+        <div class="stack-card">
+          <h4>Backend / API</h4>
+          <ul>
+            <li>Next.js Server Actions (7 modules)</li>
+            <li>REST: /api/ingest, /api/feed-command, /api/schedule-sync</li>
+            <li><span class="dot orange"></span> Heartbeat Zod schema extended <span class="badge changed">MOD</span></li>
+            <li><span class="dot orange"></span> Feed-command returns calibration <span class="badge changed">MOD</span></li>
+            <li><span class="dot orange"></span> Schedule-sync returns calibration <span class="badge changed">MOD</span></li>
+          </ul>
+        </div>
+        <div class="stack-card">
+          <h4>Database (Prisma / Supabase Postgres)</h4>
+          <ul>
+            <li>11 models, PostgreSQL</li>
+            <li><span class="dot green"></span> Energ圡Device: +6 fields <span class="badge new">NEW</span></li>
+            <li><span class="dot green"></span> FeedLevelLog model <span class="badge new">NEW</span></li>
+          </ul>
+        </div>
+        <div class="stack-card">
+          <h4>Hardware (ESP32)</h4>
+          <ul>
+            <li>ESP32 + DS3231 RTC + HC-SR04</li>
+            <li>ArduinoJSON &middot; WiFi &middot; HTTPClient</li>
+            <li><span class="dot green"></span> HC-SR04 trigger/echo pins <span class="badge new">NEW</span></li>
+            <li><span class="dot orange"></span> sendTelemetry() payload extended <span class="badge changed">MOD</span></li>
+            <li><span class="dot orange"></span> pollDashboardFeedCommand() calibration <span class="badge changed">MOD</span></li>
+          </ul>
+        </div>
+        <div class="stack-card">
+          <h4>Tooling</h4>
+          <ul>
+            <li>pnpm workspaces &middot; Biome &middot; Husky</li>
+            <li>GitHub Actions (CI + Vercel deploy)</li>
+          </ul>
+        </div>
+        <div class="stack-card">
+          <h4>i18n</h4>
+          <ul>
+            <li>English (en.json) — 420+ strings</li>
+            <li>Hiligaynon (hil.json) — 420+ strings</li>
+            <li><span class="dot orange"></span> Feed level strings added to both <span class="badge changed">MOD</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Database Changes -->
+    <div class="section">
+      <h2>1. Database Schema <span class="tag">CHANGED</span></h2>
+      <h3>EnergyDevice — 6 new fields</h3>
+      <div class="change added">
+        <div class="file">prisma/schema.prisma → model EnergyDevice</div>
+        <div class="desc">
+          <code>feedLevelPercent Float?</code> — 0-100%, null until first ultrasonic reading<br>
+          <code>feedLevelCm Float?</code> — raw distance in cm (debugging/recalibration)<br>
+          <code>feedLevelUpdatedAt DateTime?</code> — last heartbeat with a reading<br>
+          <code>hopperEmptyCm Float?</code> — sensor distance when hopper is empty<br>
+          <code>hopperFullCm Float?</code> — sensor distance when hopper is full<br>
+          <code>hopperCapacityG Float?</code> — total capacity in grams (e.g. 7000 for 10L)
+        </div>
+      </div>
+
+      <h3>FeedLevelLog — new model</h3>
+      <div class="change added">
+        <div class="file">prisma/schema.prisma → model FeedLevelLog</div>
+        <div class="desc">
+          Historical log for trend charts (Growth page). Indexed on <code>[deviceId, recordedAt]</code>.<br>
+          Logged sparingly: only when 30min have passed OR level shifts >5%.
+        </div>
+      </div>
+    </div>
+
+    <!-- Firmware Changes -->
+    <div class="section">
+      <h2>2. ESP32 Firmware <span class="tag">CHANGED</span></h2>
+      <p><strong>File:</strong> <code>firmware/firmware-main.ino</code></p>
+
+      <div class="change added">
+        <div class="file">New HC-SR04 pin definitions</div>
+        <div class="desc"><code>TRIG_PIN 32</code>, <code>ECHO_PIN 33</code> — no conflict with relay (25), button (27), or RTC I2C (21/22).</div>
+      </div>
+
+      <div class="change added">
+        <div class="file">New function: readFeedLevelPercent()</div>
+        <div class="desc">Takes median of 3 ultrasonic readings, applies linear interpolation using <code>hopperEmptyCm</code> / <code>hopperFullCm</code>. Returns 0-100%.</div>
+      </div>
+
+      <div class="change modified">
+        <div class="file">Modified: sendTelemetry()</div>
+        <div class="desc">JSON buffer increased from 192 to 256 bytes. Payload now includes <code>feed_level_percent</code> and <code>feed_level_cm</code> on every heartbeat (every 5s).</div>
+      </div>
+
+      <div class="change modified">
+        <div class="file">Modified: pollDashboardFeedCommand()</div>
+        <div class="desc">Parses <code>hopper_full_cm</code> and <code>hopper_empty_cm</code> from backend poll response — calibration updates dynamically, no OTA reflash needed.</div>
+      </div>
+    </div>
+
+    <!-- API Changes -->
+    <div class="section">
+      <h2>3. REST API Routes <span class="tag">CHANGED</span></h2>
+
+      <h3>/api/ingest (POST) — Heartbeat handling</h3>
+      <div class="change modified">
+        <div class="file">apps/web/app/api/ingest/route.ts</div>
+        <div class="desc>
+          <strong>Heartbeat Zod schema</strong> extended with optional <code>feed_level_percent</code> (0-100) and <code>feed_level_cm</code> (min 0).<br><br>
+          <strong>Heartbeat handler</strong> now does:
+          <ul>
+            <li>Updates <code>EnergyDevice.feedLevelPercent/Cm/UpdatedAt</code></li>
+            <li>Creates <code>FeedLevelLog</code> row (only if 30min elapsed or >5% delta)</li>
+            <li><span class="dot red"></span> CRITICAL notification (≤5%, category "pellet")</li>
+            <li><span class="dot orange"></span> WARNING notification (≤20%, category "pellet")</li>
+            <li>2-days-remaining advance warning — calculates <code>hopperCapacityG × level% / (gramsPerFeeding × feedsPerDay)</code></li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>/api/feed-command (GET)</h3>
+      <div class="change modified">
+        <div class="file">apps/web/app/api/feed-command/route.ts</div>
+        <div class="desc">Selects and returns <code>hopper_empty_cm</code>, <code>hopper_full_cm</code> in JSON response — the ESP32 receives calibration on every poll.</div>
+      </div>
+
+      <h3>/api/schedule-sync (GET)</h3>
+      <div class="change modified">
+        <div class="file">apps/web/app/api/schedule-sync/route.ts</div>
+        <div class="desc">Returns <code>hopper_empty_cm</code>, <code>hopper_full_cm</code> in all 4 response paths (no pond, pending command, pond settings, fallback).</div>
+      </div>
+    </div>
+
+    <!-- Dashboard Changes -->
+    <div class="section">
+      <h2>4. Dashboard & UI Components <span class="tag">CHANGED</span></h2>
+
+      <div class="change added">
+        <div class="file">apps/web/components/FeedLevelCard.tsx (NEW)</div>
+        <div class="desc">
+          Client component showing:
+          <ul>
+            <li>Feed level % with large number + color-coded badge (green/amber/red)</li>
+            <li>Progress bar (emerald / amber / red)</li>
+            <li>"~N days of feed remaining" calculation</li>
+            <li>Last-updated timestamp (relative: "5m ago", "2h ago")</li>
+            <li>Empty state: "No level reading yet"</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="change added">
+        <div class="file">apps/web/components/HopperCalibrationForm.tsx (NEW)</div>
+        <div class="desc">
+          Client form with 3 inputs + save button:
+          <ul>
+            <li>Full Distance (cm) — sensor reading when hopper is full</li>
+            <li>Empty Distance (cm) — sensor reading when hopper is empty</li>
+            <li>Hopper Capacity (grams) — total feed weight the hopper can hold</li>
+            <li>Calls <code>saveHopperCalibration()</code> server action</li>
+          </ul>
+        </div>
+      </div>
+
+       <div class="change modified">
+        <div class="file">apps/web/app/[locale]/(dashboard)/dashboard/page.tsx</div>
+        <div class="desc">
+          <ul>
+            <li>Imports and renders <strong>FeedLevelCard</strong> alongside EnergyControllerCard (2-column grid)</li>
+            <li>EnergyDevice query now selects <code>feedLevelPercent</code>, <code>feedLevelUpdatedAt</code>, <code>hopperCapacityG</code></li>
+            <li>Passes <code>pond.feedsPerDay</code> for days-remaining calculation</li>
+         </ul>
+        </div>
+      </div>
+
+       <div class="change modified">
+        <div class="file">apps/web/app/[locale]/(dashboard)/dashboard/app-settings/page.tsx</div>
+        <div class="desc">
+          <ul>
+            <li>Fetches <code>EnergyDevice</code> alongside legacy Device</li>
+            <li>New "Hopper Calibration" section with current-level display + calibration form</li>
+          </ul>
+        </div>
+      </div>
+
+       <div class="change modified">
+        <div class="file">apps/web/app/[locale]/(dashboard)/dashboard/growth/page.tsx</div>
+        <div class="desc">
+          <ul>
+            <li>Feed Level Trend card with SVG sparkline (orange), gradient fill, and data points</li>
+            <li>Feed Level Log table: Date, Level (%) with color badge, Distance (cm)</li>
+          </ul>
+        </div>
+      </div>
+
+       <div class="change modified">
+        <div class="file">apps/web/app/[locale]/(dashboard)/dashboard/history/page.tsx</div>
+        <div class="desc">
+          <ul>
+            <li>Third stat card "Feed Level" showing current % from EnergyDevice</li>
+            <li>Grid changed from 2-col to 3-col</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Server Actions -->
+    <div class="section">
+      <h2>5. Server Actions <span class="tag">ADDED</span></h2>
+
+       <div class="change added">
+        <div class="file">apps/web/lib/actions/energy.ts — saveHopperCalibration()</div>
+        <div class="desc">
+          Updates <code>hopperFullCm</code>, <code>hopperEmptyCm</code>, <code>hopperCapacityG</code> on EnergyDevice.<br>
+          Revalidates <code>/app-settings</code> page. Returns <code>{ success: true }</code> or <code>{ success: false, error }</code>.
+        </div>
+      </div>
+    </div>
+
+    <!-- Notifications -->
+    <div class="section">
+      <h2>6. Notification Triggers (reusing "pellet" category)</h2>
+       <div class="change added">
+        <div class="file">app/api/ingest/route.ts — heartbeat handler</div>
+        <div class="desc">
+          Three notification levels, all under <code>category: "pellet"</code>:
+          <table style="width:100%; border-collapse: collapse; margin-top: 0.75rem;">
+            <thead>
+              <tr style="border-bottom: 2px solid #e5e7eb;">
+                <th style="text-align:left; padding: 0.5rem; font-size:0.8rem;">Condition</th>
+                <th style="text-align:left; padding: 0.5rem; font-size:0.8rem;">Tier</th>
+                <th style="text-align:left; padding: 0.5rem; font-size:0.8rem;">Message</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom: 1px solid #f3f4f6;">
+                <td style="padding: 0.5rem;">feed_level_percent ≤ 5%</td>
+                <td style="padding: 0.5rem;"><span class="dot red"></span> CRITICAL</td>
+                <td style="padding: 0.5rem;">"Feed hopper is nearly empty — refill immediately"</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #f3f4f6;">
+                <td style="padding: 0.5rem;">feed_level_percent ≤ 20%</td>
+                <td style="padding: 0.5rem;"><span class="dot orange"></span> WARNING</td>
+                <td style="padding: 0.5rem;">"Feed hopper is running low — schedule a refill soon"</td>
+              </tr>
+              <tr>
+                <td style="padding: 0.5rem;">~days remaining ≤ 2</td>
+                <td style="padding: 0.5rem;"><span class="dot orange"></span> WARNING</td>
+                <td style="padding: 0.5rem;">"Feed will run out in ~N day(s) — refill hopper soon"</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+     <!-- Seed Data -->
+     <div class="section">
+      <h2>7. Seed Data <span class="tag">UPDATED</span></h2>
+       <div class="change modified">
+        <div class="file">apps/web/prisma/seed.ts</div>
+        <div class="desc">
+          <ul>
+            <li>EnergyDevice now created with: <code>feedLevelPercent: 82</code>, <code>feedLevelCm: 9.5</code>, <code>hopperFullCm: 5</code>, <code>hopperEmptyCm: 30</code>, <code>hopperCapacityG: 7000</code></li>
+            <li>10 historical <code>FeedLevelLog</code> entries over 2 weeks showing gradual decline from ~95% to 82%</li>
+            <li>Cleanup order updated to include <code>FeedLevelLog</code>, <code>DeviceStateEvent</code>, <code>ScheduleCommand</code></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Flow Diagram -->
+    <div class="section">
+      <h2>8. Data Flow</h2>
+      <pre style="background: #1a1a2e; color: #e5e7eb; padding: 1.5rem; border-radius: 1rem; font-size: 0.8rem; line-height: 1.7; overflow-x: auto;">
+HC-SR04 Sensor (ESP32)
+  │
+  ├─ readFeedLevelPercent() — median of 3, linear conversion
+  │
+  └─ sendTelemetry() every 5s ────── POST /api/ingest
+                                          │
+                                    ┌─────┴──────┐
+                                    │ heartbeat  │   Zod extended:
+                                    │ handler    │   feed_level_percent?
+                                    └─────┬──────┘   feed_level_cm?
+                                          │
+                          ┌───────────────┼───────────────────┐
+                          │               │                   │
+                    EnergyDevice     FeedLevelLog       Notification
+                    (fast read)     (trend data)       (tiered alerts)
+                          │
+                          ├── Dashboard Home ─── FeedLevelCard (level %, days remaining)
+                          ├── Growth page ────── SVG sparkline + history table
+                          ├── History page ───── Stat card
+                          └── App-Settings ───── HopperCalibrationForm
+                                                    │
+                                              saveHopperCalibration()
+                                                    │
+                                              EnergyDevice updated
+                                          (hopperFullCm, EmptyCm, CapacityG)
+                                                    │
+                                              Poll response to ESP32
+                                          (feed-command / schedule-sync)
+      </pre>
+    </div>
+
+    <!-- What's Next -->
+    <div class="section">
+      <h2>9. Remaining Considerations</h2>
+       <div class="change modified" style="border-left-color: #6b7280; background: #f9fafb;">
+        <div class="file">Not yet implemented</div>
+        <div class="desc">
+          <ul>
+            <li><strong>FeedRequest auto-block on empty hopper</strong> — the <code>requestFeed()</code> server action could reject new requests when <code>feedLevelPercent ≤ 5</code> to prevent dry-fire</li>
+            <li><strong>DeviceStateEvent audit trail</strong> — no new event type added for feed level readings; could add <code>"feed_level_reading"</code> for full traceability</li>
+            <li><strong>Sidebar integration</strong> — the sidebar's hopper widget still reads from the deprecated <code>Device.hopperLevelPct</code>, not the new sensor data</li>
+            <li><strong>Chat assistant awareness</strong> — the chat's keyword intents don't yet answer "What's my feed level?"</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Generated for PR from Karl → develop &middot; OptiFeed v1.9.0 &middot; July 2026
+  </footer>
+</body>
+</html>

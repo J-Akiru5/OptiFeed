@@ -15,6 +15,7 @@ interface EnergyControllerCardProps {
 	gramsPerFeeding: number;
 	lastSeenAt: Date | null;
 	isOffline: boolean;
+	canWrite?: boolean;
 }
 
 function formatLastSeen(lastSeenAt: Date | null): string {
@@ -38,6 +39,7 @@ export function EnergyControllerCard({
 	gramsPerFeeding,
 	lastSeenAt,
 	isOffline,
+	canWrite = true,
 }: EnergyControllerCardProps) {
 	const [feedGrams, setFeedGrams] = useState(gramsPerFeeding);
 	const [isPending, startTransition] = useTransition();
@@ -58,7 +60,7 @@ export function EnergyControllerCard({
 					setTimeout(() => setFeedSent(false), 3000);
 				}
 			} else {
-				toast.error("Failed to create feed request");
+				toast.error(result.error || "Failed to create feed request");
 			}
 		});
 	};
@@ -105,90 +107,94 @@ export function EnergyControllerCard({
 				<div className="mb-4 flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
 					<AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
 					<p className="text-xs text-red-700 font-medium">
-						Device offline — last seen {formatLastSeen(lastSeenAt)}. Scheduled and button feeds
-						still work; dashboard commands will queue.
+						Device offline — last seen {formatLastSeen(lastSeenAt)}. Dashboard feed requests are
+						rejected while offline; device-scheduled and physical button feeds still work.
 					</p>
 				</div>
 			)}
 
-			<div className="grid grid-cols-2 gap-3 mb-4">
-				<div className="flex items-center gap-2 rounded-xl bg-gray-50 p-3">
-					{rtcOk ? (
-						<Wifi className="h-4 w-4 text-green-500" />
-					) : (
-						<WifiOff className="h-4 w-4 text-red-500" />
-					)}
-					<div>
-						<p className="text-xs text-gray-500 font-medium">RTC</p>
-						<p className={cn("text-sm font-medium", rtcOk ? "text-green-600" : "text-red-600")}>
-							{rtcOk ? "OK" : "Offline"}
-						</p>
+			<div className="grid gap-6 lg:grid-cols-2">
+				<div className="space-y-4">
+					<div className="grid grid-cols-2 gap-3">
+						<div className="flex items-center gap-2 rounded-xl bg-gray-50 p-3">
+							{rtcOk ? (
+								<Wifi className="h-4 w-4 text-green-500" />
+							) : (
+								<WifiOff className="h-4 w-4 text-red-500" />
+							)}
+							<div>
+								<p className="text-xs text-gray-500 font-medium">RTC</p>
+								<p className={cn("text-sm font-medium", rtcOk ? "text-green-600" : "text-red-600")}>
+									{rtcOk ? "OK" : "Offline"}
+								</p>
+							</div>
+						</div>
+						<div className="flex items-center gap-2 rounded-xl bg-gray-50 p-3">
+							<Clock className="h-4 w-4 text-gray-400" />
+							<div>
+								<p className="text-xs text-gray-500 font-medium">Last seen</p>
+								<p className="text-sm text-gray-700">{formatLastSeen(lastSeenAt)}</p>
+							</div>
+						</div>
+					</div>
+
+					<div className="flex items-center justify-between gap-4 rounded-2xl bg-gray-50 p-4">
+						<div>
+							<p className="text-xs text-gray-500 font-medium">MAC Address</p>
+							<p className="text-sm font-mono text-gray-700">{mac}</p>
+						</div>
+						<div className="text-right">
+							<p className="text-xs text-gray-500 font-medium">Default Feed</p>
+							<p className="text-sm font-medium text-gray-700">{gramsPerFeeding}g</p>
+						</div>
 					</div>
 				</div>
-				<div className="flex items-center gap-2 rounded-xl bg-gray-50 p-3">
-					<Clock className="h-4 w-4 text-gray-400" />
+
+				<div className="space-y-3">
 					<div>
-						<p className="text-xs text-gray-500 font-medium">Last seen</p>
-						<p className="text-sm text-gray-700">{formatLastSeen(lastSeenAt)}</p>
+						<label htmlFor="feed-grams" className="block text-xs text-gray-500 font-medium mb-1">
+							Feed Amount (grams)
+						</label>
+						<input
+							id="feed-grams"
+							type="number"
+							min={1}
+							max={500}
+							value={feedGrams}
+							onChange={(e) => setFeedGrams(Number(e.target.value))}
+							className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ofd-base)]/30 focus:border-[var(--ofd-base)]"
+						/>
 					</div>
-				</div>
-			</div>
 
-			<div className="flex items-center justify-between gap-4 rounded-2xl bg-gray-50 p-4 mb-4">
-				<div>
-					<p className="text-xs text-gray-500 font-medium">MAC Address</p>
-					<p className="text-sm font-mono text-gray-700">{mac}</p>
+					<button
+						type="button"
+						onClick={handleFeedNow}
+						disabled={isPending || feederActive || feedGrams <= 0 || isOffline || !canWrite}
+						className={cn(
+							"flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 font-medium text-white transition-all shadow-md hover:shadow-lg disabled:opacity-50",
+							alreadyQueued
+								? "bg-amber-500 hover:bg-amber-600"
+								: feedSent
+									? "bg-green-500 hover:bg-green-600"
+									: "bg-[var(--ofd-base)] hover:bg-[#1a4a6e]",
+						)}
+					>
+						{isPending ? (
+							<Loader2 className="h-5 w-5 animate-spin" />
+						) : (
+							<Utensils className="h-5 w-5" />
+						)}
+						<span>
+							{alreadyQueued
+								? "Already Queued"
+								: feedSent
+									? "Feed Request Sent!"
+									: feederActive
+										? "Feeding in Progress..."
+										: `Feed Now (${feedGrams}g)`}
+						</span>
+					</button>
 				</div>
-				<div className="text-right">
-					<p className="text-xs text-gray-500 font-medium">Default Feed</p>
-					<p className="text-sm font-medium text-gray-700">{gramsPerFeeding}g</p>
-				</div>
-			</div>
-
-			<div className="space-y-3">
-				<div>
-					<label htmlFor="feed-grams" className="block text-xs text-gray-500 font-medium mb-1">
-						Feed Amount (grams)
-					</label>
-					<input
-						id="feed-grams"
-						type="number"
-						min={1}
-						max={500}
-						value={feedGrams}
-						onChange={(e) => setFeedGrams(Number(e.target.value))}
-						className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ofd-base)]/30 focus:border-[var(--ofd-base)]"
-					/>
-				</div>
-
-				<button
-					type="button"
-					onClick={handleFeedNow}
-					disabled={isPending || feederActive || feedGrams <= 0}
-					className={cn(
-						"flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 font-medium text-white transition-all shadow-md hover:shadow-lg disabled:opacity-50",
-						alreadyQueued
-							? "bg-amber-500 hover:bg-amber-600"
-							: feedSent
-								? "bg-green-500 hover:bg-green-600"
-								: "bg-[var(--ofd-base)] hover:bg-[#1a4a6e]",
-					)}
-				>
-					{isPending ? (
-						<Loader2 className="h-5 w-5 animate-spin" />
-					) : (
-						<Utensils className="h-5 w-5" />
-					)}
-					<span>
-						{alreadyQueued
-							? "Already Queued"
-							: feedSent
-								? "Feed Request Sent!"
-								: feederActive
-									? "Feeding in Progress..."
-									: `Feed Now (${feedGrams}g)`}
-					</span>
-				</button>
 			</div>
 		</div>
 	);

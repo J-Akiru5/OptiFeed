@@ -1,8 +1,40 @@
+import { REQUEST_EXPIRY_MS } from "@/lib/constants";
+import { verifyDeviceToken } from "@/lib/device-auth";
+import {
+	BUTTON_FEED_GRAMS_MAX,
+	BUTTON_FEED_GRAMS_MIN,
+	GRAMS_PER_SECOND_MAX,
+	GRAMS_PER_SECOND_MIN,
+	MAX_FEED_GRAMS_PER_REQUEST,
+	TEMP_OFFSET_C_MAX,
+	TEMP_OFFSET_C_MIN,
+	clamp,
+} from "@/lib/limits";
+import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
+import { checkDeviceRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
-const REQUEST_EXPIRY_MS = 60_000;
+type DeviceConfig = {
+	gramsPerFeeding: number;
+	buttonFeedGrams: number;
+	hopperEmptyCm: number | null;
+	hopperFullCm: number | null;
+	gramsPerSecond: number;
+	tempOffsetC: number;
+};
+
+function deviceConfig(device: DeviceConfig) {
+	return {
+		grams_per_feeding: clamp(device.gramsPerFeeding, 0, MAX_FEED_GRAMS_PER_REQUEST),
+		button_feed_grams: clamp(device.buttonFeedGrams, BUTTON_FEED_GRAMS_MIN, BUTTON_FEED_GRAMS_MAX),
+		hopper_empty_cm: device.hopperEmptyCm,
+		hopper_full_cm: device.hopperFullCm,
+		grams_per_second: clamp(device.gramsPerSecond, GRAMS_PER_SECOND_MIN, GRAMS_PER_SECOND_MAX),
+		temp_offset_c: clamp(device.tempOffsetC, TEMP_OFFSET_C_MIN, TEMP_OFFSET_C_MAX),
+	};
+}
 
 export async function GET(request: Request) {
 	const token = request.headers.get("x-device-token");
@@ -16,52 +48,71 @@ export async function GET(request: Request) {
 		return new Response("Unprocessable Entity", { status: 422 });
 	}
 
-	const device = await prisma.energyDevice.findUnique({
-		where: { token },
-		select: { id: true, mac: true, gramsPerFeeding: true },
-	});
-
-	if (!device || device.mac !== deviceId) {
-		return new Response("Unauthorized", { status: 401 });
+	const { success } = await checkDeviceRateLimit(deviceId);
+	if (!success) {
+		return new Response("Too Many Requests", { status: 429 });
 	}
 
-	// Lazy expiry: mark any pending requests older than 60s as expired.
-	// No cron needed — checked on every poll.
-	await prisma.feedRequest.updateMany({
-		where: {
-			deviceId: device.id,
-			status: "pending",
-			createdAt: { lt: new Date(Date.now() - REQUEST_EXPIRY_MS) },
-		},
-		data: { status: "expired" },
-	});
+	let device: Awaited<ReturnType<typeof verifyDeviceToken>> = null;
+	try {
+		device = await verifyDeviceToken(token);
 
-	const pendingRequest = await prisma.feedRequest.findFirst({
-		where: {
-			deviceId: device.id,
-			status: "pending",
-		},
-		orderBy: { createdAt: "asc" },
-	});
+		if (!device || device.mac !== deviceId) {
+			return new Response("Unauthorized", { status: 401 });
+		}
 
-	if (pendingRequest) {
-		await prisma.feedRequest.update({
-			where: { id: pendingRequest.id },
-			data: { status: "dispatched" },
+		// Lazy expiry: mark any pending requests older than 60s as expired.
+		// No cron needed — checked on every poll.
+		await prisma.feedRequest.updateMany({
+			where: {
+				deviceId: device.id,
+				status: "pending",
+				createdAt: { lt: new Date(Date.now() - REQUEST_EXPIRY_MS) },
+			},
+			data: { status: "expired" },
 		});
+
+		const pendingRequest = await prisma.feedRequest.findFirst({
+			where: {
+				deviceId: device.id,
+				status: "pending",
+			},
+			orderBy: { createdAt: "asc" },
+		});
+
+		if (pendingRequest) {
+			await prisma.feedRequest.update({
+				where: { id: pendingRequest.id },
+				data: { status: "dispatched" },
+			});
+
+			return Response.json({
+				feed_requested: true,
+				feed_request_id: pendingRequest.id,
+				grams: clamp(pendingRequest.grams, 0, MAX_FEED_GRAMS_PER_REQUEST),
+				...deviceConfig(device),
+			});
+		}
 
 		return Response.json({
-			feed_requested: true,
-			feed_request_id: pendingRequest.id,
-			grams: pendingRequest.grams,
-			grams_per_feeding: device.gramsPerFeeding,
+			feed_requested: false,
+			feed_request_id: null,
+			grams: 0,
+			...deviceConfig(device),
+		});
+	} catch (error) {
+		reportError(error, { route: "feed-command", deviceId: device?.id ?? deviceId });
+		// Return safe idle state so ESP32 doesn't hang
+		return Response.json({
+			feed_requested: false,
+			feed_request_id: null,
+			grams: 0,
+			grams_per_feeding: 150,
+			button_feed_grams: 80,
+			hopper_empty_cm: null,
+			hopper_full_cm: null,
+			grams_per_second: 4.0,
+			temp_offset_c: 0,
 		});
 	}
-
-	return Response.json({
-		feed_requested: false,
-		feed_request_id: null,
-		grams: 0,
-		grams_per_feeding: device.gramsPerFeeding,
-	});
 }

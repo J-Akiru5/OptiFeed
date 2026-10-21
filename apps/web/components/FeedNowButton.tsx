@@ -13,6 +13,8 @@ interface FeedNowButtonProps {
 	deviceName?: string;
 	connectionStatus?: string;
 	hopperLevelPct?: number;
+	canWrite?: boolean;
+	"data-onboard"?: string;
 }
 
 export function FeedNowButton({
@@ -22,8 +24,10 @@ export function FeedNowButton({
 	deviceName = "ILO-POND-01",
 	connectionStatus = "online",
 	hopperLevelPct = 100,
+	canWrite = true,
+	"data-onboard": dataOnboard,
 }: FeedNowButtonProps) {
-	const t = useTranslations("feedNowModal");
+	const t = useTranslations("dashboard.feedNowModal");
 	const tBtn = useTranslations("button");
 
 	const [dispensing, setDispensing] = useState(false);
@@ -32,17 +36,19 @@ export function FeedNowButton({
 	const isOffline = connectionStatus === "offline";
 
 	async function handleFeedNow() {
-		setDispensing(true);
 		setShowConfirm(false);
+		if (isOffline) return;
+		setDispensing(true);
 		try {
-			const grams = Number.parseInt(nextFeedingVolume.replace("g", "")) || 500;
-			const result = await requestFeedAction(deviceId, grams);
+			// 2-decimal doses like "29.63g"; NaN → let the server use the device default
+			const grams = Number.parseFloat(nextFeedingVolume.replace("g", ""));
+			const result = await requestFeedAction(deviceId, Number.isNaN(grams) ? undefined : grams);
 			if (result.success && result.message === "Feed already pending") {
 				toast.info(t("alreadyQueued"));
 			} else if (result.success) {
 				toast.success(t("requestSent", { volume: nextFeedingVolume }));
 			} else {
-				toast.error(t("error"));
+				toast.error(result.error || t("error"));
 			}
 		} catch (error) {
 			toast.error(t("error"));
@@ -56,12 +62,20 @@ export function FeedNowButton({
 			<button
 				type="button"
 				onClick={() => setShowConfirm(true)}
-				disabled={dispensing}
+				disabled={dispensing || isOffline || !canWrite}
 				className="bg-[#E85A2A] text-white font-black text-sm md:text-base px-6 py-3 rounded-2xl hover:bg-[#d04a1f] shadow-lg hover:shadow-xl transition-all transform active:scale-95 flex items-center gap-2 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
+				data-onboard={dataOnboard}
 			>
 				<Activity className={`w-4 h-4 ${dispensing ? "animate-spin" : "animate-pulse"}`} />
 				{dispensing ? t("awaitingDevice") : label}
 			</button>
+
+			{isOffline && (
+				<div className="mt-3 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+					<AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
+					<p className="text-xs font-medium text-red-700">{t("offlineWarning")}</p>
+				</div>
+			)}
 
 			{showConfirm && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -98,7 +112,7 @@ export function FeedNowButton({
 							<p className="text-sm text-[#3D5568] leading-relaxed">
 								{t.rich("triggerDesc", {
 									volume: nextFeedingVolume,
-									bold: (chunks) => <strong>{chunks}</strong>,
+									bold: (chunks) => <strong className="text-[#0A3D62] font-black">{chunks}</strong>,
 								})}
 							</p>
 						</div>
@@ -106,7 +120,7 @@ export function FeedNowButton({
 							<p>
 								{t.rich("feederNode", {
 									name: deviceName,
-									bold: (chunks) => <strong>{chunks}</strong>,
+									bold: (chunks) => <strong className="font-mono text-[#0A3D62]">{chunks}</strong>,
 								})}
 							</p>
 							<p>
@@ -120,7 +134,9 @@ export function FeedNowButton({
 							<p>
 								{t.rich("feedPortion", {
 									volume: nextFeedingVolume,
-									bold: (chunks) => <strong>{chunks}</strong>,
+									bold: (chunks) => (
+										<strong className="text-[#E85A2A] font-extrabold">{chunks}</strong>
+									),
 								})}
 							</p>
 						</div>

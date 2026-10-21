@@ -1,13 +1,25 @@
+import { createHash } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
+
+function requireEnv(name: string): string {
+	const value = process.env[name];
+	if (!value) {
+		throw new Error(`${name} env var is required for seeding. See HANDOFF.md.`);
+	}
+	return value;
+}
 
 async function main() {
 	console.log("Seeding database...");
 
 	// Clean up existing data to ensure idempotent seeding
+	await prisma.feedLevelLog.deleteMany();
 	await prisma.feedRequest.deleteMany();
 	await prisma.feedEvent.deleteMany();
+	await prisma.deviceStateEvent.deleteMany();
+	await prisma.scheduleCommand.deleteMany();
 	await prisma.energyDevice.deleteMany();
 	await prisma.notification.deleteMany();
 	await prisma.fcrReport.deleteMany();
@@ -15,46 +27,80 @@ async function main() {
 	await prisma.biomassLog.deleteMany();
 	await prisma.device.deleteMany();
 	await prisma.pond.deleteMany();
+	await prisma.farm.deleteMany();
+	await prisma.user.deleteMany();
 
-	// 1. Create Demo Pond
+	// 0. Create Demo User (admin) + their single Farm
+	const demoUser = await prisma.user.create({
+		data: {
+			supabaseId: "00000000-0000-0000-0000-000000000001",
+			farmId: "demo-farmer-1",
+			email: "demo-farmer-1@pond.optifeed.local",
+			displayName: "Juan Miguel",
+			role: "ADMIN",
+			farm: {
+				create: { name: "Juan Miguel Farm" },
+			},
+		},
+		include: { farm: true },
+	});
+	if (!demoUser.farm) throw new Error("Failed to create demo farm");
+
+	// 1. Create Demo Pond (under the farmer's farm)
 	const pond = await prisma.pond.create({
 		data: {
-			ownerId: "demo-farmer-1",
+			ownerId: demoUser.farmId,
+			farmId: demoUser.farm.id,
 			name: "Demo Pond",
 			feedingRatePct: 4.5,
 			feedsPerDay: 4,
+			population: 200,
 			scheduleStart: new Date("2024-01-01T06:00:00Z"),
 			scheduleEnd: new Date("2024-01-01T18:00:00Z"),
 		},
 	});
 
-	// 2. Create Device
-	const device = await prisma.device.create({
-		data: {
-			pondId: pond.id,
-			name: "Smart Feeder 1",
-			connectivity: "online",
-			hopperLevelPct: 82.0,
-			lastSyncedAt: new Date(),
-		},
-	});
-
-	// 2b. Create ESP32 Energy Controller (linked to the demo pond)
-	await prisma.energyDevice.create({
+	// 2. Create ESP32 Energy Controller (linked to the demo pond)
+	// (The deprecated Device model is no longer written — task 5.2.)
+	const deviceToken = process.env.DEVICE_TOKEN ?? "demo-device-token-001";
+	const energyDevice = await prisma.energyDevice.create({
 		data: {
 			mac: "A4:CF:12:7E:3B:09",
-			token: "esp32-tok-cict-001",
+			token: deviceToken,
+			tokenHash: createHash("sha256").update(deviceToken).digest("hex"),
 			label: "CICT Building A Feeder",
 			pondId: pond.id,
 			rtcOk: true,
 			feederActive: false,
 			gramsPerFeeding: 150,
 			lastSeenAt: new Date(),
+			feedLevelPercent: 82,
+			feedLevelCm: 9.5,
+			feedLevelUpdatedAt: new Date(),
+			hopperFullCm: 5,
+			hopperEmptyCm: 30,
+			hopperCapacityG: 7000,
 		},
 	});
 
 	// 3. Create Biomass Logs (4 entries over the last month)
 	const now = new Date();
+
+	// 3a. Create FeedLevelLog history (45 entries over ~11 days showing gradual decline)
+	for (let i = 45; i >= 1; i--) {
+		const recordedAt = new Date(now.getTime() - i * 0.25 * 24 * 60 * 60 * 1000);
+		const levelPercent = Math.max(8, 95 - (45 - i) * 1.8);
+		const distanceCm = 5 + (95 - levelPercent) * 0.35;
+		await prisma.feedLevelLog.create({
+			data: {
+				deviceId: energyDevice.id,
+				levelPercent,
+				distanceCm,
+				recordedAt,
+			},
+		});
+	}
+
 	const logs = [];
 	for (let i = 4; i >= 1; i--) {
 		const recordedAt = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000); // 4, 3, 2, 1 weeks ago
@@ -70,33 +116,40 @@ async function main() {
 	}
 	await prisma.biomassLog.createMany({ data: logs });
 
-	// 4. Create ~2 weeks of Feeding Events
-	const feedingEvents = [];
-	let missedInserted = false;
+	// 4. Create ~2 weeks of live dispense history
+	// (FeedEvent + FeedRequest — read by /dashboard/history. The deprecated
+	// FeedingEvent model is no longer written — task 5.2.)
+	const feedSources = ["scheduled", "scheduled", "scheduled", "scheduled"];
+	feedSources[3] = "dashboard"; // latest feed was a dashboard "Feed Now"
+	feedSources[1] = "button"; // one feed via physical button
 
 	for (let day = 14; day >= 1; day--) {
 		for (let feed = 0; feed < 4; feed++) {
-			const scheduledTime = new Date(now.getTime() - day * 24 * 60 * 60 * 1000);
-			scheduledTime.setHours(6 + feed * 4, 0, 0, 0); // 06:00, 10:00, 14:00, 18:00
+			const receivedAt = new Date(now.getTime() - day * 24 * 60 * 60 * 1000);
+			receivedAt.setHours(6 + feed * 4, 0, 0, 0);
 
-			let status = "completed";
+			const feedRequest = await prisma.feedRequest.create({
+				data: {
+					deviceId: energyDevice.id,
+					grams: 1500,
+					status: "completed",
+					createdAt: receivedAt,
+				},
+			});
 
-			// Exactly one "missed" status
-			if (!missedInserted && day === 5 && feed === 2) {
-				status = "missed";
-				missedInserted = true;
-			}
-
-			feedingEvents.push({
-				deviceId: device.id,
-				scheduledTime,
-				dispensedVolumeG: status === "completed" ? 1500 : 0,
-				status,
-				createdAt: scheduledTime,
+			await prisma.feedEvent.create({
+				data: {
+					deviceId: energyDevice.id,
+					eventType: "feed_dispensed",
+					timestamp: receivedAt.toISOString(),
+					grams: 1500,
+					source: feedSources[feed],
+					feedRequestId: feedRequest.id,
+					receivedAt,
+				},
 			});
 		}
 	}
-	await prisma.feedingEvent.createMany({ data: feedingEvents });
 
 	// 5. Create FCR Reports (trending-downward history)
 	const fcrReports = [

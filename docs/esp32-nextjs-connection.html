@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESP32 — Next.js Connection Guide — OptiFeed</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-light: #334155;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --accent: #3b82f6;
+    --accent-light: #60a5fa;
+    --critical: #ef4444;
+    --high: #f59e0b;
+    --medium: #eab308;
+    --low: #22c55e;
+    --code-bg: #0d1117;
+    --code-border: #30363d;
+    --code-text: #e6edf3;
+    --code-keyword: #ff7b72;
+    --code-string: #a5d6ff;
+    --code-comment: #8b949e;
+    --code-number: #79c0ff;
+    --code-function: #d2a8ff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 0;
+  }
+  .hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+    padding: 60px 40px;
+    border-bottom: 1px solid var(--surface-light);
+  }
+  .hero h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 12px;
+  }
+  .hero p {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    max-width: 720px;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 40px 24px; }
+  h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 48px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--surface-light);
+  }
+  h3 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 28px 0 12px;
+    color: var(--accent-light);
+  }
+  p, li { color: #cbd5e1; margin-bottom: 12px; }
+  ul, ol { padding-left: 24px; margin-bottom: 20px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); }
+  code {
+    background: var(--code-bg);
+    color: var(--code-string);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.875em;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    border: 1px solid var(--code-border);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    overflow-x: auto;
+    margin-bottom: 20px;
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+  pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--code-text);
+  }
+  .kw { color: var(--code-keyword); }
+  .str { color: var(--code-string); }
+  .cm { color: var(--code-comment); }
+  .num { color: var(--code-number); }
+  .fn { color: var(--code-function); }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--surface-light);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+  }
+  .card h4 { margin-bottom: 8px; font-size: 1rem; }
+  .diagram-wrapper {
+    background: var(--surface);
+    border: 1px solid var(--surface-light);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 32px;
+    overflow-x: auto;
+  }
+  .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin-right: 10px;
+    flex-shrink: 0;
+  }
+  .step { display: flex; align-items: flex-start; gap: 4px; margin-bottom: 16px; }
+  .step-content { flex: 1; }
+  .tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: 8px;
+  }
+  .tag-firmware { background: #1e3a5f; color: #60a5fa; }
+  .tag-backend { background: #3b1f3b; color: #d2a8ff; }
+  .tag-db { background: #1a3b2e; color: #4ade80; }
+  .footer {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    border-top: 1px solid var(--surface-light);
+    margin-top: 60px;
+  }
+  @media (max-width: 640px) {
+    .hero { padding: 40px 20px; }
+    .hero h1 { font-size: 1.8rem; }
+    .container { padding: 24px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>ESP32 &harr; Next.js Connection Guide</h1>
+  <p>
+    How the OptiFeed ESP32 firmware authenticates with the backend using the
+    <code>X-Device-Token</code> header &mdash; the <strong>&ldquo;app key&rdquo;</strong>
+    you configure in the Arduino IDE.
+  </p>
+</div>
+
+<div class="container">
+
+  <!-- ===== DIAGRAM ===== -->
+  <h2>Architecture Overview</h2>
+  <div class="diagram-wrapper">
+    <pre class="mermaid" style="background:transparent; font-size: 1rem;">
+sequenceDiagram
+    participant ESP as ESP32<br>(Arduino IDE)
+    participant API as Next.js API<br>(ingest / feed-command / schedule-sync)
+    participant DB as PostgreSQL<br>(Prisma)
+
+    Note over ESP: #define DEVICE_TOKEN "esp32-tok-cict-001"
+
+    ESP->>API: GET /api/feed-command?device_id=A4:CF:...
+    Note right of ESP: Header: X-Device-Token
+    API->>DB: findUnique(EnergyDevice.token)
+    DB-->>API: { token: "esp32-tok-cict-001", ... }
+    API-->>ESP: { feed_requested, grams, button_feed_grams }
+
+    ESP->>API: POST /api/ingest (heartbeat / feed_dispensed)
+    Note right of ESP: Header: X-Device-Token
+    API->>DB: findUnique(EnergyDevice.token)
+    DB-->>API: device found
+    API-->>ESP: 204 No Content
+
+    ESP->>API: GET /api/schedule-sync?device_id=A4:CF:...
+    API->>DB: findUnique(EnergyDevice.token)
+    DB-->>API: device found
+    API-->>ESP: { schedule_start, feeds_per_day, ... }
+    </pre>
+  </div>
+
+  <!-- ===== WHAT IS THE APP KEY ===== -->
+  <h2>What is the &ldquo;App Key&rdquo;?</h2>
+  <p>
+    The <strong>app key</strong> is the <code>DEVICE_TOKEN</code> &mdash; a static bearer token
+    that the ESP32 sends in the <code>X-Device-Token</code> HTTP header on every request.
+    The backend looks it up in the <code>EnergyDevice</code> table to authenticate the device.
+  </p>
+
+  <div class="card">
+    <h4>Default Token</h4>
+    <pre><code><span class="kw">#define</span> DEVICE_TOKEN  <span class="str">"esp32-tok-cict-001"</span></code></pre>
+    <p style="margin:0; color:var(--text-muted); font-size:0.9rem;">
+      Defined in <code>firmware-main.ino:42</code>. Stored in the database via
+      <code>prisma/seed.ts:46</code>. You can change it &mdash; just keep both sides in sync.
+    </p>
+  </div>
+
+  <!-- ===== MANUAL SETUP STEPS ===== -->
+  <h2>Manual Setup Steps</h2>
+
+  <div class="step">
+    <span class="step-num">1</span>
+    <div class="step-content">
+      <strong>Set WiFi credentials</strong> <span class="tag tag-firmware">firmware-main.ino</span>
+      <pre><code><span class="kw">#define</span> WIFI_SSID  <span class="str">"YOUR_WIFI_SSID"</span>
+<span class="kw">#define</span> WIFI_PASS  <span class="str">"YOUR_WIFI_PASSWORD"</span></code></pre>
+    </div>
+  </div>
+
+  <div class="step">
+    <span class="step-num">2</span>
+    <div class="step-content">
+      <strong>Set the server URL</strong> <span class="tag tag-firmware">firmware-main.ino</span>
+      <p>Point the firmware at your deployed Next.js backend:</p>
+      <pre><code><span class="kw">#define</span> INGEST_URL     <span class="str">"https://your-domain.com/api/ingest"</span>
+<span class="kw">#define</span> FEED_POLL_URL  <span class="str">"https://your-domain.com/api/feed-command?device_id=A4:CF:12:7E:3B:09"</span>
+<span class="kw">#define</span> SCHEDULE_POLL  <span class="str">"https://your-domain.com/api/schedule-sync?device_id=A4:CF:12:7E:3B:09"</span></code></pre>
+    </div>
+  </div>
+
+  <div class="step">
+    <span class="step-num">3</span>
+    <div class="step-content">
+      <strong>Set (or keep) the Device Token &amp; MAC</strong>
+      <span class="tag tag-firmware">firmware-main.ino</span>
+      <span class="tag tag-db">Prisma seed</span>
+      <pre><code><span class="kw">#define</span> DEVICE_TOKEN  <span class="str">"esp32-tok-cict-001"</span>
+<span class="kw">#define</span> DEVICE_MAC    <span class="str">"A4:CF:12:7E:3B:09"</span></code></pre>
+      <p>
+        The defaults match the Prisma seed. If you change the token here, also update it in
+        <code>prisma/seed.ts</code> and re-run the seed:
+      </p>
+      <pre><code>npx prisma db push
+npx prisma db seed</code></pre>
+    </div>
+  </div>
+
+  <div class="step">
+    <span class="step-num">4</span>
+    <div class="step-content">
+      <strong>Flash the ESP32</strong> <span class="tag tag-firmware">Arduino IDE</span>
+      <p>
+        Open <code>firmware-main.ino</code> in the Arduino IDE, select the correct board
+        (ESP32-WROOM-32U) and COM port, then hit <strong>Upload</strong>.
+      </p>
+    </div>
+  </div>
+
+  <!-- ===== HOW AUTH WORKS ===== -->
+  <h2>How Authentication Works</h2>
+
+  <div class="card">
+    <h4>Firmware side (ESP32)</h4>
+    <p style="margin-bottom:6px;">
+      Every HTTP request attaches the token as a header:
+    </p>
+    <pre><code>https.addHeader(<span class="str">"X-Device-Token"</span>, DEVICE_TOKEN);</code></pre>
+    <p style="margin-bottom:0; color:var(--text-muted); font-size:0.9rem;">
+      Used in 5 functions: <code>pollDashboardFeedCommand()</code>,
+      <code>pollScheduleCommand()</code>, <code>postScheduleAck()</code>,
+      <code>postFeedEvent()</code>, <code>sendTelemetry()</code>.
+    </p>
+  </div>
+
+  <div class="card">
+    <h4>Backend side (Next.js)</h4>
+    <p style="margin-bottom:6px;">
+      Each API route reads the header and looks up the device:
+    </p>
+    <pre><code><span class="kw">const</span> token = request.headers.get(<span class="str">"x-device-token"</span>);
+<span class="kw">const</span> device = <span class="kw">await</span> prisma.energyDevice.findUnique({
+  <span class="fn">where</span>: { token },
+});
+<span class="kw">if</span> (!device) <span class="kw">return</span> <span class="fn">Response.json</span>(<span class="str">"Unauthorized"</span>, { status: <span class="num">401</span> });</code></pre>
+    <p style="margin-bottom:0; color:var(--text-muted); font-size:0.9rem;">
+      Routes: <code>POST /api/ingest</code>, <code>GET /api/feed-command</code>,
+      <code>GET /api/schedule-sync</code>.
+    </p>
+  </div>
+
+  <!-- ===== VERIFICATION ===== -->
+  <h2>Verification (curl)</h2>
+  <p>Test the connection after flashing:</p>
+
+  <h3>1. Heartbeat</h3>
+  <pre><code>curl -X POST https://your-domain.com/api/ingest \<br>  -H <span class="str">"Content-Type: application/json"</span> \<br>  -H <span class="str">"X-Device-Token: esp32-tok-cict-001"</span> \<br>  -d <span class="str">'{</span><span class="str">"device_id":"A4:CF:12:7E:3B:09",</span><span class="str">"event_type":"heartbeat",</span><span class="str">"timestamp":"2026-07-12T12:00:00Z",</span><span class="str">"rtc_ok":true,</span><span class="str">"feeder_active":false</span><span class="str">}'</span>
+
+<span class="cm"># Expected: 204 No Content</span></code></pre>
+
+  <h3>2. Feed Command Poll</h3>
+  <pre><code>curl https://your-domain.com/api/feed-command?device_id=A4:CF:12:7E:3B:09 \<br>  -H <span class="str">"X-Device-Token: esp32-tok-cict-001"</span>
+
+<span class="cm"># Expected: {"feed_requested":false,"feed_request_id":null,"grams":0,"grams_per_feeding":150}</span></code></pre>
+
+  <h3>3. Wrong token (should 401)</h3>
+  <pre><code>curl -X POST https://your-domain.com/api/ingest \<br>  -H <span class="str">"Content-Type: application/json"</span> \<br>  -H <span class="str">"X-Device-Token: wrong-token"</span> \<br>  -d <span class="str">'{"device_id":"A4:CF:12:7E:3B:09","event_type":"heartbeat"}'</span>
+
+<span class="cm"># Expected: 401 Unauthorized</span></code></pre>
+
+  <!-- ===== TROUBLESHOOTING ===== -->
+  <h2>Troubleshooting</h2>
+
+  <div class="card">
+    <h4 style="color:var(--critical);">401 Unauthorized</h4>
+    <p style="margin-bottom:0;">
+      The <code>DEVICE_TOKEN</code> in the firmware doesn&rsquo;t match any row in the
+      <code>EnergyDevice</code> table. Check both files are in sync:
+    </p>
+    <ul style="margin-bottom:0; margin-top:8px;">
+      <li><code>firmware-main.ino</code> &rarr; <code>#define DEVICE_TOKEN</code></li>
+      <li><code>prisma/seed.ts</code> &rarr; <code>energyDevice.create({ token: ... })</code></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h4 style="color:var(--high);">Device not found (wrong MAC)</h4>
+    <p style="margin-bottom:0;">
+      The <code>device_id</code> query parameter (<code>DEVICE_MAC</code>) must match the
+      <code>mac</code> field on the <code>EnergyDevice</code> row linked to the token.
+    </p>
+  </div>
+
+  <div class="card">
+    <h4 style="color:var(--high);">No response / timeout</h4>
+    <p style="margin-bottom:0;">
+      The <code>SERVER_URL</code> (or <code>INGEST_URL</code> / <code>FEED_POLL_URL</code>)
+      is unreachable. Verify the ESP32 has internet access and the domain is correct.
+    </p>
+  </div>
+
+  <!-- ===== FILES REFERENCE ===== -->
+  <h2>Key Files</h2>
+
+  <table style="width:100%; border-collapse:collapse; margin-bottom:32px;">
+    <thead>
+      <tr style="border-bottom:2px solid var(--surface-light);">
+        <th style="text-align:left; padding:8px 12px; color:var(--text-muted);">File</th>
+        <th style="text-align:left; padding:8px 12px; color:var(--text-muted);">Role</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom:1px solid var(--surface-light);">
+        <td style="padding:10px 12px;"><code>firmware/firmware-main.ino</code></td>
+        <td style="padding:10px 12px;">Defines <code>DEVICE_TOKEN</code> (line 42), attaches header on every request</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--surface-light);">
+        <td style="padding:10px 12px;"><code>apps/web/prisma/seed.ts</code></td>
+        <td style="padding:10px 12px;">Seeds the <code>EnergyDevice</code> row with matching token (line 46)</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--surface-light);">
+        <td style="padding:10px 12px;"><code>apps/web/app/api/ingest/route.ts</code></td>
+        <td style="padding:10px 12px;">Validates token (line 47), processes heartbeats + events</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--surface-light);">
+        <td style="padding:10px 12px;"><code>apps/web/app/api/feed-command/route.ts</code></td>
+        <td style="padding:10px 12px;">Validates token (line 8), serves dashboard feed requests</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 12px;"><code>apps/web/app/api/schedule-sync/route.ts</code></td>
+        <td style="padding:10px 12px;">Validates token (line 11), serves pending schedule commands</td>
+      </tr>
+    </tbody>
+  </table>
+
+</div>
+
+<div class="footer">
+  OptiFeed &mdash; ESP32 &harr; Next.js Connection Guide &mdash; v1.9.0
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#1e3a5f',
+      primaryTextColor: '#f1f5f9',
+      primaryBorderColor: '#334155',
+      lineColor: '#60a5fa',
+      secondaryColor: '#1e293b',
+      tertiaryColor: '#0f172a',
+      fontSize: '14px',
+    },
+    sequence: {
+      showSequenceNumbers: false,
+      actorFontSize: 14,
+      actorFontWeight: 600,
+      noteFontSize: 12,
+      messageFontSize: 13,
+    },
+  });
+</script>
+</body>
+</html>

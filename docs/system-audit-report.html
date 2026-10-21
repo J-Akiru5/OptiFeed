@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OptiFeed Full System Audit Report</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-light: #334155;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --accent: #3b82f6;
+    --accent-light: #60a5fa;
+    --critical: #ef4444;
+    --critical-bg: #450a0a;
+    --high: #f59e0b;
+    --high-bg: #451a03;
+    --medium: #eab308;
+    --medium-bg: #422006;
+    --low: #22c55e;
+    --low-bg: #052e16;
+    --code-bg: #0d1117;
+    --code-border: #30363d;
+    --code-text: #e6edf3;
+    --code-keyword: #ff7b72;
+    --code-string: #a5d6ff;
+    --code-comment: #8b949e;
+    --code-number: #79c0ff;
+    --code-function: #d2a8ff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 0;
+  }
+  .hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+    padding: 60px 40px;
+    border-bottom: 1px solid var(--surface-light);
+  }
+  .hero h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 12px;
+    background: linear-gradient(to right, #ef4444, #f59e0b, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero .subtitle {
+    font-size: 1.15rem;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+  }
+  .hero .meta {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+  }
+  .hero .meta-item { display: flex; align-items: center; gap: 8px; }
+  .hero .meta-item strong { color: var(--text); }
+  .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--surface-light);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 48px;
+  }
+  .toc h2 {
+    font-size: 1.1rem; font-weight: 700; color: var(--accent-light);
+    margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .toc ol { list-style: none; counter-reset: toc; columns: 2; column-gap: 32px; }
+  .toc li { counter-increment: toc; margin-bottom: 8px; break-inside: avoid; }
+  .toc li::before {
+    content: counter(toc, decimal-leading-zero);
+    color: var(--accent); font-weight: 700;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    margin-right: 12px;
+  }
+  .toc a { color: var(--text-muted); text-decoration: none; transition: color 0.15s; }
+  .toc a:hover { color: var(--accent-light); }
+  section { margin-bottom: 64px; }
+  h2 {
+    font-size: 1.75rem; font-weight: 700; margin-bottom: 20px;
+    padding-bottom: 12px; border-bottom: 2px solid var(--surface-light);
+    color: var(--text);
+  }
+  h3 { font-size: 1.3rem; font-weight: 600; margin-top: 32px; margin-bottom: 12px; color: var(--accent-light); }
+  p { margin-bottom: 16px; }
+  .finding {
+    background: var(--surface);
+    border: 1px solid var(--surface-light);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 32px;
+    overflow: hidden;
+  }
+  .finding.critical-border { border-left: 4px solid var(--critical); }
+  .finding.high-border { border-left: 4px solid var(--high); }
+  .finding.medium-border { border-left: 4px solid var(--medium); }
+  .finding.low-border { border-left: 4px solid var(--low); }
+  .finding-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 16px; margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .finding-title { font-size: 1.2rem; font-weight: 700; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 999px;
+    font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; white-space: nowrap;
+  }
+  .badge-critical { background: var(--critical-bg); color: var(--critical); border: 1px solid var(--critical); }
+  .badge-high { background: var(--high-bg); color: var(--high); border: 1px solid var(--high); }
+  .badge-medium { background: var(--medium-bg); color: var(--medium); border: 1px solid var(--medium); }
+  .badge-low { background: var(--low-bg); color: var(--low); border: 1px solid var(--low); }
+  .finding-meta {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 12px; margin-bottom: 16px; font-size: 0.85rem;
+  }
+  .finding-meta-item {
+    background: var(--bg); padding: 10px 14px;
+    border-radius: 8px; border: 1px solid var(--surface-light);
+  }
+  .finding-meta-label {
+    color: var(--text-muted); font-weight: 600; text-transform: uppercase;
+    font-size: 0.7rem; letter-spacing: 0.05em; margin-bottom: 4px;
+  }
+  .finding-meta-value {
+    color: var(--text);
+    font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+    font-size: 0.85rem;
+  }
+  .finding-body p { margin-bottom: 12px; }
+  .finding-body ul { margin: 8px 0 12px 20px; }
+  .finding-body li { margin-bottom: 4px; color: var(--text-muted); }
+  .finding-body li strong { color: var(--text); }
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 10px;
+    margin: 16px 0;
+    overflow: hidden;
+  }
+  .code-label {
+    background: var(--surface);
+    padding: 8px 16px;
+    font-size: 0.75rem; font-weight: 600;
+    color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--code-border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .code-block pre {
+    padding: 16px 20px; overflow-x: auto;
+    font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+    font-size: 0.85rem; line-height: 1.6;
+    color: var(--code-text);
+  }
+  .code-block .kw { color: var(--code-keyword); }
+  .code-block .str { color: var(--code-string); }
+  .code-block .cmt { color: var(--code-comment); }
+  .code-block .num { color: var(--code-number); }
+  .code-block .fn { color: var(--code-function); }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .summary-stat {
+    background: var(--surface);
+    border: 1px solid var(--surface-light);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+  .summary-stat .number {
+    font-size: 2.5rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .summary-stat .label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .summary-stat.red .number { color: var(--critical); }
+  .summary-stat.amber .number { color: var(--high); }
+  .summary-stat.yellow .number { color: var(--medium); }
+  .summary-stat.green .number { color: var(--low); }
+  .total-stat {
+    background: var(--surface);
+    border: 1px solid var(--surface-light);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .total-stat .number { font-size: 3rem; font-weight: 800; color: var(--accent-light); }
+  .total-stat .label { font-size: 0.85rem; color: var(--text-muted); }
+  .priority-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 24px 0;
+    font-size: 0.85rem;
+  }
+  .priority-table th, .priority-table td {
+    padding: 12px 16px;
+    text-align: left;
+    border: 1px solid var(--surface-light);
+  }
+  .priority-table th {
+    background: var(--surface);
+    color: var(--text-muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+  }
+  .priority-table tr:hover td { background: var(--surface); }
+  .arch-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .arch-card {
+    background: var(--surface);
+    border: 1px solid var(--surface-light);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .arch-card h4 {
+    font-size: 0.9rem; font-weight: 700; color: var(--accent-light);
+    margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.03em;
+  }
+  .arch-card ul { list-style: none; }
+  .arch-card li { padding: 4px 0; font-size: 0.85rem; color: var(--text-muted); }
+  .arch-card li::before { content: ""; }
+  .arch-card .tag {
+    display: inline-block;
+    background: var(--bg);
+    border: 1px solid var(--surface-light);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-family: 'SF Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text);
+    margin: 2px 4px 2px 0;
+  }
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--surface);
+    padding: 16px 20px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+  }
+  .callout.critical { border-left-color: var(--critical); }
+  .callout p { margin-bottom: 0; }
+  .callout strong { color: var(--accent-light); }
+  .file-ref {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.82rem;
+    color: var(--accent-light);
+    background: var(--bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--surface-light);
+  }
+  .footer {
+    text-align: center; padding: 40px;
+    color: var(--text-muted); font-size: 0.85rem;
+    border-top: 1px solid var(--surface-light);
+  }
+  @media (max-width: 768px) {
+    .hero { padding: 40px 20px; }
+    .hero h1 { font-size: 1.75rem; }
+    .container { padding: 24px 16px; }
+    .finding { padding: 20px; }
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .toc ol { columns: 1; }
+    .arch-grid { grid-template-columns: 1fr; }
+    .finding-meta { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ HERO ═══════════════════════ -->
+<div class="hero">
+  <h1>OptiFeed Full System Audit</h1>
+  <p class="subtitle">Security, code quality, architecture, and error handling review of the entire OptiFeed codebase</p>
+  <div class="meta">
+    <div class="meta-item"><strong>Date:</strong> August 20, 2026</div>
+    <div class="meta-item"><strong>Version:</strong> 1.10.0</div>
+    <div class="meta-item"><strong>Scope:</strong> Full System</div>
+    <div class="meta-item"><strong>Findings:</strong> 30</div>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ═══════════════════════ TOC ═══════════════════════ -->
+<div class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Executive Summary</a></li>
+    <li><a href="#architecture">Architecture Overview</a></li>
+    <li><a href="#critical">Critical Findings</a></li>
+    <li><a href="#high">High Findings</a></li>
+    <li><a href="#medium">Medium Findings</a></li>
+    <li><a href="#low">Low Findings</a></li>
+    <li><a href="#priority">Priority Matrix</a></li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════ SUMMARY ═══════════════════════ -->
+<section id="summary">
+  <h2>Executive Summary</h2>
+
+  <div class="total-stat">
+    <div class="number">30</div>
+    <div class="label">Total Findings Across All Categories</div>
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-stat red">
+      <div class="number">3</div>
+      <div class="label">Critical</div>
+    </div>
+    <div class="summary-stat amber">
+      <div class="number">9</div>
+      <div class="label">High</div>
+    </div>
+    <div class="summary-stat yellow">
+      <div class="number">12</div>
+      <div class="label">Medium</div>
+    </div>
+    <div class="summary-stat green">
+      <div class="number">6</div>
+      <div class="label">Low</div>
+    </div>
+  </div>
+
+  <div class="callout critical">
+    <p><strong>Immediate Action Required:</strong> Production credentials (database password, Supabase service role key, Gemini API key) are committed to the repository in <span class="file-ref">apps/web/.env</span>. All secrets must be rotated immediately and the file removed from git tracking.</p>
+  </div>
+
+  <p>This audit covers the entire OptiFeed codebase: the Next.js 16 web application, ESP32 firmware, Prisma schema, API routes, server actions, CI/CD pipelines, and the pnpm monorepo structure. Findings span security vulnerabilities, code quality issues, architecture gaps, and operational risks.</p>
+</section>
+
+<!-- ═══════════════════════ ARCHITECTURE ═══════════════════════ -->
+<section id="architecture">
+  <h2>Architecture Overview</h2>
+  <div class="arch-grid">
+    <div class="arch-card">
+      <h4>Frontend</h4>
+      <ul>
+        <li><span class="tag">Next.js 16.2</span> <span class="tag">React 19</span></li>
+        <li><span class="tag">Tailwind CSS 4</span> <span class="tag">shadcn/ui</span></li>
+        <li><span class="tag">next-intl</span> (en, hil)</li>
+        <li><span class="tag">App Router</span> with [locale]</li>
+      </ul>
+    </div>
+    <div class="arch-card">
+      <h4>Backend</h4>
+      <ul>
+        <li><span class="tag">Supabase</span> <span class="tag">PostgreSQL</span></li>
+        <li><span class="tag">Prisma 6.6</span> ORM</li>
+        <li><span class="tag">Google Gemini</span> AI Chat</li>
+        <li><span class="tag">Server Actions</span> + Route Handlers</li>
+      </ul>
+    </div>
+    <div class="arch-card">
+      <h4>IoT / Firmware</h4>
+      <ul>
+        <li><span class="tag">ESP32-WROOM-32U</span></li>
+        <li><span class="tag">Arduino</span> Framework</li>
+        <li><span class="tag">RTC</span> <span class="tag">Ultrasonic</span> <span class="tag">DS18B20</span></li>
+        <li><span class="tag">HTTP Polling</span> (5s cycle)</li>
+      </ul>
+    </div>
+    <div class="arch-card">
+      <h4>Tooling & Infra</h4>
+      <ul>
+        <li><span class="tag">pnpm</span> <span class="tag">Biome</span> <span class="tag">Husky</span></li>
+        <li><span class="tag">GitHub Actions</span> CI/CD</li>
+        <li><span class="tag">Vercel</span> Deployment</li>
+        <li><span class="tag">Zod 4</span> Validation</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ CRITICAL ═══════════════════════ -->
+<section id="critical">
+  <h2>Critical Findings</h2>
+
+  <!-- CRITICAL #1 -->
+  <div class="finding critical-border">
+    <div class="finding-header">
+      <div class="finding-title">#1 &mdash; Production Secrets Committed to Git</div>
+      <span class="badge badge-critical">Critical</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">File</div>
+        <div class="finding-meta-value">apps/web/.env</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Secrets Management</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The <span class="file-ref">.env</span> file contains live production credentials committed to the repository:</p>
+      <ul>
+        <li><strong>DATABASE_URL</strong> &mdash; Full PostgreSQL connection string with plaintext password</li>
+        <li><strong>DIRECT_URL</strong> &mdash; Same password in a second connection string</li>
+        <li><strong>NEXT_PUBLIC_SUPABASE_ANON_KEY</strong> &mdash; Supabase JWT</li>
+        <li><strong>SUPABASE_SERVICE_ROLE_KEY</strong> &mdash; Full admin access bypassing all RLS</li>
+        <li><strong>GEMINI_API_KEY</strong> &mdash; Google Gemini API key in plaintext</li>
+      </ul>
+      <div class="code-block">
+        <div class="code-label">apps/web/.env</div>
+        <pre><span class="cmt"># All of these are REAL production credentials</span>
+DATABASE_URL=<span class="str">"postgresql://...:sU2YVmhZVwv%26J%24b@..."</span>
+DIRECT_URL=<span class="str">"postgresql://...:sU2YVmhZVwv%26J%24b@..."</span>
+NEXT_PUBLIC_SUPABASE_URL=<span class="str">"https://xjjnkikgkraixlfhhvoh..."</span>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<span class="str">"eyJ..."</span>
+SUPABASE_SERVICE_ROLE_KEY=<span class="str">"eyJ..."</span>
+GEMINI_API_KEY=<span class="str">"AQ.Ab8RN6KZy..."</span></pre>
+      </div>
+      <p>Although <span class="file-ref">.gitignore</span> lists <span class="file-ref">.env</span>, the file is already tracked by git. Anyone with repository access has unrestricted database admin control.</p>
+      <p><strong>Action:</strong> Rotate ALL credentials. Run <span class="file-ref">git rm --cached apps/web/.env</span>. Add a pre-commit hook to prevent re-commit.</p>
+    </div>
+  </div>
+
+  <!-- CRITICAL #2 -->
+  <div class="finding critical-border">
+    <div class="finding-header">
+      <div class="finding-title">#2 &mdash; Hardcoded Device Token in Firmware</div>
+      <span class="badge badge-critical">Critical</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Files</div>
+        <div class="finding-meta-value">firmware/firmware-main.ino:42<br>prisma/seed.ts:49</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Credential Exposure</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The device authentication token is hardcoded in both firmware and seed data:</p>
+      <div class="code-block">
+        <div class="code-label">firmware/firmware-main.ino:42</div>
+        <pre><span class="kw">#define</span> DEVICE_TOKEN    <span class="str">"esp32-tok-cict-001"</span>
+<span class="kw">#define</span> DEVICE_MAC      <span class="str">"A4:CF:12:7E:3B:09"</span></pre>
+      </div>
+      <div class="code-block">
+        <div class="code-label">prisma/seed.ts:49</div>
+        <pre>token: <span class="str">"esp32-tok-cict-001"</span>,</pre>
+      </div>
+      <p>Token compromise allows impersonation of the device to inject fake telemetry, trigger unauthorized feed dispenses, or manipulate schedules.</p>
+      <p><strong>Action:</strong> Use environment variables or per-device provisioning. Never hardcode tokens in firmware source.</p>
+    </div>
+  </div>
+
+  <!-- CRITICAL #3 -->
+  <div class="finding critical-border">
+    <div class="finding-header">
+      <div class="finding-title">#3 &mdash; Brute-Forceable PIN Auth with No Lockout</div>
+      <span class="badge badge-critical">Critical</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Files</div>
+        <div class="finding-meta-value">lib/actions/auth.ts:10-28<br>proxy.ts:67</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Authentication</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>Authentication uses a 4-6 digit numeric PIN (10,000 to 1,000,000 combinations) with:</p>
+      <ul>
+        <li><strong>No rate limiting</strong> on login attempts</li>
+        <li><strong>No account lockout</strong> after failed attempts</li>
+        <li><strong>No CAPTCHA</strong> or bot protection</li>
+        <li><strong>No progressive delay</strong> on repeated failures</li>
+      </ul>
+      <div class="code-block">
+        <div class="code-label">lib/actions/auth.ts:10-12</div>
+        <pre><span class="kw">if</span> (pin.length < <span class="num">4</span> || pin.length > <span class="num">6</span>)
+  <span class="kw">return</span> { error: <span class="str">"invalid"</span> };
+<span class="cmt">// No rate limiting, no lockout, no CAPTCHA</span></pre>
+      </div>
+      <p>Additionally, the login form pre-fills <span class="file-ref">demo-farmer-1</span> with default PIN <span class="file-ref">1234</span>.</p>
+      <p><strong>Action:</strong> Implement rate limiting (e.g., 5 attempts per minute), account lockout after 10 failures, and progressive delays.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ HIGH ═══════════════════════ -->
+<section id="high">
+  <h2>High Findings</h2>
+
+  <!-- HIGH #4 -->
+  <div class="finding high-border">
+    <div class="finding-header">
+      <div class="finding-title">#4 &mdash; No Rate Limiting on Login or API Endpoints</div>
+      <span class="badge badge-high">High</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Files</div>
+        <div class="finding-meta-value">api/chat/route.ts<br>api/import/route.ts<br>api/export/route.ts</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Abuse Prevention</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The only rate limit in the entire codebase is a per-device 1-second throttle on <span class="file-ref">/api/ingest</span>. All human-facing endpoints are unprotected:</p>
+      <ul>
+        <li><strong>Login</strong> &mdash; brute-forceable (see #3)</li>
+        <li><strong>Chat API</strong> &mdash; can drain Gemini API quota</li>
+        <li><strong>Export endpoints</strong> &mdash; data exfiltration at scale</li>
+        <li><strong>Import endpoints</strong> &mdash; database flooding</li>
+      </ul>
+      <p><strong>Action:</strong> Add global rate limiting middleware (e.g., <span class="file-ref">express-rate-limit</span> pattern) for all API routes.</p>
+    </div>
+  </div>
+
+  <!-- HIGH #5 -->
+  <div class="finding high-border">
+    <div class="finding-header">
+      <div class="finding-title">#5 &mdash; API Routes Excluded from Middleware Auth</div>
+      <span class="badge badge-high">High</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">File</div>
+        <div class="finding-meta-value">proxy.ts:67</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Authorization</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <div class="code-block">
+        <div class="code-label">proxy.ts:67</div>
+        <pre>matcher: [<span class="str">"/((?!api|_next|_vercel|.*\\..*).*)"</span>],</pre>
+      </div>
+      <p>All <span class="file-ref">/api/*</span> routes are excluded from the Next.js middleware that performs Supabase session refresh and auth redirects. While some API routes check auth independently, this creates a fragile pattern where any new API route added without explicit auth check is unprotected.</p>
+      <p><strong>Action:</strong> Create a shared <span class="file-ref">requireAuth()</span> helper and apply it to all dashboard API routes.</p>
+    </div>
+  </div>
+
+  <!-- HIGH #6 -->
+  <div class="finding high-border">
+    <div class="finding-header">
+      <div class="finding-title">#6 &mdash; Missing Ownership Validation in Server Actions</div>
+      <span class="badge badge-high">High</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Files</div>
+        <div class="finding-meta-value">lib/actions/settings.ts:8-66<br>lib/actions/time.ts:7-38<br>lib/actions/energy.ts:113-140<br>lib/actions/notifications.ts:100-115</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Authorization</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>Multiple server actions accept <span class="file-ref">pondId</span> or <span class="file-ref">deviceId</span> without verifying the authenticated user owns the resource:</p>
+      <ul>
+        <li><strong>updatePondSettings</strong> &mdash; ownership check missing in fallback path</li>
+        <li><strong>setDeviceTime</strong> &mdash; device ownership not verified against caller's pond</li>
+        <li><strong>registerEnergyDevice</strong> &mdash; no ownership verification at all</li>
+        <li><strong>createDemoNotification</strong> &mdash; zero auth check; any user can create notifications for any pond</li>
+      </ul>
+      <p><strong>Action:</strong> Add ownership verification at the top of every server action that accepts resource IDs.</p>
+    </div>
+  </div>
+
+  <!-- HIGH #7 -->
+  <div class="finding high-border">
+    <div class="finding-header">
+      <div class="finding-title">#7 &mdash; No Security Headers Configured</div>
+      <span class="badge badge-high">High</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">File</div>
+        <div class="finding-meta-value">next.config.ts:1-14</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Security Headers</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <div class="code-block">
+        <div class="code-label">next.config.ts</div>
+        <pre><span class="kw">const</span> nextConfig: NextConfig = {
+    serverExternalPackages: [<span class="str">"@prisma/client"</span>],
+    allowedDevOrigins: [<span class="str">"192.168.1.10"</span>],
+    devIndicators: <span class="kw">false</span>,
+    <span class="cmt">// No security headers at all</span>
+};</pre>
+      </div>
+      <p>Missing headers: <strong>Content-Security-Policy</strong> (XSS protection), <strong>X-Frame-Options</strong> (clickjacking), <strong>Strict-Transport-Security</strong> (HTTPS enforcement), <strong>X-Content-Type-Options</strong> (MIME sniffing), <strong>Referrer-Policy</strong>, <strong>Permissions-Policy</strong>.</p>
+      <p><strong>Action:</strong> Add a <span class="file-ref">headers()</span> config to <span class="file-ref">next.config.ts</span> with all standard security headers.</p>
+    </div>
+  </div>
+
+  <!-- HIGH #8 -->
+  <div class="finding high-border">
+    <div class="finding-header">
+      <div class="finding-title">#8 &mdash; No CORS Configuration</div>
+      <span class="badge badge-high">High</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Scope</div>
+        <div class="finding-meta-value">All API routes</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Cross-Origin Security</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>No CORS headers or middleware found anywhere in the codebase. For an IoT application where ESP32 devices make cross-origin HTTP requests, CORS behavior is undefined. Cross-origin requests are governed only by browser same-origin policy and Next.js defaults.</p>
+      <p><strong>Action:</strong> Configure explicit CORS headers for device API routes (<span class="file-ref">/api/ingest</span>, <span class="file-ref">/api/feed-command</span>, <span class="file-ref">/api/schedule-sync</span>) and restrict dashboard API routes to same-origin.</p>
+    </div>
+  </div>
+
+  <!-- HIGH #9 -->
+  <div class="finding high-border">
+    <div class="finding-header">
+      <div class="finding-title">#9 &mdash; No Row-Level Security in Database</div>
+      <span class="badge badge-high">High</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">File</div>
+        <div class="finding-meta-value">prisma/schema.prisma:5</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Data Security</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <div class="code-block">
+        <div class="code-label">prisma/schema.prisma:5</div>
+        <pre><span class="cmt">// TODO(karl): Confirm indexes, cascading deletes,</span>
+<span class="cmt">// and row-level security policies once the access</span>
+<span class="cmt">// model is finalized.</span></pre>
+      </div>
+      <p>The schema has no RLS policies despite using Supabase PostgreSQL. All access control depends entirely on application-level <span class="file-ref">ownerId</span> lookups, which as documented above are inconsistent. A direct database query bypasses all access controls.</p>
+      <p><strong>Action:</strong> Enable Supabase RLS policies on all tables. Use <span class="file-ref">auth.uid()</span> to enforce row-level access at the database layer.</p>
+    </div>
+  </div>
+
+  <!-- HIGH #10 -->
+  <div class="finding high-border">
+    <div class="finding-header">
+      <div class="finding-title">#10 &mdash; Error Details Leaked to Client</div>
+      <span class="badge badge-high">High</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">File</div>
+        <div class="finding-meta-value">api/import/confirm/route.ts:191</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Information Disclosure</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <div class="code-block">
+        <div class="code-label">api/import/confirm/route.ts:191</div>
+        <pre><span class="kw">return</span> Response.json(
+  { error: <span class="str">"Import failed"</span>, details: <span class="fn">String</span>(error) },
+  { status: <span class="num">500</span> }
+);</pre>
+      </div>
+      <p>Server-side errors (including Prisma query details, stack traces, and internal state) are serialized and returned to the client in the import confirm endpoint. This exposes internal implementation details to attackers.</p>
+      <p><strong>Action:</strong> Return generic error messages to clients. Log full errors server-side only.</p>
+    </div>
+  </div>
+
+  <!-- HIGH #11 -->
+  <div class="finding high-border">
+    <div class="finding-header">
+      <div class="finding-title">#11 &mdash; Device API Routes Have Zero Error Handling</div>
+      <span class="badge badge-high">High</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Files</div>
+        <div class="finding-meta-value">api/feed-command/route.ts<br>api/schedule-sync/route.ts</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Reliability</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The feed-command and schedule-sync endpoints that the ESP32 polls every 5 seconds have <strong>no try/catch</strong> blocks. If Prisma queries fail, raw 500 errors propagate to the firmware, which could cause firmware hangs or stuck states.</p>
+      <ul>
+        <li><span class="file-ref">/api/feed-command</span> &mdash; no error handling at all</li>
+        <li><span class="file-ref">/api/schedule-sync</span> &mdash; no error handling at all</li>
+        <li><span class="file-ref">/api/export</span> &mdash; no error handling</li>
+        <li><span class="file-ref">/api/export/batch</span> &mdash; no error handling</li>
+      </ul>
+      <p><strong>Action:</strong> Wrap all device-facing endpoints in try/catch with structured error responses and server-side logging.</p>
+    </div>
+  </div>
+
+  <!-- HIGH #12 -->
+  <div class="finding high-border">
+    <div class="finding-header">
+      <div class="finding-title">#12 &mdash; N+1 Query and No Transaction in Import</div>
+      <span class="badge badge-high">High</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">File</div>
+        <div class="finding-meta-value">api/import/confirm/route.ts:54-170</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Performance / Reliability</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The import handler inserts rows one at a time in a for-loop with individual <span class="file-ref">prisma.feedEvent.create()</span> calls. For a CSV with hundreds of rows, this creates N database queries. Additionally, no transaction wrapping means a partial import commits without rollback.</p>
+      <div class="code-block">
+        <div class="code-label">api/import/confirm/route.ts (simplified)</div>
+        <pre><span class="cmt">// One-by-one inserts in a loop — no batch, no transaction</span>
+<span class="kw">for</span> (<span class="kw">const</span> row <span class="kw">of</span> data) {
+    <span class="kw">await</span> prisma.feedEvent.create({ data: { ... } });
+}
+<span class="cmt">// If import fails halfway, partial data is committed</span></pre>
+      </div>
+      <p><strong>Action:</strong> Use <span class="file-ref">prisma.$transaction()</span> with <span class="file-ref">prisma.createMany()</span> for batch inserts.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ MEDIUM ═══════════════════════ -->
+<section id="medium">
+  <h2>Medium Findings</h2>
+
+  <!-- MEDIUM #13 -->
+  <div class="finding medium-border">
+    <div class="finding-header">
+      <div class="finding-title">#13 &mdash; No Test Framework</div>
+      <span class="badge badge-medium">Medium</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Scope</div>
+        <div class="finding-meta-value">Entire codebase</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Quality Assurance</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>Zero test files exist in the codebase. No Jest, Vitest, Mocha, or Playwright configuration. No <span class="file-ref">*.test.*</span> or <span class="file-ref">*.spec.*</span> files. No test-related devDependencies. Verification relies solely on <span class="file-ref">pnpm lint</span> + <span class="file-ref">pnpm build</span>.</p>
+      <p><strong>Action:</strong> Add Vitest for unit tests and Playwright for E2E. Start with critical paths: auth, feed requests, schedule commands, and import/export.</p>
+    </div>
+  </div>
+
+  <!-- MEDIUM #14 -->
+  <div class="finding medium-border">
+    <div class="finding-header">
+      <div class="finding-title">#14 &mdash; No Health Check Endpoints</div>
+      <span class="badge badge-medium">Medium</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Scope</div>
+        <div class="finding-meta-value">All API routes</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Operability</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>No <span class="file-ref">/health</span>, <span class="file-ref">/healthz</span>, or <span class="file-ref">/readyz</span> endpoints exist. Load balancers, monitoring tools, and orchestrators cannot probe application readiness or liveness.</p>
+      <p><strong>Action:</strong> Add <span class="file-ref">/api/health</span> that checks database connectivity and returns status.</p>
+    </div>
+  </div>
+
+  <!-- MEDIUM #15 -->
+  <div class="finding medium-border">
+    <div class="finding-header">
+      <div class="finding-title">#15 &mdash; No Graceful Shutdown Handling</div>
+      <span class="badge badge-medium">Medium</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Scope</div>
+        <div class="finding-meta-value">Application process</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Reliability</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>No <span class="file-ref">SIGTERM</span> or <span class="file-ref">SIGINT</span> handlers. When the process is killed during deploy or restart, in-flight Prisma transactions will be aborted and in-progress SSE streams (chat) will be terminated abruptly.</p>
+      <p><strong>Action:</strong> Add process signal handlers to drain connections gracefully before shutdown.</p>
+    </div>
+  </div>
+
+  <!-- MEDIUM #16 -->
+  <div class="finding medium-border">
+    <div class="finding-header">
+      <div class="finding-title">#16 &mdash; No Structured Logging</div>
+      <span class="badge badge-medium">Medium</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Scope</div>
+        <div class="finding-meta-value">Entire codebase</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Observability</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>Only <span class="file-ref">console.log</span> / <span class="file-ref">console.error</span> / <span class="file-ref">console.warn</span> with ad-hoc prefixes. No logging library (winston, pino, morgan). No log levels, no correlation IDs, no structured JSON output for log aggregation.</p>
+      <p><strong>Action:</strong> Adopt a structured logger (e.g., <span class="file-ref">pino</span>) with log levels, request IDs, and JSON output.</p>
+    </div>
+  </div>
+
+  <!-- MEDIUM #17 -->
+  <div class="finding medium-border">
+    <div class="finding-header">
+      <div class="finding-title">#17 &mdash; Gemini API Key Prefix Logged</div>
+      <span class="badge badge-medium">Medium</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Files</div>
+        <div class="finding-meta-value">lib/gemini.ts:22-28<br>api/chat/route.ts:63</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Information Disclosure</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <div class="code-block">
+        <div class="code-label">lib/gemini.ts:22-28</div>
+        <pre><span class="kw">export function</span> <span class="fn">geminiDebugInfo</span>() {
+    <span class="kw">return</span> {
+        hasKey: <span class="fn">isGeminiEnabled</span>(),
+        keyPrefix: apiKey ? apiKey.slice(<span class="num">0</span>, <span class="num">6</span>) : <span class="str">"none"</span>,
+        nodeEnv: process.env.NODE_ENV ?? <span class="str">"unknown"</span>,
+        model: <span class="fn">getGeminiModelId</span>(),
+    };
+}</pre>
+      </div>
+      <p>The first 6 characters of the Gemini API key are logged on every chat request. This reduces the keyspace for brute-force attacks and may appear in log aggregation services.</p>
+      <p><strong>Action:</strong> Remove key prefix from debug info. Only log <span class="file-ref">hasKey: boolean</span>.</p>
+    </div>
+  </div>
+
+  <!-- MEDIUM #18 -->
+  <div class="finding medium-border">
+    <div class="finding-header">
+      <div class="finding-title">#18 &mdash; No Prompt Injection Protection on Chat</div>
+      <span class="badge badge-medium">Medium</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">File</div>
+        <div class="finding-meta-value">api/chat/route.ts:39-49</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">AI Safety</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>User messages are passed to Gemini with only a <span class="file-ref">typeof</span> check and a 20-turn history limit. No sanitization or prompt injection protection exists. An attacker could craft messages to manipulate the AI's behavior, extract the system prompt, or bypass safety guardrails.</p>
+      <p><strong>Action:</strong> Add input sanitization, validate message length, and consider content filtering before sending to Gemini.</p>
+    </div>
+  </div>
+
+  <!-- MEDIUM #19 -->
+  <div class="finding medium-border">
+    <div class="finding-header">
+      <div class="finding-title">#19 &mdash; Hardcoded User Data in UI</div>
+      <span class="badge badge-medium">Medium</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Files</div>
+        <div class="finding-meta-value">dashboard/page.tsx:175<br>header-actions.tsx:93,102<br>fcr-calculation.ts:18<br>volumeCalc.ts:17<br>sidebar.tsx:32-34</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Code Quality</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>Multiple hardcoded values should come from the authenticated user's profile or database:</p>
+      <ul>
+        <li><strong>"Welcome Back, Jeff!"</strong> &mdash; <span class="file-ref">dashboard/page.tsx:175</span></li>
+        <li><strong>"Juan Miguel" / "JM"</strong> &mdash; <span class="file-ref">header-actions.tsx:93,102,105</span></li>
+        <li><strong>Fish population 5000</strong> &mdash; hardcoded in 3 files (<span class="file-ref">fcr-calculation.ts:18</span>, <span class="file-ref">volumeCalc.ts:17</span>, <span class="file-ref">dashboard/page.tsx:124</span>)</li>
+        <li><strong>Hopper capacity 22.19 kg</strong> &mdash; <span class="file-ref">sidebar.tsx:32-34</span></li>
+        <li><strong>Hardcoded FCR sparkline SVG</strong> &mdash; <span class="file-ref">dashboard/page.tsx:291-307</span> (static path, not real data)</li>
+      </ul>
+      <p><strong>Action:</strong> Replace with values from the user profile and database configuration.</p>
+    </div>
+  </div>
+
+  <!-- MEDIUM #20 -->
+  <div class="finding medium-border">
+    <div class="finding-header">
+      <div class="finding-title">#20 &mdash; Dashboard Page Monolith (452 lines)</div>
+      <span class="badge badge-medium">Medium</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">File</div>
+        <div class="finding-meta-value">dashboard/page.tsx</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Code Quality</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The main dashboard page is 452 lines with heavy inline JSX. The "Bento Grid" section (lines 194-421) should be extracted into sub-components (<span class="file-ref">BentoGrid.tsx</span>, <span class="file-ref">FcrSparkline.tsx</span>, etc.).</p>
+      <p><strong>Action:</strong> Extract the bento grid into a dedicated component. Create a shared <span class="file-ref">usePondData()</span> hook to eliminate repeated pond-fetching boilerplate across 8+ pages.</p>
+    </div>
+  </div>
+
+  <!-- MEDIUM #21 -->
+  <div class="finding medium-border">
+    <div class="finding-header">
+      <div class="finding-title">#21 &mdash; Duplicated Constants Across Codebase</div>
+      <span class="badge badge-medium">Medium</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Scope</div>
+        <div class="finding-meta-value">15+ files</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Code Quality</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>Multiple magic numbers and utility functions are duplicated across the codebase:</p>
+      <ul>
+        <li><strong>OFFLINE_THRESHOLD_MS</strong> (15 min) &mdash; defined in 5 separate files</li>
+        <li><strong>STALE_*_MS</strong> (10 min) &mdash; defined in 3 files with different names</li>
+        <li><strong>FISH_POPULATION</strong> (5000) &mdash; hardcoded in 3 files</li>
+        <li><strong>fmtTime</strong> utility &mdash; duplicated in 4 files</li>
+        <li><strong>Auth check boilerplate</strong> &mdash; copy-pasted in 5 route handlers (5 lines each)</li>
+        <li><strong>Export row-mapping logic</strong> &mdash; nearly identical in export and batch-export routes</li>
+        <li><strong>"Pond not found" empty states</strong> &mdash; repeated in 8+ pages</li>
+      </ul>
+      <p><strong>Action:</strong> Create <span class="file-ref">lib/constants.ts</span> for shared values. Extract <span class="file-ref">requireAuth()</span>, <span class="file-ref">fetchExportRows()</span>, and <span class="file-ref">generateLinePath()</span> as shared utilities.</p>
+    </div>
+  </div>
+
+  <!-- MEDIUM #22 -->
+  <div class="finding medium-border">
+    <div class="finding-header">
+      <div class="finding-title">#22 &mdash; Unbounded Export Queries</div>
+      <span class="badge badge-medium">Medium</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Files</div>
+        <div class="finding-meta-value">api/export/route.ts<br>api/export/batch/route.ts</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Performance</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>Export endpoints fetch all records with no <span class="file-ref">take</span> limit. A table with millions of rows would create a very large CSV or ZIP response. The batch export iterates through multiple types sequentially, each with an unbounded query.</p>
+      <p><strong>Action:</strong> Add pagination limits or stream large exports. Consider a max row count with a warning for exports exceeding the threshold.</p>
+    </div>
+  </div>
+
+  <!-- MEDIUM #23 -->
+  <div class="finding medium-border">
+    <div class="finding-header">
+      <div class="finding-title">#23 &mdash; Missing Database Indexes</div>
+      <span class="badge badge-medium">Medium</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">File</div>
+        <div class="finding-meta-value">prisma/schema.prisma</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Performance</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>Critical query paths lack database indexes:</p>
+      <ul>
+        <li><strong>FcrReport(pondId, periodEnd)</strong> &mdash; queried with <span class="file-ref">orderBy: { periodEnd: "desc" }</span> in 3 places</li>
+        <li><strong>Notification(pondId, read)</strong> &mdash; used for mark-all-read bulk update</li>
+        <li><strong>ScheduleCommand(deviceId, appliedAt)</strong> &mdash; "find latest applied command" query pattern</li>
+      </ul>
+      <p><strong>Action:</strong> Add composite indexes to the Prisma schema and create a migration.</p>
+    </div>
+  </div>
+
+  <!-- MEDIUM #24 -->
+  <div class="finding medium-border">
+    <div class="finding-header">
+      <div class="finding-title">#24 &mdash; Cursor Pagination Bug in Audit Log</div>
+      <span class="badge badge-medium">Medium</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">File</div>
+        <div class="finding-meta-value">lib/actions/audit.ts:75-79,107</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Correctness</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The audit log cursor uses <span class="file-ref">createdAt</span> without a secondary sort key. If two events share the same timestamp, events will be skipped or duplicated across pages. Other paginated endpoints (<span class="file-ref">history.ts</span>, <span class="file-ref">growth.ts</span>) correctly use <span class="file-ref">id</span> as cursor.</p>
+      <p><strong>Action:</strong> Switch audit cursor to use <span class="file-ref">id</span> for consistency and correctness.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ LOW ═══════════════════════ -->
+<section id="low">
+  <h2>Low Findings</h2>
+
+  <!-- LOW #25 -->
+  <div class="finding low-border">
+    <div class="finding-header">
+      <div class="finding-title">#25 &mdash; Empty Monorepo Packages</div>
+      <span class="badge badge-low">Low</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Files</div>
+        <div class="finding-meta-value">packages/types/src/index.ts<br>packages/ui/src/index.ts<br>packages/config/tsconfig.base.json</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Code Organization</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>Three shared packages exist as stubs with only TODO comments. The monorepo split provides no value currently. All types and components are defined inline within <span class="file-ref">apps/web/</span>.</p>
+      <p><strong>Action:</strong> Either populate these packages or consolidate to a single app to reduce complexity.</p>
+    </div>
+  </div>
+
+  <!-- LOW #26 -->
+  <div class="finding low-border">
+    <div class="finding-header">
+      <div class="finding-title">#26 &mdash; Deprecated Models Still Active</div>
+      <span class="badge badge-low">Low</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Files</div>
+        <div class="finding-meta-value">prisma/schema.prisma:36,65<br>prisma/seed.ts:35-43,99-124</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Code Quality</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p><span class="file-ref">Device</span> and <span class="file-ref">FeedingEvent</span> models are marked <span class="file-ref">@deprecated</span> in the schema but are still used in seed data and referenced in dashboard pages. The comment says "No new code should write to this model" but they are actively read.</p>
+      <p><strong>Action:</strong> Complete the migration to <span class="file-ref">EnergyDevice</span> and <span class="file-ref">FeedEvent</span>, then remove the deprecated models.</p>
+    </div>
+  </div>
+
+  <!-- LOW #27 -->
+  <div class="finding low-border">
+    <div class="finding-header">
+      <div class="finding-title">#27 &mdash; Chat History Not Cleared on Logout</div>
+      <span class="badge badge-low">Low</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Files</div>
+        <div class="finding-meta-value">components/header-actions.tsx:42<br>components/chat/chat-widget-provider.tsx:41-45</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Data Isolation</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p><span class="file-ref">clearChatHistory()</span> is called in the logout handler, but the <span class="file-ref">ChatWidgetProvider</span> in-memory state is not reset. On next visit, stale <span class="file-ref">sessionStorage</span> data is loaded, potentially showing the previous user's chat messages.</p>
+      <p><strong>Action:</strong> Reset provider state on logout or trigger a full page reload.</p>
+    </div>
+  </div>
+
+  <!-- LOW #28 -->
+  <div class="finding low-border">
+    <div class="finding-header">
+      <div class="finding-title">#28 &mdash; Only One Error Boundary</div>
+      <span class="badge badge-low">Low</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">File</div>
+        <div class="finding-meta-value">(dashboard)/error.tsx</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Error Handling</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>Only the <span class="file-ref">(dashboard)</span> route group has an error boundary. Errors in other route groups (login, landing page) fall through to the Next.js default error page, which may not match the application's design.</p>
+      <p><strong>Action:</strong> Add error boundaries at the root layout level and for the login page.</p>
+    </div>
+  </div>
+
+  <!-- LOW #29 -->
+  <div class="finding low-border">
+    <div class="finding-header">
+      <div class="finding-title">#29 &mdash; No Global Unhandled Rejection Handler</div>
+      <span class="badge badge-low">Low</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Scope</div>
+        <div class="finding-meta-value">Application process</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Reliability</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>No <span class="file-ref">process.on('unhandledRejection')</span> or <span class="file-ref">process.on('uncaughtException')</span> handlers. Several server actions (<span class="file-ref">notifications.ts</span>, <span class="file-ref">audit.ts</span>, <span class="file-ref">biomass.ts</span>) lack try/catch, meaning unhandled rejections from Prisma could silently crash the process.</p>
+      <p><strong>Action:</strong> Add global handlers with structured logging. Also add try/catch to all server actions.</p>
+    </div>
+  </div>
+
+  <!-- LOW #30 -->
+  <div class="finding low-border">
+    <div class="finding-header">
+      <div class="finding-title">#30 &mdash; CSV Import Dynamic Typing Risk</div>
+      <span class="badge badge-low">Low</span>
+    </div>
+    <div class="finding-meta">
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Files</div>
+        <div class="finding-meta-value">lib/csv.ts:29-36<br>api/import/confirm/route.ts:52-171</div>
+      </div>
+      <div class="finding-meta-item">
+        <div class="finding-meta-label">Category</div>
+        <div class="finding-meta-value">Input Validation</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>PapaParse is configured with <span class="file-ref">dynamicTyping: true</span>, which auto-converts types. The confirm route then uses <span class="file-ref">Number()</span>, <span class="file-ref">Boolean()</span>, and <span class="file-ref">new Date()</span> without checking for <span class="file-ref">NaN</span>, <span class="file-ref">Infinity</span>, or invalid dates. This could silently insert corrupted data into the database.</p>
+      <p><strong>Action:</strong> Add Zod validation schemas for each import type (similar to the ingest route pattern).</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ PRIORITY MATRIX ═══════════════════════ -->
+<section id="priority">
+  <h2>Priority Matrix</h2>
+
+  <table class="priority-table">
+    <thead>
+      <tr>
+        <th>Priority</th>
+        <th>Findings</th>
+        <th>Action</th>
+        <th>Effort</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-critical">Immediate</span></td>
+        <td>#1 Secrets, #2 Hardcoded Token, #3 Brute-Force Auth</td>
+        <td>Rotate all credentials, remove .env from git, add rate limiting to login</td>
+        <td>Hours &ndash; 1 day</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-high">High</span></td>
+        <td>#7 Security Headers, #8 CORS, #10 Error Leaks</td>
+        <td>Add security headers via next.config.ts, configure CORS, sanitize error responses</td>
+        <td>1 day</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-high">High</span></td>
+        <td>#5 Middleware Auth, #6 Ownership Validation, #9 RLS</td>
+        <td>Create requireAuth() helper, add ownership checks, enable Supabase RLS</td>
+        <td>2 &ndash; 3 days</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-high">High</span></td>
+        <td>#11 Device Route Error Handling, #12 Import N+1</td>
+        <td>Add try/catch to device endpoints, use createMany() with transactions</td>
+        <td>1 day</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td>#4 Rate Limiting, #17 Key Logging, #18 Prompt Injection</td>
+        <td>Add global rate limiting, remove key prefix logs, sanitize chat input</td>
+        <td>1 &ndash; 2 days</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td>#19 Hardcoded Data, #20 Monolith, #21 Duplicated Constants</td>
+        <td>Extract components, create shared constants, replace hardcoded values</td>
+        <td>2 &ndash; 3 days</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td>#13 Tests, #14 Health Check, #15 Shutdown, #16 Logging</td>
+        <td>Add test framework, create /api/health, add process handlers, adopt pino</td>
+        <td>3 &ndash; 5 days</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td>#22 Unbounded Exports, #23 Missing Indexes, #24 Cursor Bug</td>
+        <td>Add export limits, create DB indexes, fix audit cursor to use id</td>
+        <td>1 day</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-low">Low</span></td>
+        <td>#25 &ndash; #30</td>
+        <td>Clean up deprecated models, empty packages, error boundaries, chat state</td>
+        <td>2 &ndash; 3 days</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <p><strong>Total estimated remediation:</strong> Approximately 10 &ndash; 15 engineering days, starting with the immediate credential rotation (hours) and working down through the priority tiers.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════ FOOTER ═══════════════════════ -->
+<div class="footer">
+  <p>OptiFeed System Audit Report &mdash; Generated August 20, 2026</p>
+  <p style="margin-top: 8px;">Scope: Security, Code Quality, Architecture, Error Handling, Performance</p>
+</div>
+
+</div>
+</body>
+</html>

@@ -100,8 +100,23 @@
 	--ofd-warning: #f0a202;
 	--ofd-touch-min: 56px;
 
+	/* Layout tokens — bottom-right FAB cluster (help + chat assistant) */
+	--ofd-fab-size: var(--ofd-touch-min);
+	--ofd-fab-gap: 12px;
+	--ofd-fab-inset: 16px;
+	--ofd-fab-anchor: 6rem;
+	--ofd-chat-panel-w: 380px;
+
 	/* Typography: Inter, sans-serif, heavy weights for data */
 	--font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Matches the Tailwind md breakpoint (48rem) used by the dashboard layout */
+@media (min-width: 48rem) {
+	:root {
+		--ofd-fab-inset: 24px;
+		--ofd-fab-anchor: 1.5rem;
+	}
 }
 
 .dark {
@@ -136,6 +151,14 @@
 	--sidebar-accent-foreground: oklch(0.985 0 0);
 	--sidebar-border: oklch(1 0 0 / 10%);
 	--sidebar-ring: oklch(0.556 0 0);
+
+	/* OptiFeed design tokens — dark */
+	--ofd-base: #5b9bd5;
+	--ofd-action: #ff8a5c;
+	--ofd-bg: #0f1419;
+	--ofd-success: #4ade80;
+	--ofd-critical: #f87171;
+	--ofd-warning: #fbbf24;
 }
 
 @layer base {

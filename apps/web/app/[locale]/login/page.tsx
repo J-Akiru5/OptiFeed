@@ -1,19 +1,34 @@
 "use client";
 
 import { useRouter } from "@/i18n/routing";
-import { ArrowLeft, CheckCircle, KeyRound, ShieldAlert } from "lucide-react";
+import { loginWithPin } from "@/lib/actions/auth";
+import { createClient } from "@/lib/supabase/client";
+import { ArrowLeft, KeyRound, ShieldAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState, useTransition } from "react";
 
 export default function LoginPage() {
 	const router = useRouter();
 	const t = useTranslations("login");
 	const tBtn = useTranslations("button");
-	const [farmId, setFarmId] = useState("ILO-POND-01");
+	const [farmId, setFarmId] = useState("");
 	const [pin, setPin] = useState("");
 	const [error, setError] = useState<string | null>(null);
-	const [isLoading, setIsLoading] = useState(false);
-	const [isSuccess, setIsSuccess] = useState(false);
+	const [isPending, startTransition] = useTransition();
+
+	// The proxy no longer redirects authenticated users away from /login (its
+	// optimistic cookie check cannot distinguish a valid session from an
+	// expired one without a network refresh, which raced and looped). A single
+	// client-side getUser() is safe here — one call, no parallel middleware
+	// invocations — so already-logged-in visitors still land on the dashboard.
+	useEffect(() => {
+		const supabase = createClient();
+		supabase.auth.getUser().then(({ data: { user } }) => {
+			if (user) {
+				router.replace("/dashboard");
+			}
+		});
+	}, [router]);
 
 	const handleSubmit = (e: FormEvent) => {
 		e.preventDefault();
@@ -28,19 +43,19 @@ export default function LoginPage() {
 			return;
 		}
 
-		setIsLoading(true);
-		setTimeout(() => {
-			const ok = pin === "1234";
-			if (ok) {
-				setIsSuccess(true);
-				setIsLoading(false);
-				// TODO(karl): In the future, this should probably establish a real session via Supabase.
-				setTimeout(() => router.push("/dashboard"), 800);
-			} else {
-				setIsLoading(false);
+		startTransition(async () => {
+			const result = await loginWithPin(farmId, pin);
+			if (result?.error === "locked") {
+				const minutes = result.secondsRemaining ? Math.ceil(result.secondsRemaining / 60) : 15;
+				setError(t("errorLocked", { minutes }));
+			} else if (result?.error === "rate_limited") {
+				setError(t("errorRateLimited"));
+			} else if (result?.error === "service") {
+				setError(t("errorService"));
+			} else if (result?.error) {
 				setError(t("errorInvalid"));
 			}
-		}, 1000);
+		});
 	};
 
 	return (
@@ -119,7 +134,7 @@ export default function LoginPage() {
 									autoFocus
 								/>
 								<span className="block text-[11px] text-center text-[#3D5568] font-mono">
-									{t("pinDesc")} <span className="font-extrabold text-[#0A3D62]">1234</span>
+									{t("pinDesc")}
 								</span>
 							</div>
 
@@ -131,32 +146,21 @@ export default function LoginPage() {
 									</div>
 								</div>
 							)}
-
-							{isSuccess && (
-								<div className="bg-green-50 text-green-700 text-xs p-3 rounded-xl border border-green-200 flex items-center gap-2">
-									<CheckCircle className="w-4 h-4 shrink-0" />
-									<span className="font-bold">{t("success")}</span>
-								</div>
-							)}
 						</div>
 
 						<div className="mt-4 md:mt-8">
 							<button
 								type="submit"
-								disabled={isLoading || isSuccess}
+								disabled={isPending}
 								className={`w-full bg-[#E85A2A] text-white font-extrabold text-base md:text-lg py-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 transform active:scale-95 ${
-									isLoading || isSuccess
-										? "opacity-75 cursor-not-allowed"
-										: "hover:bg-[#d04a1f] hover:shadow-lg"
+									isPending ? "opacity-75 cursor-not-allowed" : "hover:bg-[#d04a1f] hover:shadow-lg"
 								}`}
 							>
-								{isLoading ? (
+								{isPending ? (
 									<>
 										<span className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
 										{tBtn("authorizing")}
 									</>
-								) : isSuccess ? (
-									tBtn("connected")
 								) : (
 									tBtn("logInController")
 								)}

@@ -1,6 +1,20 @@
+import { DataExportButton, DataImportDialog } from "@/components/DataImportExport";
+import { FcrCalculator } from "@/components/FcrCalculator";
+import { FeedLevelLogTable } from "@/components/FeedLevelLogTable";
+import { getFeedLevelLogs } from "@/lib/actions/growth";
+import { canWrite } from "@/lib/auth/session";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
-import { Activity, Fish, Scale, TrendingUp } from "lucide-react";
+import {
+	Activity,
+	ChevronDown,
+	ChevronRight,
+	Fish,
+	Package,
+	Scale,
+	TrendingUp,
+} from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0;
@@ -9,9 +23,7 @@ export default async function GrowthPage() {
 	const t = await getTranslations("dashboard.growth");
 	const tSch = await getTranslations("dashboard.schedule");
 	const tDates = await getTranslations("dates");
-	const pond = await prisma.pond.findFirst({
-		where: { ownerId: "demo-farmer-1" },
-	});
+	const pond = await getActivePond();
 
 	if (!pond) {
 		return (
@@ -21,15 +33,38 @@ export default async function GrowthPage() {
 		);
 	}
 
+	const writeAccess = await canWrite();
+
 	const biomassLogs = await prisma.biomassLog.findMany({
 		where: { pondId: pond.id },
 		orderBy: { recordedAt: "asc" },
+		include: { fishSamples: true },
 	});
 
 	const fcrReports = await prisma.fcrReport.findMany({
 		where: { pondId: pond.id },
 		orderBy: { periodEnd: "asc" },
 	});
+
+	const energyDevice = await prisma.energyDevice.findFirst({
+		where: { pondId: pond.id },
+		orderBy: { createdAt: "asc" },
+		select: { id: true },
+	});
+
+	let feedLevelLogs: Awaited<ReturnType<typeof prisma.feedLevelLog.findMany>> = [];
+	let feedLevelLogPage: Awaited<ReturnType<typeof getFeedLevelLogs>> | null = null;
+	if (energyDevice) {
+		feedLevelLogs = await prisma.feedLevelLog.findMany({
+			where: { deviceId: energyDevice.id },
+			orderBy: { recordedAt: "asc" },
+			take: 30,
+		});
+		feedLevelLogPage = await getFeedLevelLogs({
+			deviceId: energyDevice.id,
+			cursor: null,
+		});
+	}
 
 	const latestFcr = fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : 0;
 	const latestBiomass =
@@ -58,8 +93,38 @@ export default async function GrowthPage() {
 		return `M ${points.join(" L ")}`;
 	};
 
+	// Feed level sparkline
+	const maxLevel = Math.max(...feedLevelLogs.map((l) => l.levelPercent), 50);
+	const minLevel = Math.min(...feedLevelLogs.map((l) => l.levelPercent), 0);
+
+	const generateFeedLevelPath = () => {
+		if (feedLevelLogs.length < 2) return "";
+		const w = 400;
+		const h = 100;
+		const points = feedLevelLogs.map((log, i) => {
+			const x = (i / (feedLevelLogs.length - 1)) * w;
+			const y = h - ((log.levelPercent - minLevel) / (maxLevel - minLevel)) * h;
+			return `${x},${y}`;
+		});
+		return `M ${points.join(" L ")}`;
+	};
+
 	return (
-		<div className="space-y-8 pb-20 animate-in fade-in duration-500 max-w-5xl">
+		<div className="space-y-8 pb-20 animate-in fade-in duration-500 max-w-7xl mx-auto">
+			{/* Header with import/export buttons */}
+			<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+				<div>
+					<h1 className="text-3xl font-extrabold tracking-tight text-[var(--ofd-base-deep)]">
+						{t("title")}
+					</h1>
+					<p className="text-gray-500 mt-1">{t("desc", { pond: pond.name })}</p>
+				</div>
+				<div className="flex items-center gap-3">
+					<DataImportDialog canWrite={writeAccess} />
+					<DataExportButton />
+				</div>
+			</div>
+
 			{/* FCR big glance box from Prototype */}
 			<div className="bg-[#0A3D62] text-white p-6 md:p-8 rounded-[32px] shadow-lg relative overflow-hidden">
 				<div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full translate-x-12 -translate-y-12" />
@@ -87,6 +152,9 @@ export default async function GrowthPage() {
 					</div>
 				</div>
 			</div>
+
+			{/* FCR Calculator */}
+			<FcrCalculator latestFcr={latestFcr} />
 
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 				{/* Latest ABW Card */}
@@ -208,48 +276,276 @@ export default async function GrowthPage() {
 				</div>
 			</div>
 
-			{/* Biomass Log Table */}
-			<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mt-8">
-				<div className="p-6 border-b border-gray-100 bg-gray-50/50">
-					<h3 className="font-bold text-gray-800">{t("historyTitle")}</h3>
+			{/* Feed Level Trend Card */}
+			{feedLevelLogs.length > 0 && (
+				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+					<div className="flex items-center justify-between mb-4">
+						<div>
+							<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+								{t("feedLevelTitle")}
+							</p>
+							<p className="text-xs text-gray-400 mt-0.5">{t("feedLevelDesc")}</p>
+						</div>
+						<Package className="h-6 w-6 text-orange-500" />
+					</div>
+					<div className="h-24 w-full relative">
+						<svg
+							viewBox="0 0 400 100"
+							preserveAspectRatio="none"
+							className="h-full w-full overflow-visible"
+							role="img"
+							aria-label="Feed Level Trend"
+						>
+							<defs>
+								<linearGradient id="feedLevelGrad" x1="0" y1="0" x2="0" y2="1">
+									<stop offset="0%" stopColor="#f97316" stopOpacity="0.2" />
+									<stop offset="100%" stopColor="#f97316" stopOpacity="0" />
+								</linearGradient>
+							</defs>
+							<path
+								d={`${generateFeedLevelPath()} L 400,100 L 0,100 Z`}
+								fill="url(#feedLevelGrad)"
+							/>
+							<path
+								d={generateFeedLevelPath()}
+								fill="none"
+								stroke="#f97316"
+								strokeWidth="4"
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								className="drop-shadow-md"
+							/>
+							{feedLevelLogs.length >= 2 &&
+								feedLevelLogs.map((log, i) => {
+									const x = (i / (feedLevelLogs.length - 1)) * 400;
+									const y = 100 - ((log.levelPercent - minLevel) / (maxLevel - minLevel)) * 100;
+									return (
+										<circle
+											key={log.id}
+											cx={x}
+											cy={y}
+											r="5"
+											fill="white"
+											stroke="#f97316"
+											strokeWidth="3"
+										/>
+									);
+								})}
+						</svg>
+					</div>
 				</div>
-				<div className="overflow-x-auto">
-					<table className="w-full text-left text-sm text-gray-600">
-						<thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
-							<tr>
-								<th className="px-6 py-4">{t("dateCol")}</th>
-								<th className="px-6 py-4">{t("totalWeightCol")}</th>
-								<th className="px-6 py-4">{t("fishCountCol")}</th>
-								<th className="px-6 py-4">{t("avgLengthCol")}</th>
-								<th className="px-6 py-4 text-right text-[var(--ofd-base-deep)]">{t("abwCol")}</th>
-							</tr>
-						</thead>
-						<tbody className="divide-y divide-gray-100">
-							{biomassLogs
-								.slice()
-								.reverse()
-								.map((log) => (
-									<tr key={log.id} className="hover:bg-gray-50 transition-colors">
-										<td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-											{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
-										</td>
-										<td className="px-6 py-4">{log.sampleWeightKg.toFixed(2)} kg</td>
-										<td className="px-6 py-4">{log.sampleCount}</td>
-										<td className="px-6 py-4">{log.sampleLengthCm.toFixed(1)} cm</td>
-										<td className="px-6 py-4 text-right font-bold text-[var(--ofd-base-deep)]">
-											{(log.avgWeightKg * 1000).toFixed(1)}g
+			)}
+
+			{/* Feed Level Log Table */}
+			<div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+				{energyDevice && feedLevelLogPage && feedLevelLogs.length > 0 && (
+					<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+						<div className="p-6 border-b border-gray-100 bg-gray-50/50">
+							<h3 className="font-bold text-gray-800">{t("feedLevelTableTitle")}</h3>
+						</div>
+						<FeedLevelLogTable
+							deviceId={energyDevice.id}
+							initialItems={feedLevelLogPage.items}
+							initialHasMore={feedLevelLogPage.hasMore}
+							initialNextCursor={feedLevelLogPage.nextCursor}
+						/>
+					</div>
+				)}
+
+				{/* Growth Summary Table */}
+				{biomassLogs.length >= 2 && (
+					<div className="@container bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+						<div className="p-6 border-b border-gray-100 bg-gray-50/50">
+							<h3 className="font-bold text-gray-800">Growth Summary</h3>
+							<p className="text-xs text-gray-500 mt-1">
+								Weight and length gain between sample periods
+							</p>
+						</div>
+						<div className="overflow-x-auto">
+							<table className="w-full text-left text-sm text-gray-600">
+								<thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
+									<tr>
+										<th className="px-3 py-3 lg:px-4">Date</th>
+										<th className="px-3 py-3 text-right lg:px-4">Avg Weight (g)</th>
+										<th className="px-3 py-3 text-right lg:px-4">Avg Length (cm)</th>
+										<th className="px-3 py-3 text-right lg:px-4">Weight Gain (g)</th>
+										<th className="px-3 py-3 text-right lg:px-4">Length Gain (cm)</th>
+										<th className="px-3 py-3 text-right hidden @[560px]:table-cell lg:px-4">
+											Days Since Last
+										</th>
+									</tr>
+								</thead>
+								<tbody className="divide-y divide-gray-100">
+									{biomassLogs
+										.slice()
+										.reverse()
+										.map((log, i) => {
+											const prevLog =
+												i < biomassLogs.length - 1
+													? biomassLogs[biomassLogs.length - 1 - i - 1]
+													: null;
+											const currentWeightG = log.avgWeightKg * 1000;
+											const prevWeightG = prevLog ? prevLog.avgWeightKg * 1000 : null;
+											const weightGain = prevWeightG !== null ? currentWeightG - prevWeightG : null;
+
+											const lengthGain =
+												prevLog !== null ? log.sampleLengthCm - prevLog.sampleLengthCm : null;
+
+											const daysSinceLast = prevLog
+												? Math.round(
+														(log.recordedAt.getTime() - prevLog.recordedAt.getTime()) /
+															(1000 * 60 * 60 * 24),
+													)
+												: null;
+
+											return (
+												<tr key={log.id} className="hover:bg-gray-50 transition-colors">
+													<td className="px-3 py-3 font-medium text-gray-900 whitespace-nowrap lg:px-4">
+														{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+													</td>
+													<td className="px-3 py-3 text-right lg:px-4">
+														{currentWeightG.toFixed(1)}
+													</td>
+													<td className="px-3 py-3 text-right lg:px-4">
+														{log.sampleLengthCm.toFixed(1)}
+													</td>
+													<td className="px-3 py-3 text-right font-bold lg:px-4">
+														{weightGain !== null ? (
+															<span className={weightGain >= 0 ? "text-green-600" : "text-red-500"}>
+																{weightGain >= 0 ? "+" : ""}
+																{weightGain.toFixed(1)}
+															</span>
+														) : (
+															<span className="text-gray-400">—</span>
+														)}
+													</td>
+													<td className="px-3 py-3 text-right font-bold lg:px-4">
+														{lengthGain !== null ? (
+															<span className={lengthGain >= 0 ? "text-green-600" : "text-red-500"}>
+																{lengthGain >= 0 ? "+" : ""}
+																{lengthGain.toFixed(1)}
+															</span>
+														) : (
+															<span className="text-gray-400">—</span>
+														)}
+													</td>
+													<td className="px-3 py-3 text-right hidden @[560px]:table-cell lg:px-4">
+														{daysSinceLast !== null ? (
+															<span className="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full">
+																{daysSinceLast}d
+															</span>
+														) : (
+															<span className="text-gray-400">—</span>
+														)}
+													</td>
+												</tr>
+											);
+										})}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				)}
+
+				{/* Biomass Log Table */}
+				<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mt-8 xl:mt-0 xl:col-span-2">
+					<div className="p-6 border-b border-gray-100 bg-gray-50/50">
+						<h3 className="font-bold text-gray-800">{t("historyTitle")}</h3>
+					</div>
+					<div className="overflow-x-auto">
+						<table className="w-full text-left text-sm text-gray-600">
+							<thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
+								<tr>
+									<th className="px-3 py-3 lg:px-4">{t("dateCol")}</th>
+									<th className="px-3 py-3 hidden lg:table-cell lg:px-4">{t("batchCol")}</th>
+									<th className="px-3 py-3 lg:px-4">{t("totalWeightCol")}</th>
+									<th className="px-3 py-3 lg:px-4">{t("fishCountCol")}</th>
+									<th className="px-3 py-3 lg:px-4">{t("avgLengthCol")}</th>
+									<th className="px-3 py-3 text-right text-[var(--ofd-base-deep)] lg:px-4">
+										{t("abwCol")}
+									</th>
+									<th className="px-3 py-3 text-center hidden lg:table-cell lg:px-4">Type</th>
+								</tr>
+							</thead>
+							<tbody className="divide-y divide-gray-100">
+								{biomassLogs
+									.slice()
+									.reverse()
+									.map((log) => (
+										<tr key={log.id} className="hover:bg-gray-50 transition-colors">
+											<td className="px-3 py-3 font-medium text-gray-900 whitespace-nowrap lg:px-4">
+												{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+											</td>
+											<td className="px-3 py-3 whitespace-nowrap hidden lg:table-cell lg:px-4">
+												{log.batchLabel ?? <span className="text-gray-400">—</span>}
+											</td>
+											<td className="px-3 py-3 lg:px-4">{log.sampleWeightKg.toFixed(2)}</td>
+											<td className="px-3 py-3 lg:px-4">{log.sampleCount}</td>
+											<td className="px-3 py-3 lg:px-4">{log.sampleLengthCm.toFixed(1)}</td>
+											<td className="px-3 py-3 text-right font-bold text-[var(--ofd-base-deep)] lg:px-4">
+												{(log.avgWeightKg * 1000).toFixed(1)}
+											</td>
+											<td className="px-3 py-3 text-center hidden lg:table-cell lg:px-4">
+												{log.fishSamples.length > 0 ? (
+													<details className="inline-block text-left">
+														<summary className="inline-flex cursor-pointer list-none items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 text-xs font-bold rounded-full hover:bg-teal-100 transition-colors">
+															<Fish className="w-3 h-3" />
+															{log.fishSamples.length} fish
+														</summary>
+														<div className="mt-2 min-w-[180px] rounded-xl border border-teal-100 bg-teal-50/50 overflow-hidden">
+															<div className="flex items-baseline justify-between gap-3 px-3 py-1.5 bg-teal-100/70 text-[10px] font-bold uppercase text-teal-700">
+																<span className="truncate">{log.batchLabel ?? "Unlabeled"}</span>
+																<span className="font-medium normal-case text-teal-600 shrink-0">
+																	{formatDateTimeLocal(log.recordedAt, tDates).date}
+																</span>
+															</div>
+															<table className="w-full text-xs text-gray-600">
+																<thead>
+																	<tr className="text-[10px] uppercase text-teal-700">
+																		<th className="px-3 py-1.5 text-left font-bold">#</th>
+																		<th className="px-3 py-1.5 text-right font-bold">Weight</th>
+																		<th className="px-3 py-1.5 text-right font-bold">Length</th>
+																	</tr>
+																</thead>
+																<tbody className="divide-y divide-teal-100">
+																	{log.fishSamples.map((sample, sampleIndex) => (
+																		<tr key={sample.id}>
+																			<td className="px-3 py-1.5 text-gray-500">
+																				{sampleIndex + 1}
+																			</td>
+																			<td className="px-3 py-1.5 text-right font-medium text-gray-800">
+																				{sample.weightGrams.toFixed(1)} g
+																			</td>
+																			<td className="px-3 py-1.5 text-right">
+																				{sample.lengthCm > 0
+																					? `${sample.lengthCm.toFixed(1)} cm`
+																					: "—"}
+																			</td>
+																		</tr>
+																	))}
+																</tbody>
+															</table>
+														</div>
+													</details>
+												) : (
+													<span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 text-xs font-bold rounded-full">
+														<Scale className="w-3 h-3" />
+														Avg
+													</span>
+												)}
+											</td>
+										</tr>
+									))}
+								{biomassLogs.length === 0 && (
+									<tr>
+										<td colSpan={5} className="px-6 py-10 text-center text-gray-500">
+											{t("noSamples")}
 										</td>
 									</tr>
-								))}
-							{biomassLogs.length === 0 && (
-								<tr>
-									<td colSpan={5} className="px-6 py-10 text-center text-gray-500">
-										{t("noSamples")}
-									</td>
-								</tr>
-							)}
-						</tbody>
-					</table>
+								)}
+							</tbody>
+						</table>
+					</div>
 				</div>
 			</div>
 		</div>

@@ -5,6 +5,7 @@ import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { useRouter } from "@/i18n/routing";
 import { ArrowRight, ChevronDown, ChevronUp, ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 const HERO_IMG =
@@ -103,10 +104,13 @@ export default function LandingPage() {
 					{/* Hero image on the right for desktop */}
 					<div className="flex-1 w-full max-w-xl md:max-w-none">
 						<div className="relative overflow-hidden rounded-3xl shadow-2xl transform md:rotate-2 hover:rotate-0 transition-transform duration-500">
-							<ImageWithFallback
+							<Image
 								src={HERO_IMG}
 								alt={t("heroImageAlt")}
+								width={800}
+								height={500}
 								className="w-full h-64 md:h-[500px] object-cover"
+								priority
 							/>
 							<div className="absolute inset-0 bg-gradient-to-t from-[#0A3D62]/40 to-transparent pointer-events-none" />
 						</div>

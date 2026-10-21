@@ -5,9 +5,85 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.10.0] - 2026-07-22
 
-## [1.8.8] - 2026-07-12
+### Added
+- **Feed Level Monitoring (HC-SR04 Ultrasonic Sensor)**
+  - Added `FeedLevelLog` model and 6 new fields to `EnergyDevice` (`feedLevelPercent`, `feedLevelCm`, `feedLevelUpdatedAt`, `hopperEmptyCm`, `hopperFullCm`, `hopperCapacityG`) for hopper level tracking.
+  - Extended ESP32 firmware with HC-SR04 support: median-of-3 ultrasonic readings, linear distance-to-level conversion for cylindrical 10L bottle, and piggyback on existing heartbeat payload.
+  - Extended `POST /api/ingest` heartbeat handler to ingest `feed_level_percent` and `feed_level_cm`, update `EnergyDevice`, log to `FeedLevelLog` (30-min or >5% delta), and create tiered notifications (≤5% CRITICAL, ≤20% WARNING, ≤2 days remaining WARNING) reusing the "pellet" category.
+  - Extended `GET /api/feed-command` and `GET /api/schedule-sync` to return `hopper_empty_cm` and `hopper_full_cm` calibration values — ESP32 receives dynamic calibration on every poll cycle.
+  - Added `FeedLevelCard` dashboard component showing level percent, color-coded progress bar, days-remaining estimate, and last-updated timestamp.
+  - Added `HopperCalibrationForm` client component and `saveHopperCalibration()` server action for per-device empty/full distance and capacity settings in App & Hardware Settings.
+  - Added feed level trend sparkline (SVG) and history table to Growth & FCR page.
+  - Added feed level stat card to History page (3-column grid).
+  - Added i18n strings (English + Hiligaynon) for all new feed level UI.
+  - Updated seed data with `EnergyDevice` calibration values and 10 historical `FeedLevelLog` entries showing gradual decline from 95% to 82%.
+
+### Changed
+- Dashboard home renders `FeedLevelCard` alongside `EnergyControllerCard` in a 2-column grid.
+- `EnergyDevice` Prisma query on dashboard home, history, growth, and app-settings pages now selects feed level fields.
+- App-settings page fetches `EnergyDevice` alongside legacy `Device` for calibration form.
+- History page grid expanded from 2-col to 3-col to accommodate feed level stat card.
+
+## [1.9.0] - 2026-07-12
+
+### Added
+- **Phase 0 — Device state & command event model foundation.**
+  - Added `DeviceStateEvent` model — unified event log recording every device write (commands) and every device read (state events). Single source of truth for audit trail, notifications, and schedule sync.
+  - Added `ScheduleCommand` model — schedule edits are queued commands with status lifecycle (`pending` → `sent` → `acked` → `applied` / `failed`), never written directly to `Pond`.
+  - Added `buttonFeedGrams` field to `EnergyDevice` — configurable remote button dose, pushed via poll response. No OTA needed to change.
+  - Extended `Notification` with `category`, `acknowledgedAt`, `acknowledgedBy`, `autoCleared` fields.
+  - Extended `FeedEvent` to accept `schedule_acked` event type with `commandId` link.
+  - Extended `FeedRequest.status` with `fulfilled_by_other_trigger` — used by reconciliation when a late-arriving button/scheduled event fulfills a previously-expired dashboard request.
+  - Deprecated `FeedingEvent` and `Device` models — kept for backward-compat seed data; all new code uses `DeviceStateEvent` and `EnergyDevice`.
+- **Phase 0b — Backend reconciliation + schedule sync.**
+  - Gap 1 fix: `POST /api/ingest` runs reconciliation on late `feed_dispensed` events — finds orphaned expired/pending FeedRequests within 4-hour lookback, updates status to `fulfilled_by_other_trigger`, creates `feed_reconciled` DeviceStateEvent.
+  - Added `GET /api/schedule-sync` endpoint — ESP32 polls for pending schedule commands. Returns `schedule_start`, `schedule_end`, `feeds_per_day`, `grams_per_feeding`, `button_feed_grams`.
+  - `GET /api/feed-command` response extended with `button_feed_grams`.
+  - Heartbeat handling auto-creates `connected` / `disconnected` DeviceStateEvents on state transitions. Offline threshold: 15 minutes.
+  - Device reconnection auto-clears stale `connectivity` notifications (`autoCleared = true`, `read = true`).
+- **Phase 0c — Firmware (ESP32) updates.**
+  - `pollScheduleCommand()` fetches schedule from backend, dynamically rebuilds `feedTimes[]` (up to 24 slots) from `schedule_start`, `schedule_end`, `feeds_per_day`.
+  - Button dose (`cachedButtonFeedGrams`) read from backend poll response instead of compile-time `#define`.
+  - `postScheduleAck()` sends `schedule_acked` event back to confirm application.
+  - Default schedule (06:00, 19:00) on boot if backend unreachable.
+- **Phase 1 — Audit trail.**
+  - New `/dashboard/audit` page with filterable timeline of all `DeviceStateEvent` entries. Filter tabs: All / Feeding / Connectivity / Schedule / Commands.
+  - Dual-timestamp display: device RTC time + server receipt time.
+  - Shows reconciliation events (`feed_reconciled`) with link to original expired request.
+  - Paginated with "Load more" cursor.
+- **Phase 2 — Notification accuracy.**
+  - Notification center `/dashboard/notifications` reworked: tier filter tabs (All / Critical / Warning / Info / Success), category filter tabs, per-row Acknowledge button, "Mark all read" button.
+  - Removed the "intentionally static" disclaimer — live data from Phase 0 state events.
+- **Phase 4 — Editable schedule.**
+  - Schedule page `/dashboard/schedule` converted from read-only to editable via `ScheduleEditor` component.
+  - Time picker inputs for schedule start/end, plus feeds-per-day and feeding rate.
+  - Sync status card showing "Pending device sync" vs. "Applied at [time]" per field, reusing the dual-timestamp pattern from Phase 0.
+  - "Force Resync" button re-queues current values as a new ScheduleCommand.
+  - `PondSettingsForm` routes through `updateScheduleCommand()` instead of direct `Pond.update()`.
+- **Session-end hardening (Gap 4 + Gap 2 repeat detection).**
+  - `requestFeed()` now expires stale `dispatched` FeedRequests >10min before creating new ones. Fallback uses `gramsPerFeeding` (150g) instead of `buttonFeedGrams` (80g) — remote farmers get the real dose.
+  - `updateScheduleCommand()` expires stale `sent` ScheduleCommands >10min before creating new ones.
+  - New `StuckRequestBanner` component on the schedule page with 4 states:
+    1. **Device offline** — collapses feed + schedule into one root-cause message.
+    2. **Single stuck feed** — dispatched but never confirmed. Retry button.
+    3. **Repeat feed failure (≥2)** — escalated message showing count + earliest timestamp. Indicates likely hardware (relay) problem, not network.
+    4. **Stuck schedule** — sent but never acked. Force Resync button.
+  - Feed + schedule banners stack vertically when both exist offline trumps all.
+- Added Hiligaynon translations for all new i18n keys (audit trail, schedule editor, stuck banner, notification center).
+- Added "Audit Trail" link sidebar navigation.
+
+### Changed
+- `requestFeed()` fallback dose: `buttonFeedGrams` → `gramsPerFeeding` (80g → 150g). Remote "Feed Now" carries the real scheduled dose.
+- Schedule data flow: farmer edits → `ScheduleCommand` (pending) → device polls `/api/schedule-sync` → status `sent` → device acks → status `applied`. No direct `Pond` writes.
+- Ingest route now creates `DeviceStateEvent` entries for all event types, enabling the unified audit trail.
+- Notification center no longer declares itself "intentionally static."
+
+### Fixed
+- Gap 1 (reconciliation on late button events): orphaned expired FeedRequests are corrected to `fulfilled_by_other_trigger` when the late event arrives, with a `feed_reconciled` audit entry.
+- Gap 4 (stuck dispatched/sent states on dead devices): lazy expiry in server actions marks them expired/failed after 10 minutes, triggered on next user action — no cron needed.
+- Gap 2 repeat detection: ≥2 consecutive stuck dispatched feeds escalates the banner from "retry" to "hardware problem — inspect."
 
 ### Added
 - Added `hopperLevelPct` prop to `FeedNowButton` — the confirm modal now shows a red critical warning when hopper is below 10% and an amber warning below 25%.

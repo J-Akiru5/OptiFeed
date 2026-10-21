@@ -1,4 +1,9 @@
-// TODO(karl): Confirm indexes, cascading deletes, and row-level security policies once the access model is finalized.
+// Phase 0: Device state & command event model foundation.
+// Single event log (DeviceStateEvent) is the source of truth for audit trail,
+// notifications, and schedule sync. Three features are thin read/filter views.
+//
+// RLS is enabled via migration 20261013020000_enable_rls_on_user (User table);
+// core indexes on Pond/Notification/FcrReport were added in Phase 1.
 
 generator client {
   provider = "prisma-client-js"
@@ -10,24 +15,86 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-model Pond {
-  id              String   @id @default(cuid())
-  ownerId         String
-  name            String
-  feedingRatePct  Float
-  feedsPerDay     Int
-  scheduleStart   DateTime @db.Time()
-  scheduleEnd     DateTime @db.Time()
-  createdAt       DateTime @default(now())
+enum UserRole {
+  ADMIN
+  OPERATOR
+  VIEWER
+}
 
-  devices        Device[]
-  biomassLogs    BiomassLog[]
-  fcrReports     FcrReport[]
-  notifications  Notification[]
-  energyDevices  EnergyDevice[]
+enum PondStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum PondOwnershipEventType {
+  CREATED
+  TRANSFERRED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  supabaseId   String   @unique // references Supabase Auth user.id
+  farmId       String   @unique // login slug, e.g. "demo-farmer-1" — used as Pond.ownerId
+  email        String   @unique
+  displayName  String?
+  role         UserRole @default(OPERATOR)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  farm  Farm? // exactly one farm per farmer (enforced by Farm.ownerId @unique)
+  ponds Pond[]
+
+  @@index([farmId])
+  @@index([role])
+}
+
+model Farm {
+  id        String   @id @default(cuid())
+  ownerId   String   @unique // exactly 1 farm per farmer → User.farmId
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner User   @relation(fields: [ownerId], references: [farmId], onDelete: Cascade)
+  ponds Pond[]
+
+  @@index([ownerId])
+}
+
+model Pond {
+  id                 String   @id @default(cuid())
+  ownerId            String
+  farmId             String
+  name               String
+  feedingRatePct     Float
+  feedsPerDay        Int
+  population         Int? // real fish count for total biomass; null → DEFAULT_FISH_COUNT
+  sampleIntervalDays Int      @default(14)
+  scheduleStart      DateTime @db.Time()
+  scheduleEnd        DateTime @db.Time()
+  notificationPrefs  Json     @default("{\"missedFeeding\":true,\"deviceOffline\":true,\"hopperLow\":true}")
+  status             PondStatus @default(ACTIVE)
+  createdAt          DateTime @default(now())
+
+  owner             User?            @relation(fields: [ownerId], references: [farmId], onDelete: Restrict)
+  farm              Farm             @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  devices           Device[]
+  biomassLogs       BiomassLog[]
+  fcrReports        FcrReport[]
+  notifications     Notification[]
+  energyDevices     EnergyDevice[]
+  scheduleCommands  ScheduleCommand[]
+  ownershipHistory  PondOwnershipHistory[]
+
+  @@index([ownerId])
+  @@index([farmId])
+  @@index([status])
 }
 
 model Device {
+  // @deprecated — prefer EnergyDevice for all device interactions.
+  // FeedingEvent and this model are no longer written (task 5.2; seeds were
+  // the last writers). Kept until a later release drops the tables (H9).
   id             String    @id @default(cuid())
   pondId         String
   name           String
@@ -47,13 +114,32 @@ model BiomassLog {
   sampleLengthCm  Float
   sampleCount     Int
   avgWeightKg     Float
+  batchLabel      String? // optional free-text label shared by all fish in this log session
   recordedAt      DateTime @default(now())
+  farmId          String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
 
-  pond Pond @relation(fields: [pondId], references: [id])
+  pond        Pond         @relation(fields: [pondId], references: [id])
+  fishSamples FishSample[]
 
   @@index([pondId, recordedAt])
+  @@index([farmId])
 }
 
+model FishSample {
+  id           String    @id @default(cuid())
+  biomassLogId String
+  weightGrams  Float
+  lengthCm     Float
+  farmId       String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
+
+  biomassLog BiomassLog @relation(fields: [biomassLogId], references: [id], onDelete: Cascade)
+
+  @@index([biomassLogId])
+  @@index([farmId])
+}
+
+// @deprecated — use DeviceStateEvent + FeedEvent for new dispense tracking.
+// Kept for seed data and existing chat intent system.
 model FeedingEvent {
   id                String   @id @default(cuid())
   deviceId          String
@@ -73,66 +159,317 @@ model FcrReport {
   totalFeedKg   Float
   biomassGainKg Float
   fcrValue      Float
+  farmId        String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
 
   pond Pond @relation(fields: [pondId], references: [id])
+
+  @@index([pondId, periodStart])
+  @@index([farmId])
+}
+
+// Historical feed level readings for trend charts on /growth and /history.
+// Mirrors the shape of BiomassLog. Logged sparingly to avoid bloat.
+model FeedLevelLog {
+  id           String       @id @default(cuid())
+  deviceId     String
+  device       EnergyDevice @relation(fields: [deviceId], references: [id])
+  levelPercent Float
+  distanceCm   Float
+  recordedAt   DateTime     @default(now())
+  farmId       String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
+
+  @@index([deviceId, recordedAt])
+  @@index([farmId])
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  pondId    String
-  tier      String
-  message   String
-  linkTo    String?
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id              String    @id @default(cuid())
+  pondId          String
+  tier            String
+  message         String
+  linkTo          String?
+  read            Boolean   @default(false)
+  category        String?   // "connectivity" | "feeding" | "pellet" | "pge" | "schedule" | "system"
+  acknowledgedAt  DateTime?
+  acknowledgedBy  String?
+  autoCleared     Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  farmId          String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
 
   pond Pond @relation(fields: [pondId], references: [id])
+
+  @@index([pondId, read])
+  @@index([farmId])
 }
 
 model EnergyDevice {
   id               String    @id @default(cuid())
   mac              String    @unique
-  token            String    @unique
+  token            String    @unique // plaintext token — for display/provisioning only; never used for lookup
+  tokenHash        String?   @unique // sha256(token) hex — all auth lookups go through this
   label            String
   pondId           String?
   rtcOk            Boolean   @default(true)
   feederActive     Boolean   @default(false)
+  isPaused         Boolean   @default(false) // schedule pause state — replaces deprecated Device.isPaused
   gramsPerFeeding  Float     @default(150)
+  buttonFeedGrams  Float     @default(80)     // configurable button dose — pushed via poll response, no OTA needed
   lastSeenAt       DateTime?
   createdAt        DateTime  @default(now())
 
-  pond         Pond?          @relation(fields: [pondId], references: [id])
-  feedEvents   FeedEvent[]
-  feedRequests FeedRequest[]
+  // Feed level monitoring (HC-SR04 ultrasonic)
+  feedLevelPercent   Float?    // 0-100, null until first reading arrives
+  feedLevelCm        Float?    // raw ultrasonic distance, kept for debugging/recalibration
+  feedLevelUpdatedAt DateTime? // last time a reading was ingested
+
+  // Water temperature (DS18B20 probe)
+  waterTempC         Float?    // last reading in °C, null until first reading arrives
+  waterTempOk        Boolean   @default(false) // false if probe undetected on last heartbeat
+  waterTempUpdatedAt DateTime? // last time a reading was ingested
+
+  // Per-device calibration
+  hopperEmptyCm      Float?    // sensor distance when hopper is empty (~30cm for 10L bottle)
+  hopperFullCm       Float?    // sensor distance when hopper is full (~5cm)
+  hopperCapacityG    Float?    // total hopper capacity in grams (e.g. 7000 for 10L)
+  gramsPerSecond     Float     @default(4.0)   // motor dispense rate — pushed via poll response
+  tempOffsetC        Float     @default(0)     // DS18B20 calibration offset in °C
+
+  pond            Pond?             @relation(fields: [pondId], references: [id])
+  feedEvents      FeedEvent[]
+  feedRequests    FeedRequest[]
+  stateEvents     DeviceStateEvent[]
+  scheduleCommands ScheduleCommand[]
+  feedLevelLogs   FeedLevelLog[]
 }
 
 model FeedEvent {
   id            String   @id @default(cuid())
   deviceId      String
   eventId       String?  @unique
-  eventType     String   // "heartbeat" | "feed_dispensed"
-  timestamp     String
+  eventType     String   // "heartbeat" | "feed_dispensed" | "schedule_acked"
+  timestamp     String   // device RTC time — may be "unknown" if RTC unavailable
   grams         Float?
   source        String?  // "scheduled" | "dashboard" | "button"
   feedRequestId String?
+  commandId     String?  // links to ScheduleCommand id for schedule_acked events
   rtcOk         Boolean?
   feederActive  Boolean?
-  receivedAt    DateTime @default(now())
+  receivedAt    DateTime @default(now())   // server receipt time
+  farmId        String?  // immutable ownership stamp — no FK by design (survives farm lifecycle)
 
   device EnergyDevice @relation(fields: [deviceId], references: [id])
 
   @@index([deviceId, receivedAt])
+  @@index([farmId])
 }
 
 model FeedRequest {
   id        String   @id @default(cuid())
   deviceId  String
   grams     Float    @default(100)
-  status    String   @default("pending") // "pending" | "dispatched" | "completed" | "expired"
+  status    String   @default("pending") // "pending" | "dispatched" | "completed" | "expired" | "fulfilled_by_other_trigger"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  farmId    String?  // immutable ownership stamp — no FK by design (survives farm lifecycle)
 
   device EnergyDevice @relation(fields: [deviceId], references: [id])
 
   @@index([deviceId, status])
+  @@index([farmId])
+}
+
+// Unified event log — source of truth for audit trail, notifications, and schedule sync.
+// Every device write becomes a queued command; every device read becomes a state event.
+model DeviceStateEvent {
+  id          String   @id @default(cuid())
+  deviceId    String
+  eventType   String   // "connected" | "disconnected" | "command_sent" | "command_acked" | "command_failed" | "schedule_changed" | "schedule_applied" | "feed_dispensed" | "feed_reconciled" | "pge_reading" | "pellet_low" | "pellet_refilled" | "manual_trigger" | "notification_acknowledged" | "set_time" | "data_imported" | "data_exported"
+  source      String   // "system" | "user" | "device"
+  actorId     String?  // userId who triggered it (nullable for device-originated)
+  metadata    Json?    // flexible payload (old/new values, request IDs, error details)
+  deviceTime  String?  // RTC timestamp from device — may be "unknown", null for user-originated events
+  createdAt   DateTime @default(now())
+  farmId      String?  // immutable ownership stamp — no FK by design (survives farm lifecycle)
+
+  device EnergyDevice @relation(fields: [deviceId], references: [id])
+
+  @@index([deviceId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([farmId])
+}
+
+// Schedule edits as queued commands — never write directly to Pond.
+// The Pond fields reflect the last applied command.
+model ScheduleCommand {
+  id              String    @id @default(cuid())
+  deviceId        String
+  pondId          String
+  scheduleStart   DateTime  @db.Time()
+  scheduleEnd     DateTime  @db.Time()
+  feedsPerDay     Int
+  feedingRatePct  Float
+  buttonFeedGrams Float     @default(80)
+  status          String    @default("pending") // "pending" | "sent" | "acked" | "applied" | "failed"
+  createdBy       String?   // userId
+  appliedAt       DateTime? // server timestamp when device confirmed
+  deviceTime      String?   // RTC timestamp from device ack
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  farmId          String?   // immutable ownership stamp — no FK by design (survives farm lifecycle)
+
+  device  EnergyDevice @relation(fields: [deviceId], references: [id])
+  pond    Pond         @relation(fields: [pondId], references: [id])
+
+  @@index([deviceId, status])
+  @@index([farmId])
+}
+
+// Immutable pond ownership history (EMS emu_installations analog).
+// Rows are written by DB triggers on Pond insert / farmId change — never by
+// app code. farmId is an immutable stamp with no FK (survives farm lifecycle).
+model PondOwnershipHistory {
+  id             String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pondId         String
+  farmId         String // farm that owns the pond after this event
+  previousFarmId String? // null on CREATED, previous farm on TRANSFERRED
+  eventType      PondOwnershipEventType
+  changedById    String? // actor slug — no FK (actor may be deleted); null: DB trigger has no actor context
+  createdAt      DateTime               @default(now())
+
+  pond Pond @relation(fields: [pondId], references: [id], onDelete: Cascade)
+
+  @@index([pondId, createdAt])
+  @@index([farmId])
+}
+
+// Per-farm brute-force lockout tracking.
+// Supabase Auth has IP-level rate limits but no per-account lockout.
+model UserLockout {
+  // Global per-farm failure counter: >= 20 fails/hour slows the next login
+  // and notifies the farm (security category), but NEVER locks the farmer out.
+  farmId         String     @id
+  failedAttempts Int        @default(0)
+  lockedUntil    DateTime?
+  lastFailedAt   DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@map("user_lockout")
+}
+
+// Per (farm, IP) hard lockout: 5 failed PIN attempts lock this pair for
+// 15 minutes. Split by IP so a stranger hammering the login cannot lock
+// the real farmer out of their own account.
+model LoginLockout {
+  farmId         String
+  ip             String
+  failedAttempts Int       @default(0)
+  lockedUntil    DateTime?
+  lastFailedAt   DateTime?
+
+  @@id([farmId, ip])
+  @@map("login_lockout")
+}
+
+enum OrgType {
+  INDIVIDUAL
+  COOPERATIVE
+  COMPANY
+  LGU
+  ACADEMIC
+}
+
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_DELETION
+  PURGED
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  OPERATOR
+  VIEWER
+}
+
+model Organization {
+  id                  String    @id @default(cuid())
+  name                String
+  type                OrgType   @default(INDIVIDUAL)
+  status              OrgStatus @default(ACTIVE)
+  parentId            String?
+  suspendedAt         DateTime?
+  suspendedReason     String?
+  deletionRequestedAt DateTime?
+  purgeAfter          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([status])
+}
+
+model Membership {
+  id        String     @id @default(cuid())
+  orgId     String
+  userId    String
+  role      MemberRole
+  invitedBy String?
+  createdAt DateTime   @default(now())
+  revokedAt DateTime?
+
+  @@unique([orgId, userId])
+  @@index([userId])
+}
+
+model MembershipPermission {
+  id           String    @id @default(cuid())
+  membershipId String
+  permission   String
+  grantedAt    DateTime  @default(now())
+  revokedAt    DateTime?
+
+  @@unique([membershipId, permission])
+}
+
+model PlatformAdmin {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  grantedBy     String?
+  expiresAt     DateTime?
+  revokedAt     DateTime?
+  mfaEnrolledAt DateTime?
+  createdAt     DateTime  @default(now())
+}
+
+model PlatformAuditLog {
+  id              String   @id @default(cuid())
+  actorUserId     String
+  action          String
+  targetType      String
+  targetId        String?
+  orgId           String?
+  reason          String
+  stepUpAt        DateTime?
+  temporaryGrant  Boolean  @default(false)
+  impersonationId String?
+  before          Json?
+  after           Json?
+  ip              String?
+  userAgent       String?
+  createdAt       DateTime @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+model ImpersonationSession {
+  id          String    @id @default(cuid())
+  actorUserId String
+  orgId       String
+  mode        String
+  reason      String
+  startedAt   DateTime  @default(now())
+  expiresAt   DateTime
+  endedAt     DateTime?
 }

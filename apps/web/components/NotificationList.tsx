@@ -1,5 +1,6 @@
 "use client";
 
+import { Link } from "@/i18n/routing";
 import { acknowledgeNotification, markAllNotificationsRead } from "@/lib/actions/notifications";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import {
@@ -45,13 +46,25 @@ const tierConfig: Record<string, { icon: LucideIcon; className: string }> = {
 	},
 };
 
-const categoryConfig: Record<string, { label: string; className: string }> = {
-	connectivity: { label: "Connectivity", className: "bg-blue-100 text-blue-700 border-blue-200" },
-	feeding: { label: "Feeding", className: "bg-amber-100 text-amber-700 border-amber-200" },
-	pellet: { label: "Pellet", className: "bg-orange-100 text-orange-700 border-orange-200" },
-	pge: { label: "PGE", className: "bg-purple-100 text-purple-700 border-purple-200" },
-	schedule: { label: "Schedule", className: "bg-teal-100 text-teal-700 border-teal-200" },
-	system: { label: "System", className: "bg-gray-100 text-gray-700 border-gray-200" },
+const categoryConfig: Record<string, { labelKey: string; className: string }> = {
+	connectivity: {
+		labelKey: "categoryConnectivity",
+		className: "bg-blue-100 text-blue-700 border-blue-200",
+	},
+	feeding: {
+		labelKey: "categoryFeeding",
+		className: "bg-amber-100 text-amber-700 border-amber-200",
+	},
+	pellet: {
+		labelKey: "categoryPellet",
+		className: "bg-orange-100 text-orange-700 border-orange-200",
+	},
+	pge: { labelKey: "categoryPge", className: "bg-purple-100 text-purple-700 border-purple-200" },
+	schedule: {
+		labelKey: "categorySchedule",
+		className: "bg-teal-100 text-teal-700 border-teal-200",
+	},
+	system: { labelKey: "categorySystem", className: "bg-gray-100 text-gray-700 border-gray-200" },
 };
 
 interface NotificationListProps {
@@ -102,8 +115,8 @@ export function NotificationList({ initialNotifications }: NotificationListProps
 							key={notification.id}
 							className={`flex w-full items-start gap-3 rounded-3xl border p-4 text-left shadow-sm transition hover:shadow-md ${
 								!notification.read
-									? "border-[#0A3D62]/20 bg-white"
-									: "border-[#0A3D62]/5 bg-gray-50/50"
+									? "border-[#0A3D62]/20 bg-white dark:bg-gray-900"
+									: "border-[#0A3D62]/5 bg-gray-50/50 dark:bg-gray-800/50"
 							}`}
 						>
 							<span
@@ -116,33 +129,35 @@ export function NotificationList({ initialNotifications }: NotificationListProps
 									<span
 										className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase ${tier.className}`}
 									>
-										{tTiers(notification.tier as "CRITICAL" | "WARNING" | "SUCCESS" | "INFO")}
+										{tTiers.has(notification.tier) ? tTiers(notification.tier) : notification.tier}
 									</span>
 									{cat && (
 										<span
 											className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ${cat.className}`}
 										>
-											{cat.label}
+											{t.has(cat.labelKey)
+												? t(cat.labelKey)
+												: (notification.category ?? cat.labelKey)}
 										</span>
 									)}
-									<span className="text-xs font-bold text-[#3D5568]">
+									<span className="text-xs font-bold text-[#3D5568] dark:text-gray-300">
 										{formatDate(notification.createdAt)}
 									</span>
 									{notification.autoCleared && (
 										<span className="rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[9px] font-bold uppercase text-green-700">
-											Auto-cleared
+											{t("autoCleared")}
 										</span>
 									)}
 									{notification.acknowledgedAt && (
 										<span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[9px] font-bold uppercase text-blue-700">
-											Acknowledged
+											{t("acknowledged")}
 										</span>
 									)}
 								</span>
-								<span className="mt-2 block text-base font-black text-[#0A3D62]">
-									{notification.message.split("!")[0] || "Alert"}
+								<span className="mt-2 block text-base font-black text-[#0A3D62] dark:text-[#5b9bd5]">
+									{notification.message.split("!")[0] || t("alert")}
 								</span>
-								<span className="mt-1 block text-sm font-semibold leading-relaxed text-[#3D5568]">
+								<span className="mt-1 block text-sm font-semibold leading-relaxed text-[#3D5568] dark:text-gray-300">
 									{notification.message}
 								</span>
 							</span>
@@ -158,13 +173,13 @@ export function NotificationList({ initialNotifications }: NotificationListProps
 										{t("acknowledge")}
 									</button>
 								)}
-								<a
+								<Link
 									href="/dashboard/audit"
-									className="flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-bold text-gray-600 transition-colors hover:bg-gray-100"
+									className="flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-bold text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700/50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
 								>
 									<FileText size={14} />
-									Audit
-								</a>
+									{t("auditLink")}
+								</Link>
 							</div>
 						</div>
 					);
@@ -177,7 +192,7 @@ export function NotificationList({ initialNotifications }: NotificationListProps
 						type="button"
 						onClick={handleMarkAllRead}
 						disabled={isPendingMarkAll}
-						className="rounded-lg bg-[#F4F7F6] px-4 py-2 text-sm font-bold text-[#0A3D62] transition-colors hover:bg-[#E8EDED] disabled:opacity-50"
+						className="rounded-lg bg-[#F4F7F6] px-4 py-2 text-sm font-bold text-[#0A3D62] transition-colors hover:bg-[#E8EDED] disabled:opacity-50 dark:bg-gray-800 dark:text-[#5b9bd5] dark:hover:bg-gray-700"
 					>
 						{t("markRead")}
 					</button>

@@ -26,8 +26,10 @@ function manilaDayRange(nowMs: number = Date.now()): { start: Date; end: Date } 
 }
 
 export async function requestFeed(deviceId: string, grams?: number) {
+	// Guard outside try: the catch below returns a generic message and would
+	// hide the write-access reason from the caller (matches toggleDevicePause).
+	await requireWriteAccess();
 	try {
-		await requireWriteAccess();
 		const ownerId = await getCurrentPondOwnerId();
 		const device = await prisma.energyDevice.findFirst({
 			where: { id: deviceId, pond: { ownerId } },

@@ -423,11 +423,10 @@ describe("write access enforcement — VIEWER denied, nothing written (1.5)", ()
 		);
 	}
 
-	it("requestFeed returns an error and writes nothing", async () => {
+	it("requestFeed throws and writes nothing", async () => {
 		denyWrite();
 		const { requestFeed } = await import("@/lib/actions/energy");
-		const result = await requestFeed("device-1");
-		expect(result.success).toBe(false);
+		await expect(requestFeed("device-1")).rejects.toThrow(/Write access required/);
 		expect(mockEnergyDevice.findFirst).not.toHaveBeenCalled();
 		expect(mockFeedRequest.create).not.toHaveBeenCalled();
 	});
@@ -440,16 +439,17 @@ describe("write access enforcement — VIEWER denied, nothing written (1.5)", ()
 		expect(mockDeviceStateEvent.create).not.toHaveBeenCalled();
 	});
 
-	it("updateScheduleCommand returns an error and writes nothing", async () => {
+	it("updateScheduleCommand throws and writes nothing", async () => {
 		denyWrite();
 		const { updateScheduleCommand } = await import("@/lib/actions/schedule");
-		const result = await updateScheduleCommand("pond-1", "device-1", {
-			scheduleStart: "08:00",
-			scheduleEnd: "18:00",
-			feedsPerDay: 2,
-			feedingRatePct: 3,
-		});
-		expect(result.success).toBe(false);
+		await expect(
+			updateScheduleCommand("pond-1", "device-1", {
+				scheduleStart: "08:00",
+				scheduleEnd: "18:00",
+				feedsPerDay: 2,
+				feedingRatePct: 3,
+			}),
+		).rejects.toThrow(/Write access required/);
 		expect(mockScheduleCommand.create).not.toHaveBeenCalled();
 		expect(mockScheduleCommand.update).not.toHaveBeenCalled();
 	});

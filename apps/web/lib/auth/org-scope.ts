@@ -28,8 +28,8 @@ export const EMPTY_SCOPE: OrgScope = {
 /**
  * Resolve the org scope for the currently authenticated user.
  *
- * Chain: user → memberships where they are OWNER/ADMIN (active) → those orgs'
- * active members → members' farms → ponds on those farms.
+ * Chain: user → memberships where they are OWNER/ADMIN (active) → those orgs
+ * with status ACTIVE → active members → members' farms → ponds on those farms.
  *
  * Fails closed: no session, no user row, or no OWNER/ADMIN membership all
  * yield EMPTY_SCOPE. A membership that is revoked stops granting scope.
@@ -44,7 +44,17 @@ export async function resolveOrgScope(): Promise<OrgScope> {
 	});
 	if (adminMemberships.length === 0) return EMPTY_SCOPE;
 
-	const orgIds = [...new Set(adminMemberships.map((m) => m.orgId))];
+	// Organization.status gates the whole tenant: a SUSPENDED or
+	// PENDING_DELETION org grants no scope even to its OWNER/ADMIN members.
+	// Organization/Membership are relation-free by design (plan §3.2), so this
+	// is an explicit id join rather than a nested filter.
+	const candidateOrgIds = [...new Set(adminMemberships.map((m) => m.orgId))];
+	const activeOrgs = await prisma.organization.findMany({
+		where: { id: { in: candidateOrgIds }, status: "ACTIVE" },
+		select: { id: true },
+	});
+	const orgIds = activeOrgs.map((o) => o.id);
+	if (orgIds.length === 0) return EMPTY_SCOPE;
 
 	const orgMemberships = await prisma.membership.findMany({
 		where: { orgId: { in: orgIds }, revokedAt: null },

@@ -144,7 +144,96 @@ not by a rendered pixel diff.
 | Plan recorded | Done |
 | #48 implemented | Done (PR #58) |
 | #48 integrated into `develop` | Done |
-| #49 implemented | Done (this change) |
-| #49 integrated into `develop` | Pending merge |
-| Promoted to `staging` | Pending |
-| Production promotion | Not performed — Jeff only |
+| #49 implemented | Done (PR #59) |
+| #49 integrated into `develop` | Done |
+| Promoted to `staging` | Done (PR #60, `94297a3`) |
+| Production promotion | **Awaiting Jeff's approval** |
+
+---
+
+# Reconciliation review — 2026-10-21 (pre-production)
+
+## Branch state
+
+| Branch | Tip | Relationship to `main` | Notes |
+| --- | --- | --- | --- |
+| `main` | `2795bef` | production | last production deployment; no release since 2026-10-14 |
+| `staging` | `94297a3` | 44 commits ahead | content-identical to `develop`; staging deployment `READY` |
+| `develop` | `0940a45` | 40 commits ahead | content-identical to `staging` |
+| `xtra` | `f8de64b` | 5 unique commits | open PR #55, **conflicting**, based on pre-migration `5f82a25` |
+| `Karl` | `d366ca4` | merged | stale history, no unique commits |
+| `fix/schedule-pause-energy-device` | `124c7dd` | merged | stale history, no unique commits |
+
+`git diff origin/develop origin/staging` is empty. `staging` is ahead of `main`
+by 44 commits and 108 files (+9932 / −1433).
+
+## PR #55 (`xtra`) — reconcile separately, not in this release
+
+`xtra` contains five commits against the pre-migration base `5f82a25`:
+
+| Commit | Content | Verdict |
+| --- | --- | --- |
+| `09c5868` | biomass source badges, history filters, dashboard card, form layout | **unique** — additive |
+| `b999458` | separate dark-mode contrast audit (fixes #48) | duplicate of PR #58, broader file set |
+| `32e4b74` | separate growth compact/history implementation (closes #49) | duplicate of PR #59, different routes |
+| `9a66bd9` | AI provider switch Gemini → OpenRouter DeepSeek | **unique**, breaking env change |
+| `f8de64b` | AI smart feeding prediction with advisory apply | **unique** |
+
+Risks if merged as-is:
+
+1. **Security regression.** `xtra` predates the audit merge. Its
+   `app/api/chat/route.ts` uses manual Supabase auth and its
+   `app/api/import/confirm/route.ts` lacks the `withAuth` / atomic-import
+   guards from F-002–F-005. A naive merge would revert those fixes.
+2. **Duplicate implementations.** Two independent solutions for #48 and #49
+   now conflict on the growth page, history page, log-sample page, the cards,
+   and `paginated-search-table.tsx`.
+3. **New required configuration.** The AI switch retires `GEMINI_*` and needs
+   `OPENROUTER_API_KEY` (plus optional `OPENROUTER_MODEL`,
+   `OPENROUTER_REASONING_EFFORT`). Vercel currently has no OpenRouter key, so
+   chat would fall back to rule-based answers.
+4. **Preview consumption.** `xtra` predates `apps/web/vercel.json`, so it still
+   creates Vercel preview deployments on every push.
+
+Recommended reconciliation (after the production release):
+
+1. Branch `feat/xtra-reconciled` from `origin/develop`.
+2. Cherry-pick only `09c5868`, `9a66bd9`, `f8de64b`; **do not** replay
+   `b999458` or `32e4b74`.
+3. Resolve conflicts by keeping `develop`'s auth scaffolding (`withAuth`,
+   `requireWriteAccess`, atomic import) and applying only the AI/biomass
+   changes on top. Add `OPENROUTER_API_KEY` to Vercel before that PR reaches
+   production.
+4. Port the broader dark-mode coverage from `b999458` (audit, settings,
+   notifications) separately if it is still wanted.
+5. Keep `xtra` untouched for its author; the replacement PR supersedes #55.
+
+This is not part of the release candidate below.
+
+## Release candidate
+
+- Source: `staging@94297a3` → target `main@2795bef`.
+- Contains: audit phase-1 security fixes, Next 16.4.2, superadmin/multitenancy,
+  the branch/CI/deployment migration, and issues #48/#49.
+- Migrations (production only, applied by the `main` deployment):
+  - `20261017000000_add_platform_admin` — additive (enums, tables, indexes,
+    trigger, idempotent insert).
+  - `20261017010000_bootstrap_tenant_orgs` — additive backfill for existing
+    ponds.
+- No new environment variables (`apps/web/.env.example` is unchanged vs
+  `main`).
+- `apps/web/vercel.json` becomes active on `main` after promotion, which also
+  satisfies the team rule "confirm the allowlist is active on `main`".
+- Verification: CI green on `staging@94297a3` and `develop@0940a45`; staging
+  deployment `READY`; build log shows migrations skipped for preview. A backup
+  is recommended before the production deployment because it applies
+  migrations.
+
+## Protocol note
+
+`team-development.md` took effect during this task. From now on agents do not
+push `staging` or `main`: promotions are PRs that the human merges. The
+`main+develop` allowlist in the global instruction conflicts with this
+repository's explicit `staging+main` decision; the repository policy is kept
+unless Jeff changes it.
+

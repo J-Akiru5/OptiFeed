@@ -6,12 +6,17 @@ import prisma from "@/lib/prisma";
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
 
-// Global per-farm slowdown: >= 20 failed attempts within an hour delays
-// the next login attempt and notifies the farm (security category), but
-// NEVER locks the farmer out.
-const GLOBAL_ATTEMPTS_PER_HOUR = 20;
-const GLOBAL_WINDOW_MS = 60 * 60 * 1000;
-export const GLOBAL_SLOWDOWN_MS = 2000;
+// Farm-wide cap (F-031): >= 10 failed attempts across ALL IPs within a
+// 15-minute window locks every IP for the farm for 15 minutes. A single
+// IP can contribute at most MAX_ATTEMPTS before its own pair lock stops
+// the counting, so this needs 2+ real source IPs to trigger — and with
+// F-014 fixed, XFF rotation can no longer manufacture new ones. A stranger
+// can therefore hold the farm lock for up to 15 minutes; that tradeoff is
+// accepted (the old never-lock design let attackers brute-force forever).
+// Stored in UserLockout.lockedUntil, which previously existed unused.
+const FARM_MAX_ATTEMPTS = 10;
+const FARM_WINDOW_MS = 15 * 60 * 1000;
+const FARM_LOCK_MINUTES = 15;
 
 export interface LockoutResult {
 	locked: boolean;
@@ -22,26 +27,37 @@ export async function checkLockout(farmId: string, ip: string): Promise<LockoutR
 	const record = await prisma.loginLockout.findUnique({
 		where: { farmId_ip: { farmId, ip } },
 	});
-	if (!record) return { locked: false };
-
 	const now = Date.now();
 
-	// Lockout window has passed — reset this pair for a fresh set of attempts
-	if (record.lockedUntil && record.lockedUntil.getTime() <= now) {
-		await prisma.loginLockout.update({
-			where: { farmId_ip: { farmId, ip } },
+	if (record) {
+		// Lockout window has passed — reset this pair for a fresh set of attempts
+		if (record.lockedUntil && record.lockedUntil.getTime() <= now) {
+			await prisma.loginLockout.update({
+				where: { farmId_ip: { farmId, ip } },
+				data: { failedAttempts: 0, lockedUntil: null },
+			});
+		} else if (record.lockedUntil) {
+			// Currently locked
+			const secondsRemaining = Math.ceil((record.lockedUntil.getTime() - now) / 1000);
+			return { locked: true, secondsRemaining };
+		}
+	}
+
+	// Farm-wide lock (F-031) — applies to every IP, checked even when this
+	// pair has no record of its own.
+	const farm = await prisma.userLockout.findUnique({ where: { farmId } });
+	if (farm?.lockedUntil) {
+		if (farm.lockedUntil.getTime() > now) {
+			const secondsRemaining = Math.ceil((farm.lockedUntil.getTime() - now) / 1000);
+			return { locked: true, secondsRemaining };
+		}
+		// Expired farm lock — clear it and start the counter fresh.
+		await prisma.userLockout.update({
+			where: { farmId },
 			data: { failedAttempts: 0, lockedUntil: null },
 		});
-		return { locked: false };
 	}
 
-	// Currently locked
-	if (record.lockedUntil && record.lockedUntil.getTime() > now) {
-		const secondsRemaining = Math.ceil((record.lockedUntil.getTime() - now) / 1000);
-		return { locked: true, secondsRemaining };
-	}
-
-	// Not locked, counter below threshold
 	return { locked: false };
 }
 
@@ -72,24 +88,36 @@ export async function recordFailedAttempt(farmId: string, ip: string): Promise<v
 		});
 	}
 
-	// Global per-farm counter — decay hourly, notify once on crossing.
+	// Farm-wide counter (F-031) — 15-minute window, hard cap at 10.
 	const global = await prisma.userLockout.findUnique({ where: { farmId } });
-	if (!global || (global.lastFailedAt?.getTime() ?? 0) < now.getTime() - GLOBAL_WINDOW_MS) {
+	if (
+		!global ||
+		!global.lastFailedAt ||
+		global.lastFailedAt.getTime() <= now.getTime() - FARM_WINDOW_MS
+	) {
+		// Window expired (or first failure) — restart the counter fresh.
 		await prisma.userLockout.upsert({
 			where: { farmId },
 			create: { farmId, failedAttempts: 1, lastFailedAt: now },
-			update: { failedAttempts: 1, lastFailedAt: now },
+			update: { failedAttempts: 1, lastFailedAt: now, lockedUntil: null },
 		});
 		return;
 	}
 
 	const newGlobal = global.failedAttempts + 1;
+	const crossedCap = newGlobal >= FARM_MAX_ATTEMPTS;
 	await prisma.userLockout.update({
 		where: { farmId },
-		data: { failedAttempts: newGlobal, lastFailedAt: now },
+		data: {
+			failedAttempts: newGlobal,
+			lastFailedAt: now,
+			lockedUntil: crossedCap
+				? new Date(now.getTime() + FARM_LOCK_MINUTES * 60 * 1000)
+				: global.lockedUntil,
+		},
 	});
 
-	if (newGlobal === GLOBAL_ATTEMPTS_PER_HOUR) {
+	if (newGlobal === FARM_MAX_ATTEMPTS) {
 		await notifyBruteForce(farmId, ip);
 	}
 }
@@ -100,21 +128,16 @@ export async function resetLockout(farmId: string, ip: string): Promise<void> {
 		create: { farmId, ip, failedAttempts: 0 },
 		update: { failedAttempts: 0, lockedUntil: null },
 	});
+	// A successful login clears the farm-wide counter too, so a run of
+	// failures from other IPs doesn't keep the farmer one typo from a lock.
+	await prisma.userLockout.upsert({
+		where: { farmId },
+		create: { farmId, failedAttempts: 0 },
+		update: { failedAttempts: 0, lockedUntil: null },
+	});
 }
 
-/**
- * True when this farm has crossed the global failed-attempt threshold in
- * the last hour. The caller applies GLOBAL_SLOWDOWN_MS — a delay, never a
- * lockout, so the real farmer can always get in.
- */
-export async function shouldSlowLogin(farmId: string): Promise<boolean> {
-	const global = await prisma.userLockout.findUnique({ where: { farmId } });
-	if (!global?.lastFailedAt) return false;
-	if (global.lastFailedAt.getTime() < Date.now() - GLOBAL_WINDOW_MS) return false;
-	return global.failedAttempts >= GLOBAL_ATTEMPTS_PER_HOUR;
-}
-
-// One-shot farm notification when the global threshold is first crossed.
+// One-shot farm notification when the farm-wide cap is first crossed.
 async function notifyBruteForce(farmId: string, ip: string): Promise<void> {
 	try {
 		const pond = await prisma.pond.findFirst({

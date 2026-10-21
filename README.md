@@ -56,6 +56,29 @@ Smart shrimp feeding management.
 | `pnpm prisma:migrate` | Run Prisma migrations |
 | `pnpm typecheck` | Run TypeScript checks across the workspace |
 
+## Branch workflow
+
+Development moves through four stages; only two of them deploy.
+
+```
+feature/* ──PR──▶ develop ──PR──▶ staging ──PR + Jeff──▶ main
+                     │              │                     │
+               validate only   staging deploy      production deploy
+```
+
+- Work on a short-lived branch from `develop`; open PRs **into `develop`**.
+- `develop` is the shared integration branch and never deploys.
+- `staging` is the default branch and the release candidate; it deploys the
+  staging environment.
+- `main` is production and is only advanced by a PR from `staging`, approved
+  and merged by Jeff.
+
+Full rules: [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+Pipeline details, deployment policy, and known blockers:
+[`docs/deployment-workflow.md`](./docs/deployment-workflow.md).
+
 ## Contributing
 
-See [`HANDOFF.md`](./HANDOFF.md) for an overview of the scaffold structure and where feature work lives.
+Start with [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the workflow, then
+[`HANDOFF.md`](./HANDOFF.md) for repository orientation and the database safety
+rules. Never run `prisma migrate reset` against production.

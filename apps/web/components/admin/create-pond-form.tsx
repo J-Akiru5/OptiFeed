@@ -1,14 +1,18 @@
 "use client";
 
 import { useRouter } from "@/i18n/routing";
-import { createPond } from "@/lib/actions/admin";
+import { createPondWithFarmer } from "@/lib/actions/admin";
 import { useState } from "react";
 
-interface CreatePondFormProps {
-	users: { farmId: string; displayName: string | null }[];
-}
-
-export function CreatePondForm({ users }: CreatePondFormProps) {
+/**
+ * Creates a farmer and their first pond together.
+ *
+ * The old version picked an existing user from a dropdown and called createPond;
+ * there was no way for a farmer to get an account and a pond in one place, so
+ * this is now the single onboarding path. The farmer lands in the calling
+ * admin's organization as an OPERATOR.
+ */
+export function CreatePondForm() {
 	const router = useRouter();
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
@@ -17,9 +21,11 @@ export function CreatePondForm({ users }: CreatePondFormProps) {
 		setLoading(true);
 		setError(null);
 
-		const result = await createPond({
-			name: formData.get("name") as string,
-			ownerFarmId: formData.get("ownerFarmId") as string,
+		const result = await createPondWithFarmer({
+			farmerName: formData.get("farmerName") as string,
+			loginId: formData.get("loginId") as string,
+			pin: formData.get("pin") as string,
+			pondName: formData.get("pondName") as string,
 			feedingRatePct: Number.parseFloat(formData.get("feedingRatePct") as string),
 			feedsPerDay: Number.parseInt(formData.get("feedsPerDay") as string, 10),
 			population: formData.get("population")
@@ -50,41 +56,82 @@ export function CreatePondForm({ users }: CreatePondFormProps) {
 				</div>
 			)}
 
+			<fieldset className="space-y-5 border-0 p-0 m-0">
+				<legend className="block text-xs font-black uppercase text-[#0A3D62] tracking-wider mb-1.5">
+					Farmer
+				</legend>
+
+				<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+					<div>
+						<label
+							htmlFor="farmerName"
+							className="block text-xs font-bold uppercase text-[#3D5568] tracking-wider mb-1.5"
+						>
+							Name
+						</label>
+						<input
+							id="farmerName"
+							name="farmerName"
+							required
+							placeholder="e.g. Juan Miguel"
+							className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+						/>
+					</div>
+					<div>
+						<label
+							htmlFor="loginId"
+							className="block text-xs font-bold uppercase text-[#3D5568] tracking-wider mb-1.5"
+						>
+							Login ID
+						</label>
+						<input
+							id="loginId"
+							name="loginId"
+							required
+							pattern="[a-z0-9-]+"
+							title="Lowercase letters, numbers and hyphens"
+							placeholder="e.g. juan-dela-cruz"
+							className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-mono font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+						/>
+						<p className="text-[11px] text-[#3D5568] mt-1">Used as the login ID and email.</p>
+					</div>
+				</div>
+
+				<div className="max-w-[12rem]">
+					<label
+						htmlFor="pin"
+						className="block text-xs font-bold uppercase text-[#3D5568] tracking-wider mb-1.5"
+					>
+						PIN
+					</label>
+					<input
+						id="pin"
+						name="pin"
+						type="password"
+						required
+						inputMode="numeric"
+						pattern="\d{6}"
+						title="Exactly 6 digits"
+						placeholder="6 digits"
+						className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-mono font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+					/>
+				</div>
+			</fieldset>
+
 			<div>
 				<label
-					htmlFor="name"
+					htmlFor="pondName"
 					className="block text-xs font-bold uppercase text-[#3D5568] tracking-wider mb-1.5"
 				>
 					Pond Name
 				</label>
 				<input
-					id="name"
-					name="name"
+					id="pondName"
+					name="pondName"
 					required
 					placeholder="e.g. ILO-POND-02"
 					className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
 				/>
-			</div>
-
-			<div>
-				<label
-					htmlFor="ownerFarmId"
-					className="block text-xs font-bold uppercase text-[#3D5568] tracking-wider mb-1.5"
-				>
-					Owner
-				</label>
-				<select
-					id="ownerFarmId"
-					name="ownerFarmId"
-					required
-					className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
-				>
-					{users.map((user) => (
-						<option key={user.farmId} value={user.farmId}>
-							{user.displayName || user.farmId} ({user.farmId})
-						</option>
-					))}
-				</select>
 			</div>
 
 			<div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -183,7 +230,7 @@ export function CreatePondForm({ users }: CreatePondFormProps) {
 				disabled={loading}
 				className="w-full rounded-xl bg-[#E85A2A] px-4 py-3 text-sm font-black text-white hover:bg-[#d04a1f] transition-colors disabled:opacity-50"
 			>
-				{loading ? "Creating..." : "Create Pond"}
+				{loading ? "Creating..." : "Create Farmer & Pond"}
 			</button>
 		</form>
 	);

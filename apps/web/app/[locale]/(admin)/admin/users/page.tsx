@@ -1,6 +1,6 @@
 import { Link } from "@/i18n/routing";
 import { getUsers } from "@/lib/actions/admin";
-import { Eye, Plus, Shield, User } from "lucide-react";
+import { Eye, Shield, User } from "lucide-react";
 
 const roleBadge: Record<string, { bg: string; text: string; icon: typeof Shield }> = {
 	ADMIN: { bg: "bg-[#E85A2A]", text: "text-white", icon: Shield },
@@ -17,16 +17,16 @@ export default async function AdminUsersPage() {
 				<div>
 					<h1 className="text-2xl font-black text-[#0A3D62]">User Management</h1>
 					<p className="text-sm text-[#3D5568] mt-1">
-						{users.length} user{users.length !== 1 ? "s" : ""} registered
+						{users.length} user{users.length !== 1 ? "s" : ""} in your organization
+					</p>
+					<p className="text-[11px] text-[#3D5568] mt-2">
+						Farmers are registered from{" "}
+						<Link href="/admin/ponds/new" className="font-bold text-[#E85A2A] hover:underline">
+							Register Farmer &amp; Pond
+						</Link>
+						, which creates the account and the pond together.
 					</p>
 				</div>
-				<Link
-					href="/admin/users/create"
-					className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#E85A2A] text-white font-bold text-sm rounded-xl hover:bg-[#d04a1f] transition-colors shadow-sm"
-				>
-					<Plus className="w-4 h-4" />
-					Create User
-				</Link>
 			</div>
 
 			<div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">

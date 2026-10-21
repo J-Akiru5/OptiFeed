@@ -1,11 +1,8 @@
 import { CreatePondForm } from "@/components/admin/create-pond-form";
 import { Link } from "@/i18n/routing";
-import { getUsers } from "@/lib/actions/admin";
 import { ArrowLeft } from "lucide-react";
 
 export default async function NewPondPage() {
-	const users = await getUsers();
-
 	return (
 		<div className="space-y-6 max-w-2xl">
 			<div>
@@ -16,11 +13,14 @@ export default async function NewPondPage() {
 					<ArrowLeft className="w-4 h-4" />
 					Back to Ponds
 				</Link>
-				<h1 className="text-2xl font-black text-[#0A3D62]">Create New Pond</h1>
-				<p className="text-sm text-[#3D5568] mt-1">Add a new pond and assign it to a farm owner.</p>
+				<h1 className="text-2xl font-black text-[#0A3D62]">Register Farmer &amp; Pond</h1>
+				<p className="text-sm text-[#3D5568] mt-1">
+					Creates the farmer's account and their first pond in one step. They join your organization
+					as an operator.
+				</p>
 			</div>
 
-			<CreatePondForm users={users} />
+			<CreatePondForm />
 		</div>
 	);
 }

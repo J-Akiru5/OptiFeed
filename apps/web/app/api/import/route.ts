@@ -1,8 +1,8 @@
-import { farmIdFromEmail, requireWriteAccess } from "@/lib/auth/session";
+import { resolveActivePond } from "@/lib/auth/pond-access";
+import { requireWriteAccess } from "@/lib/auth/session";
+import { withAuth } from "@/lib/auth/with-auth";
 import { type ExportableType, parseCsvString } from "@/lib/csv";
-import prisma from "@/lib/prisma";
 import { checkApiRateLimit } from "@/lib/rate-limit";
-import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -21,17 +21,7 @@ const REQUIRED_FIELDS: Record<ExportableType, string[]> = {
 	audit_events: ["eventType", "source"],
 };
 
-export async function POST(request: Request) {
-	const supabase = await createClient();
-	const {
-		data: { user },
-	} = await supabase.auth.getUser();
-
-	const ownerId = user?.email ? farmIdFromEmail(user.email) : null;
-	if (!ownerId) {
-		return Response.json({ error: "Unauthorized" }, { status: 401 });
-	}
-
+export const POST = withAuth(async (request, { ownerId }) => {
 	try {
 		await requireWriteAccess();
 	} catch {
@@ -44,7 +34,7 @@ export async function POST(request: Request) {
 		return Response.json({ error: "Too Many Requests" }, { status: 429 });
 	}
 
-	const pond = await prisma.pond.findFirst({ where: { ownerId, status: "ACTIVE" } });
+	const pond = await resolveActivePond(ownerId);
 	if (!pond) {
 		return Response.json({ error: "No pond found" }, { status: 404 });
 	}
@@ -95,4 +85,4 @@ export async function POST(request: Request) {
 		validationErrors: validationErrors.slice(0, 50),
 		isValid: validationErrors.length === 0,
 	});
-}
+});

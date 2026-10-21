@@ -142,9 +142,9 @@ not by a rendered pixel diff.
 | Item | Status |
 | --- | --- |
 | Plan recorded | Done |
-| #48 implemented | Pending |
-| #48 integrated into `develop` | Pending |
-| #49 implemented | Pending |
-| #49 integrated into `develop` | Pending |
+| #48 implemented | Done (PR #58) |
+| #48 integrated into `develop` | Done |
+| #49 implemented | Done (this change) |
+| #49 integrated into `develop` | Pending merge |
 | Promoted to `staging` | Pending |
 | Production promotion | Not performed — Jeff only |

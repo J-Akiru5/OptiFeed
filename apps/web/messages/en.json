@@ -267,7 +267,37 @@
 			"noFeedLevel": "No feed level readings recorded yet.",
 			"searchPlaceholder": "Search by date (YYYY-MM-DD)",
 			"loadMore": "Load more",
-			"loading": "Loading…"
+			"loading": "Loading…",
+			"viewAll": "View all",
+			"history": {
+				"title": "Growth history",
+				"desc": "Full feed level, growth and biomass records for {pond}",
+				"backToGrowth": "Back to Growth",
+				"tabs": {
+					"feed": "Feed level",
+					"growth": "Growth summary",
+					"biomass": "Biomass samples"
+				},
+				"filters": {
+					"search": "Search",
+					"from": "From",
+					"to": "To",
+					"apply": "Apply",
+					"clear": "Clear"
+				},
+				"columns": {
+					"avgWeight": "Avg Weight (g)",
+					"weightGain": "Weight Gain (g)",
+					"lengthGain": "Length Gain (cm)",
+					"daysSince": "Days Since Last"
+				},
+				"pagination": {
+					"previous": "Previous",
+					"next": "Next",
+					"showing": "Showing {from}–{to} of {total}"
+				},
+				"empty": "No records match these filters."
+			}
 		},
 		"settings": {
 			"title": "Settings",

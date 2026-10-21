@@ -336,7 +336,19 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 								{biomassRows.map((row) => (
 									<tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
 										<td className="whitespace-nowrap px-3 py-3 font-medium text-gray-900 dark:text-gray-100 lg:px-4">
-											{formatDateTimeLocal(row.recordedAt, tDates).fullDate}
+											<div className="flex items-center gap-2">
+												{formatDateTimeLocal(row.recordedAt, tDates).fullDate}
+												{row.source === "import" && (
+													<span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+														{tGrowth("importedBadge")}
+													</span>
+												)}
+												{row.source === "seed" && (
+													<span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+														{tGrowth("seedBadge")}
+													</span>
+												)}
+											</div>
 										</td>
 										<td className="hidden whitespace-nowrap px-3 py-3 lg:table-cell lg:px-4">
 											{row.batchLabel ?? <span className="text-gray-400">—</span>}

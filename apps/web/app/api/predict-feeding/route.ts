@@ -1,28 +1,13 @@
-import { farmIdFromEmail } from "@/lib/auth/session";
+import { withAuth } from "@/lib/auth/with-auth";
 import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { type PredictionInputs, predictFeeding } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { checkPredictionRateLimit } from "@/lib/rate-limit";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
-import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export async function POST() {
-	const supabase = await createClient();
-	const {
-		data: { user },
-	} = await supabase.auth.getUser();
-
-	if (!user?.email) {
-		return Response.json({ error: "Unauthorized" }, { status: 401 });
-	}
-
-	const ownerId = farmIdFromEmail(user.email);
-	if (!ownerId) {
-		return Response.json({ error: "Unauthorized" }, { status: 401 });
-	}
-
+export const POST = withAuth(async (_request, { ownerId }) => {
 	const { success } = await checkPredictionRateLimit(ownerId);
 	if (!success) {
 		return Response.json({ error: "Too Many Requests" }, { status: 429 });
@@ -76,4 +61,4 @@ export async function POST() {
 		reasoning: prediction.reasoning,
 		source: prediction.source,
 	});
-}
+});

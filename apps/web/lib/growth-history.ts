@@ -25,6 +25,7 @@ export interface BiomassHistoryRow {
 	id: string;
 	recordedAt: Date;
 	batchLabel: string | null;
+	source: string | null;
 	sampleWeightKg: number;
 	sampleCount: number;
 	sampleLengthCm: number;

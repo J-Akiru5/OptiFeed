@@ -1,10 +1,9 @@
-import { farmIdFromEmail } from "@/lib/auth/session";
+import { withAuth } from "@/lib/auth/with-auth";
 import { buildChatContext } from "@/lib/chat/context";
 import { createNamespaceTranslator, runFallbackIntent } from "@/lib/chat/fallback";
-import { buildSystemPrompt, enforcePromptLimit, sanitizeInput } from "@/lib/chat/prompt";
+import { buildSystemPrompt } from "@/lib/chat/prompt";
 import { geminiDebugInfo, isGeminiEnabled, isGeminiQuotaError, streamGemini } from "@/lib/gemini";
 import { checkApiRateLimit } from "@/lib/rate-limit";
-import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -19,21 +18,7 @@ function sse(text: string): Uint8Array {
 	return encoder.encode(`data: ${JSON.stringify({ text })}\n\n`);
 }
 
-export async function POST(request: Request) {
-	const supabase = await createClient();
-	const {
-		data: { user },
-	} = await supabase.auth.getUser();
-
-	if (!user?.email) {
-		return new Response("Unauthorized", { status: 401 });
-	}
-
-	const ownerId = farmIdFromEmail(user.email);
-	if (!ownerId) {
-		return new Response("Unauthorized", { status: 401 });
-	}
-
+export const POST = withAuth(async (request, { ownerId }) => {
 	// Rate limit: 30 requests per 60 seconds per user
 	const { success } = await checkApiRateLimit(ownerId);
 	if (!success) {
@@ -138,4 +123,4 @@ export async function POST(request: Request) {
 			"X-Accel-Buffering": "no",
 		},
 	});
-}
+});

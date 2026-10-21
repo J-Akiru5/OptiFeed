@@ -79,23 +79,23 @@ export function FeedEventHistoryTable({
 		return (
 			<div className="flex items-center justify-between py-4">
 				<div className="flex items-center gap-4">
-					<div className="h-10 w-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
+					<div className="h-10 w-10 rounded-full bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400 flex items-center justify-center">
 						<CheckCircle2 className="h-5 w-5" />
 					</div>
 					<div>
-						<p className="font-semibold text-gray-900">{formatted.fullDate}</p>
-						<p className="font-semibold text-gray-900 flex items-center gap-2">
-							<span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 flex items-center gap-1">
+						<p className="font-semibold text-gray-900 dark:text-gray-100">{formatted.fullDate}</p>
+						<p className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+							<span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 flex items-center gap-1">
 								<Clock className="h-3 w-3" /> {formatted.time}
 							</span>
 						</p>
-						<p className="text-sm text-gray-500 mt-0.5">
+						<p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
 							{event.source ? t(`source_${sourceKey}`) : t("confirmedDispense")}
 						</p>
 					</div>
 				</div>
 				<div className="text-right">
-					<p className="font-bold text-gray-900">{event.grams ?? 0}g</p>
+					<p className="font-bold text-gray-900 dark:text-gray-100">{event.grams ?? 0}g</p>
 				</div>
 			</div>
 		);

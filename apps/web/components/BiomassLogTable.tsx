@@ -27,14 +27,14 @@ function pad2(n: number): string {
 function sourceBadge(t: (key: string) => string, source: string | null) {
 	if (source === "import") {
 		return (
-			<span className="inline-flex items-center px-2 py-0.5 bg-violet-100 text-violet-700 text-[10px] font-bold rounded-full">
+			<span className="inline-flex items-center px-2 py-0.5 bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 text-[10px] font-bold rounded-full">
 				{t("importedBadge")}
 			</span>
 		);
 	}
 	if (source === "seed") {
 		return (
-			<span className="inline-flex items-center px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full">
+			<span className="inline-flex items-center px-2 py-0.5 bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 text-[10px] font-bold rounded-full">
 				{t("seedBadge")}
 			</span>
 		);
@@ -79,15 +79,15 @@ export function BiomassLogTable({ logs }: { logs: BiomassLogEntry[] }) {
 	}, [logs, batchFilter, dateQuery, tDates]);
 
 	return (
-		<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mt-8 xl:mt-0 xl:col-span-2">
-			<div className="p-6 border-b border-gray-100 bg-gray-50/50 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-				<h3 className="font-bold text-gray-800">{t("historyTitle")}</h3>
+		<div className="bg-white rounded-3xl shadow-sm border border-gray-100 dark:bg-gray-900 dark:border-gray-700/60 overflow-hidden mt-8 xl:mt-0 xl:col-span-2">
+			<div className="p-6 border-b border-gray-100 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-800/60 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<h3 className="font-bold text-gray-800 dark:text-gray-100">{t("historyTitle")}</h3>
 				<div className="flex flex-col sm:flex-row gap-2">
 					<select
 						aria-label={t("batchFilterLabel")}
 						value={batchFilter}
 						onChange={(e) => setBatchFilter(e.target.value)}
-						className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 font-medium focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+						className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-700 dark:text-gray-100 font-medium focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
 					>
 						<option value="">{t("allBatches")}</option>
 						{batchOptions.hasUnlabeled && <option value={UNLABELED}>{t("unlabeledBatch")}</option>}
@@ -102,13 +102,13 @@ export function BiomassLogTable({ logs }: { logs: BiomassLogEntry[] }) {
 						value={dateQuery}
 						onChange={(e) => setDateQuery(e.target.value)}
 						placeholder={t("searchPlaceholder")}
-						className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 font-medium focus:outline-none focus:ring-2 focus:ring-[#E85A2A] sm:w-56"
+						className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-700 dark:text-gray-100 font-medium focus:outline-none focus:ring-2 focus:ring-[#E85A2A] sm:w-56"
 					/>
 				</div>
 			</div>
 			<div className="overflow-x-auto">
-				<table className="w-full text-left text-sm text-gray-600">
-					<thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
+				<table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+					<thead className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 uppercase text-xs font-semibold">
 						<tr>
 							<th className="px-3 py-3 lg:px-4">{t("dateCol")}</th>
 							<th className="px-3 py-3 hidden lg:table-cell lg:px-4">{t("batchCol")}</th>
@@ -121,16 +121,19 @@ export function BiomassLogTable({ logs }: { logs: BiomassLogEntry[] }) {
 							<th className="px-3 py-3 text-center lg:px-4">{t("typeCol")}</th>
 						</tr>
 					</thead>
-					<tbody className="divide-y divide-gray-100">
+					<tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
 						{rows.map((log) => {
 							const srcBadge = sourceBadge(t, log.source);
 							return (
-								<tr key={log.id} className="hover:bg-gray-50 transition-colors">
-									<td className="px-3 py-3 font-medium text-gray-900 whitespace-nowrap lg:px-4">
+								<tr
+									key={log.id}
+									className="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
+								>
+									<td className="px-3 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap lg:px-4">
 										{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
 									</td>
 									<td className="px-3 py-3 whitespace-nowrap hidden lg:table-cell lg:px-4">
-										{log.batchLabel ?? <span className="text-gray-400">—</span>}
+										{log.batchLabel ?? <span className="text-gray-400 dark:text-gray-500">—</span>}
 									</td>
 									<td className="px-3 py-3 lg:px-4">{log.sampleWeightKg.toFixed(2)}</td>
 									<td className="px-3 py-3 lg:px-4">{log.sampleCount}</td>
@@ -182,7 +185,7 @@ export function BiomassLogTable({ logs }: { logs: BiomassLogEntry[] }) {
 													</div>
 												</details>
 											) : (
-												<span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 text-xs font-bold rounded-full">
+												<span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300 text-xs font-bold rounded-full">
 													<Scale className="w-3 h-3" />
 													Avg
 												</span>
@@ -195,7 +198,10 @@ export function BiomassLogTable({ logs }: { logs: BiomassLogEntry[] }) {
 						})}
 						{rows.length === 0 && (
 							<tr>
-								<td colSpan={COLUMN_COUNT} className="px-6 py-10 text-center text-gray-500">
+								<td
+									colSpan={COLUMN_COUNT}
+									className="px-6 py-10 text-center text-gray-500 dark:text-gray-400"
+								>
 									{logs.length === 0 ? t("noSamples") : t("noFilteredSamples")}
 								</td>
 							</tr>

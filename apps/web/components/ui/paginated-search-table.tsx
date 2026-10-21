@@ -113,19 +113,21 @@ export function PaginatedSearchTable<T>({
 					value={query}
 					onChange={(e) => setQuery(e.target.value)}
 					placeholder={searchPlaceholder}
-					className="w-full rounded-lg border border-gray-200 py-2 pr-4 pl-9 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+					className="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 py-2 pr-4 pl-9 text-sm text-gray-700 dark:text-gray-100 outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
 				/>
 			</div>
 
 			{isLoading && items.length === 0 ? (
-				<div className="flex items-center justify-center gap-2 py-10 text-sm text-gray-500">
+				<div className="flex items-center justify-center gap-2 py-10 text-sm text-gray-500 dark:text-gray-400">
 					<Loader2 className="size-4 animate-spin" />
 					<span>{loadingLabel}</span>
 				</div>
 			) : showEmpty ? (
-				<div className="py-10 text-center text-sm text-gray-500">{emptyMessage}</div>
+				<div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+					{emptyMessage}
+				</div>
 			) : (
-				<div className="divide-y divide-gray-100">
+				<div className="divide-y divide-gray-100 dark:divide-gray-700/60">
 					{items.map((item, index) => {
 						const rowKey = getKey?.(item, index) ?? index;
 						return <div key={rowKey}>{renderRow(item)}</div>;

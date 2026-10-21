@@ -25,10 +25,10 @@ export function WaterTempCard({
 	};
 
 	return (
-		<div className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100 transition-shadow hover:shadow-md">
+		<div className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100 dark:bg-gray-900 dark:border-gray-700/60 transition-shadow hover:shadow-md">
 			<div className="flex items-center justify-between mb-4">
 				<div className="flex items-center gap-3">
-					<div className="h-11 w-11 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+					<div className="h-11 w-11 rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400 flex items-center justify-center">
 						<svg
 							className="h-6 w-6"
 							fill="none"
@@ -47,7 +47,7 @@ export function WaterTempCard({
 						</svg>
 					</div>
 					<div>
-						<p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+						<p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 							Water Temperature
 						</p>
 						<h3 className="text-lg font-bold text-[var(--ofd-base-deep)]">
@@ -58,10 +58,10 @@ export function WaterTempCard({
 				<span
 					className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
 						isStale
-							? "bg-amber-100 text-amber-700"
+							? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
 							: hasReading
-								? "bg-green-100 text-green-700"
-								: "bg-gray-100 text-gray-600"
+								? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+								: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
 					}`}
 				>
 					<span
@@ -72,14 +72,14 @@ export function WaterTempCard({
 			</div>
 
 			{hasReading ? (
-				<div className="rounded-xl bg-gray-50 p-3">
-					<p className="text-xs text-gray-500 font-medium">Last updated</p>
-					<p className="text-sm font-medium text-gray-700">
+				<div className="rounded-xl bg-gray-50 dark:bg-gray-800 p-3">
+					<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Last updated</p>
+					<p className="text-sm font-medium text-gray-700 dark:text-gray-300">
 						{updatedAt ? formatTimeAgo(updatedAt) : "—"}
 					</p>
 				</div>
 			) : (
-				<p className="text-sm text-gray-400 text-center py-4">Sensor offline</p>
+				<p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">Sensor offline</p>
 			)}
 		</div>
 	);

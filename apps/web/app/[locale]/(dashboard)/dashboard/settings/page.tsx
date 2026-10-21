@@ -48,9 +48,9 @@ export default async function SettingsPage() {
 			</div>
 
 			{farm && (
-				<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-					<div className="mb-6 border-b border-gray-100 pb-4">
-						<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800">
+				<section className="rounded-2xl border border-gray-100 dark:border-gray-700/60 bg-white dark:bg-gray-900 p-6 shadow-sm">
+					<div className="mb-6 border-b border-gray-100 dark:border-gray-700/60 pb-4">
+						<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800 dark:text-gray-100">
 							<Sprout size={20} />
 							{t("farmCardTitle")}
 						</h2>
@@ -75,9 +75,12 @@ export default async function SettingsPage() {
 									{farm.ponds.map((pond) => (
 										<li
 											key={pond.id}
-											className="flex items-center gap-2 rounded-lg border border-gray-100 bg-[#F4F7F6] px-4 py-2 text-sm font-medium text-gray-800"
+											className="flex items-center gap-2 rounded-lg border border-gray-100 dark:border-gray-700/60 bg-[#F4F7F6] dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-800 dark:text-gray-200"
 										>
-											<Droplets className="h-4 w-4 shrink-0 text-[#0A3D62]" aria-hidden />
+											<Droplets
+												className="h-4 w-4 shrink-0 text-[#0A3D62] dark:text-[#5b9bd5]"
+												aria-hidden
+											/>
 											{pond.name}
 										</li>
 									))}
@@ -93,9 +96,9 @@ export default async function SettingsPage() {
 					<Link
 						key={card.href}
 						href={card.href}
-						className="group flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition hover:bg-[#F4F7F6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
+						className="group flex flex-col gap-4 rounded-2xl border border-gray-100 dark:border-gray-700/60 bg-white dark:bg-gray-900 p-6 shadow-sm transition hover:bg-[#F4F7F6] dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
 					>
-						<div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] transition-colors group-hover:bg-[#0A3D62] group-hover:text-white">
+						<div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0A3D62]/5 dark:bg-[#5b9bd5]/15 text-[#0A3D62] dark:text-[#5b9bd5] transition-colors group-hover:bg-[#0A3D62] group-hover:text-white dark:group-hover:bg-[#5b9bd5] dark:group-hover:text-gray-900">
 							<card.icon className="h-6 w-6" />
 						</div>
 						<div className="flex-1">
@@ -103,7 +106,7 @@ export default async function SettingsPage() {
 							<p className="mt-1 text-sm text-gray-500">{card.desc}</p>
 						</div>
 						<svg
-							className="h-5 w-5 text-[#3D5568] transition-transform group-hover:translate-x-1"
+							className="h-5 w-5 text-[#3D5568] dark:text-gray-400 transition-transform group-hover:translate-x-1"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"

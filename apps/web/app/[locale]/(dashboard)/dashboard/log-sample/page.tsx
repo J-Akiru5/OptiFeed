@@ -84,7 +84,7 @@ export default async function LogSamplePage() {
 				</h2>
 
 				{batches.length === 0 ? (
-					<p className="rounded-3xl bg-white border border-gray-100 shadow-sm p-6 text-sm text-gray-500">
+					<p className="rounded-3xl bg-white border border-gray-100 dark:bg-gray-900 dark:border-gray-700/60 shadow-sm p-6 text-sm text-gray-500 dark:text-gray-400">
 						{t("noBatches")}
 					</p>
 				) : (
@@ -92,14 +92,14 @@ export default async function LogSamplePage() {
 						{batches.map((batch) => (
 							<div
 								key={batch.label ?? "__unlabeled__"}
-								className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100"
+								className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 dark:bg-gray-900 dark:border-gray-700/60"
 							>
 								<div className="flex items-start justify-between gap-3">
 									<div className="min-w-0">
 										<p className="truncate font-bold text-[var(--ofd-base-deep)]">
 											{batch.label ?? t("unlabeled")}
 										</p>
-										<p className="text-xs text-gray-500 mt-0.5">
+										<p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
 											{t("lastSaved", {
 												date: formatDateTimeLocal(batch.lastSavedAt, tDates).full,
 											})}
@@ -110,20 +110,20 @@ export default async function LogSamplePage() {
 									</span>
 								</div>
 
-								<div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-4">
+								<div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 dark:border-gray-700/60 pt-4">
 									<div>
-										<p className="text-[11px] uppercase font-bold tracking-wider text-gray-400">
+										<p className="text-[11px] uppercase font-bold tracking-wider text-gray-400 dark:text-gray-500">
 											{t("totalSamples")}
 										</p>
-										<p className="text-sm font-black text-gray-700 mt-0.5">
+										<p className="text-sm font-black text-gray-700 dark:text-gray-300 mt-0.5">
 											{batch.totalSampleCount}
 										</p>
 									</div>
 									<div>
-										<p className="text-[11px] uppercase font-bold tracking-wider text-gray-400">
+										<p className="text-[11px] uppercase font-bold tracking-wider text-gray-400 dark:text-gray-500">
 											{t("avgWeight")}
 										</p>
-										<p className="text-sm font-black text-gray-700 mt-0.5">
+										<p className="text-sm font-black text-gray-700 dark:text-gray-300 mt-0.5">
 											{(batch.avgWeightKg * 1000).toFixed(1)}g
 										</p>
 									</div>

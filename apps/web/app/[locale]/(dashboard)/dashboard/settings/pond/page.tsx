@@ -57,9 +57,9 @@ export default async function PondSettingsPage() {
 				</section>
 
 				{/* Account Section */}
-				<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-					<div className="mb-6 border-b border-gray-100 pb-4">
-						<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800">
+				<section className="rounded-2xl border border-gray-100 dark:border-gray-700/60 bg-white dark:bg-gray-900 p-6 shadow-sm">
+					<div className="mb-6 border-b border-gray-100 dark:border-gray-700/60 pb-4">
+						<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800 dark:text-gray-100">
 							<User size={20} />
 							{t("accountTitle")}
 						</h2>
@@ -69,7 +69,9 @@ export default async function PondSettingsPage() {
 					<div className="flex flex-col gap-4">
 						<div className="flex items-center justify-between">
 							<div>
-								<h3 className="font-medium text-gray-900">{t("signOutTitle")}</h3>
+								<h3 className="font-medium text-gray-900 dark:text-gray-100">
+									{t("signOutTitle")}
+								</h3>
 								<p className="text-sm text-gray-500">{t("signOutDesc")}</p>
 							</div>
 							<LogoutButton />

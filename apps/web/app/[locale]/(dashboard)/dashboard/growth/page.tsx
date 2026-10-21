@@ -159,24 +159,24 @@ export default async function GrowthPage() {
 
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 				{/* Latest ABW Card */}
-				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden">
+				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 dark:bg-gray-900 dark:border-gray-700/60 flex flex-col justify-between relative overflow-hidden">
 					<div className="flex justify-between items-start mb-4 relative z-10">
 						<div>
-							<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+							<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 								{t("latestAbw")}
 							</p>
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
 								{(latestBiomass * 1000).toFixed(1)}{" "}
-								<span className="text-lg text-gray-400 font-medium">g</span>
+								<span className="text-lg text-gray-400 dark:text-gray-500 font-medium">g</span>
 							</p>
 							{biomassGrowthPct > 0 && (
-								<p className="text-sm text-green-600 font-medium mt-1 flex items-center gap-1">
+								<p className="text-sm text-green-600 dark:text-green-400 font-medium mt-1 flex items-center gap-1">
 									<TrendingUp className="h-4 w-4" />{" "}
 									{t("vsLastSample", { pct: biomassGrowthPct.toFixed(1) })}
 								</p>
 							)}
 						</div>
-						<div className="h-14 w-14 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center">
+						<div className="h-14 w-14 rounded-2xl bg-teal-50 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400 flex items-center justify-center">
 							<Fish className="h-7 w-7" />
 						</div>
 					</div>
@@ -227,20 +227,20 @@ export default async function GrowthPage() {
 				</div>
 
 				{/* Latest FCR Card */}
-				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
+				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 dark:bg-gray-900 dark:border-gray-700/60 flex flex-col justify-between">
 					<div className="flex justify-between items-start mb-4">
 						<div>
-							<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+							<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 								{t("currentFcr")}
 							</p>
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
 								{latestFcr.toFixed(2)}
 							</p>
-							<p className="text-sm text-green-600 font-medium mt-1 flex items-center gap-1">
+							<p className="text-sm text-green-600 dark:text-green-400 font-medium mt-1 flex items-center gap-1">
 								{t("trendingDown")} <Activity className="h-4 w-4" />
 							</p>
 						</div>
-						<div className="h-14 w-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+						<div className="h-14 w-14 rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 flex items-center justify-center">
 							<Scale className="h-7 w-7" />
 						</div>
 					</div>
@@ -259,7 +259,7 @@ export default async function GrowthPage() {
 										{report.fcrValue.toFixed(2)}
 									</div>
 									<div
-										className="w-full bg-blue-100 rounded-t-lg group-hover:bg-blue-300 transition-colors relative"
+										className="w-full bg-blue-100 dark:bg-blue-900/60 rounded-t-lg group-hover:bg-blue-300 dark:group-hover:bg-blue-800 transition-colors relative"
 										style={{ height: `${heightPct}%` }}
 									>
 										<div
@@ -279,10 +279,10 @@ export default async function GrowthPage() {
 
 			{/* Feed Level Trend Card */}
 			{feedLevelLogs.length > 0 && (
-				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 dark:bg-gray-900 dark:border-gray-700/60">
 					<div className="flex items-center justify-between mb-4">
 						<div>
-							<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+							<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 								{t("feedLevelTitle")}
 							</p>
 							<p className="text-xs text-gray-400 mt-0.5">{t("feedLevelDesc")}</p>
@@ -340,9 +340,11 @@ export default async function GrowthPage() {
 			{/* Feed Level Log Table */}
 			<div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 				{energyDevice && feedLevelLogPage && feedLevelLogs.length > 0 && (
-					<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-						<div className="p-6 border-b border-gray-100 bg-gray-50/50">
-							<h3 className="font-bold text-gray-800">{t("feedLevelTableTitle")}</h3>
+					<div className="bg-white rounded-3xl shadow-sm border border-gray-100 dark:bg-gray-900 dark:border-gray-700/60 overflow-hidden">
+						<div className="p-6 border-b border-gray-100 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-800/60">
+							<h3 className="font-bold text-gray-800 dark:text-gray-100">
+								{t("feedLevelTableTitle")}
+							</h3>
 						</div>
 						<FeedLevelLogTable
 							deviceId={energyDevice.id}
@@ -355,16 +357,16 @@ export default async function GrowthPage() {
 
 				{/* Growth Summary Table */}
 				{biomassLogs.length >= 2 && (
-					<div className="@container bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-						<div className="p-6 border-b border-gray-100 bg-gray-50/50">
-							<h3 className="font-bold text-gray-800">Growth Summary</h3>
-							<p className="text-xs text-gray-500 mt-1">
+					<div className="@container bg-white rounded-3xl shadow-sm border border-gray-100 dark:bg-gray-900 dark:border-gray-700/60 overflow-hidden">
+						<div className="p-6 border-b border-gray-100 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-800/60">
+							<h3 className="font-bold text-gray-800 dark:text-gray-100">Growth Summary</h3>
+							<p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
 								Weight and length gain between sample periods
 							</p>
 						</div>
 						<div className="overflow-x-auto">
-							<table className="w-full text-left text-sm text-gray-600">
-								<thead className="bg-gray-50 text-gray-500 uppercase text-xs font-semibold">
+							<table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+								<thead className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 uppercase text-xs font-semibold">
 									<tr>
 										<th className="px-3 py-3 lg:px-4">Date</th>
 										<th className="px-3 py-3 text-right lg:px-4">Avg Weight (g)</th>
@@ -376,7 +378,7 @@ export default async function GrowthPage() {
 										</th>
 									</tr>
 								</thead>
-								<tbody className="divide-y divide-gray-100">
+								<tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
 									{biomassLogs
 										.slice()
 										.reverse()
@@ -400,7 +402,10 @@ export default async function GrowthPage() {
 												: null;
 
 											return (
-												<tr key={log.id} className="hover:bg-gray-50 transition-colors">
+												<tr
+													key={log.id}
+													className="hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
+												>
 													<td className="px-3 py-3 font-medium text-gray-900 whitespace-nowrap lg:px-4">
 														{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
 													</td>
@@ -412,31 +417,43 @@ export default async function GrowthPage() {
 													</td>
 													<td className="px-3 py-3 text-right font-bold lg:px-4">
 														{weightGain !== null ? (
-															<span className={weightGain >= 0 ? "text-green-600" : "text-red-500"}>
+															<span
+																className={
+																	weightGain >= 0
+																		? "text-green-600 dark:text-green-400"
+																		: "text-red-500 dark:text-red-400"
+																}
+															>
 																{weightGain >= 0 ? "+" : ""}
 																{weightGain.toFixed(1)}
 															</span>
 														) : (
-															<span className="text-gray-400">—</span>
+															<span className="text-gray-400 dark:text-gray-500">—</span>
 														)}
 													</td>
 													<td className="px-3 py-3 text-right font-bold lg:px-4">
 														{lengthGain !== null ? (
-															<span className={lengthGain >= 0 ? "text-green-600" : "text-red-500"}>
+															<span
+																className={
+																	lengthGain >= 0
+																		? "text-green-600 dark:text-green-400"
+																		: "text-red-500 dark:text-red-400"
+																}
+															>
 																{lengthGain >= 0 ? "+" : ""}
 																{lengthGain.toFixed(1)}
 															</span>
 														) : (
-															<span className="text-gray-400">—</span>
+															<span className="text-gray-400 dark:text-gray-500">—</span>
 														)}
 													</td>
 													<td className="px-3 py-3 text-right hidden @[560px]:table-cell lg:px-4">
 														{daysSinceLast !== null ? (
-															<span className="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full">
+															<span className="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 text-xs font-bold rounded-full">
 																{daysSinceLast}d
 															</span>
 														) : (
-															<span className="text-gray-400">—</span>
+															<span className="text-gray-400 dark:text-gray-500">—</span>
 														)}
 													</td>
 												</tr>

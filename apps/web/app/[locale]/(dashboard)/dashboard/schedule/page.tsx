@@ -106,7 +106,7 @@ export default async function SchedulePage() {
 		<div className="space-y-8 max-w-5xl">
 			<div>
 				<h1 className="text-3xl font-bold text-[var(--ofd-base)]">{t("title")}</h1>
-				<p className="mt-2 text-gray-700">{t("desc")}</p>
+				<p className="mt-2 text-gray-700 dark:text-gray-300">{t("desc")}</p>
 			</div>
 
 			<TimeCalibrationForm deviceId={energyDevice.id} canWrite={writeAccess} />

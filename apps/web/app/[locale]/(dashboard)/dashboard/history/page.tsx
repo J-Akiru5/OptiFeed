@@ -81,27 +81,27 @@ export default async function HistoryPage() {
 			</header>
 
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
-					<div className="h-14 w-14 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center">
+				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 dark:bg-gray-900 dark:border-gray-700/60 flex items-center gap-4">
+					<div className="h-14 w-14 rounded-2xl bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400 flex items-center justify-center">
 						<CheckCircle2 className="h-7 w-7" />
 					</div>
 					<div>
-						<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+						<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 							{t("recentDispensed")}
 						</p>
 						<p className="text-2xl font-extrabold text-[var(--ofd-base-deep)]">
 							{(totalDispensed / 1000).toFixed(1)}{" "}
-							<span className="text-base text-gray-400 font-medium">kg</span>
+							<span className="text-base text-gray-400 dark:text-gray-500 font-medium">kg</span>
 						</p>
 					</div>
 				</div>
 
-				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
-					<div className="h-14 w-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 dark:bg-gray-900 dark:border-gray-700/60 flex items-center gap-4">
+					<div className="h-14 w-14 rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 flex items-center justify-center">
 						<Clock className="h-7 w-7" />
 					</div>
 					<div>
-						<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+						<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 							{t("sourceBreakdown")}
 						</p>
 						<div className="mt-1 space-y-0.5">
@@ -114,12 +114,12 @@ export default async function HistoryPage() {
 					</div>
 				</div>
 
-				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
-					<div className="h-14 w-14 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center">
+				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 dark:bg-gray-900 dark:border-gray-700/60 flex items-center gap-4">
+					<div className="h-14 w-14 rounded-2xl bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 flex items-center justify-center">
 						<Package className="h-7 w-7" />
 					</div>
 					<div>
-						<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+						<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 							{t("feedLevel")}
 						</p>
 						<p className="text-2xl font-extrabold text-[var(--ofd-base-deep)]">
@@ -128,14 +128,14 @@ export default async function HistoryPage() {
 								? `${Math.round(energyDevice.feedLevelPercent)}%`
 								: "—"}
 						</p>
-						<p className="text-xs text-gray-400 mt-0.5">{t("feedLevelDesc")}</p>
+						<p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t("feedLevelDesc")}</p>
 					</div>
 				</div>
 			</div>
 
-			<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-				<div className="p-6 border-b border-gray-100 bg-gray-50/50">
-					<h3 className="font-bold text-gray-800 flex items-center gap-2">
+			<div className="bg-white rounded-3xl shadow-sm border border-gray-100 dark:bg-gray-900 dark:border-gray-700/60 overflow-hidden">
+				<div className="p-6 border-b border-gray-100 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-800/60">
+					<h3 className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
 						<CalendarDays className="h-5 w-5 text-gray-400" /> {t("eventLog")}
 					</h3>
 				</div>

@@ -65,13 +65,13 @@ export default async function NotificationsPage({
 
 	return (
 		<div className="mx-auto max-w-4xl space-y-6 animate-in fade-in duration-500">
-			<section className="rounded-[32px] border border-[#0A3D62]/5 bg-white p-5 shadow-md md:p-8">
-				<div className="flex flex-col justify-between gap-4 border-b border-gray-100 pb-6 sm:flex-row sm:items-end">
+			<section className="rounded-[32px] border border-[#0A3D62]/5 dark:border-gray-700/60 bg-white dark:bg-gray-900 p-5 shadow-md md:p-8">
+				<div className="flex flex-col justify-between gap-4 border-b border-gray-100 dark:border-gray-700/60 pb-6 sm:flex-row sm:items-end">
 					<div>
-						<h1 className="mt-1 text-2xl font-black uppercase text-[#0A3D62] md:text-3xl">
+						<h1 className="mt-1 text-2xl font-black uppercase text-[#0A3D62] dark:text-[#5b9bd5] md:text-3xl">
 							{t("title")}
 						</h1>
-						<p className="mt-1 max-w-xl text-sm font-semibold text-[#3D5568]">
+						<p className="mt-1 max-w-xl text-sm font-semibold text-[#3D5568] dark:text-gray-400">
 							{serialized.length} notification(s)
 						</p>
 					</div>
@@ -93,7 +93,7 @@ export default async function NotificationsPage({
 								className={`rounded-full px-4 py-1.5 text-xs font-bold uppercase transition-colors ${
 									isActive
 										? "bg-[#0A3D62] text-white"
-										: "bg-[#F4F7F6] text-[#3D5568] hover:bg-[#E8EDED]"
+										: "bg-[#F4F7F6] text-[#3D5568] hover:bg-[#E8EDED] dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
 								}`}
 							>
 								{tier.label}
@@ -120,7 +120,7 @@ export default async function NotificationsPage({
 								className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase transition-colors ${
 									isActive
 										? "bg-[#3D5568] text-white"
-										: "bg-gray-100 text-[#3D5568] hover:bg-gray-200"
+										: "bg-gray-100 text-[#3D5568] hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
 								}`}
 							>
 								{cat.label}

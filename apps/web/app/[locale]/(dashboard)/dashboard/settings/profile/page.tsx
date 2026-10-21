@@ -37,9 +37,9 @@ export default async function ProfileSettingsPage() {
 
 			<div className="space-y-8">
 				{/* Profile Information */}
-				<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-					<div className="mb-6 border-b border-gray-100 pb-4">
-						<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800">
+				<section className="rounded-2xl border border-gray-100 dark:border-gray-700/60 bg-white dark:bg-gray-900 p-6 shadow-sm">
+					<div className="mb-6 border-b border-gray-100 dark:border-gray-700/60 pb-4">
+						<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800 dark:text-gray-100">
 							<User size={20} />
 							{t("profileInfo")}
 						</h2>
@@ -48,18 +48,24 @@ export default async function ProfileSettingsPage() {
 
 					<div className="grid gap-6 md:grid-cols-2">
 						<div className="flex flex-col gap-2">
-							<label htmlFor="fullName" className="text-sm font-medium text-gray-700">
+							<label
+								htmlFor="fullName"
+								className="text-sm font-medium text-gray-700 dark:text-gray-300"
+							>
 								{t("fullName")}
 							</label>
 							<input
 								id="fullName"
 								type="text"
 								defaultValue={displayName}
-								className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+								className="rounded-lg border border-gray-200 dark:border-gray-600 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
 							/>
 						</div>
 						<div className="flex flex-col gap-2">
-							<label htmlFor="role" className="text-sm font-medium text-gray-700">
+							<label
+								htmlFor="role"
+								className="text-sm font-medium text-gray-700 dark:text-gray-300"
+							>
 								{t("role")}
 							</label>
 							<input
@@ -67,11 +73,14 @@ export default async function ProfileSettingsPage() {
 								type="text"
 								defaultValue="Pond Operator"
 								disabled
-								className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-gray-500"
+								className="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-4 py-2 text-gray-500 dark:text-gray-400"
 							/>
 						</div>
 						<div className="flex flex-col gap-2">
-							<label htmlFor="farmId" className="text-sm font-medium text-gray-700">
+							<label
+								htmlFor="farmId"
+								className="text-sm font-medium text-gray-700 dark:text-gray-300"
+							>
 								{t("farmId")}
 							</label>
 							<input
@@ -79,18 +88,21 @@ export default async function ProfileSettingsPage() {
 								type="text"
 								defaultValue={farmId}
 								disabled
-								className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 font-mono text-gray-500"
+								className="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-4 py-2 font-mono text-gray-500 dark:text-gray-400"
 							/>
 						</div>
 						<div className="flex flex-col gap-2">
-							<label htmlFor="email" className="text-sm font-medium text-gray-700">
+							<label
+								htmlFor="email"
+								className="text-sm font-medium text-gray-700 dark:text-gray-300"
+							>
 								{t("email")}
 							</label>
 							<input
 								id="email"
 								type="email"
 								placeholder="operator@example.com"
-								className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+								className="rounded-lg border border-gray-200 dark:border-gray-600 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
 							/>
 						</div>
 					</div>
@@ -106,9 +118,9 @@ export default async function ProfileSettingsPage() {
 				</section>
 
 				{/* Security Section */}
-				<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-					<div className="mb-6 border-b border-gray-100 pb-4">
-						<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800">
+				<section className="rounded-2xl border border-gray-100 dark:border-gray-700/60 bg-white dark:bg-gray-900 p-6 shadow-sm">
+					<div className="mb-6 border-b border-gray-100 dark:border-gray-700/60 pb-4">
+						<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800 dark:text-gray-100">
 							<Shield size={20} />
 							{t("security")}
 						</h2>
@@ -123,7 +135,7 @@ export default async function ProfileSettingsPage() {
 							</div>
 							<button
 								type="button"
-								className="rounded-lg border border-[#0A3D62]/20 px-4 py-2 text-sm font-medium text-[#0A3D62] hover:bg-[#F4F7F6] transition-colors"
+								className="rounded-lg border border-[#0A3D62]/20 dark:border-gray-600 px-4 py-2 text-sm font-medium text-[#0A3D62] dark:text-[#5b9bd5] hover:bg-[#F4F7F6] dark:hover:bg-gray-800 transition-colors"
 							>
 								{t("update")}
 							</button>

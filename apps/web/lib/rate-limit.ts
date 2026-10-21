@@ -56,6 +56,12 @@ export function checkDeviceRateLimit(deviceId: string) {
 	return checkRateLimit(`rl:device:${deviceId}`, 20, 60_000, true);
 }
 
+// AI prediction rate limit: 10 requests per 60 seconds per user. Each call may
+// invoke the AI provider, so it's tighter than the general API limit. Fail-open.
+export function checkPredictionRateLimit(ownerId: string) {
+	return checkRateLimit(`rl:predict:${ownerId}`, 10, 60_000, true);
+}
+
 /**
  * Extract client IP from Vercel-proxied headers.
  */

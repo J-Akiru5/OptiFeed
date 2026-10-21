@@ -279,16 +279,19 @@ the human rule stands: only Jeff merges `main`.
 
 ## 10. Verification record
 
-| Claim | Status |
-| --- | --- |
-| Default branch is `staging` | Verified via GitHub API after the change |
-| `develop` no longer deploys | Configured statically; verified against the next integration deployment record |
-| `staging` deploys | Verified from the Vercel/GitHub deployment record of the staging merge |
-| `main` deploys | Pre-existing behaviour; production branch `main` confirmed in Vercel |
-| Production approval gate | Branch protection on `main`; merge performed by Jeff only |
-| CI runs on PRs into `develop`/`staging`/`main` | Verified from the GitHub Actions run for this PR |
-| Staging uses isolated credentials | **Blocked** — section 6 |
-| Production deploy executed | **Not performed** — requires an authorised release |
+| Claim | Status | Evidence |
+| --- | --- | --- |
+| Default branch is `staging` | Verified on GitHub | API `default_branch = staging`; `ls-remote --symref origin HEAD` → `refs/heads/staging` |
+| `develop` does not deploy | Verified | Merge `527b599` produced no Vercel deployment |
+| `staging` deploys | Verified | Deployment `dpl_FjPcvTakvD84kjR4qo7xCuRxFCMQ` for `de5f5cc`, `READY` |
+| Staging build skips migrations | Verified | Deployment log: `[migrate] skipped (VERCEL_ENV=preview)` |
+| `main` deploys | Configured and previously observed | Vercel production branch `main`; production deployment for `2795bef` exists |
+| Production approval gate | Configured on GitHub | `main` protection: PR required, 1 approval, `quality`, admins enforced |
+| CI validates PRs into `develop`/`staging`/`main` | Verified | PR #50 `quality` pass; PR #51 `quality` pass |
+| CI validates pushes to `develop`/`staging` | Verified | Runs 39537076187 and 39538117781, both pass |
+| `develop`/`staging` protection | Configured on GitHub | PR + `quality`, no force push, no deletion, admins enforced |
+| Staging uses isolated credentials | **Blocked** | Section 6 — Preview still shares production variables |
+| Production deploy executed | **Not performed** | Requires an authorised promotion by Jeff |
 
 ## 11. Manual actions that remain with Jeff
 

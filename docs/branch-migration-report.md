@@ -173,5 +173,47 @@ See section 8 for the commit list. Summary:
 
 ## 8. Commit and verification record
 
-Filled in as the migration is executed. See `docs/deployment-workflow.md` §10
-for the current verification matrix.
+Migration branch: `chore/git-workflow-migration`, merged through PR #50 into
+`develop`.
+
+| Commit | Change |
+| --- | --- |
+| `cbecf37` | `fix(build)`: Prisma migrations gated on `VERCEL_ENV=production` |
+| `fdde468` | `ci`: validation for develop/staging/main, deployment-free |
+| `57c3f2a` | `ci(vercel)`: deployments limited to staging/main |
+| `fafe5f1` | `docs`: workflow, deployment contract, migration report, handoff |
+| `c33e6b8` | `chore`: LF checkout normalisation and self-check updates |
+
+| Step | Evidence | Result |
+| --- | --- | --- |
+| PR #50 `quality` check | Actions run 39536899545 | Pass, 1m7s |
+| Local lint / typecheck / test | `biome check` 225 files; `tsc --noEmit`; Vitest | Pass — 31 files, 258 tests |
+| Local production build | `pnpm build`, dummy env | Pass; log shows `[migrate] skipped (VERCEL_ENV=unset)` |
+| Migration guard, preview context | `VERCEL_ENV=preview` | Skips, exit 0 |
+| Migration guard, production context | `VERCEL_ENV=production`, unreachable dummy DB | Attempts migration, exits 1 (fail closed) |
+| Merge to `develop` | tip `527b599`; CI run 39537076187 | Pass |
+| Deployment for `develop@527b599` | Vercel deployment list after the merge | **None created** — restriction active |
+| Promotion PR | #51, `quality` check | Pass |
+| `staging` tip | `de5f5cc` (merge of #51) | 0 commits ahead of `develop` in content |
+| Staging deployment | `dpl_FjPcvTakvD84kjR4qo7xCuRxFCMQ`, ref `staging` | `READY` |
+| Staging build log | deployment events | `[migrate] skipped (VERCEL_ENV=preview)` |
+| `staging` push CI | Actions run 39538117781 | Pass |
+| Default branch | GitHub API and `git ls-remote --symref origin HEAD` | `staging` |
+| Production promotion | — | **Not performed**; requires Jeff |
+
+### Protection state (verified through the GitHub API)
+
+| Branch | PR required | Approvals | Required check | Force push | Deletion | Enforce admins |
+| --- | --- | --- | --- | --- | --- | --- |
+| `develop` | Yes | 0 | `quality` | Blocked | Blocked | Yes |
+| `staging` | Yes | 0 | `quality` | Blocked | Blocked | Yes |
+| `main` | Yes | 1 | `quality` | Blocked | Blocked | Yes |
+
+### Branch created during the migration
+
+`origin/xtra` was pushed on 2026-10-21 from `develop@5f82a25` with one commit
+(`09c5868`, biomass UI work), while this migration was in progress. It was not
+created, modified, merged, or deleted here. Because it predates
+`apps/web/vercel.json`, its preview deployment was still created; it becomes
+subject to the restriction as soon as it merges or rebases onto a `develop`
+that contains the configuration.

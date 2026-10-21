@@ -111,7 +111,7 @@ Build command came from `apps/web/package.json`:
 
 | # | Severity | Risk |
 | --- | --- | --- |
-| R1 | Critical | Preview and production share the same `DATABASE_URL`, `DIRECT_URL`, and `SUPABASE_SERVICE_ROLE_KEY`. Every preview build and preview app had production database access. |
+| R1 | Accepted | Preview and production share the same `DATABASE_URL`, `DIRECT_URL`, and `SUPABASE_SERVICE_ROLE_KEY`. Every preview build and preview app had production database access. Jeff accepted this for the prototyping phase on 2026-10-21; no separate staging database will be provisioned. Recorded in `docs/deployment-workflow.md` §6. |
 | R2 | Critical | `prisma migrate deploy` ran in **every** Vercel build, so a feature-branch preview could migrate the production schema before any review or merge. |
 | R3 | High | No branch protection anywhere: direct pushes to `develop`, `staging`, `main` are possible and no checks are required. |
 | R4 | High | `staging` is 98 commits behind and has never received the current application; making it the default branch before reconciliation would present three-month-old code as the project state. |
@@ -140,12 +140,13 @@ and none should be.
 
 ### Deployment-scope decision
 
-Jeff explicitly chose (2026-10-21) to enable both `staging` and `main` now,
-accepting that the staging deployment uses the production database until a
-separate staging Supabase project and Preview-scoped environment variables
-exist. This is recorded as an open blocker in
-`docs/deployment-workflow.md` §6; staging must be treated as read-only until it
-is fixed.
+Jeff explicitly chose (2026-10-21) to enable both `staging` and `main` now, and
+to keep the shared staging/production database: the project is still in the
+prototyping stage and imported data is accepted as disposable. No separate
+staging Supabase project will be provisioned. Staging builds still skip
+migrations, so the shared schema can only change through the production
+deployment of `main`. The accepted risk and its guardrails are recorded in
+`docs/deployment-workflow.md` §6.
 
 ## 7. Changes made
 

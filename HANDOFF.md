@@ -111,11 +111,11 @@ Reference material:
 - There is no GitHub Actions deploy job. Do not add one; do not run
   `vercel deploy` by hand.
 
-**Open blocker:** the Vercel project currently uses one set of environment
-variables for both Production and Preview, so the `staging` deployment talks to
-the production database. Until Jeff provisions a separate staging Supabase
-project and Preview-scoped environment variables, treat the staging URL as a
-read-only preview and do not create, edit, or delete data through it. See
+**Shared database (accepted):** the Vercel project uses one set of environment
+variables for both Production and Preview, so the staging deployment talks to
+the production database. That is intentional during prototyping — there is no
+separate staging database. Do not run destructive tests (bulk deletes, resets,
+load tests) against staging; use a local database. See
 `docs/deployment-workflow.md` §6.
 
 ## 7. Working alongside another developer

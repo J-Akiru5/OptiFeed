@@ -67,7 +67,18 @@ synchronously, and `/api/export-pdf` renders a PDF in-process.
 **Fix:** return `202 Accepted` with a status URL and process the file in a background job (queue table
 or Vercel cron worker). Until then these are declared exceptions in `API_REGULATION.md` and measured as
 L1, not L2.
-**Status:** accepted (expires 2027-03-31).
+**Design (ready to implement):**
+- `BackgroundJob`: `id`, `ownerId`, `type`, `status` (`queued|running|succeeded|failed`), `payload`
+  Json, `result` Json, `error`, `attempts`, `lockedAt`, `createdAt`, `startedAt`, `finishedAt`,
+  `expiresAt`.
+- `JobArtifact`: `jobId` (PK/FK), `filename`, `contentType`, `size`, `data` Bytes, `expiresAt`.
+- Endpoints: `POST /api/v1/export-jobs`, `POST /api/v1/import-jobs` → `202` + `Location`;
+  `GET /api/v1/jobs/{id}`; `GET /api/v1/jobs/{id}/download`; `GET /api/v1/cron/jobs` (cron auth).
+- Claim with `UPDATE … WHERE id = (SELECT … FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING *`.
+- Extract `buildCsvExport`/`buildZipExport`/`buildPdfExport` and `confirmImport` into `lib/jobs/` so
+  the sync routes and the worker share one implementation.
+- Purge artifacts and finished jobs after 24 h; store artifacts in object storage in production.
+**Status:** scoped, not implemented.
 
 ### 5. Database statement timeout is not enforced
 **Rule:** §8.2 rule 6.

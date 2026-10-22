@@ -13,6 +13,9 @@ vi.mock("@/lib/prisma", () => ({
 			findUnique: vi.fn(),
 			findMany: vi.fn(),
 		},
+		platformAdmin: {
+			findMany: vi.fn(),
+		},
 	},
 }));
 
@@ -52,6 +55,7 @@ import prisma from "@/lib/prisma";
 const mockFarm = vi.mocked(prisma.farm);
 const mockPond = vi.mocked(prisma.pond);
 const mockUser = vi.mocked(prisma.user);
+const mockPlatformAdmin = vi.mocked(prisma.platformAdmin);
 const mockRequireRole = vi.mocked(requireRole);
 const mockResolveOrgScope = vi.mocked(resolveOrgScope);
 
@@ -187,6 +191,7 @@ describe("getAllFarmHierarchies", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockResolveOrgScope.mockResolvedValue(TENANT_SCOPE);
+		mockPlatformAdmin.findMany.mockResolvedValue([]);
 	});
 
 	it("requires the ADMIN role", async () => {

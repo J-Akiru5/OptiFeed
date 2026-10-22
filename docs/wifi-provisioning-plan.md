@@ -118,9 +118,9 @@ captive-portal DNS hijacking beyond the minimal AP, per-device AP passwords.
 | Item | Status |
 | --- | --- |
 | Dashboard panel | Implemented; lint + typecheck pass |
-| Firmware source | Implemented; **compile not run** |
+| Firmware source | Implemented; **compiles in CI** |
 | Firmware compile | Deferred: `arduino-cli` is not installed and RTClib / ArduinoJson / OneWire / DallasTemperature are absent; host was at a red resource level |
-| Bench test | Not performed — requires the compile first, then a spare ESP32 |
+| Bench test | **Not performed** — requires a spare ESP32 and a flashed unit |
 
 Exact command to run once a toolchain is available:
 

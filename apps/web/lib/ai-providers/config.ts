@@ -74,14 +74,30 @@ function toRuntimeConfig(row: AiProviderRow): AiProviderRuntimeConfig | null {
 	};
 }
 
+/**
+ * Stored rows are an **overlay** on the built-in defaults, not a replacement.
+ *
+ * Returning stored rows alone would mean configuring one provider silently drops
+ * every other provider from the chain — a superadmin setting a Gemini priority
+ * would disable OpenCode Go as a side effect, while the console (which merges)
+ * still displayed both. To remove a provider from the chain, disable it.
+ */
 async function loadRows(): Promise<AiProviderRow[]> {
+	let stored: AiProviderRow[] = [];
 	try {
-		const rows = await prisma.aiProviderConfig.findMany({ orderBy: { priority: "asc" } });
-		if (rows.length > 0) return rows as AiProviderRow[];
+		stored = (await prisma.aiProviderConfig.findMany({
+			orderBy: { priority: "asc" },
+		})) as AiProviderRow[];
 	} catch (error) {
 		console.error("[ai] provider config unavailable, using built-in defaults:", error);
+		return DEFAULT_PROVIDER_ROWS;
 	}
-	return DEFAULT_PROVIDER_ROWS;
+
+	if (stored.length === 0) return DEFAULT_PROVIDER_ROWS;
+
+	const merged = new Map(DEFAULT_PROVIDER_ROWS.map((row) => [row.provider, row]));
+	for (const row of stored) merged.set(row.provider, row);
+	return [...merged.values()];
 }
 
 /**

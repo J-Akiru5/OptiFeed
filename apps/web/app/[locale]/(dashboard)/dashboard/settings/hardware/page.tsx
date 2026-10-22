@@ -99,7 +99,7 @@ export default async function HardwareSettingsPage() {
 						<div className="grid gap-4 md:grid-cols-2">
 							<div className="rounded-xl bg-[#F4F7F6] p-4">
 								<p className="text-xs font-bold uppercase tracking-wide text-[#3D5568]">
-									{t("deviceId")}
+									{t("deviceRecordId")}
 								</p>
 								<p className="mt-1 font-mono text-sm font-bold text-[#0A3D62]">{device.id}</p>
 							</div>
@@ -146,26 +146,40 @@ export default async function HardwareSettingsPage() {
 					</div>
 
 					<div className="rounded-xl bg-[#F4F7F6] p-4 dark:bg-gray-800/60">
-						<p className="text-xs font-bold uppercase tracking-wide text-[#3D5568] dark:text-gray-400">
-							{t("wifiSetup.apName")}
-						</p>
-						{setupApName ? (
-							<>
-								<p className="mt-1 font-mono text-lg font-bold text-[#0A3D62] dark:text-gray-100">
-									{setupApName}
+						<div className="flex flex-wrap items-start justify-between gap-4">
+							<div>
+								<p className="text-xs font-bold uppercase tracking-wide text-[#3D5568] dark:text-gray-400">
+									{t("wifiSetup.apName")}
 								</p>
-								{energyDevice && (
-									<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-										{energyDevice.label} &middot; {t("wifiSetup.macAddress")}:{" "}
-										<span className="font-mono">{energyDevice.mac}</span>
+								{setupApName ? (
+									<p className="mt-1 font-mono text-lg font-bold text-[#0A3D62] dark:text-gray-100">
+										{setupApName}
+									</p>
+								) : (
+									<p className="mt-1 text-sm font-medium text-gray-600 dark:text-gray-300">
+										{energyDevice ? t("wifiSetup.apUnknown") : t("wifiSetup.noDevice")}
 									</p>
 								)}
-							</>
-						) : (
-							<p className="mt-1 text-sm font-medium text-gray-600 dark:text-gray-300">
-								{energyDevice ? t("wifiSetup.apUnknown") : t("wifiSetup.noDevice")}
-							</p>
-						)}
+								{energyDevice && (
+									<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+										{energyDevice.label}
+									</p>
+								)}
+							</div>
+							{energyDevice && (
+								<div>
+									<p className="text-xs font-bold uppercase tracking-wide text-[#3D5568] dark:text-gray-400">
+										{t("wifiSetup.deviceId")}
+									</p>
+									<p className="mt-1 font-mono text-lg font-bold text-[#0A3D62] dark:text-gray-100">
+										{energyDevice.mac}
+									</p>
+									<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+										{t("wifiSetup.deviceIdHint")}
+									</p>
+								</div>
+							)}
+						</div>
 					</div>
 
 					{energyDevice &&
@@ -184,16 +198,26 @@ export default async function HardwareSettingsPage() {
 							</div>
 						))}
 
-					<div className="mt-6">
-						<p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-							{t("wifiSetup.steps")}
-						</p>
-						<ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-600 dark:text-gray-300">
-							<li>{t("wifiSetup.step1")}</li>
-							<li>{t("wifiSetup.step2")}</li>
-							<li>{t("wifiSetup.step3")}</li>
-						</ol>
-					</div>
+					{energyDevice && (
+						<div className="mt-6">
+							<p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+								{t("wifiSetup.steps")}
+							</p>
+							<ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-600 dark:text-gray-300">
+								<li>{t("wifiSetup.step1")}</li>
+								<li>{t("wifiSetup.step2")}</li>
+								<li>{t("wifiSetup.step3")}</li>
+								<li>{t("wifiSetup.step4")}</li>
+								<li>{t("wifiSetup.step5")}</li>
+							</ol>
+							<p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+								{t("wifiSetup.credentialsNote")}
+							</p>
+							<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+								{t("wifiSetup.tokenWarning")}
+							</p>
+						</div>
+					)}
 
 					{energyDevice && !isWifiConfigured && (
 						<div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/60">

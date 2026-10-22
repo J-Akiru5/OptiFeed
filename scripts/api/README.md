@@ -34,6 +34,7 @@ Options:
 | `--mode warn\|fail` | `warn` | Breaches warn or fail; coverage fails in both modes |
 | `--base-url` | `API_BASE_URL` or `http://localhost:3000` | App under test |
 | `--suite contract\|latency\|all` | `all` | Run one suite |
+| `--endpoint <id[,id]>` | all | Run only the named endpoint(s) from `endpoints.json` |
 | `--samples` | 30 | Timed requests per endpoint |
 | `--warmup` | 5 | Discarded requests per endpoint |
 | `--p95-budget` / `--max-budget` | 300 / 400 | Milliseconds (§8.1) |
@@ -64,6 +65,9 @@ static check does not accept silence.
 
 - `measured / (measured + skipped)` must be ≥ 90 % for each suite, in **both** modes.
 - A skipped endpoint is not a pass. A network failure (`status 0`) is a skip, not a fast sample.
+- A `429` is not a latency sample. The suite waits for the next fixed rate-limit window and retries up
+  to three times; if the limit does not clear, the endpoint is skipped. `429` responses are never
+  counted as fast.
 - `warn` mode keeps CI green for breaches so the team can burn down the backlog; coverage is never
   waived.
 - Flip to `fail` once the backlog is empty and coverage is stable above 90 %. Record the date of the

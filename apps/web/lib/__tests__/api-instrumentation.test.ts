@@ -145,6 +145,24 @@ describe("request instrumentation (§9)", () => {
 		expect(response.headers.get("server-timing")).toContain("queries;desc=2");
 	});
 
+	it("separates DB wall time from the sum of parallel query durations", async () => {
+		const handler = withApi(
+			async () => {
+				// Two 30 ms queries that overlap: wall 30, sum 60.
+				recordQuery(30, 100, 130);
+				recordQuery(30, 100, 130);
+				return ok({ id: "1" });
+			},
+			{ route: "GET /api/v1/parallel" },
+		);
+		const response = await handler(request("http://local/api/v1/parallel"));
+		const timing = response.headers.get("server-timing") ?? "";
+
+		expect(timing).toContain("db;dur=30");
+		expect(timing).toContain("db_sum;dur=60");
+		expect(timing).toContain("queries;desc=2");
+	});
+
 	it("keeps passthrough bodies untouched on error, but still instruments them", async () => {
 		const handler = withApi(async () => new Response("Unauthorized", { status: 401 }), {
 			route: "GET /api/v1/device",

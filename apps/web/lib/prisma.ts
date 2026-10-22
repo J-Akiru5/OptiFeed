@@ -14,7 +14,10 @@ const queryMetrics = Prisma.defineExtension({
 	query: {
 		$allOperations({ args, query }) {
 			const startedAt = performance.now();
-			return query(args).finally(() => recordQuery(performance.now() - startedAt));
+			return query(args).finally(() => {
+				const endedAt = performance.now();
+				recordQuery(endedAt - startedAt, startedAt, endedAt);
+			});
 		},
 	},
 });

@@ -24,6 +24,8 @@ how much they change outcomes, not by how easy they are to write.
 | A6 | Indexing | "Every filter/sort column is indexed" is not testable | Require a query registry + `EXPLAIN` artifacts in CI | **High** |
 | A7 | Coverage | The hot-endpoint list can be shrunk to game the 90 % floor | Freeze the list, require review, add traffic-weighted coverage | **High** |
 | A8 | N+1 | `queries > 5` misses ORM batching and 1-row perf cases | Test query count at `limit=1` vs `limit=100`; count statements | Medium |
+| A9 | Measurement | Summed `db` time can exceed `total` when queries run in parallel | Add `db_wall`; never derive `app` by subtracting a sum | **High** |
+| A10 | Rate limits | `429` responses are measured as fast latency samples | Exclude 429 from samples; wait for the window or skip; require `Retry-After` | **High** |
 | B1 | Budget math | 1 000 ms statement timeout > 150 ms DB slice; 2 000 ms absolute > 6× p95 | Align the numbers: DB timeout 250 ms, absolute 1 000 ms | Medium |
 | B2 | Idempotency | "SHOULD accept a key" has no semantics | Define key scope, TTL, replay, and conflict rules | Medium |
 | B3 | Pagination | Cursor format is unspecified | Require the full sort tuple and forbid deep offsets | Medium |
@@ -223,6 +225,47 @@ Run the endpoint at limit=1 and limit=100 on the same dataset.
 If the query count grows with the page size, it is an N+1: fail.
 Absolute query count warns at >5 and fails at >10 on a hot path, with an inline justification
 required above 5.
+```
+
+---
+
+### A9. Separate DB wall time from the per-query sum
+
+**Problem.** §9's example reports `db;dur` as "database time". If a handler issues parallel queries,
+summing their durations can exceed the request's total wall time. Then `app = total - db - auth` goes
+negative and is clamped to zero, hiding application time. Our `predict-feeding` run reported
+`total=3.9 ms, db=6.1 ms` on the same request.
+
+**Proposed text (extend §9):**
+
+```
+Server-Timing MUST report:
+  db_wall;dur   = wall time from the first query start to the last query end
+  db_sum;dur    = sum of individual query durations (may exceed total)
+  queries;desc  = number of round-trips
+`app` is derived from db_wall, never from db_sum.
+```
+
+**Evidence.** `predict-feeding` at 8 queries: `total=3.9`, `db=6.1`. The endpoint is fast; the metric
+was wrong, not the endpoint.
+
+---
+
+### A10. Rate-limited responses are not latency samples
+
+**Problem.** §11.1 skips 401/403/404/405/422 but not 429. A rate limiter can make a slow endpoint look
+fast: the rejection is a single upsert, so 30 "samples" can be 3 ms each while the real handler is
+never exercised. Our first suite run measured `predict-feeding` p95 as 6.2 ms on 429 responses; the real
+handler p95 was 18.5 ms.
+
+**Proposed text (extend §11.1):**
+
+```
+429 is not a latency sample.
+The suite MUST wait for the next rate-limit window (or the Retry-After value) and retry,
+up to a declared limit. If the limit cannot be cleared, the endpoint is SKIPPED with a reason.
+Every 429 response MUST include Retry-After.
+A run that measures only 429s does not certify the endpoint, even if all samples are < 300 ms.
 ```
 
 ---
@@ -442,6 +485,8 @@ main value.
 - Deprecation: Deprecation/Sunset headers plus per-path usage counts (§3.1).
 - Client: LCP/INP/CLS budgets, parallel fetch, dedupe, abort-on-unmount (§8.3 rule 9).
 - Coverage: reviewed hot-endpoint manifest, traffic-weighted union, 3-run skip expiry (§2.1).
+- Measurement: `db_wall` vs `db_sum`; `app` derived from wall time, never a summed DB duration (§9).
+  `429` responses are not latency samples; wait for the window or skip (§11.1).
 - Contract: OpenAPI diff in CI (§11.2). Test environment parity (§11.3).
 ```
 

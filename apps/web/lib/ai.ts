@@ -1,14 +1,23 @@
-// OpenRouter AI client (OpenAI-compatible). Primary provider: DeepSeek V4.1
-// Flash with reasoning enabled by default. Replaces the old Gemini integration.
+// OpenCode Go AI client (OpenAI-compatible). Primary provider: DeepSeek V4.1
+// Flash with reasoning enabled by default.
+//
+// OpenCode Go requires every request to carry a stable per-conversation
+// `x-opencode-session` header; requests without it are rejected with HTTP 400
+// (MissingSessionID). Routing and prompt caching key off that value, so callers
+// should derive it from something stable for the conversation (farm id plus the
+// opening message, or a per-day bucket for one-shot predictions).
 
-const API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const DEFAULT_MODEL = "deepseek/deepseek-v4.1-flash";
+const API_URL = "https://opencode.ai/inference/go/openai/v1/chat/completions";
+const DEFAULT_MODEL = "deepseek-v4.1-flash";
 const DEFAULT_REASONING_EFFORT = "high";
+
+// Go asks clients to identify themselves rather than sending a generic SDK UA.
+const USER_AGENT = "optifeed/1.0";
 
 // Read env lazily (not captured at module load) so tests and runtime config
 // changes are picked up without a process restart.
 function getApiKey(): string | undefined {
-	return process.env.OPENROUTER_API_KEY;
+	return process.env.OPENCODE_GO_API_KEY;
 }
 
 export type ReasoningEffort = "none" | "low" | "medium" | "high";
@@ -23,24 +32,41 @@ export function isAiEnabled(): boolean {
 }
 
 export function getAiModelId(): string {
-	return process.env.OPENROUTER_MODEL ?? DEFAULT_MODEL;
+	return process.env.OPENCODE_GO_MODEL ?? DEFAULT_MODEL;
 }
 
 // "none" disables the reasoning param entirely; anything else is passed through
-// to OpenRouter. Defaults to "high" per product decision — override via env
+// to OpenCode Go. Defaults to "high" per product decision — override via env
 // without a deploy if latency/cost needs to come down.
 export function getReasoningEffort(): ReasoningEffort {
-	const raw = (process.env.OPENROUTER_REASONING_EFFORT ?? DEFAULT_REASONING_EFFORT).toLowerCase();
+	const raw = (process.env.OPENCODE_GO_REASONING_EFFORT ?? DEFAULT_REASONING_EFFORT).toLowerCase();
 	if (raw === "none" || raw === "off" || raw === "disabled") return "none";
 	if (raw === "low") return "low";
 	if (raw === "medium") return "medium";
 	return "high";
 }
 
+// Deterministic, collision-resistant-enough session id for the
+// `x-opencode-session` header. FNV-1a keeps this dependency-free and stable
+// across processes, which matters because the value is a routing/caching hint.
+export function stableSessionId(...parts: (string | number | null | undefined)[]): string {
+	const input = parts
+		.filter((p) => p !== null && p !== undefined && p !== "")
+		.map(String)
+		.join("\u0000");
+	let hash = 0x811c9dc5;
+	for (let i = 0; i < input.length; i += 1) {
+		hash ^= input.charCodeAt(i);
+		hash = Math.imul(hash, 0x01000193);
+	}
+	return `optifeed-${(hash >>> 0).toString(36)}`;
+}
+
 // Single source of truth for diagnostics (route logging + debug endpoint).
 // Never exposes the full key.
 export function aiDebugInfo() {
 	return {
+		provider: "opencode-go",
 		hasKey: isAiEnabled(),
 		nodeEnv: process.env.NODE_ENV ?? "unknown",
 		model: getAiModelId(),
@@ -79,13 +105,12 @@ function buildBody(turns: AiTurn[], systemPrompt: string, stream: boolean) {
 	};
 }
 
-function requestHeaders(): Record<string, string> {
+function requestHeaders(sessionId: string): Record<string, string> {
 	return {
 		"Content-Type": "application/json",
 		Authorization: `Bearer ${getApiKey()}`,
-		// Optional attribution headers — lets the app show up on OpenRouter boards.
-		"HTTP-Referer": process.env.OPENROUTER_SITE_URL ?? "https://optifeed.app",
-		"X-Title": "OptiFeed",
+		"User-Agent": USER_AGENT,
+		"x-opencode-session": sessionId,
 	};
 }
 
@@ -93,18 +118,22 @@ function requestHeaders(): Record<string, string> {
 // deltas are consumed server-side and not surfaced). Returns nothing (empty
 // generator) when no API key is configured, so callers can fall back to the
 // keyword assistant.
-export async function* streamAi(turns: AiTurn[], systemPrompt: string): AsyncGenerator<string> {
+export async function* streamAi(
+	turns: AiTurn[],
+	systemPrompt: string,
+	sessionId: string,
+): AsyncGenerator<string> {
 	if (!isAiEnabled()) return;
 
 	const response = await fetch(API_URL, {
 		method: "POST",
-		headers: requestHeaders(),
+		headers: requestHeaders(sessionId),
 		body: JSON.stringify(buildBody(turns, systemPrompt, true)),
 		signal: AbortSignal.timeout(120_000),
 	});
 
 	if (!response.ok || !response.body) {
-		const error = new Error(`OpenRouter HTTP ${response.status}: ${response.statusText}`);
+		const error = new Error(`OpenCode Go HTTP ${response.status}: ${response.statusText}`);
 		(error as { status?: number }).status = response.status;
 		throw error;
 	}
@@ -128,8 +157,10 @@ export async function* streamAi(turns: AiTurn[], systemPrompt: string): AsyncGen
 			if (!payload || payload === "[DONE]") continue;
 			try {
 				const parsed = JSON.parse(payload) as {
-					choices?: { delta?: { content?: string } }[];
+					choices?: { delta?: { content?: string; reasoning_content?: string } }[];
 				};
+				// Reasoning deltas arrive in `reasoning_content`; only surface the
+				// answer text so thinking stays server-side.
 				const text = parsed.choices?.[0]?.delta?.content;
 				if (text) yield text;
 			} catch {
@@ -144,18 +175,19 @@ export async function* streamAi(turns: AiTurn[], systemPrompt: string): AsyncGen
 export async function completeAi(
 	turns: AiTurn[],
 	systemPrompt: string,
+	sessionId: string,
 ): Promise<{ content: string; reasoning: string | null } | null> {
 	if (!isAiEnabled()) return null;
 
 	const response = await fetch(API_URL, {
 		method: "POST",
-		headers: requestHeaders(),
+		headers: requestHeaders(sessionId),
 		body: JSON.stringify(buildBody(turns, systemPrompt, false)),
 		signal: AbortSignal.timeout(60_000),
 	});
 
 	if (!response.ok) {
-		const error = new Error(`OpenRouter HTTP ${response.status}: ${response.statusText}`);
+		const error = new Error(`OpenCode Go HTTP ${response.status}: ${response.statusText}`);
 		(error as { status?: number }).status = response.status;
 		throw error;
 	}
@@ -164,18 +196,14 @@ export async function completeAi(
 		choices?: {
 			message?: {
 				content?: string | null;
-				reasoning_details?: { text?: string }[];
+				reasoning_content?: string | null;
 			};
 		}[];
 	};
 
 	const message = data.choices?.[0]?.message;
 	const content = message?.content ?? "";
-	const reasoning =
-		message?.reasoning_details
-			?.map((d) => d.text ?? "")
-			.join("")
-			.trim() || null;
+	const reasoning = message?.reasoning_content?.trim() || null;
 
 	return { content, reasoning };
 }

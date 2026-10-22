@@ -8,6 +8,19 @@ import prisma from "@/lib/prisma";
 import { Cpu, RefreshCw, Ruler, Settings, Thermometer, Timer, Wifi } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
+// The setup panel is stricter than the 15-minute offline threshold: "WiFi is
+// configured" is only claimed while the device is actively reporting.
+const WIFI_ONLINE_WINDOW_MS = 5 * 60 * 1000;
+
+// The firmware names its setup SoftAP `OptiFeed-XXXX` using the last four hex
+// digits of the device MAC (see docs/wifi-provisioning-plan.md). Keep this in
+// sync if the firmware naming ever changes.
+function getSetupApName(mac: string | null | undefined): string | null {
+	if (!mac) return null;
+	const hex = mac.toUpperCase().replace(/[^0-9A-F]/g, "");
+	return hex.length >= 4 ? `OptiFeed-${hex.slice(-4)}` : null;
+}
+
 export default async function HardwareSettingsPage() {
 	const t = await getTranslations("dashboard.appSettings");
 	const writeAccess = await canWrite();
@@ -24,6 +37,8 @@ export default async function HardwareSettingsPage() {
 				orderBy: { createdAt: "asc" },
 				select: {
 					id: true,
+					mac: true,
+					label: true,
 					lastSeenAt: true,
 					feedLevelPercent: true,
 					hopperFullCm: true,
@@ -44,6 +59,10 @@ export default async function HardwareSettingsPage() {
 	const isDeviceOffline =
 		!energyDevice?.lastSeenAt ||
 		now.getTime() - energyDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+	const isWifiConfigured =
+		!!energyDevice?.lastSeenAt &&
+		now.getTime() - energyDevice.lastSeenAt.getTime() <= WIFI_ONLINE_WINDOW_MS;
+	const setupApName = getSetupApName(energyDevice?.mac);
 
 	function formatOfflineDuration(lastSeenAt: Date | null): string {
 		if (!lastSeenAt) return "";
@@ -116,77 +135,76 @@ export default async function HardwareSettingsPage() {
 					)}
 				</section>
 
-				{/* Network Settings */}
+				{/* WiFi Setup */}
 				<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
 					<div className="mb-6 border-b border-gray-100 pb-4 dark:border-gray-700/50">
 						<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800 dark:text-gray-100">
 							<Wifi size={20} />
-							{t("network")}
+							{t("wifiSetup.title")}
 						</h2>
-						<p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("networkDesc")}</p>
+						<p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("wifiSetup.desc")}</p>
 					</div>
 
-					<p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300">
-						{t("notConfigured")}
-					</p>
-
-					<div className="space-y-4">
-						<div className="flex flex-col gap-2">
-							<label
-								htmlFor="wifiSsid"
-								className="text-sm font-medium text-gray-700 dark:text-gray-300"
-							>
-								{t("wifiSsid")}
-							</label>
-							<input
-								id="wifiSsid"
-								type="text"
-								placeholder="Your Wi-Fi network"
-								disabled
-								className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400"
-							/>
-						</div>
-						<div className="flex flex-col gap-2">
-							<label
-								htmlFor="wifiPassword"
-								className="text-sm font-medium text-gray-700 dark:text-gray-300"
-							>
-								{t("wifiPassword")}
-							</label>
-							<input
-								id="wifiPassword"
-								type="password"
-								placeholder="Managed on the device"
-								disabled
-								className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400"
-							/>
-						</div>
-						<div className="flex flex-col gap-2">
-							<label
-								htmlFor="serverUrl"
-								className="text-sm font-medium text-gray-700 dark:text-gray-300"
-							>
-								{t("serverUrl")}
-							</label>
-							<input
-								id="serverUrl"
-								type="text"
-								placeholder="wss://"
-								disabled
-								className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 font-mono text-sm text-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400"
-							/>
-						</div>
+					<div className="rounded-xl bg-[#F4F7F6] p-4 dark:bg-gray-800/60">
+						<p className="text-xs font-bold uppercase tracking-wide text-[#3D5568] dark:text-gray-400">
+							{t("wifiSetup.apName")}
+						</p>
+						{setupApName ? (
+							<>
+								<p className="mt-1 font-mono text-lg font-bold text-[#0A3D62] dark:text-gray-100">
+									{setupApName}
+								</p>
+								{energyDevice && (
+									<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+										{energyDevice.label} &middot; {t("wifiSetup.macAddress")}:{" "}
+										<span className="font-mono">{energyDevice.mac}</span>
+									</p>
+								)}
+							</>
+						) : (
+							<p className="mt-1 text-sm font-medium text-gray-600 dark:text-gray-300">
+								{energyDevice ? t("wifiSetup.apUnknown") : t("wifiSetup.noDevice")}
+							</p>
+						)}
 					</div>
+
+					{energyDevice &&
+						(isWifiConfigured ? (
+							<div className="mt-4 space-y-1 rounded-xl border border-[#1E7B34]/20 bg-[#1E7B34]/5 p-4 dark:border-green-900/50 dark:bg-green-900/20">
+								<p className="text-sm font-semibold text-[#1E7B34] dark:text-green-300">
+									{t("wifiSetup.connected")}
+								</p>
+								<p className="text-xs text-[#3D5568] dark:text-gray-300">{t("wifiSetup.apOff")}</p>
+							</div>
+						) : (
+							<div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/50 dark:bg-amber-900/20">
+								<p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+									{t("wifiSetup.needsSetup")}
+								</p>
+							</div>
+						))}
 
 					<div className="mt-6">
-						<button
-							type="button"
-							disabled
-							className="flex min-h-[var(--ofd-touch-min)] min-w-[120px] items-center justify-center rounded-lg bg-[var(--ofd-action)] px-6 font-medium text-white opacity-50 cursor-not-allowed"
-						>
-							{t("saveNetwork")}
-						</button>
+						<p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+							{t("wifiSetup.steps")}
+						</p>
+						<ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-600 dark:text-gray-300">
+							<li>{t("wifiSetup.step1")}</li>
+							<li>{t("wifiSetup.step2")}</li>
+							<li>{t("wifiSetup.step3")}</li>
+						</ol>
 					</div>
+
+					{energyDevice && !isWifiConfigured && (
+						<div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/60">
+							<p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+								{t("wifiSetup.recoveryTitle")}
+							</p>
+							<p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+								{t("wifiSetup.recovery")}
+							</p>
+						</div>
+					)}
 				</section>
 
 				{/* Hopper Calibration */}

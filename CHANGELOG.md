@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- API regulation adoption (`API_REGULATION.md`): a single `{ data, meta }` / `{ error }` envelope, the documented status map, and a project-specific decision table. ESP32 firmware, the uptime probe, file downloads and SSE are documented exemptions.
+- `withApi()` request pipeline for every API route: `Server-Timing` (`total`, `db`, `app`, `auth`, `queries`) and `X-Request-Id` on success, 4xx, 5xx and timeouts; `WARN SLOW` / `ERROR VIOLATION` logs with the route template; absolute 2 s guard returning `504 TIMEOUT`.
+- Data-layer query counting through a Prisma `$allOperations` extension and `AsyncLocalStorage`, so query count and DB time cannot silently measure zero.
+- Versioned `/api/v1/*` tree, dual-served by a `beforeFiles` rewrite to the legacy handlers. Legacy responses carry `Deprecation`/`Sunset` with a recorded removal date (2027-06-30).
+- `scripts/api/conformance-check.mjs` (static CI gate) and `scripts/api/live-check.mjs` (contract + latency suites with warn/fail modes, coverage accounting and a mandatory credential). New root scripts `api:check` and `api:live`.
+- Browser API client `lib/api-client.ts`: one call path, envelope unwrapping, error mapping, 1 s read timeout, bounded retries for idempotent requests, raw mode for SSE/files.
+- `docs/API_REGULATION_v1.2_PROPOSAL.md` (25 amendments) and `docs/api-regulation-backlog.md` (ranked burn-down with evidence).
+- A read-only `nextjs-supabase-benchmark` subagent and `nextjs-supabase-audit.mjs` harness for auditing other Next.js + Supabase apps.
+
+### Changed
+
+- `withAuth`/`withCronAuth` now return the error envelope and record their own `auth` timing.
+- `/api/user-role` returns `{ role, email, displayName }` with `private, max-age=60` and an ETag; the dashboard header uses one request instead of `getUser()` + the route.
+- The dashboard import/export and prediction components use the shared API client and unwrap the envelope.
+- Device Telegram alerts in `/api/ingest` are scheduled after the response with `after()` instead of blocking the device request.
+- Device list lookups in the export routes are bounded with `take: 100`.
+
+### Fixed
+
+- ETags are computed over `data + cacheable meta`, so `request_id` no longer makes every conditional request miss.
+- The error normaliser reads a clone, so a conformant error body is not consumed before the client sees it.
+- Timeout errors are logged once and carry the specific `504 TIMEOUT` message; passthrough routes return a plain 504 body.
+
 ## [1.11.0] - 2026-10-22
 
 ### Added

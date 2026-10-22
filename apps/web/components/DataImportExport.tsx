@@ -1,5 +1,6 @@
 "use client";
 
+import { ApiClientError, apiPost } from "@/lib/api-client";
 import {
 	EXPORT_LABELS,
 	type ExportableType,
@@ -173,16 +174,14 @@ export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 
 		const csv = await f.text();
 		try {
-			const res = await fetch("/api/import", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ type, csvData: csv }),
-			});
-			const data = await res.json();
-			setPreview(data.preview);
-			setErrors(data.validationErrors);
-		} catch {
-			toast.error(t("previewError"));
+			const result = await apiPost<{
+				preview: Record<string, unknown>[];
+				validationErrors: { row: number; field: string; message: string }[];
+			}>("/api/import", { type, csvData: csv }, { timeoutMs: 15_000 });
+			setPreview(result.preview);
+			setErrors(result.validationErrors);
+		} catch (error) {
+			toast.error(error instanceof ApiClientError ? error.message : t("previewError"));
 		}
 	};
 
@@ -192,23 +191,22 @@ export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 
 		try {
 			const csv = await file.text();
-			const res = await fetch("/api/import/confirm", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ type, csvData: csv }),
-			});
-			const data = await res.json();
-			if (data.success) {
-				toast.success(t("importSuccess", { count: data.importedCount }));
+			const result = await apiPost<{ success: boolean; importedCount: number }>(
+				"/api/import/confirm",
+				{ type, csvData: csv },
+				{ timeoutMs: 30_000 },
+			);
+			if (result.success) {
+				toast.success(t("importSuccess", { count: result.importedCount }));
 				setOpen(false);
 				setFile(null);
 				setPreview(null);
 				setErrors([]);
 			} else {
-				toast.error(data.error ?? t("importError"));
+				toast.error(t("importError"));
 			}
-		} catch {
-			toast.error(t("importError"));
+		} catch (error) {
+			toast.error(error instanceof ApiClientError ? error.message : t("importError"));
 		} finally {
 			setImporting(false);
 		}

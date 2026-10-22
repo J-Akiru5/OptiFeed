@@ -67,6 +67,20 @@ const nextConfig: NextConfig = {
 			},
 		];
 	},
+	/**
+	 * §3.1 retrofit: `/api/v1/*` is the canonical tree; the legacy `/api/*`
+	 * paths are dual-served to the same handlers until LEGACY_API_SUNSET
+	 * (2027-06-30). A rewrite, not a duplicate route file, so the two trees
+	 * cannot drift. `beforeFiles` is required so the versioned path wins over
+	 * the `/api/[...fallback]` 404 handler.
+	 */
+	async rewrites() {
+		return {
+			beforeFiles: [{ source: "/api/v1/:path*", destination: "/api/:path*" }],
+			afterFiles: [],
+			fallback: [],
+		};
+	},
 };
 
 export default withNextIntl(nextConfig);

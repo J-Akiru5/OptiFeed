@@ -7,6 +7,7 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { PondSelector } from "@/components/pond-selector";
 import { useRouter } from "@/i18n/routing";
+import { apiGet } from "@/lib/api-client";
 import { createClient } from "@/lib/supabase/client";
 import { Globe, LogOut, Shield, X } from "lucide-react";
 import { useLocale } from "next-intl";
@@ -48,16 +49,20 @@ export function HeaderActions({
 	const { clearMessages } = useChatWidget();
 
 	useEffect(() => {
-		const supabase = createClient();
-		supabase.auth.getUser().then(({ data }) => {
-			const email = data.user?.email ?? null;
-			setUserEmail(email);
-			// Session-based auth — the API route derives ownerId from the session
-			fetch("/api/user-role")
-				.then((r) => r.json())
-				.then((d) => setUserRole(d.role))
-				.catch(() => {});
-		});
+		let cancelled = false;
+		// §8.3 rule 3: one request instead of `getUser()` + `/api/user-role`.
+		// The route already resolves the session, so the dashboard never needs
+		// a second Supabase round-trip just to render the header.
+		apiGet<{ role: string | null; email: string; displayName: string | null }>("/api/user-role")
+			.then((me) => {
+				if (cancelled) return;
+				setUserEmail(me.email);
+				setUserRole(me.role);
+			})
+			.catch(() => {});
+		return () => {
+			cancelled = true;
+		};
 	}, []);
 
 	const handleLogout = async () => {

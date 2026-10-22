@@ -154,13 +154,6 @@ export async function getUsers() {
 	});
 }
 
-export async function getUserById(userId: string) {
-	await requireRole("ADMIN");
-	const scope = await resolveOrgScope();
-	if (!scope.memberUserIds.includes(userId)) return null;
-	return prisma.user.findUnique({ where: { id: userId } });
-}
-
 // ─── Pond Management ─────────────────────────────────────────────────────────
 
 export async function getPonds() {
@@ -471,10 +464,17 @@ export async function getAllFarmHierarchies(): Promise<FarmHierarchyNode[]> {
 
 export async function getAdminStats() {
 	await requireRole("ADMIN");
-	const scope = await resolveOrgScope();
+	const [scope, platformAdmins] = await Promise.all([resolveOrgScope(), platformAdminUserIds()]);
 
 	const [userCount, pondCount, deviceCount, recentEvents] = await Promise.all([
-		prisma.user.count({ where: { id: { in: scope.memberUserIds } } }),
+		prisma.user.count({
+			where: {
+				id: { in: scope.memberUserIds },
+				// Same exclusion as getUsers: a platform admin is not a tenant
+				// member and must not inflate the tenant's user count.
+				...(platformAdmins.length > 0 ? { NOT: { id: { in: platformAdmins } } } : {}),
+			},
+		}),
 		prisma.pond.count({ where: { id: { in: scope.pondIds } } }),
 		prisma.energyDevice.count({ where: { pondId: { in: scope.pondIds } } }),
 		prisma.deviceStateEvent.findMany({

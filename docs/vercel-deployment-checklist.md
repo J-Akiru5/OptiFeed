@@ -17,7 +17,7 @@
 | `NEXT_PUBLIC_BASE_URL` | Canonical origin for absolute links |
 | `CRON_SECRET` | Bearer secret for `/api/cron/device-watch` |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | CRITICAL alerts (optional; no-op until set) |
-| `GEMINI_API_KEY` / `GEMINI_MODEL` | Chat assistant |
+| `OPENCODE_GO_API_KEY` / `OPENCODE_GO_MODEL` | Chat assistant + feeding prediction (OpenCode Go; model defaults to `deepseek-v4.1-flash`) |
 | `DEMO_PIN` | Seed script only |
 
 Notes:

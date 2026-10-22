@@ -266,6 +266,18 @@ bool provisioningActive = false;
 bool provisioningRoutesRegistered = false;
 String provisioningApName;
 
+// Dedicated reset button state. The struct must be declared before the first
+// function so Arduino's auto-generated prototypes can see it.
+struct ResetButtonState {
+  bool stableDown;
+  unsigned long lastChangeMs;
+  unsigned long pressStartMs;
+};
+
+ResetButtonState wifiResetButton = { false, 0, 0 };
+ResetButtonState factoryResetButton = { false, 0, 0 };
+bool resetButtonsArmed = false;
+
 // button debounce
 int lastButtonReading = HIGH;
 unsigned long lastButtonChangeMs = 0;
@@ -408,16 +420,6 @@ bool bootButtonResetHeld() {
 }
 
 // ==================== Dedicated reset buttons ====================
-
-struct ResetButtonState {
-  bool stableDown;
-  unsigned long lastChangeMs;
-  unsigned long pressStartMs;
-};
-
-ResetButtonState wifiResetButton = { false, 0, 0 };
-ResetButtonState factoryResetButton = { false, 0, 0 };
-bool resetButtonsArmed = false;
 
 // Erase the ESP-IDF WiFi stack's own stored station config, not just our NVS
 // keys. Without this a reachable old AP can be rejoined from the stack cache.

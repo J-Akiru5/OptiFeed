@@ -416,10 +416,15 @@ export type FarmHierarchyNode = {
  */
 export async function getAllFarmHierarchies(): Promise<FarmHierarchyNode[]> {
 	await requireRole("ADMIN");
-	const scope = await resolveOrgScope();
+	const [scope, platformAdmins] = await Promise.all([resolveOrgScope(), platformAdminUserIds()]);
 
 	const users = await prisma.user.findMany({
-		where: { id: { in: scope.memberUserIds } },
+		where: {
+			id: { in: scope.memberUserIds },
+			// Same exclusion as getUsers/getAdminStats: a platform admin is not a
+			// tenant member and must not appear in the tenant hierarchy.
+			...(platformAdmins.length > 0 ? { NOT: { id: { in: platformAdmins } } } : {}),
+		},
 		orderBy: { createdAt: "asc" },
 		include: {
 			farm: {

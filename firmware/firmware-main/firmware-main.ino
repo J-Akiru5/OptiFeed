@@ -41,6 +41,7 @@
 #include <DNSServer.h>
 #include <ArduinoOTA.h>
 #include <esp_task_wdt.h>
+#include <esp_wifi.h>
 #include <ctype.h>
 
 // ==================== Config — fill in before flashing ====================
@@ -106,6 +107,31 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 
 #define RELAY_PIN       25
 #define BUTTON_PIN      27          // pick any free GPIO; wired to GND via INPUT_PULLUP
+
+// ---- Dedicated reset buttons (optional, both active-low) ----------------
+// Wire each button between its GPIO and GND; the internal pull-up is enabled.
+// Leave a pin at -1 until the enclosure wiring is decided: disabled pins are
+// skipped. Safe free candidates on the ESP32-WROOM-32U used here (not used by
+// this sketch): 13, 14, 16, 17, 18, 19, 23. Do NOT use 32/33 (HC-SR04),
+// 25/26/27 (relay, DS18B20, feed button), 21/22 (RTC I2C), 0/2/12/15
+// (strapping), 34-39 (input-only, no internal pull-up) or 1/3 (USB serial).
+#define WIFI_RESET_BUTTON_PIN      -1   // e.g. 18 once the enclosure is wired
+#define FACTORY_RESET_BUTTON_PIN   -1   // e.g. 19 once the enclosure is wired
+#define RESET_BUTTON_HOLD_MS          10000  // continuous hold to trigger
+#define RESET_BUTTON_DEBOUNCE_MS         50
+#define RESET_BUTTON_STARTUP_GRACE_MS  5000  // ignore presses during boot
+
+// Reset button state. Declared before the first function so Arduino's
+// auto-generated prototypes can see the type.
+struct ResetButtonState {
+  bool stableDown;
+  unsigned long lastChangeMs;
+  unsigned long pressStartMs;
+};
+
+ResetButtonState wifiResetButton = { false, 0, 0 };
+ResetButtonState factoryResetButton = { false, 0, 0 };
+bool resetButtonsArmed = false;
 #define RTC_SDA         21
 #define RTC_SCL         22
 #define TRIG_PIN        32          // HC-SR04 ultrasonic trigger
@@ -393,6 +419,89 @@ bool bootButtonResetHeld() {
   return false;
 }
 
+// ==================== Dedicated reset buttons ====================
+
+// Erase the ESP-IDF WiFi stack's own stored station config, not just our NVS
+// keys. Without this a reachable old AP can be rejoined from the stack cache.
+void clearWiFiStackCredentials() {
+  if (WiFi.getMode() != WIFI_MODE_NULL) {
+    esp_wifi_restore();
+  }
+}
+
+void clearDeviceIdentity() {
+  prefs.remove("device_id");
+  prefs.remove("device_token");
+  prefs.remove("provisioned");
+  provisionedDeviceId = "";
+  provisionedDeviceToken = "";
+  provisionedFlag = false;
+  Serial.println("[RESET] Stored device identity cleared");
+}
+
+void initResetButtons() {
+  if (WIFI_RESET_BUTTON_PIN >= 0) pinMode(WIFI_RESET_BUTTON_PIN, INPUT_PULLUP);
+  if (FACTORY_RESET_BUTTON_PIN >= 0) pinMode(FACTORY_RESET_BUTTON_PIN, INPUT_PULLUP);
+
+  if (WIFI_RESET_BUTTON_PIN >= 0 || FACTORY_RESET_BUTTON_PIN >= 0) {
+    Serial.printf("[RESET] Buttons ready - WiFi reset: GPIO%d, factory reset: GPIO%d (hold %lus)\n",
+                  WIFI_RESET_BUTTON_PIN, FACTORY_RESET_BUTTON_PIN,
+                  (unsigned long)(RESET_BUTTON_HOLD_MS / 1000));
+  } else {
+    Serial.println("[RESET] Dedicated reset buttons disabled (pins are -1)");
+  }
+}
+
+// Active-low with the internal pull-up. Returns true while stably pressed.
+bool readResetButton(int pin, ResetButtonState &state, unsigned long now) {
+  if (pin < 0) return false;
+  bool raw = (digitalRead(pin) == LOW);
+
+  if (raw != state.stableDown && (now - state.lastChangeMs) >= RESET_BUTTON_DEBOUNCE_MS) {
+    state.stableDown = raw;
+    state.lastChangeMs = now;
+    if (raw) state.pressStartMs = now;
+  }
+  return state.stableDown;
+}
+
+// Requires a clean release after boot; a stuck button can never trigger a
+// reset. Factory reset wins if both reach the threshold.
+void handleResetButtons() {
+  if (WIFI_RESET_BUTTON_PIN < 0 && FACTORY_RESET_BUTTON_PIN < 0) return;
+
+  unsigned long now = millis();
+  if (!resetButtonsArmed) {
+    bool wifiIdle = WIFI_RESET_BUTTON_PIN < 0 || digitalRead(WIFI_RESET_BUTTON_PIN) == HIGH;
+    bool factoryIdle = FACTORY_RESET_BUTTON_PIN < 0 || digitalRead(FACTORY_RESET_BUTTON_PIN) == HIGH;
+    if (now >= RESET_BUTTON_STARTUP_GRACE_MS && wifiIdle && factoryIdle) {
+      resetButtonsArmed = true;
+      wifiResetButton.lastChangeMs = now;
+      factoryResetButton.lastChangeMs = now;
+    }
+    return;
+  }
+
+  bool factoryDown = readResetButton(FACTORY_RESET_BUTTON_PIN, factoryResetButton, now);
+  if (factoryDown && (now - factoryResetButton.pressStartMs) >= RESET_BUTTON_HOLD_MS) {
+    Serial.println("[RESET] Factory reset button held - clearing WiFi and device identity");
+    clearWiFiStackCredentials();
+    clearWiFiCredentials();
+    clearDeviceIdentity();
+    delay(300);
+    ESP.restart();
+  }
+
+  bool wifiDown = readResetButton(WIFI_RESET_BUTTON_PIN, wifiResetButton, now);
+  if (wifiDown && (now - wifiResetButton.pressStartMs) >= RESET_BUTTON_HOLD_MS) {
+    Serial.println("[RESET] WiFi reset button held - clearing WiFi, keeping device identity");
+    clearWiFiStackCredentials();
+    clearWiFiCredentials();
+    delay(300);
+    ESP.restart();
+  }
+}
+
 // ==================== WiFi provisioning portal ====================
 
 // "OptiFeed-XXXX", where XXXX is the last four hex characters of the active
@@ -633,6 +742,7 @@ void setup() {
   feederActive = false;
 
   pinMode(BUTTON_PIN, INPUT_PULLUP);    // press pulls LOW
+  initResetButtons();
 
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
@@ -719,6 +829,7 @@ void setup() {
 
 void loop() {
   ArduinoOTA.handle();  // Handle OTA updates
+  handleResetButtons(); // Dedicated WiFi / factory reset buttons, if wired
 
   if (provisioningActive) {
     serviceProvisioningPortal();  // captive DNS + setup page; never deep-sleeps

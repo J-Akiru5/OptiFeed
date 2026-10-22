@@ -2,14 +2,13 @@
 
 import { ChatPanel } from "./chat-panel";
 import { ChatSheet } from "./chat-sheet";
-import { ChatToggleButton } from "./chat-toggle-button";
 
 // Rendered inside ChatWidgetProvider (see dashboard layout). Composes the
-// floating toggle with the responsive panel (desktop) / sheet (mobile).
+// responsive panel (desktop) / sheet (mobile). The floating toggle lives in
+// the FabStack alongside the help button (see ../fab-stack.tsx).
 export function ChatWidget() {
 	return (
 		<>
-			<ChatToggleButton />
 			<ChatPanel />
 			<ChatSheet />
 		</>

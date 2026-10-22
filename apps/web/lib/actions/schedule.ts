@@ -1,5 +1,6 @@
 "use server";
 
+import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { STALE_SENT_MS } from "@/lib/constants";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
@@ -11,6 +12,7 @@ export async function toggleDevicePause(deviceId: string, isPaused: boolean) {
 	// Guard outside try: the catch below rethrows a generic message and would
 	// hide the write-access reason from the caller.
 	await requireWriteAccess();
+	await requirePermission("control_feeder");
 	try {
 		const ownerId = await getCurrentPondOwnerId();
 
@@ -61,8 +63,11 @@ export async function updateScheduleCommand(
 		buttonFeedGrams?: number;
 	},
 ): Promise<UpdateScheduleResult> {
+	// Guard outside try: the catch below returns a generic message and would
+	// hide the write-access reason from the caller (matches toggleDevicePause).
+	await requireWriteAccess();
+	await requirePermission("manage_schedule");
 	try {
-		await requireWriteAccess();
 		const parsed = scheduleInputSchema.safeParse(data);
 		if (!parsed.success) {
 			return { success: false, error: formatZodError(parsed.error) };

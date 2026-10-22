@@ -61,7 +61,10 @@ export function Markdown({ text }: { text: string }) {
 			lineNo++;
 			continue;
 		}
-		flushList(`p-${lineNo}`);
+		// The flushed list takes a `list-` key; a `p-` key here would collide
+		// with the paragraph pushed immediately below, since lineNo has not
+		// advanced yet.
+		flushList(`list-${lineNo}`);
 		if (line.trim().length > 0) {
 			blocks.push(<p key={`p-${lineNo}`}>{renderInline(line, `p-${lineNo}`)}</p>);
 		}

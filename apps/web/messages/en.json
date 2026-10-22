@@ -7,7 +7,11 @@
 		"growth": "Growth",
 		"settings": "Settings",
 		"notifications": "Notifications",
-		"audit": "Audit Trail"
+		"audit": "Audit Trail",
+		"operatorMenu": "Pond Operator Menu",
+		"hopperLevel": "Hopper level",
+		"pondFeedPellet": "Pond Feed Pellet",
+		"hopperRemaining": "Approx. {kg}kg remaining. Enough for {count} scheduled feedings."
 	},
 	"button": {
 		"feedNow": "Feed Now",
@@ -120,7 +124,7 @@
 	},
 	"dashboard": {
 		"home": {
-			"noData": "No pond data found. Please run the seed script.",
+			"noData": "No pond is assigned yet. Ask your administrator to set one up.",
 			"welcome": "Welcome back, {name}!",
 			"monitoring": "Monitoring <bold>{pond}</bold> remotely from <bold>Western Visayas</bold> node.",
 			"nextFeedingLabel": "NEXT SCHEDULED FEEDING",
@@ -144,7 +148,11 @@
 			"feedingLogsTitle": "FEEDING LOGS — WESTERN VISAYAS HUB",
 			"feedingLogsDesc": "Auditable chronological logs fetched from your automatic dispenser.",
 			"feedLevelLabel": "Feed Level",
-			"daysRemaining": "~{count}d of feed remaining"
+			"daysRemaining": "~{count}d of feed remaining",
+			"biomassLogsTitle": "RECENT BIOMASS SAMPLES",
+			"biomassLogsDesc": "Latest weigh-ins logged for this pond.",
+			"viewGrowth": "View growth",
+			"noFeedings": "No feedings recorded yet."
 		},
 		"schedule": {
 			"title": "Feeding Schedule",
@@ -200,7 +208,14 @@
 			"errorSave": "Failed to save biomass log. Please check your inputs.",
 			"livePreview": "Live Preview",
 			"previewDesc": "Calculated Average Body Weight (ABW): <bold>{abw}g</bold>. <br /> Assuming 5,000 fish at a {rate}% daily feeding rate across {feeds} feeds, this sample will set your next scheduled feeding to approximately <bold>{nextFeed}g</bold>.",
-			"saving": "Saving..."
+			"saving": "Saving...",
+			"savedBatches": "Saved Batches",
+			"noBatches": "No samples saved yet - save your first sample above.",
+			"unlabeled": "No Batch",
+			"entries": "{count, plural, one {# entry} other {# entries}}",
+			"lastSaved": "Last saved {date}",
+			"totalSamples": "Total Samples",
+			"avgWeight": "Avg Weight"
 		},
 		"history": {
 			"amount": "AMOUNT",
@@ -242,25 +257,93 @@
 			"desc": "Biomass tracking and Feed Conversion Ratio for {pond}",
 			"latestAbw": "Latest ABW",
 			"vsLastSample": "+{pct}% vs last sample",
+			"biomassChartLabel": "Biomass Growth Trend",
 			"currentFcr": "Current FCR",
 			"trendingDown": "Trending downwards",
+			"fcrEyebrow": "Current Feed Conversion Ratio",
+			"fcrExplain": "An FCR of <bold>{value}</bold> means your African Catfish consume {value}kg of feed pellets for every 1.0kg of raw muscle gain. This represents premium commercial growth efficiency.",
+			"stockHealth": "Stock Health Rating",
+			"stockHealthValue": "EXCELLENT • OPTIMAL",
 			"historyTitle": "Biomass Sample History",
 			"feedLevelTitle": "Feed Level Trend",
 			"feedLevelDesc": "Hopper fill level over time",
 			"feedLevelTableTitle": "Feed Level History",
 			"dateCol": "Date",
 			"batchCol": "Batch",
-			"totalWeightCol": "Total Weight",
+			"totalWeightCol": "Total Weight (kg)",
 			"fishCountCol": "Fish Count",
-			"avgLengthCol": "Avg Length",
+			"avgLengthCol": "Avg Length (cm)",
 			"abwCol": "ABW (g)",
+			"typeCol": "Type",
+			"allBatches": "All batches",
+			"unlabeledBatch": "Unlabeled",
+			"importedBadge": "Imported",
+			"seedBadge": "Seed",
+			"batchFilterLabel": "Filter by batch",
+			"noFilteredSamples": "No samples match the current filters.",
 			"feedLevelCol": "Level %",
 			"distanceCol": "Distance (cm)",
 			"noSamples": "No biomass samples recorded yet.",
 			"noFeedLevel": "No feed level readings recorded yet.",
 			"searchPlaceholder": "Search by date (YYYY-MM-DD)",
 			"loadMore": "Load more",
-			"loading": "Loading…"
+			"loading": "Loading…",
+			"viewAll": "View all",
+			"summaryTitle": "Growth Summary",
+			"summaryDesc": "Weight and length gain between sample periods",
+			"avgBadge": "Avg",
+			"fishCountBadge": "{count} fish",
+			"sampleWeightCol": "Weight",
+			"sampleLengthCol": "Length",
+			"history": {
+				"title": "Growth history",
+				"desc": "Full feed level, growth and biomass records for {pond}",
+				"backToGrowth": "Back to Growth",
+				"tabs": {
+					"feed": "Feed level",
+					"growth": "Growth summary",
+					"biomass": "Biomass samples"
+				},
+				"filters": {
+					"search": "Search",
+					"from": "From",
+					"to": "To",
+					"apply": "Apply",
+					"clear": "Clear"
+				},
+				"columns": {
+					"avgWeight": "Avg Weight (g)",
+					"weightGain": "Weight Gain (g)",
+					"lengthGain": "Length Gain (cm)",
+					"daysSince": "Days Since Last"
+				},
+				"pagination": {
+					"previous": "Previous",
+					"next": "Next",
+					"showing": "Showing {from}–{to} of {total}"
+				},
+				"empty": "No records match these filters."
+			},
+			"prediction": {
+				"title": "AI Feeding Prediction",
+				"subtitle": "Recommended grams per feeding, refined by AI",
+				"refresh": "Refresh",
+				"refreshError": "Could not refresh the prediction. Try again.",
+				"noData": "Log a biomass sample and wait for a feeding cycle to get a prediction.",
+				"predictedLabel": "Recommended",
+				"currentLabel": "Current",
+				"confidence": "Confidence",
+				"confidence_high": "High",
+				"confidence_medium": "Medium",
+				"confidence_low": "Low",
+				"sourceAi": "AI refined",
+				"sourceFormula": "Formula",
+				"apply": "Apply to schedule",
+				"applying": "Applying…",
+				"applied": "Applied",
+				"applyError": "Could not apply the prediction. Try again.",
+				"disclaimer": "Advisory only — your device schedule changes only when you apply."
+			}
 		},
 		"settings": {
 			"title": "Settings",
@@ -317,26 +400,56 @@
 			"deviceOfflineAlerts": "Device Offline Alerts",
 			"deviceOfflineAlertsDesc": "Get notified when your ESP32 device goes offline.",
 			"hopperLowAlerts": "Hopper Low Level Alerts",
-			"hopperLowAlertsDesc": "Get notified when feed hopper level is low."
+			"hopperLowAlertsDesc": "Get notified when feed hopper level is low.",
+			"managedByAdmin": "Profile details are managed by your administrator.",
+			"pinManagedByAdmin": "PIN changes are handled by your administrator."
+		},
+		"adminDevices": {
+			"deviceIdMac": "Device ID (MAC)",
+			"deviceIdMacHint": "The Device ID the setup portal asks for.",
+			"tokenColumn": "Device token",
+			"showToken": "Show token",
+			"hideToken": "Hide token",
+			"loading": "Loading…",
+			"copy": "Copy",
+			"copied": "Copied",
+			"copyFailed": "Copy failed — select the token and copy it manually.",
+			"tokenWarning": "Device credential — share only with the person provisioning this unit",
+			"tokenError": "Could not load the token. Try again."
 		},
 		"appSettings": {
 			"title": "App & Hardware Settings",
 			"desc": "Manage your device configuration and network settings.",
 			"deviceStatus": "Device Status",
 			"deviceStatusDesc": "Current status of your ESP32 feeder device.",
-			"deviceId": "Device ID",
+			"deviceRecordId": "Device record ID",
 			"connectionStatus": "Connection Status",
 			"online": "Online",
 			"offline": "Offline",
 			"hopperLevel": "Hopper Level",
 			"firmware": "Firmware Version",
 			"noDevice": "No device found. Please check your hardware setup.",
-			"network": "Network Settings",
-			"networkDesc": "Configure your WiFi and server connection.",
-			"wifiSsid": "WiFi Network Name (SSID)",
-			"wifiPassword": "WiFi Password",
-			"serverUrl": "Server WebSocket URL",
-			"saveNetwork": "Save Network Settings",
+			"wifiSetup": {
+				"title": "WiFi setup",
+				"desc": "WiFi credentials and the device identity are entered on the device itself. This page cannot save them — it only shows what the setup portal asks for.",
+				"apName": "Setup network",
+				"apUnknown": "The setup network name could not be derived from this device's MAC address.",
+				"deviceId": "Device ID (MAC)",
+				"deviceIdHint": "Enter this as the Device ID in the setup portal.",
+				"connected": "Connected — WiFi is already configured on the device.",
+				"apOff": "The OptiFeed setup network is off while the device is connected.",
+				"needsSetup": "No recent heartbeat — the device may have no WiFi credentials, or the saved password may be wrong.",
+				"steps": "How to provision",
+				"step1": "On your phone or laptop, join the setup network shown above.",
+				"step2": "Open http://192.168.4.1 in your browser.",
+				"step3": "Enter your farm WiFi name and password.",
+				"step4": "Enter the Device ID shown above and the Device Token.",
+				"step5": "Save. The device restarts and connects on its own.",
+				"credentialsNote": "Ask your farm administrator for the Device Token, or open Admin → Devices and press “Show token” for this unit.",
+				"tokenWarning": "The Device Token is a credential — share it only with the person provisioning this unit.",
+				"recoveryTitle": "If the setup network does not appear",
+				"recovery": "Hold the feed button for about 5 seconds while the device powers on. That clears the saved WiFi credentials and reopens the setup network — no reflash is needed."
+			},
 			"hopperCalibration": "Hopper Calibration",
 			"hopperCalibrationDesc": "Set the ultrasonic sensor distances for your hopper. Used to calculate feed level percent and days-remaining estimates.",
 			"hopperFullCm": "Full Distance (cm)",
@@ -350,7 +463,8 @@
 			"deviceActions": "Device Actions",
 			"deviceActionsDesc": "Perform maintenance actions on your device.",
 			"syncNow": "Sync Now",
-			"restartDevice": "Restart Device"
+			"restartDevice": "Restart Device",
+			"actionsUnavailable": "Device actions are not available yet."
 		},
 		"audit": {
 			"title": "Audit Trail",
@@ -370,6 +484,7 @@
 			"eventType_schedule_applied": "Schedule Applied",
 			"eventType_feed_dispensed": "Feed Dispensed",
 			"eventType_feed_reconciled": "Feed Reconciled",
+			"eventType_feed_refused": "Feed Refused",
 			"eventType_pge_reading": "PGE Reading",
 			"eventType_pellet_low": "Pellet Low",
 			"eventType_pellet_refilled": "Pellet Refilled",
@@ -387,7 +502,13 @@
 			"source_user": "User",
 			"source_device": "Device",
 			"deviceTime": "Device Time",
-			"serverTime": "Server Time"
+			"serverTime": "Server Time",
+			"byActor": "by {actor}",
+			"viaSource": "via {source}",
+			"reconciledFrom": "Reconciled from expired request {id}...",
+			"scheduleRange": "Schedule: {start} - {end}, {feedsPerDay} feeds/day",
+			"markedRead": "{count} notification(s) marked as read",
+			"loadMore": "Load more"
 		},
 		"notifications": {
 			"title": "Notifications",
@@ -397,6 +518,24 @@
 			"noUnread": "No unread notifications",
 			"empty": "No notifications yet.",
 			"allClear": "All clear!",
+			"noPondData": "No pond data found.",
+			"count": "{count} notification(s)",
+			"tierAll": "All",
+			"tierCritical": "Critical",
+			"tierWarning": "Warning",
+			"tierInfo": "Info",
+			"tierSuccess": "Success",
+			"categoryAll": "All Categories",
+			"categoryConnectivity": "Connectivity",
+			"categoryFeeding": "Feeding",
+			"categoryPellet": "Pellet",
+			"categoryPge": "PGE",
+			"categorySchedule": "Schedule",
+			"categorySystem": "System",
+			"autoCleared": "Auto-cleared",
+			"acknowledged": "Acknowledged",
+			"alert": "Alert",
+			"auditLink": "Audit",
 			"tiers": {
 				"CRITICAL": "CRITICAL",
 				"WARNING": "WARNING",
@@ -469,6 +608,15 @@
 			"importBody": "Import data from previously exported CSV files or from external sources. The system will validate your data before importing and show a preview for confirmation."
 		}
 	},
+	"errors": {
+		"title": "Something went wrong!",
+		"desc": "We encountered an unexpected error while loading this page. This might be due to a temporary database connection issue.",
+		"unknown": "Unknown error occurred",
+		"tryAgain": "Try again",
+		"notFoundTitle": "Page not found",
+		"notFoundDesc": "The page you are looking for does not exist.",
+		"backToDashboard": "Back to Dashboard"
+	},
 	"dates": {
 		"months": {
 			"Jan": "Jan",
@@ -502,7 +650,7 @@
 		"suggestionSchedule": "When is the next feeding time?",
 		"suggestionFcr": "What is my current FCR?",
 		"suggestionLogSample": "How do I log a sample?",
-		"intro": "Hi! I'm your OptiFeed assistant. Ask me about your next feeding time, current FCR, missed feedings, or how to log a sample!",
+		"intro": "Hi! I'm your OptiFeed assistant. Ask me about your next feeding time, feed amounts, current FCR, missed feedings, or how to log a sample!",
 		"error": "Oops, something went wrong. Please try again.",
 		"intentScheduleNoPond": "I couldn't find your pond schedule. Please ensure your devices are configured.",
 		"intentSchedulePaused": "Your automated schedule is currently **Paused**. No feedings will occur until you resume it on the Schedule page.",
@@ -512,7 +660,11 @@
 		"intentFcrActive": "Your most recent Feed Conversion Ratio (FCR) is **{fcr}**. You can view your full historical performance on the Growth tab.",
 		"intentMissedNoData": "Good news! I don't see any recent missed feedings in your logs.",
 		"intentMissedActive": "I see a missed feeding event from {time}. Missed feedings usually occur when the **hopper is empty** or the device **loses its Wi-Fi connection** before dispensing. Please check the physical feeder.",
-		"fallback": "I'm your OptiFeed support assistant! You can ask me things like:\n- \"When is the next feeding time?\"\n- \"What is my current FCR?\"\n- \"How do I log a sample?\"\n- \"Why was a feeding missed?\"",
-		"serverError": "Sorry, I ran into an error trying to fetch that data. Please try again."
+		"fallback": "I'm your OptiFeed support assistant! You can ask me things like:\n- \"When is the next feeding time?\"\n- \"How many grams should I feed?\"\n- \"What is my current FCR?\"\n- \"How do I log a sample?\"\n- \"Why was a feeding missed?\"",
+		"serverError": "Sorry, I ran into an error trying to fetch that data. Please try again.",
+		"suggestionPredict": "How many grams should I feed?",
+		"intentPredictActive": "Based on your latest biomass sample and FCR, I recommend **{grams}g per feeding** (your device is currently set to **{current}g**). Check the AI Feeding Prediction card on the Growth page to review and apply this recommendation.",
+		"intentPredictActiveNoCurrent": "Based on your latest biomass sample and FCR, I recommend **{grams}g per feeding**. Check the AI Feeding Prediction card on the Growth page to review and apply this recommendation.",
+		"intentPredictNoData": "I need a recent biomass sample to predict your feed amount. Log one from the **Log Biomass** form and then try again — or check the AI Feeding Prediction card on the Growth page."
 	}
 }

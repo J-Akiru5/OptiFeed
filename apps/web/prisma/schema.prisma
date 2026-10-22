@@ -115,6 +115,7 @@ model BiomassLog {
   sampleCount     Int
   avgWeightKg     Float
   batchLabel      String? // optional free-text label shared by all fish in this log session
+  source          String? // "form" | "import" | "seed"; null = legacy rows
   recordedAt      DateTime @default(now())
   farmId          String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
 
@@ -283,7 +284,7 @@ model FeedRequest {
 model DeviceStateEvent {
   id          String   @id @default(cuid())
   deviceId    String
-  eventType   String   // "connected" | "disconnected" | "command_sent" | "command_acked" | "command_failed" | "schedule_changed" | "schedule_applied" | "feed_dispensed" | "feed_reconciled" | "pge_reading" | "pellet_low" | "pellet_refilled" | "manual_trigger" | "notification_acknowledged" | "set_time" | "data_imported" | "data_exported"
+  eventType   String   // "connected" | "disconnected" | "command_sent" | "command_acked" | "command_failed" | "schedule_changed" | "schedule_applied" | "feed_dispensed" | "feed_reconciled" | "pge_reading" | "pellet_low" | "pellet_refilled" | "manual_trigger" | "notification_acknowledged" | "set_time" | "data_imported" | "data_exported" | "prediction_applied"
   source      String   // "system" | "user" | "device"
   actorId     String?  // userId who triggered it (nullable for device-originated)
   metadata    Json?    // flexible payload (old/new values, request IDs, error details)
@@ -369,4 +370,129 @@ model LoginLockout {
 
   @@id([farmId, ip])
   @@map("login_lockout")
+}
+
+enum OrgType {
+  INDIVIDUAL
+  COOPERATIVE
+  COMPANY
+  LGU
+  ACADEMIC
+}
+
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_DELETION
+  PURGED
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  OPERATOR
+  VIEWER
+}
+
+model Organization {
+  id                  String    @id @default(cuid())
+  name                String
+  type                OrgType   @default(INDIVIDUAL)
+  status              OrgStatus @default(ACTIVE)
+  parentId            String?
+  suspendedAt         DateTime?
+  suspendedReason     String?
+  deletionRequestedAt DateTime?
+  purgeAfter          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([status])
+}
+
+model Membership {
+  id        String     @id @default(cuid())
+  orgId     String
+  userId    String
+  role      MemberRole
+  invitedBy String?
+  createdAt DateTime   @default(now())
+  revokedAt DateTime?
+
+  @@unique([orgId, userId])
+  @@index([userId])
+}
+
+model MembershipPermission {
+  id           String    @id @default(cuid())
+  membershipId String
+  permission   String
+  grantedAt    DateTime  @default(now())
+  revokedAt    DateTime?
+
+  @@unique([membershipId, permission])
+}
+
+model PlatformAdmin {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  grantedBy     String?
+  expiresAt     DateTime?
+  revokedAt     DateTime?
+  mfaEnrolledAt DateTime?
+  createdAt     DateTime  @default(now())
+}
+
+model PlatformAuditLog {
+  id              String   @id @default(cuid())
+  actorUserId     String
+  action          String
+  targetType      String
+  targetId        String?
+  orgId           String?
+  reason          String
+  stepUpAt        DateTime?
+  temporaryGrant  Boolean  @default(false)
+  impersonationId String?
+  before          Json?
+  after           Json?
+  ip              String?
+  userAgent       String?
+  createdAt       DateTime @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+model ImpersonationSession {
+  id          String    @id @default(cuid())
+  actorUserId String
+  orgId       String
+  mode        String
+  reason      String
+  startedAt   DateTime  @default(now())
+  expiresAt   DateTime
+  endedAt     DateTime?
+}
+
+/// Platform-global AI provider chain, managed from /superadmin.
+/// Secrets are never stored here: apiKeyEnv names an environment variable that
+/// holds the key, resolved at call time by lib/ai-providers/config.ts.
+model AiProviderConfig {
+  id        String   @id @default(cuid())
+  /// Registry id from lib/ai-providers/registry.ts, e.g. "opencode-go".
+  provider  String   @unique
+  enabled   Boolean  @default(true)
+  /// Lower runs first.
+  priority  Int      @default(100)
+  /// Provider-specific model id; null means the adapter default.
+  model     String?
+  /// Environment variable holding the key; null means the adapter default.
+  apiKeyEnv String?
+  /// Provider-specific extras (e.g. { "reasoningEffort": "high" }).
+  params    Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([priority])
 }

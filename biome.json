@@ -7,7 +7,16 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"ignore": ["node_modules", ".next", "dist", "prisma/migrations"]
+		"ignore": [
+			"node_modules",
+			".next",
+			".vercel",
+			"dist",
+			"prisma/migrations",
+			"test-results",
+			"playwright-report",
+			"next-env.d.ts"
+		]
 	},
 	"formatter": {
 		"enabled": true,

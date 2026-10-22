@@ -1,5 +1,6 @@
 "use server";
 
+import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { STALE_DISPATCHED_MS } from "@/lib/constants";
 import {
@@ -26,8 +27,11 @@ function manilaDayRange(nowMs: number = Date.now()): { start: Date; end: Date } 
 }
 
 export async function requestFeed(deviceId: string, grams?: number) {
+	// Guard outside try: the catch below returns a generic message and would
+	// hide the write-access reason from the caller (matches toggleDevicePause).
+	await requireWriteAccess();
+	await requirePermission("control_feeder");
 	try {
-		await requireWriteAccess();
 		const ownerId = await getCurrentPondOwnerId();
 		const device = await prisma.energyDevice.findFirst({
 			where: { id: deviceId, pond: { ownerId } },
@@ -147,6 +151,7 @@ export async function saveHopperCalibration(
 ) {
 	try {
 		await requireWriteAccess();
+		await requirePermission("manage_schedule");
 		const ownerId = await getCurrentPondOwnerId();
 		const device = await prisma.energyDevice.findFirst({
 			where: { id: deviceId, pond: { ownerId } },
@@ -191,6 +196,7 @@ export async function saveHopperCalibration(
 export async function saveDurationCalibration(deviceId: string, gramsPerSecond: number) {
 	try {
 		await requireWriteAccess();
+		await requirePermission("manage_schedule");
 		const ownerId = await getCurrentPondOwnerId();
 		const device = await prisma.energyDevice.findFirst({
 			where: { id: deviceId, pond: { ownerId } },
@@ -231,6 +237,7 @@ export async function saveDurationCalibration(deviceId: string, gramsPerSecond: 
 export async function saveTemperatureCalibration(deviceId: string, tempOffsetC: number) {
 	try {
 		await requireWriteAccess();
+		await requirePermission("manage_schedule");
 		const ownerId = await getCurrentPondOwnerId();
 		const device = await prisma.energyDevice.findFirst({
 			where: { id: deviceId, pond: { ownerId } },

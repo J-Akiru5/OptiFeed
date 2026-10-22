@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "next dev",
-		"build": "prisma generate && prisma migrate deploy && next build",
+		"build": "prisma generate && node scripts/migrate-if-production.mjs && next build",
 		"start": "next start",
 		"lint": "biome check .",
 		"lint:fix": "biome check . --write",
@@ -17,11 +17,11 @@
 		"test:watch": "vitest",
 		"test:e2e": "playwright test",
 		"seed:dev": "tsx prisma/seed-dev.ts",
-		"manage-user": "tsx prisma/manage-users.ts"
+		"manage-user": "tsx prisma/manage-users.ts",
+		"platform-admin": "tsx scripts/platform-admin.ts"
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.6.0",
-		"@google/generative-ai": "^0.24.1",
 		"@prisma/client": "^6.6.0",
 		"@supabase/ssr": "^0.6.1",
 		"@supabase/supabase-js": "^2.49.4",
@@ -34,7 +34,7 @@
 		"jspdf-autotable": "^5.0.8",
 		"jszip": "^3.10.1",
 		"lucide-react": "^1.23.0",
-		"next": "16.2.10",
+		"next": "16.4.2",
 		"next-intl": "^4.1.0",
 		"papaparse": "^5.6.0",
 		"react": "19.2.4",

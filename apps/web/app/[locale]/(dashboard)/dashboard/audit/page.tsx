@@ -1,4 +1,5 @@
 import { DataExportButton } from "@/components/DataImportExport";
+import { Link } from "@/i18n/routing";
 import { getAuditLog } from "@/lib/actions/audit";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import {
@@ -167,7 +168,7 @@ export default async function AuditPage({
 	const result = await getAuditLog({ eventTypes: eventTypes.length > 0 ? eventTypes : undefined });
 
 	const formatDate = (date: Date) => formatDateTimeLocal(date, tDates);
-	const sourceLabel = (s: string) => t(`source_${s}`);
+	const sourceLabel = (s: string) => (t.has(`source_${s}`) ? t(`source_${s}`) : s);
 
 	const filterGroups = [
 		{ key: "all", label: t("filterAll") },
@@ -179,13 +180,15 @@ export default async function AuditPage({
 
 	return (
 		<div className="mx-auto max-w-5xl space-y-6 animate-in fade-in duration-500">
-			<section className="rounded-[32px] border border-[#0A3D62]/5 bg-white p-5 shadow-md md:p-8">
-				<div className="flex flex-col justify-between gap-4 border-b border-gray-100 pb-6 sm:flex-row sm:items-end">
+			<section className="rounded-[32px] border border-[#0A3D62]/5 bg-white p-5 shadow-md dark:bg-gray-900 md:p-8">
+				<div className="flex flex-col justify-between gap-4 border-b border-gray-100 pb-6 dark:border-gray-700/50 sm:flex-row sm:items-end">
 					<div>
-						<h1 className="mt-1 text-2xl font-black uppercase text-[#0A3D62] md:text-3xl">
+						<h1 className="mt-1 text-2xl font-black uppercase text-[#0A3D62] dark:text-[#5b9bd5] md:text-3xl">
 							{t("title")}
 						</h1>
-						<p className="mt-1 max-w-xl text-sm font-semibold text-[#3D5568]">{t("desc")}</p>
+						<p className="mt-1 max-w-xl text-sm font-semibold text-[#3D5568] dark:text-gray-300">
+							{t("desc")}
+						</p>
 					</div>
 					<div className="flex items-center gap-3">
 						<DataExportButton />
@@ -200,17 +203,21 @@ export default async function AuditPage({
 								? !filterParam || filterParam === "all"
 								: filterParam === group.key;
 						return (
-							<a
+							<Link
 								key={group.key}
-								href={group.key === "all" ? "/dashboard/audit" : `?filter=${group.key}`}
+								href={
+									group.key === "all"
+										? "/dashboard/audit"
+										: { pathname: "/dashboard/audit", query: { filter: group.key } }
+								}
 								className={`rounded-full px-4 py-1.5 text-xs font-bold uppercase transition-colors ${
 									isActive
 										? "bg-[#0A3D62] text-white"
-										: "bg-[#F4F7F6] text-[#3D5568] hover:bg-[#E8EDED]"
+										: "bg-[#F4F7F6] text-[#3D5568] hover:bg-[#E8EDED] dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
 								}`}
 							>
 								{group.label}
-							</a>
+							</Link>
 						);
 					})}
 				</div>
@@ -234,11 +241,13 @@ export default async function AuditPage({
 							const schedEnd = m?.scheduleEnd;
 							const feedsPerDayMeta = m?.feedsPerDay;
 							const count = m?.count;
+							const eventTypeKey = `eventType_${event.eventType}`;
+							const eventTypeLabel = t.has(eventTypeKey) ? t(eventTypeKey) : event.eventType;
 
 							return (
 								<div
 									key={event.id}
-									className="flex w-full items-start gap-3 rounded-3xl border border-[#0A3D62]/8 bg-white p-4 text-left shadow-sm"
+									className="flex w-full items-start gap-3 rounded-3xl border border-[#0A3D62]/8 bg-white p-4 text-left shadow-sm dark:bg-gray-900"
 								>
 									<span
 										className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${cfg.className}`}
@@ -250,47 +259,55 @@ export default async function AuditPage({
 											<span
 												className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase ${cfg.className}`}
 											>
-												{t(`eventType_${event.eventType}`) || event.eventType}
+												{eventTypeLabel}
 											</span>
-											<span className="text-xs font-bold text-[#3D5568]">{formatted.full}</span>
-											<span className="text-[10px] font-semibold uppercase text-[#3D5568]/60">
+											<span className="text-xs font-bold text-[#3D5568] dark:text-gray-300">
+												{formatted.full}
+											</span>
+											<span className="text-[10px] font-semibold uppercase text-[#3D5568]/60 dark:text-gray-300/60">
 												{sourceLabel(event.source)}
 											</span>
 										</span>
-										<span className="mt-2 block text-sm font-semibold text-[#3D5568]">
+										<span className="mt-2 block text-sm font-semibold text-[#3D5568] dark:text-gray-300">
 											{event.device.label}
 											{event.actorId && (
-												<span className="ml-2 text-xs text-[#3D5568]/60">by {event.actorId}</span>
+												<span className="ml-2 text-xs text-[#3D5568]/60 dark:text-gray-300/60">
+													{t("byActor", { actor: event.actorId })}
+												</span>
 											)}
 										</span>
 										{event.deviceTime && (
-											<span className="mt-1 block text-xs text-[#3D5568]/50">
+											<span className="mt-1 block text-xs text-[#3D5568]/50 dark:text-gray-300/50">
 												{t("deviceTime")}: {event.deviceTime}
 											</span>
 										)}
 										{grams && (
-											<span className="mt-1 block text-xs font-semibold text-[#3D5568]/70">
-												{Number(grams).toFixed(0)}g{src && <> via {String(src)}</>}
+											<span className="mt-1 block text-xs font-semibold text-[#3D5568]/70 dark:text-gray-300/70">
+												{Number(grams).toFixed(0)}g
+												{src && <> {t("viaSource", { source: String(src) })}</>}
 											</span>
 										)}
 										{expiredId && (
 											<span className="mt-1 block text-xs font-semibold text-amber-600">
-												Reconciled from expired request {String(expiredId).slice(0, 8)}...
+												{t("reconciledFrom", { id: String(expiredId).slice(0, 8) })}
 											</span>
 										)}
 										{schedStart && schedEnd && (
-											<span className="mt-1 block text-xs text-[#3D5568]/70">
-												Schedule: {String(schedStart)} - {String(schedEnd)},{" "}
-												{String(feedsPerDayMeta ?? "")} feeds/day
+											<span className="mt-1 block text-xs text-[#3D5568]/70 dark:text-gray-300/70">
+												{t("scheduleRange", {
+													start: String(schedStart),
+													end: String(schedEnd),
+													feedsPerDay: String(feedsPerDayMeta ?? ""),
+												})}
 											</span>
 										)}
 										{count && (
-											<span className="mt-1 block text-xs font-semibold text-[#3D5568]/70">
-												{String(count)} notification(s) marked as read
+											<span className="mt-1 block text-xs font-semibold text-[#3D5568]/70 dark:text-gray-300/70">
+												{t("markedRead", { count: String(count) })}
 											</span>
 										)}
 									</span>
-									<ChevronRight className="mt-3 h-5 w-5 shrink-0 text-[#3D5568]" />
+									<ChevronRight className="mt-3 h-5 w-5 shrink-0 text-[#3D5568] dark:text-gray-300" />
 								</div>
 							);
 						})
@@ -299,12 +316,18 @@ export default async function AuditPage({
 
 				{result.nextCursor && (
 					<div className="mt-6 flex justify-center">
-						<a
-							href={`/dashboard/audit?cursor=${result.nextCursor}${filterParam ? `&filter=${filterParam}` : ""}`}
-							className="rounded-full bg-[#F4F7F6] px-6 py-2 text-sm font-bold text-[#0A3D62] hover:bg-[#E8EDED] transition-colors"
+						<Link
+							href={{
+								pathname: "/dashboard/audit",
+								query: {
+									cursor: result.nextCursor,
+									...(filterParam ? { filter: filterParam } : {}),
+								},
+							}}
+							className="rounded-full bg-[#F4F7F6] px-6 py-2 text-sm font-bold text-[#0A3D62] transition-colors hover:bg-[#E8EDED] dark:bg-gray-800 dark:text-[#5b9bd5] dark:hover:bg-gray-700"
 						>
-							Load more
-						</a>
+							{t("loadMore")}
+						</Link>
 					</div>
 				)}
 			</section>

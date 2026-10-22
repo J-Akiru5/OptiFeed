@@ -1,9 +1,9 @@
-import { farmIdFromEmail } from "@/lib/auth/session";
+import { resolveActivePond } from "@/lib/auth/pond-access";
+import { withAuth } from "@/lib/auth/with-auth";
 import { EXPORT_ROW_LIMIT } from "@/lib/constants";
 import { type ExportableType, toCsvString } from "@/lib/csv";
 import prisma from "@/lib/prisma";
 import { checkApiRateLimit } from "@/lib/rate-limit";
-import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -17,17 +17,7 @@ const EXPORT_TYPES: ExportableType[] = [
 	"audit_events",
 ];
 
-export async function GET(request: Request) {
-	const supabase = await createClient();
-	const {
-		data: { user },
-	} = await supabase.auth.getUser();
-
-	const ownerId = user?.email ? farmIdFromEmail(user.email) : null;
-	if (!ownerId) {
-		return Response.json({ error: "Unauthorized" }, { status: 401 });
-	}
-
+export const GET = withAuth(async (request, { ownerId }) => {
 	// Rate limit: 30 requests per 60 seconds per user
 	const { success } = await checkApiRateLimit(ownerId);
 	if (!success) {
@@ -44,7 +34,7 @@ export async function GET(request: Request) {
 		);
 	}
 
-	const pond = await prisma.pond.findFirst({ where: { ownerId } });
+	const pond = await resolveActivePond(ownerId);
 	if (!pond) {
 		return Response.json({ error: "No pond found" }, { status: 404 });
 	}
@@ -217,4 +207,4 @@ export async function GET(request: Request) {
 			"Content-Disposition": `attachment; filename="optifeed_${type}_${new Date().toISOString().slice(0, 10)}.csv"`,
 		},
 	});
-}
+});

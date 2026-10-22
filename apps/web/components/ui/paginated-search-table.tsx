@@ -86,40 +86,48 @@ export function PaginatedSearchTable<T>({
 }: PaginatedSearchTableProps<T>) {
 	const [query, setQuery] = useState("");
 	const hasMounted = useRef(false);
+	// Keep the latest onSearch in a ref so the debounce effect below depends
+	// only on `query`. Parents pass inline handlers whose identity changes
+	// every render; listing `onSearch` in the deps re-triggered the effect
+	// after each parent render and spammed the server action in a loop.
+	const onSearchRef = useRef(onSearch);
+	onSearchRef.current = onSearch;
 
 	useEffect(() => {
 		if (!hasMounted.current) {
 			hasMounted.current = true;
 			return;
 		}
-		const timer = setTimeout(() => onSearch(query.trim()), searchDebounceMs);
+		const timer = setTimeout(() => onSearchRef.current(query.trim()), searchDebounceMs);
 		return () => clearTimeout(timer);
-	}, [query, onSearch, searchDebounceMs]);
+	}, [query, searchDebounceMs]);
 
 	const showEmpty = !isLoading && items.length === 0;
 
 	return (
 		<div className={cn("w-full", className)}>
 			<div className="relative mb-4">
-				<Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-gray-400" />
+				<Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
 				<input
 					type="text"
 					value={query}
 					onChange={(e) => setQuery(e.target.value)}
 					placeholder={searchPlaceholder}
-					className="w-full rounded-lg border border-gray-200 py-2 pr-4 pl-9 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+					className="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 py-2 pr-4 pl-9 text-sm text-gray-700 dark:text-gray-200 outline-none placeholder:text-gray-400 focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
 				/>
 			</div>
 
 			{isLoading && items.length === 0 ? (
-				<div className="flex items-center justify-center gap-2 py-10 text-sm text-gray-500">
+				<div className="flex items-center justify-center gap-2 py-10 text-sm text-gray-500 dark:text-gray-400">
 					<Loader2 className="size-4 animate-spin" />
 					<span>{loadingLabel}</span>
 				</div>
 			) : showEmpty ? (
-				<div className="py-10 text-center text-sm text-gray-500">{emptyMessage}</div>
+				<div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+					{emptyMessage}
+				</div>
 			) : (
-				<div className="divide-y divide-gray-100">
+				<div className="divide-y divide-gray-100 dark:divide-gray-700/50">
 					{items.map((item, index) => {
 						const rowKey = getKey?.(item, index) ?? index;
 						return <div key={rowKey}>{renderRow(item)}</div>;

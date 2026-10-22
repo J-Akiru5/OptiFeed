@@ -1,10 +1,10 @@
 "use client";
 
 import { useRouter } from "@/i18n/routing";
-import { saveBiomassLog } from "@/lib/actions/biomass";
+import { type FeedCalculationResult, saveBiomassLog } from "@/lib/actions/biomass";
 import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { dailyFeedG, feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
-import { Fish, Loader2, Plus, Ruler, Scale, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Fish, Loader2, Plus, Ruler, Scale, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
@@ -44,6 +44,7 @@ export function LogSampleForm({
 
 	const [inputMode, setInputMode] = useState<InputMode>("average");
 	const [batchLabel, setBatchLabel] = useState<string>("");
+	const [feedResult, setFeedResult] = useState<FeedCalculationResult | null>(null);
 
 	const [weightGrams, setWeightGrams] = useState<string>("");
 	const [lengthCm, setLengthCm] = useState<string>("");
@@ -206,18 +207,126 @@ export function LogSampleForm({
 					setError(result.error);
 					return;
 				}
-				router.push("/dashboard");
+				setFeedResult(result.feed);
 			} catch {
 				setError("Failed to save biomass log. Please try again.");
 			}
 		});
 	};
 
+	const resetForAnother = () => {
+		setFeedResult(null);
+		setError(null);
+		setRowErrors({});
+		setBatchLabel("");
+		setWeightGrams("");
+		setLengthCm("");
+		setCount("20");
+		setInputMode("average");
+		setIndividualFish([
+			{ weightGrams: "", lengthCm: "", id: crypto.randomUUID() },
+			{ weightGrams: "", lengthCm: "", id: crypto.randomUUID() },
+		]);
+	};
+
 	const fieldCls =
 		"w-full pl-10 pr-4 py-3 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#E85A2A] font-bold text-lg transition-colors";
 
 	const fishFieldCls =
-		"w-full px-3 py-2.5 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#E85A2A] font-bold text-sm transition-colors";
+		"w-full pl-8 pr-3 py-2.5 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#E85A2A] font-bold text-sm transition-colors";
+
+	if (feedResult) {
+		const headlineGrams = feedResult.calculatedGrams ?? feedResult.effectiveGrams;
+		const statusInfo: Record<FeedCalculationResult["status"], { text: string; cls: string }> = {
+			updated: {
+				text: `Device schedule updated: ${feedResult.previousGrams ?? "—"}g → ${feedResult.effectiveGrams}g per feeding.`,
+				cls: "border-green-200 bg-green-50 text-green-700",
+			},
+			unchanged: {
+				text: `Device schedule already at ${feedResult.effectiveGrams}g per feeding — unchanged.`,
+				cls: "border-blue-200 bg-blue-50 text-blue-700",
+			},
+			rejected_deviation: {
+				text: `Schedule kept at ${feedResult.previousGrams}g — the calculated ${feedResult.calculatedGrams}g differs by more than 50% from the current amount. Review it before applying.`,
+				cls: "border-amber-200 bg-amber-50 text-amber-700",
+			},
+			rejected_out_of_range: {
+				text: `Schedule kept at ${feedResult.previousGrams}g — the calculated ${feedResult.calculatedGrams}g is outside the allowed range.`,
+				cls: "border-amber-200 bg-amber-50 text-amber-700",
+			},
+			skipped_config: {
+				text: "Device schedule unchanged — set the pond feeding rate and feeds per day first.",
+				cls: "border-amber-200 bg-amber-50 text-amber-700",
+			},
+			skipped_no_device: {
+				text: "Device schedule unchanged — no device is linked to this pond.",
+				cls: "border-amber-200 bg-amber-50 text-amber-700",
+			},
+			skipped_no_population: {
+				text: "Device schedule unchanged — set the pond fish population so biomass can be computed.",
+				cls: "border-amber-200 bg-amber-50 text-amber-700",
+			},
+		};
+		const status = statusInfo[feedResult.status];
+
+		return (
+			<div className="space-y-6 py-4 text-center">
+				<div className="flex justify-center">
+					<div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
+						<CheckCircle2 className="h-8 w-8 text-green-600" />
+					</div>
+				</div>
+
+				<div>
+					<p className="text-xs uppercase font-extrabold tracking-wider text-[#3D5568]">
+						Feed to dispense per feeding
+					</p>
+					<p className="mt-1 text-5xl font-black text-[#E85A2A]">
+						{headlineGrams !== null ? headlineGrams.toFixed(2) : "—"}
+						<span className="text-2xl"> g</span>
+					</p>
+					{feedResult.dailyFeedG !== null && (
+						<p className="mt-1 text-sm font-medium text-[#3D5568]">
+							Daily total {feedResult.dailyFeedG.toFixed(2)}g · {feedResult.feedsPerDay} feed
+							{feedResult.feedsPerDay === 1 ? "" : "s"} per day
+						</p>
+					)}
+					<p className="mt-2 text-sm text-[#3D5568]">
+						Saved to{" "}
+						<strong className="text-[#0A3D62]">{feedResult.batchLabel || "Unlabeled"}</strong>
+						{feedResult.batchLabel ? "" : " (no batch)"}
+					</p>
+				</div>
+
+				<div className={`rounded-xl border p-4 text-sm font-medium text-left ${status.cls}`}>
+					{status.text}
+					{feedResult.deviceOffline && (
+						<span className="mt-1.5 block font-normal">
+							<AlertTriangle className="mr-1 inline h-3.5 w-3.5 -mt-0.5" />
+							Device is offline — the new schedule applies once it reconnects.
+						</span>
+					)}
+				</div>
+
+				<div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+					<button
+						type="button"
+						onClick={resetForAnother}
+						className="bg-[#E85A2A] text-white px-8 py-3.5 rounded-2xl font-black shadow-lg hover:bg-[#d04a1f] transition-all"
+					>
+						Log Another Sample
+					</button>
+					<button
+						type="button"
+						onClick={() => router.push("/dashboard")}
+						className="border border-[#0A3D62] text-[#0A3D62] px-8 py-3.5 rounded-2xl font-black hover:bg-[#0A3D62]/5 transition-all"
+					>
+						Back to Dashboard
+					</button>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-6">
@@ -377,11 +486,11 @@ export function LogSampleForm({
 					<div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
 						{individualFish.map((fish, index) => (
 							<div key={fish.id} className="p-3 bg-[#F4F7F6] rounded-xl border border-gray-200">
-								<div className="flex items-center gap-2">
+								<div className="flex flex-wrap items-center gap-2">
 									<span className="text-xs font-bold text-[#3D5568] w-6 text-center shrink-0">
 										#{index + 1}
 									</span>
-									<div className="flex-1 relative">
+									<div className="flex-1 min-w-[7.5rem] relative">
 										<div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
 											<Scale className="h-3.5 w-3.5" />
 										</div>
@@ -395,7 +504,7 @@ export function LogSampleForm({
 											onChange={(e) => updateFishEntry(index, "weightGrams", e.target.value)}
 										/>
 									</div>
-									<div className="flex-1 relative">
+									<div className="flex-1 min-w-[7.5rem] relative">
 										<div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
 											<Ruler className="h-3.5 w-3.5" />
 										</div>
@@ -413,7 +522,7 @@ export function LogSampleForm({
 										type="button"
 										onClick={() => removeFishEntry(index)}
 										disabled={individualFish.length <= 1}
-										className="p-1.5 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-30 disabled:pointer-events-none shrink-0"
+										className="p-1.5 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-30 disabled:pointer-events-none shrink-0 ml-auto sm:ml-0"
 									>
 										<X className="w-4 h-4" />
 									</button>

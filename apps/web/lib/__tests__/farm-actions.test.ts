@@ -13,14 +13,32 @@ vi.mock("@/lib/prisma", () => ({
 			findUnique: vi.fn(),
 			findMany: vi.fn(),
 		},
+		platformAdmin: {
+			findMany: vi.fn(),
+		},
 	},
 }));
 
 vi.mock("@/lib/auth/session", () => ({
 	getCurrentPondOwnerId: vi.fn().mockResolvedValue("test-farm"),
+	getCurrentUser: vi.fn().mockResolvedValue(null),
 	requireRole: vi.fn().mockResolvedValue(undefined),
 	requireWriteAccess: vi.fn().mockResolvedValue(undefined),
 	buildPondEmail: vi.fn((farmId: string) => `${farmId}@pond.optifeed.local`),
+}));
+
+// admin.ts now calls requirePermission(); it is DB-backed and stubbed open here
+// so these tests keep exercising the action logic rather than permission rows.
+vi.mock("@/lib/auth/permissions", () => ({
+	requirePermission: vi.fn().mockResolvedValue(undefined),
+	hasPermission: vi.fn().mockResolvedValue(true),
+}));
+
+// The /admin reads are Membership-scoped (fail-closed), so every test that
+// exercises one must declare the scope it expects to see applied.
+vi.mock("@/lib/auth/org-scope", () => ({
+	EMPTY_SCOPE: { orgIds: [], memberUserIds: [], farmIds: [], pondIds: [] },
+	resolveOrgScope: vi.fn(),
 }));
 
 vi.mock("@/i18n/routing", () => ({
@@ -37,13 +55,23 @@ vi.mock("next-intl/server", () => ({
 
 import { getAllFarmHierarchies, setPondStatus } from "@/lib/actions/admin";
 import { getFarmOverview, renameFarm } from "@/lib/actions/farm";
+import { EMPTY_SCOPE, resolveOrgScope } from "@/lib/auth/org-scope";
 import { requireRole } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 
 const mockFarm = vi.mocked(prisma.farm);
 const mockPond = vi.mocked(prisma.pond);
 const mockUser = vi.mocked(prisma.user);
+const mockPlatformAdmin = vi.mocked(prisma.platformAdmin);
 const mockRequireRole = vi.mocked(requireRole);
+const mockResolveOrgScope = vi.mocked(resolveOrgScope);
+
+const TENANT_SCOPE = {
+	orgIds: ["org_a"],
+	memberUserIds: ["u1", "u2"],
+	farmIds: ["test-farm", "no-farm"],
+	pondIds: ["pond-1"],
+};
 
 describe("getFarmOverview", () => {
 	beforeEach(() => {
@@ -118,6 +146,7 @@ describe("renameFarm", () => {
 describe("setPondStatus", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockResolveOrgScope.mockResolvedValue(TENANT_SCOPE);
 	});
 
 	it("requires the ADMIN role", async () => {
@@ -129,6 +158,12 @@ describe("setPondStatus", () => {
 	it("rejects invalid status values", async () => {
 		const result = await setPondStatus("pond-1", "BOGUS" as never);
 		expect(result).toEqual({ error: "Invalid pond status." });
+		expect(mockPond.update).not.toHaveBeenCalled();
+	});
+
+	it("refuses to touch a pond outside the caller's organization", async () => {
+		const result = await setPondStatus("other-tenant-pond", "ARCHIVED");
+		expect(result).toEqual({ error: "That pond is outside your organization." });
 		expect(mockPond.update).not.toHaveBeenCalled();
 	});
 
@@ -154,7 +189,7 @@ describe("setPondStatus", () => {
 
 	it("returns an error when the update fails", async () => {
 		mockPond.update.mockRejectedValue(new Error("Record not found"));
-		const result = await setPondStatus("missing", "ARCHIVED");
+		const result = await setPondStatus("pond-1", "ARCHIVED");
 		expect(result).toEqual({ error: "Failed to update pond status." });
 	});
 });
@@ -162,12 +197,35 @@ describe("setPondStatus", () => {
 describe("getAllFarmHierarchies", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockResolveOrgScope.mockResolvedValue(TENANT_SCOPE);
+		mockPlatformAdmin.findMany.mockResolvedValue([]);
 	});
 
 	it("requires the ADMIN role", async () => {
 		mockUser.findMany.mockResolvedValue([]);
 		await getAllFarmHierarchies();
 		expect(mockRequireRole).toHaveBeenCalledWith("ADMIN");
+	});
+
+	it("scopes the query to the caller's tenant members", async () => {
+		mockUser.findMany.mockResolvedValue([]);
+
+		await getAllFarmHierarchies();
+
+		expect(mockUser.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({ where: { id: { in: TENANT_SCOPE.memberUserIds } } }),
+		);
+	});
+
+	it("returns an empty list when the caller has no admin membership", async () => {
+		mockResolveOrgScope.mockResolvedValue(EMPTY_SCOPE);
+
+		const result = await getAllFarmHierarchies();
+
+		expect(result).toEqual([]);
+		expect(mockUser.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({ where: { id: { in: [] } } }),
+		);
 	});
 
 	it("maps users with and without farms", async () => {

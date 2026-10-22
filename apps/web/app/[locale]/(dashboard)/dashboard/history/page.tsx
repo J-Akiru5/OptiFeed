@@ -23,7 +23,7 @@ export default async function HistoryPage() {
 	if (!pond) {
 		return (
 			<div className="flex h-[50vh] items-center justify-center">
-				<p className="text-lg text-gray-500">{tSch("noPondData")}</p>
+				<p className="text-lg text-gray-500 dark:text-gray-400">{tSch("noPondData")}</p>
 			</div>
 		);
 	}
@@ -72,7 +72,7 @@ export default async function HistoryPage() {
 					<h1 className="text-3xl font-extrabold tracking-tight text-[var(--ofd-base-deep)]">
 						{t("title")}
 					</h1>
-					<p className="text-gray-500 mt-1">{t("desc", { pond: pond.name })}</p>
+					<p className="text-gray-500 dark:text-gray-400 mt-1">{t("desc", { pond: pond.name })}</p>
 				</div>
 				<div className="flex items-center gap-3">
 					<DataImportDialog canWrite={writeAccess} />
@@ -81,12 +81,12 @@ export default async function HistoryPage() {
 			</header>
 
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
+				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex items-center gap-4">
 					<div className="h-14 w-14 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center">
 						<CheckCircle2 className="h-7 w-7" />
 					</div>
 					<div>
-						<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+						<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 							{t("recentDispensed")}
 						</p>
 						<p className="text-2xl font-extrabold text-[var(--ofd-base-deep)]">
@@ -96,12 +96,12 @@ export default async function HistoryPage() {
 					</div>
 				</div>
 
-				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
+				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex items-center gap-4">
 					<div className="h-14 w-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
 						<Clock className="h-7 w-7" />
 					</div>
 					<div>
-						<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+						<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 							{t("sourceBreakdown")}
 						</p>
 						<div className="mt-1 space-y-0.5">
@@ -114,12 +114,12 @@ export default async function HistoryPage() {
 					</div>
 				</div>
 
-				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
+				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex items-center gap-4">
 					<div className="h-14 w-14 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center">
 						<Package className="h-7 w-7" />
 					</div>
 					<div>
-						<p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+						<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 							{t("feedLevel")}
 						</p>
 						<p className="text-2xl font-extrabold text-[var(--ofd-base-deep)]">
@@ -133,9 +133,9 @@ export default async function HistoryPage() {
 				</div>
 			</div>
 
-			<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-				<div className="p-6 border-b border-gray-100 bg-gray-50/50">
-					<h3 className="font-bold text-gray-800 flex items-center gap-2">
+			<div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden">
+				<div className="p-6 border-b border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50">
+					<h3 className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
 						<CalendarDays className="h-5 w-5 text-gray-400" /> {t("eventLog")}
 					</h3>
 				</div>

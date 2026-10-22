@@ -51,6 +51,14 @@ vi.mock("@/lib/auth/session", () => ({
 	requireWriteAccess: vi.fn().mockResolvedValue(undefined),
 }));
 
+// Permission resolution is DB-backed; these action tests exercise the action's
+// own logic, so the gate is stubbed open. Denial itself is covered by
+// permissions.test.ts and the "permission enforcement" block below.
+vi.mock("@/lib/auth/permissions", () => ({
+	requirePermission: vi.fn().mockResolvedValue(undefined),
+	hasPermission: vi.fn().mockResolvedValue(true),
+}));
+
 vi.mock("next/cache", () => ({
 	revalidatePath: vi.fn(),
 }));
@@ -59,6 +67,7 @@ vi.mock("next-intl/server", () => ({
 	getLocale: vi.fn().mockResolvedValue("en"),
 }));
 
+import { requirePermission } from "@/lib/auth/permissions";
 import { requireWriteAccess } from "@/lib/auth/session";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/limits";
 import prisma from "@/lib/prisma";
@@ -70,6 +79,7 @@ const mockScheduleCommand = vi.mocked(prisma.scheduleCommand);
 const mockPond = vi.mocked(prisma.pond);
 const mockFarm = vi.mocked(prisma.farm);
 const mockRequireWriteAccess = vi.mocked(requireWriteAccess);
+const mockRequirePermission = vi.mocked(requirePermission);
 
 // biome-ignore lint/suspicious/noExplicitAny: test fixture
 function onlineDevice(overrides: Record<string, unknown> = {}): any {
@@ -423,11 +433,10 @@ describe("write access enforcement — VIEWER denied, nothing written (1.5)", ()
 		);
 	}
 
-	it("requestFeed returns an error and writes nothing", async () => {
+	it("requestFeed throws and writes nothing", async () => {
 		denyWrite();
 		const { requestFeed } = await import("@/lib/actions/energy");
-		const result = await requestFeed("device-1");
-		expect(result.success).toBe(false);
+		await expect(requestFeed("device-1")).rejects.toThrow(/Write access required/);
 		expect(mockEnergyDevice.findFirst).not.toHaveBeenCalled();
 		expect(mockFeedRequest.create).not.toHaveBeenCalled();
 	});
@@ -440,16 +449,17 @@ describe("write access enforcement — VIEWER denied, nothing written (1.5)", ()
 		expect(mockDeviceStateEvent.create).not.toHaveBeenCalled();
 	});
 
-	it("updateScheduleCommand returns an error and writes nothing", async () => {
+	it("updateScheduleCommand throws and writes nothing", async () => {
 		denyWrite();
 		const { updateScheduleCommand } = await import("@/lib/actions/schedule");
-		const result = await updateScheduleCommand("pond-1", "device-1", {
-			scheduleStart: "08:00",
-			scheduleEnd: "18:00",
-			feedsPerDay: 2,
-			feedingRatePct: 3,
-		});
-		expect(result.success).toBe(false);
+		await expect(
+			updateScheduleCommand("pond-1", "device-1", {
+				scheduleStart: "08:00",
+				scheduleEnd: "18:00",
+				feedsPerDay: 2,
+				feedingRatePct: 3,
+			}),
+		).rejects.toThrow(/Write access required/);
 		expect(mockScheduleCommand.create).not.toHaveBeenCalled();
 		expect(mockScheduleCommand.update).not.toHaveBeenCalled();
 	});
@@ -525,5 +535,57 @@ describe("write access enforcement — VIEWER denied, nothing written (1.5)", ()
 		const result = await renameFarm("New Farm Name");
 		expect(result).toEqual({ error: expect.stringContaining("Write access required") });
 		expect(mockFarm.update).not.toHaveBeenCalled();
+	});
+});
+
+describe("permission enforcement — revoked control_feeder blocks the action", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockRequireWriteAccess.mockResolvedValue(undefined);
+		mockRequirePermission.mockResolvedValue(undefined);
+	});
+
+	function denyPermission() {
+		mockRequirePermission.mockRejectedValue(new Error("Forbidden"));
+	}
+
+	it("requestFeed asks for control_feeder and writes nothing when denied", async () => {
+		denyPermission();
+		const { requestFeed } = await import("@/lib/actions/energy");
+
+		await expect(requestFeed("device-1")).rejects.toThrow("Forbidden");
+
+		expect(mockRequirePermission).toHaveBeenCalledWith("control_feeder");
+		expect(mockEnergyDevice.findFirst).not.toHaveBeenCalled();
+		expect(mockFeedRequest.create).not.toHaveBeenCalled();
+		expect(mockDeviceStateEvent.create).not.toHaveBeenCalled();
+	});
+
+	it("toggleDevicePause asks for control_feeder and writes nothing when denied", async () => {
+		denyPermission();
+		const { toggleDevicePause } = await import("@/lib/actions/schedule");
+
+		await expect(toggleDevicePause("device-1", true)).rejects.toThrow("Forbidden");
+
+		expect(mockRequirePermission).toHaveBeenCalledWith("control_feeder");
+		expect(mockEnergyDevice.update).not.toHaveBeenCalled();
+		expect(mockDeviceStateEvent.create).not.toHaveBeenCalled();
+	});
+
+	it("updateScheduleCommand asks for manage_schedule and writes nothing when denied", async () => {
+		denyPermission();
+		const { updateScheduleCommand } = await import("@/lib/actions/schedule");
+
+		await expect(
+			updateScheduleCommand("pond-1", "device-1", {
+				scheduleStart: "08:00",
+				scheduleEnd: "18:00",
+				feedsPerDay: 2,
+				feedingRatePct: 3,
+			}),
+		).rejects.toThrow("Forbidden");
+
+		expect(mockRequirePermission).toHaveBeenCalledWith("manage_schedule");
+		expect(mockScheduleCommand.create).not.toHaveBeenCalled();
 	});
 });

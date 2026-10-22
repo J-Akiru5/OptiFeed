@@ -38,6 +38,10 @@ export default function proxy(request: NextRequest) {
 
 	const isDashboard = pathname.includes("/dashboard");
 	const isAdmin = pathname.includes("/admin");
+	// `includes("/admin")` is FALSE for "/superadmin" (no separator before
+	// "admin"), so the platform console needs its own check or it would skip
+	// the unauthenticated redirect entirely.
+	const isSuperadmin = pathname.includes("/superadmin");
 
 	// Only redirect navigation requests (GET/HEAD). Non-GET requests such as
 	// Server Action POSTs must reach the route handler so their RSC /
@@ -51,7 +55,11 @@ export default function proxy(request: NextRequest) {
 	// login -> dashboard redirect is intentionally NOT done here — it needs a
 	// *validated* user, which an optimistic cookie check cannot provide; the
 	// login page itself performs a one-shot client-side skip instead.
-	if (isNavigationRequest && (isDashboard || isAdmin) && !hasSessionCookie(request)) {
+	if (
+		isNavigationRequest &&
+		(isDashboard || isAdmin || isSuperadmin) &&
+		!hasSessionCookie(request)
+	) {
 		return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
 	}
 

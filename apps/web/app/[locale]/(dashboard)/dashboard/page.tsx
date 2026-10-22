@@ -223,8 +223,8 @@ export default async function DashboardHomePage() {
 				<ExportPdfButton />
 			</div>
 
-			{/* Bento Grid */}
-			<div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+			{/* Bento Grid — items-start keeps each tile at its natural height */}
+			<div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
 				{/* Tile 1: Hero — next feeding time (8 cols) */}
 				<div
 					className="col-span-1 md:col-span-8 bg-white dark:bg-gray-900 rounded-[32px] p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50 flex flex-col justify-between min-h-[300px] relative overflow-hidden"
@@ -544,7 +544,7 @@ export default async function DashboardHomePage() {
 			</div>
 
 			{energyDevice && (
-				<section className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl">
+				<section className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl items-start">
 					<FeedLevelCard
 						levelPercent={energyDevice.feedLevelPercent}
 						updatedAt={energyDevice.feedLevelUpdatedAt}

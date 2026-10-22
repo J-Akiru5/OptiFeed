@@ -11,7 +11,9 @@
 		"operatorMenu": "Pond Operator Menu",
 		"hopperLevel": "Hopper level",
 		"pondFeedPellet": "Pond Feed Pellet",
-		"hopperRemaining": "Approx. {kg}kg remaining. Enough for {count} scheduled feedings."
+		"hopperRemaining": "Approx. {kg}kg remaining. Enough for {count} scheduled feedings.",
+		"deviceOffline": "Offline",
+		"hopperOffline": "Device offline — level reading unavailable. Showing resting state."
 	},
 	"button": {
 		"feedNow": "Feed Now",

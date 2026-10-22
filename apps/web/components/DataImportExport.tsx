@@ -177,7 +177,7 @@ export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 			const result = await apiPost<{
 				preview: Record<string, unknown>[];
 				validationErrors: { row: number; field: string; message: string }[];
-			}>("/api/import", { type, csvData: csv }, { timeoutMs: 15_000 });
+			}>("/api/import", { type, csvData: csv }, { timeoutMs: 20_000 });
 			setPreview(result.preview);
 			setErrors(result.validationErrors);
 		} catch (error) {
@@ -194,7 +194,7 @@ export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 			const result = await apiPost<{ success: boolean; importedCount: number }>(
 				"/api/import/confirm",
 				{ type, csvData: csv },
-				{ timeoutMs: 30_000 },
+				{ timeoutMs: 40_000 },
 			);
 			if (result.success) {
 				toast.success(t("importSuccess", { count: result.importedCount }));

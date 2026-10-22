@@ -25,6 +25,7 @@
     - "ArduinoJson" by Benoit Blanchon
     - "ArduinoOTA" (built-in, ESP32 core)
     - WiFi / HTTPClient / WiFiClientSecure (built-in, ESP32 core)
+    - WebServer / DNSServer (built-in, ESP32 core) — device-hosted WiFi setup
 */
 
 #include <WiFi.h>
@@ -36,8 +37,11 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <Preferences.h>
+#include <WebServer.h>
+#include <DNSServer.h>
 #include <ArduinoOTA.h>
 #include <esp_task_wdt.h>
+#include <ctype.h>
 
 // ==================== Config — fill in before flashing ====================
 #define INGEST_URL      "https://optifeed.example.com/api/ingest"
@@ -107,6 +111,12 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 #define POST_INTERVAL_MS    5000    // telemetry + dashboard feed-command poll interval
 #define BUTTON_DEBOUNCE_MS  250
 #define WIFI_RETRY_INTERVAL_MS 10000
+
+// ---- WiFi provisioning portal ----
+#define WIFI_JOIN_WINDOW_MS          15000  // time allowed for each join attempt
+#define WIFI_FAILURES_BEFORE_PORTAL  5      // consecutive failed joins before the setup AP starts
+#define WIFI_RESET_HOLD_MS           5000   // button hold at boot clears stored credentials
+#define PROVISIONING_REBOOT_DELAY_MS 2000   // let the success page flush before restarting
 
 // ---- Calibration: how fast the feeder dispenses ----
 // Measure by running the feeder for a fixed time and weighing the output:
@@ -216,6 +226,18 @@ int wifiRetryCount = 0;
 #define WIFI_INITIAL_RETRY_MS 10000
 #define WIFI_MAX_RETRY_MS     60000
 
+// Consecutive join failures (reset on success) drive the setup portal.
+bool wifiJoinPending = false;
+unsigned long wifiJoinStartedMs = 0;
+int wifiJoinFailures = 0;
+
+// Device-hosted WiFi provisioning portal (SoftAP + setup page).
+WebServer provisioningServer(80);
+DNSServer provisioningDns;
+bool provisioningActive = false;
+bool provisioningRoutesRegistered = false;
+String provisioningApName;
+
 // button debounce
 int lastButtonReading = HIGH;
 unsigned long lastButtonChangeMs = 0;
@@ -276,6 +298,223 @@ void saveWiFiCredentials(const String &ssid, const String &pass) {
   Serial.println("[WiFi] Credentials saved to NVS");
 }
 
+// True only when NVS holds a usable SSID. A missing, empty or placeholder
+// SSID means the device has never been provisioned.
+bool wifiCredentialsProvisioned() {
+  if (!prefs.isKey("wifi_ssid")) return false;
+  String ssid = prefs.getString("wifi_ssid", "");
+  if (ssid.length() == 0) return false;
+  if (ssid == DEFAULT_WIFI_SSID) return false;
+  return true;
+}
+
+void clearWiFiCredentials() {
+  prefs.remove("wifi_ssid");
+  prefs.remove("wifi_pass");
+  Serial.println("[WiFi] Stored credentials cleared");
+}
+
+// Holding the feed button during boot for WIFI_RESET_HOLD_MS requests a
+// credential reset. Returns after the button is released or the hold is met;
+// the normal short-press feed path is untouched.
+bool bootButtonResetHeld() {
+  if (digitalRead(BUTTON_PIN) != LOW) return false;
+
+  Serial.printf("[WiFi] Button held at boot - keep holding %d s to reset WiFi credentials\n",
+                WIFI_RESET_HOLD_MS / 1000);
+  unsigned long start = millis();
+  while (digitalRead(BUTTON_PIN) == LOW) {
+    if (millis() - start >= WIFI_RESET_HOLD_MS) return true;
+    delay(50);
+  }
+  Serial.println("[WiFi] Button released early - normal boot continues");
+  return false;
+}
+
+// ==================== WiFi provisioning portal ====================
+
+// "OptiFeed-XXXX", where XXXX is the last four hex characters of DEVICE_MAC.
+String provisioningApSsid() {
+  String hex;
+  hex.reserve(strlen(DEVICE_MAC));
+  for (size_t i = 0; i < strlen(DEVICE_MAC); i++) {
+    char c = DEVICE_MAC[i];
+    if (isxdigit((unsigned char)c)) hex += (char)toupper((unsigned char)c);
+  }
+  while (hex.length() < 4) hex = String("0") + hex;
+  return String("OptiFeed-") + hex.substring(hex.length() - 4);
+}
+
+String htmlEscape(const String &value) {
+  String out;
+  out.reserve(value.length() + 16);
+  for (size_t i = 0; i < value.length(); i++) {
+    char c = value[i];
+    switch (c) {
+      case '&':  out += F("&amp;");  break;
+      case '<':  out += F("&lt;");   break;
+      case '>':  out += F("&gt;");   break;
+      case '"':  out += F("&quot;"); break;
+      case '\'': out += F("&#39;");  break;
+      default:   out += c;           break;
+    }
+  }
+  return out;
+}
+
+String buildProvisioningPage(const String &ssid, const String &error) {
+  String page = F(
+    "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+    "<title>OptiFeed WiFi setup</title><style>"
+    "body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;margin:0;padding:24px;background:#f3f5f7;color:#1b2430}"
+    "main{max-width:420px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}"
+    "h1{font-size:1.35rem;margin:0 0 8px}p{line-height:1.45}"
+    "label{display:block;font-weight:600;margin:18px 0 6px}"
+    "input{width:100%;box-sizing:border-box;padding:10px;border:1px solid #b9c2cc;border-radius:8px;font-size:1rem}"
+    "button{margin-top:20px;width:100%;padding:12px;border:0;border-radius:8px;background:#166534;color:#fff;font-size:1rem;font-weight:600}"
+    ".note{font-size:.9rem;color:#4a5563}.err{background:#fdecec;border:1px solid #f5b5b5;border-radius:8px;padding:10px;color:#8a1c1c}"
+    "code{background:#eef1f4;padding:2px 6px;border-radius:4px}"
+    "footer{margin-top:20px;font-size:.8rem;color:#6b7684}"
+    "</style></head><body><main>"
+    "<h1>OptiFeed WiFi setup</h1>"
+    "<p class=\"note\">Connect the feeder to a 2.4 GHz WiFi network. The device restarts after saving and joins automatically.</p>"
+    "{{ERROR}}"
+    "<form method=\"POST\" action=\"/save\">"
+    "<label for=\"ssid\">WiFi name (SSID)</label>"
+    "<input id=\"ssid\" name=\"ssid\" type=\"text\" maxlength=\"32\" required autocomplete=\"off\" value=\"{{SSID}}\">"
+    "<label for=\"pass\">Password</label>"
+    "<input id=\"pass\" name=\"pass\" type=\"password\" maxlength=\"63\" autocomplete=\"new-password\">"
+    "<p class=\"note\">Leave the password empty for an open network, otherwise use 8-63 characters.</p>"
+    "<button type=\"submit\">Save and restart</button>"
+    "</form>"
+    "<footer>Setup address: <code>192.168.4.1</code> &middot; AP: {{AP}}</footer>"
+    "</main></body></html>");
+
+  String errorBlock;
+  if (error.length() > 0) {
+    errorBlock = F("<p class=\"err\">");
+    errorBlock += htmlEscape(error);
+    errorBlock += F("</p>");
+  }
+
+  // AP/ERROR first, SSID last: a user-supplied SSID must never be re-scanned
+  // for another placeholder.
+  page.replace("{{AP}}", htmlEscape(provisioningApName));
+  page.replace("{{ERROR}}", errorBlock);
+  page.replace("{{SSID}}", htmlEscape(ssid));
+  return page;
+}
+
+String buildProvisioningSuccessPage() {
+  return String(F(
+    "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+    "<title>OptiFeed saved</title></head>"
+    "<body style=\"font-family:system-ui,sans-serif;padding:32px;max-width:420px;margin:0 auto\">"
+    "<h1>Settings saved</h1>"
+    "<p>The feeder is restarting and will join your WiFi network. You can close this page.</p>"
+    "</body></html>"));
+}
+
+void handleProvisioningRoot() {
+  String currentSsid;
+  if (wifiCredentialsProvisioned()) currentSsid = prefs.getString("wifi_ssid", "");
+  provisioningServer.send(200, "text/html", buildProvisioningPage(currentSsid, ""));
+}
+
+void handleProvisioningSave() {
+  const String ssid = provisioningServer.arg("ssid");
+  const String pass = provisioningServer.arg("pass");
+
+  if (ssid.length() < 1 || ssid.length() > 32) {
+    provisioningServer.send(400, "text/html",
+      buildProvisioningPage(ssid, "SSID must be 1-32 characters."));
+    return;
+  }
+  if (pass.length() != 0 && (pass.length() < 8 || pass.length() > 63)) {
+    provisioningServer.send(400, "text/html",
+      buildProvisioningPage(ssid, "Password must be empty (open network) or 8-63 characters."));
+    return;
+  }
+
+  saveWiFiCredentials(ssid, pass);   // same NVS keys: wifi_ssid / wifi_pass
+  Serial.println("[PROV] WiFi credentials saved - restarting");
+
+  provisioningServer.send(200, "text/html", buildProvisioningSuccessPage());
+  provisioningServer.client().flush();
+  provisioningServer.client().stop();
+
+  delay(PROVISIONING_REBOOT_DELAY_MS);
+  ESP.restart();
+}
+
+// Captive-portal behaviour: anything else resolves to the setup page.
+void handleProvisioningNotFound() {
+  String target = String(F("http://")) + WiFi.softAPIP().toString() + "/";
+  provisioningServer.sendHeader("Location", target, true);
+  provisioningServer.send(302, "text/plain", "");
+}
+
+void startProvisioningPortal() {
+  if (provisioningActive) return;
+
+  provisioningApName = provisioningApSsid();
+  // AP+STA keeps the station side alive, so a network that comes back can
+  // close the portal on its own.
+  WiFi.mode(WIFI_AP_STA);
+  if (!WiFi.softAP(provisioningApName.c_str())) {
+    Serial.println("[PROV] Could not start the setup access point");
+    return;
+  }
+
+  provisioningDns.setErrorReplyCode(DNSReplyCode::NoError);
+  provisioningDns.start(53, "*", WiFi.softAPIP());
+
+  if (!provisioningRoutesRegistered) {
+    provisioningServer.on("/", HTTP_GET, handleProvisioningRoot);
+    provisioningServer.on("/save", HTTP_POST, handleProvisioningSave);
+    provisioningServer.onNotFound(handleProvisioningNotFound);
+    provisioningRoutesRegistered = true;
+  }
+  provisioningServer.begin();
+
+  provisioningActive = true;
+  wifiJoinPending = false;
+  Serial.println("[PROV] Setup portal active");
+  Serial.printf("[PROV] Join \"%s\" and open http://%s\n",
+                provisioningApName.c_str(), WiFi.softAPIP().toString().c_str());
+}
+
+void stopProvisioningPortal() {
+  if (!provisioningActive) return;
+  provisioningDns.stop();
+  provisioningServer.stop();
+  WiFi.softAPdisconnect(true);   // drops the AP interface, keeps STA credentials
+  provisioningActive = false;
+  Serial.println("[PROV] Setup portal stopped");
+}
+
+// Runs from loop() while provisioning is active. Never blocks long enough to
+// trip the task watchdog, and never enters deep sleep.
+void serviceProvisioningPortal() {
+  provisioningDns.processNextRequest();  // compatibility no-op on ESP32 core 3.x
+  provisioningServer.handleClient();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("[WiFi] Joined a network while the portal was active - closing portal");
+    stopProvisioningPortal();
+    wifiJoinFailures = 0;
+    wifiJoinPending = false;
+    // The mode switch can briefly drop the station; maintainWiFi() will
+    // reconnect and resync NTP if that happens.
+    if (WiFi.status() == WL_CONNECTED) {
+      wifiWasConnected = true;
+      if (rtcAvailable) syncNTP();
+    }
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   bootTime = millis();
@@ -302,6 +541,17 @@ void setup() {
   prefs.putUInt("rebootCount", rebootCount);
   Serial.printf("[INIT] Boot #%lu\n", rebootCount);
 
+  // Button held through boot clears WiFi credentials and reopens the portal.
+  bool credentialsResetAtBoot = false;
+  if (bootButtonResetHeld()) {
+    clearWiFiCredentials();
+    credentialsResetAtBoot = true;
+    // Consume the hold that triggered the reset so it cannot also dispense.
+    lastButtonReading = LOW;
+    lastButtonChangeMs = millis();
+    lastHandledButtonChangeMs = lastButtonChangeMs;
+  }
+
   // Seed default schedule: 06:00 and 19:00
   buildDefaultSchedule();
 
@@ -319,10 +569,17 @@ void setup() {
   // TLS: verify the server against ROOT_CA (never setInsecure).
   secureClient.setCACert(ROOT_CA);
 
-  connectWiFi();
-  if (WiFi.status() == WL_CONNECTED) {
-    wifiWasConnected = true;
-    if (rtcAvailable) syncNTP();
+  // No usable credentials (or a boot reset) -> device-hosted setup portal.
+  // Otherwise use the normal station path, unchanged.
+  if (credentialsResetAtBoot || !wifiCredentialsProvisioned()) {
+    Serial.println("[WiFi] No usable stored credentials - starting setup portal");
+    startProvisioningPortal();
+  } else {
+    connectWiFi();
+    if (WiFi.status() == WL_CONNECTED) {
+      wifiWasConnected = true;
+      if (rtcAvailable) syncNTP();
+    }
   }
 
   // Setup OTA updates
@@ -349,13 +606,19 @@ void setup() {
 
 void loop() {
   ArduinoOTA.handle();  // Handle OTA updates
-  maintainWiFi();
+
+  if (provisioningActive) {
+    serviceProvisioningPortal();  // captive DNS + setup page; never deep-sleeps
+  } else {
+    maintainWiFi();
+  }
 
   handleButton();
 
   if (rtcAvailable) handleSchedule();
 
-  if (millis() - lastPoll >= POST_INTERVAL_MS) {
+  // Local feeding keeps running while provisioning; backend calls do not.
+  if (!provisioningActive && millis() - lastPoll >= POST_INTERVAL_MS) {
     sendTelemetry();
     pollDashboardFeedCommand();
     esp_task_wdt_reset();
@@ -856,14 +1119,25 @@ void connectWiFi() {
   Serial.printf("[WiFi] connecting to %s", ssid.c_str());
   WiFi.begin(ssid.c_str(), pass.c_str());
   unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
+  while (WiFi.status() != WL_CONNECTED && millis() - start < WIFI_JOIN_WINDOW_MS) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println(WiFi.status() == WL_CONNECTED ? " connected" : " not connected yet — will retry in loop()");
+  bool connected = (WiFi.status() == WL_CONNECTED);
+  Serial.println(connected ? " connected" : " not connected yet — will retry in loop()");
+
+  wifiJoinPending = false;
+  if (connected) {
+    wifiJoinFailures = 0;
+  } else {
+    wifiJoinFailures++;
+    Serial.printf("[WiFi] join attempt failed (%d/%d)\n", wifiJoinFailures, WIFI_FAILURES_BEFORE_PORTAL);
+  }
 }
 
 void maintainWiFi() {
+  if (provisioningActive) return;  // the portal owns the radio and suppresses deep sleep
+
   if (WiFi.status() == WL_CONNECTED) {
     if (!wifiWasConnected) {
       Serial.println("[WiFi] reconnected");
@@ -871,10 +1145,26 @@ void maintainWiFi() {
     }
     wifiWasConnected = true;
     wifiRetryCount = 0;  // Reset backoff on successful connection
+    wifiJoinFailures = 0;
+    wifiJoinPending = false;
     return;
   }
 
   wifiWasConnected = false;
+
+  // A join attempt gets WIFI_JOIN_WINDOW_MS to succeed; if it is still not
+  // connected afterwards, it counts as one consecutive failure.
+  if (wifiJoinPending && millis() - wifiJoinStartedMs >= WIFI_JOIN_WINDOW_MS) {
+    wifiJoinPending = false;
+    wifiJoinFailures++;
+    Serial.printf("[WiFi] join attempt failed (%d/%d)\n", wifiJoinFailures, WIFI_FAILURES_BEFORE_PORTAL);
+    if (wifiJoinFailures >= WIFI_FAILURES_BEFORE_PORTAL) {
+      Serial.println("[WiFi] Repeated join failures - starting setup portal");
+      startProvisioningPortal();
+      return;
+    }
+  }
+  if (wifiJoinPending) return;
 
   // Exponential backoff: 10s, 20s, 40s, 60s max
   unsigned long retryInterval = WIFI_INITIAL_RETRY_MS * (1UL << min(wifiRetryCount, 3));
@@ -889,9 +1179,12 @@ void maintainWiFi() {
     WiFi.begin(ssid.c_str(), pass.c_str());
     lastWifiRetry = millis();
     wifiRetryCount++;
+    wifiJoinPending = true;
+    wifiJoinStartedMs = millis();
 
-    // Deep sleep after prolonged failure (>5 min of retries)
-    if (wifiRetryCount > 30) {
+    // Deep sleep after prolonged failure (>5 min of retries). The portal
+    // starts long before this, so the device never sleeps while provisioning.
+    if (!provisioningActive && wifiRetryCount > 30) {
       Serial.println("[WiFi] prolonged failure — entering deep sleep for 5 minutes");
       esp_sleep_enable_timer_wakeup(5 * 60 * 1000000ULL);  // 5 minutes in microseconds
       esp_deep_sleep_start();

@@ -1,4 +1,5 @@
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
+import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { AdminSidebar } from "@/components/admin-sidebar";
 import { Link } from "@/i18n/routing";
 import { getCurrentUser, requireRole } from "@/lib/auth/session";
@@ -41,8 +42,10 @@ export default async function AdminLayout({
 
 			<div className="flex w-full flex-1 min-h-[calc(100vh-4rem)]">
 				<AdminSidebar />
-				<main className="flex-1 p-4 md:p-8 relative z-10">{children}</main>
+				<main className="flex-1 p-4 md:p-8 pb-24 md:pb-24 lg:pb-8 relative z-10">{children}</main>
 			</div>
+
+			<AdminBottomNav />
 		</div>
 	);
 }

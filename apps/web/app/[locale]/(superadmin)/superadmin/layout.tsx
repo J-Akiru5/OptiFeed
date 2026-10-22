@@ -1,4 +1,5 @@
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
+import { SuperadminBottomNav } from "@/components/superadmin-bottom-nav";
 import { SuperadminSidebar } from "@/components/superadmin-sidebar";
 import { Link } from "@/i18n/routing";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
@@ -32,12 +33,23 @@ export default async function SuperadminLayout({
 						Platform
 					</span>
 				</div>
+
+				<div className="flex items-center gap-3">
+					<Link
+						href="/dashboard"
+						className="text-sm font-bold text-white/70 hover:text-white transition-colors"
+					>
+						Dashboard
+					</Link>
+				</div>
 			</header>
 
 			<div className="flex w-full flex-1 min-h-[calc(100vh-4rem)]">
 				<SuperadminSidebar />
-				<main className="flex-1 p-4 md:p-8 relative z-10">{children}</main>
+				<main className="flex-1 p-4 md:p-8 pb-24 md:pb-24 lg:pb-8 relative z-10">{children}</main>
 			</div>
+
+			<SuperadminBottomNav />
 		</div>
 	);
 }

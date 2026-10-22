@@ -14,21 +14,21 @@ blocked on manual action.
 | Branch | Role | CI validation | Application deployment | Database migrations |
 | --- | --- | --- | --- | --- |
 | `feature/*`, `fix/*`, `refactor/*`, `docs/*`, `audit/*`, `chore/*` | One task, one developer | PR checks | **No** | No |
-| `develop` | Shared integration / reconciliation | Push + PR checks | **No** | No |
-| `staging` | Default branch, release candidate, staging validation | Push + PR checks | **Yes — staging** | No (production schema only) |
+| `develop` | Shared integration / reconciliation | Push + PR checks | **Yes — preview** | No |
+| `staging` | Release candidate branch | Push + PR checks | **No** | No (production schema only) |
 | `main` | Production source of truth | Push + PR checks | **Yes — production** | **Yes** — production deploy only |
 
 ```
 feature/* ──PR──▶ develop ──PR──▶ staging ──PR + Jeff──▶ main
-                     │              │                     │
-               validate only   staging deploy      production deploy
+                     │                                    │
+             develop preview                      production deploy
 ```
 
-- `develop` is deliberately **not** a deployment branch: it is the place where
-  two independent work streams are reconciled, so it is not a releasable
-  artifact.
-- `staging` is the default branch on GitHub, so a new contributor lands on the
-  release candidate rather than on in-flight integration work.
+- `develop` deploys, so every merge is published. It runs with production
+  credentials (section 6) — treat it as production, not a sandbox.
+- `staging` no longer deploys. It stays the release candidate branch; the
+  validation step is now the `develop` deployment plus review of the promotion
+  diff.
 - `main` is production and is only ever advanced by a reviewed promotion.
 
 ## 2. What actually triggers a deployment
@@ -52,7 +52,7 @@ Deployment eligibility is restricted in `apps/web/vercel.json`:
 			"*": false,
 			"**": false,
 			"main": true,
-			"staging": true
+			"develop": true
 		}
 	}
 }
@@ -64,20 +64,21 @@ minimatch, where `*` does not cross `/`. Without `**`, a branch such as
 
 Consequences:
 
-- Pushes to `develop` and to every work branch create **no** Vercel deployment.
+- Pushes to work branches (`feature/*`, `fix/*`, …) create **no** Vercel deployment.
 - Pull requests from work branches get **no** preview deployment. This is
-  intentional: preview deployments currently inherit production credentials
-  (section 6), so they are not a safe review surface. Re-enable them only after
+  intentional: preview deployments inherit production credentials (section 6),
+  so they are not a safe review surface. Re-enable them only after
   Preview-scoped credentials are isolated.
-- Pushes to `staging` and `main` deploy.
+- Pushes to `develop` and `main` deploy. Both run in Vercel's **Preview**
+  environment, so both carry the production credentials listed in section 6.
 
 Two honest caveats:
 
 1. Vercel applies this configuration from the repository content, so it only
    takes effect for commits that contain `apps/web/vercel.json`. A long-lived
    branch that never merges this change remains deployable.
-2. Enforcement is configured statically. The first real proof is the absence of
-   a Vercel deployment for the first integration push to `develop` after this
+2. Enforcement is configured statically. The first real proof is a Vercel
+   deployment appearing for the next integration push to `develop` after this
    change lands. See section 10 for the verification record.
 
 ## 3. CI validation
@@ -128,7 +129,7 @@ when `VERCEL_ENV=production`**, i.e. only for the production deployment of
 | Context | `VERCEL_ENV` | Migrations |
 | --- | --- | --- |
 | `main` deployment | `production` | Applied |
-| `staging` deployment | `preview` | Skipped |
+| `develop` deployment | `preview` | Skipped |
 | any preview | `preview` | Skipped |
 | local `pnpm build` | unset | Skipped |
 | GitHub Actions | unset | Skipped |
@@ -168,16 +169,17 @@ gh pr create --base staging --head develop \
   --body "Candidate: <sha> ..."
 ```
 
-Merge only after the PR's `quality` check passes. The merge to `staging`
-triggers the staging deployment. Record the deployed SHA, then run the smoke
-test in section 7.
+Merge only after the PR's `quality` check passes. `staging` no longer deploys,
+so validation happens against the `develop` deployment of the candidate SHA
+plus review of this promotion diff. Record the validated SHA, then run the
+smoke test in section 7.
 
 ### 5.3 `staging` → `main` (production)
 
 Preconditions:
 
-- Staging deployment of the candidate SHA built successfully.
-- Smoke tests pass against staging.
+- The candidate SHA passed CI on `develop` and its `develop` deployment built successfully.
+- Smoke tests pass against the `develop` deployment of that SHA.
 - `git diff origin/main...origin/staging` contains only the intended release.
 - A database backup exists if the release contains migrations.
 - Jeff approves.
@@ -229,16 +231,18 @@ The Vercel project has one set of variables scoped to both `production` and
 | `SUPABASE_SERVICE_ROLE_KEY` | production + preview |
 | `DEVICE_TOKEN` | production + preview |
 | `OPENCODE_GO_API_KEY` | production + preview |
+| `GEMINI_API_KEY` | production + preview |
 
 Consequences:
 
-- The staging deployment reads and writes production data. A smoke test that
+- The `develop` deployment reads and writes production data. A smoke test that
   logs a sample, creates a user, or sends a feed command changes real records.
 - Migrations are still gated: only the production deployment of `main` runs
-  `prisma migrate deploy`. Staging builds skip migrations, so a staging build
+  `prisma migrate deploy`. `develop` builds skip migrations, so a develop build
   cannot change the schema.
-- Preview deployments remain disabled (`apps/web/vercel.json`). If they are
-  re-enabled, they inherit the same production access.
+- Branch deployments are limited to `develop` and `main`, and both run in
+  Vercel's **Preview** environment with the production access listed above.
+  Pull-request previews remain disabled.
 
 Rules while this decision stands:
 
@@ -258,14 +262,14 @@ steps, when needed, are:
 4. Redeploy `staging` and confirm a record created there does not appear in
    production.
 
-## 7. Staging smoke test
+## 7. Pre-production smoke test
 
-Run against the staging deployment of the candidate SHA. Because staging shares
-the production database (section 6), every write step below changes production
-data — use a disposable account/pond and do not run these steps while
+Run against the `develop` deployment of the candidate SHA. Because `develop`
+shares the production database (section 6), every write step below changes
+production data — use a disposable account/pond and do not run these steps while
 production users are active.
 
-- [ ] Login with a staging account; session persists across a refresh.
+- [ ] Login with a disposable account; session persists across a refresh.
 - [ ] Dashboard loads pond, device status, and next feeding time.
 - [ ] Log Sample writes a biomass log and shows the volume preview.
 - [ ] Growth/FCR page renders the new log.
@@ -283,8 +287,8 @@ test.
 - **Migrations:** rollback does **not** revert schema changes. If a migration
   is the problem, write a forward fix migration; do not hand-edit the
   production schema or restore a backup without Jeff's explicit decision.
-- **Staging:** promote the previous known-good SHA or roll back the deployment,
-  then fix forward on `develop`.
+- **Pre-production:** roll back the `develop` deployment with Instant Rollback
+  or promote the previous known-good SHA, then fix forward on `develop`.
 
 ## 9. Branch protection
 
@@ -311,9 +315,10 @@ the human rule stands: only Jeff merges `main`.
 | Claim | Status | Evidence |
 | --- | --- | --- |
 | Default branch is `staging` | Verified on GitHub | API `default_branch = staging`; `ls-remote --symref origin HEAD` → `refs/heads/staging` |
-| `develop` does not deploy | Verified | Merge `527b599` produced no Vercel deployment |
-| `staging` deploys | Verified | Deployment for `6d858d6` (PR #78) reached `success` in the Vercel `Preview` environment |
-| Staging build skips migrations | Verified | Deployment log: `[migrate] skipped (VERCEL_ENV=preview)` |
+| `develop` does not deploy | **Superseded** — no longer true | Merge `527b599` produced no deployment under the old allowlist |
+| `staging` deploys | **Superseded** — no longer true | Deployment for `6d858d6` (PR #78) in the Vercel `Preview` environment |
+| `develop` deploys | Configured, pending first observation | `apps/web/vercel.json` `deploymentEnabled.develop = true` |
+| `staging` build skips migrations | Verified | Deployment log: `[migrate] skipped (VERCEL_ENV=preview)` |
 | `main` deploys | Configured and previously observed | Vercel production branch `main`; production deployment for `2795bef` exists |
 | Production approval gate | Configured on GitHub | `main` protection: PR required, 1 approval, `quality`, admins enforced |
 | CI validates PRs into `develop`/`staging`/`main` | Verified | PR #50 `quality` pass; PR #51 `quality` pass |

@@ -13,16 +13,23 @@ Repository: <https://github.com/J-Akiru5/OptiFeed>
 
 | Branch | Purpose | Who integrates | Deploys? |
 | --- | --- | --- | --- |
-| `staging` | Default branch, release candidate, staging validation | Jeff merges release PRs from `develop` | **Yes — staging deployment** |
+| `staging` | Release candidate branch | Jeff merges release PRs from `develop` | **No** |
 | `main` | Production source of truth | Jeff only, via an approved `staging` → `main` PR | **Yes — production deployment** |
-| `develop` | Shared integration branch for both developers | PR from short-lived work branches | No |
+| `develop` | Shared integration branch for both developers | PR from short-lived work branches | **Yes — preview deployment, using production credentials** |
 | `feature/*`, `fix/*`, `refactor/*`, `docs/*`, `audit/*`, `chore/*` | One task, one developer, one branch | Open a PR into `develop` | No |
 
 ```
 feature/* ──PR──▶ develop ──PR──▶ staging ──PR + Jeff's approval──▶ main
-                     │              │                                │
-                 validates      staging deploy               production deploy
+                     │                                              │
+             develop preview                              production deploy
+          (production credentials)                        (runs migrations)
 ```
+
+> **Warning:** the `develop` deployment runs against the **production** database
+> with the project's production credentials, including the Supabase service-role
+> key. `docs/deployment-workflow.md` section 6 records this exposure and the
+> isolation steps needed to remove it. Treat the develop deployment as
+> production, never as a safe review surface.
 
 Rules that never change:
 
@@ -250,8 +257,8 @@ Before promoting `develop` → `staging`:
 
 Before promoting `staging` → `main`:
 
-1. Staging deployment built successfully from the exact candidate SHA.
-2. Smoke tests were run against staging (login, dashboard, log sample, device
+1. The `develop` deployment built successfully from the exact candidate SHA.
+2. Smoke tests were run against `develop` (login, dashboard, log sample, device
    polling, one feed command in a safe state).
 3. `git diff origin/main...origin/staging` contains only the intended release.
 4. A backup exists if the release contains migrations.

@@ -1,4 +1,6 @@
+import { ApiError } from "@/lib/api/errors";
 import type { ExportableType } from "@/lib/csv";
+import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
 import type { BackgroundJob, Prisma } from "@prisma/client";
 import { buildBatchExport, buildCsvExport } from "./export-data";
@@ -91,13 +93,13 @@ export async function claimNextJob(workerId: string): Promise<BackgroundJob | nu
 	const rows = await prisma.$queryRaw<BackgroundJob[]>`
 		UPDATE "BackgroundJob"
 		SET "status" = 'running',
-			"lockedAt" = NOW(),
+			"lockedAt" = (NOW() AT TIME ZONE 'UTC'),
 			"lockedBy" = ${workerId},
-			"startedAt" = COALESCE("startedAt", NOW()),
+			"startedAt" = COALESCE("startedAt", (NOW() AT TIME ZONE 'UTC')),
 			"attempts" = "attempts" + 1
 		WHERE "id" = (
 			SELECT "id" FROM "BackgroundJob"
-			WHERE "status" = 'queued' AND "expiresAt" > NOW()
+			WHERE "status" = 'queued' AND "expiresAt" > (NOW() AT TIME ZONE 'UTC')
 			ORDER BY "createdAt" ASC
 			FOR UPDATE SKIP LOCKED
 			LIMIT 1
@@ -182,7 +184,12 @@ async function completeJob(
 }
 
 async function failJob(job: BackgroundJob, error: unknown): Promise<void> {
-	const message = error instanceof Error ? error.message : "Job failed";
+	// Never serialize Prisma/stack details into the status endpoint. Only an
+	// explicitly exposed ApiError message is safe to show; everything else is
+	// logged server-side and reported generically.
+	reportError(error, { route: "jobs/worker", jobId: job.id, type: job.type });
+	const message =
+		error instanceof ApiError && error.expose ? error.message : "The job failed. Try again.";
 	await prisma.backgroundJob.update({
 		where: { id: job.id },
 		data: {

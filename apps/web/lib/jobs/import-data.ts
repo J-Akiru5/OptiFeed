@@ -8,6 +8,29 @@ export interface ImportResult {
 	importedCount: number;
 }
 
+function numberField(
+	row: Record<string, unknown>,
+	field: string,
+	index: number,
+	options: { positive?: boolean; integer?: boolean; min?: number } = {},
+): number {
+	const value = Number(row[field] ?? 0);
+	const invalid =
+		!Number.isFinite(value) ||
+		(options.positive === true && value <= 0) ||
+		(options.integer === true && !Number.isInteger(value)) ||
+		(options.min !== undefined && value < options.min);
+	if (invalid) throw badRequest(`Row ${index + 1}: ${field} is invalid.`);
+	return value;
+}
+
+function dateField(row: Record<string, unknown>, field: string, index: number): Date {
+	const value = new Date(String(row[field]));
+	if (Number.isNaN(value.getTime()))
+		throw badRequest(`Row ${index + 1}: ${field} is not a valid date.`);
+	return value;
+}
+
 /**
  * Validate and apply a CSV import in one bounded transaction.
  *
@@ -55,11 +78,14 @@ export async function confirmImport(
 
 			switch (type) {
 				case "biomass_logs": {
-					const rows = data.map((row) => {
-						const sampleWeightKg = Number(row.sampleWeightKg);
-						const sampleCount = Number(row.sampleCount);
-						const sampleLengthCm = Number(row.sampleLengthCm ?? 0);
-						const avgWeightKg = sampleCount > 0 ? sampleWeightKg / sampleCount : 0;
+					const rows = data.map((row, index) => {
+						const sampleWeightKg = numberField(row, "sampleWeightKg", index, { positive: true });
+						const sampleCount = numberField(row, "sampleCount", index, {
+							positive: true,
+							integer: true,
+						});
+						const sampleLengthCm = numberField(row, "sampleLengthCm", index, { min: 0 });
+						const avgWeightKg = sampleWeightKg / sampleCount;
 						return {
 							pondId: pond.id,
 							sampleWeightKg,
@@ -74,10 +100,10 @@ export async function confirmImport(
 					break;
 				}
 				case "fish_samples": {
-					const rows = data.map((row) => ({
+					const rows = data.map((row, index) => ({
 						biomassLogId: String(row.biomassLogId),
-						weightGrams: Number(row.weightGrams),
-						lengthCm: Number(row.lengthCm),
+						weightGrams: numberField(row, "weightGrams", index, { positive: true }),
+						lengthCm: numberField(row, "lengthCm", index, { min: 0 }),
 					}));
 					count = (await tx.fishSample.createMany({ data: rows })).count;
 					break;
@@ -101,23 +127,23 @@ export async function confirmImport(
 					break;
 				}
 				case "fcr_reports": {
-					const rows = data.map((row) => ({
+					const rows = data.map((row, index) => ({
 						pondId: pond.id,
-						periodStart: new Date(String(row.periodStart)),
-						periodEnd: new Date(String(row.periodEnd)),
-						totalFeedKg: Number(row.totalFeedKg),
-						biomassGainKg: Number(row.biomassGainKg),
-						fcrValue: Number(row.fcrValue),
+						periodStart: dateField(row, "periodStart", index),
+						periodEnd: dateField(row, "periodEnd", index),
+						totalFeedKg: numberField(row, "totalFeedKg", index, { min: 0 }),
+						biomassGainKg: numberField(row, "biomassGainKg", index, { min: 0 }),
+						fcrValue: numberField(row, "fcrValue", index, { min: 0 }),
 					}));
 					count = (await tx.fcrReport.createMany({ data: rows })).count;
 					break;
 				}
 				case "feed_level_logs": {
 					if (!device) throw new Error("No device found");
-					const rows = data.map((row) => ({
+					const rows = data.map((row, index) => ({
 						deviceId: device.id,
-						levelPercent: Number(row.levelPercent),
-						distanceCm: Number(row.distanceCm),
+						levelPercent: numberField(row, "levelPercent", index, { min: 0 }),
+						distanceCm: numberField(row, "distanceCm", index, { min: 0 }),
 						recordedAt: row.recordedAt ? new Date(String(row.recordedAt)) : new Date(),
 					}));
 					count = (await tx.feedLevelLog.createMany({ data: rows })).count;

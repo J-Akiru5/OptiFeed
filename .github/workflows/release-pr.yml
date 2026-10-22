@@ -1,0 +1,64 @@
+name: Open release PR
+
+# Creates the staging -> main release pull request from the Actions bot, so the
+# repository owner can review and approve it. GitHub does not allow a user to
+# approve their own pull request; a bot-authored PR avoids that deadlock while
+# keeping the required human approval on `main`.
+#
+# Validation only: this workflow does not merge, tag, deploy or push `main`.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: open-release-pr
+  cancel-in-progress: false
+
+jobs:
+  open:
+    name: open
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Open or reuse the staging -> main pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          existing=$(gh pr list --repo "$GITHUB_REPOSITORY" --base main --head staging --state open --json number --jq 'length')
+          if [ "$existing" -gt 0 ]; then
+            echo "A staging -> main pull request is already open. Nothing to do."
+            exit 0
+          fi
+
+          body=$(cat <<'EOF'
+          Automated release pull request: promotes the current `staging` branch to
+          production.
+
+          **Review**
+          - `staging` is the release candidate; `develop` is reconciled into it first.
+          - The diff is the complete release: read it before approving.
+          - Required `quality` check must pass.
+
+          **After merge**
+          1. Confirm the production deployment reaches READY.
+          2. Check `/api/health`, login, dashboard and one read-only page.
+          3. Record the deployed SHA.
+
+          Rollback is a Vercel instant rollback to the previous production
+          deployment; migrations are not reverted, fix forward instead.
+
+          The full history is in `CHANGELOG.md` and `docs/`.
+          EOF
+          )
+
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base main \
+            --head staging \
+            --title "release: promote staging to production" \
+            --body "$body"

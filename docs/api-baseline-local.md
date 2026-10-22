@@ -61,15 +61,18 @@ Verified against the same local stack:
 |---|---|
 | `POST /api/v1/export-jobs` (CSV, feed events) | `202`, `Location: /api/v1/jobs/{id}` |
 | `POST /api/v1/export-jobs` (ZIP, two types) | `202`, `Location` |
+| `POST /api/v1/export-jobs` (PDF) | `202`, `Location` |
 | `POST /api/v1/import-jobs` (2-row biomass CSV) | `202`, `Location` |
 | `GET /api/v1/cron/jobs` (bearer) | claimed 3, succeeded 3, failed 0 |
 | CSV download | 200, `text/csv`, **1 364 713 bytes** |
 | ZIP download | 200, `application/zip`, **PK** magic |
+| PDF download | 200, `application/pdf`, **27 597 bytes**, `%PDF` magic |
 | Import result | `{ "importedCount": 2 }` |
+| `GET /api/v1/jobs/metrics` | `{ queued, running, succeeded24h, failed24h, oldestQueuedAgeMs, artifactBytes }` |
 
 The worker claim uses `FOR UPDATE SKIP LOCKED`; artifacts expire after 24 h and are purged by the
-worker. PDF generation and the synchronous `/api/export*` / `/api/import/confirm` routes remain for
-compatibility and are marked deprecated in the project contract.
+worker. PDF export is queued too; only the synchronous `/api/export*` / `/api/import/confirm` routes
+remain for compatibility and are marked deprecated in the project contract.
 
 ## What this does and does not prove
 

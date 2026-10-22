@@ -5,11 +5,12 @@ import prisma from "@/lib/prisma";
 import type { BackgroundJob, Prisma } from "@prisma/client";
 import { buildBatchExport, buildCsvExport } from "./export-data";
 import { confirmImport } from "./import-data";
+import { buildPdfExport } from "./pdf-export";
 
 export const JOB_TTL_MS = 24 * 60 * 60 * 1000;
 const STALE_LOCK_MS = 5 * 60 * 1000;
 
-export type JobType = "export_csv" | "export_zip" | "import_confirm";
+export type JobType = "export_csv" | "export_zip" | "export_pdf" | "import_confirm";
 export type JobStatus = "queued" | "running" | "succeeded" | "failed";
 
 interface CreateJobInput {
@@ -134,6 +135,16 @@ export async function runJob(job: BackgroundJob): Promise<void> {
 				});
 				return;
 			}
+			case "export_pdf": {
+				const artifact = await buildPdfExport(job.ownerId);
+				await completeJob(job, artifact, {
+					filename: artifact.filename,
+					content_type: artifact.contentType,
+					size: artifact.body.byteLength,
+					download_url: `/api/v1/jobs/${job.id}/download`,
+				});
+				return;
+			}
 			case "import_confirm": {
 				const payload = job.payload as { type: ExportableType; csvData: string };
 				const result = await confirmImport(job.ownerId, payload.type, payload.csvData);
@@ -226,6 +237,45 @@ export interface ProcessJobsResult {
 	failed: number;
 	purged: number;
 	requeued: number;
+}
+
+export interface JobMetrics {
+	queued: number;
+	running: number;
+	succeeded24h: number;
+	failed24h: number;
+	oldestQueuedAgeMs: number | null;
+	artifactBytes: number;
+}
+
+/**
+ * Queue health for the admin dashboard / alerting. A dead worker shows up as a
+ * growing `queued` count and an `oldestQueuedAgeMs` above the schedule interval.
+ */
+export async function getJobMetrics(): Promise<JobMetrics> {
+	const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+	const [grouped, oldestQueued, succeeded24h, failed24h, artifacts] = await Promise.all([
+		prisma.backgroundJob.groupBy({ by: ["status"], _count: { _all: true } }),
+		prisma.backgroundJob.findFirst({
+			where: { status: "queued" },
+			orderBy: { createdAt: "asc" },
+			select: { createdAt: true },
+		}),
+		prisma.backgroundJob.count({ where: { status: "succeeded", finishedAt: { gte: since } } }),
+		prisma.backgroundJob.count({ where: { status: "failed", finishedAt: { gte: since } } }),
+		prisma.jobArtifact.aggregate({ _sum: { size: true } }),
+	]);
+
+	const byStatus = new Map(grouped.map((row) => [row.status, row._count._all]));
+
+	return {
+		queued: byStatus.get("queued") ?? 0,
+		running: byStatus.get("running") ?? 0,
+		succeeded24h,
+		failed24h,
+		oldestQueuedAgeMs: oldestQueued ? Date.now() - oldestQueued.createdAt.getTime() : null,
+		artifactBytes: artifacts._sum.size ?? 0,
+	};
 }
 
 export async function processJobs(options: {

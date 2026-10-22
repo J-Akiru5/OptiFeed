@@ -85,6 +85,17 @@ describe("verified-session fast path", () => {
 		expect(state.getUser).not.toHaveBeenCalled();
 	});
 
+	it("single-flights concurrent verification for the same cookie", async () => {
+		state.claims.mockResolvedValue({ data: { claims: CLAIMS }, error: null });
+
+		const [first, second] = await Promise.all([getVerifiedSession(), getVerifiedSession()]);
+
+		expect(first).toEqual({ sub: "sb-1", email: "demo-farmer-1@pond.optifeed.local" });
+		expect(second).toEqual(first);
+		expect(state.createClient).toHaveBeenCalledTimes(1);
+		expect(state.claims).toHaveBeenCalledTimes(1);
+	});
+
 	it("re-verifies when the cookie changes", async () => {
 		state.claims.mockResolvedValue({ data: { claims: CLAIMS }, error: null });
 		await getVerifiedSession();

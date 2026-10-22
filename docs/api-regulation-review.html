@@ -412,7 +412,7 @@ Server-Timing: total;dur=2016.8, db;dur=0,
 			<div class="card">
 				<span class="tag good">Verified</span>
 				<h3>Auth fast path</h3>
-				<p>The project JWKS advertises <strong>ES256</strong>, so <code>getClaims()</code> verifies locally. A 30 s session cache and a 60 s farm cache make a cache hit perform <strong>no Supabase call and no DB lookup</strong>, asserted by <code>auth-fast-path.test.ts</code>. Local microbenchmark: 100 000 cache lookups in 7 ms (0.07 µs each).</p>
+				<p>The project JWKS advertises <strong>ES256</strong>, so <code>getClaims()</code> verifies locally. A 30 s session cache, a 60 s farm cache and per-cookie single-flight make a cache hit perform <strong>no Supabase call and no DB lookup</strong>, asserted by <code>auth-fast-path.test.ts</code>. Local microbenchmark: 100 000 cache lookups in 7 ms (0.07 µs each).</p>
 			</div>
 		</div>
 

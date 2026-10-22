@@ -12,6 +12,13 @@ export interface VerifiedSession {
 }
 
 /**
+ * Single-flight per cookie fingerprint. Two concurrent requests with the same
+ * session must not both verify (and potentially both refresh) the same JWT —
+ * Supabase's refresh-token reuse detection would revoke the session.
+ */
+const inFlight = new Map<string, Promise<VerifiedSession | null>>();
+
+/**
  * Verify the request's Supabase session with the cheapest correct method.
  *
  * Order:
@@ -41,8 +48,25 @@ export async function getVerifiedSession(): Promise<VerifiedSession | null> {
 	if (fingerprint) {
 		const cached: CachedSession | null = getCachedSession(fingerprint);
 		if (cached) return { sub: cached.sub, email: cached.email };
+
+		const pending = inFlight.get(fingerprint);
+		if (pending) return pending;
+
+		const verification = verifyWithSupabase(fingerprint);
+		inFlight.set(fingerprint, verification);
+		try {
+			return await verification;
+		} finally {
+			inFlight.delete(fingerprint);
+		}
 	}
 
+	return verifyWithSupabase(undefined);
+}
+
+async function verifyWithSupabase(
+	fingerprint: string | undefined,
+): Promise<VerifiedSession | null> {
 	const supabase = await createClient();
 
 	try {

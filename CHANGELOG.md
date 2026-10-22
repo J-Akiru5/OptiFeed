@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Device-hosted WiFi provisioning: the ESP32 exposes `OptiFeed-XXXX` with a setup page at `192.168.4.1`, stores credentials in NVS, and reopens the portal after a 5-second button hold at boot. The hardware settings page now explains this flow instead of showing fake fields.
 - AI feeding prediction on the Growth page: deterministic baseline refined by the AI provider, explicit "apply" action, and the same ±50% deviation veto as biomass auto-adjust.
 - Growth history page with feed-level, growth and biomass tabs; server-side pagination, date-range filters, search and shareable URLs. The Growth page cards are now compact previews.
 - Biomass log provenance (`source`) with import and seed badges.

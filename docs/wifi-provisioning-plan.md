@@ -1,10 +1,10 @@
 # WiFi provisioning — design and rollout
 
-Status: dashboard panel implemented (2026-10-22); the firmware branch is
-**pending bench verification**. Do not flash a production unit before it passes.
-Owner: Jeff.
+Status: dashboard panel and firmware implemented and merged (PR #75); the
+firmware compiles in the `Firmware` CI workflow. **Bench verification is
+pending** — do not flash a production unit before it passes. Owner: Jeff.
 
-## What exists today (verified)
+## Starting point before this work (verified 2026-10-22)
 
 - WiFi credentials are compile-time placeholders (`DEFAULT_WIFI_SSID` /
   `DEFAULT_WIFI_PASS`) with an NVS override path.
@@ -18,8 +18,8 @@ Owner: Jeff.
   the read-only WiFi setup panel described below.
 - The server has no WiFi fields and no provisioning route. `/api/schedule-sync`
   and `/api/feed-command` require the device to already be online.
-- Documentation (`CHANGELOG.md`, `TESTING-CHECKLIST.html`) claims provisioning
-  that does not exist.
+- Documentation (`CHANGELOG.md`, `TESTING-CHECKLIST.html`) claimed provisioning
+  that did not exist at the time; the feature is now implemented.
 
 ## Why not server-side credentials
 
@@ -63,9 +63,10 @@ audit and no read-back.
 
 ## Dashboard (honest UI)
 
-**Implemented** in `apps/web/app/[locale]/(dashboard)/dashboard/settings/hardware/page.tsx`
-(branch `feat/wifi-provisioning-ui`). The hardware page replaces the fake
-network form with a read-only WiFi setup panel:
+**Implemented and merged** in
+`apps/web/app/[locale]/(dashboard)/dashboard/settings/hardware/page.tsx`
+(PR #75). The hardware page replaces the fake network form with a read-only WiFi
+setup panel:
 
 - the AP name is derived from the selected `EnergyDevice.mac`: uppercase hex,
   strip `:`/`-`/`.`/spaces, take the last four characters, prefix
@@ -80,7 +81,8 @@ network form with a read-only WiFi setup panel:
   removed because firmware URLs are compile-time, and the dashboard has no
   write path for WiFi credentials.
 
-The firmware side of this design is still pending bench verification.
+The firmware side of this design is merged and compiles in CI; bench
+verification is still pending.
 
 ## Acceptance criteria
 
@@ -91,12 +93,13 @@ The firmware side of this design is still pending bench verification.
 - [ ] Button-hold recovery clears both NVS keys and reopens the portal.
 - [ ] Password never appears in serial logs, server payloads, or the database.
 - [x] Dashboard never claims to have saved WiFi credentials (read-only panel).
-- [ ] Firmware compiles for the target board (`arduino-cli compile`).
+- [x] Firmware compiles for the target board (`arduino-cli compile`, run by the
+      `Firmware` workflow).
 - [ ] Bench test on a real ESP32 before a production unit is flashed.
 
-Firmware items above are open: they can only be verified on hardware. The
-dashboard panel is code-complete but has not been exercised against a device
-running the new firmware.
+The compile is verified in CI. The remaining firmware items can only be verified
+on hardware: the dashboard panel is code-complete but has not been exercised
+against a device running the new firmware.
 
 ## Out of scope
 
@@ -105,11 +108,12 @@ captive-portal DNS hijacking beyond the minimal AP, per-device AP passwords.
 
 ## Rollout
 
-1. Merge the dashboard panel (`feat/wifi-provisioning-ui`) and the firmware
-   branch to `develop`.
-2. Compile and bench-test the firmware on a spare device.
+1. Merge the dashboard panel and the firmware branch to `develop`.
+   **Done** — PR #75.
+2. Compile and bench-test the firmware on a spare device. **Compile passed in
+   CI; bench test remains.**
 3. Flash one production unit and verify the portal and recovery.
-4. Promote with the next staging release.
+4. Promote with the next staging release. **Included in `staging@6d858d6`.**
 
 ---
 
@@ -117,17 +121,19 @@ captive-portal DNS hijacking beyond the minimal AP, per-device AP passwords.
 
 | Item | Status |
 | --- | --- |
-| Dashboard panel | Implemented; lint + typecheck pass |
-| Firmware source | Implemented; **compiles in CI** |
-| Firmware compile | Deferred: `arduino-cli` is not installed and RTClib / ArduinoJson / OneWire / DallasTemperature are absent; host was at a red resource level |
-| Bench test | **Not performed** � requires a spare ESP32 and a flashed unit |
+| Dashboard panel | Implemented and merged (PR #75); lint + typecheck pass |
+| Firmware source | Implemented and merged (PR #75); **compiles in CI** |
+| Firmware compile | **Passed** in the `Firmware` workflow (`compile`) on `aa88ef2` and `6d858d6` |
+| Bench test | **Not performed** — requires a spare ESP32 and a flashed unit |
+| Production unit | Not flashed; blocked on the bench test |
 
-Exact command to run once a toolchain is available:
+Local reproduction (the CI workflow runs this; `arduino-cli` is not installed on
+the development machine):
 
 ```
-arduino-cli lib install RTClib ArduinoJson OneWire DallasTemperature
+arduino-cli lib install "RTClib" "Adafruit BusIO" "ArduinoJson" "OneWire" "DallasTemperature"
 arduino-cli compile --fqbn esp32:esp32:esp32 firmware/firmware-main
 ```
 
-Do not flash a production unit until the compile passes and the acceptance
-criteria above are checked on hardware.
+Do not flash a production unit until the bench acceptance criteria above are
+checked on hardware.

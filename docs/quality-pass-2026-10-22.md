@@ -11,7 +11,7 @@ the UI, and keep working under resource pressure.
 | UI polish audit | `explore` subagent (read-only) | main worktree | — | 25 findings |
 | RBAC hardening | parent + `general` subagent | `optifeed-worktrees/rbac-hardening` | `fix/rbac-hardening` | PR #65, merged `9b6d774` |
 | Settings/nav/dark/empty states | parent | `optifeed-worktrees/quality-pass` | `chore/quality-pass` | PR #66, merged `bc72129` |
-| Locale/dark notifications + audit | `general` subagent | `optifeed-worktrees/ui-followup` | `fix/ui-followup` | PR #67 |
+| Locale/dark notifications + audit | `general` subagent | `optifeed-worktrees/ui-followup` | `fix/ui-followup` | PR #67, merged `e656c13` |
 
 Resource level started **red** (2.3 GB free, CPU 100%). Light work continued
 (audits, docs, small edits); heavy checks were deferred until the level moved to
@@ -87,16 +87,24 @@ privileged-account lifecycle.
 | Lint | PR #65 and #66 worktrees: pass; #67: pass (235 files) |
 | Typecheck | Pass in all three worktrees after `prisma generate` |
 | Tests | 40 files / 353–356 tests pass per branch |
-| CI | #65 and #66 `quality` success and merged; #67 pending at time of writing |
+| CI | #65 and #66 `quality` success and merged; #67 merged `e656c13` |
 | Database | `prisma migrate status`: 28/28 applied, schema up to date |
-| Production | Untouched at `2795bef`; PR #63 still blocked on required review |
+| `develop` | `aa88ef2`; `quality` green |
+| Firmware compile | `Firmware` workflow `compile` success on `aa88ef2` and `6d858d6` |
+| Staging promotion | PR #78 merged; `staging@6d858d6`, content-identical to `develop` |
+| Production release | PR #79, bot-authored; checks green, `REVIEW_REQUIRED` |
+| Production | Untouched at `2795bef`; PR #63 was closed as superseded by #79 |
+
+WiFi follow-up: the device-hosted provisioning panel and firmware were merged in
+PR #75, and the firmware compiles in the `Firmware` workflow. A bench test on a
+real ESP32 is still required before flashing a production unit; see
+`docs/wifi-provisioning-plan.md`.
 
 ## Next steps
 
-1. Merge #67 when its `quality` check completes.
-2. Keep the new work on `develop` until the approved production release (#63)
-   ships; promoting `staging` now would silently widen that release.
-3. After production: set `OPENROUTER_API_KEY` in Vercel, then promote
-   `develop → staging` with the AI/biomass reconciliation and this quality pass.
-4. Optional follow-ups: permission-table enforcement, admin audit trail,
-   step-up auth, shared table component, admin console translations.
+1. Review and approve release PR #79; only Jeff merges `main`.
+2. Before that merge, confirm `OPENCODE_GO_API_KEY` is set for Production in
+   Vercel; without it chat falls back to rule-based answers.
+3. Before flashing any production unit, bench-test WiFi provisioning. Then keep
+   the remaining follow-ups scoped (permission-table enforcement, admin audit
+   trail, step-up auth, shared table component, admin console translations).

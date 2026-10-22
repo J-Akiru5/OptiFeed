@@ -390,6 +390,49 @@ export async function getDevices() {
 	});
 }
 
+export type RevealDeviceTokenResult =
+	| { success: true; token: string; mac: string; label: string }
+	| { success: false; error: string };
+
+/**
+ * Return one device's provisioning credential to a tenant admin, on demand.
+ *
+ * `getDevices` deliberately omits `token`, so the credential never rides along
+ * in a list response, a cached RSC payload or a page render. This is the only
+ * read path for it: it is ADMIN-only, scoped through the device's pond to the
+ * caller's tenant, and reveals exactly one row per explicit request.
+ *
+ * The token is never logged — not on success, and not in the failure branch,
+ * where the error's message (not the error object) is what gets written.
+ */
+export async function revealDeviceToken(deviceId: string): Promise<RevealDeviceTokenResult> {
+	await requireRole("ADMIN");
+
+	if (typeof deviceId !== "string" || deviceId.trim().length === 0) {
+		return { success: false, error: "A device is required." };
+	}
+
+	const scope = await resolveOrgScope();
+
+	try {
+		const device = await prisma.energyDevice.findFirst({
+			// `in: []` matches nothing, so a caller with no admin membership gets
+			// the same "not found" answer as a device from another tenant.
+			where: { id: deviceId, pondId: { in: scope.pondIds } },
+			select: { token: true, mac: true, label: true },
+		});
+		if (!device) return { success: false, error: "Device not found in your organization." };
+
+		return { success: true, token: device.token, mac: device.mac, label: device.label };
+	} catch (e) {
+		console.error(
+			"[admin] revealDeviceToken error:",
+			e instanceof Error ? e.message : "unknown error",
+		);
+		return { success: false, error: "Failed to load the device token." };
+	}
+}
+
 // ─── Farm Hierarchy ──────────────────────────────────────────────────────────
 
 export type FarmHierarchyNode = {

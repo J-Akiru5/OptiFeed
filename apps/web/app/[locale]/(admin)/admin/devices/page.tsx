@@ -1,9 +1,12 @@
+import { DeviceTokenReveal } from "@/components/admin/device-token-reveal";
 import { getDevices } from "@/lib/actions/admin";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { Cpu, Wifi, WifiOff } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 export default async function AdminDevicesPage() {
 	const devices = await getDevices();
+	const t = await getTranslations("dashboard.adminDevices");
 
 	return (
 		<div className="space-y-6">
@@ -23,7 +26,7 @@ export default async function AdminDevicesPage() {
 									Device
 								</th>
 								<th className="text-left px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider">
-									MAC Address
+									{t("deviceIdMac")}
 								</th>
 								<th className="text-left px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider">
 									Status
@@ -36,6 +39,9 @@ export default async function AdminDevicesPage() {
 								</th>
 								<th className="text-left px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider">
 									Last Seen
+								</th>
+								<th className="text-left px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider">
+									{t("tokenColumn")}
 								</th>
 							</tr>
 						</thead>
@@ -64,8 +70,9 @@ export default async function AdminDevicesPage() {
 												</div>
 											</div>
 										</td>
-										<td className="px-6 py-4 font-mono text-xs font-bold text-[#3D5568]">
-											{device.mac}
+										<td className="px-6 py-4">
+											<p className="font-mono text-xs font-bold text-[#3D5568]">{device.mac}</p>
+											<p className="mt-0.5 text-[10px] text-[#3D5568]/80">{t("deviceIdMacHint")}</p>
 										</td>
 										<td className="px-6 py-4">
 											<span
@@ -97,6 +104,9 @@ export default async function AdminDevicesPage() {
 										</td>
 										<td className="px-6 py-4 text-xs text-[#3D5568]">
 											{device.lastSeenAt ? device.lastSeenAt.toLocaleString() : "Never"}
+										</td>
+										<td className="px-6 py-4">
+											<DeviceTokenReveal deviceId={device.id} deviceLabel={device.label} />
 										</td>
 									</tr>
 								);

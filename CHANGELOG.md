@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Device-hosted WiFi provisioning: the ESP32 exposes `OptiFeed-XXXX` with a setup page at `192.168.4.1`, stores credentials in NVS, and reopens the portal after a 5-second button hold at boot. The hardware settings page now explains this flow instead of showing fake fields.
+- AI feeding prediction on the Growth page: deterministic baseline refined by the AI provider, explicit "apply" action, and the same ±50% deviation veto as biomass auto-adjust.
+- Growth history page with feed-level, growth and biomass tabs; server-side pagination, date-range filters, search and shareable URLs. The Growth page cards are now compact previews.
+- Biomass log provenance (`source`) with import and seed badges.
+- A static test that every API route uses `withAuth`/`withCronAuth`, is a device-token route, or is the allowlisted health route.
+- Loading and error boundaries for the admin and platform consoles.
+
+### Changed
+
+- AI provider is now OpenCode Go: `OPENCODE_GO_API_KEY`, `OPENCODE_GO_MODEL` and `OPENCODE_GO_REASONING_EFFORT`. Gemini and OpenRouter variables are retired.
+- Tablets (768–1023 px) now use the bottom navigation instead of having no navigation at all.
+- Profile and hardware settings no longer show fake values or dead buttons; unavailable actions are disabled with an explanation.
+
+### Fixed
+
+- Dark-mode contrast on the dashboard, growth, history, notifications, audit and error/404 surfaces.
+- Locale is preserved when navigating notification filters, audit "load more", growth links and history pagination.
+- Empty states for the dashboard's recent feedings and the admin users table; the FCR tile shows "—" instead of claiming an optimal trend when no report exists.
+- Duplicate `acknowledge` key in `hil.json` that failed the lint gate.
+
+### Security
+
+- Notification acknowledge/mark-read/demo-create now require write access, and the demo notification tier is validated.
+- Tenant admins can no longer edit or delete platform administrators.
+- `getDevices` no longer returns device tokens; `deleteUserSubtree` is no longer callable as a server action.
+- Organizations with a non-ACTIVE status no longer grant tenant scope.
+- The last active platform administrator cannot be revoked, and self-revoke is blocked.
+- `/api/export-pdf` now uses `withAuth`.
+
 ## [1.10.0] - 2026-07-22
 
 ### Added

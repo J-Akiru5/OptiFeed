@@ -1,6 +1,71 @@
 import { describe, expect, it } from "vitest";
-import { enforcePromptLimit, sanitizeInput } from "../chat/prompt";
+import type { ChatContext } from "../chat/context";
+import { buildSystemPrompt, enforcePromptLimit, sanitizeInput } from "../chat/prompt";
 import { MAX_PROMPT_LENGTH } from "../constants";
+
+const baseCtx: ChatContext = {
+	pondName: "Test Pond",
+	feedsPerDay: 3,
+	feedingRatePct: 5,
+	population: 1000,
+	totalBiomassG: 250000,
+	scheduleStart: new Date("2026-01-01T00:00:00Z"),
+	scheduleEnd: new Date("2026-01-01T12:00:00Z"),
+	deviceOnline: true,
+	devicePaused: false,
+	hopperLevelPct: 80,
+	waterTempC: 28,
+	waterTempOk: true,
+	latestFcr: 1.5,
+	latestAbwG: 250,
+	sampleCount: 100,
+	feedingsToday: 1,
+	lastDispensedAt: null,
+	lastCommandStatus: "acked",
+	currentGramsPerFeeding: 140,
+	predictedFeedGrams: 138.5,
+	predictedFeedReasoning: "Standard feed math gives 138.5g per meal.",
+	lastSampleAt: new Date("2026-01-01T08:00:00Z"),
+};
+
+describe("buildSystemPrompt", () => {
+	it("includes the predicted and current grams per feeding", () => {
+		const prompt = buildSystemPrompt(baseCtx, "en");
+		expect(prompt).toContain("AI predicted grams per feeding: 138.5g");
+		expect(prompt).toContain("Current grams per feeding (device): 140g");
+		expect(prompt).toContain("Reasoning: Standard feed math gives 138.5g per meal.");
+	});
+
+	it("shows no-prediction placeholder when prediction is null", () => {
+		const prompt = buildSystemPrompt(
+			{ ...baseCtx, predictedFeedGrams: null, predictedFeedReasoning: null },
+			"en",
+		);
+		expect(prompt).toContain("AI predicted grams per feeding: No prediction available");
+		expect(prompt).not.toContain("Reasoning:");
+	});
+
+	it("instructs the model to cite predicted values and never invent amounts", () => {
+		const prompt = buildSystemPrompt(baseCtx, "en");
+		expect(prompt).toContain("Never invent a feed amount");
+		expect(prompt).toContain("AI predicted grams per feeding");
+	});
+
+	it("includes last sample date", () => {
+		const prompt = buildSystemPrompt(baseCtx, "en");
+		expect(prompt).toContain("Last sample date:");
+	});
+
+	it("handles null context", () => {
+		const prompt = buildSystemPrompt(null, "en");
+		expect(prompt).toContain("No pond data available yet");
+	});
+
+	it("requests Hiligaynon when locale is hil", () => {
+		const prompt = buildSystemPrompt(baseCtx, "hil");
+		expect(prompt).toContain("Hiligaynon");
+	});
+});
 
 describe("sanitizeInput", () => {
 	it("strips newlines and replaces with space", () => {

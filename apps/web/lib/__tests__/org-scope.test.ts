@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/prisma", () => ({
 	default: {
 		membership: { findMany: vi.fn() },
+		organization: { findMany: vi.fn() },
 		user: { findMany: vi.fn() },
 		pond: { findMany: vi.fn() },
 	},
@@ -17,6 +18,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 
 const mockMembershipFindMany = vi.mocked(prisma.membership.findMany);
+const mockOrganizationFindMany = vi.mocked(prisma.organization.findMany);
 const mockUserFindMany = vi.mocked(prisma.user.findMany);
 const mockPondFindMany = vi.mocked(prisma.pond.findMany);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
@@ -64,6 +66,7 @@ describe("resolveOrgScope", () => {
 		mockMembershipFindMany
 			.mockResolvedValueOnce([{ orgId: "org_1" }] as never) // admin memberships
 			.mockResolvedValueOnce([{ userId: "user_1" }, { userId: "user_2" }] as never); // all org members
+		mockOrganizationFindMany.mockResolvedValue([{ id: "org_1" }] as never);
 		mockUserFindMany.mockResolvedValue([{ farmId: "farm-1" }, { farmId: "farm-2" }] as never);
 		mockPondFindMany.mockResolvedValue([{ id: "pond_1" }, { id: "pond_2" }] as never);
 
@@ -75,10 +78,27 @@ describe("resolveOrgScope", () => {
 		});
 	});
 
+	it("returns EMPTY_SCOPE when the organization is not ACTIVE", async () => {
+		mockMembershipFindMany.mockResolvedValueOnce([{ orgId: "org_1" }] as never);
+		// SUSPENDED / PENDING_DELETION / PURGED orgs are filtered out server-side.
+		mockOrganizationFindMany.mockResolvedValue([] as never);
+
+		expect(await resolveOrgScope()).toEqual(EMPTY_SCOPE);
+		expect(mockOrganizationFindMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { id: { in: ["org_1"] }, status: "ACTIVE" },
+			}),
+		);
+		// Fail closed before any member/pond lookup runs.
+		expect(mockUserFindMany).not.toHaveBeenCalled();
+		expect(mockPondFindMany).not.toHaveBeenCalled();
+	});
+
 	it("deduplicates overlapping orgs", async () => {
 		mockMembershipFindMany
 			.mockResolvedValueOnce([{ orgId: "org_1" }, { orgId: "org_1" }] as never)
 			.mockResolvedValueOnce([{ userId: "user_1" }] as never);
+		mockOrganizationFindMany.mockResolvedValue([{ id: "org_1" }] as never);
 		mockUserFindMany.mockResolvedValue([{ farmId: "farm-1" }] as never);
 		mockPondFindMany.mockResolvedValue([{ id: "pond_1" }] as never);
 
@@ -93,6 +113,7 @@ describe("resolveOrgScope", () => {
 		mockMembershipFindMany
 			.mockResolvedValueOnce([{ orgId: "org_1" }] as never)
 			.mockResolvedValueOnce([{ userId: "user_1" }] as never);
+		mockOrganizationFindMany.mockResolvedValue([{ id: "org_1" }] as never);
 		mockUserFindMany.mockResolvedValue([{ farmId: "farm-1" }] as never);
 		mockPondFindMany.mockResolvedValue([] as never);
 

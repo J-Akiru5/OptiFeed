@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle, RefreshCcw } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 
 export default function DashboardError({
@@ -10,6 +11,8 @@ export default function DashboardError({
 	error: Error & { digest?: string };
 	reset: () => void;
 }) {
+	const t = useTranslations("errors");
+
 	useEffect(() => {
 		// Log the error to an error reporting service
 		console.error("Dashboard caught an error:", error);
@@ -17,30 +20,25 @@ export default function DashboardError({
 
 	return (
 		<div className="flex h-[70vh] flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in duration-500">
-			<div className="h-20 w-20 rounded-full bg-red-100 flex items-center justify-center text-red-600 mb-6 shadow-sm border border-red-200">
+			<div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-red-200 bg-red-100 text-red-600 shadow-sm dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-400">
 				<AlertTriangle size={40} />
 			</div>
 
-			<h2 className="text-3xl font-extrabold text-[var(--ofd-base-deep)] mb-3">
-				Something went wrong!
-			</h2>
+			<h2 className="mb-3 text-3xl font-extrabold text-[var(--ofd-base-deep)]">{t("title")}</h2>
 
-			<p className="text-gray-600 max-w-md mb-8 text-lg">
-				We encountered an unexpected error while loading this page. This might be due to a temporary
-				database connection issue.
-			</p>
+			<p className="mb-8 max-w-md text-lg text-gray-600 dark:text-gray-300">{t("desc")}</p>
 
-			<div className="bg-gray-50 p-4 rounded-xl border border-gray-200 text-left max-w-lg w-full mb-8 overflow-auto text-sm text-gray-700 font-mono">
-				{error.message || "Unknown error occurred"}
+			<div className="mb-8 w-full max-w-lg overflow-auto rounded-xl border border-gray-200 bg-gray-50 p-4 text-left font-mono text-sm text-gray-700 dark:border-gray-700/50 dark:bg-gray-800 dark:text-gray-200">
+				{error.message || t("unknown")}
 			</div>
 
 			<button
 				type="button"
 				onClick={() => reset()}
-				className="flex items-center gap-2 px-6 py-3 bg-[var(--ofd-action)] text-white font-bold rounded-xl shadow-md hover:bg-orange-600 hover:shadow-lg transition-all active:scale-95"
+				className="flex items-center gap-2 rounded-xl bg-[var(--ofd-action)] px-6 py-3 font-bold text-white shadow-md transition-all hover:bg-orange-600 hover:shadow-lg active:scale-95"
 			>
 				<RefreshCcw size={20} />
-				Try again
+				{t("tryAgain")}
 			</button>
 		</div>
 	);

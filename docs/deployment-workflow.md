@@ -208,7 +208,7 @@ The Vercel project has one set of variables scoped to both `production` and
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | production + preview |
 | `SUPABASE_SERVICE_ROLE_KEY` | production + preview |
 | `DEVICE_TOKEN` | production + preview |
-| `GEMINI_API_KEY` | production + preview |
+| `OPENCODE_GO_API_KEY` | production + preview |
 
 Consequences:
 

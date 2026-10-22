@@ -1,20 +1,16 @@
 import { DataExportButton, DataImportDialog } from "@/components/DataImportExport";
 import { FcrCalculator } from "@/components/FcrCalculator";
+import { FeedingPredictionCard } from "@/components/FeedingPredictionCard";
+import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
+import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { getActivePond } from "@/lib/pond-selection";
+import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
-import {
-	Activity,
-	ChevronDown,
-	ChevronRight,
-	Fish,
-	Package,
-	Scale,
-	TrendingUp,
-} from "lucide-react";
+import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { Activity, ChevronRight, Fish, Package, Scale, TrendingUp } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import Link from "next/link";
 
 export const revalidate = 0;
 
@@ -64,7 +60,21 @@ export default async function GrowthPage() {
 	const energyDevice = await prisma.energyDevice.findFirst({
 		where: { pondId: pond.id },
 		orderBy: { createdAt: "asc" },
-		select: { id: true },
+		select: { id: true, gramsPerFeeding: true, hopperCapacityG: true },
+	});
+
+	// Deterministic prediction shown instantly; the client card refines it
+	// with the AI provider in the background.
+	const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice?.id ?? null);
+	const initialPrediction = computeDeterministicPrediction({
+		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
+		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
+		population: pond.population ?? DEFAULT_FISH_COUNT,
+		avgWeightKg: biomassLogs.length > 0 ? biomassLogs[biomassLogs.length - 1].avgWeightKg : null,
+		latestFcr: fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : null,
+		currentGrams: energyDevice?.gramsPerFeeding ?? null,
+		hopperCapacityG: energyDevice?.hopperCapacityG ?? null,
+		lastSampleAt: biomassLogs.length > 0 ? biomassLogs[biomassLogs.length - 1].recordedAt : null,
 	});
 
 	let feedLevelLogs: Awaited<ReturnType<typeof prisma.feedLevelLog.findMany>> = [];
@@ -174,6 +184,11 @@ export default async function GrowthPage() {
 					</div>
 				</div>
 			</div>
+
+			{/* AI Feeding Prediction */}
+			{energyDevice && (
+				<FeedingPredictionCard deviceId={energyDevice.id} initialPrediction={initialPrediction} />
+			)}
 
 			{/* FCR Calculator */}
 			<FcrCalculator latestFcr={latestFcr} />

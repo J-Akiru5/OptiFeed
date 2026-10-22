@@ -115,6 +115,7 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 				sampleCount,
 				avgWeightKg,
 				batchLabel,
+				source: "form",
 			},
 		});
 

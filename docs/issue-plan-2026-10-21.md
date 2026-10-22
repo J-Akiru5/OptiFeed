@@ -208,6 +208,20 @@ Recommended reconciliation (after the production release):
    notifications) separately if it is still wanted.
 5. Keep `xtra` untouched for its author; the replacement PR supersedes #55.
 
+**Status: implemented on `feat/xtra-reconciled` (PR #64).** Deviations from the
+steps above, for review:
+
+- `b999458` and `32e4b74` were not replayed; the merged #58/#59 versions win.
+- The new `predict-feeding` route was converted from manual Supabase auth to
+  `withAuth` to match the audit standard.
+- `BiomassLogTable` (a client-side table with its own filters) was removed as
+  dead code; its source badges were added to the server-paginated biomass
+  history table instead.
+- The additive migration `20261021000000_add_biomass_log_source` ships with the
+  branch and applies only on a production deployment.
+- The AI switch retires `GEMINI_*`; set `OPENROUTER_API_KEY` in Vercel before
+  this branch is promoted to production.
+
 This is not part of the release candidate below.
 
 ## Release candidate
@@ -237,3 +251,42 @@ push `staging` or `main`: promotions are PRs that the human merges. The
 repository's explicit `staging+main` decision; the repository policy is kept
 unless Jeff changes it.
 
+
+---
+
+# Post-reconciliation status — 2026-10-22
+
+## Database migrations
+
+prisma migrate status against the production connection reports **28
+migrations found** and **"Database schema is up to date"**.
+
+This includes `20261021000000_add_biomass_log_source`, which was applied
+out-of-band by an `xtra` preview build before the `VERCEL_ENV` guard
+existed. The migration is additive (`ADD COLUMN` only), so this is safe.
+
+- No pending migrations; running `migrate deploy` now is a no-op.
+- The reconciliation branch can be promoted to staging without a schema gap.
+- The guard added in PR #50 prevents future preview builds from migrating the
+  shared database; the `xtra` previews that applied this one are frozen and
+  will not receive new commits.
+
+## Branch state
+
+| Branch | Tip | Notes |
+| --- | --- | --- |
+| `main` | `2795bef` | production, unchanged |
+| `staging` | `9b0ca27` | release candidate; does not include the reconciliation |
+| `develop` | `f73ae89` | reconciliation merged (PR #64) |
+| `xtra` | `f8de64b` | superseded by #64, left for its author |
+
+## Production release
+
+PR #63 is still **blocked on the required review** (a review was requested from
+Karl). No bypass was used and `main` was not pushed.
+
+## Quality pass (RBAC and polish)
+
+Two read-only audits were started: an RBAC enforcement/UI-gating audit and a
+UI/UX polish audit across dashboard, admin and superadmin screens. Findings and
+fixes from that pass are recorded below as they are completed.

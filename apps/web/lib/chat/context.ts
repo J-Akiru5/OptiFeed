@@ -1,5 +1,6 @@
 import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { totalBiomassG } from "@/lib/feed-calc";
+import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 
@@ -22,6 +23,10 @@ export interface ChatContext {
 	feedingsToday: number;
 	lastDispensedAt: Date | null;
 	lastCommandStatus: string | null;
+	currentGramsPerFeeding: number | null;
+	predictedFeedGrams: number | null;
+	predictedFeedReasoning: string | null;
+	lastSampleAt: Date | null;
 }
 
 // Builds the live pond context used for the AI prompt. `pond.*` goes stale when
@@ -45,6 +50,7 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 			waterTempC: true,
 			waterTempOk: true,
 			lastSeenAt: true,
+			gramsPerFeeding: true,
 		},
 	});
 
@@ -86,6 +92,19 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 	const deviceOnline =
 		!!energyDevice?.lastSeenAt && now - energyDevice.lastSeenAt.getTime() <= OFFLINE_THRESHOLD_MS;
 
+	// Deterministic feeding prediction (no AI call — keeps chat fast and free).
+	const latestFcrValue = latestFcr?.fcrValue ?? null;
+	const prediction = computeDeterministicPrediction({
+		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
+		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
+		population: pond.population ?? DEFAULT_FISH_COUNT,
+		avgWeightKg: latestBiomass?.avgWeightKg ?? null,
+		latestFcr: latestFcrValue,
+		currentGrams: energyDevice?.gramsPerFeeding ?? null,
+		hopperCapacityG: null,
+		lastSampleAt: latestBiomass?.recordedAt ?? null,
+	});
+
 	return {
 		pondName: pond.name
 			.replace(/[\r\n]+/g, " ")
@@ -102,11 +121,15 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 		hopperLevelPct: energyDevice?.feedLevelPercent ?? null,
 		waterTempC: energyDevice?.waterTempC ?? null,
 		waterTempOk: energyDevice?.waterTempOk ?? false,
-		latestFcr: latestFcr?.fcrValue ?? null,
+		latestFcr: latestFcrValue,
 		latestAbwG: latestBiomass ? latestBiomass.avgWeightKg * 1000 : null,
 		sampleCount: latestBiomass?.sampleCount ?? null,
 		feedingsToday: todayFeedEvents.length,
 		lastDispensedAt: todayFeedEvents[0]?.receivedAt ?? null,
 		lastCommandStatus: latestCommand?.status ?? null,
+		currentGramsPerFeeding: energyDevice?.gramsPerFeeding ?? null,
+		predictedFeedGrams: prediction.grams,
+		predictedFeedReasoning: prediction.grams !== null ? prediction.reasoning : null,
+		lastSampleAt: latestBiomass?.recordedAt ?? null,
 	};
 }

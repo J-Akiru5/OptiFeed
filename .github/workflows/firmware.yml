@@ -1,0 +1,47 @@
+name: Firmware
+
+# Compiles the ESP32 sketch. Separate from CI because the Arduino toolchain is
+# large and only firmware changes need it. Validation only — never flashes or
+# deploys anything.
+
+on:
+  pull_request:
+    paths:
+      - "firmware/**"
+      - ".github/workflows/firmware.yml"
+  push:
+    paths:
+      - "firmware/**"
+      - ".github/workflows/firmware.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firmware-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    name: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install arduino-cli
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Install ESP32 core
+        run: |
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32
+
+      - name: Install sketch libraries
+        run: |
+          arduino-cli lib install "RTClib" "Adafruit BusIO" "ArduinoJson" "OneWire" "DallasTemperature"
+
+      - name: Compile
+        run: arduino-cli compile --fqbn esp32:esp32:esp32 firmware/firmware-main

@@ -61,8 +61,10 @@ export async function updateScheduleCommand(
 		buttonFeedGrams?: number;
 	},
 ): Promise<UpdateScheduleResult> {
+	// Guard outside try: the catch below returns a generic message and would
+	// hide the write-access reason from the caller (matches toggleDevicePause).
+	await requireWriteAccess();
 	try {
-		await requireWriteAccess();
 		const parsed = scheduleInputSchema.safeParse(data);
 		if (!parsed.success) {
 			return { success: false, error: formatZodError(parsed.error) };

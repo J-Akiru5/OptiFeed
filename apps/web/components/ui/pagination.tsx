@@ -1,6 +1,6 @@
+import { Link } from "@/i18n/routing";
 import { buildPageHref, buildPageWindow } from "@/lib/pagination";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import Link from "next/link";
 
 interface PaginationProps {
 	basePath: string;

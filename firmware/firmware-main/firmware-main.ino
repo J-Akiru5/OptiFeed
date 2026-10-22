@@ -120,6 +120,18 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 #define RESET_BUTTON_HOLD_MS          10000  // continuous hold to trigger
 #define RESET_BUTTON_DEBOUNCE_MS         50
 #define RESET_BUTTON_STARTUP_GRACE_MS  5000  // ignore presses during boot
+
+// Reset button state. Declared before the first function so Arduino's
+// auto-generated prototypes can see the type.
+struct ResetButtonState {
+  bool stableDown;
+  unsigned long lastChangeMs;
+  unsigned long pressStartMs;
+};
+
+ResetButtonState wifiResetButton = { false, 0, 0 };
+ResetButtonState factoryResetButton = { false, 0, 0 };
+bool resetButtonsArmed = false;
 #define RTC_SDA         21
 #define RTC_SCL         22
 #define TRIG_PIN        32          // HC-SR04 ultrasonic trigger
@@ -265,18 +277,6 @@ DNSServer provisioningDns;
 bool provisioningActive = false;
 bool provisioningRoutesRegistered = false;
 String provisioningApName;
-
-// Dedicated reset button state. The struct must be declared before the first
-// function so Arduino's auto-generated prototypes can see it.
-struct ResetButtonState {
-  bool stableDown;
-  unsigned long lastChangeMs;
-  unsigned long pressStartMs;
-};
-
-ResetButtonState wifiResetButton = { false, 0, 0 };
-ResetButtonState factoryResetButton = { false, 0, 0 };
-bool resetButtonsArmed = false;
 
 // button debounce
 int lastButtonReading = HIGH;

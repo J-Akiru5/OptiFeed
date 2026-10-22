@@ -27,6 +27,13 @@ vi.mock("@/lib/auth/session", () => ({
 	buildPondEmail: vi.fn((farmId: string) => `${farmId}@pond.optifeed.local`),
 }));
 
+// admin.ts now calls requirePermission(); it is DB-backed and stubbed open here
+// so these tests keep exercising the action logic rather than permission rows.
+vi.mock("@/lib/auth/permissions", () => ({
+	requirePermission: vi.fn().mockResolvedValue(undefined),
+	hasPermission: vi.fn().mockResolvedValue(true),
+}));
+
 // The /admin reads are Membership-scoped (fail-closed), so every test that
 // exercises one must declare the scope it expects to see applied.
 vi.mock("@/lib/auth/org-scope", () => ({

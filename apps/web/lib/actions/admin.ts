@@ -3,6 +3,7 @@
 import { redirect } from "@/i18n/routing";
 import { deleteUserSubtree } from "@/lib/actions/admin-internal";
 import { resolveOrgScope } from "@/lib/auth/org-scope";
+import { requirePermission } from "@/lib/auth/permissions";
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { requireRole } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
@@ -62,6 +63,9 @@ export async function updateUser(
 	data: { displayName?: string; role?: UserRole },
 ): Promise<UpdateUserResult> {
 	await requireRole("ADMIN");
+	// Permission gate before the scope read and before the try: `Forbidden`
+	// must reach the caller rather than be flattened into a generic failure.
+	await requirePermission("manage_members");
 	const scope = await resolveOrgScope();
 	if (!scope.memberUserIds.includes(userId)) {
 		return { error: "That user is outside your organization." };
@@ -88,6 +92,7 @@ export type DeleteUserResult = { success: true } | { error: string };
 
 export async function deleteUser(userId: string): Promise<DeleteUserResult> {
 	await requireRole("ADMIN");
+	await requirePermission("manage_members");
 	const [scope, actor] = await Promise.all([resolveOrgScope(), getCurrentUser()]);
 	// Self-deletion would strand the org with no one able to manage it, and
 	// cross-tenant deletion is the leak this scoping exists to prevent.
@@ -204,6 +209,7 @@ export async function createPondWithFarmer(data: {
 	scheduleEnd: string;
 }): Promise<CreatePondWithFarmerResult> {
 	await requireRole("ADMIN");
+	await requirePermission("manage_farms_ponds");
 
 	const loginId = data.loginId?.trim().toLowerCase() ?? "";
 	const farmerName = data.farmerName?.trim() ?? "";
@@ -314,6 +320,7 @@ export async function createPond(data: {
 	scheduleEnd: string;
 }): Promise<CreatePondResult> {
 	await requireRole("ADMIN");
+	await requirePermission("manage_farms_ponds");
 	const scope = await resolveOrgScope();
 	if (!scope.farmIds.includes(data.ownerFarmId)) {
 		return { error: "That farm is outside your organization." };
@@ -568,6 +575,7 @@ export async function updatePondOwner(
 	newOwnerFarmId: string,
 ): Promise<UpdateUserResult> {
 	await requireRole("ADMIN");
+	await requirePermission("manage_farms_ponds");
 	const scope = await resolveOrgScope();
 	if (!scope.pondIds.includes(pondId)) {
 		return { error: "That pond is outside your organization." };
@@ -619,6 +627,7 @@ export async function setPondStatus(
 	status: PondStatus,
 ): Promise<SetPondStatusResult> {
 	await requireRole("ADMIN");
+	await requirePermission("manage_farms_ponds");
 
 	if (status !== "ACTIVE" && status !== "ARCHIVED") {
 		return { error: "Invalid pond status." };

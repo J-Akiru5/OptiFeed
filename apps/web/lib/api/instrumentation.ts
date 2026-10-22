@@ -62,6 +62,9 @@ export function withApi<R extends Request = Request, C = unknown>(
 			route,
 			startedAt,
 			dbMs: 0,
+			dbWallMs: 0,
+			dbWallStart: null,
+			dbWallEnd: 0,
 			queryCount: 0,
 			phases: {},
 		};
@@ -200,12 +203,17 @@ async function normalizeErrorResponse(response: Response, requestId: string): Pr
 
 function finalize(response: Response, metrics: RequestMetrics, config: ApiRouteConfig): Response {
 	const totalMs = now() - metrics.startedAt;
-	const dbMs = metrics.dbMs;
+	const dbWallMs = metrics.dbWallMs;
+	const dbSumMs = metrics.dbMs;
 	const authMs = metrics.phases.auth ?? 0;
-	const appMs = Math.max(0, totalMs - dbMs - authMs);
+	const appMs = Math.max(0, totalMs - dbWallMs - authMs);
 
 	setHeader(response, "X-Request-Id", metrics.requestId);
-	setHeader(response, "Server-Timing", serverTiming({ totalMs, dbMs, appMs, authMs, metrics }));
+	setHeader(
+		response,
+		"Server-Timing",
+		serverTiming({ totalMs, dbWallMs, dbSumMs, appMs, authMs, metrics }),
+	);
 	if (config.cacheControl) setHeader(response, "Cache-Control", config.cacheControl);
 	if (config.sunset) {
 		setHeader(response, "Deprecation", "true");
@@ -217,7 +225,8 @@ function finalize(response: Response, metrics: RequestMetrics, config: ApiRouteC
 		method: metrics.route.split(" ")[0],
 		status: response.status,
 		duration_ms: round(totalMs),
-		db_ms: round(dbMs),
+		db_ms: round(dbWallMs),
+		db_sum_ms: round(dbSumMs),
 		app_ms: round(appMs),
 		auth_ms: round(authMs),
 		queries: metrics.queryCount,
@@ -240,14 +249,16 @@ function finalize(response: Response, metrics: RequestMetrics, config: ApiRouteC
 
 function serverTiming(input: {
 	totalMs: number;
-	dbMs: number;
+	dbWallMs: number;
+	dbSumMs: number;
 	appMs: number;
 	authMs: number;
 	metrics: RequestMetrics;
 }): string {
 	const parts = [
 		`total;dur=${round(input.totalMs)}`,
-		`db;dur=${round(input.dbMs)}`,
+		`db;dur=${round(input.dbWallMs)}`,
+		`db_sum;dur=${round(input.dbSumMs)}`,
 		`app;dur=${round(input.appMs)}`,
 	];
 	if (input.authMs > 0) parts.push(`auth;dur=${round(input.authMs)}`);

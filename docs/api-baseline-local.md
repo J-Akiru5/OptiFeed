@@ -44,8 +44,8 @@ API_BASE_URL=http://localhost:3100 API_TEST_COOKIE=... pnpm api:live -- --mode w
 
 | Endpoint | p50 | p95 | p99 | max | Server-Timing (last sample) |
 |---|---|---|---|---|---|
-| `GET /api/v1/user-role` | 3.3 ms | **4.4 ms** | 4.6 ms | 4.6 ms | `total=1.1, db=0.7, app=0.2, auth=0.1, queries=1` |
-| `POST /api/v1/predict-feeding` | 5.8 ms | **18.5 ms** | 233.3 ms | 233.3 ms | `total=3.9, db=6.1, app=0, auth=0.1, queries=8` |
+| `GET /api/v1/user-role` | 3.4 ms | **4.0 ms** | 4.3 ms | 4.3 ms | `total=1.2, db=0.9, db_sum=0.9, app=0.2, auth=0.1, queries=1` |
+| `POST /api/v1/predict-feeding` | 6.2 ms | **19.3 ms** | 22.1 ms | 22.1 ms | `total=3.7, db=3.4, db_sum=5.4, app=0.2, auth=0.1, queries=8` |
 
 - **Coverage: 2 / 2 (100%).** No request exceeded the 400 ms ceiling; p95 is far below 300 ms.
 - `predict-feeding` p99/max of 233 ms is an outlier (one sample), still under the hard ceiling. The

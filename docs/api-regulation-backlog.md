@@ -172,8 +172,8 @@ ES256 JWKS fixture that exercises the same `getClaims()` path as production:
 
 | Endpoint | p95 | max | Queries |
 |---|---|---|---|
-| `GET /api/v1/user-role` | **4.4 ms** | 4.6 ms | 1 |
-| `POST /api/v1/predict-feeding` | **18.5 ms** | 233.3 ms (outlier) | 8 |
+| `GET /api/v1/user-role` | **4.0 ms** | 4.3 ms | 1 |
+| `POST /api/v1/predict-feeding` | **19.3 ms** | 22.1 ms | 8 |
 
 Coverage was 5/5 contract and 2/2 latency, with zero violations. Full environment, method, and caveats:
 [`docs/api-baseline-local.md`](./api-baseline-local.md). This is **not** a Supabase certification:

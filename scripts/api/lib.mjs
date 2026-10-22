@@ -177,6 +177,7 @@ export function printServerTiming(metrics) {
 	const parts = [];
 	if (metrics.total !== undefined) parts.push(`total=${metrics.total}ms`);
 	if (metrics.db !== undefined) parts.push(`db=${metrics.db}ms`);
+	if (metrics.db_sum !== undefined) parts.push(`db_sum=${metrics.db_sum}ms`);
 	if (metrics.app !== undefined) parts.push(`app=${metrics.app}ms`);
 	if (metrics.auth !== undefined) parts.push(`auth=${metrics.auth}ms`);
 	if (metrics.queries !== undefined) parts.push(`queries=${metrics.queries}`);

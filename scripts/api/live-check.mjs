@@ -255,7 +255,7 @@ function selectEndpoints(suite) {
 	const ids = config.endpoint
 		? new Set(
 				config.endpoint
-					.split(",")
+					.split(/[\s,]+/)
 					.map((id) => id.trim())
 					.filter(Boolean),
 			)
@@ -377,11 +377,13 @@ function report() {
 		console.log(
 			"\nFAILED: insufficient coverage. Measure at least 90 % of the declared endpoints.",
 		);
-		process.exit(1);
+		process.exitCode = 1;
+		return;
 	}
 	if (config.mode === "fail" && gate.violations.length > 0) {
 		console.log("\nFAILED: one or more API regulation checks are in breach.");
-		process.exit(1);
+		process.exitCode = 1;
+		return;
 	}
 	if (config.mode === "warn" && gate.violations.length > 0) {
 		console.log("\nWarn mode: breaches recorded, CI stays green.");

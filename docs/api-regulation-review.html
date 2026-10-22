@@ -417,14 +417,14 @@ Server-Timing: total;dur=2016.8, db;dur=0,
 			<div class="card">
 				<span class="tag good">Verified</span>
 				<h3>Local 10k baseline</h3>
-				<p>Production build against local PostgreSQL 16 with <strong>10 056 feed events</strong> and a local ES256 JWKS: <strong>100 % coverage</strong>, 0 violations. <code>user-role</code> p95 <strong>4.4 ms</strong>; <code>predict-feeding</code> p95 <strong>18.5 ms</strong> (one 233 ms outlier, still under the 400 ms ceiling).</p>
+				<p>Production build against local PostgreSQL 16 with <strong>10 056 feed events</strong> and a local ES256 JWKS: <strong>100 % coverage</strong>, 0 violations. <code>user-role</code> p95 <strong>4.0 ms</strong>; <code>predict-feeding</code> p95 <strong>19.3 ms</strong>, max 22.1 ms.</p>
 			</div>
 		</div>
 
 		<div class="callout warn" style="margin-top:22px">
 			<p><strong>Not certified:</strong> no Supabase/production p95 baseline. A local L2 baseline now
 			exists (10 056 rows, local PostgreSQL 16, local ES256 JWKS): 100 % coverage, 0 violations,
-			<code>user-role</code> p95 4.4 ms and <code>predict-feeding</code> p95 18.5 ms. See
+			<code>user-role</code> p95 4.0 ms and <code>predict-feeding</code> p95 19.3 ms. See
 			<code>docs/api-baseline-local.md</code>. Supabase network/pooler behaviour, production volume,
 			cross-region latency and cold starts still require a non-production Supabase project. The only
 			configured credentials resolve to the same database project ref as

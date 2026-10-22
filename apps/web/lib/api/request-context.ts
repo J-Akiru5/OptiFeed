@@ -14,7 +14,12 @@ export interface RequestMetrics {
 	/** Route template, e.g. `GET /api/v1/user-role` — never the raw URL. */
 	route: string;
 	startedAt: number;
+	/** Sum of individual query durations (parallel queries can exceed wall time). */
 	dbMs: number;
+	/** Wall time from the first query start to the last query end. */
+	dbWallMs: number;
+	dbWallStart: number | null;
+	dbWallEnd: number;
 	queryCount: number;
 	/** Named durations for non-DB work that is worth isolating (e.g. auth). */
 	phases: Record<string, number>;
@@ -31,11 +36,21 @@ export function getRequestMetrics(): RequestMetrics | undefined {
 }
 
 /** Called by the Prisma query extension. No-ops outside an instrumented request. */
-export function recordQuery(durationMs: number): void {
+export function recordQuery(durationMs: number, startedAt?: number, endedAt?: number): void {
 	const metrics = storage.getStore();
 	if (!metrics) return;
 	metrics.queryCount += 1;
 	metrics.dbMs += durationMs;
+
+	if (startedAt !== undefined && endedAt !== undefined) {
+		metrics.dbWallStart =
+			metrics.dbWallStart === null ? startedAt : Math.min(metrics.dbWallStart, startedAt);
+		metrics.dbWallEnd = Math.max(metrics.dbWallEnd, endedAt);
+		metrics.dbWallMs = Math.max(0, metrics.dbWallEnd - metrics.dbWallStart);
+	} else {
+		// Without timestamps, the best available approximation is the sum.
+		metrics.dbWallMs += durationMs;
+	}
 }
 
 /** Record a named phase (auth, cache, upstream) inside the current request. */

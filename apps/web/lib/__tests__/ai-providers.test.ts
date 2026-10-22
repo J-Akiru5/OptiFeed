@@ -246,6 +246,17 @@ describe("provider config resolution", () => {
 		expect(configs.map((c) => c.provider)).toEqual(["opencode-go", "gemini"]);
 	});
 
+	it("keeps unconfigured providers in the chain when only one is stored", async () => {
+		// Regression: stored rows are an overlay, not a replacement. Configuring
+		// Gemini must not silently drop the OpenCode Go default.
+		findMany.mockResolvedValue([{ ...DEFAULT_PROVIDER_ROWS[1], priority: 1 }]);
+		vi.stubEnv("OPENCODE_GO_API_KEY", "go-key");
+		vi.stubEnv("GEMINI_API_KEY", "gem-key");
+
+		const configs = await loadProviderConfigs();
+		expect(configs.map((c) => c.provider)).toEqual(["gemini", "opencode-go"]);
+	});
+
 	it("orders by priority, not by insertion or id", async () => {
 		findMany.mockResolvedValue([
 			{ ...DEFAULT_PROVIDER_ROWS[1], priority: 1 },

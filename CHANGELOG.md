@@ -18,12 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docs/API_REGULATION_v1.2_PROPOSAL.md` (22 amendments) and `docs/api-regulation-backlog.md` (ranked burn-down with evidence).
 - A read-only `nextjs-supabase-benchmark` subagent and `nextjs-supabase-audit.mjs` harness for auditing other Next.js + Supabase apps.
 - Auth fast path: `auth.getClaims()` verifies the JWT locally when the project uses asymmetric signing keys, with a 30 s verified-session cache and a 60 s `supabaseId → farmId` binding. A cache hit makes no Supabase call and no DB lookup.
-- Background jobs: `BackgroundJob`/`JobArtifact` tables, `POST /api/v1/export-jobs` and `POST /api/v1/import-jobs` returning `202` + `Location`, owner-scoped status/download endpoints, and a `GET /api/v1/cron/jobs` worker that claims with `FOR UPDATE SKIP LOCKED`. The dashboard export and import flows poll the job and download the artifact; CSV/ZIP/import-confirm no longer run in the request path. `docs/sql/cron-jobs.sql` schedules the worker.
+- Background jobs: `BackgroundJob`/`JobArtifact` tables, `POST /api/v1/export-jobs` (CSV/ZIP/PDF) and `POST /api/v1/import-jobs` returning `202` + `Location`, owner-scoped status/download endpoints, a `GET /api/v1/jobs/metrics` queue-health endpoint, and a `GET /api/v1/cron/jobs` worker that claims with `FOR UPDATE SKIP LOCKED`. The dashboard export, PDF and import flows poll the job and download the artifact; none of them run in the request path. `docs/sql/cron-jobs.sql` schedules the worker.
 
 ### Changed
 
 - `withAuth`/`withCronAuth` now return the error envelope and record their own `auth` timing.
-- `/api/user-role` returns `{ role, email, displayName }` with `private, max-age=60` and an ETag; the dashboard header uses one request instead of `getUser()` + the route.
+- `/api/user-role` returns `{ role, email, displayName }` with `private, max-age=60` and an ETag; the dashboard layout now resolves the user server-side and passes it to the header, so the header makes no client round-trip at all.
 - The dashboard import/export and prediction components use the shared API client and unwrap the envelope.
 - Device Telegram alerts in `/api/ingest` are scheduled after the response with `after()` instead of blocking the device request.
 - Device list lookups in the export routes are bounded with `take: 100`.

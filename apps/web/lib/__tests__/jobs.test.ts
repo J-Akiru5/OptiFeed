@@ -2,15 +2,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
 	findFirst: vi.fn(),
+	groupBy: vi.fn(),
+	count: vi.fn(),
+	aggregate: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
 	default: {
-		backgroundJob: { findFirst: state.findFirst },
+		backgroundJob: {
+			findFirst: state.findFirst,
+			groupBy: state.groupBy,
+			count: state.count,
+		},
+		jobArtifact: { aggregate: state.aggregate },
 	},
 }));
 
-import { getJobForOwner, jobDto } from "@/lib/jobs/service";
+import { getJobForOwner, getJobMetrics, jobDto } from "@/lib/jobs/service";
 
 const BASE_JOB = {
 	id: "job_1",
@@ -66,5 +74,35 @@ describe("job ownership", () => {
 			where: { id: "job_1", ownerId: "farm-a" },
 			include: { artifact: { select: { filename: true, contentType: true, size: true } } },
 		});
+	});
+});
+
+describe("queue metrics", () => {
+	beforeEach(() => {
+		state.findFirst.mockReset();
+		state.groupBy.mockReset();
+		state.count.mockReset();
+		state.aggregate.mockReset();
+	});
+
+	it("reports depth, oldest queued age, failures and artifact bytes", async () => {
+		state.groupBy.mockResolvedValue([
+			{ status: "queued", _count: { _all: 2 } },
+			{ status: "running", _count: { _all: 1 } },
+		]);
+		state.findFirst.mockResolvedValue({ createdAt: new Date(Date.now() - 120_000) });
+		state.count.mockResolvedValueOnce(5).mockResolvedValueOnce(1);
+		state.aggregate.mockResolvedValue({ _sum: { size: 1234 } });
+
+		const metrics = await getJobMetrics();
+
+		expect(metrics).toMatchObject({
+			queued: 2,
+			running: 1,
+			succeeded24h: 5,
+			failed24h: 1,
+			artifactBytes: 1234,
+		});
+		expect(metrics.oldestQueuedAgeMs).toBeGreaterThanOrEqual(119_000);
 	});
 });

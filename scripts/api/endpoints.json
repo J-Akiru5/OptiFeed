@@ -109,6 +109,10 @@
 			"reason": "Artifact download for a completed job; covered by the local job flow."
 		},
 		{
+			"path": "/api/v1/jobs/metrics",
+			"reason": "Admin-only queue health; covered by the job service tests."
+		},
+		{
 			"path": "/api/v1/cron/jobs",
 			"reason": "Scheduled worker with its own bearer secret; invoked manually in the local flow."
 		}

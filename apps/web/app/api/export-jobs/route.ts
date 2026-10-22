@@ -10,7 +10,7 @@ import { checkApiRateLimit } from "@/lib/rate-limit";
 export const dynamic = "force-dynamic";
 
 interface ExportJobRequest {
-	kind?: "csv" | "zip";
+	kind?: "csv" | "zip" | "pdf";
 	type?: ExportableType;
 	types?: ExportableType[];
 }
@@ -29,7 +29,7 @@ export const POST = withApi(
 			return Response.json({ error: "Invalid JSON body" }, { status: 400 });
 		}
 
-		const kind = body.kind === "zip" ? "zip" : "csv";
+		const kind = body.kind === "zip" || body.kind === "pdf" ? body.kind : "csv";
 
 		if (kind === "csv") {
 			if (!body.type || !CSV_EXPORT_TYPES.includes(body.type)) {
@@ -59,12 +59,19 @@ export const POST = withApi(
 						type: "export_csv",
 						payload: { type: body.type },
 					})
-				: await createJob({
-						ownerId,
-						requestedBy: user.id,
-						type: "export_zip",
-						payload: { types: requestedTypes.length > 0 ? requestedTypes : BATCH_EXPORT_TYPES },
-					});
+				: kind === "zip"
+					? await createJob({
+							ownerId,
+							requestedBy: user.id,
+							type: "export_zip",
+							payload: { types: requestedTypes.length > 0 ? requestedTypes : BATCH_EXPORT_TYPES },
+						})
+					: await createJob({
+							ownerId,
+							requestedBy: user.id,
+							type: "export_pdf",
+							payload: {},
+						});
 
 		return accepted(
 			{

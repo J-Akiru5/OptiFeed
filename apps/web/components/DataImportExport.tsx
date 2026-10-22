@@ -1,6 +1,6 @@
 "use client";
 
-import { ApiClientError, apiGet, apiPost, rawFetch } from "@/lib/api-client";
+import { ApiClientError, apiPost } from "@/lib/api-client";
 import {
 	EXPORT_LABELS,
 	type ExportableType,
@@ -8,39 +8,11 @@ import {
 	downloadCsv,
 	parseCsvString,
 } from "@/lib/csv";
+import { fetchJobArtifact, waitForJob } from "@/lib/jobs/client";
 import { AlertCircle, CheckCircle2, Download, FileText, Upload, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-
-const JOB_POLL_MS = 700;
-const JOB_TIMEOUT_MS = 90_000;
-
-interface JobEnvelope {
-	id: string;
-	status: "queued" | "running" | "succeeded" | "failed";
-	result: unknown;
-	error: string | null;
-	download_url: string | null;
-}
-
-async function waitForJob<T>(jobId: string): Promise<{ result: T; downloadUrl: string | null }> {
-	const startedAt = Date.now();
-	while (Date.now() - startedAt < JOB_TIMEOUT_MS) {
-		const job = await apiGet<JobEnvelope>(`/api/v1/jobs/${jobId}`, {
-			timeoutMs: 5_000,
-			retries: 1,
-		});
-		if (job.status === "succeeded") {
-			return { result: job.result as T, downloadUrl: job.download_url };
-		}
-		if (job.status === "failed") {
-			throw new Error(job.error ?? "The job failed.");
-		}
-		await new Promise((resolve) => setTimeout(resolve, JOB_POLL_MS));
-	}
-	throw new Error("Timed out waiting for the job.");
-}
 
 type DataTypeOption = {
 	id: ExportableType;
@@ -94,7 +66,7 @@ export function DataExportButton() {
 			const { downloadUrl } = await waitForJob(job.id);
 			if (!downloadUrl) throw new Error("The export is not ready.");
 
-			const response = await rawFetch(downloadUrl);
+			const response = await fetchJobArtifact(downloadUrl);
 			if (!response.ok) throw new Error("Export download failed.");
 
 			if (single) {

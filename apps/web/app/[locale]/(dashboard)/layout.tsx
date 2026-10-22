@@ -11,7 +11,7 @@ import { NotificationProvider } from "@/components/notification-provider";
 import { OnboardingProvider } from "@/components/onboarding-provider";
 import { Sidebar } from "@/components/sidebar";
 import { Link } from "@/i18n/routing";
-import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { getCurrentPondOwnerId, getCurrentUser } from "@/lib/auth/session";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
@@ -21,7 +21,7 @@ export default async function DashboardLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	const ownerId = await getCurrentPondOwnerId();
+	const [ownerId, currentUser] = await Promise.all([getCurrentPondOwnerId(), getCurrentUser()]);
 
 	let pondId = "";
 	let initialUnreadCount = 0;
@@ -109,6 +109,15 @@ export default async function DashboardLayout({
 								pondName={pondName}
 								lastSeenAt={lastSeenAtStr}
 								esp32Status={esp32Status}
+								initialUser={
+									currentUser
+										? {
+												email: currentUser.email,
+												role: currentUser.role,
+												displayName: currentUser.displayName,
+											}
+										: undefined
+								}
 							/>
 						</header>
 

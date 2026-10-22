@@ -7,11 +7,10 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { PondSelector } from "@/components/pond-selector";
 import { useRouter } from "@/i18n/routing";
-import { apiGet } from "@/lib/api-client";
 import { createClient } from "@/lib/supabase/client";
 import { Globe, LogOut, Shield, X } from "lucide-react";
 import { useLocale } from "next-intl";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 interface HeaderActionsProps {
 	ponds?: { id: string; name: string }[];
@@ -19,6 +18,8 @@ interface HeaderActionsProps {
 	pondName?: string;
 	lastSeenAt?: string | null;
 	esp32Status?: "online" | "offline" | "missing";
+	/** Resolved by the dashboard layout so the header does not fetch after hydration. */
+	initialUser?: { email: string; role: string | null; displayName: string | null };
 }
 
 function formatRelativeTime(dateStr: string | null): string {
@@ -40,30 +41,14 @@ export function HeaderActions({
 	pondName = "ILO-POND-01",
 	lastSeenAt = null,
 	esp32Status = "missing",
+	initialUser,
 }: HeaderActionsProps) {
 	const [showProfileMenu, setShowProfileMenu] = useState(false);
-	const [userEmail, setUserEmail] = useState<string | null>(null);
-	const [userRole, setUserRole] = useState<string | null>(null);
+	const userEmail = initialUser?.email ?? null;
+	const userRole = initialUser?.role ?? null;
 	const router = useRouter();
 	const locale = useLocale();
 	const { clearMessages } = useChatWidget();
-
-	useEffect(() => {
-		let cancelled = false;
-		// §8.3 rule 3: one request instead of `getUser()` + `/api/user-role`.
-		// The route already resolves the session, so the dashboard never needs
-		// a second Supabase round-trip just to render the header.
-		apiGet<{ role: string | null; email: string; displayName: string | null }>("/api/user-role")
-			.then((me) => {
-				if (cancelled) return;
-				setUserEmail(me.email);
-				setUserRole(me.role);
-			})
-			.catch(() => {});
-		return () => {
-			cancelled = true;
-		};
-	}, []);
 
 	const handleLogout = async () => {
 		setShowProfileMenu(false);

@@ -1,3 +1,4 @@
+import { invalidateProviderConfigCache } from "@/lib/ai-providers/config";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -61,7 +62,10 @@ function stubFetch(status = 200) {
 }
 
 beforeEach(() => {
+	// The provider chain is cached for 30s; clear it so env stubs take effect.
+	invalidateProviderConfigCache();
 	vi.stubEnv("OPENCODE_GO_API_KEY", "test-key");
+	vi.stubEnv("GEMINI_API_KEY", "");
 });
 
 afterEach(() => {

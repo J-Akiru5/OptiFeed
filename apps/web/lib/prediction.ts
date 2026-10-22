@@ -203,7 +203,7 @@ export async function refinePredictionWithAi(
 	baseline: FeedingPrediction,
 	sessionId: string = stableSessionId("prediction", new Date().toISOString().slice(0, 10)),
 ): Promise<FeedingPrediction> {
-	if (!isAiEnabled() || baseline.grams === null) return baseline;
+	if (!(await isAiEnabled()) || baseline.grams === null) return baseline;
 
 	try {
 		const result = await completeAi(

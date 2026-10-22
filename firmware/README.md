@@ -49,14 +49,27 @@ Do **not** use: 32/33 (HC-SR04 trigger/echo), 25 (relay), 26 (DS18B20),
 27 (feed button), 21/22 (RTC I2C), 0/2/12/15 (strapping), 34–39 (input-only, no
 internal pull-up), 1/3 (USB serial), 6–11 (flash).
 
-## Required Libraries
+## Build & flash (PlatformIO)
 
-Install via Arduino Library Manager:
+The firmware is a PlatformIO project (`firmware/platformio.ini`) using the same
+toolchain as the energy-monitoring project: `espressif32@7.1.2`, board
+`esp32dev` (ESP32-WROOM-32U), Arduino framework. Dependencies are declared and
+resolved by PlatformIO — no Arduino Library Manager step.
 
-- **RTClib** (Adafruit) — DS3231 RTC
-- **ArduinoJson** (Benoit Blanchon) — payload building
-- **WiFi** / **HTTPClient** / **WiFiClientSecure** (built-in with ESP32 core)
-- **WebServer** / **DNSServer** (built-in with ESP32 core) — WiFi + identity setup portal
+```bash
+pip install platformio        # or use the PlatformIO IDE extension
+pio run -d firmware            # compile
+pio run -d firmware -t upload  # flash over USB
+pio device monitor -b 115200   # serial log
+```
+
+CI runs `pio run -d firmware` for every firmware change; it never flashes or
+deploys.
+
+### Arduino IDE fallback
+
+If you must use the Arduino IDE, install these libraries manually:
+RTClib, Adafruit BusIO, ArduinoJson, OneWire, DallasTemperature.
 
 ## Configuration
 

@@ -110,3 +110,24 @@ captive-portal DNS hijacking beyond the minimal AP, per-device AP passwords.
 2. Compile and bench-test the firmware on a spare device.
 3. Flash one production unit and verify the portal and recovery.
 4. Promote with the next staging release.
+
+---
+
+## Verification status (2026-10-22)
+
+| Item | Status |
+| --- | --- |
+| Dashboard panel | Implemented; lint + typecheck pass |
+| Firmware source | Implemented; **compile not run** |
+| Firmware compile | Deferred: `arduino-cli` is not installed and RTClib / ArduinoJson / OneWire / DallasTemperature are absent; host was at a red resource level |
+| Bench test | Not performed — requires the compile first, then a spare ESP32 |
+
+Exact command to run once a toolchain is available:
+
+```
+arduino-cli lib install RTClib ArduinoJson OneWire DallasTemperature
+arduino-cli compile --fqbn esp32:esp32:esp32 firmware/firmware-main
+```
+
+Do not flash a production unit until the compile passes and the acceptance
+criteria above are checked on hardware.

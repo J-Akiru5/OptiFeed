@@ -163,23 +163,24 @@ export default async function GrowthPage() {
 				<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
 					<div>
 						<span className="text-xs uppercase font-extrabold text-blue-200 tracking-wider">
-							Current Feed Conversion Ratio
+							{t("fcrEyebrow")}
 						</span>
 						<div className="text-5xl md:text-6xl font-black mt-2 tracking-tight">
 							{latestFcr.toFixed(2)}
 						</div>
 						<p className="text-xs text-blue-100 mt-2 max-w-md">
-							An FCR of <strong>{latestFcr.toFixed(2)}</strong> means your African Catfish consume{" "}
-							{latestFcr.toFixed(2)}kg of feed pellets for every 1.0kg of raw muscle gain. This
-							represents premium commercial growth efficiency.
+							{t.rich("fcrExplain", {
+								value: latestFcr.toFixed(2),
+								bold: (chunks) => <strong>{chunks}</strong>,
+							})}
 						</p>
 					</div>
 					<div className="bg-white/10 px-4 py-3 rounded-2xl border border-white/10 shrink-0">
 						<p className="text-[10px] text-gray-300 uppercase tracking-widest font-mono">
-							Stock Health Rating
+							{t("stockHealth")}
 						</p>
 						<p className="text-base font-extrabold text-green-400 flex items-center gap-1.5">
-							<TrendingUp className="w-4 h-4" /> EXCELLENT • OPTIMAL
+							<TrendingUp className="w-4 h-4" /> {t("stockHealthValue")}
 						</p>
 					</div>
 				</div>
@@ -224,7 +225,7 @@ export default async function GrowthPage() {
 							preserveAspectRatio="none"
 							className="h-full w-full overflow-visible"
 							role="img"
-							aria-label="Biomass Growth Trend"
+							aria-label={t("biomassChartLabel")}
 						>
 							<defs>
 								<linearGradient id="bioGrad" x1="0" y1="0" x2="0" y2="1">
@@ -331,7 +332,7 @@ export default async function GrowthPage() {
 							preserveAspectRatio="none"
 							className="h-full w-full overflow-visible"
 							role="img"
-							aria-label="Feed Level Trend"
+							aria-label={t("feedLevelTitle")}
 						>
 							<defs>
 								<linearGradient id="feedLevelGrad" x1="0" y1="0" x2="0" y2="1">
@@ -421,10 +422,8 @@ export default async function GrowthPage() {
 					<div className="@container bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden">
 						<div className="flex items-start justify-between gap-3 border-b border-gray-100 bg-gray-50/50 p-6 dark:border-gray-700/50 dark:bg-gray-800/50">
 							<div>
-								<h3 className="font-bold text-gray-800 dark:text-gray-100">Growth Summary</h3>
-								<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-									Weight and length gain between sample periods
-								</p>
+								<h3 className="font-bold text-gray-800 dark:text-gray-100">{t("summaryTitle")}</h3>
+								<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t("summaryDesc")}</p>
 							</div>
 							<Link
 								href="/dashboard/growth/history?tab=growth"
@@ -437,13 +436,19 @@ export default async function GrowthPage() {
 							<table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
 								<thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 uppercase text-xs font-semibold">
 									<tr>
-										<th className="px-3 py-3 lg:px-4">Date</th>
-										<th className="px-3 py-3 text-right lg:px-4">Avg Weight (g)</th>
-										<th className="px-3 py-3 text-right lg:px-4">Avg Length (cm)</th>
-										<th className="px-3 py-3 text-right lg:px-4">Weight Gain (g)</th>
-										<th className="px-3 py-3 text-right lg:px-4">Length Gain (cm)</th>
+										<th className="px-3 py-3 lg:px-4">{t("dateCol")}</th>
+										<th className="px-3 py-3 text-right lg:px-4">
+											{t("history.columns.avgWeight")}
+										</th>
+										<th className="px-3 py-3 text-right lg:px-4">{t("avgLengthCol")}</th>
+										<th className="px-3 py-3 text-right lg:px-4">
+											{t("history.columns.weightGain")}
+										</th>
+										<th className="px-3 py-3 text-right lg:px-4">
+											{t("history.columns.lengthGain")}
+										</th>
 										<th className="px-3 py-3 text-right hidden @[560px]:table-cell lg:px-4">
-											Days Since Last
+											{t("history.columns.daysSince")}
 										</th>
 									</tr>
 								</thead>
@@ -524,7 +529,9 @@ export default async function GrowthPage() {
 									<th className="px-3 py-3 text-right text-[var(--ofd-base-deep)] lg:px-4">
 										{t("abwCol")}
 									</th>
-									<th className="px-3 py-3 text-center hidden lg:table-cell lg:px-4">Type</th>
+									<th className="px-3 py-3 text-center hidden lg:table-cell lg:px-4">
+										{t("typeCol")}
+									</th>
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
@@ -550,11 +557,13 @@ export default async function GrowthPage() {
 												<details className="inline-block text-left">
 													<summary className="inline-flex cursor-pointer list-none items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 text-xs font-bold rounded-full hover:bg-teal-100 transition-colors">
 														<Fish className="w-3 h-3" />
-														{log.fishSamples.length} fish
+														{t("fishCountBadge", { count: log.fishSamples.length })}
 													</summary>
 													<div className="mt-2 min-w-[180px] rounded-xl border border-teal-100 bg-teal-50/50 overflow-hidden">
 														<div className="flex items-baseline justify-between gap-3 px-3 py-1.5 bg-teal-100/70 text-[10px] font-bold uppercase text-teal-700">
-															<span className="truncate">{log.batchLabel ?? "Unlabeled"}</span>
+															<span className="truncate">
+																{log.batchLabel ?? t("unlabeledBatch")}
+															</span>
 															<span className="font-medium normal-case text-teal-600 shrink-0">
 																{formatDateTimeLocal(log.recordedAt, tDates).date}
 															</span>
@@ -563,8 +572,12 @@ export default async function GrowthPage() {
 															<thead>
 																<tr className="text-[10px] uppercase text-teal-700">
 																	<th className="px-3 py-1.5 text-left font-bold">#</th>
-																	<th className="px-3 py-1.5 text-right font-bold">Weight</th>
-																	<th className="px-3 py-1.5 text-right font-bold">Length</th>
+																	<th className="px-3 py-1.5 text-right font-bold">
+																		{t("sampleWeightCol")}
+																	</th>
+																	<th className="px-3 py-1.5 text-right font-bold">
+																		{t("sampleLengthCol")}
+																	</th>
 																</tr>
 															</thead>
 															<tbody className="divide-y divide-teal-100">
@@ -590,7 +603,7 @@ export default async function GrowthPage() {
 											) : (
 												<span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 dark:text-gray-400 text-xs font-bold rounded-full">
 													<Scale className="w-3 h-3" />
-													Avg
+													{t("avgBadge")}
 												</span>
 											)}
 										</td>

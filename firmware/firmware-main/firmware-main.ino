@@ -25,7 +25,7 @@
     - "ArduinoJson" by Benoit Blanchon
     - "ArduinoOTA" (built-in, ESP32 core)
     - WiFi / HTTPClient / WiFiClientSecure (built-in, ESP32 core)
-    - WebServer / DNSServer (built-in, ESP32 core) — device-hosted WiFi setup
+    - WebServer / DNSServer (built-in, ESP32 core) — device-hosted WiFi + identity setup
 */
 
 #include <WiFi.h>
@@ -45,8 +45,15 @@
 
 // ==================== Config — fill in before flashing ====================
 #define INGEST_URL      "https://optifeed.example.com/api/ingest"
-#define FEED_POLL_URL   "https://optifeed.example.com/api/feed-command?device_id=A4:CF:12:7E:3B:09"
-#define SCHEDULE_SYNC_URL "https://optifeed.example.com/api/schedule-sync?device_id=A4:CF:12:7E:3B:09"
+// The ?device_id=... query is appended at runtime from the active identity,
+// so one binary works for every unit.
+#define FEED_POLL_URL_BASE     "https://optifeed.example.com/api/feed-command"
+#define SCHEDULE_SYNC_URL_BASE "https://optifeed.example.com/api/schedule-sync"
+
+// Fallback device identity. Once the setup portal saves an identity these
+// compile-time values are superseded by NVS keys device_id / device_token.
+// They remain the defaults so units flashed before identity provisioning, and
+// units that never open the portal, keep working unchanged.
 #define DEVICE_TOKEN    "esp32-tok-cict-001"
 #define DEVICE_MAC      "A4:CF:12:7E:3B:09"
 
@@ -176,6 +183,13 @@ RTC_DS3231 rtc;
 WiFiClientSecure secureClient;
 Preferences prefs;  // NVS storage for WiFi credentials and device state
 
+// Active device identity: NVS device_id / device_token once provisioned,
+// otherwise the compile-time DEVICE_MAC / DEVICE_TOKEN fallbacks. All URLs,
+// headers, payloads and the setup AP name read these globals.
+String provisionedDeviceId;
+String provisionedDeviceToken;
+bool provisionedFlag = false;  // NVS "provisioned" marker written on a full save
+
 bool rtcAvailable = false;
 bool feederActive = false;
 unsigned long feedStartTime = 0;
@@ -285,7 +299,7 @@ void setupOTA() {
   Serial.println("[OTA] Ready for over-the-air updates");
 }
 
-// ==================== WiFi Credential Storage ====================
+// ==================== WiFi / device identity storage ====================
 
 void loadWiFiCredentials(String &ssid, String &pass) {
   ssid = prefs.getString("wifi_ssid", DEFAULT_WIFI_SSID);
@@ -298,20 +312,68 @@ void saveWiFiCredentials(const String &ssid, const String &pass) {
   Serial.println("[WiFi] Credentials saved to NVS");
 }
 
-// True only when NVS holds a usable SSID. A missing, empty or placeholder
-// SSID means the device has never been provisioned.
-bool wifiCredentialsProvisioned() {
-  if (!prefs.isKey("wifi_ssid")) return false;
-  String ssid = prefs.getString("wifi_ssid", "");
-  if (ssid.length() == 0) return false;
-  if (ssid == DEFAULT_WIFI_SSID) return false;
-  return true;
+// Compile-time identity values are placeholders until edited at flash time.
+// A unit still carrying one must be provisioned before it can reach the API.
+bool identityValueIsPlaceholder(const String &value) {
+  if (value.length() == 0) return true;
+  if (value == "YOUR_DEVICE_ID" || value == "YOUR_DEVICE_TOKEN") return true;
+  if (value == "CHANGE_ME" || value == "change-me") return true;
+  if (value == "00:00:00:00:00:00") return true;
+  return false;
 }
 
+// Load the active identity once, right after prefs.begin(). A missing or empty
+// NVS value falls back to the compile-time default so units flashed before
+// identity provisioning keep working without opening the portal.
+void loadDeviceIdentity() {
+  provisionedDeviceId = prefs.getString("device_id", DEVICE_MAC);
+  provisionedDeviceToken = prefs.getString("device_token", DEVICE_TOKEN);
+  provisionedDeviceId.trim();
+  provisionedDeviceToken.trim();
+  if (provisionedDeviceId.length() == 0) provisionedDeviceId = DEVICE_MAC;
+  if (provisionedDeviceToken.length() == 0) provisionedDeviceToken = DEVICE_TOKEN;
+  provisionedFlag = prefs.getBool("provisioned", false);
+
+  Serial.printf("[IDENTITY] Device ID: %s\n", provisionedDeviceId.c_str());
+  // Never print the token itself: it authenticates every API call.
+  Serial.printf("[IDENTITY] Device token: %s\n",
+                identityValueIsPlaceholder(provisionedDeviceToken) ? "missing" : "configured");
+  Serial.printf("[IDENTITY] Provisioned marker: %s\n", provisionedFlag ? "yes" : "no");
+}
+
+void saveDeviceIdentity(const String &deviceId, const String &deviceToken) {
+  prefs.putString("device_id", deviceId);
+  prefs.putString("device_token", deviceToken);
+  prefs.putBool("provisioned", true);
+  provisionedDeviceId = deviceId;
+  provisionedDeviceToken = deviceToken;
+  provisionedFlag = true;
+  Serial.println("[IDENTITY] Device identity saved to NVS");
+}
+
+// True only when NVS holds a usable SSID. A missing, empty or placeholder
+// SSID means the WiFi side has never been provisioned.
+bool storedSsidAvailable() {
+  if (!prefs.isKey("wifi_ssid")) return false;
+  String ssid = prefs.getString("wifi_ssid", "");
+  return ssid.length() > 0 && ssid != DEFAULT_WIFI_SSID;
+}
+
+// Full provisioning gate: a usable SSID AND a usable device identity. The
+// identity may come from NVS or from non-placeholder compile-time defaults, so
+// already-flashed units continue to boot straight into normal operation.
+bool wifiCredentialsProvisioned() {
+  return storedSsidAvailable() &&
+         !identityValueIsPlaceholder(provisionedDeviceId) &&
+         !identityValueIsPlaceholder(provisionedDeviceToken);
+}
+
+// WiFi-only reset: the device identity is deliberately kept in NVS, so the
+// portal can be reopened and saved with the identity fields left blank.
 void clearWiFiCredentials() {
   prefs.remove("wifi_ssid");
   prefs.remove("wifi_pass");
-  Serial.println("[WiFi] Stored credentials cleared");
+  Serial.println("[WiFi] Stored WiFi credentials cleared (device identity kept)");
 }
 
 // Holding the feed button during boot for WIFI_RESET_HOLD_MS requests a
@@ -333,12 +395,13 @@ bool bootButtonResetHeld() {
 
 // ==================== WiFi provisioning portal ====================
 
-// "OptiFeed-XXXX", where XXXX is the last four hex characters of DEVICE_MAC.
+// "OptiFeed-XXXX", where XXXX is the last four hex characters of the active
+// Device ID (the compile-time DEVICE_MAC until the portal stores one).
 String provisioningApSsid() {
   String hex;
-  hex.reserve(strlen(DEVICE_MAC));
-  for (size_t i = 0; i < strlen(DEVICE_MAC); i++) {
-    char c = DEVICE_MAC[i];
+  hex.reserve(provisionedDeviceId.length());
+  for (size_t i = 0; i < provisionedDeviceId.length(); i++) {
+    char c = provisionedDeviceId[i];
     if (isxdigit((unsigned char)c)) hex += (char)toupper((unsigned char)c);
   }
   while (hex.length() < 4) hex = String("0") + hex;
@@ -363,10 +426,15 @@ String htmlEscape(const String &value) {
 }
 
 String buildProvisioningPage(const String &ssid, const String &error) {
+  // Identity values are never rendered back into the form: the stored token
+  // must not be readable by anyone who joins the open setup AP.
+  const bool identityAvailable = !identityValueIsPlaceholder(provisionedDeviceId) &&
+                                 !identityValueIsPlaceholder(provisionedDeviceToken);
+
   String page = F(
     "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
     "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-    "<title>OptiFeed WiFi setup</title><style>"
+    "<title>OptiFeed device setup</title><style>"
     "body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;margin:0;padding:24px;background:#f3f5f7;color:#1b2430}"
     "main{max-width:420px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}"
     "h1{font-size:1.35rem;margin:0 0 8px}p{line-height:1.45}"
@@ -377,8 +445,8 @@ String buildProvisioningPage(const String &ssid, const String &error) {
     "code{background:#eef1f4;padding:2px 6px;border-radius:4px}"
     "footer{margin-top:20px;font-size:.8rem;color:#6b7684}"
     "</style></head><body><main>"
-    "<h1>OptiFeed WiFi setup</h1>"
-    "<p class=\"note\">Connect the feeder to a 2.4 GHz WiFi network. The device restarts after saving and joins automatically.</p>"
+    "<h1>OptiFeed device setup</h1>"
+    "<p class=\"note\">Connect the feeder to a 2.4 GHz WiFi network and enter its device identity. The device restarts after saving and joins automatically.</p>"
     "{{ERROR}}"
     "<form method=\"POST\" action=\"/save\">"
     "<label for=\"ssid\">WiFi name (SSID)</label>"
@@ -386,6 +454,11 @@ String buildProvisioningPage(const String &ssid, const String &error) {
     "<label for=\"pass\">Password</label>"
     "<input id=\"pass\" name=\"pass\" type=\"password\" maxlength=\"63\" autocomplete=\"new-password\">"
     "<p class=\"note\">Leave the password empty for an open network, otherwise use 8-63 characters.</p>"
+    "<label for=\"device_id\">Device ID</label>"
+    "<input id=\"device_id\" name=\"device_id\" type=\"text\" maxlength=\"64\" autocomplete=\"off\" value=\"\" placeholder=\"{{ID_PLACEHOLDER}}\">"
+    "<label for=\"device_token\">Device Token</label>"
+    "<input id=\"device_token\" name=\"device_token\" type=\"password\" maxlength=\"128\" autocomplete=\"new-password\" value=\"\" placeholder=\"{{TOKEN_PLACEHOLDER}}\">"
+    "<p class=\"note\">Find both under Admin &rarr; Devices in the OptiFeed dashboard. Leave them blank to keep the identity already stored on this device.</p>"
     "<button type=\"submit\">Save and restart</button>"
     "</form>"
     "<footer>Setup address: <code>192.168.4.1</code> &middot; AP: {{AP}}</footer>"
@@ -398,10 +471,16 @@ String buildProvisioningPage(const String &ssid, const String &error) {
     errorBlock += F("</p>");
   }
 
-  // AP/ERROR first, SSID last: a user-supplied SSID must never be re-scanned
-  // for another placeholder.
+  const String identityPlaceholder = identityAvailable
+    ? String(F("leave blank to keep existing"))
+    : String(F("required for first-time setup"));
+
+  // AP/ERROR/identity placeholders first, SSID last: a user-supplied SSID must
+  // never be re-scanned for another placeholder.
   page.replace("{{AP}}", htmlEscape(provisioningApName));
   page.replace("{{ERROR}}", errorBlock);
+  page.replace("{{ID_PLACEHOLDER}}", identityPlaceholder);
+  page.replace("{{TOKEN_PLACEHOLDER}}", identityPlaceholder);
   page.replace("{{SSID}}", htmlEscape(ssid));
   return page;
 }
@@ -419,13 +498,17 @@ String buildProvisioningSuccessPage() {
 
 void handleProvisioningRoot() {
   String currentSsid;
-  if (wifiCredentialsProvisioned()) currentSsid = prefs.getString("wifi_ssid", "");
+  if (storedSsidAvailable()) currentSsid = prefs.getString("wifi_ssid", "");
   provisioningServer.send(200, "text/html", buildProvisioningPage(currentSsid, ""));
 }
 
 void handleProvisioningSave() {
   const String ssid = provisioningServer.arg("ssid");
   const String pass = provisioningServer.arg("pass");
+  String deviceId = provisioningServer.arg("device_id");
+  String deviceToken = provisioningServer.arg("device_token");
+  deviceId.trim();
+  deviceToken.trim();
 
   if (ssid.length() < 1 || ssid.length() > 32) {
     provisioningServer.send(400, "text/html",
@@ -438,8 +521,34 @@ void handleProvisioningSave() {
     return;
   }
 
-  saveWiFiCredentials(ssid, pass);   // same NVS keys: wifi_ssid / wifi_pass
-  Serial.println("[PROV] WiFi credentials saved - restarting");
+  // Blank identity fields keep the active identity (NVS, or the compile-time
+  // fallback). This is what lets the WiFi-only reset flow save a new network
+  // without re-typing the Device ID / token.
+  if (deviceId.length() == 0) deviceId = provisionedDeviceId;
+  if (deviceToken.length() == 0) deviceToken = provisionedDeviceToken;
+
+  if (deviceId.length() < 1 || deviceId.length() > 64) {
+    provisioningServer.send(400, "text/html",
+      buildProvisioningPage(ssid, "Device ID must be 1-64 characters."));
+    return;
+  }
+  if (deviceToken.length() < 8 || deviceToken.length() > 128) {
+    provisioningServer.send(400, "text/html",
+      buildProvisioningPage(ssid, "Device Token must be 8-128 characters."));
+    return;
+  }
+  if (identityValueIsPlaceholder(deviceId) || identityValueIsPlaceholder(deviceToken)) {
+    provisioningServer.send(400, "text/html",
+      buildProvisioningPage(ssid,
+        "Device ID and Device Token are required. Find them under Admin - Devices in the dashboard."));
+    return;
+  }
+
+  // Persist WiFi and identity together; a reboot must never land on a partial
+  // configuration that has a new network but the wrong device identity.
+  saveWiFiCredentials(ssid, pass);       // NVS keys: wifi_ssid / wifi_pass
+  saveDeviceIdentity(deviceId, deviceToken);  // NVS keys: device_id / device_token / provisioned
+  Serial.printf("[PROV] Provisioning saved for device %s - restarting\n", deviceId.c_str());
 
   provisioningServer.send(200, "text/html", buildProvisioningSuccessPage());
   provisioningServer.client().flush();
@@ -535,13 +644,16 @@ void setup() {
 
   for (int i = 0; i < EVENT_QUEUE_SIZE; i++) eventQueue[i].used = false;
 
-  // Load stored WiFi credentials from NVS, fallback to defaults
+  // Load stored WiFi credentials + device identity from NVS, fallback to the
+  // compile-time defaults. This must run before any URL, header or AP name is
+  // built from the identity.
   prefs.begin("optifeed", false);
   rebootCount = prefs.getUInt("rebootCount", 0) + 1;
   prefs.putUInt("rebootCount", rebootCount);
   Serial.printf("[INIT] Boot #%lu\n", rebootCount);
+  loadDeviceIdentity();
 
-  // Button held through boot clears WiFi credentials and reopens the portal.
+  // Button held through boot resets WiFi only; the device identity stays.
   bool credentialsResetAtBoot = false;
   if (bootButtonResetHeld()) {
     clearWiFiCredentials();
@@ -569,10 +681,11 @@ void setup() {
   // TLS: verify the server against ROOT_CA (never setInsecure).
   secureClient.setCACert(ROOT_CA);
 
-  // No usable credentials (or a boot reset) -> device-hosted setup portal.
-  // Otherwise use the normal station path, unchanged.
+  // Missing WiFi credentials, missing identity, or a boot reset -> setup
+  // portal. Units with a stored SSID and a usable compile-time identity keep
+  // using the normal station path and never see the portal.
   if (credentialsResetAtBoot || !wifiCredentialsProvisioned()) {
-    Serial.println("[WiFi] No usable stored credentials - starting setup portal");
+    Serial.println("[PROV] Provisioning needed - starting setup portal");
     startProvisioningPortal();
   } else {
     connectWiFi();
@@ -645,6 +758,33 @@ void buildDefaultSchedule() {
   Serial.println("[SCHEDULE] default schedule loaded (06:00, 19:00)");
 }
 
+// ==================== Device-scoped URLs ====================
+
+// Percent-encodes a query-string value. Device IDs are usually a MAC (colons)
+// or a UUID; encoding keeps either form safe inside the URL.
+String urlEncodeValue(const String &value) {
+  static const char *hexDigits = "0123456789ABCDEF";
+  String out;
+  out.reserve(value.length() * 3);
+  for (size_t i = 0; i < value.length(); i++) {
+    const uint8_t c = (uint8_t)value[i];
+    if (isalnum(c) || c == '-' || c == '.' || c == '_' || c == '~') {
+      out += (char)c;
+    } else {
+      out += '%';
+      out += hexDigits[(c >> 4) & 0x0F];
+      out += hexDigits[c & 0x0F];
+    }
+  }
+  return out;
+}
+
+// Appends the active device identity to a base endpoint. Built at runtime so
+// two units running the same binary report under their own Device ID.
+String buildDeviceUrl(const char *baseUrl) {
+  return String(baseUrl) + "?device_id=" + urlEncodeValue(provisionedDeviceId);
+}
+
 // ==================== Safety caps + config validation ====================
 
 // Opens a TLS session with ROOT_CA verification. Logs a clear hint when the
@@ -662,9 +802,9 @@ void reportFeedError(const char* reason, float grams, const char* source) {
   HTTPClient https;
   if (!beginHttps(https, INGEST_URL)) return;
   https.addHeader("Content-Type", "application/json");
-  https.addHeader("X-Device-Token", DEVICE_TOKEN);
+  https.addHeader("X-Device-Token", provisionedDeviceToken);
   StaticJsonDocument<256> doc;
-  doc["device_id"]  = DEVICE_MAC;
+  doc["device_id"]  = provisionedDeviceId;
   doc["event_type"] = "feed_refused";
   doc["event_id"]   = generateEventId();
   doc["grams"]      = grams;
@@ -789,8 +929,9 @@ void handleSchedule() {
 
 void pollDashboardFeedCommand() {
   HTTPClient https;
-  if (!beginHttps(https, FEED_POLL_URL)) return;
-  https.addHeader("X-Device-Token", DEVICE_TOKEN);
+  const String url = buildDeviceUrl(FEED_POLL_URL_BASE);
+  if (!beginHttps(https, url.c_str())) return;
+  https.addHeader("X-Device-Token", provisionedDeviceToken);
   int code = https.GET();
   if (code == 200) {
     StaticJsonDocument<256> doc;
@@ -846,8 +987,9 @@ void pollScheduleCommand() {
   if (WiFi.status() != WL_CONNECTED) return;
 
   HTTPClient https;
-  if (!beginHttps(https, SCHEDULE_SYNC_URL)) return;
-  https.addHeader("X-Device-Token", DEVICE_TOKEN);
+  const String url = buildDeviceUrl(SCHEDULE_SYNC_URL_BASE);
+  if (!beginHttps(https, url.c_str())) return;
+  https.addHeader("X-Device-Token", provisionedDeviceToken);
   int code = https.GET();
   if (code == 200) {
     // Need a larger buffer for schedule data (times, counts, rates)
@@ -922,11 +1064,11 @@ void postScheduleAck(const String &commandId) {
   HTTPClient https;
   if (!beginHttps(https, INGEST_URL)) return;
   https.addHeader("Content-Type", "application/json");
-  https.addHeader("X-Device-Token", DEVICE_TOKEN);
+  https.addHeader("X-Device-Token", provisionedDeviceToken);
 
   String eventId = generateEventId();
   StaticJsonDocument<192> doc;
-  doc["device_id"]   = DEVICE_MAC;
+  doc["device_id"]   = provisionedDeviceId;
   doc["event_type"]  = "schedule_acked";
   doc["event_id"]    = eventId;
   doc["command_id"]  = commandId;
@@ -1024,12 +1166,12 @@ bool postFeedEvent(QueuedEvent &ev) {
   HTTPClient https;
   if (!beginHttps(https, INGEST_URL)) return false;
   https.addHeader("Content-Type", "application/json");
-  https.addHeader("X-Device-Token", DEVICE_TOKEN);
+  https.addHeader("X-Device-Token", provisionedDeviceToken);
 
   // eventId was generated once when this event was enqueued; retries of the
   // same queued event must resend the same id so the server can dedupe.
   StaticJsonDocument<256> doc;
-  doc["device_id"]       = DEVICE_MAC;
+  doc["device_id"]       = provisionedDeviceId;
   doc["event_type"]      = "feed_dispensed";
   doc["event_id"]        = ev.eventId;
   doc["grams"]           = ev.grams;
@@ -1049,11 +1191,11 @@ void sendTelemetry() {
   HTTPClient https;
   if (!beginHttps(https, INGEST_URL)) return;
   https.addHeader("Content-Type", "application/json");
-  https.addHeader("X-Device-Token", DEVICE_TOKEN);
+  https.addHeader("X-Device-Token", provisionedDeviceToken);
 
   String eventId = generateEventId();
   StaticJsonDocument<512> doc;
-  doc["device_id"]         = DEVICE_MAC;
+  doc["device_id"]         = provisionedDeviceId;
   doc["event_type"]        = "heartbeat";
   doc["event_id"]          = eventId;
   doc["timestamp"]         = rtcAvailable ? getRTCiso8601() : "unknown";

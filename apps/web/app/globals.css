@@ -112,8 +112,10 @@
 	--font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Matches the Tailwind md breakpoint (48rem) used by the dashboard layout */
-@media (min-width: 48rem) {
+/* Aligns with the Tailwind lg breakpoint (64rem), where BottomNav hides and the
+   sidebar appears. Switching the anchor at md (48rem) instead left the FAB
+   cluster sitting on top of the bottom nav between 768px and 1023px (GH-93). */
+@media (min-width: 64rem) {
 	:root {
 		--ofd-fab-inset: 24px;
 		--ofd-fab-anchor: 1.5rem;

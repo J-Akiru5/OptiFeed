@@ -1,6 +1,6 @@
 "use server";
 
-import { invalidateProviderConfigCache } from "@/lib/ai-providers/config";
+import { DEFAULT_PROVIDER_ROWS, invalidateProviderConfigCache } from "@/lib/ai-providers/config";
 import { parseReasoningEffort } from "@/lib/ai-providers/reasoning";
 import { getProvider, listProviders } from "@/lib/ai-providers/registry";
 import type { ReasoningEffort } from "@/lib/ai-providers/types";
@@ -55,6 +55,18 @@ function requireReason(reason: string | undefined): string {
 	return trimmed;
 }
 
+/** Prisma P2021 / Postgres 42P01 — the migration hasn't been applied yet. */
+function isMissingTable(error: unknown): boolean {
+	const code = (error as { code?: string }).code;
+	const message = String((error as { message?: string }).message ?? "");
+	return (
+		code === "P2021" ||
+		/does not exist in the current database|relation "?AiProviderConfig"? does not exist/i.test(
+			message,
+		)
+	);
+}
+
 async function actorId(): Promise<string> {
 	const user = await getCurrentUser();
 	if (!user) throw new Error("Not authenticated.");
@@ -88,12 +100,25 @@ async function audit(
 /**
  * The full chain as the console should render it: every registered provider,
  * in priority order, merged with any stored row and its default fallback.
+ *
+ * Tolerates the table being absent, which is the normal state until migration
+ * 20261022000000_add_ai_provider_config is applied: every provider then renders
+ * as "using built-in default" instead of the page failing with a 500.
  */
 export async function listAiProviderConfig(): Promise<AiProviderView[]> {
 	await requirePlatformAdmin();
 
-	const rows = await prisma.aiProviderConfig.findMany({ orderBy: { priority: "asc" } });
+	let rows: Awaited<ReturnType<typeof prisma.aiProviderConfig.findMany>> = [];
+	try {
+		rows = await prisma.aiProviderConfig.findMany({ orderBy: { priority: "asc" } });
+	} catch (error) {
+		console.warn("[superadmin] AiProviderConfig unavailable; rendering built-in defaults:", error);
+	}
+
 	const byProvider = new Map(rows.map((row) => [row.provider, row]));
+	// Mirror the runtime's built-in ordering so the console never displays a
+	// chain order that differs from what lib/ai-providers/config.ts resolves.
+	const defaultPriority = new Map(DEFAULT_PROVIDER_ROWS.map((r) => [r.provider, r.priority]));
 
 	const views = listProviders().map((provider) => {
 		const row = byProvider.get(provider.id);
@@ -104,7 +129,7 @@ export async function listAiProviderConfig(): Promise<AiProviderView[]> {
 			label: provider.label,
 			configured: Boolean(row),
 			enabled: row?.enabled ?? true,
-			priority: row?.priority ?? 100,
+			priority: row?.priority ?? defaultPriority.get(provider.id) ?? 100,
 			model: row?.model?.trim() || provider.defaultModel,
 			apiKeyEnv,
 			apiKeyPresent: Boolean(process.env[apiKeyEnv]?.trim()),
@@ -221,6 +246,12 @@ export async function saveAiProviderConfig(
 		return { success: true };
 	} catch (e) {
 		console.error("[superadmin] saveAiProviderConfig error:", e);
+		if (isMissingTable(e)) {
+			return {
+				error:
+					"The AI provider table does not exist yet. Apply migration 20261022000000_add_ai_provider_config, then try again.",
+			};
+		}
 		return { error: "Failed to save the provider configuration." };
 	}
 }
@@ -265,6 +296,11 @@ export async function resetAiProviderConfig(reason: string): Promise<AiProviderA
 		return { success: true };
 	} catch (e) {
 		console.error("[superadmin] resetAiProviderConfig error:", e);
+		if (isMissingTable(e)) {
+			// Nothing stored to reset — the chain is already on defaults.
+			invalidateProviderConfigCache();
+			return { success: true };
+		}
 		return { error: "Failed to reset the provider configuration." };
 	}
 }

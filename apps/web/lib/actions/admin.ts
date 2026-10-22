@@ -3,12 +3,17 @@
 import { redirect } from "@/i18n/routing";
 import { deleteUserSubtree } from "@/lib/actions/admin-internal";
 import { resolveOrgScope } from "@/lib/auth/org-scope";
-import { requirePermission } from "@/lib/auth/permissions";
+import {
+	type Permission,
+	ROLE_DEFAULTS,
+	isPermission,
+	requirePermission,
+} from "@/lib/auth/permissions";
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { requireRole } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { PondStatus, Prisma, UserRole } from "@prisma/client";
+import type { MemberRole, PondStatus, Prisma, UserRole } from "@prisma/client";
 import { getLocale } from "next-intl/server";
 
 // ─── Tenant scoping ──────────────────────────────────────────────────────────
@@ -157,6 +162,168 @@ export async function getUsers() {
 		orderBy: { createdAt: "desc" },
 		include: { farm: true },
 	});
+}
+
+// ─── Permission Management ───────────────────────────────────────────────────
+//
+// Tenant admins grant or revoke `MembershipPermission` rows for one member at a
+// time. The row is a denial when `revokedAt` is set and a grant when it is null;
+// role defaults still apply underneath (lib/auth/permissions.ts), so "grant" on
+// a permission the role already has is a redundant no-op and "revoke" is a
+// durable denial.
+//
+// Every entry point repeats the same guard chain: ADMIN role, the
+// `manage_members` permission, then the target user must be an active member of
+// an ACTIVE org the caller administers. Permission management cannot be used to
+// reach across tenants or to edit a platform admin.
+
+export type UserPermissionOverride = {
+	permission: Permission;
+	granted: boolean;
+};
+
+export type UserPermissionState = {
+	success: true;
+	role: MemberRole;
+	defaults: Permission[];
+	overrides: UserPermissionOverride[];
+};
+
+export type UserPermissionResult = UserPermissionState | { success: false; error: string };
+
+type ManagedMembership = { id: string; role: MemberRole };
+
+type ManagedMembershipResult =
+	| { success: true; membership: ManagedMembership }
+	| { success: false; error: string };
+
+/**
+ * Resolve the membership a tenant admin is allowed to edit, or a user-facing
+ * error. Scope resolution fails closed, so an account with no OWNER/ADMIN
+ * membership never matches any target.
+ *
+ * A user can have a membership in more than one org in scope; the earliest
+ * membership wins. The product still assumes one active org per user, so this
+ * is a deterministic choice rather than a per-org switcher.
+ */
+async function resolveManagedMembership(userId: string): Promise<ManagedMembershipResult> {
+	const scope = await resolveOrgScope();
+	if (!scope.memberUserIds.includes(userId)) {
+		return { success: false, error: "That user is outside your organization." };
+	}
+	if (await hasPlatformAdminGrant(userId)) {
+		return { success: false, error: PLATFORM_ADMIN_MANAGED_ELSEWHERE };
+	}
+
+	const membership = await prisma.membership.findFirst({
+		where: { userId, revokedAt: null, orgId: { in: scope.orgIds } },
+		orderBy: { createdAt: "asc" },
+		select: { id: true, role: true },
+	});
+	if (!membership) {
+		return { success: false, error: "That user has no active membership in your organization." };
+	}
+
+	return { success: true, membership };
+}
+
+/**
+ * Read the stored state for one membership. Unknown permission names are
+ * filtered out because `isPermission` ignores them during resolution, so the UI
+ * never renders a checkbox that has no effect.
+ */
+async function permissionStateFor(membership: ManagedMembership): Promise<UserPermissionState> {
+	const rows = await prisma.membershipPermission.findMany({
+		where: { membershipId: membership.id },
+		select: { permission: true, revokedAt: true },
+	});
+
+	const overrides: UserPermissionOverride[] = [];
+	for (const row of rows) {
+		if (!isPermission(row.permission)) continue;
+		overrides.push({ permission: row.permission, granted: row.revokedAt === null });
+	}
+
+	return {
+		success: true,
+		role: membership.role,
+		defaults: [...ROLE_DEFAULTS[membership.role]],
+		overrides,
+	};
+}
+
+/**
+ * Permission state for one member, used by the admin users screen when the
+ * permissions dialog opens.
+ */
+export async function getUserPermissionState(userId: string): Promise<UserPermissionResult> {
+	await requireRole("ADMIN");
+	// Outside the try: a `Forbidden` denial must reach the caller rather than be
+	// flattened into a generic load failure.
+	await requirePermission("manage_members");
+
+	const target = await resolveManagedMembership(userId);
+	if (!target.success) return target;
+
+	try {
+		return await permissionStateFor(target.membership);
+	} catch (e) {
+		console.error("[admin] getUserPermissionState error:", e);
+		return { success: false, error: "Failed to load permissions." };
+	}
+}
+
+/**
+ * Grant or revoke one permission for one member.
+ *
+ * `granted: true` clears `revokedAt` on the existing row (or creates an
+ * unrevoked one); `granted: false` stamps `revokedAt`, which is a durable denial
+ * rather than a fallback to the role default. The unique
+ * `(membershipId, permission)` key is what makes the upsert safe.
+ *
+ * Self-lockout guard: a caller may not revoke their own `manage_members`.
+ * Without it the last admin could remove their own management permission and
+ * strand the organization. This is checked server-side, not only in the UI.
+ */
+export async function setUserPermission(
+	userId: string,
+	permission: string,
+	granted: boolean,
+): Promise<UserPermissionResult> {
+	await requireRole("ADMIN");
+	await requirePermission("manage_members");
+
+	if (!isPermission(permission)) {
+		return { success: false, error: "Unknown permission." };
+	}
+
+	const [target, actor] = await Promise.all([resolveManagedMembership(userId), getCurrentUser()]);
+	if (!target.success) return target;
+	if (!actor) return { success: false, error: "Not authenticated." };
+
+	if (actor.id === userId && permission === "manage_members" && !granted) {
+		return {
+			success: false,
+			error: "You cannot remove your own permission to manage members.",
+		};
+	}
+
+	try {
+		await prisma.membershipPermission.upsert({
+			where: { membershipId_permission: { membershipId: target.membership.id, permission } },
+			update: { revokedAt: granted ? null : new Date() },
+			create: {
+				membershipId: target.membership.id,
+				permission,
+				revokedAt: granted ? null : new Date(),
+			},
+		});
+
+		return await permissionStateFor(target.membership);
+	} catch (e) {
+		console.error("[admin] setUserPermission error:", e);
+		return { success: false, error: "Failed to update the permission." };
+	}
 }
 
 // ─── Pond Management ─────────────────────────────────────────────────────────

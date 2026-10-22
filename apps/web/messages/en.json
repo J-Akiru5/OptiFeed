@@ -404,6 +404,37 @@
 			"managedByAdmin": "Profile details are managed by your administrator.",
 			"pinManagedByAdmin": "PIN changes are handled by your administrator."
 		},
+		"adminUsers": {
+			"actionsColumn": "Actions",
+			"permissionsButton": "Permissions",
+			"permissionsTitle": "Permissions for {name}",
+			"permissionsDesc": "Role defaults apply unless a permission is changed here. Changes take effect on the user's next action.",
+			"roleLabel": "Membership role",
+			"roleDefault": "Role default",
+			"granted": "Granted",
+			"revoked": "Revoked",
+			"notGranted": "Not granted",
+			"manageMembersLocked": "You cannot revoke your own ability to manage members.",
+			"loading": "Loading permissions…",
+			"save": "Save changes",
+			"saving": "Saving…",
+			"cancel": "Cancel",
+			"close": "Close",
+			"loadError": "Could not load this user's permissions. Try again.",
+			"saveError": "Could not save the permission changes. Try again.",
+			"saveSuccess": "Permissions updated.",
+			"permission": {
+				"view_dashboard": "View dashboard",
+				"view_reports": "View reports",
+				"manage_members": "Manage members",
+				"manage_farms_ponds": "Manage farms and ponds",
+				"manage_schedule": "Manage schedule",
+				"claim_feeder": "Claim feeder",
+				"control_feeder": "Control feeder",
+				"record_dispatch": "Record dispatch",
+				"view_billing": "View billing"
+			}
+		},
 		"adminDevices": {
 			"deviceIdMac": "Device ID (MAC)",
 			"deviceIdMacHint": "The Device ID the setup portal asks for.",

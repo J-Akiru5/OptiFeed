@@ -24,7 +24,12 @@ cold TLS handshake.
    30–60 s, invalidated on role/profile writes.
 3. Keep `getUser()` only for mutations that change identity.
 **Target:** `auth ≤ 20 ms` p95; no network call on a cached session.
-**Status:** open.
+**Status:** **done (fast path).** `lib/auth/verify-session.ts` now uses `getClaims()` (local JWKS
+verification for asymmetric keys, server fallback for symmetric), backed by a 30 s session cache keyed
+by a hash of the Supabase cookie, and a 60 s `supabaseId → farmId` cache. A cache hit performs no
+Supabase call and no DB lookup (covered by `lib/__tests__/auth-fast-path.test.ts`). The `auth` phase is
+still emitted, so staging can verify the p95; that measurement is the remaining step. Role changes are
+not cached by this path.
 
 ### 2. `getCurrentUser()` is called repeatedly per render and fetches the whole row
 **Rule:** §8.2 rule 1 (no N+1), §7 (no over-fetching).
@@ -34,7 +39,9 @@ cold TLS handshake.
 render can repeat the pair several times.
 **Fix:** wrap `getCurrentUser` in React `cache()` so a render tree performs it once, and add
 `select: { id, farmId, role, displayName, email }`.
-**Status:** open.
+**Status:** partially done — `getCurrentUser` now uses the cached verified session, so the Supabase
+network call is gone on a cache hit. It still performs one indexed `User` lookup per call; per-render
+deduplication is the remaining work.
 
 ### 3. `POST /api/predict-feeding` runs a second wave of queries
 **Rule:** §8.1 (300/400 ms), §8.2 rule 1.
@@ -151,6 +158,7 @@ explicit. Done in `withApi` config for the export routes.
 | `/api/v1/user-role` without a session | `401 UNAUTHENTICATED` envelope, `auth;dur` present, `Sunset` header |
 | `/api/v1/this-route-does-not-exist` | `404 NOT_FOUND` envelope with headers |
 | Legacy `/api/health` | flat body preserved, `queries;desc=1`, `db;dur` visible |
+| Session cache hit | no Supabase call and no DB lookup (`auth-fast-path.test.ts`) |
 | Live suite with no server | coverage `0/2`, exit 1 in **warn** mode |
 
 These numbers are **not** a production baseline: the test database was unreachable, so DB timings show

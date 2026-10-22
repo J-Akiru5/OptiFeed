@@ -3,9 +3,10 @@ import { fail } from "@/lib/api/envelope";
 import { forbidden, unauthorized } from "@/lib/api/errors";
 import { recordPhase } from "@/lib/api/request-context";
 import prisma from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
 import type { NextRequest } from "next/server";
 import { farmIdFromPondEmail } from "./session";
+import { cacheFarm, getCachedFarm } from "./session-cache";
+import { getVerifiedSession } from "./verify-session";
 
 type AuthenticatedHandler = (
 	request: NextRequest,
@@ -28,24 +29,30 @@ type AuthenticatedHandler = (
 export function withAuth(handler: AuthenticatedHandler) {
 	return async (request: NextRequest) => {
 		const startedAt = performance.now();
-		const supabase = await createClient();
-		const {
-			data: { user },
-		} = await supabase.auth.getUser();
+		const session = await getVerifiedSession();
 
-		if (!user?.id || !user?.email) {
+		if (!session) {
 			recordPhase("auth", performance.now() - startedAt);
 			return fail(unauthorized());
 		}
 
 		// Resolve ownerId from the DB row (by Supabase auth id), never from the
 		// email local part alone — a lookalike domain must not act as the farm.
-		const dbUser = await prisma.user.findUnique({
-			where: { supabaseId: user.id },
-			select: { farmId: true },
-		});
-		const emailFarmId = farmIdFromPondEmail(user.email);
-		const ownerId = dbUser && emailFarmId === dbUser.farmId ? dbUser.farmId : null;
+		// The binding is cached for 60 s; a just-provisioned user is not cached
+		// as "missing", so the first login after provisioning is immediate.
+		const emailFarmId = farmIdFromPondEmail(session.email);
+		let binding = getCachedFarm(session.sub);
+
+		if (!binding) {
+			const dbUser = await prisma.user.findUnique({
+				where: { supabaseId: session.sub },
+				select: { farmId: true },
+			});
+			binding = { farmId: dbUser?.farmId ?? null };
+			if (binding.farmId) cacheFarm(session.sub, binding.farmId);
+		}
+
+		const ownerId = binding.farmId && emailFarmId === binding.farmId ? binding.farmId : null;
 
 		// Stop the auth clock before the handler runs: `app` is derived as
 		// total - db - auth, so including handler time here would erase it.
@@ -55,7 +62,7 @@ export function withAuth(handler: AuthenticatedHandler) {
 			return fail(unauthorized());
 		}
 
-		return handler(request, { ownerId, user: { id: user.id, email: user.email } });
+		return handler(request, { ownerId, user: { id: session.sub, email: session.email } });
 	};
 }
 

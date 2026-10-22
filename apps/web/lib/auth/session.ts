@@ -1,6 +1,6 @@
 import { redirect } from "@/i18n/routing";
+import { getVerifiedSession } from "@/lib/auth/verify-session";
 import prisma from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
 import type { UserRole } from "@prisma/client";
 import { getLocale } from "next-intl/server";
 
@@ -56,19 +56,15 @@ export async function getCurrentPondOwnerIdSafe(): Promise<string | null> {
  * (demo-farmer-1@evil.com) can never act as the farm.
  */
 export async function getCurrentUser() {
-	const supabase = await createClient();
-	const {
-		data: { user },
-	} = await supabase.auth.getUser();
-
-	if (!user?.id || !user?.email) return null;
+	const session = await getVerifiedSession();
+	if (!session) return null;
 
 	const dbUser = await prisma.user.findUnique({
-		where: { supabaseId: user.id },
+		where: { supabaseId: session.sub },
 	});
 	if (!dbUser) return null;
 
-	const emailFarmId = farmIdFromPondEmail(user.email);
+	const emailFarmId = farmIdFromPondEmail(session.email);
 	if (!emailFarmId || emailFarmId !== dbUser.farmId) return null;
 
 	return dbUser;

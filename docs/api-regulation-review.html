@@ -211,7 +211,7 @@
 		</div>
 		<div class="kpis">
 			<div class="kpi"><strong>14</strong><span>route files instrumented</span></div>
-			<div class="kpi"><strong>452</strong><span>unit tests passing (47 files)</span></div>
+			<div class="kpi"><strong>463</strong><span>unit tests passing (48 files)</span></div>
 			<div class="kpi"><strong>0</strong><span>static conformance failures</span></div>
 			<div class="kpi"><strong>6</strong><span>endpoints declared for live certification</span></div>
 			<div class="kpi"><strong>22</strong><span>proposed v1.2 amendments</span></div>
@@ -405,7 +405,7 @@ Server-Timing: total;dur=2016.8, db;dur=0,
 			<div class="card">
 				<span class="tag good">Verified</span>
 				<h3>Suites</h3>
-				<p><code>pnpm test</code>: <strong>452 passed / 47 files</strong>. <code>pnpm api:check</code>: <strong>28 checks, 0 failures</strong>. <code>pnpm api:live</code> with no server: <strong>coverage 0/2, exit 1</strong> even in warn mode — the "a run that measures nothing is a failure" rule holds.</p>
+				<p><code>pnpm test</code>: <strong>463 passed / 48 files</strong>. <code>pnpm api:check</code>: <strong>28 checks, 0 failures</strong>. <code>pnpm api:live</code> with no server: <strong>coverage 0/2, exit 1</strong> even in warn mode — the "a run that measures nothing is a failure" rule holds.</p>
 				<p>Typecheck passes; Biome check is clean on all changed files.</p>
 			</div>
 		</div>
@@ -487,8 +487,8 @@ Server-Timing: total;dur=2016.8, db;dur=0,
 			<div class="item" data-p="P0">
 				<div class="p">P0</div>
 				<div>
-					<h3>Make auth cheap</h3>
-					<p><code>withAuth</code> does a network <code>getUser()</code> plus a DB lookup before every handler. Move to local JWT verification + a short-TTL farm cache; target ≤ 20 ms p95.</p>
+					<h3>Make auth cheap — fast path shipped</h3>
+					<p><code>getClaims()</code> now verifies locally for asymmetric keys, with a 30 s session cache and a 60 s farm cache. A cache hit makes no Supabase call and no DB lookup. Staging still needs to publish the <code>auth</code> p95.</p>
 				</div>
 			</div>
 			<div class="item" data-p="P0">

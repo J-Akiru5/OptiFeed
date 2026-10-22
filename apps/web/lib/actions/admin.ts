@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth/permissions";
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { requireRole } from "@/lib/auth/session";
+import { invalidateFarm } from "@/lib/auth/session-cache";
 import prisma from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MemberRole, PondStatus, Prisma, UserRole } from "@prisma/client";
@@ -133,6 +134,10 @@ export async function deleteUser(userId: string): Promise<DeleteUserResult> {
 			await tx.platformAdmin.deleteMany({ where: { userId } });
 			await deleteUserSubtree(tx, userId, user.farmId);
 		});
+
+		// Drop any cached farm binding immediately; otherwise a valid JWT could
+		// keep passing withAuth for the cache TTL after the account is gone.
+		invalidateFarm(user.supabaseId);
 
 		return { success: true };
 	} catch (e) {

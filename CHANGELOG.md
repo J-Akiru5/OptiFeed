@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Browser API client `lib/api-client.ts`: one call path, envelope unwrapping, error mapping, 1 s read timeout, bounded retries for idempotent requests, raw mode for SSE/files.
 - `docs/API_REGULATION_v1.2_PROPOSAL.md` (22 amendments) and `docs/api-regulation-backlog.md` (ranked burn-down with evidence).
 - A read-only `nextjs-supabase-benchmark` subagent and `nextjs-supabase-audit.mjs` harness for auditing other Next.js + Supabase apps.
+- Auth fast path: `auth.getClaims()` verifies the JWT locally when the project uses asymmetric signing keys, with a 30 s verified-session cache and a 60 s `supabaseId → farmId` binding. A cache hit makes no Supabase call and no DB lookup.
 
 ### Changed
 

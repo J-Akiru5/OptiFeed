@@ -113,7 +113,7 @@ export default async function DashboardLayout({
 						</header>
 
 						<DashboardContentShell>
-							<Sidebar hopperLevelPct={hopperLevelPct} />
+							<Sidebar hopperLevelPct={hopperLevelPct} isOffline={esp32Status === "offline"} />
 							<main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 relative z-10">
 								<BackToDashboard />
 								{children}

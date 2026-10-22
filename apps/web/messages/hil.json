@@ -11,7 +11,9 @@
 		"operatorMenu": "Menu sang Operator sang Punong",
 		"hopperLevel": "Lebel sang hopper",
 		"pondFeedPellet": "Pond Feed Pellet",
-		"hopperRemaining": "Mga {kg}kg ang nabilin. Igo para sa {count} ka scheduled feeding."
+		"hopperRemaining": "Mga {kg}kg ang nabilin. Igo para sa {count} ka scheduled feeding.",
+		"deviceOffline": "Wala sa linya",
+		"hopperOffline": "Wala sa linya ang device — wala sang mabasa nga lebel. Ginapakita ang resting state."
 	},
 	"button": {
 		"feedNow": "Pakauna Subong",

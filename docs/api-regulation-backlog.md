@@ -40,9 +40,10 @@ is the remaining step. Role changes are not cached by this path.
 render can repeat the pair several times.
 **Fix:** wrap `getCurrentUser` in React `cache()` so a render tree performs it once, and add
 `select: { id, farmId, role, displayName, email }`.
-**Status:** partially done — `getCurrentUser` now uses the cached verified session, so the Supabase
-network call is gone on a cache hit. It still performs one indexed `User` lookup per call; per-render
-deduplication is the remaining work.
+**Status:** **done.** `getCurrentUser` is wrapped in React `cache()`, so an RSC render tree or server
+action performs the lookup once even when `getCurrentPondOwnerId`, `getCurrentUserRole`, `canWrite` and
+`requireRole` all call it. Outside a React request scope the wrapper is a passthrough (verified against
+React 19); route handlers rely on the session/farm caches instead.
 
 ### 3. `POST /api/predict-feeding` runs a second wave of queries
 **Rule:** §8.1 (300/400 ms), §8.2 rule 1.

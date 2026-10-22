@@ -502,8 +502,8 @@ Server-Timing: total;dur=2016.8, db;dur=0,
 			<div class="item" data-p="P0">
 				<div class="p">P0</div>
 				<div>
-					<h3>Dedupe the session lookup per render</h3>
-					<p><code>getCurrentUser()</code> repeats across server components and actions. Wrap it in React <code>cache()</code> and select only the fields callers use.</p>
+					<h3>Dedupe the session lookup per render — shipped</h3>
+					<p><code>getCurrentUser()</code> is wrapped in React <code>cache()</code>, so a render tree or server action performs one lookup instead of one per call. Route handlers use the session/farm caches.</p>
 				</div>
 			</div>
 			<div class="item" data-p="P0">

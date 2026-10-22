@@ -32,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ETags are computed over `data + cacheable meta`, so `request_id` no longer makes every conditional request miss.
 - The error normaliser reads a clone, so a conformant error body is not consumed before the client sees it.
 - Timeout errors are logged once and carry the specific `504 TIMEOUT` message; passthrough routes return a plain 504 body.
+- The dashboard hopper widget rests at 0% behind an "Offline" badge when the ESP32 stops checking in, instead of freezing on the last reported level (#100).
+- Dashboard cards keep their natural height instead of being stretched to match the tallest card in their row (#95).
+- The Biomass Sample History card hides its secondary columns below `lg`, so a phone no longer needs a horizontal scrollbar to read it (#94).
+- The help and chat floating buttons keep their raised anchor until the bottom navigation is hidden at `lg`, so they no longer sit on top of the nav between 768px and 1023px (#93).
 
 ## [1.11.0] - 2026-10-22
 

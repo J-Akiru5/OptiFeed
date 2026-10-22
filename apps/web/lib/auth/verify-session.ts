@@ -74,7 +74,10 @@ export async function getVerifiedSession(): Promise<VerifiedSession | null> {
 		cacheSession(fingerprint, {
 			sub: data.user.id,
 			email: data.user.email,
-			expMs: Date.now() + 30_000,
+			// `getUser()` does not expose the token's exp, so use a short TTL:
+			// long enough to absorb a request burst, short enough that a cached
+			// entry cannot outlive the access token by much.
+			expMs: Date.now() + 10_000,
 		});
 	}
 	return { sub: data.user.id, email: data.user.email };

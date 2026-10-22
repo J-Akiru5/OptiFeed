@@ -413,7 +413,7 @@
 				"macAddress": "Device MAC",
 				"connected": "Connected — WiFi is already configured on the device.",
 				"apOff": "The OptiFeed setup network is off while the device is connected.",
-				"needsSetup": "Not connected — the device may have no WiFi credentials, or the saved password may be wrong.",
+				"needsSetup": "No recent heartbeat — the device may have no WiFi credentials, or the saved password may be wrong.",
 				"steps": "How to provision",
 				"step1": "On your phone or laptop, join the setup network shown above.",
 				"step2": "Open http://192.168.4.1 in your browser.",

@@ -457,7 +457,7 @@
 				"macAddress": "MAC sang Device",
 				"connected": "Konektado — nakasetup na ang WiFi sa device.",
 				"apOff": "Wala naga-andar ang OptiFeed setup network samtang konektado ang device.",
-				"needsSetup": "Wala konektado — basi wala sing WiFi credentials ang device, ukon sayop ang na-save nga password.",
+				"needsSetup": "Wala naga-report subong — basi wala sing WiFi credentials ang device, ukon sayop ang na-save nga password.",
 				"steps": "Paano i-provision",
 				"step1": "Sa imo phone ukon laptop, mag-join sa setup network nga makita sa ibabaw.",
 				"step2": "Bukas ang http://192.168.4.1 sa imo browser.",

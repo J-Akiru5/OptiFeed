@@ -239,11 +239,12 @@
 			</p>
 			<p>
 				The live §11 suites are implemented but <strong>not yet certified</strong>: this isolated
-				worktree has no Supabase session cookie, and the deliberate absence of a test credential
-				makes coverage fail — which is the correct behaviour, not a pass. What <em>was</em>
-				verified end-to-end against a production build is the pipeline itself: rewrites, envelope
-				normalisation, timeout handling, request-id echo, legacy sunset headers, and the 404
-				contract.
+				worktree has no Supabase session cookie, and the only configured credentials resolve to the
+				same database project ref as production, so running the suite there would violate the
+				no-production-data rule. Deliberately refusing to measure is the correct behaviour, not a
+				pass. What <em>was</em> verified end-to-end against a production build is the pipeline
+				itself: rewrites, envelope normalisation, timeout handling, request-id echo, legacy sunset
+				headers, and the 404 contract.
 			</p>
 		</div>
 
@@ -408,6 +409,11 @@ Server-Timing: total;dur=2016.8, db;dur=0,
 				<p><code>pnpm test</code>: <strong>463 passed / 48 files</strong>. <code>pnpm api:check</code>: <strong>28 checks, 0 failures</strong>. <code>pnpm api:live</code> with no server: <strong>coverage 0/2, exit 1</strong> even in warn mode — the "a run that measures nothing is a failure" rule holds.</p>
 				<p>Typecheck passes; Biome check is clean on all changed files.</p>
 			</div>
+			<div class="card">
+				<span class="tag good">Verified</span>
+				<h3>Auth fast path</h3>
+				<p>The project JWKS advertises <strong>ES256</strong>, so <code>getClaims()</code> verifies locally. A 30 s session cache and a 60 s farm cache make a cache hit perform <strong>no Supabase call and no DB lookup</strong>, asserted by <code>auth-fast-path.test.ts</code>.</p>
+			</div>
 		</div>
 
 		<div class="callout warn" style="margin-top:22px">
@@ -415,7 +421,9 @@ Server-Timing: total;dur=2016.8, db;dur=0,
 			<code>API_TEST_COOKIE</code> or <code>API_TEST_BEARER</code> and a seeded development database.
 			Without them, every session endpoint is skipped and the coverage floor fails by design. The
 			numbers in the timeout card are connection-failure timings, not query cost — do not read them
-			as production performance.</p>
+			as production performance. The only configured credentials resolve to the same database
+			project ref as <code>.env.production.local</code>, so the suite was deliberately not run
+			against it.</p>
 		</div>
 	</div>
 </section>

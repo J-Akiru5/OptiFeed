@@ -1,4 +1,4 @@
-import { aiDebugInfo, isAiEnabled, isAiQuotaError, stableSessionId, streamAi } from "@/lib/ai";
+import { aiDebugInfo, isAiQuotaError, stableSessionId, streamAi } from "@/lib/ai";
 import { withAuth } from "@/lib/auth/with-auth";
 import { buildChatContext } from "@/lib/chat/context";
 import { createNamespaceTranslator, runFallbackIntent } from "@/lib/chat/fallback";
@@ -56,10 +56,11 @@ export const POST = withAuth(async (request, { ownerId }) => {
 				const ctx = await buildChatContext(ownerId);
 				const systemPrompt = buildSystemPrompt(ctx, locale);
 
-				if (isAiEnabled() && history.length > 0) {
-					// First log line on any chat call: which model is requested and
-					// whether a key exists, so a silent fallback is always traceable.
-					console.log("[chat-debug]", aiDebugInfo());
+				const ai = await aiDebugInfo();
+				if (ai.hasKey && history.length > 0) {
+					// First log line on any chat call: the resolved provider chain,
+					// so a silent fallback is always traceable.
+					console.log("[chat-debug]", ai);
 
 					const turns = history
 						.map((m) => ({
@@ -87,12 +88,13 @@ export const POST = withAuth(async (request, { ownerId }) => {
 								return;
 							}
 						} catch (error) {
-							// Always log the real failure (auth/quota/network + model)
+							// Always log the real failure (auth/quota/network + provider)
 							// before falling back — never swallow it silently.
 							console.error(
 								"[chat-debug] ai call failed, falling back:",
 								{
-									model: aiDebugInfo().model,
+									provider: ai.primary,
+									model: ai.model,
 									reason: isAiQuotaError(error) ? "quota" : "error",
 								},
 								error,

@@ -474,3 +474,25 @@ model ImpersonationSession {
   expiresAt   DateTime
   endedAt     DateTime?
 }
+
+/// Platform-global AI provider chain, managed from /superadmin.
+/// Secrets are never stored here: apiKeyEnv names an environment variable that
+/// holds the key, resolved at call time by lib/ai-providers/config.ts.
+model AiProviderConfig {
+  id        String   @id @default(cuid())
+  /// Registry id from lib/ai-providers/registry.ts, e.g. "opencode-go".
+  provider  String   @unique
+  enabled   Boolean  @default(true)
+  /// Lower runs first.
+  priority  Int      @default(100)
+  /// Provider-specific model id; null means the adapter default.
+  model     String?
+  /// Environment variable holding the key; null means the adapter default.
+  apiKeyEnv String?
+  /// Provider-specific extras (e.g. { "reasoningEffort": "high" }).
+  params    Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([priority])
+}

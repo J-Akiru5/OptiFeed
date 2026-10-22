@@ -1,4 +1,4 @@
-import { cachedOk, created, fail, noContent, ok, paginated } from "@/lib/api/envelope";
+import { accepted, cachedOk, created, fail, noContent, ok, paginated } from "@/lib/api/envelope";
 import { ApiError, notFound, validationFailed } from "@/lib/api/errors";
 import { describe, expect, it } from "vitest";
 
@@ -23,6 +23,20 @@ describe("response envelope (§4)", () => {
 
 		expect(response.status).toBe(201);
 		expect(response.headers.get("location")).toBe("/api/v1/payments/p_2");
+	});
+
+	it("uses 202 with a status URL for queued work", async () => {
+		const response = accepted({ id: "job_1", status: "queued" }, "/api/v1/jobs/job_1", {
+			requestId: "req-12345678",
+		});
+
+		expect(response.status).toBe(202);
+		expect(response.headers.get("location")).toBe("/api/v1/jobs/job_1");
+		expect(response.headers.get("cache-control")).toBe("no-store");
+		expect(await json(response)).toEqual({
+			data: { id: "job_1", status: "queued" },
+			meta: { request_id: "req-12345678" },
+		});
 	});
 
 	it("returns 204 with no body", async () => {

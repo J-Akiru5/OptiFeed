@@ -36,6 +36,11 @@
 | `GET /api/v1/schedule-sync` | device token | flat firmware JSON | Exempt | External device contract |
 | `POST /api/v1/ingest` | device token | 204 / plain text | Exempt | External device contract |
 | `GET /api/v1/cron/device-watch` | cron bearer | envelope | L1 | Internal scheduled job |
+| `POST /api/v1/export-jobs` | session | envelope (202) | L1 | Queues CSV/ZIP export; `Location` + status URL |
+| `POST /api/v1/import-jobs` | session (write role) | envelope (202) | L1 | Queues import confirmation |
+| `GET /api/v1/jobs/{id}` | session | envelope | L1 | Owner-scoped job status |
+| `GET /api/v1/jobs/{id}/download` | session | file | L1 | Finished export artifact |
+| `GET /api/v1/cron/jobs` | cron bearer | envelope | L1 | Worker: claims and runs queued jobs |
 | `ANY /api/v1/{fallback}` | none | envelope 404 | L1 | Contract 404 |
 
 ## Exemptions (justify in the PR that changes them)

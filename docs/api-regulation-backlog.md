@@ -78,7 +78,7 @@ L1, not L2.
 - Extract `buildCsvExport`/`buildZipExport`/`buildPdfExport` and `confirmImport` into `lib/jobs/` so
   the sync routes and the worker share one implementation.
 - Purge artifacts and finished jobs after 24 h; store artifacts in object storage in production.
-**Status:** scoped, not implemented.
+**Status:** **done for CSV/ZIP exports and import confirmation.** `BackgroundJob`/`JobArtifact` tables, `POST /api/v1/export-jobs`, `POST /api/v1/import-jobs`, `GET /api/v1/jobs/{id}`, `GET /api/v1/jobs/{id}/download`, and the `GET /api/v1/cron/jobs` worker are live; the dashboard export/import flows poll the job and download the artifact. PDF generation and the synchronous compatibility routes remain; they are documented as deprecated.
 
 ### 5. Database statement timeout is not enforced
 **Rule:** §8.2 rule 6.

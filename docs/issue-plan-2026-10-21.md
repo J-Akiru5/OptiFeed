@@ -146,8 +146,8 @@ not by a rendered pixel diff.
 | #48 integrated into `develop` | Done |
 | #49 implemented | Done (PR #59) |
 | #49 integrated into `develop` | Done |
-| Promoted to `staging` | Done (PR #60, `94297a3`) |
-| Production promotion | **Awaiting Jeff's approval** |
+| Promoted to `staging` | Done (PR #60, `94297a3`); current candidate `6d858d6` (PR #78) |
+| Production promotion | **PR #79 open (bot-authored); awaiting Jeff's approval** |
 
 ---
 
@@ -160,7 +160,7 @@ not by a rendered pixel diff.
 | `main` | `2795bef` | production | last production deployment; no release since 2026-10-14 |
 | `staging` | `94297a3` | 44 commits ahead | content-identical to `develop`; staging deployment `READY` |
 | `develop` | `0940a45` | 40 commits ahead | content-identical to `staging` |
-| `xtra` | `f8de64b` | 5 unique commits | open PR #55, **conflicting**, based on pre-migration `5f82a25` |
+| `xtra` | `f8de64b` | 5 unique commits | PR #55, **conflicting**, based on pre-migration `5f82a25`; closed after #64 reconciled its unique work |
 | `Karl` | `d366ca4` | merged | stale history, no unique commits |
 | `fix/schedule-pause-energy-device` | `124c7dd` | merged | stale history, no unique commits |
 
@@ -208,8 +208,8 @@ Recommended reconciliation (after the production release):
    notifications) separately if it is still wanted.
 5. Keep `xtra` untouched for its author; the replacement PR supersedes #55.
 
-**Status: implemented on `feat/xtra-reconciled` (PR #64).** Deviations from the
-steps above, for review:
+**Status: implemented on `feat/xtra-reconciled` (PR #64).** PR #55 was closed
+after that reconciliation merged. Deviations from the steps above, for review:
 
 - `b999458` and `32e4b74` were not replayed; the merged #58/#59 versions win.
 - The new `predict-feeding` route was converted from manual Supabase auth to
@@ -254,7 +254,7 @@ unless Jeff changes it.
 
 ---
 
-# Post-reconciliation status � 2026-10-22
+# Post-reconciliation status — 2026-10-22 (updated)
 
 ## Database migrations
 
@@ -276,17 +276,19 @@ existed. The migration is additive (`ADD COLUMN` only), so this is safe.
 | Branch | Tip | Notes |
 | --- | --- | --- |
 | `main` | `2795bef` | production, unchanged |
-| `staging` | `9b0ca27` | release candidate; does not include the reconciliation |
-| `develop` | `f73ae89` | reconciliation merged (PR #64) |
-| `xtra` | `f8de64b` | superseded by #64, left for its author |
+| `staging` | `6d858d6` | current release candidate (PR #78); content-identical to `develop` |
+| `develop` | `aa88ef2` | latest integration (PR #77) |
+| `xtra` | `f8de64b` | superseded by #64; PR #55 closed, branch left for its author |
 
 ## Production release
 
-PR #63 is still **blocked on the required review** (a review was requested from
-Karl). No bypass was used and `main` was not pushed.
+PR #79 (`github-actions[bot]`, `staging` → `main`) is open and blocked on
+`REVIEW_REQUIRED`. `quality`, `Firmware` and the Vercel check are green. The bot
+only opens the PR; Jeff reviews and merges. PR #63, the same-account release PR,
+was closed as superseded. No bypass was used and `main` was not pushed.
 
 ## Quality pass (RBAC and polish)
 
-Two read-only audits were started: an RBAC enforcement/UI-gating audit and a
-UI/UX polish audit across dashboard, admin and superadmin screens. Findings and
-fixes from that pass are recorded below as they are completed.
+Merged: RBAC hardening PR #65, settings/nav/dark/empty states PR #66, and the
+locale/dark follow-up PR #67. Findings, deferred items and evidence are in
+`docs/quality-pass-2026-10-22.md`.

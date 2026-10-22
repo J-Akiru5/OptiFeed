@@ -1,6 +1,6 @@
 # OptiFeed — Branch, CI and Deployment Workflow
 
-Last verified: 2026-10-21.
+Last verified: 2026-10-22.
 
 This document is the operational contract for how code reaches staging and
 production. `CONTRIBUTING.md` covers the day-to-day developer workflow; this
@@ -104,9 +104,11 @@ Guarantees:
 - Pull-request runs are cancelled when superseded; integration and deployment
   branch runs always finish so their result is a trustworthy gate.
 
-Not covered by CI (run manually when relevant): Playwright end-to-end specs
-(need a database and a running server), firmware compilation (`firmware/`),
-Vercel project configuration.
+Not covered by the `quality` job (run manually when relevant): Playwright
+end-to-end specs (need a database and a running server) and Vercel project
+configuration. Firmware compilation has its own `Firmware` workflow
+(`.github/workflows/firmware.yml`): it runs on `firmware/**` changes, compiles
+the ESP32 sketch with `arduino-cli`, and never flashes or deploys a device.
 
 Required check context: job name `quality` (displayed as `CI / quality` in the
 pull-request checks list).
@@ -183,7 +185,25 @@ Preconditions:
 Only Jeff merges this PR. The merge triggers the production deployment and, for
 `main` only, `prisma migrate deploy`.
 
-### 5.4 Hotfix
+### 5.4 Release pull request
+
+The `staging` → `main` pull request is opened by
+`.github/workflows/release-pr.yml` on manual `workflow_dispatch`. The workflow
+runs as `github-actions[bot]` with the repository `GITHUB_TOKEN`, creates the PR
+(or exits if one is already open), and does nothing else: it never approves,
+merges, tags or deploys.
+
+Why the bot: GitHub does not allow a pull-request author to approve their own
+PR, and `main` requires one approving review with administrators enforced
+(section 9). A bot-authored PR lets Jeff review and approve a promotion he
+opened without weakening the gate. To let the bot create the PR, the repository
+setting **Allow GitHub Actions to create and approve pull requests** is enabled;
+the approval half of that setting is unused.
+
+The human gate is unchanged: `quality` must pass, the bot cannot approve or
+merge, and only Jeff merges `main`. The current release is PR #79.
+
+### 5.5 Hotfix
 
 Branch from `main`, PR into `main`, Jeff approves and merges, deploy and verify.
 Then open a separate reconciliation PR from that fix branch (or `main`) into
@@ -292,19 +312,23 @@ the human rule stands: only Jeff merges `main`.
 | --- | --- | --- |
 | Default branch is `staging` | Verified on GitHub | API `default_branch = staging`; `ls-remote --symref origin HEAD` → `refs/heads/staging` |
 | `develop` does not deploy | Verified | Merge `527b599` produced no Vercel deployment |
-| `staging` deploys | Verified | Deployment `dpl_FjPcvTakvD84kjR4qo7xCuRxFCMQ` for `de5f5cc`, `READY` |
+| `staging` deploys | Verified | Deployment for `6d858d6` (PR #78) reached `success` in the Vercel `Preview` environment |
 | Staging build skips migrations | Verified | Deployment log: `[migrate] skipped (VERCEL_ENV=preview)` |
 | `main` deploys | Configured and previously observed | Vercel production branch `main`; production deployment for `2795bef` exists |
 | Production approval gate | Configured on GitHub | `main` protection: PR required, 1 approval, `quality`, admins enforced |
 | CI validates PRs into `develop`/`staging`/`main` | Verified | PR #50 `quality` pass; PR #51 `quality` pass |
 | CI validates pushes to `develop`/`staging` | Verified | Runs 39537076187 and 39538117781, both pass |
+| Firmware compiles | Verified | `Firmware` workflow `compile` success on `aa88ef2` and `6d858d6` |
+| Release PR is bot-authored | Verified | PR #79 author `app/github-actions`, `REVIEW_REQUIRED`, `quality` + `Firmware` + Vercel green |
+| `staging` matches `develop` | Verified | `git diff origin/staging origin/develop` empty; `staging@6d858d6`, `develop@aa88ef2` |
+| Database migrations | Verified | `prisma migrate status`: 28/28 applied and schema up to date; production `migrate deploy` is a no-op |
 | `develop`/`staging` protection | Configured on GitHub | PR + `quality`, no force push, no deletion, admins enforced |
 | Staging database | Shared with production **by decision** (section 6) |
-| Production deploy executed | **Not performed** | Requires an authorised promotion by Jeff |
+| Production deploy executed | **Not performed** | `main` is at `2795bef`; release PR #79 awaits Jeff's approval |
 
 ## 11. Manual actions that remain with Jeff
 
-1. Review and merge any promotion into `main`; agents must not do this.
+1. Review and merge release PR #79 into `main`; agents must not do this.
 2. Confirm GitHub plan/permissions for required reviewers, if enforcement of a
    second human approval on `main` is required beyond the current settings.
 3. Revisit the shared staging/production database decision when real customer

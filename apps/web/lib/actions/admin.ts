@@ -3,6 +3,7 @@
 import { redirect } from "@/i18n/routing";
 import { deleteUserSubtree } from "@/lib/actions/admin-internal";
 import { resolveOrgScope } from "@/lib/auth/org-scope";
+import { requirePermission } from "@/lib/auth/permissions";
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { requireRole } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
@@ -62,6 +63,9 @@ export async function updateUser(
 	data: { displayName?: string; role?: UserRole },
 ): Promise<UpdateUserResult> {
 	await requireRole("ADMIN");
+	// Permission gate before the scope read and before the try: `Forbidden`
+	// must reach the caller rather than be flattened into a generic failure.
+	await requirePermission("manage_members");
 	const scope = await resolveOrgScope();
 	if (!scope.memberUserIds.includes(userId)) {
 		return { error: "That user is outside your organization." };
@@ -88,6 +92,7 @@ export type DeleteUserResult = { success: true } | { error: string };
 
 export async function deleteUser(userId: string): Promise<DeleteUserResult> {
 	await requireRole("ADMIN");
+	await requirePermission("manage_members");
 	const [scope, actor] = await Promise.all([resolveOrgScope(), getCurrentUser()]);
 	// Self-deletion would strand the org with no one able to manage it, and
 	// cross-tenant deletion is the leak this scoping exists to prevent.
@@ -154,13 +159,6 @@ export async function getUsers() {
 	});
 }
 
-export async function getUserById(userId: string) {
-	await requireRole("ADMIN");
-	const scope = await resolveOrgScope();
-	if (!scope.memberUserIds.includes(userId)) return null;
-	return prisma.user.findUnique({ where: { id: userId } });
-}
-
 // ─── Pond Management ─────────────────────────────────────────────────────────
 
 export async function getPonds() {
@@ -211,6 +209,7 @@ export async function createPondWithFarmer(data: {
 	scheduleEnd: string;
 }): Promise<CreatePondWithFarmerResult> {
 	await requireRole("ADMIN");
+	await requirePermission("manage_farms_ponds");
 
 	const loginId = data.loginId?.trim().toLowerCase() ?? "";
 	const farmerName = data.farmerName?.trim() ?? "";
@@ -321,6 +320,7 @@ export async function createPond(data: {
 	scheduleEnd: string;
 }): Promise<CreatePondResult> {
 	await requireRole("ADMIN");
+	await requirePermission("manage_farms_ponds");
 	const scope = await resolveOrgScope();
 	if (!scope.farmIds.includes(data.ownerFarmId)) {
 		return { error: "That farm is outside your organization." };
@@ -397,6 +397,49 @@ export async function getDevices() {
 	});
 }
 
+export type RevealDeviceTokenResult =
+	| { success: true; token: string; mac: string; label: string }
+	| { success: false; error: string };
+
+/**
+ * Return one device's provisioning credential to a tenant admin, on demand.
+ *
+ * `getDevices` deliberately omits `token`, so the credential never rides along
+ * in a list response, a cached RSC payload or a page render. This is the only
+ * read path for it: it is ADMIN-only, scoped through the device's pond to the
+ * caller's tenant, and reveals exactly one row per explicit request.
+ *
+ * The token is never logged — not on success, and not in the failure branch,
+ * where the error's message (not the error object) is what gets written.
+ */
+export async function revealDeviceToken(deviceId: string): Promise<RevealDeviceTokenResult> {
+	await requireRole("ADMIN");
+
+	if (typeof deviceId !== "string" || deviceId.trim().length === 0) {
+		return { success: false, error: "A device is required." };
+	}
+
+	const scope = await resolveOrgScope();
+
+	try {
+		const device = await prisma.energyDevice.findFirst({
+			// `in: []` matches nothing, so a caller with no admin membership gets
+			// the same "not found" answer as a device from another tenant.
+			where: { id: deviceId, pondId: { in: scope.pondIds } },
+			select: { token: true, mac: true, label: true },
+		});
+		if (!device) return { success: false, error: "Device not found in your organization." };
+
+		return { success: true, token: device.token, mac: device.mac, label: device.label };
+	} catch (e) {
+		console.error(
+			"[admin] revealDeviceToken error:",
+			e instanceof Error ? e.message : "unknown error",
+		);
+		return { success: false, error: "Failed to load the device token." };
+	}
+}
+
 // ─── Farm Hierarchy ──────────────────────────────────────────────────────────
 
 export type FarmHierarchyNode = {
@@ -423,10 +466,15 @@ export type FarmHierarchyNode = {
  */
 export async function getAllFarmHierarchies(): Promise<FarmHierarchyNode[]> {
 	await requireRole("ADMIN");
-	const scope = await resolveOrgScope();
+	const [scope, platformAdmins] = await Promise.all([resolveOrgScope(), platformAdminUserIds()]);
 
 	const users = await prisma.user.findMany({
-		where: { id: { in: scope.memberUserIds } },
+		where: {
+			id: { in: scope.memberUserIds },
+			// Same exclusion as getUsers/getAdminStats: a platform admin is not a
+			// tenant member and must not appear in the tenant hierarchy.
+			...(platformAdmins.length > 0 ? { NOT: { id: { in: platformAdmins } } } : {}),
+		},
 		orderBy: { createdAt: "asc" },
 		include: {
 			farm: {
@@ -471,10 +519,17 @@ export async function getAllFarmHierarchies(): Promise<FarmHierarchyNode[]> {
 
 export async function getAdminStats() {
 	await requireRole("ADMIN");
-	const scope = await resolveOrgScope();
+	const [scope, platformAdmins] = await Promise.all([resolveOrgScope(), platformAdminUserIds()]);
 
 	const [userCount, pondCount, deviceCount, recentEvents] = await Promise.all([
-		prisma.user.count({ where: { id: { in: scope.memberUserIds } } }),
+		prisma.user.count({
+			where: {
+				id: { in: scope.memberUserIds },
+				// Same exclusion as getUsers: a platform admin is not a tenant
+				// member and must not inflate the tenant's user count.
+				...(platformAdmins.length > 0 ? { NOT: { id: { in: platformAdmins } } } : {}),
+			},
+		}),
 		prisma.pond.count({ where: { id: { in: scope.pondIds } } }),
 		prisma.energyDevice.count({ where: { pondId: { in: scope.pondIds } } }),
 		prisma.deviceStateEvent.findMany({
@@ -520,6 +575,7 @@ export async function updatePondOwner(
 	newOwnerFarmId: string,
 ): Promise<UpdateUserResult> {
 	await requireRole("ADMIN");
+	await requirePermission("manage_farms_ponds");
 	const scope = await resolveOrgScope();
 	if (!scope.pondIds.includes(pondId)) {
 		return { error: "That pond is outside your organization." };
@@ -571,6 +627,7 @@ export async function setPondStatus(
 	status: PondStatus,
 ): Promise<SetPondStatusResult> {
 	await requireRole("ADMIN");
+	await requirePermission("manage_farms_ponds");
 
 	if (status !== "ACTIVE" && status !== "ARCHIVED") {
 		return { error: "Invalid pond status." };

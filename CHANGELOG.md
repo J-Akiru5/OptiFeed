@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docs/API_REGULATION_v1.2_PROPOSAL.md` (22 amendments) and `docs/api-regulation-backlog.md` (ranked burn-down with evidence).
 - A read-only `nextjs-supabase-benchmark` subagent and `nextjs-supabase-audit.mjs` harness for auditing other Next.js + Supabase apps.
 - Auth fast path: `auth.getClaims()` verifies the JWT locally when the project uses asymmetric signing keys, with a 30 s verified-session cache and a 60 s `supabaseId → farmId` binding. A cache hit makes no Supabase call and no DB lookup.
+- Background jobs: `BackgroundJob`/`JobArtifact` tables, `POST /api/v1/export-jobs` and `POST /api/v1/import-jobs` returning `202` + `Location`, owner-scoped status/download endpoints, and a `GET /api/v1/cron/jobs` worker that claims with `FOR UPDATE SKIP LOCKED`. The dashboard export and import flows poll the job and download the artifact; CSV/ZIP/import-confirm no longer run in the request path. `docs/sql/cron-jobs.sql` schedules the worker.
 
 ### Changed
 

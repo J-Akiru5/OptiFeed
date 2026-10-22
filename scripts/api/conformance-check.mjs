@@ -57,7 +57,8 @@ function posix(path) {
 
 function routePathOf(file) {
 	const rel = posix(relative(API_DIR, file)).replace(/\/(route\.tsx?)$/, "");
-	return `/api${rel === "" ? "" : `/${rel}`}`;
+	const templated = rel.replace(/\[([^\]]+)\]/g, "{$1}");
+	return `/api${templated === "" ? "" : `/${templated}`}`;
 }
 
 function unwrapCalls(source, marker) {
@@ -155,9 +156,9 @@ for (const endpoint of [...config.endpoints, ...config.excluded]) {
 	const path = endpoint.path.split("?")[0].replace(/^\/api\/v1/, "/api");
 	declared.add(path);
 	if (path === "/api/v1/{fallback}" || path.includes("{fallback}")) continue;
+	if (path.includes("{")) continue;
 	const file = join(API_DIR, `${path.replace(/^\/api\/?/, "")}`, "route.ts");
-	const normalized = join(API_DIR, path.replace(/^\/api\/?/, ""), "route.ts");
-	if (!existsSync(file) && !existsSync(normalized)) {
+	if (!existsSync(file)) {
 		fail(`endpoints.json: ${endpoint.path} resolves to a route file`);
 	}
 }

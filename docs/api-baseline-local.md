@@ -53,6 +53,24 @@ API_BASE_URL=http://localhost:3100 API_TEST_COOKIE=... pnpm api:live -- --mode w
 - `db` can exceed `total` because the handler issues parallel queries and the instrumentation sums
   per-query durations. This is a known measurement flaw; the v1.2 proposal adds a `db_wall` metric.
 
+## Background jobs flow (local)
+
+Verified against the same local stack:
+
+| Step | Result |
+|---|---|
+| `POST /api/v1/export-jobs` (CSV, feed events) | `202`, `Location: /api/v1/jobs/{id}` |
+| `POST /api/v1/export-jobs` (ZIP, two types) | `202`, `Location` |
+| `POST /api/v1/import-jobs` (2-row biomass CSV) | `202`, `Location` |
+| `GET /api/v1/cron/jobs` (bearer) | claimed 3, succeeded 3, failed 0 |
+| CSV download | 200, `text/csv`, **1 364 713 bytes** |
+| ZIP download | 200, `application/zip`, **PK** magic |
+| Import result | `{ "importedCount": 2 }` |
+
+The worker claim uses `FOR UPDATE SKIP LOCKED`; artifacts expire after 24 h and are purged by the
+worker. PDF generation and the synchronous `/api/export*` / `/api/import/confirm` routes remain for
+compatibility and are marked deprecated in the project contract.
+
 ## What this does and does not prove
 
 **Proves:** the envelope, headers, request-id propagation, query counting, auth fast path, error

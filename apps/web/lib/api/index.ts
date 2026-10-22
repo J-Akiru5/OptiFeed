@@ -20,7 +20,7 @@ export {
 } from "./errors";
 export { ApiError, codeForStatus, toApiError } from "./errors";
 export type { ApiErrorCode } from "./errors";
-export { cachedOk, created, fail, noContent, ok, paginated } from "./envelope";
+export { cachedOk, created, accepted, fail, noContent, ok, paginated } from "./envelope";
 export type { ErrorEnvelope, PageMeta, SuccessEnvelope } from "./envelope";
 export { withApi } from "./instrumentation";
 export type { ApiRouteConfig } from "./instrumentation";

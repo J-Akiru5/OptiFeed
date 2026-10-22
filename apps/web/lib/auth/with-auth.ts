@@ -11,6 +11,7 @@ import { getVerifiedSession } from "./verify-session";
 type AuthenticatedHandler = (
 	request: NextRequest,
 	context: { ownerId: string; user: { id: string; email: string } },
+	routeContext?: unknown,
 ) => Promise<Response> | Response;
 
 /**
@@ -27,7 +28,7 @@ type AuthenticatedHandler = (
  *   export const GET = withApi(withAuth(async (req, { ownerId }) => { ... }));
  */
 export function withAuth(handler: AuthenticatedHandler) {
-	return async (request: NextRequest) => {
+	return async (request: NextRequest, routeContext?: unknown) => {
 		const startedAt = performance.now();
 		const session = await getVerifiedSession();
 
@@ -62,7 +63,11 @@ export function withAuth(handler: AuthenticatedHandler) {
 			return fail(unauthorized());
 		}
 
-		return handler(request, { ownerId, user: { id: session.sub, email: session.email } });
+		return handler(
+			request,
+			{ ownerId, user: { id: session.sub, email: session.email } },
+			routeContext,
+		);
 	};
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { ApiClientError, apiPost } from "@/lib/api-client";
+import { ApiClientError, apiGet, apiPost, rawFetch } from "@/lib/api-client";
 import {
 	EXPORT_LABELS,
 	type ExportableType,
@@ -12,6 +12,35 @@ import { AlertCircle, CheckCircle2, Download, FileText, Upload, X } from "lucide
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+
+const JOB_POLL_MS = 700;
+const JOB_TIMEOUT_MS = 90_000;
+
+interface JobEnvelope {
+	id: string;
+	status: "queued" | "running" | "succeeded" | "failed";
+	result: unknown;
+	error: string | null;
+	download_url: string | null;
+}
+
+async function waitForJob<T>(jobId: string): Promise<{ result: T; downloadUrl: string | null }> {
+	const startedAt = Date.now();
+	while (Date.now() - startedAt < JOB_TIMEOUT_MS) {
+		const job = await apiGet<JobEnvelope>(`/api/v1/jobs/${jobId}`, {
+			timeoutMs: 5_000,
+			retries: 1,
+		});
+		if (job.status === "succeeded") {
+			return { result: job.result as T, downloadUrl: job.download_url };
+		}
+		if (job.status === "failed") {
+			throw new Error(job.error ?? "The job failed.");
+		}
+		await new Promise((resolve) => setTimeout(resolve, JOB_POLL_MS));
+	}
+	throw new Error("Timed out waiting for the job.");
+}
 
 type DataTypeOption = {
 	id: ExportableType;
@@ -54,18 +83,26 @@ export function DataExportButton() {
 
 		setExporting(true);
 		try {
-			if (selectedTypes.size === 1) {
-				const type = Array.from(selectedTypes)[0];
-				const res = await fetch(`/api/export?type=${type}`);
-				if (!res.ok) throw new Error("Export failed");
-				const csv = await res.text();
-				downloadCsv(buildFilename(type), csv);
+			const types = Array.from(selectedTypes);
+			const single = types.length === 1;
+			const job = await apiPost<{ id: string }>(
+				"/api/v1/export-jobs",
+				single ? { kind: "csv", type: types[0] } : { kind: "zip", types },
+				{ timeoutMs: 5_000 },
+			);
+
+			const { downloadUrl } = await waitForJob(job.id);
+			if (!downloadUrl) throw new Error("The export is not ready.");
+
+			const response = await rawFetch(downloadUrl);
+			if (!response.ok) throw new Error("Export download failed.");
+
+			if (single) {
+				const csv = await response.text();
+				downloadCsv(buildFilename(types[0]), csv);
 				toast.success(t("exportSuccess"));
 			} else {
-				const types = Array.from(selectedTypes).join(",");
-				const res = await fetch(`/api/export/batch?types=${types}`);
-				if (!res.ok) throw new Error("Export failed");
-				const blob = await res.blob();
+				const blob = await response.blob();
 				const url = URL.createObjectURL(blob);
 				const link = document.createElement("a");
 				link.href = url;
@@ -76,8 +113,8 @@ export function DataExportButton() {
 			}
 			setOpen(false);
 			setSelectedTypes(new Set());
-		} catch {
-			toast.error(t("exportError"));
+		} catch (error) {
+			toast.error(error instanceof ApiClientError ? error.message : t("exportError"));
 		} finally {
 			setExporting(false);
 		}
@@ -191,20 +228,17 @@ export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 
 		try {
 			const csv = await file.text();
-			const result = await apiPost<{ success: boolean; importedCount: number }>(
-				"/api/import/confirm",
+			const job = await apiPost<{ id: string }>(
+				"/api/v1/import-jobs",
 				{ type, csvData: csv },
-				{ timeoutMs: 40_000 },
+				{ timeoutMs: 10_000 },
 			);
-			if (result.success) {
-				toast.success(t("importSuccess", { count: result.importedCount }));
-				setOpen(false);
-				setFile(null);
-				setPreview(null);
-				setErrors([]);
-			} else {
-				toast.error(t("importError"));
-			}
+			const { result } = await waitForJob<{ importedCount: number }>(job.id);
+			toast.success(t("importSuccess", { count: result.importedCount }));
+			setOpen(false);
+			setFile(null);
+			setPreview(null);
+			setErrors([]);
 		} catch (error) {
 			toast.error(error instanceof ApiClientError ? error.message : t("importError"));
 		} finally {

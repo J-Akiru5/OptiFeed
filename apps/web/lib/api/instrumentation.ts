@@ -23,6 +23,10 @@ export interface ApiRouteConfig {
 	sunset?: string;
 	/** Default cache policy. Handlers may set a stronger one themselves. */
 	cacheControl?: string;
+	/** Slow-log threshold; defaults to 300 ms. Background workers raise it. */
+	slowMs?: number;
+	/** Violation threshold; defaults to 400 ms. Background workers raise it. */
+	violationMs?: number;
 }
 
 const DEFAULT_TIMEOUT_MS = 2_000;
@@ -233,9 +237,12 @@ function finalize(response: Response, metrics: RequestMetrics, config: ApiRouteC
 		request_id: metrics.requestId,
 	};
 
-	if (totalMs > VIOLATION_MS) {
+	const slowMs = config.slowMs ?? SLOW_MS;
+	const violationMs = config.violationMs ?? VIOLATION_MS;
+
+	if (totalMs > violationMs) {
 		console.error("[api] ERROR VIOLATION", logLine);
-	} else if (totalMs > SLOW_MS) {
+	} else if (totalMs > slowMs) {
 		console.warn("[api] WARN SLOW", logLine);
 	}
 

@@ -91,6 +91,26 @@
 		{
 			"path": "/api/v1/cron/device-watch",
 			"reason": "Scheduled job with its own bearer secret; verified by Vercel cron logs."
+		},
+		{
+			"path": "/api/v1/export-jobs",
+			"reason": "Async job creation (POST body); covered by the local job flow and unit tests."
+		},
+		{
+			"path": "/api/v1/import-jobs",
+			"reason": "Async job creation (POST body); covered by the local job flow and unit tests."
+		},
+		{
+			"path": "/api/v1/jobs/{id}",
+			"reason": "Dynamic job status; covered by the local job flow."
+		},
+		{
+			"path": "/api/v1/jobs/{id}/download",
+			"reason": "Artifact download for a completed job; covered by the local job flow."
+		},
+		{
+			"path": "/api/v1/cron/jobs",
+			"reason": "Scheduled worker with its own bearer secret; invoked manually in the local flow."
 		}
 	]
 }

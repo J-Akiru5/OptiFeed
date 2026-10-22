@@ -365,11 +365,23 @@ model LoginLockout {
   farmId         String
   ip             String
   failedAttempts Int       @default(0)
-  lockedUntil    DateTime?
-  lastFailedAt   DateTime?
+  lockedUntil    DateTime? @db.Timestamptz(6)
+  lastFailedAt   DateTime? @db.Timestamptz(6)
 
   @@id([farmId, ip])
   @@map("login_lockout")
+}
+
+/// Fixed-window rate-limit counters. Declared here so the Prisma schema matches
+/// the table created by raw SQL in 20261013010000_add_rate_limiter_and_lockout;
+/// otherwise every migration diff tries to drop it.
+model RateLimitBucket {
+  key         String
+  windowStart DateTime @map("window_start") @db.Timestamptz(6)
+  count       Int      @default(0)
+
+  @@id([key, windowStart])
+  @@map("rate_limit_bucket")
 }
 
 enum OrgType {
@@ -495,4 +507,47 @@ model AiProviderConfig {
   updatedAt DateTime @updatedAt
 
   @@index([priority])
+}
+
+/// Durable queue for work that must not run inside the request path
+/// (bulk CSV/ZIP exports, import confirmation). Claimed with
+/// `FOR UPDATE SKIP LOCKED`, processed by the cron worker.
+model BackgroundJob {
+  id          String    @id @default(cuid())
+  /// Tenant key (User.farmId). Never exposed across farms.
+  ownerId     String
+  /// Supabase user id of the requester, for audit.
+  requestedBy String?
+  /// "export_csv" | "export_zip" | "import_confirm"
+  type        String
+  /// "queued" | "running" | "succeeded" | "failed"
+  status      String    @default("queued")
+  payload     Json
+  result      Json?
+  error       String?
+  attempts    Int       @default(0)
+  lockedAt    DateTime?
+  lockedBy    String?
+  createdAt   DateTime  @default(now())
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  expiresAt   DateTime
+  artifact    JobArtifact?
+
+  @@index([status, createdAt])
+  @@index([ownerId, createdAt])
+  @@index([expiresAt])
+}
+
+/// Generated file for a finished export job. Bytes live in Postgres for now;
+/// production can swap this for object storage without changing the API.
+model JobArtifact {
+  jobId       String        @id
+  filename    String
+  contentType String
+  size        Int
+  data        Bytes
+  createdAt   DateTime      @default(now())
+  expiresAt   DateTime
+  job         BackgroundJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
 }

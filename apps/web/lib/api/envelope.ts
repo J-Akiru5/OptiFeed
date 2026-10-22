@@ -79,6 +79,19 @@ export function created<T>(data: T, location: string, options: RespondOptions = 
 	});
 }
 
+/** 202 Accepted with a status URL — the response for queued background work (§8.2 rule 9). */
+export function accepted<T>(data: T, location: string, options: RespondOptions = {}): Response {
+	return ok(data, {
+		...options,
+		status: 202,
+		headers: {
+			...toHeaderRecord(options.headers),
+			Location: location,
+			"Cache-Control": "no-store",
+		},
+	});
+}
+
 /** 204 No Content — an empty body, never `{}` (§4.1). */
 export function noContent(options: Omit<RespondOptions, "status"> = {}): Response {
 	return new Response(null, {

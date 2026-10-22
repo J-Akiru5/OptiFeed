@@ -165,5 +165,17 @@ explicit. Done in `withApi` config for the export routes.
 | Live suite with no server | coverage `0/2`, exit 1 in **warn** mode |
 
 These numbers are **not** a production baseline: the test database was unreachable, so DB timings show
-connection failure, not query cost. Run `pnpm api:live` against a seeded development environment with a
-session cookie to produce the L2 baseline.
+connection failure, not query cost.
+
+A second run used a real local PostgreSQL 16 database (29 migrations, 10 056 feed events) and a local
+ES256 JWKS fixture that exercises the same `getClaims()` path as production:
+
+| Endpoint | p95 | max | Queries |
+|---|---|---|---|
+| `GET /api/v1/user-role` | **4.4 ms** | 4.6 ms | 1 |
+| `POST /api/v1/predict-feeding` | **18.5 ms** | 233.3 ms (outlier) | 8 |
+
+Coverage was 5/5 contract and 2/2 latency, with zero violations. Full environment, method, and caveats:
+[`docs/api-baseline-local.md`](./api-baseline-local.md). This is **not** a Supabase certification:
+network latency, pooler behaviour, production volume, cross-region latency, cold starts, and L3 load
+capacity still require a non-production Supabase project and the §11.4 load test.

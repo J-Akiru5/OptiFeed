@@ -70,11 +70,10 @@ report();
 // ─── Contract suite (§11.2) ──────────────────────────────────────────────────
 
 async function runContractSuite() {
-	const endpoints = inventory.endpoints.filter((endpoint) => endpoint.contract);
+	const endpoints = selectEndpoints("contract");
 	console.log(`Contract suite — ${endpoints.length} declared endpoint(s)`);
 	let measured = 0;
 	let skipped = 0;
-
 	for (const endpoint of endpoints) {
 		const response = await requestOnce(config, endpoint);
 		const route = `${endpoint.method} ${endpoint.path}`;
@@ -92,6 +91,13 @@ async function runContractSuite() {
 			skipped += 1;
 			console.log(`  SKIP  ${route} — HTTP ${response.status}`);
 			results.rows.push({ suite: "contract", endpoint: route, status: `SKIP ${response.status}` });
+			continue;
+		}
+
+		if (response.status === 429) {
+			skipped += 1;
+			console.log(`  SKIP  ${route} — rate limited (429); not a contract sample`);
+			results.rows.push({ suite: "contract", endpoint: route, status: "SKIP 429" });
 			continue;
 		}
 
@@ -136,14 +142,17 @@ async function runContractSuite() {
 // ─── Latency suite (§11.1) ───────────────────────────────────────────────────
 
 async function runLatencySuite() {
-	const endpoints = inventory.endpoints.filter((endpoint) => endpoint.latency);
+	const endpoints = selectEndpoints("latency");
 	console.log(`\nLatency suite — ${endpoints.length} declared endpoint(s)`);
 	let measured = 0;
 	let skipped = 0;
+	let rateLimitWaits = 0;
 
 	for (const endpoint of endpoints) {
 		const route = `${endpoint.method} ${endpoint.path}`;
-		const first = await requestOnce(config, endpoint);
+		const probe = await requestPaced(endpoint, route);
+		const first = probe.response;
+		rateLimitWaits += probe.waits;
 
 		if (first.status === 0) {
 			skipped += 1;
@@ -157,25 +166,44 @@ async function runLatencySuite() {
 			continue;
 		}
 
+		if (first.status === 429) {
+			skipped += 1;
+			console.log(`  SKIP  ${route} — still rate limited after waiting for a new window`);
+			continue;
+		}
+
 		gate.enforce(first.status < 500, `${route} probe returned < 500`, `HTTP ${first.status}`);
 
 		for (let i = 0; i < config.warmup; i++) {
-			await requestOnce(config, endpoint);
+			await requestPaced(endpoint, route);
 		}
 
 		const timings = [];
 		let last;
 		let serverTiming = {};
 		let environmentFailure = false;
+		let rateLimitFailure = false;
 		for (let i = 0; i < config.samples; i++) {
-			last = await requestOnce(config, endpoint);
+			const paced = await requestPaced(endpoint, route);
+			rateLimitWaits += paced.waits;
+			last = paced.response;
 			if (last.status === 0) {
 				environmentFailure = true;
+				break;
+			}
+			if (last.status === 429) {
+				rateLimitFailure = true;
 				break;
 			}
 			timings.push(last.elapsedMs);
 			gate.enforce(last.status < 500, `${route} sample returned < 500`, `HTTP ${last.status}`);
 			serverTiming = parseServerTiming(last.headers.get("server-timing"));
+		}
+
+		if (rateLimitFailure) {
+			skipped += 1;
+			console.log(`  SKIP  ${route} — rate limit could not be cleared; samples discarded`);
+			continue;
 		}
 
 		if (environmentFailure || timings.length === 0) {
@@ -218,11 +246,46 @@ async function runLatencySuite() {
 		});
 	}
 
-	recordSuite("latency", measured, skipped, endpoints.length);
+	recordSuite("latency", measured, skipped, endpoints.length, { rateLimitWaits });
 }
 
 // ─── Contract assertions beyond the endpoint list (§11.2) ────────────────────
 
+function selectEndpoints(suite) {
+	const ids = config.endpoint
+		? new Set(
+				config.endpoint
+					.split(",")
+					.map((id) => id.trim())
+					.filter(Boolean),
+			)
+		: null;
+	return inventory.endpoints.filter(
+		(endpoint) => endpoint[suite] && (!ids || ids.has(endpoint.id)),
+	);
+}
+
+/**
+ * A 429 is not a latency sample: it is a cheap rejection. Wait for the next
+ * fixed window (this app's limiter is window-based) and retry, up to three
+ * times, before giving up on the endpoint.
+ */
+async function requestPaced(endpoint, route) {
+	let response = await requestOnce(config, endpoint);
+	let waits = 0;
+	while (response.status === 429 && waits < 3) {
+		console.log(`  WAIT  ${route} — rate limited; waiting for the next window`);
+		await waitForNextWindow();
+		response = await requestOnce(config, endpoint);
+		waits += 1;
+	}
+	return { response, waits };
+}
+
+function waitForNextWindow() {
+	const waitMs = 60_000 - (Date.now() % 60_000) + 300;
+	return new Promise((resolve) => setTimeout(resolve, waitMs));
+}
 async function runContractAssertions() {
 	console.log("\nContract assertions");
 	const notFound = await requestOnce(config, {
@@ -266,7 +329,7 @@ function assertInstrumentation(endpoint, route, response) {
 	}
 }
 
-function recordSuite(name, measured, skipped, total) {
+function recordSuite(name, measured, skipped, total, extra = {}) {
 	const ratio = coverage(measured, skipped, total);
 	const covered = ratio >= 0.9;
 	printCoverage(`${name} coverage`, measured, skipped, total);
@@ -291,6 +354,7 @@ function recordSuite(name, measured, skipped, total) {
 		total,
 		coverage: Number(ratio.toFixed(3)),
 		coveragePassed: covered,
+		...extra,
 	};
 }
 

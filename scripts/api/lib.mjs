@@ -59,6 +59,7 @@ export function resolveConfig(args) {
 		mode,
 		baseUrl,
 		suite: String(args.suite ?? "all"),
+		endpoint: args.endpoint ? String(args.endpoint) : null,
 		cookie: args.cookie ?? process.env.API_TEST_COOKIE ?? "",
 		bearer: args.bearer ?? process.env.API_TEST_BEARER ?? "",
 		warmup: toInt(args.warmup, DEFAULT_BUDGETS.warmup),

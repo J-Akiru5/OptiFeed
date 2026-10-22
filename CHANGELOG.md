@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-10-22
+
 ### Added
 
 - Device-hosted WiFi provisioning: the ESP32 exposes `OptiFeed-XXXX` with a setup page at `192.168.4.1`, stores credentials in NVS, and reopens the portal after a 5-second button hold at boot. The hardware settings page now explains this flow instead of showing fake fields.

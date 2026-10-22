@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Device-hosted WiFi provisioning: the ESP32 exposes `OptiFeed-XXXX` with a setup page at `192.168.4.1`, stores credentials in NVS, and reopens the portal after a 5-second button hold at boot. The hardware settings page now explains this flow instead of showing fake fields.
+- Device identity provisioning in the same portal: Device ID (MAC) and Device Token are written to NVS, so one firmware image works for every unit. Admins can reveal a device token on demand from Admin → Devices; it is never included in list responses.
+- `MembershipPermission` enforcement: tenant actions now check the permission table, with role defaults as a compatibility bridge. `control_feeder` is revocable per membership, including for an owner.
 - AI feeding prediction on the Growth page: deterministic baseline refined by the AI provider, explicit "apply" action, and the same ±50% deviation veto as biomass auto-adjust.
 - Growth history page with feed-level, growth and biomass tabs; server-side pagination, date-range filters, search and shareable URLs. The Growth page cards are now compact previews.
 - Biomass log provenance (`source`) with import and seed badges.
@@ -19,8 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - AI provider is now OpenCode Go: `OPENCODE_GO_API_KEY`, `OPENCODE_GO_MODEL` and `OPENCODE_GO_REASONING_EFFORT`. Gemini and OpenRouter variables are retired.
-- Tablets (768–1023 px) now use the bottom navigation instead of having no navigation at all.
+- Tablets (768–1023 px) now use the bottom navigation instead of having no navigation at all; the admin and platform consoles gained a mobile bottom bar too.
 - Profile and hardware settings no longer show fake values or dead buttons; unavailable actions are disabled with an explanation.
+- The Growth page now routes its remaining strings through next-intl (English + Hiligaynon).
 
 ### Fixed
 
@@ -28,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Locale is preserved when navigating notification filters, audit "load more", growth links and history pagination.
 - Empty states for the dashboard's recent feedings and the admin users table; the FCR tile shows "—" instead of claiming an optimal trend when no report exists.
 - Duplicate `acknowledge` key in `hil.json` that failed the lint gate.
+- `/api/health` now returns only `{status}` (200/503) without database error detail.
+- Platform-admin users are excluded from tenant admin counts and hierarchies consistently.
+- Removed the unused `getUserById` action that returned the full user row to tenant admins.
 
 ### Security
 
@@ -37,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Organizations with a non-ACTIVE status no longer grant tenant scope.
 - The last active platform administrator cannot be revoked, and self-revoke is blocked.
 - `/api/export-pdf` now uses `withAuth`.
+- Tenant actions are gated by `MembershipPermission`; a revoked `control_feeder` blocks manual feeds and pause even for an owner.
+- Device tokens are revealed only on demand to an org admin, one device at a time, and are never listed or logged.
 
 ## [1.10.0] - 2026-07-22
 

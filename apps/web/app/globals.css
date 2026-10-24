@@ -182,3 +182,20 @@
 		scroll-behavior: smooth;
 	}
 }
+
+/* Wave edges between landing sections drift sideways; one tile pair per loop. */
+@keyframes wave-drift {
+	to {
+		transform: translateX(-50%);
+	}
+}
+
+.wave-drift {
+	animation: wave-drift 30s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.wave-drift {
+		animation: none;
+	}
+}

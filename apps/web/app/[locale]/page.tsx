@@ -4,6 +4,7 @@ import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { LandingNav } from "@/components/landing/LandingNav";
 import { CountUp, Reveal, RevealItem, RevealList } from "@/components/landing/Reveal";
+import { Wave } from "@/components/landing/Wave";
 import { useRouter } from "@/i18n/routing";
 import { ArrowRight, ChevronDown, ShieldCheck } from "lucide-react";
 import { MotionConfig } from "motion/react";
@@ -11,8 +12,7 @@ import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { useEffect } from "react";
 
-const HERO_IMG =
-	"https://images.unsplash.com/photo-1541441056316-443fff347c40?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1600";
+const HERO_IMG = "/landing/pond-hut.jpg";
 
 const TEAM = [
 	"Jeff Edrick C. Martinez",
@@ -89,8 +89,8 @@ export default function LandingPage() {
 								<Image
 									src={HERO_IMG}
 									alt={t("heroImageAlt")}
-									width={800}
-									height={500}
+									width={1600}
+									height={1200}
 									className="w-full h-64 md:h-[500px] object-cover"
 									priority
 								/>
@@ -103,8 +103,11 @@ export default function LandingPage() {
 				{/* The problem */}
 				<section
 					id="problem"
-					className="bg-white border-y border-gray-200 py-16 md:py-24 px-6 md:px-12 scroll-mt-20"
+					className="relative isolate py-28 md:py-40 px-6 md:px-12 scroll-mt-20"
 				>
+					<div aria-hidden="true" className="absolute inset-0 -z-10 bg-white" />
+					<Wave className="top-0 -translate-y-[calc(100%-1px)] text-white" />
+					<Wave flip variant="b" className="bottom-0 translate-y-[calc(100%-1px)] text-white" />
 					<div className="max-w-6xl mx-auto grid md:grid-cols-[0.9fr_1.1fr] gap-12 md:gap-16">
 						<div>
 							<h2 className="text-3xl md:text-5xl font-black tracking-tight leading-tight text-[#0A3D62]">
@@ -133,8 +136,27 @@ export default function LandingPage() {
 				{/* Offline-first */}
 				<section
 					id="offline"
-					className="bg-gradient-to-br from-[#0A3D62] to-[#12588c] text-white overflow-x-clip py-16 md:py-24 px-6 md:px-12 scroll-mt-20"
+					className="relative isolate text-white overflow-x-clip py-36 md:py-48 px-6 md:px-12 scroll-mt-20"
 				>
+					<div
+						aria-hidden="true"
+						className="absolute inset-0 -z-10 overflow-hidden bg-gradient-to-b from-[#0A3D62] to-[#12588c]"
+					>
+						<Image
+							src="/landing/pond-net.jpg"
+							alt=""
+							fill
+							sizes="100vw"
+							className="object-cover opacity-[0.16] mix-blend-luminosity [mask-image:linear-gradient(to_bottom,transparent,black_28%,black_72%,transparent)]"
+						/>
+					</div>
+					<Wave layered className="top-0 -translate-y-[calc(100%-1px)] text-[#0A3D62]" />
+					<Wave
+						flip
+						layered
+						variant="b"
+						className="bottom-0 translate-y-[calc(100%-1px)] text-[#12588c]"
+					/>
 					<div className="max-w-6xl mx-auto grid md:grid-cols-[0.9fr_1.1fr] gap-12 md:gap-16">
 						<div>
 							<h2 className="text-3xl md:text-5xl font-black tracking-tight leading-tight">
@@ -199,10 +221,10 @@ export default function LandingPage() {
 				</section>
 
 				{/* Study design + scope */}
-				<section
-					id="study"
-					className="bg-white border-y border-gray-200 py-16 md:py-24 px-6 md:px-12 scroll-mt-20"
-				>
+				<section id="study" className="relative isolate py-28 md:py-40 px-6 md:px-12 scroll-mt-20">
+					<div aria-hidden="true" className="absolute inset-0 -z-10 bg-white" />
+					<Wave variant="b" className="top-0 -translate-y-[calc(100%-1px)] text-white" />
+					<Wave flip className="bottom-0 translate-y-[calc(100%-1px)] text-white" />
 					<div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 md:gap-16">
 						<div>
 							<h2 className="text-3xl md:text-4xl font-black tracking-tight text-[#0A3D62]">
@@ -237,6 +259,31 @@ export default function LandingPage() {
 							</RevealList>
 						</div>
 					</div>
+					<figure className="max-w-6xl mx-auto mt-16 md:mt-24">
+						<RevealList className="grid gap-4 sm:grid-cols-3">
+							{(
+								[
+									["/landing/pond-hut.jpg", "photoAlt1"],
+									["/landing/pond-net.jpg", "photoAlt2"],
+									["/landing/pond-channel.jpg", "photoAlt3"],
+								] as const
+							).map(([src, alt]) => (
+								<RevealItem
+									key={src}
+									className="relative aspect-[4/3] overflow-hidden rounded-3xl shadow-lg"
+								>
+									<Image
+										src={src}
+										alt={t(alt)}
+										fill
+										sizes="(min-width: 1152px) 360px, (min-width: 640px) 33vw, 100vw"
+										className="object-cover transition-transform duration-700 hover:scale-105"
+									/>
+								</RevealItem>
+							))}
+						</RevealList>
+						<figcaption className="mt-4 text-xs text-[#3D5568]">{t("photoCaption")}</figcaption>
+					</figure>
 				</section>
 
 				{/* FAQ */}
@@ -261,7 +308,9 @@ export default function LandingPage() {
 				</section>
 
 				{/* Closing CTA */}
-				<section className="bg-white border-t border-gray-200 py-16 px-6 text-center">
+				<section className="relative isolate py-28 md:py-36 px-6 text-center">
+					<div aria-hidden="true" className="absolute inset-0 -z-10 bg-white" />
+					<Wave className="top-0 -translate-y-[calc(100%-1px)] text-white" />
 					<Reveal className="max-w-3xl mx-auto">
 						<h2 className="text-3xl md:text-4xl font-black tracking-tight text-[#0A3D62] mb-4">
 							{t("ctaTitle")}
@@ -280,8 +329,14 @@ export default function LandingPage() {
 				</section>
 
 				{/* Footer */}
-				<footer className="bg-[#0A3D62] text-white text-xs md:text-sm">
-					<div className="max-w-6xl mx-auto grid md:grid-cols-[1.2fr_1fr] gap-10 px-6 py-12">
+				<footer className="relative isolate text-white text-xs md:text-sm">
+					<div aria-hidden="true" className="absolute inset-0 -z-10 bg-[#0A3D62]" />
+					<Wave
+						variant="b"
+						layered
+						className="top-0 -translate-y-[calc(100%-1px)] text-[#0A3D62]"
+					/>
+					<div className="max-w-6xl mx-auto grid md:grid-cols-[1.2fr_1fr] gap-10 px-6 pt-16 pb-12">
 						<div>
 							<h2 className="font-extrabold text-base">{t("teamTitle")}</h2>
 							<p className="mt-2 max-w-md text-blue-100 leading-relaxed">{t("teamDesc")}</p>
@@ -310,6 +365,14 @@ export default function LandingPage() {
 								<span className="text-gray-400">{t("footerSubtitle")}</span>
 							</div>
 							<div className="text-gray-300">{t("footerCopyright")}</div>
+							<a
+								href="https://commons.wikimedia.org/wiki/User:Judgefloro"
+								target="_blank"
+								rel="noopener noreferrer"
+								className="text-gray-400 hover:text-white underline-offset-2 hover:underline"
+							>
+								{t("photoCredit")}
+							</a>
 							<button
 								type="button"
 								onClick={() => router.push("/login")}

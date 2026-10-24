@@ -89,8 +89,16 @@
 			"reason": "Device-token credential; external firmware contract."
 		},
 		{
+			"path": "/api/v1/calendar/events",
+			"reason": "Range-based calendar read; covered by calendar-events tests and the Harvest UI."
+		},
+		{
 			"path": "/api/v1/cron/device-watch",
 			"reason": "Scheduled job with its own bearer secret; verified by Vercel cron logs."
+		},
+		{
+			"path": "/api/v1/cron/crop-watch",
+			"reason": "Daily reminder job with its own bearer secret; covered by crop-reminders tests."
 		},
 		{
 			"path": "/api/v1/export-jobs",

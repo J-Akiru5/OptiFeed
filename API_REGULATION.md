@@ -26,6 +26,7 @@
 | `GET /api/v1/health` | none | flat probe body | L1 | Uptime-monitor contract; exempt from §4 |
 | `GET /api/v1/user-role` | session | envelope | L2 | Private, 60 s cache + ETag |
 | `POST /api/v1/predict-feeding` | session | envelope | L2 | CPU-bound inference |
+| `GET /api/v1/calendar/events` | session | envelope | L1 | Pond calendar range; merged persisted and derived events |
 | `POST /api/v1/import` | session (write role) | envelope | L1 | 15 s guard; backlog: background job |
 | `POST /api/v1/import/confirm` | session (write role) | envelope | L1 | 35 s guard; backlog: background job |
 | `GET /api/v1/export` | session | CSV file | L1 | Envelope applies to errors only |
@@ -36,6 +37,7 @@
 | `GET /api/v1/schedule-sync` | device token | flat firmware JSON | Exempt | External device contract |
 | `POST /api/v1/ingest` | device token | 204 / plain text | Exempt | External device contract |
 | `GET /api/v1/cron/device-watch` | cron bearer | envelope | L1 | Internal scheduled job |
+| `GET /api/v1/cron/crop-watch` | cron bearer | envelope | L1 | Daily harvest/sampling reminder job |
 | `POST /api/v1/export-jobs` | session | envelope (202) | L1 | Queues CSV/ZIP/PDF export; `Location` + status URL |
 | `POST /api/v1/import-jobs` | session (write role) | envelope (202) | L1 | Queues import confirmation |
 | `GET /api/v1/jobs/{id}` | session | envelope | L1 | Owner-scoped job status |

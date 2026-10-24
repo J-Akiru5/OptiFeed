@@ -102,6 +102,7 @@ export const GET = withApi(
 				isFallow: true,
 			},
 			orderBy: { createdAt: "asc" },
+			take: 100,
 		});
 		if (ponds.length === 0) throw notFound("No active pond.");
 
@@ -167,6 +168,7 @@ export const GET = withApi(
 				prisma.cropCycle.findMany({
 					where: { pondId: { in: pondIds }, status: "ACTIVE" },
 					select: { pondId: true, stockingDate: true },
+					take: 100,
 				}),
 			]);
 			const latestByPond = new Map(
@@ -212,6 +214,7 @@ export const GET = withApi(
 				where: { pondId: { in: pondIds } },
 				orderBy: { createdAt: "asc" },
 				select: { id: true, pondId: true, isPaused: true },
+				take: 100,
 			});
 			const firstDeviceByPond = new Map<string, (typeof devices)[number]>();
 			for (const device of devices) {

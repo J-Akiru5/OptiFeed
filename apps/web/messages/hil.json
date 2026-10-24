@@ -476,6 +476,7 @@
 				"truncated": "Sobra ang events sa sini nga range. Pabuhina ang petsa ukon tagoa ang feeding events.",
 				"dateRangeError": "Ang petsa sang ani dapat 30 hasta 365 ka adlaw pagkatapos sang pagbutang.",
 				"rescheduled": "Na-reschedule ang event.",
+				"rescheduleConfirm": "Ibalhin ang petsa sang ani sa sini nga siklo?",
 				"today": "Subong",
 				"month": "Bulan",
 				"week": "Semana",
@@ -505,6 +506,7 @@
 				"close": "Sirado",
 				"pond": "Punong",
 				"date": "Petsa",
+				"markDone": "I-mark nga nahuman",
 				"samplingHint": "Mag-log sang biomass sample para magsaylo ang sunod nga sampling date."
 			},
 			"cycleForm": {

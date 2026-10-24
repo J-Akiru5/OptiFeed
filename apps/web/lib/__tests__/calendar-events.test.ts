@@ -267,6 +267,7 @@ describe("GET /api/calendar/events validation", () => {
 				isFallow: true,
 			},
 			orderBy: { createdAt: "asc" },
+			take: 100,
 		});
 	});
 });

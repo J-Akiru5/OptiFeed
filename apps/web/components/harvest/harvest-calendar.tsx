@@ -5,7 +5,7 @@ import { cancelCropCycle, updateCropCycle } from "@/lib/actions/crop-cycle";
 import { completePondEvent, updatePondEvent } from "@/lib/actions/pond-event";
 import { ApiClientError, apiGet } from "@/lib/api-client";
 import type { CalendarEventDto, CalendarEventType } from "@/lib/crop-cycle/calendar";
-import { CALENDAR_EVENT_TYPES } from "@/lib/crop-cycle/calendar";
+import { CALENDAR_EVENT_TYPES, isCalendarEventType } from "@/lib/crop-cycle/calendar";
 import { FARM_TIME_ZONE, addDays, daysBetween, todayDateOnly } from "@/lib/crop-cycle/dates";
 import { computeCropCycleMetrics } from "@/lib/crop-cycle/metrics";
 import type { CropCycleDto, PondOption } from "@/lib/crop-cycle/types";
@@ -61,24 +61,6 @@ interface HarvestCalendarProps {
 }
 
 const defaultTypes: CalendarEventType[] = ["harvest", "sampling", "manual", "device"];
-
-const MARK_DONE_LABELS: Record<string, string> = {
-	en: "Mark done",
-	hil: "I-mark nga nahuman",
-};
-
-const RESCHEDULE_CONFIRM: Record<string, string> = {
-	en: "Move this cycle's harvest date?",
-	hil: "Ibalhin ang petsa sang ani sa sini nga siklo?",
-};
-
-function markDoneLabel(locale: string): string {
-	return MARK_DONE_LABELS[locale] ?? MARK_DONE_LABELS.en;
-}
-
-function rescheduleConfirm(locale: string): string {
-	return RESCHEDULE_CONFIRM[locale] ?? RESCHEDULE_CONFIRM.en;
-}
 
 /** Format an event start for the detail drawer without timezone drift. */
 function formatEventMoment(event: CalendarEventDto, locale: string): string {
@@ -157,6 +139,7 @@ export function HarvestCalendar({
 	const [details, setDetails] = useState<CalendarEventDto | null>(null);
 	const [isCancelling, startCancel] = useTransition();
 	const [isCompleting, startComplete] = useTransition();
+	const urlHydrated = useRef(false);
 
 	const cycleForPond = useCallback(
 		(pondId: string): CropCycleDto | null =>
@@ -169,6 +152,34 @@ export function HarvestCalendar({
 	const metrics = selectedCycle ? computeCropCycleMetrics(selectedCycle, today) : null;
 	const isFallow = selectedPond?.isFallow ?? initialPondIsFallow;
 	const typesKey = useMemo(() => [...types].sort().join(","), [types]);
+
+	// Restore the pond/all-ponds/event-type selection from the URL once, then
+	// keep the URL in sync without triggering a navigation.
+	useEffect(() => {
+		const params = new URLSearchParams(window.location.search);
+		const pondParam = params.get("pond");
+		if (pondParam === "all") {
+			setAllPonds(true);
+		} else if (pondParam && ponds.some((pond) => pond.id === pondParam)) {
+			setSelectedPondId(pondParam);
+			setAllPonds(false);
+		}
+		const typeParam = params.get("types");
+		if (typeParam) {
+			const parsed = typeParam.split(",").filter(isCalendarEventType);
+			if (parsed.length > 0) setTypes(new Set(parsed));
+		}
+		urlHydrated.current = true;
+	}, [ponds]);
+
+	useEffect(() => {
+		if (!urlHydrated.current) return;
+		const params = new URLSearchParams();
+		params.set("pond", allPonds ? "all" : selectedPondId);
+		params.set("types", typesKey);
+		window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+	}, [allPonds, selectedPondId, typesKey]);
+
 	const detailCycle = details ? cycleForPond(details.pondId) : null;
 	const canEditDetails = Boolean(
 		details?.editable && canManage && (details.kind === "MAINTENANCE" || details.kind === "OTHER"),
@@ -334,7 +345,7 @@ export function HarvestCalendar({
 				toast.error(t("calendar.dateRangeError"));
 				return false;
 			}
-			if (!window.confirm(rescheduleConfirm(locale))) return false;
+			if (!window.confirm(t("calendar.rescheduleConfirm"))) return false;
 			const result = await updateCropCycle(
 				cycle.id,
 				cycleToInput(cycle, {
@@ -899,7 +910,7 @@ export function HarvestCalendar({
 								) : (
 									<Check className="h-4 w-4" />
 								)}
-								{markDoneLabel(locale)}
+								{t("details.markDone")}
 							</button>
 						)}
 						{canEditDetails && (

@@ -476,6 +476,7 @@
 				"truncated": "This range has more events than can be shown. Narrow the dates or hide feeding events.",
 				"dateRangeError": "The harvest date must stay between 30 and 365 days after stocking.",
 				"rescheduled": "Event rescheduled.",
+				"rescheduleConfirm": "Move this cycle's harvest date?",
 				"today": "Today",
 				"month": "Month",
 				"week": "Week",
@@ -505,6 +506,7 @@
 				"close": "Close",
 				"pond": "Pond",
 				"date": "Date",
+				"markDone": "Mark done",
 				"samplingHint": "Log a biomass sample to move the next sampling date forward."
 			},
 			"cycleForm": {

@@ -114,17 +114,22 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 		})
 		.join(" ");
 	const targetY = 110 - ((targetWeight - chartMin) / chartRange) * 100;
+	const initializing = !plan.hasPriorAdjustment;
+	const displayGrams = initializing
+		? plan.recommendedGramsPerFeeding
+		: plan.applicableGramsPerFeeding;
 
 	const apply = () => {
-		if (!canWrite || plan.applicableGramsPerFeeding === null) return;
+		if (!canWrite || displayGrams === null) return;
 		startTransition(async () => {
 			const result = await applyGrowthPlan(pondId, {
-				grams: plan.applicableGramsPerFeeding ?? undefined,
+				grams: displayGrams ?? undefined,
+				initialize: initializing,
 			});
 			if (result.success) {
 				setApplied(true);
 				setConfirming(false);
-				toast.success(t("applied"));
+				toast.success(initializing ? t("initialized") : t("applied"));
 			} else {
 				toast.error(result.error ?? t("applyError"));
 			}
@@ -326,18 +331,21 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 					</div>
 				</div>
 
-				{plan.adjustmentAllowed && plan.applicableGramsPerFeeding !== null ? (
+				{displayGrams !== null && (initializing ? plan.device.feasible : plan.adjustmentAllowed) ? (
 					<div className="rounded-2xl border border-[#E85A2A]/20 bg-[#E85A2A]/5 p-4">
 						<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 							<div>
 								<p className="text-sm font-black text-[#0A3D62] dark:text-blue-200">
-									{t("nextAdjustment")}: {plan.applicableGramsPerFeeding.toFixed(1)} g/meal
+									{initializing ? t("initialFeeding") : t("nextAdjustment")}:{" "}
+									{displayGrams.toFixed(1)} g/meal
 								</p>
 								<p className="text-xs text-gray-600 dark:text-gray-300">
-									{t("adjustmentHint", {
-										pct: plan.maxChangePct * 100,
-										days: 15,
-									})}
+									{initializing
+										? t("initialHint")
+										: t("adjustmentHint", {
+												pct: plan.maxChangePct * 100,
+												days: 15,
+											})}
 								</p>
 							</div>
 							{!confirming && !applied && (
@@ -348,12 +356,15 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 									className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#E85A2A] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#d14e22] disabled:opacity-50"
 								>
 									<Scale className="h-4 w-4" />
-									{t("apply", { grams: plan.applicableGramsPerFeeding.toFixed(1) })}
+									{initializing
+										? t("initializeApply", { grams: displayGrams.toFixed(1) })
+										: t("apply", { grams: displayGrams.toFixed(1) })}
 								</button>
 							)}
 							{applied && (
 								<span className="inline-flex items-center gap-1 text-sm font-bold text-green-600">
-									<CheckCircle2 className="h-4 w-4" /> {t("applied")}
+									<CheckCircle2 className="h-4 w-4" />{" "}
+									{initializing ? t("initialized") : t("applied")}
 								</span>
 							)}
 						</div>
@@ -361,13 +372,15 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 						{confirming && !applied && (
 							<div className="mt-4 rounded-xl border border-[#E85A2A]/20 bg-white p-4 dark:bg-gray-900">
 								<p className="text-sm font-black text-[#0A3D62] dark:text-blue-200">
-									{t("applyTitle")}
+									{initializing ? t("initializeTitle") : t("applyTitle")}
 								</p>
 								<p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
-									{t("applyDesc", {
-										from: plan.currentGramsPerFeeding?.toFixed(1) ?? "—",
-										to: plan.applicableGramsPerFeeding.toFixed(1),
-									})}
+									{initializing
+										? t("initializeDesc", { to: displayGrams.toFixed(1) })
+										: t("applyDesc", {
+												from: plan.currentGramsPerFeeding?.toFixed(1) ?? "—",
+												to: displayGrams.toFixed(1),
+											})}
 								</p>
 								<div className="mt-3 flex gap-2">
 									<button

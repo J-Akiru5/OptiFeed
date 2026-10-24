@@ -81,12 +81,24 @@ export async function loadGrowthPlanForPond(
 	]);
 
 	const currentConfig = await resolveCurrentSchedule(pondId, energyDevice?.id ?? null);
-	const lastAdjustment = energyDevice
-		? await prisma.deviceStateEvent.findFirst({
+	const recentAdjustments = energyDevice
+		? await prisma.deviceStateEvent.findMany({
 				where: { deviceId: energyDevice.id, eventType: "growth_plan_applied" },
 				orderBy: { createdAt: "desc" },
-				select: { createdAt: true },
+				take: 20,
+				select: { createdAt: true, metadata: true },
 			})
+		: [];
+	const lastAdjustment = activeCycle
+		? (recentAdjustments.find((event) => {
+				const metadata = event.metadata;
+				return (
+					metadata !== null &&
+					typeof metadata === "object" &&
+					!Array.isArray(metadata) &&
+					(metadata as Record<string, unknown>).cycleId === activeCycle.id
+				);
+			}) ?? null)
 		: null;
 
 	const profile = parsePondProfile(pond.notificationPrefs);

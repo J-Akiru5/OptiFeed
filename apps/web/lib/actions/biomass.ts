@@ -303,6 +303,7 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 			ownerId,
 			actorId: ownerId,
 			note: "Applied automatically after a biomass sample.",
+			initializeIfFirst: true,
 		});
 		if (planResult.success) {
 			feedResult = {

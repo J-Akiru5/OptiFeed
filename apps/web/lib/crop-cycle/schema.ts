@@ -47,6 +47,12 @@ export const cropCycleInputSchema = z
 		notes: optionalText(1_000),
 	})
 	.superRefine((value, ctx) => {
+		// Field-level date validation already failed; do not call Temporal on
+		// an impossible date (2026-02-30) or it throws instead of returning a
+		// normal Zod failure.
+		if (!isValidDateOnly(value.stockingDate) || !isValidDateOnly(value.targetHarvestDate)) {
+			return;
+		}
 		const today = todayDateOnly();
 		if (daysBetween(value.stockingDate, today) < -7) {
 			ctx.addIssue({
@@ -94,6 +100,7 @@ export const harvestInputSchema = z
 		notes: optionalText(1_000),
 	})
 	.superRefine((value, ctx) => {
+		if (!isValidDateOnly(value.actualHarvestDate)) return;
 		if (daysBetween(value.actualHarvestDate, todayDateOnly()) < 0) {
 			ctx.addIssue({
 				code: "custom",
@@ -115,6 +122,7 @@ export const pondEventInputSchema = z
 		notes: optionalText(1_000),
 	})
 	.superRefine((value, ctx) => {
+		if (!isValidDateOnly(value.startsAt)) return;
 		if (daysBetween(value.startsAt, todayDateOnly()) < -365) {
 			ctx.addIssue({
 				code: "custom",

@@ -150,12 +150,9 @@ describe("cropCycleInputSchema", () => {
 		}
 	});
 
-	// KNOWN BUG (apps/web/lib/crop-cycle/schema.ts:49-73): `superRefine` calls
-	// `daysBetween()` on the raw date strings even when `dateOnlySchema` already
-	// rejected them. `Temporal.PlainDate.from("2026-02-30")` throws, so
-	// `safeParse` throws a RangeError instead of returning `{ success: false }`.
-	// Marked `it.fails` so fixing the bug turns this test red for an update.
-	it.fails("rejects impossible calendar dates without throwing (known bug)", () => {
+	// Regression guard: an impossible date must return a normal Zod failure,
+	// not throw from a superRefine cross-field check.
+	it("rejects impossible calendar dates without throwing", () => {
 		const result = cropCycleInputSchema.safeParse(validCycle({ stockingDate: "2026-02-30" }));
 		expect(result.success).toBe(false);
 		if (result.success) return;
@@ -313,7 +310,7 @@ describe("harvestInputSchema", () => {
 	// KNOWN BUG: `harvestInputSchema.superRefine` (schema.ts:96-104) calls
 	// `daysBetween()` before confirming the date is valid, so `safeParse`
 	// throws a RangeError for an impossible date instead of returning issues.
-	it.fails("rejects an impossible harvest date without throwing (known bug)", () => {
+	it("rejects an impossible harvest date without throwing", () => {
 		const result = harvestInputSchema.safeParse(validHarvest({ actualHarvestDate: "2026-02-30" }));
 		expect(result.success).toBe(false);
 	});
@@ -488,7 +485,7 @@ describe("manual pond event schemas", () => {
 	// KNOWN BUG: the same unguarded `daysBetween()` in
 	// `pondEventInputSchema.superRefine` (schema.ts:117-125) makes `safeParse`
 	// throw on an impossible date instead of returning a validation error.
-	it.fails("rejects an impossible startsAt without throwing (known bug)", () => {
+	it("rejects an impossible startsAt without throwing", () => {
 		const result = pondEventInputSchema.safeParse({
 			pondId: "pond-1",
 			type: "OTHER",

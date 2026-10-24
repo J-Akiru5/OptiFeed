@@ -617,11 +617,7 @@ describe("markCycleHarvested", () => {
 		expect(mocks.tx.notification.create).not.toHaveBeenCalled();
 	});
 
-	// KNOWN BUG (apps/web/lib/actions/crop-cycle.ts:41-50 and 245-247): the
-	// action throws "Harvest date cannot be before the stocking date." but
-	// `safeMessage` does not map that message, so the caller receives the
-	// generic "Could not record the harvest." instead.
-	it.fails("surfaces the descriptive pre-stocking harvest error (known bug)", async () => {
+	it("surfaces the descriptive pre-stocking harvest error", async () => {
 		mocks.tx.cropCycle.findFirst.mockResolvedValue(cycle);
 
 		const result = await markCycleHarvested(harvestInput({ actualHarvestDate: "2025-12-31" }));

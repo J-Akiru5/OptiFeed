@@ -44,6 +44,9 @@ function safeMessage(error: unknown, fallback: string): string {
 		if (error.message === "POND_NOT_FOUND") return "Pond not found.";
 		if (error.message === "CYCLE_NOT_FOUND") return "Grow-out cycle not found.";
 		if (error.message === "CYCLE_NOT_ACTIVE") return "Only an active cycle can be changed.";
+		if (error.message === "Harvest date cannot be before the stocking date.") {
+			return error.message;
+		}
 	}
 	if (isUniqueConstraintError(error)) return CYCLE_EXISTS;
 	return fallback;
@@ -436,4 +439,13 @@ export async function cancelCropCycle(input: CancelCycleInput): Promise<CropCycl
 		console.error("[crop-cycle] cancelCropCycle failed:", error);
 		return { success: false, error: safeMessage(error, "Could not cancel the cycle.") };
 	}
+}
+
+/**
+ * Convenience alias for the post-harvest CTA. Starting the next cycle is the
+ * same operation as starting the first one, including permission, ownership and
+ * one-active-cycle checks.
+ */
+export async function startNextCycle(input: CropCycleInput): Promise<CropCycleActionResult> {
+	return createCropCycle(input);
 }

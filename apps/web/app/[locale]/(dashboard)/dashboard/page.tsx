@@ -31,15 +31,16 @@ import { getTranslations } from "next-intl/server";
 export const revalidate = 0; // Ensure data is always fresh
 
 export default async function DashboardHomePage() {
-	const t = await getTranslations("dashboard.home");
-	const tBtn = await getTranslations("button");
-	const tHist = await getTranslations("dashboard.history");
-	const tGrowth = await getTranslations("dashboard.growth");
-	const tHarvest = await getTranslations("dashboard.harvest.summary");
-	const writeAccess = await canWrite();
-	const tDates = await getTranslations("dates");
-
-	const pond = await getActivePond({ devices: true });
+	const [t, tBtn, tHist, tGrowth, tHarvest, tDates, writeAccess, pond] = await Promise.all([
+		getTranslations("dashboard.home"),
+		getTranslations("button"),
+		getTranslations("dashboard.history"),
+		getTranslations("dashboard.growth"),
+		getTranslations("dashboard.harvest.summary"),
+		getTranslations("dates"),
+		canWrite(),
+		getActivePond({ devices: true }),
+	]);
 
 	if (!pond || !pond.devices.length) {
 		return (
@@ -51,76 +52,74 @@ export default async function DashboardHomePage() {
 
 	const device = pond.devices[0];
 
-	// Fetch ESP32 energy controller (optional — card only renders if present)
-	const energyDevice = await prisma.energyDevice.findFirst({
-		where: { pondId: pond.id },
-		orderBy: { createdAt: "asc" },
-		select: {
-			id: true,
-			mac: true,
-			label: true,
-			rtcOk: true,
-			feederActive: true,
-			isPaused: true,
-			gramsPerFeeding: true,
-			lastSeenAt: true,
-			feedLevelPercent: true,
-			feedLevelUpdatedAt: true,
-			hopperCapacityG: true,
-			waterTempC: true,
-			waterTempOk: true,
-			waterTempUpdatedAt: true,
-		},
-	});
+	// One parallel wave for independent reads. The recent biomass rows are the
+	// source of the latest sample too, so there is no duplicate findFirst.
+	const [energyDevice, recentBiomassLogs, fcrReports, activeCycle] = await Promise.all([
+		prisma.energyDevice.findFirst({
+			where: { pondId: pond.id },
+			orderBy: { createdAt: "asc" },
+			select: {
+				id: true,
+				mac: true,
+				label: true,
+				rtcOk: true,
+				feederActive: true,
+				isPaused: true,
+				gramsPerFeeding: true,
+				lastSeenAt: true,
+				feedLevelPercent: true,
+				feedLevelUpdatedAt: true,
+				hopperCapacityG: true,
+				waterTempC: true,
+				waterTempOk: true,
+				waterTempUpdatedAt: true,
+			},
+		}),
+		prisma.biomassLog.findMany({
+			where: { pondId: pond.id },
+			orderBy: { recordedAt: "desc" },
+			take: 5,
+			include: { fishSamples: { select: { id: true } } },
+		}),
+		prisma.fcrReport.findMany({
+			where: { pondId: pond.id },
+			orderBy: { periodEnd: "asc" },
+			take: 5,
+		}),
+		prisma.cropCycle.findFirst({
+			where: { pondId: pond.id, status: "ACTIVE" },
+			select: {
+				id: true,
+				label: true,
+				stockingDate: true,
+				stockingCount: true,
+				growOutDays: true,
+				targetHarvestDate: true,
+				targetHarvestWeightG: true,
+				expectedSurvivalPct: true,
+			},
+		}),
+	]);
 
-	// Fetch data
-	const latestBiomass = await prisma.biomassLog.findFirst({
-		where: { pondId: pond.id },
-		orderBy: { recordedAt: "desc" },
-	});
+	const latestBiomass = recentBiomassLogs[0] ?? null;
 
-	const recentBiomassLogs = await prisma.biomassLog.findMany({
-		where: { pondId: pond.id },
-		orderBy: { recordedAt: "desc" },
-		take: 5,
-		include: { fishSamples: { select: { id: true } } },
-	});
-
-	// `pond.*` goes stale when a device is paired (saves queue ScheduleCommands);
-	// prefer the newest pending/sent command, then the last applied one.
-	const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice?.id ?? null);
+	// Schedule resolution needs the device id; feeding history needs the same
+	// id, so they share the second wave.
+	const [currentConfig, feedingHistory] = await Promise.all([
+		resolveCurrentSchedule(pond.id, energyDevice?.id ?? null),
+		energyDevice
+			? prisma.feedEvent.findMany({
+					where: { deviceId: energyDevice.id, eventType: "feed_dispensed" },
+					orderBy: { receivedAt: "desc" },
+					take: 5,
+				})
+			: Promise.resolve([]),
+	]);
 
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
 
-	const feedingHistory = energyDevice
-		? await prisma.feedEvent.findMany({
-				where: { deviceId: energyDevice.id, eventType: "feed_dispensed" },
-				orderBy: { receivedAt: "desc" },
-				take: 5,
-			})
-		: [];
-
-	const fcrReports = await prisma.fcrReport.findMany({
-		where: { pondId: pond.id },
-		orderBy: { periodEnd: "asc" },
-		take: 5,
-	});
 	const latestFcr = fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : 0.0;
-
-	const activeCycle = await prisma.cropCycle.findFirst({
-		where: { pondId: pond.id, status: "ACTIVE" },
-		select: {
-			id: true,
-			label: true,
-			stockingDate: true,
-			stockingCount: true,
-			growOutDays: true,
-			targetHarvestDate: true,
-			targetHarvestWeightG: true,
-			expectedSurvivalPct: true,
-		},
-	});
 	const cycleContext = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
 
 	// The advisor is surfaced on the home page so it is not hidden behind the
@@ -208,7 +207,7 @@ export default async function DashboardHomePage() {
 	}
 
 	return (
-		<div className="space-y-6 pb-20 animate-in fade-in duration-500" data-onboard="welcome">
+		<div className="space-y-6 pb-20 animate-in fade-in duration-150" data-onboard="welcome">
 			{criticalAlert && (
 				<section className="sticky top-16 z-20 -mx-4 -mt-4 rounded-none bg-[#C42B3A] px-4 py-3 text-white shadow-lg md:mx-0 md:mt-0 md:rounded-[24px] md:px-5">
 					<div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

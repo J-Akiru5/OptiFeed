@@ -34,28 +34,33 @@ export default async function DashboardLayout({
 	let activePondId = "";
 
 	try {
-		const allPonds = await prisma.pond.findMany({
-			where: { ownerId, status: "ACTIVE" },
-			orderBy: { createdAt: "asc" },
-		});
+		const [allPonds, selectedId] = await Promise.all([
+			prisma.pond.findMany({
+				where: { ownerId, status: "ACTIVE" },
+				orderBy: { createdAt: "asc" },
+			}),
+			getActivePondId(),
+		]);
 
 		ponds = allPonds.map((p) => ({ id: p.id, name: p.name }));
 
-		const selectedId = await getActivePondId();
 		const pond = allPonds.find((p) => p.id === selectedId) ?? allPonds[0];
 
 		if (pond) {
 			pondId = pond.id;
 			activePondId = pond.id;
 			pondName = pond.name;
-			initialUnreadCount = await prisma.notification.count({
-				where: { pondId: pond.id, read: false },
-			});
 
-			const energyDevice = await prisma.energyDevice.findFirst({
-				where: { pondId: pond.id },
-				orderBy: { createdAt: "asc" },
-			});
+			const [unreadCount, energyDevice] = await Promise.all([
+				prisma.notification.count({
+					where: { pondId: pond.id, read: false },
+				}),
+				prisma.energyDevice.findFirst({
+					where: { pondId: pond.id },
+					orderBy: { createdAt: "asc" },
+				}),
+			]);
+			initialUnreadCount = unreadCount;
 
 			if (energyDevice) {
 				hopperLevelPct = energyDevice.feedLevelPercent ?? 0;

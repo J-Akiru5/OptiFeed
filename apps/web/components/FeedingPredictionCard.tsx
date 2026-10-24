@@ -34,7 +34,7 @@ import {
 	Wheat,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 interface FeedingPredictionCardProps {
@@ -117,7 +117,6 @@ export function FeedingPredictionCard({
 	const [nowMs, setNowMs] = useState(() => Date.now());
 	const [isRefreshing, startRefresh] = useTransition();
 	const [isApplying, startApply] = useTransition();
-	const autoRefineStarted = useRef(false);
 
 	const grams = prediction.grams;
 	const current = prediction.currentGrams;
@@ -157,17 +156,9 @@ export function FeedingPredictionCard({
 		[cooldown, isRefreshing, t],
 	);
 
-	// The server renders the deterministic value instantly. Refine it once in
-	// the background so the page never waits on the AI provider.
-	useEffect(() => {
-		if (autoRefineStarted.current) return;
-		autoRefineStarted.current = true;
-		if (initialPrediction.source !== "deterministic" || initialPrediction.grams === null) {
-			return;
-		}
-		refresh(true);
-	}, [initialPrediction.grams, initialPrediction.source, refresh]);
-
+	// The server renders the deterministic value instantly. AI refinement is
+	// explicit (the refresh action) and server-cached for 5 minutes; it must
+	// not fire automatically on every dashboard visit.
 	useEffect(() => {
 		if (prediction.grams !== null) setDraftGrams(prediction.grams);
 	}, [prediction.grams]);

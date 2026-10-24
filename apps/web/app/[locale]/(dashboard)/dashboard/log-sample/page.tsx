@@ -52,7 +52,7 @@ export default async function LogSamplePage() {
 	const batches = summarizeBatches(logRows);
 
 	return (
-		<div className="space-y-6 pb-20 animate-in fade-in duration-500 max-w-4xl">
+		<div className="space-y-6 pb-20 animate-in fade-in duration-150 max-w-4xl">
 			<header className="mb-10">
 				<h1 className="text-3xl font-extrabold tracking-tight text-[var(--ofd-base-deep)]">
 					{t("title")}

@@ -66,7 +66,7 @@ export default async function HistoryPage() {
 	const writeAccess = await canWrite();
 
 	return (
-		<div className="space-y-8 pb-20 animate-in fade-in duration-500">
+		<div className="space-y-8 pb-20 animate-in fade-in duration-150">
 			<header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
 				<div>
 					<h1 className="text-3xl font-extrabold tracking-tight text-[var(--ofd-base-deep)]">

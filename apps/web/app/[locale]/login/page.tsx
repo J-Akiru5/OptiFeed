@@ -4,6 +4,7 @@ import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { useTheme } from "@/components/theme-provider";
 import { usePathname, useRouter } from "@/i18n/routing";
 import { loginWithPin } from "@/lib/actions/auth";
+import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import {
@@ -66,6 +67,7 @@ export default function LoginPage() {
 	// client-side getUser() is safe here — one call, no parallel middleware
 	// invocations — so already-logged-in visitors still land on the dashboard.
 	useEffect(() => {
+		clearDashboardSnapshot();
 		const supabase = createClient();
 		supabase.auth.getUser().then(({ data: { user } }) => {
 			if (user) router.replace("/dashboard");

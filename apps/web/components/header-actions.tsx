@@ -7,6 +7,7 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { PondSelector } from "@/components/pond-selector";
 import { useRouter } from "@/i18n/routing";
+import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
 import { createClient } from "@/lib/supabase/client";
 import { Globe, LogOut, Shield, X } from "lucide-react";
 import { useLocale } from "next-intl";
@@ -54,6 +55,7 @@ export function HeaderActions({
 		setShowProfileMenu(false);
 		clearMessages();
 		clearChatHistory();
+		clearDashboardSnapshot();
 		const supabase = createClient();
 		await supabase.auth.signOut();
 		router.replace("/login");

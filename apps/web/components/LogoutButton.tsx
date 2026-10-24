@@ -3,6 +3,7 @@
 import { clearChatHistory } from "@/components/chat/chat-storage";
 import { useChatWidget } from "@/components/chat/chat-widget-provider";
 import { useRouter } from "@/i18n/routing";
+import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, LogOut } from "lucide-react";
 import { useState } from "react";
@@ -17,6 +18,7 @@ export function LogoutButton() {
 		setIsPending(true);
 		clearMessages();
 		clearChatHistory();
+		clearDashboardSnapshot();
 		await supabase.auth.signOut();
 		// Redirect to home/login page after logout
 		router.replace("/");

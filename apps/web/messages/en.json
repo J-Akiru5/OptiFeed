@@ -1,4 +1,8 @@
 {
+	"pwa": {
+		"offlineTitle": "Offline mode",
+		"offlineBody": "Showing the last known dashboard data. Feed commands are disabled until you reconnect."
+	},
 	"nav": {
 		"dashboard": "Dashboard",
 		"schedule": "Schedule",
@@ -365,6 +369,7 @@
 			"alreadyQueued": "Feed already queued — awaiting device",
 			"awaitingDevice": "Awaiting device…",
 			"offlineWarning": "Device offline — feed requests are rejected while it is offline. Retry once the device reconnects.",
+			"browserOfflineWarning": "You are offline. Reconnect to send a feed command. Scheduled feeding still runs on the device RTC.",
 			"fallowWarning": "This pond is fallow after harvest. Start the next grow-out cycle before feeding.",
 			"hopperLow": "Hopper level is low ({level}%). Consider refilling soon.",
 			"hopperCritical": "Hopper level is critically low ({level}%)! Refill to avoid missed feedings.",

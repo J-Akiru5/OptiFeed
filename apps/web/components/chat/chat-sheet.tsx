@@ -12,7 +12,8 @@ const MAX_SHEET_HEIGHT_RATIO = 0.8;
 // by the drag handle (swipe down) or the header chevron, and repositions itself
 // above the on-screen keyboard via the visualViewport API.
 export function ChatSheet() {
-	const { isOpen, close, messages, isStreaming, send } = useChatWidget();
+	const { isOpen, close, messages, isStreaming, send, executeAction, cancelAction } =
+		useChatWidget();
 
 	const [kbOffset, setKbOffset] = useState(0);
 	const [sheetHeight, setSheetHeight] = useState(0);
@@ -90,6 +91,8 @@ export function ChatSheet() {
 					messages={messages}
 					isStreaming={isStreaming}
 					onSend={send}
+					onExecuteAction={executeAction}
+					onCancelAction={cancelAction}
 					onClose={close}
 					className="flex-1"
 				/>

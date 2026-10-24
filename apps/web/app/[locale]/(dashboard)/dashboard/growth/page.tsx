@@ -1,12 +1,14 @@
 import { DataExportButton, DataImportDialog } from "@/components/DataImportExport";
 import { FcrCalculator } from "@/components/FcrCalculator";
 import { FeedingPredictionCard } from "@/components/FeedingPredictionCard";
+import { GrowthPlanCard } from "@/components/growth/GrowthPlanCard";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
 import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import { loadGrowthPlanForPond } from "@/lib/growth-plan-loader";
 import { getActivePond } from "@/lib/pond-selection";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
@@ -38,40 +40,42 @@ export default async function GrowthPage() {
 
 	// Bound the chart/table payloads: a decade of logs must not be serialized on
 	// every visit. The history page remains the unbounded, paginated view.
-	const [writeAccess, biomassDesc, fcrDesc, energyDevice, activeCycle] = await Promise.all([
-		canWrite(),
-		prisma.biomassLog.findMany({
-			where: { pondId: pond.id },
-			orderBy: { recordedAt: "desc" },
-			take: 60,
-			include: {
-				fishSamples: { select: { id: true, weightGrams: true, lengthCm: true } },
-			},
-		}),
-		prisma.fcrReport.findMany({
-			where: { pondId: pond.id },
-			orderBy: { periodEnd: "desc" },
-			take: 12,
-		}),
-		prisma.energyDevice.findFirst({
-			where: { pondId: pond.id },
-			orderBy: { createdAt: "asc" },
-			select: { id: true, gramsPerFeeding: true, hopperCapacityG: true },
-		}),
-		prisma.cropCycle.findFirst({
-			where: { pondId: pond.id, status: "ACTIVE" },
-			select: {
-				id: true,
-				label: true,
-				stockingDate: true,
-				stockingCount: true,
-				growOutDays: true,
-				targetHarvestDate: true,
-				targetHarvestWeightG: true,
-				expectedSurvivalPct: true,
-			},
-		}),
-	]);
+	const [writeAccess, biomassDesc, fcrDesc, energyDevice, activeCycle, loadedPlan] =
+		await Promise.all([
+			canWrite(),
+			prisma.biomassLog.findMany({
+				where: { pondId: pond.id },
+				orderBy: { recordedAt: "desc" },
+				take: 60,
+				include: {
+					fishSamples: { select: { id: true, weightGrams: true, lengthCm: true } },
+				},
+			}),
+			prisma.fcrReport.findMany({
+				where: { pondId: pond.id },
+				orderBy: { periodEnd: "desc" },
+				take: 12,
+			}),
+			prisma.energyDevice.findFirst({
+				where: { pondId: pond.id },
+				orderBy: { createdAt: "asc" },
+				select: { id: true, gramsPerFeeding: true, hopperCapacityG: true },
+			}),
+			prisma.cropCycle.findFirst({
+				where: { pondId: pond.id, status: "ACTIVE" },
+				select: {
+					id: true,
+					label: true,
+					stockingDate: true,
+					stockingCount: true,
+					growOutDays: true,
+					targetHarvestDate: true,
+					targetHarvestWeightG: true,
+					expectedSurvivalPct: true,
+				},
+			}),
+			loadGrowthPlanForPond(pond.id, { ownerId: pond.ownerId }),
+		]);
 
 	const biomassLogs = biomassDesc.slice().reverse();
 	const fcrReports = fcrDesc.slice().reverse();
@@ -254,6 +258,10 @@ export default async function GrowthPage() {
 						{tHarvest("progress")} <ChevronRight className="h-3.5 w-3.5" />
 					</Link>
 				</div>
+			)}
+
+			{loadedPlan && (
+				<GrowthPlanCard plan={loadedPlan.plan} pondId={pond.id} canWrite={writeAccess} />
 			)}
 
 			{/* AI Feeding Prediction / fallow state */}

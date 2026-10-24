@@ -35,6 +35,11 @@ CURRENT POND DATA:
 - Grow-out day: ${ctx.growOutDay !== null ? `Day ${ctx.growOutDay}` : "No active cycle"}
 - Days to harvest: ${ctx.daysToHarvest !== null ? (ctx.daysToHarvest < 0 ? `${Math.abs(ctx.daysToHarvest)} days overdue` : `${ctx.daysToHarvest} days`) : "No active cycle"}
 - Target harvest: ${ctx.targetHarvestDate ?? "No active cycle"}${ctx.targetHarvestWeightG ? ` at ${ctx.targetHarvestWeightG}g per fish` : ""}
+- Target growth plan: ${
+				ctx.growthPlan && ctx.growthPlan.status !== "noCycle"
+					? `${ctx.growthPlan.currentWeightG?.toFixed(1) ?? "?"}g now vs ${ctx.growthPlan.expectedWeightG?.toFixed(1) ?? "?"}g expected (${ctx.growthPlan.track}); recommended ${ctx.growthPlan.recommendedGramsPerFeeding?.toFixed(1) ?? "?"}g/meal; adjustment ${ctx.growthPlan.adjustmentAllowed ? "available" : `blocked (${ctx.growthPlan.adjustmentBlock}${ctx.growthPlan.nextAdjustmentDate ? `, next ${ctx.growthPlan.nextAdjustmentDate}` : ""})`}; remaining feed ${ctx.growthPlan.feed.remainingFeedKg?.toFixed(1) ?? "?"}kg; density ${ctx.growthPlan.density.fishPerM2 ?? "?"} fish/m2; confidence ${ctx.growthPlan.confidence}.`
+					: "No active target plan"
+			}
 - Current grams per feeding (device): ${ctx.currentGramsPerFeeding !== null ? `${ctx.currentGramsPerFeeding}g` : "No data"}
 - AI predicted grams per feeding: ${ctx.predictedFeedGrams !== null ? `${ctx.predictedFeedGrams}g` : "No prediction available"}${ctx.predictedFeedReasoning ? `\n  Reasoning: ${ctx.predictedFeedReasoning}` : ""}
 - Feedings dispensed today: ${ctx.feedingsToday}

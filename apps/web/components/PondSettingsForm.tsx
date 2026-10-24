@@ -12,6 +12,9 @@ interface PondSettingsFormProps {
 		feedsPerDay: number;
 		sampleIntervalDays: number;
 		population: number | null;
+		areaM2: number | null;
+		averageDepthM: number | null;
+		feedPricePerKg: number | null;
 	};
 	canWrite?: boolean;
 }
@@ -22,6 +25,9 @@ export function PondSettingsForm({ pond, canWrite = true }: PondSettingsFormProp
 	const [feedsPerDay, setFeedsPerDay] = useState(pond.feedsPerDay.toString());
 	const [sampleInterval, setSampleInterval] = useState(pond.sampleIntervalDays.toString());
 	const [population, setPopulation] = useState(pond.population?.toString() ?? "");
+	const [areaM2, setAreaM2] = useState(pond.areaM2?.toString() ?? "");
+	const [averageDepthM, setAverageDepthM] = useState(pond.averageDepthM?.toString() ?? "");
+	const [feedPricePerKg, setFeedPricePerKg] = useState(pond.feedPricePerKg?.toString() ?? "");
 	const [isPending, startTransition] = useTransition();
 	const [success, setSuccess] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -35,12 +41,27 @@ export function PondSettingsForm({ pond, canWrite = true }: PondSettingsFormProp
 		const feeds = Number.parseInt(feedsPerDay, 10);
 		const interval = Number.parseInt(sampleInterval, 10);
 		const pop = population.trim() === "" ? null : Number.parseInt(population, 10);
+		const area = areaM2.trim() === "" ? null : Number.parseFloat(areaM2);
+		const depth = averageDepthM.trim() === "" ? null : Number.parseFloat(averageDepthM);
+		const price = feedPricePerKg.trim() === "" ? null : Number.parseFloat(feedPricePerKg);
 
 		if (Number.isNaN(rate) || Number.isNaN(feeds) || Number.isNaN(interval)) return;
 		if (pop !== null && (Number.isNaN(pop) || pop < 0)) return;
+		if (
+			(area !== null && (Number.isNaN(area) || area <= 0)) ||
+			(depth !== null && (Number.isNaN(depth) || depth <= 0)) ||
+			(price !== null && (Number.isNaN(price) || price < 0))
+		) {
+			setError(t("invalidPondProfile"));
+			return;
+		}
 
 		startTransition(async () => {
-			const result = await updatePondSettings(pond.id, rate, feeds, interval, pop);
+			const result = await updatePondSettings(pond.id, rate, feeds, interval, pop, {
+				areaM2: area,
+				averageDepthM: depth,
+				feedPricePerKg: price,
+			});
 			if (result.success) {
 				setSuccess(true);
 				setTimeout(() => setSuccess(false), 3000);
@@ -49,6 +70,16 @@ export function PondSettingsForm({ pond, canWrite = true }: PondSettingsFormProp
 			}
 		});
 	};
+
+	const populationNumber = Number.parseInt(population, 10);
+	const areaNumber = Number.parseFloat(areaM2);
+	const density =
+		Number.isFinite(populationNumber) &&
+		populationNumber > 0 &&
+		Number.isFinite(areaNumber) &&
+		areaNumber > 0
+			? populationNumber / areaNumber
+			: null;
 
 	return (
 		<form
@@ -126,6 +157,66 @@ export function PondSettingsForm({ pond, canWrite = true }: PondSettingsFormProp
 					/>
 					<p className="text-xs text-gray-500">
 						Number of fish — used for total biomass and daily feed
+					</p>
+				</div>
+
+				<div className="flex flex-col gap-2">
+					<label htmlFor="areaM2" className="text-sm font-medium text-gray-700">
+						{t("areaLabel")}
+					</label>
+					<input
+						id="areaM2"
+						type="number"
+						min="0"
+						step="0.1"
+						value={areaM2}
+						onChange={(e) => setAreaM2(e.target.value)}
+						placeholder="e.g. 500"
+						className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+					/>
+					<p className="text-xs text-gray-500">{t("areaDesc")}</p>
+				</div>
+
+				<div className="flex flex-col gap-2">
+					<label htmlFor="averageDepthM" className="text-sm font-medium text-gray-700">
+						{t("depthLabel")}
+					</label>
+					<input
+						id="averageDepthM"
+						type="number"
+						min="0"
+						step="0.1"
+						value={averageDepthM}
+						onChange={(e) => setAverageDepthM(e.target.value)}
+						placeholder="e.g. 1.5"
+						className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+					/>
+					<p className="text-xs text-gray-500">{t("depthDesc")}</p>
+				</div>
+
+				<div className="flex flex-col gap-2">
+					<label htmlFor="feedPricePerKg" className="text-sm font-medium text-gray-700">
+						{t("feedPriceLabel")}
+					</label>
+					<input
+						id="feedPricePerKg"
+						type="number"
+						min="0"
+						step="0.01"
+						value={feedPricePerKg}
+						onChange={(e) => setFeedPricePerKg(e.target.value)}
+						placeholder="e.g. 30"
+						className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+					/>
+					<p className="text-xs text-gray-500">{t("feedPriceDesc")}</p>
+				</div>
+
+				<div className="flex flex-col gap-2">
+					<p className="text-sm font-medium text-gray-700">{t("densityLabel")}</p>
+					<p className="rounded-lg bg-[#F4F7F6] px-4 py-2 text-sm font-bold text-[var(--ofd-base-deep)]">
+						{density !== null
+							? t("densityValue", { density: density.toFixed(1) })
+							: t("densityNoArea")}
 					</p>
 				</div>
 			</div>

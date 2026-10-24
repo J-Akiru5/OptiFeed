@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth/session";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { serialiseCycle } from "@/lib/crop-cycle/serialise";
 import type { PondOption } from "@/lib/crop-cycle/types";
+import { parsePondProfile } from "@/lib/pond-profile";
 import prisma from "@/lib/prisma";
 import { CalendarDays } from "lucide-react";
 
@@ -37,7 +38,13 @@ export default async function AdminCalendarPage() {
 			? await prisma.pond.findMany({
 					where: { id: { in: scope.pondIds }, status: "ACTIVE" },
 					orderBy: { createdAt: "asc" },
-					select: { id: true, name: true, isFallow: true, population: true },
+					select: {
+						id: true,
+						name: true,
+						isFallow: true,
+						population: true,
+						notificationPrefs: true,
+					},
 				})
 			: [];
 
@@ -68,12 +75,17 @@ export default async function AdminCalendarPage() {
 		);
 	}
 
-	const pondOptions: PondOption[] = ponds.map((pond) => ({
-		id: pond.id,
-		name: pond.name,
-		isFallow: pond.isFallow,
-		population: pond.population,
-	}));
+	const pondOptions: PondOption[] = ponds.map((pond) => {
+		const profile = parsePondProfile(pond.notificationPrefs);
+		return {
+			id: pond.id,
+			name: pond.name,
+			isFallow: pond.isFallow,
+			population: pond.population,
+			areaM2: profile.areaM2,
+			averageDepthM: profile.averageDepthM,
+		};
+	});
 	const serialised = cycles.map(serialiseCycle);
 	const activeCycles = serialised.filter((cycle) => cycle.status === "ACTIVE");
 	const activeCycle = activeCycles.find((cycle) => cycle.pondId === ponds[0].id) ?? null;

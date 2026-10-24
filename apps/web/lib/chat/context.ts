@@ -2,6 +2,8 @@ import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { totalBiomassG } from "@/lib/feed-calc";
+import type { GrowthPlan } from "@/lib/growth-plan";
+import { loadGrowthPlanForPond } from "@/lib/growth-plan-loader";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
@@ -35,6 +37,7 @@ export interface ChatContext {
 	daysToHarvest: number | null;
 	targetHarvestDate: string | null;
 	targetHarvestWeightG: number | null;
+	growthPlan: GrowthPlan | null;
 }
 
 // Builds the live pond context used for the AI prompt. `pond.*` goes stale when
@@ -131,6 +134,8 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 		cycle: cycleContext,
 	});
 
+	const loadedPlan = await loadGrowthPlanForPond(pond.id, { ownerId });
+
 	return {
 		pondName: pond.name
 			.replace(/[\r\n]+/g, " ")
@@ -163,5 +168,6 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 		daysToHarvest: cycleContext?.daysToHarvest ?? null,
 		targetHarvestDate: cycleContext?.targetHarvestDate ?? null,
 		targetHarvestWeightG: cycleContext?.targetHarvestWeightG ?? null,
+		growthPlan: loadedPlan?.plan ?? null,
 	};
 }

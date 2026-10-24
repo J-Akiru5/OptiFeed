@@ -77,6 +77,10 @@
 			"reason": "SSE stream; pre-stream errors are covered by unit tests."
 		},
 		{
+			"path": "/api/v1/chat/agent",
+			"reason": "Action planner returns validated JSON previews; requires a configured AI provider plus a pond/cycle, covered by unit tests and the assistant flow."
+		},
+		{
 			"path": "/api/v1/feed-command",
 			"reason": "Device-token credential; external firmware contract."
 		},

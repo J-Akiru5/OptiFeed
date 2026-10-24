@@ -266,6 +266,10 @@ export function LogSampleForm({
 				text: "Device schedule unchanged — set the pond fish population so biomass can be computed.",
 				cls: "border-amber-200 bg-amber-50 text-amber-700",
 			},
+			skipped_target_plan: {
+				text: "Sample saved. The target growth plan is not due for another adjustment — open Growth to review the next date.",
+				cls: "border-blue-200 bg-blue-50 text-blue-700",
+			},
 		};
 		const status = statusInfo[feedResult.status];
 

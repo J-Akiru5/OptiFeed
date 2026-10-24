@@ -1,5 +1,7 @@
+import { BiomassLogActions } from "@/components/growth/BiomassLogActions";
 import { Pagination } from "@/components/ui/pagination";
 import { Link } from "@/i18n/routing";
+import { canWrite } from "@/lib/auth/session";
 import { getBatchLogPage, parseBatchFilter } from "@/lib/batch-logs";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { getPageCount, parsePage, parsePageSize } from "@/lib/pagination";
@@ -21,12 +23,13 @@ function first(value: string | string[] | undefined): string | undefined {
 }
 
 export default async function BatchLogsPage({ searchParams }: BatchLogsPageProps) {
-	const [t, tDates, tSch, tPagination, pond] = await Promise.all([
+	const [t, tDates, tSch, tPagination, pond, writeAccess] = await Promise.all([
 		getTranslations("dashboard.logSample"),
 		getTranslations("dates"),
 		getTranslations("dashboard.schedule"),
 		getTranslations("dashboard.growth.history.pagination"),
 		getActivePond(),
+		canWrite(),
 	]);
 
 	if (!pond) {
@@ -167,6 +170,7 @@ export default async function BatchLogsPage({ searchParams }: BatchLogsPageProps
 										<th className="px-4 py-3 text-right">{t("batchEntryLength")}</th>
 										<th className="px-4 py-3 text-right">{t("batchEntryTotalWeight")}</th>
 										<th className="px-4 py-3 text-right">{t("batchEntrySource")}</th>
+										<th className="px-4 py-3 text-right">{t("batchEntryActions")}</th>
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
@@ -191,10 +195,23 @@ export default async function BatchLogsPage({ searchParams }: BatchLogsPageProps
 														? entry.source.charAt(0).toUpperCase() + entry.source.slice(1)
 														: "—"}
 												</td>
+												<td className="px-2 py-2">
+													<BiomassLogActions
+														canWrite={writeAccess}
+														log={{
+															id: entry.id,
+															recordedAt: entry.recordedAt.toISOString(),
+															sampleCount: entry.sampleCount,
+															sampleWeightKg: entry.sampleWeightKg,
+															sampleLengthCm: entry.sampleLengthCm,
+															batchLabel: filter.kind === "unlabeled" ? null : filter.label,
+														}}
+													/>
+												</td>
 											</tr>
 											{entry.fishSamples.length > 0 && (
 												<tr className="bg-gray-50/60 dark:bg-gray-800/30">
-													<td colSpan={6} className="px-4 pb-4 pt-0">
+													<td colSpan={7} className="px-4 pb-4 pt-0">
 														<details className="group">
 															<summary className="inline-flex cursor-pointer list-none items-center gap-1.5 py-2 text-xs font-bold text-[var(--ofd-base)] hover:underline">
 																<ChevronRight className="h-3.5 w-3.5 transition group-open:rotate-90" />

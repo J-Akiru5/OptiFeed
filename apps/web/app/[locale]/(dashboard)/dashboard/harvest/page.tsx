@@ -3,6 +3,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { serialiseCycle } from "@/lib/crop-cycle/serialise";
 import type { PondOption } from "@/lib/crop-cycle/types";
+import { parsePondProfile } from "@/lib/pond-profile";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { CalendarDays } from "lucide-react";
@@ -28,7 +29,13 @@ export default async function HarvestPage() {
 		prisma.pond.findMany({
 			where: { ownerId: pond.ownerId, status: "ACTIVE" },
 			orderBy: { createdAt: "asc" },
-			select: { id: true, name: true, isFallow: true, population: true },
+			select: {
+				id: true,
+				name: true,
+				isFallow: true,
+				population: true,
+				notificationPrefs: true,
+			},
 		}),
 		prisma.cropCycle.findMany({
 			where: { pond: { ownerId: pond.ownerId } },
@@ -55,12 +62,17 @@ export default async function HarvestPage() {
 		}),
 	]);
 
-	const pondOptions: PondOption[] = ponds.map((item) => ({
-		id: item.id,
-		name: item.name,
-		isFallow: item.isFallow,
-		population: item.population,
-	}));
+	const pondOptions: PondOption[] = ponds.map((item) => {
+		const profile = parsePondProfile(item.notificationPrefs);
+		return {
+			id: item.id,
+			name: item.name,
+			isFallow: item.isFallow,
+			population: item.population,
+			areaM2: profile.areaM2,
+			averageDepthM: profile.averageDepthM,
+		};
+	});
 	const serialised = cycles.map(serialiseCycle);
 	const activeCycles = serialised.filter((cycle) => cycle.status === "ACTIVE");
 	const activeCycle = activeCycles.find((cycle) => cycle.pondId === pond.id) ?? null;

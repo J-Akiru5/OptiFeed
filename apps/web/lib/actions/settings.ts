@@ -3,6 +3,7 @@
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
 import { formatZodError, notificationPrefsSchema, pondSettingsSchema } from "@/lib/limits";
+import { type PondProfileInput, mergePondProfile, pondProfileSchema } from "@/lib/pond-profile";
 import prisma from "@/lib/prisma";
 import type { InputJsonValue } from "@prisma/client/runtime/library";
 import { revalidatePath } from "next/cache";
@@ -28,16 +29,28 @@ export async function updateNotificationPrefs(
 		const ownerId = await getCurrentPondOwnerId();
 		const pond = await prisma.pond.findFirst({
 			where: { id: pondId, ownerId },
-			select: { id: true },
+			select: { id: true, notificationPrefs: true },
 		});
 
 		if (!pond) {
 			return { success: false, error: "Pond not found" };
 		}
 
+		// Keep the pond profile bridge intact when notification prefs are saved.
+		const existing =
+			pond.notificationPrefs &&
+			typeof pond.notificationPrefs === "object" &&
+			!Array.isArray(pond.notificationPrefs)
+				? (pond.notificationPrefs as Record<string, unknown>)
+				: {};
+		const nextPrefs = {
+			...parsed.data,
+			...(existing.profile !== undefined ? { profile: existing.profile } : {}),
+		};
+
 		await prisma.pond.update({
 			where: { id: pondId },
-			data: { notificationPrefs: parsed.data as unknown as InputJsonValue },
+			data: { notificationPrefs: nextPrefs as unknown as InputJsonValue },
 		});
 
 		revalidatePath("/[locale]/(dashboard)/dashboard/settings/profile", "page");
@@ -54,6 +67,7 @@ export async function updatePondSettings(
 	feedsPerDay: number,
 	sampleIntervalDays?: number,
 	population?: number | null,
+	profile?: PondProfileInput,
 ) {
 	try {
 		await requireWriteAccess();
@@ -62,6 +76,15 @@ export async function updatePondSettings(
 			return { success: false, error: formatZodError(parsed.error) };
 		}
 		const input = parsed.data;
+
+		let parsedProfile: PondProfileInput | null = null;
+		if (profile !== undefined) {
+			const profileResult = pondProfileSchema.safeParse(profile);
+			if (!profileResult.success) {
+				return { success: false, error: formatZodError(profileResult.error) };
+			}
+			parsedProfile = profileResult.data;
+		}
 
 		const ownerId = await getCurrentPondOwnerId();
 		const pond = await prisma.pond.findFirst({
@@ -82,6 +105,7 @@ export async function updatePondSettings(
 			feedsPerDay: number;
 			sampleIntervalDays?: number;
 			population?: number | null;
+			notificationPrefs?: InputJsonValue;
 		} = {
 			feedingRatePct: input.feedingRatePct,
 			feedsPerDay: input.feedsPerDay,
@@ -91,6 +115,12 @@ export async function updatePondSettings(
 		}
 		if (population !== undefined) {
 			pondUpdateData.population = input.population ?? null;
+		}
+		if (parsedProfile !== null) {
+			pondUpdateData.notificationPrefs = mergePondProfile(
+				pond.notificationPrefs,
+				parsedProfile,
+			) as unknown as InputJsonValue;
 		}
 
 		if (energyDevice) {
@@ -118,6 +148,7 @@ export async function updatePondSettings(
 						feedsPerDay: input.feedsPerDay,
 						sampleIntervalDays: pondUpdateData.sampleIntervalDays,
 						population: pondUpdateData.population,
+						profile: parsedProfile,
 					},
 				},
 			});

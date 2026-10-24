@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="theme-color" content="#0A3D62" />
+		<meta name="robots" content="noindex" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+		<title>Offline · PakaonAI</title>
+		<link rel="manifest" href="/manifest.webmanifest" />
+		<link rel="icon" href="/favicon.ico" />
+		<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+		<style>
+			:root {
+				color-scheme: light;
+				--navy: #0a3d62;
+				--navy-soft: #124b73;
+				--ink: #0a2e47;
+				--muted: #5d7183;
+				--paper: #f4f7f6;
+				--card: #ffffff;
+				--line: #dbe5e1;
+				--orange: #e85a2a;
+				--green: #1e7b34;
+				--red: #c42b3a;
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			[hidden] {
+				display: none !important;
+			}
+
+			body {
+				margin: 0;
+				min-height: 100vh;
+				background:
+					radial-gradient(circle at 8% 0%, rgba(232, 90, 42, 0.12), transparent 30rem),
+					radial-gradient(circle at 92% 8%, rgba(10, 61, 98, 0.12), transparent 32rem),
+					var(--paper);
+				color: var(--ink);
+				font-family:
+					ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+					sans-serif;
+				-webkit-font-smoothing: antialiased;
+			}
+
+			.shell {
+				width: min(100% - 2rem, 70rem);
+				margin: 0 auto;
+				padding: clamp(2rem, 5vw, 4.5rem) 0 3rem;
+			}
+
+			.brand {
+				display: flex;
+				align-items: center;
+				gap: 0.9rem;
+			}
+
+			.brand img {
+				width: 3.25rem;
+				height: 3.25rem;
+				border-radius: 1rem;
+				box-shadow: 0 12px 30px rgba(10, 61, 98, 0.18);
+			}
+
+			.eyebrow {
+				margin: 0 0 0.25rem;
+				color: var(--orange);
+				font-size: 0.68rem;
+				font-weight: 800;
+				letter-spacing: 0.16em;
+				text-transform: uppercase;
+			}
+
+			h1 {
+				margin: 0;
+				color: var(--navy);
+				font-size: clamp(1.8rem, 5vw, 3.2rem);
+				line-height: 1.02;
+				letter-spacing: -0.045em;
+			}
+
+			.lede {
+				max-width: 48rem;
+				margin: 1.25rem 0 0;
+				color: var(--muted);
+				font-size: clamp(0.95rem, 2vw, 1.08rem);
+				line-height: 1.65;
+			}
+
+			.lede strong {
+				color: var(--ink);
+			}
+
+			.note {
+				margin: 1.25rem 0 0;
+				padding: 0.9rem 1rem;
+				border: 1px solid rgba(30, 123, 52, 0.25);
+				border-radius: 1rem;
+				background: rgba(30, 123, 52, 0.08);
+				color: #155d27;
+				font-size: 0.92rem;
+				font-weight: 650;
+			}
+
+			.snapshot {
+				margin-top: 1.75rem;
+			}
+
+			.grid {
+				display: grid;
+				grid-template-columns: repeat(2, minmax(0, 1fr));
+				gap: 0.75rem;
+			}
+
+			.card {
+				min-width: 0;
+				padding: 1rem;
+				border: 1px solid var(--line);
+				border-radius: 1.15rem;
+				background: rgba(255, 255, 255, 0.9);
+				box-shadow: 0 12px 30px rgba(10, 61, 98, 0.045);
+			}
+
+			.card .label {
+				display: block;
+				margin-bottom: 0.45rem;
+				color: var(--muted);
+				font-size: 0.66rem;
+				font-weight: 800;
+				letter-spacing: 0.12em;
+				text-transform: uppercase;
+			}
+
+			.card .value {
+				display: block;
+				overflow-wrap: anywhere;
+				color: var(--ink);
+				font-size: 1.05rem;
+				font-weight: 750;
+				line-height: 1.25;
+			}
+
+			.card .sub {
+				display: block;
+				margin-top: 0.35rem;
+				overflow-wrap: anywhere;
+				color: var(--muted);
+				font-size: 0.75rem;
+				line-height: 1.4;
+			}
+
+			.status {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.4rem;
+			}
+
+			.status::before {
+				width: 0.5rem;
+				height: 0.5rem;
+				border-radius: 999px;
+				background: currentColor;
+				content: "";
+			}
+
+			.status[data-status="online"] {
+				color: var(--green);
+			}
+
+			.status[data-status="offline"] {
+				color: var(--red);
+			}
+
+			.status[data-status="missing"] {
+				color: var(--muted);
+			}
+
+			.saved {
+				margin: 0.9rem 0 0;
+				color: var(--muted);
+				font-size: 0.78rem;
+			}
+
+			.empty {
+				margin-top: 1.75rem;
+				padding: 1.5rem;
+				border: 1px dashed #b9c9c2;
+				border-radius: 1.15rem;
+				background: rgba(255, 255, 255, 0.65);
+			}
+
+			.empty p {
+				margin: 0;
+				color: var(--muted);
+				line-height: 1.6;
+			}
+
+			.actions {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.75rem;
+				margin-top: 1.75rem;
+			}
+
+			button,
+			.actions a {
+				display: inline-flex;
+				min-height: 2.9rem;
+				align-items: center;
+				justify-content: center;
+				border-radius: 0.95rem;
+				padding: 0.7rem 1.15rem;
+				font: inherit;
+				font-size: 0.9rem;
+				font-weight: 750;
+				text-decoration: none;
+				transition:
+					transform 150ms ease,
+					background 150ms ease;
+			}
+
+			button {
+				border: 0;
+				background: var(--navy);
+				color: #fff;
+				cursor: pointer;
+			}
+
+			button:hover {
+				background: var(--navy-soft);
+			}
+
+			.actions a {
+				border: 1px solid #c9d6d0;
+				background: rgba(255, 255, 255, 0.8);
+				color: var(--navy);
+			}
+
+			button:active,
+			.actions a:active {
+				transform: translateY(1px);
+			}
+
+			.fine {
+				max-width: 44rem;
+				margin: 1.4rem 0 0;
+				color: #71828f;
+				font-size: 0.74rem;
+				line-height: 1.55;
+			}
+
+			.noscript {
+				margin-top: 1rem;
+				padding: 1rem;
+				border-radius: 1rem;
+				background: #fff4ec;
+				color: #8b3a12;
+				font-size: 0.9rem;
+			}
+
+			@media (min-width: 680px) {
+				.grid {
+					grid-template-columns: repeat(4, minmax(0, 1fr));
+				}
+
+				.card:first-child,
+				.card:nth-child(2) {
+					grid-column: span 2;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<main class="shell">
+			<header class="brand">
+				<img src="/icons/icon-192.png" alt="PakaonAI" width="52" height="52" />
+				<div>
+					<p class="eyebrow">PakaonAI · Offline</p>
+					<h1>You’re offline</h1>
+				</div>
+			</header>
+
+			<p class="lede">
+				This is the last dashboard snapshot saved on this device.
+				<strong>Feed commands are disabled offline.</strong> The ESP32 keeps its own RTC
+				schedule, so scheduled feeding continues through a WiFi outage or brownout. This page
+				is only the last-known dashboard view.
+			</p>
+
+			<p id="onlineNote" class="note" role="status" aria-live="polite" hidden>
+				You’re back online. Open the dashboard to refresh the live values.
+			</p>
+
+			<section id="empty" class="empty" hidden>
+				<p>
+					No dashboard snapshot has been saved on this device yet. Reconnect, open the
+					dashboard once, and this page will show the last known values next time.
+				</p>
+			</section>
+
+			<section id="snapshot" class="snapshot" hidden>
+				<div class="grid">
+					<article class="card">
+						<span class="label">Pond</span>
+						<span class="value" id="pondName">—</span>
+						<span class="sub" id="pondSub">—</span>
+					</article>
+					<article class="card">
+						<span class="label">Device</span>
+						<span class="value status" id="deviceStatus" data-status="missing">—</span>
+						<span class="sub" id="deviceSeen">—</span>
+					</article>
+					<article class="card">
+						<span class="label">Feed level</span>
+						<span class="value" id="feedLevel">—</span>
+						<span class="sub" id="feedLevelUpdated">—</span>
+					</article>
+					<article class="card">
+						<span class="label">Water temperature</span>
+						<span class="value" id="waterTemp">—</span>
+						<span class="sub" id="waterTempUpdated">—</span>
+					</article>
+					<article class="card">
+						<span class="label">Next feeding</span>
+						<span class="value" id="nextFeeding">—</span>
+						<span class="sub" id="nextFeedingSub">—</span>
+					</article>
+					<article class="card">
+						<span class="label">Feed amount</span>
+						<span class="value" id="feedAmount">—</span>
+						<span class="sub">Per scheduled meal</span>
+					</article>
+					<article class="card">
+						<span class="label">Population</span>
+						<span class="value" id="population">—</span>
+						<span class="sub">Fish stocked</span>
+					</article>
+					<article class="card">
+						<span class="label">Average weight</span>
+						<span class="value" id="avgWeight">—</span>
+						<span class="sub" id="avgWeightSub">Latest sample</span>
+					</article>
+					<article class="card">
+						<span class="label">Latest FCR</span>
+						<span class="value" id="latestFcr">—</span>
+						<span class="sub">Feed conversion ratio</span>
+					</article>
+					<article class="card">
+						<span class="label">Next sampling</span>
+						<span class="value" id="daysToSample">—</span>
+						<span class="sub">Scheduled weighing</span>
+					</article>
+					<article class="card">
+						<span class="label">Active cycle</span>
+						<span class="value" id="activeCycle">—</span>
+						<span class="sub" id="targetHarvest">—</span>
+					</article>
+				</div>
+				<p class="saved">Snapshot saved <span id="savedAt">—</span></p>
+			</section>
+
+			<div class="actions">
+				<button id="retry" type="button">Retry connection</button>
+				<a href="/dashboard">Open dashboard</a>
+			</div>
+
+			<p class="fine">
+				The saved snapshot stays on this browser only. Sign out while online to clear it on a
+				shared device.
+			</p>
+
+			<noscript>
+				<p class="noscript">
+					JavaScript is disabled, so the saved dashboard snapshot cannot be displayed. The
+					ESP32 continues to follow its RTC schedule.
+				</p>
+			</noscript>
+		</main>
+
+		<script>
+			(() => {
+				const SNAPSHOT_KEY = "optifeed:pwa:dashboard:v1";
+				const SNAPSHOT_VERSION = 1;
+				const snapshotSection = document.getElementById("snapshot");
+				const emptySection = document.getElementById("empty");
+				const onlineNote = document.getElementById("onlineNote");
+				const retryButton = document.getElementById("retry");
+
+				function text(id, value) {
+					const element = document.getElementById(id);
+					if (element) element.textContent = value;
+				}
+
+				function parseSnapshot() {
+					try {
+						const raw = window.localStorage.getItem(SNAPSHOT_KEY);
+						if (!raw) return null;
+						const snapshot = JSON.parse(raw);
+						if (!snapshot || snapshot.version !== SNAPSHOT_VERSION) return null;
+						return snapshot;
+					} catch {
+						return null;
+					}
+				}
+
+				function formatDateTime(value) {
+					if (!value) return "—";
+					const date = new Date(value);
+					if (Number.isNaN(date.getTime())) return "—";
+					return date.toLocaleString(undefined, {
+						dateStyle: "medium",
+						timeStyle: "short",
+					});
+				}
+
+				function formatNumber(value, digits) {
+					if (value === null || value === undefined || value === "") return "—";
+					const number = Number(value);
+					if (!Number.isFinite(number)) return "—";
+					return number.toLocaleString(undefined, {
+						minimumFractionDigits: digits,
+						maximumFractionDigits: digits,
+					});
+				}
+
+				function render(snapshot) {
+					snapshotSection.hidden = false;
+					emptySection.hidden = true;
+
+					const status = snapshot.deviceStatus || "missing";
+					const statusLabel =
+						status === "online"
+							? "Online"
+							: status === "offline"
+								? "Offline"
+								: "Not connected";
+					const statusElement = document.getElementById("deviceStatus");
+					statusElement.dataset.status = status;
+					statusElement.textContent = statusLabel;
+
+					text("pondName", snapshot.pondName || "—");
+					text("pondSub", snapshot.deviceName || "No device selected");
+					text("deviceSeen", snapshot.lastSeenAt ? `Last seen ${formatDateTime(snapshot.lastSeenAt)}` : "No heartbeat recorded");
+					text(
+						"feedLevel",
+						snapshot.feedLevelPercent === null || snapshot.feedLevelPercent === undefined
+							? "—"
+							: `${formatNumber(snapshot.feedLevelPercent, 0)}%`,
+					);
+					text(
+						"feedLevelUpdated",
+						snapshot.feedLevelUpdatedAt ? `Updated ${formatDateTime(snapshot.feedLevelUpdatedAt)}` : "No level reading",
+					);
+					text(
+						"waterTemp",
+						snapshot.waterTempC === null || snapshot.waterTempC === undefined
+							? "—"
+							: `${formatNumber(snapshot.waterTempC, 1)} °C`,
+					);
+					text(
+						"waterTempUpdated",
+						snapshot.waterTempUpdatedAt
+							? `Updated ${formatDateTime(snapshot.waterTempUpdatedAt)}`
+							: snapshot.waterTempOk === false
+								? "Sensor check required"
+								: "No temperature reading",
+					);
+					text("nextFeeding", snapshot.isPaused ? "Paused" : snapshot.nextFeedingTime || "—");
+					text("nextFeedingSub", snapshot.isPaused ? "Feeding is paused" : "Device RTC schedule");
+					text(
+						"feedAmount",
+						snapshot.nextFeedingVolumeG === null || snapshot.nextFeedingVolumeG === undefined
+							? "—"
+							: `${formatNumber(snapshot.nextFeedingVolumeG, 0)} g`,
+					);
+					text("population", formatNumber(snapshot.population, 0));
+					text(
+						"avgWeight",
+						snapshot.avgWeightG === null || snapshot.avgWeightG === undefined
+							? "—"
+							: `${formatNumber(snapshot.avgWeightG, 1)} g`,
+					);
+					text("avgWeightSub", snapshot.avgWeightG === null || snapshot.avgWeightG === undefined ? "No sample yet" : "Latest sample");
+					text(
+						"latestFcr",
+						snapshot.latestFcr === null || snapshot.latestFcr === undefined
+							? "—"
+							: formatNumber(snapshot.latestFcr, 2),
+					);
+					text(
+						"daysToSample",
+						snapshot.daysUntilSample === null || snapshot.daysUntilSample === undefined
+							? "—"
+							: `${formatNumber(snapshot.daysUntilSample, 0)} day${Number(snapshot.daysUntilSample) === 1 ? "" : "s"}`,
+					);
+					text("activeCycle", snapshot.activeCycleLabel || "No active cycle");
+					text(
+						"targetHarvest",
+						snapshot.targetHarvestDate
+							? `Target harvest ${snapshot.targetHarvestDate}`
+							: "No target harvest date",
+					);
+					text("savedAt", formatDateTime(snapshot.savedAt));
+				}
+
+				function syncOnlineState() {
+					onlineNote.hidden = !navigator.onLine;
+					retryButton.textContent = navigator.onLine ? "Refresh dashboard" : "Retry connection";
+				}
+
+				const snapshot = parseSnapshot();
+				if (snapshot) {
+					render(snapshot);
+				} else {
+					emptySection.hidden = false;
+					snapshotSection.hidden = true;
+				}
+
+				syncOnlineState();
+				window.addEventListener("online", syncOnlineState);
+				window.addEventListener("offline", syncOnlineState);
+				retryButton.addEventListener("click", () => window.location.reload());
+			})();
+		</script>
+	</body>
+</html>

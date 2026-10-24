@@ -5,6 +5,7 @@ import { FeedingPredictionCard } from "@/components/FeedingPredictionCard";
 import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
 import { WaterTempCard } from "@/components/WaterTempCard";
 import { ExportPdfButton } from "@/components/export-pdf-button";
+import { DashboardSnapshot } from "@/components/pwa/dashboard-snapshot";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
 import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
@@ -209,6 +210,30 @@ export default async function DashboardHomePage() {
 
 	return (
 		<div className="space-y-6 pb-20 animate-in fade-in duration-150" data-onboard="welcome">
+			<DashboardSnapshot
+				snapshot={{
+					pondName: pond.name,
+					deviceName: energyDevice?.label ?? device.name,
+					deviceStatus: energyDevice ? (esp32Offline ? "offline" : "online") : "missing",
+					lastSeenAt: energyDevice?.lastSeenAt?.toISOString() ?? null,
+					feedLevelPercent: energyDevice?.feedLevelPercent ?? null,
+					feedLevelUpdatedAt: energyDevice?.feedLevelUpdatedAt?.toISOString() ?? null,
+					waterTempC: energyDevice?.waterTempC ?? null,
+					waterTempOk: energyDevice?.waterTempOk ?? null,
+					waterTempUpdatedAt: energyDevice?.waterTempUpdatedAt?.toISOString() ?? null,
+					population: pond.population ?? DEFAULT_FISH_COUNT,
+					avgWeightG: latestBiomass ? latestBiomass.avgWeightKg * 1000 : null,
+					latestFcr: fcrReports.length > 0 ? latestFcr : null,
+					nextFeedingTime: isPaused ? null : nextFeedingTimeStr,
+					nextFeedingVolumeG: pond.isFallow ? 0 : nextFeedingVolumeG,
+					daysUntilSample,
+					activeCycleLabel: activeCycle?.label ?? null,
+					targetHarvestDate: activeCycle?.targetHarvestDate
+						? activeCycle.targetHarvestDate.toISOString().slice(0, 10)
+						: null,
+					isPaused,
+				}}
+			/>
 			{criticalAlert && (
 				<section className="sticky top-16 z-20 -mx-4 -mt-4 rounded-none bg-[#C42B3A] px-4 py-3 text-white shadow-lg md:mx-0 md:mt-0 md:rounded-[24px] md:px-5">
 					<div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

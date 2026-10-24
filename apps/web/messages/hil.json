@@ -1,4 +1,8 @@
 {
+	"pwa": {
+		"offlineTitle": "Offline mode",
+		"offlineBody": "Ginapakita ang huli nga nahibal-an nga data. Ang mga feed command wala ginapadala samtang wala ka sa internet."
+	},
 	"nav": {
 		"dashboard": "Dashboard",
 		"schedule": "Iskedyul",
@@ -365,6 +369,7 @@
 			"alreadyQueued": "Ang pagpakaon nasuksok na — nagahulat sa aparato",
 			"awaitingDevice": "Nagahulat sa aparato…",
 			"offlineWarning": "Offline ang aparato - ang mga pangayo sang pagpakaon ma-reject habang offline ang aparato. Suksukon liwat kon magkonekta na ini.",
+			"browserOfflineWarning": "Wala ka sa internet. Mag-reconnect para makapadala sang feed command. Ang naka-iskedyul nga pagpakaon nagapadayon sa RTC sang device.",
 			"fallowWarning": "Pahulay ang punong pagkatapos sang ani. Starta ang sunod nga siklo antes magpakaon.",
 			"hopperLow": "Manubo ang hopper level ({level}%). Paminsaron ang pag-refill madali.",
 			"hopperCritical": "Grabe kamanubo ang hopper level ({level}%)! Mag-refill agud malikawan ang wala nga pagpakaon.",

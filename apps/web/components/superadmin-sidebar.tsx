@@ -1,6 +1,7 @@
 "use client";
 
 import { Link, usePathname, useRouter } from "@/i18n/routing";
+import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { BarChart3, Droplets, FolderTree, Loader2, LogOut, Sparkles, Users } from "lucide-react";
@@ -34,6 +35,7 @@ export function SuperadminSidebar() {
 	// useChatWidget(), which only exists inside the dashboard's provider tree.
 	const handleSignOut = async () => {
 		setIsSigningOut(true);
+		clearDashboardSnapshot();
 		await supabase.auth.signOut();
 		router.replace("/");
 	};

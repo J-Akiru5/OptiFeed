@@ -15,6 +15,7 @@ import { getCurrentPondOwnerId, getCurrentUser } from "@/lib/auth/session";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import Image from "next/image";
 
 export default async function DashboardLayout({
 	children,
@@ -81,11 +82,15 @@ export default async function DashboardLayout({
 									href="/dashboard"
 									className="flex items-center justify-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-lg"
 								>
-									<OptiFeedLogo size={32} />
+									<OptiFeedLogo size={32} variant="ondark" />
 								</Link>
-								<span className="font-extrabold text-lg md:text-xl tracking-tight text-white">
-									Opti<span className="text-[#E85A2A]">Feed</span>
-								</span>
+								<Image
+									src="/pakaonai-logo-kit/png/pakaonai-wordmark-color.png"
+									alt="PakaonAI"
+									width={110}
+									height={26}
+									className="h-[26px] w-auto object-contain brightness-0 invert"
+								/>
 								{esp32Status !== "missing" && (
 									<div className="hidden md:flex items-center gap-2 border-l border-white/20 pl-3">
 										<span

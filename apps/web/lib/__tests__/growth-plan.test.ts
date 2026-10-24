@@ -79,6 +79,7 @@ describe("buildGrowthPlan", () => {
 		expect(plan.device.extraMealsNeeded).toBe(2);
 		expect(plan.adjustmentBlock).toBe("deviceCap");
 		expect(plan.confidence).toBe("high");
+		expect(plan.hasPriorAdjustment).toBe(false);
 	});
 
 	it("caps an allowed adjustment at 10% of the current device value", () => {
@@ -102,6 +103,7 @@ describe("buildGrowthPlan", () => {
 		expect(plan.adjustmentPct).toBe(10);
 		expect(plan.adjustmentAllowed).toBe(true);
 		expect(plan.nextAdjustmentDate).toBe("2026-02-25");
+		expect(plan.hasPriorAdjustment).toBe(true);
 	});
 
 	it("blocks an adjustment until 15 days after the last one", () => {

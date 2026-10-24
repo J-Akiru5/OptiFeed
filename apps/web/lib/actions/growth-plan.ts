@@ -20,7 +20,7 @@ const DAY_MS = 86_400_000;
 
 export async function applyGrowthPlan(
 	pondId: string,
-	options: { grams?: number; note?: string } = {},
+	options: { grams?: number; note?: string; initialize?: boolean } = {},
 ): Promise<ApplyGrowthPlanResult> {
 	try {
 		await requireWriteAccess();
@@ -32,6 +32,7 @@ export async function applyGrowthPlan(
 			actorId: ownerId,
 			grams: options.grams,
 			note: options.note,
+			initialize: options.initialize,
 		});
 	} catch (error) {
 		console.error("[growth-plan] apply failed:", error);
@@ -50,6 +51,9 @@ export async function applyGrowthPlanForPond(params: {
 	actorId: string;
 	grams?: number;
 	note?: string;
+	initialize?: boolean;
+	/** Initialize automatically when this cycle has no prior plan adjustment. */
+	initializeIfFirst?: boolean;
 }): Promise<ApplyGrowthPlanResult> {
 	try {
 		const loaded = await loadGrowthPlanForPond(params.pondId, { ownerId: params.ownerId });
@@ -58,7 +62,28 @@ export async function applyGrowthPlanForPond(params: {
 		if (!loaded.cycleId) return { success: false, error: "Start a grow-out cycle first." };
 
 		const plan = loaded.plan;
-		if (!plan.adjustmentAllowed) {
+		const initialize =
+			params.initialize === true || (params.initializeIfFirst === true && !plan.hasPriorAdjustment);
+
+		if (initialize) {
+			if (plan.hasPriorAdjustment) {
+				return {
+					success: false,
+					error:
+						"This cycle already has a feeding adjustment. Use the normal 10% adjustment instead.",
+				};
+			}
+			if (plan.recommendedGramsPerFeeding === null) {
+				return { success: false, error: "No starting feeding amount is available yet." };
+			}
+			if (!plan.device.feasible) {
+				return {
+					success: false,
+					error:
+						"This target needs more feed per meal than the feeder supports. Add meals or a second feeder.",
+				};
+			}
+		} else if (!plan.adjustmentAllowed) {
 			if (plan.adjustmentBlock === "adjustmentWindow" && plan.nextAdjustmentDate) {
 				return {
 					success: false,
@@ -75,8 +100,9 @@ export async function applyGrowthPlanForPond(params: {
 			return { success: false, error: "The plan is not ready for an adjustment yet." };
 		}
 
-		const requested =
-			params.grams !== undefined
+		const requested = initialize
+			? plan.recommendedGramsPerFeeding
+			: params.grams !== undefined
 				? Math.round(params.grams * 10) / 10
 				: plan.applicableGramsPerFeeding;
 		if (requested === null) {
@@ -99,14 +125,18 @@ export async function applyGrowthPlanForPond(params: {
 			});
 			if (!device) return { kind: "error" as const, message: "Feeder not found." };
 
-			const recent = await tx.deviceStateEvent.findFirst({
-				where: {
-					deviceId: device.id,
-					eventType: "growth_plan_applied",
-					createdAt: { gte: new Date(Date.now() - ADJUSTMENT_INTERVAL_DAYS * DAY_MS) },
-				},
-				select: { id: true },
-			});
+			const recent = initialize
+				? null
+				: await tx.deviceStateEvent.findFirst({
+						where: {
+							deviceId: device.id,
+							eventType: "growth_plan_applied",
+							createdAt: {
+								gte: new Date(Date.now() - ADJUSTMENT_INTERVAL_DAYS * DAY_MS),
+							},
+						},
+						select: { id: true },
+					});
 			if (recent) {
 				return {
 					kind: "error" as const,
@@ -114,10 +144,35 @@ export async function applyGrowthPlanForPond(params: {
 				};
 			}
 
+			if (initialize) {
+				const priorEvents = await tx.deviceStateEvent.findMany({
+					where: { deviceId: device.id, eventType: "growth_plan_applied" },
+					orderBy: { createdAt: "desc" },
+					take: 20,
+					select: { metadata: true },
+				});
+				const prior = priorEvents.find((event) => {
+					const metadata = event.metadata;
+					return (
+						metadata !== null &&
+						typeof metadata === "object" &&
+						!Array.isArray(metadata) &&
+						(metadata as Record<string, unknown>).cycleId === loaded.cycleId
+					);
+				});
+				if (prior) {
+					return {
+						kind: "error" as const,
+						message:
+							"This cycle already has a feeding adjustment. Use the normal 10% adjustment instead.",
+					};
+				}
+			}
+
 			const previous = device.gramsPerFeeding;
 			const currentValid = Number.isFinite(previous) && previous > 0;
 			const deviation = currentValid ? Math.abs(requested - previous) / previous : 0;
-			if (currentValid && deviation > MAX_ADJUSTMENT_PCT + 1e-9) {
+			if (!initialize && currentValid && deviation > MAX_ADJUSTMENT_PCT + 1e-9) {
 				return {
 					kind: "error" as const,
 					message: `A single adjustment is limited to ${MAX_ADJUSTMENT_PCT * 100}%.`,
@@ -153,6 +208,7 @@ export async function applyGrowthPlanForPond(params: {
 						adjustmentPct: plan.adjustmentPct,
 						confidence: plan.confidence,
 						fcrAssumption: plan.feed.fcrAssumption,
+						initialized: initialize,
 						note: params.note ?? null,
 					},
 				},

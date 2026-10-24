@@ -124,6 +124,7 @@ export interface GrowthPlan {
 	adjustmentAllowed: boolean;
 	adjustmentBlock: GrowthPlanAdjustmentBlock;
 	nextAdjustmentDate: string | null;
+	hasPriorAdjustment: boolean;
 	maxChangePct: number;
 	device: {
 		maxGramsPerFeeding: number;
@@ -198,6 +199,7 @@ function emptyPlan(input: GrowthPlanInput): GrowthPlan {
 		adjustmentAllowed: false,
 		adjustmentBlock: "noTarget",
 		nextAdjustmentDate: null,
+		hasPriorAdjustment: false,
 		maxChangePct: MAX_ADJUSTMENT_PCT,
 		device: {
 			maxGramsPerFeeding: positive(input.deviceMaxGramsPerFeeding) ?? MAX_FEED_GRAMS_PER_REQUEST,
@@ -414,6 +416,7 @@ export function buildGrowthPlan(input: GrowthPlanInput): GrowthPlan {
 		lastAdjustmentAt && isValidDateOnly(lastAdjustmentAt)
 			? daysBetween(lastAdjustmentAt, input.today)
 			: null;
+	plan.hasPriorAdjustment = Boolean(lastAdjustmentAt && isValidDateOnly(lastAdjustmentAt));
 	plan.nextAdjustmentDate =
 		lastAdjustmentAt && isValidDateOnly(lastAdjustmentAt)
 			? addDays(lastAdjustmentAt, ADJUSTMENT_INTERVAL_DAYS)

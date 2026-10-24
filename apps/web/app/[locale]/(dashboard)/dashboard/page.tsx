@@ -1,6 +1,7 @@
 import { EnergyControllerCard } from "@/components/EnergyControllerCard";
 import { FeedLevelCard } from "@/components/FeedLevelCard";
 import { FeedNowButton } from "@/components/FeedNowButton";
+import { FeedingPredictionCard } from "@/components/FeedingPredictionCard";
 import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
 import { WaterTempCard } from "@/components/WaterTempCard";
 import { ExportPdfButton } from "@/components/export-pdf-button";
@@ -10,6 +11,7 @@ import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { getActivePond } from "@/lib/pond-selection";
+import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 import {
@@ -101,6 +103,20 @@ export default async function DashboardHomePage() {
 		take: 5,
 	});
 	const latestFcr = fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : 0.0;
+
+	// The advisor is surfaced on the home page so it is not hidden behind the
+	// Growth tab. The server renders the deterministic value instantly; the
+	// client card refines it with the AI provider in the background.
+	const initialPrediction = computeDeterministicPrediction({
+		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
+		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
+		population: pond.population ?? DEFAULT_FISH_COUNT,
+		avgWeightKg: latestBiomass?.avgWeightKg ?? null,
+		latestFcr: fcrReports.length > 0 ? latestFcr : null,
+		currentGrams: energyDevice?.gramsPerFeeding ?? null,
+		hopperCapacityG: energyDevice?.hopperCapacityG ?? null,
+		lastSampleAt: latestBiomass?.recordedAt ?? null,
+	});
 
 	// Calculate next feeding time
 	const now = new Date();
@@ -222,6 +238,16 @@ export default async function DashboardHomePage() {
 				/>
 				<ExportPdfButton />
 			</div>
+
+			{/* AI Feed Advisor — visible on the first screen the operator sees. */}
+			{energyDevice && (
+				<FeedingPredictionCard
+					deviceId={energyDevice.id}
+					initialPrediction={initialPrediction}
+					canWrite={writeAccess}
+					pondName={pond.name}
+				/>
+			)}
 
 			{/* Bento Grid — items-start keeps each tile at its natural height */}
 			<div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">

@@ -188,7 +188,12 @@ export default async function GrowthPage() {
 
 			{/* AI Feeding Prediction */}
 			{energyDevice && (
-				<FeedingPredictionCard deviceId={energyDevice.id} initialPrediction={initialPrediction} />
+				<FeedingPredictionCard
+					deviceId={energyDevice.id}
+					initialPrediction={initialPrediction}
+					canWrite={writeAccess}
+					pondName={pond.name}
+				/>
 			)}
 
 			{/* FCR Calculator */}

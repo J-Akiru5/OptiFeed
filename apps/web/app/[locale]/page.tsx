@@ -1,32 +1,33 @@
 "use client";
 
-import { ImageWithFallback } from "@/components/ImageWithFallback";
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
+import { HowItWorks } from "@/components/landing/HowItWorks";
+import { LandingNav } from "@/components/landing/LandingNav";
+import { CountUp, Reveal, RevealItem, RevealList } from "@/components/landing/Reveal";
 import { useRouter } from "@/i18n/routing";
-import { ArrowRight, ChevronDown, ChevronUp, ShieldCheck } from "lucide-react";
+import { ArrowRight, ChevronDown, ShieldCheck } from "lucide-react";
+import { MotionConfig } from "motion/react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 const HERO_IMG =
 	"https://images.unsplash.com/photo-1541441056316-443fff347c40?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1600";
+
+const TEAM = [
+	"Jeff Edrick C. Martinez",
+	"Karl F. Calimotan",
+	"Jay R. C. Castillo",
+	"Aime G. Detore",
+];
 
 export default function LandingPage() {
 	const router = useRouter();
 	const t = useTranslations("landing");
 	const tBtn = useTranslations("button");
-	const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
-
-	const FAQS = [
-		{ q: t("faq1q"), a: t("faq1a") },
-		{ q: t("faq2q"), a: t("faq2a") },
-		{ q: t("faq3q"), a: t("faq3a") },
-		{ q: t("faq4q"), a: t("faq4a") },
-		{ q: t("faq5q"), a: t("faq5a") },
-	];
 
 	useEffect(() => {
-		document.title = "OptiFeed — Remote Feeding Control for Catfish Farms";
+		document.title = "PakaonAI — Remote Feeding Control for Catfish Farms";
 		let metaDesc = document.querySelector('meta[name="description"]');
 		if (!metaDesc) {
 			metaDesc = document.createElement("meta");
@@ -39,344 +40,287 @@ export default function LandingPage() {
 		);
 	}, []);
 
-	const toggleFaq = (i: number) => setOpenFaqIndex(openFaqIndex === i ? null : i);
-
 	return (
-		<div className="min-h-screen bg-[#F4F7F6] text-[#0A3D62] font-sans selection:bg-[#E85A2A] selection:text-white">
-			{/* SEO meta note banner */}
-			<div className="sticky top-0 z-[60] bg-[#0A3D62] text-white py-1.5 px-4 text-center text-[10px] md:text-xs font-mono tracking-wider shadow-sm">
-				{t("seoBanner")}
-			</div>
+		<MotionConfig reducedMotion="user">
+			<div
+				id="top"
+				className="min-h-screen bg-[#F4F7F6] text-[#0A3D62] font-sans selection:bg-[#E85A2A] selection:text-white"
+			>
+				<LandingNav />
 
-			{/* Global Header */}
-			<header className="sticky top-8 md:top-7 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 py-4 px-6 md:px-12 flex justify-between items-center shadow-sm">
-				<div className="flex items-center justify-center gap-3">
-					<OptiFeedLogo size={32} variant="color-light" className="drop-shadow-md" />
-					<Image
-						src="/pakaonai-logo-kit/png/pakaonai-wordmark-color.png"
-						alt="PakaonAI"
-						width={120}
-						height={28}
-						className="h-7 w-auto object-contain"
-						priority
-					/>
-				</div>
-				<button
-					type="button"
-					onClick={() => router.push("/login")}
-					className="bg-[#E85A2A] text-white font-bold text-sm md:text-base px-5 py-2.5 rounded-full hover:bg-[#d04a1f] transition-all transform hover:-translate-y-0.5 active:scale-95 shadow-md flex items-center gap-2 hover:shadow-lg"
+				{/* Hero Section */}
+				<section className="relative px-6 py-16 md:py-32 md:px-12 max-w-7xl mx-auto">
+					<div className="flex flex-col md:flex-row items-center gap-12">
+						<div className="flex-1 text-center md:text-left">
+							<div className="absolute top-10 left-1/2 -translate-x-1/2 md:left-20 md:translate-x-0 w-72 h-72 bg-[#0A3D62]/5 rounded-full blur-3xl -z-10" />
+							<div className="inline-flex items-center gap-2 bg-white px-4 py-2 rounded-full text-xs font-semibold tracking-wider uppercase border border-gray-200 shadow-sm mb-6 text-[#E85A2A]">
+								<ShieldCheck className="w-4 h-4" /> {t("heroTag")}
+							</div>
+
+							<h1 className="text-4xl md:text-6xl font-black tracking-tight leading-tight text-[#0A3D62] mb-6">
+								{t("heroTitle1")}
+								<span className="text-[#E85A2A] underline decoration-wavy decoration-[#0A3D62]/10">
+									{t("heroTitle2")}
+								</span>
+							</h1>
+
+							<p className="text-lg md:text-xl text-[#3D5568] mb-10 leading-relaxed max-w-2xl mx-auto md:mx-0">
+								{t("heroDesc")}
+							</p>
+
+							<div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start items-center">
+								<button
+									type="button"
+									onClick={() => router.push("/login")}
+									className="w-full sm:w-auto bg-[#E85A2A] text-white font-extrabold text-lg px-8 py-4 rounded-xl shadow-lg hover:bg-[#d04a1f] transition-all transform hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 hover:shadow-xl"
+								>
+									{tBtn("accessControlPanel")} <ArrowRight className="w-5 h-5" />
+								</button>
+								<div className="text-xs md:text-sm font-mono text-[#3D5568] px-4 py-2 bg-white/60 rounded-lg border border-gray-200">
+									{t("heroTarget")}{" "}
+									<span className="font-bold text-[#0A3D62]">{t("heroTargetValue")}</span>
+								</div>
+							</div>
+						</div>
+
+						{/* Hero image on the right for desktop */}
+						<div className="flex-1 w-full max-w-xl md:max-w-none">
+							<div className="relative overflow-hidden rounded-3xl shadow-2xl transform md:rotate-2 hover:rotate-0 transition-transform duration-500">
+								<Image
+									src={HERO_IMG}
+									alt={t("heroImageAlt")}
+									width={800}
+									height={500}
+									className="w-full h-64 md:h-[500px] object-cover"
+									priority
+								/>
+								<div className="absolute inset-0 bg-gradient-to-t from-[#0A3D62]/40 to-transparent pointer-events-none" />
+							</div>
+						</div>
+					</div>
+				</section>
+
+				{/* The problem */}
+				<section
+					id="problem"
+					className="bg-white border-y border-gray-200 py-16 md:py-24 px-6 md:px-12 scroll-mt-20"
 				>
-					{tBtn("login")} <ArrowRight className="w-4 h-4" />
-				</button>
-			</header>
-
-			{/* Hero Section */}
-			<section className="relative px-6 py-16 md:py-32 md:px-12 max-w-7xl mx-auto">
-				<div className="flex flex-col md:flex-row items-center gap-12">
-					<div className="flex-1 text-center md:text-left">
-						<div className="absolute top-10 left-1/2 -translate-x-1/2 md:left-20 md:translate-x-0 w-72 h-72 bg-[#0A3D62]/5 rounded-full blur-3xl -z-10" />
-						<div className="inline-flex items-center gap-2 bg-white px-4 py-2 rounded-full text-xs font-semibold tracking-wider uppercase border border-gray-200 shadow-sm mb-6 text-[#E85A2A]">
-							<ShieldCheck className="w-4 h-4" /> {t("heroTag")}
+					<div className="max-w-6xl mx-auto grid md:grid-cols-[0.9fr_1.1fr] gap-12 md:gap-16">
+						<div>
+							<h2 className="text-3xl md:text-5xl font-black tracking-tight leading-tight text-[#0A3D62]">
+								{t("problemTitle")}
+							</h2>
+							<p className="mt-10 text-6xl md:text-7xl font-black tracking-tight text-[#E85A2A]">
+								<CountUp text={t("problemStat")} />
+							</p>
+							<p className="mt-2 max-w-xs text-sm text-[#3D5568]">{t("problemStatLabel")}</p>
 						</div>
-
-						<h1 className="text-4xl md:text-6xl font-black tracking-tight leading-tight text-[#0A3D62] mb-6">
-							{t("heroTitle1")}
-							<span className="text-[#E85A2A] underline decoration-wavy decoration-[#0A3D62]/10">
-								{t("heroTitle2")}
-							</span>
-						</h1>
-
-						<p className="text-lg md:text-xl text-[#3D5568] mb-10 leading-relaxed max-w-2xl mx-auto md:mx-0">
-							{t("heroDesc")}
-						</p>
-
-						<div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start items-center">
-							<button
-								type="button"
-								onClick={() => router.push("/login")}
-								className="w-full sm:w-auto bg-[#E85A2A] text-white font-extrabold text-lg px-8 py-4 rounded-xl shadow-lg hover:bg-[#d04a1f] transition-all transform hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 hover:shadow-xl"
-							>
-								{tBtn("accessControlPanel")} <ArrowRight className="w-5 h-5" />
-							</button>
-							<div className="text-xs md:text-sm font-mono text-[#3D5568] px-4 py-2 bg-white/60 rounded-lg border border-gray-200">
-								{t("heroTarget")}{" "}
-								<span className="font-bold text-[#0A3D62]">{t("heroTargetValue")}</span>
-							</div>
-						</div>
-					</div>
-
-					{/* Hero image on the right for desktop */}
-					<div className="flex-1 w-full max-w-xl md:max-w-none">
-						<div className="relative overflow-hidden rounded-3xl shadow-2xl transform md:rotate-2 hover:rotate-0 transition-transform duration-500">
-							<Image
-								src={HERO_IMG}
-								alt={t("heroImageAlt")}
-								width={800}
-								height={500}
-								className="w-full h-64 md:h-[500px] object-cover"
-								priority
-							/>
-							<div className="absolute inset-0 bg-gradient-to-t from-[#0A3D62]/40 to-transparent pointer-events-none" />
-						</div>
-					</div>
-				</div>
-			</section>
-
-			{/* The real cost of not knowing */}
-			<section className="bg-white border-y border-gray-200 py-16 px-6 md:px-12">
-				<div className="max-w-5xl mx-auto">
-					<div className="text-center max-w-3xl mx-auto mb-12">
-						<h2 className="text-2xl md:text-4xl font-extrabold tracking-tight mb-4 text-[#0A3D62]">
-							{t("hiddenBleedTitle")}
-						</h2>
-						<p className="text-[#3D5568] text-base md:text-lg">{t("hiddenBleedDesc")}</p>
-					</div>
-
-					<div className="grid md:grid-cols-3 gap-8">
-						{[
-							{ icon: "₱", title: t("feat1Title"), body: t("feat1Body") },
-							{ icon: "✕", title: t("feat2Title"), body: t("feat2Body") },
-							{ icon: "↓", title: t("feat3Title"), body: t("feat3Body") },
-						].map(({ icon, title, body }) => (
-							<div key={title} className="p-6 bg-[#F4F7F6] rounded-xl border border-gray-200">
-								<div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center text-red-700 font-bold text-lg mb-4">
-									{icon}
-								</div>
-								<h3 className="font-bold text-lg mb-2 text-[#0A3D62]">{title}</h3>
-								<p className="text-sm text-[#3D5568] leading-relaxed">{body}</p>
-							</div>
-						))}
-					</div>
-				</div>
-			</section>
-
-			{/* How OptiFeed fixes it */}
-			<section className="py-16 px-6 md:px-12 max-w-7xl mx-auto">
-				<div className="text-center max-w-3xl mx-auto mb-12">
-					<h2 className="text-2xl md:text-4xl font-extrabold tracking-tight mb-4 text-[#0A3D62]">
-						{t("howItWorksTitle")}
-					</h2>
-					<p className="text-[#3D5568] text-base md:text-lg">{t("howItWorksDesc")}</p>
-				</div>
-
-				<div className="grid md:grid-cols-3 gap-8">
-					{[
-						{
-							step: "Step 1",
-							accent: "#E85A2A",
-							bg: "bg-orange-50 text-[#E85A2A]",
-							badge: "bg-orange-50 text-[#E85A2A]",
-							tag: t("step1Badge"),
-							title: t("step1Title"),
-							body: t("step1Body"),
-						},
-						{
-							step: "Step 2",
-							accent: "#0A3D62",
-							bg: "bg-blue-50 text-[#0A3D62]",
-							badge: "bg-blue-50 text-[#0A3D62]",
-							tag: t("step2Badge"),
-							title: t("step2Title"),
-							body: t("step2Body"),
-						},
-						{
-							step: "Step 3",
-							accent: "#1E7B34",
-							bg: "bg-green-50 text-green-600",
-							badge: "bg-green-50 text-green-700",
-							tag: t("step3Badge"),
-							title: t("step3Title"),
-							body: t("step3Body"),
-						},
-					].map(({ step, accent, bg, badge, tag, title, body }) => (
-						<div
-							key={step}
-							className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm relative overflow-hidden hover:shadow-md transition-all"
-						>
-							<div className="absolute top-0 left-0 w-2 h-full" style={{ background: accent }} />
-							<div className={`text-xs font-bold mb-2 uppercase tracking-widest font-mono ${bg}`}>
-								{step}
-							</div>
-							<h3 className="font-bold text-xl mb-3 text-[#0A3D62]">{title}</h3>
-							<p className="text-sm text-[#3D5568] leading-relaxed mb-4">{body}</p>
-							<div className={`text-xs font-mono px-2.5 py-1.5 rounded inline-block ${badge}`}>
-								{tag}
-							</div>
-						</div>
-					))}
-				</div>
-			</section>
-
-			{/* Built for remote ownership */}
-			<section className="bg-gradient-to-br from-[#0A3D62] to-[#12588c] text-white py-16 px-6 md:px-12">
-				<div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center gap-12">
-					<div className="flex-1">
-						<div className="bg-white/10 text-[#E85A2A] font-extrabold text-xs tracking-wider uppercase px-3 py-1 rounded-full inline-block mb-4">
-							{t("absenteeTag")}
-						</div>
-						<h2 className="text-3xl md:text-4xl font-black tracking-tight mb-6">
-							{t("remoteTitle")}
-						</h2>
-						<p className="text-blue-100 text-base md:text-lg mb-8 leading-relaxed">
-							{t("remoteDesc")}
-						</p>
-						<ul className="space-y-4">
-							{[
-								[t("remote1Bold"), t("remote1Rest")],
-								[t("remote2Bold"), t("remote2Rest")],
-								[t("remote3Bold"), t("remote3Rest")],
-							].map(([strong, rest]) => (
-								<li key={strong} className="flex gap-3">
-									<div className="w-6 h-6 rounded-full bg-[#E85A2A]/20 text-[#E85A2A] flex items-center justify-center font-bold text-sm shrink-0">
-										✓
-									</div>
-									<div>
-										<strong className="text-white">{strong}</strong>{" "}
-										<span className="text-blue-100">{rest}</span>
-									</div>
-								</li>
+						<RevealList as="ul" className="divide-y divide-gray-200 self-center">
+							{[1, 2, 3].map((n) => (
+								<RevealItem as="li" key={n} className="py-6 first:pt-0 last:pb-0">
+									<h3 className="font-extrabold text-xl text-[#0A3D62]">{t(`problem${n}Title`)}</h3>
+									<p className="mt-2 text-base text-[#3D5568] leading-relaxed">
+										{t(`problem${n}Body`)}
+									</p>
+								</RevealItem>
 							))}
-						</ul>
+						</RevealList>
 					</div>
+				</section>
 
-					{/* Phone mockup */}
-					<div className="w-full md:w-[380px] bg-white rounded-3xl p-6 text-[#0A3D62] shadow-2xl border-4 border-gray-800 relative shrink-0">
-						<div className="absolute top-3 left-1/2 -translate-x-1/2 w-28 h-5 bg-gray-800 rounded-full" />
-						<div className="flex justify-between items-center mb-6 pt-2">
-							<span className="font-extrabold text-sm tracking-tight">{t("phoneStatus")}</span>
-							<div className="flex items-center gap-1.5 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
-								<span className="w-2.5 h-2.5 rounded-full bg-green-600 animate-pulse" />
-								<span className="text-[10px] text-green-700 font-bold">{t("phoneConnected")}</span>
-							</div>
+				<HowItWorks />
+
+				{/* Offline-first */}
+				<section
+					id="offline"
+					className="bg-gradient-to-br from-[#0A3D62] to-[#12588c] text-white overflow-x-clip py-16 md:py-24 px-6 md:px-12 scroll-mt-20"
+				>
+					<div className="max-w-6xl mx-auto grid md:grid-cols-[0.9fr_1.1fr] gap-12 md:gap-16">
+						<div>
+							<h2 className="text-3xl md:text-5xl font-black tracking-tight leading-tight">
+								{t("offlineTitle")}
+							</h2>
+							<p className="mt-4 text-lg text-blue-100">{t("offlineDesc")}</p>
+							<h3 className="mt-10 text-xs font-bold uppercase tracking-widest text-blue-200">
+								{t("viewsTitle")}
+							</h3>
+							<ul className="mt-3 space-y-2 text-sm text-blue-50">
+								{[1, 2, 3].map((n) => (
+									<li key={n}>{t(`views${n}`)}</li>
+								))}
+							</ul>
 						</div>
-						<div className="bg-[#F4F7F6] p-4 rounded-xl mb-4 border border-gray-200 text-center">
-							<span className="text-[10px] uppercase font-bold tracking-widest text-[#3D5568]">
-								{t("phoneNextFeed")}
-							</span>
-							<div className="text-4xl font-extrabold tracking-tight text-[#0A3D62] my-1">
-								10:00 AM
-							</div>
-							<span className="text-xs bg-orange-100 text-[#E85A2A] font-bold px-2 py-0.5 rounded">
-								{t("phoneGrams")}
-							</span>
-						</div>
-						<div className="space-y-2.5">
-							<div className="flex justify-between items-center text-xs border-b border-gray-200 pb-2">
-								<span className="text-[#3D5568]">{t("phoneFcrLabel")}</span>
-								<span className="font-bold">{t("phoneFcrValue")}</span>
-							</div>
-							<div className="flex justify-between items-center text-xs border-b border-gray-200 pb-2">
-								<span className="text-[#3D5568]">{t("phoneBiomassLabel")}</span>
-								<span className="font-bold">{t("phoneBiomassValue")}</span>
-							</div>
-							<div className="flex justify-between items-center text-xs pb-1">
-								<span className="text-[#3D5568]">{t("phoneLocationLabel")}</span>
-								<span className="font-bold text-right">{t("phoneLocationValue")}</span>
-							</div>
-						</div>
+						<RevealList as="dl" className="grid sm:grid-cols-2 gap-x-8 gap-y-8">
+							{[1, 2, 3, 4].map((n) => (
+								<RevealItem key={n} from={n % 2 === 1 ? "left" : "right"}>
+									<dt className="font-extrabold text-lg">{t(`offline${n}Title`)}</dt>
+									<dd className="mt-1.5 text-sm text-blue-100 leading-relaxed">
+										{t(`offline${n}Body`)}
+									</dd>
+								</RevealItem>
+							))}
+						</RevealList>
 					</div>
-				</div>
-			</section>
+				</section>
 
-			{/* Trust / credibility strip */}
-			<section className="bg-[#F4F7F6] py-12 px-6 border-b border-gray-200 text-center">
-				<div className="max-w-4xl mx-auto">
-					<div className="text-xs font-bold tracking-widest uppercase text-[#3D5568] mb-4">
-						{t("trustTag")}
-					</div>
-					<p className="italic text-base text-[#3D5568] leading-relaxed max-w-2xl mx-auto mb-6">
-						{t("trustQuote")}
-					</p>
-					<div className="flex justify-center items-center gap-8 opacity-65 grayscale hover:grayscale-0 transition-all">
-						<span className="text-sm font-extrabold tracking-widest">VISAYAS CATFISH ASSOC.</span>
-						<span className="text-sm font-extrabold tracking-widest">PHIL-AQUA LABS</span>
-						<span className="text-sm font-extrabold tracking-widest">
-							ESP32 ECO-FEEDER APPROVED
-						</span>
-					</div>
-				</div>
-			</section>
-
-			{/* FAQ */}
-			<section className="py-16 px-6 md:px-12 max-w-4xl mx-auto">
-				<h2 className="text-2xl md:text-3xl font-extrabold text-center mb-10 text-[#0A3D62]">
-					{t("faqTitle")}
-				</h2>
-				<div className="space-y-4">
-					{FAQS.map((faq, i) => (
-						<div
-							key={faq.q}
-							className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
-						>
-							<button
-								type="button"
-								onClick={() => toggleFaq(i)}
-								className="w-full px-6 py-5 flex justify-between items-center text-left font-bold text-base md:text-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] text-[#0A3D62]"
-							>
-								<span>{faq.q}</span>
-								{openFaqIndex === i ? (
-									<ChevronUp className="w-5 h-5 text-[#E85A2A] shrink-0" />
-								) : (
-									<ChevronDown className="w-5 h-5 text-[#3D5568] shrink-0" />
-								)}
-							</button>
-							{openFaqIndex === i && (
-								<div className="px-6 pb-5 text-sm md:text-base text-[#3D5568] leading-relaxed border-t border-gray-100 pt-3">
-									{faq.a}
-								</div>
-							)}
-						</div>
-					))}
-				</div>
-			</section>
-
-			{/* Closing CTA */}
-			<section className="bg-white border-t border-gray-200 py-16 px-6 text-center">
-				<div className="max-w-3xl mx-auto">
-					<h2 className="text-3xl md:text-4xl font-black tracking-tight text-[#0A3D62] mb-4">
-						{t("ctaTitle")}
+				{/* Hardware */}
+				<section
+					id="hardware"
+					className="py-16 md:py-24 px-6 md:px-12 max-w-6xl mx-auto scroll-mt-20"
+				>
+					<h2 className="text-3xl md:text-5xl font-black tracking-tight text-[#0A3D62]">
+						{t("hardwareTitle")}
 					</h2>
-					<p className="text-[#3D5568] text-base md:text-lg mb-8 max-w-xl mx-auto">
-						{t("ctaDesc")}
-					</p>
-					<button
-						type="button"
-						onClick={() => router.push("/login")}
-						className="bg-[#E85A2A] text-white font-extrabold text-lg px-8 py-4 rounded-xl shadow-lg hover:bg-[#d04a1f] transition-all transform hover:-translate-y-1 active:scale-95 inline-flex items-center gap-3"
-					>
-						{tBtn("accessControlPanel")} <ArrowRight className="w-5 h-5" />
-					</button>
-				</div>
-			</section>
-
-			{/* Footer */}
-			<footer className="bg-[#0A3D62] text-white py-12 px-6 text-center border-t border-white/10 text-xs md:text-sm">
-				<div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-					<div className="flex items-center gap-2.5">
-						<OptiFeedLogo size={28} variant="white" />
-						<Image
-							src="/pakaonai-logo-kit/png/pakaonai-wordmark-color.png"
-							alt="PakaonAI"
-							width={90}
-							height={20}
-							className="h-5 w-auto object-contain brightness-0 invert"
-						/>
-						<span className="text-gray-400">{t("footerSubtitle")}</span>
+					<p className="mt-4 text-lg text-[#3D5568]">{t("hardwareDesc")}</p>
+					<div className="mt-10 overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
+						<table className="w-full min-w-[32rem] text-left text-sm">
+							<thead className="bg-[#F4F7F6] text-[#3D5568]">
+								<tr>
+									<th scope="col" className="px-5 py-3 font-bold">
+										{t("hwColPart")}
+									</th>
+									<th scope="col" className="px-5 py-3 font-bold">
+										{t("hwColRole")}
+									</th>
+								</tr>
+							</thead>
+							<RevealList as="tbody" className="divide-y divide-gray-100">
+								{[1, 2, 3, 4, 5, 6].map((n) => (
+									<RevealItem as="tr" key={n}>
+										<th scope="row" className="px-5 py-3.5 font-bold text-[#0A3D62]">
+											{t(`hw${n}Part`)}
+										</th>
+										<td className="px-5 py-3.5 text-[#3D5568]">{t(`hw${n}Role`)}</td>
+									</RevealItem>
+								))}
+							</RevealList>
+						</table>
 					</div>
-					<div className="text-gray-300">{t("footerCopyright")}</div>
-					<div className="flex gap-4 text-gray-400">
-						<span className="hover:text-white cursor-pointer">{t("privacy")}</span>
-						<span className="hover:text-white cursor-pointer">{t("terms")}</span>
+				</section>
+
+				{/* Study design + scope */}
+				<section
+					id="study"
+					className="bg-white border-y border-gray-200 py-16 md:py-24 px-6 md:px-12 scroll-mt-20"
+				>
+					<div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 md:gap-16">
+						<div>
+							<h2 className="text-3xl md:text-4xl font-black tracking-tight text-[#0A3D62]">
+								{t("studyTitle")}
+							</h2>
+							<p className="mt-3 text-[#3D5568]">{t("studyDesc")}</p>
+							<RevealList as="dl" className="mt-8 divide-y divide-gray-100">
+								{[1, 2, 3, 4].map((n) => (
+									<RevealItem key={n} className="grid gap-1 py-4 sm:grid-cols-[8rem_1fr] sm:gap-4">
+										<dt className="text-sm font-extrabold text-[#0A3D62]">{t(`study${n}Label`)}</dt>
+										<dd className="text-sm text-[#3D5568] leading-relaxed">
+											{t(`study${n}Value`)}
+										</dd>
+									</RevealItem>
+								))}
+							</RevealList>
+							<p className="mt-4 border-l-4 border-[#E85A2A] pl-4 text-sm text-[#3D5568]">
+								{t("studyResults")}
+							</p>
+						</div>
+						<div>
+							<h2 className="text-3xl md:text-4xl font-black tracking-tight text-[#0A3D62]">
+								{t("scopeTitle")}
+							</h2>
+							<RevealList as="ul" className="mt-6 space-y-4">
+								{[1, 2, 3, 4].map((n) => (
+									<RevealItem as="li" key={n} className="flex gap-3 text-[#3D5568] leading-relaxed">
+										<span aria-hidden="true" className="mt-2.5 h-0.5 w-4 shrink-0 bg-[#E85A2A]" />
+										{t(`scope${n}`)}
+									</RevealItem>
+								))}
+							</RevealList>
+						</div>
+					</div>
+				</section>
+
+				{/* FAQ */}
+				<section id="faq" className="py-16 md:py-24 px-6 md:px-12 max-w-3xl mx-auto scroll-mt-20">
+					<h2 className="text-3xl md:text-4xl font-black tracking-tight text-[#0A3D62]">
+						{t("faqTitle")}
+					</h2>
+					<RevealList className="mt-8 divide-y divide-gray-200 border-y border-gray-200">
+						{[1, 2, 3, 4, 5].map((n) => (
+							<RevealItem as="details" key={n} className="group">
+								<summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5 font-bold text-lg text-[#0A3D62] focus-visible:outline-2 focus-visible:outline-[#E85A2A] [&::-webkit-details-marker]:hidden">
+									{t(`faq${n}q`)}
+									<ChevronDown
+										className="h-5 w-5 shrink-0 text-[#E85A2A] transition-transform group-open:rotate-180"
+										aria-hidden="true"
+									/>
+								</summary>
+								<p className="pb-5 text-[#3D5568] leading-relaxed">{t(`faq${n}a`)}</p>
+							</RevealItem>
+						))}
+					</RevealList>
+				</section>
+
+				{/* Closing CTA */}
+				<section className="bg-white border-t border-gray-200 py-16 px-6 text-center">
+					<Reveal className="max-w-3xl mx-auto">
+						<h2 className="text-3xl md:text-4xl font-black tracking-tight text-[#0A3D62] mb-4">
+							{t("ctaTitle")}
+						</h2>
+						<p className="text-[#3D5568] text-base md:text-lg mb-8 max-w-xl mx-auto">
+							{t("ctaDesc")}
+						</p>
 						<button
 							type="button"
 							onClick={() => router.push("/login")}
-							className="hover:text-white cursor-pointer"
+							className="bg-[#E85A2A] text-white font-extrabold text-lg px-8 py-4 rounded-xl shadow-lg hover:bg-[#d04a1f] transition-all transform hover:-translate-y-1 active:scale-95 inline-flex items-center gap-3"
 						>
-							{tBtn("login")}
+							{tBtn("login")} <ArrowRight className="w-5 h-5" />
 						</button>
+					</Reveal>
+				</section>
+
+				{/* Footer */}
+				<footer className="bg-[#0A3D62] text-white text-xs md:text-sm">
+					<div className="max-w-6xl mx-auto grid md:grid-cols-[1.2fr_1fr] gap-10 px-6 py-12">
+						<div>
+							<h2 className="font-extrabold text-base">{t("teamTitle")}</h2>
+							<p className="mt-2 max-w-md text-blue-100 leading-relaxed">{t("teamDesc")}</p>
+							<ul className="mt-4 grid sm:grid-cols-2 gap-1">
+								{TEAM.map((name) => (
+									<li key={name}>{name}</li>
+								))}
+							</ul>
+						</div>
+						<div>
+							<h2 className="font-extrabold text-base">{t("paperLabel")}</h2>
+							<p className="mt-2 text-blue-100 leading-relaxed">{t("paperTitle")}</p>
+						</div>
 					</div>
-				</div>
-			</footer>
-		</div>
+					<div className="border-t border-white/10">
+						<div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 px-6 py-5">
+							<div className="flex items-center gap-2.5">
+								<OptiFeedLogo size={28} variant="white" />
+								<Image
+									src="/pakaonai-logo-kit/png/pakaonai-wordmark-color.png"
+									alt="PakaonAI"
+									width={90}
+									height={20}
+									className="h-5 w-auto object-contain brightness-0 invert"
+								/>
+								<span className="text-gray-400">{t("footerSubtitle")}</span>
+							</div>
+							<div className="text-gray-300">{t("footerCopyright")}</div>
+							<button
+								type="button"
+								onClick={() => router.push("/login")}
+								className="text-gray-300 hover:text-white cursor-pointer"
+							>
+								{tBtn("login")}
+							</button>
+						</div>
+					</div>
+				</footer>
+			</div>
+		</MotionConfig>
 	);
 }

@@ -12,6 +12,7 @@ interface ScheduleControlsProps {
 	deviceId: string;
 	initialIsPaused: boolean;
 	gramsPerFeeding?: number;
+	gramsPerSecond?: number;
 	canWrite?: boolean;
 }
 
@@ -19,6 +20,7 @@ export function ScheduleControls({
 	deviceId,
 	initialIsPaused,
 	gramsPerFeeding = 150,
+	gramsPerSecond,
 	canWrite = true,
 }: ScheduleControlsProps) {
 	const tBtn = useTranslations("button");
@@ -30,6 +32,12 @@ export function ScheduleControls({
 	const [showConfirm, setShowConfirm] = useState(false);
 	const [isPendingFeed, startFeedTransition] = useTransition();
 	const [feedSuccess, setFeedSuccess] = useState(false);
+
+	const feedGramsLabel = String(Number(gramsPerFeeding.toFixed(1)));
+	const feedDurationSeconds =
+		gramsPerSecond && gramsPerSecond > 0 && gramsPerFeeding > 0
+			? String(Number((gramsPerFeeding / gramsPerSecond).toFixed(1)))
+			: null;
 
 	const handleTogglePause = () => {
 		const newStatus = !isPaused;
@@ -140,6 +148,14 @@ export function ScheduleControls({
 						)}
 						<span>{feedSuccess ? tBtn("feedTriggered") : tBtn("feedNow")}</span>
 					</button>
+				)}
+				{feedDurationSeconds && (
+					<p className="mt-2 text-[11px] font-medium text-gray-500 dark:text-gray-400">
+						{tSch("feedDurationHint", {
+							grams: feedGramsLabel,
+							seconds: feedDurationSeconds,
+						})}
+					</p>
 				)}
 			</div>
 		</div>

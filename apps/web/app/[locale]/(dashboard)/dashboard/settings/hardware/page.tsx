@@ -26,12 +26,14 @@ export default async function HardwareSettingsPage() {
 	const writeAccess = await canWrite();
 	let device = null;
 	let energyDevice = null;
+	let pondIsFallow = false;
 	try {
 		const pond = await getActivePond({ devices: true });
 		if (pond && pond.devices.length > 0) {
 			device = pond.devices[0];
 		}
 		if (pond) {
+			pondIsFallow = Boolean(pond.isFallow);
 			energyDevice = await prisma.energyDevice.findFirst({
 				where: { pondId: pond.id },
 				orderBy: { createdAt: "asc" },
@@ -260,24 +262,14 @@ export default async function HardwareSettingsPage() {
 
 				{/* Duration Calibration */}
 				{energyDevice && (
-					<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-						<div className="mb-6 border-b border-gray-100 pb-4">
-							<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800">
+					<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
+						<div className="mb-6 border-b border-gray-100 pb-4 dark:border-gray-700/50">
+							<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800 dark:text-gray-100">
 								<Timer size={20} />
-								Duration Calibration
+								{t("calibration.title")}
 							</h2>
-							<p className="mt-1 text-sm text-gray-500">
-								Calibrate how fast the motor dispenses feed (grams per second)
-							</p>
-						</div>
-
-						<div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 p-3">
-							<p className="text-xs text-amber-700 font-medium">
-								Current rate: <strong>{energyDevice.gramsPerSecond} g/s</strong> &middot;{" "}
-								{energyDevice.gramsPerFeeding}g feed ={" "}
-								<strong>
-									{(energyDevice.gramsPerFeeding / energyDevice.gramsPerSecond).toFixed(1)}s
-								</strong>
+							<p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+								{t("calibration.desc")}
 							</p>
 						</div>
 
@@ -286,6 +278,8 @@ export default async function HardwareSettingsPage() {
 							currentGramsPerSecond={energyDevice.gramsPerSecond}
 							currentGramsPerFeeding={energyDevice.gramsPerFeeding}
 							canWrite={writeAccess}
+							isOffline={isDeviceOffline}
+							isFallow={pondIsFallow}
 						/>
 					</section>
 				)}

@@ -1,19 +1,21 @@
 "use client";
 
-import { useRouter } from "@/i18n/routing";
+import { Link, useRouter } from "@/i18n/routing";
 import { cancelCropCycle, updateCropCycle } from "@/lib/actions/crop-cycle";
-import { updatePondEvent } from "@/lib/actions/pond-event";
+import { completePondEvent, updatePondEvent } from "@/lib/actions/pond-event";
 import { ApiClientError, apiGet } from "@/lib/api-client";
 import type { CalendarEventDto, CalendarEventType } from "@/lib/crop-cycle/calendar";
 import { CALENDAR_EVENT_TYPES } from "@/lib/crop-cycle/calendar";
-import { addDays, daysBetween, todayDateOnly } from "@/lib/crop-cycle/dates";
+import { FARM_TIME_ZONE, addDays, daysBetween, todayDateOnly } from "@/lib/crop-cycle/dates";
 import { computeCropCycleMetrics } from "@/lib/crop-cycle/metrics";
 import type { CropCycleDto, PondOption } from "@/lib/crop-cycle/types";
 import {
 	CalendarDays,
+	Check,
 	ChevronRight,
 	CircleAlert,
 	CloudOff,
+	ExternalLink,
 	Filter,
 	Fish,
 	Loader2,
@@ -24,10 +26,11 @@ import {
 	Sparkles,
 	Wheat,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { CalendarErrorBoundary } from "./calendar-error-boundary";
 import { CycleForm } from "./cycle-form";
 import { EventForm } from "./event-form";
 import { HarvestForm } from "./harvest-form";
@@ -59,6 +62,49 @@ interface HarvestCalendarProps {
 
 const defaultTypes: CalendarEventType[] = ["harvest", "sampling", "manual", "device"];
 
+const MARK_DONE_LABELS: Record<string, string> = {
+	en: "Mark done",
+	hil: "I-mark nga nahuman",
+};
+
+const RESCHEDULE_CONFIRM: Record<string, string> = {
+	en: "Move this cycle's harvest date?",
+	hil: "Ibalhin ang petsa sang ani sa sini nga siklo?",
+};
+
+function markDoneLabel(locale: string): string {
+	return MARK_DONE_LABELS[locale] ?? MARK_DONE_LABELS.en;
+}
+
+function rescheduleConfirm(locale: string): string {
+	return RESCHEDULE_CONFIRM[locale] ?? RESCHEDULE_CONFIRM.en;
+}
+
+/** Format an event start for the detail drawer without timezone drift. */
+function formatEventMoment(event: CalendarEventDto, locale: string): string {
+	const raw = event.start;
+	let instant: Date | null = null;
+
+	if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+		instant = new Date(`${raw}T00:00:00+08:00`);
+	} else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(raw)) {
+		// Feeding/manual times are farm-local naive timestamps.
+		instant = new Date(`${raw}+08:00`);
+	} else {
+		const parsed = new Date(raw);
+		instant = Number.isNaN(parsed.getTime()) ? null : parsed;
+	}
+
+	if (!instant) return raw.slice(0, 10);
+
+	const options: Intl.DateTimeFormatOptions = {
+		dateStyle: "medium",
+		timeZone: FARM_TIME_ZONE,
+	};
+	if (!event.allDay) options.timeStyle = "short";
+	return new Intl.DateTimeFormat(locale, options).format(instant);
+}
+
 function cycleToInput(cycle: CropCycleDto, overrides: Partial<CropCycleDto> = {}) {
 	const value = { ...cycle, ...overrides };
 	return {
@@ -87,12 +133,17 @@ export function HarvestCalendar({
 	today,
 }: HarvestCalendarProps) {
 	const t = useTranslations("dashboard.harvest");
+	const tNav = useTranslations("nav");
+	const locale = useLocale();
 	const router = useRouter();
+	const requestId = useRef(0);
 	const [selectedPondId, setSelectedPondId] = useState(initialPondId);
 	const [allPonds, setAllPonds] = useState(false);
 	const [types, setTypes] = useState<Set<CalendarEventType>>(new Set(defaultTypes));
 	const [range, setRange] = useState({ from: addDays(today, -14), to: addDays(today, 45) });
+	const [viewType, setViewType] = useState("dayGridMonth");
 	const [events, setEvents] = useState<CalendarEventDto[]>([]);
+	const [upcomingEvents, setUpcomingEvents] = useState<CalendarEventDto[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [truncated, setTruncated] = useState(false);
@@ -105,29 +156,75 @@ export function HarvestCalendar({
 	const [editingEvent, setEditingEvent] = useState<CalendarEventDto | null>(null);
 	const [details, setDetails] = useState<CalendarEventDto | null>(null);
 	const [isCancelling, startCancel] = useTransition();
+	const [isCompleting, startComplete] = useTransition();
 
+	const cycleForPond = useCallback(
+		(pondId: string): CropCycleDto | null =>
+			activeCycles.find((cycle) => cycle.pondId === pondId) ??
+			(pondId === initialPondId ? activeCycle : null),
+		[activeCycles, activeCycle, initialPondId],
+	);
 	const selectedPond = ponds.find((pond) => pond.id === selectedPondId);
-	const selectedCycle =
-		activeCycles.find((cycle) => cycle.pondId === selectedPondId) ??
-		(selectedPondId === initialPondId ? activeCycle : null);
+	const selectedCycle = cycleForPond(selectedPondId);
 	const metrics = selectedCycle ? computeCropCycleMetrics(selectedCycle, today) : null;
 	const isFallow = selectedPond?.isFallow ?? initialPondIsFallow;
 	const typesKey = useMemo(() => [...types].sort().join(","), [types]);
+	const detailCycle = details ? cycleForPond(details.pondId) : null;
+	const canEditDetails = Boolean(
+		details?.editable && canManage && (details.kind === "MAINTENANCE" || details.kind === "OTHER"),
+	);
+	const canRescheduleDetails = Boolean(
+		details && details.kind === "HARVEST_PLANNED" && canManage && detailCycle,
+	);
+	const selectedRecentCycles = recentCycles
+		.filter((cycle) => cycle.pondId === selectedPondId)
+		.slice(0, 3);
+	const canCompleteDetails = canEditDetails && details?.status !== "done";
 
 	const refresh = useCallback(() => setRefreshKey((value) => value + 1), []);
 
+	// The upcoming strip is independent of the visible calendar range. Without
+	// this separate query, browsing a past week would incorrectly show "no
+	// upcoming events" and browsing a future month would hide this week's work.
 	useEffect(() => {
 		const controller = new AbortController();
+		const params = new URLSearchParams({
+			from: today,
+			to: addDays(today, 45),
+			pondId: allPonds ? "all" : selectedPondId,
+			types: typesKey,
+			refresh: String(refreshKey),
+		});
+
+		apiGet<{ events: CalendarEventDto[] }>(`/api/calendar/events?${params.toString()}`, {
+			timeoutMs: 10_000,
+			signal: controller.signal,
+		})
+			.then((data) => {
+				if (!controller.signal.aborted) setUpcomingEvents(data.events);
+			})
+			.catch(() => {
+				// The calendar error banner is authoritative; keep the last good
+				// upcoming list rather than replacing it with a second error.
+			});
+
+		return () => controller.abort();
+	}, [allPonds, selectedPondId, typesKey, refreshKey, today]);
+
+	useEffect(() => {
+		const controller = new AbortController();
+		const currentRequest = ++requestId.current;
 		let cancelled = false;
 		setLoading(true);
 		setError(null);
+		setTruncated(false);
 
 		const params = new URLSearchParams({
 			from: range.from,
 			to: range.to,
 			pondId: allPonds ? "all" : selectedPondId,
 			types: typesKey,
-			v: String(refreshKey),
+			refresh: String(refreshKey),
 		});
 
 		apiGet<{ events: CalendarEventDto[]; truncated: boolean }>(
@@ -135,16 +232,16 @@ export function HarvestCalendar({
 			{ timeoutMs: 10_000, signal: controller.signal },
 		)
 			.then((data) => {
-				if (cancelled) return;
+				if (cancelled || currentRequest !== requestId.current) return;
 				setEvents(data.events);
 				setTruncated(Boolean(data.truncated));
 			})
 			.catch((caught) => {
-				if (cancelled || controller.signal.aborted) return;
+				if (cancelled || currentRequest !== requestId.current || controller.signal.aborted) return;
 				setError(caught instanceof ApiClientError ? caught.message : t("calendar.loadError"));
 			})
 			.finally(() => {
-				if (!cancelled) setLoading(false);
+				if (!cancelled && currentRequest === requestId.current) setLoading(false);
 			});
 
 		return () => {
@@ -188,16 +285,36 @@ export function HarvestCalendar({
 	};
 
 	const handleEventClick = (event: CalendarEventDto) => {
-		if (event.kind === "HARVEST_PLANNED" && canManage && selectedCycle) {
-			openEditCycle(selectedCycle);
-			return;
-		}
-		if (event.editable && canManage && (event.kind === "MAINTENANCE" || event.kind === "OTHER")) {
-			setEditingEvent(event);
-			setEventFormOpen(true);
-			return;
-		}
 		setDetails(event);
+	};
+
+	const openEventEditor = () => {
+		if (!details || !canEditDetails) return;
+		setEditingEvent(details);
+		setDetails(null);
+		setEventFormOpen(true);
+	};
+
+	const openCycleEditorFromDetails = () => {
+		if (!detailCycle || !canRescheduleDetails) return;
+		setDetails(null);
+		openEditCycle(detailCycle);
+	};
+
+	const markEventDone = () => {
+		if (!details || !canCompleteDetails || isCompleting) return;
+		const id = details.id.replace(/^pond:/, "");
+		startComplete(async () => {
+			const result = await completePondEvent({ id });
+			if (!result.success) {
+				toast.error(result.error);
+				return;
+			}
+			toast.success(t("eventForm.successUpdate"));
+			setDetails(null);
+			router.refresh();
+			refresh();
+		});
 	};
 
 	const handleDateClick = (date: string) => {
@@ -209,15 +326,18 @@ export function HarvestCalendar({
 
 	const handleEventDrop = async (event: CalendarEventDto, date: string): Promise<boolean> => {
 		if (!canManage) return false;
-		if (event.kind === "HARVEST_PLANNED" && selectedCycle) {
-			const span = daysBetween(selectedCycle.stockingDate, date);
+		if (event.kind === "HARVEST_PLANNED") {
+			const cycle = cycleForPond(event.pondId);
+			if (!cycle) return false;
+			const span = daysBetween(cycle.stockingDate, date);
 			if (span < 30 || span > 365) {
 				toast.error(t("calendar.dateRangeError"));
 				return false;
 			}
+			if (!window.confirm(rescheduleConfirm(locale))) return false;
 			const result = await updateCropCycle(
-				selectedCycle.id,
-				cycleToInput(selectedCycle, {
+				cycle.id,
+				cycleToInput(cycle, {
 					targetHarvestDate: date,
 					growOutDays: span,
 				}),
@@ -269,7 +389,7 @@ export function HarvestCalendar({
 		});
 	};
 
-	const upcoming = events
+	const upcoming = upcomingEvents
 		.filter((event) => event.start.slice(0, 10) >= today)
 		.sort((a, b) => a.start.localeCompare(b.start))
 		.slice(0, 5);
@@ -480,13 +600,13 @@ export function HarvestCalendar({
 									{t("summary.aiHintDesc")}
 								</p>
 							</div>
-							{recentCycles.length > 0 && (
+							{selectedRecentCycles.length > 0 && (
 								<div className="rounded-2xl border border-gray-100 p-4 dark:border-gray-700/60">
 									<p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
 										{t("summary.recent")}
 									</p>
 									<ul className="mt-2 space-y-1.5">
-										{recentCycles.map((cycle) => (
+										{selectedRecentCycles.map((cycle) => (
 											<li
 												key={cycle.id}
 												className="flex items-center justify-between gap-2 text-[11px]"
@@ -545,20 +665,21 @@ export function HarvestCalendar({
 			)}
 
 			{/* Calendar + filters */}
-			<section className="rounded-[32px] border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 sm:p-5">
+			<section className="min-w-0 overflow-x-clip rounded-[32px] border border-gray-100 bg-white p-3 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 sm:p-5">
 				<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-					<div>
+					<div className="min-w-0">
 						<h2 className="flex items-center gap-2 text-lg font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-							<CalendarDays className="h-5 w-5" />
+							<CalendarDays className="h-5 w-5 shrink-0" />
 							{t("calendar.title")}
 						</h2>
 						<p className="text-xs text-gray-500 dark:text-gray-400">{t("calendar.desc")}</p>
 					</div>
-					<div className="flex flex-wrap items-center gap-2">
-						<label className="flex items-center gap-1.5 text-[11px] font-bold text-gray-500 dark:text-gray-400">
-							<Fish className="h-3.5 w-3.5" />
+					<div className="flex min-w-0 flex-wrap items-center gap-2">
+						<label className="flex min-w-0 items-center gap-1.5 text-[11px] font-bold text-gray-500 dark:text-gray-400">
+							<Fish className="h-3.5 w-3.5 shrink-0" />
 							<select
 								value={allPonds ? "all" : selectedPondId}
+								aria-label={t("calendar.allPonds")}
 								onChange={(event) => {
 									if (event.target.value === "all") {
 										setAllPonds(true);
@@ -567,7 +688,7 @@ export function HarvestCalendar({
 										setAllPonds(false);
 									}
 								}}
-								className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-bold text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+								className="max-w-[11rem] min-w-0 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-bold text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
 							>
 								{ponds.map((pond) => (
 									<option key={pond.id} value={pond.id}>
@@ -603,7 +724,10 @@ export function HarvestCalendar({
 					</div>
 				</div>
 
-				<div className="mt-4 flex flex-wrap items-center gap-1.5">
+				<fieldset
+					aria-label={t("calendar.filters")}
+					className="m-0 mt-4 flex min-w-0 flex-wrap items-center gap-1.5 border-0 p-0"
+				>
 					<span className="mr-1 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-gray-400">
 						<Filter className="h-3 w-3" />
 						{t("calendar.filters")}
@@ -623,12 +747,20 @@ export function HarvestCalendar({
 							{t(`filters.${type}`)}
 						</button>
 					))}
-				</div>
+				</fieldset>
 
 				{error && (
-					<div className="mt-4 flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
-						<CloudOff className="mt-0.5 h-4 w-4 shrink-0" />
-						{error}
+					<div className="mt-4 flex flex-col gap-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300 sm:flex-row sm:items-center">
+						<CloudOff className="h-4 w-4 shrink-0" />
+						<p className="min-w-0 flex-1">{error}</p>
+						<button
+							type="button"
+							onClick={refresh}
+							className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-red-700 transition-colors hover:bg-red-50 dark:border-red-900/60 dark:bg-gray-900 dark:text-red-300 dark:hover:bg-red-950/30"
+						>
+							<RefreshCw className="h-3.5 w-3.5" />
+							{t("calendar.refresh")}
+						</button>
 					</div>
 				)}
 				{truncated && (
@@ -638,24 +770,39 @@ export function HarvestCalendar({
 					</div>
 				)}
 
-				<div className="relative mt-4">
+				{!loading && !error && events.length === 0 && viewType !== "listMonth" && (
+					<output className="mt-4 block rounded-2xl border border-dashed border-gray-200 bg-gray-50/60 p-3 text-center text-xs font-semibold text-gray-500 dark:border-gray-700/60 dark:bg-gray-800/40 dark:text-gray-400">
+						{t("calendar.noEvents")}
+					</output>
+				)}
+
+				<div className="relative mt-4 min-w-0" aria-busy={loading}>
 					{loading && (
-						<div className="absolute inset-0 z-10 flex items-center justify-center rounded-3xl bg-white/60 dark:bg-gray-900/60">
-							<Loader2 className="h-6 w-6 animate-spin text-[#0A3D62] dark:text-[#5b9bd5]" />
+						<div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden rounded-full bg-[#0A3D62]/10 dark:bg-white/10">
+							<div className="h-full w-1/3 animate-pulse rounded-full bg-[#0A3D62] dark:bg-[#5b9bd5]" />
 						</div>
 					)}
-					<CalendarView
-						events={events}
-						canManage={canManage}
-						onRangeChange={(from, to) => {
-							setRange((current) =>
-								current.from === from && current.to === to ? current : { from, to },
-							);
-						}}
-						onEventClick={handleEventClick}
-						onDateClick={handleDateClick}
-						onEventDrop={handleEventDrop}
-					/>
+					<CalendarErrorBoundary
+						title={t("calendar.title")}
+						message={t("calendar.loadError")}
+						retryLabel={t("calendar.refresh")}
+						resetKey={`${range.from}:${range.to}:${typesKey}:${allPonds}:${selectedPondId}`}
+					>
+						<CalendarView
+							events={events}
+							canManage={canManage}
+							allPonds={allPonds}
+							onRangeChange={(from, to) => {
+								setRange((current) =>
+									current.from === from && current.to === to ? current : { from, to },
+								);
+							}}
+							onViewChange={setViewType}
+							onEventClick={handleEventClick}
+							onDateClick={handleDateClick}
+							onEventDrop={handleEventDrop}
+						/>
+					</CalendarErrorBoundary>
 				</div>
 			</section>
 
@@ -695,8 +842,8 @@ export function HarvestCalendar({
 										<span className="block truncate text-sm font-bold text-gray-800 dark:text-gray-100">
 											{labelFor(event)}
 										</span>
-										<span className="block text-[11px] text-gray-400">
-											{event.start.slice(0, 10)}
+										<span className="block truncate text-[11px] text-gray-400">
+											{formatEventMoment(event, locale)}
 											{allPonds ? ` · ${event.pondName}` : ""}
 										</span>
 									</span>
@@ -735,9 +882,44 @@ export function HarvestCalendar({
 				open={Boolean(details)}
 				onClose={() => setDetails(null)}
 				title={details ? labelFor(details) : ""}
-				description={details ? `${details.pondName} · ${details.start.slice(0, 10)}` : undefined}
+				description={
+					details ? `${details.pondName} · ${formatEventMoment(details, locale)}` : undefined
+				}
 				footer={
-					<div className="flex justify-end">
+					<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+						{canCompleteDetails && (
+							<button
+								type="button"
+								onClick={markEventDone}
+								disabled={isCompleting}
+								className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#1E7B34] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#18652b] disabled:opacity-50"
+							>
+								{isCompleting ? (
+									<Loader2 className="h-4 w-4 animate-spin" />
+								) : (
+									<Check className="h-4 w-4" />
+								)}
+								{markDoneLabel(locale)}
+							</button>
+						)}
+						{canEditDetails && (
+							<button
+								type="button"
+								onClick={openEventEditor}
+								className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+							>
+								{t("eventForm.titleEdit")}
+							</button>
+						)}
+						{canRescheduleDetails && (
+							<button
+								type="button"
+								onClick={openCycleEditorFromDetails}
+								className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+							>
+								{t("summary.editPlan")}
+							</button>
+						)}
 						<button
 							type="button"
 							onClick={() => setDetails(null)}
@@ -749,19 +931,47 @@ export function HarvestCalendar({
 				}
 			>
 				{details && (
-					<div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
-						<p className="flex items-center gap-2">
-							<Scale className="h-4 w-4 text-gray-400" />
-							{t("details.pond")}: <strong>{details.pondName}</strong>
-						</p>
-						<p>
-							{t("details.date")}: <strong>{details.start.slice(0, 10)}</strong>
-						</p>
-						{details.notes && <p className="text-xs text-gray-500">{details.notes}</p>}
+					<div className="space-y-4 text-sm text-gray-600 dark:text-gray-300">
+						<div className="grid gap-2 sm:grid-cols-2">
+							<p className="flex min-w-0 items-center gap-2">
+								<Scale className="h-4 w-4 shrink-0 text-gray-400" />
+								<span className="text-gray-400">{t("details.pond")}</span>
+								<strong className="truncate text-gray-800 dark:text-gray-100">
+									{details.pondName}
+								</strong>
+							</p>
+							<p className="flex min-w-0 items-center gap-2">
+								<CalendarDays className="h-4 w-4 shrink-0 text-gray-400" />
+								<span className="text-gray-400">{t("details.date")}</span>
+								<strong className="truncate text-gray-800 dark:text-gray-100">
+									{formatEventMoment(details, locale)}
+								</strong>
+							</p>
+						</div>
+						{details.notes && (
+							<div>
+								<p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+									{t("eventForm.notes")}
+								</p>
+								<p className="mt-1 whitespace-pre-wrap break-words text-xs text-gray-500 dark:text-gray-400">
+									{details.notes}
+								</p>
+							</div>
+						)}
 						{details.type === "sampling" && (
 							<p className="rounded-xl bg-teal-50 p-3 text-xs text-teal-800 dark:bg-teal-950/30 dark:text-teal-300">
 								{t("details.samplingHint")}
 							</p>
+						)}
+						{details.href && (details.type === "sampling" || details.type === "harvest") && (
+							<Link
+								href={details.href}
+								onClick={() => setDetails(null)}
+								className="inline-flex items-center gap-1.5 rounded-xl bg-[#0A3D62]/5 px-3 py-2 text-xs font-bold text-[#0A3D62] transition-colors hover:bg-[#0A3D62]/10 dark:bg-white/5 dark:text-[#9cc7f0] dark:hover:bg-white/10"
+							>
+								<ExternalLink className="h-3.5 w-3.5" />
+								{details.type === "sampling" ? tNav("logSample") : tNav("harvest")}
+							</Link>
 						)}
 					</div>
 				)}

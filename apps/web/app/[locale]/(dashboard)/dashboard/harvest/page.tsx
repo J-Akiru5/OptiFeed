@@ -101,20 +101,18 @@ export default async function HarvestPage() {
 	const serialised = cycles.map(serialiseCycle);
 	const activeCycles = serialised.filter((cycle) => cycle.status === "ACTIVE");
 	const activeCycle = activeCycles.find((cycle) => cycle.pondId === pond.id) ?? null;
-	const recentCycles = serialised
-		.filter((cycle) => cycle.pondId === pond.id && cycle.status !== "ACTIVE")
-		.slice(0, 3);
+	const recentCycles = serialised.filter((cycle) => cycle.status !== "ACTIVE");
 
 	return (
-		<div className="mx-auto max-w-7xl space-y-6 pb-20 animate-in fade-in duration-500">
+		<div className="mx-auto w-full min-w-0 max-w-7xl space-y-6 pb-20 animate-in fade-in duration-500 [contain:inline-size]">
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 				<div>
 					<div className="flex items-center gap-2">
-						<div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
+						<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
 							<CalendarDays className="h-6 w-6" />
 						</div>
-						<div>
-							<h1 className="text-3xl font-black tracking-tight text-[var(--ofd-base-deep)]">
+						<div className="min-w-0">
+							<h1 className="text-2xl font-black tracking-tight text-[var(--ofd-base-deep)] sm:text-3xl">
 								{t("title")}
 							</h1>
 							<p className="text-sm text-gray-500 dark:text-gray-400">

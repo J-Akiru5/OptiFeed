@@ -136,7 +136,7 @@ export async function loadGrowthPlanForPond(
 					sampleCount: previous.sampleCount,
 				}
 			: null,
-		population: pond.population ?? activeCycle?.stockingCount ?? DEFAULT_FISH_COUNT,
+		population: activeCycle?.stockingCount ?? pond.population ?? DEFAULT_FISH_COUNT,
 		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
 		feedsPerDay,
 		currentGramsPerFeeding: energyDevice?.gramsPerFeeding ?? null,

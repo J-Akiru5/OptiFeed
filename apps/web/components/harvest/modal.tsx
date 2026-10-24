@@ -2,7 +2,8 @@
 
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { type ReactNode, useEffect, useId, useRef } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface ModalProps {
 	open: boolean;
@@ -31,6 +32,11 @@ export function Modal({
 	const descriptionId = useId();
 	const panelRef = useRef<HTMLDialogElement>(null);
 	const onCloseRef = useRef(onClose);
+	const [mounted, setMounted] = useState(false);
+
+	useEffect(() => {
+		setMounted(true);
+	}, []);
 
 	useEffect(() => {
 		onCloseRef.current = onClose;
@@ -84,11 +90,11 @@ export function Modal({
 		};
 	}, [open]);
 
-	if (!open) return null;
+	if (!open || !mounted) return null;
 
 	const maxWidth = size === "sm" ? "max-w-md" : size === "lg" ? "max-w-3xl" : "max-w-xl";
 
-	return (
+	return createPortal(
 		<div className="fixed inset-0 z-[60] flex items-end justify-center p-0 sm:items-center sm:p-4">
 			<button
 				type="button"
@@ -140,6 +146,7 @@ export function Modal({
 					</div>
 				)}
 			</dialog>
-		</div>
+		</div>,
+		document.body,
 	);
 }

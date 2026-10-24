@@ -1,51 +1,14 @@
 import { HarvestCalendar } from "@/components/harvest/harvest-calendar";
 import { hasPermission } from "@/lib/auth/permissions";
-import { todayDateOnly, utcDateToDateOnly } from "@/lib/crop-cycle/dates";
-import type { CropCycleDto, PondOption } from "@/lib/crop-cycle/types";
+import { todayDateOnly } from "@/lib/crop-cycle/dates";
+import { serialiseCycle } from "@/lib/crop-cycle/serialise";
+import type { PondOption } from "@/lib/crop-cycle/types";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { CalendarDays } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0;
-
-function serialiseCycle(cycle: {
-	id: string;
-	pondId: string;
-	label: string | null;
-	status: "ACTIVE" | "HARVESTED" | "CANCELLED";
-	stockingDate: Date;
-	stockingCount: number;
-	stockingAvgWeightG: number | null;
-	growOutDays: number;
-	targetHarvestDate: Date;
-	targetHarvestWeightG: number | null;
-	expectedSurvivalPct: number | null;
-	actualHarvestDate: Date | null;
-	actualHarvestWeightKg: number | null;
-	actualHarvestCount: number | null;
-	actualFcr: number | null;
-	notes: string | null;
-}): CropCycleDto {
-	return {
-		id: cycle.id,
-		pondId: cycle.pondId,
-		label: cycle.label,
-		status: cycle.status,
-		stockingDate: utcDateToDateOnly(cycle.stockingDate),
-		stockingCount: cycle.stockingCount,
-		stockingAvgWeightG: cycle.stockingAvgWeightG,
-		growOutDays: cycle.growOutDays,
-		targetHarvestDate: utcDateToDateOnly(cycle.targetHarvestDate),
-		targetHarvestWeightG: cycle.targetHarvestWeightG,
-		expectedSurvivalPct: cycle.expectedSurvivalPct,
-		actualHarvestDate: cycle.actualHarvestDate ? utcDateToDateOnly(cycle.actualHarvestDate) : null,
-		actualHarvestWeightKg: cycle.actualHarvestWeightKg,
-		actualHarvestCount: cycle.actualHarvestCount,
-		actualFcr: cycle.actualFcr,
-		notes: cycle.notes,
-	};
-}
 
 export default async function HarvestPage() {
 	const t = await getTranslations("dashboard.harvest");

@@ -4,6 +4,7 @@ import { Link, usePathname } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
 import {
 	BarChart3,
+	CalendarDays,
 	Cpu,
 	Droplets,
 	FileText,
@@ -15,6 +16,7 @@ import {
 
 const navItems = [
 	{ href: "/admin", label: "Overview", icon: Home },
+	{ href: "/admin/calendar", label: "Calendar", icon: CalendarDays },
 	{ href: "/admin/users", label: "Users", icon: Users },
 	{ href: "/admin/ponds", label: "Ponds", icon: Droplets },
 	{ href: "/admin/devices", label: "Devices", icon: Cpu },

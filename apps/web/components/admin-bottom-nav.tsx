@@ -2,14 +2,15 @@
 
 import { Link, usePathname } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
-import { Cpu, Droplets, FileText, Home, Users } from "lucide-react";
+import { CalendarDays, Cpu, Droplets, FileText, Home, Users } from "lucide-react";
 
 /**
  * Admin console navigation below `lg`, where AdminSidebar is hidden.
- * Five primary destinations only: Hierarchy and Settings stay in the sidebar.
+ * Hierarchy and Settings stay in the sidebar.
  */
 const navItems = [
 	{ href: "/admin", label: "Overview", icon: Home },
+	{ href: "/admin/calendar", label: "Calendar", icon: CalendarDays },
 	{ href: "/admin/users", label: "Users", icon: Users },
 	{ href: "/admin/ponds", label: "Ponds", icon: Droplets },
 	{ href: "/admin/devices", label: "Devices", icon: Cpu },

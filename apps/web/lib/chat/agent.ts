@@ -409,6 +409,9 @@ function buildApplyPreview(
 
 	const safeApplicable = plan.applicableGramsPerFeeding;
 	const requested = numberArg(args.grams) ?? safeApplicable;
+	if (!Number.isFinite(requested) || requested < 1) {
+		return { kind: "clarify", text: "The feeding amount must be at least 1g per meal." };
+	}
 	const current = plan.currentGramsPerFeeding;
 	if (current !== null && current > 0) {
 		const deviation = Math.abs(requested - current) / current;

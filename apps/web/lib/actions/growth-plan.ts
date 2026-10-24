@@ -108,6 +108,12 @@ export async function applyGrowthPlanForPond(params: {
 		if (requested === null) {
 			return { success: false, error: "No feeding amount is available." };
 		}
+		if (requested > plan.device.maxGramsPerFeeding) {
+			return {
+				success: false,
+				error: `The feeder limit is ${plan.device.maxGramsPerFeeding.toFixed(1)}g per meal.`,
+			};
+		}
 
 		const gramsCheck = feedGramsSchema.safeParse(requested);
 		if (!gramsCheck.success) {

@@ -13,6 +13,7 @@ interface EnergyControllerCardProps {
 	rtcOk: boolean;
 	feederActive: boolean;
 	gramsPerFeeding: number;
+	gramsPerSecond?: number;
 	lastSeenAt: Date | null;
 	isOffline: boolean;
 	canWrite?: boolean;
@@ -37,6 +38,7 @@ export function EnergyControllerCard({
 	rtcOk,
 	feederActive,
 	gramsPerFeeding,
+	gramsPerSecond,
 	lastSeenAt,
 	isOffline,
 	canWrite = true,
@@ -45,6 +47,11 @@ export function EnergyControllerCard({
 	const [isPending, startTransition] = useTransition();
 	const [feedSent, setFeedSent] = useState(false);
 	const [alreadyQueued, setAlreadyQueued] = useState(false);
+
+	const dispenseSeconds =
+		gramsPerSecond && gramsPerSecond > 0 && feedGrams > 0
+			? String(Number((feedGrams / gramsPerSecond).toFixed(1)))
+			: null;
 
 	const handleFeedNow = () => {
 		setFeedSent(false);
@@ -156,12 +163,19 @@ export function EnergyControllerCard({
 
 				<div className="space-y-3">
 					<div>
-						<label
-							htmlFor="feed-grams"
-							className="block text-xs text-gray-500 dark:text-gray-400 font-medium mb-1"
-						>
-							Feed Amount (grams)
-						</label>
+						<div className="mb-1 flex items-baseline justify-between gap-2">
+							<label
+								htmlFor="feed-grams"
+								className="block text-xs text-gray-500 dark:text-gray-400 font-medium"
+							>
+								Feed Amount (grams)
+							</label>
+							{dispenseSeconds && (
+								<span className="text-[11px] text-gray-500 dark:text-gray-400">
+									≈ {dispenseSeconds}s dispense
+								</span>
+							)}
+						</div>
 						<input
 							id="feed-grams"
 							type="number"

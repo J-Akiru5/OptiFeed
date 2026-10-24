@@ -15,6 +15,7 @@ interface FeedNowButtonProps {
 	hopperLevelPct?: number;
 	canWrite?: boolean;
 	isFallow?: boolean;
+	gramsPerSecond?: number;
 	"data-onboard"?: string;
 }
 
@@ -27,6 +28,7 @@ export function FeedNowButton({
 	hopperLevelPct = 100,
 	canWrite = true,
 	isFallow = false,
+	gramsPerSecond,
 	"data-onboard": dataOnboard,
 }: FeedNowButtonProps) {
 	const t = useTranslations("dashboard.feedNowModal");
@@ -37,14 +39,23 @@ export function FeedNowButton({
 
 	const isOffline = connectionStatus === "offline";
 
+	// 2-decimal doses like "29.63g"
+	const feedGrams = Number.parseFloat(nextFeedingVolume.replace("g", ""));
+	const dispenseSeconds =
+		gramsPerSecond && gramsPerSecond > 0 && !Number.isNaN(feedGrams) && feedGrams > 0
+			? String(Number((feedGrams / gramsPerSecond).toFixed(1)))
+			: null;
+
 	async function handleFeedNow() {
 		setShowConfirm(false);
 		if (isOffline) return;
 		setDispensing(true);
 		try {
-			// 2-decimal doses like "29.63g"; NaN → let the server use the device default
-			const grams = Number.parseFloat(nextFeedingVolume.replace("g", ""));
-			const result = await requestFeedAction(deviceId, Number.isNaN(grams) ? undefined : grams);
+			// NaN → let the server use the device default
+			const result = await requestFeedAction(
+				deviceId,
+				Number.isNaN(feedGrams) ? undefined : feedGrams,
+			);
 			if (result.success && result.message === "Feed already pending") {
 				toast.info(t("alreadyQueued"));
 			} else if (result.success) {
@@ -61,16 +72,23 @@ export function FeedNowButton({
 
 	return (
 		<>
-			<button
-				type="button"
-				onClick={() => setShowConfirm(true)}
-				disabled={dispensing || isOffline || !canWrite || isFallow}
-				className="bg-[#E85A2A] text-white font-black text-sm md:text-base px-6 py-3 rounded-2xl hover:bg-[#d04a1f] shadow-lg hover:shadow-xl transition-all transform active:scale-95 flex items-center gap-2 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600 disabled:shadow-none dark:disabled:bg-gray-700 dark:disabled:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
-				data-onboard={dataOnboard}
-			>
-				<Activity className={`w-4 h-4 ${dispensing ? "animate-spin" : "animate-pulse"}`} />
-				{dispensing ? t("awaitingDevice") : label}
-			</button>
+			<div className="flex flex-col items-start gap-1">
+				<button
+					type="button"
+					onClick={() => setShowConfirm(true)}
+					disabled={dispensing || isOffline || !canWrite || isFallow}
+					className="bg-[#E85A2A] text-white font-black text-sm md:text-base px-6 py-3 rounded-2xl hover:bg-[#d04a1f] shadow-lg hover:shadow-xl transition-all transform active:scale-95 flex items-center gap-2 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600 disabled:shadow-none dark:disabled:bg-gray-700 dark:disabled:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
+					data-onboard={dataOnboard}
+				>
+					<Activity className={`w-4 h-4 ${dispensing ? "animate-spin" : "animate-pulse"}`} />
+					{dispensing ? t("awaitingDevice") : label}
+				</button>
+				{dispenseSeconds && (
+					<p className="text-[11px] font-medium text-[#3D5568] dark:text-gray-400">
+						{t("durationHint", { seconds: dispenseSeconds })}
+					</p>
+				)}
+			</div>
 
 			{isOffline && (
 				<div className="mt-3 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3">

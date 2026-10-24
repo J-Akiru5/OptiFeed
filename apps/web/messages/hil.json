@@ -633,6 +633,12 @@
 			"deviceOfflineAlertsDesc": "Makabaton sang notipikasyon kon mag-offline ang imo ESP32 device.",
 			"hopperLowAlerts": "Alerto sang Hopper Low Level",
 			"hopperLowAlertsDesc": "Makabaton sang notipikasyon kon nagnubo na ang lebel sang feed hopper.",
+			"harvestReminders": "Mga Pahinumdom sang Pag-ani",
+			"harvestRemindersDesc": "Makabaton sang notipikasyon samtang nagahilapit ang petsa sang pag-ani kag kon malabawan na ini.",
+			"samplingReminders": "Mga Pahinumdom sang Sampling",
+			"samplingRemindersDesc": "Makabaton sang notipikasyon antes kag sa adlaw sang sampling sang biomass.",
+			"emailReminders": "Mga Pahinumdom sa Email",
+			"emailRemindersDesc": "Magpadala man sang mga pahinumdom sa email sang tag-iya sang pond kag mga admin kon naka-configure ang Resend.",
 			"managedByAdmin": "Ang detalye sang profile gina-manage sang imo administrator.",
 			"pinManagedByAdmin": "Ang pagbag-o sang PIN gina-atipan sang imo administrator."
 		},

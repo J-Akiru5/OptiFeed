@@ -633,6 +633,12 @@
 			"deviceOfflineAlertsDesc": "Get notified when your ESP32 device goes offline.",
 			"hopperLowAlerts": "Hopper Low Level Alerts",
 			"hopperLowAlertsDesc": "Get notified when feed hopper level is low.",
+			"harvestReminders": "Harvest Reminders",
+			"harvestRemindersDesc": "Get notified as the target harvest date approaches and when it passes.",
+			"samplingReminders": "Sampling Reminders",
+			"samplingRemindersDesc": "Get notified before a biomass sampling is due and on the due date.",
+			"emailReminders": "Email Reminders",
+			"emailRemindersDesc": "Also email crop reminders to the pond owner and farm admins when Resend is configured.",
 			"managedByAdmin": "Profile details are managed by your administrator.",
 			"pinManagedByAdmin": "PIN changes are handled by your administrator."
 		},

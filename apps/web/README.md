@@ -27,9 +27,10 @@ Key env vars (full list in `apps/web/.env.example`):
 |---|---|
 | `DATABASE_URL` / `DIRECT_URL` | Supabase Postgres (direct URL for migrations) |
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | Supabase Auth |
-| `CRON_SECRET` | Bearer secret for `/api/cron/device-watch` (H10 runs the pg_cron SQL) |
+| `CRON_SECRET` | Bearer secret for `/api/cron/device-watch` and `/api/cron/crop-watch` (the pg_cron SQL files) |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | CRITICAL alerts (no-op until set) |
-| `NEXT_PUBLIC_BASE_URL` | Absolute links in alerts/exports |
+| `RESEND_API_KEY` / `REMINDER_FROM_EMAIL` | Harvest/sampling reminder email (optional; in-app only until all email vars are set) |
+| `NEXT_PUBLIC_BASE_URL` | Absolute links in alerts/exports and reminder emails |
 | `OPENCODE_GO_API_KEY` / `OPENCODE_GO_MODEL` / `OPENCODE_GO_REASONING_EFFORT` | AI chat + feeding prediction (OpenCode Go) |
 | `GEMINI_API_KEY` | Gemini fallback when the primary provider fails |
 | `E2E_ALLOWED_DB_HOST` | Playwright guard: e2e only runs against this DB host |
@@ -44,6 +45,31 @@ Key env vars (full list in `apps/web/.env.example`):
 | `pnpm test` | Vitest unit tests (apps/web) |
 | `pnpm test:e2e` | Playwright (requires `DATABASE_URL` + `E2E_ALLOWED_DB_HOST`) |
 | `pnpm self-check` | Full plan gate incl. build; `--quick` skips build |
+
+## Crop reminders
+
+Harvest and sampling reminders run from `GET /api/cron/crop-watch`, authenticated
+with `Authorization: Bearer $CRON_SECRET`. The route computes due reminders from
+active crop cycles and biomass samples, writes one `ReminderLog` row per
+occurrence/channel (unique `dedupeKey`), and creates an in-app `Notification`.
+Rerunning the job is safe: duplicate inserts are skipped, so the same reminder is
+never sent twice.
+
+- **Schedule:** run `docs/sql/cron-crop-watch.sql` once per environment in
+  Supabase after the route is deployed. It uses `pg_cron` + `pg_net` and reads the
+  secret from Supabase Vault; replace only `YOUR_APP_URL` and store
+  `YOUR_CRON_SECRET` as `crop_watch_secret`. The default schedule is 22:00 UTC
+  (06:00 Asia/Manila) daily.
+- **Email:** set `RESEND_API_KEY`, `REMINDER_FROM_EMAIL` (verified Resend sending
+  domain) and `NEXT_PUBLIC_BASE_URL`. If any of the three is missing, email is
+  skipped and logged once per process; in-app notifications still run. Email
+  recipients are the pond owner plus farm `ADMIN`/`OPERATOR` users, deduplicated.
+- **Failures:** a Resend failure is recorded on the `ReminderLog` as
+  `status = "FAILED"` with `attempts` and `lastError`. Later daily runs retry up
+  to 3 attempts; a failure never fails the whole route.
+- **Preferences:** `Pond.notificationPrefs` supports `harvestReminders`,
+  `samplingReminders` and `emailReminders` (all default `true`). Legacy rows that
+  only contain the feeding/device flags are merged with `true` at read time.
 
 ## Branch workflow
 

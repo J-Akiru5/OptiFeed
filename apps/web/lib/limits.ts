@@ -95,10 +95,52 @@ export const fishSampleRowSchema = z.object({
 
 export const fishSamplesSchema = z.array(fishSampleRowSchema);
 
+export const DEFAULT_NOTIFICATION_PREFS = {
+	missedFeeding: true,
+	deviceOffline: true,
+	hopperLow: true,
+	harvestReminders: true,
+	samplingReminders: true,
+	emailReminders: true,
+} as const;
+
+export type NotificationPrefs = {
+	[K in keyof typeof DEFAULT_NOTIFICATION_PREFS]: boolean;
+};
+
+/**
+ * Read `Pond.notificationPrefs` defensively. Legacy rows only contain the
+ * three feeding/device keys, and old JSON may be partial, null, or malformed.
+ * Missing (or non-boolean) keys fall back to `true` so a legacy pond keeps
+ * receiving reminders instead of crashing the cron or the settings form.
+ */
+export function normalizeNotificationPrefs(value: unknown): NotificationPrefs {
+	const source =
+		value !== null && typeof value === "object" && !Array.isArray(value)
+			? (value as Record<string, unknown>)
+			: {};
+	const read = (key: keyof NotificationPrefs): boolean => {
+		const candidate = source[key];
+		return typeof candidate === "boolean" ? candidate : DEFAULT_NOTIFICATION_PREFS[key];
+	};
+
+	return {
+		missedFeeding: read("missedFeeding"),
+		deviceOffline: read("deviceOffline"),
+		hopperLow: read("hopperLow"),
+		harvestReminders: read("harvestReminders"),
+		samplingReminders: read("samplingReminders"),
+		emailReminders: read("emailReminders"),
+	};
+}
+
 export const notificationPrefsSchema = z.object({
-	missedFeeding: z.boolean(),
-	deviceOffline: z.boolean(),
-	hopperLow: z.boolean(),
+	missedFeeding: z.boolean().default(DEFAULT_NOTIFICATION_PREFS.missedFeeding),
+	deviceOffline: z.boolean().default(DEFAULT_NOTIFICATION_PREFS.deviceOffline),
+	hopperLow: z.boolean().default(DEFAULT_NOTIFICATION_PREFS.hopperLow),
+	harvestReminders: z.boolean().default(DEFAULT_NOTIFICATION_PREFS.harvestReminders),
+	samplingReminders: z.boolean().default(DEFAULT_NOTIFICATION_PREFS.samplingReminders),
+	emailReminders: z.boolean().default(DEFAULT_NOTIFICATION_PREFS.emailReminders),
 });
 
 export function formatZodError(error: z.ZodError): string {

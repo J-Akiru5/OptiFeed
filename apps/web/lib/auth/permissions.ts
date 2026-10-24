@@ -13,6 +13,7 @@ export const PERMISSIONS = [
 	"manage_members",
 	"manage_farms_ponds",
 	"manage_schedule",
+	"manage_crop_cycle",
 	"claim_feeder",
 	"control_feeder",
 	"record_dispatch",
@@ -40,7 +41,13 @@ export function isPermission(value: string): value is Permission {
 export const ROLE_DEFAULTS: Record<MemberRole, readonly Permission[]> = {
 	OWNER: PERMISSIONS,
 	ADMIN: PERMISSIONS,
-	OPERATOR: ["view_dashboard", "manage_schedule", "claim_feeder", "control_feeder"],
+	OPERATOR: [
+		"view_dashboard",
+		"manage_schedule",
+		"manage_crop_cycle",
+		"claim_feeder",
+		"control_feeder",
+	],
 	VIEWER: ["view_dashboard", "view_reports"],
 };
 

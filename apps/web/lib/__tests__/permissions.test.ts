@@ -66,6 +66,7 @@ describe("effectivePermissions", () => {
 		expect(sorted(effectivePermissions("OPERATOR"))).toEqual([
 			"claim_feeder",
 			"control_feeder",
+			"manage_crop_cycle",
 			"manage_schedule",
 			"view_dashboard",
 		]);

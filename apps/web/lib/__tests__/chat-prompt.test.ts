@@ -26,6 +26,12 @@ const baseCtx: ChatContext = {
 	predictedFeedGrams: 138.5,
 	predictedFeedReasoning: "Standard feed math gives 138.5g per meal.",
 	lastSampleAt: new Date("2026-01-01T08:00:00Z"),
+	isFallow: false,
+	cycleLabel: null,
+	growOutDay: null,
+	daysToHarvest: null,
+	targetHarvestDate: null,
+	targetHarvestWeightG: null,
 };
 
 describe("buildSystemPrompt", () => {
@@ -34,6 +40,27 @@ describe("buildSystemPrompt", () => {
 		expect(prompt).toContain("AI predicted grams per feeding: 138.5g");
 		expect(prompt).toContain("Current grams per feeding (device): 140g");
 		expect(prompt).toContain("Reasoning: Standard feed math gives 138.5g per meal.");
+	});
+
+	it("includes grow-out and fallow context", () => {
+		const prompt = buildSystemPrompt(
+			{
+				...baseCtx,
+				isFallow: true,
+				cycleLabel: "Batch 2026-10",
+				growOutDay: 45,
+				daysToHarvest: 90,
+				targetHarvestDate: "2027-01-20",
+				targetHarvestWeightG: 250,
+			},
+			"en",
+		);
+		expect(prompt).toContain("Pond fallow after harvest: Yes");
+		expect(prompt).toContain("Grow-out cycle: Batch 2026-10");
+		expect(prompt).toContain("Grow-out day: Day 45");
+		expect(prompt).toContain("Days to harvest: 90 days");
+		expect(prompt).toContain("Target harvest: 2027-01-20 at 250g per fish");
+		expect(prompt).toContain("do not recommend a feed amount");
 	});
 
 	it("shows no-prediction placeholder when prediction is null", () => {

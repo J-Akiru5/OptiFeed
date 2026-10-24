@@ -86,6 +86,7 @@ async function request<T>(path: string, init: RequestInit, options: RequestOptio
 			return await once<T>(path, init, options);
 		} catch (error) {
 			lastError = error;
+			if (options.signal?.aborted) break;
 			if (!isRetryable(error) || attempt === attempts - 1) break;
 			await sleep(100 * 2 ** attempt);
 		}
@@ -124,6 +125,16 @@ async function once<T>(path: string, init: RequestInit, options: RequestOptions)
 	} catch (error) {
 		if (error instanceof ApiClientError) throw error;
 		if (isAbortError(error)) {
+			// A caller abort is deliberate (range/filter change, unmount). It
+			// must not be retried as if it were a slow server.
+			if (options.signal?.aborted) {
+				throw new ApiClientError({
+					status: 0,
+					code: "CLIENT_ABORTED",
+					message: "Request cancelled.",
+					requestId: null,
+				});
+			}
 			throw new ApiClientError({
 				status: 0,
 				code: "CLIENT_TIMEOUT",
@@ -176,6 +187,7 @@ function allowedAttempts(init: RequestInit, options: RequestOptions): number {
 
 function isRetryable(error: unknown): boolean {
 	if (!(error instanceof ApiClientError)) return false;
+	if (error.code === "CLIENT_ABORTED") return false;
 	if (error.code === "CLIENT_TIMEOUT" || error.code === "NETWORK_ERROR") return true;
 	return error.status === 429 || error.status >= 500;
 }

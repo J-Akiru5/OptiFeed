@@ -4,6 +4,7 @@ import { Link, usePathname } from "@/i18n/routing";
 import { HOPPER_CAPACITY_KG } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import {
+	CalendarDays,
 	Clock,
 	Cpu,
 	FileText,
@@ -31,6 +32,7 @@ export function Sidebar({ hopperLevelPct = 82, isOffline = false }: SidebarProps
 		{ href: "/dashboard/log-sample", label: t("logSample"), icon: PlusCircle },
 		{ href: "/dashboard/history", label: t("history"), icon: History },
 		{ href: "/dashboard/growth", label: t("growth"), icon: TrendingUp },
+		{ href: "/dashboard/harvest", label: t("harvest"), icon: CalendarDays },
 		{ href: "/dashboard/audit", label: t("audit"), icon: FileText },
 		{ href: "/dashboard/settings", label: t("settings"), icon: Settings, onboard: "settings" },
 	];

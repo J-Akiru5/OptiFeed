@@ -1,0 +1,220 @@
+/*
+ * FullCalendar v7 no longer exposes the legacy `fc-toolbar` / `fc-event`
+ * class names. The theme is customised through its CSS variables, and the
+ * component passes stable `ofc-*` hooks for the few element-level rules below.
+ */
+.harvest-calendar {
+	--fc-classic-primary: #0a3d62;
+	--fc-classic-primary-foreground: #ffffff;
+	--fc-classic-button: #0a3d62;
+	--fc-classic-button-border: #0a3d62;
+	--fc-classic-button-strong: #164e7c;
+	--fc-classic-button-strong-border: #164e7c;
+	--fc-classic-button-outline: #0a3d6255;
+	--fc-classic-button-foreground: #ffffff;
+	--fc-classic-event: #0a3d62;
+	--fc-classic-event-contrast: #ffffff;
+	--fc-classic-background-event: #0a3d62;
+	--fc-classic-background-event-opacity: 10%;
+	--fc-classic-background-event-foreground-opacity: 50%;
+	--fc-classic-highlight: #ff6b3522;
+	--fc-classic-today: #ff6b3514;
+	--fc-classic-now: #ff6b35;
+	--fc-classic-border: #e5e7eb;
+	--fc-classic-strong-border: #d1d5db;
+	font-family: inherit;
+	max-width: 100%;
+	min-width: 0;
+	overflow-x: clip;
+}
+
+.dark .harvest-calendar {
+	--fc-classic-background: #111827;
+	--fc-classic-foreground: #f3f4f6;
+	--fc-classic-faint: #ffffff0a;
+	--fc-classic-muted: #ffffff14;
+	--fc-classic-strong: #ffffff24;
+	--fc-classic-faint-foreground: #6b7280;
+	--fc-classic-muted-foreground: #9ca3af;
+	--fc-classic-border: #374151;
+	--fc-classic-strong-border: #4b5563;
+	--fc-classic-highlight: #ff6b3533;
+	--fc-classic-today: #ff6b3526;
+	--fc-classic-button-outline: #ffffff40;
+	--fc-classic-background-event: #5b9bd5;
+	--fc-classic-background-event-opacity: 12%;
+}
+
+.harvest-calendar .ofc-toolbar,
+.harvest-calendar .ofc-toolbar-row {
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	min-width: 0;
+}
+
+.harvest-calendar .ofc-toolbar-center {
+	min-width: 0;
+}
+
+.harvest-calendar .ofc-title {
+	font-size: 1.05rem;
+	font-weight: 900;
+	letter-spacing: -0.01em;
+	text-transform: capitalize;
+}
+
+.harvest-calendar .ofc-btn {
+	border-radius: 0.75rem;
+	box-shadow: none;
+	font-size: 0.72rem;
+	font-weight: 800;
+	padding: 0.45rem 0.8rem;
+	text-transform: capitalize;
+}
+
+.harvest-calendar .ofc-btn-icon {
+	padding-inline: 0.55rem;
+}
+
+.harvest-calendar .ofc-btn-selected {
+	background-color: #ff6b35;
+	border-color: #ff6b35;
+	color: #ffffff;
+}
+
+.harvest-calendar .ofc-btn-selected:hover {
+	background-color: #e85a2a;
+	border-color: #e85a2a;
+}
+
+.harvest-calendar .ofc-day-header {
+	color: var(--fc-classic-muted-foreground);
+	font-size: 0.66rem;
+	font-weight: 800;
+	letter-spacing: 0.06em;
+	padding: 0.5rem 0.25rem;
+	text-transform: uppercase;
+}
+
+.harvest-calendar .ofc-day-number {
+	font-size: 0.72rem;
+	font-weight: 700;
+	padding: 0.35rem 0.45rem;
+}
+
+.harvest-calendar .ofc-day-cell {
+	min-width: 0;
+}
+
+.harvest-calendar .ofc-event {
+	border-radius: 0.45rem;
+	border-width: 0;
+	cursor: pointer;
+	max-width: 100%;
+	overflow: hidden;
+	padding: 1px 3px;
+}
+
+.harvest-calendar .ofc-event-inner {
+	min-width: 0;
+	overflow: hidden;
+}
+
+.harvest-calendar .ofc-event-title {
+	font-size: 0.67rem;
+	font-weight: 700;
+	line-height: 1.25;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.harvest-calendar .ofc-event-time {
+	font-size: 0.62rem;
+	opacity: 0.85;
+}
+
+.harvest-calendar .ofc-bg-event {
+	border-radius: 0.35rem;
+}
+
+.harvest-calendar .ofc-more,
+.harvest-calendar .ofc-more-inner {
+	font-size: 0.68rem;
+	font-weight: 700;
+}
+
+.harvest-calendar .ofc-list-event-title {
+	font-size: 0.8rem;
+	font-weight: 700;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.harvest-calendar .ofc-list-event-time {
+	font-size: 0.72rem;
+}
+
+.harvest-calendar .ofc-list-day-inner {
+	font-size: 0.7rem;
+	font-weight: 800;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+
+.harvest-calendar .ofc-no-events-inner {
+	font-size: 0.82rem;
+	font-weight: 600;
+	padding: 1.5rem;
+	text-align: center;
+}
+
+.harvest-calendar .ofc-slot-label {
+	font-size: 0.68rem;
+	font-weight: 600;
+}
+
+@media (max-width: 640px) {
+	.harvest-calendar .ofc-toolbar {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.harvest-calendar .ofc-toolbar-start,
+	.harvest-calendar .ofc-toolbar-center,
+	.harvest-calendar .ofc-toolbar-end {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+	}
+
+	.harvest-calendar .ofc-toolbar-center {
+		order: -1;
+	}
+
+	.harvest-calendar .ofc-title {
+		font-size: 0.95rem;
+		text-align: center;
+	}
+
+	.harvest-calendar .ofc-btn {
+		font-size: 0.68rem;
+		padding: 0.4rem 0.6rem;
+	}
+
+	.harvest-calendar .ofc-btn-icon {
+		padding-inline: 0.5rem;
+	}
+}
+
+@media (max-width: 390px) {
+	.harvest-calendar .ofc-toolbar {
+		gap: 0.4rem;
+	}
+
+	.harvest-calendar .ofc-btn {
+		font-size: 0.64rem;
+		padding: 0.36rem 0.5rem;
+	}
+}

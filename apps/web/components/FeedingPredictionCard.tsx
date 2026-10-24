@@ -366,6 +366,45 @@ export function FeedingPredictionCard({
 					</div>
 				)}
 
+				{prediction.cycle ? (
+					<div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#0A3D62]/10 bg-[#0A3D62]/[0.03] px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
+						<div className="flex min-w-0 items-center gap-2">
+							<Wheat className="h-4 w-4 shrink-0 text-[#0A3D62] dark:text-[#5b9bd5]" />
+							<p className="truncate text-[11px] font-bold text-[#0A3D62] dark:text-[#9cc7f0]">
+								{t("cycle.dayOf", {
+									day: prediction.cycle.growOutDay,
+									total: prediction.cycle.growOutDays,
+								})}
+								{" · "}
+								{prediction.cycle.daysToHarvest < 0
+									? t("cycle.overdueBy", {
+											days: Math.abs(prediction.cycle.daysToHarvest),
+										})
+									: t("cycle.harvestIn", {
+											days: prediction.cycle.daysToHarvest,
+										})}
+								{prediction.cycle.targetHarvestWeightG
+									? ` · ${prediction.cycle.targetHarvestWeightG} g`
+									: ""}
+							</p>
+						</div>
+						<Link
+							href="/dashboard/harvest"
+							className="inline-flex shrink-0 items-center gap-1 text-[10px] font-bold text-[#0A3D62] hover:underline dark:text-[#5b9bd5]"
+						>
+							{t("cycle.openCalendar")} <ArrowRight className="h-3 w-3" />
+						</Link>
+					</div>
+				) : hasValue ? (
+					<Link
+						href="/dashboard/harvest"
+						className="inline-flex items-center gap-1.5 self-start rounded-full bg-[#0A3D62]/5 px-3 py-1.5 text-[10px] font-bold text-[#0A3D62] transition-colors hover:bg-[#0A3D62]/10 dark:bg-white/5 dark:text-[#5b9bd5] dark:hover:bg-white/10"
+					>
+						<Wheat className="h-3 w-3" />
+						{t("cycle.setCycle")} <ArrowRight className="h-3 w-3" />
+					</Link>
+				) : null}
+
 				{!hasValue ? (
 					<div className="flex flex-col items-center gap-5 py-6 text-center">
 						<div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">

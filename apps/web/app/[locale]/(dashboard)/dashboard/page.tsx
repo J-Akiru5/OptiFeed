@@ -8,6 +8,8 @@ import { ExportPdfButton } from "@/components/export-pdf-button";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
 import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { todayDateOnly } from "@/lib/crop-cycle/dates";
+import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { getActivePond } from "@/lib/pond-selection";
@@ -22,6 +24,7 @@ import {
 	Sliders,
 	Sparkles,
 	TrendingUp,
+	Wheat,
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -32,6 +35,7 @@ export default async function DashboardHomePage() {
 	const tBtn = await getTranslations("button");
 	const tHist = await getTranslations("dashboard.history");
 	const tGrowth = await getTranslations("dashboard.growth");
+	const tHarvest = await getTranslations("dashboard.harvest.summary");
 	const writeAccess = await canWrite();
 	const tDates = await getTranslations("dates");
 
@@ -104,6 +108,21 @@ export default async function DashboardHomePage() {
 	});
 	const latestFcr = fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : 0.0;
 
+	const activeCycle = await prisma.cropCycle.findFirst({
+		where: { pondId: pond.id, status: "ACTIVE" },
+		select: {
+			id: true,
+			label: true,
+			stockingDate: true,
+			stockingCount: true,
+			growOutDays: true,
+			targetHarvestDate: true,
+			targetHarvestWeightG: true,
+			expectedSurvivalPct: true,
+		},
+	});
+	const cycleContext = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
+
 	// The advisor is surfaced on the home page so it is not hidden behind the
 	// Growth tab. The server renders the deterministic value instantly; the
 	// client card refines it with the AI provider in the background.
@@ -116,6 +135,8 @@ export default async function DashboardHomePage() {
 		currentGrams: energyDevice?.gramsPerFeeding ?? null,
 		hopperCapacityG: energyDevice?.hopperCapacityG ?? null,
 		lastSampleAt: latestBiomass?.recordedAt ?? null,
+		isFallow: pond.isFallow,
+		cycle: cycleContext,
 	});
 
 	// Calculate next feeding time
@@ -228,25 +249,87 @@ export default async function DashboardHomePage() {
 
 				<FeedNowButton
 					deviceId={energyDevice?.id ?? device.id}
-					nextFeedingVolume={`${nextFeedingVolumeG}g`}
+					nextFeedingVolume={pond.isFallow ? "0g" : `${nextFeedingVolumeG}g`}
 					label={tBtn("feedNow")}
 					deviceName={energyDevice?.label ?? device.name}
 					connectionStatus={esp32Offline ? "offline" : "online"}
 					hopperLevelPct={energyDevice?.feedLevelPercent ?? 0}
 					canWrite={writeAccess}
+					isFallow={pond.isFallow}
 					data-onboard="feed-now"
 				/>
 				<ExportPdfButton />
 			</div>
 
 			{/* AI Feed Advisor — visible on the first screen the operator sees. */}
-			{energyDevice && (
-				<FeedingPredictionCard
-					deviceId={energyDevice.id}
-					initialPrediction={initialPrediction}
-					canWrite={writeAccess}
-					pondName={pond.name}
-				/>
+			{pond.isFallow ? (
+				<div className="flex flex-col gap-4 rounded-[32px] border border-dashed border-[#0A3D62]/20 bg-white p-6 dark:border-white/10 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
+					<div className="flex items-start gap-3">
+						<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
+							<Wheat className="h-6 w-6" />
+						</div>
+						<div>
+							<p className="text-sm font-black text-gray-900 dark:text-gray-100">
+								{tHarvest("fallowTitle")}
+							</p>
+							<p className="mt-0.5 max-w-xl text-xs text-gray-500 dark:text-gray-400">
+								{tHarvest("fallowDesc")}
+							</p>
+						</div>
+					</div>
+					<Link
+						href="/dashboard/harvest"
+						className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] dark:bg-[#1f66a0]"
+					>
+						{tHarvest("startCycle")} <ChevronRight className="h-4 w-4" />
+					</Link>
+				</div>
+			) : (
+				energyDevice && (
+					<FeedingPredictionCard
+						deviceId={energyDevice.id}
+						initialPrediction={initialPrediction}
+						canWrite={writeAccess}
+						pondName={pond.name}
+					/>
+				)
+			)}
+
+			{/* Grow-out & harvest strip */}
+			{activeCycle && cycleContext && (
+				<div className="flex flex-col gap-3 rounded-2xl border border-[#0A3D62]/10 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
+					<div className="flex items-center gap-2.5">
+						<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
+							<Wheat className="h-5 w-5" />
+						</div>
+						<div>
+							<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
+								{activeCycle.label || tHarvest("cycle")}
+							</p>
+							<p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+								{tHarvest("dayOf", {
+									day: cycleContext.growOutDay,
+									total: activeCycle.growOutDays,
+								})}{" "}
+								·{" "}
+								{cycleContext.daysToHarvest < 0
+									? tHarvest("overdueBy", {
+											days: Math.abs(cycleContext.daysToHarvest),
+										})
+									: tHarvest("harvestIn", { days: cycleContext.daysToHarvest })}
+								{activeCycle.targetHarvestWeightG
+									? ` · ${activeCycle.targetHarvestWeightG} g target`
+									: ""}
+							</p>
+						</div>
+					</div>
+					<Link
+						href="/dashboard/harvest"
+						className="inline-flex items-center gap-1 text-xs font-bold text-[#0A3D62] hover:underline dark:text-[#5b9bd5]"
+					>
+						{tHarvest("progress")} <ChevronRight className="h-3.5 w-3.5" />
+					</Link>
+				</div>
 			)}
 
 			{/* Bento Grid — items-start keeps each tile at its natural height */}
@@ -299,7 +382,7 @@ export default async function DashboardHomePage() {
 									{t("feedVolumeLabel")}
 								</p>
 								<p className="text-2xl md:text-3xl font-black text-[#E85A2A] dark:text-[#ff8a5c]">
-									{nextFeedingVolumeG}g
+									{pond.isFallow ? "—" : `${nextFeedingVolumeG}g`}
 								</p>
 							</div>
 							<div>

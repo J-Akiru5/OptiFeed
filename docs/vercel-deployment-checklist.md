@@ -14,8 +14,9 @@
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only (lockout checks pre-auth) |
-| `NEXT_PUBLIC_BASE_URL` | Canonical origin for absolute links |
-| `CRON_SECRET` | Bearer secret for `/api/cron/device-watch` |
+| `NEXT_PUBLIC_BASE_URL` | Canonical origin for absolute links (also the reminder email link base) |
+| `CRON_SECRET` | Bearer secret for `/api/cron/device-watch` and `/api/cron/crop-watch` |
+| `RESEND_API_KEY` / `REMINDER_FROM_EMAIL` | Harvest/sampling reminder email (optional; in-app only until set) |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | CRITICAL alerts (optional; no-op until set) |
 | `OPENCODE_GO_API_KEY` / `OPENCODE_GO_MODEL` | Chat assistant + feeding prediction (OpenCode Go; model defaults to `deepseek-v4.1-flash`) |
 | `DEMO_PIN` | Seed script only |
@@ -72,3 +73,25 @@ DIRECT_URL=<target direct url> pnpm --filter web exec prisma migrate deploy
 - Additive-only; destructive statements need a backup (H7) and human OK.
 - After restoring a database, run `prisma migrate deploy` manually
   (see `docs/runbook.md`).
+
+## 5. Crop reminder cron and email
+
+- The daily harvest/sampling job is `GET /api/cron/crop-watch`, protected by
+  the same `CRON_SECRET` as `device-watch`.
+- After the route is deployed, run `docs/sql/cron-crop-watch.sql` once per
+  environment in Supabase. Replace only `YOUR_APP_URL`, and store
+  `YOUR_CRON_SECRET` in Vault as `crop_watch_secret`. The file uses `pg_cron` +
+  `pg_net` and schedules 22:00 UTC (06:00 Asia/Manila) daily.
+- Email uses Resend. Set `RESEND_API_KEY`, `REMINDER_FROM_EMAIL` (verified
+  sending domain with SPF/DKIM) and `NEXT_PUBLIC_BASE_URL`. When any of the
+  three is missing, the job skips email and logs once; in-app notifications are
+  still created, so reminders keep working without Resend.
+- Email failures are stored on `ReminderLog` (`status = "FAILED"`, `attempts`,
+  `lastError`) and retried by later runs up to 3 attempts. A provider outage
+  never fails the cron response.
+- Reruns are idempotent: `ReminderLog.dedupeKey` is unique per
+  occurrence/channel, so a repeat run creates no duplicate notification or
+  email.
+- **No email verification step here requires a deployment:** validate the
+  configuration with `apps/web/.env.example` and a local typecheck/lint; do not
+  deploy a branch merely to test the cron.

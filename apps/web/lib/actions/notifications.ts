@@ -2,7 +2,9 @@
 
 import { resolveActivePond } from "@/lib/auth/pond-access";
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
+import { type NotificationPrefs, formatZodError, notificationPrefsSchema } from "@/lib/limits";
 import prisma from "@/lib/prisma";
+import type { InputJsonValue } from "@prisma/client/runtime/library";
 import { revalidatePath } from "next/cache";
 
 const DEMO_NOTIFICATION_TIERS = ["CRITICAL", "WARNING", "INFO", "SUCCESS"] as const;
@@ -116,6 +118,52 @@ export async function acknowledgeNotification(notificationId: string) {
 		revalidatePath("/[locale]/(dashboard)/dashboard/notifications", "page");
 	} catch (error) {
 		console.error("Failed to acknowledge notification:", error);
+	}
+}
+
+/**
+ * Persist notification preferences without discarding keys this build does not
+ * know about. Legacy rows may only contain the three feeding/device flags; the
+ * schema fills the reminder flags with `true` while unknown keys survive the
+ * merge for forward compatibility.
+ */
+export async function updateNotificationPrefs(
+	pondId: string,
+	prefs: Partial<NotificationPrefs>,
+): Promise<{ success: boolean; error?: string }> {
+	try {
+		await requireWriteAccess();
+		const parsed = notificationPrefsSchema.safeParse(prefs);
+		if (!parsed.success) {
+			return { success: false, error: formatZodError(parsed.error) };
+		}
+
+		const ownerId = await getCurrentPondOwnerId();
+		const pond = await prisma.pond.findFirst({
+			where: { id: pondId, ownerId },
+			select: { id: true, notificationPrefs: true },
+		});
+		if (!pond) return { success: false, error: "Pond not found" };
+
+		const existing =
+			pond.notificationPrefs !== null &&
+			typeof pond.notificationPrefs === "object" &&
+			!Array.isArray(pond.notificationPrefs)
+				? (pond.notificationPrefs as Record<string, unknown>)
+				: {};
+
+		await prisma.pond.update({
+			where: { id: pondId },
+			data: {
+				notificationPrefs: { ...existing, ...parsed.data } as unknown as InputJsonValue,
+			},
+		});
+
+		revalidatePath("/[locale]/(dashboard)/dashboard/settings/profile", "page");
+		return { success: true };
+	} catch (error) {
+		console.error("Failed to update notification prefs:", error);
+		return { success: false, error: "Failed to update notification preferences" };
 	}
 }
 

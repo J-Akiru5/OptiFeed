@@ -14,6 +14,7 @@ interface FeedNowButtonProps {
 	connectionStatus?: string;
 	hopperLevelPct?: number;
 	canWrite?: boolean;
+	isFallow?: boolean;
 	"data-onboard"?: string;
 }
 
@@ -25,6 +26,7 @@ export function FeedNowButton({
 	connectionStatus = "online",
 	hopperLevelPct = 100,
 	canWrite = true,
+	isFallow = false,
 	"data-onboard": dataOnboard,
 }: FeedNowButtonProps) {
 	const t = useTranslations("dashboard.feedNowModal");
@@ -62,7 +64,7 @@ export function FeedNowButton({
 			<button
 				type="button"
 				onClick={() => setShowConfirm(true)}
-				disabled={dispensing || isOffline || !canWrite}
+				disabled={dispensing || isOffline || !canWrite || isFallow}
 				className="bg-[#E85A2A] text-white font-black text-sm md:text-base px-6 py-3 rounded-2xl hover:bg-[#d04a1f] shadow-lg hover:shadow-xl transition-all transform active:scale-95 flex items-center gap-2 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600 disabled:shadow-none dark:disabled:bg-gray-700 dark:disabled:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
 				data-onboard={dataOnboard}
 			>
@@ -74,6 +76,14 @@ export function FeedNowButton({
 				<div className="mt-3 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
 					<AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
 					<p className="text-xs font-medium text-red-700">{t("offlineWarning")}</p>
+				</div>
+			)}
+			{isFallow && (
+				<div className="mt-3 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+					<AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+					<p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+						{t("fallowWarning")}
+					</p>
 				</div>
 			)}
 

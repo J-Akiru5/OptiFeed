@@ -149,7 +149,17 @@
 		"paperLabel": "Capstone paper",
 		"paperTitle": "Precision feeding system for African Hito: Hybrid approach to biomass monitoring and FCR optimization",
 		"footerProject": "Capstone project, BS Information Technology, ISUFST Dingle Campus",
-		"footerSubtitle": "| Precision Feeding for African Catfish"
+		"footerSubtitle": "| Precision Feeding for African Catfish",
+		"navProblem": "Problem",
+		"navHow": "How it works",
+		"navOffline": "Offline",
+		"navHardware": "Hardware",
+		"navStudy": "Study",
+		"navFaq": "FAQ",
+		"navMenu": "Open menu",
+		"navClose": "Close menu",
+		"calcLogged": "Logged",
+		"demoCaption": "Auger dispenses one portion"
 	},
 	"login": {
 		"topBannerTitle": "Access Control Panel",

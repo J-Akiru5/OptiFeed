@@ -1,0 +1,266 @@
+"use client";
+
+import { cn } from "@/lib/utils";
+import { Check } from "lucide-react";
+import { animate, motion, useReducedMotion, useScroll, useSpring } from "motion/react";
+import { useTranslations } from "next-intl";
+import { useEffect, useRef, useState } from "react";
+
+const STEPS = [1, 2, 3, 4] as const;
+
+const ROWS = [
+	{ label: "calcSample", value: "calcSampleValue", from: 1, logged: true },
+	{ label: "calcFish", value: "calcFishValue", from: 1, logged: true },
+	{ label: "calcBiomass", value: "calcBiomassValue", from: 2, logged: false },
+	{ label: "calcRate", value: "calcRateValue", from: 3, logged: false },
+	{ label: "calcDaily", value: "calcDailyValue", from: 3, logged: false },
+	{ label: "calcFeeds", value: "calcFeedsValue", from: 3, logged: false },
+] as const;
+
+/** Counts the first run of digits in `text` up from 0 when `run` turns true. */
+function AnimatedValue({ text, run }: { text: string; run: boolean }) {
+	const reduced = useReducedMotion();
+	const match = text.match(/^(\D*)([\d,]+)(.*)$/);
+	const target = match ? Number(match[2].replace(/,/g, "")) : 0;
+	const hasNumber = match !== null;
+	const [shown, setShown] = useState(reduced ? target : 0);
+
+	useEffect(() => {
+		if (!hasNumber) return;
+		if (reduced) {
+			setShown(target);
+			return;
+		}
+		if (!run) {
+			setShown(0);
+			return;
+		}
+		const controls = animate(0, target, {
+			duration: 0.8,
+			ease: "easeOut",
+			onUpdate: (v) => setShown(Math.round(v)),
+		});
+		return () => controls.stop();
+	}, [run, target, reduced, hasNumber]);
+
+	if (!match) return <>{text}</>;
+	return (
+		<>
+			{match[1]}
+			{shown.toLocaleString("en-US")}
+			{match[3]}
+		</>
+	);
+}
+
+function FeederDemo({ active, caption }: { active: boolean; caption: string }) {
+	const reduced = useReducedMotion();
+	const animated = active && !reduced;
+	const pellets = [0, 1, 2, 3];
+
+	return (
+		<div
+			className={cn(
+				"mt-4 flex items-center gap-4 rounded-xl border border-white/20 bg-[#0A3D62] p-3 text-white transition-opacity duration-500",
+				active ? "opacity-100" : "opacity-40",
+			)}
+		>
+			<svg viewBox="0 0 96 80" className="h-16 w-20 shrink-0" role="img" aria-label={caption}>
+				<title>{caption}</title>
+				<path d="M14 6h44l-8 26H22z" fill="#12588c" stroke="#9fc3dc" strokeWidth="1.5" />
+				<rect x="30" y="32" width="12" height="8" fill="#9fc3dc" />
+				<motion.g
+					style={{ originX: "36px", originY: "46px" }}
+					animate={animated ? { rotate: 360 } : { rotate: 0 }}
+					transition={
+						animated
+							? { duration: 1.4, ease: "linear", repeat: Number.POSITIVE_INFINITY }
+							: { duration: 0 }
+					}
+				>
+					<circle cx="36" cy="46" r="7" fill="none" stroke="#E85A2A" strokeWidth="2" />
+					<path d="M36 39v14M29 46h14" stroke="#E85A2A" strokeWidth="2" strokeLinecap="round" />
+				</motion.g>
+				{pellets.map((i) => (
+					<motion.circle
+						key={i}
+						cx={58 + (i % 2) * 8}
+						r="2.5"
+						fill="#E85A2A"
+						initial={{ cy: 46, opacity: 0 }}
+						animate={
+							animated
+								? { cy: [46, 74], opacity: [0, 1, 1, 0] }
+								: { cy: 70 + (i % 2) * 3, opacity: active ? 1 : 0.5 }
+						}
+						transition={
+							animated
+								? {
+										duration: 1.2,
+										ease: "easeIn",
+										repeat: Number.POSITIVE_INFINITY,
+										delay: i * 0.3,
+									}
+								: { duration: 0 }
+						}
+					/>
+				))}
+				<path d="M44 46h14" stroke="#9fc3dc" strokeWidth="2" strokeLinecap="round" />
+			</svg>
+			<p className="text-xs font-bold uppercase tracking-wider text-blue-100">{caption}</p>
+		</div>
+	);
+}
+
+export function HowItWorks() {
+	const t = useTranslations("landing");
+	const reduced = useReducedMotion();
+	const [activeStep, setActiveStep] = useState(1);
+	const stepsRef = useRef<HTMLOListElement>(null);
+	const stepEls = useRef<(HTMLLIElement | null)[]>([]);
+
+	const { scrollYProgress } = useScroll({
+		target: stepsRef,
+		offset: ["start 60%", "end 60%"],
+	});
+	const lineScale = useSpring(scrollYProgress, { stiffness: 120, damping: 24, mass: 0.4 });
+
+	useEffect(() => {
+		const els = stepEls.current.filter((el): el is HTMLLIElement => el !== null);
+		const observer = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					if (entry.isIntersecting) {
+						setActiveStep(Number((entry.target as HTMLElement).dataset.step));
+					}
+				}
+			},
+			{ rootMargin: "-45% 0px -45% 0px", threshold: 0 },
+		);
+		for (const el of els) observer.observe(el);
+		return () => observer.disconnect();
+	}, []);
+
+	return (
+		<section id="how" className="py-16 md:py-24 px-6 md:px-12 max-w-6xl mx-auto scroll-mt-20">
+			<motion.div
+				initial={reduced ? false : { opacity: 0, y: 24 }}
+				whileInView={{ opacity: 1, y: 0 }}
+				viewport={{ once: true, margin: "0px 0px -80px 0px" }}
+				transition={{ duration: 0.5, ease: "easeOut" }}
+			>
+				<h2 className="text-3xl md:text-5xl font-black tracking-tight text-[#0A3D62]">
+					{t("howTitle")}
+				</h2>
+				<p className="mt-4 max-w-2xl text-lg text-[#3D5568]">{t("howDesc")}</p>
+			</motion.div>
+
+			<div className="mt-12 grid lg:grid-cols-[1.2fr_0.8fr] gap-12">
+				<div className="relative lg:pb-[30vh]">
+					<div
+						aria-hidden="true"
+						className="absolute left-6 top-6 bottom-6 lg:bottom-[calc(30vh+1.5rem)] hidden w-0.5 -translate-x-1/2 bg-gray-200 sm:block"
+					>
+						<motion.div
+							className="h-full w-full origin-top bg-[#E85A2A]"
+							style={{ scaleY: reduced ? 1 : lineScale }}
+						/>
+					</div>
+					<ol ref={stepsRef} className="space-y-10 lg:space-y-0">
+						{STEPS.map((n, i) => {
+							const isActive = activeStep === n;
+							const isPast = activeStep > n;
+							return (
+								<li
+									key={n}
+									data-step={n}
+									ref={(el) => {
+										stepEls.current[i] = el;
+									}}
+									className="flex gap-5 lg:min-h-[42vh] lg:items-start lg:pt-2"
+									aria-current={isActive ? "step" : undefined}
+								>
+									<motion.span
+										animate={{ scale: isActive ? 1.1 : 1 }}
+										transition={{ type: "spring", stiffness: 400, damping: 22 }}
+										className={cn(
+											"relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-xl font-black text-white transition-colors duration-300",
+											isActive ? "bg-[#E85A2A]" : isPast ? "bg-[#0A3D62]" : "bg-[#0A3D62]/40",
+										)}
+									>
+										{isPast ? <Check className="h-6 w-6" aria-hidden="true" /> : n}
+									</motion.span>
+									<motion.div
+										animate={{ opacity: isActive || reduced ? 1 : 0.5, x: isActive ? 4 : 0 }}
+										transition={{ duration: 0.3 }}
+									>
+										<h3 className="font-extrabold text-xl text-[#0A3D62]">{t(`step${n}Title`)}</h3>
+										<p className="mt-1.5 max-w-md text-[#3D5568] leading-relaxed">
+											{t(`step${n}Body`)}
+										</p>
+									</motion.div>
+								</li>
+							);
+						})}
+					</ol>
+				</div>
+
+				<div className="lg:sticky lg:top-24 self-start">
+					<figure className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+						<figcaption className="font-extrabold text-lg text-[#0A3D62]">
+							{t("calcTitle")}
+						</figcaption>
+						<p className="mt-1 mb-5 text-xs font-bold uppercase tracking-wider text-[#3D5568]">
+							{t("calcBadge")}
+						</p>
+						<dl className="divide-y divide-gray-100 text-sm">
+							{ROWS.map(({ label, value, from, logged }) => {
+								const shown = reduced || activeStep >= from;
+								const justLogged = logged && activeStep >= 2;
+								return (
+									<motion.div
+										key={label}
+										animate={{ opacity: shown ? 1 : 0.3 }}
+										transition={{ duration: 0.35 }}
+										className="flex items-baseline justify-between gap-4 py-2.5"
+									>
+										<dt className="flex items-center gap-2 text-[#3D5568]">
+											{t(label)}
+											{justLogged && (
+												<Check
+													className="h-3.5 w-3.5 text-green-600"
+													aria-label={t("calcLogged")}
+												/>
+											)}
+										</dt>
+										<dd className="text-right font-mono font-semibold tabular-nums">
+											{shown ? <AnimatedValue text={t(value)} run={shown} /> : "···"}
+										</dd>
+									</motion.div>
+								);
+							})}
+						</dl>
+						<motion.div
+							animate={{
+								backgroundColor: activeStep >= 4 || reduced ? "#E85A2A" : "#CBD5DC",
+								scale: activeStep === 4 ? 1.02 : 1,
+							}}
+							transition={{ duration: 0.35 }}
+							className="mt-3 flex items-baseline justify-between gap-4 rounded-xl px-4 py-3 text-white"
+						>
+							<span className="text-sm font-bold">{t("calcPortion")}</span>
+							<span className="font-mono text-3xl font-black tabular-nums">
+								{activeStep >= 4 || reduced ? (
+									<AnimatedValue text={t("calcPortionValue")} run={activeStep >= 4} />
+								) : (
+									"···"
+								)}
+							</span>
+						</motion.div>
+						<FeederDemo active={activeStep === 4} caption={t("demoCaption")} />
+					</figure>
+				</div>
+			</div>
+		</section>
+	);
+}

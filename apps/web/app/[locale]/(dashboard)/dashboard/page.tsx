@@ -66,6 +66,7 @@ export default async function DashboardHomePage() {
 				feederActive: true,
 				isPaused: true,
 				gramsPerFeeding: true,
+				gramsPerSecond: true,
 				lastSeenAt: true,
 				feedLevelPercent: true,
 				feedLevelUpdatedAt: true,
@@ -255,6 +256,7 @@ export default async function DashboardHomePage() {
 					hopperLevelPct={energyDevice?.feedLevelPercent ?? 0}
 					canWrite={writeAccess}
 					isFallow={pond.isFallow}
+					gramsPerSecond={energyDevice?.gramsPerSecond}
 					data-onboard="feed-now"
 				/>
 				<ExportPdfButton />
@@ -675,6 +677,7 @@ export default async function DashboardHomePage() {
 							rtcOk={energyDevice.rtcOk}
 							feederActive={energyDevice.feederActive}
 							gramsPerFeeding={energyDevice.gramsPerFeeding}
+							gramsPerSecond={energyDevice.gramsPerSecond}
 							lastSeenAt={energyDevice.lastSeenAt}
 							isOffline={esp32Offline}
 							canWrite={writeAccess}

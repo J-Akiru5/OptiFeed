@@ -19,6 +19,14 @@ export const GRAMS_PER_SECOND_MAX = 50;
 export const TEMP_OFFSET_C_MIN = -20;
 export const TEMP_OFFSET_C_MAX = 20;
 
+// Guided motor calibration: run the motor for a bounded test window, weigh the
+// output, then derive grams per second. The upper bounds keep a test dose
+// inside the per-request feed cap and the weighed output physically plausible.
+export const CALIBRATION_TEST_SECONDS_MIN = 3;
+export const CALIBRATION_TEST_SECONDS_MAX = 30;
+export const CALIBRATION_TEST_GRAMS_MAX = 1000;
+export const CALIBRATION_ACTUAL_GRAMS_MAX = 2000;
+
 export { OFFLINE_THRESHOLD_MS } from "./constants";
 
 export const feedingRatePctSchema = z

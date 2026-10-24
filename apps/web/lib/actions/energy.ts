@@ -40,11 +40,19 @@ export async function requestFeed(deviceId: string, grams?: number) {
 				gramsPerSecond: true,
 				lastSeenAt: true,
 				hopperCapacityG: true,
+				pond: { select: { isFallow: true } },
 			},
 		});
 
 		if (!device) {
 			return { success: false, error: "Device not found" };
+		}
+
+		if (device.pond?.isFallow) {
+			return {
+				success: false,
+				error: "This pond is fallow after harvest. Start the next grow-out cycle before feeding.",
+			};
 		}
 
 		// Expire stale dispatched requests that were picked up by the device

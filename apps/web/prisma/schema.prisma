@@ -26,6 +26,28 @@ enum PondStatus {
   ARCHIVED
 }
 
+enum CropCycleStatus {
+  ACTIVE
+  HARVESTED
+  CANCELLED
+}
+
+enum PondEventType {
+  STOCKING
+  HARVEST_PLANNED
+  HARVEST_ACTUAL
+  SAMPLING
+  MAINTENANCE
+  OTHER
+}
+
+enum PondEventStatus {
+  PLANNED
+  DONE
+  MISSED
+  CANCELLED
+}
+
 enum PondOwnershipEventType {
   CREATED
   TRANSFERRED
@@ -72,8 +94,9 @@ model Pond {
   sampleIntervalDays Int      @default(14)
   scheduleStart      DateTime @db.Time()
   scheduleEnd        DateTime @db.Time()
-  notificationPrefs  Json     @default("{\"missedFeeding\":true,\"deviceOffline\":true,\"hopperLow\":true}")
+  notificationPrefs  Json     @default("{\"missedFeeding\":true,\"deviceOffline\":true,\"hopperLow\":true,\"harvestReminders\":true,\"samplingReminders\":true,\"emailReminders\":true}")
   status             PondStatus @default(ACTIVE)
+  isFallow           Boolean  @default(false) // harvest/cancel leaves the pond active but not feeding
   createdAt          DateTime @default(now())
 
   owner             User?            @relation(fields: [ownerId], references: [farmId], onDelete: Restrict)
@@ -85,10 +108,92 @@ model Pond {
   energyDevices     EnergyDevice[]
   scheduleCommands  ScheduleCommand[]
   ownershipHistory  PondOwnershipHistory[]
+  cropCycles        CropCycle[]
+  pondEvents        PondEvent[]
 
   @@index([ownerId])
   @@index([farmId])
   @@index([status])
+}
+
+model CropCycle {
+  id                   String          @id @default(cuid())
+  pondId               String
+  farmId               String? // immutable ownership stamp
+  label                String? // "Batch 2026-10"
+  status               CropCycleStatus @default(ACTIVE)
+
+  stockingDate         DateTime @db.Date
+  stockingCount        Int
+  stockingAvgWeightG   Float?
+  growOutDays          Int      @default(135)
+  targetHarvestDate    DateTime @db.Date
+  targetHarvestWeightG Float?
+  expectedSurvivalPct  Float?
+
+  actualHarvestDate     DateTime? @db.Date
+  actualHarvestWeightKg Float?
+  actualHarvestCount    Int?
+  actualFcr             Float?
+
+  notes     String?
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pond   Pond        @relation(fields: [pondId], references: [id], onDelete: Cascade)
+  events PondEvent[]
+
+  @@index([pondId, status])
+  @@index([farmId])
+  // One ACTIVE cycle per pond is enforced by a partial unique index in the
+  // migration; Prisma cannot express partial indexes in the schema.
+}
+
+model PondEvent {
+  id          String          @id @default(cuid())
+  pondId      String
+  cropCycleId String?
+  farmId      String?
+  type        PondEventType
+  status      PondEventStatus @default(PLANNED)
+  title       String
+  startsAt    DateTime
+  endsAt      DateTime?
+  allDay      Boolean         @default(true)
+  notes       String?
+  source      String? // "manual" | "cycle" | "device" | "sampling" | "feeding"
+  sourceId    String? // device event id, if applicable
+  createdBy   String
+  completedBy String?
+  completedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  pond      Pond       @relation(fields: [pondId], references: [id], onDelete: Cascade)
+  cropCycle CropCycle? @relation(fields: [cropCycleId], references: [id], onDelete: SetNull)
+
+  @@index([pondId, startsAt])
+  @@index([farmId, startsAt])
+  @@index([cropCycleId])
+}
+
+model ReminderLog {
+  id          String   @id @default(cuid())
+  pondId      String
+  cropCycleId String?
+  pondEventId String?
+  kind        String // "harvest_d14" | "harvest_d7" | ... | "sampling_due"
+  channel     String // "in_app" | "email"
+  dedupeKey   String   @unique
+  recipient   String?
+  status      String   @default("SENT") // "SENT" | "FAILED"
+  attempts    Int      @default(1)
+  lastError   String?
+  sentAt      DateTime @default(now())
+
+  @@index([pondId, kind])
+  @@index([cropCycleId])
 }
 
 model Device {

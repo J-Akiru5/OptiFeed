@@ -4,6 +4,8 @@ import { notFound, rateLimited } from "@/lib/api/errors";
 import { withApi } from "@/lib/api/instrumentation";
 import { withAuth } from "@/lib/auth/with-auth";
 import { DEFAULT_FISH_COUNT, LEGACY_API_SUNSET } from "@/lib/constants";
+import { todayDateOnly } from "@/lib/crop-cycle/dates";
+import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { getActivePond } from "@/lib/pond-selection";
 import { type PredictionInputs, predictFeeding } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
@@ -25,7 +27,7 @@ export const POST = withApi(
 		const pond = await getActivePond();
 		if (!pond) throw notFound("No active pond.");
 
-		const [energyDevice, latestBiomass, latestFcr] = await Promise.all([
+		const [energyDevice, latestBiomass, latestFcr, activeCycle] = await Promise.all([
 			prisma.energyDevice.findFirst({
 				where: { pondId: pond.id },
 				orderBy: { createdAt: "asc" },
@@ -41,6 +43,19 @@ export const POST = withApi(
 				orderBy: { periodEnd: "desc" },
 				select: { fcrValue: true },
 			}),
+			prisma.cropCycle.findFirst({
+				where: { pondId: pond.id, status: "ACTIVE" },
+				select: {
+					id: true,
+					label: true,
+					stockingDate: true,
+					stockingCount: true,
+					growOutDays: true,
+					targetHarvestDate: true,
+					targetHarvestWeightG: true,
+					expectedSurvivalPct: true,
+				},
+			}),
 		]);
 
 		if (!energyDevice) {
@@ -48,6 +63,7 @@ export const POST = withApi(
 		}
 
 		const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice.id);
+		const cycle = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
 
 		const inputs: PredictionInputs = {
 			feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
@@ -58,6 +74,8 @@ export const POST = withApi(
 			currentGrams: energyDevice.gramsPerFeeding ?? null,
 			hopperCapacityG: energyDevice.hopperCapacityG ?? null,
 			lastSampleAt: latestBiomass?.recordedAt ?? null,
+			isFallow: Boolean(pond.isFallow),
+			cycle,
 		};
 
 		const prediction = await predictFeeding(

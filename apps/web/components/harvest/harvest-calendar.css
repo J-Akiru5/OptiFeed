@@ -1,0 +1,149 @@
+.harvest-calendar {
+	--fc-classic-primary: #0a3d62;
+	--fc-classic-primary-foreground: #ffffff;
+	--fc-classic-button: #0a3d62;
+	--fc-classic-button-border: #0a3d62;
+	--fc-classic-button-strong: #08324f;
+	--fc-classic-button-strong-border: #08324f;
+	--fc-classic-event: #0a3d62;
+	--fc-classic-event-contrast: #ffffff;
+	--fc-classic-background-event: #0a3d62;
+	--fc-classic-background-event-opacity: 8%;
+	--fc-classic-background-event-foreground-opacity: 40%;
+	--fc-classic-highlight: #ff6b3522;
+	--fc-classic-today: #ff6b3514;
+	--fc-classic-now: #ff6b35;
+	--fc-classic-border: #e5e7eb;
+}
+
+.dark .harvest-calendar {
+	--fc-classic-background: #111827;
+	--fc-classic-foreground: #f3f4f6;
+	--fc-classic-faint: #ffffff0a;
+	--fc-classic-muted: #ffffff14;
+	--fc-classic-strong: #ffffff24;
+	--fc-classic-faint-foreground: #6b7280;
+	--fc-classic-muted-foreground: #9ca3af;
+	--fc-classic-border: #374151;
+	--fc-classic-strong-border: #4b5563;
+	--fc-classic-highlight: #ff6b3533;
+	--fc-classic-today: #ff6b3526;
+}
+
+.harvest-calendar .fc {
+	font-family: inherit;
+	--fc-border-color: var(--fc-classic-border);
+}
+
+.harvest-calendar .fc-toolbar {
+	gap: 0.5rem;
+}
+
+.harvest-calendar .fc-toolbar-title {
+	font-size: 1.05rem;
+	font-weight: 900;
+	letter-spacing: -0.01em;
+	text-transform: capitalize;
+}
+
+.harvest-calendar .fc-button {
+	border-radius: 0.75rem;
+	font-size: 0.72rem;
+	font-weight: 800;
+	text-transform: capitalize;
+	box-shadow: none !important;
+	padding: 0.45rem 0.8rem;
+}
+
+.harvest-calendar .fc-button-primary {
+	background-color: #0a3d62;
+	border-color: #0a3d62;
+	color: #ffffff;
+}
+
+.harvest-calendar .fc-button-primary:hover {
+	background-color: #164e7c;
+	border-color: #164e7c;
+}
+
+.harvest-calendar .fc-button-primary:not(:disabled).fc-button-active,
+.harvest-calendar .fc-button-primary:not(:disabled):active {
+	background-color: #ff6b35;
+	border-color: #ff6b35;
+	color: #ffffff;
+}
+
+.harvest-calendar .fc-col-header-cell-cushion {
+	font-size: 0.66rem;
+	font-weight: 800;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--fc-classic-muted-foreground);
+	padding: 0.5rem 0.25rem;
+}
+
+.harvest-calendar .fc-daygrid-day-number {
+	font-size: 0.72rem;
+	font-weight: 700;
+	padding: 0.35rem 0.45rem;
+}
+
+.harvest-calendar .fc-day-today {
+	background: var(--fc-classic-today) !important;
+}
+
+.harvest-calendar .fc-event {
+	border-radius: 0.45rem;
+	border-width: 0;
+	padding: 1px 3px;
+	cursor: pointer;
+}
+
+.harvest-calendar .fc-event-title {
+	font-size: 0.67rem;
+	font-weight: 700;
+	line-height: 1.25;
+}
+
+.harvest-calendar .fc-bg-event {
+	opacity: 1;
+}
+
+.harvest-calendar .fc-daygrid-more-link {
+	font-size: 0.68rem;
+	font-weight: 700;
+}
+
+.harvest-calendar .fc-list-event-title {
+	font-size: 0.8rem;
+	font-weight: 700;
+}
+
+.harvest-calendar .fc-list-day-cushion {
+	font-size: 0.7rem;
+	font-weight: 800;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+@media (max-width: 640px) {
+	.harvest-calendar .fc-toolbar {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.harvest-calendar .fc-toolbar-chunk {
+		display: flex;
+		justify-content: center;
+	}
+
+	.harvest-calendar .fc-toolbar-title {
+		font-size: 0.95rem;
+		text-align: center;
+	}
+
+	.harvest-calendar .fc-button {
+		font-size: 0.66rem;
+		padding: 0.4rem 0.6rem;
+	}
+}

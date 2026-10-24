@@ -63,7 +63,20 @@ export type PredictionConfidenceReason =
 	| "fcrAvailable"
 	| "fcrMissing"
 	| "aiConfidenceCapped"
+	| "fallow"
 	| "noData";
+
+export interface PredictionCycleContext {
+	cycleId: string;
+	label: string | null;
+	growOutDay: number;
+	growOutDays: number;
+	daysToHarvest: number;
+	targetHarvestDate: string;
+	targetHarvestWeightG: number | null;
+	projectedHarvestBiomassKg: number | null;
+	stage: "early" | "grow" | "finish" | "overdue";
+}
 
 export interface PredictionInputs {
 	feedingRatePct: number;
@@ -74,6 +87,8 @@ export interface PredictionInputs {
 	currentGrams: number | null;
 	hopperCapacityG: number | null;
 	lastSampleAt: Date | null;
+	isFallow?: boolean;
+	cycle?: PredictionCycleContext | null;
 }
 
 export interface PredictionSafety {
@@ -110,6 +125,7 @@ export interface FeedingPrediction {
 	source: PredictionSource;
 	safety: PredictionSafety;
 	factors: PredictionFactors;
+	cycle?: PredictionCycleContext | null;
 	generatedAt: string;
 	/** True when the AI refinement was served from the short-lived cache. */
 	cached?: boolean;
@@ -203,6 +219,8 @@ export function normalisePredictionInputs(inputs: PredictionInputs): PredictionI
 		currentGrams,
 		hopperCapacityG,
 		lastSampleAt,
+		isFallow: Boolean(inputs.isFallow),
+		cycle: inputs.cycle ?? null,
 	};
 }
 
@@ -379,6 +397,24 @@ export function computeDeterministicPrediction(
 	const sampleAgeDays =
 		inputs.lastSampleAt !== null ? Math.round(daysBetween(now, inputs.lastSampleAt)) : null;
 
+	if (inputs.isFallow) {
+		const clampResult = { clamped: false, reasons: [] as PredictionClampReason[] };
+		return {
+			grams: null,
+			baselineGrams: null,
+			currentGrams: inputs.currentGrams,
+			confidence: "low",
+			confidenceReasons: ["fallow"],
+			reasoning:
+				"This pond is fallow after a harvested or cancelled cycle. Start the next grow-out cycle before feeding.",
+			source: "deterministic",
+			safety: buildSafety(inputs, clampResult),
+			cycle: null,
+			factors: emptyFactors(inputs, sampleAgeDays),
+			generatedAt: now.toISOString(),
+		};
+	}
+
 	if (!avgWeightKg || feedsPerDay <= 0 || feedingRatePct <= 0) {
 		const clampResult = { clamped: false, reasons: [] as PredictionClampReason[] };
 		return {
@@ -390,6 +426,7 @@ export function computeDeterministicPrediction(
 			reasoning: "Not enough data to predict — log a biomass sample and check pond settings.",
 			source: "deterministic",
 			safety: buildSafety(inputs, clampResult),
+			cycle: inputs.cycle ?? null,
 			factors: emptyFactors(inputs, sampleAgeDays),
 			generatedAt: now.toISOString(),
 		};
@@ -422,7 +459,13 @@ export function computeDeterministicPrediction(
 	const currentNote =
 		inputs.currentGrams !== null ? ` Current device value is ${inputs.currentGrams}g.` : "";
 
-	const reasoning = `Standard feed math (biomass × ${feedingRatePct}% ÷ ${feedsPerDay} meals) gives ${round1(baseline)}g per meal from your ${ageNote}.${fcrNote}${currentNote}`;
+	const cycleNote = inputs.cycle
+		? inputs.cycle.daysToHarvest < 0
+			? ` The grow-out is ${Math.abs(inputs.cycle.daysToHarvest)} days past its target harvest date; verify the harvest plan.`
+			: ` Grow-out day ${inputs.cycle.growOutDay} of ${inputs.cycle.growOutDays}; harvest in ${inputs.cycle.daysToHarvest} days${inputs.cycle.targetHarvestWeightG ? ` at a ${inputs.cycle.targetHarvestWeightG}g target` : ""}.`
+		: "";
+
+	const reasoning = `Standard feed math (biomass × ${feedingRatePct}% ÷ ${feedsPerDay} meals) gives ${round1(baseline)}g per meal from your ${ageNote}.${fcrNote}${currentNote}${cycleNote}`;
 
 	const biomassKg = round2(totalBiomassG(population, avgWeightKg) / 1000);
 
@@ -435,6 +478,7 @@ export function computeDeterministicPrediction(
 		reasoning,
 		source: "deterministic",
 		safety: buildSafety(inputs, clampResult),
+		cycle: inputs.cycle ?? null,
 		factors: {
 			population,
 			avgWeightKg,
@@ -529,6 +573,7 @@ function buildAiPrompt(inputs: PredictionInputs, baseline: FeedingPrediction): s
 		safeMinimumGrams: baseline.safety.minGrams,
 		safeMaximumGrams: baseline.safety.maxGrams,
 		deviceUpperBoundGrams: baseline.safety.upperBoundGrams,
+		cycle: baseline.cycle ?? null,
 	};
 
 	return `You are an aquaculture nutritionist for African catfish (Clarias gariepinus) in the Philippines.
@@ -547,6 +592,7 @@ RULES:
 - Confidence "medium" only when the sample is ≤42 days old.
 - Otherwise use "low". Never inflate confidence.
 - If the data is insufficient, return the baseline and "low".
+- CYCLE CONTEXT: when cycle.daysToHarvest is 14 or less (or negative), do not push growth. Keep feed stable or trim slightly toward the baseline. When the cycle is overdue, be conservative and tell the farmer to verify the harvest date. Cycle context never overrides the safety envelope.
 - "reasoning" must be plain farmer-facing text, at most 180 characters, with no markdown.
 
 Respond with ONLY a JSON object, no other text:
@@ -695,6 +741,7 @@ export async function refinePredictionWithAi(
 			source: "ai",
 			safety: buildSafety(inputs, clampResult),
 			factors: baseline.factors,
+			cycle: baseline.cycle ?? null,
 			generatedAt: new Date().toISOString(),
 			cached: false,
 		};

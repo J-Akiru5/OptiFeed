@@ -36,6 +36,7 @@ Any other string in the database is ignored by `isPermission` — it neither gra
 | `manage_members` | Invite, edit and remove tenant members. |
 | `manage_farms_ponds` | Create and change farms and ponds. |
 | `manage_schedule` | Change feeding schedules and device calibration. |
+| `manage_crop_cycle` | Create/edit grow-out cycles, schedule harvests, and manage pond calendar events. |
 | `claim_feeder` | Claim a feeder unit into the tenant. |
 | `control_feeder` | Manual feed and pause/resume. Independently revocable per membership. |
 | `record_dispatch` | Record a harvest dispatch (M6). |
@@ -52,6 +53,7 @@ Any other string in the database is ignored by `isPermission` — it neither gra
 | `manage_members` | yes | yes | — | — |
 | `manage_farms_ponds` | yes | yes | — | — |
 | `manage_schedule` | yes | yes | yes | — |
+| `manage_crop_cycle` | yes | yes | yes | — |
 | `claim_feeder` | yes | yes | yes | — |
 | `control_feeder` | yes (revocable) | yes (revocable) | yes (revocable) | — |
 | `record_dispatch` | yes | yes | — | — |

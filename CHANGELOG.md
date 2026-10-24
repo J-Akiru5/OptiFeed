@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A read-only `nextjs-supabase-benchmark` subagent and `nextjs-supabase-audit.mjs` harness for auditing other Next.js + Supabase apps.
 - Auth fast path: `auth.getClaims()` verifies the JWT locally when the project uses asymmetric signing keys, with a 30 s verified-session cache and a 60 s `supabaseId → farmId` binding. A cache hit makes no Supabase call and no DB lookup.
 - Background jobs: `BackgroundJob`/`JobArtifact` tables, `POST /api/v1/export-jobs` (CSV/ZIP/PDF) and `POST /api/v1/import-jobs` returning `202` + `Location`, owner-scoped status/download endpoints, a `GET /api/v1/jobs/metrics` queue-health endpoint, and a `GET /api/v1/cron/jobs` worker that claims with `FOR UPDATE SKIP LOCKED`. The dashboard export, PDF and import flows poll the job and download the artifact; none of them run in the request path. `docs/sql/cron-jobs.sql` schedules the worker.
+- Grow-out cycles (`CropCycle`): one active cycle per pond with stocking date/count, grow-out days, auto-calculated editable harvest date, target weight, expected survival, and actual harvest weight/count/final FCR. A partial unique index enforces the one-active-cycle invariant.
+- Harvest calendar (`PondEvent` + FullCalendar v7): month/week/list views, harvest/stocking/sampling/manual/feeding/device events, filters, all-ponds toggle, drag-to-reschedule for planned events, and a Harvest page in the sidebar and mobile nav.
+- Fallow-pond safety: harvesting or cancelling a cycle pauses the paired feeder and sets `Pond.isFallow`; feed, resume, and schedule changes are blocked until the next cycle starts.
+- Cycle-aware AI advice: the feed advisor and chat prompt receive grow-out day, days to harvest, target weight, projected biomass, and fallow state. The formula and safety clamps remain authoritative.
 
 ### Changed
 
@@ -26,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `withAuth`/`withCronAuth` now return the error envelope and record their own `auth` timing.
 - `/api/user-role` returns `{ role, email, displayName }` with `private, max-age=60` and an ETag; the dashboard layout now resolves the user server-side and passes it to the header, so the header makes no client round-trip at all.
 - The dashboard import/export and prediction components use the shared API client and unwrap the envelope.
+- The AI advisor is surfaced on the Dashboard home as well as Growth, and shows the grow-out timeline or a start-cycle/fallow call to action.
 - Device Telegram alerts in `/api/ingest` are scheduled after the response with `after()` instead of blocking the device request.
 - Device list lookups in the export routes are bounded with `take: 100`.
 

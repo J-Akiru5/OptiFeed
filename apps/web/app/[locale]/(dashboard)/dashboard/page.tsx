@@ -382,7 +382,7 @@ export default async function DashboardHomePage() {
 									{t("feedVolumeLabel")}
 								</p>
 								<p className="text-2xl md:text-3xl font-black text-[#E85A2A] dark:text-[#ff8a5c]">
-									{nextFeedingVolumeG}g
+									{pond.isFallow ? "—" : `${nextFeedingVolumeG}g`}
 								</p>
 							</div>
 							<div>

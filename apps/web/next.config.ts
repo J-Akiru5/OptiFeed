@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
+import path from "node:path";
+
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
 // Shared directives for both the enforced and the Report-Only policy.
@@ -46,6 +48,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+	turbopack: {
+		root: path.resolve(import.meta.dirname ?? process.cwd(), "../.."),
+	},
 	serverExternalPackages: ["@prisma/client"],
 	allowedDevOrigins: ["192.168.1.10"],
 	devIndicators: false,

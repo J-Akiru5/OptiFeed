@@ -6,6 +6,26 @@ test.describe("Login flow", () => {
 		await expect(page.locator("text=OptiFeed")).toBeVisible();
 	});
 
+	test("validates fields and reveals the PIN", async ({ page }) => {
+		await page.goto("/en/login");
+
+		await page.getByRole("button", { name: "Sign in" }).click();
+		await expect(page.locator("#farmId-error")).toHaveText("Enter your farm ID.");
+
+		await page.locator("#farmId").fill("demo-farmer-1");
+		await page.locator("#pin").fill("12");
+		await page.getByRole("button", { name: "Sign in" }).click();
+		await expect(page.locator("#pin-error")).toHaveText(
+			"Enter the 4–6 digit PIN from your administrator.",
+		);
+
+		await page.locator("#pin").fill("1234");
+		await page.getByRole("button", { name: "Show PIN" }).click();
+		await expect(page.locator("#pin")).toHaveAttribute("type", "text");
+		await page.getByRole("button", { name: "Hide PIN" }).click();
+		await expect(page.locator("#pin")).toHaveAttribute("type", "password");
+	});
+
 	test("shows error for invalid credentials", async ({ page }) => {
 		await page.goto("/en/login");
 		const farmIdInput = page

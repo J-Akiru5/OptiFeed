@@ -22,10 +22,10 @@ const VARIANT_SRC: Record<NonNullable<LogoProps["variant"]>, string> = {
 };
 
 /**
- * OptiFeed / PakaonAI Mark Logo Component
+ * PakaonAI mark logo.
  *
- * Renders the official PakaonAI fish-and-target-ring mark from the logo kit.
- * Use `variant` to pick the right version for the background context.
+ * The fish-and-target-ring mark ships in several colour treatments from the
+ * logo kit. Use `variant` to pick the right one for the background context.
  */
 export function OptiFeedLogo({ className = "", size = 32, variant = "ondark" }: LogoProps) {
 	const src = VARIANT_SRC[variant];
@@ -33,7 +33,7 @@ export function OptiFeedLogo({ className = "", size = 32, variant = "ondark" }: 
 	return (
 		<Image
 			src={src}
-			alt="OptiFeed Logo"
+			alt="PakaonAI"
 			width={size}
 			height={size}
 			className={className}

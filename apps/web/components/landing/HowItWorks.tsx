@@ -1,5 +1,6 @@
 "use client";
 
+import { Reveal } from "@/components/landing/Reveal";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 import { animate, motion, useReducedMotion, useScroll, useSpring } from "motion/react";
@@ -61,8 +62,8 @@ function FeederDemo({ active, caption }: { active: boolean; caption: string }) {
 	return (
 		<div
 			className={cn(
-				"mt-4 flex items-center gap-4 rounded-xl border border-white/20 bg-[#0A3D62] p-3 text-white transition-opacity duration-500",
-				active ? "opacity-100" : "opacity-40",
+				"mt-4 flex items-center gap-4 rounded-xl border border-white/15 bg-[#0A3D62] p-3 text-white transition-opacity duration-500",
+				active ? "opacity-100" : "opacity-60",
 			)}
 		>
 			<svg viewBox="0 0 96 80" className="h-16 w-20 shrink-0" role="img" aria-label={caption}>
@@ -107,7 +108,9 @@ function FeederDemo({ active, caption }: { active: boolean; caption: string }) {
 				))}
 				<path d="M44 46h14" stroke="#9fc3dc" strokeWidth="2" strokeLinecap="round" />
 			</svg>
-			<p className="text-xs font-bold uppercase tracking-wider text-blue-100">{caption}</p>
+			<p className="text-[10px] font-semibold tracking-[0.12em] text-white/60 uppercase">
+				{caption}
+			</p>
 		</div>
 	);
 }
@@ -142,123 +145,134 @@ export function HowItWorks() {
 	}, []);
 
 	return (
-		<section id="how" className="py-16 md:py-24 px-6 md:px-12 max-w-6xl mx-auto scroll-mt-20">
-			<motion.div
-				initial={reduced ? false : { opacity: 0, y: 24 }}
-				whileInView={{ opacity: 1, y: 0 }}
-				viewport={{ once: true, margin: "0px 0px -80px 0px" }}
-				transition={{ duration: 0.5, ease: "easeOut" }}
-			>
-				<h2 className="text-3xl md:text-5xl font-black tracking-tight text-[#0A3D62]">
-					{t("howTitle")}
-				</h2>
-				<p className="mt-4 max-w-2xl text-lg text-[#3D5568]">{t("howDesc")}</p>
-			</motion.div>
+		<section
+			id="how"
+			className="scroll-mt-20 border-b border-[#DFE7E4] py-16 md:py-24 dark:border-white/10"
+		>
+			<div className="mx-auto w-full max-w-[78rem] px-5 sm:px-8 lg:px-10">
+				<Reveal>
+					<p className="text-[11px] font-semibold tracking-[0.18em] text-[#E85A2A] uppercase dark:text-[#FF8A5C]">
+						{t("howEyebrow")}
+					</p>
+					<h2 className="mt-4 max-w-3xl text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A2E47] sm:text-[2.4rem] dark:text-white">
+						{t("howTitle")}
+					</h2>
+					<p className="mt-4 max-w-2xl text-[14.5px] leading-6 text-slate-600 dark:text-slate-400">
+						{t("howDesc")}
+					</p>
+				</Reveal>
 
-			<div className="mt-12 grid lg:grid-cols-[1.2fr_0.8fr] gap-12">
-				<div className="relative lg:pb-[30vh]">
-					<div
-						aria-hidden="true"
-						className="absolute left-6 top-6 bottom-6 lg:bottom-[calc(30vh+1.5rem)] hidden w-0.5 -translate-x-1/2 bg-gray-200 sm:block"
-					>
-						<motion.div
-							className="h-full w-full origin-top bg-[#E85A2A]"
-							style={{ scaleY: reduced ? 1 : lineScale }}
-						/>
-					</div>
-					<ol ref={stepsRef} className="space-y-10 lg:space-y-0">
-						{STEPS.map((n, i) => {
-							const isActive = activeStep === n;
-							const isPast = activeStep > n;
-							return (
-								<li
-									key={n}
-									data-step={n}
-									ref={(el) => {
-										stepEls.current[i] = el;
-									}}
-									className="flex gap-5 lg:min-h-[42vh] lg:items-start lg:pt-2"
-									aria-current={isActive ? "step" : undefined}
-								>
-									<motion.span
-										animate={{ scale: isActive ? 1.1 : 1 }}
-										transition={{ type: "spring", stiffness: 400, damping: 22 }}
-										className={cn(
-											"relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-xl font-black text-white transition-colors duration-300",
-											isActive ? "bg-[#E85A2A]" : isPast ? "bg-[#0A3D62]" : "bg-[#0A3D62]/40",
-										)}
-									>
-										{isPast ? <Check className="h-6 w-6" aria-hidden="true" /> : n}
-									</motion.span>
-									<motion.div
-										animate={{ opacity: isActive || reduced ? 1 : 0.5, x: isActive ? 4 : 0 }}
-										transition={{ duration: 0.3 }}
-									>
-										<h3 className="font-extrabold text-xl text-[#0A3D62]">{t(`step${n}Title`)}</h3>
-										<p className="mt-1.5 max-w-md text-[#3D5568] leading-relaxed">
-											{t(`step${n}Body`)}
-										</p>
-									</motion.div>
-								</li>
-							);
-						})}
-					</ol>
-				</div>
-
-				<div className="lg:sticky lg:top-24 self-start">
-					<figure className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-						<figcaption className="font-extrabold text-lg text-[#0A3D62]">
-							{t("calcTitle")}
-						</figcaption>
-						<p className="mt-1 mb-5 text-xs font-bold uppercase tracking-wider text-[#3D5568]">
-							{t("calcBadge")}
-						</p>
-						<dl className="divide-y divide-gray-100 text-sm">
-							{ROWS.map(({ label, value, from, logged }) => {
-								const shown = reduced || activeStep >= from;
-								const justLogged = logged && activeStep >= 2;
+				<div className="mt-12 grid gap-12 lg:grid-cols-[1.2fr_0.8fr]">
+					<div className="relative lg:pb-[30vh]">
+						<div
+							aria-hidden="true"
+							className="absolute top-6 bottom-6 left-6 hidden w-0.5 -translate-x-1/2 bg-[#DDE5E1] sm:block lg:bottom-[calc(30vh+1.5rem)] dark:bg-white/10"
+						>
+							<motion.div
+								className="h-full w-full origin-top bg-[#E85A2A]"
+								style={{ scaleY: reduced ? 1 : lineScale }}
+							/>
+						</div>
+						<ol ref={stepsRef} className="space-y-10 lg:space-y-0">
+							{STEPS.map((n, i) => {
+								const isActive = activeStep === n;
+								const isPast = activeStep > n;
 								return (
-									<motion.div
-										key={label}
-										animate={{ opacity: shown ? 1 : 0.3 }}
-										transition={{ duration: 0.35 }}
-										className="flex items-baseline justify-between gap-4 py-2.5"
+									<li
+										key={n}
+										data-step={n}
+										ref={(el) => {
+											stepEls.current[i] = el;
+										}}
+										className="flex gap-5 lg:min-h-[42vh] lg:items-start lg:pt-2"
+										aria-current={isActive ? "step" : undefined}
 									>
-										<dt className="flex items-center gap-2 text-[#3D5568]">
-											{t(label)}
-											{justLogged && (
-												<Check
-													className="h-3.5 w-3.5 text-green-600"
-													aria-label={t("calcLogged")}
-												/>
+										<motion.span
+											animate={{ scale: isActive ? 1.1 : 1 }}
+											transition={{ type: "spring", stiffness: 400, damping: 22 }}
+											className={cn(
+												"relative z-10 flex size-12 shrink-0 items-center justify-center rounded-xl text-lg font-semibold text-white transition-colors duration-300",
+												isActive
+													? "bg-[#E85A2A]"
+													: isPast
+														? "bg-[#0A3D62]"
+														: "bg-[#0A3D62]/10 text-[#0A3D62] dark:bg-white/10 dark:text-white/50",
 											)}
-										</dt>
-										<dd className="text-right font-mono font-semibold tabular-nums">
-											{shown ? <AnimatedValue text={t(value)} run={shown} /> : "···"}
-										</dd>
-									</motion.div>
+										>
+											{isPast ? <Check className="size-5" aria-hidden="true" /> : n}
+										</motion.span>
+										<motion.div
+											animate={{
+												opacity: isActive || reduced ? 1 : 0.55,
+												x: isActive ? 4 : 0,
+											}}
+											transition={{ duration: 0.3 }}
+										>
+											<h3 className="text-[17px] font-semibold text-[#0A2E47] dark:text-white">
+												{t(`step${n}Title`)}
+											</h3>
+											<p className="mt-1.5 max-w-md text-[13.5px] leading-6 text-slate-600 dark:text-slate-400">
+												{t(`step${n}Body`)}
+											</p>
+										</motion.div>
+									</li>
 								);
 							})}
-						</dl>
-						<motion.div
-							animate={{
-								backgroundColor: activeStep >= 4 || reduced ? "#E85A2A" : "#CBD5DC",
-								scale: activeStep === 4 ? 1.02 : 1,
-							}}
-							transition={{ duration: 0.35 }}
-							className="mt-3 flex items-baseline justify-between gap-4 rounded-xl px-4 py-3 text-white"
-						>
-							<span className="text-sm font-bold">{t("calcPortion")}</span>
-							<span className="font-mono text-3xl font-black tabular-nums">
-								{activeStep >= 4 || reduced ? (
-									<AnimatedValue text={t("calcPortionValue")} run={activeStep >= 4} />
-								) : (
-									"···"
-								)}
-							</span>
-						</motion.div>
-						<FeederDemo active={activeStep === 4} caption={t("demoCaption")} />
-					</figure>
+						</ol>
+					</div>
+
+					<div className="self-start lg:sticky lg:top-24">
+						<figure className="rounded-2xl border border-[#DFE7E4] bg-white p-5 shadow-[0_24px_60px_-36px_rgba(10,46,71,0.35)] sm:p-6 dark:border-white/10 dark:bg-[#0C1319]">
+							<figcaption className="text-[15px] font-semibold text-[#0A2E47] dark:text-white">
+								{t("calcTitle")}
+							</figcaption>
+							<p className="mt-1 mb-4 text-[9.5px] font-semibold tracking-[0.12em] text-slate-500 uppercase dark:text-slate-400">
+								{t("calcBadge")}
+							</p>
+							<dl className="divide-y divide-[#E7EDEA] text-[12.5px] dark:divide-white/10">
+								{ROWS.map(({ label, value, from, logged }) => {
+									const shown = reduced || activeStep >= from;
+									const justLogged = logged && activeStep >= 2;
+									return (
+										<motion.div
+											key={label}
+											animate={{ opacity: shown ? 1 : 0.35 }}
+											transition={{ duration: 0.35 }}
+											className="flex items-baseline justify-between gap-4 py-2.5"
+										>
+											<dt className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+												{t(label)}
+												{justLogged && (
+													<Check className="size-3.5 text-[#17B26A]" aria-label={t("calcLogged")} />
+												)}
+											</dt>
+											<dd className="text-right font-mono font-semibold text-[#0A2E47] tabular-nums dark:text-white">
+												{shown ? <AnimatedValue text={t(value)} run={shown} /> : "···"}
+											</dd>
+										</motion.div>
+									);
+								})}
+							</dl>
+							<motion.div
+								animate={{
+									backgroundColor: activeStep >= 4 || reduced ? "#E85A2A" : "#CBD5DC",
+									scale: activeStep === 4 ? 1.02 : 1,
+								}}
+								transition={{ duration: 0.35 }}
+								className="mt-3 flex items-baseline justify-between gap-4 rounded-xl px-4 py-3 text-white"
+							>
+								<span className="text-[12px] font-semibold">{t("calcPortion")}</span>
+								<span className="font-mono text-2xl font-semibold tabular-nums">
+									{activeStep >= 4 || reduced ? (
+										<AnimatedValue text={t("calcPortionValue")} run={activeStep >= 4} />
+									) : (
+										"···"
+									)}
+								</span>
+							</motion.div>
+							<FeederDemo active={activeStep === 4} caption={t("demoCaption")} />
+						</figure>
+					</div>
 				</div>
 			</div>
 		</section>

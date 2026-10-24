@@ -78,7 +78,7 @@ export function DataExportButton() {
 				const url = URL.createObjectURL(blob);
 				const link = document.createElement("a");
 				link.href = url;
-				link.download = `optifeed_export_${new Date().toISOString().slice(0, 10)}.zip`;
+				link.download = `pakaonai_export_${new Date().toISOString().slice(0, 10)}.zip`;
 				link.click();
 				URL.revokeObjectURL(url);
 				toast.success(t("batchExportSuccess"));

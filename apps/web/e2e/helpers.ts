@@ -24,7 +24,7 @@ export async function login(page: Page) {
 			return;
 		} catch {
 			const rateLimited = await page
-				.getByText(/Too many requests/i)
+				.getByText(/Too many (requests|attempts)/i)
 				.isVisible()
 				.catch(() => false);
 			if (rateLimited) {

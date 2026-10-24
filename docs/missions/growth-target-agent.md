@@ -81,11 +81,20 @@ For the pre-defense slice, pond area, average depth and feed price are stored in
 - [x] Growth plan UI + apply
 - [x] Editable biomass samples (batch page)
 - [x] Chat agent actions + confirmation UI (create/update cycle, apply plan)
-- [ ] CI + deploy to develop
+- [x] CI + deploy to develop (0918437)
+- [x] Grow-out modal portal fix (#144)
+- [ ] Promote to main for the defense (owner authorization required)
 - [ ] Post-defense: proper pond-profile migration
 
 ## Verification
 
-- `pnpm lint`, `pnpm typecheck`, `pnpm test`, `npx next build` via CI.
-- Focused unit tests for plan math and guardrails.
-- Manual/e2e demo: create a cycle through the assistant, log a sample, see the plan, apply an adjustment, verify the audit event.
+- `pnpm lint`, `pnpm typecheck`, `pnpm test` (729 tests), `npx next build` all pass locally.
+- CI `quality` green on `develop@0918437`.
+- Vercel `develop` deployment `READY`.
+- Live browser confirmation is pending: the preview deployment is Vercel-protected and `main` does not include this work yet.
+
+## Current refs
+
+- `develop`: `0918437` — feature complete.
+- `staging`: `e3e7279` — not advanced.
+- `main`: `b5ca877` — does not include this work.

@@ -1,5 +1,7 @@
 "use client";
 
+import { executeChatAction } from "@/lib/actions/chat-agent";
+import { looksLikeAction } from "@/lib/chat/agent-intent";
 import { useLocale, useTranslations } from "next-intl";
 import {
 	type ReactNode,
@@ -21,6 +23,8 @@ interface ChatWidgetContextValue {
 	messages: ChatMessage[];
 	isStreaming: boolean;
 	send: (content: string) => void;
+	executeAction: (index: number) => void;
+	cancelAction: (index: number) => void;
 	clearMessages: () => void;
 }
 
@@ -74,18 +78,60 @@ export function ChatWidgetProvider({ children }: { children: ReactNode }) {
 			const trimmed = content.trim();
 			if (!trimmed || isStreaming) return;
 
-			const history: ChatMessage[] = [
-				...messages,
-				{ role: "user", content: trimmed },
-				{ role: "assistant", content: "" },
-			];
-			setMessages(history);
+			const baseHistory: ChatMessage[] = [...messages, { role: "user", content: trimmed }];
 			setIsStreaming(true);
 
 			const controller = new AbortController();
 			abortRef.current = controller;
+			let placeholderAdded = false;
 
 			try {
+				if (looksLikeAction(trimmed)) {
+					const response = await fetch("/api/chat/agent", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							message: trimmed,
+							locale,
+							history: messages.slice(-8),
+						}),
+						signal: controller.signal,
+					});
+					if (!response.ok) throw new Error(`HTTP ${response.status}`);
+					const payload = (await response.json()) as {
+						data?: {
+							kind?: string;
+							text?: string;
+							action?: {
+								type: string;
+								summary: string;
+								fields: Array<{ label: string; value: string }>;
+								args: Record<string, unknown>;
+							};
+						};
+					};
+					const data = payload.data ?? {};
+					if (data.kind === "action" && data.action) {
+						setMessages([
+							...baseHistory,
+							{
+								role: "assistant",
+								content: data.text ?? "",
+								action: { ...data.action, status: "pending" as const },
+							},
+						]);
+						return;
+					}
+					if (data.kind === "clarify") {
+						setMessages([...baseHistory, { role: "assistant", content: data.text ?? t("error") }]);
+						return;
+					}
+				}
+
+				const history: ChatMessage[] = [...baseHistory, { role: "assistant", content: "" }];
+				setMessages(history);
+				placeholderAdded = true;
+
 				const response = await fetch("/api/chat", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -142,7 +188,14 @@ export function ChatWidgetProvider({ children }: { children: ReactNode }) {
 				// Aborted streams (logout/unmount) are silent; network errors surface a message.
 				if (!controller.signal.aborted) {
 					console.error("[Chat] Stream failed:", error);
-					setMessages((prev) => [...prev.slice(0, -1), { role: "assistant", content: t("error") }]);
+					if (placeholderAdded) {
+						setMessages((prev) => [
+							...prev.slice(0, -1),
+							{ role: "assistant", content: t("error") },
+						]);
+					} else {
+						setMessages([...baseHistory, { role: "assistant", content: t("error") }]);
+					}
 				}
 			} finally {
 				abortRef.current = null;
@@ -152,9 +205,84 @@ export function ChatWidgetProvider({ children }: { children: ReactNode }) {
 		[isStreaming, locale, messages, t],
 	);
 
+	const executeAction = useCallback(
+		async (index: number) => {
+			const message = messages[index];
+			if (!message?.action || message.action.status !== "pending" || isStreaming) return;
+			setIsStreaming(true);
+			try {
+				const result = await executeChatAction({
+					type: message.action.type,
+					args: message.action.args,
+				});
+				setMessages((prev) => {
+					const next = [...prev];
+					const target = next[index];
+					if (!target?.action) return prev;
+					next[index] = {
+						...target,
+						action: {
+							...target.action,
+							status: result.success ? "confirmed" : "error",
+							result: result.message,
+						},
+					};
+					return [
+						...next,
+						{
+							role: "assistant",
+							content: result.success ? result.message : `${t("actionFailed")}: ${result.message}`,
+						},
+					];
+				});
+			} catch (error) {
+				console.error("[Chat] action failed:", error);
+				setMessages((prev) => [...prev, { role: "assistant", content: t("error") }]);
+			} finally {
+				setIsStreaming(false);
+			}
+		},
+		[isStreaming, messages, t],
+	);
+
+	const cancelAction = useCallback((index: number) => {
+		setMessages((prev) => {
+			const next = [...prev];
+			const target = next[index];
+			if (!target?.action || target.action.status !== "pending") return prev;
+			next[index] = {
+				...target,
+				action: { ...target.action, status: "cancelled" },
+			};
+			return next;
+		});
+	}, []);
+
 	const value = useMemo<ChatWidgetContextValue>(
-		() => ({ isOpen, open, close, toggle, messages, isStreaming, send, clearMessages }),
-		[isOpen, open, close, toggle, messages, isStreaming, send, clearMessages],
+		() => ({
+			isOpen,
+			open,
+			close,
+			toggle,
+			messages,
+			isStreaming,
+			send,
+			executeAction,
+			cancelAction,
+			clearMessages,
+		}),
+		[
+			isOpen,
+			open,
+			close,
+			toggle,
+			messages,
+			isStreaming,
+			send,
+			executeAction,
+			cancelAction,
+			clearMessages,
+		],
 	);
 
 	return <ChatWidgetContext.Provider value={value}>{children}</ChatWidgetContext.Provider>;

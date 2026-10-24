@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { Bot, ChevronDown, Loader2, Send, User, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
+import { ChatActionCard } from "./chat-action-card";
 import type { ChatMessage } from "./chat-storage";
 import { Markdown } from "./markdown";
 
@@ -11,6 +12,8 @@ interface ChatConversationProps {
 	messages: ChatMessage[];
 	isStreaming: boolean;
 	onSend: (content: string) => void;
+	onExecuteAction: (index: number) => void;
+	onCancelAction: (index: number) => void;
 	onClose: () => void;
 	className?: string;
 }
@@ -19,6 +22,8 @@ export function ChatConversation({
 	messages,
 	isStreaming,
 	onSend,
+	onExecuteAction,
+	onCancelAction,
 	onClose,
 	className,
 }: ChatConversationProps) {
@@ -106,6 +111,14 @@ export function ChatConversation({
 							)}
 						>
 							{m.content ? <Markdown text={m.content} /> : "\u00A0"}
+							{m.action && (
+								<ChatActionCard
+									action={m.action}
+									disabled={isStreaming}
+									onConfirm={() => onExecuteAction(i)}
+									onCancel={() => onCancelAction(i)}
+								/>
+							)}
 						</div>
 					</div>
 				))}

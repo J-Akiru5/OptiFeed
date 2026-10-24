@@ -1,5 +1,6 @@
 "use client";
 
+import { ApiClientError, apiPost } from "@/lib/api-client";
 import {
 	EXPORT_LABELS,
 	type ExportableType,
@@ -7,6 +8,7 @@ import {
 	downloadCsv,
 	parseCsvString,
 } from "@/lib/csv";
+import { fetchJobArtifact, waitForJob } from "@/lib/jobs/client";
 import { AlertCircle, CheckCircle2, Download, FileText, Upload, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
@@ -53,18 +55,26 @@ export function DataExportButton() {
 
 		setExporting(true);
 		try {
-			if (selectedTypes.size === 1) {
-				const type = Array.from(selectedTypes)[0];
-				const res = await fetch(`/api/export?type=${type}`);
-				if (!res.ok) throw new Error("Export failed");
-				const csv = await res.text();
-				downloadCsv(buildFilename(type), csv);
+			const types = Array.from(selectedTypes);
+			const single = types.length === 1;
+			const job = await apiPost<{ id: string }>(
+				"/api/v1/export-jobs",
+				single ? { kind: "csv", type: types[0] } : { kind: "zip", types },
+				{ timeoutMs: 5_000 },
+			);
+
+			const { downloadUrl } = await waitForJob(job.id);
+			if (!downloadUrl) throw new Error("The export is not ready.");
+
+			const response = await fetchJobArtifact(downloadUrl);
+			if (!response.ok) throw new Error("Export download failed.");
+
+			if (single) {
+				const csv = await response.text();
+				downloadCsv(buildFilename(types[0]), csv);
 				toast.success(t("exportSuccess"));
 			} else {
-				const types = Array.from(selectedTypes).join(",");
-				const res = await fetch(`/api/export/batch?types=${types}`);
-				if (!res.ok) throw new Error("Export failed");
-				const blob = await res.blob();
+				const blob = await response.blob();
 				const url = URL.createObjectURL(blob);
 				const link = document.createElement("a");
 				link.href = url;
@@ -75,8 +85,8 @@ export function DataExportButton() {
 			}
 			setOpen(false);
 			setSelectedTypes(new Set());
-		} catch {
-			toast.error(t("exportError"));
+		} catch (error) {
+			toast.error(error instanceof ApiClientError ? error.message : t("exportError"));
 		} finally {
 			setExporting(false);
 		}
@@ -173,16 +183,14 @@ export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 
 		const csv = await f.text();
 		try {
-			const res = await fetch("/api/import", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ type, csvData: csv }),
-			});
-			const data = await res.json();
-			setPreview(data.preview);
-			setErrors(data.validationErrors);
-		} catch {
-			toast.error(t("previewError"));
+			const result = await apiPost<{
+				preview: Record<string, unknown>[];
+				validationErrors: { row: number; field: string; message: string }[];
+			}>("/api/import", { type, csvData: csv }, { timeoutMs: 20_000 });
+			setPreview(result.preview);
+			setErrors(result.validationErrors);
+		} catch (error) {
+			toast.error(error instanceof ApiClientError ? error.message : t("previewError"));
 		}
 	};
 
@@ -192,23 +200,19 @@ export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 
 		try {
 			const csv = await file.text();
-			const res = await fetch("/api/import/confirm", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ type, csvData: csv }),
-			});
-			const data = await res.json();
-			if (data.success) {
-				toast.success(t("importSuccess", { count: data.importedCount }));
-				setOpen(false);
-				setFile(null);
-				setPreview(null);
-				setErrors([]);
-			} else {
-				toast.error(data.error ?? t("importError"));
-			}
-		} catch {
-			toast.error(t("importError"));
+			const job = await apiPost<{ id: string }>(
+				"/api/v1/import-jobs",
+				{ type, csvData: csv },
+				{ timeoutMs: 10_000 },
+			);
+			const { result } = await waitForJob<{ importedCount: number }>(job.id);
+			toast.success(t("importSuccess", { count: result.importedCount }));
+			setOpen(false);
+			setFile(null);
+			setPreview(null);
+			setErrors([]);
+		} catch (error) {
+			toast.error(error instanceof ApiClientError ? error.message : t("importError"));
 		} finally {
 			setImporting(false);
 		}

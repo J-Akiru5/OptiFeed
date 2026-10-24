@@ -161,7 +161,8 @@ function routeFiles(dir: string): string[] {
 	});
 }
 
-const WRAPPED_HANDLER = /export const (GET|POST|PUT|PATCH|DELETE)\s*=\s*(withAuth|withCronAuth)\(/;
+const WRAPPED_HANDLER =
+	/export const (GET|POST|PUT|PATCH|DELETE)\s*=\s*(withApi\(\s*)?(withAuth|withCronAuth)\(/;
 
 // Device endpoints authenticate with a provisioning token instead of a session.
 const DEVICE_TOKEN_ROUTES = new Set([
@@ -171,7 +172,11 @@ const DEVICE_TOKEN_ROUTES = new Set([
 ]);
 
 // Unauthenticated by design: liveness probe, no tenant data.
-const ALLOWLIST = new Set(["health/route.ts"]);
+const ALLOWLIST = new Set([
+	"health/route.ts",
+	// Regulation 404 handler: owns no tenant data and touches no database.
+	"[...fallback]/route.ts",
+]);
 
 describe("every API route is authenticated or explicitly allowlisted (static)", () => {
 	const routes = routeFiles(API_DIR).map((file) => ({

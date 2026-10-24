@@ -11,17 +11,18 @@ import { NotificationProvider } from "@/components/notification-provider";
 import { OnboardingProvider } from "@/components/onboarding-provider";
 import { Sidebar } from "@/components/sidebar";
 import { Link } from "@/i18n/routing";
-import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { getCurrentPondOwnerId, getCurrentUser } from "@/lib/auth/session";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import Image from "next/image";
 
 export default async function DashboardLayout({
 	children,
 }: {
 	children: React.ReactNode;
 }) {
-	const ownerId = await getCurrentPondOwnerId();
+	const [ownerId, currentUser] = await Promise.all([getCurrentPondOwnerId(), getCurrentUser()]);
 
 	let pondId = "";
 	let initialUnreadCount = 0;
@@ -81,11 +82,15 @@ export default async function DashboardLayout({
 									href="/dashboard"
 									className="flex items-center justify-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-lg"
 								>
-									<OptiFeedLogo size={32} />
+									<OptiFeedLogo size={32} variant="ondark" />
 								</Link>
-								<span className="font-extrabold text-lg md:text-xl tracking-tight text-white">
-									Opti<span className="text-[#E85A2A]">Feed</span>
-								</span>
+								<Image
+									src="/pakaonai-logo-kit/png/pakaonai-wordmark-color.png"
+									alt="PakaonAI"
+									width={110}
+									height={26}
+									className="h-[26px] w-auto object-contain brightness-0 invert"
+								/>
 								{esp32Status !== "missing" && (
 									<div className="hidden md:flex items-center gap-2 border-l border-white/20 pl-3">
 										<span
@@ -109,11 +114,20 @@ export default async function DashboardLayout({
 								pondName={pondName}
 								lastSeenAt={lastSeenAtStr}
 								esp32Status={esp32Status}
+								initialUser={
+									currentUser
+										? {
+												email: currentUser.email,
+												role: currentUser.role,
+												displayName: currentUser.displayName,
+											}
+										: undefined
+								}
 							/>
 						</header>
 
 						<DashboardContentShell>
-							<Sidebar hopperLevelPct={hopperLevelPct} />
+							<Sidebar hopperLevelPct={hopperLevelPct} isOffline={esp32Status === "offline"} />
 							<main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 relative z-10">
 								<BackToDashboard />
 								{children}

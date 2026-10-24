@@ -53,9 +53,10 @@ DIRECT_URL=<target direct url> pnpm --filter web exec prisma migrate deploy
 ## 3. Git integration (revised 2026-10-21)
 
 - Deployments are restricted by `apps/web/vercel.json`
-  (`git.deploymentEnabled`): only `staging` and `main` may create deployments.
-  `develop` and all work branches are validation-only.
-- `staging` deploys to the Preview environment; `main` deploys to Production.
+  (`git.deploymentEnabled`): only `develop` and `main` may create deployments.
+  `staging` and all work branches are validation-only.
+- `develop` and `main` both deploy to the Preview environment; `main` is the
+  production branch. `develop` therefore runs with production credentials.
 - There is **no** GitHub Actions deploy workflow (`deploy.yml` deleted,
   decision D4). Do not add one, and do not run `vercel deploy` by hand.
 - CI (`.github/workflows/ci.yml`) runs lint/typecheck/tests/auth-gate/Prisma

@@ -3,6 +3,7 @@ import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { AdminSidebar } from "@/components/admin-sidebar";
 import { Link } from "@/i18n/routing";
 import { getCurrentUser, requireRole } from "@/lib/auth/session";
+import Image from "next/image";
 
 export default async function AdminLayout({
 	children,
@@ -20,11 +21,15 @@ export default async function AdminLayout({
 						href="/admin"
 						className="flex items-center justify-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-lg"
 					>
-						<OptiFeedLogo size={32} />
+						<OptiFeedLogo size={32} variant="ondark" />
 					</Link>
-					<span className="font-extrabold text-lg md:text-xl tracking-tight text-white">
-						Opti<span className="text-[#E85A2A]">Feed</span>
-					</span>
+					<Image
+						src="/pakaonai-logo-kit/png/pakaonai-wordmark-color.png"
+						alt="PakaonAI"
+						width={110}
+						height={26}
+						className="h-[26px] w-auto object-contain brightness-0 invert"
+					/>
 					<span className="hidden md:inline-flex items-center gap-1.5 ml-2 px-2.5 py-1 rounded-full bg-[#E85A2A] text-[10px] font-black uppercase tracking-wider text-white">
 						Admin
 					</span>

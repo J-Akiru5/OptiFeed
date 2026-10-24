@@ -1,8 +1,7 @@
 name: Firmware
 
-# Compiles the ESP32 sketch. Separate from CI because the Arduino toolchain is
-# large and only firmware changes need it. Validation only — never flashes or
-# deploys anything.
+# Compiles the ESP32 sketch with PlatformIO, the same toolchain used on the
+# energy-monitoring project. Validation only — never flashes or deploys.
 
 on:
   pull_request:
@@ -26,22 +25,24 @@ jobs:
   compile:
     name: compile
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install arduino-cli
-        uses: arduino/setup-arduino-cli@v2
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-      - name: Install ESP32 core
-        run: |
-          arduino-cli core update-index
-          arduino-cli core install esp32:esp32
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini') }}
 
-      - name: Install sketch libraries
-        run: |
-          arduino-cli lib install "RTClib" "Adafruit BusIO" "ArduinoJson" "OneWire" "DallasTemperature"
+      - name: Install PlatformIO
+        run: pip install platformio
 
       - name: Compile
-        run: arduino-cli compile --fqbn esp32:esp32:esp32 firmware/firmware-main
+        run: pio run -d firmware

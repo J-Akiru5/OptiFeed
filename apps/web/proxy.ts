@@ -1,31 +1,9 @@
+import { shouldRedirectToLogin } from "@/lib/auth/navigation-guard";
 import createMiddleware from "next-intl/middleware";
 import { type NextRequest, NextResponse } from "next/server";
 import { routing } from "./i18n/routing";
 
 const nextIntlMiddleware = createMiddleware(routing);
-
-// Mirrors the @supabase/ssr cookie naming scheme: a base session cookie
-// `sb-<project-ref>-auth-token` plus optional numbered chunks
-// (`sb-<project-ref>-auth-token.0`, `.1`, ...) used when the session JSON
-// exceeds the library's 3180-char chunk size.
-const SUPABASE_SESSION_COOKIE = /^sb-.+-auth-token(\.\d+)?$/;
-
-/**
- * Optimistic session check: true when any non-empty Supabase auth cookie is
- * present. Deliberately does NOT call supabase.auth.getUser() — that makes a
- * network request and can rotate the single-use refresh token. Under Next.js
- * parallel middleware invocations (document + RSC prefetches), concurrent
- * refreshes race, Supabase reuse-detection revokes the session, and the user
- * flips present/null across alternating requests — an infinite
- * /login <-> /dashboard redirect loop (ERR_TOO_MANY_REDIRECTS). Authoritative
- * validation lives in the server layer: getCurrentPondOwnerId() and
- * requireRole() call getUser() and redirect unauthenticated users to /login.
- */
-function hasSessionCookie(request: NextRequest): boolean {
-	return request.cookies
-		.getAll()
-		.some(({ name, value }) => SUPABASE_SESSION_COOKIE.test(name) && value !== "");
-}
 
 export default function proxy(request: NextRequest) {
 	const response = nextIntlMiddleware(request);
@@ -36,29 +14,19 @@ export default function proxy(request: NextRequest) {
 		? segments[1]
 		: routing.defaultLocale;
 
-	const isDashboard = pathname.includes("/dashboard");
-	const isAdmin = pathname.includes("/admin");
-	// `includes("/admin")` is FALSE for "/superadmin" (no separator before
-	// "admin"), so the platform console needs its own check or it would skip
-	// the unauthenticated redirect entirely.
-	const isSuperadmin = pathname.includes("/superadmin");
-
-	// Only redirect navigation requests (GET/HEAD). Non-GET requests such as
-	// Server Action POSTs must reach the route handler so their RSC /
-	// x-action-redirect response is honored; a 302 here would surface as
-	// "An unexpected response was received from the server."
-	const isNavigationRequest = request.method === "GET" || request.method === "HEAD";
-
 	// No session cookie at all -> redirect to login. With a cookie present we
 	// pass the request through: the page's getCurrentUser() validates the
 	// session and redirects to /login if it is invalid or expired. The
 	// login -> dashboard redirect is intentionally NOT done here — it needs a
 	// *validated* user, which an optimistic cookie check cannot provide; the
 	// login page itself performs a one-shot client-side skip instead.
+	// See lib/auth/navigation-guard.ts for why this never calls getUser().
 	if (
-		isNavigationRequest &&
-		(isDashboard || isAdmin || isSuperadmin) &&
-		!hasSessionCookie(request)
+		shouldRedirectToLogin({
+			pathname,
+			method: request.method,
+			cookies: request.cookies.getAll(),
+		})
 	) {
 		return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
 	}

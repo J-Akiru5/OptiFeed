@@ -1,0 +1,120 @@
+{
+	"version": 1,
+	"note": "Declared endpoint inventory for scripts/api/live-check.mjs. Coverage is measured over the endpoints with contract=true or latency=true. Adding a browser JSON endpoint means adding it here.",
+	"endpoints": [
+		{
+			"id": "health",
+			"method": "GET",
+			"path": "/api/v1/health",
+			"shape": "flat",
+			"auth": "none",
+			"level": "L1",
+			"contract": true,
+			"latency": false
+		},
+		{
+			"id": "user-role",
+			"method": "GET",
+			"path": "/api/v1/user-role",
+			"shape": "envelope",
+			"auth": "session",
+			"level": "L2",
+			"contract": true,
+			"latency": true
+		},
+		{
+			"id": "predict-feeding",
+			"method": "POST",
+			"path": "/api/v1/predict-feeding",
+			"shape": "envelope",
+			"auth": "session",
+			"level": "L2",
+			"contract": false,
+			"latency": true
+		},
+		{
+			"id": "export",
+			"method": "GET",
+			"path": "/api/v1/export?type=biomass_logs",
+			"shape": "file",
+			"auth": "session",
+			"level": "L1",
+			"contract": true,
+			"latency": false
+		},
+		{
+			"id": "export-batch",
+			"method": "GET",
+			"path": "/api/v1/export/batch?types=biomass_logs",
+			"shape": "file",
+			"auth": "session",
+			"level": "L1",
+			"contract": true,
+			"latency": false
+		},
+		{
+			"id": "export-pdf",
+			"method": "GET",
+			"path": "/api/v1/export-pdf",
+			"shape": "file",
+			"auth": "session",
+			"level": "L1",
+			"contract": true,
+			"latency": false
+		}
+	],
+	"excluded": [
+		{
+			"path": "/api/v1/import",
+			"reason": "Requires a CSV body; covered by lib/__tests__/import-access.test.ts and the import UI."
+		},
+		{
+			"path": "/api/v1/import/confirm",
+			"reason": "Bulk write with a 30 s transaction; backlog item to move to a background job."
+		},
+		{
+			"path": "/api/v1/chat",
+			"reason": "SSE stream; pre-stream errors are covered by unit tests."
+		},
+		{
+			"path": "/api/v1/feed-command",
+			"reason": "Device-token credential; external firmware contract."
+		},
+		{
+			"path": "/api/v1/schedule-sync",
+			"reason": "Device-token credential; external firmware contract."
+		},
+		{
+			"path": "/api/v1/ingest",
+			"reason": "Device-token credential; external firmware contract."
+		},
+		{
+			"path": "/api/v1/cron/device-watch",
+			"reason": "Scheduled job with its own bearer secret; verified by Vercel cron logs."
+		},
+		{
+			"path": "/api/v1/export-jobs",
+			"reason": "Async job creation (POST body); covered by the local job flow and unit tests."
+		},
+		{
+			"path": "/api/v1/import-jobs",
+			"reason": "Async job creation (POST body); covered by the local job flow and unit tests."
+		},
+		{
+			"path": "/api/v1/jobs/{id}",
+			"reason": "Dynamic job status; covered by the local job flow."
+		},
+		{
+			"path": "/api/v1/jobs/{id}/download",
+			"reason": "Artifact download for a completed job; covered by the local job flow."
+		},
+		{
+			"path": "/api/v1/jobs/metrics",
+			"reason": "Admin-only queue health; covered by the job service tests."
+		},
+		{
+			"path": "/api/v1/cron/jobs",
+			"reason": "Scheduled worker with its own bearer secret; invoked manually in the local flow."
+		}
+	]
+}

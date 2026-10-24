@@ -15,7 +15,13 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-export function Sidebar({ hopperLevelPct = 82 }: { hopperLevelPct?: number }) {
+interface SidebarProps {
+	hopperLevelPct?: number;
+	/** True when the ESP32 has not checked in within OFFLINE_THRESHOLD_MS. */
+	isOffline?: boolean;
+}
+
+export function Sidebar({ hopperLevelPct = 82, isOffline = false }: SidebarProps) {
 	const t = useTranslations("nav");
 	const pathname = usePathname();
 
@@ -29,9 +35,14 @@ export function Sidebar({ hopperLevelPct = 82 }: { hopperLevelPct?: number }) {
 		{ href: "/dashboard/settings", label: t("settings"), icon: Settings, onboard: "settings" },
 	];
 
+	// An offline device cannot be trusted to still hold the feed it last
+	// reported, so the widget rests at 0% instead of freezing on the stale
+	// reading (GH-100).
+	const displayLevelPct = isOffline ? 0 : hopperLevelPct;
+
 	// Math for remaining metrics
 	const capacityKg = HOPPER_CAPACITY_KG;
-	const remainingKg = (capacityKg * (hopperLevelPct / 100)).toFixed(1);
+	const remainingKg = (capacityKg * (displayLevelPct / 100)).toFixed(1);
 	const scheduledFeedings = Math.floor(Number.parseFloat(remainingKg) / 0.35);
 
 	return (
@@ -68,22 +79,29 @@ export function Sidebar({ hopperLevelPct = 82 }: { hopperLevelPct?: number }) {
 			<div className="bg-[#0A3D62]/5 dark:bg-gray-800/60 rounded-2xl p-4 border border-[#0A3D62]/10 dark:border-gray-700/50 space-y-3 mt-auto">
 				<p className="text-[10px] uppercase font-extrabold text-[#3D5568] dark:text-gray-400 tracking-widest flex items-center gap-1.5">
 					<Cpu className="w-3.5 h-3.5 text-[#E85A2A]" /> {t("hopperLevel")}
+					{isOffline && (
+						<span className="ml-auto rounded-full bg-[#C42B3A]/10 px-1.5 py-0.5 text-[9px] font-bold text-[#C42B3A]">
+							{t("deviceOffline")}
+						</span>
+					)}
 				</p>
 				<div className="flex items-center justify-between text-xs font-extrabold text-[#0A3D62] dark:text-[#5b9bd5]">
 					<span>{t("pondFeedPellet")}</span>
-					<span>{hopperLevelPct}%</span>
+					<span>{displayLevelPct}%</span>
 				</div>
 				<div className="w-full bg-[#3D5568]/20 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
 					<div
 						className={cn(
 							"h-full rounded-full transition-all duration-1000",
-							hopperLevelPct < 20 ? "bg-[#E85A2A]" : "bg-[#1E7B34]",
+							displayLevelPct < 20 ? "bg-[#E85A2A]" : "bg-[#1E7B34]",
 						)}
-						style={{ width: `${hopperLevelPct}%` }}
+						style={{ width: `${displayLevelPct}%` }}
 					/>
 				</div>
 				<div className="text-[10px] text-[#3D5568] dark:text-gray-400 leading-tight font-mono">
-					{t("hopperRemaining", { kg: remainingKg, count: scheduledFeedings })}
+					{isOffline
+						? t("hopperOffline")
+						: t("hopperRemaining", { kg: remainingKg, count: scheduledFeedings })}
 				</div>
 			</div>
 		</aside>

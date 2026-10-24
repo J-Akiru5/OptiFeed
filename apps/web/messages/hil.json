@@ -11,7 +11,9 @@
 		"operatorMenu": "Menu sang Operator sang Punong",
 		"hopperLevel": "Lebel sang hopper",
 		"pondFeedPellet": "Pond Feed Pellet",
-		"hopperRemaining": "Mga {kg}kg ang nabilin. Igo para sa {count} ka scheduled feeding."
+		"hopperRemaining": "Mga {kg}kg ang nabilin. Igo para sa {count} ka scheduled feeding.",
+		"deviceOffline": "Wala sa linya",
+		"hopperOffline": "Wala sa linya ang device — wala sang mabasa nga lebel. Ginapakita ang resting state."
 	},
 	"button": {
 		"feedNow": "Pakauna Subong",
@@ -447,6 +449,37 @@
 			"scheduleRange": "Iskedyul: {start} - {end}, {feedsPerDay} ka pagpakaon/adlaw",
 			"markedRead": "{count} ka notipikasyon ang ginmarka nga nabasa",
 			"loadMore": "Ipakita pa"
+		},
+		"adminUsers": {
+			"actionsColumn": "Mga Aksyon",
+			"permissionsButton": "Mga Permiso",
+			"permissionsTitle": "Mga Permiso para kay {name}",
+			"permissionsDesc": "Ang mga default sang papel ginagamit gid kon wala sang gina-ilis diri. Maga-epekto ang mga pagbag-o sa masunod nga aksyon sang user.",
+			"roleLabel": "Papel sa organisasyon",
+			"roleDefault": "Default sang papel",
+			"granted": "Ginhatag",
+			"revoked": "Ginbawi",
+			"notGranted": "Indi ginhatag",
+			"manageMembersLocked": "Indi mo mabawi ang imo kaugalingon nga katungod sa pagdumala sang mga miyembro.",
+			"loading": "Ginakarga ang mga permiso…",
+			"save": "I-save ang mga pagbag-o",
+			"saving": "Gina-save…",
+			"cancel": "Kanselahon",
+			"close": "Isira",
+			"loadError": "Indi makarga ang mga permiso sini nga user. Tilawi liwat.",
+			"saveError": "Indi ma-save ang mga pagbag-o sang permiso. Tilawi liwat.",
+			"saveSuccess": "Na-update ang mga permiso.",
+			"permission": {
+				"view_dashboard": "Tan-awa ang dashboard",
+				"view_reports": "Tan-awa ang mga report",
+				"manage_members": "Dumalaha ang mga miyembro",
+				"manage_farms_ponds": "Dumalaha sang mga farm kag punong",
+				"manage_schedule": "Dumalaha sang iskedyul",
+				"claim_feeder": "I-claim ang feeder",
+				"control_feeder": "Kontrolaha ang feeder",
+				"record_dispatch": "I-rekord ang dispatch",
+				"view_billing": "Tan-awa ang billing"
+			}
 		},
 		"adminDevices": {
 			"deviceIdMac": "Device ID (MAC)",

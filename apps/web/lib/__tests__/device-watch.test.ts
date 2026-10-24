@@ -105,10 +105,12 @@ describe("api/cron/device-watch", () => {
 
 		const first = await GET(cronRequest("Bearer test-cron-secret"));
 		expect(first.status).toBe(200);
-		await expect(first.json()).resolves.toEqual({
-			offlineAlerts: 1,
-			heartbeatsDeleted: 3,
-			bucketsDeleted: 7,
+		await expect(first.json()).resolves.toMatchObject({
+			data: {
+				offlineAlerts: 1,
+				heartbeatsDeleted: 3,
+				bucketsDeleted: 7,
+			},
 		});
 
 		expect(mockDeviceStateEvent.create).toHaveBeenCalledTimes(1);
@@ -129,7 +131,7 @@ describe("api/cron/device-watch", () => {
 		mockDeviceStateEvent.findFirst.mockResolvedValue({ id: "evt-1" } as never);
 		const second = await GET(cronRequest("Bearer test-cron-secret"));
 		expect(second.status).toBe(200);
-		await expect(second.json()).resolves.toMatchObject({ offlineAlerts: 0 });
+		await expect(second.json()).resolves.toMatchObject({ data: { offlineAlerts: 0 } });
 
 		expect(mockDeviceStateEvent.create).toHaveBeenCalledTimes(1);
 		expect(mockNotification.create).toHaveBeenCalledTimes(1);
@@ -140,7 +142,7 @@ describe("api/cron/device-watch", () => {
 		mockDeviceStateEvent.findFirst.mockResolvedValue({ id: "evt-existing" } as never);
 		const res = await GET(cronRequest("Bearer test-cron-secret"));
 		expect(res.status).toBe(200);
-		await expect(res.json()).resolves.toMatchObject({ offlineAlerts: 0 });
+		await expect(res.json()).resolves.toMatchObject({ data: { offlineAlerts: 0 } });
 		expect(mockDeviceStateEvent.create).not.toHaveBeenCalled();
 		expect(mockNotification.create).not.toHaveBeenCalled();
 	});

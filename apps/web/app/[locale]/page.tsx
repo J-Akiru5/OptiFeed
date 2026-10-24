@@ -51,11 +51,15 @@ export default function LandingPage() {
 			{/* Global Header */}
 			<header className="sticky top-8 md:top-7 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 py-4 px-6 md:px-12 flex justify-between items-center shadow-sm">
 				<div className="flex items-center justify-center gap-3">
-					<OptiFeedLogo size={32} className="shadow-md rounded-lg" />
-					<span className="font-extrabold text-xl tracking-tight text-[#0A3D62]">
-						{t("titleOpti")}
-						<span className="text-[#E85A2A]">{t("titleFeed")}</span>
-					</span>
+					<OptiFeedLogo size={32} variant="color-light" className="drop-shadow-md" />
+					<Image
+						src="/pakaonai-logo-kit/png/pakaonai-wordmark-color.png"
+						alt="PakaonAI"
+						width={120}
+						height={28}
+						className="h-7 w-auto object-contain"
+						priority
+					/>
 				</div>
 				<button
 					type="button"
@@ -348,11 +352,15 @@ export default function LandingPage() {
 			{/* Footer */}
 			<footer className="bg-[#0A3D62] text-white py-12 px-6 text-center border-t border-white/10 text-xs md:text-sm">
 				<div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-					<div className="flex items-center gap-2">
-						<span className="font-extrabold tracking-tight">
-							{t("titleOpti")}
-							<span className="text-[#E85A2A]">{t("titleFeed")}</span>
-						</span>
+					<div className="flex items-center gap-2.5">
+						<OptiFeedLogo size={28} variant="white" />
+						<Image
+							src="/pakaonai-logo-kit/png/pakaonai-wordmark-color.png"
+							alt="PakaonAI"
+							width={90}
+							height={20}
+							className="h-5 w-auto object-contain brightness-0 invert"
+						/>
 						<span className="text-gray-400">{t("footerSubtitle")}</span>
 					</div>
 					<div className="text-gray-300">{t("footerCopyright")}</div>

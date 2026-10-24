@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
+import { buildSeedEmail, resolveSupabaseUserId } from "./seed-identity";
 
 const prisma = new PrismaClient();
+
+const DEMO_FARM_ID = "demo-farmer-1";
+const DEMO_EMAIL = buildSeedEmail(DEMO_FARM_ID);
 
 function requireEnv(name: string): string {
 	const value = process.env[name];
@@ -31,11 +35,16 @@ async function main() {
 	await prisma.user.deleteMany();
 
 	// 0. Create Demo User (admin) + their single Farm
+	// Supabase Auth owns the user id; seed from it instead of inventing one.
+	const demoUserId = await resolveSupabaseUserId({
+		email: DEMO_EMAIL,
+		supabaseId: process.env.DEMO_SUPABASE_ID,
+	});
 	const demoUser = await prisma.user.create({
 		data: {
-			supabaseId: "00000000-0000-0000-0000-000000000001",
-			farmId: "demo-farmer-1",
-			email: "demo-farmer-1@pond.optifeed.local",
+			supabaseId: demoUserId,
+			farmId: DEMO_FARM_ID,
+			email: DEMO_EMAIL,
 			displayName: "Juan Miguel",
 			role: "ADMIN",
 			farm: {

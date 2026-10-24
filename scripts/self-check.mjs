@@ -197,10 +197,10 @@ record(
 const vercelCfg = JSON.parse(read(`${web}/vercel.json`) || "{}");
 const deploymentEnabled = vercelCfg?.git?.deploymentEnabled ?? {};
 record(
-	"Vercel deployments restricted to staging and main",
+	"Vercel deployments restricted to develop and main",
 	deploymentEnabled["*"] === false &&
 		deploymentEnabled["**"] === false &&
-		deploymentEnabled.staging === true &&
+		deploymentEnabled.develop === true &&
 		deploymentEnabled.main === true,
 	JSON.stringify(deploymentEnabled),
 );

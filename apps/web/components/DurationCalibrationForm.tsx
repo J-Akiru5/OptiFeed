@@ -366,7 +366,7 @@ export function DurationCalibrationForm({
 					aria-controls="calibration-panel-guided"
 					onClick={() => setMode("guided")}
 					className={cn(
-						"flex min-h-11 flex-1 items-center justify-center rounded-lg px-4 text-sm font-semibold transition-colors",
+						"flex min-h-11 flex-1 items-center justify-center whitespace-nowrap rounded-lg px-4 text-sm font-semibold transition-colors",
 						mode === "guided"
 							? "bg-white text-[#0A3D62] shadow-sm dark:bg-gray-700 dark:text-gray-100"
 							: "text-gray-600 hover:text-[#0A3D62] dark:text-gray-400 dark:hover:text-gray-200",
@@ -382,7 +382,7 @@ export function DurationCalibrationForm({
 					aria-controls="calibration-panel-manual"
 					onClick={() => setMode("manual")}
 					className={cn(
-						"flex min-h-11 flex-1 items-center justify-center rounded-lg px-4 text-sm font-semibold transition-colors",
+						"flex min-h-11 flex-1 items-center justify-center whitespace-nowrap rounded-lg px-4 text-sm font-semibold transition-colors",
 						mode === "manual"
 							? "bg-white text-[#0A3D62] shadow-sm dark:bg-gray-700 dark:text-gray-100"
 							: "text-gray-600 hover:text-[#0A3D62] dark:text-gray-400 dark:hover:text-gray-200",

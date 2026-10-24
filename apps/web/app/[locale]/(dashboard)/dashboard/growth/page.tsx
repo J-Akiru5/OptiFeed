@@ -517,15 +517,17 @@ export default async function GrowthPage() {
 							{t("viewAll")}
 						</Link>
 					</div>
-					<div className="overflow-x-auto">
+					{/* No overflow-x-auto: secondary columns collapse below lg so the
+					    card fits a phone without a horizontal scrollbar (GH-94). */}
+					<div>
 						<table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
 							<thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 uppercase text-xs font-semibold">
 								<tr>
 									<th className="px-3 py-3 lg:px-4">{t("dateCol")}</th>
 									<th className="px-3 py-3 hidden lg:table-cell lg:px-4">{t("batchCol")}</th>
 									<th className="px-3 py-3 lg:px-4">{t("totalWeightCol")}</th>
-									<th className="px-3 py-3 lg:px-4">{t("fishCountCol")}</th>
-									<th className="px-3 py-3 lg:px-4">{t("avgLengthCol")}</th>
+									<th className="px-3 py-3 hidden lg:table-cell lg:px-4">{t("fishCountCol")}</th>
+									<th className="px-3 py-3 hidden lg:table-cell lg:px-4">{t("avgLengthCol")}</th>
 									<th className="px-3 py-3 text-right text-[var(--ofd-base-deep)] lg:px-4">
 										{t("abwCol")}
 									</th>
@@ -547,8 +549,10 @@ export default async function GrowthPage() {
 											{log.batchLabel ?? <span className="text-gray-400">—</span>}
 										</td>
 										<td className="px-3 py-3 lg:px-4">{log.sampleWeightKg.toFixed(2)}</td>
-										<td className="px-3 py-3 lg:px-4">{log.sampleCount}</td>
-										<td className="px-3 py-3 lg:px-4">{log.sampleLengthCm.toFixed(1)}</td>
+										<td className="hidden px-3 py-3 lg:table-cell lg:px-4">{log.sampleCount}</td>
+										<td className="hidden px-3 py-3 lg:table-cell lg:px-4">
+											{log.sampleLengthCm.toFixed(1)}
+										</td>
 										<td className="px-3 py-3 text-right font-bold text-[var(--ofd-base-deep)] lg:px-4">
 											{(log.avgWeightKg * 1000).toFixed(1)}
 										</td>

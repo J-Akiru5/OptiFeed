@@ -1,8 +1,9 @@
 # RBAC permission enforcement
 
-**Status: backend enforcement only.** This change makes `MembershipPermission` rows gate a
-specific set of tenant server actions. It does not add a permission-management UI, does not hide or
-disable controls in the dashboard, and does not change tenant data scoping.
+**Status: backend enforcement plus a tenant-admin management UI.** `MembershipPermission` rows gate a
+specific set of tenant server actions, and tenant admins can grant or revoke them from
+**Admin → Users → Permissions**. The UI does not hide or disable other dashboard controls, and it does
+not change tenant data scoping.
 
 Source of truth for the permission model: [`SUPERADMIN-MULTITENANCY-PLAN.md`](./SUPERADMIN-MULTITENANCY-PLAN.md)
 §4.1 (resolution order) and §4.2 (permission set).
@@ -19,6 +20,9 @@ Source of truth for the permission model: [`SUPERADMIN-MULTITENANCY-PLAN.md`](./
 - Permissions are unioned across the user's active memberships in `ACTIVE` organizations.
 - The resolver fails closed: no session, no user row, no membership, or no `ACTIVE` organization
   yields no permissions.
+- Tenant admins manage grants and revocations from **Admin → Users → Permissions**. The server
+  requires `ADMIN` + `manage_members` + a target inside the caller's org scope.
+- An admin cannot revoke their own `manage_members`; the guard is enforced server-side.
 
 ## Permission set
 
@@ -81,10 +85,11 @@ needs to hide a control should use `hasPermission`.
 
 ### Compatibility fallback (no rows)
 
-Nothing in the application writes `MembershipPermission` rows today, and the bootstrap migration
-(`20261017010000_bootstrap_tenant_orgs`) creates `Organization` and `Membership` rows but no
-permission rows. Every existing membership therefore has zero rows, and the fallback is what
-authorizes it. The fallback is part of the contract, not a migration detail:
+The management UI is the only application writer of `MembershipPermission` rows. The bootstrap
+migration (`20261017010000_bootstrap_tenant_orgs`) creates `Organization` and `Membership` rows but no
+permission rows, and a membership that has never been edited still has zero rows. Every existing
+membership therefore starts with zero rows, and the fallback is what authorizes it. The fallback is
+part of the contract, not a migration detail:
 
 - **No rows at all** → the membership behaves exactly as its role did before this change.
 - **Some rows** → defaults still apply, except where a revoked row denies. An unrevoked row is an
@@ -119,12 +124,14 @@ cookie (M2.4) replace this assumption. Until then:
 ## Enforcement points
 
 Each action keeps its existing `requireRole` / `requireWriteAccess` guard. The permission check is
-an additional gate placed before any write.
+an additional gate placed before any write (and before the permission-management read).
 
 | Action | File | Permission | Existing guard kept |
 |---|---|---|---|
 | `updateUser` | `lib/actions/admin.ts` | `manage_members` | `requireRole("ADMIN")` |
 | `deleteUser` | `lib/actions/admin.ts` | `manage_members` | `requireRole("ADMIN")` |
+| `getUserPermissionState` | `lib/actions/admin.ts` | `manage_members` | `requireRole("ADMIN")` |
+| `setUserPermission` | `lib/actions/admin.ts` | `manage_members` | `requireRole("ADMIN")` |
 | `createPondWithFarmer` | `lib/actions/admin.ts` | `manage_farms_ponds` | `requireRole("ADMIN")` |
 | `createPond` | `lib/actions/admin.ts` | `manage_farms_ponds` | `requireRole("ADMIN")` |
 | `updatePondOwner` | `lib/actions/admin.ts` | `manage_farms_ponds` | `requireRole("ADMIN")` |
@@ -148,30 +155,47 @@ message.
 - **Other write actions.** `settings.ts`, `farm.ts`, `biomass.ts`, `time.ts` and the rest keep
   `requireWriteAccess()` only. `claim_feeder`, `record_dispatch` and `view_billing` have no
   enforcement point yet (claiming and dispatch arrive in M4 and M6).
-- **UI.** No component hides or disables a control based on a permission. A VIEWER sees the same
-  controls as before and receives a denial only from the server action.
+- **UI outside the permission dialog.** Apart from `/admin/users` → Permissions, no component hides
+  or disables a control based on a permission. A VIEWER sees the same controls as before and receives
+  a denial only from the server action.
 - **Platform console.** `/superadmin` is gated by `requirePlatformAdmin()`, a separate path that is
   intentionally not affected by tenant permissions.
 
-## Managing grants and revocations — pending UI
+## Managing grants and revocations
 
-There is **no grant/revoke screen** in either the tenant dashboard or the platform console today,
-and no application code creates `MembershipPermission` rows. Rows must be managed directly in the
-database (or by a one-off admin script) until the org settings page ships in **M2.7** (plan §M2.7:
-members, invite by email, roles, and a `control_feeder` toggle per member).
+Tenant admins manage permissions at **Admin → Users → Permissions**. Per row, the dialog shows the
+member's membership role, its role defaults, and one checkbox per `PERMISSIONS` value. Checkbox
+changes stay in local draft state until **Save changes** is pressed; each changed permission is then
+applied through `setUserPermission`.
 
-Practical implications:
+### Server-side guards
 
-- An operator with database access inserts a row to grant an extra permission and sets `revokedAt`
-  to revoke one. `MembershipPermission` is unique on `(membershipId, permission)`, so revoking
-  should update the existing row rather than insert a second one.
-- Deleting a row restores the role default; revoking it denies. Use revocation when the intent is a
-  denial, because a deleted row silently falls back to the role.
-- Revoking `control_feeder` takes effect on the next request — there is no permission cache.
-- A revoked row is a durable denial: revoking `control_feeder` for an `OWNER` blocks manual feed and
-  pause for that membership until the row is un-revoked or deleted.
-- These are development-stage controls. Production database changes remain out of scope for agent
-  work and require a separate owner decision.
+Both `getUserPermissionState` and `setUserPermission` run the same chain:
+
+1. `requireRole("ADMIN")`.
+2. `await requirePermission("manage_members")`.
+3. `resolveOrgScope()` and a check that the target user is in `scope.memberUserIds`.
+4. The target must have an active (`revokedAt: null`) membership in an `ACTIVE` org in scope.
+5. Platform admins are refused — that grant is managed from `/superadmin`.
+6. `setUserPermission` rejects any name that does not pass `isPermission`.
+7. A caller cannot revoke their own `manage_members`. This is a server-side refusal, not only a
+   disabled checkbox, so bypassing the UI cannot strand the organization.
+
+### Write semantics
+
+- **Grant** (checked) upserts the `(membershipId, permission)` row with `revokedAt: null`.
+- **Revoke** (unchecked) upserts the same row with `revokedAt: now`.
+- Revoking updates the existing row rather than deleting it. Deleting a row restores the role
+  default; revoking is a durable denial.
+- Unknown permission names are ignored during resolution, so the dialog filters them out.
+- `OWNER` and `ADMIN` defaults still apply. Revoking a default is the only way to remove it, and it
+  removes it for `OWNER` too (`control_feeder` is the intended case).
+- No permission cache exists: a revocation takes effect on the next request.
+- An unrevoked row can also grant a permission the role default lacks; the UI marks it as granted.
+
+Direct database edits remain possible for development and repair, but the UI is the normal path.
+Development-stage database access does not change the production rule: production database changes
+remain out of scope for agent work and require a separate owner decision.
 
 ## Tests
 

@@ -1,8 +1,9 @@
 import { redirect } from "@/i18n/routing";
+import { getVerifiedSession } from "@/lib/auth/verify-session";
 import prisma from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
 import type { UserRole } from "@prisma/client";
 import { getLocale } from "next-intl/server";
+import { cache } from "react";
 
 const POND_EMAIL_DOMAIN = "pond.optifeed.local";
 
@@ -50,29 +51,31 @@ export async function getCurrentPondOwnerIdSafe(): Promise<string | null> {
  * Get the current user's database record (with role info).
  * Returns null if not authenticated or user not found in DB.
  *
+ * Wrapped in React `cache()` so a render tree / server action that calls
+ * `getCurrentUser`, `getCurrentPondOwnerId`, `getCurrentUserRole`, and
+ * `canWrite` performs one lookup per request instead of one per call.
+ * Outside a React request scope the wrapper is a passthrough (verified
+ * against React 19); route handlers rely on the auth caches instead.
+ *
  * Lookup is by Supabase auth user id (User.supabaseId) — never by the
  * email local part alone. The email must also be a pond-provisioned
  * address for this row's farm, so a lookalike domain
  * (demo-farmer-1@evil.com) can never act as the farm.
  */
-export async function getCurrentUser() {
-	const supabase = await createClient();
-	const {
-		data: { user },
-	} = await supabase.auth.getUser();
-
-	if (!user?.id || !user?.email) return null;
+export const getCurrentUser = cache(async () => {
+	const session = await getVerifiedSession();
+	if (!session) return null;
 
 	const dbUser = await prisma.user.findUnique({
-		where: { supabaseId: user.id },
+		where: { supabaseId: session.sub },
 	});
 	if (!dbUser) return null;
 
-	const emailFarmId = farmIdFromPondEmail(user.email);
+	const emailFarmId = farmIdFromPondEmail(session.email);
 	if (!emailFarmId || emailFarmId !== dbUser.farmId) return null;
 
 	return dbUser;
-}
+});
 
 /**
  * Get the current user's role. Returns null if not authenticated.

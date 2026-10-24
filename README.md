@@ -56,6 +56,21 @@ Smart shrimp feeding management.
 | `pnpm prisma:migrate` | Run Prisma migrations |
 | `pnpm typecheck` | Run TypeScript checks across the workspace |
 
+## API contract
+
+All HTTP+JSON endpoints follow [`API_REGULATION.md`](./API_REGULATION.md): one `{ data, meta }` /
+`{ error }` envelope, a versioned `/api/v1` tree, the 300/400 ms budgets, `Server-Timing` and
+`X-Request-Id` on every response (including errors), and a recorded sunset for the legacy tree.
+
+| Command | Purpose |
+|---------|---------|
+| `pnpm api:check` | Static conformance: every route instrumented, list queries bounded, declarations present. Runs in CI. |
+| `pnpm api:live -- --mode warn` | Live contract + latency suites. Needs `API_BASE_URL` and `API_TEST_COOKIE` or `API_TEST_BEARER`. |
+| `pnpm api:live -- --mode fail` | Enforcement mode. Coverage below 90 % fails in both modes. |
+
+Endpoint inventory and documented exemptions live in `API_REGULATION.md`; the ranked burn-down is
+[`docs/api-regulation-backlog.md`](./docs/api-regulation-backlog.md).
+
 ## Branch workflow
 
 Development moves through four stages; only two of them deploy.

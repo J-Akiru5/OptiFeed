@@ -1,6 +1,7 @@
 "use client";
 
 import { applyPredictedGrams } from "@/lib/actions/prediction";
+import { apiPost } from "@/lib/api-client";
 import type { FeedingPrediction, PredictionConfidence } from "@/lib/prediction";
 import { Brain, Check, RefreshCw, Sparkles, TrendingDown, TrendingUp } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -30,12 +31,9 @@ export function FeedingPredictionCard({ deviceId, initialPrediction }: FeedingPr
 		setError(null);
 		startRefresh(async () => {
 			try {
-				const res = await fetch("/api/predict-feeding", { method: "POST" });
-				if (!res.ok) {
-					const body = (await res.json().catch(() => null)) as { error?: string } | null;
-					throw new Error(body?.error ?? `HTTP ${res.status}`);
-				}
-				const data = (await res.json()) as FeedingPrediction;
+				const data = await apiPost<FeedingPrediction>("/api/predict-feeding", undefined, {
+					timeoutMs: 15_000,
+				});
 				setPrediction(data);
 				setApplied(false);
 			} catch {

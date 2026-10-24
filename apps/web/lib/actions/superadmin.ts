@@ -4,6 +4,7 @@ import { deleteUserSubtree } from "@/lib/actions/admin-internal";
 import { isPlatformAdminActive } from "@/lib/auth/platform-admin";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
+import { invalidateFarm } from "@/lib/auth/session-cache";
 import prisma from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MemberRole, Prisma, UserRole } from "@prisma/client";
@@ -463,6 +464,10 @@ export async function revokePlatformUser(
 				tx,
 			);
 		});
+
+		// Drop any cached farm binding immediately; otherwise a valid JWT could
+		// keep passing withAuth for the cache TTL after the account is gone.
+		invalidateFarm(user.supabaseId);
 
 		return { success: true };
 	} catch (e) {

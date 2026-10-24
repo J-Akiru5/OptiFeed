@@ -179,7 +179,7 @@ export default async function AuditPage({
 	];
 
 	return (
-		<div className="mx-auto max-w-5xl space-y-6 animate-in fade-in duration-500">
+		<div className="mx-auto max-w-5xl space-y-6 animate-in fade-in duration-150">
 			<section className="rounded-[32px] border border-[#0A3D62]/5 bg-white p-5 shadow-md dark:bg-gray-900 md:p-8">
 				<div className="flex flex-col justify-between gap-4 border-b border-gray-100 pb-6 dark:border-gray-700/50 sm:flex-row sm:items-end">
 					<div>

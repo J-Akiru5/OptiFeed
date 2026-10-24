@@ -1,6 +1,5 @@
 "use client";
 
-import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 import { useTranslations } from "next-intl";
 import { createContext, useCallback, useContext, useEffect, useRef } from "react";
@@ -18,7 +17,8 @@ export function useOnboarding() {
 export function OnboardingProvider({ children }: { children: React.ReactNode }) {
 	const hasRun = useRef(false);
 
-	const startTour = useCallback(() => {
+	const startTour = useCallback(async () => {
+		const { driver } = await import("driver.js");
 		const t = (key: string) => {
 			const translations: Record<string, string> = {
 				"step1.title": "Welcome to OptiFeed",
@@ -81,7 +81,9 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 		hasRun.current = true;
 		const done = localStorage.getItem(STORAGE_KEY);
 		if (!done) {
-			const timer = setTimeout(startTour, 1500);
+			const timer = setTimeout(() => {
+				void startTour();
+			}, 1500);
 			return () => clearTimeout(timer);
 		}
 	}, [startTour]);

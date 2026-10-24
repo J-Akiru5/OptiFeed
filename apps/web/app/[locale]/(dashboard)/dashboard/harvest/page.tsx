@@ -104,7 +104,7 @@ export default async function HarvestPage() {
 	const recentCycles = serialised.filter((cycle) => cycle.status !== "ACTIVE");
 
 	return (
-		<div className="mx-auto w-full min-w-0 max-w-7xl space-y-6 pb-20 animate-in fade-in duration-500 [contain:inline-size]">
+		<div className="mx-auto w-full min-w-0 max-w-7xl space-y-6 pb-20 animate-in fade-in duration-150 [contain:inline-size]">
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 				<div>
 					<div className="flex items-center gap-2">

@@ -20,11 +20,13 @@ const PREVIEW_ROWS = 5;
 const GROWTH_PREVIEW_ROWS = 6;
 
 export default async function GrowthPage() {
-	const t = await getTranslations("dashboard.growth");
-	const tSch = await getTranslations("dashboard.schedule");
-	const tHarvest = await getTranslations("dashboard.harvest.summary");
-	const tDates = await getTranslations("dates");
-	const pond = await getActivePond();
+	const [t, tSch, tHarvest, tDates, pond] = await Promise.all([
+		getTranslations("dashboard.growth"),
+		getTranslations("dashboard.schedule"),
+		getTranslations("dashboard.harvest.summary"),
+		getTranslations("dates"),
+		getActivePond(),
+	]);
 
 	if (!pond) {
 		return (
@@ -34,33 +36,23 @@ export default async function GrowthPage() {
 		);
 	}
 
-	const writeAccess = await canWrite();
-
-	const biomassLogs = await prisma.biomassLog.findMany({
-		where: { pondId: pond.id },
-		orderBy: { recordedAt: "asc" },
-		include: { fishSamples: true },
-	});
-
-	// Newest first, with the period-over-period gains precomputed once. The
-	// compact card and the growth-history page share the same calculation.
-	const biomassDesc = biomassLogs.slice().reverse();
-	const growthRows = biomassDesc.map((log, index) => {
-		const previous = biomassDesc[index + 1] ?? null;
-		const weightGain = previous ? log.avgWeightKg * 1000 - previous.avgWeightKg * 1000 : null;
-		const lengthGain = previous ? log.sampleLengthCm - previous.sampleLengthCm : null;
-		const daysSinceLast = previous
-			? Math.round((log.recordedAt.getTime() - previous.recordedAt.getTime()) / 86_400_000)
-			: null;
-		return { log, weightGain, lengthGain, daysSinceLast };
-	});
-
-	const fcrReports = await prisma.fcrReport.findMany({
-		where: { pondId: pond.id },
-		orderBy: { periodEnd: "asc" },
-	});
-
-	const [energyDevice, activeCycle] = await Promise.all([
+	// Bound the chart/table payloads: a decade of logs must not be serialized on
+	// every visit. The history page remains the unbounded, paginated view.
+	const [writeAccess, biomassDesc, fcrDesc, energyDevice, activeCycle] = await Promise.all([
+		canWrite(),
+		prisma.biomassLog.findMany({
+			where: { pondId: pond.id },
+			orderBy: { recordedAt: "desc" },
+			take: 60,
+			include: {
+				fishSamples: { select: { id: true, weightGrams: true, lengthCm: true } },
+			},
+		}),
+		prisma.fcrReport.findMany({
+			where: { pondId: pond.id },
+			orderBy: { periodEnd: "desc" },
+			take: 12,
+		}),
 		prisma.energyDevice.findFirst({
 			where: { pondId: pond.id },
 			orderBy: { createdAt: "asc" },
@@ -80,6 +72,22 @@ export default async function GrowthPage() {
 			},
 		}),
 	]);
+
+	const biomassLogs = biomassDesc.slice().reverse();
+	const fcrReports = fcrDesc.slice().reverse();
+
+	// Newest first, with the period-over-period gains precomputed once. The
+	// compact card and the growth-history page share the same calculation.
+	const growthRows = biomassDesc.map((log, index) => {
+		const previous = biomassDesc[index + 1] ?? null;
+		const weightGain = previous ? log.avgWeightKg * 1000 - previous.avgWeightKg * 1000 : null;
+		const lengthGain = previous ? log.sampleLengthCm - previous.sampleLengthCm : null;
+		const daysSinceLast = previous
+			? Math.round((log.recordedAt.getTime() - previous.recordedAt.getTime()) / 86_400_000)
+			: null;
+		return { log, weightGain, lengthGain, daysSinceLast };
+	});
+
 	const cycleContext = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
 
 	// Deterministic prediction shown instantly; the client card refines it
@@ -106,17 +114,21 @@ export default async function GrowthPage() {
 		distanceCm: number;
 	}[] = [];
 	if (energyDevice) {
-		feedLevelLogs = await prisma.feedLevelLog.findMany({
-			where: { deviceId: energyDevice.id },
-			orderBy: { recordedAt: "asc" },
-			take: 30,
-		});
-		feedLevelPreview = await prisma.feedLevelLog.findMany({
-			where: { deviceId: energyDevice.id },
-			orderBy: { recordedAt: "desc" },
-			take: PREVIEW_ROWS,
-			select: { id: true, recordedAt: true, levelPercent: true, distanceCm: true },
-		});
+		const [recentLevels, preview] = await Promise.all([
+			prisma.feedLevelLog.findMany({
+				where: { deviceId: energyDevice.id },
+				orderBy: { recordedAt: "desc" },
+				take: 30,
+			}),
+			prisma.feedLevelLog.findMany({
+				where: { deviceId: energyDevice.id },
+				orderBy: { recordedAt: "desc" },
+				take: PREVIEW_ROWS,
+				select: { id: true, recordedAt: true, levelPercent: true, distanceCm: true },
+			}),
+		]);
+		feedLevelLogs = recentLevels.slice().reverse();
+		feedLevelPreview = preview;
 	}
 
 	const latestFcr = fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : 0;
@@ -163,7 +175,7 @@ export default async function GrowthPage() {
 	};
 
 	return (
-		<div className="space-y-8 pb-20 animate-in fade-in duration-500 max-w-7xl mx-auto">
+		<div className="space-y-8 pb-20 animate-in fade-in duration-150 max-w-7xl mx-auto">
 			{/* Header with import/export buttons */}
 			<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
 				<div>

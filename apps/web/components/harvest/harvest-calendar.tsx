@@ -52,6 +52,9 @@ interface HarvestCalendarProps {
 	initialPondId: string;
 	initialPondName: string;
 	initialPondIsFallow: boolean;
+	initialAllPonds?: boolean;
+	/** `org` asks the events API for every pond in the admin's organization. */
+	apiScope?: "org";
 	ponds: PondOption[];
 	activeCycle: CropCycleDto | null;
 	activeCycles: CropCycleDto[];
@@ -107,6 +110,8 @@ export function HarvestCalendar({
 	initialPondId,
 	initialPondName,
 	initialPondIsFallow,
+	initialAllPonds = false,
+	apiScope,
 	ponds,
 	activeCycle,
 	activeCycles,
@@ -120,7 +125,7 @@ export function HarvestCalendar({
 	const router = useRouter();
 	const requestId = useRef(0);
 	const [selectedPondId, setSelectedPondId] = useState(initialPondId);
-	const [allPonds, setAllPonds] = useState(false);
+	const [allPonds, setAllPonds] = useState(initialAllPonds);
 	const [types, setTypes] = useState<Set<CalendarEventType>>(new Set(defaultTypes));
 	const [range, setRange] = useState({ from: addDays(today, -14), to: addDays(today, 45) });
 	const [viewType, setViewType] = useState("dayGridMonth");
@@ -206,6 +211,7 @@ export function HarvestCalendar({
 			types: typesKey,
 			refresh: String(refreshKey),
 		});
+		if (apiScope) params.set("scope", apiScope);
 
 		apiGet<{ events: CalendarEventDto[] }>(`/api/calendar/events?${params.toString()}`, {
 			timeoutMs: 10_000,
@@ -220,7 +226,7 @@ export function HarvestCalendar({
 			});
 
 		return () => controller.abort();
-	}, [allPonds, selectedPondId, typesKey, refreshKey, today]);
+	}, [allPonds, selectedPondId, typesKey, refreshKey, today, apiScope]);
 
 	useEffect(() => {
 		const controller = new AbortController();
@@ -237,6 +243,7 @@ export function HarvestCalendar({
 			types: typesKey,
 			refresh: String(refreshKey),
 		});
+		if (apiScope) params.set("scope", apiScope);
 
 		apiGet<{ events: CalendarEventDto[]; truncated: boolean }>(
 			`/api/calendar/events?${params.toString()}`,
@@ -259,7 +266,7 @@ export function HarvestCalendar({
 			cancelled = true;
 			controller.abort();
 		};
-	}, [allPonds, range.from, range.to, selectedPondId, t, typesKey, refreshKey]);
+	}, [allPonds, range.from, range.to, selectedPondId, t, typesKey, refreshKey, apiScope]);
 
 	const labelFor = (event: CalendarEventDto): string => {
 		if (event.kind === "STOCKING") {

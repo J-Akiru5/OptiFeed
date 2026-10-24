@@ -103,8 +103,9 @@ export default function LandingPage() {
 				{/* The problem */}
 				<section
 					id="problem"
-					className="bg-white border-y border-gray-200 py-16 md:py-24 px-6 md:px-12 scroll-mt-20"
+					className="relative isolate py-28 md:py-40 px-6 md:px-12 scroll-mt-20"
 				>
+					<div aria-hidden="true" className="fade-y absolute inset-0 -z-10 bg-white/80" />
 					<div className="max-w-6xl mx-auto grid md:grid-cols-[0.9fr_1.1fr] gap-12 md:gap-16">
 						<div>
 							<h2 className="text-3xl md:text-5xl font-black tracking-tight leading-tight text-[#0A3D62]">
@@ -133,8 +134,12 @@ export default function LandingPage() {
 				{/* Offline-first */}
 				<section
 					id="offline"
-					className="bg-gradient-to-br from-[#0A3D62] to-[#12588c] text-white overflow-x-clip py-16 md:py-24 px-6 md:px-12 scroll-mt-20"
+					className="relative isolate text-white overflow-x-clip py-36 md:py-48 px-6 md:px-12 scroll-mt-20"
 				>
+					<div
+						aria-hidden="true"
+						className="fade-y absolute inset-0 -z-10 bg-gradient-to-br from-[#0A3D62] to-[#12588c]"
+					/>
 					<div className="max-w-6xl mx-auto grid md:grid-cols-[0.9fr_1.1fr] gap-12 md:gap-16">
 						<div>
 							<h2 className="text-3xl md:text-5xl font-black tracking-tight leading-tight">
@@ -199,10 +204,8 @@ export default function LandingPage() {
 				</section>
 
 				{/* Study design + scope */}
-				<section
-					id="study"
-					className="bg-white border-y border-gray-200 py-16 md:py-24 px-6 md:px-12 scroll-mt-20"
-				>
+				<section id="study" className="relative isolate py-28 md:py-40 px-6 md:px-12 scroll-mt-20">
+					<div aria-hidden="true" className="fade-y absolute inset-0 -z-10 bg-white/80" />
 					<div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 md:gap-16">
 						<div>
 							<h2 className="text-3xl md:text-4xl font-black tracking-tight text-[#0A3D62]">
@@ -261,7 +264,8 @@ export default function LandingPage() {
 				</section>
 
 				{/* Closing CTA */}
-				<section className="bg-white border-t border-gray-200 py-16 px-6 text-center">
+				<section className="relative isolate py-28 md:py-36 px-6 text-center">
+					<div aria-hidden="true" className="fade-y absolute inset-0 -z-10 bg-white/80" />
 					<Reveal className="max-w-3xl mx-auto">
 						<h2 className="text-3xl md:text-4xl font-black tracking-tight text-[#0A3D62] mb-4">
 							{t("ctaTitle")}
@@ -280,8 +284,9 @@ export default function LandingPage() {
 				</section>
 
 				{/* Footer */}
-				<footer className="bg-[#0A3D62] text-white text-xs md:text-sm">
-					<div className="max-w-6xl mx-auto grid md:grid-cols-[1.2fr_1fr] gap-10 px-6 py-12">
+				<footer className="relative isolate text-white text-xs md:text-sm">
+					<div aria-hidden="true" className="fade-top absolute inset-0 -z-10 bg-[#0A3D62]" />
+					<div className="max-w-6xl mx-auto grid md:grid-cols-[1.2fr_1fr] gap-10 px-6 pt-36 pb-12">
 						<div>
 							<h2 className="font-extrabold text-base">{t("teamTitle")}</h2>
 							<p className="mt-2 max-w-md text-blue-100 leading-relaxed">{t("teamDesc")}</p>

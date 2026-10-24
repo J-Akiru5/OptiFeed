@@ -4,6 +4,8 @@ import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { STALE_DISPATCHED_MS } from "@/lib/constants";
 import {
+	GRAMS_PER_SECOND_MAX,
+	GRAMS_PER_SECOND_MIN,
 	MAX_DISPENSE_MS,
 	OFFLINE_THRESHOLD_MS,
 	dailyFeedCapG,
@@ -215,8 +217,15 @@ export async function saveDurationCalibration(deviceId: string, gramsPerSecond: 
 			return { success: false, error: "Device not found" };
 		}
 
-		if (!Number.isFinite(gramsPerSecond) || gramsPerSecond <= 0 || gramsPerSecond > 100) {
-			return { success: false, error: "Grams per second must be between 0 and 100" };
+		if (
+			!Number.isFinite(gramsPerSecond) ||
+			gramsPerSecond < GRAMS_PER_SECOND_MIN ||
+			gramsPerSecond > GRAMS_PER_SECOND_MAX
+		) {
+			return {
+				success: false,
+				error: `Grams per second must be between ${GRAMS_PER_SECOND_MIN} and ${GRAMS_PER_SECOND_MAX}`,
+			};
 		}
 
 		await prisma.energyDevice.update({

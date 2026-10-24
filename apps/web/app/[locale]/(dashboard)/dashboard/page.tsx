@@ -68,6 +68,8 @@ export default async function DashboardHomePage() {
 				gramsPerFeeding: true,
 				gramsPerSecond: true,
 				lastSeenAt: true,
+				pendingQueuedEvents: true,
+				queuedDropped: true,
 				feedLevelPercent: true,
 				feedLevelUpdatedAt: true,
 				hopperCapacityG: true,
@@ -680,6 +682,8 @@ export default async function DashboardHomePage() {
 							gramsPerSecond={energyDevice.gramsPerSecond}
 							lastSeenAt={energyDevice.lastSeenAt}
 							isOffline={esp32Offline}
+							pendingQueuedEvents={energyDevice.pendingQueuedEvents}
+							queuedDropped={energyDevice.queuedDropped}
 							canWrite={writeAccess}
 						/>
 					</div>

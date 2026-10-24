@@ -42,14 +42,15 @@
 #include <ArduinoOTA.h>
 #include <esp_task_wdt.h>
 #include <esp_wifi.h>
+#include <LittleFS.h>
 #include <ctype.h>
 
 // ==================== Config — fill in before flashing ====================
-#define INGEST_URL      "https://optifeed.example.com/api/ingest"
+#define INGEST_URL      "https://optifeed.syntaxure.dev/api/ingest"
 // The ?device_id=... query is appended at runtime from the active identity,
 // so one binary works for every unit.
-#define FEED_POLL_URL_BASE     "https://optifeed.example.com/api/feed-command"
-#define SCHEDULE_SYNC_URL_BASE "https://optifeed.example.com/api/schedule-sync"
+#define FEED_POLL_URL_BASE     "https://optifeed.syntaxure.dev/api/feed-command"
+#define SCHEDULE_SYNC_URL_BASE "https://optifeed.syntaxure.dev/api/schedule-sync"
 
 // Fallback device identity. Once the setup portal saves an identity these
 // compile-time values are superseded by NVS keys device_id / device_token.
@@ -142,6 +143,10 @@ bool resetButtonsArmed = false;
 #define RELAY_OFF       LOW         // rest state, contacts open -> not dispensing
 
 #define POST_INTERVAL_MS    5000    // telemetry + dashboard feed-command poll interval
+// The server rate-limits /api/ingest to one POST per second per device (it
+// keys off lastSeenAt), so the heartbeat and a queue flush cannot be sent
+// back-to-back in the same poll cycle without the flush earning a 429.
+#define INGEST_POST_GAP_MS  2000    // spacing between our own ingest POSTs
 #define BUTTON_DEBOUNCE_MS  250
 #define WIFI_RETRY_INTERVAL_MS 10000
 
@@ -192,17 +197,19 @@ int feedTimesCount = 0;
 
 // ---- Offline event queue (so button/manual feeds during a WiFi outage
 //      still make it into Feeding History once connectivity returns) ----
-struct QueuedEvent {
-  bool used;
-  bool synced;
-  float grams;
-  char source[12];       // "scheduled" | "dashboard" | "button"
-  String requestId;      // non-empty only for dashboard-sourced feeds
-  String isoTimestamp;   // best-effort; may be "unknown" if RTC unavailable
-  String eventId;        // generated ONCE at enqueue; retries resend the same id
-};
-#define EVENT_QUEUE_SIZE 50
-QueuedEvent eventQueue[EVENT_QUEUE_SIZE];
+//
+// The queue is a flash-backed JSONL file, not a RAM array: it must survive
+// reboots and power loss. One JSON object per line, appended on dispense,
+// deleted ONLY after the server acknowledges it, replayed oldest-first in
+// small batches of up to EVENT_QUEUE_BATCH_SIZE.
+#define EVENT_QUEUE_PATH      "/feed_events.jsonl"   // the queue itself
+#define EVENT_QUEUE_TMP_PATH  "/feed_events.tmp"     // rewrite target, renamed over the queue
+#define EVENT_QUEUE_MAX_EVENTS 200                   // hard cap — oldest is dropped past this
+#define EVENT_QUEUE_BATCH_SIZE 10                    // events per replay POST
+int queueCount = 0;        // events currently buffered in EVENT_QUEUE_PATH
+int queuedDropped = 0;     // events lost to overflow or corruption since boot
+bool queueReady = false;   // LittleFS mounted — gate every queue operation on this
+unsigned long lastIngestPostMs = 0;  // last /api/ingest POST, for the 1/s server rate limit
 
 // ==================== State ====================
 RTC_DS3231 rtc;
@@ -752,7 +759,21 @@ void setup() {
   tempSensor.begin();
   Serial.println("[INIT] DS18B20 temperature probe initialized");
 
-  for (int i = 0; i < EVENT_QUEUE_SIZE; i++) eventQueue[i].used = false;
+  // Flash-backed dispense queue: survives reboots and power loss. Mount
+  // WITHOUT formatting first so a queued event is never destroyed by a boot —
+  // format is the last resort for a genuinely unreadable filesystem.
+  if (LittleFS.begin(false)) {
+    queueReady = true;
+    queueCount = countQueuedEvents();
+    if (queueCount > 0) {
+      Serial.printf("[QUEUE] %d event(s) survived reboot, replaying when online\n", queueCount);
+    }
+  } else if (LittleFS.begin(true)) {
+    queueReady = true;
+    Serial.println("[WARN] queue filesystem was unreadable and has been reformatted — queued events lost");
+  } else {
+    Serial.println("[QUEUE] LittleFS unavailable — offline queue disabled, feeds will be lost while offline");
+  }
 
   // Load stored WiFi credentials + device identity from NVS, fallback to the
   // compile-time defaults. This must run before any URL, header or AP name is
@@ -847,8 +868,16 @@ void loop() {
     pollDashboardFeedCommand();
     esp_task_wdt_reset();
     pollScheduleCommand();
-    flushQueuedEvents();
     lastPoll = millis();
+  }
+
+  // Queue replay runs in its own branch so it never races the heartbeat above:
+  // the server rate-limits /api/ingest to 1/s per device, and a flush that
+  // earned a 429 would stall the backlog drain forever.
+  if (!provisioningActive && queueCount > 0 && WiFi.status() == WL_CONNECTED &&
+      millis() - lastIngestPostMs >= INGEST_POST_GAP_MS) {
+    flushQueuedEvents();
+    lastIngestPostMs = millis();
   }
 
   if (feederActive && (millis() - feedStartTime >= feedDurationMs)) {
@@ -925,6 +954,7 @@ void reportFeedError(const char* reason, float grams, const char* source) {
   String out;
   serializeJson(doc, out);
   int code = https.POST(out);
+  lastIngestPostMs = millis();
   https.end();
   Serial.printf("[FEED] refusal report -> %d\n", code);
 }
@@ -1010,8 +1040,11 @@ void dispenseFeed(float grams, const char* source, const String &requestId = "")
 void stopFeedCycle() {
   digitalWrite(RELAY_PIN, RELAY_OFF);
   feederActive = false;
-  Serial.printf("[FEED] complete — %.0fg via %s\n", currentFeedGrams, currentFeedSource);
-  enqueueEvent(currentFeedGrams, currentFeedSource, currentFeedRequestId);
+  // Actual relay-on time, not the planned duration — the hard stop may have
+  // cut a long dose short, and History should record what really happened.
+  unsigned long actualMs = millis() - feedStartTime;
+  Serial.printf("[FEED] complete — %.0fg via %s (%lums)\n", currentFeedGrams, currentFeedSource, actualMs);
+  enqueueEvent(currentFeedGrams, actualMs, currentFeedSource, currentFeedRequestId);
   currentFeedRequestId = "";
 }
 
@@ -1244,58 +1277,236 @@ float readFeedLevelPercent() {
 
 // ==================== Telemetry + offline event queue ====================
 
-void enqueueEvent(float grams, const char* source, const String &requestId) {
-  for (int i = 0; i < EVENT_QUEUE_SIZE; i++) {
-    if (!eventQueue[i].used) {
-      eventQueue[i].used = true;
-      eventQueue[i].synced = false;
-      eventQueue[i].grams = grams;
-      strncpy(eventQueue[i].source, source, sizeof(eventQueue[i].source) - 1);
-      eventQueue[i].requestId = requestId;
-      eventQueue[i].isoTimestamp = rtcAvailable ? getRTCiso8601() : "unknown";
-      eventQueue[i].eventId = generateEventId();  // id fixed at creation (Gap #2)
-      return;
-    }
+// ---- Queue file helpers -------------------------------------------------
+//
+// The queue is an append-only JSONL file. Every dispense appends one line;
+// a replay deletes a line ONLY once the server has acknowledged that exact
+// event_id (see removeQueuedEvents). A reboot or power cut between those two
+// steps re-sends the event, and the server's (deviceId, eventId) unique
+// constraint turns that into a no-op — never a double-save.
+
+// Rewrites the queue without the listed event ids. A line that no longer
+// parses is dropped too: a power cut mid-append can leave a truncated line,
+// and an event the server cannot understand can never be acknowledged —
+// keeping it would block the head of the queue forever.
+// Returns the number of events remaining in the queue, or -1 if the rewrite
+// failed (in which case the queue is left untouched and the events are
+// re-sent — the server's unique index makes that a duplicate, not a double-save).
+int removeQueuedEvents(const String* ackedIds, int ackedCount) {
+  File in = LittleFS.open(EVENT_QUEUE_PATH, "r");
+  if (!in) return LittleFS.exists(EVENT_QUEUE_PATH) ? -1 : 0;
+
+  File out = LittleFS.open(EVENT_QUEUE_TMP_PATH, "w");
+  if (!out) {
+    in.close();
+    return -1;
   }
-  Serial.println("[WARN] event queue full — oldest unsynced event may be lost");
+
+  int remaining = 0;
+  while (in.available()) {
+    String line = in.readStringUntil('\n');
+    line.trim();
+    if (line.length() == 0) continue;
+
+    // Unparseable line: unrecoverable, drop it and count the loss.
+    StaticJsonDocument<192> probe;
+    if (deserializeJson(probe, line)) {
+      Serial.printf("[QUEUE] dropping unparseable line: %.60s\n", line.c_str());
+      queuedDropped++;
+      continue;
+    }
+
+    // Extract this line's event_id to compare against the acked set.
+    const char* lineId = probe["event_id"];
+    bool acked = false;
+    for (int i = 0; i < ackedCount && !acked; i++) {
+      if (lineId && ackedIds[i] == lineId) acked = true;
+    }
+    if (acked) continue;
+
+    out.println(line);
+    remaining++;
+  }
+  in.close();
+  out.close();
+
+  LittleFS.remove(EVENT_QUEUE_PATH);
+  LittleFS.rename(EVENT_QUEUE_TMP_PATH, EVENT_QUEUE_PATH);
+  return remaining;
 }
 
-void flushQueuedEvents() {
-  if (WiFi.status() != WL_CONNECTED) return;
-  for (int i = 0; i < EVENT_QUEUE_SIZE; i++) {
-    if (eventQueue[i].used && !eventQueue[i].synced) {
-      if (postFeedEvent(eventQueue[i])) {
-        eventQueue[i].synced = true;
-        eventQueue[i].used = false;
+// Appends one dispense event. The eventId is minted HERE, once; retries of
+// the same physical event always carry the same id (Gap #2 dedupe).
+void enqueueEvent(float grams, unsigned long durationMs, const char* source, const String &requestId) {
+  if (!queueReady) {
+    Serial.println("[QUEUE] LittleFS unavailable — event NOT recorded");
+    return;
+  }
+
+  StaticJsonDocument<320> doc;
+  doc["event_id"]        = generateEventId();  // id fixed at creation (Gap #2)
+  doc["device_id"]       = provisionedDeviceId;
+  doc["timestamp"]       = rtcAvailable ? getRTCiso8601() : "unknown";
+  doc["grams"]           = grams;
+  doc["duration_ms"]     = durationMs;         // actual relay-on time
+  doc["source"]          = source;
+  doc["feed_request_id"] = requestId.length() ? requestId : (char*)nullptr;
+  String line;
+  serializeJson(doc, line);
+
+  // Append-only write: one open/append/close per event, so a power cut can
+  // at worst lose the half-line being written — never the rest of the queue.
+  File f = LittleFS.open(EVENT_QUEUE_PATH, "a");
+  if (!f) {
+    Serial.println("[QUEUE] open for append failed — event NOT recorded");
+    return;
+  }
+  f.println(line);
+  f.close();
+  queueCount++;
+
+  // Hard cap: drop the OLDEST event (oldest-first replay means the newest are
+  // the ones about to be synced), and say so loudly.
+  while (queueCount > EVENT_QUEUE_MAX_EVENTS) {
+    File in = LittleFS.open(EVENT_QUEUE_PATH, "r");
+    if (!in) break;
+    File out = LittleFS.open(EVENT_QUEUE_TMP_PATH, "w");
+    if (!out) {
+      in.close();
+      break;
+    }
+    bool dropped = false;
+    while (in.available()) {
+      String existing = in.readStringUntil('\n');
+      existing.trim();
+      if (existing.length() == 0) continue;
+      if (!dropped) {
+        dropped = true;  // this is the oldest line — discard it
+        continue;
       }
-      esp_task_wdt_reset();  // progress between network posts — not a hang
+      out.println(existing);
     }
+    in.close();
+    out.close();
+    LittleFS.remove(EVENT_QUEUE_PATH);
+    LittleFS.rename(EVENT_QUEUE_TMP_PATH, EVENT_QUEUE_PATH);
+    queueCount--;
+    queuedDropped++;
+    Serial.printf("[QUEUE] full (%d) — dropped OLDEST event (total dropped: %d)\n",
+                  EVENT_QUEUE_MAX_EVENTS, queuedDropped);
   }
 }
 
-bool postFeedEvent(QueuedEvent &ev) {
+// Counts the events still buffered in the queue file (boot / recovery path).
+int countQueuedEvents() {
+  if (!queueReady || !LittleFS.exists(EVENT_QUEUE_PATH)) return 0;
+  File f = LittleFS.open(EVENT_QUEUE_PATH, "r");
+  if (!f) return 0;
+  int count = 0;
+  while (f.available()) {
+    String line = f.readStringUntil('\n');
+    line.trim();
+    if (line.length() > 0) count++;
+  }
+  f.close();
+  return count;
+}
+
+// Replays the oldest buffered events to /api/ingest as one batch and deletes
+// only what the server confirmed. Called on every telemetry poll while WiFi
+// is up, so a queue drains within a few polls of reconnection.
+void flushQueuedEvents() {
+  if (WiFi.status() != WL_CONNECTED || !queueReady) return;
+  if (queueCount <= 0) return;
+
+  // Read the oldest batch (file order is append order = oldest first).
+  String lines[EVENT_QUEUE_BATCH_SIZE];
+  int batchSize = 0;
+  {
+    File f = LittleFS.open(EVENT_QUEUE_PATH, "r");
+    if (!f) return;
+    while (f.available() && batchSize < EVENT_QUEUE_BATCH_SIZE) {
+      String line = f.readStringUntil('\n');
+      line.trim();
+      if (line.length() > 0) lines[batchSize++] = line;
+    }
+    f.close();
+  }
+  if (batchSize == 0) return;
+
+  StaticJsonDocument<4096> payload;
+  payload["device_id"]  = provisionedDeviceId;
+  payload["event_type"] = "batch";
+  payload["timestamp"]  = rtcAvailable ? getRTCiso8601() : "unknown";
+  JsonArray events = payload["events"].to<JsonArray>();
+  int validEvents = 0;
+  for (int i = 0; i < batchSize; i++) {
+    StaticJsonDocument<320> ev;
+    if (deserializeJson(ev, lines[i])) {
+      Serial.printf("[QUEUE] corrupt line dropped: %.80s\n", lines[i].c_str());
+      continue;
+    }
+    events.add(ev.as<JsonObjectConst>());
+    validEvents++;
+  }
+
+  // Nothing parseable in this batch (e.g. a truncated line from a power cut):
+  // skip the network round-trip and just reap the dead lines.
+  if (validEvents == 0) {
+    int remaining = removeQueuedEvents(NULL, 0);
+    if (remaining >= 0) queueCount = remaining;
+    return;
+  }
+
   HTTPClient https;
-  if (!beginHttps(https, INGEST_URL)) return false;
+  if (!beginHttps(https, INGEST_URL)) return;
   https.addHeader("Content-Type", "application/json");
   https.addHeader("X-Device-Token", provisionedDeviceToken);
-
-  // eventId was generated once when this event was enqueued; retries of the
-  // same queued event must resend the same id so the server can dedupe.
-  StaticJsonDocument<256> doc;
-  doc["device_id"]       = provisionedDeviceId;
-  doc["event_type"]      = "feed_dispensed";
-  doc["event_id"]        = ev.eventId;
-  doc["grams"]           = ev.grams;
-  doc["source"]          = ev.source;
-  doc["feed_request_id"] = ev.requestId.length() ? ev.requestId : (char*)nullptr;
-  doc["timestamp"]       = ev.isoTimestamp;
   String out;
-  serializeJson(doc, out);
+  serializeJson(payload, out);
 
   int code = https.POST(out);
+  String body = https.getString();
   https.end();
-  Serial.printf("[EVENT POST] %s %.0fg -> %d\n", ev.source, ev.grams, code);
-  return code == 200 || code == 201 || code == 204;
+  esp_task_wdt_reset();  // a TLS handshake + batch POST is the slowest step in loop()
+  Serial.printf("[QUEUE] flush %d event(s) -> %d\n", batchSize, code);
+
+  // Only 2xx may delete anything. Timeouts, 5xx and TLS failures keep the
+  // queue intact; the dedupe guard makes the eventual retry a no-op.
+  if (code < 200 || code >= 300) return;
+
+  StaticJsonDocument<2048> resp;
+  if (deserializeJson(resp, body) || !resp["results"].is<JsonArray>()) {
+    Serial.println("[QUEUE] unparseable ack body — keeping queue");
+    return;
+  }
+
+  // Collect per-event acks: stored/duplicate mean "safe to delete locally",
+  // rejected means "permanently invalid — drop it, stop retrying".
+  String ackedIds[EVENT_QUEUE_BATCH_SIZE];
+  int acked = 0;
+  for (JsonObjectConst result : resp["results"].as<JsonArrayConst>()) {
+    const char* eventId = result["event_id"];
+    const char* status  = result["status"];
+    if (!eventId || !status) continue;
+    if (strcmp(status, "stored") == 0 || strcmp(status, "duplicate") == 0 ||
+        strcmp(status, "rejected") == 0) {
+      if (acked < EVENT_QUEUE_BATCH_SIZE) ackedIds[acked++] = String(eventId);
+      if (strcmp(status, "rejected") == 0) {
+        Serial.printf("[QUEUE] server rejected %s — dropping (permanently invalid)\n", eventId);
+      }
+    }
+  }
+
+  int remaining = removeQueuedEvents(ackedIds, acked);
+  if (remaining >= 0) {
+    queueCount = remaining;
+    if (acked > 0) Serial.printf("[QUEUE] %d confirmed, %d still queued\n", acked, queueCount);
+  } else {
+    // Rewrite failed — keep our count as-is; the next flush re-sends and the
+    // server's (deviceId, eventId) unique index turns it into "duplicate".
+    Serial.println("[QUEUE] could not rewrite queue file — retained for retry");
+  }
 }
 
 void sendTelemetry() {
@@ -1305,7 +1516,7 @@ void sendTelemetry() {
   https.addHeader("X-Device-Token", provisionedDeviceToken);
 
   String eventId = generateEventId();
-  StaticJsonDocument<512> doc;
+  StaticJsonDocument<768> doc;
   doc["device_id"]         = provisionedDeviceId;
   doc["event_type"]        = "heartbeat";
   doc["event_id"]          = eventId;
@@ -1314,6 +1525,11 @@ void sendTelemetry() {
   doc["feeder_active"]     = feederActive;
   doc["feed_level_percent"] = readFeedLevelPercent();
   doc["feed_level_cm"]     = 0; // filled below with actual median distance
+
+  // Offline queue depth — the dashboard's Sync button surfaces both numbers,
+  // so an operator can see an outage backlog draining without a debugger.
+  doc["queued_events"]  = queueCount;
+  doc["queued_dropped"] = queuedDropped;
 
   // Re-read for the cm value (minimal overhead — 3 reads already cached by readFeedLevelPercent)
   float readings[3];
@@ -1359,6 +1575,7 @@ void sendTelemetry() {
   serializeJson(doc, out);
 
   int code = https.POST(out);
+  lastIngestPostMs = millis();  // reserve the rate-limit window for the queue flush
   Serial.printf("[POST] %d\n", code);
   https.end();
 }

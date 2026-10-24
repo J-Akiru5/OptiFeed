@@ -340,6 +340,12 @@ model EnergyDevice {
   gramsPerSecond     Float     @default(4.0)   // motor dispense rate — pushed via poll response
   tempOffsetC        Float     @default(0)     // DS18B20 calibration offset in °C
 
+  // Offline queue reporting — written from the heartbeat's queued_events /
+  // queued_dropped fields. These are the LAST values the device reported, so
+  // they go stale while the device is offline (the UI labels them as such).
+  pendingQueuedEvents Int     @default(0) // events still waiting on the device's flash queue
+  queuedDropped       Int     @default(0) // events the device dropped to overflow, since boot
+
   pond            Pond?             @relation(fields: [pondId], references: [id])
   feedEvents      FeedEvent[]
   feedRequests    FeedRequest[]
@@ -351,7 +357,9 @@ model EnergyDevice {
 model FeedEvent {
   id            String   @id @default(cuid())
   deviceId      String
-  eventId       String?  @unique
+  // Idempotency key minted by the device. Uniqueness is PER DEVICE (see
+  // @@unique below): a replayed offline-queue event must never double-save.
+  eventId       String?
   eventType     String   // "heartbeat" | "feed_dispensed" | "schedule_acked"
   timestamp     String   // device RTC time — may be "unknown" if RTC unavailable
   grams         Float?
@@ -365,6 +373,10 @@ model FeedEvent {
 
   device EnergyDevice @relation(fields: [deviceId], references: [id])
 
+  // Guardrail: (device_id, event_id) is the natural idempotency key. Two
+  // devices may both mint "evt-xxxx", so the old global @unique on eventId
+  // was both too strong and too weak.
+  @@unique([deviceId, eventId])
   @@index([deviceId, receivedAt])
   @@index([farmId])
 }

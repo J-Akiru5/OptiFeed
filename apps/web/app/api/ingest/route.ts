@@ -23,9 +23,14 @@ export const dynamic = "force-dynamic";
 
 const RATE_LIMIT_MS = 1000;
 
+// Offline-queue flush: the ESP32 replays its flash queue oldest-first, one
+// POST per batch. Capped so a batch plus the surrounding telemetry still fits
+// the 5s route timeout (withApi config at the bottom of this file).
+const BATCH_MAX_EVENTS = 20;
+
 const baseSchema = z.object({
 	device_id: z.string().min(1),
-	event_type: z.enum(["heartbeat", "feed_dispensed", "schedule_acked", "feed_refused"]),
+	event_type: z.enum(["heartbeat", "feed_dispensed", "schedule_acked", "feed_refused", "batch"]),
 	timestamp: z.string().min(1),
 	event_id: z.string().min(8).optional(),
 });
@@ -39,6 +44,11 @@ const heartbeatSchema = baseSchema.extend({
 	// Water temperature (DS18B20 probe) — piggybacked on existing heartbeat
 	water_temp_c: z.number().optional(),
 	water_temp_ok: z.boolean().optional(),
+	// Offline queue depth reported by the device: how many dispense events are
+	// still buffered on its flash, and how many it dropped to overflow. The
+	// dashboard shows these as "last reported", so they go stale offline.
+	queued_events: z.number().int().min(0).max(1_000_000).optional(),
+	queued_dropped: z.number().int().min(0).max(1_000_000).optional(),
 });
 
 const feedDispensedSchema = baseSchema.extend({
@@ -46,6 +56,27 @@ const feedDispensedSchema = baseSchema.extend({
 	source: z.enum(["scheduled", "dashboard", "button"]),
 	feed_request_id: z.string().nullable().optional(),
 });
+
+// One buffered dispense event inside a batch. Validated per event (not per
+// batch) so a single malformed record is rejected on its own instead of
+// blocking every other event still waiting in the device's queue.
+const batchEventSchema = z.object({
+	event_id: z.string().min(8),
+	timestamp: z.string().min(1),
+	grams: z.number().positive(),
+	source: z.enum(["scheduled", "dashboard", "button"]),
+	feed_request_id: z.string().nullable().optional(),
+});
+
+const batchSchema = baseSchema.extend({
+	event_type: z.literal("batch"),
+	// Raw entries: each is validated by batchEventSchema below so that a bad
+	// record can be acknowledged as "rejected" while the rest still store.
+	events: z.array(z.unknown()).min(1).max(BATCH_MAX_EVENTS),
+});
+
+/** Per-event acknowledgement returned by a batch flush. */
+type BatchAck = "stored" | "duplicate" | "rejected";
 
 const scheduleAckedSchema = baseSchema.extend({
 	command_id: z.string().min(1),
@@ -149,6 +180,15 @@ export const POST = withApi(
 							lastSeenAt: new Date(),
 							rtcOk: parsed.data.rtc_ok,
 							feederActive: parsed.data.feeder_active,
+							// Queue depth lands on the device row on EVERY beat, not on
+							// the thinned FeedEvent heartbeat rows: the queue shrinks
+							// without rtcOk/feederActive changing.
+							...(typeof parsed.data.queued_events === "number"
+								? { pendingQueuedEvents: parsed.data.queued_events }
+								: {}),
+							...(typeof parsed.data.queued_dropped === "number"
+								? { queuedDropped: parsed.data.queued_dropped }
+								: {}),
 						},
 					}),
 				];
@@ -542,6 +582,220 @@ export const POST = withApi(
 				reportError(error, { route: "ingest", deviceId: device.id });
 				throw error;
 			}
+		} else if (eventType === "batch") {
+			// Offline-queue flush. The device buffered these dispense events on
+			// its flash while it had no internet and replays them oldest-first
+			// once connectivity returns. Every record is acknowledged
+			// individually so the firmware deletes only what this response
+			// confirms, and a replay of an already-stored batch stores nothing.
+			const parsed = batchSchema.safeParse(body);
+			if (!parsed.success) {
+				return new Response("Unprocessable Entity", { status: 422 });
+			}
+
+			const results: { event_id: string; status: BatchAck }[] = [];
+			const accepted: z.infer<typeof batchEventSchema>[] = [];
+			const ackedBy = new Set<string>();
+
+			for (const raw of parsed.data.events) {
+				const event = batchEventSchema.safeParse(raw);
+				if (!event.success) {
+					// Permanently invalid record — ack it as rejected so the device
+					// can drop it instead of re-sending it forever. If the payload
+					// carries no usable id the device cannot be told about it, so it
+					// stays in the queue rather than being silently discarded.
+					const candidate = (raw as { event_id?: unknown } | null)?.event_id;
+					if (typeof candidate === "string" && candidate.length >= 8) {
+						results.push({ event_id: candidate, status: "rejected" });
+						ackedBy.add(candidate);
+					}
+					continue;
+				}
+				if (ackedBy.has(event.data.event_id)) {
+					// The same id twice in one payload: store it once.
+					results.push({ event_id: event.data.event_id, status: "duplicate" });
+					continue;
+				}
+				ackedBy.add(event.data.event_id);
+				accepted.push(event.data);
+				results.push({ event_id: event.data.event_id, status: "stored" });
+			}
+
+			// Guardrail 1 — (device_id, event_id) already stored. One query for
+			// the whole batch (§8.2 rule 8: no query inside a loop over rows).
+			const acceptedIds = accepted.map((event) => event.event_id);
+			const alreadyStored = acceptedIds.length
+				? await prisma.feedEvent.findMany({
+						where: { deviceId: device.id, eventId: { in: acceptedIds } },
+						select: { eventId: true },
+					})
+				: [];
+			const storedIds = new Set(alreadyStored.map((row) => row.eventId));
+
+			// Guardrail 2 — the same feed_request_id + source already recorded,
+			// for a retry whose event_id the device regenerated.
+			const requestedIds = [
+				...new Set(
+					accepted.map((event) => event.feed_request_id).filter((id): id is string => Boolean(id)),
+				),
+			];
+			const storedRequests = requestedIds.length
+				? await prisma.feedEvent.findMany({
+						where: {
+							deviceId: device.id,
+							feedRequestId: { in: requestedIds },
+							eventType: "feed_dispensed",
+						},
+						select: { feedRequestId: true, source: true },
+					})
+				: [];
+			const storedRequestKeys = new Set(
+				storedRequests.map((row) => `${row.feedRequestId}::${row.source}`),
+			);
+
+			const acks = new Map<string, { event_id: string; status: BatchAck }>(
+				results.map((result) => [result.event_id, result]),
+			);
+			const toStore = accepted.filter((event) => {
+				const duplicate =
+					storedIds.has(event.event_id) ||
+					(Boolean(event.feed_request_id) &&
+						storedRequestKeys.has(`${event.feed_request_id}::${event.source}`));
+				const result = acks.get(event.event_id);
+				if (duplicate && result) result.status = "duplicate";
+				return !duplicate;
+			});
+
+			try {
+				const operations: Prisma.PrismaPromise<unknown>[] = [
+					prisma.energyDevice.update({
+						where: { id: device.id },
+						data: { lastSeenAt: new Date() },
+					}),
+				];
+
+				if (toStore.length > 0) {
+					// skipDuplicates rides the (deviceId, eventId) unique index: a row
+					// written by a concurrent replay of the same batch is not an
+					// error, and the ack still lets the device drop it locally.
+					operations.push(
+						prisma.feedEvent.createMany({
+							data: toStore.map((event) => ({
+								deviceId: device.id,
+								eventId: event.event_id,
+								eventType: "feed_dispensed",
+								timestamp: event.timestamp,
+								grams: event.grams,
+								source: event.source,
+								feedRequestId: event.feed_request_id ?? null,
+							})),
+							skipDuplicates: true,
+						}),
+						prisma.deviceStateEvent.createMany({
+							data: toStore.map((event) => ({
+								deviceId: device.id,
+								eventType: "feed_dispensed",
+								source: "device",
+								actorId: event.source === "dashboard" ? "system" : null,
+								deviceTime: event.timestamp,
+								metadata: {
+									grams: event.grams,
+									source: event.source,
+									feedRequestId: event.feed_request_id ?? null,
+								},
+							})),
+						}),
+					);
+
+					const dispatchedIds = toStore
+						.map((event) => event.feed_request_id)
+						.filter((id): id is string => Boolean(id));
+					if (dispatchedIds.length > 0) {
+						operations.push(
+							prisma.feedRequest.updateMany({
+								where: {
+									id: { in: dispatchedIds },
+									deviceId: device.id,
+									status: "dispatched",
+								},
+								data: { status: "completed" },
+							}),
+						);
+					}
+
+					// Gap 1 reconciliation for button/scheduled doses without a
+					// request id — the same lookback window as the single-event path.
+					const reconcileAnchor = toStore.find((event) => !event.feed_request_id);
+					if (reconcileAnchor) {
+						const orphanedRequests = await prisma.feedRequest.findMany({
+							where: {
+								deviceId: device.id,
+								status: { in: ["pending", "expired"] },
+								createdAt: {
+									gte: new Date(Date.now() - RECONCILIATION_LOOKBACK_HOURS * 60 * 60 * 1000),
+								},
+							},
+							orderBy: { createdAt: "desc" },
+							take: 5,
+						});
+						for (const req of orphanedRequests) {
+							operations.push(
+								prisma.feedRequest.update({
+									where: { id: req.id },
+									data: { status: "fulfilled_by_other_trigger" },
+								}),
+								prisma.deviceStateEvent.create({
+									data: {
+										deviceId: device.id,
+										eventType: "feed_reconciled",
+										source: "system",
+										deviceTime: reconcileAnchor.timestamp,
+										metadata: {
+											expiredRequestId: req.id,
+											originalGrams: req.grams,
+											actualGrams: reconcileAnchor.grams,
+											actualSource: reconcileAnchor.source,
+										},
+									},
+								}),
+							);
+						}
+					}
+
+					const pondId = device.pondId;
+					const manual = toStore.filter(
+						(event) => event.source === "dashboard" || event.source === "button",
+					);
+					if (pondId && manual.length > 0) {
+						const sourceLabel = {
+							scheduled: "Scheduled",
+							dashboard: "Dashboard",
+							button: "Button",
+						};
+						operations.push(
+							prisma.notification.createMany({
+								data: manual.map((event) => ({
+									pondId,
+									tier: "SUCCESS",
+									category: "feeding",
+									message: `${sourceLabel[event.source]} feed completed — ${event.grams}g dispensed by ${device.label}`,
+								})),
+							}),
+						);
+					}
+				}
+
+				await prisma.$transaction(operations);
+			} catch (error) {
+				// Nothing partial may be acked: an error here means the device keeps
+				// the whole batch and replays it later, where the guards above make
+				// the retry a no-op.
+				reportError(error, { route: "ingest", deviceId: device.id });
+				throw error;
+			}
+
+			// Device contract (API_REGULATION §2): flat snake_case, no envelope.
+			return Response.json({ results });
 		} else if (eventType === "schedule_acked") {
 			const parsed = scheduleAckedSchema.safeParse(body);
 			if (!parsed.success) {

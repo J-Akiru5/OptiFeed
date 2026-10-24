@@ -162,8 +162,16 @@ record("no hardcoded /en/ in notification links", hardLinks.length === 0, hardLi
 const fw = read("firmware/firmware-main/firmware-main.ino");
 record("firmware: MAX_DISPENSE_MS defined", /MAX_DISPENSE_MS/.test(fw));
 record(
-	"firmware: queued event stores its own eventId",
-	/struct\s+\w+\s*\{[^}]*eventId[^}]*\}/.test(fw),
+	"firmware: dispense queue is flash-backed (survives power loss)",
+	/LittleFS\.open\(EVENT_QUEUE_PATH,\s*"a"\)/.test(fw),
+);
+record(
+	"firmware: queued event mints its own event_id once, at enqueue",
+	/doc\["event_id"\]\s*=\s*generateEventId\(\)/.test(fw),
+);
+record(
+	"firmware: queue deletes an event only after the server acknowledges it",
+	/removeQueuedEvents\(/.test(fw) && /"duplicate"/.test(fw),
 );
 record("firmware: TLS certificate set", /setCACert|attachBundle/.test(fw));
 record("firmware: watchdog enabled", /esp_task_wdt_init/.test(fw));

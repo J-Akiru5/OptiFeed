@@ -172,9 +172,16 @@ Hold the physical feed button (**GPIO 27**, wired to GND) during boot for at lea
   "event_type": "heartbeat",
   "timestamp": "2026-07-11T12:00:00+00:00",
   "rtc_ok": true,
-  "feeder_active": false
+  "feeder_active": false,
+  "queued_events": 3,
+  "queued_dropped": 0
 }
 ```
+`queued_events` is how many dispense events are still buffered on flash and
+`queued_dropped` how many were lost to the size cap — both are shown on the
+dashboard's **Sync** control so an outage backlog is visible without a serial
+cable. They are the last values the device reported, so they go stale while
+the device is offline.
 
 **Feed dispensed**:
 ```json
@@ -187,6 +194,33 @@ Hold the physical feed button (**GPIO 27**, wired to GND) during boot for at lea
   "feed_request_id": null
 }
 ```
+
+**Batch replay** (the offline queue draining, up to 10 events per POST):
+```json
+{
+  "device_id": "A4:CF:12:7E:3B:09",
+  "event_type": "batch",
+  "timestamp": "2026-07-11T14:30:00+00:00",
+  "events": [
+    { "event_id": "evt-1a2b3c4d-0001", "timestamp": "2026-07-11T13:05:00+00:00",
+      "grams": 150, "duration_ms": 37500, "source": "scheduled", "feed_request_id": null }
+  ]
+}
+```
+Every event is acknowledged individually, and **only acknowledged events are
+deleted from the device's queue**:
+```json
+{ "results": [ { "event_id": "evt-1a2b3c4d-0001", "status": "stored" } ] }
+```
+| status | meaning | device action |
+| --- | --- | --- |
+| `stored` | written to the database | delete from the queue |
+| `duplicate` | the server already has `(device_id, event_id)` | delete from the queue |
+| `rejected` | permanently invalid | drop it, stop retrying |
+
+A timeout, `429` or `5xx` acknowledges nothing, so the device keeps the batch
+and retries; the server's `(device_id, event_id)` unique index makes that retry
+a `duplicate` rather than a second saved row.
 
 ### `GET /api/feed-command?device_id=...` — Dashboard Feed Request
 
@@ -214,17 +248,57 @@ Auth: `X-Device-Token` header on all requests; the token is the provisioned iden
 (NVS `device_token`, or the compile-time `DEVICE_TOKEN` fallback). The `device_id` query and
 payload field come from the provisioned Device ID (NVS `device_id`, or `DEVICE_MAC`).
 
+## Offline Queue
+
+Feeds keep working with the internet down, and no dispense is lost. Every
+dispense appends one JSON line to a LittleFS file (`/feed_events.jsonl`) and is
+replayed once connectivity returns.
+
+- **Survives reboots and power loss.** The queue is a flash file, not RAM, so a
+  cut supply mid-outage does not erase the backlog. The file is mounted without
+  formatting first; a format happens only if the filesystem is unreadable, and
+  says so loudly on serial.
+- **Replayed oldest-first**, at most 10 events per `POST /api/ingest` batch,
+  spaced at least 2 s after the heartbeat because the server rate-limits ingest
+  to one POST per second per device. A 200-event backlog therefore drains in
+  about 20 polls (~100 s).
+- **Deleted only on server confirmation.** An event leaves the file when the
+  server answers `stored` or `duplicate` for its `event_id`; `rejected` drops
+  it as permanently invalid. Anything the server did not answer stays queued.
+- **Capped at 200 events.** Past the cap the *oldest* event is dropped and
+  counted (`queued_dropped`, reported in every heartbeat and shown on the
+  dashboard), with a serial warning. A queue that cannot grow without bound
+  cannot fill the flash.
+- **One id per physical event.** The `event_id` is minted when the event is
+  queued and never regenerated, so a retry after a lost response is recognised
+  by the server's `(device_id, event_id)` unique index instead of being stored
+  twice.
+- **Corruption is contained.** A half-written line (power cut mid-append) can
+  never be acknowledged, so the replay reaps unparseable lines rather than
+  letting them block the head of the queue forever.
+
+The queue needs `board_build.filesystem = littlefs` (already set in
+`platformio.ini`). Flashing a build without that partition layout will fail to
+mount the queue and report it on serial.
+
 ## Data Flow
 
 ```
 ESP32 (every 5s)
-  ├── POST /api/ingest          → heartbeat or feed_dispensed event
+  ├── POST /api/ingest          → heartbeat (incl. queued_events/queued_dropped)
   └── GET  /api/feed-command    → check for dashboard feed requests
+
+ESP32 (queue non-empty, ≥2s after the heartbeat)
+  └── POST /api/ingest (batch)  → replay oldest ≤10 events, delete only acked ones
+
+Dispense (any source, WiFi or not)
+  └── append one JSON line to LittleFS /feed_events.jsonl → flushed above
 
 Dashboard
   └── "Feed Now" button → requestFeed() → FeedRequest (pending)
-       → ESP32 polls /api/feed-command → dispenses → POST /api/ingest (feed_dispensed)
+       → ESP32 polls /api/feed-command → dispenses → queue → POST /api/ingest
        → backend auto-clears FeedRequest to "completed"
+  └── "Sync" button → refresh → shows last-seen + events still queued
 ```
 
 ## Calibration

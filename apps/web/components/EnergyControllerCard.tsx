@@ -1,9 +1,19 @@
 "use client";
 
+import { useRouter } from "@/i18n/routing";
 import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, Clock, Loader2, Utensils, Wifi, WifiOff } from "lucide-react";
-import { useState, useTransition } from "react";
+import {
+	AlertTriangle,
+	Clock,
+	Inbox,
+	Loader2,
+	RefreshCw,
+	Utensils,
+	Wifi,
+	WifiOff,
+} from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 interface EnergyControllerCardProps {
@@ -16,6 +26,10 @@ interface EnergyControllerCardProps {
 	gramsPerSecond?: number;
 	lastSeenAt: Date | null;
 	isOffline: boolean;
+	/** Dispense events the device still holds on its flash queue (heartbeat-reported). */
+	pendingQueuedEvents?: number;
+	/** Events the device dropped to queue overflow since boot (heartbeat-reported). */
+	queuedDropped?: number;
 	canWrite?: boolean;
 }
 
@@ -41,12 +55,41 @@ export function EnergyControllerCard({
 	gramsPerSecond,
 	lastSeenAt,
 	isOffline,
+	pendingQueuedEvents = 0,
+	queuedDropped = 0,
 	canWrite = true,
 }: EnergyControllerCardProps) {
+	const router = useRouter();
 	const [feedGrams, setFeedGrams] = useState(gramsPerFeeding);
 	const [isPending, startTransition] = useTransition();
 	const [feedSent, setFeedSent] = useState(false);
 	const [alreadyQueued, setAlreadyQueued] = useState(false);
+
+	// Manual Sync: refetch the server component (revalidate = 0, so the Prisma
+	// reads re-run) and report the values that actually came back. The flag is
+	// cleared in the effect below once the transition settles, at which point
+	// lastSeenAt / pendingQueuedEvents hold the refreshed props.
+	const [isSyncing, startSync] = useTransition();
+	const [awaitingSyncResult, setAwaitingSyncResult] = useState(false);
+
+	const handleSync = () => {
+		setAwaitingSyncResult(true);
+		startSync(() => {
+			router.refresh();
+		});
+	};
+
+	useEffect(() => {
+		if (!awaitingSyncResult || isSyncing) return;
+		setAwaitingSyncResult(false);
+		if (isOffline) {
+			toast.info(`Refreshed — device offline, last reported ${formatLastSeen(lastSeenAt)}`);
+			return;
+		}
+		toast.success(
+			`Synced — last seen ${formatLastSeen(lastSeenAt)}, ${pendingQueuedEvents} waiting to sync`,
+		);
+	}, [awaitingSyncResult, isSyncing, isOffline, lastSeenAt, pendingQueuedEvents]);
 
 	const dispenseSeconds =
 		gramsPerSecond && gramsPerSecond > 0 && feedGrams > 0
@@ -86,28 +129,44 @@ export function EnergyControllerCard({
 						<h3 className="text-lg font-bold text-[var(--ofd-base-deep)]">{label}</h3>
 					</div>
 				</div>
-				<span
-					className={cn(
-						"inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
-						isOffline
-							? "bg-red-100 text-red-700"
-							: feederActive
-								? "bg-green-100 text-green-700"
-								: "bg-gray-100 text-gray-600",
-					)}
-				>
+				<div className="flex items-center gap-2">
+					<button
+						type="button"
+						onClick={handleSync}
+						disabled={isSyncing}
+						aria-label="Sync now"
+						className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-300 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						{isSyncing ? (
+							<Loader2 className="h-3.5 w-3.5 animate-spin" />
+						) : (
+							<RefreshCw className="h-3.5 w-3.5" />
+						)}
+						Sync
+					</button>
 					<span
 						className={cn(
-							"h-2 w-2 rounded-full",
+							"inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
 							isOffline
-								? "bg-red-500"
+								? "bg-red-100 text-red-700"
 								: feederActive
-									? "bg-green-500 animate-pulse"
-									: "bg-gray-400",
+									? "bg-green-100 text-green-700"
+									: "bg-gray-100 text-gray-600",
 						)}
-					/>
-					{isOffline ? "Offline" : feederActive ? "Feeding..." : "Idle"}
-				</span>
+					>
+						<span
+							className={cn(
+								"h-2 w-2 rounded-full",
+								isOffline
+									? "bg-red-500"
+									: feederActive
+										? "bg-green-500 animate-pulse"
+										: "bg-gray-400",
+							)}
+						/>
+						{isOffline ? "Offline" : feederActive ? "Feeding..." : "Idle"}
+					</span>
+				</div>
 			</div>
 
 			{isOffline && (
@@ -142,6 +201,43 @@ export function EnergyControllerCard({
 								<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Last seen</p>
 								<p className="text-sm text-gray-700 dark:text-gray-200">
 									{formatLastSeen(lastSeenAt)}
+								</p>
+							</div>
+						</div>
+						<div className="col-span-2 flex items-center justify-between gap-4 rounded-2xl border border-gray-100 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-800 p-4">
+							<div className="flex items-center gap-3">
+								<Inbox
+									className={cn(
+										"h-4 w-4",
+										pendingQueuedEvents > 0 ? "text-amber-500" : "text-green-500",
+									)}
+								/>
+								<div>
+									<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+										Offline queue
+									</p>
+									<p
+										className={cn(
+											"text-sm font-medium",
+											pendingQueuedEvents > 0
+												? "text-amber-600 dark:text-amber-400"
+												: "text-green-600 dark:text-green-400",
+										)}
+									>
+										{pendingQueuedEvents > 0
+											? `${pendingQueuedEvents} event${pendingQueuedEvents === 1 ? "" : "s"} waiting to sync`
+											: "All events synced"}
+									</p>
+								</div>
+							</div>
+							<div className="text-right">
+								{queuedDropped > 0 && (
+									<p className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+										{queuedDropped} dropped to overflow
+									</p>
+								)}
+								<p className="text-[11px] text-gray-500 dark:text-gray-400">
+									{isOffline ? "last reported by device" : "reported on heartbeat"}
 								</p>
 							</div>
 						</div>

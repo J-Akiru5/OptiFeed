@@ -1,5 +1,7 @@
 "use client";
 
+import { getFeedLevelDisplay } from "@/lib/feed-level";
+
 interface FeedLevelCardProps {
 	levelPercent: number | null;
 	updatedAt: Date | null;
@@ -17,18 +19,21 @@ export function FeedLevelCard({
 	feedsPerDay,
 	isDeviceOffline = false,
 }: FeedLevelCardProps) {
-	const hasReading = levelPercent !== null;
-	const isStale = hasReading && isDeviceOffline;
-	const isCritical = hasReading && levelPercent <= 5;
-	const isLow = hasReading && levelPercent <= 20;
+	const { percent, hasReading, isOffline, isCritical, isLow, daysRemaining } = getFeedLevelDisplay({
+		levelPercent,
+		isDeviceOffline,
+		hopperCapacityG,
+		gramsPerFeeding,
+		feedsPerDay,
+	});
 
-	const barColor = isCritical ? "bg-red-500" : isLow ? "bg-amber-500" : "bg-emerald-500";
-
-	const dailyConsumption = gramsPerFeeding * feedsPerDay;
-	const daysRemaining =
-		hasReading && hopperCapacityG && dailyConsumption > 0
-			? Math.floor((hopperCapacityG * (levelPercent / 100)) / dailyConsumption)
-			: null;
+	const barColor = isOffline
+		? "bg-gray-400"
+		: isCritical
+			? "bg-red-500"
+			: isLow
+				? "bg-amber-500"
+				: "bg-emerald-500";
 
 	const formatTimeAgo = (date: Date) => {
 		const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -67,14 +72,14 @@ export function FeedLevelCard({
 							Feed Level
 						</p>
 						<h3 className="text-lg font-bold text-[var(--ofd-base-deep)]">
-							{hasReading ? `${Math.round(levelPercent)}%` : "—"}
+							{percent !== null ? `${Math.round(percent)}%` : "—"}
 						</h3>
 					</div>
 				</div>
 				<span
 					className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
-						isStale
-							? "bg-amber-100 text-amber-700"
+						isOffline
+							? "bg-red-100 text-red-700"
 							: isCritical
 								? "bg-red-100 text-red-700"
 								: isLow
@@ -86,8 +91,8 @@ export function FeedLevelCard({
 				>
 					<span
 						className={`h-2 w-2 rounded-full ${
-							isStale
-								? "bg-amber-500"
+							isOffline
+								? "bg-red-500"
 								: isCritical
 									? "bg-red-500"
 									: isLow
@@ -97,7 +102,15 @@ export function FeedLevelCard({
 											: "bg-gray-400"
 						}`}
 					/>
-					{isStale ? "Stale" : isCritical ? "Empty" : isLow ? "Low" : hasReading ? "OK" : "No data"}
+					{isOffline
+						? "Offline"
+						: isCritical
+							? "Empty"
+							: isLow
+								? "Low"
+								: hasReading
+									? "OK"
+									: "No data"}
 				</span>
 			</div>
 
@@ -107,10 +120,16 @@ export function FeedLevelCard({
 						<div className="h-3 w-full rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
 							<div
 								className={`h-full ${barColor} transition-all rounded-full`}
-								style={{ width: `${Math.max(levelPercent, 4)}%` }}
+								style={{ width: `${isOffline ? 0 : Math.max(percent ?? 0, 4)}%` }}
 							/>
 						</div>
 					</div>
+
+					{isOffline && (
+						<div className="mb-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+							Device offline — level reading unavailable. Showing resting state.
+						</div>
+					)}
 
 					<div className="grid grid-cols-2 gap-3">
 						<div className="rounded-xl bg-gray-50 dark:bg-gray-800 p-3">

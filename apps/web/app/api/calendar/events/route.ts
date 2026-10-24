@@ -1,6 +1,7 @@
 import { ok } from "@/lib/api/envelope";
 import { notFound, validationFailed } from "@/lib/api/errors";
 import { withApi } from "@/lib/api/instrumentation";
+import { resolveOrgScope } from "@/lib/auth/org-scope";
 import { withAuth } from "@/lib/auth/with-auth";
 import {
 	CALENDAR_EVENT_TYPES,
@@ -91,9 +92,17 @@ export const GET = withApi(
 
 		const pondFilter = url.searchParams.get("pondId");
 		const types = parseTypes(url.searchParams.get("types"));
+		// `scope=org` is used by the admin calendar. resolveOrgScope fails closed
+		// for non-admins (empty scope), so this cannot widen a normal user's view.
+		const orgScope = url.searchParams.get("scope") === "org" ? await resolveOrgScope() : null;
+		if (orgScope && orgScope.pondIds.length === 0) {
+			throw notFound("No active ponds in your organization.");
+		}
 
 		const ponds = await prisma.pond.findMany({
-			where: { ownerId, status: "ACTIVE" },
+			where: orgScope
+				? { id: { in: orgScope.pondIds }, status: "ACTIVE" }
+				: { ownerId, status: "ACTIVE" },
 			select: {
 				id: true,
 				name: true,

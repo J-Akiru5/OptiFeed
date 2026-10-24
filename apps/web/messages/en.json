@@ -46,7 +46,7 @@
 		"heroDesc": "The ultimate catfish feed management app built for remote catfish farm monitoring in the Philippines. Protect your margins, eliminate staff feed theft or neglect, and optimize your Feed Conversion Ratio (FCR).",
 		"heroTarget": "Current Target: ",
 		"heroTargetValue": "Western Visayas Farms",
-		"heroImageAlt": "Overhead view of a catfish farm pond in Western Visayas with floating feed pellets on the water surface",
+		"heroImageAlt": "Earthen fishpond in the Philippines with a nipa-roofed farm hut on the dike",
 		"step1Title": "Sample",
 		"step1Body": "About every 15 days, staff net a representative sample, then weigh and measure it.",
 		"step2Title": "Log",
@@ -160,7 +160,12 @@
 		"navMenu": "Open menu",
 		"navClose": "Close menu",
 		"calcLogged": "Logged",
-		"demoCaption": "Auger dispenses one portion"
+		"demoCaption": "Auger dispenses one portion",
+		"photoAlt1": "Fishpond with a nipa-roofed hut on the dike, Bulacan, Philippines",
+		"photoAlt2": "Calm fishpond with a net fence at the edge, Bulacan, Philippines",
+		"photoAlt3": "Long fishpond channel under open sky, Bulacan, Philippines",
+		"photoCaption": "Representative Philippine fishponds in Bulacan, not the study ponds. Photos by Judgefloro, public domain, via Wikimedia Commons.",
+		"photoCredit": "Pond photos: Judgefloro, public domain"
 	},
 	"login": {
 		"topBannerTitle": "Access Control Panel",

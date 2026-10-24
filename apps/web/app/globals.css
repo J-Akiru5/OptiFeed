@@ -183,27 +183,19 @@
 	}
 }
 
-/* Section backdrops that dissolve into the page instead of ending on a hard edge. */
-.fade-y {
-	--fade: 140px;
-	-webkit-mask-image: linear-gradient(
-		to bottom,
-		transparent 0,
-		#000 var(--fade),
-		#000 calc(100% - var(--fade)),
-		transparent 100%
-	);
-	mask-image: linear-gradient(
-		to bottom,
-		transparent 0,
-		#000 var(--fade),
-		#000 calc(100% - var(--fade)),
-		transparent 100%
-	);
+/* Wave edges between landing sections drift sideways; one tile pair per loop. */
+@keyframes wave-drift {
+	to {
+		transform: translateX(-50%);
+	}
 }
 
-.fade-top {
-	--fade: 140px;
-	-webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade));
-	mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade));
+.wave-drift {
+	animation: wave-drift 30s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.wave-drift {
+		animation: none;
+	}
 }

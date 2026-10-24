@@ -123,7 +123,7 @@ export function ChatConversation({
 			</div>
 
 			{/* Suggestion chips */}
-			<div className="flex shrink-0 gap-2 overflow-x-auto border-t border-gray-100 bg-white px-3 pt-3 pb-1">
+			<div className="flex shrink-0 flex-wrap gap-2 border-t border-gray-100 bg-white px-3 pt-3 pb-1">
 				{chips.map((chip) => (
 					<button
 						key={chip}
@@ -132,7 +132,7 @@ export function ChatConversation({
 						onClick={() => {
 							onSend(chip);
 						}}
-						className="shrink-0 rounded-full border border-[#0A3D62]/15 bg-[#F4F7F6] px-3 py-1.5 text-xs font-semibold text-[#0A3D62] transition hover:bg-[#E85A2A]/10 disabled:opacity-50"
+						className="max-w-full shrink-0 whitespace-normal rounded-full border border-[#0A3D62]/15 bg-[#F4F7F6] px-3 py-1.5 text-left text-xs font-semibold text-[#0A3D62] transition hover:bg-[#E85A2A]/10 disabled:opacity-50"
 					>
 						{chip}
 					</button>

@@ -17,23 +17,24 @@ const inter = Inter({
 
 export const metadata: Metadata = {
 	title: {
-		default: "OptiFeed — Smart Catfish Feeding Management",
-		template: "%s | OptiFeed",
+		default: "PakaonAI — Precision Feeding for African Catfish",
+		template: "%s | PakaonAI",
 	},
 	description:
-		"Monitor and control your catfish farm's feeding schedule remotely. Reduce feed costs, track FCR, and manage your ESP32 feeder from anywhere.",
+		"A precision feeding research prototype for African catfish. Log biomass samples, track FCR, and control an ESP32 feeder from anywhere.",
 	keywords: ["catfish farm", "catfish", "aquaculture", "feeding automation", "ESP32", "FCR"],
 	openGraph: {
-		title: "OptiFeed — Smart Catfish Feeding Management",
+		title: "PakaonAI — Precision Feeding for African Catfish",
 		description:
-			"Monitor and control your catfish farm's feeding schedule remotely. Built for farm owners who can't be on-site every day.",
+			"A precision feeding research prototype for African catfish. Log a sample, and PakaonAI recalculates the ration and syncs the ESP32 feeder.",
 		type: "website",
-		siteName: "OptiFeed",
+		siteName: "PakaonAI",
 	},
 	twitter: {
 		card: "summary_large_image",
-		title: "OptiFeed — Smart Catfish Feeding Management",
-		description: "Monitor and control your catfish farm's feeding schedule remotely.",
+		title: "PakaonAI — Precision Feeding for African Catfish",
+		description:
+			"A precision feeding research prototype for African catfish. Log a sample and sync the next ration to the feeder.",
 	},
 	robots: {
 		index: true,

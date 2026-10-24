@@ -25,7 +25,7 @@ export function ExportPdfButton({ className }: { className?: string }) {
 			const url = URL.createObjectURL(blob);
 			const link = document.createElement("a");
 			link.href = url;
-			link.download = `optifeed-report-${new Date().toISOString().split("T")[0]}.pdf`;
+			link.download = `pakaonai-report-${new Date().toISOString().split("T")[0]}.pdf`;
 			document.body.appendChild(link);
 			link.click();
 			document.body.removeChild(link);

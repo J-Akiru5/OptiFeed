@@ -1,20 +1,64 @@
 "use client";
 
-import { useRouter } from "@/i18n/routing";
+import { OptiFeedLogo } from "@/components/OptiFeedLogo";
+import { useTheme } from "@/components/theme-provider";
+import { usePathname, useRouter } from "@/i18n/routing";
 import { loginWithPin } from "@/lib/actions/auth";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, KeyRound, ShieldAlert } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { type FormEvent, useEffect, useState, useTransition } from "react";
+import { cn } from "@/lib/utils";
+import {
+	AlertCircle,
+	ArrowLeft,
+	ClipboardList,
+	Clock3,
+	Eye,
+	EyeOff,
+	Loader2,
+	MapPin,
+	Moon,
+	ShieldCheck,
+	Sun,
+	Waves,
+} from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import Image from "next/image";
+import { type FormEvent, useEffect, useRef, useState, useTransition } from "react";
+
+const FARM_ID_STORAGE_KEY = "optifeed:last-farm-id";
+
+const inputBase =
+	"h-11 w-full rounded-lg border bg-white px-3.5 text-sm text-[#0A2E47] shadow-[0_1px_2px_rgba(10,46,71,0.03)] outline-none transition-colors placeholder:text-slate-400 hover:border-[#BCC9C4] focus:border-[#E85A2A] focus:ring-4 focus:ring-[#E85A2A]/15 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-slate-500 dark:hover:border-white/20 dark:focus:border-[#FF8A5C] dark:focus:ring-[#FF8A5C]/15";
+
+const inputBorder = "border-[#D6DFDB] dark:border-white/10";
+const inputError =
+	"border-[#D92D20] focus:border-[#D92D20] focus:ring-red-500/15 dark:border-red-500/50";
+
+function readStoredFarmId() {
+	try {
+		return window.localStorage.getItem(FARM_ID_STORAGE_KEY);
+	} catch {
+		return null;
+	}
+}
 
 export default function LoginPage() {
 	const router = useRouter();
+	const pathname = usePathname();
+	const locale = useLocale();
 	const t = useTranslations("login");
 	const tBtn = useTranslations("button");
+	const { resolvedTheme, setTheme } = useTheme();
+
 	const [farmId, setFarmId] = useState("");
 	const [pin, setPin] = useState("");
+	const [showPin, setShowPin] = useState(false);
+	const [rememberFarmId, setRememberFarmId] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [fieldErrors, setFieldErrors] = useState<{ farmId?: string; pin?: string }>({});
 	const [isPending, startTransition] = useTransition();
+	const [isLocalePending, startLocaleTransition] = useTransition();
+	const farmIdRef = useRef<HTMLInputElement>(null);
+	const pinRef = useRef<HTMLInputElement>(null);
 
 	// The proxy no longer redirects authenticated users away from /login (its
 	// optimistic cookie check cannot distinguish a valid session from an
@@ -24,23 +68,50 @@ export default function LoginPage() {
 	useEffect(() => {
 		const supabase = createClient();
 		supabase.auth.getUser().then(({ data: { user } }) => {
-			if (user) {
-				router.replace("/dashboard");
-			}
+			if (user) router.replace("/dashboard");
 		});
+
+		const storedFarmId = readStoredFarmId();
+		if (storedFarmId) {
+			setFarmId(storedFarmId);
+			setRememberFarmId(true);
+		}
+		// Avoid pulling up the mobile keyboard before the page has settled.
+		if (window.matchMedia("(min-width: 1024px) and (pointer: fine)").matches) {
+			farmIdRef.current?.focus({ preventScroll: true });
+		}
 	}, [router]);
+
+	const clearServerError = () => {
+		if (error) setError(null);
+	};
 
 	const handleSubmit = (e: FormEvent) => {
 		e.preventDefault();
 		setError(null);
 
-		if (!farmId.trim()) {
-			setError(t("errorEmpty"));
+		const nextErrors: typeof fieldErrors = {};
+		if (!farmId.trim()) nextErrors.farmId = t("errorEmpty");
+		if (pin.length < 4 || pin.length > 6) nextErrors.pin = t("errorPinLength");
+		setFieldErrors(nextErrors);
+
+		if (nextErrors.farmId) {
+			farmIdRef.current?.focus();
 			return;
 		}
-		if (pin.length < 4 || pin.length > 6) {
-			setError(t("errorPinLength"));
+		if (nextErrors.pin) {
+			pinRef.current?.focus();
 			return;
+		}
+
+		try {
+			if (rememberFarmId) {
+				window.localStorage.setItem(FARM_ID_STORAGE_KEY, farmId.trim());
+			} else {
+				window.localStorage.removeItem(FARM_ID_STORAGE_KEY);
+			}
+		} catch {
+			// Storage can be unavailable in private or sandboxed contexts.
 		}
 
 		startTransition(async () => {
@@ -54,126 +125,329 @@ export default function LoginPage() {
 				setError(t("errorService"));
 			} else if (result?.error) {
 				setError(t("errorInvalid"));
+				setPin("");
+				pinRef.current?.focus();
 			}
 		});
 	};
 
+	const switchLocale = (nextLocale: "en" | "hil") => {
+		if (nextLocale === locale) return;
+		startLocaleTransition(() => {
+			router.replace({ pathname }, { locale: nextLocale });
+		});
+	};
+
+	const features = [
+		{ icon: Clock3, title: t("brandFeature1Title"), body: t("brandFeature1Body") },
+		{ icon: Waves, title: t("brandFeature2Title"), body: t("brandFeature2Body") },
+		{ icon: ClipboardList, title: t("brandFeature3Title"), body: t("brandFeature3Body") },
+	];
+
 	return (
-		<div className="min-h-screen bg-[#F4F7F6] text-[#0A3D62] font-sans flex flex-col justify-between selection:bg-[#E85A2A] selection:text-white">
-			{/* Header */}
-			<header className="py-4 px-6 md:px-12 bg-white border-b border-gray-200 flex items-center justify-between shadow-sm shrink-0">
-				<button
-					type="button"
-					onClick={() => router.push("/")}
-					className="text-[#3D5568] hover:text-[#0A3D62] flex items-center gap-1.5 font-bold text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
-				>
-					<ArrowLeft className="w-4 h-4" /> {tBtn("backToHome")}
-				</button>
-				<div className="flex items-center gap-2">
-					<div className="w-6 h-6 rounded-lg bg-[#0A3D62] flex items-center justify-center text-white font-black text-sm">
-						O
-					</div>
-					<span className="font-black text-base tracking-tight text-[#0A3D62]">OptiFeed</span>
+		<div className="min-h-[100dvh] bg-[#F6F8F7] font-sans text-[#0A2E47] [color-scheme:light] selection:bg-[#E85A2A]/20 selection:text-[#0A2E47] lg:grid lg:grid-cols-[minmax(0,44%)_minmax(0,1fr)] dark:bg-[#0B1117] dark:text-white dark:[color-scheme:dark]">
+			{/* Brand panel */}
+			<aside className="relative hidden overflow-hidden bg-[#0A3D62] px-12 py-10 text-white lg:flex lg:flex-col lg:justify-between xl:px-16 xl:py-12">
+				<div
+					aria-hidden="true"
+					className="pointer-events-none absolute inset-0 opacity-70 [background-image:linear-gradient(to_right,rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.045)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(ellipse_75%_70%_at_70%_15%,black,transparent)]"
+				/>
+				<div
+					aria-hidden="true"
+					className="pointer-events-none absolute -right-44 -bottom-44 size-[34rem] rounded-full border border-white/[0.07]"
+				/>
+				<div
+					aria-hidden="true"
+					className="pointer-events-none absolute -right-28 -bottom-28 size-[22rem] rounded-full border border-white/[0.07]"
+				/>
+				<div
+					aria-hidden="true"
+					className="pointer-events-none absolute -right-12 -bottom-12 size-[10rem] rounded-full border border-white/[0.07]"
+				/>
+
+				<div className="relative flex items-center gap-2.5">
+					<OptiFeedLogo size={30} variant="ondark" />
+					<Image
+						src="/pakaonai-logo-kit/png/pakaonai-wordmark-color.png"
+						alt="PakaonAI"
+						width={120}
+						height={28}
+						priority
+						className="h-5 w-auto object-contain brightness-0 invert"
+					/>
 				</div>
-			</header>
 
-			{/* Main */}
-			<main className="flex-1 flex items-center justify-center px-4 py-8 md:py-16">
-				<div className="w-full max-w-md bg-white rounded-3xl border border-gray-200 shadow-xl overflow-hidden flex flex-col">
-					{/* Top banner */}
-					<div className="bg-[#0A3D62] text-white p-6 md:p-8 text-center relative overflow-hidden">
-						<div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full translate-x-8 -translate-y-8" />
-						<KeyRound className="w-10 h-10 mx-auto text-[#E85A2A] mb-3" />
-						<h1 className="text-xl md:text-2xl font-black tracking-tight">{t("topBannerTitle")}</h1>
-						<p className="text-xs text-blue-100 mt-1.5 uppercase tracking-widest font-mono">
-							{t("topBannerSub")}
-						</p>
+				<div className="relative max-w-[29rem]">
+					<p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">
+						<span className="size-1.5 rounded-full bg-[#FF8A5C]" />
+						{t("brandEyebrow")}
+					</p>
+					<p className="mt-5 text-[2.6rem] font-semibold leading-[1.06] tracking-[-0.035em] text-white xl:text-[2.9rem]">
+						{t("brandHeadline")}
+					</p>
+					<p className="mt-4 max-w-[26rem] text-[15px] leading-6 text-white/65">{t("brandBody")}</p>
+
+					<ul className="mt-10 border-t border-white/10">
+						{features.map(({ icon: Icon, title, body }) => (
+							<li key={title} className="flex gap-3.5 border-b border-white/10 py-4">
+								<span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-white/75 ring-1 ring-white/10 ring-inset">
+									<Icon className="size-[18px]" strokeWidth={1.75} />
+								</span>
+								<div>
+									<p className="text-[13px] font-semibold text-white">{title}</p>
+									<p className="mt-1 text-[12.5px] leading-5 text-white/65">{body}</p>
+								</div>
+							</li>
+						))}
+					</ul>
+				</div>
+
+				<div className="relative flex items-center justify-between gap-6 border-t border-white/10 pt-5 text-[11px] text-white/55">
+					<span className="flex items-center gap-2">
+						<MapPin className="size-3.5" aria-hidden="true" />
+						{t("statusLabel")}
+					</span>
+					<span className="font-mono tracking-wide">{t("statusValue")}</span>
+				</div>
+			</aside>
+
+			{/* Sign-in panel */}
+			<main className="flex min-h-[100dvh] flex-col lg:min-h-0">
+				<header className="flex items-center justify-between px-5 py-5 sm:px-8 lg:px-10 lg:py-7">
+					<div className="flex items-center gap-2.5 lg:hidden">
+						<OptiFeedLogo size={30} variant="color-light" />
+						<Image
+							src="/pakaonai-logo-kit/png/pakaonai-wordmark-color.png"
+							alt="PakaonAI"
+							width={120}
+							height={28}
+							priority
+							className="h-5 w-auto object-contain"
+						/>
 					</div>
 
-					{/* Form */}
-					<form
-						onSubmit={handleSubmit}
-						className="p-6 md:p-8 flex-1 flex flex-col justify-between gap-6"
+					<button
+						type="button"
+						onClick={() => router.push("/")}
+						className="hidden items-center gap-1.5 rounded-md text-[13px] font-medium text-slate-500 transition-colors hover:text-[#0A3D62] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]/40 focus-visible:ring-offset-2 lg:inline-flex dark:text-slate-400 dark:focus-visible:ring-offset-[#0B1117] dark:hover:text-white"
 					>
-						<div className="space-y-4">
-							<div className="space-y-1.5">
+						<ArrowLeft className="size-4" aria-hidden="true" />
+						{tBtn("backToHome")}
+					</button>
+
+					<button
+						type="button"
+						onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+						aria-label={resolvedTheme === "dark" ? t("themeToLight") : t("themeToDark")}
+						className="flex size-9 items-center justify-center rounded-lg border border-[#DCE5E1] bg-white text-slate-500 transition-colors hover:border-[#C4D1CC] hover:text-[#0A3D62] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]/40 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400 dark:hover:border-white/20 dark:hover:text-white"
+					>
+						{resolvedTheme === "dark" ? (
+							<Sun className="size-4" aria-hidden="true" />
+						) : (
+							<Moon className="size-4" aria-hidden="true" />
+						)}
+					</button>
+				</header>
+
+				<div className="flex flex-1 items-center justify-center px-5 pt-2 pb-10 sm:px-8 lg:px-10 lg:py-12">
+					<section aria-labelledby="login-heading" className="w-full max-w-[23.5rem]">
+						<p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#E85A2A] dark:text-[#FF8A5C]">
+							{t("eyebrow")}
+						</p>
+						<h1
+							id="login-heading"
+							className="mt-3 text-[27px] font-semibold leading-[1.15] tracking-[-0.03em] text-[#0A2E47] dark:text-white"
+						>
+							{t("heading")}
+						</h1>
+						<p className="mt-2 text-[13.5px] leading-5 text-slate-500 dark:text-slate-400">
+							{t("subheading")}
+						</p>
+
+						<form noValidate onSubmit={handleSubmit} className="mt-8 space-y-5">
+							<div>
 								<label
 									htmlFor="farmId"
-									className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568]"
+									className="mb-1.5 block text-[13px] font-medium text-[#0A2E47] dark:text-slate-200"
 								>
 									{t("farmIdLabel")}
 								</label>
 								<input
+									ref={farmIdRef}
 									id="farmId"
+									name="farmId"
 									type="text"
+									autoComplete="username"
+									autoCapitalize="none"
+									autoCorrect="off"
+									spellCheck={false}
+									enterKeyHint="next"
 									value={farmId}
-									onChange={(e) => setFarmId(e.target.value)}
-									className="w-full px-4 py-3.5 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl font-mono text-sm focus:outline-none focus:ring-2 focus:ring-[#E85A2A] transition-all"
+									onChange={(e) => {
+										setFarmId(e.target.value);
+										if (fieldErrors.farmId) {
+											setFieldErrors((prev) => ({ ...prev, farmId: undefined }));
+										}
+										clearServerError();
+									}}
+									aria-invalid={Boolean(fieldErrors.farmId)}
+									aria-describedby={fieldErrors.farmId ? "farmId-error" : undefined}
+									className={cn(inputBase, fieldErrors.farmId ? inputError : inputBorder)}
 									placeholder={t("farmIdPlaceholder")}
 								/>
+								{fieldErrors.farmId && (
+									<p id="farmId-error" className="mt-1.5 text-xs text-[#D92D20] dark:text-red-400">
+										{fieldErrors.farmId}
+									</p>
+								)}
 							</div>
 
-							<div className="space-y-1.5">
-								<label
-									htmlFor="pin"
-									className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568]"
-								>
-									{t("pinLabel")}
-								</label>
-								<input
-									id="pin"
-									type="password"
-									inputMode="numeric"
-									pattern="[0-9]*"
-									maxLength={6}
-									value={pin}
-									onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-									className="w-full px-4 py-3.5 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl font-mono text-center text-lg tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-[#E85A2A] transition-all"
-									placeholder="••••"
-									// biome-ignore lint/a11y/noAutofocus: Autofocus is desired for quick login
-									autoFocus
-								/>
-								<span className="block text-[11px] text-center text-[#3D5568] font-mono">
+							<div>
+								<div className="mb-1.5 flex items-baseline justify-between gap-3">
+									<label
+										htmlFor="pin"
+										className="text-[13px] font-medium text-[#0A2E47] dark:text-slate-200"
+									>
+										{t("pinLabel")}
+									</label>
+									<span className="text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
+										{t("pinLengthHint")}
+									</span>
+								</div>
+								<div className="relative">
+									<input
+										ref={pinRef}
+										id="pin"
+										name="pin"
+										type={showPin ? "text" : "password"}
+										inputMode="numeric"
+										autoComplete="current-password"
+										pattern="[0-9]*"
+										maxLength={6}
+										enterKeyHint="go"
+										value={pin}
+										onChange={(e) => {
+											setPin(e.target.value.replace(/\D/g, "").slice(0, 6));
+											if (fieldErrors.pin) {
+												setFieldErrors((prev) => ({ ...prev, pin: undefined }));
+											}
+											clearServerError();
+										}}
+										aria-invalid={Boolean(fieldErrors.pin)}
+										aria-describedby={fieldErrors.pin ? "pin-help pin-error" : "pin-help"}
+										className={cn(
+											inputBase,
+											"pr-12 text-[15px] tabular-nums",
+											showPin ? "tracking-[0.18em]" : "tracking-[0.32em]",
+											fieldErrors.pin ? inputError : inputBorder,
+										)}
+									/>
+									<button
+										type="button"
+										onClick={() => setShowPin((visible) => !visible)}
+										aria-label={showPin ? t("hidePin") : t("showPin")}
+										aria-pressed={showPin}
+										className="absolute inset-y-0 right-1 my-auto flex size-9 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-[#0A3D62] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]/40 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+									>
+										{showPin ? (
+											<EyeOff className="size-[17px]" aria-hidden="true" />
+										) : (
+											<Eye className="size-[17px]" aria-hidden="true" />
+										)}
+									</button>
+								</div>
+								<p id="pin-help" className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
 									{t("pinDesc")}
-								</span>
+								</p>
+								{fieldErrors.pin && (
+									<p id="pin-error" className="mt-1 text-xs text-[#D92D20] dark:text-red-400">
+										{fieldErrors.pin}
+									</p>
+								)}
 							</div>
 
 							{error && (
-								<div className="bg-red-50 text-[#C42B3A] text-xs p-3 rounded-xl border border-red-200 flex items-start gap-2">
-									<ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
-									<div>
-										<span className="font-bold">{t("errorPrefix")}</span> {error}
-									</div>
+								<div
+									role="alert"
+									className="flex gap-2.5 rounded-lg border border-red-200 bg-red-50 px-3.5 py-3 text-[12.5px] leading-5 text-red-800 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-200"
+								>
+									<AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+									<p>{error}</p>
 								</div>
 							)}
-						</div>
 
-						<div className="mt-4 md:mt-8">
+							<label className="flex cursor-pointer items-start gap-2.5 select-none">
+								<input
+									type="checkbox"
+									checked={rememberFarmId}
+									onChange={(e) => setRememberFarmId(e.target.checked)}
+									className="mt-0.5 size-4 shrink-0 cursor-pointer rounded border-[#C9D4D0] accent-[#0A3D62] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]/40 focus-visible:ring-offset-2 dark:border-white/20 dark:accent-[#FF8A5C] dark:focus-visible:ring-offset-[#0B1117]"
+								/>
+								<span className="text-[12.5px] leading-5 text-slate-500 dark:text-slate-400">
+									{t("rememberFarmId")}
+								</span>
+							</label>
+
 							<button
 								type="submit"
 								disabled={isPending}
-								className={`w-full bg-[#E85A2A] text-white font-extrabold text-base md:text-lg py-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 transform active:scale-95 ${
-									isPending ? "opacity-75 cursor-not-allowed" : "hover:bg-[#d04a1f] hover:shadow-lg"
-								}`}
+								className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#E85A2A] px-4 text-[14.5px] font-semibold text-white shadow-[0_1px_2px_rgba(10,46,71,0.15)] transition-colors hover:bg-[#D24E22] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#E85A2A]/25 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-[#E85A2A] dark:hover:bg-[#F16B3D]"
 							>
 								{isPending ? (
 									<>
-										<span className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-										{tBtn("authorizing")}
+										<Loader2 className="size-4 animate-spin" aria-hidden="true" />
+										{t("submitting")}
 									</>
 								) : (
-									tBtn("logInController")
+									t("submit")
 								)}
 							</button>
-						</div>
-					</form>
-				</div>
-			</main>
+						</form>
 
-			{/* Footer */}
-			<footer className="py-4 px-6 text-center text-xs text-[#3D5568] bg-white border-t border-gray-200 shrink-0">
-				{t("footer")}
-			</footer>
+						<p className="mt-5 flex items-start gap-2 text-[11.5px] leading-4 text-slate-500 dark:text-slate-400">
+							<ShieldCheck className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+							{t("securityNote")}
+						</p>
+					</section>
+				</div>
+
+				<footer className="border-t border-[#E1E8E5] px-5 py-5 text-[11.5px] text-slate-500 sm:px-8 lg:px-10 dark:border-white/[0.06] dark:text-slate-500">
+					<div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+						<button
+							type="button"
+							onClick={() => router.push("/")}
+							className="inline-flex items-center gap-1.5 rounded-md font-medium transition-colors hover:text-[#0A3D62] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]/40 lg:hidden dark:hover:text-white"
+						>
+							<ArrowLeft className="size-3.5" aria-hidden="true" />
+							{tBtn("backToHome")}
+						</button>
+
+						<p className="order-last w-full sm:w-auto lg:order-none">{t("footer")}</p>
+
+						<fieldset className="m-0 ml-auto flex min-w-0 items-center rounded-md border border-[#DCE5E1] p-0.5 dark:border-white/10">
+							<legend className="sr-only">{t("languageLabel")}</legend>
+							{(["en", "hil"] as const).map((option) => (
+								<button
+									key={option}
+									type="button"
+									onClick={() => switchLocale(option)}
+									disabled={option === locale || isLocalePending}
+									aria-current={option === locale ? "true" : undefined}
+									title={option === "en" ? "English" : "Hiligaynon"}
+									className={cn(
+										"rounded px-2 py-1 text-[10px] font-semibold tracking-wider uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]/40 disabled:cursor-default",
+										option === locale
+											? "bg-[#0A3D62] text-white dark:bg-white/15"
+											: "text-slate-500 hover:text-[#0A3D62] dark:text-slate-400 dark:hover:text-white",
+									)}
+								>
+									{option === "en" ? "EN" : "HIL"}
+								</button>
+							))}
+						</fieldset>
+					</div>
+				</footer>
+			</main>
 		</div>
 	);
 }

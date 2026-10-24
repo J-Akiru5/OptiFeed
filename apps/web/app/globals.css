@@ -182,3 +182,21 @@
 		scroll-behavior: smooth;
 	}
 }
+
+/* Landing page: visible blueprint grid over the off-white canvas. */
+.landing-grid {
+	background-color: #f3f7f5;
+	background-image: linear-gradient(to right, rgba(10, 61, 98, 0.11) 1px, transparent 1px),
+		linear-gradient(to bottom, rgba(10, 61, 98, 0.11) 1px, transparent 1px),
+		linear-gradient(to right, rgba(10, 61, 98, 0.055) 1px, transparent 1px),
+		linear-gradient(to bottom, rgba(10, 61, 98, 0.055) 1px, transparent 1px);
+	background-size: 128px 128px, 128px 128px, 32px 32px, 32px 32px;
+}
+
+.dark .landing-grid {
+	background-color: #0b1117;
+	background-image: linear-gradient(to right, rgba(255, 255, 255, 0.09) 1px, transparent 1px),
+		linear-gradient(to bottom, rgba(255, 255, 255, 0.09) 1px, transparent 1px),
+		linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+		linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+}

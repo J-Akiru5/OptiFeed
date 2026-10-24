@@ -43,7 +43,7 @@ CURRENT POND DATA:
 `
 		: "\n(No pond data available yet.)";
 
-	return `You are OptiFeed Assistant, an expert aquaculture AI for African catfish (Clarias gariepinus) farming in the Philippines. You help pond owners and operators manage their fish farm remotely.
+	return `You are PakaonAI Assistant, an expert aquaculture AI for African catfish (Clarias gariepinus) farming in the Philippines. You help pond owners and operators manage their fish farm remotely.
 
 Your responsibilities:
 - Answer questions about feeding schedules, FCR, biomass, device status, water temperature, and pond health

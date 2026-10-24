@@ -51,7 +51,7 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 	// Header
 	doc.setFontSize(20);
 	doc.setTextColor(10, 61, 98); // #0A3D62
-	doc.text("OptiFeed Report", 14, 22);
+	doc.text("PakaonAI Report", 14, 22);
 
 	doc.setFontSize(10);
 	doc.setTextColor(100);
@@ -182,7 +182,7 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 		doc.setFontSize(8);
 		doc.setTextColor(150);
 		doc.text(
-			`OptiFeed Report - Page ${i} of ${pageCount}`,
+			`PakaonAI Report - Page ${i} of ${pageCount}`,
 			pageWidth / 2,
 			doc.internal.pageSize.getHeight() - 10,
 			{ align: "center" },
@@ -190,7 +190,7 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 	}
 
 	return {
-		filename: `optifeed-report-${pond.name}-${new Date().toISOString().split("T")[0]}.pdf`,
+		filename: `pakaonai-report-${pond.name}-${new Date().toISOString().split("T")[0]}.pdf`,
 		contentType: "application/pdf",
 		body: doc.output("arraybuffer"),
 	};

@@ -215,7 +215,7 @@ export async function buildBatchExport(
 
 	const buffer = await zip.generateAsync({ type: "arraybuffer" });
 	return {
-		filename: `optifeed_export_${new Date().toISOString().slice(0, 10)}.zip`,
+		filename: `pakaonai_export_${new Date().toISOString().slice(0, 10)}.zip`,
 		contentType: "application/zip",
 		body: buffer,
 	};

@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
 	energyDevice: { findMany: vi.fn() },
 	deviceStateEvent: { findMany: vi.fn() },
 	resolveCurrentSchedule: vi.fn(),
+	resolveOrgScope: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -23,6 +24,10 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/schedule/resolve-current", () => ({
 	resolveCurrentSchedule: mocks.resolveCurrentSchedule,
+}));
+
+vi.mock("@/lib/auth/org-scope", () => ({
+	resolveOrgScope: mocks.resolveOrgScope,
 }));
 
 vi.mock("@/lib/auth/with-auth", () => ({
@@ -714,5 +719,40 @@ describe("GET /api/calendar/events device events and response", () => {
 		const { events } = await callCalendar({ pondId: "pond-a", types: "harvest" });
 
 		expect(events.map((event) => event.id)).toEqual(["pond:early", "pond:late"]);
+	});
+});
+
+describe("GET /api/calendar/events scope=org", () => {
+	it("uses the admin organization's pond ids", async () => {
+		mocks.resolveOrgScope.mockResolvedValue({
+			orgIds: ["org-1"],
+			memberUserIds: [],
+			farmIds: [],
+			pondIds: [pondA.id, pondB.id],
+		});
+		mocks.pond.findMany.mockResolvedValue([pondA, pondB]);
+		mocks.pondEvent.findMany.mockResolvedValue([]);
+
+		const { response } = await callCalendar({ scope: "org", pondId: "all", types: "manual" });
+
+		expect(response.status).toBe(200);
+		expect(mocks.pond.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { id: { in: [pondA.id, pondB.id] }, status: "ACTIVE" },
+			}),
+		);
+	});
+
+	it("fails closed when the organization has no ponds", async () => {
+		mocks.resolveOrgScope.mockResolvedValue({
+			orgIds: [],
+			memberUserIds: [],
+			farmIds: [],
+			pondIds: [],
+		});
+
+		const { response } = await callCalendar({ scope: "org" });
+
+		expect(response.status).toBe(404);
 	});
 });

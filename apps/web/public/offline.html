@@ -7,7 +7,7 @@
 		<meta name="robots" content="noindex" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
-		<title>Offline · PakaonAI</title>
+		<title>Offline — PakaonAI</title>
 		<link rel="manifest" href="/manifest.webmanifest" />
 		<link rel="icon" href="/favicon.ico" />
 		<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
@@ -15,7 +15,6 @@
 			:root {
 				color-scheme: light;
 				--navy: #0a3d62;
-				--navy-soft: #124b73;
 				--ink: #0a2e47;
 				--muted: #5d7183;
 				--paper: #f4f7f6;
@@ -24,16 +23,10 @@
 				--orange: #e85a2a;
 				--green: #1e7b34;
 				--red: #c42b3a;
+				--amber: #a86400;
 			}
-
-			* {
-				box-sizing: border-box;
-			}
-
-			[hidden] {
-				display: none !important;
-			}
-
+			* { box-sizing: border-box; }
+			[hidden] { display: none !important; }
 			body {
 				margin: 0;
 				min-height: 100vh;
@@ -42,489 +35,676 @@
 					radial-gradient(circle at 92% 8%, rgba(10, 61, 98, 0.12), transparent 32rem),
 					var(--paper);
 				color: var(--ink);
-				font-family:
-					ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
-					sans-serif;
+				font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 				-webkit-font-smoothing: antialiased;
 			}
-
-			.shell {
-				width: min(100% - 2rem, 70rem);
-				margin: 0 auto;
-				padding: clamp(2rem, 5vw, 4.5rem) 0 3rem;
-			}
-
-			.brand {
-				display: flex;
-				align-items: center;
-				gap: 0.9rem;
-			}
-
-			.brand img {
-				width: 3.25rem;
-				height: 3.25rem;
-				border-radius: 1rem;
-				box-shadow: 0 12px 30px rgba(10, 61, 98, 0.18);
-			}
-
-			.eyebrow {
-				margin: 0 0 0.25rem;
-				color: var(--orange);
-				font-size: 0.68rem;
-				font-weight: 800;
-				letter-spacing: 0.16em;
-				text-transform: uppercase;
-			}
-
-			h1 {
-				margin: 0;
-				color: var(--navy);
-				font-size: clamp(1.8rem, 5vw, 3.2rem);
-				line-height: 1.02;
-				letter-spacing: -0.045em;
-			}
-
-			.lede {
-				max-width: 48rem;
-				margin: 1.25rem 0 0;
-				color: var(--muted);
-				font-size: clamp(0.95rem, 2vw, 1.08rem);
-				line-height: 1.65;
-			}
-
-			.lede strong {
-				color: var(--ink);
-			}
-
-			.note {
-				margin: 1.25rem 0 0;
-				padding: 0.9rem 1rem;
-				border: 1px solid rgba(30, 123, 52, 0.25);
-				border-radius: 1rem;
-				background: rgba(30, 123, 52, 0.08);
-				color: #155d27;
-				font-size: 0.92rem;
-				font-weight: 650;
-			}
-
-			.snapshot {
-				margin-top: 1.75rem;
-			}
-
-			.grid {
-				display: grid;
-				grid-template-columns: repeat(2, minmax(0, 1fr));
-				gap: 0.75rem;
-			}
-
-			.card {
-				min-width: 0;
-				padding: 1rem;
-				border: 1px solid var(--line);
-				border-radius: 1.15rem;
-				background: rgba(255, 255, 255, 0.9);
-				box-shadow: 0 12px 30px rgba(10, 61, 98, 0.045);
-			}
-
-			.card .label {
-				display: block;
-				margin-bottom: 0.45rem;
-				color: var(--muted);
-				font-size: 0.66rem;
-				font-weight: 800;
-				letter-spacing: 0.12em;
-				text-transform: uppercase;
-			}
-
-			.card .value {
-				display: block;
-				overflow-wrap: anywhere;
-				color: var(--ink);
-				font-size: 1.05rem;
-				font-weight: 750;
-				line-height: 1.25;
-			}
-
-			.card .sub {
-				display: block;
-				margin-top: 0.35rem;
-				overflow-wrap: anywhere;
-				color: var(--muted);
-				font-size: 0.75rem;
-				line-height: 1.4;
-			}
-
-			.status {
-				display: inline-flex;
-				align-items: center;
-				gap: 0.4rem;
-			}
-
-			.status::before {
-				width: 0.5rem;
-				height: 0.5rem;
-				border-radius: 999px;
-				background: currentColor;
-				content: "";
-			}
-
-			.status[data-status="online"] {
-				color: var(--green);
-			}
-
-			.status[data-status="offline"] {
-				color: var(--red);
-			}
-
-			.status[data-status="missing"] {
-				color: var(--muted);
-			}
-
-			.saved {
-				margin: 0.9rem 0 0;
-				color: var(--muted);
-				font-size: 0.78rem;
-			}
-
-			.empty {
-				margin-top: 1.75rem;
-				padding: 1.5rem;
-				border: 1px dashed #b9c9c2;
-				border-radius: 1.15rem;
-				background: rgba(255, 255, 255, 0.65);
-			}
-
-			.empty p {
-				margin: 0;
-				color: var(--muted);
-				line-height: 1.6;
-			}
-
-			.actions {
-				display: flex;
-				flex-wrap: wrap;
-				gap: 0.75rem;
-				margin-top: 1.75rem;
-			}
-
-			button,
-			.actions a {
-				display: inline-flex;
-				min-height: 2.9rem;
-				align-items: center;
-				justify-content: center;
-				border-radius: 0.95rem;
-				padding: 0.7rem 1.15rem;
-				font: inherit;
-				font-size: 0.9rem;
-				font-weight: 750;
-				text-decoration: none;
-				transition:
-					transform 150ms ease,
-					background 150ms ease;
-			}
-
-			button {
-				border: 0;
-				background: var(--navy);
-				color: #fff;
-				cursor: pointer;
-			}
-
-			button:hover {
-				background: var(--navy-soft);
-			}
-
-			.actions a {
-				border: 1px solid #c9d6d0;
-				background: rgba(255, 255, 255, 0.8);
-				color: var(--navy);
-			}
-
-			button:active,
-			.actions a:active {
-				transform: translateY(1px);
-			}
-
-			.fine {
-				max-width: 44rem;
-				margin: 1.4rem 0 0;
-				color: #71828f;
-				font-size: 0.74rem;
-				line-height: 1.55;
-			}
-
-			.noscript {
-				margin-top: 1rem;
-				padding: 1rem;
-				border-radius: 1rem;
-				background: #fff4ec;
-				color: #8b3a12;
-				font-size: 0.9rem;
-			}
-
-			@media (min-width: 680px) {
-				.grid {
-					grid-template-columns: repeat(4, minmax(0, 1fr));
-				}
-
-				.card:first-child,
-				.card:nth-child(2) {
-					grid-column: span 2;
-				}
-			}
+			.shell { width: min(100% - 2rem, 72rem); margin: 0 auto; padding: clamp(1.5rem, 4vw, 3rem) 0 3rem; }
+			.brand { display: flex; align-items: center; gap: 0.85rem; }
+			.brand img { width: 3rem; height: 3rem; border-radius: 1rem; box-shadow: 0 12px 30px rgba(10, 61, 98, 0.18); }
+			.brand strong { display: block; color: var(--navy); font-size: 1.1rem; letter-spacing: -0.02em; }
+			.brand small { color: var(--muted); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+			.badge { margin-left: auto; border-radius: 999px; background: var(--navy); color: white; padding: 0.4rem 0.7rem; font-size: 0.65rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+			h1 { margin: 1.6rem 0 0; color: var(--navy); font-size: clamp(1.7rem, 4vw, 2.8rem); line-height: 1.05; letter-spacing: -0.04em; }
+			.lede { max-width: 52rem; margin: 0.8rem 0 0; color: var(--muted); line-height: 1.6; }
+			.note { margin: 1.2rem 0 0; padding: 0.9rem 1rem; border: 1px solid rgba(30, 123, 52, 0.25); border-radius: 1rem; background: rgba(30, 123, 52, 0.08); color: #155d27; font-size: 0.9rem; font-weight: 650; }
+			.warn { margin: 1.2rem 0 0; padding: 0.9rem 1rem; border: 1px solid rgba(168, 100, 0, 0.25); border-radius: 1rem; background: rgba(168, 100, 0, 0.08); color: var(--amber); font-size: 0.9rem; font-weight: 650; }
+			.content { margin-top: 1.5rem; }
+			.meta { display: flex; flex-wrap: wrap; gap: 0.6rem 1.2rem; align-items: baseline; color: var(--muted); font-size: 0.82rem; font-weight: 650; }
+			.meta strong { color: var(--ink); }
+			.tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 1rem; padding-bottom: 0.35rem; }
+			.tabs button { flex: 0 0 auto; border: 1px solid var(--line); background: var(--card); color: var(--muted); border-radius: 999px; padding: 0.55rem 0.9rem; font: inherit; font-size: 0.82rem; font-weight: 800; cursor: pointer; }
+			.tabs button[aria-selected="true"] { background: var(--navy); border-color: var(--navy); color: white; }
+			.panel { margin-top: 1rem; }
+			.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+			@media (min-width: 720px) { .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+			.card { background: var(--card); border: 1px solid var(--line); border-radius: 1.1rem; padding: 0.95rem 1rem; box-shadow: 0 12px 30px -24px rgba(10, 46, 71, 0.45); min-width: 0; }
+			.card .label { margin: 0; color: var(--muted); font-size: 0.64rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+			.card .value { margin: 0.3rem 0 0; color: var(--navy); font-size: 1.22rem; font-weight: 850; overflow-wrap: anywhere; }
+			.card .hint { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.74rem; line-height: 1.4; }
+			.card.wide { grid-column: span 2; }
+			@media (min-width: 720px) { .card.wide { grid-column: span 4; } }
+			.section-title { margin: 1.5rem 0 0.65rem; color: var(--navy); font-size: 0.78rem; font-weight: 850; letter-spacing: 0.11em; text-transform: uppercase; }
+			.list { display: grid; gap: 0.55rem; }
+			.row { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: 0.7rem 0.9rem; border: 1px solid var(--line); border-radius: 0.9rem; background: var(--card); font-size: 0.86rem; }
+			.row span:first-child { color: var(--muted); font-weight: 650; }
+			.row strong { color: var(--ink); text-align: right; overflow-wrap: anywhere; }
+			.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 1rem; background: var(--card); }
+			table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+			th, td { text-align: left; padding: 0.65rem 0.75rem; border-bottom: 1px solid #edf2ef; white-space: nowrap; }
+			th { color: var(--muted); font-size: 0.64rem; letter-spacing: 0.1em; text-transform: uppercase; background: #f8faf9; }
+			tr:last-child td { border-bottom: 0; }
+			td.num { text-align: right; }
+			.pill { display: inline-flex; border-radius: 999px; padding: 0.2rem 0.5rem; font-size: 0.64rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
+			.pill.online { background: rgba(30, 123, 52, 0.12); color: var(--green); }
+			.pill.offline, .pill.stale { background: rgba(196, 43, 58, 0.1); color: var(--red); }
+			.pill.neutral { background: rgba(10, 61, 98, 0.08); color: var(--navy); }
+			.empty { padding: 2rem 1rem; border: 1px dashed var(--line); border-radius: 1.2rem; background: rgba(255, 255, 255, 0.55); color: var(--muted); text-align: center; line-height: 1.6; }
+			.form { display: grid; gap: 0.8rem; max-width: 38rem; padding: 1rem; border: 1px solid var(--line); border-radius: 1.2rem; background: var(--card); }
+			.field { display: grid; gap: 0.3rem; color: var(--muted); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+			.field input { width: 100%; border: 1px solid var(--line); border-radius: 0.8rem; background: #f8faf9; padding: 0.7rem 0.8rem; color: var(--ink); font: inherit; font-size: 0.9rem; font-weight: 650; text-transform: none; letter-spacing: 0; }
+			.form-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
+			@media (max-width: 520px) { .form-row { grid-template-columns: 1fr; } }
+			.form button { min-height: 2.8rem; border: 0; border-radius: 0.9rem; background: var(--orange); color: white; font: inherit; font-size: 0.9rem; font-weight: 850; cursor: pointer; }
+			.form-status { margin: 0; min-height: 1.2rem; font-size: 0.8rem; font-weight: 700; color: var(--green); }
+			.form-status.error { color: var(--red); }
+			.actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1.4rem; }
+			.actions a, .actions button { display: inline-flex; align-items: center; justify-content: center; min-height: 2.75rem; border-radius: 0.9rem; padding: 0 1rem; font: inherit; font-size: 0.85rem; font-weight: 800; text-decoration: none; cursor: pointer; }
+			.actions a { background: var(--navy); color: white; }
+			.actions button { background: var(--card); color: var(--navy); border: 1px solid var(--line); }
+			footer { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.75rem; line-height: 1.6; }
+			noscript { display: block; margin-top: 1.5rem; padding: 1rem; border: 1px solid var(--line); border-radius: 1rem; background: var(--card); }
 		</style>
 	</head>
 	<body>
-		<main class="shell">
+		<div class="shell">
 			<header class="brand">
-				<img src="/icons/icon-192.png" alt="PakaonAI" width="52" height="52" />
+				<img src="/icons/icon-192.png" alt="" width="48" height="48" />
 				<div>
-					<p class="eyebrow">PakaonAI · Offline</p>
-					<h1>You’re offline</h1>
+					<strong>PakaonAI</strong>
+					<small>Offline dashboard</small>
 				</div>
+				<span class="badge">Offline</span>
 			</header>
 
+			<h1>Last known farm state</h1>
 			<p class="lede">
-				This is the last dashboard snapshot saved on this device.
-				<strong>Feed commands are disabled offline.</strong> The ESP32 keeps its own RTC
-				schedule, so scheduled feeding continues through a WiFi outage or brownout. This page
-				is only the last-known dashboard view.
+				You're offline. This page shows the last snapshot saved on this device. Values may be
+				older than the pond's real state.
 			</p>
 
-			<p id="onlineNote" class="note" role="status" aria-live="polite" hidden>
-				You’re back online. Open the dashboard to refresh the live values.
-			</p>
+			<div id="onlineNote" class="note" hidden>
+				You're back online. Open the dashboard to refresh the live values.
+			</div>
+			<div id="staleNote" class="warn" hidden>
+				This snapshot is more than 24 hours old. Reconnect and open the dashboard before relying
+				on it.
+			</div>
 
-			<section id="empty" class="empty" hidden>
-				<p>
-					No dashboard snapshot has been saved on this device yet. Reconnect, open the
-					dashboard once, and this page will show the last known values next time.
-				</p>
-			</section>
+			<div id="empty" class="empty" hidden>
+				No offline snapshot has been saved on this device yet. Reconnect, open the dashboard
+				once, and this page will show the last known values next time.
+			</div>
 
-			<section id="snapshot" class="snapshot" hidden>
-				<div class="grid">
-					<article class="card">
-						<span class="label">Pond</span>
-						<span class="value" id="pondName">—</span>
-						<span class="sub" id="pondSub">—</span>
-					</article>
-					<article class="card">
-						<span class="label">Device</span>
-						<span class="value status" id="deviceStatus" data-status="missing">—</span>
-						<span class="sub" id="deviceSeen">—</span>
-					</article>
-					<article class="card">
-						<span class="label">Feed level</span>
-						<span class="value" id="feedLevel">—</span>
-						<span class="sub" id="feedLevelUpdated">—</span>
-					</article>
-					<article class="card">
-						<span class="label">Water temperature</span>
-						<span class="value" id="waterTemp">—</span>
-						<span class="sub" id="waterTempUpdated">—</span>
-					</article>
-					<article class="card">
-						<span class="label">Next feeding</span>
-						<span class="value" id="nextFeeding">—</span>
-						<span class="sub" id="nextFeedingSub">—</span>
-					</article>
-					<article class="card">
-						<span class="label">Feed amount</span>
-						<span class="value" id="feedAmount">—</span>
-						<span class="sub">Per scheduled meal</span>
-					</article>
-					<article class="card">
-						<span class="label">Population</span>
-						<span class="value" id="population">—</span>
-						<span class="sub">Fish stocked</span>
-					</article>
-					<article class="card">
-						<span class="label">Average weight</span>
-						<span class="value" id="avgWeight">—</span>
-						<span class="sub" id="avgWeightSub">Latest sample</span>
-					</article>
-					<article class="card">
-						<span class="label">Latest FCR</span>
-						<span class="value" id="latestFcr">—</span>
-						<span class="sub">Feed conversion ratio</span>
-					</article>
-					<article class="card">
-						<span class="label">Next sampling</span>
-						<span class="value" id="daysToSample">—</span>
-						<span class="sub">Scheduled weighing</span>
-					</article>
-					<article class="card">
-						<span class="label">Active cycle</span>
-						<span class="value" id="activeCycle">—</span>
-						<span class="sub" id="targetHarvest">—</span>
-					</article>
+			<section id="content" class="content" hidden>
+				<div class="meta">
+					<span>Pond: <strong id="activePond">—</strong></span>
+					<span>Saved: <strong id="savedAt">—</strong></span>
+					<span id="freshness">—</span>
 				</div>
-				<p class="saved">Snapshot saved <span id="savedAt">—</span></p>
+
+				<nav class="tabs" role="tablist" aria-label="Offline sections">
+					<button type="button" role="tab" aria-selected="true" data-tab="overview">Overview</button>
+					<button type="button" role="tab" aria-selected="false" data-tab="schedule">Schedule</button>
+					<button type="button" role="tab" aria-selected="false" data-tab="growth">Growth</button>
+					<button type="button" role="tab" aria-selected="false" data-tab="harvest">Harvest</button>
+					<button type="button" role="tab" aria-selected="false" data-tab="history">History</button>
+					<button type="button" role="tab" aria-selected="false" data-tab="log">Log sample</button>
+				</nav>
+
+				<div id="panel-overview" class="panel" role="tabpanel"></div>
+				<div id="panel-schedule" class="panel" role="tabpanel" hidden></div>
+				<div id="panel-growth" class="panel" role="tabpanel" hidden></div>
+				<div id="panel-harvest" class="panel" role="tabpanel" hidden></div>
+				<div id="panel-history" class="panel" role="tabpanel" hidden></div>
+				<div id="panel-log" class="panel" role="tabpanel" hidden></div>
 			</section>
 
 			<div class="actions">
-				<button id="retry" type="button">Retry connection</button>
 				<a href="/dashboard">Open dashboard</a>
+				<button type="button" id="retry">Retry connection</button>
 			</div>
 
-			<p class="fine">
-				The saved snapshot stays on this browser only. Sign out while online to clear it on a
-				shared device.
-			</p>
-
+			<footer>
+				Feed commands are disabled offline. The ESP32 keeps its RTC schedule and physical
+				button, so scheduled feeding continues without the browser. This snapshot is stored on
+				this browser only; sign out while online to clear it.
+			</footer>
 			<noscript>
-				<p class="noscript">
-					JavaScript is disabled, so the saved dashboard snapshot cannot be displayed. The
-					ESP32 continues to follow its RTC schedule.
-				</p>
+				JavaScript is disabled, so the saved snapshot cannot be displayed. Reconnect and open
+				the dashboard to use PakaonAI.
 			</noscript>
-		</main>
+		</div>
 
 		<script>
 			(() => {
-				const SNAPSHOT_KEY = "optifeed:pwa:dashboard:v1";
-				const SNAPSHOT_VERSION = 1;
-				const snapshotSection = document.getElementById("snapshot");
-				const emptySection = document.getElementById("empty");
-				const onlineNote = document.getElementById("onlineNote");
-				const retryButton = document.getElementById("retry");
+				const DB_NAME = "optifeed-offline";
+				const DB_VERSION = 1;
+				const SNAPSHOTS = "snapshots";
+				const META = "meta";
+				const FALLBACK_KEY = "optifeed:offline:snapshots:v1";
+				const META_KEY = "optifeed:offline:active:v1";
+				const LEGACY_KEY = "optifeed:pwa:dashboard:v1";
+				const STALE_MS = 24 * 60 * 60 * 1000;
 
-				function text(id, value) {
-					const element = document.getElementById(id);
-					if (element) element.textContent = value;
+				const content = document.getElementById("content");
+				const empty = document.getElementById("empty");
+				const onlineNote = document.getElementById("onlineNote");
+				const staleNote = document.getElementById("staleNote");
+				const activePond = document.getElementById("activePond");
+				const savedAt = document.getElementById("savedAt");
+				const freshness = document.getElementById("freshness");
+				const retry = document.getElementById("retry");
+				let currentActive = null;
+
+				function esc(value) {
+					return String(value ?? "—")
+						.replaceAll("&", "&amp;")
+						.replaceAll("<", "&lt;")
+						.replaceAll(">", "&gt;")
+						.replaceAll('"', "&quot;")
+						.replaceAll("'", "&#39;");
 				}
 
-				function parseSnapshot() {
+				function number(value, digits = 0) {
+					const parsed = Number(value);
+					return Number.isFinite(parsed) ? parsed.toFixed(digits) : "—";
+				}
+
+				function date(value, withTime = true) {
+					if (!value) return "—";
+					const d = new Date(value);
+					if (Number.isNaN(d.getTime())) return "—";
+					return withTime ? d.toLocaleString() : d.toLocaleDateString();
+				}
+
+				function ago(value) {
+					if (!value) return "unknown";
+					const d = new Date(value);
+					if (Number.isNaN(d.getTime())) return "unknown";
+					const seconds = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+					if (seconds < 60) return "just now";
+					const minutes = Math.floor(seconds / 60);
+					if (minutes < 60) return minutes + "m ago";
+					const hours = Math.floor(minutes / 60);
+					if (hours < 24) return hours + "h ago";
+					return Math.floor(hours / 24) + "d ago";
+				}
+
+				function card(label, value, hint) {
+					return (
+						'<div class="card"><p class="label">' + esc(label) + '</p><p class="value">' +
+						esc(value) + "</p>" + (hint ? '<p class="hint">' + esc(hint) + "</p>" : "") + "</div>"
+					);
+				}
+
+				function row(label, value) {
+					return '<div class="row"><span>' + esc(label) + "</span><strong>" + esc(value) + "</strong></div>";
+				}
+
+				function section(title, body) {
+					return '<h2 class="section-title">' + esc(title) + "</h2>" + body;
+				}
+
+				function openDb() {
+					return new Promise((resolve, reject) => {
+						const request = indexedDB.open(DB_NAME, DB_VERSION);
+						request.onupgradeneeded = () => {
+							const db = request.result;
+							if (!db.objectStoreNames.contains(SNAPSHOTS)) {
+								const store = db.createObjectStore(SNAPSHOTS, { keyPath: "key" });
+								store.createIndex("scope", "scope");
+								store.createIndex("savedAt", "savedAt");
+							}
+							if (!db.objectStoreNames.contains(META)) db.createObjectStore(META, { keyPath: "key" });
+						};
+						request.onsuccess = () => resolve(request.result);
+						request.onerror = () => reject(request.error || new Error("IndexedDB open failed"));
+					});
+				}
+
+				async function readDb() {
+					if (typeof indexedDB === "undefined") return { snapshots: [], meta: null };
+					const db = await openDb();
 					try {
-						const raw = window.localStorage.getItem(SNAPSHOT_KEY);
+						const snapshots = await new Promise((resolve, reject) => {
+							const tx = db.transaction(SNAPSHOTS, "readonly");
+							const request = tx.objectStore(SNAPSHOTS).getAll();
+							request.onsuccess = () => resolve(request.result || []);
+							request.onerror = () => reject(request.error || new Error("read failed"));
+						});
+						const meta = await new Promise((resolve, reject) => {
+							const tx = db.transaction(META, "readonly");
+							const request = tx.objectStore(META).get("active");
+							request.onsuccess = () => resolve(request.result || null);
+							request.onerror = () => reject(request.error || new Error("meta read failed"));
+						});
+						return { snapshots, meta };
+					} finally {
+						db.close();
+					}
+				}
+
+				function readFallback() {
+					try {
+						const raw = localStorage.getItem(FALLBACK_KEY);
+						if (!raw) return [];
+						const parsed = JSON.parse(raw);
+						return parsed && typeof parsed === "object" ? Object.values(parsed) : [];
+					} catch {
+						return [];
+					}
+				}
+
+				function readMetaFallback() {
+					try {
+						const raw = localStorage.getItem(META_KEY);
 						if (!raw) return null;
-						const snapshot = JSON.parse(raw);
-						if (!snapshot || snapshot.version !== SNAPSHOT_VERSION) return null;
-						return snapshot;
+						const parsed = JSON.parse(raw);
+						return parsed && parsed.key === "active" ? parsed : null;
 					} catch {
 						return null;
 					}
 				}
 
-				function formatDateTime(value) {
-					if (!value) return "—";
-					const date = new Date(value);
-					if (Number.isNaN(date.getTime())) return "—";
-					return date.toLocaleString(undefined, {
-						dateStyle: "medium",
-						timeStyle: "short",
+				function readLegacy() {
+					try {
+						const raw = localStorage.getItem(LEGACY_KEY);
+						if (!raw) return null;
+						const parsed = JSON.parse(raw);
+						if (!parsed || parsed.version !== 1) return null;
+						return {
+							key: "legacy:legacy:dashboard",
+							version: 1,
+							page: "dashboard",
+							scope: "legacy",
+							pondId: "legacy",
+							pondName: parsed.pondName || "Pond",
+							data: parsed,
+							savedAt: parsed.savedAt || new Date(0).toISOString(),
+						};
+					} catch {
+						return null;
+					}
+				}
+
+				function findFor(snapshots, active, page) {
+					if (!active) return snapshots.find((item) => item.page === page) || null;
+					return (
+						snapshots.find(
+							(item) =>
+								item.page === page &&
+								item.scope === active.scope &&
+								item.pondId === active.pondId,
+						) || null
+					);
+				}
+
+				function renderOverview(snapshot) {
+					const data = snapshot ? snapshot.data : {};
+					return (
+						'<div class="grid">' +
+						card("Pond", data.pondName || "—", data.deviceName ? "Device: " + data.deviceName : "") +
+						card(
+							"Device",
+							String(data.deviceStatus || "unknown").toUpperCase(),
+							data.lastSeenAt ? "Last seen " + date(data.lastSeenAt) : "No heartbeat",
+						) +
+						card(
+							"Feed level",
+							data.feedLevelPercent == null ? "—" : number(data.feedLevelPercent) + "%",
+							data.feedLevelUpdatedAt ? "Updated " + ago(data.feedLevelUpdatedAt) : "",
+						) +
+						card(
+							"Water temp",
+							data.waterTempC == null ? "—" : number(data.waterTempC, 1) + " °C",
+							data.waterTempUpdatedAt ? "Updated " + ago(data.waterTempUpdatedAt) : "",
+						) +
+						card("Population", data.population == null ? "—" : number(data.population), "fish") +
+						card("Latest ABW", data.avgWeightG == null ? "—" : number(data.avgWeightG, 1) + " g") +
+						card("Latest FCR", data.latestFcr == null ? "—" : number(data.latestFcr, 2)) +
+						card(
+							"Next feeding",
+							data.isPaused ? "Paused" : data.nextFeedingTime || "—",
+							data.nextFeedingVolumeG == null ? "" : number(data.nextFeedingVolumeG, 1) + " g",
+						) +
+						card(
+							"Sample due",
+							data.daysUntilSample == null ? "—" : number(data.daysUntilSample) + " d",
+						) +
+						card("Cycle", data.activeCycleLabel || "No active cycle") +
+						card("Target harvest", data.targetHarvestDate || "—") +
+						'</div>'
+					);
+				}
+
+				function renderSchedule(snapshot) {
+					if (!snapshot) return '<div class="empty">No schedule snapshot saved yet.</div>';
+					const data = snapshot.data || {};
+					return (
+						'<div class="grid">' +
+						card("Window", (data.scheduleStart || "—") + " – " + (data.scheduleEnd || "—")) +
+						card("Meals / day", data.feedsPerDay == null ? "—" : number(data.feedsPerDay)) +
+						card(
+							"Feeding rate",
+							data.feedingRatePct == null ? "—" : number(data.feedingRatePct, 2) + "%",
+						) +
+						card(
+							"Grams / meal",
+							data.gramsPerFeeding == null ? "—" : number(data.gramsPerFeeding, 1) + " g",
+						) +
+						card("Device", String(data.deviceStatus || "unknown").toUpperCase()) +
+						card("Last seen", data.lastSeenAt ? date(data.lastSeenAt) : "—") +
+						card("Paused", data.isPaused ? "Yes" : "No") +
+						card("Pending command", data.pendingCommandStatus || "None") +
+						'</div>' +
+						'<p class="hint" style="margin-top:0.75rem">The ESP32 keeps this schedule in its RTC even when the browser or WiFi is offline.</p>'
+					);
+				}
+
+				function renderGrowth(snapshot) {
+					if (!snapshot) return '<div class="empty">No growth snapshot saved yet.</div>';
+					const data = snapshot.data || {};
+					const samples = Array.isArray(data.samples) ? data.samples : [];
+					const sampleRows = samples
+						.map(
+							(sample) =>
+								"<tr><td>" +
+								esc(date(sample.date)) +
+								'</td><td class="num">' +
+								esc(number(sample.avgWeightG, 1)) +
+								'</td><td class="num">' +
+								esc(number(sample.lengthCm, 1)) +
+								"</td><td>" +
+								esc(sample.batchLabel || "—") +
+								"</td></tr>",
+						)
+						.join("");
+					return (
+						'<div class="grid">' +
+						card("Latest ABW", data.latestAbwG == null ? "—" : number(data.latestAbwG, 1) + " g") +
+						card("Latest FCR", data.latestFcr == null ? "—" : number(data.latestFcr, 2)) +
+						card("Cycle", data.cycleLabel || "No active cycle") +
+						card("Target", data.targetWeightG == null ? "—" : number(data.targetWeightG) + " g") +
+						card("Track", data.track || "—", data.confidence ? "Confidence: " + data.confidence : "") +
+						card(
+							"Current / expected",
+							(data.currentWeightG == null ? "—" : number(data.currentWeightG, 1)) +
+								" / " +
+								(data.expectedWeightG == null ? "—" : number(data.expectedWeightG, 1)) +
+								" g",
+						) +
+						card(
+							"Projected harvest",
+							data.projectedHarvestG == null ? "—" : number(data.projectedHarvestG, 1) + " g",
+						) +
+						card(
+							"Recommended",
+							data.recommendedGrams == null ? "—" : number(data.recommendedGrams, 1) + " g/meal",
+						) +
+						card(
+							"Next adjustment",
+							data.adjustmentAllowed ? "Available" : data.nextAdjustmentDate || "Not yet",
+						) +
+						'</div>' +
+						(sampleRows
+							? section(
+									"Recent samples",
+									'<div class="table-wrap"><table><thead><tr><th>Date</th><th class="num">ABW (g)</th><th class="num">Length (cm)</th><th>Batch</th></tr></thead><tbody>' +
+										sampleRows +
+										"</tbody></table></div>",
+								)
+							: "")
+					);
+				}
+
+				function renderHarvest(snapshot) {
+					if (!snapshot) return '<div class="empty">No harvest snapshot saved yet.</div>';
+					const data = snapshot.data || {};
+					const active = Array.isArray(data.activeCycles) ? data.activeCycles : [];
+					const recent = Array.isArray(data.recentCycles) ? data.recentCycles : [];
+					const events = Array.isArray(data.upcomingEvents) ? data.upcomingEvents : [];
+					const cycleCard = (cycle) =>
+						'<div class="card wide"><p class="label">' +
+						esc(cycle.label || "Unlabeled cycle") +
+						'</p><p class="value">' +
+						esc(cycle.status || "—") +
+						'</p><p class="hint">Stocked ' +
+						esc(cycle.stockingDate || "—") +
+						" · " +
+						esc(number(cycle.stockingCount)) +
+						" fish · target " +
+						esc(cycle.targetWeightG == null ? "—" : number(cycle.targetWeightG) + " g") +
+						" · harvest " +
+						esc(cycle.harvestDate || "—") +
+						(cycle.growOutDay == null ? "" : " · day " + esc(number(cycle.growOutDay))) +
+						(cycle.daysToHarvest == null
+							? ""
+							: " · " + (cycle.daysToHarvest < 0 ? esc(Math.abs(cycle.daysToHarvest)) + "d overdue" : esc(cycle.daysToHarvest) + "d left")) +
+						"</p></div>";
+					return (
+						section("Active cycles", active.length ? '<div class="grid">' + active.map(cycleCard).join("") + "</div>" : '<div class="empty">No active cycle in the saved snapshot.</div>') +
+						section(
+							"Upcoming events",
+							events.length
+								? '<div class="list">' + events.map((event) => row(event.date + " · " + event.title, event.type + " / " + event.status)).join("") + "</div>"
+								: '<div class="empty">No upcoming events in the saved snapshot.</div>',
+						) +
+						section(
+							"Recent cycles",
+							recent.length ? '<div class="list">' + recent.map(cycleCard).join("") + "</div>" : "",
+						)
+					);
+				}
+
+				function renderHistory(snapshot) {
+					if (!snapshot) return '<div class="empty">No feeding history snapshot saved yet.</div>';
+					const data = snapshot.data || {};
+					const events = Array.isArray(data.events) ? data.events : [];
+					const rows = events
+						.map(
+							(event) =>
+								"<tr><td>" +
+								esc(date(event.at)) +
+								'</td><td class="num">' +
+								esc(event.grams == null ? "—" : number(event.grams) + " g") +
+								"</td><td>" +
+								esc(event.source || "—") +
+								"</td></tr>",
+						)
+						.join("");
+					return (
+						'<div class="grid">' +
+						card("Recent dispensed", data.totalDispensedG == null ? "—" : number(data.totalDispensedG / 1000, 1) + " kg") +
+						card(
+							"Feed level",
+							data.feedLevelPercent == null ? "—" : number(data.feedLevelPercent) + "%",
+							data.feedLevelUpdatedAt ? "Updated " + ago(data.feedLevelUpdatedAt) : "",
+						) +
+						'</div>' +
+						(rows
+							? section(
+									"Recent feeding events",
+									'<div class="table-wrap"><table><thead><tr><th>Time</th><th class="num">Amount</th><th>Source</th></tr></thead><tbody>' +
+										rows +
+										"</tbody></table></div>",
+								)
+							: '<div class="empty">No feeding events in the saved snapshot.</div>')
+					);
+				}
+
+				function renderLog(active) {
+					if (!active) return '<div class="empty">Open the dashboard once while online so this device knows the pond.</div>';
+					return (
+						'<form class="form" id="offline-log-form">' +
+						'<p class="hint" style="margin:0">Saving a biomass sample for <strong>' +
+						esc(active.pondName) +
+						"</strong>. It stays on this device and syncs automatically when the connection returns.</p>" +
+						'<div class="form-row">' +
+						'<label class="field">Number of fish<input id="log-count" type="number" min="1" max="100000" value="20" required /></label>' +
+						'<label class="field">Total sample weight (kg)<input id="log-weight" type="number" min="0.01" step="0.01" placeholder="e.g. 3.40" required /></label>' +
+						"</div>" +
+						'<div class="form-row">' +
+						'<label class="field">Average length (cm)<input id="log-length" type="number" min="0" step="0.1" placeholder="e.g. 24.0" /></label>' +
+						'<label class="field">Batch label<input id="log-batch" type="text" maxlength="64" placeholder="Optional" /></label>' +
+						"</div>" +
+						'<button type="submit">Save sample offline</button>' +
+						'<p class="form-status" id="log-status" role="status"></p>' +
+						"</form>"
+					);
+				}
+
+				function openOutboxDb() {
+					return new Promise((resolve, reject) => {
+						const request = indexedDB.open("optifeed-offline-outbox", 1);
+						request.onupgradeneeded = () => {
+							const db = request.result;
+							if (!db.objectStoreNames.contains("queue")) {
+								db.createObjectStore("queue", { keyPath: "id" });
+							}
+						};
+						request.onsuccess = () => resolve(request.result);
+						request.onerror = () => reject(request.error || new Error("outbox open failed"));
 					});
 				}
 
-				function formatNumber(value, digits) {
-					if (value === null || value === undefined || value === "") return "—";
-					const number = Number(value);
-					if (!Number.isFinite(number)) return "—";
-					return number.toLocaleString(undefined, {
-						minimumFractionDigits: digits,
-						maximumFractionDigits: digits,
+				async function queueOfflineItem(item) {
+					if (typeof indexedDB !== "undefined") {
+						try {
+							const db = await openOutboxDb();
+							await new Promise((resolve, reject) => {
+								const tx = db.transaction("queue", "readwrite");
+								tx.objectStore("queue").put(item);
+								tx.oncomplete = () => resolve();
+								tx.onerror = () => reject(tx.error || new Error("outbox write failed"));
+							});
+							db.close();
+							return true;
+						} catch {
+							// Fall back to localStorage.
+						}
+					}
+					try {
+						const key = "optifeed:offline:outbox:v1";
+						const raw = localStorage.getItem(key);
+						const items = raw ? JSON.parse(raw) : [];
+						items.push(item);
+						localStorage.setItem(key, JSON.stringify(items));
+						return true;
+					} catch {
+						return false;
+					}
+				}
+
+				function bindLogForm(active) {
+					const form = document.getElementById("offline-log-form");
+					if (!form) return;
+					form.addEventListener("submit", async (event) => {
+						event.preventDefault();
+						const status = document.getElementById("log-status");
+						const count = Number.parseInt(document.getElementById("log-count")?.value || "", 10);
+						const weight = Number.parseFloat(document.getElementById("log-weight")?.value || "");
+						const length = Number.parseFloat(document.getElementById("log-length")?.value || "0");
+						const batch = (document.getElementById("log-batch")?.value || "").trim();
+						if (!Number.isFinite(count) || count < 1 || !Number.isFinite(weight) || weight <= 0) {
+							status.textContent = "Enter a valid fish count and sample weight.";
+							status.classList.add("error");
+							return;
+						}
+						const clientEventId =
+							"offline-" +
+							(typeof crypto !== "undefined" && crypto.randomUUID
+								? crypto.randomUUID()
+								: Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10));
+						const item = {
+							id: clientEventId,
+							type: "biomass",
+							payload: {
+								clientEventId,
+								pondId: active.pondId,
+								scope: active.scope,
+								sampleCount: count,
+								sampleWeightKg: weight,
+								sampleLengthCm: Number.isFinite(length) ? Math.max(0, length) : 0,
+								batchLabel: batch || null,
+								recordedAt: new Date().toISOString(),
+							},
+							createdAt: new Date().toISOString(),
+							attempts: 0,
+							status: "pending",
+						};
+						const queued = await queueOfflineItem(item);
+						if (queued) {
+							form.reset();
+							status.textContent = "Saved on this device. It will sync when the connection returns.";
+							status.classList.remove("error");
+						} else {
+							status.textContent = "Could not save on this device. Try again.";
+							status.classList.add("error");
+						}
 					});
 				}
 
-				function render(snapshot) {
-					snapshotSection.hidden = false;
-					emptySection.hidden = true;
-
-					const status = snapshot.deviceStatus || "missing";
-					const statusLabel =
-						status === "online"
-							? "Online"
-							: status === "offline"
-								? "Offline"
-								: "Not connected";
-					const statusElement = document.getElementById("deviceStatus");
-					statusElement.dataset.status = status;
-					statusElement.textContent = statusLabel;
-
-					text("pondName", snapshot.pondName || "—");
-					text("pondSub", snapshot.deviceName || "No device selected");
-					text("deviceSeen", snapshot.lastSeenAt ? `Last seen ${formatDateTime(snapshot.lastSeenAt)}` : "No heartbeat recorded");
-					text(
-						"feedLevel",
-						snapshot.feedLevelPercent === null || snapshot.feedLevelPercent === undefined
-							? "—"
-							: `${formatNumber(snapshot.feedLevelPercent, 0)}%`,
-					);
-					text(
-						"feedLevelUpdated",
-						snapshot.feedLevelUpdatedAt ? `Updated ${formatDateTime(snapshot.feedLevelUpdatedAt)}` : "No level reading",
-					);
-					text(
-						"waterTemp",
-						snapshot.waterTempC === null || snapshot.waterTempC === undefined
-							? "—"
-							: `${formatNumber(snapshot.waterTempC, 1)} °C`,
-					);
-					text(
-						"waterTempUpdated",
-						snapshot.waterTempUpdatedAt
-							? `Updated ${formatDateTime(snapshot.waterTempUpdatedAt)}`
-							: snapshot.waterTempOk === false
-								? "Sensor check required"
-								: "No temperature reading",
-					);
-					text("nextFeeding", snapshot.isPaused ? "Paused" : snapshot.nextFeedingTime || "—");
-					text("nextFeedingSub", snapshot.isPaused ? "Feeding is paused" : "Device RTC schedule");
-					text(
-						"feedAmount",
-						snapshot.nextFeedingVolumeG === null || snapshot.nextFeedingVolumeG === undefined
-							? "—"
-							: `${formatNumber(snapshot.nextFeedingVolumeG, 0)} g`,
-					);
-					text("population", formatNumber(snapshot.population, 0));
-					text(
-						"avgWeight",
-						snapshot.avgWeightG === null || snapshot.avgWeightG === undefined
-							? "—"
-							: `${formatNumber(snapshot.avgWeightG, 1)} g`,
-					);
-					text("avgWeightSub", snapshot.avgWeightG === null || snapshot.avgWeightG === undefined ? "No sample yet" : "Latest sample");
-					text(
-						"latestFcr",
-						snapshot.latestFcr === null || snapshot.latestFcr === undefined
-							? "—"
-							: formatNumber(snapshot.latestFcr, 2),
-					);
-					text(
-						"daysToSample",
-						snapshot.daysUntilSample === null || snapshot.daysUntilSample === undefined
-							? "—"
-							: `${formatNumber(snapshot.daysUntilSample, 0)} day${Number(snapshot.daysUntilSample) === 1 ? "" : "s"}`,
-					);
-					text("activeCycle", snapshot.activeCycleLabel || "No active cycle");
-					text(
-						"targetHarvest",
-						snapshot.targetHarvestDate
-							? `Target harvest ${snapshot.targetHarvestDate}`
-							: "No target harvest date",
-					);
-					text("savedAt", formatDateTime(snapshot.savedAt));
+				function setPanel(id, html) {
+					const panel = document.getElementById("panel-" + id);
+					if (panel) panel.innerHTML = html;
 				}
 
-				function syncOnlineState() {
+				function activate(tab) {
+					for (const button of document.querySelectorAll(".tabs button")) {
+						button.setAttribute("aria-selected", button.dataset.tab === tab ? "true" : "false");
+					}
+					for (const panel of document.querySelectorAll(".panel")) {
+						panel.hidden = panel.id !== "panel-" + tab;
+					}
+				}
+
+				for (const button of document.querySelectorAll(".tabs button")) {
+					button.addEventListener("click", () => activate(button.dataset.tab));
+				}
+
+				function updateOnline() {
 					onlineNote.hidden = !navigator.onLine;
-					retryButton.textContent = navigator.onLine ? "Refresh dashboard" : "Retry connection";
+				}
+				window.addEventListener("online", updateOnline);
+				window.addEventListener("offline", updateOnline);
+				updateOnline();
+				retry.addEventListener("click", () => location.reload());
+
+				async function boot() {
+					let db = { snapshots: [], meta: null };
+					try {
+						db = await readDb();
+					} catch {
+						db = { snapshots: [], meta: null };
+					}
+					const snapshots = db.snapshots.length ? db.snapshots : readFallback();
+					if (!snapshots.length) {
+						const legacy = readLegacy();
+						if (legacy) snapshots.push(legacy);
+					}
+					snapshots.sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)));
+					const meta = db.meta || readMetaFallback();
+					let active = null;
+					if (meta) {
+						active = snapshots.find(
+							(item) => item.scope === meta.scope && item.pondId === meta.pondId,
+						);
+					}
+					if (!active) active = snapshots.find((item) => item.page === "dashboard") || snapshots[0];
+					if (!active) {
+						empty.hidden = false;
+						return;
+					}
+					content.hidden = false;
+					currentActive = active;
+					activePond.textContent = active.pondName || active.data?.pondName || "Pond";
+					savedAt.textContent = date(active.savedAt);
+					freshness.textContent = "Synced " + ago(active.savedAt);
+					const age = Date.now() - new Date(active.savedAt).getTime();
+					staleNote.hidden = !(Number.isFinite(age) && age > STALE_MS);
+
+					setPanel("overview", findFor(snapshots, active, "dashboard") ? renderOverview(findFor(snapshots, active, "dashboard")) : '<div class="empty">No dashboard snapshot saved yet.</div>');
+					setPanel("schedule", renderSchedule(findFor(snapshots, active, "schedule")));
+					setPanel("growth", renderGrowth(findFor(snapshots, active, "growth")));
+					setPanel("harvest", renderHarvest(findFor(snapshots, active, "harvest")));
+					setPanel("history", renderHistory(findFor(snapshots, active, "history")));
+					setPanel("log", renderLog(active));
+					bindLogForm(active);
 				}
 
-				const snapshot = parseSnapshot();
-				if (snapshot) {
-					render(snapshot);
-				} else {
-					emptySection.hidden = false;
-					snapshotSection.hidden = true;
-				}
-
-				syncOnlineState();
-				window.addEventListener("online", syncOnlineState);
-				window.addEventListener("offline", syncOnlineState);
-				retryButton.addEventListener("click", () => window.location.reload());
+				boot().catch(() => {
+					empty.hidden = false;
+				});
 			})();
 		</script>
 	</body>

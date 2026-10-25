@@ -1,8 +1,15 @@
 import { HarvestCalendar } from "@/components/harvest/harvest-calendar";
+import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { hasPermission } from "@/lib/auth/permissions";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
+import { computeCropCycleMetrics } from "@/lib/crop-cycle/metrics";
 import { serialiseCycle } from "@/lib/crop-cycle/serialise";
 import type { PondOption } from "@/lib/crop-cycle/types";
+import type {
+	CycleSummarySnapshot,
+	HarvestEventSnapshot,
+	HarvestSnapshotData,
+} from "@/lib/offline/snapshots";
 import { parsePondProfile } from "@/lib/pond-profile";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
@@ -24,7 +31,7 @@ export default async function HarvestPage() {
 		);
 	}
 
-	const [canManage, ponds, cycles] = await Promise.all([
+	const [canManage, ponds, cycles, upcomingEvents] = await Promise.all([
 		hasPermission("manage_crop_cycle"),
 		prisma.pond.findMany({
 			where: { ownerId: pond.ownerId, status: "ACTIVE" },
@@ -60,6 +67,12 @@ export default async function HarvestPage() {
 				notes: true,
 			},
 		}),
+		prisma.pondEvent.findMany({
+			where: { pondId: pond.id, startsAt: { gte: new Date(`${todayDateOnly()}T00:00:00.000Z`) } },
+			orderBy: { startsAt: "asc" },
+			take: 20,
+			select: { id: true, title: true, type: true, status: true, startsAt: true },
+		}),
 	]);
 
 	const pondOptions: PondOption[] = ponds.map((item) => {
@@ -77,9 +90,58 @@ export default async function HarvestPage() {
 	const activeCycles = serialised.filter((cycle) => cycle.status === "ACTIVE");
 	const activeCycle = activeCycles.find((cycle) => cycle.pondId === pond.id) ?? null;
 	const recentCycles = serialised.filter((cycle) => cycle.status !== "ACTIVE");
+	const today = todayDateOnly();
+
+	const summariseCycle = (cycle: (typeof serialised)[number]): CycleSummarySnapshot => {
+		const metrics = computeCropCycleMetrics(
+			{
+				stockingDate: cycle.stockingDate,
+				growOutDays: cycle.growOutDays,
+				targetHarvestDate: cycle.targetHarvestDate,
+				stockingCount: cycle.stockingCount,
+				targetHarvestWeightG: cycle.targetHarvestWeightG,
+				expectedSurvivalPct: cycle.expectedSurvivalPct,
+			},
+			today,
+		);
+		return {
+			label: cycle.label,
+			status: cycle.status,
+			stockingDate: cycle.stockingDate,
+			harvestDate: cycle.targetHarvestDate,
+			stockingCount: cycle.stockingCount,
+			targetWeightG: cycle.targetHarvestWeightG,
+			growOutDay: metrics.growOutDay,
+			daysToHarvest: metrics.daysToHarvest,
+		};
+	};
+
+	const harvestSnapshot: HarvestSnapshotData = {
+		pondName: pond.name,
+		activeCycles: serialised
+			.filter((cycle) => cycle.pondId === pond.id && cycle.status === "ACTIVE")
+			.map(summariseCycle),
+		recentCycles: serialised
+			.filter((cycle) => cycle.pondId === pond.id && cycle.status !== "ACTIVE")
+			.slice(0, 10)
+			.map(summariseCycle),
+		upcomingEvents: upcomingEvents.map<HarvestEventSnapshot>((event) => ({
+			title: event.title,
+			date: event.startsAt.toISOString().slice(0, 10),
+			type: event.type,
+			status: event.status,
+		})),
+	};
 
 	return (
 		<div className="mx-auto w-full min-w-0 max-w-7xl space-y-6 pb-20 animate-in fade-in duration-150 [contain:inline-size]">
+			<SnapshotWriter
+				page="harvest"
+				scope={pond.ownerId}
+				pondId={pond.id}
+				pondName={pond.name}
+				data={harvestSnapshot}
+			/>
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 				<div>
 					<div className="flex items-center gap-2">

@@ -9,6 +9,7 @@ import { FabStack } from "@/components/fab-stack";
 import { HeaderActions } from "@/components/header-actions";
 import { NotificationProvider } from "@/components/notification-provider";
 import { OnboardingProvider } from "@/components/onboarding-provider";
+import { OfflineSync } from "@/components/pwa/offline-sync";
 import { Sidebar } from "@/components/sidebar";
 import { Link } from "@/i18n/routing";
 import { getCurrentPondOwnerId, getCurrentUser } from "@/lib/auth/session";
@@ -78,6 +79,7 @@ export default async function DashboardLayout({
 
 	return (
 		<ChatWidgetProvider>
+			<OfflineSync scope={ownerId} />
 			<OnboardingProvider>
 				<div className="flex flex-col min-h-screen bg-[#F4F7F6] dark:bg-gray-950">
 					<NotificationProvider pondId={pondId} initialUnreadCount={initialUnreadCount}>

@@ -1,7 +1,9 @@
 {
 	"pwa": {
 		"offlineTitle": "Offline mode",
-		"offlineBody": "Ginapakita ang huli nga nahibal-an nga data. Ang mga feed command wala ginapadala samtang wala ka sa internet."
+		"offlineBody": "Ginapakita ang huli nga nahibal-an nga data. Ang mga feed command wala ginapadala samtang wala ka sa internet.",
+		"syncSuccess": "{count, plural, one {# offline sample ang na-sync} other {# offline samples ang na-sync}}",
+		"syncPending": "{count, plural, one {# sample ang nagahulat pa ma-sync} other {# samples ang nagahulat pa ma-sync}}"
 	},
 	"nav": {
 		"dashboard": "Dashboard",
@@ -348,7 +350,11 @@
 			"deleteLogConfirm": "I-delete ini nga sample? Indi na ini ma-undo.",
 			"logUpdateError": "Indi ma-update ang sample.",
 			"logUpdated": "Na-update ang sample.",
-			"logDeleted": "Na-delete ang sample."
+			"logDeleted": "Na-delete ang sample.",
+			"queuedOfflineTitle": "Na-save offline",
+			"queuedOfflineBody": "Ini nga sample naka-queue sa sini nga device. Ma-sync ini automatically kon magbalik ang connection.",
+			"queuedOfflineError": "Indi ma-queue ang sample sa sini nga device.",
+			"offlineNote": "Wala ka sa internet. Ini nga sample i-save sa device kag i-sync later."
 		},
 		"history": {
 			"amount": "KADAM-ON",

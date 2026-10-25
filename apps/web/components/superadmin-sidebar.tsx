@@ -1,6 +1,7 @@
 "use client";
 
 import { Link, usePathname, useRouter } from "@/i18n/routing";
+import { clearOfflineData } from "@/lib/offline/db";
 import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,7 @@ export function SuperadminSidebar() {
 	const handleSignOut = async () => {
 		setIsSigningOut(true);
 		clearDashboardSnapshot();
+		await clearOfflineData();
 		await supabase.auth.signOut();
 		router.replace("/");
 	};

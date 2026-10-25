@@ -12,7 +12,7 @@ import { OnboardingProvider } from "@/components/onboarding-provider";
 import { OfflineSync } from "@/components/pwa/offline-sync";
 import { Sidebar } from "@/components/sidebar";
 import { Link } from "@/i18n/routing";
-import { getCurrentPondOwnerId, getCurrentUser } from "@/lib/auth/session";
+import { getCurrentPondOwnerId, requirePasswordChanged } from "@/lib/auth/session";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
@@ -23,7 +23,10 @@ export default async function DashboardLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	const [ownerId, currentUser] = await Promise.all([getCurrentPondOwnerId(), getCurrentUser()]);
+	const [ownerId, currentUser] = await Promise.all([
+		getCurrentPondOwnerId(),
+		requirePasswordChanged(),
+	]);
 
 	let pondId = "";
 	let initialUnreadCount = 0;

@@ -1,7 +1,7 @@
 import { redirect } from "@/i18n/routing";
 import { getVerifiedSession } from "@/lib/auth/verify-session";
 import prisma from "@/lib/prisma";
-import type { UserRole } from "@prisma/client";
+import type { User, UserRole } from "@prisma/client";
 import { getLocale } from "next-intl/server";
 import { cache } from "react";
 
@@ -76,6 +76,31 @@ export const getCurrentUser = cache(async () => {
 
 	return dbUser;
 });
+
+/**
+ * Require an authenticated user who has completed any forced password change.
+ *
+ * Redirects unauthenticated visitors to /login and flagged users to
+ * /change-password. Call this before role/platform gates so a temporary
+ * password cannot reach any console.
+ */
+export async function requirePasswordChanged(): Promise<User> {
+	const user = await getCurrentUser();
+
+	if (!user) {
+		const locale = await getLocale();
+		redirect({ href: "/login", locale });
+		throw new Error("redirect");
+	}
+
+	if (user.mustChangePassword) {
+		const locale = await getLocale();
+		redirect({ href: "/change-password", locale });
+		throw new Error("redirect");
+	}
+
+	return user;
+}
 
 /**
  * Get the current user's role. Returns null if not authenticated.

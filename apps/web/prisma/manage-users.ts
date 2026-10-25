@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { createClient } from "@supabase/supabase-js";
+import { passwordErrorMessage, validatePassword } from "../lib/auth/password";
 
 const prisma = new PrismaClient();
 
@@ -21,6 +22,15 @@ function buildPondEmail(farmId: string): string {
 	return `${farmId}@pond.optifeed.local`;
 }
 
+function readPassword(args: Record<string, string>): string | undefined {
+	// `--pin` is kept as a deprecated alias so existing scripts do not break.
+	return args["--password"] ?? args["--pin"];
+}
+
+function forcesChange(args: Record<string, string>): boolean {
+	return args["--no-force-change"] !== "true";
+}
+
 // ── Commands ────────────────────────────────────────────────────────────────
 
 async function listUsers() {
@@ -36,7 +46,8 @@ async function listUsers() {
 
 	console.log(`\n${users.length} user(s):\n`);
 	for (const u of users) {
-		console.log(`  ${u.farmId.padEnd(20)} ${u.displayName ?? "-".padEnd(16)} [${u.role}]`);
+		const change = u.mustChangePassword ? " [must change password]" : "";
+		console.log(`  ${u.farmId.padEnd(20)} ${u.displayName ?? "-".padEnd(16)} [${u.role}]${change}`);
 	}
 	console.log();
 }
@@ -45,19 +56,19 @@ async function createUser(args: Record<string, string>) {
 	const farmId = args["--farm-id"];
 	const name = args["--name"];
 	const role = (args["--role"] ?? "OPERATOR").toUpperCase();
-	const pin = args["--pin"];
+	const password = readPassword(args);
+	const forceChange = forcesChange(args);
 
-	if (!farmId || !name || !pin) {
+	if (!farmId || !name || !password) {
 		console.error(
-			"Usage: pnpm manage-user create --farm-id <id> --name <name> [--role ADMIN|OPERATOR|VIEWER] --pin <6 digits>",
+			"Usage: pnpm manage-user create --farm-id <id> --name <name> [--role ADMIN|OPERATOR|VIEWER] --password <value> [--no-force-change]",
 		);
 		process.exit(1);
 	}
 
-	// Set-time policy (task 2.7): new PINs are at least 6 digits.
-	// Existing 4-6 digit PINs keep working at login.
-	if (!/^\d{6}$/.test(pin)) {
-		console.error("PIN must be at least 6 digits.");
+	const passwordCheck = validatePassword(password, forceChange ? "temporary" : "permanent");
+	if (!passwordCheck.ok) {
+		console.error(passwordErrorMessage(passwordCheck.code));
 		process.exit(1);
 	}
 
@@ -80,7 +91,7 @@ async function createUser(args: Record<string, string>) {
 	const supabase = createAdminClient();
 	const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
 		email,
-		password: pin,
+		password,
 		email_confirm: true,
 	});
 	if (authError) {
@@ -96,6 +107,7 @@ async function createUser(args: Record<string, string>) {
 				email,
 				displayName: name,
 				role: role as "ADMIN" | "OPERATOR" | "VIEWER",
+				mustChangePassword: forceChange,
 			},
 		});
 		await tx.farm.create({
@@ -108,22 +120,29 @@ async function createUser(args: Record<string, string>) {
 	});
 
 	console.log(`\n✓ Created user: ${user.farmId} (${user.displayName}) [${user.role}]`);
-	console.log(`  Login with farmId "${user.farmId}" and PIN "${pin}"\n`);
+	console.log(`  Login with farmId "${user.farmId}" and password "${password}"`);
+	if (forceChange) {
+		console.log("  The user must change this password on first login.\n");
+	} else {
+		console.log();
+	}
 }
 
-async function resetPin(args: Record<string, string>) {
+async function resetPassword(args: Record<string, string>) {
 	const farmId = args["--farm-id"];
-	const pin = args["--pin"];
+	const password = readPassword(args);
+	const forceChange = forcesChange(args);
 
-	if (!farmId || !pin) {
-		console.error("Usage: pnpm manage-user reset-pin --farm-id <id> --pin <6 digits>");
+	if (!farmId || !password) {
+		console.error(
+			"Usage: pnpm manage-user reset-password --farm-id <id> --password <value> [--no-force-change]",
+		);
 		process.exit(1);
 	}
 
-	// Set-time policy (task 2.7): new PINs are at least 6 digits.
-	// Existing 4-6 digit PINs keep working at login.
-	if (!/^\d{6}$/.test(pin)) {
-		console.error("PIN must be at least 6 digits.");
+	const passwordCheck = validatePassword(password, forceChange ? "temporary" : "permanent");
+	if (!passwordCheck.ok) {
+		console.error(passwordErrorMessage(passwordCheck.code));
 		process.exit(1);
 	}
 
@@ -136,15 +155,25 @@ async function resetPin(args: Record<string, string>) {
 
 	const supabase = createAdminClient();
 	const { error } = await supabase.auth.admin.updateUserById(user.supabaseId, {
-		password: pin,
+		password,
 	});
 	if (error) {
 		console.error("Supabase auth error:", error.message);
 		process.exit(1);
 	}
 
-	console.log(`\n✓ PIN reset for "${user.farmId}" (${user.displayName})`);
-	console.log(`  Login with farmId "${user.farmId}" and PIN "${pin}"\n`);
+	await prisma.user.update({
+		where: { id: user.id },
+		data: { mustChangePassword: forceChange },
+	});
+
+	console.log(`\n✓ Password reset for "${user.farmId}" (${user.displayName})`);
+	console.log(`  Login with farmId "${user.farmId}" and password "${password}"`);
+	if (forceChange) {
+		console.log("  The user must change this password on first login.\n");
+	} else {
+		console.log();
+	}
 }
 
 async function deleteUser(args: Record<string, string>) {
@@ -228,8 +257,12 @@ async function main() {
 		case "create":
 			await createUser(args);
 			break;
+		case "reset-password":
+			await resetPassword(args);
+			break;
 		case "reset-pin":
-			await resetPin(args);
+			console.warn("`reset-pin` is deprecated; use `reset-password`.");
+			await resetPassword(args);
 			break;
 		case "delete":
 			await deleteUser(args);
@@ -239,13 +272,18 @@ async function main() {
 OptiFeed User Manager
 
 Commands:
-  list                                    List all users
-  create    --farm-id <id> --name <name>  Create a new user
+  list                                        List all users
+  create    --farm-id <id> --name <name>      Create a new user
             [--role ADMIN|OPERATOR|VIEWER]
-            --pin <6 digits>
-  reset-pin --farm-id <id>               Reset a user's PIN
-            --pin <6 digits>
-  delete    --farm-id <id>               Delete a user
+            --password <value>
+            [--no-force-change]
+  reset-password --farm-id <id>               Reset a user's password
+            --password <value>
+            [--no-force-change]
+  delete    --farm-id <id>                   Delete a user
+
+Temporary passwords are allowed to be weak and force a change on first login.
+--no-force-change requires a permanent password (8+ characters, letter + number).
 `);
 			break;
 	}

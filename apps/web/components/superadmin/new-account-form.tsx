@@ -1,7 +1,10 @@
 "use client";
 
+import { PasswordInput } from "@/components/password-input";
+import { PasswordStrength } from "@/components/password-strength";
 import { useRouter } from "@/i18n/routing";
 import { createPlatformUser } from "@/lib/actions/superadmin";
+import { getPasswordStrength, passwordErrorMessage, validatePassword } from "@/lib/auth/password";
 import { ArrowLeft, CheckCircle, ShieldAlert } from "lucide-react";
 import { type FormEvent, useState, useTransition } from "react";
 
@@ -41,7 +44,8 @@ export function NewAccountForm({
 	const [kind, setKind] = useState<Kind>("ORG_FARMER");
 	const [farmId, setFarmId] = useState("");
 	const [displayName, setDisplayName] = useState("");
-	const [pin, setPin] = useState("");
+	const [password, setPassword] = useState("");
+	const [confirmPassword, setConfirmPassword] = useState("");
 	const [orgId, setOrgId] = useState(orgs[0]?.id ?? "");
 	const [reason, setReason] = useState("");
 
@@ -59,7 +63,10 @@ export function NewAccountForm({
 
 		if (!farmId.trim()) return setError("Login ID is required.");
 		if (!displayName.trim()) return setError("Display name is required.");
-		if (!/^\d{6}$/.test(pin)) return setError("PIN must be exactly 6 digits.");
+		if (!password) return setError("Password is required.");
+		if (password !== confirmPassword) return setError("Passwords do not match.");
+		const passwordCheck = validatePassword(password, "temporary");
+		if (!passwordCheck.ok) return setError(passwordErrorMessage(passwordCheck.code));
 		if (copy.needsOrg && !orgId) return setError("Select an organization.");
 		if (isFarmer && !pondName.trim()) return setError("An initial pond is required.");
 		if (reason.trim().length < 10) return setError("Reason must be at least 10 characters.");
@@ -70,7 +77,7 @@ export function NewAccountForm({
 					reason: reason.trim(),
 					farmId,
 					displayName,
-					pin,
+					password,
 					kind,
 					orgId: copy.needsOrg ? orgId : undefined,
 					pond: isFarmer
@@ -159,16 +166,49 @@ export function NewAccountForm({
 						placeholder="e.g. Juan Miguel"
 						disabled={isPending}
 					/>
-					<TextField
-						id="pin"
-						label="PIN *"
-						value={pin}
-						onChange={(v) => setPin(v.replace(/\D/g, "").slice(0, 6))}
-						placeholder="6 digits"
-						hint="New accounts use a 6-digit PIN."
-						disabled={isPending}
-						type="password"
-					/>
+					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+						<div className="space-y-1.5">
+							<label
+								htmlFor="password"
+								className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568]"
+							>
+								Password *
+							</label>
+							<PasswordInput
+								id="password"
+								value={password}
+								onChange={setPassword}
+								placeholder="Temporary password"
+								disabled={isPending}
+								required
+							/>
+							<PasswordStrength password={password} />
+							{password && getPasswordStrength(password) === "weak" && (
+								<p className="text-[11px] font-bold text-[#B54708]">
+									Weak temporary password — the user must change it on first login.
+								</p>
+							)}
+						</div>
+						<div className="space-y-1.5">
+							<label
+								htmlFor="confirmPassword"
+								className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568]"
+							>
+								Confirm password *
+							</label>
+							<PasswordInput
+								id="confirmPassword"
+								value={confirmPassword}
+								onChange={setConfirmPassword}
+								placeholder="Repeat the password"
+								disabled={isPending}
+								required
+							/>
+							{confirmPassword && password !== confirmPassword && (
+								<p className="text-[11px] font-bold text-[#C42B3A]">Passwords do not match.</p>
+							)}
+						</div>
+					</div>
 
 					{copy.needsOrg && (
 						<div className="space-y-1.5">

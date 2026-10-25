@@ -2,7 +2,8 @@
 
 import { redirect } from "@/i18n/routing";
 import { checkLockout, recordFailedAttempt, resetLockout } from "@/lib/auth/lockout";
-import { isPlatformAdminFarmId } from "@/lib/auth/require-platform-admin";
+import { validatePassword } from "@/lib/auth/password";
+import { type PostLoginDestination, getPostLoginDestination } from "@/lib/auth/post-login";
 import { buildPondEmail } from "@/lib/auth/session";
 import { reportError } from "@/lib/observability";
 import { checkLoginRateLimit, getClientIp } from "@/lib/rate-limit";
@@ -29,10 +30,13 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
 	}
 }
 
-export async function loginWithPin(farmId: string, pin: string): Promise<LoginResult> {
+export async function loginWithPassword(farmId: string, password: string): Promise<LoginResult> {
 	try {
 		if (!farmId.trim()) return { error: "invalid" };
-		if (pin.length < 4 || pin.length > 6) return { error: "invalid" };
+		// Legacy PINs are numeric passwords. Login deliberately accepts any
+		// non-empty password within the bcrypt limit; the permanent policy is
+		// enforced when a password is created or changed.
+		if (!validatePassword(password, "temporary").ok) return { error: "invalid" };
 
 		const normalizedFarmId = farmId.trim().toLowerCase();
 
@@ -52,13 +56,13 @@ export async function loginWithPin(farmId: string, pin: string): Promise<LoginRe
 		const locale = await getLocale();
 		const supabase = await createClient();
 
-		const { error } = await supabase.auth.signInWithPassword({
+		const { data, error } = await supabase.auth.signInWithPassword({
 			email: buildPondEmail(normalizedFarmId),
-			password: pin,
+			password,
 		});
 
-		if (error) {
-			console.error("[auth] login failed:", error.message);
+		if (error || !data.user) {
+			console.error("[auth] login failed:", error?.message ?? "no user returned");
 			await withRetry(() => recordFailedAttempt(normalizedFarmId, ip));
 			return { error: "invalid" };
 		}
@@ -66,16 +70,15 @@ export async function loginWithPin(farmId: string, pin: string): Promise<LoginRe
 		// Successful login — reset this pair's lockout counter
 		await withRetry(() => resetLockout(normalizedFarmId, ip));
 
-		// Platform admins land on their own console; everyone else on the
-		// farmer dashboard. Fail-closed: if the lookup errors we fall through
-		// to /dashboard rather than blocking a valid login.
-		let landing = "/dashboard";
+		// A temporary-password account must change it before reaching any
+		// console. Otherwise platform admins land on /superadmin and everyone
+		// else on the farmer dashboard. Fail-closed: if the lookup errors we
+		// fall through to /dashboard rather than blocking a valid login.
+		let landing: PostLoginDestination = "/dashboard";
 		try {
-			if (await isPlatformAdminFarmId(normalizedFarmId)) {
-				landing = "/superadmin";
-			}
+			landing = await getPostLoginDestination(normalizedFarmId, data.user.id);
 		} catch (dbError) {
-			reportError(dbError, { action: "loginWithPin.landing", farmId });
+			reportError(dbError, { action: "loginWithPassword.landing", farmId });
 		}
 		redirect({ href: landing, locale });
 	} catch (error) {
@@ -89,7 +92,7 @@ export async function loginWithPin(farmId: string, pin: string): Promise<LoginRe
 		) {
 			throw error;
 		}
-		reportError(error, { action: "loginWithPin", farmId });
+		reportError(error, { action: "loginWithPassword", farmId });
 		return { error: "service" };
 	}
 }

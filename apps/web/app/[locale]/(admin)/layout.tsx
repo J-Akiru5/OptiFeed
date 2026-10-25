@@ -2,7 +2,7 @@ import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { AdminSidebar } from "@/components/admin-sidebar";
 import { Link } from "@/i18n/routing";
-import { getCurrentUser, requireRole } from "@/lib/auth/session";
+import { requirePasswordChanged, requireRole } from "@/lib/auth/session";
 import Image from "next/image";
 
 export default async function AdminLayout({
@@ -10,6 +10,7 @@ export default async function AdminLayout({
 }: {
 	children: React.ReactNode;
 }) {
+	await requirePasswordChanged();
 	await requireRole("ADMIN");
 
 	return (

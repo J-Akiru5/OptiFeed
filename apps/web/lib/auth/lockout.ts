@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 
-// Hard lockout: 5 failed PIN attempts per (farmId, IP) lock that pair for
+// Hard lockout: 5 failed login attempts per (farmId, IP) lock that pair for
 // 15 minutes. Split by IP so a stranger hammering the login cannot lock
 // the real farmer out of their own account.
 const MAX_ATTEMPTS = 5;
@@ -151,7 +151,7 @@ async function notifyBruteForce(farmId: string, ip: string): Promise<void> {
 				farmId,
 				tier: "WARNING",
 				category: "security",
-				message: `Unusual number of failed login attempts from ${ip}. If this wasn't you, change the PIN.`,
+				message: `Unusual number of failed login attempts from ${ip}. If this wasn't you, change the password.`,
 				linkTo: "/dashboard/settings/profile",
 			},
 		});

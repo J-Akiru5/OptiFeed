@@ -1,7 +1,10 @@
 "use client";
 
+import { PasswordInput } from "@/components/password-input";
+import { PasswordStrength } from "@/components/password-strength";
 import { useRouter } from "@/i18n/routing";
 import { createPondWithFarmer } from "@/lib/actions/admin";
+import { getPasswordStrength, passwordErrorMessage, validatePassword } from "@/lib/auth/password";
 import { useState } from "react";
 
 /**
@@ -16,15 +19,32 @@ export function CreatePondForm() {
 	const router = useRouter();
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
+	const [password, setPassword] = useState("");
+	const [confirmPassword, setConfirmPassword] = useState("");
 
 	async function handleSubmit(formData: FormData) {
-		setLoading(true);
 		setError(null);
+
+		if (!password) {
+			setError("Password is required.");
+			return;
+		}
+		if (password !== confirmPassword) {
+			setError("Passwords do not match.");
+			return;
+		}
+		const passwordCheck = validatePassword(password, "temporary");
+		if (!passwordCheck.ok) {
+			setError(passwordErrorMessage(passwordCheck.code));
+			return;
+		}
+
+		setLoading(true);
 
 		const result = await createPondWithFarmer({
 			farmerName: formData.get("farmerName") as string,
 			loginId: formData.get("loginId") as string,
-			pin: formData.get("pin") as string,
+			password,
 			pondName: formData.get("pondName") as string,
 			feedingRatePct: Number.parseFloat(formData.get("feedingRatePct") as string),
 			feedsPerDay: Number.parseInt(formData.get("feedsPerDay") as string, 10),
@@ -97,24 +117,50 @@ export function CreatePondForm() {
 					</div>
 				</div>
 
-				<div className="max-w-[12rem]">
-					<label
-						htmlFor="pin"
-						className="block text-xs font-bold uppercase text-[#3D5568] tracking-wider mb-1.5"
-					>
-						PIN
-					</label>
-					<input
-						id="pin"
-						name="pin"
-						type="password"
-						required
-						inputMode="numeric"
-						pattern="\d{6}"
-						title="Exactly 6 digits"
-						placeholder="6 digits"
-						className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-mono font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
-					/>
+				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+					<div>
+						<label
+							htmlFor="password"
+							className="block text-xs font-bold uppercase text-[#3D5568] tracking-wider mb-1.5"
+						>
+							Password
+						</label>
+						<PasswordInput
+							id="password"
+							name="password"
+							value={password}
+							onChange={setPassword}
+							required
+							disabled={loading}
+							placeholder="Temporary password"
+						/>
+						<PasswordStrength password={password} />
+						{password && getPasswordStrength(password) === "weak" && (
+							<p className="mt-1.5 text-[11px] font-bold text-[#B54708]">
+								Weak temporary password — the user must change it on first login.
+							</p>
+						)}
+					</div>
+					<div>
+						<label
+							htmlFor="confirmPassword"
+							className="block text-xs font-bold uppercase text-[#3D5568] tracking-wider mb-1.5"
+						>
+							Confirm password
+						</label>
+						<PasswordInput
+							id="confirmPassword"
+							name="confirmPassword"
+							value={confirmPassword}
+							onChange={setConfirmPassword}
+							required
+							disabled={loading}
+							placeholder="Repeat the password"
+						/>
+						{confirmPassword && password !== confirmPassword && (
+							<p className="mt-1.5 text-[11px] font-bold text-[#C42B3A]">Passwords do not match.</p>
+						)}
+					</div>
 				</div>
 			</fieldset>
 

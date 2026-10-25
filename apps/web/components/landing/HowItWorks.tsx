@@ -147,26 +147,26 @@ export function HowItWorks() {
 	return (
 		<section
 			id="how"
-			className="scroll-mt-20 border-b border-[#DFE7E4] py-16 md:py-24 dark:border-white/10"
+			className="scroll-mt-24 border-b border-[#E3EAE7] bg-[#F7F9F8] py-20 sm:py-24 dark:border-white/10 dark:bg-[#070D13]"
 		>
-			<div className="mx-auto w-full max-w-[78rem] px-5 sm:px-8 lg:px-10">
-				<Reveal>
-					<p className="text-[11px] font-semibold tracking-[0.18em] text-[#E85A2A] uppercase dark:text-[#FF8A5C]">
+			<div className="mx-auto w-full max-w-[80rem] px-5 sm:px-8 lg:px-10">
+				<Reveal className="max-w-2xl">
+					<p className="text-[11px] font-semibold tracking-[0.18em] text-[#C4461D] uppercase dark:text-[#FF8A5C]">
 						{t("howEyebrow")}
 					</p>
-					<h2 className="mt-4 max-w-3xl text-3xl font-semibold leading-[1.1] tracking-[-0.03em] text-[#0A2E47] sm:text-[2.4rem] dark:text-white">
+					<h2 className="mt-3 text-[2rem] font-semibold leading-[1.08] tracking-[-0.035em] text-[#0A2E47] sm:text-[2.55rem] dark:text-white">
 						{t("howTitle")}
 					</h2>
-					<p className="mt-4 max-w-2xl text-[14.5px] leading-6 text-slate-600 dark:text-slate-400">
+					<p className="mt-4 text-[15px] leading-7 text-slate-600 dark:text-slate-400">
 						{t("howDesc")}
 					</p>
 				</Reveal>
 
 				<div className="mt-12 grid gap-12 lg:grid-cols-[1.2fr_0.8fr]">
-					<div className="relative lg:pb-[30vh]">
+					<div className="relative lg:pb-[14vh]">
 						<div
 							aria-hidden="true"
-							className="absolute top-6 bottom-6 left-6 hidden w-0.5 -translate-x-1/2 bg-[#DDE5E1] sm:block lg:bottom-[calc(30vh+1.5rem)] dark:bg-white/10"
+							className="absolute top-6 bottom-6 left-6 hidden w-0.5 -translate-x-1/2 bg-[#DCE5E1] sm:block lg:bottom-[calc(14vh+1.5rem)] dark:bg-white/10"
 						>
 							<motion.div
 								className="h-full w-full origin-top bg-[#E85A2A]"
@@ -184,7 +184,7 @@ export function HowItWorks() {
 										ref={(el) => {
 											stepEls.current[i] = el;
 										}}
-										className="flex gap-5 lg:min-h-[42vh] lg:items-start lg:pt-2"
+										className="flex gap-5 lg:min-h-[30vh] lg:items-start lg:pt-2"
 										aria-current={isActive ? "step" : undefined}
 									>
 										<motion.span
@@ -193,17 +193,17 @@ export function HowItWorks() {
 											className={cn(
 												"relative z-10 flex size-12 shrink-0 items-center justify-center rounded-xl text-lg font-semibold text-white transition-colors duration-300",
 												isActive
-													? "bg-[#E85A2A]"
+													? "bg-[#E85A2A] shadow-[0_10px_24px_-12px_rgba(232,90,42,0.8)]"
 													: isPast
-														? "bg-[#0A3D62]"
-														: "bg-[#0A3D62]/10 text-[#0A3D62] dark:bg-white/10 dark:text-white/50",
+														? "bg-[#0A3D62] dark:bg-[#1B5A85]"
+														: "border border-[#DCE5E1] bg-white text-[#0A3D62] dark:border-white/10 dark:bg-white/5 dark:text-white/50",
 											)}
 										>
 											{isPast ? <Check className="size-5" aria-hidden="true" /> : n}
 										</motion.span>
 										<motion.div
 											animate={{
-												opacity: isActive || reduced ? 1 : 0.55,
+												opacity: isActive || reduced ? 1 : 0.68,
 												x: isActive ? 4 : 0,
 											}}
 											transition={{ duration: 0.3 }}
@@ -221,8 +221,8 @@ export function HowItWorks() {
 						</ol>
 					</div>
 
-					<div className="self-start lg:sticky lg:top-24">
-						<figure className="rounded-2xl border border-[#DFE7E4] bg-white p-5 shadow-[0_24px_60px_-36px_rgba(10,46,71,0.35)] sm:p-6 dark:border-white/10 dark:bg-[#0C1319]">
+					<div className="self-start lg:sticky lg:top-28">
+						<figure className="rounded-2xl border border-[#E3EAE7] bg-white p-5 shadow-[0_24px_60px_-38px_rgba(10,46,71,0.4)] sm:p-6 dark:border-white/10 dark:bg-[#0C1319]">
 							<figcaption className="text-[15px] font-semibold text-[#0A2E47] dark:text-white">
 								{t("calcTitle")}
 							</figcaption>

@@ -1,6 +1,7 @@
 import { HarvestCalendar } from "@/components/harvest/harvest-calendar";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { hasPermission } from "@/lib/auth/permissions";
+import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { computeCropCycleMetrics } from "@/lib/crop-cycle/metrics";
 import { serialiseCycle } from "@/lib/crop-cycle/serialise";
@@ -13,15 +14,13 @@ import type {
 import { parsePondProfile } from "@/lib/pond-profile";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
-import { CalendarDays } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0;
 
 export default async function HarvestPage() {
-	const t = await getTranslations("dashboard.harvest");
 	const tSchedule = await getTranslations("dashboard.schedule");
-	const pond = await getActivePond();
+	const pond = await getActivePond({ energyDevices: true });
 
 	if (!pond) {
 		return (
@@ -91,6 +90,21 @@ export default async function HarvestPage() {
 	const activeCycle = activeCycles.find((cycle) => cycle.pondId === pond.id) ?? null;
 	const recentCycles = serialised.filter((cycle) => cycle.status !== "ACTIVE");
 	const today = todayDateOnly();
+	const devices = (pond.energyDevices ?? []) as Array<{
+		feedLevelPercent: number | null;
+		lastSeenAt: Date | null;
+	}>;
+	const latestDevice = devices.reduce<(typeof devices)[number] | null>(
+		(latest, device) =>
+			!latest || (device.lastSeenAt?.getTime() ?? 0) > (latest.lastSeenAt?.getTime() ?? 0)
+				? device
+				: latest,
+		null,
+	);
+	const hopperLevelPct = latestDevice?.feedLevelPercent ?? 0;
+	const hopperIsOffline =
+		!latestDevice?.lastSeenAt ||
+		Date.now() - latestDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
 
 	const summariseCycle = (cycle: (typeof serialised)[number]): CycleSummarySnapshot => {
 		const metrics = computeCropCycleMetrics(
@@ -134,7 +148,7 @@ export default async function HarvestPage() {
 	};
 
 	return (
-		<div className="mx-auto w-full min-w-0 max-w-7xl space-y-6 pb-20 animate-in fade-in duration-150 [contain:inline-size]">
+		<>
 			<SnapshotWriter
 				page="harvest"
 				scope={pond.ownerId}
@@ -142,24 +156,6 @@ export default async function HarvestPage() {
 				pondName={pond.name}
 				data={harvestSnapshot}
 			/>
-			<div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-				<div>
-					<div className="flex items-center gap-2">
-						<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
-							<CalendarDays className="h-6 w-6" />
-						</div>
-						<div className="min-w-0">
-							<h1 className="text-2xl font-black tracking-tight text-[var(--ofd-base-deep)] sm:text-3xl">
-								{t("title")}
-							</h1>
-							<p className="text-sm text-gray-500 dark:text-gray-400">
-								{t("desc", { pond: pond.name })}
-							</p>
-						</div>
-					</div>
-				</div>
-			</div>
-
 			<HarvestCalendar
 				initialPondId={pond.id}
 				initialPondName={pond.name}
@@ -169,8 +165,10 @@ export default async function HarvestPage() {
 				activeCycles={activeCycles}
 				recentCycles={recentCycles}
 				canManage={canManage}
-				today={todayDateOnly()}
+				today={today}
+				hopperLevelPct={hopperLevelPct}
+				hopperIsOffline={hopperIsOffline}
 			/>
-		</div>
+		</>
 	);
 }

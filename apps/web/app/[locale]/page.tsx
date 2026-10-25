@@ -109,20 +109,6 @@ export default function LandingPage() {
 		return () => window.removeEventListener("keydown", onKey);
 	}, [menuOpen]);
 
-	useEffect(() => {
-		document.title = "PakaonAI — Precision Feeding for African Catfish";
-		let description = document.querySelector('meta[name="description"]');
-		if (!description) {
-			description = document.createElement("meta");
-			description.setAttribute("name", "description");
-			document.head.appendChild(description);
-		}
-		description.setAttribute(
-			"content",
-			"A precision feeding system for African catfish. Log a sample, and PakaonAI recalculates the ration and syncs the ESP32 feeder.",
-		);
-	}, []);
-
 	const switchLocale = (nextLocale: "en" | "hil") => {
 		if (nextLocale === locale) return;
 		startLocaleTransition(() => {

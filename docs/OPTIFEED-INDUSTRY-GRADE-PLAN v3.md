@@ -207,7 +207,7 @@ Acceptance: the label round-trips (form → DB → Growth table → CSV export);
 - 2.7 **superseded** — per-IP lockout exists (`lib/auth/lockout.ts`, `lockout.test.ts`) and remains. The PIN-length policy is replaced by task 2.10; see the password authentication contract below.
 - 2.8 **code done** — friendly-error handling exists with `lib/__tests__/login-errors.test.ts` ("with Prisma mocked to throw…"); the `DATABASE_URL` dashboard check and monitors (H4) remain human tasks. Sentry stays removed (see 3.2).
 - 2.9 **done** — no `registerEnergyDevice` references remain anywhere in TS sources.
-- 2.10 **planned (2026-10-26)** — password authentication contract recorded; implementation not started at the time of this update. See `docs/password-auth-plan.md`.
+- 2.10 **implemented and verified (2026-10-26)** — migration `20261026000000_add_must_change_password` applied; all 5 existing accounts reset to temporary `password123` and flagged for a forced change; unit tests (67 files / 756 tests), typecheck, lint, production build, and the auth e2e spec passed. The demo account is stabilized by the e2e setup and then reset to `password123`. See `docs/password-auth-plan.md`.
 
 #### Password authentication contract (task 2.10, 2026-10-26)
 

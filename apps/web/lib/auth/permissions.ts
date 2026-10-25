@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 import type { MemberRole } from "@prisma/client";
-import { getCurrentUser } from "./session";
+import { assertPasswordChanged, getCurrentUser } from "./session";
 
 /**
  * Tenant permission names (plan §4.2). The database stores these as free-text
@@ -175,6 +175,7 @@ export async function hasPermission(permission: Permission): Promise<boolean> {
  * their existing role/write-access guards; this is an additional gate.
  */
 export async function requirePermission(permission: Permission): Promise<void> {
+	await assertPasswordChanged();
 	if (!(await hasPermission(permission))) {
 		throw new Error("Forbidden");
 	}

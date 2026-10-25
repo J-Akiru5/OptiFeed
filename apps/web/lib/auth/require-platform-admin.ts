@@ -2,7 +2,7 @@ import { redirect } from "@/i18n/routing";
 import prisma from "@/lib/prisma";
 import { getLocale } from "next-intl/server";
 import { isPlatformAdminActive } from "./platform-admin";
-import { getCurrentUser } from "./session";
+import { assertPasswordChanged, getCurrentUser } from "./session";
 
 /**
  * True when the current authenticated user holds an active PlatformAdmin row.
@@ -56,6 +56,7 @@ export async function isPlatformAdminFarmId(farmId: string): Promise<boolean> {
  * can open the other console.
  */
 export async function requirePlatformAdmin(): Promise<void> {
+	await assertPasswordChanged();
 	const allowed = await isCurrentPlatformAdmin();
 	if (!allowed) {
 		const locale = await getLocale();

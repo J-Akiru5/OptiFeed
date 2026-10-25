@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ETags are computed over `data + cacheable meta`, so `request_id` no longer makes every conditional request miss.
 - The dashboard no longer renders a second back button on nested pages that already show a contextual parent link (Biomass Log batches and Growth history) (#147).
 - Device time calibration now shows and sends the browser's local time instead of UTC, and the ESP32 applies a manual calibration (or corrects RTC drift from `server_time`) on its next 5-second poll (#149).
+- The forced password change is now enforced inside the shared tenant, platform, write and permission guards, so a flagged account cannot call a server action directly before changing its password.
 - The error normaliser reads a clone, so a conformant error body is not consumed before the client sees it.
 - Timeout errors are logged once and carry the specific `504 TIMEOUT` message; passthrough routes return a plain 504 body.
 - The dashboard hopper widget rests at 0% behind an "Offline" badge when the ESP32 stops checking in, instead of freezing on the last reported level (#100).

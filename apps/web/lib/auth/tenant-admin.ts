@@ -1,7 +1,7 @@
 import { redirect } from "@/i18n/routing";
 import prisma from "@/lib/prisma";
 import { getLocale } from "next-intl/server";
-import { getCurrentUser } from "./session";
+import { assertPasswordChanged, getCurrentUser } from "./session";
 
 /**
  * Tenant roles that may open the /admin console. This is deliberately separate
@@ -75,6 +75,7 @@ export async function isCurrentTenantAdmin(): Promise<boolean> {
  * server action. `User.role` is not tenant authority.
  */
 export async function requireTenantAdmin(): Promise<void> {
+	await assertPasswordChanged();
 	if (await isCurrentTenantAdmin()) return;
 	const locale = await getLocale();
 	redirect({ href: "/dashboard", locale });

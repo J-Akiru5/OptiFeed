@@ -1,7 +1,7 @@
 import { redirect } from "@/i18n/routing";
 import { getVerifiedSession } from "@/lib/auth/verify-session";
 import prisma from "@/lib/prisma";
-import type { UserRole } from "@prisma/client";
+import type { User, UserRole } from "@prisma/client";
 import { getLocale } from "next-intl/server";
 import { cache } from "react";
 
@@ -78,6 +78,44 @@ export const getCurrentUser = cache(async () => {
 });
 
 /**
+ * Require an authenticated user who has completed any forced password change.
+ *
+ * Redirects unauthenticated visitors to /login and flagged users to
+ * /change-password. Call this before role/platform gates so a temporary
+ * password cannot reach any console.
+ */
+export async function requirePasswordChanged(): Promise<User> {
+	const user = await getCurrentUser();
+
+	if (!user) {
+		const locale = await getLocale();
+		redirect({ href: "/login", locale });
+		throw new Error("redirect");
+	}
+
+	if (user.mustChangePassword) {
+		const locale = await getLocale();
+		redirect({ href: "/change-password", locale });
+		throw new Error("redirect");
+	}
+
+	return user;
+}
+
+/**
+ * Throw when the caller must still change their temporary password.
+ *
+ * `requirePasswordChanged()` redirects, which is correct for layouts but wrong
+ * for a server action or API route. The shared action guards call this so a
+ * flagged user cannot bypass the change screen by invoking an action directly.
+ */
+export async function assertPasswordChanged(): Promise<void> {
+	const user = await getCurrentUser();
+	if (!user) throw new Error("Not authenticated");
+	if (user.mustChangePassword) throw new Error("Password change required");
+}
+
+/**
  * Get the current user's role. Returns null if not authenticated.
  */
 export async function getCurrentUserRole(): Promise<UserRole | null> {
@@ -104,6 +142,7 @@ export async function requireRole(...roles: UserRole[]): Promise<void> {
  * VIEWER and unauthenticated callers are rejected before any write happens.
  */
 export async function requireWriteAccess(): Promise<void> {
+	await assertPasswordChanged();
 	const userRole = await getCurrentUserRole();
 	if (userRole !== "ADMIN" && userRole !== "OPERATOR") {
 		throw new Error("Write access required (ADMIN or OPERATOR)");
@@ -115,8 +154,9 @@ export async function requireWriteAccess(): Promise<void> {
  * Use in server components to disable VIEWER-only-readonly UI.
  */
 export async function canWrite(): Promise<boolean> {
-	const userRole = await getCurrentUserRole();
-	return userRole === "ADMIN" || userRole === "OPERATOR";
+	const user = await getCurrentUser();
+	if (!user || user.mustChangePassword) return false;
+	return user.role === "ADMIN" || user.role === "OPERATOR";
 }
 
 /**

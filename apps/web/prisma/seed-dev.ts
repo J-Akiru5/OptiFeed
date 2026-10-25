@@ -33,6 +33,7 @@ async function main() {
 		update: {
 			displayName: "Juan Miguel",
 			role: "ADMIN",
+			mustChangePassword: false,
 		},
 		create: {
 			supabaseId: demoUserId,
@@ -40,11 +41,32 @@ async function main() {
 			email: DEMO_EMAIL,
 			displayName: "Juan Miguel",
 			role: "ADMIN",
+			mustChangePassword: false,
 		},
 	});
 	console.log("✓ Demo user:", demoUser.farmId);
 
 	// ── 1b. Upsert Demo Farm (exactly 1 farm per farmer) ──────────────────
+	// Demo tenant org + OWNER membership. The /admin console is gated on
+	// Membership.role, not User.role, so without this the demo admin is
+	// correctly denied the tenant console.
+	const demoOrg = await prisma.organization.upsert({
+		where: { id: "demo-org-001" },
+		update: { name: "Demo Farm (independent)", status: "ACTIVE" },
+		create: {
+			id: "demo-org-001",
+			name: "Demo Farm (independent)",
+			type: "INDIVIDUAL",
+			status: "ACTIVE",
+		},
+	});
+	await prisma.membership.upsert({
+		where: { orgId_userId: { orgId: demoOrg.id, userId: demoUser.id } },
+		update: { role: "OWNER", revokedAt: null },
+		create: { orgId: demoOrg.id, userId: demoUser.id, role: "OWNER" },
+	});
+	console.log("Demo tenant membership:", demoOrg.id);
+
 	const farm = await prisma.farm.upsert({
 		where: { ownerId: DEMO_FARM_ID },
 		update: {},

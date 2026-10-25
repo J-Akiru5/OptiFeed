@@ -21,8 +21,39 @@ Source of truth for the permission model: [`SUPERADMIN-MULTITENANCY-PLAN.md`](./
 - The resolver fails closed: no session, no user row, no membership, or no `ACTIVE` organization
   yields no permissions.
 - Tenant admins manage grants and revocations from **Admin → Users → Permissions**. The server
-  requires `ADMIN` + `manage_members` + a target inside the caller's org scope.
+  requires a tenant `OWNER`/`ADMIN` membership + `manage_members` + a target inside the caller's org
+  scope.
 - An admin cannot revoke their own `manage_members`; the guard is enforced server-side.
+
+## Console access
+
+- The tenant `/admin` console requires an active `Membership` with role `OWNER` or `ADMIN` in an
+  `ACTIVE` organization (`apps/web/lib/auth/tenant-admin.ts`). `User.role = ADMIN` alone is not
+  enough, and a global admin with only an `OPERATOR` membership is denied.
+- The platform `/superadmin` console requires an active `PlatformAdmin` row
+  (`requirePlatformAdmin()`). A tenant `OWNER`/`ADMIN` membership does not imply it, and a platform
+  administrator gets no farm-write powers from that grant.
+- `updateUser` in the tenant console cannot change `User.role`. Global role changes happen only in
+  `/superadmin`, which is platform-admin gated, so a tenant admin cannot mint a platform-level
+  account or escalate a member.
+
+## Password-change gate (task 2.10)
+
+Console access is independent of the password-change flag, but the flag must be checked first. When
+`User.mustChangePassword` lands (contract: [`password-auth-plan.md`](./password-auth-plan.md)):
+
+1. `requirePasswordChanged()` runs before `requireTenantAdmin()`, `requirePlatformAdmin()` and
+   `requireWriteAccess()`. Putting it inside those shared guards covers layouts **and** direct server
+   action calls.
+2. Login sends a flagged user to `/change-password` before choosing `/dashboard` or `/superadmin`.
+3. A flagged user cannot bypass the gate by calling an admin action directly; a layout redirect is
+   not the security boundary.
+4. The role checks themselves are unchanged: tenant `OWNER`/`ADMIN` membership and an active
+   `PlatformAdmin` row remain the only console authorities.
+
+`admin-rbac-guards.test.ts` already asserts that every tenant-admin action calls
+`requireTenantAdmin()`, so adding the password check inside that guard inherits the gate for every
+action without a second list to maintain.
 
 ## Permission set
 

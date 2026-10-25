@@ -58,18 +58,22 @@ describe("Postgres rate limiter", () => {
 
 	it("device limit fails OPEN when the store is unavailable", async () => {
 		queryRaw.mockRejectedValueOnce(new Error("db down"));
-		const result = await checkDeviceRateLimit("esp32-device-1");
+		const result = await checkDeviceRateLimit("esp32-device-1", "feed");
 		expect(result.success).toBe(true);
 	});
 
-	it("keys are namespaced per limiter", async () => {
+	it("keys each device endpoint separately so the 5s polls cannot collide", async () => {
 		returnsCount(1);
-		await checkDeviceRateLimit("device-a");
-		expect((queryRaw.mock.calls[0] as unknown[])[1]).toBe("rl:device:device-a");
+		await checkDeviceRateLimit("device-a", "feed");
+		expect((queryRaw.mock.calls[0] as unknown[])[1]).toBe("rl:device:feed:device-a");
 
 		returnsCount(1);
-		await checkDeviceRateLimit("device-b");
-		expect((queryRaw.mock.calls[1] as unknown[])[1]).toBe("rl:device:device-b");
+		await checkDeviceRateLimit("device-a", "schedule");
+		expect((queryRaw.mock.calls[1] as unknown[])[1]).toBe("rl:device:schedule:device-a");
+
+		returnsCount(1);
+		await checkDeviceRateLimit("device-b", "feed");
+		expect((queryRaw.mock.calls[2] as unknown[])[1]).toBe("rl:device:feed:device-b");
 	});
 });
 

@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Installable PWA shell for the dashboard: web app manifest, service-worker static-asset caching, an offline fallback page with the last saved dashboard snapshot, and an offline status banner. Authenticated HTML/RSC and API responses are not cached; feed commands stay disabled offline, and the snapshot is cleared on sign-out and login. The ESP32 RTC schedule remains the authoritative offline feeding path.
+- Multi-page offline snapshots: Dashboard, Schedule, Growth, Harvest and History write compact per-pond snapshots to IndexedDB (localStorage fallback), and the offline shell renders them as tabs with a last-synced age and stale warning. Cache version moved to `pakaonai-static-v2`.
+- Offline biomass outbox: the offline shell and the online Log Sample form queue biomass samples in IndexedDB/localStorage, replay them through `saveBiomassLog` when online, and use a client event id as the `BiomassLog` primary key so a duplicate replay cannot create a second sample. Queued samples are per user/pond and cleared on logout/login.
 - API regulation adoption (`API_REGULATION.md`): a single `{ data, meta }` / `{ error }` envelope, the documented status map, and a project-specific decision table. ESP32 firmware, the uptime probe, file downloads and SSE are documented exemptions.
 - `withApi()` request pipeline for every API route: `Server-Timing` (`total`, `db`, `app`, `auth`, `queries`) and `X-Request-Id` on success, 4xx, 5xx and timeouts; `WARN SLOW` / `ERROR VIOLATION` logs with the route template; absolute 2 s guard returning `504 TIMEOUT`.
 - Data-layer query counting through a Prisma `$allOperations` extension and `AsyncLocalStorage`, so query count and DB time cannot silently measure zero.
@@ -24,12 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Harvest calendar (`PondEvent` + FullCalendar v7): month/week/list views, harvest/stocking/sampling/manual/feeding/device events, filters, all-ponds toggle, drag-to-reschedule for planned events, and a Harvest page in the sidebar and mobile nav.
 - Fallow-pond safety: harvesting or cancelling a cycle pauses the paired feeder and sets `Pond.isFallow`; feed, resume, and schedule changes are blocked until the next cycle starts.
 - Cycle-aware AI advice: the feed advisor and chat prompt receive grow-out day, days to harvest, target weight, projected biomass, and fallow state. The formula and safety clamps remain authoritative.
+- Open Graph and Twitter card metadata now serve a 1200×630 PakaonAI preview image at `/og.png`, using the current logo kit and updated capstone credits.
 
 ### Changed
 
 - The web app renders the PakaonAI logo kit (fish-and-ring mark plus wordmark) in the landing header/footer and the admin and dashboard headers, replacing the inline SVG mark and the split `Opti`/`Feed` text lockup. `OptiFeedLogo` now takes a `variant` (`ondark`, `color`, `color-light`, `white`, `navy`) and serves the kit's PNG marks.
-- The login page is rebuilt as a focused split layout with a PakaonAI brand panel, remembered farm IDs, PIN reveal, inline validation, a language switch and dark mode.
-- The landing page is redesigned around the same visual system: blueprint grid, pond hero with an operations preview, an underlined headline, scroll-driven research sections and a mobile section menu. PakaonAI branding now also covers the login, superadmin, chat assistant, onboarding tour and PDF/export labels.
+- The login page is rebuilt as a focused split layout with a PakaonAI brand panel, remembered farm IDs, password reveal, inline validation, a language switch and dark mode. The field is now a normal password instead of a numeric-only PIN; legacy PINs still work once before the forced password change.
+- The landing page is rebuilt as a product-led SaaS page: a dark hero with an illustrative dashboard preview, a fixed-timer vs PakaonAI comparison, a scroll-driven feeding-loop explainer, wave transitions around the offline section, research and ISO/IEC 25010 cards, and a closing study-access CTA. Public copy now matches what the firmware and app actually do, with no SGR, L298N, power-reset or enforced feeding-window claims. PakaonAI branding now also covers the login, superadmin, chat assistant, onboarding tour and PDF/export labels.
 - `withAuth`/`withCronAuth` now return the error envelope and record their own `auth` timing.
 - `/api/user-role` returns `{ role, email, displayName }` with `private, max-age=60` and an ETag; the dashboard layout now resolves the user server-side and passes it to the header, so the header makes no client round-trip at all.
 - The dashboard import/export and prediction components use the shared API client and unwrap the envelope.
@@ -39,13 +42,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Tenant console access is now gated by an active OWNER/ADMIN `Membership` in an `ACTIVE` organization, not the legacy global `User.role` flag. `updateUser` no longer changes `User.role`, closing a role-escalation path, and the profile menu shows **Admin Panel** only for tenant admins and **Platform Console** only for active platform administrators (#146).
 - ETags are computed over `data + cacheable meta`, so `request_id` no longer makes every conditional request miss.
+- The dashboard no longer renders a second back button on nested pages that already show a contextual parent link (Biomass Log batches and Growth history) (#147).
+- Device time calibration now shows and sends the browser's local time instead of UTC, and the ESP32 applies a manual calibration (or corrects RTC drift from `server_time`) on its next 5-second poll (#149).
+- The forced password change is now enforced inside the shared tenant, platform, write and permission guards, so a flagged account cannot call a server action directly before changing its password.
 - The error normaliser reads a clone, so a conformant error body is not consumed before the client sees it.
 - Timeout errors are logged once and carry the specific `504 TIMEOUT` message; passthrough routes return a plain 504 body.
 - The dashboard hopper widget rests at 0% behind an "Offline" badge when the ESP32 stops checking in, instead of freezing on the last reported level (#100).
 - Dashboard cards keep their natural height instead of being stretched to match the tallest card in their row (#95).
 - The Biomass Sample History card hides its secondary columns below `lg`, so a phone no longer needs a horizontal scrollbar to read it (#94).
 - The help and chat floating buttons keep their raised anchor until the bottom navigation is hidden at `lg`, so they no longer sit on top of the nav between 768px and 1023px (#93).
+
+### Security
+
+- Password authentication replaces numeric PIN login. Existing accounts are forced to set a permanent password on next login; `password123` is accepted only as a temporary initial credential. Permanent passwords require 8+ characters with a letter and number, and a weak/medium/strong meter is shown on password-setting forms. Users can change their own password from Profile Settings.
 
 ## [1.11.0] - 2026-10-22
 

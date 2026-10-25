@@ -1,6 +1,6 @@
 import { HarvestCalendar } from "@/components/harvest/harvest-calendar";
 import { resolveOrgScope } from "@/lib/auth/org-scope";
-import { requireRole } from "@/lib/auth/session";
+import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { serialiseCycle } from "@/lib/crop-cycle/serialise";
 import type { PondOption } from "@/lib/crop-cycle/types";
@@ -30,7 +30,7 @@ const CYCLE_SELECT = {
 };
 
 export default async function AdminCalendarPage() {
-	await requireRole("ADMIN");
+	await requireTenantAdmin();
 	const scope = await resolveOrgScope();
 
 	const ponds =

@@ -2,7 +2,8 @@ import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { AdminSidebar } from "@/components/admin-sidebar";
 import { Link } from "@/i18n/routing";
-import { getCurrentUser, requireRole } from "@/lib/auth/session";
+import { requirePasswordChanged } from "@/lib/auth/session";
+import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import Image from "next/image";
 
 export default async function AdminLayout({
@@ -10,7 +11,8 @@ export default async function AdminLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	await requireRole("ADMIN");
+	await requirePasswordChanged();
+	await requireTenantAdmin();
 
 	return (
 		<div className="flex flex-col min-h-screen bg-[#F4F7F6]">

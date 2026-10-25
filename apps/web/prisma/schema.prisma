@@ -60,6 +60,7 @@ model User {
   email        String   @unique
   displayName  String?
   role         UserRole @default(OPERATOR)
+  mustChangePassword Boolean @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

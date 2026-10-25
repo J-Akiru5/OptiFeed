@@ -6,7 +6,7 @@ export default defineConfig({
 	timeout: 30_000,
 	retries: 1,
 	use: {
-		baseURL: "http://localhost:3000",
+		baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000",
 		screenshot: "only-on-failure",
 		trace: "on-first-retry",
 	},

@@ -141,7 +141,7 @@ bool resetButtonsArmed = false;
 #define RELAY_ON        HIGH        // energizes coil, closes NO contacts -> dispensing
 #define RELAY_OFF       LOW         // rest state, contacts open -> not dispensing
 
-#define POST_INTERVAL_MS    5000    // telemetry + dashboard feed-command poll interval
+#define POST_INTERVAL_MS    5000    // telemetry + feed-command + schedule-sync poll interval
 #define BUTTON_DEBOUNCE_MS  250
 #define WIFI_RETRY_INTERVAL_MS 10000
 
@@ -1094,6 +1094,38 @@ void pollDashboardFeedCommand() {
 
 // ==================== Schedule sync from backend ====================
 
+// Parse an ISO-8601 UTC instant (e.g. 2026-10-25T08:25:00.000Z).
+bool parseIsoUtc(const char* iso, DateTime &out) {
+  int year, month, day, hour, minute, second;
+  if (!iso || strlen(iso) < 19) return false;
+  if (sscanf(iso, "%4d-%2d-%2dT%2d:%2d:%2d", &year, &month, &day, &hour, &minute, &second) != 6) {
+    return false;
+  }
+  if (year < 2020 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31 ||
+      hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) {
+    return false;
+  }
+  out = DateTime(year, month, day, hour, minute, second);
+  return true;
+}
+
+// A manual dashboard calibration is applied verbatim; server_time only
+// corrects real drift so every 5 s poll does not adjust the RTC.
+void applyIsoTime(const char* iso, bool force) {
+  if (!rtcAvailable) return;
+
+  DateTime target;
+  if (!parseIsoUtc(iso, target)) return;
+
+  DateTime current = rtc.now();
+  long drift = (long)target.unixtime() - (long)current.unixtime();
+  if (drift < 0) drift = -drift;
+  if (!force && drift <= 60) return;
+
+  rtc.adjust(target);
+  Serial.printf("[TIME] RTC %s from server (%lds drift)\n", force ? "set" : "corrected", drift);
+}
+
 void pollScheduleCommand() {
   if (WiFi.status() != WL_CONNECTED) return;
 
@@ -1104,8 +1136,18 @@ void pollScheduleCommand() {
   int code = https.GET();
   if (code == 200) {
     // Need a larger buffer for schedule data (times, counts, rates)
-    StaticJsonDocument<384> doc;
+    StaticJsonDocument<768> doc;
     if (!deserializeJson(doc, https.getString())) {
+      // Clock sync (#149): a manual calibration wins for 10 minutes; otherwise
+      // correct RTC drift from the server clock. Both are UTC instants.
+      const char* manualTime = doc["time_sync"] | "";
+      const char* serverTime = doc["server_time"] | "";
+      if (strlen(manualTime) > 0) {
+        applyIsoTime(manualTime, true);
+      } else if (strlen(serverTime) > 0) {
+        applyIsoTime(serverTime, false);
+      }
+
       bool changed = doc["schedule_changed"] | false;
       if (changed && !validateServerConfig(doc)) {
         // N9: ignore the whole command when any pushed value is out of range.

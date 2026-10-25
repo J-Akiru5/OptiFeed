@@ -1,3 +1,4 @@
+import { ChangePasswordForm } from "@/components/change-password-form";
 import { NotificationPrefsForm } from "@/components/notification-prefs-form";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getActivePond } from "@/lib/pond-selection";
@@ -130,22 +131,7 @@ export default async function ProfileSettingsPage() {
 						<p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("securityDesc")}</p>
 					</div>
 
-					<div className="space-y-4">
-						<div className="flex items-center justify-between">
-							<div>
-								<h3 className="font-medium text-gray-900 dark:text-gray-100">{t("changePin")}</h3>
-								<p className="text-sm text-gray-500 dark:text-gray-400">{t("changePinDesc")}</p>
-							</div>
-							<button
-								type="button"
-								disabled
-								className="rounded-lg border border-[#0A3D62]/20 px-4 py-2 text-sm font-medium text-[#0A3D62] opacity-50 cursor-not-allowed dark:border-gray-600 dark:text-gray-400"
-							>
-								{t("update")}
-							</button>
-						</div>
-						<p className="text-xs text-gray-500 dark:text-gray-400">{t("pinManagedByAdmin")}</p>
-					</div>
+					<ChangePasswordForm />
 				</section>
 
 				{/* Notification Preferences */}

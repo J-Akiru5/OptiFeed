@@ -48,7 +48,8 @@ export function isProtectedPath(pathname: string): boolean {
 	return (
 		pathname.includes("/dashboard") ||
 		pathname.includes("/admin") ||
-		pathname.includes("/superadmin")
+		pathname.includes("/superadmin") ||
+		pathname.includes("/change-password")
 	);
 }
 

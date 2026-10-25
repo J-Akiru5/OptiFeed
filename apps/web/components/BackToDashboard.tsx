@@ -1,6 +1,7 @@
 "use client";
 
 import { Link, usePathname } from "@/i18n/routing";
+import { shouldShowGlobalBackLink } from "@/lib/navigation/back-link";
 import { ArrowLeft } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -8,7 +9,7 @@ export function BackToDashboard() {
 	const pathname = usePathname();
 	const t = useTranslations("nav");
 
-	if (!pathname || pathname === "/dashboard") return null;
+	if (!shouldShowGlobalBackLink(pathname)) return null;
 
 	return (
 		<Link

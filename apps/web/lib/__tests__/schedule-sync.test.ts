@@ -11,6 +11,7 @@ vi.mock("@/lib/prisma", () => ({
 		},
 		deviceStateEvent: {
 			create: vi.fn(),
+			findFirst: vi.fn(),
 		},
 		pond: {
 			findUnique: vi.fn(),
@@ -62,6 +63,7 @@ describe("GET /api/schedule-sync", () => {
 		mockScheduleCommand.findFirst.mockResolvedValue(null);
 		mockScheduleCommand.update.mockResolvedValue({} as never);
 		mockDeviceStateEvent.create.mockResolvedValue({} as never);
+		mockDeviceStateEvent.findFirst.mockResolvedValue(null);
 		mockPond.findUnique.mockResolvedValue(null);
 	});
 
@@ -94,6 +96,34 @@ describe("GET /api/schedule-sync", () => {
 		mockEnergyDevice.findUnique.mockResolvedValue(null as never);
 		const res = await GET(syncRequest(DEVICE.mac, "wrong-token"));
 		expect(res.status).toBe(401);
+	});
+
+	it("returns the current server time and no manual calibration by default", async () => {
+		const res = await GET(syncRequest());
+		const body = await res.json();
+		expect(typeof body.server_time).toBe("string");
+		expect(Number.isNaN(Date.parse(body.server_time))).toBe(false);
+		expect(body.time_sync).toBeNull();
+		expect(mockDeviceStateEvent.findFirst).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: expect.objectContaining({
+					deviceId: DEVICE.id,
+					eventType: "set_time",
+					source: "user",
+					deviceTime: { not: null },
+				}),
+			}),
+		);
+	});
+
+	it("returns a recent manual calibration so the device applies it", async () => {
+		mockDeviceStateEvent.findFirst.mockResolvedValue({
+			deviceTime: "2026-10-25T08:25:00.000Z",
+		} as never);
+
+		const res = await GET(syncRequest());
+		const body = await res.json();
+		expect(body.time_sync).toBe("2026-10-25T08:25:00.000Z");
 	});
 
 	it("returns a null baseline when the device has no pond", async () => {

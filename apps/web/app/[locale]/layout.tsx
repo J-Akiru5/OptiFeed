@@ -17,7 +17,11 @@ const inter = Inter({
 	variable: "--font-inter",
 });
 
+const SITE_URL = "https://optifeed.syntaxure.dev";
+const OG_IMAGE_ALT = "PakaonAI — AI-powered smart feeding for catfish farms";
+
 export const metadata: Metadata = {
+	metadataBase: new URL(SITE_URL),
 	title: {
 		default: "PakaonAI — Precision Feeding for African Catfish",
 		template: "%s | PakaonAI",
@@ -31,12 +35,21 @@ export const metadata: Metadata = {
 			"A precision feeding research prototype for African catfish. Log a sample, and PakaonAI recalculates the ration and syncs the ESP32 feeder.",
 		type: "website",
 		siteName: "PakaonAI",
+		images: [
+			{
+				url: `${SITE_URL}/og.png`,
+				width: 1200,
+				height: 630,
+				alt: OG_IMAGE_ALT,
+			},
+		],
 	},
 	twitter: {
 		card: "summary_large_image",
 		title: "PakaonAI — Precision Feeding for African Catfish",
 		description:
 			"A precision feeding research prototype for African catfish. Log a sample and sync the next ration to the feeder.",
+		images: [{ url: `${SITE_URL}/og.png`, alt: OG_IMAGE_ALT }],
 	},
 	robots: {
 		index: true,

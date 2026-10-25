@@ -75,6 +75,7 @@ export default async function LogSamplePage() {
 					population={pond.population}
 					canWrite={writeAccess}
 					batchLabels={batchLabels}
+					scope={pond.ownerId}
 				/>
 			</div>
 

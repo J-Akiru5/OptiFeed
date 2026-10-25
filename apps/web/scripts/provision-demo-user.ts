@@ -10,7 +10,7 @@ try {
 
 const DEMO_EMAIL = "demo-farmer-1@pond.optifeed.local";
 const DEMO_FARM_ID = "demo-farmer-1";
-const DEMO_PIN = process.env.DEMO_PIN ?? "1234";
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? "OptiFeedDemo123";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -33,19 +33,23 @@ async function main() {
 	let user = existing.users.find((u) => u.email?.toLowerCase() === DEMO_EMAIL);
 
 	if (user) {
-		// Password rotation is best-effort: Supabase may reject short demo
-		// PINs (weak-password policy) even though the existing one works.
-		// A failure here must not block the supabaseId link below.
-		const { error } = await admin.auth.admin.updateUserById(user.id, { password: DEMO_PIN });
+		// Password rotation is best-effort: a dashboard password policy may
+		// reject the demo value even though the existing one works. A failure
+		// here must not block the supabaseId link below.
+		const { error } = await admin.auth.admin.updateUserById(user.id, {
+			password: DEMO_PASSWORD,
+		});
 		if (error) {
-			console.warn(`Could not reset PIN (existing one still valid): ${error.message}`);
+			console.warn(
+				`Could not reset the demo password (existing one still valid): ${error.message}`,
+			);
 		} else {
-			console.log(`Updated PIN for existing demo user ${DEMO_EMAIL}.`);
+			console.log(`Updated password for existing demo user ${DEMO_EMAIL}.`);
 		}
 	} else {
 		const { data, error } = await admin.auth.admin.createUser({
 			email: DEMO_EMAIL,
-			password: DEMO_PIN,
+			password: DEMO_PASSWORD,
 			email_confirm: true,
 		});
 		if (error) throw error;
@@ -68,20 +72,20 @@ async function main() {
 			console.warn(
 				`No Prisma User row for ${DEMO_FARM_ID} — run the seed first, then re-run this script.`,
 			);
-		} else if (prismaUser.supabaseId !== user.id) {
+		} else {
 			await prisma.user.update({
 				where: { farmId: DEMO_FARM_ID },
-				data: { supabaseId: user.id },
+				data: { supabaseId: user.id, mustChangePassword: false },
 			});
-			console.log(`Linked Prisma user ${DEMO_FARM_ID} to supabaseId ${user.id}.`);
-		} else {
-			console.log(`Prisma user ${DEMO_FARM_ID} already linked.`);
+			console.log(
+				`Linked Prisma user ${DEMO_FARM_ID} to supabaseId ${user.id} and cleared the password-change flag.`,
+			);
 		}
 	} finally {
 		await prisma.$disconnect();
 	}
 
-	console.log(`Demo login -> Farm ID: demo-farmer-1, PIN: ${DEMO_PIN}`);
+	console.log(`Demo login -> Farm ID: demo-farmer-1, password: ${DEMO_PASSWORD}`);
 }
 
 main().catch((err) => {

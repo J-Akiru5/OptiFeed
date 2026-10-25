@@ -1,7 +1,9 @@
 import { DataExportButton, DataImportDialog } from "@/components/DataImportExport";
 import { FeedEventHistoryTable } from "@/components/FeedEventHistoryTable";
+import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { getFeedEvents } from "@/lib/actions/history";
 import { canWrite } from "@/lib/auth/session";
+import type { HistorySnapshotData } from "@/lib/offline/snapshots";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { CalendarDays, CheckCircle2, Clock, Package } from "lucide-react";
@@ -65,8 +67,27 @@ export default async function HistoryPage() {
 
 	const writeAccess = await canWrite();
 
+	const historySnapshot: HistorySnapshotData = {
+		pondName: pond.name,
+		totalDispensedG: totalDispensed,
+		feedLevelPercent: energyDevice?.feedLevelPercent ?? null,
+		feedLevelUpdatedAt: energyDevice?.feedLevelUpdatedAt?.toISOString() ?? null,
+		events: events.slice(0, 20).map((event) => ({
+			at: event.receivedAt.toISOString(),
+			grams: event.grams,
+			source: event.source,
+		})),
+	};
+
 	return (
 		<div className="space-y-8 pb-20 animate-in fade-in duration-150">
+			<SnapshotWriter
+				page="history"
+				scope={pond.ownerId}
+				pondId={pond.id}
+				pondName={pond.name}
+				data={historySnapshot}
+			/>
 			<header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
 				<div>
 					<h1 className="text-3xl font-extrabold tracking-tight text-[var(--ofd-base-deep)]">

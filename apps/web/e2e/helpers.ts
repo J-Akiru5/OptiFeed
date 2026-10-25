@@ -10,14 +10,14 @@ import { type Page, expect, test } from "@playwright/test";
  */
 export async function login(page: Page) {
 	await page.addInitScript(() => localStorage.setItem("optifeed:onboarded", "true"));
-	const pin = process.env.DEMO_PIN ?? "1234";
+	const password = process.env.DEMO_PASSWORD ?? "OptiFeedDemo123";
 	// A single round can cost a full rate-limit window + attempt time.
 	test.setTimeout(300_000);
 
 	for (let attempt = 0; attempt < 4; attempt++) {
 		await page.goto("/en/login");
 		await page.locator("#farmId").fill("demo-farmer-1");
-		await page.locator("#pin").fill(pin);
+		await page.locator("#password").fill(password);
 		await page.locator('button[type="submit"]').click();
 		try {
 			await expect(page).toHaveURL(/dashboard/, { timeout: 30_000 });

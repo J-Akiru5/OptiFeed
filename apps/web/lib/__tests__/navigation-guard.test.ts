@@ -52,12 +52,15 @@ describe("shouldRedirectToLogin", () => {
 		);
 	});
 
-	it("guards admin and superadmin routes", () => {
+	it("guards admin, superadmin, and change-password routes", () => {
 		expect(shouldRedirectToLogin({ pathname: "/en/admin/users", method: "GET", cookies: [] })).toBe(
 			true,
 		);
 		expect(
 			shouldRedirectToLogin({ pathname: "/en/superadmin/tenants", method: "GET", cookies: [] }),
+		).toBe(true);
+		expect(
+			shouldRedirectToLogin({ pathname: "/en/change-password", method: "GET", cookies: [] }),
 		).toBe(true);
 	});
 
@@ -82,6 +85,7 @@ describe("isProtectedPath", () => {
 		expect(isProtectedPath("/en/dashboard/history")).toBe(true);
 		expect(isProtectedPath("/en/admin/ponds")).toBe(true);
 		expect(isProtectedPath("/en/superadmin")).toBe(true);
+		expect(isProtectedPath("/en/change-password")).toBe(true);
 		expect(isProtectedPath("/en/login")).toBe(false);
 	});
 });

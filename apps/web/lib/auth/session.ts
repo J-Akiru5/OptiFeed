@@ -103,6 +103,19 @@ export async function requirePasswordChanged(): Promise<User> {
 }
 
 /**
+ * Throw when the caller must still change their temporary password.
+ *
+ * `requirePasswordChanged()` redirects, which is correct for layouts but wrong
+ * for a server action or API route. The shared action guards call this so a
+ * flagged user cannot bypass the change screen by invoking an action directly.
+ */
+export async function assertPasswordChanged(): Promise<void> {
+	const user = await getCurrentUser();
+	if (!user) throw new Error("Not authenticated");
+	if (user.mustChangePassword) throw new Error("Password change required");
+}
+
+/**
  * Get the current user's role. Returns null if not authenticated.
  */
 export async function getCurrentUserRole(): Promise<UserRole | null> {
@@ -129,6 +142,7 @@ export async function requireRole(...roles: UserRole[]): Promise<void> {
  * VIEWER and unauthenticated callers are rejected before any write happens.
  */
 export async function requireWriteAccess(): Promise<void> {
+	await assertPasswordChanged();
 	const userRole = await getCurrentUserRole();
 	if (userRole !== "ADMIN" && userRole !== "OPERATOR") {
 		throw new Error("Write access required (ADMIN or OPERATOR)");
@@ -140,8 +154,9 @@ export async function requireWriteAccess(): Promise<void> {
  * Use in server components to disable VIEWER-only-readonly UI.
  */
 export async function canWrite(): Promise<boolean> {
-	const userRole = await getCurrentUserRole();
-	return userRole === "ADMIN" || userRole === "OPERATOR";
+	const user = await getCurrentUser();
+	if (!user || user.mustChangePassword) return false;
+	return user.role === "ADMIN" || user.role === "OPERATOR";
 }
 
 /**

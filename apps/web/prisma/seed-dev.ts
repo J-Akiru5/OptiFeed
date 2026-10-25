@@ -166,6 +166,23 @@ async function main() {
 	});
 	console.log("✓ Created devices for demo pond");
 
+	// The dashboard, schedule and hardware pages still read the deprecated
+	// Device relation. Seed one row so a fresh demo database is not empty.
+	await prisma.device.upsert({
+		where: { id: "demo-legacy-device-001" },
+		update: { lastSyncedAt: new Date(), connectivity: "online", hopperLevelPct: 82 },
+		create: {
+			id: "demo-legacy-device-001",
+			pondId: pond.id,
+			name: "Demo Feeder",
+			connectivity: "online",
+			isPaused: false,
+			lastSyncedAt: new Date(),
+			hopperLevelPct: 82,
+		},
+	});
+	console.log("✓ Created legacy Device row for dashboard/schedule compatibility");
+
 	// ── 5. FeedLevelLog history (45 entries over ~11 days) ─────────────────
 	const now = new Date();
 	for (let i = 45; i >= 1; i--) {

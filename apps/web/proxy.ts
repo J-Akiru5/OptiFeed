@@ -8,13 +8,19 @@ const nextIntlMiddleware = createMiddleware(routing);
 
 export default function proxy(request: NextRequest) {
 	const response = nextIntlMiddleware(request);
-	if (isDemoMode()) return response;
 
 	const pathname = request.nextUrl.pathname;
 	const segments = pathname.split("/");
 	const locale = routing.locales.includes(segments[1] as (typeof routing.locales)[number])
 		? segments[1]
 		: routing.defaultLocale;
+
+	if (isDemoMode()) {
+		if (/\/login\/?$/.test(pathname)) {
+			return NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url));
+		}
+		return response;
+	}
 
 	// No session cookie at all -> redirect to login. With a cookie present we
 	// pass the request through: the page's getCurrentUser() validates the

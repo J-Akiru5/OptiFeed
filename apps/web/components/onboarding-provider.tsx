@@ -21,7 +21,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 		const { driver } = await import("driver.js");
 		const t = (key: string) => {
 			const translations: Record<string, string> = {
-				"step1.title": "Welcome to OptiFeed",
+				"step1.title": "Welcome to PakaonAI",
 				"step1.desc":
 					"This dashboard monitors your fish feeding system in real-time. Let's take a quick tour.",
 				"step2.title": "Next Feeding",

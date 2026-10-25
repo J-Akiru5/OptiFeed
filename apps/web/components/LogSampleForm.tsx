@@ -4,6 +4,8 @@ import { useRouter } from "@/i18n/routing";
 import { type FeedCalculationResult, saveBiomassLog } from "@/lib/actions/biomass";
 import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { dailyFeedG, feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
+import { enqueueBiomassSample, newClientEventId } from "@/lib/offline/outbox";
+import { useOnlineStatus } from "@/lib/pwa/use-online-status";
 import { AlertTriangle, CheckCircle2, Fish, Loader2, Plus, Ruler, Scale, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
@@ -15,6 +17,7 @@ interface LogSampleFormProps {
 	population?: number | null;
 	canWrite?: boolean;
 	batchLabels?: string[];
+	scope?: string;
 }
 
 type InputMode = "average" | "individual";
@@ -32,10 +35,14 @@ export function LogSampleForm({
 	population = null,
 	canWrite = true,
 	batchLabels = [],
+	scope = pondId,
 }: LogSampleFormProps) {
 	const tBtn = useTranslations("button");
+	const tLog = useTranslations("dashboard.logSample");
 	const router = useRouter();
+	const online = useOnlineStatus();
 	const [isPending, startTransition] = useTransition();
+	const [queuedOffline, setQueuedOffline] = useState(false);
 
 	const effectivePopulation = population && population > 0 ? population : DEFAULT_FISH_COUNT;
 	const populationUnset = effectivePopulation !== population;
@@ -200,6 +207,30 @@ export function LogSampleForm({
 			formData.append("fishSamples", JSON.stringify(fishSamplesData));
 		}
 
+		const offlinePayload = {
+			clientEventId: newClientEventId(),
+			pondId,
+			scope,
+			sampleCount,
+			sampleWeightKg,
+			sampleLengthCm,
+			batchLabel: batchLabel.trim() || null,
+			recordedAt: new Date().toISOString(),
+			fishSamples: fishSamplesData.length > 0 ? fishSamplesData : undefined,
+		};
+		formData.append("clientEventId", offlinePayload.clientEventId);
+		formData.append("recordedAt", offlinePayload.recordedAt);
+
+		if (typeof navigator !== "undefined" && !navigator.onLine) {
+			const queued = await enqueueBiomassSample(offlinePayload);
+			if (!queued) {
+				setError(tLog("queuedOfflineError"));
+				return;
+			}
+			setQueuedOffline(true);
+			return;
+		}
+
 		startTransition(async () => {
 			try {
 				const result = await saveBiomassLog(formData);
@@ -209,13 +240,19 @@ export function LogSampleForm({
 				}
 				setFeedResult(result.feed);
 			} catch {
-				setError("Failed to save biomass log. Please try again.");
+				const queued = await enqueueBiomassSample(offlinePayload);
+				if (queued) {
+					setQueuedOffline(true);
+				} else {
+					setError("Failed to save biomass log. Please try again.");
+				}
 			}
 		});
 	};
 
 	const resetForAnother = () => {
 		setFeedResult(null);
+		setQueuedOffline(false);
 		setError(null);
 		setRowErrors({});
 		setBatchLabel("");
@@ -234,6 +271,29 @@ export function LogSampleForm({
 
 	const fishFieldCls =
 		"w-full pl-8 pr-3 py-2.5 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#E85A2A] font-bold text-sm transition-colors";
+
+	if (queuedOffline) {
+		return (
+			<div className="space-y-6 py-4 text-center">
+				<div className="flex justify-center">
+					<div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100">
+						<CheckCircle2 className="h-8 w-8 text-blue-600" />
+					</div>
+				</div>
+				<div>
+					<h3 className="text-xl font-black text-[#0A3D62]">{tLog("queuedOfflineTitle")}</h3>
+					<p className="mx-auto mt-1 max-w-md text-sm text-gray-600">{tLog("queuedOfflineBody")}</p>
+				</div>
+				<button
+					type="button"
+					onClick={resetForAnother}
+					className="rounded-xl bg-[var(--ofd-base)] px-5 py-2.5 text-sm font-bold text-white transition hover:brightness-110"
+				>
+					Log Another Sample
+				</button>
+			</div>
+		);
+	}
 
 	if (feedResult) {
 		const headlineGrams = feedResult.calculatedGrams ?? feedResult.effectiveGrams;
@@ -265,6 +325,10 @@ export function LogSampleForm({
 			skipped_no_population: {
 				text: "Device schedule unchanged — set the pond fish population so biomass can be computed.",
 				cls: "border-amber-200 bg-amber-50 text-amber-700",
+			},
+			skipped_target_plan: {
+				text: "Sample saved. The target growth plan is not due for another adjustment — open Growth to review the next date.",
+				cls: "border-blue-200 bg-blue-50 text-blue-700",
 			},
 		};
 		const status = statusInfo[feedResult.status];
@@ -627,6 +691,12 @@ export function LogSampleForm({
 					</div>
 				</div>
 			</div>
+
+			{!online && (
+				<p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+					{tLog("offlineNote")}
+				</p>
+			)}
 
 			<div className="flex justify-end pt-4 border-t border-gray-100">
 				<button

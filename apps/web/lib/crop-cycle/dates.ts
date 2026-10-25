@@ -14,6 +14,14 @@ export function todayDateOnly(now: Date = new Date()): string {
 		.toString();
 }
 
+/** A timestamp rendered as the farm's calendar date, as `YYYY-MM-DD`. */
+export function dateToFarmDateOnly(value: Date): string {
+	return Temporal.Instant.from(value.toISOString())
+		.toZonedDateTimeISO(FARM_TIME_ZONE)
+		.toPlainDate()
+		.toString();
+}
+
 export function isValidDateOnly(value: unknown): boolean {
 	if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
 	try {

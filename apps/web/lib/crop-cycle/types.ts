@@ -22,4 +22,6 @@ export interface PondOption {
 	name: string;
 	isFallow: boolean;
 	population: number | null;
+	areaM2: number | null;
+	averageDepthM: number | null;
 }

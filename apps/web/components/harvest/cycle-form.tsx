@@ -89,6 +89,16 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 				1000
 			: null;
 
+	const selectedPond = ponds.find((pond) => pond.id === pondId);
+	const areaM2 = selectedPond?.areaM2 ?? null;
+	const averageDepthM = selectedPond?.averageDepthM ?? null;
+	const stockingCountNumber = Number(stockingCount);
+	const densityPerM2 = areaM2 && stockingCountNumber > 0 ? stockingCountNumber / areaM2 : null;
+	const densityPerM3 =
+		areaM2 && averageDepthM && stockingCountNumber > 0
+			? stockingCountNumber / (areaM2 * averageDepthM)
+			: null;
+
 	const onStockingDateChange = (value: string) => {
 		setStockingDate(value);
 		if (isValidDateOnly(value) && growOutDays >= 30) {
@@ -241,6 +251,26 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 							className="w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-3 py-2.5 text-sm font-semibold text-[#0A3D62] focus:border-[#E85A2A] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/30 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
 						/>
 					</label>
+					<div className="rounded-xl border border-dashed border-[#0A3D62]/15 bg-[#F4F7F6] px-3 py-2 text-xs text-[#3D5568] sm:col-span-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+						<span className="font-extrabold uppercase tracking-wider text-gray-500">
+							{t("densityLabel")}:
+						</span>{" "}
+						{densityPerM2 !== null ? (
+							<>
+								<span className="font-bold">
+									{t("densityValue", { density: densityPerM2.toFixed(1) })}
+								</span>
+								{densityPerM3 !== null && (
+									<span> · {t("densityValueDepth", { density: densityPerM3.toFixed(1) })}</span>
+								)}
+							</>
+						) : (
+							<span>{t("densityNoArea")}</span>
+						)}
+						{densityPerM2 !== null && densityPerM2 > 20 && (
+							<span className="ml-1 font-bold text-amber-600">{t("densityHigh")}</span>
+						)}
+					</div>
 					<label className="block">
 						<span className="mb-1 block text-[10px] font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400">
 							{t("growOutDays")}

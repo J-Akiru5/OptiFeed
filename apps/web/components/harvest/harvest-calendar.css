@@ -4,6 +4,7 @@
  * component passes stable `ofc-*` hooks for the few element-level rules below.
  */
 .harvest-calendar {
+	height: 100%;
 	--fc-classic-primary: #0a3d62;
 	--fc-classic-primary-foreground: #ffffff;
 	--fc-classic-button: #0a3d62;

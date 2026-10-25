@@ -32,6 +32,7 @@ const baseCtx: ChatContext = {
 	daysToHarvest: null,
 	targetHarvestDate: null,
 	targetHarvestWeightG: null,
+	growthPlan: null,
 };
 
 describe("buildSystemPrompt", () => {

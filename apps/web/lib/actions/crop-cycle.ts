@@ -197,6 +197,11 @@ export async function updateCropCycle(
 				},
 			});
 
+			await tx.pond.update({
+				where: { id: data.pondId },
+				data: { population: data.stockingCount },
+			});
+
 			await tx.pondEvent.updateMany({
 				where: { cropCycleId: cycle.id, type: "STOCKING" },
 				data: {

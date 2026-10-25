@@ -1,6 +1,7 @@
 "use client";
 
 import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
+import { useOnlineStatus } from "@/lib/pwa/use-online-status";
 import { Activity, AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -36,8 +37,10 @@ export function FeedNowButton({
 
 	const [dispensing, setDispensing] = useState(false);
 	const [showConfirm, setShowConfirm] = useState(false);
+	const online = useOnlineStatus();
 
 	const isOffline = connectionStatus === "offline";
+	const browserOffline = !online;
 
 	// 2-decimal doses like "29.63g"
 	const feedGrams = Number.parseFloat(nextFeedingVolume.replace("g", ""));
@@ -48,7 +51,7 @@ export function FeedNowButton({
 
 	async function handleFeedNow() {
 		setShowConfirm(false);
-		if (isOffline) return;
+		if (isOffline || browserOffline) return;
 		setDispensing(true);
 		try {
 			// NaN → let the server use the device default
@@ -76,7 +79,7 @@ export function FeedNowButton({
 				<button
 					type="button"
 					onClick={() => setShowConfirm(true)}
-					disabled={dispensing || isOffline || !canWrite || isFallow}
+					disabled={dispensing || isOffline || browserOffline || !canWrite || isFallow}
 					className="bg-[#E85A2A] text-white font-black text-sm md:text-base px-6 py-3 rounded-2xl hover:bg-[#d04a1f] shadow-lg hover:shadow-xl transition-all transform active:scale-95 flex items-center gap-2 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600 disabled:shadow-none dark:disabled:bg-gray-700 dark:disabled:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
 					data-onboard={dataOnboard}
 				>
@@ -96,6 +99,14 @@ export function FeedNowButton({
 					<p className="text-xs font-medium text-red-700">{t("offlineWarning")}</p>
 				</div>
 			)}
+			{browserOffline && !isOffline && (
+				<div className="mt-3 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+					<AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+					<p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+						{t("browserOfflineWarning")}
+					</p>
+				</div>
+			)}
 			{isFallow && (
 				<div className="mt-3 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/50 dark:bg-amber-950/30">
 					<AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
@@ -108,10 +119,12 @@ export function FeedNowButton({
 			{showConfirm && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
 					<div className="bg-white rounded-[32px] p-6 md:p-8 max-w-md w-full border border-gray-200 shadow-2xl space-y-6">
-						{isOffline && (
+						{(isOffline || browserOffline) && (
 							<div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
 								<AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
-								<p className="text-xs text-red-700 font-medium">{t("offlineWarning")}</p>
+								<p className="text-xs text-red-700 font-medium">
+									{browserOffline ? t("browserOfflineWarning") : t("offlineWarning")}
+								</p>
 							</div>
 						)}
 
@@ -179,7 +192,8 @@ export function FeedNowButton({
 							<button
 								type="button"
 								onClick={handleFeedNow}
-								className="flex-1 bg-[#E85A2A] text-white font-extrabold text-sm py-3.5 rounded-xl hover:bg-[#d04a1f] shadow-lg transition-all"
+								disabled={browserOffline}
+								className="flex-1 bg-[#E85A2A] text-white font-extrabold text-sm py-3.5 rounded-xl hover:bg-[#d04a1f] shadow-lg transition-all disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600 disabled:shadow-none dark:disabled:bg-gray-700 dark:disabled:text-gray-300"
 							>
 								{tBtn("yesDispenseNow")}
 							</button>

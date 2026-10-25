@@ -49,11 +49,15 @@ export function checkApiRateLimit(ownerId: string) {
 	return checkRateLimit(`rl:api:${ownerId}`, 30, 60_000, true);
 }
 
-// Device poll rate limit: 20 requests per 60 seconds per device.
-// ESP32 polls every 5s (12 req/min nominal); 20 gives headroom for retries.
+// Device poll rate limit: 20 requests per 60 seconds per device **per endpoint**.
+// The ESP32 polls both /api/feed-command and /api/schedule-sync every 5s, so a
+// shared bucket would see 24 req/min and reject 4 of them. Each endpoint gets
+// its own bucket (12 req/min nominal), leaving headroom for retries.
 // Fail-open — a limiter blip must never block the feeder.
-export function checkDeviceRateLimit(deviceId: string) {
-	return checkRateLimit(`rl:device:${deviceId}`, 20, 60_000, true);
+export type DeviceRateLimitScope = "feed" | "schedule";
+
+export function checkDeviceRateLimit(deviceId: string, scope: DeviceRateLimitScope) {
+	return checkRateLimit(`rl:device:${scope}:${deviceId}`, 20, 60_000, true);
 }
 
 // AI prediction rate limit: 10 requests per 60 seconds per user. Each call may

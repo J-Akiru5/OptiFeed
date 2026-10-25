@@ -33,4 +33,10 @@ test("saving a sample shows the feed calculation result and a batch card", async
 	await page.getByRole("button", { name: "Log Another Sample" }).click();
 	await expect(page.locator("#weightGrams")).toBeVisible();
 	await expect(section.getByText("E2E Batch 2026", { exact: true })).toBeVisible();
+
+	// The saved batch card opens its dedicated log page.
+	await section.getByRole("link", { name: /E2E Batch 2026/ }).click();
+	await expect(page.getByRole("heading", { name: "E2E Batch 2026" })).toBeVisible();
+	await expect(page.getByText("Every saved log for this batch")).toBeVisible();
+	await expect(page.getByRole("columnheader", { name: "Avg Weight" })).toBeVisible();
 });

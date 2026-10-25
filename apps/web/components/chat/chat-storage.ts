@@ -1,8 +1,25 @@
 "use client";
 
+export interface ChatActionField {
+	label: string;
+	value: string;
+}
+
+export type ChatActionStatus = "pending" | "confirmed" | "cancelled" | "error";
+
+export interface ChatActionState {
+	type: string;
+	args: Record<string, unknown>;
+	summary: string;
+	fields: ChatActionField[];
+	status: ChatActionStatus;
+	result?: string;
+}
+
 export interface ChatMessage {
 	role: "user" | "assistant";
 	content: string;
+	action?: ChatActionState;
 }
 
 export const CHAT_STORAGE_KEY = "optifeed.chat.history";

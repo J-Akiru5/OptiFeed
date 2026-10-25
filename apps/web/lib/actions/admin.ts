@@ -10,8 +10,8 @@ import {
 	requirePermission,
 } from "@/lib/auth/permissions";
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
-import { requireRole } from "@/lib/auth/session";
 import { invalidateFarm } from "@/lib/auth/session-cache";
+import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import prisma from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MemberRole, PondStatus, Prisma, UserRole } from "@prisma/client";
@@ -66,9 +66,9 @@ export type UpdateUserResult = { success: true } | { error: string };
 
 export async function updateUser(
 	userId: string,
-	data: { displayName?: string; role?: UserRole },
+	data: { displayName?: string },
 ): Promise<UpdateUserResult> {
-	await requireRole("ADMIN");
+	await requireTenantAdmin();
 	// Permission gate before the scope read and before the try: `Forbidden`
 	// must reach the caller rather than be flattened into a generic failure.
 	await requirePermission("manage_members");
@@ -82,10 +82,19 @@ export async function updateUser(
 		return { error: PLATFORM_ADMIN_MANAGED_ELSEWHERE };
 	}
 
+	const displayName = typeof data.displayName === "string" ? data.displayName.trim() : undefined;
+	if (displayName === undefined) return { error: "Nothing to update." };
+	if (!displayName) return { error: "Display name is required." };
+	if (displayName.length > 80) return { error: "Display name is too long." };
+
 	try {
 		await prisma.user.update({
 			where: { id: userId },
-			data,
+			// `User.role` is deliberately not writable from the tenant console.
+			// Tenant authority is Membership.role; allowing a tenant admin to set
+			// the legacy global ADMIN flag would be a privilege-escalation path.
+			// Platform roles are managed in /superadmin only.
+			data: { displayName },
 		});
 		return { success: true };
 	} catch (e) {
@@ -97,7 +106,7 @@ export async function updateUser(
 export type DeleteUserResult = { success: true } | { error: string };
 
 export async function deleteUser(userId: string): Promise<DeleteUserResult> {
-	await requireRole("ADMIN");
+	await requireTenantAdmin();
 	await requirePermission("manage_members");
 	const [scope, actor] = await Promise.all([resolveOrgScope(), getCurrentUser()]);
 	// Self-deletion would strand the org with no one able to manage it, and
@@ -155,7 +164,7 @@ export async function deleteUser(userId: string): Promise<DeleteUserResult> {
  */
 
 export async function getUsers() {
-	await requireRole("ADMIN");
+	await requireTenantAdmin();
 	const [scope, platformAdmins] = await Promise.all([resolveOrgScope(), platformAdminUserIds()]);
 
 	return prisma.user.findMany({
@@ -262,7 +271,7 @@ async function permissionStateFor(membership: ManagedMembership): Promise<UserPe
  * permissions dialog opens.
  */
 export async function getUserPermissionState(userId: string): Promise<UserPermissionResult> {
-	await requireRole("ADMIN");
+	await requireTenantAdmin();
 	// Outside the try: a `Forbidden` denial must reach the caller rather than be
 	// flattened into a generic load failure.
 	await requirePermission("manage_members");
@@ -295,7 +304,7 @@ export async function setUserPermission(
 	permission: string,
 	granted: boolean,
 ): Promise<UserPermissionResult> {
-	await requireRole("ADMIN");
+	await requireTenantAdmin();
 	await requirePermission("manage_members");
 
 	if (!isPermission(permission)) {
@@ -334,7 +343,7 @@ export async function setUserPermission(
 // ─── Pond Management ─────────────────────────────────────────────────────────
 
 export async function getPonds() {
-	await requireRole("ADMIN");
+	await requireTenantAdmin();
 	const scope = await resolveOrgScope();
 
 	return prisma.pond.findMany({
@@ -380,7 +389,7 @@ export async function createPondWithFarmer(data: {
 	scheduleStart: string;
 	scheduleEnd: string;
 }): Promise<CreatePondWithFarmerResult> {
-	await requireRole("ADMIN");
+	await requireTenantAdmin();
 	await requirePermission("manage_farms_ponds");
 
 	const loginId = data.loginId?.trim().toLowerCase() ?? "";
@@ -491,7 +500,7 @@ export async function createPond(data: {
 	scheduleStart: string;
 	scheduleEnd: string;
 }): Promise<CreatePondResult> {
-	await requireRole("ADMIN");
+	await requireTenantAdmin();
 	await requirePermission("manage_farms_ponds");
 	const scope = await resolveOrgScope();
 	if (!scope.farmIds.includes(data.ownerFarmId)) {
@@ -548,7 +557,7 @@ export async function createPond(data: {
 // ─── Device Management ───────────────────────────────────────────────────────
 
 export async function getDevices() {
-	await requireRole("ADMIN");
+	await requireTenantAdmin();
 	const scope = await resolveOrgScope();
 
 	return prisma.energyDevice.findMany({
@@ -585,7 +594,7 @@ export type RevealDeviceTokenResult =
  * where the error's message (not the error object) is what gets written.
  */
 export async function revealDeviceToken(deviceId: string): Promise<RevealDeviceTokenResult> {
-	await requireRole("ADMIN");
+	await requireTenantAdmin();
 
 	if (typeof deviceId !== "string" || deviceId.trim().length === 0) {
 		return { success: false, error: "A device is required." };
@@ -637,7 +646,7 @@ export type FarmHierarchyNode = {
  * safe pass-through to client components.
  */
 export async function getAllFarmHierarchies(): Promise<FarmHierarchyNode[]> {
-	await requireRole("ADMIN");
+	await requireTenantAdmin();
 	const [scope, platformAdmins] = await Promise.all([resolveOrgScope(), platformAdminUserIds()]);
 
 	const users = await prisma.user.findMany({
@@ -690,7 +699,7 @@ export async function getAllFarmHierarchies(): Promise<FarmHierarchyNode[]> {
 // ─── Stats ───────────────────────────────────────────────────────────────────
 
 export async function getAdminStats() {
-	await requireRole("ADMIN");
+	await requireTenantAdmin();
 	const [scope, platformAdmins] = await Promise.all([resolveOrgScope(), platformAdminUserIds()]);
 
 	const [userCount, pondCount, deviceCount, recentEvents] = await Promise.all([
@@ -718,7 +727,7 @@ export async function getAdminStats() {
 // ─── Audit Log ───────────────────────────────────────────────────────────────
 
 export async function getAuditLog(cursor?: string, limit = 50) {
-	await requireRole("ADMIN");
+	await requireTenantAdmin();
 	const scope = await resolveOrgScope();
 
 	const where: Prisma.DeviceStateEventWhereInput = {
@@ -746,7 +755,7 @@ export async function updatePondOwner(
 	pondId: string,
 	newOwnerFarmId: string,
 ): Promise<UpdateUserResult> {
-	await requireRole("ADMIN");
+	await requireTenantAdmin();
 	await requirePermission("manage_farms_ponds");
 	const scope = await resolveOrgScope();
 	if (!scope.pondIds.includes(pondId)) {
@@ -798,7 +807,7 @@ export async function setPondStatus(
 	pondId: string,
 	status: PondStatus,
 ): Promise<SetPondStatusResult> {
-	await requireRole("ADMIN");
+	await requireTenantAdmin();
 	await requirePermission("manage_farms_ponds");
 
 	if (status !== "ACTIVE" && status !== "ARCHIVED") {

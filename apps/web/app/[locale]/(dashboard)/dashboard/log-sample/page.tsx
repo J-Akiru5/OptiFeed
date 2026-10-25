@@ -1,10 +1,12 @@
 import { LogSampleForm } from "@/components/LogSampleForm";
+import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
 import { summarizeBatches } from "@/lib/batch-summary";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { ChevronRight } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0; // Ensure data is fresh
@@ -73,6 +75,7 @@ export default async function LogSamplePage() {
 					population={pond.population}
 					canWrite={writeAccess}
 					batchLabels={batchLabels}
+					scope={pond.ownerId}
 				/>
 			</div>
 
@@ -91,9 +94,15 @@ export default async function LogSamplePage() {
 				) : (
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 						{batches.map((batch) => (
-							<div
+							<Link
 								key={batch.label ?? "__unlabeled__"}
-								className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50"
+								href={
+									batch.label
+										? `/dashboard/log-sample/batches?label=${encodeURIComponent(batch.label)}`
+										: "/dashboard/log-sample/batches?unlabeled=1"
+								}
+								title={t("viewLogs")}
+								className="group block rounded-3xl border border-gray-100 bg-white p-6 shadow-sm transition hover:border-[var(--ofd-base)]/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ofd-base)] focus-visible:ring-offset-2 dark:border-gray-700/50 dark:bg-gray-900 dark:focus-visible:ring-offset-gray-900"
 							>
 								<div className="flex items-start justify-between gap-3">
 									<div className="min-w-0">
@@ -106,9 +115,12 @@ export default async function LogSamplePage() {
 											})}
 										</p>
 									</div>
-									<span className="shrink-0 inline-flex items-center px-2.5 py-1 rounded-full bg-[var(--ofd-base)]/10 text-[var(--ofd-base)] text-xs font-bold">
-										{t("entries", { count: batch.entryCount })}
-									</span>
+									<div className="flex shrink-0 items-center gap-2">
+										<span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[var(--ofd-base)]/10 text-[var(--ofd-base)] text-xs font-bold">
+											{t("entries", { count: batch.entryCount })}
+										</span>
+										<ChevronRight className="h-4 w-4 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-[var(--ofd-base)]" />
+									</div>
 								</div>
 
 								<div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 dark:border-gray-700/50 pt-4">
@@ -129,7 +141,8 @@ export default async function LogSamplePage() {
 										</p>
 									</div>
 								</div>
-							</div>
+								<span className="sr-only">{t("viewLogs")}</span>
+							</Link>
 						))}
 					</div>
 				)}

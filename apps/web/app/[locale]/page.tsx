@@ -3,6 +3,7 @@
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { CountUp, Reveal, RevealItem, RevealList } from "@/components/landing/Reveal";
+import { Wave } from "@/components/landing/Wave";
 import { useTheme } from "@/components/theme-provider";
 import { Link, usePathname, useRouter } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
@@ -264,7 +265,7 @@ export default function LandingPage() {
 
 				<main id="main">
 					{/* Hero */}
-					<section className="relative overflow-hidden border-b border-[#DFE7E4] dark:border-white/10">
+					<section className="relative overflow-hidden">
 						<div
 							aria-hidden="true"
 							className="pointer-events-none absolute -top-52 -right-52 size-[40rem] rounded-full border border-[#0A3D62]/[0.06] dark:border-white/[0.06]"
@@ -422,10 +423,8 @@ export default function LandingPage() {
 					</section>
 
 					{/* Problem */}
-					<section
-						id="problem"
-						className="scroll-mt-20 border-b border-[#DFE7E4] bg-white/55 dark:border-white/10 dark:bg-white/[0.02]"
-					>
+					<section id="problem" className="relative scroll-mt-20 bg-white/55 dark:bg-white/[0.02]">
+						<Wave className="top-0 -translate-y-full text-white/55 dark:text-white/[0.02]" />
 						<div
 							className={cn(
 								container,
@@ -477,8 +476,10 @@ export default function LandingPage() {
 					{/* Offline-first */}
 					<section
 						id="offline"
-						className="relative scroll-mt-20 overflow-hidden bg-[#0A3D62] text-white"
+						className="relative z-10 scroll-mt-20 overflow-x-clip bg-[#0A3D62] text-white"
 					>
+						<Wave layered className="top-0 -translate-y-full text-[#0A3D62]" />
+						<Wave flip layered variant="b" className="bottom-0 translate-y-full text-[#0A3D62]" />
 						<div
 							aria-hidden="true"
 							className="pointer-events-none absolute inset-0 opacity-60 [background-image:linear-gradient(to_right,rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.045)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(ellipse_80%_80%_at_70%_20%,black,transparent)]"
@@ -554,10 +555,12 @@ export default function LandingPage() {
 					</section>
 
 					{/* Hardware */}
-					<section
-						id="hardware"
-						className="scroll-mt-20 border-b border-[#DFE7E4] bg-white/55 dark:border-white/10 dark:bg-white/[0.02]"
-					>
+					<section id="hardware" className="relative scroll-mt-20 bg-white/55 dark:bg-white/[0.02]">
+						<Wave
+							flip
+							variant="b"
+							className="bottom-0 translate-y-full text-white/55 dark:text-white/[0.02]"
+						/>
 						<div
 							className={cn(
 								container,
@@ -603,10 +606,7 @@ export default function LandingPage() {
 					</section>
 
 					{/* Study design and scope */}
-					<section
-						id="study"
-						className="scroll-mt-20 border-b border-[#DFE7E4] dark:border-white/10"
-					>
+					<section id="study" className="scroll-mt-20">
 						<div
 							className={cn(
 								container,
@@ -665,7 +665,12 @@ export default function LandingPage() {
 					</section>
 
 					{/* Project team and paper */}
-					<section className="border-b border-[#DFE7E4] bg-white/55 dark:border-white/10 dark:bg-white/[0.02]">
+					<section className="relative bg-white/55 dark:bg-white/[0.02]">
+						<Wave
+							variant="b"
+							className="top-0 -translate-y-full text-white/55 dark:text-white/[0.02]"
+						/>
+						<Wave flip className="bottom-0 translate-y-full text-white/55 dark:text-white/[0.02]" />
 						<div className={cn(container, "grid gap-12 py-16 md:py-20 lg:grid-cols-2 lg:gap-16")}>
 							<Reveal>
 								<p className={eyebrow}>{t("teamEyebrow")}</p>
@@ -753,7 +758,8 @@ export default function LandingPage() {
 				</main>
 
 				{/* Closing CTA + footer */}
-				<footer className="relative overflow-hidden bg-[#0A3D62] text-white">
+				<footer className="relative overflow-x-clip bg-[#0A3D62] text-white">
+					<Wave layered variant="b" className="top-0 -translate-y-full text-[#0A3D62]" />
 					<div
 						aria-hidden="true"
 						className="pointer-events-none absolute inset-0 opacity-60 [background-image:linear-gradient(to_right,rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.045)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(ellipse_80%_80%_at_80%_20%,black,transparent)]"

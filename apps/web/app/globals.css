@@ -200,3 +200,20 @@
 		linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
 		linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
 }
+
+/* Wave edges between landing sections drift sideways; one tile pair per loop. */
+@keyframes wave-drift {
+	to {
+		transform: translateX(-50%);
+	}
+}
+
+.wave-drift {
+	animation: wave-drift 30s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.wave-drift {
+		animation: none;
+	}
+}

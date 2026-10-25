@@ -1,8 +1,11 @@
 "use server";
 
+import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { STALE_DISPATCHED_MS } from "@/lib/constants";
 import {
+	GRAMS_PER_SECOND_MAX,
+	GRAMS_PER_SECOND_MIN,
 	MAX_DISPENSE_MS,
 	OFFLINE_THRESHOLD_MS,
 	dailyFeedCapG,
@@ -26,8 +29,11 @@ function manilaDayRange(nowMs: number = Date.now()): { start: Date; end: Date } 
 }
 
 export async function requestFeed(deviceId: string, grams?: number) {
+	// Guard outside try: the catch below returns a generic message and would
+	// hide the write-access reason from the caller (matches toggleDevicePause).
+	await requireWriteAccess();
+	await requirePermission("control_feeder");
 	try {
-		await requireWriteAccess();
 		const ownerId = await getCurrentPondOwnerId();
 		const device = await prisma.energyDevice.findFirst({
 			where: { id: deviceId, pond: { ownerId } },
@@ -36,11 +42,19 @@ export async function requestFeed(deviceId: string, grams?: number) {
 				gramsPerSecond: true,
 				lastSeenAt: true,
 				hopperCapacityG: true,
+				pond: { select: { isFallow: true } },
 			},
 		});
 
 		if (!device) {
 			return { success: false, error: "Device not found" };
+		}
+
+		if (device.pond?.isFallow) {
+			return {
+				success: false,
+				error: "This pond is fallow after harvest. Start the next grow-out cycle before feeding.",
+			};
 		}
 
 		// Expire stale dispatched requests that were picked up by the device
@@ -147,6 +161,7 @@ export async function saveHopperCalibration(
 ) {
 	try {
 		await requireWriteAccess();
+		await requirePermission("manage_schedule");
 		const ownerId = await getCurrentPondOwnerId();
 		const device = await prisma.energyDevice.findFirst({
 			where: { id: deviceId, pond: { ownerId } },
@@ -191,6 +206,7 @@ export async function saveHopperCalibration(
 export async function saveDurationCalibration(deviceId: string, gramsPerSecond: number) {
 	try {
 		await requireWriteAccess();
+		await requirePermission("manage_schedule");
 		const ownerId = await getCurrentPondOwnerId();
 		const device = await prisma.energyDevice.findFirst({
 			where: { id: deviceId, pond: { ownerId } },
@@ -201,8 +217,15 @@ export async function saveDurationCalibration(deviceId: string, gramsPerSecond: 
 			return { success: false, error: "Device not found" };
 		}
 
-		if (!Number.isFinite(gramsPerSecond) || gramsPerSecond <= 0 || gramsPerSecond > 100) {
-			return { success: false, error: "Grams per second must be between 0 and 100" };
+		if (
+			!Number.isFinite(gramsPerSecond) ||
+			gramsPerSecond < GRAMS_PER_SECOND_MIN ||
+			gramsPerSecond > GRAMS_PER_SECOND_MAX
+		) {
+			return {
+				success: false,
+				error: `Grams per second must be between ${GRAMS_PER_SECOND_MIN} and ${GRAMS_PER_SECOND_MAX}`,
+			};
 		}
 
 		await prisma.energyDevice.update({
@@ -231,6 +254,7 @@ export async function saveDurationCalibration(deviceId: string, gramsPerSecond: 
 export async function saveTemperatureCalibration(deviceId: string, tempOffsetC: number) {
 	try {
 		await requireWriteAccess();
+		await requirePermission("manage_schedule");
 		const ownerId = await getCurrentPondOwnerId();
 		const device = await prisma.energyDevice.findFirst({
 			where: { id: deviceId, pond: { ownerId } },

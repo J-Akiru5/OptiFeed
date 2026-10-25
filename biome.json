@@ -10,10 +10,12 @@
 		"ignore": [
 			"node_modules",
 			".next",
+			".vercel",
 			"dist",
 			"prisma/migrations",
 			"test-results",
-			"playwright-report"
+			"playwright-report",
+			"next-env.d.ts"
 		]
 	},
 	"formatter": {

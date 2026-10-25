@@ -1,6 +1,10 @@
+import { UserPermissionsDialog } from "@/components/admin/user-permissions-dialog";
 import { Link } from "@/i18n/routing";
 import { getUsers } from "@/lib/actions/admin";
+import { PERMISSIONS } from "@/lib/auth/permissions";
+import { getCurrentUser } from "@/lib/auth/session";
 import { Eye, Shield, User } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 const roleBadge: Record<string, { bg: string; text: string; icon: typeof Shield }> = {
 	ADMIN: { bg: "bg-[#E85A2A]", text: "text-white", icon: Shield },
@@ -9,7 +13,11 @@ const roleBadge: Record<string, { bg: string; text: string; icon: typeof Shield 
 };
 
 export default async function AdminUsersPage() {
-	const users = await getUsers();
+	const [users, currentUser, t] = await Promise.all([
+		getUsers(),
+		getCurrentUser(),
+		getTranslations("dashboard.adminUsers"),
+	]);
 
 	return (
 		<div className="space-y-6">
@@ -45,6 +53,9 @@ export default async function AdminUsersPage() {
 								</th>
 								<th className="text-left px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider">
 									Created
+								</th>
+								<th className="text-right px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider">
+									{t("actionsColumn")}
 								</th>
 							</tr>
 						</thead>
@@ -87,12 +98,30 @@ export default async function AdminUsersPage() {
 										<td className="px-6 py-4 text-xs text-[#3D5568]">
 											{user.createdAt.toLocaleDateString()}
 										</td>
+										<td className="px-6 py-4 text-right">
+											<UserPermissionsDialog
+												userId={user.id}
+												userName={user.displayName || user.farmId}
+												permissions={PERMISSIONS}
+												isSelf={currentUser?.id === user.id}
+											/>
+										</td>
 									</tr>
 								);
 							})}
 						</tbody>
 					</table>
 				</div>
+
+				{users.length === 0 && (
+					<div className="text-center py-12 text-[#3D5568]">
+						<User className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+						<p className="font-bold">No users in this organization yet.</p>
+						<p className="text-xs mt-1 text-[#3D5568]/70">
+							Accounts appear here after they are provisioned.
+						</p>
+					</div>
+				)}
 			</div>
 		</div>
 	);

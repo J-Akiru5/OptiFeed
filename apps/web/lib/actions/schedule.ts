@@ -1,5 +1,6 @@
 "use server";
 
+import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { STALE_SENT_MS } from "@/lib/constants";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
@@ -11,13 +12,18 @@ export async function toggleDevicePause(deviceId: string, isPaused: boolean) {
 	// Guard outside try: the catch below rethrows a generic message and would
 	// hide the write-access reason from the caller.
 	await requireWriteAccess();
+	await requirePermission("control_feeder");
 	try {
 		const ownerId = await getCurrentPondOwnerId();
 
 		const device = await prisma.energyDevice.findFirst({
 			where: { id: deviceId, pond: { ownerId } },
+			include: { pond: { select: { isFallow: true } } },
 		});
 		if (!device) throw new Error("Device not found or access denied");
+		if (!isPaused && device.pond?.isFallow) {
+			throw new Error("POND_FALLOW");
+		}
 
 		await prisma.energyDevice.update({
 			where: { id: deviceId },
@@ -36,6 +42,11 @@ export async function toggleDevicePause(deviceId: string, isPaused: boolean) {
 
 		revalidatePath("/[locale]/(dashboard)/dashboard/schedule", "page");
 	} catch (error) {
+		if (error instanceof Error && error.message === "POND_FALLOW") {
+			throw new Error(
+				"This pond is fallow after harvest. Start the next grow-out cycle before resuming feeding.",
+			);
+		}
 		console.error("Failed to toggle device pause:", error);
 		throw new Error("Failed to toggle device pause");
 	}
@@ -61,8 +72,11 @@ export async function updateScheduleCommand(
 		buttonFeedGrams?: number;
 	},
 ): Promise<UpdateScheduleResult> {
+	// Guard outside try: the catch below returns a generic message and would
+	// hide the write-access reason from the caller (matches toggleDevicePause).
+	await requireWriteAccess();
+	await requirePermission("manage_schedule");
 	try {
-		await requireWriteAccess();
 		const parsed = scheduleInputSchema.safeParse(data);
 		if (!parsed.success) {
 			return { success: false, error: formatZodError(parsed.error) };
@@ -73,8 +87,16 @@ export async function updateScheduleCommand(
 
 		const device = await prisma.energyDevice.findFirst({
 			where: { id: deviceId, pondId, pond: { ownerId } },
+			include: { pond: { select: { isFallow: true } } },
 		});
 		if (!device) return { success: false, error: "Device not found or access denied" };
+		if (device.pond?.isFallow) {
+			return {
+				success: false,
+				error:
+					"This pond is fallow after harvest. Start the next grow-out cycle before changing the feeding schedule.",
+			};
+		}
 
 		const dailyCapG = dailyFeedCapG(device.hopperCapacityG);
 		const scheduledDailyG = input.feedsPerDay * device.gramsPerFeeding;

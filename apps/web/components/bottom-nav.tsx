@@ -2,7 +2,7 @@
 
 import { Link, usePathname } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
-import { Clock, Fish, History, LayoutDashboard, Settings, TrendingUp } from "lucide-react";
+import { CalendarDays, Clock, Fish, LayoutDashboard, Settings, TrendingUp } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 export function BottomNav() {
@@ -13,17 +13,14 @@ export function BottomNav() {
 		{ href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
 		{ href: "/dashboard/schedule", label: t("schedule"), icon: Clock },
 		{ href: "/dashboard/log-sample", label: t("logSample"), icon: Fish },
-		{ href: "/dashboard/history", label: t("history"), icon: History },
+		{ href: "/dashboard/harvest", label: t("harvest"), icon: CalendarDays },
 		{ href: "/dashboard/growth", label: t("growth"), icon: TrendingUp },
 		{ href: "/dashboard/settings", label: t("settings"), icon: Settings },
 	];
 
 	return (
-		<nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] pb-[env(safe-area-inset-bottom)]">
-			<ul
-				className="flex items-center overflow-x-auto px-2 [&::-webkit-scrollbar]:hidden"
-				style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-			>
+		<nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] pb-[env(safe-area-inset-bottom)]">
+			<ul className="flex items-center px-1">
 				{navItems.map((item) => {
 					// We need to account for nested paths or exact matches.
 					// For dashboard home it should be exact. For others, startsWith is fine, but exact is safer.
@@ -31,16 +28,18 @@ export function BottomNav() {
 						item.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.href);
 
 					return (
-						<li key={item.href} className="flex-1 min-w-[76px] shrink-0">
+						<li key={item.href} className="flex-1 min-w-0">
 							<Link
 								href={item.href}
 								className={cn(
 									"flex flex-col items-center justify-center gap-1.5 py-3 px-1 transition-colors",
-									isActive ? "text-[#E85A2A]" : "text-[#3D5568] hover:text-[#0A3D62]",
+									isActive
+										? "text-[#E85A2A]"
+										: "text-[#3D5568] hover:text-[#0A3D62] dark:text-gray-300 dark:hover:text-white",
 								)}
 							>
 								<item.icon size={20} className={cn(isActive && "fill-[#E85A2A]/10")} />
-								<span className="text-[10px] font-bold text-center leading-tight whitespace-nowrap">
+								<span className="text-[10px] font-bold text-center leading-tight">
 									{item.label}
 								</span>
 							</Link>

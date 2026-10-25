@@ -6,6 +6,9 @@ const VIEWPORTS = [
 	{ width: 320, height: 640 },
 	{ width: 375, height: 812 },
 	{ width: 768, height: 1024 },
+	// Inside the band where the chat panel is on but BottomNav (lg:hidden) is
+	// still visible; the FAB anchor must stay high enough to clear the nav.
+	{ width: 900, height: 800 },
 	{ width: 1280, height: 800 },
 	{ width: 1920, height: 1080 },
 ];
@@ -38,7 +41,9 @@ test.describe("FAB cluster layout (workbench L1: no overlap)", () => {
 
 			expect(overlaps(await chat.boundingBox(), await help.boundingBox())).toBe(false);
 
-			if (vp.width < 768) {
+			// BottomNav is lg:hidden, so it is on screen up to 1023px even where
+			// the desktop chat panel (md:flex) has already taken over.
+			if (vp.width < 1024) {
 				const nav = bottomNav(page);
 				await expect(nav).toBeVisible();
 				expect(overlaps(await chat.boundingBox(), await nav.boundingBox())).toBe(false);

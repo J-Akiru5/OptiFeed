@@ -1,8 +1,10 @@
+import { OfflineBanner } from "@/components/pwa/offline-banner";
+import { PwaRegister } from "@/components/pwa/pwa-register";
 import { ThemeProvider } from "@/components/theme-provider";
 import { routing } from "@/i18n/routing";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { Inter } from "next/font/google";
@@ -17,28 +19,47 @@ const inter = Inter({
 
 export const metadata: Metadata = {
 	title: {
-		default: "OptiFeed — Smart Catfish Feeding Management",
-		template: "%s | OptiFeed",
+		default: "PakaonAI — Precision Feeding for African Catfish",
+		template: "%s | PakaonAI",
 	},
 	description:
-		"Monitor and control your catfish farm's feeding schedule remotely. Reduce feed costs, track FCR, and manage your ESP32 feeder from anywhere.",
+		"A precision feeding research prototype for African catfish. Log biomass samples, track FCR, and control an ESP32 feeder from anywhere.",
 	keywords: ["catfish farm", "catfish", "aquaculture", "feeding automation", "ESP32", "FCR"],
 	openGraph: {
-		title: "OptiFeed — Smart Catfish Feeding Management",
+		title: "PakaonAI — Precision Feeding for African Catfish",
 		description:
-			"Monitor and control your catfish farm's feeding schedule remotely. Built for farm owners who can't be on-site every day.",
+			"A precision feeding research prototype for African catfish. Log a sample, and PakaonAI recalculates the ration and syncs the ESP32 feeder.",
 		type: "website",
-		siteName: "OptiFeed",
+		siteName: "PakaonAI",
 	},
 	twitter: {
 		card: "summary_large_image",
-		title: "OptiFeed — Smart Catfish Feeding Management",
-		description: "Monitor and control your catfish farm's feeding schedule remotely.",
+		title: "PakaonAI — Precision Feeding for African Catfish",
+		description:
+			"A precision feeding research prototype for African catfish. Log a sample and sync the next ration to the feeder.",
 	},
 	robots: {
 		index: true,
 		follow: true,
 	},
+	manifest: "/manifest.webmanifest",
+	appleWebApp: {
+		capable: true,
+		title: "PakaonAI",
+		statusBarStyle: "default",
+	},
+	icons: {
+		icon: [
+			{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+			{ url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+		],
+		apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+	},
+};
+
+export const viewport: Viewport = {
+	themeColor: "#0A3D62",
+	viewportFit: "cover",
 };
 
 export default async function LocaleLayout({
@@ -61,7 +82,9 @@ export default async function LocaleLayout({
 			<body className="min-h-full flex flex-col bg-[var(--ofd-bg)] dark:bg-gray-950 font-sans">
 				<ThemeProvider>
 					<NextIntlClientProvider messages={messages}>
+						<PwaRegister />
 						{children}
+						<OfflineBanner />
 						<Toaster position="top-right" richColors />
 					</NextIntlClientProvider>
 					<Analytics />

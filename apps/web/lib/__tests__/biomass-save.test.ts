@@ -133,6 +133,7 @@ describe("saveBiomassLog result shape", () => {
 				update: vi.fn().mockResolvedValue({}),
 			},
 			deviceStateEvent: { create: vi.fn().mockResolvedValue({}) },
+			cropCycle: { findFirst: vi.fn().mockResolvedValue(null) },
 		};
 		const prisma = (await import("@/lib/prisma")).default;
 		const transactionMock = prisma.$transaction as unknown as ReturnType<typeof vi.fn>;

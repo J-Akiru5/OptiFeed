@@ -1,9 +1,10 @@
 "use server";
 
-import { deleteUserSubtree } from "@/lib/actions/admin";
+import { deleteUserSubtree } from "@/lib/actions/admin-internal";
 import { isPlatformAdminActive } from "@/lib/auth/platform-admin";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
+import { invalidateFarm } from "@/lib/auth/session-cache";
 import prisma from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MemberRole, Prisma, UserRole } from "@prisma/client";
@@ -22,6 +23,20 @@ import type { MemberRole, Prisma, UserRole } from "@prisma/client";
  */
 
 const MIN_REASON_LENGTH = 10;
+
+const LAST_PLATFORM_ADMIN_MESSAGE =
+	"At least one active platform administrator must remain. Grant another admin first.";
+
+/**
+ * `PlatformAdmin` rows that currently grant god-mode: unrevoked and, when
+ * time-boxed, not yet expired — the same rule as isPlatformAdminActive.
+ */
+function activePlatformAdminWhere(): Prisma.PlatformAdminWhereInput {
+	return {
+		revokedAt: null,
+		OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+	};
+}
 
 function requireReason(reason: string | undefined): string {
 	const trimmed = reason?.trim() ?? "";
@@ -395,6 +410,20 @@ export async function revokePlatformUser(
 			return { error: "The primary superadmin account cannot be removed." };
 		}
 
+		// Last-admin protection: checked here, before the auth account is
+		// deleted, because that step is irreversible and outside the DB
+		// transaction. Removing the sole active grant would lock the console.
+		const grant = await prisma.platformAdmin.findUnique({
+			where: { userId },
+			select: { revokedAt: true, expiresAt: true },
+		});
+		if (grant && isPlatformAdminActive(grant)) {
+			const activeAdmins = await prisma.platformAdmin.count({
+				where: activePlatformAdminWhere(),
+			});
+			if (activeAdmins <= 1) return { error: LAST_PLATFORM_ADMIN_MESSAGE };
+		}
+
 		const actor = await actorId();
 		// Auth first, and check the result: auth.admin.deleteUser returns an error
 		// object rather than throwing. Aborting here leaves both stores intact;
@@ -435,6 +464,10 @@ export async function revokePlatformUser(
 				tx,
 			);
 		});
+
+		// Drop any cached farm binding immediately; otherwise a valid JWT could
+		// keep passing withAuth for the cache TTL after the account is gone.
+		invalidateFarm(user.supabaseId);
 
 		return { success: true };
 	} catch (e) {
@@ -697,7 +730,22 @@ export async function revokePlatformAdmin(userId: string, reason: string): Promi
 		if (existing.revokedAt) return { success: true };
 
 		const actor = await actorId();
-		await prisma.$transaction(async (tx) => {
+		// Revoking yourself would immediately strip your own console access.
+		if (userId === actor) {
+			return { error: "You cannot revoke your own platform admin grant." };
+		}
+
+		const targetIsActive = isPlatformAdminActive(existing);
+		const refused = await prisma.$transaction(async (tx) => {
+			// Count inside the transaction: two concurrent revokes must not both
+			// observe "two admins" and leave the platform with zero.
+			if (targetIsActive) {
+				const activeAdmins = await tx.platformAdmin.count({
+					where: activePlatformAdminWhere(),
+				});
+				if (activeAdmins <= 1) return true;
+			}
+
 			await tx.platformAdmin.update({ where: { userId }, data: { revokedAt: new Date() } });
 			await audit(
 				{
@@ -710,7 +758,9 @@ export async function revokePlatformAdmin(userId: string, reason: string): Promi
 				},
 				tx,
 			);
+			return false;
 		});
+		if (refused) return { error: LAST_PLATFORM_ADMIN_MESSAGE };
 
 		return { success: true };
 	} catch (e) {

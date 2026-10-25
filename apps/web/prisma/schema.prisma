@@ -26,6 +26,28 @@ enum PondStatus {
   ARCHIVED
 }
 
+enum CropCycleStatus {
+  ACTIVE
+  HARVESTED
+  CANCELLED
+}
+
+enum PondEventType {
+  STOCKING
+  HARVEST_PLANNED
+  HARVEST_ACTUAL
+  SAMPLING
+  MAINTENANCE
+  OTHER
+}
+
+enum PondEventStatus {
+  PLANNED
+  DONE
+  MISSED
+  CANCELLED
+}
+
 enum PondOwnershipEventType {
   CREATED
   TRANSFERRED
@@ -72,8 +94,9 @@ model Pond {
   sampleIntervalDays Int      @default(14)
   scheduleStart      DateTime @db.Time()
   scheduleEnd        DateTime @db.Time()
-  notificationPrefs  Json     @default("{\"missedFeeding\":true,\"deviceOffline\":true,\"hopperLow\":true}")
+  notificationPrefs  Json     @default("{\"missedFeeding\":true,\"deviceOffline\":true,\"hopperLow\":true,\"harvestReminders\":true,\"samplingReminders\":true,\"emailReminders\":true}")
   status             PondStatus @default(ACTIVE)
+  isFallow           Boolean  @default(false) // harvest/cancel leaves the pond active but not feeding
   createdAt          DateTime @default(now())
 
   owner             User?            @relation(fields: [ownerId], references: [farmId], onDelete: Restrict)
@@ -85,10 +108,92 @@ model Pond {
   energyDevices     EnergyDevice[]
   scheduleCommands  ScheduleCommand[]
   ownershipHistory  PondOwnershipHistory[]
+  cropCycles        CropCycle[]
+  pondEvents        PondEvent[]
 
   @@index([ownerId])
   @@index([farmId])
   @@index([status])
+}
+
+model CropCycle {
+  id                   String          @id @default(cuid())
+  pondId               String
+  farmId               String? // immutable ownership stamp
+  label                String? // "Batch 2026-10"
+  status               CropCycleStatus @default(ACTIVE)
+
+  stockingDate         DateTime @db.Date
+  stockingCount        Int
+  stockingAvgWeightG   Float?
+  growOutDays          Int      @default(135)
+  targetHarvestDate    DateTime @db.Date
+  targetHarvestWeightG Float?
+  expectedSurvivalPct  Float?
+
+  actualHarvestDate     DateTime? @db.Date
+  actualHarvestWeightKg Float?
+  actualHarvestCount    Int?
+  actualFcr             Float?
+
+  notes     String?
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pond   Pond        @relation(fields: [pondId], references: [id], onDelete: Cascade)
+  events PondEvent[]
+
+  @@index([pondId, status])
+  @@index([farmId])
+  // One ACTIVE cycle per pond is enforced by a partial unique index in the
+  // migration; Prisma cannot express partial indexes in the schema.
+}
+
+model PondEvent {
+  id          String          @id @default(cuid())
+  pondId      String
+  cropCycleId String?
+  farmId      String?
+  type        PondEventType
+  status      PondEventStatus @default(PLANNED)
+  title       String
+  startsAt    DateTime
+  endsAt      DateTime?
+  allDay      Boolean         @default(true)
+  notes       String?
+  source      String? // "manual" | "cycle" | "device" | "sampling" | "feeding"
+  sourceId    String? // device event id, if applicable
+  createdBy   String
+  completedBy String?
+  completedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  pond      Pond       @relation(fields: [pondId], references: [id], onDelete: Cascade)
+  cropCycle CropCycle? @relation(fields: [cropCycleId], references: [id], onDelete: SetNull)
+
+  @@index([pondId, startsAt])
+  @@index([farmId, startsAt])
+  @@index([cropCycleId])
+}
+
+model ReminderLog {
+  id          String   @id @default(cuid())
+  pondId      String
+  cropCycleId String?
+  pondEventId String?
+  kind        String // "harvest_d14" | "harvest_d7" | ... | "sampling_due"
+  channel     String // "in_app" | "email"
+  dedupeKey   String   @unique
+  recipient   String?
+  status      String   @default("SENT") // "SENT" | "FAILED"
+  attempts    Int      @default(1)
+  lastError   String?
+  sentAt      DateTime @default(now())
+
+  @@index([pondId, kind])
+  @@index([cropCycleId])
 }
 
 model Device {
@@ -115,6 +220,7 @@ model BiomassLog {
   sampleCount     Int
   avgWeightKg     Float
   batchLabel      String? // optional free-text label shared by all fish in this log session
+  source          String? // "form" | "import" | "seed"; null = legacy rows
   recordedAt      DateTime @default(now())
   farmId          String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
 
@@ -283,7 +389,7 @@ model FeedRequest {
 model DeviceStateEvent {
   id          String   @id @default(cuid())
   deviceId    String
-  eventType   String   // "connected" | "disconnected" | "command_sent" | "command_acked" | "command_failed" | "schedule_changed" | "schedule_applied" | "feed_dispensed" | "feed_reconciled" | "pge_reading" | "pellet_low" | "pellet_refilled" | "manual_trigger" | "notification_acknowledged" | "set_time" | "data_imported" | "data_exported"
+  eventType   String   // "connected" | "disconnected" | "command_sent" | "command_acked" | "command_failed" | "schedule_changed" | "schedule_applied" | "feed_dispensed" | "feed_reconciled" | "pge_reading" | "pellet_low" | "pellet_refilled" | "manual_trigger" | "notification_acknowledged" | "set_time" | "data_imported" | "data_exported" | "prediction_applied"
   source      String   // "system" | "user" | "device"
   actorId     String?  // userId who triggered it (nullable for device-originated)
   metadata    Json?    // flexible payload (old/new values, request IDs, error details)
@@ -364,11 +470,23 @@ model LoginLockout {
   farmId         String
   ip             String
   failedAttempts Int       @default(0)
-  lockedUntil    DateTime?
-  lastFailedAt   DateTime?
+  lockedUntil    DateTime? @db.Timestamptz(6)
+  lastFailedAt   DateTime? @db.Timestamptz(6)
 
   @@id([farmId, ip])
   @@map("login_lockout")
+}
+
+/// Fixed-window rate-limit counters. Declared here so the Prisma schema matches
+/// the table created by raw SQL in 20261013010000_add_rate_limiter_and_lockout;
+/// otherwise every migration diff tries to drop it.
+model RateLimitBucket {
+  key         String
+  windowStart DateTime @map("window_start") @db.Timestamptz(6)
+  count       Int      @default(0)
+
+  @@id([key, windowStart])
+  @@map("rate_limit_bucket")
 }
 
 enum OrgType {
@@ -472,4 +590,69 @@ model ImpersonationSession {
   startedAt   DateTime  @default(now())
   expiresAt   DateTime
   endedAt     DateTime?
+}
+
+/// Platform-global AI provider chain, managed from /superadmin.
+/// Secrets are never stored here: apiKeyEnv names an environment variable that
+/// holds the key, resolved at call time by lib/ai-providers/config.ts.
+model AiProviderConfig {
+  id        String   @id @default(cuid())
+  /// Registry id from lib/ai-providers/registry.ts, e.g. "opencode-go".
+  provider  String   @unique
+  enabled   Boolean  @default(true)
+  /// Lower runs first.
+  priority  Int      @default(100)
+  /// Provider-specific model id; null means the adapter default.
+  model     String?
+  /// Environment variable holding the key; null means the adapter default.
+  apiKeyEnv String?
+  /// Provider-specific extras (e.g. { "reasoningEffort": "high" }).
+  params    Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([priority])
+}
+
+/// Durable queue for work that must not run inside the request path
+/// (bulk CSV/ZIP exports, import confirmation). Claimed with
+/// `FOR UPDATE SKIP LOCKED`, processed by the cron worker.
+model BackgroundJob {
+  id          String    @id @default(cuid())
+  /// Tenant key (User.farmId). Never exposed across farms.
+  ownerId     String
+  /// Supabase user id of the requester, for audit.
+  requestedBy String?
+  /// "export_csv" | "export_zip" | "import_confirm"
+  type        String
+  /// "queued" | "running" | "succeeded" | "failed"
+  status      String    @default("queued")
+  payload     Json
+  result      Json?
+  error       String?
+  attempts    Int       @default(0)
+  lockedAt    DateTime?
+  lockedBy    String?
+  createdAt   DateTime  @default(now())
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  expiresAt   DateTime
+  artifact    JobArtifact?
+
+  @@index([status, createdAt])
+  @@index([ownerId, createdAt])
+  @@index([expiresAt])
+}
+
+/// Generated file for a finished export job. Bytes live in Postgres for now;
+/// production can swap this for object storage without changing the API.
+model JobArtifact {
+  jobId       String        @id
+  filename    String
+  contentType String
+  size        Int
+  data        Bytes
+  createdAt   DateTime      @default(now())
+  expiresAt   DateTime
+  job         BackgroundJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
 }

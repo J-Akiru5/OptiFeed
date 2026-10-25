@@ -2,10 +2,12 @@
 
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { dateOnlyToUtcDate, isValidDateOnly } from "@/lib/crop-cycle/dates";
 import { biomassLogSchema, feedGramsSchema, fishSamplesSchema, formatZodError } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import { calculateNextFeeding } from "@/lib/volumeCalc";
 import { revalidatePath } from "next/cache";
+import { applyGrowthPlanForPond } from "./growth-plan";
 
 const DEVIATION_THRESHOLD = 0.5; // 50% — reject if new value differs this much from current
 
@@ -21,7 +23,8 @@ export type FeedScheduleStatus =
 	| "rejected_out_of_range"
 	| "skipped_config"
 	| "skipped_no_device"
-	| "skipped_no_population";
+	| "skipped_no_population"
+	| "skipped_target_plan";
 
 export interface FeedCalculationResult {
 	/** Recommendation computed from this sample (null when not computable). */
@@ -115,6 +118,7 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 				sampleCount,
 				avgWeightKg,
 				batchLabel,
+				source: "form",
 			},
 		});
 
@@ -137,6 +141,14 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 			: false;
 		const population = pond.population ?? 0;
 
+		// A target-weight cycle owns the feeding adjustment. The generic
+		// biomass formula must not also move the device, or a single sample
+		// could apply two changes inside the 15-day safety window.
+		const activeTargetCycle = await tx.cropCycle.findFirst({
+			where: { pondId, status: "ACTIVE", targetHarvestWeightG: { not: null } },
+			select: { id: true },
+		});
+
 		const finish = (
 			status: FeedScheduleStatus,
 			calculatedGrams: number | null,
@@ -156,6 +168,10 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 			deviceOffline,
 			batchLabel,
 		});
+
+		if (activeTargetCycle) {
+			return finish("skipped_target_plan", null, previousGrams);
+		}
 
 		if (pond.feedingRatePct <= 0 || pond.feedsPerDay <= 0) {
 			console.log(
@@ -280,5 +296,151 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 
 	revalidatePath("/[locale]/dashboard", "layout");
 
-	return { success: true, feed: txResult };
+	let feedResult = txResult;
+	if (txResult.status === "skipped_target_plan") {
+		const planResult = await applyGrowthPlanForPond({
+			pondId,
+			ownerId,
+			actorId: ownerId,
+			note: "Applied automatically after a biomass sample.",
+			initializeIfFirst: true,
+		});
+		if (planResult.success) {
+			feedResult = {
+				...txResult,
+				status: "updated",
+				calculatedGrams: planResult.newGrams ?? null,
+				effectiveGrams: planResult.newGrams ?? null,
+				previousGrams: planResult.previousGrams ?? null,
+				dailyFeedG:
+					planResult.newGrams !== undefined && txResult.feedsPerDay > 0
+						? Math.round(planResult.newGrams * txResult.feedsPerDay * 100) / 100
+						: null,
+			};
+		} else {
+			feedResult = {
+				...txResult,
+				calculatedGrams: null,
+				effectiveGrams: txResult.previousGrams,
+			};
+		}
+	}
+
+	return { success: true, feed: feedResult };
+}
+
+export type BiomassLogActionResult = { success: true } | { success: false; error: string };
+
+/**
+ * Edit an existing sample. The aggregate fields are recalculated; individual
+ * fish rows are left untouched because the original sample detail is still
+ * useful history. The next target-plan calculation uses the edited aggregate.
+ */
+export async function updateBiomassLog(input: {
+	id: string;
+	sampleCount: number;
+	sampleWeightKg: number;
+	sampleLengthCm: number;
+	batchLabel: string | null;
+	recordedAt?: string;
+}): Promise<BiomassLogActionResult> {
+	try {
+		await requireWriteAccess();
+		const ownerId = await getCurrentPondOwnerId();
+		const parsed = biomassLogSchema.safeParse({
+			sampleCount: input.sampleCount,
+			sampleWeightKg: input.sampleWeightKg,
+			sampleLengthCm: input.sampleLengthCm,
+			batchLabel: input.batchLabel,
+		});
+		if (!parsed.success) return { success: false, error: formatZodError(parsed.error) };
+		if (input.recordedAt !== undefined && !isValidDateOnly(input.recordedAt)) {
+			return { success: false, error: "Use a valid sample date (YYYY-MM-DD)." };
+		}
+
+		const log = await prisma.biomassLog.findFirst({
+			where: { id: input.id, pond: { ownerId } },
+			select: { id: true, pondId: true },
+		});
+		if (!log) return { success: false, error: "Sample not found." };
+
+		const avgWeightKg = parsed.data.sampleWeightKg / parsed.data.sampleCount;
+		await prisma.$transaction(async (tx) => {
+			await tx.biomassLog.update({
+				where: { id: log.id },
+				data: {
+					sampleCount: parsed.data.sampleCount,
+					sampleWeightKg: parsed.data.sampleWeightKg,
+					sampleLengthCm: parsed.data.sampleLengthCm,
+					avgWeightKg,
+					batchLabel: parsed.data.batchLabel ?? null,
+					...(input.recordedAt ? { recordedAt: dateOnlyToUtcDate(input.recordedAt) } : {}),
+				},
+			});
+
+			const device = await tx.energyDevice.findFirst({
+				where: { pondId: log.pondId },
+				select: { id: true },
+			});
+			if (device) {
+				await tx.deviceStateEvent.create({
+					data: {
+						deviceId: device.id,
+						eventType: "biomass_log_edited",
+						source: "user",
+						actorId: ownerId,
+						metadata: {
+							biomassLogId: log.id,
+							sampleCount: parsed.data.sampleCount,
+							sampleWeightKg: parsed.data.sampleWeightKg,
+							avgWeightKg,
+						},
+					},
+				});
+			}
+		});
+
+		revalidatePath("/[locale]/dashboard", "layout");
+		return { success: true };
+	} catch (error) {
+		console.error("[biomass] update failed:", error);
+		return { success: false, error: "Could not update the sample." };
+	}
+}
+
+export async function deleteBiomassLog(id: string): Promise<BiomassLogActionResult> {
+	try {
+		await requireWriteAccess();
+		const ownerId = await getCurrentPondOwnerId();
+		const log = await prisma.biomassLog.findFirst({
+			where: { id, pond: { ownerId } },
+			select: { id: true, pondId: true },
+		});
+		if (!log) return { success: false, error: "Sample not found." };
+
+		await prisma.$transaction(async (tx) => {
+			const device = await tx.energyDevice.findFirst({
+				where: { pondId: log.pondId },
+				select: { id: true },
+			});
+			await tx.biomassLog.delete({ where: { id: log.id } });
+			if (device) {
+				await tx.deviceStateEvent.create({
+					data: {
+						deviceId: device.id,
+						eventType: "biomass_log_deleted",
+						source: "user",
+						actorId: ownerId,
+						metadata: { biomassLogId: log.id },
+					},
+				});
+			}
+		});
+
+		revalidatePath("/[locale]/dashboard", "layout");
+		return { success: true };
+	} catch (error) {
+		console.error("[biomass] delete failed:", error);
+		return { success: false, error: "Could not delete the sample." };
+	}
 }

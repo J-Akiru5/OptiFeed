@@ -1,9 +1,10 @@
 "use client";
 
 import { Link, usePathname, useRouter } from "@/i18n/routing";
+import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { BarChart3, Droplets, FolderTree, Loader2, LogOut, Users } from "lucide-react";
+import { BarChart3, Droplets, FolderTree, Loader2, LogOut, Sparkles, Users } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
@@ -11,6 +12,7 @@ const navItems = [
 	{ href: "/superadmin/users", label: "Users", icon: Users },
 	{ href: "/superadmin/orgs", label: "Organizations", icon: FolderTree },
 	{ href: "/superadmin/ponds", label: "Ponds", icon: Droplets },
+	{ href: "/superadmin/ai-providers", label: "AI Providers", icon: Sparkles },
 ];
 
 /**
@@ -19,6 +21,9 @@ const navItems = [
  * Intentionally has no Devices / Schedule / Hierarchy / Settings entries: the
  * superadmin is read-only on farm operations (3-tier model, no interference
  * in farmer work). Ponds here is a visibility table, not a control surface.
+ *
+ * AI Providers is the one configuration surface, and it is platform-level only:
+ * it controls the model chain every tenant shares, not any farm's data.
  */
 export function SuperadminSidebar() {
 	const pathname = usePathname();
@@ -30,6 +35,7 @@ export function SuperadminSidebar() {
 	// useChatWidget(), which only exists inside the dashboard's provider tree.
 	const handleSignOut = async () => {
 		setIsSigningOut(true);
+		clearDashboardSnapshot();
 		await supabase.auth.signOut();
 		router.replace("/");
 	};
@@ -65,6 +71,13 @@ export function SuperadminSidebar() {
 			</div>
 
 			<div className="mt-auto pt-6 border-t border-white/10">
+				<Link
+					href="/dashboard"
+					className="flex items-center gap-3 p-3.5 rounded-2xl font-bold text-white/50 hover:text-white hover:bg-white/10 transition-all text-sm"
+				>
+					<BarChart3 className="w-4 h-4 shrink-0" />
+					Back to Dashboard
+				</Link>
 				<button
 					type="button"
 					onClick={handleSignOut}

@@ -41,7 +41,8 @@ const sourceFiles = walk(web)
 const resetCmd = ["migrate", "reset"].join(" ");
 
 const branch = sh("git branch --show-current").stdout.trim();
-record("on branch Karl", branch === "Karl", branch);
+const protectedBranches = ["develop", "staging", "main"];
+record("not on a protected branch", branch !== "" && !protectedBranches.includes(branch), branch);
 
 const staged = sh("git diff --cached --name-only").stdout.split("\n").filter(Boolean);
 const stagedEnv = staged.filter((f) => /(^|\/)\.env/.test(f) && !f.endsWith(".env.example"));
@@ -65,7 +66,7 @@ record(
 const buildScript = JSON.parse(read(`${web}/package.json`) || "{}").scripts?.build ?? "";
 record(
 	"web build script does not run migrate deploy",
-	!buildScript.includes("migrate"),
+	!/(prisma\s+)?migrate\s+deploy/.test(buildScript),
 	buildScript,
 );
 
@@ -177,7 +178,7 @@ for (const route of ["ingest", "feed-command", "schedule-sync"]) {
 
 const envExample = read(`${web}/.env.example`);
 for (const key of [
-	"GEMINI_MODEL",
+	"OPENCODE_GO_MODEL",
 	"NEXT_PUBLIC_BASE_URL",
 	"DEMO_PIN",
 	"CRON_SECRET",
@@ -193,6 +194,17 @@ record(
 	"deploy.yml deleted (Vercel Git integration deploys)",
 	!existsSync(".github/workflows/deploy.yml"),
 );
+const vercelCfg = JSON.parse(read(`${web}/vercel.json`) || "{}");
+const deploymentEnabled = vercelCfg?.git?.deploymentEnabled ?? {};
+record(
+	"Vercel deployments restricted to develop and main",
+	deploymentEnabled["*"] === false &&
+		deploymentEnabled["**"] === false &&
+		deploymentEnabled.develop === true &&
+		deploymentEnabled.main === true,
+	JSON.stringify(deploymentEnabled),
+);
+record("CI workflow never deploys", !read(".github/workflows/ci.yml").includes("vercel deploy"));
 record("device-watch cron route exists", existsSync(`${web}/app/api/cron/device-watch/route.ts`));
 record("cron SQL file exists", existsSync("docs/sql/cron-device-watch.sql"));
 record("telegram helper exists", existsSync(`${web}/lib/notify/telegram.ts`));

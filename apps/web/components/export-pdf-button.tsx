@@ -1,5 +1,7 @@
 "use client";
 
+import { ApiClientError, apiPost } from "@/lib/api-client";
+import { fetchJobArtifact, waitForJob } from "@/lib/jobs/client";
 import { Download } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -10,21 +12,27 @@ export function ExportPdfButton({ className }: { className?: string }) {
 	const handleExport = async () => {
 		setLoading(true);
 		try {
-			const res = await fetch("/api/export-pdf");
-			if (!res.ok) throw new Error("Export failed");
+			const job = await apiPost<{ id: string }>(
+				"/api/v1/export-jobs",
+				{ kind: "pdf" },
+				{ timeoutMs: 5_000 },
+			);
+			const { downloadUrl } = await waitForJob(job.id);
+			if (!downloadUrl) throw new Error("The report is not ready.");
 
-			const blob = await res.blob();
+			const response = await fetchJobArtifact(downloadUrl);
+			const blob = await response.blob();
 			const url = URL.createObjectURL(blob);
-			const a = document.createElement("a");
-			a.href = url;
-			a.download = `optifeed-report-${new Date().toISOString().split("T")[0]}.pdf`;
-			document.body.appendChild(a);
-			a.click();
-			document.body.removeChild(a);
+			const link = document.createElement("a");
+			link.href = url;
+			link.download = `pakaonai-report-${new Date().toISOString().split("T")[0]}.pdf`;
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
 			URL.revokeObjectURL(url);
 			toast.success("Report downloaded");
-		} catch {
-			toast.error("Failed to export report");
+		} catch (error) {
+			toast.error(error instanceof ApiClientError ? error.message : "Failed to export report");
 		} finally {
 			setLoading(false);
 		}

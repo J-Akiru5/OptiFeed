@@ -56,13 +56,40 @@ export function checkDeviceRateLimit(deviceId: string) {
 	return checkRateLimit(`rl:device:${deviceId}`, 20, 60_000, true);
 }
 
+// AI prediction rate limit: 10 requests per 60 seconds per user. Each call may
+// invoke the AI provider, so it's tighter than the general API limit. Fail-open.
+export function checkPredictionRateLimit(ownerId: string) {
+	return checkRateLimit(`rl:predict:${ownerId}`, 10, 60_000, true);
+}
+
+/**
+ * Pick the client IP to rate-limit key on from an X-Forwarded-For header.
+ *
+ * F-014: the LEFTMOST entry is written by the client and is trivially
+ * spoofable — rotating it grants a fresh rate-limit bucket per request and
+ * defeats both the login limiter and the per-(farm, IP) lockout. The
+ * RIGHTMOST entry is the one appended by the single trusted proxy in front
+ * of the app (Vercel's edge), so it is the only hop safe for security use
+ * (MDN: trusted-proxy-count = 1). The value is also validated so garbage
+ * can't become an unbounded rate_limit_bucket key.
+ */
+export function selectClientIp(raw: string | null): string {
+	const entries = (raw ?? "").split(",");
+	const candidate = entries[entries.length - 1]?.trim() ?? "";
+	// IPv4 / IPv6 character set; 45 chars is the max length of an IPv6 form.
+	if (candidate.length > 45 || !/^[0-9a-fA-F:.]+$/.test(candidate)) {
+		return "127.0.0.1";
+	}
+	return candidate;
+}
+
 /**
  * Extract client IP from Vercel-proxied headers.
  */
 export async function getClientIp(): Promise<string> {
 	const { headers } = await import("next/headers");
 	const hdrs = await headers();
-	return hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "127.0.0.1";
+	return selectClientIp(hdrs.get("x-forwarded-for"));
 }
 
 /**

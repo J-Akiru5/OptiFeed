@@ -1,15 +1,20 @@
 import { EnergyControllerCard } from "@/components/EnergyControllerCard";
 import { FeedLevelCard } from "@/components/FeedLevelCard";
 import { FeedNowButton } from "@/components/FeedNowButton";
+import { FeedingPredictionCard } from "@/components/FeedingPredictionCard";
 import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
 import { WaterTempCard } from "@/components/WaterTempCard";
 import { ExportPdfButton } from "@/components/export-pdf-button";
+import { DashboardSnapshot } from "@/components/pwa/dashboard-snapshot";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
 import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { todayDateOnly } from "@/lib/crop-cycle/dates";
+import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { getActivePond } from "@/lib/pond-selection";
+import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 import {
@@ -20,19 +25,23 @@ import {
 	Sliders,
 	Sparkles,
 	TrendingUp,
+	Wheat,
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0; // Ensure data is always fresh
 
 export default async function DashboardHomePage() {
-	const t = await getTranslations("dashboard.home");
-	const tBtn = await getTranslations("button");
-	const tHist = await getTranslations("dashboard.history");
-	const writeAccess = await canWrite();
-	const tDates = await getTranslations("dates");
-
-	const pond = await getActivePond({ devices: true });
+	const [t, tBtn, tHist, tGrowth, tHarvest, tDates, writeAccess, pond] = await Promise.all([
+		getTranslations("dashboard.home"),
+		getTranslations("button"),
+		getTranslations("dashboard.history"),
+		getTranslations("dashboard.growth"),
+		getTranslations("dashboard.harvest.summary"),
+		getTranslations("dates"),
+		canWrite(),
+		getActivePond({ devices: true }),
+	]);
 
 	if (!pond || !pond.devices.length) {
 		return (
@@ -44,55 +53,92 @@ export default async function DashboardHomePage() {
 
 	const device = pond.devices[0];
 
-	// Fetch ESP32 energy controller (optional — card only renders if present)
-	const energyDevice = await prisma.energyDevice.findFirst({
-		where: { pondId: pond.id },
-		orderBy: { createdAt: "asc" },
-		select: {
-			id: true,
-			mac: true,
-			label: true,
-			rtcOk: true,
-			feederActive: true,
-			isPaused: true,
-			gramsPerFeeding: true,
-			lastSeenAt: true,
-			feedLevelPercent: true,
-			feedLevelUpdatedAt: true,
-			hopperCapacityG: true,
-			waterTempC: true,
-			waterTempOk: true,
-			waterTempUpdatedAt: true,
-		},
-	});
+	// One parallel wave for independent reads. The recent biomass rows are the
+	// source of the latest sample too, so there is no duplicate findFirst.
+	const [energyDevice, recentBiomassLogs, fcrReports, activeCycle] = await Promise.all([
+		prisma.energyDevice.findFirst({
+			where: { pondId: pond.id },
+			orderBy: { createdAt: "asc" },
+			select: {
+				id: true,
+				mac: true,
+				label: true,
+				rtcOk: true,
+				feederActive: true,
+				isPaused: true,
+				gramsPerFeeding: true,
+				gramsPerSecond: true,
+				lastSeenAt: true,
+				feedLevelPercent: true,
+				feedLevelUpdatedAt: true,
+				hopperCapacityG: true,
+				waterTempC: true,
+				waterTempOk: true,
+				waterTempUpdatedAt: true,
+			},
+		}),
+		prisma.biomassLog.findMany({
+			where: { pondId: pond.id },
+			orderBy: { recordedAt: "desc" },
+			take: 5,
+			include: { fishSamples: { select: { id: true } } },
+		}),
+		prisma.fcrReport.findMany({
+			where: { pondId: pond.id },
+			orderBy: { periodEnd: "asc" },
+			take: 5,
+		}),
+		prisma.cropCycle.findFirst({
+			where: { pondId: pond.id, status: "ACTIVE" },
+			select: {
+				id: true,
+				label: true,
+				stockingDate: true,
+				stockingCount: true,
+				growOutDays: true,
+				targetHarvestDate: true,
+				targetHarvestWeightG: true,
+				expectedSurvivalPct: true,
+			},
+		}),
+	]);
 
-	// Fetch data
-	const latestBiomass = await prisma.biomassLog.findFirst({
-		where: { pondId: pond.id },
-		orderBy: { recordedAt: "desc" },
-	});
+	const latestBiomass = recentBiomassLogs[0] ?? null;
 
-	// `pond.*` goes stale when a device is paired (saves queue ScheduleCommands);
-	// prefer the newest pending/sent command, then the last applied one.
-	const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice?.id ?? null);
+	// Schedule resolution needs the device id; feeding history needs the same
+	// id, so they share the second wave.
+	const [currentConfig, feedingHistory] = await Promise.all([
+		resolveCurrentSchedule(pond.id, energyDevice?.id ?? null),
+		energyDevice
+			? prisma.feedEvent.findMany({
+					where: { deviceId: energyDevice.id, eventType: "feed_dispensed" },
+					orderBy: { receivedAt: "desc" },
+					take: 5,
+				})
+			: Promise.resolve([]),
+	]);
 
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
 
-	const feedingHistory = energyDevice
-		? await prisma.feedEvent.findMany({
-				where: { deviceId: energyDevice.id, eventType: "feed_dispensed" },
-				orderBy: { receivedAt: "desc" },
-				take: 5,
-			})
-		: [];
-
-	const fcrReports = await prisma.fcrReport.findMany({
-		where: { pondId: pond.id },
-		orderBy: { periodEnd: "asc" },
-		take: 5,
-	});
 	const latestFcr = fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : 0.0;
+	const cycleContext = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
+
+	// The advisor is surfaced on the home page so it is not hidden behind the
+	// Growth tab. The server renders the deterministic value instantly; the
+	// client card refines it with the AI provider in the background.
+	const initialPrediction = computeDeterministicPrediction({
+		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
+		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
+		population: pond.population ?? DEFAULT_FISH_COUNT,
+		avgWeightKg: latestBiomass?.avgWeightKg ?? null,
+		latestFcr: fcrReports.length > 0 ? latestFcr : null,
+		currentGrams: energyDevice?.gramsPerFeeding ?? null,
+		hopperCapacityG: energyDevice?.hopperCapacityG ?? null,
+		lastSampleAt: latestBiomass?.recordedAt ?? null,
+		isFallow: pond.isFallow,
+		cycle: cycleContext,
+	});
 
 	// Calculate next feeding time
 	const now = new Date();
@@ -163,7 +209,31 @@ export default async function DashboardHomePage() {
 	}
 
 	return (
-		<div className="space-y-6 pb-20 animate-in fade-in duration-500" data-onboard="welcome">
+		<div className="space-y-6 pb-20 animate-in fade-in duration-150" data-onboard="welcome">
+			<DashboardSnapshot
+				snapshot={{
+					pondName: pond.name,
+					deviceName: energyDevice?.label ?? device.name,
+					deviceStatus: energyDevice ? (esp32Offline ? "offline" : "online") : "missing",
+					lastSeenAt: energyDevice?.lastSeenAt?.toISOString() ?? null,
+					feedLevelPercent: energyDevice?.feedLevelPercent ?? null,
+					feedLevelUpdatedAt: energyDevice?.feedLevelUpdatedAt?.toISOString() ?? null,
+					waterTempC: energyDevice?.waterTempC ?? null,
+					waterTempOk: energyDevice?.waterTempOk ?? null,
+					waterTempUpdatedAt: energyDevice?.waterTempUpdatedAt?.toISOString() ?? null,
+					population: pond.population ?? DEFAULT_FISH_COUNT,
+					avgWeightG: latestBiomass ? latestBiomass.avgWeightKg * 1000 : null,
+					latestFcr: fcrReports.length > 0 ? latestFcr : null,
+					nextFeedingTime: isPaused ? null : nextFeedingTimeStr,
+					nextFeedingVolumeG: pond.isFallow ? 0 : nextFeedingVolumeG,
+					daysUntilSample,
+					activeCycleLabel: activeCycle?.label ?? null,
+					targetHarvestDate: activeCycle?.targetHarvestDate
+						? activeCycle.targetHarvestDate.toISOString().slice(0, 10)
+						: null,
+					isPaused,
+				}}
+			/>
 			{criticalAlert && (
 				<section className="sticky top-16 z-20 -mx-4 -mt-4 rounded-none bg-[#C42B3A] px-4 py-3 text-white shadow-lg md:mx-0 md:mt-0 md:rounded-[24px] md:px-5">
 					<div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -204,19 +274,92 @@ export default async function DashboardHomePage() {
 
 				<FeedNowButton
 					deviceId={energyDevice?.id ?? device.id}
-					nextFeedingVolume={`${nextFeedingVolumeG}g`}
+					nextFeedingVolume={pond.isFallow ? "0g" : `${nextFeedingVolumeG}g`}
 					label={tBtn("feedNow")}
 					deviceName={energyDevice?.label ?? device.name}
 					connectionStatus={esp32Offline ? "offline" : "online"}
 					hopperLevelPct={energyDevice?.feedLevelPercent ?? 0}
 					canWrite={writeAccess}
+					isFallow={pond.isFallow}
+					gramsPerSecond={energyDevice?.gramsPerSecond}
 					data-onboard="feed-now"
 				/>
 				<ExportPdfButton />
 			</div>
 
-			{/* Bento Grid */}
-			<div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+			{/* AI Feed Advisor — visible on the first screen the operator sees. */}
+			{pond.isFallow ? (
+				<div className="flex flex-col gap-4 rounded-[32px] border border-dashed border-[#0A3D62]/20 bg-white p-6 dark:border-white/10 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
+					<div className="flex items-start gap-3">
+						<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
+							<Wheat className="h-6 w-6" />
+						</div>
+						<div>
+							<p className="text-sm font-black text-gray-900 dark:text-gray-100">
+								{tHarvest("fallowTitle")}
+							</p>
+							<p className="mt-0.5 max-w-xl text-xs text-gray-500 dark:text-gray-400">
+								{tHarvest("fallowDesc")}
+							</p>
+						</div>
+					</div>
+					<Link
+						href="/dashboard/harvest"
+						className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] dark:bg-[#1f66a0]"
+					>
+						{tHarvest("startCycle")} <ChevronRight className="h-4 w-4" />
+					</Link>
+				</div>
+			) : (
+				energyDevice && (
+					<FeedingPredictionCard
+						deviceId={energyDevice.id}
+						initialPrediction={initialPrediction}
+						canWrite={writeAccess}
+						pondName={pond.name}
+					/>
+				)
+			)}
+
+			{/* Grow-out & harvest strip */}
+			{activeCycle && cycleContext && (
+				<div className="flex flex-col gap-3 rounded-2xl border border-[#0A3D62]/10 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
+					<div className="flex items-center gap-2.5">
+						<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
+							<Wheat className="h-5 w-5" />
+						</div>
+						<div>
+							<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
+								{activeCycle.label || tHarvest("cycle")}
+							</p>
+							<p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+								{tHarvest("dayOf", {
+									day: cycleContext.growOutDay,
+									total: activeCycle.growOutDays,
+								})}{" "}
+								·{" "}
+								{cycleContext.daysToHarvest < 0
+									? tHarvest("overdueBy", {
+											days: Math.abs(cycleContext.daysToHarvest),
+										})
+									: tHarvest("harvestIn", { days: cycleContext.daysToHarvest })}
+								{activeCycle.targetHarvestWeightG
+									? ` · ${activeCycle.targetHarvestWeightG} g target`
+									: ""}
+							</p>
+						</div>
+					</div>
+					<Link
+						href="/dashboard/harvest"
+						className="inline-flex items-center gap-1 text-xs font-bold text-[#0A3D62] hover:underline dark:text-[#5b9bd5]"
+					>
+						{tHarvest("progress")} <ChevronRight className="h-3.5 w-3.5" />
+					</Link>
+				</div>
+			)}
+
+			{/* Bento Grid — items-start keeps each tile at its natural height */}
+			<div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
 				{/* Tile 1: Hero — next feeding time (8 cols) */}
 				<div
 					className="col-span-1 md:col-span-8 bg-white dark:bg-gray-900 rounded-[32px] p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50 flex flex-col justify-between min-h-[300px] relative overflow-hidden"
@@ -265,7 +408,7 @@ export default async function DashboardHomePage() {
 									{t("feedVolumeLabel")}
 								</p>
 								<p className="text-2xl md:text-3xl font-black text-[#E85A2A] dark:text-[#ff8a5c]">
-									{nextFeedingVolumeG}g
+									{pond.isFallow ? "—" : `${nextFeedingVolumeG}g`}
 								</p>
 							</div>
 							<div>
@@ -311,9 +454,11 @@ export default async function DashboardHomePage() {
 
 					<div className="my-4">
 						<h2 className="text-5xl md:text-6xl font-black text-white tracking-tight">
-							{latestFcr.toFixed(2)}
+							{fcrReports.length > 0 ? latestFcr.toFixed(2) : "—"}
 						</h2>
-						<p className="text-xs text-white/70 mt-1.5 font-medium">{t("fcrOptimal")}</p>
+						{fcrReports.length > 0 && (
+							<p className="text-xs text-white/70 mt-1.5 font-medium">{t("fcrOptimal")}</p>
+						)}
 					</div>
 
 					{/* Mini sparkline SVG */}
@@ -410,51 +555,131 @@ export default async function DashboardHomePage() {
 						</Link>
 					</div>
 
-					<div className="space-y-3">
-						{feedingHistory.map((item, idx) => (
-							<div
-								key={item.id}
-								className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-[#F4F7F6] dark:bg-gray-800 rounded-2xl border border-[#0A3D62]/5 dark:border-gray-700/50 gap-4"
-							>
-								<div className="flex items-center gap-4">
-									<div className="w-10 h-10 bg-white dark:bg-gray-700 rounded-xl flex items-center justify-center font-extrabold text-xs text-[#0A3D62] dark:text-[#5b9bd5] border border-gray-200 dark:border-gray-600 shrink-0">
-										0{idx + 1}
-									</div>
-									<div>
-										<div className="flex items-center gap-2">
-											<p className="font-extrabold text-base text-[#0A3D62] dark:text-[#5b9bd5]">
-												{formatTime(item.receivedAt)}
-											</p>
-											<span className="text-[10px] text-[#3D5568] dark:text-gray-400 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-1.5 py-0.5 rounded-full font-mono">
-												{formatDate(item.receivedAt)}
-											</span>
+					{feedingHistory.length === 0 ? (
+						<p className="py-8 text-center text-sm text-[#3D5568] dark:text-gray-400">
+							{t("noFeedings")}
+						</p>
+					) : (
+						<div className="space-y-3">
+							{feedingHistory.map((item, idx) => (
+								<div
+									key={item.id}
+									className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-[#F4F7F6] dark:bg-gray-800 rounded-2xl border border-[#0A3D62]/5 dark:border-gray-700/50 gap-4"
+								>
+									<div className="flex items-center gap-4">
+										<div className="w-10 h-10 bg-white dark:bg-gray-700 rounded-xl flex items-center justify-center font-extrabold text-xs text-[#0A3D62] dark:text-[#5b9bd5] border border-gray-200 dark:border-gray-600 shrink-0">
+											0{idx + 1}
 										</div>
-										<p className="text-xs text-[#3D5568] dark:text-gray-400">
-											{tHist(item.source ? `source_${item.source}` : "confirmedDispense")}
-										</p>
+										<div>
+											<div className="flex items-center gap-2">
+												<p className="font-extrabold text-base text-[#0A3D62] dark:text-[#5b9bd5]">
+													{formatTime(item.receivedAt)}
+												</p>
+												<span className="text-[10px] text-[#3D5568] dark:text-gray-400 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-1.5 py-0.5 rounded-full font-mono">
+													{formatDate(item.receivedAt)}
+												</span>
+											</div>
+											<p className="text-xs text-[#3D5568] dark:text-gray-400">
+												{tHist(item.source ? `source_${item.source}` : "confirmedDispense")}
+											</p>
+										</div>
+									</div>
+									<div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-2 sm:pt-0 border-gray-200 dark:border-gray-700">
+										<div className="text-left sm:text-right">
+											<p className="font-extrabold text-base text-[#0A3D62] dark:text-[#5b9bd5]">
+												{item.grams ?? 0}g
+											</p>
+											<p className="text-[10px] font-bold uppercase text-[#3D5568] dark:text-gray-500 opacity-50">
+												{tHist("amount")}
+											</p>
+										</div>
+										<span className="px-4 py-1.5 rounded-full font-bold text-xs text-center min-w-[80px] shadow-sm bg-[#1E7B34] dark:bg-green-800 text-white">
+											{tHist("confirmedDispense")}
+										</span>
 									</div>
 								</div>
-								<div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-2 sm:pt-0 border-gray-200 dark:border-gray-700">
-									<div className="text-left sm:text-right">
-										<p className="font-extrabold text-base text-[#0A3D62] dark:text-[#5b9bd5]">
-											{item.grams ?? 0}g
-										</p>
-										<p className="text-[10px] font-bold uppercase text-[#3D5568] dark:text-gray-500 opacity-50">
-											{tHist("amount")}
-										</p>
-									</div>
-									<span className="px-4 py-1.5 rounded-full font-bold text-xs text-center min-w-[80px] shadow-sm bg-[#1E7B34] dark:bg-green-800 text-white">
-										{tHist("confirmedDispense")}
-									</span>
-								</div>
-							</div>
-						))}
-					</div>
+							))}
+						</div>
+					)}
 				</div>
+
+				{/* Tile 7: Recent biomass logs (12 cols) */}
+				{recentBiomassLogs.length > 0 && (
+					<div className="col-span-1 md:col-span-12 bg-white dark:bg-gray-900 rounded-[32px] p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50">
+						<div className="flex justify-between items-center mb-6">
+							<div>
+								<h3 className="text-lg md:text-xl font-black uppercase tracking-tight text-[#0A3D62] dark:text-[#5b9bd5]">
+									{t("biomassLogsTitle")}
+								</h3>
+								<p className="text-xs text-[#3D5568] dark:text-gray-400">{t("biomassLogsDesc")}</p>
+							</div>
+							<Link
+								href="/dashboard/growth"
+								className="text-[#0A3D62] dark:text-[#5b9bd5] font-extrabold text-sm hover:underline focus-visible:outline-none"
+							>
+								{t("viewGrowth")}
+							</Link>
+						</div>
+						<div className="space-y-3">
+							{recentBiomassLogs.map((log, idx) => (
+								<div
+									key={log.id}
+									className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-[#F4F7F6] dark:bg-gray-800 rounded-2xl border border-[#0A3D62]/5 dark:border-gray-700/50 gap-4"
+								>
+									<div className="flex items-center gap-4">
+										<div className="w-10 h-10 bg-white dark:bg-gray-700 rounded-xl flex items-center justify-center font-extrabold text-xs text-[#0A3D62] dark:text-[#5b9bd5] border border-gray-200 dark:border-gray-600 shrink-0">
+											0{idx + 1}
+										</div>
+										<div>
+											<div className="flex items-center gap-2 flex-wrap">
+												<p className="font-extrabold text-base text-[#0A3D62] dark:text-[#5b9bd5]">
+													{formatDate(log.recordedAt)}
+												</p>
+												{log.batchLabel && (
+													<span className="text-[10px] text-[#3D5568] dark:text-gray-400 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-1.5 py-0.5 rounded-full font-mono">
+														{log.batchLabel}
+													</span>
+												)}
+												{log.source === "import" && (
+													<span className="text-[10px] font-bold text-violet-700 bg-violet-100 dark:bg-violet-900/40 dark:text-violet-300 px-1.5 py-0.5 rounded-full">
+														{tGrowth("importedBadge")}
+													</span>
+												)}
+											</div>
+											<p className="text-xs text-[#3D5568] dark:text-gray-400">
+												{log.fishSamples.length > 0
+													? `${log.fishSamples.length} fish`
+													: `Avg • ${log.sampleCount} samples`}
+											</p>
+										</div>
+									</div>
+									<div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-2 sm:pt-0 border-gray-200 dark:border-gray-700">
+										<div className="text-left sm:text-right">
+											<p className="font-extrabold text-base text-[#0A3D62] dark:text-[#5b9bd5]">
+												{(log.avgWeightKg * 1000).toFixed(1)}g
+											</p>
+											<p className="text-[10px] font-bold uppercase text-[#3D5568] dark:text-gray-500 opacity-50">
+												{tGrowth("abwCol")}
+											</p>
+										</div>
+										<div className="text-left sm:text-right">
+											<p className="font-extrabold text-base text-[#0A3D62] dark:text-[#5b9bd5]">
+												{log.sampleWeightKg.toFixed(2)}kg
+											</p>
+											<p className="text-[10px] font-bold uppercase text-[#3D5568] dark:text-gray-500 opacity-50">
+												Total
+											</p>
+										</div>
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+				)}
 			</div>
 
 			{energyDevice && (
-				<section className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl">
+				<section className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl items-start">
 					<FeedLevelCard
 						levelPercent={energyDevice.feedLevelPercent}
 						updatedAt={energyDevice.feedLevelUpdatedAt}
@@ -477,6 +702,7 @@ export default async function DashboardHomePage() {
 							rtcOk={energyDevice.rtcOk}
 							feederActive={energyDevice.feederActive}
 							gramsPerFeeding={energyDevice.gramsPerFeeding}
+							gramsPerSecond={energyDevice.gramsPerSecond}
 							lastSeenAt={energyDevice.lastSeenAt}
 							isOffline={esp32Offline}
 							canWrite={writeAccess}

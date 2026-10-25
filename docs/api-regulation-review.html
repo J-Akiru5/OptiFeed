@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API Regulation adoption — OptiFeed</title>
+<style>
+	:root {
+		--navy: #0a3d62;
+		--navy-2: #12588c;
+		--orange: #e85a2a;
+		--ink: #16232e;
+		--muted: #536676;
+		--line: #dfe7ea;
+		--bg: #f4f7f6;
+		--card: #ffffff;
+		--good: #1f7a4d;
+		--good-bg: #e6f4ec;
+		--warn: #9a6200;
+		--warn-bg: #fff4dc;
+		--bad: #a12a2a;
+		--bad-bg: #fbe9e9;
+		--radius: 16px;
+		--measure: 72ch;
+	}
+	* { box-sizing: border-box; }
+	html { scroll-behavior: smooth; }
+	body {
+		margin: 0;
+		background: var(--bg);
+		color: var(--ink);
+		font: 16px/1.65 "Segoe UI", system-ui, -apple-system, sans-serif;
+	}
+	a { color: var(--navy-2); }
+	.wrap { width: min(1180px, 100%); margin: 0 auto; padding: 0 clamp(20px, 5vw, 72px); }
+	.prose { max-width: var(--measure); }
+	header.hero {
+		background: linear-gradient(135deg, var(--navy) 0%, #06283f 100%);
+		color: #fff;
+		padding: clamp(40px, 7vw, 84px) 0 clamp(32px, 5vw, 56px);
+	}
+	.eyebrow {
+		text-transform: uppercase;
+		letter-spacing: .14em;
+		font-size: 12px;
+		font-weight: 700;
+		color: #ffb99c;
+		margin: 0 0 12px;
+	}
+	h1 { font-size: clamp(30px, 5.4vw, 54px); line-height: 1.08; margin: 0 0 16px; letter-spacing: -.02em; }
+	h2 { font-size: clamp(24px, 3.6vw, 34px); line-height: 1.15; margin: 0 0 14px; letter-spacing: -.01em; }
+	h3 { font-size: 19px; margin: 0 0 8px; }
+	p { margin: 0 0 14px; }
+	.hero p.lead { max-width: 70ch; color: #d7e6ef; font-size: clamp(16px, 2vw, 19px); }
+	.hero-meta { display: flex; flex-wrap: wrap; gap: 10px 22px; font-size: 13px; color: #b9d1e0; margin-top: 22px; }
+	.mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
+	section { padding: clamp(34px, 5vw, 64px) 0; border-bottom: 1px solid var(--line); }
+	section:last-of-type { border-bottom: 0; }
+	.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-top: 28px; }
+	.kpi {
+		background: rgba(255,255,255,.08);
+		border: 1px solid rgba(255,255,255,.16);
+		border-radius: var(--radius);
+		padding: 18px;
+	}
+	.kpi strong { display: block; font-size: clamp(26px, 3.6vw, 36px); line-height: 1.1; letter-spacing: -.02em; }
+	.kpi span { display: block; font-size: 12.5px; color: #c7dbe7; margin-top: 6px; }
+	.grid { display: grid; gap: 16px; }
+	.grid.two { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+	.grid.three { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+	.card {
+		background: var(--card);
+		border: 1px solid var(--line);
+		border-radius: var(--radius);
+		padding: clamp(18px, 2.4vw, 26px);
+	}
+	.card h3 { color: var(--navy); }
+	.card p:last-child { margin-bottom: 0; }
+	.tag {
+		display: inline-block;
+		font-size: 11px;
+		font-weight: 700;
+		letter-spacing: .06em;
+		text-transform: uppercase;
+		padding: 3px 9px;
+		border-radius: 999px;
+		margin-bottom: 10px;
+	}
+	.tag.good { background: var(--good-bg); color: var(--good); }
+	.tag.warn { background: var(--warn-bg); color: var(--warn); }
+	.tag.bad { background: var(--bad-bg); color: var(--bad); }
+	.tag.neutral { background: #eaf0f3; color: var(--navy); }
+	.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+	table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+	th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+	th { background: #eef3f4; color: var(--navy); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+	tr:last-child td { border-bottom: 0; }
+	code {
+		font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+		font-size: .86em;
+		background: #eef3f4;
+		border: 1px solid #e0e8eb;
+		border-radius: 5px;
+		padding: 1px 5px;
+		white-space: nowrap;
+	}
+	pre {
+		margin: 0;
+		background: #0b2236;
+		color: #dcecf5;
+		border-radius: 12px;
+		padding: 16px 18px;
+		overflow-x: auto;
+		font-size: 13px;
+		line-height: 1.55;
+	}
+	pre code { background: none; border: 0; padding: 0; color: inherit; white-space: pre; }
+	.pipeline { display: grid; gap: 10px; margin: 22px 0 8px; }
+	.pipeline .step {
+		display: grid;
+		grid-template-columns: 46px 1fr;
+		gap: 14px;
+		align-items: start;
+		background: var(--card);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		padding: 14px 16px;
+		position: relative;
+	}
+	.pipeline .step:not(:last-child)::after {
+		content: "";
+		position: absolute;
+		left: 38px;
+		bottom: -11px;
+		width: 2px;
+		height: 11px;
+		background: var(--line);
+	}
+	.pipeline .n {
+		width: 32px; height: 32px; border-radius: 50%;
+		background: var(--navy); color: #fff;
+		display: grid; place-items: center;
+		font-weight: 800; font-size: 13px;
+	}
+	.pipeline .step p { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+	.callout {
+		border-left: 4px solid var(--orange);
+		background: #fff8f4;
+		border-radius: 0 12px 12px 0;
+		padding: 16px 18px;
+		margin: 18px 0;
+	}
+	.callout.good { border-left-color: var(--good); background: #f2faf5; }
+	.callout.warn { border-left-color: var(--warn); background: #fffaf0; }
+	.callout p:last-child { margin-bottom: 0; }
+	.matrix td:first-child { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12.5px; white-space: nowrap; }
+	.timeline { display: grid; gap: 14px; margin-top: 22px; }
+	.timeline .item {
+		display: grid;
+		grid-template-columns: 76px 1fr;
+		gap: 16px;
+		background: var(--card);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		padding: 16px;
+	}
+	.timeline .p {
+		font-weight: 800;
+		font-size: 13px;
+		letter-spacing: .04em;
+		color: #fff;
+		background: var(--navy);
+		border-radius: 8px;
+		display: grid; place-items: center;
+		height: 34px;
+	}
+	.timeline .item[data-p="P1"] .p { background: #1d6f9c; }
+	.timeline .item[data-p="P2"] .p { background: #5b7f93; }
+	.timeline .item[data-p="P3"] .p { background: #7b8f9b; }
+	.timeline h3 { margin: 0 0 4px; font-size: 16px; }
+	.timeline p { margin: 0; color: var(--muted); font-size: 14px; }
+	.footer { color: var(--muted); font-size: 13px; padding: 28px 0 52px; }
+	@media (max-width: 640px) {
+		.timeline .item { grid-template-columns: 1fr; }
+		.timeline .p { width: 76px; }
+		.pipeline .step { grid-template-columns: 36px 1fr; }
+		.pipeline .step:not(:last-child)::after { left: 32px; }
+	}
+	@media print {
+		header.hero { background: #fff; color: #000; }
+		.kpi { border-color: #999; }
+		section { break-inside: avoid; }
+	}
+</style>
+</head>
+<body>
+
+<header class="hero">
+	<div class="wrap">
+		<p class="eyebrow">Implementation report · 22 October 2026</p>
+		<h1>API Regulation v1.1, adopted — and where it still leaks</h1>
+		<p class="lead">
+			One envelope, one instrumentation layer, one versioned tree, and two verification suites.
+			The standard is now enforced in code and CI for OptiFeed — and the adoption surfaced six
+			places where the standard itself can be gamed or is simply wrong.
+		</p>
+		<div class="hero-meta">
+			<span>Repo: <span class="mono">optifeed</span> · branch <span class="mono">feat/api-regulation</span></span>
+			<span>Base: <span class="mono">origin/develop @ 74c1802</span></span>
+			<span>Stack: Next.js 16.4 · Supabase · Prisma 6.19</span>
+		</div>
+		<div class="kpis">
+			<div class="kpi"><strong>14</strong><span>route files instrumented</span></div>
+			<div class="kpi"><strong>463</strong><span>unit tests passing (48 files)</span></div>
+			<div class="kpi"><strong>0</strong><span>static conformance failures</span></div>
+			<div class="kpi"><strong>6</strong><span>endpoints declared for live certification</span></div>
+			<div class="kpi"><strong>22</strong><span>proposed v1.2 amendments</span></div>
+		</div>
+	</div>
+</header>
+
+<section>
+	<div class="wrap">
+		<h2>TL;DR</h2>
+		<div class="prose">
+			<p>
+				The regulation was adopted as a project copy at the repository root, with the two
+				decisions the standard requires a project to make: <strong>camelCase</strong> JSON for
+				browser responses, and a <strong>2027-06-30 sunset</strong> for the legacy unversioned
+				tree. The canonical surface is now <code>/api/v1/*</code>, rewritten to the same handlers
+				so the two trees cannot drift.
+			</p>
+			<p>
+				Instrumentation is a single <code>withApi()</code> wrapper plus a Prisma query extension.
+				Every response — including 4xx, 5xx, timeouts, and unknown paths — carries
+				<code>Server-Timing</code> and <code>X-Request-Id</code>; every request is classified
+				<code>WARN SLOW</code> above 300 ms and <code>ERROR VIOLATION</code> above 400 ms. Query
+				counting happens at the data layer, not in handlers, so it cannot silently measure zero.
+			</p>
+			<p>
+				The live §11 suites are implemented but <strong>not yet certified</strong>: this isolated
+				worktree has no Supabase session cookie, and the only configured credentials resolve to the
+				same database project ref as production, so running the suite there would violate the
+				no-production-data rule. Deliberately refusing to measure is the correct behaviour, not a
+				pass. What <em>was</em> verified end-to-end against a production build is the pipeline
+				itself: rewrites, envelope normalisation, timeout handling, request-id echo, legacy sunset
+				headers, and the 404 contract.
+			</p>
+		</div>
+
+		<div class="callout good">
+			<p><strong>Verdict on the standard:</strong> keep the envelope, the status map, the 300/400 ms split,
+			and the coverage floor. Fix the measurement source (use <code>Server-Timing</code>, not wall
+			clock), add an auth budget, define ETag inputs, make indexing verifiable, and close the
+			coverage-gaming holes. The detailed patch text is in
+			<code>docs/API_REGULATION_v1.2_PROPOSAL.md</code>.</p>
+		</div>
+	</div>
+</section>
+
+<section>
+	<div class="wrap">
+		<h2>The request pipeline, as implemented</h2>
+		<div class="prose">
+			<p>
+				The regulation says instrumentation must live in the request pipeline, wrap the error
+				layer, and be impossible to forget. In Next.js App Router there is no single router-level
+				interceptor, so the wrapper is the pipeline: every exported handler is composed as
+				<code>withApi(withAuth(...))</code>. A static CI check fails the build if a new
+				<code>route.ts</code> exports an unwrapped handler.
+			</p>
+		</div>
+
+		<div class="pipeline">
+			<div class="step">
+				<div class="n">1</div>
+				<div>
+					<h3>Request id</h3>
+					<p>Accept a client <code>X-Request-Id</code> only if it matches a safe pattern; otherwise generate a UUID. Carried through AsyncLocalStorage for the whole request.</p>
+				</div>
+			</div>
+			<div class="step">
+				<div class="n">2</div>
+				<div>
+					<h3>Auth phase</h3>
+					<p><code>withAuth</code> verifies the Supabase session, resolves the farm from <code>User.supabaseId</code>, and records its own duration as <code>auth;dur</code>.</p>
+				</div>
+			</div>
+			<div class="step">
+				<div class="n">3</div>
+				<div>
+					<h3>Handler + data layer</h3>
+					<p>A Prisma <code>$allOperations</code> hook counts every query and accumulates <code>db;dur</code>, including raw SQL and transactions. No handler-level wrapping.</p>
+				</div>
+			</div>
+			<div class="step">
+				<div class="n">4</div>
+				<div>
+					<h3>Envelope + error normalisation</h3>
+					<p>Success uses <code>{ data, meta }</code>; any 4xx/5xx response that is not already in the error envelope is rewritten to <code>{ error: { code, message, details, request_id } }</code>. Passthrough routes keep their body.</p>
+				</div>
+			</div>
+			<div class="step">
+				<div class="n">5</div>
+				<div>
+					<h3>Headers + logs</h3>
+					<p><code>Server-Timing: total, db, app, auth, queries</code>, <code>X-Request-Id</code>, optional <code>Cache-Control</code>/<code>ETag</code>, legacy <code>Deprecation</code>/<code>Sunset</code>. Slow and violation logs carry the route template, status, DB time, query count, and request id.</p>
+				</div>
+			</div>
+		</div>
+
+		<div class="prose">
+			<p>
+				The timeout guard races the handler against an absolute budget and returns
+				<code>504 TIMEOUT</code> with the same instrumentation headers. The underlying promise is
+				observed so a late failure never becomes an unhandled rejection — and it is not logged
+				twice.
+			</p>
+		</div>
+	</div>
+</section>
+
+<section>
+	<div class="wrap">
+		<h2>Endpoint adoption matrix</h2>
+		<div class="prose">
+			<p>
+				The regulation applies to endpoints the backend exposes for its own clients. Four surfaces
+				are deliberately exempt because an external contract already exists: the ESP32 firmware
+				API, the uptime probe, file downloads, and SSE. They still emit instrumentation headers.
+			</p>
+		</div>
+		<div class="table-wrap">
+			<table class="matrix">
+				<thead>
+					<tr><th>Endpoint (canonical)</th><th>Auth</th><th>Shape</th><th>Level</th><th>Note</th></tr>
+				</thead>
+				<tbody>
+					<tr><td>GET /api/v1/health</td><td>none</td><td>flat probe</td><td>L1</td><td>Exempt from §4; monitor contract</td></tr>
+					<tr><td>GET /api/v1/user-role</td><td>session</td><td>envelope</td><td>L2</td><td>Private cache, 60 s + ETag</td></tr>
+					<tr><td>POST /api/v1/predict-feeding</td><td>session</td><td>envelope</td><td>L2</td><td>CPU-bound inference</td></tr>
+					<tr><td>GET /api/v1/export</td><td>session</td><td>CSV</td><td>L1</td><td>Envelope on errors only</td></tr>
+					<tr><td>GET /api/v1/export/batch</td><td>session</td><td>ZIP</td><td>L1</td><td>Envelope on errors only</td></tr>
+					<tr><td>GET /api/v1/export-pdf</td><td>session</td><td>PDF</td><td>L1</td><td>Envelope on errors only</td></tr>
+					<tr><td>POST /api/v1/chat</td><td>session</td><td>SSE</td><td>L1</td><td>TTFB only; documented limitation</td></tr>
+					<tr><td>POST /api/v1/import</td><td>session + write</td><td>envelope</td><td>L1</td><td>15 s guard; backlog: job</td></tr>
+					<tr><td>POST /api/v1/import/confirm</td><td>session + write</td><td>envelope</td><td>L1</td><td>35 s guard; 30 s tx</td></tr>
+					<tr><td>GET /api/v1/cron/device-watch</td><td>cron bearer</td><td>envelope</td><td>L1</td><td>Internal job</td></tr>
+					<tr><td>GET /api/v1/feed-command</td><td>device token</td><td>flat</td><td>Exempt</td><td>Firmware contract</td></tr>
+					<tr><td>GET /api/v1/schedule-sync</td><td>device token</td><td>flat</td><td>Exempt</td><td>Firmware contract</td></tr>
+					<tr><td>POST /api/v1/ingest</td><td>device token</td><td>204 / text</td><td>Exempt</td><td>Firmware contract</td></tr>
+					<tr><td>ANY /api/v1/{fallback}</td><td>none</td><td>envelope 404</td><td>L1</td><td>Contract 404</td></tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+</section>
+
+<section>
+	<div class="wrap">
+		<h2>Verification evidence</h2>
+		<div class="prose">
+			<p>
+				Everything below was produced by tooling on this branch. It is separated into
+				<strong>verified</strong> (observed) and <strong>not certified</strong> (requires a
+				credential or a seeded database that this worktree does not have).
+			</p>
+		</div>
+
+		<div class="grid two" style="margin-top:20px">
+			<div class="card">
+				<span class="tag good">Verified</span>
+				<h3>Build + production server</h3>
+				<p><code>next build</code> completed with all 14 API routes and the catch-all. <code>next start</code> on port 3100 served the rewritten <code>/api/v1/*</code> paths.</p>
+				<pre><code>Route (app)
+├ ƒ /api/[...fallback]
+├ ƒ /api/user-role
+├ ƒ /api/health
+…
+ƒ Proxy (Middleware)</code></pre>
+			</div>
+			<div class="card">
+				<span class="tag good">Verified</span>
+				<h3>Runtime headers</h3>
+				<p>Unknown versioned path, no session, and legacy probe all carried the required headers:</p>
+				<pre><code>GET /api/v1/this-route-does-not-exist  → 404
+Server-Timing: total;dur=1.1, db;dur=0,
+  app;dur=1.1, queries;desc=0
+X-Request-Id: 3f707243-…
+
+GET /api/v1/user-role → 401
+Server-Timing: … auth;dur=6.6, queries;desc=0
+Sunset: Wed, 30 Jun 2027 23:59:59 GMT
+{"error":{"code":"UNAUTHENTICATED",…}}</code></pre>
+			</div>
+			<div class="card">
+				<span class="tag good">Verified</span>
+				<h3>Timeout path</h3>
+				<p>With an unreachable database, the health probe exceeded its 2 000 ms budget and returned a 504 with instrumentation, not a hung request:</p>
+				<pre><code>GET /api/v1/health → 504
+Server-Timing: total;dur=2016.8, db;dur=0,
+  app;dur=2016.8, queries;desc=0
+{"error":{"code":"TIMEOUT",…}}</code></pre>
+				<p>Legacy <code>/api/health</code> kept its flat body and reported <code>queries;desc=1</code> — proof the data-layer counter fires.</p>
+			</div>
+			<div class="card">
+				<span class="tag good">Verified</span>
+				<h3>Suites</h3>
+				<p><code>pnpm test</code>: <strong>463 passed / 48 files</strong>. <code>pnpm api:check</code>: <strong>28 checks, 0 failures</strong>. <code>pnpm api:live</code> with no server: <strong>coverage 0/2, exit 1</strong> even in warn mode — the "a run that measures nothing is a failure" rule holds.</p>
+				<p>Typecheck passes; Biome check is clean on all changed files.</p>
+			</div>
+			<div class="card">
+				<span class="tag good">Verified</span>
+				<h3>Auth fast path</h3>
+				<p>The project JWKS advertises <strong>ES256</strong>, so <code>getClaims()</code> verifies locally. A 30 s session cache, a 60 s farm cache and per-cookie single-flight make a cache hit perform <strong>no Supabase call and no DB lookup</strong>, asserted by <code>auth-fast-path.test.ts</code>. Local microbenchmark: 100 000 cache lookups in 7 ms (0.07 µs each).</p>
+			</div>
+			<div class="card">
+				<span class="tag good">Verified</span>
+				<h3>Local 10k baseline</h3>
+				<p>Production build against local PostgreSQL 16 with <strong>10 056 feed events</strong> and a local ES256 JWKS: <strong>100 % coverage</strong>, 0 violations. <code>user-role</code> p95 <strong>4.0 ms</strong>; <code>predict-feeding</code> p95 <strong>19.3 ms</strong>, max 22.1 ms.</p>
+			</div>
+		</div>
+
+		<div class="callout warn" style="margin-top:22px">
+			<p><strong>Not certified:</strong> no Supabase/production p95 baseline. A local L2 baseline now
+			exists (10 056 rows, local PostgreSQL 16, local ES256 JWKS): 100 % coverage, 0 violations,
+			<code>user-role</code> p95 4.0 ms and <code>predict-feeding</code> p95 19.3 ms. See
+			<code>docs/api-baseline-local.md</code>. Supabase network/pooler behaviour, production volume,
+			cross-region latency and cold starts still require a non-production Supabase project. The only
+			configured credentials resolve to the same database project ref as
+			<code>.env.production.local</code>, so the suite was deliberately not run against it.</p>
+		</div>
+	</div>
+</section>
+
+<section>
+	<div class="wrap">
+		<h2>Where the standard itself leaks</h2>
+		<div class="prose">
+			<p>
+				Adopting the rules exposed places where a team can satisfy the letter of v1.1 and still ship
+				a slow or incorrect API. These are the six amendments that change outcomes most; the full
+				set of 22 with patch-ready wording is in the v1.2 proposal.
+			</p>
+		</div>
+
+		<div class="grid three" style="margin-top:20px">
+			<div class="card">
+				<span class="tag bad">High</span>
+				<h3>Wall clock is the wrong metric</h3>
+				<p>§11.1 times the network and the server together. A fast API behind a slow proxy fails; a slow API on a warm keep-alive can pass. Gate on <code>Server-Timing total</code> and assert the client/server gap.</p>
+			</div>
+			<div class="card">
+				<span class="tag bad">High</span>
+				<h3>Auth is invisible</h3>
+				<p>An identity-provider call per request is the most common unbounded dependency. v1.1 has no auth phase, so the cost hides in <code>app</code>. Add <code>auth;dur</code> with a ≤ 30 ms budget and require local JWT verification or a bounded cache.</p>
+			</div>
+			<div class="card">
+				<span class="tag bad">High</span>
+				<h3>ETags that can never match</h3>
+				<p>Hashing the full envelope includes <code>request_id</code>, which changes every request. Our first implementation did exactly that and the 304 path was dead. Define ETag inputs and make 304 a required contract assertion.</p>
+			</div>
+			<div class="card">
+				<span class="tag bad">High</span>
+				<h3>Indexing is unfalsifiable</h3>
+				<p>"Every filter/sort column is indexed" cannot be checked in review. Require a query registry plus <code>EXPLAIN (ANALYZE, BUFFERS)</code> artifacts, and fail on a sequential scan above a declared row threshold.</p>
+			</div>
+			<div class="card">
+				<span class="tag bad">High</span>
+				<h3>Coverage can be gamed</h3>
+				<p>The 90 % floor is measured against a list the same PR can edit. Freeze the hot manifest, require a reason for changes, add traffic-weighted coverage, and expire skips after three runs.</p>
+			</div>
+			<div class="card">
+				<span class="tag warn">Medium</span>
+				<h3>The budget numbers disagree</h3>
+				<p>A 1 000 ms statement timeout sits under a 150 ms DB slice and a 2 000 ms absolute timeout under a 400 ms max. Align them: 250 ms DB, 1 000 ms absolute. A timeout larger than the budget is a hang detector, not a budget.</p>
+			</div>
+		</div>
+
+		<div class="callout" style="margin-top:22px">
+			<p><strong>Also proposed:</strong> idempotency semantics (scope, TTL, replay, 409), compound
+			cursors, <code>retryable</code>/<code>retry_after_ms</code> in errors, TTFB vs stream duration,
+			a 64 KB compressed cap, cookie-auth CSRF/cache rules, observed deprecation counters, client
+			LCP/INP budgets, OpenAPI diffing, and query-count growth tests at <code>limit=1</code> vs
+			<code>limit=100</code>.</p>
+		</div>
+	</div>
+</section>
+
+<section>
+	<div class="wrap">
+		<h2>Burn-down backlog</h2>
+		<div class="prose">
+			<p>
+				The regulation is a contract, not a one-time refactor. These are the items adoption found,
+				ordered by user-visible impact. Each one names the rule and the evidence.
+			</p>
+		</div>
+		<div class="timeline">
+			<div class="item" data-p="P0">
+				<div class="p">P0</div>
+				<div>
+					<h3>Make auth cheap — fast path shipped</h3>
+					<p><code>getClaims()</code> now verifies locally for asymmetric keys, with a 30 s session cache and a 60 s farm cache. A cache hit makes no Supabase call and no DB lookup. Staging still needs to publish the <code>auth</code> p95.</p>
+				</div>
+			</div>
+			<div class="item" data-p="P0">
+				<div class="p">P0</div>
+				<div>
+					<h3>Dedupe the session lookup per render — shipped</h3>
+					<p><code>getCurrentUser()</code> is wrapped in React <code>cache()</code>, so a render tree or server action performs one lookup instead of one per call. Route handlers use the session/farm caches.</p>
+				</div>
+			</div>
+			<div class="item" data-p="P0">
+				<div class="p">P0</div>
+				<div>
+					<h3>Fold the prediction schedule query into the first wave</h3>
+					<p><code>/api/predict-feeding</code> awaits three reads, then a separate schedule lookup. Join it into the same <code>Promise.all</code> and re-measure.</p>
+				</div>
+			</div>
+			<div class="item" data-p="P1">
+				<div class="p">P1</div>
+				<div>
+					<h3>Move imports/exports to jobs</h3>
+					<p>15–35 s guards and 50 k-row synchronous CSV/ZIP/PDF work violate the 400 ms max. Return <code>202</code> with a status URL and process in the background.</p>
+				</div>
+			</div>
+			<div class="item" data-p="P1">
+				<div class="p">P1</div>
+				<div>
+					<h3>Enforce statement_timeout and instrument RSC</h3>
+					<p>Set the Postgres role timeout (and align it with the 150 ms DB slice). Add the same ALS timing to dashboard server components so slow first renders are visible.</p>
+				</div>
+			</div>
+			<div class="item" data-p="P2">
+				<div class="p">P2</div>
+				<div>
+					<h3>Drop the extra limiter write and the header fetch</h3>
+					<p>The Postgres rate limiter writes on every API call; the header fetches <code>/api/user-role</code> after hydration. Move the limiter to a shared cache and read the role in the layout.</p>
+				</div>
+			</div>
+			<div class="item" data-p="P3">
+				<div class="p">P3</div>
+				<div>
+					<h3>Add load tests and a schema source of truth</h3>
+					<p>k6 at 2× peak for L3 endpoints, and an OpenAPI document that the contract suite derives from so field changes cannot slip through.</p>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+
+<section>
+	<div class="wrap">
+		<h2>The benchmarking subagent</h2>
+		<div class="prose">
+			<p>
+				A dedicated read-only subagent was added at
+				<code>~/.config/opencode/agents/nextjs-supabase-benchmark.md</code>, with a reusable
+				harness at <code>~/.config/opencode/bin/nextjs-supabase-audit.mjs</code>. It is scoped to
+				Next.js + Supabase apps and produces ranked, measured optimisation opportunities — not a
+				generic Lighthouse dump.
+			</p>
+		</div>
+		<div class="grid two" style="margin-top:20px">
+			<div class="card">
+				<h3>What it measures</h3>
+				<p>HTTP p50/p95/p99 from <code>Server-Timing</code> and wall clock, query count growth, payload size, auth phase, cold-start vs warm, bundle output from <code>next build</code>, and Web Vitals where a base URL is available.</p>
+			</div>
+			<div class="card">
+				<h3>What it audits statically</h3>
+				<p>Unbounded <code>findMany</code>, missing <code>select</code>, sequential awaits and RSC waterfalls, <code>getUser()</code> per request, RLS predicates that re-evaluate <code>auth.uid()</code> per row, pooler mode/region mismatch, and routes missing instrumentation.</p>
+			</div>
+			<div class="card">
+				<h3>Safety</h3>
+				<p>Read-only: no edits, no installs, no pushes, no deployments. It refuses to run destructive database commands and reports resource deferrals instead of inventing numbers.</p>
+			</div>
+			<div class="card">
+				<h3>Output</h3>
+				<p>A ranked table (impact × confidence × effort), the evidence for each finding, and a reproducible command. The parent agent verifies the evidence before acting on it.</p>
+			</div>
+		</div>
+	</div>
+</section>
+
+<section>
+	<div class="wrap">
+		<h2>Honest limitations</h2>
+		<div class="prose">
+			<ul>
+				<li><strong>No live latency certification.</strong> The suite exists and fails correctly without a credential, but the L2 baseline still needs a seeded environment and a session cookie.</li>
+				<li><strong>Statement timeout is policy-only.</strong> Prisma cannot apply <code>SET LOCAL</code> per request without a transaction; the role-level setting must be applied in a migration.</li>
+				<li><strong>SSE measures TTFB.</strong> <code>/api/chat</code> reports time to first byte, not stream completion; the v1.2 proposal separates the two metrics.</li>
+				<li><strong>No RSC instrumentation.</strong> `withApi` covers route handlers; dashboard server components still lack <code>Server-Timing</code>, so a slow first render is invisible in this layer.</li>
+				<li><strong>No load test.</strong> §11.4 is not implemented; L3 certification is incomplete until it is.</li>
+			</ul>
+		</div>
+	</div>
+</section>
+
+<div class="wrap footer">
+	<p>
+		Artifacts: <code>API_REGULATION.md</code> ·
+		<code>docs/API_REGULATION_v1.2_PROPOSAL.md</code> ·
+		<code>docs/api-regulation-backlog.md</code> ·
+		<code>apps/web/lib/api/</code> ·
+		<code>scripts/api/</code> ·
+		<code>nextjs-supabase-benchmark.md</code>
+	</p>
+	<p>Prepared 22 October 2026. Verified facts and unverified expectations are labelled separately.</p>
+</div>
+
+</body>
+</html>

@@ -22,6 +22,11 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 	const [result, setResult] = useState<FcrResult | null>(null);
 	const [loading, setLoading] = useState(false);
 
+	// Right padding leaves room for the unit suffix; hiding the native number
+	// spinners keeps them from being painted underneath that suffix.
+	const numberInputClass =
+		"w-full rounded-xl border border-gray-200 bg-[#F4F7F6] py-3 pl-4 pr-12 text-sm font-semibold text-[#0A3D62] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/50 focus:border-[#E85A2A] transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
+
 	const handleCalculate = async () => {
 		const biomass = Number.parseFloat(currentBiomass);
 		const target = Number.parseFloat(targetWeight);
@@ -79,9 +84,9 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 							value={currentBiomass}
 							onChange={(e) => setCurrentBiomass(e.target.value)}
 							placeholder="0.00"
-							className="w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-4 py-3 text-sm font-semibold text-[#0A3D62] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/50 focus:border-[#E85A2A] transition-all"
+							className={numberInputClass}
 						/>
-						<span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#3D5568]">
+						<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 select-none text-xs font-bold text-[#3D5568]">
 							kg
 						</span>
 					</div>
@@ -101,9 +106,9 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 							value={targetWeight}
 							onChange={(e) => setTargetWeight(e.target.value)}
 							placeholder="0.00"
-							className="w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-4 py-3 text-sm font-semibold text-[#0A3D62] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/50 focus:border-[#E85A2A] transition-all"
+							className={numberInputClass}
 						/>
-						<span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#3D5568]">
+						<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 select-none text-xs font-bold text-[#3D5568]">
 							kg
 						</span>
 					</div>
@@ -123,9 +128,9 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 							value={days}
 							onChange={(e) => setDays(e.target.value)}
 							placeholder="0"
-							className="w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-4 py-3 text-sm font-semibold text-[#0A3D62] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/50 focus:border-[#E85A2A] transition-all"
+							className={numberInputClass}
 						/>
-						<span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#3D5568]">
+						<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 select-none text-xs font-bold text-[#3D5568]">
 							{t("days")}
 						</span>
 					</div>

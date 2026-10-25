@@ -25,6 +25,7 @@
     - "ArduinoJson" by Benoit Blanchon
     - "ArduinoOTA" (built-in, ESP32 core)
     - WiFi / HTTPClient / WiFiClientSecure (built-in, ESP32 core)
+    - WebServer / DNSServer (built-in, ESP32 core) — device-hosted WiFi + identity setup
 */
 
 #include <WiFi.h>
@@ -36,13 +37,24 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <Preferences.h>
+#include <WebServer.h>
+#include <DNSServer.h>
 #include <ArduinoOTA.h>
 #include <esp_task_wdt.h>
+#include <esp_wifi.h>
+#include <ctype.h>
 
 // ==================== Config — fill in before flashing ====================
 #define INGEST_URL      "https://optifeed.example.com/api/ingest"
-#define FEED_POLL_URL   "https://optifeed.example.com/api/feed-command?device_id=A4:CF:12:7E:3B:09"
-#define SCHEDULE_SYNC_URL "https://optifeed.example.com/api/schedule-sync?device_id=A4:CF:12:7E:3B:09"
+// The ?device_id=... query is appended at runtime from the active identity,
+// so one binary works for every unit.
+#define FEED_POLL_URL_BASE     "https://optifeed.example.com/api/feed-command"
+#define SCHEDULE_SYNC_URL_BASE "https://optifeed.example.com/api/schedule-sync"
+
+// Fallback device identity. Once the setup portal saves an identity these
+// compile-time values are superseded by NVS keys device_id / device_token.
+// They remain the defaults so units flashed before identity provisioning, and
+// units that never open the portal, keep working unchanged.
 #define DEVICE_TOKEN    "esp32-tok-cict-001"
 #define DEVICE_MAC      "A4:CF:12:7E:3B:09"
 
@@ -95,6 +107,31 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 
 #define RELAY_PIN       25
 #define BUTTON_PIN      27          // pick any free GPIO; wired to GND via INPUT_PULLUP
+
+// ---- Dedicated reset buttons (optional, both active-low) ----------------
+// Wire each button between its GPIO and GND; the internal pull-up is enabled.
+// Leave a pin at -1 until the enclosure wiring is decided: disabled pins are
+// skipped. Safe free candidates on the ESP32-WROOM-32U used here (not used by
+// this sketch): 13, 14, 16, 17, 18, 19, 23. Do NOT use 32/33 (HC-SR04),
+// 25/26/27 (relay, DS18B20, feed button), 21/22 (RTC I2C), 0/2/12/15
+// (strapping), 34-39 (input-only, no internal pull-up) or 1/3 (USB serial).
+#define WIFI_RESET_BUTTON_PIN      -1   // e.g. 18 once the enclosure is wired
+#define FACTORY_RESET_BUTTON_PIN   -1   // e.g. 19 once the enclosure is wired
+#define RESET_BUTTON_HOLD_MS          10000  // continuous hold to trigger
+#define RESET_BUTTON_DEBOUNCE_MS         50
+#define RESET_BUTTON_STARTUP_GRACE_MS  5000  // ignore presses during boot
+
+// Reset button state. Declared before the first function so Arduino's
+// auto-generated prototypes can see the type.
+struct ResetButtonState {
+  bool stableDown;
+  unsigned long lastChangeMs;
+  unsigned long pressStartMs;
+};
+
+ResetButtonState wifiResetButton = { false, 0, 0 };
+ResetButtonState factoryResetButton = { false, 0, 0 };
+bool resetButtonsArmed = false;
 #define RTC_SDA         21
 #define RTC_SCL         22
 #define TRIG_PIN        32          // HC-SR04 ultrasonic trigger
@@ -107,6 +144,12 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 #define POST_INTERVAL_MS    5000    // telemetry + dashboard feed-command poll interval
 #define BUTTON_DEBOUNCE_MS  250
 #define WIFI_RETRY_INTERVAL_MS 10000
+
+// ---- WiFi provisioning portal ----
+#define WIFI_JOIN_WINDOW_MS          15000  // time allowed for each join attempt
+#define WIFI_FAILURES_BEFORE_PORTAL  5      // consecutive failed joins before the setup AP starts
+#define WIFI_RESET_HOLD_MS           5000   // button hold at boot clears stored credentials
+#define PROVISIONING_REBOOT_DELAY_MS 2000   // let the success page flush before restarting
 
 // ---- Calibration: how fast the feeder dispenses ----
 // Measure by running the feeder for a fixed time and weighing the output:
@@ -166,6 +209,13 @@ RTC_DS3231 rtc;
 WiFiClientSecure secureClient;
 Preferences prefs;  // NVS storage for WiFi credentials and device state
 
+// Active device identity: NVS device_id / device_token once provisioned,
+// otherwise the compile-time DEVICE_MAC / DEVICE_TOKEN fallbacks. All URLs,
+// headers, payloads and the setup AP name read these globals.
+String provisionedDeviceId;
+String provisionedDeviceToken;
+bool provisionedFlag = false;  // NVS "provisioned" marker written on a full save
+
 bool rtcAvailable = false;
 bool feederActive = false;
 unsigned long feedStartTime = 0;
@@ -216,6 +266,18 @@ int wifiRetryCount = 0;
 #define WIFI_INITIAL_RETRY_MS 10000
 #define WIFI_MAX_RETRY_MS     60000
 
+// Consecutive join failures (reset on success) drive the setup portal.
+bool wifiJoinPending = false;
+unsigned long wifiJoinStartedMs = 0;
+int wifiJoinFailures = 0;
+
+// Device-hosted WiFi provisioning portal (SoftAP + setup page).
+WebServer provisioningServer(80);
+DNSServer provisioningDns;
+bool provisioningActive = false;
+bool provisioningRoutesRegistered = false;
+String provisioningApName;
+
 // button debounce
 int lastButtonReading = HIGH;
 unsigned long lastButtonChangeMs = 0;
@@ -263,7 +325,7 @@ void setupOTA() {
   Serial.println("[OTA] Ready for over-the-air updates");
 }
 
-// ==================== WiFi Credential Storage ====================
+// ==================== WiFi / device identity storage ====================
 
 void loadWiFiCredentials(String &ssid, String &pass) {
   ssid = prefs.getString("wifi_ssid", DEFAULT_WIFI_SSID);
@@ -276,6 +338,401 @@ void saveWiFiCredentials(const String &ssid, const String &pass) {
   Serial.println("[WiFi] Credentials saved to NVS");
 }
 
+// Compile-time identity values are placeholders until edited at flash time.
+// A unit still carrying one must be provisioned before it can reach the API.
+bool identityValueIsPlaceholder(const String &value) {
+  if (value.length() == 0) return true;
+  if (value == "YOUR_DEVICE_ID" || value == "YOUR_DEVICE_TOKEN") return true;
+  if (value == "CHANGE_ME" || value == "change-me") return true;
+  if (value == "00:00:00:00:00:00") return true;
+  return false;
+}
+
+// Load the active identity once, right after prefs.begin(). A missing or empty
+// NVS value falls back to the compile-time default so units flashed before
+// identity provisioning keep working without opening the portal.
+void loadDeviceIdentity() {
+  provisionedDeviceId = prefs.getString("device_id", DEVICE_MAC);
+  provisionedDeviceToken = prefs.getString("device_token", DEVICE_TOKEN);
+  provisionedDeviceId.trim();
+  provisionedDeviceToken.trim();
+  if (provisionedDeviceId.length() == 0) provisionedDeviceId = DEVICE_MAC;
+  if (provisionedDeviceToken.length() == 0) provisionedDeviceToken = DEVICE_TOKEN;
+  provisionedFlag = prefs.getBool("provisioned", false);
+
+  Serial.printf("[IDENTITY] Device ID: %s\n", provisionedDeviceId.c_str());
+  // Never print the token itself: it authenticates every API call.
+  Serial.printf("[IDENTITY] Device token: %s\n",
+                identityValueIsPlaceholder(provisionedDeviceToken) ? "missing" : "configured");
+  Serial.printf("[IDENTITY] Provisioned marker: %s\n", provisionedFlag ? "yes" : "no");
+}
+
+void saveDeviceIdentity(const String &deviceId, const String &deviceToken) {
+  prefs.putString("device_id", deviceId);
+  prefs.putString("device_token", deviceToken);
+  prefs.putBool("provisioned", true);
+  provisionedDeviceId = deviceId;
+  provisionedDeviceToken = deviceToken;
+  provisionedFlag = true;
+  Serial.println("[IDENTITY] Device identity saved to NVS");
+}
+
+// True only when NVS holds a usable SSID. A missing, empty or placeholder
+// SSID means the WiFi side has never been provisioned.
+bool storedSsidAvailable() {
+  if (!prefs.isKey("wifi_ssid")) return false;
+  String ssid = prefs.getString("wifi_ssid", "");
+  return ssid.length() > 0 && ssid != DEFAULT_WIFI_SSID;
+}
+
+// Full provisioning gate: a usable SSID AND a usable device identity. The
+// identity may come from NVS or from non-placeholder compile-time defaults, so
+// already-flashed units continue to boot straight into normal operation.
+bool wifiCredentialsProvisioned() {
+  return storedSsidAvailable() &&
+         !identityValueIsPlaceholder(provisionedDeviceId) &&
+         !identityValueIsPlaceholder(provisionedDeviceToken);
+}
+
+// WiFi-only reset: the device identity is deliberately kept in NVS, so the
+// portal can be reopened and saved with the identity fields left blank.
+void clearWiFiCredentials() {
+  prefs.remove("wifi_ssid");
+  prefs.remove("wifi_pass");
+  Serial.println("[WiFi] Stored WiFi credentials cleared (device identity kept)");
+}
+
+// Holding the feed button during boot for WIFI_RESET_HOLD_MS requests a
+// credential reset. Returns after the button is released or the hold is met;
+// the normal short-press feed path is untouched.
+bool bootButtonResetHeld() {
+  if (digitalRead(BUTTON_PIN) != LOW) return false;
+
+  Serial.printf("[WiFi] Button held at boot - keep holding %d s to reset WiFi credentials\n",
+                WIFI_RESET_HOLD_MS / 1000);
+  unsigned long start = millis();
+  while (digitalRead(BUTTON_PIN) == LOW) {
+    if (millis() - start >= WIFI_RESET_HOLD_MS) return true;
+    delay(50);
+  }
+  Serial.println("[WiFi] Button released early - normal boot continues");
+  return false;
+}
+
+// ==================== Dedicated reset buttons ====================
+
+// Erase the ESP-IDF WiFi stack's own stored station config, not just our NVS
+// keys. Without this a reachable old AP can be rejoined from the stack cache.
+void clearWiFiStackCredentials() {
+  if (WiFi.getMode() != WIFI_MODE_NULL) {
+    esp_wifi_restore();
+  }
+}
+
+void clearDeviceIdentity() {
+  prefs.remove("device_id");
+  prefs.remove("device_token");
+  prefs.remove("provisioned");
+  provisionedDeviceId = "";
+  provisionedDeviceToken = "";
+  provisionedFlag = false;
+  Serial.println("[RESET] Stored device identity cleared");
+}
+
+void initResetButtons() {
+  if (WIFI_RESET_BUTTON_PIN >= 0) pinMode(WIFI_RESET_BUTTON_PIN, INPUT_PULLUP);
+  if (FACTORY_RESET_BUTTON_PIN >= 0) pinMode(FACTORY_RESET_BUTTON_PIN, INPUT_PULLUP);
+
+  if (WIFI_RESET_BUTTON_PIN >= 0 || FACTORY_RESET_BUTTON_PIN >= 0) {
+    Serial.printf("[RESET] Buttons ready - WiFi reset: GPIO%d, factory reset: GPIO%d (hold %lus)\n",
+                  WIFI_RESET_BUTTON_PIN, FACTORY_RESET_BUTTON_PIN,
+                  (unsigned long)(RESET_BUTTON_HOLD_MS / 1000));
+  } else {
+    Serial.println("[RESET] Dedicated reset buttons disabled (pins are -1)");
+  }
+}
+
+// Active-low with the internal pull-up. Returns true while stably pressed.
+bool readResetButton(int pin, ResetButtonState &state, unsigned long now) {
+  if (pin < 0) return false;
+  bool raw = (digitalRead(pin) == LOW);
+
+  if (raw != state.stableDown && (now - state.lastChangeMs) >= RESET_BUTTON_DEBOUNCE_MS) {
+    state.stableDown = raw;
+    state.lastChangeMs = now;
+    if (raw) state.pressStartMs = now;
+  }
+  return state.stableDown;
+}
+
+// Requires a clean release after boot; a stuck button can never trigger a
+// reset. Factory reset wins if both reach the threshold.
+void handleResetButtons() {
+  if (WIFI_RESET_BUTTON_PIN < 0 && FACTORY_RESET_BUTTON_PIN < 0) return;
+
+  unsigned long now = millis();
+  if (!resetButtonsArmed) {
+    bool wifiIdle = WIFI_RESET_BUTTON_PIN < 0 || digitalRead(WIFI_RESET_BUTTON_PIN) == HIGH;
+    bool factoryIdle = FACTORY_RESET_BUTTON_PIN < 0 || digitalRead(FACTORY_RESET_BUTTON_PIN) == HIGH;
+    if (now >= RESET_BUTTON_STARTUP_GRACE_MS && wifiIdle && factoryIdle) {
+      resetButtonsArmed = true;
+      wifiResetButton.lastChangeMs = now;
+      factoryResetButton.lastChangeMs = now;
+    }
+    return;
+  }
+
+  bool factoryDown = readResetButton(FACTORY_RESET_BUTTON_PIN, factoryResetButton, now);
+  if (factoryDown && (now - factoryResetButton.pressStartMs) >= RESET_BUTTON_HOLD_MS) {
+    Serial.println("[RESET] Factory reset button held - clearing WiFi and device identity");
+    clearWiFiStackCredentials();
+    clearWiFiCredentials();
+    clearDeviceIdentity();
+    delay(300);
+    ESP.restart();
+  }
+
+  bool wifiDown = readResetButton(WIFI_RESET_BUTTON_PIN, wifiResetButton, now);
+  if (wifiDown && (now - wifiResetButton.pressStartMs) >= RESET_BUTTON_HOLD_MS) {
+    Serial.println("[RESET] WiFi reset button held - clearing WiFi, keeping device identity");
+    clearWiFiStackCredentials();
+    clearWiFiCredentials();
+    delay(300);
+    ESP.restart();
+  }
+}
+
+// ==================== WiFi provisioning portal ====================
+
+// "OptiFeed-XXXX", where XXXX is the last four hex characters of the active
+// Device ID (the compile-time DEVICE_MAC until the portal stores one).
+String provisioningApSsid() {
+  String hex;
+  hex.reserve(provisionedDeviceId.length());
+  for (size_t i = 0; i < provisionedDeviceId.length(); i++) {
+    char c = provisionedDeviceId[i];
+    if (isxdigit((unsigned char)c)) hex += (char)toupper((unsigned char)c);
+  }
+  while (hex.length() < 4) hex = String("0") + hex;
+  return String("OptiFeed-") + hex.substring(hex.length() - 4);
+}
+
+String htmlEscape(const String &value) {
+  String out;
+  out.reserve(value.length() + 16);
+  for (size_t i = 0; i < value.length(); i++) {
+    char c = value[i];
+    switch (c) {
+      case '&':  out += F("&amp;");  break;
+      case '<':  out += F("&lt;");   break;
+      case '>':  out += F("&gt;");   break;
+      case '"':  out += F("&quot;"); break;
+      case '\'': out += F("&#39;");  break;
+      default:   out += c;           break;
+    }
+  }
+  return out;
+}
+
+String buildProvisioningPage(const String &ssid, const String &error) {
+  // Identity values are never rendered back into the form: the stored token
+  // must not be readable by anyone who joins the open setup AP.
+  const bool identityAvailable = !identityValueIsPlaceholder(provisionedDeviceId) &&
+                                 !identityValueIsPlaceholder(provisionedDeviceToken);
+
+  String page = F(
+    "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+    "<title>OptiFeed device setup</title><style>"
+    "body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;margin:0;padding:24px;background:#f3f5f7;color:#1b2430}"
+    "main{max-width:420px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}"
+    "h1{font-size:1.35rem;margin:0 0 8px}p{line-height:1.45}"
+    "label{display:block;font-weight:600;margin:18px 0 6px}"
+    "input{width:100%;box-sizing:border-box;padding:10px;border:1px solid #b9c2cc;border-radius:8px;font-size:1rem}"
+    "button{margin-top:20px;width:100%;padding:12px;border:0;border-radius:8px;background:#166534;color:#fff;font-size:1rem;font-weight:600}"
+    ".note{font-size:.9rem;color:#4a5563}.err{background:#fdecec;border:1px solid #f5b5b5;border-radius:8px;padding:10px;color:#8a1c1c}"
+    "code{background:#eef1f4;padding:2px 6px;border-radius:4px}"
+    "footer{margin-top:20px;font-size:.8rem;color:#6b7684}"
+    "</style></head><body><main>"
+    "<h1>OptiFeed device setup</h1>"
+    "<p class=\"note\">Connect the feeder to a 2.4 GHz WiFi network and enter its device identity. The device restarts after saving and joins automatically.</p>"
+    "{{ERROR}}"
+    "<form method=\"POST\" action=\"/save\">"
+    "<label for=\"ssid\">WiFi name (SSID)</label>"
+    "<input id=\"ssid\" name=\"ssid\" type=\"text\" maxlength=\"32\" required autocomplete=\"off\" value=\"{{SSID}}\">"
+    "<label for=\"pass\">Password</label>"
+    "<input id=\"pass\" name=\"pass\" type=\"password\" maxlength=\"63\" autocomplete=\"new-password\">"
+    "<p class=\"note\">Leave the password empty for an open network, otherwise use 8-63 characters.</p>"
+    "<label for=\"device_id\">Device ID</label>"
+    "<input id=\"device_id\" name=\"device_id\" type=\"text\" maxlength=\"64\" autocomplete=\"off\" value=\"\" placeholder=\"{{ID_PLACEHOLDER}}\">"
+    "<label for=\"device_token\">Device Token</label>"
+    "<input id=\"device_token\" name=\"device_token\" type=\"password\" maxlength=\"128\" autocomplete=\"new-password\" value=\"\" placeholder=\"{{TOKEN_PLACEHOLDER}}\">"
+    "<p class=\"note\">Find both under Admin &rarr; Devices in the OptiFeed dashboard. Leave them blank to keep the identity already stored on this device.</p>"
+    "<button type=\"submit\">Save and restart</button>"
+    "</form>"
+    "<footer>Setup address: <code>192.168.4.1</code> &middot; AP: {{AP}}</footer>"
+    "</main></body></html>");
+
+  String errorBlock;
+  if (error.length() > 0) {
+    errorBlock = F("<p class=\"err\">");
+    errorBlock += htmlEscape(error);
+    errorBlock += F("</p>");
+  }
+
+  const String identityPlaceholder = identityAvailable
+    ? String(F("leave blank to keep existing"))
+    : String(F("required for first-time setup"));
+
+  // AP/ERROR/identity placeholders first, SSID last: a user-supplied SSID must
+  // never be re-scanned for another placeholder.
+  page.replace("{{AP}}", htmlEscape(provisioningApName));
+  page.replace("{{ERROR}}", errorBlock);
+  page.replace("{{ID_PLACEHOLDER}}", identityPlaceholder);
+  page.replace("{{TOKEN_PLACEHOLDER}}", identityPlaceholder);
+  page.replace("{{SSID}}", htmlEscape(ssid));
+  return page;
+}
+
+String buildProvisioningSuccessPage() {
+  return String(F(
+    "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+    "<title>OptiFeed saved</title></head>"
+    "<body style=\"font-family:system-ui,sans-serif;padding:32px;max-width:420px;margin:0 auto\">"
+    "<h1>Settings saved</h1>"
+    "<p>The feeder is restarting and will join your WiFi network. You can close this page.</p>"
+    "</body></html>"));
+}
+
+void handleProvisioningRoot() {
+  String currentSsid;
+  if (storedSsidAvailable()) currentSsid = prefs.getString("wifi_ssid", "");
+  provisioningServer.send(200, "text/html", buildProvisioningPage(currentSsid, ""));
+}
+
+void handleProvisioningSave() {
+  const String ssid = provisioningServer.arg("ssid");
+  const String pass = provisioningServer.arg("pass");
+  String deviceId = provisioningServer.arg("device_id");
+  String deviceToken = provisioningServer.arg("device_token");
+  deviceId.trim();
+  deviceToken.trim();
+
+  if (ssid.length() < 1 || ssid.length() > 32) {
+    provisioningServer.send(400, "text/html",
+      buildProvisioningPage(ssid, "SSID must be 1-32 characters."));
+    return;
+  }
+  if (pass.length() != 0 && (pass.length() < 8 || pass.length() > 63)) {
+    provisioningServer.send(400, "text/html",
+      buildProvisioningPage(ssid, "Password must be empty (open network) or 8-63 characters."));
+    return;
+  }
+
+  // Blank identity fields keep the active identity (NVS, or the compile-time
+  // fallback). This is what lets the WiFi-only reset flow save a new network
+  // without re-typing the Device ID / token.
+  if (deviceId.length() == 0) deviceId = provisionedDeviceId;
+  if (deviceToken.length() == 0) deviceToken = provisionedDeviceToken;
+
+  if (deviceId.length() < 1 || deviceId.length() > 64) {
+    provisioningServer.send(400, "text/html",
+      buildProvisioningPage(ssid, "Device ID must be 1-64 characters."));
+    return;
+  }
+  if (deviceToken.length() < 8 || deviceToken.length() > 128) {
+    provisioningServer.send(400, "text/html",
+      buildProvisioningPage(ssid, "Device Token must be 8-128 characters."));
+    return;
+  }
+  if (identityValueIsPlaceholder(deviceId) || identityValueIsPlaceholder(deviceToken)) {
+    provisioningServer.send(400, "text/html",
+      buildProvisioningPage(ssid,
+        "Device ID and Device Token are required. Find them under Admin - Devices in the dashboard."));
+    return;
+  }
+
+  // Persist WiFi and identity together; a reboot must never land on a partial
+  // configuration that has a new network but the wrong device identity.
+  saveWiFiCredentials(ssid, pass);       // NVS keys: wifi_ssid / wifi_pass
+  saveDeviceIdentity(deviceId, deviceToken);  // NVS keys: device_id / device_token / provisioned
+  Serial.printf("[PROV] Provisioning saved for device %s - restarting\n", deviceId.c_str());
+
+  provisioningServer.send(200, "text/html", buildProvisioningSuccessPage());
+  provisioningServer.client().flush();
+  provisioningServer.client().stop();
+
+  delay(PROVISIONING_REBOOT_DELAY_MS);
+  ESP.restart();
+}
+
+// Captive-portal behaviour: anything else resolves to the setup page.
+void handleProvisioningNotFound() {
+  String target = String(F("http://")) + WiFi.softAPIP().toString() + "/";
+  provisioningServer.sendHeader("Location", target, true);
+  provisioningServer.send(302, "text/plain", "");
+}
+
+void startProvisioningPortal() {
+  if (provisioningActive) return;
+
+  provisioningApName = provisioningApSsid();
+  // AP+STA keeps the station side alive, so a network that comes back can
+  // close the portal on its own.
+  WiFi.mode(WIFI_AP_STA);
+  if (!WiFi.softAP(provisioningApName.c_str())) {
+    Serial.println("[PROV] Could not start the setup access point");
+    return;
+  }
+
+  provisioningDns.setErrorReplyCode(DNSReplyCode::NoError);
+  provisioningDns.start(53, "*", WiFi.softAPIP());
+
+  if (!provisioningRoutesRegistered) {
+    provisioningServer.on("/", HTTP_GET, handleProvisioningRoot);
+    provisioningServer.on("/save", HTTP_POST, handleProvisioningSave);
+    provisioningServer.onNotFound(handleProvisioningNotFound);
+    provisioningRoutesRegistered = true;
+  }
+  provisioningServer.begin();
+
+  provisioningActive = true;
+  wifiJoinPending = false;
+  Serial.println("[PROV] Setup portal active");
+  Serial.printf("[PROV] Join \"%s\" and open http://%s\n",
+                provisioningApName.c_str(), WiFi.softAPIP().toString().c_str());
+}
+
+void stopProvisioningPortal() {
+  if (!provisioningActive) return;
+  provisioningDns.stop();
+  provisioningServer.stop();
+  WiFi.softAPdisconnect(true);   // drops the AP interface, keeps STA credentials
+  provisioningActive = false;
+  Serial.println("[PROV] Setup portal stopped");
+}
+
+// Runs from loop() while provisioning is active. Never blocks long enough to
+// trip the task watchdog, and never enters deep sleep.
+void serviceProvisioningPortal() {
+  provisioningDns.processNextRequest();  // compatibility no-op on ESP32 core 3.x
+  provisioningServer.handleClient();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("[WiFi] Joined a network while the portal was active - closing portal");
+    stopProvisioningPortal();
+    wifiJoinFailures = 0;
+    wifiJoinPending = false;
+    // The mode switch can briefly drop the station; maintainWiFi() will
+    // reconnect and resync NTP if that happens.
+    if (WiFi.status() == WL_CONNECTED) {
+      wifiWasConnected = true;
+      if (rtcAvailable) syncNTP();
+    }
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   bootTime = millis();
@@ -285,6 +742,7 @@ void setup() {
   feederActive = false;
 
   pinMode(BUTTON_PIN, INPUT_PULLUP);    // press pulls LOW
+  initResetButtons();
 
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
@@ -296,11 +754,25 @@ void setup() {
 
   for (int i = 0; i < EVENT_QUEUE_SIZE; i++) eventQueue[i].used = false;
 
-  // Load stored WiFi credentials from NVS, fallback to defaults
+  // Load stored WiFi credentials + device identity from NVS, fallback to the
+  // compile-time defaults. This must run before any URL, header or AP name is
+  // built from the identity.
   prefs.begin("optifeed", false);
   rebootCount = prefs.getUInt("rebootCount", 0) + 1;
   prefs.putUInt("rebootCount", rebootCount);
   Serial.printf("[INIT] Boot #%lu\n", rebootCount);
+  loadDeviceIdentity();
+
+  // Button held through boot resets WiFi only; the device identity stays.
+  bool credentialsResetAtBoot = false;
+  if (bootButtonResetHeld()) {
+    clearWiFiCredentials();
+    credentialsResetAtBoot = true;
+    // Consume the hold that triggered the reset so it cannot also dispense.
+    lastButtonReading = LOW;
+    lastButtonChangeMs = millis();
+    lastHandledButtonChangeMs = lastButtonChangeMs;
+  }
 
   // Seed default schedule: 06:00 and 19:00
   buildDefaultSchedule();
@@ -319,10 +791,18 @@ void setup() {
   // TLS: verify the server against ROOT_CA (never setInsecure).
   secureClient.setCACert(ROOT_CA);
 
-  connectWiFi();
-  if (WiFi.status() == WL_CONNECTED) {
-    wifiWasConnected = true;
-    if (rtcAvailable) syncNTP();
+  // Missing WiFi credentials, missing identity, or a boot reset -> setup
+  // portal. Units with a stored SSID and a usable compile-time identity keep
+  // using the normal station path and never see the portal.
+  if (credentialsResetAtBoot || !wifiCredentialsProvisioned()) {
+    Serial.println("[PROV] Provisioning needed - starting setup portal");
+    startProvisioningPortal();
+  } else {
+    connectWiFi();
+    if (WiFi.status() == WL_CONNECTED) {
+      wifiWasConnected = true;
+      if (rtcAvailable) syncNTP();
+    }
   }
 
   // Setup OTA updates
@@ -349,13 +829,20 @@ void setup() {
 
 void loop() {
   ArduinoOTA.handle();  // Handle OTA updates
-  maintainWiFi();
+  handleResetButtons(); // Dedicated WiFi / factory reset buttons, if wired
+
+  if (provisioningActive) {
+    serviceProvisioningPortal();  // captive DNS + setup page; never deep-sleeps
+  } else {
+    maintainWiFi();
+  }
 
   handleButton();
 
   if (rtcAvailable) handleSchedule();
 
-  if (millis() - lastPoll >= POST_INTERVAL_MS) {
+  // Local feeding keeps running while provisioning; backend calls do not.
+  if (!provisioningActive && millis() - lastPoll >= POST_INTERVAL_MS) {
     sendTelemetry();
     pollDashboardFeedCommand();
     esp_task_wdt_reset();
@@ -382,6 +869,33 @@ void buildDefaultSchedule() {
   Serial.println("[SCHEDULE] default schedule loaded (06:00, 19:00)");
 }
 
+// ==================== Device-scoped URLs ====================
+
+// Percent-encodes a query-string value. Device IDs are usually a MAC (colons)
+// or a UUID; encoding keeps either form safe inside the URL.
+String urlEncodeValue(const String &value) {
+  static const char *hexDigits = "0123456789ABCDEF";
+  String out;
+  out.reserve(value.length() * 3);
+  for (size_t i = 0; i < value.length(); i++) {
+    const uint8_t c = (uint8_t)value[i];
+    if (isalnum(c) || c == '-' || c == '.' || c == '_' || c == '~') {
+      out += (char)c;
+    } else {
+      out += '%';
+      out += hexDigits[(c >> 4) & 0x0F];
+      out += hexDigits[c & 0x0F];
+    }
+  }
+  return out;
+}
+
+// Appends the active device identity to a base endpoint. Built at runtime so
+// two units running the same binary report under their own Device ID.
+String buildDeviceUrl(const char *baseUrl) {
+  return String(baseUrl) + "?device_id=" + urlEncodeValue(provisionedDeviceId);
+}
+
 // ==================== Safety caps + config validation ====================
 
 // Opens a TLS session with ROOT_CA verification. Logs a clear hint when the
@@ -399,9 +913,9 @@ void reportFeedError(const char* reason, float grams, const char* source) {
   HTTPClient https;
   if (!beginHttps(https, INGEST_URL)) return;
   https.addHeader("Content-Type", "application/json");
-  https.addHeader("X-Device-Token", DEVICE_TOKEN);
+  https.addHeader("X-Device-Token", provisionedDeviceToken);
   StaticJsonDocument<256> doc;
-  doc["device_id"]  = DEVICE_MAC;
+  doc["device_id"]  = provisionedDeviceId;
   doc["event_type"] = "feed_refused";
   doc["event_id"]   = generateEventId();
   doc["grams"]      = grams;
@@ -526,8 +1040,9 @@ void handleSchedule() {
 
 void pollDashboardFeedCommand() {
   HTTPClient https;
-  if (!beginHttps(https, FEED_POLL_URL)) return;
-  https.addHeader("X-Device-Token", DEVICE_TOKEN);
+  const String url = buildDeviceUrl(FEED_POLL_URL_BASE);
+  if (!beginHttps(https, url.c_str())) return;
+  https.addHeader("X-Device-Token", provisionedDeviceToken);
   int code = https.GET();
   if (code == 200) {
     StaticJsonDocument<256> doc;
@@ -583,8 +1098,9 @@ void pollScheduleCommand() {
   if (WiFi.status() != WL_CONNECTED) return;
 
   HTTPClient https;
-  if (!beginHttps(https, SCHEDULE_SYNC_URL)) return;
-  https.addHeader("X-Device-Token", DEVICE_TOKEN);
+  const String url = buildDeviceUrl(SCHEDULE_SYNC_URL_BASE);
+  if (!beginHttps(https, url.c_str())) return;
+  https.addHeader("X-Device-Token", provisionedDeviceToken);
   int code = https.GET();
   if (code == 200) {
     // Need a larger buffer for schedule data (times, counts, rates)
@@ -659,11 +1175,11 @@ void postScheduleAck(const String &commandId) {
   HTTPClient https;
   if (!beginHttps(https, INGEST_URL)) return;
   https.addHeader("Content-Type", "application/json");
-  https.addHeader("X-Device-Token", DEVICE_TOKEN);
+  https.addHeader("X-Device-Token", provisionedDeviceToken);
 
   String eventId = generateEventId();
   StaticJsonDocument<192> doc;
-  doc["device_id"]   = DEVICE_MAC;
+  doc["device_id"]   = provisionedDeviceId;
   doc["event_type"]  = "schedule_acked";
   doc["event_id"]    = eventId;
   doc["command_id"]  = commandId;
@@ -761,12 +1277,12 @@ bool postFeedEvent(QueuedEvent &ev) {
   HTTPClient https;
   if (!beginHttps(https, INGEST_URL)) return false;
   https.addHeader("Content-Type", "application/json");
-  https.addHeader("X-Device-Token", DEVICE_TOKEN);
+  https.addHeader("X-Device-Token", provisionedDeviceToken);
 
   // eventId was generated once when this event was enqueued; retries of the
   // same queued event must resend the same id so the server can dedupe.
   StaticJsonDocument<256> doc;
-  doc["device_id"]       = DEVICE_MAC;
+  doc["device_id"]       = provisionedDeviceId;
   doc["event_type"]      = "feed_dispensed";
   doc["event_id"]        = ev.eventId;
   doc["grams"]           = ev.grams;
@@ -786,11 +1302,11 @@ void sendTelemetry() {
   HTTPClient https;
   if (!beginHttps(https, INGEST_URL)) return;
   https.addHeader("Content-Type", "application/json");
-  https.addHeader("X-Device-Token", DEVICE_TOKEN);
+  https.addHeader("X-Device-Token", provisionedDeviceToken);
 
   String eventId = generateEventId();
   StaticJsonDocument<512> doc;
-  doc["device_id"]         = DEVICE_MAC;
+  doc["device_id"]         = provisionedDeviceId;
   doc["event_type"]        = "heartbeat";
   doc["event_id"]          = eventId;
   doc["timestamp"]         = rtcAvailable ? getRTCiso8601() : "unknown";
@@ -856,14 +1372,25 @@ void connectWiFi() {
   Serial.printf("[WiFi] connecting to %s", ssid.c_str());
   WiFi.begin(ssid.c_str(), pass.c_str());
   unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
+  while (WiFi.status() != WL_CONNECTED && millis() - start < WIFI_JOIN_WINDOW_MS) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println(WiFi.status() == WL_CONNECTED ? " connected" : " not connected yet — will retry in loop()");
+  bool connected = (WiFi.status() == WL_CONNECTED);
+  Serial.println(connected ? " connected" : " not connected yet — will retry in loop()");
+
+  wifiJoinPending = false;
+  if (connected) {
+    wifiJoinFailures = 0;
+  } else {
+    wifiJoinFailures++;
+    Serial.printf("[WiFi] join attempt failed (%d/%d)\n", wifiJoinFailures, WIFI_FAILURES_BEFORE_PORTAL);
+  }
 }
 
 void maintainWiFi() {
+  if (provisioningActive) return;  // the portal owns the radio and suppresses deep sleep
+
   if (WiFi.status() == WL_CONNECTED) {
     if (!wifiWasConnected) {
       Serial.println("[WiFi] reconnected");
@@ -871,10 +1398,26 @@ void maintainWiFi() {
     }
     wifiWasConnected = true;
     wifiRetryCount = 0;  // Reset backoff on successful connection
+    wifiJoinFailures = 0;
+    wifiJoinPending = false;
     return;
   }
 
   wifiWasConnected = false;
+
+  // A join attempt gets WIFI_JOIN_WINDOW_MS to succeed; if it is still not
+  // connected afterwards, it counts as one consecutive failure.
+  if (wifiJoinPending && millis() - wifiJoinStartedMs >= WIFI_JOIN_WINDOW_MS) {
+    wifiJoinPending = false;
+    wifiJoinFailures++;
+    Serial.printf("[WiFi] join attempt failed (%d/%d)\n", wifiJoinFailures, WIFI_FAILURES_BEFORE_PORTAL);
+    if (wifiJoinFailures >= WIFI_FAILURES_BEFORE_PORTAL) {
+      Serial.println("[WiFi] Repeated join failures - starting setup portal");
+      startProvisioningPortal();
+      return;
+    }
+  }
+  if (wifiJoinPending) return;
 
   // Exponential backoff: 10s, 20s, 40s, 60s max
   unsigned long retryInterval = WIFI_INITIAL_RETRY_MS * (1UL << min(wifiRetryCount, 3));
@@ -889,9 +1432,12 @@ void maintainWiFi() {
     WiFi.begin(ssid.c_str(), pass.c_str());
     lastWifiRetry = millis();
     wifiRetryCount++;
+    wifiJoinPending = true;
+    wifiJoinStartedMs = millis();
 
-    // Deep sleep after prolonged failure (>5 min of retries)
-    if (wifiRetryCount > 30) {
+    // Deep sleep after prolonged failure (>5 min of retries). The portal
+    // starts long before this, so the device never sleeps while provisioning.
+    if (!provisioningActive && wifiRetryCount > 30) {
       Serial.println("[WiFi] prolonged failure — entering deep sleep for 5 minutes");
       esp_sleep_enable_timer_wakeup(5 * 60 * 1000000ULL);  // 5 minutes in microseconds
       esp_deep_sleep_start();

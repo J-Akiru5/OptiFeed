@@ -7,10 +7,11 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { PondSelector } from "@/components/pond-selector";
 import { useRouter } from "@/i18n/routing";
+import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
 import { createClient } from "@/lib/supabase/client";
 import { Globe, LogOut, Shield, X } from "lucide-react";
 import { useLocale } from "next-intl";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 interface HeaderActionsProps {
 	ponds?: { id: string; name: string }[];
@@ -18,6 +19,8 @@ interface HeaderActionsProps {
 	pondName?: string;
 	lastSeenAt?: string | null;
 	esp32Status?: "online" | "offline" | "missing";
+	/** Resolved by the dashboard layout so the header does not fetch after hydration. */
+	initialUser?: { email: string; role: string | null; displayName: string | null };
 }
 
 function formatRelativeTime(dateStr: string | null): string {
@@ -39,31 +42,20 @@ export function HeaderActions({
 	pondName = "ILO-POND-01",
 	lastSeenAt = null,
 	esp32Status = "missing",
+	initialUser,
 }: HeaderActionsProps) {
 	const [showProfileMenu, setShowProfileMenu] = useState(false);
-	const [userEmail, setUserEmail] = useState<string | null>(null);
-	const [userRole, setUserRole] = useState<string | null>(null);
+	const userEmail = initialUser?.email ?? null;
+	const userRole = initialUser?.role ?? null;
 	const router = useRouter();
 	const locale = useLocale();
 	const { clearMessages } = useChatWidget();
-
-	useEffect(() => {
-		const supabase = createClient();
-		supabase.auth.getUser().then(({ data }) => {
-			const email = data.user?.email ?? null;
-			setUserEmail(email);
-			// Session-based auth — the API route derives ownerId from the session
-			fetch("/api/user-role")
-				.then((r) => r.json())
-				.then((d) => setUserRole(d.role))
-				.catch(() => {});
-		});
-	}, []);
 
 	const handleLogout = async () => {
 		setShowProfileMenu(false);
 		clearMessages();
 		clearChatHistory();
+		clearDashboardSnapshot();
 		const supabase = createClient();
 		await supabase.auth.signOut();
 		router.replace("/login");
@@ -84,31 +76,6 @@ export function HeaderActions({
 
 			<DarkModeToggle />
 			<LocaleSwitcher />
-
-			<button
-				type="button"
-				className="w-9 h-9 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-all border border-white/10 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-				title="Force hardware synchronization"
-			>
-				<span className="w-4 h-4 flex items-center justify-center">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						strokeWidth="2"
-						strokeLinecap="round"
-						strokeLinejoin="round"
-						role="img"
-						aria-label="Sync"
-					>
-						<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-						<path d="M21 3v5h-5" />
-					</svg>
-				</span>
-			</button>
 
 			<NotificationBell />
 

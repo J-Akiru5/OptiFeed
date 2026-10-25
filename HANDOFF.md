@@ -1,43 +1,145 @@
-# OptiFeed — Handoff to Karl
+# OptiFeed — Developer Handoff
 
-> **CRITICAL WARNING: NEVER run `prisma migrate reset` on production.**
-> It drops the entire database and recreates it from scratch, destroying all data.
-> Use `prisma migrate deploy` for production migrations.
-> Use `prisma migrate dev` only for local development with test data.
-> This lesson was learned the hard way — a `prisma migrate reset` in a previous session
-> wiped all production data including ponds, devices, and feeding history.
+This document orients a developer joining the OptiFeed codebase and points to
+the authoritative rules. The workflow rules live in
+[`CONTRIBUTING.md`](./CONTRIBUTING.md) and the deployment model lives in
+[`docs/deployment-workflow.md`](./docs/deployment-workflow.md). Read both
+before your first commit.
 
-Scaffold release: **v1.0.0** (tag on `develop`) — Next.js + Supabase + Prisma + next-intl, structure and design tokens finalized, no feature logic implemented yet. That's your job from here.
-
-## Branch & workflow rules — read this before writing any code
-
-1. Work exclusively on the `Karl` branch. It's already created and branched from `develop` — do not create additional personal branches unless a task explicitly calls for isolating something large and risky (ask first).
-2. Never push directly to `develop` or `main`. Every change reaches `develop` through a pull request from `Karl`, reviewed before merge.
-3. Before starting each task below, sync first: `git checkout Karl && git pull origin develop --rebase` (or merge, if rebasing gets messy with your history — just don't let `Karl` drift far behind `develop`).
-4. Keep PRs small and scoped to one task from the list below. A PR titled "Log Sample form + volume preview" is reviewable; a PR titled "various fixes" is not.
-5. Before opening a PR, locally run: `pnpm lint`, `pnpm build`, and any tests that exist. If any of these fail, fix it before requesting review — the CI workflow will block the PR anyway, but don't rely on CI to catch what you could catch first.
-6. Write commit messages as Conventional Commits (`feat:`, `fix:`, `chore:`, `refactor:`) — the changelog and any future automated versioning depends on this being consistent.
-7. Never commit `.env`, `.env.local`, or any Supabase service-role key. Use `.env.example` as the reference for what variables you need locally.
-8. `main` is off-limits to you entirely — it's promoted from `develop` only by Jeff, only when a milestone is reviewed and approved. You should never need to touch it.
-9. Every `// TODO(karl):` comment in the scaffold marks a specific gap — search for these first in a file before assuming you need to build something from scratch.
-
-## Task list — build these in this order
-
-1. **Prisma seed data** (`prisma/seed.ts`) — one demo farmer/pond/device (online, hopper 82%), 3–4 biomass log entries over the last month, ~2 weeks of feeding events including exactly one "missed" status, a trending-downward FCR history. Match the values already described in the design/rebuild planning docs.
-2. **Dashboard Home** — wire the hero (next feeding time + device connectivity), FCR sparkline, and secondary cards to real Supabase/Prisma data via a Server Component.
-3. **Log Sample form** — build the form, wire it to the `saveBiomassLog` Server Action and `volumeCalc.ts`, implement the live "this will set your next feeding to ~Xg" preview before submit.
-4. **Feeding History + Growth/FCR screens** — list + charts, Server Components reading Prisma data directly.
-5. **Schedule screen** — pause/resume toggle, "Feed Now" manual override with a confirm step, both via Server Actions.
-6. **Notifications** — implement the Supabase Realtime subscription so a new `Notification` row live-updates the bell badge and (for `critical` tier) the sticky banner. Keep the visual tiering exactly as designed — Critical = sticky banner + bell, Warning/Success = toast + bell only.
-7. **Chat bubble** — rule-based responses scoped to: next feeding time, how to log a sample, current FCR, and why a feeding was missed — answered from the same data sources as the dashboard, not a general-purpose model.
-8. **Settings** — feeding rate / feeds-per-day fields (update the `Pond` record), language toggle using the existing next-intl setup, logout.
-9. **i18n content** — replace the placeholder Hiligaynon strings in `messages/hil.json` with real translations once the above screens have real, final copy (don't translate placeholder text — wait until the English copy is final).
-
-Each task's definition of done: builds clean, passes lint, and has something concrete to point to (a screenshot, a passing test, or a short screen recording) — not just a claim that it works.
+> **CRITICAL — NEVER run `prisma migrate reset` against production.**
+> It drops the entire database and recreates it from scratch, destroying every
+> pond, device, biomass log, and feeding event. This project has already lost
+> production data that way once.
+>
+> - Production migrations: `prisma migrate deploy` only, through the release
+>   process.
+> - Local development: `prisma migrate dev` against your own local database.
+> - If you cannot name the exact database a command will hit, do not run it.
 
 ---
 
-**Repo:** `J-Akiru5/OptiFeed`  
-**Default branch:** `develop` — protected, PR-before-merge policy  
-**Karl's branch:** `Karl` — already created and pushed, branch from `develop`  
-**Release tag:** `v1.0.0` (annotated, on `develop`)
+## 1. Where we are
+
+OptiFeed is a live application, not a scaffold:
+
+- Production: <https://optifeed.syntaxure.dev> (Vercel project `opti-feed-web`,
+  root directory `apps/web`).
+- Application: Next.js 16 (App Router), Supabase (Postgres + Auth), Prisma,
+  next-intl (English + Hiligaynon), Tailwind 4, pnpm workspace.
+- Production is deployed from `main`. `develop` is the shared integration
+  branch. `staging` is the default branch and release-candidate branch.
+
+## 2. Branch rules — the short version
+
+| Branch | You push to it? | How work gets there |
+| --- | --- | --- |
+| your `feature/*`, `fix/*`, `refactor/*`, `docs/*`, `audit/*`, `chore/*` branch | Yes | You create it from the latest `develop` |
+| `develop` | **No** | PR from your branch, reviewed and merged |
+| `staging` | **No** | PR from `develop`, opened by Jeff |
+| `main` | **No** | PR from `staging`, approved and merged by Jeff only |
+
+The old instruction to work on a shared `Karl` branch is retired. That branch
+still exists for history, is fully merged into `develop`, and must not be used
+as a working branch. Every task gets its own short-lived branch.
+
+Start every task with:
+
+```bash
+git fetch origin --prune
+git switch develop
+git pull --ff-only origin develop
+git switch -c fix/device-sync
+```
+
+Open every PR **into `develop`**.
+
+## 3. Definition of done
+
+A change is done when:
+
+- `pnpm lint`, `pnpm typecheck`, and `pnpm test` pass locally, and you have
+  pasted the actual output into the PR.
+- CI (`quality`) is green on the PR.
+- The PR description covers the problem, the change, the verification, any
+  schema/migration impact, and any configuration impact.
+- Nothing half-finished is left on `develop` — it is always a valid base for
+  the next branch.
+
+`pnpm build` runs Prisma migrations when `VERCEL_ENV=production`, and skips
+them everywhere else (including your laptop and CI). Do not set
+`VERCEL_ENV=production` locally.
+
+## 4. Local environment
+
+```bash
+corepack enable
+pnpm install --frozen-lockfile
+cp apps/web/.env.example apps/web/.env   # fill in your own dev credentials
+pnpm prisma:generate
+pnpm dev
+```
+
+Use your **own** Supabase development project. Never put production
+credentials in a local `.env`, and never commit `.env` — the pre-commit hook
+blocks it and `scripts/self-check.mjs` re-checks it.
+
+Reference material:
+
+- `docs/vercel-deployment-checklist.md` — environment variables and build
+  behaviour.
+- `docs/runbook.md` — incident triage (feeder runaway, device offline, database
+  outage, backup restore).
+- `docs/audit-report.html`, `docs/remediation-report.html` — security audit
+  history and open remediation items.
+
+## 5. Database work
+
+- Schema lives in `apps/web/prisma/schema.prisma`; migrations in
+  `apps/web/prisma/migrations/`.
+- Migrations are **additive by default**. `DROP`, `TRUNCATE`, or a destructive
+  `ALTER` needs Jeff's explicit approval, a verified backup, and its own PR.
+- Run `scripts/self-check.mjs` before a migration PR; it flags destructive SQL
+  in new migrations.
+- Migrations are applied to production only by the production deployment of
+  `main`. Staging and preview deployments intentionally skip them.
+
+## 6. Deployments
+
+- `main` → production deployment.
+- `staging` → staging deployment.
+- `develop` and all work branches → validation only, never a deployment.
+- There is no GitHub Actions deploy job. Do not add one; do not run
+  `vercel deploy` by hand.
+
+**Shared database (accepted):** the Vercel project uses one set of environment
+variables for both Production and Preview, so the staging deployment talks to
+the production database. That is intentional during prototyping — there is no
+separate staging database. Do not run destructive tests (bulk deletes, resets,
+load tests) against staging; use a local database. See
+`docs/deployment-workflow.md` §6.
+
+**WiFi provisioning:** a new device is provisioned from its own access point
+(`OptiFeed-XXXX` at `http://192.168.4.1`), not from the dashboard. The hardware
+settings page only shows the AP name and instructions; WiFi credentials are
+never sent to or stored on the server. See `docs/wifi-provisioning-plan.md`.
+
+## 7. Working alongside another developer
+
+- One task, one branch, one owner. Never share a working branch.
+- Announce changes to shared contracts before implementing them: Prisma schema
+  and migrations, `lib/auth/*`, `lib/actions/*`, API request/response shapes,
+  `proxy.ts`, `package.json` / `pnpm-lock.yaml`, workflow and Vercel config.
+- Keep branches short-lived. Merge `origin/develop` into your branch regularly
+  rather than letting it drift.
+- Resolve conflicts by intended behaviour, not by "accept theirs". If the right
+  answer is unclear, ask before merging.
+
+## 8. Escalation
+
+- Production release or production hotfix: Jeff.
+- Destructive migration or production data change: Jeff, in writing, after a
+  backup.
+- Vercel project settings, domains, environment variables, Supabase project
+  access: Jeff.
+- Security finding: raise it as an `audit/*` branch PR, do not commit a fix
+  straight to `develop`.

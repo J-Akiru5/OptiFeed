@@ -1,9 +1,11 @@
 import { createHash } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
+import { buildSeedEmail, resolveSupabaseUserId } from "./seed-identity";
 
 const prisma = new PrismaClient();
 
 const DEMO_FARM_ID = "demo-farmer-1";
+const DEMO_EMAIL = buildSeedEmail(DEMO_FARM_ID);
 
 async function main() {
 	console.log("============================================");
@@ -13,6 +15,19 @@ async function main() {
 	console.log("============================================\n");
 
 	// ── 1. Upsert Demo User ────────────────────────────────────────────────
+	// Reuse the existing identity when the row is present; only a missing row
+	// needs the Supabase Auth lookup (a placeholder id breaks sign-in).
+	const existingDemoUser = await prisma.user.findUnique({
+		where: { farmId: DEMO_FARM_ID },
+		select: { supabaseId: true },
+	});
+	const demoUserId =
+		existingDemoUser?.supabaseId ??
+		(await resolveSupabaseUserId({
+			email: DEMO_EMAIL,
+			supabaseId: process.env.DEMO_SUPABASE_ID,
+		}));
+
 	const demoUser = await prisma.user.upsert({
 		where: { farmId: DEMO_FARM_ID },
 		update: {
@@ -20,9 +35,9 @@ async function main() {
 			role: "ADMIN",
 		},
 		create: {
-			supabaseId: "00000000-0000-0000-0000-000000000001",
+			supabaseId: demoUserId,
 			farmId: DEMO_FARM_ID,
-			email: "demo-farmer-1@pond.optifeed.local",
+			email: DEMO_EMAIL,
 			displayName: "Juan Miguel",
 			role: "ADMIN",
 		},
@@ -145,6 +160,7 @@ async function main() {
 			sampleLengthCm: 5 + (5 - i) * 2,
 			sampleCount: 50,
 			avgWeightKg: avgWeightGrams / 1000,
+			source: "seed",
 			recordedAt,
 		});
 	}

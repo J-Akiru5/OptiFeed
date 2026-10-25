@@ -1,7 +1,9 @@
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
+import { SuperadminBottomNav } from "@/components/superadmin-bottom-nav";
 import { SuperadminSidebar } from "@/components/superadmin-sidebar";
 import { Link } from "@/i18n/routing";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
+import Image from "next/image";
 
 /**
  * Platform console shell. Gated on the PlatformAdmin row, not UserRole —
@@ -23,21 +25,36 @@ export default async function SuperadminLayout({
 						href="/superadmin"
 						className="flex items-center justify-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-lg"
 					>
-						<OptiFeedLogo size={32} />
+						<OptiFeedLogo size={32} variant="ondark" />
 					</Link>
-					<span className="font-extrabold text-lg md:text-xl tracking-tight text-white">
-						Opti<span className="text-[#E85A2A]">Feed</span>
-					</span>
+					<Image
+						src="/pakaonai-logo-kit/png/pakaonai-wordmark-color.png"
+						alt="PakaonAI"
+						width={110}
+						height={26}
+						className="h-[26px] w-auto object-contain brightness-0 invert"
+					/>
 					<span className="hidden md:inline-flex items-center gap-1.5 ml-2 px-2.5 py-1 rounded-full bg-[#E85A2A] text-[10px] font-black uppercase tracking-wider text-white">
 						Platform
 					</span>
+				</div>
+
+				<div className="flex items-center gap-3">
+					<Link
+						href="/dashboard"
+						className="text-sm font-bold text-white/70 hover:text-white transition-colors"
+					>
+						Dashboard
+					</Link>
 				</div>
 			</header>
 
 			<div className="flex w-full flex-1 min-h-[calc(100vh-4rem)]">
 				<SuperadminSidebar />
-				<main className="flex-1 p-4 md:p-8 relative z-10">{children}</main>
+				<main className="flex-1 p-4 md:p-8 pb-24 md:pb-24 lg:pb-8 relative z-10">{children}</main>
 			</div>
+
+			<SuperadminBottomNav />
 		</div>
 	);
 }

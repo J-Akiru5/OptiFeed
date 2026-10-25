@@ -1,6 +1,7 @@
 "use client";
 
-import { type NotificationPrefs, updateNotificationPrefs } from "@/lib/actions/settings";
+import { updateNotificationPrefs } from "@/lib/actions/notifications";
+import { type NotificationPrefs, normalizeNotificationPrefs } from "@/lib/limits";
 import { Bell } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
@@ -8,7 +9,7 @@ import { toast } from "sonner";
 
 interface NotificationPrefsFormProps {
 	pondId: string;
-	initialPrefs: NotificationPrefs;
+	initialPrefs: unknown;
 	canWrite?: boolean;
 }
 
@@ -18,10 +19,15 @@ export function NotificationPrefsForm({
 	canWrite = true,
 }: NotificationPrefsFormProps) {
 	const t = useTranslations("dashboard.profileSettings");
-	const [prefs, setPrefs] = useState<NotificationPrefs>(initialPrefs);
+	// Legacy rows may only contain the feeding/device flags. Normalize before
+	// render so the new toggles start checked instead of undefined.
+	const [prefs, setPrefs] = useState<NotificationPrefs>(() =>
+		normalizeNotificationPrefs(initialPrefs),
+	);
 	const [isPending, startTransition] = useTransition();
 
 	const handleChange = (key: keyof NotificationPrefs, value: boolean) => {
+		const previous = prefs;
 		const newPrefs = { ...prefs, [key]: value };
 		setPrefs(newPrefs);
 
@@ -31,7 +37,7 @@ export function NotificationPrefsForm({
 				toast.success("Notification preferences saved");
 			} else {
 				toast.error(result.error || "Failed to save preferences");
-				setPrefs(prefs); // revert on error
+				setPrefs(previous); // revert on error
 			}
 		});
 	};
@@ -89,6 +95,54 @@ export function NotificationPrefsForm({
 							type="checkbox"
 							checked={prefs.hopperLow}
 							onChange={(e) => handleChange("hopperLow", e.target.checked)}
+							disabled={isPending || !canWrite}
+							className="sr-only peer"
+						/>
+						<div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1E7B34]" />
+					</div>
+				</label>
+				<label className="flex items-center justify-between cursor-pointer">
+					<div>
+						<h3 className="font-medium text-gray-900">{t("harvestReminders")}</h3>
+						<p className="text-sm text-gray-500">{t("harvestRemindersDesc")}</p>
+					</div>
+					<div className="relative">
+						<input
+							type="checkbox"
+							checked={prefs.harvestReminders}
+							onChange={(e) => handleChange("harvestReminders", e.target.checked)}
+							disabled={isPending || !canWrite}
+							className="sr-only peer"
+						/>
+						<div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1E7B34]" />
+					</div>
+				</label>
+				<label className="flex items-center justify-between cursor-pointer">
+					<div>
+						<h3 className="font-medium text-gray-900">{t("samplingReminders")}</h3>
+						<p className="text-sm text-gray-500">{t("samplingRemindersDesc")}</p>
+					</div>
+					<div className="relative">
+						<input
+							type="checkbox"
+							checked={prefs.samplingReminders}
+							onChange={(e) => handleChange("samplingReminders", e.target.checked)}
+							disabled={isPending || !canWrite}
+							className="sr-only peer"
+						/>
+						<div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1E7B34]" />
+					</div>
+				</label>
+				<label className="flex items-center justify-between cursor-pointer">
+					<div>
+						<h3 className="font-medium text-gray-900">{t("emailReminders")}</h3>
+						<p className="text-sm text-gray-500">{t("emailRemindersDesc")}</p>
+					</div>
+					<div className="relative">
+						<input
+							type="checkbox"
+							checked={prefs.emailReminders}
+							onChange={(e) => handleChange("emailReminders", e.target.checked)}
 							disabled={isPending || !canWrite}
 							className="sr-only peer"
 						/>

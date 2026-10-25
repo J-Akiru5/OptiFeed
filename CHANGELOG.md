@@ -5,6 +5,89 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Installable PWA shell for the dashboard: web app manifest, service-worker static-asset caching, an offline fallback page with the last saved dashboard snapshot, and an offline status banner. Authenticated HTML/RSC and API responses are not cached; feed commands stay disabled offline, and the snapshot is cleared on sign-out and login. The ESP32 RTC schedule remains the authoritative offline feeding path.
+- API regulation adoption (`API_REGULATION.md`): a single `{ data, meta }` / `{ error }` envelope, the documented status map, and a project-specific decision table. ESP32 firmware, the uptime probe, file downloads and SSE are documented exemptions.
+- `withApi()` request pipeline for every API route: `Server-Timing` (`total`, `db`, `app`, `auth`, `queries`) and `X-Request-Id` on success, 4xx, 5xx and timeouts; `WARN SLOW` / `ERROR VIOLATION` logs with the route template; absolute 2 s guard returning `504 TIMEOUT`.
+- Data-layer query counting through a Prisma `$allOperations` extension and `AsyncLocalStorage`, so query count and DB time cannot silently measure zero.
+- Versioned `/api/v1/*` tree, dual-served by a `beforeFiles` rewrite to the legacy handlers. Legacy responses carry `Deprecation`/`Sunset` with a recorded removal date (2027-06-30).
+- `scripts/api/conformance-check.mjs` (static CI gate) and `scripts/api/live-check.mjs` (contract + latency suites with warn/fail modes, coverage accounting and a mandatory credential). New root scripts `api:check` and `api:live`.
+- Browser API client `lib/api-client.ts`: one call path, envelope unwrapping, error mapping, 1 s read timeout, bounded retries for idempotent requests, raw mode for SSE/files.
+- `docs/API_REGULATION_v1.2_PROPOSAL.md` (22 amendments) and `docs/api-regulation-backlog.md` (ranked burn-down with evidence).
+- A read-only `nextjs-supabase-benchmark` subagent and `nextjs-supabase-audit.mjs` harness for auditing other Next.js + Supabase apps.
+- Auth fast path: `auth.getClaims()` verifies the JWT locally when the project uses asymmetric signing keys, with a 30 s verified-session cache and a 60 s `supabaseId → farmId` binding. A cache hit makes no Supabase call and no DB lookup.
+- Background jobs: `BackgroundJob`/`JobArtifact` tables, `POST /api/v1/export-jobs` (CSV/ZIP/PDF) and `POST /api/v1/import-jobs` returning `202` + `Location`, owner-scoped status/download endpoints, a `GET /api/v1/jobs/metrics` queue-health endpoint, and a `GET /api/v1/cron/jobs` worker that claims with `FOR UPDATE SKIP LOCKED`. The dashboard export, PDF and import flows poll the job and download the artifact; none of them run in the request path. `docs/sql/cron-jobs.sql` schedules the worker.
+- Grow-out cycles (`CropCycle`): one active cycle per pond with stocking date/count, grow-out days, auto-calculated editable harvest date, target weight, expected survival, and actual harvest weight/count/final FCR. A partial unique index enforces the one-active-cycle invariant.
+- Harvest calendar (`PondEvent` + FullCalendar v7): month/week/list views, harvest/stocking/sampling/manual/feeding/device events, filters, all-ponds toggle, drag-to-reschedule for planned events, and a Harvest page in the sidebar and mobile nav.
+- Fallow-pond safety: harvesting or cancelling a cycle pauses the paired feeder and sets `Pond.isFallow`; feed, resume, and schedule changes are blocked until the next cycle starts.
+- Cycle-aware AI advice: the feed advisor and chat prompt receive grow-out day, days to harvest, target weight, projected biomass, and fallow state. The formula and safety clamps remain authoritative.
+
+### Changed
+
+- The web app renders the PakaonAI logo kit (fish-and-ring mark plus wordmark) in the landing header/footer and the admin and dashboard headers, replacing the inline SVG mark and the split `Opti`/`Feed` text lockup. `OptiFeedLogo` now takes a `variant` (`ondark`, `color`, `color-light`, `white`, `navy`) and serves the kit's PNG marks.
+- The login page is rebuilt as a focused split layout with a PakaonAI brand panel, remembered farm IDs, PIN reveal, inline validation, a language switch and dark mode.
+- The landing page is redesigned around the same visual system: blueprint grid, pond hero with an operations preview, an underlined headline, scroll-driven research sections and a mobile section menu. PakaonAI branding now also covers the login, superadmin, chat assistant, onboarding tour and PDF/export labels.
+- `withAuth`/`withCronAuth` now return the error envelope and record their own `auth` timing.
+- `/api/user-role` returns `{ role, email, displayName }` with `private, max-age=60` and an ETag; the dashboard layout now resolves the user server-side and passes it to the header, so the header makes no client round-trip at all.
+- The dashboard import/export and prediction components use the shared API client and unwrap the envelope.
+- The AI advisor is surfaced on the Dashboard home as well as Growth, and shows the grow-out timeline or a start-cycle/fallow call to action.
+- Device Telegram alerts in `/api/ingest` are scheduled after the response with `after()` instead of blocking the device request.
+- Device list lookups in the export routes are bounded with `take: 100`.
+
+### Fixed
+
+- ETags are computed over `data + cacheable meta`, so `request_id` no longer makes every conditional request miss.
+- The error normaliser reads a clone, so a conformant error body is not consumed before the client sees it.
+- Timeout errors are logged once and carry the specific `504 TIMEOUT` message; passthrough routes return a plain 504 body.
+- The dashboard hopper widget rests at 0% behind an "Offline" badge when the ESP32 stops checking in, instead of freezing on the last reported level (#100).
+- Dashboard cards keep their natural height instead of being stretched to match the tallest card in their row (#95).
+- The Biomass Sample History card hides its secondary columns below `lg`, so a phone no longer needs a horizontal scrollbar to read it (#94).
+- The help and chat floating buttons keep their raised anchor until the bottom navigation is hidden at `lg`, so they no longer sit on top of the nav between 768px and 1023px (#93).
+
+## [1.11.0] - 2026-10-22
+
+### Added
+
+- Device-hosted WiFi provisioning: the ESP32 exposes `OptiFeed-XXXX` with a setup page at `192.168.4.1`, stores credentials in NVS, and reopens the portal after a 5-second button hold at boot. The hardware settings page now explains this flow instead of showing fake fields.
+- Device identity provisioning in the same portal: Device ID (MAC) and Device Token are written to NVS, so one firmware image works for every unit. Admins can reveal a device token on demand from Admin → Devices; it is never included in list responses.
+- `MembershipPermission` enforcement: tenant actions now check the permission table, with role defaults as a compatibility bridge. `control_feeder` is revocable per membership, including for an owner.
+- AI feeding prediction on the Growth page: deterministic baseline refined by the AI provider, explicit "apply" action, and the same ±50% deviation veto as biomass auto-adjust.
+- Growth history page with feed-level, growth and biomass tabs; server-side pagination, date-range filters, search and shareable URLs. The Growth page cards are now compact previews.
+- Biomass log provenance (`source`) with import and seed badges.
+- A static test that every API route uses `withAuth`/`withCronAuth`, is a device-token route, or is the allowlisted health route.
+- Loading and error boundaries for the admin and platform consoles.
+
+### Changed
+
+- AI provider is now OpenCode Go: `OPENCODE_GO_API_KEY`, `OPENCODE_GO_MODEL` and `OPENCODE_GO_REASONING_EFFORT`. Gemini and OpenRouter variables are retired.
+- Tablets (768–1023 px) now use the bottom navigation instead of having no navigation at all; the admin and platform consoles gained a mobile bottom bar too.
+- Profile and hardware settings no longer show fake values or dead buttons; unavailable actions are disabled with an explanation.
+- The Growth page now routes its remaining strings through next-intl (English + Hiligaynon).
+
+### Fixed
+
+- Dark-mode contrast on the dashboard, growth, history, notifications, audit and error/404 surfaces.
+- Locale is preserved when navigating notification filters, audit "load more", growth links and history pagination.
+- Empty states for the dashboard's recent feedings and the admin users table; the FCR tile shows "—" instead of claiming an optimal trend when no report exists.
+- Duplicate `acknowledge` key in `hil.json` that failed the lint gate.
+- `/api/health` now returns only `{status}` (200/503) without database error detail.
+- Platform-admin users are excluded from tenant admin counts and hierarchies consistently.
+- Removed the unused `getUserById` action that returned the full user row to tenant admins.
+
+### Security
+
+- Notification acknowledge/mark-read/demo-create now require write access, and the demo notification tier is validated.
+- Tenant admins can no longer edit or delete platform administrators.
+- `getDevices` no longer returns device tokens; `deleteUserSubtree` is no longer callable as a server action.
+- Organizations with a non-ACTIVE status no longer grant tenant scope.
+- The last active platform administrator cannot be revoked, and self-revoke is blocked.
+- `/api/export-pdf` now uses `withAuth`.
+- Tenant actions are gated by `MembershipPermission`; a revoked `control_feeder` blocks manual feeds and pause even for an owner.
+- Device tokens are revealed only on demand to an org admin, one device at a time, and are never listed or logged.
+
 ## [1.10.0] - 2026-07-22
 
 ### Added

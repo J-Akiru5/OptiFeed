@@ -58,6 +58,38 @@ function scheduleValues(feedsPerDay: number | null, feedingRatePct: number | nul
 	};
 }
 
+const MANUAL_TIME_SYNC_WINDOW_MS = 10 * 60_000;
+
+type TimeSyncFields = {
+	server_time: string;
+	time_sync: string | null;
+};
+
+/**
+ * Clock fields the ESP32 applies on every poll:
+ * - `time_sync` is a manual calibration requested from the dashboard within
+ *   the last 10 minutes; the firmware applies it verbatim.
+ * - `server_time` is the current UTC instant; the firmware uses it to correct
+ *   RTC drift when no manual time is pending (#149).
+ */
+async function timeSyncFields(deviceId: string): Promise<TimeSyncFields> {
+	const manual = await prisma.deviceStateEvent.findFirst({
+		where: {
+			deviceId,
+			eventType: "set_time",
+			source: "user",
+			deviceTime: { not: null },
+			createdAt: { gte: new Date(Date.now() - MANUAL_TIME_SYNC_WINDOW_MS) },
+		},
+		orderBy: { createdAt: "desc" },
+		select: { deviceTime: true },
+	});
+	return {
+		server_time: new Date().toISOString(),
+		time_sync: manual?.deviceTime ?? null,
+	};
+}
+
 export const GET = withApi(
 	async (request: Request) => {
 		const token = request.headers.get("x-device-token");
@@ -84,8 +116,11 @@ export const GET = withApi(
 				return new Response("Unauthorized", { status: 401 });
 			}
 
+			const timeSync = await timeSyncFields(device.id);
+
 			if (!device.pondId) {
 				return Response.json({
+					...timeSync,
 					schedule_changed: false,
 					command_id: null,
 					schedule_start: null,
@@ -127,6 +162,7 @@ export const GET = withApi(
 				});
 
 				return Response.json({
+					...timeSync,
 					schedule_changed: true,
 					command_id: pendingCommand.id,
 					schedule_start: formatTime(pendingCommand.scheduleStart),
@@ -144,6 +180,7 @@ export const GET = withApi(
 
 			if (pond) {
 				return Response.json({
+					...timeSync,
 					schedule_changed: false,
 					command_id: null,
 					schedule_start: formatTime(pond.scheduleStart),
@@ -154,6 +191,7 @@ export const GET = withApi(
 			}
 
 			return Response.json({
+				...timeSync,
 				schedule_changed: false,
 				command_id: null,
 				schedule_start: null,
@@ -165,6 +203,8 @@ export const GET = withApi(
 			reportError(error, { route: "schedule-sync", deviceId: device?.id ?? deviceId });
 			// Return safe defaults so ESP32 doesn't hang
 			return Response.json({
+				server_time: new Date().toISOString(),
+				time_sync: null,
 				schedule_changed: false,
 				command_id: null,
 				schedule_start: null,

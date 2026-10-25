@@ -4,6 +4,7 @@ import { Link, useRouter } from "@/i18n/routing";
 import { cancelCropCycle, updateCropCycle } from "@/lib/actions/crop-cycle";
 import { completePondEvent, updatePondEvent } from "@/lib/actions/pond-event";
 import { ApiClientError, apiGet } from "@/lib/api-client";
+import { HOPPER_CAPACITY_KG } from "@/lib/constants";
 import type { CalendarEventDto, CalendarEventType } from "@/lib/crop-cycle/calendar";
 import { CALENDAR_EVENT_TYPES, isCalendarEventType } from "@/lib/crop-cycle/calendar";
 import { FARM_TIME_ZONE, addDays, daysBetween, todayDateOnly } from "@/lib/crop-cycle/dates";
@@ -12,9 +13,11 @@ import type { CropCycleDto, PondOption } from "@/lib/crop-cycle/types";
 import {
 	CalendarDays,
 	Check,
+	ChevronDown,
 	ChevronRight,
 	CircleAlert,
 	CloudOff,
+	Cpu,
 	ExternalLink,
 	Filter,
 	Fish,
@@ -61,6 +64,8 @@ interface HarvestCalendarProps {
 	recentCycles: CropCycleDto[];
 	canManage: boolean;
 	today: string;
+	hopperLevelPct: number;
+	hopperIsOffline: boolean;
 }
 
 const defaultTypes: CalendarEventType[] = ["harvest", "sampling", "manual", "device"];
@@ -118,6 +123,8 @@ export function HarvestCalendar({
 	recentCycles,
 	canManage,
 	today,
+	hopperLevelPct,
+	hopperIsOffline,
 }: HarvestCalendarProps) {
 	const t = useTranslations("dashboard.harvest");
 	const tNav = useTranslations("nav");
@@ -142,6 +149,7 @@ export function HarvestCalendar({
 	const [eventDate, setEventDate] = useState(today);
 	const [editingEvent, setEditingEvent] = useState<CalendarEventDto | null>(null);
 	const [details, setDetails] = useState<CalendarEventDto | null>(null);
+	const [cycleDetailsOpen, setCycleDetailsOpen] = useState(false);
 	const [isCancelling, startCancel] = useTransition();
 	const [isCompleting, startComplete] = useTransition();
 	const urlHydrated = useRef(false);
@@ -157,6 +165,9 @@ export function HarvestCalendar({
 	const metrics = selectedCycle ? computeCropCycleMetrics(selectedCycle, today) : null;
 	const isFallow = selectedPond?.isFallow ?? initialPondIsFallow;
 	const typesKey = useMemo(() => [...types].sort().join(","), [types]);
+	const hopperDisplayPct = hopperIsOffline ? 0 : hopperLevelPct;
+	const hopperRemainingKg = (HOPPER_CAPACITY_KG * (hopperDisplayPct / 100)).toFixed(1);
+	const hopperScheduledFeedings = Math.floor(Number.parseFloat(hopperRemainingKg) / 0.35);
 
 	// Restore the pond/all-ponds/event-type selection from the URL once, then
 	// keep the URL in sync without triggering a navigation.
@@ -413,139 +424,78 @@ export function HarvestCalendar({
 		.slice(0, 5);
 
 	return (
-		<div className="space-y-6">
-			{/* Cycle summary */}
-			{allPonds ? (
-				<section className="rounded-[32px] border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-700/60 dark:bg-gray-900">
-					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-						<div>
-							<p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">
-								{t("summary.allPondsTitle")}
-							</p>
-							<h2 className="text-lg font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-								{t("summary.allPondsDesc")}
-							</h2>
-						</div>
-						{canManage && (
-							<button
-								type="button"
-								onClick={openNewCycle}
-								className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] dark:bg-[#1f66a0]"
-							>
-								<Plus className="h-4 w-4" />
-								{t("summary.startCycle")}
-							</button>
-						)}
+		<div className="mx-auto flex w-full min-w-0 max-w-[1600px] flex-col gap-4 animate-in fade-in duration-150 [contain:inline-size] xl:h-[calc(100dvh-8rem)] xl:overflow-hidden">
+			<div className="flex flex-none flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+				<div className="flex items-center gap-2">
+					<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
+						<CalendarDays className="h-6 w-6" />
 					</div>
-					{activeCycles.length === 0 ? (
-						<p className="mt-4 text-sm text-gray-500 dark:text-gray-400">{t("summary.noCycles")}</p>
-					) : (
-						<div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-							{activeCycles.map((cycle) => {
-								const pond = ponds.find((item) => item.id === cycle.pondId);
-								const cycleMetrics = computeCropCycleMetrics(cycle, today);
-								return (
-									<button
-										key={cycle.id}
-										type="button"
-										onClick={() => {
-											setSelectedPondId(cycle.pondId);
-											setAllPonds(false);
-										}}
-										className="rounded-2xl border border-gray-100 bg-gray-50/70 p-3 text-left transition-colors hover:border-[#0A3D62]/20 hover:bg-white dark:border-gray-700/60 dark:bg-gray-800/50 dark:hover:bg-gray-800"
-									>
-										<p className="text-xs font-black text-gray-900 dark:text-gray-100">
-											{pond?.name ?? cycle.label ?? t("summary.cycle")}
-										</p>
-										<p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
-											{t("summary.dayOf", {
-												day: cycleMetrics.growOutDay,
-												total: cycle.growOutDays,
-											})}
-										</p>
-										<p
-											className={`mt-1 text-[11px] font-bold ${
-												cycleMetrics.daysToHarvest < 0
-													? "text-red-600 dark:text-red-400"
-													: "text-[#0A3D62] dark:text-[#9cc7f0]"
-											}`}
-										>
-											{cycleMetrics.daysToHarvest < 0
-												? t("summary.overdueBy", { days: Math.abs(cycleMetrics.daysToHarvest) })
-												: t("summary.harvestIn", { days: cycleMetrics.daysToHarvest })}
-										</p>
-									</button>
-								);
-							})}
-						</div>
-					)}
-				</section>
-			) : selectedCycle && metrics ? (
-				<section className="overflow-hidden rounded-[32px] border border-gray-100 bg-white shadow-sm dark:border-gray-700/60 dark:bg-gray-900">
-					<div className="relative overflow-hidden bg-gradient-to-br from-[#0A3D62] via-[#0c4a73] to-[#08324f] px-5 py-5 text-white sm:px-6">
-						<div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/5" />
-						<div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-							<div>
-								<p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-200/80">
-									{t("summary.eyebrow")}
-								</p>
-								<h2 className="mt-0.5 text-xl font-black">
-									{selectedCycle.label || t("summary.cycle")}
-								</h2>
-								<p className="mt-0.5 text-xs font-medium text-blue-100/80">
-									{selectedPond?.name ?? initialPondName}
-								</p>
+					<div className="min-w-0">
+						<h1 className="text-2xl font-black tracking-tight text-[var(--ofd-base-deep)] sm:text-3xl">
+							{t("title")}
+						</h1>
+						<p className="text-sm text-gray-500 dark:text-gray-400">
+							{t("desc", { pond: selectedPond?.name ?? initialPondName })}
+						</p>
+					</div>
+				</div>
+
+				<div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center xl:justify-end">
+					{allPonds ? (
+						<>
+							<div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-gray-100 bg-white px-4 py-2.5 shadow-sm dark:border-gray-700/60 dark:bg-gray-900">
+								<span className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">
+									{t("summary.allPondsTitle")}
+								</span>
+								<span className="truncate text-sm font-black text-[#0A3D62] dark:text-[#5b9bd5]">
+									{t("summary.allPondsDesc")}
+								</span>
+								<span className="rounded-full bg-[#0A3D62]/5 px-2 py-0.5 text-[10px] font-black text-[#0A3D62] dark:bg-white/5 dark:text-[#9cc7f0]">
+									{activeCycles.length}
+								</span>
 							</div>
-							<div className="flex flex-wrap items-center gap-2">
+							{canManage && (
+								<button
+									type="button"
+									onClick={openNewCycle}
+									className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] dark:bg-[#1f66a0]"
+								>
+									<Plus className="h-4 w-4" />
+									{t("summary.startCycle")}
+								</button>
+							)}
+						</>
+					) : selectedCycle && metrics ? (
+						<>
+							<div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-gray-100 bg-white px-4 py-2.5 shadow-sm dark:border-gray-700/60 dark:bg-gray-900">
+								<span className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">
+									{t("summary.eyebrow")}
+								</span>
+								<span className="truncate text-sm font-black text-[#0A3D62] dark:text-[#5b9bd5]">
+									{selectedCycle.label || t("summary.cycle")}
+								</span>
+								<span className="truncate text-xs text-gray-500 dark:text-gray-400">
+									{selectedPond?.name ?? initialPondName}
+								</span>
 								<span
-									className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${
+									className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
 										metrics.daysToHarvest < 0
-											? "bg-red-500/20 text-red-100 ring-1 ring-red-300/20"
-											: "bg-white/10 text-white ring-1 ring-white/10"
+											? "bg-red-500/10 text-red-600 dark:text-red-400"
+											: "bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#9cc7f0]"
 									}`}
 								>
 									{metrics.daysToHarvest < 0
 										? t("summary.overdue")
 										: t(`summary.stage_${metrics.stage}`)}
 								</span>
-								{canManage && (
-									<>
-										<button
-											type="button"
-											onClick={() => openEditCycle(selectedCycle)}
-											className="rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white ring-1 ring-white/10 transition-colors hover:bg-white/20"
-										>
-											{t("summary.editPlan")}
-										</button>
-										<button
-											type="button"
-											onClick={() => setHarvestOpen(true)}
-											className="rounded-xl bg-[#FF6B35] px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-[#e85a2a]"
-										>
-											{t("summary.markHarvested")}
-										</button>
-									</>
-								)}
-							</div>
-						</div>
-					</div>
-
-					<div className="grid gap-4 p-5 sm:p-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-						<div>
-							<div className="flex items-end justify-between gap-3">
-								<div>
-									<p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">
-										{t("summary.progress")}
-									</p>
-									<p className="mt-1 text-3xl font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-										{t("summary.dayOf", {
-											day: metrics.growOutDay,
-											total: selectedCycle.growOutDays,
-										})}
-									</p>
-								</div>
-								<p
-									className={`text-right text-sm font-black ${
+								<span className="text-xs font-bold text-gray-700 dark:text-gray-200">
+									{t("summary.dayOf", {
+										day: metrics.growOutDay,
+										total: selectedCycle.growOutDays,
+									})}
+								</span>
+								<span
+									className={`text-xs font-black ${
 										metrics.daysToHarvest < 0
 											? "text-red-600 dark:text-red-400"
 											: "text-[#0A3D62] dark:text-[#9cc7f0]"
@@ -554,324 +504,407 @@ export function HarvestCalendar({
 									{metrics.daysToHarvest < 0
 										? t("summary.overdueBy", { days: Math.abs(metrics.daysToHarvest) })
 										: t("summary.harvestIn", { days: metrics.daysToHarvest })}
-								</p>
+								</span>
+								<button
+									type="button"
+									onClick={() => setCycleDetailsOpen((value) => !value)}
+									aria-expanded={cycleDetailsOpen}
+									className="ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-gray-500 transition-colors hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800"
+								>
+									{t("summary.progress")}
+									<ChevronDown
+										className={`h-3.5 w-3.5 transition-transform ${
+											cycleDetailsOpen ? "rotate-180" : ""
+										}`}
+									/>
+								</button>
 							</div>
-							<div className="mt-3 h-3 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-								<div
-									className={`h-full rounded-full ${
-										metrics.daysToHarvest < 0
-											? "bg-red-500"
-											: metrics.stage === "finish"
-												? "bg-[#FF6B35]"
-												: "bg-[#1E7B34]"
-									}`}
-									style={{ width: `${Math.max(2, metrics.progressPct)}%` }}
-								/>
-							</div>
-							<div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-								<div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-3 dark:border-gray-700/60 dark:bg-gray-800/50">
-									<p className="text-[9px] font-black uppercase tracking-wider text-gray-400">
-										{t("summary.targetDate")}
-									</p>
-									<p className="mt-1 text-sm font-black text-gray-900 dark:text-gray-100">
-										{selectedCycle.targetHarvestDate}
-									</p>
-								</div>
-								<div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-3 dark:border-gray-700/60 dark:bg-gray-800/50">
-									<p className="text-[9px] font-black uppercase tracking-wider text-gray-400">
-										{t("summary.targetWeight")}
-									</p>
-									<p className="mt-1 text-sm font-black text-gray-900 dark:text-gray-100">
-										{selectedCycle.targetHarvestWeightG
-											? `${selectedCycle.targetHarvestWeightG} g`
-											: "—"}
-									</p>
-								</div>
-								<div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-3 dark:border-gray-700/60 dark:bg-gray-800/50">
-									<p className="text-[9px] font-black uppercase tracking-wider text-gray-400">
-										{t("summary.projected")}
-									</p>
-									<p className="mt-1 text-sm font-black text-gray-900 dark:text-gray-100">
-										{metrics.projectedHarvestBiomassKg !== null
-											? `${metrics.projectedHarvestBiomassKg.toFixed(1)} kg`
-											: "—"}
-									</p>
-								</div>
-								<div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-3 dark:border-gray-700/60 dark:bg-gray-800/50">
-									<p className="text-[9px] font-black uppercase tracking-wider text-gray-400">
-										{t("summary.stocked")}
-									</p>
-									<p className="mt-1 text-sm font-black text-gray-900 dark:text-gray-100">
-										{selectedCycle.stockingCount}
-									</p>
-								</div>
-							</div>
-						</div>
-
-						<div className="space-y-3">
-							<div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 dark:border-gray-700/60 dark:bg-gray-800/50">
-								<p className="flex items-center gap-2 text-xs font-black text-gray-800 dark:text-gray-100">
-									<Sparkles className="h-4 w-4 text-[#FF6B35]" />
-									{t("summary.aiHint")}
-								</p>
-								<p className="mt-1 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
-									{t("summary.aiHintDesc")}
-								</p>
-							</div>
-							{selectedRecentCycles.length > 0 && (
-								<div className="rounded-2xl border border-gray-100 p-4 dark:border-gray-700/60">
-									<p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
-										{t("summary.recent")}
-									</p>
-									<ul className="mt-2 space-y-1.5">
-										{selectedRecentCycles.map((cycle) => (
-											<li
-												key={cycle.id}
-												className="flex items-center justify-between gap-2 text-[11px]"
-											>
-												<span className="truncate font-semibold text-gray-700 dark:text-gray-200">
-													{cycle.label || t("summary.cycle")}
-												</span>
-												<span className="shrink-0 text-gray-400">
-													{cycle.actualHarvestDate ?? cycle.targetHarvestDate}
-												</span>
-											</li>
-										))}
-									</ul>
+							{canManage && (
+								<div className="flex shrink-0 items-center gap-2">
+									<button
+										type="button"
+										onClick={() => openEditCycle(selectedCycle)}
+										className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+									>
+										{t("summary.editPlan")}
+									</button>
+									<button
+										type="button"
+										onClick={() => setHarvestOpen(true)}
+										className="rounded-xl bg-[#FF6B35] px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-[#e85a2a]"
+									>
+										{t("summary.markHarvested")}
+									</button>
 								</div>
 							)}
+						</>
+					) : (
+						<>
+							<div className="flex min-w-0 items-center gap-x-3 gap-y-1 rounded-2xl border border-dashed border-[#0A3D62]/20 bg-white px-4 py-2.5 shadow-sm dark:border-white/10 dark:bg-gray-900">
+								<Wheat className="h-4 w-4 shrink-0 text-[#0A3D62] dark:text-[#5b9bd5]" />
+								<span className="truncate text-sm font-black text-gray-900 dark:text-gray-100">
+									{isFallow ? t("summary.fallowTitle") : t("summary.noCycleTitle")}
+								</span>
+								<span className="hidden min-w-0 truncate text-xs text-gray-500 dark:text-gray-400 sm:block">
+									{isFallow ? t("summary.fallowDesc") : t("summary.noCycleDesc")}
+								</span>
+							</div>
 							{canManage && (
 								<button
 									type="button"
-									onClick={cancelCycle}
-									disabled={isCancelling}
-									className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/30"
+									onClick={openNewCycle}
+									className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] dark:bg-[#1f66a0]"
 								>
-									{isCancelling ? (
-										<Loader2 className="h-3.5 w-3.5 animate-spin" />
-									) : (
-										<PauseCircle className="h-3.5 w-3.5" />
-									)}
-									{t("summary.cancel")}
+									<Plus className="h-4 w-4" />
+									{t("summary.startCycle")}
 								</button>
 							)}
+						</>
+					)}
+				</div>
+			</div>
+
+			{!allPonds && selectedCycle && metrics && cycleDetailsOpen && (
+				<div className="flex-none rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 xl:max-h-[38vh] xl:overflow-y-auto">
+					<div className="flex items-end justify-between gap-3">
+						<div>
+							<p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">
+								{t("summary.progress")}
+							</p>
+							<p className="mt-0.5 text-2xl font-black text-[#0A3D62] dark:text-[#5b9bd5]">
+								{t("summary.dayOf", {
+									day: metrics.growOutDay,
+									total: selectedCycle.growOutDays,
+								})}
+							</p>
+						</div>
+						<p
+							className={`text-right text-sm font-black ${
+								metrics.daysToHarvest < 0
+									? "text-red-600 dark:text-red-400"
+									: "text-[#0A3D62] dark:text-[#9cc7f0]"
+							}`}
+						>
+							{metrics.daysToHarvest < 0
+								? t("summary.overdueBy", { days: Math.abs(metrics.daysToHarvest) })
+								: t("summary.harvestIn", { days: metrics.daysToHarvest })}
+						</p>
+					</div>
+					<div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+						<div
+							className={`h-full rounded-full ${
+								metrics.daysToHarvest < 0
+									? "bg-red-500"
+									: metrics.stage === "finish"
+										? "bg-[#FF6B35]"
+										: "bg-[#1E7B34]"
+							}`}
+							style={{ width: `${Math.max(2, metrics.progressPct)}%` }}
+						/>
+					</div>
+					<div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+						<div className="rounded-xl border border-gray-100 bg-gray-50/70 p-2.5 dark:border-gray-700/60 dark:bg-gray-800/50">
+							<p className="text-[9px] font-black uppercase tracking-wider text-gray-400">
+								{t("summary.targetDate")}
+							</p>
+							<p className="mt-0.5 text-xs font-black text-gray-900 dark:text-gray-100">
+								{selectedCycle.targetHarvestDate}
+							</p>
+						</div>
+						<div className="rounded-xl border border-gray-100 bg-gray-50/70 p-2.5 dark:border-gray-700/60 dark:bg-gray-800/50">
+							<p className="text-[9px] font-black uppercase tracking-wider text-gray-400">
+								{t("summary.targetWeight")}
+							</p>
+							<p className="mt-0.5 text-xs font-black text-gray-900 dark:text-gray-100">
+								{selectedCycle.targetHarvestWeightG
+									? `${selectedCycle.targetHarvestWeightG} g`
+									: "—"}
+							</p>
+						</div>
+						<div className="rounded-xl border border-gray-100 bg-gray-50/70 p-2.5 dark:border-gray-700/60 dark:bg-gray-800/50">
+							<p className="text-[9px] font-black uppercase tracking-wider text-gray-400">
+								{t("summary.projected")}
+							</p>
+							<p className="mt-0.5 text-xs font-black text-gray-900 dark:text-gray-100">
+								{metrics.projectedHarvestBiomassKg !== null
+									? `${metrics.projectedHarvestBiomassKg.toFixed(1)} kg`
+									: "—"}
+							</p>
+						</div>
+						<div className="rounded-xl border border-gray-100 bg-gray-50/70 p-2.5 dark:border-gray-700/60 dark:bg-gray-800/50">
+							<p className="text-[9px] font-black uppercase tracking-wider text-gray-400">
+								{t("summary.stocked")}
+							</p>
+							<p className="mt-0.5 text-xs font-black text-gray-900 dark:text-gray-100">
+								{selectedCycle.stockingCount}
+							</p>
 						</div>
 					</div>
-				</section>
-			) : (
-				<section className="rounded-[32px] border border-dashed border-[#0A3D62]/20 bg-white p-6 text-center dark:border-white/10 dark:bg-gray-900">
-					<div className="mx-auto flex h-14 w-14 items-center justify-center rounded-3xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
-						<Wheat className="h-7 w-7" />
-					</div>
-					<h2 className="mt-3 text-lg font-black text-gray-900 dark:text-gray-100">
-						{isFallow ? t("summary.fallowTitle") : t("summary.noCycleTitle")}
-					</h2>
-					<p className="mx-auto mt-1 max-w-lg text-sm text-gray-500 dark:text-gray-400">
-						{isFallow ? t("summary.fallowDesc") : t("summary.noCycleDesc")}
-					</p>
-					{canManage && (
-						<button
-							type="button"
-							onClick={openNewCycle}
-							className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] dark:bg-[#1f66a0]"
-						>
-							<Plus className="h-4 w-4" />
-							{t("summary.startCycle")}
-						</button>
-					)}
-				</section>
-			)}
-
-			{/* Calendar + filters */}
-			<section className="min-w-0 overflow-x-clip rounded-[32px] border border-gray-100 bg-white p-3 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 sm:p-5">
-				<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-					<div className="min-w-0">
-						<h2 className="flex items-center gap-2 text-lg font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-							<CalendarDays className="h-5 w-5 shrink-0" />
-							{t("calendar.title")}
-						</h2>
-						<p className="text-xs text-gray-500 dark:text-gray-400">{t("calendar.desc")}</p>
-					</div>
-					<div className="flex min-w-0 flex-wrap items-center gap-2">
-						<label className="flex min-w-0 items-center gap-1.5 text-[11px] font-bold text-gray-500 dark:text-gray-400">
-							<Fish className="h-3.5 w-3.5 shrink-0" />
-							<select
-								value={allPonds ? "all" : selectedPondId}
-								aria-label={t("calendar.allPonds")}
-								onChange={(event) => {
-									if (event.target.value === "all") {
-										setAllPonds(true);
-									} else {
-										setSelectedPondId(event.target.value);
-										setAllPonds(false);
-									}
-								}}
-								className="max-w-[11rem] min-w-0 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-bold text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-							>
-								{ponds.map((pond) => (
-									<option key={pond.id} value={pond.id}>
-										{pond.name}
-									</option>
-								))}
-								<option value="all">{t("calendar.allPonds")}</option>
-							</select>
-						</label>
-						<button
-							type="button"
-							onClick={refresh}
-							disabled={loading}
-							className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-bold text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-						>
-							<RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-							{t("calendar.refresh")}
-						</button>
-						{canManage && !allPonds && (
+					<div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+						<p className="flex min-w-0 items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+							<Sparkles className="h-3.5 w-3.5 shrink-0 text-[#FF6B35]" />
+							<span className="truncate">{t("summary.aiHintDesc")}</span>
+						</p>
+						{canManage && (
 							<button
 								type="button"
-								onClick={() => {
-									setEditingEvent(null);
-									setEventDate(today);
-									setEventFormOpen(true);
-								}}
-								className="inline-flex items-center gap-1.5 rounded-lg bg-[#0A3D62] px-2.5 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#164e7c] dark:bg-[#1f66a0]"
+								onClick={cancelCycle}
+								disabled={isCancelling}
+								className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/30"
 							>
-								<Plus className="h-3.5 w-3.5" />
-								{t("calendar.addEvent")}
+								{isCancelling ? (
+									<Loader2 className="h-3.5 w-3.5 animate-spin" />
+								) : (
+									<PauseCircle className="h-3.5 w-3.5" />
+								)}
+								{t("summary.cancel")}
 							</button>
 						)}
 					</div>
-				</div>
-
-				<fieldset
-					aria-label={t("calendar.filters")}
-					className="m-0 mt-4 flex min-w-0 flex-wrap items-center gap-1.5 border-0 p-0"
-				>
-					<span className="mr-1 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-gray-400">
-						<Filter className="h-3 w-3" />
-						{t("calendar.filters")}
-					</span>
-					{CALENDAR_EVENT_TYPES.map((type) => (
-						<button
-							key={type}
-							type="button"
-							onClick={() => toggleType(type)}
-							aria-pressed={types.has(type)}
-							className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition-colors ${
-								types.has(type)
-									? "bg-[#0A3D62] text-white dark:bg-[#1f66a0]"
-									: "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-							}`}
-						>
-							{t(`filters.${type}`)}
-						</button>
-					))}
-				</fieldset>
-
-				{error && (
-					<div className="mt-4 flex flex-col gap-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300 sm:flex-row sm:items-center">
-						<CloudOff className="h-4 w-4 shrink-0" />
-						<p className="min-w-0 flex-1">{error}</p>
-						<button
-							type="button"
-							onClick={refresh}
-							className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-red-700 transition-colors hover:bg-red-50 dark:border-red-900/60 dark:bg-gray-900 dark:text-red-300 dark:hover:bg-red-950/30"
-						>
-							<RefreshCw className="h-3.5 w-3.5" />
-							{t("calendar.refresh")}
-						</button>
-					</div>
-				)}
-				{truncated && (
-					<div className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
-						<CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-						{t("calendar.truncated")}
-					</div>
-				)}
-
-				{!loading && !error && events.length === 0 && viewType !== "listMonth" && (
-					<output className="mt-4 block rounded-2xl border border-dashed border-gray-200 bg-gray-50/60 p-3 text-center text-xs font-semibold text-gray-500 dark:border-gray-700/60 dark:bg-gray-800/40 dark:text-gray-400">
-						{t("calendar.noEvents")}
-					</output>
-				)}
-
-				<div className="relative mt-4 min-w-0" aria-busy={loading}>
-					{loading && (
-						<div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden rounded-full bg-[#0A3D62]/10 dark:bg-white/10">
-							<div className="h-full w-1/3 animate-pulse rounded-full bg-[#0A3D62] dark:bg-[#5b9bd5]" />
+					{selectedRecentCycles.length > 0 && (
+						<div className="mt-3 border-t border-gray-100 pt-2.5 dark:border-gray-800">
+							<p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+								{t("summary.recent")}
+							</p>
+							<ul className="mt-1.5 grid gap-1 sm:grid-cols-3">
+								{selectedRecentCycles.map((cycle) => (
+									<li
+										key={cycle.id}
+										className="flex items-center justify-between gap-2 text-[11px]"
+									>
+										<span className="truncate font-semibold text-gray-700 dark:text-gray-200">
+											{cycle.label || t("summary.cycle")}
+										</span>
+										<span className="shrink-0 text-gray-400">
+											{cycle.actualHarvestDate ?? cycle.targetHarvestDate}
+										</span>
+									</li>
+								))}
+							</ul>
 						</div>
 					)}
-					<CalendarErrorBoundary
-						title={t("calendar.title")}
-						message={t("calendar.loadError")}
-						retryLabel={t("calendar.refresh")}
-						resetKey={`${range.from}:${range.to}:${typesKey}:${allPonds}:${selectedPondId}`}
-					>
-						<CalendarView
-							events={events}
-							canManage={canManage}
-							allPonds={allPonds}
-							onRangeChange={(from, to) => {
-								setRange((current) =>
-									current.from === from && current.to === to ? current : { from, to },
-								);
-							}}
-							onViewChange={setViewType}
-							onEventClick={handleEventClick}
-							onDateClick={handleDateClick}
-							onEventDrop={handleEventDrop}
-						/>
-					</CalendarErrorBoundary>
 				</div>
-			</section>
+			)}
 
-			{/* Upcoming */}
-			<section className="rounded-[32px] border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-700/60 dark:bg-gray-900">
-				<div className="flex items-center justify-between gap-3">
-					<h2 className="text-lg font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-						{t("upcoming.title")}
-					</h2>
-					<span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-						{t("upcoming.next", { count: upcoming.length })}
-					</span>
-				</div>
-				{upcoming.length === 0 ? (
-					<p className="mt-3 text-sm text-gray-500 dark:text-gray-400">{t("upcoming.empty")}</p>
-				) : (
-					<ul className="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
-						{upcoming.map((event) => (
-							<li key={event.id}>
+			<div className="flex min-h-0 flex-1 flex-col gap-4 xl:flex-row">
+				<section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-gray-100 bg-white shadow-sm dark:border-gray-700/60 dark:bg-gray-900">
+					<div className="flex flex-none flex-col gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+						<div className="flex min-w-0 flex-wrap items-center gap-2">
+							<fieldset
+								aria-label={t("calendar.filters")}
+								className="m-0 flex min-w-0 flex-wrap items-center gap-1.5 border-0 p-0"
+							>
+								<span className="mr-1 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-gray-400">
+									<Filter className="h-3 w-3" />
+									{t("calendar.filters")}
+								</span>
+								{CALENDAR_EVENT_TYPES.map((type) => (
+									<button
+										key={type}
+										type="button"
+										onClick={() => toggleType(type)}
+										aria-pressed={types.has(type)}
+										className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition-colors ${
+											types.has(type)
+												? "bg-[#0A3D62] text-white dark:bg-[#1f66a0]"
+												: "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+										}`}
+									>
+										{t(`filters.${type}`)}
+									</button>
+								))}
+							</fieldset>
+							<div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
+								<label className="flex min-w-0 items-center gap-1.5 text-[11px] font-bold text-gray-500 dark:text-gray-400">
+									<Fish className="h-3.5 w-3.5 shrink-0" />
+									<select
+										value={allPonds ? "all" : selectedPondId}
+										aria-label={t("calendar.allPonds")}
+										onChange={(event) => {
+											if (event.target.value === "all") {
+												setAllPonds(true);
+											} else {
+												setSelectedPondId(event.target.value);
+												setAllPonds(false);
+											}
+										}}
+										className="max-w-[11rem] min-w-0 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-bold text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+									>
+										{ponds.map((pond) => (
+											<option key={pond.id} value={pond.id}>
+												{pond.name}
+											</option>
+										))}
+										<option value="all">{t("calendar.allPonds")}</option>
+									</select>
+								</label>
 								<button
 									type="button"
-									onClick={() => handleEventClick(event)}
-									className="flex w-full items-center gap-3 py-2.5 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
+									onClick={refresh}
+									disabled={loading}
+									className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-bold text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
 								>
-									<span
-										className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-											event.type === "harvest"
-												? "bg-[#FF6B35]"
-												: event.type === "sampling"
-													? "bg-teal-600"
-													: event.type === "device"
-														? "bg-red-500"
-														: "bg-violet-600"
-										}`}
-									/>
-									<span className="min-w-0 flex-1">
-										<span className="block truncate text-sm font-bold text-gray-800 dark:text-gray-100">
-											{labelFor(event)}
-										</span>
-										<span className="block truncate text-[11px] text-gray-400">
-											{formatEventMoment(event, locale)}
-											{allPonds ? ` · ${event.pondName}` : ""}
-										</span>
-									</span>
-									<ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
+									<RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+									{t("calendar.refresh")}
 								</button>
-							</li>
-						))}
-					</ul>
-				)}
-			</section>
+								{canManage && !allPonds && (
+									<button
+										type="button"
+										onClick={() => {
+											setEditingEvent(null);
+											setEventDate(today);
+											setEventFormOpen(true);
+										}}
+										className="inline-flex items-center gap-1.5 rounded-lg bg-[#0A3D62] px-2.5 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#164e7c] dark:bg-[#1f66a0]"
+									>
+										<Plus className="h-3.5 w-3.5" />
+										{t("calendar.addEvent")}
+									</button>
+								)}
+							</div>
+						</div>
+						{error && (
+							<div className="flex flex-col gap-2 rounded-2xl border border-red-200 bg-red-50 p-2.5 text-xs font-semibold text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300 sm:flex-row sm:items-center">
+								<CloudOff className="h-4 w-4 shrink-0" />
+								<p className="min-w-0 flex-1">{error}</p>
+								<button
+									type="button"
+									onClick={refresh}
+									className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-red-700 transition-colors hover:bg-red-50 dark:border-red-900/60 dark:bg-gray-900 dark:text-red-300 dark:hover:bg-red-950/30"
+								>
+									<RefreshCw className="h-3.5 w-3.5" />
+									{t("calendar.refresh")}
+								</button>
+							</div>
+						)}
+						{truncated && (
+							<div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-2.5 text-xs font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+								<CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+								{t("calendar.truncated")}
+							</div>
+						)}
+						{!loading && !error && events.length === 0 && viewType !== "listMonth" && (
+							<output className="block rounded-2xl border border-dashed border-gray-200 bg-gray-50/60 p-2.5 text-center text-xs font-semibold text-gray-500 dark:border-gray-700/60 dark:bg-gray-800/40 dark:text-gray-400">
+								{t("calendar.noEvents")}
+							</output>
+						)}
+					</div>
+					<div className="relative min-h-0 flex-1 px-3 pb-3 pt-2 sm:px-4" aria-busy={loading}>
+						{loading && (
+							<div className="pointer-events-none absolute inset-x-3 top-0 z-10 h-0.5 overflow-hidden rounded-full bg-[#0A3D62]/10 dark:bg-white/10">
+								<div className="h-full w-1/3 animate-pulse rounded-full bg-[#0A3D62] dark:text-[#5b9bd5]" />
+							</div>
+						)}
+						<div className="h-[62vh] min-h-[420px] xl:h-full xl:min-h-0">
+							<CalendarErrorBoundary
+								title={t("calendar.title")}
+								message={t("calendar.loadError")}
+								retryLabel={t("calendar.refresh")}
+								resetKey={`${range.from}:${range.to}:${typesKey}:${allPonds}:${selectedPondId}`}
+							>
+								<CalendarView
+									events={events}
+									canManage={canManage}
+									allPonds={allPonds}
+									onRangeChange={(from, to) => {
+										setRange((current) =>
+											current.from === from && current.to === to ? current : { from, to },
+										);
+									}}
+									onViewChange={setViewType}
+									onEventClick={handleEventClick}
+									onDateClick={handleDateClick}
+									onEventDrop={handleEventDrop}
+								/>
+							</CalendarErrorBoundary>
+						</div>
+					</div>
+				</section>
+
+				<aside className="flex w-full flex-col gap-4 xl:w-[300px] xl:min-h-0 xl:flex-none">
+					<section className="flex min-h-0 flex-col rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 xl:flex-1 xl:overflow-hidden">
+						<div className="flex flex-none items-center justify-between gap-3">
+							<h2 className="text-base font-black text-[#0A3D62] dark:text-[#5b9bd5]">
+								{t("upcoming.title")}
+							</h2>
+							<span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+								{t("upcoming.next", { count: upcoming.length })}
+							</span>
+						</div>
+						{upcoming.length === 0 ? (
+							<p className="mt-3 text-sm text-gray-500 dark:text-gray-400">{t("upcoming.empty")}</p>
+						) : (
+							<ul className="mt-2 min-h-0 divide-y divide-gray-100 dark:divide-gray-800 xl:flex-1 xl:overflow-y-auto">
+								{upcoming.map((event) => (
+									<li key={event.id}>
+										<button
+											type="button"
+											onClick={() => handleEventClick(event)}
+											className="flex w-full items-center gap-3 py-2.5 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
+										>
+											<span
+												className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+													event.type === "harvest"
+														? "bg-[#FF6B35]"
+														: event.type === "sampling"
+															? "bg-teal-600"
+															: event.type === "device"
+																? "bg-red-500"
+																: "bg-violet-600"
+												}`}
+											/>
+											<span className="min-w-0 flex-1">
+												<span className="block truncate text-sm font-bold text-gray-800 dark:text-gray-100">
+													{labelFor(event)}
+												</span>
+												<span className="block truncate text-[11px] text-gray-400">
+													{formatEventMoment(event, locale)}
+													{allPonds ? ` · ${event.pondName}` : ""}
+												</span>
+											</span>
+											<ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
+										</button>
+									</li>
+								))}
+							</ul>
+						)}
+					</section>
+
+					<section className="flex-none rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-900">
+						<div className="flex items-center justify-between gap-2">
+							<p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-gray-400">
+								<Cpu className="h-3.5 w-3.5 text-[#E85A2A]" />
+								{tNav("hopperLevel")}
+							</p>
+							{hopperIsOffline && (
+								<span className="rounded-full bg-[#C42B3A]/10 px-1.5 py-0.5 text-[9px] font-bold text-[#C42B3A]">
+									{tNav("deviceOffline")}
+								</span>
+							)}
+						</div>
+						<div className="mt-2 flex items-center justify-between text-xs font-extrabold text-[#0A3D62] dark:text-[#5b9bd5]">
+							<span>{tNav("pondFeedPellet")}</span>
+							<span>{hopperDisplayPct}%</span>
+						</div>
+						<div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-[#3D5568]/20 dark:bg-gray-700">
+							<div
+								className={`h-full rounded-full transition-all duration-1000 ${
+									hopperDisplayPct < 20 ? "bg-[#E85A2A]" : "bg-[#1E7B34]"
+								}`}
+								style={{ width: `${hopperDisplayPct}%` }}
+							/>
+						</div>
+						<div className="mt-2 text-[10px] leading-tight font-mono text-[#3D5568] dark:text-gray-400">
+							{hopperIsOffline
+								? tNav("hopperOffline")
+								: tNav("hopperRemaining", {
+										kg: hopperRemainingKg,
+										count: hopperScheduledFeedings,
+									})}
+						</div>
+					</section>
+				</aside>
+			</div>
 
 			<CycleForm
 				open={cycleFormOpen}

@@ -182,7 +182,7 @@ export function CalendarView({
 				monthText={t("calendar.month")}
 				weekTextLong={t("calendar.week")}
 				listText={t("calendar.list")}
-				height="auto"
+				height="100%"
 				firstDay={1}
 				fixedWeekCount={false}
 				dayMaxEvents={3}

@@ -141,7 +141,7 @@ bool resetButtonsArmed = false;
 #define RELAY_ON        HIGH        // energizes coil, closes NO contacts -> dispensing
 #define RELAY_OFF       LOW         // rest state, contacts open -> not dispensing
 
-#define POST_INTERVAL_MS    5000    // telemetry + dashboard feed-command poll interval
+#define POST_INTERVAL_MS    5000    // telemetry + feed-command + schedule-sync poll interval
 #define BUTTON_DEBOUNCE_MS  250
 #define WIFI_RETRY_INTERVAL_MS 10000
 

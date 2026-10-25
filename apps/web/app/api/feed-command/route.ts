@@ -50,7 +50,7 @@ export const GET = withApi(
 			return new Response("Unprocessable Entity", { status: 422 });
 		}
 
-		const { success } = await checkDeviceRateLimit(deviceId);
+		const { success } = await checkDeviceRateLimit(deviceId, "feed");
 		if (!success) {
 			return new Response("Too Many Requests", { status: 429 });
 		}

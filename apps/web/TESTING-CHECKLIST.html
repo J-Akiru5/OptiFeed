@@ -153,8 +153,8 @@ const SECTIONS = [
     title: "1. Environment & Rate Limiting",
     items: [
       { title: ".env.example has Upstash vars", desc: "Check that DIRECT_URL, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN are present", steps: "Open apps/web/.env.example in a text editor. Verify all three variables exist." },
-      { title: "Rate limiting on /api/feed-command", desc: "API returns 429 after 20 requests per 60s per device", steps: "Open browser DevTools → Network tab. Send 21+ rapid requests to /api/feed-command. Confirm the 21st request returns HTTP 429." },
-      { title: "Rate limiting on /api/schedule-sync", desc: "API returns 429 after 20 requests per 60s per device", steps: "Same test as above but for /api/schedule-sync endpoint. Confirm 429 after threshold." }
+      { title: "Rate limiting on /api/feed-command", desc: "API returns 429 after 20 requests per 60s per device, per endpoint", steps: "Open browser DevTools → Network tab. Send 21+ rapid requests to /api/feed-command. Confirm the 21st request returns HTTP 429." },
+      { title: "Rate limiting on /api/schedule-sync", desc: "API returns 429 after 20 requests per 60s per device, per endpoint", steps: "Same test as above but for /api/schedule-sync endpoint. Confirm 429 after threshold." }
     ]
   },
   {

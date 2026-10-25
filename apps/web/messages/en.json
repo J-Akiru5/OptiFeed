@@ -1,7 +1,9 @@
 {
 	"pwa": {
 		"offlineTitle": "Offline mode",
-		"offlineBody": "Showing the last known dashboard data. Feed commands are disabled until you reconnect."
+		"offlineBody": "Showing the last known dashboard data. Feed commands are disabled until you reconnect.",
+		"syncSuccess": "{count, plural, one {# offline sample synced} other {# offline samples synced}}",
+		"syncPending": "{count, plural, one {# sample still waiting to sync} other {# samples still waiting to sync}}"
 	},
 	"nav": {
 		"dashboard": "Dashboard",
@@ -348,7 +350,11 @@
 			"deleteLogConfirm": "Delete this sample? This cannot be undone.",
 			"logUpdateError": "Could not update the sample.",
 			"logUpdated": "Sample updated.",
-			"logDeleted": "Sample deleted."
+			"logDeleted": "Sample deleted.",
+			"queuedOfflineTitle": "Saved offline",
+			"queuedOfflineBody": "This sample is queued on this device. It will sync automatically when the connection returns.",
+			"queuedOfflineError": "Could not queue the sample on this device.",
+			"offlineNote": "You're offline. This sample will be saved on the device and synced later."
 		},
 		"history": {
 			"amount": "AMOUNT",

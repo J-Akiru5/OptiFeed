@@ -4,6 +4,7 @@ import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { useTheme } from "@/components/theme-provider";
 import { usePathname, useRouter } from "@/i18n/routing";
 import { loginWithPin } from "@/lib/actions/auth";
+import { clearOfflineData } from "@/lib/offline/db";
 import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -68,6 +69,7 @@ export default function LoginPage() {
 	// invocations — so already-logged-in visitors still land on the dashboard.
 	useEffect(() => {
 		clearDashboardSnapshot();
+		void clearOfflineData();
 		const supabase = createClient();
 		supabase.auth.getUser().then(({ data: { user } }) => {
 			if (user) router.replace("/dashboard");

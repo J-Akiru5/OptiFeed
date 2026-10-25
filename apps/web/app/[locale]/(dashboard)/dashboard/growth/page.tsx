@@ -2,6 +2,7 @@ import { DataExportButton, DataImportDialog } from "@/components/DataImportExpor
 import { FcrCalculator } from "@/components/FcrCalculator";
 import { FeedingPredictionCard } from "@/components/FeedingPredictionCard";
 import { GrowthPlanCard } from "@/components/growth/GrowthPlanCard";
+import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
 import { DEFAULT_FISH_COUNT } from "@/lib/constants";
@@ -9,6 +10,7 @@ import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { loadGrowthPlanForPond } from "@/lib/growth-plan-loader";
+import type { GrowthSnapshotData } from "@/lib/offline/snapshots";
 import { getActivePond } from "@/lib/pond-selection";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
@@ -178,8 +180,40 @@ export default async function GrowthPage() {
 		return `M ${points.join(" L ")}`;
 	};
 
+	const latestSample = biomassDesc[0] ?? null;
+	const growthSnapshot: GrowthSnapshotData = {
+		pondName: pond.name,
+		latestAbwG: latestSample ? latestSample.avgWeightKg * 1000 : null,
+		latestFcr: latestFcr > 0 ? latestFcr : null,
+		latestSampleAt: latestSample?.recordedAt.toISOString() ?? null,
+		cycleLabel: activeCycle?.label ?? null,
+		targetWeightG: loadedPlan?.plan.targetWeightG ?? activeCycle?.targetHarvestWeightG ?? null,
+		targetDate: loadedPlan?.plan.targetDate ?? null,
+		track: loadedPlan?.plan.track ?? null,
+		currentWeightG: loadedPlan?.plan.currentWeightG ?? null,
+		expectedWeightG: loadedPlan?.plan.expectedWeightG ?? null,
+		projectedHarvestG: loadedPlan?.plan.projectedHarvestWeightG ?? null,
+		recommendedGrams: loadedPlan?.plan.recommendedGramsPerFeeding ?? null,
+		adjustmentAllowed: loadedPlan?.plan.adjustmentAllowed ?? null,
+		nextAdjustmentDate: loadedPlan?.plan.nextAdjustmentDate ?? null,
+		confidence: loadedPlan?.plan.confidence ?? null,
+		samples: biomassDesc.slice(0, 10).map((log) => ({
+			date: log.recordedAt.toISOString(),
+			avgWeightG: log.avgWeightKg * 1000,
+			lengthCm: log.sampleLengthCm,
+			batchLabel: log.batchLabel,
+		})),
+	};
+
 	return (
 		<div className="space-y-8 pb-20 animate-in fade-in duration-150 max-w-7xl mx-auto">
+			<SnapshotWriter
+				page="growth"
+				scope={pond.ownerId}
+				pondId={pond.id}
+				pondName={pond.name}
+				data={growthSnapshot}
+			/>
 			{/* Header with import/export buttons */}
 			<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
 				<div>

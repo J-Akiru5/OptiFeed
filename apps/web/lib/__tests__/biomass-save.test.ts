@@ -375,4 +375,24 @@ describe("saveBiomassLog result shape", () => {
 			expect(result.feed.deviceOffline).toBe(true);
 		}
 	});
+
+	it("uses the offline client event id and treats a duplicate replay as success", async () => {
+		const mockTx = await runTransaction({
+			pondConfig: validPond,
+			device: { gramsPerFeeding: 300, lastSeenAt: new Date() },
+		});
+		mockTx.biomassLog.create.mockRejectedValueOnce({ code: "P2002" });
+
+		const fd = buildFormData(validSample);
+		fd.set("clientEventId", "offline-1234abcd-5678");
+		const result = await saveBiomassLog(fd);
+
+		expect(mockTx.biomassLog.create).toHaveBeenCalledWith({
+			data: expect.objectContaining({ id: "offline-1234abcd-5678" }),
+		});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.feed.status).toBe("unchanged");
+		}
+	});
 });

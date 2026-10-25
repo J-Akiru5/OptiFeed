@@ -2,8 +2,10 @@ import { ScheduleControls } from "@/components/ScheduleControls";
 import { ScheduleEditor } from "@/components/ScheduleEditor";
 import { StuckRequestBanner } from "@/components/StuckRequestBanner";
 import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
+import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { canWrite } from "@/lib/auth/session";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import type { ScheduleSnapshotData } from "@/lib/offline/snapshots";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { getTranslations } from "next-intl/server";
@@ -33,6 +35,7 @@ export default async function SchedulePage() {
 		orderBy: { createdAt: "asc" },
 		select: {
 			id: true,
+			label: true,
 			lastSeenAt: true,
 			isPaused: true,
 			gramsPerFeeding: true,
@@ -108,8 +111,30 @@ export default async function SchedulePage() {
 	const currentCommand = serializeCommand(pendingCommand ?? latestAppliedCommand);
 	const writeAccess = await canWrite();
 
+	const scheduleSnapshot: ScheduleSnapshotData = {
+		pondName: pond.name,
+		deviceName: energyDevice.label ?? pond.devices[0]?.name ?? "Feeder",
+		deviceStatus: deviceOffline ? "offline" : "online",
+		lastSeenAt: energyDevice.lastSeenAt?.toISOString() ?? null,
+		scheduleStart: currentCommand?.scheduleStart ?? fmtTime(pond.scheduleStart),
+		scheduleEnd: currentCommand?.scheduleEnd ?? fmtTime(pond.scheduleEnd),
+		feedsPerDay: currentCommand?.feedsPerDay ?? pond.feedsPerDay,
+		feedingRatePct: currentCommand?.feedingRatePct ?? pond.feedingRatePct,
+		gramsPerFeeding: energyDevice.gramsPerFeeding,
+		isPaused: energyDevice.isPaused,
+		pendingCommandStatus: pendingCommand?.status ?? null,
+		pendingCommandAt: pendingCommand?.createdAt?.toISOString() ?? null,
+	};
+
 	return (
 		<div className="space-y-8 max-w-5xl">
+			<SnapshotWriter
+				page="schedule"
+				scope={pond.ownerId}
+				pondId={pond.id}
+				pondName={pond.name}
+				data={scheduleSnapshot}
+			/>
 			<div>
 				<h1 className="text-3xl font-bold text-[var(--ofd-base)]">{t("title")}</h1>
 				<p className="mt-2 text-gray-700">{t("desc")}</p>

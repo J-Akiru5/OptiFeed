@@ -64,8 +64,8 @@ interface HarvestCalendarProps {
 	recentCycles: CropCycleDto[];
 	canManage: boolean;
 	today: string;
-	hopperLevelPct: number;
-	hopperIsOffline: boolean;
+	hopperLevelPct?: number;
+	hopperIsOffline?: boolean;
 }
 
 const defaultTypes: CalendarEventType[] = ["harvest", "sampling", "manual", "device"];
@@ -165,7 +165,7 @@ export function HarvestCalendar({
 	const metrics = selectedCycle ? computeCropCycleMetrics(selectedCycle, today) : null;
 	const isFallow = selectedPond?.isFallow ?? initialPondIsFallow;
 	const typesKey = useMemo(() => [...types].sort().join(","), [types]);
-	const hopperDisplayPct = hopperIsOffline ? 0 : hopperLevelPct;
+	const hopperDisplayPct = hopperLevelPct === undefined || hopperIsOffline ? 0 : hopperLevelPct;
 	const hopperRemainingKg = (HOPPER_CAPACITY_KG * (hopperDisplayPct / 100)).toFixed(1);
 	const hopperScheduledFeedings = Math.floor(Number.parseFloat(hopperRemainingKg) / 0.35);
 
@@ -870,39 +870,41 @@ export function HarvestCalendar({
 						)}
 					</section>
 
-					<section className="flex-none rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-900">
-						<div className="flex items-center justify-between gap-2">
-							<p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-gray-400">
-								<Cpu className="h-3.5 w-3.5 text-[#E85A2A]" />
-								{tNav("hopperLevel")}
-							</p>
-							{hopperIsOffline && (
-								<span className="rounded-full bg-[#C42B3A]/10 px-1.5 py-0.5 text-[9px] font-bold text-[#C42B3A]">
-									{tNav("deviceOffline")}
-								</span>
-							)}
-						</div>
-						<div className="mt-2 flex items-center justify-between text-xs font-extrabold text-[#0A3D62] dark:text-[#5b9bd5]">
-							<span>{tNav("pondFeedPellet")}</span>
-							<span>{hopperDisplayPct}%</span>
-						</div>
-						<div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-[#3D5568]/20 dark:bg-gray-700">
-							<div
-								className={`h-full rounded-full transition-all duration-1000 ${
-									hopperDisplayPct < 20 ? "bg-[#E85A2A]" : "bg-[#1E7B34]"
-								}`}
-								style={{ width: `${hopperDisplayPct}%` }}
-							/>
-						</div>
-						<div className="mt-2 text-[10px] leading-tight font-mono text-[#3D5568] dark:text-gray-400">
-							{hopperIsOffline
-								? tNav("hopperOffline")
-								: tNav("hopperRemaining", {
-										kg: hopperRemainingKg,
-										count: hopperScheduledFeedings,
-									})}
-						</div>
-					</section>
+					{hopperLevelPct !== undefined && (
+						<section className="flex-none rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-900">
+							<div className="flex items-center justify-between gap-2">
+								<p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-gray-400">
+									<Cpu className="h-3.5 w-3.5 text-[#E85A2A]" />
+									{tNav("hopperLevel")}
+								</p>
+								{hopperIsOffline && (
+									<span className="rounded-full bg-[#C42B3A]/10 px-1.5 py-0.5 text-[9px] font-bold text-[#C42B3A]">
+										{tNav("deviceOffline")}
+									</span>
+								)}
+							</div>
+							<div className="mt-2 flex items-center justify-between text-xs font-extrabold text-[#0A3D62] dark:text-[#5b9bd5]">
+								<span>{tNav("pondFeedPellet")}</span>
+								<span>{hopperDisplayPct}%</span>
+							</div>
+							<div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-[#3D5568]/20 dark:bg-gray-700">
+								<div
+									className={`h-full rounded-full transition-all duration-1000 ${
+										hopperDisplayPct < 20 ? "bg-[#E85A2A]" : "bg-[#1E7B34]"
+									}`}
+									style={{ width: `${hopperDisplayPct}%` }}
+								/>
+							</div>
+							<div className="mt-2 text-[10px] leading-tight font-mono text-[#3D5568] dark:text-gray-400">
+								{hopperIsOffline
+									? tNav("hopperOffline")
+									: tNav("hopperRemaining", {
+											kg: hopperRemainingKg,
+											count: hopperScheduledFeedings,
+										})}
+							</div>
+						</section>
+					)}
 				</aside>
 			</div>
 

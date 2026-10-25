@@ -94,7 +94,7 @@ export function DashboardPreview() {
 				</div>
 			</div>
 
-			<div className="absolute top-16 -right-2 z-10 hidden w-[10.5rem] rounded-xl border border-[#E4ECE8] bg-white p-3 text-[#0A2E47] shadow-[0_20px_45px_-18px_rgba(0,0,0,0.55)] sm:block lg:-right-4">
+			<div className="absolute top-16 -right-2 z-10 hidden w-[10.5rem] rounded-xl border border-white/60 bg-white/70 p-3 text-[#0A2E47] shadow-[0_20px_45px_-18px_rgba(0,0,0,0.45)] backdrop-blur-md sm:block lg:-right-4">
 				<div className="flex items-center gap-2">
 					<span className="flex size-6 items-center justify-center rounded-full bg-[#ECFDF3] text-[#067647]">
 						<Check className="size-3.5" aria-hidden="true" />
@@ -106,7 +106,7 @@ export function DashboardPreview() {
 				<p className="mt-2 text-[12.5px] font-semibold">{t("previewLoggedValue")}</p>
 			</div>
 
-			<div className="absolute bottom-3 left-4 z-10 hidden w-[9.25rem] rounded-xl border border-white/15 bg-[#0B2336]/85 p-3 text-white shadow-[0_20px_45px_-18px_rgba(0,0,0,0.8)] backdrop-blur-md md:block">
+			<div className="absolute bottom-3 left-4 z-10 hidden w-[9.25rem] rounded-xl border border-white/15 bg-[#0B2336]/55 p-3 text-white shadow-[0_20px_45px_-18px_rgba(0,0,0,0.8)] backdrop-blur-md md:block">
 				<div className="flex items-center gap-2">
 					<span className="flex size-6 items-center justify-center rounded-full bg-white/10 text-[#7CE3A8]">
 						<Wifi className="size-3.5" aria-hidden="true" />

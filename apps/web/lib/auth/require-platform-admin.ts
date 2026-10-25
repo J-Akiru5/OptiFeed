@@ -51,7 +51,9 @@ export async function isPlatformAdminFarmId(farmId: string): Promise<boolean> {
  * Redirects to /dashboard otherwise — same contract as requireRole().
  *
  * PlatformAdmin is the god-mode source of truth (plan §3.2) and is deliberately
- * separate from UserRole.ADMIN, which gates only the legacy /admin console.
+ * separate from UserRole.ADMIN. The tenant /admin console is gated on an active
+ * OWNER/ADMIN Membership instead (lib/auth/tenant-admin.ts), so neither flag
+ * can open the other console.
  */
 export async function requirePlatformAdmin(): Promise<void> {
 	const allowed = await isCurrentPlatformAdmin();

@@ -1,9 +1,10 @@
 "use client";
 
 import { setDeviceTime } from "@/lib/actions/time";
+import { localDateTimeToIso, toLocalDateTimeInput } from "@/lib/device-time";
 import { CheckCircle2, Clock } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export function TimeCalibrationForm({
@@ -11,15 +12,24 @@ export function TimeCalibrationForm({
 	canWrite = true,
 }: { deviceId: string; canWrite?: boolean }) {
 	const t = useTranslations("dashboard.timeCalibration");
-	const [selectedTime, setSelectedTime] = useState(() => {
-		const now = new Date();
-		return now.toISOString().slice(0, 16);
-	});
+	// Start empty on both server and client, then fill the local wall time after
+	// hydration. Computing it during render would use the server's timezone on
+	// the server and the browser's on the client (hydration mismatch).
+	const [selectedTime, setSelectedTime] = useState("");
 	const [saving, setSaving] = useState(false);
 	const [success, setSuccess] = useState(false);
 
+	useEffect(() => {
+		setSelectedTime(toLocalDateTimeInput(new Date()));
+	}, []);
+
 	const handleSetTime = async () => {
 		if (!selectedTime) {
+			toast.error(t("error"));
+			return;
+		}
+		const isoTime = localDateTimeToIso(selectedTime);
+		if (!isoTime) {
 			toast.error(t("error"));
 			return;
 		}
@@ -27,7 +37,7 @@ export function TimeCalibrationForm({
 		setSaving(true);
 		setSuccess(false);
 		try {
-			const result = await setDeviceTime(deviceId, selectedTime);
+			const result = await setDeviceTime(deviceId, isoTime);
 			if (result.success) {
 				setSuccess(true);
 				toast.success(t("saved"));

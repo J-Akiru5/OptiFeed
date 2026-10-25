@@ -47,6 +47,7 @@ async function main() {
 			email: DEMO_EMAIL,
 			displayName: "Juan Miguel",
 			role: "ADMIN",
+			mustChangePassword: false,
 			farm: {
 				create: { name: "Juan Miguel Farm" },
 			},

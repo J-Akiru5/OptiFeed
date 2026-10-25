@@ -193,14 +193,14 @@
 	"login": {
 		"eyebrow": "Pagsulod sa farm",
 		"heading": "Mag-log in sa PakaonAI",
-		"subheading": "Gamita ang farm ID kag PIN nga ginhatag sang imo pond administrator.",
+		"subheading": "Gamita ang farm ID kag password nga ginhatag sang imo pond administrator.",
 		"farmIdLabel": "Farm ID",
 		"farmIdPlaceholder": "imong-farm-id",
-		"pinLabel": "Security PIN",
-		"pinLengthHint": "4–6 ka numero",
-		"pinDesc": "Ginhatag sang imo pond administrator.",
-		"showPin": "Ipakita ang PIN",
-		"hidePin": "Taguon ang PIN",
+		"passwordLabel": "Password",
+		"passwordHint": "Case-sensitive",
+		"passwordDesc": "Ginhatag sang imo pond administrator. Ang PIN makasulod isa ka beses.",
+		"showPassword": "Ipakita ang password",
+		"hidePassword": "Taguon ang password",
 		"rememberFarmId": "Dumdumon ini nga farm ID sa sini nga device",
 		"submit": "Mag-log in",
 		"submitting": "Naga-log in…",
@@ -208,8 +208,8 @@
 		"themeToLight": "Mag-switch sa light mode",
 		"themeToDark": "Mag-switch sa dark mode",
 		"errorEmpty": "Isulod ang imo farm ID.",
-		"errorPinLength": "Isulod ang 4–6 ka numero nga PIN halin sa imo administrator.",
-		"errorInvalid": "Indi mag-match ang farm ID ukon PIN. Tsekan ang duha kag i-try liwat.",
+		"errorPasswordRequired": "Isulod ang imo password.",
+		"errorInvalid": "Indi mag-match ang farm ID ukon password. Tsekan ang duha kag i-try liwat.",
 		"errorLocked": "Sobra na ang pagsulay. I-try liwat pagligad sang {minutes} ka minuto.",
 		"errorRateLimited": "Sobra nga request. Maghulat sang isa ka minuto kag i-try liwat.",
 		"errorService": "Indi maabot ang sign-in service subong. I-try liwat sang madali.",
@@ -226,6 +226,36 @@
 		"statusLabel": "Rehiyon sang operasyon",
 		"statusValue": "Nakatundan nga Kabisay-an",
 		"languageLabel": "Pulong"
+	},
+	"password": {
+		"strength": {
+			"label": "Kusog sang password",
+			"weak": "Maluya",
+			"medium": "Tunga-tunga",
+			"strong": "Mabaskog"
+		},
+		"requirements": {
+			"minLength": "Labing menos 8 ka karakter",
+			"letter": "Labing menos isa ka letra",
+			"number": "Labing menos isa ka numero"
+		},
+		"show": "Ipakita ang password",
+		"hide": "Taguon ang password",
+		"current": "Karon nga password",
+		"new": "Bag-o nga password",
+		"confirm": "Kumpirmaha ang bag-o nga password",
+		"mismatch": "Indi magkapareho ang mga password.",
+		"same": "Ang bag-o nga password dapat lain sa karon nga password.",
+		"wrongCurrent": "Indi husto ang karon nga password.",
+		"weak": "Gamita ang 8+ ka karakter nga may letra kag numero.",
+		"submit": "I-update ang password",
+		"updated": "Na-update ang password.",
+		"forcedTitle": "Mag-set sang bag-o nga password",
+		"forcedDesc": "Ginagamit pa sang imo account ang temporaryo nga password. Mag-set sang bag-o para magpadayon.",
+		"title": "Bag-oha ang password",
+		"desc": "I-update ang password sang imo account.",
+		"temporaryWarning": "Maluya ini nga temporaryo nga password. Kinahanglan bag-uhon sang user sa first login.",
+		"service": "Indi namon ma-update ang password subong. Try liwat."
 	},
 	"dashboard": {
 		"home": {
@@ -836,9 +866,6 @@
 			"saveChanges": "I-save ang mga Pagbag-o",
 			"security": "Kaluwasan",
 			"securityDesc": "Dumalaha ang mga setting sang kaluwasan sang imo account.",
-			"changePin": "Bag-oha ang PIN",
-			"changePinDesc": "I-update ang imo 4-6 ka numero nga security PIN.",
-			"update": "I-update",
 			"notifications": "Mga Preferensya sang Notipikasyon",
 			"notificationsDesc": "Konfigureha kung paano ka makabaton sang mga alerto.",
 			"missedFeedingAlerts": "Alerto sang Na-miss nga Pagpakaon",
@@ -853,8 +880,7 @@
 			"samplingRemindersDesc": "Makabaton sang notipikasyon antes kag sa adlaw sang sampling sang biomass.",
 			"emailReminders": "Mga Pahinumdom sa Email",
 			"emailRemindersDesc": "Magpadala man sang mga pahinumdom sa email sang tag-iya sang pond kag mga admin kon naka-configure ang Resend.",
-			"managedByAdmin": "Ang detalye sang profile gina-manage sang imo administrator.",
-			"pinManagedByAdmin": "Ang pagbag-o sang PIN gina-atipan sang imo administrator."
+			"managedByAdmin": "Ang detalye sang profile gina-manage sang imo administrator."
 		},
 		"audit": {
 			"title": "Talaan ng Audit",

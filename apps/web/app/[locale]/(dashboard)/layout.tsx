@@ -13,7 +13,7 @@ import { OfflineSync } from "@/components/pwa/offline-sync";
 import { Sidebar } from "@/components/sidebar";
 import { Link } from "@/i18n/routing";
 import { isCurrentPlatformAdmin } from "@/lib/auth/require-platform-admin";
-import { getCurrentPondOwnerId, getCurrentUser } from "@/lib/auth/session";
+import { getCurrentPondOwnerId, requirePasswordChanged } from "@/lib/auth/session";
 import { isCurrentTenantAdmin } from "@/lib/auth/tenant-admin";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePondId } from "@/lib/pond-selection";
@@ -27,7 +27,7 @@ export default async function DashboardLayout({
 }) {
 	const [ownerId, currentUser, isTenantAdmin, isPlatformAdmin] = await Promise.all([
 		getCurrentPondOwnerId(),
-		getCurrentUser(),
+		requirePasswordChanged(),
 		isCurrentTenantAdmin(),
 		isCurrentPlatformAdmin(),
 	]);

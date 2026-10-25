@@ -19,7 +19,7 @@
 | `RESEND_API_KEY` / `REMINDER_FROM_EMAIL` | Harvest/sampling reminder email (optional; in-app only until set) |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | CRITICAL alerts (optional; no-op until set) |
 | `OPENCODE_GO_API_KEY` / `OPENCODE_GO_MODEL` | Chat assistant + feeding prediction (OpenCode Go; model defaults to `deepseek-v4.1-flash`) |
-| `DEMO_PIN` | Seed script only |
+| `DEMO_PASSWORD` | Seed/e2e scripts only |
 
 Notes:
 - **No Upstash.** Rate limiting is a PostgreSQL atomic upsert (decision D1):

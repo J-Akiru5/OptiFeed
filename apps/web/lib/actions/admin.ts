@@ -3,6 +3,7 @@
 import { redirect } from "@/i18n/routing";
 import { deleteUserSubtree } from "@/lib/actions/admin-internal";
 import { resolveOrgScope } from "@/lib/auth/org-scope";
+import { passwordErrorMessage, validatePassword } from "@/lib/auth/password";
 import {
 	type Permission,
 	ROLE_DEFAULTS,
@@ -380,8 +381,8 @@ export async function createPondWithFarmer(data: {
 	farmerName: string;
 	/** Login slug / pond-email local part. */
 	loginId: string;
-	/** 6-digit PIN (set-time policy, task 2.7). */
-	pin: string;
+	/** Temporary password. The user must change it on first login. */
+	password: string;
 	pondName: string;
 	feedingRatePct: number;
 	feedsPerDay: number;
@@ -401,7 +402,8 @@ export async function createPondWithFarmer(data: {
 	}
 	if (!farmerName) return { error: "Farmer name is required." };
 	if (!pondName) return { error: "Pond name is required." };
-	if (!/^\d{6}$/.test(data.pin ?? "")) return { error: "PIN must be exactly 6 digits." };
+	const passwordCheck = validatePassword(data.password ?? "", "temporary");
+	if (!passwordCheck.ok) return { error: passwordErrorMessage(passwordCheck.code) };
 
 	const [scope, actor] = await Promise.all([resolveOrgScope(), getCurrentUser()]);
 	if (!actor) return { error: "Not authenticated." };
@@ -432,7 +434,7 @@ export async function createPondWithFarmer(data: {
 	const supabase = createAdminClient();
 	const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
 		email,
-		password: data.pin,
+		password: data.password,
 		email_confirm: true,
 	});
 	if (authError) return { error: `Failed to create auth account: ${authError.message}` };
@@ -446,6 +448,7 @@ export async function createPondWithFarmer(data: {
 					email,
 					displayName: farmerName,
 					role: "OPERATOR",
+					mustChangePassword: true,
 				},
 			});
 

@@ -33,6 +33,7 @@ async function main() {
 		update: {
 			displayName: "Juan Miguel",
 			role: "ADMIN",
+			mustChangePassword: false,
 		},
 		create: {
 			supabaseId: demoUserId,
@@ -40,6 +41,7 @@ async function main() {
 			email: DEMO_EMAIL,
 			displayName: "Juan Miguel",
 			role: "ADMIN",
+			mustChangePassword: false,
 		},
 	});
 	console.log("✓ Demo user:", demoUser.farmId);

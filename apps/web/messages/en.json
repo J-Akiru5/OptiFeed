@@ -193,14 +193,14 @@
 	"login": {
 		"eyebrow": "Farm access",
 		"heading": "Sign in to PakaonAI",
-		"subheading": "Use the farm ID and PIN issued by your pond administrator.",
+		"subheading": "Use the farm ID and password issued by your pond administrator.",
 		"farmIdLabel": "Farm ID",
 		"farmIdPlaceholder": "your-farm-id",
-		"pinLabel": "Security PIN",
-		"pinLengthHint": "4–6 digits",
-		"pinDesc": "Issued by your pond administrator.",
-		"showPin": "Show PIN",
-		"hidePin": "Hide PIN",
+		"passwordLabel": "Password",
+		"passwordHint": "Case-sensitive",
+		"passwordDesc": "Issued by your pond administrator. A current PIN will work once.",
+		"showPassword": "Show password",
+		"hidePassword": "Hide password",
 		"rememberFarmId": "Remember this farm ID on this device",
 		"submit": "Sign in",
 		"submitting": "Signing in…",
@@ -208,8 +208,8 @@
 		"themeToLight": "Switch to light mode",
 		"themeToDark": "Switch to dark mode",
 		"errorEmpty": "Enter your farm ID.",
-		"errorPinLength": "Enter the 4–6 digit PIN from your administrator.",
-		"errorInvalid": "That farm ID or PIN doesn't match. Check both and try again.",
+		"errorPasswordRequired": "Enter your password.",
+		"errorInvalid": "That farm ID or password doesn't match. Check both and try again.",
 		"errorLocked": "Too many failed attempts. Try again in {minutes} minute(s).",
 		"errorRateLimited": "Too many attempts in a short time. Wait a minute and try again.",
 		"errorService": "We can't reach the sign-in service right now. Try again in a moment.",
@@ -226,6 +226,36 @@
 		"statusLabel": "Operating region",
 		"statusValue": "Western Visayas",
 		"languageLabel": "Language"
+	},
+	"password": {
+		"strength": {
+			"label": "Password strength",
+			"weak": "Weak",
+			"medium": "Medium",
+			"strong": "Strong"
+		},
+		"requirements": {
+			"minLength": "At least 8 characters",
+			"letter": "At least one letter",
+			"number": "At least one number"
+		},
+		"show": "Show password",
+		"hide": "Hide password",
+		"current": "Current password",
+		"new": "New password",
+		"confirm": "Confirm new password",
+		"mismatch": "Passwords do not match.",
+		"same": "The new password must be different from the current password.",
+		"wrongCurrent": "Current password is incorrect.",
+		"weak": "Use at least 8 characters with a letter and a number.",
+		"submit": "Update password",
+		"updated": "Password updated.",
+		"forcedTitle": "Set a new password",
+		"forcedDesc": "Your account still uses a temporary password. Set a new password to continue.",
+		"title": "Change password",
+		"desc": "Update the password for your account.",
+		"temporaryWarning": "This is a weak temporary password. The user must change it on first login.",
+		"service": "We can't update your password right now. Try again in a moment."
 	},
 	"dashboard": {
 		"home": {
@@ -836,9 +866,6 @@
 			"saveChanges": "Save Changes",
 			"security": "Security",
 			"securityDesc": "Manage your account security settings.",
-			"changePin": "Change PIN",
-			"changePinDesc": "Update your 4-6 digit security PIN.",
-			"update": "Update",
 			"notifications": "Notification Preferences",
 			"notificationsDesc": "Configure how you receive alerts.",
 			"missedFeedingAlerts": "Missed Feeding Alerts",
@@ -853,8 +880,7 @@
 			"samplingRemindersDesc": "Get notified before a biomass sampling is due and on the due date.",
 			"emailReminders": "Email Reminders",
 			"emailRemindersDesc": "Also email crop reminders to the pond owner and farm admins when Resend is configured.",
-			"managedByAdmin": "Profile details are managed by your administrator.",
-			"pinManagedByAdmin": "PIN changes are handled by your administrator."
+			"managedByAdmin": "Profile details are managed by your administrator."
 		},
 		"adminUsers": {
 			"actionsColumn": "Actions",

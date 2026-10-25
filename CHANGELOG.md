@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - The web app renders the PakaonAI logo kit (fish-and-ring mark plus wordmark) in the landing header/footer and the admin and dashboard headers, replacing the inline SVG mark and the split `Opti`/`Feed` text lockup. `OptiFeedLogo` now takes a `variant` (`ondark`, `color`, `color-light`, `white`, `navy`) and serves the kit's PNG marks.
-- The login page is rebuilt as a focused split layout with a PakaonAI brand panel, remembered farm IDs, PIN reveal, inline validation, a language switch and dark mode.
+- The login page is rebuilt as a focused split layout with a PakaonAI brand panel, remembered farm IDs, password reveal, inline validation, a language switch and dark mode. The field is now a normal password instead of a numeric-only PIN; legacy PINs still work once before the forced password change.
 - The landing page is redesigned around the same visual system: blueprint grid, pond hero with an operations preview, an underlined headline, scroll-driven research sections and a mobile section menu. PakaonAI branding now also covers the login, superadmin, chat assistant, onboarding tour and PDF/export labels.
 - `withAuth`/`withCronAuth` now return the error envelope and record their own `auth` timing.
 - `/api/user-role` returns `{ role, email, displayName }` with `private, max-age=60` and an ETag; the dashboard layout now resolves the user server-side and passes it to the header, so the header makes no client round-trip at all.
@@ -51,6 +51,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dashboard cards keep their natural height instead of being stretched to match the tallest card in their row (#95).
 - The Biomass Sample History card hides its secondary columns below `lg`, so a phone no longer needs a horizontal scrollbar to read it (#94).
 - The help and chat floating buttons keep their raised anchor until the bottom navigation is hidden at `lg`, so they no longer sit on top of the nav between 768px and 1023px (#93).
+
+### Security
+
+- Password authentication replaces numeric PIN login. Existing accounts are forced to set a permanent password on next login; `password123` is accepted only as a temporary initial credential. Permanent passwords require 8+ characters with a letter and number, and a weak/medium/strong meter is shown on password-setting forms. Users can change their own password from Profile Settings.
 
 ## [1.11.0] - 2026-10-22
 

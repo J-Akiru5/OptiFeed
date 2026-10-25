@@ -3,6 +3,7 @@ import { SuperadminBottomNav } from "@/components/superadmin-bottom-nav";
 import { SuperadminSidebar } from "@/components/superadmin-sidebar";
 import { Link } from "@/i18n/routing";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
+import { requirePasswordChanged } from "@/lib/auth/session";
 import Image from "next/image";
 
 /**
@@ -15,6 +16,7 @@ export default async function SuperadminLayout({
 }: {
 	children: React.ReactNode;
 }) {
+	await requirePasswordChanged();
 	await requirePlatformAdmin();
 
 	return (

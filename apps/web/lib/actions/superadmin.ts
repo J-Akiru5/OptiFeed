@@ -1,6 +1,7 @@
 "use server";
 
 import { deleteUserSubtree } from "@/lib/actions/admin-internal";
+import { passwordErrorMessage, validatePassword } from "@/lib/auth/password";
 import { isPlatformAdminActive } from "@/lib/auth/platform-admin";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
@@ -201,8 +202,8 @@ export type CreatePlatformUserInput = {
 	/** Login slug and pond-email local part. */
 	farmId: string;
 	displayName: string;
-	/** 6-digit PIN (set-time policy, task 2.7). */
-	pin: string;
+	/** Temporary password. The user must change it on first login. */
+	password: string;
 	kind: "ADMIN" | "ORG_FARMER" | "INDEPENDENT_FARMER";
 	/** Required for ADMIN and ORG_FARMER; ignored for INDEPENDENT_FARMER. */
 	orgId?: string;
@@ -228,14 +229,14 @@ export async function createPlatformUser(
 
 	const reason = requireReason(input.reason);
 	const farmId = input.farmId?.trim().toLowerCase() ?? "";
-	const pin = input.pin ?? "";
+	const password = input.password ?? "";
 
 	if (!/^[a-z0-9-]+$/.test(farmId)) {
 		return { error: "Login ID must be lowercase alphanumeric with hyphens." };
 	}
 	if (!input.displayName?.trim()) return { error: "Display name is required." };
-	// Set-time policy: new PINs are 6 digits. Login accepts 4-6.
-	if (!/^\d{6}$/.test(pin)) return { error: "PIN must be exactly 6 digits." };
+	const passwordCheck = validatePassword(password, "temporary");
+	if (!passwordCheck.ok) return { error: passwordErrorMessage(passwordCheck.code) };
 	if (input.kind !== "INDEPENDENT_FARMER" && !input.orgId) {
 		return { error: "An organization is required for this account kind." };
 	}
@@ -263,7 +264,7 @@ export async function createPlatformUser(
 	const supabase = createAdminClient();
 	const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
 		email,
-		password: pin,
+		password,
 		email_confirm: true,
 	});
 	if (authError) {
@@ -282,6 +283,7 @@ export async function createPlatformUser(
 					email,
 					displayName: input.displayName.trim(),
 					role,
+					mustChangePassword: true,
 				},
 			});
 

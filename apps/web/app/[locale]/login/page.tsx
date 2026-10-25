@@ -3,7 +3,7 @@
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { useTheme } from "@/components/theme-provider";
 import { usePathname, useRouter } from "@/i18n/routing";
-import { loginWithPin } from "@/lib/actions/auth";
+import { loginWithPassword } from "@/lib/actions/auth";
 import { clearOfflineData } from "@/lib/offline/db";
 import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
 import { createClient } from "@/lib/supabase/client";
@@ -52,15 +52,15 @@ export default function LoginPage() {
 	const { resolvedTheme, setTheme } = useTheme();
 
 	const [farmId, setFarmId] = useState("");
-	const [pin, setPin] = useState("");
-	const [showPin, setShowPin] = useState(false);
+	const [password, setPassword] = useState("");
+	const [showPassword, setShowPassword] = useState(false);
 	const [rememberFarmId, setRememberFarmId] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const [fieldErrors, setFieldErrors] = useState<{ farmId?: string; pin?: string }>({});
+	const [fieldErrors, setFieldErrors] = useState<{ farmId?: string; password?: string }>({});
 	const [isPending, startTransition] = useTransition();
 	const [isLocalePending, startLocaleTransition] = useTransition();
 	const farmIdRef = useRef<HTMLInputElement>(null);
-	const pinRef = useRef<HTMLInputElement>(null);
+	const passwordRef = useRef<HTMLInputElement>(null);
 
 	// The proxy no longer redirects authenticated users away from /login (its
 	// optimistic cookie check cannot distinguish a valid session from an
@@ -96,15 +96,15 @@ export default function LoginPage() {
 
 		const nextErrors: typeof fieldErrors = {};
 		if (!farmId.trim()) nextErrors.farmId = t("errorEmpty");
-		if (pin.length < 4 || pin.length > 6) nextErrors.pin = t("errorPinLength");
+		if (!password) nextErrors.password = t("errorPasswordRequired");
 		setFieldErrors(nextErrors);
 
 		if (nextErrors.farmId) {
 			farmIdRef.current?.focus();
 			return;
 		}
-		if (nextErrors.pin) {
-			pinRef.current?.focus();
+		if (nextErrors.password) {
+			passwordRef.current?.focus();
 			return;
 		}
 
@@ -119,7 +119,7 @@ export default function LoginPage() {
 		}
 
 		startTransition(async () => {
-			const result = await loginWithPin(farmId, pin);
+			const result = await loginWithPassword(farmId, password);
 			if (result?.error === "locked") {
 				const minutes = result.secondsRemaining ? Math.ceil(result.secondsRemaining / 60) : 15;
 				setError(t("errorLocked", { minutes }));
@@ -129,8 +129,8 @@ export default function LoginPage() {
 				setError(t("errorService"));
 			} else if (result?.error) {
 				setError(t("errorInvalid"));
-				setPin("");
-				pinRef.current?.focus();
+				setPassword("");
+				passwordRef.current?.focus();
 			}
 		});
 	};
@@ -309,63 +309,65 @@ export default function LoginPage() {
 							<div>
 								<div className="mb-1.5 flex items-baseline justify-between gap-3">
 									<label
-										htmlFor="pin"
+										htmlFor="password"
 										className="text-[13px] font-medium text-[#0A2E47] dark:text-slate-200"
 									>
-										{t("pinLabel")}
+										{t("passwordLabel")}
 									</label>
-									<span className="text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
-										{t("pinLengthHint")}
+									<span className="text-[11px] text-slate-500 dark:text-slate-400">
+										{t("passwordHint")}
 									</span>
 								</div>
 								<div className="relative">
 									<input
-										ref={pinRef}
-										id="pin"
-										name="pin"
-										type={showPin ? "text" : "password"}
-										inputMode="numeric"
+										ref={passwordRef}
+										id="password"
+										name="password"
+										type={showPassword ? "text" : "password"}
 										autoComplete="current-password"
-										pattern="[0-9]*"
-										maxLength={6}
+										autoCapitalize="none"
+										autoCorrect="off"
+										spellCheck={false}
+										maxLength={72}
 										enterKeyHint="go"
-										value={pin}
+										value={password}
 										onChange={(e) => {
-											setPin(e.target.value.replace(/\D/g, "").slice(0, 6));
-											if (fieldErrors.pin) {
-												setFieldErrors((prev) => ({ ...prev, pin: undefined }));
+											setPassword(e.target.value);
+											if (fieldErrors.password) {
+												setFieldErrors((prev) => ({ ...prev, password: undefined }));
 											}
 											clearServerError();
 										}}
-										aria-invalid={Boolean(fieldErrors.pin)}
-										aria-describedby={fieldErrors.pin ? "pin-help pin-error" : "pin-help"}
+										aria-invalid={Boolean(fieldErrors.password)}
+										aria-describedby={
+											fieldErrors.password ? "password-help password-error" : "password-help"
+										}
 										className={cn(
 											inputBase,
-											"pr-12 text-[15px] tabular-nums",
-											showPin ? "tracking-[0.18em]" : "tracking-[0.32em]",
-											fieldErrors.pin ? inputError : inputBorder,
+											"pr-12 text-[15px]",
+											fieldErrors.password ? inputError : inputBorder,
 										)}
 									/>
 									<button
 										type="button"
-										onClick={() => setShowPin((visible) => !visible)}
-										aria-label={showPin ? t("hidePin") : t("showPin")}
-										aria-pressed={showPin}
+										onClick={() => setShowPassword((visible) => !visible)}
+										aria-label={showPassword ? t("hidePassword") : t("showPassword")}
+										aria-pressed={showPassword}
 										className="absolute inset-y-0 right-1 my-auto flex size-9 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-[#0A3D62] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]/40 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
 									>
-										{showPin ? (
+										{showPassword ? (
 											<EyeOff className="size-[17px]" aria-hidden="true" />
 										) : (
 											<Eye className="size-[17px]" aria-hidden="true" />
 										)}
 									</button>
 								</div>
-								<p id="pin-help" className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-									{t("pinDesc")}
+								<p id="password-help" className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+									{t("passwordDesc")}
 								</p>
-								{fieldErrors.pin && (
-									<p id="pin-error" className="mt-1 text-xs text-[#D92D20] dark:text-red-400">
-										{fieldErrors.pin}
+								{fieldErrors.password && (
+									<p id="password-error" className="mt-1 text-xs text-[#D92D20] dark:text-red-400">
+										{fieldErrors.password}
 									</p>
 								)}
 							</div>

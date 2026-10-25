@@ -4,9 +4,10 @@
 - **Date:** 2026-10-26
 - **Repository:** `C:\Users\Client\CApstone\OptiFeed`
 - **Worktree:** `C:\Users\Client\CApstone\OptiFeed-password`
-- **Base:** `origin/develop` at `34f5e84` (PR #152).
+- **Base:** `origin/develop` at `34f5e84` (PR #152), merged with `origin/develop` at `280c5ac` (PRs #153/#155/#156).
 - **Target:** replace numeric PIN login with password authentication, force existing accounts to set a permanent password, and add a weak/medium/strong indicator on password-setting forms.
-- **Master plan:** `docs/OPTIFEED-INDUSTRY-GRADE-PLAN v3.md` task 2.10 on `docs/update-industry-grade-plan` (`deeef61`).
+- **Master plan:** `docs/OPTIFEED-INDUSTRY-GRADE-PLAN v3.md` task 2.10 on `docs/update-industry-grade-plan` (`c6ea0f2`).
+- **Contract note:** `origin/develop` carried a shorter task-2.10 contract at this path (PR #155). This document is the implementation plan and supersedes it; the locked decisions are identical.
 - **Isolation:** this worktree and branch are separate from the current `audit/phase-1-critical` working tree, whose unrelated changes (`firmware-main.ino`, a deleted PDF, untracked files) must not be touched.
 
 ---

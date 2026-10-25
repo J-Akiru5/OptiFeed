@@ -12,7 +12,9 @@ import { OnboardingProvider } from "@/components/onboarding-provider";
 import { OfflineSync } from "@/components/pwa/offline-sync";
 import { Sidebar } from "@/components/sidebar";
 import { Link } from "@/i18n/routing";
+import { isCurrentPlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { getCurrentPondOwnerId, requirePasswordChanged } from "@/lib/auth/session";
+import { isCurrentTenantAdmin } from "@/lib/auth/tenant-admin";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
@@ -23,9 +25,11 @@ export default async function DashboardLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	const [ownerId, currentUser] = await Promise.all([
+	const [ownerId, currentUser, isTenantAdmin, isPlatformAdmin] = await Promise.all([
 		getCurrentPondOwnerId(),
 		requirePasswordChanged(),
+		isCurrentTenantAdmin(),
+		isCurrentPlatformAdmin(),
 	]);
 
 	let pondId = "";
@@ -130,6 +134,8 @@ export default async function DashboardLayout({
 												email: currentUser.email,
 												role: currentUser.role,
 												displayName: currentUser.displayName,
+												isTenantAdmin,
+												isPlatformAdmin,
 											}
 										: undefined
 								}

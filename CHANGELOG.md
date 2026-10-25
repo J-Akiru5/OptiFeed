@@ -41,7 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Tenant console access is now gated by an active OWNER/ADMIN `Membership` in an `ACTIVE` organization, not the legacy global `User.role` flag. `updateUser` no longer changes `User.role`, closing a role-escalation path, and the profile menu shows **Admin Panel** only for tenant admins and **Platform Console** only for active platform administrators (#146).
 - ETags are computed over `data + cacheable meta`, so `request_id` no longer makes every conditional request miss.
+- Device time calibration now shows and sends the browser's local time instead of UTC, and the ESP32 applies a manual calibration (or corrects RTC drift from `server_time`) on its next 5-second poll (#149).
 - The error normaliser reads a clone, so a conformant error body is not consumed before the client sees it.
 - Timeout errors are logged once and carry the specific `504 TIMEOUT` message; passthrough routes return a plain 504 body.
 - The dashboard hopper widget rests at 0% behind an "Offline" badge when the ESP32 stops checking in, instead of freezing on the last reported level (#100).

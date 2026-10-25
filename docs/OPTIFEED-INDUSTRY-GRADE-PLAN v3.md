@@ -2,11 +2,18 @@
 
 Paste this together with `system-context.html`. The briefing says how the system works. This plan says what to change, in what order, and how to prove each change worked.
 
+## Plan update log
+
+| Date | Author | Base commit | What changed |
+|---|---|---|---|
+| 2026-10-26 | Agent-assisted | `34f5e84` (`origin/develop` at update time; plan branch base `7036195`) | Replaced the PIN policy with password authentication (task 2.10): all 5 existing accounts get temporary `password123`, `mustChangePassword=true`, forced change on next login; permanent passwords are 8+ chars with a letter and number and not common; weak/medium/strong meter on password-setting forms; self-service change. Task 2.7 is superseded; open question 3 is resolved. Implementation contract: `docs/password-auth-plan.md`. |
+| 2026-10-24 | Karl (agent-assisted) | `7036195` (`origin/develop` when this branch was cut; `develop`/`staging`/`main` all had identical trees `9cf70ac`, last explicit sync `0e12138`) | Reconciled the workflow sections (0, 4, 6) with `CONTRIBUTING.md` and `docs/deployment-workflow.md`: the single long-lived `Karl` branch model is gone, replaced by short-lived `docs/*|fix/*|feat/*|chore/*` branches → `develop` → `staging` → `main`. Added a **Status (2026-10-24)** block to every phase and a Status column to section 5, each backed by merged-code evidence (files, tests, migrations, PR numbers). Removed the stale embedded copy of the self-check script (the merged `scripts/self-check.mjs` is authoritative). Added section 8 (open questions) and refreshed section 7 (definition of done). The legacy progress tracker `docs/tracker/optifeed-progress-tracker.html` reports a different task scope (the original 9 product-build tasks), so per instruction it was left untouched. |
+
 ## 0. Instructions for the executing AI
 
 **Hard rules (from briefing section 2, repeated because they matter most):**
-- Work only on branch `Karl`. Start with `git checkout Karl && git pull origin develop --rebase`.
-- Never push to `develop` or `main`. Open small PRs from `Karl` to `develop`. One phase task = one commit or one small PR.
+- Work on a short-lived branch (`docs/*`, `fix/*`, `feat/*`, `chore/*`, `audit/*`) cut from the latest `develop`: `git fetch origin && git switch -c <branch> origin/develop`. One phase task = one commit or one small PR.
+- Never commit directly to `develop`, `staging`, or `main`, and never push `staging` or `main` yourself. Open your PR into `develop`; releases then flow `develop → staging → staging → main` (only Jeff merges `staging → main`). `CONTRIBUTING.md` is the source of truth for this flow; `docs/deployment-workflow.md` covers the pipeline itself. Note: merges to `develop` publish a preview deployment that runs with production credentials — treat `develop` as production-visible.
 - Never run `prisma migrate reset`. Production uses `migrate deploy`. Local dev uses `migrate dev` only on a throwaway database.
 - Every new migration must be additive (new columns, tables, indexes, policies). Never write `DROP TABLE`, `DROP COLUMN`, or `TRUNCATE` without an explicit human OK in the chat.
 - Next.js here is 16. The file is `proxy.ts`, not `middleware.ts`. Read the relevant guide in `apps/web/node_modules/next/dist/docs/` before touching routing, route handlers, or caching.
@@ -16,7 +23,7 @@ Paste this together with `system-context.html`. The briefing says how the system
 - Do not guess when a fact is not in the briefing. Open the file and read it. Items marked **(verify)** or **(unverified theory)** below are inferred and must be confirmed in code before you fix them.
 
 **How to work:**
-1. Do Phase 0 first. Then go in order, P1 to P5.
+1. Most of Phases 0-5 are already implemented on `develop` — see the **Status (2026-10-24)** block after each phase. Work the remaining open items in the order given in section 6.
 2. After each phase, run `pnpm self-check` (defined in section 4), fix every FAIL, and report the output to the user before starting the next phase.
 3. If a task needs a human (Supabase dashboard, Vercel dashboard, Jeff's decision), do not fake it. Add it to the "Human tasks" list in section 5 and continue with the rest.
 4. Confirm the numbers marked **(confirm)** with the user. They depend on the real feeder hardware.
@@ -32,9 +39,11 @@ These are decided. Do not reopen them. Do not ask the user about them again.
 | D3 | Off-platform alerts: Telegram bot for CRITICAL events (device offline, low pellet). Hardware-fault alerts are a later task (3.7). |
 | D4 | Delete `.github/workflows/deploy.yml`. Vercel's Git integration deploys. |
 
+**D1-D4 status (2026-10-24): all four are implemented, and no team decision has changed them.** D1: `apps/web/lib/rate-limit.ts` uses a Postgres `ON CONFLICT` upsert (no in-memory store) with `rate-limit.test.ts`. D2: `app/api/cron/device-watch/route.ts` + `docs/sql/cron-device-watch.sql` exist with `device-watch.test.ts` (the actual `pg_cron` scheduling per environment is still human task H10). D3: `lib/notify/telegram.ts` with `telegram.test.ts`, and CRITICAL-only coverage in `ingest-route.test.ts` ("does not Telegram-blast on WARNING-level pellet alerts"). D4: `deploy.yml` is gone; `ci.yml` contains no deploy step.
+
 **Approved feeder caps (no longer "confirm"):** max dispense time 300,000 ms (5 minutes), max feed per request 1,000 g, max daily feeder allocation 5,000 g (or `hopperCapacityG` when that is lower).
 
-**Stop-point:** task 0.3 (removing `migrate deploy` from the build script) must NOT be merged until Jeff has confirmed in writing that Vercel's Build Command (H3) runs `prisma migrate deploy`. If you reach the end of your other work and H3 is still open, stop and report. Do not guess.
+**Stop-point status (2026-10-24): the stop-point is resolved in code, but Jeff's written confirmation is still owed — see open question 2 (section 8).** Task 0.3 landed through a different mechanism than originally written: the build script is now `prisma generate && node scripts/migrate-if-production.mjs && next build`, and `apps/web/scripts/migrate-if-production.mjs` runs `prisma migrate deploy` only when `VERCEL_ENV=production`, i.e. only for the production deployment of `main` (`docs/deployment-workflow.md` section 4, verified against `apps/web/package.json`). The original H3 question — whether Vercel's Build Command runs `migrate deploy` — is superseded by that guard. Until Jeff confirms, record H3 as open; do not guess.
 
 **Verification status:** every finding in section 1 was checked against the code by an independent review. Rows marked **(corrected)** replace earlier wrong or overstated claims. Rows marked **(confirmed)** were verified.
 
@@ -75,6 +84,13 @@ Every task has an ID, the change, the acceptance test, and a check. "Check" mean
 | 0.3 **(STOP-POINT)** | The `build` script is confirmed to run `prisma migrate deploy`. Change it to `prisma generate && next build`. Do this in its own PR, separate from 0.2. **Do not merge it until Jeff confirms H3 in writing** (Vercel's Build Command must still run `prisma generate && prisma migrate deploy && next build`), otherwise production silently stops getting migrations. Until then, `pnpm self-check` cannot fully pass (the full self-check skips the `pnpm build` step while this task is open, see section 4), so report this as an open blocker rather than working around it. | `pnpm build` never touches a database schema. Self-check verifies. |
 | 0.4 | Add `apps/web/lib/limits.ts` skeleton exporting named constants (filled in 1.1). | File exists. |
 
+**Status (2026-10-24):**
+
+- 0.1 **done** — baseline long superseded: the tree now holds 59 test files / 690 `it`+`test` blocks (counted 2026-10-24). CI job `quality` is a required check on `develop` (branch protection, `docs/deployment-workflow.md` section 9), and PR #122 merged green into `7036195`.
+- 0.2 **done** — `scripts/self-check.mjs` exists (250 lines) and root `package.json` registers `"self-check"`.
+- 0.3 **done via a different mechanism** — build is `prisma generate && node scripts/migrate-if-production.mjs && next build`; migrations run only when `VERCEL_ENV=production` (`docs/deployment-workflow.md` section 4). Jeff's written H3 confirmation: **needs confirmation** (section 8, question 2).
+- 0.4 **done** — `apps/web/lib/limits.ts` exists and is imported from 18 sites across `lib/actions` and API code.
+
 ### Phase 1: Protect the fish and the feed data (critical)
 
 **1.1 Server-side bounds (gap #1, N2, N3, N4, N10).** Create `lib/limits.ts` with these constants and one Zod schema per input. The feed caps are approved (section 0.5). Confirm only the other ranges with the user.
@@ -102,6 +118,8 @@ Apply them in:
 
 Acceptance: tests that send out-of-range values get a validation error and write nothing. A second "Feed Now" while one is pending is rejected. Feed Now while the device is offline is rejected server-side, and the button is disabled with the offline warning visible. The user sees a readable message, not a stack trace.
 
+**Status (2026-10-24): done.** `lib/limits.ts` exists and is imported from 18 sites; offline rejection is tested (`lib/__tests__/server-actions.test.ts` — "rejects when lastSeenAt is older than OFFLINE_THRESHOLD_MS (N10)"); the null-population auto-adjust skip is implemented (`lib/feed-grams.ts` lines 39-58, writes an `auto_adjust_skipped` `DeviceStateEvent` with reason "population not set - cannot compute biomass without a fish count"); `components/FeedNowButton.tsx` disables when offline.
+
 **1.2 Firmware safety (gap #1, N9).** In `firmware-main.ino`:
 - Add `#define MAX_DISPENSE_MS 300000UL`. If a requested dose's computed time exceeds it, the firmware must REFUSE the dose and report an error event, not silently truncate it (a device calibrated to 2 g/s would otherwise deliver half of a valid 1,000 g dose). Keep a clamp in `dispenseFeed` only as a backstop. Every relay-on path also gets a hard stop check in `loop()` that forces `RELAY_OFF` if the relay has been on longer than `MAX_DISPENSE_MS`.
 - Add `MAX_GRAMS_PER_DISPENSE` and a RAM daily gram counter that resets at local midnight from the RTC. Refuse dispenses that would exceed `MAX_GRAMS_PER_DAY`.
@@ -111,11 +129,15 @@ Acceptance: tests that send out-of-range values get a validation error and write
 
 Acceptance: static checks in self-check (names above must exist). The firmware caps equal the server caps in `lib/limits.ts`: `MAX_GRAMS_PER_DISPENSE` = `MAX_FEED_GRAMS_PER_REQUEST` (1,000 g), `MAX_GRAMS_PER_DAY` = `MAX_FEED_GRAMS_PER_DAY_PER_DEVICE` (5,000 g), `MAX_DISPENSE_MS` (300,000 ms) identical on both sides. Human test on the bench device (H6): command a huge dose and confirm the relay stops at the cap.
 
+**Status (2026-10-24): done in code; the bench test (H6) is still open.** `firmware-main.ino` defines `MAX_GRAMS_PER_DISPENSE 1000.0` and `MAX_GRAMS_PER_DAY 5000.0` (lines 167-168, commented as matching `limits.ts`), keeps the RAM daily counter `dailyGramsDispensed` with midnight/RTC reset (lines 238-251), and refuses out-of-range or over-cap doses (lines 978, 991). Watchdog `esp_task_wdt_init` is enabled. The server accepts a `feed_refused` event type (`app/api/ingest/route.ts` line 28), closing the "dose refused" reporting loop.
+
 **1.3 Idempotent events (gap #2).**
 - Firmware: generate `eventId` once when the event is created. Add an `eventId` field to the queued-event struct. `postFeedEvent` takes the id as a parameter and never calls `generateEventId()` itself. A retry resends the same id.
 - Server `/api/ingest`: for `feed_dispensed`, if `requestId` is present, treat a second event with the same `requestId` and `source` as a duplicate (204), even if `event_id` differs. Keep the existing `event_id` dedupe.
 
 Acceptance: a test posts the same `feed_dispensed` twice, and the second post creates no new row and no extra grams.
+
+**Status (2026-10-24): done.** The firmware generates the event id once (`generateEventId` present in `firmware-main.ino`) and ingest dedupes by `requestId`: `ingest-route.test.ts` line 112 — "treats a retry with the same requestId and a different event_id as a duplicate".
 
 **1.4 Notification dedup and heartbeat retention (gap #3, N11, N15).**
 
@@ -129,9 +151,13 @@ This task must land BEFORE any Telegram work (3.5). Otherwise a hopper at 5% sen
 
 Acceptance: a test sends 100 heartbeats at 3 percent and gets at most one CRITICAL notification, and 100 heartbeats from an online device write no extra "connected" events.
 
+**Status (2026-10-24): done, with the acceptance tests passing by name.** Heartbeat row thinning is implemented ("Thinning (N11)", `app/api/ingest/route.ts` line 125) and `connected` is written only on first contact or offline→online (`route.ts` lines 171-177, guarded by `wasOffline`). Tests: `ingest-route.test.ts` — "100 heartbeats at 3% produce at most one CRITICAL pellet notification" and "writes connected exactly once on offline→online reconnect". Retention runs from the cron route (`app/api/cron/device-watch/route.ts`, `retention.test.ts`). Existing historical `connected` rows were left untouched, as required.
+
 **1.5 Role enforcement (gap #6).** Add `requireWriteAccess()` in `lib/auth/session.ts` (allows `ADMIN` and `OPERATOR`, rejects `VIEWER`). Call it at the top of: `requestFeed`, `toggleDevicePause`, `updateScheduleCommand`, `updatePondSettings`, `updateNotificationPrefs`, `saveBiomassLog`, `saveHopperCalibration`, `saveDurationCalibration`, `saveTemperatureCalibration`, `setDeviceTime`, `renameFarm`, and `/api/import` plus `/api/import/confirm`. Disable the matching buttons in the UI for VIEWER.
 
 Acceptance: tests show a VIEWER gets an error and nothing is written for every action listed.
+
+**Status (2026-10-24): done.** `requireWriteAccess` is defined in `lib/auth/session.ts` and called 38 times across 11 action files (`biomass`, `calibration`, `crop-cycle`, `energy`, `farm`, `notifications`, `pond-event`, `prediction`, `schedule`, `settings`, `time`); the import routes carry the same enforcement, and role checks appear in 8+ components (`FeedNowButton.tsx`, `EnergyControllerCard.tsx`, calibration forms, import/export, token reveal, farm rename). `lib/__tests__/permissions.test.ts` covers "gives VIEWER read-only defaults".
 
 **1.6 Fix individual fish measurements (added 2026-10-13; teammate report: "individual measurements don't save").**
 - Root causes found in review: (a) `biomassLogSchema` requires `sampleLengthCm > 0`, but individual mode makes length optional — a weight-only entry makes the whole save throw; (b) the form silently drops rows whose weight parses to NaN or <= 0, so filled rows vanish with no per-row warning; (c) the form catch swallows the real server error behind a generic message; (d) `FishSample` rows are stored but never displayed anywhere — the only surface is a "{n} fish" badge, so saved data looks lost.
@@ -142,6 +168,8 @@ Acceptance: tests show a VIEWER gets an error and nothing is written for every a
 
 Acceptance: a weight-only individual entry saves; an invalid row shows a named per-row error; VIEWER is still denied; the saved individual rows are visible on Growth; tests cover parse failure, per-row validation, and persistence.
 
+**Status (2026-10-24): done.** `fishSamples` is validated per row in `lib/actions/biomass.ts` (9 references), with coverage in `lib/__tests__/biomass-save.test.ts` and `import-fish-samples.test.ts`; Growth display work is merged (per-fish rows render from `fishSamples`).
+
 **1.7 Batch label on biomass logs (added 2026-10-13; request: know which batch a measurement belongs to and the date).**
 - One additive migration: `ALTER TABLE "BiomassLog" ADD COLUMN "batchLabel" TEXT` (nullable; no change to the farmId-stamp trigger, which keys off the parent row).
 - `LogSampleForm.tsx`: optional "Batch" text field with a datalist of labels previously used on this pond (no batch-management UI; free text is fine).
@@ -150,6 +178,8 @@ Acceptance: a weight-only individual entry saves; an invalid row shows a named p
 - Do not touch `avgWeightKg`, the feed formula, or FCR inputs — locked.
 
 Acceptance: the label round-trips (form → DB → Growth table → CSV export); tests cover storage and export columns. Migration follows the same H7 gate as the other migrations in this batch, and runs on the dev database first (H8).
+
+**Status (2026-10-24): partial.** The additive migration exists (`prisma/migrations/20261013030000_add_biomass_batch_label`) and `batch-summary.test.ts`/`csv.test.ts` cover batch summaries and CSV export; the full form → Growth → CSV round-trip was **not individually re-verified** in this documentation pass — needs confirmation. The H7/H8 human gates still apply to it.
 
 ### Phase 2: Security
 
@@ -161,9 +191,35 @@ Acceptance: the label round-trips (form → DB → Growth table → CSV export);
 | 2.4 | Device tokens (N6): store a SHA-256 hash of each token, compare with `crypto.timingSafeEqual`, and give every device a unique random token. Rotate any device still using `esp32-tok-cict-001` before pilot use. Give OTA its own password, separate from the token. The seed may keep the demo token for local dev only. | Auth by hash works. A static check finds no plaintext compare. H5 confirms the demo token is not in production. |
 | 2.5 | Firmware TLS (briefing section 19.4): call `secureClient.setCACert(...)` with the root CA that signs your host. Check the real chain of the production domain first, and document how to update it. Keep a clear error path when verification fails. | Self-check finds `setCACert`. Bench test with a wrong CA fails to connect (H6). |
 | 2.6 | Rate limiting (decision D1, locked): replace the in-memory `Map` with a PostgreSQL table using an atomic upsert (`INSERT ... ON CONFLICT DO UPDATE` on `(key, window_start)`, additive migration). No Upstash. Keep the same limits (login 5 per 60 s per IP, API 30 per 60 s per user, device 20 per 60 s). Fail CLOSED on login if the table is unreachable, fail OPEN on the device routes, so a limiter outage cannot stop feeding. Old rows must be deleted periodically: the `pg_cron` job from 3.1 runs a cleanup of expired windows. | The unit test for the store passes. A test shows login is rejected when the store throws. |
-| 2.7 | Lockout and PIN (N8): lock per `(farmId, ip)` pair for 5 attempts per 15 minutes, plus a global per-farmId threshold of 20 failures per hour that only slows login and notifies, so a stranger cannot lock the real farmer out. New and reset PINs must be at least 6 digits. | Tests cover both rules. |
+| 2.7 | Lockout and PIN (N8): lock per `(farmId, ip)` pair for 5 attempts per 15 minutes, plus a global per-farmId threshold of 20 failures per hour that only slows login and notifies, so a stranger cannot lock the real farmer out. **PIN-specific policy superseded by 2.10 (2026-10-26); lockout rules remain.** | Tests cover the lockout rules. |
 | 2.8 | Login errors (N7, gap #10): wrap the Prisma calls in `loginWithPin` with a try and catch that returns a friendly "service temporarily unavailable, try again" message, retries once on connection errors, and reports to Sentry. Human task H4 checks `DATABASE_URL` against the Supabase "Connect" page (user `postgres.<project-ref>`, transaction pooler port 6543, `?pgbouncer=true&connection_limit=1`, plus `DIRECT_URL` on the session or direct port for migrations). | Test: with Prisma mocked to throw, login shows the friendly message and does not crash. |
 | 2.9 | Delete `registerEnergyDevice` (unused, has a missing-auth path). | `grep` finds no match. |
+| 2.10 | Password authentication (supersedes 2.7's PIN policy). Replace numeric PIN login with password login. Add `User.mustChangePassword`; backfill all existing users; force a change on next login. All 5 existing accounts start with temporary `password123`; permanent passwords must be 8+ chars with a letter and number and not common. Add a weak/medium/strong meter on password-setting forms; enable self-service change. Implementation contract: `docs/password-auth-plan.md`. | All 5 accounts are forced to change; `password123` works once; the permanent policy rejects it; the meter shows Weak/Medium/Strong; self-service change works; tests/typecheck/lint pass. |
+
+**Status (2026-10-24):**
+
+- 2.1 **done** — `supabaseId` lookup in `lib/auth/session.ts`; `lib/__tests__/session-identity.test.ts` contains the `evil.com` wrong-domain email cases.
+- 2.2 **code done** — `app/[locale]/signup/` is gone and `proxy.ts` has zero `signup` references. The dashboard toggle (H1) is still a human task.
+- 2.3 **code done** — migration `20261013020000_enable_rls_on_user` runs `ALTER TABLE "User" ENABLE ROW LEVEL SECURITY` with no policies (deny by default); zero `DROP`/`TRUNCATE` in it. H2/H7/H8 verification in the dashboards remains open.
+- 2.4 **code done** — SHA-256 `tokenHash` is written (`prisma/seed.ts` line 79, `createHash("sha256")`), device auth compares with `timingSafeEqual` (4 sites in `lib/`), covered by `device-auth.test.ts`. Rotating live tokens is still H5.
+- 2.5 **code done** — the firmware calls `setCACert`/`attachBundle` (self-check asserts it); the wrong-CA bench test is still H6.
+- 2.6 **done** — `lib/rate-limit.ts` uses a Postgres `ON CONFLICT` upsert with no `Map` store; `rate-limit.test.ts` exists (decision D1 honoured).
+- 2.7 **superseded** — per-IP lockout exists (`lib/auth/lockout.ts`, `lockout.test.ts`) and remains. The PIN-length policy is replaced by task 2.10; see the password authentication contract below.
+- 2.8 **code done** — friendly-error handling exists with `lib/__tests__/login-errors.test.ts` ("with Prisma mocked to throw…"); the `DATABASE_URL` dashboard check and monitors (H4) remain human tasks. Sentry stays removed (see 3.2).
+- 2.9 **done** — no `registerEnergyDevice` references remain anywhere in TS sources.
+- 2.10 **implemented and verified (2026-10-26)** — migration `20261026000000_add_must_change_password` applied; all 5 existing accounts reset to temporary `password123` and flagged for a forced change; unit tests (67 files / 756 tests), typecheck, lint, production build, and the auth e2e spec passed. The demo account is stabilized by the e2e setup and then reset to `password123`. Implementation branch: `feat/password-auth` (merged with `origin/develop` at `280c5ac`; PR #157, green `quality`/`compile` CI). See `docs/password-auth-plan.md`.
+
+#### Password authentication contract (task 2.10, 2026-10-26)
+
+- **Initial credentials:** all 5 existing accounts get `password123` as a temporary password and `mustChangePassword = true`.
+- **Forced change:** login redirects flagged users to `/change-password`; the dashboard, admin, and superadmin layouts also redirect until the password is changed.
+- **Temporary-only exception:** `password123` is accepted only in temporary mode. Permanent passwords require 8+ characters, at least one letter and one number, not on the common-password blocklist, and at most 72 bytes.
+- **Strength meter:** Weak / Medium / Strong on password-setting forms only (forced change, self-service change, admin/superadmin account creation).
+- **Self-service:** Profile Settings gets a working Change password form.
+- **E2E:** setup stabilizes `demo-farmer-1` on `DEMO_PASSWORD` with the flag cleared; the other 4 accounts remain on `password123` for manual first-login testing.
+- **Rollout:** apply the additive `mustChangePassword` migration, reset the 5 accounts, verify sign-in, and confirm Supabase accepts `password123` (leaked-password protection may reject it).
+- **Security caveat:** `password123` is a known breached password. It is temporary-only, but there is a takeover window; reset `superadmin` to a unique password immediately after rollout.
+- **Implementation contract:** `docs/password-auth-plan.md`.
 
 ### Phase 3: Reliability and observability
 
@@ -177,16 +233,35 @@ Acceptance: the label round-trips (form → DB → Growth table → CSV export);
 | 3.6 (optional) | Missed-feed detection: the cron route also raises a WARNING when a scheduled feed time passed and no `feed_dispensed` arrived within 15 minutes. | Test with a stubbed clock. |
 | 3.7 (later, not in the first version) | Hardware-fault alerts. Nothing reports a hardware fault today (the system has offline, low pellet and some schedule events). This needs a new device event type, a firmware change to emit it (including the "dose refused" error from 1.2), and a Telegram template. Treat it as its own task after 3.5 is working. | Separate plan item. |
 
+**Status (2026-10-24):**
+
+- 3.1 **done (endpoint, SQL file, tests)** — `app/api/cron/device-watch/route.ts` and `docs/sql/cron-device-watch.sql` exist (the SQL carries placeholders only: "NO trailing /en/", "Store the secret in Supabase Vault" — no real URL or secret); `device-watch.test.ts` proves exactly-one alert and 401 without the secret. Actual `pg_cron` + `pg_net` scheduling per environment is still H10.
+- 3.2 **partial** — Sentry was removed entirely on 2026-10-13 (the row's revert note is authoritative; 0 `sentry` references in `apps/web/package.json`), so `.env.example` intentionally lacks `SENTRY_*`. `.env.example` does document `NEXT_PUBLIC_BASE_URL` and `DEMO_PIN`, but **not** `GEMINI_MODEL` — decide whether to re-add it (section 8, question 4).
+- 3.3 **partial** — `OFFLINE_THRESHOLD_MS` is now defined exactly once (self-check passes), but the `STALE_*` constants are still defined in 5 places; the hopper/gram constant conflicts were not re-checked here — needs confirmation.
+- 3.4 **open (human)** — H7; no repository evidence can close it.
+- 3.5 **done (code)** — `lib/notify/telegram.ts` + `telegram.test.ts`, plus `ingest-route.test.ts` "does not Telegram-blast on WARNING-level pellet alerts (3.5: CRITICAL only)"; `.env.example` documents `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`. Creating the bot and setting the env vars remains H11. Requires 1.4 first — satisfied (1.4 is done).
+- 3.6 **skipped by decision** (2026-10-13, recorded in the old section 6: "3.6 stays optional and is skipped for now"). The decision is preserved here; re-opening it is a team choice.
+- 3.7 **not started — deliberately deferred** to after 3.5 is proven live (H11).
+
 ### Phase 4: Tests and CI
 
 | ID | Task | Acceptance |
 |---|---|---|
 | 4.1 | Device route tests (gap #5), Vitest with Prisma mocked. For `/api/ingest`: invalid token (401), bad body (400), duplicate `event_id` (204, no write), duplicate `requestId` (204), rate limit, pellet thresholds and dedup, reconnect auto-clear, `schedule_acked` applies the Pond update, `feed_dispensed` completes the `FeedRequest`. For `/api/feed-command`: no request returns an empty body, pending is marked dispatched, expiry after 60 s, outgoing values clamped. For `/api/schedule-sync`: pending command is marked sent, baseline is returned. | New test files exist. All pass. |
 | 4.2 | Tests for limits, roles, `getCurrentUser`, `loginWithPin` failure, lockout, `device-watch`, and the feed-calc edge cases (null population, zero grams). | `pnpm test` passes with more than the 109 baseline. |
-| 4.3 | CI: in `.github/workflows/ci.yml` also trigger on pull requests to `develop` (and pushes to `Karl`). Use dummy env values for the build step (no real DB secrets), and keep the API auth grep gate. A `next build` with a fake DB env is unproven: verify it at this phase, because it fails if any page queries the database at build time. If it does, fix that page or use a throwaway local database in CI instead. Pin pnpm through the root `packageManager` field everywhere (briefing section 17 #13). Delete `deploy.yml` (decision D4, locked: Vercel's Git integration deploys, and the file is invalid). | Self-check: `ci.yml` mentions `develop`, `deploy.yml` has no `secrets.` in an `if:`. |
+| 4.3 | CI: in `.github/workflows/ci.yml` also trigger on pull requests to `develop` (plus pushes to `develop`, `staging`, `main`). Use dummy env values for the build step (no real DB secrets), and keep the API auth grep gate. A `next build` with a fake DB env is unproven: verify it at this phase, because it fails if any page queries the database at build time. If it does, fix that page or use a throwaway local database in CI instead. Pin pnpm through the root `packageManager` field everywhere (briefing section 17 #13). Delete `deploy.yml` (decision D4, locked: Vercel's Git integration deploys, and the file is invalid). | Self-check: `ci.yml` mentions `develop`, `deploy.yml` has no `secrets.` in an `if:`. |
 | 4.4 | Guard Playwright: the e2e setup must stop if `DATABASE_URL` is not on an allow-listed host (`E2E_ALLOWED_DB_HOST`), so tests can never run against production (gap #7). The dev Supabase project (H8) must exist before RLS migrations or Playwright runs. | Running e2e with a prod URL fails fast. |
 | 4.5 (optional) | A CI step that compiles the firmware with `arduino-cli`. | Job passes. |
 | 4.6 | Separate environments (H8): a second Supabase project for dev and tests. | Human sign-off. |
+
+**Status (2026-10-24):**
+
+- 4.1 **done** — `lib/__tests__/ingest-route.test.ts`, `feed-command.test.ts` and `schedule-sync.test.ts` all exist (plus `device-auth.test.ts`, `retention.test.ts`).
+- 4.2 **done** — 690 `it`/`test` blocks across 59 test files, far above the 109-test baseline (counted 2026-10-24).
+- 4.3 **done** — `ci.yml` triggers on pull requests to `develop`/`staging`/`main` and on pushes to those branches, uses dummy DB values with zero `secrets.` references, and `deploy.yml` is deleted (D4). The old "(and pushes to `Karl`)" trigger never shipped and is obsolete under the current branch model. The phrase "A `next build` with a fake DB env is unproven" is now stale: `docs/deployment-workflow.md` section 3 records CI running `next build` with dummy credentials on every green run.
+- 4.4 **done** — `apps/web/e2e/global-setup.ts` enforces `E2E_ALLOWED_DB_HOST`.
+- 4.5 **done** — `.github/workflows/firmware.yml` compiles the sketch with `arduino-cli` on `firmware/**` changes (it never flashes a device).
+- 4.6 **open (human)** — H8; needs confirmation.
 
 ### Phase 5: Cleanup and consistency
 
@@ -198,9 +273,17 @@ Acceptance: the label round-trips (form → DB → Growth table → CSV export);
 | 5.4 | Docs: replace `apps/web/README.md` with a real one (setup, env, commands, branch workflow, the migration rules). Fix or delete the stale parts of `docs/vercel-deployment-checklist.md` (remove Upstash unless D1 re-adds it) and `Firmware-Implementation`. Add a short `docs/runbook.md`: what to do if the feeder runs wild, the device is offline, or the database is down, and how to restore a backup. | Docs exist. |
 | 5.5 | Product wording: ask the user whether this is catfish or shrimp, then make README, landing page, and metadata consistent. Do not translate new copy into Hiligaynon until the English text is final. | User confirmed. |
 
+**Status (2026-10-24):**
+
+- 5.1 **done** — no notification creator hardcodes `linkTo` with `/en/` (0 hits across TS sources).
+- 5.2 **done** — `prisma/seed.ts` no longer writes the deprecated models (comments at `seed.ts` lines 73 and 131: "The deprecated Device model is no longer written — task 5.2", "FeedingEvent model is no longer written"). Dropping the tables stays behind H9, by design.
+- 5.3 **done** — no `@optifeed/types` or `@optifeed/ui` in `apps/web/package.json` or the root workspace, and zero `TODO(karl)` comments remain in TS/TSX sources.
+- 5.4 **partial** — `docs/runbook.md` exists and `apps/web/README.md` is a real README (setup, stack, commands); but `docs/vercel-deployment-checklist.md` still mentions Upstash twice although decision D1 forbids it — that stale section remains to fix.
+- 5.5 **open (user decision)** — `apps/web/README.md` now opens with "Aquaculture feed management for catfish ponds", but whether catfish is the final wording (and whether the landing page and metadata match) still needs your confirmation.
+
 ### Phase 6: Release (Jeff only)
 
-The AI does not do this. It prepares a release note listing the migrations in order (so `migrate deploy` is predictable), the new env vars, and a rollback note. Jeff promotes `develop` to `main` (decision D5), after H1 to H8.
+The AI does not do this. It prepares a release note listing the migrations in order (so `migrate deploy` is predictable), the new env vars, and a rollback note. Releases now flow `develop → staging → staging → main` per `docs/deployment-workflow.md` section 5: a release PR to `staging`, then Jeff merges the `staging` → `main` PR, which deploys production and runs `prisma migrate deploy`. This flow is live — promotion PRs #117, #123 and #124 were merged on 2026-10-24 and `main` sits at `b5ca877` with a tree identical to `develop`. Decision D5 (promotion cadence) is still open, and the H1-H8 human gates still apply to the hardening work.
 
 ## 3. Per-task test commands
 
@@ -216,251 +299,14 @@ pnpm self-check --quick
 
 ## 4. Self-check script
 
-Create `scripts/self-check.mjs` exactly as below and add `"self-check": "node scripts/self-check.mjs"` to the root `package.json`. Run `pnpm self-check` (full, includes `pnpm build`) before every PR and at the end of every phase. Use `pnpm self-check --quick` while iterating (skips the build). Safety rule: the script refuses to run `pnpm build` while the build script still contains `migrate deploy` (task 0.3 open) and records that as a FAIL instead, so a full run can never migrate a database by accident; until 0.3 merges, phase-end runs stop at that FAIL and report 0.3 as the blocker. It exits with code 1 if anything fails. At baseline the static checks fail until their tasks are done, so the output is also a progress meter.
+**Status (2026-10-24): done — the code copy of this script has been removed from this document.** The script was created and merged as `scripts/self-check.mjs` (task 0.2) and the root `package.json` registers `"self-check": "node scripts/self-check.mjs"`. **The checked-in file is the source of truth**: it has evolved since this plan was written (verified 2026-10-24: its branch rule is now `not on a protected branch` for `develop`/`staging`/`main` instead of `on branch Karl`, and it gained checks such as "CI workflow never deploys"). Read and edit `scripts/self-check.mjs`; never paste code from this document back over it.
 
-```js
-import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+What the script does, unchanged in substance:
 
-const quick = process.argv.includes("--quick");
-spawnSync("git fetch origin", { shell: true, encoding: "utf8" });
-const results = [];
-
-function record(name, ok, detail = "") {
-	results.push({ name, ok });
-	console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? `  (${detail})` : ""}`);
-}
-
-function sh(cmd) {
-	return spawnSync(cmd, { shell: true, encoding: "utf8" });
-}
-
-function read(path) {
-	return existsSync(path) ? readFileSync(path, "utf8") : "";
-}
-
-function walk(dir, out = []) {
-	if (!existsSync(dir)) return out;
-	for (const name of readdirSync(dir)) {
-		if (name === "node_modules" || name === ".next" || name === ".git") continue;
-		const full = join(dir, name);
-		if (statSync(full).isDirectory()) walk(full, out);
-		else out.push(full);
-	}
-	return out;
-}
-
-function posix(p) {
-	return p.split("\\").join("/");
-}
-
-const web = "apps/web";
-const sourceFiles = walk(web)
-	.filter((f) => /\.(ts|tsx)$/.test(f))
-	.map(posix);
-const resetCmd = ["migrate", "reset"].join(" ");
-
-const branch = sh("git branch --show-current").stdout.trim();
-record("on branch Karl", branch === "Karl", branch);
-
-const staged = sh("git diff --cached --name-only").stdout.split("\n").filter(Boolean);
-const stagedEnv = staged.filter((f) => /(^|\/)\.env/.test(f) && !f.endsWith(".env.example"));
-record("no .env files staged", stagedEnv.length === 0, stagedEnv.join(", "));
-
-const guarded = [
-	"package.json",
-	`${web}/package.json`,
-	...walk(".github").map(posix),
-	...walk("scripts")
-		.map(posix)
-		.filter((f) => !f.endsWith("self-check.mjs")),
-];
-const resetHits = guarded.filter((f) => read(f).includes(resetCmd));
-record(
-	"no destructive reset command in scripts or workflows",
-	resetHits.length === 0,
-	resetHits.join(", "),
-);
-
-const buildScript = JSON.parse(read(`${web}/package.json`) || "{}").scripts?.build ?? "";
-record(
-	"web build script does not run migrate deploy",
-	!buildScript.includes("migrate"),
-	buildScript,
-);
-
-const diffRes = sh(
-	`git diff --name-only --diff-filter=A origin/develop -- ${web}/prisma/migrations`,
-);
-record(
-	"can diff against origin/develop",
-	diffRes.status === 0,
-	diffRes.status === 0 ? "" : "run git fetch origin",
-);
-const newMigrations = diffRes.stdout.split("\n").filter((f) => f.endsWith(".sql"));
-const destructive = newMigrations.filter((f) =>
-	/DROP\s+(TABLE|SCHEMA|DATABASE|COLUMN)|TRUNCATE/i.test(read(f)),
-);
-record(
-	"new migrations are additive (no DROP/TRUNCATE)",
-	destructive.length === 0,
-	destructive.join(", "),
-);
-
-record("no middleware.ts (Next 16 uses proxy.ts)", !existsSync(`${web}/middleware.ts`));
-
-const apiRoutes = sourceFiles.filter((f) => /app\/api\/.+\/route\.ts$/.test(f));
-const allow = /api\/(ingest|feed-command|schedule-sync|health)\//;
-const noAuth = apiRoutes.filter(
-	(f) => !allow.test(f) && !/from "@\/lib\/auth\/(session|with-auth)"/.test(read(f)),
-);
-record("every API route has an auth import", noAuth.length === 0, noAuth.join(", "));
-
-record("limits module exists", existsSync(`${web}/lib/limits.ts`));
-for (const f of ["energy", "schedule", "settings", "biomass"]) {
-	record(`actions/${f}.ts uses limits`, read(`${web}/lib/actions/${f}.ts`).includes("limits"));
-}
-
-const writeActions = ["energy", "schedule", "settings", "biomass", "time", "farm"];
-for (const f of writeActions) {
-	record(
-		`actions/${f}.ts enforces write access`,
-		read(`${web}/lib/actions/${f}.ts`).includes("requireWriteAccess"),
-	);
-}
-record(
-	"requireWriteAccess defined",
-	read(`${web}/lib/auth/session.ts`).includes("requireWriteAccess"),
-);
-
-for (const f of ["import", "import/confirm"]) {
-	record(
-		`api/${f} enforces write access`,
-		read(`${web}/app/api/${f}/route.ts`).includes("requireWriteAccess"),
-	);
-}
-
-record(
-	"registerEnergyDevice removed",
-	!sourceFiles.some((f) => read(f).includes("registerEnergyDevice")),
-);
-
-const deviceRoutes = sourceFiles.filter((f) =>
-	/app\/api\/(ingest|feed-command|schedule-sync)\/route\.ts$/.test(f),
-);
-const timingHelper = sourceFiles.some(
-	(f) => f.startsWith("apps/web/lib/") && read(f).includes("timingSafeEqual"),
-);
-record(
-	"device routes verify tokens with timingSafeEqual",
-	deviceRoutes.length === 3 &&
-		timingHelper &&
-		deviceRoutes.every((f) => /timingSafeEqual|@\/lib\/auth\//.test(read(f))),
-);
-
-record(
-	"getCurrentUser looks up by supabaseId",
-	/supabaseId/.test(read(`${web}/lib/auth/session.ts`)),
-);
-
-record("signup route deleted (not redirected)", !existsSync(`${web}/app/[locale]/signup/page.tsx`));
-
-record(
-	"FeedNowButton disables when offline",
-	/disabled=\{[^}]*isOffline/.test(read(`${web}/components/FeedNowButton.tsx`)),
-);
-
-const thresholdDefs = sourceFiles.filter((f) => /const\s+OFFLINE_THRESHOLD_MS/.test(read(f)));
-record("OFFLINE_THRESHOLD_MS defined once", thresholdDefs.length <= 1, thresholdDefs.join(", "));
-
-const hardLinks = sourceFiles.filter(
-	(f) => !f.includes("__tests__") && /linkTo[^\n]*["`]\/en\//.test(read(f)),
-);
-record("no hardcoded /en/ in notification links", hardLinks.length === 0, hardLinks.join(", "));
-
-const fw = read("firmware/firmware-main/firmware-main.ino");
-record("firmware: MAX_DISPENSE_MS defined", /MAX_DISPENSE_MS/.test(fw));
-record(
-	"firmware: queued event stores its own eventId",
-	/struct\s+\w+\s*\{[^}]*eventId[^}]*\}/.test(fw),
-);
-record("firmware: TLS certificate set", /setCACert|attachBundle/.test(fw));
-record("firmware: watchdog enabled", /esp_task_wdt_init/.test(fw));
-
-const tests = sourceFiles.filter((f) => /\.(test|spec)\.tsx?$/.test(f));
-for (const route of ["ingest", "feed-command", "schedule-sync"]) {
-	record(
-		`tests cover /api/${route}`,
-		tests.some((f) => read(f).includes(`api/${route}`)),
-	);
-}
-
-const envExample = read(`${web}/.env.example`);
-for (const key of [
-	"SENTRY_DSN",
-	"SENTRY_ORG",
-	"SENTRY_PROJECT",
-	"GEMINI_MODEL",
-	"NEXT_PUBLIC_BASE_URL",
-	"DEMO_PIN",
-	"CRON_SECRET",
-	"TELEGRAM_BOT_TOKEN",
-	"TELEGRAM_CHAT_ID",
-]) {
-	record(`.env.example documents ${key}`, envExample.includes(key));
-}
-
-const ci = read(".github/workflows/ci.yml");
-record("CI runs for develop", ci.includes("develop"));
-record(
-	"deploy.yml deleted (Vercel Git integration deploys)",
-	!existsSync(".github/workflows/deploy.yml"),
-);
-record("device-watch cron route exists", existsSync(`${web}/app/api/cron/device-watch/route.ts`));
-record("cron SQL file exists", existsSync("docs/sql/cron-device-watch.sql"));
-record("telegram helper exists", existsSync(`${web}/lib/notify/telegram.ts`));
-record("no Upstash dependency (D1 uses Postgres)", !/@upstash\//.test(read(`${web}/package.json`)));
-const limiterFiles = sourceFiles.filter(
-	(f) => /rate-limit|limiter/.test(f) && !f.includes("__tests__"),
-);
-record(
-	"rate limiter has no in-memory Map store",
-	limiterFiles.length > 0 && !limiterFiles.some((f) => /new Map/.test(read(f))),
-	limiterFiles.filter((f) => /new Map/.test(read(f))).join(", "),
-);
-
-function run(name, cmd) {
-	const r = sh(cmd);
-	record(name, r.status === 0, r.status === 0 ? "" : `exit ${r.status}`);
-	if (r.status !== 0) console.log((r.stdout + r.stderr).split("\n").slice(-25).join("\n"));
-}
-
-run("pnpm lint", "pnpm lint");
-run("pnpm typecheck", "pnpm typecheck");
-run("pnpm test", "pnpm test");
-if (!quick && buildScript.includes("migrate")) {
-	record(
-		"pnpm build skipped: build script still runs migrate deploy (task 0.3)",
-		false,
-		"merge 0.3 first",
-	);
-} else if (!quick) {
-	run("pnpm build", "pnpm build");
-}
-
-const arduino = sh("arduino-cli version");
-if (arduino.status === 0) {
-	record("firmware compiles", true, "arduino-cli found; compile manually with your board FQBN");
-}
-
-const failed = results.filter((r) => !r.ok);
-console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
-if (failed.length > 0) {
-	console.log(`Failed:\n${failed.map((r) => `  - ${r.name}`).join("\n")}`);
-	process.exit(1);
-}
-```
+- fetches `origin`, then fails if any script or workflow contains `prisma migrate reset`;
+- static assertions: `lib/limits.ts` exists and is used by the write actions, `requireWriteAccess` is defined and called, device routes use `timingSafeEqual`, the signup route is gone, `FeedNowButton` disables when offline, `OFFLINE_THRESHOLD_MS` is defined once, no hardcoded `/en/` notification links, firmware defines `MAX_DISPENSE_MS`/stores `eventId`/sets TLS CA/enables the watchdog, route tests exist, `.env.example` documents the expected keys, CI mentions `develop`, `deploy.yml` is gone, no Upstash dependency;
+- runs `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build` only when it is safe to do so (while task 0.3's original rule applied, it refused the build instead; `--quick` skips the build);
+- exits with code 1 on any FAIL, so the output doubles as a progress meter.
 
 **After self-check, the AI must also answer these questions in its report (things a script cannot prove):**
 1. Which tasks from this plan are done, partly done, or skipped, and why?
@@ -474,48 +320,68 @@ if (failed.length > 0) {
 
 Karl or Jeff must do these. The AI cannot.
 
-| ID | Who | Task |
-|---|---|---|
-| H1 | Karl | Supabase, Authentication, turn off "Allow new users to sign up". |
-| H2 | Karl | Run `select tablename, rowsecurity from pg_tables where schemaname='public';` and report the result. |
-| H3 **(blocks 0.3)** | Jeff | Vercel Build Command must be `prisma generate && prisma migrate deploy && next build` (or an equivalent). Jeff must confirm this IN WRITING before the 0.3 PR is merged. |
-| H4 | Karl | Check `DATABASE_URL` and `DIRECT_URL` format in Vercel. Set `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `CRON_SECRET`. Add the uptime monitor for `/api/health` (for example UptimeRobot or Better Stack). |
-| H5 | Karl | Run `select count(*) from "EnergyDevice" where token = 'esp32-tok-cict-001';` on production. It must be 0 before real use. Rotate tokens on real devices. |
-| H6 | Karl | Bench-test firmware: huge dose stops at the cap, wrong certificate refuses to connect, power cycle keeps the relay OFF, unplug WiFi and confirm the button still works, and the retry test (kill the reply) creates no duplicate row. |
-| H7 **(do first)** | Jeff | Confirm backups and do one restore test, BEFORE any RLS or other migration. This matters because of the earlier production wipe. |
-| H8 **(do before RLS and e2e)** | Jeff | Create a separate Supabase project for dev and tests. Run every new migration there first. |
-| H9 | Jeff | Approve dropping the deprecated `Device` and `FeedingEvent` tables, in a later release, after a backup. |
-| D1 | Locked | Postgres atomic-upsert rate limiter. No Upstash. |
-| D2 | Locked | `pg_cron` + `pg_net` calling `/api/cron/device-watch`. |
-| D3 | Locked | Telegram bot for CRITICAL events. Hardware faults come later (3.7). |
-| D4 | Locked | Delete `deploy.yml`. |
-| D5 | Jeff | When to promote `develop` to `main`. Still open. |
-| H10 | Karl | In Supabase (each environment separately): enable `pg_cron` and `pg_net`, store `CRON_SECRET` in Vault, and run `docs/sql/cron-device-watch.sql` by hand with that environment's own URL. Do not copy the production URL into dev. |
-| H11 | Karl | Create the Telegram bot, then set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in the environment (Vercel and local `.env`, never committed). |
+| ID | Who | Task | Status (2026-10-24) |
+|---|---|---|---|
+| H1 | Karl | Supabase, Authentication, turn off "Allow new users to sign up". | Open — dashboard action, no repo evidence possible |
+| H2 | Karl | Run `select tablename, rowsecurity from pg_tables where schemaname='public';` and report the result. | Open — repo-side prerequisite done (User RLS migration merged); the query itself still must run |
+| H3 **(originally blocked 0.3)** | Jeff | Vercel Build Command must be `prisma generate && prisma migrate deploy && next build` (or an equivalent). Jeff must confirm this IN WRITING before the 0.3 PR is merged. | Superseded in mechanism — `migrate-if-production.mjs` now gates migrations on `VERCEL_ENV=production`; written confirmation still **needs confirmation** (section 8, question 2). 0.3 has effectively landed |
+| H4 | Karl | Check `DATABASE_URL` and `DIRECT_URL` format in Vercel. Set `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `CRON_SECRET`. Add the uptime monitor for `/api/health` (for example UptimeRobot or Better Stack). | Open, partially obsolete — `CRON_SECRET` is documented in `.env.example`; the Sentry keys were deliberately removed with the 2026-10-13 Sentry revert (see 3.2). URL check + monitor still open |
+| H5 | Karl | Run `select count(*) from "EnergyDevice" where token = 'esp32-tok-cict-001';` on production. It must be 0 before real use. Rotate tokens on real devices. | Open — code now stores SHA-256 `tokenHash` and compares with `timingSafeEqual`, but the production query and rotation were not run here |
+| H6 | Karl | Bench-test firmware: huge dose stops at the cap, wrong certificate refuses to connect, power cycle keeps the relay OFF, unplug WiFi and confirm the button still works, and the retry test (kill the reply) creates no duplicate row. | Open — all caps/TLS/watchdog/idempotency code is merged; the physical tests still need the hardware on the bench |
+| H7 **(do first)** | Jeff | Confirm backups and do one restore test, BEFORE any RLS or other migration. This matters because of the earlier production wipe. | Open — still the first gate for any further migration |
+| H8 **(do before RLS and e2e)** | Jeff | Create a separate Supabase project for dev and tests. Run every new migration there first. | Open — needs confirmation |
+| H9 | Jeff | Approve dropping the deprecated `Device` and `FeedingEvent` tables, in a later release, after a backup. | Open, by design (deferred release) |
+| D1 | Locked | Postgres atomic-upsert rate limiter. No Upstash. | Implemented — `lib/rate-limit.ts` + `rate-limit.test.ts`; no `@upstash` dependency |
+| D2 | Locked | `pg_cron` + `pg_net` calling `/api/cron/device-watch`. | Endpoint + SQL file done; scheduling in Supabase is H10 |
+| D3 | Locked | Telegram bot for CRITICAL events. Hardware faults come later (3.7). | Code done (`lib/notify/telegram.ts` + tests); bot creation is H11 |
+| D4 | Locked | Delete `deploy.yml`. | Done — file gone, CI never deploys |
+| D5 | Jeff | When to promote `develop` to `main`. Still open. | Open — and note the flow is now `develop → staging → main`; promotions #117/#123/#124 happened 2026-10-24 |
+| H10 | Karl | In Supabase (each environment separately): enable `pg_cron` and `pg_net`, store `CRON_SECRET` in Vault, and run `docs/sql/cron-device-watch.sql` by hand with that environment's own URL. Do not copy the production URL into dev. | Open — SQL file exists with placeholders only |
+| H11 | Karl | Create the Telegram bot, then set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in the environment (Vercel and local `.env`, never committed). | Open — code and `.env.example` entries ready |
 
-## 6. Order of PRs (all from `Karl` to `develop`)
+## 6. PR flow (current — replaces the old "all from `Karl`" order)
 
-1a. `chore: add self-check script` (0.2). Safe to merge now.
-1b. `chore: build script without migrate` (0.3). Separate PR. Do not merge until H3 is confirmed in writing by Jeff.
-2. `fix: server-side feed limits and duplicate-request guard` (1.1)
-3. `fix(firmware): dispense caps, config validation, watchdog` (1.2)
-4. `fix: idempotent feed events end to end` (1.3)
-5. `fix: dedupe pellet alerts and thin heartbeat rows` (1.4)
-6. `feat: enforce write access for non-viewer roles` (1.5)
-7. `fix: identity lookup, close signup, delete unused action` (2.1, 2.2, 2.9)
-8. `feat: hashed device tokens, TLS verification` (2.4, 2.5)
-9. `feat: shared rate limiter, safer lockout, login error handling` (2.6 to 2.8)
-10. `feat: RLS for User` (2.3, only after H7 and on the dev database first)
-10a. `fix: individual fish measurements save and display` (1.6), then `feat: batch label on biomass logs` (1.7; the batchLabel migration shares the H7 gate)
-11. `feat: device-watch cron endpoint, cron SQL file, Sentry, central constants` (3.1 to 3.3), then `feat: telegram alerts` (3.5, only after PR 5). Decision (2026-10-13): 10a and 11 ship stacked in ONE PR on top of the Phase 2 commits; 3.6 stays optional and is skipped for now.
-12. `test: device routes and new behavior`, then `ci: run on develop` (4.x)
-13. `chore: cleanup, docs, stale code` (5.x)
+The old section 6 sequenced every plan PR out of one long-lived `Karl` branch. That model was retired by the branch migration recorded in `CONTRIBUTING.md`: one task, one short-lived branch, one PR. Do not reopen a `Karl`-to-`develop` mega-sequence — the plan's work has been delivered as feature branches instead.
+
+Current flow (verified 2026-10-24 against `CONTRIBUTING.md` and `docs/deployment-workflow.md`):
+
+```
+docs/* | fix/* | feat/* | chore/* ──PR──▶ develop ──release PR──▶ staging ──PR + Jeff──▶ main
+```
+
+- Cut the branch from `origin/develop`, keep it to one reviewable task, open the PR into `develop`; CI job `quality` must be green (required check).
+- Work branches and their PRs create no deployment: the allowlist in `apps/web/vercel.json` permits only `main` and `develop`, and PR previews are intentionally disabled (they would inherit production credentials).
+- Every merge to `develop` publishes a preview deployment that runs with production credentials (`docs/deployment-workflow.md` section 6) — treat merges as production-visible.
+- `staging` does not deploy; validation is the `develop` deployment of the candidate SHA plus review of the promotion diff.
+- Only Jeff merges the `staging` → `main` PR; that push deploys production and runs `prisma migrate deploy` (via `migrate-if-production.mjs`).
+
+Evidence the flow is live: feature/plan PRs #70 (identity firmware), #74 (provisioning portal), #87 (identity UI), #99 (reset buttons), #105 (PlatformIO build), #109 (seed identity + proxy guard), #115 (crop-cycle plan), #119 (crop cycle), #120 (page latency), #122 (feed calibration) all merged into `develop`; releases promoted by #117, #123 (`develop` → `staging`) and #124 (`staging` → `main`, merged 2026-10-24 — `main` at `b5ca877`).
+
+Remaining work in dependency order:
+
+1. Human gates first: H7 (backups — do first), H8 (dev Supabase project), then H2, H1, H4, H5.
+2. Code leftovers: 2.10 (password authentication replaces the PIN policy; contract in `docs/password-auth-plan.md`), 3.3 (`STALE_*` consolidation), 5.4 (remove Upstash from `docs/vercel-deployment-checklist.md`), 3.2 decision (`GEMINI_MODEL`), 1.7 round-trip confirmation, 5.5 (product wording).
+3. Then H10/H11 to make 3.1 and 3.5 live, keeping 3.6 skipped (decision 2026-10-13) and 3.7 deferred until after 3.5 is proven.
+
+Preserved decision (2026-10-13, from the old ordering): tasks 10a and 11 shipped stacked in one PR on top of the Phase 2 commits, and 3.6 stays optional and skipped. Nothing else in the old numbered list is actionable as written — the statuses after each phase are the source of truth for what remains.
 
 ## 7. Definition of done
 
-- `pnpm self-check` passes in full (including the build) with every PASS.
-- All 109 original tests still pass, plus the new ones.
-- The locked values in `feed-calc.test.ts` are unchanged.
-- No migration contains a destructive statement.
-- Section 5 items H1 to H8, H10 and H11 are marked done by a human, including H3 (without it, 0.3 cannot merge and the full self-check cannot pass).
-- A short screen recording or screenshots: a rejected 100000 g request, a single pellet alert at low hopper, a VIEWER blocked from "Feed Now", and a dead-device alert.
+- `pnpm self-check` passes in full (including the build) with every PASS. **Status: needs confirmation** — this documentation pass did not run it; CI `quality` (the required check on `develop`) is green on `7036195`, and the script's static assertions were spot-checked against the tree on 2026-10-24.
+- The test suite is healthy: 690 `it`/`test` blocks in 59 files (2026-10-24) versus the original 109-test baseline; all green through CI.
+- The locked values in `feed-calc.test.ts` are unchanged — 10 tests present including the `DEFAULT_FISH_COUNT` fallback references; unchanged-since-baseline provenance **needs confirmation** (not re-derived here).
+- No migration contains a destructive statement — verified for this plan's migrations: `20261013020000_enable_rls_on_user` has zero `DROP`/`TRUNCATE`, and `20261013030000_add_biomass_batch_label` is an `ADD COLUMN` migration (spot-check still to be repeated by `pnpm self-check`, which diffs added migrations against `origin/develop`).
+- Section 5 human items H1, H2, H4, H5, H6, H7, H8, H10 and H11 are marked done by a human, and H3's written confirmation is resolved (see section 8, question 2). **Status: all still open as of 2026-10-24.**
+- A short screen recording or screenshots: a rejected 100000 g request, a single pellet alert at low hopper, a VIEWER blocked from "Feed Now", and a dead-device alert. **Status: open — not produced by this update.**
+
+## 8. Open questions (added 2026-10-24)
+
+Conflicts and decisions recorded rather than silently rewritten:
+
+1. **Deployment-matrix conflict between the two workflow documents.** `CONTRIBUTING.md` section 10 says only `staging` and `main` deploy and that `develop` runs "CI validation only", while `CONTRIBUTING.md`'s own section 1 table (and `docs/deployment-workflow.md` sections 1-2, verified 2026-10-22) say the opposite: `staging` does **not** deploy, and `develop` and `main` do, per the `apps/web/vercel.json` allowlist (`"develop": true`, `"main": true`). This plan follows `docs/deployment-workflow.md`, which is backed by the checked-in `vercel.json`. **Needs confirmation** from whoever can see the Vercel dashboard; `CONTRIBUTING.md` section 10 should be fixed by a separate docs PR (it also claims `develop` uses production credentials in §1's warning while denying a `develop` deployment in §10 — the document contradicts itself).
+2. **H3 — Jeff's written confirmation.** Task 0.3 no longer depends on Vercel's Build Command running `migrate deploy`, because `migrate-if-production.mjs` runs migrations only when `VERCEL_ENV=production`. Is Jeff's written confirmation of the old Build Command still required, or can H3 be closed as superseded? **Needs confirmation.**
+3. **PIN length (task 2.7) — resolved 2026-10-26.** PINs are replaced by passwords under task 2.10. All 5 existing accounts get temporary `password123` and must set a permanent password on first login; permanent passwords are 8+ characters with a letter and number and must not be common. No further PIN-length decision is needed. Contract: `docs/password-auth-plan.md`.
+4. **`.env.example` leftovers (task 3.2).** Sentry is deliberately absent (reverted 2026-10-13), but `GEMINI_MODEL` — which the self-check still asserts — is also absent. Re-add `GEMINI_MODEL`, or drop both the plan line and the self-check assertion? **Team decision.**
+5. **Decision D5** — promotion cadence for `staging` → `main` remains open with Jeff. Promotions #117/#123/#124 show it is happening ad hoc.
+6. **Product wording (task 5.5).** `apps/web/README.md` now says "catfish ponds". Confirm this is final and that the landing page and metadata match. **User decision.**
+7. **Baseline of this update (recorded, not a conflict).** The requested baseline `main = staging = develop = 0e12138` was accurate at 2026-10-24 16:41 +0800. Heads have since advanced to `develop 7036195`, `staging a100c35`, `main b5ca877` — with **identical trees** (`9cf70ac`), because PRs #122→#123→#124 promoted the same content. `git rev-parse origin/{develop,staging,main}^{tree}` all return `9cf70ac`.

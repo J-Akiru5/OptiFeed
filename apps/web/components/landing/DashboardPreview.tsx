@@ -21,7 +21,7 @@ export function DashboardPreview() {
 			/>
 
 			<div className="relative overflow-hidden rounded-[1.6rem] border border-white/15 bg-[#082238] shadow-[0_50px_120px_-42px_rgba(0,0,0,0.95)]">
-				<div className="relative h-44 sm:h-48">
+				<div className="relative h-56 sm:h-64">
 					<Image
 						src="/landing/hero-pond.jpg"
 						alt={t("heroImageAlt")}
@@ -110,7 +110,7 @@ export function DashboardPreview() {
 				<p className="mt-2 text-[12.5px] font-semibold">{t("previewLoggedValue")}</p>
 			</div>
 
-			<div className="absolute -bottom-8 left-6 z-10 hidden w-[11.5rem] rounded-xl border border-white/15 bg-[#0B2336]/95 p-3 text-white shadow-[0_20px_45px_-18px_rgba(0,0,0,0.8)] backdrop-blur md:block">
+			<div className="absolute -bottom-8 left-6 z-10 hidden w-[11.5rem] rounded-xl border border-white/15 bg-[#0B2336]/75 p-3 text-white shadow-[0_20px_45px_-18px_rgba(0,0,0,0.8)] backdrop-blur-md md:block">
 				<div className="flex items-center gap-2">
 					<span className="flex size-6 items-center justify-center rounded-full bg-white/10 text-[#7CE3A8]">
 						<Wifi className="size-3.5" aria-hidden="true" />

@@ -9,6 +9,7 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/auth/session", () => ({
 	getCurrentUser: vi.fn(),
+	assertPasswordChanged: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("next-intl/server", () => ({
@@ -20,11 +21,12 @@ vi.mock("@/i18n/routing", () => ({
 }));
 
 import { redirect } from "@/i18n/routing";
-import { getCurrentUser } from "@/lib/auth/session";
+import { assertPasswordChanged, getCurrentUser } from "@/lib/auth/session";
 import { getTenantAdminState, requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import prisma from "@/lib/prisma";
 
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
+const mockAssertPasswordChanged = vi.mocked(assertPasswordChanged);
 const mockMembershipFindMany = vi.mocked(prisma.membership.findMany);
 const mockOrganizationFindMany = vi.mocked(prisma.organization.findMany);
 const mockRedirect = vi.mocked(redirect);
@@ -125,6 +127,14 @@ describe("requireTenantAdmin", () => {
 
 		await requireTenantAdmin();
 
+		expect(mockAssertPasswordChanged).toHaveBeenCalled();
 		expect(mockRedirect).not.toHaveBeenCalled();
+	});
+
+	it("rejects a tenant admin who still has a temporary password", async () => {
+		mockAssertPasswordChanged.mockRejectedValueOnce(new Error("Password change required"));
+
+		await expect(requireTenantAdmin()).rejects.toThrow("Password change required");
+		expect(mockMembershipFindMany).not.toHaveBeenCalled();
 	});
 });

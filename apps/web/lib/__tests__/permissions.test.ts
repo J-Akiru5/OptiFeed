@@ -10,6 +10,7 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/auth/session", () => ({
 	getCurrentUser: vi.fn(),
+	assertPasswordChanged: vi.fn().mockResolvedValue(undefined),
 }));
 
 import {
@@ -21,13 +22,14 @@ import {
 	isPermission,
 	requirePermission,
 } from "@/lib/auth/permissions";
-import { getCurrentUser } from "@/lib/auth/session";
+import { assertPasswordChanged, getCurrentUser } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 
 const mockMembershipFindMany = vi.mocked(prisma.membership.findMany);
 const mockOrganizationFindMany = vi.mocked(prisma.organization.findMany);
 const mockPermissionFindMany = vi.mocked(prisma.membershipPermission.findMany);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
+const mockAssertPasswordChanged = vi.mocked(assertPasswordChanged);
 
 const USER = { id: "user_1", farmId: "farm-1" };
 
@@ -280,6 +282,7 @@ describe("hasPermission and requirePermission", () => {
 		] as never);
 		mockOrganizationFindMany.mockResolvedValue([{ id: "org_1" }] as never);
 		mockPermissionFindMany.mockResolvedValue([] as never);
+		mockAssertPasswordChanged.mockResolvedValue(undefined);
 	});
 
 	it("hasPermission is true for a role default", async () => {
@@ -296,6 +299,12 @@ describe("hasPermission and requirePermission", () => {
 
 	it("requirePermission throws Forbidden when the permission is denied", async () => {
 		await expect(requirePermission("manage_members")).rejects.toThrow("Forbidden");
+	});
+
+	it("requirePermission rejects a pending password change before checking the permission", async () => {
+		mockAssertPasswordChanged.mockRejectedValueOnce(new Error("Password change required"));
+
+		await expect(requirePermission("manage_schedule")).rejects.toThrow("Password change required");
 	});
 
 	it("requirePermission fails closed without a session", async () => {

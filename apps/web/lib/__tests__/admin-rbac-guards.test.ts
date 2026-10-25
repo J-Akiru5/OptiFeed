@@ -64,3 +64,17 @@ describe("console route layouts", () => {
 		expect(layout).toContain("requirePlatformAdmin()");
 	});
 });
+
+describe("password-change guard composition", () => {
+	it("checks the password flag inside every shared action guard", () => {
+		const tenantGuard = read("lib/auth/tenant-admin.ts");
+		const platformGuard = read("lib/auth/require-platform-admin.ts");
+		const session = read("lib/auth/session.ts");
+		const permissions = read("lib/auth/permissions.ts");
+
+		expect(tenantGuard).toContain("await assertPasswordChanged();");
+		expect(platformGuard).toContain("await assertPasswordChanged();");
+		expect(session).toMatch(/requireWriteAccess[\s\S]*await assertPasswordChanged\(\)/);
+		expect(permissions).toMatch(/requirePermission[\s\S]*await assertPasswordChanged\(\)/);
+	});
+});

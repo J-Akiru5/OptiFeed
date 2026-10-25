@@ -1,6 +1,6 @@
 # OptiFeed — Password Authentication Plan
 
-- **Status:** In progress on `feat/password-auth`.
+- **Status:** Implemented and verified on `feat/password-auth`; ready for review.
 - **Date:** 2026-10-26
 - **Repository:** `C:\Users\Client\CApstone\OptiFeed`
 - **Worktree:** `C:\Users\Client\CApstone\OptiFeed-password`
@@ -593,6 +593,42 @@ pnpm --filter web test:e2e   # only with the e2e DB guard configured
 13. The e2e suite remains stable and the forced-change flow is covered.
 14. The migration and rollout are verified against the live database without exposing passwords in tracked files.
 15. The dedicated branch plan exists at `docs/password-auth-plan.md`, is committed before implementation commits, and matches the locked decisions in this document.
+
+---
+
+## 17. Implementation log (2026-10-26)
+
+### Applied
+
+- Migration `20261026000000_add_must_change_password` applied to the live database. All 5 existing users were backfilled to `mustChangePassword = true`.
+- All 5 accounts reset to the temporary password `password123`:
+  - `demo-farmer-1`
+  - `superadmin`
+  - `tenant2-admin`
+  - `independent-farmer`
+  - `test`
+- Supabase accepted `password123`; leaked-password protection did not reject it.
+- The demo account was temporarily stabilized by the e2e setup, then reset to `password123` with the flag set again.
+
+### Verification evidence
+
+| Check | Result |
+|---|---|
+| `pnpm --filter web test` | 67 files, 756 tests passed |
+| `pnpm --filter web typecheck` | passed |
+| `pnpm --filter web lint` | passed |
+| `pnpm --filter web build` | passed; `/[locale]/change-password` route emitted |
+| Playwright `e2e/auth.spec.ts` | 5 passed |
+| Forced change — `test` | `/login` → `/change-password` → `/dashboard` |
+| Forced change — `superadmin` | `/login` → `/change-password` → `/superadmin` |
+| Self-service change | Profile Settings → “Password updated.” |
+| Strength meter | Weak / Medium / Strong labels verified for `password123`, `abcdefg1`, `Abcdefgh1234!` |
+
+### Residual notes
+
+- The e2e global setup resets `demo-farmer-1` to `DEMO_PASSWORD` and clears the flag so the suite is stable. It does not touch the other four accounts.
+- Direct server-action calls by a flagged user are not blocked by the layout guard. The UI and login redirects are covered; add `assertPasswordChanged()` to sensitive actions if this needs hardening.
+- `password123` remains a known breached password. It is temporary-only and all five accounts are flagged for a forced change; reset `superadmin` to a unique password immediately after the rollout if the deployment is public.
 
 ---
 

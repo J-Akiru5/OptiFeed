@@ -6,6 +6,7 @@ Paste this together with `system-context.html`. The briefing says how the system
 
 | Date | Author | Base commit | What changed |
 |---|---|---|---|
+| 2026-10-26 | Agent-assisted | `34f5e84` (`origin/develop` at update time; plan branch base `7036195`) | Replaced the PIN policy with password authentication (task 2.10): all 5 existing accounts get temporary `password123`, `mustChangePassword=true`, forced change on next login; permanent passwords are 8+ chars with a letter and number and not common; weak/medium/strong meter on password-setting forms; self-service change. Task 2.7 is superseded; open question 3 is resolved. Implementation contract: `docs/password-auth-plan.md`. |
 | 2026-10-24 | Karl (agent-assisted) | `7036195` (`origin/develop` when this branch was cut; `develop`/`staging`/`main` all had identical trees `9cf70ac`, last explicit sync `0e12138`) | Reconciled the workflow sections (0, 4, 6) with `CONTRIBUTING.md` and `docs/deployment-workflow.md`: the single long-lived `Karl` branch model is gone, replaced by short-lived `docs/*|fix/*|feat/*|chore/*` branches → `develop` → `staging` → `main`. Added a **Status (2026-10-24)** block to every phase and a Status column to section 5, each backed by merged-code evidence (files, tests, migrations, PR numbers). Removed the stale embedded copy of the self-check script (the merged `scripts/self-check.mjs` is authoritative). Added section 8 (open questions) and refreshed section 7 (definition of done). The legacy progress tracker `docs/tracker/optifeed-progress-tracker.html` reports a different task scope (the original 9 product-build tasks), so per instruction it was left untouched. |
 
 ## 0. Instructions for the executing AI
@@ -190,9 +191,10 @@ Acceptance: the label round-trips (form → DB → Growth table → CSV export);
 | 2.4 | Device tokens (N6): store a SHA-256 hash of each token, compare with `crypto.timingSafeEqual`, and give every device a unique random token. Rotate any device still using `esp32-tok-cict-001` before pilot use. Give OTA its own password, separate from the token. The seed may keep the demo token for local dev only. | Auth by hash works. A static check finds no plaintext compare. H5 confirms the demo token is not in production. |
 | 2.5 | Firmware TLS (briefing section 19.4): call `secureClient.setCACert(...)` with the root CA that signs your host. Check the real chain of the production domain first, and document how to update it. Keep a clear error path when verification fails. | Self-check finds `setCACert`. Bench test with a wrong CA fails to connect (H6). |
 | 2.6 | Rate limiting (decision D1, locked): replace the in-memory `Map` with a PostgreSQL table using an atomic upsert (`INSERT ... ON CONFLICT DO UPDATE` on `(key, window_start)`, additive migration). No Upstash. Keep the same limits (login 5 per 60 s per IP, API 30 per 60 s per user, device 20 per 60 s). Fail CLOSED on login if the table is unreachable, fail OPEN on the device routes, so a limiter outage cannot stop feeding. Old rows must be deleted periodically: the `pg_cron` job from 3.1 runs a cleanup of expired windows. | The unit test for the store passes. A test shows login is rejected when the store throws. |
-| 2.7 | Lockout and PIN (N8): lock per `(farmId, ip)` pair for 5 attempts per 15 minutes, plus a global per-farmId threshold of 20 failures per hour that only slows login and notifies, so a stranger cannot lock the real farmer out. New and reset PINs must be at least 6 digits. | Tests cover both rules. |
+| 2.7 | Lockout and PIN (N8): lock per `(farmId, ip)` pair for 5 attempts per 15 minutes, plus a global per-farmId threshold of 20 failures per hour that only slows login and notifies, so a stranger cannot lock the real farmer out. **PIN-specific policy superseded by 2.10 (2026-10-26); lockout rules remain.** | Tests cover the lockout rules. |
 | 2.8 | Login errors (N7, gap #10): wrap the Prisma calls in `loginWithPin` with a try and catch that returns a friendly "service temporarily unavailable, try again" message, retries once on connection errors, and reports to Sentry. Human task H4 checks `DATABASE_URL` against the Supabase "Connect" page (user `postgres.<project-ref>`, transaction pooler port 6543, `?pgbouncer=true&connection_limit=1`, plus `DIRECT_URL` on the session or direct port for migrations). | Test: with Prisma mocked to throw, login shows the friendly message and does not crash. |
 | 2.9 | Delete `registerEnergyDevice` (unused, has a missing-auth path). | `grep` finds no match. |
+| 2.10 | Password authentication (supersedes 2.7's PIN policy). Replace numeric PIN login with password login. Add `User.mustChangePassword`; backfill all existing users; force a change on next login. All 5 existing accounts start with temporary `password123`; permanent passwords must be 8+ chars with a letter and number and not common. Add a weak/medium/strong meter on password-setting forms; enable self-service change. Implementation contract: `docs/password-auth-plan.md`. | All 5 accounts are forced to change; `password123` works once; the permanent policy rejects it; the meter shows Weak/Medium/Strong; self-service change works; tests/typecheck/lint pass. |
 
 **Status (2026-10-24):**
 
@@ -202,9 +204,22 @@ Acceptance: the label round-trips (form → DB → Growth table → CSV export);
 - 2.4 **code done** — SHA-256 `tokenHash` is written (`prisma/seed.ts` line 79, `createHash("sha256")`), device auth compares with `timingSafeEqual` (4 sites in `lib/`), covered by `device-auth.test.ts`. Rotating live tokens is still H5.
 - 2.5 **code done** — the firmware calls `setCACert`/`attachBundle` (self-check asserts it); the wrong-CA bench test is still H6.
 - 2.6 **done** — `lib/rate-limit.ts` uses a Postgres `ON CONFLICT` upsert with no `Map` store; `rate-limit.test.ts` exists (decision D1 honoured).
-- 2.7 **partial** — per-IP lockout exists (`lib/auth/lockout.ts`, `lockout.test.ts`), but `lib/actions/auth.ts` line 35 still accepts `pin.length < 4`, so the "new and reset PINs ≥ 6 digits" rule is not evidenced in code. Decision needed (section 8, question 3).
+- 2.7 **superseded** — per-IP lockout exists (`lib/auth/lockout.ts`, `lockout.test.ts`) and remains. The PIN-length policy is replaced by task 2.10; see the password authentication contract below.
 - 2.8 **code done** — friendly-error handling exists with `lib/__tests__/login-errors.test.ts` ("with Prisma mocked to throw…"); the `DATABASE_URL` dashboard check and monitors (H4) remain human tasks. Sentry stays removed (see 3.2).
 - 2.9 **done** — no `registerEnergyDevice` references remain anywhere in TS sources.
+- 2.10 **planned (2026-10-26)** — password authentication contract recorded; implementation not started at the time of this update. See `docs/password-auth-plan.md`.
+
+#### Password authentication contract (task 2.10, 2026-10-26)
+
+- **Initial credentials:** all 5 existing accounts get `password123` as a temporary password and `mustChangePassword = true`.
+- **Forced change:** login redirects flagged users to `/change-password`; the dashboard, admin, and superadmin layouts also redirect until the password is changed.
+- **Temporary-only exception:** `password123` is accepted only in temporary mode. Permanent passwords require 8+ characters, at least one letter and one number, not on the common-password blocklist, and at most 72 bytes.
+- **Strength meter:** Weak / Medium / Strong on password-setting forms only (forced change, self-service change, admin/superadmin account creation).
+- **Self-service:** Profile Settings gets a working Change password form.
+- **E2E:** setup stabilizes `demo-farmer-1` on `DEMO_PASSWORD` with the flag cleared; the other 4 accounts remain on `password123` for manual first-login testing.
+- **Rollout:** apply the additive `mustChangePassword` migration, reset the 5 accounts, verify sign-in, and confirm Supabase accepts `password123` (leaked-password protection may reject it).
+- **Security caveat:** `password123` is a known breached password. It is temporary-only, but there is a takeover window; reset `superadmin` to a unique password immediately after rollout.
+- **Implementation contract:** `docs/password-auth-plan.md`.
 
 ### Phase 3: Reliability and observability
 
@@ -345,7 +360,7 @@ Evidence the flow is live: feature/plan PRs #70 (identity firmware), #74 (provis
 Remaining work in dependency order:
 
 1. Human gates first: H7 (backups — do first), H8 (dev Supabase project), then H2, H1, H4, H5.
-2. Code leftovers: 2.7 (6-digit PIN enforcement, needs a decision), 3.3 (`STALE_*` consolidation), 5.4 (remove Upstash from `docs/vercel-deployment-checklist.md`), 3.2 decision (`GEMINI_MODEL`), 1.7 round-trip confirmation, 5.5 (product wording).
+2. Code leftovers: 2.10 (password authentication replaces the PIN policy; contract in `docs/password-auth-plan.md`), 3.3 (`STALE_*` consolidation), 5.4 (remove Upstash from `docs/vercel-deployment-checklist.md`), 3.2 decision (`GEMINI_MODEL`), 1.7 round-trip confirmation, 5.5 (product wording).
 3. Then H10/H11 to make 3.1 and 3.5 live, keeping 3.6 skipped (decision 2026-10-13) and 3.7 deferred until after 3.5 is proven.
 
 Preserved decision (2026-10-13, from the old ordering): tasks 10a and 11 shipped stacked in one PR on top of the Phase 2 commits, and 3.6 stays optional and skipped. Nothing else in the old numbered list is actionable as written — the statuses after each phase are the source of truth for what remains.
@@ -365,7 +380,7 @@ Conflicts and decisions recorded rather than silently rewritten:
 
 1. **Deployment-matrix conflict between the two workflow documents.** `CONTRIBUTING.md` section 10 says only `staging` and `main` deploy and that `develop` runs "CI validation only", while `CONTRIBUTING.md`'s own section 1 table (and `docs/deployment-workflow.md` sections 1-2, verified 2026-10-22) say the opposite: `staging` does **not** deploy, and `develop` and `main` do, per the `apps/web/vercel.json` allowlist (`"develop": true`, `"main": true`). This plan follows `docs/deployment-workflow.md`, which is backed by the checked-in `vercel.json`. **Needs confirmation** from whoever can see the Vercel dashboard; `CONTRIBUTING.md` section 10 should be fixed by a separate docs PR (it also claims `develop` uses production credentials in §1's warning while denying a `develop` deployment in §10 — the document contradicts itself).
 2. **H3 — Jeff's written confirmation.** Task 0.3 no longer depends on Vercel's Build Command running `migrate deploy`, because `migrate-if-production.mjs` runs migrations only when `VERCEL_ENV=production`. Is Jeff's written confirmation of the old Build Command still required, or can H3 be closed as superseded? **Needs confirmation.**
-3. **PIN length (task 2.7).** `lib/actions/auth.ts` line 35 still accepts `pin.length < 4`. Enforce ≥6 digits only for new/reset PINs (as the task text says), for every PIN including existing ones, or rotate PINs first? **Team decision.**
+3. **PIN length (task 2.7) — resolved 2026-10-26.** PINs are replaced by passwords under task 2.10. All 5 existing accounts get temporary `password123` and must set a permanent password on first login; permanent passwords are 8+ characters with a letter and number and must not be common. No further PIN-length decision is needed. Contract: `docs/password-auth-plan.md`.
 4. **`.env.example` leftovers (task 3.2).** Sentry is deliberately absent (reverted 2026-10-13), but `GEMINI_MODEL` — which the self-check still asserts — is also absent. Re-add `GEMINI_MODEL`, or drop both the plan line and the self-check assertion? **Team decision.**
 5. **Decision D5** — promotion cadence for `staging` → `main` remains open with Jeff. Promotions #117/#123/#124 show it is happening ad hoc.
 6. **Product wording (task 5.5).** `apps/web/README.md` now says "catfish ponds". Confirm this is final and that the landing page and metadata match. **User decision.**

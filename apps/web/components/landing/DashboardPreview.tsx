@@ -45,19 +45,19 @@ export function DashboardPreview() {
 					</div>
 				</div>
 
-				<div className="relative -mt-5 rounded-t-[1.35rem] bg-[#F6FAF8] px-4 pt-5 pb-4 text-[#0A2E47] sm:px-5 sm:pb-5">
+				<div className="relative -mt-5 rounded-t-[1.35rem] bg-[#F6FAF8] px-4 pt-4 pb-4 text-[#0A2E47] sm:px-5 sm:pb-5">
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
 							<p className="text-[9.5px] font-semibold tracking-[0.14em] text-slate-500 uppercase">
 								{t("previewNextFeed")}
 							</p>
-							<div className="mt-1.5 flex items-baseline gap-1.5">
-								<span className="text-[2.1rem] leading-none font-semibold tracking-[-0.045em] tabular-nums">
+							<div className="mt-1 flex items-baseline gap-1.5">
+								<span className="text-[1.6rem] leading-none font-semibold tracking-[-0.045em] tabular-nums">
 									10:00
 								</span>
-								<span className="text-[12px] font-semibold text-slate-500">AM</span>
+								<span className="text-[10.5px] font-semibold text-slate-500">AM</span>
 							</div>
-							<p className="mt-1.5 text-[11.5px] text-slate-500">{t("previewNextFeedMeta")}</p>
+							<p className="mt-1 text-[11px] text-slate-500">{t("previewNextFeedMeta")}</p>
 						</div>
 						<span className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#ECFDF3] px-2.5 py-1 text-[9.5px] font-semibold text-[#067647] ring-1 ring-[#ABEFC6]">
 							<span className="size-1.5 rounded-full bg-[#17B26A]" />
@@ -65,7 +65,7 @@ export function DashboardPreview() {
 						</span>
 					</div>
 
-					<div className="mt-5">
+					<div className="mt-4">
 						<div className="flex items-baseline justify-between gap-4 text-[11px] font-medium">
 							<span className="text-slate-500">{t("previewFeedLevel")}</span>
 							<span className="tabular-nums text-[#0A2E47]">{t("previewFeedLevelValue")}</span>

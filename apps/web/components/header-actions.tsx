@@ -10,7 +10,7 @@ import { useRouter } from "@/i18n/routing";
 import { clearOfflineData } from "@/lib/offline/db";
 import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
 import { createClient } from "@/lib/supabase/client";
-import { Globe, LogOut, Shield, X } from "lucide-react";
+import { Globe, LogOut, Shield, ShieldAlert, X } from "lucide-react";
 import { useLocale } from "next-intl";
 import { useState } from "react";
 
@@ -21,7 +21,13 @@ interface HeaderActionsProps {
 	lastSeenAt?: string | null;
 	esp32Status?: "online" | "offline" | "missing";
 	/** Resolved by the dashboard layout so the header does not fetch after hydration. */
-	initialUser?: { email: string; role: string | null; displayName: string | null };
+	initialUser?: {
+		email: string;
+		role: string | null;
+		displayName: string | null;
+		isTenantAdmin: boolean;
+		isPlatformAdmin: boolean;
+	};
 }
 
 function formatRelativeTime(dateStr: string | null): string {
@@ -47,7 +53,8 @@ export function HeaderActions({
 }: HeaderActionsProps) {
 	const [showProfileMenu, setShowProfileMenu] = useState(false);
 	const userEmail = initialUser?.email ?? null;
-	const userRole = initialUser?.role ?? null;
+	const isTenantAdmin = initialUser?.isTenantAdmin ?? false;
+	const isPlatformAdmin = initialUser?.isPlatformAdmin ?? false;
 	const router = useRouter();
 	const locale = useLocale();
 	const { clearMessages } = useChatWidget();
@@ -147,7 +154,7 @@ export function HeaderActions({
 					</div>
 
 					<div className="mt-4 space-y-2">
-						{userRole === "ADMIN" && (
+						{isTenantAdmin && (
 							<button
 								type="button"
 								onClick={() => {
@@ -158,6 +165,35 @@ export function HeaderActions({
 							>
 								<span className="flex items-center gap-3">
 									<Shield className="h-5 w-5" /> Admin Panel
+								</span>
+								<svg
+									className="h-5 w-5"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									role="img"
+									aria-label="Navigate"
+								>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={2}
+										d="M9 5l7 7-7 7"
+									/>
+								</svg>
+							</button>
+						)}
+						{isPlatformAdmin && (
+							<button
+								type="button"
+								onClick={() => {
+									setShowProfileMenu(false);
+									router.push("/superadmin");
+								}}
+								className="flex min-h-14 w-full items-center justify-between rounded-2xl border border-[#0A3D62]/20 bg-[#0A3D62]/5 dark:bg-[#0A3D62]/20 px-4 font-black text-[#0A3D62] dark:text-[#8ec5ef] transition hover:bg-[#0A3D62]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3D62]"
+							>
+								<span className="flex items-center gap-3">
+									<ShieldAlert className="h-5 w-5" /> Platform Console
 								</span>
 								<svg
 									className="h-5 w-5"

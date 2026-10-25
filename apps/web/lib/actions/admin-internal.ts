@@ -7,7 +7,7 @@ import type { Prisma } from "@prisma/client";
  * Plain server-only module — deliberately without "use server": this runs
  * inside a caller's transaction and must never be exposed as a callable
  * server action. Callers (admin.ts, superadmin.ts) already gate on
- * requireRole("ADMIN") / requirePlatformAdmin().
+ * requireTenantAdmin() / requirePlatformAdmin().
  *
  * Note: Membership has no FK relation to User (by design), so callers that
  * remove a user must delete its Membership rows themselves.

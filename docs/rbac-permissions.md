@@ -21,8 +21,21 @@ Source of truth for the permission model: [`SUPERADMIN-MULTITENANCY-PLAN.md`](./
 - The resolver fails closed: no session, no user row, no membership, or no `ACTIVE` organization
   yields no permissions.
 - Tenant admins manage grants and revocations from **Admin → Users → Permissions**. The server
-  requires `ADMIN` + `manage_members` + a target inside the caller's org scope.
+  requires a tenant `OWNER`/`ADMIN` membership + `manage_members` + a target inside the caller's org
+  scope.
 - An admin cannot revoke their own `manage_members`; the guard is enforced server-side.
+
+## Console access
+
+- The tenant `/admin` console requires an active `Membership` with role `OWNER` or `ADMIN` in an
+  `ACTIVE` organization (`apps/web/lib/auth/tenant-admin.ts`). `User.role = ADMIN` alone is not
+  enough, and a global admin with only an `OPERATOR` membership is denied.
+- The platform `/superadmin` console requires an active `PlatformAdmin` row
+  (`requirePlatformAdmin()`). A tenant `OWNER`/`ADMIN` membership does not imply it, and a platform
+  administrator gets no farm-write powers from that grant.
+- `updateUser` in the tenant console cannot change `User.role`. Global role changes happen only in
+  `/superadmin`, which is platform-admin gated, so a tenant admin cannot mint a platform-level
+  account or escalate a member.
 
 ## Permission set
 

@@ -22,9 +22,12 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/auth/session", () => ({
 	getCurrentPondOwnerId: vi.fn().mockResolvedValue("test-farm"),
 	getCurrentUser: vi.fn().mockResolvedValue(null),
-	requireRole: vi.fn().mockResolvedValue(undefined),
 	requireWriteAccess: vi.fn().mockResolvedValue(undefined),
 	buildPondEmail: vi.fn((farmId: string) => `${farmId}@pond.optifeed.local`),
+}));
+
+vi.mock("@/lib/auth/tenant-admin", () => ({
+	requireTenantAdmin: vi.fn().mockResolvedValue(undefined),
 }));
 
 // admin.ts now calls requirePermission(); it is DB-backed and stubbed open here
@@ -56,14 +59,14 @@ vi.mock("next-intl/server", () => ({
 import { getAllFarmHierarchies, setPondStatus } from "@/lib/actions/admin";
 import { getFarmOverview, renameFarm } from "@/lib/actions/farm";
 import { EMPTY_SCOPE, resolveOrgScope } from "@/lib/auth/org-scope";
-import { requireRole } from "@/lib/auth/session";
+import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import prisma from "@/lib/prisma";
 
 const mockFarm = vi.mocked(prisma.farm);
 const mockPond = vi.mocked(prisma.pond);
 const mockUser = vi.mocked(prisma.user);
 const mockPlatformAdmin = vi.mocked(prisma.platformAdmin);
-const mockRequireRole = vi.mocked(requireRole);
+const mockRequireTenantAdmin = vi.mocked(requireTenantAdmin);
 const mockResolveOrgScope = vi.mocked(resolveOrgScope);
 
 const TENANT_SCOPE = {
@@ -149,10 +152,10 @@ describe("setPondStatus", () => {
 		mockResolveOrgScope.mockResolvedValue(TENANT_SCOPE);
 	});
 
-	it("requires the ADMIN role", async () => {
+	it("requires a tenant admin membership", async () => {
 		mockPond.update.mockResolvedValue({} as never);
 		await setPondStatus("pond-1", "ARCHIVED");
-		expect(mockRequireRole).toHaveBeenCalledWith("ADMIN");
+		expect(mockRequireTenantAdmin).toHaveBeenCalled();
 	});
 
 	it("rejects invalid status values", async () => {
@@ -201,10 +204,10 @@ describe("getAllFarmHierarchies", () => {
 		mockPlatformAdmin.findMany.mockResolvedValue([]);
 	});
 
-	it("requires the ADMIN role", async () => {
+	it("requires a tenant admin membership", async () => {
 		mockUser.findMany.mockResolvedValue([]);
 		await getAllFarmHierarchies();
-		expect(mockRequireRole).toHaveBeenCalledWith("ADMIN");
+		expect(mockRequireTenantAdmin).toHaveBeenCalled();
 	});
 
 	it("scopes the query to the caller's tenant members", async () => {

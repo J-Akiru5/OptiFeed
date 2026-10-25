@@ -4,7 +4,7 @@ import { DashboardPreview } from "@/components/landing/DashboardPreview";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { LANDING_SECTIONS, LandingHeader } from "@/components/landing/LandingHeader";
 import { LandingLogo } from "@/components/landing/LandingLogo";
-import { Reveal, RevealItem, RevealList } from "@/components/landing/Reveal";
+import { CountUp, Reveal, RevealItem, RevealList } from "@/components/landing/Reveal";
 import { Wave } from "@/components/landing/Wave";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { Link } from "@/i18n/routing";
@@ -264,9 +264,10 @@ export default function LandingPage() {
 								<p className={eyebrow}>{t("problemEyebrow")}</p>
 								<h2 className={sectionTitle}>{t("problemTitle")}</h2>
 								<div className={cn(card, "mt-8 max-w-sm p-6")}>
-									<p className="text-[3.5rem] leading-none font-semibold tracking-[-0.04em] text-[#E85A2A] tabular-nums sm:text-[4rem]">
-										{t("problemStat")}
-									</p>
+									<CountUp
+										text={t("problemStat")}
+										className="block text-[3.5rem] leading-none font-semibold tracking-[-0.04em] text-[#E85A2A] tabular-nums sm:text-[4rem]"
+									/>
 									<p className="mt-3 text-[12.5px] leading-5 text-slate-500 dark:text-slate-400">
 										{t("problemStatLabel")}
 									</p>

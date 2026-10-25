@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
+import { loadEnvFile } from "node:process";
 import { PrismaClient } from "@prisma/client";
 import { buildSeedEmail, resolveSupabaseUserId } from "./seed-identity";
+
+try {
+	loadEnvFile(".env");
+} catch {}
 
 const prisma = new PrismaClient();
 
@@ -124,6 +129,8 @@ async function main() {
 	await prisma.fcrReport.deleteMany({ where: { pondId: pond.id } });
 	await prisma.biomassLog.deleteMany({ where: { pondId: pond.id } });
 	await prisma.notification.deleteMany({ where: { pondId: pond.id } });
+	await prisma.pondEvent.deleteMany({ where: { pondId: pond.id } });
+	await prisma.cropCycle.deleteMany({ where: { pondId: pond.id } });
 	await prisma.energyDevice.deleteMany({ where: { pondId: pond.id } });
 
 	console.log("✓ Cleared demo data for pond:", pond.id);
@@ -254,6 +261,74 @@ async function main() {
 		],
 	});
 	console.log("✓ Created 3 FCR reports");
+
+	// ── 10. Demo grow-out cycle + upcoming events ─────────────────────────
+	const stockingDate = new Date(now.getTime() - 45 * 24 * 60 * 60 * 1000);
+	stockingDate.setHours(0, 0, 0, 0);
+	const targetHarvestDate = new Date(stockingDate.getTime() + 120 * 24 * 60 * 60 * 1000);
+	const demoCycle = await prisma.cropCycle.create({
+		data: {
+			id: "demo-cycle-001",
+			pondId: pond.id,
+			farmId: DEMO_FARM_ID,
+			label: "Batch Demo-01",
+			status: "ACTIVE",
+			stockingDate,
+			stockingCount: 5000,
+			stockingAvgWeightG: 20,
+			growOutDays: 120,
+			targetHarvestDate,
+			targetHarvestWeightG: 250000,
+			expectedSurvivalPct: 85,
+			createdBy: DEMO_FARM_ID,
+		},
+	});
+	const day = 24 * 60 * 60 * 1000;
+	const eventAt = (offset: number) => {
+		const date = new Date(now.getTime() + offset * day);
+		date.setHours(0, 0, 0, 0);
+		return date;
+	};
+	await prisma.pondEvent.createMany({
+		data: [
+			{
+				pondId: pond.id,
+				cropCycleId: demoCycle.id,
+				farmId: DEMO_FARM_ID,
+				type: "SAMPLING",
+				status: "PLANNED",
+				title: "Sampling due",
+				startsAt: eventAt(3),
+				allDay: true,
+				source: "sampling",
+				createdBy: DEMO_FARM_ID,
+			},
+			{
+				pondId: pond.id,
+				cropCycleId: demoCycle.id,
+				farmId: DEMO_FARM_ID,
+				type: "HARVEST_PLANNED",
+				status: "PLANNED",
+				title: "Harvest planned",
+				startsAt: targetHarvestDate,
+				allDay: true,
+				source: "cycle",
+				createdBy: DEMO_FARM_ID,
+			},
+			{
+				pondId: pond.id,
+				farmId: DEMO_FARM_ID,
+				type: "MAINTENANCE",
+				status: "PLANNED",
+				title: "Water change",
+				startsAt: eventAt(5),
+				allDay: true,
+				source: "manual",
+				createdBy: DEMO_FARM_ID,
+			},
+		],
+	});
+	console.log("✓ Created demo grow-out cycle + upcoming events");
 
 	console.log("\n============================================");
 	console.log("  Dev seed complete! Demo data refreshed.");

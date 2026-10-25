@@ -1,4 +1,5 @@
 import { shouldRedirectToLogin } from "@/lib/auth/navigation-guard";
+import { isDemoMode } from "@/lib/demo/mode";
 import createMiddleware from "next-intl/middleware";
 import { type NextRequest, NextResponse } from "next/server";
 import { routing } from "./i18n/routing";
@@ -7,6 +8,7 @@ const nextIntlMiddleware = createMiddleware(routing);
 
 export default function proxy(request: NextRequest) {
 	const response = nextIntlMiddleware(request);
+	if (isDemoMode()) return response;
 
 	const pathname = request.nextUrl.pathname;
 	const segments = pathname.split("/");

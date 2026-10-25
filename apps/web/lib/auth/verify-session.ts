@@ -1,3 +1,4 @@
+import { demoSession, isDemoMode } from "@/lib/demo/mode";
 import { createClient } from "@/lib/supabase/server";
 import {
 	type CachedSession,
@@ -36,6 +37,8 @@ const inFlight = new Map<string, Promise<VerifiedSession | null>>();
  * and returns immediately without a network call.
  */
 export async function getVerifiedSession(): Promise<VerifiedSession | null> {
+	if (isDemoMode()) return demoSession();
+
 	let fingerprint: string | null | undefined;
 	try {
 		fingerprint = await sessionFingerprint();

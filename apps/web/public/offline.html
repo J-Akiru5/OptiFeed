@@ -130,6 +130,7 @@
 					<span>Pond: <strong id="activePond">—</strong></span>
 					<span>Saved: <strong id="savedAt">—</strong></span>
 					<span id="freshness">—</span>
+					<span id="pendingSync" hidden>—</span>
 				</div>
 
 				<nav class="tabs" role="tablist" aria-label="Offline sections">
@@ -183,6 +184,7 @@
 				const activePond = document.getElementById("activePond");
 				const savedAt = document.getElementById("savedAt");
 				const freshness = document.getElementById("freshness");
+				const pendingSync = document.getElementById("pendingSync");
 				const retry = document.getElementById("retry");
 				let currentActive = null;
 
@@ -557,6 +559,53 @@
 					});
 				}
 
+				const OUTBOX_KEY = "optifeed:offline:outbox:v1";
+
+				function readOutboxFallback() {
+					try {
+						const raw = localStorage.getItem(OUTBOX_KEY);
+						const parsed = raw ? JSON.parse(raw) : [];
+						return Array.isArray(parsed) ? parsed.filter((item) => item && item.id) : [];
+					} catch {
+						return [];
+					}
+				}
+
+				async function countPendingSamples() {
+					let items = [];
+					if (typeof indexedDB !== "undefined") {
+						try {
+							const db = await openOutboxDb();
+							items = await new Promise((resolve, reject) => {
+								const tx = db.transaction("queue", "readonly");
+								const request = tx.objectStore("queue").getAll();
+								request.onsuccess = () => resolve(request.result || []);
+								request.onerror = () => reject(request.error);
+							});
+							db.close();
+						} catch {
+							items = [];
+						}
+					}
+					const seen = new Set(items.map((item) => item.id));
+					for (const item of readOutboxFallback()) {
+						if (!seen.has(item.id)) {
+							items.push(item);
+							seen.add(item.id);
+						}
+					}
+					return items.filter((item) => item.type === "biomass").length;
+				}
+
+				async function renderPendingSamples() {
+					const count = await countPendingSamples();
+					pendingSync.hidden = count === 0;
+					pendingSync.textContent =
+						count === 0
+							? "—"
+							: count + (count === 1 ? " sample waiting to sync" : " samples waiting to sync");
+				}
+
 				async function queueOfflineItem(item) {
 					if (typeof indexedDB !== "undefined") {
 						try {
@@ -568,17 +617,17 @@
 								tx.onerror = () => reject(tx.error || new Error("outbox write failed"));
 							});
 							db.close();
+							await renderPendingSamples();
 							return true;
 						} catch {
 							// Fall back to localStorage.
 						}
 					}
 					try {
-						const key = "optifeed:offline:outbox:v1";
-						const raw = localStorage.getItem(key);
-						const items = raw ? JSON.parse(raw) : [];
+						const items = readOutboxFallback().filter((entry) => entry.id !== item.id);
 						items.push(item);
-						localStorage.setItem(key, JSON.stringify(items));
+						localStorage.setItem(OUTBOX_KEY, JSON.stringify(items));
+						await renderPendingSamples();
 						return true;
 					} catch {
 						return false;
@@ -661,6 +710,7 @@
 				retry.addEventListener("click", () => location.reload());
 
 				async function boot() {
+					renderPendingSamples().catch(() => {});
 					let db = { snapshots: [], meta: null };
 					try {
 						db = await readDb();

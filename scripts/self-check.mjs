@@ -91,7 +91,7 @@ record(
 record("no middleware.ts (Next 16 uses proxy.ts)", !existsSync(`${web}/middleware.ts`));
 
 const apiRoutes = sourceFiles.filter((f) => /app\/api\/.+\/route\.ts$/.test(f));
-const allow = /api\/(ingest|feed-command|schedule-sync|health)\//;
+const allow = /api\/(ingest|feed-command|schedule-sync|health|firmware\/check)\//;
 const noAuth = apiRoutes.filter(
 	(f) => !allow.test(f) && !/from "@\/lib\/auth\/(session|with-auth)"/.test(read(f)),
 );

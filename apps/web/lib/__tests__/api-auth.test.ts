@@ -169,6 +169,7 @@ const DEVICE_TOKEN_ROUTES = new Set([
 	"ingest/route.ts",
 	"feed-command/route.ts",
 	"schedule-sync/route.ts",
+	"firmware/check/route.ts",
 ]);
 
 // Unauthenticated by design: liveness probe, no tenant data.

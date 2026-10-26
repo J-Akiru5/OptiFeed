@@ -361,7 +361,8 @@ Response with an update:
 }
 ```
 
-Server requirements (T-12b):
+Server requirements (implemented by T-12b in `apps/web/lib/firmware/ota.ts` and
+`apps/web/app/api/firmware/check/route.ts`):
 
 - All values are JSON strings except `update` (bool) and `size` (number).
 - `sha256` is 64 lowercase or uppercase hex characters.
@@ -452,6 +453,92 @@ pio run -d firmware -e esp32dev-lan -t upload
 ```
 
 Never flash that build in the field.
+
+### Release procedure (signed OTA, T-12b)
+
+The server half is implemented in
+`apps/web/app/api/firmware/check/route.ts` and `apps/web/lib/firmware/ota.ts`.
+A release is described by **one JSON channel file** in the private Supabase
+Storage bucket `firmware`; there is no database row yet (the Releases/Rollouts
+UI is T-12c). One channel can target every unit or a MAC allowlist (canary).
+
+`channels/stable.json`:
+
+```json
+{
+  "version": "1.4.1",
+  "storage_path": "releases/1.4.1/firmware.bin",
+  "size": 1070200,
+  "sha256": "0123...cdef",
+  "manifest": "{\"board\":\"wroom32u\",\"key_id\":\"primary\",\"min_from_version\":\"1.4.0\",\"sha256\":\"0123...cdef\",\"size\":1070200,\"version\":\"1.4.1\"}",
+  "signature": "MEUCIQ...",
+  "key_id": "primary",
+  "targets": "*"
+}
+```
+
+`targets` is `"*"` or an array of MACs. Every value except `size` is a string;
+`manifest` is the exact signed string (the signature is over those bytes, not a
+re-serialized copy). The check endpoint answers `{update:false}` for a missing
+channel, an unparseable/inconsistent channel, an untargeted device, a device
+version at or above the release, a device below the signed
+`min_from_version`, or unavailable Storage — the unit simply retries on its
+next 30-minute check.
+
+**Steps** (Jeff's machine, never CI or Vercel):
+
+1. Bump `FW_VERSION` in `firmware-main.ino`, then build the field image:
+
+   ```bash
+   pio run -d firmware
+   ```
+
+2. Sign it with the offline private key. The public PEM must be the matching
+   committed file in `firmware/keys/`; the script verifies the signature
+   against it before writing anything.
+
+   ```bash
+   node scripts/ota/sign-release.mjs \
+     --bin firmware/.pio/build/esp32dev/firmware.bin \
+     --version 1.4.1 \
+     --key ../ota-signing-keys/pakaonai-ota-primary-private.pem \
+     --key-id primary \
+     --min-from 1.4.0 \
+     --targets all \
+     --out ota-out
+   ```
+
+   `--targets all` covers every unit; use a comma-separated MAC list for a
+   canary. `--key-id spare` uses the pre-positioned rotation key. The private
+   key is never printed, and `ota-out/` is not committed.
+
+3. Upload the two objects to the **private** `firmware` bucket with the
+   service-role credentials (Supabase dashboard, or a trusted machine's CLI —
+   never from CI and never from the app):
+
+   | Local file | Storage object |
+   |---|---|
+   | `firmware/.pio/build/esp32dev/firmware.bin` | `releases/1.4.1/firmware.bin` |
+   | `ota-out/channels/stable.json` | `channels/stable.json` |
+
+4. Devices pick the release up on their next check (30 minutes by default)
+   inside the 10:00–15:00 window, and only after every pre-flight condition
+   above holds. The heartbeat then reports `ota_state=installed`, `valid` or
+   `rolled_back` with `firmware_version`; the server records those as
+   `DeviceStateEvent` rows (`ota_installed`, `ota_valid`, `ota_rolled_back`).
+
+**Holding or widening a rollout:** replace `channels/stable.json` with a channel
+whose `targets` includes or excludes the intended MACs. To pause everything,
+delete the object or point it at the version already installed — a device never
+accepts an equal or older version. There is no force flag and no downgrade path
+in 1.4.0; a bad image rolls back on its own (bench plan step B).
+
+**Signing keys:** the private keys stay offline in
+`C:/Users/Lenovo/Documents/PakaonAI/ota-signing-keys` (decision OTA-4) and are
+never generated, committed, logged or uploaded by this repository. Only
+`firmware/keys/pakaonai-ota-primary-public.pem` and
+`firmware/keys/pakaonai-ota-spare-public.pem` are committed, and a test keeps
+them identical to the PEMs embedded in `firmware-main.ino`.
 
 ## Backend Contract
 

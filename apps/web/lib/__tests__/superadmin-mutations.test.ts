@@ -115,7 +115,7 @@ describe("createPlatformUser", () => {
 		expect(audits).toHaveLength(1);
 		expect(audits[0]).toMatchObject({
 			action: "platform.user.create",
-			targetType: "platform_console",
+			targetType: "user",
 			targetId: result.userId,
 			reason: REASON,
 			actorUserId: PLATFORM_ADMIN_A_ID,
@@ -195,7 +195,7 @@ describe("updatePlatformUser", () => {
 		expect(audits).toHaveLength(1);
 		expect(audits[0]).toMatchObject({
 			action: "platform.user.update",
-			targetType: "platform_console",
+			targetType: "user",
 			targetId: FARMER_B_ID,
 			reason: REASON,
 			actorUserId: PLATFORM_ADMIN_A_ID,
@@ -246,7 +246,7 @@ describe("createOrg", () => {
 		expect(audits).toHaveLength(1);
 		expect(audits[0]).toMatchObject({
 			action: "platform.org.create",
-			targetType: "platform_console",
+			targetType: "organization",
 			targetId: result.orgId,
 			reason: REASON,
 			actorUserId: PLATFORM_ADMIN_A_ID,

@@ -57,6 +57,7 @@ const PRISMA_MODELS = [
 type MockDelegate = {
 	findMany: ReturnType<typeof vi.fn>;
 	deleteMany: ReturnType<typeof vi.fn>;
+	count: ReturnType<typeof vi.fn>;
 };
 
 type MockPrisma = Record<(typeof PRISMA_MODELS)[number], MockDelegate>;
@@ -69,6 +70,7 @@ function createPrismaMock(
 		prisma[model] = {
 			findMany: vi.fn().mockResolvedValue([]),
 			deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+			count: vi.fn().mockResolvedValue(0),
 			...overrides[model],
 		};
 	}
@@ -215,5 +217,34 @@ describe("cleanup guards", () => {
 			expect(prisma[model].deleteMany, `${model}.deleteMany`).not.toHaveBeenCalled();
 		}
 		expect(supabase.auth.admin.deleteUser).not.toHaveBeenCalled();
+	});
+
+	it("never deletes platform audit rows (append-only table) and reports them as kept", async () => {
+		const prisma = fixturePrisma({
+			organization: { findMany: vi.fn().mockResolvedValue([{ id: "e2e-org", name: "e2e-org" }]) },
+			user: {
+				findMany: vi
+					.fn()
+					.mockResolvedValue([
+						{ id: "user-e2e", farmId: "e2e-farmer", email: "e2e-farmer@pond.optifeed.local" },
+					]),
+			},
+			platformAuditLog: {
+				findMany: vi.fn().mockResolvedValue([]),
+				deleteMany: vi.fn().mockRejectedValue(new Error("PlatformAuditLog is append-only")),
+				count: vi.fn().mockResolvedValue(3),
+			},
+		});
+		const supabase = createSupabaseMock([]);
+
+		const summary = await runCleanup({
+			prisma: prisma as unknown as PrismaClient,
+			supabase: supabase as unknown as SupabaseClient,
+			env: VALID_ENV,
+			dryRun: false,
+		});
+
+		expect(prisma.platformAuditLog.deleteMany).not.toHaveBeenCalled();
+		expect(summary.counts.keptAuditRows).toBe(3);
 	});
 });

@@ -39,6 +39,7 @@ type CleanupCounts = {
 	deviceRows: number;
 	pondRows: number;
 	auditRows: number;
+	keptAuditRows: number;
 	authUsers: number;
 };
 
@@ -216,6 +217,7 @@ export async function runCleanup(options: CleanupOptions): Promise<CleanupSummar
 		deviceRows: 0,
 		pondRows: 0,
 		auditRows: 0,
+		keptAuditRows: 0,
 		authUsers: authUsers.length,
 	};
 
@@ -330,10 +332,14 @@ export async function runCleanup(options: CleanupOptions): Promise<CleanupSummar
 				await prisma.impersonationSession.deleteMany({ where: { OR: sessionConditions } }),
 			);
 		}
+		// PlatformAuditLog is append-only: a database trigger raises on every
+		// UPDATE or DELETE (migration 20261017000000_add_platform_admin). The
+		// rows written by an e2e run are kept as the permanent record of what the
+		// suite did; only their count is reported.
 		if (auditConditions.length > 0) {
-			counts.auditRows += countOf(
-				await prisma.platformAuditLog.deleteMany({ where: { OR: auditConditions } }),
-			);
+			counts.keptAuditRows += await prisma.platformAuditLog.count({
+				where: { OR: auditConditions },
+			});
 		}
 
 		// ── Parents ─────────────────────────────────────────────────────────
@@ -393,7 +399,8 @@ function printSummary(summary: CleanupSummary): void {
 	console.log(`Platform grants:    ${summary.counts.platformAdmins}`);
 	console.log(`Device child rows:  ${summary.counts.deviceRows}`);
 	console.log(`Pond child rows:    ${summary.counts.pondRows}`);
-	console.log(`Audit/session rows: ${summary.counts.auditRows}`);
+	console.log(`View-as session rows deleted: ${summary.counts.auditRows}`);
+	console.log(`Platform audit rows kept (append-only by design): ${summary.counts.keptAuditRows}`);
 	console.log(`Auth accounts:      ${summary.counts.authUsers}`);
 	console.log("");
 	console.log("Fixture identifiers:");

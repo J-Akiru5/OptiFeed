@@ -112,6 +112,11 @@ export default async function SuperadminUsersPage() {
 											) : (
 												<span className="text-[11px] text-[#3D5568]">—</span>
 											)}
+											{user.disabled && (
+												<span className="ml-1.5 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-200 text-[#3D5568] text-[10px] font-black uppercase tracking-wider">
+													Disabled
+												</span>
+											)}
 										</td>
 
 										<td className="px-6 py-4">
@@ -119,6 +124,7 @@ export default async function SuperadminUsersPage() {
 												userId={user.id}
 												farmId={user.farmId}
 												isPlatformAdmin={user.isPlatformAdmin}
+												disabled={user.disabled}
 											/>
 										</td>
 									</tr>

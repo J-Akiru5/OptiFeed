@@ -628,6 +628,7 @@ Then continue with the v1 order below, skipping what §2a lists as built.
 | O15 | *(v2.1, **confirmed by Jeff**)* Existing accounts keep their legacy `User.role` when their membership role changes, until `UserRole` is retired from authorization (M2.5). | M2.5 |
 | O16 | *(v2.1, from T-15)* Target for the internal login domain rename (`docs/login-domain-rename-plan.md`): `pond.pakaonai.local` (recommended) or a routable subdomain; needs a migration window. | rename execution |
 | O17 | *(v2.1, from T-09a)* White text on the brand orange `#E85A2A` is 3.54:1 (fails WCAG AA for small text); the admin console now uses `#C2410C` for text-bearing actions. Adopt one AA-safe orange app-wide? | T-09 follow-up |
+| O18 | *(v2.1, from T-10)* Server actions return English error strings without stable codes (superadmin, platform devices/members/impersonation, step-up, ai-providers, password), so they show untranslated. Add stable error codes in a follow-up? | i18n follow-up |
 | O12 | *(v2)* The benchmark rates missing MFA as High; T13 defers it to the commercial gate. Keep T13 as is, or pull MFA forward? (Not reopened here; Jeff's call.) | M8.1 timing |
 
 ---

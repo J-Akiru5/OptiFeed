@@ -1,5 +1,10 @@
 import "./device-sticker.css";
-import { HARDWARE_RATING, maxPowerW } from "@/lib/constants/hardware-rating";
+import {
+	HARDWARE_RATING,
+	type HardwareRating,
+	maxPower,
+	powerUnit,
+} from "@/lib/constants/hardware-rating";
 import {
 	QR_QUIET_ZONE,
 	SETUP_PORTAL_ADDRESS,
@@ -10,8 +15,10 @@ import {
 
 export type DeviceStickerStrings = {
 	subtitle: string;
-	/** Header tag; `{type}` is replaced with the supply type. */
+	/** Header tag for a DC supply; `{type}` is replaced with the supply type. */
 	tag: string;
+	/** Header tag for an AC supply. */
+	tagAc: string;
 	sectionRating: string;
 	input: string;
 	current: string;
@@ -73,7 +80,11 @@ function withBold(template: string, token: string, value: string) {
 export function DeviceSticker({ mac, strings }: Props) {
 	const ssid = provisioningApSsid(mac);
 	const qr = qrSvgData(wifiSetupPayload(ssid));
-	const { inputVoltage, supplyType, maxCurrentA } = HARDWARE_RATING;
+	const rating: HardwareRating = HARDWARE_RATING;
+	const { inputVoltage, supplyType, maxCurrentA } = rating;
+	// "AC 60 Hz" for mains, plain "DC" otherwise.
+	const supplyLine =
+		rating.supplyType === "AC" ? `${supplyType} ${fmt(rating.frequencyHz)} Hz` : supplyType;
 
 	return (
 		<section className="pk-sticker" data-ssid={ssid}>
@@ -83,7 +94,9 @@ export function DeviceSticker({ mac, strings }: Props) {
 					<img alt="PakaonAI" src={LOGO_WORDMARK} />
 					<span className="pk-sub">{strings.subtitle}</span>
 				</div>
-				<span className="pk-tag">{strings.tag.replace("{type}", supplyType)}</span>
+				<span className="pk-tag">
+					{supplyType === "AC" ? strings.tagAc : strings.tag.replace("{type}", supplyType)}
+				</span>
 			</div>
 			<div className="pk-body">
 				<div className="pk-left">
@@ -91,17 +104,26 @@ export function DeviceSticker({ mac, strings }: Props) {
 					<div className="pk-rate">
 						<div className="pk-cell">
 							<span className="pk-k">{strings.input}</span>
-							<b>{fmt(inputVoltage)} V</b>
-							<span className="pk-u">{supplyType}</span>
+							<b>
+								{fmt(inputVoltage)}
+								<span className="pk-bu"> V</span>
+							</b>
+							<span className="pk-u">{supplyLine}</span>
 						</div>
 						<div className="pk-cell">
 							<span className="pk-k">{strings.current}</span>
-							<b>{fmt(maxCurrentA)} A</b>
+							<b>
+								{fmt(maxCurrentA)}
+								<span className="pk-bu"> A</span>
+							</b>
 							<span className="pk-u">{strings.max}</span>
 						</div>
 						<div className="pk-cell">
 							<span className="pk-k">{strings.power}</span>
-							<b>{fmt(maxPowerW())} W</b>
+							<b>
+								{fmt(maxPower())}
+								<span className="pk-bu"> {powerUnit()}</span>
+							</b>
 							<span className="pk-u">{strings.max}</span>
 						</div>
 					</div>

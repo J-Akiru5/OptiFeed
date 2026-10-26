@@ -6,7 +6,12 @@ import {
 import { PrintButton } from "@/components/admin/print-button";
 import { Link } from "@/i18n/routing";
 import { getDevicesForLabels } from "@/lib/actions/admin";
-import { HARDWARE_RATING, maxPowerW } from "@/lib/constants/hardware-rating";
+import {
+	HARDWARE_RATING,
+	type HardwareRating,
+	maxPower,
+	powerUnit,
+} from "@/lib/constants/hardware-rating";
 import { provisioningApSsid, wifiSetupPayload } from "@/lib/provisioning-ap";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -36,6 +41,7 @@ export default async function DeviceLabelsPage({
 	const strings: DeviceStickerStrings = {
 		subtitle: t.raw("sticker.subtitle"),
 		tag: t.raw("sticker.tag"),
+		tagAc: t.raw("sticker.tagAc"),
 		sectionRating: t.raw("sticker.sectionRating"),
 		input: t.raw("sticker.input"),
 		current: t.raw("sticker.current"),
@@ -69,6 +75,7 @@ export default async function DeviceLabelsPage({
 		seen.set(ssid, device.mac.toUpperCase());
 	}
 
+	const rating: HardwareRating = HARDWARE_RATING;
 	const firstSsid = provisioningApSsid(devices[0].mac);
 
 	return (
@@ -94,14 +101,15 @@ export default async function DeviceLabelsPage({
 					<p>
 						<b className="text-[#8A4A00]">{t("verifyTitle")}</b>{" "}
 						{t("verifyIntro", {
-							volts: HARDWARE_RATING.inputVoltage,
-							amps: HARDWARE_RATING.maxCurrentA,
+							volts: rating.inputVoltage,
+							hz: rating.supplyType === "AC" ? rating.frequencyHz : 0,
+							amps: rating.maxCurrentA,
 						})}
 					</p>
 					<ul className="mt-2 list-disc space-y-1 pl-5">
 						<li>{t("verifyReadLabels")}</li>
 						<li>{t("verifyMeasure")}</li>
-						<li>{t("verifyPower", { watts: maxPowerW() })}</li>
+						<li>{t("verifyPower", { power: maxPower(), unit: powerUnit() })}</li>
 					</ul>
 				</div>
 

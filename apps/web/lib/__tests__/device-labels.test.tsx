@@ -86,6 +86,7 @@ const orgAScope = {
 const strings: DeviceStickerStrings = {
 	subtitle: "Precision Feeder Unit",
 	tag: "{type} input only",
+	tagAc: "AC input",
 	sectionRating: "Power rating",
 	input: "Input",
 	current: "Current",
@@ -205,12 +206,16 @@ describe("sticker never carries a credential", () => {
 describe("sticker content", () => {
 	it("prints the rating, unit id, setup steps and an SVG QR", () => {
 		const html = renderToStaticMarkup(<DeviceSticker mac="a4:cf:12:7e:3b:09" strings={strings} />);
-		expect(html).toContain("12 V");
-		expect(html).toContain("5 A");
-		expect(html).toContain("60 W");
+		const text = html.replace(/<[^>]+>/g, "");
+		expect(text).toContain("220 V");
+		expect(text).toContain("1.1 A");
+		expect(text).toContain("242 VA");
+		expect(text).toContain("AC 60 Hz");
+		expect(text).toContain("AC supply only");
 		expect(html).toContain("A4:CF:12:7E:3B:09");
 		expect(html).toContain("192.168.4.1");
-		expect(html).toContain("DC input only");
+		expect(text).toContain("AC input");
+		expect(text).not.toContain("DC");
 		expect(html).toContain("pakaonai-mark-color-light.svg");
 		expect(html).toContain("pakaonai-wordmark-color.svg");
 		expect(html).toMatch(/<svg[^>]*viewBox="-4 -4 37 37"/);

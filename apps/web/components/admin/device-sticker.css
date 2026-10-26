@@ -141,6 +141,11 @@
 	letter-spacing: -0.01em;
 	white-space: nowrap;
 }
+.pk-cell b .pk-bu {
+	display: inline;
+	font-size: 9pt;
+	letter-spacing: 0;
+}
 .pk-u {
 	display: block;
 	font-size: 5.2pt;

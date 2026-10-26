@@ -12,10 +12,10 @@ describe("hardware rating", () => {
 
 	it("rounds the summed load current up to the next 0.1 A", () => {
 		const sum = RATED_LOADS.reduce((total, load) => total + load.currentA, 0);
-		// Blower 1.0 A (nameplate) + gear motor 6 W / 220 V = 0.027 A
-		// + electronics about 8 VA / 220 V = 0.036 A (estimate).
-		expect(sum).toBeCloseTo(1.0636, 4);
-		expect(HARDWARE_RATING.maxCurrentA).toBe(1.1);
+		// Blower 1.0 A (nameplate) + gear motor and speed controller 0.117 A
+		// + electronics 0.036 A (both estimated).
+		expect(sum).toBeCloseTo(1.1538, 4);
+		expect(HARDWARE_RATING.maxCurrentA).toBe(1.2);
 		expect(HARDWARE_RATING.maxCurrentA).toBeGreaterThanOrEqual(sum);
 		expect(HARDWARE_RATING.maxCurrentA - sum).toBeLessThan(0.1);
 	});
@@ -26,7 +26,7 @@ describe("hardware rating", () => {
 	});
 
 	it("derives max power as V x A, in VA for AC and W for DC", () => {
-		expect(maxPower()).toBeCloseTo(242, 6);
+		expect(maxPower()).toBeCloseTo(264, 6);
 		expect(powerUnit()).toBe("VA");
 		expect(powerUnit({ supplyType: "DC" })).toBe("W");
 		expect(maxPower({ inputVoltage: 12, maxCurrentA: 5 })).toBe(60);

@@ -208,8 +208,8 @@ describe("sticker content", () => {
 		const html = renderToStaticMarkup(<DeviceSticker mac="a4:cf:12:7e:3b:09" strings={strings} />);
 		const text = html.replace(/<[^>]+>/g, "");
 		expect(text).toContain("220 V");
-		expect(text).toContain("1.1 A");
-		expect(text).toContain("242 VA");
+		expect(text).toContain("1.2 A");
+		expect(text).toContain("264 VA");
 		expect(text).toContain("AC 60 Hz");
 		expect(text).toContain("AC supply only");
 		expect(html).toContain("A4:CF:12:7E:3B:09");

@@ -25,6 +25,7 @@ export function ViewAsBanner({
 	reason: string;
 	expiresAt: string;
 }) {
+	const t = useTranslations("superadmin.viewAsBanner");
 	const router = useRouter();
 	const tDates = useTranslations("dates");
 	const [isPending, startTransition] = useTransition();
@@ -49,7 +50,7 @@ export function ViewAsBanner({
 				router.push("/superadmin/orgs");
 				router.refresh();
 			} catch (err) {
-				setError(err instanceof Error ? err.message : "Could not end the view-as session.");
+				setError(err instanceof Error ? err.message : t("exitFailed"));
 			}
 		});
 	};
@@ -60,14 +61,12 @@ export function ViewAsBanner({
 				<div className="flex min-w-0 items-start gap-2.5">
 					<Eye className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
 					<div className="min-w-0 text-xs md:text-sm">
-						<p className="font-black uppercase tracking-wide">Read-only view as {orgName}</p>
+						<p className="font-black uppercase tracking-wide">{t("title", { orgName })}</p>
 						<p className="mt-0.5 break-words text-white/90">
-							Reason: {reason}
-							{localExpiry ? ` · Ends at ${localExpiry}` : ""}
+							{t("reason", { reason })}
+							{localExpiry ? t("endsAt", { time: localExpiry }) : ""}
 						</p>
-						<p className="mt-0.5 text-[11px] text-white/85">
-							Every write is disabled. Exit to return to the platform console.
-						</p>
+						<p className="mt-0.5 text-[11px] text-white/85">{t("note")}</p>
 					</div>
 				</div>
 				<div className="flex items-center gap-3">
@@ -91,7 +90,7 @@ export function ViewAsBanner({
 						) : (
 							<LogOut className="h-3.5 w-3.5" aria-hidden="true" />
 						)}
-						Exit view-as
+						{t("exit")}
 					</button>
 				</div>
 			</div>

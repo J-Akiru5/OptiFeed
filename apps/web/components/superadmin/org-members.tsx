@@ -23,20 +23,8 @@ import type { Permission } from "@/lib/auth/permissions";
 import { cn } from "@/lib/utils";
 import type { MemberRole } from "@prisma/client";
 import { Check, ChevronDown, Copy, Loader2, ShieldAlert, UserPlus, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
-
-const PERMISSION_LABELS: Record<Permission, string> = {
-	view_dashboard: "View dashboard",
-	view_reports: "View reports",
-	manage_members: "Manage members",
-	manage_farms_ponds: "Manage farms and ponds",
-	manage_schedule: "Manage schedule",
-	manage_crop_cycle: "Manage crop cycle",
-	claim_feeder: "Claim feeder",
-	control_feeder: "Control feeder",
-	record_dispatch: "Record dispatch",
-	view_billing: "View billing",
-};
 
 type MutationResult = { success: true } | { error: string; code?: "step_up_required" };
 
@@ -54,7 +42,7 @@ function isRedirectError(error: unknown): boolean {
 }
 
 /**
- * God-mode member management for one organization.
+ * Platform member management for one organization.
  *
  * Every mutation sends the shared reason, and a `step_up_required` answer opens
  * the same password dialog the device registry uses, then retries the exact
@@ -72,6 +60,9 @@ export function OrgMembersPanel({
 	/** Server-formatted join dates keyed by membership id (logger-safe dates). */
 	joinedLabels: Record<string, string>;
 }) {
+	const t = useTranslations("superadmin.orgMembers");
+	const tCommon = useTranslations("superadmin.common");
+	const tRoot = useTranslations("superadmin");
 	const router = useRouter();
 
 	const [reason, setReason] = useState("");
@@ -100,7 +91,7 @@ export function OrgMembersPanel({
 	function buildReason(): string | null {
 		const trimmed = reason.trim();
 		if (trimmed.length < 10) {
-			setError("A reason of at least 10 characters is required for every change.");
+			setError(t("reasonRequired"));
 			return null;
 		}
 		return trimmed;
@@ -133,11 +124,11 @@ export function OrgMembersPanel({
 				return;
 			}
 			onSuccess?.(result as Extract<T, { success: true }>);
-			setNotice("Saved. The audit log has one new membership row.");
+			setNotice(t("saved"));
 			router.refresh();
 		} catch (e) {
 			if (isRedirectError(e)) throw e;
-			setError("The action failed. Try again.");
+			setError(t("actionFailed"));
 		} finally {
 			setPending(null);
 		}
@@ -156,7 +147,7 @@ export function OrgMembersPanel({
 			router.refresh();
 			return;
 		}
-		void run(`role:${member.userId}`, "change this member's role", () =>
+		void run(`role:${member.userId}`, t("stepUpActions.role"), () =>
 			changeOrgMemberRole({
 				orgId,
 				userId: member.userId,
@@ -169,7 +160,7 @@ export function OrgMembersPanel({
 	function handlePermission(member: PlatformOrgMember, permission: Permission, granted: boolean) {
 		const reasonValue = buildReason();
 		if (!reasonValue) return;
-		void run(`perm:${member.membershipId}:${permission}`, "update this member's permissions", () =>
+		void run(`perm:${member.membershipId}:${permission}`, t("stepUpActions.permission"), () =>
 			setOrgMemberPermission({
 				orgId,
 				userId: member.userId,
@@ -185,7 +176,7 @@ export function OrgMembersPanel({
 		if (!reasonValue) return;
 		void run(
 			`revoke:${member.userId}`,
-			"revoke this membership",
+			t("stepUpActions.revoke"),
 			() => revokeOrgMembership({ orgId, userId: member.userId, reason: reasonValue }),
 			() => setRevokeConfirm(null),
 		);
@@ -195,16 +186,16 @@ export function OrgMembersPanel({
 		const reasonValue = buildReason();
 		if (!reasonValue) return;
 		if (!inviteEmail.trim()) {
-			setError("Enter the member's email.");
+			setError(t("emailRequired"));
 			return;
 		}
 		if (!inviteName.trim()) {
-			setError("Enter the member's display name.");
+			setError(t("nameRequired"));
 			return;
 		}
 		await run(
 			"invite",
-			"invite this member",
+			t("stepUpActions.invite"),
 			() =>
 				inviteOrgMember({
 					orgId,
@@ -235,7 +226,7 @@ export function OrgMembersPanel({
 			await navigator.clipboard.writeText(password);
 			setCopied(true);
 		} catch {
-			setError("Copy failed — select the password and copy it manually.");
+			setError(t("copyFailed"));
 		}
 	}
 
@@ -243,10 +234,9 @@ export function OrgMembersPanel({
 		<div className="space-y-5">
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div>
-					<h2 className="font-black text-[#0A3D62]">Members</h2>
+					<h2 className="font-black text-[#0A3D62]">{tCommon("members")}</h2>
 					<p className="mt-1 text-xs text-[#3D5568]">
-						{members.length} active member{members.length === 1 ? "" : "s"}. Changes here bypass the
-						tenant last-owner guard and are recorded in the platform audit log.
+						{t("description", { count: members.length })}
 					</p>
 				</div>
 				<button
@@ -260,7 +250,7 @@ export function OrgMembersPanel({
 					className={cn(PRIMARY_BUTTON, "px-3 py-2 text-xs font-black")}
 				>
 					<UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
-					Invite member
+					{t("invite")}
 				</button>
 			</div>
 
@@ -270,31 +260,34 @@ export function OrgMembersPanel({
 					className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-[#B45309]"
 				>
 					<ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
-					Reason for every change (required, 10+ characters)
+					{t("reasonLabel")}
 				</label>
 				<textarea
 					id="platform-member-reason"
 					value={reason}
 					onChange={(event) => setReason(event.target.value)}
 					rows={2}
-					placeholder="e.g. Owner asked us to correct a wrong role after a staff handover"
+					placeholder={t("reasonPlaceholder")}
 					aria-describedby="platform-member-reason-hint"
 					className="mt-1.5 w-full rounded-xl border border-[#E85A2A]/30 bg-white px-3 py-2 text-sm text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
 				/>
 				<p id="platform-member-reason-hint" className="mt-1 text-[10px] font-medium text-[#B45309]">
-					{reason.trim().length}/10 characters. A dangerous action also asks for your password
-					(step-up) before it runs.
+					{t("charCount", { count: reason.trim().length })}
 				</p>
 			</div>
 
 			{error && (
-				<Alert tone="error" onDismiss={() => setError(null)} dismissLabel="Dismiss error">
+				<Alert tone="error" onDismiss={() => setError(null)} dismissLabel={tCommon("dismissError")}>
 					{error}
 				</Alert>
 			)}
 
 			{notice && (
-				<Alert tone="success" onDismiss={() => setNotice(null)} dismissLabel="Dismiss notice">
+				<Alert
+					tone="success"
+					onDismiss={() => setNotice(null)}
+					dismissLabel={tCommon("dismissNotice")}
+				>
 					{notice}
 				</Alert>
 			)}
@@ -304,29 +297,25 @@ export function OrgMembersPanel({
 					id="platform-invite-panel"
 					className="rounded-xl border border-gray-200 bg-[#F4F7F6] p-4"
 				>
-					<p className="text-sm font-black text-[#0A3D62]">Invite a member</p>
-					<p className="mt-1 text-[11px] leading-relaxed text-[#3D5568]">
-						An existing account is attached by address. Otherwise a login is provisioned and the
-						login details are emailed to the address you enter; the one-time password is also shown
-						once below.
-					</p>
+					<p className="text-sm font-black text-[#0A3D62]">{t("inviteTitle")}</p>
+					<p className="mt-1 text-[11px] leading-relaxed text-[#3D5568]">{t("inviteDesc")}</p>
 					<div className="mt-3 grid gap-3 sm:grid-cols-3">
 						<div className="space-y-1">
 							<label htmlFor="invite-email" className={FIELD_LABEL}>
-								Email
+								{tCommon("email")}
 							</label>
 							<input
 								id="invite-email"
 								type="email"
 								value={inviteEmail}
 								onChange={(event) => setInviteEmail(event.target.value)}
-								placeholder="member@example.com"
+								placeholder={t("emailPlaceholder")}
 								className={FIELD_INPUT}
 							/>
 						</div>
 						<div className="space-y-1">
 							<label htmlFor="invite-name" className={FIELD_LABEL}>
-								Display name
+								{tCommon("displayName")}
 							</label>
 							<input
 								id="invite-name"
@@ -338,7 +327,7 @@ export function OrgMembersPanel({
 						</div>
 						<div className="space-y-1">
 							<label htmlFor="invite-role" className={FIELD_LABEL}>
-								Role
+								{tCommon("role")}
 							</label>
 							<select
 								id="invite-role"
@@ -352,7 +341,7 @@ export function OrgMembersPanel({
 							>
 								{MEMBER_ROLES.map((role) => (
 									<option key={role} value={role}>
-										{role}
+										{tRoot(`roles.${role}`)}
 									</option>
 								))}
 							</select>
@@ -371,7 +360,7 @@ export function OrgMembersPanel({
 							{pending === "invite" && (
 								<Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
 							)}
-							{pending === "invite" ? "Inviting…" : "Invite member"}
+							{pending === "invite" ? t("inviting") : t("invite")}
 						</button>
 						<button
 							type="button"
@@ -379,7 +368,7 @@ export function OrgMembersPanel({
 							disabled={pending === "invite"}
 							className={cn(SECONDARY_BUTTON, "px-3 py-2")}
 						>
-							Cancel
+							{tCommon("cancel")}
 						</button>
 					</div>
 				</div>
@@ -390,19 +379,15 @@ export function OrgMembersPanel({
 					<div className="flex items-start justify-between gap-3">
 						<div className="min-w-0">
 							<p className="text-sm font-black text-[#1E7B34]">
-								{inviteResult.createdUser
-									? "Login created — temporary password (shown once)"
-									: "Existing account attached to this organization"}
+								{inviteResult.createdUser ? t("loginCreated") : t("existingAttached")}
 							</p>
 							<p className="mt-1 text-[11px] text-[#1E7B34]">
-								Login: <span className="font-mono">{inviteResult.loginEmail}</span>
+								{t("login", { email: inviteResult.loginEmail })}
 							</p>
 							{inviteResult.temporaryPassword && (
 								<>
 									<p className="mt-1 text-[11px] font-bold text-[#1E7B34]">
-										{inviteResult.emailSent
-											? "Invitation email sent."
-											: "Invitation email not sent (email delivery is unconfigured or failed). Share the password below directly."}
+										{inviteResult.emailSent ? t("emailSent") : t("emailNotSent")}
 									</p>
 									<div className="mt-2 flex flex-wrap items-center gap-2">
 										<code className="break-all rounded-lg bg-white px-3 py-1.5 font-mono text-sm font-bold text-[#0A3D62] ring-1 ring-[#1E7B34]/20">
@@ -418,7 +403,7 @@ export function OrgMembersPanel({
 											) : (
 												<Copy className="h-3.5 w-3.5" aria-hidden="true" />
 											)}
-											{copied ? "Copied" : "Copy password"}
+											{copied ? tCommon("copied") : tCommon("copyPassword")}
 										</button>
 									</div>
 								</>
@@ -427,7 +412,7 @@ export function OrgMembersPanel({
 						<button
 							type="button"
 							onClick={() => setInviteResult(null)}
-							aria-label="Dismiss invite result"
+							aria-label={t("dismissInvite")}
 							className={cn("rounded-lg p-1 text-[#1E7B34] hover:bg-white/70", FOCUS_RING)}
 						>
 							<X className="h-4 w-4" aria-hidden="true" />
@@ -439,12 +424,16 @@ export function OrgMembersPanel({
 			<div className="overflow-hidden rounded-xl border border-gray-200">
 				<div className="overflow-x-auto">
 					<table className="w-full min-w-[44rem] text-sm">
-						<caption className="sr-only">
-							Active members of this organization, with role, permissions and actions
-						</caption>
+						<caption className="sr-only">{t("caption")}</caption>
 						<thead>
 							<tr className="border-b border-gray-100 bg-[#F4F7F6]">
-								{["Member", "Role", "Permissions", "Joined", "Actions"].map((heading) => (
+								{[
+									t("columnMember"),
+									t("columnRole"),
+									t("columnPermissions"),
+									t("columnJoined"),
+									t("columnActions"),
+								].map((heading) => (
 									<th
 										key={heading}
 										scope="col"
@@ -471,7 +460,9 @@ export function OrgMembersPanel({
 										<td className="px-4 py-3">
 											<div className="flex flex-wrap items-center gap-1.5">
 												<p className="font-black text-[#0A3D62]">{name}</p>
-												{member.isPlatformAdmin && <Badge tone="accent">Platform admin</Badge>}
+												{member.isPlatformAdmin && (
+													<Badge tone="accent">{tCommon("platformAdmin")}</Badge>
+												)}
 											</div>
 											<p className="text-[11px] text-[#3D5568]">{member.email}</p>
 											<p className="font-mono text-[10px] text-[#3D5568]">{member.farmId}</p>
@@ -482,12 +473,12 @@ export function OrgMembersPanel({
 												value={member.role}
 												onChange={(event) => handleRoleChange(member, event.target.value)}
 												disabled={pendingRole || pendingInvite || pendingRevoke}
-												aria-label={`Role for ${name}`}
+												aria-label={t("roleAria", { name })}
 												className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:opacity-60"
 											>
 												{MEMBER_ROLES.map((role) => (
 													<option key={role} value={role}>
-														{role}
+														{tRoot(`roles.${role}`)}
 													</option>
 												))}
 											</select>
@@ -509,7 +500,7 @@ export function OrgMembersPanel({
 													className={`h-3 w-3 transition-transform ${isExpanded ? "rotate-180" : ""}`}
 													aria-hidden="true"
 												/>
-												{member.permissions.length} granted
+												{t("granted", { count: member.permissions.length })}
 											</button>
 											{isExpanded && (
 												<ul
@@ -532,7 +523,7 @@ export function OrgMembersPanel({
 																		className="mt-0.5 h-3.5 w-3.5 accent-[#E85A2A]"
 																	/>
 																	<span className="text-[11px] font-bold text-[#0A3D62]">
-																		{PERMISSION_LABELS[permission]}
+																		{tRoot(`permissions.${permission}`)}
 																		<span className="block font-mono text-[9px] font-medium text-[#3D5568]">
 																			{permission}
 																		</span>
@@ -564,7 +555,7 @@ export function OrgMembersPanel({
 														{pendingRevoke && (
 															<Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
 														)}
-														Confirm revoke
+														{t("confirmRevoke")}
 													</button>
 													<button
 														type="button"
@@ -572,7 +563,7 @@ export function OrgMembersPanel({
 														disabled={pendingRevoke}
 														className={cn(SECONDARY_BUTTON, "px-2.5 py-1.5 text-[10px]")}
 													>
-														Cancel
+														{tCommon("cancel")}
 													</button>
 												</div>
 											) : (
@@ -585,7 +576,7 @@ export function OrgMembersPanel({
 														FOCUS_RING,
 													)}
 												>
-													Revoke
+													{t("revoke")}
 												</button>
 											)}
 										</td>
@@ -597,9 +588,7 @@ export function OrgMembersPanel({
 				</div>
 
 				{members.length === 0 && (
-					<p className="p-6 text-center text-sm text-[#3D5568]">
-						This organization has no active members.
-					</p>
+					<p className="p-6 text-center text-sm text-[#3D5568]">{t("empty")}</p>
 				)}
 			</div>
 

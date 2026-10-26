@@ -3,6 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 
 const { pathname } = vi.hoisted(() => ({ pathname: { current: "/superadmin" } }));
 
+vi.mock("next-intl", async () => {
+	const { createTranslator } = await import("./helpers/messages");
+	return { useTranslations: (namespace: string) => createTranslator(namespace) };
+});
+
 vi.mock("@/i18n/routing", async () => {
 	const react = await import("react");
 	return {

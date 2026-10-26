@@ -284,7 +284,7 @@ export function Alert({
 				<button
 					type="button"
 					onClick={onDismiss}
-					aria-label={dismissLabel ?? "Dismiss"}
+					aria-label={dismissLabel}
 					className={cn("shrink-0 rounded p-0.5 transition-colors hover:bg-white/60", FOCUS_RING)}
 				>
 					<X className="h-3.5 w-3.5" aria-hidden="true" />

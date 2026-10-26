@@ -15,15 +15,18 @@ vi.mock("@/lib/actions/platform/devices", () => ({
 	remoteSetDevicePause: vi.fn(),
 }));
 vi.mock("@/lib/actions/step-up", () => ({ startStepUp: vi.fn() }));
-vi.mock("next-intl/server", () => ({
-	getLocale: async () => "en",
-	getTranslations: async () => (key: string) => {
-		if (key.startsWith("days.")) return key.slice("days.".length);
-		if (key.startsWith("months.")) return key.slice("months.".length);
-		if (key === "am" || key === "pm") return key.toUpperCase();
-		return key;
-	},
-}));
+vi.mock("next-intl/server", async () => {
+	const { createTranslator } = await import("./helpers/messages");
+	return {
+		getLocale: async () => "en",
+		getTranslations: async (namespace: string) => createTranslator(namespace),
+	};
+});
+vi.mock("next-intl", async () => {
+	const { createTranslator } = await import("./helpers/messages");
+	return { useTranslations: (namespace: string) => createTranslator(namespace) };
+});
+
 vi.mock("@/i18n/routing", async () => {
 	const react = await import("react");
 	return {

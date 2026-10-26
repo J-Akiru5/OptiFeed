@@ -19,14 +19,18 @@ export function ListToolbar({
 	query,
 	label,
 	placeholder,
+	searchLabel,
 	children,
 }: {
 	/** Unique id prefix for the label/input pair. */
 	id: string;
 	action: string;
 	query: string;
+	/** Accessible name for the search field. */
 	label: string;
 	placeholder: string;
+	/** Visible text on the submit button. */
+	searchLabel: string;
 	children?: ReactNode;
 }) {
 	return (
@@ -48,7 +52,7 @@ export function ListToolbar({
 					/>
 					<button type="submit" className={SECONDARY_BUTTON}>
 						<Search className="h-3.5 w-3.5" aria-hidden="true" />
-						Search
+						{searchLabel}
 					</button>
 				</form>
 			</search>
@@ -64,14 +68,19 @@ export function ListToolbar({
  */
 export function ListPagination({
 	label,
-	page,
+	pageLabel,
+	previousLabel,
+	nextLabel,
 	pageCount,
 	previousHref,
 	nextHref,
 }: {
 	/** Accessible name for the nav landmark, e.g. "User pages". */
 	label: string;
-	page: number;
+	/** Localized "Page N of M". */
+	pageLabel: string;
+	previousLabel: string;
+	nextLabel: string;
 	pageCount: number;
 	previousHref: Href | null;
 	nextHref: Href | null;
@@ -83,32 +92,30 @@ export function ListPagination({
 			aria-label={label}
 			className="flex flex-wrap items-center justify-between gap-3 text-xs font-black"
 		>
-			<span className="text-[#3D5568]">
-				Page {page} of {pageCount}
-			</span>
+			<span className="text-[#3D5568]">{pageLabel}</span>
 			<div className="flex items-center gap-2">
 				{previousHref ? (
 					<Link href={previousHref} rel="prev" className={cn(SECONDARY_BUTTON, "px-3 py-1.5")}>
-						<span aria-hidden="true">←</span> Previous
+						<span aria-hidden="true">←</span> {previousLabel}
 					</Link>
 				) : (
 					<span
 						aria-hidden="true"
 						className="inline-flex items-center rounded-xl border border-gray-200 px-3 py-1.5 text-[#3D5568]/50"
 					>
-						← Previous
+						← {previousLabel}
 					</span>
 				)}
 				{nextHref ? (
 					<Link href={nextHref} rel="next" className={cn(SECONDARY_BUTTON, "px-3 py-1.5")}>
-						Next <span aria-hidden="true">→</span>
+						{nextLabel} <span aria-hidden="true">→</span>
 					</Link>
 				) : (
 					<span
 						aria-hidden="true"
 						className="inline-flex items-center rounded-xl border border-gray-200 px-3 py-1.5 text-[#3D5568]/50"
 					>
-						Next →
+						{nextLabel} →
 					</span>
 				)}
 			</div>

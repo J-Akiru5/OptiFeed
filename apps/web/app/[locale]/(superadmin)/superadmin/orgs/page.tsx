@@ -46,12 +46,20 @@ export default async function SuperadminOrgsPage({
 	const query = first(params.q)?.trim() ?? "";
 	const page = Number.parseInt(first(params.page) ?? "1", 10) || 1;
 
-	const [orgs, locale, tDates] = await Promise.all([
+	const [orgs, locale, t, tCommon, tRoot, tDates] = await Promise.all([
 		listOrgs({ query, page }),
 		getLocale(),
+		getTranslations("superadmin.orgs"),
+		getTranslations("superadmin.common"),
+		getTranslations("superadmin"),
 		getTranslations("dates"),
 	]);
 	const pageCount = Math.max(1, Math.ceil(orgs.total / orgs.pageSize));
+
+	const labelFor = (namespace: "orgTypes" | "orgStatuses", value: string) => {
+		const key = `${namespace}.${value}`;
+		return tRoot.has(key) ? tRoot(key) : value;
+	};
 
 	const pageHref = (target: number) => ({
 		pathname: "/superadmin/orgs" as const,
@@ -60,10 +68,7 @@ export default async function SuperadminOrgsPage({
 
 	return (
 		<div className="space-y-6">
-			<PageHeader
-				title="Organizations"
-				description={`${orgs.total} tenant${orgs.total !== 1 ? "s" : ""}. Memberships define what each account can see in the admin console.`}
-			/>
+			<PageHeader title={t("title")} description={t("description", { count: orgs.total })} />
 
 			<CreateOrgForm />
 
@@ -71,24 +76,21 @@ export default async function SuperadminOrgsPage({
 				id="orgs"
 				action={getPathname({ href: "/superadmin/orgs", locale })}
 				query={query}
-				label="Search organizations by name"
-				placeholder="Search organization name"
+				label={t("searchLabel")}
+				placeholder={t("searchPlaceholder")}
+				searchLabel={tCommon("search")}
 			/>
 
 			{orgs.rows.length === 0 ? (
 				<Card>
 					<EmptyState
 						icon={FolderTree}
-						title={query ? `No organization matches “${query}”.` : "No organizations yet."}
-						description={
-							query
-								? "Try a different organization name."
-								: "Create one above — tenant admins and farmers are added to an organization."
-						}
+						title={query ? t("emptyQuery", { query }) : t("emptyTitle")}
+						description={query ? t("emptyQueryDesc") : t("emptyDesc")}
 						action={
 							query ? (
 								<Link href="/superadmin/orgs" className={SECONDARY_BUTTON}>
-									Clear search
+									{tCommon("clearSearch")}
 								</Link>
 							) : undefined
 						}
@@ -111,23 +113,27 @@ export default async function SuperadminOrgsPage({
 											{org.name}
 										</Link>
 										<div className="mt-1 flex flex-wrap items-center gap-1.5">
-											<Badge tone={typeBadge[org.type] ?? "neutral"}>{org.type}</Badge>
-											<Badge tone={statusBadge[org.status] ?? "neutral"}>{org.status}</Badge>
+											<Badge tone={typeBadge[org.type] ?? "neutral"}>
+												{labelFor("orgTypes", org.type)}
+											</Badge>
+											<Badge tone={statusBadge[org.status] ?? "neutral"}>
+												{labelFor("orgStatuses", org.status)}
+											</Badge>
 										</div>
 									</div>
 								</div>
 
 								<dl className="grid grid-cols-3 gap-2">
-									<MetaPair label="Members">{org.memberCount}</MetaPair>
-									<MetaPair label="Ponds">{org.pondCount}</MetaPair>
-									<MetaPair label="Created">
+									<MetaPair label={tCommon("members")}>{org.memberCount}</MetaPair>
+									<MetaPair label={tCommon("ponds")}>{org.pondCount}</MetaPair>
+									<MetaPair label={tCommon("created")}>
 										{formatDateTimeLocal(org.createdAt, tDates).date}
 									</MetaPair>
 								</dl>
 
 								<div className="flex flex-wrap items-center gap-2">
 									<Link href={`/superadmin/orgs/${org.id}`} className={SECONDARY_BUTTON}>
-										Manage members
+										{t("manageMembers")}
 									</Link>
 									<ViewAsControl orgId={org.id} orgName={org.name} />
 								</div>
@@ -137,16 +143,16 @@ export default async function SuperadminOrgsPage({
 
 					<TableFrame
 						className="hidden md:block"
-						label="Platform organizations"
+						label={t("caption")}
 						minWidth="min-w-[62rem]"
 						columns={[
-							{ key: "org", label: "Organization" },
-							{ key: "type", label: "Type" },
-							{ key: "status", label: "Status" },
-							{ key: "members", label: "Members" },
-							{ key: "ponds", label: "Ponds" },
-							{ key: "created", label: "Created" },
-							{ key: "actions", label: "Actions" },
+							{ key: "org", label: t("columnOrganization") },
+							{ key: "type", label: t("columnType") },
+							{ key: "status", label: t("columnStatus") },
+							{ key: "members", label: t("columnMembers") },
+							{ key: "ponds", label: t("columnPonds") },
+							{ key: "created", label: t("columnCreated") },
+							{ key: "actions", label: t("columnActions") },
 						]}
 					>
 						{orgs.rows.map((org) => (
@@ -170,10 +176,14 @@ export default async function SuperadminOrgsPage({
 									</div>
 								</td>
 								<td className="px-6 py-4">
-									<Badge tone={typeBadge[org.type] ?? "neutral"}>{org.type}</Badge>
+									<Badge tone={typeBadge[org.type] ?? "neutral"}>
+										{labelFor("orgTypes", org.type)}
+									</Badge>
 								</td>
 								<td className="px-6 py-4">
-									<Badge tone={statusBadge[org.status] ?? "neutral"}>{org.status}</Badge>
+									<Badge tone={statusBadge[org.status] ?? "neutral"}>
+										{labelFor("orgStatuses", org.status)}
+									</Badge>
 								</td>
 								<td className="px-6 py-4 font-black tabular-nums text-[#0A3D62]">
 									{org.memberCount}
@@ -187,7 +197,7 @@ export default async function SuperadminOrgsPage({
 								<td className="px-6 py-4">
 									<div className="flex flex-wrap items-center gap-2">
 										<Link href={`/superadmin/orgs/${org.id}`} className={SECONDARY_BUTTON}>
-											Manage members
+											{t("manageMembers")}
 										</Link>
 										<ViewAsControl orgId={org.id} orgName={org.name} />
 									</div>
@@ -199,8 +209,10 @@ export default async function SuperadminOrgsPage({
 			)}
 
 			<ListPagination
-				label="Organization pages"
-				page={orgs.page}
+				label={t("pagerLabel")}
+				pageLabel={tCommon("pageOf", { page: orgs.page, count: pageCount })}
+				previousLabel={tCommon("previous")}
+				nextLabel={tCommon("next")}
 				pageCount={pageCount}
 				previousHref={orgs.page > 1 ? pageHref(orgs.page - 1) : null}
 				nextHref={orgs.page < pageCount ? pageHref(orgs.page + 1) : null}

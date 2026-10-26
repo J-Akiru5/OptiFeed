@@ -6,6 +6,7 @@ import { Link } from "@/i18n/routing";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { requirePasswordChanged } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
+import { getTranslations } from "next-intl/server";
 import Image from "next/image";
 
 /**
@@ -13,8 +14,8 @@ import Image from "next/image";
  * an account can hold role=ADMIN and still be denied here, and a role=VIEWER
  * superadmin is allowed here. Mirrors (admin)/layout.tsx.
  *
- * The console is English-only for now (translation is task T-10) and paints the
- * light brand surface regardless of the OS colour scheme, so the shell, the
+ * Copy comes from the `superadmin.shell` catalogue (T-10) and the shell paints
+ * the light brand surface regardless of the OS colour scheme, so the shell, the
  * pages, `loading.tsx` and `error.tsx` stay on the same palette.
  */
 export default async function SuperadminLayout({
@@ -24,6 +25,7 @@ export default async function SuperadminLayout({
 }) {
 	await requirePasswordChanged();
 	await requirePlatformAdmin();
+	const t = await getTranslations("superadmin.shell");
 
 	return (
 		<div className="flex min-h-screen flex-col bg-[#F4F7F6]">
@@ -31,14 +33,14 @@ export default async function SuperadminLayout({
 				href="#main-content"
 				className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-black focus:text-[#0A3D62] focus:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
 			>
-				Skip to content
+				{t("skipToContent")}
 			</a>
 
 			<header className="sticky top-0 z-30 flex h-16 w-full shrink-0 items-center justify-between gap-3 bg-[#0A3D62] px-4 shadow-md md:px-8">
 				<div className="flex min-w-0 items-center gap-3">
 					<Link
 						href="/superadmin"
-						aria-label="PakaonAI platform console home"
+						aria-label={t("homeLabel")}
 						className={cn(
 							"flex shrink-0 items-center justify-center rounded-lg transition-all",
 							FOCUS_RING_ON_DARK,
@@ -54,7 +56,7 @@ export default async function SuperadminLayout({
 						className="h-[26px] w-auto shrink-0 object-contain brightness-0 invert"
 					/>
 					<span className="ml-2 hidden items-center gap-1.5 rounded-full bg-[#E85A2A] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-white md:inline-flex">
-						Platform
+						{t("platform")}
 					</span>
 				</div>
 
@@ -66,7 +68,7 @@ export default async function SuperadminLayout({
 							FOCUS_RING_ON_DARK,
 						)}
 					>
-						Dashboard
+						{t("dashboard")}
 					</Link>
 				</div>
 			</header>

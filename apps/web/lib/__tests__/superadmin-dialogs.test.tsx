@@ -3,6 +3,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const refresh = vi.fn();
 
+vi.mock("next-intl", async () => {
+	const { createTranslator } = await import("./helpers/messages");
+	return { useTranslations: (namespace: string) => createTranslator(namespace) };
+});
+
 vi.mock("@/i18n/routing", () => ({
 	useRouter: () => ({ refresh, push: vi.fn(), replace: vi.fn() }),
 }));

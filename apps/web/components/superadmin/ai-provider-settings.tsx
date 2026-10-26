@@ -13,12 +13,15 @@ import type { AiProviderView } from "@/lib/actions/ai-providers";
 import { resetAiProviderConfig, saveAiProviderConfig } from "@/lib/actions/ai-providers";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Loader2, RotateCcw, Save, XCircle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState, useTransition } from "react";
 
 const EFFORT_OPTIONS = ["none", "low", "medium", "high"] as const;
 
 function ProviderCard({ provider }: { provider: AiProviderView }) {
+	const t = useTranslations("superadmin.aiProviders");
+	const tCommon = useTranslations("superadmin.common");
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const [enabled, setEnabled] = useState(provider.enabled);
@@ -36,7 +39,7 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 		setSaved(false);
 
 		if (reason.trim().length < 10) {
-			setError("Reason must be at least 10 characters.");
+			setError(tCommon("reasonMinLength", { count: 10 }));
 			return;
 		}
 
@@ -68,21 +71,21 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 					<h2 className="text-lg font-black text-[#0A3D62]">{provider.label}</h2>
 					<p className="text-[11px] font-extrabold uppercase tracking-wider text-[#3D5568]">
 						{provider.provider}
-						{provider.configured ? "" : " · using built-in default"}
+						{provider.configured ? "" : t("usingDefault")}
 					</p>
 				</div>
 				<Badge
 					tone={provider.apiKeyPresent ? "success" : "warning"}
 					icon={provider.apiKeyPresent ? CheckCircle2 : XCircle}
 				>
-					{provider.apiKeyPresent ? "Key detected" : "No key — inactive"}
+					{provider.apiKeyPresent ? t("keyDetected") : t("noKey")}
 				</Badge>
 			</div>
 
 			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 				<div className="space-y-1.5">
 					<label htmlFor={`${provider.provider}-model`} className={FIELD_LABEL}>
-						Model
+						{t("model")}
 					</label>
 					<input
 						id={`${provider.provider}-model`}
@@ -97,7 +100,7 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 
 				<div className="space-y-1.5">
 					<label htmlFor={`${provider.provider}-priority`} className={FIELD_LABEL}>
-						Priority (lower runs first)
+						{t("priority")}
 					</label>
 					<input
 						id={`${provider.provider}-priority`}
@@ -113,7 +116,7 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 
 				<div className="space-y-1.5">
 					<label htmlFor={`${provider.provider}-env`} className={FIELD_LABEL}>
-						API key env var
+						{t("apiKeyEnv")}
 					</label>
 					<input
 						id={`${provider.provider}-env`}
@@ -126,13 +129,14 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 						className={FIELD_INPUT}
 					/>
 					<p id={`${provider.provider}-env-hint`} className={FIELD_HINT}>
-						Name only (e.g. <code>{provider.apiKeyEnv}</code>). The key itself is never stored here.
+						{t("envHintBefore")} <code>{provider.apiKeyEnv}</code>
+						{t("envHintAfter")}
 					</p>
 				</div>
 
 				<div className="space-y-1.5">
 					<label htmlFor={`${provider.provider}-effort`} className={FIELD_LABEL}>
-						Reasoning effort
+						{t("effort")}
 					</label>
 					<select
 						id={`${provider.provider}-effort`}
@@ -143,11 +147,11 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 					>
 						{EFFORT_OPTIONS.map((option) => (
 							<option key={option} value={option}>
-								{option}
+								{t(`effortOptions.${option}`)}
 							</option>
 						))}
 					</select>
-					<p className={FIELD_HINT}>Ignored by providers without a reasoning parameter.</p>
+					<p className={FIELD_HINT}>{t("effortHint")}</p>
 				</div>
 			</div>
 
@@ -159,12 +163,12 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 					disabled={isPending}
 					className="h-4 w-4 rounded border-gray-300 text-[#E85A2A] focus:ring-[#E85A2A]"
 				/>
-				Enabled in the fallback chain
+				{t("enabled")}
 			</label>
 
 			<div className="space-y-1.5">
 				<label htmlFor={`${provider.provider}-reason`} className={FIELD_LABEL}>
-					Reason *
+					{tCommon("reasonRequired")}
 				</label>
 				<input
 					id={`${provider.provider}-reason`}
@@ -172,18 +176,18 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 					value={reason}
 					onChange={(e) => setReason(e.target.value)}
 					disabled={isPending}
-					placeholder="e.g. Rotate primary model to the cheaper tier"
+					placeholder={t("reasonPlaceholder")}
 					aria-describedby={`${provider.provider}-reason-hint`}
 					className={FIELD_INPUT}
 				/>
 				<p id={`${provider.provider}-reason-hint`} className={FIELD_HINT}>
-					Recorded in the platform audit log. At least 10 characters.
+					{t("reasonHint")}
 				</p>
 			</div>
 
 			{error && <Alert tone="error">{error}</Alert>}
 
-			{saved && <Alert tone="success">Saved. New requests use this chain within 30 seconds.</Alert>}
+			{saved && <Alert tone="success">{t("saved")}</Alert>}
 
 			<button type="submit" disabled={isPending} className={PRIMARY_BUTTON}>
 				{isPending ? (
@@ -191,13 +195,15 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 				) : (
 					<Save className="h-4 w-4" aria-hidden="true" />
 				)}
-				Save {provider.label}
+				{t("save", { label: provider.label })}
 			</button>
 		</form>
 	);
 }
 
 export function AiProviderSettings({ providers }: { providers: AiProviderView[] }) {
+	const t = useTranslations("superadmin.aiProviders");
+	const tCommon = useTranslations("superadmin.common");
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const [reason, setReason] = useState("");
@@ -209,7 +215,7 @@ export function AiProviderSettings({ providers }: { providers: AiProviderView[] 
 		setError(null);
 
 		if (reason.trim().length < 10) {
-			setError("Reason must be at least 10 characters.");
+			setError(tCommon("reasonMinLength", { count: 10 }));
 			return;
 		}
 
@@ -234,16 +240,13 @@ export function AiProviderSettings({ providers }: { providers: AiProviderView[] 
 
 			<form onSubmit={handleReset} className={cn(CARD, "space-y-4 p-6")} aria-busy={isPending}>
 				<h2 className="text-xs font-extrabold uppercase tracking-wider text-[#3D5568]">
-					Reset chain
+					{t("resetTitle")}
 				</h2>
-				<p className="text-sm text-[#3D5568]">
-					Deletes every stored row and returns the platform to the built-in defaults (OpenCode Go,
-					then Gemini). Environment variables are untouched.
-				</p>
+				<p className="text-sm text-[#3D5568]">{t("resetDesc")}</p>
 
 				<div className="space-y-1.5">
 					<label htmlFor="ai-provider-reset-reason" className={FIELD_LABEL}>
-						Reason *
+						{tCommon("reasonRequired")}
 					</label>
 					<input
 						id="ai-provider-reset-reason"
@@ -251,14 +254,14 @@ export function AiProviderSettings({ providers }: { providers: AiProviderView[] 
 						value={reason}
 						onChange={(e) => setReason(e.target.value)}
 						disabled={isPending}
-						placeholder="e.g. Roll back a bad model rollout"
+						placeholder={t("resetReasonPlaceholder")}
 						className={FIELD_INPUT}
 					/>
 				</div>
 
 				{error && <Alert tone="error">{error}</Alert>}
 
-				{reset && <Alert tone="success">Chain reset to defaults.</Alert>}
+				{reset && <Alert tone="success">{t("resetDone")}</Alert>}
 
 				<button
 					type="submit"
@@ -270,7 +273,7 @@ export function AiProviderSettings({ providers }: { providers: AiProviderView[] 
 					) : (
 						<RotateCcw className="h-4 w-4" aria-hidden="true" />
 					)}
-					Reset to Defaults
+					{t("reset")}
 				</button>
 			</form>
 		</div>

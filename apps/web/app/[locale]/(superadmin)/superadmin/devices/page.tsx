@@ -43,10 +43,12 @@ export default async function SuperadminDevicesPage({
 	const query = first(params.q)?.trim() ?? "";
 	const page = Number.parseInt(first(params.page) ?? "1", 10) || 1;
 
-	const [devices, options, locale, tDates] = await Promise.all([
+	const [devices, options, locale, t, tCommon, tDates] = await Promise.all([
 		listPlatformDevices({ query, page }),
 		getOrgPondOptions(),
 		getLocale(),
+		getTranslations("superadmin.devices"),
+		getTranslations("superadmin.common"),
 		getTranslations("dates"),
 	]);
 	const pageCount = Math.max(1, Math.ceil(devices.total / devices.pageSize));
@@ -59,14 +61,11 @@ export default async function SuperadminDevicesPage({
 	});
 
 	const lastSeen = (value: Date | null) =>
-		value ? formatDateTimeLocal(value, tDates).full : "Never";
+		value ? formatDateTimeLocal(value, tDates).full : tCommon("never");
 
 	return (
 		<div className="space-y-6">
-			<PageHeader
-				title="Devices"
-				description={`${devices.total} device${devices.total !== 1 ? "s" : ""} on the platform. Register units, rotate tokens, print stickers, and control any feeder remotely. Remote commands use the same server caps and audit trail as the tenant console.`}
-			/>
+			<PageHeader title={t("title")} description={t("description", { count: devices.total })} />
 
 			<RegisterDeviceForm options={options} />
 
@@ -74,8 +73,9 @@ export default async function SuperadminDevicesPage({
 				id="devices"
 				action={getPathname({ href: "/superadmin/devices", locale })}
 				query={query}
-				label="Search devices by MAC or label"
-				placeholder="Search MAC or label"
+				label={t("searchLabel")}
+				placeholder={t("searchPlaceholder")}
+				searchLabel={tCommon("search")}
 			>
 				{hasRows && (
 					// Row checkboxes join this GET form through their `form` attribute,
@@ -83,7 +83,7 @@ export default async function SuperadminDevicesPage({
 					<form id={LABEL_FORM_ID} action={getPathname({ href: LABELS_HREF, locale })} method="get">
 						<button type="submit" className={SECONDARY_BUTTON}>
 							<Printer className="h-4 w-4" aria-hidden="true" />
-							Print selected stickers
+							{t("printSelected")}
 						</button>
 					</form>
 				)}
@@ -93,16 +93,12 @@ export default async function SuperadminDevicesPage({
 				<Card>
 					<EmptyState
 						icon={Cpu}
-						title={query ? `No device matches “${query}”.` : "No devices registered yet."}
-						description={
-							query
-								? "Try a different MAC address or label."
-								: "Register the first unit above with its chip MAC and the pond it serves."
-						}
+						title={query ? t("emptyQuery", { query }) : t("emptyTitle")}
+						description={query ? t("emptyQueryDesc") : t("emptyDesc")}
 						action={
 							query ? (
 								<Link href="/superadmin/devices" className={SECONDARY_BUTTON}>
-									Clear search
+									{tCommon("clearSearch")}
 								</Link>
 							) : undefined
 						}
@@ -122,7 +118,7 @@ export default async function SuperadminDevicesPage({
 											form={LABEL_FORM_ID}
 											name="id"
 											value={device.id}
-											aria-label={`Select ${device.label} for sticker printing`}
+											aria-label={t("selectForSticker", { label: device.label })}
 											className="mt-1 h-4 w-4 shrink-0 accent-[#0A3D62]"
 										/>
 										<div className="flex min-w-0 flex-1 items-start justify-between gap-2">
@@ -133,20 +129,23 @@ export default async function SuperadminDevicesPage({
 												</p>
 											</div>
 											<Badge tone={offline ? "danger" : "success"} icon={offline ? WifiOff : Wifi}>
-												{offline ? "Offline" : "Online"}
+												{offline ? tCommon("offline") : tCommon("online")}
 											</Badge>
 										</div>
 									</div>
 
 									<dl className="grid grid-cols-2 gap-2">
-										<MetaPair label="Organization">
-											{device.orgs.length > 0 ? device.orgs.map((o) => o.name).join(", ") : "—"}
+										<MetaPair label={tCommon("organization")}>
+											{device.orgs.length > 0
+												? device.orgs.map((o) => o.name).join(", ")
+												: tCommon("none")}
 										</MetaPair>
-										<MetaPair label="Pond">{device.pond?.name ?? "Unassigned"}</MetaPair>
+										<MetaPair label={tCommon("pond")}>
+											{device.pond?.name ?? tCommon("unassigned")}
+										</MetaPair>
 									</dl>
 									<p className="text-[11px] text-[#3D5568]">
-										Last seen:{" "}
-										<span className="font-bold text-[#0A3D62]">{lastSeen(device.lastSeenAt)}</span>
+										{t("lastSeen", { time: lastSeen(device.lastSeenAt) })}
 									</p>
 
 									<div className="flex flex-col items-start gap-2">
@@ -155,7 +154,7 @@ export default async function SuperadminDevicesPage({
 											className={SECONDARY_BUTTON}
 										>
 											<Printer className="h-3.5 w-3.5" aria-hidden="true" />
-											Print sticker
+											{t("printSticker")}
 										</Link>
 										<RotateDeviceToken deviceId={device.id} mac={device.mac} />
 										<RemoteFeederControl
@@ -171,16 +170,16 @@ export default async function SuperadminDevicesPage({
 
 					<TableFrame
 						className="hidden md:block"
-						label="Platform device registry"
+						label={t("caption")}
 						minWidth="min-w-[64rem]"
 						columns={[
-							{ key: "select", label: "Select" },
-							{ key: "device", label: "Device" },
-							{ key: "mac", label: "Chip MAC" },
-							{ key: "org", label: "Organization" },
-							{ key: "pond", label: "Pond" },
-							{ key: "seen", label: "Last seen" },
-							{ key: "actions", label: "Actions" },
+							{ key: "select", label: t("columnSelect") },
+							{ key: "device", label: t("columnDevice") },
+							{ key: "mac", label: t("columnMac") },
+							{ key: "org", label: t("columnOrg") },
+							{ key: "pond", label: t("columnPond") },
+							{ key: "seen", label: t("columnSeen") },
+							{ key: "actions", label: t("columnActions") },
 						]}
 					>
 						{devices.rows.map((device) => {
@@ -197,7 +196,7 @@ export default async function SuperadminDevicesPage({
 											form={LABEL_FORM_ID}
 											name="id"
 											value={device.id}
-											aria-label={`Select ${device.label} for sticker printing`}
+											aria-label={t("selectForSticker", { label: device.label })}
 											className="h-4 w-4 accent-[#0A3D62]"
 										/>
 									</td>
@@ -213,15 +212,17 @@ export default async function SuperadminDevicesPage({
 										{device.mac}
 									</td>
 									<td className="px-6 py-4 text-xs font-bold text-[#3D5568]">
-										{device.orgs.length > 0 ? device.orgs.map((o) => o.name).join(", ") : "—"}
+										{device.orgs.length > 0
+											? device.orgs.map((o) => o.name).join(", ")
+											: tCommon("none")}
 									</td>
 									<td className="px-6 py-4 text-xs font-bold text-[#3D5568]">
-										{device.pond?.name ?? "Unassigned"}
+										{device.pond?.name ?? tCommon("unassigned")}
 									</td>
 									<td className="px-6 py-4">
 										<div className="space-y-1">
 											<Badge tone={offline ? "danger" : "success"} icon={offline ? WifiOff : Wifi}>
-												{offline ? "Offline" : "Online"}
+												{offline ? tCommon("offline") : tCommon("online")}
 											</Badge>
 											<p className="text-[11px] text-[#3D5568]">{lastSeen(device.lastSeenAt)}</p>
 										</div>
@@ -233,7 +234,7 @@ export default async function SuperadminDevicesPage({
 												className={SECONDARY_BUTTON}
 											>
 												<Printer className="h-3.5 w-3.5" aria-hidden="true" />
-												Print sticker
+												{t("printSticker")}
 											</Link>
 											<RotateDeviceToken deviceId={device.id} mac={device.mac} />
 											<RemoteFeederControl
@@ -251,8 +252,10 @@ export default async function SuperadminDevicesPage({
 			)}
 
 			<ListPagination
-				label="Device pages"
-				page={devices.page}
+				label={t("pagerLabel")}
+				pageLabel={tCommon("pageOf", { page: devices.page, count: pageCount })}
+				previousLabel={tCommon("previous")}
+				nextLabel={tCommon("next")}
 				pageCount={pageCount}
 				previousHref={devices.page > 1 ? pageHref(devices.page - 1) : null}
 				nextHref={devices.page < pageCount ? pageHref(devices.page + 1) : null}

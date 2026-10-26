@@ -19,7 +19,10 @@ export function BottomNav() {
 	];
 
 	return (
-		<nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] pb-[env(safe-area-inset-bottom)]">
+		<nav
+			aria-label={t("navLabel")}
+			className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] pb-[env(safe-area-inset-bottom)]"
+		>
 			<ul className="flex items-center px-1">
 				{navItems.map((item) => {
 					// We need to account for nested paths or exact matches.
@@ -31,14 +34,19 @@ export function BottomNav() {
 						<li key={item.href} className="flex-1 min-w-0">
 							<Link
 								href={item.href}
+								aria-current={isActive ? "page" : undefined}
 								className={cn(
-									"flex flex-col items-center justify-center gap-1.5 py-3 px-1 transition-colors",
+									"flex min-h-11 flex-col items-center justify-center gap-1.5 px-1 py-3 transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea]",
 									isActive
-										? "text-[#E85A2A]"
+										? "text-[#C2410C] dark:text-[#ff8a5c]"
 										: "text-[#3D5568] hover:text-[#0A3D62] dark:text-gray-300 dark:hover:text-white",
 								)}
 							>
-								<item.icon size={20} className={cn(isActive && "fill-[#E85A2A]/10")} />
+								<item.icon
+									aria-hidden="true"
+									size={20}
+									className={cn(isActive && "fill-[#C2410C]/10 dark:fill-[#ff8a5c]/10")}
+								/>
 								<span className="text-[10px] font-bold text-center leading-tight">
 									{item.label}
 								</span>

@@ -63,7 +63,8 @@
 		"pondFeedPellet": "Pond Feed Pellet",
 		"hopperRemaining": "Mga {kg}kg ang nabilin. Igo para sa {count} ka scheduled feeding.",
 		"deviceOffline": "Wala sa linya",
-		"hopperOffline": "Wala sa linya ang device — wala sang mabasa nga lebel. Ginapakita ang resting state."
+		"hopperOffline": "Wala sa linya ang device — wala sang mabasa nga lebel. Ginapakita ang resting state.",
+		"navLabel": "Pangunahon nga paglibot"
 	},
 	"button": {
 		"feedNow": "Pakauna Subong",
@@ -382,7 +383,24 @@
 			"biomassLogsTitle": "MGA PINAKABAG-O NGA BIOMASS SAMPLE",
 			"biomassLogsDesc": "Ang mga kinahamunan nga weigh-in nga nalog para sa kundi nga",
 			"viewGrowth": "Tan-awa ang pagdako",
-			"noFeedings": "Wala pa sang na-rekord nga feeding."
+			"noFeedings": "Wala pa sang na-rekord nga feeding.",
+			"welcomeBack": "Maayong pagbalik!",
+			"nextFeedingTimeLabel": "Oras sang masunod nga pagpakaon",
+			"criticalTitle": "Wala sa linya ang device sa {duration}",
+			"criticalDesc": "Ang ESP32 node {device} wala nakaabot sa pinakabag-o nga sync handshake.",
+			"viewDetails": "Tan-awa ang detalye",
+			"durationNotConnected": "wala naka-konektar",
+			"durationDaysHours": "{days}d {hours}h",
+			"durationDays": "{days}d",
+			"durationHoursMinutes": "{hours}h {minutes}m",
+			"durationMinutes": "{minutes}m",
+			"fcrChartLabel": "Trend sang feed conversion ratio",
+			"fcrChartSummary": "Pinakabag-o nga FCR {value} sa {count} ka report.",
+			"logFishCount": "{count} ka isda",
+			"logAvgSamples": "Average • {count} ka sampol",
+			"logTotal": "Kabuohan",
+			"noFeedingsHint": "Magaguwa diri ang mga pagpakaon pagkatapos kumpirmahon sang feeder.",
+			"noPondHint": "Palihog pamangkot ang imo administrator nga mag-assign sang punong sa imo umahan."
 		},
 		"schedule": {
 			"title": "Iskedyul sang Pagpakaon",
@@ -428,7 +446,9 @@
 				"stuckScheduleDesc": "Ang pagbag-o sang iskedyul halin sang {time} ginsugo sa device pero wala nakumpirma nga na-apply.",
 				"retryFeed": "Retry Feed Now",
 				"checkDevice": "Check Device"
-			}
+			},
+			"noDeviceTitle": "Wala sang feeder nga naka-pares",
+			"noDeviceDesc": "I-pares ang feeder controller sa sini nga punong antes mag-set sang iskedyul."
 		},
 		"logSample": {
 			"title": "Log sang Biomass",
@@ -479,7 +499,11 @@
 			"queuedOfflineTitle": "Na-save offline",
 			"queuedOfflineBody": "Ini nga sample naka-queue sa sini nga device. Ma-sync ini automatically kon magbalik ang connection.",
 			"queuedOfflineError": "Indi ma-queue ang sample sa sini nga device.",
-			"offlineNote": "Wala ka sa internet. Ini nga sample i-save sa device kag i-sync later."
+			"offlineNote": "Wala ka sa internet. Ini nga sample i-save sa device kag i-sync later.",
+			"noBatchesTitle": "Wala pa sang na-save nga batch",
+			"noBatchesDesc": "Ang batch nagagrupo sang mga sampol nga gin-log mo sa parehas nga label.",
+			"formLabel": "Mag-log sang biomass sample",
+			"batchesLabel": "Mga na-save nga batch"
 		},
 		"history": {
 			"amount": "KADAM-ON",
@@ -498,7 +522,12 @@
 			"feedLevelDesc": "Kasamtangan nga lebel sang hopper halin sa ultrasonic sensor",
 			"searchPlaceholder": "I-filter base sa tinubdan (scheduled, dashboard, button) ukon petsa (YYYY-MM-DD)",
 			"loadMore": "Magkarga pa",
-			"loading": "Gina-karga…"
+			"loading": "Gina-karga…",
+			"totalDispensedValue": "{kg} kg",
+			"statsLabel": "Summary sang pagpakaon",
+			"tableCaption": "Pinakabag-o nga mga hitabo sang pagpakaon",
+			"emptyTitle": "Wala pa sang hitabo sang pagpakaon",
+			"emptyDesc": "Magaguwa diri ang mga dispense sa gilayon nga kumpirmahon sang feeder."
 		},
 		"feedNowModal": {
 			"triggerTitle": "Magpa-Kaon Subong?",
@@ -587,9 +616,12 @@
 				"pagination": {
 					"previous": "Nagligad",
 					"next": "Sunod",
-					"showing": "Ginapakita {from}–{to} sang {total}"
+					"showing": "Ginapakita {from}–{to} sang {total}",
+					"label": "Pagpahina"
 				},
-				"empty": "Wala sang rekord nga nagapakita."
+				"empty": "Wala sang rekord nga nagapakita.",
+				"emptyTitle": "Wala pa sang rekord",
+				"emptyDesc": "Magaguwa ang mga rekord sa gilayon nga may na-log nga sampol ukon pagbasa sang hopper."
 			},
 			"growthPlan": {
 				"title": "Plano sa Target nga Pagtubo",
@@ -749,7 +781,16 @@
 				"hoursAgo": "{hours}h ang nakaligad",
 				"apply": "I-apply sa iskedyul",
 				"applied": "Na-apply na"
-			}
+			},
+			"noSamplesTitle": "Wala pa sang biomass sample",
+			"noSamplesDesc": "Mag-log sang sampol agod magsugod ang growth chart kag ang FCR calculation.",
+			"logSampleAction": "Mag-log sang sampol",
+			"chartSummary": "Trend sang timbang: {count} ka sampol, pinakabag-o {latest} g. Kasamtangan nga FCR {fcr}.",
+			"feedChartSummary": "Trend sang lebel sang hopper: {count} ka pagbasa, pinakabag-o {latest}%.",
+			"fishSamplesLabel": "Indibidwal nga sampol sang isda",
+			"tableCaption": "Growth summary, pinakabag-o una",
+			"biomassTableCaption": "Biomass samples, pinakabag-o una",
+			"feedLevelTableCaption": "Pinakabag-o nga pagbasa sang lebel sang hopper"
 		},
 		"harvest": {
 			"title": "Pag-ani kag Pagpatubo",
@@ -785,7 +826,8 @@
 				"fallowTitle": "Pahulay ang punong",
 				"fallowDesc": "Natapos na ang nagligad nga siklo. Starta ang sunod nga siklo kon ready ka na; magpabilin nga pause ang pagpakaon.",
 				"noCycleTitle": "Wala sang aktibo nga siklo",
-				"noCycleDesc": "I-set ang petsa sang pagbutang, lawig sang pagpatubo, kag target nga ani para may timeline ang calendar kag AI advisor."
+				"noCycleDesc": "I-set ang petsa sang pagbutang, lawig sang pagpatubo, kag target nga ani para may timeline ang calendar kag AI advisor.",
+				"statusLabel": "Estado sang siklo"
 			},
 			"calendar": {
 				"title": "Kalendaryo sang punong",
@@ -803,7 +845,8 @@
 				"month": "Bulan",
 				"week": "Semana",
 				"list": "Lista",
-				"noEvents": "Wala sang event sa sini nga range."
+				"noEvents": "Wala sang event sa sini nga range.",
+				"eventsLabel": "Kalendaryo sang punong"
 			},
 			"filters": {
 				"harvest": "Ani",
@@ -822,7 +865,8 @@
 			"upcoming": {
 				"title": "Palapit nga events",
 				"next": "Sunod {count}",
-				"empty": "Wala sang palapit nga event."
+				"empty": "Wala sang palapit nga event.",
+				"listLabel": "Mga masunod nga hitabo"
 			},
 			"details": {
 				"close": "Sirado",
@@ -1019,7 +1063,9 @@
 			"reconciledFrom": "Gin-reconcile halin sa expired nga request {id}...",
 			"scheduleRange": "Iskedyul: {start} - {end}, {feedsPerDay} ka pagpakaon/adlaw",
 			"markedRead": "{count} ka notipikasyon ang ginmarka nga nabasa",
-			"loadMore": "Ipakita pa"
+			"loadMore": "Ipakita pa",
+			"filtersLabel": "I-filter ang mga hitabo",
+			"timelineLabel": "Talaan sang mga hitabo"
 		},
 		"adminUsers": {
 			"actionsColumn": "Mga Aksyon",
@@ -1327,7 +1373,10 @@
 				"batteryLow": "Nagnubo ang baterya sa Feeder #{feeder}.",
 				"hopperEmpty": "HILINGAGAWON: Wala gid unod ang hopper sang feeder!",
 				"feedingCompleted": "Madinalag-on nga nahatag ang na-iskedyul nga {amount}g."
-			}
+			},
+			"filtersTierLabel": "I-filter base sa kahalangan",
+			"filtersCategoryLabel": "I-filter base sa kategorya",
+			"listLabel": "Mga notipikasyon"
 		},
 		"timeCalibration": {
 			"title": "Kalibrasyon sang Oras",
@@ -1542,6 +1591,20 @@
 			"title": "Nakasumalang sang error ang admin console",
 			"desc": "Wala sang nabag-o. Sulayi liwat ang pahina, ukon balik sa dashboard kon padayon nga nagakapaslawan.",
 			"retry": "Sulayi liwat"
+		},
+		"common": {
+			"readOnlyTitle": "Tan-aw lang",
+			"readOnlyDesc": "Ang imo papel, ukon ang aktibo nga sesyon nga tan-aw lang, indi makahimo sang pagbag-o diri. Ang mga kontrol naka-disable imbes nga mapaslawan pagkatapos sang pag-tap.",
+			"noPondTitle": "Wala pa sang punong nga na-assign",
+			"noPondDesc": "Palihog pamangkot ang imo administrator nga mag-assign sang punong sa imo umahan, dayon i-reload ini nga pahina.",
+			"loadErrorTitle": "Indi ma-load ini nga pahina",
+			"loadErrorDesc": "Susiha ang imo koneksyon kag tilawi liwat.",
+			"retry": "Tilawi liwat",
+			"loading": "Ginakarga…",
+			"deviceOnline": "ESP32 online",
+			"deviceOffline": "ESP32 offline",
+			"deviceMissing": "ESP32 wala pa na-pares",
+			"skipToContent": "Lumaktaw sa pangunahon nga sulod"
 		}
 	},
 	"errors": {

@@ -1,4 +1,5 @@
 import { DataExportButton } from "@/components/DataImportExport";
+import { DashboardEmptyState, DashboardPageHeader } from "@/components/dashboard/dashboard-ui";
 import { Link } from "@/i18n/routing";
 import { getAuditLog } from "@/lib/actions/audit";
 import { formatDateTimeLocal } from "@/lib/date-local";
@@ -6,9 +7,9 @@ import {
 	AlertCircle,
 	Bell,
 	CheckCircle2,
-	ChevronRight,
 	Clock,
 	Cpu,
+	FileText,
 	PauseCircle,
 	Plug,
 	RefreshCw,
@@ -180,23 +181,18 @@ export default async function AuditPage({
 
 	return (
 		<div className="mx-auto max-w-5xl space-y-6 animate-in fade-in duration-150">
-			<section className="rounded-[32px] border border-[#0A3D62]/5 bg-white p-5 shadow-md dark:bg-gray-900 md:p-8">
-				<div className="flex flex-col justify-between gap-4 border-b border-gray-100 pb-6 dark:border-gray-700/50 sm:flex-row sm:items-end">
-					<div>
-						<h1 className="mt-1 text-2xl font-black uppercase text-[#0A3D62] dark:text-[#5b9bd5] md:text-3xl">
-							{t("title")}
-						</h1>
-						<p className="mt-1 max-w-xl text-sm font-semibold text-[#3D5568] dark:text-gray-300">
-							{t("desc")}
-						</p>
-					</div>
-					<div className="flex items-center gap-3">
-						<DataExportButton />
-					</div>
+			<section className="rounded-3xl border border-[#0A3D62]/5 bg-white p-4 shadow-md dark:bg-gray-900 sm:p-6 md:p-8">
+				<div className="border-b border-gray-100 pb-6 dark:border-gray-700/50">
+					<DashboardPageHeader
+						icon={FileText}
+						title={t("title")}
+						description={t("desc")}
+						actions={<DataExportButton />}
+					/>
 				</div>
 
 				{/* Filter tabs */}
-				<div className="mt-6 flex flex-wrap gap-2">
+				<nav aria-label={t("filtersLabel")} className="mt-6 flex flex-wrap gap-2">
 					{filterGroups.map((group) => {
 						const isActive =
 							group.key === "all"
@@ -210,7 +206,8 @@ export default async function AuditPage({
 										? "/dashboard/audit"
 										: { pathname: "/dashboard/audit", query: { filter: group.key } }
 								}
-								className={`rounded-full px-4 py-1.5 text-xs font-bold uppercase transition-colors ${
+								aria-current={isActive ? "page" : undefined}
+								className={`inline-flex min-h-11 items-center rounded-full px-4 py-2 text-xs font-bold uppercase transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea] ${
 									isActive
 										? "bg-[#0A3D62] text-white"
 										: "bg-[#F4F7F6] text-[#3D5568] hover:bg-[#E8EDED] dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
@@ -220,14 +217,13 @@ export default async function AuditPage({
 							</Link>
 						);
 					})}
-				</div>
+				</nav>
 
-				<div className="mt-6 space-y-3">
+				<ol aria-label={t("timelineLabel")} className="mt-6 space-y-3">
 					{result.events.length === 0 ? (
-						<div className="flex flex-col items-center justify-center py-20 text-gray-400">
-							<Clock size={48} className="mb-4 opacity-30" />
-							<p className="text-lg font-medium">{t("empty")}</p>
-						</div>
+						<li>
+							<DashboardEmptyState icon={Clock} title={t("empty")} />
+						</li>
 					) : (
 						result.events.map((event) => {
 							const cfg = eventTypeConfig[event.eventType] || defaultEventConfig;
@@ -245,11 +241,12 @@ export default async function AuditPage({
 							const eventTypeLabel = t.has(eventTypeKey) ? t(eventTypeKey) : event.eventType;
 
 							return (
-								<div
+								<li
 									key={event.id}
 									className="flex w-full items-start gap-3 rounded-3xl border border-[#0A3D62]/8 bg-white p-4 text-left shadow-sm dark:bg-gray-900"
 								>
 									<span
+										aria-hidden="true"
 										className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${cfg.className}`}
 									>
 										<Icon className="h-5 w-5" />
@@ -307,12 +304,11 @@ export default async function AuditPage({
 											</span>
 										)}
 									</span>
-									<ChevronRight className="mt-3 h-5 w-5 shrink-0 text-[#3D5568] dark:text-gray-300" />
-								</div>
+								</li>
 							);
 						})
 					)}
-				</div>
+				</ol>
 
 				{result.nextCursor && (
 					<div className="mt-6 flex justify-center">
@@ -324,7 +320,7 @@ export default async function AuditPage({
 									...(filterParam ? { filter: filterParam } : {}),
 								},
 							}}
-							className="rounded-full bg-[#F4F7F6] px-6 py-2 text-sm font-bold text-[#0A3D62] transition-colors hover:bg-[#E8EDED] dark:bg-gray-800 dark:text-[#5b9bd5] dark:hover:bg-gray-700"
+							className="inline-flex min-h-11 items-center rounded-full bg-[#F4F7F6] px-6 py-2 text-sm font-bold text-[#0A3D62] transition-colors hover:bg-[#E8EDED] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-gray-800 dark:text-[#5b9bd5] dark:hover:bg-gray-700 dark:focus-visible:outline-[#8fc0ea]"
 						>
 							{t("loadMore")}
 						</Link>

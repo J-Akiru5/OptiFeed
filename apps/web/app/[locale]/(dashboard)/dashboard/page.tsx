@@ -4,11 +4,16 @@ import { FeedNowButton } from "@/components/FeedNowButton";
 import { FeedingPredictionCard } from "@/components/FeedingPredictionCard";
 import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
 import { WaterTempCard } from "@/components/WaterTempCard";
+import {
+	DashboardEmptyState,
+	DashboardPageHeader,
+	ReadOnlyNotice,
+} from "@/components/dashboard/dashboard-ui";
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { DashboardSnapshot } from "@/components/pwa/dashboard-snapshot";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
-import { canWrite } from "@/lib/auth/session";
+import { canWrite, getCurrentUser } from "@/lib/auth/session";
 import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
@@ -19,36 +24,30 @@ import { getActivePond } from "@/lib/pond-selection";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
-import {
-	Activity,
-	Calendar,
-	ChevronRight,
-	Layers,
-	Sliders,
-	Sparkles,
-	TrendingUp,
-	Wheat,
-} from "lucide-react";
+import { Calendar, ChevronRight, Layers, Sliders, Sparkles, TrendingUp, Wheat } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0; // Ensure data is always fresh
 
 export default async function DashboardHomePage() {
-	const [t, tBtn, tHist, tGrowth, tHarvest, tDates, writeAccess, pond] = await Promise.all([
-		getTranslations("dashboard.home"),
-		getTranslations("button"),
-		getTranslations("dashboard.history"),
-		getTranslations("dashboard.growth"),
-		getTranslations("dashboard.harvest.summary"),
-		getTranslations("dates"),
-		canWrite(),
-		getActivePond({ devices: true }),
-	]);
+	const [t, tBtn, tHist, tGrowth, tHarvest, tDates, tCommon, writeAccess, currentUser, pond] =
+		await Promise.all([
+			getTranslations("dashboard.home"),
+			getTranslations("button"),
+			getTranslations("dashboard.history"),
+			getTranslations("dashboard.growth"),
+			getTranslations("dashboard.harvest.summary"),
+			getTranslations("dates"),
+			getTranslations("dashboard.common"),
+			canWrite(),
+			getCurrentUser(),
+			getActivePond({ devices: true }),
+		]);
 
 	if (!pond || !pond.devices.length) {
 		return (
-			<div className="flex h-[50vh] items-center justify-center">
-				<p className="text-lg text-gray-500 dark:text-gray-400">{t("noData")}</p>
+			<div className="mx-auto max-w-2xl py-10">
+				<DashboardEmptyState icon={Wheat} title={t("noData")} description={t("noPondHint")} />
 			</div>
 		);
 	}
@@ -196,7 +195,7 @@ export default async function DashboardHomePage() {
 	const isPaused = energyDevice?.isPaused ?? false;
 
 	function formatOfflineDuration(lastSeenAt: Date | null): string {
-		if (!lastSeenAt) return "not connected";
+		if (!lastSeenAt) return t("durationNotConnected");
 		const ms = now.getTime() - lastSeenAt.getTime();
 		const totalMinutes = Math.floor(ms / 60000);
 		const hours = Math.floor(totalMinutes / 60);
@@ -204,10 +203,12 @@ export default async function DashboardHomePage() {
 		if (hours > 24) {
 			const days = Math.floor(hours / 24);
 			const remainHours = hours % 24;
-			return remainHours > 0 ? `${days}d ${remainHours}h` : `${days}d`;
+			return remainHours > 0
+				? t("durationDaysHours", { days, hours: remainHours })
+				: t("durationDays", { days });
 		}
-		if (hours > 0) return `${hours}h ${minutes}m`;
-		return `${minutes}m`;
+		if (hours > 0) return t("durationHoursMinutes", { hours, minutes });
+		return t("durationMinutes", { minutes });
 	}
 
 	const dashboardSnapshot: DashboardSnapshotData = {
@@ -244,64 +245,79 @@ export default async function DashboardHomePage() {
 			/>
 			<DashboardSnapshot snapshot={dashboardSnapshot} />
 			{criticalAlert && (
-				<section className="sticky top-16 z-20 -mx-4 -mt-4 rounded-none bg-[#C42B3A] px-4 py-3 text-white shadow-lg md:mx-0 md:mt-0 md:rounded-[24px] md:px-5">
+				<section
+					role="alert"
+					className="sticky top-16 z-20 -mx-4 -mt-4 rounded-none bg-[#C42B3A] px-4 py-3 text-white shadow-lg md:mx-0 md:mt-0 md:rounded-2xl md:px-5"
+				>
 					<div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 						<div className="flex items-start gap-3">
-							<div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 font-black">
+							<div
+								aria-hidden="true"
+								className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 font-black"
+							>
 								!
 							</div>
 							<div>
 								<p className="text-sm font-black md:text-base">
-									Device offline for {formatOfflineDuration(energyDevice?.lastSeenAt ?? null)}
+									{t("criticalTitle", {
+										duration: formatOfflineDuration(energyDevice?.lastSeenAt ?? null),
+									})}
 								</p>
-								<p className="text-xs font-semibold text-white/80">
-									ESP32 node {device.name} missed the latest sync handshake.
+								<p className="text-xs font-semibold text-white/90">
+									{t("criticalDesc", { device: device.name })}
 								</p>
 							</div>
 						</div>
 						<Link
 							href="/dashboard/settings"
-							className="min-h-11 rounded-2xl bg-white px-4 text-sm font-black text-[#C42B3A] transition hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#C42B3A] flex items-center justify-center"
+							className="flex min-h-11 items-center justify-center rounded-2xl bg-white px-4 text-sm font-black text-[#C42B3A] transition hover:bg-white/90 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
 						>
-							View Details
+							{t("viewDetails")}
 						</Link>
 					</div>
 				</section>
 			)}
 
 			{/* Welcome row */}
-			<div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-				<div>
-					<h1 className="text-2xl md:text-3xl font-black text-[#0A3D62] dark:text-[#5b9bd5] tracking-tight flex items-center gap-2">
-						Welcome Back! <Sparkles className="w-6 h-6 text-[#E85A2A] dark:text-[#ff8a5c]" />
-					</h1>
-					<p className="text-[#3D5568] dark:text-gray-400 text-xs md:text-sm mt-0.5">
-						Monitoring <strong>{pond.name}</strong> remotely from <strong>Western Visayas</strong>{" "}
-						node.
-					</p>
-				</div>
+			<DashboardPageHeader
+				title={
+					currentUser?.displayName
+						? t("welcome", { name: currentUser.displayName })
+						: t("welcomeBack")
+				}
+				description={t.rich("monitoring", {
+					pond: pond.name,
+					bold: (chunks) => <strong>{chunks}</strong>,
+				})}
+				actions={
+					<>
+						<FeedNowButton
+							deviceId={energyDevice?.id ?? device.id}
+							nextFeedingVolume={pond.isFallow ? "0g" : `${nextFeedingVolumeG}g`}
+							label={tBtn("feedNow")}
+							deviceName={energyDevice?.label ?? device.name}
+							connectionStatus={esp32Offline ? "offline" : "online"}
+							hopperLevelPct={energyDevice?.feedLevelPercent ?? 0}
+							canWrite={writeAccess}
+							isFallow={pond.isFallow}
+							gramsPerSecond={energyDevice?.gramsPerSecond}
+							data-onboard="feed-now"
+						/>
+						<ExportPdfButton />
+					</>
+				}
+			/>
 
-				<FeedNowButton
-					deviceId={energyDevice?.id ?? device.id}
-					nextFeedingVolume={pond.isFallow ? "0g" : `${nextFeedingVolumeG}g`}
-					label={tBtn("feedNow")}
-					deviceName={energyDevice?.label ?? device.name}
-					connectionStatus={esp32Offline ? "offline" : "online"}
-					hopperLevelPct={energyDevice?.feedLevelPercent ?? 0}
-					canWrite={writeAccess}
-					isFallow={pond.isFallow}
-					gramsPerSecond={energyDevice?.gramsPerSecond}
-					data-onboard="feed-now"
-				/>
-				<ExportPdfButton />
-			</div>
+			{!writeAccess && (
+				<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
+			)}
 
 			{/* AI Feed Advisor — visible on the first screen the operator sees. */}
 			{pond.isFallow ? (
-				<div className="flex flex-col gap-4 rounded-[32px] border border-dashed border-[#0A3D62]/20 bg-white p-6 dark:border-white/10 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
+				<div className="flex flex-col gap-4 rounded-3xl border border-dashed border-[#0A3D62]/20 bg-white p-6 dark:border-white/10 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
 					<div className="flex items-start gap-3">
 						<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
-							<Wheat className="h-6 w-6" />
+							<Wheat aria-hidden="true" className="h-6 w-6" />
 						</div>
 						<div>
 							<p className="text-sm font-black text-gray-900 dark:text-gray-100">
@@ -314,9 +330,9 @@ export default async function DashboardHomePage() {
 					</div>
 					<Link
 						href="/dashboard/harvest"
-						className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] dark:bg-[#1f66a0]"
+						className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-[#1f66a0]"
 					>
-						{tHarvest("startCycle")} <ChevronRight className="h-4 w-4" />
+						{tHarvest("startCycle")} <ChevronRight aria-hidden="true" className="h-4 w-4" />
 					</Link>
 				</div>
 			) : (
@@ -335,7 +351,7 @@ export default async function DashboardHomePage() {
 				<div className="flex flex-col gap-3 rounded-2xl border border-[#0A3D62]/10 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
 					<div className="flex items-center gap-2.5">
 						<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
-							<Wheat className="h-5 w-5" />
+							<Wheat aria-hidden="true" className="h-5 w-5" />
 						</div>
 						<div>
 							<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
@@ -360,9 +376,9 @@ export default async function DashboardHomePage() {
 					</div>
 					<Link
 						href="/dashboard/harvest"
-						className="inline-flex items-center gap-1 text-xs font-bold text-[#0A3D62] hover:underline dark:text-[#5b9bd5]"
+						className="inline-flex min-h-11 items-center gap-1 rounded-lg text-xs font-bold text-[#C2410C] hover:underline focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:text-[#ff8a5c]"
 					>
-						{tHarvest("progress")} <ChevronRight className="h-3.5 w-3.5" />
+						{tHarvest("progress")} <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
 					</Link>
 				</div>
 			)}
@@ -371,10 +387,13 @@ export default async function DashboardHomePage() {
 			<div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
 				{/* Tile 1: Hero — next feeding time (8 cols) */}
 				<div
-					className="col-span-1 md:col-span-8 bg-white dark:bg-gray-900 rounded-[32px] p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50 flex flex-col justify-between min-h-[300px] relative overflow-hidden"
+					className="col-span-1 md:col-span-8 bg-white dark:bg-gray-900 rounded-3xl p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50 flex flex-col justify-between min-h-[300px] relative overflow-hidden"
 					data-onboard="next-feeding"
 				>
-					<div className="absolute top-0 right-0 w-32 h-32 bg-[#0A3D62]/5 dark:bg-[#5b9bd5]/10 rounded-full translate-x-12 -translate-y-12" />
+					<div
+						aria-hidden="true"
+						className="absolute top-0 right-0 w-32 h-32 bg-[#0A3D62]/5 dark:bg-[#5b9bd5]/10 rounded-full translate-x-12 -translate-y-12"
+					/>
 
 					<div>
 						<div className="flex items-center gap-2.5">
@@ -382,15 +401,17 @@ export default async function DashboardHomePage() {
 								{t("nextFeedingLabel")}
 							</span>
 							<span
+								aria-hidden="true"
 								className={`w-2.5 h-2.5 rounded-full ${
 									isPaused ? "bg-[#C42B3A]" : "bg-[#1E7B34] animate-pulse"
 								}`}
 							/>
 						</div>
 
-						<div className="text-6xl md:text-8xl font-black text-[#0A3D62] dark:text-[#5b9bd5] tracking-tighter my-4">
+						<p className="text-6xl md:text-8xl font-black text-[#0A3D62] dark:text-[#5b9bd5] tracking-tighter my-4">
+							<span className="sr-only">{t("nextFeedingTimeLabel")}: </span>
 							{isPaused ? "—:—" : nextFeedingTimeStr}
-						</div>
+						</p>
 
 						<div className="flex flex-wrap items-center gap-3">
 							<span
@@ -416,15 +437,15 @@ export default async function DashboardHomePage() {
 								<p className="text-[#3D5568] dark:text-gray-400 text-[10px] font-bold uppercase tracking-wider">
 									{t("feedVolumeLabel")}
 								</p>
-								<p className="text-2xl md:text-3xl font-black text-[#E85A2A] dark:text-[#ff8a5c]">
-									{pond.isFallow ? "—" : `${nextFeedingVolumeG}g`}
+								<p className="text-2xl md:text-3xl font-black text-[#C2410C] dark:text-[#ff8a5c]">
+									{pond.isFallow ? "—" : `${nextFeedingVolumeG} g`}
 								</p>
 							</div>
 							<div>
 								<p className="text-[#3D5568] dark:text-gray-400 text-[10px] font-bold uppercase tracking-wider">
 									{t("feedRateLabel")}
 								</p>
-								<p className="text-2xl md:text-3xl font-black dark:text-white">
+								<p className="text-2xl md:text-3xl font-black text-[#0A3D62] dark:text-white">
 									{feedingRatePct}
 									{t("feedRateSuffix")}
 								</p>
@@ -433,9 +454,9 @@ export default async function DashboardHomePage() {
 
 						<Link
 							href="/dashboard/log-sample"
-							className="bg-[#0A3D62] dark:bg-[#5b9bd5] hover:bg-[#12588c] dark:hover:bg-[#7dbbea] text-white px-5 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 self-stretch sm:self-auto justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
+							className="flex min-h-11 items-center justify-center gap-1.5 self-stretch rounded-xl bg-[#0A3D62] px-5 py-2.5 text-xs font-bold text-white transition-all hover:bg-[#12588c] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C] sm:self-auto dark:bg-[#1f66a0] dark:hover:bg-[#2778b8]"
 						>
-							{tBtn("updateBiomass")} <ChevronRight className="w-4 h-4" />
+							{tBtn("updateBiomass")} <ChevronRight aria-hidden="true" className="w-4 h-4" />
 						</Link>
 					</div>
 				</div>
@@ -443,13 +464,16 @@ export default async function DashboardHomePage() {
 				{/* Tile 2: FCR (4 cols) */}
 				<Link
 					href="/dashboard/growth"
-					className="col-span-1 md:col-span-4 bg-[#0A3D62] rounded-[32px] p-6 md:p-8 text-white flex flex-col justify-between min-h-[300px] relative overflow-hidden shadow-md hover:bg-[#0d4a76] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
+					className="col-span-1 md:col-span-4 bg-[#0A3D62] rounded-3xl p-6 md:p-8 text-white flex flex-col justify-between min-h-[300px] relative overflow-hidden shadow-md hover:bg-[#0d4a76] transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C]"
 					data-onboard="fcr"
 				>
-					<div className="absolute bottom-0 right-0 w-32 h-32 bg-white/5 rounded-full translate-x-8 translate-y-8" />
+					<div
+						aria-hidden="true"
+						className="absolute bottom-0 right-0 w-32 h-32 bg-white/5 rounded-full translate-x-8 translate-y-8"
+					/>
 					<div className="flex justify-between items-start">
 						<div>
-							<p className="text-xs font-extrabold uppercase tracking-widest text-white/60">
+							<p className="text-xs font-extrabold uppercase tracking-widest text-white/70">
 								{t("currentFcrLabel")}
 							</p>
 							<span className="text-[10px] font-mono bg-white/10 px-2 py-0.5 rounded-full mt-1 inline-block">
@@ -457,7 +481,7 @@ export default async function DashboardHomePage() {
 							</span>
 						</div>
 						<div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-							<TrendingUp className="w-6 h-6 text-green-400" />
+							<TrendingUp aria-hidden="true" className="w-6 h-6 text-green-400" />
 						</div>
 					</div>
 
@@ -466,7 +490,7 @@ export default async function DashboardHomePage() {
 							{fcrReports.length > 0 ? latestFcr.toFixed(2) : "—"}
 						</h2>
 						{fcrReports.length > 0 && (
-							<p className="text-xs text-white/70 mt-1.5 font-medium">{t("fcrOptimal")}</p>
+							<p className="text-xs text-white/80 mt-1.5 font-medium">{t("fcrOptimal")}</p>
 						)}
 					</div>
 
@@ -477,8 +501,9 @@ export default async function DashboardHomePage() {
 							viewBox="0 0 100 40"
 							preserveAspectRatio="none"
 							role="img"
-							aria-label="Growth trend"
+							aria-label={t("fcrChartLabel")}
 						>
+							<title>{t("fcrChartLabel")}</title>
 							<path
 								d="M0 35 L 25 31 L 50 20 L 75 14 L 100 5"
 								fill="none"
@@ -487,13 +512,16 @@ export default async function DashboardHomePage() {
 								strokeLinecap="round"
 							/>
 						</svg>
+						<span className="sr-only">
+							{t("fcrChartSummary", { value: latestFcr.toFixed(2), count: fcrReports.length })}
+						</span>
 					</div>
 				</Link>
 
 				{/* Tile 3: Days until sample (4 cols) */}
 				<div className="col-span-1 md:col-span-4 bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-[#0A3D62]/5 dark:border-gray-700/50 flex items-center gap-5">
 					<div className="w-14 h-14 bg-amber-50 dark:bg-amber-900/30 rounded-2xl flex items-center justify-center shrink-0">
-						<Calendar className="w-7 h-7 text-amber-600 dark:text-amber-400" />
+						<Calendar aria-hidden="true" className="w-7 h-7 text-amber-600 dark:text-amber-400" />
 					</div>
 					<div>
 						<p className="text-[10px] font-extrabold uppercase text-[#3D5568] dark:text-gray-400 tracking-wider">
@@ -504,9 +532,9 @@ export default async function DashboardHomePage() {
 						</p>
 						<Link
 							href="/dashboard/log-sample"
-							className="text-xs text-[#E85A2A] dark:text-[#ff8a5c] font-extrabold hover:underline flex items-center gap-0.5 mt-0.5 focus-visible:outline-none"
+							className="mt-0.5 inline-flex min-h-11 items-center gap-0.5 rounded-lg text-xs font-extrabold text-[#C2410C] hover:underline focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:text-[#ff8a5c]"
 						>
-							{tBtn("scheduleSampling")} <ChevronRight className="w-3 h-3" />
+							{tBtn("scheduleSampling")} <ChevronRight aria-hidden="true" className="w-3 h-3" />
 						</Link>
 					</div>
 				</div>
@@ -514,14 +542,14 @@ export default async function DashboardHomePage() {
 				{/* Tile 4: Last biomass weight (4 cols) */}
 				<div className="col-span-1 md:col-span-4 bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-[#0A3D62]/5 dark:border-gray-700/50 flex items-center gap-5">
 					<div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center shrink-0">
-						<Sliders className="w-7 h-7 text-[#0A3D62] dark:text-[#5b9bd5]" />
+						<Sliders aria-hidden="true" className="w-7 h-7 text-[#0A3D62] dark:text-[#5b9bd5]" />
 					</div>
 					<div className="flex-1">
 						<p className="text-[10px] font-extrabold uppercase text-[#3D5568] dark:text-gray-400 tracking-wider">
 							{t("lastBiomassLabel")}
 						</p>
 						<p className="text-lg md:text-xl font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-							{latestBiomass ? `${latestBiomass.avgWeightKg * 1000}g` : t("na")}
+							{latestBiomass ? `${(latestBiomass.avgWeightKg * 1000).toFixed(1)} g` : t("na")}
 						</p>
 						<p className="text-[10px] text-[#3D5568] dark:text-gray-500">
 							{t("lastBiomassBased", { count: latestBiomass?.sampleCount ?? 0 })}
@@ -532,7 +560,7 @@ export default async function DashboardHomePage() {
 				{/* Tile 5: Pond population (4 cols) */}
 				<div className="col-span-1 md:col-span-4 bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-[#0A3D62]/5 dark:border-gray-700/50 flex items-center gap-5">
 					<div className="w-14 h-14 bg-green-50 dark:bg-green-900/30 rounded-2xl flex items-center justify-center shrink-0">
-						<Layers className="w-7 h-7 text-green-700 dark:text-green-400" />
+						<Layers aria-hidden="true" className="w-7 h-7 text-green-700 dark:text-green-400" />
 					</div>
 					<div>
 						<p className="text-[10px] font-extrabold uppercase text-[#3D5568] dark:text-gray-400 tracking-wider">
@@ -548,39 +576,42 @@ export default async function DashboardHomePage() {
 				</div>
 
 				{/* Tile 6: Recent feeding logs (12 cols) */}
-				<div className="col-span-1 md:col-span-12 bg-white dark:bg-gray-900 rounded-[32px] p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50">
-					<div className="flex justify-between items-center mb-6">
+				<div className="col-span-1 md:col-span-12 bg-white dark:bg-gray-900 rounded-3xl p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50">
+					<div className="flex flex-wrap justify-between items-center gap-3 mb-6">
 						<div>
-							<h3 className="text-lg md:text-xl font-black uppercase tracking-tight text-[#0A3D62] dark:text-[#5b9bd5]">
+							<h2 className="text-lg md:text-xl font-black uppercase tracking-tight text-[#0A3D62] dark:text-[#5b9bd5]">
 								{t("feedingLogsTitle")}
-							</h3>
+							</h2>
 							<p className="text-xs text-[#3D5568] dark:text-gray-400">{t("feedingLogsDesc")}</p>
 						</div>
 						<Link
 							href="/dashboard/history"
-							className="text-[#0A3D62] dark:text-[#5b9bd5] font-extrabold text-sm hover:underline focus-visible:outline-none"
+							className="inline-flex min-h-11 items-center rounded-lg text-sm font-extrabold text-[#0A3D62] hover:underline focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:text-[#5b9bd5] dark:focus-visible:outline-[#8fc0ea]"
 						>
 							{tBtn("viewHistory")}
 						</Link>
 					</div>
 
 					{feedingHistory.length === 0 ? (
-						<p className="py-8 text-center text-sm text-[#3D5568] dark:text-gray-400">
-							{t("noFeedings")}
-						</p>
+						<DashboardEmptyState
+							icon={Sparkles}
+							title={t("noFeedings")}
+							description={t("noFeedingsHint")}
+							className="border-0 bg-transparent py-8 dark:bg-transparent"
+						/>
 					) : (
-						<div className="space-y-3">
+						<ul className="space-y-3">
 							{feedingHistory.map((item, idx) => (
-								<div
+								<li
 									key={item.id}
 									className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-[#F4F7F6] dark:bg-gray-800 rounded-2xl border border-[#0A3D62]/5 dark:border-gray-700/50 gap-4"
 								>
 									<div className="flex items-center gap-4">
 										<div className="w-10 h-10 bg-white dark:bg-gray-700 rounded-xl flex items-center justify-center font-extrabold text-xs text-[#0A3D62] dark:text-[#5b9bd5] border border-gray-200 dark:border-gray-600 shrink-0">
-											0{idx + 1}
+											{idx + 1}
 										</div>
 										<div>
-											<div className="flex items-center gap-2">
+											<div className="flex flex-wrap items-center gap-2">
 												<p className="font-extrabold text-base text-[#0A3D62] dark:text-[#5b9bd5]">
 													{formatTime(item.receivedAt)}
 												</p>
@@ -596,9 +627,9 @@ export default async function DashboardHomePage() {
 									<div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-2 sm:pt-0 border-gray-200 dark:border-gray-700">
 										<div className="text-left sm:text-right">
 											<p className="font-extrabold text-base text-[#0A3D62] dark:text-[#5b9bd5]">
-												{item.grams ?? 0}g
+												{item.grams ?? 0} g
 											</p>
-											<p className="text-[10px] font-bold uppercase text-[#3D5568] dark:text-gray-500 opacity-50">
+											<p className="text-[10px] font-bold uppercase text-[#3D5568] dark:text-gray-500">
 												{tHist("amount")}
 											</p>
 										</div>
@@ -606,38 +637,38 @@ export default async function DashboardHomePage() {
 											{tHist("confirmedDispense")}
 										</span>
 									</div>
-								</div>
+								</li>
 							))}
-						</div>
+						</ul>
 					)}
 				</div>
 
 				{/* Tile 7: Recent biomass logs (12 cols) */}
 				{recentBiomassLogs.length > 0 && (
-					<div className="col-span-1 md:col-span-12 bg-white dark:bg-gray-900 rounded-[32px] p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50">
-						<div className="flex justify-between items-center mb-6">
+					<div className="col-span-1 md:col-span-12 bg-white dark:bg-gray-900 rounded-3xl p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50">
+						<div className="flex flex-wrap justify-between items-center gap-3 mb-6">
 							<div>
-								<h3 className="text-lg md:text-xl font-black uppercase tracking-tight text-[#0A3D62] dark:text-[#5b9bd5]">
+								<h2 className="text-lg md:text-xl font-black uppercase tracking-tight text-[#0A3D62] dark:text-[#5b9bd5]">
 									{t("biomassLogsTitle")}
-								</h3>
+								</h2>
 								<p className="text-xs text-[#3D5568] dark:text-gray-400">{t("biomassLogsDesc")}</p>
 							</div>
 							<Link
 								href="/dashboard/growth"
-								className="text-[#0A3D62] dark:text-[#5b9bd5] font-extrabold text-sm hover:underline focus-visible:outline-none"
+								className="inline-flex min-h-11 items-center rounded-lg text-sm font-extrabold text-[#0A3D62] hover:underline focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:text-[#5b9bd5] dark:focus-visible:outline-[#8fc0ea]"
 							>
 								{t("viewGrowth")}
 							</Link>
 						</div>
-						<div className="space-y-3">
+						<ul className="space-y-3">
 							{recentBiomassLogs.map((log, idx) => (
-								<div
+								<li
 									key={log.id}
 									className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-[#F4F7F6] dark:bg-gray-800 rounded-2xl border border-[#0A3D62]/5 dark:border-gray-700/50 gap-4"
 								>
 									<div className="flex items-center gap-4">
 										<div className="w-10 h-10 bg-white dark:bg-gray-700 rounded-xl flex items-center justify-center font-extrabold text-xs text-[#0A3D62] dark:text-[#5b9bd5] border border-gray-200 dark:border-gray-600 shrink-0">
-											0{idx + 1}
+											{idx + 1}
 										</div>
 										<div>
 											<div className="flex items-center gap-2 flex-wrap">
@@ -657,32 +688,32 @@ export default async function DashboardHomePage() {
 											</div>
 											<p className="text-xs text-[#3D5568] dark:text-gray-400">
 												{log.fishSamples.length > 0
-													? `${log.fishSamples.length} fish`
-													: `Avg • ${log.sampleCount} samples`}
+													? t("logFishCount", { count: log.fishSamples.length })
+													: t("logAvgSamples", { count: log.sampleCount })}
 											</p>
 										</div>
 									</div>
 									<div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-2 sm:pt-0 border-gray-200 dark:border-gray-700">
 										<div className="text-left sm:text-right">
 											<p className="font-extrabold text-base text-[#0A3D62] dark:text-[#5b9bd5]">
-												{(log.avgWeightKg * 1000).toFixed(1)}g
+												{(log.avgWeightKg * 1000).toFixed(1)} g
 											</p>
-											<p className="text-[10px] font-bold uppercase text-[#3D5568] dark:text-gray-500 opacity-50">
+											<p className="text-[10px] font-bold uppercase text-[#3D5568] dark:text-gray-500">
 												{tGrowth("abwCol")}
 											</p>
 										</div>
 										<div className="text-left sm:text-right">
 											<p className="font-extrabold text-base text-[#0A3D62] dark:text-[#5b9bd5]">
-												{log.sampleWeightKg.toFixed(2)}kg
+												{log.sampleWeightKg.toFixed(2)} kg
 											</p>
-											<p className="text-[10px] font-bold uppercase text-[#3D5568] dark:text-gray-500 opacity-50">
-												Total
+											<p className="text-[10px] font-bold uppercase text-[#3D5568] dark:text-gray-500">
+												{t("logTotal")}
 											</p>
 										</div>
 									</div>
-								</div>
+								</li>
 							))}
-						</div>
+						</ul>
 					</div>
 				)}
 			</div>

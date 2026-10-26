@@ -60,8 +60,8 @@ resistor):
 |---|---|---|---|
 | BOOT / IO0 | **IO0** | **Mandatory** — hold low during reset to enter USB download mode. The only remaining path to flash. | n/a (bootloader strap) |
 | Feed / Wi-Fi reset | **27** | Hold ~5 s at boot (`WIFI_RESET_HOLD_MS`) to clear Wi-Fi and re-enter provisioning. | `BUTTON_PIN 27`, already active |
-| Wi-Fi reset | **16** | Hold 5 s at any time after boot to clear Wi-Fi only; the device identity is kept. | `WIFI_RESET_BUTTON_PIN 16`, active |
-| Factory reset | **17** | Hold 10 s to clear Wi-Fi plus the device identity. While it is held the Wi-Fi reset is suppressed. | `FACTORY_RESET_BUTTON_PIN 17`, active |
+| Wi-Fi reset | **17** | Hold 5 s at any time after boot to clear Wi-Fi only; the device identity is kept. | `WIFI_RESET_BUTTON_PIN 17`, active |
+| Factory reset | **16** | Hold 10 s to clear Wi-Fi plus the device identity. While it is held the Wi-Fi reset is suppressed. | `FACTORY_RESET_BUTTON_PIN 16`, active |
 
 Pins 16/17 are confirmed free against the full pin assignment table in
 `firmware-main.ino`: neither is a strapping pin, both support the internal

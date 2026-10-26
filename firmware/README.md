@@ -14,8 +14,8 @@
 |-------|------------------------------------------|
 | GPIO 25 | Relay OUT (Active HIGH — dispensing when HIGH) |
 | GPIO 27 | Physical button (INPUT_PULLUP, press = LOW). Short press dispenses; hold >= 5 s at boot to reset WiFi credentials (device identity is kept) |
-| GPIO 16 | Wi-Fi reset button (INPUT_PULLUP, press = LOW). Hold >= 5 s to clear WiFi only — the Device ID/Token are kept |
-| GPIO 17 | Factory reset button (INPUT_PULLUP, press = LOW). Hold >= 10 s to clear WiFi, Device ID, Device Token and the `provisioned` marker |
+| GPIO 16 | Factory reset button (INPUT_PULLUP, press = LOW). Hold >= 10 s to clear WiFi, Device ID, Device Token and the `provisioned` marker |
+| GPIO 17 | Wi-Fi reset button (INPUT_PULLUP, press = LOW). Hold >= 5 s to clear WiFi only — the Device ID/Token are kept |
 | GPIO 21 | DS3231 SDA (I²C) — RTC                 |
 | GPIO 22 | DS3231 SCL (I²C) — RTC                 |
 | GPIO 1  | TX0 (USB debug serial)                  |
@@ -268,8 +268,8 @@ Hold the physical feed button (**GPIO 27**, wired to GND) during boot for at lea
 
 - This is a **WiFi-only reset**: the identity keys `device_id` and `device_token` are kept.
   Re-enter just the new WiFi credentials and leave the identity fields blank.
-- The dedicated **Wi-Fi reset button (GPIO 16)** does the same at any time after boot
-  (5 s hold). The **factory reset button (GPIO 17)** wipes the identity as well
+- The dedicated **Wi-Fi reset button (GPIO 17)** does the same at any time after boot
+  (5 s hold). The **factory reset button (GPIO 16)** wipes the identity as well
   (10 s hold), so the unit must be provisioned again.
 - A normal short press still dispenses the configured button dose.
 - The hold is consumed by the reset, so it does not also trigger a feed.
@@ -551,12 +551,12 @@ Portal checks (no backend needed):
 3. Hold GPIO 27 for 5 s at boot: serial reports the WiFi reset and the portal returns.
    The identity fields are blank with the "leave blank to keep existing" placeholder;
    submit only a new SSID/password and confirm the same Device ID is still used.
-4. Let the unit run for more than 5 s, then hold the **Wi-Fi reset button (GPIO 16)**
+4. Let the unit run for more than 5 s, then hold the **Wi-Fi reset button (GPIO 17)**
    for 5 s: serial reports `[RESET] WiFi reset button held`, the unit reboots and the
    portal returns with the identity kept (both identity fields say "leave blank to
    keep existing").
 5. Provision the unit, let it run past the 5 s grace, then hold the **factory reset
-   button (GPIO 17)** for 10 s: serial reports `[RESET] Factory reset button held`,
+   button (GPIO 16)** for 10 s: serial reports `[RESET] Factory reset button held`,
    and the portal returns with no usable identity (both identity fields are required).
 6. Hold **both** buttons: no reset happens at 5 s, and the factory reset completes at
    10 s — the factory reset wins.

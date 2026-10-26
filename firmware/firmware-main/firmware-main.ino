@@ -321,14 +321,14 @@ VC2U+UkjnsS9bS7guFXvY41PNeEVH4lp5iEcgtjQc6E+IgFO8QHwfPoRgg==
 
 // ---- Dedicated reset buttons (both active-low) --------------------------
 // Wire each button between its GPIO and GND; the internal pull-up is enabled.
-// GPIO 16 is the Wi-Fi reset (5 s, device identity kept), GPIO 17 the factory
+// GPIO 17 is the Wi-Fi reset (5 s, device identity kept), GPIO 16 the factory
 // reset (10 s, WiFi and identity wiped). Both are free on the ESP32-WROOM-32U
 // used here (not used by this sketch) and neither is a strapping pin. Still
 // free: 13, 14, 18, 19, 23. Do NOT use 32/33 (HC-SR04), 25/26/27 (relay,
 // DS18B20, feed button), 21/22 (RTC I2C), 0/2/12/15 (strapping), 34-39
 // (input-only, no internal pull-up) or 1/3 (USB serial).
-#define WIFI_RESET_BUTTON_PIN       16   // hold to clear WiFi only
-#define FACTORY_RESET_BUTTON_PIN    17   // hold to clear WiFi + identity
+#define WIFI_RESET_BUTTON_PIN       17   // hold to clear WiFi only
+#define FACTORY_RESET_BUTTON_PIN    16   // hold to clear WiFi + identity
 #define WIFI_RESET_HOLD_MS        5000   // continuous hold: WiFi reset
 #define FACTORY_RESET_HOLD_MS    10000   // continuous hold: factory reset
 // WIFI_RESET_HOLD_MS also governs the GPIO 27 feed-button hold at boot.

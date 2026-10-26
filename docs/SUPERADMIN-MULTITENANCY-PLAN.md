@@ -60,7 +60,7 @@ These are decided. Do not reopen them.
 | T23 | *(2026-10-26)* **No separate dev database.** E2E tests and migrations run against the production Supabase project while PakaonAI is not in operation (Jeff). Guardrails: a backup before every migration, E2E data prefixed `e2e-` and cleaned up, `migrate deploy` only (never reset). | — |
 | T20 | *(2026-10-26)* **Only `staging` (preview) and `main` (production) deploy.** `develop` is the reconciliation branch, validated by CI only (PR #182). | — |
 | T21 | *(2026-10-26)* **Remote firmware updates (OTA)** are required, because units sit on farms with no IT help. Design follows the ESP32 OTA research (mission T-12). | — |
-| T22 | *(2026-10-26)* **Firmware reset buttons on GPIO 16 (Wi-Fi, 5 s) and GPIO 17 (factory, 10 s)**, replacing the §5.3 proposal of 18/19. | — |
+| T22 | *(2026-10-26)* **Firmware reset buttons on GPIO 17 (Wi-Fi, 5 s) and GPIO 16 (factory, 10 s)** (swapped the same day to match the soldered board), replacing the §5.3 proposal of 18/19. | — |
 | T18 | *(2026-10-26)* **Check the platform tables' exposure now.** Jeff checks whether RLS is off on the platform tables (§2a, N1) and whether the Data API exposes them. If they are exposed, ship an additive `ENABLE ROW LEVEL SECURITY` hotfix migration as its own PR with Jeff's explicit OK, despite the migration freeze. | — |
 
 ---

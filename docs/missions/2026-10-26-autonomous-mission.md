@@ -43,10 +43,10 @@ Status: `todo` / `running` / `review` / `integrated` / `blocked`.
 | T-05 | Tenancy negative-test harness + superadmin behavioural tests (M0.3, M3.11 tests) | — | no | integrated, verified |
 | T-06 | RBAC: members and permissions in Settings, plus superadmin for any org (D1, D2, M2.7) | T-04 | no (mocked tests) | integrated, verified |
 | T-07 | Superadmin god mode: view-as (read-only) + remote feeder control (D1, M5.1, M5.2) | T-04 | no (mocked tests) | integrated, verified |
-| T-08 | E2E on the production project with `e2e-` data (D5 amended): setup, seed, Playwright suites for all flows | T-01…T-07 | **yes** | todo (DB access ready) |
+| T-08 | E2E on the production project with `e2e-` data (D5 amended): setup, seed, Playwright suites for all flows | T-01…T-07 | **yes** | code running (isolated e2e- fixtures; demo account never touched); integrator runs it |
 | T-09 | UI/UX pass, shipped per page (admin, dashboard, superadmin, settings) | T-06, T-07 | no | T-09a + T-09c + T-09b integrated, verified; T-09d running |
 | T-10 | i18n for the superadmin pages (M3.11) | T-03, T-07 | no | integrated, verified |
-| T-11 | Offline PWA hardening + UX (D9) | T-09 | no (mocked + unit) | running (scoped to offline/PWA modules while T-09b runs) |
+| T-11 | Offline PWA hardening + UX (D9) | T-09 | no (mocked + unit) | integrated, verified (browser offline specs via T-08) |
 | T-14 | Firmware hygiene: zero deprecation warnings (Arduino core 2.0.17 kept), server URLs baked to `https://pakaonai.syntaxure.dev`, `FW_VERSION` reported | — | no | integrated, verified (needs human OK + reflash) |
 | T-15 | Real email invites via Resend from `syntaxure.dev` (e.g. `invite@syntaxure.dev`) + plan the rename of the internal login domain `pond.optifeed.local` to PakaonAI (O13) | T-06 | no (mocked) | integrated, verified (needs `RESEND_API_KEY` + `INVITE_FROM_EMAIL` + `NEXT_PUBLIC_BASE_URL` on Vercel) |
 | T-12 | Remote firmware updates (OTA) for ESP32 (D10) | design done: `docs/firmware-ota-plan.md`, all OTA decisions made | T-12c yes | **T-12a + T-12b integrated, verified** (T-12a: build only, needs human OK + bootstrap USB flash + bench test; T-12b: needs the private `firmware` bucket + first signed channel); T-12c (rollout tables/UI) needs a migration |
@@ -157,6 +157,7 @@ Branch: `integration/mission-2026-10-26` (from `feature/superadmin-device-regist
 | When | Task | Commit merged | Checks on the integration branch | Notes |
 |---|---|---|---|---|
 | 2026-10-26 | develop | `e1fa17a` (PRs #174, #179, #180) | — | Brought the integration branch up to date with develop. |
+| 2026-10-26 | T-11 | `c4b2bef`..`67f061e` via `453f808` | lint ok, typecheck ok, 122 test files pass | Also touched 3 feeder controls (EnergyControllerCard, ScheduleControls, StuckRequestBanner): reviewed, purely additive offline guards (disable + reason). |
 | 2026-10-26 | T-09b | `b52d78d`..`994b154` via `a1a7350` | lint ok, typecheck ok, 117 test files pass | No logic/PWA files. HarvestCalendar translated (FullCalendar's own chrome stays English: no hil locale pack). 44 px tap targets. |
 | 2026-10-26 | T-10 | `0e447cb`,`36f9375` via `b7282d4` | lint ok, typecheck ok, 113 test files pass | No logic/sticker files. Action error strings without codes stay English (listed in the worker report); a follow-up could add stable error codes. Hiligaynon draft terms need native review. |
 | 2026-10-26 | T-09c | `288ef60` via `981e18f` | lint ok, typecheck ok, 112 test files pass (worker also ran a full `pnpm build`, migrations skipped) | No logic or message files touched; console stays light theme and English (T-10). Mobile nav uses short labels with full aria-labels. |

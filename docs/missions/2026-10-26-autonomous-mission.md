@@ -44,7 +44,7 @@ Status: `todo` / `running` / `review` / `integrated` / `blocked`.
 | T-06 | RBAC: members and permissions in Settings, plus superadmin for any org (D1, D2, M2.7) | T-04 | no (mocked tests) | integrated, verified |
 | T-07 | Superadmin god mode: view-as (read-only) + remote feeder control (D1, M5.1, M5.2) | T-04 | no (mocked tests) | integrated, verified |
 | T-08 | E2E on the production project with `e2e-` data (D5 amended): setup, seed, Playwright suites for all flows | T-01…T-07 | **yes** | todo (DB access ready) |
-| T-09 | UI/UX pass, shipped per page (admin, dashboard, superadmin, settings) | T-06, T-07 | no | T-09a + T-09c running |
+| T-09 | UI/UX pass, shipped per page (admin, dashboard, superadmin, settings) | T-06, T-07 | no | T-09a integrated, verified; T-09c + T-09b running |
 | T-10 | i18n for the superadmin pages (M3.11) | T-03, T-07 | no | todo |
 | T-11 | Offline PWA hardening + UX (D9) | T-09 | no (mocked + unit) | todo |
 | T-14 | Firmware hygiene: zero deprecation warnings (Arduino core 2.0.17 kept), server URLs baked to `https://pakaonai.syntaxure.dev`, `FW_VERSION` reported | — | no | integrated, verified (needs human OK + reflash) |
@@ -157,6 +157,7 @@ Branch: `integration/mission-2026-10-26` (from `feature/superadmin-device-regist
 | When | Task | Commit merged | Checks on the integration branch | Notes |
 |---|---|---|---|---|
 | 2026-10-26 | develop | `e1fa17a` (PRs #174, #179, #180) | — | Brought the integration branch up to date with develop. |
+| 2026-10-26 | T-09a | `fc09dd6`..`ab9b23b` via `b0c0c9a` | lint ok, typecheck ok, 107 test files pass | No action/auth/API/schema file touched. Conflict with T-15 in members-settings (invite-result block): kept T-15's email-sent line + hint with T-09a's dark-mode styling. Action colour `#C2410C` (AA) in the admin console; app-wide alignment is an open question (O17). Responsive layout verified by markup review only (no browser E2E yet). |
 | 2026-10-26 | T-15 | `ae4a373`,`c1d5a0a` via `b057a03` | lint ok, typecheck ok, 104 test files pass | Checked the password never reaches a log or audit row; only new logins get the email. Rename plan recommends `pond.pakaonai.local` (O16). |
 | 2026-10-26 | T-12b | `a11d66e` via `bfe7cc9` | lint ok, typecheck ok, 102 test files pass, api:check 48/0 | Reviewed device auth (token + mac + rate limit), CI allowlist entry beside the other device routes, only public PEMs committed. |
 | 2026-10-26 | T-12a | `9bbdfdc` via merge | lint ok, typecheck ok, 99 test files pass; clean `pio run` SUCCESS (flash 54.4 % of 1.9 MB slot, RAM 15.9 %, 0 sketch warnings); ELF has `T verifyRollbackLater`; invariants grepped (relay OFF init, pins, MAX_DISPENSE_MS, NVS namespace); 5 roots embedded; no private key in source | Bench plan A–G in firmware/README.md is the remaining hardware verification. Server contract for T-12b documented in firmware/README.md (signature over exact manifest string, Content-Length required, <= 8 KB). |

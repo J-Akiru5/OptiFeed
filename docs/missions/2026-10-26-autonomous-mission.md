@@ -47,8 +47,8 @@ Status: `todo` / `running` / `review` / `integrated` / `blocked`.
 | T-09 | UI/UX pass, shipped per page (admin, dashboard, superadmin, settings) | T-06, T-07 | no | todo |
 | T-10 | i18n for the superadmin pages (M3.11) | T-03, T-07 | no | todo |
 | T-11 | Offline PWA hardening + UX (D9) | T-09 | no (mocked + unit) | todo |
-| T-14 | Firmware hygiene: zero deprecation warnings (Arduino core 2.0.17 kept), server URLs baked to `https://pakaonai.syntaxure.dev`, `FW_VERSION` reported | — | no | running |
-| T-12 | Remote firmware updates (OTA) for ESP32 (D10) | design done: `docs/firmware-ota-plan.md` | T-12c yes | **blocked on Jeff's decisions OTA-1…7** (T-12a/b); T-12c also on T-08 |
+| T-14 | Firmware hygiene: zero deprecation warnings (Arduino core 2.0.17 kept), server URLs baked to `https://pakaonai.syntaxure.dev`, `FW_VERSION` reported | — | no | integrated, verified (needs human OK + reflash) |
+| T-12 | Remote firmware updates (OTA) for ESP32 (D10) | design done: `docs/firmware-ota-plan.md`, all OTA decisions made | T-12c yes | T-12a running; T-12b next; T-12c needs a migration |
 
 ### T-01 Firmware reset buttons
 - `firmware/firmware-main/firmware-main.ino`: `WIFI_RESET_BUTTON_PIN 16`, `FACTORY_RESET_BUTTON_PIN 17`; split `RESET_BUTTON_HOLD_MS` into `WIFI_RESET_HOLD_MS 5000` and `FACTORY_RESET_HOLD_MS 10000`. Keep debounce, startup grace and the "factory wins over Wi-Fi" rule.
@@ -154,6 +154,7 @@ Branch: `integration/mission-2026-10-26` (from `feature/superadmin-device-regist
 | When | Task | Commit merged | Checks on the integration branch | Notes |
 |---|---|---|---|---|
 | 2026-10-26 | develop | `e1fa17a` (PRs #174, #179, #180) | — | Brought the integration branch up to date with develop. |
+| 2026-10-26 | T-14 | `46f5fb4` via `546fde1` | lint ok, typecheck ok, 93 test files pass, pio SUCCESS | URLs -> pakaonai.syntaxure.dev, FW_VERSION 1.3.0, ArduinoJson v7 (`is<float>()` also ignores null/non-numeric keys that used to be cast to 0). 24 -> 0 sketch warnings; 2 OneWire library warnings remain. `firmware_version` is stripped by the ingest schema until T-12b. |
 | 2026-10-26 | T-06 | `326c569` via `ceb2557` | lint ok, typecheck ok, 93 test files pass | Reviewed member-rules + tenant scoping (caller's orgs only, platform admins excluded, last owner re-checked in tx). Members section is in Admin -> Settings. Invite = one-time temp password (no email infra). |
 | 2026-10-26 | T-05 | `42b4303` via merge + `48d670e` | lint ok, typecheck ok, 91 test files pass | Test-only. Reconciled 3 audit assertions with T-03's new targetType values (semantic clash, not a weakened guard). |
 | 2026-10-26 | T-03 | `a8f381a` via `81cb613` | lint ok, typecheck ok, 89 test files pass | Pond org mapping fixed via `User.farmId` (spot-checked); 13/13 superadmin exports gated; audit target/org/ip/UA; pagination on users/orgs/ponds. |

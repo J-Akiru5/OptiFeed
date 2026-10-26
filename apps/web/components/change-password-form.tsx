@@ -127,16 +127,16 @@ export function ChangePasswordForm({ forced = false }: { forced?: boolean }) {
 			)}
 
 			{success && (
-				<div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 p-3 text-xs font-bold text-green-700 dark:border-green-500/25 dark:bg-green-500/10 dark:text-green-300">
+				<output className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 p-3 text-xs font-bold text-green-700 dark:border-green-500/25 dark:bg-green-500/10 dark:text-green-300">
 					<CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
 					<span>{t("updated")}</span>
-				</div>
+				</output>
 			)}
 
 			<button
 				type="submit"
 				disabled={isPending}
-				className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#E85A2A] px-4 py-3 text-sm font-extrabold text-white transition-colors hover:bg-[#d04a1f] disabled:cursor-not-allowed disabled:opacity-70"
+				className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#C2410C] px-4 py-3 text-sm font-extrabold text-white transition-colors hover:bg-[#9A3412] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:cursor-not-allowed disabled:opacity-70 dark:focus-visible:outline-[#8fc0ea]"
 			>
 				{isPending ? (
 					<>

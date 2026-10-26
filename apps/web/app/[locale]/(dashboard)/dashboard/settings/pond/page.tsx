@@ -1,23 +1,34 @@
 import { LogoutButton } from "@/components/LogoutButton";
 import { PondSettingsForm } from "@/components/PondSettingsForm";
+import {
+	DashboardEmptyState,
+	DashboardPageHeader,
+	DashboardSection,
+	ReadOnlyNotice,
+} from "@/components/dashboard/dashboard-ui";
 import { canWrite } from "@/lib/auth/session";
 import { parsePondProfile } from "@/lib/pond-profile";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
-import { Settings, User } from "lucide-react";
+import { Settings, SlidersHorizontal, User } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export default async function PondSettingsPage() {
-	const t = await getTranslations("dashboard.settings");
-	// Fetch demo pond configuration
+	const [t, tCommon] = await Promise.all([
+		getTranslations("dashboard.settings"),
+		getTranslations("dashboard.common"),
+	]);
 	const pond = await getActivePond();
 
 	if (!pond) {
 		return (
-			<div className="p-6">
-				<h1 className="text-3xl font-bold text-[var(--ofd-base)]">{t("pondTitle")}</h1>
-				<p className="mt-2 text-red-500">{t("errorLoad")}</p>
+			<div className="mx-auto max-w-4xl py-10">
+				<DashboardEmptyState
+					icon={Settings}
+					title={t("errorLoad")}
+					description={t("errorLoadDesc")}
+				/>
 			</div>
 		);
 	}
@@ -34,54 +45,38 @@ export default async function PondSettingsPage() {
 	const profile = parsePondProfile(pond.notificationPrefs);
 
 	return (
-		<div className="mx-auto max-w-4xl space-y-8">
-			<div>
-				<h1 className="flex items-center gap-2 text-3xl font-bold text-[var(--ofd-base)]">
-					<Settings size={28} />
-					{t("pondTitle")}
-				</h1>
-				<p className="mt-2 text-gray-500">{t("pondDesc")}</p>
-			</div>
+		<div className="mx-auto max-w-4xl space-y-6 pb-20">
+			<DashboardPageHeader title={t("pondTitle")} description={t("pondDesc")} icon={Settings} />
 
-			<div className="space-y-8">
-				{/* Pond Configuration Section */}
-				<section>
-					<PondSettingsForm
-						pond={{
-							id: pond.id,
-							feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
-							feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
-							sampleIntervalDays: pond.sampleIntervalDays,
-							population: pond.population,
-							areaM2: profile.areaM2,
-							averageDepthM: profile.averageDepthM,
-							feedPricePerKg: profile.feedPricePerKg,
-						}}
-						canWrite={writeAccess}
-					/>
-				</section>
+			{!writeAccess && (
+				<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
+			)}
 
-				{/* Account Section */}
-				<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-					<div className="mb-6 border-b border-gray-100 pb-4">
-						<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800">
-							<User size={20} />
-							{t("accountTitle")}
-						</h2>
-						<p className="mt-1 text-sm text-gray-500">{t("accountDesc")}</p>
+			<DashboardSection title={t("configTitle")} icon={SlidersHorizontal}>
+				<PondSettingsForm
+					pond={{
+						id: pond.id,
+						feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
+						feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
+						sampleIntervalDays: pond.sampleIntervalDays,
+						population: pond.population,
+						areaM2: profile.areaM2,
+						averageDepthM: profile.averageDepthM,
+						feedPricePerKg: profile.feedPricePerKg,
+					}}
+					canWrite={writeAccess}
+				/>
+			</DashboardSection>
+
+			<DashboardSection title={t("accountTitle")} description={t("accountDesc")} icon={User}>
+				<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+					<div>
+						<h3 className="font-bold text-[#0A3D62] dark:text-gray-100">{t("signOutTitle")}</h3>
+						<p className="text-sm text-[#3D5568] dark:text-gray-400">{t("signOutDesc")}</p>
 					</div>
-
-					<div className="flex flex-col gap-4">
-						<div className="flex items-center justify-between">
-							<div>
-								<h3 className="font-medium text-gray-900">{t("signOutTitle")}</h3>
-								<p className="text-sm text-gray-500">{t("signOutDesc")}</p>
-							</div>
-							<LogoutButton />
-						</div>
-					</div>
-				</section>
-			</div>
+					<LogoutButton />
+				</div>
+			</DashboardSection>
 		</div>
 	);
 }

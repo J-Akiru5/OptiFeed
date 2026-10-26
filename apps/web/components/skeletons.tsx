@@ -223,9 +223,10 @@ export function DashboardSkeleton({ label }: { label?: string } = {}) {
 	);
 }
 
-export function SettingsSkeleton() {
+export function SettingsSkeleton({ label }: { label?: string } = {}) {
 	return (
-		<div className="mx-auto max-w-4xl space-y-8 animate-in fade-in duration-500">
+		<div aria-busy="true" className="mx-auto max-w-4xl space-y-8 animate-in fade-in duration-500">
+			<SkeletonStatus label={label} />
 			<div className="space-y-2">
 				<Skeleton className="h-8 w-48" />
 				<Skeleton className="h-4 w-64" />

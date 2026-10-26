@@ -1,7 +1,13 @@
 import { ChangePasswordForm } from "@/components/change-password-form";
+import { dashboardField, dashboardLabel } from "@/components/dashboard/dashboard-classes";
+import {
+	DashboardPageHeader,
+	DashboardSection,
+	ReadOnlyNotice,
+} from "@/components/dashboard/dashboard-ui";
 import { NotificationPrefsForm } from "@/components/notification-prefs-form";
 import { Link } from "@/i18n/routing";
-import { getCurrentUser } from "@/lib/auth/session";
+import { canWrite, getCurrentUser } from "@/lib/auth/session";
 import { DPO_EMAIL, LEGAL_APP_RELEASE, LEGAL_PUBLISHED, LEGAL_VERSION } from "@/lib/legal/config";
 import { getActivePond } from "@/lib/pond-selection";
 import { createClient } from "@/lib/supabase/server";
@@ -9,18 +15,22 @@ import { FileText, Shield, User } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export default async function ProfileSettingsPage() {
-	const t = await getTranslations("dashboard.profileSettings");
-	const tLegal = await getTranslations("legal");
+	const [t, tLegal, tCommon] = await Promise.all([
+		getTranslations("dashboard.profileSettings"),
+		getTranslations("legal"),
+		getTranslations("dashboard.common"),
+	]);
 
 	const supabase = await createClient();
 	const {
 		data: { user },
 	} = await supabase.auth.getUser();
 	const email = user?.email ?? "";
-	const displayName = email.split("@")[0] || "User";
+	const displayName = email.split("@")[0] || t("defaultName");
 
 	const currentUser = await getCurrentUser();
 	const farmId = currentUser?.farmId ?? "\u2014";
+	const writeAccess = await canWrite();
 
 	const pond = await getActivePond();
 	const notificationPrefs = pond?.notificationPrefs ?? {
@@ -29,163 +39,122 @@ export default async function ProfileSettingsPage() {
 		hopperLow: true,
 	};
 
+	const disabledField = `${dashboardField} cursor-not-allowed bg-gray-50 text-[#3D5568] dark:bg-gray-800 dark:text-gray-400`;
+
 	return (
-		<div className="mx-auto max-w-4xl space-y-8">
-			<div>
-				<h1 className="flex items-center gap-2 text-3xl font-bold text-[var(--ofd-base)]">
-					<User size={28} />
-					{t("title")}
-				</h1>
-				<p className="mt-2 text-gray-500">{t("desc")}</p>
-			</div>
+		<div className="mx-auto max-w-4xl space-y-6 pb-20">
+			<DashboardPageHeader title={t("title")} description={t("desc")} icon={User} />
 
-			<div className="space-y-8">
-				{/* Profile Information */}
-				<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
-					<div className="mb-6 border-b border-gray-100 pb-4 dark:border-gray-700/50">
-						<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800 dark:text-gray-100">
-							<User size={20} />
-							{t("profileInfo")}
-						</h2>
-						<p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("profileInfoDesc")}</p>
+			{!writeAccess && (
+				<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
+			)}
+
+			<DashboardSection title={t("profileInfo")} description={t("profileInfoDesc")} icon={User}>
+				<div className="grid gap-6 md:grid-cols-2">
+					<div>
+						<label htmlFor="fullName" className={dashboardLabel}>
+							{t("fullName")}
+						</label>
+						<input id="fullName" type="text" defaultValue={displayName} className={disabledField} />
 					</div>
-
-					<div className="grid gap-6 md:grid-cols-2">
-						<div className="flex flex-col gap-2">
-							<label
-								htmlFor="fullName"
-								className="text-sm font-medium text-gray-700 dark:text-gray-300"
-							>
-								{t("fullName")}
-							</label>
-							<input
-								id="fullName"
-								type="text"
-								defaultValue={displayName}
-								className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
-							/>
-						</div>
-						<div className="flex flex-col gap-2">
-							<label
-								htmlFor="role"
-								className="text-sm font-medium text-gray-700 dark:text-gray-300"
-							>
-								{t("role")}
-							</label>
-							<input
-								id="role"
-								type="text"
-								defaultValue={currentUser?.role ?? "\u2014"}
-								disabled
-								className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400"
-							/>
-						</div>
-						<div className="flex flex-col gap-2">
-							<label
-								htmlFor="farmId"
-								className="text-sm font-medium text-gray-700 dark:text-gray-300"
-							>
-								{t("farmId")}
-							</label>
-							<input
-								id="farmId"
-								type="text"
-								defaultValue={farmId}
-								disabled
-								className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 font-mono text-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400"
-							/>
-						</div>
-						<div className="flex flex-col gap-2">
-							<label
-								htmlFor="email"
-								className="text-sm font-medium text-gray-700 dark:text-gray-300"
-							>
-								{t("email")}
-							</label>
-							<input
-								id="email"
-								type="email"
-								defaultValue={email}
-								disabled
-								className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400"
-							/>
-						</div>
-					</div>
-
-					<div className="mt-6">
-						<button
-							type="button"
+					<div>
+						<label htmlFor="role" className={dashboardLabel}>
+							{t("role")}
+						</label>
+						<input
+							id="role"
+							type="text"
+							defaultValue={currentUser?.role ?? "\u2014"}
 							disabled
-							className="flex min-h-[var(--ofd-touch-min)] min-w-[120px] items-center justify-center rounded-lg bg-[var(--ofd-action)] px-6 font-medium text-white opacity-50 cursor-not-allowed"
+							className={disabledField}
+						/>
+					</div>
+					<div>
+						<label htmlFor="farmId" className={dashboardLabel}>
+							{t("farmId")}
+						</label>
+						<input
+							id="farmId"
+							type="text"
+							defaultValue={farmId}
+							disabled
+							className={`${disabledField} break-all font-mono`}
+						/>
+					</div>
+					<div>
+						<label htmlFor="email" className={dashboardLabel}>
+							{t("email")}
+						</label>
+						<input
+							id="email"
+							type="email"
+							defaultValue={email}
+							disabled
+							className={`${disabledField} break-all`}
+						/>
+					</div>
+				</div>
+
+				<div className="mt-6">
+					<button
+						type="button"
+						disabled
+						aria-describedby="profile-managed-note"
+						className="inline-flex min-h-11 min-w-[120px] cursor-not-allowed items-center justify-center rounded-xl bg-[#C2410C] px-6 text-sm font-black text-white opacity-60"
+					>
+						{t("saveChanges")}
+					</button>
+					<p id="profile-managed-note" className="mt-2 text-xs text-[#3D5568] dark:text-gray-400">
+						{t("managedByAdmin")}
+					</p>
+				</div>
+			</DashboardSection>
+
+			<DashboardSection title={t("security")} description={t("securityDesc")} icon={Shield}>
+				<ChangePasswordForm />
+			</DashboardSection>
+
+			{LEGAL_PUBLISHED ? (
+				<DashboardSection
+					title={tLegal("profileTitle")}
+					description={tLegal("profileDesc")}
+					icon={FileText}
+				>
+					<div className="flex flex-col gap-2 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+						<Link
+							href="/privacy"
+							className="inline-flex min-h-11 items-center font-bold text-[#C2410C] underline underline-offset-2 hover:text-[#9A3412] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3D62] dark:text-[#ff8a5c] dark:focus-visible:ring-[#8fc0ea]"
 						>
-							{t("saveChanges")}
-						</button>
-						<p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{t("managedByAdmin")}</p>
+							{tLegal("privacy")}
+						</Link>
+						<Link
+							href="/terms"
+							className="inline-flex min-h-11 items-center font-bold text-[#C2410C] underline underline-offset-2 hover:text-[#9A3412] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3D62] dark:text-[#ff8a5c] dark:focus-visible:ring-[#8fc0ea]"
+						>
+							{tLegal("terms")}
+						</Link>
+						<a
+							href={`mailto:${DPO_EMAIL}`}
+							className="inline-flex min-h-11 items-center font-bold text-[#C2410C] underline underline-offset-2 hover:text-[#9A3412] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3D62] dark:text-[#ff8a5c] dark:focus-visible:ring-[#8fc0ea]"
+						>
+							{tLegal("privacyContact")}
+						</a>
 					</div>
-				</section>
 
-				{/* Security Section */}
-				<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
-					<div className="mb-6 border-b border-gray-100 pb-4 dark:border-gray-700/50">
-						<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800 dark:text-gray-100">
-							<Shield size={20} />
-							{t("security")}
-						</h2>
-						<p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("securityDesc")}</p>
-					</div>
+					<p className="mt-4 text-xs text-[#3D5568] dark:text-gray-400">
+						{tLegal("profileVersion", {
+							version: LEGAL_VERSION,
+							release: LEGAL_APP_RELEASE,
+						})}
+					</p>
+				</DashboardSection>
+			) : null}
 
-					<ChangePasswordForm />
-				</section>
-
-				{LEGAL_PUBLISHED ? (
-					<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
-						<div className="mb-5 border-b border-gray-100 pb-4 dark:border-gray-700/50">
-							<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800 dark:text-gray-100">
-								<FileText size={20} />
-								{tLegal("profileTitle")}
-							</h2>
-							<p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-								{tLegal("profileDesc")}
-							</p>
-						</div>
-
-						<div className="flex flex-col gap-2 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
-							<Link
-								href="/privacy"
-								className="font-medium text-[var(--ofd-base)] underline underline-offset-2 hover:text-[#E85A2A]"
-							>
-								{tLegal("privacy")}
-							</Link>
-							<Link
-								href="/terms"
-								className="font-medium text-[var(--ofd-base)] underline underline-offset-2 hover:text-[#E85A2A]"
-							>
-								{tLegal("terms")}
-							</Link>
-							<a
-								href={`mailto:${DPO_EMAIL}`}
-								className="font-medium text-[var(--ofd-base)] underline underline-offset-2 hover:text-[#E85A2A]"
-							>
-								{tLegal("privacyContact")}
-							</a>
-						</div>
-
-						<p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
-							{tLegal("profileVersion", {
-								version: LEGAL_VERSION,
-								release: LEGAL_APP_RELEASE,
-							})}
-						</p>
-					</section>
-				) : null}
-
-				{/* Notification Preferences */}
-				<NotificationPrefsForm
-					pondId={pond?.id ?? ""}
-					initialPrefs={notificationPrefs}
-					canWrite={currentUser?.role === "ADMIN" || currentUser?.role === "OPERATOR"}
-				/>
-			</div>
+			<NotificationPrefsForm
+				pondId={pond?.id ?? ""}
+				initialPrefs={notificationPrefs}
+				canWrite={writeAccess}
+			/>
 		</div>
 	);
 }

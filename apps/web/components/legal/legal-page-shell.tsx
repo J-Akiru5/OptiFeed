@@ -43,7 +43,7 @@ export async function LegalPageShell({
 
 	return (
 		<div className="min-h-screen bg-[#F4F7F6] text-[#0A2E47] dark:bg-[#0B1117] dark:text-slate-100">
-			<header className="sticky top-0 z-30 border-b border-[#DFE7E4]/80 bg-[#F4F7F6]/90 backdrop-blur-md dark:border-white/10 dark:bg-[#0B1117]/90">
+			<header className="sticky top-0 z-30 border-b border-[#DFE7E4]/80 bg-[#F4F7F6]/90 backdrop-blur-md print:hidden dark:border-white/10 dark:bg-[#0B1117]/90">
 				<div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
 					<Link
 						href="/"
@@ -146,7 +146,7 @@ export async function LegalPageShell({
 						<div className="mt-6 space-y-8">
 							<HiligaynonSummary kind={kind} />
 
-							<details className="rounded-xl border border-[#DFE7E4] bg-white p-4 lg:hidden dark:border-white/10 dark:bg-white/[0.03]">
+							<details className="rounded-xl border border-[#DFE7E4] bg-white p-4 lg:hidden print:hidden dark:border-white/10 dark:bg-white/[0.03]">
 								<summary className="cursor-pointer text-[12px] font-semibold uppercase tracking-[0.12em] text-[#0A3D62] dark:text-[#8EC5EF]">
 									{t("contents")}
 								</summary>
@@ -218,7 +218,7 @@ export async function LegalPageShell({
 						</footer>
 					</article>
 
-					<aside className="hidden lg:block">
+					<aside className="hidden lg:block print:hidden">
 						<nav
 							aria-label={t("contents")}
 							className="sticky top-24 rounded-xl border border-[#DFE7E4] bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]"
@@ -243,7 +243,7 @@ export async function LegalPageShell({
 				</div>
 			</main>
 
-			<footer className="border-t border-[#DFE7E4] px-5 py-6 text-[11px] text-slate-500 sm:px-8 dark:border-white/10 dark:text-slate-400">
+			<footer className="border-t border-[#DFE7E4] px-5 py-6 text-[11px] text-slate-500 sm:px-8 print:hidden dark:border-white/10 dark:text-slate-400">
 				<div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-5 gap-y-2">
 					<p>{t("footerNote")}</p>
 					<p className="font-mono tracking-wide">

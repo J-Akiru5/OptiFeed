@@ -60,6 +60,16 @@ The legal pages use the root version, 1.11.0. A separate release task should syn
 - `research-information-and-consent.html` — print-ready A4 version.
 - `paper-ethics-paragraph.md` — suggested human-participant ethics and data-gathering paragraphs for the capstone paper.
 
+## Review artifacts
+
+The Vercel develop preview is behind Vercel SSO, so the University Legal Office can review these draft PDFs in this folder:
+
+- `privacy-policy-draft.pdf` — 16 pages.
+- `terms-of-service-draft.pdf` — 7 pages.
+- `research-information-and-consent.pdf` — 5 pages.
+
+Each PDF carries a **DRAFT — not effective** header and a page-number footer. Regenerate them after any text change. A PDF is not an approval; the University Legal Office must still sign off before `LEGAL_STATUS` changes to `effective`.
+
 The paper's current Ethical Considerations section covers animal welfare only. Add the human-participant paragraphs before the final defense.
 
 ## Data inventory used in the policy

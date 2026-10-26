@@ -9,6 +9,7 @@ import { isStepUpRequiredError, withStepUp } from "@/lib/auth/step-up";
 import prisma from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MemberRole, Prisma, UserRole } from "@prisma/client";
+import { headers } from "next/headers";
 
 /**
  * Platform-console actions. Every export is gated by requirePlatformAdmin()
@@ -24,6 +25,8 @@ import type { MemberRole, Prisma, UserRole } from "@prisma/client";
  */
 
 const MIN_REASON_LENGTH = 10;
+const PAGE_SIZE = 50;
+const MAX_QUERY_LENGTH = 64;
 
 const LAST_PLATFORM_ADMIN_MESSAGE =
 	"At least one active platform administrator must remain. Grant another admin first.";
@@ -47,11 +50,40 @@ function requireReason(reason: string | undefined): string {
 	return trimmed;
 }
 
+type AuditTargetType = "user" | "organization" | "platform_admin";
+
+/**
+ * The real audited object for each action, so the explorer can filter by
+ * target kind instead of the old catch-all "platform_console".
+ */
+function auditTargetType(action: string): AuditTargetType {
+	if (action.startsWith("platform.user.")) return "user";
+	if (action.startsWith("platform.org.")) return "organization";
+	if (action.startsWith("platform.admin.")) return "platform_admin";
+	throw new Error(`Unknown platform audit action: ${action}`);
+}
+
+/** Request origin for the audit row (who/what/when/where), same as devices.ts. */
+async function requestOrigin(): Promise<{ ip: string | null; userAgent: string | null }> {
+	try {
+		const h = await headers();
+		const forwarded = h.get("x-forwarded-for")?.split(",")[0]?.trim();
+		return {
+			ip: forwarded || h.get("x-real-ip") || null,
+			userAgent: h.get("user-agent")?.slice(0, 512) ?? null,
+		};
+	} catch {
+		return { ip: null, userAgent: null };
+	}
+}
+
 /** Append an audit row (T5). Every mutation in this file calls it. */
 async function audit(
 	data: {
 		action: string;
 		targetId: string;
+		/** Org context where the action has one (plan M3.9). */
+		orgId?: string | null;
 		reason: string;
 		actorUserId: string;
 		temporaryGrant?: boolean;
@@ -62,15 +94,19 @@ async function audit(
 	},
 	tx: Prisma.TransactionClient,
 ): Promise<void> {
+	const origin = await requestOrigin();
 	await tx.platformAuditLog.create({
 		data: {
 			actorUserId: data.actorUserId,
 			action: data.action,
-			targetType: "platform_console",
+			targetType: auditTargetType(data.action),
 			targetId: data.targetId,
+			orgId: data.orgId ?? null,
 			reason: data.reason,
 			stepUpAt: data.stepUpAt ?? null,
 			temporaryGrant: data.temporaryGrant ?? false,
+			ip: origin.ip,
+			userAgent: origin.userAgent,
 			...(data.before !== undefined ? { before: data.before } : {}),
 			...(data.after !== undefined ? { after: data.after } : {}),
 		},
@@ -140,16 +176,53 @@ async function activeMemberCounts(orgIds: string[]): Promise<Map<string, number>
 	return new Map(groups.map((g) => [g.orgId, g._count._all]));
 }
 
+export type PlatformUserPage = {
+	rows: PlatformUserRow[];
+	total: number;
+	page: number;
+	pageSize: number;
+};
+
+/** Normalize the URL's page/query into safe list arguments (devices pattern). */
+function listInput(input: { query?: string; page?: number } = {}): {
+	query: string;
+	page: number;
+} {
+	return {
+		query: input.query?.trim().slice(0, MAX_QUERY_LENGTH) ?? "",
+		page: Math.max(1, Math.floor(input.page ?? 1) || 1),
+	};
+}
+
 /**
  * Every user across every tenant, with their org memberships resolved.
  * Superadmin sees all of them — including other admins and platform admins.
+ *
+ * Paginated (50 per page) and searchable by farm ID, email or display name.
  */
-export async function listAllUsers(): Promise<PlatformUserRow[]> {
+export async function listAllUsers(
+	input: { query?: string; page?: number } = {},
+): Promise<PlatformUserPage> {
 	await requirePlatformAdmin();
 
-	const [users, memberships, orgs, platformAdmins] = await Promise.all([
+	const { query, page } = listInput(input);
+	const where: Prisma.UserWhereInput = query
+		? {
+				OR: [
+					{ farmId: { contains: query, mode: "insensitive" } },
+					{ email: { contains: query, mode: "insensitive" } },
+					{ displayName: { contains: query, mode: "insensitive" } },
+				],
+			}
+		: {};
+
+	const [total, users] = await Promise.all([
+		prisma.user.count({ where }),
 		prisma.user.findMany({
+			where,
 			orderBy: { createdAt: "desc" },
+			skip: (page - 1) * PAGE_SIZE,
+			take: PAGE_SIZE,
 			select: {
 				id: true,
 				farmId: true,
@@ -160,29 +233,30 @@ export async function listAllUsers(): Promise<PlatformUserRow[]> {
 				_count: { select: { ponds: true } },
 			},
 		}),
-		prisma.membership.findMany({ where: { revokedAt: null } }),
-		prisma.organization.findMany({ select: { id: true, name: true } }),
+	]);
+
+	if (users.length === 0) return { rows: [], total, page, pageSize: PAGE_SIZE };
+
+	const userIds = users.map((u) => u.id);
+	const [memberships, platformAdmins, safetyRows] = await Promise.all([
+		prisma.membership.findMany({ where: { userId: { in: userIds }, revokedAt: null } }),
 		// Only an unrevoked, unexpired grant is god-mode; a safe disable revokes
 		// the grant, so the access badge must follow that.
 		prisma.platformAdmin.findMany({
-			where: activePlatformAdminWhere(),
+			where: { ...activePlatformAdminWhere(), userId: { in: userIds } },
 			select: { userId: true },
 		}),
+		// Safe disable is reversible, so the list needs to know the latest state.
+		// The append-only audit log is the record: no extra column or migration.
+		prisma.platformAuditLog.findMany({
+			where: {
+				action: { in: ["platform.user.disable", "platform.user.enable"] },
+				targetId: { in: userIds },
+			},
+			orderBy: { createdAt: "desc" },
+			select: { action: true, targetId: true },
+		}),
 	]);
-
-	// Safe disable is reversible, so the list needs to know the latest state.
-	// The append-only audit log is the record: no extra column or migration.
-	const safetyRows =
-		users.length > 0
-			? await prisma.platformAuditLog.findMany({
-					where: {
-						action: { in: ["platform.user.disable", "platform.user.enable"] },
-						targetId: { in: users.map((u) => u.id) },
-					},
-					orderBy: { createdAt: "desc" },
-					select: { action: true, targetId: true },
-				})
-			: [];
 	const latestSafetyAction = new Map<string, string>();
 	for (const row of safetyRows) {
 		if (row.targetId && !latestSafetyAction.has(row.targetId)) {
@@ -190,8 +264,17 @@ export async function listAllUsers(): Promise<PlatformUserRow[]> {
 		}
 	}
 
+	const orgIds = [...new Set(memberships.map((m) => m.orgId))];
+	const [orgs, counts] = await Promise.all([
+		orgIds.length
+			? prisma.organization.findMany({
+					where: { id: { in: orgIds } },
+					select: { id: true, name: true },
+				})
+			: [],
+		activeMemberCounts(orgIds),
+	]);
 	const orgById = new Map(orgs.map((o) => [o.id, o]));
-	const counts = await activeMemberCounts(orgs.map((o) => o.id));
 	const memberOrgIds = new Map<string, string[]>();
 	for (const m of memberships) {
 		const list = memberOrgIds.get(m.userId) ?? [];
@@ -200,30 +283,35 @@ export async function listAllUsers(): Promise<PlatformUserRow[]> {
 	}
 	const platformAdminIds = new Set(platformAdmins.map((r) => r.userId));
 
-	return users.map((u) => ({
-		id: u.id,
-		farmId: u.farmId,
-		email: u.email,
-		displayName: u.displayName,
-		role: u.role,
-		createdAt: u.createdAt,
-		isPlatformAdmin: platformAdminIds.has(u.id),
-		disabled: latestSafetyAction.get(u.id) === "platform.user.disable",
-		pondCount: u._count.ponds,
-		orgs: (memberOrgIds.get(u.id) ?? [])
-			.map((orgId) => {
-				const org = orgById.get(orgId);
-				if (!org) return null;
-				const membership = memberships.find((m) => m.userId === u.id && m.orgId === orgId);
-				return {
-					id: org.id,
-					name: org.name,
-					role: membership?.role ?? "OPERATOR",
-					memberCount: counts.get(orgId) ?? 0,
-				};
-			})
-			.filter((o): o is NonNullable<typeof o> => o !== null),
-	}));
+	return {
+		rows: users.map((u) => ({
+			id: u.id,
+			farmId: u.farmId,
+			email: u.email,
+			displayName: u.displayName,
+			role: u.role,
+			createdAt: u.createdAt,
+			isPlatformAdmin: platformAdminIds.has(u.id),
+			disabled: latestSafetyAction.get(u.id) === "platform.user.disable",
+			pondCount: u._count.ponds,
+			orgs: (memberOrgIds.get(u.id) ?? [])
+				.map((orgId) => {
+					const org = orgById.get(orgId);
+					if (!org) return null;
+					const membership = memberships.find((m) => m.userId === u.id && m.orgId === orgId);
+					return {
+						id: org.id,
+						name: org.name,
+						role: membership?.role ?? "OPERATOR",
+						memberCount: counts.get(orgId) ?? 0,
+					};
+				})
+				.filter((o): o is NonNullable<typeof o> => o !== null),
+		})),
+		total,
+		page,
+		pageSize: PAGE_SIZE,
+	};
 }
 
 export type PlatformUserResult = { success: true; userId: string } | { error: string };
@@ -362,6 +450,7 @@ export async function createPlatformUser(
 				{
 					action: "platform.user.create",
 					targetId: user.id,
+					orgId,
 					reason,
 					actorUserId: actor,
 					after: { farmId, kind: input.kind, role, orgId },
@@ -545,6 +634,7 @@ export async function disablePlatformUser(
 					{
 						action: "platform.user.disable",
 						targetId: user.id,
+						orgId: memberships[0]?.orgId ?? null,
 						reason: trimmedReason,
 						actorUserId: actor,
 						stepUpAt,
@@ -699,29 +789,60 @@ export type OrgRow = {
 	pondCount: number;
 };
 
-export async function listOrgs(): Promise<OrgRow[]> {
+export type OrgPage = {
+	rows: OrgRow[];
+	total: number;
+	page: number;
+	pageSize: number;
+};
+
+/** Paginated (50 per page) org list, searchable by name. */
+export async function listOrgs(input: { query?: string; page?: number } = {}): Promise<OrgPage> {
 	await requirePlatformAdmin();
 
-	const [orgs, memberships, users] = await Promise.all([
-		prisma.organization.findMany({ orderBy: { createdAt: "desc" } }),
-		prisma.membership.findMany({ where: { revokedAt: null } }),
-		prisma.user.findMany({ select: { id: true, farmId: true } }),
+	const { query, page } = listInput(input);
+	const where: Prisma.OrganizationWhereInput = query
+		? { name: { contains: query, mode: "insensitive" } }
+		: {};
+
+	const [total, orgs] = await Promise.all([
+		prisma.organization.count({ where }),
+		prisma.organization.findMany({
+			where,
+			orderBy: { createdAt: "desc" },
+			skip: (page - 1) * PAGE_SIZE,
+			take: PAGE_SIZE,
+		}),
 	]);
 
-	if (orgs.length === 0) return [];
+	if (orgs.length === 0) return { rows: [], total, page, pageSize: PAGE_SIZE };
 
-	const counts = await activeMemberCounts(orgs.map((o) => o.id));
+	const orgIds = orgs.map((o) => o.id);
+	const memberships = await prisma.membership.findMany({
+		where: { orgId: { in: orgIds }, revokedAt: null },
+		select: { orgId: true, userId: true },
+	});
+	const userIds = [...new Set(memberships.map((m) => m.userId))];
+	const users = userIds.length
+		? await prisma.user.findMany({
+				where: { id: { in: userIds } },
+				select: { id: true, farmId: true },
+			})
+		: [];
 	const farmIdByUser = new Map(users.map((u) => [u.id, u.farmId]));
 	const farmIds = users.map((u) => u.farmId);
 
 	// Ponds hang off farms (Pond.ownerId = User.farmId), so pond totals are
 	// resolved from org members rather than a direct orgId on Pond (M1.3).
-	const ponds = farmIds.length
-		? await prisma.pond.findMany({
-				where: { ownerId: { in: farmIds } },
-				select: { ownerId: true },
-			})
-		: [];
+	const [ponds, counts] = await Promise.all([
+		farmIds.length
+			? prisma.pond.findMany({
+					where: { ownerId: { in: farmIds } },
+					select: { ownerId: true },
+				})
+			: [],
+		activeMemberCounts(orgIds),
+	]);
 	const pondCountByOwner = new Map<string, number>();
 	for (const p of ponds) {
 		pondCountByOwner.set(p.ownerId, (pondCountByOwner.get(p.ownerId) ?? 0) + 1);
@@ -735,15 +856,31 @@ export async function listOrgs(): Promise<OrgRow[]> {
 		pondCountByOrg.set(m.orgId, (pondCountByOrg.get(m.orgId) ?? 0) + count);
 	}
 
-	return orgs.map((o) => ({
-		id: o.id,
-		name: o.name,
-		type: o.type,
-		status: o.status,
-		createdAt: o.createdAt,
-		memberCount: counts.get(o.id) ?? 0,
-		pondCount: pondCountByOrg.get(o.id) ?? 0,
-	}));
+	return {
+		rows: orgs.map((o) => ({
+			id: o.id,
+			name: o.name,
+			type: o.type,
+			status: o.status,
+			createdAt: o.createdAt,
+			memberCount: counts.get(o.id) ?? 0,
+			pondCount: pondCountByOrg.get(o.id) ?? 0,
+		})),
+		total,
+		page,
+		pageSize: PAGE_SIZE,
+	};
+}
+
+export type OrgOption = { id: string; name: string; type: string };
+
+/** Every org, unpaginated, for the create-account selector. */
+export async function listOrgOptions(): Promise<OrgOption[]> {
+	await requirePlatformAdmin();
+	return prisma.organization.findMany({
+		orderBy: { name: "asc" },
+		select: { id: true, name: true, type: true },
+	});
 }
 
 export type CreateOrgResult = { success: true; orgId: string } | { error: string };
@@ -768,6 +905,7 @@ export async function createOrg(input: {
 				{
 					action: "platform.org.create",
 					targetId: org.id,
+					orgId: org.id,
 					reason,
 					actorUserId: actor,
 					after: { name: org.name, type: org.type },
@@ -795,18 +933,43 @@ export type PlatformPondRow = {
 	orgs: string[];
 };
 
+export type PlatformPondPage = {
+	rows: PlatformPondRow[];
+	total: number;
+	page: number;
+	pageSize: number;
+};
+
 /**
- * Every pond, across every tenant, read-only.
+ * Every pond, across every tenant, read-only. Paginated (50 per page) and
+ * searchable by pond name, owner farm ID or owner name.
  *
  * Deliberately has no mutation sibling: superadmin cannot interfere in farmer
  * work (3-tier model). It sees ponds for visibility only.
  */
-export async function listAllPonds(): Promise<PlatformPondRow[]> {
+export async function listAllPonds(
+	input: { query?: string; page?: number } = {},
+): Promise<PlatformPondPage> {
 	await requirePlatformAdmin();
 
-	const [ponds, memberships, orgs] = await Promise.all([
+	const { query, page } = listInput(input);
+	const where: Prisma.PondWhereInput = query
+		? {
+				OR: [
+					{ name: { contains: query, mode: "insensitive" } },
+					{ ownerId: { contains: query, mode: "insensitive" } },
+					{ owner: { displayName: { contains: query, mode: "insensitive" } } },
+				],
+			}
+		: {};
+
+	const [total, ponds] = await Promise.all([
+		prisma.pond.count({ where }),
 		prisma.pond.findMany({
+			where,
 			orderBy: { createdAt: "desc" },
+			skip: (page - 1) * PAGE_SIZE,
+			take: PAGE_SIZE,
 			select: {
 				id: true,
 				name: true,
@@ -815,28 +978,57 @@ export async function listAllPonds(): Promise<PlatformPondRow[]> {
 				owner: { select: { displayName: true } },
 			},
 		}),
-		prisma.membership.findMany({ where: { revokedAt: null } }),
-		prisma.organization.findMany({ select: { id: true, name: true } }),
 	]);
 
+	if (ponds.length === 0) return { rows: [], total, page, pageSize: PAGE_SIZE };
+
+	// Pond.ownerId is the farm slug (User.farmId), never User.id. Resolve the
+	// owner's memberships through User.farmId so the Organizations column fills.
+	const farmIds = [...new Set(ponds.map((p) => p.ownerId))];
+	const users = await prisma.user.findMany({
+		where: { farmId: { in: farmIds } },
+		select: { id: true, farmId: true },
+	});
+	const userIds = users.map((u) => u.id);
+	const memberships = userIds.length
+		? await prisma.membership.findMany({
+				where: { userId: { in: userIds }, revokedAt: null },
+				select: { userId: true, orgId: true },
+			})
+		: [];
+	const orgIds = [...new Set(memberships.map((m) => m.orgId))];
+	const orgs = orgIds.length
+		? await prisma.organization.findMany({
+				where: { id: { in: orgIds } },
+				select: { id: true, name: true },
+			})
+		: [];
+
 	const orgById = new Map(orgs.map((o) => [o.id, o.name]));
-	const orgsByUser = new Map<string, string[]>();
+	const farmIdByUser = new Map(users.map((u) => [u.id, u.farmId]));
+	const orgsByFarm = new Map<string, string[]>();
 	for (const m of memberships) {
+		const farmId = farmIdByUser.get(m.userId);
 		const name = orgById.get(m.orgId);
-		if (!name) continue;
-		const list = orgsByUser.get(m.userId) ?? [];
-		list.push(name);
-		orgsByUser.set(m.userId, list);
+		if (!farmId || !name) continue;
+		const list = orgsByFarm.get(farmId) ?? [];
+		if (!list.includes(name)) list.push(name);
+		orgsByFarm.set(farmId, list);
 	}
 
-	return ponds.map((p) => ({
-		id: p.id,
-		name: p.name,
-		status: p.status,
-		ownerFarmId: p.ownerId,
-		ownerName: p.owner?.displayName ?? null,
-		orgs: orgsByUser.get(p.ownerId) ?? [],
-	}));
+	return {
+		rows: ponds.map((p) => ({
+			id: p.id,
+			name: p.name,
+			status: p.status,
+			ownerFarmId: p.ownerId,
+			ownerName: p.owner?.displayName ?? null,
+			orgs: orgsByFarm.get(p.ownerId) ?? [],
+		})),
+		total,
+		page,
+		pageSize: PAGE_SIZE,
+	};
 }
 
 // ─── Platform admin grants ────────────────────────────────────────────────────

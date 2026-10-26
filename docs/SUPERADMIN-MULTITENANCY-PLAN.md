@@ -56,6 +56,10 @@ These are decided. Do not reopen them.
 | T15 | *(2026-10-26)* **Device registration is superadmin-only.** A platform admin creates the device and must choose the **org and pond** at creation, so it appears at once in that tenant's Admin → Devices. Tenant admins cannot register devices. Farmer self-claim (T7, M4.2) stays planned for units sold to new customers. | — |
 | T16 | *(2026-10-26)* **Token reveal is interim.** The tenant's "Show token" reveal of the stored plaintext token stays for now, because the setup portal needs the token typed in. Every reveal must be audited and rate-limited (M3F.5). Show-once tokens and dropping `EnergyDevice.token` remain the target (M4.3), after field units are reflashed. | — |
 | T17 | *(2026-10-26)* **Setup AP name is `PakaonAI-XXXX`**, XXXX = last four hex digits of the chip's **eFuse MAC** (replaces `PAKAON-XXXX` in §5.2). The device registry records that same MAC, so the printed sticker QR always matches the unit, including before identity is set. | — |
+| T19 | *(2026-10-26)* **Superadmin is god mode for the whole application** (resolves O9: T4 stands). Includes any org's members and permissions, view-as and remote feeder control. Guardrails stay: reason, audit, step-up, and the §6 safety caps. | — |
+| T20 | *(2026-10-26)* **Only `staging` (preview) and `main` (production) deploy.** `develop` is the reconciliation branch, validated by CI only (PR #182). | — |
+| T21 | *(2026-10-26)* **Remote firmware updates (OTA)** are required, because units sit on farms with no IT help. Design follows the ESP32 OTA research (mission T-12). | — |
+| T22 | *(2026-10-26)* **Firmware reset buttons on GPIO 16 (Wi-Fi, 5 s) and GPIO 17 (factory, 10 s)**, replacing the §5.3 proposal of 18/19. | — |
 | T18 | *(2026-10-26)* **Check the platform tables' exposure now.** Jeff checks whether RLS is off on the platform tables (§2a, N1) and whether the Data API exposes them. If they are exposed, ship an additive `ENABLE ROW LEVEL SECURITY` hotfix migration as its own PR with Jeff's explicit OK, despite the migration freeze. | — |
 
 ---
@@ -604,7 +608,7 @@ Then continue with the v1 order below, skipping what §2a lists as built.
 | O6 | Are existing demo units provider-owned? | M1.4 |
 | O7 | Claim code expiry (proposed 90 days). | M4.2 |
 | O8 | Per-unit operating cost (cloud, SIM or WiFi, support), needed for a true payback figure. | §7.2 refresh |
-| O9 | *(v2)* T4 gives superadmin remote feeder control, but `lib/actions/superadmin.ts` states "no farmer function by design". Which stands for M5.2? | M5.2 |
+| O9 | *(v2, **resolved by T19**)* T4 stands: superadmin has remote feeder control (with step-up, audit and the §6 caps). | — |
 | O10 | *(v2)* When does staging/dev get its own database (M0.5)? | Safe testing of M3F, M7 |
 | O11 | *(v2)* Result of the RLS / Data API exposure check (T18). | M0.4 |
 | O12 | *(v2)* The benchmark rates missing MFA as High; T13 defers it to the commercial gate. Keep T13 as is, or pull MFA forward? (Not reopened here; Jeff's call.) | M8.1 timing |
@@ -647,5 +651,6 @@ Read-only research comparing the console against multi-tenant SaaS and IoT fleet
 
 ## Change log
 
+- **v2.1 (2026-10-26):** decisions T19–T22 (god mode, staging/main-only deploys, OTA, reset buttons on GPIO 16/17), O9 resolved. Execution is tracked in `docs/missions/2026-10-26-autonomous-mission.md`.
 - **v2 (2026-10-26):** decisions T15–T18 and the T7 amendment from Jeff in chat; §2a progress and findings N1–N11; branch rule updated to `CONTRIBUTING.md`; phase M3F (device registry v1) and tasks M0.4, M0.5, M3.9–M3.11; v2 near-term PR queue in §9; four new risks; open questions O9–O12; Appendix A benchmark. `docs/superadmin-multitenancy-portal.html` is not yet updated.
 - **v1 (2026-10-17):** initial plan.

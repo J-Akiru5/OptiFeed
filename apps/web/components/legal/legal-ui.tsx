@@ -52,7 +52,9 @@ export function LegalCallout({
 	} as const;
 
 	return (
-		<div className={`rounded-xl border p-4 text-[13px] leading-6 ${styles[tone]}`}>
+		<div
+			className={`rounded-xl border p-4 text-[13px] leading-6 print:break-inside-avoid ${styles[tone]}`}
+		>
 			{title ? <p className="mb-1 font-semibold">{title}</p> : null}
 			<div className="space-y-2">{children}</div>
 		</div>
@@ -75,7 +77,7 @@ export function LegalTable({
 	caption?: string;
 }) {
 	return (
-		<div className="my-2 overflow-x-auto rounded-xl border border-[#DFE7E4] dark:border-white/10">
+		<div className="my-2 overflow-x-auto rounded-xl border border-[#DFE7E4] print:break-inside-avoid dark:border-white/10">
 			<table className="w-full min-w-[42rem] border-collapse text-left text-[12.5px] leading-6">
 				{caption ? <caption className="sr-only">{caption}</caption> : null}
 				<thead className="bg-[#F4F7F6] text-[10px] uppercase tracking-[0.12em] text-[#5D7183] dark:bg-white/[0.04] dark:text-slate-400">

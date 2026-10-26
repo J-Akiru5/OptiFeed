@@ -623,6 +623,9 @@ Then continue with the v1 order below, skipping what §2a lists as built.
 | O9 | *(v2, **resolved by T19**)* T4 stands: superadmin has remote feeder control (with step-up, audit and the §6 caps). | — |
 | O10 | *(v2)* When does staging/dev get its own database (M0.5)? | Safe testing of M3F, M7 |
 | O11 | *(v2, **resolved 2026-10-26**)* RLS check done: no exposure (see N1). No hotfix migration needed. | — |
+| O13 | *(v2.1, from T-06)* Invites hand over a one-time temporary password, because logins use `<id>@pond.optifeed.local` and there is no invite table. Is that acceptable, or should real email invites (invite table + login-domain change, a migration) be a later task? | M2.7 follow-up |
+| O14 | *(v2.1, from T-06)* Superadmin member management deliberately bypasses the tenant last-owner/self/ADMIN guards (god mode, T19). Confirm. | — |
+| O15 | *(v2.1, from T-06)* Existing accounts keep their legacy `User.role` when their membership role changes, until `UserRole` is retired from authorization (M2.5). Confirm. | M2.5 |
 | O12 | *(v2)* The benchmark rates missing MFA as High; T13 defers it to the commercial gate. Keep T13 as is, or pull MFA forward? (Not reopened here; Jeff's call.) | M8.1 timing |
 
 ---

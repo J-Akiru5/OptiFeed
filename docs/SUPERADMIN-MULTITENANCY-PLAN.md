@@ -1,8 +1,8 @@
-# PakaonAI: Superadmin and Multi-Tenancy Plan (v1)
+# PakaonAI: Superadmin and Multi-Tenancy Plan (v2)
 
-> Status: **planning, not started.** Written 2026-10-17 against `origin/develop` @ `be77a18`.
+> Status: **partly built.** v1 written 2026-10-17 against `origin/develop` @ `be77a18`. **v2 amended 2026-10-26** against `origin/develop` @ `3089c65`: new decisions T15–T18 (§1), progress and new findings (§2a), the device registry phase M3F (§8), a revised PR order (§9) and a production-grade benchmark (Appendix A). What changed is listed in the change log at the end.
 > Pattern source: Syntaxure EMS Architecture v3 (WVSU energy monitoring), mapped onto PakaonAI.
-> Human-readable version with diagrams and charts: `docs/superadmin-multitenancy-portal.html`.
+> Human-readable version with diagrams and charts: `docs/superadmin-multitenancy-portal.html` (**still v1**; this file wins where they differ).
 > This file is written for the executing AI agent. It follows the same conventions as `docs/OPTIFEED-INDUSTRY-GRADE-PLAN v3.md`.
 
 Evidence labels used in this file:
@@ -16,7 +16,8 @@ Evidence labels used in this file:
 ## 0. Instructions for the executing AI
 
 **Hard rules (same as the hardening plan; they still apply):**
-- Work only on branch `Karl`. Start with `git checkout Karl && git pull origin develop --rebase`. Open small PRs from `Karl` to `develop`. Never push to `develop`, `staging` or `main`.
+- Follow `CONTRIBUTING.md`: one short-lived branch per task (`feature/*`, `fix/*`, `docs/*`, …) from the latest `develop`, a PR into `develop`, never a push to `develop`, `staging` or `main`. *(v2: the shared `Karl` branch from v1 is retired, see `HANDOFF.md` §2.)*
+- Previews and `develop` share the **production** database. Never test a write path (create, rotate, delete, purge) on a preview; use a local or separate dev database.
 - Never run `prisma migrate reset`. Production uses `migrate deploy`.
 - Every migration in this plan must be **additive** until Phase M2 is verified. No `DROP COLUMN`, `DROP TABLE`, `TRUNCATE`, or unique-constraint removal without an explicit human OK in chat. Section 6 lists the few contract steps that need that OK.
 - Next.js is 16: the file is `proxy.ts`, not `middleware.ts`. Read `apps/web/node_modules/next/dist/docs/` before touching routing, route handlers or caching.
@@ -44,7 +45,7 @@ These are decided. Do not reopen them.
 | T4 | **Superadmin powers:** view-as (impersonation), remote feeder control on any tenant, global config and per-tenant feature flags, suspend / export / purge tenants. Plus everything the current `ADMIN` already does. | Super Admin |
 | T5 | **Guardrails:** every superadmin action writes an audit row with a **required reason**. Destructive actions and device actions also require **step-up re-authentication**. | #6 (partial) |
 | T6 | **Hardware ownership: both.** Units can be provider-owned (leased) or customer-owned (sold). Ownership is a **separate column** (`ownershipParty`) from day one. It must never be overloaded onto an assignment or level field. | Fixes the EMS `owner_type` gap |
-| T7 | **Provisioning: farmer self-claim.** Each unit ships factory-flashed with its identity. The farmer scans a QR claim code in the app, which binds the unit to their org and pond. WiFi is entered through the captive portal. | Captive portal + dual reset buttons |
+| T7 | *(Amended by T15, 2026-10-26: self-claim stays, alongside superadmin direct assignment.)* **Provisioning: farmer self-claim.** Each unit ships factory-flashed with its identity. The farmer scans a QR claim code in the app, which binds the unit to their org and pond. WiFi is entered through the captive portal. | Captive portal + dual reset buttons |
 | T8 | **Oversight orgs (MAO, BFAR, co-op over members): deferred.** Keep `Organization.parentId` in the schema, but build no recursive access until a real customer needs it. | #7 |
 | T9 | **Tenant deletion: revoke, retain, then purge.** Access is cut immediately and a data export is offered. Personal data is hard-deleted after a grace period. Anonymized telemetry from **provider-owned** units is retained. | #3 / ADR-08, tightened for the Data Privacy Act |
 | T10 | **Demo carve-out: EMS-style.** Temporary superadmin grants have full powers, are time-boxed (`expiresAt`, checked fail-closed), have their own access log, and show a visible banner. Reason and step-up still apply to purge and device actions during a demo grant. | #9 / ADR-09 |
@@ -52,6 +53,10 @@ These are decided. Do not reopen them.
 | T12 | **Maintenance is billed per service, on top of the percentage.** | — |
 | T13 | **Superadmin MFA (TOTP) is a commercial-readiness gate.** It is required before the first paying tenant and is not required for the capstone defense. | #6 |
 | T14 | **Hardware BOM ≈ ₱20,000 per feeder unit** (Jeff's estimate). | — |
+| T15 | *(2026-10-26)* **Device registration is superadmin-only.** A platform admin creates the device and must choose the **org and pond** at creation, so it appears at once in that tenant's Admin → Devices. Tenant admins cannot register devices. Farmer self-claim (T7, M4.2) stays planned for units sold to new customers. | — |
+| T16 | *(2026-10-26)* **Token reveal is interim.** The tenant's "Show token" reveal of the stored plaintext token stays for now, because the setup portal needs the token typed in. Every reveal must be audited and rate-limited (M3F.5). Show-once tokens and dropping `EnergyDevice.token` remain the target (M4.3), after field units are reflashed. | — |
+| T17 | *(2026-10-26)* **Setup AP name is `PakaonAI-XXXX`**, XXXX = last four hex digits of the chip's **eFuse MAC** (replaces `PAKAON-XXXX` in §5.2). The device registry records that same MAC, so the printed sticker QR always matches the unit, including before identity is set. | — |
+| T18 | *(2026-10-26)* **Check the platform tables' exposure now.** Jeff checks whether RLS is off on the platform tables (§2a, N1) and whether the Data API exposes them. If they are exposed, ship an additive `ENABLE ROW LEVEL SECURITY` hotfix migration as its own PR with Jeff's explicit OK, despite the migration freeze. | — |
 
 ---
 
@@ -69,6 +74,24 @@ These are decided. Do not reopen them.
 | S8 | **Pins in use:** 21/22 (DS3231 I²C), 25 (relay), 26 (DS18B20), 27 (feed button), 32/33 (HC-SR04). EMS put its reset buttons on 32/33, which **cannot** be copied here. | firmware + `firmware/README.md` **(verified)** |
 | S9 | Several API routes derive `ownerId` from the email local part (`farmIdFromEmail`) instead of the DB row: `chat`, `export`, `export/batch`, `import`, `import/confirm`. `withAuth` was hardened against exactly this. Signup is closed, so exploitability is low, but the pattern is inconsistent. M2 replaces all of them. | grep **(verified)**; severity **(inference)** |
 | S10 | **Approved firmware feed caps** (from the hardening plan): 300,000 ms max dispense, 1,000 g per request, 5,000 g per day (or `hopperCapacityG` when lower). | hardening plan §0.5 **(verified)** |
+
+### 2a. Progress and new findings (v2, 2026-10-26, verified on `origin/develop` @ `3089c65` unless noted)
+
+**Built since v1:** Organization, Membership, MembershipPermission, PlatformAdmin, PlatformAuditLog (append-only trigger) and ImpersonationSession exist in the schema (M1.1). The tenant console is gated by membership (`requireTenantAdmin`, `lib/auth/tenant-admin.ts`) and scoped by `resolveOrgScope` (`lib/auth/org-scope.ts`), and no `requireRole("ADMIN")` remains in `lib/actions/admin.ts` (most of M2.5). `/superadmin` exists with orgs, users, ponds (read-only) and AI providers, gated by `requirePlatformAdmin`, with required reasons and audit rows on every mutation (part of M3.1, M3.2, M3.5, M3.6). Pending in PR #174: the printable Wi-Fi/power-rating sticker in Admin → Devices and the `PakaonAI-XXXX` firmware rename.
+
+| # | Finding | Evidence | Severity |
+|---|---|---|---|
+| N1 | RLS is enabled only on the core tables. No migration enables it on `PlatformAdmin`, `PlatformAuditLog`, `Organization`, `Membership`, `MembershipPermission`, `ImpersonationSession` (or `AiProviderConfig`, `BackgroundJob`, `JobArtifact`, the lockout and rate-limit tables). If the Data API exposes `public`, the public anon key could read or write them, including inserting a `PlatformAdmin` row. Live exposure **not checked** (T18). | migrations grep **(verified)**; live state **(open)** | **Critical if exposed** |
+| N2 | No MFA and no step-up anywhere: `PlatformAdmin.mfaEnrolledAt` and `PlatformAuditLog.stepUpAt` are never written. | grep **(verified)** | High (M3.2/M3.3 are defense items) |
+| N3 | Superadmin **delete user is an immediate hard delete** of the auth user and the whole farm subtree (ponds, devices, telemetry), with only a reason box to confirm. | `lib/actions/superadmin.ts` `deleteUser` → `deleteUserSubtree` **(verified)** | High |
+| N4 | Audit rows always use `targetType: "platform_console"`, never set `orgId`, `ip` or `userAgent`, and nothing reads `PlatformAuditLog` (no explorer, no export). | `superadmin.ts:67`, grep **(verified)** | Medium |
+| N5 | Bug: `listAllPonds` keys orgs by `Membership.userId` but looks them up by `Pond.ownerId`, which is `User.farmId` (a slug, not the cuid), so the Organizations column on `/superadmin/ponds` is always empty. | `superadmin.ts` `listAllPonds` **(verified)** | Low |
+| N6 | Devices are created only by seed scripts. There is no create, rotate, revoke or decommission action. `generateDeviceToken()` exists but only tests use it. | grep **(verified)** | High (blocks real deployments) |
+| N7 | `revealDeviceToken` gives any tenant OWNER/ADMIN the plaintext token with no audit row and no rate limit. | `lib/actions/admin.ts` **(verified)** | Medium (T16) |
+| N8 | Firmware names the setup AP from the saved `device_id`, which falls back to the compile-time demo MAC, so every unit without a saved identity broadcasts the same `…-3B09` name. | `firmware-main.ino` `loadDeviceIdentity`, `provisioningApSsid` **(verified)** | High for stickers (T17) |
+| N9 | The SoftAP setup portal is **open** (no password or proof-of-possession). Anyone in range of a unit in setup mode can overwrite its Wi-Fi and identity. | `WiFi.softAP(name)` **(verified)** | High (field risk) |
+| N10 | The superadmin pages hard-code English (no `getTranslations`), every list is unbounded `findMany`, and no superadmin mutation has a behavioural test. | grep **(verified)** | Medium |
+| N11 | Grants with `expiresAt` (T10 demo grants) can only be made from the CLI; the console never passes `expiresAt`. | **(inference, from the benchmark report)** | Low |
 
 ---
 
@@ -323,6 +346,9 @@ Because Prisma bypasses RLS, isolation needs two layers:
 
 ### 5.1 Factory flash (Syntaxure, before shipping)
 
+> **v2 interim path (M3F, before M1.2/M4):** a platform admin registers the device on today's `EnergyDevice` model: eFuse MAC (canonical `AA:BB:CC:DD:EE:FF`, unique case-insensitively), label, org and pond (T15). The server generates the token with `generateDeviceToken()` and stores `tokenHash` plus, **interim (T16)**, the plaintext `token`. The admin flashes or types the identity, then prints the sticker. The sticker never carries the token. Order: register → set identity on the unit → print → check that the AP name matches.
+
+
 - Generate the `FeederUnit` (`INVENTORY`) and the `Controller` (MAC, `tokenHash`). The plaintext token is shown **once** and flashed into NVS. It is never stored in the DB: the plaintext `EnergyDevice.token` column is dropped in M4 under the section-6 contract rule.
 - Firmware reads `device_id` and `device_token` from NVS. `#define DEVICE_TOKEN` and the MAC hardcoded in URLs are removed. Jeff can reflash existing units.
 - Print the serial and a QR claim code on the unit. The claim code is random with 128 bits of entropy, stored as SHA-256, single-use, expires 90 days after `ASSIGNED` **(assumption)**, and rate-limited by the existing PostgreSQL limiter (D1).
@@ -331,7 +357,7 @@ Because Prisma bypasses RLS, isolation needs two layers:
 
 1. Farmer opens the app → **Add feeder** → scans the QR → picks a farm and pond (or leaves it unplaced).
 2. Server: verify claim hash → set `FeederUnit.orgId/pondId`, status `CLAIMED` → open a `FeederInstallation` → consume the claim code → write a `DeviceStateEvent`.
-3. Farmer powers the unit. With no WiFi stored, it starts SoftAP `PAKAON-XXXX` (last 4 hex digits of the eFuse MAC) and serves a form at `192.168.4.1` asking for **SSID and password only**. Identity is already in NVS (EMS blank-field fallback).
+3. Farmer powers the unit. With no WiFi stored, it starts SoftAP `PakaonAI-XXXX` (T17: last 4 hex digits of the eFuse MAC) and serves a form at `192.168.4.1` asking for **SSID and password only**. Identity is already in NVS (EMS blank-field fallback).
 4. First authenticated heartbeat → status `INSTALLED` → `ACTIVE` after the first schedule sync ack.
 
 ### 5.3 Dual reset buttons (EMS pattern, new pins)
@@ -399,6 +425,8 @@ What this means: under about 1,000 kg per cycle per unit, a leased unit takes mo
 |---|---|---|
 | M0.1 | Resolve **O1** (unit name) and **O2** (defense date and scope) with Jeff. | Written answer in chat, recorded in §11. |
 | M0.2 | Confirm backups (hardening plan H7) and run every M1/M2 migration on the **dev** Supabase project first. | H7 ticked; dev migration log attached to the PR. |
+| M0.4 | *(v2, T18)* Jeff checks RLS and Data API exposure of the platform tables (N1). If exposed: additive `ENABLE ROW LEVEL SECURITY` hotfix migration, its own PR, explicit OK, following the `20261013020000` pattern. | Advisor/SQL output pasted in the PR. After the fix, anon key cannot read `PlatformAdmin`. |
+| M0.5 | *(v2)* Separate dev Supabase project for testing write paths, since previews share production (hardening plan H8). | Device registry create/rotate is tested there, never on a preview. |
 | M0.3 | Add a tenancy negative-test harness: two seeded orgs (A, B), each with a farm, a pond, a feeder and telemetry, plus a helper `expectNoCrossOrgAccess(fn)`. | Harness runs in `pnpm test`, with zero tests yet. |
 
 ### Phase M1: One-way doors (additive schema)
@@ -434,7 +462,24 @@ What this means: under about 1,000 kg per cycle per unit, a leased unit takes mo
 | M3.5 | **Tenants:** list, search, create org + invite owner, view a tenant (farms, ponds, feeders, members, billing), suspend / reactivate. | Suspend blocks tenant writes within 1 request. |
 | M3.6 | **Users:** global search, memberships, unlock (lockout), reset PIN, revoke sessions. | Each action audited. |
 | M3.7 | **Audit explorer:** filter by actor, org, action, date; export CSV. | Temporary-grant rows visually distinct. |
+| M3.9 | *(v2)* Quick fixes: `listAllPonds` org mapping (N5) with a test; real `targetType`, `orgId`, `ip`, `userAgent` on audit rows (N4); pagination on superadmin lists (N10). | Test proves the Organizations column is filled. Audit rows carry target and org. |
+| M3.10 | *(v2)* Safe user delete (N3): type-the-farmId confirmation and step-up; disable first (auth ban + revoke memberships), hard purge later through M7. | A deleted user can be restored until purge. |
+| M3.11 | *(v2)* Behavioural tests for every superadmin mutation, and i18n for the superadmin pages (N10). | Each action has an allow, a deny and an audit-row test. |
 | M3.8 | **Platform admins and demo grants (T10):** grant with `expiresAt`, revoke, fail-closed expiry check, access log, persistent banner "Temporary superadmin, expires …". | An expired grant gets 404 on the next request with no cached pass. |
+
+### Phase M3F: Device registry v1 (v2, now, no schema change)
+
+Runs on today's `EnergyDevice` model, before M1.2. Branch `feature/superadmin-device-registry`. It reuses the sticker from PR #174, so it is **stacked on PR #174** until that merges.
+
+| ID | Task | Acceptance |
+|---|---|---|
+| M3F.1 | `/superadmin/devices`: every device with MAC, label, org, pond, last seen; search; paginated. Includes legacy devices with no pond. | Platform admin sees all; a tenant admin gets 404. |
+| M3F.2 | **Register device** (T15): eFuse MAC (canonicalised, validated, unique case-insensitive, P2002 handled), label, org → pond picker built from the org's member farms (same chain as `resolveOrgScope`). Server action in `lib/actions/platform/devices.ts`, reason required, `PlatformAuditLog` row (`platform.device.create`, `targetType: "energy_device"`, `orgId`, `after: {mac, label, pondId}`, **never the token**). | Duplicate MAC rejected with a clear message; pond outside the chosen org rejected; audit row written in the same transaction. |
+| M3F.3 | Token issued with `generateDeviceToken()`; `tokenHash` stored; plaintext stored only because of T16. Shown after creation with copy and an "I have set it on the unit" acknowledgement; never logged, never in a page payload. | Test: token absent from logs, RSC payload and audit row. Device authenticates with it (`verifyDeviceToken`). |
+| M3F.4 | **Print sticker** from the superadmin side, right after registering and from the list: platform-gated print route reusing `DeviceSticker`, allow-listed select (no `token`/`tokenHash`). | Same no-credential tests as the tenant sticker. |
+| M3F.5 | Audit and rate-limit token reveals (T16): tenant `revealDeviceToken` writes a `DeviceStateEvent` `token_revealed` with the actor; superadmin reveal writes `PlatformAuditLog`; both use the existing PostgreSQL rate limiter. | Each reveal leaves exactly one audit entry; the limit returns a clear error. |
+| M3F.6 | **Rotate token** (superadmin, reason, audit): new token and hash, old token gets 401 immediately. | Test: old token rejected, new accepted. |
+| M3F.7 | Docs: the registration → flash identity → print → AP-name check procedure in `firmware/README.md` and `HANDOFF.md`. | Reviewed by Jeff. |
 
 ### Phase M4: Fleet and provisioning
 
@@ -487,7 +532,22 @@ What this means: under about 1,000 kg per cycle per unit, a leased unit takes mo
 
 ---
 
-## 9. Order of PRs (from `Karl` to `develop`)
+## 9. Order of PRs (each from its own branch to `develop`)
+
+**v2 near-term queue (2026-10-26), ahead of the v1 list below:**
+
+1. PR #174 `feat(admin): power-rating sticker` + `feat(firmware): PakaonAI-XXXX setup AP` (**needs human OK, reflash**). v2 adds: the AP name from the eFuse MAC (T17). Keep the compile-time `device_id` fallback for now so the demo unit keeps authenticating after the reflash; moving the default `device_id` to the eFuse MAC needs the demo unit re-provisioned and its DB MAC updated (a production data change, human OK).
+2. `fix(db): enable RLS on platform tables` (M0.4), **only if** Jeff's check shows exposure. Additive migration, explicit OK.
+3. `feat(superadmin): device registry v1` (M3F.1–M3F.4, M3F.6), stacked on #174.
+4. `feat: audit and rate-limit token reveals` (M3F.5).
+5. `fix(superadmin): ponds org mapping, audit fields, pagination` (M3.9).
+6. `feat(superadmin): step-up re-auth` (M3.2, M3.3), then safe user delete (M3.10).
+7. Firmware PR: per-unit SoftAP password or proof-of-possession printed on the sticker (N9), default `device_id` from the eFuse MAC, remove the shared fallback token. **Human OK, reflash.**
+
+Then continue with the v1 order below, skipping what §2a lists as built.
+
+**v1 order:**
+
 
 1. `test: tenancy negative-test harness` (M0.3)
 2. `feat(db): organizations, memberships, platform admin, audit log` (M1.1)
@@ -525,6 +585,10 @@ What this means: under about 1,000 kg per cycle per unit, a leased unit takes mo
 | Superadmin compromise (pre-MFA during the defense) | Medium | Audit, step-up, demo-grant expiry. MFA mandatory before the first paying tenant. |
 | Branch drift across `develop`/`staging`/`main` | Medium (realized in EMS) | Full-clone divergence check before every phase report. |
 | Self-reported "verified" claims | Medium (realized in EMS) | Every report separates CODE / BUILD / DEPLOYMENT / PHYSICALLY verified. |
+| *(v2)* Platform tables reachable through the Data API (N1) | **Critical if exposed** | M0.4 check now; additive RLS hotfix with explicit OK. |
+| *(v2)* Testing write paths mutates production (previews share the DB) | **High** | M0.5 dev project; mocked unit tests until then; never exercise create/rotate on a preview. |
+| *(v2)* Open SoftAP portal lets anyone nearby overwrite a unit in setup mode (N9) | High | Firmware PoP/password on the sticker (§9 v2 item 7); keep setup windows short. |
+| *(v2)* Plaintext tokens stay in the DB longer because of T16 | Medium | Audit and rate-limit every reveal (M3F.5); rotate on suspicion (M3F.6); M4.3 drop after reflash. |
 
 ---
 
@@ -540,6 +604,10 @@ What this means: under about 1,000 kg per cycle per unit, a leased unit takes mo
 | O6 | Are existing demo units provider-owned? | M1.4 |
 | O7 | Claim code expiry (proposed 90 days). | M4.2 |
 | O8 | Per-unit operating cost (cloud, SIM or WiFi, support), needed for a true payback figure. | §7.2 refresh |
+| O9 | *(v2)* T4 gives superadmin remote feeder control, but `lib/actions/superadmin.ts` states "no farmer function by design". Which stands for M5.2? | M5.2 |
+| O10 | *(v2)* When does staging/dev get its own database (M0.5)? | Safe testing of M3F, M7 |
+| O11 | *(v2)* Result of the RLS / Data API exposure check (T18). | M0.4 |
+| O12 | *(v2)* The benchmark rates missing MFA as High; T13 defers it to the commercial gate. Keep T13 as is, or pull MFA forward? (Not reopened here; Jeff's call.) | M8.1 timing |
 
 ---
 
@@ -553,3 +621,31 @@ What this means: under about 1,000 kg per cycle per unit, a leased unit takes mo
 - Commercial gate (M8) is complete before the first paying tenant.
 
 Sources: hito grow-out period and 2026 farmgate price range from the wiseph.net hito farming guide (https://wiseph.net/hito-farming-guide-philippines/). EMS patterns from `energy-monitoring-architecture-v3.html` (Syntaxure internal).
+
+---
+
+## Appendix A. Production-grade benchmark (v2, 2026-10-26)
+
+Read-only research comparing the console against multi-tenant SaaS and IoT fleet practice. The gaps are folded into §2a, §8 and §9 above.
+
+| Practice | What leaders do | PakaonAI | Planned in |
+|---|---|---|---|
+| Admin tables behind RLS | Supabase lint 0013: a `public` table without RLS is readable and writable by anyone with the project URL and anon key ([Supabase](https://supabase.com/docs/guides/database/database-advisors?queryGroups=lint&lint=0013_rls_disabled_in_public)) | Off on platform tables (N1) | M0.4 |
+| MFA for privileged admins | Supabase AAL2 checks ([Supabase](https://supabase.com/docs/reference/javascript/auth-mfa-getauthenticatorassurancelevel)); NIST re-auth limits ([NIST 800-63B-4](https://pages.nist.gov/800-63-4/sp800-63b.html)) | None (N2) | M8.1 (T13, O12) |
+| Step-up for sensitive actions | GitHub sudo mode ([GitHub](https://docs.github.com/en/enterprise-server@3.5/authentication/keeping-your-account-and-data-secure/sudo-mode)) | Reason only (N2) | M3.2, M3.3 |
+| Show-once secrets, hash at rest, rotation | Stripe secret keys ([Stripe](https://docs.stripe.com/keys)) | Plaintext stored, reveal (T16) | M3F.5, M3F.6, M4.3 |
+| Per-device credentials, registered before first connect | Golioth PSKs ([Golioth](https://docs.golioth.io/device-management/authentication)); Azure DPS ([Azure](https://learn.microsoft.com/en-us/azure/iot-dps/concepts-symmetric-key-attestation)) | Per-device token; shared firmware fallback | M3F, §9 v2 item 7 |
+| Controlled provisioning | AWS IoT fleet provisioning with a pre-provisioning hook ([AWS](https://docs.aws.amazon.com/iot/latest/developerguide/provision-wo-cert.html)) | Seed scripts only (N6) | M3F, M4.1 |
+| Provisioning portal auth | Espressif proof-of-possession in the QR ([Espressif](https://components.espressif.com/components/espressif/network_provisioning/versions/1.2.5/examples/wifi_prov)) | Open AP (N9) | §9 v2 item 7 |
+| Claim and transfer between owners | Particle claiming ([Particle](https://docs.particle.io/getting-started/cloud/device-claiming/)) | `pondId` edit only | M4.2, M4.6 |
+| Immutable audit with who/what/where, export | OWASP logging ([OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)); GitHub audit streaming ([GitHub](https://docs.github.com/en/enterprise-server@3.18/admin/monitoring-activity-in-your-enterprise/reviewing-audit-logs-for-your-enterprise/streaming-the-audit-log-for-your-enterprise)) | Append-only; fields missing, no viewer (N4) | M3.9, M3.7 |
+| Support impersonation with reason and consent | WorkOS ([WorkOS](https://workos.com/docs/user-management/impersonation)) | None (safe) | M5.1 |
+| Four-eyes for destructive actions | Google Workspace multi-party approval ([Google](https://workspaceupdates.googleblog.com/2024/04/multi-party-approvals-for-sensitive-admin-actions.html)) | None | Later; needs ≥ 2 platform admins |
+| Just-in-time privileged access | Entra PIM ([Microsoft](https://learn.microsoft.com/graph/api/resources/privilegedidentitymanagementv3-overview)) | CLI time-boxed grants (N11) | M3.8 |
+| Deletion grace period | AWS 90-day reopen window ([AWS](https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-closing.html)) | Immediate hard delete (N3) | M3.10, M7.3 |
+| Session lifetime limits | Supabase time-box and inactivity timeout ([Supabase](https://supabase.com/docs/guides/auth/sessions)) | Defaults | M8 (plan-tier dependent) |
+
+## Change log
+
+- **v2 (2026-10-26):** decisions T15–T18 and the T7 amendment from Jeff in chat; §2a progress and findings N1–N11; branch rule updated to `CONTRIBUTING.md`; phase M3F (device registry v1) and tasks M0.4, M0.5, M3.9–M3.11; v2 near-term PR queue in §9; four new risks; open questions O9–O12; Appendix A benchmark. `docs/superadmin-multitenancy-portal.html` is not yet updated.
+- **v1 (2026-10-17):** initial plan.

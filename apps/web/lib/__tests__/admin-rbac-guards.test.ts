@@ -52,6 +52,52 @@ describe("tenant admin actions", () => {
 	});
 });
 
+describe("platform device registry actions", () => {
+	const actions = read("lib/actions/platform/devices.ts");
+
+	it("requires an active PlatformAdmin on every exported action", () => {
+		const names = [...actions.matchAll(/export async function ([A-Za-z0-9_]+)/g)].map(
+			(match) => match[1],
+		);
+		expect(names).toEqual(
+			expect.arrayContaining([
+				"listPlatformDevices",
+				"getOrgPondOptions",
+				"registerDevice",
+				"rotateDeviceToken",
+				"getPlatformDevicesForLabels",
+			]),
+		);
+		names.forEach((name, index) => {
+			const block = exportedFunctionBlock(actions, name, names[index + 1]);
+			expect(block, `${name} must call requirePlatformAdmin()`).toContain(
+				"await requirePlatformAdmin();",
+			);
+		});
+	});
+
+	it("has no feed, schedule or command path (inventory only)", () => {
+		expect(actions).not.toMatch(/feedRequest|scheduleCommand|feed-command|schedule-sync/i);
+	});
+});
+
+describe("print route gates", () => {
+	it("gates the tenant sticker page on membership", () => {
+		const layout = read("app/[locale]/(print)/admin/devices/labels/layout.tsx");
+		expect(layout).toContain("await requireTenantAdmin();");
+	});
+
+	it("gates the platform sticker page on an active PlatformAdmin row", () => {
+		const layout = read("app/[locale]/(print)/superadmin/devices/labels/layout.tsx");
+		expect(layout).toContain("await requirePlatformAdmin();");
+	});
+
+	it("keeps the password-change check on the shared print shell", () => {
+		const layout = read("app/[locale]/(print)/layout.tsx");
+		expect(layout).toContain("await requirePasswordChanged();");
+	});
+});
+
 describe("console route layouts", () => {
 	it("gates the tenant console on membership, not User.role", () => {
 		const layout = read("app/[locale]/(admin)/layout.tsx");

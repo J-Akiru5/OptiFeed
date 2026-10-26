@@ -72,7 +72,7 @@ describe("the sticker text is English only", () => {
 
 	it("is always rendered from the en messages, whatever locale the page is in", () => {
 		const page = readFileSync(
-			join(__dirname, "../../app/[locale]/(print)/admin/devices/labels/page.tsx"),
+			join(__dirname, "../../components/admin/device-label-sheet.tsx"),
 			"utf8",
 		);
 		expect(page).toMatch(/locale: "en",\s*namespace: "dashboard\.adminDeviceLabels\.sticker"/);

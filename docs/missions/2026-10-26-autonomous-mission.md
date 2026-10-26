@@ -49,7 +49,7 @@ Status: `todo` / `running` / `review` / `integrated` / `blocked`.
 | T-11 | Offline PWA hardening + UX (D9) | T-09 | no (mocked + unit) | todo |
 | T-14 | Firmware hygiene: zero deprecation warnings (Arduino core 2.0.17 kept), server URLs baked to `https://pakaonai.syntaxure.dev`, `FW_VERSION` reported | — | no | integrated, verified (needs human OK + reflash) |
 | T-15 | Real email invites via Resend from `syntaxure.dev` (e.g. `invite@syntaxure.dev`) + plan the rename of the internal login domain `pond.optifeed.local` to PakaonAI (O13) | T-06 | no (mocked) | todo |
-| T-12 | Remote firmware updates (OTA) for ESP32 (D10) | design done: `docs/firmware-ota-plan.md`, all OTA decisions made | T-12c yes | T-12a running; T-12b next; T-12c needs a migration |
+| T-12 | Remote firmware updates (OTA) for ESP32 (D10) | design done: `docs/firmware-ota-plan.md`, all OTA decisions made | T-12c yes | **T-12a integrated, verified (build only; needs human OK + bootstrap USB flash + bench test)**; T-12b next; T-12c needs a migration |
 
 ### T-01 Firmware reset buttons
 - `firmware/firmware-main/firmware-main.ino`: `WIFI_RESET_BUTTON_PIN 16`, `FACTORY_RESET_BUTTON_PIN 17`; split `RESET_BUTTON_HOLD_MS` into `WIFI_RESET_HOLD_MS 5000` and `FACTORY_RESET_HOLD_MS 10000`. Keep debounce, startup grace and the "factory wins over Wi-Fi" rule.
@@ -155,6 +155,7 @@ Branch: `integration/mission-2026-10-26` (from `feature/superadmin-device-regist
 | When | Task | Commit merged | Checks on the integration branch | Notes |
 |---|---|---|---|---|
 | 2026-10-26 | develop | `e1fa17a` (PRs #174, #179, #180) | — | Brought the integration branch up to date with develop. |
+| 2026-10-26 | T-12a | `9bbdfdc` via merge | lint ok, typecheck ok, 99 test files pass; clean `pio run` SUCCESS (flash 54.4 % of 1.9 MB slot, RAM 15.9 %, 0 sketch warnings); ELF has `T verifyRollbackLater`; invariants grepped (relay OFF init, pins, MAX_DISPENSE_MS, NVS namespace); 5 roots embedded; no private key in source | Bench plan A–G in firmware/README.md is the remaining hardware verification. Server contract for T-12b documented in firmware/README.md (signature over exact manifest string, Content-Length required, <= 8 KB). |
 | 2026-10-26 | security fix | `e35ff03` | lint ok, typecheck ok, 99 test files pass | Integrator found during T-07 review: `applyGrowthPlanForPond` was a browser-callable server action trusting caller ownerId (pre-existing on develop). Moved out of the "use server" module; new static guard test proven to fail on the old code. |
 | 2026-10-26 | T-07 | `1dd8656`,`8444516` via `5558b1a` | lint ok, typecheck ok, 98 test files pass | Reviewed view-as (signed cookie + DB session + active grant), write guards in requireWriteAccess/requirePermission/withAuth, scanned all writing actions. Conflict in superadmin orgs page: kept both Manage members and View as. |
 | 2026-10-26 | T-14 | `46f5fb4` via `546fde1` | lint ok, typecheck ok, 93 test files pass, pio SUCCESS | URLs -> pakaonai.syntaxure.dev, FW_VERSION 1.3.0, ArduinoJson v7 (`is<float>()` also ignores null/non-numeric keys that used to be cast to 0). 24 -> 0 sketch warnings; 2 OneWire library warnings remain. `firmware_version` is stripped by the ingest schema until T-12b. |

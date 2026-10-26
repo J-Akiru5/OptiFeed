@@ -42,12 +42,13 @@ Status: `todo` / `running` / `review` / `integrated` / `blocked`.
 | T-04 | Step-up re-auth + safe user delete (M3.2, M3.3, M3.10) | — | no | integrated, verified |
 | T-05 | Tenancy negative-test harness + superadmin behavioural tests (M0.3, M3.11 tests) | — | no | integrated, verified |
 | T-06 | RBAC: members and permissions in Settings, plus superadmin for any org (D1, D2, M2.7) | T-04 | no (mocked tests) | integrated, verified |
-| T-07 | Superadmin god mode: view-as (read-only) + remote feeder control (D1, M5.1, M5.2) | T-04 | no (mocked tests) | running |
+| T-07 | Superadmin god mode: view-as (read-only) + remote feeder control (D1, M5.1, M5.2) | T-04 | no (mocked tests) | integrated, verified |
 | T-08 | E2E on the production project with `e2e-` data (D5 amended): setup, seed, Playwright suites for all flows | T-01…T-07 | **yes** | todo (DB access ready) |
 | T-09 | UI/UX pass, shipped per page (admin, dashboard, superadmin, settings) | T-06, T-07 | no | todo |
 | T-10 | i18n for the superadmin pages (M3.11) | T-03, T-07 | no | todo |
 | T-11 | Offline PWA hardening + UX (D9) | T-09 | no (mocked + unit) | todo |
 | T-14 | Firmware hygiene: zero deprecation warnings (Arduino core 2.0.17 kept), server URLs baked to `https://pakaonai.syntaxure.dev`, `FW_VERSION` reported | — | no | integrated, verified (needs human OK + reflash) |
+| T-15 | Real email invites via Resend from `syntaxure.dev` (e.g. `invite@syntaxure.dev`) + plan the rename of the internal login domain `pond.optifeed.local` to PakaonAI (O13) | T-06 | no (mocked) | todo |
 | T-12 | Remote firmware updates (OTA) for ESP32 (D10) | design done: `docs/firmware-ota-plan.md`, all OTA decisions made | T-12c yes | T-12a running; T-12b next; T-12c needs a migration |
 
 ### T-01 Firmware reset buttons
@@ -154,6 +155,8 @@ Branch: `integration/mission-2026-10-26` (from `feature/superadmin-device-regist
 | When | Task | Commit merged | Checks on the integration branch | Notes |
 |---|---|---|---|---|
 | 2026-10-26 | develop | `e1fa17a` (PRs #174, #179, #180) | — | Brought the integration branch up to date with develop. |
+| 2026-10-26 | security fix | `e35ff03` | lint ok, typecheck ok, 99 test files pass | Integrator found during T-07 review: `applyGrowthPlanForPond` was a browser-callable server action trusting caller ownerId (pre-existing on develop). Moved out of the "use server" module; new static guard test proven to fail on the old code. |
+| 2026-10-26 | T-07 | `1dd8656`,`8444516` via `5558b1a` | lint ok, typecheck ok, 98 test files pass | Reviewed view-as (signed cookie + DB session + active grant), write guards in requireWriteAccess/requirePermission/withAuth, scanned all writing actions. Conflict in superadmin orgs page: kept both Manage members and View as. |
 | 2026-10-26 | T-14 | `46f5fb4` via `546fde1` | lint ok, typecheck ok, 93 test files pass, pio SUCCESS | URLs -> pakaonai.syntaxure.dev, FW_VERSION 1.3.0, ArduinoJson v7 (`is<float>()` also ignores null/non-numeric keys that used to be cast to 0). 24 -> 0 sketch warnings; 2 OneWire library warnings remain. `firmware_version` is stripped by the ingest schema until T-12b. |
 | 2026-10-26 | T-06 | `326c569` via `ceb2557` | lint ok, typecheck ok, 93 test files pass | Reviewed member-rules + tenant scoping (caller's orgs only, platform admins excluded, last owner re-checked in tx). Members section is in Admin -> Settings. Invite = one-time temp password (no email infra). |
 | 2026-10-26 | T-05 | `42b4303` via merge + `48d670e` | lint ok, typecheck ok, 91 test files pass | Test-only. Reconciled 3 audit assertions with T-03's new targetType values (semantic clash, not a weakened guard). |

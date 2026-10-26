@@ -2,6 +2,8 @@
 
 import { useRouter } from "@/i18n/routing";
 import { setPondStatus } from "@/lib/actions/admin";
+import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 interface PondStatusToggleProps {
@@ -10,6 +12,7 @@ interface PondStatusToggleProps {
 }
 
 export function PondStatusToggle({ pondId, status }: PondStatusToggleProps) {
+	const t = useTranslations("dashboard.adminPonds");
 	const router = useRouter();
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -32,15 +35,21 @@ export function PondStatusToggle({ pondId, status }: PondStatusToggleProps) {
 	}
 
 	return (
-		<div className="flex flex-col items-end gap-1">
-			{error && <p className="text-[11px] font-black text-[#C42B3A]">{error}</p>}
+		<div className="flex min-w-0 flex-col items-end gap-1">
+			{error && (
+				<p aria-live="polite" className="text-[11px] font-black text-[#C42B3A]">
+					{error}
+				</p>
+			)}
 			<button
 				type="button"
 				onClick={handleClick}
 				disabled={loading}
-				className="rounded-xl border border-[#0A3D62]/20 px-3 py-2 text-xs font-black text-[#0A3D62] hover:bg-[#F4F7F6] transition-colors disabled:opacity-50"
+				aria-busy={loading}
+				className="inline-flex min-w-[5.5rem] items-center justify-center gap-1.5 rounded-xl border border-[#0A3D62]/20 px-3 py-2 text-xs font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:opacity-60 dark:border-gray-600 dark:text-[#8fc0ea] dark:hover:bg-gray-800 dark:focus-visible:outline-[#8fc0ea]"
 			>
-				{loading ? "…" : archiving ? "Archive" : "Restore"}
+				{loading && <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />}
+				{loading ? t("updating") : archiving ? t("archive") : t("restore")}
 			</button>
 		</div>
 	);

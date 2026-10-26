@@ -6,6 +6,7 @@ import { changeMemberRole, inviteMember, revokeMember } from "@/lib/actions/admi
 import type { TenantMemberRow } from "@/lib/actions/admin";
 import { MEMBER_ROLES, isMemberRole } from "@/lib/auth/member-rules";
 import type { Permission } from "@/lib/auth/permissions";
+import { formatDateTimeLocal } from "@/lib/date-local";
 import type { MemberRole } from "@prisma/client";
 import { Check, Copy, Loader2, ShieldCheck, UserPlus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -32,6 +33,11 @@ type InviteFormState = {
 	inviteEmailSent: boolean;
 } | null;
 
+const focusRing =
+	"focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea]";
+const fieldClass =
+	"mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#0A3D62] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] dark:border-gray-600 dark:bg-gray-800 dark:text-white";
+
 export function MembersSettings({
 	members,
 	permissions,
@@ -42,6 +48,8 @@ export function MembersSettings({
 	canManage: boolean;
 }) {
 	const t = useTranslations("dashboard.adminMembers");
+	const tCommon = useTranslations("dashboard.adminCommon");
+	const tDates = useTranslations("dates");
 	const router = useRouter();
 
 	const [inviteOpen, setInviteOpen] = useState(false);
@@ -175,8 +183,8 @@ export function MembersSettings({
 		<div className="space-y-5">
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div>
-					<h2 className="font-black text-[#0A3D62]">{t("membersTitle")}</h2>
-					<p className="mt-1 text-xs text-[#3D5568]">
+					<h2 className="font-black text-[#0A3D62] dark:text-[#8fc0ea]">{t("membersTitle")}</h2>
+					<p className="mt-1 text-xs text-[#3D5568] dark:text-gray-400">
 						{t("membersDesc", { count: members.length })}
 					</p>
 				</div>
@@ -187,40 +195,50 @@ export function MembersSettings({
 							setInviteOpen((open) => !open);
 							setInviteError(null);
 						}}
-						className="inline-flex items-center gap-1.5 rounded-xl bg-[#E85A2A] px-3 py-2 text-xs font-black text-white shadow-sm transition-colors hover:bg-[#d04a1f]"
+						className={`inline-flex items-center gap-1.5 rounded-xl bg-[#C2410C] px-3 py-2 text-xs font-black text-white shadow-sm transition-colors hover:bg-[#9A3412] ${focusRing}`}
 					>
-						<UserPlus className="h-3.5 w-3.5" />
+						<UserPlus aria-hidden="true" className="h-3.5 w-3.5" />
 						{t("inviteButton")}
 					</button>
 				)}
 			</div>
 
 			{!canManage && (
-				<div className="rounded-xl border border-gray-200 bg-[#F4F7F6] px-4 py-3 text-xs font-bold text-[#3D5568]">
+				<div className="rounded-xl border border-gray-200 bg-[#F4F7F6] px-4 py-3 text-xs font-bold text-[#3D5568] dark:border-gray-700/60 dark:bg-gray-800/60 dark:text-gray-300">
 					{t("notAllowed")}
 				</div>
 			)}
 
 			{inviteOpen && canManage && (
-				<form action={handleInvite} className="rounded-xl border border-gray-200 bg-[#F4F7F6] p-4">
+				<form
+					action={handleInvite}
+					className="rounded-xl border border-gray-200 bg-[#F4F7F6] p-4 dark:border-gray-700/60 dark:bg-gray-800/60"
+				>
 					<div className="mb-3">
-						<p className="text-sm font-black text-[#0A3D62]">{t("inviteTitle")}</p>
-						<p className="mt-1 text-[11px] leading-relaxed text-[#3D5568]">{t("inviteDesc")}</p>
+						<p className="text-sm font-black text-[#0A3D62] dark:text-[#8fc0ea]">
+							{t("inviteTitle")}
+						</p>
+						<p className="mt-1 text-[11px] leading-relaxed text-[#3D5568] dark:text-gray-300">
+							{t("inviteDesc")}
+						</p>
 					</div>
 
 					{inviteError && (
-						<p className="mb-3 rounded-lg border border-[#C42B3A]/30 bg-[#FDE8EA] px-3 py-2 text-xs font-bold text-[#C42B3A]">
+						<p
+							role="alert"
+							className="mb-3 rounded-lg border border-[#C42B3A]/30 bg-[#FDE8EA] px-3 py-2 text-xs font-bold text-[#C42B3A] dark:bg-red-950/40 dark:text-red-300"
+						>
 							{inviteError}
 						</p>
 					)}
 
 					{orgOptions.length > 1 && (
-						<label className="mb-3 block text-xs font-bold text-[#3D5568]">
+						<label className="mb-3 block text-xs font-bold text-[#3D5568] dark:text-gray-300">
 							{t("columnOrganization")}
 							<select
 								value={inviteOrgId}
 								onChange={(event) => setInviteOrgId(event.target.value)}
-								className="mt-1 w-full max-w-sm rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+								className={`${fieldClass} max-w-sm`}
 							>
 								{orgOptions.map((org) => (
 									<option key={org.id} value={org.id}>
@@ -232,7 +250,7 @@ export function MembersSettings({
 					)}
 
 					<div className="grid gap-3 md:grid-cols-3">
-						<label className="block text-xs font-bold text-[#3D5568]">
+						<label className="block text-xs font-bold text-[#3D5568] dark:text-gray-300">
 							{t("emailLabel")}
 							<input
 								name="email"
@@ -240,31 +258,27 @@ export function MembersSettings({
 								required
 								autoComplete="email"
 								placeholder="member@example.com"
-								className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+								className={fieldClass}
 							/>
-							<span className="mt-1 block text-[10px] font-medium text-[#3D5568]">
+							<span className="mt-1 block text-[10px] font-medium text-[#3D5568] dark:text-gray-400">
 								{t("emailHint")}
 							</span>
 						</label>
 
-						<label className="block text-xs font-bold text-[#3D5568]">
+						<label className="block text-xs font-bold text-[#3D5568] dark:text-gray-300">
 							{t("displayNameLabel")}
 							<input
 								name="displayName"
 								type="text"
 								required
 								maxLength={80}
-								className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+								className={fieldClass}
 							/>
 						</label>
 
-						<label className="block text-xs font-bold text-[#3D5568]">
+						<label className="block text-xs font-bold text-[#3D5568] dark:text-gray-300">
 							{t("roleLabel")}
-							<select
-								name="role"
-								defaultValue="OPERATOR"
-								className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
-							>
+							<select name="role" defaultValue="OPERATOR" className={fieldClass}>
 								{MEMBER_ROLES.map((role) => (
 									<option key={role} value={role} disabled={role === "OWNER" && !canInviteOwner}>
 										{t(`role.${role}`)}
@@ -274,13 +288,14 @@ export function MembersSettings({
 						</label>
 					</div>
 
-					<div className="mt-3 flex gap-2">
+					<div className="mt-3 flex flex-wrap gap-2">
 						<button
 							type="submit"
 							disabled={invitePending}
-							className="inline-flex items-center gap-1.5 rounded-xl bg-[#0A3D62] px-3 py-2 text-xs font-black text-white transition-colors hover:bg-[#082f4c] disabled:opacity-60"
+							aria-busy={invitePending}
+							className={`inline-flex items-center gap-1.5 rounded-xl bg-[#0A3D62] px-3 py-2 text-xs font-black text-white transition-colors hover:bg-[#082f4c] disabled:opacity-60 ${focusRing}`}
 						>
-							{invitePending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+							{invitePending && <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />}
 							{invitePending ? t("inviting") : t("inviteSubmit")}
 						</button>
 						<button
@@ -290,7 +305,7 @@ export function MembersSettings({
 								setInviteError(null);
 							}}
 							disabled={invitePending}
-							className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-[#3D5568] ring-1 ring-gray-200 transition-colors hover:bg-gray-50 disabled:opacity-60"
+							className={`rounded-xl bg-white px-3 py-2 text-xs font-bold text-[#3D5568] ring-1 ring-gray-200 transition-colors hover:bg-gray-50 disabled:opacity-60 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-800 ${focusRing}`}
 						>
 							{t("cancel")}
 						</button>
@@ -299,21 +314,23 @@ export function MembersSettings({
 			)}
 
 			{inviteResult && (
-				<div className="rounded-xl border border-[#1E7B34]/30 bg-[#E8F5EC] p-4">
+				<div className="rounded-xl border border-[#1E7B34]/30 bg-[#E8F5EC] p-4 dark:border-green-900/50 dark:bg-green-950/40">
 					<div className="flex items-start justify-between gap-3">
 						<div>
-							<p className="flex items-center gap-1.5 text-sm font-black text-[#1E7B34]">
-								<ShieldCheck className="h-4 w-4" />
+							<p className="flex items-center gap-1.5 text-sm font-black text-[#1E7B34] dark:text-green-300">
+								<ShieldCheck aria-hidden="true" className="h-4 w-4" />
 								{inviteResult.createdUser
 									? t("temporaryPasswordTitle")
 									: t("inviteExistingSuccess")}
 							</p>
 							{inviteResult.temporaryPassword && (
 								<>
-									<p className="mt-1 text-[11px] font-bold text-[#1E7B34]">
+									<p className="mt-1 text-[11px] font-bold text-[#1E7B34] dark:text-green-300">
 										{inviteResult.inviteEmailSent ? t("inviteEmailSent") : t("inviteEmailNotSent")}
 									</p>
-									<p className="mt-1 text-[11px] text-[#1E7B34]">{t("temporaryPasswordHint")}</p>
+									<p className="mt-1 text-[11px] text-[#1E7B34] dark:text-green-300">
+										{t("temporaryPasswordHint")}
+									</p>
 									<div className="mt-2 flex flex-wrap items-center gap-2">
 										<code className="rounded-lg bg-white px-3 py-1.5 font-mono text-sm font-bold text-[#0A3D62] ring-1 ring-[#1E7B34]/20">
 											{inviteResult.temporaryPassword}
@@ -321,12 +338,12 @@ export function MembersSettings({
 										<button
 											type="button"
 											onClick={copyPassword}
-											className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-black text-[#1E7B34] ring-1 ring-[#1E7B34]/20 hover:bg-[#f3fbf5]"
+											className={`inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-black text-[#1E7B34] ring-1 ring-[#1E7B34]/20 hover:bg-[#f3fbf5] ${focusRing}`}
 										>
 											{copied ? (
-												<Check className="h-3.5 w-3.5" />
+												<Check aria-hidden="true" className="h-3.5 w-3.5" />
 											) : (
-												<Copy className="h-3.5 w-3.5" />
+												<Copy aria-hidden="true" className="h-3.5 w-3.5" />
 											)}
 											{copied ? t("copied") : t("copyPassword")}
 										</button>
@@ -338,33 +355,36 @@ export function MembersSettings({
 							type="button"
 							onClick={() => setInviteResult(null)}
 							aria-label={t("done")}
-							className="rounded-lg p-1 text-[#1E7B34] hover:bg-white/70"
+							className={`rounded-lg p-1 text-[#1E7B34] hover:bg-white/70 dark:text-green-300 ${focusRing}`}
 						>
-							<X className="h-4 w-4" />
+							<X aria-hidden="true" className="h-4 w-4" />
 						</button>
 					</div>
 				</div>
 			)}
 
 			{actionError && (
-				<div className="flex items-start justify-between gap-3 rounded-xl border border-[#C42B3A]/30 bg-[#FDE8EA] px-4 py-3">
-					<p className="text-xs font-bold text-[#C42B3A]">{actionError}</p>
+				<div
+					aria-live="polite"
+					className="flex items-start justify-between gap-3 rounded-xl border border-[#C42B3A]/30 bg-[#FDE8EA] px-4 py-3 dark:bg-red-950/40"
+				>
+					<p className="text-xs font-bold text-[#C42B3A] dark:text-red-300">{actionError}</p>
 					<button
 						type="button"
 						onClick={() => setActionError(null)}
 						aria-label={t("dismiss")}
-						className="rounded p-0.5 text-[#C42B3A] hover:bg-white/60"
+						className={`rounded p-0.5 text-[#C42B3A] hover:bg-white/60 dark:text-red-300 ${focusRing}`}
 					>
-						<X className="h-3.5 w-3.5" />
+						<X aria-hidden="true" className="h-3.5 w-3.5" />
 					</button>
 				</div>
 			)}
 
-			<div className="overflow-hidden rounded-xl border border-gray-200">
+			<div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700/60">
 				<div className="overflow-x-auto">
-					<table className="w-full text-sm">
+					<table className="w-full min-w-[46rem] text-sm">
 						<thead>
-							<tr className="border-b border-gray-100 bg-[#F4F7F6]">
+							<tr className="border-b border-gray-100 bg-[#F4F7F6] dark:border-gray-700/60 dark:bg-gray-800/60">
 								{[
 									t("columnMember"),
 									...(showOrgColumn ? [t("columnOrganization")] : []),
@@ -375,7 +395,8 @@ export function MembersSettings({
 								].map((heading) => (
 									<th
 										key={heading}
-										className="px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-wider text-[#3D5568]"
+										scope="col"
+										className="px-4 py-2.5 text-left text-[10px] font-black tracking-wider text-[#3D5568] uppercase dark:text-gray-400"
 									>
 										{heading}
 									</th>
@@ -401,32 +422,39 @@ export function MembersSettings({
 								const name = member.displayName || member.farmId;
 
 								return (
-									<tr key={member.membershipId} className="border-b border-gray-50">
+									<tr
+										key={member.membershipId}
+										className="border-b border-gray-50 last:border-0 dark:border-gray-800"
+									>
 										<td className="px-4 py-3">
 											<div className="flex flex-wrap items-center gap-1.5">
-												<p className="font-black text-[#0A3D62]">{name}</p>
+												<p className="font-black text-[#0A3D62] dark:text-gray-100">{name}</p>
 												{member.isSelf && (
-													<span className="rounded-full bg-[#E8EEF5] px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#0A3D62]">
+													<span className="rounded-full bg-[#E8EEF5] px-2 py-0.5 text-[9px] font-black tracking-wider text-[#0A3D62] uppercase dark:bg-white/10 dark:text-[#8fc0ea]">
 														{t("selfBadge")}
 													</span>
 												)}
 												{member.isPlatformAdmin && (
-													<span className="rounded-full bg-[#E85A2A] px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white">
+													<span className="rounded-full bg-[#C2410C] px-2 py-0.5 text-[9px] font-black tracking-wider text-white uppercase">
 														{t("platformAdminBadge")}
 													</span>
 												)}
 												{member.isLastOwner && (
-													<span className="rounded-full bg-[#FDE8EA] px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#C42B3A]">
+													<span className="rounded-full bg-[#FDE8EA] px-2 py-0.5 text-[9px] font-black tracking-wider text-[#C42B3A] uppercase dark:bg-red-950/50 dark:text-red-300">
 														{t("lastOwnerBadge")}
 													</span>
 												)}
 											</div>
-											<p className="text-[11px] text-[#3D5568]">{member.email}</p>
-											<p className="font-mono text-[10px] text-[#3D5568]/80">{member.farmId}</p>
+											<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
+												{member.email}
+											</p>
+											<p className="font-mono text-[10px] text-[#3D5568] dark:text-gray-400">
+												{member.farmId}
+											</p>
 										</td>
 
 										{showOrgColumn && (
-											<td className="px-4 py-3 text-xs font-bold text-[#3D5568]">
+											<td className="px-4 py-3 text-xs font-bold text-[#3D5568] dark:text-gray-300">
 												{member.orgName}
 											</td>
 										)}
@@ -439,7 +467,7 @@ export function MembersSettings({
 														onChange={(event) => handleRoleChange(member, event.target.value)}
 														disabled={isPending}
 														aria-label={t("changeRole", { name })}
-														className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:opacity-60"
+														className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-bold text-[#0A3D62] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
 													>
 														{MEMBER_ROLES.map((role) => (
 															<option
@@ -455,35 +483,35 @@ export function MembersSettings({
 														))}
 													</select>
 													{member.isLastOwner && (
-														<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#C42B3A]">
+														<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#C42B3A] dark:text-red-300">
 															{t("lastOwnerLocked")}
 														</p>
 													)}
 												</>
 											) : (
-												<span className="inline-flex rounded-full bg-[#0A3D62] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-white">
+												<span className="inline-flex rounded-full bg-[#0A3D62] px-2.5 py-1 text-[10px] font-black tracking-wider text-white uppercase dark:bg-[#8fc0ea]/20 dark:text-[#8fc0ea]">
 													{t(`role.${member.role}`)}
 												</span>
 											)}
 											{member.isSelf && (
-												<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#3D5568]">
+												<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#3D5568] dark:text-gray-400">
 													{t("selfRoleLocked")}
 												</p>
 											)}
 											{member.isPlatformAdmin && (
-												<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#3D5568]">
+												<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#3D5568] dark:text-gray-400">
 													{t("platformAdminLocked")}
 												</p>
 											)}
 											{ownerLocked && (
-												<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#3D5568]">
+												<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#3D5568] dark:text-gray-400">
 													{t("ownerLocked")}
 												</p>
 											)}
 										</td>
 
 										<td className="px-4 py-3">
-											<p className="mb-1 text-[11px] font-bold text-[#3D5568]">
+											<p className="mb-1 text-[11px] font-bold text-[#3D5568] dark:text-gray-400">
 												{t("permissionsSummary", { count: member.permissions.length })}
 											</p>
 											{canEditPermissions ? (
@@ -494,14 +522,14 @@ export function MembersSettings({
 													isSelf={member.isSelf}
 												/>
 											) : (
-												<span className="text-[10px] font-medium text-[#3D5568]">
+												<span className="text-[10px] font-medium text-[#3D5568] dark:text-gray-400">
 													{t("viewOnly")}
 												</span>
 											)}
 										</td>
 
-										<td className="px-4 py-3 text-xs text-[#3D5568]">
-											{new Date(member.joinedAt).toLocaleDateString()}
+										<td className="px-4 py-3 text-xs whitespace-nowrap text-[#3D5568] dark:text-gray-400">
+											{formatDateTimeLocal(new Date(member.joinedAt), tDates).fullDate}
 										</td>
 
 										<td className="px-4 py-3">
@@ -512,16 +540,19 @@ export function MembersSettings({
 															type="button"
 															onClick={() => handleRevoke(member)}
 															disabled={isPending}
-															className="inline-flex items-center gap-1 rounded-lg bg-[#C42B3A] px-2.5 py-1.5 text-[10px] font-black text-white hover:bg-[#a92330] disabled:opacity-60"
+															aria-busy={isPending}
+															className={`inline-flex items-center gap-1 rounded-lg bg-[#C42B3A] px-2.5 py-1.5 text-[10px] font-black text-white hover:bg-[#a92330] disabled:opacity-60 ${focusRing}`}
 														>
-															{isPending && <Loader2 className="h-3 w-3 animate-spin" />}
+															{isPending && (
+																<Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" />
+															)}
 															{t("confirmRevoke")}
 														</button>
 														<button
 															type="button"
 															onClick={() => setRevokeConfirm(null)}
 															disabled={isPending}
-															className="rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-black text-[#3D5568] ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-60"
+															className={`rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-black text-[#3D5568] ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-60 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-800 ${focusRing}`}
 														>
 															{t("cancel")}
 														</button>
@@ -530,16 +561,18 @@ export function MembersSettings({
 													<button
 														type="button"
 														onClick={() => setRevokeConfirm(member.membershipId)}
-														className="rounded-lg border border-[#C42B3A]/30 px-2.5 py-1.5 text-[10px] font-black text-[#C42B3A] transition-colors hover:bg-[#FDE8EA]"
+														className={`rounded-lg border border-[#C42B3A]/30 px-2.5 py-1.5 text-[10px] font-black text-[#C42B3A] transition-colors hover:bg-[#FDE8EA] dark:text-red-300 dark:hover:bg-red-950/40 ${focusRing}`}
 													>
 														{t("revokeButton")}
 													</button>
 												)
 											) : (
-												<span className="text-[10px] font-medium text-[#3D5568]">—</span>
+												<span className="text-[10px] font-medium text-[#3D5568] dark:text-gray-400">
+													{tCommon("none")}
+												</span>
 											)}
 											{member.isLastOwner && (
-												<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#C42B3A]">
+												<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#C42B3A] dark:text-red-300">
 													{t("lastOwnerLocked")}
 												</p>
 											)}
@@ -552,7 +585,9 @@ export function MembersSettings({
 				</div>
 
 				{members.length === 0 && (
-					<p className="p-6 text-center text-sm text-[#3D5568]">{t("membersEmpty")}</p>
+					<p className="p-6 text-center text-sm text-[#3D5568] dark:text-gray-400">
+						{t("membersEmpty")}
+					</p>
 				)}
 			</div>
 		</div>

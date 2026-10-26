@@ -1,8 +1,8 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { motion, useReducedMotion } from "motion/react";
-import { type ElementType, useEffect, useState } from "react";
+import { motion, useInView, useReducedMotion } from "motion/react";
+import { type ElementType, useEffect, useRef, useState } from "react";
 
 export type OfflineCardData = {
 	id: number;
@@ -17,6 +17,8 @@ type OfflineCardsProps = {
 };
 
 export function OfflineCards({ cards, className }: OfflineCardsProps) {
+	const ref = useRef<HTMLDivElement>(null);
+	const isInView = useInView(ref, { once: false, margin: "0px 0px -60px 0px" });
 	const shouldReduceMotion = useReducedMotion();
 	const [swappedR1, setSwappedR1] = useState(false);
 	const [swappedR2, setSwappedR2] = useState(false);
@@ -28,22 +30,35 @@ export function OfflineCards({ cards, className }: OfflineCardsProps) {
 	const c3 = cards[2];
 	const c4 = cards[3];
 
-	// Periodic side-to-side swap with a slight cascade between row 1 and row 2
+	// Trigger side-to-side swap the moment cards are revealed in view, then continue periodically
 	useEffect(() => {
-		if (shouldReduceMotion || isPaused) return;
+		if (shouldReduceMotion || !isInView || isPaused) return;
 
+		// Immediate swap upon reveal (250ms after entering view so entrance settles)
+		const initialTimer = setTimeout(() => {
+			setSwappedR1((prev) => !prev);
+			const row2Timer = setTimeout(() => {
+				setSwappedR2((prev) => !prev);
+			}, 160);
+
+			return () => clearTimeout(row2Timer);
+		}, 250);
+
+		// Subsequent periodic swaps every 3.8s while in view
 		const interval = setInterval(() => {
 			setSwappedR1((prev) => !prev);
-			// Row 2 swaps with a slight 180ms stagger after Row 1
-			const timeout = setTimeout(() => {
+			const row2Timer = setTimeout(() => {
 				setSwappedR2((prev) => !prev);
-			}, 180);
+			}, 160);
 
-			return () => clearTimeout(timeout);
-		}, 4200);
+			return () => clearTimeout(row2Timer);
+		}, 3800);
 
-		return () => clearInterval(interval);
-	}, [shouldReduceMotion, isPaused]);
+		return () => {
+			clearTimeout(initialTimer);
+			clearInterval(interval);
+		};
+	}, [isInView, isPaused, shouldReduceMotion]);
 
 	const toggleSwap = () => {
 		setSwappedR1((prev) => !prev);
@@ -56,6 +71,7 @@ export function OfflineCards({ cards, className }: OfflineCardsProps) {
 
 	return (
 		<div
+			ref={ref}
 			className={cn("relative", className)}
 			onMouseEnter={() => setIsPaused(true)}
 			onMouseLeave={() => setIsPaused(false)}
@@ -80,7 +96,7 @@ export function OfflineCards({ cards, className }: OfflineCardsProps) {
 									: {
 											layout: {
 												type: "spring",
-												stiffness: 240,
+												stiffness: 260,
 												damping: 26,
 											},
 										}

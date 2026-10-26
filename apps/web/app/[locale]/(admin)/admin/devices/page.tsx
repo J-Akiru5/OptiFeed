@@ -1,12 +1,17 @@
 import { DeviceTokenReveal } from "@/components/admin/device-token-reveal";
+import { Link, getPathname } from "@/i18n/routing";
 import { getDevices } from "@/lib/actions/admin";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
-import { Cpu, Wifi, WifiOff } from "lucide-react";
-import { getTranslations } from "next-intl/server";
+import { Cpu, Printer, Wifi, WifiOff } from "lucide-react";
+import { getLocale, getTranslations } from "next-intl/server";
+
+const LABELS_HREF = "/admin/devices/labels";
+const LABEL_FORM_ID = "device-label-form";
 
 export default async function AdminDevicesPage() {
 	const devices = await getDevices();
 	const t = await getTranslations("dashboard.adminDevices");
+	const locale = await getLocale();
 
 	return (
 		<div className="space-y-6">
@@ -16,6 +21,21 @@ export default async function AdminDevicesPage() {
 					{devices.length} device{devices.length !== 1 ? "s" : ""} registered
 				</p>
 			</div>
+
+			{devices.length > 0 && (
+				// Plain GET form: the row checkboxes join it through their `form`
+				// attribute, so selection needs no client JS and the token-reveal
+				// buttons are not nested inside a form.
+				<form id={LABEL_FORM_ID} action={getPathname({ href: LABELS_HREF, locale })} method="get">
+					<button
+						type="submit"
+						className="inline-flex items-center gap-2 rounded-xl border border-[#0A3D62]/20 bg-white px-4 py-2 text-xs font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6]"
+					>
+						<Printer className="w-4 h-4" />
+						{t("printSelected")}
+					</button>
+				</form>
+			)}
 
 			<div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
 				<div className="overflow-x-auto">
@@ -42,6 +62,9 @@ export default async function AdminDevicesPage() {
 								</th>
 								<th className="text-left px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider">
 									{t("tokenColumn")}
+								</th>
+								<th className="text-left px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider">
+									{t("labelColumn")}
 								</th>
 							</tr>
 						</thead>
@@ -107,6 +130,25 @@ export default async function AdminDevicesPage() {
 										</td>
 										<td className="px-6 py-4">
 											<DeviceTokenReveal deviceId={device.id} deviceLabel={device.label} />
+										</td>
+										<td className="px-6 py-4">
+											<div className="flex items-center gap-3">
+												<input
+													type="checkbox"
+													form={LABEL_FORM_ID}
+													name="id"
+													value={device.id}
+													aria-label={t("selectForLabel", { label: device.label })}
+													className="h-4 w-4 accent-[#0A3D62]"
+												/>
+												<Link
+													href={{ pathname: LABELS_HREF, query: { id: device.id } }}
+													className="inline-flex items-center gap-1.5 rounded-xl border border-[#0A3D62]/20 px-3 py-2 text-xs font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6]"
+												>
+													<Printer className="w-3.5 h-3.5" />
+													{t("printLabel")}
+												</Link>
+											</div>
 										</td>
 									</tr>
 								);

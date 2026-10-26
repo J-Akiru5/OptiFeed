@@ -42,7 +42,15 @@
 #include <ArduinoOTA.h>
 #include <esp_task_wdt.h>
 #include <esp_wifi.h>
+#include <esp_system.h>
 #include <ctype.h>
+
+// Prefix of the setup access point ("PakaonAI-XXXX"). Must equal AP_PREFIX in
+// apps/web/lib/provisioning-ap.ts: the admin sticker QR and the hardware
+// settings page build the network name from that constant, and a unit only
+// broadcasts the prefix it was flashed with. apps/web/lib/__tests__/
+// provisioning-ap-firmware.test.ts fails if the two differ.
+#define PROVISIONING_AP_PREFIX "PakaonAI-"
 
 // ==================== Config — fill in before flashing ====================
 #define INGEST_URL      "https://optifeed.example.com/api/ingest"
@@ -504,17 +512,32 @@ void handleResetButtons() {
 
 // ==================== WiFi provisioning portal ====================
 
-// "OptiFeed-XXXX", where XXXX is the last four hex characters of the active
-// Device ID (the compile-time DEVICE_MAC until the portal stores one).
+// The chip's factory (eFuse) Wi-Fi station MAC, "AA:BB:CC:DD:EE:FF". Read from
+// eFuse, so it is valid before WiFi starts and never changes with NVS state.
+// This is the MAC to register in the dashboard: it is printed at boot.
+String chipMacString() {
+  uint8_t mac[6] = {0};
+  esp_read_mac(mac, ESP_MAC_WIFI_STA);
+  char buf[18];
+  snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X",
+           mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  return String(buf);
+}
+
+// "PakaonAI-XXXX", where XXXX is the last four hex characters of the chip's
+// eFuse MAC. Deliberately not the saved device_id: that falls back to the
+// compile-time DEVICE_MAC, which would give every unprovisioned unit the same
+// name, and the printed sticker QR is built from the registered chip MAC.
 String provisioningApSsid() {
+  const String source = chipMacString();
   String hex;
-  hex.reserve(provisionedDeviceId.length());
-  for (size_t i = 0; i < provisionedDeviceId.length(); i++) {
-    char c = provisionedDeviceId[i];
+  hex.reserve(source.length());
+  for (size_t i = 0; i < source.length(); i++) {
+    char c = source[i];
     if (isxdigit((unsigned char)c)) hex += (char)toupper((unsigned char)c);
   }
   while (hex.length() < 4) hex = String("0") + hex;
-  return String("OptiFeed-") + hex.substring(hex.length() - 4);
+  return String(PROVISIONING_AP_PREFIX) + hex.substring(hex.length() - 4);
 }
 
 String htmlEscape(const String &value) {
@@ -543,7 +566,7 @@ String buildProvisioningPage(const String &ssid, const String &error) {
   String page = F(
     "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
     "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-    "<title>OptiFeed device setup</title><style>"
+    "<title>PakaonAI device setup</title><style>"
     "body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;margin:0;padding:24px;background:#f3f5f7;color:#1b2430}"
     "main{max-width:420px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}"
     "h1{font-size:1.35rem;margin:0 0 8px}p{line-height:1.45}"
@@ -554,7 +577,7 @@ String buildProvisioningPage(const String &ssid, const String &error) {
     "code{background:#eef1f4;padding:2px 6px;border-radius:4px}"
     "footer{margin-top:20px;font-size:.8rem;color:#6b7684}"
     "</style></head><body><main>"
-    "<h1>OptiFeed device setup</h1>"
+    "<h1>PakaonAI device setup</h1>"
     "<p class=\"note\">Connect the feeder to a 2.4 GHz WiFi network and enter its device identity. The device restarts after saving and joins automatically.</p>"
     "{{ERROR}}"
     "<form method=\"POST\" action=\"/save\">"
@@ -567,7 +590,7 @@ String buildProvisioningPage(const String &ssid, const String &error) {
     "<input id=\"device_id\" name=\"device_id\" type=\"text\" maxlength=\"64\" autocomplete=\"off\" value=\"\" placeholder=\"{{ID_PLACEHOLDER}}\">"
     "<label for=\"device_token\">Device Token</label>"
     "<input id=\"device_token\" name=\"device_token\" type=\"password\" maxlength=\"128\" autocomplete=\"new-password\" value=\"\" placeholder=\"{{TOKEN_PLACEHOLDER}}\">"
-    "<p class=\"note\">Find both under Admin &rarr; Devices in the OptiFeed dashboard. Leave them blank to keep the identity already stored on this device.</p>"
+    "<p class=\"note\">Find both under Admin &rarr; Devices in the PakaonAI dashboard. Leave them blank to keep the identity already stored on this device.</p>"
     "<button type=\"submit\">Save and restart</button>"
     "</form>"
     "<footer>Setup address: <code>192.168.4.1</code> &middot; AP: {{AP}}</footer>"
@@ -598,7 +621,7 @@ String buildProvisioningSuccessPage() {
   return String(F(
     "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
     "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-    "<title>OptiFeed saved</title></head>"
+    "<title>PakaonAI saved</title></head>"
     "<body style=\"font-family:system-ui,sans-serif;padding:32px;max-width:420px;margin:0 auto\">"
     "<h1>Settings saved</h1>"
     "<p>The feeder is restarting and will join your WiFi network. You can close this page.</p>"
@@ -757,6 +780,10 @@ void setup() {
   // Load stored WiFi credentials + device identity from NVS, fallback to the
   // compile-time defaults. This must run before any URL, header or AP name is
   // built from the identity.
+  // The NVS namespace stays "optifeed" on purpose, even though the product is
+  // now PakaonAI. NVS keys are looked up by namespace, so renaming it would
+  // orphan the WiFi credentials and device identity already stored on every
+  // flashed unit and force each one back through the setup portal.
   prefs.begin("optifeed", false);
   rebootCount = prefs.getUInt("rebootCount", 0) + 1;
   prefs.putUInt("rebootCount", rebootCount);
@@ -809,7 +836,7 @@ void setup() {
   setupOTA();
 
   Serial.print("[DEVICE MAC] ");
-  Serial.println(WiFi.macAddress());
+  Serial.println(chipMacString());
 
   // Task watchdog — a hung loop() reboots the board; boot already forced RELAY_OFF.
 #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3

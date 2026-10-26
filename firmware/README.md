@@ -97,6 +97,12 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 > `optifeed`) take over. Units flashed with the seeded values keep working without ever opening the
 > portal; units left with placeholder values such as `YOUR_DEVICE_ID` must be provisioned.
 
+> **Naming:** the setup AP prefix is `PROVISIONING_AP_PREFIX` (`PakaonAI-`) in
+> `firmware-main.ino`, mirrored by `AP_PREFIX` in `apps/web/lib/provisioning-ap.ts` (a web test
+> compares the two). Units flashed with an older build still broadcast `OptiFeed-XXXX` until they
+> are reflashed. The NVS namespace stays `optifeed` on purpose: renaming it would orphan the
+> stored WiFi credentials and device identity on every flashed unit.
+
 > The default `DEVICE_TOKEN` and `DEVICE_MAC` match the Prisma seed data so the device is recognized out of the box.
 
 ## Setup Portal
@@ -117,15 +123,18 @@ The setup access point starts when:
 
 ### Connecting
 
-1. On a phone or laptop, join the open access point **`OptiFeed-XXXX`**, where `XXXX`
-   is the last four hex characters of the active Device ID in uppercase with separators
-   removed. For the default `A4:CF:12:7E:3B:09` the AP is `OptiFeed-3B09`.
+1. On a phone or laptop, join the open access point **`PakaonAI-XXXX`**, where `XXXX`
+   is the last four hex characters of the **chip's eFuse MAC** (the `[DEVICE MAC]` line in
+   the boot log), uppercase. For a chip MAC of `A4:CF:12:7E:3B:09` the AP is `PakaonAI-3B09`.
+   The name does not depend on the saved Device ID, so it is correct before the unit is
+   provisioned and matches the sticker printed from the registered MAC. Register each unit
+   with that same chip MAC.
 2. Open **http://192.168.4.1** (captive-portal redirects also land here).
 3. Enter:
    - **SSID** (1-32 characters) and **password** (empty for an open network, otherwise
      8-63 characters),
    - **Device ID** (1-64 characters) and **Device Token** (8-128 characters), both from
-     **Admin → Devices** in the OptiFeed dashboard.
+     **Admin → Devices** in the PakaonAI dashboard.
 4. Press **Save and restart**. The device acknowledges the save, reboots after about
    2 seconds, and joins the network through the normal station path. The portal stops as
    soon as a join succeeds and does not run during normal operation.
@@ -139,7 +148,7 @@ are required.
 
 Hold the physical feed button (**GPIO 27**, wired to GND) during boot for at least
 5 seconds. The serial log confirms the reset, the two NVS keys `wifi_ssid` and
-`wifi_pass` (namespace `optifeed`) are removed, and the `OptiFeed-XXXX` portal starts.
+`wifi_pass` (namespace `optifeed`) are removed, and the `PakaonAI-XXXX` portal starts.
 
 - This is a **WiFi-only reset**: the identity keys `device_id` and `device_token` are kept.
   Re-enter just the new WiFi credentials and leave the identity fields blank.
@@ -239,7 +248,7 @@ GRAMS_PER_SECOND = grams_dispensed / seconds_run
 
 Portal checks (no backend needed):
 
-1. Boot with erased NVS (or the placeholder SSID): the `OptiFeed-XXXX` AP appears and
+1. Boot with erased NVS (or the placeholder SSID): the `PakaonAI-XXXX` AP appears and
    `http://192.168.4.1` serves the setup form with **SSID**, **Password**, **Device ID** and
    **Device Token** fields.
 2. Submit a valid SSID/password and a Device ID/Token: success page, reboot after ~2 s,

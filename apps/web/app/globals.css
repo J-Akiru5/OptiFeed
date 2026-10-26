@@ -194,24 +194,25 @@
 	animation: wave-drift 30s linear infinite;
 }
 
-/* Hero credibility strip: continuous bottom-to-top ticker column. */
-@keyframes ticker-col-scroll {
+/* Hero credibility strip: staggered fade + slide-up for pill badges. */
+@keyframes credibility-badge-in {
 	from {
-		transform: translateY(0);
+		opacity: 0;
+		transform: translateY(6px);
 	}
 	to {
-		/* Translate up by exactly half the strip (one full original list) */
-		transform: translateY(calc(var(--ticker-strip-h) * -0.5));
+		opacity: 1;
+		transform: translateY(0);
 	}
 }
 
-.ticker-col-scroll {
-	animation: ticker-col-scroll var(--ticker-duration) var(--ticker-delay) linear infinite;
+.credibility-badge-in {
+	animation: credibility-badge-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
 	.wave-drift,
-	.ticker-col-scroll {
+	.credibility-badge-in {
 		animation: none;
 	}
 }

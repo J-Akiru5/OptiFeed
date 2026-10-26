@@ -1,6 +1,6 @@
 "use client";
 
-import { CredibilityTicker } from "@/components/landing/CredibilityTicker";
+import { CredibilityBadges } from "@/components/landing/CredibilityTicker";
 import { DashboardPreview } from "@/components/landing/DashboardPreview";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { LANDING_SECTIONS, LandingHeader } from "@/components/landing/LandingHeader";
@@ -224,31 +224,23 @@ export default function LandingPage() {
 							</Reveal>
 						</div>
 
-						{/* Wave acts as the decorative divider, then the 2-col ticker below */}
-						<div className="relative">
-							<Wave
-								flip
-								layered
-								variant="b"
-								className="relative translate-y-0 text-[#061B2B]/60 dark:text-[#061B2B]/60"
+						{/* Credibility strip — pill badges */}
+						<div className="relative border-t border-white/10">
+							<CredibilityBadges
+								builtAtLabel={t("credibilityLabel")}
+								items={CREDIBILITY.map(({ key, icon }) => ({
+									key,
+									icon,
+									label: t(key),
+								}))}
 							/>
-							<div className="bg-white/[0.03]">
-								<CredibilityTicker
-									builtAtLabel={t("credibilityLabel")}
-									items={CREDIBILITY.map(({ key, icon }) => ({
-										key,
-										icon,
-										label: t(key),
-									}))}
-								/>
-							</div>
 						</div>
 
 						{/* Wave transition to Problem section */}
 						<Wave
 							flip
 							layered
-							variant="a"
+							variant="b"
 							className="bottom-0 translate-y-full text-[#F7F9F8] dark:text-[#070D13]"
 						/>
 					</section>

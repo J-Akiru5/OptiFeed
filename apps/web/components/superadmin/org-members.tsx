@@ -34,6 +34,7 @@ type InviteResult = {
 	loginEmail: string;
 	temporaryPassword: string | null;
 	createdUser: boolean;
+	emailSent: boolean;
 } | null;
 
 function isRedirectError(error: unknown): boolean {
@@ -204,6 +205,7 @@ export function OrgMembersPanel({
 					loginEmail: result.loginEmail,
 					temporaryPassword: result.temporaryPassword,
 					createdUser: result.createdUser,
+					emailSent: result.inviteEmailSent,
 				});
 				setInviteOpen(false);
 				setInviteEmail("");
@@ -301,8 +303,9 @@ export function OrgMembersPanel({
 				<div className="rounded-xl border border-gray-200 bg-[#F4F7F6] p-4">
 					<p className="text-sm font-black text-[#0A3D62]">Invite a member</p>
 					<p className="mt-1 text-[11px] leading-relaxed text-[#3D5568]">
-						No email is sent. An existing account is attached by address; otherwise a login is
-						provisioned with a one-time temporary password you share directly.
+						An existing account is attached by address. Otherwise a login is provisioned and the
+						login details are emailed to the address you enter; the one-time password is also shown
+						once below.
 					</p>
 					<div className="mt-3 grid gap-3 md:grid-cols-3">
 						<label className="block text-xs font-bold text-[#3D5568]">
@@ -378,19 +381,30 @@ export function OrgMembersPanel({
 								Login: <span className="font-mono">{inviteResult.loginEmail}</span>
 							</p>
 							{inviteResult.temporaryPassword && (
-								<div className="mt-2 flex flex-wrap items-center gap-2">
-									<code className="rounded-lg bg-white px-3 py-1.5 font-mono text-sm font-bold text-[#0A3D62] ring-1 ring-[#1E7B34]/20">
-										{inviteResult.temporaryPassword}
-									</code>
-									<button
-										type="button"
-										onClick={copyPassword}
-										className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-black text-[#1E7B34] ring-1 ring-[#1E7B34]/20 hover:bg-[#f3fbf5]"
-									>
-										{copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-										{copied ? "Copied" : "Copy password"}
-									</button>
-								</div>
+								<>
+									<p className="mt-1 text-[11px] font-bold text-[#1E7B34]">
+										{inviteResult.emailSent
+											? "Invitation email sent."
+											: "Invitation email not sent (email delivery is unconfigured or failed). Share the password below directly."}
+									</p>
+									<div className="mt-2 flex flex-wrap items-center gap-2">
+										<code className="rounded-lg bg-white px-3 py-1.5 font-mono text-sm font-bold text-[#0A3D62] ring-1 ring-[#1E7B34]/20">
+											{inviteResult.temporaryPassword}
+										</code>
+										<button
+											type="button"
+											onClick={copyPassword}
+											className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-black text-[#1E7B34] ring-1 ring-[#1E7B34]/20 hover:bg-[#f3fbf5]"
+										>
+											{copied ? (
+												<Check className="h-3.5 w-3.5" />
+											) : (
+												<Copy className="h-3.5 w-3.5" />
+											)}
+											{copied ? "Copied" : "Copy password"}
+										</button>
+									</div>
+								</>
 							)}
 						</div>
 						<button

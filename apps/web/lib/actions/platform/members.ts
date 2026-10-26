@@ -12,6 +12,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { isStepUpRequiredError, withStepUp } from "@/lib/auth/step-up";
 import { inviteOrAttachMember } from "@/lib/membership-invite";
 import type { InviteLinkTransaction } from "@/lib/membership-invite";
+import { deliverMemberInviteEmail } from "@/lib/notify/invite-email";
 import prisma from "@/lib/prisma";
 import type { MemberRole, Prisma } from "@prisma/client";
 import { headers } from "next/headers";
@@ -50,14 +51,22 @@ function checkedReason(
 	}
 }
 
-async function actorContext(): Promise<{ id: string; temporaryGrant: boolean }> {
+async function actorContext(): Promise<{
+	id: string;
+	temporaryGrant: boolean;
+	displayName: string;
+}> {
 	const user = await getCurrentUser();
 	if (!user) throw new Error("Not authenticated.");
 	const grant = await prisma.platformAdmin.findUnique({
 		where: { userId: user.id },
 		select: { expiresAt: true },
 	});
-	return { id: user.id, temporaryGrant: Boolean(grant?.expiresAt) };
+	return {
+		id: user.id,
+		temporaryGrant: Boolean(grant?.expiresAt),
+		displayName: user.displayName || user.farmId,
+	};
 }
 
 /** Request origin for the audit row (who/what/when/where). */
@@ -226,6 +235,8 @@ export type PlatformInviteResult =
 			loginEmail: string;
 			temporaryPassword: string | null;
 			createdUser: boolean;
+			/** See the tenant invite result: best-effort delivery, never a rollback. */
+			inviteEmailSent: boolean;
 	  }
 	| { error: string; code?: "step_up_required" };
 
@@ -260,7 +271,7 @@ export async function inviteOrgMember(input: {
 
 	const org = await prisma.organization.findUnique({
 		where: { id: input.orgId },
-		select: { id: true },
+		select: { id: true, name: true },
 	});
 	if (!org) return { error: "Organization not found." };
 
@@ -299,6 +310,19 @@ export async function inviteOrgMember(input: {
 		);
 
 		if (!result.success) return { error: result.error };
+
+		// Sent after the transaction and step-up succeeded. Delivery is
+		// best-effort; the audit row above never contains the password.
+		const inviteEmailSent = result.temporaryPassword
+			? await deliverMemberInviteEmail({
+					to: input.email,
+					loginId: result.loginEmail.split("@")[0],
+					temporaryPassword: result.temporaryPassword,
+					orgName: org.name,
+					inviterName: actor.displayName,
+				})
+			: false;
+
 		return {
 			success: true,
 			membershipId: result.membershipId,
@@ -306,6 +330,7 @@ export async function inviteOrgMember(input: {
 			loginEmail: result.loginEmail,
 			temporaryPassword: result.temporaryPassword,
 			createdUser: result.createdUser,
+			inviteEmailSent,
 		};
 	} catch (e) {
 		const stepUp = stepUpFailure(e);

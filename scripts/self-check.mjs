@@ -180,6 +180,7 @@ const envExample = read(`${web}/.env.example`);
 for (const key of [
 	"OPENCODE_GO_MODEL",
 	"NEXT_PUBLIC_BASE_URL",
+	"INVITE_FROM_EMAIL",
 	"DEMO_PIN",
 	"CRON_SECRET",
 	"TELEGRAM_BOT_TOKEN",

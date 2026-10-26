@@ -22,6 +22,7 @@ import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { invalidateFarm } from "@/lib/auth/session-cache";
 import { TENANT_ADMIN_ROLES, requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import { inviteOrAttachMember } from "@/lib/membership-invite";
+import { deliverMemberInviteEmail } from "@/lib/notify/invite-email";
 import prisma from "@/lib/prisma";
 import { checkDeviceTokenRevealRateLimit } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -504,6 +505,12 @@ export type InviteMemberState =
 			/** Returned once for a new account; null when an existing account was attached. */
 			temporaryPassword: string | null;
 			createdUser: boolean;
+			/**
+			 * True when the invitation email was accepted by Resend. False when
+			 * email is unconfigured, delivery failed, or only an existing account
+			 * was attached (nothing new to send).
+			 */
+			inviteEmailSent: boolean;
 	  }
 	| { error: string };
 
@@ -621,6 +628,29 @@ export async function inviteMember(input: InviteMemberInput): Promise<InviteMemb
 	});
 	if (!result.success) return { error: result.error };
 
+	// Best-effort: neither the organization lookup nor the send may undo an
+	// invite that already committed. The one-time password stays in the result
+	// for the UI to show once.
+	let orgName: string | undefined;
+	try {
+		const org = await prisma.organization.findUnique({
+			where: { id: orgId },
+			select: { name: true },
+		});
+		orgName = org?.name;
+	} catch {
+		orgName = undefined;
+	}
+	const inviteEmailSent = result.temporaryPassword
+		? await deliverMemberInviteEmail({
+				to: input.email,
+				loginId: result.loginEmail.split("@")[0],
+				temporaryPassword: result.temporaryPassword,
+				orgName,
+				inviterName: actor.displayName || actor.farmId,
+			})
+		: false;
+
 	return {
 		success: true,
 		membershipId: result.membershipId,
@@ -628,6 +658,7 @@ export async function inviteMember(input: InviteMemberInput): Promise<InviteMemb
 		loginEmail: result.loginEmail,
 		temporaryPassword: result.temporaryPassword,
 		createdUser: result.createdUser,
+		inviteEmailSent,
 	};
 }
 

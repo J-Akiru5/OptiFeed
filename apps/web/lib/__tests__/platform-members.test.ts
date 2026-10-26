@@ -29,6 +29,7 @@ vi.mock("@/lib/auth/step-up", () => ({
 		(error as { code?: unknown }).code === "step_up_required",
 }));
 vi.mock("@/lib/membership-invite", () => ({ inviteOrAttachMember: vi.fn() }));
+vi.mock("@/lib/notify/invite-email", () => ({ deliverMemberInviteEmail: vi.fn() }));
 vi.mock("next/headers", () => ({
 	headers: vi.fn(
 		async () =>
@@ -50,12 +51,14 @@ import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { getCurrentUser } from "@/lib/auth/session";
 import { withStepUp } from "@/lib/auth/step-up";
 import { inviteOrAttachMember } from "@/lib/membership-invite";
+import { deliverMemberInviteEmail } from "@/lib/notify/invite-email";
 import type { Prisma } from "@prisma/client";
 
 const mockGate = vi.mocked(requirePlatformAdmin);
 const mockUser = vi.mocked(getCurrentUser);
 const mockWithStepUp = vi.mocked(withStepUp);
 const mockInvite = vi.mocked(inviteOrAttachMember);
+const mockDeliverInviteEmail = vi.mocked(deliverMemberInviteEmail);
 const mockAudit = tx.platformAuditLog.create;
 
 const REASON = "Owner asked us to correct a wrong role after a staff handover";
@@ -74,7 +77,11 @@ function activeMembership(role: "OWNER" | "ADMIN" | "OPERATOR" | "VIEWER" = "OPE
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockGate.mockResolvedValue(undefined);
-	mockUser.mockResolvedValue({ id: "admin-1" } as Awaited<ReturnType<typeof getCurrentUser>>);
+	mockUser.mockResolvedValue({
+		id: "admin-1",
+		farmId: "platform-admin",
+		displayName: "Platform Admin",
+	} as Awaited<ReturnType<typeof getCurrentUser>>);
 	db.$transaction.mockImplementation(async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx));
 	db.platformAdmin.findUnique.mockResolvedValue({ expiresAt: null });
 	db.platformAdmin.findMany.mockResolvedValue([]);
@@ -82,7 +89,8 @@ beforeEach(() => {
 	db.membership.findMany.mockResolvedValue([]);
 	db.membershipPermission.findMany.mockResolvedValue([]);
 	db.user.findMany.mockResolvedValue([]);
-	db.organization.findUnique.mockResolvedValue({ id: "org-a" });
+	db.organization.findUnique.mockResolvedValue({ id: "org-a", name: "Org A" });
+	mockDeliverInviteEmail.mockResolvedValue(true);
 	tx.membership.update.mockResolvedValue({});
 	tx.membershipPermission.findUnique.mockResolvedValue(null);
 	tx.membershipPermission.upsert.mockResolvedValue({});
@@ -300,6 +308,7 @@ describe("platform invites", () => {
 			}),
 		).resolves.toEqual({ error: "That account is already a member." });
 		expect(mockAudit).not.toHaveBeenCalled();
+		expect(mockDeliverInviteEmail).not.toHaveBeenCalled();
 	});
 
 	it("provisions the member and writes exactly one membership audit row", async () => {
@@ -335,8 +344,17 @@ describe("platform invites", () => {
 			loginEmail: "new@pond.optifeed.local",
 			temporaryPassword: "TempPass123",
 			createdUser: true,
+			inviteEmailSent: true,
 		});
 
+		expect(mockDeliverInviteEmail).toHaveBeenCalledTimes(1);
+		expect(mockDeliverInviteEmail).toHaveBeenCalledWith({
+			to: "new@example.com",
+			loginId: "new",
+			temporaryPassword: "TempPass123",
+			orgName: "Org A",
+			inviterName: "Platform Admin",
+		});
 		expect(mockAudit).toHaveBeenCalledTimes(1);
 		const row = mockAudit.mock.calls[0][0].data;
 		expect(row).toMatchObject({
@@ -355,5 +373,53 @@ describe("platform invites", () => {
 		});
 		// The one-time password must never reach the audit trail.
 		expect(JSON.stringify(row)).not.toContain("TempPass123");
+	});
+
+	it("keeps the one-time password when email delivery is skipped", async () => {
+		mockInvite.mockResolvedValue({
+			success: true,
+			membershipId: "m-new",
+			userId: "u-new",
+			loginEmail: "new@pond.optifeed.local",
+			temporaryPassword: "TempPass123",
+			createdUser: true,
+		});
+		mockDeliverInviteEmail.mockResolvedValue(false);
+
+		await expect(
+			inviteOrgMember({
+				orgId: "org-a",
+				email: "new@example.com",
+				displayName: "New Member",
+				role: "OPERATOR",
+				reason: REASON,
+			}),
+		).resolves.toMatchObject({
+			success: true,
+			temporaryPassword: "TempPass123",
+			inviteEmailSent: false,
+		});
+	});
+
+	it("does not send an email when an existing account is attached", async () => {
+		mockInvite.mockResolvedValue({
+			success: true,
+			membershipId: "m-new",
+			userId: "u-new",
+			loginEmail: "existing@pond.optifeed.local",
+			temporaryPassword: null,
+			createdUser: false,
+		});
+
+		await expect(
+			inviteOrgMember({
+				orgId: "org-a",
+				email: "existing@example.com",
+				displayName: "Existing Member",
+				role: "OPERATOR",
+				reason: REASON,
+			}),
+		).resolves.toMatchObject({ success: true, inviteEmailSent: false });
+		expect(mockDeliverInviteEmail).not.toHaveBeenCalled();
 	});
 });

@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { buildPondEmail } from "@/lib/auth/session";
+import { isDeliverableEmail } from "@/lib/notify/invite-email";
 import prisma from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MemberRole, Prisma } from "@prisma/client";
@@ -20,10 +21,10 @@ import type { MemberRole, Prisma } from "@prisma/client";
  *   shape as createPondWithFarmer/createPlatformUser, with a generated
  *   temporary password returned once to the caller.
  *
- * No email is sent by this module. The caller shares the one-time password
- * directly, and the member is forced to change it on first login. This is the
- * honest behaviour for the current login model: the app cannot deliver mail to
- * the pond domain.
+ * This module does not send mail. The caller sends the invitation through
+ * `lib/notify/invite-email.ts` to the real address the inviter typed, and the
+ * member is forced to change the one-time password on first login. The pond
+ * address itself is never a deliverable mailbox.
  */
 
 export type InviteLinkTransaction = Pick<Prisma.TransactionClient, "platformAuditLog">;
@@ -89,6 +90,9 @@ const MAX_LOGIN_ID_LENGTH = 64;
 export function deriveLoginIdentity(rawEmail: string): LoginIdentity | null {
 	const value = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "";
 	if (!value) return null;
+	// The typed address is both the invite destination and the login-id source,
+	// so reject a typo before provisioning an account or sending mail.
+	if (!isDeliverableEmail(value)) return null;
 
 	const parts = value.split("@");
 	if (parts.length !== 2) return null;

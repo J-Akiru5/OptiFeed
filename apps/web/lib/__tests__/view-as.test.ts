@@ -142,7 +142,8 @@ describe("verifyViewAsToken", () => {
 });
 
 describe("resolveViewAsState", () => {
-	it("is unauthenticated without a user", async () => {
+	it("is unauthenticated without a user when a session cookie is present", async () => {
+		jar.set(VIEW_AS_COOKIE, token());
 		mockUser.mockResolvedValue(null);
 		await expect(resolveViewAsState(NOW)).resolves.toEqual({
 			active: false,

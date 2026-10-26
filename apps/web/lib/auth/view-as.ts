@@ -201,10 +201,15 @@ async function readViewAsCookie(): Promise<string | undefined> {
  * accidentally block writes.
  */
 export async function resolveViewAsState(now: Date = new Date()): Promise<ViewAsState> {
+	// Cookie first: without one this is a pure inactive result and costs no
+	// database work, which keeps the common path (every request) cheap.
+	const token = await readViewAsCookie();
+	if (!token) return { active: false, reason: "missing" };
+
 	const user = await getCurrentUser();
 	if (!user) return { active: false, reason: "unauthenticated" };
 
-	const verification = verifyViewAsToken(await readViewAsCookie(), user.id, now);
+	const verification = verifyViewAsToken(token, user.id, now);
 	if (!verification.valid) return { active: false, reason: verification.reason };
 	const payload = verification.payload;
 
@@ -259,6 +264,15 @@ export const getViewAsState = cache(
 
 export async function isViewingAs(): Promise<boolean> {
 	return (await getViewAsState()).active;
+}
+
+/**
+ * The target farm while a live view-as session exists, otherwise null. Used by
+ * the API wrapper so GET reads follow the same tenant as the dashboard.
+ */
+export async function getViewAsFarmId(): Promise<string | null> {
+	const state = await getViewAsState();
+	return state.active ? state.farmId : null;
 }
 
 /**

@@ -36,28 +36,34 @@ export default async function DeviceLabelsPage({
 	if (devices.length === 0) notFound();
 
 	const t = await getTranslations("dashboard.adminDeviceLabels");
-	// Raw: these carry `{type}` / `{ssid}` / `{address}` placeholders that the
-	// sticker fills in itself per device.
+	// The sticker is a physical label and is always English, whatever locale
+	// the admin browses in; only this page's own chrome is localized. Raw
+	// messages: they carry `{type}` / `{ssid}` / `{address}` placeholders that
+	// the sticker fills in itself per device.
+	const tSticker = await getTranslations({
+		locale: "en",
+		namespace: "dashboard.adminDeviceLabels.sticker",
+	});
 	const strings: DeviceStickerStrings = {
-		subtitle: t.raw("sticker.subtitle"),
-		tag: t.raw("sticker.tag"),
-		tagAc: t.raw("sticker.tagAc"),
-		sectionRating: t.raw("sticker.sectionRating"),
-		input: t.raw("sticker.input"),
-		current: t.raw("sticker.current"),
-		power: t.raw("sticker.power"),
-		max: t.raw("sticker.max"),
-		unitId: t.raw("sticker.unitId"),
-		stepScan: t.raw("sticker.stepScan"),
-		stepPortal: t.raw("sticker.stepPortal"),
-		stepSave: t.raw("sticker.stepSave"),
-		noteTitle: t.raw("sticker.noteTitle"),
-		noteBody: t.raw("sticker.noteBody"),
-		scan: t.raw("sticker.scan"),
-		qrLabel: t.raw("sticker.qrLabel"),
-		footerSupply: t.raw("sticker.footerSupply"),
-		footerUnplug: t.raw("sticker.footerUnplug"),
-		footerDry: t.raw("sticker.footerDry"),
+		subtitle: tSticker.raw("subtitle"),
+		tag: tSticker.raw("tag"),
+		tagAc: tSticker.raw("tagAc"),
+		sectionRating: tSticker.raw("sectionRating"),
+		input: tSticker.raw("input"),
+		current: tSticker.raw("current"),
+		power: tSticker.raw("power"),
+		max: tSticker.raw("max"),
+		unitId: tSticker.raw("unitId"),
+		stepScan: tSticker.raw("stepScan"),
+		stepPortal: tSticker.raw("stepPortal"),
+		stepSave: tSticker.raw("stepSave"),
+		noteTitle: tSticker.raw("noteTitle"),
+		noteBody: tSticker.raw("noteBody"),
+		scan: tSticker.raw("scan"),
+		qrLabel: tSticker.raw("qrLabel"),
+		footerSupply: tSticker.raw("footerSupply"),
+		footerUnplug: tSticker.raw("footerUnplug"),
+		footerDry: tSticker.raw("footerDry"),
 	};
 
 	const sheets: (typeof devices)[] = [];

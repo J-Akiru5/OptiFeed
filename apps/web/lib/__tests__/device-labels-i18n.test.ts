@@ -26,6 +26,8 @@ function placeholders(message: string): string[] {
 }
 
 const sections = ["dashboard.adminDeviceLabels"] as const;
+// The sticker is a physical label and is English only, so it has no translations.
+const STICKER = "dashboard.adminDeviceLabels.sticker.";
 const deviceKeys = ["printLabel", "printSelected", "labelColumn", "selectForLabel"];
 
 describe("device label strings exist in every locale", () => {
@@ -35,8 +37,10 @@ describe("device label strings exist in every locale", () => {
 		const messages = flatten(load(locale));
 
 		it(`${locale} has every adminDeviceLabels key from en, with the same placeholders`, () => {
-			const enKeys = Object.keys(en).filter((k) => sections.some((s) => k.startsWith(`${s}.`)));
-			expect(enKeys.length).toBeGreaterThan(20);
+			const enKeys = Object.keys(en).filter(
+				(k) => sections.some((s) => k.startsWith(`${s}.`)) && !k.startsWith(STICKER),
+			);
+			expect(enKeys.length).toBeGreaterThan(10);
 			for (const key of enKeys) {
 				expect(messages[key], `${locale} is missing ${key}`).toBeTruthy();
 				expect(placeholders(messages[key]), `${locale} placeholders differ for ${key}`).toEqual(
@@ -54,4 +58,23 @@ describe("device label strings exist in every locale", () => {
 			}
 		});
 	}
+});
+
+describe("the sticker text is English only", () => {
+	it("has no translated copy outside en", () => {
+		const en = flatten(load("en"));
+		expect(Object.keys(en).filter((k) => k.startsWith(STICKER)).length).toBeGreaterThan(15);
+		for (const locale of locales.filter((l) => l !== "en")) {
+			const keys = Object.keys(flatten(load(locale)));
+			expect(keys.filter((k) => k.startsWith(STICKER))).toEqual([]);
+		}
+	});
+
+	it("is always rendered from the en messages, whatever locale the page is in", () => {
+		const page = readFileSync(
+			join(__dirname, "../../app/[locale]/(print)/admin/devices/labels/page.tsx"),
+			"utf8",
+		);
+		expect(page).toMatch(/locale: "en",\s*namespace: "dashboard\.adminDeviceLabels\.sticker"/);
+	});
 });

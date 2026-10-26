@@ -1040,28 +1040,7 @@
 			"scaleNote": "Sa print dialog, ibutang ang scale sa 100% (indi “Fit to page”), kon indi magaliit ang QR kag teksto kag indi na matuod ang kadak-on sang sticker.",
 			"dupWarning": "Ang duha ka lainlain nga unit may pareho nga katapusan nga apat ka digit, gani pareho man ang ngalan sang setup network nga ila ginapasugod.",
 			"qrTitle": "Ano ang sulod sang QR (una nga unit)",
-			"qrBody": "Ginabasa sang cellphone ini subong “sumulod sa bukas nga Wi-Fi network nga {ssid}”. Wala ini sing password kag device token. Nagapaandar lang ini kon naka-setup mode ang feeder: ang unit nga may natago na nga Wi-Fi indi nagapasugod sang network.",
-			"sticker": {
-				"subtitle": "Tukma nga Feeder Unit",
-				"tag": "{type} lang ang input",
-				"tagAc": "AC nga input",
-				"sectionRating": "Power rating",
-				"input": "Input",
-				"current": "Current",
-				"power": "Power",
-				"max": "max",
-				"unitId": "ID sang Unit",
-				"stepScan": "I-scan ang QR kag sumulod sa {ssid}",
-				"stepPortal": "Buksi ang {address} kon indi magpakita ang pahina",
-				"stepSave": "Ibutang ang Wi-Fi sang uma kag detalye sang device, dayon i-Save",
-				"noteTitle": "Wala makita ang setup network?",
-				"noteBody": "Pigaua ang feed button sa 5 s samtang ginabukas ang power agud mabuksan liwat ang setup.",
-				"scan": "I-scan para sa\nWi-Fi setup",
-				"qrLabel": "QR code para sa Wi-Fi setup",
-				"footerSupply": "{type} nga supply lang",
-				"footerUnplug": "Tanggala sa saksakan antes pag-serbisyo",
-				"footerDry": "Pabay-i nga mamala"
-			}
+			"qrBody": "Ginabasa sang cellphone ini subong “sumulod sa bukas nga Wi-Fi network nga {ssid}”. Wala ini sing password kag device token. Nagapaandar lang ini kon naka-setup mode ang feeder: ang unit nga may natago na nga Wi-Fi indi nagapasugod sang network."
 		},
 		"appSettings": {
 			"title": "Mga Setting sang App kag Hardware",

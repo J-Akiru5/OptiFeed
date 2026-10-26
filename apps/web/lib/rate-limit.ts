@@ -54,7 +54,9 @@ export function checkApiRateLimit(ownerId: string) {
 // shared bucket would see 24 req/min and reject 4 of them. Each endpoint gets
 // its own bucket (12 req/min nominal), leaving headroom for retries.
 // Fail-open — a limiter blip must never block the feeder.
-export type DeviceRateLimitScope = "feed" | "schedule";
+// `firmware` covers the OTA check (every 30 minutes by default) on its own
+// bucket so it cannot starve the 5 s feed poll.
+export type DeviceRateLimitScope = "feed" | "schedule" | "firmware";
 
 export function checkDeviceRateLimit(deviceId: string, scope: DeviceRateLimitScope) {
 	return checkRateLimit(`rl:device:${scope}:${deviceId}`, 20, 60_000, true);

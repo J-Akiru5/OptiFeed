@@ -23,16 +23,45 @@ export const dynamic = "force-dynamic";
 
 const RATE_LIMIT_MS = 1000;
 
+// OTA diagnostics are additive heartbeat fields (firmware 1.4.0+, T-12b). They
+// are free-text strings rather than enums so a newer firmware reporting a new
+// state is still accepted; the known values are documented in
+// firmware/README.md (`ota_state`: idle, checking, deferred, pending_verify,
+// valid, downloading, installed, aborted, failed, rolled_back; `reset_reason`:
+// poweron, external, software, panic, interrupt_wdt, task_wdt, wdt, deepsleep,
+// brownout, sdio, unknown).
+const OTA_LIFECYCLE_EVENTS = {
+	installed: "ota_installed",
+	valid: "ota_valid",
+	rolled_back: "ota_rolled_back",
+} as const;
+
+const OTA_LIFECYCLE_EVENT_TYPES = Object.values(OTA_LIFECYCLE_EVENTS);
+
+type OtaLifecycleState = keyof typeof OTA_LIFECYCLE_EVENTS;
+
+/** Map the heartbeat's reported OTA state to the audited transition event. */
+function otaLifecycleEventType(state: string | undefined): string | null {
+	if (!state) return null;
+	return state in OTA_LIFECYCLE_EVENTS ? OTA_LIFECYCLE_EVENTS[state as OtaLifecycleState] : null;
+}
+
 const baseSchema = z.object({
 	device_id: z.string().min(1),
 	event_type: z.enum(["heartbeat", "feed_dispensed", "schedule_acked", "feed_refused"]),
 	timestamp: z.string().min(1),
 	event_id: z.string().min(8).optional(),
+	// Present on heartbeats since 1.4.0 and optionally on other events.
+	firmware_version: z.string().min(1).max(32).optional(),
 });
 
 const heartbeatSchema = baseSchema.extend({
 	rtc_ok: z.boolean(),
 	feeder_active: z.boolean(),
+	// Additive OTA diagnostics — unknown keys were stripped before T-12b, so
+	// old servers and new units never disagreed about a heartbeat.
+	ota_state: z.string().min(1).max(32).optional(),
+	reset_reason: z.string().min(1).max(32).optional(),
 	// Feed level monitoring — piggybacked on existing heartbeat
 	feed_level_percent: z.number().min(0).max(100).optional(),
 	feed_level_cm: z.number().min(0).optional(),
@@ -137,6 +166,41 @@ export const POST = withApi(
 				!lastHeartbeat ||
 				Date.now() - lastHeartbeat.receivedAt.getTime() >= HEARTBEAT_ROW_INTERVAL_MS;
 
+			// OTA lifecycle (T-12b): audit a transition, not every beat. The last
+			// `ota_*` row is the comparator, so `valid` repeated for days writes
+			// once and a rollback after an install writes a new row. A lookup
+			// failure must never drop the heartbeat itself; the transition is then
+			// recorded on a later beat.
+			const otaEventType = otaLifecycleEventType(parsed.data.ota_state);
+			let otaTransitionEvent: string | null = null;
+			if (otaEventType) {
+				try {
+					const lastOtaEvent = await prisma.deviceStateEvent.findFirst({
+						where: {
+							deviceId: device.id,
+							eventType: { in: OTA_LIFECYCLE_EVENT_TYPES },
+						},
+						orderBy: { createdAt: "desc" },
+						select: { eventType: true, metadata: true },
+					});
+					const lastMetadata = (lastOtaEvent?.metadata ?? null) as { version?: unknown } | null;
+					const lastVersion =
+						typeof lastMetadata?.version === "string" ? lastMetadata.version : null;
+					if (
+						!lastOtaEvent ||
+						lastOtaEvent.eventType !== otaEventType ||
+						lastVersion !== (parsed.data.firmware_version ?? null)
+					) {
+						otaTransitionEvent = otaEventType;
+					}
+				} catch (error) {
+					console.warn(
+						"[ingest] OTA state lookup failed",
+						error instanceof Error ? error.message : String(error),
+					);
+				}
+			}
+
 			// Set when this request queues a CRITICAL pellet notification, so the
 			// Telegram fan-out (3.5) runs once, after the transaction commits.
 			let pelletCriticalAlert = false;
@@ -163,6 +227,29 @@ export const POST = withApi(
 								timestamp: parsed.data.timestamp,
 								rtcOk: parsed.data.rtc_ok,
 								feederActive: parsed.data.feeder_active,
+							},
+						}),
+					);
+				}
+
+				// OTA lifecycle transition (ota_installed / ota_valid /
+				// ota_rolled_back) with the reported version, so the rollout can be
+				// audited from existing DeviceStateEvent rows. No schema change.
+				if (otaTransitionEvent) {
+					operations.push(
+						prisma.deviceStateEvent.create({
+							data: {
+								deviceId: device.id,
+								eventType: otaTransitionEvent,
+								source: "device",
+								deviceTime: parsed.data.timestamp,
+								metadata: {
+									state: parsed.data.ota_state,
+									...(parsed.data.firmware_version
+										? { version: parsed.data.firmware_version }
+										: {}),
+									...(parsed.data.reset_reason ? { resetReason: parsed.data.reset_reason } : {}),
+								},
 							},
 						}),
 					);
@@ -632,6 +719,34 @@ export const POST = withApi(
 				return new Response("Unprocessable Entity", { status: 422 });
 			}
 
+			// T-12b: an OTA download in progress is a distinct lifecycle refusal,
+			// audited under `ota_*` with the version in metadata. No schema change.
+			const otaRefusal = parsed.data.reason === "ota_in_progress";
+
+			// 1.4.0's refusal payload has no firmware_version, so fall back to the
+			// version on the last OTA lifecycle row. A lookup failure only omits
+			// metadata; the refusal itself is still recorded.
+			let refusalVersion = parsed.data.firmware_version ?? null;
+			if (otaRefusal && !refusalVersion) {
+				try {
+					const lastOtaEvent = await prisma.deviceStateEvent.findFirst({
+						where: {
+							deviceId: device.id,
+							eventType: { in: OTA_LIFECYCLE_EVENT_TYPES },
+						},
+						orderBy: { createdAt: "desc" },
+						select: { metadata: true },
+					});
+					const metadata = (lastOtaEvent?.metadata ?? null) as { version?: unknown } | null;
+					if (typeof metadata?.version === "string") refusalVersion = metadata.version;
+				} catch (error) {
+					console.warn(
+						"[ingest] OTA version lookup failed",
+						error instanceof Error ? error.message : String(error),
+					);
+				}
+			}
+
 			try {
 				await prisma.$transaction([
 					prisma.energyDevice.update({
@@ -641,13 +756,14 @@ export const POST = withApi(
 					prisma.deviceStateEvent.create({
 						data: {
 							deviceId: device.id,
-							eventType: "feed_refused",
+							eventType: otaRefusal ? "ota_feed_refused" : "feed_refused",
 							source: "device",
 							deviceTime: parsed.data.timestamp,
 							metadata: {
 								grams: parsed.data.grams,
 								source: parsed.data.source,
 								reason: parsed.data.reason,
+								...(refusalVersion ? { version: refusalVersion } : {}),
 							},
 						},
 					}),

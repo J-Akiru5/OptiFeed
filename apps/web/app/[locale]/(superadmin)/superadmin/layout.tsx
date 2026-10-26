@@ -1,15 +1,21 @@
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { SuperadminBottomNav } from "@/components/superadmin-bottom-nav";
 import { SuperadminSidebar } from "@/components/superadmin-sidebar";
+import { FOCUS_RING_ON_DARK } from "@/components/superadmin/ui";
 import { Link } from "@/i18n/routing";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { requirePasswordChanged } from "@/lib/auth/session";
+import { cn } from "@/lib/utils";
 import Image from "next/image";
 
 /**
  * Platform console shell. Gated on the PlatformAdmin row, not UserRole —
  * an account can hold role=ADMIN and still be denied here, and a role=VIEWER
  * superadmin is allowed here. Mirrors (admin)/layout.tsx.
+ *
+ * The console is English-only for now (translation is task T-10) and paints the
+ * light brand surface regardless of the OS colour scheme, so the shell, the
+ * pages, `loading.tsx` and `error.tsx` stay on the same palette.
  */
 export default async function SuperadminLayout({
 	children,
@@ -20,12 +26,23 @@ export default async function SuperadminLayout({
 	await requirePlatformAdmin();
 
 	return (
-		<div className="flex flex-col min-h-screen bg-[#F4F7F6]">
-			<header className="sticky top-0 z-30 w-full h-16 bg-[#0A3D62] px-4 md:px-8 flex items-center justify-between shadow-md shrink-0">
-				<div className="flex items-center gap-3">
+		<div className="flex min-h-screen flex-col bg-[#F4F7F6]">
+			<a
+				href="#main-content"
+				className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-black focus:text-[#0A3D62] focus:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
+			>
+				Skip to content
+			</a>
+
+			<header className="sticky top-0 z-30 flex h-16 w-full shrink-0 items-center justify-between gap-3 bg-[#0A3D62] px-4 shadow-md md:px-8">
+				<div className="flex min-w-0 items-center gap-3">
 					<Link
 						href="/superadmin"
-						className="flex items-center justify-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-lg"
+						aria-label="PakaonAI platform console home"
+						className={cn(
+							"flex shrink-0 items-center justify-center rounded-lg transition-all",
+							FOCUS_RING_ON_DARK,
+						)}
 					>
 						<OptiFeedLogo size={32} variant="ondark" />
 					</Link>
@@ -34,26 +51,37 @@ export default async function SuperadminLayout({
 						alt="PakaonAI"
 						width={110}
 						height={26}
-						className="h-[26px] w-auto object-contain brightness-0 invert"
+						className="h-[26px] w-auto shrink-0 object-contain brightness-0 invert"
 					/>
-					<span className="hidden md:inline-flex items-center gap-1.5 ml-2 px-2.5 py-1 rounded-full bg-[#E85A2A] text-[10px] font-black uppercase tracking-wider text-white">
+					<span className="ml-2 hidden items-center gap-1.5 rounded-full bg-[#E85A2A] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-white md:inline-flex">
 						Platform
 					</span>
 				</div>
 
-				<div className="flex items-center gap-3">
+				<div className="flex shrink-0 items-center gap-3">
 					<Link
 						href="/dashboard"
-						className="text-sm font-bold text-white/70 hover:text-white transition-colors"
+						className={cn(
+							"rounded-lg px-2 py-1 text-sm font-bold text-white/80 transition-colors hover:text-white",
+							FOCUS_RING_ON_DARK,
+						)}
 					>
 						Dashboard
 					</Link>
 				</div>
 			</header>
 
-			<div className="flex w-full flex-1 min-h-[calc(100vh-4rem)]">
+			<div className="flex min-h-[calc(100vh-4rem)] w-full flex-1">
 				<SuperadminSidebar />
-				<main className="flex-1 p-4 md:p-8 pb-24 md:pb-24 lg:pb-8 relative z-10">{children}</main>
+				{/* min-w-0 lets a wide table scroll inside its own card instead of
+				    widening the page. */}
+				<main
+					id="main-content"
+					tabIndex={-1}
+					className="relative z-10 min-w-0 flex-1 p-4 pb-24 md:p-8 md:pb-24 lg:pb-8"
+				>
+					{children}
+				</main>
 			</div>
 
 			<SuperadminBottomNav />

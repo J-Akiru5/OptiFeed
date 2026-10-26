@@ -1,23 +1,26 @@
 import { OrgMembersPanel } from "@/components/superadmin/org-members";
+import { Badge, type BadgeTone, Card } from "@/components/superadmin/ui";
 import { Link } from "@/i18n/routing";
 import { getOrgDetail } from "@/lib/actions/platform/members";
 import { PERMISSIONS } from "@/lib/auth/permissions";
+import { formatDateTimeLocal } from "@/lib/date-local";
 import { ArrowLeft, CalendarClock, FolderTree, Hash, Users } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 
-const typeBadge: Record<string, string> = {
-	INDIVIDUAL: "bg-gray-200 text-[#3D5568]",
-	COOPERATIVE: "bg-[#0A3D62] text-white",
-	COMPANY: "bg-[#0A3D62] text-white",
-	LGU: "bg-[#E85A2A] text-white",
-	ACADEMIC: "bg-[#E85A2A] text-white",
+const typeBadge: Record<string, BadgeTone> = {
+	INDIVIDUAL: "neutral",
+	COOPERATIVE: "brand",
+	COMPANY: "brand",
+	LGU: "accent",
+	ACADEMIC: "accent",
 };
 
-const statusBadge: Record<string, string> = {
-	ACTIVE: "bg-[#E8F5EC] text-[#1E7B34]",
-	SUSPENDED: "bg-[#FDE8EA] text-[#C42B3A]",
-	PENDING_DELETION: "bg-[#FFF3E8] text-[#B45309]",
-	PURGED: "bg-gray-200 text-[#3D5568]",
+const statusBadge: Record<string, BadgeTone> = {
+	ACTIVE: "success",
+	SUSPENDED: "danger",
+	PENDING_DELETION: "warning",
+	PURGED: "neutral",
 };
 
 /**
@@ -31,77 +34,83 @@ export default async function SuperadminOrgDetailPage({
 	params: Promise<{ orgId: string }>;
 }) {
 	const { orgId } = await params;
-	const detail = await getOrgDetail(orgId);
+	const [detail, tDates] = await Promise.all([getOrgDetail(orgId), getTranslations("dates")]);
 	if (!detail) notFound();
 
 	const { org, members } = detail;
+
+	// Joined dates are formatted on the server, so the client panel renders the
+	// same string as the server and cannot hydrate into a different locale.
+	const joinedLabels: Record<string, string> = {};
+	for (const member of members) {
+		joinedLabels[member.membershipId] = formatDateTimeLocal(member.joinedAt, tDates).date;
+	}
 
 	return (
 		<div className="space-y-6">
 			<Link
 				href="/superadmin/orgs"
-				className="inline-flex items-center gap-1.5 text-xs font-black text-[#0A3D62] hover:underline"
+				className="inline-flex items-center gap-1.5 rounded text-xs font-black text-[#0A3D62] hover:underline focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
 			>
-				<ArrowLeft className="h-3.5 w-3.5" />
+				<ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
 				Back to organizations
 			</Link>
 
-			<div className="flex flex-wrap items-start justify-between gap-4">
-				<div className="flex items-start gap-3">
-					<div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0A3D62] text-white">
-						<FolderTree className="h-5 w-5" />
+			<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+				<div className="flex min-w-0 items-start gap-3">
+					<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62] text-white">
+						<FolderTree className="h-5 w-5" aria-hidden="true" />
 					</div>
-					<div>
+					<div className="min-w-0">
 						<div className="flex flex-wrap items-center gap-2">
 							<h1 className="text-2xl font-black text-[#0A3D62]">{org.name}</h1>
-							<span
-								className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${
-									typeBadge[org.type] ?? "bg-gray-200 text-[#3D5568]"
-								}`}
-							>
-								{org.type}
-							</span>
-							<span
-								className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${
-									statusBadge[org.status] ?? "bg-gray-200 text-[#3D5568]"
-								}`}
-							>
-								{org.status}
-							</span>
+							<Badge tone={typeBadge[org.type] ?? "neutral"}>{org.type}</Badge>
+							<Badge tone={statusBadge[org.status] ?? "neutral"}>{org.status}</Badge>
 						</div>
-						<p className="mt-1 text-sm text-[#3D5568]">
+						<p className="mt-1 max-w-2xl text-sm text-[#3D5568]">
 							God-mode member management. Every change requires a reason, a fresh password check,
 							and writes one platform audit row.
 						</p>
 					</div>
 				</div>
 
-				<div className="grid grid-cols-3 gap-3 text-center">
+				<dl className="grid w-full grid-cols-3 gap-3 text-center lg:w-auto">
 					<div className="rounded-xl border border-gray-200 bg-white px-4 py-2">
-						<Users className="mx-auto h-4 w-4 text-[#0A3D62]" />
-						<p className="mt-1 text-lg font-black tabular-nums text-[#0A3D62]">{members.length}</p>
-						<p className="text-[9px] font-black uppercase tracking-wider text-[#3D5568]">Members</p>
+						<Users className="mx-auto h-4 w-4 text-[#0A3D62]" aria-hidden="true" />
+						<dt className="mt-1 text-[9px] font-black uppercase tracking-wider text-[#3D5568]">
+							Members
+						</dt>
+						<dd className="text-lg font-black tabular-nums text-[#0A3D62]">{members.length}</dd>
 					</div>
 					<div className="rounded-xl border border-gray-200 bg-white px-4 py-2">
-						<CalendarClock className="mx-auto h-4 w-4 text-[#0A3D62]" />
-						<p className="mt-1 text-xs font-black text-[#0A3D62]">
-							{org.createdAt.toLocaleDateString()}
-						</p>
-						<p className="text-[9px] font-black uppercase tracking-wider text-[#3D5568]">Created</p>
+						<CalendarClock className="mx-auto h-4 w-4 text-[#0A3D62]" aria-hidden="true" />
+						<dt className="mt-1 text-[9px] font-black uppercase tracking-wider text-[#3D5568]">
+							Created
+						</dt>
+						<dd className="text-xs font-black text-[#0A3D62]">
+							{formatDateTimeLocal(org.createdAt, tDates).date}
+						</dd>
 					</div>
 					<div className="rounded-xl border border-gray-200 bg-white px-4 py-2">
-						<Hash className="mx-auto h-4 w-4 text-[#0A3D62]" />
-						<p className="mt-1 max-w-[7rem] truncate font-mono text-[10px] text-[#3D5568]">
+						<Hash className="mx-auto h-4 w-4 text-[#0A3D62]" aria-hidden="true" />
+						<dt className="mt-1 text-[9px] font-black uppercase tracking-wider text-[#3D5568]">
+							Org ID
+						</dt>
+						<dd className="truncate font-mono text-[10px] text-[#3D5568]" title={org.id}>
 							{org.id}
-						</p>
-						<p className="text-[9px] font-black uppercase tracking-wider text-[#3D5568]">Org ID</p>
+						</dd>
 					</div>
-				</div>
+				</dl>
 			</div>
 
-			<div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-				<OrgMembersPanel orgId={org.id} members={members} permissions={PERMISSIONS} />
-			</div>
+			<Card className="p-4 sm:p-6">
+				<OrgMembersPanel
+					orgId={org.id}
+					members={members}
+					permissions={PERMISSIONS}
+					joinedLabels={joinedLabels}
+				/>
+			</Card>
 		</div>
 	);
 }

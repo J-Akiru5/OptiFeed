@@ -1,8 +1,10 @@
 "use client";
 
 import { StepUpDialog } from "@/components/superadmin/step-up-dialog";
+import { Alert, FIELD_LABEL, PRIMARY_BUTTON, SECONDARY_BUTTON } from "@/components/superadmin/ui";
 import { useRouter } from "@/i18n/routing";
 import { remoteFeedDevice, remoteSetDevicePause } from "@/lib/actions/platform/devices";
+import { cn } from "@/lib/utils";
 import { Loader2, Pause, Play, Sliders, Wheat } from "lucide-react";
 import { type FormEvent, useRef, useState, useTransition } from "react";
 
@@ -48,9 +50,9 @@ export function RemoteFeederControl({
 					setMessage(null);
 				}}
 				aria-label={`Remote control for ${label}`}
-				className="inline-flex items-center gap-1.5 rounded-xl border border-[#0A3D62]/20 px-3 py-2 text-xs font-black text-[#0A3D62] hover:bg-[#F4F7F6]"
+				className={SECONDARY_BUTTON}
 			>
-				<Sliders className="w-3.5 h-3.5" />
+				<Sliders className="h-3.5 w-3.5" aria-hidden="true" />
 				Remote control
 			</button>
 		);
@@ -154,16 +156,9 @@ export function RemoteFeederControl({
 		retry?.();
 	};
 
-	const messageTone =
-		message?.tone === "ok"
-			? "border-green-200 bg-green-50 text-[#1E7B34]"
-			: message?.tone === "refused"
-				? "border-amber-200 bg-amber-50 text-amber-800"
-				: "border-red-200 bg-red-50 text-[#C42B3A]";
-
 	return (
 		<>
-			<form onSubmit={submitFeed} className="min-w-[16rem] space-y-2">
+			<form onSubmit={submitFeed} className="min-w-[16rem] space-y-2" aria-busy={isPending}>
 				<p className="text-[11px] font-bold leading-snug text-[#3D5568]">
 					Commands use the normal server caps: max {MAX_GRAMS} g per feed and the daily limit. The
 					unit can still refuse (empty hopper, offline).
@@ -174,12 +169,15 @@ export function RemoteFeederControl({
 					disabled={isPending}
 					placeholder="Reason (at least 10 characters)"
 					aria-label={`Reason for controlling ${label}`}
-					className="w-full rounded-lg border border-gray-200 bg-[#F4F7F6] px-3 py-2 text-xs text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+					className="w-full rounded-lg border border-gray-200 bg-[#F4F7F6] px-3 py-2 text-xs text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:opacity-60"
 				/>
 				<div className="flex items-end gap-2">
-					<label className="flex-1 text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568]">
-						Grams
+					<div className="flex-1">
+						<label htmlFor={`grams-${deviceId}`} className={FIELD_LABEL}>
+							Grams
+						</label>
 						<input
+							id={`grams-${deviceId}`}
 							type="number"
 							min={MIN_GRAMS}
 							max={MAX_GRAMS}
@@ -187,18 +185,18 @@ export function RemoteFeederControl({
 							value={grams}
 							onChange={(e) => setGrams(e.target.value)}
 							disabled={isPending}
-							className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+							className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:opacity-60"
 						/>
-					</label>
+					</div>
 					<button
 						type="submit"
 						disabled={isPending}
-						className="inline-flex items-center gap-1.5 rounded-lg bg-[#E85A2A] px-3 py-2 text-xs font-black text-white disabled:opacity-60"
+						className={cn(PRIMARY_BUTTON, "px-3 py-2 text-xs font-black")}
 					>
 						{isPending ? (
-							<Loader2 className="w-3.5 h-3.5 animate-spin" />
+							<Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
 						) : (
-							<Wheat className="w-3.5 h-3.5" />
+							<Wheat className="h-3.5 w-3.5" aria-hidden="true" />
 						)}
 						Feed
 					</button>
@@ -209,26 +207,31 @@ export function RemoteFeederControl({
 						type="button"
 						onClick={submitPause}
 						disabled={isPending}
-						className="inline-flex items-center gap-1.5 rounded-lg border border-[#0A3D62]/20 px-3 py-1.5 text-xs font-black text-[#0A3D62] hover:bg-[#F4F7F6] disabled:opacity-60"
+						className={cn(SECONDARY_BUTTON, "px-3 py-1.5")}
 					>
-						{isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+						{isPaused ? (
+							<Play className="h-3.5 w-3.5" aria-hidden="true" />
+						) : (
+							<Pause className="h-3.5 w-3.5" aria-hidden="true" />
+						)}
 						{isPaused ? "Resume schedule" : "Pause schedule"}
 					</button>
 					<button
 						type="button"
 						onClick={() => setOpen(false)}
 						disabled={isPending}
-						className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-black text-[#3D5568]"
+						className={cn(SECONDARY_BUTTON, "px-3 py-1.5")}
 					>
 						Close
 					</button>
 				</div>
 
-				{message && (
-					<p className={`rounded-lg border px-3 py-2 text-[11px] font-bold ${messageTone}`}>
-						{message.text}
-					</p>
-				)}
+				{message &&
+					(message.tone === "ok" ? (
+						<Alert tone="success">{message.text}</Alert>
+					) : (
+						<Alert tone={message.tone === "refused" ? "warning" : "error"}>{message.text}</Alert>
+					))}
 			</form>
 
 			<StepUpDialog

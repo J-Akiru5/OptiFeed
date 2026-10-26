@@ -1,8 +1,12 @@
 "use client";
 
+import { FOCUS_RING } from "@/components/superadmin/ui";
 import { useRouter } from "@/i18n/routing";
 import { stopViewAs } from "@/lib/actions/platform/impersonation";
+import { formatDateTimeLocal } from "@/lib/date-local";
+import { cn } from "@/lib/utils";
 import { Eye, Loader2, LogOut } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useState, useTransition } from "react";
 
 /**
@@ -22,6 +26,7 @@ export function ViewAsBanner({
 	expiresAt: string;
 }) {
 	const router = useRouter();
+	const tDates = useTranslations("dates");
 	const [isPending, startTransition] = useTransition();
 	const [error, setError] = useState<string | null>(null);
 	const [localExpiry, setLocalExpiry] = useState<string | null>(null);
@@ -29,8 +34,8 @@ export function ViewAsBanner({
 	// Format on the client only, so the server's timezone cannot cause a
 	// hydration mismatch.
 	useEffect(() => {
-		setLocalExpiry(new Date(expiresAt).toLocaleTimeString());
-	}, [expiresAt]);
+		setLocalExpiry(formatDateTimeLocal(new Date(expiresAt), tDates).time);
+	}, [expiresAt, tDates]);
 
 	const exit = () => {
 		setError(null);
@@ -50,33 +55,41 @@ export function ViewAsBanner({
 	};
 
 	return (
-		<div aria-live="polite" className="w-full bg-[#C42B3A] text-white px-4 py-3 md:px-8 shadow-md">
+		<div aria-live="polite" className="w-full bg-[#C42B3A] px-4 py-3 text-white shadow-md md:px-8">
 			<div className="flex flex-wrap items-center justify-between gap-3">
-				<div className="flex items-start gap-2.5">
+				<div className="flex min-w-0 items-start gap-2.5">
 					<Eye className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-					<div className="text-xs md:text-sm">
+					<div className="min-w-0 text-xs md:text-sm">
 						<p className="font-black uppercase tracking-wide">Read-only view as {orgName}</p>
-						<p className="mt-0.5 text-white/85">
+						<p className="mt-0.5 break-words text-white/90">
 							Reason: {reason}
 							{localExpiry ? ` · Ends at ${localExpiry}` : ""}
 						</p>
-						<p className="mt-0.5 text-[11px] text-white/75">
+						<p className="mt-0.5 text-[11px] text-white/85">
 							Every write is disabled. Exit to return to the platform console.
 						</p>
 					</div>
 				</div>
 				<div className="flex items-center gap-3">
-					{error && <span className="text-[11px] font-bold text-white">{error}</span>}
+					{error && (
+						<span role="alert" className="text-[11px] font-bold text-white">
+							{error}
+						</span>
+					)}
 					<button
 						type="button"
 						onClick={exit}
 						disabled={isPending}
-						className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-black text-[#C42B3A] hover:bg-white/90 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+						className={cn(
+							"inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-black text-[#C42B3A] hover:bg-white/90 disabled:opacity-60",
+							FOCUS_RING,
+							"focus-visible:ring-white focus-visible:ring-offset-[#C42B3A]",
+						)}
 					>
 						{isPending ? (
-							<Loader2 className="h-3.5 w-3.5 animate-spin" />
+							<Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
 						) : (
-							<LogOut className="h-3.5 w-3.5" />
+							<LogOut className="h-3.5 w-3.5" aria-hidden="true" />
 						)}
 						Exit view-as
 					</button>

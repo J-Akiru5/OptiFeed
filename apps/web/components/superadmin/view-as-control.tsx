@@ -1,8 +1,10 @@
 "use client";
 
 import { StepUpDialog } from "@/components/superadmin/step-up-dialog";
+import { Alert, PRIMARY_BUTTON, SECONDARY_BUTTON } from "@/components/superadmin/ui";
 import { useRouter } from "@/i18n/routing";
 import { startViewAs } from "@/lib/actions/platform/impersonation";
+import { cn } from "@/lib/utils";
 import { Eye, Loader2 } from "lucide-react";
 import { type FormEvent, useRef, useState, useTransition } from "react";
 
@@ -35,9 +37,9 @@ export function ViewAsControl({ orgId, orgName }: { orgId: string; orgName: stri
 					setError(null);
 				}}
 				aria-label={`View ${orgName} read-only`}
-				className="inline-flex items-center gap-1.5 rounded-xl border border-[#0A3D62]/20 px-3 py-2 text-xs font-black text-[#0A3D62] hover:bg-[#F4F7F6]"
+				className={SECONDARY_BUTTON}
 			>
-				<Eye className="w-3.5 h-3.5" />
+				<Eye className="h-3.5 w-3.5" aria-hidden="true" />
 				View as
 			</button>
 		);
@@ -85,7 +87,7 @@ export function ViewAsControl({ orgId, orgName }: { orgId: string; orgName: stri
 
 	return (
 		<>
-			<form onSubmit={submit} className="min-w-[15rem] space-y-2">
+			<form onSubmit={submit} className="min-w-[15rem] space-y-2" aria-busy={isPending}>
 				<p className="text-[11px] font-bold leading-snug text-[#C42B3A]">
 					Read-only: you can see {orgName}&apos;s dashboard, but every write is blocked.
 				</p>
@@ -95,23 +97,23 @@ export function ViewAsControl({ orgId, orgName }: { orgId: string; orgName: stri
 					disabled={isPending}
 					placeholder="Reason (at least 10 characters)"
 					aria-label={`Reason for viewing ${orgName} read-only`}
-					className="w-full rounded-lg border border-gray-200 bg-[#F4F7F6] px-3 py-2 text-xs text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+					className="w-full rounded-lg border border-gray-200 bg-[#F4F7F6] px-3 py-2 text-xs text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:opacity-60"
 				/>
-				{error && <p className="text-[11px] font-bold text-[#C42B3A]">{error}</p>}
+				{error && <Alert tone="error">{error}</Alert>}
 				<div className="flex gap-2">
 					<button
 						type="submit"
 						disabled={isPending}
-						className="inline-flex items-center gap-1.5 rounded-lg bg-[#E85A2A] px-3 py-1.5 text-xs font-black text-white disabled:opacity-60"
+						className={cn(PRIMARY_BUTTON, "px-3 py-1.5 text-xs font-black")}
 					>
-						{isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+						{isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
 						Open read-only
 					</button>
 					<button
 						type="button"
 						onClick={() => setOpen(false)}
 						disabled={isPending}
-						className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-black text-[#3D5568]"
+						className={cn(SECONDARY_BUTTON, "px-3 py-1.5")}
 					>
 						Cancel
 					</button>

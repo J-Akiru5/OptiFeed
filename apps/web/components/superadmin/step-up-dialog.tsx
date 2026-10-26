@@ -1,7 +1,10 @@
 "use client";
 
+import { DialogHeader, DialogShell } from "@/components/superadmin/dialog-shell";
+import { FIELD_LABEL, PRIMARY_BUTTON, SECONDARY_BUTTON } from "@/components/superadmin/ui";
 import { startStepUp } from "@/lib/actions/step-up";
-import { KeyRound, Loader2, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { KeyRound, Loader2 } from "lucide-react";
 import { type FormEvent, useState, useTransition } from "react";
 
 /**
@@ -12,7 +15,9 @@ import { type FormEvent, useState, useTransition } from "react";
  * signed 5-minute cookie, then the caller retries the original action.
  *
  * The password lives in this component's state only. Nothing is stored, and it
- * is cleared as soon as the action resolves.
+ * is cleared as soon as the action resolves. Escape, the close button and the
+ * backdrop behaviour all come from DialogShell, which also returns focus to the
+ * control that opened the dialog.
  */
 export function StepUpDialog({
 	open,
@@ -29,8 +34,6 @@ export function StepUpDialog({
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [isPending, startTransition] = useTransition();
-
-	if (!open) return null;
 
 	const close = () => {
 		if (isPending) return;
@@ -65,83 +68,78 @@ export function StepUpDialog({
 	};
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0A3D62]/40 p-4">
-			<dialog
-				open
-				aria-modal="true"
-				aria-labelledby="stepup-title"
-				className="m-0 w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl"
-			>
-				<div className="flex items-start justify-between gap-3">
-					<div className="flex items-start gap-2">
-						<div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-xl bg-[#F4F7F6] text-[#0A3D62]">
-							<KeyRound className="h-4 w-4" />
-						</div>
-						<div>
-							<p id="stepup-title" className="text-sm font-black text-[#0A3D62]">
-								Confirm your password
-							</p>
-							<p className="mt-1 text-[11px] leading-snug text-[#3D5568]">
-								To {actionLabel}, re-enter your own password. The check lasts 5 minutes.
-							</p>
-						</div>
-					</div>
+		<DialogShell
+			open={open}
+			onClose={close}
+			labelledBy="stepup-title"
+			describedBy="stepup-description"
+			pending={isPending}
+		>
+			<DialogHeader
+				titleId="stepup-title"
+				descriptionId="stepup-description"
+				icon={KeyRound}
+				title="Confirm your password"
+				description={`To ${actionLabel}, re-enter your own password. The check lasts 5 minutes.`}
+				onClose={close}
+				closeDisabled={isPending}
+				closeLabel="Close step-up dialog"
+			/>
+
+			<form onSubmit={submit} className="mt-4 space-y-3">
+				<div className="space-y-1.5">
+					<label htmlFor="stepup-password" className={FIELD_LABEL}>
+						Password *
+					</label>
+					<input
+						id="stepup-password"
+						type="password"
+						value={password}
+						onChange={(e) => setPassword(e.target.value)}
+						disabled={isPending}
+						autoComplete="current-password"
+						data-autofocus
+						aria-invalid={error ? true : undefined}
+						aria-describedby={error ? "stepup-error" : undefined}
+						className={cn(
+							"w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-3 py-2 text-sm text-[#0A3D62] transition-all focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:opacity-60",
+							error && "border-[#C42B3A]",
+						)}
+					/>
+				</div>
+
+				{error && (
+					<p
+						id="stepup-error"
+						role="alert"
+						className="rounded-xl border border-red-200 bg-red-50 p-2 text-[11px] font-bold text-[#C42B3A]"
+					>
+						{error}
+					</p>
+				)}
+
+				<div className="flex gap-2">
+					<button
+						type="submit"
+						disabled={isPending}
+						className={cn(PRIMARY_BUTTON, "flex-1 text-xs font-extrabold")}
+					>
+						{isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+						Continue
+					</button>
 					<button
 						type="button"
 						onClick={close}
 						disabled={isPending}
-						aria-label="Close step-up dialog"
-						className="rounded-lg p-1 text-[#3D5568] transition-colors hover:bg-[#F4F7F6] disabled:opacity-50"
+						className={cn(
+							SECONDARY_BUTTON,
+							"px-3 py-2.5 text-xs font-bold text-[#3D5568] hover:bg-gray-200",
+						)}
 					>
-						<X className="h-4 w-4" />
+						Cancel
 					</button>
 				</div>
-
-				<form onSubmit={submit} className="mt-4 space-y-3">
-					<div className="space-y-1.5">
-						<label
-							htmlFor="stepup-password"
-							className="block text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568]"
-						>
-							Password *
-						</label>
-						<input
-							id="stepup-password"
-							type="password"
-							value={password}
-							onChange={(e) => setPassword(e.target.value)}
-							disabled={isPending}
-							autoComplete="current-password"
-							className="w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-3 py-2 text-sm text-[#0A3D62] transition-all focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:opacity-60"
-						/>
-					</div>
-
-					{error && (
-						<p className="rounded-xl border border-red-200 bg-red-50 p-2 text-[11px] font-bold text-[#C42B3A]">
-							{error}
-						</p>
-					)}
-
-					<div className="flex gap-2">
-						<button
-							type="submit"
-							disabled={isPending}
-							className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#E85A2A] px-3 py-2.5 text-xs font-extrabold text-white transition-all hover:bg-[#d04a1f] disabled:opacity-60"
-						>
-							{isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-							Continue
-						</button>
-						<button
-							type="button"
-							onClick={close}
-							disabled={isPending}
-							className="rounded-xl bg-[#F4F7F6] px-3 py-2.5 text-xs font-bold text-[#3D5568] transition-colors hover:bg-gray-200 disabled:opacity-60"
-						>
-							Cancel
-						</button>
-					</div>
-				</form>
-			</dialog>
-		</div>
+			</form>
+		</DialogShell>
 	);
 }

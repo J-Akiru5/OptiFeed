@@ -1,11 +1,23 @@
+import { ListPagination, ListToolbar } from "@/components/superadmin/list-chrome";
 import { RegisterDeviceForm } from "@/components/superadmin/register-device-form";
 import { RemoteFeederControl } from "@/components/superadmin/remote-feeder-control";
 import { RotateDeviceToken } from "@/components/superadmin/rotate-device-token";
+import {
+	Badge,
+	Card,
+	EmptyState,
+	MetaPair,
+	MobileCard,
+	PageHeader,
+	SECONDARY_BUTTON,
+	TableFrame,
+} from "@/components/superadmin/ui";
 import { Link, getPathname } from "@/i18n/routing";
 import { getOrgPondOptions, listPlatformDevices } from "@/lib/actions/platform/devices";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
-import { Cpu, Printer, Search } from "lucide-react";
-import { getLocale } from "next-intl/server";
+import { formatDateTimeLocal } from "@/lib/date-local";
+import { Cpu, Printer, Wifi, WifiOff } from "lucide-react";
+import { getLocale, getTranslations } from "next-intl/server";
 
 const LABELS_HREF = "/superadmin/devices/labels";
 const LABEL_FORM_ID = "platform-device-label-form";
@@ -31,179 +43,220 @@ export default async function SuperadminDevicesPage({
 	const query = first(params.q)?.trim() ?? "";
 	const page = Number.parseInt(first(params.page) ?? "1", 10) || 1;
 
-	const [devices, options, locale] = await Promise.all([
+	const [devices, options, locale, tDates] = await Promise.all([
 		listPlatformDevices({ query, page }),
 		getOrgPondOptions(),
 		getLocale(),
+		getTranslations("dates"),
 	]);
 	const pageCount = Math.max(1, Math.ceil(devices.total / devices.pageSize));
 	const now = Date.now();
+	const hasRows = devices.rows.length > 0;
 
 	const pageHref = (target: number) => ({
-		pathname: "/superadmin/devices",
+		pathname: "/superadmin/devices" as const,
 		query: { ...(query ? { q: query } : {}), page: String(target) },
 	});
 
+	const lastSeen = (value: Date | null) =>
+		value ? formatDateTimeLocal(value, tDates).full : "Never";
+
 	return (
 		<div className="space-y-6">
-			<div>
-				<h1 className="text-2xl font-black text-[#0A3D62]">Devices</h1>
-				<p className="text-sm text-[#3D5568] mt-1">
-					{devices.total} device{devices.total !== 1 ? "s" : ""} on the platform. Register units,
-					rotate tokens, print stickers, and control any feeder remotely. Remote commands use the
-					same server caps and audit trail as the tenant console.
-				</p>
-			</div>
+			<PageHeader
+				title="Devices"
+				description={`${devices.total} device${devices.total !== 1 ? "s" : ""} on the platform. Register units, rotate tokens, print stickers, and control any feeder remotely. Remote commands use the same server caps and audit trail as the tenant console.`}
+			/>
 
 			<RegisterDeviceForm options={options} />
 
-			<div className="flex flex-wrap items-center justify-between gap-3">
-				<form
-					action={getPathname({ href: "/superadmin/devices", locale })}
-					method="get"
-					className="flex items-center gap-2"
-				>
-					<input
-						name="q"
-						defaultValue={query}
-						placeholder="Search MAC or label"
-						aria-label="Search devices by MAC or label"
-						className="w-64 px-3 py-2 bg-white text-[#0A3D62] border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
-					/>
-					<button
-						type="submit"
-						className="inline-flex items-center gap-1.5 rounded-xl border border-[#0A3D62]/20 bg-white px-3 py-2 text-xs font-black text-[#0A3D62] hover:bg-[#F4F7F6]"
-					>
-						<Search className="w-3.5 h-3.5" />
-						Search
-					</button>
-				</form>
-
-				{devices.rows.length > 0 && (
+			<ListToolbar
+				id="devices"
+				action={getPathname({ href: "/superadmin/devices", locale })}
+				query={query}
+				label="Search devices by MAC or label"
+				placeholder="Search MAC or label"
+			>
+				{hasRows && (
 					// Row checkboxes join this GET form through their `form` attribute,
 					// so selection needs no client JS and no form nests the row actions.
 					<form id={LABEL_FORM_ID} action={getPathname({ href: LABELS_HREF, locale })} method="get">
-						<button
-							type="submit"
-							className="inline-flex items-center gap-2 rounded-xl border border-[#0A3D62]/20 bg-white px-4 py-2 text-xs font-black text-[#0A3D62] hover:bg-[#F4F7F6]"
-						>
-							<Printer className="w-4 h-4" />
+						<button type="submit" className={SECONDARY_BUTTON}>
+							<Printer className="h-4 w-4" aria-hidden="true" />
 							Print selected stickers
 						</button>
 					</form>
 				)}
-			</div>
+			</ListToolbar>
 
-			<div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-				<div className="overflow-x-auto">
-					<table className="w-full text-sm">
-						<thead>
-							<tr className="border-b border-gray-100 bg-[#F4F7F6]">
-								{["", "Device", "Chip MAC", "Organization", "Pond", "Last seen", "Actions"].map(
-									(h, i) => (
-										<th
-											key={h || `col-${i}`}
-											className="text-left px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider"
-										>
-											{h}
-										</th>
-									),
-								)}
-							</tr>
-						</thead>
-						<tbody>
-							{devices.rows.map((device) => {
-								const offline =
-									!device.lastSeenAt || now - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
-								return (
-									<tr
-										key={device.id}
-										className="border-b border-gray-50 align-top hover:bg-[#F4F7F6]/50 transition-colors"
-									>
-										<td className="px-6 py-4">
-											<input
-												type="checkbox"
-												form={LABEL_FORM_ID}
-												name="id"
-												value={device.id}
-												aria-label={`Select ${device.label} for sticker printing`}
-												className="h-4 w-4 accent-[#0A3D62]"
-											/>
-										</td>
-										<td className="px-6 py-4">
-											<div className="flex items-center gap-3">
-												<div className="w-9 h-9 rounded-xl bg-[#0A3D62] flex items-center justify-center text-white">
-													<Cpu className="w-4 h-4" />
-												</div>
-												<p className="font-black text-[#0A3D62]">{device.label}</p>
+			{devices.rows.length === 0 ? (
+				<Card>
+					<EmptyState
+						icon={Cpu}
+						title={query ? `No device matches “${query}”.` : "No devices registered yet."}
+						description={
+							query
+								? "Try a different MAC address or label."
+								: "Register the first unit above with its chip MAC and the pond it serves."
+						}
+						action={
+							query ? (
+								<Link href="/superadmin/devices" className={SECONDARY_BUTTON}>
+									Clear search
+								</Link>
+							) : undefined
+						}
+					/>
+				</Card>
+			) : (
+				<>
+					<ul className="space-y-3 md:hidden">
+						{devices.rows.map((device) => {
+							const offline =
+								!device.lastSeenAt || now - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+							return (
+								<MobileCard key={device.id}>
+									<div className="flex items-start gap-3">
+										<input
+											type="checkbox"
+											form={LABEL_FORM_ID}
+											name="id"
+											value={device.id}
+											aria-label={`Select ${device.label} for sticker printing`}
+											className="mt-1 h-4 w-4 shrink-0 accent-[#0A3D62]"
+										/>
+										<div className="flex min-w-0 flex-1 items-start justify-between gap-2">
+											<div className="min-w-0">
+												<p className="truncate font-black text-[#0A3D62]">{device.label}</p>
+												<p className="truncate font-mono text-[11px] font-bold text-[#3D5568]">
+													{device.mac}
+												</p>
 											</div>
-										</td>
-										<td className="px-6 py-4 font-mono text-xs font-bold text-[#3D5568]">
-											{device.mac}
-										</td>
-										<td className="px-6 py-4 text-xs font-bold text-[#3D5568]">
+											<Badge tone={offline ? "danger" : "success"} icon={offline ? WifiOff : Wifi}>
+												{offline ? "Offline" : "Online"}
+											</Badge>
+										</div>
+									</div>
+
+									<dl className="grid grid-cols-2 gap-2">
+										<MetaPair label="Organization">
 											{device.orgs.length > 0 ? device.orgs.map((o) => o.name).join(", ") : "—"}
-										</td>
-										<td className="px-6 py-4 text-xs font-bold text-[#3D5568]">
-											{device.pond?.name ?? "Unassigned"}
-										</td>
-										<td className="px-6 py-4 text-xs">
-											<span
-												className={
-													offline ? "text-[#C42B3A] font-bold" : "text-[#1E7B34] font-bold"
-												}
-											>
-												{device.lastSeenAt ? device.lastSeenAt.toLocaleString() : "Never"}
-											</span>
-										</td>
-										<td className="px-6 py-4">
-											<div className="flex flex-col items-start gap-2">
-												<Link
-													href={{ pathname: LABELS_HREF, query: { id: device.id } }}
-													className="inline-flex items-center gap-1.5 rounded-xl border border-[#0A3D62]/20 px-3 py-2 text-xs font-black text-[#0A3D62] hover:bg-[#F4F7F6]"
-												>
-													<Printer className="w-3.5 h-3.5" />
-													Print sticker
-												</Link>
-												<RotateDeviceToken deviceId={device.id} mac={device.mac} />
-												<RemoteFeederControl
-													deviceId={device.id}
-													label={device.label}
-													isPaused={device.isPaused}
-												/>
+										</MetaPair>
+										<MetaPair label="Pond">{device.pond?.name ?? "Unassigned"}</MetaPair>
+									</dl>
+									<p className="text-[11px] text-[#3D5568]">
+										Last seen:{" "}
+										<span className="font-bold text-[#0A3D62]">{lastSeen(device.lastSeenAt)}</span>
+									</p>
+
+									<div className="flex flex-col items-start gap-2">
+										<Link
+											href={{ pathname: LABELS_HREF, query: { id: device.id } }}
+											className={SECONDARY_BUTTON}
+										>
+											<Printer className="h-3.5 w-3.5" aria-hidden="true" />
+											Print sticker
+										</Link>
+										<RotateDeviceToken deviceId={device.id} mac={device.mac} />
+										<RemoteFeederControl
+											deviceId={device.id}
+											label={device.label}
+											isPaused={device.isPaused}
+										/>
+									</div>
+								</MobileCard>
+							);
+						})}
+					</ul>
+
+					<TableFrame
+						className="hidden md:block"
+						label="Platform device registry"
+						minWidth="min-w-[64rem]"
+						columns={[
+							{ key: "select", label: "Select" },
+							{ key: "device", label: "Device" },
+							{ key: "mac", label: "Chip MAC" },
+							{ key: "org", label: "Organization" },
+							{ key: "pond", label: "Pond" },
+							{ key: "seen", label: "Last seen" },
+							{ key: "actions", label: "Actions" },
+						]}
+					>
+						{devices.rows.map((device) => {
+							const offline =
+								!device.lastSeenAt || now - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+							return (
+								<tr
+									key={device.id}
+									className="border-b border-gray-50 align-top transition-colors last:border-0 hover:bg-[#F4F7F6]/50"
+								>
+									<td className="px-6 py-4">
+										<input
+											type="checkbox"
+											form={LABEL_FORM_ID}
+											name="id"
+											value={device.id}
+											aria-label={`Select ${device.label} for sticker printing`}
+											className="h-4 w-4 accent-[#0A3D62]"
+										/>
+									</td>
+									<td className="px-6 py-4">
+										<div className="flex items-center gap-3">
+											<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0A3D62] text-white">
+												<Cpu className="h-4 w-4" aria-hidden="true" />
 											</div>
-										</td>
-									</tr>
-								);
-							})}
-						</tbody>
-					</table>
-				</div>
-
-				{devices.rows.length === 0 && (
-					<p className="p-6 text-sm text-[#3D5568]">
-						{query ? `No device matches “${query}”.` : "No devices registered yet."}
-					</p>
-				)}
-			</div>
-
-			{pageCount > 1 && (
-				<nav aria-label="Device pages" className="flex items-center gap-3 text-xs font-black">
-					{devices.page > 1 && (
-						<Link href={pageHref(devices.page - 1)} className="text-[#0A3D62] hover:underline">
-							← Previous
-						</Link>
-					)}
-					<span className="text-[#3D5568]">
-						Page {devices.page} of {pageCount}
-					</span>
-					{devices.page < pageCount && (
-						<Link href={pageHref(devices.page + 1)} className="text-[#0A3D62] hover:underline">
-							Next →
-						</Link>
-					)}
-				</nav>
+											<p className="font-black text-[#0A3D62]">{device.label}</p>
+										</div>
+									</td>
+									<td className="px-6 py-4 font-mono text-xs font-bold text-[#3D5568]">
+										{device.mac}
+									</td>
+									<td className="px-6 py-4 text-xs font-bold text-[#3D5568]">
+										{device.orgs.length > 0 ? device.orgs.map((o) => o.name).join(", ") : "—"}
+									</td>
+									<td className="px-6 py-4 text-xs font-bold text-[#3D5568]">
+										{device.pond?.name ?? "Unassigned"}
+									</td>
+									<td className="px-6 py-4">
+										<div className="space-y-1">
+											<Badge tone={offline ? "danger" : "success"} icon={offline ? WifiOff : Wifi}>
+												{offline ? "Offline" : "Online"}
+											</Badge>
+											<p className="text-[11px] text-[#3D5568]">{lastSeen(device.lastSeenAt)}</p>
+										</div>
+									</td>
+									<td className="px-6 py-4">
+										<div className="flex flex-col items-start gap-2">
+											<Link
+												href={{ pathname: LABELS_HREF, query: { id: device.id } }}
+												className={SECONDARY_BUTTON}
+											>
+												<Printer className="h-3.5 w-3.5" aria-hidden="true" />
+												Print sticker
+											</Link>
+											<RotateDeviceToken deviceId={device.id} mac={device.mac} />
+											<RemoteFeederControl
+												deviceId={device.id}
+												label={device.label}
+												isPaused={device.isPaused}
+											/>
+										</div>
+									</td>
+								</tr>
+							);
+						})}
+					</TableFrame>
+				</>
 			)}
+
+			<ListPagination
+				label="Device pages"
+				page={devices.page}
+				pageCount={pageCount}
+				previousHref={devices.page > 1 ? pageHref(devices.page - 1) : null}
+				nextHref={devices.page < pageCount ? pageHref(devices.page + 1) : null}
+			/>
 		</div>
 	);
 }

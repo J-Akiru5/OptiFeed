@@ -13,22 +13,25 @@ Repository: <https://github.com/J-Akiru5/OptiFeed>
 
 | Branch | Purpose | Who integrates | Deploys? |
 | --- | --- | --- | --- |
-| `staging` | Release candidate branch | Jeff merges release PRs from `develop` | **No** |
+| `staging` | Release candidate and **preview** branch | Jeff merges release PRs from `develop` | **Yes — preview deployment, using production credentials** |
 | `main` | Production source of truth | Jeff only, via an approved `staging` → `main` PR | **Yes — production deployment** |
-| `develop` | Shared integration branch for both developers | PR from short-lived work branches | **Yes — preview deployment, using production credentials** |
+| `develop` | Shared integration branch for both developers | PR from short-lived work branches | **No** — CI validation only |
 | `feature/*`, `fix/*`, `refactor/*`, `docs/*`, `audit/*`, `chore/*` | One task, one developer, one branch | Open a PR into `develop` | No |
 
 ```
 feature/* ──PR──▶ develop ──PR──▶ staging ──PR + Jeff's approval──▶ main
-                     │                                              │
-             develop preview                              production deploy
-          (production credentials)                        (runs migrations)
+                                    │                                │
+                             staging preview                production deploy
+                         (production credentials)           (runs migrations)
 ```
 
-> **Warning:** the `develop` deployment runs against the **production** database
+> **Only `staging` and `main` deploy** (decision 2026-10-26, to reduce deployment
+> cost). `develop` is validated by CI only; never deploy it by any route.
+>
+> **Warning:** the `staging` deployment runs against the **production** database
 > with the project's production credentials, including the Supabase service-role
 > key. `docs/deployment-workflow.md` section 6 records this exposure and the
-> isolation steps needed to remove it. Treat the develop deployment as
+> isolation steps needed to remove it. Treat the staging deployment as
 > production, never as a safe review surface.
 
 Rules that never change:
@@ -257,8 +260,8 @@ Before promoting `develop` → `staging`:
 
 Before promoting `staging` → `main`:
 
-1. The `develop` deployment built successfully from the exact candidate SHA.
-2. Smoke tests were run against `develop` (login, dashboard, log sample, device
+1. The `staging` deployment built successfully from the exact candidate SHA.
+2. Smoke tests were run against `staging` (login, dashboard, log sample, device
    polling, one feed command in a safe state).
 3. `git diff origin/main...origin/staging` contains only the intended release.
 4. A backup exists if the release contains migrations.

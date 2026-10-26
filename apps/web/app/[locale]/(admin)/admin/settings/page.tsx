@@ -1,11 +1,23 @@
+import { MembersSettings } from "@/components/admin/members-settings";
+import { listTenantMembers } from "@/lib/actions/admin";
+import { PERMISSIONS, hasPermission } from "@/lib/auth/permissions";
 import { Settings } from "lucide-react";
 
-export default function AdminSettingsPage() {
+export default async function AdminSettingsPage() {
+	const [members, canManage] = await Promise.all([
+		listTenantMembers(),
+		hasPermission("manage_members"),
+	]);
+
 	return (
 		<div className="space-y-6">
 			<div>
 				<h1 className="text-2xl font-black text-[#0A3D62]">System Settings</h1>
 				<p className="text-sm text-[#3D5568] mt-1">System-wide configuration and administration.</p>
+			</div>
+
+			<div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+				<MembersSettings members={members} permissions={PERMISSIONS} canManage={canManage} />
 			</div>
 
 			<div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">

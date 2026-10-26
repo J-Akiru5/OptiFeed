@@ -2,6 +2,7 @@
 
 import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
 import { updateScheduleCommand } from "@/lib/actions/schedule";
+import { useFeedCommandGuard } from "@/lib/pwa/use-feed-guard";
 import { AlertTriangle, BatteryCharging, Cpu, WifiOff } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useTransition } from "react";
@@ -47,6 +48,7 @@ export function StuckRequestBanner({
 	const t = useTranslations("dashboard.schedule.stuckBanner");
 	const [isPendingFeed, startFeedTransition] = useTransition();
 	const [isPendingSchedule, startScheduleTransition] = useTransition();
+	const { online, reason, blockIfOffline } = useFeedCommandGuard();
 
 	const fmtTime = (iso: string) => {
 		const d = new Date(iso);
@@ -85,6 +87,20 @@ export function StuckRequestBanner({
 	// Device online — show stuck feed(s) and/or schedule banners, stacked.
 	const banners: React.ReactNode[] = [];
 
+	if (reason) {
+		banners.push(
+			<div
+				key="browser-offline"
+				className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm dark:border-amber-900/50 dark:bg-amber-950/30"
+			>
+				<div className="flex items-start gap-3">
+					<WifiOff size={20} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+					<p className="text-sm font-medium text-amber-800 dark:text-amber-300">{reason}</p>
+				</div>
+			</div>,
+		);
+	}
+
 	if (hasRepeatFeedFailure) {
 		const earliest = (stuckFeedRequests[stuckFeedRequests.length - 1] as StuckFeedRequest)
 			.createdAt;
@@ -103,9 +119,11 @@ export function StuckRequestBanner({
 					</div>
 					<button
 						type="button"
-						disabled={isPendingFeed || !canWrite}
+						disabled={isPendingFeed || !canWrite || !online}
+						title={reason}
 						className="shrink-0 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50"
 						onClick={() => {
+							if (blockIfOffline()) return;
 							startFeedTransition(async () => {
 								await requestFeedAction(deviceId);
 							});
@@ -133,9 +151,11 @@ export function StuckRequestBanner({
 					</div>
 					<button
 						type="button"
-						disabled={isPendingFeed || !canWrite}
+						disabled={isPendingFeed || !canWrite || !online}
+						title={reason}
 						className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-50 disabled:opacity-50"
 						onClick={() => {
+							if (blockIfOffline()) return;
 							startFeedTransition(async () => {
 								await requestFeedAction(deviceId);
 							});

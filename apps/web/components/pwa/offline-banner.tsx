@@ -13,6 +13,8 @@ export function OfflineBanner() {
 	return (
 		<output
 			aria-live="polite"
+			aria-atomic="true"
+			data-testid="offline-banner"
 			className="fixed inset-x-3 top-[4.5rem] z-40 mx-auto flex max-w-xl items-start gap-3 rounded-2xl border border-white/10 bg-[#0A3D62] px-4 py-3 text-white shadow-xl"
 		>
 			<WifiOff className="mt-0.5 h-4 w-4 shrink-0 text-[#FFB38F]" aria-hidden="true" />
@@ -22,6 +24,9 @@ export function OfflineBanner() {
 				</span>
 				<span className="mt-1 block text-sm font-medium leading-5 text-white/90">
 					{t("offlineBody")}
+				</span>
+				<span className="mt-1 block text-xs font-medium leading-5 text-white/70">
+					{t("offlineControlsHint")}
 				</span>
 			</span>
 		</output>

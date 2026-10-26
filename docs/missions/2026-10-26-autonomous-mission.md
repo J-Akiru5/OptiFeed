@@ -40,9 +40,9 @@ Status: `todo` / `running` / `review` / `integrated` / `blocked`.
 | T-02 | Token reveal audit + rate limit (plan M3F.5) | — | no | integrated, verified |
 | T-03 | Superadmin quick fixes (plan M3.9) | — | no | integrated, verified |
 | T-04 | Step-up re-auth + safe user delete (M3.2, M3.3, M3.10) | — | no | integrated, verified |
-| T-05 | Tenancy negative-test harness + superadmin behavioural tests (M0.3, M3.11 tests) | — | no | running |
+| T-05 | Tenancy negative-test harness + superadmin behavioural tests (M0.3, M3.11 tests) | — | no | integrated, verified |
 | T-06 | RBAC: members and permissions in Settings, plus superadmin for any org (D1, D2, M2.7) | T-04 | no (mocked tests) | running |
-| T-07 | Superadmin god mode: view-as (read-only) + remote feeder control (D1, M5.1, M5.2) | T-04 | no (mocked tests) | todo |
+| T-07 | Superadmin god mode: view-as (read-only) + remote feeder control (D1, M5.1, M5.2) | T-04 | no (mocked tests) | running |
 | T-08 | E2E on the production project with `e2e-` data (D5 amended): setup, seed, Playwright suites for all flows | T-01…T-07 | **yes** | todo (DB access ready) |
 | T-09 | UI/UX pass, shipped per page (admin, dashboard, superadmin, settings) | T-06, T-07 | no | todo |
 | T-10 | i18n for the superadmin pages (M3.11) | T-03, T-07 | no | todo |
@@ -154,6 +154,7 @@ Branch: `integration/mission-2026-10-26` (from `feature/superadmin-device-regist
 | When | Task | Commit merged | Checks on the integration branch | Notes |
 |---|---|---|---|---|
 | 2026-10-26 | develop | `e1fa17a` (PRs #174, #179, #180) | — | Brought the integration branch up to date with develop. |
+| 2026-10-26 | T-05 | `42b4303` via merge + `48d670e` | lint ok, typecheck ok, 91 test files pass | Test-only. Reconciled 3 audit assertions with T-03's new targetType values (semantic clash, not a weakened guard). |
 | 2026-10-26 | T-03 | `a8f381a` via `81cb613` | lint ok, typecheck ok, 89 test files pass | Pond org mapping fixed via `User.farmId` (spot-checked); 13/13 superadmin exports gated; audit target/org/ip/UA; pagination on users/orgs/ponds. |
 | 2026-10-26 | T-04 + T-02 | `380d4ef` via `e2c3ef7`; `75fc34e` via `de9e988` | lint ok, typecheck ok, 87 test files pass (pio not re-run: firmware unchanged since `752f126`) | T-04 step-up + reversible disable reviewed line by line. T-02 reveal audit + limiter. One textual conflict in `rate-limit.ts` (both added a limiter); both kept. |
 | 2026-10-26 | T-01 | `e755625` via `752f126` | lint ok, typecheck ok, 82 test files pass, `pio run` SUCCESS (flash 82.6 %) | Worker added the factory-wins suppression fix and corrected `docs/flash-plan.md`; reviewed and kept. Needs human OK and a reflash. |

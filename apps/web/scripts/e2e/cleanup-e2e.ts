@@ -40,8 +40,11 @@ type CleanupCounts = {
 	pondRows: number;
 	auditRows: number;
 	keptAuditRows: number;
+	rateLimitRows: number;
 	authUsers: number;
 };
+
+const LOOPBACK_LOGIN_KEYS = ["rl:login:::1", "rl:login:127.0.0.1", "rl:login:::ffff:127.0.0.1"];
 
 export type CleanupSummary = {
 	host: string;
@@ -218,6 +221,7 @@ export async function runCleanup(options: CleanupOptions): Promise<CleanupSummar
 		pondRows: 0,
 		auditRows: 0,
 		keptAuditRows: 0,
+		rateLimitRows: 0,
 		authUsers: authUsers.length,
 	};
 
@@ -347,6 +351,19 @@ export async function runCleanup(options: CleanupOptions): Promise<CleanupSummar
 		// bad login in the auth spec, so scope them by the same prefix.
 		await prisma.userLockout.deleteMany({ where: { farmId: { startsWith: E2E_PREFIX } } });
 		await prisma.loginLockout.deleteMany({ where: { farmId: { startsWith: E2E_PREFIX } } });
+		// Rate-limit buckets the suite filled: per-user keys end in an e2e user
+		// id, and login keys use the loopback address of the local test server
+		// (production traffic never arrives from loopback).
+		counts.rateLimitRows += countOf(
+			await prisma.rateLimitBucket.deleteMany({
+				where: {
+					OR: [
+						...userIds.map((id) => ({ key: { endsWith: `:${id}` } })),
+						...LOOPBACK_LOGIN_KEYS.map((key) => ({ key })),
+					],
+				},
+			}),
+		);
 		if (deviceIds.length > 0) {
 			await prisma.energyDevice.deleteMany({ where: { id: { in: deviceIds } } });
 		}
@@ -401,6 +418,7 @@ function printSummary(summary: CleanupSummary): void {
 	console.log(`Pond child rows:    ${summary.counts.pondRows}`);
 	console.log(`View-as session rows deleted: ${summary.counts.auditRows}`);
 	console.log(`Platform audit rows kept (append-only by design): ${summary.counts.keptAuditRows}`);
+	console.log(`Rate-limit rows:    ${summary.counts.rateLimitRows}`);
 	console.log(`Auth accounts:      ${summary.counts.authUsers}`);
 	console.log("");
 	console.log("Fixture identifiers:");

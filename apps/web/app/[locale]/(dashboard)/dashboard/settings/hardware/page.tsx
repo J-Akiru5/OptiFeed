@@ -34,14 +34,10 @@ export default async function HardwareSettingsPage() {
 		getTranslations("dashboard.common"),
 	]);
 	const writeAccess = await canWrite();
-	let device = null;
 	let energyDevice = null;
 	let pondIsFallow = false;
 	try {
-		const pond = await getActivePond({ devices: true });
-		if (pond && pond.devices.length > 0) {
-			device = pond.devices[0];
-		}
+		const pond = await getActivePond();
 		if (pond) {
 			pondIsFallow = Boolean(pond.isFallow);
 			energyDevice = await prisma.energyDevice.findFirst({
@@ -104,11 +100,11 @@ export default async function HardwareSettingsPage() {
 
 			{/* Device Status */}
 			<DashboardSection title={t("deviceStatus")} description={t("deviceStatusDesc")} icon={Cpu}>
-				{device ? (
+				{energyDevice ? (
 					<dl className="grid gap-4 md:grid-cols-2">
 						<div className={statTile}>
 							<dt className={statLabel}>{t("deviceRecordId")}</dt>
-							<dd className={`${statValue} break-all font-mono`}>{device.id}</dd>
+							<dd className={`${statValue} break-all font-mono`}>{energyDevice.id}</dd>
 						</div>
 						<div className={statTile}>
 							<dt className={statLabel}>{t("connectionStatus")}</dt>

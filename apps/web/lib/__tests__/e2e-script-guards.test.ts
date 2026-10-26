@@ -52,6 +52,7 @@ const PRISMA_MODELS = [
 	"platformAuditLog",
 	"userLockout",
 	"loginLockout",
+	"rateLimitBucket",
 ] as const;
 
 type MockDelegate = {
@@ -246,5 +247,33 @@ describe("cleanup guards", () => {
 
 		expect(prisma.platformAuditLog.deleteMany).not.toHaveBeenCalled();
 		expect(summary.counts.keptAuditRows).toBe(3);
+	});
+
+	it("deletes only rate-limit buckets keyed by an e2e user or the loopback login", async () => {
+		const prisma = fixturePrisma({
+			organization: { findMany: vi.fn().mockResolvedValue([{ id: "e2e-org", name: "e2e-org" }]) },
+			user: {
+				findMany: vi
+					.fn()
+					.mockResolvedValue([
+						{ id: "user-e2e", farmId: "e2e-farmer", email: "e2e-farmer@pond.optifeed.local" },
+					]),
+			},
+		});
+
+		await runCleanup({
+			prisma: prisma as unknown as PrismaClient,
+			supabase: createSupabaseMock([]) as unknown as SupabaseClient,
+			env: VALID_ENV,
+			dryRun: false,
+		});
+
+		const { where } = prisma.rateLimitBucket.deleteMany.mock.calls[0][0];
+		expect(where.OR).toEqual([
+			{ key: { endsWith: ":user-e2e" } },
+			{ key: "rl:login:::1" },
+			{ key: "rl:login:127.0.0.1" },
+			{ key: "rl:login:::ffff:127.0.0.1" },
+		]);
 	});
 });

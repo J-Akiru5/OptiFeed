@@ -41,10 +41,18 @@ export default async function DashboardHomePage() {
 			getTranslations("dashboard.common"),
 			canWrite(),
 			getCurrentUser(),
-			getActivePond({ devices: true }),
+			getActivePond({
+				energyDevices: {
+					orderBy: { createdAt: "asc" },
+					take: 1,
+					select: { id: true, label: true },
+				},
+			}),
 		]);
 
-	if (!pond || !pond.devices.length) {
+	// The legacy Device table is no longer written, so a pond counts as set up
+	// once an EnergyDevice is registered on it.
+	if (!pond || !pond.energyDevices.length) {
 		return (
 			<div className="mx-auto max-w-2xl py-10">
 				<DashboardEmptyState icon={Wheat} title={t("noData")} description={t("noPondHint")} />
@@ -52,7 +60,7 @@ export default async function DashboardHomePage() {
 		);
 	}
 
-	const device = pond.devices[0];
+	const device = { id: pond.energyDevices[0].id, name: pond.energyDevices[0].label };
 
 	// One parallel wave for independent reads. The recent biomass rows are the
 	// source of the latest sample too, so there is no duplicate findFirst.

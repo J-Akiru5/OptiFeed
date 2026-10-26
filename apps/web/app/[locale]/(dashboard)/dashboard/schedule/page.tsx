@@ -29,9 +29,9 @@ export default async function SchedulePage() {
 		getTranslations("dashboard.schedule"),
 		getTranslations("dashboard.common"),
 	]);
-	const pond = await getActivePond({ devices: true });
+	const pond = await getActivePond();
 
-	if (!pond || !pond.devices.length) {
+	if (!pond) {
 		return (
 			<div className="mx-auto max-w-2xl py-10">
 				<DashboardEmptyState
@@ -130,7 +130,7 @@ export default async function SchedulePage() {
 
 	const scheduleSnapshot: ScheduleSnapshotData = {
 		pondName: pond.name,
-		deviceName: energyDevice.label ?? pond.devices[0]?.name ?? "Feeder",
+		deviceName: energyDevice.label ?? "Feeder",
 		deviceStatus: deviceOffline ? "offline" : "online",
 		lastSeenAt: energyDevice.lastSeenAt?.toISOString() ?? null,
 		scheduleStart: currentCommand?.scheduleStart ?? fmtTime(pond.scheduleStart),

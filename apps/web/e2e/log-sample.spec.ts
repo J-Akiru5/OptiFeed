@@ -37,6 +37,9 @@ test("saving a sample shows the feed calculation result and a batch card", async
 	// The saved batch card opens its dedicated log page.
 	await section.getByRole("link", { name: /e2e-batch-2026/ }).click();
 	await expect(page.getByRole("heading", { name: "e2e-batch-2026" })).toBeVisible();
-	await expect(page.getByText("Every saved log for this batch")).toBeVisible();
+	// The same sentence is also the table's screen-reader caption.
+	await expect(
+		page.getByRole("paragraph").filter({ hasText: "Every saved log for this batch" }),
+	).toBeVisible();
 	await expect(page.getByRole("columnheader", { name: "Avg Weight" })).toBeVisible();
 });

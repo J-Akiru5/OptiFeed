@@ -29,12 +29,10 @@ const navItems = [
 /**
  * Platform console navigation.
  *
- * Intentionally has no Schedule / Hierarchy / Settings entries: the
- * superadmin is read-only on farm operations (3-tier model, no interference
- * in farmer work). Ponds here is a visibility table, not a control surface.
- *
- * Devices is the hardware registry (plan v2, M3F): register units, rotate
- * tokens and print stickers. It has no feed, schedule or control function.
+ * Devices is the hardware registry (plan v2, M3F) and, since M5.2, the remote
+ * feeder control surface: every remote command goes through the tenant command
+ * implementation with the same server caps, a required reason, step-up and one
+ * audit row (decision D1). Ponds remains visibility only.
  *
  * AI Providers is the one configuration surface, and it is platform-level only:
  * it controls the model chain every tenant shares, not any farm's data.

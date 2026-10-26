@@ -6,8 +6,8 @@ import { BarChart3, Cpu, Droplets, FolderTree, Users } from "lucide-react";
 
 /**
  * Platform console navigation below `lg`, where SuperadminSidebar is hidden.
- * Mirrors the sidebar's scope: no Schedule / Settings. Devices is the hardware
- * registry, not a control surface.
+ * Mirrors the sidebar's scope: Devices is the hardware registry plus remote
+ * feeder control (M5.2); Ponds remains visibility only.
  */
 const navItems = [
 	{ href: "/superadmin", label: "Overview", icon: BarChart3 },

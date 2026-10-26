@@ -1,4 +1,5 @@
 import { RegisterDeviceForm } from "@/components/superadmin/register-device-form";
+import { RemoteFeederControl } from "@/components/superadmin/remote-feeder-control";
 import { RotateDeviceToken } from "@/components/superadmin/rotate-device-token";
 import { Link, getPathname } from "@/i18n/routing";
 import { getOrgPondOptions, listPlatformDevices } from "@/lib/actions/platform/devices";
@@ -14,11 +15,12 @@ function first(param: string | string[] | undefined): string | undefined {
 }
 
 /**
- * Platform device registry (plan v2, M3F): every feeder on the platform,
- * registration with org + pond (T15), token rotation, and sticker printing.
+ * Platform device registry (plan v2, M3F) with god-mode remote control (M5.2,
+ * decision D1): every feeder on the platform, registration with org + pond
+ * (T15), token rotation, sticker printing, and manual feed / pause / resume.
  *
- * Inventory only: nothing here feeds, schedules or controls a feeder. Farm
- * operations stay in the tenant console.
+ * Remote commands go through the tenant command implementation, so the §6
+ * server caps apply and there is no force flag.
  */
 export default async function SuperadminDevicesPage({
 	searchParams,
@@ -48,7 +50,8 @@ export default async function SuperadminDevicesPage({
 				<h1 className="text-2xl font-black text-[#0A3D62]">Devices</h1>
 				<p className="text-sm text-[#3D5568] mt-1">
 					{devices.total} device{devices.total !== 1 ? "s" : ""} on the platform. Register units,
-					rotate tokens and print stickers. Feeding stays in each tenant&apos;s console.
+					rotate tokens, print stickers, and control any feeder remotely. Remote commands use the
+					same server caps and audit trail as the tenant console.
 				</p>
 			</div>
 
@@ -163,6 +166,11 @@ export default async function SuperadminDevicesPage({
 													Print sticker
 												</Link>
 												<RotateDeviceToken deviceId={device.id} mac={device.mac} />
+												<RemoteFeederControl
+													deviceId={device.id}
+													label={device.label}
+													isPaused={device.isPaused}
+												/>
 											</div>
 										</td>
 									</tr>

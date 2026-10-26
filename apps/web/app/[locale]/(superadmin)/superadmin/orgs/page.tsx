@@ -1,4 +1,5 @@
 import { CreateOrgForm } from "@/components/superadmin/create-org-form";
+import { ViewAsControl } from "@/components/superadmin/view-as-control";
 import { Link, getPathname } from "@/i18n/routing";
 import { listOrgs } from "@/lib/actions/superadmin";
 import { FolderTree, Search } from "lucide-react";
@@ -71,14 +72,16 @@ export default async function SuperadminOrgsPage({
 					<table className="w-full text-sm">
 						<thead>
 							<tr className="border-b border-gray-100 bg-[#F4F7F6]">
-								{["Organization", "Type", "Status", "Members", "Ponds", "Created"].map((h) => (
-									<th
-										key={h}
-										className="text-left px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider"
-									>
-										{h}
-									</th>
-								))}
+								{["Organization", "Type", "Status", "Members", "Ponds", "Created", "View"].map(
+									(h) => (
+										<th
+											key={h}
+											className="text-left px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider"
+										>
+											{h}
+										</th>
+									),
+								)}
 							</tr>
 						</thead>
 						<tbody>
@@ -111,6 +114,9 @@ export default async function SuperadminOrgsPage({
 									</td>
 									<td className="px-6 py-4 text-xs text-[#3D5568]">
 										{org.createdAt.toLocaleDateString()}
+									</td>
+									<td className="px-6 py-4">
+										<ViewAsControl orgId={org.id} orgName={org.name} />
 									</td>
 								</tr>
 							))}

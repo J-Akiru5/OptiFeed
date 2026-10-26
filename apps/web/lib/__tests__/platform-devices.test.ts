@@ -324,6 +324,7 @@ describe("read paths never select a credential", () => {
 		expect(Object.keys(args.select).sort()).toEqual([
 			"createdAt",
 			"id",
+			"isPaused",
 			"label",
 			"lastSeenAt",
 			"mac",

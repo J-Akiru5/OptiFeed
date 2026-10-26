@@ -11,7 +11,9 @@ import { NotificationProvider } from "@/components/notification-provider";
 import { OnboardingProvider } from "@/components/onboarding-provider";
 import { OfflineSync } from "@/components/pwa/offline-sync";
 import { Sidebar } from "@/components/sidebar";
+import { ViewAsBanner } from "@/components/superadmin/view-as-banner";
 import { Link } from "@/i18n/routing";
+import { getViewAsBanner } from "@/lib/actions/platform/impersonation";
 import { isCurrentPlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { getCurrentPondOwnerId, requirePasswordChanged } from "@/lib/auth/session";
 import { isCurrentTenantAdmin } from "@/lib/auth/tenant-admin";
@@ -25,11 +27,12 @@ export default async function DashboardLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	const [ownerId, currentUser, isTenantAdmin, isPlatformAdmin] = await Promise.all([
+	const [ownerId, currentUser, isTenantAdmin, isPlatformAdmin, viewAs] = await Promise.all([
 		getCurrentPondOwnerId(),
 		requirePasswordChanged(),
 		isCurrentTenantAdmin(),
 		isCurrentPlatformAdmin(),
+		getViewAsBanner(),
 	]);
 
 	let pondId = "";
@@ -89,6 +92,13 @@ export default async function DashboardLayout({
 			<OfflineSync scope={ownerId} />
 			<OnboardingProvider>
 				<div className="flex flex-col min-h-screen bg-[#F4F7F6] dark:bg-gray-950">
+					{viewAs && (
+						<ViewAsBanner
+							orgName={viewAs.orgName}
+							reason={viewAs.reason}
+							expiresAt={viewAs.expiresAt.toISOString()}
+						/>
+					)}
 					<NotificationProvider pondId={pondId} initialUnreadCount={initialUnreadCount}>
 						<header className="sticky top-0 z-30 w-full h-16 bg-[#0A3D62] px-4 md:px-8 flex items-center justify-between shadow-md shrink-0">
 							<div className="flex items-center gap-3">

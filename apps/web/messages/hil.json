@@ -1064,6 +1064,7 @@
 			"copyFailed": "Napaslawan ang pagkopya — pilia ang token kag kopyaha ini sing mano-mano.",
 			"tokenWarning": "Kredensyal sang device — ipaambit lamang sa tawo nga naga-provision sini nga unit",
 			"tokenError": "Indi makarga ang token. Tilawi liwat.",
+			"tokenRateLimited": "Sobra na ang pagpakita sang token. Maghulat sang isa ka oras, dayon tilawi liwat.",
 			"printLabel": "I-print ang label",
 			"printSelected": "I-print ang mga napili nga label",
 			"labelColumn": "Label",

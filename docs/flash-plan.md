@@ -55,16 +55,17 @@ resistor):
 | Button | GPIO | Purpose | Firmware state |
 |---|---|---|---|
 | BOOT / IO0 | **IO0** | **Mandatory** — hold low during reset to enter USB download mode. The only remaining path to flash. | n/a (bootloader strap) |
-| Feed / Wi-Fi reset | **27** | Hold ~5 s at boot (`WIFI_RESET_HOLD_MS 5000`, line 151) to clear Wi-Fi and re-enter provisioning. | `BUTTON_PIN 27` (line 109), already active |
-| Wi-Fi reset | e.g. 32 (candidate) | Dedicated Wi-Fi reset. | `WIFI_RESET_BUTTON_PIN -1` (line 118) — **compiled out**; set a pin and rebuild |
-| Factory reset | e.g. 33 (candidate) | Full device reset. | `FACTORY_RESET_BUTTON_PIN -1` (line 119) — **compiled out**; set a pin and rebuild |
+| Feed / Wi-Fi reset | **27** | Hold ~5 s at boot (`WIFI_RESET_HOLD_MS`) to clear Wi-Fi and re-enter provisioning. | `BUTTON_PIN 27`, already active |
+| Wi-Fi reset | **16** | Hold 5 s at any time after boot to clear Wi-Fi only; the device identity is kept. | `WIFI_RESET_BUTTON_PIN 16`, active |
+| Factory reset | **17** | Hold 10 s to clear Wi-Fi plus the device identity. While it is held the Wi-Fi reset is suppressed. | `FACTORY_RESET_BUTTON_PIN 17`, active |
 
-Candidate pins must be confirmed free against the full pin assignment table in
-`firmware-main.ino` before soldering.
+Pins 16/17 are confirmed free against the full pin assignment table in
+`firmware-main.ino`: neither is a strapping pin, both support the internal
+pull-up, and the sketch uses neither.
 
 ## 5. Flash procedure (once buttons exist)
 
-1. If button pins were enabled: edit lines 118/119 and rebuild —
+1. Rebuild the firmware (the reset-button pins are already set to 16/17) —
    `pio run` (PlatformIO is **not** on PATH: `%LOCALAPPDATA%\Programs\Python\Python312\Scripts\pio.exe`).
 2. Connect USB (CP2102 → **COM3**).
 3. Hold **BOOT (IO0)**, tap **RESET** (or re-plug USB) → serial monitor must show

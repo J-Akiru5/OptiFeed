@@ -116,16 +116,19 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 #define RELAY_PIN       25
 #define BUTTON_PIN      27          // pick any free GPIO; wired to GND via INPUT_PULLUP
 
-// ---- Dedicated reset buttons (optional, both active-low) ----------------
+// ---- Dedicated reset buttons (both active-low) --------------------------
 // Wire each button between its GPIO and GND; the internal pull-up is enabled.
-// Leave a pin at -1 until the enclosure wiring is decided: disabled pins are
-// skipped. Safe free candidates on the ESP32-WROOM-32U used here (not used by
-// this sketch): 13, 14, 16, 17, 18, 19, 23. Do NOT use 32/33 (HC-SR04),
-// 25/26/27 (relay, DS18B20, feed button), 21/22 (RTC I2C), 0/2/12/15
-// (strapping), 34-39 (input-only, no internal pull-up) or 1/3 (USB serial).
-#define WIFI_RESET_BUTTON_PIN      -1   // e.g. 18 once the enclosure is wired
-#define FACTORY_RESET_BUTTON_PIN   -1   // e.g. 19 once the enclosure is wired
-#define RESET_BUTTON_HOLD_MS          10000  // continuous hold to trigger
+// GPIO 16 is the Wi-Fi reset (5 s, device identity kept), GPIO 17 the factory
+// reset (10 s, WiFi and identity wiped). Both are free on the ESP32-WROOM-32U
+// used here (not used by this sketch) and neither is a strapping pin. Still
+// free: 13, 14, 18, 19, 23. Do NOT use 32/33 (HC-SR04), 25/26/27 (relay,
+// DS18B20, feed button), 21/22 (RTC I2C), 0/2/12/15 (strapping), 34-39
+// (input-only, no internal pull-up) or 1/3 (USB serial).
+#define WIFI_RESET_BUTTON_PIN       16   // hold to clear WiFi only
+#define FACTORY_RESET_BUTTON_PIN    17   // hold to clear WiFi + identity
+#define WIFI_RESET_HOLD_MS        5000   // continuous hold: WiFi reset
+#define FACTORY_RESET_HOLD_MS    10000   // continuous hold: factory reset
+// WIFI_RESET_HOLD_MS also governs the GPIO 27 feed-button hold at boot.
 #define RESET_BUTTON_DEBOUNCE_MS         50
 #define RESET_BUTTON_STARTUP_GRACE_MS  5000  // ignore presses during boot
 
@@ -156,7 +159,7 @@ bool resetButtonsArmed = false;
 // ---- WiFi provisioning portal ----
 #define WIFI_JOIN_WINDOW_MS          15000  // time allowed for each join attempt
 #define WIFI_FAILURES_BEFORE_PORTAL  5      // consecutive failed joins before the setup AP starts
-#define WIFI_RESET_HOLD_MS           5000   // button hold at boot clears stored credentials
+// The GPIO 27 boot-button hold uses WIFI_RESET_HOLD_MS (with the reset buttons).
 #define PROVISIONING_REBOOT_DELAY_MS 2000   // let the success page flush before restarting
 
 // ---- Calibration: how fast the feeder dispenses ----
@@ -452,9 +455,9 @@ void initResetButtons() {
   if (FACTORY_RESET_BUTTON_PIN >= 0) pinMode(FACTORY_RESET_BUTTON_PIN, INPUT_PULLUP);
 
   if (WIFI_RESET_BUTTON_PIN >= 0 || FACTORY_RESET_BUTTON_PIN >= 0) {
-    Serial.printf("[RESET] Buttons ready - WiFi reset: GPIO%d, factory reset: GPIO%d (hold %lus)\n",
-                  WIFI_RESET_BUTTON_PIN, FACTORY_RESET_BUTTON_PIN,
-                  (unsigned long)(RESET_BUTTON_HOLD_MS / 1000));
+    Serial.printf("[RESET] Buttons ready - WiFi reset: GPIO%d (%lus), factory reset: GPIO%d (%lus)\n",
+                  WIFI_RESET_BUTTON_PIN, (unsigned long)(WIFI_RESET_HOLD_MS / 1000),
+                  FACTORY_RESET_BUTTON_PIN, (unsigned long)(FACTORY_RESET_HOLD_MS / 1000));
   } else {
     Serial.println("[RESET] Dedicated reset buttons disabled (pins are -1)");
   }
@@ -474,7 +477,8 @@ bool readResetButton(int pin, ResetButtonState &state, unsigned long now) {
 }
 
 // Requires a clean release after boot; a stuck button can never trigger a
-// reset. Factory reset wins if both reach the threshold.
+// reset. Factory reset wins: while its button is held the Wi-Fi reset is
+// suppressed, so a two-button hold cannot reboot at 5 s and skip it.
 void handleResetButtons() {
   if (WIFI_RESET_BUTTON_PIN < 0 && FACTORY_RESET_BUTTON_PIN < 0) return;
 
@@ -491,7 +495,7 @@ void handleResetButtons() {
   }
 
   bool factoryDown = readResetButton(FACTORY_RESET_BUTTON_PIN, factoryResetButton, now);
-  if (factoryDown && (now - factoryResetButton.pressStartMs) >= RESET_BUTTON_HOLD_MS) {
+  if (factoryDown && (now - factoryResetButton.pressStartMs) >= FACTORY_RESET_HOLD_MS) {
     Serial.println("[RESET] Factory reset button held - clearing WiFi and device identity");
     clearWiFiStackCredentials();
     clearWiFiCredentials();
@@ -501,7 +505,7 @@ void handleResetButtons() {
   }
 
   bool wifiDown = readResetButton(WIFI_RESET_BUTTON_PIN, wifiResetButton, now);
-  if (wifiDown && (now - wifiResetButton.pressStartMs) >= RESET_BUTTON_HOLD_MS) {
+  if (wifiDown && !factoryDown && (now - wifiResetButton.pressStartMs) >= WIFI_RESET_HOLD_MS) {
     Serial.println("[RESET] WiFi reset button held - clearing WiFi, keeping device identity");
     clearWiFiStackCredentials();
     clearWiFiCredentials();

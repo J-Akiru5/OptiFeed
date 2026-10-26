@@ -53,6 +53,10 @@ export function DeviceTokenReveal({ deviceId, deviceLabel }: DeviceTokenRevealPr
 			if (result.success) {
 				setToken(result.token);
 				setCopied(false);
+			} else if (result.code === "rate_limited") {
+				// The server sends a stable code because the message itself is
+				// localized here, in the admin's current locale.
+				setError(t("tokenRateLimited"));
 			} else {
 				setError(result.error);
 			}

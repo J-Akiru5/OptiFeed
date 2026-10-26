@@ -1020,6 +1020,7 @@
 			"copyFailed": "Copy failed — select the token and copy it manually.",
 			"tokenWarning": "Device credential — share only with the person provisioning this unit",
 			"tokenError": "Could not load the token. Try again.",
+			"tokenRateLimited": "Too many token reveals. Wait an hour, then try again.",
 			"printLabel": "Print label",
 			"printSelected": "Print selected labels",
 			"labelColumn": "Label",

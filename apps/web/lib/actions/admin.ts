@@ -14,6 +14,7 @@ import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { invalidateFarm } from "@/lib/auth/session-cache";
 import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import prisma from "@/lib/prisma";
+import { checkDeviceTokenRevealRateLimit } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MemberRole, PondStatus, Prisma, UserRole } from "@prisma/client";
 import { getLocale } from "next-intl/server";
@@ -581,9 +582,12 @@ export async function getDevices() {
 	});
 }
 
+/** Machine-readable failure causes the reveal component can translate. */
+export type RevealDeviceTokenErrorCode = "rate_limited";
+
 export type RevealDeviceTokenResult =
 	| { success: true; token: string; mac: string; label: string }
-	| { success: false; error: string };
+	| { success: false; error: string; code?: RevealDeviceTokenErrorCode };
 
 /**
  * Return one device's provisioning credential to a tenant admin, on demand.
@@ -593,8 +597,14 @@ export type RevealDeviceTokenResult =
  * read path for it: it is ADMIN-only, scoped through the device's pond to the
  * caller's tenant, and reveals exactly one row per explicit request.
  *
+ * Every attempt is counted against the actor's hourly reveal allowance, and
+ * every successful reveal writes a `token_revealed` DeviceStateEvent for the
+ * device. The audit row is written before the token is returned, so a failed
+ * audit cannot produce an unlogged credential.
+ *
  * The token is never logged — not on success, and not in the failure branch,
- * where the error's message (not the error object) is what gets written.
+ * where the error's message (not the error object) is what gets written — and
+ * it is never placed in the audit row.
  */
 export async function revealDeviceToken(deviceId: string): Promise<RevealDeviceTokenResult> {
 	await requireTenantAdmin();
@@ -603,7 +613,17 @@ export async function revealDeviceToken(deviceId: string): Promise<RevealDeviceT
 		return { success: false, error: "A device is required." };
 	}
 
-	const scope = await resolveOrgScope();
+	const [scope, actor] = await Promise.all([resolveOrgScope(), getCurrentUser()]);
+	if (!actor) return { success: false, error: "Not authenticated." };
+
+	const limit = await checkDeviceTokenRevealRateLimit(actor.id);
+	if (!limit.success) {
+		return {
+			success: false,
+			error: "Too many token reveals. Try again in an hour.",
+			code: "rate_limited",
+		};
+	}
 
 	try {
 		const device = await prisma.energyDevice.findFirst({
@@ -613,6 +633,17 @@ export async function revealDeviceToken(deviceId: string): Promise<RevealDeviceT
 			select: { token: true, mac: true, label: true },
 		});
 		if (!device) return { success: false, error: "Device not found in your organization." };
+
+		await prisma.deviceStateEvent.create({
+			data: {
+				deviceId,
+				eventType: "token_revealed",
+				source: "user",
+				// The credential itself is deliberately absent: the audit trail
+				// records who looked, not what they saw.
+				actorId: actor.id,
+			},
+		});
 
 		return { success: true, token: device.token, mac: device.mac, label: device.label };
 	} catch (e) {

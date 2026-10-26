@@ -37,6 +37,15 @@ vi.mock("@/lib/auth/step-up", () => ({
 		error !== null &&
 		(error as { code?: unknown }).code === "step_up_required",
 }));
+vi.mock("next/headers", () => ({
+	headers: vi.fn(
+		async () =>
+			new Headers({
+				"x-forwarded-for": "203.0.113.9, 10.0.0.1",
+				"user-agent": "vitest-superadmin",
+			}),
+	),
+}));
 
 import {
 	disablePlatformUser,
@@ -102,10 +111,30 @@ describe("grantPlatformAdmin", () => {
 		expect(mockAuditCreate).toHaveBeenCalledTimes(1);
 		expect(mockAuditCreate.mock.calls[0][0].data).toMatchObject({
 			action: "platform.admin.grant",
+			targetType: "platform_admin",
 			targetId: "u-1",
 			reason: REASON,
 			actorUserId: "admin-1",
 			stepUpAt: STEP_UP_AT,
+			temporaryGrant: false,
+			ip: "203.0.113.9",
+			userAgent: "vitest-superadmin",
+		});
+	});
+
+	it("flags a time-boxed grant as temporary in the audit row", async () => {
+		db.user.findUnique.mockResolvedValue({ id: "u-1" });
+		tx.platformAdmin.findUnique.mockResolvedValue(null);
+
+		await expect(grantPlatformAdmin("u-1", REASON, "2026-12-01T00:00:00.000Z")).resolves.toEqual({
+			success: true,
+		});
+
+		expect(mockAuditCreate.mock.calls[0][0].data).toMatchObject({
+			action: "platform.admin.grant",
+			targetType: "platform_admin",
+			temporaryGrant: true,
+			after: { expiresAt: "2026-12-01T00:00:00.000Z" },
 		});
 	});
 });
@@ -134,8 +163,11 @@ describe("revokePlatformAdmin", () => {
 		});
 		expect(mockAuditCreate.mock.calls[0][0].data).toMatchObject({
 			action: "platform.admin.revoke",
+			targetType: "platform_admin",
 			targetId: "u-1",
 			stepUpAt: STEP_UP_AT,
+			ip: "203.0.113.9",
+			userAgent: "vitest-superadmin",
 		});
 	});
 
@@ -239,11 +271,14 @@ describe("disablePlatformUser", () => {
 		const row = mockAuditCreate.mock.calls[0][0].data;
 		expect(row).toMatchObject({
 			action: "platform.user.disable",
-			targetType: "platform_console",
+			targetType: "user",
 			targetId: "u-1",
+			orgId: "org-a",
 			reason: REASON,
 			actorUserId: "admin-1",
 			stepUpAt: STEP_UP_AT,
+			ip: "203.0.113.9",
+			userAgent: "vitest-superadmin",
 			before: { farmId: "farm-a" },
 			after: {
 				disabledAt: expect.any(String),
@@ -311,8 +346,11 @@ describe("enablePlatformUser", () => {
 		expect(mockInvalidateFarm).toHaveBeenCalledWith("sb-1");
 		expect(mockAuditCreate.mock.calls[0][0].data).toMatchObject({
 			action: "platform.user.enable",
+			targetType: "user",
 			targetId: "u-1",
 			stepUpAt: STEP_UP_AT,
+			ip: "203.0.113.9",
+			userAgent: "vitest-superadmin",
 			after: {
 				restoredMembershipIds: ["m-1"],
 				platformAdminRestored: true,

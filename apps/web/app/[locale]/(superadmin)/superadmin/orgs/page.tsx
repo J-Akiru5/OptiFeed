@@ -1,6 +1,8 @@
 import { CreateOrgForm } from "@/components/superadmin/create-org-form";
+import { Link, getPathname } from "@/i18n/routing";
 import { listOrgs } from "@/lib/actions/superadmin";
-import { FolderTree } from "lucide-react";
+import { FolderTree, Search } from "lucide-react";
+import { getLocale } from "next-intl/server";
 
 const typeBadge: Record<string, string> = {
 	INDIVIDUAL: "bg-gray-200 text-[#3D5568]",
@@ -10,19 +12,59 @@ const typeBadge: Record<string, string> = {
 	ACADEMIC: "bg-[#E85A2A] text-white",
 };
 
-export default async function SuperadminOrgsPage() {
-	const orgs = await listOrgs();
+function first(param: string | string[] | undefined): string | undefined {
+	return Array.isArray(param) ? param[0] : param;
+}
+
+export default async function SuperadminOrgsPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+	const params = await searchParams;
+	const query = first(params.q)?.trim() ?? "";
+	const page = Number.parseInt(first(params.page) ?? "1", 10) || 1;
+
+	const [orgs, locale] = await Promise.all([listOrgs({ query, page }), getLocale()]);
+	const pageCount = Math.max(1, Math.ceil(orgs.total / orgs.pageSize));
+
+	const pageHref = (target: number) => ({
+		pathname: "/superadmin/orgs",
+		query: { ...(query ? { q: query } : {}), page: String(target) },
+	});
 
 	return (
 		<div className="space-y-6">
 			<div>
 				<h1 className="text-2xl font-black text-[#0A3D62]">Organizations</h1>
 				<p className="text-sm text-[#3D5568] mt-1">
-					Tenants. Memberships define what each account can see in the admin console.
+					{orgs.total} tenant{orgs.total !== 1 ? "s" : ""}. Memberships define what each account can
+					see in the admin console.
 				</p>
 			</div>
 
 			<CreateOrgForm />
+
+			<form
+				action={getPathname({ href: "/superadmin/orgs", locale })}
+				method="get"
+				className="flex items-center gap-2"
+			>
+				<input
+					name="q"
+					defaultValue={query}
+					placeholder="Search organization name"
+					aria-label="Search organizations by name"
+					className="w-64 px-3 py-2 bg-white text-[#0A3D62] border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+				/>
+				<button
+					type="submit"
+					className="inline-flex items-center gap-1.5 rounded-xl border border-[#0A3D62]/20 bg-white px-3 py-2 text-xs font-black text-[#0A3D62] hover:bg-[#F4F7F6]"
+				>
+					<Search className="w-3.5 h-3.5" />
+					Search
+				</button>
+			</form>
 
 			<div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
 				<div className="overflow-x-auto">
@@ -40,7 +82,7 @@ export default async function SuperadminOrgsPage() {
 							</tr>
 						</thead>
 						<tbody>
-							{orgs.map((org) => (
+							{orgs.rows.map((org) => (
 								<tr
 									key={org.id}
 									className="border-b border-gray-50 hover:bg-[#F4F7F6]/50 transition-colors"
@@ -76,13 +118,32 @@ export default async function SuperadminOrgsPage() {
 					</table>
 				</div>
 
-				{orgs.length === 0 && (
+				{orgs.rows.length === 0 && (
 					<p className="p-6 text-sm text-[#3D5568]">
-						No organizations yet. Create one below — tenant admins and farmers are added to an
-						organization.
+						{query
+							? `No organization matches “${query}”.`
+							: "No organizations yet. Create one below — tenant admins and farmers are added to an organization."}
 					</p>
 				)}
 			</div>
+
+			{pageCount > 1 && (
+				<nav aria-label="Organization pages" className="flex items-center gap-3 text-xs font-black">
+					{orgs.page > 1 && (
+						<Link href={pageHref(orgs.page - 1)} className="text-[#0A3D62] hover:underline">
+							← Previous
+						</Link>
+					)}
+					<span className="text-[#3D5568]">
+						Page {orgs.page} of {pageCount}
+					</span>
+					{orgs.page < pageCount && (
+						<Link href={pageHref(orgs.page + 1)} className="text-[#0A3D62] hover:underline">
+							Next →
+						</Link>
+					)}
+				</nav>
+			)}
 		</div>
 	);
 }

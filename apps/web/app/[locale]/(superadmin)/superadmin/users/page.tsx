@@ -1,7 +1,8 @@
 import { UserActions } from "@/components/superadmin/user-actions";
-import { Link } from "@/i18n/routing";
+import { Link, getPathname } from "@/i18n/routing";
 import { listAllUsers } from "@/lib/actions/superadmin";
-import { Eye, Plus, Shield, ShieldCheck, User } from "lucide-react";
+import { Eye, Plus, Search, Shield, ShieldCheck, User } from "lucide-react";
+import { getLocale } from "next-intl/server";
 
 const roleBadge: Record<string, { bg: string; text: string; icon: typeof Shield }> = {
 	ADMIN: { bg: "bg-[#E85A2A]", text: "text-white", icon: Shield },
@@ -9,8 +10,26 @@ const roleBadge: Record<string, { bg: string; text: string; icon: typeof Shield 
 	VIEWER: { bg: "bg-gray-200", text: "text-[#3D5568]", icon: Eye },
 };
 
-export default async function SuperadminUsersPage() {
-	const users = await listAllUsers();
+function first(param: string | string[] | undefined): string | undefined {
+	return Array.isArray(param) ? param[0] : param;
+}
+
+export default async function SuperadminUsersPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+	const params = await searchParams;
+	const query = first(params.q)?.trim() ?? "";
+	const page = Number.parseInt(first(params.page) ?? "1", 10) || 1;
+
+	const [users, locale] = await Promise.all([listAllUsers({ query, page }), getLocale()]);
+	const pageCount = Math.max(1, Math.ceil(users.total / users.pageSize));
+
+	const pageHref = (target: number) => ({
+		pathname: "/superadmin/users",
+		query: { ...(query ? { q: query } : {}), page: String(target) },
+	});
 
 	return (
 		<div className="space-y-6">
@@ -18,7 +37,7 @@ export default async function SuperadminUsersPage() {
 				<div>
 					<h1 className="text-2xl font-black text-[#0A3D62]">All Users</h1>
 					<p className="text-sm text-[#3D5568] mt-1">
-						{users.length} account{users.length !== 1 ? "s" : ""} across every tenant
+						{users.total} account{users.total !== 1 ? "s" : ""} across every tenant
 					</p>
 				</div>
 				<Link
@@ -29,6 +48,27 @@ export default async function SuperadminUsersPage() {
 					New Account
 				</Link>
 			</div>
+
+			<form
+				action={getPathname({ href: "/superadmin/users", locale })}
+				method="get"
+				className="flex items-center gap-2"
+			>
+				<input
+					name="q"
+					defaultValue={query}
+					placeholder="Search farm ID, email or name"
+					aria-label="Search users by farm ID, email or display name"
+					className="w-64 px-3 py-2 bg-white text-[#0A3D62] border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+				/>
+				<button
+					type="submit"
+					className="inline-flex items-center gap-1.5 rounded-xl border border-[#0A3D62]/20 bg-white px-3 py-2 text-xs font-black text-[#0A3D62] hover:bg-[#F4F7F6]"
+				>
+					<Search className="w-3.5 h-3.5" />
+					Search
+				</button>
+			</form>
 
 			<div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
 				<div className="overflow-x-auto">
@@ -46,7 +86,7 @@ export default async function SuperadminUsersPage() {
 							</tr>
 						</thead>
 						<tbody>
-							{users.map((user) => {
+							{users.rows.map((user) => {
 								const badge = roleBadge[user.role] || roleBadge.VIEWER;
 								const Icon = badge.icon;
 								return (
@@ -134,8 +174,30 @@ export default async function SuperadminUsersPage() {
 					</table>
 				</div>
 
-				{users.length === 0 && <p className="p-6 text-sm text-[#3D5568]">No users registered.</p>}
+				{users.rows.length === 0 && (
+					<p className="p-6 text-sm text-[#3D5568]">
+						{query ? `No account matches “${query}”.` : "No users registered."}
+					</p>
+				)}
 			</div>
+
+			{pageCount > 1 && (
+				<nav aria-label="User pages" className="flex items-center gap-3 text-xs font-black">
+					{users.page > 1 && (
+						<Link href={pageHref(users.page - 1)} className="text-[#0A3D62] hover:underline">
+							← Previous
+						</Link>
+					)}
+					<span className="text-[#3D5568]">
+						Page {users.page} of {pageCount}
+					</span>
+					{users.page < pageCount && (
+						<Link href={pageHref(users.page + 1)} className="text-[#0A3D62] hover:underline">
+							Next →
+						</Link>
+					)}
+				</nav>
+			)}
 		</div>
 	);
 }

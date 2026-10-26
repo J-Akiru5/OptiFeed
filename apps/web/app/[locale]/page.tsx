@@ -1,6 +1,5 @@
 "use client";
 
-import { CredibilityBadges } from "@/components/landing/CredibilityTicker";
 import { DashboardPreview } from "@/components/landing/DashboardPreview";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { LANDING_SECTIONS, LandingHeader } from "@/components/landing/LandingHeader";
@@ -142,7 +141,7 @@ export default function LandingPage() {
 
 				<main id="main">
 					{/* Hero */}
-					<section className="relative overflow-hidden bg-[#061B2B] text-white">
+					<section className="relative overflow-x-clip bg-[#061B2B] text-white">
 						<div
 							aria-hidden="true"
 							className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_65%_60%_at_78%_10%,rgba(232,90,42,0.18),transparent_62%)]"
@@ -224,16 +223,29 @@ export default function LandingPage() {
 							</Reveal>
 						</div>
 
-						{/* Credibility strip — pill badges */}
+						{/* Credibility strip — plain text */}
 						<div className="relative border-t border-white/10">
-							<CredibilityBadges
-								builtAtLabel={t("credibilityLabel")}
-								items={CREDIBILITY.map(({ key, icon }) => ({
-									key,
-									icon,
-									label: t(key),
-								}))}
-							/>
+							<div
+								className={cn(
+									container,
+									"flex flex-col gap-4 py-5 lg:flex-row lg:items-center lg:justify-between",
+								)}
+							>
+								<p className="text-[10px] font-semibold tracking-[0.18em] text-white/35 uppercase">
+									{t("credibilityLabel")}
+								</p>
+								<ul className="flex flex-wrap items-center gap-x-7 gap-y-2.5">
+									{CREDIBILITY.map(({ key, icon: Icon }) => (
+										<li
+											key={key}
+											className="flex items-center gap-2 text-[12px] font-medium text-white/55"
+										>
+											<Icon className="size-3.5 text-white/35" aria-hidden="true" />
+											{t(key)}
+										</li>
+									))}
+								</ul>
+							</div>
 						</div>
 
 						{/* Wave transition to Problem section */}

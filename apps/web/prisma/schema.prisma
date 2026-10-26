@@ -271,6 +271,7 @@ model FcrReport {
   pond Pond @relation(fields: [pondId], references: [id])
 
   @@index([pondId, periodStart])
+  @@index([pondId, periodEnd])
   @@index([farmId])
 }
 
@@ -428,6 +429,7 @@ model ScheduleCommand {
   pond    Pond         @relation(fields: [pondId], references: [id])
 
   @@index([deviceId, status])
+  @@index([deviceId, appliedAt])
   @@index([farmId])
 }
 

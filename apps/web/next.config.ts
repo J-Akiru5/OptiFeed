@@ -25,6 +25,9 @@ const vercelScript = "https://va.vercel-scripts.com";
 const securityHeaders = [
 	{ key: "X-Content-Type-Options", value: "nosniff" },
 	{ key: "X-Frame-Options", value: "DENY" },
+	// HSTS: one year, subdomains included. No `preload` — that is a separate
+	// owner decision and would be hard to undo.
+	{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
 	// "0" disables the legacy IE/Edge XSS auditor — "1; mode=block" can
 	// itself be abused to mute parts of a page (F-013).
 	{ key: "X-XSS-Protection", value: "0" },

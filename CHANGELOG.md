@@ -57,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - Password authentication replaces numeric PIN login. Existing accounts are forced to set a permanent password on next login; `password123` is accepted only as a temporary initial credential. Permanent passwords require 8+ characters with a letter and number, and a weak/medium/strong meter is shown on password-setting forms. Users can change their own password from Profile Settings.
+- Added `Strict-Transport-Security` (one year, subdomains included) and the missing `FcrReport(pondId, periodEnd)` / `ScheduleCommand(deviceId, appliedAt)` composite indexes from the August 2026 system audit. The finding-by-finding disposition is recorded in `docs/AUDIT-REMEDIATION-2026-10-26.md`.
 
 ## [1.11.0] - 2026-10-22
 

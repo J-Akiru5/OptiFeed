@@ -134,9 +134,9 @@ Use `Update` + `HTTPClient` + mbedtls SHA-256/ECDSA, not `HTTPUpdate`. `HTTPUpda
 | OTA-1 | Bootstrap path | **Decided (Jeff, 2026-10-26): Path A**, one last USB flash with `min_spiffs` |
 | OTA-2 | Does the physical feed button abort an OTA in progress? | **Decided: yes**, feeding wins over updating |
 | OTA-3 | Maintenance window and gap from scheduled feeds | **Decided: 10:00–15:00 local, at least 20 min from any scheduled feed** |
-| OTA-4 | Who holds the signing key, and where | Jeff, offline + encrypted backup |
-| OTA-5 | Production domain and CA for devices | `optifeed.syntaxure.dev` today (domain move to `pakaonai.syntaxure.dev` planned) |
-| OTA-6 | Stay on Arduino 2.0.17 or move to 3.3+ for built-in signed OTA | Stay on 2.0.17 for the bootstrap; revisit after the fleet is OTA-capable |
+| OTA-4 | Who holds the signing key, and where | **Decided:** Jeff. Plain PEM files (primary + spare) in `C:/Users/Lenovo/Documents/PakaonAI/ota-signing-keys`, backed up to Google Drive; generated 2026-10-26 |
+| OTA-5 | Production domain and CA for devices | **Decided: `pakaonai.syntaxure.dev`** (already live; the old domain returns 404). Same `*.syntaxure.dev` Let's Encrypt chain. |
+| OTA-6 | Stay on Arduino 2.0.17 or move to 3.3+ for built-in signed OTA | **Decided: stay on 2.0.17**, with zero deprecation warnings (T-14) |
 | OTA-7 | Keep LAN OTA in field builds? | **Decided: no** (LAN ArduinoOTA only behind `-DENABLE_LAN_OTA` for bench builds) |
 
 ## 9. Tasks

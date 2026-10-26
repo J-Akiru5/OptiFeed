@@ -13,7 +13,7 @@ and the owner's global OpenCode rules (`~/.config/opencode/AGENTS.md` + `instruc
 | D2 | **Tenant RBAC in Settings**: org owners/admins grant and revoke access (members, roles, per-member permissions). |
 | D3 | **Integration**: every task branch is reconciled into `integration/mission-2026-10-26`, verified there, and shipped as **one PR into `develop`**. Jeff merges it. Nobody merges into `develop`, `staging` or `main` during the mission. |
 | D4 | **Workers** run with the owner's full global permissions. The one hard restriction: **no deployment to `main`** (and, per the repo, no push to `main`/`staging`). Workers push only their own task branch and never merge. |
-| D5 | **Database**: no Docker. E2E and dev migrations run against a separate hosted **Supabase dev project** that Jeff creates. **Never the production database.** Until it exists, DB-dependent work is deferred, not faked. |
+| D5 | **Database (amended 2026-10-26)**: no Docker and no separate project. E2E and migrations run against the **production** Supabase project (`xjjnkikgkraixlfhhvoh`) while PakaonAI is not in operation (Jeff's go). Guardrails: a full backup before any migration, `prisma migrate deploy` only (never reset), E2E data prefixed `e2e-` and cleaned up afterwards, and workers never touch the database (the integrator runs DB steps). Staging shares this DB. |
 | D6 | **Firmware buttons**: GPIO 16 = Wi-Fi reset, 5 s hold (keeps identity). GPIO 17 = factory reset, 10 s hold (wipes NVS). Both to GND with internal pull-up. |
 | D7 | **Deployments: only `staging` (preview) and `main` (production).** `develop` is the reconciliation branch and is never deployed by any route (Vercel Git, CLI, SHA deploy, hook, CI). If a deployed preview is needed, promote `develop` to `staging`. Config change: PR #182. This overrides the global rule that `develop` deploys are pre-authorized. |
 | D8 | **Watch the other local agents and worktrees** every loop iteration (`orchestrator.mjs inventory`), never edit them, and keep the single source of truth current: `docs/SUPERADMIN-MULTITENANCY-PLAN.md` for decisions and phases, this file for mission state. |
@@ -37,16 +37,17 @@ Status: `todo` / `running` / `review` / `integrated` / `blocked`.
 | ID | Task | Depends on | Needs DB | Status |
 |---|---|---|---|---|
 | T-01 | Firmware reset buttons (D6) + sticker note | — | no | integrated, verified |
-| T-02 | Token reveal audit + rate limit (plan M3F.5) | — | no | running |
-| T-03 | Superadmin quick fixes (plan M3.9) | — | no | todo |
-| T-04 | Step-up re-auth + safe user delete (M3.2, M3.3, M3.10) | — | no | running |
-| T-05 | Tenancy negative-test harness + superadmin behavioural tests (M0.3, M3.11 tests) | — | no | todo |
+| T-02 | Token reveal audit + rate limit (plan M3F.5) | — | no | integrated, verified |
+| T-03 | Superadmin quick fixes (plan M3.9) | — | no | running |
+| T-04 | Step-up re-auth + safe user delete (M3.2, M3.3, M3.10) | — | no | integrated, verified |
+| T-05 | Tenancy negative-test harness + superadmin behavioural tests (M0.3, M3.11 tests) | — | no | running |
 | T-06 | RBAC: members and permissions in Settings, plus superadmin for any org (D1, D2, M2.7) | T-04 | no (mocked tests) | todo |
 | T-07 | Superadmin god mode: view-as (read-only) + remote feeder control (D1, M5.1, M5.2) | T-04 | no (mocked tests) | todo |
-| T-08 | E2E on the Supabase dev project: setup, seed, Playwright suites for all flows | T-01…T-07, D5 | **yes** | blocked on D5 |
+| T-08 | E2E on the production project with `e2e-` data (D5 amended): setup, seed, Playwright suites for all flows | T-01…T-07 | **yes** | todo (DB access ready) |
 | T-09 | UI/UX pass, shipped per page (admin, dashboard, superadmin, settings) | T-06, T-07 | no | todo |
 | T-10 | i18n for the superadmin pages (M3.11) | T-03, T-07 | no | todo |
 | T-11 | Offline PWA hardening + UX (D9) | T-09 | no (mocked + unit) | todo |
+| T-14 | Firmware hygiene: zero deprecation warnings (Arduino core 2.0.17 kept), server URLs baked to `https://pakaonai.syntaxure.dev`, `FW_VERSION` reported | — | no | todo |
 | T-12 | Remote firmware updates (OTA) for ESP32 (D10) | design done: `docs/firmware-ota-plan.md` | T-12c yes | **blocked on Jeff's decisions OTA-1…7** (T-12a/b); T-12c also on T-08 |
 
 ### T-01 Firmware reset buttons
@@ -139,6 +140,13 @@ Snapshot 2026-10-26 from `node ~/.config/opencode/bin/orchestrator.mjs inventory
 | `feat/landing-hero-cards` | `S:/Dev/optifeed/public-page-quality-review-873fdc` | 2 untracked files | Not touched. |
 | `fix/seed-identity-and-proxy-guard`, `feat/feed-calibration-integration`, `feat/design`, `fix/audit-remediation`, `claude/pakaonai-sticker-wifi-label-da3580`, `feature/superadmin-device-registry` | various | integrated into develop | Candidates for cleanup later; nothing is removed without Jeff's OK. |
 
+## Events
+
+- 2026-10-26: **RLS exposure check done** (read-only catalog query on production): no table is reachable by `anon`/`authenticated` without RLS. No hotfix needed.
+- 2026-10-26: **The domain move is already live.** The app uses `pakaonai.syntaxure.dev` (health OK). `optifeed.syntaxure.dev` now returns `404 DEPLOYMENT_NOT_FOUND`, so feeders flashed with the old URL are offline until their USB reflash (T-14 bakes in the new URL).
+- 2026-10-26: **The database password should be rotated.** An integrator command printed the production connection string into the agent transcript; nothing was sent externally.
+- 2026-10-26: OTA signing key pairs (primary + spare, ECDSA P-256) were generated in `C:/Users/Lenovo/Documents/PakaonAI/ota-signing-keys` (outside the repo). Jeff backs the folder up to Google Drive.
+
 ## Integration log
 
 Branch: `integration/mission-2026-10-26` (from `feature/superadmin-device-registry` @ `dce716d`, which contains PR #174 and PR #179).
@@ -146,4 +154,5 @@ Branch: `integration/mission-2026-10-26` (from `feature/superadmin-device-regist
 | When | Task | Commit merged | Checks on the integration branch | Notes |
 |---|---|---|---|---|
 | 2026-10-26 | develop | `e1fa17a` (PRs #174, #179, #180) | — | Brought the integration branch up to date with develop. |
+| 2026-10-26 | T-04 + T-02 | `380d4ef` via `e2c3ef7`; `75fc34e` via `de9e988` | lint ok, typecheck ok, 87 test files pass (pio not re-run: firmware unchanged since `752f126`) | T-04 step-up + reversible disable reviewed line by line. T-02 reveal audit + limiter. One textual conflict in `rate-limit.ts` (both added a limiter); both kept. |
 | 2026-10-26 | T-01 | `e755625` via `752f126` | lint ok, typecheck ok, 82 test files pass, `pio run` SUCCESS (flash 82.6 %) | Worker added the factory-wins suppression fix and corrected `docs/flash-plan.md`; reviewed and kept. Needs human OK and a reflash. |

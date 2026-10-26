@@ -57,6 +57,7 @@ These are decided. Do not reopen them.
 | T16 | *(2026-10-26)* **Token reveal is interim.** The tenant's "Show token" reveal of the stored plaintext token stays for now, because the setup portal needs the token typed in. Every reveal must be audited and rate-limited (M3F.5). Show-once tokens and dropping `EnergyDevice.token` remain the target (M4.3), after field units are reflashed. | — |
 | T17 | *(2026-10-26)* **Setup AP name is `PakaonAI-XXXX`**, XXXX = last four hex digits of the chip's **eFuse MAC** (replaces `PAKAON-XXXX` in §5.2). The device registry records that same MAC, so the printed sticker QR always matches the unit, including before identity is set. | — |
 | T19 | *(2026-10-26)* **Superadmin is god mode for the whole application** (resolves O9: T4 stands). Includes any org's members and permissions, view-as and remote feeder control. Guardrails stay: reason, audit, step-up, and the §6 safety caps. | — |
+| T23 | *(2026-10-26)* **No separate dev database.** E2E tests and migrations run against the production Supabase project while PakaonAI is not in operation (Jeff). Guardrails: a backup before every migration, E2E data prefixed `e2e-` and cleaned up, `migrate deploy` only (never reset). | — |
 | T20 | *(2026-10-26)* **Only `staging` (preview) and `main` (production) deploy.** `develop` is the reconciliation branch, validated by CI only (PR #182). | — |
 | T21 | *(2026-10-26)* **Remote firmware updates (OTA)** are required, because units sit on farms with no IT help. Design follows the ESP32 OTA research (mission T-12). | — |
 | T22 | *(2026-10-26)* **Firmware reset buttons on GPIO 16 (Wi-Fi, 5 s) and GPIO 17 (factory, 10 s)**, replacing the §5.3 proposal of 18/19. | — |
@@ -85,7 +86,7 @@ These are decided. Do not reopen them.
 
 | # | Finding | Evidence | Severity |
 |---|---|---|---|
-| N1 | RLS is enabled only on the core tables. No migration enables it on `PlatformAdmin`, `PlatformAuditLog`, `Organization`, `Membership`, `MembershipPermission`, `ImpersonationSession` (or `AiProviderConfig`, `BackgroundJob`, `JobArtifact`, the lockout and rate-limit tables). If the Data API exposes `public`, the public anon key could read or write them, including inserting a `PlatformAdmin` row. Live exposure **not checked** (T18). | migrations grep **(verified)**; live state **(open)** | **Critical if exposed** |
+| N1 | RLS is enabled only on the core tables. No migration enables it on `PlatformAdmin`, `PlatformAuditLog`, `Organization`, `Membership`, `MembershipPermission`, `ImpersonationSession` (or `AiProviderConfig`, `BackgroundJob`, `JobArtifact`, the lockout and rate-limit tables). If the Data API exposes `public`, the public anon key could read or write them, including inserting a `PlatformAdmin` row. **Checked live 2026-10-26 (T18): not exposed.** 17 of 32 public tables have RLS off (all platform tables included), but none grants SELECT or INSERT to `anon` or `authenticated`, so the Data API cannot reach them. `PondOwnershipHistory` grants anon/authenticated SELECT but has RLS on with a policy. | migrations grep + live catalog query **(verified)** | Low now; enabling RLS on them stays as defense in depth (M8.3) |
 | N2 | No MFA and no step-up anywhere: `PlatformAdmin.mfaEnrolledAt` and `PlatformAuditLog.stepUpAt` are never written. | grep **(verified)** | High (M3.2/M3.3 are defense items) |
 | N3 | Superadmin **delete user is an immediate hard delete** of the auth user and the whole farm subtree (ponds, devices, telemetry), with only a reason box to confirm. | `lib/actions/superadmin.ts` `deleteUser` → `deleteUserSubtree` **(verified)** | High |
 | N4 | Audit rows always use `targetType: "platform_console"`, never set `orgId`, `ip` or `userAgent`, and nothing reads `PlatformAuditLog` (no explorer, no export). | `superadmin.ts:67`, grep **(verified)** | Medium |
@@ -621,7 +622,7 @@ Then continue with the v1 order below, skipping what §2a lists as built.
 | O8 | Per-unit operating cost (cloud, SIM or WiFi, support), needed for a true payback figure. | §7.2 refresh |
 | O9 | *(v2, **resolved by T19**)* T4 stands: superadmin has remote feeder control (with step-up, audit and the §6 caps). | — |
 | O10 | *(v2)* When does staging/dev get its own database (M0.5)? | Safe testing of M3F, M7 |
-| O11 | *(v2)* Result of the RLS / Data API exposure check (T18). | M0.4 |
+| O11 | *(v2, **resolved 2026-10-26**)* RLS check done: no exposure (see N1). No hotfix migration needed. | — |
 | O12 | *(v2)* The benchmark rates missing MFA as High; T13 defers it to the commercial gate. Keep T13 as is, or pull MFA forward? (Not reopened here; Jeff's call.) | M8.1 timing |
 
 ---

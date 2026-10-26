@@ -68,6 +68,11 @@ pio device monitor -b 115200   # serial log
 CI runs `pio run -d firmware` for every firmware change; it never flashes or
 deploys.
 
+The build must stay warning-free for our own sketch (`firmware-main.ino`), including zero
+ArduinoJson deprecation warnings. The only warnings tolerated are two
+`extra tokens at end of #undef directive` lines emitted by OneWire 2.3.8, which is third-party
+library code this repository does not patch. Any other warning is a regression.
+
 ### Arduino IDE fallback
 
 If you must use the Arduino IDE, install these libraries manually:
@@ -80,12 +85,23 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 ```cpp
 #define DEFAULT_WIFI_SSID      "YOUR_WIFI_SSID"
 #define DEFAULT_WIFI_PASS      "YOUR_WIFI_PASSWORD"
-#define INGEST_URL             "https://your-deployed-url.com/api/ingest"
-#define FEED_POLL_URL_BASE     "https://your-deployed-url.com/api/feed-command"
-#define SCHEDULE_SYNC_URL_BASE "https://your-deployed-url.com/api/schedule-sync"
+#define INGEST_URL             "https://pakaonai.syntaxure.dev/api/ingest"
+#define FEED_POLL_URL_BASE     "https://pakaonai.syntaxure.dev/api/feed-command"
+#define SCHEDULE_SYNC_URL_BASE "https://pakaonai.syntaxure.dev/api/schedule-sync"
+#define FW_VERSION             "1.3.0"
 #define DEVICE_TOKEN           "esp32-tok-cict-001"
 #define DEVICE_MAC             "A4:CF:12:7E:3B:09"
 ```
+
+> The three URLs are baked to the production host `https://pakaonai.syntaxure.dev`. The previous
+> hosts (`optifeed.example.com`, then `optifeed.syntaxure.dev`) are dead: a unit flashed with an old
+> build cannot reach the backend until it is reflashed, because the URL is compile-time, not NVS.
+> TLS still pins a single root, ISRG Root X1; the production chain currently validates through its
+> cross-sign. Carrying several roots and changing the partition table is separate work.
+
+> `FW_VERSION` is printed at boot (`[FIRMWARE] v...`, next to the `[DEVICE MAC]` line) and sent as
+> `firmware_version` in every heartbeat. It is diagnostic only: the server's heartbeat schema does
+> not store it yet.
 
 > The `?device_id=...` query on the poll and schedule endpoints is appended at runtime from the
 > provisioned identity, so one binary works for every unit.
@@ -203,9 +219,14 @@ Hold the physical feed button (**GPIO 27**, wired to GND) during boot for at lea
   "event_type": "heartbeat",
   "timestamp": "2026-07-11T12:00:00+00:00",
   "rtc_ok": true,
-  "feeder_active": false
+  "feeder_active": false,
+  "firmware_version": "1.3.0"
 }
 ```
+
+> `firmware_version` is optional and additive. The ingest route parses the body with a Zod object
+> schema (`apps/web/app/api/ingest/route.ts`), which strips keys it does not declare, so older and
+> newer units both keep working and nothing is persisted from this field yet.
 
 **Feed dispensed**:
 ```json
@@ -294,17 +315,19 @@ Portal checks (no backend needed):
    `DEVICE_TOKEN`: the portal does not start.
 9. Confirm the serial log never prints the WiFi password or the Device Token, and that
    the setup page never renders a stored token.
+10. Confirm the boot log prints `[FIRMWARE] v1.3.0` directly under the `[DEVICE MAC]` line,
+    and that a heartbeat carries the same value in `firmware_version`.
 
-After flashing, test the API endpoints against your deployed backend:
+After flashing, test the API endpoints against the production backend:
 
 ```bash
 # Test heartbeat ingest (expect 204 No Content)
-curl -X POST https://your-deployed-url.com/api/ingest \
+curl -X POST https://pakaonai.syntaxure.dev/api/ingest \
   -H "Content-Type: application/json" \
   -H "X-Device-Token: esp32-tok-cict-001" \
-  -d '{"device_id":"A4:CF:12:7E:3B:09","event_type":"heartbeat","timestamp":"2026-07-11T12:00:00Z","rtc_ok":true,"feeder_active":false}'
+  -d '{"device_id":"A4:CF:12:7E:3B:09","event_type":"heartbeat","timestamp":"2026-07-11T12:00:00Z","rtc_ok":true,"feeder_active":false,"firmware_version":"1.3.0"}'
 
 # Test feed command polling (expect feed_requested: false)
-curl https://your-deployed-url.com/api/feed-command?device_id=A4:CF:12:7E:3B:09 \
+curl https://pakaonai.syntaxure.dev/api/feed-command?device_id=A4:CF:12:7E:3B:09 \
   -H "X-Device-Token: esp32-tok-cict-001"
 ```

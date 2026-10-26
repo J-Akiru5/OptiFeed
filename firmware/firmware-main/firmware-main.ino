@@ -53,11 +53,18 @@
 #define PROVISIONING_AP_PREFIX "PakaonAI-"
 
 // ==================== Config — fill in before flashing ====================
-#define INGEST_URL      "https://optifeed.example.com/api/ingest"
+// Production backend. The old host (optifeed.example.com, then
+// optifeed.syntaxure.dev) now returns 404, so a unit flashed with this build is
+// the only way an existing feeder gets back online; NVS identity is untouched.
+#define INGEST_URL      "https://pakaonai.syntaxure.dev/api/ingest"
 // The ?device_id=... query is appended at runtime from the active identity,
 // so one binary works for every unit.
-#define FEED_POLL_URL_BASE     "https://optifeed.example.com/api/feed-command"
-#define SCHEDULE_SYNC_URL_BASE "https://optifeed.example.com/api/schedule-sync"
+#define FEED_POLL_URL_BASE     "https://pakaonai.syntaxure.dev/api/feed-command"
+#define SCHEDULE_SYNC_URL_BASE "https://pakaonai.syntaxure.dev/api/schedule-sync"
+
+// Reported at boot and in the heartbeat body so the fleet (and the future OTA
+// rollout) can tell builds apart. Bump on every firmware change.
+#define FW_VERSION "1.3.0"
 
 // Fallback device identity. Once the setup portal saves an identity these
 // compile-time values are superseded by NVS keys device_id / device_token.
@@ -841,6 +848,7 @@ void setup() {
 
   Serial.print("[DEVICE MAC] ");
   Serial.println(chipMacString());
+  Serial.printf("[FIRMWARE] v%s\n", FW_VERSION);
 
   // Task watchdog — a hung loop() reboots the board; boot already forced RELAY_OFF.
 #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
@@ -945,7 +953,7 @@ void reportFeedError(const char* reason, float grams, const char* source) {
   if (!beginHttps(https, INGEST_URL)) return;
   https.addHeader("Content-Type", "application/json");
   https.addHeader("X-Device-Token", provisionedDeviceToken);
-  StaticJsonDocument<256> doc;
+  JsonDocument doc;
   doc["device_id"]  = provisionedDeviceId;
   doc["event_type"] = "feed_refused";
   doc["event_id"]   = generateEventId();
@@ -965,33 +973,33 @@ void reportFeedError(const char* reason, float grams, const char* source) {
 // ignore the whole response (no stores, no dispense, no schedule update).
 bool validateServerConfig(const JsonDocument &doc) {
   float v;
-  if (doc.containsKey("grams_per_feeding")) {
+  if (doc["grams_per_feeding"].is<float>()) {
     v = doc["grams_per_feeding"];
     if (!(v >= GRAMS_PER_FEEDING_MIN && v <= GRAMS_PER_FEEDING_MAX)) return false;
   }
-  if (doc.containsKey("button_feed_grams")) {
+  if (doc["button_feed_grams"].is<float>()) {
     v = doc["button_feed_grams"];
     if (!(v >= BUTTON_FEED_GRAMS_MIN && v <= BUTTON_FEED_GRAMS_MAX)) return false;
   }
-  if (doc.containsKey("grams_per_second")) {
+  if (doc["grams_per_second"].is<float>()) {
     v = doc["grams_per_second"];
     if (!(v >= GRAMS_PER_SECOND_MIN && v <= GRAMS_PER_SECOND_MAX)) return false;
   }
-  if (doc.containsKey("temp_offset_c")) {
+  if (doc["temp_offset_c"].is<float>()) {
     v = doc["temp_offset_c"];
     if (!(v >= TEMP_OFFSET_C_MIN && v <= TEMP_OFFSET_C_MAX)) return false;
   }
-  if (doc.containsKey("hopper_full_cm")) {
+  if (doc["hopper_full_cm"].is<float>()) {
     v = doc["hopper_full_cm"];
     if (!(v > 0 && v <= HOPPER_CM_MAX)) return false;
   }
-  if (doc.containsKey("hopper_empty_cm")) {
+  if (doc["hopper_empty_cm"].is<float>()) {
     v = doc["hopper_empty_cm"];
     if (!(v > 0 && v <= HOPPER_CM_MAX)) return false;
   }
   // Cross-field: hopper full distance must be nearer than the empty distance.
-  float fullCm = doc.containsKey("hopper_full_cm") ? (float)doc["hopper_full_cm"] : hopperFullCm;
-  float emptyCm = doc.containsKey("hopper_empty_cm") ? (float)doc["hopper_empty_cm"] : hopperEmptyCm;
+  float fullCm = doc["hopper_full_cm"].is<float>() ? (float)doc["hopper_full_cm"] : hopperFullCm;
+  float emptyCm = doc["hopper_empty_cm"].is<float>() ? (float)doc["hopper_empty_cm"] : hopperEmptyCm;
   if (fullCm >= emptyCm) return false;
   return true;
 }
@@ -1076,39 +1084,39 @@ void pollDashboardFeedCommand() {
   https.addHeader("X-Device-Token", provisionedDeviceToken);
   int code = https.GET();
   if (code == 200) {
-    StaticJsonDocument<256> doc;
+    JsonDocument doc;
     if (!deserializeJson(doc, https.getString())) {
       if (!validateServerConfig(doc)) {
         // N9: ignore the whole config when any pushed value is out of range.
         Serial.println("[POLL] invalid config from server — ignoring whole response");
       } else {
-        if (doc.containsKey("grams_per_feeding")) {
+        if (doc["grams_per_feeding"].is<float>()) {
           cachedScheduledGrams = doc["grams_per_feeding"] | cachedScheduledGrams;
         }
         // Dynamic button dose — overrides compile-time default.
         // The backend returns button_feed_grams from EnergyDevice.buttonFeedGrams.
-        if (doc.containsKey("button_feed_grams")) {
+        if (doc["button_feed_grams"].is<float>()) {
           float bfg = doc["button_feed_grams"];
           if (bfg > 0) {
             cachedButtonFeedGrams = bfg;
           }
         }
         // Hopper calibration — overrides compile-time defaults
-        if (doc.containsKey("hopper_full_cm")) {
+        if (doc["hopper_full_cm"].is<float>()) {
           float hf = doc["hopper_full_cm"];
           if (hf > 0) hopperFullCm = hf;
         }
-        if (doc.containsKey("hopper_empty_cm")) {
+        if (doc["hopper_empty_cm"].is<float>()) {
           float he = doc["hopper_empty_cm"];
           if (he > 0) hopperEmptyCm = he;
         }
         // Duration calibration — motor dispense rate
-        if (doc.containsKey("grams_per_second")) {
+        if (doc["grams_per_second"].is<float>()) {
           float gps = doc["grams_per_second"];
           if (gps > 0) gramsPerSecond = gps;
         }
         // Temperature calibration offset
-        if (doc.containsKey("temp_offset_c")) {
+        if (doc["temp_offset_c"].is<float>()) {
           tempOffsetC = doc["temp_offset_c"];
         }
         bool requested = doc["feed_requested"] | false;
@@ -1166,8 +1174,9 @@ void pollScheduleCommand() {
   https.addHeader("X-Device-Token", provisionedDeviceToken);
   int code = https.GET();
   if (code == 200) {
-    // Need a larger buffer for schedule data (times, counts, rates)
-    StaticJsonDocument<768> doc;
+    // Schedule payloads are larger than the feed-command ones (times, counts,
+    // rates); JsonDocument grows on demand, so no capacity constant is needed.
+    JsonDocument doc;
     if (!deserializeJson(doc, https.getString())) {
       // Clock sync (#149): a manual calibration wins for 10 minutes; otherwise
       // correct RTC drift from the server clock. Both are UTC instants.
@@ -1215,20 +1224,20 @@ void pollScheduleCommand() {
                         feedsPerDay, startStr, endStr);
 
           // Also update scheduled grams if feeding_rate_pct provided
-          if (doc.containsKey("grams_per_feeding")) {
+          if (doc["grams_per_feeding"].is<float>()) {
             cachedScheduledGrams = doc["grams_per_feeding"] | cachedScheduledGrams;
           }
-          if (doc.containsKey("button_feed_grams")) {
+          if (doc["button_feed_grams"].is<float>()) {
             float bfg = doc["button_feed_grams"];
             if (bfg > 0) cachedButtonFeedGrams = bfg;
           }
           // Duration calibration — motor dispense rate
-          if (doc.containsKey("grams_per_second")) {
+          if (doc["grams_per_second"].is<float>()) {
             float gps = doc["grams_per_second"];
             if (gps > 0) gramsPerSecond = gps;
           }
           // Temperature calibration offset
-          if (doc.containsKey("temp_offset_c")) {
+          if (doc["temp_offset_c"].is<float>()) {
             tempOffsetC = doc["temp_offset_c"];
           }
 
@@ -1251,7 +1260,7 @@ void postScheduleAck(const String &commandId) {
   https.addHeader("X-Device-Token", provisionedDeviceToken);
 
   String eventId = generateEventId();
-  StaticJsonDocument<192> doc;
+  JsonDocument doc;
   doc["device_id"]   = provisionedDeviceId;
   doc["event_type"]  = "schedule_acked";
   doc["event_id"]    = eventId;
@@ -1354,7 +1363,7 @@ bool postFeedEvent(QueuedEvent &ev) {
 
   // eventId was generated once when this event was enqueued; retries of the
   // same queued event must resend the same id so the server can dedupe.
-  StaticJsonDocument<256> doc;
+  JsonDocument doc;
   doc["device_id"]       = provisionedDeviceId;
   doc["event_type"]      = "feed_dispensed";
   doc["event_id"]        = ev.eventId;
@@ -1378,9 +1387,10 @@ void sendTelemetry() {
   https.addHeader("X-Device-Token", provisionedDeviceToken);
 
   String eventId = generateEventId();
-  StaticJsonDocument<512> doc;
+  JsonDocument doc;
   doc["device_id"]         = provisionedDeviceId;
   doc["event_type"]        = "heartbeat";
+  doc["firmware_version"]  = FW_VERSION;
   doc["event_id"]          = eventId;
   doc["timestamp"]         = rtcAvailable ? getRTCiso8601() : "unknown";
   doc["rtc_ok"]            = rtcAvailable;

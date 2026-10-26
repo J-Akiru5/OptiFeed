@@ -43,7 +43,7 @@ Status: `todo` / `running` / `review` / `integrated` / `blocked`.
 | T-05 | Tenancy negative-test harness + superadmin behavioural tests (M0.3, M3.11 tests) | — | no | integrated, verified |
 | T-06 | RBAC: members and permissions in Settings, plus superadmin for any org (D1, D2, M2.7) | T-04 | no (mocked tests) | integrated, verified |
 | T-07 | Superadmin god mode: view-as (read-only) + remote feeder control (D1, M5.1, M5.2) | T-04 | no (mocked tests) | integrated, verified |
-| T-08 | E2E on the production project with `e2e-` data (D5 amended): setup, seed, Playwright suites for all flows | T-01…T-07 | **yes** | code running (isolated e2e- fixtures; demo account never touched); integrator runs it |
+| T-08 | E2E on the production project with `e2e-` data (D5 amended): setup, seed, Playwright suites for all flows | T-01…T-07 | **yes** | integrated, verified: run 2 on production 32 passed / 0 failed / 4 skipped (legacy no-login specs), cleanup verified |
 | T-09 | UI/UX pass, shipped per page (admin, dashboard, superadmin, settings) | T-06, T-07 | no | T-09a, T-09b, T-09c, T-09d integrated, verified (browser checks via T-08) |
 | T-10 | i18n for the superadmin pages (M3.11) | T-03, T-07 | no | integrated, verified |
 | T-11 | Offline PWA hardening + UX (D9) | T-09 | no (mocked + unit) | integrated, verified (browser offline specs via T-08) |
@@ -103,6 +103,30 @@ Status: `todo` / `running` / `review` / `integrated` / `blocked`.
   - remote feed caps
   - the existing suites
 
+#### E2E results on production (2026-10-26/27, integrator)
+
+Both runs: `next start` of a local production build against the production DB, seeded `e2e-` fixtures, one Chromium worker, cleanup always run, then a cleanup dry-run and an exact row count of all 32 public tables.
+
+| Spec | Run 1 (`a43a884`) | Run 2 (`f28e54e`) |
+|---|---|---|
+| admin-devices-sticker | pass | pass |
+| auth (5) | pass | pass |
+| dashboard-actions (6) | 4 pass, 2 skip | 4 pass, 2 skip |
+| fab-overlap (12) | pass | pass |
+| log-sample | **fail** (spec: text also in sr-only caption) | pass |
+| offline-pwa | **fail** (product bug below) | pass |
+| pond-switching (3) | 1 pass, 2 skip | 1 pass, 2 skip |
+| rbac-settings | pass | pass |
+| remote-feed-caps | pass | pass |
+| search-loop (5 → 3) | **4 fail** (stale: growth search moved; duplicate hidden input) | pass |
+| superadmin-device-registry | pass | pass |
+| view-as-read-only | **fail** (product bug below) | pass |
+| **Total** | 27 pass, 7 fail, 4 skip | **32 pass, 0 fail, 4 skip** |
+
+- **Product bug found and fixed (`f28e54e`)**: dashboard home, Schedule and Hardware settings required a row in the deprecated `Device` table, which nothing writes any more. Every pond registered through the superadmin registry showed "No pond is assigned yet". They now gate on `EnergyDevice`.
+- The 4 skips are pre-mission specs that skip when not logged in (they never log in). Not regressions.
+- Cleanup: the final dry-run lists nothing in both runs. Row counts are equal before/after except `PlatformAuditLog` (+4, +5: append-only, kept by design) and `rate_limit_bucket`. Run 1 left 8 bucket rows. Cleanup now also deletes buckets keyed by an e2e user id or a loopback login. In run 2 it deleted 70: this run's own rows, run 1's 8 rows, and older loopback login counters from earlier local runs. These are transient counters, not user data.
+
 ### T-09 UI/UX pass (per page)
 - One branch per page group: `T-09a` admin, `T-09b` dashboard, `T-09c` superadmin, `T-09d` settings.
 - Responsive at 375 px and 1280 px, consistent spacing and typography, loading and empty states, focus and contrast (WCAG AA), no layout shift. Reuse the existing components and tokens; no new design system.
@@ -156,6 +180,8 @@ Branch: `integration/mission-2026-10-26` (from `feature/superadmin-device-regist
 
 | When | Task | Commit merged | Checks on the integration branch | Notes |
 |---|---|---|---|---|
+| 2026-10-27 | T-08 fixes | `f28e54e` | lint ok, typecheck ok, 126 test files / 1315 tests pass, production E2E run 2: 32/0/4 | Dashboard pages gate on EnergyDevice (product bug from E2E run 1); cleanup removes e2e rate-limit buckets; stale specs updated. |
+| 2026-10-26 | T-08 cleanup fix | `a43a884` | lint ok, typecheck ok, 126 test files pass | Cleanup counts append-only PlatformAuditLog rows instead of deleting them. |
 | 2026-10-26 | develop | `e1fa17a` (PRs #174, #179, #180) | — | Brought the integration branch up to date with develop. |
 | 2026-10-26 | T-09d | `5d80536`,`a430488` via `93bd9eb` | lint ok, typecheck ok, 125 test files pass | No logic/PWA files. Hardware recovery copy now names the Wi-Fi reset button (matches D6). Hopper % shows a dash when unknown. |
 | 2026-10-26 | T-11 | `c4b2bef`..`67f061e` via `453f808` | lint ok, typecheck ok, 122 test files pass | Also touched 3 feeder controls (EnergyControllerCard, ScheduleControls, StuckRequestBanner): reviewed, purely additive offline guards (disable + reason). |

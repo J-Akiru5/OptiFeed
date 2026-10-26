@@ -124,6 +124,12 @@ load tests) against staging; use a local database. See
 settings page only shows the AP name and instructions; WiFi credentials are
 never sent to or stored on the server. See `docs/wifi-provisioning-plan.md`.
 
+**Registering devices:** only platform admins register units, at
+`/superadmin/devices` (plan v2, T15): chip MAC from the boot log, label, org and
+pond, reason. The token is shown once; the sticker never carries it. Procedure:
+`firmware/README.md` → "Registering a new unit". Never test registration or
+token rotation on a preview: previews write to the production database.
+
 ## 7. Working alongside another developer
 
 - One task, one branch, one owner. Never share a working branch.

@@ -121,6 +121,23 @@ The setup access point starts when:
 - five consecutive station join attempts fail (for example, the router is off or the
   saved password changed).
 
+### Registering a new unit (platform admin)
+
+Do this once per unit, before it ships, in this order:
+
+1. Flash the firmware and read the **`[DEVICE MAC]`** line from the boot log. That is the
+   chip's eFuse MAC: the setup AP name and the sticker are both built from it.
+2. In **Superadmin → Devices → Register device**, enter that MAC, a label, the organization and
+   the pond, and a reason. The device token is shown **once**: copy it straight into the next step.
+3. Power the unit with no WiFi saved, join `PakaonAI-XXXX`, open `http://192.168.4.1`, and enter
+   the farm WiFi plus **Device ID** = the MAC and **Device Token** = the token from step 2.
+4. Print the sticker (**Print sticker** in the same row) and stick it on the box.
+5. Check that the AP name the unit broadcasts matches the SSID on the sticker, and that the unit
+   shows as online in the tenant's Admin → Devices.
+
+The sticker never carries the token. If the token is lost, use **Rotate token**: the old one stops
+working at once, so re-enter the new one in the setup portal.
+
 ### Connecting
 
 1. On a phone or laptop, join the open access point **`PakaonAI-XXXX`**, where `XXXX`

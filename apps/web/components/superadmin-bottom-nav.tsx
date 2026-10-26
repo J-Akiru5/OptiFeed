@@ -2,17 +2,19 @@
 
 import { Link, usePathname } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
-import { BarChart3, Droplets, FolderTree, Users } from "lucide-react";
+import { BarChart3, Cpu, Droplets, FolderTree, Users } from "lucide-react";
 
 /**
  * Platform console navigation below `lg`, where SuperadminSidebar is hidden.
- * Mirrors the sidebar's read-only scope: no Devices / Schedule / Settings.
+ * Mirrors the sidebar's scope: no Schedule / Settings. Devices is the hardware
+ * registry, not a control surface.
  */
 const navItems = [
 	{ href: "/superadmin", label: "Overview", icon: BarChart3 },
 	{ href: "/superadmin/users", label: "Users", icon: Users },
 	{ href: "/superadmin/orgs", label: "Organizations", icon: FolderTree },
 	{ href: "/superadmin/ponds", label: "Ponds", icon: Droplets },
+	{ href: "/superadmin/devices", label: "Devices", icon: Cpu },
 ];
 
 export function SuperadminBottomNav() {

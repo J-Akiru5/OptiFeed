@@ -5,7 +5,16 @@ import { clearOfflineData } from "@/lib/offline/db";
 import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { BarChart3, Droplets, FolderTree, Loader2, LogOut, Sparkles, Users } from "lucide-react";
+import {
+	BarChart3,
+	Cpu,
+	Droplets,
+	FolderTree,
+	Loader2,
+	LogOut,
+	Sparkles,
+	Users,
+} from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
@@ -13,15 +22,19 @@ const navItems = [
 	{ href: "/superadmin/users", label: "Users", icon: Users },
 	{ href: "/superadmin/orgs", label: "Organizations", icon: FolderTree },
 	{ href: "/superadmin/ponds", label: "Ponds", icon: Droplets },
+	{ href: "/superadmin/devices", label: "Devices", icon: Cpu },
 	{ href: "/superadmin/ai-providers", label: "AI Providers", icon: Sparkles },
 ];
 
 /**
  * Platform console navigation.
  *
- * Intentionally has no Devices / Schedule / Hierarchy / Settings entries: the
+ * Intentionally has no Schedule / Hierarchy / Settings entries: the
  * superadmin is read-only on farm operations (3-tier model, no interference
  * in farmer work). Ponds here is a visibility table, not a control surface.
+ *
+ * Devices is the hardware registry (plan v2, M3F): register units, rotate
+ * tokens and print stickers. It has no feed, schedule or control function.
  *
  * AI Providers is the one configuration surface, and it is platform-level only:
  * it controls the model chain every tenant shares, not any farm's data.

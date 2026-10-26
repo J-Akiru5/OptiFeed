@@ -1,5 +1,6 @@
 "use client";
 
+import { CredibilityTicker } from "@/components/landing/CredibilityTicker";
 import { DashboardPreview } from "@/components/landing/DashboardPreview";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { LANDING_SECTIONS, LandingHeader } from "@/components/landing/LandingHeader";
@@ -223,51 +224,33 @@ export default function LandingPage() {
 							</Reveal>
 						</div>
 
-						{/* Credibility strip — animated marquee */}
-						<div className="relative border-t border-white/10 overflow-hidden">
-							<div className={cn(container, "py-3.5")}>
-								<p className="mb-2.5 text-[10px] font-semibold tracking-[0.18em] text-white/35 uppercase">
-									{t("credibilityLabel")}
-								</p>
-							</div>
-							{/* Marquee track — duplicated for seamless loop */}
-							<div className="relative flex overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
-								<ul
-									aria-hidden="true"
-									className="credibility-marquee flex shrink-0 items-center gap-x-10 pb-4 pr-10"
-								>
-									{[...CREDIBILITY, ...CREDIBILITY].map(({ key, icon: Icon }, i) => (
-										<li
-											// biome-ignore lint/suspicious/noArrayIndexKey: static duplicate list for marquee
-											key={`${key}-${i}`}
-											className="flex shrink-0 items-center gap-2 text-[12px] font-medium text-white/55"
-										>
-											<Icon className="size-3.5 text-white/35" aria-hidden="true" />
-											{t(key)}
-										</li>
-									))}
-								</ul>
-								{/* Second copy for seamless loop */}
-								<ul
-									aria-hidden="true"
-									className="credibility-marquee flex shrink-0 items-center gap-x-10 pb-4 pr-10"
-								>
-									{[...CREDIBILITY, ...CREDIBILITY].map(({ key, icon: Icon }, i) => (
-										<li
-											// biome-ignore lint/suspicious/noArrayIndexKey: static duplicate list for marquee
-											key={`${key}-copy-${i}`}
-											className="flex shrink-0 items-center gap-2 text-[12px] font-medium text-white/55"
-										>
-											<Icon className="size-3.5 text-white/35" aria-hidden="true" />
-											{t(key)}
-										</li>
-									))}
-								</ul>
+						{/* Wave acts as the decorative divider, then the 2-col ticker below */}
+						<div className="relative">
+							<Wave
+								flip
+								layered
+								variant="b"
+								className="relative translate-y-0 text-[#061B2B]/60 dark:text-[#061B2B]/60"
+							/>
+							<div className="bg-white/[0.03]">
+								<CredibilityTicker
+									builtAtLabel={t("credibilityLabel")}
+									items={CREDIBILITY.map(({ key, icon }) => ({
+										key,
+										icon,
+										label: t(key),
+									}))}
+								/>
 							</div>
 						</div>
 
 						{/* Wave transition to Problem section */}
-						<Wave flip layered variant="b" className="bottom-0 translate-y-full text-[#F7F9F8] dark:text-[#070D13]" />
+						<Wave
+							flip
+							layered
+							variant="a"
+							className="bottom-0 translate-y-full text-[#F7F9F8] dark:text-[#070D13]"
+						/>
 					</section>
 
 					{/* Problem */}

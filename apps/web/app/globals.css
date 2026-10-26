@@ -194,23 +194,24 @@
 	animation: wave-drift 30s linear infinite;
 }
 
-/* Hero credibility strip: continuous left-scroll marquee. */
-@keyframes credibility-scroll {
+/* Hero credibility strip: continuous bottom-to-top ticker column. */
+@keyframes ticker-col-scroll {
 	from {
-		transform: translateX(0);
+		transform: translateY(0);
 	}
 	to {
-		transform: translateX(-100%);
+		/* Translate up by exactly half the strip (one full original list) */
+		transform: translateY(calc(var(--ticker-strip-h) * -0.5));
 	}
 }
 
-.credibility-marquee {
-	animation: credibility-scroll 22s linear infinite;
+.ticker-col-scroll {
+	animation: ticker-col-scroll var(--ticker-duration) var(--ticker-delay) linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
 	.wave-drift,
-	.credibility-marquee {
+	.ticker-col-scroll {
 		animation: none;
 	}
 }

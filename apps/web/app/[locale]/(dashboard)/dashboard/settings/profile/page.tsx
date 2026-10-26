@@ -1,13 +1,16 @@
 import { ChangePasswordForm } from "@/components/change-password-form";
 import { NotificationPrefsForm } from "@/components/notification-prefs-form";
+import { Link } from "@/i18n/routing";
 import { getCurrentUser } from "@/lib/auth/session";
+import { DPO_EMAIL, LEGAL_APP_RELEASE, LEGAL_PUBLISHED, LEGAL_VERSION } from "@/lib/legal/config";
 import { getActivePond } from "@/lib/pond-selection";
 import { createClient } from "@/lib/supabase/server";
-import { Shield, User } from "lucide-react";
+import { FileText, Shield, User } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export default async function ProfileSettingsPage() {
 	const t = await getTranslations("dashboard.profileSettings");
+	const tLegal = await getTranslations("legal");
 
 	const supabase = await createClient();
 	const {
@@ -133,6 +136,48 @@ export default async function ProfileSettingsPage() {
 
 					<ChangePasswordForm />
 				</section>
+
+				{LEGAL_PUBLISHED ? (
+					<section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
+						<div className="mb-5 border-b border-gray-100 pb-4 dark:border-gray-700/50">
+							<h2 className="flex items-center gap-2 text-xl font-semibold text-gray-800 dark:text-gray-100">
+								<FileText size={20} />
+								{tLegal("profileTitle")}
+							</h2>
+							<p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+								{tLegal("profileDesc")}
+							</p>
+						</div>
+
+						<div className="flex flex-col gap-2 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+							<Link
+								href="/privacy"
+								className="font-medium text-[var(--ofd-base)] underline underline-offset-2 hover:text-[#E85A2A]"
+							>
+								{tLegal("privacy")}
+							</Link>
+							<Link
+								href="/terms"
+								className="font-medium text-[var(--ofd-base)] underline underline-offset-2 hover:text-[#E85A2A]"
+							>
+								{tLegal("terms")}
+							</Link>
+							<a
+								href={`mailto:${DPO_EMAIL}`}
+								className="font-medium text-[var(--ofd-base)] underline underline-offset-2 hover:text-[#E85A2A]"
+							>
+								{tLegal("privacyContact")}
+							</a>
+						</div>
+
+						<p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
+							{tLegal("profileVersion", {
+								version: LEGAL_VERSION,
+								release: LEGAL_APP_RELEASE,
+							})}
+						</p>
+					</section>
+				) : null}
 
 				{/* Notification Preferences */}
 				<NotificationPrefsForm

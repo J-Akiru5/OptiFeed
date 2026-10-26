@@ -17,7 +17,7 @@ const inter = Inter({
 	variable: "--font-inter",
 });
 
-const SITE_URL = "https://optifeed.syntaxure.dev";
+const SITE_URL = "https://pakaonai.syntaxure.dev";
 const OG_IMAGE_ALT = "PakaonAI — AI-powered smart feeding for catfish farms";
 
 export const metadata: Metadata = {

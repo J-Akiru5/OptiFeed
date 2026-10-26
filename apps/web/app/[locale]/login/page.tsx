@@ -2,8 +2,9 @@
 
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { useTheme } from "@/components/theme-provider";
-import { usePathname, useRouter } from "@/i18n/routing";
+import { Link, usePathname, useRouter } from "@/i18n/routing";
 import { loginWithPassword } from "@/lib/actions/auth";
+import { DPO_EMAIL, LEGAL_PUBLISHED } from "@/lib/legal/config";
 import { clearOfflineData } from "@/lib/offline/db";
 import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
 import { createClient } from "@/lib/supabase/client";
@@ -49,6 +50,7 @@ export default function LoginPage() {
 	const locale = useLocale();
 	const t = useTranslations("login");
 	const tBtn = useTranslations("button");
+	const tLegal = useTranslations("legal");
 	const { resolvedTheme, setTheme } = useTheme();
 
 	const [farmId, setFarmId] = useState("");
@@ -410,6 +412,26 @@ export default function LoginPage() {
 							</button>
 						</form>
 
+						{LEGAL_PUBLISHED ? (
+							<p className="mt-4 text-center text-[11.5px] leading-5 text-slate-500 dark:text-slate-400">
+								{tLegal("agreePrefix")}{" "}
+								<Link
+									href="/privacy"
+									className="font-medium text-[#0A3D62] underline decoration-[#0A3D62]/25 underline-offset-2 hover:text-[#E85A2A] dark:text-[#8EC5EF] dark:hover:text-[#FF8A5C]"
+								>
+									{tLegal("privacy")}
+								</Link>{" "}
+								{tLegal("and")}{" "}
+								<Link
+									href="/terms"
+									className="font-medium text-[#0A3D62] underline decoration-[#0A3D62]/25 underline-offset-2 hover:text-[#E85A2A] dark:text-[#8EC5EF] dark:hover:text-[#FF8A5C]"
+								>
+									{tLegal("terms")}
+								</Link>
+								.
+							</p>
+						) : null}
+
 						<p className="mt-5 flex items-start gap-2 text-[11.5px] leading-4 text-slate-500 dark:text-slate-400">
 							<ShieldCheck className="mt-px size-3.5 shrink-0" aria-hidden="true" />
 							{t("securityNote")}
@@ -429,6 +451,32 @@ export default function LoginPage() {
 						</button>
 
 						<p className="order-last w-full sm:w-auto lg:order-none">{t("footer")}</p>
+
+						{LEGAL_PUBLISHED ? (
+							<nav
+								aria-label={tLegal("legalNav")}
+								className="flex flex-wrap items-center gap-x-4 gap-y-1"
+							>
+								<Link
+									href="/privacy"
+									className="font-medium hover:text-[#0A3D62] dark:hover:text-white"
+								>
+									{tLegal("privacy")}
+								</Link>
+								<Link
+									href="/terms"
+									className="font-medium hover:text-[#0A3D62] dark:hover:text-white"
+								>
+									{tLegal("terms")}
+								</Link>
+								<a
+									href={`mailto:${DPO_EMAIL}`}
+									className="font-medium hover:text-[#0A3D62] dark:hover:text-white"
+								>
+									{tLegal("privacyContact")}
+								</a>
+							</nav>
+						) : null}
 
 						<fieldset className="m-0 ml-auto flex min-w-0 items-center rounded-md border border-[#DCE5E1] p-0.5 dark:border-white/10">
 							<legend className="sr-only">{t("languageLabel")}</legend>

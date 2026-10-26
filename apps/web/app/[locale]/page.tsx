@@ -9,6 +9,7 @@ import { CountUp, Reveal, RevealItem, RevealList } from "@/components/landing/Re
 import { Wave } from "@/components/landing/Wave";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { Link } from "@/i18n/routing";
+import { DPO_EMAIL, LEGAL_APP_RELEASE, LEGAL_PUBLISHED, LEGAL_VERSION } from "@/lib/legal/config";
 import { cn } from "@/lib/utils";
 import {
 	ArrowRight,
@@ -124,6 +125,7 @@ function ComparisonStatus({ value }: { value: StatusValue }) {
 export default function LandingPage() {
 	const t = useTranslations("landing");
 	const tBtn = useTranslations("button");
+	const tLegal = useTranslations("legal");
 
 	return (
 		<MotionConfig reducedMotion="user">
@@ -868,6 +870,35 @@ export default function LandingPage() {
 
 								<LocaleSwitcher variant="dark" />
 							</div>
+
+							{LEGAL_PUBLISHED ? (
+								<div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-white/10 pt-5 text-[10.5px] text-white/45">
+									<Link
+										href="/privacy"
+										className={cn("rounded-md transition-colors hover:text-white", focusRingOnDark)}
+									>
+										{tLegal("privacy")}
+									</Link>
+									<Link
+										href="/terms"
+										className={cn("rounded-md transition-colors hover:text-white", focusRingOnDark)}
+									>
+										{tLegal("terms")}
+									</Link>
+									<a
+										href={`mailto:${DPO_EMAIL}`}
+										className={cn("rounded-md transition-colors hover:text-white", focusRingOnDark)}
+									>
+										{tLegal("privacyContact")}
+									</a>
+									<span className="font-mono tracking-wide">
+										{tLegal("footerVersion", {
+											version: LEGAL_VERSION,
+											release: LEGAL_APP_RELEASE,
+										})}
+									</span>
+								</div>
+							) : null}
 
 							<div className="flex flex-col gap-2 border-t border-white/10 pt-5 text-[10.5px] text-white/45 sm:flex-row sm:items-center sm:justify-between">
 								<p>{t("footerCopyright")}</p>

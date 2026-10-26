@@ -1713,11 +1713,11 @@
 				"aiProviders": "Mga AI Provider"
 			},
 			"shortNav": {
-				"overview": "Overview",
-				"users": "Users",
-				"organizations": "Orgs",
-				"ponds": "Ponds",
-				"devices": "Devices",
+				"overview": "Panglantaw",
+				"users": "Mga User",
+				"organizations": "Org",
+				"ponds": "Punong",
+				"devices": "Device",
 				"aiProviders": "AI"
 			}
 		},

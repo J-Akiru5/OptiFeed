@@ -14,6 +14,16 @@ vi.mock("@/lib/actions/ai-providers", () => ({
 	resetAiProviderConfig: vi.fn(),
 }));
 
+vi.mock("next-intl/server", async () => {
+	const { createTranslator } = await import("./helpers/messages");
+	return { getTranslations: async (namespace: string) => createTranslator(namespace) };
+});
+
+vi.mock("next-intl", async () => {
+	const { createTranslator } = await import("./helpers/messages");
+	return { useTranslations: (namespace: string) => createTranslator(namespace) };
+});
+
 vi.mock("next/navigation", () => ({
 	useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
 }));

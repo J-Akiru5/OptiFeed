@@ -1,6 +1,9 @@
 "use client";
 
+import { FOCUS_RING } from "@/components/superadmin/ui";
+import { cn } from "@/lib/utils";
 import { Check, Copy, KeyRound } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 /**
@@ -18,6 +21,8 @@ export function DeviceTokenOnce({
 	mac: string;
 	onDone: () => void;
 }) {
+	const t = useTranslations("superadmin.tokenOnce");
+	const tCommon = useTranslations("superadmin.common");
 	const [copied, setCopied] = useState(false);
 	const [copyFailed, setCopyFailed] = useState(false);
 
@@ -34,39 +39,51 @@ export function DeviceTokenOnce({
 	};
 
 	return (
-		<div className="rounded-xl border border-[#F5B87A] bg-[#FFF4E8] p-4 space-y-3">
+		<div className="space-y-3 rounded-xl border border-[#F5B87A] bg-[#FFF4E8] p-4">
 			<p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#8A4A00]">
-				<KeyRound className="w-4 h-4" />
-				Device token for {mac} — shown once
+				<KeyRound className="h-4 w-4" aria-hidden="true" />
+				{t("title", { mac })}
 			</p>
-			<code className="block break-all rounded-lg bg-white px-3 py-2 font-mono text-xs font-bold text-[#0A3D62] border border-[#F5B87A]">
+			<code className="block break-all rounded-lg border border-[#F5B87A] bg-white px-3 py-2 font-mono text-xs font-bold text-[#0A3D62]">
 				{token}
 			</code>
 			<p className="text-[11px] leading-snug text-[#3D5568]">
-				Enter it as <b>Device Token</b> (and the MAC as <b>Device ID</b>) in the unit&apos;s setup
-				portal at 192.168.4.1. It is a credential: do not print it or paste it in chat. If it is
-				lost, rotate the token.
+				{t("hintBefore")}
+				<b>{t("deviceToken")}</b>
+				{t("hintMiddle")}
+				<b>{t("deviceId")}</b>
+				{t("hintAfter")}
 			</p>
 			{copyFailed && (
-				<p className="text-[11px] font-bold text-[#C42B3A]">
-					Copy failed — select the token and copy it manually.
+				<p role="alert" className="text-[11px] font-bold text-[#C42B3A]">
+					{t("copyFailed")}
 				</p>
 			)}
 			<div className="flex flex-wrap gap-2">
 				<button
 					type="button"
 					onClick={copy}
-					className="inline-flex items-center gap-1.5 rounded-lg border border-[#0A3D62]/20 bg-white px-3 py-1.5 text-xs font-black text-[#0A3D62] hover:bg-[#F4F7F6]"
+					className={cn(
+						"inline-flex items-center gap-1.5 rounded-lg border border-[#0A3D62]/20 bg-white px-3 py-1.5 text-xs font-black text-[#0A3D62] hover:bg-[#F4F7F6]",
+						FOCUS_RING,
+					)}
 				>
-					{copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-					{copied ? "Copied" : "Copy token"}
+					{copied ? (
+						<Check className="h-3.5 w-3.5" aria-hidden="true" />
+					) : (
+						<Copy className="h-3.5 w-3.5" aria-hidden="true" />
+					)}
+					{copied ? tCommon("copied") : t("copy")}
 				</button>
 				<button
 					type="button"
 					onClick={onDone}
-					className="inline-flex items-center gap-1.5 rounded-lg bg-[#0A3D62] px-3 py-1.5 text-xs font-black text-white hover:bg-[#0A48A0]"
+					className={cn(
+						"inline-flex items-center gap-1.5 rounded-lg bg-[#0A3D62] px-3 py-1.5 text-xs font-black text-white hover:bg-[#082f4d]",
+						FOCUS_RING,
+					)}
 				>
-					I have set it on the unit
+					{t("done")}
 				</button>
 			</div>
 		</div>

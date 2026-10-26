@@ -1,10 +1,19 @@
 "use client";
 
+import { adminField, adminHint, adminLabel } from "@/components/admin/admin-classes";
 import { PasswordInput } from "@/components/password-input";
 import { PasswordStrength } from "@/components/password-strength";
 import { useRouter } from "@/i18n/routing";
 import { createPondWithFarmer } from "@/lib/actions/admin";
-import { getPasswordStrength, passwordErrorMessage, validatePassword } from "@/lib/auth/password";
+import {
+	PASSWORD_MAX_BYTES,
+	PASSWORD_MIN_LENGTH,
+	type PasswordErrorCode,
+	getPasswordStrength,
+	passwordErrorMessage,
+	validatePassword,
+} from "@/lib/auth/password";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 /**
@@ -16,26 +25,34 @@ import { useState } from "react";
  * admin's organization as an OPERATOR.
  */
 export function CreatePondForm() {
+	const t = useTranslations("dashboard.adminCreatePond");
 	const router = useRouter();
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
 
+	/** Translate a password rule failure, falling back to the shared English copy. */
+	function passwordMessage(code: PasswordErrorCode): string {
+		const key = `passwordError.${code}`;
+		if (!t.has(key)) return passwordErrorMessage(code);
+		return t(key, { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_BYTES });
+	}
+
 	async function handleSubmit(formData: FormData) {
 		setError(null);
 
 		if (!password) {
-			setError("Password is required.");
+			setError(t("passwordRequired"));
 			return;
 		}
 		if (password !== confirmPassword) {
-			setError("Passwords do not match.");
+			setError(t("passwordMismatch"));
 			return;
 		}
 		const passwordCheck = validatePassword(password, "temporary");
 		if (!passwordCheck.ok) {
-			setError(passwordErrorMessage(passwordCheck.code));
+			setError(passwordMessage(passwordCheck.code));
 			return;
 		}
 
@@ -65,65 +82,65 @@ export function CreatePondForm() {
 		router.push("/admin/ponds");
 	}
 
+	const passwordMismatch = Boolean(confirmPassword) && password !== confirmPassword;
+
 	return (
 		<form
 			action={handleSubmit}
-			className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-5"
+			className="space-y-5 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700/60 dark:bg-gray-900"
 		>
 			{error && (
-				<div className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm font-bold text-[#C42B3A]">
+				<div
+					role="alert"
+					className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-[#C42B3A] dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300"
+				>
 					{error}
 				</div>
 			)}
 
-			<fieldset className="space-y-5 border-0 p-0 m-0">
-				<legend className="block text-xs font-black uppercase text-[#0A3D62] tracking-wider mb-1.5">
-					Farmer
+			<fieldset className="m-0 space-y-5 border-0 p-0">
+				<legend className="mb-1.5 block text-xs font-black tracking-wider text-[#0A3D62] uppercase dark:text-[#8fc0ea]">
+					{t("farmerLegend")}
 				</legend>
 
-				<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 					<div>
-						<label
-							htmlFor="farmerName"
-							className="block text-xs font-bold uppercase text-[#3D5568] tracking-wider mb-1.5"
-						>
-							Name
+						<label htmlFor="farmerName" className={adminLabel}>
+							{t("nameLabel")}
 						</label>
 						<input
 							id="farmerName"
 							name="farmerName"
 							required
-							placeholder="e.g. Juan Miguel"
-							className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+							autoComplete="name"
+							placeholder={t("namePlaceholder")}
+							className={adminField}
 						/>
 					</div>
 					<div>
-						<label
-							htmlFor="loginId"
-							className="block text-xs font-bold uppercase text-[#3D5568] tracking-wider mb-1.5"
-						>
-							Login ID
+						<label htmlFor="loginId" className={adminLabel}>
+							{t("loginIdLabel")}
 						</label>
 						<input
 							id="loginId"
 							name="loginId"
 							required
 							pattern="[a-z0-9-]+"
-							title="Lowercase letters, numbers and hyphens"
-							placeholder="e.g. juan-dela-cruz"
-							className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-mono font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+							title={t("loginIdPattern")}
+							placeholder={t("loginIdPlaceholder")}
+							aria-describedby="loginId-hint"
+							className={`${adminField} font-mono`}
 						/>
-						<p className="text-[11px] text-[#3D5568] mt-1">Used as the login ID and email.</p>
+						<p id="loginId-hint" className={adminHint}>
+							{t("loginIdHint")}
+						</p>
 					</div>
 				</div>
 
 				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 					<div>
-						<label
-							htmlFor="password"
-							className="block text-xs font-bold uppercase text-[#3D5568] tracking-wider mb-1.5"
-						>
-							Password
+						<label htmlFor="password" className={adminLabel}>
+							{t("passwordLabel")}
 						</label>
 						<PasswordInput
 							id="password"
@@ -132,21 +149,18 @@ export function CreatePondForm() {
 							onChange={setPassword}
 							required
 							disabled={loading}
-							placeholder="Temporary password"
+							placeholder={t("passwordPlaceholder")}
 						/>
 						<PasswordStrength password={password} />
 						{password && getPasswordStrength(password) === "weak" && (
-							<p className="mt-1.5 text-[11px] font-bold text-[#B54708]">
-								Weak temporary password — the user must change it on first login.
+							<p className="mt-1.5 text-[11px] font-bold text-[#B54708] dark:text-amber-400">
+								{t("weakPassword")}
 							</p>
 						)}
 					</div>
 					<div>
-						<label
-							htmlFor="confirmPassword"
-							className="block text-xs font-bold uppercase text-[#3D5568] tracking-wider mb-1.5"
-						>
-							Confirm password
+						<label htmlFor="confirmPassword" className={adminLabel}>
+							{t("confirmLabel")}
 						</label>
 						<PasswordInput
 							id="confirmPassword"
@@ -155,128 +169,125 @@ export function CreatePondForm() {
 							onChange={setConfirmPassword}
 							required
 							disabled={loading}
-							placeholder="Repeat the password"
+							placeholder={t("confirmPlaceholder")}
+							ariaInvalid={passwordMismatch}
+							ariaDescribedBy={passwordMismatch ? "confirmPassword-error" : undefined}
 						/>
-						{confirmPassword && password !== confirmPassword && (
-							<p className="mt-1.5 text-[11px] font-bold text-[#C42B3A]">Passwords do not match.</p>
+						{passwordMismatch && (
+							<p
+								id="confirmPassword-error"
+								aria-live="polite"
+								className="mt-1.5 text-[11px] font-bold text-[#C42B3A] dark:text-red-300"
+							>
+								{t("passwordMismatch")}
+							</p>
 						)}
 					</div>
 				</div>
 			</fieldset>
 
-			<div>
-				<label
-					htmlFor="pondName"
-					className="block text-xs font-bold uppercase text-[#3D5568] tracking-wider mb-1.5"
-				>
-					Pond Name
-				</label>
-				<input
-					id="pondName"
-					name="pondName"
-					required
-					placeholder="e.g. ILO-POND-02"
-					className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
-				/>
-			</div>
+			<fieldset className="m-0 space-y-5 border-0 p-0">
+				<legend className="mb-1.5 block text-xs font-black tracking-wider text-[#0A3D62] uppercase dark:text-[#8fc0ea]">
+					{t("pondLegend")}
+				</legend>
 
-			<div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
 				<div>
-					<label
-						htmlFor="feedingRatePct"
-						className="block text-xs font-bold uppercase text-[#3D5568] tracking-wider mb-1.5"
-					>
-						Feeding Rate (%)
+					<label htmlFor="pondName" className={adminLabel}>
+						{t("pondNameLabel")}
 					</label>
 					<input
-						id="feedingRatePct"
-						name="feedingRatePct"
-						type="number"
-						step="0.1"
-						min="0"
-						max="20"
-						defaultValue="3"
+						id="pondName"
+						name="pondName"
 						required
-						className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+						placeholder={t("pondNamePlaceholder")}
+						className={adminField}
 					/>
 				</div>
-				<div>
-					<label
-						htmlFor="feedsPerDay"
-						className="block text-xs font-bold uppercase text-[#3D5568] tracking-wider mb-1.5"
-					>
-						Feeds Per Day
-					</label>
-					<input
-						id="feedsPerDay"
-						name="feedsPerDay"
-						type="number"
-						min="1"
-						max="10"
-						defaultValue="3"
-						required
-						className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
-					/>
-				</div>
-				<div>
-					<label
-						htmlFor="population"
-						className="block text-xs font-bold uppercase text-[#3D5568] tracking-wider mb-1.5"
-					>
-						Population
-					</label>
-					<input
-						id="population"
-						name="population"
-						type="number"
-						min="0"
-						placeholder="Optional"
-						className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
-					/>
-				</div>
-			</div>
 
-			<div className="grid grid-cols-2 gap-4">
-				<div>
-					<label
-						htmlFor="scheduleStart"
-						className="block text-xs font-bold uppercase text-[#3D5568] tracking-wider mb-1.5"
-					>
-						Schedule Start
-					</label>
-					<input
-						id="scheduleStart"
-						name="scheduleStart"
-						type="time"
-						defaultValue="06:00"
-						required
-						className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
-					/>
+				<div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+					<div>
+						<label htmlFor="feedingRatePct" className={adminLabel}>
+							{t("feedingRateLabel")}
+						</label>
+						<input
+							id="feedingRatePct"
+							name="feedingRatePct"
+							type="number"
+							step="0.1"
+							min="0"
+							max="20"
+							defaultValue="3"
+							required
+							className={adminField}
+						/>
+					</div>
+					<div>
+						<label htmlFor="feedsPerDay" className={adminLabel}>
+							{t("feedsPerDayLabel")}
+						</label>
+						<input
+							id="feedsPerDay"
+							name="feedsPerDay"
+							type="number"
+							min="1"
+							max="10"
+							defaultValue="3"
+							required
+							className={adminField}
+						/>
+					</div>
+					<div>
+						<label htmlFor="population" className={adminLabel}>
+							{t("populationLabel")}
+						</label>
+						<input
+							id="population"
+							name="population"
+							type="number"
+							min="0"
+							placeholder={t("populationPlaceholder")}
+							className={adminField}
+						/>
+					</div>
 				</div>
-				<div>
-					<label
-						htmlFor="scheduleEnd"
-						className="block text-xs font-bold uppercase text-[#3D5568] tracking-wider mb-1.5"
-					>
-						Schedule End
-					</label>
-					<input
-						id="scheduleEnd"
-						name="scheduleEnd"
-						type="time"
-						defaultValue="18:00"
-						required
-						className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
-					/>
+
+				<div className="grid grid-cols-2 gap-4">
+					<div>
+						<label htmlFor="scheduleStart" className={adminLabel}>
+							{t("scheduleStartLabel")}
+						</label>
+						<input
+							id="scheduleStart"
+							name="scheduleStart"
+							type="time"
+							defaultValue="06:00"
+							required
+							className={adminField}
+						/>
+					</div>
+					<div>
+						<label htmlFor="scheduleEnd" className={adminLabel}>
+							{t("scheduleEndLabel")}
+						</label>
+						<input
+							id="scheduleEnd"
+							name="scheduleEnd"
+							type="time"
+							defaultValue="18:00"
+							required
+							className={adminField}
+						/>
+					</div>
 				</div>
-			</div>
+			</fieldset>
 
 			<button
 				type="submit"
 				disabled={loading}
-				className="w-full rounded-xl bg-[#E85A2A] px-4 py-3 text-sm font-black text-white hover:bg-[#d04a1f] transition-colors disabled:opacity-50"
+				aria-busy={loading}
+				className="w-full rounded-xl bg-[#C2410C] px-4 py-3 text-sm font-black text-white transition-colors hover:bg-[#9A3412] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:cursor-not-allowed disabled:opacity-60 dark:focus-visible:outline-[#8fc0ea]"
 			>
-				{loading ? "Creating..." : "Create Farmer & Pond"}
+				{loading ? t("submitting") : t("submit")}
 			</button>
 		</form>
 	);

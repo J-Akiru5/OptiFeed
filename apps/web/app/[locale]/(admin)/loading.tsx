@@ -1,15 +1,23 @@
-const SKELETON_ROWS = ["s1", "s2", "s3"];
+import { getTranslations } from "next-intl/server";
 
-export default function AdminLoading() {
+const SKELETON_CARDS = ["c1", "c2", "c3"];
+
+export default async function AdminLoading() {
+	const t = await getTranslations("dashboard.adminCommon");
+
 	return (
-		<div className="space-y-6 p-6">
-			<div className="h-8 w-56 animate-pulse rounded-lg bg-gray-200 dark:bg-gray-700" />
+		<output className="block space-y-6">
+			<span className="sr-only">{t("loading")}</span>
+			<div className="space-y-2">
+				<div className="h-8 w-56 max-w-full animate-pulse rounded-lg bg-gray-200 dark:bg-gray-800" />
+				<div className="h-4 w-80 max-w-full animate-pulse rounded bg-gray-200 dark:bg-gray-800" />
+			</div>
 			<div className="grid gap-4 md:grid-cols-3">
-				{SKELETON_ROWS.map((row) => (
-					<div key={row} className="h-28 animate-pulse rounded-2xl bg-gray-200 dark:bg-gray-700" />
+				{SKELETON_CARDS.map((card) => (
+					<div key={card} className="h-24 animate-pulse rounded-2xl bg-gray-200 dark:bg-gray-800" />
 				))}
 			</div>
-			<div className="h-72 animate-pulse rounded-2xl bg-gray-200 dark:bg-gray-700" />
-		</div>
+			<div className="h-72 animate-pulse rounded-2xl bg-gray-200 dark:bg-gray-800" />
+		</output>
 	);
 }

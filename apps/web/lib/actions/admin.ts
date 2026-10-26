@@ -2,18 +2,29 @@
 
 import { redirect } from "@/i18n/routing";
 import { deleteUserSubtree } from "@/lib/actions/admin-internal";
+import {
+	inviteRoleError,
+	isMemberRole,
+	revokeMemberError,
+	roleChangeError,
+} from "@/lib/auth/member-rules";
 import { resolveOrgScope } from "@/lib/auth/org-scope";
 import { passwordErrorMessage, validatePassword } from "@/lib/auth/password";
 import {
 	type Permission,
+	type PermissionOverride,
 	ROLE_DEFAULTS,
+	effectivePermissions,
 	isPermission,
 	requirePermission,
 } from "@/lib/auth/permissions";
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { invalidateFarm } from "@/lib/auth/session-cache";
-import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
+import { TENANT_ADMIN_ROLES, requireTenantAdmin } from "@/lib/auth/tenant-admin";
+import { inviteOrAttachMember } from "@/lib/membership-invite";
+import { deliverMemberInviteEmail } from "@/lib/notify/invite-email";
 import prisma from "@/lib/prisma";
+import { checkDeviceTokenRevealRateLimit } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MemberRole, PondStatus, Prisma, UserRole } from "@prisma/client";
 import { getLocale } from "next-intl/server";
@@ -341,6 +352,406 @@ export async function setUserPermission(
 	}
 }
 
+// ─── Membership Management (Settings → Members) ─────────────────────────────
+//
+// The Members section lists every active membership in the caller's tenant and
+// lets an OWNER/ADMIN invite, change a role, edit permissions and revoke.
+//
+// The same authorization chain as the permission dialog applies: tenant
+// admin → `manage_members` → target inside `resolveOrgScope()` → target is not
+// a platform admin. On top of that, the pure rules in lib/auth/member-rules.ts
+// enforce the hierarchy: nobody changes their own role, an ADMIN cannot mint or
+// edit an OWNER, and the last OWNER cannot be demoted or removed.
+
+export type TenantMemberRow = {
+	membershipId: string;
+	orgId: string;
+	orgName: string;
+	userId: string;
+	farmId: string;
+	email: string;
+	displayName: string | null;
+	role: MemberRole;
+	joinedAt: Date;
+	/** The caller's role in the row's organization (OWNER or ADMIN). */
+	callerRole: MemberRole;
+	isSelf: boolean;
+	isPlatformAdmin: boolean;
+	isLastOwner: boolean;
+	/** Effective permissions: role defaults plus unrevoked rows, minus denials. */
+	permissions: Permission[];
+};
+
+/**
+ * Active members of every organization the caller administers.
+ *
+ * Platform admins are included (they are real members) but marked so the UI
+ * and the mutation guards leave their grant to /superadmin.
+ */
+export async function listTenantMembers(): Promise<TenantMemberRow[]> {
+	await requireTenantAdmin();
+
+	const [scope, actor] = await Promise.all([resolveOrgScope(), getCurrentUser()]);
+	if (!actor || scope.orgIds.length === 0) return [];
+
+	const memberships = await prisma.membership.findMany({
+		where: { orgId: { in: scope.orgIds }, revokedAt: null },
+		orderBy: { createdAt: "asc" },
+		select: { id: true, orgId: true, userId: true, role: true, createdAt: true },
+	});
+	if (memberships.length === 0) return [];
+
+	const userIds = [...new Set(memberships.map((membership) => membership.userId))];
+	const membershipIds = memberships.map((membership) => membership.id);
+
+	const [users, orgs, permissionRows, platformAdmins, actorMemberships] = await Promise.all([
+		prisma.user.findMany({
+			where: { id: { in: userIds } },
+			select: { id: true, farmId: true, email: true, displayName: true },
+		}),
+		prisma.organization.findMany({
+			where: { id: { in: scope.orgIds } },
+			select: { id: true, name: true },
+		}),
+		prisma.membershipPermission.findMany({
+			where: { membershipId: { in: membershipIds } },
+			select: { membershipId: true, permission: true, revokedAt: true },
+		}),
+		prisma.platformAdmin.findMany({
+			where: { userId: { in: userIds }, revokedAt: null },
+			select: { userId: true },
+		}),
+		prisma.membership.findMany({
+			where: {
+				userId: actor.id,
+				orgId: { in: scope.orgIds },
+				revokedAt: null,
+				role: { in: [...TENANT_ADMIN_ROLES] },
+			},
+			select: { orgId: true, role: true },
+		}),
+	]);
+
+	const userById = new Map(users.map((user) => [user.id, user]));
+	const orgNameById = new Map(orgs.map((org) => [org.id, org.name]));
+	const platformAdminIds = new Set(platformAdmins.map((grant) => grant.userId));
+	const actorRoleByOrg = new Map(actorMemberships.map((m) => [m.orgId, m.role]));
+
+	const overridesByMembership = new Map<string, PermissionOverride[]>();
+	for (const row of permissionRows) {
+		if (!isPermission(row.permission)) continue;
+		const list = overridesByMembership.get(row.membershipId) ?? [];
+		list.push({ permission: row.permission, revokedAt: row.revokedAt });
+		overridesByMembership.set(row.membershipId, list);
+	}
+
+	const ownerCountByOrg = new Map<string, number>();
+	for (const membership of memberships) {
+		if (membership.role !== "OWNER") continue;
+		ownerCountByOrg.set(membership.orgId, (ownerCountByOrg.get(membership.orgId) ?? 0) + 1);
+	}
+
+	const rows: TenantMemberRow[] = [];
+	for (const membership of memberships) {
+		const user = userById.get(membership.userId);
+		const orgName = orgNameById.get(membership.orgId);
+		const callerRole = actorRoleByOrg.get(membership.orgId);
+		if (!user || !orgName || !callerRole) continue;
+
+		rows.push({
+			membershipId: membership.id,
+			orgId: membership.orgId,
+			orgName,
+			userId: user.id,
+			farmId: user.farmId,
+			email: user.email,
+			displayName: user.displayName,
+			role: membership.role,
+			joinedAt: membership.createdAt,
+			callerRole,
+			isSelf: user.id === actor.id,
+			isPlatformAdmin: platformAdminIds.has(user.id),
+			isLastOwner: membership.role === "OWNER" && (ownerCountByOrg.get(membership.orgId) ?? 0) <= 1,
+			permissions: [
+				...effectivePermissions(membership.role, overridesByMembership.get(membership.id)),
+			].sort(),
+		});
+	}
+
+	rows.sort(
+		(a, b) =>
+			a.orgName.localeCompare(b.orgName) ||
+			(a.displayName ?? a.farmId).localeCompare(b.displayName ?? b.farmId),
+	);
+	return rows;
+}
+
+export type MemberActionState = { success: true } | { error: string };
+
+export type InviteMemberInput = {
+	/** Defaults to the caller's primary administered org (single-org product). */
+	orgId?: string;
+	email: string;
+	displayName: string;
+	role: MemberRole;
+};
+
+export type InviteMemberState =
+	| {
+			success: true;
+			membershipId: string;
+			userId: string;
+			loginEmail: string;
+			/** Returned once for a new account; null when an existing account was attached. */
+			temporaryPassword: string | null;
+			createdUser: boolean;
+			/**
+			 * True when the invitation email was accepted by Resend. False when
+			 * email is unconfigured, delivery failed, or only an existing account
+			 * was attached (nothing new to send).
+			 */
+			inviteEmailSent: boolean;
+	  }
+	| { error: string };
+
+type ManagedMemberTarget = {
+	membership: { id: string; orgId: string; userId: string; role: MemberRole };
+	actorRole: MemberRole;
+	actorUserId: string;
+};
+
+type ManagedMemberResult =
+	| { success: true; target: ManagedMemberTarget }
+	| { success: false; error: string };
+
+/**
+ * Resolve a membership the caller may manage, plus the caller's own role in
+ * that same organization. Scope fails closed, so a non-admin caller can never
+ * match a target from another tenant.
+ */
+async function resolveManagedMember(userId: string): Promise<ManagedMemberResult> {
+	const [scope, actor] = await Promise.all([resolveOrgScope(), getCurrentUser()]);
+	if (!actor) return { success: false, error: "Not authenticated." };
+	if (!scope.memberUserIds.includes(userId)) {
+		return { success: false, error: "That user is outside your organization." };
+	}
+	if (await hasPlatformAdminGrant(userId)) {
+		return { success: false, error: PLATFORM_ADMIN_MANAGED_ELSEWHERE };
+	}
+
+	const membership = await prisma.membership.findFirst({
+		where: { userId, revokedAt: null, orgId: { in: scope.orgIds } },
+		orderBy: { createdAt: "asc" },
+		select: { id: true, orgId: true, userId: true, role: true },
+	});
+	if (!membership) {
+		return { success: false, error: "That user has no active membership in your organization." };
+	}
+
+	// Membership roles are per org; the hierarchy rules use the caller's role in
+	// the target membership's org, not their strongest role anywhere.
+	const actorMembership = await prisma.membership.findFirst({
+		where: {
+			userId: actor.id,
+			orgId: membership.orgId,
+			revokedAt: null,
+			role: { in: [...TENANT_ADMIN_ROLES] },
+		},
+		select: { role: true },
+	});
+	if (!actorMembership) {
+		return { success: false, error: "You do not administer that organization." };
+	}
+
+	return {
+		success: true,
+		target: { membership, actorRole: actorMembership.role, actorUserId: actor.id },
+	};
+}
+
+async function countActiveOwners(
+	orgId: string,
+	client: Pick<Prisma.TransactionClient, "membership"> = prisma,
+): Promise<number> {
+	return client.membership.count({
+		where: { orgId, role: "OWNER", revokedAt: null },
+	});
+}
+
+/**
+ * Add a member to the caller's organization.
+ *
+ * There is no invite table: an existing account is attached (or reactivated),
+ * otherwise a new login is provisioned with a one-time temporary password.
+ * No email is sent — the admin shares the password directly.
+ */
+export async function inviteMember(input: InviteMemberInput): Promise<InviteMemberState> {
+	await requireTenantAdmin();
+	await requirePermission("manage_members");
+
+	if (!isMemberRole(input.role)) return { error: "Choose a valid role." };
+
+	const [scope, actor] = await Promise.all([resolveOrgScope(), getCurrentUser()]);
+	if (!actor) return { error: "Not authenticated." };
+
+	const orgId = input.orgId?.trim() ? input.orgId.trim() : scope.orgIds[0];
+	if (!orgId) {
+		return { error: "You must belong to an organization to invite members." };
+	}
+	if (!scope.orgIds.includes(orgId)) {
+		return { error: "That organization is outside your scope." };
+	}
+
+	const callerMembership = await prisma.membership.findFirst({
+		where: {
+			userId: actor.id,
+			orgId,
+			revokedAt: null,
+			role: { in: [...TENANT_ADMIN_ROLES] },
+		},
+		select: { role: true },
+	});
+	if (!callerMembership) {
+		return { error: "You do not administer that organization." };
+	}
+
+	const ruleError = inviteRoleError(callerMembership.role, input.role);
+	if (ruleError) return { error: ruleError };
+
+	const result = await inviteOrAttachMember({
+		orgId,
+		email: input.email,
+		displayName: input.displayName,
+		role: input.role,
+		invitedBy: actor.id,
+		refusePlatformAdminTarget: true,
+	});
+	if (!result.success) return { error: result.error };
+
+	// Best-effort: neither the organization lookup nor the send may undo an
+	// invite that already committed. The one-time password stays in the result
+	// for the UI to show once.
+	let orgName: string | undefined;
+	try {
+		const org = await prisma.organization.findUnique({
+			where: { id: orgId },
+			select: { name: true },
+		});
+		orgName = org?.name;
+	} catch {
+		orgName = undefined;
+	}
+	const inviteEmailSent = result.temporaryPassword
+		? await deliverMemberInviteEmail({
+				to: input.email,
+				loginId: result.loginEmail.split("@")[0],
+				temporaryPassword: result.temporaryPassword,
+				orgName,
+				inviterName: actor.displayName || actor.farmId,
+			})
+		: false;
+
+	return {
+		success: true,
+		membershipId: result.membershipId,
+		userId: result.userId,
+		loginEmail: result.loginEmail,
+		temporaryPassword: result.temporaryPassword,
+		createdUser: result.createdUser,
+		inviteEmailSent,
+	};
+}
+
+/** Change one active member's membership role. */
+export async function changeMemberRole(
+	userId: string,
+	role: MemberRole,
+): Promise<MemberActionState> {
+	await requireTenantAdmin();
+	await requirePermission("manage_members");
+
+	if (!isMemberRole(role)) return { error: "Choose a valid role." };
+
+	const resolved = await resolveManagedMember(userId);
+	if (!resolved.success) return { error: resolved.error };
+	const { membership, actorRole, actorUserId } = resolved.target;
+
+	const ownerCount =
+		membership.role === "OWNER" && role !== "OWNER" ? await countActiveOwners(membership.orgId) : 0;
+	const ruleError = roleChangeError({
+		actorRole,
+		targetRole: membership.role,
+		nextRole: role,
+		isSelf: actorUserId === userId,
+		activeOwnerCount: ownerCount,
+	});
+	if (ruleError) return { error: ruleError };
+	if (membership.role === role) return { success: true };
+
+	try {
+		const changed = await prisma.$transaction(async (tx) => {
+			// Re-check inside the transaction so two concurrent demotions cannot
+			// both observe the same last owner.
+			if (membership.role === "OWNER" && role !== "OWNER") {
+				const remaining = await countActiveOwners(membership.orgId, tx);
+				if (remaining <= 1) return false;
+			}
+			await tx.membership.update({ where: { id: membership.id }, data: { role } });
+			return true;
+		});
+		if (!changed) {
+			return { error: "The last owner cannot be demoted or removed. Promote another owner first." };
+		}
+		return { success: true };
+	} catch (e) {
+		console.error(
+			"[admin] changeMemberRole error:",
+			e instanceof Error ? e.message : "unknown error",
+		);
+		return { error: "Failed to update the role." };
+	}
+}
+
+/** Revoke one active member's membership (soft delete; the account remains). */
+export async function revokeMember(userId: string): Promise<MemberActionState> {
+	await requireTenantAdmin();
+	await requirePermission("manage_members");
+
+	const resolved = await resolveManagedMember(userId);
+	if (!resolved.success) return { error: resolved.error };
+	const { membership, actorRole, actorUserId } = resolved.target;
+
+	const ownerCount = membership.role === "OWNER" ? await countActiveOwners(membership.orgId) : 0;
+	const ruleError = revokeMemberError({
+		actorRole,
+		targetRole: membership.role,
+		isSelf: actorUserId === userId,
+		activeOwnerCount: ownerCount,
+	});
+	if (ruleError) return { error: ruleError };
+
+	try {
+		const revoked = await prisma.$transaction(async (tx) => {
+			if (membership.role === "OWNER") {
+				const remaining = await countActiveOwners(membership.orgId, tx);
+				if (remaining <= 1) return false;
+			}
+			await tx.membership.update({
+				where: { id: membership.id },
+				data: { revokedAt: new Date() },
+			});
+			return true;
+		});
+		if (!revoked) {
+			return { error: "The last owner cannot be demoted or removed. Promote another owner first." };
+		}
+		return { success: true };
+	} catch (e) {
+		console.error("[admin] revokeMember error:", e instanceof Error ? e.message : "unknown error");
+		return { error: "Failed to revoke the membership." };
+	}
+}
+
 // ─── Pond Management ─────────────────────────────────────────────────────────
 
 export async function getPonds() {
@@ -581,9 +992,12 @@ export async function getDevices() {
 	});
 }
 
+/** Machine-readable failure causes the reveal component can translate. */
+export type RevealDeviceTokenErrorCode = "rate_limited";
+
 export type RevealDeviceTokenResult =
 	| { success: true; token: string; mac: string; label: string }
-	| { success: false; error: string };
+	| { success: false; error: string; code?: RevealDeviceTokenErrorCode };
 
 /**
  * Return one device's provisioning credential to a tenant admin, on demand.
@@ -593,8 +1007,14 @@ export type RevealDeviceTokenResult =
  * read path for it: it is ADMIN-only, scoped through the device's pond to the
  * caller's tenant, and reveals exactly one row per explicit request.
  *
+ * Every attempt is counted against the actor's hourly reveal allowance, and
+ * every successful reveal writes a `token_revealed` DeviceStateEvent for the
+ * device. The audit row is written before the token is returned, so a failed
+ * audit cannot produce an unlogged credential.
+ *
  * The token is never logged — not on success, and not in the failure branch,
- * where the error's message (not the error object) is what gets written.
+ * where the error's message (not the error object) is what gets written — and
+ * it is never placed in the audit row.
  */
 export async function revealDeviceToken(deviceId: string): Promise<RevealDeviceTokenResult> {
 	await requireTenantAdmin();
@@ -603,7 +1023,17 @@ export async function revealDeviceToken(deviceId: string): Promise<RevealDeviceT
 		return { success: false, error: "A device is required." };
 	}
 
-	const scope = await resolveOrgScope();
+	const [scope, actor] = await Promise.all([resolveOrgScope(), getCurrentUser()]);
+	if (!actor) return { success: false, error: "Not authenticated." };
+
+	const limit = await checkDeviceTokenRevealRateLimit(actor.id);
+	if (!limit.success) {
+		return {
+			success: false,
+			error: "Too many token reveals. Try again in an hour.",
+			code: "rate_limited",
+		};
+	}
 
 	try {
 		const device = await prisma.energyDevice.findFirst({
@@ -613,6 +1043,17 @@ export async function revealDeviceToken(deviceId: string): Promise<RevealDeviceT
 			select: { token: true, mac: true, label: true },
 		});
 		if (!device) return { success: false, error: "Device not found in your organization." };
+
+		await prisma.deviceStateEvent.create({
+			data: {
+				deviceId,
+				eventType: "token_revealed",
+				source: "user",
+				// The credential itself is deliberately absent: the audit trail
+				// records who looked, not what they saw.
+				actorId: actor.id,
+			},
+		});
 
 		return { success: true, token: device.token, mac: device.mac, label: device.label };
 	} catch (e) {

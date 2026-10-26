@@ -25,11 +25,22 @@ const { db, tx } = vi.hoisted(() => {
 vi.mock("@/lib/prisma", () => ({ default: db }));
 vi.mock("@/lib/auth/require-platform-admin", () => ({ requirePlatformAdmin: vi.fn() }));
 vi.mock("@/lib/auth/session", () => ({ getCurrentUser: vi.fn() }));
+vi.mock("@/lib/auth/step-up", () => ({
+	withStepUp: vi.fn(async (action: (stepUpAt: Date) => Promise<unknown>) =>
+		action(new Date("2026-10-26T00:00:00.000Z")),
+	),
+	isStepUpRequiredError: (error: unknown) =>
+		typeof error === "object" &&
+		error !== null &&
+		(error as { code?: unknown }).code === "step_up_required",
+}));
 vi.mock("next/headers", () => ({
 	headers: vi.fn(
 		async () => new Headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1", "user-agent": "vitest" }),
 	),
 }));
+
+const STEP_UP_AT = new Date("2026-10-26T00:00:00.000Z");
 
 import {
 	getPlatformDevicesForLabels,
@@ -39,11 +50,13 @@ import {
 } from "@/lib/actions/platform/devices";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { getCurrentUser } from "@/lib/auth/session";
+import { withStepUp } from "@/lib/auth/step-up";
 import { hashToken } from "@/lib/device-auth";
 import { Prisma } from "@prisma/client";
 
 const mockGate = vi.mocked(requirePlatformAdmin);
 const mockUser = vi.mocked(getCurrentUser);
+const mockWithStepUp = vi.mocked(withStepUp);
 
 const validInput = {
 	mac: "a4-cf-12-7e-3b-09",
@@ -92,6 +105,24 @@ describe("registerDevice", () => {
 		const result = await registerDevice({ ...validInput, reason: "short" });
 		expect(result).toEqual({ error: expect.stringContaining("reason") });
 		expect(tx.energyDevice.create).not.toHaveBeenCalled();
+	});
+
+	it("rejects without a fresh step-up and writes nothing", async () => {
+		allowOrgAWithPondA();
+		mockWithStepUp.mockRejectedValueOnce(
+			Object.assign(new Error("Re-enter your password to continue."), {
+				code: "step_up_required",
+			}),
+		);
+
+		const result = await registerDevice(validInput);
+
+		expect(result).toMatchObject({
+			error: expect.stringContaining("password"),
+			code: "step_up_required",
+		});
+		expect(tx.energyDevice.create).not.toHaveBeenCalled();
+		expect(tx.platformAuditLog.create).not.toHaveBeenCalled();
 	});
 
 	it("rejects a MAC that is not 12 hex digits", async () => {
@@ -180,6 +211,7 @@ describe("registerDevice", () => {
 			targetId: "dev-new",
 			orgId: "org-a",
 			reason: "New unit for the San Pablo coop",
+			stepUpAt: STEP_UP_AT,
 			temporaryGrant: false,
 			ip: "203.0.113.7",
 			userAgent: "vitest",
@@ -230,6 +262,28 @@ describe("rotateDeviceToken", () => {
 		});
 	});
 
+	it("rejects without a fresh step-up and leaves the token alone", async () => {
+		db.energyDevice.findUnique.mockResolvedValue({
+			id: "dev-1",
+			mac: "A4:CF:12:7E:3B:09",
+			pond: { ownerId: "farm-a" },
+		});
+		db.user.findMany.mockResolvedValue([{ id: "u-a", farmId: "farm-a" }]);
+		db.membership.findMany.mockResolvedValue([{ userId: "u-a", orgId: "org-a" }]);
+		db.organization.findMany.mockResolvedValue([{ id: "org-a", name: "Org A" }]);
+		mockWithStepUp.mockRejectedValueOnce(
+			Object.assign(new Error("Your step-up check expired."), {
+				code: "step_up_required",
+			}),
+		);
+
+		const result = await rotateDeviceToken({ deviceId: "dev-1", reason: "Token lost on site" });
+
+		expect(result).toMatchObject({ code: "step_up_required" });
+		expect(tx.energyDevice.update).not.toHaveBeenCalled();
+		expect(tx.platformAuditLog.create).not.toHaveBeenCalled();
+	});
+
 	it("replaces the token hash, so the old token no longer matches, and audits without the token", async () => {
 		db.energyDevice.findUnique.mockResolvedValue({
 			id: "dev-1",
@@ -254,6 +308,7 @@ describe("rotateDeviceToken", () => {
 			targetType: "energy_device",
 			targetId: "dev-1",
 			orgId: "org-a",
+			stepUpAt: STEP_UP_AT,
 		});
 		expect(JSON.stringify(row)).not.toContain(result.token);
 	});
@@ -269,6 +324,7 @@ describe("read paths never select a credential", () => {
 		expect(Object.keys(args.select).sort()).toEqual([
 			"createdAt",
 			"id",
+			"isPaused",
 			"label",
 			"lastSeenAt",
 			"mac",

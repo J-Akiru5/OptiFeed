@@ -1,8 +1,16 @@
 "use client";
 
+import { formatDateTimeLocal } from "@/lib/date-local";
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
+/**
+ * Header clock. Time is formatted through `lib/date-local` so it follows the
+ * selected locale (English or Hiligaynon) instead of the browser's own locale
+ * rendering.
+ */
 export function LiveClock() {
+	const tDates = useTranslations("dates");
 	const [now, setNow] = useState<Date | null>(null);
 
 	useEffect(() => {
@@ -13,12 +21,14 @@ export function LiveClock() {
 
 	if (!now) return null;
 
+	const clock = formatDateTimeLocal(now, (key) => tDates(key));
+
 	return (
 		<time
 			dateTime={now.toISOString()}
-			className="hidden md:block font-mono text-[11px] text-white/60 tabular-nums tracking-wider"
+			className="hidden md:block font-mono text-[11px] text-white/70 tabular-nums tracking-wider"
 		>
-			{now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+			{clock.time}
 		</time>
 	);
 }

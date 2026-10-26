@@ -2,12 +2,18 @@ import { ScheduleControls } from "@/components/ScheduleControls";
 import { ScheduleEditor } from "@/components/ScheduleEditor";
 import { StuckRequestBanner } from "@/components/StuckRequestBanner";
 import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
+import {
+	DashboardEmptyState,
+	DashboardPageHeader,
+	ReadOnlyNotice,
+} from "@/components/dashboard/dashboard-ui";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { canWrite } from "@/lib/auth/session";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import type { ScheduleSnapshotData } from "@/lib/offline/snapshots";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import { CalendarClock } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0;
@@ -19,13 +25,20 @@ function fmtTime(date: Date): string {
 }
 
 export default async function SchedulePage() {
-	const t = await getTranslations("dashboard.schedule");
-	const pond = await getActivePond({ devices: true });
+	const [t, tCommon] = await Promise.all([
+		getTranslations("dashboard.schedule"),
+		getTranslations("dashboard.common"),
+	]);
+	const pond = await getActivePond();
 
-	if (!pond || !pond.devices.length) {
+	if (!pond) {
 		return (
-			<div className="flex h-[50vh] items-center justify-center">
-				<p className="text-lg text-gray-500">{t("noPondData")}</p>
+			<div className="mx-auto max-w-2xl py-10">
+				<DashboardEmptyState
+					icon={CalendarClock}
+					title={t("noPondData")}
+					description={t("noDeviceDesc")}
+				/>
 			</div>
 		);
 	}
@@ -45,8 +58,12 @@ export default async function SchedulePage() {
 
 	if (!energyDevice) {
 		return (
-			<div className="flex h-[50vh] items-center justify-center">
-				<p className="text-lg text-gray-500">{t("noPondData")}</p>
+			<div className="mx-auto max-w-2xl py-10">
+				<DashboardEmptyState
+					icon={CalendarClock}
+					title={t("noDeviceTitle")}
+					description={t("noDeviceDesc")}
+				/>
 			</div>
 		);
 	}
@@ -113,7 +130,7 @@ export default async function SchedulePage() {
 
 	const scheduleSnapshot: ScheduleSnapshotData = {
 		pondName: pond.name,
-		deviceName: energyDevice.label ?? pond.devices[0]?.name ?? "Feeder",
+		deviceName: energyDevice.label ?? "Feeder",
 		deviceStatus: deviceOffline ? "offline" : "online",
 		lastSeenAt: energyDevice.lastSeenAt?.toISOString() ?? null,
 		scheduleStart: currentCommand?.scheduleStart ?? fmtTime(pond.scheduleStart),
@@ -135,10 +152,11 @@ export default async function SchedulePage() {
 				pondName={pond.name}
 				data={scheduleSnapshot}
 			/>
-			<div>
-				<h1 className="text-3xl font-bold text-[var(--ofd-base)]">{t("title")}</h1>
-				<p className="mt-2 text-gray-700">{t("desc")}</p>
-			</div>
+			<DashboardPageHeader icon={CalendarClock} title={t("title")} description={t("desc")} />
+
+			{!writeAccess && (
+				<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
+			)}
 
 			<TimeCalibrationForm deviceId={energyDevice.id} canWrite={writeAccess} />
 

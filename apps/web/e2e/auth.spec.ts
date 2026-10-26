@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { E2E, login } from "./helpers";
+
 test.describe("Login flow", () => {
 	test("shows login page", async ({ page }) => {
 		await page.goto("/en/login");
@@ -13,8 +15,9 @@ test.describe("Login flow", () => {
 		await expect(page.locator("#farmId-error")).toHaveText("Enter your farm ID.");
 		await expect(page.locator("#password-error")).toHaveText("Enter your password.");
 
-		await page.locator("#farmId").fill("demo-farmer-1");
-		await page.locator("#password").fill("OptiFeedDemo123");
+		// The reveal control does not submit, so a throwaway value is enough.
+		await page.locator("#farmId").fill(E2E.farmerLogin);
+		await page.locator("#password").fill("not-the-real-password");
 		await page.getByRole("button", { name: "Show password" }).click();
 		await expect(page.locator("#password")).toHaveAttribute("type", "text");
 		await page.getByRole("button", { name: "Hide password" }).click();
@@ -29,7 +32,7 @@ test.describe("Login flow", () => {
 		const passwordInput = page.locator('input[name="password"], input[type="password"]').first();
 
 		if (await farmIdInput.isVisible()) {
-			await farmIdInput.fill("nonexistent-farmer");
+			await farmIdInput.fill("e2e-missing-login");
 			await passwordInput.fill("wrong-password-123");
 			await page.locator('button[type="submit"]').click();
 			// Should show an error or stay on login page
@@ -38,16 +41,13 @@ test.describe("Login flow", () => {
 	});
 });
 
-test.describe("Demo admin login", () => {
-	test("logs in with demo-farmer-1 and reaches dashboard", async ({ page }) => {
-		const password = process.env.DEMO_PASSWORD ?? "OptiFeedDemo123";
-		await page.goto("/en/login");
-		await page.locator("#farmId").fill("demo-farmer-1");
-		await page.locator("#password").fill(password);
-		await page.locator('button[type="submit"]').click();
+test.describe("E2E farmer login", () => {
+	test("logs in with the isolated e2e-farmer account and reaches the dashboard", async ({
+		page,
+	}) => {
+		await login(page, "farmer");
 
-		// Generous timeout: the server action may cold-compile on first hit in dev.
-		await expect(page).toHaveURL(/dashboard/, { timeout: 15_000 });
+		await expect(page).toHaveURL(/dashboard/);
 		// Logged in = the login form is gone.
 		await expect(page.locator("#farmId")).toHaveCount(0);
 	});

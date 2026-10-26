@@ -13,37 +13,39 @@
 | Pin   | Usage                                    |
 |-------|------------------------------------------|
 | GPIO 25 | Relay OUT (Active HIGH — dispensing when HIGH) |
-| GPIO 27 | Physical button (INPUT_PULLUP, press = LOW). Hold >= 5 s at boot to reset WiFi credentials (device identity is kept) |
+| GPIO 27 | Physical button (INPUT_PULLUP, press = LOW). Short press dispenses; hold >= 5 s at boot to reset WiFi credentials (device identity is kept) |
+| GPIO 16 | Factory reset button (INPUT_PULLUP, press = LOW). Hold >= 10 s to clear WiFi, Device ID, Device Token and the `provisioned` marker |
+| GPIO 17 | Wi-Fi reset button (INPUT_PULLUP, press = LOW). Hold >= 5 s to clear WiFi only — the Device ID/Token are kept |
 | GPIO 21 | DS3231 SDA (I²C) — RTC                 |
 | GPIO 22 | DS3231 SCL (I²C) — RTC                 |
 | GPIO 1  | TX0 (USB debug serial)                  |
 | GPIO 3  | RX0 (USB debug serial)                  |
 | GPIO 0  | Must float during boot (boot mode)      |
 
-### Dedicated reset buttons (optional)
+### Dedicated reset buttons
 
-Two active-low momentary buttons can be wired between a free GPIO and GND. They
-are **not assigned yet**; the firmware skips them while the pins are `-1`.
+Two active-low momentary buttons are wired between their GPIO and GND; the
+internal pull-up is enabled. Both are enabled in this build, so no pin edit is
+needed.
 
-| Button | Define | Default | Hold | Effect |
-|--------|--------|---------|------|--------|
-| WiFi reset | `WIFI_RESET_BUTTON_PIN` | `-1` (disabled) | 10 s | Clears WiFi SSID/password **and the WiFi stack cache**, keeps Device ID/Token, reboots into the setup portal |
-| Factory reset | `FACTORY_RESET_BUTTON_PIN` | `-1` (disabled) | 10 s | Clears WiFi, Device ID, Device Token and the `provisioned` marker, reboots into the setup portal |
+| Button | Define | GPIO | Hold | Effect |
+|--------|--------|------|------|--------|
+| Wi-Fi reset | `WIFI_RESET_BUTTON_PIN` | `16` | 5 s (`WIFI_RESET_HOLD_MS`) | Clears WiFi SSID/password **and the WiFi stack cache**, keeps Device ID/Token, reboots into the setup portal |
+| Factory reset | `FACTORY_RESET_BUTTON_PIN` | `17` | 10 s (`FACTORY_RESET_HOLD_MS`) | Clears WiFi, Device ID, Device Token and the `provisioned` marker, reboots into the setup portal |
 
 Safety rules: buttons are ignored for the first 5 s after boot and must be
-released once before they arm, so a stuck button cannot wipe a unit. If both
-reach 10 s, factory reset wins. The existing feed-button hold (GPIO 27, 5 s at
-boot) remains a WiFi-only reset.
+released once before they arm, so a stuck button cannot wipe a unit. While the
+factory-reset button is held the Wi-Fi reset is suppressed, so a two-button hold
+cannot reboot into the portal at 5 s: the factory reset wins at 10 s. The
+existing feed-button hold (GPIO 27, 5 s at boot) remains a WiFi-only reset.
 
-**Free, safe GPIO candidates on the ESP32-WROOM-32U for these two buttons:**
+GPIO 16 and 17 are free on the ESP32-WROOM-32U, are not strapping pins, and
+support the internal pull-up. They are held by these two buttons; other free,
+safe GPIO candidates are:
 
 ```
-13, 14, 16, 17, 18, 19, 23
+13, 14, 18, 19, 23
 ```
-
-Recommended pair once the enclosure is measured: **18 (WiFi reset)** and
-**19 (factory reset)** — neither is a strapping pin, both support the internal
-pull-up, and neither is used by this sketch.
 
 Do **not** use: 32/33 (HC-SR04 trigger/echo), 25 (relay), 26 (DS18B20),
 27 (feed button), 21/22 (RTC I2C), 0/2/12/15 (strapping), 34–39 (input-only, no
@@ -53,12 +55,12 @@ internal pull-up), 1/3 (USB serial), 6–11 (flash).
 
 The firmware is a PlatformIO project (`firmware/platformio.ini`) using the same
 toolchain as the energy-monitoring project: `espressif32@7.1.2`, board
-`esp32dev` (ESP32-WROOM-32U), Arduino framework. Dependencies are declared and
-resolved by PlatformIO — no Arduino Library Manager step.
+`esp32dev` (ESP32-WROOM-32U), Arduino framework **2.0.17**. Dependencies are
+declared and resolved by PlatformIO — no Arduino Library Manager step.
 
 ```bash
 pip install platformio        # or use the PlatformIO IDE extension
-pio run -d firmware            # compile
+pio run -d firmware            # compile (field build)
 pio run -d firmware -t upload  # flash over USB
 pio device monitor -b 115200   # serial log
 ```
@@ -66,10 +68,69 @@ pio device monitor -b 115200   # serial log
 CI runs `pio run -d firmware` for every firmware change; it never flashes or
 deploys.
 
+The build must stay warning-free for our own sketch (`firmware-main.ino`), including zero
+ArduinoJson deprecation warnings. The only warnings tolerated are two
+`extra tokens at end of #undef directive` lines emitted by OneWire 2.3.8, which is third-party
+library code this repository does not patch. Any other warning is a regression.
+
+### Partition table (OTA bootstrap)
+
+`firmware/platformio.ini` sets **`board_build.partitions = min_spiffs.csv`**:
+
+| Partition | Offset | Size |
+|---|---|---|
+| `nvs` | `0x9000` | 20 KB — unchanged, so identities survive |
+| `otadata` | `0xe000` | 8 KB |
+| `app0` (OTA) | `0x10000` | 1,966,080 B (1.875 MB) |
+| `app1` (OTA) | `0x1F0000` | 1,966,080 B (1.875 MB) |
+| `spiffs` | — | unused (the firmware stores nothing in SPIFFS) |
+
+The image that ships with this build uses **54.4 %** of a slot (1,070,189 B),
+leaving room for future signed updates. A partition table can never be changed
+over the air, which is why T-12a needs one last USB flash (decision OTA-1,
+`docs/firmware-ota-plan.md` §6).
+
+### Bootstrap USB flash (one per unit, the last manual flash)
+
+1. Back up nothing on the device; the flash below preserves NVS.
+2. Connect the unit over USB and run:
+
+   ```bash
+   pio run -d firmware -t upload
+   ```
+
+   This writes the bootloader, the **new partition table** and the app, and
+   records the chip identity. Read the `[DEVICE MAC]` line in the serial log (it
+   is also what Superadmin → Devices registers).
+3. **Do not run `pio run -t erase` / `esptool erase_flash`.** A normal upload
+   keeps the NVS partition at `0x9000`, so `wifi_ssid`, `wifi_pass`,
+   `device_id`, `device_token` and `provisioned` keep working and the unit comes
+   back online without reopening the setup portal. An erase wipes them and
+   forces provisioning again. (Bench-verify: flash 1.4.0 over an existing unit
+   and confirm the heartbeat arrives with the same device id and no portal.)
+4. Optional while the unit is on the bench:
+
+   ```bash
+   pio run -d firmware -t upload --upload-port COM5
+   pio device monitor -b 115200
+   ```
+
+   Serial should show the reset reason, `[FIRMWARE] v1.4.0`, the OTA state
+   (`valid`) and `[READY] OptiFeed controller online.`
+
+`pio run -d firmware` builds the **field** image, with the LAN updater compiled
+out. For bench work that needs LAN ArduinoOTA:
+
+```bash
+pio run -d firmware -e esp32dev-lan -t upload
+```
+
 ### Arduino IDE fallback
 
 If you must use the Arduino IDE, install these libraries manually:
-RTClib, Adafruit BusIO, ArduinoJson, OneWire, DallasTemperature.
+RTClib, Adafruit BusIO, ArduinoJson, OneWire, DallasTemperature. Select the
+**Minimal SPIFFS (1.9 MB APP / 190 KB SPIFFS)** partition scheme; the default
+1.25 MB scheme will not fit updates.
 
 ## Configuration
 
@@ -78,12 +139,49 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 ```cpp
 #define DEFAULT_WIFI_SSID      "YOUR_WIFI_SSID"
 #define DEFAULT_WIFI_PASS      "YOUR_WIFI_PASSWORD"
-#define INGEST_URL             "https://your-deployed-url.com/api/ingest"
-#define FEED_POLL_URL_BASE     "https://your-deployed-url.com/api/feed-command"
-#define SCHEDULE_SYNC_URL_BASE "https://your-deployed-url.com/api/schedule-sync"
+#define INGEST_URL             "https://pakaonai.syntaxure.dev/api/ingest"
+#define FEED_POLL_URL_BASE     "https://pakaonai.syntaxure.dev/api/feed-command"
+#define SCHEDULE_SYNC_URL_BASE "https://pakaonai.syntaxure.dev/api/schedule-sync"
+#define OTA_CHECK_URL          "https://pakaonai.syntaxure.dev/api/firmware/check"
+#define FW_VERSION             "1.4.0"
+#define FW_BOARD               "wroom32u"
 #define DEVICE_TOKEN           "esp32-tok-cict-001"
 #define DEVICE_MAC             "A4:CF:12:7E:3B:09"
 ```
+
+> The three API URLs and `OTA_CHECK_URL` are baked to the production host
+> `https://pakaonai.syntaxure.dev`. The previous hosts (`optifeed.example.com`,
+> then `optifeed.syntaxure.dev`) are dead: a unit flashed with an old build
+> cannot reach the backend until it is reflashed, because the URL is
+> compile-time, not NVS.
+
+> **TLS trust store.** `ROOT_CA` is now a concatenated bundle: ISRG Root X1
+> (Let's Encrypt RSA), ISRG Root X2 (Let's Encrypt ECDSA), ISRG Root YR
+> (Let's Encrypt Gen-Y, RSA), GTS Root R1 (Google Trust Services) and
+> GlobalSign Root CA. Each PEM was copied verbatim on 2026-10-26 from the
+> issuer's own page, and the source URL plus the SHA-256 fingerprint sit in a
+> comment above each certificate. The live chain on that date was
+> leaf ← YR1 ← Root YR ← cross-signed by X1, so the self-signed Root YR in the
+> bundle removes the dependency on that cross-sign.
+>
+> Bench verification required (cannot be proven without a radio):
+> 1. Confirm the unit still reaches `/api/feed-command` over TLS with the
+>    bundle (production chain validates).
+> 2. Build a throwaway image whose `ROOT_CA` is an unrelated public root and
+>    confirm every HTTPS call fails at the handshake and **no** request body or
+>    token is sent. Never ship that image.
+> 3. For each root, verify it can anchor its own chain: X1 via a cross-signed
+>    Let's Encrypt endpoint, X2 via an ECDSA-issued Let's Encrypt host, YR via
+>    `pakaonai.syntaxure.dev` today, GTS R1 via a `*.vercel.app` host and
+>    GlobalSign via a GlobalSign-issued host. `openssl s_client -showcerts`
+>    shows which chain is served before you test the unit.
+> 4. Confirm the five embedded certificates match the fingerprints in the
+>    source comment (`openssl x509 -fingerprint -sha256 -in <pem>`).
+
+> `FW_VERSION` is printed at boot (`[FIRMWARE] v...`, next to the
+> `[DEVICE MAC]` line) and sent as `firmware_version` in every heartbeat. It is
+> also the version the OTA check reports and compares against the signed
+> manifest.
 
 > The `?device_id=...` query on the poll and schedule endpoints is appended at runtime from the
 > provisioned identity, so one binary works for every unit.
@@ -104,6 +202,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 > stored WiFi credentials and device identity on every flashed unit.
 
 > The default `DEVICE_TOKEN` and `DEVICE_MAC` match the Prisma seed data so the device is recognized out of the box.
+
 
 ## Setup Portal
 
@@ -169,6 +268,9 @@ Hold the physical feed button (**GPIO 27**, wired to GND) during boot for at lea
 
 - This is a **WiFi-only reset**: the identity keys `device_id` and `device_token` are kept.
   Re-enter just the new WiFi credentials and leave the identity fields blank.
+- The dedicated **Wi-Fi reset button (GPIO 17)** does the same at any time after boot
+  (5 s hold). The **factory reset button (GPIO 16)** wipes the identity as well
+  (10 s hold), so the unit must be provisioned again.
 - A normal short press still dispenses the configured button dose.
 - The hold is consumed by the reset, so it does not also trigger a feed.
 - Releasing before 5 seconds cancels the reset and boots normally.
@@ -187,7 +289,259 @@ Hold the physical feed button (**GPIO 27**, wired to GND) during boot for at lea
   `X-Device-Token` header, and is never rendered back into the setup page.
 - The `provisioned` NVS flag is set after a successful full save (WiFi + identity).
 
+## Remote updates over the air (OTA)
+
+Firmware 1.4.0 is the **bootstrap** build: it carries the A/B partition table,
+the multi-root trust store, two embedded signing public keys and the signed
+update path. The server half is T-12b (`GET /api/firmware/check`); this section
+is the contract it must satisfy. Design: `docs/firmware-ota-plan.md` §4–§6,
+decisions OTA-1…OTA-7.
+
+### Safety contract
+
+- The relay is initialized **OFF** and never energized while an update is
+  downloading or while a freshly installed image is still unverified.
+- The download writes only the **inactive** slot. `otadata` changes only in
+  `Update.end(true)`, after the SHA-256 matches, so pulling power mid-download
+  boots the old image again.
+- Every image must be signed (ECDSA P-256 over the exact manifest) and
+  checksummed (SHA-256 of the binary). `HTTPUpdate`/MD5 is not used.
+- A single partition table can never be changed over the air; T-12a is the last
+  USB flash (OTA-1).
+
+### First boot after an install: pending verify
+
+`verifyRollbackLater()` returns `true`, so the Arduino core leaves a freshly
+installed image in `ESP_OTA_IMG_PENDING_VERIFY` instead of trusting it
+immediately. The new image then has **5 minutes** (`OTA_HEALTH_CHECK_TIMEOUT_MS`)
+to satisfy all three conditions:
+
+1. Wi-Fi connected,
+2. a valid clock (NTP system time or a plausible RTC date), and
+3. one authenticated `200` from `GET /api/feed-command` (`X-Device-Token`).
+
+When all three hold it calls `esp_ota_mark_app_valid_cancel_rollback()` and
+reports `ota_state=valid`. If the deadline passes first it calls
+`esp_ota_mark_app_invalid_rollback_and_reboot()`; the bootloader returns to the
+previous slot. A crash or watchdog reset before validation is also handled by
+the bootloader (bench-verify). While the check is active, every feed trigger is
+refused and the thermostat-free relay stays OFF.
+
+> A unit that has lost its stored Wi-Fi/identity cannot pass the check, so an
+> OTA image installed on an unprovisioned unit rolls back. Updated units must
+> still hold their NVS credentials (which a normal `pio run -t upload` keeps).
+
+### Check request
+
+Every `OTA_CHECK_INTERVAL_MS` (default 30 minutes) the unit sends:
+
+```http
+GET /api/firmware/check?device_id=A4%3ACF%3A12%3A7E%3A3B%3A09&version=1.4.0
+X-Device-Token: <provisioned token>
+```
+
+Response, no update:
+
+```json
+{ "update": false }
+```
+
+Response with an update:
+
+```json
+{
+  "update": true,
+  "version": "1.4.1",
+  "url": "https://<storage-host>/firmware/1.4.1.bin?<signed>",
+  "size": 1070200,
+  "sha256": "0123...cdef",
+  "manifest": "{\"board\":\"wroom32u\",\"key_id\":\"primary\",\"min_from_version\":\"1.4.0\",\"sha256\":\"0123...cdef\",\"size\":1070200,\"version\":\"1.4.1\"}",
+  "signature": "MEUCIQ...",
+  "key_id": "primary"
+}
+```
+
+Server requirements (implemented by T-12b in `apps/web/lib/firmware/ota.ts` and
+`apps/web/app/api/firmware/check/route.ts`):
+
+- All values are JSON strings except `update` (bool) and `size` (number).
+- `sha256` is 64 lowercase or uppercase hex characters.
+- `manifest` is a **string** containing JSON. The signature is over the exact
+  UTF-8 bytes of that unescaped string — sign exactly what you send after JSON
+  encoding, not a re-serialized copy.
+- `signature` is base64 of the DER-encoded ECDSA P-256 signature (SHA-256).
+- `key_id` is `primary` or `spare`, matching
+  `firmware/keys/pakaonai-ota-*-public.pem`.
+- `url` must be HTTPS, serve `Content-Length`, and point at the exact bytes.
+  A short-lived signed Storage URL is expected; the device deliberately does
+  **not** send its device token to that host.
+- The response must declare `Content-Length` (the firmware refuses an unknown
+  length) and be at most 8 KB.
+- `manifest` must contain `board` (`wroom32u`), `version`, `size`, `sha256`,
+  `key_id` and optionally `min_from_version`. The device refuses the whole
+  update if any value disagrees with the envelope.
+
+The device refuses, and postpones, when: the signature is invalid, the
+`key_id` is unknown, the board is not `wroom32u`, the manifest and envelope
+disagree, the version is not newer (semantic compare), the current version is
+below the signed `min_from_version`, the image does not fit the OTA slot, the
+URL is not HTTPS, or the SHA-256 of the downloaded bytes does not match. There
+is **no downgrade path** in 1.4.0.
+
+### Pre-flight gate
+
+The check and the download only happen while **all** of these hold
+(`otaPreflightFailure()`); otherwise the unit postpones:
+
+| Condition | Constant / source |
+|---|---|
+| Not feeding | `feederActive == false` |
+| No scheduled feed within ±20 min | `OTA_FEED_GUARD_MINUTES` |
+| Not provisioning | setup portal inactive |
+| Not in a pending-verify boot | `ota_state != pending_verify` |
+| Wi-Fi connected, RSSI > −75 dBm | `OTA_MIN_RSSI_DBM` |
+| Uptime > 10 minutes | `OTA_MIN_UPTIME_MS` |
+| Last reset was not a brownout | `esp_reset_reason()` |
+| Local time 10:00–15:00 | `OTA_WINDOW_START_MINUTE` / `OTA_WINDOW_END_MINUTE` |
+| Enough free heap | `OTA_MIN_FREE_HEAP_BYTES` (60 KB) |
+
+`OTA_LOCAL_UTC_OFFSET_MINUTES` (480 = UTC+8, Philippines) converts the
+UTC RTC to local time **for the maintenance window only**. The schedule guard
+uses the same RTC clock `handleSchedule()` fires on, so it reflects when this
+unit would really dispense. A brownout reset postpones updates until the next
+clean reboot (power safety, by decision).
+
+Backoff after any postponement or failure: **1 h → 6 h → 24 h**, then held at
+24 h. A check that answers `{update:false}` resets the ladder and the next check
+is 30 minutes later. Every decision is logged on serial as `[OTA] ...`.
+
+### Download, abort and state checkpoint
+
+- Streams `HTTPClient` bytes into `Update.write()` in 1 KB chunks, feeding the
+  task watchdog and computing SHA-256 incrementally. It aborts on no data for
+  60 s, on 15 minutes total, on a content-length mismatch, or on a short read.
+- **The physical feed button aborts the download** (decision OTA-2: feeding
+  wins). The press is consumed and dispensed immediately after the abort.
+- A scheduled feed that becomes due during a download also aborts it.
+- The dashboard feed path is refused while `otaInProgress` and reports
+  `feed_refused` with `reason: "ota_in_progress"`.
+- On success: `Update.end(true)`, then a small checkpoint is written to NVS
+  (namespace `optifeed`, new keys) and the unit reboots:
+
+  | Key | Contents |
+  |---|---|
+  | `ota_day` | `YYYYMMDD` the checkpoint belongs to |
+  | `ota_daily_grams` | `dailyGramsDispensed` |
+  | `ota_fired_mask` | bit per schedule slot, bit 0 = slot 0 |
+  | `ota_feed_count` | number of active schedule slots |
+  | `ota_feed_times` | 48 bytes, hour/minute pairs for all 24 slots |
+
+  At boot the schedule is restored every time; `dailyGramsDispensed` and the
+  `firedToday` flags are restored only when `ota_day` matches the RTC date. The
+  checkpoint is then consumed, so a later power cycle cannot resurrect stale
+  numbers. If the RTC is missing, the schedule is restored and the daily
+  counters are not.
+
+### LAN OTA (bench only)
+
+Decision OTA-7: **field builds contain no LAN updater**. `ArduinoOTA` (shared
+static password, no signature) is compiled only with `-DENABLE_LAN_OTA`, which
+the `esp32dev-lan` environment in `platformio.ini` adds:
+
+```bash
+pio run -d firmware -e esp32dev-lan -t upload
+```
+
+Never flash that build in the field.
+
+### Release procedure (signed OTA, T-12b)
+
+The server half is implemented in
+`apps/web/app/api/firmware/check/route.ts` and `apps/web/lib/firmware/ota.ts`.
+A release is described by **one JSON channel file** in the private Supabase
+Storage bucket `firmware`; there is no database row yet (the Releases/Rollouts
+UI is T-12c). One channel can target every unit or a MAC allowlist (canary).
+
+`channels/stable.json`:
+
+```json
+{
+  "version": "1.4.1",
+  "storage_path": "releases/1.4.1/firmware.bin",
+  "size": 1070200,
+  "sha256": "0123...cdef",
+  "manifest": "{\"board\":\"wroom32u\",\"key_id\":\"primary\",\"min_from_version\":\"1.4.0\",\"sha256\":\"0123...cdef\",\"size\":1070200,\"version\":\"1.4.1\"}",
+  "signature": "MEUCIQ...",
+  "key_id": "primary",
+  "targets": "*"
+}
+```
+
+`targets` is `"*"` or an array of MACs. Every value except `size` is a string;
+`manifest` is the exact signed string (the signature is over those bytes, not a
+re-serialized copy). The check endpoint answers `{update:false}` for a missing
+channel, an unparseable/inconsistent channel, an untargeted device, a device
+version at or above the release, a device below the signed
+`min_from_version`, or unavailable Storage — the unit simply retries on its
+next 30-minute check.
+
+**Steps** (Jeff's machine, never CI or Vercel):
+
+1. Bump `FW_VERSION` in `firmware-main.ino`, then build the field image:
+
+   ```bash
+   pio run -d firmware
+   ```
+
+2. Sign it with the offline private key. The public PEM must be the matching
+   committed file in `firmware/keys/`; the script verifies the signature
+   against it before writing anything.
+
+   ```bash
+   node scripts/ota/sign-release.mjs \
+     --bin firmware/.pio/build/esp32dev/firmware.bin \
+     --version 1.4.1 \
+     --key ../ota-signing-keys/pakaonai-ota-primary-private.pem \
+     --key-id primary \
+     --min-from 1.4.0 \
+     --targets all \
+     --out ota-out
+   ```
+
+   `--targets all` covers every unit; use a comma-separated MAC list for a
+   canary. `--key-id spare` uses the pre-positioned rotation key. The private
+   key is never printed, and `ota-out/` is not committed.
+
+3. Upload the two objects to the **private** `firmware` bucket with the
+   service-role credentials (Supabase dashboard, or a trusted machine's CLI —
+   never from CI and never from the app):
+
+   | Local file | Storage object |
+   |---|---|
+   | `firmware/.pio/build/esp32dev/firmware.bin` | `releases/1.4.1/firmware.bin` |
+   | `ota-out/channels/stable.json` | `channels/stable.json` |
+
+4. Devices pick the release up on their next check (30 minutes by default)
+   inside the 10:00–15:00 window, and only after every pre-flight condition
+   above holds. The heartbeat then reports `ota_state=installed`, `valid` or
+   `rolled_back` with `firmware_version`; the server records those as
+   `DeviceStateEvent` rows (`ota_installed`, `ota_valid`, `ota_rolled_back`).
+
+**Holding or widening a rollout:** replace `channels/stable.json` with a channel
+whose `targets` includes or excludes the intended MACs. To pause everything,
+delete the object or point it at the version already installed — a device never
+accepts an equal or older version. There is no force flag and no downgrade path
+in 1.4.0; a bad image rolls back on its own (bench plan step B).
+
+**Signing keys:** the private keys stay offline in
+`C:/Users/Lenovo/Documents/PakaonAI/ota-signing-keys` (decision OTA-4) and are
+never generated, committed, logged or uploaded by this repository. Only
+`firmware/keys/pakaonai-ota-primary-public.pem` and
+`firmware/keys/pakaonai-ota-spare-public.pem` are committed, and a test keeps
+them identical to the PEMs embedded in `firmware-main.ino`.
+
 ## Backend Contract
+
 
 ### `POST /api/ingest` — Telemetry & Events
 
@@ -198,9 +552,20 @@ Hold the physical feed button (**GPIO 27**, wired to GND) during boot for at lea
   "event_type": "heartbeat",
   "timestamp": "2026-07-11T12:00:00+00:00",
   "rtc_ok": true,
-  "feeder_active": false
+  "feeder_active": false,
+  "firmware_version": "1.4.0",
+  "ota_state": "valid",
+  "reset_reason": "poweron"
 }
 ```
+
+> `firmware_version`, `ota_state` and `reset_reason` are optional and additive. The ingest
+> route parses the body with a Zod object schema (`apps/web/app/api/ingest/route.ts`), which
+> strips keys it does not declare, so older and newer units both keep working. T-12b adds the
+> three fields to the schema and persists them. `ota_state` is one of `idle`, `checking`,
+> `pending_verify`, `valid`, `downloading`, `installed`, `aborted`, `failed`, `rolled_back`;
+> `reset_reason` is one of `poweron`, `external`, `software`, `panic`, `interrupt_wdt`,
+> `task_wdt`, `wdt`, `deepsleep`, `brownout`, `sdio`, `unknown`.
 
 **Feed dispensed**:
 ```json
@@ -273,24 +638,125 @@ Portal checks (no backend needed):
 3. Hold GPIO 27 for 5 s at boot: serial reports the WiFi reset and the portal returns.
    The identity fields are blank with the "leave blank to keep existing" placeholder;
    submit only a new SSID/password and confirm the same Device ID is still used.
-4. Submit an SSID outside 1-32 characters, a password of 1-7 characters, a Device ID
+4. Let the unit run for more than 5 s, then hold the **Wi-Fi reset button (GPIO 17)**
+   for 5 s: serial reports `[RESET] WiFi reset button held`, the unit reboots and the
+   portal returns with the identity kept (both identity fields say "leave blank to
+   keep existing").
+5. Provision the unit, let it run past the 5 s grace, then hold the **factory reset
+   button (GPIO 16)** for 10 s: serial reports `[RESET] Factory reset button held`,
+   and the portal returns with no usable identity (both identity fields are required).
+6. Hold **both** buttons: no reset happens at 5 s, and the factory reset completes at
+   10 s — the factory reset wins.
+7. Submit an SSID outside 1-32 characters, a password of 1-7 characters, a Device ID
    longer than 64 characters, or a token outside 8-128 characters: the form redisplays
    with an error and the device does not reboot.
-5. Boot a unit with a stored SSID and a non-placeholder compile-time `DEVICE_MAC` /
+8. Boot a unit with a stored SSID and a non-placeholder compile-time `DEVICE_MAC` /
    `DEVICE_TOKEN`: the portal does not start.
-6. Confirm the serial log never prints the WiFi password or the Device Token, and that
+9. Confirm the serial log never prints the WiFi password or the Device Token, and that
    the setup page never renders a stored token.
+10. Confirm the boot log prints `[FIRMWARE] v1.4.0` directly under the `[DEVICE MAC]` line,
+    and that a heartbeat carries the same value in `firmware_version`.
+11. Confirm the boot log prints `[INIT] Reset reason: ...`, `[OTA] state -> valid` and
+    `[OTA] LAN ArduinoOTA disabled (field build; -DENABLE_LAN_OTA for bench)`.
 
-After flashing, test the API endpoints against your deployed backend:
+After flashing, test the API endpoints against the production backend:
 
 ```bash
 # Test heartbeat ingest (expect 204 No Content)
-curl -X POST https://your-deployed-url.com/api/ingest \
+curl -X POST https://pakaonai.syntaxure.dev/api/ingest \
   -H "Content-Type: application/json" \
   -H "X-Device-Token: esp32-tok-cict-001" \
-  -d '{"device_id":"A4:CF:12:7E:3B:09","event_type":"heartbeat","timestamp":"2026-07-11T12:00:00Z","rtc_ok":true,"feeder_active":false}'
+  -d '{"device_id":"A4:CF:12:7E:3B:09","event_type":"heartbeat","timestamp":"2026-07-11T12:00:00Z","rtc_ok":true,"feeder_active":false,"firmware_version":"1.4.0","ota_state":"valid","reset_reason":"poweron"}'
 
 # Test feed command polling (expect feed_requested: false)
-curl https://your-deployed-url.com/api/feed-command?device_id=A4:CF:12:7E:3B:09 \
+curl https://pakaonai.syntaxure.dev/api/feed-command?device_id=A4:CF:12:7E:3B:09 \
   -H "X-Device-Token: esp32-tok-cict-001"
 ```
+
+## OTA bench test plan (hardware only)
+
+Everything below needs a real ESP32-WROOM-32U on a bench with a controllable
+power switch. None of it can be proven by the compiler, `pnpm test` or CI.
+Record the serial log for every step.
+
+### Preparation
+
+1. Flash 1.4.0 over USB (`pio run -d firmware -t upload`) and confirm NVS
+   survived: same `[DEVICE MAC]`, no setup portal, heartbeats arrive.
+2. Build 1.4.1 by changing only `FW_VERSION` to `"1.4.1"`. Build a deliberately
+   broken 1.4.2: keep `FW_VERSION` `"1.4.2"` and make `setup()` hang before the
+   health check can pass (for example an infinite loop after 10 s, or a boot
+   that never joins Wi-Fi). **Never** sign 1.4.2 for anything but the bench.
+3. Sign both manifests offline with Jeff's primary key (never in CI, never in
+   the repository): `{version, sha256, size, board:"wroom32u",
+   min_from_version:"1.4.0", key_id:"primary"}`. Base64 the DER signature.
+4. Point the check endpoint at the two manifests; the signed Storage URLs must
+   serve the exact bytes with `Content-Length`.
+
+### A. Happy path 1.4.0 → 1.4.1
+
+- Wait for a check inside 10:00–15:00 local with no feed within ±20 min.
+- Serial: `[OTA] update 1.4.1 available`, `download 10%…100%`,
+  `state checkpointed`, `image verified and installed`, reboot.
+- After reboot: `[OTA] first boot of a new image`, then Wi-Fi + authenticated
+  poll set `state -> valid` within 5 minutes. `[FIRMWARE] v1.4.1`.
+- The heartbeat reports `firmware_version=1.4.1`, `ota_state=valid`.
+- Daily grams, `firedToday` and the server schedule survive the reboot (compare
+  before/after; `ota_day` must match the RTC date).
+
+### B. Deliberately bad 1.4.1 → 1.4.2 (must roll back)
+
+- Serial: install starts and completes, then the new image boots and fails the
+  health check. After 5 minutes: `health check FAILED`, `state -> rolled_back`,
+  `esp_ota_mark_app_invalid_rollback_and_reboot()`.
+- The unit must come back as **1.4.1** and resume feeding on its schedule. The
+  server sees 1.4.1 with `ota_state` reset by the reboot (the failed image
+  cannot report after rollback).
+
+### C. Power pulled during the download
+
+- Start the 1.4.2 download and pull power at roughly 50 %.
+- Re-apply power: the unit boots the **old** 1.4.1 slot (the boot partition was
+  never switched), rejoins Wi-Fi, and keeps feeding. No `pending_verify`.
+
+### D. Power pulled during pending verify
+
+- Install the bad 1.4.2 and pull power **before** the 5-minute window ends (for
+  example 60 s after the install reboot).
+- Re-apply power: the bootloader must treat the image as unverified and boot
+  the previous 1.4.1 slot. This is the load-bearing rollback proof.
+
+### E. Watchdog reset during pending verify
+
+- Install the bad 1.4.2 and let it hang so the 30 s task watchdog resets it
+  during the pending-verify window.
+- After the reset the bootloader must roll back to 1.4.1, not re-enter the same
+  bad image forever.
+
+### F. Safety and gate checks
+
+- Press the physical feed button mid-download: the download aborts
+  (`state -> aborted`), nothing is installed, and a button feed dispenses.
+- While `ota_state=pending_verify`, no scheduled, button or dashboard feed
+  energizes the relay.
+- Ask for a dashboard feed during a download: it is refused with
+  `feed_refused` / `reason=ota_in_progress`.
+- Set RSSI below −75 dBm, a feed within 20 minutes, a brownout reset, a
+  time outside 10:00–15:00, or < 60 KB free heap: the check must postpone with
+  `[OTA] postponed (<reason>)` and back off 1 h → 6 h → 24 h.
+- Send a manifest signed with the **spare** key and `key_id:"spare"`: accepted.
+  Change one byte of the manifest, or name an unknown `key_id`: refused before
+  any download.
+- Send a manifest for `board:"other"`, a version equal to/older than the
+  current one, a size larger than 1,966,080 B, or a SHA-256 that does not match
+  the bytes: all refused.
+- Start a check with the wrong root pinned: the TLS handshake fails and
+  `feed_refused`/telemetry is not sent in the clear (see the TLS bench points
+  in **Configuration**).
+
+### G. Field-build check
+
+- Flash `pio run -d firmware` (default env) and confirm `ArduinoOTA` is absent:
+  no OTA port answers on the LAN, and boot prints
+  `[OTA] LAN ArduinoOTA disabled`.
+- Flash `-e esp32dev-lan` and confirm LAN ArduinoOTA works only there.

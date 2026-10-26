@@ -56,6 +56,11 @@ These are decided. Do not reopen them.
 | T15 | *(2026-10-26)* **Device registration is superadmin-only.** A platform admin creates the device and must choose the **org and pond** at creation, so it appears at once in that tenant's Admin → Devices. Tenant admins cannot register devices. Farmer self-claim (T7, M4.2) stays planned for units sold to new customers. | — |
 | T16 | *(2026-10-26)* **Token reveal is interim.** The tenant's "Show token" reveal of the stored plaintext token stays for now, because the setup portal needs the token typed in. Every reveal must be audited and rate-limited (M3F.5). Show-once tokens and dropping `EnergyDevice.token` remain the target (M4.3), after field units are reflashed. | — |
 | T17 | *(2026-10-26)* **Setup AP name is `PakaonAI-XXXX`**, XXXX = last four hex digits of the chip's **eFuse MAC** (replaces `PAKAON-XXXX` in §5.2). The device registry records that same MAC, so the printed sticker QR always matches the unit, including before identity is set. | — |
+| T19 | *(2026-10-26)* **Superadmin is god mode for the whole application** (resolves O9: T4 stands). Includes any org's members and permissions, view-as and remote feeder control. Guardrails stay: reason, audit, step-up, and the §6 safety caps. | — |
+| T23 | *(2026-10-26)* **No separate dev database.** E2E tests and migrations run against the production Supabase project while PakaonAI is not in operation (Jeff). Guardrails: a backup before every migration, E2E data prefixed `e2e-` and cleaned up, `migrate deploy` only (never reset). | — |
+| T20 | *(2026-10-26)* **Only `staging` (preview) and `main` (production) deploy.** `develop` is the reconciliation branch, validated by CI only (PR #182). | — |
+| T21 | *(2026-10-26)* **Remote firmware updates (OTA)** are required, because units sit on farms with no IT help. Design follows the ESP32 OTA research (mission T-12). | — |
+| T22 | *(2026-10-26)* **Firmware reset buttons on GPIO 17 (Wi-Fi, 5 s) and GPIO 16 (factory, 10 s)** (swapped the same day to match the soldered board), replacing the §5.3 proposal of 18/19. | — |
 | T18 | *(2026-10-26)* **Check the platform tables' exposure now.** Jeff checks whether RLS is off on the platform tables (§2a, N1) and whether the Data API exposes them. If they are exposed, ship an additive `ENABLE ROW LEVEL SECURITY` hotfix migration as its own PR with Jeff's explicit OK, despite the migration freeze. | — |
 
 ---
@@ -81,7 +86,7 @@ These are decided. Do not reopen them.
 
 | # | Finding | Evidence | Severity |
 |---|---|---|---|
-| N1 | RLS is enabled only on the core tables. No migration enables it on `PlatformAdmin`, `PlatformAuditLog`, `Organization`, `Membership`, `MembershipPermission`, `ImpersonationSession` (or `AiProviderConfig`, `BackgroundJob`, `JobArtifact`, the lockout and rate-limit tables). If the Data API exposes `public`, the public anon key could read or write them, including inserting a `PlatformAdmin` row. Live exposure **not checked** (T18). | migrations grep **(verified)**; live state **(open)** | **Critical if exposed** |
+| N1 | RLS is enabled only on the core tables. No migration enables it on `PlatformAdmin`, `PlatformAuditLog`, `Organization`, `Membership`, `MembershipPermission`, `ImpersonationSession` (or `AiProviderConfig`, `BackgroundJob`, `JobArtifact`, the lockout and rate-limit tables). If the Data API exposes `public`, the public anon key could read or write them, including inserting a `PlatformAdmin` row. **Checked live 2026-10-26 (T18): not exposed.** 17 of 32 public tables have RLS off (all platform tables included), but none grants SELECT or INSERT to `anon` or `authenticated`, so the Data API cannot reach them. `PondOwnershipHistory` grants anon/authenticated SELECT but has RLS on with a policy. | migrations grep + live catalog query **(verified)** | Low now; enabling RLS on them stays as defense in depth (M8.3) |
 | N2 | No MFA and no step-up anywhere: `PlatformAdmin.mfaEnrolledAt` and `PlatformAuditLog.stepUpAt` are never written. | grep **(verified)** | High (M3.2/M3.3 are defense items) |
 | N3 | Superadmin **delete user is an immediate hard delete** of the auth user and the whole farm subtree (ponds, devices, telemetry), with only a reason box to confirm. | `lib/actions/superadmin.ts` `deleteUser` → `deleteUserSubtree` **(verified)** | High |
 | N4 | Audit rows always use `targetType: "platform_console"`, never set `orgId`, `ip` or `userAgent`, and nothing reads `PlatformAuditLog` (no explorer, no export). | `superadmin.ts:67`, grep **(verified)** | Medium |
@@ -481,6 +486,16 @@ Runs on today's `EnergyDevice` model, before M1.2. Branch `feature/superadmin-de
 | M3F.6 | **Rotate token** (superadmin, reason, audit): new token and hash, old token gets 401 immediately. | Test: old token rejected, new accepted. |
 | M3F.7 | Docs: the registration → flash identity → print → AP-name check procedure in `firmware/README.md` and `HANDOFF.md`. | Reviewed by Jeff. |
 
+### Phase M4F: Remote firmware updates (v2.1, T21)
+
+Design: `docs/firmware-ota-plan.md`. It builds on our own stack: a private Supabase Storage bucket, a `/api/firmware/check` endpoint using device-token auth, signed manifests (offline ECDSA P-256 key), A/B slots with rollback, and staged rollouts from superadmin.
+
+Integrator findings (verified 2026-10-26):
+- The default partition table already has two OTA slots. The app is 82.6 % full.
+- The firmware trusts only ISRG Root X1. Production `optifeed.syntaxure.dev` validates today only through the Let's Encrypt Root YR → ISRG X1 cross-sign, which the Gen Y transition can remove. The OTA build must carry several roots before that happens.
+
+Open decisions OTA-1…OTA-7 are listed in the design doc §8. Tasks: T-12a firmware bootstrap build (human OK + one last flash), T-12b server without schema change, T-12c migration + rollout UI.
+
 ### Phase M4: Fleet and provisioning
 
 | ID | Task | Acceptance |
@@ -588,6 +603,7 @@ Then continue with the v1 order below, skipping what §2a lists as built.
 | *(v2)* Platform tables reachable through the Data API (N1) | **Critical if exposed** | M0.4 check now; additive RLS hotfix with explicit OK. |
 | *(v2)* Testing write paths mutates production (previews share the DB) | **High** | M0.5 dev project; mocked unit tests until then; never exercise create/rotate on a preview. |
 | *(v2)* Open SoftAP portal lets anyone nearby overwrite a unit in setup mode (N9) | High | Firmware PoP/password on the sticker (§9 v2 item 7); keep setup windows short. |
+| *(v2.1)* Devices trust a single TLS root (ISRG X1); a CA change could cut every unit off from the server and from any remote fix | **High** | The OTA bootstrap build carries several roots (`docs/firmware-ota-plan.md` §3.3); watch Let's Encrypt Gen Y. |
 | *(v2)* Plaintext tokens stay in the DB longer because of T16 | Medium | Audit and rate-limit every reveal (M3F.5); rotate on suspicion (M3F.6); M4.3 drop after reflash. |
 
 ---
@@ -604,9 +620,15 @@ Then continue with the v1 order below, skipping what §2a lists as built.
 | O6 | Are existing demo units provider-owned? | M1.4 |
 | O7 | Claim code expiry (proposed 90 days). | M4.2 |
 | O8 | Per-unit operating cost (cloud, SIM or WiFi, support), needed for a true payback figure. | §7.2 refresh |
-| O9 | *(v2)* T4 gives superadmin remote feeder control, but `lib/actions/superadmin.ts` states "no farmer function by design". Which stands for M5.2? | M5.2 |
+| O9 | *(v2, **resolved by T19**)* T4 stands: superadmin has remote feeder control (with step-up, audit and the §6 caps). | — |
 | O10 | *(v2)* When does staging/dev get its own database (M0.5)? | Safe testing of M3F, M7 |
-| O11 | *(v2)* Result of the RLS / Data API exposure check (T18). | M0.4 |
+| O11 | *(v2, **resolved 2026-10-26**)* RLS check done: no exposure (see N1). No hotfix migration needed. | — |
+| O13 | *(v2.1, **decided 2026-10-26**)* Real email invites through Resend from the verified `syntaxure.dev` domain (e.g. `invite@syntaxure.dev`); the internal login domain `pond.optifeed.local` is to be renamed for PakaonAI (planned carefully: it changes existing users' login emails). Mission T-15. | M2.7 follow-up |
+| O14 | *(v2.1, **confirmed by Jeff**)* Superadmin member management bypasses the tenant last-owner/self/ADMIN guards (god mode, T19). | — |
+| O15 | *(v2.1, **confirmed by Jeff**)* Existing accounts keep their legacy `User.role` when their membership role changes, until `UserRole` is retired from authorization (M2.5). | M2.5 |
+| O16 | *(v2.1, from T-15)* Target for the internal login domain rename (`docs/login-domain-rename-plan.md`): `pond.pakaonai.local` (recommended) or a routable subdomain; needs a migration window. | rename execution |
+| O17 | *(v2.1, from T-09a)* White text on the brand orange `#E85A2A` is 3.54:1 (fails WCAG AA for small text); the admin console now uses `#C2410C` for text-bearing actions. Adopt one AA-safe orange app-wide? | T-09 follow-up |
+| O18 | *(v2.1, from T-10)* Server actions return English error strings without stable codes (superadmin, platform devices/members/impersonation, step-up, ai-providers, password), so they show untranslated. Add stable error codes in a follow-up? | i18n follow-up |
 | O12 | *(v2)* The benchmark rates missing MFA as High; T13 defers it to the commercial gate. Keep T13 as is, or pull MFA forward? (Not reopened here; Jeff's call.) | M8.1 timing |
 
 ---
@@ -647,5 +669,6 @@ Read-only research comparing the console against multi-tenant SaaS and IoT fleet
 
 ## Change log
 
+- **v2.1 (2026-10-26):** decisions T19–T22 (god mode, staging/main-only deploys, OTA, reset buttons on GPIO 16/17), O9 resolved. Execution is tracked in `docs/missions/2026-10-26-autonomous-mission.md`.
 - **v2 (2026-10-26):** decisions T15–T18 and the T7 amendment from Jeff in chat; §2a progress and findings N1–N11; branch rule updated to `CONTRIBUTING.md`; phase M3F (device registry v1) and tasks M0.4, M0.5, M3.9–M3.11; v2 near-term PR queue in §9; four new risks; open questions O9–O12; Appendix A benchmark. `docs/superadmin-multitenancy-portal.html` is not yet updated.
 - **v1 (2026-10-17):** initial plan.

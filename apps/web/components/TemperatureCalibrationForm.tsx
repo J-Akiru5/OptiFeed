@@ -1,6 +1,14 @@
 "use client";
 
+import {
+	dashboardButtonPrimary,
+	dashboardField,
+	dashboardHint,
+	dashboardLabel,
+} from "@/components/dashboard/dashboard-classes";
 import { saveTemperatureCalibration } from "@/lib/actions/energy";
+import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -17,7 +25,10 @@ export function TemperatureCalibrationForm({
 	currentTempC,
 	canWrite = true,
 }: TemperatureCalibrationFormProps) {
+	const t = useTranslations("dashboard.appSettings");
 	const [offset, setOffset] = useState(currentTempOffsetC);
+	const [error, setError] = useState<string | null>(null);
+	const [saved, setSaved] = useState(false);
 	const [isPending, startTransition] = useTransition();
 
 	const calibratedTemp = useMemo(() => {
@@ -26,72 +37,89 @@ export function TemperatureCalibrationForm({
 	}, [currentTempC, offset]);
 
 	const handleSave = () => {
+		setError(null);
+		setSaved(false);
 		startTransition(async () => {
 			const result = await saveTemperatureCalibration(deviceId, Number(offset));
 			if (result.success) {
-				toast.success("Temperature calibration saved!");
+				setSaved(true);
+				toast.success(t("temperatureSaved"));
 			} else {
-				toast.error(result.error ?? "Failed to save calibration");
+				const message = result.error ?? t("temperatureSaveError");
+				setError(message);
+				toast.error(message);
 			}
 		});
 	};
 
 	return (
 		<div className="space-y-4">
-			<div className="flex flex-col gap-2">
-				<label htmlFor="tempOffsetC" className="text-sm font-medium text-gray-700">
-					Temperature Offset (°C)
+			<div>
+				<label htmlFor="tempOffsetC" className={dashboardLabel}>
+					{t("tempOffsetLabel")}
 				</label>
-				<p className="text-xs text-gray-400">
-					Compare with a known-accurate thermometer. If sensor reads 28.5°C but thermometer says
-					27.8°C, enter -0.7.
-				</p>
 				<input
 					id="tempOffsetC"
 					type="number"
 					min={-20}
 					max={20}
 					step={0.1}
+					inputMode="decimal"
 					value={offset}
 					onChange={(e) => setOffset(Number(e.target.value))}
-					className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+					disabled={!canWrite}
+					className={dashboardField}
 				/>
+				<span className={dashboardHint}>{t("tempOffsetHelp")}</span>
 			</div>
 
-			<div className="rounded-xl bg-sky-50 border border-sky-200 p-4 space-y-2">
-				<p className="text-xs font-bold text-sky-700 uppercase tracking-wide">
-					Calibration Preview
+			<div
+				aria-live="polite"
+				aria-atomic="true"
+				className="space-y-2 rounded-xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-900/50 dark:bg-sky-900/20"
+			>
+				<p className="text-xs font-bold uppercase tracking-wide text-sky-800 dark:text-sky-200">
+					{t("temperaturePreviewTitle")}
 				</p>
 				{currentTempC !== null ? (
 					<div className="space-y-1">
-						<p className="text-sm text-sky-800">
-							Raw reading: <strong>{currentTempC.toFixed(1)}°C</strong>
+						<p className="text-sm text-sky-900 dark:text-sky-100">
+							{t("rawReading")}: <strong>{currentTempC.toFixed(1)}°C</strong>
 						</p>
-						<p className="text-sm text-sky-800">
-							Offset:{" "}
+						<p className="text-sm text-sky-900 dark:text-sky-100">
+							{t("offset")}:{" "}
 							<strong>
 								{offset >= 0 ? "+" : ""}
 								{offset.toFixed(1)}°C
 							</strong>
 						</p>
-						<p className="text-sm font-bold text-sky-900">
-							Calibrated: <strong>{calibratedTemp?.toFixed(1)}°C</strong>
+						<p className="text-sm font-bold text-sky-950 dark:text-white">
+							{t("calibrated")}: <strong>{calibratedTemp?.toFixed(1)}°C</strong>
 						</p>
 					</div>
 				) : (
-					<p className="text-sm text-sky-600">
-						No temperature reading yet. Sensor will report once DS18B20 is connected.
-					</p>
+					<p className="text-sm text-sky-800 dark:text-sky-200">{t("noTemperatureReading")}</p>
 				)}
 			</div>
+
+			{error && (
+				<p role="alert" className="text-sm font-bold text-[#C42B3A] dark:text-red-300">
+					{error}
+				</p>
+			)}
+			{saved && (
+				<output className="block text-sm font-bold text-[#1E7B34] dark:text-green-300">
+					{t("temperatureSaved")}
+				</output>
+			)}
 
 			<button
 				type="button"
 				onClick={handleSave}
 				disabled={isPending || !canWrite}
-				className="flex min-h-[var(--ofd-touch-min)] min-w-[120px] items-center justify-center rounded-lg bg-[var(--ofd-action)] px-6 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+				className={cn(dashboardButtonPrimary, "w-full sm:w-auto")}
 			>
-				{isPending ? "Saving..." : "Save Calibration"}
+				{isPending ? t("saving") : t("saveCalibration")}
 			</button>
 		</div>
 	);

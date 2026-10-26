@@ -1,21 +1,23 @@
 "use server";
 
+import { actorContext, writePlatformAudit } from "@/lib/actions/platform/audit";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
-import { getCurrentUser } from "@/lib/auth/session";
+import { isStepUpRequiredError, withStepUp } from "@/lib/auth/step-up";
 import { generateDeviceToken, hashToken } from "@/lib/device-auth";
 import { canonicalMac } from "@/lib/device-mac";
+import { createManualFeedRequest, setSchedulePause } from "@/lib/feed/commands";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { headers } from "next/headers";
 
 /**
- * Platform device registry (plan v2, phase M3F).
+ * Platform device registry (plan v2, phase M3F, M5.2).
  *
- * Registering hardware is inventory work, not farm operation: nothing here
- * feeds, schedules or controls a feeder, so the "no farmer function" rule of
- * lib/actions/superadmin.ts still holds. Every export is gated by
- * requirePlatformAdmin(), and every mutation requires a reason and writes a
- * PlatformAuditLog row in the same transaction.
+ * Registering hardware is inventory work; remote feeder control is god mode
+ * (decision D1) and goes through the same command implementation the tenant
+ * dashboard uses (lib/feed/commands.ts), so the §6 server caps apply to both
+ * and there is no "force" flag. Every export is gated by
+ * requirePlatformAdmin(), and every mutation requires a reason, a fresh
+ * step-up and writes exactly one PlatformAuditLog row in the same transaction.
  *
  * Device tokens: a new token is returned to the caller exactly once in the
  * action result. Because of plan decision T16 the plaintext is still stored in
@@ -36,34 +38,7 @@ function requireReason(reason: string | undefined): string {
 	return trimmed;
 }
 
-/**
- * The acting platform admin, and whether they act on a time-boxed demo grant
- * (plan T10): such rows are flagged so the audit explorer can tell them apart.
- */
-async function actorContext(): Promise<{ id: string; temporaryGrant: boolean }> {
-	const user = await getCurrentUser();
-	if (!user) throw new Error("Not authenticated.");
-	const grant = await prisma.platformAdmin.findUnique({
-		where: { userId: user.id },
-		select: { expiresAt: true },
-	});
-	return { id: user.id, temporaryGrant: Boolean(grant?.expiresAt) };
-}
-
-/** Request origin for the audit row (who/what/when/where). */
-async function requestOrigin(): Promise<{ ip: string | null; userAgent: string | null }> {
-	try {
-		const h = await headers();
-		const forwarded = h.get("x-forwarded-for")?.split(",")[0]?.trim();
-		return {
-			ip: forwarded || h.get("x-real-ip") || null,
-			userAgent: h.get("user-agent")?.slice(0, 512) ?? null,
-		};
-	} catch {
-		return { ip: null, userAgent: null };
-	}
-}
-
+/** One energy-device audit row (targetType is always energy_device). */
 async function auditDevice(
 	data: {
 		action: string;
@@ -72,26 +47,23 @@ async function auditDevice(
 		reason: string;
 		actorUserId: string;
 		temporaryGrant: boolean;
+		stepUpAt: Date;
 		before?: Prisma.InputJsonValue;
 		after?: Prisma.InputJsonValue;
 	},
 	tx: Prisma.TransactionClient,
 ): Promise<void> {
-	const origin = await requestOrigin();
-	await tx.platformAuditLog.create({
-		data: {
-			actorUserId: data.actorUserId,
-			action: data.action,
-			targetType: "energy_device",
-			targetId: data.deviceId,
-			orgId: data.orgId,
-			reason: data.reason,
-			temporaryGrant: data.temporaryGrant,
-			ip: origin.ip,
-			userAgent: origin.userAgent,
-			...(data.before !== undefined ? { before: data.before } : {}),
-			...(data.after !== undefined ? { after: data.after } : {}),
-		},
+	await writePlatformAudit(tx, {
+		actorUserId: data.actorUserId,
+		action: data.action,
+		targetType: "energy_device",
+		targetId: data.deviceId,
+		orgId: data.orgId,
+		reason: data.reason,
+		stepUpAt: data.stepUpAt,
+		temporaryGrant: data.temporaryGrant,
+		...(data.before !== undefined ? { before: data.before } : {}),
+		...(data.after !== undefined ? { after: data.after } : {}),
 	});
 }
 
@@ -143,6 +115,7 @@ export type PlatformDeviceRow = {
 	mac: string;
 	lastSeenAt: Date | null;
 	createdAt: Date;
+	isPaused: boolean;
 	pond: { id: string; name: string } | null;
 	orgs: { id: string; name: string }[];
 };
@@ -188,6 +161,7 @@ export async function listPlatformDevices(
 				mac: true,
 				lastSeenAt: true,
 				createdAt: true,
+				isPaused: true,
 				pond: { select: { id: true, name: true, ownerId: true } },
 			},
 		}),
@@ -204,6 +178,7 @@ export async function listPlatformDevices(
 			mac: d.mac,
 			lastSeenAt: d.lastSeenAt,
 			createdAt: d.createdAt,
+			isPaused: d.isPaused,
 			pond: d.pond ? { id: d.pond.id, name: d.pond.name } : null,
 			orgs: d.pond ? (orgsByFarm.get(d.pond.ownerId) ?? []) : [],
 		})),
@@ -283,9 +258,12 @@ export async function getOrgPondOptions(): Promise<OrgPondOption[]> {
 
 // ─── Register ─────────────────────────────────────────────────────────────────
 
+export type StepUpRequiredResult = { error: string; code: "step_up_required" };
+
 export type RegisterDeviceResult =
 	| { success: true; deviceId: string; mac: string; token: string }
-	| { error: string };
+	| StepUpRequiredResult
+	| { error: string; code?: undefined };
 
 const DUPLICATE_MAC_MESSAGE = "A device with this MAC is already registered.";
 
@@ -362,30 +340,39 @@ export async function registerDevice(input: {
 		if (existing) return { error: DUPLICATE_MAC_MESSAGE };
 
 		const actor = await actorContext();
-		const token = generateDeviceToken();
 
-		const deviceId = await prisma.$transaction(async (tx) => {
-			const device = await tx.energyDevice.create({
-				data: { mac, label, pondId: pond.id, token, tokenHash: hashToken(token) },
-				select: { id: true },
+		// Registering hardware with a live credential is a device action: fresh
+		// password re-entry is required (plan §4.4), and the audit row records it.
+		const { deviceId, token } = await withStepUp(async (stepUpAt) => {
+			const newToken = generateDeviceToken();
+			const id = await prisma.$transaction(async (tx) => {
+				const device = await tx.energyDevice.create({
+					data: { mac, label, pondId: pond.id, token: newToken, tokenHash: hashToken(newToken) },
+					select: { id: true },
+				});
+				await auditDevice(
+					{
+						action: "platform.device.create",
+						deviceId: device.id,
+						orgId: org.id,
+						reason,
+						actorUserId: actor.id,
+						temporaryGrant: actor.temporaryGrant,
+						stepUpAt,
+						after: { mac, label, pondId: pond.id },
+					},
+					tx,
+				);
+				return device.id;
 			});
-			await auditDevice(
-				{
-					action: "platform.device.create",
-					deviceId: device.id,
-					orgId: org.id,
-					reason,
-					actorUserId: actor.id,
-					temporaryGrant: actor.temporaryGrant,
-					after: { mac, label, pondId: pond.id },
-				},
-				tx,
-			);
-			return device.id;
+			return { deviceId: id, token: newToken };
 		});
 
 		return { success: true, deviceId, mac, token };
 	} catch (e) {
+		if (isStepUpRequiredError(e)) {
+			return { error: e.message, code: "step_up_required" };
+		}
 		if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
 			return { error: DUPLICATE_MAC_MESSAGE };
 		}
@@ -399,7 +386,10 @@ export async function registerDevice(input: {
 
 // ─── Rotate token ─────────────────────────────────────────────────────────────
 
-export type RotateDeviceTokenResult = { success: true; token: string } | { error: string };
+export type RotateDeviceTokenResult =
+	| { success: true; token: string }
+	| StepUpRequiredResult
+	| { error: string; code?: undefined };
 
 /**
  * Issue a new token for a device. The old token stops authenticating at once,
@@ -433,29 +423,38 @@ export async function rotateDeviceToken(input: {
 		const orgId = device.pond ? (orgs.get(device.pond.ownerId)?.[0]?.id ?? null) : null;
 
 		const actor = await actorContext();
-		const token = generateDeviceToken();
 
-		await prisma.$transaction(async (tx) => {
-			await tx.energyDevice.update({
-				where: { id: device.id },
-				data: { token, tokenHash: hashToken(token) },
+		// A rotation invalidates the unit's working credential, so it needs a
+		// fresh step-up just like registration.
+		const token = await withStepUp(async (stepUpAt) => {
+			const newToken = generateDeviceToken();
+			await prisma.$transaction(async (tx) => {
+				await tx.energyDevice.update({
+					where: { id: device.id },
+					data: { token: newToken, tokenHash: hashToken(newToken) },
+				});
+				await auditDevice(
+					{
+						action: "platform.device.rotate_token",
+						deviceId: device.id,
+						orgId,
+						reason,
+						actorUserId: actor.id,
+						temporaryGrant: actor.temporaryGrant,
+						stepUpAt,
+						after: { mac: device.mac },
+					},
+					tx,
+				);
 			});
-			await auditDevice(
-				{
-					action: "platform.device.rotate_token",
-					deviceId: device.id,
-					orgId,
-					reason,
-					actorUserId: actor.id,
-					temporaryGrant: actor.temporaryGrant,
-					after: { mac: device.mac },
-				},
-				tx,
-			);
+			return newToken;
 		});
 
 		return { success: true, token };
 	} catch (e) {
+		if (isStepUpRequiredError(e)) {
+			return { error: e.message, code: "step_up_required" };
+		}
 		console.error(
 			"[platform] rotateDeviceToken error:",
 			e instanceof Error ? e.message : "unknown error",
@@ -488,4 +487,218 @@ export async function getPlatformDevicesForLabels(
 	});
 	const order = new Map(ids.map((id, index) => [id, index]));
 	return devices.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+}
+
+// ─── Remote feeder control (M5.2, decision D1) ───────────────────────────────
+
+export type RemoteFeedResult =
+	| { success: true; message?: string }
+	| StepUpRequiredResult
+	| { success: false; code: "feed_refused"; error: string }
+	| { error: string; code?: undefined };
+
+export type RemotePauseResult =
+	| { success: true; isPaused: boolean }
+	| StepUpRequiredResult
+	| { success: false; code: "pause_refused"; error: string }
+	| { error: string; code?: undefined };
+
+const NO_DEVICE_MESSAGE = "Device not found.";
+
+/**
+ * Feed any feeder on the platform (god mode, decision D1).
+ *
+ * This is the same command the tenant dashboard issues: the caps (1,000 g per
+ * request, the daily cap, relay-time and offline checks) are enforced inside
+ * lib/feed/commands.ts. There is deliberately no force/burst parameter, so a
+ * remote command to an empty hopper or an offline unit is refused by the same
+ * rules as a local one. A refusal is audited and returned as `feed_refused`.
+ */
+export async function remoteFeedDevice(input: {
+	deviceId: string;
+	grams: number;
+	reason: string;
+}): Promise<RemoteFeedResult> {
+	await requirePlatformAdmin();
+
+	let reason: string;
+	try {
+		reason = requireReason(input.reason);
+	} catch (e) {
+		return { error: e instanceof Error ? e.message : "A reason is required." };
+	}
+	if (typeof input.deviceId !== "string" || !input.deviceId) {
+		return { error: "A device is required." };
+	}
+	if (typeof input.grams !== "number" || !Number.isFinite(input.grams)) {
+		return { error: "Enter the feed amount in grams." };
+	}
+
+	try {
+		const device = await prisma.energyDevice.findUnique({
+			where: { id: input.deviceId },
+			select: { id: true, pond: { select: { ownerId: true } } },
+		});
+		if (!device) return { error: NO_DEVICE_MESSAGE };
+
+		const orgId = await orgIdForDevice(device.pond?.ownerId ?? null);
+		const actor = await actorContext();
+
+		return await withStepUp(async (stepUpAt) => {
+			return prisma.$transaction(async (tx) => {
+				const outcome = await createManualFeedRequest(tx, {
+					deviceId: device.id,
+					grams: input.grams,
+					actorId: actor.id,
+					triggerSource: "platform_remote",
+				});
+
+				if (!outcome.ok) {
+					await auditDevice(
+						{
+							action: "platform.device.feed_refused",
+							deviceId: device.id,
+							orgId,
+							reason,
+							actorUserId: actor.id,
+							temporaryGrant: actor.temporaryGrant,
+							stepUpAt,
+							after: { grams: input.grams, code: outcome.code, error: outcome.error },
+						},
+						tx,
+					);
+					return { success: false as const, code: "feed_refused" as const, error: outcome.error };
+				}
+
+				await auditDevice(
+					{
+						action: "platform.device.feed",
+						deviceId: device.id,
+						orgId,
+						reason,
+						actorUserId: actor.id,
+						temporaryGrant: actor.temporaryGrant,
+						stepUpAt,
+						after: {
+							grams: input.grams,
+							requestId: outcome.requestId,
+							alreadyPending: outcome.alreadyPending,
+						},
+					},
+					tx,
+				);
+
+				return outcome.alreadyPending
+					? { success: true as const, message: "Feed already pending" }
+					: { success: true as const };
+			});
+		});
+	} catch (e) {
+		if (isStepUpRequiredError(e)) {
+			return { error: e.message, code: "step_up_required" };
+		}
+		console.error(
+			"[platform] remoteFeedDevice error:",
+			e instanceof Error ? e.message : "unknown error",
+		);
+		return { error: "Failed to send the feed command." };
+	}
+}
+
+/**
+ * Pause or resume any feeder's schedule (god mode, decision D1).
+ *
+ * Uses the same device write and DeviceStateEvent as the dashboard toggle.
+ * Resuming a fallow pond is refused, exactly as it is locally.
+ */
+export async function remoteSetDevicePause(input: {
+	deviceId: string;
+	isPaused: boolean;
+	reason: string;
+}): Promise<RemotePauseResult> {
+	await requirePlatformAdmin();
+
+	let reason: string;
+	try {
+		reason = requireReason(input.reason);
+	} catch (e) {
+		return { error: e instanceof Error ? e.message : "A reason is required." };
+	}
+	if (typeof input.deviceId !== "string" || !input.deviceId) {
+		return { error: "A device is required." };
+	}
+	if (typeof input.isPaused !== "boolean") {
+		return { error: "Choose pause or resume." };
+	}
+
+	try {
+		const device = await prisma.energyDevice.findUnique({
+			where: { id: input.deviceId },
+			select: { id: true, isPaused: true, pond: { select: { ownerId: true } } },
+		});
+		if (!device) return { error: NO_DEVICE_MESSAGE };
+
+		const orgId = await orgIdForDevice(device.pond?.ownerId ?? null);
+		const actor = await actorContext();
+
+		return await withStepUp(async (stepUpAt) => {
+			return prisma.$transaction(async (tx) => {
+				const outcome = await setSchedulePause(tx, {
+					deviceId: device.id,
+					isPaused: input.isPaused,
+					actorId: actor.id,
+				});
+
+				if (!outcome.ok) {
+					await auditDevice(
+						{
+							action: "platform.device.pause_refused",
+							deviceId: device.id,
+							orgId,
+							reason,
+							actorUserId: actor.id,
+							temporaryGrant: actor.temporaryGrant,
+							stepUpAt,
+							after: { isPaused: input.isPaused, code: outcome.code, error: outcome.error },
+						},
+						tx,
+					);
+					return { success: false as const, code: "pause_refused" as const, error: outcome.error };
+				}
+
+				await auditDevice(
+					{
+						action: "platform.device.pause",
+						deviceId: device.id,
+						orgId,
+						reason,
+						actorUserId: actor.id,
+						temporaryGrant: actor.temporaryGrant,
+						stepUpAt,
+						before: { isPaused: outcome.wasPaused },
+						after: { isPaused: input.isPaused },
+					},
+					tx,
+				);
+
+				return { success: true as const, isPaused: input.isPaused };
+			});
+		});
+	} catch (e) {
+		if (isStepUpRequiredError(e)) {
+			return { error: e.message, code: "step_up_required" };
+		}
+		console.error(
+			"[platform] remoteSetDevicePause error:",
+			e instanceof Error ? e.message : "unknown error",
+		);
+		return { error: "Failed to change the schedule state." };
+	}
+}
+
+/** First org of the farm that owns a device's pond (audit orgId). */
+async function orgIdForDevice(farmId: string | null): Promise<string | null> {
+	if (!farmId) return null;
+	const orgs = await orgsForFarms([farmId]);
+	return orgs.get(farmId)?.[0]?.id ?? null;
 }

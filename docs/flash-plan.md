@@ -9,7 +9,7 @@ programmatic flashing was proven impossible on this hardware.
 ## 1. Goal and definition of done
 
 The device must appear **Online** on the OptiFeed dashboard, sending heartbeats to
-`https://optifeed.syntaxure.dev`.
+`https://pakaonai.syntaxure.dev`.
 
 Done when all of the following are verified:
 
@@ -23,11 +23,15 @@ Done when all of the following are verified:
 ## 2. Root cause (verified 2026-10-24)
 
 The board is **already running an old OptiFeed build and is online** on Wi-Fi `JEM…`
-(NTP synced, sensors reading), but it posts to the dead placeholder host
-`optifeed.example.com` (`firmware/firmware-main/firmware-main.ino` lines 48/51/52) — which is
-why the dashboard never sees it. The corrected firmware has been built:
+(NTP synced, sensors reading), but it posts to a dead host — first the placeholder
+`optifeed.example.com`, then `optifeed.syntaxure.dev`, which now answers
+`404 DEPLOYMENT_NOT_FOUND`. The three endpoint URLs are compile-time constants, so the only fix is
+a reflash. Since 2026-10-26 (task T-14) they are baked to the production host
+`https://pakaonai.syntaxure.dev` in `firmware/firmware-main/firmware-main.ino`, alongside
+`FW_VERSION "1.3.0"`. The corrected firmware has been built:
 
-- Binary: `firmware/.pio/build/esp32dev/firmware.bin` (1,087,296 bytes, 10/24/2026 5:23 PM)
+- Binary: `firmware/.pio/build/esp32dev/firmware.bin` (numbers below are the 10/24 build; rebuild
+  before flashing so the binary carries the `pakaonai.syntaxure.dev` URLs and `FW_VERSION`)
 - Link: RAM 17.0 %, Flash 82.4 % (`esp32dev`)
 - API verified live: `GET /api/health` → 200; TLS chain matches the CA baked into the firmware.
 
@@ -55,16 +59,17 @@ resistor):
 | Button | GPIO | Purpose | Firmware state |
 |---|---|---|---|
 | BOOT / IO0 | **IO0** | **Mandatory** — hold low during reset to enter USB download mode. The only remaining path to flash. | n/a (bootloader strap) |
-| Feed / Wi-Fi reset | **27** | Hold ~5 s at boot (`WIFI_RESET_HOLD_MS 5000`, line 151) to clear Wi-Fi and re-enter provisioning. | `BUTTON_PIN 27` (line 109), already active |
-| Wi-Fi reset | e.g. 32 (candidate) | Dedicated Wi-Fi reset. | `WIFI_RESET_BUTTON_PIN -1` (line 118) — **compiled out**; set a pin and rebuild |
-| Factory reset | e.g. 33 (candidate) | Full device reset. | `FACTORY_RESET_BUTTON_PIN -1` (line 119) — **compiled out**; set a pin and rebuild |
+| Feed / Wi-Fi reset | **27** | Hold ~5 s at boot (`WIFI_RESET_HOLD_MS`) to clear Wi-Fi and re-enter provisioning. | `BUTTON_PIN 27`, already active |
+| Wi-Fi reset | **17** | Hold 5 s at any time after boot to clear Wi-Fi only; the device identity is kept. | `WIFI_RESET_BUTTON_PIN 17`, active |
+| Factory reset | **16** | Hold 10 s to clear Wi-Fi plus the device identity. While it is held the Wi-Fi reset is suppressed. | `FACTORY_RESET_BUTTON_PIN 16`, active |
 
-Candidate pins must be confirmed free against the full pin assignment table in
-`firmware-main.ino` before soldering.
+Pins 16/17 are confirmed free against the full pin assignment table in
+`firmware-main.ino`: neither is a strapping pin, both support the internal
+pull-up, and the sketch uses neither.
 
 ## 5. Flash procedure (once buttons exist)
 
-1. If button pins were enabled: edit lines 118/119 and rebuild —
+1. Rebuild the firmware (the reset-button pins are already set to 16/17) —
    `pio run` (PlatformIO is **not** on PATH: `%LOCALAPPDATA%\Programs\Python\Python312\Scripts\pio.exe`).
 2. Connect USB (CP2102 → **COM3**).
 3. Hold **BOOT (IO0)**, tap **RESET** (or re-plug USB) → serial monitor must show
@@ -87,5 +92,5 @@ Candidate pins must be confirmed free against the full pin assignment table in
 - Diagnostic scripts (evidence for §3) in `%TEMP%`: `esp32_watch.py`, `esp32_atomic_download.py`,
   `esp32_seq_probe.py`, `esp32_diag.py`, `esp32_scan.py`, `esp32_mdns.py`, `esp32_ota_scan.py`.
 - pyserial API is `setDTR`/`setRTS`; `byref` comes from `ctypes`.
-- The corrected URL change in `firmware-main.ino` currently lives as uncommitted work on
-  `audit/phase-1-critical`; commit it before/with the flash work so the binary and source agree.
+- The production URL is committed in `firmware-main.ino` (task T-14), so the binary and source
+  agree; rebuild — do not hand-edit the sketch before flashing.

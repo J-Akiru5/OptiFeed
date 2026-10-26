@@ -1,57 +1,52 @@
 import { DataExportButton, DataImportDialog } from "@/components/DataImportExport";
+import {
+	DashboardPageHeader,
+	DashboardSection,
+	ReadOnlyNotice,
+} from "@/components/dashboard/dashboard-ui";
+import { dashboardSectionLink } from "@/components/dashboard/dashboard-ui";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
+import { cn } from "@/lib/utils";
 import { ChevronLeft, Database, Download, Upload } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export default async function DataSettingsPage() {
-	const t = await getTranslations("dashboard.dataSettings");
+	const [t, tCommon] = await Promise.all([
+		getTranslations("dashboard.dataSettings"),
+		getTranslations("dashboard.common"),
+	]);
 	const writeAccess = await canWrite();
 
 	return (
-		<div className="mx-auto max-w-4xl space-y-8">
+		<div className="mx-auto max-w-4xl space-y-6 pb-20">
 			<div>
 				<Link
 					href="/dashboard/settings"
-					className="inline-flex items-center gap-1 text-sm font-bold text-[#3D5568] hover:text-[#0A3D62] transition-colors mb-4"
+					className={cn(
+						"-ml-1 mb-3 inline-flex min-h-11 items-center gap-1 px-1",
+						dashboardSectionLink,
+					)}
 				>
-					<ChevronLeft className="w-4 h-4" /> {t("backToSettings")}
+					<ChevronLeft aria-hidden="true" className="h-4 w-4" /> {t("backToSettings")}
 				</Link>
-				<h1 className="flex items-center gap-2 text-3xl font-bold text-[var(--ofd-base)]">
-					<Database size={28} />
-					{t("title")}
-				</h1>
-				<p className="mt-2 text-gray-500">{t("desc")}</p>
+				<DashboardPageHeader title={t("title")} description={t("desc")} icon={Database} />
 			</div>
 
-			<div className="grid gap-4 md:grid-cols-2">
-				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-					<div className="flex items-center gap-3 mb-4">
-						<div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center">
-							<Download className="w-6 h-6 text-green-600" />
-						</div>
-						<div>
-							<h2 className="text-lg font-black text-[#0A3D62]">{t("exportTitle")}</h2>
-							<p className="text-xs text-[#3D5568]">{t("exportDesc")}</p>
-						</div>
-					</div>
-					<p className="text-sm text-[#3D5568] mb-4">{t("exportBody")}</p>
-					<DataExportButton />
-				</div>
+			{!writeAccess && (
+				<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
+			)}
 
-				<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-					<div className="flex items-center gap-3 mb-4">
-						<div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center">
-							<Upload className="w-6 h-6 text-blue-600" />
-						</div>
-						<div>
-							<h2 className="text-lg font-black text-[#0A3D62]">{t("importTitle")}</h2>
-							<p className="text-xs text-[#3D5568]">{t("importDesc")}</p>
-						</div>
-					</div>
-					<p className="text-sm text-[#3D5568] mb-4">{t("importBody")}</p>
+			<div className="grid gap-4 md:grid-cols-2">
+				<DashboardSection title={t("exportTitle")} description={t("exportDesc")} icon={Download}>
+					<p className="mb-4 text-sm text-[#3D5568] dark:text-gray-300">{t("exportBody")}</p>
+					<DataExportButton />
+				</DashboardSection>
+
+				<DashboardSection title={t("importTitle")} description={t("importDesc")} icon={Upload}>
+					<p className="mb-4 text-sm text-[#3D5568] dark:text-gray-300">{t("importBody")}</p>
 					<DataImportDialog canWrite={writeAccess} />
-				</div>
+				</DashboardSection>
 			</div>
 		</div>
 	);

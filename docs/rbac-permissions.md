@@ -1,9 +1,10 @@
 # RBAC permission enforcement
 
-**Status: backend enforcement plus a tenant-admin management UI.** `MembershipPermission` rows gate a
+**Status: backend enforcement plus tenant and platform management UIs.** `MembershipPermission` rows gate a
 specific set of tenant server actions, and tenant admins can grant or revoke them from
-**Admin → Users → Permissions**. The UI does not hide or disable other dashboard controls, and it does
-not change tenant data scoping.
+**Admin → Users → Permissions** or manage members from **Admin → Settings → Members**. Platform admins can
+manage any organization's members from **/superadmin/orgs/[orgId]** in god mode (mission D1). The tenant UI
+does not hide or disable other dashboard controls, and it does not change tenant data scoping.
 
 Source of truth for the permission model: [`SUPERADMIN-MULTITENANCY-PLAN.md`](./SUPERADMIN-MULTITENANCY-PLAN.md)
 §4.1 (resolution order) and §4.2 (permission set).
@@ -20,10 +21,13 @@ Source of truth for the permission model: [`SUPERADMIN-MULTITENANCY-PLAN.md`](./
 - Permissions are unioned across the user's active memberships in `ACTIVE` organizations.
 - The resolver fails closed: no session, no user row, no membership, or no `ACTIVE` organization
   yields no permissions.
-- Tenant admins manage grants and revocations from **Admin → Users → Permissions**. The server
-  requires a tenant `OWNER`/`ADMIN` membership + `manage_members` + a target inside the caller's org
-  scope.
+- Tenant admins manage grants and revocations from **Admin → Users → Permissions** and members from
+  **Admin → Settings → Members**. The server requires a tenant `OWNER`/`ADMIN` membership +
+  `manage_members` + a target inside the caller's org scope.
 - An admin cannot revoke their own `manage_members`; the guard is enforced server-side.
+- Platform admins manage any organization's members from **/superadmin/orgs/[orgId]**. Every mutation
+  requires `requirePlatformAdmin()`, a reason, a fresh step-up, and writes exactly one
+  `PlatformAuditLog` row with `targetType = "membership"` and the organization's `orgId`.
 
 ## Console access
 
@@ -165,6 +169,10 @@ an additional gate placed before any write (and before the permission-management
 | `deleteUser` | `lib/actions/admin.ts` | `manage_members` | `requireRole("ADMIN")` |
 | `getUserPermissionState` | `lib/actions/admin.ts` | `manage_members` | `requireRole("ADMIN")` |
 | `setUserPermission` | `lib/actions/admin.ts` | `manage_members` | `requireRole("ADMIN")` |
+| `listTenantMembers` | `lib/actions/admin.ts` | — (tenant admin read) | `requireTenantAdmin()` |
+| `inviteMember` | `lib/actions/admin.ts` | `manage_members` | `requireTenantAdmin()` |
+| `changeMemberRole` | `lib/actions/admin.ts` | `manage_members` | `requireTenantAdmin()` |
+| `revokeMember` | `lib/actions/admin.ts` | `manage_members` | `requireTenantAdmin()` |
 | `createPondWithFarmer` | `lib/actions/admin.ts` | `manage_farms_ponds` | `requireRole("ADMIN")` |
 | `createPond` | `lib/actions/admin.ts` | `manage_farms_ponds` | `requireRole("ADMIN")` |
 | `updatePondOwner` | `lib/actions/admin.ts` | `manage_farms_ponds` | `requireRole("ADMIN")` |
@@ -193,6 +201,26 @@ message.
   a denial only from the server action.
 - **Platform console.** `/superadmin` is gated by `requirePlatformAdmin()`, a separate path that is
   intentionally not affected by tenant permissions.
+
+## Member management (M2.7)
+
+The tenant **Admin → Settings → Members** section and the platform
+**/superadmin/orgs/[orgId]** page share the same domain rules in
+`lib/auth/member-rules.ts`:
+
+- `OWNER` and `ADMIN` may list members, invite, change roles, toggle permissions and revoke.
+- A member cannot change their own role (or revoke their own membership).
+- An `ADMIN` cannot invite, promote, demote or remove an `OWNER`; only an `OWNER` can.
+- The last active `OWNER` in an organization cannot be demoted or removed. The count is re-checked
+  inside the transaction so two concurrent demotions cannot both succeed.
+- A `PlatformAdmin` membership is visible but read-only in the tenant console; the grant is managed
+  from `/superadmin`.
+- Invites attach an existing account or provision a new pond-domain login through the existing
+  Supabase-then-transaction path. No email is sent; a generated temporary password is returned once
+  to the admin and the member must change it on first login.
+- The platform path is god mode: it intentionally skips the tenant last-owner/self/ADMIN hierarchy
+  rules so a platform admin can repair a stranded organization. Required reason, step-up and one
+  `membership` audit row are the guardrails.
 
 ## Managing grants and revocations
 
@@ -240,3 +268,7 @@ remain out of scope for agent work and require a separate owner decision.
   before any write.
 - `apps/web/lib/__tests__/farm-actions.test.ts` — stubs the gate so the tenant-scoping tests for
   `admin.ts` do not issue permission queries.
+- `apps/web/lib/__tests__/member-management.test.ts` — tenant member list allow/deny, cross-org
+  deny, self-role change, ADMIN hierarchy, last-owner guard, revocation and invite.
+- `apps/web/lib/__tests__/platform-members.test.ts` — platform god mode: gate, reason, step-up,
+  exactly one membership audit row per mutation, and no one-time password in the audit trail.

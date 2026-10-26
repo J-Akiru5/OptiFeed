@@ -1,5 +1,6 @@
 "use client";
 
+import { FOCUS_RING_ON_DARK } from "@/components/superadmin/ui";
 import { Link, usePathname, useRouter } from "@/i18n/routing";
 import { clearOfflineData } from "@/lib/offline/db";
 import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
@@ -15,31 +16,31 @@ import {
 	Sparkles,
 	Users,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 const navItems = [
-	{ href: "/superadmin", label: "Overview", icon: BarChart3 },
-	{ href: "/superadmin/users", label: "Users", icon: Users },
-	{ href: "/superadmin/orgs", label: "Organizations", icon: FolderTree },
-	{ href: "/superadmin/ponds", label: "Ponds", icon: Droplets },
-	{ href: "/superadmin/devices", label: "Devices", icon: Cpu },
-	{ href: "/superadmin/ai-providers", label: "AI Providers", icon: Sparkles },
-];
+	{ href: "/superadmin", key: "overview", icon: BarChart3 },
+	{ href: "/superadmin/users", key: "users", icon: Users },
+	{ href: "/superadmin/orgs", key: "organizations", icon: FolderTree },
+	{ href: "/superadmin/ponds", key: "ponds", icon: Droplets },
+	{ href: "/superadmin/devices", key: "devices", icon: Cpu },
+	{ href: "/superadmin/ai-providers", key: "aiProviders", icon: Sparkles },
+] as const;
 
 /**
  * Platform console navigation.
  *
- * Intentionally has no Schedule / Hierarchy / Settings entries: the
- * superadmin is read-only on farm operations (3-tier model, no interference
- * in farmer work). Ponds here is a visibility table, not a control surface.
- *
- * Devices is the hardware registry (plan v2, M3F): register units, rotate
- * tokens and print stickers. It has no feed, schedule or control function.
+ * Devices is the hardware registry (plan v2, M3F) and, since M5.2, the remote
+ * feeder control surface: every remote command goes through the tenant command
+ * implementation with the same server caps, a required reason, step-up and one
+ * audit row (decision D1). Ponds remains visibility only.
  *
  * AI Providers is the one configuration surface, and it is platform-level only:
  * it controls the model chain every tenant shares, not any farm's data.
  */
 export function SuperadminSidebar() {
+	const t = useTranslations("superadmin.shell");
 	const pathname = usePathname();
 	const router = useRouter();
 	const supabase = createClient();
@@ -56,10 +57,10 @@ export function SuperadminSidebar() {
 	};
 
 	return (
-		<aside className="hidden lg:flex w-64 bg-[#0A3D62] text-white flex-col p-6 shrink-0 sticky top-[64px] h-[calc(100vh-64px)] z-20 overflow-y-auto scrollbar-none">
-			<div className="space-y-1">
-				<p className="text-[10px] font-extrabold uppercase text-white/50 tracking-widest px-3 mb-3">
-					Platform Console
+		<aside className="sticky top-[64px] z-20 hidden h-[calc(100vh-64px)] w-64 shrink-0 flex-col overflow-y-auto bg-[#0A3D62] p-6 text-white scrollbar-none lg:flex">
+			<nav aria-label={t("navLabel")} className="space-y-1">
+				<p className="mb-3 px-3 text-[10px] font-extrabold uppercase tracking-widest text-white/80">
+					{t("console")}
 				</p>
 				{navItems.map((item) => {
 					const isActive =
@@ -71,40 +72,48 @@ export function SuperadminSidebar() {
 						<Link
 							key={item.href}
 							href={item.href}
+							aria-current={isActive ? "page" : undefined}
 							className={cn(
-								"w-full flex items-center gap-3 p-3.5 rounded-2xl font-bold transition-all text-[15px] focus-visible:outline-none focus-visible:ring-2 focus:ring-white",
+								"flex w-full items-center gap-3 rounded-2xl p-3.5 text-[15px] font-bold transition-colors",
+								FOCUS_RING_ON_DARK,
 								isActive
-									? "bg-[#E85A2A] text-white shadow-md transform translate-x-1"
-									: "text-white/70 hover:bg-white/10",
+									? "bg-[#E85A2A] text-white shadow-md ring-1 ring-white/20"
+									: "text-white/80 hover:bg-white/10 hover:text-white",
 							)}
 						>
-							<item.icon className="w-5 h-5 shrink-0" />
-							{item.label}
+							<item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+							{t(`nav.${item.key}`)}
 						</Link>
 					);
 				})}
-			</div>
+			</nav>
 
-			<div className="mt-auto pt-6 border-t border-white/10">
+			<div className="mt-auto border-t border-white/10 pt-6">
 				<Link
 					href="/dashboard"
-					className="flex items-center gap-3 p-3.5 rounded-2xl font-bold text-white/50 hover:text-white hover:bg-white/10 transition-all text-sm"
+					className={cn(
+						"flex items-center gap-3 rounded-2xl p-3.5 text-sm font-bold text-white/80 transition-colors hover:bg-white/10 hover:text-white",
+						FOCUS_RING_ON_DARK,
+					)}
 				>
-					<BarChart3 className="w-4 h-4 shrink-0" />
-					Back to Dashboard
+					<BarChart3 className="h-4 w-4 shrink-0" aria-hidden="true" />
+					{t("backToDashboard")}
 				</Link>
 				<button
 					type="button"
 					onClick={handleSignOut}
 					disabled={isSigningOut}
-					className="w-full flex items-center gap-3 p-3.5 rounded-2xl font-bold text-white/50 hover:text-white hover:bg-white/10 transition-all text-sm disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus:ring-white"
+					className={cn(
+						"flex w-full items-center gap-3 rounded-2xl p-3.5 text-sm font-bold text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50",
+						FOCUS_RING_ON_DARK,
+					)}
 				>
 					{isSigningOut ? (
-						<Loader2 className="w-4 h-4 shrink-0 animate-spin" />
+						<Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
 					) : (
-						<LogOut className="w-4 h-4 shrink-0" />
+						<LogOut className="h-4 w-4 shrink-0" aria-hidden="true" />
 					)}
-					Sign Out
+					{t("signOut")}
 				</button>
 			</div>
 		</aside>

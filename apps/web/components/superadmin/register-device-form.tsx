@@ -1,16 +1,24 @@
 "use client";
 
 import { DeviceTokenOnce } from "@/components/superadmin/device-token-once";
+import { StepUpDialog } from "@/components/superadmin/step-up-dialog";
+import {
+	Alert,
+	CARD,
+	FIELD_HINT,
+	FIELD_INPUT,
+	FIELD_LABEL,
+	PRIMARY_BUTTON,
+	SECONDARY_BUTTON,
+} from "@/components/superadmin/ui";
 import { Link, useRouter } from "@/i18n/routing";
 import { type OrgPondOption, registerDevice } from "@/lib/actions/platform/devices";
-import { Cpu, Loader2, Printer, ShieldAlert } from "lucide-react";
-import { type FormEvent, useMemo, useState, useTransition } from "react";
+import { cn } from "@/lib/utils";
+import { Cpu, Loader2, Printer } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { type FormEvent, useMemo, useRef, useState, useTransition } from "react";
 
 const MIN_REASON = 10;
-
-const inputClass =
-	"w-full px-4 py-3 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E85A2A] transition-all disabled:opacity-60";
-const labelClass = "block text-[10px] uppercase font-extrabold tracking-wider text-[#3D5568]";
 
 type Registered = { deviceId: string; mac: string; token: string | null };
 
@@ -19,6 +27,8 @@ type Registered = { deviceId: string; mac: string; token: string | null };
  * pond it serves. The server re-checks every field; this form only guides.
  */
 export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
+	const t = useTranslations("superadmin.registerDevice");
+	const tCommon = useTranslations("superadmin.common");
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const [mac, setMac] = useState("");
@@ -28,6 +38,8 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 	const [reason, setReason] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [registered, setRegistered] = useState<Registered | null>(null);
+	const [stepUpOpen, setStepUpOpen] = useState(false);
+	const retryRef = useRef<(() => void) | null>(null);
 
 	const ponds = useMemo(
 		() => options.find((o) => o.orgId === orgId)?.ponds ?? [],
@@ -35,21 +47,22 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 	);
 	const assignable = options.filter((o) => o.ponds.length > 0);
 
-	const submit = (e: FormEvent) => {
-		e.preventDefault();
-		setError(null);
-
-		if (!mac.trim()) return setError("Enter the chip MAC.");
-		if (!label.trim()) return setError("A device label is required.");
-		if (!orgId || !pondId) return setError("Choose an organization and a pond.");
-		if (reason.trim().length < MIN_REASON) {
-			return setError(`Reason must be at least ${MIN_REASON} characters.`);
-		}
-
+	const run = (input: {
+		mac: string;
+		label: string;
+		orgId: string;
+		pondId: string;
+		reason: string;
+	}) => {
 		startTransition(async () => {
 			try {
-				const result = await registerDevice({ mac, label, orgId, pondId, reason: reason.trim() });
+				const result = await registerDevice(input);
 				if ("error" in result) {
+					if (result.code === "step_up_required") {
+						retryRef.current = () => run(input);
+						setStepUpOpen(true);
+						return;
+					}
 					setError(result.error);
 					return;
 				}
@@ -60,16 +73,37 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 				setReason("");
 				router.refresh();
 			} catch (err) {
-				setError(err instanceof Error ? err.message : "Registration failed.");
+				setError(err instanceof Error ? err.message : t("failed"));
 			}
 		});
 	};
 
+	const submit = (e: FormEvent) => {
+		e.preventDefault();
+		setError(null);
+
+		if (!mac.trim()) return setError(t("macRequired"));
+		if (!label.trim()) return setError(t("labelRequired"));
+		if (!orgId || !pondId) return setError(t("orgPondRequired"));
+		if (reason.trim().length < MIN_REASON) {
+			return setError(tCommon("reasonMinLength", { count: MIN_REASON }));
+		}
+
+		run({ mac, label, orgId, pondId, reason: reason.trim() });
+	};
+
+	const onVerified = () => {
+		setStepUpOpen(false);
+		const retry = retryRef.current;
+		retryRef.current = null;
+		retry?.();
+	};
+
 	return (
-		<div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-			<p className="text-xs uppercase font-extrabold tracking-wider text-[#3D5568]">
-				Register device
-			</p>
+		<div className={cn(CARD, "space-y-4 p-6")}>
+			<h2 className="text-xs font-extrabold uppercase tracking-wider text-[#3D5568]">
+				{t("title")}
+			</h2>
 
 			{registered && (
 				<div className="space-y-3">
@@ -80,50 +114,45 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 							onDone={() => setRegistered((r) => (r ? { ...r, token: null } : r))}
 						/>
 					) : (
-						<p className="text-xs font-bold text-[#1E7B34]">
-							Registered {registered.mac}. The token is no longer on screen.
-						</p>
+						<Alert tone="success">{t("registered", { mac: registered.mac })}</Alert>
 					)}
 					<Link
 						href={{ pathname: "/superadmin/devices/labels", query: { id: registered.deviceId } }}
-						className="inline-flex items-center gap-2 rounded-xl border border-[#0A3D62]/20 px-4 py-2 text-xs font-black text-[#0A3D62] hover:bg-[#F4F7F6]"
+						className={SECONDARY_BUTTON}
 					>
-						<Printer className="w-4 h-4" />
-						Print sticker for {registered.mac}
+						<Printer className="h-4 w-4" aria-hidden="true" />
+						{t("printSticker", { mac: registered.mac })}
 					</Link>
 				</div>
 			)}
 
 			{assignable.length === 0 ? (
-				<p className="text-sm text-[#3D5568]">
-					No active organization has a pond yet. Create the organization and its farmer account
-					first; a device is always registered onto a pond.
-				</p>
+				<p className="text-sm text-[#3D5568]">{t("noPonds")}</p>
 			) : (
-				<form onSubmit={submit} className="space-y-4">
-					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+				<form onSubmit={submit} className="space-y-4" aria-busy={isPending}>
+					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 						<div className="space-y-1.5">
-							<label htmlFor="device-mac" className={labelClass}>
-								Chip MAC *
+							<label htmlFor="device-mac" className={FIELD_LABEL}>
+								{t("mac")}
 							</label>
 							<input
 								id="device-mac"
 								value={mac}
 								onChange={(e) => setMac(e.target.value)}
 								disabled={isPending}
-								placeholder="A4:CF:12:7E:3B:09"
+								placeholder={t("macPlaceholder")}
 								autoComplete="off"
 								spellCheck={false}
-								className={`${inputClass} font-mono`}
+								aria-describedby="device-mac-hint"
+								className={cn(FIELD_INPUT, "font-mono")}
 							/>
-							<p className="text-[11px] text-[#3D5568]">
-								The <code>[DEVICE MAC]</code> line in the unit&apos;s boot log. The setup Wi-Fi name
-								and the sticker are built from it.
+							<p id="device-mac-hint" className={FIELD_HINT}>
+								{t("macHintBefore")} <code>[DEVICE MAC]</code> {t("macHintAfter")}
 							</p>
 						</div>
 						<div className="space-y-1.5">
-							<label htmlFor="device-label" className={labelClass}>
-								Label *
+							<label htmlFor="device-label" className={FIELD_LABEL}>
+								{t("label")}
 							</label>
 							<input
 								id="device-label"
@@ -131,13 +160,13 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 								onChange={(e) => setLabel(e.target.value)}
 								disabled={isPending}
 								maxLength={64}
-								placeholder="e.g. Pond 2 feeder"
-								className={inputClass}
+								placeholder={t("labelPlaceholder")}
+								className={FIELD_INPUT}
 							/>
 						</div>
 						<div className="space-y-1.5">
-							<label htmlFor="device-org" className={labelClass}>
-								Organization *
+							<label htmlFor="device-org" className={FIELD_LABEL}>
+								{t("org")}
 							</label>
 							<select
 								id="device-org"
@@ -147,9 +176,9 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 									setPondId("");
 								}}
 								disabled={isPending}
-								className={`${inputClass} font-bold`}
+								className={cn(FIELD_INPUT, "font-bold")}
 							>
-								<option value="">Choose…</option>
+								<option value="">{tCommon("choose")}</option>
 								{assignable.map((o) => (
 									<option key={o.orgId} value={o.orgId}>
 										{o.orgName}
@@ -158,23 +187,21 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 							</select>
 						</div>
 						<div className="space-y-1.5">
-							<label htmlFor="device-pond" className={labelClass}>
-								Pond *
+							<label htmlFor="device-pond" className={FIELD_LABEL}>
+								{t("pond")}
 							</label>
 							<select
 								id="device-pond"
 								value={pondId}
 								onChange={(e) => setPondId(e.target.value)}
 								disabled={isPending || !orgId}
-								className={`${inputClass} font-bold`}
+								className={cn(FIELD_INPUT, "font-bold")}
 							>
-								<option value="">{orgId ? "Choose…" : "Choose an organization first"}</option>
+								<option value="">{orgId ? tCommon("choose") : t("chooseOrgFirst")}</option>
 								{ponds.map((p) => (
 									<option key={p.id} value={p.id}>
 										{p.name} ({p.ownerFarmId})
-										{p.deviceCount > 0
-											? ` · already ${p.deviceCount} device${p.deviceCount === 1 ? "" : "s"}`
-											: ""}
+										{p.deviceCount > 0 ? ` ${t("alreadyDevices", { count: p.deviceCount })}` : ""}
 									</option>
 								))}
 							</select>
@@ -182,39 +209,42 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 					</div>
 
 					<div className="space-y-1.5">
-						<label htmlFor="device-reason" className={labelClass}>
-							Reason *
+						<label htmlFor="device-reason" className={FIELD_LABEL}>
+							{tCommon("reasonRequired")}
 						</label>
 						<input
 							id="device-reason"
 							value={reason}
 							onChange={(e) => setReason(e.target.value)}
 							disabled={isPending}
-							placeholder="e.g. New unit installed for San Pablo coop, pond 2"
-							className={inputClass}
+							placeholder={t("reasonPlaceholder")}
+							aria-describedby="device-reason-hint"
+							className={FIELD_INPUT}
 						/>
-						<p className="text-[11px] text-[#3D5568]">
-							Recorded in the platform audit log. At least 10 characters.
+						<p id="device-reason-hint" className={FIELD_HINT}>
+							{t("reasonHint")}
 						</p>
 					</div>
 
-					{error && (
-						<div className="bg-red-50 text-[#C42B3A] text-xs p-3 rounded-xl border border-red-200 flex items-start gap-2">
-							<ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
-							<span className="font-bold">{error}</span>
-						</div>
-					)}
+					{error && <Alert tone="error">{error}</Alert>}
 
-					<button
-						type="submit"
-						disabled={isPending}
-						className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#E85A2A] text-white font-bold text-sm rounded-xl hover:bg-[#d04a1f] transition-colors shadow-sm disabled:opacity-60"
-					>
-						{isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Cpu className="w-4 h-4" />}
-						Register device
+					<button type="submit" disabled={isPending} className={PRIMARY_BUTTON}>
+						{isPending ? (
+							<Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+						) : (
+							<Cpu className="h-4 w-4" aria-hidden="true" />
+						)}
+						{t("button")}
 					</button>
 				</form>
 			)}
+
+			<StepUpDialog
+				open={stepUpOpen}
+				actionLabel={t("stepUpAction")}
+				onClose={() => setStepUpOpen(false)}
+				onVerified={onVerified}
+			/>
 		</div>
 	);
 }

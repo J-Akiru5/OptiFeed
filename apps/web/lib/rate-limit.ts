@@ -54,7 +54,9 @@ export function checkApiRateLimit(ownerId: string) {
 // shared bucket would see 24 req/min and reject 4 of them. Each endpoint gets
 // its own bucket (12 req/min nominal), leaving headroom for retries.
 // Fail-open — a limiter blip must never block the feeder.
-export type DeviceRateLimitScope = "feed" | "schedule";
+// `firmware` covers the OTA check (every 30 minutes by default) on its own
+// bucket so it cannot starve the 5 s feed poll.
+export type DeviceRateLimitScope = "feed" | "schedule" | "firmware";
 
 export function checkDeviceRateLimit(deviceId: string, scope: DeviceRateLimitScope) {
 	return checkRateLimit(`rl:device:${scope}:${deviceId}`, 20, 60_000, true);
@@ -64,6 +66,24 @@ export function checkDeviceRateLimit(deviceId: string, scope: DeviceRateLimitSco
 // invoke the AI provider, so it's tighter than the general API limit. Fail-open.
 export function checkPredictionRateLimit(ownerId: string) {
 	return checkRateLimit(`rl:predict:${ownerId}`, 10, 60_000, true);
+}
+
+// Step-up re-authentication: 5 password checks per 5 minutes per user.
+// Fail-closed — this is a credential check, so an outage must not open it.
+export function checkStepUpRateLimit(userId: string) {
+	return checkRateLimit(`rl:stepup:${userId}`, 5, 5 * 60_000, false);
+}
+
+// Device-token reveal limit: 10 reveals per hour per admin.
+//
+// A reveal hands out a long-lived device credential, so the bucket is keyed on
+// the actor rather than the device: rotating device ids must not buy a fresh
+// allowance. The window is generous because provisioning a real unit is rare;
+// the point is to stop a stolen admin session from draining the registry.
+// Fail-open like the other authenticated limits — the tenant scope, not the
+// limiter, is what keeps one org's tokens out of another's reach.
+export function checkDeviceTokenRevealRateLimit(actorId: string) {
+	return checkRateLimit(`rl:token-reveal:${actorId}`, 10, 60 * 60 * 1000, true);
 }
 
 /**

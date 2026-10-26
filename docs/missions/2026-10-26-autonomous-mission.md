@@ -47,7 +47,7 @@ Status: `todo` / `running` / `review` / `integrated` / `blocked`.
 | T-09 | UI/UX pass, shipped per page (admin, dashboard, superadmin, settings) | T-06, T-07 | no | todo |
 | T-10 | i18n for the superadmin pages (M3.11) | T-03, T-07 | no | todo |
 | T-11 | Offline PWA hardening + UX (D9) | T-09 | no (mocked + unit) | todo |
-| T-12 | Remote firmware updates (OTA) for ESP32 (D10) | research report | firmware: no; server: maybe (design decides) | research running |
+| T-12 | Remote firmware updates (OTA) for ESP32 (D10) | design done: `docs/firmware-ota-plan.md` | T-12c yes | **blocked on Jeff's decisions OTA-1…7** (T-12a/b); T-12c also on T-08 |
 
 ### T-01 Firmware reset buttons
 - `firmware/firmware-main/firmware-main.ino`: `WIFI_RESET_BUTTON_PIN 16`, `FACTORY_RESET_BUTTON_PIN 17`; split `RESET_BUTTON_HOLD_MS` into `WIFI_RESET_HOLD_MS 5000` and `FACTORY_RESET_HOLD_MS 10000`. Keep debounce, startup grace and the "factory wins over Wi-Fi" rule.

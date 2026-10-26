@@ -485,6 +485,16 @@ Runs on today's `EnergyDevice` model, before M1.2. Branch `feature/superadmin-de
 | M3F.6 | **Rotate token** (superadmin, reason, audit): new token and hash, old token gets 401 immediately. | Test: old token rejected, new accepted. |
 | M3F.7 | Docs: the registration → flash identity → print → AP-name check procedure in `firmware/README.md` and `HANDOFF.md`. | Reviewed by Jeff. |
 
+### Phase M4F: Remote firmware updates (v2.1, T21)
+
+Design: `docs/firmware-ota-plan.md`. It builds on our own stack: a private Supabase Storage bucket, a `/api/firmware/check` endpoint using device-token auth, signed manifests (offline ECDSA P-256 key), A/B slots with rollback, and staged rollouts from superadmin.
+
+Integrator findings (verified 2026-10-26):
+- The default partition table already has two OTA slots. The app is 82.6 % full.
+- The firmware trusts only ISRG Root X1. Production `optifeed.syntaxure.dev` validates today only through the Let's Encrypt Root YR → ISRG X1 cross-sign, which the Gen Y transition can remove. The OTA build must carry several roots before that happens.
+
+Open decisions OTA-1…OTA-7 are listed in the design doc §8. Tasks: T-12a firmware bootstrap build (human OK + one last flash), T-12b server without schema change, T-12c migration + rollout UI.
+
 ### Phase M4: Fleet and provisioning
 
 | ID | Task | Acceptance |
@@ -592,6 +602,7 @@ Then continue with the v1 order below, skipping what §2a lists as built.
 | *(v2)* Platform tables reachable through the Data API (N1) | **Critical if exposed** | M0.4 check now; additive RLS hotfix with explicit OK. |
 | *(v2)* Testing write paths mutates production (previews share the DB) | **High** | M0.5 dev project; mocked unit tests until then; never exercise create/rotate on a preview. |
 | *(v2)* Open SoftAP portal lets anyone nearby overwrite a unit in setup mode (N9) | High | Firmware PoP/password on the sticker (§9 v2 item 7); keep setup windows short. |
+| *(v2.1)* Devices trust a single TLS root (ISRG X1); a CA change could cut every unit off from the server and from any remote fix | **High** | The OTA bootstrap build carries several roots (`docs/firmware-ota-plan.md` §3.3); watch Let's Encrypt Gen Y. |
 | *(v2)* Plaintext tokens stay in the DB longer because of T16 | Medium | Audit and rate-limit every reveal (M3F.5); rotate on suspicion (M3F.6); M4.3 drop after reflash. |
 
 ---

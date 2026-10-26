@@ -22,7 +22,7 @@ before your first commit.
 
 OptiFeed is a live application, not a scaffold:
 
-- Production: <https://optifeed.syntaxure.dev> (Vercel project `opti-feed-web`,
+- Production: <https://pakaonai.syntaxure.dev> (Vercel project `opti-feed-web`,
   root directory `apps/web`).
 - Application: Next.js 16 (App Router), Supabase (Postgres + Auth), Prisma,
   next-intl (English + Hiligaynon), Tailwind 4, pnpm workspace.

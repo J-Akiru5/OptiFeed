@@ -4,10 +4,12 @@ import { DashboardPreview } from "@/components/landing/DashboardPreview";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { LANDING_SECTIONS, LandingHeader } from "@/components/landing/LandingHeader";
 import { LandingLogo } from "@/components/landing/LandingLogo";
+import { OfflineCards } from "@/components/landing/OfflineCards";
 import { CountUp, Reveal, RevealItem, RevealList } from "@/components/landing/Reveal";
 import { Wave } from "@/components/landing/Wave";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { Link } from "@/i18n/routing";
+import { DPO_EMAIL, LEGAL_APP_RELEASE, LEGAL_PUBLISHED, LEGAL_VERSION } from "@/lib/legal/config";
 import { cn } from "@/lib/utils";
 import {
 	ArrowRight,
@@ -123,6 +125,7 @@ function ComparisonStatus({ value }: { value: StatusValue }) {
 export default function LandingPage() {
 	const t = useTranslations("landing");
 	const tBtn = useTranslations("button");
+	const tLegal = useTranslations("legal");
 
 	return (
 		<MotionConfig reducedMotion="user">
@@ -141,7 +144,7 @@ export default function LandingPage() {
 
 				<main id="main">
 					{/* Hero */}
-					<section className="relative overflow-hidden bg-[#061B2B] text-white">
+					<section className="relative z-10 overflow-x-clip overflow-y-visible bg-[#061B2B] text-white transition-colors duration-300 dark:bg-[#0D3B5C]">
 						<div
 							aria-hidden="true"
 							className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_65%_60%_at_78%_10%,rgba(232,90,42,0.18),transparent_62%)]"
@@ -223,12 +226,12 @@ export default function LandingPage() {
 							</Reveal>
 						</div>
 
-						{/* Credibility strip */}
+						{/* Credibility strip — plain text */}
 						<div className="relative border-t border-white/10">
 							<div
 								className={cn(
 									container,
-									"flex flex-col gap-4 py-6 lg:flex-row lg:items-center lg:justify-between",
+									"flex flex-col gap-4 py-5 lg:flex-row lg:items-center lg:justify-between",
 								)}
 							>
 								<p className="text-[10px] font-semibold tracking-[0.18em] text-white/35 uppercase">
@@ -247,6 +250,14 @@ export default function LandingPage() {
 								</ul>
 							</div>
 						</div>
+
+						{/* Wave transition to Problem section */}
+						<Wave
+							flip
+							layered
+							variant="b"
+							className="bottom-0 z-10 translate-y-full text-[#061B2B] transition-colors duration-300 dark:text-[#0D3B5C]"
+						/>
 					</section>
 
 					{/* Problem */}
@@ -420,10 +431,18 @@ export default function LandingPage() {
 					{/* Offline-first */}
 					<section
 						id="offline"
-						className="relative scroll-mt-24 overflow-x-clip bg-[#0A2E47] text-white"
+						className="relative scroll-mt-24 overflow-x-clip bg-[#0A2E47] text-white transition-colors duration-300 dark:bg-[#0E466D]"
 					>
-						<Wave layered className="top-0 -translate-y-full text-[#0A2E47]" />
-						<Wave flip layered variant="b" className="bottom-0 translate-y-full text-[#0A2E47]" />
+						<Wave
+							layered
+							className="top-0 -translate-y-full text-[#0A2E47] transition-colors duration-300 dark:text-[#0E466D]"
+						/>
+						<Wave
+							flip
+							layered
+							variant="b"
+							className="bottom-0 translate-y-full text-[#0A2E47] transition-colors duration-300 dark:text-[#0E466D]"
+						/>
 						<div
 							aria-hidden="true"
 							className="pointer-events-none absolute inset-0 opacity-60 [background-image:linear-gradient(to_right,rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.045)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(ellipse_80%_80%_at_70%_20%,black,transparent)]"
@@ -473,33 +492,26 @@ export default function LandingPage() {
 								</div>
 							</Reveal>
 
-							<RevealList as="div" className="grid gap-4 sm:grid-cols-2">
-								{OFFLINE_ICONS.map((Icon, index) => {
+							<OfflineCards
+								cards={OFFLINE_ICONS.map((icon, index) => {
 									const n = index + 1;
-									return (
-										<RevealItem
-											key={n}
-											className="rounded-xl border border-white/10 bg-white/[0.05] p-5 transition-colors hover:bg-white/[0.08]"
-										>
-											<span className="flex size-9 items-center justify-center rounded-lg bg-white/[0.06] text-white/70 ring-1 ring-white/10 ring-inset">
-												<Icon className="size-[17px]" strokeWidth={1.75} aria-hidden="true" />
-											</span>
-											<h3 className="mt-4 text-[14px] font-semibold text-white">
-												{t(`offline${n}Title`)}
-											</h3>
-											<p className="mt-1.5 text-[12.5px] leading-5 text-white/55">
-												{t(`offline${n}Body`)}
-											</p>
-										</RevealItem>
-									);
+									return {
+										id: n,
+										icon,
+										title: t(`offline${n}Title`),
+										body: t(`offline${n}Body`),
+									};
 								})}
-							</RevealList>
+							/>
 						</div>
 
 						<div className={cn(container, "relative pb-14 sm:pb-16")}>
 							<ol className="grid gap-px overflow-hidden rounded-xl border border-white/10 bg-white/10 sm:grid-cols-2 lg:grid-cols-4">
 								{[1, 2, 3, 4].map((n) => (
-									<li key={n} className="bg-[#0A2E47] p-4">
+									<li
+										key={n}
+										className="bg-[#0A2E47] p-4 transition-colors duration-300 dark:bg-[#0E466D]"
+									>
 										<p className="font-mono text-[10px] text-[#FF8A5C]">0{n}</p>
 										<p className="mt-1.5 text-[12px] leading-5 text-white/60">
 											{t(`offlineFlow${n}`)}
@@ -764,8 +776,12 @@ export default function LandingPage() {
 				</main>
 
 				{/* Closing CTA + footer */}
-				<footer className="relative overflow-x-clip bg-[#061B2B] text-white">
-					<Wave layered variant="b" className="top-0 -translate-y-full text-[#061B2B]" />
+				<footer className="relative overflow-x-clip bg-[#061B2B] text-white transition-colors duration-300 dark:bg-[#0D3B5C]">
+					<Wave
+						layered
+						variant="b"
+						className="top-0 -translate-y-full text-[#061B2B] transition-colors duration-300 dark:text-[#0D3B5C]"
+					/>
 					<div
 						aria-hidden="true"
 						className="pointer-events-none absolute inset-0 opacity-60 [background-image:linear-gradient(to_right,rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.045)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(ellipse_80%_80%_at_80%_20%,black,transparent)]"
@@ -867,6 +883,35 @@ export default function LandingPage() {
 
 								<LocaleSwitcher variant="dark" />
 							</div>
+
+							{LEGAL_PUBLISHED ? (
+								<div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-white/10 pt-5 text-[10.5px] text-white/45">
+									<Link
+										href="/privacy"
+										className={cn("rounded-md transition-colors hover:text-white", focusRingOnDark)}
+									>
+										{tLegal("privacy")}
+									</Link>
+									<Link
+										href="/terms"
+										className={cn("rounded-md transition-colors hover:text-white", focusRingOnDark)}
+									>
+										{tLegal("terms")}
+									</Link>
+									<a
+										href={`mailto:${DPO_EMAIL}`}
+										className={cn("rounded-md transition-colors hover:text-white", focusRingOnDark)}
+									>
+										{tLegal("privacyContact")}
+									</a>
+									<span className="font-mono tracking-wide">
+										{tLegal("footerVersion", {
+											version: LEGAL_VERSION,
+											release: LEGAL_APP_RELEASE,
+										})}
+									</span>
+								</div>
+							) : null}
 
 							<div className="flex flex-col gap-2 border-t border-white/10 pt-5 text-[10.5px] text-white/45 sm:flex-row sm:items-center sm:justify-between">
 								<p>{t("footerCopyright")}</p>

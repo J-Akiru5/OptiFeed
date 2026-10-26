@@ -1,0 +1,7 @@
+import { FormPageSkeleton } from "@/components/skeletons";
+import { getTranslations } from "next-intl/server";
+
+export default async function ScheduleLoading() {
+	const t = await getTranslations("dashboard.common");
+	return <FormPageSkeleton label={t("loading")} />;
+}

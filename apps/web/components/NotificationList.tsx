@@ -70,9 +70,11 @@ const categoryConfig: Record<string, { labelKey: string; className: string }> = 
 interface NotificationListProps {
 	initialNotifications: NotificationItem[];
 	pondId: string;
+	/** False for a VIEWER or a read-only view-as session: writes are disabled. */
+	canWrite?: boolean;
 }
 
-export function NotificationList({ initialNotifications }: NotificationListProps) {
+export function NotificationList({ initialNotifications, canWrite = true }: NotificationListProps) {
 	const t = useTranslations("dashboard.notifications");
 	const tTiers = useTranslations("dashboard.notifications.tiers");
 	const tDates = useTranslations("dates");
@@ -97,13 +99,13 @@ export function NotificationList({ initialNotifications }: NotificationListProps
 	};
 
 	return (
-		<div className="mt-6 space-y-3">
+		<ul aria-label={t("listLabel")} className="mt-6 space-y-3">
 			{initialNotifications.length === 0 ? (
-				<div className="flex flex-col items-center justify-center py-20 text-gray-400">
-					<CheckCircle2 size={48} className="mb-4 opacity-30" />
+				<li className="flex flex-col items-center justify-center py-20 text-gray-500 dark:text-gray-400">
+					<CheckCircle2 aria-hidden="true" size={48} className="mb-4 opacity-40" />
 					<p className="text-lg font-medium">{t("allClear")}</p>
 					<p className="text-sm">{t("empty")}</p>
-				</div>
+				</li>
 			) : (
 				initialNotifications.map((notification) => {
 					const tier = tierConfig[notification.tier] || tierConfig.INFO;
@@ -111,7 +113,7 @@ export function NotificationList({ initialNotifications }: NotificationListProps
 					const cat = notification.category ? categoryConfig[notification.category] : null;
 
 					return (
-						<div
+						<li
 							key={notification.id}
 							className={`flex w-full items-start gap-3 rounded-3xl border p-4 text-left shadow-sm transition hover:shadow-md ${
 								!notification.read
@@ -120,6 +122,7 @@ export function NotificationList({ initialNotifications }: NotificationListProps
 							}`}
 						>
 							<span
+								aria-hidden="true"
 								className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${tier.className}`}
 							>
 								<Icon className="h-5 w-5" />
@@ -166,38 +169,38 @@ export function NotificationList({ initialNotifications }: NotificationListProps
 									<button
 										type="button"
 										onClick={() => handleAcknowledge(notification.id)}
-										disabled={isPendingAck}
-										className="flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-100 disabled:opacity-50"
+										disabled={isPendingAck || !canWrite}
+										className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200 dark:focus-visible:outline-[#8fc0ea]"
 									>
-										<Check size={14} />
+										<Check aria-hidden="true" size={14} />
 										{t("acknowledge")}
 									</button>
 								)}
 								<Link
 									href="/dashboard/audit"
-									className="flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-bold text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700/50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+									className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-gray-700/50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus-visible:outline-[#8fc0ea]"
 								>
-									<FileText size={14} />
+									<FileText aria-hidden="true" size={14} />
 									{t("auditLink")}
 								</Link>
 							</div>
-						</div>
+						</li>
 					);
 				})
 			)}
 
 			{initialNotifications.length > 0 && (
-				<div className="flex justify-end pt-2">
+				<li className="flex justify-end pt-2">
 					<button
 						type="button"
 						onClick={handleMarkAllRead}
-						disabled={isPendingMarkAll}
-						className="rounded-lg bg-[#F4F7F6] px-4 py-2 text-sm font-bold text-[#0A3D62] transition-colors hover:bg-[#E8EDED] disabled:opacity-50 dark:bg-gray-800 dark:text-[#5b9bd5] dark:hover:bg-gray-700"
+						disabled={isPendingMarkAll || !canWrite}
+						className="inline-flex min-h-11 items-center rounded-lg bg-[#F4F7F6] px-4 py-2 text-sm font-bold text-[#0A3D62] transition-colors hover:bg-[#E8EDED] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-800 dark:text-[#5b9bd5] dark:hover:bg-gray-700 dark:focus-visible:outline-[#8fc0ea]"
 					>
 						{t("markRead")}
 					</button>
-				</div>
+				</li>
 			)}
-		</div>
+		</ul>
 	);
 }

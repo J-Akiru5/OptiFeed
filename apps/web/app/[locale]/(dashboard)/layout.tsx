@@ -20,6 +20,7 @@ import { isCurrentTenantAdmin } from "@/lib/auth/tenant-admin";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import { getTranslations } from "next-intl/server";
 import Image from "next/image";
 
 export default async function DashboardLayout({
@@ -34,6 +35,7 @@ export default async function DashboardLayout({
 		isCurrentPlatformAdmin(),
 		getViewAsBanner(),
 	]);
+	const tCommon = await getTranslations("dashboard.common");
 
 	let pondId = "";
 	let initialUnreadCount = 0;
@@ -87,11 +89,24 @@ export default async function DashboardLayout({
 		console.error("[DashboardLayout] Prisma error:", err);
 	}
 
+	const deviceStatusLabel =
+		esp32Status === "online"
+			? tCommon("deviceOnline")
+			: esp32Status === "offline"
+				? tCommon("deviceOffline")
+				: tCommon("deviceMissing");
+
 	return (
 		<ChatWidgetProvider>
 			<OfflineSync scope={ownerId} />
 			<OnboardingProvider>
 				<div className="flex flex-col min-h-screen bg-[#F4F7F6] dark:bg-gray-950">
+					<a
+						href="#main-content"
+						className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50 focus:rounded-xl focus:bg-white focus:px-4 focus:py-2.5 focus:text-sm focus:font-black focus:text-[#0A3D62] focus:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-gray-900 dark:text-[#8fc0ea]"
+					>
+						{tCommon("skipToContent")}
+					</a>
 					{viewAs && (
 						<ViewAsBanner
 							orgName={viewAs.orgName}
@@ -118,14 +133,15 @@ export default async function DashboardLayout({
 								{esp32Status !== "missing" && (
 									<div className="hidden md:flex items-center gap-2 border-l border-white/20 pl-3">
 										<span
+											aria-hidden="true"
 											className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] transition-all duration-500 ${
 												esp32Status === "online"
 													? "bg-[#1E7B34] text-[#1E7B34]"
 													: "bg-[#C42B3A] text-[#C42B3A]"
 											}`}
 										/>
-										<span className="text-[10px] text-white/50 uppercase tracking-wider">
-											ESP32 {esp32Status}
+										<span className="text-[10px] text-white/70 uppercase tracking-wider">
+											{deviceStatusLabel}
 										</span>
 									</div>
 								)}
@@ -154,7 +170,11 @@ export default async function DashboardLayout({
 
 						<DashboardContentShell>
 							<Sidebar hopperLevelPct={hopperLevelPct} isOffline={esp32Status === "offline"} />
-							<main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 relative z-10">
+							<main
+								id="main-content"
+								tabIndex={-1}
+								className="flex-1 p-4 md:p-8 pb-24 md:pb-8 relative z-10 focus:outline-none"
+							>
 								<BackToDashboard />
 								{children}
 							</main>

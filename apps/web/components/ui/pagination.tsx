@@ -12,10 +12,12 @@ interface PaginationProps {
 	showing: string;
 	previousLabel: string;
 	nextLabel: string;
+	/** Accessible name for the pagination landmark. */
+	label?: string;
 }
 
 const linkClass =
-	"inline-flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm font-medium transition-colors";
+	"inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg px-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea]";
 const activeClass = "bg-[var(--ofd-base)] text-white shadow-sm";
 const idleClass = "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800";
 const disabledClass = "text-gray-300 dark:text-gray-600 cursor-not-allowed select-none";
@@ -28,6 +30,7 @@ export function Pagination({
 	showing,
 	previousLabel,
 	nextLabel,
+	label = "Pagination",
 }: PaginationProps) {
 	const window = buildPageWindow(page, pageCount);
 	const hasPrevious = page > 1;
@@ -35,7 +38,7 @@ export function Pagination({
 
 	return (
 		<nav
-			aria-label="Pagination"
+			aria-label={label}
 			className="flex flex-col gap-3 border-t border-gray-100 dark:border-gray-700/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
 		>
 			<p className="text-xs text-gray-500 dark:text-gray-400">{showing}</p>

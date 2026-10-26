@@ -1,3 +1,14 @@
+import {
+	DashboardCard,
+	DashboardCardList,
+	DashboardCardRow,
+	DashboardTHead,
+	DashboardTable,
+	DashboardTd,
+	DashboardTh,
+	DashboardTr,
+} from "@/components/dashboard/dashboard-table";
+import { DashboardEmptyState, DashboardPageHeader } from "@/components/dashboard/dashboard-ui";
 import { Pagination } from "@/components/ui/pagination";
 import { Link } from "@/i18n/routing";
 import { parseQueryFilters } from "@/lib/actions/query-filters";
@@ -58,8 +69,12 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 	if (!pond) {
 		const tSch = await getTranslations("dashboard.schedule");
 		return (
-			<div className="flex h-[50vh] items-center justify-center">
-				<p className="text-lg text-gray-500 dark:text-gray-400">{tSch("noPondData")}</p>
+			<div className="mx-auto max-w-2xl py-10">
+				<DashboardEmptyState
+					icon={Scale}
+					title={tSch("noPondData")}
+					description={tSch("noDeviceDesc")}
+				/>
 			</div>
 		);
 	}
@@ -140,15 +155,17 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 			<header>
 				<Link
 					href="/dashboard/growth"
-					className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--ofd-base-deep)] hover:underline"
+					className="inline-flex min-h-11 items-center gap-1.5 rounded-lg text-sm font-semibold text-[#0A3D62] hover:underline focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:text-[#8fc0ea] dark:focus-visible:outline-[#8fc0ea]"
 				>
-					<ArrowLeft className="size-4" />
+					<ArrowLeft aria-hidden="true" className="size-4" />
 					{t("backToGrowth")}
 				</Link>
-				<h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[var(--ofd-base-deep)]">
-					{t("title")}
-				</h1>
-				<p className="mt-1 text-gray-500 dark:text-gray-400">{t("desc", { pond: pond.name })}</p>
+				<DashboardPageHeader
+					className="mt-2"
+					icon={TrendingUp}
+					title={t("title")}
+					description={t("desc", { pond: pond.name })}
+				/>
 			</header>
 
 			<nav className="flex flex-wrap gap-2" aria-label={t("title")}>
@@ -160,13 +177,13 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 							key={entry}
 							href={tabHref(entry)}
 							aria-current={active ? "page" : undefined}
-							className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold transition-colors ${
+							className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea] ${
 								active
 									? "border-[var(--ofd-base)] bg-[var(--ofd-base)] text-white shadow-sm"
-									: "border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+									: "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
 							}`}
 						>
-							<Icon className="size-4" />
+							<Icon aria-hidden="true" className="size-4" />
 							{t(`tabs.${entry}`)}
 						</Link>
 					);
@@ -186,7 +203,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 							name="q"
 							defaultValue={q}
 							placeholder={tGrowth("searchPlaceholder")}
-							className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm font-normal text-gray-700 outline-none placeholder:text-gray-400 focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+							className="h-11 rounded-lg border border-gray-200 bg-white px-3 text-sm font-normal text-gray-700 outline-none placeholder:text-gray-400 focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
 						/>
 					</label>
 					<label className="flex flex-col gap-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
@@ -195,7 +212,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 							type="date"
 							name="from"
 							defaultValue={from}
-							className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm font-normal text-gray-700 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+							className="h-11 rounded-lg border border-gray-200 bg-white px-3 text-sm font-normal text-gray-700 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
 						/>
 					</label>
 					<label className="flex flex-col gap-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
@@ -204,173 +221,256 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 							type="date"
 							name="to"
 							defaultValue={to}
-							className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm font-normal text-gray-700 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+							className="h-11 rounded-lg border border-gray-200 bg-white px-3 text-sm font-normal text-gray-700 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
 						/>
 					</label>
 					<div className="flex items-center gap-2">
 						<button
 							type="submit"
-							className="h-9 rounded-lg bg-[var(--ofd-base)] px-4 text-sm font-bold text-white transition-colors hover:brightness-110"
+							className="h-11 rounded-lg bg-[var(--ofd-base)] px-4 text-sm font-bold text-white transition-colors hover:brightness-110"
 						>
 							{t("filters.apply")}
 						</button>
 						<Link
 							href={tabHref(tab)}
-							className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-semibold text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+							className="inline-flex h-11 items-center rounded-lg px-3 text-sm font-semibold text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
 						>
 							{t("filters.clear")}
 						</Link>
 					</div>
 				</form>
 
-				<div className="overflow-x-auto">
-					{tab === "feed" && (
-						<table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
-							<thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500 dark:bg-gray-800 dark:text-gray-400">
-								<tr>
-									<th className="px-4 py-3">{tGrowth("dateCol")}</th>
-									<th className="px-4 py-3 text-right">{tGrowth("feedLevelCol")}</th>
-									<th className="px-4 py-3 text-right">{tGrowth("distanceCol")}</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-								{feedRows.map((row) => (
-									<tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-										<td className="whitespace-nowrap px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
-											{formatDateTimeLocal(row.recordedAt, tDates).fullDate}
-										</td>
-										<td className="px-4 py-3 text-right">
-											<span
-												className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
-													row.levelPercent <= 5
-														? "bg-red-100 text-red-700"
-														: row.levelPercent <= 20
-															? "bg-amber-100 text-amber-700"
-															: "bg-green-100 text-green-700"
-												}`}
-											>
-												{Math.round(row.levelPercent)}%
-											</span>
-										</td>
-										<td className="px-4 py-3 text-right font-mono">
-											{row.distanceCm.toFixed(1)} cm
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					)}
-
-					{tab === "growth" && (
-						<table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
-							<thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500 dark:bg-gray-800 dark:text-gray-400">
-								<tr>
-									<th className="px-3 py-3 lg:px-4">{tGrowth("dateCol")}</th>
-									<th className="px-3 py-3 text-right lg:px-4">{t("columns.avgWeight")}</th>
-									<th className="px-3 py-3 text-right lg:px-4">{tGrowth("avgLengthCol")}</th>
-									<th className="px-3 py-3 text-right lg:px-4">{t("columns.weightGain")}</th>
-									<th className="px-3 py-3 text-right lg:px-4">{t("columns.lengthGain")}</th>
-									<th className="hidden px-3 py-3 text-right lg:table-cell lg:px-4">
-										{t("columns.daysSince")}
-									</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-								{growthRows.map((row) => (
-									<tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-										<td className="whitespace-nowrap px-3 py-3 font-medium text-gray-900 dark:text-gray-100 lg:px-4">
-											{formatDateTimeLocal(row.recordedAt, tDates).fullDate}
-										</td>
-										<td className="px-3 py-3 text-right lg:px-4">{row.avgWeightG.toFixed(1)}</td>
-										<td className="px-3 py-3 text-right lg:px-4">
-											{row.sampleLengthCm.toFixed(1)}
-										</td>
-										<td className="px-3 py-3 text-right font-bold lg:px-4">
-											{row.weightGainG === null ? (
-												<span className="text-gray-400">—</span>
-											) : (
-												<span className={row.weightGainG >= 0 ? "text-green-600" : "text-red-500"}>
-													{row.weightGainG >= 0 ? "+" : ""}
-													{row.weightGainG.toFixed(1)}
-												</span>
-											)}
-										</td>
-										<td className="px-3 py-3 text-right font-bold lg:px-4">
-											{row.lengthGainCm === null ? (
-												<span className="text-gray-400">—</span>
-											) : (
-												<span className={row.lengthGainCm >= 0 ? "text-green-600" : "text-red-500"}>
-													{row.lengthGainCm >= 0 ? "+" : ""}
-													{row.lengthGainCm.toFixed(1)}
-												</span>
-											)}
-										</td>
-										<td className="hidden px-3 py-3 text-right lg:table-cell lg:px-4">
-											{row.daysSinceLast === null ? (
-												<span className="text-gray-400">—</span>
-											) : (
-												<span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">
-													{row.daysSinceLast}d
-												</span>
-											)}
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					)}
-
-					{tab === "biomass" && (
-						<table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
-							<thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500 dark:bg-gray-800 dark:text-gray-400">
-								<tr>
-									<th className="px-3 py-3 lg:px-4">{tGrowth("dateCol")}</th>
-									<th className="hidden px-3 py-3 lg:table-cell lg:px-4">{tGrowth("batchCol")}</th>
-									<th className="px-3 py-3 lg:px-4">{tGrowth("totalWeightCol")}</th>
-									<th className="px-3 py-3 lg:px-4">{tGrowth("fishCountCol")}</th>
-									<th className="px-3 py-3 lg:px-4">{tGrowth("avgLengthCol")}</th>
-									<th className="px-3 py-3 text-right lg:px-4">{tGrowth("abwCol")}</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-								{biomassRows.map((row) => (
-									<tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-										<td className="whitespace-nowrap px-3 py-3 font-medium text-gray-900 dark:text-gray-100 lg:px-4">
-											<div className="flex items-center gap-2">
-												{formatDateTimeLocal(row.recordedAt, tDates).fullDate}
-												{row.source === "import" && (
-													<span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
-														{tGrowth("importedBadge")}
+				{total === 0 ? (
+					<div className="p-4 sm:p-6">
+						<DashboardEmptyState
+							icon={Scale}
+							title={t("emptyTitle")}
+							description={t("emptyDesc")}
+						/>
+					</div>
+				) : (
+					<>
+						{tab === "feed" && (
+							<>
+								<DashboardTable caption={tGrowth("feedLevelTableCaption")} minWidth="min-w-[32rem]">
+									<DashboardTHead>
+										<DashboardTh>{tGrowth("dateCol")}</DashboardTh>
+										<DashboardTh align="right">{tGrowth("feedLevelCol")}</DashboardTh>
+										<DashboardTh align="right">{tGrowth("distanceCol")}</DashboardTh>
+									</DashboardTHead>
+									<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+										{feedRows.map((row) => (
+											<DashboardTr key={row.id}>
+												<DashboardTd className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
+													{formatDateTimeLocal(row.recordedAt, tDates).fullDate}
+												</DashboardTd>
+												<DashboardTd className="text-right">
+													<span
+														className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+															row.levelPercent <= 5
+																? "bg-red-100 text-red-700"
+																: row.levelPercent <= 20
+																	? "bg-amber-100 text-amber-700"
+																	: "bg-green-100 text-green-700"
+														}`}
+													>
+														{Math.round(row.levelPercent)}%
 													</span>
-												)}
-												{row.source === "seed" && (
-													<span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-														{tGrowth("seedBadge")}
-													</span>
-												)}
+												</DashboardTd>
+												<DashboardTd className="text-right font-mono">
+													{row.distanceCm.toFixed(1)} cm
+												</DashboardTd>
+											</DashboardTr>
+										))}
+									</tbody>
+								</DashboardTable>
+								<DashboardCardList label={tGrowth("feedLevelTableCaption")} className="p-4">
+									{feedRows.map((row) => (
+										<DashboardCard key={row.id}>
+											<div className="flex items-baseline justify-between gap-3">
+												<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
+													{formatDateTimeLocal(row.recordedAt, tDates).fullDate}
+												</p>
+												<p className="text-sm font-black text-[#0A3D62] dark:text-[#5b9bd5]">
+													{Math.round(row.levelPercent)}%
+												</p>
 											</div>
-										</td>
-										<td className="hidden whitespace-nowrap px-3 py-3 lg:table-cell lg:px-4">
-											{row.batchLabel ?? <span className="text-gray-400">—</span>}
-										</td>
-										<td className="px-3 py-3 lg:px-4">{row.sampleWeightKg.toFixed(2)}</td>
-										<td className="px-3 py-3 lg:px-4">{row.sampleCount}</td>
-										<td className="px-3 py-3 lg:px-4">{row.sampleLengthCm.toFixed(1)}</td>
-										<td className="px-3 py-3 text-right font-bold text-[var(--ofd-base-deep)] lg:px-4">
-											{(row.avgWeightKg * 1000).toFixed(1)}
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					)}
+											<div className="mt-2">
+												<DashboardCardRow label={tGrowth("distanceCol")}>
+													{row.distanceCm.toFixed(1)} cm
+												</DashboardCardRow>
+											</div>
+										</DashboardCard>
+									))}
+								</DashboardCardList>
+							</>
+						)}
 
-					{total === 0 && (
-						<p className="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-							{t("empty")}
-						</p>
-					)}
-				</div>
+						{tab === "growth" && (
+							<>
+								<DashboardTable caption={tGrowth("tableCaption")} minWidth="min-w-[40rem]">
+									<DashboardTHead>
+										<DashboardTh>{tGrowth("dateCol")}</DashboardTh>
+										<DashboardTh align="right">{t("columns.avgWeight")}</DashboardTh>
+										<DashboardTh align="right">{tGrowth("avgLengthCol")}</DashboardTh>
+										<DashboardTh align="right">{t("columns.weightGain")}</DashboardTh>
+										<DashboardTh align="right">{t("columns.lengthGain")}</DashboardTh>
+										<DashboardTh align="right">{t("columns.daysSince")}</DashboardTh>
+									</DashboardTHead>
+									<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+										{growthRows.map((row) => (
+											<DashboardTr key={row.id}>
+												<DashboardTd className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
+													{formatDateTimeLocal(row.recordedAt, tDates).fullDate}
+												</DashboardTd>
+												<DashboardTd className="text-right">
+													{row.avgWeightG.toFixed(1)} g
+												</DashboardTd>
+												<DashboardTd className="text-right">
+													{row.sampleLengthCm.toFixed(1)} cm
+												</DashboardTd>
+												<DashboardTd className="text-right font-bold">
+													{row.weightGainG === null ? (
+														<span className="text-gray-400">—</span>
+													) : (
+														<span
+															className={row.weightGainG >= 0 ? "text-green-700" : "text-red-600"}
+														>
+															{row.weightGainG >= 0 ? "+" : ""}
+															{row.weightGainG.toFixed(1)}
+														</span>
+													)}
+												</DashboardTd>
+												<DashboardTd className="text-right font-bold">
+													{row.lengthGainCm === null ? (
+														<span className="text-gray-400">—</span>
+													) : (
+														<span
+															className={row.lengthGainCm >= 0 ? "text-green-700" : "text-red-600"}
+														>
+															{row.lengthGainCm >= 0 ? "+" : ""}
+															{row.lengthGainCm.toFixed(1)}
+														</span>
+													)}
+												</DashboardTd>
+												<DashboardTd className="text-right">
+													{row.daysSinceLast === null ? (
+														<span className="text-gray-400">—</span>
+													) : (
+														<span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">
+															{row.daysSinceLast}d
+														</span>
+													)}
+												</DashboardTd>
+											</DashboardTr>
+										))}
+									</tbody>
+								</DashboardTable>
+								<DashboardCardList label={tGrowth("tableCaption")} className="p-4">
+									{growthRows.map((row) => (
+										<DashboardCard key={row.id}>
+											<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
+												{formatDateTimeLocal(row.recordedAt, tDates).fullDate}
+											</p>
+											<div className="mt-2">
+												<DashboardCardRow label={t("columns.avgWeight")}>
+													{row.avgWeightG.toFixed(1)} g
+												</DashboardCardRow>
+												<DashboardCardRow label={tGrowth("avgLengthCol")}>
+													{row.sampleLengthCm.toFixed(1)} cm
+												</DashboardCardRow>
+												<DashboardCardRow label={t("columns.weightGain")}>
+													{row.weightGainG === null
+														? "—"
+														: `${row.weightGainG >= 0 ? "+" : ""}${row.weightGainG.toFixed(1)} g`}
+												</DashboardCardRow>
+												<DashboardCardRow label={t("columns.lengthGain")}>
+													{row.lengthGainCm === null
+														? "—"
+														: `${row.lengthGainCm >= 0 ? "+" : ""}${row.lengthGainCm.toFixed(1)} cm`}
+												</DashboardCardRow>
+												<DashboardCardRow label={t("columns.daysSince")}>
+													{row.daysSinceLast === null ? "—" : `${row.daysSinceLast}d`}
+												</DashboardCardRow>
+											</div>
+										</DashboardCard>
+									))}
+								</DashboardCardList>
+							</>
+						)}
+
+						{tab === "biomass" && (
+							<>
+								<DashboardTable caption={tGrowth("biomassTableCaption")} minWidth="min-w-[40rem]">
+									<DashboardTHead>
+										<DashboardTh>{tGrowth("dateCol")}</DashboardTh>
+										<DashboardTh>{tGrowth("batchCol")}</DashboardTh>
+										<DashboardTh>{tGrowth("totalWeightCol")}</DashboardTh>
+										<DashboardTh>{tGrowth("fishCountCol")}</DashboardTh>
+										<DashboardTh>{tGrowth("avgLengthCol")}</DashboardTh>
+										<DashboardTh align="right">{tGrowth("abwCol")}</DashboardTh>
+									</DashboardTHead>
+									<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+										{biomassRows.map((row) => (
+											<DashboardTr key={row.id}>
+												<DashboardTd className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
+													<div className="flex items-center gap-2">
+														{formatDateTimeLocal(row.recordedAt, tDates).fullDate}
+														{row.source === "import" && (
+															<span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+																{tGrowth("importedBadge")}
+															</span>
+														)}
+														{row.source === "seed" && (
+															<span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+																{tGrowth("seedBadge")}
+															</span>
+														)}
+													</div>
+												</DashboardTd>
+												<DashboardTd className="whitespace-nowrap">
+													{row.batchLabel ?? <span className="text-gray-400">—</span>}
+												</DashboardTd>
+												<DashboardTd>{row.sampleWeightKg.toFixed(2)} kg</DashboardTd>
+												<DashboardTd>{row.sampleCount}</DashboardTd>
+												<DashboardTd>{row.sampleLengthCm.toFixed(1)} cm</DashboardTd>
+												<DashboardTd className="text-right font-bold text-[var(--ofd-base-deep)]">
+													{(row.avgWeightKg * 1000).toFixed(1)} g
+												</DashboardTd>
+											</DashboardTr>
+										))}
+									</tbody>
+								</DashboardTable>
+								<DashboardCardList label={tGrowth("biomassTableCaption")} className="p-4">
+									{biomassRows.map((row) => (
+										<DashboardCard key={row.id}>
+											<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
+												{formatDateTimeLocal(row.recordedAt, tDates).fullDate}
+											</p>
+											<div className="mt-2">
+												<DashboardCardRow label={tGrowth("batchCol")}>
+													{row.batchLabel ?? "—"}
+												</DashboardCardRow>
+												<DashboardCardRow label={tGrowth("totalWeightCol")}>
+													{row.sampleWeightKg.toFixed(2)} kg
+												</DashboardCardRow>
+												<DashboardCardRow label={tGrowth("fishCountCol")}>
+													{row.sampleCount}
+												</DashboardCardRow>
+												<DashboardCardRow label={tGrowth("avgLengthCol")}>
+													{row.sampleLengthCm.toFixed(1)} cm
+												</DashboardCardRow>
+												<DashboardCardRow label={tGrowth("abwCol")}>
+													{(row.avgWeightKg * 1000).toFixed(1)} g
+												</DashboardCardRow>
+											</div>
+										</DashboardCard>
+									))}
+								</DashboardCardList>
+							</>
+						)}
+					</>
+				)}
 
 				{total > 0 && (
 					<Pagination
@@ -385,6 +485,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 						})}
 						previousLabel={t("pagination.previous")}
 						nextLabel={t("pagination.next")}
+						label={t("pagination.label")}
 					/>
 				)}
 			</section>

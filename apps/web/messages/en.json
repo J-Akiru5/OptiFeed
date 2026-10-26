@@ -63,7 +63,8 @@
 		"pondFeedPellet": "Pond Feed Pellet",
 		"hopperRemaining": "Approx. {kg}kg remaining. Enough for {count} scheduled feedings.",
 		"deviceOffline": "Offline",
-		"hopperOffline": "Device offline — level reading unavailable. Showing resting state."
+		"hopperOffline": "Device offline — level reading unavailable. Showing resting state.",
+		"navLabel": "Main navigation"
 	},
 	"button": {
 		"feedNow": "Feed Now",
@@ -382,7 +383,24 @@
 			"biomassLogsTitle": "RECENT BIOMASS SAMPLES",
 			"biomassLogsDesc": "Latest weigh-ins logged for this pond.",
 			"viewGrowth": "View growth",
-			"noFeedings": "No feedings recorded yet."
+			"noFeedings": "No feedings recorded yet.",
+			"welcomeBack": "Welcome back!",
+			"nextFeedingTimeLabel": "Next feeding time",
+			"criticalTitle": "Device offline for {duration}",
+			"criticalDesc": "ESP32 node {device} missed the latest sync handshake.",
+			"viewDetails": "View details",
+			"durationNotConnected": "not connected",
+			"durationDaysHours": "{days}d {hours}h",
+			"durationDays": "{days}d",
+			"durationHoursMinutes": "{hours}h {minutes}m",
+			"durationMinutes": "{minutes}m",
+			"fcrChartLabel": "Feed conversion ratio trend",
+			"fcrChartSummary": "Latest FCR {value} across {count} reports.",
+			"logFishCount": "{count} fish",
+			"logAvgSamples": "Avg • {count} samples",
+			"logTotal": "Total",
+			"noFeedingsHint": "Feedings appear here after the feeder confirms a dispense.",
+			"noPondHint": "Ask your administrator to assign a pond to your farm."
 		},
 		"schedule": {
 			"title": "Feeding Schedule",
@@ -428,7 +446,9 @@
 				"stuckScheduleDesc": "A schedule change from {time} was sent to your device but never confirmed applied.",
 				"retryFeed": "Retry Feed Now",
 				"checkDevice": "Check Device"
-			}
+			},
+			"noDeviceTitle": "No feeder paired",
+			"noDeviceDesc": "Pair a feeder controller to this pond before setting a schedule."
 		},
 		"logSample": {
 			"title": "Biomass Log",
@@ -479,7 +499,11 @@
 			"queuedOfflineTitle": "Saved offline",
 			"queuedOfflineBody": "This sample is queued on this device. It will sync automatically when the connection returns.",
 			"queuedOfflineError": "Could not queue the sample on this device.",
-			"offlineNote": "You're offline. This sample will be saved on the device and synced later."
+			"offlineNote": "You're offline. This sample will be saved on the device and synced later.",
+			"noBatchesTitle": "No saved batches yet",
+			"noBatchesDesc": "A batch groups the samples you log under the same label.",
+			"formLabel": "Log a biomass sample",
+			"batchesLabel": "Saved batches"
 		},
 		"history": {
 			"amount": "AMOUNT",
@@ -498,7 +522,12 @@
 			"feedLevelDesc": "Current hopper fill level from ultrasonic sensor",
 			"searchPlaceholder": "Filter by source (scheduled, dashboard, button) or date (YYYY-MM-DD)",
 			"loadMore": "Load more",
-			"loading": "Loading…"
+			"loading": "Loading…",
+			"totalDispensedValue": "{kg} kg",
+			"statsLabel": "Feeding summary",
+			"tableCaption": "Recent feeding events",
+			"emptyTitle": "No feed events yet",
+			"emptyDesc": "Dispenses appear here as soon as the feeder confirms them."
 		},
 		"feedNowModal": {
 			"triggerTitle": "Trigger Manual Feeding?",
@@ -587,9 +616,12 @@
 				"pagination": {
 					"previous": "Previous",
 					"next": "Next",
-					"showing": "Showing {from}–{to} of {total}"
+					"showing": "Showing {from}–{to} of {total}",
+					"label": "Pagination"
 				},
-				"empty": "No records match these filters."
+				"empty": "No records match these filters.",
+				"emptyTitle": "No records yet",
+				"emptyDesc": "Records appear once samples or hopper readings are logged."
 			},
 			"growthPlan": {
 				"title": "Target growth plan",
@@ -749,7 +781,16 @@
 				"hoursAgo": "{hours}h ago",
 				"apply": "Apply to schedule",
 				"applied": "Applied"
-			}
+			},
+			"noSamplesTitle": "No biomass samples yet",
+			"noSamplesDesc": "Log a sample to start the growth chart and the FCR calculation.",
+			"logSampleAction": "Log a sample",
+			"chartSummary": "Body weight trend: {count} samples, latest {latest} g. Current FCR {fcr}.",
+			"feedChartSummary": "Hopper level trend: {count} readings, latest {latest}%.",
+			"fishSamplesLabel": "Individual fish samples",
+			"tableCaption": "Growth summary, newest first",
+			"biomassTableCaption": "Biomass samples, newest first",
+			"feedLevelTableCaption": "Recent hopper level readings"
 		},
 		"harvest": {
 			"title": "Harvest & Grow-out",
@@ -785,7 +826,8 @@
 				"fallowTitle": "Pond is fallow",
 				"fallowDesc": "The last cycle is closed. Start the next grow-out cycle when you are ready; feeding stays paused until then.",
 				"noCycleTitle": "No active grow-out cycle",
-				"noCycleDesc": "Set the stocking date, grow-out period, and target harvest so the calendar and AI advisor have a timeline."
+				"noCycleDesc": "Set the stocking date, grow-out period, and target harvest so the calendar and AI advisor have a timeline.",
+				"statusLabel": "Cycle status"
 			},
 			"calendar": {
 				"title": "Pond calendar",
@@ -803,7 +845,8 @@
 				"month": "Month",
 				"week": "Week",
 				"list": "List",
-				"noEvents": "No events in this range."
+				"noEvents": "No events in this range.",
+				"eventsLabel": "Pond calendar"
 			},
 			"filters": {
 				"harvest": "Harvest",
@@ -822,7 +865,8 @@
 			"upcoming": {
 				"title": "Upcoming events",
 				"next": "Next {count}",
-				"empty": "No upcoming events in this range."
+				"empty": "No upcoming events in this range.",
+				"listLabel": "Upcoming events"
 			},
 			"details": {
 				"close": "Close",
@@ -1310,7 +1354,9 @@
 			"reconciledFrom": "Reconciled from expired request {id}...",
 			"scheduleRange": "Schedule: {start} - {end}, {feedsPerDay} feeds/day",
 			"markedRead": "{count} notification(s) marked as read",
-			"loadMore": "Load more"
+			"loadMore": "Load more",
+			"filtersLabel": "Filter events",
+			"timelineLabel": "Event timeline"
 		},
 		"notifications": {
 			"title": "Notifications",
@@ -1348,7 +1394,10 @@
 				"batteryLow": "Battery levels are running low on Feeder #{feeder}.",
 				"hopperEmpty": "URGENT: Feeder hopper is completely empty!",
 				"feedingCompleted": "Scheduled feeding of {amount}g completed successfully."
-			}
+			},
+			"filtersTierLabel": "Filter by severity",
+			"filtersCategoryLabel": "Filter by category",
+			"listLabel": "Notifications"
 		},
 		"timeCalibration": {
 			"title": "Time Calibration",
@@ -1563,6 +1612,20 @@
 			"title": "The admin console hit an error",
 			"desc": "Nothing was changed. Retry the page, or go back to the dashboard if it keeps failing.",
 			"retry": "Try again"
+		},
+		"common": {
+			"readOnlyTitle": "View only",
+			"readOnlyDesc": "Your role, or the active view-only session, cannot make changes here. Controls are disabled instead of failing after a tap.",
+			"noPondTitle": "No pond assigned yet",
+			"noPondDesc": "Ask your administrator to assign a pond to your farm, then reload this page.",
+			"loadErrorTitle": "This page could not load",
+			"loadErrorDesc": "Check your connection and try again.",
+			"retry": "Try again",
+			"loading": "Loading…",
+			"deviceOnline": "ESP32 online",
+			"deviceOffline": "ESP32 offline",
+			"deviceMissing": "ESP32 not paired",
+			"skipToContent": "Skip to main content"
 		}
 	},
 	"errors": {

@@ -12,15 +12,16 @@ describe("hardware rating", () => {
 
 	it("rounds the summed load current up to the next 0.1 A", () => {
 		const sum = RATED_LOADS.reduce((total, load) => total + load.currentA, 0);
-		// Blower 1.0 A (nameplate) + gear motor 6 W / 220 V = 0.027 A.
-		expect(sum).toBeCloseTo(1.0273, 4);
+		// Blower 1.0 A (nameplate) + gear motor 6 W / 220 V = 0.027 A
+		// + electronics about 8 VA / 220 V = 0.036 A (estimate).
+		expect(sum).toBeCloseTo(1.0636, 4);
 		expect(HARDWARE_RATING.maxCurrentA).toBe(1.1);
 		expect(HARDWARE_RATING.maxCurrentA).toBeGreaterThanOrEqual(sum);
 		expect(HARDWARE_RATING.maxCurrentA - sum).toBeLessThan(0.1);
 	});
 
 	it("records where every counted current comes from", () => {
-		expect(RATED_LOADS.map((load) => load.id)).toEqual(["blower", "gear-motor"]);
+		expect(RATED_LOADS.map((load) => load.id)).toEqual(["blower", "gear-motor", "electronics"]);
 		for (const load of RATED_LOADS) expect(load.basis.length).toBeGreaterThan(0);
 	});
 

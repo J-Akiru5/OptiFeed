@@ -5,17 +5,22 @@
  * The unit runs from mains: 220 V AC, 60 Hz. The earlier "12 V DC, 5 A" figure
  * (capstone manuscript p. 73) did not match the real parts and was dropped.
  *
- * The current is the sum of the loads whose nameplates are legible in the
- * photos taken of the built unit, rounded up to the next 0.1 A.
+ * The current is the sum of the loads taken from the mains, rounded up to the
+ * next 0.1 A. The blower and gear motor come from their nameplates (read from
+ * photos of the built unit); the control electronics are an estimate: a 12 V
+ * adapter feeds the 12 V relay and a buck converter that gives the ESP32 5 V.
  *
  * TODO(verify-on-hardware): this has NOT been measured. Still open:
- *  - the power adapter that feeds the ESP32 / relay and the speed-control
- *    unit have no legible label, so they are not in the sum (the 0.1 A
- *    round-up leaves roughly 0.07 A of margin for them);
+ *  - the 12 V adapter's own label (rated output and input current) has not
+ *    been read, and the speed-control unit's label is not legible, so the
+ *    electronics figure below is an estimate and the speed controller's own
+ *    draw is not counted (the round-up leaves about 0.04 A for it);
+ *  - the manuscript's "12 V, 5 A supply" most likely describes that adapter's
+ *    output, not the unit's input; confirm against its label;
  *  - the blower and gear-motor figures are nameplate maxima, not a meter
  *    reading during a feed;
- *  - it is assumed that the blower, gear motor and electronics are all fed
- *    from the one mains cord.
+ *  - it is assumed that the blower, gear motor and adapter are all fed from
+ *    the one mains cord.
  * Do not treat the printed rating as final until someone has read the missing
  * labels and measured the current, then updated this file.
  *
@@ -49,6 +54,16 @@ export const RATED_LOADS = [
 		// factor of 1, so it is a lower bound for a capacitor-run motor.
 		currentA: 6 / MAINS_VOLTAGE_V,
 		basis: "calculated: 6 W / 220 V (power factor 1)",
+	},
+	{
+		id: "electronics",
+		description: "12 V adapter -> 12 V relay coil + buck converter -> 5 V ESP32",
+		// Relay coil about 0.4 W plus ESP32 about 2.5 W peak with Wi-Fi is
+		// 2.9 W DC. At about 72 % conversion efficiency (adapter 80 %, buck
+		// 90 %) that is about 4 W from the wall, and at a power factor of 0.5
+		// typical of a small switching adapter about 8 VA.
+		currentA: 8 / MAINS_VOLTAGE_V,
+		basis: "estimated: about 8 VA at the wall (3 W DC load, 72 % efficiency, power factor 0.5)",
 	},
 ] as const;
 

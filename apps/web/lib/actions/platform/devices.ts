@@ -2,6 +2,7 @@
 
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { getCurrentUser } from "@/lib/auth/session";
+import { isStepUpRequiredError, withStepUp } from "@/lib/auth/step-up";
 import { generateDeviceToken, hashToken } from "@/lib/device-auth";
 import { canonicalMac } from "@/lib/device-mac";
 import prisma from "@/lib/prisma";
@@ -72,6 +73,7 @@ async function auditDevice(
 		reason: string;
 		actorUserId: string;
 		temporaryGrant: boolean;
+		stepUpAt: Date;
 		before?: Prisma.InputJsonValue;
 		after?: Prisma.InputJsonValue;
 	},
@@ -86,6 +88,7 @@ async function auditDevice(
 			targetId: data.deviceId,
 			orgId: data.orgId,
 			reason: data.reason,
+			stepUpAt: data.stepUpAt,
 			temporaryGrant: data.temporaryGrant,
 			ip: origin.ip,
 			userAgent: origin.userAgent,
@@ -283,9 +286,12 @@ export async function getOrgPondOptions(): Promise<OrgPondOption[]> {
 
 // ─── Register ─────────────────────────────────────────────────────────────────
 
+export type StepUpRequiredResult = { error: string; code: "step_up_required" };
+
 export type RegisterDeviceResult =
 	| { success: true; deviceId: string; mac: string; token: string }
-	| { error: string };
+	| StepUpRequiredResult
+	| { error: string; code?: undefined };
 
 const DUPLICATE_MAC_MESSAGE = "A device with this MAC is already registered.";
 
@@ -362,30 +368,39 @@ export async function registerDevice(input: {
 		if (existing) return { error: DUPLICATE_MAC_MESSAGE };
 
 		const actor = await actorContext();
-		const token = generateDeviceToken();
 
-		const deviceId = await prisma.$transaction(async (tx) => {
-			const device = await tx.energyDevice.create({
-				data: { mac, label, pondId: pond.id, token, tokenHash: hashToken(token) },
-				select: { id: true },
+		// Registering hardware with a live credential is a device action: fresh
+		// password re-entry is required (plan §4.4), and the audit row records it.
+		const { deviceId, token } = await withStepUp(async (stepUpAt) => {
+			const newToken = generateDeviceToken();
+			const id = await prisma.$transaction(async (tx) => {
+				const device = await tx.energyDevice.create({
+					data: { mac, label, pondId: pond.id, token: newToken, tokenHash: hashToken(newToken) },
+					select: { id: true },
+				});
+				await auditDevice(
+					{
+						action: "platform.device.create",
+						deviceId: device.id,
+						orgId: org.id,
+						reason,
+						actorUserId: actor.id,
+						temporaryGrant: actor.temporaryGrant,
+						stepUpAt,
+						after: { mac, label, pondId: pond.id },
+					},
+					tx,
+				);
+				return device.id;
 			});
-			await auditDevice(
-				{
-					action: "platform.device.create",
-					deviceId: device.id,
-					orgId: org.id,
-					reason,
-					actorUserId: actor.id,
-					temporaryGrant: actor.temporaryGrant,
-					after: { mac, label, pondId: pond.id },
-				},
-				tx,
-			);
-			return device.id;
+			return { deviceId: id, token: newToken };
 		});
 
 		return { success: true, deviceId, mac, token };
 	} catch (e) {
+		if (isStepUpRequiredError(e)) {
+			return { error: e.message, code: "step_up_required" };
+		}
 		if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
 			return { error: DUPLICATE_MAC_MESSAGE };
 		}
@@ -399,7 +414,10 @@ export async function registerDevice(input: {
 
 // ─── Rotate token ─────────────────────────────────────────────────────────────
 
-export type RotateDeviceTokenResult = { success: true; token: string } | { error: string };
+export type RotateDeviceTokenResult =
+	| { success: true; token: string }
+	| StepUpRequiredResult
+	| { error: string; code?: undefined };
 
 /**
  * Issue a new token for a device. The old token stops authenticating at once,
@@ -433,29 +451,38 @@ export async function rotateDeviceToken(input: {
 		const orgId = device.pond ? (orgs.get(device.pond.ownerId)?.[0]?.id ?? null) : null;
 
 		const actor = await actorContext();
-		const token = generateDeviceToken();
 
-		await prisma.$transaction(async (tx) => {
-			await tx.energyDevice.update({
-				where: { id: device.id },
-				data: { token, tokenHash: hashToken(token) },
+		// A rotation invalidates the unit's working credential, so it needs a
+		// fresh step-up just like registration.
+		const token = await withStepUp(async (stepUpAt) => {
+			const newToken = generateDeviceToken();
+			await prisma.$transaction(async (tx) => {
+				await tx.energyDevice.update({
+					where: { id: device.id },
+					data: { token: newToken, tokenHash: hashToken(newToken) },
+				});
+				await auditDevice(
+					{
+						action: "platform.device.rotate_token",
+						deviceId: device.id,
+						orgId,
+						reason,
+						actorUserId: actor.id,
+						temporaryGrant: actor.temporaryGrant,
+						stepUpAt,
+						after: { mac: device.mac },
+					},
+					tx,
+				);
 			});
-			await auditDevice(
-				{
-					action: "platform.device.rotate_token",
-					deviceId: device.id,
-					orgId,
-					reason,
-					actorUserId: actor.id,
-					temporaryGrant: actor.temporaryGrant,
-					after: { mac: device.mac },
-				},
-				tx,
-			);
+			return newToken;
 		});
 
 		return { success: true, token };
 	} catch (e) {
+		if (isStepUpRequiredError(e)) {
+			return { error: e.message, code: "step_up_required" };
+		}
 		console.error(
 			"[platform] rotateDeviceToken error:",
 			e instanceof Error ? e.message : "unknown error",

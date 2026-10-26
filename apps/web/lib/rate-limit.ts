@@ -66,6 +66,12 @@ export function checkPredictionRateLimit(ownerId: string) {
 	return checkRateLimit(`rl:predict:${ownerId}`, 10, 60_000, true);
 }
 
+// Step-up re-authentication: 5 password checks per 5 minutes per user.
+// Fail-closed — this is a credential check, so an outage must not open it.
+export function checkStepUpRateLimit(userId: string) {
+	return checkRateLimit(`rl:stepup:${userId}`, 5, 5 * 60_000, false);
+}
+
 /**
  * Pick the client IP to rate-limit key on from an X-Forwarded-For header.
  *

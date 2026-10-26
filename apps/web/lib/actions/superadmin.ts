@@ -1,11 +1,11 @@
 "use server";
 
-import { deleteUserSubtree } from "@/lib/actions/admin-internal";
 import { passwordErrorMessage, validatePassword } from "@/lib/auth/password";
 import { isPlatformAdminActive } from "@/lib/auth/platform-admin";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { invalidateFarm } from "@/lib/auth/session-cache";
+import { isStepUpRequiredError, withStepUp } from "@/lib/auth/step-up";
 import prisma from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MemberRole, Prisma, UserRole } from "@prisma/client";
@@ -55,6 +55,8 @@ async function audit(
 		reason: string;
 		actorUserId: string;
 		temporaryGrant?: boolean;
+		/** When the dangerous action's password check happened (M3.2). */
+		stepUpAt?: Date;
 		before?: Prisma.InputJsonValue;
 		after?: Prisma.InputJsonValue;
 	},
@@ -67,6 +69,7 @@ async function audit(
 			targetType: "platform_console",
 			targetId: data.targetId,
 			reason: data.reason,
+			stepUpAt: data.stepUpAt ?? null,
 			temporaryGrant: data.temporaryGrant ?? false,
 			...(data.before !== undefined ? { before: data.before } : {}),
 			...(data.after !== undefined ? { after: data.after } : {}),
@@ -120,6 +123,8 @@ export type PlatformUserRow = {
 	role: UserRole;
 	createdAt: Date;
 	isPlatformAdmin: boolean;
+	/** True after a safe disable (auth ban + revoked memberships). */
+	disabled: boolean;
 	orgs: { id: string; name: string; role: MemberRole; memberCount: number }[];
 	pondCount: number;
 };
@@ -157,8 +162,33 @@ export async function listAllUsers(): Promise<PlatformUserRow[]> {
 		}),
 		prisma.membership.findMany({ where: { revokedAt: null } }),
 		prisma.organization.findMany({ select: { id: true, name: true } }),
-		prisma.platformAdmin.findMany({ select: { userId: true } }),
+		// Only an unrevoked, unexpired grant is god-mode; a safe disable revokes
+		// the grant, so the access badge must follow that.
+		prisma.platformAdmin.findMany({
+			where: activePlatformAdminWhere(),
+			select: { userId: true },
+		}),
 	]);
+
+	// Safe disable is reversible, so the list needs to know the latest state.
+	// The append-only audit log is the record: no extra column or migration.
+	const safetyRows =
+		users.length > 0
+			? await prisma.platformAuditLog.findMany({
+					where: {
+						action: { in: ["platform.user.disable", "platform.user.enable"] },
+						targetId: { in: users.map((u) => u.id) },
+					},
+					orderBy: { createdAt: "desc" },
+					select: { action: true, targetId: true },
+				})
+			: [];
+	const latestSafetyAction = new Map<string, string>();
+	for (const row of safetyRows) {
+		if (row.targetId && !latestSafetyAction.has(row.targetId)) {
+			latestSafetyAction.set(row.targetId, row.action);
+		}
+	}
 
 	const orgById = new Map(orgs.map((o) => [o.id, o]));
 	const counts = await activeMemberCounts(orgs.map((o) => o.id));
@@ -178,6 +208,7 @@ export async function listAllUsers(): Promise<PlatformUserRow[]> {
 		role: u.role,
 		createdAt: u.createdAt,
 		isPlatformAdmin: platformAdminIds.has(u.id),
+		disabled: latestSafetyAction.get(u.id) === "platform.user.disable",
 		pondCount: u._count.ponds,
 		orgs: (memberOrgIds.get(u.id) ?? [])
 			.map((orgId) => {
@@ -389,93 +420,271 @@ export async function updatePlatformUser(
 	}
 }
 
-export type RevokePlatformUserResult = { success: true } | { error: string };
+export type PlatformUserActionResult =
+	| { success: true }
+	| { error: string; code?: "step_up_required" };
+
+/** Effectively permanent until enable/purge; Supabase takes a duration string. */
+const DISABLE_BAN_DURATION = "876000h";
+
+function stepUpFailure(error: unknown): { error: string; code: "step_up_required" } | null {
+	if (!isStepUpRequiredError(error)) return null;
+	return { error: error.message, code: "step_up_required" };
+}
+
+/** What a disable row recorded, for an exact reversible enable. */
+function disabledAuditAfter(after: Prisma.JsonValue | null): {
+	revokedMembershipIds: string[];
+	platformAdminRevoked: boolean;
+	disabledAt: Date | null;
+} {
+	if (!after || typeof after !== "object" || Array.isArray(after)) {
+		return { revokedMembershipIds: [], platformAdminRevoked: false, disabledAt: null };
+	}
+	const row = after as {
+		revokedMembershipIds?: unknown;
+		platformAdminRevoked?: unknown;
+		disabledAt?: unknown;
+	};
+	const parsed = typeof row.disabledAt === "string" ? new Date(row.disabledAt) : null;
+	return {
+		revokedMembershipIds: Array.isArray(row.revokedMembershipIds)
+			? row.revokedMembershipIds.filter((id): id is string => typeof id === "string")
+			: [],
+		platformAdminRevoked: row.platformAdminRevoked === true,
+		disabledAt: parsed && !Number.isNaN(parsed.getTime()) ? parsed : null,
+	};
+}
 
 /**
- * Remove a user account entirely (Supabase auth + the farmer subtree).
- * Distinct from revoking a PlatformAdmin grant, which only strips god-mode.
+ * Safe user delete (plan M3.10, N3): disable, never purge.
+ *
+ * The login is banned in Supabase, every active membership is soft-revoked and
+ * any platform-admin grant is revoked. Nothing is deleted, so
+ * `enablePlatformUser` can restore the exact prior state. A hard purge stays a
+ * later M7 job.
+ *
+ * Requires step-up and a typed farmId confirmation. The auth ban runs inside
+ * the step-up-guarded block, and is compensated if the DB transaction fails, so
+ * a missing cookie can never ban an account.
  */
-export async function revokePlatformUser(
+export async function disablePlatformUser(
 	userId: string,
 	reason: string,
-): Promise<RevokePlatformUserResult> {
+	confirmFarmId: string,
+): Promise<PlatformUserActionResult> {
 	await requirePlatformAdmin();
 	const trimmedReason = requireReason(reason);
 
-	try {
-		const user = await prisma.user.findUnique({
-			where: { id: userId },
-			select: { id: true, farmId: true, supabaseId: true },
-		});
-		if (!user) return { error: "User not found." };
-		if (user.farmId === "superadmin") {
-			return { error: "The primary superadmin account cannot be removed." };
-		}
-
-		// Last-admin protection: checked here, before the auth account is
-		// deleted, because that step is irreversible and outside the DB
-		// transaction. Removing the sole active grant would lock the console.
-		const grant = await prisma.platformAdmin.findUnique({
-			where: { userId },
-			select: { revokedAt: true, expiresAt: true },
-		});
-		if (grant && isPlatformAdminActive(grant)) {
-			const activeAdmins = await prisma.platformAdmin.count({
-				where: activePlatformAdminWhere(),
-			});
-			if (activeAdmins <= 1) return { error: LAST_PLATFORM_ADMIN_MESSAGE };
-		}
-
-		const actor = await actorId();
-		// Auth first, and check the result: auth.admin.deleteUser returns an error
-		// object rather than throwing. Aborting here leaves both stores intact;
-		// the reverse order would strand a live login with no app row behind it.
-		const supabase = createAdminClient();
-		const { error: authError } = await supabase.auth.admin.deleteUser(user.supabaseId);
-		if (authError) {
-			console.error("[superadmin] revokePlatformUser auth error:", authError.message);
-			return { error: "Failed to remove the account's login. Nothing was deleted." };
-		}
-
-		await prisma.$transaction(async (tx) => {
-			// Membership/MembershipPermission have no FK to User, so neither is
-			// swept by deleteUserSubtree — both must be cleared explicitly.
-			const membershipIds = (
-				await tx.membership.findMany({ where: { userId: user.id }, select: { id: true } })
-			).map((m) => m.id);
-			if (membershipIds.length > 0) {
-				await tx.membershipPermission.deleteMany({
-					where: { membershipId: { in: membershipIds } },
-				});
-			}
-			await tx.membership.deleteMany({ where: { userId: user.id } });
-
-			// PlatformAdmin.userId is also FK-free — an orphaned grant would
-			// still resolve as god-mode if the userId were ever reused.
-			await tx.platformAdmin.deleteMany({ where: { userId: user.id } });
-
-			await deleteUserSubtree(tx, user.id, user.farmId);
-			await audit(
-				{
-					action: "platform.user.delete",
-					targetId: user.id,
-					reason: trimmedReason,
-					actorUserId: actor,
-					before: { farmId: user.farmId },
-				},
-				tx,
-			);
-		});
-
-		// Drop any cached farm binding immediately; otherwise a valid JWT could
-		// keep passing withAuth for the cache TTL after the account is gone.
-		invalidateFarm(user.supabaseId);
-
-		return { success: true };
-	} catch (e) {
-		console.error("[superadmin] revokePlatformUser error:", e);
-		return { error: "Failed to delete the user." };
+	const user = await prisma.user.findUnique({
+		where: { id: userId },
+		select: { id: true, farmId: true, supabaseId: true },
+	});
+	if (!user) return { error: "User not found." };
+	if (user.farmId === "superadmin") {
+		return { error: "The primary superadmin account cannot be disabled." };
 	}
+	const typedFarmId = typeof confirmFarmId === "string" ? confirmFarmId.trim() : "";
+	if (typedFarmId !== user.farmId) {
+		return { error: `Type ${user.farmId} exactly to confirm.` };
+	}
+
+	// Last-admin protection: a disable revokes the target's god-mode, so the
+	// platform must keep at least one other active admin.
+	const grant = await prisma.platformAdmin.findUnique({
+		where: { userId },
+		select: { revokedAt: true, expiresAt: true },
+	});
+	if (grant && isPlatformAdminActive(grant)) {
+		const activeAdmins = await prisma.platformAdmin.count({
+			where: activePlatformAdminWhere(),
+		});
+		if (activeAdmins <= 1) return { error: LAST_PLATFORM_ADMIN_MESSAGE };
+	}
+
+	const actor = await actorId();
+	const supabase = createAdminClient();
+	let banned = false;
+
+	try {
+		await withStepUp(async (stepUpAt) => {
+			const { error: authError } = await supabase.auth.admin.updateUserById(user.supabaseId, {
+				ban_duration: DISABLE_BAN_DURATION,
+			});
+			if (authError) {
+				throw new Error(`supabase ban failed: ${authError.message}`);
+			}
+			banned = true;
+
+			await prisma.$transaction(async (tx) => {
+				const memberships = await tx.membership.findMany({
+					where: { userId: user.id, revokedAt: null },
+					select: { id: true, orgId: true, role: true },
+				});
+				const disabledAt = new Date();
+				if (memberships.length > 0) {
+					await tx.membership.updateMany({
+						where: { id: { in: memberships.map((m) => m.id) } },
+						data: { revokedAt: disabledAt },
+					});
+				}
+
+				const activeGrant = await tx.platformAdmin.findUnique({
+					where: { userId: user.id },
+					select: { revokedAt: true, expiresAt: true },
+				});
+				const platformAdminRevoked = Boolean(activeGrant && isPlatformAdminActive(activeGrant));
+				if (platformAdminRevoked) {
+					await tx.platformAdmin.update({
+						where: { userId: user.id },
+						data: { revokedAt: disabledAt },
+					});
+				}
+
+				await audit(
+					{
+						action: "platform.user.disable",
+						targetId: user.id,
+						reason: trimmedReason,
+						actorUserId: actor,
+						stepUpAt,
+						before: {
+							farmId: user.farmId,
+							memberships: memberships.map((m) => ({
+								id: m.id,
+								orgId: m.orgId,
+								role: m.role,
+							})),
+							platformAdmin: activeGrant
+								? {
+										expiresAt: activeGrant.expiresAt?.toISOString() ?? null,
+										active: platformAdminRevoked,
+									}
+								: null,
+						},
+						after: {
+							disabledAt: disabledAt.toISOString(),
+							revokedMembershipIds: memberships.map((m) => m.id),
+							platformAdminRevoked,
+						},
+					},
+					tx,
+				);
+			});
+		});
+	} catch (e) {
+		if (banned) {
+			// Compensate: the DB half failed, so do not leave the login banned.
+			await supabase.auth.admin
+				.updateUserById(user.supabaseId, { ban_duration: "none" })
+				.catch(() => undefined);
+		}
+		const stepUp = stepUpFailure(e);
+		if (stepUp) return stepUp;
+		console.error("[superadmin] disablePlatformUser error:", e);
+		return { error: "Failed to disable the user." };
+	}
+
+	// The account still exists, but its cached farm binding and session entry
+	// must not survive the disable.
+	invalidateFarm(user.supabaseId);
+	return { success: true };
+}
+
+/**
+ * Reverse a safe disable: unban the login and restore the memberships (and the
+ * platform-admin grant, if the disable row recorded one) that it revoked.
+ *
+ * The append-only audit log is the source of truth for what to restore, so no
+ * extra column or migration is needed.
+ */
+export async function enablePlatformUser(
+	userId: string,
+	reason: string,
+): Promise<PlatformUserActionResult> {
+	await requirePlatformAdmin();
+	const trimmedReason = requireReason(reason);
+
+	const user = await prisma.user.findUnique({
+		where: { id: userId },
+		select: { id: true, farmId: true, supabaseId: true },
+	});
+	if (!user) return { error: "User not found." };
+
+	const lastDisable = await prisma.platformAuditLog.findFirst({
+		where: { action: "platform.user.disable", targetId: user.id },
+		orderBy: { createdAt: "desc" },
+		select: { after: true },
+	});
+	const restore = disabledAuditAfter(lastDisable?.after ?? null);
+
+	const actor = await actorId();
+	const supabase = createAdminClient();
+	let unbanned = false;
+
+	try {
+		await withStepUp(async (stepUpAt) => {
+			const { error: authError } = await supabase.auth.admin.updateUserById(user.supabaseId, {
+				ban_duration: "none",
+			});
+			if (authError) {
+				throw new Error(`supabase unban failed: ${authError.message}`);
+			}
+			unbanned = true;
+
+			await prisma.$transaction(async (tx) => {
+				if (restore.revokedMembershipIds.length > 0) {
+					await tx.membership.updateMany({
+						where: {
+							id: { in: restore.revokedMembershipIds },
+							userId: user.id,
+							revokedAt: restore.disabledAt ?? { not: null },
+						},
+						data: { revokedAt: null },
+					});
+				}
+				if (restore.platformAdminRevoked) {
+					await tx.platformAdmin.updateMany({
+						where: {
+							userId: user.id,
+							...(restore.disabledAt ? { revokedAt: restore.disabledAt } : {}),
+						},
+						data: { revokedAt: null },
+					});
+				}
+
+				await audit(
+					{
+						action: "platform.user.enable",
+						targetId: user.id,
+						reason: trimmedReason,
+						actorUserId: actor,
+						stepUpAt,
+						before: { farmId: user.farmId },
+						after: {
+							restoredMembershipIds: restore.revokedMembershipIds,
+							platformAdminRestored: restore.platformAdminRevoked,
+						},
+					},
+					tx,
+				);
+			});
+		});
+	} catch (e) {
+		if (unbanned) {
+			// The DB half failed; keep the account disabled rather than half-open.
+			await supabase.auth.admin
+				.updateUserById(user.supabaseId, { ban_duration: DISABLE_BAN_DURATION })
+				.catch(() => undefined);
+		}
+		const stepUp = stepUpFailure(e);
+		if (stepUp) return stepUp;
+		console.error("[superadmin] enablePlatformUser error:", e);
+		return { error: "Failed to enable the user." };
+	}
+
+	invalidateFarm(user.supabaseId);
+	return { success: true };
 }
 
 // ─── Organizations ────────────────────────────────────────────────────────────
@@ -667,7 +876,7 @@ export async function getPlatformAdmins(): Promise<PlatformAdminRow[]> {
 	});
 }
 
-export type GrantResult = { success: true } | { error: string };
+export type GrantResult = { success: true } | { error: string; code?: "step_up_required" };
 
 export async function grantPlatformAdmin(
 	userId: string,
@@ -689,34 +898,39 @@ export async function grantPlatformAdmin(
 		if (!user) return { error: "User not found." };
 
 		const actor = await actorId();
-		await prisma.$transaction(async (tx) => {
-			const existing = await tx.platformAdmin.findUnique({ where: { userId } });
-			await tx.platformAdmin.upsert({
-				where: { userId },
-				update: { revokedAt: null, grantedBy: actor, expiresAt: expiry },
-				create: { userId, grantedBy: actor, expiresAt: expiry },
+		await withStepUp(async (stepUpAt) => {
+			await prisma.$transaction(async (tx) => {
+				const existing = await tx.platformAdmin.findUnique({ where: { userId } });
+				await tx.platformAdmin.upsert({
+					where: { userId },
+					update: { revokedAt: null, grantedBy: actor, expiresAt: expiry },
+					create: { userId, grantedBy: actor, expiresAt: expiry },
+				});
+				await audit(
+					{
+						action: "platform.admin.grant",
+						targetId: userId,
+						reason: trimmedReason,
+						actorUserId: actor,
+						stepUpAt,
+						temporaryGrant: expiry !== null,
+						before: existing
+							? {
+									revokedAt: existing.revokedAt?.toISOString() ?? null,
+									expiresAt: existing.expiresAt?.toISOString() ?? null,
+								}
+							: undefined,
+						after: { expiresAt: expiry?.toISOString() ?? null },
+					},
+					tx,
+				);
 			});
-			await audit(
-				{
-					action: "platform.admin.grant",
-					targetId: userId,
-					reason: trimmedReason,
-					actorUserId: actor,
-					temporaryGrant: expiry !== null,
-					before: existing
-						? {
-								revokedAt: existing.revokedAt?.toISOString() ?? null,
-								expiresAt: existing.expiresAt?.toISOString() ?? null,
-							}
-						: undefined,
-					after: { expiresAt: expiry?.toISOString() ?? null },
-				},
-				tx,
-			);
 		});
 
 		return { success: true };
 	} catch (e) {
+		const stepUp = stepUpFailure(e);
+		if (stepUp) return stepUp;
 		console.error("[superadmin] grantPlatformAdmin error:", e);
 		return { error: "Failed to grant platform admin." };
 	}
@@ -738,34 +952,39 @@ export async function revokePlatformAdmin(userId: string, reason: string): Promi
 		}
 
 		const targetIsActive = isPlatformAdminActive(existing);
-		const refused = await prisma.$transaction(async (tx) => {
-			// Count inside the transaction: two concurrent revokes must not both
-			// observe "two admins" and leave the platform with zero.
-			if (targetIsActive) {
-				const activeAdmins = await tx.platformAdmin.count({
-					where: activePlatformAdminWhere(),
-				});
-				if (activeAdmins <= 1) return true;
-			}
+		const refused = await withStepUp(async (stepUpAt) =>
+			prisma.$transaction(async (tx) => {
+				// Count inside the transaction: two concurrent revokes must not both
+				// observe "two admins" and leave the platform with zero.
+				if (targetIsActive) {
+					const activeAdmins = await tx.platformAdmin.count({
+						where: activePlatformAdminWhere(),
+					});
+					if (activeAdmins <= 1) return true;
+				}
 
-			await tx.platformAdmin.update({ where: { userId }, data: { revokedAt: new Date() } });
-			await audit(
-				{
-					action: "platform.admin.revoke",
-					targetId: userId,
-					reason: trimmedReason,
-					actorUserId: actor,
-					temporaryGrant: existing.expiresAt !== null,
-					before: { expiresAt: existing.expiresAt?.toISOString() ?? null },
-				},
-				tx,
-			);
-			return false;
-		});
+				await tx.platformAdmin.update({ where: { userId }, data: { revokedAt: new Date() } });
+				await audit(
+					{
+						action: "platform.admin.revoke",
+						targetId: userId,
+						reason: trimmedReason,
+						actorUserId: actor,
+						stepUpAt,
+						temporaryGrant: existing.expiresAt !== null,
+						before: { expiresAt: existing.expiresAt?.toISOString() ?? null },
+					},
+					tx,
+				);
+				return false;
+			}),
+		);
 		if (refused) return { error: LAST_PLATFORM_ADMIN_MESSAGE };
 
 		return { success: true };
 	} catch (e) {
+		const stepUp = stepUpFailure(e);
+		if (stepUp) return stepUp;
 		console.error("[superadmin] revokePlatformAdmin error:", e);
 		return { error: "Failed to revoke platform admin." };
 	}

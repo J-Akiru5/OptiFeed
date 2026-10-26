@@ -1,9 +1,10 @@
 "use client";
 
 import { DeviceTokenOnce } from "@/components/superadmin/device-token-once";
+import { StepUpDialog } from "@/components/superadmin/step-up-dialog";
 import { rotateDeviceToken } from "@/lib/actions/platform/devices";
 import { KeyRound, Loader2 } from "lucide-react";
-import { type FormEvent, useState, useTransition } from "react";
+import { type FormEvent, useRef, useState, useTransition } from "react";
 
 const MIN_REASON = 10;
 
@@ -16,6 +17,8 @@ export function RotateDeviceToken({ deviceId, mac }: { deviceId: string; mac: st
 	const [reason, setReason] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [token, setToken] = useState<string | null>(null);
+	const [stepUpOpen, setStepUpOpen] = useState(false);
+	const retryRef = useRef<(() => void) | null>(null);
 	const [isPending, startTransition] = useTransition();
 
 	if (token) {
@@ -44,17 +47,16 @@ export function RotateDeviceToken({ deviceId, mac }: { deviceId: string; mac: st
 		);
 	}
 
-	const submit = (e: FormEvent) => {
-		e.preventDefault();
-		setError(null);
-		if (reason.trim().length < MIN_REASON) {
-			setError(`Reason must be at least ${MIN_REASON} characters.`);
-			return;
-		}
+	const run = (trimmedReason: string) => {
 		startTransition(async () => {
 			try {
-				const result = await rotateDeviceToken({ deviceId, reason: reason.trim() });
+				const result = await rotateDeviceToken({ deviceId, reason: trimmedReason });
 				if ("error" in result) {
+					if (result.code === "step_up_required") {
+						retryRef.current = () => run(trimmedReason);
+						setStepUpOpen(true);
+						return;
+					}
 					setError(result.error);
 					return;
 				}
@@ -67,39 +69,65 @@ export function RotateDeviceToken({ deviceId, mac }: { deviceId: string; mac: st
 		});
 	};
 
+	const submit = (e: FormEvent) => {
+		e.preventDefault();
+		setError(null);
+		if (reason.trim().length < MIN_REASON) {
+			setError(`Reason must be at least ${MIN_REASON} characters.`);
+			return;
+		}
+		run(reason.trim());
+	};
+
+	const onVerified = () => {
+		setStepUpOpen(false);
+		const retry = retryRef.current;
+		retryRef.current = null;
+		retry?.();
+	};
+
 	return (
-		<form onSubmit={submit} className="min-w-[16rem] space-y-2">
-			<p className="text-[11px] leading-snug text-[#C42B3A] font-bold">
-				The current token stops working at once. The unit stays offline until the new token is set
-				in its setup portal.
-			</p>
-			<input
-				value={reason}
-				onChange={(e) => setReason(e.target.value)}
-				disabled={isPending}
-				placeholder="Reason (at least 10 characters)"
-				aria-label="Reason for rotating the token"
-				className="w-full px-3 py-2 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+		<>
+			<form onSubmit={submit} className="min-w-[16rem] space-y-2">
+				<p className="text-[11px] leading-snug text-[#C42B3A] font-bold">
+					The current token stops working at once. The unit stays offline until the new token is set
+					in its setup portal.
+				</p>
+				<input
+					value={reason}
+					onChange={(e) => setReason(e.target.value)}
+					disabled={isPending}
+					placeholder="Reason (at least 10 characters)"
+					aria-label="Reason for rotating the token"
+					className="w-full px-3 py-2 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+				/>
+				{error && <p className="text-[11px] font-bold text-[#C42B3A]">{error}</p>}
+				<div className="flex gap-2">
+					<button
+						type="submit"
+						disabled={isPending}
+						className="inline-flex items-center gap-1.5 rounded-lg bg-[#E85A2A] px-3 py-1.5 text-xs font-black text-white disabled:opacity-60"
+					>
+						{isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+						Rotate
+					</button>
+					<button
+						type="button"
+						onClick={() => setOpen(false)}
+						disabled={isPending}
+						className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-black text-[#3D5568]"
+					>
+						Cancel
+					</button>
+				</div>
+			</form>
+
+			<StepUpDialog
+				open={stepUpOpen}
+				actionLabel="rotate this device token"
+				onClose={() => setStepUpOpen(false)}
+				onVerified={onVerified}
 			/>
-			{error && <p className="text-[11px] font-bold text-[#C42B3A]">{error}</p>}
-			<div className="flex gap-2">
-				<button
-					type="submit"
-					disabled={isPending}
-					className="inline-flex items-center gap-1.5 rounded-lg bg-[#E85A2A] px-3 py-1.5 text-xs font-black text-white disabled:opacity-60"
-				>
-					{isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-					Rotate
-				</button>
-				<button
-					type="button"
-					onClick={() => setOpen(false)}
-					disabled={isPending}
-					className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-black text-[#3D5568]"
-				>
-					Cancel
-				</button>
-			</div>
-		</form>
+		</>
 	);
 }

@@ -1,10 +1,11 @@
 "use client";
 
 import { DeviceTokenOnce } from "@/components/superadmin/device-token-once";
+import { StepUpDialog } from "@/components/superadmin/step-up-dialog";
 import { Link, useRouter } from "@/i18n/routing";
 import { type OrgPondOption, registerDevice } from "@/lib/actions/platform/devices";
 import { Cpu, Loader2, Printer, ShieldAlert } from "lucide-react";
-import { type FormEvent, useMemo, useState, useTransition } from "react";
+import { type FormEvent, useMemo, useRef, useState, useTransition } from "react";
 
 const MIN_REASON = 10;
 
@@ -28,6 +29,8 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 	const [reason, setReason] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [registered, setRegistered] = useState<Registered | null>(null);
+	const [stepUpOpen, setStepUpOpen] = useState(false);
+	const retryRef = useRef<(() => void) | null>(null);
 
 	const ponds = useMemo(
 		() => options.find((o) => o.orgId === orgId)?.ponds ?? [],
@@ -35,21 +38,22 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 	);
 	const assignable = options.filter((o) => o.ponds.length > 0);
 
-	const submit = (e: FormEvent) => {
-		e.preventDefault();
-		setError(null);
-
-		if (!mac.trim()) return setError("Enter the chip MAC.");
-		if (!label.trim()) return setError("A device label is required.");
-		if (!orgId || !pondId) return setError("Choose an organization and a pond.");
-		if (reason.trim().length < MIN_REASON) {
-			return setError(`Reason must be at least ${MIN_REASON} characters.`);
-		}
-
+	const run = (input: {
+		mac: string;
+		label: string;
+		orgId: string;
+		pondId: string;
+		reason: string;
+	}) => {
 		startTransition(async () => {
 			try {
-				const result = await registerDevice({ mac, label, orgId, pondId, reason: reason.trim() });
+				const result = await registerDevice(input);
 				if ("error" in result) {
+					if (result.code === "step_up_required") {
+						retryRef.current = () => run(input);
+						setStepUpOpen(true);
+						return;
+					}
 					setError(result.error);
 					return;
 				}
@@ -63,6 +67,27 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 				setError(err instanceof Error ? err.message : "Registration failed.");
 			}
 		});
+	};
+
+	const submit = (e: FormEvent) => {
+		e.preventDefault();
+		setError(null);
+
+		if (!mac.trim()) return setError("Enter the chip MAC.");
+		if (!label.trim()) return setError("A device label is required.");
+		if (!orgId || !pondId) return setError("Choose an organization and a pond.");
+		if (reason.trim().length < MIN_REASON) {
+			return setError(`Reason must be at least ${MIN_REASON} characters.`);
+		}
+
+		run({ mac, label, orgId, pondId, reason: reason.trim() });
+	};
+
+	const onVerified = () => {
+		setStepUpOpen(false);
+		const retry = retryRef.current;
+		retryRef.current = null;
+		retry?.();
 	};
 
 	return (
@@ -215,6 +240,13 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 					</button>
 				</form>
 			)}
+
+			<StepUpDialog
+				open={stepUpOpen}
+				actionLabel="register this device"
+				onClose={() => setStepUpOpen(false)}
+				onVerified={onVerified}
+			/>
 		</div>
 	);
 }

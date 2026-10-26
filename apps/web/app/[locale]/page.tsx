@@ -482,19 +482,17 @@ export default function LandingPage() {
 								</div>
 							</Reveal>
 
-							<Reveal delay={0.06}>
-								<OfflineCards
-									cards={OFFLINE_ICONS.map((icon, index) => {
-										const n = index + 1;
-										return {
-											id: n,
-											icon,
-											title: t(`offline${n}Title`),
-											body: t(`offline${n}Body`),
-										};
-									})}
-								/>
-							</Reveal>
+							<OfflineCards
+								cards={OFFLINE_ICONS.map((icon, index) => {
+									const n = index + 1;
+									return {
+										id: n,
+										icon,
+										title: t(`offline${n}Title`),
+										body: t(`offline${n}Body`),
+									};
+								})}
+							/>
 						</div>
 
 						<div className={cn(container, "relative pb-14 sm:pb-16")}>

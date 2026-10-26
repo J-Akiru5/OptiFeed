@@ -16,16 +16,17 @@ import {
 	Sparkles,
 	Users,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 const navItems = [
-	{ href: "/superadmin", label: "Overview", icon: BarChart3 },
-	{ href: "/superadmin/users", label: "Users", icon: Users },
-	{ href: "/superadmin/orgs", label: "Organizations", icon: FolderTree },
-	{ href: "/superadmin/ponds", label: "Ponds", icon: Droplets },
-	{ href: "/superadmin/devices", label: "Devices", icon: Cpu },
-	{ href: "/superadmin/ai-providers", label: "AI Providers", icon: Sparkles },
-];
+	{ href: "/superadmin", key: "overview", icon: BarChart3 },
+	{ href: "/superadmin/users", key: "users", icon: Users },
+	{ href: "/superadmin/orgs", key: "organizations", icon: FolderTree },
+	{ href: "/superadmin/ponds", key: "ponds", icon: Droplets },
+	{ href: "/superadmin/devices", key: "devices", icon: Cpu },
+	{ href: "/superadmin/ai-providers", key: "aiProviders", icon: Sparkles },
+] as const;
 
 /**
  * Platform console navigation.
@@ -39,6 +40,7 @@ const navItems = [
  * it controls the model chain every tenant shares, not any farm's data.
  */
 export function SuperadminSidebar() {
+	const t = useTranslations("superadmin.shell");
 	const pathname = usePathname();
 	const router = useRouter();
 	const supabase = createClient();
@@ -56,9 +58,9 @@ export function SuperadminSidebar() {
 
 	return (
 		<aside className="sticky top-[64px] z-20 hidden h-[calc(100vh-64px)] w-64 shrink-0 flex-col overflow-y-auto bg-[#0A3D62] p-6 text-white scrollbar-none lg:flex">
-			<nav aria-label="Platform sections" className="space-y-1">
+			<nav aria-label={t("navLabel")} className="space-y-1">
 				<p className="mb-3 px-3 text-[10px] font-extrabold uppercase tracking-widest text-white/80">
-					Platform Console
+					{t("console")}
 				</p>
 				{navItems.map((item) => {
 					const isActive =
@@ -80,7 +82,7 @@ export function SuperadminSidebar() {
 							)}
 						>
 							<item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-							{item.label}
+							{t(`nav.${item.key}`)}
 						</Link>
 					);
 				})}
@@ -95,7 +97,7 @@ export function SuperadminSidebar() {
 					)}
 				>
 					<BarChart3 className="h-4 w-4 shrink-0" aria-hidden="true" />
-					Back to Dashboard
+					{t("backToDashboard")}
 				</Link>
 				<button
 					type="button"
@@ -111,7 +113,7 @@ export function SuperadminSidebar() {
 					) : (
 						<LogOut className="h-4 w-4 shrink-0" aria-hidden="true" />
 					)}
-					Sign Out
+					{t("signOut")}
 				</button>
 			</div>
 		</aside>

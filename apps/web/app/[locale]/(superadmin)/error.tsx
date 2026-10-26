@@ -2,6 +2,7 @@
 
 import { Card, PRIMARY_BUTTON } from "@/components/superadmin/ui";
 import { AlertTriangle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 
 /**
@@ -16,6 +17,8 @@ export default function SuperadminError({
 	error: Error & { digest?: string };
 	reset: () => void;
 }) {
+	const t = useTranslations("superadmin.error");
+
 	useEffect(() => {
 		console.error("[superadmin] render error", error);
 	}, [error]);
@@ -30,21 +33,18 @@ export default function SuperadminError({
 			</div>
 
 			<div role="alert" className="space-y-2">
-				<h1 className="text-xl font-black text-[#0A3D62]">The platform console hit an error</h1>
-				<p className="text-sm text-[#3D5568]">
-					Nothing was changed. Retry the page. If this persists, check the platform audit log and
-					Vercel function logs for the matching reference.
-				</p>
+				<h1 className="text-xl font-black text-[#0A3D62]">{t("title")}</h1>
+				<p className="text-sm text-[#3D5568]">{t("description")}</p>
 			</div>
 
 			{error.digest && (
 				<p className="rounded-lg bg-[#F4F7F6] px-2.5 py-1 font-mono text-[10px] text-[#3D5568]">
-					Reference: {error.digest}
+					{t("reference", { digest: error.digest })}
 				</p>
 			)}
 
 			<button type="button" onClick={reset} className={PRIMARY_BUTTON}>
-				Try again
+				{t("retry")}
 			</button>
 		</Card>
 	);

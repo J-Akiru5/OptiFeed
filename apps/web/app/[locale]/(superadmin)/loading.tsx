@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server";
+
 const SKELETON_CARDS = ["c1", "c2", "c3", "c4"];
 
 const block =
@@ -8,10 +10,12 @@ const block =
  * layout (title, four stat cards, one table card) so the first paint does not
  * jump when the page arrives, and it stays on the console's light palette.
  */
-export default function SuperadminLoading() {
+export default async function SuperadminLoading() {
+	const t = await getTranslations("superadmin.loading");
+
 	return (
 		<div className="space-y-6" aria-busy="true">
-			<output className="sr-only">Loading the platform console…</output>
+			<output className="sr-only">{t("message")}</output>
 
 			<div className="space-y-2">
 				<div className="h-8 w-56 max-w-full animate-pulse rounded-lg bg-gray-200 motion-reduce:animate-none" />

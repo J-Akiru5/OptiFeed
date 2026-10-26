@@ -15,6 +15,7 @@ import { Link, useRouter } from "@/i18n/routing";
 import { type OrgPondOption, registerDevice } from "@/lib/actions/platform/devices";
 import { cn } from "@/lib/utils";
 import { Cpu, Loader2, Printer } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { type FormEvent, useMemo, useRef, useState, useTransition } from "react";
 
 const MIN_REASON = 10;
@@ -26,6 +27,8 @@ type Registered = { deviceId: string; mac: string; token: string | null };
  * pond it serves. The server re-checks every field; this form only guides.
  */
 export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
+	const t = useTranslations("superadmin.registerDevice");
+	const tCommon = useTranslations("superadmin.common");
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const [mac, setMac] = useState("");
@@ -70,7 +73,7 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 				setReason("");
 				router.refresh();
 			} catch (err) {
-				setError(err instanceof Error ? err.message : "Registration failed.");
+				setError(err instanceof Error ? err.message : t("failed"));
 			}
 		});
 	};
@@ -79,11 +82,11 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 		e.preventDefault();
 		setError(null);
 
-		if (!mac.trim()) return setError("Enter the chip MAC.");
-		if (!label.trim()) return setError("A device label is required.");
-		if (!orgId || !pondId) return setError("Choose an organization and a pond.");
+		if (!mac.trim()) return setError(t("macRequired"));
+		if (!label.trim()) return setError(t("labelRequired"));
+		if (!orgId || !pondId) return setError(t("orgPondRequired"));
 		if (reason.trim().length < MIN_REASON) {
-			return setError(`Reason must be at least ${MIN_REASON} characters.`);
+			return setError(tCommon("reasonMinLength", { count: MIN_REASON }));
 		}
 
 		run({ mac, label, orgId, pondId, reason: reason.trim() });
@@ -99,7 +102,7 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 	return (
 		<div className={cn(CARD, "space-y-4 p-6")}>
 			<h2 className="text-xs font-extrabold uppercase tracking-wider text-[#3D5568]">
-				Register device
+				{t("title")}
 			</h2>
 
 			{registered && (
@@ -111,51 +114,45 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 							onDone={() => setRegistered((r) => (r ? { ...r, token: null } : r))}
 						/>
 					) : (
-						<Alert tone="success">
-							Registered {registered.mac}. The token is no longer on screen.
-						</Alert>
+						<Alert tone="success">{t("registered", { mac: registered.mac })}</Alert>
 					)}
 					<Link
 						href={{ pathname: "/superadmin/devices/labels", query: { id: registered.deviceId } }}
 						className={SECONDARY_BUTTON}
 					>
 						<Printer className="h-4 w-4" aria-hidden="true" />
-						Print sticker for {registered.mac}
+						{t("printSticker", { mac: registered.mac })}
 					</Link>
 				</div>
 			)}
 
 			{assignable.length === 0 ? (
-				<p className="text-sm text-[#3D5568]">
-					No active organization has a pond yet. Create the organization and its farmer account
-					first; a device is always registered onto a pond.
-				</p>
+				<p className="text-sm text-[#3D5568]">{t("noPonds")}</p>
 			) : (
 				<form onSubmit={submit} className="space-y-4" aria-busy={isPending}>
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 						<div className="space-y-1.5">
 							<label htmlFor="device-mac" className={FIELD_LABEL}>
-								Chip MAC *
+								{t("mac")}
 							</label>
 							<input
 								id="device-mac"
 								value={mac}
 								onChange={(e) => setMac(e.target.value)}
 								disabled={isPending}
-								placeholder="A4:CF:12:7E:3B:09"
+								placeholder={t("macPlaceholder")}
 								autoComplete="off"
 								spellCheck={false}
 								aria-describedby="device-mac-hint"
 								className={cn(FIELD_INPUT, "font-mono")}
 							/>
 							<p id="device-mac-hint" className={FIELD_HINT}>
-								The <code>[DEVICE MAC]</code> line in the unit&apos;s boot log. The setup Wi-Fi name
-								and the sticker are built from it.
+								{t("macHintBefore")} <code>[DEVICE MAC]</code> {t("macHintAfter")}
 							</p>
 						</div>
 						<div className="space-y-1.5">
 							<label htmlFor="device-label" className={FIELD_LABEL}>
-								Label *
+								{t("label")}
 							</label>
 							<input
 								id="device-label"
@@ -163,13 +160,13 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 								onChange={(e) => setLabel(e.target.value)}
 								disabled={isPending}
 								maxLength={64}
-								placeholder="e.g. Pond 2 feeder"
+								placeholder={t("labelPlaceholder")}
 								className={FIELD_INPUT}
 							/>
 						</div>
 						<div className="space-y-1.5">
 							<label htmlFor="device-org" className={FIELD_LABEL}>
-								Organization *
+								{t("org")}
 							</label>
 							<select
 								id="device-org"
@@ -181,7 +178,7 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 								disabled={isPending}
 								className={cn(FIELD_INPUT, "font-bold")}
 							>
-								<option value="">Choose…</option>
+								<option value="">{tCommon("choose")}</option>
 								{assignable.map((o) => (
 									<option key={o.orgId} value={o.orgId}>
 										{o.orgName}
@@ -191,7 +188,7 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 						</div>
 						<div className="space-y-1.5">
 							<label htmlFor="device-pond" className={FIELD_LABEL}>
-								Pond *
+								{t("pond")}
 							</label>
 							<select
 								id="device-pond"
@@ -200,13 +197,11 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 								disabled={isPending || !orgId}
 								className={cn(FIELD_INPUT, "font-bold")}
 							>
-								<option value="">{orgId ? "Choose…" : "Choose an organization first"}</option>
+								<option value="">{orgId ? tCommon("choose") : t("chooseOrgFirst")}</option>
 								{ponds.map((p) => (
 									<option key={p.id} value={p.id}>
 										{p.name} ({p.ownerFarmId})
-										{p.deviceCount > 0
-											? ` · already ${p.deviceCount} device${p.deviceCount === 1 ? "" : "s"}`
-											: ""}
+										{p.deviceCount > 0 ? ` ${t("alreadyDevices", { count: p.deviceCount })}` : ""}
 									</option>
 								))}
 							</select>
@@ -215,19 +210,19 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 
 					<div className="space-y-1.5">
 						<label htmlFor="device-reason" className={FIELD_LABEL}>
-							Reason *
+							{tCommon("reasonRequired")}
 						</label>
 						<input
 							id="device-reason"
 							value={reason}
 							onChange={(e) => setReason(e.target.value)}
 							disabled={isPending}
-							placeholder="e.g. New unit installed for San Pablo coop, pond 2"
+							placeholder={t("reasonPlaceholder")}
 							aria-describedby="device-reason-hint"
 							className={FIELD_INPUT}
 						/>
 						<p id="device-reason-hint" className={FIELD_HINT}>
-							Recorded in the platform audit log. At least 10 characters.
+							{t("reasonHint")}
 						</p>
 					</div>
 
@@ -239,14 +234,14 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 						) : (
 							<Cpu className="h-4 w-4" aria-hidden="true" />
 						)}
-						Register device
+						{t("button")}
 					</button>
 				</form>
 			)}
 
 			<StepUpDialog
 				open={stepUpOpen}
-				actionLabel="register this device"
+				actionLabel={t("stepUpAction")}
 				onClose={() => setStepUpOpen(false)}
 				onVerified={onVerified}
 			/>

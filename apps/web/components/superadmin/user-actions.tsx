@@ -19,13 +19,12 @@ import {
 } from "@/lib/actions/superadmin";
 import { cn } from "@/lib/utils";
 import { Loader2, MoreHorizontal, ShieldCheck, ShieldOff, Trash2, Undo2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { type FormEvent, useRef, useState, useTransition } from "react";
 
 type Mode = "grant" | "revoke" | "disable" | "enable" | null;
 
 const MIN_REASON = 10;
-const REASON_HELP =
-	"Recorded in the platform audit log. At least 10 characters — say why this change is being made.";
 
 /**
  * Per-row platform actions: grant/revoke god-mode, or disable/enable an account.
@@ -53,6 +52,8 @@ export function UserActions({
 	isPlatformAdmin: boolean;
 	disabled: boolean;
 }) {
+	const t = useTranslations("superadmin.userActions");
+	const tCommon = useTranslations("superadmin.common");
 	const router = useRouter();
 	const [mode, setMode] = useState<Mode>(null);
 	const [reason, setReason] = useState("");
@@ -105,7 +106,7 @@ export function UserActions({
 				setConfirmFarmId("");
 				router.refresh();
 			} catch (e) {
-				setError(e instanceof Error ? e.message : "Action failed.");
+				setError(e instanceof Error ? e.message : t("actionFailed"));
 			}
 		});
 	};
@@ -116,29 +117,15 @@ export function UserActions({
 
 		const trimmed = reason.trim();
 		if (trimmed.length < MIN_REASON) {
-			setError(`Reason must be at least ${MIN_REASON} characters.`);
+			setError(tCommon("reasonMinLength", { count: MIN_REASON }));
 			return;
 		}
 		if (mode === "disable" && confirmFarmId.trim() !== farmId) {
-			setError(`Type ${farmId} exactly to confirm.`);
+			setError(t("typeToConfirm", { farmId }));
 			return;
 		}
 		if (!mode) return;
 		perform(mode, trimmed);
-	};
-
-	const labels: Record<Exclude<Mode, null>, string> = {
-		grant: "Grant platform access",
-		revoke: "Revoke platform access",
-		disable: "Disable account",
-		enable: "Enable account",
-	};
-
-	const stepUpLabels: Record<Exclude<Mode, null>, string> = {
-		grant: "grant platform access",
-		revoke: "revoke platform access",
-		disable: "disable this account",
-		enable: "enable this account",
 	};
 
 	const onVerified = () => {
@@ -154,7 +141,7 @@ export function UserActions({
 				type="button"
 				onClick={() => open(disabled ? "enable" : "grant")}
 				disabled={isPending}
-				aria-label={`Actions for ${farmId}`}
+				aria-label={t("actionsFor", { farmId })}
 				aria-haspopup="dialog"
 				aria-expanded={mode !== null}
 				className={cn(
@@ -178,17 +165,17 @@ export function UserActions({
 							titleId="user-actions-title"
 							descriptionId="user-actions-description"
 							icon={ShieldCheck}
-							title={labels[mode]}
+							title={t(`titles.${mode}`)}
 							description={
 								<>
-									Platform account{" "}
+									{t("descriptionPrefix")}{" "}
 									<span className="font-mono font-bold text-[#0A3D62]">{farmId}</span>
-									{isPlatformAdmin && mode !== "revoke" ? " · currently a platform admin" : ""}
+									{isPlatformAdmin && mode !== "revoke" ? t("currentAdminSuffix") : ""}
 								</>
 							}
 							onClose={close}
 							closeDisabled={isPending}
-							closeLabel="Close account actions"
+							closeLabel={t("closeLabel")}
 						/>
 
 						<div className="mt-4 flex flex-wrap gap-1.5">
@@ -197,7 +184,7 @@ export function UserActions({
 									active={mode === "enable"}
 									onClick={() => open("enable")}
 									icon={<Undo2 className="h-3.5 w-3.5" aria-hidden="true" />}
-									label="Enable"
+									label={t("buttons.enable")}
 								/>
 							) : (
 								<>
@@ -205,19 +192,19 @@ export function UserActions({
 										active={mode === "grant"}
 										onClick={() => open("grant")}
 										icon={<ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />}
-										label="Grant"
+										label={t("buttons.grant")}
 									/>
 									<ActionButton
 										active={mode === "revoke"}
 										onClick={() => open("revoke")}
 										icon={<ShieldOff className="h-3.5 w-3.5" aria-hidden="true" />}
-										label="Revoke"
+										label={t("buttons.revoke")}
 									/>
 									<ActionButton
 										active={mode === "disable"}
 										onClick={() => open("disable")}
 										icon={<Trash2 className="h-3.5 w-3.5" aria-hidden="true" />}
-										label="Disable"
+										label={t("buttons.disable")}
 										danger
 									/>
 								</>
@@ -226,40 +213,39 @@ export function UserActions({
 
 						{mode === "disable" && (
 							<p className="mt-3 text-[11px] font-bold leading-snug text-[#C42B3A]">
-								This bans the login and revokes every membership. No data is deleted; Enable
-								restores access later.
+								{t("disableWarning")}
 							</p>
 						)}
 						{mode === "enable" && (
 							<p className="mt-3 text-[11px] font-bold leading-snug text-[#1E7B34]">
-								Restores the login and the memberships recorded by the last disable.
+								{t("enableWarning")}
 							</p>
 						)}
 
 						<form onSubmit={submit} className="mt-3 space-y-3">
 							<div className="space-y-1.5">
 								<label htmlFor={`reason-${farmId}`} className={FIELD_LABEL}>
-									Reason *
+									{tCommon("reasonRequired")}
 								</label>
 								<textarea
 									id={`reason-${farmId}`}
 									value={reason}
 									onChange={(e) => setReason(e.target.value)}
 									rows={3}
-									placeholder="e.g. Initial platform setup for deployment"
+									placeholder={t("reasonPlaceholder")}
 									data-autofocus
 									aria-describedby={`reason-help-${farmId}`}
 									className="w-full resize-none rounded-xl border border-gray-200 bg-[#F4F7F6] px-3 py-2 text-xs text-[#0A3D62] transition-all focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
 								/>
 								<p id={`reason-help-${farmId}`} className={FIELD_HINT}>
-									{REASON_HELP}
+									{tCommon("reasonHelp")}
 								</p>
 							</div>
 
 							{mode === "disable" && (
 								<div className="space-y-1.5">
 									<label htmlFor={`confirm-${farmId}`} className={FIELD_LABEL}>
-										Type {farmId} to confirm *
+										{t("confirmLabel", { farmId })}
 									</label>
 									<input
 										id={`confirm-${farmId}`}
@@ -292,7 +278,7 @@ export function UserActions({
 									)}
 								>
 									{isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
-									Confirm
+									{tCommon("confirm")}
 								</button>
 								<button
 									type="button"
@@ -303,7 +289,7 @@ export function UserActions({
 										"px-3 py-2.5 text-xs font-bold text-[#3D5568] hover:bg-gray-200",
 									)}
 								>
-									Cancel
+									{tCommon("cancel")}
 								</button>
 							</div>
 						</form>
@@ -313,7 +299,7 @@ export function UserActions({
 
 			<StepUpDialog
 				open={stepUpOpen}
-				actionLabel={mode ? stepUpLabels[mode] : "continue"}
+				actionLabel={mode ? t(`stepUpActions.${mode}`) : tCommon("continue")}
 				onClose={() => setStepUpOpen(false)}
 				onVerified={onVerified}
 			/>

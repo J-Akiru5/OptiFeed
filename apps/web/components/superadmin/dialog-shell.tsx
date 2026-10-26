@@ -140,7 +140,7 @@ export function DialogHeader({
 	description,
 	icon: Icon,
 	onClose,
-	closeLabel = "Close dialog",
+	closeLabel,
 	closeDisabled = false,
 }: {
 	titleId: string;
@@ -149,6 +149,7 @@ export function DialogHeader({
 	description?: ReactNode;
 	icon?: LucideIcon;
 	onClose?: () => void;
+	/** Accessible name for the close control; required whenever onClose is set. */
 	closeLabel?: string;
 	closeDisabled?: boolean;
 }) {

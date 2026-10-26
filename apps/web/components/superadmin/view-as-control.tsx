@@ -6,6 +6,7 @@ import { useRouter } from "@/i18n/routing";
 import { startViewAs } from "@/lib/actions/platform/impersonation";
 import { cn } from "@/lib/utils";
 import { Eye, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { type FormEvent, useRef, useState, useTransition } from "react";
 
 const MIN_REASON = 10;
@@ -19,6 +20,8 @@ const MIN_REASON = 10;
  * banner, and every write is blocked for the session's 30 minutes.
  */
 export function ViewAsControl({ orgId, orgName }: { orgId: string; orgName: string }) {
+	const t = useTranslations("superadmin.viewAs");
+	const tCommon = useTranslations("superadmin.common");
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
 	const [reason, setReason] = useState("");
@@ -36,11 +39,11 @@ export function ViewAsControl({ orgId, orgName }: { orgId: string; orgName: stri
 					setReason("");
 					setError(null);
 				}}
-				aria-label={`View ${orgName} read-only`}
+				aria-label={t("viewAria", { orgName })}
 				className={SECONDARY_BUTTON}
 			>
 				<Eye className="h-3.5 w-3.5" aria-hidden="true" />
-				View as
+				{t("button")}
 			</button>
 		);
 	}
@@ -63,7 +66,7 @@ export function ViewAsControl({ orgId, orgName }: { orgId: string; orgName: stri
 				router.push("/dashboard");
 				router.refresh();
 			} catch (err) {
-				setError(err instanceof Error ? err.message : "Could not start view-as.");
+				setError(err instanceof Error ? err.message : t("startFailed"));
 			}
 		});
 	};
@@ -72,7 +75,7 @@ export function ViewAsControl({ orgId, orgName }: { orgId: string; orgName: stri
 		e.preventDefault();
 		setError(null);
 		if (reason.trim().length < MIN_REASON) {
-			setError(`Reason must be at least ${MIN_REASON} characters.`);
+			setError(tCommon("reasonMinLength", { count: MIN_REASON }));
 			return;
 		}
 		run(reason.trim());
@@ -89,14 +92,14 @@ export function ViewAsControl({ orgId, orgName }: { orgId: string; orgName: stri
 		<>
 			<form onSubmit={submit} className="min-w-[15rem] space-y-2" aria-busy={isPending}>
 				<p className="text-[11px] font-bold leading-snug text-[#C42B3A]">
-					Read-only: you can see {orgName}&apos;s dashboard, but every write is blocked.
+					{t("warning", { orgName })}
 				</p>
 				<input
 					value={reason}
 					onChange={(e) => setReason(e.target.value)}
 					disabled={isPending}
-					placeholder="Reason (at least 10 characters)"
-					aria-label={`Reason for viewing ${orgName} read-only`}
+					placeholder={tCommon("reasonPlaceholderShort")}
+					aria-label={t("reasonAria", { orgName })}
 					className="w-full rounded-lg border border-gray-200 bg-[#F4F7F6] px-3 py-2 text-xs text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:opacity-60"
 				/>
 				{error && <Alert tone="error">{error}</Alert>}
@@ -107,7 +110,7 @@ export function ViewAsControl({ orgId, orgName }: { orgId: string; orgName: stri
 						className={cn(PRIMARY_BUTTON, "px-3 py-1.5 text-xs font-black")}
 					>
 						{isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
-						Open read-only
+						{t("open")}
 					</button>
 					<button
 						type="button"
@@ -115,14 +118,14 @@ export function ViewAsControl({ orgId, orgName }: { orgId: string; orgName: stri
 						disabled={isPending}
 						className={cn(SECONDARY_BUTTON, "px-3 py-1.5")}
 					>
-						Cancel
+						{tCommon("cancel")}
 					</button>
 				</div>
 			</form>
 
 			<StepUpDialog
 				open={stepUpOpen}
-				actionLabel={`open ${orgName} read-only`}
+				actionLabel={t("stepUpAction", { orgName })}
 				onClose={() => setStepUpOpen(false)}
 				onVerified={onVerified}
 			/>

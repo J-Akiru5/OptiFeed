@@ -12,7 +12,7 @@ import {
 import { Link, getPathname } from "@/i18n/routing";
 import { listAllPonds } from "@/lib/actions/superadmin";
 import { Droplets, Lock } from "lucide-react";
-import { getLocale } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 
 const statusBadge: Record<string, BadgeTone> = {
 	ACTIVE: "success",
@@ -39,8 +39,19 @@ export default async function SuperadminPondsPage({
 	const query = first(params.q)?.trim() ?? "";
 	const page = Number.parseInt(first(params.page) ?? "1", 10) || 1;
 
-	const [ponds, locale] = await Promise.all([listAllPonds({ query, page }), getLocale()]);
+	const [ponds, locale, t, tCommon, tRoot] = await Promise.all([
+		listAllPonds({ query, page }),
+		getLocale(),
+		getTranslations("superadmin.ponds"),
+		getTranslations("superadmin.common"),
+		getTranslations("superadmin"),
+	]);
 	const pageCount = Math.max(1, Math.ceil(ponds.total / ponds.pageSize));
+
+	const statusLabel = (status: string) => {
+		const key = `pondStatuses.${status}`;
+		return tRoot.has(key) ? tRoot(key) : status;
+	};
 
 	const pageHref = (target: number) => ({
 		pathname: "/superadmin/ponds" as const,
@@ -50,11 +61,11 @@ export default async function SuperadminPondsPage({
 	return (
 		<div className="space-y-6">
 			<PageHeader
-				title="Ponds"
-				description={`${ponds.total} pond${ponds.total !== 1 ? "s" : ""} across every tenant`}
+				title={t("title")}
+				description={t("description", { count: ponds.total })}
 				actions={
 					<Badge tone="neutral" icon={Lock}>
-						Read-only
+						{tCommon("readOnly")}
 					</Badge>
 				}
 			/>
@@ -63,24 +74,21 @@ export default async function SuperadminPondsPage({
 				id="ponds"
 				action={getPathname({ href: "/superadmin/ponds", locale })}
 				query={query}
-				label="Search ponds by name, owner farm ID or owner name"
-				placeholder="Search pond, farm ID or owner"
+				label={t("searchLabel")}
+				placeholder={t("searchPlaceholder")}
+				searchLabel={tCommon("search")}
 			/>
 
 			{ponds.rows.length === 0 ? (
 				<Card>
 					<EmptyState
 						icon={Droplets}
-						title={query ? `No pond matches “${query}”.` : "No ponds registered."}
-						description={
-							query
-								? "Try a different pond name, farm ID or owner name."
-								: "Ponds appear here as soon as a farmer creates one in the tenant console."
-						}
+						title={query ? t("emptyQuery", { query }) : t("emptyTitle")}
+						description={query ? t("emptyQueryDesc") : t("emptyDesc")}
 						action={
 							query ? (
 								<Link href="/superadmin/ponds" className={SECONDARY_BUTTON}>
-									Clear search
+									{tCommon("clearSearch")}
 								</Link>
 							) : undefined
 						}
@@ -95,21 +103,23 @@ export default async function SuperadminPondsPage({
 									<div className="min-w-0">
 										<p className="truncate font-black text-[#0A3D62]">{pond.name}</p>
 										<p className="mt-0.5 truncate text-xs font-bold text-[#0A3D62]">
-											{pond.ownerName ?? "(unknown)"}
+											{pond.ownerName ?? tCommon("unknown")}
 										</p>
 										<p className="truncate font-mono text-[11px] text-[#3D5568]">
 											{pond.ownerFarmId}
 										</p>
 									</div>
-									<Badge tone={statusBadge[pond.status] ?? "neutral"}>{pond.status}</Badge>
+									<Badge tone={statusBadge[pond.status] ?? "neutral"}>
+										{statusLabel(pond.status)}
+									</Badge>
 								</div>
 
 								<div>
 									<p className="text-[9px] font-black uppercase tracking-wider text-[#3D5568]">
-										Organizations
+										{t("columnOrgs")}
 									</p>
 									{pond.orgs.length === 0 ? (
-										<p className="mt-1 text-[11px] italic text-[#3D5568]">—</p>
+										<p className="mt-1 text-[11px] italic text-[#3D5568]">{tCommon("none")}</p>
 									) : (
 										<div className="mt-1 flex flex-wrap gap-1.5">
 											{pond.orgs.map((name) => (
@@ -129,13 +139,13 @@ export default async function SuperadminPondsPage({
 
 					<TableFrame
 						className="hidden md:block"
-						label="Ponds across every tenant"
+						label={t("caption")}
 						minWidth="min-w-[52rem]"
 						columns={[
-							{ key: "pond", label: "Pond" },
-							{ key: "owner", label: "Owner" },
-							{ key: "orgs", label: "Organizations" },
-							{ key: "status", label: "Status" },
+							{ key: "pond", label: t("columnPond") },
+							{ key: "owner", label: t("columnOwner") },
+							{ key: "orgs", label: t("columnOrgs") },
+							{ key: "status", label: t("columnStatus") },
 						]}
 					>
 						{ponds.rows.map((pond) => (
@@ -147,12 +157,12 @@ export default async function SuperadminPondsPage({
 									<p className="font-black text-[#0A3D62]">{pond.name}</p>
 								</td>
 								<td className="px-6 py-4">
-									<p className="font-bold text-[#0A3D62]">{pond.ownerName ?? "(unknown)"}</p>
+									<p className="font-bold text-[#0A3D62]">{pond.ownerName ?? tCommon("unknown")}</p>
 									<p className="font-mono text-[11px] text-[#3D5568]">{pond.ownerFarmId}</p>
 								</td>
 								<td className="px-6 py-4">
 									{pond.orgs.length === 0 ? (
-										<span className="text-[11px] italic text-[#3D5568]">—</span>
+										<span className="text-[11px] italic text-[#3D5568]">{tCommon("none")}</span>
 									) : (
 										<div className="flex flex-wrap gap-1.5">
 											{pond.orgs.map((name) => (
@@ -167,7 +177,9 @@ export default async function SuperadminPondsPage({
 									)}
 								</td>
 								<td className="px-6 py-4">
-									<Badge tone={statusBadge[pond.status] ?? "neutral"}>{pond.status}</Badge>
+									<Badge tone={statusBadge[pond.status] ?? "neutral"}>
+										{statusLabel(pond.status)}
+									</Badge>
 								</td>
 							</tr>
 						))}
@@ -176,16 +188,16 @@ export default async function SuperadminPondsPage({
 			)}
 
 			<ListPagination
-				label="Pond pages"
-				page={ponds.page}
+				label={t("pagerLabel")}
+				pageLabel={tCommon("pageOf", { page: ponds.page, count: pageCount })}
+				previousLabel={tCommon("previous")}
+				nextLabel={tCommon("next")}
 				pageCount={pageCount}
 				previousHref={ponds.page > 1 ? pageHref(ponds.page - 1) : null}
 				nextHref={ponds.page < pageCount ? pageHref(ponds.page + 1) : null}
 			/>
 
-			<p className="text-[11px] text-[#3D5568]">
-				Pond edits, scheduling and device controls live in the tenant&apos;s own admin console.
-			</p>
+			<p className="text-[11px] text-[#3D5568]">{t("footer")}</p>
 		</div>
 	);
 }

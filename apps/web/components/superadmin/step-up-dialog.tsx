@@ -5,6 +5,7 @@ import { FIELD_LABEL, PRIMARY_BUTTON, SECONDARY_BUTTON } from "@/components/supe
 import { startStepUp } from "@/lib/actions/step-up";
 import { cn } from "@/lib/utils";
 import { KeyRound, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { type FormEvent, useState, useTransition } from "react";
 
 /**
@@ -31,6 +32,8 @@ export function StepUpDialog({
 	onClose: () => void;
 	onVerified: () => void;
 }) {
+	const t = useTranslations("superadmin.stepUp");
+	const tCommon = useTranslations("superadmin.common");
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [isPending, startTransition] = useTransition();
@@ -46,7 +49,7 @@ export function StepUpDialog({
 		e.preventDefault();
 		setError(null);
 		if (!password) {
-			setError("Enter your password.");
+			setError(t("enterPassword"));
 			return;
 		}
 
@@ -62,7 +65,7 @@ export function StepUpDialog({
 				onVerified();
 			} catch (err) {
 				setPassword("");
-				setError(err instanceof Error ? err.message : "Step-up failed.");
+				setError(err instanceof Error ? err.message : t("failed"));
 			}
 		});
 	};
@@ -79,17 +82,17 @@ export function StepUpDialog({
 				titleId="stepup-title"
 				descriptionId="stepup-description"
 				icon={KeyRound}
-				title="Confirm your password"
-				description={`To ${actionLabel}, re-enter your own password. The check lasts 5 minutes.`}
+				title={t("title")}
+				description={t("description", { action: actionLabel })}
 				onClose={close}
 				closeDisabled={isPending}
-				closeLabel="Close step-up dialog"
+				closeLabel={t("closeLabel")}
 			/>
 
 			<form onSubmit={submit} className="mt-4 space-y-3">
 				<div className="space-y-1.5">
 					<label htmlFor="stepup-password" className={FIELD_LABEL}>
-						Password *
+						{t("password")}
 					</label>
 					<input
 						id="stepup-password"
@@ -125,7 +128,7 @@ export function StepUpDialog({
 						className={cn(PRIMARY_BUTTON, "flex-1 text-xs font-extrabold")}
 					>
 						{isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
-						Continue
+						{tCommon("continue")}
 					</button>
 					<button
 						type="button"
@@ -136,7 +139,7 @@ export function StepUpDialog({
 							"px-3 py-2.5 text-xs font-bold text-[#3D5568] hover:bg-gray-200",
 						)}
 					>
-						Cancel
+						{tCommon("cancel")}
 					</button>
 				</div>
 			</form>

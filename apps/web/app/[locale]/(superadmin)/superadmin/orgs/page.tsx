@@ -1,4 +1,5 @@
 import { CreateOrgForm } from "@/components/superadmin/create-org-form";
+import { ViewAsControl } from "@/components/superadmin/view-as-control";
 import { Link, getPathname } from "@/i18n/routing";
 import { listOrgs } from "@/lib/actions/superadmin";
 import { FolderTree, Search } from "lucide-react";
@@ -122,12 +123,15 @@ export default async function SuperadminOrgsPage({
 										{org.createdAt.toLocaleDateString()}
 									</td>
 									<td className="px-6 py-4">
-										<Link
-											href={`/superadmin/orgs/${org.id}`}
-											className="inline-flex rounded-lg border border-[#0A3D62]/20 px-2.5 py-1.5 text-[10px] font-black text-[#0A3D62] hover:bg-[#F4F7F6]"
-										>
-											Manage members
-										</Link>
+										<div className="flex flex-wrap items-center gap-2">
+											<Link
+												href={`/superadmin/orgs/${org.id}`}
+												className="inline-flex rounded-lg border border-[#0A3D62]/20 px-2.5 py-1.5 text-[10px] font-black text-[#0A3D62] hover:bg-[#F4F7F6]"
+											>
+												Manage members
+											</Link>
+											<ViewAsControl orgId={org.id} orgName={org.name} />
+										</div>
 									</td>
 								</tr>
 							))}

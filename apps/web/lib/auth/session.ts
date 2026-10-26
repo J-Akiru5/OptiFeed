@@ -44,7 +44,14 @@ export async function getCurrentPondOwnerId(): Promise<string> {
 
 export async function getCurrentPondOwnerIdSafe(): Promise<string | null> {
 	const currentUser = await getCurrentUser();
-	return currentUser?.farmId ?? null;
+	if (!currentUser) return null;
+
+	// Read-only view-as (plan M5.1): reads resolve to the target tenant's farm,
+	// never to the admin's own farm. The import is dynamic on purpose — view-as
+	// needs getCurrentUser, so a static import here would be a module cycle.
+	const { getViewAsState } = await import("./view-as");
+	const viewingAs = await getViewAsState();
+	return viewingAs.active ? viewingAs.farmId : currentUser.farmId;
 }
 
 /**
@@ -139,10 +146,14 @@ export async function requireRole(...roles: UserRole[]): Promise<void> {
 /**
  * Require write access (ADMIN or OPERATOR). Throws instead of redirecting —
  * for server actions and API routes, where a redirect is the wrong signal.
- * VIEWER and unauthenticated callers are rejected before any write happens.
+ * VIEWER, unauthenticated callers, and read-only view-as sessions are rejected
+ * before any write happens. The view-as guard is `assertNotViewingAs`, the one
+ * shared helper also used by `requirePermission`.
  */
 export async function requireWriteAccess(): Promise<void> {
 	await assertPasswordChanged();
+	const { assertNotViewingAs } = await import("./view-as");
+	await assertNotViewingAs();
 	const userRole = await getCurrentUserRole();
 	if (userRole !== "ADMIN" && userRole !== "OPERATOR") {
 		throw new Error("Write access required (ADMIN or OPERATOR)");
@@ -151,11 +162,15 @@ export async function requireWriteAccess(): Promise<void> {
 
 /**
  * True when the current user may perform write operations.
- * Use in server components to disable VIEWER-only-readonly UI.
+ * Use in server components to disable VIEWER-only-readonly UI. A read-only
+ * view-as session is always false, so the target tenant's controls render
+ * disabled rather than failing only after a click.
  */
 export async function canWrite(): Promise<boolean> {
 	const user = await getCurrentUser();
 	if (!user || user.mustChangePassword) return false;
+	const { isViewingAs } = await import("./view-as");
+	if (await isViewingAs()) return false;
 	return user.role === "ADMIN" || user.role === "OPERATOR";
 }
 

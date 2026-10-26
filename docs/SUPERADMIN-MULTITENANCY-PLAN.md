@@ -626,6 +626,7 @@ Then continue with the v1 order below, skipping what §2a lists as built.
 | O13 | *(v2.1, **decided 2026-10-26**)* Real email invites through Resend from the verified `syntaxure.dev` domain (e.g. `invite@syntaxure.dev`); the internal login domain `pond.optifeed.local` is to be renamed for PakaonAI (planned carefully: it changes existing users' login emails). Mission T-15. | M2.7 follow-up |
 | O14 | *(v2.1, **confirmed by Jeff**)* Superadmin member management bypasses the tenant last-owner/self/ADMIN guards (god mode, T19). | — |
 | O15 | *(v2.1, **confirmed by Jeff**)* Existing accounts keep their legacy `User.role` when their membership role changes, until `UserRole` is retired from authorization (M2.5). | M2.5 |
+| O16 | *(v2.1, from T-15)* Target for the internal login domain rename (`docs/login-domain-rename-plan.md`): `pond.pakaonai.local` (recommended) or a routable subdomain; needs a migration window. | rename execution |
 | O12 | *(v2)* The benchmark rates missing MFA as High; T13 defers it to the commercial gate. Keep T13 as is, or pull MFA forward? (Not reopened here; Jeff's call.) | M8.1 timing |
 
 ---

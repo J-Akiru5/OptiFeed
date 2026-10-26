@@ -124,8 +124,11 @@ The setup access point starts when:
 ### Connecting
 
 1. On a phone or laptop, join the open access point **`PakaonAI-XXXX`**, where `XXXX`
-   is the last four hex characters of the active Device ID in uppercase with separators
-   removed. For the default `A4:CF:12:7E:3B:09` the AP is `PakaonAI-3B09`.
+   is the last four hex characters of the **chip's eFuse MAC** (the `[DEVICE MAC]` line in
+   the boot log), uppercase. For a chip MAC of `A4:CF:12:7E:3B:09` the AP is `PakaonAI-3B09`.
+   The name does not depend on the saved Device ID, so it is correct before the unit is
+   provisioned and matches the sticker printed from the registered MAC. Register each unit
+   with that same chip MAC.
 2. Open **http://192.168.4.1** (captive-portal redirects also land here).
 3. Enter:
    - **SSID** (1-32 characters) and **password** (empty for an open network, otherwise

@@ -37,6 +37,27 @@ describe("setup AP naming matches the firmware", () => {
 		expect(provisioningApSsid("A4:CF:12:7E:3B:09")).toBe("PakaonAI-3B09");
 	});
 
+	it("names the AP from the chip eFuse MAC, not the saved device_id", () => {
+		// The saved device_id falls back to the compile-time DEVICE_MAC, which
+		// would give every unprovisioned unit the same name. The registry and
+		// the sticker use the chip MAC, so the AP must too.
+		const fn = firmware.slice(firmware.indexOf("String provisioningApSsid()"));
+		const body = fn.slice(0, fn.indexOf("\n}\n"));
+		expect(body).toContain("chipMacString()");
+		expect(body).not.toContain("provisionedDeviceId");
+
+		const mac = firmware.slice(firmware.indexOf("String chipMacString()"));
+		const macBody = mac.slice(0, mac.indexOf("\n}\n"));
+		expect(macBody).toContain("esp_read_mac(mac, ESP_MAC_WIFI_STA)");
+		expect(macBody).toContain('"%02X:%02X:%02X:%02X:%02X:%02X"');
+	});
+
+	it("prints the chip MAC at boot so it can be registered", () => {
+		expect(firmware).toMatch(
+			/Serial\.print\("\[DEVICE MAC\] "\);\s*Serial\.println\(chipMacString\(\)\);/,
+		);
+	});
+
 	it("keeps the NVS namespace so stored credentials survive the rename", () => {
 		expect(firmware).toContain('prefs.begin("optifeed", false);');
 	});

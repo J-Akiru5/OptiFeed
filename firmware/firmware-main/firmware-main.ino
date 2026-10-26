@@ -42,6 +42,7 @@
 #include <ArduinoOTA.h>
 #include <esp_task_wdt.h>
 #include <esp_wifi.h>
+#include <esp_system.h>
 #include <ctype.h>
 
 // Prefix of the setup access point ("PakaonAI-XXXX"). Must equal AP_PREFIX in
@@ -511,13 +512,28 @@ void handleResetButtons() {
 
 // ==================== WiFi provisioning portal ====================
 
-// "PakaonAI-XXXX", where XXXX is the last four hex characters of the active
-// Device ID (the compile-time DEVICE_MAC until the portal stores one).
+// The chip's factory (eFuse) Wi-Fi station MAC, "AA:BB:CC:DD:EE:FF". Read from
+// eFuse, so it is valid before WiFi starts and never changes with NVS state.
+// This is the MAC to register in the dashboard: it is printed at boot.
+String chipMacString() {
+  uint8_t mac[6] = {0};
+  esp_read_mac(mac, ESP_MAC_WIFI_STA);
+  char buf[18];
+  snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X",
+           mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  return String(buf);
+}
+
+// "PakaonAI-XXXX", where XXXX is the last four hex characters of the chip's
+// eFuse MAC. Deliberately not the saved device_id: that falls back to the
+// compile-time DEVICE_MAC, which would give every unprovisioned unit the same
+// name, and the printed sticker QR is built from the registered chip MAC.
 String provisioningApSsid() {
+  const String source = chipMacString();
   String hex;
-  hex.reserve(provisionedDeviceId.length());
-  for (size_t i = 0; i < provisionedDeviceId.length(); i++) {
-    char c = provisionedDeviceId[i];
+  hex.reserve(source.length());
+  for (size_t i = 0; i < source.length(); i++) {
+    char c = source[i];
     if (isxdigit((unsigned char)c)) hex += (char)toupper((unsigned char)c);
   }
   while (hex.length() < 4) hex = String("0") + hex;
@@ -820,7 +836,7 @@ void setup() {
   setupOTA();
 
   Serial.print("[DEVICE MAC] ");
-  Serial.println(WiFi.macAddress());
+  Serial.println(chipMacString());
 
   // Task watchdog — a hung loop() reboots the board; boot already forced RELAY_OFF.
 #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3

@@ -1,6 +1,15 @@
 "use client";
 
 import { StepUpDialog } from "@/components/superadmin/step-up-dialog";
+import {
+	Alert,
+	Badge,
+	FIELD_INPUT,
+	FIELD_LABEL,
+	FOCUS_RING,
+	PRIMARY_BUTTON,
+	SECONDARY_BUTTON,
+} from "@/components/superadmin/ui";
 import { useRouter } from "@/i18n/routing";
 import {
 	changeOrgMemberRole,
@@ -11,6 +20,7 @@ import {
 import type { PlatformOrgMember } from "@/lib/actions/platform/members";
 import { MEMBER_ROLES, isMemberRole } from "@/lib/auth/member-rules";
 import type { Permission } from "@/lib/auth/permissions";
+import { cn } from "@/lib/utils";
 import type { MemberRole } from "@prisma/client";
 import { Check, ChevronDown, Copy, Loader2, ShieldAlert, UserPlus, X } from "lucide-react";
 import { useState } from "react";
@@ -54,10 +64,13 @@ export function OrgMembersPanel({
 	orgId,
 	members,
 	permissions,
+	joinedLabels,
 }: {
 	orgId: string;
 	members: PlatformOrgMember[];
 	permissions: readonly Permission[];
+	/** Server-formatted join dates keyed by membership id (logger-safe dates). */
+	joinedLabels: Record<string, string>;
 }) {
 	const router = useRouter();
 
@@ -242,9 +255,11 @@ export function OrgMembersPanel({
 						setInviteOpen((open) => !open);
 						setError(null);
 					}}
-					className="inline-flex items-center gap-1.5 rounded-xl bg-[#E85A2A] px-3 py-2 text-xs font-black text-white shadow-sm transition-colors hover:bg-[#d04a1f]"
+					aria-expanded={inviteOpen}
+					aria-controls="platform-invite-panel"
+					className={cn(PRIMARY_BUTTON, "px-3 py-2 text-xs font-black")}
 				>
-					<UserPlus className="h-3.5 w-3.5" />
+					<UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
 					Invite member
 				</button>
 			</div>
@@ -254,7 +269,7 @@ export function OrgMembersPanel({
 					htmlFor="platform-member-reason"
 					className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-[#B45309]"
 				>
-					<ShieldAlert className="h-3.5 w-3.5" />
+					<ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
 					Reason for every change (required, 10+ characters)
 				</label>
 				<textarea
@@ -263,80 +278,77 @@ export function OrgMembersPanel({
 					onChange={(event) => setReason(event.target.value)}
 					rows={2}
 					placeholder="e.g. Owner asked us to correct a wrong role after a staff handover"
+					aria-describedby="platform-member-reason-hint"
 					className="mt-1.5 w-full rounded-xl border border-[#E85A2A]/30 bg-white px-3 py-2 text-sm text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
 				/>
-				<p className="mt-1 text-[10px] font-medium text-[#B45309]">
+				<p id="platform-member-reason-hint" className="mt-1 text-[10px] font-medium text-[#B45309]">
 					{reason.trim().length}/10 characters. A dangerous action also asks for your password
 					(step-up) before it runs.
 				</p>
 			</div>
 
 			{error && (
-				<div className="flex items-start justify-between gap-3 rounded-xl border border-[#C42B3A]/30 bg-[#FDE8EA] px-4 py-3">
-					<p className="text-xs font-bold text-[#C42B3A]">{error}</p>
-					<button
-						type="button"
-						onClick={() => setError(null)}
-						aria-label="Dismiss error"
-						className="rounded p-0.5 text-[#C42B3A] hover:bg-white/60"
-					>
-						<X className="h-3.5 w-3.5" />
-					</button>
-				</div>
+				<Alert tone="error" onDismiss={() => setError(null)} dismissLabel="Dismiss error">
+					{error}
+				</Alert>
 			)}
 
 			{notice && (
-				<div className="flex items-start justify-between gap-3 rounded-xl border border-[#1E7B34]/30 bg-[#E8F5EC] px-4 py-3">
-					<p className="text-xs font-bold text-[#1E7B34]">{notice}</p>
-					<button
-						type="button"
-						onClick={() => setNotice(null)}
-						aria-label="Dismiss notice"
-						className="rounded p-0.5 text-[#1E7B34] hover:bg-white/60"
-					>
-						<X className="h-3.5 w-3.5" />
-					</button>
-				</div>
+				<Alert tone="success" onDismiss={() => setNotice(null)} dismissLabel="Dismiss notice">
+					{notice}
+				</Alert>
 			)}
 
 			{inviteOpen && (
-				<div className="rounded-xl border border-gray-200 bg-[#F4F7F6] p-4">
+				<div
+					id="platform-invite-panel"
+					className="rounded-xl border border-gray-200 bg-[#F4F7F6] p-4"
+				>
 					<p className="text-sm font-black text-[#0A3D62]">Invite a member</p>
 					<p className="mt-1 text-[11px] leading-relaxed text-[#3D5568]">
 						An existing account is attached by address. Otherwise a login is provisioned and the
 						login details are emailed to the address you enter; the one-time password is also shown
 						once below.
 					</p>
-					<div className="mt-3 grid gap-3 md:grid-cols-3">
-						<label className="block text-xs font-bold text-[#3D5568]">
-							Email
+					<div className="mt-3 grid gap-3 sm:grid-cols-3">
+						<div className="space-y-1">
+							<label htmlFor="invite-email" className={FIELD_LABEL}>
+								Email
+							</label>
 							<input
+								id="invite-email"
 								type="email"
 								value={inviteEmail}
 								onChange={(event) => setInviteEmail(event.target.value)}
 								placeholder="member@example.com"
-								className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+								className={FIELD_INPUT}
 							/>
-						</label>
-						<label className="block text-xs font-bold text-[#3D5568]">
-							Display name
+						</div>
+						<div className="space-y-1">
+							<label htmlFor="invite-name" className={FIELD_LABEL}>
+								Display name
+							</label>
 							<input
+								id="invite-name"
 								type="text"
 								value={inviteName}
 								onChange={(event) => setInviteName(event.target.value)}
-								className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+								className={FIELD_INPUT}
 							/>
-						</label>
-						<label className="block text-xs font-bold text-[#3D5568]">
-							Role
+						</div>
+						<div className="space-y-1">
+							<label htmlFor="invite-role" className={FIELD_LABEL}>
+								Role
+							</label>
 							<select
+								id="invite-role"
 								value={inviteRole}
 								onChange={(event) => {
 									if (isMemberRole(event.target.value)) {
 										setInviteRole(event.target.value);
 									}
 								}}
-								className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+								className={cn(FIELD_INPUT, "font-bold")}
 							>
 								{MEMBER_ROLES.map((role) => (
 									<option key={role} value={role}>
@@ -344,23 +356,28 @@ export function OrgMembersPanel({
 									</option>
 								))}
 							</select>
-						</label>
+						</div>
 					</div>
 					<div className="mt-3 flex gap-2">
 						<button
 							type="button"
 							onClick={submitInvite}
 							disabled={pending === "invite" || !reasonReady}
-							className="inline-flex items-center gap-1.5 rounded-xl bg-[#0A3D62] px-3 py-2 text-xs font-black text-white transition-colors hover:bg-[#082f4c] disabled:opacity-60"
+							className={cn(
+								PRIMARY_BUTTON,
+								"bg-[#0A3D62] px-3 py-2 text-xs font-black hover:bg-[#082f4d]",
+							)}
 						>
-							{pending === "invite" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+							{pending === "invite" && (
+								<Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+							)}
 							{pending === "invite" ? "Inviting…" : "Invite member"}
 						</button>
 						<button
 							type="button"
 							onClick={() => setInviteOpen(false)}
 							disabled={pending === "invite"}
-							className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-[#3D5568] ring-1 ring-gray-200 transition-colors hover:bg-gray-50 disabled:opacity-60"
+							className={cn(SECONDARY_BUTTON, "px-3 py-2")}
 						>
 							Cancel
 						</button>
@@ -371,7 +388,7 @@ export function OrgMembersPanel({
 			{inviteResult && (
 				<div className="rounded-xl border border-[#1E7B34]/30 bg-[#E8F5EC] p-4">
 					<div className="flex items-start justify-between gap-3">
-						<div>
+						<div className="min-w-0">
 							<p className="text-sm font-black text-[#1E7B34]">
 								{inviteResult.createdUser
 									? "Login created — temporary password (shown once)"
@@ -388,18 +405,18 @@ export function OrgMembersPanel({
 											: "Invitation email not sent (email delivery is unconfigured or failed). Share the password below directly."}
 									</p>
 									<div className="mt-2 flex flex-wrap items-center gap-2">
-										<code className="rounded-lg bg-white px-3 py-1.5 font-mono text-sm font-bold text-[#0A3D62] ring-1 ring-[#1E7B34]/20">
+										<code className="break-all rounded-lg bg-white px-3 py-1.5 font-mono text-sm font-bold text-[#0A3D62] ring-1 ring-[#1E7B34]/20">
 											{inviteResult.temporaryPassword}
 										</code>
 										<button
 											type="button"
 											onClick={copyPassword}
-											className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-black text-[#1E7B34] ring-1 ring-[#1E7B34]/20 hover:bg-[#f3fbf5]"
+											className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-black text-[#1E7B34] ring-1 ring-[#1E7B34]/20 hover:bg-[#f3fbf5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E7B34]"
 										>
 											{copied ? (
-												<Check className="h-3.5 w-3.5" />
+												<Check className="h-3.5 w-3.5" aria-hidden="true" />
 											) : (
-												<Copy className="h-3.5 w-3.5" />
+												<Copy className="h-3.5 w-3.5" aria-hidden="true" />
 											)}
 											{copied ? "Copied" : "Copy password"}
 										</button>
@@ -411,9 +428,9 @@ export function OrgMembersPanel({
 							type="button"
 							onClick={() => setInviteResult(null)}
 							aria-label="Dismiss invite result"
-							className="rounded-lg p-1 text-[#1E7B34] hover:bg-white/70"
+							className={cn("rounded-lg p-1 text-[#1E7B34] hover:bg-white/70", FOCUS_RING)}
 						>
-							<X className="h-4 w-4" />
+							<X className="h-4 w-4" aria-hidden="true" />
 						</button>
 					</div>
 				</div>
@@ -421,12 +438,16 @@ export function OrgMembersPanel({
 
 			<div className="overflow-hidden rounded-xl border border-gray-200">
 				<div className="overflow-x-auto">
-					<table className="w-full text-sm">
+					<table className="w-full min-w-[44rem] text-sm">
+						<caption className="sr-only">
+							Active members of this organization, with role, permissions and actions
+						</caption>
 						<thead>
 							<tr className="border-b border-gray-100 bg-[#F4F7F6]">
 								{["Member", "Role", "Permissions", "Joined", "Actions"].map((heading) => (
 									<th
 										key={heading}
+										scope="col"
 										className="px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-wider text-[#3D5568]"
 									>
 										{heading}
@@ -443,18 +464,17 @@ export function OrgMembersPanel({
 								const pendingRevoke = pending === `revoke:${member.userId}`;
 
 								return (
-									<tr key={member.membershipId} className="border-b border-gray-50 align-top">
+									<tr
+										key={member.membershipId}
+										className="border-b border-gray-50 align-top last:border-0"
+									>
 										<td className="px-4 py-3">
 											<div className="flex flex-wrap items-center gap-1.5">
 												<p className="font-black text-[#0A3D62]">{name}</p>
-												{member.isPlatformAdmin && (
-													<span className="rounded-full bg-[#E85A2A] px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white">
-														Platform admin
-													</span>
-												)}
+												{member.isPlatformAdmin && <Badge tone="accent">Platform admin</Badge>}
 											</div>
 											<p className="text-[11px] text-[#3D5568]">{member.email}</p>
-											<p className="font-mono text-[10px] text-[#3D5568]/80">{member.farmId}</p>
+											<p className="font-mono text-[10px] text-[#3D5568]">{member.farmId}</p>
 										</td>
 
 										<td className="px-4 py-3">
@@ -483,10 +503,11 @@ export function OrgMembersPanel({
 												}
 												aria-expanded={isExpanded}
 												aria-controls={`permissions-${member.membershipId}`}
-												className="inline-flex items-center gap-1 rounded-lg border border-[#0A3D62]/20 px-2.5 py-1.5 text-[10px] font-black text-[#0A3D62] hover:bg-[#F4F7F6]"
+												className={cn(SECONDARY_BUTTON, "px-2.5 py-1.5 text-[10px]")}
 											>
 												<ChevronDown
 													className={`h-3 w-3 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+													aria-hidden="true"
 												/>
 												{member.permissions.length} granted
 											</button>
@@ -525,7 +546,7 @@ export function OrgMembersPanel({
 										</td>
 
 										<td className="px-4 py-3 text-xs text-[#3D5568]">
-											{new Date(member.joinedAt).toLocaleDateString()}
+											{joinedLabels[member.membershipId] ?? "—"}
 										</td>
 
 										<td className="px-4 py-3">
@@ -535,16 +556,21 @@ export function OrgMembersPanel({
 														type="button"
 														onClick={() => handleRevoke(member)}
 														disabled={pendingRevoke}
-														className="inline-flex items-center gap-1 rounded-lg bg-[#C42B3A] px-2.5 py-1.5 text-[10px] font-black text-white hover:bg-[#a92330] disabled:opacity-60"
+														className={cn(
+															"inline-flex items-center gap-1 rounded-lg bg-[#C42B3A] px-2.5 py-1.5 text-[10px] font-black text-white hover:bg-[#a92330] disabled:opacity-60",
+															FOCUS_RING,
+														)}
 													>
-														{pendingRevoke && <Loader2 className="h-3 w-3 animate-spin" />}
+														{pendingRevoke && (
+															<Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+														)}
 														Confirm revoke
 													</button>
 													<button
 														type="button"
 														onClick={() => setRevokeConfirm(null)}
 														disabled={pendingRevoke}
-														className="rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-black text-[#3D5568] ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-60"
+														className={cn(SECONDARY_BUTTON, "px-2.5 py-1.5 text-[10px]")}
 													>
 														Cancel
 													</button>
@@ -554,7 +580,10 @@ export function OrgMembersPanel({
 													type="button"
 													onClick={() => setRevokeConfirm(member.membershipId)}
 													disabled={!reasonReady}
-													className="rounded-lg border border-[#C42B3A]/30 px-2.5 py-1.5 text-[10px] font-black text-[#C42B3A] transition-colors hover:bg-[#FDE8EA] disabled:cursor-not-allowed disabled:opacity-50"
+													className={cn(
+														"rounded-lg border border-[#C42B3A]/30 px-2.5 py-1.5 text-[10px] font-black text-[#C42B3A] transition-colors hover:bg-[#FDE8EA] disabled:cursor-not-allowed disabled:opacity-50",
+														FOCUS_RING,
+													)}
 												>
 													Revoke
 												</button>

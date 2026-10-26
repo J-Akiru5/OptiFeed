@@ -1,4 +1,5 @@
 import { AiProviderSettings } from "@/components/superadmin/ai-provider-settings";
+import { Card, PageHeader } from "@/components/superadmin/ui";
 import { listAiProviderConfig } from "@/lib/actions/ai-providers";
 
 export default async function SuperadminAiProvidersPage() {
@@ -6,16 +7,12 @@ export default async function SuperadminAiProvidersPage() {
 
 	return (
 		<div className="space-y-6">
-			<div>
-				<h1 className="text-2xl font-black text-[#0A3D62]">AI Providers</h1>
-				<p className="text-sm text-[#3D5568] mt-1">
-					The platform-wide model chain used by the chat assistant and feeding predictions. Each
-					request tries providers in priority order and falls back on any failure before the first
-					token is produced.
-				</p>
-			</div>
+			<PageHeader
+				title="AI Providers"
+				description="The platform-wide model chain used by the chat assistant and feeding predictions. Each request tries providers in priority order and falls back on any failure before the first token is produced."
+			/>
 
-			<div className="bg-[#F4F7F6] rounded-2xl border border-gray-200 p-4">
+			<Card className="border-[#0A3D62]/15 bg-[#F4F7F6] p-4">
 				<p className="text-xs text-[#3D5568]">
 					<strong className="text-[#0A3D62]">Keys stay in the environment.</strong> This console
 					stores the <em>name</em> of the variable that holds each provider&apos;s key, never the
@@ -23,7 +20,7 @@ export default async function SuperadminAiProvidersPage() {
 					degrades to whatever else is configured — and finally to keyword answers and deterministic
 					predictions.
 				</p>
-			</div>
+			</Card>
 
 			<AiProviderSettings providers={providers} />
 		</div>

@@ -29,6 +29,7 @@ type InviteFormState = {
 	loginEmail: string;
 	temporaryPassword: string | null;
 	createdUser: boolean;
+	inviteEmailSent: boolean;
 } | null;
 
 export function MembersSettings({
@@ -309,9 +310,10 @@ export function MembersSettings({
 							</p>
 							{inviteResult.temporaryPassword && (
 								<>
-									<p className="mt-1 text-[11px] text-[#1E7B34]">
-										{t("temporaryPasswordHint", { email: inviteResult.loginEmail })}
+									<p className="mt-1 text-[11px] font-bold text-[#1E7B34]">
+										{inviteResult.inviteEmailSent ? t("inviteEmailSent") : t("inviteEmailNotSent")}
 									</p>
+									<p className="mt-1 text-[11px] text-[#1E7B34]">{t("temporaryPasswordHint")}</p>
 									<div className="mt-2 flex flex-wrap items-center gap-2">
 										<code className="rounded-lg bg-white px-3 py-1.5 font-mono text-sm font-bold text-[#0A3D62] ring-1 ring-[#1E7B34]/20">
 											{inviteResult.temporaryPassword}

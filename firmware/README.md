@@ -13,37 +13,39 @@
 | Pin   | Usage                                    |
 |-------|------------------------------------------|
 | GPIO 25 | Relay OUT (Active HIGH — dispensing when HIGH) |
-| GPIO 27 | Physical button (INPUT_PULLUP, press = LOW). Hold >= 5 s at boot to reset WiFi credentials (device identity is kept) |
+| GPIO 27 | Physical button (INPUT_PULLUP, press = LOW). Short press dispenses; hold >= 5 s at boot to reset WiFi credentials (device identity is kept) |
+| GPIO 16 | Wi-Fi reset button (INPUT_PULLUP, press = LOW). Hold >= 5 s to clear WiFi only — the Device ID/Token are kept |
+| GPIO 17 | Factory reset button (INPUT_PULLUP, press = LOW). Hold >= 10 s to clear WiFi, Device ID, Device Token and the `provisioned` marker |
 | GPIO 21 | DS3231 SDA (I²C) — RTC                 |
 | GPIO 22 | DS3231 SCL (I²C) — RTC                 |
 | GPIO 1  | TX0 (USB debug serial)                  |
 | GPIO 3  | RX0 (USB debug serial)                  |
 | GPIO 0  | Must float during boot (boot mode)      |
 
-### Dedicated reset buttons (optional)
+### Dedicated reset buttons
 
-Two active-low momentary buttons can be wired between a free GPIO and GND. They
-are **not assigned yet**; the firmware skips them while the pins are `-1`.
+Two active-low momentary buttons are wired between their GPIO and GND; the
+internal pull-up is enabled. Both are enabled in this build, so no pin edit is
+needed.
 
-| Button | Define | Default | Hold | Effect |
-|--------|--------|---------|------|--------|
-| WiFi reset | `WIFI_RESET_BUTTON_PIN` | `-1` (disabled) | 10 s | Clears WiFi SSID/password **and the WiFi stack cache**, keeps Device ID/Token, reboots into the setup portal |
-| Factory reset | `FACTORY_RESET_BUTTON_PIN` | `-1` (disabled) | 10 s | Clears WiFi, Device ID, Device Token and the `provisioned` marker, reboots into the setup portal |
+| Button | Define | GPIO | Hold | Effect |
+|--------|--------|------|------|--------|
+| Wi-Fi reset | `WIFI_RESET_BUTTON_PIN` | `16` | 5 s (`WIFI_RESET_HOLD_MS`) | Clears WiFi SSID/password **and the WiFi stack cache**, keeps Device ID/Token, reboots into the setup portal |
+| Factory reset | `FACTORY_RESET_BUTTON_PIN` | `17` | 10 s (`FACTORY_RESET_HOLD_MS`) | Clears WiFi, Device ID, Device Token and the `provisioned` marker, reboots into the setup portal |
 
 Safety rules: buttons are ignored for the first 5 s after boot and must be
-released once before they arm, so a stuck button cannot wipe a unit. If both
-reach 10 s, factory reset wins. The existing feed-button hold (GPIO 27, 5 s at
-boot) remains a WiFi-only reset.
+released once before they arm, so a stuck button cannot wipe a unit. While the
+factory-reset button is held the Wi-Fi reset is suppressed, so a two-button hold
+cannot reboot into the portal at 5 s: the factory reset wins at 10 s. The
+existing feed-button hold (GPIO 27, 5 s at boot) remains a WiFi-only reset.
 
-**Free, safe GPIO candidates on the ESP32-WROOM-32U for these two buttons:**
+GPIO 16 and 17 are free on the ESP32-WROOM-32U, are not strapping pins, and
+support the internal pull-up. They are held by these two buttons; other free,
+safe GPIO candidates are:
 
 ```
-13, 14, 16, 17, 18, 19, 23
+13, 14, 18, 19, 23
 ```
-
-Recommended pair once the enclosure is measured: **18 (WiFi reset)** and
-**19 (factory reset)** — neither is a strapping pin, both support the internal
-pull-up, and neither is used by this sketch.
 
 Do **not** use: 32/33 (HC-SR04 trigger/echo), 25 (relay), 26 (DS18B20),
 27 (feed button), 21/22 (RTC I2C), 0/2/12/15 (strapping), 34–39 (input-only, no
@@ -169,6 +171,9 @@ Hold the physical feed button (**GPIO 27**, wired to GND) during boot for at lea
 
 - This is a **WiFi-only reset**: the identity keys `device_id` and `device_token` are kept.
   Re-enter just the new WiFi credentials and leave the identity fields blank.
+- The dedicated **Wi-Fi reset button (GPIO 16)** does the same at any time after boot
+  (5 s hold). The **factory reset button (GPIO 17)** wipes the identity as well
+  (10 s hold), so the unit must be provisioned again.
 - A normal short press still dispenses the configured button dose.
 - The hold is consumed by the reset, so it does not also trigger a feed.
 - Releasing before 5 seconds cancels the reset and boots normally.
@@ -273,12 +278,21 @@ Portal checks (no backend needed):
 3. Hold GPIO 27 for 5 s at boot: serial reports the WiFi reset and the portal returns.
    The identity fields are blank with the "leave blank to keep existing" placeholder;
    submit only a new SSID/password and confirm the same Device ID is still used.
-4. Submit an SSID outside 1-32 characters, a password of 1-7 characters, a Device ID
+4. Let the unit run for more than 5 s, then hold the **Wi-Fi reset button (GPIO 16)**
+   for 5 s: serial reports `[RESET] WiFi reset button held`, the unit reboots and the
+   portal returns with the identity kept (both identity fields say "leave blank to
+   keep existing").
+5. Provision the unit, let it run past the 5 s grace, then hold the **factory reset
+   button (GPIO 17)** for 10 s: serial reports `[RESET] Factory reset button held`,
+   and the portal returns with no usable identity (both identity fields are required).
+6. Hold **both** buttons: no reset happens at 5 s, and the factory reset completes at
+   10 s — the factory reset wins.
+7. Submit an SSID outside 1-32 characters, a password of 1-7 characters, a Device ID
    longer than 64 characters, or a token outside 8-128 characters: the form redisplays
    with an error and the device does not reboot.
-5. Boot a unit with a stored SSID and a non-placeholder compile-time `DEVICE_MAC` /
+8. Boot a unit with a stored SSID and a non-placeholder compile-time `DEVICE_MAC` /
    `DEVICE_TOKEN`: the portal does not start.
-6. Confirm the serial log never prints the WiFi password or the Device Token, and that
+9. Confirm the serial log never prints the WiFi password or the Device Token, and that
    the setup page never renders a stored token.
 
 After flashing, test the API endpoints against your deployed backend:

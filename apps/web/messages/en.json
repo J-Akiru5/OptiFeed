@@ -1011,7 +1011,7 @@
 				"stepPortal": "Open {address} if the page does not appear",
 				"stepSave": "Enter farm Wi-Fi and device details, then Save",
 				"noteTitle": "No setup network showing?",
-				"noteBody": "Hold the feed button for 5 s while powering on to reopen setup.",
+				"noteBody": "Hold the Wi-Fi reset button for 5 s to reopen setup.",
 				"scan": "Scan to set up\nWi-Fi",
 				"qrLabel": "Wi-Fi setup QR code",
 				"footerSupply": "{type} supply only",

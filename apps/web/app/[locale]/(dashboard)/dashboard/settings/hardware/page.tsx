@@ -5,6 +5,7 @@ import { canWrite } from "@/lib/auth/session";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import { AP_PREFIX } from "@/lib/provisioning-ap";
 import { Cpu, RefreshCw, Ruler, Settings, Thermometer, Timer, Wifi } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -12,13 +13,13 @@ import { getTranslations } from "next-intl/server";
 // configured" is only claimed while the device is actively reporting.
 const WIFI_ONLINE_WINDOW_MS = 5 * 60 * 1000;
 
-// The firmware names its setup SoftAP `OptiFeed-XXXX` using the last four hex
-// digits of the device MAC (see docs/wifi-provisioning-plan.md). Keep this in
-// sync if the firmware naming ever changes.
+// The firmware names its setup SoftAP `<AP_PREFIX>XXXX` using the last four hex
+// digits of the device MAC (see docs/wifi-provisioning-plan.md). The prefix is
+// shared with the firmware and the admin sticker via lib/provisioning-ap.ts.
 function getSetupApName(mac: string | null | undefined): string | null {
 	if (!mac) return null;
 	const hex = mac.toUpperCase().replace(/[^0-9A-F]/g, "");
-	return hex.length >= 4 ? `OptiFeed-${hex.slice(-4)}` : null;
+	return hex.length >= 4 ? `${AP_PREFIX}${hex.slice(-4)}` : null;
 }
 
 export default async function HardwareSettingsPage() {

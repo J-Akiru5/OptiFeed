@@ -1063,7 +1063,27 @@
 			"copied": "Nakopya",
 			"copyFailed": "Napaslawan ang pagkopya — pilia ang token kag kopyaha ini sing mano-mano.",
 			"tokenWarning": "Kredensyal sang device — ipaambit lamang sa tawo nga naga-provision sini nga unit",
-			"tokenError": "Indi makarga ang token. Tilawi liwat."
+			"tokenError": "Indi makarga ang token. Tilawi liwat.",
+			"printLabel": "I-print ang label",
+			"printSelected": "I-print ang mga napili nga label",
+			"labelColumn": "Label",
+			"selectForLabel": "Pilia ang {label} para sa pag-print sang label"
+		},
+		"adminDeviceLabels": {
+			"title": "I-print ang mga label sang device",
+			"back": "Balik sa mga device",
+			"print": "I-print / i-save subong PDF",
+			"count": "{count} ka sticker",
+			"verifyTitle": "Tan-awa anay antes mag-print.",
+			"verifyIntro": "Ang kasubong sang blower lamang ang nabasa halin sa label. Ang gear motor, speed controller kag electronics sang 12 V nga adapter estimate lang, kag gin-round up ang kabilugan ({volts} V, {hz} Hz, {amps} A). Wala pa masukat gamit ang meter.",
+			"verifyReadLabels": "Itandi ang estimate nga current sang motor kag electronics sa nabasa sang meter, kag ilisan ang rating kon lain.",
+			"verifyMeasure": "Kon mahimo, sukati ang current samtang nagapakaon gamit ang multimeter. Mas kasaligan ang sinukat nga numero sangsa label.",
+			"verifyPower": "Ang max power ginapakita subong V × A = {power} {unit}. Sa AC nga load, ini ang apparent power, ang pinakamataas nga limite sang watts nga matuod nga ginagamit.",
+			"sizeNote": "Kadak-on sang sticker: 95 × 66 mm, 8 kada A4 nga pahina (2 pahalang, 4 pababa).",
+			"scaleNote": "Sa print dialog, ibutang ang scale sa 100% (indi “Fit to page”), kon indi magaliit ang QR kag teksto kag indi na matuod ang kadak-on sang sticker.",
+			"dupWarning": "Ang duha ka lainlain nga unit may pareho nga katapusan nga apat ka digit, gani pareho man ang ngalan sang setup network nga ila ginapasugod.",
+			"qrTitle": "Ano ang sulod sang QR (una nga unit)",
+			"qrBody": "Ginabasa sang cellphone ini subong “sumulod sa bukas nga Wi-Fi network nga {ssid}”. Wala ini sing password kag device token. Nagapaandar lang ini kon naka-setup mode ang feeder: ang unit nga may natago na nga Wi-Fi indi nagapasugod sang network."
 		},
 		"appSettings": {
 			"title": "Mga Setting sang App kag Hardware",

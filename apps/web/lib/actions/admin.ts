@@ -624,6 +624,40 @@ export async function revealDeviceToken(deviceId: string): Promise<RevealDeviceT
 	}
 }
 
+/** Most stickers one print job may carry; bounds the query and the page. */
+const MAX_DEVICE_LABELS = 40;
+
+export type DeviceLabelRow = { id: string; label: string; mac: string };
+
+/**
+ * Display fields for the printable Wi-Fi/power-rating sticker.
+ *
+ * Same gate as `revealDeviceToken`: tenant admin, and the device must sit on a
+ * pond in the caller's org scope. A device outside the scope is simply absent
+ * from the result — indistinguishable from one that does not exist.
+ *
+ * The select is an explicit allow-list. `token` and `tokenHash` are device
+ * credentials and must never reach a sticker, so they are not read at all.
+ */
+export async function getDevicesForLabels(deviceIds: string[]): Promise<DeviceLabelRow[]> {
+	await requireTenantAdmin();
+
+	const ids = [
+		...new Set(deviceIds.filter((id) => typeof id === "string" && id.trim().length > 0)),
+	].slice(0, MAX_DEVICE_LABELS);
+	if (ids.length === 0) return [];
+
+	const scope = await resolveOrgScope();
+	const devices = await prisma.energyDevice.findMany({
+		where: { id: { in: ids }, pondId: { in: scope.pondIds } },
+		select: { id: true, label: true, mac: true },
+	});
+
+	// Keep the order the admin selected them in.
+	const order = new Map(ids.map((id, index) => [id, index]));
+	return devices.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+}
+
 // ─── Farm Hierarchy ──────────────────────────────────────────────────────────
 
 export type FarmHierarchyNode = {

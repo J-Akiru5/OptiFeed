@@ -119,7 +119,8 @@ load tests) against staging; use a local database. See
 `docs/deployment-workflow.md` §6.
 
 **WiFi provisioning:** a new device is provisioned from its own access point
-(`OptiFeed-XXXX` at `http://192.168.4.1`), not from the dashboard. The hardware
+(`PakaonAI-XXXX` at `http://192.168.4.1`; units flashed before the rename still show
+`OptiFeed-XXXX` until reflashed), not from the dashboard. The hardware
 settings page only shows the AP name and instructions; WiFi credentials are
 never sent to or stored on the server. See `docs/wifi-provisioning-plan.md`.
 

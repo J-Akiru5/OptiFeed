@@ -223,22 +223,40 @@ export default function LandingPage() {
 							</Reveal>
 						</div>
 
-						{/* Credibility strip */}
-						<div className="relative border-t border-white/10">
-							<div
-								className={cn(
-									container,
-									"flex flex-col gap-4 py-6 lg:flex-row lg:items-center lg:justify-between",
-								)}
-							>
-								<p className="text-[10px] font-semibold tracking-[0.18em] text-white/35 uppercase">
+						{/* Credibility strip — animated marquee */}
+						<div className="relative border-t border-white/10 overflow-hidden">
+							<div className={cn(container, "py-3.5")}>
+								<p className="mb-2.5 text-[10px] font-semibold tracking-[0.18em] text-white/35 uppercase">
 									{t("credibilityLabel")}
 								</p>
-								<ul className="flex flex-wrap items-center gap-x-7 gap-y-2.5">
-									{CREDIBILITY.map(({ key, icon: Icon }) => (
+							</div>
+							{/* Marquee track — duplicated for seamless loop */}
+							<div className="relative flex overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
+								<ul
+									aria-hidden="true"
+									className="credibility-marquee flex shrink-0 items-center gap-x-10 pb-4 pr-10"
+								>
+									{[...CREDIBILITY, ...CREDIBILITY].map(({ key, icon: Icon }, i) => (
 										<li
-											key={key}
-											className="flex items-center gap-2 text-[12px] font-medium text-white/55"
+											// biome-ignore lint/suspicious/noArrayIndexKey: static duplicate list for marquee
+											key={`${key}-${i}`}
+											className="flex shrink-0 items-center gap-2 text-[12px] font-medium text-white/55"
+										>
+											<Icon className="size-3.5 text-white/35" aria-hidden="true" />
+											{t(key)}
+										</li>
+									))}
+								</ul>
+								{/* Second copy for seamless loop */}
+								<ul
+									aria-hidden="true"
+									className="credibility-marquee flex shrink-0 items-center gap-x-10 pb-4 pr-10"
+								>
+									{[...CREDIBILITY, ...CREDIBILITY].map(({ key, icon: Icon }, i) => (
+										<li
+											// biome-ignore lint/suspicious/noArrayIndexKey: static duplicate list for marquee
+											key={`${key}-copy-${i}`}
+											className="flex shrink-0 items-center gap-2 text-[12px] font-medium text-white/55"
 										>
 											<Icon className="size-3.5 text-white/35" aria-hidden="true" />
 											{t(key)}
@@ -247,6 +265,9 @@ export default function LandingPage() {
 								</ul>
 							</div>
 						</div>
+
+						{/* Wave transition to Problem section */}
+						<Wave flip layered variant="b" className="bottom-0 translate-y-full text-[#F7F9F8] dark:text-[#070D13]" />
 					</section>
 
 					{/* Problem */}

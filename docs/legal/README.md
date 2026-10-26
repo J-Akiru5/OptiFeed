@@ -7,16 +7,15 @@ This folder contains the research consent package and the working notes for the 
 
 ## Current status
 
-**Draft — pending University Legal Office review.** The pages are built, but:
+**Effective 26 October 2026 — version 1.0.** The Privacy Policy and Terms of Service are published after University Legal Office review.
 
-- the legal pages show a draft banner;
-- the pages are `noindex, nofollow`;
-- the footer, login acceptance line, and dashboard legal card are hidden;
-- the sitemap does not include the legal URLs.
+- the pages are indexable and linked from the landing footer, login footer, login acceptance line, and dashboard Settings;
+- the legal pages are included in the sitemap;
+- the pre-publication review PDFs remain in this folder as a record.
 
-Do not remove the draft status until the University Legal Office has reviewed and approved the documents.
+For a future version, follow the steps below.
 
-## Publishing after review
+## Publishing a new version
 
 1. Open `apps/web/lib/legal/config.ts`.
 2. Set `LEGAL_STATUS` to `"effective"`.
@@ -62,13 +61,13 @@ The legal pages use the root version, 1.11.0. A separate release task should syn
 
 ## Review artifacts
 
-The Vercel develop preview is behind Vercel SSO, so the University Legal Office can review these draft PDFs in this folder:
+The Vercel develop preview is behind Vercel SSO, so these are the pre-publication review copies for the University Legal Office:
 
 - `privacy-policy-draft.pdf` — 16 pages.
 - `terms-of-service-draft.pdf` — 7 pages.
 - `research-information-and-consent.pdf` — 5 pages.
 
-Each PDF carries a **DRAFT — not effective** header and a page-number footer. Regenerate them after any text change. A PDF is not an approval; the University Legal Office must still sign off before `LEGAL_STATUS` changes to `effective`.
+Each PDF carries a **DRAFT — not effective** header and a page-number footer. The live pages are the authoritative version; the PDFs are the review record. Regenerate them if the text changes for a future version.
 
 The paper's current Ethical Considerations section covers animal welfare only. Add the human-participant paragraphs before the final defense.
 

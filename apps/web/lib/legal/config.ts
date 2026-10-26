@@ -16,13 +16,13 @@
  * excluded from search engines, and do not appear in the footer or login
  * acceptance line.
  */
-export const LEGAL_STATUS = "draft" as "draft" | "effective";
+export const LEGAL_STATUS = "effective" as "draft" | "effective";
 export const LEGAL_PUBLISHED = LEGAL_STATUS === "effective";
 
 export const LEGAL_VERSION = "1.0";
 export const LEGAL_LAST_UPDATED = "2026-10-26";
-/** Proposed date; only presented as effective once LEGAL_STATUS is effective. */
-export const LEGAL_EFFECTIVE_DATE = "2026-10-27";
+/** Approved effective date; published after University Legal Office review. */
+export const LEGAL_EFFECTIVE_DATE = "2026-10-26";
 export const LEGAL_APP_RELEASE = "1.11.0";
 export const LEGAL_REVIEWER = "University Legal Office, ISUFST Dingle Campus";
 
@@ -86,7 +86,7 @@ export const LEGAL_HISTORY = [
 	{
 		version: LEGAL_VERSION,
 		date: LEGAL_EFFECTIVE_DATE,
-		note: "Initial Privacy Policy and Terms of Service. Draft for University Legal Office review.",
+		note: "Initial Privacy Policy and Terms of Service, effective 26 October 2026 after University Legal Office review.",
 	},
 ] as const;
 

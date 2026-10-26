@@ -66,7 +66,7 @@ We keep the research data until the capstone is completed and the resulting pape
 
 ## 9. Data privacy
 
-PakaonAI processes research data under the Philippine Data Privacy Act of 2012 (RA 10173) and its Implementing Rules and Regulations. The legal basis is your **consent**. The Privacy Policy explains your rights and how to exercise them: `https://pakaonai.syntaxure.dev/privacy` (draft pending University Legal Office review).
+PakaonAI processes research data under the Philippine Data Privacy Act of 2012 (RA 10173) and its Implementing Rules and Regulations. The legal basis is your **consent**. The Privacy Policy explains your rights and how to exercise them: `https://pakaonai.syntaxure.dev/privacy` (version 1.0, effective 26 October 2026).
 
 **Data Protection Officer:** Jeff Edrick C. Martinez
 **Email:** privacy@pakaonai.syntaxure.dev
@@ -171,7 +171,7 @@ Use this text in the Google Form:
 ## Review notes for the University Legal Office
 
 - This form is a draft. It has not yet been approved by the University Legal Office.
-- The Privacy Policy is also a draft pending the same review.
+- The Privacy Policy is published as version 1.0, effective 26 October 2026.
 - The paper's Ethical Considerations section currently covers animal welfare only; the accompanying `paper-ethics-paragraph.md` adds the human-participant paragraph.
 - The study does not collect sensitive personal information. If the University requires a different consent format or additional fields, update this form and the Google Form together.
-- Confirm the final Privacy Policy URL before printing. The current production domain is `https://pakaonai.syntaxure.dev`; the legal page is a draft until review.
+- Confirm the final Privacy Policy URL before printing. The current production domain is `https://pakaonai.syntaxure.dev`; the Privacy Policy is published as version 1.0, while this consent form remains a draft until the University's research ethics/legal review.

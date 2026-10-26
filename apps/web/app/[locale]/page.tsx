@@ -144,7 +144,7 @@ export default function LandingPage() {
 
 				<main id="main">
 					{/* Hero */}
-					<section className="relative z-10 overflow-x-clip overflow-y-visible bg-[#061B2B] text-white">
+					<section className="relative z-10 overflow-x-clip overflow-y-visible bg-[#061B2B] text-white transition-colors duration-300 dark:bg-[#0D3B5C]">
 						<div
 							aria-hidden="true"
 							className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_65%_60%_at_78%_10%,rgba(232,90,42,0.18),transparent_62%)]"
@@ -256,7 +256,7 @@ export default function LandingPage() {
 							flip
 							layered
 							variant="b"
-							className="bottom-0 translate-y-full text-[#061B2B] z-10"
+							className="bottom-0 z-10 translate-y-full text-[#061B2B] transition-colors duration-300 dark:text-[#0D3B5C]"
 						/>
 					</section>
 
@@ -431,10 +431,18 @@ export default function LandingPage() {
 					{/* Offline-first */}
 					<section
 						id="offline"
-						className="relative scroll-mt-24 overflow-x-clip bg-[#0A2E47] text-white"
+						className="relative scroll-mt-24 overflow-x-clip bg-[#0A2E47] text-white transition-colors duration-300 dark:bg-[#0E466D]"
 					>
-						<Wave layered className="top-0 -translate-y-full text-[#0A2E47]" />
-						<Wave flip layered variant="b" className="bottom-0 translate-y-full text-[#0A2E47]" />
+						<Wave
+							layered
+							className="top-0 -translate-y-full text-[#0A2E47] transition-colors duration-300 dark:text-[#0E466D]"
+						/>
+						<Wave
+							flip
+							layered
+							variant="b"
+							className="bottom-0 translate-y-full text-[#0A2E47] transition-colors duration-300 dark:text-[#0E466D]"
+						/>
 						<div
 							aria-hidden="true"
 							className="pointer-events-none absolute inset-0 opacity-60 [background-image:linear-gradient(to_right,rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.045)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(ellipse_80%_80%_at_70%_20%,black,transparent)]"
@@ -484,25 +492,26 @@ export default function LandingPage() {
 								</div>
 							</Reveal>
 
-							<Reveal delay={0.06}>
-								<OfflineCards
-									cards={OFFLINE_ICONS.map((icon, index) => {
-										const n = index + 1;
-										return {
-											id: n,
-											icon,
-											title: t(`offline${n}Title`),
-											body: t(`offline${n}Body`),
-										};
-									})}
-								/>
-							</Reveal>
+							<OfflineCards
+								cards={OFFLINE_ICONS.map((icon, index) => {
+									const n = index + 1;
+									return {
+										id: n,
+										icon,
+										title: t(`offline${n}Title`),
+										body: t(`offline${n}Body`),
+									};
+								})}
+							/>
 						</div>
 
 						<div className={cn(container, "relative pb-14 sm:pb-16")}>
 							<ol className="grid gap-px overflow-hidden rounded-xl border border-white/10 bg-white/10 sm:grid-cols-2 lg:grid-cols-4">
 								{[1, 2, 3, 4].map((n) => (
-									<li key={n} className="bg-[#0A2E47] p-4">
+									<li
+										key={n}
+										className="bg-[#0A2E47] p-4 transition-colors duration-300 dark:bg-[#0E466D]"
+									>
 										<p className="font-mono text-[10px] text-[#FF8A5C]">0{n}</p>
 										<p className="mt-1.5 text-[12px] leading-5 text-white/60">
 											{t(`offlineFlow${n}`)}
@@ -767,8 +776,12 @@ export default function LandingPage() {
 				</main>
 
 				{/* Closing CTA + footer */}
-				<footer className="relative overflow-x-clip bg-[#061B2B] text-white">
-					<Wave layered variant="b" className="top-0 -translate-y-full text-[#061B2B]" />
+				<footer className="relative overflow-x-clip bg-[#061B2B] text-white transition-colors duration-300 dark:bg-[#0D3B5C]">
+					<Wave
+						layered
+						variant="b"
+						className="top-0 -translate-y-full text-[#061B2B] transition-colors duration-300 dark:text-[#0D3B5C]"
+					/>
 					<div
 						aria-hidden="true"
 						className="pointer-events-none absolute inset-0 opacity-60 [background-image:linear-gradient(to_right,rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.045)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(ellipse_80%_80%_at_80%_20%,black,transparent)]"

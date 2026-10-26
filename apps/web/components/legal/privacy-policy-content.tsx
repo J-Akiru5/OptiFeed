@@ -56,7 +56,8 @@ export function PrivacyPolicyContent() {
 						damages, and complaint. Contact our DPO; we aim to respond within 14 business days.
 					</li>
 					<li>
-						This version is a draft for University Legal Office review. It is not yet effective.
+						This version is effective from 26 October 2026, following review by the University Legal
+						Office.
 					</li>
 				</LegalList>
 				<LegalCallout tone="info" title="Plain-language promise">
@@ -700,9 +701,8 @@ export function PrivacyPolicyContent() {
 					where appropriate, send an email to the address on file before the change takes effect.
 				</p>
 				<p>
-					This version is a draft for University Legal Office review. It is not effective until the
-					review is complete, the status changes to effective, and the approved effective date is
-					posted.
+					This version is effective from 26 October 2026, following review by the University Legal
+					Office. Contact the DPO if you need the version that applied before that date.
 				</p>
 			</LegalSection>
 

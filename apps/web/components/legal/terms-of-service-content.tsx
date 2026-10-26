@@ -274,8 +274,8 @@ export function TermsOfServiceContent() {
 					means you accept the updated Terms.
 				</p>
 				<p>
-					This version is a draft for University Legal Office review and is not effective until the
-					review is complete.
+					This version is effective from 26 October 2026, following review by the University Legal
+					Office.
 				</p>
 			</LegalSection>
 
@@ -306,7 +306,7 @@ export function TermsOfServiceContent() {
 					}))}
 				/>
 				<p className="text-[12px] text-slate-500 dark:text-slate-400">
-					Current version: {LEGAL_VERSION}. This is a draft for University Legal Office review.
+					Current version: {LEGAL_VERSION}. Effective 26 October 2026.
 				</p>
 			</LegalSection>
 		</>

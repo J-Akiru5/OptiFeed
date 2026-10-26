@@ -141,7 +141,7 @@ export default function LandingPage() {
 
 				<main id="main">
 					{/* Hero */}
-					<section className="relative overflow-x-clip bg-[#061B2B] text-white">
+					<section className="relative z-10 overflow-x-clip overflow-y-visible bg-[#061B2B] text-white">
 						<div
 							aria-hidden="true"
 							className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_65%_60%_at_78%_10%,rgba(232,90,42,0.18),transparent_62%)]"
@@ -253,7 +253,7 @@ export default function LandingPage() {
 							flip
 							layered
 							variant="b"
-							className="bottom-0 translate-y-full text-[#F7F9F8] dark:text-[#070D13]"
+							className="bottom-0 translate-y-full text-[#061B2B] z-10"
 						/>
 					</section>
 

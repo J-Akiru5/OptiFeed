@@ -50,6 +50,61 @@ describe("tenant admin actions", () => {
 		expect(updateUser).not.toContain("role?: UserRole");
 		expect(updateUser).not.toContain("data,");
 	});
+
+	it("gates every member mutation on manage_members", () => {
+		const mutations: [string, string][] = [
+			["inviteMember", "changeMemberRole"],
+			["changeMemberRole", "revokeMember"],
+			["revokeMember", "getPonds"],
+		];
+		for (const [name, next] of mutations) {
+			const block = exportedFunctionBlock(adminActions, name, next);
+			expect(block, `${name} must require manage_members`).toContain(
+				'await requirePermission("manage_members");',
+			);
+		}
+	});
+});
+
+describe("platform membership actions", () => {
+	const actions = read("lib/actions/platform/members.ts");
+
+	it("requires an active PlatformAdmin on every exported action", () => {
+		const names = [...actions.matchAll(/export async function ([A-Za-z0-9_]+)/g)].map(
+			(match) => match[1],
+		);
+		expect(names).toEqual(
+			expect.arrayContaining([
+				"getOrgDetail",
+				"inviteOrgMember",
+				"changeOrgMemberRole",
+				"setOrgMemberPermission",
+				"revokeOrgMembership",
+			]),
+		);
+		names.forEach((name, index) => {
+			const block = exportedFunctionBlock(actions, name, names[index + 1]);
+			expect(block, `${name} must call requirePlatformAdmin()`).toContain(
+				"await requirePlatformAdmin();",
+			);
+		});
+	});
+
+	it("requires a reason, step-up and one membership audit row per mutation", () => {
+		const mutations: [string, string | undefined][] = [
+			["inviteOrgMember", "changeOrgMemberRole"],
+			["changeOrgMemberRole", "setOrgMemberPermission"],
+			["setOrgMemberPermission", "revokeOrgMembership"],
+			["revokeOrgMembership", undefined],
+		];
+		for (const [name, next] of mutations) {
+			const block = exportedFunctionBlock(actions, name, next);
+			expect(block, `${name} must validate a reason`).toMatch(/requireReason|checkedReason/);
+			expect(block, `${name} must require step-up`).toContain("withStepUp(");
+			// Exactly one call site per mutation; invite's call is inside onLinked.
+			expect(block.match(/auditMembership\(/g)?.length, `${name} audit call sites`).toBe(1);
+		}
+	});
 });
 
 describe("platform device registry actions", () => {

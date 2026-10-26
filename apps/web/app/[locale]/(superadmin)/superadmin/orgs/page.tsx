@@ -71,14 +71,16 @@ export default async function SuperadminOrgsPage({
 					<table className="w-full text-sm">
 						<thead>
 							<tr className="border-b border-gray-100 bg-[#F4F7F6]">
-								{["Organization", "Type", "Status", "Members", "Ponds", "Created"].map((h) => (
-									<th
-										key={h}
-										className="text-left px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider"
-									>
-										{h}
-									</th>
-								))}
+								{["Organization", "Type", "Status", "Members", "Ponds", "Created", "Actions"].map(
+									(h) => (
+										<th
+											key={h}
+											className="text-left px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider"
+										>
+											{h}
+										</th>
+									),
+								)}
 							</tr>
 						</thead>
 						<tbody>
@@ -92,7 +94,14 @@ export default async function SuperadminOrgsPage({
 											<div className="w-9 h-9 rounded-xl bg-[#0A3D62] flex items-center justify-center text-white">
 												<FolderTree className="w-4 h-4" />
 											</div>
-											<p className="font-black text-[#0A3D62]">{org.name}</p>
+											<p className="font-black text-[#0A3D62]">
+												<Link
+													href={`/superadmin/orgs/${org.id}`}
+													className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
+												>
+													{org.name}
+												</Link>
+											</p>
 										</div>
 									</td>
 									<td className="px-6 py-4">
@@ -111,6 +120,14 @@ export default async function SuperadminOrgsPage({
 									</td>
 									<td className="px-6 py-4 text-xs text-[#3D5568]">
 										{org.createdAt.toLocaleDateString()}
+									</td>
+									<td className="px-6 py-4">
+										<Link
+											href={`/superadmin/orgs/${org.id}`}
+											className="inline-flex rounded-lg border border-[#0A3D62]/20 px-2.5 py-1.5 text-[10px] font-black text-[#0A3D62] hover:bg-[#F4F7F6]"
+										>
+											Manage members
+										</Link>
 									</td>
 								</tr>
 							))}

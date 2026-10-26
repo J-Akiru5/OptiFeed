@@ -4,6 +4,7 @@ import { DashboardPreview } from "@/components/landing/DashboardPreview";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { LANDING_SECTIONS, LandingHeader } from "@/components/landing/LandingHeader";
 import { LandingLogo } from "@/components/landing/LandingLogo";
+import { OfflineCards } from "@/components/landing/OfflineCards";
 import { CountUp, Reveal, RevealItem, RevealList } from "@/components/landing/Reveal";
 import { Wave } from "@/components/landing/Wave";
 import { LocaleSwitcher } from "@/components/locale-switcher";
@@ -481,27 +482,19 @@ export default function LandingPage() {
 								</div>
 							</Reveal>
 
-							<RevealList as="div" className="grid gap-4 sm:grid-cols-2">
-								{OFFLINE_ICONS.map((Icon, index) => {
-									const n = index + 1;
-									return (
-										<RevealItem
-											key={n}
-											className="rounded-xl border border-white/10 bg-white/[0.05] p-5 transition-colors hover:bg-white/[0.08]"
-										>
-											<span className="flex size-9 items-center justify-center rounded-lg bg-white/[0.06] text-white/70 ring-1 ring-white/10 ring-inset">
-												<Icon className="size-[17px]" strokeWidth={1.75} aria-hidden="true" />
-											</span>
-											<h3 className="mt-4 text-[14px] font-semibold text-white">
-												{t(`offline${n}Title`)}
-											</h3>
-											<p className="mt-1.5 text-[12.5px] leading-5 text-white/55">
-												{t(`offline${n}Body`)}
-											</p>
-										</RevealItem>
-									);
-								})}
-							</RevealList>
+							<Reveal delay={0.06}>
+								<OfflineCards
+									cards={OFFLINE_ICONS.map((icon, index) => {
+										const n = index + 1;
+										return {
+											id: n,
+											icon,
+											title: t(`offline${n}Title`),
+											body: t(`offline${n}Body`),
+										};
+									})}
+								/>
+							</Reveal>
 						</div>
 
 						<div className={cn(container, "relative pb-14 sm:pb-16")}>

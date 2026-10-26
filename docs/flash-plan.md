@@ -9,7 +9,7 @@ programmatic flashing was proven impossible on this hardware.
 ## 1. Goal and definition of done
 
 The device must appear **Online** on the OptiFeed dashboard, sending heartbeats to
-`https://optifeed.syntaxure.dev`.
+`https://pakaonai.syntaxure.dev`.
 
 Done when all of the following are verified:
 
@@ -23,11 +23,15 @@ Done when all of the following are verified:
 ## 2. Root cause (verified 2026-10-24)
 
 The board is **already running an old OptiFeed build and is online** on Wi-Fi `JEM…`
-(NTP synced, sensors reading), but it posts to the dead placeholder host
-`optifeed.example.com` (`firmware/firmware-main/firmware-main.ino` lines 48/51/52) — which is
-why the dashboard never sees it. The corrected firmware has been built:
+(NTP synced, sensors reading), but it posts to a dead host — first the placeholder
+`optifeed.example.com`, then `optifeed.syntaxure.dev`, which now answers
+`404 DEPLOYMENT_NOT_FOUND`. The three endpoint URLs are compile-time constants, so the only fix is
+a reflash. Since 2026-10-26 (task T-14) they are baked to the production host
+`https://pakaonai.syntaxure.dev` in `firmware/firmware-main/firmware-main.ino`, alongside
+`FW_VERSION "1.3.0"`. The corrected firmware has been built:
 
-- Binary: `firmware/.pio/build/esp32dev/firmware.bin` (1,087,296 bytes, 10/24/2026 5:23 PM)
+- Binary: `firmware/.pio/build/esp32dev/firmware.bin` (numbers below are the 10/24 build; rebuild
+  before flashing so the binary carries the `pakaonai.syntaxure.dev` URLs and `FW_VERSION`)
 - Link: RAM 17.0 %, Flash 82.4 % (`esp32dev`)
 - API verified live: `GET /api/health` → 200; TLS chain matches the CA baked into the firmware.
 
@@ -88,5 +92,5 @@ pull-up, and the sketch uses neither.
 - Diagnostic scripts (evidence for §3) in `%TEMP%`: `esp32_watch.py`, `esp32_atomic_download.py`,
   `esp32_seq_probe.py`, `esp32_diag.py`, `esp32_scan.py`, `esp32_mdns.py`, `esp32_ota_scan.py`.
 - pyserial API is `setDTR`/`setRTS`; `byref` comes from `ctypes`.
-- The corrected URL change in `firmware-main.ino` currently lives as uncommitted work on
-  `audit/phase-1-critical`; commit it before/with the flash work so the binary and source agree.
+- The production URL is committed in `firmware-main.ino` (task T-14), so the binary and source
+  agree; rebuild — do not hand-edit the sketch before flashing.

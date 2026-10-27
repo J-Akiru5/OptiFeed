@@ -99,7 +99,7 @@ export default async function DashboardLayout({
 				: tCommon("deviceMissing");
 
 	return (
-		<ChatWidgetProvider>
+		<ChatWidgetProvider role={isPlatformAdmin ? "superadmin" : isTenantAdmin ? "owner" : "farmer"}>
 			<OfflineSync scope={ownerId} />
 			<OnboardingProvider>
 				<div className="flex flex-col min-h-screen bg-[#F4F7F6] dark:bg-gray-950">

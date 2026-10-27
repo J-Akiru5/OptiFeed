@@ -10,7 +10,7 @@ import { useChatWidget } from "./chat-widget-provider";
 export const CHAT_PANEL_WIDTH = 380;
 
 export function ChatPanel() {
-	const { isOpen, close, messages, isStreaming, send, executeAction, cancelAction } =
+	const { isOpen, close, messages, isStreaming, send, executeAction, cancelAction, chips } =
 		useChatWidget();
 
 	return (
@@ -24,6 +24,7 @@ export function ChatPanel() {
 			<ChatConversation
 				messages={messages}
 				isStreaming={isStreaming}
+				chips={chips}
 				onSend={send}
 				onExecuteAction={executeAction}
 				onCancelAction={cancelAction}

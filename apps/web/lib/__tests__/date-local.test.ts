@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { formatDateTimeLocal } from "../date-local";
+import { formatDateTimeLocal, formatFarmDateTime, formatWallClockTime } from "../date-local";
 
 describe("formatDateTimeLocal", () => {
 	const mockTranslator = (key: string): string => {
@@ -62,5 +62,62 @@ describe("formatDateTimeLocal", () => {
 		formatDateTimeLocal(date, translator);
 		expect(translator).toHaveBeenCalledWith("days.Sat");
 		expect(translator).toHaveBeenCalledWith("months.Mar");
+	});
+});
+
+describe("formatFarmDateTime", () => {
+	const mockTranslator = (key: string): string => {
+		const map: Record<string, string> = {
+			"days.Mon": "Mon",
+			"days.Tue": "Tue",
+			"days.Wed": "Wed",
+			"days.Thu": "Thu",
+			"days.Fri": "Fri",
+			"days.Sat": "Sat",
+			"days.Sun": "Sun",
+			"months.Oct": "Oct",
+			am: "AM",
+			pm: "PM",
+		};
+		return map[key] ?? key;
+	};
+
+	it("renders a UTC instant in Asia/Manila, not the runtime timezone", () => {
+		// 18:00 UTC on Oct 27 is 02:00 on Oct 28 in Manila.
+		const result = formatFarmDateTime(new Date("2026-10-27T18:00:00.000Z"), mockTranslator);
+		expect(result.time).toBe("2:00 AM");
+		expect(result.date).toBe("Oct 28");
+		expect(result.fullDate).toBe("Wed, Oct 28");
+	});
+
+	it("formats an evening instant in Manila", () => {
+		// 13:30 UTC is 21:30 in Manila on the same day.
+		const result = formatFarmDateTime(new Date("2026-10-27T13:30:00.000Z"), mockTranslator);
+		expect(result.time).toBe("9:30 PM");
+		expect(result.fullDate).toContain("Oct 27");
+	});
+
+	it("hides no farm data behind the runtime locale", () => {
+		const translator = vi.fn(mockTranslator);
+		formatFarmDateTime(new Date("2026-10-27T18:00:00.000Z"), translator);
+		expect(translator).toHaveBeenCalledWith("days.Wed");
+		expect(translator).toHaveBeenCalledWith("months.Oct");
+	});
+
+	it("does not throw on an invalid date", () => {
+		// A corrupt timestamp from a device must degrade to a label, not crash
+		// the whole page render.
+		expect(() => formatFarmDateTime(new Date(Number.NaN), mockTranslator)).not.toThrow();
+	});
+});
+
+describe("formatWallClockTime", () => {
+	const mockTranslator = (key: string): string => (key === "pm" ? "PM" : "AM");
+
+	it("formats farm wall clock times without an instant", () => {
+		expect(formatWallClockTime(6, 0, mockTranslator)).toBe("6:00 AM");
+		expect(formatWallClockTime(16, 5, mockTranslator)).toBe("4:05 PM");
+		expect(formatWallClockTime(0, 30, mockTranslator)).toBe("12:30 AM");
+		expect(formatWallClockTime(12, 0, mockTranslator)).toBe("12:00 PM");
 	});
 });

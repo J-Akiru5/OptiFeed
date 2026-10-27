@@ -31,6 +31,8 @@ export const GET = withApi(
 			headers: {
 				"Content-Type": artifact.contentType,
 				"Content-Disposition": `attachment; filename="${artifact.filename}"`,
+				// Tenant data: never let a shared cache or the browser keep it.
+				"Cache-Control": "private, no-store",
 			},
 		});
 	}),

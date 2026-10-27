@@ -9,6 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-10-28
+
+### Added
+
+- Feeder hero on the pond detail and feeder (hardware settings) pages (E29): a dark device-style panel with the feeder drawn in the middle, glassy callouts with thin leader lines to the hopper, spout, housing and water line (hopper level with the shared offline "Last known N%" treatment, grams dispensed today, next scheduled feed with its day or "Schedule paused", water temperature, online/offline with last seen, reported firmware), a status pill and the AI Feed Advisor's one-line summary linking to the full card. Jeff's photo loads from `public/images/feeder/feeder-hero.webp` over a drawn illustration; a missing photo costs at most one request per browser session, and adding the file needs no code change (see the folder's README). Below 768 px the image comes first and the callouts become a 2×3 grid without leader lines. Presentation only — no guards, actions or schema touched.
+
+### Fixed
+
+- The AI chat assistant and the action planner no longer answer a slow-but-valid provider response with `504 TIMEOUT`; the request budget now matches the provider budget, and a provider outage falls back to the keyword assistant instead of an error.
+- `GET /api/schedule-sync` re-sends a schedule command that the feeder has not acknowledged yet, so a lost response no longer leaves a change unapplied, and it no longer writes a `command_sent` audit row on every poll.
+- A single heartbeat can no longer queue two hopper notifications: the days-remaining warning is skipped when a low-hopper alert is already outstanding (the two used to alternate `CRITICAL`/`WARNING` on every heartbeat until one was acknowledged).
+- A scheduled feeding refusal now dedupes per farm calendar day (Asia/Manila) instead of per UTC day, which reset at 08:00 local and could alert twice on one day.
+- CSV and PDF exports report a missing pond or feeder as `404` instead of `500`, reject an unknown or empty dataset selection with `400`, are served with `Cache-Control: private, no-store`, and are named by the farm calendar day instead of the UTC day.
+- The PDF report uses the same active pond as the rest of the app (it could pick an archived pond), prints dates and feeding times in Asia/Manila rather than the server timezone, and derives the download filename from a sanitised pond name.
+- A CSV import with an unparseable date or a non-numeric feeding amount reports the offending row as `400` instead of failing with an opaque `500`, and all import endpoints share the same 5 MB payload ceiling.
+- The background-job queue metrics shown to a farm admin are scoped to that farm instead of the whole platform.
+- The device-watch cron scans the most recently stale feeders first, so once 100 devices had raised an offline alert no newly-offline device could be detected.
+
+- Farm-facing dates and times render in the farm's timezone (Asia/Manila) instead of the server runtime's, so the dashboard, history, growth, sampling-batch, hardware and farmer audit screens no longer read eight hours behind (or a day early) on a UTC host.
+- The dashboard's next feeding time is computed from the farm wall clock, so an overnight schedule and an evening visit no longer report a feed that already happened.
+- A feeder that has never reported a hopper level shows "—" instead of a made-up 0 %, and Feed Now no longer raises a critical-hopper warning for it.
+- The dashboard's low-hopper alert uses the org's configured threshold instead of the built-in 20 % default.
+- Saving the hopper shape calibration refreshes the Hardware settings page that shows the result (it refreshed a legacy redirect stub instead).
+- Hard-deleting a pond whose only remaining record is a legacy `Device` row now reports the device as a blocker instead of failing on the foreign key.
+- The assistant counts "today's feedings" from the Asia/Manila day, and its replies and AI context describe samples and dispenses on the farm clock instead of the server's timezone.
+- The pause/resume switch on the schedule page reverts with the reason when the server refuses the write, instead of showing the wrong state.
+- The schedule sync and stuck-request panels are translated (en/hil) and show device timestamps on the farm clock; "Check device" keeps the active locale and opens Hardware.
+- The offline sync panel shows the last sync and failed-sample times on the farm clock.
+- Notification preferences are hidden on the profile page when the farmer has no pond, instead of failing every toggle with "Pond not found".
+- A corrupt device timestamp degrades to a plain label instead of throwing and breaking the page render.
+
+### Security
+
+- Read-only view-as is fail-closed: when the session cannot be verified (a database error), tenant writes are refused instead of being treated as a normal signed-in session.
+- Invitation and reminder e-mails reject SMTP recipient-list separators and strip line breaks from tenant-controlled names before they reach the subject, so a crafted address or pond name cannot add a recipient or a header.
+- The admin job-metrics endpoint filters by the caller's farm tenant before returning queue counts.
+
+- Hopper shape calibration is validated on the server: a zero or non-finite hopper capacity, an inverted empty/full distance pair or an out-of-range value is rejected before it reaches the database. A zero capacity used to raise the device's daily feed cap to the hard maximum.
+
 ## [1.16.0] - 2026-10-27
 
 ### Changed

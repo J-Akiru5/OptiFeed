@@ -3,10 +3,14 @@ import { resolveActivePond } from "@/lib/auth/pond-access";
 import { IMPORT_ROW_LIMIT } from "@/lib/constants";
 import { type ExportableType, parseCsvString } from "@/lib/csv";
 import prisma from "@/lib/prisma";
+import { CSV_EXPORT_TYPES } from "./export-data";
 
 export interface ImportResult {
 	importedCount: number;
 }
+
+/** Requests above this size are refused before parsing (5 MB). */
+export const MAX_CSV_IMPORT_BYTES = 5 * 1024 * 1024;
 
 function numberField(
 	row: Record<string, unknown>,
@@ -32,6 +36,21 @@ function dateField(row: Record<string, unknown>, field: string, index: number): 
 }
 
 /**
+ * An optional date column: absent stays absent, but a value that is present and
+ * unparseable is a 400. Passing `Invalid Date` to Prisma used to surface as a
+ * 500 with no indication of which row was wrong.
+ */
+function optionalDateField(
+	row: Record<string, unknown>,
+	field: string,
+	index: number,
+): Date | null {
+	const raw = row[field];
+	if (raw === null || raw === undefined || String(raw).trim() === "") return null;
+	return dateField(row, field, index);
+}
+
+/**
  * Validate and apply a CSV import in one bounded transaction.
  *
  * Extracted from the synchronous route so the same implementation runs in the
@@ -44,6 +63,14 @@ export async function confirmImport(
 	type: ExportableType,
 	csvData: string,
 ): Promise<ImportResult> {
+	// The value arrives from a request body or a queued job payload, so it is not
+	// trustworthy just because the type says so. Without this check an unknown
+	// type matched no switch case and reported a successful zero-row import
+	// (plus a misleading `data_imported` audit row).
+	if (!CSV_EXPORT_TYPES.includes(type)) {
+		throw badRequest("Unknown import type.");
+	}
+
 	const pond = await resolveActivePond(ownerId);
 	if (!pond) throw notFound("No pond found.");
 
@@ -93,7 +120,7 @@ export async function confirmImport(
 							sampleCount,
 							avgWeightKg,
 							source: "import",
-							recordedAt: row.recordedAt ? new Date(String(row.recordedAt)) : new Date(),
+							recordedAt: optionalDateField(row, "recordedAt", index) ?? new Date(),
 						};
 					});
 					count = (await tx.biomassLog.createMany({ data: rows })).count;
@@ -110,18 +137,21 @@ export async function confirmImport(
 				}
 				case "feed_events": {
 					if (!device) throw new Error("No device found");
-					const rows = data.map((row) => ({
+					const rows = data.map((row, index) => ({
 						deviceId: device.id,
 						eventId: row.eventId ? String(row.eventId) : undefined,
 						eventType: String(row.eventType),
 						timestamp: String(row.timestamp ?? "unknown"),
-						grams: row.grams != null ? Number(row.grams) : null,
+						grams:
+							row.grams != null && String(row.grams).trim() !== ""
+								? numberField(row, "grams", index, { min: 0 })
+								: null,
 						source: row.source ? String(row.source) : null,
 						feedRequestId: row.feedRequestId ? String(row.feedRequestId) : null,
 						commandId: row.commandId ? String(row.commandId) : null,
 						rtcOk: row.rtcOk != null ? Boolean(row.rtcOk) : null,
 						feederActive: row.feederActive != null ? Boolean(row.feederActive) : null,
-						receivedAt: row.receivedAt ? new Date(String(row.receivedAt)) : new Date(),
+						receivedAt: optionalDateField(row, "receivedAt", index) ?? new Date(),
 					}));
 					count = (await tx.feedEvent.createMany({ data: rows })).count;
 					break;
@@ -144,13 +174,13 @@ export async function confirmImport(
 						deviceId: device.id,
 						levelPercent: numberField(row, "levelPercent", index, { min: 0 }),
 						distanceCm: numberField(row, "distanceCm", index, { min: 0 }),
-						recordedAt: row.recordedAt ? new Date(String(row.recordedAt)) : new Date(),
+						recordedAt: optionalDateField(row, "recordedAt", index) ?? new Date(),
 					}));
 					count = (await tx.feedLevelLog.createMany({ data: rows })).count;
 					break;
 				}
 				case "notifications": {
-					const rows = data.map((row) => ({
+					const rows = data.map((row, index) => ({
 						pondId: pond.id,
 						tier: String(row.tier),
 						message: String(row.message),
@@ -158,14 +188,14 @@ export async function confirmImport(
 						read: Boolean(row.read ?? false),
 						category: row.category ? String(row.category) : null,
 						autoCleared: Boolean(row.autoCleared ?? false),
-						createdAt: row.createdAt ? new Date(String(row.createdAt)) : new Date(),
+						createdAt: optionalDateField(row, "createdAt", index) ?? new Date(),
 					}));
 					count = (await tx.notification.createMany({ data: rows })).count;
 					break;
 				}
 				case "audit_events": {
 					if (!device) throw new Error("No device found");
-					const rows = data.map((row) => {
+					const rows = data.map((row, index) => {
 						let metadata = null;
 						if (row.metadata) {
 							try {
@@ -181,7 +211,7 @@ export async function confirmImport(
 							actorId: row.actorId ? String(row.actorId) : null,
 							metadata,
 							deviceTime: row.deviceTime ? String(row.deviceTime) : null,
-							createdAt: row.createdAt ? new Date(String(row.createdAt)) : new Date(),
+							createdAt: optionalDateField(row, "createdAt", index) ?? new Date(),
 						};
 					});
 					count = (await tx.deviceStateEvent.createMany({ data: rows })).count;

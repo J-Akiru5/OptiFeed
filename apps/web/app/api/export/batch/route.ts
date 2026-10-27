@@ -21,12 +21,23 @@ export const GET = withApi(
 			? typesParam.split(",").filter((type) => BATCH_EXPORT_TYPES.includes(type as ExportableType))
 			: BATCH_EXPORT_TYPES;
 
+		// A `types` filter that matches nothing must not become a successful empty
+		// ZIP: the caller asked for something the endpoint cannot export.
+		if (typesParam && types.length === 0) {
+			return Response.json(
+				{ error: `Invalid types. Must be one of: ${BATCH_EXPORT_TYPES.join(", ")}` },
+				{ status: 400 },
+			);
+		}
+
 		const artifact = await buildBatchExport(ownerId, types as ExportableType[]);
 
 		return new Response(artifact.body, {
 			headers: {
 				"Content-Type": artifact.contentType,
 				"Content-Disposition": `attachment; filename="${artifact.filename}"`,
+				// Tenant data: never let a shared cache or the browser keep it.
+				"Cache-Control": "private, no-store",
 			},
 		});
 	}),

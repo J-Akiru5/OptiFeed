@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { getFeedLevelDisplay } from "@/lib/feed-level";
 import { useTranslations } from "next-intl";
 
@@ -34,7 +34,7 @@ export function FeedLevelCard({
 		});
 
 	const isStale = state === "stale";
-	const readingTime = readingAt ? formatDateTimeLocal(readingAt, tDates) : null;
+	const readingTime = readingAt ? formatFarmDateTime(readingAt, tDates) : null;
 	const readingLabel = readingTime
 		? t("readingTime", { date: readingTime.date, time: readingTime.time })
 		: t("unknownTime");

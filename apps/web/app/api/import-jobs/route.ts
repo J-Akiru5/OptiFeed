@@ -5,6 +5,7 @@ import { withAuth } from "@/lib/auth/with-auth";
 import { LEGACY_API_SUNSET } from "@/lib/constants";
 import type { ExportableType } from "@/lib/csv";
 import { CSV_EXPORT_TYPES } from "@/lib/jobs/export-data";
+import { MAX_CSV_IMPORT_BYTES } from "@/lib/jobs/import-data";
 import { createJob } from "@/lib/jobs/service";
 import { checkApiRateLimit } from "@/lib/rate-limit";
 
@@ -44,7 +45,7 @@ export const POST = withApi(
 		if (typeof body.csvData !== "string" || body.csvData.length === 0) {
 			return Response.json({ error: "Missing type or csvData" }, { status: 400 });
 		}
-		if (body.csvData.length > 5 * 1024 * 1024) {
+		if (body.csvData.length > MAX_CSV_IMPORT_BYTES) {
 			return Response.json({ error: "CSV payload exceeds 5 MB" }, { status: 413 });
 		}
 

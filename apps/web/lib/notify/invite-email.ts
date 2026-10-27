@@ -41,6 +41,11 @@ export function isDeliverableEmail(value: string): boolean {
 	if (typeof value !== "string") return false;
 	const trimmed = value.trim();
 	if (trimmed.length > 254) return false;
+	// Comma, semicolon, angle brackets, quotes and whitespace are SMTP list or
+	// route separators: `admin@victim.com,attacker.evil` satisfies the shape
+	// below, but the provider would parse it as two recipients and deliver the
+	// one-time password to the second address.
+	if (/[,;:<>()[\]\\"\s]/.test(trimmed)) return false;
 	return /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(trimmed);
 }
 
@@ -124,8 +129,15 @@ export async function deliverMemberInviteEmail(
 }
 
 function buildSubject(input: InviteEmailInput): string {
+	// The organization name is tenant-controlled: a CR/LF in a subject is a
+	// header-injection vector, so it is collapsed to one line like the reminder
+	// subject.
 	const org = input.orgName?.trim();
-	return org ? `Your PakaonAI invitation for ${org}` : "Your PakaonAI invitation";
+	return org ? `Your PakaonAI invitation for ${singleLine(org)}` : "Your PakaonAI invitation";
+}
+
+function singleLine(value: string): string {
+	return value.replace(/[\r\n]+/g, " ").trim();
 }
 
 /**

@@ -76,6 +76,15 @@ describe("invite email validation", () => {
 		expect(isDeliverableEmail("juan@example .com")).toBe(false);
 	});
 
+	it("rejects a comma-separated recipient list (no second delivery)", () => {
+		// SMTP list separators would let a crafted address deliver the one-time
+		// password to an extra mailbox.
+		expect(isDeliverableEmail("juan@example.com,attacker@evil.example")).toBe(false);
+		expect(isDeliverableEmail("juan@example.com;attacker@evil.example")).toBe(false);
+		expect(isDeliverableEmail("Juan <juan@example.com>")).toBe(false);
+		expect(isDeliverableEmail("juan@example.com\r\nBcc: attacker@evil.example")).toBe(false);
+	});
+
 	it("refuses to send to an invalid recipient even when configured", async () => {
 		await expect(sendInviteEmail({ ...INPUT, to: "juan@example" }, CONFIGURED)).resolves.toEqual({
 			ok: false,
@@ -122,6 +131,21 @@ describe("invite email delivery", () => {
 		expect(payload.html).not.toContain("<script>");
 		expect(payload.html).toContain("&lt;script&gt;");
 		expect(payload.html).toContain("A &amp; B");
+	});
+
+	it("collapses a line break in the organization name before it reaches the subject", async () => {
+		// The organization name is tenant-controlled; a CR/LF in a subject is a
+		// header-injection vector, so it must never survive into the payload.
+		await sendInviteEmail(
+			{ ...INPUT, orgName: "Pond A Farm\r\nBcc: attacker@evil.example" },
+			CONFIGURED,
+		);
+
+		const payload = sendMock.mock.calls[0][0] as { subject: string };
+		expect(payload.subject).toBe(
+			"Your PakaonAI invitation for Pond A Farm Bcc: attacker@evil.example",
+		);
+		expect(payload.subject).not.toMatch(/[\r\n]/);
 	});
 
 	it("returns the provider error without leaking the password", async () => {

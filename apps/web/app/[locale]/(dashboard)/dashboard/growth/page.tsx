@@ -25,7 +25,7 @@ import { canWrite } from "@/lib/auth/session";
 import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { loadGrowthPlanForPond } from "@/lib/growth-plan-loader";
 import type { GrowthSnapshotData } from "@/lib/offline/snapshots";
 import { getActivePond } from "@/lib/pond-selection";
@@ -168,7 +168,7 @@ export default async function GrowthPage() {
 	const biomassGrowthPct =
 		previousBiomass > 0 ? ((latestBiomass - previousBiomass) / previousBiomass) * 100 : 0;
 
-	const formatDate = (d: Date) => formatDateTimeLocal(d, tDates).date;
+	const formatDate = (d: Date) => formatFarmDateTime(d, tDates).date;
 
 	// Custom SVG Line Chart generator for Biomass
 	const maxBiomass = Math.max(...biomassLogs.map((l) => l.avgWeightKg), 0.01) * 1.1; // Add 10% padding top
@@ -588,7 +588,7 @@ export default async function GrowthPage() {
 							{feedLevelPreview.map((log) => (
 								<li key={log.id} className="flex items-center justify-between gap-3 py-3.5">
 									<div className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
-										{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+										{formatFarmDateTime(log.recordedAt, tDates).fullDate}
 									</div>
 									<div>
 										<span
@@ -644,7 +644,7 @@ export default async function GrowthPage() {
 									.map(({ log, weightGain, lengthGain, daysSinceLast }) => (
 										<DashboardTr key={log.id}>
 											<DashboardTd className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
-												{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+												{formatFarmDateTime(log.recordedAt, tDates).fullDate}
 											</DashboardTd>
 											<DashboardTd className="text-right">
 												{(log.avgWeightKg * 1000).toFixed(1)} g
@@ -691,7 +691,7 @@ export default async function GrowthPage() {
 							{growthRows.slice(0, GROWTH_PREVIEW_ROWS).map(({ log, weightGain, lengthGain }) => (
 								<DashboardCard key={log.id}>
 									<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-										{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+										{formatFarmDateTime(log.recordedAt, tDates).fullDate}
 									</p>
 									<div className="mt-2">
 										<DashboardCardRow label={t("history.columns.avgWeight")}>
@@ -758,7 +758,7 @@ export default async function GrowthPage() {
 									{biomassDesc.slice(0, PREVIEW_ROWS).map((log) => (
 										<DashboardTr key={log.id}>
 											<DashboardTd className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
-												{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+												{formatFarmDateTime(log.recordedAt, tDates).fullDate}
 											</DashboardTd>
 											<DashboardTd className="whitespace-nowrap">
 												{log.batchLabel ?? <span className="text-gray-400">—</span>}
@@ -782,7 +782,7 @@ export default async function GrowthPage() {
 																	{log.batchLabel ?? t("unlabeledBatch")}
 																</span>
 																<span className="shrink-0 font-medium normal-case text-teal-600">
-																	{formatDateTimeLocal(log.recordedAt, tDates).date}
+																	{formatFarmDateTime(log.recordedAt, tDates).date}
 																</span>
 															</div>
 															<table className="w-full text-xs text-gray-600 dark:text-gray-300">
@@ -837,7 +837,7 @@ export default async function GrowthPage() {
 									<DashboardCard key={log.id}>
 										<div className="flex items-baseline justify-between gap-3">
 											<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-												{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+												{formatFarmDateTime(log.recordedAt, tDates).fullDate}
 											</p>
 											<p className="text-sm font-black text-[var(--ofd-base-deep)]">
 												{(log.avgWeightKg * 1000).toFixed(1)} g

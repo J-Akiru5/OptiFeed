@@ -1,5 +1,7 @@
+import { notFound } from "@/lib/api/errors";
 import { resolveActivePond } from "@/lib/auth/pond-access";
 import { EXPORT_ROW_LIMIT } from "@/lib/constants";
+import { dateToFarmDateOnly } from "@/lib/crop-cycle/dates";
 import { type ExportableType, toCsvString } from "@/lib/csv";
 import prisma from "@/lib/prisma";
 import JSZip from "jszip";
@@ -39,7 +41,9 @@ interface ExportContext {
 
 export async function loadExportContext(ownerId: string): Promise<ExportContext> {
 	const pond = await resolveActivePond(ownerId);
-	if (!pond) throw new Error("No pond found.");
+	// A farm with no pond is an empty state, not a server fault: the envelope
+	// maps a plain Error to 500, so throw the same 404 the PDF export uses.
+	if (!pond) throw notFound("No pond found.");
 
 	const deviceIds = (
 		await prisma.energyDevice.findMany({
@@ -133,7 +137,7 @@ export async function buildExportRows(
 			}));
 		}
 		case "feed_level_logs": {
-			if (!context.deviceId) throw new Error("No device found.");
+			if (!context.deviceId) throw notFound("No device found.");
 			const logs = await prisma.feedLevelLog.findMany({
 				where: { deviceId: context.deviceId },
 				orderBy: { recordedAt: "asc" },
@@ -195,7 +199,9 @@ export async function buildCsvExport(
 	const rows = await buildExportRows(context, type);
 	const csv = toCsvString(rows);
 	return {
-		filename: `optifeed_${type}_${new Date().toISOString().slice(0, 10)}.csv`,
+		// Farm-local date, like the PDF report: the UTC date rolls over at 08:00 in
+		// Asia/Manila, so an export taken in the morning was dated yesterday.
+		filename: `optifeed_${type}_${dateToFarmDateOnly(new Date())}.csv`,
 		contentType: "text/csv; charset=utf-8",
 		body: new TextEncoder().encode(csv).buffer as ArrayBuffer,
 	};
@@ -215,7 +221,8 @@ export async function buildBatchExport(
 
 	const buffer = await zip.generateAsync({ type: "arraybuffer" });
 	return {
-		filename: `pakaonai_export_${new Date().toISOString().slice(0, 10)}.zip`,
+		// Farm-local date, for the same reason as the CSV export above.
+		filename: `pakaonai_export_${dateToFarmDateOnly(new Date())}.zip`,
 		contentType: "application/zip",
 		body: buffer,
 	};

@@ -683,7 +683,8 @@ async function blockersFor(
 		biomassLogs,
 		feedEvents,
 		cropCycles,
-		devices,
+		energyDevices,
+		legacyDevices,
 		fcrReports,
 		scheduleCommands,
 		notifications,
@@ -693,6 +694,10 @@ async function blockersFor(
 		client.feedEvent.count({ where: { device: { pondId } } }),
 		client.cropCycle.count({ where: { pondId } }),
 		client.energyDevice.count({ where: { pondId } }),
+		// The deprecated `Device` table still has rows on older ponds and its
+		// pond relation has no cascade, so a delete would fail on the foreign
+		// key. Count it as hardware: the pond is archived, not deleted.
+		client.device.count({ where: { pondId } }),
 		client.fcrReport.count({ where: { pondId } }),
 		client.scheduleCommand.count({ where: { pondId } }),
 		client.notification.count({ where: { pondId } }),
@@ -703,7 +708,7 @@ async function blockersFor(
 		biomassLogs,
 		feedEvents,
 		cropCycles,
-		devices,
+		devices: energyDevices + legacyDevices,
 		fcrReports,
 		scheduleCommands,
 		notifications,

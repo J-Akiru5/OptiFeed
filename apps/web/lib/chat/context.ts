@@ -1,5 +1,6 @@
 import { type CalibrationDriftResult, computeCalibrationDrift } from "@/lib/calibration/drift";
-import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { startOfDayInTimeZone } from "@/lib/chart-windows";
+import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS, PH_TZ } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { totalBiomassG } from "@/lib/feed-calc";
@@ -71,8 +72,10 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 
 	const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice?.id ?? null);
 
-	const startOfToday = new Date();
-	startOfToday.setHours(0, 0, 0, 0);
+	// "Today" is the farm day (Asia/Manila), not the server runtime's day. On a
+	// UTC host the local midnight is 08:00 in Manila, which dropped every
+	// early-morning feeding from the count the assistant reports.
+	const startOfToday = startOfDayInTimeZone(new Date(), PH_TZ);
 	const driftWindowStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
 	const [

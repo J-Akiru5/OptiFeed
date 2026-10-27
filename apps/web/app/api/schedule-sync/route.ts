@@ -144,26 +144,31 @@ export const GET = withApi(
 			});
 
 			if (pendingCommand) {
-				// Mark as "sent" so we don't return it again until it's acked or failed.
-				await prisma.scheduleCommand.update({
-					where: { id: pendingCommand.id },
+				// The command is re-sent on every poll until the device acks it, so
+				// a lost response is recovered. Only the pending → sent transition
+				// is audited: writing `command_sent` on every 5 s poll would grow
+				// DeviceStateEvent without bound.
+				const marked = await prisma.scheduleCommand.updateMany({
+					where: { id: pendingCommand.id, status: "pending" },
 					data: { status: "sent" },
 				});
 
-				await prisma.deviceStateEvent.create({
-					data: {
-						deviceId: device.id,
-						eventType: "command_sent",
-						source: "system",
-						metadata: {
-							commandId: pendingCommand.id,
-							scheduleStart: formatTime(pendingCommand.scheduleStart),
-							scheduleEnd: formatTime(pendingCommand.scheduleEnd),
-							feedsPerDay: pendingCommand.feedsPerDay,
-							feedingRatePct: pendingCommand.feedingRatePct,
+				if (marked.count > 0) {
+					await prisma.deviceStateEvent.create({
+						data: {
+							deviceId: device.id,
+							eventType: "command_sent",
+							source: "system",
+							metadata: {
+								commandId: pendingCommand.id,
+								scheduleStart: formatTime(pendingCommand.scheduleStart),
+								scheduleEnd: formatTime(pendingCommand.scheduleEnd),
+								feedsPerDay: pendingCommand.feedsPerDay,
+								feedingRatePct: pendingCommand.feedingRatePct,
+							},
 						},
-					},
-				});
+					});
+				}
 
 				return Response.json({
 					...timeSync,

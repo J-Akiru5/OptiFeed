@@ -13,7 +13,8 @@ interface FeedNowButtonProps {
 	label: string;
 	deviceName?: string;
 	connectionStatus?: string;
-	hopperLevelPct?: number;
+	/** Last known hopper level; null/undefined means the device never reported one. */
+	hopperLevelPct?: number | null;
 	canWrite?: boolean;
 	isFallow?: boolean;
 	gramsPerSecond?: number;
@@ -26,7 +27,7 @@ export function FeedNowButton({
 	label,
 	deviceName = "ILO-POND-01",
 	connectionStatus = "online",
-	hopperLevelPct = 100,
+	hopperLevelPct = null,
 	canWrite = true,
 	isFallow = false,
 	gramsPerSecond,
@@ -41,6 +42,11 @@ export function FeedNowButton({
 
 	const isOffline = connectionStatus === "offline";
 	const browserOffline = !online;
+
+	// A device that has never reported a level has no reading at all (decision
+	// E4): show nothing rather than a made-up 0 % "hopper empty" warning.
+	const hopperLevel =
+		typeof hopperLevelPct === "number" && Number.isFinite(hopperLevelPct) ? hopperLevelPct : null;
 
 	// 2-decimal doses like "29.63g"
 	const feedGrams = Number.parseFloat(nextFeedingVolume.replace("g", ""));
@@ -129,20 +135,20 @@ export function FeedNowButton({
 							</div>
 						)}
 
-						{hopperLevelPct < 10 && (
+						{hopperLevel !== null && hopperLevel < 10 && (
 							<div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
 								<AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
 								<p className="text-xs text-red-700 font-medium">
-									{t("hopperCritical", { level: hopperLevelPct })}
+									{t("hopperCritical", { level: hopperLevel })}
 								</p>
 							</div>
 						)}
 
-						{hopperLevelPct >= 10 && hopperLevelPct < 25 && (
+						{hopperLevel !== null && hopperLevel >= 10 && hopperLevel < 25 && (
 							<div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
 								<AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
 								<p className="text-xs text-amber-700 font-medium">
-									{t("hopperLow", { level: hopperLevelPct })}
+									{t("hopperLow", { level: hopperLevel })}
 								</p>
 							</div>
 						)}

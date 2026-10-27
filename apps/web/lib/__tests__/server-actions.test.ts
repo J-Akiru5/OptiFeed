@@ -71,6 +71,7 @@ import { requirePermission } from "@/lib/auth/permissions";
 import { requireWriteAccess } from "@/lib/auth/session";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/limits";
 import prisma from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 
 const mockEnergyDevice = vi.mocked(prisma.energyDevice);
 const mockFeedRequest = vi.mocked(prisma.feedRequest);
@@ -503,6 +504,55 @@ describe("write access enforcement — VIEWER denied, nothing written (1.5)", ()
 		expect(result.success).toBe(false);
 		expect(mockEnergyDevice.update).not.toHaveBeenCalled();
 		expect(mockDeviceStateEvent.create).not.toHaveBeenCalled();
+	});
+
+	it("saveHopperCalibration rejects invalid calibration values", async () => {
+		// Write access and the device lookup succeed; only the values are bad.
+		mockRequireWriteAccess.mockResolvedValue(undefined);
+		mockEnergyDevice.findFirst.mockResolvedValue(onlineDevice());
+
+		const { saveHopperCalibration } = await import("@/lib/actions/energy");
+
+		const zeroCapacity = await saveHopperCalibration("device-1", {
+			hopperFullCm: 5,
+			hopperEmptyCm: 30,
+			hopperCapacityG: 0,
+		});
+		expect(zeroCapacity.success).toBe(false);
+		expect(zeroCapacity.error).toMatch(/capacity/i);
+
+		const inverted = await saveHopperCalibration("device-1", {
+			hopperFullCm: 30,
+			hopperEmptyCm: 5,
+			hopperCapacityG: 7000,
+		});
+		expect(inverted.success).toBe(false);
+		expect(inverted.error).toBe(
+			"hopperEmptyCm: The empty distance must be greater than the full distance",
+		);
+
+		expect(mockEnergyDevice.update).not.toHaveBeenCalled();
+		expect(mockDeviceStateEvent.create).not.toHaveBeenCalled();
+	});
+
+	it("saveHopperCalibration revalidates the page that shows the result", async () => {
+		// The form lives on Hardware settings. Revalidating another page left the
+		// saved capacity invisible until a manual reload.
+		mockRequireWriteAccess.mockResolvedValue(undefined);
+		mockEnergyDevice.findFirst.mockResolvedValue(onlineDevice());
+		const { saveHopperCalibration } = await import("@/lib/actions/energy");
+
+		const result = await saveHopperCalibration("device-1", {
+			hopperFullCm: 5,
+			hopperEmptyCm: 30,
+			hopperCapacityG: 7000,
+		});
+
+		expect(result.success).toBe(true);
+		expect(vi.mocked(revalidatePath)).toHaveBeenCalledWith(
+			"/[locale]/(dashboard)/dashboard/settings/hardware",
+			"page",
+		);
 	});
 
 	it("saveDurationCalibration returns an error and writes nothing", async () => {

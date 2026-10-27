@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every user-facing "Batch / Batches / Saved Batches" is now "Sampling batch / Sampling batches" (#200), in English and in the Hiligaynon draft (term still needs native review). Labels only: the `batchLabel` column, the `/dashboard/log-sample/batches` route and the `batchLabel` CSV export header are unchanged.
 - The sitemap now uses the production domain and includes `/privacy` and `/terms` only after the legal documents are approved.
 - The web app renders the PakaonAI logo kit (fish-and-ring mark plus wordmark) in the landing header/footer and the admin and dashboard headers, replacing the inline SVG mark and the split `Opti`/`Feed` text lockup. `OptiFeedLogo` now takes a `variant` (`ondark`, `color`, `color-light`, `white`, `navy`) and serves the kit's PNG marks.
 - The login page is rebuilt as a focused split layout with a PakaonAI brand panel, remembered farm IDs, password reveal, inline validation, a language switch and dark mode. The field is now a normal password instead of a numeric-only PIN; legacy PINs still work once before the forced password change.

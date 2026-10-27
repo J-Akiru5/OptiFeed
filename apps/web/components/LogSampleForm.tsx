@@ -358,7 +358,7 @@ export function LogSampleForm({
 					<p className="mt-2 text-sm text-[#3D5568]">
 						Saved to{" "}
 						<strong className="text-[#0A3D62]">{feedResult.batchLabel || "Unlabeled"}</strong>
-						{feedResult.batchLabel ? "" : " (no batch)"}
+						{feedResult.batchLabel ? "" : " (no sampling batch)"}
 					</p>
 				</div>
 
@@ -432,7 +432,7 @@ export function LogSampleForm({
 					htmlFor="batchLabel"
 					className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568]"
 				>
-					Batch (optional)
+					Sampling batch (optional)
 				</label>
 				<div className="relative">
 					<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
@@ -444,7 +444,7 @@ export function LogSampleForm({
 						maxLength={64}
 						list="batchLabelOptions"
 						className={fieldCls}
-						placeholder="e.g. Batch 2026-10 A"
+						placeholder="e.g. Sampling batch 2026-10 A"
 						value={batchLabel}
 						onChange={(e) => setBatchLabel(e.target.value)}
 					/>

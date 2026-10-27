@@ -9,10 +9,12 @@ import { Link } from "@/i18n/routing";
 import { getFeedEvents } from "@/lib/actions/history";
 import { canWrite } from "@/lib/auth/session";
 import { FEED_CHART_DAYS, HOPPER_RANGE_DAYS, parseHopperRange } from "@/lib/chart-windows";
+import { formatFarmDateTime } from "@/lib/date-local";
+import { formatFeedAmount, isDailyTotalSource } from "@/lib/feed-figures";
 import { isDeviceOffline } from "@/lib/feed-level-display";
 import { FEED_EVENT_SOURCES, feedSourceKey } from "@/lib/feed-sources";
 import type { HistorySnapshotData } from "@/lib/offline/snapshots";
-import { getFeedPerDayBySource, getHopperLevelSeries } from "@/lib/pond-charts";
+import { getFeedPerDayBySource, getFeedTotals, getHopperLevelSeries } from "@/lib/pond-charts";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { getListPageSize } from "@/lib/settings/platform";
@@ -33,6 +35,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 	const t = await getTranslations("dashboard.history");
 	const tSch = await getTranslations("dashboard.schedule");
 	const tCommon = await getTranslations("dashboard.common");
+	const tDates = await getTranslations("dates");
 	const params = await searchParams;
 	const hopperRange = parseHopperRange(first(params.hopper));
 	const pond = await getActivePond();
@@ -68,7 +71,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 	// Chart series are aggregated in PostgreSQL and scoped to the same device
 	// ids as the table, so the charts cannot show another pond's history.
 	const pageSize = await getListPageSize();
-	const [initialPage, feedChart, hopperPoints] = await Promise.all([
+	const [initialPage, feedChart, hopperPoints, feedTotals] = await Promise.all([
 		getFeedEvents({
 			deviceIds,
 			page: 1,
@@ -76,17 +79,19 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 		}),
 		getFeedPerDayBySource(deviceIds),
 		getHopperLevelSeries(deviceIds, hopperRange),
+		getFeedTotals(deviceIds),
 	]);
 	const events = initialPage.items;
 
-	// Calculate stats
-	const totalDispensed = events.reduce((sum, e) => sum + (e.grams ?? 0), 0);
-	const sourceCounts: Record<string, number> = {};
-	for (const event of events) {
-		if (event.source) {
-			sourceCounts[event.source] = (sourceCounts[event.source] ?? 0) + 1;
-		}
-	}
+	// Feed figures (#236). Each card names its own window; none of them sum an
+	// arbitrary page of rows. `hand_fed` rows are daily totals, so they are never
+	// used as "the last feed" and their count is labelled as daily totals.
+	const lastFeed = feedTotals.lastMachineFeed;
+	const lastFeedAmount = formatFeedAmount(lastFeed?.grams ?? null);
+	const todayAmount = formatFeedAmount(feedTotals.todayGrams);
+	const weekAmount = formatFeedAmount(feedTotals.last7DaysGrams);
+	const weekAverageAmount = formatFeedAmount(feedTotals.last7DaysDailyAverageG);
+	const lastFeedTime = lastFeed ? formatFarmDateTime(lastFeed.receivedAt, tDates) : null;
 
 	const sourceLabel = (s: string) => {
 		return t(`source_${feedSourceKey(s)}`);
@@ -112,7 +117,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 
 	const historySnapshot: HistorySnapshotData = {
 		pondName: pond.name,
-		totalDispensedG: totalDispensed,
+		todayDispensedG: feedTotals.todayGrams,
 		feedLevelPercent: energyDevice?.feedLevelPercent ?? null,
 		feedLevelUpdatedAt: energyDevice?.feedLevelUpdatedAt?.toISOString() ?? null,
 		events: events.slice(0, 20).map((event) => ({
@@ -144,45 +149,77 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 			/>
 
 			<h2 className="sr-only">{t("statsLabel")}</h2>
-			<div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex items-center gap-4">
-					<div className="h-14 w-14 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center">
+			<div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex items-start gap-4">
+					<div className="h-14 w-14 shrink-0 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center">
 						<CheckCircle2 aria-hidden="true" className="h-7 w-7" />
 					</div>
-					<div>
+					<div className="min-w-0">
 						<p className="text-sm font-semibold text-gray-600 uppercase tracking-wider dark:text-gray-400">
-							{t("recentDispensed")}
+							{t("lastFeedLabel")}
 						</p>
 						<p className="text-2xl font-extrabold text-[var(--ofd-base-deep)]">
-							{(totalDispensed / 1000).toFixed(1)}{" "}
-							<span className="text-base text-gray-500 font-medium">kg</span>
+							{lastFeed ? lastFeedAmount.value : "—"}
+							{lastFeed && (
+								<span className="text-base text-gray-500 font-medium"> {lastFeedAmount.unit}</span>
+							)}
+						</p>
+						<p className="text-xs text-gray-500 mt-0.5 dark:text-gray-400">
+							{lastFeed && lastFeedTime
+								? t("lastFeedDetail", {
+										source: sourceLabel(lastFeed.source),
+										date: lastFeedTime.date,
+										time: lastFeedTime.time,
+									})
+								: t("lastFeedNone")}
 						</p>
 					</div>
 				</div>
 
-				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex items-center gap-4">
-					<div className="h-14 w-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex items-start gap-4">
+					<div className="h-14 w-14 shrink-0 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
 						<Clock aria-hidden="true" className="h-7 w-7" />
 					</div>
-					<div>
+					<div className="min-w-0">
 						<p className="text-sm font-semibold text-gray-600 uppercase tracking-wider dark:text-gray-400">
-							{t("sourceBreakdown")}
+							{t("dispensedTodayLabel")}
 						</p>
-						<div className="mt-1 space-y-0.5">
-							{FEED_EVENT_SOURCES.map((src) => (
-								<p key={src} className="text-sm font-bold text-[var(--ofd-base-deep)]">
-									{sourceLabel(src)}: {sourceCounts[src] ?? 0}
-								</p>
-							))}
-						</div>
+						<p className="text-2xl font-extrabold text-[var(--ofd-base-deep)]">
+							{todayAmount.value}
+							<span className="text-base text-gray-500 font-medium"> {todayAmount.unit}</span>
+						</p>
+						<p className="text-xs text-gray-500 mt-0.5 dark:text-gray-400">
+							{t("dispensedTodayDetail", { count: feedTotals.todayCount })}
+						</p>
 					</div>
 				</div>
 
-				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex items-center gap-4">
-					<div className="h-14 w-14 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center">
+				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex items-start gap-4">
+					<div className="h-14 w-14 shrink-0 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center">
+						<CalendarDays aria-hidden="true" className="h-7 w-7" />
+					</div>
+					<div className="min-w-0">
+						<p className="text-sm font-semibold text-gray-600 uppercase tracking-wider dark:text-gray-400">
+							{t("last7DaysLabel")}
+						</p>
+						<p className="text-2xl font-extrabold text-[var(--ofd-base-deep)]">
+							{weekAmount.value}
+							<span className="text-base text-gray-500 font-medium"> {weekAmount.unit}</span>
+						</p>
+						<p className="text-xs text-gray-500 mt-0.5 dark:text-gray-400">
+							{t("last7DaysDetail", {
+								average: `${weekAverageAmount.value} ${weekAverageAmount.unit}`,
+								count: feedTotals.last7DaysCount,
+							})}
+						</p>
+					</div>
+				</div>
+
+				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex items-start gap-4">
+					<div className="h-14 w-14 shrink-0 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center">
 						<Package aria-hidden="true" className="h-7 w-7" />
 					</div>
-					<div>
+					<div className="min-w-0">
 						<p className="text-sm font-semibold text-gray-600 uppercase tracking-wider dark:text-gray-400">
 							{t("feedLevel")}
 						</p>
@@ -197,6 +234,24 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 					</div>
 				</div>
 			</div>
+
+			<section
+				aria-label={t("sourceBreakdown", { days: FEED_CHART_DAYS })}
+				className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm dark:border-gray-700/50 dark:bg-gray-900"
+			>
+				<p className="text-xs font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">
+					{t("sourceBreakdown", { days: FEED_CHART_DAYS })}
+				</p>
+				{FEED_EVENT_SOURCES.map((src) => {
+					const count = feedChart.countsBySource[src] ?? 0;
+					return (
+						<p key={src} className="font-bold text-[var(--ofd-base-deep)]">
+							{sourceLabel(src)}: {count}
+							{isDailyTotalSource(src) && count > 0 ? ` ${t("dailyTotals")}` : ""}
+						</p>
+					);
+				})}
+			</section>
 
 			<section
 				aria-label={t("charts.label")}

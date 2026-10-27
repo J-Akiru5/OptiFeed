@@ -63,6 +63,9 @@ function primeQueries() {
 				{ day: TODAY, source: "scheduled", total: 3, grams: 1500 },
 				{ day: TODAY, source: "button", total: 2, grams: 1000 },
 				{ day: "2026-10-26", source: "dashboard", total: 1, grams: 500 },
+				// An imported hand-fed daily total is charted by source but is
+				// never counted as a machine dispense (#236).
+				{ day: TODAY, source: "hand_fed", total: 1, grams: 1800 },
 			];
 		}
 		return [];
@@ -214,12 +217,19 @@ describe("getPlatformAnalytics", () => {
 		expect(result.dayKeys.at(-1)).toBe(TODAY);
 		expect(result.signupsPerDay).toHaveLength(7);
 		expect(result.signupsPerDay.at(-1)).toEqual({ label: TODAY, value: 2 });
-		expect(result.feedsPerDayBySource.sources).toEqual(["scheduled", "button", "dashboard"]);
+		expect(result.feedsPerDayBySource.sources).toEqual([
+			"scheduled",
+			"button",
+			"dashboard",
+			"hand_fed",
+		]);
 		expect(result.feedsPerDayBySource.totalsBySource).toEqual({
 			scheduled: 3,
 			button: 2,
 			dashboard: 1,
+			hand_fed: 1,
 		});
+		// Machine dispenses only: the 1,800 g hand-fed daily total is excluded.
 		expect(result.kgPerDay.at(-1)).toEqual({ label: TODAY, value: 2.5 });
 		expect(result.deviceSplit).toEqual([
 			{ name: "online", segment: "online", value: 3 },
@@ -269,6 +279,29 @@ describe("getPlatformAnalytics", () => {
 			const selection = JSON.stringify(args);
 			expect(selection).not.toContain("tokenHash");
 			expect(selection).not.toContain('"token"');
+		}
+	});
+
+	it("buckets both charts on the Asia/Manila farm day", async () => {
+		await getPlatformAnalytics(7, NOW);
+
+		const sql = db.$queryRaw.mock.calls
+			.map((call) => (call[0] as unknown as TemplateStringsArray).join(" "))
+			.join(" | ");
+
+		// The old double conversion shifted the first eight hours of each day
+		// into the previous bucket; a single `AT TIME ZONE` on the zone keeps
+		// `date_trunc` on a naive local timestamp.
+		expect(sql).not.toContain("AT TIME ZONE 'UTC' AT TIME ZONE");
+		expect(sql).toContain('"receivedAt" AT TIME ZONE');
+	});
+
+	it("counts only machine dispenses in the feed KPIs", async () => {
+		await getPlatformAnalytics(7, NOW);
+
+		for (const [args] of db.feedEvent.aggregate.mock.calls) {
+			const where = (args as { where: { source?: { in: string[] } } }).where;
+			expect(where.source?.in).toEqual(["scheduled", "dashboard", "button"]);
 		}
 	});
 

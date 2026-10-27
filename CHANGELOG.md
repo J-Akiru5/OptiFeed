@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- #236 feed figures: the History page's "Recent Feed Dispensed" card added up whatever happened to be on the first page of the event log, mixing machine dispenses (at most 1,000 g each) with imported `hand_fed` daily totals, so 20 rows could read as one 19 kg dispense. It is replaced by "Last feed" (newest machine dispense, with its source and time), "Dispensed today" (every source, current Asia/Manila farm day) and "Last 7 days" (every source, with a daily average), each state its window and uses grams below 1,000 g and kilograms with two decimals at or above it. "By source" now counts the chart's 30-day window and marks hand-fed entries as daily totals, the feed chart is titled "Feed per day" and says hand-fed rows are daily totals, the event log, dashboard, PDF report and feeder hero use the same unit rule, platform analytics buckets feed and sign-up days in Asia/Manila instead of the previous double `AT TIME ZONE` conversion, and the calibration drift check no longer treats hand-fed daily totals as device output.
+
 ## [1.18.0] - 2026-10-28
 
 ### Added

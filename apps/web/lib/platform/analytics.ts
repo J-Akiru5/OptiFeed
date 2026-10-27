@@ -8,6 +8,7 @@ import {
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { startOfDayInTimeZone } from "@/lib/chart-windows";
 import { OFFLINE_THRESHOLD_MS, PH_TZ } from "@/lib/constants";
+import { MACHINE_FEED_SOURCES, isMachineFeedSource } from "@/lib/feed-figures";
 import prisma from "@/lib/prisma";
 
 /**
@@ -210,12 +211,21 @@ export async function getPlatformAnalytics(
 		prisma.pond.count({ where: { createdAt: current } }),
 		prisma.pond.count({ where: { createdAt: previous } }),
 		prisma.feedEvent.aggregate({
-			where: { eventType: "feed_dispensed", receivedAt: current },
+			where: {
+				eventType: "feed_dispensed",
+				// `hand_fed` rows are imported daily totals, not a device dispense.
+				source: { in: [...MACHINE_FEED_SOURCES] },
+				receivedAt: current,
+			},
 			_count: { _all: true },
 			_sum: { grams: true },
 		}),
 		prisma.feedEvent.aggregate({
-			where: { eventType: "feed_dispensed", receivedAt: previous },
+			where: {
+				eventType: "feed_dispensed",
+				source: { in: [...MACHINE_FEED_SOURCES] },
+				receivedAt: previous,
+			},
 			_count: { _all: true },
 			_sum: { grams: true },
 		}),
@@ -224,7 +234,7 @@ export async function getPlatformAnalytics(
 		prisma.energyDevice.count({ where: { approvalStatus: "PENDING", createdAt: current } }),
 		prisma.energyDevice.count({ where: { approvalStatus: "PENDING", createdAt: previous } }),
 		prisma.$queryRaw<SignupRow[]>`
-			SELECT to_char(date_trunc('day', "createdAt" AT TIME ZONE 'UTC' AT TIME ZONE ${PH_TZ}::text), 'YYYY-MM-DD') AS day,
+			SELECT to_char(date_trunc('day', "createdAt" AT TIME ZONE ${PH_TZ}::text), 'YYYY-MM-DD') AS day,
 			       COUNT(*)::int AS total
 			FROM "User"
 			WHERE "createdAt" >= ${window.start} AND "createdAt" < ${window.end}
@@ -232,7 +242,7 @@ export async function getPlatformAnalytics(
 			ORDER BY 1
 		`,
 		prisma.$queryRaw<FeedBucketQueryRow[]>`
-			SELECT to_char(date_trunc('day', "receivedAt" AT TIME ZONE 'UTC' AT TIME ZONE ${PH_TZ}::text), 'YYYY-MM-DD') AS day,
+			SELECT to_char(date_trunc('day', "receivedAt" AT TIME ZONE ${PH_TZ}::text), 'YYYY-MM-DD') AS day,
 			       COALESCE(NULLIF("source", ''), 'unknown') AS source,
 			       COUNT(*)::int AS total,
 			       COALESCE(SUM("grams"), 0)::float8 AS grams
@@ -311,6 +321,9 @@ export async function getPlatformAnalytics(
 
 	const gramsByDay = new Map<string, number>();
 	for (const row of feedRows) {
+		// Machine dispenses only: a `hand_fed` row is a whole day entered by
+		// hand, and adding it here would inflate "feed dispensed per day".
+		if (!isMachineFeedSource(row.source)) continue;
 		gramsByDay.set(row.day, (gramsByDay.get(row.day) ?? 0) + (Number(row.grams) || 0));
 	}
 	const kgPerDay = fillDailySeries(

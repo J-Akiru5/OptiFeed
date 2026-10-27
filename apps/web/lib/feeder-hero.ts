@@ -1,4 +1,5 @@
 import { startOfDayInTimeZone } from "@/lib/chart-windows";
+import { MACHINE_FEED_SOURCES } from "@/lib/feed-figures";
 import { isDeviceOffline } from "@/lib/feed-level-display";
 import type { FeederHeroData } from "@/lib/feeder-hero-types";
 import { OTA_EVENT_TYPES, versionFromMetadata } from "@/lib/platform/firmware";
@@ -69,6 +70,9 @@ export async function loadFeederHero({
 			where: {
 				deviceId: device.id,
 				eventType: "feed_dispensed",
+				// The hero is the device screen: an imported hand-fed daily total
+				// did not come from this feeder and is not "dispensed today".
+				source: { in: [...MACHINE_FEED_SOURCES] },
 				receivedAt: { gte: todayStart },
 			},
 			_sum: { grams: true },

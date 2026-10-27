@@ -2,7 +2,7 @@ import { fail } from "@/lib/api/envelope";
 import { forbidden, unauthorized } from "@/lib/api/errors";
 import { withApi } from "@/lib/api/instrumentation";
 import { isCurrentPlatformAdmin } from "@/lib/auth/require-platform-admin";
-import { getVerifiedSession } from "@/lib/auth/verify-session";
+import { getVerifiedSession } from "@/lib/auth/session";
 import {
 	AUDIT_EXPORT_LIMIT,
 	buildPlatformAuditWhere,

@@ -33,7 +33,7 @@ vi.mock("@/lib/auth/require-platform-admin", () => ({
 	isCurrentPlatformAdmin: mocks.isPlatformAdmin,
 }));
 
-vi.mock("@/lib/auth/verify-session", () => ({
+vi.mock("@/lib/auth/session", () => ({
 	getVerifiedSession: mocks.getSession,
 }));
 

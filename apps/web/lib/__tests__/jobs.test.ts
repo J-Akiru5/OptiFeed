@@ -105,4 +105,26 @@ describe("queue metrics", () => {
 		});
 		expect(metrics.oldestQueuedAgeMs).toBeGreaterThanOrEqual(119_000);
 	});
+
+	it("scopes the queue metrics to one tenant when an owner is given", async () => {
+		state.groupBy.mockResolvedValue([]);
+		state.findFirst.mockResolvedValue(null);
+		state.count.mockResolvedValue(0);
+		state.aggregate.mockResolvedValue({ _sum: { size: null } });
+
+		await getJobMetrics("farm-a");
+
+		expect(state.groupBy).toHaveBeenCalledWith(
+			expect.objectContaining({ where: { ownerId: "farm-a" } }),
+		);
+		expect(state.findFirst).toHaveBeenCalledWith(
+			expect.objectContaining({ where: { status: "queued", ownerId: "farm-a" } }),
+		);
+		expect(state.count).toHaveBeenCalledWith(
+			expect.objectContaining({ where: expect.objectContaining({ ownerId: "farm-a" }) }),
+		);
+		expect(state.aggregate).toHaveBeenCalledWith(
+			expect.objectContaining({ where: { job: { ownerId: "farm-a" } } }),
+		);
+	});
 });

@@ -1,5 +1,7 @@
 import { notFound } from "@/lib/api/errors";
-import { DEFAULT_FISH_COUNT } from "@/lib/constants";
+import { resolveActivePond } from "@/lib/auth/pond-access";
+import { DEFAULT_FISH_COUNT, PH_TZ } from "@/lib/constants";
+import { dateToFarmDateOnly } from "@/lib/crop-cycle/dates";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import type { ExportArtifact } from "@/lib/jobs/export-data";
 import prisma from "@/lib/prisma";
@@ -11,11 +13,46 @@ interface JsPDFWithAutoTable extends jsPDF {
 	lastAutoTable?: { finalY: number };
 }
 
+/**
+ * The report is generated on the server (UTC), but every date it prints is a
+ * farm-local date. Formatting with the runtime default would shift the
+ * "Generated" date and every feeding time by up to eight hours.
+ */
+function formatFarmDate(value: Date): string {
+	return new Intl.DateTimeFormat("en-US", {
+		timeZone: PH_TZ,
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+	}).format(value);
+}
+
+function formatFarmDateTime(value: Date): string {
+	return new Intl.DateTimeFormat("en-US", {
+		timeZone: PH_TZ,
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	}).format(value);
+}
+
+/** Tenant-controlled pond name → a filename safe for Content-Disposition. */
+function safeFilenamePart(value: string): string {
+	const cleaned = value
+		.replace(/[^A-Za-z0-9._-]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.replace(/^\.+/, "")
+		.slice(0, 60);
+	return cleaned || "pond";
+}
+
 export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
-	const pond = await prisma.pond.findFirst({
-		where: { ownerId },
-		include: { devices: true },
-	});
+	// Same pond the dashboard and CSV exports use (first ACTIVE pond). An
+	// unfiltered findFirst could report an archived pond, and the choice was
+	// nondeterministic when a farm had more than one.
+	const pond = await resolveActivePond(ownerId);
 
 	if (!pond) throw notFound("No pond found.");
 
@@ -55,7 +92,7 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 
 	doc.setFontSize(10);
 	doc.setTextColor(100);
-	doc.text(`Pond: ${pond.name}  |  Generated: ${new Date().toLocaleDateString()}`, 14, 30);
+	doc.text(`Pond: ${pond.name}  |  Generated: ${formatFarmDate(new Date())}`, 14, 30);
 
 	doc.setDrawColor(232, 90, 42); // #E85A2A
 	doc.setLineWidth(0.5);
@@ -111,7 +148,7 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 			head: [["Date", "Avg Weight (g)", "Samples", "Notes"]],
 			body: [
 				[
-					latestBiomass.recordedAt.toLocaleDateString(),
+					formatFarmDate(latestBiomass.recordedAt),
 					`${(latestBiomass.avgWeightKg * 1000).toFixed(1)}`,
 					`${latestBiomass.sampleCount}`,
 					"",
@@ -138,7 +175,7 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 			startY: yPos + 16,
 			head: [["Period", "FCR Value", "Feed Used (kg)", "Biomass Gain (kg)"]],
 			body: fcrReports.map((report) => [
-				`${report.periodStart.toLocaleDateString()} - ${report.periodEnd.toLocaleDateString()}`,
+				`${formatFarmDate(report.periodStart)} - ${formatFarmDate(report.periodEnd)}`,
 				report.fcrValue.toFixed(2),
 				report.totalFeedKg?.toFixed(1) ?? "—",
 				report.biomassGainKg?.toFixed(1) ?? "—",
@@ -166,7 +203,7 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 			body: feedEvents
 				.slice(0, 20)
 				.map((event) => [
-					event.receivedAt.toLocaleString(),
+					formatFarmDateTime(event.receivedAt),
 					`${event.grams ?? 0}g`,
 					event.source ?? "scheduled",
 				]),
@@ -190,7 +227,7 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 	}
 
 	return {
-		filename: `pakaonai-report-${pond.name}-${new Date().toISOString().split("T")[0]}.pdf`,
+		filename: `pakaonai-report-${safeFilenamePart(pond.name)}-${dateToFarmDateOnly(new Date())}.pdf`,
 		contentType: "application/pdf",
 		body: doc.output("arraybuffer"),
 	};

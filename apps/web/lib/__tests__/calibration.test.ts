@@ -14,6 +14,7 @@ vi.mock("@/lib/prisma", () => ({
 		},
 		deviceStateEvent: {
 			create: vi.fn(),
+			findFirst: vi.fn(),
 		},
 		calibrationRun: {
 			count: vi.fn(),
@@ -613,6 +614,17 @@ describe("submitTargetCheck", () => {
 		mockEnergyDevice.findFirst.mockResolvedValue(
 			onlineDevice({ gramsPerFeeding: 150, gramsPerSecond: 4 }) as never,
 		);
+		mockDeviceStateEvent.findFirst.mockResolvedValue(null as never);
+	});
+
+	it("refuses a second submit of the same confirmed dose", async () => {
+		mockDeviceStateEvent.findFirst.mockResolvedValue({ id: "evt-1" } as never);
+
+		const result = await submitTargetCheck("device-1", "req-1", 100, 110, SESSION_ID, "retest");
+
+		expect(result.success).toBe(false);
+		expect(mockEnergyDevice.update).not.toHaveBeenCalled();
+		expect(mockCalibrationRun.create).not.toHaveBeenCalled();
 	});
 
 	it("accepts a result within ±5% and saves the corrected rate", async () => {

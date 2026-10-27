@@ -731,6 +731,23 @@ export async function submitTargetCheck(
 			};
 		}
 
+		// One confirmed dose gives exactly one correction: a double submit (or a
+		// replayed request) must not compound the g/s change.
+		const alreadySubmitted = await prisma.deviceStateEvent.findFirst({
+			where: {
+				deviceId,
+				eventType: "duration_calibrated",
+				metadata: { path: ["requestId"], equals: requestId },
+			},
+			select: { id: true },
+		});
+		if (alreadySubmitted) {
+			return {
+				success: false,
+				error: "This target check was already submitted. Run a new target check to re-test.",
+			};
+		}
+
 		const target = round1(targetGrams);
 		const beforeGps = device.gramsPerSecond;
 		if (!(beforeGps > 0)) {

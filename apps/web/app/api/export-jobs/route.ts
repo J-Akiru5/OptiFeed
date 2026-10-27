@@ -44,7 +44,10 @@ export const POST = withApi(
 			? body.types.filter((type) => BATCH_EXPORT_TYPES.includes(type))
 			: [];
 
-		if (kind === "zip" && Array.isArray(body.types) && requestedTypes.length === 0) {
+		// `types` was supplied but none of them is exportable — including a
+		// non-array value, which used to fall through and silently export every
+		// type instead of rejecting the request.
+		if (kind === "zip" && body.types !== undefined && requestedTypes.length === 0) {
 			return Response.json(
 				{ error: `Invalid types. Must be one of: ${BATCH_EXPORT_TYPES.join(", ")}` },
 				{ status: 400 },

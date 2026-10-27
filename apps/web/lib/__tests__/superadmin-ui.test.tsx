@@ -94,7 +94,7 @@ describe("platform console mobile navigation (T-09c)", () => {
 		pathname.current = "/superadmin";
 		const html = renderToStaticMarkup(<SuperadminBottomNav />);
 
-		expect(html.split("<a ").length - 1).toBe(8);
+		expect(html.split("<a ").length - 1).toBe(9);
 		for (const label of [
 			"Overview",
 			"Calendar",
@@ -102,12 +102,13 @@ describe("platform console mobile navigation (T-09c)", () => {
 			"Organizations",
 			"Ponds",
 			"Devices",
+			"Operations",
 			"AI Providers",
 			"Settings",
 		]) {
 			expect(html).toContain(`aria-label="${label}"`);
 		}
-		// Short visible labels fit eight columns on a phone.
+		// Short visible labels fit nine columns on a phone.
 		expect(html).toContain(">Calendar<");
 		expect(html).toContain(">Orgs<");
 		expect(html).toContain(">AI<");

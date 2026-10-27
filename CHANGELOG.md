@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.2] - 2026-10-28
+
+### Added
+
+- Allow + deny tests for the admin pond write pages (I-27).
+
 ## [1.17.1] - 2026-10-28
 
 ### Fixed

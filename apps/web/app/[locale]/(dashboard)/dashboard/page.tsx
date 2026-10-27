@@ -22,6 +22,7 @@ import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
+import { feedSourceKey } from "@/lib/feed-sources";
 import type { DashboardSnapshotData } from "@/lib/offline/snapshots";
 import { getWaterTempSeries } from "@/lib/pond-charts";
 import { getActivePond } from "@/lib/pond-selection";
@@ -597,7 +598,11 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 												</span>
 											</div>
 											<p className="text-xs text-[#3D5568] dark:text-gray-400">
-												{tHist(item.source ? `source_${item.source}` : "confirmedDispense")}
+												{tHist(
+													item.source
+														? `source_${feedSourceKey(item.source)}`
+														: "confirmedDispense",
+												)}
 											</p>
 										</div>
 									</div>

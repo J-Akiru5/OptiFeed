@@ -582,7 +582,9 @@
 				"range7": "7 days",
 				"range30": "30 days",
 				"hopperEmpty": "No hopper readings in the last {days} days."
-			}
+			},
+			"source_hand_fed": "Precision feeding (hand-fed, data sheet)",
+			"source_other": "Other"
 		},
 		"feedNowModal": {
 			"triggerTitle": "Trigger Manual Feeding?",

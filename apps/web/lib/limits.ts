@@ -94,8 +94,8 @@ export const biomassLogSchema = z.object({
 		.number("Sample length must be a number")
 		.refine((v) => v >= 0, "Sample length must be 0 or greater"),
 	batchLabel: z
-		.string("Batch label must be a text value")
-		.max(64, "Batch label must be 64 characters or fewer")
+		.string("Sampling batch label must be a text value")
+		.max(64, "Sampling batch label must be 64 characters or fewer")
 		.nullish(),
 });
 

@@ -163,9 +163,9 @@ export function PrivacyPolicyContent() {
 							data: (
 								<>
 									Farm and pond names; pond area and depth; stocking date, count, and weight;
-									grow-out cycles; biomass samples (weight, length, count, batch label); FCR and SGR
-									values; feeding schedules; feed events; harvest records; calendar events; and
-									notes.
+									grow-out cycles; biomass samples (weight, length, count, sampling batch label);
+									FCR and SGR values; feeding schedules; feed events; harvest records; calendar
+									events; and notes.
 								</>
 							),
 							source:

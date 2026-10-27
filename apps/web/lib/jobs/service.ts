@@ -252,18 +252,29 @@ export interface JobMetrics {
  * Queue health for the admin dashboard / alerting. A dead worker shows up as a
  * growing `queued` count and an `oldestQueuedAgeMs` above the schedule interval.
  */
-export async function getJobMetrics(): Promise<JobMetrics> {
+export async function getJobMetrics(ownerId?: string): Promise<JobMetrics> {
 	const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+	// Tenant-scoped by default: every farm admin may read their own queue depth,
+	// never the platform-wide counts (which would disclose other tenants' load).
+	// A platform-wide read stays available by omitting the owner explicitly.
+	const scope = ownerId ? { ownerId } : {};
 	const [grouped, oldestQueued, succeeded24h, failed24h, artifacts] = await Promise.all([
-		prisma.backgroundJob.groupBy({ by: ["status"], _count: { _all: true } }),
+		prisma.backgroundJob.groupBy({ by: ["status"], where: scope, _count: { _all: true } }),
 		prisma.backgroundJob.findFirst({
-			where: { status: "queued" },
+			where: { status: "queued", ...scope },
 			orderBy: { createdAt: "asc" },
 			select: { createdAt: true },
 		}),
-		prisma.backgroundJob.count({ where: { status: "succeeded", finishedAt: { gte: since } } }),
-		prisma.backgroundJob.count({ where: { status: "failed", finishedAt: { gte: since } } }),
-		prisma.jobArtifact.aggregate({ _sum: { size: true } }),
+		prisma.backgroundJob.count({
+			where: { status: "succeeded", finishedAt: { gte: since }, ...scope },
+		}),
+		prisma.backgroundJob.count({
+			where: { status: "failed", finishedAt: { gte: since }, ...scope },
+		}),
+		prisma.jobArtifact.aggregate({
+			_sum: { size: true },
+			...(ownerId ? { where: { job: { ownerId } } } : {}),
+		}),
 	]);
 
 	const byStatus = new Map(grouped.map((row) => [row.status, row._count._all]));

@@ -141,6 +141,7 @@ export function UserActions({
 				type="button"
 				onClick={() => open(disabled ? "enable" : "grant")}
 				disabled={isPending}
+				data-help="superadmin-user-actions"
 				aria-label={t("actionsFor", { farmId })}
 				aria-haspopup="dialog"
 				aria-expanded={mode !== null}

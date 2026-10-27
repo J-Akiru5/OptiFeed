@@ -49,12 +49,39 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 vi.mock("@/lib/auth/session", () => ({
 	getCurrentUser: vi.fn(async () => ({ id: "user-self" })),
+	assertPasswordChanged: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/lib/auth/org-scope", () => ({
+	resolveOrgScope: vi.fn(async () => ({
+		orgIds: ["org-1"],
+		memberUserIds: ["user-self"],
+		farmIds: ["farm-self"],
+		pondIds: [],
+	})),
+}));
+
+vi.mock("@/lib/actions/device-registration", () => ({
+	getTenantRegistrationOptions: vi.fn(async () => null),
+	addTenantDevice: vi.fn(),
+	approveTenantDevice: vi.fn(),
+	rejectTenantDevice: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/permissions", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("@/lib/auth/permissions")>();
 	return { ...actual, hasPermission: vi.fn(async () => true) };
 });
+
+vi.mock("@/lib/prisma", () => ({
+	default: {
+		energyDevice: { findMany: vi.fn(async () => []) },
+		orgSetting: {
+			findUnique: vi.fn(async () => null),
+			findMany: vi.fn(async () => []),
+		},
+	},
+}));
 
 vi.mock("@/lib/actions/admin", () => ({
 	getUsers: vi.fn(),
@@ -114,19 +141,24 @@ beforeEach(() => {
 
 describe("admin users page", () => {
 	it("renders translated headings, scoped columns and the mobile card list", async () => {
-		vi.mocked(getUsers).mockResolvedValue([
-			{
-				id: "user-1",
-				displayName: "Juan Miguel",
-				farmId: "juan-miguel",
-				email: "juan@example.com",
-				role: "OPERATOR",
-				createdAt: FIXTURE_DATE,
-				farm: { name: "Miguel Farm" },
-			},
-		] as unknown as Awaited<ReturnType<typeof getUsers>>);
+		vi.mocked(getUsers).mockResolvedValue({
+			rows: [
+				{
+					id: "user-1",
+					displayName: "Juan Miguel",
+					farmId: "juan-miguel",
+					email: "juan@example.com",
+					role: "OPERATOR",
+					createdAt: FIXTURE_DATE,
+					farm: { name: "Miguel Farm" },
+				},
+			],
+			total: 1,
+			page: 1,
+			pageSize: 20,
+		} as unknown as Awaited<ReturnType<typeof getUsers>>);
 
-		const html = renderToStaticMarkup(await AdminUsersPage());
+		const html = renderToStaticMarkup(await AdminUsersPage({ searchParams: Promise.resolve({}) }));
 
 		expect(html).toContain("User Management");
 		expect(html).toContain("1 user in your organization");
@@ -136,12 +168,19 @@ describe("admin users page", () => {
 		expect(html).toContain("Miguel Farm");
 		expect(html).toContain(formatDate(FIXTURE_DATE).fullDate);
 		expect(html).not.toContain(FIXTURE_DATE.toLocaleDateString());
+		expect(html).toContain('href="/admin/settings/members/user-1/permissions"');
+		expect(html).not.toContain("<dialog");
 	});
 
 	it("shows the empty state with a next step instead of an empty table", async () => {
-		vi.mocked(getUsers).mockResolvedValue([]);
+		vi.mocked(getUsers).mockResolvedValue({
+			rows: [],
+			total: 0,
+			page: 1,
+			pageSize: 20,
+		} as unknown as Awaited<ReturnType<typeof getUsers>>);
 
-		const html = renderToStaticMarkup(await AdminUsersPage());
+		const html = renderToStaticMarkup(await AdminUsersPage({ searchParams: Promise.resolve({}) }));
 
 		expect(html).toContain("No users in this organization yet.");
 		expect(html).toContain("Register Farmer &amp; Pond");
@@ -174,11 +213,16 @@ describe("admin devices page", () => {
 	];
 
 	it("renders status, feed rate and last-seen copy in both layouts", async () => {
-		vi.mocked(getDevices).mockResolvedValue(
-			devices as unknown as Awaited<ReturnType<typeof getDevices>>,
-		);
+		vi.mocked(getDevices).mockResolvedValue({
+			rows: devices,
+			total: devices.length,
+			page: 1,
+			pageSize: 20,
+		} as unknown as Awaited<ReturnType<typeof getDevices>>);
 
-		const html = renderToStaticMarkup(await AdminDevicesPage());
+		const html = renderToStaticMarkup(
+			await AdminDevicesPage({ searchParams: Promise.resolve({}) }),
+		);
 
 		expect(html).toContain("Device Management");
 		expect(html).toContain('scope="col"');
@@ -191,9 +235,16 @@ describe("admin devices page", () => {
 	});
 
 	it("shows the empty state and hides the label-print form", async () => {
-		vi.mocked(getDevices).mockResolvedValue([]);
+		vi.mocked(getDevices).mockResolvedValue({
+			rows: [],
+			total: 0,
+			page: 1,
+			pageSize: 20,
+		} as unknown as Awaited<ReturnType<typeof getDevices>>);
 
-		const html = renderToStaticMarkup(await AdminDevicesPage());
+		const html = renderToStaticMarkup(
+			await AdminDevicesPage({ searchParams: Promise.resolve({}) }),
+		);
 
 		expect(html).toContain("No devices registered yet.");
 		expect(html).not.toContain('id="device-label-form"');
@@ -202,9 +253,14 @@ describe("admin devices page", () => {
 
 describe("admin audit page", () => {
 	it("shows the empty state when no events exist", async () => {
-		vi.mocked(getAuditLog).mockResolvedValue([]);
+		vi.mocked(getAuditLog).mockResolvedValue({
+			rows: [],
+			total: 0,
+			page: 1,
+			pageSize: 20,
+		} as unknown as Awaited<ReturnType<typeof getAuditLog>>);
 
-		const html = renderToStaticMarkup(await AdminAuditPage());
+		const html = renderToStaticMarkup(await AdminAuditPage({ searchParams: Promise.resolve({}) }));
 
 		expect(html).toContain("Audit Log");
 		expect(html).toContain("No events recorded yet.");
@@ -212,18 +268,23 @@ describe("admin audit page", () => {
 	});
 
 	it("formats event times with the date helper", async () => {
-		vi.mocked(getAuditLog).mockResolvedValue([
-			{
-				id: "evt-1",
-				eventType: "feed_dispensed",
-				source: "device",
-				actorId: null,
-				createdAt: FIXTURE_DATE,
-				device: { label: "Feeder 1", mac: "A4:CF:12:7E:3B:09" },
-			},
-		] as unknown as Awaited<ReturnType<typeof getAuditLog>>);
+		vi.mocked(getAuditLog).mockResolvedValue({
+			rows: [
+				{
+					id: "evt-1",
+					eventType: "feed_dispensed",
+					source: "device",
+					actorId: null,
+					createdAt: FIXTURE_DATE,
+					device: { label: "Feeder 1", mac: "A4:CF:12:7E:3B:09" },
+				},
+			],
+			total: 1,
+			page: 1,
+			pageSize: 20,
+		} as unknown as Awaited<ReturnType<typeof getAuditLog>>);
 
-		const html = renderToStaticMarkup(await AdminAuditPage());
+		const html = renderToStaticMarkup(await AdminAuditPage({ searchParams: Promise.resolve({}) }));
 
 		expect(html).toContain(formatDate(FIXTURE_DATE).full);
 		expect(html).toContain("feed_dispensed");
@@ -308,21 +369,26 @@ describe("admin hierarchy page", () => {
 
 describe("admin ponds page", () => {
 	it("renders the pond card with translated status and counts", async () => {
-		vi.mocked(getPonds).mockResolvedValue([
-			{
-				id: "pond-1234567890abc",
-				name: "Pond A",
-				status: "ACTIVE",
-				ownerId: "juan-miguel",
-				feedsPerDay: 3,
-				owner: { displayName: "Juan Miguel" },
-				farm: { name: "Miguel Farm" },
-				energyDevices: [{ id: "dev-1" }],
-				_count: { biomassLogs: 4, notifications: 0, ownershipHistory: 1 },
-			},
-		] as unknown as Awaited<ReturnType<typeof getPonds>>);
+		vi.mocked(getPonds).mockResolvedValue({
+			rows: [
+				{
+					id: "pond-1234567890abc",
+					name: "Pond A",
+					status: "ACTIVE",
+					ownerId: "juan-miguel",
+					feedsPerDay: 3,
+					owner: { displayName: "Juan Miguel" },
+					farm: { name: "Miguel Farm" },
+					energyDevices: [{ id: "dev-1" }],
+					_count: { biomassLogs: 4, notifications: 0, ownershipHistory: 1 },
+				},
+			],
+			total: 1,
+			page: 1,
+			pageSize: 20,
+		} as unknown as Awaited<ReturnType<typeof getPonds>>);
 
-		const html = renderToStaticMarkup(await AdminPondsPage());
+		const html = renderToStaticMarkup(await AdminPondsPage({ searchParams: Promise.resolve({}) }));
 
 		expect(html).toContain("Pond Management");
 		expect(html).toContain("Pond A");
@@ -334,9 +400,14 @@ describe("admin ponds page", () => {
 	});
 
 	it("shows the empty state with the onboarding action", async () => {
-		vi.mocked(getPonds).mockResolvedValue([]);
+		vi.mocked(getPonds).mockResolvedValue({
+			rows: [],
+			total: 0,
+			page: 1,
+			pageSize: 20,
+		} as unknown as Awaited<ReturnType<typeof getPonds>>);
 
-		const html = renderToStaticMarkup(await AdminPondsPage());
+		const html = renderToStaticMarkup(await AdminPondsPage({ searchParams: Promise.resolve({}) }));
 
 		expect(html).toContain("No ponds registered yet.");
 		expect(html).toContain("Register Farmer &amp; Pond");
@@ -345,26 +416,34 @@ describe("admin ponds page", () => {
 
 describe("admin settings page", () => {
 	it("renders the members table and formats the joined date", async () => {
-		vi.mocked(listTenantMembers).mockResolvedValue([
-			{
-				membershipId: "m-1",
-				userId: "user-1",
-				orgId: "org-1",
-				orgName: "Miguel Farm",
-				displayName: "Juan Miguel",
-				farmId: "juan-miguel",
-				email: "juan@example.com",
-				role: "OWNER",
-				callerRole: "OWNER",
-				permissions: [],
-				joinedAt: FIXTURE_DATE,
-				isSelf: true,
-				isPlatformAdmin: false,
-				isLastOwner: true,
-			},
-		] as unknown as Awaited<ReturnType<typeof listTenantMembers>>);
+		vi.mocked(listTenantMembers).mockResolvedValue({
+			rows: [
+				{
+					membershipId: "m-1",
+					userId: "user-1",
+					orgId: "org-1",
+					orgName: "Miguel Farm",
+					displayName: "Juan Miguel",
+					farmId: "juan-miguel",
+					email: "juan@example.com",
+					role: "OWNER",
+					callerRole: "OWNER",
+					permissions: [],
+					joinedAt: FIXTURE_DATE,
+					isSelf: true,
+					isPlatformAdmin: false,
+					isLastOwner: true,
+				},
+			],
+			total: 1,
+			page: 1,
+			pageSize: 20,
+			orgOptions: [{ id: "org-1", name: "Miguel Farm", callerRole: "OWNER" }],
+		} as unknown as Awaited<ReturnType<typeof listTenantMembers>>);
 
-		const html = renderToStaticMarkup(await AdminSettingsPage());
+		const html = renderToStaticMarkup(
+			await AdminSettingsPage({ searchParams: Promise.resolve({}) }),
+		);
 
 		expect(html).toContain("System Settings");
 		expect(html).toContain("Members");
@@ -373,5 +452,7 @@ describe("admin settings page", () => {
 		expect(html).toContain('scope="col"');
 		expect(html).not.toContain(FIXTURE_DATE.toLocaleDateString());
 		expect(html).toContain("Default Feeding Rate");
+		expect(html).toContain('href="/admin/settings/members/user-1/permissions"');
+		expect(html).not.toContain("<dialog");
 	});
 });

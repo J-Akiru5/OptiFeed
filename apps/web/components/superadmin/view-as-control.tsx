@@ -39,6 +39,7 @@ export function ViewAsControl({ orgId, orgName }: { orgId: string; orgName: stri
 					setReason("");
 					setError(null);
 				}}
+				data-help="superadmin-view-as"
 				aria-label={t("viewAria", { orgName })}
 				className={SECONDARY_BUTTON}
 			>

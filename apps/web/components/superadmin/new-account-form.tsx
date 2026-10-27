@@ -52,7 +52,7 @@ export function NewAccountForm({
 	const [reason, setReason] = useState("");
 
 	const [pondName, setPondName] = useState("");
-	const [feedingRatePct, setFeedingRatePct] = useState("3");
+	const [feedingRatePct, setFeedingRatePct] = useState("");
 	const [feedsPerDay, setFeedsPerDay] = useState("3");
 	const [population, setPopulation] = useState("");
 
@@ -89,7 +89,7 @@ export function NewAccountForm({
 					pond: isFarmer
 						? {
 								name: pondName.trim(),
-								feedingRatePct: Number(feedingRatePct),
+								feedingRatePct: feedingRatePct.trim() ? Number(feedingRatePct) : undefined,
 								feedsPerDay: Number(feedsPerDay),
 								population: population ? Number(population) : undefined,
 							}
@@ -265,6 +265,7 @@ export function NewAccountForm({
 								label={t("feedPct")}
 								value={feedingRatePct}
 								onChange={(v) => setFeedingRatePct(v.replace(/[^\d.]/g, ""))}
+								placeholder={t("orgDefaultRate")}
 								disabled={isPending}
 							/>
 							<TextField

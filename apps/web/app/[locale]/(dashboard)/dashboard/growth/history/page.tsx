@@ -1,6 +1,7 @@
+import { type ChartLabels, MultiLineTrend } from "@/components/charts";
+import { countSeriesValues } from "@/components/charts/chart-data";
 import {
 	DashboardCard,
-	DashboardCardList,
 	DashboardCardRow,
 	DashboardTHead,
 	DashboardTable,
@@ -9,7 +10,9 @@ import {
 	DashboardTr,
 } from "@/components/dashboard/dashboard-table";
 import { DashboardEmptyState, DashboardPageHeader } from "@/components/dashboard/dashboard-ui";
+import { ItemCardGrid } from "@/components/ui/item-card";
 import { Pagination } from "@/components/ui/pagination";
+import { ListView } from "@/components/ui/view-toggle";
 import { Link } from "@/i18n/routing";
 import { parseQueryFilters } from "@/lib/actions/query-filters";
 import { formatDateTimeLocal } from "@/lib/date-local";
@@ -23,9 +26,11 @@ import {
 	getGrowthHistory,
 	isGrowthHistoryTab,
 } from "@/lib/growth-history";
-import { getPageCount, parsePage, parsePageSize, resolveDateRange } from "@/lib/pagination";
+import { getPageCount, parsePage, resolveDateRange } from "@/lib/pagination";
+import { UNLABELED_BATCH, getBiomassTrend } from "@/lib/pond-charts";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import { getListPageSize } from "@/lib/settings/platform";
 import { ArrowLeft, Package, Scale, TrendingUp } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -51,13 +56,14 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 	const t = await getTranslations("dashboard.growth.history");
 	const tGrowth = await getTranslations("dashboard.growth");
 	const tDates = await getTranslations("dates");
+	const tCommon = await getTranslations("dashboard.common");
 	const pond = await getActivePond();
 
 	const raw = await searchParams;
 	const tabParam = first(raw.tab);
 	const tab: GrowthHistoryTab = isGrowthHistoryTab(tabParam) ? tabParam : "feed";
 	let page = parsePage(first(raw.page));
-	const pageSize = parsePageSize(first(raw.pageSize));
+	const pageSize = await getListPageSize();
 	const from = first(raw.from) ?? "";
 	const to = first(raw.to) ?? "";
 	const q = first(raw.q) ?? "";
@@ -138,6 +144,22 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 		await load(page);
 	}
 
+	// The biomass trend is independent of the table's pagination and filters:
+	// it is the whole sample history, averaged per batch per day in the DB.
+	const biomassTrend = tab === "biomass" ? await getBiomassTrend(pond.id) : null;
+	const chartLabels: ChartLabels = {
+		period: tCommon("charts.period"),
+		value: tCommon("charts.value"),
+		name: tCommon("charts.name"),
+		empty: tCommon("charts.empty"),
+	};
+	const batchSeriesLabels = Object.fromEntries(
+		(biomassTrend?.series ?? []).map((key) => [
+			key,
+			key === UNLABELED_BATCH ? tGrowth("unlabeledBatch") : key,
+		]),
+	);
+
 	const firstRow = total === 0 ? 0 : (page - 1) * pageSize + 1;
 	const lastRow = Math.min(page * pageSize, total);
 	const params = { tab, q, from, to };
@@ -189,6 +211,26 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 					);
 				})}
 			</nav>
+
+			{tab === "biomass" && biomassTrend && (
+				<MultiLineTrend
+					title={t("charts.biomassTitle")}
+					summary={t("charts.biomassSummary", {
+						series: biomassTrend.series.length,
+						samples: countSeriesValues(biomassTrend),
+						from: biomassTrend.rows[0]?.label ?? "—",
+						to: biomassTrend.rows.at(-1)?.label ?? "—",
+					})}
+					labels={{
+						...chartLabels,
+						empty: t("charts.biomassEmpty"),
+					}}
+					series={biomassTrend}
+					seriesLabels={batchSeriesLabels}
+					unit="g"
+					decimals={1}
+				/>
+			)}
 
 			<section className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
 				<form
@@ -251,7 +293,12 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 				) : (
 					<>
 						{tab === "feed" && (
-							<>
+							<ListView
+								pageKey="growth-history"
+								listLabel={tCommon("viewToggle.list")}
+								cardsLabel={tCommon("viewToggle.cards")}
+								toggleLabel={tCommon("viewToggle.label")}
+							>
 								<DashboardTable caption={tGrowth("feedLevelTableCaption")} minWidth="min-w-[32rem]">
 									<DashboardTHead>
 										<DashboardTh>{tGrowth("dateCol")}</DashboardTh>
@@ -284,7 +331,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 										))}
 									</tbody>
 								</DashboardTable>
-								<DashboardCardList label={tGrowth("feedLevelTableCaption")} className="p-4">
+								<ItemCardGrid label={tGrowth("feedLevelTableCaption")} className="p-4">
 									{feedRows.map((row) => (
 										<DashboardCard key={row.id}>
 											<div className="flex items-baseline justify-between gap-3">
@@ -302,12 +349,17 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 											</div>
 										</DashboardCard>
 									))}
-								</DashboardCardList>
-							</>
+								</ItemCardGrid>
+							</ListView>
 						)}
 
 						{tab === "growth" && (
-							<>
+							<ListView
+								pageKey="growth-history"
+								listLabel={tCommon("viewToggle.list")}
+								cardsLabel={tCommon("viewToggle.cards")}
+								toggleLabel={tCommon("viewToggle.label")}
+							>
 								<DashboardTable caption={tGrowth("tableCaption")} minWidth="min-w-[40rem]">
 									<DashboardTHead>
 										<DashboardTh>{tGrowth("dateCol")}</DashboardTh>
@@ -366,7 +418,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 										))}
 									</tbody>
 								</DashboardTable>
-								<DashboardCardList label={tGrowth("tableCaption")} className="p-4">
+								<ItemCardGrid label={tGrowth("tableCaption")} className="p-4">
 									{growthRows.map((row) => (
 										<DashboardCard key={row.id}>
 											<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
@@ -395,12 +447,17 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 											</div>
 										</DashboardCard>
 									))}
-								</DashboardCardList>
-							</>
+								</ItemCardGrid>
+							</ListView>
 						)}
 
 						{tab === "biomass" && (
-							<>
+							<ListView
+								pageKey="growth-history"
+								listLabel={tCommon("viewToggle.list")}
+								cardsLabel={tCommon("viewToggle.cards")}
+								toggleLabel={tCommon("viewToggle.label")}
+							>
 								<DashboardTable caption={tGrowth("biomassTableCaption")} minWidth="min-w-[40rem]">
 									<DashboardTHead>
 										<DashboardTh>{tGrowth("dateCol")}</DashboardTh>
@@ -441,7 +498,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 										))}
 									</tbody>
 								</DashboardTable>
-								<DashboardCardList label={tGrowth("biomassTableCaption")} className="p-4">
+								<ItemCardGrid label={tGrowth("biomassTableCaption")} className="p-4">
 									{biomassRows.map((row) => (
 										<DashboardCard key={row.id}>
 											<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
@@ -466,8 +523,8 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 											</div>
 										</DashboardCard>
 									))}
-								</DashboardCardList>
-							</>
+								</ItemCardGrid>
+							</ListView>
 						)}
 					</>
 				)}

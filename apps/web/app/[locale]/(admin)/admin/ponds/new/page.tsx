@@ -1,11 +1,18 @@
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { CreatePondForm } from "@/components/admin/create-pond-form";
 import { Link } from "@/i18n/routing";
+import { resolveOrgScope } from "@/lib/auth/org-scope";
+import { ORG_SETTINGS_DEFAULTS, getOrgSettings } from "@/lib/settings/org";
 import { ArrowLeft } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export default async function NewPondPage() {
-	const t = await getTranslations("dashboard.adminCreatePond");
+	const [t, scope] = await Promise.all([
+		getTranslations("dashboard.adminCreatePond"),
+		resolveOrgScope(),
+	]);
+	const orgId = scope.orgIds[0];
+	const settings = orgId ? await getOrgSettings(orgId) : ORG_SETTINGS_DEFAULTS;
 
 	return (
 		<div className="max-w-2xl space-y-6">
@@ -19,7 +26,7 @@ export default async function NewPondPage() {
 
 			<AdminPageHeader title={t("title")} description={t("desc")} />
 
-			<CreatePondForm />
+			<CreatePondForm defaultFeedingRatePct={settings.defaultFeedingRatePct} />
 		</div>
 	);
 }

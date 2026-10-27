@@ -135,13 +135,15 @@ describe("/superadmin/users layout (T-09c)", () => {
 		listMock.mockResolvedValue({ rows, total: 120, page: 2, pageSize: 50 });
 		const html = renderToStaticMarkup(await page({ q: "juan", page: "2" }));
 
-		expect(html).toContain("Page 2 of 3");
+		expect(html).toContain("Showing 51–100 of 120");
 		expect(html).toContain("/superadmin/users?q=juan&amp;page=3");
 		expect(html).toContain("/superadmin/users?q=juan");
 	});
 
-	it("hides the pager when everything fits on one page", async () => {
+	it("renders the numbered pager with a summary even when everything fits on one page", async () => {
 		const html = renderToStaticMarkup(await page());
-		expect(html).not.toContain("Page 1 of");
+		expect(html).toContain('aria-label="Pagination"');
+		expect(html).toContain("Showing 1–2 of 2");
+		expect(html).not.toContain("page=2");
 	});
 });

@@ -43,6 +43,7 @@ export function RotateDeviceToken({ deviceId, mac }: { deviceId: string; mac: st
 					setReason("");
 					setError(null);
 				}}
+				data-help="superadmin-rotate-token"
 				aria-label={t("aria", { mac })}
 				className={SECONDARY_BUTTON}
 			>

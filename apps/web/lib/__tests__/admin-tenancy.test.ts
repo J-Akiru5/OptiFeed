@@ -124,7 +124,7 @@ beforeEach(() => {
 
 describe("tenant reads stay inside the caller's organization", () => {
 	it("getUsers returns org A members only and hides platform admins", async () => {
-		const users = await expectNoCrossOrgAccess(() => getUsers());
+		const { rows: users } = await expectNoCrossOrgAccess(() => getUsers());
 
 		expect(users.map((user) => user.id).sort()).toEqual(
 			[ADMIN_A_ID, FARMER_A_ID, VIEWER_A_ID].sort(),
@@ -136,14 +136,14 @@ describe("tenant reads stay inside the caller's organization", () => {
 	});
 
 	it("getPonds returns only ponds owned by org A members", async () => {
-		const ponds = await expectNoCrossOrgAccess(() => getPonds());
+		const { rows: ponds } = await expectNoCrossOrgAccess(() => getPonds());
 
 		expect(ponds.map((pond) => pond.id).sort()).toEqual([POND_A_1, POND_A_2].sort());
 		expect(ponds.every((pond) => pond.ownerId === FARM_A)).toBe(true);
 	});
 
 	it("getDevices lists org A hardware without selecting a credential", async () => {
-		const devices = await expectNoCrossOrgAccess(() => getDevices());
+		const { rows: devices } = await expectNoCrossOrgAccess(() => getDevices());
 
 		expect(devices.map((device) => device.id).sort()).toEqual([DEVICE_A_1, DEVICE_A_2].sort());
 		for (const device of devices) {
@@ -179,7 +179,7 @@ describe("tenant reads stay inside the caller's organization", () => {
 	});
 
 	it("getAuditLog pages only org A device events", async () => {
-		const events = await expectNoCrossOrgAccess(() => getAuditLog());
+		const { rows: events } = await expectNoCrossOrgAccess(() => getAuditLog());
 
 		expect(events.map((event) => event.id)).toEqual([EVENT_A_2, EVENT_A_1]);
 		expect(events.every((event) => event.device?.mac !== "11:22:33:44:55:66")).toBe(true);

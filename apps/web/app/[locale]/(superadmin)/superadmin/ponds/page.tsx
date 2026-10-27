@@ -1,4 +1,4 @@
-import { ListPagination, ListToolbar } from "@/components/superadmin/list-chrome";
+import { ListToolbar } from "@/components/superadmin/list-chrome";
 import {
 	Badge,
 	type BadgeTone,
@@ -9,6 +9,9 @@ import {
 	SECONDARY_BUTTON,
 	TableFrame,
 } from "@/components/superadmin/ui";
+import { ItemCardGrid } from "@/components/ui/item-card";
+import { Pagination } from "@/components/ui/pagination";
+import { ListView } from "@/components/ui/view-toggle";
 import { Link, getPathname } from "@/i18n/routing";
 import { listAllPonds } from "@/lib/actions/superadmin";
 import { Droplets, Lock } from "lucide-react";
@@ -47,16 +50,13 @@ export default async function SuperadminPondsPage({
 		getTranslations("superadmin"),
 	]);
 	const pageCount = Math.max(1, Math.ceil(ponds.total / ponds.pageSize));
+	const firstRow = ponds.total === 0 ? 0 : (ponds.page - 1) * ponds.pageSize + 1;
+	const lastRow = Math.min(ponds.page * ponds.pageSize, ponds.total);
 
 	const statusLabel = (status: string) => {
 		const key = `pondStatuses.${status}`;
 		return tRoot.has(key) ? tRoot(key) : status;
 	};
-
-	const pageHref = (target: number) => ({
-		pathname: "/superadmin/ponds" as const,
-		query: { ...(query ? { q: query } : {}), page: String(target) },
-	});
 
 	return (
 		<div className="space-y-6">
@@ -95,8 +95,13 @@ export default async function SuperadminPondsPage({
 					/>
 				</Card>
 			) : (
-				<>
-					<ul className="space-y-3 md:hidden">
+				<ListView
+					pageKey="superadmin-ponds"
+					listLabel={tCommon("viewToggle.list")}
+					cardsLabel={tCommon("viewToggle.cards")}
+					toggleLabel={tCommon("viewToggle.label")}
+				>
+					<ItemCardGrid label={t("caption")}>
 						{ponds.rows.map((pond) => (
 							<MobileCard key={pond.id}>
 								<div className="flex items-start justify-between gap-3">
@@ -135,7 +140,7 @@ export default async function SuperadminPondsPage({
 								</div>
 							</MobileCard>
 						))}
-					</ul>
+					</ItemCardGrid>
 
 					<TableFrame
 						className="hidden md:block"
@@ -184,17 +189,22 @@ export default async function SuperadminPondsPage({
 							</tr>
 						))}
 					</TableFrame>
-				</>
+				</ListView>
 			)}
 
-			<ListPagination
-				label={t("pagerLabel")}
-				pageLabel={tCommon("pageOf", { page: ponds.page, count: pageCount })}
+			<Pagination
+				basePath="/superadmin/ponds"
+				params={{ q: query || undefined }}
+				page={ponds.page}
+				pageCount={pageCount}
+				showing={tCommon("pagination.showing", {
+					from: firstRow,
+					to: lastRow,
+					total: ponds.total,
+				})}
 				previousLabel={tCommon("previous")}
 				nextLabel={tCommon("next")}
-				pageCount={pageCount}
-				previousHref={ponds.page > 1 ? pageHref(ponds.page - 1) : null}
-				nextHref={ponds.page < pageCount ? pageHref(ponds.page + 1) : null}
+				label={tCommon("pagination.label")}
 			/>
 
 			<p className="text-[11px] text-[#3D5568]">{t("footer")}</p>

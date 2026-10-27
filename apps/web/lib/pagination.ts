@@ -4,9 +4,6 @@
  * Kept pure so they can be unit tested without a database or a request.
  */
 
-export const DEFAULT_PAGE_SIZE = 10;
-export const MAX_PAGE_SIZE = 50;
-
 export interface DateRange {
 	gte?: Date;
 	lt?: Date;
@@ -17,13 +14,6 @@ export function parsePage(value: string | null | undefined): number {
 	const parsed = Number.parseInt(value ?? "", 10);
 	if (!Number.isFinite(parsed) || parsed < 1) return 1;
 	return Math.min(parsed, 100_000);
-}
-
-/** Clamp a raw `pageSize` value; falls back to the default. */
-export function parsePageSize(value: string | null | undefined): number {
-	const parsed = Number.parseInt(value ?? "", 10);
-	if (!Number.isFinite(parsed) || parsed < 1) return DEFAULT_PAGE_SIZE;
-	return Math.min(parsed, MAX_PAGE_SIZE);
 }
 
 /** Parse a `YYYY-MM-DD` query value as UTC midnight. Returns null if invalid. */
@@ -72,6 +62,50 @@ export function resolveDateRange(
 export function getPageCount(total: number, pageSize: number): number {
 	if (pageSize <= 0) return 1;
 	return Math.max(1, Math.ceil(total / pageSize));
+}
+
+/** Clamp a requested page into the range that actually has rows. */
+export function clampPage(page: number, pageCount: number): number {
+	if (!Number.isFinite(page) || page < 1) return 1;
+	return Math.min(Math.floor(page), Math.max(1, pageCount));
+}
+
+export interface PaginationState {
+	/** The page after clamping, never outside 1…pageCount. */
+	page: number;
+	pageSize: number;
+	total: number;
+	pageCount: number;
+	/** 1-based index of the first row, or 0 for an empty list. */
+	firstRow: number;
+	/** 1-based index of the last row, or 0 for an empty list. */
+	lastRow: number;
+	/** Prisma `skip` value for this page. */
+	offset: number;
+}
+
+/**
+ * Resolve everything a paginated query and its pager need from a requested
+ * page, the configured page size and the total row count. Clamping here means
+ * a stale `?page=99` renders the last real page instead of an empty one.
+ */
+export function resolvePagination(page: number, pageSize: number, total: number): PaginationState {
+	const safeSize = Math.max(1, Math.floor(pageSize) || 1);
+	const safeTotal = Math.max(0, Math.floor(total) || 0);
+	const pageCount = getPageCount(safeTotal, safeSize);
+	const safePage = clampPage(page, pageCount);
+	const offset = (safePage - 1) * safeSize;
+	const firstRow = safeTotal === 0 ? 0 : offset + 1;
+	const lastRow = safeTotal === 0 ? 0 : Math.min(offset + safeSize, safeTotal);
+	return {
+		page: safePage,
+		pageSize: safeSize,
+		total: safeTotal,
+		pageCount,
+		firstRow,
+		lastRow,
+		offset,
+	};
 }
 
 export type PageItem = number | "ellipsis";

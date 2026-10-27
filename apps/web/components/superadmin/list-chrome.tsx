@@ -1,15 +1,12 @@
 import { SECONDARY_BUTTON } from "@/components/superadmin/ui";
-import { Link } from "@/i18n/routing";
-import { cn } from "@/lib/utils";
 import { Search } from "lucide-react";
-import type { ComponentProps, ReactNode } from "react";
-
-type Href = ComponentProps<typeof Link>["href"];
+import type { ReactNode } from "react";
 
 /**
  * List chrome shared by the platform console's paginated pages
- * (users, organizations, ponds, devices): one search form and one
- * previous/next bar, so the four pages look and behave the same.
+ * (users, organizations, ponds, devices): one search form, so the four pages
+ * look and behave the same. Numbered pagination itself is the shared
+ * `components/ui/pagination.tsx` used by every list in the product.
  *
  * `action` is the locale-aware URL from `getPathname`, resolved by the page.
  */
@@ -44,6 +41,7 @@ export function ListToolbar({
 						id={`${id}-search`}
 						name="q"
 						type="search"
+						data-help="superadmin-search"
 						defaultValue={query}
 						placeholder={placeholder}
 						autoComplete="off"
@@ -58,67 +56,5 @@ export function ListToolbar({
 			</search>
 			{children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
 		</div>
-	);
-}
-
-/**
- * Previous / next pager. Rendered outside the table card at every breakpoint,
- * so the mobile card list and the md+ table use the same control.
- * Pass `null` for a direction that is not available.
- */
-export function ListPagination({
-	label,
-	pageLabel,
-	previousLabel,
-	nextLabel,
-	pageCount,
-	previousHref,
-	nextHref,
-}: {
-	/** Accessible name for the nav landmark, e.g. "User pages". */
-	label: string;
-	/** Localized "Page N of M". */
-	pageLabel: string;
-	previousLabel: string;
-	nextLabel: string;
-	pageCount: number;
-	previousHref: Href | null;
-	nextHref: Href | null;
-}) {
-	if (pageCount <= 1) return null;
-
-	return (
-		<nav
-			aria-label={label}
-			className="flex flex-wrap items-center justify-between gap-3 text-xs font-black"
-		>
-			<span className="text-[#3D5568]">{pageLabel}</span>
-			<div className="flex items-center gap-2">
-				{previousHref ? (
-					<Link href={previousHref} rel="prev" className={cn(SECONDARY_BUTTON, "px-3 py-1.5")}>
-						<span aria-hidden="true">←</span> {previousLabel}
-					</Link>
-				) : (
-					<span
-						aria-hidden="true"
-						className="inline-flex items-center rounded-xl border border-gray-200 px-3 py-1.5 text-[#3D5568]/50"
-					>
-						← {previousLabel}
-					</span>
-				)}
-				{nextHref ? (
-					<Link href={nextHref} rel="next" className={cn(SECONDARY_BUTTON, "px-3 py-1.5")}>
-						{nextLabel} <span aria-hidden="true">→</span>
-					</Link>
-				) : (
-					<span
-						aria-hidden="true"
-						className="inline-flex items-center rounded-xl border border-gray-200 px-3 py-1.5 text-[#3D5568]/50"
-					>
-						{nextLabel} →
-					</span>
-				)}
-			</div>
-		</nav>
 	);
 }

@@ -42,6 +42,7 @@ export function FarmRenameForm({ initialName, canWrite = true }: FarmRenameFormP
 	return (
 		<form
 			action={handleSubmit}
+			data-help="settings-farm-name"
 			className="mt-4 space-y-3 border-t border-gray-100 pt-4 dark:border-gray-700/60"
 		>
 			{error && (

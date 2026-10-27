@@ -1,22 +1,35 @@
 import { LogSampleForm } from "@/components/LogSampleForm";
 import { DashboardEmptyState, DashboardPageHeader } from "@/components/dashboard/dashboard-ui";
+import { Pagination } from "@/components/ui/pagination";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
-import { summarizeBatches } from "@/lib/batch-summary";
+import { getBatchSummaryPage } from "@/lib/batch-logs";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import { parsePage } from "@/lib/pagination";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { getListPageSize } from "@/lib/settings/platform";
 import { ChevronRight, Scale } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0; // Ensure data is fresh
 
-export default async function LogSamplePage() {
-	const t = await getTranslations("dashboard.logSample");
-	const tSch = await getTranslations("dashboard.schedule");
-	const tDates = await getTranslations("dates");
-	const pond = await getActivePond();
+export default async function LogSamplePage({
+	searchParams,
+}: {
+	searchParams: Promise<{ page?: string }>;
+}) {
+	const params = await searchParams;
+	const page = parsePage(params.page);
+	const [t, tCommon, tSch, tDates, pond, pageSize] = await Promise.all([
+		getTranslations("dashboard.logSample"),
+		getTranslations("dashboard.common"),
+		getTranslations("dashboard.schedule"),
+		getTranslations("dates"),
+		getActivePond(),
+		getListPageSize(),
+	]);
 
 	if (!pond) {
 		return (
@@ -51,12 +64,10 @@ export default async function LogSamplePage() {
 	const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice?.id ?? null);
 	const writeAccess = await canWrite();
 
-	const logRows = await prisma.biomassLog.findMany({
-		where: { pondId: pond.id },
-		select: { batchLabel: true, sampleCount: true, sampleWeightKg: true, recordedAt: true },
-		orderBy: { recordedAt: "desc" },
-	});
-	const batches = summarizeBatches(logRows);
+	const logRows = await getBatchSummaryPage({ pondId: pond.id, page, pageSize });
+	const batches = logRows.rows;
+	const firstRow = logRows.total === 0 ? 0 : (logRows.page - 1) * logRows.pageSize + 1;
+	const lastRow = Math.min(logRows.page * logRows.pageSize, logRows.total);
 
 	return (
 		<div className="space-y-6 pb-20 animate-in fade-in duration-150 max-w-4xl">
@@ -73,6 +84,7 @@ export default async function LogSamplePage() {
 
 			<section
 				aria-label={t("formLabel")}
+				data-help="biomass-form"
 				className="bg-white dark:bg-gray-900 rounded-3xl p-4 shadow-sm border border-gray-100 dark:border-gray-700/50 sm:p-8"
 			>
 				<LogSampleForm
@@ -86,7 +98,7 @@ export default async function LogSamplePage() {
 				/>
 			</section>
 
-			<section aria-labelledby="saved-batches-heading" className="pt-4">
+			<section aria-labelledby="saved-batches-heading" data-help="biomass-batches" className="pt-4">
 				<h2
 					id="saved-batches-heading"
 					className="text-xl font-extrabold tracking-tight text-[var(--ofd-base-deep)] mb-4"
@@ -157,6 +169,22 @@ export default async function LogSamplePage() {
 							</li>
 						))}
 					</ul>
+				)}
+
+				{logRows.total > 0 && (
+					<Pagination
+						basePath="/dashboard/log-sample"
+						page={logRows.page}
+						pageCount={Math.max(1, Math.ceil(logRows.total / logRows.pageSize))}
+						showing={tCommon("pagination.showing", {
+							from: firstRow,
+							to: lastRow,
+							total: logRows.total,
+						})}
+						previousLabel={tCommon("pagination.previous")}
+						nextLabel={tCommon("pagination.next")}
+						label={tCommon("pagination.label")}
+					/>
 				)}
 			</section>
 		</div>

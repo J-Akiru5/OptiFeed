@@ -35,6 +35,7 @@ const DEVICE = {
 	mac: "A4:CF:12:7E:3B:09",
 	label: "Feeder A",
 	tokenHash: hashToken("test-token"),
+	approvalStatus: "APPROVED",
 };
 
 const SHA = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -141,6 +142,17 @@ describe("GET /api/firmware/check — auth and rate limit", () => {
 	it("requires both device_id and version", async () => {
 		expect((await GET(checkRequest({ deviceId: null }))).status).toBe(422);
 		expect((await GET(checkRequest({ version: null }))).status).toBe(422);
+	});
+
+	it("rejects a PENDING device with 403 (org approval policy)", async () => {
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			approvalStatus: "PENDING",
+		} as never);
+
+		const res = await GET(checkRequest());
+		expect(res.status).toBe(403);
+		expect(storage.download).not.toHaveBeenCalled();
 	});
 
 	it("returns 429 when the firmware check bucket is exhausted", async () => {

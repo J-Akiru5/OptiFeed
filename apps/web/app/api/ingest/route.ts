@@ -4,14 +4,16 @@ import {
 	HEARTBEAT_ROW_INTERVAL_MS,
 	OFFLINE_THRESHOLD_MS,
 	PELLET_ALERT_WINDOW_MS,
-	PELLET_CRITICAL_PCT,
-	PELLET_LOW_PCT,
 	RECONCILIATION_LOOKBACK_HOURS,
 } from "@/lib/constants";
-import { verifyDeviceToken } from "@/lib/device-auth";
+import { isDeviceApproved, verifyDeviceToken } from "@/lib/device-auth";
+import { normalizeNotificationPrefs } from "@/lib/limits";
 import { absoluteAppUrl, sendTelegramMessage } from "@/lib/notify/telegram";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
+import { recordMissedFeedingAlert } from "@/lib/settings/missed-feeding";
+import { ORG_SETTINGS_DEFAULTS, getOrgAlertRoles, getOrgSettingsForFarm } from "@/lib/settings/org";
+import { hopperAlertTier, shouldCreatePondAlert } from "@/lib/settings/org-alerts";
 import { Prisma } from "@prisma/client";
 import { after } from "next/server";
 import { z } from "zod";
@@ -22,6 +24,11 @@ export const dynamic = "force-dynamic";
 // (lib/constants.ts) — matches the dashboard's offline threshold.
 
 const RATE_LIMIT_MS = 1000;
+
+// Water temperature history is thinned: a new WaterTempLog row at most once per
+// device per 5 minutes, so heartbeats every second do not flood the table the
+// dashboard chart reads (I-06b).
+const WATER_TEMP_LOG_INTERVAL_MS = 5 * 60 * 1000;
 
 // OTA diagnostics are additive heartbeat fields (firmware 1.4.0+, T-12b). They
 // are free-text strings rather than enums so a newer firmware reporting a new
@@ -133,6 +140,12 @@ export const POST = withApi(
 
 		if (baseParsed.data.device_id !== device.mac) {
 			return new Response("Unauthorized", { status: 401 });
+		}
+
+		// Org registration policy: a pending or rejected unit is not allowed to
+		// send telemetry or consume commands until an admin approves it.
+		if (!isDeviceApproved(device)) {
+			return new Response("Forbidden", { status: 403 });
 		}
 
 		if (device.lastSeenAt && Date.now() - device.lastSeenAt.getTime() < RATE_LIMIT_MS) {
@@ -282,6 +295,33 @@ export const POST = withApi(
 						}),
 					);
 
+					// Org policy (issue #190): the pond's personal prefs and the
+					// owning org's settings decide the warning threshold and whether
+					// an alert is created. With no resolvable pond/org the schema
+					// defaults and every role apply, matching legacy behaviour.
+					const pondContext = device.pondId
+						? await prisma.pond.findUnique({
+								where: { id: device.pondId },
+								select: { feedsPerDay: true, ownerId: true, notificationPrefs: true },
+							})
+						: null;
+					const orgContext = pondContext ? await getOrgSettingsForFarm(pondContext.ownerId) : null;
+					const feedSettings = orgContext?.settings ?? ORG_SETTINGS_DEFAULTS;
+					const feedPrefs = normalizeNotificationPrefs(pondContext?.notificationPrefs);
+
+					// Resolved lazily: a healthy hopper costs no membership query.
+					let alertRoles: Awaited<ReturnType<typeof getOrgAlertRoles>> | null = null;
+					const hopperAlertsAllowed = async (): Promise<boolean> => {
+						if (!device.pondId) return false;
+						alertRoles ??= await getOrgAlertRoles(orgContext?.orgId ?? null);
+						return shouldCreatePondAlert({
+							settings: feedSettings,
+							category: "hopper_low",
+							prefs: feedPrefs,
+							roles: alertRoles,
+						});
+					};
+
 					// Log to FeedLevelLog sparingly — every 30min or >5% delta
 					const lastLog = await prisma.feedLevelLog.findFirst({
 						where: { deviceId: device.id },
@@ -307,9 +347,8 @@ export const POST = withApi(
 					// once per 6h while still low. Gate uses the most recent
 					// unacknowledged pellet notification for this pond (if any).
 					const pelletLevel = parsed.data.feed_level_percent;
-					let pelletTier: "WARNING" | "CRITICAL" | null = null;
-					if (pelletLevel <= PELLET_CRITICAL_PCT) pelletTier = "CRITICAL";
-					else if (pelletLevel <= PELLET_LOW_PCT) pelletTier = "WARNING";
+					const pelletTier = hopperAlertTier(pelletLevel, feedSettings.hopperLowPct);
+					const pelletAlertAllowed = pelletTier ? await hopperAlertsAllowed() : false;
 
 					let recentPelletAlert: { tier: string; createdAt: Date } | null = null;
 					if (pelletTier && device.pondId) {
@@ -327,7 +366,12 @@ export const POST = withApi(
 						return recentPelletAlert.tier !== tier || !withinWindow;
 					};
 
-					if (pelletTier && device.pondId && shouldFirePelletAlert(pelletTier)) {
+					if (
+						pelletTier &&
+						device.pondId &&
+						pelletAlertAllowed &&
+						shouldFirePelletAlert(pelletTier)
+					) {
 						if (pelletTier === "CRITICAL") {
 							pelletCriticalAlert = true;
 							operations.push(
@@ -371,19 +415,16 @@ export const POST = withApi(
 							where: { id: device.id },
 							select: { hopperCapacityG: true, gramsPerFeeding: true },
 						});
-						const pond = await prisma.pond.findUnique({
-							where: { id: device.pondId },
-							select: { feedsPerDay: true },
-						});
-						if (deviceFull?.hopperCapacityG && deviceFull.gramsPerFeeding && pond) {
-							const dailyConsumptionG = deviceFull.gramsPerFeeding * pond.feedsPerDay;
+						if (deviceFull?.hopperCapacityG && deviceFull.gramsPerFeeding && pondContext) {
+							const dailyConsumptionG = deviceFull.gramsPerFeeding * pondContext.feedsPerDay;
 							const remainingG =
 								deviceFull.hopperCapacityG * (parsed.data.feed_level_percent / 100);
 							const daysRemaining = dailyConsumptionG > 0 ? remainingG / dailyConsumptionG : 99;
 							if (
 								daysRemaining <= FEED_DAYS_WARNING &&
 								daysRemaining > 0 &&
-								shouldFirePelletAlert("WARNING")
+								shouldFirePelletAlert("WARNING") &&
+								(await hopperAlertsAllowed())
 							) {
 								operations.push(
 									prisma.notification.create({
@@ -400,11 +441,11 @@ export const POST = withApi(
 						}
 					}
 
-					// Detect hopper refill: previously low level is now above threshold
+					// Detect hopper refill: previously low level is now above the org threshold
 					if (
 						lastLog &&
-						lastLog.levelPercent <= PELLET_LOW_PCT &&
-						parsed.data.feed_level_percent > PELLET_LOW_PCT
+						lastLog.levelPercent <= feedSettings.hopperLowPct &&
+						parsed.data.feed_level_percent > feedSettings.hopperLowPct
 					) {
 						operations.push(
 							prisma.deviceStateEvent.create({
@@ -435,6 +476,37 @@ export const POST = withApi(
 							},
 						}),
 					);
+
+					// Also keep the history the dashboard chart reads. Throttled to one
+					// row per device per 5 minutes; a rejected/absent probe writes nothing.
+					const lastTempLog = await prisma.waterTempLog.findFirst({
+						where: { deviceId: device.id },
+						orderBy: { recordedAt: "desc" },
+						select: { recordedAt: true },
+					});
+					const tempLogDue =
+						!lastTempLog ||
+						Date.now() - lastTempLog.recordedAt.getTime() >= WATER_TEMP_LOG_INTERVAL_MS;
+					if (tempLogDue) {
+						// Ownership stamp, same convention as FeedLevelLog.farmId: the
+						// device has no farm of its own, so read it from its pond (at most
+						// once per 5 minutes, only when the row is due).
+						const pondFarm = device.pondId
+							? await prisma.pond.findUnique({
+									where: { id: device.pondId },
+									select: { farmId: true },
+								})
+							: null;
+						operations.push(
+							prisma.waterTempLog.create({
+								data: {
+									deviceId: device.id,
+									tempC: parsed.data.water_temp_c,
+									farmId: pondFarm?.farmId ?? null,
+								},
+							}),
+						);
+					}
 				} else {
 					// Probe undetected (or field omitted) — flag offline without overwriting
 					// the last real reading with the -127 disconnect sentinel.
@@ -768,6 +840,28 @@ export const POST = withApi(
 						},
 					}),
 				]);
+
+				// A scheduled dose the firmware refused is a missed feeding. The
+				// org's missed-feeding policy, the pond's prefs and the alert roles
+				// decide whether anything is sent (issue #190); ReminderLog dedupes it
+				// to one per device per day. Never fail the device response over it.
+				if (parsed.data.source === "scheduled") {
+					try {
+						await recordMissedFeedingAlert({
+							deviceId: device.id,
+							deviceLabel: device.label,
+							pondId: device.pondId,
+							grams: parsed.data.grams,
+							reason: parsed.data.reason,
+							timestamp: parsed.data.timestamp,
+						});
+					} catch (alertError) {
+						console.warn(
+							"[ingest] missed-feeding alert failed",
+							alertError instanceof Error ? alertError.message : String(alertError),
+						);
+					}
+				}
 			} catch (error) {
 				if (isUniqueConstraintError(error)) {
 					return new Response(null, { status: 204 });

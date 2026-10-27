@@ -32,3 +32,12 @@ export async function verifyDeviceToken(token: string) {
 	}
 	return device;
 }
+
+/**
+ * Org device-registration policy (issue #190): a PENDING or REJECTED device is
+ * authenticated as a row but gets no data or commands. The device routes answer
+ * 403 for these, which is distinct from the 401 an unknown token receives.
+ */
+export function isDeviceApproved(device: { approvalStatus?: string | null }): boolean {
+	return device.approvalStatus === "APPROVED";
+}

@@ -9,6 +9,20 @@ function todayTime(d: Date): string {
 	return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
+function driftLabel(drift: ChatContext["calibrationDrift"]): string {
+	if (drift.status === "insufficient_data") {
+		return "Not enough feed and hopper readings to compare — do not speculate about drift";
+	}
+	const diff =
+		drift.diffPct === null
+			? "unknown"
+			: `${drift.diffPct >= 0 ? "+" : ""}${drift.diffPct.toFixed(1)}%`;
+	const base = `dispensed ${drift.dispensedG}g vs hopper drop ${drift.observedG}g (${diff})`;
+	return drift.status === "drift"
+		? `${base} — outside the 15% tolerance; suggest re-running the calibration target check`
+		: `${base} — within the 15% tolerance`;
+}
+
 export function buildSystemPrompt(ctx: ChatContext | null, locale: string): string {
 	const lang = locale === "hil" ? "Hiligaynon (Ilonggo)" : "English";
 
@@ -41,6 +55,7 @@ CURRENT POND DATA:
 					: "No active target plan"
 			}
 - Current grams per feeding (device): ${ctx.currentGramsPerFeeding !== null ? `${ctx.currentGramsPerFeeding}g` : "No data"}
+- Calibration drift (last 7 days): ${driftLabel(ctx.calibrationDrift)}
 - AI predicted grams per feeding: ${ctx.predictedFeedGrams !== null ? `${ctx.predictedFeedGrams}g` : "No prediction available"}${ctx.predictedFeedReasoning ? `\n  Reasoning: ${ctx.predictedFeedReasoning}` : ""}
 - Feedings dispensed today: ${ctx.feedingsToday}
 - Last dispense today: ${ctx.lastDispensedAt ? todayTime(ctx.lastDispensedAt) : "None yet"}

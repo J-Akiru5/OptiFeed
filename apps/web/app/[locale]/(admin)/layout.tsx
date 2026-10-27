@@ -1,9 +1,11 @@
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { AdminSidebar } from "@/components/admin-sidebar";
+import { HelpButton } from "@/components/help/help-button";
 import { Link } from "@/i18n/routing";
 import { requirePasswordChanged } from "@/lib/auth/session";
 import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
+import { isFeatureEnabled } from "@/lib/settings/flags";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
 
@@ -15,6 +17,7 @@ export default async function AdminLayout({
 	await requirePasswordChanged();
 	await requireTenantAdmin();
 	const t = await getTranslations("dashboard.adminShell");
+	const helpEnabled = await isFeatureEnabled("help.centre");
 
 	return (
 		<div className="flex min-h-screen flex-col bg-[#F4F7F6] dark:bg-gray-950">
@@ -48,6 +51,7 @@ export default async function AdminLayout({
 				</div>
 
 				<div className="flex shrink-0 items-center gap-3">
+					{helpEnabled && <HelpButton audience="owner" />}
 					<Link
 						href="/dashboard"
 						className="rounded-lg px-2 py-1 text-sm font-bold text-white/80 transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"

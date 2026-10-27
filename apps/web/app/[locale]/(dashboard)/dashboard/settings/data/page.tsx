@@ -19,7 +19,7 @@ export default async function DataSettingsPage() {
 	const writeAccess = await canWrite();
 
 	return (
-		<div className="mx-auto max-w-4xl space-y-6 pb-20">
+		<div className="w-full space-y-6 pb-20">
 			<div>
 				<Link
 					href="/dashboard/settings"

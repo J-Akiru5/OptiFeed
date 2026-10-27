@@ -379,8 +379,14 @@ describe("harvestInputSchema", () => {
 });
 
 describe("manual pond event schemas", () => {
-	it("accepts maintenance and other manual events", () => {
-		expect(manualEventTypes).toEqual(["MAINTENANCE", "OTHER"]);
+	it("accepts every calendar item type", () => {
+		expect(manualEventTypes).toEqual([
+			"MAINTENANCE",
+			"SAMPLING",
+			"HARVEST_PLANNED",
+			"STOCKING",
+			"OTHER",
+		]);
 		for (const type of manualEventTypes) {
 			const result = pondEventInputSchema.safeParse({
 				pondId: "pond-1",
@@ -393,16 +399,110 @@ describe("manual pond event schemas", () => {
 		}
 	});
 
-	it("rejects cycle-owned event types", () => {
+	it("rejects an unknown item type", () => {
 		const result = pondEventInputSchema.safeParse({
 			pondId: "pond-1",
-			type: "STOCKING",
-			title: "Stocked",
+			type: "FEEDING",
+			title: "Not a pond item",
 			startsAt: todayDateOnly(),
 		});
 		expect(result.success).toBe(false);
 		if (result.success) return;
 		expect(result.error.issues.some((issue) => issue.path.join(".") === "type")).toBe(true);
+	});
+
+	it("defaults to an all-day Event", () => {
+		const result = pondEventInputSchema.safeParse({
+			pondId: "pond-1",
+			type: "MAINTENANCE",
+			title: "Clean the aerator",
+			startsAt: todayDateOnly(),
+		});
+		expect(result.success).toBe(true);
+		if (!result.success) return;
+		expect(result.data.kind).toBe("EVENT");
+		expect(result.data.allDay).toBe(true);
+		expect(result.data.recurrence).toBeUndefined();
+		expect(result.data.reminderMinutes).toBeUndefined();
+	});
+
+	it("requires a date for an all-day item and a time for a timed item", () => {
+		const allDayWithTime = pondEventInputSchema.safeParse({
+			pondId: "pond-1",
+			type: "MAINTENANCE",
+			title: "Service",
+			allDay: true,
+			startsAt: `${todayDateOnly()}T09:00`,
+		});
+		expect(allDayWithTime.success).toBe(false);
+
+		const timedWithoutTime = pondEventInputSchema.safeParse({
+			pondId: "pond-1",
+			type: "MAINTENANCE",
+			title: "Service",
+			allDay: false,
+			startsAt: todayDateOnly(),
+		});
+		expect(timedWithoutTime.success).toBe(false);
+
+		expect(
+			pondEventInputSchema.safeParse({
+				pondId: "pond-1",
+				type: "MAINTENANCE",
+				title: "Service",
+				allDay: false,
+				startsAt: `${todayDateOnly()}T09:00`,
+				endsAt: `${todayDateOnly()}T10:30`,
+			}).success,
+		).toBe(true);
+	});
+
+	it("rejects an end before the start and a repeat end before the first occurrence", () => {
+		const badEnd = pondEventInputSchema.safeParse({
+			pondId: "pond-1",
+			type: "MAINTENANCE",
+			title: "Service",
+			allDay: false,
+			startsAt: `${todayDateOnly()}T12:00`,
+			endsAt: `${todayDateOnly()}T10:00`,
+		});
+		expect(badEnd.success).toBe(false);
+
+		const badUntil = pondEventInputSchema.safeParse({
+			pondId: "pond-1",
+			type: "MAINTENANCE",
+			title: "Service",
+			startsAt: addDays(todayDateOnly(), 5),
+			recurrence: { freq: "WEEKLY", interval: 1, until: addDays(todayDateOnly(), 1) },
+		});
+		expect(badUntil.success).toBe(false);
+		if (!badUntil.success) {
+			expect(
+				badUntil.error.issues.some((issue) => issue.path.join(".") === "recurrence.until"),
+			).toBe(true);
+		}
+	});
+
+	it("deduplicates and sorts reminder minutes and rejects unsupported values", () => {
+		const result = pondEventInputSchema.safeParse({
+			pondId: "pond-1",
+			type: "MAINTENANCE",
+			title: "Service",
+			startsAt: todayDateOnly(),
+			reminderMinutes: [1440, 60, 1440],
+		});
+		expect(result.success).toBe(true);
+		if (result.success) expect(result.data.reminderMinutes).toEqual([60, 1440]);
+
+		expect(
+			pondEventInputSchema.safeParse({
+				pondId: "pond-1",
+				type: "MAINTENANCE",
+				title: "Service",
+				startsAt: todayDateOnly(),
+				reminderMinutes: [30],
+			}).success,
+		).toBe(false);
 	});
 
 	it("enforces the title length after trimming", () => {

@@ -27,6 +27,13 @@ export const CALIBRATION_TEST_SECONDS_MAX = 30;
 export const CALIBRATION_TEST_GRAMS_MAX = 1000;
 export const CALIBRATION_ACTUAL_GRAMS_MAX = 2000;
 
+// Target check (issue #191): dispense an exact target, weigh it, and correct
+// grams per second from the error. The target bounds match the dashboard Feed
+// Now cap; ±5% is the acceptance window.
+export const TARGET_CHECK_GRAMS_MIN = 5;
+export const TARGET_CHECK_GRAMS_MAX = 500;
+export const TARGET_CHECK_TOLERANCE_PCT = 5;
+
 export { OFFLINE_THRESHOLD_MS } from "./constants";
 
 export const feedingRatePctSchema = z
@@ -87,8 +94,8 @@ export const biomassLogSchema = z.object({
 		.number("Sample length must be a number")
 		.refine((v) => v >= 0, "Sample length must be 0 or greater"),
 	batchLabel: z
-		.string("Batch label must be a text value")
-		.max(64, "Batch label must be 64 characters or fewer")
+		.string("Sampling batch label must be a text value")
+		.max(64, "Sampling batch label must be 64 characters or fewer")
 		.nullish(),
 });
 
@@ -158,15 +165,30 @@ export function formatZodError(error: z.ZodError): string {
 	return field ? `${field}: ${issue.message}` : issue.message;
 }
 
-export function dailyFeedCapG(hopperCapacityG: number | null | undefined): number {
+/**
+ * The daily feed allowance for one device.
+ *
+ * `dailyCapFactor` is the platform safety setting: it may only lower the
+ * hard-coded maximum (1 = unchanged, 0.5 = half). The factor is clamped again
+ * here so a caller that forgets to read the setting still cannot raise the cap.
+ */
+export function dailyFeedCapG(
+	hopperCapacityG: number | null | undefined,
+	dailyCapFactor = 1,
+): number {
+	const factor =
+		typeof dailyCapFactor === "number" && Number.isFinite(dailyCapFactor)
+			? Math.min(Math.max(dailyCapFactor, 0), 1)
+			: 1;
+	const hardCap = MAX_FEED_GRAMS_PER_DAY_PER_DEVICE * factor;
 	if (
 		typeof hopperCapacityG === "number" &&
 		Number.isFinite(hopperCapacityG) &&
 		hopperCapacityG > 0
 	) {
-		return Math.min(MAX_FEED_GRAMS_PER_DAY_PER_DEVICE, hopperCapacityG);
+		return Math.min(hardCap, hopperCapacityG);
 	}
-	return MAX_FEED_GRAMS_PER_DAY_PER_DEVICE;
+	return hardCap;
 }
 
 export function clamp(value: number, min: number, max: number): number {

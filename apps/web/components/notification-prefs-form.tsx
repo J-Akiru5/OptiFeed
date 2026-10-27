@@ -77,7 +77,12 @@ export function NotificationPrefsForm({
 	];
 
 	return (
-		<DashboardSection title={t("notifications")} description={t("notificationsDesc")} icon={Bell}>
+		<DashboardSection
+			title={t("notifications")}
+			description={t("notificationsDesc")}
+			icon={Bell}
+			data-help="notification-prefs"
+		>
 			<div className="space-y-1">
 				{toggles.map((toggle) => (
 					<label

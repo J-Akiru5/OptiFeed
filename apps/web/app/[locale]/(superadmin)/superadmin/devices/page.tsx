@@ -1,4 +1,5 @@
-import { ListPagination, ListToolbar } from "@/components/superadmin/list-chrome";
+import { FeedLevelDisplay } from "@/components/feed-level-display";
+import { ListToolbar } from "@/components/superadmin/list-chrome";
 import { RegisterDeviceForm } from "@/components/superadmin/register-device-form";
 import { RemoteFeederControl } from "@/components/superadmin/remote-feeder-control";
 import { RotateDeviceToken } from "@/components/superadmin/rotate-device-token";
@@ -12,10 +13,14 @@ import {
 	SECONDARY_BUTTON,
 	TableFrame,
 } from "@/components/superadmin/ui";
+import { ItemCardGrid } from "@/components/ui/item-card";
+import { Pagination } from "@/components/ui/pagination";
+import { ListView } from "@/components/ui/view-toggle";
 import { Link, getPathname } from "@/i18n/routing";
 import { getOrgPondOptions, listPlatformDevices } from "@/lib/actions/platform/devices";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import prisma from "@/lib/prisma";
 import { Cpu, Printer, Wifi, WifiOff } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 
@@ -52,13 +57,27 @@ export default async function SuperadminDevicesPage({
 		getTranslations("dates"),
 	]);
 	const pageCount = Math.max(1, Math.ceil(devices.total / devices.pageSize));
+	const firstRow = devices.total === 0 ? 0 : (devices.page - 1) * devices.pageSize + 1;
+	const lastRow = Math.min(devices.page * devices.pageSize, devices.total);
 	const now = Date.now();
 	const hasRows = devices.rows.length > 0;
 
-	const pageHref = (target: number) => ({
-		pathname: "/superadmin/devices" as const,
-		query: { ...(query ? { q: query } : {}), page: String(target) },
-	});
+	// The allow-listed platform list select does not carry the hopper reading,
+	// and this task must not change lib/actions. Read only those fields for the
+	// devices on this page.
+	const readings =
+		devices.rows.length > 0
+			? await prisma.energyDevice.findMany({
+					where: { id: { in: devices.rows.map((device) => device.id) } },
+					select: { id: true, feedLevelPercent: true, feedLevelUpdatedAt: true },
+				})
+			: [];
+	const feedLevelById = new Map(
+		readings.map((row) => [
+			row.id,
+			{ levelPercent: row.feedLevelPercent, updatedAt: row.feedLevelUpdatedAt },
+		]),
+	);
 
 	const lastSeen = (value: Date | null) =>
 		value ? formatDateTimeLocal(value, tDates).full : tCommon("never");
@@ -105,8 +124,13 @@ export default async function SuperadminDevicesPage({
 					/>
 				</Card>
 			) : (
-				<>
-					<ul className="space-y-3 md:hidden">
+				<ListView
+					pageKey="superadmin-devices"
+					listLabel={tCommon("viewToggle.list")}
+					cardsLabel={tCommon("viewToggle.cards")}
+					toggleLabel={tCommon("viewToggle.label")}
+				>
+					<ItemCardGrid label={t("caption")}>
 						{devices.rows.map((device) => {
 							const offline =
 								!device.lastSeenAt || now - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
@@ -143,6 +167,14 @@ export default async function SuperadminDevicesPage({
 										<MetaPair label={tCommon("pond")}>
 											{device.pond?.name ?? tCommon("unassigned")}
 										</MetaPair>
+										<MetaPair label={t("columnFeedLevel")}>
+											<FeedLevelDisplay
+												levelPercent={feedLevelById.get(device.id)?.levelPercent ?? null}
+												updatedAt={feedLevelById.get(device.id)?.updatedAt ?? null}
+												isOffline={offline}
+												size="sm"
+											/>
+										</MetaPair>
 									</dl>
 									<p className="text-[11px] text-[#3D5568]">
 										{t("lastSeen", { time: lastSeen(device.lastSeenAt) })}
@@ -151,6 +183,7 @@ export default async function SuperadminDevicesPage({
 									<div className="flex flex-col items-start gap-2">
 										<Link
 											href={{ pathname: LABELS_HREF, query: { id: device.id } }}
+											data-help="superadmin-print-sticker"
 											className={SECONDARY_BUTTON}
 										>
 											<Printer className="h-3.5 w-3.5" aria-hidden="true" />
@@ -166,7 +199,7 @@ export default async function SuperadminDevicesPage({
 								</MobileCard>
 							);
 						})}
-					</ul>
+					</ItemCardGrid>
 
 					<TableFrame
 						className="hidden md:block"
@@ -178,6 +211,7 @@ export default async function SuperadminDevicesPage({
 							{ key: "mac", label: t("columnMac") },
 							{ key: "org", label: t("columnOrg") },
 							{ key: "pond", label: t("columnPond") },
+							{ key: "feed", label: t("columnFeedLevel") },
 							{ key: "seen", label: t("columnSeen") },
 							{ key: "actions", label: t("columnActions") },
 						]}
@@ -220,6 +254,14 @@ export default async function SuperadminDevicesPage({
 										{device.pond?.name ?? tCommon("unassigned")}
 									</td>
 									<td className="px-6 py-4">
+										<FeedLevelDisplay
+											levelPercent={feedLevelById.get(device.id)?.levelPercent ?? null}
+											updatedAt={feedLevelById.get(device.id)?.updatedAt ?? null}
+											isOffline={offline}
+											size="sm"
+										/>
+									</td>
+									<td className="px-6 py-4">
 										<div className="space-y-1">
 											<Badge tone={offline ? "danger" : "success"} icon={offline ? WifiOff : Wifi}>
 												{offline ? tCommon("offline") : tCommon("online")}
@@ -231,6 +273,7 @@ export default async function SuperadminDevicesPage({
 										<div className="flex flex-col items-start gap-2">
 											<Link
 												href={{ pathname: LABELS_HREF, query: { id: device.id } }}
+												data-help="superadmin-print-sticker"
 												className={SECONDARY_BUTTON}
 											>
 												<Printer className="h-3.5 w-3.5" aria-hidden="true" />
@@ -248,17 +291,22 @@ export default async function SuperadminDevicesPage({
 							);
 						})}
 					</TableFrame>
-				</>
+				</ListView>
 			)}
 
-			<ListPagination
-				label={t("pagerLabel")}
-				pageLabel={tCommon("pageOf", { page: devices.page, count: pageCount })}
+			<Pagination
+				basePath="/superadmin/devices"
+				params={{ q: query || undefined }}
+				page={devices.page}
+				pageCount={pageCount}
+				showing={tCommon("pagination.showing", {
+					from: firstRow,
+					to: lastRow,
+					total: devices.total,
+				})}
 				previousLabel={tCommon("previous")}
 				nextLabel={tCommon("next")}
-				pageCount={pageCount}
-				previousHref={devices.page > 1 ? pageHref(devices.page - 1) : null}
-				nextHref={devices.page < pageCount ? pageHref(devices.page + 1) : null}
+				label={tCommon("pagination.label")}
 			/>
 		</div>
 	);

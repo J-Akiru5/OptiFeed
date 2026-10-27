@@ -1,5 +1,5 @@
 import { withApi } from "@/lib/api/instrumentation";
-import { verifyDeviceToken } from "@/lib/device-auth";
+import { isDeviceApproved, verifyDeviceToken } from "@/lib/device-auth";
 import {
 	createReleaseDownloadUrl,
 	noUpdateResponse,
@@ -50,6 +50,10 @@ export const GET = withApi(
 		const device = await verifyDeviceToken(token);
 		if (!device || device.mac !== deviceId) {
 			return new Response("Unauthorized", { status: 401 });
+		}
+
+		if (!isDeviceApproved(device)) {
+			return new Response("Forbidden", { status: 403 });
 		}
 
 		const channel = await readStableChannel();

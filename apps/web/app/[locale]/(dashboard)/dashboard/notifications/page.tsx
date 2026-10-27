@@ -4,10 +4,13 @@ import {
 	DashboardPageHeader,
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
+import { Pagination } from "@/components/ui/pagination";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
+import { parsePage, resolvePagination } from "@/lib/pagination";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import { getListPageSize } from "@/lib/settings/platform";
 import { Bell } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -16,14 +19,16 @@ export const revalidate = 0;
 export default async function NotificationsPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ tier?: string; category?: string }>;
+	searchParams: Promise<{ tier?: string; category?: string; page?: string }>;
 }) {
-	const [t, tCommon, writeAccess] = await Promise.all([
+	const [t, tCommon, writeAccess, pageSize] = await Promise.all([
 		getTranslations("dashboard.notifications"),
 		getTranslations("dashboard.common"),
 		canWrite(),
+		getListPageSize(),
 	]);
 	const params = await searchParams;
+	const page = parsePage(params.page);
 	const pond = await getActivePond();
 
 	if (!pond) {
@@ -42,11 +47,27 @@ export default async function NotificationsPage({
 		where.category = params.category;
 	}
 
-	const notifications = await prisma.notification.findMany({
-		where,
-		orderBy: { createdAt: "desc" },
-		take: 100,
-	});
+	const [total, firstFetch] = await Promise.all([
+		prisma.notification.count({ where }),
+		prisma.notification.findMany({
+			where,
+			orderBy: { createdAt: "desc" },
+			skip: (page - 1) * pageSize,
+			take: pageSize,
+		}),
+	]);
+	const paging = resolvePagination(page, pageSize, total);
+	const notifications =
+		paging.page === page
+			? firstFetch
+			: await prisma.notification.findMany({
+					where,
+					orderBy: { createdAt: "desc" },
+					skip: paging.offset,
+					take: paging.pageSize,
+				});
+	const firstRow = total === 0 ? 0 : (paging.page - 1) * paging.pageSize + 1;
+	const lastRow = Math.min(paging.page * paging.pageSize, total);
 
 	const serialized = notifications.map((n) => ({
 		id: n.id,
@@ -104,7 +125,7 @@ export default async function NotificationsPage({
 					<DashboardPageHeader
 						icon={Bell}
 						title={t("title")}
-						description={t("count", { count: serialized.length })}
+						description={t("count", { count: total })}
 					/>
 				</div>
 
@@ -163,6 +184,26 @@ export default async function NotificationsPage({
 					pondId={pond.id}
 					canWrite={writeAccess}
 				/>
+
+				{total > 0 && (
+					<Pagination
+						basePath="/dashboard/notifications"
+						params={{
+							tier: params.tier && params.tier !== "all" ? params.tier : undefined,
+							category: params.category && params.category !== "all" ? params.category : undefined,
+						}}
+						page={paging.page}
+						pageCount={paging.pageCount}
+						showing={tCommon("pagination.showing", {
+							from: firstRow,
+							to: lastRow,
+							total,
+						})}
+						previousLabel={tCommon("pagination.previous")}
+						nextLabel={tCommon("pagination.next")}
+						label={tCommon("pagination.label")}
+					/>
+				)}
 			</section>
 		</div>
 	);

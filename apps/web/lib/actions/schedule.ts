@@ -5,8 +5,9 @@ import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { STALE_SENT_MS } from "@/lib/constants";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
 import { setSchedulePause } from "@/lib/feed/commands";
-import { MAX_DISPENSE_MS, dailyFeedCapG, formatZodError, scheduleInputSchema } from "@/lib/limits";
+import { dailyFeedCapG, formatZodError, scheduleInputSchema } from "@/lib/limits";
 import prisma from "@/lib/prisma";
+import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import { revalidatePath } from "next/cache";
 
 export async function toggleDevicePause(deviceId: string, isPaused: boolean) {
@@ -86,7 +87,8 @@ export async function updateScheduleCommand(
 			};
 		}
 
-		const dailyCapG = dailyFeedCapG(device.hopperCapacityG);
+		const limits = await getFeedingLimits();
+		const dailyCapG = dailyFeedCapG(device.hopperCapacityG, limits.dailyCapFactor);
 		const scheduledDailyG = input.feedsPerDay * device.gramsPerFeeding;
 		if (scheduledDailyG > dailyCapG) {
 			return {
@@ -97,11 +99,11 @@ export async function updateScheduleCommand(
 
 		if (
 			device.gramsPerSecond > 0 &&
-			device.gramsPerFeeding / device.gramsPerSecond > MAX_DISPENSE_MS / 1000
+			device.gramsPerFeeding / device.gramsPerSecond > limits.maxDispenseMs / 1000
 		) {
 			return {
 				success: false,
-				error: `Feed amount of ${device.gramsPerFeeding} g would take more than ${MAX_DISPENSE_MS / 1000} s of relay time at ${device.gramsPerSecond} g/s.`,
+				error: `Feed amount of ${device.gramsPerFeeding} g would take more than ${limits.maxDispenseMs / 1000} s of relay time at ${device.gramsPerSecond} g/s.`,
 			};
 		}
 

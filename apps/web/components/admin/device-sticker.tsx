@@ -1,10 +1,7 @@
+"use client";
+
 import "./device-sticker.css";
-import {
-	HARDWARE_RATING,
-	type HardwareRating,
-	maxPower,
-	powerUnit,
-} from "@/lib/constants/hardware-rating";
+import { LABEL_STICKER_RATING, type StickerRatingValues } from "@/lib/constants/sticker-rating";
 import {
 	QR_QUIET_ZONE,
 	SETUP_PORTAL_ADDRESS,
@@ -44,6 +41,11 @@ type Props = {
 	/** `EnergyDevice.mac` — shown as the Unit ID and used for the setup SSID. */
 	mac: string;
 	strings: DeviceStickerStrings;
+	/**
+	 * The numbers to print. Defaults to the label constants; the print page
+	 * passes the resolved rating (URL override or saved default).
+	 */
+	rating?: StickerRatingValues;
 };
 
 const LOGO_MARK = "/pakaonai-logo-kit/svg/pakaonai-mark-color-light.svg";
@@ -77,14 +79,13 @@ function withBold(template: string, token: string, value: string) {
  * device token or any other credential, and the QR payload is derived from the
  * MAC alone.
  */
-export function DeviceSticker({ mac, strings }: Props) {
+export function DeviceSticker({ mac, strings, rating = LABEL_STICKER_RATING }: Props) {
 	const ssid = provisioningApSsid(mac);
 	const qr = qrSvgData(wifiSetupPayload(ssid));
-	const rating: HardwareRating = HARDWARE_RATING;
-	const { inputVoltage, supplyType, maxCurrentA } = rating;
-	// "AC 60 Hz" for mains, plain "DC" otherwise.
-	const supplyLine =
-		rating.supplyType === "AC" ? `${supplyType} ${fmt(rating.frequencyHz)} Hz` : supplyType;
+	const inputVoltage = rating.voltageV;
+	const maxCurrentA = rating.currentA;
+	// The feeder runs from AC mains; the rating panel only offers 50/60 Hz.
+	const supplyLine = `AC ${fmt(rating.frequencyHz)} Hz`;
 
 	return (
 		<section className="pk-sticker" data-ssid={ssid}>
@@ -94,9 +95,7 @@ export function DeviceSticker({ mac, strings }: Props) {
 					<img alt="PakaonAI" src={LOGO_WORDMARK} />
 					<span className="pk-sub">{strings.subtitle}</span>
 				</div>
-				<span className="pk-tag">
-					{supplyType === "AC" ? strings.tagAc : strings.tag.replace("{type}", supplyType)}
-				</span>
+				<span className="pk-tag">{strings.tagAc}</span>
 			</div>
 			<div className="pk-body">
 				<div className="pk-left">
@@ -121,8 +120,8 @@ export function DeviceSticker({ mac, strings }: Props) {
 						<div className="pk-cell">
 							<span className="pk-k">{strings.power}</span>
 							<b>
-								{fmt(maxPower())}
-								<span className="pk-bu"> {powerUnit()}</span>
+								{fmt(rating.powerVA)}
+								<span className="pk-bu"> VA</span>
 							</b>
 							<span className="pk-u">{strings.max}</span>
 						</div>
@@ -163,7 +162,7 @@ export function DeviceSticker({ mac, strings }: Props) {
 				</div>
 			</div>
 			<div className="pk-ft">
-				<span>{strings.footerSupply.replace("{type}", supplyType)}</span>
+				<span>{strings.footerSupply.replace("{type}", "AC")}</span>
 				<i>•</i>
 				<span>{strings.footerUnplug}</span>
 				<i>•</i>

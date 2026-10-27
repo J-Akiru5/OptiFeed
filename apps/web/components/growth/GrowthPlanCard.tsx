@@ -34,7 +34,10 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 
 	if (plan.status === "noCycle") {
 		return (
-			<section className="rounded-[32px] border border-dashed border-[#0A3D62]/20 bg-white p-6 dark:border-white/10 dark:bg-gray-900">
+			<section
+				className="rounded-[32px] border border-dashed border-[#0A3D62]/20 bg-white p-6 dark:border-white/10 dark:bg-gray-900"
+				data-help="growth-plan"
+			>
 				<div className="flex items-start gap-3">
 					<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
 						<Target className="h-6 w-6" />
@@ -58,7 +61,10 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 
 	if (plan.status === "noTarget" || plan.status === "noWeight") {
 		return (
-			<section className="rounded-[32px] border border-dashed border-[#0A3D62]/20 bg-white p-6 dark:border-white/10 dark:bg-gray-900">
+			<section
+				className="rounded-[32px] border border-dashed border-[#0A3D62]/20 bg-white p-6 dark:border-white/10 dark:bg-gray-900"
+				data-help="growth-plan"
+			>
 				<div className="flex items-start gap-3">
 					<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
 						<Target className="h-6 w-6" />
@@ -137,7 +143,10 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 	};
 
 	return (
-		<section className="overflow-hidden rounded-[32px] border border-gray-100 bg-white shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
+		<section
+			className="overflow-hidden rounded-[32px] border border-gray-100 bg-white shadow-sm dark:border-gray-700/50 dark:bg-gray-900"
+			data-help="growth-plan"
+		>
 			<div className="border-b border-gray-100 bg-[#0A3D62] px-6 py-5 text-white dark:border-gray-700/50">
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 					<div className="flex items-start gap-3">

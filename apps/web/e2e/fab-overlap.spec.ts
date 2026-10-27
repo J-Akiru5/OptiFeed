@@ -25,7 +25,7 @@ function overlaps(
 }
 
 const chatFab = (page: Page) => page.locator('button[class*="ofd-fab-size"][aria-label*="chat" i]');
-const helpFab = (page: Page) => page.getByRole("button", { name: "Start onboarding tour" });
+const helpFab = (page: Page) => page.getByRole("button", { name: "Open help for this page" });
 const bottomNav = (page: Page) => page.locator('nav[class*="bottom-0"]');
 
 test.describe("FAB cluster layout (workbench L1: no overlap)", () => {

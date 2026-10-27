@@ -101,6 +101,7 @@ export default async function HarvestPage() {
 	const today = todayDateOnly();
 	const devices = (pond.energyDevices ?? []) as Array<{
 		feedLevelPercent: number | null;
+		feedLevelUpdatedAt: Date | null;
 		lastSeenAt: Date | null;
 	}>;
 	const latestDevice = devices.reduce<(typeof devices)[number] | null>(
@@ -110,7 +111,8 @@ export default async function HarvestPage() {
 				: latest,
 		null,
 	);
-	const hopperLevelPct = latestDevice?.feedLevelPercent ?? 0;
+	const hopperLevelPct = latestDevice?.feedLevelPercent ?? null;
+	const hopperFeedLevelUpdatedAt = latestDevice?.feedLevelUpdatedAt ?? null;
 	const hopperIsOffline =
 		!latestDevice?.lastSeenAt ||
 		Date.now() - latestDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
@@ -181,6 +183,7 @@ export default async function HarvestPage() {
 				canManage={canManage}
 				today={today}
 				hopperLevelPct={hopperLevelPct}
+				hopperFeedLevelUpdatedAt={hopperFeedLevelUpdatedAt?.toISOString() ?? null}
 				hopperIsOffline={hopperIsOffline}
 			/>
 		</>

@@ -354,6 +354,7 @@ model EnergyDevice {
   stateEvents      DeviceStateEvent[]
   scheduleCommands ScheduleCommand[]
   feedLevelLogs    FeedLevelLog[]
+  waterTempLogs    WaterTempLog[]
 }
 
 model FeedEvent {
@@ -726,4 +727,18 @@ model CalibrationRun {
 
   @@index([deviceId, createdAt])
   @@index([sessionId])
+}
+
+/// Water temperature history for the dashboard trend (issue #188), one row per
+/// accepted DS18B20 reading, written by the ingest route next to FeedLevelLog.
+model WaterTempLog {
+  id         String       @id @default(cuid())
+  deviceId   String
+  tempC      Float
+  recordedAt DateTime     @default(now())
+  farmId     String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
+  device     EnergyDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, recordedAt])
+  @@index([farmId])
 }

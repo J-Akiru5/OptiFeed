@@ -66,6 +66,25 @@ describe("setup AP naming matches the firmware", () => {
 		expect(firmware).toContain("[IDENTITY] not provisioned - API disabled");
 	});
 
+	it("gates every API caller on a provisioned identity", () => {
+		// Ingest, feed-command, schedule-sync and the OTA check must all be
+		// unreachable until the portal has stored both NVS keys.
+		for (const signature of [
+			"void sendTelemetry()",
+			"void pollDashboardFeedCommand()",
+			"void pollScheduleCommand()",
+			"void flushQueuedEvents()",
+			"void maybeCheckForUpdate()",
+		]) {
+			const start = firmware.indexOf(signature);
+			expect(start, `${signature} must exist`).toBeGreaterThan(-1);
+			const body = firmware.slice(start, firmware.indexOf("\n}\n", start));
+			expect(body, `${signature} must check apiIdentityAvailable()`).toContain(
+				"apiIdentityAvailable()",
+			);
+		}
+	});
+
 	it("prints the chip MAC at boot so it can be registered", () => {
 		expect(firmware).toMatch(
 			/Serial\.print\("\[DEVICE MAC\] "\);\s*Serial\.println\(chipMacString\(\)\);/,

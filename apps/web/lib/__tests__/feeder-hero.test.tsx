@@ -67,7 +67,7 @@ describe("FeederHero readings", () => {
 		renderHero();
 
 		expect(within(callouts()).getByText("82%")).toBeInTheDocument();
-		expect(within(callouts()).getByText("1,240 g")).toBeInTheDocument();
+		expect(within(callouts()).getByText("1.24 kg")).toBeInTheDocument();
 		expect(within(callouts()).getByText("2:00 PM")).toBeInTheDocument();
 		expect(within(callouts()).getByText("28.4 °C")).toBeInTheDocument();
 		expect(within(callouts()).getByText("v1.5.0")).toBeInTheDocument();

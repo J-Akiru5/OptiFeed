@@ -4,6 +4,7 @@ import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS, PH_TZ } from "@/lib/constants
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { totalBiomassG } from "@/lib/feed-calc";
+import { MACHINE_FEED_SOURCES } from "@/lib/feed-figures";
 import type { GrowthPlan } from "@/lib/growth-plan";
 import { loadGrowthPlanForPond } from "@/lib/growth-plan-loader";
 import { computeDeterministicPrediction } from "@/lib/prediction";
@@ -92,6 +93,9 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 					where: {
 						deviceId: energyDevice.id,
 						eventType: "feed_dispensed",
+						// "Feedings today" counts device feedings; an imported
+						// hand-fed daily total is one record, not a feeding slot.
+						source: { in: [...MACHINE_FEED_SOURCES] },
 						receivedAt: { gte: startOfToday },
 					},
 					orderBy: { receivedAt: "desc" },
@@ -131,6 +135,9 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 					where: {
 						deviceId: energyDevice.id,
 						eventType: "feed_dispensed",
+						// Drift is about what the device dispensed versus the hopper
+						// drop; imported hand-fed daily totals are not device output.
+						source: { in: [...MACHINE_FEED_SOURCES] },
 						receivedAt: { gte: driftWindowStart },
 					},
 					select: { grams: true, receivedAt: true },

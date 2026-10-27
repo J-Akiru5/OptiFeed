@@ -120,7 +120,8 @@ export interface HistoryEventSnapshot {
 
 export interface HistorySnapshotData {
 	pondName: string;
-	totalDispensedG: number;
+	/** Every source, current Asia/Manila day — never a sum of cached rows. */
+	todayDispensedG: number;
 	feedLevelPercent: number | null;
 	feedLevelUpdatedAt: string | null;
 	events: HistoryEventSnapshot[];

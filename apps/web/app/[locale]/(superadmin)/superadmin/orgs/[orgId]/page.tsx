@@ -1,4 +1,5 @@
 import { OrgMembersPanel } from "@/components/superadmin/org-members";
+import { OrgStatusControl } from "@/components/superadmin/org-status-control";
 import { Badge, type BadgeTone, Card } from "@/components/superadmin/ui";
 import { Link } from "@/i18n/routing";
 import { getOrgDetail } from "@/lib/actions/platform/members";
@@ -114,6 +115,8 @@ export default async function SuperadminOrgDetailPage({
 					</div>
 				</dl>
 			</div>
+
+			<OrgStatusControl orgId={org.id} orgName={org.name} status={org.status} />
 
 			<Card className="p-4 sm:p-6">
 				<OrgMembersPanel

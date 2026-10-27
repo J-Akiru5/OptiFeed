@@ -135,6 +135,10 @@
 		{
 			"path": "/api/v1/cron/jobs",
 			"reason": "Scheduled worker with its own bearer secret; invoked manually in the local flow."
+		},
+		{
+			"path": "/api/v1/chat/assistant",
+			"reason": "Streaming assistant turn for the signed-in user (withAuth); writes nothing itself, proposals become AssistantAction rows that run only on an explicit Accept. Covered by assistant-* tests."
 		}
 	]
 }

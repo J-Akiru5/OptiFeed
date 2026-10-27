@@ -1,8 +1,8 @@
 "use client";
 
-import { CheckCircle2, CircleAlert, Loader2, XCircle } from "lucide-react";
+import { CheckCircle2, CircleAlert, Clock, Loader2, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import type { ChatActionState } from "./chat-storage";
+import { type ChatActionState, isChatActionExpired } from "./chat-storage";
 
 interface ChatActionCardProps {
 	action: ChatActionState;
@@ -11,9 +11,20 @@ interface ChatActionCardProps {
 	onCancel: () => void;
 }
 
+/**
+ * One assistant proposal (issue #194).
+ *
+ * The card is a review surface only: it shows the server-built summary and
+ * fields, and Accept calls `acceptAssistantAction` with the stored row id. The
+ * payload never travels back from the browser, so a tampered card cannot
+ * change what runs.
+ */
 export function ChatActionCard({ action, disabled, onConfirm, onCancel }: ChatActionCardProps) {
 	const t = useTranslations("chat");
-	const pending = action.status === "pending";
+	const expired =
+		action.status === "expired" || (action.status === "pending" && isChatActionExpired(action));
+	const pending = action.status === "pending" && !expired;
+	const missingRow = pending && !action.actionId;
 
 	return (
 		<div className="mt-2 overflow-hidden rounded-2xl border border-[#0A3D62]/15 bg-white text-left shadow-sm dark:border-gray-700 dark:bg-gray-900">
@@ -30,7 +41,7 @@ export function ChatActionCard({ action, disabled, onConfirm, onCancel }: ChatAc
 						</div>
 					))}
 				</dl>
-				{pending ? (
+				{pending && !missingRow ? (
 					<div className="flex gap-2 pt-1">
 						<button
 							type="button"
@@ -39,7 +50,7 @@ export function ChatActionCard({ action, disabled, onConfirm, onCancel }: ChatAc
 							className="inline-flex items-center gap-1.5 rounded-lg bg-[#E85A2A] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#d14e22] disabled:opacity-50"
 						>
 							{disabled && <Loader2 className="h-3 w-3 animate-spin" />}
-							{t("actionConfirm")}
+							{t("actionAccept")}
 						</button>
 						<button
 							type="button"
@@ -47,7 +58,7 @@ export function ChatActionCard({ action, disabled, onConfirm, onCancel }: ChatAc
 							disabled={disabled}
 							className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-600 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
 						>
-							{t("actionCancel")}
+							{t("actionReject")}
 						</button>
 					</div>
 				) : (
@@ -57,13 +68,17 @@ export function ChatActionCard({ action, disabled, onConfirm, onCancel }: ChatAc
 								? "text-green-600"
 								: action.status === "cancelled"
 									? "text-gray-500"
-									: "text-red-600"
+									: expired || missingRow
+										? "text-amber-700 dark:text-amber-400"
+										: "text-red-600"
 						}`}
 					>
 						{action.status === "confirmed" ? (
 							<CheckCircle2 className="h-3.5 w-3.5" />
 						) : action.status === "cancelled" ? (
 							<XCircle className="h-3.5 w-3.5" />
+						) : expired || missingRow ? (
+							<Clock className="h-3.5 w-3.5" />
 						) : (
 							<CircleAlert className="h-3.5 w-3.5" />
 						)}
@@ -71,7 +86,11 @@ export function ChatActionCard({ action, disabled, onConfirm, onCancel }: ChatAc
 							? t("actionConfirmed")
 							: action.status === "cancelled"
 								? t("actionCancelled")
-								: t("actionFailed")}
+								: expired
+									? t("actionExpired")
+									: missingRow
+										? t("actionNotAvailable")
+										: t("actionFailed")}
 						{action.result ? ` — ${action.result}` : ""}
 					</p>
 				)}

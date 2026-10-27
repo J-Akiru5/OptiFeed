@@ -13,7 +13,7 @@ import { ItemCardGrid } from "@/components/ui/item-card";
 import { Pagination } from "@/components/ui/pagination";
 import { ListView } from "@/components/ui/view-toggle";
 import { Link, getPathname } from "@/i18n/routing";
-import { getDevices } from "@/lib/actions/admin";
+import { getDevices, getPendingDevices } from "@/lib/actions/admin";
 import { getTenantRegistrationOptions } from "@/lib/actions/device-registration";
 import { hasPermission } from "@/lib/auth/permissions";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
@@ -63,17 +63,17 @@ export default async function AdminDevicesPage({
 	// Registration options are only read for a member who may actually add a
 	// feeder; the action re-checks the same guard.
 	const registrationOptions = canClaim ? await getTenantRegistrationOptions() : null;
-
-	const pendingDevices = devices.filter((device) => device.approvalStatus === "PENDING");
-	const listedDevices = devices.filter((device) => device.approvalStatus !== "PENDING");
+	// The table query excludes pending units; the approval queue reads them
+	// separately so its rows and the pager totals cannot disagree.
+	const pendingDevices = canClaim ? await getPendingDevices() : [];
 
 	// Mobile status strip (E26): grade the feeders on this page, then filter and
 	// order them. The pending queue above stays unaffected.
 	const now = new Date();
-	const statusOf = (device: (typeof listedDevices)[number]) => deviceListStatus(device, now);
-	const counts = summarizeStatuses(listedDevices.map(statusOf));
+	const statusOf = (device: (typeof devices)[number]) => deviceListStatus(device, now);
+	const counts = summarizeStatuses(devices.map(statusOf));
 	const visibleDevices = orderRows(
-		filterByStatus(listedDevices, status, statusOf).filter(
+		filterByStatus(devices, status, statusOf).filter(
 			(device) => !attention || isAttention(statusOf(device)),
 		),
 		order,
@@ -96,8 +96,7 @@ export default async function AdminDevicesPage({
 		date ? formatDateTimeLocal(date, tDates).full : tCommon("never");
 
 	// `getDevices` is an allow-listed display select without the reading
-	// timestamp, and this task must not change lib/actions. Read only that one
-	// field for the page's devices here.
+	// timestamp, so read only that one field for the page's devices here.
 	const readingTimes =
 		devices.length > 0
 			? await prisma.energyDevice.findMany({
@@ -176,7 +175,7 @@ export default async function AdminDevicesPage({
 				/>
 			)}
 
-			{devices.length === 0 && (
+			{devices.length === 0 && pendingDevices.length === 0 && (
 				<AdminEmptyState icon={Cpu} title={t("emptyTitle")} description={t("emptyDesc")} />
 			)}
 

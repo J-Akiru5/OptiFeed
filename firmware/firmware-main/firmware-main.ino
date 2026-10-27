@@ -2639,7 +2639,10 @@ void syncNTP() {
 
 String getRTCiso8601() {
   DateTime now = rtc.now();
-  char buf[32];
+  // RTClib reads the buffer as the format template and writes the result over
+  // it. An uninitialized buffer produced garbage bytes in every timestamp, and
+  // the server rejected those heartbeats and acks with 422 (found 2026-10-27).
+  char buf[32] = "YYYY-MM-DDThh:mm:ss";
   now.toString(buf);
   return String(buf) + "+00:00";
 }

@@ -87,10 +87,20 @@ vi.mock("@/lib/prisma", () => ({
 				hopperCapacityG: 7000,
 				gramsPerSecond: 12.5,
 				gramsPerFeeding: 500,
+				lastCalibratedAt: null,
+				recalibrationIntervalDays: 30,
 				tempOffsetC: -0.5,
 				waterTempC: 28.5,
 			})),
 		},
+		calibrationRun: {
+			count: vi.fn(async () => 0),
+			groupBy: vi.fn(async () => []),
+			findMany: vi.fn(async () => []),
+		},
+		feedEvent: { findMany: vi.fn(async () => []) },
+		feedLevelLog: { findMany: vi.fn(async () => []) },
+		user: { findMany: vi.fn(async () => []) },
 	},
 }));
 
@@ -112,7 +122,10 @@ vi.mock("@/lib/actions/energy", () => ({
 vi.mock("@/lib/actions/calibration", () => ({
 	getCalibrationTestStatus: vi.fn(),
 	runCalibrationTest: vi.fn(),
+	runTargetCheck: vi.fn(),
 	saveCalibrationFromTest: vi.fn(),
+	submitTargetCheck: vi.fn(),
+	saveRecalibrationInterval: vi.fn(),
 }));
 vi.mock("@/lib/actions/notifications", () => ({ updateNotificationPrefs: vi.fn() }));
 vi.mock("@/lib/actions/password", () => ({ changeOwnPassword: vi.fn() }));
@@ -189,7 +202,9 @@ describe("settings index", () => {
 
 describe("hardware settings page", () => {
 	it("labels every calibration input with its unit", async () => {
-		const html = renderToStaticMarkup(await HardwareSettingsPage());
+		const html = renderToStaticMarkup(
+			await HardwareSettingsPage({ searchParams: Promise.resolve({}) }),
+		);
 
 		expect(html.match(/<h1/g)).toHaveLength(1);
 		expect(html).toContain("Full Distance (cm)");
@@ -201,7 +216,9 @@ describe("hardware settings page", () => {
 	});
 
 	it("still shows the setup AP name derived from the device MAC", async () => {
-		const html = renderToStaticMarkup(await HardwareSettingsPage());
+		const html = renderToStaticMarkup(
+			await HardwareSettingsPage({ searchParams: Promise.resolve({}) }),
+		);
 
 		expect(html).toContain("PakaonAI-ABCD");
 		expect(html).toContain("Device ID (MAC)");
@@ -210,7 +227,9 @@ describe("hardware settings page", () => {
 	it("explains read-only mode on the hardware controls", async () => {
 		vi.mocked(canWrite).mockResolvedValueOnce(false);
 
-		const html = renderToStaticMarkup(await HardwareSettingsPage());
+		const html = renderToStaticMarkup(
+			await HardwareSettingsPage({ searchParams: Promise.resolve({}) }),
+		);
 
 		expectReadOnlyNote(html);
 	});

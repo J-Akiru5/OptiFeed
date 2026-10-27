@@ -518,6 +518,9 @@
 			"syncApplied": "Naka-apply sang {time}",
 			"syncFailed": "Wala nagkumpirma ang device",
 			"syncNone": "Wala nagapaabot nga pagbag-o",
+			"syncPendingValues": "Ginapaabot: {start} – {end}, {feeds} ka pagpakaon kada adlaw",
+			"syncPendingSame": "Pareho nga mga value ang ginapaabot para i-resync",
+			"unknownDeviceTime": "wala mahibaluan",
 			"forceResync": "Piliton ang Resync",
 			"saved": "Naka-save!",
 			"error": "Wala naka-save",
@@ -532,7 +535,8 @@
 				"stuckScheduleTitle": "Wala Nakumpirma nga Pagbag-o sang Iskedyul",
 				"stuckScheduleDesc": "Ang pagbag-o sang iskedyul halin sang {time} ginsugo sa device pero wala nakumpirma nga na-apply.",
 				"retryFeed": "Retry Feed Now",
-				"checkDevice": "Check Device"
+				"checkDevice": "Check Device",
+				"unknownTime": "wala mahibaluan"
 			},
 			"noDeviceTitle": "Wala sang feeder nga naka-pares",
 			"noDeviceDesc": "I-pares ang feeder controller sa sini nga punong antes mag-set sang iskedyul."

@@ -518,6 +518,9 @@
 			"syncApplied": "Applied at {time}",
 			"syncFailed": "Device did not confirm",
 			"syncNone": "No pending changes",
+			"syncPendingValues": "Pending: {start} – {end}, {feeds} feeds/day",
+			"syncPendingSame": "Same values queued for resync",
+			"unknownDeviceTime": "unknown",
 			"forceResync": "Force Resync",
 			"saved": "Changes saved!",
 			"error": "Failed to save changes",
@@ -532,7 +535,8 @@
 				"stuckScheduleTitle": "Unconfirmed Schedule Change",
 				"stuckScheduleDesc": "A schedule change from {time} was sent to your device but never confirmed applied.",
 				"retryFeed": "Retry Feed Now",
-				"checkDevice": "Check Device"
+				"checkDevice": "Check Device",
+				"unknownTime": "unknown"
 			},
 			"noDeviceTitle": "No feeder paired",
 			"noDeviceDesc": "Pair a feeder controller to this pond before setting a schedule."

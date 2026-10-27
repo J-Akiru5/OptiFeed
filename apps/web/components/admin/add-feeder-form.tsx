@@ -32,7 +32,14 @@ type FormState =
 	| { kind: "added"; result: Extract<AddTenantDeviceResult, { success: true }> }
 	| { kind: "error"; message: string };
 
-export function AddFeederForm({ options }: { options: TenantRegistrationOptions }) {
+export function AddFeederForm({
+	options,
+	defaultPondId,
+}: {
+	options: TenantRegistrationOptions;
+	/** Preselect the pond when the form is opened from a pond detail page. */
+	defaultPondId?: string;
+}) {
 	const t = useTranslations("dashboard.adminDevices");
 	const router = useRouter();
 	const [pending, setPending] = useState(false);
@@ -132,6 +139,11 @@ export function AddFeederForm({ options }: { options: TenantRegistrationOptions 
 							id="add-device-pond"
 							name="pondId"
 							required
+							defaultValue={
+								defaultPondId && options.ponds.some((pond) => pond.id === defaultPondId)
+									? defaultPondId
+									: undefined
+							}
 							disabled={pending}
 							className={adminField}
 						>

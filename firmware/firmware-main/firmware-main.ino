@@ -82,7 +82,7 @@
 
 // Reported at boot and in the heartbeat body so the fleet and the OTA rollout
 // can tell builds apart. Bump on every firmware change.
-#define FW_VERSION "1.4.0"
+#define FW_VERSION "1.4.1"
 // Board string the signed manifest must carry. One value for every unit this
 // firmware runs on (ESP32-WROOM-32U); a manifest for another board is refused.
 #define FW_BOARD "wroom32u"
@@ -992,6 +992,11 @@ void stopProvisioningPortal() {
 // Runs from loop() while provisioning is active. Never blocks long enough to
 // trip the task watchdog, and never enters deep sleep.
 void serviceProvisioningPortal() {
+  // The loop task is subscribed to the 30 s task watchdog, and the only other
+  // reset lives in the backend-poll block, which is skipped while the portal is
+  // open. Without this the board rebooted ~30 s after the portal started, so a
+  // user could never finish the setup form.
+  esp_task_wdt_reset();
   provisioningDns.processNextRequest();  // compatibility no-op on ESP32 core 3.x
   provisioningServer.handleClient();
 

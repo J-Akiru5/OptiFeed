@@ -1,6 +1,7 @@
 import { ok } from "@/lib/api/envelope";
 import { withApi } from "@/lib/api/instrumentation";
 import { withCronAuth } from "@/lib/auth/with-auth";
+import { processRecalibrationReminders } from "@/lib/calibration/recalibration-reminders";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { absoluteAppUrl, sendTelegramMessage } from "@/lib/notify/telegram";
 import { reportError } from "@/lib/observability";
@@ -79,12 +80,16 @@ export const GET = withApi(
 				);
 			}
 
-			// 2. Batched housekeeping so each run stays under the Vercel Hobby
+			// 2. Calibration reminders: one in-app notification per overdue
+			//    period, deduped through ReminderLog. Re-runs are no-ops.
+			const recalibration = await processRecalibrationReminders();
+
+			// 3. Batched housekeeping so each run stays under the Vercel Hobby
 			//    10-second limit: one small batch per job per run.
 			const heartbeatsDeleted = await deleteOldHeartbeatEvents();
 			const bucketsDeleted = await cleanupExpiredRateLimitBuckets();
 
-			return ok({ offlineAlerts, heartbeatsDeleted, bucketsDeleted });
+			return ok({ offlineAlerts, recalibration, heartbeatsDeleted, bucketsDeleted });
 		} catch (error) {
 			reportError(error, { route: "cron/device-watch" });
 			return Response.json({ error: "Internal Error" }, { status: 500 });

@@ -14,6 +14,7 @@ import { DashboardSnapshot } from "@/components/pwa/dashboard-snapshot";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
 import { canWrite, getCurrentUser } from "@/lib/auth/session";
+import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
 import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
@@ -81,6 +82,8 @@ export default async function DashboardHomePage() {
 				feedLevelPercent: true,
 				feedLevelUpdatedAt: true,
 				hopperCapacityG: true,
+				lastCalibratedAt: true,
+				recalibrationIntervalDays: true,
 				waterTempC: true,
 				waterTempOk: true,
 				waterTempUpdatedAt: true,
@@ -201,6 +204,11 @@ export default async function DashboardHomePage() {
 		now.getTime() - energyDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
 	const criticalAlert = esp32Offline && !!energyDevice;
 	const isPaused = energyDevice?.isPaused ?? false;
+	const recalibration = getRecalibrationStatus(
+		energyDevice?.lastCalibratedAt ?? null,
+		energyDevice?.recalibrationIntervalDays ?? 30,
+		now,
+	);
 
 	function formatOfflineDuration(lastSeenAt: Date | null): string {
 		if (!lastSeenAt) return t("durationNotConnected");
@@ -754,6 +762,8 @@ export default async function DashboardHomePage() {
 							lastSeenAt={energyDevice.lastSeenAt}
 							isOffline={esp32Offline}
 							canWrite={writeAccess}
+							recalibrationDue={recalibration.isOverdue}
+							recalibrationDaysOverdue={recalibration.daysOverdue}
 						/>
 					</div>
 					<div className="md:col-span-2">

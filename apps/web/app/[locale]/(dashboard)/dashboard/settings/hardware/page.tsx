@@ -2,22 +2,54 @@ import { DurationCalibrationForm } from "@/components/DurationCalibrationForm";
 import { HopperCalibrationForm } from "@/components/HopperCalibrationForm";
 import { TemperatureCalibrationForm } from "@/components/TemperatureCalibrationForm";
 import {
+	CalibrationHistory,
+	type CalibrationHistoryRow,
+} from "@/components/calibration/CalibrationHistory";
+import { RecalibrationIntervalForm } from "@/components/calibration/RecalibrationIntervalForm";
+import {
 	DashboardEmptyState,
 	DashboardPageHeader,
 	DashboardSection,
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
 import { canWrite } from "@/lib/auth/session";
+import { computeCalibrationDrift } from "@/lib/calibration/drift";
+import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { formatDateTimeLocal } from "@/lib/date-local";
+import { getPageCount, parsePage } from "@/lib/pagination";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { AP_PREFIX } from "@/lib/provisioning-ap";
-import { Cpu, RefreshCw, Ruler, Settings, Thermometer, Timer, Wifi } from "lucide-react";
+import {
+	Activity,
+	CalendarClock,
+	Cpu,
+	History,
+	RefreshCw,
+	Ruler,
+	Settings,
+	Thermometer,
+	Timer,
+	Wifi,
+} from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 // The setup panel is stricter than the 15-minute offline threshold: "WiFi is
 // configured" is only claimed while the device is actively reporting.
 const WIFI_ONLINE_WINDOW_MS = 5 * 60 * 1000;
+
+const CALIBRATION_HISTORY_PAGE_SIZE = 20;
+const DRIFT_WINDOW_DAYS = 7;
+const DRIFT_WINDOW_MS = DRIFT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+
+function first(value: string | string[] | undefined): string | undefined {
+	return Array.isArray(value) ? value[0] : value;
+}
+
+function formatGrams(grams: number): string {
+	return `${String(Number(grams.toFixed(1)))} g`;
+}
 
 // The firmware names its setup SoftAP `<AP_PREFIX>XXXX` using the last four hex
 // digits of the device MAC (see docs/wifi-provisioning-plan.md). The prefix is
@@ -28,12 +60,57 @@ function getSetupApName(mac: string | null | undefined): string | null {
 	return hex.length >= 4 ? `${AP_PREFIX}${hex.slice(-4)}` : null;
 }
 
-export default async function HardwareSettingsPage() {
-	const [t, tCommon] = await Promise.all([
+/**
+ * Recent calibration sessions (max 10) with the number of attempts and the
+ * error from the last attempt. `_count` keeps the count exact even when the
+ * table is paginated, and `_max` orders the newest sitting first.
+ */
+async function loadCalibrationSessions(deviceId: string) {
+	const groups = await prisma.calibrationRun.groupBy({
+		by: ["sessionId"],
+		where: { deviceId },
+		_count: { _all: true },
+		_max: { createdAt: true },
+		orderBy: { _max: { createdAt: "desc" } },
+		take: 10,
+	});
+	if (groups.length === 0) return [];
+
+	const sessionIds = groups.map((group) => group.sessionId);
+	const runs = await prisma.calibrationRun.findMany({
+		where: { deviceId, sessionId: { in: sessionIds } },
+		orderBy: { createdAt: "desc" },
+		select: { sessionId: true, errorPct: true },
+	});
+
+	const finalErrorBySession = new Map<string, number | null>();
+	for (const run of runs) {
+		if (!finalErrorBySession.has(run.sessionId)) {
+			finalErrorBySession.set(run.sessionId, run.errorPct);
+		}
+	}
+
+	return groups.map((group) => ({
+		sessionId: group.sessionId,
+		attempts: group._count._all,
+		finalErrorPct: finalErrorBySession.get(group.sessionId) ?? null,
+		lastAt: group._max.createdAt ?? new Date(0),
+	}));
+}
+
+interface HardwareSettingsPageProps {
+	searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function HardwareSettingsPage({ searchParams }: HardwareSettingsPageProps) {
+	const [t, tCommon, tDates] = await Promise.all([
 		getTranslations("dashboard.appSettings"),
 		getTranslations("dashboard.common"),
+		getTranslations("dates"),
 	]);
 	const writeAccess = await canWrite();
+	const rawParams = await searchParams;
+	let historyPage = parsePage(first(rawParams.page));
 	let energyDevice = null;
 	let pondIsFallow = false;
 	try {
@@ -49,11 +126,14 @@ export default async function HardwareSettingsPage() {
 					label: true,
 					lastSeenAt: true,
 					feedLevelPercent: true,
+					feedLevelUpdatedAt: true,
 					hopperFullCm: true,
 					hopperEmptyCm: true,
 					hopperCapacityG: true,
 					gramsPerSecond: true,
 					gramsPerFeeding: true,
+					lastCalibratedAt: true,
+					recalibrationIntervalDays: true,
 					tempOffsetC: true,
 					waterTempC: true,
 				},
@@ -64,6 +144,108 @@ export default async function HardwareSettingsPage() {
 	}
 
 	const now = new Date();
+
+	// Calibration history, session summaries and the rule-based drift check.
+	// Every query is scoped to the active pond's device.
+	let historyRows: CalibrationHistoryRow[] = [];
+	let historyTotal = 0;
+	let historySessions: Awaited<ReturnType<typeof loadCalibrationSessions>> = [];
+	let drift = computeCalibrationDrift({
+		feeds: [],
+		levels: [],
+		hopperCapacityG: null,
+	});
+
+	if (energyDevice) {
+		historyTotal = await prisma.calibrationRun.count({
+			where: { deviceId: energyDevice.id },
+		});
+		const pagesForDevice = getPageCount(historyTotal, CALIBRATION_HISTORY_PAGE_SIZE);
+		if (historyPage > pagesForDevice) historyPage = pagesForDevice;
+
+		const weekAgo = new Date(now.getTime() - DRIFT_WINDOW_MS);
+		const [runs, sessions, driftFeeds, driftLevels] = await Promise.all([
+			prisma.calibrationRun.findMany({
+				where: { deviceId: energyDevice.id },
+				orderBy: { createdAt: "desc" },
+				skip: (historyPage - 1) * CALIBRATION_HISTORY_PAGE_SIZE,
+				take: CALIBRATION_HISTORY_PAGE_SIZE,
+				select: {
+					id: true,
+					createdAt: true,
+					kind: true,
+					attempt: true,
+					targetGrams: true,
+					measuredGrams: true,
+					errorPct: true,
+					gramsPerSecondBefore: true,
+					gramsPerSecondAfter: true,
+					accepted: true,
+					createdById: true,
+				},
+			}),
+			loadCalibrationSessions(energyDevice.id),
+			prisma.feedEvent.findMany({
+				where: {
+					deviceId: energyDevice.id,
+					eventType: "feed_dispensed",
+					receivedAt: { gte: weekAgo },
+				},
+				select: { grams: true, receivedAt: true },
+			}),
+			prisma.feedLevelLog.findMany({
+				where: { deviceId: energyDevice.id, recordedAt: { gte: weekAgo } },
+				orderBy: { recordedAt: "asc" },
+				select: { levelPercent: true, recordedAt: true },
+			}),
+		]);
+
+		historySessions = sessions;
+		const creatorIds = [
+			...new Set(runs.map((run) => run.createdById).filter((id): id is string => Boolean(id))),
+		];
+		const creators =
+			creatorIds.length > 0
+				? await prisma.user.findMany({
+						where: { id: { in: creatorIds } },
+						select: { id: true, displayName: true, email: true },
+					})
+				: [];
+		const creatorNameById = new Map(
+			creators.map((creator) => [creator.id, creator.displayName || creator.email]),
+		);
+
+		historyRows = runs.map((run) => ({
+			id: run.id,
+			createdAt: run.createdAt,
+			kind: run.kind,
+			attempt: run.attempt,
+			targetGrams: run.targetGrams,
+			measuredGrams: run.measuredGrams,
+			errorPct: run.errorPct,
+			gramsPerSecondBefore: run.gramsPerSecondBefore,
+			gramsPerSecondAfter: run.gramsPerSecondAfter,
+			accepted: run.accepted,
+			createdByName: run.createdById ? (creatorNameById.get(run.createdById) ?? null) : null,
+		}));
+
+		drift = computeCalibrationDrift({
+			feeds: driftFeeds,
+			levels: driftLevels,
+			hopperCapacityG: energyDevice.hopperCapacityG,
+		});
+	}
+
+	const recalibration = getRecalibrationStatus(
+		energyDevice?.lastCalibratedAt ?? null,
+		energyDevice?.recalibrationIntervalDays ?? 30,
+		now,
+	);
+	const historyPageCount = getPageCount(historyTotal, CALIBRATION_HISTORY_PAGE_SIZE);
+	const dueLabel = recalibration.dueAt
+		? formatDateTimeLocal(recalibration.dueAt, tDates).fullDate
+		: null;
+
 	const isDeviceOffline =
 		!energyDevice?.lastSeenAt ||
 		now.getTime() - energyDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
@@ -263,6 +445,64 @@ export default async function HardwareSettingsPage() {
 				</DashboardSection>
 			)}
 
+			{/* Recalibration schedule + drift detector */}
+			{energyDevice && (
+				<DashboardSection
+					title={t("calibration.recalibration.title")}
+					description={t("calibration.recalibration.desc")}
+					icon={CalendarClock}
+				>
+					{recalibration.isOverdue && dueLabel && (
+						<output className="mb-4 block rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-900/20">
+							<p className="text-sm font-bold text-amber-800 dark:text-amber-300">
+								{t("calibration.recalibration.overdueTitle")}
+							</p>
+							<p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+								{t("calibration.recalibration.overdueDesc", {
+									days: recalibration.daysOverdue,
+									due: dueLabel,
+								})}
+							</p>
+						</output>
+					)}
+					{!recalibration.isOverdue && dueLabel && (
+						<p className="mb-4 text-xs font-medium text-gray-600 dark:text-gray-400">
+							{t("calibration.recalibration.nextDue", { due: dueLabel })}
+						</p>
+					)}
+					{!dueLabel && (
+						<p className="mb-4 text-xs font-medium text-gray-600 dark:text-gray-400">
+							{t("calibration.recalibration.never")}
+						</p>
+					)}
+
+					<RecalibrationIntervalForm
+						deviceId={energyDevice.id}
+						currentIntervalDays={energyDevice.recalibrationIntervalDays}
+						canWrite={writeAccess}
+					/>
+
+					{drift.status === "drift" && drift.diffPct !== null && (
+						<div
+							role="alert"
+							className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-900/20"
+						>
+							<p className="flex items-center gap-2 text-sm font-bold text-amber-800 dark:text-amber-300">
+								<Activity className="h-4 w-4 shrink-0" aria-hidden="true" />
+								{t("calibration.drift.title")}
+							</p>
+							<p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+								{t("calibration.drift.desc", {
+									dispensed: formatGrams(drift.dispensedG),
+									observed: formatGrams(drift.observedG),
+									diff: `${drift.diffPct >= 0 ? "+" : ""}${drift.diffPct.toFixed(1)}%`,
+								})}
+							</p>
+						</div>
+					)}
+				</DashboardSection>
+			)}
+
 			{/* Temperature sensor calibration */}
 			{energyDevice && (
 				<DashboardSection
@@ -291,6 +531,24 @@ export default async function HardwareSettingsPage() {
 						currentTempOffsetC={energyDevice.tempOffsetC}
 						currentTempC={energyDevice.waterTempC}
 						canWrite={writeAccess}
+					/>
+				</DashboardSection>
+			)}
+
+			{/* Calibration history */}
+			{energyDevice && (
+				<DashboardSection
+					title={t("calibration.history.title")}
+					description={t("calibration.history.desc")}
+					icon={History}
+				>
+					<CalibrationHistory
+						rows={historyRows}
+						sessions={historySessions}
+						total={historyTotal}
+						page={historyPage}
+						pageCount={historyPageCount}
+						pageSize={CALIBRATION_HISTORY_PAGE_SIZE}
 					/>
 				</DashboardSection>
 			)}

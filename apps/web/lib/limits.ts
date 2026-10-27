@@ -27,6 +27,13 @@ export const CALIBRATION_TEST_SECONDS_MAX = 30;
 export const CALIBRATION_TEST_GRAMS_MAX = 1000;
 export const CALIBRATION_ACTUAL_GRAMS_MAX = 2000;
 
+// Target check (issue #191): dispense an exact target, weigh it, and correct
+// grams per second from the error. The target bounds match the dashboard Feed
+// Now cap; ±5% is the acceptance window.
+export const TARGET_CHECK_GRAMS_MIN = 5;
+export const TARGET_CHECK_GRAMS_MAX = 500;
+export const TARGET_CHECK_TOLERANCE_PCT = 5;
+
 export { OFFLINE_THRESHOLD_MS } from "./constants";
 
 export const feedingRatePctSchema = z

@@ -1,3 +1,4 @@
+import { type CalibrationDriftResult, computeCalibrationDrift } from "@/lib/calibration/drift";
 import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
@@ -38,6 +39,8 @@ export interface ChatContext {
 	targetHarvestDate: string | null;
 	targetHarvestWeightG: number | null;
 	growthPlan: GrowthPlan | null;
+	/** Rule-based drift check from the last 7 days (issue #191, E8). */
+	calibrationDrift: CalibrationDriftResult;
 }
 
 // Builds the live pond context used for the AI prompt. `pond.*` goes stale when
@@ -62,6 +65,7 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 			waterTempOk: true,
 			lastSeenAt: true,
 			gramsPerFeeding: true,
+			hopperCapacityG: true,
 		},
 	});
 
@@ -69,50 +73,80 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 
 	const startOfToday = new Date();
 	startOfToday.setHours(0, 0, 0, 0);
+	const driftWindowStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-	const [todayFeedEvents, latestFcr, latestBiomass, latestCommand, activeCycle] = await Promise.all(
-		[
-			energyDevice
-				? prisma.feedEvent.findMany({
-						where: {
-							deviceId: energyDevice.id,
-							eventType: "feed_dispensed",
-							receivedAt: { gte: startOfToday },
-						},
-						orderBy: { receivedAt: "desc" },
-						select: { receivedAt: true },
-					})
-				: Promise.resolve([] as { receivedAt: Date }[]),
-			prisma.fcrReport.findFirst({
-				where: { pondId: pond.id },
-				orderBy: { periodEnd: "desc" },
-			}),
-			prisma.biomassLog.findFirst({
-				where: { pondId: pond.id },
-				orderBy: { recordedAt: "desc" },
-			}),
-			energyDevice
-				? prisma.scheduleCommand.findFirst({
-						where: { deviceId: energyDevice.id },
-						orderBy: { createdAt: "desc" },
-						select: { status: true },
-					})
-				: Promise.resolve(null),
-			prisma.cropCycle.findFirst({
-				where: { pondId: pond.id, status: "ACTIVE" },
-				select: {
-					id: true,
-					label: true,
-					stockingDate: true,
-					stockingCount: true,
-					growOutDays: true,
-					targetHarvestDate: true,
-					targetHarvestWeightG: true,
-					expectedSurvivalPct: true,
-				},
-			}),
-		],
-	);
+	const [
+		todayFeedEvents,
+		latestFcr,
+		latestBiomass,
+		latestCommand,
+		activeCycle,
+		driftFeeds,
+		driftLevels,
+	] = await Promise.all([
+		energyDevice
+			? prisma.feedEvent.findMany({
+					where: {
+						deviceId: energyDevice.id,
+						eventType: "feed_dispensed",
+						receivedAt: { gte: startOfToday },
+					},
+					orderBy: { receivedAt: "desc" },
+					select: { receivedAt: true },
+				})
+			: Promise.resolve([] as { receivedAt: Date }[]),
+		prisma.fcrReport.findFirst({
+			where: { pondId: pond.id },
+			orderBy: { periodEnd: "desc" },
+		}),
+		prisma.biomassLog.findFirst({
+			where: { pondId: pond.id },
+			orderBy: { recordedAt: "desc" },
+		}),
+		energyDevice
+			? prisma.scheduleCommand.findFirst({
+					where: { deviceId: energyDevice.id },
+					orderBy: { createdAt: "desc" },
+					select: { status: true },
+				})
+			: Promise.resolve(null),
+		prisma.cropCycle.findFirst({
+			where: { pondId: pond.id, status: "ACTIVE" },
+			select: {
+				id: true,
+				label: true,
+				stockingDate: true,
+				stockingCount: true,
+				growOutDays: true,
+				targetHarvestDate: true,
+				targetHarvestWeightG: true,
+				expectedSurvivalPct: true,
+			},
+		}),
+		energyDevice
+			? prisma.feedEvent.findMany({
+					where: {
+						deviceId: energyDevice.id,
+						eventType: "feed_dispensed",
+						receivedAt: { gte: driftWindowStart },
+					},
+					select: { grams: true, receivedAt: true },
+				})
+			: Promise.resolve([] as { grams: number | null; receivedAt: Date }[]),
+		energyDevice
+			? prisma.feedLevelLog.findMany({
+					where: { deviceId: energyDevice.id, recordedAt: { gte: driftWindowStart } },
+					orderBy: { recordedAt: "asc" },
+					select: { levelPercent: true, recordedAt: true },
+				})
+			: Promise.resolve([] as { levelPercent: number; recordedAt: Date }[]),
+	]);
+
+	const calibrationDrift = computeCalibrationDrift({
+		feeds: driftFeeds,
+		levels: driftLevels,
+		hopperCapacityG: energyDevice?.hopperCapacityG ?? null,
+	});
 
 	const now = Date.now();
 	const deviceOnline =
@@ -169,5 +203,6 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 		targetHarvestDate: cycleContext?.targetHarvestDate ?? null,
 		targetHarvestWeightG: cycleContext?.targetHarvestWeightG ?? null,
 		growthPlan: loadedPlan?.plan ?? null,
+		calibrationDrift,
 	};
 }

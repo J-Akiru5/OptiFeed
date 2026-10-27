@@ -518,7 +518,13 @@
 					"hopperSummary": "Average nga lebel sang hopper kada adlaw sa nagligad nga 7 ka adlaw, pinakabag-o {latest}.",
 					"hopperEmpty": "Wala pa sang reading sang hopper."
 				}
-			}
+			},
+			"greetingNextFeeding": "Masunod nga pagpakaon sa {time}",
+			"greetingPaused": "Naka-pause ang pagpakaon — i-resume sa Schedule page.",
+			"lowHopperPopupTitle": "Mababa ang feed level ({percent}%).",
+			"lowHopperPopupBody": "Pun-a antes buas.",
+			"lowHopperPopupGotIt": "Sige",
+			"lowHopperPopupDismiss": "Isara ang pahibalo"
 		},
 		"schedule": {
 			"title": "Iskedyul sang Pagpakaon",
@@ -1823,7 +1829,8 @@
 			},
 			"filtersTierLabel": "I-filter base sa kahalangan",
 			"filtersCategoryLabel": "I-filter base sa kategorya",
-			"listLabel": "Mga notipikasyon"
+			"listLabel": "Mga notipikasyon",
+			"categoryHopperLow": "Mababa ang hopper"
 		},
 		"timeCalibration": {
 			"title": "Kalibrasyon sang Oras",
@@ -2347,12 +2354,12 @@
 		"pm": "PM"
 	},
 	"chat": {
-		"title": "Asistant sang PakaonAI",
+		"title": "Pakoy",
 		"placeholder": "Mamangkot sang bisan ano...",
 		"suggestionSchedule": "San-o ang masunod nga pagpakaon?",
 		"suggestionFcr": "Ano ang akon FCR subong?",
 		"suggestionLogSample": "Paano maglista sang sampol?",
-		"intro": "Kamusta! Ako ang imo PakaonAI asistant. Mamangkot ka parte sa imo masunod nga iskedyul sang pagpakaon, kadakuon sang feed, ang FCR subong, mga na-miss nga pagpakaon, ukon paano maglista sang sampol!",
+		"intro": "Kamusta! Ako si Pakoy. Paano ko ikaw mabuligan subong? Mamangkot ka parte sa imo masunod nga iskedyul sang pagpakaon, kadakuon sang feed, ang FCR subong, mga na-miss nga pagpakaon, ukon paano maglista sang sampol!",
 		"error": "Ay, may ara sang deperensya. Palihug sulayi liwat.",
 		"intentScheduleNoPond": "Wala ko makita ang iskedyul sang imo punong. Siguraduha nga nakakonekta ang imo mga gamit.",
 		"intentSchedulePaused": "Ang imo awtomatik nga iskedyul subong naka-**Pause**. Wala sang pagpakaon nga matabo tubtob imo ini padayunon sa pahina sang Iskedyul.",
@@ -2377,9 +2384,9 @@
 		"assistantProposal": "Amo ni ang pwede ko himuon. Repasuhon, dayon pinduton ang Sugtan para dalaganon.",
 		"assistantNavigating": "Ginabukas ko ang {label} — i-highlight ko ang kontrol.",
 		"stepUpHint": "Kinahanglan ini sang bag-o nga password check. Pinduton ang Sugtan liwat pagkatapos mo makumpirma.",
-		"introFarmer": "Kamusta! Ako ang PakaonAI Assistant. Makasabat ako sang mga pamangkot parte sa imo punong kag, kon pinduton mo ang Sugtan, makahimo ako sang mga pagbag-o para sa imo — kadamuon sang feed, iskedyul, sampol, kag mga butang sa kalendaryo. Wala sang madalagan hasta indi ka mag-Sugtan.",
-		"introOwner": "Kamusta! Ako ang PakaonAI Assistant. Makabulig ako sa punong (pagpakaon, sampol, kalendaryo) kag sa imo organisasyon (mga miyembro, papel, permiso). Nagatanyag lang ako sang aksyon: wala sang madalagan hasta indi ka mag-Sugtan, kag ang mga admin nga aksyon nagakinahanglan sang password mo liwat.",
-		"introSuperadmin": "Kamusta! Ako ang PakaonAI Assistant. Makabulig ako sa pagdumala sang platform — i-suspend ukon i-restore ang organisasyon, magbukas sang read-only view-as, kag magdala sa imo sa bisan diin nga screen sang console. Ang tagsa ka platform nga aksyon nagahulat sang imo Sugtan kag bag-o nga password check.",
+		"introFarmer": "Kamusta! Ako si Pakoy. Paano ko ikaw mabuligan subong? Makasabat ako sang mga pamangkot parte sa imo punong kag, kon pinduton mo ang Sugtan, makahimo ako sang mga pagbag-o para sa imo — kadamuon sang feed, iskedyul, sampol, kag mga butang sa kalendaryo. Wala sang madalagan hasta indi ka mag-Sugtan.",
+		"introOwner": "Kamusta! Ako si Pakoy. Paano ko ikaw mabuligan subong? Makabulig ako sa punong (pagpakaon, sampol, kalendaryo) kag sa imo organisasyon (mga miyembro, papel, permiso). Nagatanyag lang ako sang aksyon: wala sang madalagan hasta indi ka mag-Sugtan, kag ang mga admin nga aksyon nagakinahanglan sang password mo liwat.",
+		"introSuperadmin": "Kamusta! Ako si Pakoy. Paano ko ikaw mabuligan subong? Makabulig ako sa pagdumala sang platform — i-suspend ukon i-restore ang organisasyon, magbukas sang read-only view-as, kag magdala sa imo sa bisan diin nga screen sang console. Ang tagsa ka platform nga aksyon nagahulat sang imo Sugtan kag bag-o nga password check.",
 		"chipsFarmer0": "Pila ang akon ipakaon?",
 		"chipsFarmer1": "San-o ang masunod nga pagpakaon?",
 		"chipsFarmer2": "Dalhon ako sa iskedyul sang pagpakaon",
@@ -2393,7 +2400,10 @@
 		"suggestionPredict": "Pila ka gramos ang akon ipakaon?",
 		"intentPredictActive": "Base sa imo pinakabag-o nga biomass sample kag FCR, ang akon tambag nga **{grams}g kada pagpakaon** (ang imo device subong naka-set sa **{current}g**). Tan-awa ang AI Feeding Prediction card sa Growth page para e-review kag i-apply ini.",
 		"intentPredictActiveNoCurrent": "Base sa imo pinakabag-o nga biomass sample kag FCR, ang akon tambag nga **{grams}g kada pagpakaon**. Tan-awa ang AI Feeding Prediction card sa Growth page para e-review kag i-apply ini.",
-		"intentPredictNoData": "Kinahanglan ko sang bag-o nga biomass sample para magpredik sang kadakuon sang imo feed. Maglista sining **Log sang Biomass** kag sulayi liwat — ukon tan-awa ang AI Feeding Prediction card sa Growth page."
+		"intentPredictNoData": "Kinahanglan ko sang bag-o nga biomass sample para magpredik sang kadakuon sang imo feed. Maglista sining **Log sang Biomass** kag sulayi liwat — ukon tan-awa ang AI Feeding Prediction card sa Growth page.",
+		"tagline": "Sakto nga pakaon, sakto nga oras.",
+		"greeting": "Kamusta! Ako si Pakoy. Paano ko ikaw mabuligan subong?",
+		"greetingDismiss": "Isara"
 	},
 	"superadmin": {
 		"common": {

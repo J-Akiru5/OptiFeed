@@ -1,6 +1,7 @@
 "use client";
 
 import "driver.js/dist/driver.css";
+import { MASCOT_POSES } from "@/components/assistant/mascot";
 import type { DriveStep, Driver } from "driver.js";
 import { createContext, useCallback, useContext, useEffect, useRef } from "react";
 import {
@@ -141,6 +142,17 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 					side: step.side,
 					align: step.align,
 					onPopoverRender: (popover) => {
+						// Pakoy introduces the tour (#221): the welcome step carries
+						// his art above the title, sized to fit a phone popover.
+						if (step.mascot) {
+							const img = document.createElement("img");
+							img.src = MASCOT_POSES[step.mascot];
+							img.alt = "";
+							img.setAttribute("aria-hidden", "true");
+							img.style.cssText =
+								"display:block;width:96px;height:96px;object-fit:contain;margin:0 auto 8px;";
+							popover.title?.before(img);
+						}
 						// driver.js positions the popover immediately after this hook,
 						// so re-apply on the next frame to win without a visible jump.
 						requestAnimationFrame(() => {

@@ -1,3 +1,4 @@
+import { Mascot, type MascotPose } from "@/components/assistant/mascot";
 import { dashboardFocus, dashboardSurface } from "@/components/dashboard/dashboard-classes";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
@@ -15,6 +16,14 @@ interface DashboardPageHeaderProps {
 	actions?: ReactNode;
 	/** Extra content under the description, e.g. a helper note. */
 	children?: ReactNode;
+	/**
+	 * A Pakoy pose beside the greeting (dashboard home, #221). A header that
+	 * greets with the mascot shows its title on phones too, so the friendly
+	 * line is never hidden from the person it is greeting.
+	 */
+	mascot?: MascotPose;
+	/** One-line summary under the description, e.g. "Next feeding at 6:00 PM". */
+	summary?: ReactNode;
 	className?: string;
 }
 
@@ -30,6 +39,8 @@ export function DashboardPageHeader({
 	icon: Icon,
 	actions,
 	children,
+	mascot,
+	summary,
 	className,
 }: DashboardPageHeaderProps) {
 	return (
@@ -37,6 +48,16 @@ export function DashboardPageHeader({
 			className={cn("flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between", className)}
 		>
 			<div className="flex min-w-0 items-start gap-3">
+				{mascot && (
+					<span className="mt-0.5 shrink-0 sm:hidden">
+						<Mascot pose={mascot} size={40} />
+					</span>
+				)}
+				{mascot && (
+					<span className="mt-0.5 hidden shrink-0 sm:inline-flex">
+						<Mascot pose={mascot} size={52} />
+					</span>
+				)}
 				{Icon && (
 					<span
 						aria-hidden="true"
@@ -47,14 +68,25 @@ export function DashboardPageHeader({
 				)}
 				<div className="min-w-0">
 					{/* The mobile header band already shows this title; the real h1
-					    stays in the markup for assistive tech and from `sm` up. */}
-					<h1 className="sr-only text-2xl font-black tracking-tight text-[#0A3D62] lg:not-sr-only lg:text-3xl dark:text-[#5b9bd5]">
+					    stays in the markup for assistive tech and from `sm` up. A
+					    greeting header is the exception: it wants the warm line. */}
+					<h1
+						className={cn(
+							"font-black tracking-tight text-[#0A3D62] dark:text-[#5b9bd5]",
+							mascot
+								? "text-xl sm:text-2xl lg:text-3xl"
+								: "sr-only text-2xl lg:not-sr-only lg:text-3xl",
+						)}
+					>
 						{title}
 					</h1>
 					{description && (
 						<p className="mt-1 max-w-2xl text-sm text-[#3D5568] dark:text-gray-300">
 							{description}
 						</p>
+					)}
+					{summary && (
+						<p className="mt-1 text-xs font-bold text-[#C2410C] dark:text-[#ff8a5c]">{summary}</p>
 					)}
 					{children}
 				</div>
@@ -68,7 +100,9 @@ export function DashboardPageHeader({
 }
 
 interface DashboardEmptyStateProps {
-	icon: LucideIcon;
+	icon?: LucideIcon;
+	/** Pakoy pose for the empty state (#221). Takes the icon's place. */
+	mascot?: MascotPose;
 	/** Translated headline, e.g. the list has nothing in it yet. */
 	title: string;
 	/** Translated explanation of what to do next. */
@@ -86,6 +120,7 @@ interface DashboardEmptyStateProps {
  */
 export function DashboardEmptyState({
 	icon: Icon,
+	mascot,
 	title,
 	description,
 	action,
@@ -98,7 +133,11 @@ export function DashboardEmptyState({
 				className,
 			)}
 		>
-			<Icon aria-hidden="true" className="h-10 w-10 text-gray-300 dark:text-gray-600" />
+			{mascot ? (
+				<Mascot pose={mascot} size={80} className="mb-1" />
+			) : (
+				Icon && <Icon aria-hidden="true" className="h-10 w-10 text-gray-300 dark:text-gray-600" />
+			)}
 			<p className="mt-3 text-sm font-black text-[#0A3D62] dark:text-gray-100">{title}</p>
 			{description && (
 				<p className="mt-1 max-w-sm text-xs text-[#3D5568] dark:text-gray-400">{description}</p>

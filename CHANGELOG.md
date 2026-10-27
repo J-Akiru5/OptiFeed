@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Pakoy, the PakaonAI mascot, in the chat, dashboard greeting, alerts, empty states, onboarding and offline/error pages (#193, #232, #221).
+
 ## [1.18.1] - 2026-10-28
 
 ### Fixed

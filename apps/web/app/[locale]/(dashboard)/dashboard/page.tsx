@@ -4,6 +4,7 @@ import { FeedNowButton } from "@/components/FeedNowButton";
 import { FeedingPredictionCard } from "@/components/FeedingPredictionCard";
 import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
 import { WaterTempCard } from "@/components/WaterTempCard";
+import { PakoyLowHopper } from "@/components/assistant/pakoy-low-hopper";
 import { type ChartLabels, LineTrend, StackedBars } from "@/components/charts";
 import { formatChartNumber } from "@/components/charts/chart-data";
 import {
@@ -455,6 +456,18 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 			/>
 			<DashboardSnapshot snapshot={dashboardSnapshot} />
 
+			{/* Pakoy's in-context low-hopper reminder (#221). The permanent
+			    record stays in the bell and on the hardware page. */}
+			{energyDevice &&
+				energyDevice.feedLevelPercent !== null &&
+				energyDevice.feedLevelPercent < orgSettings.settings.hopperLowPct && (
+					<PakoyLowHopper
+						pondId={pond.id}
+						levelPercent={Math.round(energyDevice.feedLevelPercent)}
+						low
+					/>
+				)}
+
 			<ControlRoomLayout>
 				{criticalAlert && (
 					<section
@@ -593,6 +606,14 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 								pond: pond.name,
 								bold: (chunks) => <strong>{chunks}</strong>,
 							})}
+							mascot="idle"
+							summary={
+								isPaused
+									? t("greetingPaused")
+									: nextFeedingSlot
+										? t("greetingNextFeeding", { time: nextFeedingTimeStr })
+										: undefined
+							}
 							actions={<ExportPdfButton />}
 						>
 							{!writeAccess && (

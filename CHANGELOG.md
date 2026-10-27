@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Firmware 1.5.1: the relay pin is a build flag (`-DRELAY_PIN`, default GPIO 25), with a `esp32dev-relay5` build for the CICT Building A unit wired to GPIO 5. The relay is driven OFF as the very first step of boot, and boot logs the relay pin.
+
 ## [1.17.2] - 2026-10-28
 
 ### Added

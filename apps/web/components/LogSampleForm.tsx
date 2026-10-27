@@ -269,22 +269,26 @@ export function LogSampleForm({
 	};
 
 	const fieldCls =
-		"w-full pl-10 pr-4 py-3 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#E85A2A] font-bold text-lg transition-colors";
+		"w-full pl-10 pr-4 py-3 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#E85A2A] font-bold text-lg transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500";
 
 	const fishFieldCls =
-		"w-full pl-8 pr-3 py-2.5 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#E85A2A] font-bold text-sm transition-colors";
+		"w-full pl-8 pr-3 py-2.5 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#E85A2A] font-bold text-sm transition-colors dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500";
 
 	if (queuedOffline) {
 		return (
 			<div className="space-y-6 py-4 text-center">
 				<div className="flex justify-center">
-					<div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100">
-						<CheckCircle2 className="h-8 w-8 text-blue-600" />
+					<div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-500/15">
+						<CheckCircle2 className="h-8 w-8 text-blue-600 dark:text-blue-300" />
 					</div>
 				</div>
 				<div>
-					<h3 className="text-xl font-black text-[#0A3D62]">{tLog("queuedOfflineTitle")}</h3>
-					<p className="mx-auto mt-1 max-w-md text-sm text-gray-600">{tLog("queuedOfflineBody")}</p>
+					<h3 className="text-xl font-black text-[#0A3D62] dark:text-[#5b9bd5]">
+						{tLog("queuedOfflineTitle")}
+					</h3>
+					<p className="mx-auto mt-1 max-w-md text-sm text-gray-600 dark:text-gray-400">
+						{tLog("queuedOfflineBody")}
+					</p>
 				</div>
 				<button
 					type="button"
@@ -302,35 +306,35 @@ export function LogSampleForm({
 		const statusInfo: Record<FeedCalculationResult["status"], { text: string; cls: string }> = {
 			updated: {
 				text: `Device schedule updated: ${feedResult.previousGrams ?? "—"}g → ${feedResult.effectiveGrams}g per feeding.`,
-				cls: "border-green-200 bg-green-50 text-green-700",
+				cls: "border-green-200 bg-green-50 text-green-700 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-300",
 			},
 			unchanged: {
 				text: `Device schedule already at ${feedResult.effectiveGrams}g per feeding — unchanged.`,
-				cls: "border-blue-200 bg-blue-50 text-blue-700",
+				cls: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300",
 			},
 			rejected_deviation: {
 				text: `Schedule kept at ${feedResult.previousGrams}g — the calculated ${feedResult.calculatedGrams}g differs by more than 50% from the current amount. Review it before applying.`,
-				cls: "border-amber-200 bg-amber-50 text-amber-700",
+				cls: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
 			},
 			rejected_out_of_range: {
 				text: `Schedule kept at ${feedResult.previousGrams}g — the calculated ${feedResult.calculatedGrams}g is outside the allowed range.`,
-				cls: "border-amber-200 bg-amber-50 text-amber-700",
+				cls: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
 			},
 			skipped_config: {
 				text: "Device schedule unchanged — set the pond feeding rate and feeds per day first.",
-				cls: "border-amber-200 bg-amber-50 text-amber-700",
+				cls: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
 			},
 			skipped_no_device: {
 				text: "Device schedule unchanged — no device is linked to this pond.",
-				cls: "border-amber-200 bg-amber-50 text-amber-700",
+				cls: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
 			},
 			skipped_no_population: {
 				text: "Device schedule unchanged — set the pond fish population so biomass can be computed.",
-				cls: "border-amber-200 bg-amber-50 text-amber-700",
+				cls: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
 			},
 			skipped_target_plan: {
 				text: "Sample saved. The target growth plan is not due for another adjustment — open Growth to review the next date.",
-				cls: "border-blue-200 bg-blue-50 text-blue-700",
+				cls: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300",
 			},
 		};
 		const status = statusInfo[feedResult.status];
@@ -338,13 +342,13 @@ export function LogSampleForm({
 		return (
 			<div className="space-y-6 py-4 text-center">
 				<div className="flex justify-center">
-					<div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
-						<CheckCircle2 className="h-8 w-8 text-green-600" />
+					<div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100 dark:bg-green-500/15">
+						<CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-300" />
 					</div>
 				</div>
 
 				<div>
-					<p className="text-xs uppercase font-extrabold tracking-wider text-[#3D5568]">
+					<p className="text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400">
 						Feed to dispense per feeding
 					</p>
 					<p className="mt-1 text-5xl font-black text-[#E85A2A]">
@@ -352,14 +356,16 @@ export function LogSampleForm({
 						<span className="text-2xl"> g</span>
 					</p>
 					{feedResult.dailyFeedG !== null && (
-						<p className="mt-1 text-sm font-medium text-[#3D5568]">
+						<p className="mt-1 text-sm font-medium text-[#3D5568] dark:text-gray-400">
 							Daily total {feedResult.dailyFeedG.toFixed(2)}g · {feedResult.feedsPerDay} feed
 							{feedResult.feedsPerDay === 1 ? "" : "s"} per day
 						</p>
 					)}
-					<p className="mt-2 text-sm text-[#3D5568]">
+					<p className="mt-2 text-sm text-[#3D5568] dark:text-gray-400">
 						Saved to{" "}
-						<strong className="text-[#0A3D62]">{feedResult.batchLabel || "Unlabeled"}</strong>
+						<strong className="text-[#0A3D62] dark:text-gray-100">
+							{feedResult.batchLabel || "Unlabeled"}
+						</strong>
 						{feedResult.batchLabel ? "" : " (no sampling batch)"}
 					</p>
 				</div>
@@ -385,7 +391,7 @@ export function LogSampleForm({
 					<button
 						type="button"
 						onClick={() => router.push("/dashboard")}
-						className="border border-[#0A3D62] text-[#0A3D62] px-8 py-3.5 rounded-2xl font-black hover:bg-[#0A3D62]/5 transition-all"
+						className="border border-[#0A3D62] text-[#0A3D62] px-8 py-3.5 rounded-2xl font-black hover:bg-[#0A3D62]/5 transition-all dark:border-[#5b9bd5] dark:text-[#5b9bd5] dark:hover:bg-white/5"
 					>
 						Back to Dashboard
 					</button>
@@ -397,19 +403,19 @@ export function LogSampleForm({
 	return (
 		<form onSubmit={handleSubmit} className="space-y-6">
 			{error && (
-				<div className="p-4 rounded-xl bg-red-50 text-red-600 border border-red-200 text-sm font-medium">
+				<div className="p-4 rounded-xl bg-red-50 text-red-600 border border-red-200 text-sm font-medium dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
 					{error}
 				</div>
 			)}
 
-			<div className="flex gap-2 p-1 bg-[#F4F7F6] rounded-xl border border-gray-200">
+			<div className="flex gap-2 p-1 bg-[#F4F7F6] rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800">
 				<button
 					type="button"
 					onClick={() => setInputMode("average")}
 					className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${
 						inputMode === "average"
-							? "bg-[#0A3D62] text-white shadow-md"
-							: "text-[#3D5568] hover:text-[#0A3D62]"
+							? "bg-[#0A3D62] text-white shadow-md dark:bg-[#1f66a0]"
+							: "text-[#3D5568] hover:text-[#0A3D62] dark:text-gray-400 dark:hover:text-gray-100"
 					}`}
 				>
 					<Scale className="inline-block w-4 h-4 mr-1.5 -mt-0.5" />
@@ -420,8 +426,8 @@ export function LogSampleForm({
 					onClick={() => setInputMode("individual")}
 					className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${
 						inputMode === "individual"
-							? "bg-[#0A3D62] text-white shadow-md"
-							: "text-[#3D5568] hover:text-[#0A3D62]"
+							? "bg-[#0A3D62] text-white shadow-md dark:bg-[#1f66a0]"
+							: "text-[#3D5568] hover:text-[#0A3D62] dark:text-gray-400 dark:hover:text-gray-100"
 					}`}
 				>
 					<Fish className="inline-block w-4 h-4 mr-1.5 -mt-0.5" />
@@ -432,7 +438,7 @@ export function LogSampleForm({
 			<div className="space-y-1.5">
 				<label
 					htmlFor="batchLabel"
-					className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568]"
+					className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400"
 				>
 					Sampling batch (optional)
 				</label>
@@ -463,7 +469,7 @@ export function LogSampleForm({
 					<div className="space-y-1.5">
 						<label
 							htmlFor="weightGrams"
-							className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568]"
+							className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400"
 						>
 							Avg. Fish Weight (grams)
 						</label>
@@ -488,7 +494,7 @@ export function LogSampleForm({
 					<div className="space-y-1.5">
 						<label
 							htmlFor="lengthCm"
-							className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568]"
+							className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400"
 						>
 							Avg. Fish Length (cm)
 						</label>
@@ -513,7 +519,7 @@ export function LogSampleForm({
 					<div className="space-y-1.5">
 						<label
 							htmlFor="sampleCount"
-							className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568]"
+							className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400"
 						>
 							Sample Fish Count
 						</label>
@@ -536,7 +542,7 @@ export function LogSampleForm({
 			) : (
 				<div className="space-y-4">
 					<div className="flex items-center justify-between">
-						<p className="text-xs uppercase font-extrabold tracking-wider text-[#3D5568]">
+						<p className="text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400">
 							Individual Fish Measurements
 						</p>
 						<button
@@ -551,9 +557,12 @@ export function LogSampleForm({
 
 					<div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
 						{individualFish.map((fish, index) => (
-							<div key={fish.id} className="p-3 bg-[#F4F7F6] rounded-xl border border-gray-200">
+							<div
+								key={fish.id}
+								className="p-3 bg-[#F4F7F6] rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800/60"
+							>
 								<div className="flex flex-wrap items-center gap-2">
-									<span className="text-xs font-bold text-[#3D5568] w-6 text-center shrink-0">
+									<span className="text-xs font-bold text-[#3D5568] dark:text-gray-400 w-6 text-center shrink-0">
 										#{index + 1}
 									</span>
 									<div className="flex-1 min-w-[7.5rem] relative">
@@ -594,7 +603,9 @@ export function LogSampleForm({
 									</button>
 								</div>
 								{rowErrors[index] && (
-									<p className="mt-1.5 pl-8 text-xs font-bold text-red-500">{rowErrors[index]}</p>
+									<p className="mt-1.5 pl-8 text-xs font-bold text-red-500 dark:text-red-400">
+										{rowErrors[index]}
+									</p>
 								)}
 							</div>
 						))}
@@ -602,41 +613,46 @@ export function LogSampleForm({
 				</div>
 			)}
 
-			<div className="bg-[#0A3D62]/5 border border-[#0A3D62]/10 rounded-2xl p-6">
-				<h3 className="text-sm font-black text-[#0A3D62] mb-1">Live Preview</h3>
-				<p className="text-[#3D5568] text-xs leading-relaxed">
+			<div className="bg-[#0A3D62]/5 border border-[#0A3D62]/10 rounded-2xl p-6 dark:border-white/10 dark:bg-white/5">
+				<h3 className="text-sm font-black text-[#0A3D62] dark:text-[#5b9bd5] mb-1">Live Preview</h3>
+				<p className="text-[#3D5568] dark:text-gray-400 text-xs leading-relaxed">
 					{inputMode === "individual" && (
 						<>
-							Sampled <strong className="text-[#0A3D62]">{individualCount}</strong> fish(s).
+							Sampled{" "}
+							<strong className="text-[#0A3D62] dark:text-gray-100">{individualCount}</strong>{" "}
+							fish(s).
 							<br />
 						</>
 					)}
 					Calculated Average Body Weight (ABW):{" "}
-					<strong className="text-[#0A3D62]">
+					<strong className="text-[#0A3D62] dark:text-gray-100">
 						{avgWeightG > 0 ? avgWeightG.toFixed(1) : "—"}g
 					</strong>
 					.
 					{avgLengthCm > 0 && (
 						<>
 							<br />
-							Average Length: <strong className="text-[#0A3D62]">{avgLengthCm.toFixed(1)}cm</strong>
+							Average Length:{" "}
+							<strong className="text-[#0A3D62] dark:text-gray-100">
+								{avgLengthCm.toFixed(1)}cm
+							</strong>
 						</>
 					)}
 				</p>
 
-				<div className="mt-3 space-y-1.5 border-t border-[#0A3D62]/10 pt-3 text-xs">
+				<div className="mt-3 space-y-1.5 border-t border-[#0A3D62]/10 pt-3 text-xs dark:border-gray-700/50">
 					<div className="flex items-baseline justify-between gap-4">
-						<span className="font-medium text-[#3D5568]">
+						<span className="font-medium text-[#3D5568] dark:text-gray-400">
 							Total Biomass
 							{biomassG === 0 && (
-								<span className="block text-[11px] font-normal text-[#3D5568]/60">
+								<span className="block text-[11px] font-normal text-[#3D5568]/60 dark:text-gray-500">
 									= {populationUnset ? "estimate assuming " : ""}
 									{effectivePopulation.toLocaleString("en-US")} fish × avg weight
 								</span>
 							)}
 						</span>
-						<span className="text-right text-[#3D5568]">
-							<strong className="text-[#0A3D62]">
+						<span className="text-right text-[#3D5568] dark:text-gray-400">
+							<strong className="text-[#0A3D62] dark:text-gray-100">
 								{biomassG > 0 ? Math.round(biomassG).toLocaleString("en-US") : "—"}
 							</strong>
 							{biomassG > 0 && (
@@ -651,16 +667,18 @@ export function LogSampleForm({
 						</span>
 					</div>
 					<div className="flex items-baseline justify-between gap-4">
-						<span className="font-medium text-[#3D5568]">
+						<span className="font-medium text-[#3D5568] dark:text-gray-400">
 							Daily Feed
 							{dailyFeed === 0 && (
-								<span className="block text-[11px] font-normal text-[#3D5568]/60">
+								<span className="block text-[11px] font-normal text-[#3D5568]/60 dark:text-gray-500">
 									= biomass × {feedingRatePct}%
 								</span>
 							)}
 						</span>
-						<span className="text-right text-[#3D5568]">
-							<strong className="text-[#0A3D62]">{dailyFeed > 0 ? fmtG2(dailyFeed) : "—"}</strong>
+						<span className="text-right text-[#3D5568] dark:text-gray-400">
+							<strong className="text-[#0A3D62] dark:text-gray-100">
+								{dailyFeed > 0 ? fmtG2(dailyFeed) : "—"}
+							</strong>
 							{dailyFeed > 0 && (
 								<>
 									g{" "}
@@ -672,15 +690,15 @@ export function LogSampleForm({
 						</span>
 					</div>
 					<div className="flex items-baseline justify-between gap-4">
-						<span className="font-medium text-[#3D5568]">
+						<span className="font-medium text-[#3D5568] dark:text-gray-400">
 							Feed per Meal
 							{nextFeedingG === 0 && (
-								<span className="block text-[11px] font-normal text-[#3D5568]/60">
+								<span className="block text-[11px] font-normal text-[#3D5568]/60 dark:text-gray-500">
 									= daily ÷ {feedsPerDay} feeds
 								</span>
 							)}
 						</span>
-						<span className="text-right text-[#3D5568]">
+						<span className="text-right text-[#3D5568] dark:text-gray-400">
 							<strong className="text-sm text-[#E85A2A]">
 								{nextFeedingG > 0 ? fmtG2(nextFeedingG) : "—"}
 							</strong>
@@ -695,12 +713,17 @@ export function LogSampleForm({
 			</div>
 
 			{!online && (
-				<p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+				<p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
 					{tLog("offlineNote")}
 				</p>
 			)}
 
-			<div className={cn("flex justify-end border-t border-gray-100 pt-4", mobileStickyActions)}>
+			<div
+				className={cn(
+					"flex justify-end border-t border-gray-100 pt-4 dark:border-gray-700/50",
+					mobileStickyActions,
+				)}
+			>
 				<button
 					type="submit"
 					disabled={isPending || avgWeightG === 0 || !canWrite}

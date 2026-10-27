@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.1] - 2026-10-28
+
+### Fixed
+
+- Dashboard cards, the growth history dates, the sample form actions and the stuck-request banner keep consistent colours in dark mode (Karl, #235).
+
 ## [1.18.0] - 2026-10-28
 
 ### Added

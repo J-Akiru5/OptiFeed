@@ -234,7 +234,7 @@ export async function getPlatformAnalytics(
 		prisma.energyDevice.count({ where: { approvalStatus: "PENDING", createdAt: current } }),
 		prisma.energyDevice.count({ where: { approvalStatus: "PENDING", createdAt: previous } }),
 		prisma.$queryRaw<SignupRow[]>`
-			SELECT to_char(date_trunc('day', "createdAt" AT TIME ZONE ${PH_TZ}::text), 'YYYY-MM-DD') AS day,
+			SELECT to_char(date_trunc('day', "createdAt" AT TIME ZONE 'UTC' AT TIME ZONE ${PH_TZ}::text), 'YYYY-MM-DD') AS day,
 			       COUNT(*)::int AS total
 			FROM "User"
 			WHERE "createdAt" >= ${window.start} AND "createdAt" < ${window.end}
@@ -242,7 +242,7 @@ export async function getPlatformAnalytics(
 			ORDER BY 1
 		`,
 		prisma.$queryRaw<FeedBucketQueryRow[]>`
-			SELECT to_char(date_trunc('day', "receivedAt" AT TIME ZONE ${PH_TZ}::text), 'YYYY-MM-DD') AS day,
+			SELECT to_char(date_trunc('day', "receivedAt" AT TIME ZONE 'UTC' AT TIME ZONE ${PH_TZ}::text), 'YYYY-MM-DD') AS day,
 			       COALESCE(NULLIF("source", ''), 'unknown') AS source,
 			       COUNT(*)::int AS total,
 			       COALESCE(SUM("grams"), 0)::float8 AS grams

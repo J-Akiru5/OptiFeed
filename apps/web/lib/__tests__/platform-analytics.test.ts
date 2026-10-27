@@ -289,11 +289,11 @@ describe("getPlatformAnalytics", () => {
 			.map((call) => (call[0] as unknown as TemplateStringsArray).join(" "))
 			.join(" | ");
 
-		// The old double conversion shifted the first eight hours of each day
-		// into the previous bucket; a single `AT TIME ZONE` on the zone keeps
-		// `date_trunc` on a naive local timestamp.
-		expect(sql).not.toContain("AT TIME ZONE 'UTC' AT TIME ZONE");
-		expect(sql).toContain('"receivedAt" AT TIME ZONE');
+		// Columns are `timestamp` without time zone holding UTC: mark them as UTC
+		// first, then convert to Manila, so 00:00–08:00 Manila stays on its own
+		// day. A single `AT TIME ZONE` reads UTC as Manila time (shifts a day).
+		expect(sql).toContain(`"receivedAt" AT TIME ZONE 'UTC' AT TIME ZONE`);
+		expect(sql).toContain(`"createdAt" AT TIME ZONE 'UTC' AT TIME ZONE`);
 	});
 
 	it("counts only machine dispenses in the feed KPIs", async () => {

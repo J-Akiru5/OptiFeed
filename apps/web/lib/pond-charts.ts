@@ -33,11 +33,13 @@ import { Prisma } from "@prisma/client";
  *
  * Window helpers live in `lib/chart-windows.ts`; this module only queries.
  *
- * Buckets use `ts AT TIME ZONE '<zone>'` (a naive local timestamp) and then
- * `date_trunc`, which is independent of the connection's session timezone.
- * Do not chain a second `AT TIME ZONE`: that yields a `timestamptz` which
- * `date_trunc` truncates in the session timezone, shifting the first hours of
- * each local day into the previous bucket.
+ * Timestamp columns are Prisma `DateTime` = Postgres `timestamp(3)` WITHOUT time
+ * zone, holding UTC. Buckets therefore use `ts AT TIME ZONE 'UTC' AT TIME ZONE
+ * '<zone>'`: the first step marks the value as UTC (timestamptz), the second
+ * turns it into the naive local time, and `date_trunc` then cuts the local day
+ * regardless of the session timezone. A single `AT TIME ZONE '<zone>'` would
+ * read the UTC value as local time and move the first 8 hours of each Manila
+ * day into the previous bucket (verified against the database on 2026-10-28).
  */
 
 /** Batch label used when a biomass sample has none. */
@@ -103,7 +105,7 @@ export async function getFeedPerDayBySource(
 	if (deviceIds.length === 0) return { dayKeys, stack: empty, countsBySource: {} };
 
 	const rows = await prisma.$queryRaw<FeedBucketQueryRow[]>`
-		SELECT to_char(date_trunc('day', "receivedAt" AT TIME ZONE ${PH_TZ}::text), 'YYYY-MM-DD') AS day,
+		SELECT to_char(date_trunc('day', "receivedAt" AT TIME ZONE 'UTC' AT TIME ZONE ${PH_TZ}::text), 'YYYY-MM-DD') AS day,
 		       COALESCE(NULLIF("source", ''), 'unknown') AS source,
 		       COUNT(*)::int AS total,
 		       COALESCE(SUM("grams"), 0)::float8 AS grams
@@ -213,7 +215,7 @@ export async function getHopperLevelSeries(
 	const { start, end } = resolveDayWindow(range, now);
 
 	const rows = await prisma.$queryRaw<BucketRow[]>`
-		SELECT to_char(date_trunc('day', "recordedAt" AT TIME ZONE ${PH_TZ}::text), 'YYYY-MM-DD') AS bucket,
+		SELECT to_char(date_trunc('day', "recordedAt" AT TIME ZONE 'UTC' AT TIME ZONE ${PH_TZ}::text), 'YYYY-MM-DD') AS bucket,
 		       AVG("levelPercent")::float8 AS value
 		FROM "FeedLevelLog"
 		WHERE "deviceId" IN (${Prisma.join(deviceIds)})
@@ -234,7 +236,7 @@ export async function getHopperLevelSeries(
  */
 export async function getBiomassTrend(pondId: string): Promise<MultiSeries> {
 	const rows = await prisma.$queryRaw<BiomassBucketQueryRow[]>`
-		SELECT to_char(date_trunc('day', "recordedAt" AT TIME ZONE ${PH_TZ}::text), 'YYYY-MM-DD') AS day,
+		SELECT to_char(date_trunc('day', "recordedAt" AT TIME ZONE 'UTC' AT TIME ZONE ${PH_TZ}::text), 'YYYY-MM-DD') AS day,
 		       COALESCE(NULLIF(btrim("batchLabel"), ''), ${UNLABELED_BATCH}) AS batch,
 		       AVG("avgWeightKg")::float8 * 1000 AS grams
 		FROM "BiomassLog"
@@ -267,7 +269,7 @@ export async function getWaterTempSeries(
 
 	if (bucket === "hour") {
 		const rows = await prisma.$queryRaw<BucketRow[]>`
-			SELECT to_char(date_trunc('hour', "recordedAt" AT TIME ZONE ${PH_TZ}::text), 'YYYY-MM-DD HH24') || ':00' AS bucket,
+			SELECT to_char(date_trunc('hour', "recordedAt" AT TIME ZONE 'UTC' AT TIME ZONE ${PH_TZ}::text), 'YYYY-MM-DD HH24') || ':00' AS bucket,
 			       AVG("tempC")::float8 AS value
 			FROM "WaterTempLog"
 			WHERE "deviceId" IN (${Prisma.join(deviceIds)})
@@ -279,7 +281,7 @@ export async function getWaterTempSeries(
 	}
 
 	const rows = await prisma.$queryRaw<BucketRow[]>`
-		SELECT to_char(date_trunc('day', "recordedAt" AT TIME ZONE ${PH_TZ}::text), 'YYYY-MM-DD') AS bucket,
+		SELECT to_char(date_trunc('day', "recordedAt" AT TIME ZONE 'UTC' AT TIME ZONE ${PH_TZ}::text), 'YYYY-MM-DD') AS bucket,
 		       AVG("tempC")::float8 AS value
 		FROM "WaterTempLog"
 		WHERE "deviceId" IN (${Prisma.join(deviceIds)})

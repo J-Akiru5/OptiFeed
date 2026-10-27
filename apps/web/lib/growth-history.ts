@@ -1,5 +1,6 @@
 import type { DateRange } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
+import { computeSgr } from "@/lib/sgr";
 
 export const GROWTH_HISTORY_TABS = ["feed", "growth", "biomass"] as const;
 export type GrowthHistoryTab = (typeof GROWTH_HISTORY_TABS)[number];
@@ -42,6 +43,8 @@ export interface GrowthHistoryRow {
 	weightGainG: number | null;
 	lengthGainCm: number | null;
 	daysSinceLast: number | null;
+	/** SGR against the previous sampling; null for the first sample (or invalid intervals). */
+	sgrPctPerDay: number | null;
 }
 
 function dateWhere(range?: DateRange) {
@@ -117,6 +120,9 @@ export async function getGrowthHistory(params: PageSlice & { pondId: string }) {
 			weightGainG: older ? row.avgWeightKg * 1000 - older.avgWeightKg * 1000 : null,
 			lengthGainCm: older ? row.sampleLengthCm - older.sampleLengthCm : null,
 			daysSinceLast,
+			sgrPctPerDay: older
+				? computeSgr(older.avgWeightKg, older.recordedAt, row.avgWeightKg, row.recordedAt)
+				: null,
 		};
 	});
 

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Specific Growth Rate (SGR) on the Growth page and growth history (capstone objective).
+
 ## [1.17.1] - 2026-10-28
 
 ### Fixed

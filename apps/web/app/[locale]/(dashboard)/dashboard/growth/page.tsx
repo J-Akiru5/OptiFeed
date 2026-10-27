@@ -19,6 +19,7 @@ import {
 	dashboardSectionLink,
 } from "@/components/dashboard/dashboard-ui";
 import { GrowthPlanCard } from "@/components/growth/GrowthPlanCard";
+import { SgrKpi, type SgrKpiLabels } from "@/components/growth/SgrKpi";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
@@ -32,6 +33,7 @@ import { getActivePond } from "@/lib/pond-selection";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { averageDailyGain, overallSgr, sgrSeries, sgrUnavailableReason } from "@/lib/sgr";
 import { Activity, ChevronRight, Fish, Package, Scale, TrendingUp, Wheat } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -115,6 +117,18 @@ export default async function GrowthPage() {
 			: null;
 		return { log, weightGain, lengthGain, daysSinceLast };
 	});
+
+	// SGR (capstone objective). Biomass logs are already ascending for the chart,
+	// so the series is oldest interval first and the last point is the latest one.
+	const sgrSamples = biomassLogs.map((log) => ({
+		recordedAt: log.recordedAt,
+		avgWeightKg: log.avgWeightKg,
+	}));
+	const sgrPoints = sgrSeries(sgrSamples);
+	const latestSgrPctPerDay = sgrPoints.at(-1)?.sgrPctPerDay ?? null;
+	const overallSgrPctPerDay = overallSgr(sgrSamples);
+	const sgrAverageDailyGainG = averageDailyGain(sgrSamples);
+	const sgrReason = sgrUnavailableReason(sgrSamples);
 
 	const cycleContext = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
 
@@ -225,6 +239,19 @@ export default async function GrowthPage() {
 			lengthCm: log.sampleLengthCm,
 			batchLabel: log.batchLabel,
 		})),
+	};
+
+	const sgrLabels: SgrKpiLabels = {
+		title: t("sgrTitle"),
+		overall: t("sgrOverall"),
+		averageGain: t("sgrAverageGain"),
+		unit: t("sgrUnit"),
+		explanation: t("sgrExplain"),
+		reasons: {
+			insufficientSamples: t("sgrReasons.insufficientSamples"),
+			invalidWeight: t("sgrReasons.invalidWeight"),
+			intervalTooShort: t("sgrReasons.intervalTooShort"),
+		},
 	};
 
 	return (
@@ -363,7 +390,10 @@ export default async function GrowthPage() {
 			{/* FCR Calculator */}
 			<FcrCalculator latestFcr={latestFcr} />
 
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-6" data-help="growth-charts">
+			<div
+				className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
+				data-help="growth-charts"
+			>
 				{/* Latest ABW Card */}
 				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex flex-col justify-between relative overflow-hidden">
 					<div className="flex justify-between items-start mb-4 relative z-10">
@@ -496,6 +526,15 @@ export default async function GrowthPage() {
 						})}
 					</span>
 				</div>
+
+				{/* Specific Growth Rate (capstone objective) */}
+				<SgrKpi
+					latestSgrPctPerDay={latestSgrPctPerDay}
+					overallSgrPctPerDay={overallSgrPctPerDay}
+					averageDailyGainG={sgrAverageDailyGainG}
+					reason={sgrReason}
+					labels={sgrLabels}
+				/>
 			</div>
 
 			{/* Feed Level Trend Card */}

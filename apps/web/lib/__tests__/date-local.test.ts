@@ -103,6 +103,12 @@ describe("formatFarmDateTime", () => {
 		expect(translator).toHaveBeenCalledWith("days.Wed");
 		expect(translator).toHaveBeenCalledWith("months.Oct");
 	});
+
+	it("does not throw on an invalid date", () => {
+		// A corrupt timestamp from a device must degrade to a label, not crash
+		// the whole page render.
+		expect(() => formatFarmDateTime(new Date(Number.NaN), mockTranslator)).not.toThrow();
+	});
 });
 
 describe("formatWallClockTime", () => {

@@ -16,6 +16,15 @@ export interface FarmWallClock {
 
 /** Wall-clock parts of `date` in `timeZone` (default Asia/Manila). */
 export function farmWallClock(date: Date, timeZone: string = PH_TZ): FarmWallClock {
+	if (!Number.isFinite(date.getTime())) {
+		return {
+			year: Number.NaN,
+			month: Number.NaN,
+			day: Number.NaN,
+			hour: Number.NaN,
+			minute: Number.NaN,
+		};
+	}
 	const formatter = new Intl.DateTimeFormat("en-US", {
 		timeZone,
 		year: "numeric",

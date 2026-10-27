@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
 	count: vi.fn(),
 	findMany: vi.fn(),
+	membershipFindMany: vi.fn(),
 	platformAdminFindMany: vi.fn(),
 	createSignedUrls: vi.fn(),
 }));
@@ -10,6 +11,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/prisma", () => ({
 	default: {
 		user: { count: mocks.count, findMany: mocks.findMany },
+		membership: { findMany: mocks.membershipFindMany },
 		platformAdmin: { findMany: mocks.platformAdminFindMany },
 	},
 }));
@@ -56,6 +58,7 @@ describe("getUsers avatars", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mocks.platformAdminFindMany.mockResolvedValue([]);
+		mocks.membershipFindMany.mockResolvedValue([]);
 		mocks.count.mockResolvedValue(1);
 		mocks.findMany.mockResolvedValue([
 			{

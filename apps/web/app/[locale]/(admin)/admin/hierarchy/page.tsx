@@ -26,7 +26,9 @@ export default async function AdminHierarchyPage() {
 		id: `user-${entry.user.id}`,
 		kind: "user",
 		title: entry.user.displayName || entry.user.email || entry.user.farmId,
-		subtitle: `${entry.user.email ?? entry.user.farmId} · ${roleLabel(entry.user.role)}`,
+		subtitle: `${entry.user.email ?? entry.user.farmId} · ${roleLabel(
+			entry.user.membershipRole ?? entry.user.role,
+		)}`,
 		children: entry.farm
 			? [
 					{

@@ -67,6 +67,7 @@ export function MemberPermissions({
 	isSelf,
 }: MemberPermissionsProps) {
 	const t = useTranslations("dashboard.adminUsers");
+	const tMembers = useTranslations("dashboard.adminMembers");
 	const router = useRouter();
 	const [state, setState] = useState<UserPermissionState>(initialState);
 	const [draft, setDraft] = useState<Record<string, boolean>>(() =>
@@ -174,7 +175,7 @@ export function MemberPermissions({
 					{t("roleLabel")}
 				</span>
 				<span className="rounded-full bg-[#0A3D62] px-2.5 py-1 text-[10px] font-black tracking-wider text-white uppercase dark:bg-[#8fc0ea]/20 dark:text-[#8fc0ea]">
-					{state.role}
+					{tMembers(`role.${state.role}`)}
 				</span>
 			</div>
 

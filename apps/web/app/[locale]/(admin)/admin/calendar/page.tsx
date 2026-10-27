@@ -61,15 +61,29 @@ export default async function AdminCalendarPage() {
 				})
 			: [];
 
-	const cycles =
-		ponds.length > 0
-			? await prisma.cropCycle.findMany({
-					where: { pondId: { in: ponds.map((pond) => pond.id) } },
-					orderBy: { createdAt: "desc" },
-					take: 30,
-					select: CYCLE_SELECT,
-				})
-			: [];
+	const pondIds = ponds.map((pond) => pond.id);
+	// Two bounded reads instead of one page of 30 mixed cycles: an ACTIVE cycle
+	// on an older pond used to fall out of the newest-30 window entirely, so the
+	// "All ponds" view lost its cycle data. Crop-cycle creation enforces one
+	// ACTIVE cycle per pond, so `pondIds.length` is the exact bound for the
+	// active read — no silent cut — while history keeps its own 30-row cap.
+	const [activeCycleRows, recentCycleRows] =
+		pondIds.length > 0
+			? await Promise.all([
+					prisma.cropCycle.findMany({
+						where: { pondId: { in: pondIds }, status: "ACTIVE" },
+						orderBy: { createdAt: "desc" },
+						take: pondIds.length,
+						select: CYCLE_SELECT,
+					}),
+					prisma.cropCycle.findMany({
+						where: { pondId: { in: pondIds }, status: { not: "ACTIVE" } },
+						orderBy: { createdAt: "desc" },
+						take: 30,
+						select: CYCLE_SELECT,
+					}),
+				])
+			: [[], []];
 
 	if (ponds.length === 0) {
 		return (
@@ -100,10 +114,9 @@ export default async function AdminCalendarPage() {
 			averageDepthM: profile.averageDepthM,
 		};
 	});
-	const serialised = cycles.map(serialiseCycle);
-	const activeCycles = serialised.filter((cycle) => cycle.status === "ACTIVE");
+	const activeCycles = activeCycleRows.map(serialiseCycle);
 	const activeCycle = activeCycles.find((cycle) => cycle.pondId === ponds[0].id) ?? null;
-	const recentCycles = serialised.filter((cycle) => cycle.status !== "ACTIVE");
+	const recentCycles = recentCycleRows.map(serialiseCycle);
 
 	return (
 		<div className="mx-auto w-full max-w-7xl min-w-0 space-y-6 pb-20 [contain:inline-size] animate-in fade-in duration-150">

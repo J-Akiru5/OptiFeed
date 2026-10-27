@@ -1,7 +1,9 @@
-import { DashboardEmptyState } from "@/components/dashboard/dashboard-ui";
+import { DashboardEmptyState, DashboardPageHeader } from "@/components/dashboard/dashboard-ui";
+import { CalendarCapabilityBadge } from "@/components/harvest/calendar-controls";
 import { HarvestCalendar } from "@/components/harvest/harvest-calendar";
+import { calendarCapability } from "@/lib/calendar/capability";
 import { loadFarmerCalendarPageData } from "@/lib/calendar/farmer-page";
-import { CalendarDays } from "lucide-react";
+import { CalendarRange } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0;
@@ -25,7 +27,7 @@ export default async function FarmerCalendarPage() {
 		return (
 			<div className="mx-auto max-w-2xl py-10">
 				<DashboardEmptyState
-					icon={CalendarDays}
+					icon={CalendarRange}
 					title={tSchedule("noPondData")}
 					description={tCommon("noPondDesc")}
 				/>
@@ -33,5 +35,34 @@ export default async function FarmerCalendarPage() {
 		);
 	}
 
-	return <HarvestCalendar {...data} apiScope="member-org" heading="calendar" />;
+	const [tPage, tCommon] = await Promise.all([
+		getTranslations("dashboard.harvest.calendarPage"),
+		getTranslations("dashboard.common"),
+	]);
+	const capability = calendarCapability({
+		canManage: data.canManage,
+		writablePondIds: data.writablePondIds,
+		pondCount: data.ponds.length,
+	});
+
+	return (
+		<div className="space-y-6">
+			<DashboardPageHeader
+				icon={CalendarRange}
+				title={tPage("title")}
+				description={tPage("desc")}
+				actions={
+					<CalendarCapabilityBadge
+						capability={capability}
+						labels={{
+							edit: tCommon("capability.edit"),
+							ownFarm: tCommon("capability.ownFarm"),
+							read: tCommon("capability.read"),
+						}}
+					/>
+				}
+			/>
+			<HarvestCalendar {...data} apiScope="member-org" heading="calendar" showHeader={false} />
+		</div>
+	);
 }

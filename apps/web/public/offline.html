@@ -517,7 +517,7 @@
 						.join("");
 					return (
 						'<div class="grid">' +
-						card("Recent dispensed", data.totalDispensedG == null ? "—" : number(data.totalDispensedG / 1000, 1) + " kg") +
+						card("Dispensed today", data.todayDispensedG == null ? "—" : number(data.todayDispensedG / 1000, 2) + " kg") +
 						card(
 							"Feed level",
 							data.feedLevelPercent == null ? "—" : number(data.feedLevelPercent) + "%",

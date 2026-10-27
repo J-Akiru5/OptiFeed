@@ -46,6 +46,7 @@ import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatFarmDateTime, formatWallClockTime } from "@/lib/date-local";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
+import { MACHINE_FEED_SOURCES, formatFeedAmountLabel } from "@/lib/feed-figures";
 import { isDeviceOffline } from "@/lib/feed-level-display";
 import { feedSourceKey } from "@/lib/feed-sources";
 import type { DashboardSnapshotData } from "@/lib/offline/snapshots";
@@ -212,6 +213,9 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					where: {
 						deviceId: energyDevice.id,
 						eventType: "feed_dispensed",
+						// Drift compares what the device dispensed with the hopper
+						// drop; an imported hand-fed daily total never came from it.
+						source: { in: [...MACHINE_FEED_SOURCES] },
 						receivedAt: { gte: driftWindowStart },
 					},
 					select: { grams: true, receivedAt: true },
@@ -442,7 +446,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		time: formatTime(item.receivedAt),
 		date: formatDate(item.receivedAt),
 		sourceLabel: tHist(item.source ? `source_${feedSourceKey(item.source)}` : "confirmedDispense"),
-		grams: `${item.grams ?? 0} g`,
+		grams: formatFeedAmountLabel(item.grams),
 	}));
 
 	return (

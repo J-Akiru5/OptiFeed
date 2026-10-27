@@ -3,6 +3,7 @@
 import { FeederIllustration } from "@/components/feeder/feeder-illustration";
 import { Link } from "@/i18n/routing";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFeedAmountLabel } from "@/lib/feed-figures";
 import { resolveFeedLevelDisplay } from "@/lib/feed-level-display";
 import {
 	FEEDER_HERO_PHOTO_PATH,
@@ -272,7 +273,7 @@ export function FeederHero({ pondName, className, ...data }: FeederHeroProps) {
 		{
 			icon: Timer,
 			label: t("fedTodayLabel"),
-			value: t("gramsValue", { grams: number(gramsToday) }),
+			value: formatFeedAmountLabel(gramsToday, locale),
 			detail: t("sinceMidnight"),
 			position: CALLOUT_POSITIONS[2],
 			index: 2,

@@ -32,7 +32,6 @@ import {
 	CloudOff,
 	Cpu,
 	ExternalLink,
-	Filter,
 	Fish,
 	Loader2,
 	PauseCircle,
@@ -46,6 +45,7 @@ import { useLocale, useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { CalendarTypeFilters } from "./calendar-controls";
 import { CalendarErrorBoundary } from "./calendar-error-boundary";
 import { CycleForm } from "./cycle-form";
 import { EventEditor, type EventEditorSelection } from "./event-editor";
@@ -86,6 +86,8 @@ interface HarvestCalendarProps {
 	canManageCycles?: boolean;
 	/** `calendar` switches the page heading to the dedicated Calendar copy. */
 	heading?: "harvest" | "calendar";
+	/** Console pages render their own page header; hide the in-body one. */
+	showHeader?: boolean;
 	today: string;
 	hopperLevelPct?: number | null;
 	hopperFeedLevelUpdatedAt?: string | null;
@@ -149,6 +151,7 @@ export function HarvestCalendar({
 	canManage,
 	canManageCycles: canManageCyclesProp,
 	heading = "harvest",
+	showHeader = true,
 	today,
 	hopperLevelPct,
 	hopperFeedLevelUpdatedAt,
@@ -663,22 +666,28 @@ export function HarvestCalendar({
 			className="mx-auto flex w-full min-w-0 max-w-[1600px] flex-col gap-4 animate-in fade-in duration-150 [contain:inline-size] xl:h-[calc(100dvh-8rem)] xl:overflow-hidden"
 			data-help="harvest-calendar"
 		>
-			<div className="flex flex-none flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-				<div className="flex items-center gap-2">
-					<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
-						<CalendarDays aria-hidden="true" className="h-6 w-6" />
+			<div
+				className={`flex flex-none flex-col gap-3 xl:flex-row xl:items-start ${
+					showHeader ? "xl:justify-between" : "xl:justify-end"
+				}`}
+			>
+				{showHeader && (
+					<div className="flex items-center gap-2">
+						<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
+							<CalendarDays aria-hidden="true" className="h-6 w-6" />
+						</div>
+						<div className="min-w-0">
+							<h1 className="text-2xl font-black tracking-tight text-[var(--ofd-base-deep)] sm:text-3xl">
+								{heading === "calendar" ? t("calendarPage.title") : t("title")}
+							</h1>
+							<p className="text-sm text-gray-500 dark:text-gray-400">
+								{heading === "calendar"
+									? t("calendarPage.desc")
+									: t("desc", { pond: selectedPond?.name ?? initialPondName })}
+							</p>
+						</div>
 					</div>
-					<div className="min-w-0">
-						<h1 className="text-2xl font-black tracking-tight text-[var(--ofd-base-deep)] sm:text-3xl">
-							{heading === "calendar" ? t("calendarPage.title") : t("title")}
-						</h1>
-						<p className="text-sm text-gray-500 dark:text-gray-400">
-							{heading === "calendar"
-								? t("calendarPage.desc")
-								: t("desc", { pond: selectedPond?.name ?? initialPondName })}
-						</p>
-					</div>
-				</div>
+				)}
 
 				<div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center xl:justify-end">
 					{allPonds ? (
@@ -940,30 +949,13 @@ export function HarvestCalendar({
 				>
 					<div className="flex flex-none flex-col gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
 						<div className="flex min-w-0 flex-wrap items-center gap-2">
-							<fieldset
-								aria-label={t("calendar.filters")}
-								className="m-0 flex min-w-0 flex-wrap items-center gap-1.5 border-0 p-0"
-							>
-								<span className="mr-1 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-gray-400">
-									<Filter aria-hidden="true" className="h-3 w-3" />
-									{t("calendar.filters")}
-								</span>
-								{CALENDAR_EVENT_TYPES.map((type) => (
-									<button
-										key={type}
-										type="button"
-										onClick={() => toggleType(type)}
-										aria-pressed={types.has(type)}
-										className={`inline-flex min-h-11 items-center rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea] ${
-											types.has(type)
-												? "bg-[#0A3D62] text-white dark:bg-[#1f66a0]"
-												: "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-										}`}
-									>
-										{t(`filters.${type}`)}
-									</button>
-								))}
-							</fieldset>
+							<CalendarTypeFilters
+								types={CALENDAR_EVENT_TYPES}
+								isSelected={(type) => types.has(type)}
+								onToggle={toggleType}
+								label={t("calendar.filters")}
+								labelFor={(type) => t(`filters.${type}`)}
+							/>
 							<div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
 								<label className="flex min-w-0 items-center gap-1.5 text-[11px] font-bold text-gray-500 dark:text-gray-400">
 									<Fish aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
@@ -1001,17 +993,25 @@ export function HarvestCalendar({
 									/>
 									{t("calendar.refresh")}
 								</button>
-								{canManage && !allPonds && selectedPondWritable && (
-									<button
-										type="button"
-										data-help="harvest-add-event"
-										onClick={() => openNewEvent({ start: today, end: null, allDay: true })}
-										className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-[#0A3D62] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#164e7c] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-[#1f66a0] dark:focus-visible:outline-[#8fc0ea]"
-									>
-										<Plus aria-hidden="true" className="h-3.5 w-3.5" />
-										{t("calendar.addEvent")}
-									</button>
-								)}
+								<button
+									type="button"
+									data-help="harvest-add-event"
+									onClick={() => openNewEvent({ start: today, end: null, allDay: true })}
+									disabled={!canManage || allPonds || !selectedPondWritable}
+									title={
+										!canManage
+											? t("calendar.readOnlyReason")
+											: allPonds
+												? t("calendar.allPondsEditHint")
+												: !selectedPondWritable
+													? t("calendarPage.readOnlyHint")
+													: undefined
+									}
+									className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-[#0A3D62] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#164e7c] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#1f66a0] dark:focus-visible:outline-[#8fc0ea]"
+								>
+									<Plus aria-hidden="true" className="h-3.5 w-3.5" />
+									{t("calendar.addEvent")}
+								</button>
 							</div>
 						</div>
 						{!allPonds && !selectedPondWritable && (

@@ -4,7 +4,12 @@ import { ListChips } from "@/components/mobile/list-chips";
 import { StatusStrip } from "@/components/mobile/status-strip";
 import { ListToolbar } from "@/components/superadmin/list-chrome";
 import { RegisterDeviceForm } from "@/components/superadmin/register-device-form";
-import { RemoteFeederControl } from "@/components/superadmin/remote-feeder-control";
+import {
+	RemoteFeedProvider,
+	RemoteFeederControl,
+	RemoteFeederRow,
+	RemoteFeederTrigger,
+} from "@/components/superadmin/remote-feeder-control";
 import { RotateDeviceToken } from "@/components/superadmin/rotate-device-token";
 import {
 	Badge,
@@ -35,9 +40,13 @@ import { buildPageHref } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
 import { Cpu, Printer, Wifi, WifiOff } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
+import { Fragment } from "react";
 
 const LABELS_HREF = "/superadmin/devices/labels";
 const LABEL_FORM_ID = "platform-device-label-form";
+
+/** Columns in the device registry table; the expanded row spans all of them. */
+const DEVICE_COLUMNS = 8;
 
 function first(param: string | string[] | undefined): string | undefined {
 	return Array.isArray(param) ? param[0] : param;
@@ -287,96 +296,106 @@ export default async function SuperadminDevicesPage({
 						})}
 					</ItemCardGrid>
 
-					<TableFrame
-						className="hidden md:block"
-						label={t("caption")}
-						minWidth="min-w-[64rem]"
-						columns={[
-							{ key: "select", label: t("columnSelect") },
-							{ key: "device", label: t("columnDevice") },
-							{ key: "mac", label: t("columnMac") },
-							{ key: "org", label: t("columnOrg") },
-							{ key: "pond", label: t("columnPond") },
-							{ key: "feed", label: t("columnFeedLevel") },
-							{ key: "seen", label: t("columnSeen") },
-							{ key: "actions", label: t("columnActions") },
-						]}
-					>
-						{visibleDevices.map((device) => {
-							const offline =
-								!device.lastSeenAt || now - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
-							return (
-								<tr
-									key={device.id}
-									className="border-b border-gray-50 align-top transition-colors last:border-0 hover:bg-[#F4F7F6]/50"
-								>
-									<td className="px-6 py-4">
-										<input
-											type="checkbox"
-											form={LABEL_FORM_ID}
-											name="id"
-											value={device.id}
-											aria-label={t("selectForSticker", { label: device.label })}
-											className="h-4 w-4 accent-[#0A3D62]"
+					<RemoteFeedProvider>
+						<TableFrame
+							className="hidden md:block"
+							label={t("caption")}
+							minWidth="min-w-[64rem]"
+							columns={[
+								{ key: "select", label: t("columnSelect") },
+								{ key: "device", label: t("columnDevice") },
+								{ key: "mac", label: t("columnMac") },
+								{ key: "org", label: t("columnOrg") },
+								{ key: "pond", label: t("columnPond") },
+								{ key: "feed", label: t("columnFeedLevel") },
+								{ key: "seen", label: t("columnSeen") },
+								{ key: "actions", label: t("columnActions") },
+							]}
+						>
+							{visibleDevices.map((device) => {
+								const offline =
+									!device.lastSeenAt || now - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+								return (
+									<Fragment key={device.id}>
+										<tr className="border-b border-gray-50 align-top transition-colors last:border-0 hover:bg-[#F4F7F6]/50">
+											<td className="px-6 py-4">
+												<input
+													type="checkbox"
+													form={LABEL_FORM_ID}
+													name="id"
+													value={device.id}
+													aria-label={t("selectForSticker", { label: device.label })}
+													className="h-4 w-4 accent-[#0A3D62]"
+												/>
+											</td>
+											<td className="px-6 py-4">
+												<div className="flex items-center gap-3">
+													<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0A3D62] text-white">
+														<Cpu className="h-4 w-4" aria-hidden="true" />
+													</div>
+													<p className="font-black text-[#0A3D62]">{device.label}</p>
+												</div>
+											</td>
+											<td className="px-6 py-4 font-mono text-xs font-bold text-[#3D5568]">
+												{device.mac}
+											</td>
+											<td className="px-6 py-4 text-xs font-bold text-[#3D5568]">
+												{device.orgs.length > 0
+													? device.orgs.map((o) => o.name).join(", ")
+													: tCommon("none")}
+											</td>
+											<td className="px-6 py-4 text-xs font-bold text-[#3D5568]">
+												{device.pond?.name ?? tCommon("unassigned")}
+											</td>
+											<td className="px-6 py-4">
+												<FeedLevelDisplay
+													levelPercent={feedLevelById.get(device.id)?.levelPercent ?? null}
+													updatedAt={feedLevelById.get(device.id)?.updatedAt ?? null}
+													isOffline={offline}
+													size="sm"
+												/>
+											</td>
+											<td className="px-6 py-4">
+												<div className="space-y-1">
+													<Badge
+														tone={offline ? "danger" : "success"}
+														icon={offline ? WifiOff : Wifi}
+													>
+														{offline ? tCommon("offline") : tCommon("online")}
+													</Badge>
+													<p className="text-[11px] text-[#3D5568]">
+														{lastSeen(device.lastSeenAt)}
+													</p>
+												</div>
+											</td>
+											<td className="px-6 py-4">
+												<div className="flex flex-col items-start gap-2">
+													<Link
+														href={{ pathname: LABELS_HREF, query: { id: device.id } }}
+														data-help="superadmin-print-sticker"
+														className={SECONDARY_BUTTON}
+													>
+														<Printer className="h-3.5 w-3.5" aria-hidden="true" />
+														{t("printSticker")}
+													</Link>
+													<RotateDeviceToken deviceId={device.id} mac={device.mac} />
+													{/* The panel opens in the full-width row below, so no
+													    wide form ever sits in this cell (#213). */}
+													<RemoteFeederTrigger deviceId={device.id} label={device.label} />
+												</div>
+											</td>
+										</tr>
+										<RemoteFeederRow
+											deviceId={device.id}
+											label={device.label}
+											isPaused={device.isPaused}
+											colSpan={DEVICE_COLUMNS}
 										/>
-									</td>
-									<td className="px-6 py-4">
-										<div className="flex items-center gap-3">
-											<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0A3D62] text-white">
-												<Cpu className="h-4 w-4" aria-hidden="true" />
-											</div>
-											<p className="font-black text-[#0A3D62]">{device.label}</p>
-										</div>
-									</td>
-									<td className="px-6 py-4 font-mono text-xs font-bold text-[#3D5568]">
-										{device.mac}
-									</td>
-									<td className="px-6 py-4 text-xs font-bold text-[#3D5568]">
-										{device.orgs.length > 0
-											? device.orgs.map((o) => o.name).join(", ")
-											: tCommon("none")}
-									</td>
-									<td className="px-6 py-4 text-xs font-bold text-[#3D5568]">
-										{device.pond?.name ?? tCommon("unassigned")}
-									</td>
-									<td className="px-6 py-4">
-										<FeedLevelDisplay
-											levelPercent={feedLevelById.get(device.id)?.levelPercent ?? null}
-											updatedAt={feedLevelById.get(device.id)?.updatedAt ?? null}
-											isOffline={offline}
-											size="sm"
-										/>
-									</td>
-									<td className="px-6 py-4">
-										<div className="space-y-1">
-											<Badge tone={offline ? "danger" : "success"} icon={offline ? WifiOff : Wifi}>
-												{offline ? tCommon("offline") : tCommon("online")}
-											</Badge>
-											<p className="text-[11px] text-[#3D5568]">{lastSeen(device.lastSeenAt)}</p>
-										</div>
-									</td>
-									<td className="px-6 py-4">
-										<div className="flex flex-col items-start gap-2">
-											<Link
-												href={{ pathname: LABELS_HREF, query: { id: device.id } }}
-												data-help="superadmin-print-sticker"
-												className={SECONDARY_BUTTON}
-											>
-												<Printer className="h-3.5 w-3.5" aria-hidden="true" />
-												{t("printSticker")}
-											</Link>
-											<RotateDeviceToken deviceId={device.id} mac={device.mac} />
-											<RemoteFeederControl
-												deviceId={device.id}
-												label={device.label}
-												isPaused={device.isPaused}
-											/>
-										</div>
-									</td>
-								</tr>
-							);
-						})}
-					</TableFrame>
+									</Fragment>
+								);
+							})}
+						</TableFrame>
+					</RemoteFeedProvider>
 				</ListView>
 			)}
 

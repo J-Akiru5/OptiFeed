@@ -11,9 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Mobile app shell (E26): every console now has a PakaonAI-branded header band below `lg` (page title, search, "+" quick menu), the farmer bottom bar is a five-tab bar (Overview, Schedule, Biomass log, Alerts, Me) with the active tab in the brand colour, and the tenant admin and platform consoles are five tabs too (four primary sections plus "More"): the platform console had grown to nine sections, which leaves under 44 px per target at 375 px. "More" opens the same quick menu as the header band, so every page that left a bar — and every role-aware quick action (add pond/feeder, scan sticker, pond location, log a sample, register a feeder) — is one tap away.
+- Mobile app shell (E26): every console now has a PakaonAI-branded header band below `lg` (page title, search, "+" quick menu), the farmer bottom bar is a five-tab bar (Overview, Schedule, Biomass log, Alerts, Me) with the active tab in the brand colour, and the tenant admin and platform consoles are five tabs too (four primary sections plus "More"): the platform console had grown to nine sections, which leaves under 44 px per target at 375 px. "More" opens the same quick menu as the header band, so every page that left a bar — the farmer calendar, history, growth, harvest, audit and settings, and every role-aware quick action (add pond/feeder, scan sticker, pond location, log a sample, register a feeder) — is one tap away.
 - Mobile lists (E26): the tenant Ponds and Devices lists gained a tappable All / Online / Alarm / Offline summary strip, an "order by" and "needs attention" chips row, and large cards with a status dot and three key metrics; the strip, chips and the ordering are URL parameters, so they survive navigation and the numbered pagination.
 - Mobile layout pass (E26): user-facing page titles move into the header band below `lg` (the `h1` stays in the markup for assistive tech), farmer and console mains use `dvh` with bottom padding that clears the fixed bar and the device safe area, and the biomass, pond-settings and pond create/edit forms pin their primary action above the bar on a phone.
+
+## [1.15.0] - 2026-10-27
+
+### Added
+
+- Full calendar parity for tenant admins and farmers (#212): the admin calendar can now create, edit, move and delete organization events on any pond in the organization, while the farmer gets a dedicated `/dashboard/calendar` page with its own nav entry and the same month, week, day and agenda views, drag/resize, events vs tasks, colours, recurrence, reminders and filters as the Harvest page. Farmers see org-wide events read-only and keep write access to their own farm's ponds; the API returns per-event editability and the shared server actions enforce the same farm/organization boundary. Agenda is the default view below 640 px. The Harvest page keeps its embedded calendar.
+
+### Fixed
+
+- Devices list (#213): the remote-control panel no longer sits inside the Actions cell. A compact trigger opens it in a full-width row under the device, so the tenant and platform device lists (list and card views) stay inside their card at every width; the caps sentence wraps anywhere and the grams box and Feed button stack on narrow screens. Feeding behaviour, guards and server caps are unchanged.
+- Help panel (#214): the sheet is now viewport height with a fixed header and a scrolling body, instead of growing past the bottom of the screen. Wheel and touch scrolling stay inside the panel (`overscroll-contain`), the footer respects the safe-area inset, and "Show me" still closes the sheet or navigates exactly as before.
 
 ## [1.14.0] - 2026-10-27
 

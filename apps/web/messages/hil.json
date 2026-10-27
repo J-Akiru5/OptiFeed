@@ -77,6 +77,7 @@
 		"history": "Kasaysayan",
 		"growth": "Pagtubo",
 		"harvest": "Pag-ani",
+		"calendar": "Kalendaryo",
 		"settings": "Mga Setting",
 		"notifications": "Mga Notipikasyon",
 		"audit": "Talaan ng Audit",
@@ -952,10 +953,19 @@
 				"today": "Subong",
 				"month": "Bulan",
 				"week": "Semana",
+				"day": "Adlaw",
 				"list": "Lista",
+				"agenda": "Lista sang mga hitabo",
 				"noEvents": "Wala sang event sa sini nga range.",
 				"eventsLabel": "Kalendaryo sang punong",
 				"recurringChangeConfirm": "Bag-uhon ang bug-os nga nagabalik nga serye? Pilia ang Cancel para indi mabag-o."
+			},
+			"calendarPage": {
+				"title": "Kalendaryo sang punong",
+				"desc": "Ang tanan nga punong nga makita mo, upod ang mga hitabo nga ma-edit mo.",
+				"readOnlyPond": "basa lamang",
+				"readOnlyHint": "Ini nga punong iya sang iban nga uma sa imo organisasyon. Makita mo ang mga hitabo pero indi mo ini ma-edit.",
+				"readOnlyEvent": "Ini nga hitabo iya sang iban nga uma kag basa lamang."
 			},
 			"filters": {
 				"harvest": "Ani",
@@ -2118,6 +2128,7 @@
 			"title": "Kalendaryo sang farm",
 			"desc": "Ang tanan {count, plural, one {# ka aktibo nga punong} other {# ka aktibo nga mga punong}} sa imo organisasyon.",
 			"readOnly": "Tan-aw lamang. Abrihi ang Harvest nga pahina sang punong para magsugod, mag-edit ukon mag-ani sang cycle.",
+			"editHint": "Magdugang, mag-edit, magbalhin ukon mag-delete sang mga hitabo para sa tanan nga punong sa imo organisasyon. Ang mga aksyon sang grow-out cycle ara sa Harvest nga pahina sang kada punong.",
 			"emptyTitle": "Wala pa sang mga punong sa sini nga organisasyon",
 			"emptyDesc": "Ginapakita sang kalendaryo ang mga hitabo sang pag-ani, sampling, pagpakaon kag device para sa tagsa ka punong sa imo organisasyon. Magdugang anay sang punong, ukon pangayo sa platform administrator nga mag-assign.",
 			"emptyAction": "Magdugang sang punong"
@@ -2872,7 +2883,8 @@
 			"close": "Isira",
 			"stepUpAction": "kontrolaha ang feeder {label}",
 			"open": "Remote control",
-			"openAria": "Remote control para sa {label}"
+			"openAria": "Remote control para sa {label}",
+			"panelTitle": "Remote control — {label}"
 		},
 		"createOrg": {
 			"title": "Maghimo sang organisasyon",

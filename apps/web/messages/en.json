@@ -77,6 +77,7 @@
 		"history": "History",
 		"growth": "Growth",
 		"harvest": "Harvest",
+		"calendar": "Calendar",
 		"settings": "Settings",
 		"notifications": "Notifications",
 		"audit": "Audit Trail",
@@ -952,10 +953,19 @@
 				"today": "Today",
 				"month": "Month",
 				"week": "Week",
+				"day": "Day",
 				"list": "List",
+				"agenda": "Agenda",
 				"noEvents": "No events in this range.",
 				"eventsLabel": "Pond calendar",
 				"recurringChangeConfirm": "Change the whole repeating series? Choose Cancel to keep it as it was."
+			},
+			"calendarPage": {
+				"title": "Pond calendar",
+				"desc": "Every pond you can see, with the events you can edit.",
+				"readOnlyPond": "read-only",
+				"readOnlyHint": "This pond belongs to another farm in your organization. Its events are visible but read-only.",
+				"readOnlyEvent": "This event belongs to another farm and is read-only."
 			},
 			"filters": {
 				"harvest": "Harvest",
@@ -2139,6 +2149,7 @@
 			"title": "Farm calendar",
 			"desc": "All {count, plural, one {# active pond} other {# active ponds}} in your organization.",
 			"readOnly": "Read-only overview. Open the Harvest page of a pond to start, edit or harvest a cycle.",
+			"editHint": "Add, edit, move or delete events for every pond in your organization. Grow-out cycle actions stay on each pond's Harvest page.",
 			"emptyTitle": "No ponds in this organization yet",
 			"emptyDesc": "The calendar shows harvest, sampling, feeding and device events for every pond in your organization. Add a pond first, or ask a platform administrator to assign one.",
 			"emptyAction": "Add a pond"
@@ -2893,7 +2904,8 @@
 			"close": "Close",
 			"stepUpAction": "control feeder {label}",
 			"open": "Remote control",
-			"openAria": "Remote control for {label}"
+			"openAria": "Remote control for {label}",
+			"panelTitle": "Remote control — {label}"
 		},
 		"createOrg": {
 			"title": "Create organization",

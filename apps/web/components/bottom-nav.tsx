@@ -12,9 +12,9 @@ import { useTranslations } from "next-intl";
  * Alerts and Me. Ponds and feeders have no farmer list page of their own (the
  * pond list lives in the tenant admin console), so the fifth slot is the
  * biomass log — the action farmers take most often — and Alerts replaces the
- * separate History tab. Every other page (History, Growth, Harvest, Audit,
- * Settings) stays one tap away in the "+" quick menu, which is reachable from
- * every screen, so nothing becomes unreachable.
+ * separate History tab. Every other page (Calendar, History, Growth, Harvest,
+ * Audit, Settings) stays one tap away in the "+" quick menu, which is reachable
+ * from every screen, so nothing becomes unreachable.
  *
  * The bar is fixed, above the device safe area, and the page passes
  * `--ofd-bottom-nav-h` to its own bottom padding (`.ofd-main`) so no content is

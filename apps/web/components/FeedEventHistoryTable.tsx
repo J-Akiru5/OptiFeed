@@ -3,6 +3,7 @@
 import { Pagination } from "@/components/ui/pagination";
 import { type FeedEventListItem, getFeedEvents } from "@/lib/actions/history";
 import { formatFarmDateTime } from "@/lib/date-local";
+import { formatFeedAmountLabel } from "@/lib/feed-figures";
 import { feedSourceKey } from "@/lib/feed-sources";
 import { CheckCircle2, Clock } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -109,7 +110,9 @@ export function FeedEventHistoryTable({
 					</div>
 				</div>
 				<div className="text-right">
-					<p className="font-bold text-gray-900 dark:text-gray-100">{event.grams ?? 0}g</p>
+					<p className="font-bold text-gray-900 dark:text-gray-100">
+						{formatFeedAmountLabel(event.grams)}
+					</p>
 				</div>
 			</div>
 		);

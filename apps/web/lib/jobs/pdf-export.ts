@@ -3,6 +3,7 @@ import { resolveActivePond } from "@/lib/auth/pond-access";
 import { DEFAULT_FISH_COUNT, PH_TZ } from "@/lib/constants";
 import { dateToFarmDateOnly } from "@/lib/crop-cycle/dates";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
+import { formatFeedAmountLabel, isDailyTotalSource } from "@/lib/feed-figures";
 import type { ExportArtifact } from "@/lib/jobs/export-data";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
@@ -199,13 +200,17 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 	if (feedEvents.length > 0) {
 		autoTable(doc, {
 			startY: yPos + 16,
-			head: [["Time", "Grams", "Source"]],
+			head: [["Time", "Amount", "Source"]],
 			body: feedEvents
 				.slice(0, 20)
 				.map((event) => [
 					formatFarmDateTime(event.receivedAt),
-					`${event.grams ?? 0}g`,
-					event.source ?? "scheduled",
+					formatFeedAmountLabel(event.grams),
+					event.source
+						? isDailyTotalSource(event.source)
+							? "Hand-fed (daily total)"
+							: event.source
+						: "Not reported",
 				]),
 			theme: "grid",
 			headStyles: { fillColor: [10, 61, 98] },

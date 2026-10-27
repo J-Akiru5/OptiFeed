@@ -83,6 +83,19 @@ vi.mock("@/lib/pond-charts", () => ({
 			],
 			totalsBySource: { scheduled: 400, button: 120 },
 		},
+		countsBySource: { scheduled: 1, dashboard: 0, button: 1, hand_fed: 3 },
+	})),
+	getFeedTotals: vi.fn(async () => ({
+		lastMachineFeed: {
+			grams: 1045.53,
+			source: "dashboard",
+			receivedAt: new Date("2026-10-27T08:01:00.000Z"),
+		},
+		todayGrams: 1045.53,
+		todayCount: 1,
+		last7DaysGrams: 4000,
+		last7DaysCount: 4,
+		last7DaysDailyAverageG: 571.428571,
 	})),
 	getHopperLevelSeries: vi.fn(async () => [
 		{ label: "2026-10-26", value: 82 },
@@ -110,14 +123,32 @@ describe("history charts (#188)", () => {
 	it("renders feed-per-day and hopper charts above the event log", async () => {
 		const html = renderToStaticMarkup(await HistoryPage({ searchParams: Promise.resolve({}) }));
 
-		expect(html).toContain("Feed dispensed per day");
+		expect(html).toContain("Feed per day");
 		expect(html).toContain("Hopper level");
 		expect(html).toContain('role="img"');
-		expect(html).toContain("Feed dispensed over the last 30 days");
+		expect(html).toContain("Feed recorded per day over the last 30 days");
 		expect(html).toContain("Scheduled");
 		expect(html).toContain('<th scope="row">2026-10-27</th>');
 		// The event log is still rendered below the charts.
 		expect(html).toContain('data-testid="event-table"');
+	});
+
+	it("states the window and unit of every feed figure (#236)", async () => {
+		const html = renderToStaticMarkup(await HistoryPage({ searchParams: Promise.resolve({}) }));
+
+		// The newest machine dispense, not a sum of the loaded page.
+		expect(html).toContain("Last feed");
+		expect(html).toContain("1.05");
+		expect(html).toContain("Dashboard · Oct 27, 4:01 PM");
+		// Today and the week are explicit windows over all sources.
+		expect(html).toContain("Dispensed today");
+		expect(html).toContain("since midnight (Asia/Manila)");
+		expect(html).toContain("Last 7 days");
+		expect(html).toContain("4.00");
+		expect(html).toContain("571.4 g per day average");
+		// Hand-fed rows are labelled as daily totals, never as dispenses.
+		expect(html).toContain("By source · last 30 days");
+		expect(html).toContain("(daily totals)");
 	});
 
 	it("defaults to the seven-day hopper window and links to the thirty-day one", async () => {

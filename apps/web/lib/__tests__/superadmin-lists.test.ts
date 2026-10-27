@@ -66,15 +66,15 @@ describe("listAllPonds", () => {
 		});
 	});
 
-	it("paginates 50 per page and searches pond, farm ID and owner name", async () => {
+	it("paginates at the app-wide 20 per page and searches pond, farm ID and owner name", async () => {
 		db.pond.count.mockResolvedValue(120);
 		db.pond.findMany.mockResolvedValue([]);
 
 		const result = await listAllPonds({ query: "tilapia", page: 3 });
 
 		const args = db.pond.findMany.mock.calls[0][0];
-		expect(args.skip).toBe(100);
-		expect(args.take).toBe(50);
+		expect(args.skip).toBe(40);
+		expect(args.take).toBe(20);
 		expect(args.where).toEqual({
 			OR: [
 				{ name: { contains: "tilapia", mode: "insensitive" } },
@@ -82,13 +82,13 @@ describe("listAllPonds", () => {
 				{ owner: { displayName: { contains: "tilapia", mode: "insensitive" } } },
 			],
 		});
-		expect(result).toEqual({ rows: [], total: 120, page: 3, pageSize: 50 });
+		expect(result).toEqual({ rows: [], total: 120, page: 3, pageSize: 20 });
 		expect(db.user.findMany).not.toHaveBeenCalled();
 	});
 });
 
 describe("listAllUsers", () => {
-	it("paginates 50 per page, searches, and resolves orgs for the page only", async () => {
+	it("paginates at the app-wide 20 per page, searches, and resolves orgs for the page only", async () => {
 		db.user.count.mockResolvedValue(120);
 		db.user.findMany.mockResolvedValue([
 			{
@@ -110,8 +110,8 @@ describe("listAllUsers", () => {
 		const result = await listAllUsers({ query: "ana", page: 2 });
 
 		const args = db.user.findMany.mock.calls[0][0];
-		expect(args.skip).toBe(50);
-		expect(args.take).toBe(50);
+		expect(args.skip).toBe(20);
+		expect(args.take).toBe(20);
 		expect(args.where).toEqual({
 			OR: [
 				{ farmId: { contains: "ana", mode: "insensitive" } },
@@ -119,7 +119,7 @@ describe("listAllUsers", () => {
 				{ displayName: { contains: "ana", mode: "insensitive" } },
 			],
 		});
-		expect(result).toMatchObject({ total: 120, page: 2, pageSize: 50 });
+		expect(result).toMatchObject({ total: 120, page: 2, pageSize: 20 });
 		expect(result.rows[0]).toMatchObject({
 			id: "user-1",
 			farmId: "farm-a",
@@ -133,7 +133,7 @@ describe("listAllUsers", () => {
 });
 
 describe("listOrgs", () => {
-	it("paginates 50 per page, searches by name, and keeps pond totals", async () => {
+	it("paginates at the app-wide 20 per page, searches by name, and keeps pond totals", async () => {
 		db.organization.count.mockResolvedValue(60);
 		db.organization.findMany.mockResolvedValue([
 			{
@@ -152,10 +152,10 @@ describe("listOrgs", () => {
 		const result = await listOrgs({ query: "org", page: 2 });
 
 		const args = db.organization.findMany.mock.calls[0][0];
-		expect(args.skip).toBe(50);
-		expect(args.take).toBe(50);
+		expect(args.skip).toBe(20);
+		expect(args.take).toBe(20);
 		expect(args.where).toEqual({ name: { contains: "org", mode: "insensitive" } });
-		expect(result).toMatchObject({ total: 60, page: 2, pageSize: 50 });
+		expect(result).toMatchObject({ total: 60, page: 2, pageSize: 20 });
 		expect(result.rows[0]).toMatchObject({ memberCount: 1, pondCount: 2 });
 	});
 });

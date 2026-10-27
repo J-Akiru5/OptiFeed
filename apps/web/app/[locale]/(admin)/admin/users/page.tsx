@@ -11,9 +11,11 @@ import {
 	AdminTh,
 	AdminTr,
 } from "@/components/admin/admin-table";
+import { Pagination } from "@/components/ui/pagination";
 import { Link } from "@/i18n/routing";
 import { getUsers } from "@/lib/actions/admin";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import { parsePage } from "@/lib/pagination";
 import { Eye, KeyRound, Shield, User, Users } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -31,13 +33,23 @@ const roleBadge: Record<string, { bg: string; text: string; icon: typeof Shield 
 const permissionsLinkClass =
 	"inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[#0A3D62]/20 px-3 text-xs font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-gray-600 dark:text-[#8fc0ea] dark:hover:bg-gray-800 dark:focus-visible:outline-[#8fc0ea]";
 
-export default async function AdminUsersPage() {
-	const [users, t, tCommon, tDates] = await Promise.all([
-		getUsers(),
+export default async function AdminUsersPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ page?: string }>;
+}) {
+	const params = await searchParams;
+	const page = parsePage(params.page);
+	const [usersPage, t, tCommon, tDates] = await Promise.all([
+		getUsers({ page }),
 		getTranslations("dashboard.adminUsers"),
 		getTranslations("dashboard.adminCommon"),
 		getTranslations("dates"),
 	]);
+	const users = usersPage.rows;
+	const pageCount = Math.max(1, Math.ceil(usersPage.total / usersPage.pageSize));
+	const firstRow = usersPage.total === 0 ? 0 : (usersPage.page - 1) * usersPage.pageSize + 1;
+	const lastRow = Math.min(usersPage.page * usersPage.pageSize, usersPage.total);
 
 	const roleLabel = (role: string) =>
 		tCommon.has(`roleName.${role}`) ? tCommon(`roleName.${role}`) : role;
@@ -48,7 +60,7 @@ export default async function AdminUsersPage() {
 			<AdminPageHeader
 				icon={Users}
 				title={t("title")}
-				description={t("desc", { count: users.length })}
+				description={t("desc", { count: usersPage.total })}
 			>
 				<p className="mt-2 max-w-2xl text-[11px] text-[#3D5568] dark:text-gray-400">
 					{t("farmersBefore")}{" "}
@@ -199,6 +211,22 @@ export default async function AdminUsersPage() {
 						})}
 					</AdminCardList>
 				</>
+			)}
+
+			{usersPage.total > 0 && (
+				<Pagination
+					basePath="/admin/users"
+					page={usersPage.page}
+					pageCount={pageCount}
+					showing={tCommon("pagination.showing", {
+						from: firstRow,
+						to: lastRow,
+						total: usersPage.total,
+					})}
+					previousLabel={tCommon("pagination.previous")}
+					nextLabel={tCommon("pagination.next")}
+					label={tCommon("pagination.label")}
+				/>
 			)}
 		</div>
 	);

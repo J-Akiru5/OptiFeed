@@ -1691,6 +1691,12 @@
 				"ADMIN": "Admin",
 				"OPERATOR": "Operator",
 				"VIEWER": "Viewer"
+			},
+			"pagination": {
+				"previous": "Previous",
+				"next": "Next",
+				"showing": "Showing {from}–{to} of {total}",
+				"label": "Pagination"
 			}
 		},
 		"adminOverview": {
@@ -1820,7 +1826,13 @@
 			"deviceOnline": "ESP32 online",
 			"deviceOffline": "ESP32 offline",
 			"deviceMissing": "ESP32 not paired",
-			"skipToContent": "Skip to main content"
+			"skipToContent": "Skip to main content",
+			"pagination": {
+				"previous": "Previous",
+				"next": "Next",
+				"showing": "Showing {from}–{to} of {total}",
+				"label": "Pagination"
+			}
 		}
 	},
 	"errors": {
@@ -1935,7 +1947,13 @@
 			"actions": "Actions",
 			"dismissError": "Dismiss error",
 			"dismissNotice": "Dismiss notice",
-			"loading": "Loading…"
+			"loading": "Loading…",
+			"pagination": {
+				"previous": "Previous",
+				"next": "Next",
+				"showing": "Showing {from}–{to} of {total}",
+				"label": "Pagination"
+			}
 		},
 		"roles": {
 			"OWNER": "Owner",
@@ -1989,7 +2007,8 @@
 				"organizations": "Organizations",
 				"ponds": "Ponds",
 				"devices": "Devices",
-				"aiProviders": "AI Providers"
+				"aiProviders": "AI Providers",
+				"settings": "Settings"
 			},
 			"shortNav": {
 				"overview": "Overview",
@@ -1997,7 +2016,8 @@
 				"organizations": "Orgs",
 				"ponds": "Ponds",
 				"devices": "Devices",
-				"aiProviders": "AI"
+				"aiProviders": "AI",
+				"settings": "Settings"
 			}
 		},
 		"loading": {
@@ -2370,6 +2390,22 @@
 				"medium": "medium",
 				"high": "high"
 			}
+		},
+		"settings": {
+			"title": "Platform Settings",
+			"description": "App-wide defaults shared by every organization.",
+			"listsTitle": "Lists",
+			"listsDescription": "One page size for every list in the product. Numbered pagination uses it everywhere, including the farmer dashboard, the tenant console and this platform console.",
+			"pageSizeLabel": "Rows per page",
+			"pageSizeHint": "A whole number from {min} to {max}. The default is {default}.",
+			"reasonLabel": "Reason",
+			"reasonPlaceholder": "e.g. Keep long audit logs readable on smaller screens",
+			"reasonHint": "Recorded in the platform audit log. At least 10 characters.",
+			"save": "Save page size",
+			"saving": "Saving…",
+			"saved": "Page size saved. Every list now shows {value} rows per page.",
+			"invalid": "Choose a whole number from {min} to {max}.",
+			"failed": "The page size could not be saved."
 		}
 	}
 }

@@ -13,6 +13,7 @@ import {
 	FolderTree,
 	Loader2,
 	LogOut,
+	Settings,
 	Sparkles,
 	Users,
 } from "lucide-react";
@@ -26,6 +27,7 @@ const navItems = [
 	{ href: "/superadmin/ponds", key: "ponds", icon: Droplets },
 	{ href: "/superadmin/devices", key: "devices", icon: Cpu },
 	{ href: "/superadmin/ai-providers", key: "aiProviders", icon: Sparkles },
+	{ href: "/superadmin/settings", key: "settings", icon: Settings },
 ] as const;
 
 /**

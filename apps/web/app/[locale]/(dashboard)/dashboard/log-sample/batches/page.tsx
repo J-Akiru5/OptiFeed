@@ -15,8 +15,9 @@ import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
 import { getBatchLogPage, parseBatchFilter } from "@/lib/batch-logs";
 import { formatDateTimeLocal } from "@/lib/date-local";
-import { getPageCount, parsePage, parsePageSize } from "@/lib/pagination";
+import { getPageCount, parsePage } from "@/lib/pagination";
 import { getActivePond } from "@/lib/pond-selection";
+import { getListPageSize } from "@/lib/settings/platform";
 import { ArrowLeft, ChevronRight, Scale } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { Fragment } from "react";
@@ -59,7 +60,7 @@ export default async function BatchLogsPage({ searchParams }: BatchLogsPageProps
 	const raw = await searchParams;
 	const filter = parseBatchFilter(first(raw.label), first(raw.unlabeled));
 	let page = parsePage(first(raw.page));
-	const pageSize = parsePageSize(first(raw.pageSize));
+	const pageSize = await getListPageSize();
 
 	if (!filter) {
 		return (

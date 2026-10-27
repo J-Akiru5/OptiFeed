@@ -2,7 +2,7 @@
 
 import { Link, useRouter } from "@/i18n/routing";
 import { changeMemberRole, inviteMember, revokeMember } from "@/lib/actions/admin";
-import type { TenantMemberRow } from "@/lib/actions/admin";
+import type { TenantMemberOrgOption, TenantMemberRow } from "@/lib/actions/admin";
 import { MEMBER_ROLES, isMemberRole } from "@/lib/auth/member-rules";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import type { MemberRole } from "@prisma/client";
@@ -39,9 +39,12 @@ const fieldClass =
 export function MembersSettings({
 	members,
 	canManage,
+	orgOptions,
 }: {
 	members: TenantMemberRow[];
 	canManage: boolean;
+	/** Every org the caller administers, independent of the current page. */
+	orgOptions: TenantMemberOrgOption[];
 }) {
 	const t = useTranslations("dashboard.adminMembers");
 	const tCommon = useTranslations("dashboard.adminCommon");
@@ -58,22 +61,12 @@ export function MembersSettings({
 	const [revokeConfirm, setRevokeConfirm] = useState<string | null>(null);
 	const [actionError, setActionError] = useState<string | null>(null);
 
-	const orgNames = [...new Set(members.map((member) => member.orgName))];
-	const showOrgColumn = orgNames.length > 1;
+	const showOrgColumn = orgOptions.length > 1;
 
 	// Invites must name their target org explicitly when the caller administers
 	// more than one; otherwise the action falls back to the first org.
-	const orgOptions: { id: string; name: string }[] = [];
-	for (const member of members) {
-		if (!orgOptions.some((org) => org.id === member.orgId)) {
-			orgOptions.push({ id: member.orgId, name: member.orgName });
-		}
-	}
-
 	const [inviteOrgId, setInviteOrgId] = useState(orgOptions[0]?.id ?? "");
-	const selectedCallerRole = members.find(
-		(member) => member.isSelf && member.orgId === inviteOrgId,
-	)?.callerRole;
+	const selectedCallerRole = orgOptions.find((org) => org.id === inviteOrgId)?.callerRole;
 	const canInviteOwner = selectedCallerRole === "OWNER";
 
 	async function handleInvite(formData: FormData) {

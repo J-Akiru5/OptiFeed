@@ -22,12 +22,12 @@ export default async function MemberPermissionsPage({
 }) {
 	const { userId } = await params;
 	const [members, t, tMembers] = await Promise.all([
-		listTenantMembers(),
+		listTenantMembers({ userId }),
 		getTranslations("dashboard.adminUsers"),
 		getTranslations("dashboard.adminMembers"),
 	]);
 
-	const member = members.find((row) => row.userId === userId);
+	const member = members.rows.find((row) => row.userId === userId);
 	if (!member) notFound();
 
 	const name = member.displayName || member.farmId;

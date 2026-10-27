@@ -6,7 +6,9 @@ import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { invalidateFarm } from "@/lib/auth/session-cache";
 import { isStepUpRequiredError, withStepUp } from "@/lib/auth/step-up";
+import { resolvePagination } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
+import { getListPageSize } from "@/lib/settings/platform";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MemberRole, Prisma, UserRole } from "@prisma/client";
 import { headers } from "next/headers";
@@ -25,7 +27,6 @@ import { headers } from "next/headers";
  */
 
 const MIN_REASON_LENGTH = 10;
-const PAGE_SIZE = 50;
 const MAX_QUERY_LENGTH = 64;
 
 const LAST_PLATFORM_ADMIN_MESSAGE =
@@ -206,6 +207,7 @@ export async function listAllUsers(
 	await requirePlatformAdmin();
 
 	const { query, page } = listInput(input);
+	const pageSize = await getListPageSize();
 	const where: Prisma.UserWhereInput = query
 		? {
 				OR: [
@@ -216,13 +218,13 @@ export async function listAllUsers(
 			}
 		: {};
 
-	const [total, users] = await Promise.all([
+	const [total, usersResult] = await Promise.all([
 		prisma.user.count({ where }),
 		prisma.user.findMany({
 			where,
 			orderBy: { createdAt: "desc" },
-			skip: (page - 1) * PAGE_SIZE,
-			take: PAGE_SIZE,
+			skip: (page - 1) * pageSize,
+			take: pageSize,
 			select: {
 				id: true,
 				farmId: true,
@@ -234,8 +236,29 @@ export async function listAllUsers(
 			},
 		}),
 	]);
+	const paging = resolvePagination(page, pageSize, total);
+	let users = usersResult;
+	if (paging.page !== page) {
+		users = await prisma.user.findMany({
+			where,
+			orderBy: { createdAt: "desc" },
+			skip: paging.offset,
+			take: paging.pageSize,
+			select: {
+				id: true,
+				farmId: true,
+				email: true,
+				displayName: true,
+				role: true,
+				createdAt: true,
+				_count: { select: { ponds: true } },
+			},
+		});
+	}
 
-	if (users.length === 0) return { rows: [], total, page, pageSize: PAGE_SIZE };
+	if (users.length === 0) {
+		return { rows: [], total, page: paging.page, pageSize: paging.pageSize };
+	}
 
 	const userIds = users.map((u) => u.id);
 	const [memberships, platformAdmins, safetyRows] = await Promise.all([
@@ -309,8 +332,8 @@ export async function listAllUsers(
 				.filter((o): o is NonNullable<typeof o> => o !== null),
 		})),
 		total,
-		page,
-		pageSize: PAGE_SIZE,
+		page: paging.page,
+		pageSize: paging.pageSize,
 	};
 }
 
@@ -801,21 +824,34 @@ export async function listOrgs(input: { query?: string; page?: number } = {}): P
 	await requirePlatformAdmin();
 
 	const { query, page } = listInput(input);
+	const pageSize = await getListPageSize();
 	const where: Prisma.OrganizationWhereInput = query
 		? { name: { contains: query, mode: "insensitive" } }
 		: {};
 
-	const [total, orgs] = await Promise.all([
+	const [total, orgsResult] = await Promise.all([
 		prisma.organization.count({ where }),
 		prisma.organization.findMany({
 			where,
 			orderBy: { createdAt: "desc" },
-			skip: (page - 1) * PAGE_SIZE,
-			take: PAGE_SIZE,
+			skip: (page - 1) * pageSize,
+			take: pageSize,
 		}),
 	]);
+	const paging = resolvePagination(page, pageSize, total);
+	let orgs = orgsResult;
+	if (paging.page !== page) {
+		orgs = await prisma.organization.findMany({
+			where,
+			orderBy: { createdAt: "desc" },
+			skip: paging.offset,
+			take: paging.pageSize,
+		});
+	}
 
-	if (orgs.length === 0) return { rows: [], total, page, pageSize: PAGE_SIZE };
+	if (orgs.length === 0) {
+		return { rows: [], total, page: paging.page, pageSize: paging.pageSize };
+	}
 
 	const orgIds = orgs.map((o) => o.id);
 	const memberships = await prisma.membership.findMany({
@@ -867,8 +903,8 @@ export async function listOrgs(input: { query?: string; page?: number } = {}): P
 			pondCount: pondCountByOrg.get(o.id) ?? 0,
 		})),
 		total,
-		page,
-		pageSize: PAGE_SIZE,
+		page: paging.page,
+		pageSize: paging.pageSize,
 	};
 }
 
@@ -953,6 +989,7 @@ export async function listAllPonds(
 	await requirePlatformAdmin();
 
 	const { query, page } = listInput(input);
+	const pageSize = await getListPageSize();
 	const where: Prisma.PondWhereInput = query
 		? {
 				OR: [
@@ -963,13 +1000,13 @@ export async function listAllPonds(
 			}
 		: {};
 
-	const [total, ponds] = await Promise.all([
+	const [total, pondsResult] = await Promise.all([
 		prisma.pond.count({ where }),
 		prisma.pond.findMany({
 			where,
 			orderBy: { createdAt: "desc" },
-			skip: (page - 1) * PAGE_SIZE,
-			take: PAGE_SIZE,
+			skip: (page - 1) * pageSize,
+			take: pageSize,
 			select: {
 				id: true,
 				name: true,
@@ -979,8 +1016,27 @@ export async function listAllPonds(
 			},
 		}),
 	]);
+	const paging = resolvePagination(page, pageSize, total);
+	let ponds = pondsResult;
+	if (paging.page !== page) {
+		ponds = await prisma.pond.findMany({
+			where,
+			orderBy: { createdAt: "desc" },
+			skip: paging.offset,
+			take: paging.pageSize,
+			select: {
+				id: true,
+				name: true,
+				status: true,
+				ownerId: true,
+				owner: { select: { displayName: true } },
+			},
+		});
+	}
 
-	if (ponds.length === 0) return { rows: [], total, page, pageSize: PAGE_SIZE };
+	if (ponds.length === 0) {
+		return { rows: [], total, page: paging.page, pageSize: paging.pageSize };
+	}
 
 	// Pond.ownerId is the farm slug (User.farmId), never User.id. Resolve the
 	// owner's memberships through User.farmId so the Organizations column fills.
@@ -1026,8 +1082,8 @@ export async function listAllPonds(
 			orgs: orgsByFarm.get(p.ownerId) ?? [],
 		})),
 		total,
-		page,
-		pageSize: PAGE_SIZE,
+		page: paging.page,
+		pageSize: paging.pageSize,
 	};
 }
 

@@ -9,6 +9,7 @@ import { isDeviceOffline } from "@/lib/feed-level-display";
 import type { HistorySnapshotData } from "@/lib/offline/snapshots";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import { getListPageSize } from "@/lib/settings/platform";
 import { CalendarDays, CheckCircle2, Clock, Package } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -53,9 +54,11 @@ export default async function HistoryPage() {
 	const energyDevice = energyDevices[0];
 
 	// Live device-confirmed dispenses written by POST /api/ingest (FeedEvent).
+	const pageSize = await getListPageSize();
 	const initialPage = await getFeedEvents({
 		deviceIds: energyDevices.map((d) => d.id),
-		cursor: null,
+		page: 1,
+		pageSize,
 	});
 	const events = initialPage.items;
 
@@ -173,8 +176,8 @@ export default async function HistoryPage() {
 				<FeedEventHistoryTable
 					deviceIds={energyDevices.map((d) => d.id)}
 					initialItems={initialPage.items}
-					initialHasMore={initialPage.hasMore}
-					initialNextCursor={initialPage.nextCursor}
+					initialTotal={initialPage.total}
+					pageSize={initialPage.pageSize}
 				/>
 			</div>
 		</div>

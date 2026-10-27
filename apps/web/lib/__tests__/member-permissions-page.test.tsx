@@ -86,9 +86,13 @@ function params(userId = "user-1") {
 
 beforeEach(() => {
 	vi.clearAllMocks();
-	vi.mocked(listTenantMembers).mockResolvedValue([member] as unknown as Awaited<
-		ReturnType<typeof listTenantMembers>
-	>);
+	vi.mocked(listTenantMembers).mockResolvedValue({
+		rows: [member],
+		total: 1,
+		page: 1,
+		pageSize: 20,
+		orgOptions: [],
+	} as unknown as Awaited<ReturnType<typeof listTenantMembers>>);
 	vi.mocked(getUserPermissionState).mockResolvedValue({
 		success: true,
 		role: "ADMIN",
@@ -128,9 +132,13 @@ describe("member permissions page", () => {
 	});
 
 	it("refuses an owner row for a non-owner caller and reads no permissions", async () => {
-		vi.mocked(listTenantMembers).mockResolvedValue([
-			{ ...member, role: "OWNER", callerRole: "ADMIN" },
-		] as unknown as Awaited<ReturnType<typeof listTenantMembers>>);
+		vi.mocked(listTenantMembers).mockResolvedValue({
+			rows: [{ ...member, role: "OWNER", callerRole: "ADMIN" }],
+			total: 1,
+			page: 1,
+			pageSize: 20,
+			orgOptions: [],
+		} as unknown as Awaited<ReturnType<typeof listTenantMembers>>);
 
 		const html = renderToStaticMarkup(await MemberPermissionsPage(params()));
 
@@ -140,9 +148,13 @@ describe("member permissions page", () => {
 	});
 
 	it("refuses a platform admin and points to the platform console", async () => {
-		vi.mocked(listTenantMembers).mockResolvedValue([
-			{ ...member, isPlatformAdmin: true },
-		] as unknown as Awaited<ReturnType<typeof listTenantMembers>>);
+		vi.mocked(listTenantMembers).mockResolvedValue({
+			rows: [{ ...member, isPlatformAdmin: true }],
+			total: 1,
+			page: 1,
+			pageSize: 20,
+			orgOptions: [],
+		} as unknown as Awaited<ReturnType<typeof listTenantMembers>>);
 
 		const html = renderToStaticMarkup(await MemberPermissionsPage(params()));
 

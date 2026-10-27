@@ -1,5 +1,5 @@
 import { FeedLevelDisplay } from "@/components/feed-level-display";
-import { ListPagination, ListToolbar } from "@/components/superadmin/list-chrome";
+import { ListToolbar } from "@/components/superadmin/list-chrome";
 import { RegisterDeviceForm } from "@/components/superadmin/register-device-form";
 import { RemoteFeederControl } from "@/components/superadmin/remote-feeder-control";
 import { RotateDeviceToken } from "@/components/superadmin/rotate-device-token";
@@ -13,6 +13,7 @@ import {
 	SECONDARY_BUTTON,
 	TableFrame,
 } from "@/components/superadmin/ui";
+import { Pagination } from "@/components/ui/pagination";
 import { Link, getPathname } from "@/i18n/routing";
 import { getOrgPondOptions, listPlatformDevices } from "@/lib/actions/platform/devices";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
@@ -54,13 +55,10 @@ export default async function SuperadminDevicesPage({
 		getTranslations("dates"),
 	]);
 	const pageCount = Math.max(1, Math.ceil(devices.total / devices.pageSize));
+	const firstRow = devices.total === 0 ? 0 : (devices.page - 1) * devices.pageSize + 1;
+	const lastRow = Math.min(devices.page * devices.pageSize, devices.total);
 	const now = Date.now();
 	const hasRows = devices.rows.length > 0;
-
-	const pageHref = (target: number) => ({
-		pathname: "/superadmin/devices" as const,
-		query: { ...(query ? { q: query } : {}), page: String(target) },
-	});
 
 	// The allow-listed platform list select does not carry the hopper reading,
 	// and this task must not change lib/actions. Read only those fields for the
@@ -287,14 +285,19 @@ export default async function SuperadminDevicesPage({
 				</>
 			)}
 
-			<ListPagination
-				label={t("pagerLabel")}
-				pageLabel={tCommon("pageOf", { page: devices.page, count: pageCount })}
+			<Pagination
+				basePath="/superadmin/devices"
+				params={{ q: query || undefined }}
+				page={devices.page}
+				pageCount={pageCount}
+				showing={tCommon("pagination.showing", {
+					from: firstRow,
+					to: lastRow,
+					total: devices.total,
+				})}
 				previousLabel={tCommon("previous")}
 				nextLabel={tCommon("next")}
-				pageCount={pageCount}
-				previousHref={devices.page > 1 ? pageHref(devices.page - 1) : null}
-				nextHref={devices.page < pageCount ? pageHref(devices.page + 1) : null}
+				label={tCommon("pagination.label")}
 			/>
 		</div>
 	);

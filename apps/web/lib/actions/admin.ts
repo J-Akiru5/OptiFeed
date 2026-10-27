@@ -23,11 +23,26 @@ import { invalidateFarm } from "@/lib/auth/session-cache";
 import { TENANT_ADMIN_ROLES, requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import { inviteOrAttachMember } from "@/lib/membership-invite";
 import { deliverMemberInviteEmail } from "@/lib/notify/invite-email";
+import { resolvePagination } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
 import { checkDeviceTokenRevealRateLimit } from "@/lib/rate-limit";
+import { getListPageSize, normalizeListPageSize } from "@/lib/settings/platform";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MemberRole, PondStatus, Prisma, UserRole } from "@prisma/client";
 import { getLocale } from "next-intl/server";
+
+/** One numbered page of a tenant-admin list. */
+export interface AdminListPage<T> {
+	rows: T[];
+	total: number;
+	page: number;
+	pageSize: number;
+}
+
+/** Use the caller's page size when given, otherwise the app-wide setting. */
+async function resolveAdminPageSize(provided?: number): Promise<number> {
+	return provided === undefined ? getListPageSize() : normalizeListPageSize(provided);
+}
 
 // ─── Tenant scoping ──────────────────────────────────────────────────────────
 //
@@ -175,19 +190,42 @@ export async function deleteUser(userId: string): Promise<DeleteUserResult> {
  * so this transaction helper is not itself callable as a server action.
  */
 
-export async function getUsers() {
+export async function getUsers(
+	input: { page?: number; pageSize?: number } = {},
+): Promise<AdminListPage<Prisma.UserGetPayload<{ include: { farm: true } }>>> {
 	await requireTenantAdmin();
+	const pageSize = await resolveAdminPageSize(input.pageSize);
 	const [scope, platformAdmins] = await Promise.all([resolveOrgScope(), platformAdminUserIds()]);
+	const where = {
+		id: { in: scope.memberUserIds },
+		// Platform admins are managed from /superadmin, never here.
+		...(platformAdmins.length > 0 ? { NOT: { id: { in: platformAdmins } } } : {}),
+	};
+	const requestedPage = Math.max(1, Math.floor(input.page ?? 1) || 1);
 
-	return prisma.user.findMany({
-		where: {
-			id: { in: scope.memberUserIds },
-			// Platform admins are managed from /superadmin, never here.
-			...(platformAdmins.length > 0 ? { NOT: { id: { in: platformAdmins } } } : {}),
-		},
-		orderBy: { createdAt: "desc" },
-		include: { farm: true },
-	});
+	const [total, firstFetch] = await Promise.all([
+		prisma.user.count({ where }),
+		prisma.user.findMany({
+			where,
+			orderBy: { createdAt: "desc" },
+			skip: (requestedPage - 1) * pageSize,
+			take: pageSize,
+			include: { farm: true },
+		}),
+	]);
+	const paging = resolvePagination(requestedPage, pageSize, total);
+	const rows =
+		paging.page === requestedPage
+			? firstFetch
+			: await prisma.user.findMany({
+					where,
+					orderBy: { createdAt: "desc" },
+					skip: paging.offset,
+					take: paging.pageSize,
+					include: { farm: true },
+				});
+
+	return { rows, total, page: paging.page, pageSize: paging.pageSize };
 }
 
 // ─── Permission Management ───────────────────────────────────────────────────
@@ -388,38 +426,58 @@ export type TenantMemberRow = {
  * Platform admins are included (they are real members) but marked so the UI
  * and the mutation guards leave their grant to /superadmin.
  */
-export async function listTenantMembers(): Promise<TenantMemberRow[]> {
+export type TenantMemberOrgOption = {
+	id: string;
+	name: string;
+	/** The caller's role in this org; only administered orgs are listed. */
+	callerRole: MemberRole;
+};
+
+export type TenantMemberPage = AdminListPage<TenantMemberRow> & {
+	orgOptions: TenantMemberOrgOption[];
+};
+
+/**
+ * Active members of every organization the caller administers, one numbered
+ * page at a time.
+ *
+ * Platform admins are included (they are real members) but marked so the UI
+ * and the mutation guards leave their grant to /superadmin.
+ *
+ * `orgOptions` is the full administered-org list, not the orgs visible on this
+ * page: the invite form and the tenant switches must not change just because a
+ * member landed on page 2.
+ */
+export async function listTenantMembers(
+	input: { page?: number; pageSize?: number; userId?: string } = {},
+): Promise<TenantMemberPage> {
 	await requireTenantAdmin();
 
+	const pageSize = await resolveAdminPageSize(input.pageSize);
 	const [scope, actor] = await Promise.all([resolveOrgScope(), getCurrentUser()]);
-	if (!actor || scope.orgIds.length === 0) return [];
+	if (!actor || scope.orgIds.length === 0) {
+		return { rows: [], total: 0, page: 1, pageSize, orgOptions: [] };
+	}
 
-	const memberships = await prisma.membership.findMany({
-		where: { orgId: { in: scope.orgIds }, revokedAt: null },
-		orderBy: { createdAt: "asc" },
-		select: { id: true, orgId: true, userId: true, role: true, createdAt: true },
-	});
-	if (memberships.length === 0) return [];
-
-	const userIds = [...new Set(memberships.map((membership) => membership.userId))];
-	const membershipIds = memberships.map((membership) => membership.id);
-
-	const [users, orgs, permissionRows, platformAdmins, actorMemberships] = await Promise.all([
-		prisma.user.findMany({
-			where: { id: { in: userIds } },
-			select: { id: true, farmId: true, email: true, displayName: true },
+	// `userId` narrows to one member (the permissions page); it never widens the org scope.
+	const where = {
+		orgId: { in: scope.orgIds },
+		revokedAt: null,
+		...(input.userId ? { userId: input.userId } : {}),
+	};
+	const requestedPage = Math.max(1, Math.floor(input.page ?? 1) || 1);
+	const [total, firstFetch, orgs, actorMemberships] = await Promise.all([
+		prisma.membership.count({ where }),
+		prisma.membership.findMany({
+			where,
+			orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+			skip: (requestedPage - 1) * pageSize,
+			take: pageSize,
+			select: { id: true, orgId: true, userId: true, role: true, createdAt: true },
 		}),
 		prisma.organization.findMany({
 			where: { id: { in: scope.orgIds } },
 			select: { id: true, name: true },
-		}),
-		prisma.membershipPermission.findMany({
-			where: { membershipId: { in: membershipIds } },
-			select: { membershipId: true, permission: true, revokedAt: true },
-		}),
-		prisma.platformAdmin.findMany({
-			where: { userId: { in: userIds }, revokedAt: null },
-			select: { userId: true },
 		}),
 		prisma.membership.findMany({
 			where: {
@@ -431,11 +489,65 @@ export async function listTenantMembers(): Promise<TenantMemberRow[]> {
 			select: { orgId: true, role: true },
 		}),
 	]);
+	const paging = resolvePagination(requestedPage, pageSize, total);
+	const memberships =
+		paging.page === requestedPage
+			? firstFetch
+			: await prisma.membership.findMany({
+					where,
+					orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+					skip: paging.offset,
+					take: paging.pageSize,
+					select: { id: true, orgId: true, userId: true, role: true, createdAt: true },
+				});
+
+	const orgNameById = new Map(orgs.map((org) => [org.id, org.name]));
+	const actorRoleByOrg = new Map(actorMemberships.map((m) => [m.orgId, m.role]));
+	const orgOptions: TenantMemberOrgOption[] = orgs
+		.map((org) => {
+			const callerRole = actorRoleByOrg.get(org.id);
+			return callerRole ? { id: org.id, name: org.name, callerRole } : null;
+		})
+		.filter((org): org is TenantMemberOrgOption => org !== null)
+		.sort((a, b) => a.name.localeCompare(b.name));
+
+	if (memberships.length === 0) {
+		return {
+			rows: [],
+			total,
+			page: paging.page,
+			pageSize: paging.pageSize,
+			orgOptions,
+		};
+	}
+
+	const userIds = [...new Set(memberships.map((membership) => membership.userId))];
+	const membershipIds = memberships.map((membership) => membership.id);
+
+	const [users, permissionRows, platformAdmins, ownerCounts] = await Promise.all([
+		prisma.user.findMany({
+			where: { id: { in: userIds } },
+			select: { id: true, farmId: true, email: true, displayName: true },
+		}),
+		prisma.membershipPermission.findMany({
+			where: { membershipId: { in: membershipIds } },
+			select: { membershipId: true, permission: true, revokedAt: true },
+		}),
+		prisma.platformAdmin.findMany({
+			where: { userId: { in: userIds }, revokedAt: null },
+			select: { userId: true },
+		}),
+		// Owner totals cover every membership in the org, not just this page,
+		// so the last-owner guard stays correct on page 2 and beyond.
+		prisma.membership.groupBy({
+			by: ["orgId"],
+			where: { orgId: { in: scope.orgIds }, revokedAt: null, role: "OWNER" },
+			_count: { _all: true },
+		}),
+	]);
 
 	const userById = new Map(users.map((user) => [user.id, user]));
-	const orgNameById = new Map(orgs.map((org) => [org.id, org.name]));
 	const platformAdminIds = new Set(platformAdmins.map((grant) => grant.userId));
-	const actorRoleByOrg = new Map(actorMemberships.map((m) => [m.orgId, m.role]));
 
 	const overridesByMembership = new Map<string, PermissionOverride[]>();
 	for (const row of permissionRows) {
@@ -446,9 +558,8 @@ export async function listTenantMembers(): Promise<TenantMemberRow[]> {
 	}
 
 	const ownerCountByOrg = new Map<string, number>();
-	for (const membership of memberships) {
-		if (membership.role !== "OWNER") continue;
-		ownerCountByOrg.set(membership.orgId, (ownerCountByOrg.get(membership.orgId) ?? 0) + 1);
+	for (const row of ownerCounts) {
+		ownerCountByOrg.set(row.orgId, row._count._all);
 	}
 
 	const rows: TenantMemberRow[] = [];
@@ -478,12 +589,7 @@ export async function listTenantMembers(): Promise<TenantMemberRow[]> {
 		});
 	}
 
-	rows.sort(
-		(a, b) =>
-			a.orgName.localeCompare(b.orgName) ||
-			(a.displayName ?? a.farmId).localeCompare(b.displayName ?? b.farmId),
-	);
-	return rows;
+	return { rows, total, page: paging.page, pageSize: paging.pageSize, orgOptions };
 }
 
 export type MemberActionState = { success: true } | { error: string };
@@ -754,20 +860,57 @@ export async function revokeMember(userId: string): Promise<MemberActionState> {
 
 // ─── Pond Management ─────────────────────────────────────────────────────────
 
-export async function getPonds() {
+export async function getPonds(input: { page?: number; pageSize?: number } = {}): Promise<
+	AdminListPage<
+		Prisma.PondGetPayload<{
+			include: {
+				owner: true;
+				farm: true;
+				energyDevices: true;
+				_count: { select: { biomassLogs: true; notifications: true; ownershipHistory: true } };
+			};
+		}>
+	>
+> {
 	await requireTenantAdmin();
+	const pageSize = await resolveAdminPageSize(input.pageSize);
 	const scope = await resolveOrgScope();
+	const where = { id: { in: scope.pondIds } };
+	const requestedPage = Math.max(1, Math.floor(input.page ?? 1) || 1);
 
-	return prisma.pond.findMany({
-		where: { id: { in: scope.pondIds } },
-		include: {
-			owner: true,
-			farm: true,
-			energyDevices: true,
-			_count: { select: { biomassLogs: true, notifications: true, ownershipHistory: true } },
-		},
-		orderBy: { createdAt: "desc" },
-	});
+	const [total, firstFetch] = await Promise.all([
+		prisma.pond.count({ where }),
+		prisma.pond.findMany({
+			where,
+			include: {
+				owner: true,
+				farm: true,
+				energyDevices: true,
+				_count: { select: { biomassLogs: true, notifications: true, ownershipHistory: true } },
+			},
+			orderBy: { createdAt: "desc" },
+			skip: (requestedPage - 1) * pageSize,
+			take: pageSize,
+		}),
+	]);
+	const paging = resolvePagination(requestedPage, pageSize, total);
+	const rows =
+		paging.page === requestedPage
+			? firstFetch
+			: await prisma.pond.findMany({
+					where,
+					include: {
+						owner: true,
+						farm: true,
+						energyDevices: true,
+						_count: { select: { biomassLogs: true, notifications: true, ownershipHistory: true } },
+					},
+					orderBy: { createdAt: "desc" },
+					skip: paging.offset,
+					take: paging.pageSize,
+				});
+
+	return { rows, total, page: paging.page, pageSize: paging.pageSize };
 }
 
 export type CreatePondResult = { success: true; pondId: string } | { error: string };
@@ -970,26 +1113,71 @@ export async function createPond(data: {
 
 // ─── Device Management ───────────────────────────────────────────────────────
 
-export async function getDevices() {
-	await requireTenantAdmin();
-	const scope = await resolveOrgScope();
+export type AdminDeviceRow = Prisma.EnergyDeviceGetPayload<{
+	select: {
+		id: true;
+		label: true;
+		mac: true;
+		pondId: true;
+		lastSeenAt: true;
+		feedLevelPercent: true;
+		gramsPerFeeding: true;
+		pond: { select: { id: true; name: true } };
+	};
+}>;
 
-	return prisma.energyDevice.findMany({
-		where: { pondId: { in: scope.pondIds } },
-		// Explicit display fields only: token/tokenHash are device credentials
-		// and must never leave the server through an admin list.
-		select: {
-			id: true,
-			label: true,
-			mac: true,
-			pondId: true,
-			lastSeenAt: true,
-			feedLevelPercent: true,
-			gramsPerFeeding: true,
-			pond: { select: { id: true, name: true } },
-		},
-		orderBy: { createdAt: "desc" },
-	});
+export async function getDevices(
+	input: { page?: number; pageSize?: number } = {},
+): Promise<AdminListPage<AdminDeviceRow>> {
+	await requireTenantAdmin();
+	const pageSize = await resolveAdminPageSize(input.pageSize);
+	const scope = await resolveOrgScope();
+	const where = { pondId: { in: scope.pondIds } };
+	const requestedPage = Math.max(1, Math.floor(input.page ?? 1) || 1);
+
+	const [total, firstFetch] = await Promise.all([
+		prisma.energyDevice.count({ where }),
+		prisma.energyDevice.findMany({
+			where,
+			// Explicit display fields only: token/tokenHash are device credentials
+			// and must never leave the server through an admin list.
+			select: {
+				id: true,
+				label: true,
+				mac: true,
+				pondId: true,
+				lastSeenAt: true,
+				feedLevelPercent: true,
+				gramsPerFeeding: true,
+				pond: { select: { id: true, name: true } },
+			},
+			orderBy: { createdAt: "desc" },
+			skip: (requestedPage - 1) * pageSize,
+			take: pageSize,
+		}),
+	]);
+	const paging = resolvePagination(requestedPage, pageSize, total);
+	const rows =
+		paging.page === requestedPage
+			? firstFetch
+			: await prisma.energyDevice.findMany({
+					where,
+					select: {
+						id: true,
+						label: true,
+						mac: true,
+						pondId: true,
+						lastSeenAt: true,
+						feedLevelPercent: true,
+						gramsPerFeeding: true,
+						pond: { select: { id: true, name: true } },
+					},
+					orderBy: { createdAt: "desc" },
+					skip: paging.offset,
+					take: paging.pageSize,
+				});
+
+	return { rows, total, page: paging.page, pageSize: paging.pageSize };
 }
 
 /** Machine-readable failure causes the reveal component can translate. */
@@ -1204,23 +1392,48 @@ export async function getAdminStats() {
 
 // ─── Audit Log ───────────────────────────────────────────────────────────────
 
-export async function getAuditLog(cursor?: string, limit = 50) {
+export async function getAuditLog(input: { page?: number; pageSize?: number } = {}): Promise<
+	AdminListPage<
+		Prisma.DeviceStateEventGetPayload<{
+			include: { device: { select: { label: true; mac: true } } };
+		}>
+	>
+> {
 	await requireTenantAdmin();
+	const pageSize = await resolveAdminPageSize(input.pageSize);
 	const scope = await resolveOrgScope();
+	const requestedPage = Math.max(1, Math.floor(input.page ?? 1) || 1);
 
 	const where: Prisma.DeviceStateEventWhereInput = {
 		device: { pondId: { in: scope.pondIds } },
-		...(cursor ? { createdAt: { lt: new Date(cursor) } } : {}),
 	};
+	const [total, firstFetch] = await Promise.all([
+		prisma.deviceStateEvent.count({ where }),
+		prisma.deviceStateEvent.findMany({
+			where,
+			take: pageSize,
+			skip: (requestedPage - 1) * pageSize,
+			orderBy: { createdAt: "desc" },
+			include: {
+				device: { select: { label: true, mac: true } },
+			},
+		}),
+	]);
+	const paging = resolvePagination(requestedPage, pageSize, total);
+	const rows =
+		paging.page === requestedPage
+			? firstFetch
+			: await prisma.deviceStateEvent.findMany({
+					where,
+					take: paging.pageSize,
+					skip: paging.offset,
+					orderBy: { createdAt: "desc" },
+					include: {
+						device: { select: { label: true, mac: true } },
+					},
+				});
 
-	return prisma.deviceStateEvent.findMany({
-		where,
-		take: limit,
-		orderBy: { createdAt: "desc" },
-		include: {
-			device: { select: { label: true, mac: true } },
-		},
-	});
+	return { rows, total, page: paging.page, pageSize: paging.pageSize };
 }
 
 // ─── Update Pond Owner ───────────────────────────────────────────────────────

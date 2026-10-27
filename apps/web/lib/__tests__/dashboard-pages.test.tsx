@@ -59,7 +59,10 @@ vi.mock("@/lib/pond-selection", () => ({
 
 vi.mock("@/lib/prisma", () => ({
 	default: {
-		notification: { findMany: vi.fn(async () => []) },
+		notification: {
+			findMany: vi.fn(async () => []),
+			count: vi.fn(async () => 0),
+		},
 		energyDevice: { findFirst: vi.fn(async () => null) },
 	},
 }));
@@ -89,6 +92,7 @@ import prisma from "@/lib/prisma";
 beforeEach(() => {
 	vi.clearAllMocks();
 	vi.mocked(prisma.notification.findMany).mockResolvedValue([]);
+	vi.mocked(prisma.notification.count).mockResolvedValue(0);
 });
 
 describe("notifications page", () => {
@@ -144,7 +148,9 @@ describe("audit page", () => {
 					device: { id: "dev-1", label: "Feeder 1" },
 				},
 			],
-			nextCursor: null,
+			total: 1,
+			page: 1,
+			pageSize: 20,
 		});
 
 		const html = renderToStaticMarkup(await AuditPage({ searchParams: Promise.resolve({}) }));
@@ -158,7 +164,12 @@ describe("audit page", () => {
 	});
 
 	it("shows an empty state when there is nothing to show", async () => {
-		vi.mocked(getAuditLog).mockResolvedValue({ events: [], nextCursor: null });
+		vi.mocked(getAuditLog).mockResolvedValue({
+			events: [],
+			total: 0,
+			page: 1,
+			pageSize: 20,
+		});
 
 		const html = renderToStaticMarkup(await AuditPage({ searchParams: Promise.resolve({}) }));
 

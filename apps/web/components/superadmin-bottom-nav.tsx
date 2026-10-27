@@ -3,7 +3,7 @@
 import { FOCUS_RING_ON_DARK } from "@/components/superadmin/ui";
 import { Link, usePathname } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
-import { BarChart3, Cpu, Droplets, FolderTree, Sparkles, Users } from "lucide-react";
+import { BarChart3, Cpu, Droplets, FolderTree, Settings, Sparkles, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 /**
@@ -22,6 +22,7 @@ const navItems = [
 	{ href: "/superadmin/ponds", key: "ponds", icon: Droplets },
 	{ href: "/superadmin/devices", key: "devices", icon: Cpu },
 	{ href: "/superadmin/ai-providers", key: "aiProviders", icon: Sparkles },
+	{ href: "/superadmin/settings", key: "settings", icon: Settings },
 ] as const;
 
 export function SuperadminBottomNav() {

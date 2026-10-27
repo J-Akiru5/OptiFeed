@@ -1,15 +1,16 @@
 "use server";
 
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
+import { resolvePagination } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
+import { LIST_PAGE_SIZE_DEFAULT, getListPageSize } from "@/lib/settings/platform";
 
 export interface AuditFilter {
 	eventTypes?: string[];
 	source?: string;
 	dateFrom?: Date;
 	dateTo?: Date;
-	limit?: number;
-	cursor?: string;
+	page?: number;
 }
 
 export interface AuditEvent {
@@ -25,11 +26,14 @@ export interface AuditEvent {
 
 export interface AuditResult {
 	events: AuditEvent[];
-	nextCursor: string | null;
+	total: number;
+	page: number;
+	pageSize: number;
 }
 
 export async function getAuditLog(filters: AuditFilter = {}): Promise<AuditResult> {
 	try {
+		const pageSize = await getListPageSize();
 		const ownerId = await getCurrentPondOwnerId();
 		const pond = await prisma.pond.findFirst({
 			where: { ownerId, status: "ACTIVE" },
@@ -37,7 +41,7 @@ export async function getAuditLog(filters: AuditFilter = {}): Promise<AuditResul
 		});
 
 		if (!pond) {
-			return { events: [], nextCursor: null };
+			return { events: [], total: 0, page: 1, pageSize };
 		}
 
 		const energyDevices = await prisma.energyDevice.findMany({
@@ -46,7 +50,7 @@ export async function getAuditLog(filters: AuditFilter = {}): Promise<AuditResul
 		});
 
 		if (energyDevices.length === 0) {
-			return { events: [], nextCursor: null };
+			return { events: [], total: 0, page: 1, pageSize };
 		}
 
 		const deviceIds = energyDevices.map((d) => d.id);
@@ -73,26 +77,35 @@ export async function getAuditLog(filters: AuditFilter = {}): Promise<AuditResul
 			}
 		}
 
-		if (filters.cursor) {
-			where.id = { lt: filters.cursor };
-		}
-
-		const take = filters.limit ?? 50;
-
-		const events = await prisma.deviceStateEvent.findMany({
-			where,
-			orderBy: { id: "desc" },
-			take: take + 1,
-			include: {
-				device: { select: { id: true, label: true } },
-			},
-		});
-
-		const hasMore = events.length > take;
-		const results = hasMore ? events.slice(0, take) : events;
+		const requestedPage = Math.max(1, Math.floor(filters.page ?? 1) || 1);
+		const [total, firstFetch] = await Promise.all([
+			prisma.deviceStateEvent.count({ where }),
+			prisma.deviceStateEvent.findMany({
+				where,
+				orderBy: { id: "desc" },
+				skip: (requestedPage - 1) * pageSize,
+				take: pageSize,
+				include: {
+					device: { select: { id: true, label: true } },
+				},
+			}),
+		]);
+		const paging = resolvePagination(requestedPage, pageSize, total);
+		const rows =
+			paging.page === requestedPage
+				? firstFetch
+				: await prisma.deviceStateEvent.findMany({
+						where,
+						orderBy: { id: "desc" },
+						skip: paging.offset,
+						take: paging.pageSize,
+						include: {
+							device: { select: { id: true, label: true } },
+						},
+					});
 
 		return {
-			events: results.map((e) => ({
+			events: rows.map((e) => ({
 				id: e.id,
 				eventType: e.eventType,
 				source: e.source,
@@ -102,10 +115,12 @@ export async function getAuditLog(filters: AuditFilter = {}): Promise<AuditResul
 				metadata: e.metadata as Record<string, unknown> | null,
 				device: e.device,
 			})),
-			nextCursor: hasMore ? (results[results.length - 1]?.id ?? null) : null,
+			total,
+			page: paging.page,
+			pageSize: paging.pageSize,
 		};
 	} catch (error) {
 		console.error("Failed to fetch audit log:", error);
-		return { events: [], nextCursor: null };
+		return { events: [], total: 0, page: 1, pageSize: LIST_PAGE_SIZE_DEFAULT };
 	}
 }

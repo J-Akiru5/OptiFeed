@@ -13,10 +13,12 @@ import {
 } from "@/components/admin/admin-table";
 import { DeviceTokenReveal } from "@/components/admin/device-token-reveal";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
+import { Pagination } from "@/components/ui/pagination";
 import { Link, getPathname } from "@/i18n/routing";
 import { getDevices } from "@/lib/actions/admin";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import { parsePage } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
 import { Cpu, Printer, Wifi, WifiOff } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -24,14 +26,24 @@ import { getLocale, getTranslations } from "next-intl/server";
 const LABELS_HREF = "/admin/devices/labels";
 const LABEL_FORM_ID = "device-label-form";
 
-export default async function AdminDevicesPage() {
-	const [devices, t, tCommon, tDates, locale] = await Promise.all([
-		getDevices(),
+export default async function AdminDevicesPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ page?: string }>;
+}) {
+	const params = await searchParams;
+	const page = parsePage(params.page);
+	const [devicesPage, t, tCommon, tDates, locale] = await Promise.all([
+		getDevices({ page }),
 		getTranslations("dashboard.adminDevices"),
 		getTranslations("dashboard.adminCommon"),
 		getTranslations("dates"),
 		getLocale(),
 	]);
+	const devices = devicesPage.rows;
+	const pageCount = Math.max(1, Math.ceil(devicesPage.total / devicesPage.pageSize));
+	const firstRow = devicesPage.total === 0 ? 0 : (devicesPage.page - 1) * devicesPage.pageSize + 1;
+	const lastRow = Math.min(devicesPage.page * devicesPage.pageSize, devicesPage.total);
 
 	const lastSeen = (date: Date | null) =>
 		date ? formatDateTimeLocal(date, tDates).full : tCommon("never");
@@ -53,7 +65,7 @@ export default async function AdminDevicesPage() {
 			<AdminPageHeader
 				icon={Cpu}
 				title={t("title")}
-				description={t("desc", { count: devices.length })}
+				description={t("desc", { count: devicesPage.total })}
 				actions={
 					devices.length > 0 ? (
 						// Plain GET form: the row checkboxes join it through their `form`
@@ -263,6 +275,22 @@ export default async function AdminDevicesPage() {
 						})}
 					</AdminCardList>
 				</>
+			)}
+
+			{devicesPage.total > 0 && (
+				<Pagination
+					basePath="/admin/devices"
+					page={devicesPage.page}
+					pageCount={pageCount}
+					showing={tCommon("pagination.showing", {
+						from: firstRow,
+						to: lastRow,
+						total: devicesPage.total,
+					})}
+					previousLabel={tCommon("pagination.previous")}
+					nextLabel={tCommon("pagination.next")}
+					label={tCommon("pagination.label")}
+				/>
 			)}
 		</div>
 	);

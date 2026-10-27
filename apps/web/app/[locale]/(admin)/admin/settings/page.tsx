@@ -1,17 +1,30 @@
 import { adminSurface } from "@/components/admin/admin-classes";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { MembersSettings } from "@/components/admin/members-settings";
+import { Pagination } from "@/components/ui/pagination";
 import { listTenantMembers } from "@/lib/actions/admin";
 import { hasPermission } from "@/lib/auth/permissions";
+import { parsePage } from "@/lib/pagination";
 import { Settings } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
-export default async function AdminSettingsPage() {
-	const [members, canManage, t] = await Promise.all([
-		listTenantMembers(),
+export default async function AdminSettingsPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ page?: string }>;
+}) {
+	const params = await searchParams;
+	const page = parsePage(params.page);
+	const [membersPage, canManage, t, tCommon] = await Promise.all([
+		listTenantMembers({ page }),
 		hasPermission("manage_members"),
 		getTranslations("dashboard.adminSettings"),
+		getTranslations("dashboard.adminCommon"),
 	]);
+	const members = membersPage.rows;
+	const pageCount = Math.max(1, Math.ceil(membersPage.total / membersPage.pageSize));
+	const firstRow = membersPage.total === 0 ? 0 : (membersPage.page - 1) * membersPage.pageSize + 1;
+	const lastRow = Math.min(membersPage.page * membersPage.pageSize, membersPage.total);
 
 	const planned = [
 		{
@@ -33,7 +46,26 @@ export default async function AdminSettingsPage() {
 			<AdminPageHeader icon={Settings} title={t("title")} description={t("desc")} />
 
 			<section aria-label={t("generalTitle")} className={`${adminSurface} p-6`}>
-				<MembersSettings members={members} canManage={canManage} />
+				<MembersSettings
+					members={members}
+					canManage={canManage}
+					orgOptions={membersPage.orgOptions}
+				/>
+				{membersPage.total > 0 && (
+					<Pagination
+						basePath="/admin/settings"
+						page={membersPage.page}
+						pageCount={pageCount}
+						showing={tCommon("pagination.showing", {
+							from: firstRow,
+							to: lastRow,
+							total: membersPage.total,
+						})}
+						previousLabel={tCommon("pagination.previous")}
+						nextLabel={tCommon("pagination.next")}
+						label={tCommon("pagination.label")}
+					/>
+				)}
 			</section>
 
 			<section className={`${adminSurface} p-6`}>

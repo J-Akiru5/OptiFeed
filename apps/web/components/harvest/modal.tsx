@@ -13,6 +13,8 @@ interface ModalProps {
 	children: ReactNode;
 	footer?: ReactNode;
 	size?: "sm" | "md" | "lg";
+	/** `right` renders a side sheet instead of a centred dialog. */
+	side?: "center" | "right";
 }
 
 const FOCUSABLE =
@@ -26,6 +28,7 @@ export function Modal({
 	children,
 	footer,
 	size = "md",
+	side = "center",
 }: ModalProps) {
 	const t = useTranslations("dashboard.harvest.details");
 	const titleId = useId();
@@ -93,9 +96,16 @@ export function Modal({
 	if (!open || !mounted) return null;
 
 	const maxWidth = size === "sm" ? "max-w-md" : size === "lg" ? "max-w-3xl" : "max-w-xl";
+	const isSide = side === "right";
 
 	return createPortal(
-		<div className="fixed inset-0 z-[60] flex items-end justify-center p-0 sm:items-center sm:p-4">
+		<div
+			className={
+				isSide
+					? "fixed inset-0 z-[60] flex items-stretch justify-end"
+					: "fixed inset-0 z-[60] flex items-end justify-center p-0 sm:items-center sm:p-4"
+			}
+		>
 			<button
 				type="button"
 				aria-label={t("close")}
@@ -109,7 +119,11 @@ export function Modal({
 				aria-labelledby={titleId}
 				aria-describedby={description ? descriptionId : undefined}
 				tabIndex={-1}
-				className={`relative m-0 flex max-h-[92dvh] w-full ${maxWidth} flex-col overflow-hidden rounded-t-3xl border border-gray-100 bg-white p-0 shadow-2xl outline-none dark:border-gray-700/60 dark:bg-gray-900 sm:rounded-3xl`}
+				className={
+					isSide
+						? `relative m-0 flex h-[100dvh] w-full ${maxWidth} flex-col overflow-hidden border-l border-gray-100 bg-white p-0 shadow-2xl outline-none dark:border-gray-700/60 dark:bg-gray-900`
+						: `relative m-0 flex max-h-[92dvh] w-full ${maxWidth} flex-col overflow-hidden rounded-t-3xl border border-gray-100 bg-white p-0 shadow-2xl outline-none dark:border-gray-700/60 dark:bg-gray-900 sm:rounded-3xl`
+				}
 			>
 				<div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 dark:border-gray-700/60">
 					<div className="min-w-0">

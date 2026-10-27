@@ -5,21 +5,26 @@ import "@fullcalendar/react/themes/classic/palette.css";
 import "@fullcalendar/react/themes/classic/theme.css";
 import "./harvest-calendar.css";
 
+import { fullCalendarValueToFarmValue } from "@/lib/calendar/datetime";
+import { resolveEventColor } from "@/lib/calendar/event-colors";
 import type { CalendarEventDto } from "@/lib/crop-cycle/calendar";
 import { FARM_TIME_ZONE, addDays } from "@/lib/crop-cycle/dates";
 import FullCalendar from "@fullcalendar/react";
 import type {
-	DateClickInfo,
+	DateSelectInfo,
 	DatesSetInfo,
 	EventClickInfo,
+	EventDisplayInfo,
 	EventDropInfo,
 	EventInput,
+	EventResizeDoneInfo,
 } from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/react/daygrid";
 import interactionPlugin from "@fullcalendar/react/interaction";
 import listPlugin from "@fullcalendar/react/list";
 import classicThemePlugin from "@fullcalendar/react/themes/classic";
 import timeGridPlugin from "@fullcalendar/react/timegrid";
+import { Check } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
 
@@ -31,7 +36,10 @@ interface CalendarViewProps {
 	onViewChange: (viewType: string) => void;
 	onEventClick: (event: CalendarEventDto) => void;
 	onDateClick: (date: string) => void;
-	onEventDrop: (event: CalendarEventDto, date: string) => Promise<boolean>;
+	onSelect: (selection: { start: string; end: string | null; allDay: boolean }) => void;
+	onEventDrop: (event: CalendarEventDto, start: string, end: string | null) => Promise<boolean>;
+	onEventResize: (event: CalendarEventDto, start: string, end: string | null) => Promise<boolean>;
+	onToggleTask: (event: CalendarEventDto) => void;
 }
 
 interface EventColors {
@@ -40,6 +48,15 @@ interface EventColors {
 }
 
 function colorsFor(event: CalendarEventDto): EventColors {
+	// Manual items respect the per-item colour and each type's accessible
+	// default; the derived cycle/feeding/device sources keep their established
+	// status colours.
+	if (event.source === "manual") {
+		return {
+			color: resolveEventColor(event.color, event.kind ?? "OTHER"),
+			contrastColor: "#ffffff",
+		};
+	}
 	if (event.type === "harvest") {
 		if (event.status === "cancelled") {
 			return { color: "#9ca3af", contrastColor: "#ffffff" };
@@ -69,7 +86,10 @@ export function CalendarView({
 	onViewChange,
 	onEventClick,
 	onDateClick,
+	onSelect,
 	onEventDrop,
+	onEventResize,
+	onToggleTask,
 }: CalendarViewProps) {
 	const t = useTranslations("dashboard.harvest");
 	const [viewType, setViewType] = useState("dayGridMonth");
@@ -77,7 +97,9 @@ export function CalendarView({
 	const labelFor = useCallback(
 		(event: CalendarEventDto): string => {
 			let label: string;
-			if (event.kind === "STOCKING") {
+			if (event.source === "manual") {
+				label = event.title;
+			} else if (event.kind === "STOCKING") {
 				label = t("event.stocking", { label: event.cycleLabel ?? event.pondName });
 			} else if (event.kind === "HARVEST_PLANNED") {
 				label = t("event.harvestPlanned", { label: event.cycleLabel ?? event.pondName });
@@ -103,6 +125,7 @@ export function CalendarView({
 		for (const event of events) {
 			let { id, start } = event;
 			let { allDay } = event;
+			let end = event.end;
 
 			// FullCalendar's day grid only renders background events that are
 			// all-day. Collapse a day's feeding slots into one background band so
@@ -116,19 +139,27 @@ export function CalendarView({
 				id = `${event.id}:day`;
 				start = day;
 				allDay = true;
+				end = undefined;
 			}
 
 			const colors = colorsFor(event);
+			const isTask = event.itemKind === "TASK";
 			items.push({
 				id,
 				title: labelFor(event),
 				start,
-				end: event.end,
+				// All-day ends are inclusive in storage and exclusive in
+				// FullCalendar, so the grid shows a two-day event on both days.
+				end: allDay && end ? addDays(end.slice(0, 10), 1) : end,
 				allDay,
 				display: event.display,
 				color: event.display === "background" ? undefined : colors.color,
 				contrastColor: event.display === "background" ? undefined : colors.contrastColor,
 				editable: canManage && event.editable,
+				startEditable: canManage && event.editable,
+				// A task has a due date, not a duration; only Events resize.
+				durationEditable: canManage && event.editable && !isTask,
+				classNames: event.completed ? ["ofc-event-done"] : undefined,
 				extendedProps: { dto: event },
 			});
 		}
@@ -141,9 +172,18 @@ export function CalendarView({
 		if (dto) onEventClick(dto);
 	};
 
-	const handleDateClick = (arg: DateClickInfo) => {
+	const handleDateClick = (arg: { dateStr: string }) => {
 		if (!canManage) return;
 		onDateClick(arg.dateStr.slice(0, 10));
+	};
+
+	const handleSelect = (arg: DateSelectInfo) => {
+		if (!canManage) return;
+		onSelect({
+			start: fullCalendarValueToFarmValue(arg.startStr, arg.allDay),
+			end: arg.endStr ? fullCalendarValueToFarmValue(arg.endStr, arg.allDay) : null,
+			allDay: arg.allDay,
+		});
 	};
 
 	const handleEventDrop = async (arg: EventDropInfo) => {
@@ -152,8 +192,17 @@ export function CalendarView({
 			arg.revert();
 			return;
 		}
-		const date = arg.event.startStr.slice(0, 10);
-		const ok = await onEventDrop(dto, date);
+		const ok = await onEventDrop(dto, arg.event.startStr, arg.event.endStr ?? null);
+		if (!ok) arg.revert();
+	};
+
+	const handleEventResize = async (arg: EventResizeDoneInfo) => {
+		const dto = arg.event.extendedProps.dto as CalendarEventDto | undefined;
+		if (!dto || !canManage || !dto.editable) {
+			arg.revert();
+			return;
+		}
+		const ok = await onEventResize(dto, arg.event.startStr, arg.event.endStr ?? null);
 		if (!ok) arg.revert();
 	};
 
@@ -163,6 +212,47 @@ export function CalendarView({
 		setViewType(arg.view.type);
 		onRangeChange(from, to);
 		onViewChange(arg.view.type);
+	};
+
+	const renderEventContent = (arg: EventDisplayInfo) => {
+		const dto = arg.event.extendedProps.dto as CalendarEventDto | undefined;
+		if (!dto || dto.itemKind !== "TASK" || dto.display === "background") return true;
+		return (
+			<span className="flex min-w-0 items-center gap-1 overflow-hidden">
+				<button
+					type="button"
+					disabled={!canManage}
+					aria-label={
+						dto.completed
+							? t("task.reopenLabel", { title: dto.title })
+							: t("task.completeLabel", { title: dto.title })
+					}
+					aria-pressed={Boolean(dto.completed)}
+					onClick={(click) => {
+						click.stopPropagation();
+						if (!canManage) return;
+						onToggleTask(dto);
+					}}
+					onMouseDown={(down) => down.stopPropagation()}
+					onTouchStart={(touch) => touch.stopPropagation()}
+					className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+						dto.completed
+							? "border-transparent bg-white/90 text-[#0A3D62]"
+							: "border-white/70 bg-transparent text-transparent"
+					} ${canManage ? "cursor-pointer" : "cursor-default"}`}
+				>
+					<Check className="h-3 w-3" aria-hidden="true" />
+				</button>
+				<span
+					className={`min-w-0 overflow-hidden text-ellipsis whitespace-nowrap ${
+						dto.completed ? "line-through opacity-70" : ""
+					}`}
+				>
+					{arg.timeText ? `${arg.timeText} ` : ""}
+					{arg.event.title}
+				</span>
+			</span>
+		);
 	};
 
 	return (
@@ -189,8 +279,14 @@ export function CalendarView({
 				views={{ dayGridMonth: { displayEventTime: false } }}
 				nowIndicator
 				editable={canManage}
+				selectable={canManage}
+				selectMirror
 				eventStartEditable={canManage}
-				eventDurationEditable={false}
+				eventDurationEditable={canManage}
+				// Long-press makes drag/resize/select usable on a touch screen.
+				longPressDelay={300}
+				selectLongPressDelay={300}
+				eventLongPressDelay={300}
 				eventDisplay="block"
 				timeZone={FARM_TIME_ZONE}
 				scrollTime="06:00:00"
@@ -200,7 +296,10 @@ export function CalendarView({
 				events={calendarEvents}
 				eventClick={handleEventClick}
 				dateClick={handleDateClick}
+				select={handleSelect}
 				eventDrop={handleEventDrop}
+				eventResize={handleEventResize}
+				eventContent={renderEventContent}
 				datesSet={handleDatesSet}
 				eventDidMount={(info) => {
 					info.el.setAttribute("title", info.event.title);

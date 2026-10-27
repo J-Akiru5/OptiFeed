@@ -882,7 +882,8 @@
 				"week": "Semana",
 				"list": "Lista",
 				"noEvents": "Wala sang event sa sini nga range.",
-				"eventsLabel": "Kalendaryo sang punong"
+				"eventsLabel": "Kalendaryo sang punong",
+				"recurringChangeConfirm": "Bag-uhon ang bug-os nga nagabalik nga serye? Pilia ang Cancel para indi mabag-o."
 			},
 			"filters": {
 				"harvest": "Ani",
@@ -909,7 +910,20 @@
 				"pond": "Punong",
 				"date": "Petsa",
 				"markDone": "I-mark nga nahuman",
-				"samplingHint": "Mag-log sang biomass sample para magsaylo ang sunod nga sampling date."
+				"samplingHint": "Mag-log sang biomass sample para magsaylo ang sunod nga sampling date.",
+				"delete": "I-delete",
+				"deleteOccurrence": "I-delete ini nga pagbalik",
+				"deleteSeries": "I-delete ang serye",
+				"deleteOccurrenceConfirm": "Kuhaon lang ini nga pagbalik sa serye? Magpabilin ang iban.",
+				"repeats": "Nagabalik",
+				"repeatSummary": "Kada {count, plural, one {# {freq}} other {# ka {freq}}}",
+				"repeatUntil": "tubtob {date}",
+				"freq_DAILY": "adlaw",
+				"freq_WEEKLY": "semana",
+				"freq_MONTHLY": "bulan",
+				"reminders": "Mga pahinumdom",
+				"taskDone": "Nahuman",
+				"taskOpen": "Wala pa nahuman"
 			},
 			"cycleForm": {
 				"titleNew": "Start sang siklo",
@@ -983,7 +997,43 @@
 				"deleteConfirm": "I-delete ini nga event?",
 				"successCreate": "Nadugang ang event.",
 				"successUpdate": "Na-update ang event.",
-				"successDelete": "Na-delete ang event."
+				"successDelete": "Na-delete ang event.",
+				"descPond": "Event ukon task para sa {pond}.",
+				"kind": "Klase sang item",
+				"kindEvent": "Event",
+				"kindTask": "Task",
+				"typeSampling": "Sampling",
+				"typeHarvestPlanned": "Plano nga ani",
+				"typeStocking": "Pagbutang",
+				"allDay": "Bug-os nga adlaw",
+				"dueDate": "Petsa sang deadline",
+				"dueTime": "Oras sang deadline (opsyonal)",
+				"startDate": "Petsa sang pagsugod",
+				"endDate": "Petsa sang katapusan (opsyonal)",
+				"startTimeLabel": "Sugod",
+				"endTimeLabel": "Katapusan (opsyonal)",
+				"color": "Kolor",
+				"colorDefault": "Default sang klase",
+				"colorPreview": "Ini nga kolor",
+				"colorSwatch": "Gamita ang kolor {color}",
+				"repeat": "Balik-balik",
+				"repeatNone": "Indi magbalik",
+				"repeatDaily": "Adlaw-adlaw",
+				"repeatWeekly": "Tinagpulo",
+				"repeatMonthly": "Binulan",
+				"repeatInterval": "Kada N",
+				"repeatUntil": "Tubtob",
+				"repeatHint": "Nagabalik kada {count, plural, one {# interval} other {# ka interval}} tubtob sa katapusan.",
+				"reminders": "Mga pahinumdom",
+				"reminderHour": "1 ka oras antes",
+				"reminderDay": "1 ka adlaw antes",
+				"deleteSeriesConfirm": "I-delete ang bug-os nga serye? Madula ang tanan nga pagbalik."
+			},
+			"task": {
+				"completed": "Nahuman ang task.",
+				"reopened": "Naabli liwat ang task.",
+				"completeLabel": "Markahi nga nahuman ang {title}",
+				"reopenLabel": "Ablihi liwat ang {title}"
 			}
 		},
 		"settings": {

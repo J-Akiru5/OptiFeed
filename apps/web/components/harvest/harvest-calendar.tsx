@@ -3,8 +3,19 @@
 import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { Link, useRouter } from "@/i18n/routing";
 import { cancelCropCycle, updateCropCycle } from "@/lib/actions/crop-cycle";
-import { completePondEvent, updatePondEvent } from "@/lib/actions/pond-event";
+import {
+	completePondEvent,
+	deletePondEvent,
+	uncompletePondEvent,
+	updatePondEvent,
+} from "@/lib/actions/pond-event";
 import { ApiClientError, apiGet } from "@/lib/api-client";
+import {
+	farmDateTimeToUtcDate,
+	fullCalendarValueToFarmValue,
+	utcDateToFarmDateOnly,
+	utcDateToFarmDateTime,
+} from "@/lib/calendar/datetime";
 import { HOPPER_CAPACITY_KG } from "@/lib/constants";
 import type { CalendarEventDto, CalendarEventType } from "@/lib/crop-cycle/calendar";
 import { CALENDAR_EVENT_TYPES, isCalendarEventType } from "@/lib/crop-cycle/calendar";
@@ -37,7 +48,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { toast } from "sonner";
 import { CalendarErrorBoundary } from "./calendar-error-boundary";
 import { CycleForm } from "./cycle-form";
-import { EventForm } from "./event-form";
+import { EventEditor, type EventEditorSelection } from "./event-editor";
 import { HarvestForm } from "./harvest-form";
 import { Modal } from "./modal";
 
@@ -152,13 +163,14 @@ export function HarvestCalendar({
 	const [cycleFormOpen, setCycleFormOpen] = useState(false);
 	const [editingCycle, setEditingCycle] = useState<CropCycleDto | null>(null);
 	const [harvestOpen, setHarvestOpen] = useState(false);
-	const [eventFormOpen, setEventFormOpen] = useState(false);
-	const [eventDate, setEventDate] = useState(today);
+	const [editorOpen, setEditorOpen] = useState(false);
+	const [editorSelection, setEditorSelection] = useState<EventEditorSelection | null>(null);
 	const [editingEvent, setEditingEvent] = useState<CalendarEventDto | null>(null);
 	const [details, setDetails] = useState<CalendarEventDto | null>(null);
 	const [cycleDetailsOpen, setCycleDetailsOpen] = useState(false);
 	const [isCancelling, startCancel] = useTransition();
 	const [isCompleting, startComplete] = useTransition();
+	const [isDeleting, startDelete] = useTransition();
 	const urlHydrated = useRef(false);
 
 	const cycleForPond = useCallback(
@@ -213,16 +225,27 @@ export function HarvestCalendar({
 	}, [allPonds, selectedPondId, typesKey]);
 
 	const detailCycle = details ? cycleForPond(details.pondId) : null;
-	const canEditDetails = Boolean(
-		details?.editable && canManage && (details.kind === "MAINTENANCE" || details.kind === "OTHER"),
-	);
+	const canEditDetails = Boolean(details?.editable && canManage && details.source === "manual");
 	const canRescheduleDetails = Boolean(
-		details && details.kind === "HARVEST_PLANNED" && canManage && detailCycle,
+		details &&
+			details.kind === "HARVEST_PLANNED" &&
+			details.source !== "manual" &&
+			canManage &&
+			detailCycle,
 	);
 	const selectedRecentCycles = recentCycles
 		.filter((cycle) => cycle.pondId === selectedPondId)
 		.slice(0, 3);
-	const canCompleteDetails = canEditDetails && details?.status !== "done";
+	const canCompleteDetails = Boolean(
+		canEditDetails &&
+			!details?.completed &&
+			details?.status !== "done" &&
+			// A repeating Event is managed with "this / all"; only Tasks (and
+			// one-off Events) get a done action.
+			(details?.itemKind === "TASK" || !details?.recurrenceFreq),
+	);
+	const canDeleteOccurrence = Boolean(canEditDetails && details?.recurrenceFreq);
+	const canDeleteSeries = Boolean(canEditDetails);
 
 	const refresh = useCallback(() => setRefreshKey((value) => value + 1), []);
 
@@ -296,6 +319,11 @@ export function HarvestCalendar({
 	}, [allPonds, range.from, range.to, selectedPondId, t, typesKey, refreshKey, apiScope]);
 
 	const labelFor = (event: CalendarEventDto): string => {
+		// Manual Events/Tasks carry their own title; cycle milestones use the
+		// cycle label, and derived sources use their fixed copy.
+		if (event.source === "manual") {
+			return allPonds ? `${event.title} · ${event.pondName}` : event.title;
+		}
 		if (event.kind === "STOCKING") {
 			return t("event.stocking", { label: event.cycleLabel ?? event.pondName });
 		}
@@ -337,7 +365,14 @@ export function HarvestCalendar({
 		if (!details || !canEditDetails) return;
 		setEditingEvent(details);
 		setDetails(null);
-		setEventFormOpen(true);
+		setEditorOpen(true);
+	};
+
+	const openNewEvent = (selection: EventEditorSelection) => {
+		if (!canManage || allPonds) return;
+		setEditingEvent(null);
+		setEditorSelection(selection);
+		setEditorOpen(true);
 	};
 
 	const openCycleEditorFromDetails = () => {
@@ -346,11 +381,15 @@ export function HarvestCalendar({
 		openEditCycle(detailCycle);
 	};
 
+	const taskOccurrence = (event: CalendarEventDto): string | null =>
+		event.recurrenceFreq ? (event.occurrenceKey ?? null) : null;
+
 	const markEventDone = () => {
 		if (!details || !canCompleteDetails || isCompleting) return;
-		const id = details.id.replace(/^pond:/, "");
+		const id = details.pondEventId ?? details.id.replace(/^pond:/, "").split(":")[0];
+		const occurrence = taskOccurrence(details);
 		startComplete(async () => {
-			const result = await completePondEvent({ id });
+			const result = await completePondEvent({ id, occurrence });
 			if (!result.success) {
 				toast.error(result.error);
 				return;
@@ -362,18 +401,76 @@ export function HarvestCalendar({
 		});
 	};
 
-	const handleDateClick = (date: string) => {
-		if (!canManage || allPonds) return;
-		setEditingEvent(null);
-		setEventDate(date);
-		setEventFormOpen(true);
+	const toggleTask = (event: CalendarEventDto) => {
+		if (!canManage) return;
+		const id = event.pondEventId ?? event.id.replace(/^pond:/, "").split(":")[0];
+		const occurrence = taskOccurrence(event);
+		const nextCompleted = !event.completed;
+
+		// Optimistic checkbox, then roll back when the server rejects.
+		setEvents((current) =>
+			current.map((item) => (item.id === event.id ? { ...item, completed: nextCompleted } : item)),
+		);
+		setUpcomingEvents((current) =>
+			current.map((item) => (item.id === event.id ? { ...item, completed: nextCompleted } : item)),
+		);
+
+		void (async () => {
+			const result = nextCompleted
+				? await completePondEvent({ id, occurrence })
+				: await uncompletePondEvent({ id, occurrence });
+			if (!result.success) {
+				setEvents((current) =>
+					current.map((item) =>
+						item.id === event.id ? { ...item, completed: !nextCompleted } : item,
+					),
+				);
+				setUpcomingEvents((current) =>
+					current.map((item) =>
+						item.id === event.id ? { ...item, completed: !nextCompleted } : item,
+					),
+				);
+				toast.error(result.error);
+				return;
+			}
+			toast.success(nextCompleted ? t("task.completed") : t("task.reopened"));
+			router.refresh();
+			refresh();
+		})();
 	};
 
-	const handleEventDrop = async (event: CalendarEventDto, date: string): Promise<boolean> => {
+	const handleDateClick = (date: string) => {
+		openNewEvent({ start: date, end: null, allDay: true });
+	};
+
+	const handleSelect = (selection: EventEditorSelection) => {
+		openNewEvent(selection);
+	};
+
+	/**
+	 * Persist a drag/resize. FullCalendar has already moved the block; returning
+	 * false reverts it (the rollback the brief asks for).
+	 */
+	const persistRange = async (
+		event: CalendarEventDto,
+		start: string,
+		end: string | null,
+	): Promise<boolean> => {
 		if (!canManage) return false;
-		if (event.kind === "HARVEST_PLANNED") {
+
+		// FullCalendar may emit an offset or seconds; the calendar stores naive
+		// farm-local values. All-day ends are exclusive in the grid and
+		// inclusive in storage.
+		const startValue = fullCalendarValueToFarmValue(start, event.allDay);
+		const rawEnd = end ? fullCalendarValueToFarmValue(end, event.allDay) : null;
+		const endValue = rawEnd ? (event.allDay ? addDays(rawEnd, -1) : rawEnd) : null;
+		const normalizedEnd = endValue && endValue !== startValue ? endValue : null;
+
+		if (event.source !== "manual") {
+			if (event.kind !== "HARVEST_PLANNED") return false;
 			const cycle = cycleForPond(event.pondId);
 			if (!cycle) return false;
+			const date = startValue.slice(0, 10);
 			const span = daysBetween(cycle.stockingDate, date);
 			if (span < 30 || span > 365) {
 				toast.error(t("calendar.dateRangeError"));
@@ -396,12 +493,38 @@ export function HarvestCalendar({
 			refresh();
 			return true;
 		}
-		if (event.kind === "MAINTENANCE" || event.kind === "OTHER") {
+
+		const id = event.pondEventId ?? event.id.replace(/^pond:/, "").split(":")[0];
+
+		if (event.recurrenceFreq) {
+			if (!window.confirm(t("calendar.recurringChangeConfirm"))) return false;
+			const occurrenceStart = farmDateTimeToUtcDate(event.start);
+			const occurrenceEnd = event.end ? farmDateTimeToUtcDate(event.end) : null;
+			const nextStart = farmDateTimeToUtcDate(startValue);
+			const startDelta = nextStart.getTime() - occurrenceStart.getTime();
+			const endDelta =
+				normalizedEnd && occurrenceEnd
+					? farmDateTimeToUtcDate(normalizedEnd).getTime() - occurrenceEnd.getTime()
+					: startDelta;
+
+			const seriesStart = farmDateTimeToUtcDate(event.seriesStartsAt ?? event.start);
+			const shiftedStart = new Date(seriesStart.getTime() + startDelta);
+			const seriesEnd = event.seriesEndsAt
+				? new Date(farmDateTimeToUtcDate(event.seriesEndsAt).getTime() + endDelta)
+				: null;
+			if (seriesEnd && seriesEnd.getTime() <= shiftedStart.getTime()) return false;
+
 			const result = await updatePondEvent({
-				id: event.id.replace(/^pond:/, ""),
-				title: event.title,
-				startsAt: date,
-				notes: event.notes ?? null,
+				id,
+				allDay: event.allDay,
+				startsAt: event.allDay
+					? utcDateToFarmDateOnly(shiftedStart)
+					: utcDateToFarmDateTime(shiftedStart),
+				endsAt: seriesEnd
+					? event.allDay
+						? utcDateToFarmDateOnly(seriesEnd)
+						: utcDateToFarmDateTime(seriesEnd)
+					: null,
 			});
 			if (!result.success) {
 				toast.error(result.error);
@@ -412,7 +535,62 @@ export function HarvestCalendar({
 			refresh();
 			return true;
 		}
-		return false;
+
+		const result = await updatePondEvent({
+			id,
+			allDay: event.allDay,
+			startsAt: startValue,
+			endsAt: normalizedEnd,
+		});
+		if (!result.success) {
+			toast.error(result.error);
+			return false;
+		}
+		toast.success(t("calendar.rescheduled"));
+		router.refresh();
+		refresh();
+		return true;
+	};
+
+	const handleEventDrop = (event: CalendarEventDto, start: string, end: string | null) =>
+		persistRange(event, start, end);
+
+	const handleEventResize = (event: CalendarEventDto, start: string, end: string | null) =>
+		persistRange(event, start, end);
+
+	const deleteOccurrence = () => {
+		if (!details || !canDeleteOccurrence || isDeleting) return;
+		if (!window.confirm(t("details.deleteOccurrenceConfirm"))) return;
+		const id = details.pondEventId ?? details.id.replace(/^pond:/, "").split(":")[0];
+		const occurrence = details.occurrenceKey ?? null;
+		startDelete(async () => {
+			const result = await deletePondEvent({ id, occurrence });
+			if (!result.success) {
+				toast.error(result.error);
+				return;
+			}
+			toast.success(t("eventForm.successDelete"));
+			setDetails(null);
+			router.refresh();
+			refresh();
+		});
+	};
+
+	const deleteSeries = () => {
+		if (!details || !canDeleteSeries || isDeleting) return;
+		if (!window.confirm(t("eventForm.deleteConfirm"))) return;
+		const id = details.pondEventId ?? details.id.replace(/^pond:/, "").split(":")[0];
+		startDelete(async () => {
+			const result = await deletePondEvent({ id });
+			if (!result.success) {
+				toast.error(result.error);
+				return;
+			}
+			toast.success(t("eventForm.successDelete"));
+			setDetails(null);
+			router.refresh();
+			refresh();
+		});
 	};
 
 	const cancelCycle = () => {
@@ -776,11 +954,7 @@ export function HarvestCalendar({
 								{canManage && !allPonds && (
 									<button
 										type="button"
-										onClick={() => {
-											setEditingEvent(null);
-											setEventDate(today);
-											setEventFormOpen(true);
-										}}
+										onClick={() => openNewEvent({ start: today, end: null, allDay: true })}
 										className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-[#0A3D62] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#164e7c] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-[#1f66a0] dark:focus-visible:outline-[#8fc0ea]"
 									>
 										<Plus aria-hidden="true" className="h-3.5 w-3.5" />
@@ -840,7 +1014,10 @@ export function HarvestCalendar({
 									onViewChange={setViewType}
 									onEventClick={handleEventClick}
 									onDateClick={handleDateClick}
+									onSelect={handleSelect}
 									onEventDrop={handleEventDrop}
+									onEventResize={handleEventResize}
+									onToggleTask={toggleTask}
 								/>
 							</CalendarErrorBoundary>
 						</div>
@@ -948,24 +1125,47 @@ export function HarvestCalendar({
 				onSaved={refresh}
 				cycle={selectedCycle}
 			/>
-			<EventForm
-				open={eventFormOpen}
-				onClose={() => setEventFormOpen(false)}
+			<EventEditor
+				open={editorOpen}
+				onClose={() => setEditorOpen(false)}
 				onSaved={refresh}
 				pondId={selectedPondId}
-				date={eventDate}
+				ponds={ponds}
+				selection={editorSelection}
 				event={editingEvent}
 			/>
 
 			<Modal
 				open={Boolean(details)}
+				side="right"
+				size="md"
 				onClose={() => setDetails(null)}
 				title={details ? labelFor(details) : ""}
 				description={
 					details ? `${details.pondName} · ${formatEventMoment(details, locale)}` : undefined
 				}
 				footer={
-					<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+					<div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+						{canDeleteOccurrence && (
+							<button
+								type="button"
+								onClick={deleteOccurrence}
+								disabled={isDeleting}
+								className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-bold text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/30 dark:focus-visible:outline-[#8fc0ea]"
+							>
+								{t("details.deleteOccurrence")}
+							</button>
+						)}
+						{canDeleteSeries && (
+							<button
+								type="button"
+								onClick={deleteSeries}
+								disabled={isDeleting}
+								className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-bold text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/30 dark:focus-visible:outline-[#8fc0ea]"
+							>
+								{details?.recurrenceFreq ? t("details.deleteSeries") : t("details.delete")}
+							</button>
+						)}
 						{canCompleteDetails && (
 							<button
 								type="button"
@@ -1027,6 +1227,48 @@ export function HarvestCalendar({
 								</strong>
 							</p>
 						</div>
+						{details.recurrenceFreq && (
+							<div className="rounded-xl border border-gray-100 bg-gray-50/70 p-3 dark:border-gray-700/60 dark:bg-gray-800/40">
+								<p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+									{t("details.repeats")}
+								</p>
+								<p className="mt-1 text-xs font-semibold text-gray-700 dark:text-gray-200">
+									{t("details.repeatSummary", {
+										freq: t(`details.freq_${details.recurrenceFreq}`),
+										count: details.recurrenceInterval ?? 1,
+									})}
+									{details.recurrenceUntil
+										? ` · ${t("details.repeatUntil", { date: details.recurrenceUntil })}`
+										: ""}
+								</p>
+							</div>
+						)}
+						{(details.reminderMinutes?.length ?? 0) > 0 && (
+							<div className="rounded-xl border border-gray-100 bg-gray-50/70 p-3 dark:border-gray-700/60 dark:bg-gray-800/40">
+								<p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+									{t("details.reminders")}
+								</p>
+								<p className="mt-1 text-xs font-semibold text-gray-700 dark:text-gray-200">
+									{details.reminderMinutes
+										?.map((minutes) =>
+											minutes >= 1440 ? t("eventForm.reminderDay") : t("eventForm.reminderHour"),
+										)
+										.join(" · ")}
+								</p>
+							</div>
+						)}
+						{details.itemKind === "TASK" && (
+							<p
+								className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold ${
+									details.completed
+										? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+										: "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300"
+								}`}
+							>
+								<Check aria-hidden="true" className="h-3.5 w-3.5" />
+								{details.completed ? t("details.taskDone") : t("details.taskOpen")}
+							</p>
+						)}
 						{details.notes && (
 							<div>
 								<p className="text-[10px] font-black uppercase tracking-wider text-gray-400">

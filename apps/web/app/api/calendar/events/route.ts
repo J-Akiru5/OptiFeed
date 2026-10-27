@@ -3,6 +3,8 @@ import { notFound, validationFailed } from "@/lib/api/errors";
 import { withApi } from "@/lib/api/instrumentation";
 import { resolveOrgScope } from "@/lib/auth/org-scope";
 import { withAuth } from "@/lib/auth/with-auth";
+import { utcDateToFarmDateTime } from "@/lib/calendar/datetime";
+import { expandOccurrences } from "@/lib/calendar/recurrence";
 import {
 	CALENDAR_EVENT_TYPES,
 	type CalendarEventDto,
@@ -13,7 +15,6 @@ import {
 } from "@/lib/crop-cycle/calendar";
 import {
 	addDays,
-	dateOnlyEventStart,
 	dateRangeUtc,
 	daysBetween,
 	formatDateOnly,
@@ -128,12 +129,15 @@ export const GET = withApi(
 		const events: CalendarEventDto[] = [];
 		let truncated = false;
 
-		// Persisted cycle/manual events.
+		// Persisted cycle/manual events. Recurring rows may start before the
+		// visible range, so the window filters occurrences below instead of
+		// dropping the row in SQL.
 		if (types.has("harvest") || types.has("manual")) {
 			const persisted = await prisma.pondEvent.findMany({
 				where: {
 					pondId: { in: pondIds },
-					startsAt: { gte: range.gte, lt: range.lte },
+					startsAt: { lt: range.lte },
+					OR: [{ startsAt: { gte: range.gte } }, { recurrenceFreq: { not: null } }],
 				},
 				include: {
 					pond: { select: { id: true, name: true } },
@@ -146,23 +150,71 @@ export const GET = withApi(
 			for (const event of persisted) {
 				const type = pondEventCalendarType(event.type);
 				if (!types.has(type)) continue;
-				events.push({
-					id: `pond:${event.id}`,
-					title: event.title,
-					start: dateOnlyEventStart(event.startsAt),
-					allDay: true,
-					type,
-					status: toStatus(event.status),
-					kind: event.type,
-					editable:
-						event.source === "manual" ||
-						(event.type === "HARVEST_PLANNED" && event.status === "PLANNED"),
-					pondId: event.pond.id,
-					pondName: event.pond.name,
-					cycleLabel: event.cropCycle?.label ?? null,
-					notes: event.notes,
-					href: "/dashboard/harvest",
+				const recurring = Boolean(event.recurrenceFreq);
+				const anchor = event.allDay
+					? formatDateOnly(event.startsAt)
+					: utcDateToFarmDateTime(event.startsAt);
+				const end = event.endsAt
+					? event.allDay
+						? formatDateOnly(event.endsAt)
+						: utcDateToFarmDateTime(event.endsAt)
+					: null;
+				const expansion = expandOccurrences({
+					start: anchor,
+					end,
+					allDay: event.allDay,
+					recurrence: event.recurrenceFreq
+						? {
+								freq: event.recurrenceFreq,
+								interval: event.recurrenceInterval,
+								until: event.recurrenceUntil ? formatDateOnly(event.recurrenceUntil) : null,
+							}
+						: null,
+					window: { from, to },
 				});
+				if (expansion.truncated) truncated = true;
+
+				for (const occurrence of expansion.occurrences) {
+					const skippedOccurrence = event.completedOccurrences.some(
+						(value) => value.toISOString() === occurrence.occurrenceKey,
+					);
+					// "Delete this occurrence" on an Event records it in
+					// completedOccurrences; hide it again. Tasks keep the checked
+					// occurrence visible with a checkbox.
+					if (event.kind === "EVENT" && skippedOccurrence) continue;
+
+					const completed = event.status === "DONE" || skippedOccurrence;
+					events.push({
+						id: recurring ? `pond:${event.id}:${occurrence.occurrenceKey}` : `pond:${event.id}`,
+						pondEventId: event.id,
+						title: event.title,
+						start: occurrence.start,
+						end: occurrence.end ?? undefined,
+						allDay: event.allDay,
+						type,
+						status: toStatus(event.status),
+						kind: event.type,
+						itemKind: event.kind,
+						color: event.color ?? null,
+						source: event.source,
+						occurrenceKey: occurrence.occurrenceKey,
+						recurrenceFreq: event.recurrenceFreq,
+						recurrenceInterval: event.recurrenceInterval,
+						recurrenceUntil: event.recurrenceUntil ? formatDateOnly(event.recurrenceUntil) : null,
+						seriesStartsAt: anchor,
+						seriesEndsAt: end,
+						reminderMinutes: event.reminderMinutes,
+						completed,
+						editable:
+							event.source === "manual" ||
+							(event.type === "HARVEST_PLANNED" && event.status === "PLANNED"),
+						pondId: event.pond.id,
+						pondName: event.pond.name,
+						cycleLabel: event.cropCycle?.label ?? null,
+						notes: event.notes,
+						href: "/dashboard/harvest",
+					});
+				}
 			}
 		}
 

@@ -72,6 +72,7 @@ import {
 	completePondEvent,
 	createPondEvent,
 	deletePondEvent,
+	uncompletePondEvent,
 	updatePondEvent,
 } from "../actions/pond-event";
 import { addDays, todayDateOnly } from "../crop-cycle/dates";
@@ -782,12 +783,19 @@ describe("pond event actions", () => {
 				pondId: "pond-1",
 				cropCycleId: null,
 				farmId: "farm-1",
+				kind: "EVENT",
 				type: "MAINTENANCE",
 				status: "PLANNED",
 				title: "Clean the aerator",
 				startsAt: new Date(`${TODAY}T00:00:00.000Z`),
+				endsAt: null,
 				allDay: true,
 				notes: null,
+				color: null,
+				recurrenceFreq: null,
+				recurrenceInterval: 1,
+				recurrenceUntil: null,
+				reminderMinutes: [],
 				source: "manual",
 				createdBy: OWNER,
 			},
@@ -852,6 +860,11 @@ describe("pond event actions", () => {
 			id: "event-1",
 			source: "manual",
 			type: "MAINTENANCE",
+			kind: "EVENT",
+			allDay: true,
+			startsAt: new Date(`${TODAY}T00:00:00.000Z`),
+			endsAt: null,
+			recurrenceFreq: null,
 		});
 
 		const result = await updatePondEvent({
@@ -864,7 +877,16 @@ describe("pond event actions", () => {
 		expect(result).toEqual({ success: true, eventId: "event-1" });
 		expect(mocks.prisma.pondEvent.findFirst).toHaveBeenCalledWith({
 			where: { id: "event-1", pond: { ownerId: OWNER } },
-			select: { id: true, source: true, type: true },
+			select: {
+				id: true,
+				source: true,
+				type: true,
+				kind: true,
+				allDay: true,
+				startsAt: true,
+				endsAt: true,
+				recurrenceFreq: true,
+			},
 		});
 		expect(mocks.prisma.pondEvent.update).toHaveBeenCalledWith({
 			where: { id: "event-1" },
@@ -895,6 +917,10 @@ describe("pond event actions", () => {
 			error: "Cycle events cannot be edited from the calendar.",
 		});
 		expect(await completePondEvent({ id: "event-1" })).toEqual({
+			success: false,
+			error: "Cycle events are completed from the cycle actions.",
+		});
+		expect(await uncompletePondEvent({ id: "event-1" })).toEqual({
 			success: false,
 			error: "Cycle events are completed from the cycle actions.",
 		});
@@ -949,6 +975,9 @@ describe("pond event actions", () => {
 		mocks.prisma.pondEvent.findFirst.mockResolvedValue({
 			id: "event-1",
 			source: "manual",
+			startsAt: new Date(`${TODAY}T00:00:00.000Z`),
+			allDay: true,
+			recurrenceFreq: null,
 		});
 
 		const result = await deletePondEvent({ id: "event-1" });
@@ -956,6 +985,197 @@ describe("pond event actions", () => {
 		expect(result).toEqual({ success: true, eventId: "event-1" });
 		expect(mocks.prisma.pondEvent.delete).toHaveBeenCalledWith({
 			where: { id: "event-1" },
+		});
+	});
+
+	it("creates a timed task with colour, repeat and reminders", async () => {
+		mocks.prisma.pond.findFirst.mockResolvedValue({ id: "pond-1", farmId: "farm-1" });
+		const until = addDays(TODAY, 30);
+
+		const result = await createPondEvent({
+			pondId: "pond-1",
+			kind: "TASK",
+			type: "SAMPLING",
+			title: "Check water quality",
+			allDay: false,
+			startsAt: `${TODAY}T09:30`,
+			endsAt: null,
+			color: "#1E7B34",
+			recurrence: { freq: "WEEKLY", interval: 2, until },
+			reminderMinutes: [1440, 60],
+			notes: "Bring the kit",
+		});
+
+		expect(result).toEqual({ success: true, eventId: "event-1" });
+		const created = mocks.prisma.pondEvent.create.mock.calls[0]?.[0] as {
+			data: Record<string, unknown>;
+		};
+		expect(created.data).toMatchObject({
+			kind: "TASK",
+			type: "SAMPLING",
+			title: "Check water quality",
+			allDay: false,
+			startsAt: new Date(`${TODAY}T09:30:00+08:00`),
+			endsAt: null,
+			color: "#1E7B34",
+			recurrenceFreq: "WEEKLY",
+			recurrenceInterval: 2,
+			recurrenceUntil: new Date(`${until}T00:00:00.000Z`),
+			reminderMinutes: [60, 1440],
+			source: "manual",
+		});
+	});
+
+	it("rejects a time on an all-day item and a date-only timed item", async () => {
+		const allDayWithTime = await createPondEvent(
+			manualEventInput({ allDay: true, startsAt: `${TODAY}T09:00` }),
+		);
+		expect(allDayWithTime.success).toBe(false);
+		if (!allDayWithTime.success) expect(allDayWithTime.error).toContain("all-day");
+
+		const timedWithoutTime = await createPondEvent(
+			manualEventInput({ allDay: false, startsAt: TODAY }),
+		);
+		expect(timedWithoutTime.success).toBe(false);
+		if (!timedWithoutTime.success) expect(timedWithoutTime.error).toContain("date and time");
+		expect(mocks.prisma.pondEvent.create).not.toHaveBeenCalled();
+	});
+
+	it("rejects an end before the start", async () => {
+		const result = await createPondEvent(
+			manualEventInput({
+				allDay: false,
+				startsAt: `${TODAY}T12:00`,
+				endsAt: `${TODAY}T10:00`,
+			}),
+		);
+
+		expect(result.success).toBe(false);
+		if (!result.success) expect(result.error).toContain("end must be after the start");
+		expect(mocks.prisma.pondEvent.create).not.toHaveBeenCalled();
+	});
+
+	it("completes one occurrence of a recurring task and dedupes it", async () => {
+		const anchor = new Date(`${TODAY}T00:00:00.000Z`);
+		const occurrence = new Date(`${addDays(TODAY, 7)}T00:00:00.000Z`);
+		mocks.prisma.pondEvent.findFirst.mockResolvedValue({
+			id: "event-1",
+			source: "manual",
+			startsAt: anchor,
+			allDay: true,
+			recurrenceFreq: "WEEKLY",
+			recurrenceInterval: 1,
+			recurrenceUntil: null,
+			completedOccurrences: [],
+		});
+
+		const result = await completePondEvent({
+			id: "event-1",
+			occurrence: occurrence.toISOString(),
+		});
+
+		expect(result).toEqual({ success: true, eventId: "event-1" });
+		expect(mocks.prisma.pondEvent.update).toHaveBeenCalledWith({
+			where: { id: "event-1" },
+			data: { completedOccurrences: { set: [occurrence] } },
+		});
+		expect(mocks.prisma.pondEvent.update).not.toHaveBeenCalledWith(
+			expect.objectContaining({ data: expect.objectContaining({ status: "DONE" }) }),
+		);
+	});
+
+	it("rejects an occurrence that is not part of the series", async () => {
+		mocks.prisma.pondEvent.findFirst.mockResolvedValue({
+			id: "event-1",
+			source: "manual",
+			startsAt: new Date(`${TODAY}T00:00:00.000Z`),
+			allDay: true,
+			recurrenceFreq: "WEEKLY",
+			recurrenceInterval: 1,
+			recurrenceUntil: null,
+			completedOccurrences: [],
+		});
+
+		const result = await completePondEvent({
+			id: "event-1",
+			occurrence: new Date(`${addDays(TODAY, 3)}T00:00:00.000Z`).toISOString(),
+		});
+
+		expect(result).toEqual({
+			success: false,
+			error: "That occurrence is not part of this series.",
+		});
+		expect(mocks.prisma.pondEvent.update).not.toHaveBeenCalled();
+	});
+
+	it("skips a single occurrence and deletes the whole series", async () => {
+		const occurrence = new Date(`${addDays(TODAY, 7)}T00:00:00.000Z`);
+		mocks.prisma.pondEvent.findFirst.mockResolvedValue({
+			id: "event-1",
+			source: "manual",
+			startsAt: new Date(`${TODAY}T00:00:00.000Z`),
+			allDay: true,
+			recurrenceFreq: "WEEKLY",
+			recurrenceInterval: 1,
+			recurrenceUntil: null,
+			completedOccurrences: [],
+		});
+
+		expect(await deletePondEvent({ id: "event-1", occurrence: occurrence.toISOString() })).toEqual({
+			success: true,
+			eventId: "event-1",
+		});
+		expect(mocks.prisma.pondEvent.update).toHaveBeenCalledWith({
+			where: { id: "event-1" },
+			data: { completedOccurrences: { set: [occurrence] } },
+		});
+		expect(mocks.prisma.pondEvent.delete).not.toHaveBeenCalled();
+
+		expect(await deletePondEvent({ id: "event-1" })).toEqual({
+			success: true,
+			eventId: "event-1",
+		});
+		expect(mocks.prisma.pondEvent.delete).toHaveBeenCalledWith({ where: { id: "event-1" } });
+	});
+
+	it("reopens a completed task and removes an occurrence check", async () => {
+		const occurrence = new Date(`${addDays(TODAY, 7)}T00:00:00.000Z`);
+		mocks.prisma.pondEvent.findFirst.mockResolvedValue({
+			id: "event-1",
+			source: "manual",
+			startsAt: new Date(`${TODAY}T00:00:00.000Z`),
+			allDay: true,
+			recurrenceFreq: "WEEKLY",
+			recurrenceInterval: 1,
+			recurrenceUntil: null,
+			completedOccurrences: [occurrence],
+		});
+
+		expect(
+			await uncompletePondEvent({ id: "event-1", occurrence: occurrence.toISOString() }),
+		).toEqual({ success: true, eventId: "event-1" });
+		expect(mocks.prisma.pondEvent.update).toHaveBeenCalledWith({
+			where: { id: "event-1" },
+			data: { completedOccurrences: { set: [] } },
+		});
+
+		mocks.prisma.pondEvent.findFirst.mockResolvedValue({
+			id: "event-2",
+			source: "manual",
+			startsAt: new Date(`${TODAY}T00:00:00.000Z`),
+			allDay: true,
+			recurrenceFreq: null,
+			recurrenceInterval: 1,
+			recurrenceUntil: null,
+			completedOccurrences: [],
+		});
+		expect(await uncompletePondEvent({ id: "event-2" })).toEqual({
+			success: true,
+			eventId: "event-2",
+		});
+		expect(mocks.prisma.pondEvent.update).toHaveBeenLastCalledWith({
+			where: { id: "event-2" },
+			data: { status: "PLANNED", completedBy: null, completedAt: null },
 		});
 	});
 
@@ -985,6 +1205,7 @@ describe("pond event actions", () => {
 			}),
 		).toEqual(denied);
 		expect(await completePondEvent({ id: "event-1" })).toEqual(denied);
+		expect(await uncompletePondEvent({ id: "event-1" })).toEqual(denied);
 		expect(await deletePondEvent({ id: "event-1" })).toEqual(denied);
 
 		expect(mocks.requirePermission).toHaveBeenCalledWith("manage_crop_cycle");

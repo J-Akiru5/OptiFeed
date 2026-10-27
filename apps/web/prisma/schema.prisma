@@ -171,6 +171,16 @@ model PondEvent {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
+  // Google-Calendar-style fields (issues #195/#196). Recurring items are one row,
+  // expanded into occurrences when read; done occurrences are listed explicitly.
+  kind                 PondItemKind    @default(EVENT)
+  color                String? // "#RRGGBB"; null = colour of the event type
+  recurrenceFreq       RecurrenceFreq?
+  recurrenceInterval   Int             @default(1)
+  recurrenceUntil      DateTime?
+  completedOccurrences DateTime[]      @default([])
+  reminderMinutes      Int[]           @default([]) // e.g. [60, 1440] = 1 h and 1 day before
+
   pond      Pond       @relation(fields: [pondId], references: [id], onDelete: Cascade)
   cropCycle CropCycle? @relation(fields: [cropCycleId], references: [id], onDelete: SetNull)
 
@@ -741,4 +751,44 @@ model WaterTempLog {
 
   @@index([deviceId, recordedAt])
   @@index([farmId])
+}
+
+enum PondItemKind {
+  EVENT // has a time range
+  TASK // has a due date and a done checkbox
+}
+
+enum RecurrenceFreq {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum AssistantActionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  FAILED
+}
+
+/// An action the AI assistant proposed and the user must Accept or Reject (issue #194).
+/// The server stores the validated payload; Accept re-checks permissions and runs the
+/// same server action a button would. Never executed without an explicit Accept.
+model AssistantAction {
+  id        String                @id @default(cuid())
+  userId    String
+  orgId     String?
+  pondId    String?
+  kind      String // e.g. "feeding.apply_grams", "records.log_sample", "admin.invite_member"
+  payload   Json
+  summary   String // human-readable description shown on the Accept card
+  status    AssistantActionStatus @default(PENDING)
+  result    Json?
+  error     String?
+  expiresAt DateTime
+  decidedAt DateTime?
+  createdAt DateTime              @default(now())
+
+  @@index([userId, status, createdAt])
 }

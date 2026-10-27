@@ -1,49 +1,525 @@
-import { Card, PageHeader, StatCard } from "@/components/superadmin/ui";
-import { getSuperadminStats } from "@/lib/actions/superadmin";
-import { Droplets, FolderTree, ShieldCheck, Users } from "lucide-react";
-import { getTranslations } from "next-intl/server";
+import {
+	CHART_COLORS,
+	type ChartLabels,
+	Donut,
+	LineTrend,
+	Sparkline,
+	StackedBars,
+} from "@/components/charts";
+import { formatChartNumber, summarize } from "@/components/charts/chart-data";
+import {
+	Badge,
+	CARD,
+	Card,
+	PageHeader,
+	SECONDARY_BUTTON,
+	SectionTitle,
+} from "@/components/superadmin/ui";
+import { Link } from "@/i18n/routing";
+import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
+import { formatDateTimeLocal } from "@/lib/date-local";
+import {
+	ANALYTICS_RANGES,
+	getPlatformAnalytics,
+	parseAnalyticsRange,
+} from "@/lib/platform/analytics";
+import { cn } from "@/lib/utils";
+import {
+	Activity,
+	ArrowDownRight,
+	ArrowUpRight,
+	BellRing,
+	ClipboardCheck,
+	Droplets,
+	FolderTree,
+	Gauge,
+	type LucideIcon,
+	Minus,
+	Radio,
+	Users,
+	Wheat,
+} from "lucide-react";
+import { getLocale, getTranslations } from "next-intl/server";
+import type { ReactNode } from "react";
 
-export default async function SuperadminOverviewPage() {
-	const [stats, t] = await Promise.all([
-		getSuperadminStats(),
+type Direction = "up" | "down" | "flat";
+
+function first(param: string | string[] | undefined): string | undefined {
+	return Array.isArray(param) ? param[0] : param;
+}
+
+function capitalise(value: string): string {
+	return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+export default async function SuperadminOverviewPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+	const params = await searchParams;
+	const range = parseAnalyticsRange(first(params.range));
+
+	// The layout also gates this page; keep the explicit check so the data
+	// module can never be rendered by a future route that forgets the layout.
+	await requirePlatformAdmin();
+
+	const [analytics, t, tCommon, tDates, locale] = await Promise.all([
+		getPlatformAnalytics(range),
 		getTranslations("superadmin.overview"),
+		getTranslations("superadmin.common"),
+		getTranslations("dates"),
+		getLocale(),
 	]);
 
-	return (
-		<div className="space-y-8">
-			<PageHeader title={t("title")} description={t("description")} />
+	const formatValue = (value: number, decimals = 0) =>
+		new Intl.NumberFormat(locale, { maximumFractionDigits: decimals }).format(value);
 
-			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-				<StatCard label={t("users")} value={stats.userCount} hint={t("usersHint")} icon={Users} />
-				<StatCard
-					label={t("organizations")}
-					value={stats.orgCount}
-					hint={t("organizationsHint")}
-					icon={FolderTree}
-				/>
-				<StatCard
-					label={t("ponds")}
-					value={stats.pondCount}
-					hint={t("pondsHint")}
-					icon={Droplets}
-				/>
-				<StatCard
-					label={t("platformAdmins")}
-					value={stats.activePlatformAdminCount}
-					hint={t("grantsTotal", { count: stats.platformAdminCount })}
-					icon={ShieldCheck}
-				/>
+	const chartLabels: ChartLabels = {
+		period: t("charts.period"),
+		value: t("charts.value"),
+		name: t("charts.name"),
+		empty: t("charts.empty"),
+	};
+
+	const signupStats = summarize(analytics.signupsPerDay);
+	const kgStats = summarize(analytics.kgPerDay);
+	const feedsTotal = Object.values(analytics.feedsPerDayBySource.totalsBySource).reduce(
+		(total, value) => total + value,
+		0,
+	);
+	const online = analytics.kpis.feedersOnline.online;
+	const offline = Math.max(0, analytics.kpis.feedersOnline.total - online);
+	const alertsTotal = analytics.alertsByType.reduce((total, row) => total + row.count, 0);
+
+	const sourceLabels = Object.fromEntries(
+		analytics.feedsPerDayBySource.sources.map((source) => [
+			source,
+			t.has(`sources.${source}`) ? t(`sources.${source}`) : source,
+		]),
+	);
+
+	const alertLabel = (type: string) =>
+		t.has(`alertTypes.${type}`) ? t(`alertTypes.${type}`) : type;
+
+	const trendText = (direction: Direction, pct: number | null) => {
+		if (pct === null) return direction === "up" ? t("trend.new") : t("trend.none");
+		return t("trend.change", { value: Math.abs(pct) });
+	};
+
+	const trendLabel = (direction: Direction, pct: number | null, points = false) => {
+		if (pct === null) return direction === "up" ? t("trend.new") : t("trend.none");
+		const key = points ? `points${capitalise(direction)}` : direction;
+		return t(`trend.${key}`, { value: Math.abs(pct) });
+	};
+
+	const trendTone = (direction: Direction, invert: boolean) => {
+		if (direction === "flat") return "bg-[#F4F7F6] text-[#3D5568]";
+		const positive = invert ? direction === "down" : direction === "up";
+		return positive ? "bg-[#E8F5EC] text-[#1E7B34]" : "bg-[#FDE8EA] text-[#C42B3A]";
+	};
+
+	const TrendBadge = ({
+		direction,
+		pct,
+		invert = false,
+		points = false,
+	}: {
+		direction: Direction;
+		pct: number | null;
+		invert?: boolean;
+		points?: boolean;
+	}) => {
+		const Icon = direction === "up" ? ArrowUpRight : direction === "down" ? ArrowDownRight : Minus;
+		return (
+			<span
+				title={trendLabel(direction, pct, points)}
+				className={cn(
+					"inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black tabular-nums",
+					trendTone(direction, invert),
+				)}
+			>
+				<Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
+				{trendText(direction, pct)}
+				<span className="sr-only"> {trendLabel(direction, pct, points)}</span>
+			</span>
+		);
+	};
+
+	const KpiCard = ({
+		label,
+		value,
+		hint,
+		icon: Icon,
+		trend,
+		children,
+	}: {
+		label: string;
+		value: string;
+		hint: string;
+		icon: LucideIcon;
+		trend: ReactNode;
+		children?: ReactNode;
+	}) => (
+		<div className={cn(CARD, "flex flex-col gap-1.5 p-5")}>
+			<div className="flex items-center justify-between gap-2">
+				<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568]">
+					{label}
+				</span>
+				<Icon className="h-4 w-4 shrink-0 text-[#0A3D62]/70" aria-hidden="true" />
 			</div>
+			<span className="text-2xl font-black tabular-nums text-[#0A3D62] sm:text-3xl">{value}</span>
+			<span className="text-[11px] text-[#3D5568]">{hint}</span>
+			<div className="mt-1 flex flex-wrap items-center gap-2">
+				{trend}
+				{children}
+			</div>
+		</div>
+	);
 
-			<Card className="space-y-3 p-6">
-				<h2 className="text-lg font-black text-[#0A3D62]">{t("scopeTitle")}</h2>
-				<ul className="list-disc space-y-1.5 pl-5 text-sm text-[#3D5568]">
-					<li>{t("scope1")}</li>
-					<li>{t("scope2")}</li>
-					<li>{t("scope3")}</li>
-					<li>{t("scope4")}</li>
-				</ul>
-			</Card>
+	const AttentionCard = ({
+		title,
+		action,
+		empty,
+		children,
+	}: {
+		title: string;
+		action?: ReactNode;
+		empty: boolean;
+		children: ReactNode;
+	}) => (
+		<Card className="flex h-full flex-col">
+			<SectionTitle title={title} actions={action} />
+			{empty ? (
+				<p className="px-5 py-6 text-sm text-[#3D5568]">{children}</p>
+			) : (
+				<ul className="divide-y divide-gray-100">{children}</ul>
+			)}
+		</Card>
+	);
+
+	return (
+		<div className="space-y-6">
+			<PageHeader
+				title={t("title")}
+				description={t("description", { days: range })}
+				actions={
+					<nav aria-label={t("rangeLabel")} className="flex flex-wrap items-center gap-1.5">
+						{ANALYTICS_RANGES.map((option) => (
+							<Link
+								key={option}
+								href={`/superadmin?range=${option}`}
+								aria-current={option === range ? "page" : undefined}
+								className={cn(
+									"rounded-xl px-3 py-2 text-xs font-black transition-colors",
+									option === range
+										? "bg-[#0A3D62] text-white shadow-sm"
+										: "border border-[#0A3D62]/20 bg-white text-[#0A3D62] hover:bg-[#F4F7F6]",
+								)}
+							>
+								{t(`range${option}`)}
+							</Link>
+						))}
+					</nav>
+				}
+			/>
+
+			<section
+				aria-label={t("title")}
+				className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+			>
+				<KpiCard
+					label={t("users")}
+					value={formatValue(analytics.kpis.users.total)}
+					hint={t("newInRange", { count: analytics.kpis.users.newInRange })}
+					icon={Users}
+					trend={
+						<TrendBadge
+							direction={analytics.kpis.users.direction}
+							pct={analytics.kpis.users.deltaPct}
+						/>
+					}
+				>
+					<Sparkline
+						points={analytics.signupsPerDay}
+						summary={t("charts.sparklineSummary", {
+							points: signupStats.points,
+							total: signupStats.total,
+						})}
+						labels={chartLabels}
+						height={32}
+						className="w-full"
+					/>
+				</KpiCard>
+				<KpiCard
+					label={t("organizations")}
+					value={formatValue(analytics.kpis.organizations.total)}
+					hint={t("newInRange", { count: analytics.kpis.organizations.newInRange })}
+					icon={FolderTree}
+					trend={
+						<TrendBadge
+							direction={analytics.kpis.organizations.direction}
+							pct={analytics.kpis.organizations.deltaPct}
+						/>
+					}
+				/>
+				<KpiCard
+					label={t("ponds")}
+					value={formatValue(analytics.kpis.ponds.total)}
+					hint={t("newInRange", { count: analytics.kpis.ponds.newInRange })}
+					icon={Droplets}
+					trend={
+						<TrendBadge
+							direction={analytics.kpis.ponds.direction}
+							pct={analytics.kpis.ponds.deltaPct}
+						/>
+					}
+				/>
+				<KpiCard
+					label={t("feedersOnline")}
+					value={`${formatValue(analytics.kpis.feedersOnline.pct, 1)}%`}
+					hint={t("feedersOnlineHint", {
+						online,
+						total: analytics.kpis.feedersOnline.total,
+					})}
+					icon={Radio}
+					trend={
+						<TrendBadge
+							direction={analytics.kpis.feedersOnline.direction}
+							pct={analytics.kpis.feedersOnline.deltaPct}
+							points
+						/>
+					}
+				/>
+				<KpiCard
+					label={t("feeds")}
+					value={formatValue(analytics.kpis.feeds.total)}
+					hint={t("feedsHint")}
+					icon={Wheat}
+					trend={
+						<TrendBadge
+							direction={analytics.kpis.feeds.direction}
+							pct={analytics.kpis.feeds.deltaPct}
+						/>
+					}
+				/>
+				<KpiCard
+					label={t("kgDispensed")}
+					value={`${formatValue(analytics.kpis.kgDispensed.total, 2)} ${t("charts.kgUnit")}`}
+					hint={t("kgDispensedHint")}
+					icon={Gauge}
+					trend={
+						<TrendBadge
+							direction={analytics.kpis.kgDispensed.direction}
+							pct={analytics.kpis.kgDispensed.deltaPct}
+						/>
+					}
+				/>
+				<KpiCard
+					label={t("openAlerts")}
+					value={formatValue(analytics.kpis.openAlerts.total)}
+					hint={t("openAlertsHint")}
+					icon={BellRing}
+					trend={
+						<TrendBadge
+							direction={analytics.kpis.openAlerts.direction}
+							pct={analytics.kpis.openAlerts.deltaPct}
+							invert
+						/>
+					}
+				/>
+				<KpiCard
+					label={t("pendingApprovals")}
+					value={formatValue(analytics.kpis.pendingApprovals.total)}
+					hint={t("pendingApprovalsHint")}
+					icon={ClipboardCheck}
+					trend={
+						<TrendBadge
+							direction={analytics.kpis.pendingApprovals.direction}
+							pct={analytics.kpis.pendingApprovals.deltaPct}
+							invert
+						/>
+					}
+				/>
+			</section>
+
+			<section
+				aria-label={t("charts.signupsTitle")}
+				className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3"
+			>
+				<LineTrend
+					className="xl:col-span-2"
+					title={t("charts.signupsTitle")}
+					summary={t("charts.signupsSummary", {
+						points: signupStats.points,
+						total: signupStats.total,
+						peak: signupStats.peak?.value ?? 0,
+						peakLabel: signupStats.peak?.label ?? t("trend.none"),
+					})}
+					labels={chartLabels}
+					points={analytics.signupsPerDay}
+					color={CHART_COLORS.orange}
+				/>
+				<Donut
+					title={t("charts.fleetTitle")}
+					summary={t("charts.fleetSummary", {
+						online,
+						offline,
+						total: analytics.kpis.feedersOnline.total,
+					})}
+					labels={chartLabels}
+					segments={[
+						{ name: tCommon("online"), value: online, color: CHART_COLORS.green },
+						{ name: tCommon("offline"), value: offline, color: CHART_COLORS.slate },
+					]}
+				/>
+				<StackedBars
+					className="xl:col-span-2"
+					title={t("charts.feedsTitle")}
+					summary={t("charts.feedsSummary", {
+						points: analytics.dayKeys.length,
+						total: feedsTotal,
+					})}
+					labels={chartLabels}
+					stack={analytics.feedsPerDayBySource}
+					seriesLabels={sourceLabels}
+				/>
+				<Donut
+					title={t("charts.alertsTitle")}
+					summary={t("charts.alertsSummary", {
+						total: alertsTotal,
+						types: analytics.alertsByType.length,
+					})}
+					labels={chartLabels}
+					segments={analytics.alertsByType.map((row) => ({
+						name: alertLabel(row.type),
+						value: row.count,
+					}))}
+				/>
+				<LineTrend
+					className="xl:col-span-3"
+					title={t("charts.kgTitle")}
+					summary={t("charts.kgSummary", {
+						points: kgStats.points,
+						total: formatChartNumber(kgStats.total),
+						peak: kgStats.peak?.value ?? 0,
+						peakLabel: kgStats.peak?.label ?? t("trend.none"),
+					})}
+					labels={chartLabels}
+					points={analytics.kgPerDay}
+					unit={t("charts.kgUnit")}
+					decimals={2}
+					color={CHART_COLORS.green}
+				/>
+			</section>
+
+			<section aria-label={t("needsAttention")} className="space-y-3">
+				<div className="flex items-center gap-2">
+					<Activity className="h-4 w-4 text-[#E85A2A]" aria-hidden="true" />
+					<h2 className="text-lg font-black text-[#0A3D62]">{t("needsAttention")}</h2>
+				</div>
+
+				<div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+					<AttentionCard
+						title={t("offlineFeeders")}
+						empty={analytics.mostOfflineFeeders.length === 0}
+						action={
+							<Link href="/superadmin/devices" className={SECONDARY_BUTTON}>
+								{t("viewDevices")}
+							</Link>
+						}
+					>
+						{analytics.mostOfflineFeeders.length === 0
+							? t("offlineFeedersEmpty")
+							: analytics.mostOfflineFeeders.map((device) => (
+									<li key={device.id} className="px-5 py-3">
+										<div className="flex items-start justify-between gap-2">
+											<div className="min-w-0">
+												<p className="truncate text-sm font-bold text-[#0A3D62]">{device.label}</p>
+												<p className="truncate text-[11px] text-[#3D5568]">
+													{device.pondName ?? t("noPond")} · {device.mac}
+												</p>
+											</div>
+											<Badge tone="danger">{tCommon("offline")}</Badge>
+										</div>
+										<p className="mt-1 text-[10px] font-bold text-[#3D5568]">
+											{device.lastSeenAt
+												? t("lastSeen", {
+														date: formatDateTimeLocal(device.lastSeenAt, tDates).full,
+													})
+												: t("neverSeen")}
+										</p>
+									</li>
+								))}
+					</AttentionCard>
+
+					<AttentionCard
+						title={t("pendingDevices")}
+						empty={analytics.pendingApprovalDevices.length === 0}
+						action={
+							<Link href="/superadmin/devices" className={SECONDARY_BUTTON}>
+								{t("viewDevices")}
+							</Link>
+						}
+					>
+						{analytics.pendingApprovalDevices.length === 0
+							? t("pendingDevicesEmpty")
+							: analytics.pendingApprovalDevices.map((device) => (
+									<li key={device.id} className="px-5 py-3">
+										<p className="truncate text-sm font-bold text-[#0A3D62]">{device.label}</p>
+										<p className="truncate text-[11px] text-[#3D5568]">{device.mac}</p>
+										<p className="mt-1 text-[10px] font-bold text-[#3D5568]">
+											{t("requested", {
+												date: formatDateTimeLocal(device.createdAt, tDates).full,
+											})}
+										</p>
+									</li>
+								))}
+					</AttentionCard>
+
+					<AttentionCard title={t("failedJobs")} empty={analytics.failedJobs.length === 0}>
+						{analytics.failedJobs.length === 0
+							? t("failedJobsEmpty")
+							: analytics.failedJobs.map((job) => (
+									<li key={job.id} className="px-5 py-3">
+										<p className="truncate text-sm font-bold text-[#0A3D62]">{job.type}</p>
+										{job.error && (
+											<p className="line-clamp-2 text-[11px] text-[#C42B3A]">{job.error}</p>
+										)}
+										<p className="mt-1 text-[10px] font-bold text-[#3D5568]">
+											{formatDateTimeLocal(job.at, tDates).full}
+										</p>
+									</li>
+								))}
+					</AttentionCard>
+
+					<AttentionCard
+						title={t("topFcr")}
+						empty={analytics.topFcrPonds.length === 0}
+						action={
+							<Link href="/superadmin/ponds" className={SECONDARY_BUTTON}>
+								{t("ponds")}
+							</Link>
+						}
+					>
+						{analytics.topFcrPonds.length === 0
+							? t("topFcrEmpty")
+							: analytics.topFcrPonds.map((report) => (
+									<li key={report.pondId} className="px-5 py-3">
+										<p className="truncate text-sm font-bold text-[#0A3D62]">{report.pondName}</p>
+										<p className="text-[11px] text-[#3D5568]">
+											{t("fcrValue", { value: report.fcrValue.toFixed(2) })}
+										</p>
+										<p className="mt-1 text-[10px] font-bold text-[#3D5568]">
+											{t("periodEnding", {
+												date: formatDateTimeLocal(report.periodEnd, tDates).date,
+											})}
+										</p>
+									</li>
+								))}
+					</AttentionCard>
+				</div>
+			</section>
 		</div>
 	);
 }

@@ -64,15 +64,16 @@ export default async function AdminCalendarPage() {
 	const pondIds = ponds.map((pond) => pond.id);
 	// Two bounded reads instead of one page of 30 mixed cycles: an ACTIVE cycle
 	// on an older pond used to fall out of the newest-30 window entirely, so the
-	// "All ponds" view lost its cycle data. Active cycles are bounded by the pond
-	// count; history keeps its own 30-row cap.
+	// "All ponds" view lost its cycle data. Crop-cycle creation enforces one
+	// ACTIVE cycle per pond, so `pondIds.length` is the exact bound for the
+	// active read — no silent cut — while history keeps its own 30-row cap.
 	const [activeCycleRows, recentCycleRows] =
 		pondIds.length > 0
 			? await Promise.all([
 					prisma.cropCycle.findMany({
 						where: { pondId: { in: pondIds }, status: "ACTIVE" },
 						orderBy: { createdAt: "desc" },
-						take: 200,
+						take: pondIds.length,
 						select: CYCLE_SELECT,
 					}),
 					prisma.cropCycle.findMany({

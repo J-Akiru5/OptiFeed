@@ -67,6 +67,7 @@ export const HELP_SECTIONS: HelpSection[] = [
 		routes: ["/dashboard/history"],
 		items: [
 			{ text: "items.history-log", target: "history-event-log" },
+			{ text: "items.history-charts", target: "history-charts" },
 			{ text: "items.history-export", target: "export-data" },
 			{ text: "items.history-import", target: "history-import" },
 			{ text: "items.history-feed-level" },

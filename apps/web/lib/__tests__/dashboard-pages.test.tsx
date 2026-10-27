@@ -64,6 +64,7 @@ vi.mock("@/lib/prisma", () => ({
 			count: vi.fn(async () => 0),
 		},
 		energyDevice: { findFirst: vi.fn(async () => null) },
+		$queryRaw: vi.fn(async () => []),
 	},
 }));
 
@@ -221,5 +222,40 @@ describe("growth history page", () => {
 		expect(html).toContain("No records yet");
 		expect(html).toContain("Records appear once samples or hopper readings are logged.");
 		expect(html).not.toContain("<table");
+	});
+
+	it("charts average body weight per sampling batch with an accessible summary", async () => {
+		vi.mocked(getBiomassHistory).mockResolvedValue({
+			total: 2,
+			items: [
+				{
+					id: "log-1",
+					recordedAt: new Date("2026-10-02T16:19:00"),
+					batchLabel: "Batch A",
+					source: "manual",
+					sampleWeightKg: 1.25,
+					sampleCount: 12,
+					sampleLengthCm: 18.5,
+					avgWeightKg: 0.104,
+					fishSamples: [],
+				},
+			],
+		});
+		vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([
+			{ day: "2026-10-01", batch: "Batch A", grams: 96.4 },
+			{ day: "2026-10-02", batch: "Batch B", grams: 118.2 },
+		] as never);
+
+		const html = renderToStaticMarkup(
+			await GrowthHistoryPage({ searchParams: Promise.resolve({ tab: "biomass" }) }),
+		);
+
+		expect(html).toContain("Average body weight trend");
+		expect(html).toContain('role="img"');
+		expect(html).toContain("Batch A");
+		expect(html).toContain("Batch B");
+		// The hidden table keeps the exact plotted numbers for screen readers.
+		expect(html).toContain('<th scope="col">Period</th>');
+		expect(html).toContain('<th scope="row">2026-10-01</th>');
 	});
 });

@@ -115,7 +115,7 @@ export function MultiSeriesTable({
 	labels,
 	caption,
 }: {
-	rows: ReadonlyArray<Record<string, number | string>>;
+	rows: ReadonlyArray<Record<string, number | string | null | undefined>>;
 	series: ReadonlyArray<{ key: string; label: string }>;
 	labels: ChartLabels;
 	caption: string;
@@ -137,9 +137,14 @@ export function MultiSeriesTable({
 				{rows.map((row) => (
 					<tr key={String(row.label)}>
 						<th scope="row">{row.label}</th>
-						{series.map((entry) => (
-							<td key={entry.key}>{Number(row[entry.key] ?? 0)}</td>
-						))}
+						{series.map((entry) => {
+							const value = row[entry.key];
+							return (
+								<td key={entry.key}>
+									{value === null || value === undefined ? "—" : Number(value)}
+								</td>
+							);
+						})}
 					</tr>
 				))}
 			</tbody>

@@ -436,7 +436,14 @@
 			"logAvgSamples": "Average • {count} ka sampol",
 			"logTotal": "Kabuohan",
 			"noFeedingsHint": "Magaguwa diri ang mga pagpakaon pagkatapos kumpirmahon sang feeder.",
-			"noPondHint": "Palihog pamangkot ang imo administrator nga mag-assign sang punong sa imo umahan."
+			"noPondHint": "Palihog pamangkot ang imo administrator nga mag-assign sang punong sa imo umahan.",
+			"waterChartTitle": "Trend sang temperatura sang tubig",
+			"waterChartSummary": "Temperatura sang tubig sa {range}: {points} ka reading, pinakabag-o {latest}.",
+			"waterChartEmpty": "Wala pa sang kasaysayan sang temperatura sang tubig. Nag-umpisa ang pag-log sang 27 Oktubre 2026.",
+			"waterRangeLabel": "Panahon sang temperatura sang tubig",
+			"waterRange24h": "24 ka oras",
+			"waterRange7d": "7 ka adlaw",
+			"waterChartLatest": "Pinakabag-o nga reading: {value}"
 		},
 		"schedule": {
 			"title": "Iskedyul sang Pagpakaon",
@@ -563,7 +570,19 @@
 			"statsLabel": "Summary sang pagpakaon",
 			"tableCaption": "Pinakabag-o nga mga hitabo sang pagpakaon",
 			"emptyTitle": "Wala pa sang hitabo sang pagpakaon",
-			"emptyDesc": "Magaguwa diri ang mga dispense sa gilayon nga kumpirmahon sang feeder."
+			"emptyDesc": "Magaguwa diri ang mga dispense sa gilayon nga kumpirmahon sang feeder.",
+			"charts": {
+				"label": "Mga tsart sang pagpakaon",
+				"feedTitle": "Feed nga gin-dispense kada adlaw",
+				"feedSummary": "Feed nga gin-dispense sa nagligad nga {days} ka adlaw, ginbahin base sa tinubdan: {total} tanan.",
+				"feedEmpty": "Wala sang feed nga gin-dispense sa nagligad nga {days} ka adlaw.",
+				"hopperTitle": "Lebel sang hopper",
+				"hopperSummary": "Average nga lebel sang hopper sa nagligad nga {days} ka adlaw: {points} ka adlaw-adlaw nga reading, pinakabag-o {latest}%.",
+				"hopperRangeLabel": "Panahon sang kasaysayan sang hopper",
+				"range7": "7 ka adlaw",
+				"range30": "30 ka adlaw",
+				"hopperEmpty": "Wala sang reading sang hopper sa nagligad nga {days} ka adlaw."
+			}
 		},
 		"feedNowModal": {
 			"triggerTitle": "Magpa-Kaon Subong?",
@@ -657,7 +676,12 @@
 				},
 				"empty": "Wala sang rekord nga nagapakita.",
 				"emptyTitle": "Wala pa sang rekord",
-				"emptyDesc": "Magaguwa ang mga rekord sa gilayon nga may na-log nga sampol ukon pagbasa sang hopper."
+				"emptyDesc": "Magaguwa ang mga rekord sa gilayon nga may na-log nga sampol ukon pagbasa sang hopper.",
+				"charts": {
+					"biomassTitle": "Trend sang average nga timbang sang lawas",
+					"biomassSummary": "Average nga timbang sang lawas halin {from} tubtob {to}, nga may {samples} ka sample sa {series} ka sampling batch.",
+					"biomassEmpty": "Wala pa sang biomass sample."
+				}
 			},
 			"growthPlan": {
 				"title": "Plano sa Target nga Pagtubo",
@@ -1966,6 +1990,12 @@
 				"label": "Pili-a ang dagway",
 				"list": "Lista",
 				"cards": "Mga kard"
+			},
+			"charts": {
+				"period": "Panahon",
+				"value": "Bili",
+				"name": "Ngalan",
+				"empty": "Wala sang datos sa sini nga panahon."
 			}
 		}
 	},
@@ -2766,6 +2796,7 @@
 			"biomass-sample-size": "Mas dako nga sampol, mas husto nga estimate: 30 hasta 50 ka isda labi pa sa diutay lang, kag gamita permi ang pareho nga timbangan.",
 			"biomass-batches": "Ang mga na-save nga sampling batch nagagrupo sang sampol base sa weighing session, agod makita sa ulihi kon ano ang gintimbang upod.",
 			"history-log": "Ang event log nagalista sang kada nakumpirma nga pagpagwa, pinakabag-o anay, kag sarang hanapon kag pahinahan.",
+			"history-charts": "Ang mga tsart nag-summarize sang feed nga gin-dispense kada adlaw sa nagligad nga 30 ka adlaw kag ang lebel sang hopper sa pinili nga panahon.",
 			"history-export": "Ang Export nagadownload sang records bilang CSV ukon ZIP, sa mga data type nga imo pilion.",
 			"history-import": "Ang Import nagadala sang daan nga records halin sa spreadsheet. Wala sing ginasulat hasta makumpirma mo ang preview.",
 			"history-feed-level": "Ang feed-level cards nagabasa sang hopper sensor. Ang greyed level amo ang last known value halin sa offline nga feeder.",

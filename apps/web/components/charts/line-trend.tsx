@@ -3,6 +3,7 @@
 import { type ChartPoint, formatAxisDay, formatChartNumber } from "@/components/charts/chart-data";
 import { ChartFrame, type ChartProps, SingleSeriesTable } from "@/components/charts/chart-frame";
 import { tooltipStyle, useChartTheme } from "@/components/charts/chart-theme";
+import type { ReactNode } from "react";
 import {
 	CartesianGrid,
 	Line,
@@ -21,6 +22,8 @@ export interface LineTrendProps extends ChartProps {
 	decimals?: number;
 	/** Stroke colour; defaults to the theme's primary navy. */
 	color?: string;
+	/** Optional legend/auxiliary row rendered under the plot. */
+	aux?: ReactNode;
 }
 
 /** A single trend line over time (sign-ups, kg dispensed, water temperature…). */
@@ -33,6 +36,7 @@ export function LineTrend({
 	decimals = 0,
 	height = 220,
 	color,
+	aux,
 	className,
 }: LineTrendProps) {
 	const theme = useChartTheme();
@@ -45,6 +49,7 @@ export function LineTrend({
 			emptyLabel={labels.empty}
 			isEmpty={points.length === 0}
 			className={className}
+			aux={aux}
 			table={<SingleSeriesTable points={points} labels={labels} caption={summary} />}
 		>
 			<ResponsiveContainer width="100%" height={height}>
@@ -79,7 +84,7 @@ export function LineTrend({
 						name={title}
 						stroke={stroke}
 						strokeWidth={2.5}
-						dot={false}
+						dot={points.length === 1 ? { r: 4, strokeWidth: 0, fill: stroke } : false}
 						activeDot={{ r: 4 }}
 						isAnimationActive={false}
 					/>

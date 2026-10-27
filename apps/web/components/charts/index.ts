@@ -1,8 +1,10 @@
 export {
 	buildDayKeys,
+	buildMultiSeries,
 	buildStackedSeries,
 	computeDelta,
 	computePointDelta,
+	countSeriesValues,
 	fillDailySeries,
 	formatAxisDay,
 	formatChartNumber,
@@ -18,6 +20,8 @@ export {
 	type ChartSummary,
 	type DailyRow,
 	type FeedBucketRow,
+	type MultiSeries,
+	type MultiSeriesPoint,
 	type StackedSeries,
 } from "@/components/charts/chart-data";
 export {
@@ -38,5 +42,6 @@ export {
 } from "@/components/charts/chart-theme";
 export { Donut, type DonutProps, type DonutSegment } from "@/components/charts/donut";
 export { LineTrend, type LineTrendProps } from "@/components/charts/line-trend";
+export { MultiLineTrend, type MultiLineTrendProps } from "@/components/charts/multi-line-trend";
 export { Sparkline, type SparklineProps } from "@/components/charts/sparkline";
 export { StackedBars, type StackedBarsProps } from "@/components/charts/stacked-bars";

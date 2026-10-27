@@ -6,6 +6,7 @@ import {
 	fillDailySeries,
 } from "@/components/charts/chart-data";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
+import { startOfDayInTimeZone } from "@/lib/chart-windows";
 import { OFFLINE_THRESHOLD_MS, PH_TZ } from "@/lib/constants";
 import prisma from "@/lib/prisma";
 
@@ -122,51 +123,6 @@ export function parseAnalyticsRange(value: string | null | undefined): Analytics
 	return (ANALYTICS_RANGES as readonly number[]).includes(parsed)
 		? (parsed as AnalyticsRange)
 		: DEFAULT_ANALYTICS_RANGE;
-}
-
-/** Offset of `timeZone` at `date`, in milliseconds (wall clock − UTC). */
-function zoneOffsetMs(date: Date, timeZone: string): number {
-	const formatter = new Intl.DateTimeFormat("en-US", {
-		timeZone,
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit",
-		hour: "2-digit",
-		minute: "2-digit",
-		second: "2-digit",
-		hourCycle: "h23",
-	});
-	const parts = new Map(formatter.formatToParts(date).map((part) => [part.type, part.value]));
-	const asUtc = Date.UTC(
-		Number(parts.get("year")),
-		Number(parts.get("month")) - 1,
-		Number(parts.get("day")),
-		Number(parts.get("hour")),
-		Number(parts.get("minute")),
-		Number(parts.get("second")),
-	);
-	return asUtc - date.getTime();
-}
-
-/** Midnight at the start of `date`'s local day, as an instant. */
-export function startOfDayInTimeZone(date: Date, timeZone = PH_TZ): Date {
-	const formatter = new Intl.DateTimeFormat("en-US", {
-		timeZone,
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit",
-	});
-	const parts = new Map(formatter.formatToParts(date).map((part) => [part.type, part.value]));
-	const utcMidnight = Date.UTC(
-		Number(parts.get("year")),
-		Number(parts.get("month")) - 1,
-		Number(parts.get("day")),
-	);
-	let instant = new Date(utcMidnight - zoneOffsetMs(new Date(utcMidnight), timeZone));
-	// Second pass settles zones whose offset changed between the guess and the
-	// resulting instant (not needed in Asia/Manila, harmless elsewhere).
-	instant = new Date(utcMidnight - zoneOffsetMs(instant, timeZone));
-	return instant;
 }
 
 /**

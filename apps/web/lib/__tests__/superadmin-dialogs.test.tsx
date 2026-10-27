@@ -112,10 +112,19 @@ describe("platform console dialogs (T-09c)", () => {
 
 		await waitFor(() => expect(screen.getAllByRole("dialog")).toHaveLength(2));
 
+		// The step-up dialog mounts one effect after the action dialog and only
+		// becomes the topmost Escape handler once that effect has run (it moves
+		// focus into the panel). Wait for that before pressing Escape: on a slow
+		// CI runner the keydown could otherwise reach the action dialog, whose
+		// close is a no-op while its transition is pending.
+		await waitFor(() => expect(screen.getByLabelText("Password *")).toHaveFocus());
+
 		fireEvent.keyDown(document, { key: "Escape" });
 
 		// The step-up dialog (topmost) goes away; the action dialog stays open.
-		await waitFor(() => expect(screen.getAllByRole("dialog")).toHaveLength(1));
+		await waitFor(() => expect(screen.getAllByRole("dialog")).toHaveLength(1), {
+			timeout: 3000,
+		});
 		expect(screen.getByRole("dialog")).toHaveAccessibleName("Grant platform access");
 	});
 });

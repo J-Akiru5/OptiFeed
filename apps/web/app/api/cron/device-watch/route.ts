@@ -2,12 +2,20 @@ import { ok } from "@/lib/api/envelope";
 import { withApi } from "@/lib/api/instrumentation";
 import { withCronAuth } from "@/lib/auth/with-auth";
 import { processRecalibrationReminders } from "@/lib/calibration/recalibration-reminders";
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { normalizeNotificationPrefs } from "@/lib/limits";
 import { absoluteAppUrl, sendTelegramMessage } from "@/lib/notify/telegram";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
 import { cleanupExpiredRateLimitBuckets } from "@/lib/rate-limit";
 import { deleteOldHeartbeatEvents } from "@/lib/retention";
+import {
+	ORG_OFFLINE_AFTER_MIN_MIN,
+	ORG_SETTINGS_DEFAULTS,
+	getOrgAlertRoles,
+	getOrgSettingsForFarms,
+} from "@/lib/settings/org";
+import { offlineAlertDue, shouldCreatePondAlert } from "@/lib/settings/org-alerts";
+import type { MemberRole } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -17,17 +25,65 @@ export const GET = withApi(
 			// 1. Dead-device detection: stale heartbeat, no disconnected event
 			//    since the last contact. The event itself is the dedup marker, so
 			//    a device alerts exactly once per outage (no repeats on later runs).
-			const cutoff = new Date(Date.now() - OFFLINE_THRESHOLD_MS);
+			//
+			//    The org's `offlineAfterMin` decides when the ALERT fires; the
+			//    dashboard badge keeps the fixed 15-minute OFFLINE_THRESHOLD_MS.
+			//    Scan from the smallest allowed delay so a 5-minute org policy is
+			//    honoured, then filter per device below.
+			const scanCutoff = new Date(Date.now() - ORG_OFFLINE_AFTER_MIN_MIN * 60 * 1000);
 			const staleDevices = await prisma.energyDevice.findMany({
-				where: { lastSeenAt: { lt: cutoff }, pondId: { not: null } },
+				where: { lastSeenAt: { lt: scanCutoff }, pondId: { not: null } },
 				select: { id: true, pondId: true, label: true, lastSeenAt: true },
 				take: 100,
 			});
 
+			// Pond → owner farm → org settings, batched once per run. A pond that
+			// cannot be linked to an org keeps the schema defaults and every role,
+			// so an unlinkable pond behaves exactly as it did before #190.
+			const pondIds = [...new Set(staleDevices.flatMap((d) => (d.pondId ? [d.pondId] : [])))];
+			const ponds =
+				pondIds.length > 0
+					? await prisma.pond.findMany({
+							where: { id: { in: pondIds } },
+							select: { id: true, ownerId: true, notificationPrefs: true },
+						})
+					: [];
+			const pondById = new Map(ponds.map((pond) => [pond.id, pond]));
+			const settingsByFarm = await getOrgSettingsForFarms(ponds.map((pond) => pond.ownerId));
+			const rolesByOrg = new Map<string | null, MemberRole[]>();
+			const rolesForOrg = async (orgId: string | null): Promise<MemberRole[]> => {
+				const cached = rolesByOrg.get(orgId);
+				if (cached) return cached;
+				const roles = await getOrgAlertRoles(orgId);
+				rolesByOrg.set(orgId, roles);
+				return roles;
+			};
+
 			let offlineAlerts = 0;
 			const offlineMessages: string[] = [];
+			const now = new Date();
 			for (const device of staleDevices) {
 				if (!device.lastSeenAt || !device.pondId) continue;
+
+				const pond = pondById.get(device.pondId);
+				const orgContext = pond
+					? (settingsByFarm.get(pond.ownerId) ?? {
+							orgId: null,
+							settings: ORG_SETTINGS_DEFAULTS,
+						})
+					: { orgId: null, settings: ORG_SETTINGS_DEFAULTS };
+				const prefs = normalizeNotificationPrefs(pond?.notificationPrefs);
+
+				if (!offlineAlertDue(device.lastSeenAt, now, orgContext.settings)) continue;
+
+				const roles = await rolesForOrg(orgContext.orgId);
+				const allowed = shouldCreatePondAlert({
+					settings: orgContext.settings,
+					category: "device_offline",
+					prefs,
+					roles,
+				});
+				if (!allowed) continue;
 
 				const alreadyAlerted = await prisma.deviceStateEvent.findFirst({
 					where: {

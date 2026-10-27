@@ -49,6 +49,23 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 vi.mock("@/lib/auth/session", () => ({
 	getCurrentUser: vi.fn(async () => ({ id: "user-self" })),
+	assertPasswordChanged: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/lib/auth/org-scope", () => ({
+	resolveOrgScope: vi.fn(async () => ({
+		orgIds: ["org-1"],
+		memberUserIds: ["user-self"],
+		farmIds: ["farm-self"],
+		pondIds: [],
+	})),
+}));
+
+vi.mock("@/lib/actions/device-registration", () => ({
+	getTenantRegistrationOptions: vi.fn(async () => null),
+	addTenantDevice: vi.fn(),
+	approveTenantDevice: vi.fn(),
+	rejectTenantDevice: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/permissions", async (importOriginal) => {
@@ -57,7 +74,13 @@ vi.mock("@/lib/auth/permissions", async (importOriginal) => {
 });
 
 vi.mock("@/lib/prisma", () => ({
-	default: { energyDevice: { findMany: vi.fn(async () => []) } },
+	default: {
+		energyDevice: { findMany: vi.fn(async () => []) },
+		orgSetting: {
+			findUnique: vi.fn(async () => null),
+			findMany: vi.fn(async () => []),
+		},
+	},
 }));
 
 vi.mock("@/lib/actions/admin", () => ({

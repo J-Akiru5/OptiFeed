@@ -12,6 +12,22 @@ vi.mock("@/lib/prisma", () => ({
 		notification: {
 			create: vi.fn(),
 		},
+		pond: {
+			findMany: vi.fn(),
+		},
+		user: {
+			findMany: vi.fn(),
+		},
+		membership: {
+			findMany: vi.fn(),
+		},
+		organization: {
+			findMany: vi.fn(),
+		},
+		orgSetting: {
+			findMany: vi.fn(),
+			findUnique: vi.fn(),
+		},
 		$transaction: vi.fn(async (input: unknown) => {
 			if (Array.isArray(input)) return Promise.all(input);
 			return (input as () => Promise<unknown>)();
@@ -36,7 +52,6 @@ vi.mock("@/lib/notify/telegram", () => ({
 }));
 
 import { GET } from "@/app/api/cron/device-watch/route";
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { sendTelegramMessage } from "@/lib/notify/telegram";
 import prisma from "@/lib/prisma";
 import { cleanupExpiredRateLimitBuckets } from "@/lib/rate-limit";
@@ -50,7 +65,15 @@ const STALE_DEVICE = {
 	id: "dev-1",
 	pondId: "pond-1",
 	label: "Feeder A",
-	lastSeenAt: new Date(Date.now() - OFFLINE_THRESHOLD_MS - 60_000),
+	// Default org policy alerts after 30 minutes (#190); the old 15-minute
+	// badge threshold no longer decides when the alert is sent.
+	lastSeenAt: new Date(Date.now() - 31 * 60 * 1000),
+};
+
+const POND = {
+	id: "pond-1",
+	ownerId: "farm-a",
+	notificationPrefs: {} as Record<string, unknown>,
 };
 
 function cronRequest(authorization?: string): Request {
@@ -68,6 +91,11 @@ describe("api/cron/device-watch", () => {
 		mockDeviceStateEvent.findFirst.mockResolvedValue(null as never);
 		mockDeviceStateEvent.create.mockResolvedValue({} as never);
 		mockNotification.create.mockResolvedValue({} as never);
+		vi.mocked(prisma.pond.findMany).mockResolvedValue([{ ...POND }] as never);
+		vi.mocked(prisma.user.findMany).mockResolvedValue([] as never);
+		vi.mocked(prisma.membership.findMany).mockResolvedValue([] as never);
+		vi.mocked(prisma.organization.findMany).mockResolvedValue([] as never);
+		vi.mocked(prisma.orgSetting.findMany).mockResolvedValue([] as never);
 		vi.mocked(deleteOldHeartbeatEvents).mockResolvedValue(3);
 		vi.mocked(cleanupExpiredRateLimitBuckets).mockResolvedValue(7);
 	});
@@ -151,5 +179,49 @@ describe("api/cron/device-watch", () => {
 		await GET(cronRequest("Bearer test-cron-secret"));
 		expect(deleteOldHeartbeatEvents).toHaveBeenCalledTimes(1);
 		expect(cleanupExpiredRateLimitBuckets).toHaveBeenCalledTimes(1);
+	});
+
+	it("waits for the org's offlineAfterMin before alerting (default 30 minutes)", async () => {
+		mockEnergyDevice.findMany.mockResolvedValue([
+			{ ...STALE_DEVICE, lastSeenAt: new Date(Date.now() - 16 * 60 * 1000) },
+		] as never);
+
+		const res = await GET(cronRequest("Bearer test-cron-secret"));
+		expect(res.status).toBe(200);
+		await expect(res.json()).resolves.toMatchObject({ data: { offlineAlerts: 0 } });
+		expect(mockNotification.create).not.toHaveBeenCalled();
+	});
+
+	it("uses a shorter org offline delay from OrgSetting", async () => {
+		vi.mocked(prisma.pond.findMany).mockResolvedValue([{ ...POND, ownerId: "farm-user" }] as never);
+		vi.mocked(prisma.user.findMany).mockResolvedValue([
+			{ id: "user-1", farmId: "farm-user" },
+		] as never);
+		vi.mocked(prisma.membership.findMany).mockResolvedValue([
+			{ userId: "user-1", orgId: "org-1", role: "OWNER" },
+		] as never);
+		vi.mocked(prisma.organization.findMany).mockResolvedValue([{ id: "org-1" }] as never);
+		vi.mocked(prisma.orgSetting.findMany).mockResolvedValue([
+			{ orgId: "org-1", offlineAfterMin: 5 },
+		] as never);
+		mockEnergyDevice.findMany.mockResolvedValue([
+			{ ...STALE_DEVICE, lastSeenAt: new Date(Date.now() - 16 * 60 * 1000) },
+		] as never);
+
+		const res = await GET(cronRequest("Bearer test-cron-secret"));
+		expect(res.status).toBe(200);
+		await expect(res.json()).resolves.toMatchObject({ data: { offlineAlerts: 1 } });
+		expect(mockNotification.create).toHaveBeenCalledTimes(1);
+	});
+
+	it("respects the pond's deviceOffline preference", async () => {
+		vi.mocked(prisma.pond.findMany).mockResolvedValue([
+			{ ...POND, notificationPrefs: { deviceOffline: false } },
+		] as never);
+
+		const res = await GET(cronRequest("Bearer test-cron-secret"));
+		expect(res.status).toBe(200);
+		await expect(res.json()).resolves.toMatchObject({ data: { offlineAlerts: 0 } });
+		expect(mockNotification.create).not.toHaveBeenCalled();
 	});
 });

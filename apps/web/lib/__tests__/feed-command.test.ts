@@ -37,6 +37,7 @@ const DEVICE = {
 	gramsPerSecond: 4,
 	tempOffsetC: 0,
 	tokenHash: hashToken("test-token"),
+	approvalStatus: "APPROVED",
 };
 
 function pollRequest(token?: string): Request {
@@ -102,6 +103,17 @@ describe("GET /api/feed-command", () => {
 		expect(body.feed_request_id).toBeNull();
 		expect(body.grams).toBe(0);
 		expect(body.grams_per_feeding).toBe(150);
+	});
+
+	it("returns 403 for a PENDING device (org approval policy)", async () => {
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			approvalStatus: "PENDING",
+		} as never);
+
+		const res = await GET(pollRequest("test-token"));
+		expect(res.status).toBe(403);
+		expect(mockFeedRequest.findFirst).not.toHaveBeenCalled();
 	});
 
 	it("marks stale pending requests expired before polling (lazy 60s expiry)", async () => {

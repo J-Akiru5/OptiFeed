@@ -181,6 +181,19 @@ export type TenancyEnergyDevice = {
 	hopperCapacityG: number | null;
 	gramsPerSecond: number;
 	tempOffsetC: number;
+	approvalStatus: "PENDING" | "APPROVED" | "REJECTED";
+};
+
+export type TenancyOrgSetting = {
+	orgId: string;
+	defaultFeedingRatePct: number;
+	hopperLowPct: number;
+	offlineAfterMin: number;
+	missedFeedingAlerts: boolean;
+	alertRoles: MemberRole[];
+	deviceRegistration: "ADMIN_APPROVAL" | "SELF_REGISTER";
+	updatedById: string | null;
+	updatedAt: Date;
 };
 
 export type TenancyDeviceStateEvent = {
@@ -231,6 +244,7 @@ export type TenancyFixture = {
 	farms: TenancyFarm[];
 	ponds: TenancyPond[];
 	energyDevices: TenancyEnergyDevice[];
+	orgSettings: TenancyOrgSetting[];
 	deviceStateEvents: TenancyDeviceStateEvent[];
 	platformAdmins: TenancyPlatformAdmin[];
 	platformAuditLogs: TenancyPlatformAuditLog[];
@@ -481,6 +495,7 @@ export function createTenancyFixture(): TenancyFixture {
 		hopperCapacityG: null,
 		gramsPerSecond: 4,
 		tempOffsetC: 0,
+		approvalStatus: "APPROVED" as const,
 	};
 
 	const energyDevices: TenancyEnergyDevice[] = [
@@ -575,6 +590,7 @@ export function createTenancyFixture(): TenancyFixture {
 		deviceStateEvents,
 		platformAdmins,
 		platformAuditLogs: [],
+		orgSettings: [],
 	};
 }
 
@@ -700,7 +716,8 @@ type ModelName =
 	| "energyDevice"
 	| "deviceStateEvent"
 	| "platformAdmin"
-	| "platformAuditLog";
+	| "platformAuditLog"
+	| "orgSetting";
 type OrderBy = Record<string, "asc" | "desc">;
 
 export type QueryArgs = {
@@ -747,6 +764,7 @@ const MODEL_TABLE: Record<ModelName, keyof TenancyFixture> = {
 	deviceStateEvent: "deviceStateEvents",
 	platformAdmin: "platformAdmins",
 	platformAuditLog: "platformAuditLogs",
+	orgSetting: "orgSettings",
 };
 
 const OPERATORS = new Set([
@@ -1033,6 +1051,7 @@ function defaultsFor(model: ModelName, now: Date): Row {
 				hopperCapacityG: null,
 				gramsPerSecond: 4,
 				tempOffsetC: 0,
+				approvalStatus: "APPROVED",
 			};
 		case "deviceStateEvent":
 			return {
@@ -1062,6 +1081,17 @@ function defaultsFor(model: ModelName, now: Date): Row {
 				ip: null,
 				userAgent: null,
 				createdAt: now,
+			};
+		case "orgSetting":
+			return {
+				defaultFeedingRatePct: 3,
+				hopperLowPct: 20,
+				offlineAfterMin: 30,
+				missedFeedingAlerts: true,
+				alertRoles: ["OWNER", "ADMIN"],
+				deviceRegistration: "ADMIN_APPROVAL",
+				updatedById: null,
+				updatedAt: now,
 			};
 	}
 }
@@ -1186,6 +1216,7 @@ export function createTenancyDb(base: TenancyFixture = createTenancyFixture()): 
 		deviceStateEvent: delegateFor("deviceStateEvent"),
 		platformAdmin: delegateFor("platformAdmin"),
 		platformAuditLog: delegateFor("platformAuditLog"),
+		orgSetting: delegateFor("orgSetting"),
 		$transaction: async (fn) => fn(client),
 	};
 

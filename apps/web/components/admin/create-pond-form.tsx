@@ -24,7 +24,11 @@ import { useState } from "react";
  * this is now the single onboarding path. The farmer lands in the calling
  * admin's organization as an OPERATOR.
  */
-export function CreatePondForm() {
+export function CreatePondForm({
+	defaultFeedingRatePct,
+}: {
+	defaultFeedingRatePct: number;
+}) {
 	const t = useTranslations("dashboard.adminCreatePond");
 	const router = useRouter();
 	const [error, setError] = useState<string | null>(null);
@@ -216,7 +220,7 @@ export function CreatePondForm() {
 							step="0.1"
 							min="0"
 							max="20"
-							defaultValue="3"
+							defaultValue={defaultFeedingRatePct}
 							required
 							className={adminField}
 						/>

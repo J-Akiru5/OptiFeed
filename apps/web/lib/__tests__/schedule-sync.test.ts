@@ -45,6 +45,7 @@ const DEVICE = {
 	gramsPerSecond: 4,
 	tempOffsetC: 0,
 	tokenHash: hashToken("test-token"),
+	approvalStatus: "APPROVED",
 };
 
 function syncRequest(deviceId: string = DEVICE.mac, token = "test-token"): Request {
@@ -96,6 +97,17 @@ describe("GET /api/schedule-sync", () => {
 		mockEnergyDevice.findUnique.mockResolvedValue(null as never);
 		const res = await GET(syncRequest(DEVICE.mac, "wrong-token"));
 		expect(res.status).toBe(401);
+	});
+
+	it("returns 403 for a PENDING device (org approval policy)", async () => {
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			approvalStatus: "PENDING",
+		} as never);
+
+		const res = await GET(syncRequest());
+		expect(res.status).toBe(403);
+		expect(mockScheduleCommand.findFirst).not.toHaveBeenCalled();
 	});
 
 	it("returns the current server time and no manual calibration by default", async () => {

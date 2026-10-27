@@ -882,7 +882,8 @@
 				"week": "Week",
 				"list": "List",
 				"noEvents": "No events in this range.",
-				"eventsLabel": "Pond calendar"
+				"eventsLabel": "Pond calendar",
+				"recurringChangeConfirm": "Change the whole repeating series? Choose Cancel to keep it as it was."
 			},
 			"filters": {
 				"harvest": "Harvest",
@@ -909,7 +910,20 @@
 				"pond": "Pond",
 				"date": "Date",
 				"markDone": "Mark done",
-				"samplingHint": "Log a biomass sample to move the next sampling date forward."
+				"samplingHint": "Log a biomass sample to move the next sampling date forward.",
+				"delete": "Delete",
+				"deleteOccurrence": "Delete this occurrence",
+				"deleteSeries": "Delete series",
+				"deleteOccurrenceConfirm": "Remove just this occurrence from the series? The other occurrences stay.",
+				"repeats": "Repeats",
+				"repeatSummary": "Every {count, plural, one {# {freq}} other {# {freq}s}}",
+				"repeatUntil": "until {date}",
+				"freq_DAILY": "day",
+				"freq_WEEKLY": "week",
+				"freq_MONTHLY": "month",
+				"reminders": "Reminders",
+				"taskDone": "Done",
+				"taskOpen": "Not done"
 			},
 			"cycleForm": {
 				"titleNew": "Start grow-out cycle",
@@ -983,7 +997,43 @@
 				"deleteConfirm": "Delete this pond event?",
 				"successCreate": "Pond event added.",
 				"successUpdate": "Pond event updated.",
-				"successDelete": "Pond event deleted."
+				"successDelete": "Pond event deleted.",
+				"descPond": "Event or task for {pond}.",
+				"kind": "Item type",
+				"kindEvent": "Event",
+				"kindTask": "Task",
+				"typeSampling": "Sampling",
+				"typeHarvestPlanned": "Harvest planned",
+				"typeStocking": "Stocking",
+				"allDay": "All day",
+				"dueDate": "Due date",
+				"dueTime": "Due time (optional)",
+				"startDate": "Start date",
+				"endDate": "End date (optional)",
+				"startTimeLabel": "Starts",
+				"endTimeLabel": "Ends (optional)",
+				"color": "Colour",
+				"colorDefault": "Type default",
+				"colorPreview": "This colour",
+				"colorSwatch": "Use colour {color}",
+				"repeat": "Repeat",
+				"repeatNone": "Does not repeat",
+				"repeatDaily": "Daily",
+				"repeatWeekly": "Weekly",
+				"repeatMonthly": "Monthly",
+				"repeatInterval": "Every N",
+				"repeatUntil": "Until",
+				"repeatHint": "Repeats every {count, plural, one {# interval} other {# intervals}} until the end date.",
+				"reminders": "Reminders",
+				"reminderHour": "1 hour before",
+				"reminderDay": "1 day before",
+				"deleteSeriesConfirm": "Delete this whole series? Every occurrence will be removed."
+			},
+			"task": {
+				"completed": "Task marked done.",
+				"reopened": "Task reopened.",
+				"completeLabel": "Mark {title} done",
+				"reopenLabel": "Reopen {title}"
 			}
 		},
 		"settings": {

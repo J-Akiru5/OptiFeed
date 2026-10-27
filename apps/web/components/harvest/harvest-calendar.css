@@ -121,6 +121,14 @@
 	overflow: hidden;
 }
 
+.harvest-calendar .ofc-event-done {
+	opacity: 0.7;
+}
+
+.harvest-calendar .ofc-event-done .ofc-event-title {
+	text-decoration: line-through;
+}
+
 .harvest-calendar .ofc-event-title {
 	font-size: 0.67rem;
 	font-weight: 700;

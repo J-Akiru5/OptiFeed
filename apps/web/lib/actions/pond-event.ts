@@ -2,7 +2,9 @@
 
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
-import { dateOnlyToUtcDate } from "@/lib/crop-cycle/dates";
+import { farmDateTimeToUtcDate, utcDateToFarmDateTime } from "@/lib/calendar/datetime";
+import { expandOccurrences } from "@/lib/calendar/recurrence";
+import { dateOnlyToUtcDate, dateToFarmDateOnly } from "@/lib/crop-cycle/dates";
 import {
 	type PondEventInput,
 	type UpdatePondEventInput,
@@ -22,6 +24,57 @@ export type PondEventActionResult =
 function revalidateCalendar(): void {
 	revalidatePath("/[locale]/(dashboard)/dashboard/harvest", "page");
 	revalidatePath("/[locale]/(dashboard)/dashboard", "page");
+}
+
+/** The farm-local value the API and the editor agree on. */
+function toStoredMoment(value: string): Date {
+	return farmDateTimeToUtcDate(value);
+}
+
+function toStoredRecurrenceUntil(value: string | null | undefined): Date | null {
+	return value ? dateOnlyToUtcDate(value) : null;
+}
+
+/**
+ * Validate that a completion/skip occurrence belongs to the stored series.
+ * Without this a caller could append arbitrary timestamps to
+ * `completedOccurrences`.
+ */
+function occurrenceBelongsToSeries(
+	occurrence: string,
+	event: {
+		startsAt: Date;
+		allDay: boolean;
+		recurrenceFreq: "DAILY" | "WEEKLY" | "MONTHLY" | null;
+		recurrenceInterval: number;
+		recurrenceUntil: Date | null;
+	},
+): boolean {
+	const instant = new Date(occurrence);
+	if (Number.isNaN(instant.getTime())) return false;
+	if (!event.recurrenceFreq) return false;
+
+	const anchor = event.allDay
+		? event.startsAt.toISOString().slice(0, 10)
+		: utcDateToFarmDateTime(event.startsAt);
+	const until = event.recurrenceUntil?.toISOString().slice(0, 10) ?? null;
+	const occurrenceDate = dateToFarmDateOnly(instant);
+	const anchorDate = anchor.slice(0, 10);
+	if (occurrenceDate < anchorDate) return false;
+	if (until && occurrenceDate > until) return false;
+
+	const { occurrences } = expandOccurrences({
+		start: anchor,
+		end: null,
+		allDay: event.allDay,
+		recurrence: {
+			freq: event.recurrenceFreq,
+			interval: event.recurrenceInterval,
+			until,
+		},
+		window: { from: occurrenceDate, to: occurrenceDate },
+	});
+	return occurrences.some((item) => item.occurrenceKey === instant.toISOString());
 }
 
 export async function createPondEvent(input: PondEventInput): Promise<PondEventActionResult> {
@@ -57,12 +110,19 @@ export async function createPondEvent(input: PondEventInput): Promise<PondEventA
 				pondId: pond.id,
 				cropCycleId: data.cropCycleId ?? null,
 				farmId: pond.farmId,
+				kind: data.kind,
 				type: data.type,
 				status: "PLANNED",
 				title: data.title,
-				startsAt: dateOnlyToUtcDate(data.startsAt),
-				allDay: true,
+				startsAt: toStoredMoment(data.startsAt),
+				endsAt: data.endsAt ? toStoredMoment(data.endsAt) : null,
+				allDay: data.allDay,
 				notes: data.notes ?? null,
+				color: data.color ?? null,
+				recurrenceFreq: data.recurrence?.freq ?? null,
+				recurrenceInterval: data.recurrence?.interval ?? 1,
+				recurrenceUntil: toStoredRecurrenceUntil(data.recurrence?.until),
+				reminderMinutes: data.reminderMinutes ?? [],
 				source: "manual",
 				createdBy: ownerId,
 			},
@@ -90,22 +150,52 @@ export async function updatePondEvent(input: UpdatePondEventInput): Promise<Pond
 
 	const existing = await prisma.pondEvent.findFirst({
 		where: { id: data.id, pond: { ownerId } },
-		select: { id: true, source: true, type: true },
+		select: {
+			id: true,
+			source: true,
+			type: true,
+			kind: true,
+			allDay: true,
+			startsAt: true,
+			endsAt: true,
+			recurrenceFreq: true,
+		},
 	});
 	if (!existing) return { success: false, error: "Event not found." };
 	if (existing.source !== "manual") {
 		return { success: false, error: "Cycle events cannot be edited from the calendar." };
 	}
 
+	// Build a patch so a drag/resize that only moves the item cannot silently
+	// clear its title, notes, colour, reminders or recurrence.
+	const patch: Record<string, unknown> = {};
+	if (data.title !== undefined) patch.title = data.title;
+	if (data.kind !== undefined) patch.kind = data.kind;
+	if (data.type !== undefined) patch.type = data.type;
+	if (data.allDay !== undefined) patch.allDay = data.allDay;
+	if (data.startsAt !== undefined) patch.startsAt = toStoredMoment(data.startsAt);
+	if (data.endsAt !== undefined) {
+		patch.endsAt = data.endsAt ? toStoredMoment(data.endsAt) : null;
+	}
+	if (data.color !== undefined) patch.color = data.color;
+	if (data.notes !== undefined) patch.notes = data.notes;
+	if (data.reminderMinutes !== undefined) patch.reminderMinutes = data.reminderMinutes;
+	if (data.recurrence !== undefined) {
+		patch.recurrenceFreq = data.recurrence?.freq ?? null;
+		patch.recurrenceInterval = data.recurrence?.interval ?? 1;
+		patch.recurrenceUntil = toStoredRecurrenceUntil(data.recurrence?.until);
+	}
+
+	// The effective range must stay valid after a partial update.
+	const effectiveStart = (patch.startsAt as Date | undefined) ?? new Date(existing.startsAt);
+	const effectiveEnd =
+		patch.endsAt !== undefined ? (patch.endsAt as Date | null) : (existing.endsAt ?? null);
+	if (effectiveEnd && effectiveEnd.getTime() < effectiveStart.getTime()) {
+		return { success: false, error: "The end must be after the start." };
+	}
+
 	try {
-		await prisma.pondEvent.update({
-			where: { id: existing.id },
-			data: {
-				title: data.title,
-				startsAt: dateOnlyToUtcDate(data.startsAt),
-				notes: data.notes ?? null,
-			},
-		});
+		await prisma.pondEvent.update({ where: { id: existing.id }, data: patch });
 		revalidateCalendar();
 		return { success: true, eventId: existing.id };
 	} catch (error) {
@@ -114,7 +204,10 @@ export async function updatePondEvent(input: UpdatePondEventInput): Promise<Pond
 	}
 }
 
-export async function completePondEvent(input: { id: string }): Promise<PondEventActionResult> {
+export async function completePondEvent(input: {
+	id: string;
+	occurrence?: string | null;
+}): Promise<PondEventActionResult> {
 	try {
 		await requireWriteAccess();
 		await requirePermission("manage_crop_cycle");
@@ -128,18 +221,49 @@ export async function completePondEvent(input: { id: string }): Promise<PondEven
 
 	const existing = await prisma.pondEvent.findFirst({
 		where: { id: parsed.data.id, pond: { ownerId } },
-		select: { id: true, source: true },
+		select: {
+			id: true,
+			source: true,
+			startsAt: true,
+			allDay: true,
+			recurrenceFreq: true,
+			recurrenceInterval: true,
+			recurrenceUntil: true,
+			completedOccurrences: true,
+		},
 	});
 	if (!existing) return { success: false, error: "Event not found." };
 	if (existing.source !== "manual") {
 		return { success: false, error: "Cycle events are completed from the cycle actions." };
 	}
 
+	const occurrence = parsed.data.occurrence;
+	if (occurrence && !occurrenceBelongsToSeries(occurrence, existing)) {
+		return { success: false, error: "That occurrence is not part of this series." };
+	}
+
 	try {
-		await prisma.pondEvent.update({
-			where: { id: existing.id },
-			data: { status: "DONE", completedBy: ownerId, completedAt: new Date() },
-		});
+		if (occurrence) {
+			const key = new Date(occurrence).toISOString();
+			const alreadyDone = existing.completedOccurrences.some(
+				(value) => value.toISOString() === key,
+			);
+			if (!alreadyDone) {
+				await prisma.pondEvent.update({
+					where: { id: existing.id },
+					data: {
+						completedOccurrences: {
+							set: [...existing.completedOccurrences, new Date(key)],
+						},
+					},
+				});
+			}
+		} else {
+			await prisma.pondEvent.update({
+				where: { id: existing.id },
+				data: { status: "DONE", completedBy: ownerId, completedAt: new Date() },
+			});
+		}
 		revalidateCalendar();
 		return { success: true, eventId: existing.id };
 	} catch (error) {
@@ -148,7 +272,74 @@ export async function completePondEvent(input: { id: string }): Promise<PondEven
 	}
 }
 
-export async function deletePondEvent(input: { id: string }): Promise<PondEventActionResult> {
+/** Undo a mistaken task check. */
+export async function uncompletePondEvent(input: {
+	id: string;
+	occurrence?: string | null;
+}): Promise<PondEventActionResult> {
+	try {
+		await requireWriteAccess();
+		await requirePermission("manage_crop_cycle");
+	} catch {
+		return { success: false, error: "You do not have permission to manage pond events." };
+	}
+
+	const parsed = completePondEventSchema.safeParse(input);
+	if (!parsed.success) return { success: false, error: formatZodError(parsed.error) };
+	const ownerId = await getCurrentPondOwnerId();
+
+	const existing = await prisma.pondEvent.findFirst({
+		where: { id: parsed.data.id, pond: { ownerId } },
+		select: {
+			id: true,
+			source: true,
+			startsAt: true,
+			allDay: true,
+			recurrenceFreq: true,
+			recurrenceInterval: true,
+			recurrenceUntil: true,
+			completedOccurrences: true,
+		},
+	});
+	if (!existing) return { success: false, error: "Event not found." };
+	if (existing.source !== "manual") {
+		return { success: false, error: "Cycle events are completed from the cycle actions." };
+	}
+
+	const occurrence = parsed.data.occurrence;
+	if (occurrence && !occurrenceBelongsToSeries(occurrence, existing)) {
+		return { success: false, error: "That occurrence is not part of this series." };
+	}
+
+	try {
+		if (occurrence) {
+			const key = new Date(occurrence).toISOString();
+			await prisma.pondEvent.update({
+				where: { id: existing.id },
+				data: {
+					completedOccurrences: {
+						set: existing.completedOccurrences.filter((value) => value.toISOString() !== key),
+					},
+				},
+			});
+		} else {
+			await prisma.pondEvent.update({
+				where: { id: existing.id },
+				data: { status: "PLANNED", completedBy: null, completedAt: null },
+			});
+		}
+		revalidateCalendar();
+		return { success: true, eventId: existing.id };
+	} catch (error) {
+		console.error("[pond-event] uncompletePondEvent failed:", error);
+		return { success: false, error: "Could not reopen the pond event." };
+	}
+}
+
+export async function deletePondEvent(input: {
+	id: string;
+	occurrence?: string | null;
+}): Promise<PondEventActionResult> {
 	try {
 		await requireWriteAccess();
 		await requirePermission("manage_crop_cycle");
@@ -162,15 +353,48 @@ export async function deletePondEvent(input: { id: string }): Promise<PondEventA
 
 	const existing = await prisma.pondEvent.findFirst({
 		where: { id: parsed.data.id, pond: { ownerId } },
-		select: { id: true, source: true },
+		select: {
+			id: true,
+			source: true,
+			startsAt: true,
+			allDay: true,
+			recurrenceFreq: true,
+			recurrenceInterval: true,
+			recurrenceUntil: true,
+			completedOccurrences: true,
+		},
 	});
 	if (!existing) return { success: false, error: "Event not found." };
 	if (existing.source !== "manual") {
 		return { success: false, error: "Cycle events cannot be deleted." };
 	}
 
+	const occurrence = parsed.data.occurrence;
+	if (occurrence && !occurrenceBelongsToSeries(occurrence, existing)) {
+		return { success: false, error: "That occurrence is not part of this series." };
+	}
+
 	try {
-		await prisma.pondEvent.delete({ where: { id: existing.id } });
+		if (occurrence) {
+			// "Delete this occurrence" skips just that day by recording it in the
+			// completed list; the series and every other occurrence stay intact.
+			const key = new Date(occurrence).toISOString();
+			const alreadySkipped = existing.completedOccurrences.some(
+				(value) => value.toISOString() === key,
+			);
+			if (!alreadySkipped) {
+				await prisma.pondEvent.update({
+					where: { id: existing.id },
+					data: {
+						completedOccurrences: {
+							set: [...existing.completedOccurrences, new Date(key)],
+						},
+					},
+				});
+			}
+		} else {
+			await prisma.pondEvent.delete({ where: { id: existing.id } });
+		}
 		revalidateCalendar();
 		return { success: true, eventId: existing.id };
 	} catch (error) {

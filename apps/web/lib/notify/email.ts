@@ -18,7 +18,7 @@ export interface ReminderEmailInput {
 	to: string[];
 	pondName: string;
 	cycleLabel: string | null;
-	eventLabel: "Harvest" | "Sampling";
+	eventLabel: "Harvest" | "Sampling" | "Event" | "Task";
 	dateLabel: string;
 	timingLabel: string;
 }
@@ -92,6 +92,7 @@ function buildHtml(input: ReminderEmailInput, link: string): string {
 	const timing = escapeHtml(input.timingLabel);
 	const date = escapeHtml(input.dateLabel);
 	const cycle = input.cycleLabel ? escapeHtml(input.cycleLabel) : "Grow-out cycle";
+	const article = /^[aeiou]/i.test(input.eventLabel) ? "an" : "a";
 
 	return `<!doctype html>
 <html lang="en">
@@ -108,7 +109,7 @@ function buildHtml(input: ReminderEmailInput, link: string): string {
             </tr>
             <tr>
               <td style="padding:24px;">
-                <p style="margin:0 0 16px;font-size:16px;">A ${event.toLowerCase()} reminder for <strong>${pond}</strong>.</p>
+                <p style="margin:0 0 16px;font-size:16px;">${article} ${event.toLowerCase()} reminder for <strong>${pond}</strong>.</p>
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;color:#374151;">
                   <tr>
                     <td style="padding:6px 0;color:#6b7280;">Pond</td>

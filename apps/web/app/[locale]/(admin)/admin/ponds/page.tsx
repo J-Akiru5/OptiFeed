@@ -11,6 +11,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { ListView } from "@/components/ui/view-toggle";
 import { Link } from "@/i18n/routing";
 import { getPonds } from "@/lib/actions/admin";
+import { hasPermission } from "@/lib/auth/permissions";
 import {
 	filterByStatus,
 	isAttention,
@@ -47,8 +48,9 @@ export default async function AdminPondsPage({
 	const order = parseListOrder(params.order);
 	const attention = parseAttention(params.attention);
 
-	const [pondsPage, t, tCommon, tMobile, locale] = await Promise.all([
+	const [pondsPage, canManagePonds, t, tCommon, tMobile, locale] = await Promise.all([
 		getPonds({ page }),
+		hasPermission("manage_farms_ponds"),
 		getTranslations("dashboard.adminPonds"),
 		getTranslations("dashboard.adminCommon"),
 		getTranslations("dashboard.mobile"),
@@ -91,10 +93,12 @@ export default async function AdminPondsPage({
 				title={t("title")}
 				description={t("desc", { count: pondsPage.total })}
 				actions={
-					<Link href="/admin/ponds/new" className={adminButtonPrimary}>
-						<Plus aria-hidden="true" className="h-4 w-4" />
-						{t("addPond")}
-					</Link>
+					canManagePonds ? (
+						<Link href="/admin/ponds/new" className={adminButtonPrimary}>
+							<Plus aria-hidden="true" className="h-4 w-4" />
+							{t("addPond")}
+						</Link>
+					) : undefined
 				}
 			/>
 
@@ -131,9 +135,11 @@ export default async function AdminPondsPage({
 					title={t("emptyTitle")}
 					description={t("emptyDesc")}
 					action={
-						<Link href="/admin/ponds/new" className={adminButtonPrimary}>
-							{t("emptyAction")}
-						</Link>
+						canManagePonds ? (
+							<Link href="/admin/ponds/new" className={adminButtonPrimary}>
+								{t("emptyAction")}
+							</Link>
+						) : undefined
 					}
 				/>
 			) : visiblePonds.length === 0 ? (
@@ -215,7 +221,7 @@ export default async function AdminPondsPage({
 											<Link href={`/admin/ponds/${pond.id}`} className={adminButtonSecondary}>
 												{t("viewDetails")}
 											</Link>
-											<PondStatusToggle pondId={pond.id} status={pond.status} />
+											{canManagePonds && <PondStatusToggle pondId={pond.id} status={pond.status} />}
 										</div>
 									</AdminTd>
 								</AdminTr>
@@ -259,7 +265,7 @@ export default async function AdminPondsPage({
 									>
 										{t("viewDetails")}
 									</Link>
-									<PondStatusToggle pondId={pond.id} status={pond.status} />
+									{canManagePonds && <PondStatusToggle pondId={pond.id} status={pond.status} />}
 								</EntityCard>
 							);
 						})}

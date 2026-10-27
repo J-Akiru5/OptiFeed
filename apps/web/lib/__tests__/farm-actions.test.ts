@@ -13,6 +13,9 @@ vi.mock("@/lib/prisma", () => ({
 			findUnique: vi.fn(),
 			findMany: vi.fn(),
 		},
+		membership: {
+			findMany: vi.fn(),
+		},
 		platformAdmin: {
 			findMany: vi.fn(),
 		},
@@ -65,6 +68,7 @@ import prisma from "@/lib/prisma";
 const mockFarm = vi.mocked(prisma.farm);
 const mockPond = vi.mocked(prisma.pond);
 const mockUser = vi.mocked(prisma.user);
+const mockMembership = vi.mocked(prisma.membership);
 const mockPlatformAdmin = vi.mocked(prisma.platformAdmin);
 const mockRequireTenantAdmin = vi.mocked(requireTenantAdmin);
 const mockResolveOrgScope = vi.mocked(resolveOrgScope);
@@ -232,6 +236,10 @@ describe("getAllFarmHierarchies", () => {
 	});
 
 	it("maps users with and without farms", async () => {
+		mockMembership.findMany.mockResolvedValue([
+			{ userId: "u1", role: "ADMIN" } as never,
+			{ userId: "u2", role: "VIEWER" } as never,
+		]);
 		mockUser.findMany.mockResolvedValue([
 			{
 				id: "u1",
@@ -279,6 +287,7 @@ describe("getAllFarmHierarchies", () => {
 				email: "juan@x.test",
 				farmId: "test-farm",
 				role: "ADMIN",
+				membershipRole: "ADMIN",
 			},
 			farm: { id: "farm_1", name: "Test Farm", ownerId: "test-farm" },
 			ponds: [

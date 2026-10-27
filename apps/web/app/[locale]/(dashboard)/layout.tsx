@@ -20,6 +20,7 @@ import { isCurrentTenantAdmin } from "@/lib/auth/tenant-admin";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import { isFeatureEnabled } from "@/lib/settings/flags";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
 
@@ -28,13 +29,15 @@ export default async function DashboardLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	const [ownerId, currentUser, isTenantAdmin, isPlatformAdmin, viewAs] = await Promise.all([
-		getCurrentPondOwnerId(),
-		requirePasswordChanged(),
-		isCurrentTenantAdmin(),
-		isCurrentPlatformAdmin(),
-		getViewAsBanner(),
-	]);
+	const [ownerId, currentUser, isTenantAdmin, isPlatformAdmin, viewAs, helpEnabled] =
+		await Promise.all([
+			getCurrentPondOwnerId(),
+			requirePasswordChanged(),
+			isCurrentTenantAdmin(),
+			isCurrentPlatformAdmin(),
+			getViewAsBanner(),
+			isFeatureEnabled("help.centre"),
+		]);
 	const tCommon = await getTranslations("dashboard.common");
 
 	let pondId = "";
@@ -156,6 +159,7 @@ export default async function DashboardLayout({
 								pondName={pondName}
 								lastSeenAt={lastSeenAtStr}
 								esp32Status={esp32Status}
+								helpEnabled={helpEnabled}
 								initialUser={
 									currentUser
 										? {

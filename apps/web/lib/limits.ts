@@ -165,15 +165,30 @@ export function formatZodError(error: z.ZodError): string {
 	return field ? `${field}: ${issue.message}` : issue.message;
 }
 
-export function dailyFeedCapG(hopperCapacityG: number | null | undefined): number {
+/**
+ * The daily feed allowance for one device.
+ *
+ * `dailyCapFactor` is the platform safety setting: it may only lower the
+ * hard-coded maximum (1 = unchanged, 0.5 = half). The factor is clamped again
+ * here so a caller that forgets to read the setting still cannot raise the cap.
+ */
+export function dailyFeedCapG(
+	hopperCapacityG: number | null | undefined,
+	dailyCapFactor = 1,
+): number {
+	const factor =
+		typeof dailyCapFactor === "number" && Number.isFinite(dailyCapFactor)
+			? Math.min(Math.max(dailyCapFactor, 0), 1)
+			: 1;
+	const hardCap = MAX_FEED_GRAMS_PER_DAY_PER_DEVICE * factor;
 	if (
 		typeof hopperCapacityG === "number" &&
 		Number.isFinite(hopperCapacityG) &&
 		hopperCapacityG > 0
 	) {
-		return Math.min(MAX_FEED_GRAMS_PER_DAY_PER_DEVICE, hopperCapacityG);
+		return Math.min(hardCap, hopperCapacityG);
 	}
-	return MAX_FEED_GRAMS_PER_DAY_PER_DEVICE;
+	return hardCap;
 }
 
 export function clamp(value: number, min: number, max: number): number {

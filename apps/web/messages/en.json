@@ -2624,18 +2624,125 @@
 		"settings": {
 			"title": "Platform Settings",
 			"description": "App-wide defaults shared by every organization.",
-			"listsTitle": "Lists",
-			"listsDescription": "One page size for every list in the product. Numbered pagination uses it everywhere, including the farmer dashboard, the tenant console and this platform console.",
-			"pageSizeLabel": "Rows per page",
-			"pageSizeHint": "A whole number from {min} to {max}. The default is {default}.",
+			"tocTitle": "Sections",
+			"tocLabel": "Configuration sections",
 			"reasonLabel": "Reason",
 			"reasonPlaceholder": "e.g. Keep long audit logs readable on smaller screens",
 			"reasonHint": "Recorded in the platform audit log. At least 10 characters.",
-			"save": "Save page size",
+			"save": "Save",
 			"saving": "Saving…",
-			"saved": "Page size saved. Every list now shows {value} rows per page.",
-			"invalid": "Choose a whole number from {min} to {max}.",
-			"failed": "The page size could not be saved."
+			"saved": "Saved.",
+			"failed": "That setting could not be saved.",
+			"readOnly": "Read only",
+			"lists": {
+				"title": "Lists",
+				"description": "One page size for every list in the product. Numbered pagination uses it everywhere, including the farmer dashboard, the tenant console and this platform console.",
+				"pageSizeLabel": "Rows per page",
+				"pageSizeHint": "A whole number from {min} to {max}. The default is {default}.",
+				"save": "Save page size",
+				"saving": "Saving…",
+				"saved": "Page size saved. Every list now shows {value} rows per page.",
+				"invalid": "Choose a whole number from {min} to {max}.",
+				"failed": "The page size could not be saved."
+			},
+			"stickers": {
+				"title": "Stickers",
+				"description": "The power rating printed on every feeder sticker. A single print can still be overridden for that print only.",
+				"currentTitle": "Saved default",
+				"none": "No default saved. Stickers use the hardware label figures.",
+				"ratingSummary": "{voltage} V · {hz} Hz · {amps} A · {va} VA",
+				"measuredOn": "Measured with a meter on {date}.",
+				"estimated": "Estimated from the hardware label; not measured with a meter.",
+				"manageHint": "Change the default from the print page, where the live sticker preview shows the result.",
+				"manage": "Open devices"
+			},
+			"ai": {
+				"title": "AI providers",
+				"description": "The shared model chain every organization uses. API keys stay in the environment.",
+				"summary": "{enabled} of {total} providers are enabled.",
+				"openHint": "Order, model, effort and the enabled switch are managed on the AI providers page.",
+				"open": "Manage AI providers"
+			},
+			"email": {
+				"title": "Email & invites",
+				"description": "Whether invitation and reminder email can be sent. Only presence is shown here; no key or value is ever displayed.",
+				"configured": "Configured",
+				"notConfigured": "Not configured",
+				"resendLabel": "Resend API key",
+				"inviteFromLabel": "Invite sender variable",
+				"baseUrlLabel": "Base URL",
+				"reminderFromLabel": "Reminder sender variable",
+				"inviteSenderLabel": "Invite sender in use",
+				"reminderSenderLabel": "Reminder sender in use",
+				"noReminderSender": "Not set — reminder email is skipped",
+				"defaultSenderNote": "The invite sender falls back to the documented default when the variable is unset.",
+				"inviteReady": "Invites ready",
+				"inviteNotReady": "Invites skipped",
+				"reminderReady": "Reminders ready",
+				"reminderNotReady": "Reminders skipped"
+			},
+			"safety": {
+				"title": "Feeding safety caps",
+				"description": "Server-side ceilings for every feed command. They can only be lowered below the hard-coded maximum, never raised.",
+				"maxDispenseLabel": "Maximum relay time (ms)",
+				"maxDispenseHint": "Whole milliseconds from {min} to {max}.",
+				"dailyCapLabel": "Daily allowance factor",
+				"dailyCapHint": "A fraction from {min} to {max} of the hard daily cap.",
+				"hardMaxNote": "Hard-coded maximum: {ms} ms per dose and a factor of {factor}. The reader always uses the lower of this setting and the hard maximum.",
+				"save": "Save safety caps",
+				"saved": "Feeding safety caps saved.",
+				"invalid": "Check both values: they must be inside the allowed range."
+			},
+			"defaults": {
+				"title": "Defaults for new organizations",
+				"description": "Values a new organization starts from when it has no settings row of its own.",
+				"feedingRateLabel": "Default feeding rate (%)",
+				"feedingRateHint": "From {min}% to {max}%.",
+				"hopperLowLabel": "Hopper-low threshold (%)",
+				"hopperLowHint": "Whole percent from {min} to {max}.",
+				"offlineLabel": "Offline alert delay (minutes)",
+				"offlineHint": "Whole minutes from {min} to {max}.",
+				"missedFeedingLabel": "Create missed-feeding alerts by default",
+				"alertRolesLabel": "Alert roles",
+				"alertRolesHint": "At least one role must receive org alerts.",
+				"deviceRegistrationLabel": "Device registration",
+				"deviceRegistrationHint": "Admin approval queues new feeders until an admin approves them; self-register accepts them immediately.",
+				"adminApproval": "Admin approval",
+				"selfRegister": "Self-register",
+				"save": "Save defaults",
+				"saved": "Defaults for new organizations saved.",
+				"invalid": "Check the values and choose at least one alert role."
+			},
+			"firmware": {
+				"title": "Firmware & OTA",
+				"description": "Read-only status of the signed remote-update channel.",
+				"storageConfigured": "Storage configured",
+				"storageNotConfigured": "Storage not configured",
+				"releaseAvailable": "Release available",
+				"noRelease": "No release",
+				"channelPathLabel": "Channel file",
+				"versionLabel": "Stable version",
+				"windowValue": "{start}–{end} local",
+				"readOnlyNote": "Releases are signed offline and uploaded to the private firmware bucket. Nothing on this page triggers an update."
+			},
+			"flags": {
+				"title": "Feature flags",
+				"description": "Platform-wide switches for features that can be turned off without a deploy.",
+				"on": "On",
+				"off": "Off",
+				"save": "Save flag",
+				"saved": "Feature flag saved.",
+				"items": {
+					"assistantActions": {
+						"title": "Assistant actions",
+						"description": "Let the assistant propose feed, record and admin actions. Nothing runs until the user accepts."
+					},
+					"helpCentre": {
+						"title": "Help centre",
+						"description": "Show the help button and in-page guidance."
+					}
+				}
+			}
 		},
 		"feedPct": "Feed %",
 		"orgDefaultRate": "Org default"

@@ -1,6 +1,7 @@
 import { MEMBER_ROLES, isMemberRole } from "@/lib/auth/member-rules";
 import prisma from "@/lib/prisma";
 import type { DeviceRegistrationMode, MemberRole } from "@prisma/client";
+import { cache } from "react";
 
 /**
  * Organization settings (issue #190 / decision E6).
@@ -95,6 +96,87 @@ export function mergeOrgSettings(row: OrgSettingRow): OrgSettings {
 /** Every active member role, used as the fail-open fallback for alerts. */
 export const ALL_MEMBER_ROLES: readonly MemberRole[] = MEMBER_ROLES;
 
+/**
+ * Platform defaults for organizations that have no `OrgSetting` row yet
+ * (superadmin configuration centre I-14).
+ *
+ * A new tenant starts from these values. The row is optional, so the reader
+ * fills it from `PlatformSetting` and only then from the schema defaults.
+ */
+export const ORG_DEFAULTS_KEY = "org.defaults";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function boundedInt(value: unknown, minimum: number, maximum: number, fallback: number): number {
+	let candidate: unknown = value;
+	if (typeof candidate === "string" && candidate.trim() !== "") candidate = Number(candidate);
+	if (typeof candidate !== "number" || !Number.isFinite(candidate)) return fallback;
+	return Math.min(Math.max(Math.round(candidate), minimum), maximum);
+}
+
+function boundedNumber(value: unknown, minimum: number, maximum: number, fallback: number): number {
+	let candidate: unknown = value;
+	if (typeof candidate === "string" && candidate.trim() !== "") candidate = Number(candidate);
+	if (typeof candidate !== "number" || !Number.isFinite(candidate)) return fallback;
+	return Math.min(Math.max(candidate, minimum), maximum);
+}
+
+/**
+ * Coerce a stored defaults object into a complete, in-range settings value.
+ * Malformed fields fall back to the schema default; out-of-range numbers are
+ * clamped. The same pure function backs the action and the reader.
+ */
+export function normalizeOrgDefaults(value: unknown): OrgSettings {
+	const source = isRecord(value) ? value : {};
+	const alertRoles = alertRolesOr(source.alertRoles);
+	return {
+		defaultFeedingRatePct: boundedNumber(
+			source.defaultFeedingRatePct,
+			ORG_DEFAULT_FEEDING_RATE_MIN,
+			ORG_DEFAULT_FEEDING_RATE_MAX,
+			ORG_SETTINGS_DEFAULTS.defaultFeedingRatePct,
+		),
+		hopperLowPct: boundedInt(
+			source.hopperLowPct,
+			ORG_HOPPER_LOW_PCT_MIN,
+			ORG_HOPPER_LOW_PCT_MAX,
+			ORG_SETTINGS_DEFAULTS.hopperLowPct,
+		),
+		offlineAfterMin: boundedInt(
+			source.offlineAfterMin,
+			ORG_OFFLINE_AFTER_MIN_MIN,
+			ORG_OFFLINE_AFTER_MIN_MAX,
+			ORG_SETTINGS_DEFAULTS.offlineAfterMin,
+		),
+		missedFeedingAlerts:
+			typeof source.missedFeedingAlerts === "boolean"
+				? source.missedFeedingAlerts
+				: ORG_SETTINGS_DEFAULTS.missedFeedingAlerts,
+		alertRoles,
+		deviceRegistration: isDeviceRegistrationMode(source.deviceRegistration)
+			? source.deviceRegistration
+			: ORG_SETTINGS_DEFAULTS.deviceRegistration,
+	};
+}
+
+/**
+ * The platform-wide defaults for a new organization. A missing table/row or a
+ * transient read failure falls back to the schema defaults.
+ */
+export const getOrgDefaultSettings = cache(async (): Promise<OrgSettings> => {
+	try {
+		const row = await prisma.platformSetting.findUnique({
+			where: { key: ORG_DEFAULTS_KEY },
+			select: { value: true },
+		});
+		return normalizeOrgDefaults(row?.value);
+	} catch {
+		return { ...ORG_SETTINGS_DEFAULTS };
+	}
+});
+
 export type OrgSettingsContext = {
 	orgId: string | null;
 	settings: OrgSettings;
@@ -105,13 +187,14 @@ const DEFAULT_CONTEXT: OrgSettingsContext = {
 	settings: ORG_SETTINGS_DEFAULTS,
 };
 
-/** One org's settings, or the schema defaults when the row does not exist. */
+/** One org's settings, or the platform defaults (then schema defaults) when the row does not exist. */
 export async function getOrgSettings(orgId: string): Promise<OrgSettings> {
 	const row = await prisma.orgSetting.findUnique({ where: { orgId } });
-	return mergeOrgSettings(row);
+	if (row) return mergeOrgSettings(row);
+	return getOrgDefaultSettings();
 }
 
-/** Rows for several orgs at once; orgs without a row are absent from the map. */
+/** Rows for several orgs at once; orgs without a row fall back to the platform defaults. */
 export async function getOrgSettingsByOrgId(
 	orgIds: readonly string[],
 ): Promise<Map<string, OrgSettings>> {
@@ -120,8 +203,10 @@ export async function getOrgSettingsByOrgId(
 
 	const rows = await prisma.orgSetting.findMany({ where: { orgId: { in: unique } } });
 	const byOrg = new Map(rows.map((row) => [row.orgId, mergeOrgSettings(row)]));
-	for (const orgId of unique) {
-		if (!byOrg.has(orgId)) byOrg.set(orgId, ORG_SETTINGS_DEFAULTS);
+	const missing = unique.filter((orgId) => !byOrg.has(orgId));
+	if (missing.length > 0) {
+		const defaults = await getOrgDefaultSettings();
+		for (const orgId of missing) byOrg.set(orgId, { ...defaults });
 	}
 	return byOrg;
 }

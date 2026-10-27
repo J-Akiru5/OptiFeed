@@ -6,6 +6,7 @@ import { FOCUS_RING_ON_DARK } from "@/components/superadmin/ui";
 import { Link } from "@/i18n/routing";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { requirePasswordChanged } from "@/lib/auth/session";
+import { isFeatureEnabled } from "@/lib/settings/flags";
 import { cn } from "@/lib/utils";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
@@ -27,6 +28,7 @@ export default async function SuperadminLayout({
 	await requirePasswordChanged();
 	await requirePlatformAdmin();
 	const t = await getTranslations("superadmin.shell");
+	const helpEnabled = await isFeatureEnabled("help.centre");
 
 	return (
 		<div className="flex min-h-screen flex-col bg-[#F4F7F6]">
@@ -62,7 +64,7 @@ export default async function SuperadminLayout({
 				</div>
 
 				<div className="flex shrink-0 items-center gap-3">
-					<HelpButton audience="superadmin" />
+					{helpEnabled && <HelpButton audience="superadmin" />}
 					<Link
 						href="/dashboard"
 						className={cn(

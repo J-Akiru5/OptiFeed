@@ -382,6 +382,10 @@ describe("admin overview page", () => {
 		expect(html).toContain("Recent Activity");
 		expect(html).toContain("Feeder 1");
 		expect(html).toContain(formatDate(FIXTURE_DATE).full);
+		// The overview borrows the audit catalogue instead of printing raw keys.
+		expect(html).toContain("Connected");
+		expect(html).toContain("Device");
+		expect(html).not.toContain(">connected<");
 	});
 });
 

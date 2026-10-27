@@ -142,6 +142,9 @@ describe("platform console mobile navigation (T-09c, E26)", () => {
 		const html = renderToStaticMarkup(<SuperadminBottomNav />);
 		expect(html).not.toContain('aria-current="page"');
 		const more = html.match(/<button [^>]*data-mobile-trigger="more"[^>]*>/)?.[0] ?? "";
+		// The muted class is the inactive state, so its absence is what proves the
+		// tab is marked rather than merely present.
+		expect(more).not.toContain("text-white/75");
 		expect(more).toContain("text-white");
 	});
 });

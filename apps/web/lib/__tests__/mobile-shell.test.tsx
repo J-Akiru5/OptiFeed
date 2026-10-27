@@ -180,6 +180,7 @@ describe("quick menu (E26)", () => {
 			.filter((href) => href.startsWith("/dashboard"));
 
 		for (const href of [
+			"/dashboard/calendar",
 			"/dashboard/history",
 			"/dashboard/growth",
 			"/dashboard/harvest",

@@ -1,7 +1,9 @@
 "use client";
 
+import { mobileStickyActions } from "@/components/mobile/form-actions";
 import { updateScheduleCommand } from "@/lib/actions/schedule";
 import type { UpdateScheduleResult } from "@/lib/actions/schedule";
+import { cn } from "@/lib/utils";
 import { CheckCircle2, Clock, Loader2, RefreshCw, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
@@ -257,7 +259,7 @@ export function ScheduleEditor({
 					</button>
 				</div>
 
-				<div className="flex items-center gap-4">
+				<div className={cn("flex items-center gap-4", mobileStickyActions)}>
 					<button
 						type="submit"
 						disabled={isPending || !canWrite}

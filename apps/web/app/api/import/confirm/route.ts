@@ -4,7 +4,7 @@ import { requireWriteAccess } from "@/lib/auth/session";
 import { withAuth } from "@/lib/auth/with-auth";
 import { LEGACY_API_SUNSET } from "@/lib/constants";
 import type { ExportableType } from "@/lib/csv";
-import { confirmImport } from "@/lib/jobs/import-data";
+import { MAX_CSV_IMPORT_BYTES, confirmImport } from "@/lib/jobs/import-data";
 import { checkApiRateLimit } from "@/lib/rate-limit";
 import { revalidatePath } from "next/cache";
 
@@ -37,8 +37,13 @@ export const POST = withApi(
 		}
 
 		const { type, csvData } = body;
-		if (!type || !csvData) {
+		if (!type || typeof csvData !== "string" || csvData.length === 0) {
 			return Response.json({ error: "Missing type or csvData" }, { status: 400 });
+		}
+		// The async import job enforces the same ceiling; the synchronous
+		// compatibility path must not accept an unbounded request body.
+		if (csvData.length > MAX_CSV_IMPORT_BYTES) {
+			return Response.json({ error: "CSV payload exceeds 5 MB" }, { status: 413 });
 		}
 
 		const result = await confirmImport(ownerId, type, csvData);

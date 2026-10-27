@@ -430,13 +430,13 @@ export default async function GrowthPage() {
 								<span className="text-lg text-gray-500 font-medium">g</span>
 							</p>
 							{biomassGrowthPct > 0 && (
-								<p className="text-sm text-green-700 font-medium mt-1 flex items-center gap-1">
+								<p className="text-sm text-green-700 font-medium mt-1 flex items-center gap-1 dark:text-green-400">
 									<TrendingUp aria-hidden="true" className="h-4 w-4" />{" "}
 									{t("vsLastSample", { pct: biomassGrowthPct.toFixed(1) })}
 								</p>
 							)}
 						</div>
-						<div className="h-14 w-14 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center">
+						<div className="h-14 w-14 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center dark:bg-teal-500/15 dark:text-teal-300">
 							<Fish aria-hidden="true" className="h-7 w-7" />
 						</div>
 					</div>
@@ -504,11 +504,11 @@ export default async function GrowthPage() {
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
 								{latestFcr.toFixed(2)}
 							</p>
-							<p className="text-sm text-green-700 font-medium mt-1 flex items-center gap-1">
+							<p className="text-sm text-green-700 font-medium mt-1 flex items-center gap-1 dark:text-green-400">
 								{t("trendingDown")} <Activity aria-hidden="true" className="h-4 w-4" />
 							</p>
 						</div>
-						<div className="h-14 w-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+						<div className="h-14 w-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center dark:bg-blue-500/15 dark:text-blue-300">
 							<Scale aria-hidden="true" className="h-7 w-7" />
 						</div>
 					</div>
@@ -527,7 +527,7 @@ export default async function GrowthPage() {
 										{report.fcrValue.toFixed(2)}
 									</div>
 									<div
-										className="w-full bg-blue-100 rounded-t-lg group-hover:bg-blue-300 transition-colors relative"
+										className="w-full bg-blue-100 rounded-t-lg group-hover:bg-blue-300 transition-colors relative dark:bg-blue-500/15 dark:group-hover:bg-blue-500/25"
 										style={{ height: `${heightPct}%` }}
 									>
 										<div
@@ -657,10 +657,10 @@ export default async function GrowthPage() {
 										<span
 											className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
 												log.levelPercent <= 5
-													? "bg-red-100 text-red-700"
+													? "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300"
 													: log.levelPercent <= 20
-														? "bg-amber-100 text-amber-700"
-														: "bg-green-100 text-green-700"
+														? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+														: "bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300"
 											}`}
 										>
 											{Math.round(log.levelPercent)}%
@@ -717,7 +717,13 @@ export default async function GrowthPage() {
 											</DashboardTd>
 											<DashboardTd className="text-right font-bold">
 												{weightGain !== null ? (
-													<span className={weightGain >= 0 ? "text-green-700" : "text-red-600"}>
+													<span
+														className={
+															weightGain >= 0
+																? "text-green-700 dark:text-green-400"
+																: "text-red-600 dark:text-red-400"
+														}
+													>
 														{weightGain >= 0 ? "+" : ""}
 														{weightGain.toFixed(1)}
 													</span>
@@ -727,7 +733,13 @@ export default async function GrowthPage() {
 											</DashboardTd>
 											<DashboardTd className="text-right font-bold">
 												{lengthGain !== null ? (
-													<span className={lengthGain >= 0 ? "text-green-700" : "text-red-600"}>
+													<span
+														className={
+															lengthGain >= 0
+																? "text-green-700 dark:text-green-400"
+																: "text-red-600 dark:text-red-400"
+														}
+													>
 														{lengthGain >= 0 ? "+" : ""}
 														{lengthGain.toFixed(1)}
 													</span>
@@ -737,7 +749,7 @@ export default async function GrowthPage() {
 											</DashboardTd>
 											<DashboardTd className="text-right">
 												{daysSinceLast !== null ? (
-													<span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">
+													<span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
 														{daysSinceLast}d
 													</span>
 												) : (
@@ -835,23 +847,23 @@ export default async function GrowthPage() {
 											<DashboardTd className="text-right">
 												{log.fishSamples.length > 0 ? (
 													<details className="inline-block text-left">
-														<summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-700 transition-colors hover:bg-teal-100">
+														<summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-700 transition-colors hover:bg-teal-100 dark:bg-teal-500/15 dark:text-teal-300 dark:hover:bg-teal-500/25">
 															<Fish aria-hidden="true" className="w-3 h-3" />
 															{t("fishCountBadge", { count: log.fishSamples.length })}
 														</summary>
-														<div className="mt-2 min-w-[180px] overflow-hidden rounded-xl border border-teal-100 bg-teal-50/50">
-															<div className="flex items-baseline justify-between gap-3 bg-teal-100/70 px-3 py-1.5 text-[10px] font-bold uppercase text-teal-700">
+														<div className="mt-2 min-w-[180px] overflow-hidden rounded-xl border border-teal-100 bg-teal-50/50 dark:border-teal-500/20 dark:bg-teal-500/10">
+															<div className="flex items-baseline justify-between gap-3 bg-teal-100/70 px-3 py-1.5 text-[10px] font-bold uppercase text-teal-700 dark:bg-teal-500/20 dark:text-teal-200">
 																<span className="truncate">
 																	{log.batchLabel ?? t("unlabeledBatch")}
 																</span>
-																<span className="shrink-0 font-medium normal-case text-teal-600">
+																<span className="shrink-0 font-medium normal-case text-teal-600 dark:text-teal-300">
 																	{formatFarmDateTime(log.recordedAt, tDates).date}
 																</span>
 															</div>
 															<table className="w-full text-xs text-gray-600 dark:text-gray-300">
 																<caption className="sr-only">{t("fishSamplesLabel")}</caption>
 																<thead>
-																	<tr className="text-[10px] uppercase text-teal-700">
+																	<tr className="text-[10px] uppercase text-teal-700 dark:text-teal-300">
 																		<th scope="col" className="px-3 py-1.5 text-left font-bold">
 																			#
 																		</th>
@@ -863,7 +875,7 @@ export default async function GrowthPage() {
 																		</th>
 																	</tr>
 																</thead>
-																<tbody className="divide-y divide-teal-100">
+																<tbody className="divide-y divide-teal-100 dark:divide-teal-500/20">
 																	{log.fishSamples.map((sample, sampleIndex) => (
 																		<tr key={sample.id}>
 																			<td className="px-3 py-1.5 text-gray-500 dark:text-gray-400">
@@ -884,7 +896,7 @@ export default async function GrowthPage() {
 														</div>
 													</details>
 												) : (
-													<span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs font-bold text-gray-600 dark:text-gray-400">
+													<span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs font-bold text-gray-600 dark:bg-white/10 dark:text-gray-300">
 														<Scale aria-hidden="true" className="w-3 h-3" />
 														{t("avgBadge")}
 													</span>

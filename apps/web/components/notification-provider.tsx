@@ -13,12 +13,22 @@ interface NotificationPayload {
 
 interface NotificationContextType {
 	unreadCount: number;
+	/** Clear the badge after "Mark all as read". */
 	markAllAsReadClient: () => void;
+	/** Drop one from the badge after a single notification is acknowledged. */
+	markOneAsReadClient: () => void;
+	/** Put one back when a single optimistic acknowledgement fails. */
+	restoreOneUnreadClient: () => void;
+	/** Put the badge back when a bulk optimistic update is rolled back. */
+	restoreUnreadCount: (count: number) => void;
 }
 
 const NotificationContext = createContext<NotificationContextType>({
 	unreadCount: 0,
 	markAllAsReadClient: () => {},
+	markOneAsReadClient: () => {},
+	restoreOneUnreadClient: () => {},
+	restoreUnreadCount: () => {},
 });
 
 export const useNotifications = () => useContext(NotificationContext);
@@ -35,6 +45,13 @@ export function NotificationProvider({
 	const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
 	const [activeBanner, setActiveBanner] = useState<NotificationPayload | null>(null);
 	const [activeToast, setActiveToast] = useState<NotificationPayload | null>(null);
+
+	// The layout recomputes the badge on every server render. Without this the
+	// provider kept incrementing its mount-time value forever, so a
+	// revalidation (or a "Mark all as read") never reached the bell (#219).
+	useEffect(() => {
+		setUnreadCount(initialUnreadCount);
+	}, [initialUnreadCount]);
 
 	useEffect(() => {
 		if (!pondId) return;
@@ -82,8 +99,28 @@ export function NotificationProvider({
 		setActiveToast(null);
 	};
 
+	const markOneAsReadClient = () => {
+		setUnreadCount((prev) => Math.max(0, prev - 1));
+	};
+
+	const restoreOneUnreadClient = () => {
+		setUnreadCount((prev) => prev + 1);
+	};
+
+	const restoreUnreadCount = (count: number) => {
+		setUnreadCount(Math.max(0, count));
+	};
+
 	return (
-		<NotificationContext.Provider value={{ unreadCount, markAllAsReadClient }}>
+		<NotificationContext.Provider
+			value={{
+				unreadCount,
+				markAllAsReadClient,
+				markOneAsReadClient,
+				restoreOneUnreadClient,
+				restoreUnreadCount,
+			}}
+		>
 			{/* Sticky Banner Portal */}
 			{activeBanner && (
 				<div className="fixed top-0 left-0 w-full z-[100] animate-in slide-in-from-top-4 fade-in duration-300">

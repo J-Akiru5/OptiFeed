@@ -6,6 +6,7 @@ import {
 	dashboardHint,
 	dashboardLabel,
 } from "@/components/dashboard/dashboard-classes";
+import { mobileStickyActions } from "@/components/mobile/form-actions";
 import { updatePondSettings } from "@/lib/actions/settings";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
@@ -233,7 +234,7 @@ export function PondSettingsForm({ pond, canWrite = true }: PondSettingsFormProp
 				</div>
 			</div>
 
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+			<div className={cn("flex flex-col gap-3 sm:flex-row sm:items-center", mobileStickyActions)}>
 				<button
 					type="submit"
 					disabled={isPending || !canWrite}

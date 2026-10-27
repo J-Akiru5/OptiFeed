@@ -86,7 +86,10 @@
 		"pondFeedPellet": "Pond Feed Pellet",
 		"hopperRemaining": "Mga {kg}kg ang nabilin. Igo para sa {count} ka scheduled feeding.",
 		"deviceOffline": "Wala sa linya",
-		"navLabel": "Pangunahon nga paglibot"
+		"navLabel": "Pangunahon nga paglibot",
+		"overview": "Overview",
+		"alerts": "Mga alerto",
+		"me": "Ako"
 	},
 	"button": {
 		"feedNow": "Pakauna Subong",
@@ -1411,6 +1414,7 @@
 			"columnFeedLevel": "Lebel sang feed",
 			"columnLastSeen": "Katapusan nga nakita",
 			"perFeeding": "{grams} g kada feeding",
+			"perFeedingLabel": "Kada pagpakaon",
 			"emptyTitle": "Wala pa sang mga device nga nakarehistro.",
 			"emptyDesc": "Magagwa ang mga device diri pagkatapos ma-provision kag ma-claim ang feeder.",
 			"caption": "Mga device sa imo organisasyon",
@@ -1758,6 +1762,7 @@
 			"categorySystem": "Sistema",
 			"autoCleared": "Ginlimpyo automatiko",
 			"acknowledged": "Gin-acknowledge",
+			"actionError": "Indi ma-update ang notipikasyon. Tilawi liwat.",
 			"alert": "Alerto",
 			"auditLink": "Audit",
 			"receivedAt": "Natanggap",
@@ -1869,7 +1874,8 @@
 				"devices": "Mga Device",
 				"hierarchy": "Hierarkiya",
 				"audit": "Talaan sang Audit",
-				"settings": "Mga Setting"
+				"settings": "Mga Setting",
+				"more": "Dugang"
 			},
 			"panelLabel": "Panel sang Admin",
 			"profile": "Ang imo laray sang profile kag mga setting"
@@ -2218,6 +2224,45 @@
 				"name": "Ngalan",
 				"empty": "Wala sang datos sa sini nga panahon."
 			}
+		},
+		"mobile": {
+			"openMenu": "Madasig nga mga aksyon",
+			"menuLabel": "Madasig nga menu",
+			"moreLabel": "Dugang nga mga seksyon",
+			"close": "Sirad-i ang madasig nga menu",
+			"searchLabel": "Pangitaa ang mga pahina kag aksyon",
+			"searchPlaceholder": "Pangitaa ang mga pahina kag aksyon",
+			"noResults": "Wala sing nagatugma sa “{query}”.",
+			"sections": {
+				"actions": "Mga aksyon",
+				"destinations": "Kadtuan"
+			},
+			"actions": {
+				"addPond": "Dugang punong",
+				"addFeeder": "Dugang feeder",
+				"scanSticker": "I-scan ang sticker QR",
+				"pondLocation": "Lokasyon sang punong",
+				"logSample": "Mag-log sang biomass sample",
+				"registerDevice": "Irehistro ang feeder"
+			},
+			"status": {
+				"label": "Pilia ang kahimtangan sang device",
+				"all": "Tanan",
+				"online": "Online",
+				"alarm": "Alarm",
+				"offline": "Wala sa linya",
+				"emptyTitle": "Wala sing nagatugma sa sini nga filter",
+				"emptyDesc": "Tinluan ang filter para makita ang bug-os nga lista sa sini nga pahina.",
+				"clear": "Tinluan ang filter"
+			},
+			"order": {
+				"label": "Pagkasunodsunod",
+				"newest": "Pinakabag-o",
+				"name": "Ngalan",
+				"status": "Kahimtangan",
+				"attention": "Kinahanglan atensyon",
+				"hint": "Ang pagkasunodsunod kag mga filter para lang sa mga item sa sini nga pahina."
+			}
 		}
 	},
 	"errors": {
@@ -2469,7 +2514,8 @@
 				"devices": "Mga Device",
 				"aiProviders": "Mga AI Provider",
 				"settings": "Mga Setting",
-				"operations": "Operasyon"
+				"operations": "Operasyon",
+				"more": "Dugang"
 			},
 			"shortNav": {
 				"overview": "Panglantaw",
@@ -2480,7 +2526,8 @@
 				"devices": "Device",
 				"aiProviders": "AI",
 				"settings": "Setting",
-				"operations": "Ops"
+				"operations": "Ops",
+				"more": "Dugang"
 			}
 		},
 		"loading": {

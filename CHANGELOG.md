@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-10-27
+
+### Changed
+
+- Mobile app shell (E26): every console now has a PakaonAI-branded header band below `lg` (page title, search, "+" quick menu), the farmer bottom bar is a five-tab bar (Overview, Schedule, Biomass log, Alerts, Me) with the active tab in the brand colour, and the tenant admin and platform consoles are five tabs too (four primary sections plus "More"): the platform console had grown to nine sections, which leaves under 44 px per target at 375 px. "More" opens the same quick menu as the header band, so every page that left a bar — the farmer calendar, history, growth, harvest, audit and settings, and every role-aware quick action (add pond/feeder, scan sticker, pond location, log a sample, register a feeder) — is one tap away.
+- Mobile lists (E26): the tenant Ponds and Devices lists gained a tappable All / Online / Alarm / Offline summary strip, an "order by" and "needs attention" chips row, and large cards with a status dot and three key metrics; the strip, chips and the ordering are URL parameters, so they survive navigation and the numbered pagination.
+- Mobile layout pass (E26): user-facing page titles move into the header band below `lg` (the `h1` stays in the markup for assistive tech), farmer and console mains use `dvh` with bottom padding that clears the fixed bar and the device safe area, and the biomass, schedule, pond-settings and pond create/edit forms pin their primary action above the bar on a phone.
+
+### Fixed
+
+- Notifications (#219): "Mark as Read" now clears every pending alert of the signed-in owner across all of their ponds instead of only the active pond's loaded page, and it stamps the acknowledgement so the rows stop offering "Acknowledge". The bell drops to 0 immediately and re-syncs with the server; a single "Acknowledge" now decrements the badge at once and rolls back on failure. No schema change.
+
 ## [1.15.0] - 2026-10-27
 
 ### Added

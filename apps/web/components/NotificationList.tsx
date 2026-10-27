@@ -2,13 +2,15 @@
 
 import { ItemCardGrid } from "@/components/ui/item-card";
 import { ViewToggle, useListViewPreference } from "@/components/ui/view-toggle";
-import { Link } from "@/i18n/routing";
+import { Link, useRouter } from "@/i18n/routing";
 import { acknowledgeNotification, markAllNotificationsRead } from "@/lib/actions/notifications";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { AlertTriangle, Check, CheckCircle2, FileText, Info, WifiOff } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { useNotifications } from "./notification-provider";
 
 interface NotificationItem {
 	id: string;
@@ -81,34 +83,85 @@ export function NotificationList({ initialNotifications, canWrite = true }: Noti
 	const tTiers = useTranslations("dashboard.notifications.tiers");
 	const tCommon = useTranslations("dashboard.common");
 	const tDates = useTranslations("dates");
+	const router = useRouter();
+	const {
+		unreadCount,
+		markAllAsReadClient,
+		markOneAsReadClient,
+		restoreOneUnreadClient,
+		restoreUnreadCount,
+	} = useNotifications();
 	const [isPendingAck, startAckTransition] = useTransition();
 	const [isPendingMarkAll, startMarkAllTransition] = useTransition();
 	const { mode, choose, resolved } = useListViewPreference("notifications");
+	// Rows handled in this view, so the UI reacts the moment they are clicked
+	// instead of waiting for a server round-trip (and rolls back on failure).
+	const [handledIds, setHandledIds] = useState<Record<string, boolean>>({});
+
+	/** A row is done once the server says so or the reader handled it here. */
+	const isHandled = (notification: NotificationItem) =>
+		notification.acknowledgedAt !== null || handledIds[notification.id] === true;
 
 	const formatDate = (dateStr: string) => {
 		const loc = formatDateTimeLocal(new Date(dateStr), tDates);
 		return `${loc.date}, ${loc.time}`;
 	};
 
-	const handleAcknowledge = (id: string) => {
+	const handleAcknowledge = (notification: NotificationItem) => {
+		if (isHandled(notification)) return;
+
+		const wasUnread = !notification.read;
+		setHandledIds((prev) => ({ ...prev, [notification.id]: true }));
+		if (wasUnread) markOneAsReadClient();
+
 		startAckTransition(async () => {
-			await acknowledgeNotification(id);
+			try {
+				const result = await acknowledgeNotification(notification.id);
+				if (!result.success) throw new Error(result.error);
+			} catch {
+				setHandledIds((prev) => {
+					const next = { ...prev };
+					delete next[notification.id];
+					return next;
+				});
+				if (wasUnread) restoreOneUnreadClient();
+				toast.error(t("actionError"));
+			}
 		});
 	};
 
 	const handleMarkAllRead = () => {
+		const previousHandled = handledIds;
+		const previousCount = unreadCount;
+		const nextHandled = { ...handledIds };
+		for (const notification of initialNotifications) {
+			if (!isHandled(notification)) nextHandled[notification.id] = true;
+		}
+
+		setHandledIds(nextHandled);
+		markAllAsReadClient();
+
 		startMarkAllTransition(async () => {
-			await markAllNotificationsRead();
+			try {
+				const result = await markAllNotificationsRead();
+				if (!result.success) throw new Error(result.error);
+				// Reconcile the page and the bell with the stored state.
+				router.refresh();
+			} catch {
+				setHandledIds(previousHandled);
+				restoreUnreadCount(previousCount);
+				toast.error(t("actionError"));
+			}
 		});
 	};
 
 	/** Acknowledge (when still open) plus the link into the event log. */
 	const renderActions = (notification: NotificationItem) => (
 		<>
-			{!notification.acknowledgedAt && (
+			{!isHandled(notification) && (
 				<button
 					type="button"
-					onClick={() => handleAcknowledge(notification.id)}
+					onClick={() => handleAcknowledge(notification)}
 					disabled={isPendingAck || !canWrite}
 					className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200 dark:focus-visible:outline-[#8fc0ea]"
 				>
@@ -216,7 +269,7 @@ export function NotificationList({ initialNotifications, canWrite = true }: Noti
 									<tr
 										key={notification.id}
 										className={`border-b border-gray-50 last:border-0 dark:border-gray-800 ${
-											notification.read ? "opacity-70" : ""
+											isHandled(notification) ? "opacity-70" : ""
 										}`}
 									>
 										<td className="px-4 py-3">
@@ -265,7 +318,7 @@ export function NotificationList({ initialNotifications, canWrite = true }: Noti
 						<li
 							key={notification.id}
 							className={`flex w-full items-start gap-3 rounded-3xl border p-4 text-left shadow-sm transition hover:shadow-md ${
-								!notification.read
+								!isHandled(notification)
 									? "border-[#0A3D62]/20 bg-white dark:bg-gray-900"
 									: "border-[#0A3D62]/5 bg-gray-50/50 dark:bg-gray-800/50"
 							}`}

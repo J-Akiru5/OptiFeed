@@ -2407,5 +2407,148 @@
 			"invalid": "Choose a whole number from {min} to {max}.",
 			"failed": "The page size could not be saved."
 		}
+	},
+	"help": {
+		"button": "Open help for this page",
+		"title": "Help",
+		"subtitle": "A short guide for the screen you are on",
+		"close": "Close help",
+		"showMe": "Show me",
+		"missing": "That control is not on this screen right now. It may appear after the page finishes loading, or it may need a different role.",
+		"onThisPage": "This page",
+		"takeTour": "Take the tour",
+		"more": "Still stuck? Email us at",
+		"sections": {
+			"dashboard": {
+				"title": "Dashboard",
+				"intro": "Everything about the active pond: the feeder, the next meal and the numbers behind it. The pond selector in the header switches pond."
+			},
+			"schedule": {
+				"title": "Feeding schedule",
+				"intro": "When the feeder runs, how much it dispenses, and how to pause it without losing the schedule."
+			},
+			"biomass": {
+				"title": "Biomass log",
+				"intro": "Weigh a sample of fish so the feeding plan follows the real growth of the pond."
+			},
+			"history": {
+				"title": "History",
+				"intro": "Every confirmed feeding, where it came from, and the hopper level around it."
+			},
+			"growth": {
+				"title": "Growth",
+				"intro": "Average body weight, feed conversion and the plan the feeder follows. History keeps every sample."
+			},
+			"harvest": {
+				"title": "Harvest & calendar",
+				"intro": "The crop cycle and the events on the pond calendar."
+			},
+			"settings": {
+				"title": "Settings",
+				"intro": "Pond configuration, the hardware and its calibration, your profile and your data."
+			},
+			"admin-devices": {
+				"title": "Devices",
+				"intro": "Every feeder in your organization, its pond, its token and its sticker."
+			},
+			"admin-members": {
+				"title": "Members & permissions",
+				"intro": "Who can open your farms, and what each person is allowed to do."
+			},
+			"admin-settings": {
+				"title": "Organization settings",
+				"intro": "Organization-wide defaults that apply to every pond and member."
+			},
+			"superadmin-users": {
+				"title": "Users",
+				"intro": "Every account on the platform, whatever organization it belongs to."
+			},
+			"superadmin-orgs": {
+				"title": "Organizations",
+				"intro": "Every tenant, its members and what the platform can do on its behalf."
+			},
+			"superadmin-ponds": {
+				"title": "Ponds",
+				"intro": "A read-only view of every pond on the platform."
+			},
+			"superadmin-devices": {
+				"title": "Device fleet",
+				"intro": "Registration, tokens, stickers and remote control for every feeder."
+			},
+			"superadmin-ai": {
+				"title": "AI providers",
+				"intro": "The model chain behind the assistant and the feeding advice."
+			},
+			"superadmin-settings": {
+				"title": "Platform settings",
+				"intro": "App-wide defaults shared by every organization."
+			}
+		},
+		"items": {
+			"dashboard-feed-now": "Feed Now dispenses the next scheduled dose immediately. It asks for confirmation first, is blocked while the feeder is offline, and respects the daily cap.",
+			"dashboard-next-feeding": "The next feeding tile shows when the feeder will run and how much it will dispense, from the schedule the feeder is running.",
+			"dashboard-fcr": "Feed conversion ratio compares feed used with weight gained. Tap the tile for the growth charts and the plan behind the number.",
+			"dashboard-ai-advisor": "The AI advisor suggests a ration from this pond's growth plan and recent feeding. Open it for the reasoning, or refresh for a new suggestion.",
+			"dashboard-hopper": "Hopper level is the last reading the device sent. An offline feeder keeps its last known level, greyed out, with the reading time.",
+			"dashboard-water-temp": "Water temperature comes from the probe. A stale reading means the probe has not reported recently, not that the water is cold.",
+			"dashboard-export": "Export PDF saves this page as a report you can send or keep.",
+			"dashboard-feed-log": "Recent feedings list what the feeder actually dispensed, with the source: scheduled, dashboard or the physical button.",
+			"dashboard-biomass": "Biomass samples drive the growth model and the feeder's ration. Log one after every weighing.",
+			"schedule-editor": "Set the window the feeder may run in and how many meals fall inside it. The summary underneath shows the interval between meals.",
+			"schedule-save": "Save changes sends the new schedule to the device. Nothing changes until the device confirms it.",
+			"schedule-controls": "Pause stops scheduled feedings without deleting the schedule; Resume puts it back. The feed button here dispenses one dose now.",
+			"schedule-clock": "The clock inside the feeder drifts. If meals land at the wrong time, set the device time from this browser.",
+			"schedule-pending": "A pending command has been sent but not yet confirmed by the device. Refreshing the page shows the latest state.",
+			"biomass-form": "Choose Average mode for a weighed group, or Individual mode to enter every fish. The form saves to the active pond.",
+			"biomass-sample-size": "A larger sample is a better estimate: 30 to 50 fish beats a handful, and always weigh with the same scale.",
+			"biomass-batches": "Saved batches group samples by weighing session, so a later review can see what was measured together.",
+			"history-log": "The event log lists each confirmed dispense, newest first, and can be searched and paged.",
+			"history-export": "Export downloads the records as CSV or ZIP, with the data types you choose.",
+			"history-import": "Import brings in older records from a spreadsheet. Nothing is written until you confirm the preview.",
+			"history-feed-level": "The feed-level cards read the hopper sensor. A greyed level is the last known value from an offline feeder.",
+			"growth-charts": "The growth trend plots average body weight from your samples; the feed-level chart shows how fast the hopper empties.",
+			"growth-plan": "The growth plan holds the target weight and harvest date. Apply it to let the feeder adjust the ration to the plan.",
+			"growth-fcr-calculator": "The FCR calculator turns current biomass, target weight and days to target into the feed conversion the plan implies.",
+			"growth-history": "History keeps every biomass and feed-level reading, filterable by date and text. Use it to check a trend.",
+			"harvest-calendar": "The calendar shows the pond's events. Drag an event to move it, or open it to mark it done.",
+			"harvest-add-event": "Add event records a task or note on a date: sampling, treatment, harvest, anything the pond needs.",
+			"harvest-cycle": "The cycle card counts the days to harvest and compares target and actual weight. Edit the plan or mark the cycle harvested from here.",
+			"settings-cards": "The hub links to pond configuration, hardware and calibration, your profile and your data.",
+			"settings-farm-name": "The farm name is what members see. Renaming it does not change the farm id.",
+			"settings-pond": "Pond settings hold the feeding rate, meals per day, sampling interval and pond size. Saving queues the change to the feeder.",
+			"settings-calibration": "Rate calibration dispenses a measured dose and corrects grams per second. A target check dispenses a dose you weigh, and repeats until the error is within five percent.",
+			"settings-hopper": "Hopper calibration converts the sensor's distance reading into kilos, using the full and empty heights and the capacity of your hopper.",
+			"settings-recalibration": "Set how often a feeder should be recalibrated. The app flags the device as overdue when the interval passes.",
+			"settings-password": "Change your password here. You will stay signed in on this device.",
+			"settings-notifications": "Notification settings choose which alerts arrive in the app and which also go by email.",
+			"settings-data": "Data settings export your records or import older ones.",
+			"admin-devices-list": "The list shows each feeder's pond, model, firmware, status and last contact.",
+			"admin-devices-print": "Print label opens the sticker for one feeder, with its QR code and pairing details.",
+			"admin-devices-token": "Reveal token shows the device token once so it can be entered on a replacement controller. Every reveal is audited.",
+			"admin-members-invite": "Invite member creates a one-time temporary password and, when email is configured, sends it to the person.",
+			"admin-members-list": "The member list shows role, status, last sign-in and how many permissions each person has.",
+			"admin-members-permissions": "Permissions opens a page of switches for one member, on top of what the role already allows.",
+			"admin-members-last-owner": "An owner cannot be removed or demoted by another admin, and the last owner of an organization stays an owner.",
+			"admin-settings-members": "Members and roles are managed in the section above. Only owners and admins can change them.",
+			"admin-settings-planned": "Default feeding rate, notification defaults and device registration are marked as coming soon on this page; this guide will point at them when they ship.",
+			"superadmin-search": "Search filters the list by name, email or id, depending on the page.",
+			"superadmin-new-user": "New account creates a login and its first organization membership.",
+			"superadmin-user-actions": "Row actions grant or revoke platform admin and disable an account. Disabling is reversible; nothing is deleted here.",
+			"superadmin-step-up": "Dangerous changes ask you to re-enter your password and give a reason. Both are recorded in the platform audit log.",
+			"superadmin-org-search": "Search organizations by name or owner.",
+			"superadmin-create-org": "Create organization sets up the tenant and its first owner.",
+			"superadmin-org-members": "Manage members opens the organization's member list with invite, role and permission controls.",
+			"superadmin-view-as": "View as opens the tenant dashboard read-only. Every write is blocked while view-as is active, and you can exit from the red banner.",
+			"superadmin-pond-search": "Search ponds by name, owner or farm id.",
+			"superadmin-ponds-read-only": "This list is read-only by design: pond changes belong to the tenant console, so the platform view cannot drift from what the tenant sees.",
+			"superadmin-register-device": "Register device pairs a controller by its MAC address and assigns it to an organization and pond.",
+			"superadmin-print-sticker": "Print sticker opens the label for one device; Print selected does several at once.",
+			"superadmin-rotate-token": "Rotate token replaces a device token. The old token stops working immediately and the new one is shown once.",
+			"superadmin-remote-feed": "Remote feeder control dispenses, pauses or resumes any device. It needs a reason, uses the same caps as the tenant controls, and is audited.",
+			"superadmin-ai-chain": "Each provider has a model, priority, effort and enabled switch. The chain is tried in priority order until one answers.",
+			"superadmin-ai-reset": "Reset returns the chain to the built-in defaults. Environment variables are not touched.",
+			"superadmin-page-size": "The page size applies to every numbered list in the product, including tenant and farmer screens.",
+			"superadmin-audit": "Every change here needs a reason and is written to the platform audit log with the actor."
+		}
 	}
 }

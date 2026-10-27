@@ -3,6 +3,7 @@
 import { clearChatHistory } from "@/components/chat/chat-storage";
 import { useChatWidget } from "@/components/chat/chat-widget-provider";
 import { DarkModeToggle } from "@/components/dark-mode-toggle";
+import { HelpButton } from "@/components/help/help-button";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { PondSelector } from "@/components/pond-selector";
@@ -85,6 +86,8 @@ export function HeaderActions({
 
 			<DarkModeToggle />
 			<LocaleSwitcher />
+
+			<HelpButton audience={isTenantAdmin ? "owner" : "farmer"} className="hidden sm:flex" />
 
 			<NotificationBell />
 

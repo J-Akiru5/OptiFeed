@@ -2386,5 +2386,148 @@
 			"invalid": "Pilia ang bug-os nga numero halin {min} hasta {max}.",
 			"failed": "Indi ma-save ang kadamu sang pahina."
 		}
+	},
+	"help": {
+		"button": "Buksan ang bulig para sa sini nga pahina",
+		"title": "Bulig",
+		"subtitle": "Malip-ot nga giya para sa pahina nga imo ginagamit",
+		"close": "Isara ang bulig",
+		"showMe": "Ipakita sa akon",
+		"missing": "Wala ang kontrol sa sini nga pahina subong. Mahimo nga magwa ini pagkatapos mag-load, ukon kinahanglan sang iban nga role.",
+		"onThisPage": "Ini nga pahina",
+		"takeTour": "Himoa ang tour",
+		"more": "May pamangkot pa? I-email kami sa",
+		"sections": {
+			"dashboard": {
+				"title": "Dashboard",
+				"intro": "Tanan parte sa aktibo nga punong: ang feeder, ang masunod nga pagpakaon kag ang mga numero sa likod sini. Ang pond selector sa header nagabaylo sang punong."
+			},
+			"schedule": {
+				"title": "Iskedyul sang Pagpakaon",
+				"intro": "Kon san-o nagadagan ang feeder, pila ang iyang ginapagwa, kag paano i-pause nga indi mawala ang iskedyul."
+			},
+			"biomass": {
+				"title": "Biomass Log",
+				"intro": "Timbanga ang sampol sang isda agod ang plano sang pagpakaon magsunod sa matuod nga pagtubo sang punong."
+			},
+			"history": {
+				"title": "History",
+				"intro": "Tanan nga nakumpirma nga pagpakaon, diin ini halin, kag ang lebel sang hopper sadto."
+			},
+			"growth": {
+				"title": "Pagtubo",
+				"intro": "Average nga timbang sang lawas, feed conversion kag ang plano nga ginasunod sang feeder. Ang history nagatago sang tanan nga sampol."
+			},
+			"harvest": {
+				"title": "Pag-ani kag Kalendaryo",
+				"intro": "Ang crop cycle kag ang mga event sa kalendaryo sang punong."
+			},
+			"settings": {
+				"title": "Mga Setting",
+				"intro": "Konfigurasyon sang punong, ang hardware kag calibration, ang imo profile kag data."
+			},
+			"admin-devices": {
+				"title": "Mga Device",
+				"intro": "Tanan nga feeder sa imo organisasyon, ang punong, token kag sticker."
+			},
+			"admin-members": {
+				"title": "Mga Miyembro kag Permiso",
+				"intro": "Sin-o ang makasulod sa imo mga umahan, kag ano ang sarang nila himuon."
+			},
+			"admin-settings": {
+				"title": "Setting sang Organisasyon",
+				"intro": "Mga default sang organisasyon nga naga-apektar sa tanan nga punong kag miyembro."
+			},
+			"superadmin-users": {
+				"title": "Mga User",
+				"intro": "Tanan nga account sa plataporma, bisan ano nga organisasyon."
+			},
+			"superadmin-orgs": {
+				"title": "Mga Organisasyon",
+				"intro": "Tanan nga tenant, ang ila mga miyembro kag ano ang sarang himuon sang plataporma para sa ila."
+			},
+			"superadmin-ponds": {
+				"title": "Mga Punong",
+				"intro": "Read-only nga pagtan-aw sa tanan nga punong sa plataporma."
+			},
+			"superadmin-devices": {
+				"title": "Fleet sang Device",
+				"intro": "Rehistro, token, sticker kag remote control para sa tanan nga feeder."
+			},
+			"superadmin-ai": {
+				"title": "Mga AI Provider",
+				"intro": "Ang chain sang modelo sa likod sang assistant kag sang advice sa pagpakaon."
+			},
+			"superadmin-settings": {
+				"title": "Setting sang Plataporma",
+				"intro": "Mga default nga ginagamit sang tanan nga organisasyon."
+			}
+		},
+		"items": {
+			"dashboard-feed-now": "Ang Feed Now gilayon nga nagapagwa sang masunod nga iskedyul nga dosis. Nagapamangkot anay sang kumpirmasyon, ginablock kon offline ang feeder, kag ginatahod ang daily cap.",
+			"dashboard-next-feeding": "Ang next feeding tile nagapakita kon san-o magadagan ang feeder kag pila ang iyang ipagwa, base sa iskedyul nga ginadagan sang feeder.",
+			"dashboard-fcr": "Ang feed conversion ratio nagatandi sang patuka nga gingamit sa timbang nga nadugang. I-tap ang tile para sa growth charts kag plano sa likod sang numero.",
+			"dashboard-ai-advisor": "Ang AI advisor nagsugyot sang rasyon base sa growth plan sang punong kag sa bag-o nga pagpakaon. Buksa para sa rason, ukon i-refresh para sa bag-o nga sugyot.",
+			"dashboard-hopper": "Ang hopper level amo ang katapusan nga reading nga ginpadala sang device. Ang offline nga feeder nagapabilin sang last known level, greyed out, upod ang oras sang reading.",
+			"dashboard-water-temp": "Ang temperatura sang tubig halin sa probe. Kon stale ang reading, wala lang nagreport ang probe — indi buot silingon nga malamig ang tubig.",
+			"dashboard-export": "Ang Export PDF nagasave sini nga pahina bilang report nga sarang mo ipadala ukon tagoan.",
+			"dashboard-feed-log": "Ang recent feedings nagalista kon ano gid ang ginpagwa sang feeder, upod ang source: scheduled, dashboard ukon ang physical button.",
+			"dashboard-biomass": "Ang biomass samples nagapadalagan sang growth model kag sang rasyon sang feeder. Maglog pagkatapos sang kada pagtimbang.",
+			"schedule-editor": "Ibutang ang oras nga sarang magdagan ang feeder kag pila ka pagpakaon ang sulod sini. Ang summary sa idalom nagapakita sang interval.",
+			"schedule-save": "Ang Save changes nagapadala sang bag-o nga iskedyul sa device. Wala sing mabag-o hasta makumpirma sang device.",
+			"schedule-controls": "Ang Pause nagapundo sang scheduled feedings nga wala ginadula ang iskedyul; ang Resume nagabalik sini. Ang feed button diri nagapagwa sang isa ka dosis subong.",
+			"schedule-clock": "Ang orasan sa sulod sang feeder nagadrift. Kon sala ang oras sang pagpakaon, i-set ang device time halin sa browser.",
+			"schedule-pending": "Ang pending command napadala na pero wala pa makumpirma sang device. I-refresh ang pahina para makita ang pinakabag-o nga estado.",
+			"biomass-form": "Pilia ang Average mode para sa grupo nga gintimbang, ukon Individual mode para sa kada isda. Ang form nagasave sa aktibo nga punong.",
+			"biomass-sample-size": "Mas dako nga sampol, mas husto nga estimate: 30 hasta 50 ka isda labi pa sa diutay lang, kag gamita permi ang pareho nga timbangan.",
+			"biomass-batches": "Ang saved batches nagagrupo sang sampol base sa weighing session, agod makita sa ulihi kon ano ang gintimbang upod.",
+			"history-log": "Ang event log nagalista sang kada nakumpirma nga pagpagwa, pinakabag-o anay, kag sarang hanapon kag pahinahan.",
+			"history-export": "Ang Export nagadownload sang records bilang CSV ukon ZIP, sa mga data type nga imo pilion.",
+			"history-import": "Ang Import nagadala sang daan nga records halin sa spreadsheet. Wala sing ginasulat hasta makumpirma mo ang preview.",
+			"history-feed-level": "Ang feed-level cards nagabasa sang hopper sensor. Ang greyed level amo ang last known value halin sa offline nga feeder.",
+			"growth-charts": "Ang growth trend nagapakita sang average body weight halin sa imo mga sampol; ang feed-level chart nagapakita kon kadasig mag-ubos ang hopper.",
+			"growth-plan": "Ang growth plan may target weight kag petsa sang pag-ani. I-apply agod ma-adjust sang feeder ang rasyon sa plano.",
+			"growth-fcr-calculator": "Ang FCR calculator nagakombertir sang current biomass, target weight kag days to target sa feed conversion nga ginakinahanglan sang plano.",
+			"growth-history": "Ang History nagatago sang tanan nga biomass kag feed-level reading, sarang ma-filter sa petsa kag teksto. Gamita para makita ang trend.",
+			"harvest-calendar": "Ang kalendaryo nagapakita sang mga event sang punong. I-drag ang event para ibalhin, ukon buksa para markahan nga tapos na.",
+			"harvest-add-event": "Ang Add event nagarecord sang task ukon nota sa isa ka petsa: sampling, bulong, pag-ani, bisan ano nga kinahanglan sang punong.",
+			"harvest-cycle": "Ang cycle card nagakwenta sang mga adlaw antes mag-ani kag nagatandi sang target kag aktwal nga timbang. Diri ka man mag-edit sang plano ukon magmarka nga naharvest na.",
+			"settings-cards": "Ang hub nagalink sa konfigurasyon sang punong, hardware kag calibration, imo profile kag data.",
+			"settings-farm-name": "Ang farm name amo ang makita sang mga miyembro. Kon bag-uhon, wala nagabag-o ang farm id.",
+			"settings-pond": "Ang pond settings may feeding rate, meals per day, sampling interval kag kadako sang punong. Ang pag-save nagapila sang pagbag-o sa feeder.",
+			"settings-calibration": "Ang rate calibration nagapagwa sang sukod nga dosis kag nagacorrect sang grams per second. Ang target check nagapagwa sang dosis nga imo timbangon, kag ginasulit hasta ang error lima ka porsyento lang.",
+			"settings-hopper": "Ang hopper calibration nagakombertir sang distance reading sang sensor sa kilo, gamit ang full kag empty nga kataas kag ang kapasidad sang imo hopper.",
+			"settings-recalibration": "Ibutang kon ano kasami dapat i-recalibrate ang feeder. Ginamarkahan sang app ang device nga overdue kon malabawan na ang interval.",
+			"settings-password": "Diri ka magbag-o sang password. Magapabilin ka nga naka-sign in sa sini nga device.",
+			"settings-notifications": "Ang notification settings nagapili kon diin nga alerts ang magwa sa app kag kon diin man ang mag-email.",
+			"settings-data": "Ang data settings naga-export sang imo records ukon nagadala sang daan.",
+			"admin-devices-list": "Ang listahan nagapakita sang punong, model, firmware, status kag katapusan nga contact sang kada feeder.",
+			"admin-devices-print": "Ang Print label nagabukas sang sticker para sa isa ka feeder, upod ang QR code kag pairing details.",
+			"admin-devices-token": "Ang Reveal token nagapakita sang device token sa isa ka bes para maipasok sa replacement controller. Ang kada reveal naka-audit.",
+			"admin-members-invite": "Ang Invite member nagahimo sang one-time temporary password kag, kon naka-setup ang email, ginapadala ini sa tawo.",
+			"admin-members-list": "Ang member list nagapakita sang role, status, katapusan nga sign-in kag pila ka permiso ang kada tawo.",
+			"admin-members-permissions": "Ang Permissions nagabukas sang pahina sang switches para sa isa ka miyembro, dugang sa ginatugot na sang role.",
+			"admin-members-last-owner": "Ang owner indi sarang matangtang ukon ma-demote sang iban nga admin, kag ang katapusan nga owner sang organisasyon nagapabilin nga owner.",
+			"admin-settings-members": "Ang mga miyembro kag role ginadumala sa section sa ibabaw. Ang owner kag admin lang ang makabag-o.",
+			"admin-settings-planned": "Ang default feeding rate, notification defaults kag device registration naka-marka nga coming soon sa sini nga pahina; itudlo na ini sang giya kon maggwa na.",
+			"superadmin-search": "Ang search nagafilter sang listahan base sa name, email ukon id, depende sa pahina.",
+			"superadmin-new-user": "Ang New account nagahimo sang login kag sang una nga membership sa organisasyon.",
+			"superadmin-user-actions": "Ang row actions nagahatag ukon nagakuha sang platform admin kag nagadisable sang account. Ang disable sarang mabalik; wala sing gindula diri.",
+			"superadmin-step-up": "Ang delikado nga pagbag-o nagapamangkot sang password liwat kag rason. Ang duha naka-record sa platform audit log.",
+			"superadmin-org-search": "Pangitaa ang organisasyon base sa pangalan ukon owner.",
+			"superadmin-create-org": "Ang Create organization nagasetup sang tenant kag sang una nga owner sini.",
+			"superadmin-org-members": "Ang Manage members nagabukas sang member list sang organisasyon upod ang invite, role kag permission controls.",
+			"superadmin-view-as": "Ang View as nagabukas sang tenant dashboard nga read-only. Ginablock ang tanan nga write samtang active ang view-as, kag makagwa ka sa red banner.",
+			"superadmin-pond-search": "Pangitaa ang punong base sa pangalan, owner ukon farm id.",
+			"superadmin-ponds-read-only": "Read-only ini nga listahan sa design: ang pagbag-o sang punong sa tenant console lang, agod indi magdiffer ang makita sang tenant kag sang plataporma.",
+			"superadmin-register-device": "Ang Register device nagapares sang controller base sa MAC address kag nagatakda sang organisasyon kag punong.",
+			"superadmin-print-sticker": "Ang Print sticker nagabukas sang label para sa isa ka device; ang Print selected nagahimo sang madamo upod.",
+			"superadmin-rotate-token": "Ang Rotate token nagailis sang device token. Ang daan nga token indi na magamit gilayon kag ang bag-o ipakita lang isa ka bes.",
+			"superadmin-remote-feed": "Ang Remote feeder control nagapagwa, nagapause ukon nagaresume sang bisan ano nga device. Kinahanglan sang rason, pareho nga caps sa tenant controls, kag naka-audit.",
+			"superadmin-ai-chain": "Ang kada provider may model, priority, effort kag enabled switch. Ginatilawan ang chain base sa priority hasta may magsabat.",
+			"superadmin-ai-reset": "Ang Reset nagabalik sang chain sa built-in defaults. Wala ginatandog ang environment variables.",
+			"superadmin-page-size": "Ang page size ginagamit sang tanan nga numbered list sa produkto, lakip ang tenant kag farmer screens.",
+			"superadmin-audit": "Ang kada pagbag-o diri kinahanglan sang rason kag naka-record sa platform audit log upod ang actor."
+		}
 	}
 }

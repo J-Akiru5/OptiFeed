@@ -199,3 +199,33 @@
 		animation: none;
 	}
 }
+
+/* The help centre's "show me" ring. Drawn as a separate element positioned over
+   the real control (lib/help/highlight.ts), so it never changes the control and
+   never takes its click. */
+@keyframes help-ring-pulse {
+	0% {
+		box-shadow: 0 0 0 3px rgba(232, 90, 42, 0.95), 0 0 0 8px rgba(232, 90, 42, 0.3);
+	}
+	70% {
+		box-shadow: 0 0 0 3px rgba(232, 90, 42, 0.95), 0 0 0 16px rgba(232, 90, 42, 0);
+	}
+	100% {
+		box-shadow: 0 0 0 3px rgba(232, 90, 42, 0.95), 0 0 0 8px rgba(232, 90, 42, 0.3);
+	}
+}
+
+.help-ring {
+	position: fixed;
+	z-index: 80;
+	pointer-events: none;
+	border-radius: 14px;
+	box-shadow: 0 0 0 3px rgba(232, 90, 42, 0.95);
+	animation: help-ring-pulse 1400ms ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.help-ring {
+		animation: none;
+	}
+}

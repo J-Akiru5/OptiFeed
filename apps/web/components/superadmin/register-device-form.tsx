@@ -100,7 +100,7 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 	};
 
 	return (
-		<div className={cn(CARD, "space-y-4 p-6")}>
+		<div className={cn(CARD, "space-y-4 p-6")} data-help="superadmin-register-device">
 			<h2 className="text-xs font-extrabold uppercase tracking-wider text-[#3D5568]">
 				{t("title")}
 			</h2>

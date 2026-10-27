@@ -573,7 +573,7 @@ export function DurationCalibrationForm({
 				: "border-[#0A3D62]/15 bg-[#F4F7F6] dark:border-gray-700 dark:bg-gray-800/60";
 
 	return (
-		<div className="space-y-5">
+		<div className="space-y-5" data-help="calibration-form">
 			<dl className="grid gap-3 sm:grid-cols-3">
 				<div className="rounded-xl bg-[#F4F7F6] p-4 dark:bg-gray-800/60">
 					<dt className="text-xs font-bold uppercase tracking-wide text-[#3D5568] dark:text-gray-400">

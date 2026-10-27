@@ -58,7 +58,10 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 	};
 
 	return (
-		<div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100">
+		<div
+			className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100"
+			data-help="fcr-calculator"
+		>
 			<div className="flex items-center gap-3 mb-6">
 				<div className="w-12 h-12 rounded-2xl bg-[#E85A2A]/10 flex items-center justify-center">
 					<Calculator className="w-6 h-6 text-[#E85A2A]" />

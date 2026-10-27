@@ -169,7 +169,7 @@ export function MembersSettings({
 	}
 
 	return (
-		<div className="space-y-5">
+		<div className="space-y-5" data-help="admin-members-list">
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div>
 					<h2 className="font-black text-[#0A3D62] dark:text-[#8fc0ea]">{t("membersTitle")}</h2>
@@ -184,6 +184,7 @@ export function MembersSettings({
 							setInviteOpen((open) => !open);
 							setInviteError(null);
 						}}
+						data-help="admin-invite-member"
 						className={`inline-flex items-center gap-1.5 rounded-xl bg-[#C2410C] px-3 py-2 text-xs font-black text-white shadow-sm transition-colors hover:bg-[#9A3412] ${focusRing}`}
 					>
 						<UserPlus aria-hidden="true" className="h-3.5 w-3.5" />
@@ -506,6 +507,7 @@ export function MembersSettings({
 											{canEditPermissions ? (
 												<Link
 													href={`/admin/settings/members/${member.userId}/permissions`}
+													data-help="admin-permissions-link"
 													aria-label={`${t("permissionsButton")} — ${name}`}
 													className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[#0A3D62]/20 px-3 text-xs font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6] dark:border-gray-600 dark:text-[#8fc0ea] dark:hover:bg-gray-800 ${focusRing}`}
 												>

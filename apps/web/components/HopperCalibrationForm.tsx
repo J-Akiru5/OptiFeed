@@ -56,7 +56,7 @@ export function HopperCalibrationForm({
 	};
 
 	return (
-		<div className="space-y-4">
+		<div className="space-y-4" data-help="hopper-calibration">
 			<div>
 				<label htmlFor="hopperFullCm" className={dashboardLabel}>
 					{t("hopperFullCm")}

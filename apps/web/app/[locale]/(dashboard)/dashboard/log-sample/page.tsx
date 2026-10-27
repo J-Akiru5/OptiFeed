@@ -84,6 +84,7 @@ export default async function LogSamplePage({
 
 			<section
 				aria-label={t("formLabel")}
+				data-help="biomass-form"
 				className="bg-white dark:bg-gray-900 rounded-3xl p-4 shadow-sm border border-gray-100 dark:border-gray-700/50 sm:p-8"
 			>
 				<LogSampleForm
@@ -97,7 +98,7 @@ export default async function LogSamplePage({
 				/>
 			</section>
 
-			<section aria-labelledby="saved-batches-heading" className="pt-4">
+			<section aria-labelledby="saved-batches-heading" data-help="biomass-batches" className="pt-4">
 				<h2
 					id="saved-batches-heading"
 					className="text-xl font-extrabold tracking-tight text-[var(--ofd-base-deep)] mb-4"

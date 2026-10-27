@@ -440,7 +440,10 @@ export function HarvestCalendar({
 		.slice(0, 5);
 
 	return (
-		<div className="mx-auto flex w-full min-w-0 max-w-[1600px] flex-col gap-4 animate-in fade-in duration-150 [contain:inline-size] xl:h-[calc(100dvh-8rem)] xl:overflow-hidden">
+		<div
+			className="mx-auto flex w-full min-w-0 max-w-[1600px] flex-col gap-4 animate-in fade-in duration-150 [contain:inline-size] xl:h-[calc(100dvh-8rem)] xl:overflow-hidden"
+			data-help="harvest-calendar"
+		>
 			<div className="flex flex-none flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
 				<div className="flex items-center gap-2">
 					<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
@@ -483,7 +486,10 @@ export function HarvestCalendar({
 						</>
 					) : selectedCycle && metrics ? (
 						<>
-							<div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-gray-100 bg-white px-4 py-2.5 shadow-sm dark:border-gray-700/60 dark:bg-gray-900">
+							<div
+								data-help="harvest-cycle"
+								className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-gray-100 bg-white px-4 py-2.5 shadow-sm dark:border-gray-700/60 dark:bg-gray-900"
+							>
 								<span className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">
 									{t("summary.eyebrow")}
 								</span>
@@ -776,6 +782,7 @@ export function HarvestCalendar({
 								{canManage && !allPonds && (
 									<button
 										type="button"
+										data-help="harvest-add-event"
 										onClick={() => {
 											setEditingEvent(null);
 											setEventDate(today);

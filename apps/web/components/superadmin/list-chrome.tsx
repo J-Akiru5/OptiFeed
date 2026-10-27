@@ -41,6 +41,7 @@ export function ListToolbar({
 						id={`${id}-search`}
 						name="q"
 						type="search"
+						data-help="superadmin-search"
 						defaultValue={query}
 						placeholder={placeholder}
 						autoComplete="off"

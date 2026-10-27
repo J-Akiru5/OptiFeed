@@ -159,6 +159,17 @@ export function PrivacyPolicyContent() {
 							source: "You, your farm administrator, Supabase Auth, and our security logs.",
 						},
 						{
+							category: "Profile photo (optional)",
+							data: (
+								<>
+									A picture you choose to upload. It is shown to members of your organization
+									wherever an avatar appears, and is only served through short-lived signed links.
+									It is not used for identification, biometrics, or automated decisions.
+								</>
+							),
+							source: "You, when you upload it in Profile settings.",
+						},
+						{
 							category: "Farm operations",
 							data: (
 								<>
@@ -506,6 +517,10 @@ export function PrivacyPolicyContent() {
 							data: "Farm operational records",
 							period:
 								"5 years after the record is created, unless the farm instructs earlier deletion or a legal hold applies.",
+						},
+						{
+							data: "Profile photo (optional)",
+							period: "Until you remove it or your account is deleted.",
 						},
 						{
 							data: "Security, rate-limit, and audit logs",

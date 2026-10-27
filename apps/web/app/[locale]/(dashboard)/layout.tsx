@@ -19,6 +19,7 @@ import { isCurrentPlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { getCurrentPondOwnerId, requirePasswordChanged } from "@/lib/auth/session";
 import { isCurrentTenantAdmin } from "@/lib/auth/tenant-admin";
 import { getViewAsState } from "@/lib/auth/view-as";
+import { getSignedAvatarUrls } from "@/lib/avatars";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
@@ -52,6 +53,9 @@ export default async function DashboardLayout({
 	});
 
 	const tCommon = await getTranslations("dashboard.common");
+	const avatarUrls = currentUser
+		? await getSignedAvatarUrls([{ id: currentUser.id, avatarPath: currentUser.avatarPath }])
+		: {};
 
 	// Farmer pond chrome (pond name/selector, last synced, hopper widget) is
 	// tenant identity, and a platform admin has none outside view-as.
@@ -184,6 +188,7 @@ export default async function DashboardLayout({
 												email: currentUser.email,
 												role: currentUser.role,
 												displayName: currentUser.displayName,
+												avatarUrl: avatarUrls[currentUser.id] ?? null,
 												isTenantAdmin,
 												isPlatformAdmin,
 											}

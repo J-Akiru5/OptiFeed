@@ -21,6 +21,7 @@ import {
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { invalidateFarm } from "@/lib/auth/session-cache";
 import { TENANT_ADMIN_ROLES, requireTenantAdmin } from "@/lib/auth/tenant-admin";
+import { getSignedAvatarUrls } from "@/lib/avatars";
 import { feedingRatePctSchema, formatZodError } from "@/lib/limits";
 import { inviteOrAttachMember } from "@/lib/membership-invite";
 import { deliverMemberInviteEmail } from "@/lib/notify/invite-email";
@@ -192,9 +193,18 @@ export async function deleteUser(userId: string): Promise<DeleteUserResult> {
  * so this transaction helper is not itself callable as a server action.
  */
 
+/** A tenant user row as the admin console sees it; never the raw object key. */
+export type AdminUserRow = Omit<
+	Prisma.UserGetPayload<{ include: { farm: true } }>,
+	"avatarPath"
+> & {
+	/** 1 h signed URL for the user's picture, or null for initials. */
+	avatarUrl: string | null;
+};
+
 export async function getUsers(
 	input: { page?: number; pageSize?: number } = {},
-): Promise<AdminListPage<Prisma.UserGetPayload<{ include: { farm: true } }>>> {
+): Promise<AdminListPage<AdminUserRow>> {
 	await requireTenantAdmin();
 	const pageSize = await resolveAdminPageSize(input.pageSize);
 	const [scope, platformAdmins] = await Promise.all([resolveOrgScope(), platformAdminUserIds()]);
@@ -216,7 +226,7 @@ export async function getUsers(
 		}),
 	]);
 	const paging = resolvePagination(requestedPage, pageSize, total);
-	const rows =
+	const fetched =
 		paging.page === requestedPage
 			? firstFetch
 			: await prisma.user.findMany({
@@ -226,6 +236,16 @@ export async function getUsers(
 					take: paging.pageSize,
 					include: { farm: true },
 				});
+
+	// Sign the pictures in one Storage call and drop the object key: callers get
+	// a short-lived URL, never another user's storage path (#198, E20).
+	const avatarUrls = await getSignedAvatarUrls(
+		fetched.map((user) => ({ id: user.id, avatarPath: user.avatarPath })),
+	);
+	const rows: AdminUserRow[] = fetched.map(({ avatarPath: _avatarPath, ...user }) => ({
+		...user,
+		avatarUrl: avatarUrls[user.id] ?? null,
+	}));
 
 	return { rows, total, page: paging.page, pageSize: paging.pageSize };
 }
@@ -413,6 +433,8 @@ export type TenantMemberRow = {
 	displayName: string | null;
 	role: MemberRole;
 	joinedAt: Date;
+	/** 1 h signed URL for the member's picture, or null for the initials fallback. */
+	avatarUrl: string | null;
 	/** The caller's role in the row's organization (OWNER or ADMIN). */
 	callerRole: MemberRole;
 	isSelf: boolean;
@@ -529,7 +551,7 @@ export async function listTenantMembers(
 	const [users, permissionRows, platformAdmins, ownerCounts] = await Promise.all([
 		prisma.user.findMany({
 			where: { id: { in: userIds } },
-			select: { id: true, farmId: true, email: true, displayName: true },
+			select: { id: true, farmId: true, email: true, displayName: true, avatarPath: true },
 		}),
 		prisma.membershipPermission.findMany({
 			where: { membershipId: { in: membershipIds } },
@@ -581,6 +603,7 @@ export async function listTenantMembers(
 			displayName: user.displayName,
 			role: membership.role,
 			joinedAt: membership.createdAt,
+			avatarUrl: null,
 			callerRole,
 			isSelf: user.id === actor.id,
 			isPlatformAdmin: platformAdminIds.has(user.id),
@@ -589,6 +612,16 @@ export async function listTenantMembers(
 				...effectivePermissions(membership.role, overridesByMembership.get(membership.id)),
 			].sort(),
 		});
+	}
+
+	const avatarUrls = await getSignedAvatarUrls(
+		rows.map((row) => ({
+			id: row.userId,
+			avatarPath: userById.get(row.userId)?.avatarPath ?? null,
+		})),
+	);
+	for (const row of rows) {
+		row.avatarUrl = avatarUrls[row.userId] ?? null;
 	}
 
 	return { rows, total, page: paging.page, pageSize: paging.pageSize, orgOptions };

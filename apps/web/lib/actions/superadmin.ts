@@ -6,6 +6,7 @@ import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { invalidateFarm } from "@/lib/auth/session-cache";
 import { isStepUpRequiredError, withStepUp } from "@/lib/auth/step-up";
+import { getSignedAvatarUrls } from "@/lib/avatars";
 import { feedingRatePctSchema, formatZodError } from "@/lib/limits";
 import { resolvePagination } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
@@ -164,6 +165,8 @@ export type PlatformUserRow = {
 	isPlatformAdmin: boolean;
 	/** True after a safe disable (auth ban + revoked memberships). */
 	disabled: boolean;
+	/** 1 h signed URL for the account's picture, or null for initials. */
+	avatarUrl: string | null;
 	orgs: { id: string; name: string; role: MemberRole; memberCount: number }[];
 	pondCount: number;
 };
@@ -232,6 +235,7 @@ export async function listAllUsers(
 				farmId: true,
 				email: true,
 				displayName: true,
+				avatarPath: true,
 				role: true,
 				createdAt: true,
 				_count: { select: { ponds: true } },
@@ -251,6 +255,7 @@ export async function listAllUsers(
 				farmId: true,
 				email: true,
 				displayName: true,
+				avatarPath: true,
 				role: true,
 				createdAt: true,
 				_count: { select: { ponds: true } },
@@ -307,6 +312,9 @@ export async function listAllUsers(
 		memberOrgIds.set(m.userId, list);
 	}
 	const platformAdminIds = new Set(platformAdmins.map((r) => r.userId));
+	const avatarUrls = await getSignedAvatarUrls(
+		users.map((u) => ({ id: u.id, avatarPath: u.avatarPath })),
+	);
 
 	return {
 		rows: users.map((u) => ({
@@ -318,6 +326,7 @@ export async function listAllUsers(
 			createdAt: u.createdAt,
 			isPlatformAdmin: platformAdminIds.has(u.id),
 			disabled: latestSafetyAction.get(u.id) === "platform.user.disable",
+			avatarUrl: avatarUrls[u.id] ?? null,
 			pondCount: u._count.ponds,
 			orgs: (memberOrgIds.get(u.id) ?? [])
 				.map((orgId) => {

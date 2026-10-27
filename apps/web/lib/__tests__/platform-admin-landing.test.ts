@@ -158,7 +158,7 @@ describe("wiring", () => {
 			"utf8",
 		);
 
-		expect(layout).toContain("hasActiveTenantMembership(user.id)");
+		expect(layout).toContain("hasActiveTenantMembership(currentUser.id)");
 		expect(layout).toContain("hasFarmDashboard &&");
 		expect(layout).toContain('t("openFarmDashboard")');
 	});

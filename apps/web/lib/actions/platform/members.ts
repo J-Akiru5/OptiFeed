@@ -10,6 +10,7 @@ import {
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { getCurrentUser } from "@/lib/auth/session";
 import { isStepUpRequiredError, withStepUp } from "@/lib/auth/step-up";
+import { getSignedAvatarUrls } from "@/lib/avatars";
 import { inviteOrAttachMember } from "@/lib/membership-invite";
 import type { InviteLinkTransaction } from "@/lib/membership-invite";
 import { deliverMemberInviteEmail } from "@/lib/notify/invite-email";
@@ -126,6 +127,8 @@ export type PlatformOrgMember = {
 	displayName: string | null;
 	role: MemberRole;
 	joinedAt: Date;
+	/** 1 h signed URL for the member's picture, or null for the initials fallback. */
+	avatarUrl: string | null;
 	isPlatformAdmin: boolean;
 	/** Effective permissions, for the platform permission editor. */
 	permissions: Permission[];
@@ -173,7 +176,7 @@ export async function getOrgDetail(orgId: string): Promise<PlatformOrgDetail | n
 	const [users, permissionRows, platformAdmins] = await Promise.all([
 		prisma.user.findMany({
 			where: { id: { in: userIds } },
-			select: { id: true, farmId: true, email: true, displayName: true },
+			select: { id: true, farmId: true, email: true, displayName: true, avatarPath: true },
 		}),
 		prisma.membershipPermission.findMany({
 			where: { membershipId: { in: memberships.map((m) => m.id) } },
@@ -209,6 +212,7 @@ export async function getOrgDetail(orgId: string): Promise<PlatformOrgDetail | n
 			displayName: user.displayName,
 			role: membership.role,
 			joinedAt: membership.createdAt,
+			avatarUrl: null,
 			isPlatformAdmin: platformAdminIds.has(user.id),
 			permissions: [...effectivePermissions(membership.role, overrides)].sort(),
 			overrides: overrides
@@ -218,6 +222,16 @@ export async function getOrgDetail(orgId: string): Promise<PlatformOrgDetail | n
 					granted: row.revokedAt === null,
 				})),
 		});
+	}
+
+	const avatarUrls = await getSignedAvatarUrls(
+		members.map((member) => ({
+			id: member.userId,
+			avatarPath: userById.get(member.userId)?.avatarPath ?? null,
+		})),
+	);
+	for (const member of members) {
+		member.avatarUrl = avatarUrls[member.userId] ?? null;
 	}
 
 	return { org, members };

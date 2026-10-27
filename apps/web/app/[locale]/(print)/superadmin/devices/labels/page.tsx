@@ -12,9 +12,11 @@ export default async function PlatformDeviceLabelsPage({
 }: {
 	searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-	const { id } = await searchParams;
-	const devices = await getPlatformDevicesForLabels(idsFrom(id));
+	const params = await searchParams;
+	const devices = await getPlatformDevicesForLabels(idsFrom(params.id));
 	if (devices.length === 0) notFound();
 
-	return <DeviceLabelSheet devices={devices} backHref="/superadmin/devices" />;
+	return (
+		<DeviceLabelSheet devices={devices} backHref="/superadmin/devices" searchParams={params} />
+	);
 }

@@ -2,7 +2,15 @@
 
 import { Link, usePathname } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
-import { CalendarDays, Clock, Fish, LayoutDashboard, Settings, TrendingUp } from "lucide-react";
+import {
+	CalendarDays,
+	CalendarRange,
+	Clock,
+	Fish,
+	LayoutDashboard,
+	Settings,
+	TrendingUp,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 
 export function BottomNav() {
@@ -13,6 +21,7 @@ export function BottomNav() {
 		{ href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
 		{ href: "/dashboard/schedule", label: t("schedule"), icon: Clock },
 		{ href: "/dashboard/log-sample", label: t("logSample"), icon: Fish },
+		{ href: "/dashboard/calendar", label: t("calendar"), icon: CalendarRange },
 		{ href: "/dashboard/harvest", label: t("harvest"), icon: CalendarDays },
 		{ href: "/dashboard/growth", label: t("growth"), icon: TrendingUp },
 		{ href: "/dashboard/settings", label: t("settings"), icon: Settings },

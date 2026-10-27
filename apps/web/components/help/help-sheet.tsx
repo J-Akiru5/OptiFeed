@@ -172,7 +172,11 @@ export function HelpSheet({
 	// under the chat panel and the FAB cluster.
 	if (typeof document === "undefined") return null;
 	return createPortal(
-		<div className="fixed inset-0 z-[70]">
+		// The overlay clips the sheet and owns no scrolling of its own; the sheet
+		// body is the only scroll container, so a wheel or swipe inside it never
+		// reaches the page behind (which is what used to make the panel look
+		// stuck: the page scrolled, the sheet did not).
+		<div className="fixed inset-0 z-[70] overflow-hidden">
 			<button
 				type="button"
 				tabIndex={-1}
@@ -188,15 +192,18 @@ export function HelpSheet({
 				aria-labelledby="help-sheet-title"
 				data-help="help-sheet"
 				className={cn(
-					"m-0 max-h-none max-w-none border-0 p-0",
-					// Mobile: a bottom sheet that leaves the page visible above it.
-					"absolute inset-x-0 bottom-0 flex max-h-[85dvh] flex-col rounded-t-3xl bg-white text-[#0A3D62] shadow-2xl",
-					// Desktop: a full-height right-hand sheet.
-					"md:inset-y-0 md:right-0 md:left-auto md:max-h-none md:w-[min(420px,100vw)] md:rounded-none md:rounded-l-3xl",
+					"m-0 max-w-none border-0 p-0",
+					// The sheet must state its height: a `dialog` keeps the UA's
+					// `height: fit-content`, so insets alone leave it as tall as its
+					// content and the body below can never scroll (#214).
+					// Mobile: a bottom sheet capped so the page stays visible above it.
+					"absolute inset-x-0 bottom-0 flex max-h-[85dvh] flex-col overflow-hidden rounded-t-3xl bg-white text-[#0A3D62] shadow-2xl",
+					// Desktop: a full-viewport-height right-hand sheet.
+					"md:inset-y-0 md:right-0 md:left-auto md:h-dvh md:max-h-dvh md:w-[min(420px,100vw)] md:rounded-none md:rounded-l-3xl",
 					"dark:bg-gray-900 dark:text-gray-100",
 				)}
 			>
-				<div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+				<div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-200 px-5 pt-[calc(1rem+env(safe-area-inset-top))] pb-4 md:py-4 dark:border-gray-700">
 					<div className="flex items-center gap-3">
 						<span
 							aria-hidden="true"
@@ -222,7 +229,10 @@ export function HelpSheet({
 					</button>
 				</div>
 
-				<div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+				<div
+					data-help-sheet-body
+					className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-4 py-4"
+				>
 					{missing && (
 						<output className="mb-3 block rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] font-bold text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
 							{t("missing")}
@@ -294,7 +304,7 @@ export function HelpSheet({
 					</div>
 				</div>
 
-				<div className="flex shrink-0 flex-col gap-2 border-t border-gray-200 px-5 py-4 dark:border-gray-700">
+				<div className="flex shrink-0 flex-col gap-2 border-t border-gray-200 px-5 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:py-4 dark:border-gray-700">
 					{hasTour && (
 						<button
 							type="button"

@@ -3,6 +3,7 @@
 import { Link, usePathname } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
 import {
+	Activity,
 	BarChart3,
 	Bell,
 	CalendarDays,
@@ -17,6 +18,7 @@ import {
 	LayoutDashboard,
 	type LucideIcon,
 	MapPin,
+	Menu,
 	Plus,
 	ScanLine,
 	Search,
@@ -138,6 +140,12 @@ export function quickMenuSections(input: {
 					{ id: "ponds", label: nav("ponds"), href: "/superadmin/ponds", icon: Droplets },
 					{ id: "devices", label: nav("devices"), href: "/superadmin/devices", icon: Cpu },
 					{
+						id: "operations",
+						label: nav("operations"),
+						href: "/superadmin/operations",
+						icon: Activity,
+					},
+					{
 						id: "ai-providers",
 						label: nav("aiProviders"),
 						href: "/superadmin/ai-providers",
@@ -202,7 +210,8 @@ const triggerClass =
 	"inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A3D62]";
 
 /**
- * The header band's search and "+" controls, which open one quick menu.
+ * The header band's search and "+" controls and the bottom bar's "More" tab,
+ * which all open one quick menu.
  *
  * The sheet is a bottom sheet on a phone (never taller than the viewport,
  * `dvh` so the browser chrome does not cut it off) with the search field first,
@@ -213,11 +222,17 @@ export function QuickMenu({
 	shell,
 	isTenantAdmin,
 	trigger,
+	label,
+	active = false,
 	className,
 }: {
 	shell: MobileShell;
 	isTenantAdmin: boolean;
-	trigger: "plus" | "search";
+	trigger: "plus" | "search" | "more";
+	/** Visible label for the `more` tab. */
+	label?: string;
+	/** True when the `more` tab represents the current page. */
+	active?: boolean;
 	className?: string;
 }) {
 	const t = useTranslations("dashboard.mobile");
@@ -272,22 +287,53 @@ export function QuickMenu({
 		};
 	}, [open]);
 
+	const isMore = trigger === "more";
+	const triggerLabel =
+		trigger === "plus" ? t("openMenu") : isMore ? t("moreLabel") : t("searchLabel");
+
+	const triggerContent = (
+		<>
+			{trigger === "plus" ? (
+				<Plus aria-hidden="true" className="h-5 w-5" />
+			) : isMore ? (
+				<Menu aria-hidden="true" className="h-5 w-5" />
+			) : (
+				<Search aria-hidden="true" className="h-5 w-5" />
+			)}
+			{isMore && (
+				<span className="w-full truncate text-center text-[10px] leading-tight font-bold">
+					{label ?? triggerLabel}
+				</span>
+			)}
+			{isMore && active && (
+				<span
+					aria-hidden="true"
+					className="absolute top-0 h-0.5 w-5 rounded-full bg-[#FF6B35] dark:bg-[#ff8a5c]"
+				/>
+			)}
+		</>
+	);
+
+	const triggerClasses = isMore
+		? cn(
+				"relative flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 transition-colors focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none",
+				active ? "text-white" : "text-white/75 hover:text-white",
+				className,
+			)
+		: cn(triggerClass, className);
+
 	if (!mounted) {
 		// The trigger is rendered on the server; the sheet needs `document`.
 		return (
 			<button
 				ref={triggerRef}
 				type="button"
-				aria-label={trigger === "plus" ? t("openMenu") : t("searchLabel")}
+				aria-label={triggerLabel}
 				aria-haspopup="dialog"
 				data-mobile-trigger={trigger}
-				className={cn(triggerClass, className)}
+				className={triggerClasses}
 			>
-				{trigger === "plus" ? (
-					<Plus aria-hidden="true" className="h-5 w-5" />
-				) : (
-					<Search aria-hidden="true" className="h-5 w-5" />
-				)}
+				{triggerContent}
 			</button>
 		);
 	}
@@ -301,17 +347,13 @@ export function QuickMenu({
 					setQuery("");
 					setOpen(true);
 				}}
-				aria-label={trigger === "plus" ? t("openMenu") : t("searchLabel")}
+				aria-label={triggerLabel}
 				aria-haspopup="dialog"
 				aria-expanded={open}
 				data-mobile-trigger={trigger}
-				className={cn(triggerClass, className)}
+				className={triggerClasses}
 			>
-				{trigger === "plus" ? (
-					<Plus aria-hidden="true" className="h-5 w-5" />
-				) : (
-					<Search aria-hidden="true" className="h-5 w-5" />
-				)}
+				{triggerContent}
 			</button>
 
 			{open &&

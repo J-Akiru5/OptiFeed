@@ -102,12 +102,36 @@ describe("farmer bottom bar (E26)", () => {
 });
 
 describe("console bottom bars keep every destination", () => {
-	it("admin bar still reaches all six sections", () => {
+	it("admin bar keeps four primary sections plus More, at 44 px or more", () => {
 		pathname.current = "/admin/ponds";
 		const html = renderToStaticMarkup(<AdminBottomNav />);
-		expect(html.split("<a ").length - 1).toBe(6);
+
+		expect(html.split("<a ").length - 1).toBe(4);
+		expect(html.split('data-mobile-trigger="more"').length - 1).toBe(1);
+		expect(html.split("min-h-14").length - 1).toBeGreaterThanOrEqual(5);
+
 		const active = html.match(/<a [^>]*aria-current="page"[^>]*>/)?.[0] ?? "";
 		expect(active).toContain('href="/admin/ponds"');
+	});
+
+	it("admin More lists every remaining section", () => {
+		pathname.current = "/admin/ponds";
+		render(<AdminBottomNav />);
+		fireEvent.click(screen.getByRole("button", { name: "More sections" }));
+
+		expect(screen.getByRole("dialog", { name: "Quick menu" })).toBeTruthy();
+		for (const label of [
+			"Overview",
+			"Calendar",
+			"Users",
+			"Ponds",
+			"Devices",
+			"Hierarchy",
+			"Audit log",
+			"Settings",
+		]) {
+			expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+		}
 	});
 });
 
@@ -174,7 +198,20 @@ describe("quick menu (E26)", () => {
 			nav: tNavPlatform,
 		});
 		expect(sections[0].items[0]?.href).toBe("/superadmin/devices#register-device");
-		expect(sections[1].items.map((item) => item.href)).toContain("/superadmin/settings");
+		const hrefs = sections[1].items.map((item) => item.href);
+		for (const href of [
+			"/superadmin",
+			"/superadmin/calendar",
+			"/superadmin/users",
+			"/superadmin/orgs",
+			"/superadmin/ponds",
+			"/superadmin/devices",
+			"/superadmin/operations",
+			"/superadmin/ai-providers",
+			"/superadmin/settings",
+		]) {
+			expect(hrefs).toContain(href);
+		}
 	});
 
 	it("opens a searchable sheet and filters the items", () => {

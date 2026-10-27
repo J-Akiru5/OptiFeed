@@ -1,26 +1,34 @@
 "use client";
 
+import { QuickMenu } from "@/components/mobile/quick-menu";
 import { Link, usePathname } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
-import { CalendarDays, Cpu, Droplets, FileText, Home, Users } from "lucide-react";
+import { Cpu, Droplets, Home, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 /**
  * Admin console navigation below `lg`, where AdminSidebar is hidden.
- * Hierarchy and Settings stay in the sidebar.
+ *
+ * Four primary sections plus a "More" tab, not the previous six: at 375 px a
+ * seven-column bar leaves under 44 px per target, and nine sections on the
+ * platform bar left 41 px. "More" opens the same quick menu the header band
+ * uses, which carries every remaining section (Calendar, Hierarchy, Audit log,
+ * Settings) one tap away.
  */
+const primary = [
+	{ href: "/admin", key: "overview", icon: Home },
+	{ href: "/admin/ponds", key: "ponds", icon: Droplets },
+	{ href: "/admin/devices", key: "devices", icon: Cpu },
+	{ href: "/admin/users", key: "users", icon: Users },
+] as const;
+
 export function AdminBottomNav() {
 	const t = useTranslations("dashboard.adminShell");
 	const pathname = usePathname();
 
-	const navItems = [
-		{ href: "/admin", label: t("nav.overview"), icon: Home },
-		{ href: "/admin/calendar", label: t("nav.calendar"), icon: CalendarDays },
-		{ href: "/admin/users", label: t("nav.users"), icon: Users },
-		{ href: "/admin/ponds", label: t("nav.ponds"), icon: Droplets },
-		{ href: "/admin/devices", label: t("nav.devices"), icon: Cpu },
-		{ href: "/admin/audit", label: t("nav.audit"), icon: FileText },
-	];
+	const isCurrent = (href: string) =>
+		href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
+	const moreActive = !primary.some((item) => isCurrent(item.href));
 
 	return (
 		<nav
@@ -28,11 +36,8 @@ export function AdminBottomNav() {
 			className="ofd-band fixed right-0 bottom-0 left-0 z-40 border-t border-white/10 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.15)] lg:hidden"
 		>
 			<ul className="flex items-stretch px-1">
-				{navItems.map((item) => {
-					const isActive =
-						item.href === "/admin"
-							? pathname === "/admin" || pathname === "/admin/"
-							: pathname.startsWith(item.href);
+				{primary.map((item) => {
+					const isActive = isCurrent(item.href);
 
 					return (
 						<li key={item.href} className="min-w-0 flex-1">
@@ -59,12 +64,21 @@ export function AdminBottomNav() {
 										isActive ? "font-black" : "font-bold",
 									)}
 								>
-									{item.label}
+									{t(`nav.${item.key}`)}
 								</span>
 							</Link>
 						</li>
 					);
 				})}
+				<li className="min-w-0 flex-1">
+					<QuickMenu
+						shell="admin"
+						isTenantAdmin
+						trigger="more"
+						label={t("nav.more")}
+						active={moreActive}
+					/>
+				</li>
 			</ul>
 		</nav>
 	);

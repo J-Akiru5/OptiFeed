@@ -1863,7 +1863,8 @@
 				"devices": "Mga Device",
 				"hierarchy": "Hierarkiya",
 				"audit": "Talaan sang Audit",
-				"settings": "Mga Setting"
+				"settings": "Mga Setting",
+				"more": "Dugang"
 			},
 			"panelLabel": "Panel sang Admin",
 			"profile": "Ang imo laray sang profile kag mga setting"
@@ -2215,6 +2216,7 @@
 		"mobile": {
 			"openMenu": "Madasig nga mga aksyon",
 			"menuLabel": "Madasig nga menu",
+			"moreLabel": "Dugang nga mga seksyon",
 			"close": "Sirad-i ang madasig nga menu",
 			"searchLabel": "Pangitaa ang mga pahina kag aksyon",
 			"searchPlaceholder": "Pangitaa ang mga pahina kag aksyon",
@@ -2500,7 +2502,8 @@
 				"devices": "Mga Device",
 				"aiProviders": "Mga AI Provider",
 				"settings": "Mga Setting",
-				"operations": "Operasyon"
+				"operations": "Operasyon",
+				"more": "Dugang"
 			},
 			"shortNav": {
 				"overview": "Panglantaw",
@@ -2511,7 +2514,8 @@
 				"devices": "Device",
 				"aiProviders": "AI",
 				"settings": "Setting",
-				"operations": "Ops"
+				"operations": "Ops",
+				"more": "Dugang"
 			}
 		},
 		"loading": {

@@ -1,58 +1,44 @@
 "use client";
 
+import { QuickMenu } from "@/components/mobile/quick-menu";
 import { FOCUS_RING_ON_DARK } from "@/components/superadmin/ui";
 import { Link, usePathname } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
-import {
-	Activity,
-	BarChart3,
-	CalendarDays,
-	Cpu,
-	Droplets,
-	FolderTree,
-	Settings,
-	Sparkles,
-	Users,
-} from "lucide-react";
+import { BarChart3, CalendarDays, Cpu, FolderTree } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 /**
  * Platform console navigation below `lg`, where SuperadminSidebar is hidden.
- * Mirrors the sidebar's scope: Devices is the hardware registry plus remote
- * feeder control (M5.2); Ponds remains visibility only; Calendar is the
- * read-only cross-tenant view (E16.2).
  *
- * The labels are shortened so every section fits at 375 px (AI Providers used
- * to be reachable only from the desktop sidebar); the `aria-label` keeps the
- * full section name for screen readers.
+ * Four primary sections plus a "More" tab. The console grew to nine sections
+ * (analytics, calendar, users, organizations, ponds, devices, operations, AI
+ * providers, settings) and nine columns at 375 px leave 41 px per target,
+ * below the 44 px minimum this redesign must meet. "More" opens the same quick
+ * menu as the header band, which lists every section with its full name.
  */
-const navItems = [
+const primary = [
 	{ href: "/superadmin", key: "overview", icon: BarChart3 },
 	{ href: "/superadmin/calendar", key: "calendar", icon: CalendarDays },
-	{ href: "/superadmin/users", key: "users", icon: Users },
-	{ href: "/superadmin/orgs", key: "organizations", icon: FolderTree },
-	{ href: "/superadmin/ponds", key: "ponds", icon: Droplets },
 	{ href: "/superadmin/devices", key: "devices", icon: Cpu },
-	{ href: "/superadmin/operations", key: "operations", icon: Activity },
-	{ href: "/superadmin/ai-providers", key: "aiProviders", icon: Sparkles },
-	{ href: "/superadmin/settings", key: "settings", icon: Settings },
+	{ href: "/superadmin/orgs", key: "organizations", icon: FolderTree },
 ] as const;
 
 export function SuperadminBottomNav() {
 	const t = useTranslations("superadmin.shell");
 	const pathname = usePathname();
 
+	const isCurrent = (href: string) =>
+		href === "/superadmin" ? pathname === "/superadmin" : pathname.startsWith(href);
+	const moreActive = !primary.some((item) => isCurrent(item.href));
+
 	return (
 		<nav
 			aria-label={t("bottomNavLabel")}
-			className="ofd-band fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.15)] lg:hidden"
+			className="ofd-band fixed right-0 bottom-0 left-0 z-40 border-t border-white/10 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.15)] lg:hidden"
 		>
 			<ul className="flex items-stretch px-1">
-				{navItems.map((item) => {
-					const isActive =
-						item.href === "/superadmin"
-							? pathname === "/superadmin" || pathname === "/superadmin/"
-							: pathname.startsWith(item.href);
+				{primary.map((item) => {
+					const isActive = isCurrent(item.href);
 
 					return (
 						<li key={item.href} className="min-w-0 flex-1">
@@ -73,7 +59,7 @@ export function SuperadminBottomNav() {
 										isActive ? "opacity-100" : "opacity-0",
 									)}
 								/>
-								<item.icon size={20} className="shrink-0" aria-hidden="true" />
+								<item.icon size={22} className="shrink-0" aria-hidden="true" />
 								<span
 									className={cn(
 										"w-full truncate text-center text-[10px] leading-tight",
@@ -86,6 +72,15 @@ export function SuperadminBottomNav() {
 						</li>
 					);
 				})}
+				<li className="min-w-0 flex-1">
+					<QuickMenu
+						shell="platform"
+						isTenantAdmin={false}
+						trigger="more"
+						label={t("shortNav.more")}
+						active={moreActive}
+					/>
+				</li>
 			</ul>
 		</nav>
 	);

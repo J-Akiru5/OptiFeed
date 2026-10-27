@@ -21,11 +21,13 @@ import {
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { invalidateFarm } from "@/lib/auth/session-cache";
 import { TENANT_ADMIN_ROLES, requireTenantAdmin } from "@/lib/auth/tenant-admin";
+import { feedingRatePctSchema, formatZodError } from "@/lib/limits";
 import { inviteOrAttachMember } from "@/lib/membership-invite";
 import { deliverMemberInviteEmail } from "@/lib/notify/invite-email";
 import { resolvePagination } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
 import { checkDeviceTokenRevealRateLimit } from "@/lib/rate-limit";
+import { ORG_SETTINGS_DEFAULTS, getOrgSettings } from "@/lib/settings/org";
 import { getListPageSize, normalizeListPageSize } from "@/lib/settings/platform";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MemberRole, PondStatus, Prisma, UserRole } from "@prisma/client";
@@ -938,7 +940,8 @@ export async function createPondWithFarmer(data: {
 	/** Temporary password. The user must change it on first login. */
 	password: string;
 	pondName: string;
-	feedingRatePct: number;
+	/** Omit to use the organization's default rate (issue #190). */
+	feedingRatePct?: number;
 	feedsPerDay: number;
 	population?: number | null;
 	scheduleStart: string;
@@ -967,6 +970,17 @@ export async function createPondWithFarmer(data: {
 		return { error: "You must belong to an organization to add farmers." };
 	}
 	const orgId = scope.orgIds[0] as string;
+
+	// New ponds inherit the org's default feeding rate unless the form sent an
+	// explicit value; the org row may not exist, in which case this is 3 %.
+	let feedingRatePct: number;
+	if (data.feedingRatePct === undefined) {
+		feedingRatePct = (await getOrgSettings(orgId)).defaultFeedingRatePct;
+	} else {
+		const parsedRate = feedingRatePctSchema.safeParse(data.feedingRatePct);
+		if (!parsedRate.success) return { error: formatZodError(parsedRate.error) };
+		feedingRatePct = parsedRate.data;
+	}
 
 	const email = buildPondEmail(loginId);
 
@@ -1015,7 +1029,7 @@ export async function createPondWithFarmer(data: {
 					name: pondName,
 					ownerId: loginId,
 					farmId: farm.id,
-					feedingRatePct: data.feedingRatePct,
+					feedingRatePct,
 					feedsPerDay: data.feedsPerDay,
 					population: data.population ?? null,
 					scheduleStart,
@@ -1051,7 +1065,8 @@ export async function createPondWithFarmer(data: {
 export async function createPond(data: {
 	name: string;
 	ownerFarmId: string;
-	feedingRatePct: number;
+	/** Omit to use the organization's default rate (issue #190). */
+	feedingRatePct?: number;
 	feedsPerDay: number;
 	population?: number | null;
 	scheduleStart: string;
@@ -1062,6 +1077,18 @@ export async function createPond(data: {
 	const scope = await resolveOrgScope();
 	if (!scope.farmIds.includes(data.ownerFarmId)) {
 		return { error: "That farm is outside your organization." };
+	}
+
+	let feedingRatePct: number;
+	if (data.feedingRatePct === undefined) {
+		const orgId = scope.orgIds[0];
+		feedingRatePct = orgId
+			? (await getOrgSettings(orgId)).defaultFeedingRatePct
+			: ORG_SETTINGS_DEFAULTS.defaultFeedingRatePct;
+	} else {
+		const parsedRate = feedingRatePctSchema.safeParse(data.feedingRatePct);
+		if (!parsedRate.success) return { error: formatZodError(parsedRate.error) };
+		feedingRatePct = parsedRate.data;
 	}
 
 	try {
@@ -1095,7 +1122,7 @@ export async function createPond(data: {
 					name: data.name,
 					ownerId: data.ownerFarmId,
 					farmId: farm.id,
-					feedingRatePct: data.feedingRatePct,
+					feedingRatePct,
 					feedsPerDay: data.feedsPerDay,
 					population: data.population ?? null,
 					scheduleStart,
@@ -1122,6 +1149,7 @@ export type AdminDeviceRow = Prisma.EnergyDeviceGetPayload<{
 		lastSeenAt: true;
 		feedLevelPercent: true;
 		gramsPerFeeding: true;
+		approvalStatus: true;
 		pond: { select: { id: true; name: true } };
 	};
 }>;
@@ -1149,6 +1177,7 @@ export async function getDevices(
 				lastSeenAt: true,
 				feedLevelPercent: true,
 				gramsPerFeeding: true,
+				approvalStatus: true,
 				pond: { select: { id: true, name: true } },
 			},
 			orderBy: { createdAt: "desc" },
@@ -1170,6 +1199,7 @@ export async function getDevices(
 						lastSeenAt: true,
 						feedLevelPercent: true,
 						gramsPerFeeding: true,
+						approvalStatus: true,
 						pond: { select: { id: true, name: true } },
 					},
 					orderBy: { createdAt: "desc" },
@@ -1227,7 +1257,9 @@ export async function revealDeviceToken(deviceId: string): Promise<RevealDeviceT
 		const device = await prisma.energyDevice.findFirst({
 			// `in: []` matches nothing, so a caller with no admin membership gets
 			// the same "not found" answer as a device from another tenant.
-			where: { id: deviceId, pondId: { in: scope.pondIds } },
+			// A PENDING/REJECTED device is not revealable: its token exists but
+			// must stay hidden until an org admin approves the unit.
+			where: { id: deviceId, pondId: { in: scope.pondIds }, approvalStatus: "APPROVED" },
 			select: { token: true, mac: true, label: true },
 		});
 		if (!device) return { success: false, error: "Device not found in your organization." };

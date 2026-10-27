@@ -6,8 +6,10 @@ import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { invalidateFarm } from "@/lib/auth/session-cache";
 import { isStepUpRequiredError, withStepUp } from "@/lib/auth/step-up";
+import { feedingRatePctSchema, formatZodError } from "@/lib/limits";
 import { resolvePagination } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
+import { ORG_SETTINGS_DEFAULTS, getOrgSettings } from "@/lib/settings/org";
 import { getListPageSize } from "@/lib/settings/platform";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MemberRole, Prisma, UserRole } from "@prisma/client";
@@ -350,7 +352,13 @@ export type CreatePlatformUserInput = {
 	/** Required for ADMIN and ORG_FARMER; ignored for INDEPENDENT_FARMER. */
 	orgId?: string;
 	/** Initial pond. Required for farmer kinds — a farmer with no pond is stuck. */
-	pond?: { name: string; feedingRatePct: number; feedsPerDay: number; population?: number };
+	pond?: {
+		name: string;
+		/** Omit to use the organization's default rate (issue #190). */
+		feedingRatePct?: number;
+		feedsPerDay: number;
+		population?: number;
+	};
 };
 
 /**
@@ -400,6 +408,20 @@ export async function createPlatformUser(
 			select: { id: true },
 		});
 		if (!org) return { error: "Organization not found." };
+	}
+
+	// New ponds inherit the org's default feeding rate unless the form sent an
+	// explicit value. An independent farmer's new org has no row, so the schema
+	// default applies (3 %).
+	let pondFeedingRatePct: number | undefined;
+	if (input.pond?.feedingRatePct !== undefined) {
+		const parsedRate = feedingRatePctSchema.safeParse(input.pond.feedingRatePct);
+		if (!parsedRate.success) return { error: formatZodError(parsedRate.error) };
+		pondFeedingRatePct = parsedRate.data;
+	} else if (input.kind !== "ADMIN") {
+		pondFeedingRatePct = input.orgId
+			? (await getOrgSettings(input.orgId)).defaultFeedingRatePct
+			: ORG_SETTINGS_DEFAULTS.defaultFeedingRatePct;
 	}
 
 	// Service-role client: auth.admin.createUser is rejected with the anon key.
@@ -460,7 +482,7 @@ export async function createPlatformUser(
 						ownerId: user.farmId,
 						farmId: farm.id,
 						name: pond.name.trim(),
-						feedingRatePct: pond.feedingRatePct,
+						feedingRatePct: pondFeedingRatePct ?? ORG_SETTINGS_DEFAULTS.defaultFeedingRatePct,
 						feedsPerDay: pond.feedsPerDay,
 						population: pond.population ?? null,
 						scheduleStart: new Date("1970-01-01T06:00:00.000Z"),

@@ -64,6 +64,7 @@ const DEVICE = {
 	// Auth goes through hash lookup (device-auth) — the mock row must carry
 	// the matching hash for the "test-token" header used by ingestRequest().
 	tokenHash: hashToken("test-token"),
+	approvalStatus: "APPROVED",
 };
 
 function ingestRequest(body: Record<string, unknown>): Request {
@@ -144,6 +145,18 @@ describe("POST /api/ingest — feed_dispensed dedupe (Gap #2)", () => {
 		expect(res.status).toBe(204);
 		expect(mockFeedRequest.findMany).toHaveBeenCalledTimes(1);
 		expect(mockFeedEvent.create).toHaveBeenCalledTimes(1);
+	});
+
+	it("rejects a PENDING device with 403 (org approval policy)", async () => {
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			approvalStatus: "PENDING",
+		} as never);
+
+		const res = await POST(ingestRequest(feedDispensedBody("evt-0005", "req-5")));
+		expect(res.status).toBe(403);
+		expect(mockFeedEvent.create).not.toHaveBeenCalled();
+		expect(mockFeedRequest.updateMany).not.toHaveBeenCalled();
 	});
 });
 

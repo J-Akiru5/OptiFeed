@@ -3,8 +3,11 @@
 import { actorContext, writePlatformAudit } from "@/lib/actions/platform/audit";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { isStepUpRequiredError, withStepUp } from "@/lib/auth/step-up";
-import { generateDeviceToken, hashToken } from "@/lib/device-auth";
-import { canonicalMac } from "@/lib/device-mac";
+import {
+	DUPLICATE_MAC_MESSAGE,
+	createDeviceCredentials,
+	validateDeviceRegistration,
+} from "@/lib/device-registration";
 import { createManualFeedRequest, setSchedulePause } from "@/lib/feed/commands";
 import { resolvePagination } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
@@ -286,8 +289,6 @@ export type RegisterDeviceResult =
 	| StepUpRequiredResult
 	| { error: string; code?: undefined };
 
-const DUPLICATE_MAC_MESSAGE = "A device with this MAC is already registered.";
-
 /**
  * Register a new device on a pond of an ACTIVE org (plan T15).
  *
@@ -311,14 +312,9 @@ export async function registerDevice(input: {
 		return { error: e instanceof Error ? e.message : "A reason is required." };
 	}
 
-	const mac = canonicalMac(typeof input.mac === "string" ? input.mac : "");
-	if (!mac) return { error: "Enter the 12-digit MAC, for example A4:CF:12:7E:3B:09." };
-
-	const label = typeof input.label === "string" ? input.label.trim() : "";
-	if (!label) return { error: "A device label is required." };
-	if (label.length > MAX_LABEL_LENGTH) {
-		return { error: `The label can be at most ${MAX_LABEL_LENGTH} characters.` };
-	}
+	const registration = validateDeviceRegistration({ mac: input.mac, label: input.label });
+	if (!registration.ok) return { error: registration.error };
+	const { mac, label } = registration;
 
 	if (typeof input.orgId !== "string" || typeof input.pondId !== "string") {
 		return { error: "Choose an organization and a pond." };
@@ -365,10 +361,19 @@ export async function registerDevice(input: {
 		// Registering hardware with a live credential is a device action: fresh
 		// password re-entry is required (plan §4.4), and the audit row records it.
 		const { deviceId, token } = await withStepUp(async (stepUpAt) => {
-			const newToken = generateDeviceToken();
+			const credentials = createDeviceCredentials();
 			const id = await prisma.$transaction(async (tx) => {
 				const device = await tx.energyDevice.create({
-					data: { mac, label, pondId: pond.id, token: newToken, tokenHash: hashToken(newToken) },
+					data: {
+						mac,
+						label,
+						pondId: pond.id,
+						token: credentials.token,
+						tokenHash: credentials.tokenHash,
+						// The platform registry always creates approved units; the
+						// tenant approval policy applies to the tenant flow only.
+						approvalStatus: "APPROVED",
+					},
 					select: { id: true },
 				});
 				await auditDevice(
@@ -386,7 +391,7 @@ export async function registerDevice(input: {
 				);
 				return device.id;
 			});
-			return { deviceId: id, token: newToken };
+			return { deviceId: id, token: credentials.token };
 		});
 
 		return { success: true, deviceId, mac, token };
@@ -448,11 +453,11 @@ export async function rotateDeviceToken(input: {
 		// A rotation invalidates the unit's working credential, so it needs a
 		// fresh step-up just like registration.
 		const token = await withStepUp(async (stepUpAt) => {
-			const newToken = generateDeviceToken();
+			const credentials = createDeviceCredentials();
 			await prisma.$transaction(async (tx) => {
 				await tx.energyDevice.update({
 					where: { id: device.id },
-					data: { token: newToken, tokenHash: hashToken(newToken) },
+					data: { token: credentials.token, tokenHash: credentials.tokenHash },
 				});
 				await auditDevice(
 					{
@@ -468,7 +473,7 @@ export async function rotateDeviceToken(input: {
 					tx,
 				);
 			});
-			return newToken;
+			return credentials.token;
 		});
 
 		return { success: true, token };

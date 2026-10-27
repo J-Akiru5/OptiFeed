@@ -1,3 +1,4 @@
+import { AddFeederForm } from "@/components/admin/add-feeder-form";
 import { adminButtonSecondary } from "@/components/admin/admin-classes";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
@@ -12,10 +13,13 @@ import {
 	AdminTr,
 } from "@/components/admin/admin-table";
 import { DeviceTokenReveal } from "@/components/admin/device-token-reveal";
+import { PendingDeviceApprovals } from "@/components/admin/pending-device-approvals";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { Pagination } from "@/components/ui/pagination";
 import { Link, getPathname } from "@/i18n/routing";
 import { getDevices } from "@/lib/actions/admin";
+import { getTenantRegistrationOptions } from "@/lib/actions/device-registration";
+import { hasPermission } from "@/lib/auth/permissions";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { parsePage } from "@/lib/pagination";
@@ -33,8 +37,9 @@ export default async function AdminDevicesPage({
 }) {
 	const params = await searchParams;
 	const page = parsePage(params.page);
-	const [devicesPage, t, tCommon, tDates, locale] = await Promise.all([
+	const [devicesPage, canClaim, t, tCommon, tDates, locale] = await Promise.all([
 		getDevices({ page }),
+		hasPermission("claim_feeder"),
 		getTranslations("dashboard.adminDevices"),
 		getTranslations("dashboard.adminCommon"),
 		getTranslations("dates"),
@@ -44,6 +49,13 @@ export default async function AdminDevicesPage({
 	const pageCount = Math.max(1, Math.ceil(devicesPage.total / devicesPage.pageSize));
 	const firstRow = devicesPage.total === 0 ? 0 : (devicesPage.page - 1) * devicesPage.pageSize + 1;
 	const lastRow = Math.min(devicesPage.page * devicesPage.pageSize, devicesPage.total);
+
+	// Registration options are only read for a member who may actually add a
+	// feeder; the action re-checks the same guard.
+	const registrationOptions = canClaim ? await getTenantRegistrationOptions() : null;
+
+	const pendingDevices = devices.filter((device) => device.approvalStatus === "PENDING");
+	const listedDevices = devices.filter((device) => device.approvalStatus !== "PENDING");
 
 	const lastSeen = (date: Date | null) =>
 		date ? formatDateTimeLocal(date, tDates).full : tCommon("never");
@@ -85,9 +97,24 @@ export default async function AdminDevicesPage({
 				}
 			/>
 
-			{devices.length === 0 ? (
+			{registrationOptions && <AddFeederForm options={registrationOptions} />}
+
+			{canClaim && (
+				<PendingDeviceApprovals
+					devices={pendingDevices.map((device) => ({
+						id: device.id,
+						label: device.label,
+						mac: device.mac,
+						pondName: device.pond?.name ?? null,
+					}))}
+				/>
+			)}
+
+			{devices.length === 0 && (
 				<AdminEmptyState icon={Cpu} title={t("emptyTitle")} description={t("emptyDesc")} />
-			) : (
+			)}
+
+			{listedDevices.length > 0 && (
 				<>
 					<AdminTable caption={t("caption")} minWidth="min-w-[64rem]">
 						<AdminTHead>
@@ -101,7 +128,7 @@ export default async function AdminDevicesPage({
 							<AdminTh>{t("labelColumn")}</AdminTh>
 						</AdminTHead>
 						<tbody>
-							{devices.map((device) => {
+							{listedDevices.map((device) => {
 								const now = new Date();
 								const isOffline =
 									!device.lastSeenAt ||
@@ -124,6 +151,11 @@ export default async function AdminDevicesPage({
 													<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
 														{t("perFeeding", { grams: device.gramsPerFeeding })}
 													</p>
+													{device.approvalStatus === "REJECTED" && (
+														<p className="mt-1 inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-black tracking-wider text-[#C42B3A] uppercase dark:bg-red-950/50 dark:text-red-300">
+															{t("rejectedBadge")}
+														</p>
+													)}
 												</div>
 											</div>
 										</AdminTd>
@@ -166,7 +198,13 @@ export default async function AdminDevicesPage({
 											{lastSeen(device.lastSeenAt)}
 										</AdminTd>
 										<AdminTd>
-											<DeviceTokenReveal deviceId={device.id} deviceLabel={device.label} />
+											{device.approvalStatus === "APPROVED" ? (
+												<DeviceTokenReveal deviceId={device.id} deviceLabel={device.label} />
+											) : (
+												<span className="text-xs font-bold text-[#3D5568] dark:text-gray-400">
+													{t("rejectedBadge")}
+												</span>
+											)}
 										</AdminTd>
 										<AdminTd>
 											<div className="flex items-center gap-3">
@@ -194,7 +232,7 @@ export default async function AdminDevicesPage({
 					</AdminTable>
 
 					<AdminCardList>
-						{devices.map((device) => {
+						{listedDevices.map((device) => {
 							const now = new Date();
 							const isOffline =
 								!device.lastSeenAt ||
@@ -210,6 +248,11 @@ export default async function AdminDevicesPage({
 											<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
 												{t("perFeeding", { grams: device.gramsPerFeeding })}
 											</p>
+											{device.approvalStatus === "REJECTED" && (
+												<p className="mt-1 inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-black tracking-wider text-[#C42B3A] uppercase dark:bg-red-950/50 dark:text-red-300">
+													{t("rejectedBadge")}
+												</p>
+											)}
 										</div>
 										<span
 											className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black tracking-wider uppercase ${
@@ -248,7 +291,13 @@ export default async function AdminDevicesPage({
 									</div>
 
 									<div className="mt-3 space-y-3">
-										<DeviceTokenReveal deviceId={device.id} deviceLabel={device.label} />
+										{device.approvalStatus === "APPROVED" ? (
+											<DeviceTokenReveal deviceId={device.id} deviceLabel={device.label} />
+										) : (
+											<p className="text-xs font-bold text-[#3D5568] dark:text-gray-400">
+												{t("rejectedBadge")}
+											</p>
+										)}
 										<div className="flex flex-wrap items-center gap-3">
 											<label className="inline-flex items-center gap-2 text-[11px] font-bold text-[#3D5568] dark:text-gray-300">
 												<input

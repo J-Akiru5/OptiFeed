@@ -61,6 +61,7 @@ model User {
   displayName        String?
   role               UserRole @default(OPERATOR)
   mustChangePassword Boolean  @default(false)
+  avatarPath         String? // object key in the private `avatars` bucket (#198); served via short-lived signed URLs
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

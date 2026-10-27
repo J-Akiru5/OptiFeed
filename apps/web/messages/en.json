@@ -2802,7 +2802,8 @@
 			"close": "Close",
 			"stepUpAction": "control feeder {label}",
 			"open": "Remote control",
-			"openAria": "Remote control for {label}"
+			"openAria": "Remote control for {label}",
+			"panelTitle": "Remote control — {label}"
 		},
 		"createOrg": {
 			"title": "Create organization",

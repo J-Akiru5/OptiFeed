@@ -4,6 +4,7 @@ import { FOCUS_RING_ON_DARK } from "@/components/superadmin/ui";
 import { Link, usePathname } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
 import {
+	Activity,
 	BarChart3,
 	CalendarDays,
 	Cpu,
@@ -32,6 +33,7 @@ const navItems = [
 	{ href: "/superadmin/orgs", key: "organizations", icon: FolderTree },
 	{ href: "/superadmin/ponds", key: "ponds", icon: Droplets },
 	{ href: "/superadmin/devices", key: "devices", icon: Cpu },
+	{ href: "/superadmin/operations", key: "operations", icon: Activity },
 	{ href: "/superadmin/ai-providers", key: "aiProviders", icon: Sparkles },
 	{ href: "/superadmin/settings", key: "settings", icon: Settings },
 ] as const;

@@ -5,6 +5,14 @@ import type { User, UserRole } from "@prisma/client";
 import { getLocale } from "next-intl/server";
 import { cache } from "react";
 
+/**
+ * Session verification is part of this module's public surface: API routes
+ * that must authenticate without a tenant binding (a platform admin is not
+ * required to have a farm) import it from here, which is also what the
+ * `Check API route auth` CI gate recognises as session auth.
+ */
+export { getVerifiedSession };
+
 const POND_EMAIL_DOMAIN = "pond.optifeed.local";
 
 export function buildPondEmail(farmId: string): string {

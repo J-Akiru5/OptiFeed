@@ -446,7 +446,50 @@
 			"waterRangeLabel": "Water temperature period",
 			"waterRange24h": "24 h",
 			"waterRange7d": "7 days",
-			"waterChartLatest": "Latest reading: {value}"
+			"waterChartLatest": "Latest reading: {value}",
+			"controlRoom": {
+				"railLabel": "Pond controls",
+				"canvasLabel": "Pond overview for {pond} with {count} feeder.",
+				"feedersLabel": "Feeders on this pond",
+				"feederCount": "{count, plural, one {# feeder} other {# feeders}}",
+				"noFeeders": "No feeder is registered on this pond yet.",
+				"openFeederSettings": "Open feeder settings",
+				"pondPanel": "Pond",
+				"pondLink": "Open pond settings",
+				"cycleLabel": "Grow-out cycle",
+				"noCycle": "No active cycle",
+				"alertsPanel": "Alerts",
+				"advisorPanel": "AI Feed Advisor",
+				"advisorLink": "Open the full advisor",
+				"advisorEmpty": "Not enough data for a recommendation yet.",
+				"advisorGramsLabel": "Recommended per meal",
+				"advisorConfidence": "Confidence",
+				"growOutPanel": "Grow-out",
+				"growOutLink": "Open harvest",
+				"feedingsPanel": "Recent feedings",
+				"statsPanel": "Pond at a glance",
+				"controlsPanel": "Feeder controls",
+				"alerts": {
+					"emptyTitle": "Nothing needs attention",
+					"emptyDetail": "The feeder is online and the schedule is running.",
+					"offlineTitle": "Feeder offline for {duration}",
+					"offlineDetail": "{device} has not sent a heartbeat.",
+					"lowHopperTitle": "Hopper low: {percent}%",
+					"lowHopperDetail": "Refill before the next feeding.",
+					"recalibrationTitle": "Recalibration overdue by {days} days",
+					"recalibrationDetail": "Run a target check so the dispensed grams stay accurate.",
+					"driftTitle": "Possible calibration drift: {percent}% off",
+					"driftDetail": "Dispensed grams and the hopper drop disagree over the last 7 days.",
+					"openHardware": "Open hardware settings"
+				},
+				"charts": {
+					"feedTitle": "Feed per day",
+					"feedSummary": "Grams dispensed per day over the last 30 days, {total} in total.",
+					"hopperTitle": "Hopper level",
+					"hopperSummary": "Average hopper level per day over the last 7 days, latest {latest}.",
+					"hopperEmpty": "No hopper readings yet."
+				}
+			}
 		},
 		"schedule": {
 			"title": "Feeding Schedule",
@@ -2477,7 +2520,8 @@
 				"ponds": "Ponds",
 				"devices": "Devices",
 				"aiProviders": "AI Providers",
-				"settings": "Settings"
+				"settings": "Settings",
+				"operations": "Operations"
 			},
 			"shortNav": {
 				"overview": "Overview",
@@ -2487,7 +2531,8 @@
 				"ponds": "Ponds",
 				"devices": "Devices",
 				"aiProviders": "AI",
-				"settings": "Settings"
+				"settings": "Settings",
+				"operations": "Ops"
 			}
 		},
 		"loading": {
@@ -3069,7 +3114,228 @@
 			}
 		},
 		"feedPct": "Feed %",
-		"orgDefaultRate": "Org default"
+		"orgDefaultRate": "Org default",
+		"operations": {
+			"title": "Operations",
+			"tabsLabel": "Operations sections",
+			"tabs": {
+				"health": "System health",
+				"firmware": "Firmware fleet",
+				"audit": "Audit log",
+				"announcements": "Announcements"
+			},
+			"health": {
+				"title": "System health",
+				"description": "Background jobs, cron freshness and the last time each feeder checked in. Everything on this page is read-only.",
+				"note": "Cron freshness is inferred from the rows each job writes, because there is no cron heartbeat table. A healthy fleet that has nothing to report leaves no rows, so “no activity inferred” can be normal. Check the platform scheduler before treating it as a failure."
+			},
+			"jobs": {
+				"title": "Background jobs",
+				"total": "All jobs",
+				"queued": "Queued",
+				"running": "Running",
+				"succeeded": "Succeeded",
+				"failed": "Failed",
+				"oldestQueued": "Oldest queued: {type}, since {time}.",
+				"noQueue": "Nothing is waiting in the queue.",
+				"failuresTitle": "Latest failures",
+				"failuresDescription": "The 20 most recent failed jobs, newest first.",
+				"noFailuresTitle": "No failed jobs",
+				"noFailuresDescription": "Nothing has failed in the queue.",
+				"failuresCaption": "The 20 most recent failed background jobs",
+				"columnFinished": "Finished",
+				"columnType": "Type",
+				"columnAttempts": "Attempts",
+				"columnError": "Error"
+			},
+			"charts": {
+				"period": "Day",
+				"value": "Value",
+				"name": "Name",
+				"empty": "Nothing to chart yet.",
+				"jobsTitle": "Jobs created per day ({days} days)",
+				"jobsSummary": "Background jobs created per day over the last {days} days.",
+				"failuresTitle": "Failures per day ({days} days)",
+				"failuresSummary": "Failed background jobs per day over the last {days} days."
+			},
+			"cron": {
+				"title": "Cron freshness",
+				"description": "The newest row each scheduled worker left behind. This is an inference, not a heartbeat.",
+				"jobs": {
+					"device-watch": "device-watch (offline detection)",
+					"crop-watch": "crop-watch (harvest and sampling reminders)",
+					"jobs": "jobs (background queue worker)"
+				},
+				"inferred": {
+					"device-watch": "From the latest disconnected DeviceStateEvent written by the system. Only a new outage writes one.",
+					"crop-watch": "From the latest ReminderLog row. Only a due reminder writes one.",
+					"jobs": "From the latest BackgroundJob the worker claimed. Only a queued job writes one."
+				},
+				"noActivity": "No activity inferred"
+			},
+			"devices": {
+				"title": "Last ingest per device",
+				"description": "Last contact ({count} of the newest {limit} devices). A device is offline when it has not been heard from in 15 minutes.",
+				"sortLabel": "Sort devices",
+				"sortBy": "Sort by",
+				"sort": {
+					"lastSeen": "Last contact",
+					"label": "Name",
+					"mac": "MAC"
+				},
+				"truncated": "Showing the first {limit} devices. Narrow this down from the device registry.",
+				"emptyTitle": "No devices registered",
+				"emptyDescription": "Register a feeder from the Devices page to see its ingest here.",
+				"caption": "Every feeder with its last ingest time",
+				"lastIngest": "Last ingest",
+				"columnDevice": "Device",
+				"columnMac": "MAC",
+				"columnStatus": "Status"
+			},
+			"firmware": {
+				"title": "Firmware fleet",
+				"description": "Reported firmware per feeder, recent OTA lifecycle events and the signed stable channel.",
+				"channelTitle": "Stable channel",
+				"channelDescription": "Read only. Nothing here triggers an update.",
+				"releaseAvailable": "Release available",
+				"noRelease": "No release",
+				"stableVersion": "Stable version",
+				"unknown": "Unknown",
+				"storage": "Storage",
+				"storageConfigured": "Configured",
+				"storageNotConfigured": "Not configured",
+				"channelPath": "Channel file",
+				"window": "Update window",
+				"windowValue": "{start}–{end} local",
+				"readOnlyNote": "Releases are signed offline and uploaded to the private firmware bucket. The console only reads the channel file and the device events.",
+				"devicesTitle": "Devices ({count})",
+				"devicesDescription": "Reported version comes from the last OTA lifecycle event for that unit.",
+				"emptyTitle": "No devices registered",
+				"devicesCaption": "Every feeder with its reported firmware version",
+				"columnDevice": "Device",
+				"columnMac": "MAC",
+				"columnPond": "Pond",
+				"columnVersion": "Firmware",
+				"columnVersionSource": "Version source",
+				"columnLastContact": "Last contact",
+				"columnStatus": "Status",
+				"truncated": "Showing the first {limit} devices.",
+				"versionTitle": "Versions in the fleet",
+				"versionDescription": "Counted from the reported version of each device.",
+				"noVersion": "No version reported",
+				"otaTitle": "Recent OTA events",
+				"otaDescription": "The 20 newest lifecycle rows written by the devices.",
+				"noOtaTitle": "No OTA events yet",
+				"eventTypes": {
+					"ota_installed": "Installed",
+					"ota_valid": "Verified",
+					"ota_rolled_back": "Rolled back"
+				},
+				"versionSourceNote": "A unit reports its version on the heartbeat that changes its OTA state. That transition is stored as a device event, which is what this page shows.",
+				"unknownNote": "“Unknown” means the unit never reported an OTA state. It is not an error and is never estimated from a build date."
+			},
+			"audit": {
+				"title": "Audit log",
+				"description": "Every platform action, with who did it, why, the request origin and the before/after state.",
+				"apply": "Apply filters",
+				"clear": "Clear filters",
+				"export": "Export CSV",
+				"exportNote": "The CSV exports the current filters, newest first, capped at 5000 rows. Spreadsheet formulas are neutralised.",
+				"filters": {
+					"action": "Action",
+					"actionPlaceholder": "e.g. platform.settings",
+					"actor": "Actor",
+					"actorPlaceholder": "Farm id, e-mail or name",
+					"org": "Organization",
+					"allOrgs": "All organizations",
+					"targetType": "Target type",
+					"allTargetTypes": "All target types",
+					"target": "Target id",
+					"targetPlaceholder": "Full or partial id",
+					"from": "From",
+					"to": "To"
+				},
+				"emptyTitle": "No matching audit rows",
+				"emptyDescription": "Widen the filters or clear them to see the whole log.",
+				"caption": "Platform audit log entries",
+				"stepUp": "Step-up",
+				"noStepUp": "No step-up",
+				"by": "by {actor}",
+				"noOrg": "No organization",
+				"openDetail": "Open",
+				"columnTime": "When",
+				"columnActor": "Actor",
+				"columnAction": "Action",
+				"columnTarget": "Target",
+				"columnOrg": "Organization",
+				"columnReason": "Reason",
+				"columnDetail": "Detail",
+				"detail": {
+					"title": "Audit entry",
+					"description": "One recorded platform action, including the state before and after.",
+					"back": "Back to the audit log",
+					"action": "Action",
+					"actor": "Actor",
+					"actorFarm": "Actor farm id",
+					"targetType": "Target type",
+					"targetId": "Target id",
+					"org": "Organization",
+					"when": "When",
+					"stepUp": "Step-up at",
+					"temporaryGrant": "Temporary grant",
+					"impersonation": "View-as session",
+					"ip": "IP address",
+					"userAgent": "User agent",
+					"before": "Before",
+					"after": "After",
+					"yes": "Yes",
+					"no": "No"
+				}
+			},
+			"announcements": {
+				"title": "Announcements",
+				"description": "A short platform-wide banner for every tenant user, shown until its end date.",
+				"currentTitle": "Current announcement",
+				"currentDescription": "What every tenant user sees right now.",
+				"active": "Active",
+				"expired": "Expired",
+				"publishedAt": "Published",
+				"endsAt": "Ends",
+				"noEnd": "No end date",
+				"none": "No announcement is published.",
+				"composeTitle": "Publish a banner",
+				"composeDescription": "Replaces the current announcement. A reason is required and audited.",
+				"note": "Dismissing is remembered per user in their browser. Use the end date for anything that must stop for everyone.",
+				"severity": {
+					"info": "Information",
+					"warning": "Important"
+				},
+				"titleLabel": "Title",
+				"titlePlaceholder": "Short headline",
+				"bodyLabel": "Message",
+				"bodyPlaceholder": "What changed or what people should do",
+				"bodyHint": "Keep it short. Up to 500 characters; line breaks are kept.",
+				"severityLabel": "Severity",
+				"endsOnLabel": "Ends on (optional)",
+				"endsOnHint": "The banner stops at the end of that day (UTC). Leave it empty to keep it until cleared.",
+				"reasonLabel": "Reason",
+				"reasonPlaceholder": "Why this announcement is going out",
+				"reasonHint": "Recorded in the platform audit log. At least 10 characters.",
+				"preview": "Preview",
+				"previewTitle": "Your headline appears here",
+				"previewBody": "Your message appears here.",
+				"publish": "Publish announcement",
+				"replace": "Replace announcement",
+				"publishing": "Publishing…",
+				"published": "Announcement published.",
+				"clear": "Clear announcement",
+				"clearTitle": "Clear the announcement",
+				"clearDescription": "Removes the banner for every tenant user. This is audited too.",
+				"clearing": "Clearing…",
+				"cleared": "Announcement cleared.",
+				"failed": "The announcement could not be saved."
+			}
+		}
 	},
 	"help": {
 		"button": "Open help for this page",
@@ -3213,6 +3479,14 @@
 			"superadmin-ai-reset": "Reset returns the chain to the built-in defaults. Environment variables are not touched.",
 			"superadmin-page-size": "The page size applies to every numbered list in the product, including tenant and farmer screens.",
 			"superadmin-audit": "Every change here needs a reason and is written to the platform audit log with the actor."
+		}
+	},
+	"announcements": {
+		"label": "Platform announcement",
+		"dismiss": "Dismiss announcement",
+		"severity": {
+			"info": "Information",
+			"warning": "Important"
 		}
 	}
 }

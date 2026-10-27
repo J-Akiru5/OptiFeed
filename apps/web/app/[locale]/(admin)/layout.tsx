@@ -1,6 +1,7 @@
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { AdminSidebar } from "@/components/admin-sidebar";
+import { AnnouncementBanner } from "@/components/announcements/announcement-banner";
 import { HelpButton } from "@/components/help/help-button";
 import { MobileHeader } from "@/components/mobile/mobile-header";
 import { UserAvatar } from "@/components/user-avatar";
@@ -8,6 +9,7 @@ import { Link } from "@/i18n/routing";
 import { requirePasswordChanged } from "@/lib/auth/session";
 import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import { getSignedAvatarUrls } from "@/lib/avatars";
+import { getActiveAnnouncement } from "@/lib/settings/announcement";
 import { isFeatureEnabled } from "@/lib/settings/flags";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
@@ -19,10 +21,11 @@ export default async function AdminLayout({
 }) {
 	const currentUser = await requirePasswordChanged();
 	await requireTenantAdmin();
-	const [t, avatarUrls, helpEnabled] = await Promise.all([
+	const [t, avatarUrls, helpEnabled, announcement] = await Promise.all([
 		getTranslations("dashboard.adminShell"),
 		getSignedAvatarUrls([{ id: currentUser.id, avatarPath: currentUser.avatarPath }]),
 		isFeatureEnabled("help.centre"),
+		getActiveAnnouncement(),
 	]);
 
 	return (
@@ -104,6 +107,16 @@ export default async function AdminLayout({
 					tabIndex={-1}
 					className="ofd-main relative z-10 min-w-0 flex-1 p-4 focus-visible:outline-none md:p-8"
 				>
+					{announcement && (
+						<div className="mb-4">
+							<AnnouncementBanner
+								id={announcement.id}
+								title={announcement.title}
+								body={announcement.body}
+								severity={announcement.severity}
+							/>
+						</div>
+					)}
 					{children}
 				</main>
 			</div>

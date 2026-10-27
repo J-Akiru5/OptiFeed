@@ -1,6 +1,7 @@
 import { BackToDashboard } from "@/components/BackToDashboard";
 import { LiveClock } from "@/components/LiveClock";
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
+import { AnnouncementBanner } from "@/components/announcements/announcement-banner";
 import { BottomNav } from "@/components/bottom-nav";
 import { ChatWidget } from "@/components/chat/chat-widget";
 import { ChatWidgetProvider } from "@/components/chat/chat-widget-provider";
@@ -24,6 +25,7 @@ import { getSignedAvatarUrls } from "@/lib/avatars";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import { getActiveAnnouncement } from "@/lib/settings/announcement";
 import { isFeatureEnabled } from "@/lib/settings/flags";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
@@ -33,16 +35,25 @@ export default async function DashboardLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	const [ownerId, currentUser, isTenantAdmin, isPlatformAdmin, viewAs, viewAsState, helpEnabled] =
-		await Promise.all([
-			getCurrentPondOwnerId(),
-			requirePasswordChanged(),
-			isCurrentTenantAdmin(),
-			isCurrentPlatformAdmin(),
-			getViewAsBanner(),
-			getViewAsState(),
-			isFeatureEnabled("help.centre"),
-		]);
+	const [
+		ownerId,
+		currentUser,
+		isTenantAdmin,
+		isPlatformAdmin,
+		viewAs,
+		viewAsState,
+		helpEnabled,
+		announcement,
+	] = await Promise.all([
+		getCurrentPondOwnerId(),
+		requirePasswordChanged(),
+		isCurrentTenantAdmin(),
+		isCurrentPlatformAdmin(),
+		getViewAsBanner(),
+		getViewAsState(),
+		isFeatureEnabled("help.centre"),
+		getActiveAnnouncement(),
+	]);
 
 	// E18 (#199): a platform admin's home is the platform console. This runs
 	// before any pond, notification or device read, and leaves an active
@@ -247,6 +258,16 @@ export default async function DashboardLayout({
 								className="ofd-main relative z-10 flex-1 p-4 focus:outline-none md:p-8"
 							>
 								<BackToDashboard />
+								{announcement && (
+									<div className="mb-4">
+										<AnnouncementBanner
+											id={announcement.id}
+											title={announcement.title}
+											body={announcement.body}
+											severity={announcement.severity}
+										/>
+									</div>
+								)}
 								{children}
 							</main>
 						</DashboardContentShell>

@@ -11,9 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Mobile app shell (E26): every console now has a PakaonAI-branded header band below `lg` (page title, search, "+" quick menu), the farmer bottom bar is a five-tab bar (Overview, Schedule, Biomass log, Alerts, Me) with the active tab in the brand colour, and the admin/platform bars use the same band and active treatment. Every page that left the bar stays one tap away in the quick menu, which also carries role-aware quick actions (add pond/feeder, scan sticker, pond location, log a sample, register a feeder).
+- Mobile app shell (E26): every console now has a PakaonAI-branded header band below `lg` (page title, search, "+" quick menu), the farmer bottom bar is a five-tab bar (Overview, Schedule, Biomass log, Alerts, Me) with the active tab in the brand colour, and the tenant admin and platform consoles are five tabs too (four primary sections plus "More"): the platform console had grown to nine sections, which leaves under 44 px per target at 375 px. "More" opens the same quick menu as the header band, so every page that left a bar — and every role-aware quick action (add pond/feeder, scan sticker, pond location, log a sample, register a feeder) — is one tap away.
 - Mobile lists (E26): the tenant Ponds and Devices lists gained a tappable All / Online / Alarm / Offline summary strip, an "order by" and "needs attention" chips row, and large cards with a status dot and three key metrics; the strip, chips and the ordering are URL parameters, so they survive navigation and the numbered pagination.
-- Mobile layout pass (E26): user-facing page titles move into the header band below `sm` (the `h1` stays in the markup for assistive tech), farmer and console mains use `dvh` with bottom padding that clears the fixed bar and the device safe area, and the biomass and pond-settings forms pin their primary action above the bar on a phone.
+- Mobile layout pass (E26): user-facing page titles move into the header band below `lg` (the `h1` stays in the markup for assistive tech), farmer and console mains use `dvh` with bottom padding that clears the fixed bar and the device safe area, and the biomass, pond-settings and pond create/edit forms pin their primary action above the bar on a phone.
+
+## [1.14.0] - 2026-10-27
+
+### Added
+
+- Superadmin Operations section (E16.4, #185 batch): a **system health** page with background-job counts, the oldest queued job, the latest 20 failures, jobs/failures per day, inferred cron freshness (with the inference explained) and a sortable last-ingest table with offline highlighting; a **firmware fleet** page showing each device's reported version from its latest OTA lifecycle event, the recent OTA events and the signed stable channel, with "unknown" shown honestly; an **audit log explorer** with action/actor/organization/target/date filters, shared numbered pagination, a before/after detail page and a CSV export of the filtered set (streamed, capped at 5000 rows, formula-safe); and **announcements**, a platform-wide dismissible banner stored in `PlatformSetting` (`announcement.current`) with an optional end date, published and cleared through audited platform actions. No schema change.
+- Control-room dashboard (E14, #186/#188): above 1280 px the farmer dashboard fills one viewport with no page scroll. The left column holds the compact next-feeding strip (still the first thing seen), an illustrated pond overview with one pin per feeder (online/offline, last-known hopper level, next feed time, water temperature) and a row of feed-per-day, hopper-level and water-temperature charts. Only the right rail scrolls; it carries the pond summary, Feed Now, the device/hopper card, alerts (offline, low hopper, recalibration due, detected calibration drift), the AI advisor summary, the grow-out strip, recent feedings, recent biomass samples and the stat tiles. Below 1280 px the same blocks stack into the previous scrolling dashboard. Presentation only: the existing loaders and server actions are reused, and the tour and help-centre anchors still resolve.
+
+### Changed
+
+- Firmware 1.5.0 (I-17): the setup AP name now follows the stored Device ID when it parses as a MAC (last four hex digits), falling back to the chip eFuse MAC before provisioning or for a non-MAC ID. The boot log prints both IDs and the resulting AP name.
+- Firmware 1.5.0 (I-17): the setup page scans nearby 2.4 GHz networks once at portal start, lists them strongest-first in a picker with a "type it manually" option, and notes that Wi-Fi names are case-sensitive.
+- Firmware 1.5.0 (I-17): relay polarity is a build flag (`-DRELAY_ACTIVE_LOW=0|1`, default active HIGH). Boot still forces the relay OFF in both modes.
+
+### Fixed
+
+- Firmware 1.5.0 (I-17): a short feed-button press is captured by a falling-edge interrupt (250 ms debounce, one pending press, 5 s boot grace) instead of a loop poll, so it is no longer lost during a blocking HTTPS call.
+- Firmware 1.5.0 (I-17): the 5 s network cycle feeds the 30 s task watchdog between every call and around each dispense, with explicit 8 s connect/read and handshake timeouts, so a slow link no longer resets the board with `task_wdt`.
+
+### Security
+
+- Firmware 1.5.0 (I-17): removed the compile-time placeholder Device ID and device token from the public firmware image. An unprovisioned unit logs `[IDENTITY] not provisioned - API disabled`, runs only the setup portal and keeps feeding locally, and sends no ingest, feed-command, schedule-sync or OTA request until an identity is provisioned.
 
 ## [1.13.0] - 2026-10-27
 

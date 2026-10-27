@@ -446,7 +446,50 @@
 			"waterRangeLabel": "Panahon sang temperatura sang tubig",
 			"waterRange24h": "24 ka oras",
 			"waterRange7d": "7 ka adlaw",
-			"waterChartLatest": "Pinakabag-o nga reading: {value}"
+			"waterChartLatest": "Pinakabag-o nga reading: {value}",
+			"controlRoom": {
+				"railLabel": "Mga kontrol sang punong",
+				"canvasLabel": "Kabug-usan sang punong {pond} nga may {count} ka feeder.",
+				"feedersLabel": "Mga feeder sa sini nga punong",
+				"feederCount": "{count, plural, one {# ka feeder} other {# ka feeder}}",
+				"noFeeders": "Wala pa sang feeder nga nakarehistro sa sini nga punong.",
+				"openFeederSettings": "Buksan ang seting sang feeder",
+				"pondPanel": "Punong",
+				"pondLink": "Buksan ang seting sang punong",
+				"cycleLabel": "Siklo sang pagpadako",
+				"noCycle": "Wala sang aktibo nga siklo",
+				"alertsPanel": "Mga paalala",
+				"advisorPanel": "AI Feed Advisor",
+				"advisorLink": "Buksan ang bug-os nga advisor",
+				"advisorEmpty": "Kulang pa ang datos para sa rekomendasyon.",
+				"advisorGramsLabel": "Rekomendado kada pagpakaon",
+				"advisorConfidence": "Pagsalig",
+				"growOutPanel": "Pagpadako",
+				"growOutLink": "Buksan ang harvest",
+				"feedingsPanel": "Bag-o nga mga pagpakaon",
+				"statsPanel": "Kabug-usan sang punong",
+				"controlsPanel": "Mga kontrol sang feeder",
+				"alerts": {
+					"emptyTitle": "Wala sang kinahanglan atensyon",
+					"emptyDetail": "Online ang feeder kag nagadagan ang iskedyul.",
+					"offlineTitle": "Offline ang feeder sa {duration}",
+					"offlineDetail": "Wala nakapadala sang heartbeat ang {device}.",
+					"lowHopperTitle": "Mababa ang hopper: {percent}%",
+					"lowHopperDetail": "Pun-a antes sang masunod nga pagpakaon.",
+					"recalibrationTitle": "Lapaw na sa {days} ka adlaw ang recalibration",
+					"recalibrationDetail": "Maghimo sang target check agod husto ang grams.",
+					"driftTitle": "Posible nga drift: {percent}% ang diperensya",
+					"driftDetail": "Indi magkasugot ang nagwa nga grams kag ang pagbuhos sang hopper sa nagligad nga 7 ka adlaw.",
+					"openHardware": "Buksan ang seting sang hardware"
+				},
+				"charts": {
+					"feedTitle": "Pagpakaon kada adlaw",
+					"feedSummary": "Mga gramo nga nagwa kada adlaw sa nagligad nga 30 ka adlaw, {total} tanan.",
+					"hopperTitle": "Lebel sang hopper",
+					"hopperSummary": "Average nga lebel sang hopper kada adlaw sa nagligad nga 7 ka adlaw, pinakabag-o {latest}.",
+					"hopperEmpty": "Wala pa sang reading sang hopper."
+				}
+			}
 		},
 		"schedule": {
 			"title": "Iskedyul sang Pagpakaon",
@@ -2456,7 +2499,8 @@
 				"ponds": "Mga Punong",
 				"devices": "Mga Device",
 				"aiProviders": "Mga AI Provider",
-				"settings": "Mga Setting"
+				"settings": "Mga Setting",
+				"operations": "Operasyon"
 			},
 			"shortNav": {
 				"overview": "Panglantaw",
@@ -2466,7 +2510,8 @@
 				"ponds": "Punong",
 				"devices": "Device",
 				"aiProviders": "AI",
-				"settings": "Setting"
+				"settings": "Setting",
+				"operations": "Ops"
 			}
 		},
 		"loading": {
@@ -3048,7 +3093,228 @@
 			}
 		},
 		"feedPct": "Feed %",
-		"orgDefaultRate": "Default sang org"
+		"orgDefaultRate": "Default sang org",
+		"operations": {
+			"title": "Operasyon",
+			"tabsLabel": "Mga seksyon sang operasyon",
+			"tabs": {
+				"health": "Kahimsog sang sistema",
+				"firmware": "Firmware sang mga device",
+				"audit": "Audit log",
+				"announcements": "Mga abiso"
+			},
+			"health": {
+				"title": "Kahimsog sang sistema",
+				"description": "Background jobs, ka-fresh sang cron kag ang katapusan nga pag-check-in sang kada feeder. Read-only ang tanan sa sini nga pahina.",
+				"note": "Ang ka-fresh sang cron ginalantaw halin sa mga row nga ginasulat sang kada job, kay wala sang cron heartbeat table. Ang healthy nga fleet nga wala sang i-report wala nagabilin sang row, gani normal ang “wala sang activity nga nakita”. I-check ang platform scheduler antes tamdon nga failure."
+			},
+			"jobs": {
+				"title": "Background jobs",
+				"total": "Tanan nga job",
+				"queued": "Naka-queue",
+				"running": "Nagadalagan",
+				"succeeded": "Nagmadinalag-on",
+				"failed": "Nabalabagan",
+				"oldestQueued": "Pinakalumad nga naka-queue: {type}, halin sang {time}.",
+				"noQueue": "Wala sang nagahulat sa queue.",
+				"failuresTitle": "Pinakabag-o nga failures",
+				"failuresDescription": "Ang 20 ka pinakabag-o nga failed nga job, pinakabag-o una.",
+				"noFailuresTitle": "Wala sang failed nga job",
+				"noFailuresDescription": "Wala sang nabalabagan sa queue.",
+				"failuresCaption": "Ang 20 ka pinakabag-o nga failed nga background job",
+				"columnFinished": "Natapos",
+				"columnType": "Klase",
+				"columnAttempts": "Mga pagtilaw",
+				"columnError": "Error"
+			},
+			"charts": {
+				"period": "Adlaw",
+				"value": "Bili",
+				"name": "Ngalan",
+				"empty": "Wala pa sang i-chart.",
+				"jobsTitle": "Mga job nga nahimo kada adlaw ({days} ka adlaw)",
+				"jobsSummary": "Mga background job nga nahimo kada adlaw sa nakaligad nga {days} ka adlaw.",
+				"failuresTitle": "Mga failure kada adlaw ({days} ka adlaw)",
+				"failuresSummary": "Mga failed nga background job kada adlaw sa nakaligad nga {days} ka adlaw."
+			},
+			"cron": {
+				"title": "Ka-fresh sang cron",
+				"description": "Ang pinakabag-o nga row nga ginbilin sang kada scheduled worker. Ini paglantaw lang, indi heartbeat.",
+				"jobs": {
+					"device-watch": "device-watch (pagtukib sang offline)",
+					"crop-watch": "crop-watch (pahanumdom sa harvest kag sampling)",
+					"jobs": "jobs (background queue worker)"
+				},
+				"inferred": {
+					"device-watch": "Halin sa pinakabag-o nga disconnected DeviceStateEvent nga ginsulat sang sistema. Ang bag-o nga outage lang ang nagasulat sini.",
+					"crop-watch": "Halin sa pinakabag-o nga ReminderLog row. Ang due nga pahanumdom lang ang nagasulat sini.",
+					"jobs": "Halin sa pinakabag-o nga BackgroundJob nga ginkuha sang worker. Ang naka-queue nga job lang ang nagasulat sini."
+				},
+				"noActivity": "Wala sang activity nga nakita"
+			},
+			"devices": {
+				"title": "Katapusan nga ingest kada device",
+				"description": "Katapusan nga contact ({count} sa pinakabag-o nga {limit} ka device). Offline ang device kon wala sang nabatian halin sa iya sa 15 ka minuto.",
+				"sortLabel": "I-sort ang mga device",
+				"sortBy": "I-sort base sa",
+				"sort": {
+					"lastSeen": "Katapusan nga contact",
+					"label": "Ngalan",
+					"mac": "MAC"
+				},
+				"truncated": "Ginapakita ang una nga {limit} ka device. Pili-a ini halin sa device registry.",
+				"emptyTitle": "Wala sang device nga nakarehistro",
+				"emptyDescription": "Mag-register sang feeder sa Devices page agod makita ang ingest diri.",
+				"caption": "Ang kada feeder upod ang katapusan nga ingest",
+				"lastIngest": "Katapusan nga ingest",
+				"columnDevice": "Device",
+				"columnMac": "MAC",
+				"columnStatus": "Status"
+			},
+			"firmware": {
+				"title": "Firmware sang mga device",
+				"description": "Reported firmware kada feeder, bag-o nga OTA lifecycle events kag ang signed stable channel.",
+				"channelTitle": "Stable channel",
+				"channelDescription": "Read-only. Wala sang nagatrigger sang update diri.",
+				"releaseAvailable": "May release",
+				"noRelease": "Wala sang release",
+				"stableVersion": "Stable version",
+				"unknown": "Wala mahibaluan",
+				"storage": "Storage",
+				"storageConfigured": "Naka-configure",
+				"storageNotConfigured": "Wala naka-configure",
+				"channelPath": "Channel file",
+				"window": "Window sang update",
+				"windowValue": "{start}–{end} local",
+				"readOnlyNote": "Ang mga release gina-sign offline kag ginaupload sa private firmware bucket. Ang console nagabasa lang sang channel file kag sang mga device event.",
+				"devicesTitle": "Mga device ({count})",
+				"devicesDescription": "Ang reported version halin sa katapusan nga OTA lifecycle event sang amo nga unit.",
+				"emptyTitle": "Wala sang device nga nakarehistro",
+				"devicesCaption": "Ang kada feeder upod ang reported firmware version",
+				"columnDevice": "Device",
+				"columnMac": "MAC",
+				"columnPond": "Punong",
+				"columnVersion": "Firmware",
+				"columnVersionSource": "Halin sa diin ang version",
+				"columnLastContact": "Katapusan nga contact",
+				"columnStatus": "Status",
+				"truncated": "Ginapakita ang una nga {limit} ka device.",
+				"versionTitle": "Mga version sa fleet",
+				"versionDescription": "Ginbilang halin sa reported version sang kada device.",
+				"noVersion": "Wala sang reported version",
+				"otaTitle": "Bag-o nga OTA events",
+				"otaDescription": "Ang 20 ka pinakabag-o nga lifecycle row nga ginsulat sang mga device.",
+				"noOtaTitle": "Wala pa sang OTA events",
+				"eventTypes": {
+					"ota_installed": "Nainstall",
+					"ota_valid": "Na-verify",
+					"ota_rolled_back": "Ginbalik"
+				},
+				"versionSourceNote": "Ang unit nagareport sang version sa heartbeat nga nagabag-o sang iya OTA state. Ang amo nga transition gina-store bilang device event, kag amo ini ang ginapakita sang pahina.",
+				"unknownNote": "Ang “Wala mahibaluan” nagakahulugan nga wala pa nagreport sang OTA state ang unit. Indi ini error kag indi gina-estimate halin sa build date."
+			},
+			"audit": {
+				"title": "Audit log",
+				"description": "Ang tanan nga platform action, upod ang naghimo, rason, request origin kag ang before/after nga estado.",
+				"apply": "I-apply ang filter",
+				"clear": "Tinluan ang filter",
+				"export": "I-export CSV",
+				"exportNote": "Ang CSV nagaeksport sang kasamtangan nga filter, pinakabag-o una, hasta 5000 ka row. Gina-neutralise ang spreadsheet formulas.",
+				"filters": {
+					"action": "Action",
+					"actionPlaceholder": "hal. platform.settings",
+					"actor": "Actor",
+					"actorPlaceholder": "Farm id, e-mail ukon ngalan",
+					"org": "Organisasyon",
+					"allOrgs": "Tanan nga organisasyon",
+					"targetType": "Klase sang target",
+					"allTargetTypes": "Tanan nga klase sang target",
+					"target": "Target id",
+					"targetPlaceholder": "Bilugan ukon bahin sang id",
+					"from": "Halin",
+					"to": "Hasta"
+				},
+				"emptyTitle": "Wala sang audit row nga nagatugma",
+				"emptyDescription": "Palaparon ang filter ukon tinluan ini agod makita ang bug-os nga log.",
+				"caption": "Mga entry sa platform audit log",
+				"stepUp": "Step-up",
+				"noStepUp": "Wala sang step-up",
+				"by": "ni {actor}",
+				"noOrg": "Wala sang organisasyon",
+				"openDetail": "Buksan",
+				"columnTime": "San-o",
+				"columnActor": "Actor",
+				"columnAction": "Action",
+				"columnTarget": "Target",
+				"columnOrg": "Organisasyon",
+				"columnReason": "Rason",
+				"columnDetail": "Detalye",
+				"detail": {
+					"title": "Audit entry",
+					"description": "Isa ka naka-record nga platform action, upod ang estado antes kag pagkatapos.",
+					"back": "Balik sa audit log",
+					"action": "Action",
+					"actor": "Actor",
+					"actorFarm": "Farm id sang actor",
+					"targetType": "Klase sang target",
+					"targetId": "Target id",
+					"org": "Organisasyon",
+					"when": "San-o",
+					"stepUp": "Step-up sang",
+					"temporaryGrant": "Temporary nga grant",
+					"impersonation": "View-as session",
+					"ip": "IP address",
+					"userAgent": "User agent",
+					"before": "Antes",
+					"after": "Pagkatapos",
+					"yes": "Huo",
+					"no": "Indi"
+				}
+			},
+			"announcements": {
+				"title": "Mga abiso",
+				"description": "Malip-ot nga platform-wide nga banner para sa tanan nga tenant user, ginapakita hasta sa iya end date.",
+				"currentTitle": "Kasamtangan nga abiso",
+				"currentDescription": "Ang nakita sang tanan nga tenant user subong.",
+				"active": "Aktibo",
+				"expired": "Lapas na",
+				"publishedAt": "Ginpublish",
+				"endsAt": "Matapos",
+				"noEnd": "Wala sang end date",
+				"none": "Wala sang abiso nga ginpublish.",
+				"composeTitle": "Magpublish sang banner",
+				"composeDescription": "Gailis sa kasamtangan nga abiso. Kinahanglan sang rason kag naka-audit.",
+				"note": "Ang pag-dismiss gina-remember kada user sa iya browser. Gamita ang end date para sa bisan ano nga dapat mag-untat para sa tanan.",
+				"severity": {
+					"info": "Impormasyon",
+					"warning": "Importante"
+				},
+				"titleLabel": "Titulo",
+				"titlePlaceholder": "Malip-ot nga headline",
+				"bodyLabel": "Mensahe",
+				"bodyPlaceholder": "Ano ang nagbag-o ukon ano ang dapat himuon sang mga tawo",
+				"bodyHint": "Pamalip-ot. Hasta 500 ka character; ginatipigan ang line breaks.",
+				"severityLabel": "Severity",
+				"endsOnLabel": "Matapos sa (opsyonal)",
+				"endsOnHint": "Matapos ang banner sa katapusan sang amo nga adlaw (UTC). Bilin nga blangko agod magpabilin hasta tinluan.",
+				"reasonLabel": "Rason",
+				"reasonPlaceholder": "Ngaa ginapagwa ini nga abiso",
+				"reasonHint": "Naka-record sa platform audit log. Labing menos 10 ka character.",
+				"preview": "Preview",
+				"previewTitle": "Diri magwa ang imo headline",
+				"previewBody": "Diri magwa ang imo mensahe.",
+				"publish": "I-publish ang abiso",
+				"replace": "Ilisan ang abiso",
+				"publishing": "Ginapublish…",
+				"published": "Napublish ang abiso.",
+				"clear": "Tinluan ang abiso",
+				"clearTitle": "Tinluan ang abiso",
+				"clearDescription": "Ginakuha ang banner para sa tanan nga tenant user. Naka-audit man ini.",
+				"clearing": "Ginatinluan…",
+				"cleared": "Natinluan ang abiso.",
+				"failed": "Indi ma-save ang abiso."
+			}
+		}
 	},
 	"help": {
 		"button": "Buksan ang bulig para sa sini nga pahina",
@@ -3192,6 +3458,14 @@
 			"superadmin-ai-reset": "Ang Reset nagabalik sang chain sa built-in defaults. Wala ginatandog ang environment variables.",
 			"superadmin-page-size": "Ang page size ginagamit sang tanan nga numbered list sa produkto, lakip ang tenant kag farmer screens.",
 			"superadmin-audit": "Ang kada pagbag-o diri kinahanglan sang rason kag naka-record sa platform audit log upod ang actor."
+		}
+	},
+	"announcements": {
+		"label": "Abiso sang plataporma",
+		"dismiss": "Isara ang abiso",
+		"severity": {
+			"info": "Impormasyon",
+			"warning": "Importante"
 		}
 	}
 }

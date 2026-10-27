@@ -582,7 +582,9 @@
 				"range7": "7 ka adlaw",
 				"range30": "30 ka adlaw",
 				"hopperEmpty": "Wala sang reading sang hopper sa nagligad nga {days} ka adlaw."
-			}
+			},
+			"source_hand_fed": "Precision feeding (ginpakaon sang kamot, data sheet)",
+			"source_other": "Iban pa"
 		},
 		"feedNowModal": {
 			"triggerTitle": "Magpa-Kaon Subong?",

@@ -1,4 +1,6 @@
-const FEED_SOURCES = ["scheduled", "dashboard", "button"] as const;
+import { FEED_EVENT_SOURCES } from "@/lib/feed-sources";
+
+const FEED_SOURCES = FEED_EVENT_SOURCES;
 
 export type SourceFilter = (typeof FEED_SOURCES)[number];
 

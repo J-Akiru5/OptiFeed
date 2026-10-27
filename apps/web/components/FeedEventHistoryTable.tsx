@@ -3,6 +3,7 @@
 import { Pagination } from "@/components/ui/pagination";
 import { type FeedEventListItem, getFeedEvents } from "@/lib/actions/history";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import { feedSourceKey } from "@/lib/feed-sources";
 import { CheckCircle2, Clock } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
@@ -88,10 +89,7 @@ export function FeedEventHistoryTable({
 
 	const renderRow = (event: FeedEventListItem) => {
 		const formatted = formatDateTimeLocal(event.receivedAt, tDates);
-		const sourceKey =
-			event.source && ["scheduled", "dashboard", "button"].includes(event.source)
-				? event.source
-				: "dashboard";
+		const sourceKey = feedSourceKey(event.source);
 		return (
 			<div className="flex items-center justify-between py-4">
 				<div className="flex items-center gap-4">

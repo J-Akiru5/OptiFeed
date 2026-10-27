@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.1] - 2026-10-27
+
+### Added
+
+- `hand_fed` feeding source: precision-feeding records that were fed by hand and imported from a data sheet show as "Precision feeding (hand-fed, data sheet)" in History, the dashboard and the feed-per-day chart.
+
+### Fixed
+
+- History and the dashboard showed any unknown feeding source as "Dashboard". Unknown sources now show as "Other", never as a device source.
+- Firmware 1.4.1 (#206): the setup portal no longer reboots after ~30 s (task watchdog), and every event now carries a valid RTC timestamp (an uninitialized buffer made the server reject heartbeats and acks with 422).
+
 ## [1.12.0] - 2026-10-27
 
 ### Added

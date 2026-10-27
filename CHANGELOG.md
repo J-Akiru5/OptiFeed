@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-10-27
+
 ### Changed
 
 - Mobile app shell (E26): every console now has a PakaonAI-branded header band below `lg` (page title, search, "+" quick menu), the farmer bottom bar is a five-tab bar (Overview, Schedule, Biomass log, Alerts, Me) with the active tab in the brand colour, and the tenant admin and platform consoles are five tabs too (four primary sections plus "More"): the platform console had grown to nine sections, which leaves under 44 px per target at 375 px. "More" opens the same quick menu as the header band, so every page that left a bar — the farmer calendar, history, growth, harvest, audit and settings, and every role-aware quick action (add pond/feeder, scan sticker, pond location, log a sample, register a feeder) — is one tap away.

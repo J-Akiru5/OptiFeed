@@ -968,7 +968,8 @@ export async function revokeMember(userId: string): Promise<MemberActionState> {
  * A tenant pond row as the list page renders it.
  *
  * Explicit allow-list: `owner` is reduced to the display name and
- * `energyDevices` to ids (the page only counts them). `include: { owner: true,
+ * `energyDevices` to the fields the pond list grades a pond's status from
+ * (id, heartbeat, hopper reading, approval state). `include: { owner: true,
  * energyDevices: true }` used to return full `User` rows (`supabaseId`,
  * `avatarPath`, `mustChangePassword`) and every `EnergyDevice` column including
  * the plaintext `token` and `tokenHash` — the exact credential
@@ -983,7 +984,14 @@ export type AdminPondRow = Prisma.PondGetPayload<{
 		feedsPerDay: true;
 		owner: { select: { displayName: true } };
 		farm: { select: { name: true } };
-		energyDevices: { select: { id: true } };
+		energyDevices: {
+			select: {
+				id: true;
+				lastSeenAt: true;
+				feedLevelPercent: true;
+				approvalStatus: true;
+			};
+		};
 		_count: { select: { biomassLogs: true; notifications: true; ownershipHistory: true } };
 	};
 }>;
@@ -996,7 +1004,9 @@ const ADMIN_POND_SELECT = {
 	feedsPerDay: true,
 	owner: { select: { displayName: true } },
 	farm: { select: { name: true } },
-	energyDevices: { select: { id: true } },
+	energyDevices: {
+		select: { id: true, lastSeenAt: true, feedLevelPercent: true, approvalStatus: true },
+	},
 	_count: { select: { biomassLogs: true, notifications: true, ownershipHistory: true } },
 } satisfies Prisma.PondSelect;
 

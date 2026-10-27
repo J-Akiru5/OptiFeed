@@ -131,7 +131,7 @@ export default async function AdminDevicesPage({
 				}
 			/>
 
-			{listedDevices.length > 0 && (
+			{devices.length > 0 && (
 				<div className="space-y-2">
 					<StatusStrip
 						counts={counts}

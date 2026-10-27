@@ -11,13 +11,10 @@ import {
 	AdminTh,
 	AdminTr,
 } from "@/components/admin/admin-table";
-import { UserPermissionsDialog } from "@/components/admin/user-permissions-dialog";
 import { Link } from "@/i18n/routing";
 import { getUsers } from "@/lib/actions/admin";
-import { PERMISSIONS } from "@/lib/auth/permissions";
-import { getCurrentUser } from "@/lib/auth/session";
 import { formatDateTimeLocal } from "@/lib/date-local";
-import { Eye, Shield, User, Users } from "lucide-react";
+import { Eye, KeyRound, Shield, User, Users } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 const roleBadge: Record<string, { bg: string; text: string; icon: typeof Shield }> = {
@@ -31,10 +28,12 @@ const roleBadge: Record<string, { bg: string; text: string; icon: typeof Shield 
 	},
 };
 
+const permissionsLinkClass =
+	"inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[#0A3D62]/20 px-3 text-xs font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-gray-600 dark:text-[#8fc0ea] dark:hover:bg-gray-800 dark:focus-visible:outline-[#8fc0ea]";
+
 export default async function AdminUsersPage() {
-	const [users, currentUser, t, tCommon, tDates] = await Promise.all([
+	const [users, t, tCommon, tDates] = await Promise.all([
 		getUsers(),
-		getCurrentUser(),
 		getTranslations("dashboard.adminUsers"),
 		getTranslations("dashboard.adminCommon"),
 		getTranslations("dates"),
@@ -130,12 +129,14 @@ export default async function AdminUsersPage() {
 											{joined(user.createdAt)}
 										</AdminTd>
 										<AdminTd className="text-right">
-											<UserPermissionsDialog
-												userId={user.id}
-												userName={user.displayName || user.farmId}
-												permissions={PERMISSIONS}
-												isSelf={currentUser?.id === user.id}
-											/>
+											<Link
+												href={`/admin/settings/members/${user.id}/permissions`}
+												aria-label={`${t("permissionsButton")} — ${user.displayName || user.farmId}`}
+												className={permissionsLinkClass}
+											>
+												<KeyRound aria-hidden="true" className="h-3.5 w-3.5" />
+												{t("permissionsButton")}
+											</Link>
 										</AdminTd>
 									</AdminTr>
 								);
@@ -184,12 +185,14 @@ export default async function AdminUsersPage() {
 									</div>
 
 									<div className="mt-3">
-										<UserPermissionsDialog
-											userId={user.id}
-											userName={user.displayName || user.farmId}
-											permissions={PERMISSIONS}
-											isSelf={currentUser?.id === user.id}
-										/>
+										<Link
+											href={`/admin/settings/members/${user.id}/permissions`}
+											aria-label={`${t("permissionsButton")} — ${user.displayName || user.farmId}`}
+											className={permissionsLinkClass}
+										>
+											<KeyRound aria-hidden="true" className="h-3.5 w-3.5" />
+											{t("permissionsButton")}
+										</Link>
 									</div>
 								</AdminCard>
 							);

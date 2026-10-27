@@ -2,7 +2,7 @@ import { adminSurface } from "@/components/admin/admin-classes";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { MembersSettings } from "@/components/admin/members-settings";
 import { listTenantMembers } from "@/lib/actions/admin";
-import { PERMISSIONS, hasPermission } from "@/lib/auth/permissions";
+import { hasPermission } from "@/lib/auth/permissions";
 import { Settings } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -33,7 +33,7 @@ export default async function AdminSettingsPage() {
 			<AdminPageHeader icon={Settings} title={t("title")} description={t("desc")} />
 
 			<section aria-label={t("generalTitle")} className={`${adminSurface} p-6`}>
-				<MembersSettings members={members} permissions={PERMISSIONS} canManage={canManage} />
+				<MembersSettings members={members} canManage={canManage} />
 			</section>
 
 			<section className={`${adminSurface} p-6`}>

@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Profile pictures (#198): an optional picture a user uploads, replaces or removes in Profile settings. The browser centre-crops it to a square and re-encodes a 512 px WebP, and the server re-checks the magic bytes, the 2 MB limit and the pixel size before storing it in the private `avatars` bucket under a random key with no name, e-mail or farm id. Pictures are served to signed-in viewers through 1 h signed URLs in one batched Storage call per page, and every avatar falls back to initials. The signed-in user is always the target, and the Privacy Policy data-category and retention tables list the optional photo.
 - Full pond management on dedicated pages (#202): the pond list links to a detail page with every pond field, the active grow-out cycle, the latest biomass sample and FCR, all devices with online/last-known hopper level and approval status, and ownership history. Create and edit are their own pages (owner selection inside the caller's org, org-default feeding rate, optional stocking date that starts a cycle). Editing the schedule/feeding fields queues the new schedule to every feeder on the pond under the same daily-cap and relay-time limits, and re-syncs dispensed grams. A pond can hold several feeders: add through the existing Add feeder flow with the pond preselected, move a feeder between ponds in the same org, or unassign it. Permanent deletion is limited to a pond with no history or devices, requires the typed pond name and a step-up; otherwise the page directs the admin to archive.
 
+### Fixed
+
+- Superadmin donut charts (Fleet status, Alerts by type) no longer truncate their legend labels in narrow cards; the legend sits under the chart and wraps (#211).
+
 ## [1.12.1] - 2026-10-27
 
 ### Added

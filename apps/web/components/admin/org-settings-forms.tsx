@@ -12,7 +12,7 @@ import {
 	ORG_OFFLINE_AFTER_MIN_MAX,
 	ORG_OFFLINE_AFTER_MIN_MIN,
 	type OrgSettings,
-} from "@/lib/settings/org";
+} from "@/lib/settings/org-shared";
 import type { MemberRole } from "@prisma/client";
 import { Bell, Gauge, Router } from "lucide-react";
 import { useTranslations } from "next-intl";

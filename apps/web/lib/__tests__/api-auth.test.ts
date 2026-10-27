@@ -179,6 +179,12 @@ const ALLOWLIST = new Set([
 	"[...fallback]/route.ts",
 ]);
 
+// Platform-admin routes authenticate with the verified session plus an active
+// PlatformAdmin row instead of a tenant binding, because a platform admin does
+// not have to be a tenant member (E18). Both checks are required here, so
+// dropping either one fails this sweep rather than silently opening the route.
+const PLATFORM_ADMIN_ROUTES = new Set(["platform/audit/export/route.ts"]);
+
 describe("every API route is authenticated or explicitly allowlisted (static)", () => {
 	const routes = routeFiles(API_DIR).map((file) => ({
 		path: relative(API_DIR, file).split(sep).join("/"),
@@ -196,6 +202,12 @@ describe("every API route is authenticated or explicitly allowlisted (static)", 
 				if (WRAPPED_HANDLER.test(route.source)) return false;
 				if (DEVICE_TOKEN_ROUTES.has(route.path)) {
 					return !route.source.includes("verifyDeviceToken");
+				}
+				if (PLATFORM_ADMIN_ROUTES.has(route.path)) {
+					return !(
+						route.source.includes("getVerifiedSession") &&
+						route.source.includes("isCurrentPlatformAdmin")
+					);
 				}
 				return true;
 			})

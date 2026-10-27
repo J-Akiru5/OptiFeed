@@ -14,12 +14,15 @@ import { Sidebar } from "@/components/sidebar";
 import { ViewAsBanner } from "@/components/superadmin/view-as-banner";
 import { Link } from "@/i18n/routing";
 import { getViewAsBanner } from "@/lib/actions/platform/impersonation";
+import { redirectPlatformAdminFromDashboard } from "@/lib/auth/dashboard-landing";
 import { isCurrentPlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { getCurrentPondOwnerId, requirePasswordChanged } from "@/lib/auth/session";
 import { isCurrentTenantAdmin } from "@/lib/auth/tenant-admin";
+import { getViewAsState } from "@/lib/auth/view-as";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import { isFeatureEnabled } from "@/lib/settings/flags";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
 
@@ -28,18 +31,36 @@ export default async function DashboardLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	const [ownerId, currentUser, isTenantAdmin, isPlatformAdmin, viewAs] = await Promise.all([
-		getCurrentPondOwnerId(),
-		requirePasswordChanged(),
-		isCurrentTenantAdmin(),
-		isCurrentPlatformAdmin(),
-		getViewAsBanner(),
-	]);
+	const [ownerId, currentUser, isTenantAdmin, isPlatformAdmin, viewAs, viewAsState, helpEnabled] =
+		await Promise.all([
+			getCurrentPondOwnerId(),
+			requirePasswordChanged(),
+			isCurrentTenantAdmin(),
+			isCurrentPlatformAdmin(),
+			getViewAsBanner(),
+			getViewAsState(),
+			isFeatureEnabled("help.centre"),
+		]);
+
+	// E18 (#199): a platform admin's home is the platform console. This runs
+	// before any pond, notification or device read, and leaves an active
+	// read-only view-as session untouched.
+	await redirectPlatformAdminFromDashboard({
+		isPlatformAdmin,
+		viewAsActive: viewAsState.active,
+		userId: currentUser.id,
+	});
+
 	const tCommon = await getTranslations("dashboard.common");
+
+	// Farmer pond chrome (pond name/selector, last synced, hopper widget) is
+	// tenant identity, and a platform admin has none outside view-as.
+	const showPondChrome = !(isPlatformAdmin && !viewAsState.active);
 
 	let pondId = "";
 	let initialUnreadCount = 0;
-	let hopperLevelPct = 0;
+	let hopperLevelPct: number | null = null;
+	let hopperLevelUpdatedAt: Date | null = null;
 	let esp32Status: "online" | "offline" | "missing" = "missing";
 	let pondName = "ILO-POND-01";
 	let lastSeenAtStr: string | null = null;
@@ -76,7 +97,8 @@ export default async function DashboardLayout({
 			initialUnreadCount = unreadCount;
 
 			if (energyDevice) {
-				hopperLevelPct = energyDevice.feedLevelPercent ?? 0;
+				hopperLevelPct = energyDevice.feedLevelPercent;
+				hopperLevelUpdatedAt = energyDevice.feedLevelUpdatedAt;
 				const now = new Date();
 				const isOffline =
 					!energyDevice.lastSeenAt ||
@@ -97,7 +119,7 @@ export default async function DashboardLayout({
 				: tCommon("deviceMissing");
 
 	return (
-		<ChatWidgetProvider>
+		<ChatWidgetProvider role={isPlatformAdmin ? "superadmin" : isTenantAdmin ? "owner" : "farmer"}>
 			<OfflineSync scope={ownerId} />
 			<OnboardingProvider>
 				<div className="flex flex-col min-h-screen bg-[#F4F7F6] dark:bg-gray-950">
@@ -154,6 +176,8 @@ export default async function DashboardLayout({
 								pondName={pondName}
 								lastSeenAt={lastSeenAtStr}
 								esp32Status={esp32Status}
+								isViewingAs={viewAsState.active}
+								helpEnabled={helpEnabled}
 								initialUser={
 									currentUser
 										? {
@@ -169,7 +193,12 @@ export default async function DashboardLayout({
 						</header>
 
 						<DashboardContentShell>
-							<Sidebar hopperLevelPct={hopperLevelPct} isOffline={esp32Status === "offline"} />
+							<Sidebar
+								hopperLevelPct={hopperLevelPct}
+								hopperLevelUpdatedAt={hopperLevelUpdatedAt}
+								isOffline={esp32Status === "offline"}
+								showHopperWidget={showPondChrome}
+							/>
 							<main
 								id="main-content"
 								tabIndex={-1}
@@ -183,7 +212,7 @@ export default async function DashboardLayout({
 
 					<ChatWidget />
 					<BottomNav />
-					<FabStack />
+					<FabStack audience={isTenantAdmin ? "owner" : "farmer"} />
 				</div>
 			</OnboardingProvider>
 		</ChatWidgetProvider>

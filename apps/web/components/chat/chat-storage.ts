@@ -5,15 +5,21 @@ export interface ChatActionField {
 	value: string;
 }
 
-export type ChatActionStatus = "pending" | "confirmed" | "cancelled" | "error";
+export type ChatActionStatus = "pending" | "confirmed" | "cancelled" | "expired" | "error";
 
 export interface ChatActionState {
-	type: string;
-	args: Record<string, unknown>;
+	/** The stored `AssistantAction` row Accept/Reject acts on (issue #194). */
+	actionId?: string;
+	toolId?: string;
+	/** Legacy fields from the pre-#194 preview. Kept so old stored chats render. */
+	type?: string;
+	args?: Record<string, unknown>;
 	summary: string;
 	fields: ChatActionField[];
 	status: ChatActionStatus;
 	result?: string;
+	/** ISO instant; the card shows "expired" once it passes. */
+	expiresAt?: string;
 }
 
 export interface ChatMessage {
@@ -62,4 +68,11 @@ export function clearChatHistory(): void {
 	} catch {
 		// Ignore — nothing to clear.
 	}
+}
+
+/** A pending card whose `expiresAt` has passed is shown as expired. */
+export function isChatActionExpired(action: ChatActionState, now: number = Date.now()): boolean {
+	if (!action.expiresAt) return false;
+	const expiresAt = new Date(action.expiresAt).getTime();
+	return Number.isFinite(expiresAt) && expiresAt <= now;
 }

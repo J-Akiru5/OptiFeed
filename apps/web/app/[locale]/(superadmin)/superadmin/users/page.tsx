@@ -1,4 +1,4 @@
-import { ListPagination, ListToolbar } from "@/components/superadmin/list-chrome";
+import { ListToolbar } from "@/components/superadmin/list-chrome";
 import {
 	Badge,
 	type BadgeTone,
@@ -11,6 +11,9 @@ import {
 	TableFrame,
 } from "@/components/superadmin/ui";
 import { UserActions } from "@/components/superadmin/user-actions";
+import { ItemCardGrid } from "@/components/ui/item-card";
+import { Pagination } from "@/components/ui/pagination";
+import { ListView } from "@/components/ui/view-toggle";
 import { Link, getPathname } from "@/i18n/routing";
 import { listAllUsers } from "@/lib/actions/superadmin";
 import { Eye, Plus, Shield, ShieldCheck, User, UserX, Users } from "lucide-react";
@@ -47,16 +50,13 @@ export default async function SuperadminUsersPage({
 		getTranslations("superadmin"),
 	]);
 	const pageCount = Math.max(1, Math.ceil(users.total / users.pageSize));
+	const firstRow = users.total === 0 ? 0 : (users.page - 1) * users.pageSize + 1;
+	const lastRow = Math.min(users.page * users.pageSize, users.total);
 
 	const roleLabel = (role: string) => {
 		const key = `roles.${role}`;
 		return tRoot.has(key) ? tRoot(key) : role;
 	};
-
-	const pageHref = (target: number) => ({
-		pathname: "/superadmin/users" as const,
-		query: { ...(query ? { q: query } : {}), page: String(target) },
-	});
 
 	return (
 		<div className="space-y-6">
@@ -64,7 +64,11 @@ export default async function SuperadminUsersPage({
 				title={t("title")}
 				description={t("description", { count: users.total })}
 				actions={
-					<Link href="/superadmin/users/create" className={PRIMARY_BUTTON}>
+					<Link
+						href="/superadmin/users/create"
+						data-help="superadmin-new-user"
+						className={PRIMARY_BUTTON}
+					>
 						<Plus className="h-4 w-4" aria-hidden="true" />
 						{t("newAccount")}
 					</Link>
@@ -92,7 +96,11 @@ export default async function SuperadminUsersPage({
 									{tCommon("clearSearch")}
 								</Link>
 							) : (
-								<Link href="/superadmin/users/create" className={PRIMARY_BUTTON}>
+								<Link
+									href="/superadmin/users/create"
+									data-help="superadmin-new-user"
+									className={PRIMARY_BUTTON}
+								>
 									{t("newAccount")}
 								</Link>
 							)
@@ -100,8 +108,13 @@ export default async function SuperadminUsersPage({
 					/>
 				</Card>
 			) : (
-				<>
-					<ul className="space-y-3 md:hidden">
+				<ListView
+					pageKey="superadmin-users"
+					listLabel={tCommon("viewToggle.list")}
+					cardsLabel={tCommon("viewToggle.cards")}
+					toggleLabel={tCommon("viewToggle.label")}
+				>
+					<ItemCardGrid label={t("caption")}>
 						{users.rows.map((user) => {
 							const badge = roleBadge[user.role] || roleBadge.VIEWER;
 							return (
@@ -177,7 +190,7 @@ export default async function SuperadminUsersPage({
 								</MobileCard>
 							);
 						})}
-					</ul>
+					</ItemCardGrid>
 
 					<TableFrame
 						className="hidden md:block"
@@ -279,17 +292,22 @@ export default async function SuperadminUsersPage({
 							);
 						})}
 					</TableFrame>
-				</>
+				</ListView>
 			)}
 
-			<ListPagination
-				label={t("pagerLabel")}
-				pageLabel={tCommon("pageOf", { page: users.page, count: pageCount })}
+			<Pagination
+				basePath="/superadmin/users"
+				params={{ q: query || undefined }}
+				page={users.page}
+				pageCount={pageCount}
+				showing={tCommon("pagination.showing", {
+					from: firstRow,
+					to: lastRow,
+					total: users.total,
+				})}
 				previousLabel={tCommon("previous")}
 				nextLabel={tCommon("next")}
-				pageCount={pageCount}
-				previousHref={users.page > 1 ? pageHref(users.page - 1) : null}
-				nextHref={users.page < pageCount ? pageHref(users.page + 1) : null}
+				label={tCommon("pagination.label")}
 			/>
 		</div>
 	);

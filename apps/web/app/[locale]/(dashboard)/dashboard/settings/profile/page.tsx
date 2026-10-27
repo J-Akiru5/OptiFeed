@@ -42,7 +42,7 @@ export default async function ProfileSettingsPage() {
 	const disabledField = `${dashboardField} cursor-not-allowed bg-gray-50 text-[#3D5568] dark:bg-gray-800 dark:text-gray-400`;
 
 	return (
-		<div className="mx-auto max-w-4xl space-y-6 pb-20">
+		<div className="w-full space-y-6 pb-20">
 			<DashboardPageHeader title={t("title")} description={t("desc")} icon={User} />
 
 			{!writeAccess && (
@@ -50,7 +50,7 @@ export default async function ProfileSettingsPage() {
 			)}
 
 			<DashboardSection title={t("profileInfo")} description={t("profileInfoDesc")} icon={User}>
-				<div className="grid gap-6 md:grid-cols-2">
+				<div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
 					<div>
 						<label htmlFor="fullName" className={dashboardLabel}>
 							{t("fullName")}

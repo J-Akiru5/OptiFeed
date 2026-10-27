@@ -1,17 +1,12 @@
-import {
-	DeviceSticker,
-	type DeviceStickerStrings,
-	STICKERS_PER_SHEET,
-} from "@/components/admin/device-sticker";
+import type { DeviceStickerStrings } from "@/components/admin/device-sticker";
 import { PrintButton } from "@/components/admin/print-button";
+import { StickerPreview } from "@/components/admin/sticker-preview";
 import { Link } from "@/i18n/routing";
-import {
-	HARDWARE_RATING,
-	type HardwareRating,
-	maxPower,
-	powerUnit,
-} from "@/lib/constants/hardware-rating";
+import { isCurrentPlatformAdmin } from "@/lib/auth/require-platform-admin";
+import { getTenantAdminState } from "@/lib/auth/tenant-admin";
+import { parseStickerRatingParams, resolveStickerRating } from "@/lib/constants/sticker-rating";
 import { provisioningApSsid, wifiSetupPayload } from "@/lib/provisioning-ap";
+import { getStickerRatingDefault } from "@/lib/settings/sticker-rating";
 import { getTranslations } from "next-intl/server";
 
 // `@page` is global to the document, so it is emitted by the print pages alone
@@ -23,23 +18,36 @@ type Props = {
 	devices: { id: string; mac: string }[];
 	/** Where the "Back" link goes: the console the admin came from. */
 	backHref: string;
+	/** The labels route's search params; they carry the per-print rating. */
+	searchParams: Record<string, string | string[] | undefined>;
 };
 
 /**
  * Printable A4 sheet of power-rating stickers, 2 × 4 per page, shared by the
  * tenant (Admin → Devices) and platform (Superadmin → Devices) print pages.
  * Each page does its own access check and data load before rendering this.
+ *
+ * The rating comes from the URL override, then the saved platform default,
+ * then `lib/constants/hardware-rating.ts`. Saving a default is a platform
+ * action; printing with an override needs only access to this page.
  */
-export async function DeviceLabelSheet({ devices, backHref }: Props) {
-	const t = await getTranslations("dashboard.adminDeviceLabels");
-	// The sticker is a physical label and is always English, whatever locale
-	// the admin browses in; only this page's own chrome is localized. Raw
-	// messages: they carry `{type}` / `{ssid}` / `{address}` placeholders that
-	// the sticker fills in itself per device.
-	const tSticker = await getTranslations({
-		locale: "en",
-		namespace: "dashboard.adminDeviceLabels.sticker",
-	});
+export async function DeviceLabelSheet({ devices, backHref, searchParams }: Props) {
+	const [t, tSticker, saved, canSaveDefault, tPlatform, tRoles] = await Promise.all([
+		getTranslations("dashboard.adminDeviceLabels"),
+		// The sticker is a physical label and is always English, whatever locale
+		// the admin browses in; only this page's own chrome is localized. Raw
+		// messages: they carry `{type}` / `{ssid}` / `{address}` placeholders that
+		// the sticker fills in itself per device.
+		getTranslations({
+			locale: "en",
+			namespace: "dashboard.adminDeviceLabels.sticker",
+		}),
+		getStickerRatingDefault(),
+		isCurrentPlatformAdmin(),
+		getTranslations("superadmin.common"),
+		getTranslations("dashboard.adminMembers.role"),
+	]);
+
 	const strings: DeviceStickerStrings = {
 		subtitle: tSticker.raw("subtitle"),
 		tag: tSticker.raw("tag"),
@@ -62,11 +70,6 @@ export async function DeviceLabelSheet({ devices, backHref }: Props) {
 		footerDry: tSticker.raw("footerDry"),
 	};
 
-	const sheets: (typeof devices)[] = [];
-	for (let i = 0; i < devices.length; i += STICKERS_PER_SHEET) {
-		sheets.push(devices.slice(i, i + STICKERS_PER_SHEET));
-	}
-
 	// Last-four collisions would give two units the same setup network name.
 	const seen = new Map<string, string>();
 	let duplicateSsid = false;
@@ -77,7 +80,17 @@ export async function DeviceLabelSheet({ devices, backHref }: Props) {
 		seen.set(ssid, device.mac.toUpperCase());
 	}
 
-	const rating: HardwareRating = HARDWARE_RATING;
+	const platformAdminRoleLabel = tPlatform("platformAdmin");
+	let actorRoleLabel = platformAdminRoleLabel;
+	if (!canSaveDefault) {
+		const tenant = await getTenantAdminState();
+		actorRoleLabel = tRoles(tenant.isOwner ? "OWNER" : "ADMIN");
+	}
+
+	const defaultRating = resolveStickerRating({ saved });
+	const override = parseStickerRatingParams(searchParams);
+	const initialRating = resolveStickerRating({ override, saved });
+
 	const firstSsid = provisioningApSsid(devices[0]?.mac ?? "");
 
 	return (
@@ -96,22 +109,6 @@ export async function DeviceLabelSheet({ devices, backHref }: Props) {
 					<PrintButton label={t("print")} />
 				</div>
 
-				<div className="rounded-xl border border-[#F5B87A] bg-[#FFF4E8] p-4 text-sm text-[#0F1B2D]">
-					<p>
-						<b className="text-[#8A4A00]">{t("verifyTitle")}</b>{" "}
-						{t("verifyIntro", {
-							volts: rating.inputVoltage,
-							hz: rating.supplyType === "AC" ? rating.frequencyHz : 0,
-							amps: rating.maxCurrentA,
-						})}
-					</p>
-					<ul className="mt-2 list-disc space-y-1 pl-5">
-						<li>{t("verifyReadLabels")}</li>
-						<li>{t("verifyMeasure")}</li>
-						<li>{t("verifyPower", { power: maxPower(), unit: powerUnit() })}</li>
-					</ul>
-				</div>
-
 				{duplicateSsid && (
 					<p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-[#C42B3A]">
 						{t("dupWarning")}
@@ -123,18 +120,17 @@ export async function DeviceLabelSheet({ devices, backHref }: Props) {
 				</p>
 			</div>
 
-			<div className="overflow-x-auto print:overflow-visible">
-				<div className="mx-auto w-fit print:mx-0">
-					{sheets.map((sheet) => (
-						<div key={sheet.map((d) => d.id).join("|")} className="pk-page mb-6 print:mb-0">
-							<div className="pk-sheet">
-								{sheet.map((device) => (
-									<DeviceSticker key={device.id} mac={device.mac} strings={strings} />
-								))}
-							</div>
-						</div>
-					))}
-				</div>
+			<div className="mx-auto max-w-[200mm] print:max-w-none">
+				<StickerPreview
+					devices={devices}
+					stickerStrings={strings}
+					initialRating={initialRating}
+					defaultRating={defaultRating}
+					actorRoleLabel={actorRoleLabel}
+					platformAdminRoleLabel={platformAdminRoleLabel}
+					canSaveDefault={canSaveDefault}
+					initialOverride={Object.keys(override).length > 0}
+				/>
 			</div>
 
 			<div className="print:hidden mx-auto mt-6 max-w-[200mm] rounded-xl border border-gray-200 bg-white p-4 text-xs text-[#3D5568]">

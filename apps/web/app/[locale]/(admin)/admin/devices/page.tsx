@@ -1,9 +1,9 @@
+import { AddFeederForm } from "@/components/admin/add-feeder-form";
 import { adminButtonSecondary } from "@/components/admin/admin-classes";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import {
 	AdminCard,
-	AdminCardList,
 	AdminCardRow,
 	AdminTHead,
 	AdminTable,
@@ -12,34 +12,73 @@ import {
 	AdminTr,
 } from "@/components/admin/admin-table";
 import { DeviceTokenReveal } from "@/components/admin/device-token-reveal";
+import { PendingDeviceApprovals } from "@/components/admin/pending-device-approvals";
+import { FeedLevelDisplay } from "@/components/feed-level-display";
+import { ItemCardGrid } from "@/components/ui/item-card";
+import { Pagination } from "@/components/ui/pagination";
+import { ListView } from "@/components/ui/view-toggle";
 import { Link, getPathname } from "@/i18n/routing";
 import { getDevices } from "@/lib/actions/admin";
+import { getTenantRegistrationOptions } from "@/lib/actions/device-registration";
+import { hasPermission } from "@/lib/auth/permissions";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import { parsePage } from "@/lib/pagination";
+import prisma from "@/lib/prisma";
 import { Cpu, Printer, Wifi, WifiOff } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 
 const LABELS_HREF = "/admin/devices/labels";
 const LABEL_FORM_ID = "device-label-form";
 
-export default async function AdminDevicesPage() {
-	const [devices, t, tCommon, tDates, locale] = await Promise.all([
-		getDevices(),
+export default async function AdminDevicesPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ page?: string }>;
+}) {
+	const params = await searchParams;
+	const page = parsePage(params.page);
+	const [devicesPage, canClaim, t, tCommon, tDates, locale] = await Promise.all([
+		getDevices({ page }),
+		hasPermission("claim_feeder"),
 		getTranslations("dashboard.adminDevices"),
 		getTranslations("dashboard.adminCommon"),
 		getTranslations("dates"),
 		getLocale(),
 	]);
+	const devices = devicesPage.rows;
+	const pageCount = Math.max(1, Math.ceil(devicesPage.total / devicesPage.pageSize));
+	const firstRow = devicesPage.total === 0 ? 0 : (devicesPage.page - 1) * devicesPage.pageSize + 1;
+	const lastRow = Math.min(devicesPage.page * devicesPage.pageSize, devicesPage.total);
+
+	// Registration options are only read for a member who may actually add a
+	// feeder; the action re-checks the same guard.
+	const registrationOptions = canClaim ? await getTenantRegistrationOptions() : null;
+
+	const pendingDevices = devices.filter((device) => device.approvalStatus === "PENDING");
+	const listedDevices = devices.filter((device) => device.approvalStatus !== "PENDING");
 
 	const lastSeen = (date: Date | null) =>
 		date ? formatDateTimeLocal(date, tDates).full : tCommon("never");
 
+	// `getDevices` is an allow-listed display select without the reading
+	// timestamp, and this task must not change lib/actions. Read only that one
+	// field for the page's devices here.
+	const readingTimes =
+		devices.length > 0
+			? await prisma.energyDevice.findMany({
+					where: { id: { in: devices.map((device) => device.id) } },
+					select: { id: true, feedLevelUpdatedAt: true },
+				})
+			: [];
+	const feedLevelUpdatedAt = new Map(readingTimes.map((row) => [row.id, row.feedLevelUpdatedAt]));
+
 	return (
-		<div className="space-y-6">
+		<div className="space-y-6" data-help="admin-devices-list">
 			<AdminPageHeader
 				icon={Cpu}
 				title={t("title")}
-				description={t("desc", { count: devices.length })}
+				description={t("desc", { count: devicesPage.total })}
 				actions={
 					devices.length > 0 ? (
 						// Plain GET form: the row checkboxes join it through their `form`
@@ -59,10 +98,30 @@ export default async function AdminDevicesPage() {
 				}
 			/>
 
-			{devices.length === 0 ? (
+			{registrationOptions && <AddFeederForm options={registrationOptions} />}
+
+			{canClaim && (
+				<PendingDeviceApprovals
+					devices={pendingDevices.map((device) => ({
+						id: device.id,
+						label: device.label,
+						mac: device.mac,
+						pondName: device.pond?.name ?? null,
+					}))}
+				/>
+			)}
+
+			{devices.length === 0 && (
 				<AdminEmptyState icon={Cpu} title={t("emptyTitle")} description={t("emptyDesc")} />
-			) : (
-				<>
+			)}
+
+			{listedDevices.length > 0 && (
+				<ListView
+					pageKey="admin-devices"
+					listLabel={tCommon("viewToggle.list")}
+					cardsLabel={tCommon("viewToggle.cards")}
+					toggleLabel={tCommon("viewToggle.label")}
+				>
 					<AdminTable caption={t("caption")} minWidth="min-w-[64rem]">
 						<AdminTHead>
 							<AdminTh>{t("columnDevice")}</AdminTh>
@@ -75,12 +134,11 @@ export default async function AdminDevicesPage() {
 							<AdminTh>{t("labelColumn")}</AdminTh>
 						</AdminTHead>
 						<tbody>
-							{devices.map((device) => {
+							{listedDevices.map((device) => {
 								const now = new Date();
 								const isOffline =
 									!device.lastSeenAt ||
 									now.getTime() - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
-								const feedLevel = device.feedLevelPercent ?? 0;
 
 								return (
 									<AdminTr key={device.id}>
@@ -99,6 +157,11 @@ export default async function AdminDevicesPage() {
 													<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
 														{t("perFeeding", { grams: device.gramsPerFeeding })}
 													</p>
+													{device.approvalStatus === "REJECTED" && (
+														<p className="mt-1 inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-black tracking-wider text-[#C42B3A] uppercase dark:bg-red-950/50 dark:text-red-300">
+															{t("rejectedBadge")}
+														</p>
+													)}
 												</div>
 											</div>
 										</AdminTd>
@@ -130,28 +193,24 @@ export default async function AdminDevicesPage() {
 											{device.pond?.name || t("unassigned")}
 										</AdminTd>
 										<AdminTd>
-											<div className="flex items-center gap-2">
-												<div
-													aria-hidden="true"
-													className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
-												>
-													<div
-														className={`h-full rounded-full ${
-															feedLevel < 20 ? "bg-[#E85A2A]" : "bg-[#1E7B34]"
-														}`}
-														style={{ width: `${feedLevel}%` }}
-													/>
-												</div>
-												<span className="text-[11px] font-bold text-[#3D5568] tabular-nums dark:text-gray-300">
-													{feedLevel}%
-												</span>
-											</div>
+											<FeedLevelDisplay
+												levelPercent={device.feedLevelPercent}
+												updatedAt={feedLevelUpdatedAt.get(device.id) ?? null}
+												isOffline={isOffline}
+												size="sm"
+											/>
 										</AdminTd>
 										<AdminTd className="text-xs whitespace-nowrap text-[#3D5568] dark:text-gray-400">
 											{lastSeen(device.lastSeenAt)}
 										</AdminTd>
 										<AdminTd>
-											<DeviceTokenReveal deviceId={device.id} deviceLabel={device.label} />
+											{device.approvalStatus === "APPROVED" ? (
+												<DeviceTokenReveal deviceId={device.id} deviceLabel={device.label} />
+											) : (
+												<span className="text-xs font-bold text-[#3D5568] dark:text-gray-400">
+													{t("rejectedBadge")}
+												</span>
+											)}
 										</AdminTd>
 										<AdminTd>
 											<div className="flex items-center gap-3">
@@ -165,6 +224,7 @@ export default async function AdminDevicesPage() {
 												/>
 												<Link
 													href={{ pathname: LABELS_HREF, query: { id: device.id } }}
+													data-help="print-label"
 													className={adminButtonSecondary}
 												>
 													<Printer aria-hidden="true" className="h-3.5 w-3.5" />
@@ -178,13 +238,12 @@ export default async function AdminDevicesPage() {
 						</tbody>
 					</AdminTable>
 
-					<AdminCardList>
-						{devices.map((device) => {
+					<ItemCardGrid label={t("caption")}>
+						{listedDevices.map((device) => {
 							const now = new Date();
 							const isOffline =
 								!device.lastSeenAt ||
 								now.getTime() - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
-							const feedLevel = device.feedLevelPercent ?? 0;
 
 							return (
 								<AdminCard key={device.id}>
@@ -196,6 +255,11 @@ export default async function AdminDevicesPage() {
 											<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
 												{t("perFeeding", { grams: device.gramsPerFeeding })}
 											</p>
+											{device.approvalStatus === "REJECTED" && (
+												<p className="mt-1 inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-black tracking-wider text-[#C42B3A] uppercase dark:bg-red-950/50 dark:text-red-300">
+													{t("rejectedBadge")}
+												</p>
+											)}
 										</div>
 										<span
 											className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black tracking-wider uppercase ${
@@ -220,14 +284,27 @@ export default async function AdminDevicesPage() {
 										<AdminCardRow label={t("columnPond")}>
 											{device.pond?.name || t("unassigned")}
 										</AdminCardRow>
-										<AdminCardRow label={t("columnFeedLevel")}>{feedLevel}%</AdminCardRow>
+										<AdminCardRow label={t("columnFeedLevel")}>
+											<FeedLevelDisplay
+												levelPercent={device.feedLevelPercent}
+												updatedAt={feedLevelUpdatedAt.get(device.id) ?? null}
+												isOffline={isOffline}
+												size="sm"
+											/>
+										</AdminCardRow>
 										<AdminCardRow label={t("columnLastSeen")}>
 											{lastSeen(device.lastSeenAt)}
 										</AdminCardRow>
 									</div>
 
 									<div className="mt-3 space-y-3">
-										<DeviceTokenReveal deviceId={device.id} deviceLabel={device.label} />
+										{device.approvalStatus === "APPROVED" ? (
+											<DeviceTokenReveal deviceId={device.id} deviceLabel={device.label} />
+										) : (
+											<p className="text-xs font-bold text-[#3D5568] dark:text-gray-400">
+												{t("rejectedBadge")}
+											</p>
+										)}
 										<div className="flex flex-wrap items-center gap-3">
 											<label className="inline-flex items-center gap-2 text-[11px] font-bold text-[#3D5568] dark:text-gray-300">
 												<input
@@ -242,6 +319,7 @@ export default async function AdminDevicesPage() {
 											</label>
 											<Link
 												href={{ pathname: LABELS_HREF, query: { id: device.id } }}
+												data-help="print-label"
 												className={adminButtonSecondary}
 											>
 												<Printer aria-hidden="true" className="h-3.5 w-3.5" />
@@ -252,8 +330,24 @@ export default async function AdminDevicesPage() {
 								</AdminCard>
 							);
 						})}
-					</AdminCardList>
-				</>
+					</ItemCardGrid>
+				</ListView>
+			)}
+
+			{devicesPage.total > 0 && (
+				<Pagination
+					basePath="/admin/devices"
+					page={devicesPage.page}
+					pageCount={pageCount}
+					showing={tCommon("pagination.showing", {
+						from: firstRow,
+						to: lastRow,
+						total: devicesPage.total,
+					})}
+					previousLabel={tCommon("pagination.previous")}
+					nextLabel={tCommon("pagination.next")}
+					label={tCommon("pagination.label")}
+				/>
 			)}
 		</div>
 	);

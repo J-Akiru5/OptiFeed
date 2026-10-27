@@ -3,6 +3,7 @@
 import { clearChatHistory } from "@/components/chat/chat-storage";
 import { useChatWidget } from "@/components/chat/chat-widget-provider";
 import { DarkModeToggle } from "@/components/dark-mode-toggle";
+import { HelpButton } from "@/components/help/help-button";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { PondSelector } from "@/components/pond-selector";
@@ -11,8 +12,16 @@ import { clearOfflineData } from "@/lib/offline/db";
 import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
 import { createClient } from "@/lib/supabase/client";
 import { Globe, LogOut, Shield, ShieldAlert, X } from "lucide-react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
+
+export type HeaderActionsUser = {
+	email: string;
+	role: string | null;
+	displayName: string | null;
+	isTenantAdmin: boolean;
+	isPlatformAdmin: boolean;
+};
 
 interface HeaderActionsProps {
 	ponds?: { id: string; name: string }[];
@@ -20,14 +29,12 @@ interface HeaderActionsProps {
 	pondName?: string;
 	lastSeenAt?: string | null;
 	esp32Status?: "online" | "offline" | "missing";
+	/** True while a read-only view-as session is active (the tenant view stays as-is). */
+	isViewingAs?: boolean;
+	/** Resolved server-side from the `help.centre` feature flag. */
+	helpEnabled?: boolean;
 	/** Resolved by the dashboard layout so the header does not fetch after hydration. */
-	initialUser?: {
-		email: string;
-		role: string | null;
-		displayName: string | null;
-		isTenantAdmin: boolean;
-		isPlatformAdmin: boolean;
-	};
+	initialUser?: HeaderActionsUser;
 }
 
 function formatRelativeTime(dateStr: string | null): string {
@@ -49,6 +56,8 @@ export function HeaderActions({
 	pondName = "ILO-POND-01",
 	lastSeenAt = null,
 	esp32Status = "missing",
+	isViewingAs = false,
+	helpEnabled = true,
 	initialUser,
 }: HeaderActionsProps) {
 	const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -57,7 +66,13 @@ export function HeaderActions({
 	const isPlatformAdmin = initialUser?.isPlatformAdmin ?? false;
 	const router = useRouter();
 	const locale = useLocale();
+	const tCommon = useTranslations("dashboard.common");
 	const { clearMessages } = useChatWidget();
+
+	// E18 (#199): a platform admin has no farm identity of their own, so the
+	// pond name/selector and the last-synced line are not theirs to show. In
+	// view-as the tenant dashboard stays exactly as it is.
+	const showPlatformIdentity = isPlatformAdmin && !isViewingAs;
 
 	const handleLogout = async () => {
 		setShowProfileMenu(false);
@@ -72,19 +87,28 @@ export function HeaderActions({
 
 	return (
 		<div className="flex items-center gap-2 md:gap-3 relative">
-			<div className="text-right hidden sm:block">
-				{ponds.length > 1 ? (
-					<PondSelector ponds={ponds} activePondId={activePondId} />
-				) : (
-					<p className="text-xs font-bold text-white uppercase">{pondName}</p>
-				)}
-				<p className="text-[10px] text-white/60 uppercase tracking-wider" suppressHydrationWarning>
-					LAST SYNCED: {formatRelativeTime(lastSeenAt)}
-				</p>
-			</div>
+			{!showPlatformIdentity && (
+				<div className="text-right hidden sm:block">
+					{ponds.length > 1 ? (
+						<PondSelector ponds={ponds} activePondId={activePondId} />
+					) : (
+						<p className="text-xs font-bold text-white uppercase">{pondName}</p>
+					)}
+					<p
+						className="text-[10px] text-white/60 uppercase tracking-wider"
+						suppressHydrationWarning
+					>
+						LAST SYNCED: {formatRelativeTime(lastSeenAt)}
+					</p>
+				</div>
+			)}
 
 			<DarkModeToggle />
 			<LocaleSwitcher />
+
+			{helpEnabled && (
+				<HelpButton audience={isTenantAdmin ? "owner" : "farmer"} className="hidden sm:flex" />
+			)}
 
 			<NotificationBell />
 
@@ -110,10 +134,14 @@ export function HeaderActions({
 								<p className="text-base font-black">
 									{userEmail ? userEmail.split("@")[0] : "User"}
 								</p>
-								<p className="text-xs font-bold text-[#3D5568] dark:text-gray-400">Pond Operator</p>
-								<p className="mt-0.5 font-mono text-[11px] font-bold text-[#3D5568] dark:text-gray-400 uppercase">
-									{ponds.find((p) => p.id === activePondId)?.name ?? pondName}
+								<p className="text-xs font-bold text-[#3D5568] dark:text-gray-400">
+									{showPlatformIdentity ? tCommon("platformAdmin") : "Pond Operator"}
 								</p>
+								{!showPlatformIdentity && (
+									<p className="mt-0.5 font-mono text-[11px] font-bold text-[#3D5568] dark:text-gray-400 uppercase">
+										{ponds.find((p) => p.id === activePondId)?.name ?? pondName}
+									</p>
+								)}
 							</div>
 						</div>
 						<button

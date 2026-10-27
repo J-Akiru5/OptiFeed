@@ -1,10 +1,13 @@
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
+import { HelpButton } from "@/components/help/help-button";
 import { SuperadminBottomNav } from "@/components/superadmin-bottom-nav";
 import { SuperadminSidebar } from "@/components/superadmin-sidebar";
 import { FOCUS_RING_ON_DARK } from "@/components/superadmin/ui";
 import { Link } from "@/i18n/routing";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { requirePasswordChanged } from "@/lib/auth/session";
+import { hasActiveTenantMembership } from "@/lib/auth/tenant-membership";
+import { isFeatureEnabled } from "@/lib/settings/flags";
 import { cn } from "@/lib/utils";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
@@ -17,15 +20,21 @@ import Image from "next/image";
  * Copy comes from the `superadmin.shell` catalogue (T-10) and the shell paints
  * the light brand surface regardless of the OS colour scheme, so the shell, the
  * pages, `loading.tsx` and `error.tsx` stay on the same palette.
+ *
+ * The farm-dashboard link is offered only to a platform admin who is also an
+ * active tenant member (E18, #199): everyone else has no tenant dashboard to
+ * open, and the `/dashboard` gate would send them straight back here.
  */
 export default async function SuperadminLayout({
 	children,
 }: {
 	children: React.ReactNode;
 }) {
-	await requirePasswordChanged();
+	const user = await requirePasswordChanged();
 	await requirePlatformAdmin();
 	const t = await getTranslations("superadmin.shell");
+	const hasFarmDashboard = await hasActiveTenantMembership(user.id);
+	const helpEnabled = await isFeatureEnabled("help.centre");
 
 	return (
 		<div className="flex min-h-screen flex-col bg-[#F4F7F6]">
@@ -61,20 +70,23 @@ export default async function SuperadminLayout({
 				</div>
 
 				<div className="flex shrink-0 items-center gap-3">
-					<Link
-						href="/dashboard"
-						className={cn(
-							"rounded-lg px-2 py-1 text-sm font-bold text-white/80 transition-colors hover:text-white",
-							FOCUS_RING_ON_DARK,
-						)}
-					>
-						{t("dashboard")}
-					</Link>
+					{helpEnabled && <HelpButton audience="superadmin" />}
+					{hasFarmDashboard && (
+						<Link
+							href="/dashboard"
+							className={cn(
+								"rounded-lg px-2 py-1 text-sm font-bold text-white/80 transition-colors hover:text-white",
+								FOCUS_RING_ON_DARK,
+							)}
+						>
+							{t("openFarmDashboard")}
+						</Link>
+					)}
 				</div>
 			</header>
 
 			<div className="flex min-h-[calc(100vh-4rem)] w-full flex-1">
-				<SuperadminSidebar />
+				<SuperadminSidebar showFarmDashboard={hasFarmDashboard} />
 				{/* min-w-0 lets a wide table scroll inside its own card instead of
 				    widening the page. */}
 				<main

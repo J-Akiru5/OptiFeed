@@ -12,10 +12,10 @@ export default async function DeviceLabelsPage({
 }: {
 	searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-	const { id } = await searchParams;
-	const devices = await getDevicesForLabels(idsFrom(id));
+	const params = await searchParams;
+	const devices = await getDevicesForLabels(idsFrom(params.id));
 	// Out-of-scope and unknown devices both come back empty: same answer.
 	if (devices.length === 0) notFound();
 
-	return <DeviceLabelSheet devices={devices} backHref="/admin/devices" />;
+	return <DeviceLabelSheet devices={devices} backHref="/admin/devices" searchParams={params} />;
 }

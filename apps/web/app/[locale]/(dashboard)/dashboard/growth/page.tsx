@@ -363,7 +363,7 @@ export default async function GrowthPage() {
 			{/* FCR Calculator */}
 			<FcrCalculator latestFcr={latestFcr} />
 
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-6" data-help="growth-charts">
 				{/* Latest ABW Card */}
 				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex flex-col justify-between relative overflow-hidden">
 					<div className="flex justify-between items-start mb-4 relative z-10">
@@ -618,7 +618,11 @@ export default async function GrowthPage() {
 						title={t("summaryTitle")}
 						description={t("summaryDesc")}
 						action={
-							<Link href="/dashboard/growth/history?tab=growth" className={dashboardSectionLink}>
+							<Link
+								href="/dashboard/growth/history?tab=growth"
+								data-help="growth-history"
+								className={dashboardSectionLink}
+							>
 								{t("viewAll")}
 								<ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
 							</Link>

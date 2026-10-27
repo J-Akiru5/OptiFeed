@@ -25,31 +25,24 @@ test.describe("Tenant RBAC settings", () => {
 		await expect(page.getByText("Role updated.")).toBeVisible();
 
 		// Grant a permission the OPERATOR/VIEWER role does not have by default.
-		const permissionsButton = farmerRow.getByRole("button", {
-			name: `Permissions — ${E2E.farmerLogin}`,
-		});
-		await permissionsButton.click();
-
-		const dialog = page.getByRole("dialog");
+		// Permissions live on a dedicated page (#189), not in a dialog.
+		await farmerRow.getByRole("link", { name: `Permissions — ${E2E.farmerLogin}` }).click();
 		await expect(
-			dialog.getByRole("heading", { name: `Permissions for ${E2E.farmerLogin}` }),
-		).toBeVisible();
-		const billingRow = dialog.locator("li").filter({ hasText: "View billing" });
+			page.getByRole("heading", { name: `Permissions for ${E2E.farmerLogin}` }),
+		).toBeVisible({ timeout: 20_000 });
+		const billingRow = page.locator("li").filter({ hasText: "View billing" });
 		await expect(billingRow.getByRole("checkbox")).not.toBeChecked();
 		await billingRow.getByRole("checkbox").check();
-		await dialog.getByRole("button", { name: "Save changes" }).click();
+		await page.getByRole("button", { name: "Save changes" }).click();
 		await expect(page.getByText("Permissions updated.")).toBeVisible();
 
-		// Re-open and prove the override was stored, not just shown locally.
-		await permissionsButton.click();
-		const reopened = page.getByRole("dialog");
-		await expect(
-			reopened.getByRole("heading", { name: `Permissions for ${E2E.farmerLogin}` }),
-		).toBeVisible();
-		const reopenedBilling = reopened.locator("li").filter({ hasText: "View billing" });
-		await expect(reopenedBilling.getByRole("checkbox")).toBeChecked();
-		await expect(reopenedBilling.getByText("Granted", { exact: true })).toBeVisible();
-		await reopened.getByRole("button", { name: "Close", exact: true }).click();
+		// Reload and prove the override was stored, not just shown locally.
+		await page.reload();
+		const reloadedBilling = page.locator("li").filter({ hasText: "View billing" });
+		await expect(reloadedBilling.getByRole("checkbox")).toBeChecked({ timeout: 20_000 });
+		await expect(reloadedBilling.getByText("Granted", { exact: true })).toBeVisible();
+		await page.getByRole("link", { name: "Back to Settings" }).click();
+		await expect(farmerRow).toBeVisible({ timeout: 20_000 });
 
 		// Ownership guards: the admin is the only OWNER and cannot edit themself.
 		const adminRow = page.locator("tr").filter({ hasText: E2E.adminLogin }).first();

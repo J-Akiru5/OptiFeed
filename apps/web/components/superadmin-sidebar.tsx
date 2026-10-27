@@ -8,11 +8,13 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import {
 	BarChart3,
+	CalendarDays,
 	Cpu,
 	Droplets,
 	FolderTree,
 	Loader2,
 	LogOut,
+	Settings,
 	Sparkles,
 	Users,
 } from "lucide-react";
@@ -21,11 +23,13 @@ import { useState } from "react";
 
 const navItems = [
 	{ href: "/superadmin", key: "overview", icon: BarChart3 },
+	{ href: "/superadmin/calendar", key: "calendar", icon: CalendarDays },
 	{ href: "/superadmin/users", key: "users", icon: Users },
 	{ href: "/superadmin/orgs", key: "organizations", icon: FolderTree },
 	{ href: "/superadmin/ponds", key: "ponds", icon: Droplets },
 	{ href: "/superadmin/devices", key: "devices", icon: Cpu },
 	{ href: "/superadmin/ai-providers", key: "aiProviders", icon: Sparkles },
+	{ href: "/superadmin/settings", key: "settings", icon: Settings },
 ] as const;
 
 /**
@@ -38,8 +42,11 @@ const navItems = [
  *
  * AI Providers is the one configuration surface, and it is platform-level only:
  * it controls the model chain every tenant shares, not any farm's data.
+ *
+ * The farm-dashboard link renders only for a platform admin who is also an
+ * active tenant member (E18, #199); the layout resolves that from Membership.
  */
-export function SuperadminSidebar() {
+export function SuperadminSidebar({ showFarmDashboard = false }: { showFarmDashboard?: boolean }) {
 	const t = useTranslations("superadmin.shell");
 	const pathname = usePathname();
 	const router = useRouter();
@@ -89,16 +96,18 @@ export function SuperadminSidebar() {
 			</nav>
 
 			<div className="mt-auto border-t border-white/10 pt-6">
-				<Link
-					href="/dashboard"
-					className={cn(
-						"flex items-center gap-3 rounded-2xl p-3.5 text-sm font-bold text-white/80 transition-colors hover:bg-white/10 hover:text-white",
-						FOCUS_RING_ON_DARK,
-					)}
-				>
-					<BarChart3 className="h-4 w-4 shrink-0" aria-hidden="true" />
-					{t("backToDashboard")}
-				</Link>
+				{showFarmDashboard && (
+					<Link
+						href="/dashboard"
+						className={cn(
+							"flex items-center gap-3 rounded-2xl p-3.5 text-sm font-bold text-white/80 transition-colors hover:bg-white/10 hover:text-white",
+							FOCUS_RING_ON_DARK,
+						)}
+					>
+						<BarChart3 className="h-4 w-4 shrink-0" aria-hidden="true" />
+						{t("openFarmDashboard")}
+					</Link>
+				)}
 				<button
 					type="button"
 					onClick={handleSignOut}

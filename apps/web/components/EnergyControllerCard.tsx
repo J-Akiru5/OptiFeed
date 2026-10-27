@@ -1,9 +1,18 @@
 "use client";
 
+import { Link } from "@/i18n/routing";
 import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
 import { useFeedCommandGuard } from "@/lib/pwa/use-feed-guard";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, Clock, Loader2, Utensils, Wifi, WifiOff } from "lucide-react";
+import {
+	AlertTriangle,
+	CalendarClock,
+	Clock,
+	Loader2,
+	Utensils,
+	Wifi,
+	WifiOff,
+} from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -18,6 +27,9 @@ interface EnergyControllerCardProps {
 	lastSeenAt: Date | null;
 	isOffline: boolean;
 	canWrite?: boolean;
+	/** True when lastCalibratedAt + the device interval has passed. */
+	recalibrationDue?: boolean;
+	recalibrationDaysOverdue?: number;
 }
 
 function formatLastSeen(lastSeenAt: Date | null): string {
@@ -43,6 +55,8 @@ export function EnergyControllerCard({
 	lastSeenAt,
 	isOffline,
 	canWrite = true,
+	recalibrationDue = false,
+	recalibrationDaysOverdue = 0,
 }: EnergyControllerCardProps) {
 	const [feedGrams, setFeedGrams] = useState(gramsPerFeeding);
 	const [isPending, startTransition] = useTransition();
@@ -87,6 +101,17 @@ export function EnergyControllerCard({
 							ESP32 Controller
 						</p>
 						<h3 className="text-lg font-bold text-[var(--ofd-base-deep)]">{label}</h3>
+						{recalibrationDue && (
+							<Link
+								href="/dashboard/settings/hardware"
+								className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 transition-colors hover:bg-amber-200 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-900/60"
+							>
+								<CalendarClock className="h-3 w-3 shrink-0" aria-hidden="true" />
+								{recalibrationDaysOverdue > 0
+									? `Recalibration due · ${recalibrationDaysOverdue}d overdue`
+									: "Recalibration due"}
+							</Link>
+						)}
 					</div>
 				</div>
 				<span

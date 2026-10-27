@@ -4,6 +4,7 @@ import { FeedNowButton } from "@/components/FeedNowButton";
 import { FeedingPredictionCard } from "@/components/FeedingPredictionCard";
 import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
 import { WaterTempCard } from "@/components/WaterTempCard";
+import { type ChartLabels, LineTrend } from "@/components/charts";
 import {
 	DashboardEmptyState,
 	DashboardPageHeader,
@@ -14,12 +15,15 @@ import { DashboardSnapshot } from "@/components/pwa/dashboard-snapshot";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
 import { canWrite, getCurrentUser } from "@/lib/auth/session";
+import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
+import { WATER_TEMP_RANGES, parseWaterTempRange } from "@/lib/chart-windows";
 import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import type { DashboardSnapshotData } from "@/lib/offline/snapshots";
+import { getWaterTempSeries } from "@/lib/pond-charts";
 import { getActivePond } from "@/lib/pond-selection";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
@@ -29,7 +33,17 @@ import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0; // Ensure data is always fresh
 
-export default async function DashboardHomePage() {
+interface DashboardHomePageProps {
+	searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+function first(value: string | string[] | undefined): string | undefined {
+	return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function DashboardHomePage({ searchParams }: DashboardHomePageProps) {
+	const params = await searchParams;
+	const waterRange = parseWaterTempRange(first(params.water));
 	const [t, tBtn, tHist, tGrowth, tHarvest, tDates, tCommon, writeAccess, currentUser, pond] =
 		await Promise.all([
 			getTranslations("dashboard.home"),
@@ -81,6 +95,8 @@ export default async function DashboardHomePage() {
 				feedLevelPercent: true,
 				feedLevelUpdatedAt: true,
 				hopperCapacityG: true,
+				lastCalibratedAt: true,
+				recalibrationIntervalDays: true,
 				waterTempC: true,
 				waterTempOk: true,
 				waterTempUpdatedAt: true,
@@ -115,8 +131,9 @@ export default async function DashboardHomePage() {
 	const latestBiomass = recentBiomassLogs[0] ?? null;
 
 	// Schedule resolution needs the device id; feeding history needs the same
-	// id, so they share the second wave.
-	const [currentConfig, feedingHistory] = await Promise.all([
+	// id, so they share the second wave. The water-temperature trend is scoped
+	// to the same device and aggregated per hour/day in the DB.
+	const [currentConfig, feedingHistory, waterTempPoints] = await Promise.all([
 		resolveCurrentSchedule(pond.id, energyDevice?.id ?? null),
 		energyDevice
 			? prisma.feedEvent.findMany({
@@ -125,6 +142,7 @@ export default async function DashboardHomePage() {
 					take: 5,
 				})
 			: Promise.resolve([]),
+		energyDevice ? getWaterTempSeries([energyDevice.id], waterRange) : Promise.resolve([]),
 	]);
 
 	const today = new Date();
@@ -201,6 +219,23 @@ export default async function DashboardHomePage() {
 		now.getTime() - energyDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
 	const criticalAlert = esp32Offline && !!energyDevice;
 	const isPaused = energyDevice?.isPaused ?? false;
+	const recalibration = getRecalibrationStatus(
+		energyDevice?.lastCalibratedAt ?? null,
+		energyDevice?.recalibrationIntervalDays ?? 30,
+		now,
+	);
+
+	const chartLabels: ChartLabels = {
+		period: tCommon("charts.period"),
+		value: tCommon("charts.value"),
+		name: tCommon("charts.name"),
+		empty: tCommon("charts.empty"),
+	};
+	const waterRangeLabel = waterRange === "24h" ? t("waterRange24h") : t("waterRange7d");
+	const latestWaterTemp =
+		energyDevice?.waterTempOk && energyDevice.waterTempC !== null
+			? `${energyDevice.waterTempC.toFixed(1)}°C`
+			: "—";
 
 	function formatOfflineDuration(lastSeenAt: Date | null): string {
 		if (!lastSeenAt) return t("durationNotConnected");
@@ -243,7 +278,7 @@ export default async function DashboardHomePage() {
 	};
 
 	return (
-		<div className="space-y-6 pb-20 animate-in fade-in duration-150" data-onboard="welcome">
+		<div className="space-y-6 pb-20 animate-in fade-in duration-150">
 			<SnapshotWriter
 				page="dashboard"
 				scope={pond.ownerId}
@@ -320,83 +355,13 @@ export default async function DashboardHomePage() {
 				<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
 			)}
 
-			{/* AI Feed Advisor — visible on the first screen the operator sees. */}
-			{pond.isFallow ? (
-				<div className="flex flex-col gap-4 rounded-3xl border border-dashed border-[#0A3D62]/20 bg-white p-6 dark:border-white/10 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
-					<div className="flex items-start gap-3">
-						<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
-							<Wheat aria-hidden="true" className="h-6 w-6" />
-						</div>
-						<div>
-							<p className="text-sm font-black text-gray-900 dark:text-gray-100">
-								{tHarvest("fallowTitle")}
-							</p>
-							<p className="mt-0.5 max-w-xl text-xs text-gray-500 dark:text-gray-400">
-								{tHarvest("fallowDesc")}
-							</p>
-						</div>
-					</div>
-					<Link
-						href="/dashboard/harvest"
-						className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-[#1f66a0]"
-					>
-						{tHarvest("startCycle")} <ChevronRight aria-hidden="true" className="h-4 w-4" />
-					</Link>
-				</div>
-			) : (
-				energyDevice && (
-					<FeedingPredictionCard
-						deviceId={energyDevice.id}
-						initialPrediction={initialPrediction}
-						canWrite={writeAccess}
-						pondName={pond.name}
-					/>
-				)
-			)}
-
-			{/* Grow-out & harvest strip */}
-			{activeCycle && cycleContext && (
-				<div className="flex flex-col gap-3 rounded-2xl border border-[#0A3D62]/10 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
-					<div className="flex items-center gap-2.5">
-						<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
-							<Wheat aria-hidden="true" className="h-5 w-5" />
-						</div>
-						<div>
-							<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-								{activeCycle.label || tHarvest("cycle")}
-							</p>
-							<p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
-								{tHarvest("dayOf", {
-									day: cycleContext.growOutDay,
-									total: activeCycle.growOutDays,
-								})}{" "}
-								·{" "}
-								{cycleContext.daysToHarvest < 0
-									? tHarvest("overdueBy", {
-											days: Math.abs(cycleContext.daysToHarvest),
-										})
-									: tHarvest("harvestIn", { days: cycleContext.daysToHarvest })}
-								{activeCycle.targetHarvestWeightG
-									? ` · ${activeCycle.targetHarvestWeightG} g target`
-									: ""}
-							</p>
-						</div>
-					</div>
-					<Link
-						href="/dashboard/harvest"
-						className="inline-flex min-h-11 items-center gap-1 rounded-lg text-xs font-bold text-[#C2410C] hover:underline focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:text-[#ff8a5c]"
-					>
-						{tHarvest("progress")} <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
-					</Link>
-				</div>
-			)}
-
 			{/* Bento Grid — items-start keeps each tile at its natural height */}
 			<div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
 				{/* Tile 1: Hero — next feeding time (8 cols) */}
 				<div
 					className="col-span-1 md:col-span-8 bg-white dark:bg-gray-900 rounded-3xl p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50 flex flex-col justify-between min-h-[300px] relative overflow-hidden"
 					data-onboard="next-feeding"
+					data-help="next-feeding"
 				>
 					<div
 						aria-hidden="true"
@@ -474,6 +439,7 @@ export default async function DashboardHomePage() {
 					href="/dashboard/growth"
 					className="col-span-1 md:col-span-4 bg-[#0A3D62] rounded-3xl p-6 md:p-8 text-white flex flex-col justify-between min-h-[300px] relative overflow-hidden shadow-md hover:bg-[#0d4a76] transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C]"
 					data-onboard="fcr"
+					data-help="fcr"
 				>
 					<div
 						aria-hidden="true"
@@ -584,7 +550,10 @@ export default async function DashboardHomePage() {
 				</div>
 
 				{/* Tile 6: Recent feeding logs (12 cols) */}
-				<div className="col-span-1 md:col-span-12 bg-white dark:bg-gray-900 rounded-3xl p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50">
+				<div
+					className="col-span-1 md:col-span-12 bg-white dark:bg-gray-900 rounded-3xl p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50"
+					data-help="dashboard-feed-log"
+				>
 					<div className="flex flex-wrap justify-between items-center gap-3 mb-6">
 						<div>
 							<h2 className="text-lg md:text-xl font-black uppercase tracking-tight text-[#0A3D62] dark:text-[#5b9bd5]">
@@ -653,7 +622,10 @@ export default async function DashboardHomePage() {
 
 				{/* Tile 7: Recent biomass logs (12 cols) */}
 				{recentBiomassLogs.length > 0 && (
-					<div className="col-span-1 md:col-span-12 bg-white dark:bg-gray-900 rounded-3xl p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50">
+					<div
+						className="col-span-1 md:col-span-12 bg-white dark:bg-gray-900 rounded-3xl p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50"
+						data-help="dashboard-biomass-log"
+					>
 						<div className="flex flex-wrap justify-between items-center gap-3 mb-6">
 							<div>
 								<h2 className="text-lg md:text-xl font-black uppercase tracking-tight text-[#0A3D62] dark:text-[#5b9bd5]">
@@ -726,6 +698,77 @@ export default async function DashboardHomePage() {
 				)}
 			</div>
 
+			{/* AI Feed Advisor — below the feeding snapshot, above the grow-out strip. */}
+			{pond.isFallow ? (
+				<div className="flex flex-col gap-4 rounded-3xl border border-dashed border-[#0A3D62]/20 bg-white p-6 dark:border-white/10 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
+					<div className="flex items-start gap-3">
+						<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
+							<Wheat aria-hidden="true" className="h-6 w-6" />
+						</div>
+						<div>
+							<p className="text-sm font-black text-gray-900 dark:text-gray-100">
+								{tHarvest("fallowTitle")}
+							</p>
+							<p className="mt-0.5 max-w-xl text-xs text-gray-500 dark:text-gray-400">
+								{tHarvest("fallowDesc")}
+							</p>
+						</div>
+					</div>
+					<Link
+						href="/dashboard/harvest"
+						className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-[#1f66a0]"
+					>
+						{tHarvest("startCycle")} <ChevronRight aria-hidden="true" className="h-4 w-4" />
+					</Link>
+				</div>
+			) : (
+				energyDevice && (
+					<FeedingPredictionCard
+						deviceId={energyDevice.id}
+						initialPrediction={initialPrediction}
+						canWrite={writeAccess}
+						pondName={pond.name}
+					/>
+				)
+			)}
+
+			{/* Grow-out & harvest strip */}
+			{activeCycle && cycleContext && (
+				<div className="flex flex-col gap-3 rounded-2xl border border-[#0A3D62]/10 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
+					<div className="flex items-center gap-2.5">
+						<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
+							<Wheat aria-hidden="true" className="h-5 w-5" />
+						</div>
+						<div>
+							<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
+								{activeCycle.label || tHarvest("cycle")}
+							</p>
+							<p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+								{tHarvest("dayOf", {
+									day: cycleContext.growOutDay,
+									total: activeCycle.growOutDays,
+								})}{" "}
+								·{" "}
+								{cycleContext.daysToHarvest < 0
+									? tHarvest("overdueBy", {
+											days: Math.abs(cycleContext.daysToHarvest),
+										})
+									: tHarvest("harvestIn", { days: cycleContext.daysToHarvest })}
+								{activeCycle.targetHarvestWeightG
+									? ` · ${activeCycle.targetHarvestWeightG} g target`
+									: ""}
+							</p>
+						</div>
+					</div>
+					<Link
+						href="/dashboard/harvest"
+						className="inline-flex min-h-11 items-center gap-1 rounded-lg text-xs font-bold text-[#C2410C] hover:underline focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:text-[#ff8a5c]"
+					>
+						{tHarvest("progress")} <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
+					</Link>
+				</div>
+			)}
+
 			{energyDevice && (
 				<section className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl items-start">
 					<FeedLevelCard
@@ -736,12 +779,56 @@ export default async function DashboardHomePage() {
 						feedsPerDay={pond.feedsPerDay}
 						isDeviceOffline={esp32Offline}
 					/>
-					<WaterTempCard
-						tempC={energyDevice.waterTempC}
-						tempOk={energyDevice.waterTempOk}
-						updatedAt={energyDevice.waterTempUpdatedAt}
-						isDeviceOffline={esp32Offline}
-					/>
+					<div className="flex min-w-0 flex-col gap-4">
+						<WaterTempCard
+							tempC={energyDevice.waterTempC}
+							tempOk={energyDevice.waterTempOk}
+							updatedAt={energyDevice.waterTempUpdatedAt}
+							isDeviceOffline={esp32Offline}
+						/>
+						<div className="flex min-w-0 flex-col gap-2">
+							<nav
+								aria-label={t("waterRangeLabel")}
+								className="flex flex-wrap items-center justify-end gap-1.5"
+							>
+								{WATER_TEMP_RANGES.map((option) => (
+									<Link
+										key={option}
+										href={`/dashboard?water=${option}`}
+										aria-current={option === waterRange ? "page" : undefined}
+										className={`inline-flex min-h-11 items-center rounded-xl px-3 text-xs font-black transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea] ${
+											option === waterRange
+												? "bg-[#0A3D62] text-white shadow-sm"
+												: "border border-[#0A3D62]/20 bg-white text-[#0A3D62] hover:bg-[#F4F7F6] dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+										}`}
+									>
+										{option === "24h" ? t("waterRange24h") : t("waterRange7d")}
+									</Link>
+								))}
+							</nav>
+							<LineTrend
+								title={t("waterChartTitle")}
+								summary={t("waterChartSummary", {
+									range: waterRangeLabel,
+									points: waterTempPoints.length,
+									latest: latestWaterTemp,
+								})}
+								labels={{
+									...chartLabels,
+									empty: t("waterChartEmpty"),
+								}}
+								points={waterTempPoints}
+								unit="°C"
+								decimals={1}
+								height={170}
+								aux={
+									<p className="mt-2 text-[11px] font-bold text-[#3D5568] dark:text-gray-300">
+										{t("waterChartLatest", { value: latestWaterTemp })}
+									</p>
+								}
+							/>
+						</div>
+					</div>
 					<div className="md:col-span-2">
 						<EnergyControllerCard
 							deviceId={energyDevice.id}
@@ -754,6 +841,8 @@ export default async function DashboardHomePage() {
 							lastSeenAt={energyDevice.lastSeenAt}
 							isOffline={esp32Offline}
 							canWrite={writeAccess}
+							recalibrationDue={recalibration.isOverdue}
+							recalibrationDaysOverdue={recalibration.daysOverdue}
 						/>
 					</div>
 					<div className="md:col-span-2">

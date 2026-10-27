@@ -53,7 +53,10 @@ export function TimeCalibrationForm({
 	};
 
 	return (
-		<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+		<div
+			className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100"
+			data-help="schedule-calibration"
+		>
 			<div className="flex items-center gap-3 mb-6">
 				<div className="w-12 h-12 rounded-2xl bg-[#0A3D62]/5 flex items-center justify-center">
 					<Clock className="w-6 h-6 text-[#0A3D62]" />

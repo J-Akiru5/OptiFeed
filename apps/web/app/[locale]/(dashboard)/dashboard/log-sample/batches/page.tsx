@@ -1,6 +1,5 @@
 import {
 	DashboardCard,
-	DashboardCardList,
 	DashboardCardRow,
 	DashboardTHead,
 	DashboardTable,
@@ -10,13 +9,16 @@ import {
 } from "@/components/dashboard/dashboard-table";
 import { DashboardEmptyState, DashboardPageHeader } from "@/components/dashboard/dashboard-ui";
 import { BiomassLogActions } from "@/components/growth/BiomassLogActions";
+import { ItemCardGrid } from "@/components/ui/item-card";
 import { Pagination } from "@/components/ui/pagination";
+import { ListView } from "@/components/ui/view-toggle";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
 import { getBatchLogPage, parseBatchFilter } from "@/lib/batch-logs";
 import { formatDateTimeLocal } from "@/lib/date-local";
-import { getPageCount, parsePage, parsePageSize } from "@/lib/pagination";
+import { getPageCount, parsePage } from "@/lib/pagination";
 import { getActivePond } from "@/lib/pond-selection";
+import { getListPageSize } from "@/lib/settings/platform";
 import { ArrowLeft, ChevronRight, Scale } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { Fragment } from "react";
@@ -34,12 +36,13 @@ function first(value: string | string[] | undefined): string | undefined {
 }
 
 export default async function BatchLogsPage({ searchParams }: BatchLogsPageProps) {
-	const [t, tDates, tSch, tPagination, tHist, pond, writeAccess] = await Promise.all([
+	const [t, tDates, tSch, tPagination, tHist, tCommon, pond, writeAccess] = await Promise.all([
 		getTranslations("dashboard.logSample"),
 		getTranslations("dates"),
 		getTranslations("dashboard.schedule"),
 		getTranslations("dashboard.growth.history.pagination"),
 		getTranslations("dashboard.history"),
+		getTranslations("dashboard.common"),
 		getActivePond(),
 		canWrite(),
 	]);
@@ -59,7 +62,7 @@ export default async function BatchLogsPage({ searchParams }: BatchLogsPageProps
 	const raw = await searchParams;
 	const filter = parseBatchFilter(first(raw.label), first(raw.unlabeled));
 	let page = parsePage(first(raw.page));
-	const pageSize = parsePageSize(first(raw.pageSize));
+	const pageSize = await getListPageSize();
 
 	if (!filter) {
 		return (
@@ -172,158 +175,168 @@ export default async function BatchLogsPage({ searchParams }: BatchLogsPageProps
 					</div>
 				) : (
 					<>
-						<DashboardTable caption={t("batchDesc", { pond: pond.name })} minWidth="min-w-[48rem]">
-							<DashboardTHead>
-								<DashboardTh>{t("batchEntryDate")}</DashboardTh>
-								<DashboardTh align="right">{t("batchEntrySamples")}</DashboardTh>
-								<DashboardTh align="right">{t("batchEntryAvgWeight")}</DashboardTh>
-								<DashboardTh align="right">{t("batchEntryLength")}</DashboardTh>
-								<DashboardTh align="right">{t("batchEntryTotalWeight")}</DashboardTh>
-								<DashboardTh align="right">{t("batchEntrySource")}</DashboardTh>
-								<DashboardTh align="right">{t("batchEntryActions")}</DashboardTh>
-							</DashboardTHead>
-							<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+						<ListView
+							pageKey="biomass-batches"
+							listLabel={tCommon("viewToggle.list")}
+							cardsLabel={tCommon("viewToggle.cards")}
+							toggleLabel={tCommon("viewToggle.label")}
+						>
+							<DashboardTable
+								caption={t("batchDesc", { pond: pond.name })}
+								minWidth="min-w-[48rem]"
+							>
+								<DashboardTHead>
+									<DashboardTh>{t("batchEntryDate")}</DashboardTh>
+									<DashboardTh align="right">{t("batchEntrySamples")}</DashboardTh>
+									<DashboardTh align="right">{t("batchEntryAvgWeight")}</DashboardTh>
+									<DashboardTh align="right">{t("batchEntryLength")}</DashboardTh>
+									<DashboardTh align="right">{t("batchEntryTotalWeight")}</DashboardTh>
+									<DashboardTh align="right">{t("batchEntrySource")}</DashboardTh>
+									<DashboardTh align="right">{t("batchEntryActions")}</DashboardTh>
+								</DashboardTHead>
+								<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+									{entries.map((entry) => (
+										<Fragment key={entry.id}>
+											<DashboardTr>
+												<DashboardTd className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
+													{formatDateTimeLocal(entry.recordedAt, tDates).full}
+												</DashboardTd>
+												<DashboardTd className="text-right">{entry.sampleCount}</DashboardTd>
+												<DashboardTd className="text-right">
+													{(entry.avgWeightKg * 1000).toFixed(1)} g
+												</DashboardTd>
+												<DashboardTd className="text-right">
+													{entry.sampleLengthCm.toFixed(1)} cm
+												</DashboardTd>
+												<DashboardTd className="text-right">
+													{entry.sampleWeightKg.toFixed(2)} kg
+												</DashboardTd>
+												<DashboardTd className="text-right text-xs uppercase tracking-wide text-gray-600 dark:text-gray-400">
+													{entry.source
+														? tHist.has(`source_${entry.source}`)
+															? tHist(`source_${entry.source}`)
+															: entry.source
+														: "—"}
+												</DashboardTd>
+												<DashboardTd className="text-right">
+													<BiomassLogActions
+														canWrite={writeAccess}
+														log={{
+															id: entry.id,
+															recordedAt: entry.recordedAt.toISOString(),
+															sampleCount: entry.sampleCount,
+															sampleWeightKg: entry.sampleWeightKg,
+															sampleLengthCm: entry.sampleLengthCm,
+															batchLabel: filter.kind === "unlabeled" ? null : filter.label,
+														}}
+													/>
+												</DashboardTd>
+											</DashboardTr>
+											{entry.fishSamples.length > 0 && (
+												<tr className="bg-gray-50/60 dark:bg-gray-800/30">
+													<td colSpan={7} className="px-4 pb-4 pt-0">
+														<details className="group">
+															<summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 py-2 text-xs font-bold text-[#0A3D62] hover:underline dark:text-[#8fc0ea]">
+																<ChevronRight
+																	aria-hidden="true"
+																	className="h-3.5 w-3.5 transition group-open:rotate-90"
+																/>
+																{t("batchIndividualSamples", {
+																	count: entry.fishSamples.length,
+																})}
+															</summary>
+															<ul className="mt-1 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+																{entry.fishSamples.map((fish, index) => (
+																	<li
+																		key={fish.id}
+																		className="rounded-lg border border-gray-100 bg-white px-2.5 py-1.5 text-xs text-gray-600 dark:border-gray-700/50 dark:bg-gray-900 dark:text-gray-300"
+																	>
+																		<span className="font-bold text-gray-500">#{index + 1}</span>{" "}
+																		<span className="font-semibold">
+																			{fish.weightGrams.toFixed(1)} g
+																		</span>
+																		{fish.lengthCm > 0 && (
+																			<span className="text-gray-600 dark:text-gray-400">
+																				{" "}
+																				· {fish.lengthCm.toFixed(1)} cm
+																			</span>
+																		)}
+																	</li>
+																))}
+															</ul>
+														</details>
+													</td>
+												</tr>
+											)}
+										</Fragment>
+									))}
+								</tbody>
+							</DashboardTable>
+
+							<ItemCardGrid label={t("batchDesc", { pond: pond.name })} className="p-4">
 								{entries.map((entry) => (
-									<Fragment key={entry.id}>
-										<DashboardTr>
-											<DashboardTd className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
+									<DashboardCard key={entry.id}>
+										<div className="flex items-baseline justify-between gap-3">
+											<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
 												{formatDateTimeLocal(entry.recordedAt, tDates).full}
-											</DashboardTd>
-											<DashboardTd className="text-right">{entry.sampleCount}</DashboardTd>
-											<DashboardTd className="text-right">
+											</p>
+											<BiomassLogActions
+												canWrite={writeAccess}
+												log={{
+													id: entry.id,
+													recordedAt: entry.recordedAt.toISOString(),
+													sampleCount: entry.sampleCount,
+													sampleWeightKg: entry.sampleWeightKg,
+													sampleLengthCm: entry.sampleLengthCm,
+													batchLabel: filter.kind === "unlabeled" ? null : filter.label,
+												}}
+											/>
+										</div>
+										<div className="mt-2">
+											<DashboardCardRow label={t("batchEntrySamples")}>
+												{entry.sampleCount}
+											</DashboardCardRow>
+											<DashboardCardRow label={t("batchEntryAvgWeight")}>
 												{(entry.avgWeightKg * 1000).toFixed(1)} g
-											</DashboardTd>
-											<DashboardTd className="text-right">
+											</DashboardCardRow>
+											<DashboardCardRow label={t("batchEntryLength")}>
 												{entry.sampleLengthCm.toFixed(1)} cm
-											</DashboardTd>
-											<DashboardTd className="text-right">
+											</DashboardCardRow>
+											<DashboardCardRow label={t("batchEntryTotalWeight")}>
 												{entry.sampleWeightKg.toFixed(2)} kg
-											</DashboardTd>
-											<DashboardTd className="text-right text-xs uppercase tracking-wide text-gray-600 dark:text-gray-400">
+											</DashboardCardRow>
+											<DashboardCardRow label={t("batchEntrySource")}>
 												{entry.source
 													? tHist.has(`source_${entry.source}`)
 														? tHist(`source_${entry.source}`)
 														: entry.source
 													: "—"}
-											</DashboardTd>
-											<DashboardTd className="text-right">
-												<BiomassLogActions
-													canWrite={writeAccess}
-													log={{
-														id: entry.id,
-														recordedAt: entry.recordedAt.toISOString(),
-														sampleCount: entry.sampleCount,
-														sampleWeightKg: entry.sampleWeightKg,
-														sampleLengthCm: entry.sampleLengthCm,
-														batchLabel: filter.kind === "unlabeled" ? null : filter.label,
-													}}
-												/>
-											</DashboardTd>
-										</DashboardTr>
+											</DashboardCardRow>
+										</div>
 										{entry.fishSamples.length > 0 && (
-											<tr className="bg-gray-50/60 dark:bg-gray-800/30">
-												<td colSpan={7} className="px-4 pb-4 pt-0">
-													<details className="group">
-														<summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 py-2 text-xs font-bold text-[#0A3D62] hover:underline dark:text-[#8fc0ea]">
-															<ChevronRight
-																aria-hidden="true"
-																className="h-3.5 w-3.5 transition group-open:rotate-90"
-															/>
-															{t("batchIndividualSamples", {
-																count: entry.fishSamples.length,
-															})}
-														</summary>
-														<ul className="mt-1 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
-															{entry.fishSamples.map((fish, index) => (
-																<li
-																	key={fish.id}
-																	className="rounded-lg border border-gray-100 bg-white px-2.5 py-1.5 text-xs text-gray-600 dark:border-gray-700/50 dark:bg-gray-900 dark:text-gray-300"
-																>
-																	<span className="font-bold text-gray-500">#{index + 1}</span>{" "}
-																	<span className="font-semibold">
-																		{fish.weightGrams.toFixed(1)} g
-																	</span>
-																	{fish.lengthCm > 0 && (
-																		<span className="text-gray-600 dark:text-gray-400">
-																			{" "}
-																			· {fish.lengthCm.toFixed(1)} cm
-																		</span>
-																	)}
-																</li>
-															))}
-														</ul>
-													</details>
-												</td>
-											</tr>
+											<details className="mt-2 border-t border-gray-100 pt-2 dark:border-gray-700/50">
+												<summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-xs font-bold text-[#0A3D62] dark:text-[#8fc0ea]">
+													<ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
+													{t("batchIndividualSamples", { count: entry.fishSamples.length })}
+												</summary>
+												<ul className="mt-1 grid gap-1.5">
+													{entry.fishSamples.map((fish, index) => (
+														<li
+															key={fish.id}
+															className="rounded-lg border border-gray-100 px-2.5 py-1.5 text-xs text-gray-600 dark:border-gray-700/50 dark:text-gray-300"
+														>
+															<span className="font-bold text-gray-500">#{index + 1}</span> ·{" "}
+															<span className="font-semibold">{fish.weightGrams.toFixed(1)} g</span>
+															{fish.lengthCm > 0 && <span> · {fish.lengthCm.toFixed(1)} cm</span>}
+														</li>
+													))}
+												</ul>
+											</details>
 										)}
-									</Fragment>
+									</DashboardCard>
 								))}
-							</tbody>
-						</DashboardTable>
-
-						<DashboardCardList label={t("batchDesc", { pond: pond.name })} className="p-4">
-							{entries.map((entry) => (
-								<DashboardCard key={entry.id}>
-									<div className="flex items-baseline justify-between gap-3">
-										<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-											{formatDateTimeLocal(entry.recordedAt, tDates).full}
-										</p>
-										<BiomassLogActions
-											canWrite={writeAccess}
-											log={{
-												id: entry.id,
-												recordedAt: entry.recordedAt.toISOString(),
-												sampleCount: entry.sampleCount,
-												sampleWeightKg: entry.sampleWeightKg,
-												sampleLengthCm: entry.sampleLengthCm,
-												batchLabel: filter.kind === "unlabeled" ? null : filter.label,
-											}}
-										/>
-									</div>
-									<div className="mt-2">
-										<DashboardCardRow label={t("batchEntrySamples")}>
-											{entry.sampleCount}
-										</DashboardCardRow>
-										<DashboardCardRow label={t("batchEntryAvgWeight")}>
-											{(entry.avgWeightKg * 1000).toFixed(1)} g
-										</DashboardCardRow>
-										<DashboardCardRow label={t("batchEntryLength")}>
-											{entry.sampleLengthCm.toFixed(1)} cm
-										</DashboardCardRow>
-										<DashboardCardRow label={t("batchEntryTotalWeight")}>
-											{entry.sampleWeightKg.toFixed(2)} kg
-										</DashboardCardRow>
-										<DashboardCardRow label={t("batchEntrySource")}>
-											{entry.source
-												? tHist.has(`source_${entry.source}`)
-													? tHist(`source_${entry.source}`)
-													: entry.source
-												: "—"}
-										</DashboardCardRow>
-									</div>
-									{entry.fishSamples.length > 0 && (
-										<details className="mt-2 border-t border-gray-100 pt-2 dark:border-gray-700/50">
-											<summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-xs font-bold text-[#0A3D62] dark:text-[#8fc0ea]">
-												<ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
-												{t("batchIndividualSamples", { count: entry.fishSamples.length })}
-											</summary>
-											<ul className="mt-1 grid gap-1.5">
-												{entry.fishSamples.map((fish, index) => (
-													<li
-														key={fish.id}
-														className="rounded-lg border border-gray-100 px-2.5 py-1.5 text-xs text-gray-600 dark:border-gray-700/50 dark:text-gray-300"
-													>
-														<span className="font-bold text-gray-500">#{index + 1}</span> ·{" "}
-														<span className="font-semibold">{fish.weightGrams.toFixed(1)} g</span>
-														{fish.lengthCm > 0 && <span> · {fish.lengthCm.toFixed(1)} cm</span>}
-													</li>
-												))}
-											</ul>
-										</details>
-									)}
-								</DashboardCard>
-							))}
-						</DashboardCardList>
+							</ItemCardGrid>
+						</ListView>
 
 						{total > 0 && (
 							<Pagination

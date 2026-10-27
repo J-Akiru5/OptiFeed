@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 
 import { login } from "./helpers";
 
-test("saving a sample shows the feed calculation result and a batch card", async ({ page }) => {
+test("saving a sample shows the feed calculation result and a sampling batch card", async ({
+	page,
+}) => {
 	await page.setViewportSize({ width: 1280, height: 900 });
 	await login(page);
 	await page.goto("/en/dashboard/log-sample");
@@ -24,9 +26,9 @@ test("saving a sample shows the feed calculation result and a batch card", async
 		page.getByText(/Device schedule|Schedule kept|no device is linked/i).first(),
 	).toBeVisible();
 
-	// Batch card below the form.
+	// Sampling batch card below the form.
 	const section = page.locator("section[aria-labelledby='saved-batches-heading']");
-	await expect(section.getByRole("heading", { name: "Saved Batches" })).toBeVisible();
+	await expect(section.getByRole("heading", { name: "Saved sampling batches" })).toBeVisible();
 	await expect(section.getByText("e2e-batch-2026", { exact: true })).toBeVisible();
 
 	// "Log Another Sample" resets the form for a fresh entry.
@@ -34,12 +36,12 @@ test("saving a sample shows the feed calculation result and a batch card", async
 	await expect(page.locator("#weightGrams")).toBeVisible();
 	await expect(section.getByText("e2e-batch-2026", { exact: true })).toBeVisible();
 
-	// The saved batch card opens its dedicated log page.
+	// The saved sampling batch card opens its dedicated log page.
 	await section.getByRole("link", { name: /e2e-batch-2026/ }).click();
 	await expect(page.getByRole("heading", { name: "e2e-batch-2026" })).toBeVisible();
 	// The same sentence is also the table's screen-reader caption.
 	await expect(
-		page.getByRole("paragraph").filter({ hasText: "Every saved log for this batch" }),
+		page.getByRole("paragraph").filter({ hasText: "Every saved log for this sampling batch" }),
 	).toBeVisible();
 	await expect(page.getByRole("columnheader", { name: "Avg Weight" })).toBeVisible();
 });

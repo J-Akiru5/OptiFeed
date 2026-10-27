@@ -2,7 +2,6 @@ import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import {
 	AdminCard,
-	AdminCardList,
 	AdminCardRow,
 	AdminTHead,
 	AdminTable,
@@ -10,18 +9,32 @@ import {
 	AdminTh,
 	AdminTr,
 } from "@/components/admin/admin-table";
+import { ItemCardGrid } from "@/components/ui/item-card";
+import { Pagination } from "@/components/ui/pagination";
+import { ListView } from "@/components/ui/view-toggle";
 import { getAuditLog } from "@/lib/actions/admin";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import { parsePage } from "@/lib/pagination";
 import { FileText } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
-export default async function AdminAuditPage() {
-	const [events, t, tCommon, tDates] = await Promise.all([
-		getAuditLog(),
+export default async function AdminAuditPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ page?: string }>;
+}) {
+	const params = await searchParams;
+	const page = parsePage(params.page);
+	const [eventsPage, t, tCommon, tDates] = await Promise.all([
+		getAuditLog({ page }),
 		getTranslations("dashboard.adminAudit"),
 		getTranslations("dashboard.adminCommon"),
 		getTranslations("dates"),
 	]);
+	const events = eventsPage.rows;
+	const pageCount = Math.max(1, Math.ceil(eventsPage.total / eventsPage.pageSize));
+	const firstRow = eventsPage.total === 0 ? 0 : (eventsPage.page - 1) * eventsPage.pageSize + 1;
+	const lastRow = Math.min(eventsPage.page * eventsPage.pageSize, eventsPage.total);
 
 	const formatted = (date: Date) => formatDateTimeLocal(date, tDates).full;
 
@@ -32,7 +45,12 @@ export default async function AdminAuditPage() {
 			{events.length === 0 ? (
 				<AdminEmptyState icon={FileText} title={t("emptyTitle")} description={t("emptyDesc")} />
 			) : (
-				<>
+				<ListView
+					pageKey="admin-audit"
+					listLabel={tCommon("viewToggle.list")}
+					cardsLabel={tCommon("viewToggle.cards")}
+					toggleLabel={tCommon("viewToggle.label")}
+				>
 					<AdminTable caption={t("caption")} minWidth="min-w-[52rem]">
 						<AdminTHead>
 							<AdminTh>{t("columnTime")}</AdminTh>
@@ -66,7 +84,7 @@ export default async function AdminAuditPage() {
 						</tbody>
 					</AdminTable>
 
-					<AdminCardList>
+					<ItemCardGrid label={t("caption")}>
 						{events.map((event) => (
 							<AdminCard key={event.id}>
 								<div className="flex items-start justify-between gap-3">
@@ -86,8 +104,24 @@ export default async function AdminAuditPage() {
 								</div>
 							</AdminCard>
 						))}
-					</AdminCardList>
-				</>
+					</ItemCardGrid>
+				</ListView>
+			)}
+
+			{eventsPage.total > 0 && (
+				<Pagination
+					basePath="/admin/audit"
+					page={eventsPage.page}
+					pageCount={pageCount}
+					showing={tCommon("pagination.showing", {
+						from: firstRow,
+						to: lastRow,
+						total: eventsPage.total,
+					})}
+					previousLabel={tCommon("pagination.previous")}
+					nextLabel={tCommon("pagination.next")}
+					label={tCommon("pagination.label")}
+				/>
 			)}
 		</div>
 	);

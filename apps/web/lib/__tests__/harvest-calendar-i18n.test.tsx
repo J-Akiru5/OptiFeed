@@ -47,6 +47,7 @@ vi.mock("@/lib/actions/crop-cycle", () => ({
 
 vi.mock("@/lib/actions/pond-event", () => ({
 	completePondEvent: vi.fn(),
+	uncompletePondEvent: vi.fn(),
 	updatePondEvent: vi.fn(),
 	createPondEvent: vi.fn(),
 	deletePondEvent: vi.fn(),

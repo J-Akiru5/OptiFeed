@@ -122,10 +122,19 @@ function persistedEvent(overrides: Record<string, unknown> = {}) {
 		id: "event-1",
 		title: "Harvest planned",
 		startsAt: new Date(`${FROM}T00:00:00.000Z`),
+		endsAt: null,
+		allDay: true,
 		status: "PLANNED",
 		type: "HARVEST_PLANNED",
+		kind: "EVENT",
 		source: "cycle",
+		color: null,
 		notes: null,
+		recurrenceFreq: null,
+		recurrenceInterval: 1,
+		recurrenceUntil: null,
+		reminderMinutes: [],
+		completedOccurrences: [],
 		pond: { id: "pond-a", name: "Pond A" },
 		cropCycle: { label: "Batch A" },
 		...overrides,
@@ -284,12 +293,14 @@ describe("GET /api/calendar/events pond scoping", () => {
 		const args = mocks.pondEvent.findMany.mock.calls[0]?.[0] as {
 			where: {
 				pondId: { in: string[] };
-				startsAt: { gte: Date; lt: Date };
+				startsAt: { lt: Date };
+				OR: Array<{ startsAt?: { gte: Date }; recurrenceFreq?: { not: null } }>;
 			};
 		};
 		expect(args.where.pondId.in).toEqual(["pond-a", "pond-b"]);
-		expect(args.where.startsAt.gte.toISOString()).toBe(`${FROM}T00:00:00.000Z`);
 		expect(args.where.startsAt.lt.toISOString()).toBe(`${addDays(TO, 1)}T00:00:00.000Z`);
+		expect(args.where.OR[0]?.startsAt?.gte.toISOString()).toBe(`${FROM}T00:00:00.000Z`);
+		expect(args.where.OR[1]).toEqual({ recurrenceFreq: { not: null } });
 	});
 
 	it("defaults to the first active pond", async () => {
@@ -394,12 +405,24 @@ describe("GET /api/calendar/events persisted events", () => {
 		expect(events).toHaveLength(4);
 		expect(events[0]).toEqual({
 			id: "pond:event-1",
+			pondEventId: "event-1",
 			title: "Harvest planned",
 			start: FROM,
 			allDay: true,
 			type: "harvest",
 			status: "planned",
 			kind: "HARVEST_PLANNED",
+			itemKind: "EVENT",
+			color: null,
+			source: "cycle",
+			occurrenceKey: `${FROM}T00:00:00.000Z`,
+			recurrenceFreq: null,
+			recurrenceInterval: 1,
+			recurrenceUntil: null,
+			seriesStartsAt: FROM,
+			seriesEndsAt: null,
+			reminderMinutes: [],
+			completed: false,
 			editable: true,
 			pondId: "pond-a",
 			pondName: "Pond A",
@@ -719,6 +742,136 @@ describe("GET /api/calendar/events device events and response", () => {
 		const { events } = await callCalendar({ pondId: "pond-a", types: "harvest" });
 
 		expect(events.map((event) => event.id)).toEqual(["pond:early", "pond:late"]);
+	});
+});
+
+describe("GET /api/calendar/events recurrence and tasks", () => {
+	it("expands a recurring task into one entry per occurrence", async () => {
+		const until = addDays(FROM, 20);
+		const completed = new Date(`${addDays(FROM, 7)}T00:00:00.000Z`);
+		mocks.pondEvent.findMany.mockResolvedValue([
+			persistedEvent({
+				id: "task-1",
+				title: "Check water quality",
+				type: "SAMPLING",
+				kind: "TASK",
+				source: "manual",
+				startsAt: new Date(`${FROM}T00:00:00.000Z`),
+				recurrenceFreq: "WEEKLY",
+				recurrenceInterval: 1,
+				recurrenceUntil: new Date(`${until}T00:00:00.000Z`),
+				reminderMinutes: [60],
+				color: "#1E7B34",
+				completedOccurrences: [completed],
+				cropCycle: null,
+			}),
+		]);
+
+		const { events } = await callCalendar({
+			from: FROM,
+			to: until,
+			pondId: "pond-a",
+			types: "manual",
+		});
+
+		expect(events.map((event) => event.start)).toEqual([FROM, addDays(FROM, 7), addDays(FROM, 14)]);
+		expect(events[0]).toMatchObject({
+			id: `pond:task-1:${FROM}T00:00:00.000Z`,
+			pondEventId: "task-1",
+			itemKind: "TASK",
+			source: "manual",
+			color: "#1E7B34",
+			completed: false,
+			occurrenceKey: `${FROM}T00:00:00.000Z`,
+			recurrenceFreq: "WEEKLY",
+			reminderMinutes: [60],
+			editable: true,
+		});
+		expect(events[1]?.completed).toBe(true);
+		expect(events[2]?.completed).toBe(false);
+	});
+
+	it("hides an occurrence deleted from a recurring event series", async () => {
+		const skipped = new Date(`${addDays(FROM, 7)}T00:00:00.000Z`);
+		mocks.pondEvent.findMany.mockResolvedValue([
+			persistedEvent({
+				id: "series-2",
+				title: "Weekly service",
+				type: "MAINTENANCE",
+				kind: "EVENT",
+				source: "manual",
+				startsAt: new Date(`${FROM}T00:00:00.000Z`),
+				recurrenceFreq: "WEEKLY",
+				recurrenceInterval: 1,
+				completedOccurrences: [skipped],
+				cropCycle: null,
+			}),
+		]);
+
+		const { events } = await callCalendar({
+			from: FROM,
+			to: addDays(FROM, 14),
+			pondId: "pond-a",
+			types: "manual",
+		});
+
+		expect(events.map((event) => event.start)).toEqual([FROM, addDays(FROM, 14)]);
+	});
+
+	it("includes a series that starts before the visible range", async () => {
+		const anchor = addDays(FROM, -30);
+		mocks.pondEvent.findMany.mockResolvedValue([
+			persistedEvent({
+				id: "series-1",
+				title: "Weekly check",
+				type: "MAINTENANCE",
+				source: "manual",
+				startsAt: new Date(`${anchor}T00:00:00.000Z`),
+				recurrenceFreq: "WEEKLY",
+				recurrenceInterval: 1,
+				recurrenceUntil: null,
+				cropCycle: null,
+			}),
+		]);
+
+		const { events } = await callCalendar({
+			from: FROM,
+			to: addDays(FROM, 14),
+			pondId: "pond-a",
+			types: "manual",
+		});
+
+		expect(events.map((event) => event.start)).toEqual([addDays(FROM, 5), addDays(FROM, 12)]);
+	});
+
+	it("keeps the farm-local time and end of a timed item", async () => {
+		mocks.pondEvent.findMany.mockResolvedValue([
+			persistedEvent({
+				id: "timed-1",
+				title: "Aerator service",
+				type: "MAINTENANCE",
+				source: "manual",
+				allDay: false,
+				startsAt: new Date(`${FROM}T01:30:00.000Z`),
+				endsAt: new Date(`${FROM}T02:30:00.000Z`),
+				cropCycle: null,
+			}),
+		]);
+
+		const { events } = await callCalendar({
+			from: FROM,
+			to: addDays(FROM, 1),
+			pondId: "pond-a",
+			types: "manual",
+		});
+
+		expect(events[0]).toMatchObject({
+			start: `${FROM}T09:30`,
+			end: `${FROM}T10:30`,
+			allDay: false,
+			seriesStartsAt: `${FROM}T09:30`,
+			seriesEndsAt: `${FROM}T10:30`,
+		});
 	});
 });
 

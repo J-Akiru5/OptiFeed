@@ -65,7 +65,7 @@ export function ChangePasswordForm({ forced = false }: { forced?: boolean }) {
 	};
 
 	return (
-		<form onSubmit={handleSubmit} className="space-y-4">
+		<form onSubmit={handleSubmit} className="space-y-4" data-help="profile-password">
 			<div className="space-y-1.5">
 				<label
 					htmlFor="currentPassword"

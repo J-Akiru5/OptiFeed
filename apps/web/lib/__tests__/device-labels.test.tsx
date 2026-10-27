@@ -222,4 +222,32 @@ describe("sticker content", () => {
 		expect(html).not.toContain("<canvas");
 		expect(html).not.toContain("data:image");
 	});
+
+	it("prints an overridden rating without any credential", () => {
+		const html = renderToStaticMarkup(
+			<DeviceSticker
+				mac="a4:cf:12:7e:3b:09"
+				strings={strings}
+				rating={{
+					voltageV: 230,
+					frequencyHz: 50,
+					currentA: 1.1,
+					powerVA: 300,
+					measured: true,
+					measuredAt: "2026-10-27",
+				}}
+			/>,
+		);
+		const text = html.replace(/<[^>]+>/g, "");
+
+		expect(text).toContain("230 V");
+		expect(text).toContain("1.1 A");
+		expect(text).toContain("300 VA");
+		expect(text).toContain("AC 50 Hz");
+		expect(text).not.toContain("220 V");
+		expect(text).not.toContain("264 VA");
+		for (const secret of [TOKEN, TOKEN_HASH, "SECRET", "tokenHash"]) {
+			expect(html).not.toContain(secret);
+		}
+	});
 });

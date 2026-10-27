@@ -332,9 +332,9 @@ describe("read paths never select a credential", () => {
 		]);
 		expect(args.select).not.toHaveProperty("token");
 		expect(args.select).not.toHaveProperty("tokenHash");
-		expect(args.skip).toBe(100);
-		expect(args.take).toBe(50);
-		expect(page).toMatchObject({ total: 120, page: 3, pageSize: 50 });
+		expect(args.skip).toBe(40);
+		expect(args.take).toBe(20);
+		expect(page).toMatchObject({ total: 120, page: 3, pageSize: 20 });
 	});
 
 	it("listPlatformDevices requires a platform admin", async () => {

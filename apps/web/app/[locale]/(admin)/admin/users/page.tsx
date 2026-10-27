@@ -3,7 +3,6 @@ import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import {
 	AdminCard,
-	AdminCardList,
 	AdminCardRow,
 	AdminTHead,
 	AdminTable,
@@ -11,13 +10,14 @@ import {
 	AdminTh,
 	AdminTr,
 } from "@/components/admin/admin-table";
-import { UserPermissionsDialog } from "@/components/admin/user-permissions-dialog";
+import { ItemCardGrid } from "@/components/ui/item-card";
+import { Pagination } from "@/components/ui/pagination";
+import { ListView } from "@/components/ui/view-toggle";
 import { Link } from "@/i18n/routing";
 import { getUsers } from "@/lib/actions/admin";
-import { PERMISSIONS } from "@/lib/auth/permissions";
-import { getCurrentUser } from "@/lib/auth/session";
 import { formatDateTimeLocal } from "@/lib/date-local";
-import { Eye, Shield, User, Users } from "lucide-react";
+import { parsePage } from "@/lib/pagination";
+import { Eye, KeyRound, Shield, User, Users } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 const roleBadge: Record<string, { bg: string; text: string; icon: typeof Shield }> = {
@@ -31,14 +31,26 @@ const roleBadge: Record<string, { bg: string; text: string; icon: typeof Shield 
 	},
 };
 
-export default async function AdminUsersPage() {
-	const [users, currentUser, t, tCommon, tDates] = await Promise.all([
-		getUsers(),
-		getCurrentUser(),
+const permissionsLinkClass =
+	"inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[#0A3D62]/20 px-3 text-xs font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-gray-600 dark:text-[#8fc0ea] dark:hover:bg-gray-800 dark:focus-visible:outline-[#8fc0ea]";
+
+export default async function AdminUsersPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ page?: string }>;
+}) {
+	const params = await searchParams;
+	const page = parsePage(params.page);
+	const [usersPage, t, tCommon, tDates] = await Promise.all([
+		getUsers({ page }),
 		getTranslations("dashboard.adminUsers"),
 		getTranslations("dashboard.adminCommon"),
 		getTranslations("dates"),
 	]);
+	const users = usersPage.rows;
+	const pageCount = Math.max(1, Math.ceil(usersPage.total / usersPage.pageSize));
+	const firstRow = usersPage.total === 0 ? 0 : (usersPage.page - 1) * usersPage.pageSize + 1;
+	const lastRow = Math.min(usersPage.page * usersPage.pageSize, usersPage.total);
 
 	const roleLabel = (role: string) =>
 		tCommon.has(`roleName.${role}`) ? tCommon(`roleName.${role}`) : role;
@@ -49,7 +61,7 @@ export default async function AdminUsersPage() {
 			<AdminPageHeader
 				icon={Users}
 				title={t("title")}
-				description={t("desc", { count: users.length })}
+				description={t("desc", { count: usersPage.total })}
 			>
 				<p className="mt-2 max-w-2xl text-[11px] text-[#3D5568] dark:text-gray-400">
 					{t("farmersBefore")}{" "}
@@ -75,7 +87,12 @@ export default async function AdminUsersPage() {
 					}
 				/>
 			) : (
-				<>
+				<ListView
+					pageKey="admin-users"
+					listLabel={tCommon("viewToggle.list")}
+					cardsLabel={tCommon("viewToggle.cards")}
+					toggleLabel={tCommon("viewToggle.label")}
+				>
 					<AdminTable caption={t("caption")} minWidth="min-w-[46rem]">
 						<AdminTHead>
 							<AdminTh>{t("columnUser")}</AdminTh>
@@ -130,12 +147,14 @@ export default async function AdminUsersPage() {
 											{joined(user.createdAt)}
 										</AdminTd>
 										<AdminTd className="text-right">
-											<UserPermissionsDialog
-												userId={user.id}
-												userName={user.displayName || user.farmId}
-												permissions={PERMISSIONS}
-												isSelf={currentUser?.id === user.id}
-											/>
+											<Link
+												href={`/admin/settings/members/${user.id}/permissions`}
+												aria-label={`${t("permissionsButton")} — ${user.displayName || user.farmId}`}
+												className={permissionsLinkClass}
+											>
+												<KeyRound aria-hidden="true" className="h-3.5 w-3.5" />
+												{t("permissionsButton")}
+											</Link>
 										</AdminTd>
 									</AdminTr>
 								);
@@ -143,7 +162,7 @@ export default async function AdminUsersPage() {
 						</tbody>
 					</AdminTable>
 
-					<AdminCardList>
+					<ItemCardGrid label={t("caption")}>
 						{users.map((user) => {
 							const badge = roleBadge[user.role] ?? roleBadge.VIEWER;
 							const Icon = badge.icon;
@@ -184,18 +203,36 @@ export default async function AdminUsersPage() {
 									</div>
 
 									<div className="mt-3">
-										<UserPermissionsDialog
-											userId={user.id}
-											userName={user.displayName || user.farmId}
-											permissions={PERMISSIONS}
-											isSelf={currentUser?.id === user.id}
-										/>
+										<Link
+											href={`/admin/settings/members/${user.id}/permissions`}
+											aria-label={`${t("permissionsButton")} — ${user.displayName || user.farmId}`}
+											className={permissionsLinkClass}
+										>
+											<KeyRound aria-hidden="true" className="h-3.5 w-3.5" />
+											{t("permissionsButton")}
+										</Link>
 									</div>
 								</AdminCard>
 							);
 						})}
-					</AdminCardList>
-				</>
+					</ItemCardGrid>
+				</ListView>
+			)}
+
+			{usersPage.total > 0 && (
+				<Pagination
+					basePath="/admin/users"
+					page={usersPage.page}
+					pageCount={pageCount}
+					showing={tCommon("pagination.showing", {
+						from: firstRow,
+						to: lastRow,
+						total: usersPage.total,
+					})}
+					previousLabel={tCommon("pagination.previous")}
+					nextLabel={tCommon("pagination.next")}
+					label={tCommon("pagination.label")}
+				/>
 			)}
 		</div>
 	);

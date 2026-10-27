@@ -1,3 +1,5 @@
+import type { BatchSummary } from "@/lib/batch-summary";
+import { resolvePagination } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
 
 export const MAX_BATCH_LABEL_LENGTH = 64;
@@ -28,6 +30,79 @@ export interface BatchLogPage {
 	total: number;
 	entries: BatchLogEntry[];
 	summary: BatchLogSummary;
+}
+
+export interface BatchSummaryPage {
+	rows: BatchSummary[];
+	total: number;
+	page: number;
+	pageSize: number;
+}
+
+/**
+ * One numbered page of saved-batch cards.
+ *
+ * A batch is a group, not a row, so the rows are grouped in the database and
+ * only the requested groups are selected. The unpaginated group-key pass only
+ * counts batches; it never loads biomass rows into memory.
+ */
+export async function getBatchSummaryPage(params: {
+	pondId: string;
+	page: number;
+	pageSize: number;
+}): Promise<BatchSummaryPage> {
+	const where = { pondId: params.pondId, batchLabel: { not: null } };
+	const requestedPage = Math.max(1, Math.floor(params.page) || 1);
+	const pageSize = Math.max(1, Math.floor(params.pageSize) || 1);
+
+	const [groups, allGroups] = await Promise.all([
+		prisma.biomassLog.groupBy({
+			by: ["batchLabel"],
+			where,
+			_count: { _all: true },
+			_sum: { sampleCount: true, sampleWeightKg: true },
+			_max: { recordedAt: true },
+			orderBy: { _max: { recordedAt: "desc" } },
+			skip: (requestedPage - 1) * pageSize,
+			take: pageSize,
+		}),
+		prisma.biomassLog.groupBy({
+			by: ["batchLabel"],
+			where,
+			_count: { _all: true },
+		}),
+	]);
+
+	const paging = resolvePagination(requestedPage, pageSize, allGroups.length);
+	const selected =
+		paging.page === requestedPage
+			? groups
+			: await prisma.biomassLog.groupBy({
+					by: ["batchLabel"],
+					where,
+					_count: { _all: true },
+					_sum: { sampleCount: true, sampleWeightKg: true },
+					_max: { recordedAt: true },
+					orderBy: { _max: { recordedAt: "desc" } },
+					skip: paging.offset,
+					take: paging.pageSize,
+				});
+
+	const rows: BatchSummary[] = selected.map((group) => {
+		const totalSampleCount = group._sum.sampleCount ?? 0;
+		const totalWeightKg = Math.round((group._sum.sampleWeightKg ?? 0) * 1000) / 1000;
+		return {
+			label: group.batchLabel,
+			entryCount: group._count._all,
+			lastSavedAt: group._max.recordedAt ?? new Date(0),
+			totalSampleCount,
+			totalWeightKg,
+			avgWeightKg:
+				totalSampleCount > 0 ? Math.round((totalWeightKg / totalSampleCount) * 1000) / 1000 : 0,
+		};
+	});
+
+	return { rows, total: allGroups.length, page: paging.page, pageSize: paging.pageSize };
 }
 
 /**

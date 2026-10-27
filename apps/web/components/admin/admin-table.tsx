@@ -29,7 +29,7 @@ export function AdminTable({
 	return (
 		<div
 			className={cn(
-				"hidden overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm md:block dark:border-gray-700/60 dark:bg-gray-900",
+				"data-list-table hidden overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm md:block dark:border-gray-700/60 dark:bg-gray-900",
 				className,
 			)}
 		>
@@ -94,9 +94,9 @@ export function AdminTd({
 	return <td className={cn("px-4 py-4 align-middle", className)}>{children}</td>;
 }
 
-/** Card list shown instead of the table below `md`. */
+/** Card grid shown instead of the table below `md` (or when Card is chosen). */
 export function AdminCardList({ children }: { children: ReactNode }) {
-	return <ul className="space-y-3 md:hidden">{children}</ul>;
+	return <ul className="data-list-cards space-y-3 md:hidden">{children}</ul>;
 }
 
 export function AdminCard({

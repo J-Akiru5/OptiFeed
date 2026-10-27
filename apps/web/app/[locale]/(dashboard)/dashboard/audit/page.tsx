@@ -1,8 +1,10 @@
 import { DataExportButton } from "@/components/DataImportExport";
 import { DashboardEmptyState, DashboardPageHeader } from "@/components/dashboard/dashboard-ui";
+import { Pagination } from "@/components/ui/pagination";
 import { Link } from "@/i18n/routing";
 import { getAuditLog } from "@/lib/actions/audit";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import { parsePage } from "@/lib/pagination";
 import {
 	AlertCircle,
 	Bell,
@@ -135,12 +137,14 @@ const defaultEventConfig = {
 export default async function AuditPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ filter?: string }>;
+	searchParams: Promise<{ filter?: string; page?: string }>;
 }) {
 	const t = await getTranslations("dashboard.audit");
+	const tCommon = await getTranslations("dashboard.common");
 	const tDates = await getTranslations("dates");
 	const params = await searchParams;
 	const filterParam = params.filter;
+	const page = parsePage(params.page);
 
 	const filterGroupToTypes: Record<string, string[]> = {
 		all: [],
@@ -166,7 +170,12 @@ export default async function AuditPage({
 
 	const eventTypes = filterGroupToTypes[filterParam ?? "all"] ?? [];
 
-	const result = await getAuditLog({ eventTypes: eventTypes.length > 0 ? eventTypes : undefined });
+	const result = await getAuditLog({
+		eventTypes: eventTypes.length > 0 ? eventTypes : undefined,
+		page,
+	});
+	const firstRow = result.total === 0 ? 0 : (result.page - 1) * result.pageSize + 1;
+	const lastRow = Math.min(result.page * result.pageSize, result.total);
 
 	const formatDate = (date: Date) => formatDateTimeLocal(date, tDates);
 	const sourceLabel = (s: string) => (t.has(`source_${s}`) ? t(`source_${s}`) : s);
@@ -310,21 +319,21 @@ export default async function AuditPage({
 					)}
 				</ol>
 
-				{result.nextCursor && (
-					<div className="mt-6 flex justify-center">
-						<Link
-							href={{
-								pathname: "/dashboard/audit",
-								query: {
-									cursor: result.nextCursor,
-									...(filterParam ? { filter: filterParam } : {}),
-								},
-							}}
-							className="inline-flex min-h-11 items-center rounded-full bg-[#F4F7F6] px-6 py-2 text-sm font-bold text-[#0A3D62] transition-colors hover:bg-[#E8EDED] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-gray-800 dark:text-[#5b9bd5] dark:hover:bg-gray-700 dark:focus-visible:outline-[#8fc0ea]"
-						>
-							{t("loadMore")}
-						</Link>
-					</div>
+				{result.total > 0 && (
+					<Pagination
+						basePath="/dashboard/audit"
+						params={{ filter: filterParam }}
+						page={result.page}
+						pageCount={Math.max(1, Math.ceil(result.total / result.pageSize))}
+						showing={tCommon("pagination.showing", {
+							from: firstRow,
+							to: lastRow,
+							total: result.total,
+						})}
+						previousLabel={tCommon("pagination.previous")}
+						nextLabel={tCommon("pagination.next")}
+						label={tCommon("pagination.label")}
+					/>
 				)}
 			</section>
 		</div>

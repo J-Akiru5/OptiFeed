@@ -58,6 +58,7 @@ const DEVICE = {
 	pondId: null as string | null,
 	label: "Feeder A",
 	tokenHash: hashToken("test-token"),
+	approvalStatus: "APPROVED",
 };
 
 function ingestRequest(body: Record<string, unknown>): Request {

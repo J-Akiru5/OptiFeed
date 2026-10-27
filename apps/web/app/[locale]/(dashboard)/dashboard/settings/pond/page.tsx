@@ -23,7 +23,7 @@ export default async function PondSettingsPage() {
 
 	if (!pond) {
 		return (
-			<div className="mx-auto max-w-4xl py-10">
+			<div className="w-full py-10">
 				<DashboardEmptyState
 					icon={Settings}
 					title={t("errorLoad")}
@@ -45,7 +45,7 @@ export default async function PondSettingsPage() {
 	const profile = parsePondProfile(pond.notificationPrefs);
 
 	return (
-		<div className="mx-auto max-w-4xl space-y-6 pb-20">
+		<div className="w-full space-y-6 pb-20">
 			<DashboardPageHeader title={t("pondTitle")} description={t("pondDesc")} icon={Settings} />
 
 			{!writeAccess && (

@@ -87,9 +87,18 @@ export function computePointDelta(currentPct: number, previousPct: number | null
 	};
 }
 
-/** `2026-10-05` → `10-05`; anything else is left alone. */
+/**
+ * Shorten a bucket label for the x-axis:
+ *
+ * - a day (`2026-10-05`) becomes `10-05`;
+ * - an hour (`2026-10-05 14:00`) becomes `14:00`;
+ * - anything else is left alone.
+ */
 export function formatAxisDay(label: string): string {
-	return /^\d{4}-\d{2}-\d{2}$/.test(label) ? label.slice(5) : label;
+	if (/^\d{4}-\d{2}-\d{2}$/.test(label)) return label.slice(5);
+	const hour = /^\d{4}-\d{2}-\d{2} (\d{2}):00$/.exec(label);
+	if (hour) return `${hour[1]}:00`;
+	return label;
 }
 
 /** Deterministic thousands-separated number for summaries and tooltips. */
@@ -205,6 +214,67 @@ export function buildStackedSeries(
 export function stackedValue(row: Record<string, number | string>, key: string): number {
 	const value = row[key];
 	return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+/** One aggregated observation: a bucket, a series (e.g. sampling batch) and a value. */
+export interface MultiSeriesPoint {
+	label: string;
+	series: string;
+	value: number;
+}
+
+export interface MultiSeries {
+	/** Ordered series keys, first seen wins. */
+	series: string[];
+	/** One row per bucket; a series with no reading in that bucket is `null`. */
+	rows: Array<{ label: string } & Record<string, number | string | null>>;
+}
+
+/**
+ * Turn aggregated `(bucket, series, value)` rows into one row per bucket with a
+ * column per series.
+ *
+ * Unlike the stacked helper there is no zero fill: a batch that was not sampled
+ * on a day has no reading, so the line shows a gap instead of a false 0 g
+ * sample. The raw rows are already aggregated in the database, so duplicates
+ * are not expected; if one appears the later value wins rather than being
+ * summed (these are averages, not counts).
+ */
+export function buildMultiSeries(
+	rows: ReadonlyArray<MultiSeriesPoint>,
+	keys: ReadonlyArray<string>,
+): MultiSeries {
+	const series: string[] = [];
+	const byBucket = new Map<string, Map<string, number>>();
+
+	for (const row of rows) {
+		if (!series.includes(row.series)) series.push(row.series);
+		if (!Number.isFinite(row.value)) continue;
+		const bucket = byBucket.get(row.label) ?? new Map<string, number>();
+		bucket.set(row.series, row.value);
+		byBucket.set(row.label, bucket);
+	}
+
+	return {
+		series,
+		rows: keys.map((label) => {
+			const bucket = byBucket.get(label);
+			const row: { label: string } & Record<string, number | string | null> = { label };
+			for (const key of series) row[key] = bucket?.get(key) ?? null;
+			return row;
+		}),
+	};
+}
+
+/** Number of real readings in a multi-series chart (non-null cells). */
+export function countSeriesValues(multi: MultiSeries): number {
+	let total = 0;
+	for (const row of multi.rows) {
+		for (const key of multi.series) {
+			if (typeof row[key] === "number") total += 1;
+		}
+	}
+	return total;
 }
 
 /** Share of a part in a whole, rounded to one decimal. 0 when the whole is 0. */

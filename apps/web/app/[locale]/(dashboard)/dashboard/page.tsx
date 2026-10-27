@@ -4,6 +4,7 @@ import { FeedNowButton } from "@/components/FeedNowButton";
 import { FeedingPredictionCard } from "@/components/FeedingPredictionCard";
 import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
 import { WaterTempCard } from "@/components/WaterTempCard";
+import { type ChartLabels, LineTrend } from "@/components/charts";
 import {
 	DashboardEmptyState,
 	DashboardPageHeader,
@@ -15,12 +16,14 @@ import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
 import { canWrite, getCurrentUser } from "@/lib/auth/session";
 import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
+import { WATER_TEMP_RANGES, parseWaterTempRange } from "@/lib/chart-windows";
 import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import type { DashboardSnapshotData } from "@/lib/offline/snapshots";
+import { getWaterTempSeries } from "@/lib/pond-charts";
 import { getActivePond } from "@/lib/pond-selection";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
@@ -30,7 +33,17 @@ import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0; // Ensure data is always fresh
 
-export default async function DashboardHomePage() {
+interface DashboardHomePageProps {
+	searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+function first(value: string | string[] | undefined): string | undefined {
+	return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function DashboardHomePage({ searchParams }: DashboardHomePageProps) {
+	const params = await searchParams;
+	const waterRange = parseWaterTempRange(first(params.water));
 	const [t, tBtn, tHist, tGrowth, tHarvest, tDates, tCommon, writeAccess, currentUser, pond] =
 		await Promise.all([
 			getTranslations("dashboard.home"),
@@ -118,8 +131,9 @@ export default async function DashboardHomePage() {
 	const latestBiomass = recentBiomassLogs[0] ?? null;
 
 	// Schedule resolution needs the device id; feeding history needs the same
-	// id, so they share the second wave.
-	const [currentConfig, feedingHistory] = await Promise.all([
+	// id, so they share the second wave. The water-temperature trend is scoped
+	// to the same device and aggregated per hour/day in the DB.
+	const [currentConfig, feedingHistory, waterTempPoints] = await Promise.all([
 		resolveCurrentSchedule(pond.id, energyDevice?.id ?? null),
 		energyDevice
 			? prisma.feedEvent.findMany({
@@ -128,6 +142,7 @@ export default async function DashboardHomePage() {
 					take: 5,
 				})
 			: Promise.resolve([]),
+		energyDevice ? getWaterTempSeries([energyDevice.id], waterRange) : Promise.resolve([]),
 	]);
 
 	const today = new Date();
@@ -209,6 +224,18 @@ export default async function DashboardHomePage() {
 		energyDevice?.recalibrationIntervalDays ?? 30,
 		now,
 	);
+
+	const chartLabels: ChartLabels = {
+		period: tCommon("charts.period"),
+		value: tCommon("charts.value"),
+		name: tCommon("charts.name"),
+		empty: tCommon("charts.empty"),
+	};
+	const waterRangeLabel = waterRange === "24h" ? t("waterRange24h") : t("waterRange7d");
+	const latestWaterTemp =
+		energyDevice?.waterTempOk && energyDevice.waterTempC !== null
+			? `${energyDevice.waterTempC.toFixed(1)}°C`
+			: "—";
 
 	function formatOfflineDuration(lastSeenAt: Date | null): string {
 		if (!lastSeenAt) return t("durationNotConnected");
@@ -752,12 +779,56 @@ export default async function DashboardHomePage() {
 						feedsPerDay={pond.feedsPerDay}
 						isDeviceOffline={esp32Offline}
 					/>
-					<WaterTempCard
-						tempC={energyDevice.waterTempC}
-						tempOk={energyDevice.waterTempOk}
-						updatedAt={energyDevice.waterTempUpdatedAt}
-						isDeviceOffline={esp32Offline}
-					/>
+					<div className="flex min-w-0 flex-col gap-4">
+						<WaterTempCard
+							tempC={energyDevice.waterTempC}
+							tempOk={energyDevice.waterTempOk}
+							updatedAt={energyDevice.waterTempUpdatedAt}
+							isDeviceOffline={esp32Offline}
+						/>
+						<div className="flex min-w-0 flex-col gap-2">
+							<nav
+								aria-label={t("waterRangeLabel")}
+								className="flex flex-wrap items-center justify-end gap-1.5"
+							>
+								{WATER_TEMP_RANGES.map((option) => (
+									<Link
+										key={option}
+										href={`/dashboard?water=${option}`}
+										aria-current={option === waterRange ? "page" : undefined}
+										className={`inline-flex min-h-11 items-center rounded-xl px-3 text-xs font-black transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea] ${
+											option === waterRange
+												? "bg-[#0A3D62] text-white shadow-sm"
+												: "border border-[#0A3D62]/20 bg-white text-[#0A3D62] hover:bg-[#F4F7F6] dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+										}`}
+									>
+										{option === "24h" ? t("waterRange24h") : t("waterRange7d")}
+									</Link>
+								))}
+							</nav>
+							<LineTrend
+								title={t("waterChartTitle")}
+								summary={t("waterChartSummary", {
+									range: waterRangeLabel,
+									points: waterTempPoints.length,
+									latest: latestWaterTemp,
+								})}
+								labels={{
+									...chartLabels,
+									empty: t("waterChartEmpty"),
+								}}
+								points={waterTempPoints}
+								unit="°C"
+								decimals={1}
+								height={170}
+								aux={
+									<p className="mt-2 text-[11px] font-bold text-[#3D5568] dark:text-gray-300">
+										{t("waterChartLatest", { value: latestWaterTemp })}
+									</p>
+								}
+							/>
+						</div>
+					</div>
 					<div className="md:col-span-2">
 						<EnergyControllerCard
 							deviceId={energyDevice.id}

@@ -1,8 +1,10 @@
 import {
 	buildDayKeys,
+	buildMultiSeries,
 	buildStackedSeries,
 	computeDelta,
 	computePointDelta,
+	countSeriesValues,
 	fillDailySeries,
 	formatAxisDay,
 	peakPoint,
@@ -156,5 +158,74 @@ describe("series helpers", () => {
 		expect(formatAxisDay("Oct 5")).toBe("Oct 5");
 		expect(sharePct(1, 4)).toBe(25);
 		expect(sharePct(1, 0)).toBe(0);
+	});
+
+	it("shortens an hourly bucket to the hour and keeps the day it belongs to", () => {
+		expect(formatAxisDay("2026-10-05 14:00")).toBe("14:00");
+		expect(formatAxisDay("2026-10-05 00:00")).toBe("00:00");
+		expect(formatAxisDay("2026-10-05 14:30")).toBe("2026-10-05 14:30");
+	});
+});
+
+describe("buildMultiSeries", () => {
+	const keys = ["2026-10-01", "2026-10-02", "2026-10-03"];
+
+	it("puts one line per series and leaves unsampled buckets as gaps", () => {
+		const multi = buildMultiSeries(
+			[
+				{ label: "2026-10-01", series: "Batch A", value: 12 },
+				{ label: "2026-10-02", series: "Batch B", value: 20 },
+				{ label: "2026-10-03", series: "Batch A", value: 18 },
+			],
+			keys,
+		);
+
+		expect(multi.series).toEqual(["Batch A", "Batch B"]);
+		expect(multi.rows).toEqual([
+			{ label: "2026-10-01", "Batch A": 12, "Batch B": null },
+			{ label: "2026-10-02", "Batch A": null, "Batch B": 20 },
+			{ label: "2026-10-03", "Batch A": 18, "Batch B": null },
+		]);
+	});
+
+	it("keeps series in first-seen order and drops buckets outside the window", () => {
+		const multi = buildMultiSeries(
+			[
+				{ label: "2026-10-03", series: "Late", value: 5 },
+				{ label: "2026-09-30", series: "Old", value: 99 },
+			],
+			keys,
+		);
+
+		expect(multi.series).toEqual(["Late", "Old"]);
+		expect(multi.rows.map((row) => row.label)).toEqual(keys);
+		expect(multi.rows[0].Old).toBeNull();
+	});
+
+	it("replaces a duplicate bucket rather than summing averages", () => {
+		const multi = buildMultiSeries(
+			[
+				{ label: "2026-10-01", series: "A", value: 10 },
+				{ label: "2026-10-01", series: "A", value: 14 },
+			],
+			["2026-10-01"],
+		);
+
+		expect(multi.rows[0].A).toBe(14);
+		expect(countSeriesValues(multi)).toBe(1);
+	});
+
+	it("counts only real readings, not gaps", () => {
+		const multi = buildMultiSeries(
+			[
+				{ label: "2026-10-01", series: "A", value: 1 },
+				{ label: "2026-10-02", series: "B", value: 2 },
+				{ label: "2026-10-03", series: "A", value: 3 },
+			],
+			keys,
+		);
+
+		expect(countSeriesValues(multi)).toBe(3);
+		expect(countSeriesValues({ series: [], rows: [] })).toBe(0);
 	});
 });

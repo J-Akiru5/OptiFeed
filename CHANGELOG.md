@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Member permissions open on a dedicated page instead of a modal (#189).
 - Schema (additive, applied with `migrate deploy` after JSON backups): `PlatformSetting`, `OrgSetting`, `CalibrationRun`, `WaterTempLog`, `AssistantAction`, `EnergyDevice.approvalStatus/lastCalibratedAt/recalibrationIntervalDays`, and calendar fields on `PondEvent`. RLS deny-by-default on every new table.
 - `recharts` for interactive charts.
+- Pond charts (#188): feed dispensed per day over the last 30 days stacked by scheduled/dashboard/button, hopper level over 7 or 30 days on History, an average body-weight trend per sampling batch on Biomass Log, and a 24 h / 7 d water-temperature trend on the dashboard. Series are aggregated in PostgreSQL and scoped to the active pond's devices, rendered with the shared `components/charts` components (dark mode, `aria-label` summary, visually hidden data table, explicit empty state).
 - Power-rating sticker for every feeder (#174): 95 × 66 mm, 8 per A4, English only, with an SSID-only Wi-Fi QR (`PakaonAI-XXXX` from the chip eFuse MAC). It never contains a device token.
 - Superadmin device registry (#179, #183): register a feeder onto an org pond, rotate its token, print labels, and remote feed within the safety caps.
 - Superadmin god mode (#183): read-only view-as with a signed session and red banner; manage any org's members and permissions; step-up re-authentication for dangerous actions; reversible user disable.

@@ -1,3 +1,5 @@
+import { type ChartLabels, MultiLineTrend } from "@/components/charts";
+import { countSeriesValues } from "@/components/charts/chart-data";
 import {
 	DashboardCard,
 	DashboardCardRow,
@@ -25,6 +27,7 @@ import {
 	isGrowthHistoryTab,
 } from "@/lib/growth-history";
 import { getPageCount, parsePage, resolveDateRange } from "@/lib/pagination";
+import { UNLABELED_BATCH, getBiomassTrend } from "@/lib/pond-charts";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { getListPageSize } from "@/lib/settings/platform";
@@ -141,6 +144,22 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 		await load(page);
 	}
 
+	// The biomass trend is independent of the table's pagination and filters:
+	// it is the whole sample history, averaged per batch per day in the DB.
+	const biomassTrend = tab === "biomass" ? await getBiomassTrend(pond.id) : null;
+	const chartLabels: ChartLabels = {
+		period: tCommon("charts.period"),
+		value: tCommon("charts.value"),
+		name: tCommon("charts.name"),
+		empty: tCommon("charts.empty"),
+	};
+	const batchSeriesLabels = Object.fromEntries(
+		(biomassTrend?.series ?? []).map((key) => [
+			key,
+			key === UNLABELED_BATCH ? tGrowth("unlabeledBatch") : key,
+		]),
+	);
+
 	const firstRow = total === 0 ? 0 : (page - 1) * pageSize + 1;
 	const lastRow = Math.min(page * pageSize, total);
 	const params = { tab, q, from, to };
@@ -192,6 +211,26 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 					);
 				})}
 			</nav>
+
+			{tab === "biomass" && biomassTrend && (
+				<MultiLineTrend
+					title={t("charts.biomassTitle")}
+					summary={t("charts.biomassSummary", {
+						series: biomassTrend.series.length,
+						samples: countSeriesValues(biomassTrend),
+						from: biomassTrend.rows[0]?.label ?? "—",
+						to: biomassTrend.rows.at(-1)?.label ?? "—",
+					})}
+					labels={{
+						...chartLabels,
+						empty: t("charts.biomassEmpty"),
+					}}
+					series={biomassTrend}
+					seriesLabels={batchSeriesLabels}
+					unit="g"
+					decimals={1}
+				/>
+			)}
 
 			<section className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
 				<form

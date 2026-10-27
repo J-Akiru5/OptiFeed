@@ -436,7 +436,14 @@
 			"logAvgSamples": "Avg • {count} samples",
 			"logTotal": "Total",
 			"noFeedingsHint": "Feedings appear here after the feeder confirms a dispense.",
-			"noPondHint": "Ask your administrator to assign a pond to your farm."
+			"noPondHint": "Ask your administrator to assign a pond to your farm.",
+			"waterChartTitle": "Water temperature trend",
+			"waterChartSummary": "Water temperature over the {range}: {points} readings, latest {latest}.",
+			"waterChartEmpty": "No water temperature history yet. Logging began on 27 October 2026.",
+			"waterRangeLabel": "Water temperature period",
+			"waterRange24h": "24 h",
+			"waterRange7d": "7 days",
+			"waterChartLatest": "Latest reading: {value}"
 		},
 		"schedule": {
 			"title": "Feeding Schedule",
@@ -563,7 +570,19 @@
 			"statsLabel": "Feeding summary",
 			"tableCaption": "Recent feeding events",
 			"emptyTitle": "No feed events yet",
-			"emptyDesc": "Dispenses appear here as soon as the feeder confirms them."
+			"emptyDesc": "Dispenses appear here as soon as the feeder confirms them.",
+			"charts": {
+				"label": "Feeding charts",
+				"feedTitle": "Feed dispensed per day",
+				"feedSummary": "Feed dispensed over the last {days} days, split by source: {total} in total.",
+				"feedEmpty": "No feed has been dispensed in the last {days} days.",
+				"hopperTitle": "Hopper level",
+				"hopperSummary": "Average hopper level over the last {days} days: {points} daily readings, latest {latest}%.",
+				"hopperRangeLabel": "Hopper history period",
+				"range7": "7 days",
+				"range30": "30 days",
+				"hopperEmpty": "No hopper readings in the last {days} days."
+			}
 		},
 		"feedNowModal": {
 			"triggerTitle": "Trigger Manual Feeding?",
@@ -657,7 +676,12 @@
 				},
 				"empty": "No records match these filters.",
 				"emptyTitle": "No records yet",
-				"emptyDesc": "Records appear once samples or hopper readings are logged."
+				"emptyDesc": "Records appear once samples or hopper readings are logged.",
+				"charts": {
+					"biomassTitle": "Average body weight trend",
+					"biomassSummary": "Average body weight from {from} to {to}, with {samples} samples across {series} sampling batches.",
+					"biomassEmpty": "No biomass samples yet."
+				}
 			},
 			"growthPlan": {
 				"title": "Target growth plan",
@@ -1986,6 +2010,12 @@
 				"label": "Choose layout",
 				"list": "List",
 				"cards": "Cards"
+			},
+			"charts": {
+				"period": "Period",
+				"value": "Value",
+				"name": "Name",
+				"empty": "No data for this period yet."
 			}
 		}
 	},
@@ -2735,6 +2765,7 @@
 			"biomass-sample-size": "A larger sample is a better estimate: 30 to 50 fish beats a handful, and always weigh with the same scale.",
 			"biomass-batches": "Saved batches group samples by weighing session, so a later review can see what was measured together.",
 			"history-log": "The event log lists each confirmed dispense, newest first, and can be searched and paged.",
+			"history-charts": "The charts summarise feed dispensed per day over the last 30 days and the hopper level over the chosen window.",
 			"history-export": "Export downloads the records as CSV or ZIP, with the data types you choose.",
 			"history-import": "Import brings in older records from a spreadsheet. Nothing is written until you confirm the preview.",
 			"history-feed-level": "The feed-level cards read the hopper sensor. A greyed level is the last known value from an offline feeder.",

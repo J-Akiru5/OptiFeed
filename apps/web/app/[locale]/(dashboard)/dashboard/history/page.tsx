@@ -1,12 +1,17 @@
 import { DataExportButton, DataImportDialog } from "@/components/DataImportExport";
 import { FeedEventHistoryTable } from "@/components/FeedEventHistoryTable";
+import { type ChartLabels, LineTrend, StackedBars } from "@/components/charts";
+import { formatChartNumber } from "@/components/charts/chart-data";
 import { DashboardEmptyState, DashboardPageHeader } from "@/components/dashboard/dashboard-ui";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
+import { Link } from "@/i18n/routing";
 import { getFeedEvents } from "@/lib/actions/history";
 import { canWrite } from "@/lib/auth/session";
+import { FEED_CHART_DAYS, HOPPER_RANGE_DAYS, parseHopperRange } from "@/lib/chart-windows";
 import { isDeviceOffline } from "@/lib/feed-level-display";
 import type { HistorySnapshotData } from "@/lib/offline/snapshots";
+import { getFeedPerDayBySource, getHopperLevelSeries } from "@/lib/pond-charts";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { getListPageSize } from "@/lib/settings/platform";
@@ -21,9 +26,20 @@ const SOURCE_LABELS: Record<string, string> = {
 	button: "button",
 };
 
-export default async function HistoryPage() {
+interface HistoryPageProps {
+	searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+function first(value: string | string[] | undefined): string | undefined {
+	return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 	const t = await getTranslations("dashboard.history");
 	const tSch = await getTranslations("dashboard.schedule");
+	const tCommon = await getTranslations("dashboard.common");
+	const params = await searchParams;
+	const hopperRange = parseHopperRange(first(params.hopper));
 	const pond = await getActivePond();
 
 	if (!pond) {
@@ -52,14 +68,20 @@ export default async function HistoryPage() {
 	});
 
 	const energyDevice = energyDevices[0];
+	const deviceIds = energyDevices.map((d) => d.id);
 
-	// Live device-confirmed dispenses written by POST /api/ingest (FeedEvent).
+	// Chart series are aggregated in PostgreSQL and scoped to the same device
+	// ids as the table, so the charts cannot show another pond's history.
 	const pageSize = await getListPageSize();
-	const initialPage = await getFeedEvents({
-		deviceIds: energyDevices.map((d) => d.id),
-		page: 1,
-		pageSize,
-	});
+	const [initialPage, feedChart, hopperPoints] = await Promise.all([
+		getFeedEvents({
+			deviceIds,
+			page: 1,
+			pageSize,
+		}),
+		getFeedPerDayBySource(deviceIds),
+		getHopperLevelSeries(deviceIds, hopperRange),
+	]);
 	const events = initialPage.items;
 
 	// Calculate stats
@@ -75,6 +97,21 @@ export default async function HistoryPage() {
 		const key = SOURCE_LABELS[s] ?? "dashboard";
 		return t(`source_${key}`);
 	};
+
+	const chartLabels: ChartLabels = {
+		period: tCommon("charts.period"),
+		value: tCommon("charts.value"),
+		name: tCommon("charts.name"),
+		empty: tCommon("charts.empty"),
+	};
+	const sourceSeriesLabels = Object.fromEntries(
+		feedChart.stack.sources.map((source) => [source, sourceLabel(source)]),
+	);
+	const feedChartTotal = Object.values(feedChart.stack.totalsBySource).reduce(
+		(sum, value) => sum + value,
+		0,
+	);
+	const hopperLatest = hopperPoints.at(-1)?.value ?? null;
 
 	const writeAccess = await canWrite();
 	const feedLevelOffline = isDeviceOffline(energyDevice?.lastSeenAt ?? null);
@@ -166,6 +203,66 @@ export default async function HistoryPage() {
 					</div>
 				</div>
 			</div>
+
+			<section
+				aria-label={t("charts.label")}
+				data-help="history-charts"
+				className="grid grid-cols-1 gap-6 xl:grid-cols-2"
+			>
+				<StackedBars
+					title={t("charts.feedTitle")}
+					summary={t("charts.feedSummary", {
+						days: FEED_CHART_DAYS,
+						total: formatChartNumber(feedChartTotal, "g"),
+					})}
+					labels={{
+						...chartLabels,
+						empty: t("charts.feedEmpty", { days: FEED_CHART_DAYS }),
+					}}
+					stack={feedChart.stack}
+					seriesLabels={sourceSeriesLabels}
+					unit="g"
+				/>
+
+				<div className="flex min-w-0 flex-col gap-2">
+					<nav
+						aria-label={t("charts.hopperRangeLabel")}
+						className="flex flex-wrap items-center justify-end gap-1.5"
+					>
+						{HOPPER_RANGE_DAYS.map((option) => (
+							<Link
+								key={option}
+								href={`/dashboard/history?hopper=${option}`}
+								aria-current={option === hopperRange ? "page" : undefined}
+								className={`inline-flex min-h-11 items-center rounded-xl px-3 text-xs font-black transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea] ${
+									option === hopperRange
+										? "bg-[#0A3D62] text-white shadow-sm"
+										: "border border-[#0A3D62]/20 bg-white text-[#0A3D62] hover:bg-[#F4F7F6] dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+								}`}
+							>
+								{option === 7 ? t("charts.range7") : t("charts.range30")}
+							</Link>
+						))}
+					</nav>
+					<LineTrend
+						className="flex-1"
+						title={t("charts.hopperTitle")}
+						summary={t("charts.hopperSummary", {
+							days: hopperRange,
+							points: hopperPoints.length,
+							latest: hopperLatest ?? "—",
+						})}
+						labels={{
+							...chartLabels,
+							empty: t("charts.hopperEmpty", { days: hopperRange }),
+						}}
+						points={hopperPoints}
+						unit="%"
+						decimals={1}
+						height={260}
+					/>
+				</div>
+			</section>
 
 			<div
 				data-help="history-event-log"

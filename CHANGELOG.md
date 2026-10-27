@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Admin → Ponds no longer loads each device's plaintext provisioning token (or token hash) and the owner's full account row with the pond list; the page now selects only the fields it renders.
+- Admin → Users now shows the member's organization role and updates it immediately after a role change, instead of the legacy account role.
+- Admin → Users, Ponds and the member-permissions page hide create/archive/edit actions the caller's permissions do not allow, and a direct URL renders a not-found or "view only" notice instead of an error page.
+- Admin → Devices lists pending feeders in the approval queue only, so the numbered pager and the table describe the same rows and pending units on later pages are no longer unreachable.
+- The admin audit log translates device event types and sources instead of printing raw keys; the pond detail "Overview" heading is translated.
+- The sticker print page uses the farm's Asia/Manila calendar date for "measured on" instead of the browser's UTC date.
+- The admin calendar keeps every active grow-out cycle in the all-ponds view; only completed/historical cycles keep the 30-row cap.
+- Deleting a user now also deletes their organization membership and permission overrides, so the org no longer shows a ghost member or re-granted role.
+- A revoked or expired platform-admin grant no longer hides the account from tenant management forever.
+- Creating a farmer and pond from the admin form reports a validation or transport failure instead of leaving the button spinning.
+
+### Security
+
+- Admin → Ponds no longer returns device credentials in bulk through the list action; credentials stay behind the audited, rate-limited single-device reveal.
+
 ## [1.16.0] - 2026-10-27
 
 ### Changed

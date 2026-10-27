@@ -14,10 +14,10 @@ versions, the head-only mark and example empty/error states.
 
 | File | Shown as | Size |
 | --- | --- | --- |
-| `pakoy-head.webp` | round avatar: chat header, chat bubbles, alert icons, PWA icon | 256 × 256 |
-| `pakoy-hero.webp` | hero art: the tour's welcome step | 406 × 440 |
+| `pakoy-head.webp` | round avatar: chat header, chat bubbles, alert icons, PWA icon | 254 × 254 |
+| `pakoy-hero.webp` | hero art: the tour's welcome step | 370 × 411 |
 | `pakoy-idle.webp` | online idle: dashboard greeting, empty states, greeting bubble | 132 × 173 |
-| `pakoy-dispensing.webp` | dispensing | 141 × 179 |
+| `pakoy-dispensing.webp` | dispensing | 138 × 169 |
 | `pakoy-offline.webp` | offline page and offline alerts | 132 × 164 |
 | `pakoy-low-hopper.webp` | low-hopper reminder | 138 × 168 |
 | `pakoy-wrong-token.webp` | wrong device token | 132 × 167 |
@@ -58,3 +58,7 @@ python -I scripts/prepare-mascot.py path/to/pakoy-character-sheet.png
 
 Requires Pillow (`pip install pillow`). The script writes straight into
 `public/mascot/`.
+
+The hero and dispensing crops were cleaned afterwards with a flood fill from the
+border (near-white, tolerance 48) and trimmed to content; the head mark lost a
+2 px white edge and was squared (2026-10-28 review).

@@ -24,15 +24,15 @@ export const MASCOT_ALT = "Pakoy, the PakaonAI mascot";
  * the round avatar used wherever the art is too small for a full pose.
  */
 const POSES = {
-	head: { src: "/mascot/pakoy-head.webp", width: 256, height: 256 },
+	head: { src: "/mascot/pakoy-head.webp", width: 254, height: 254 },
 	idle: { src: "/mascot/pakoy-idle.webp", width: 132, height: 173 },
-	dispensing: { src: "/mascot/pakoy-dispensing.webp", width: 141, height: 179 },
+	dispensing: { src: "/mascot/pakoy-dispensing.webp", width: 138, height: 169 },
 	offline: { src: "/mascot/pakoy-offline.webp", width: 132, height: 164 },
 	lowHopper: { src: "/mascot/pakoy-low-hopper.webp", width: 138, height: 168 },
 	wrongToken: { src: "/mascot/pakoy-wrong-token.webp", width: 132, height: 167 },
 	powerFault: { src: "/mascot/pakoy-power-fault.webp", width: 136, height: 167 },
 	firstSetup: { src: "/mascot/pakoy-first-setup.webp", width: 132, height: 167 },
-	hero: { src: "/mascot/pakoy-hero.webp", width: 406, height: 440 },
+	hero: { src: "/mascot/pakoy-hero.webp", width: 370, height: 411 },
 } as const;
 
 export type MascotPose = keyof typeof POSES;

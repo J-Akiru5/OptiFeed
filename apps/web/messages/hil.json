@@ -513,7 +513,7 @@
 				},
 				"charts": {
 					"feedTitle": "Pagpakaon kada adlaw",
-					"feedSummary": "Mga gramo nga nagwa kada adlaw sa nagligad nga 30 ka adlaw, {total} tanan.",
+					"feedSummary": "Mga gramo nga na-rekord kada adlaw sa nagligad nga 30 ka adlaw, {total} tanan. Ang hand-fed nga mga rekord adlaw-adlaw nga total.",
 					"hopperTitle": "Lebel sang hopper",
 					"hopperSummary": "Average nga lebel sang hopper kada adlaw sa nagligad nga 7 ka adlaw, pinakabag-o {latest}.",
 					"hopperEmpty": "Wala pa sang reading sang hopper."
@@ -632,8 +632,15 @@
 			"date": "{date}",
 			"title": "Kasaysayan sang Pagpakaon",
 			"desc": "Bag-o nga mga panghitabo sa pagpakaon para sa {pond}",
-			"recentDispensed": "Bag-o nga Feed Dispensed",
-			"sourceBreakdown": "Base sa Tinubdan",
+			"lastFeedLabel": "Katapusan nga pagkaon",
+			"lastFeedDetail": "{source} · {date}, {time}",
+			"lastFeedNone": "Wala pa sang dispense halin sa makina",
+			"dispensedTodayLabel": "Gin-dispense subong nga adlaw",
+			"dispensedTodayDetail": "{count, plural, one {# rekord} other {# rekord}} · tanan nga tinubdan · halin kaagahon (Asia/Manila)",
+			"last7DaysLabel": "Nagligad nga 7 ka adlaw",
+			"last7DaysDetail": "{average} kada adlaw nga average · {count, plural, one {# rekord} other {# rekord}} · tanan nga tinubdan",
+			"sourceBreakdown": "Base sa tinubdan · nagligad {days} ka adlaw",
+			"dailyTotals": "(adlaw-adlaw nga total)",
 			"source_scheduled": "Scheduled",
 			"source_dashboard": "Dashboard",
 			"source_button": "Button",
@@ -652,8 +659,8 @@
 			"emptyDesc": "Magaguwa diri ang mga dispense sa gilayon nga kumpirmahon sang feeder.",
 			"charts": {
 				"label": "Mga tsart sang pagpakaon",
-				"feedTitle": "Feed nga gin-dispense kada adlaw",
-				"feedSummary": "Feed nga gin-dispense sa nagligad nga {days} ka adlaw, ginbahin base sa tinubdan: {total} tanan.",
+				"feedTitle": "Feed kada adlaw",
+				"feedSummary": "Feed nga na-rekord kada adlaw sa nagligad nga {days} ka adlaw, ginbahin base sa tinubdan: {total} tanan. Ang hand-fed nga mga rekord adlaw-adlaw nga total.",
 				"feedEmpty": "Wala sang feed nga gin-dispense sa nagligad nga {days} ka adlaw.",
 				"hopperTitle": "Lebel sang hopper",
 				"hopperSummary": "Average nga lebel sang hopper sa nagligad nga {days} ka adlaw: {points} ka adlaw-adlaw nga reading, pinakabag-o {latest}%.",
@@ -662,7 +669,7 @@
 				"range30": "30 ka adlaw",
 				"hopperEmpty": "Wala sang reading sang hopper sa nagligad nga {days} ka adlaw."
 			},
-			"source_hand_fed": "Precision feeding (ginpakaon sang kamot, data sheet)",
+			"source_hand_fed": "Precision feeding (ginpakaon sang kamot, adlaw-adlaw nga total)",
 			"source_other": "Iban pa"
 		},
 		"feedNowModal": {

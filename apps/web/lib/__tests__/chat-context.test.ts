@@ -85,4 +85,12 @@ describe("buildChatContext", () => {
 		expect(todayCall).toBeDefined();
 		expect(todayCall?.[0].where.receivedAt.gte).toEqual(new Date("2026-10-27T16:00:00.000Z"));
 	});
+
+	it("counts only machine feedings, never an imported hand-fed daily total", async () => {
+		await buildChatContext("owner-1");
+
+		for (const [args] of mocks.feedEventFindMany.mock.calls) {
+			expect(args.where.source).toEqual({ in: ["scheduled", "dashboard", "button"] });
+		}
+	});
 });

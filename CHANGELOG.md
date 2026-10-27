@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The AI chat assistant and the action planner no longer answer a slow-but-valid provider response with `504 TIMEOUT`; the request budget now matches the provider budget, and a provider outage falls back to the keyword assistant instead of an error.
+- `GET /api/schedule-sync` re-sends a schedule command that the feeder has not acknowledged yet, so a lost response no longer leaves a change unapplied, and it no longer writes a `command_sent` audit row on every poll.
+- A single heartbeat can no longer queue two hopper notifications: the days-remaining warning is skipped when a low-hopper alert is already outstanding (the two used to alternate `CRITICAL`/`WARNING` on every heartbeat until one was acknowledged).
+- A scheduled feeding refusal now dedupes per farm calendar day (Asia/Manila) instead of per UTC day, which reset at 08:00 local and could alert twice on one day.
+- CSV and PDF exports report a missing pond or feeder as `404` instead of `500`, reject an unknown or empty dataset selection with `400`, are served with `Cache-Control: private, no-store`, and are named by the farm calendar day instead of the UTC day.
+- The PDF report uses the same active pond as the rest of the app (it could pick an archived pond), prints dates and feeding times in Asia/Manila rather than the server timezone, and derives the download filename from a sanitised pond name.
+- A CSV import with an unparseable date or a non-numeric feeding amount reports the offending row as `400` instead of failing with an opaque `500`, and all import endpoints share the same 5 MB payload ceiling.
+- The background-job queue metrics shown to a farm admin are scoped to that farm instead of the whole platform.
+- The device-watch cron scans the most recently stale feeders first, so once 100 devices had raised an offline alert no newly-offline device could be detected.
+
+### Security
+
+- Read-only view-as is fail-closed: when the session cannot be verified (a database error), tenant writes are refused instead of being treated as a normal signed-in session.
+- Invitation and reminder e-mails reject SMTP recipient-list separators and strip line breaks from tenant-controlled names before they reach the subject, so a crafted address or pond name cannot add a recipient or a header.
+- The admin job-metrics endpoint filters by the caller's farm tenant before returning queue counts.
+
 ## [1.15.0] - 2026-10-27
 
 ### Added

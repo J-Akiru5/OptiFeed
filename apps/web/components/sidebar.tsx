@@ -24,12 +24,18 @@ interface SidebarProps {
 	hopperLevelUpdatedAt?: Date | null;
 	/** True when the ESP32 has not checked in within OFFLINE_THRESHOLD_MS. */
 	isOffline?: boolean;
+	/**
+	 * False for a platform admin outside view-as (E18, #199): the hopper widget
+	 * is farm hardware chrome a platform admin does not have.
+	 */
+	showHopperWidget?: boolean;
 }
 
 export function Sidebar({
 	hopperLevelPct = null,
 	hopperLevelUpdatedAt = null,
 	isOffline = false,
+	showHopperWidget = true,
 }: SidebarProps) {
 	const t = useTranslations("nav");
 	const pathname = usePathname();
@@ -92,26 +98,28 @@ export function Sidebar({
 			</nav>
 
 			{/* Hopper level widget */}
-			<div className="bg-[#0A3D62]/5 dark:bg-gray-800/60 rounded-2xl p-4 border border-[#0A3D62]/10 dark:border-gray-700/50 space-y-3 mt-auto">
-				<p className="text-[10px] uppercase font-extrabold text-[#3D5568] dark:text-gray-400 tracking-widest flex items-center gap-1.5">
-					<Cpu aria-hidden="true" className="w-3.5 h-3.5 text-[#C2410C] dark:text-[#ff8a5c]" />{" "}
-					{t("hopperLevel")}
-				</p>
-				<div className="flex items-center justify-between text-xs font-extrabold text-[#0A3D62] dark:text-[#5b9bd5]">
-					<span>{t("pondFeedPellet")}</span>
-				</div>
-				<FeedLevelDisplay
-					levelPercent={hopperLevelPct}
-					updatedAt={hopperLevelUpdatedAt}
-					isOffline={isOffline}
-					size="sm"
-				/>
-				{remainingKg !== null && (
-					<div className="text-[10px] text-[#3D5568] dark:text-gray-400 leading-tight font-mono">
-						{t("hopperRemaining", { kg: remainingKg, count: scheduledFeedings })}
+			{showHopperWidget && (
+				<div className="bg-[#0A3D62]/5 dark:bg-gray-800/60 rounded-2xl p-4 border border-[#0A3D62]/10 dark:border-gray-700/50 space-y-3 mt-auto">
+					<p className="text-[10px] uppercase font-extrabold text-[#3D5568] dark:text-gray-400 tracking-widest flex items-center gap-1.5">
+						<Cpu aria-hidden="true" className="w-3.5 h-3.5 text-[#C2410C] dark:text-[#ff8a5c]" />{" "}
+						{t("hopperLevel")}
+					</p>
+					<div className="flex items-center justify-between text-xs font-extrabold text-[#0A3D62] dark:text-[#5b9bd5]">
+						<span>{t("pondFeedPellet")}</span>
 					</div>
-				)}
-			</div>
+					<FeedLevelDisplay
+						levelPercent={hopperLevelPct}
+						updatedAt={hopperLevelUpdatedAt}
+						isOffline={isOffline}
+						size="sm"
+					/>
+					{remainingKg !== null && (
+						<div className="text-[10px] text-[#3D5568] dark:text-gray-400 leading-tight font-mono">
+							{t("hopperRemaining", { kg: remainingKg, count: scheduledFeedings })}
+						</div>
+					)}
+				</div>
+			)}
 		</aside>
 	);
 }

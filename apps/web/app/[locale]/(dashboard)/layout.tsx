@@ -14,9 +14,11 @@ import { Sidebar } from "@/components/sidebar";
 import { ViewAsBanner } from "@/components/superadmin/view-as-banner";
 import { Link } from "@/i18n/routing";
 import { getViewAsBanner } from "@/lib/actions/platform/impersonation";
+import { redirectPlatformAdminFromDashboard } from "@/lib/auth/dashboard-landing";
 import { isCurrentPlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { getCurrentPondOwnerId, requirePasswordChanged } from "@/lib/auth/session";
 import { isCurrentTenantAdmin } from "@/lib/auth/tenant-admin";
+import { getViewAsState } from "@/lib/auth/view-as";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
@@ -28,14 +30,30 @@ export default async function DashboardLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	const [ownerId, currentUser, isTenantAdmin, isPlatformAdmin, viewAs] = await Promise.all([
-		getCurrentPondOwnerId(),
-		requirePasswordChanged(),
-		isCurrentTenantAdmin(),
-		isCurrentPlatformAdmin(),
-		getViewAsBanner(),
-	]);
+	const [ownerId, currentUser, isTenantAdmin, isPlatformAdmin, viewAs, viewAsState] =
+		await Promise.all([
+			getCurrentPondOwnerId(),
+			requirePasswordChanged(),
+			isCurrentTenantAdmin(),
+			isCurrentPlatformAdmin(),
+			getViewAsBanner(),
+			getViewAsState(),
+		]);
+
+	// E18 (#199): a platform admin's home is the platform console. This runs
+	// before any pond, notification or device read, and leaves an active
+	// read-only view-as session untouched.
+	await redirectPlatformAdminFromDashboard({
+		isPlatformAdmin,
+		viewAsActive: viewAsState.active,
+		userId: currentUser.id,
+	});
+
 	const tCommon = await getTranslations("dashboard.common");
+
+	// Farmer pond chrome (pond name/selector, last synced, hopper widget) is
+	// tenant identity, and a platform admin has none outside view-as.
+	const showPondChrome = !(isPlatformAdmin && !viewAsState.active);
 
 	let pondId = "";
 	let initialUnreadCount = 0;
@@ -156,6 +174,7 @@ export default async function DashboardLayout({
 								pondName={pondName}
 								lastSeenAt={lastSeenAtStr}
 								esp32Status={esp32Status}
+								isViewingAs={viewAsState.active}
 								initialUser={
 									currentUser
 										? {
@@ -175,6 +194,7 @@ export default async function DashboardLayout({
 								hopperLevelPct={hopperLevelPct}
 								hopperLevelUpdatedAt={hopperLevelUpdatedAt}
 								isOffline={esp32Status === "offline"}
+								showHopperWidget={showPondChrome}
 							/>
 							<main
 								id="main-content"

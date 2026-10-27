@@ -1976,6 +1976,7 @@
 			"deviceOffline": "ESP32 offline",
 			"deviceMissing": "ESP32 not paired",
 			"skipToContent": "Skip to main content",
+			"platformAdmin": "Platform admin",
 			"pagination": {
 				"previous": "Previous",
 				"next": "Next",
@@ -2155,6 +2156,7 @@
 			"homeLabel": "PakaonAI platform console home",
 			"platform": "Platform",
 			"dashboard": "Dashboard",
+			"openFarmDashboard": "Open my farm dashboard",
 			"navLabel": "Platform sections",
 			"console": "Platform Console",
 			"backToDashboard": "Back to Dashboard",

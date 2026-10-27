@@ -727,6 +727,16 @@
 			"fishCountBadge": "{count} isda",
 			"sampleWeightCol": "Kabug-atan",
 			"sampleLengthCol": "Katas-on",
+			"sgrTitle": "Specific Growth Rate (SGR)",
+			"sgrOverall": "Kabuuan halin sa una nga sampling",
+			"sgrAverageGain": "Average nga pagtubo kada adlaw",
+			"sgrUnit": "%/day",
+			"sgrExplain": "Kon kapaspas ang pagtubo sang timbang sang isda kada adlaw, bilang porsyento sang ila timbang sang lawas.",
+			"sgrReasons": {
+				"insufficientSamples": "Mag-log sang labing menos duha ka sampling para makita ang SGR.",
+				"invalidWeight": "Kinahanglan sang SGR ang positibo nga average nga timbang sang lawas sa duha ka sampling.",
+				"intervalTooShort": "Kinahanglan sang SGR ang sampling nga labing menos isa ka adlaw ang ulot."
+			},
 			"history": {
 				"title": "Kasaysayan sang Pagtubo",
 				"desc": "Bug-os nga feed level, pagtubo kag biomass nga rekord para sa {pond}",
@@ -745,6 +755,7 @@
 				},
 				"columns": {
 					"avgWeight": "Average nga Kabug-atan (g)",
+					"sgr": "SGR (%/day)",
 					"weightGain": "Gin-agnay nga Kabug-atan (g)",
 					"lengthGain": "Gin-agnay nga Katas-on (cm)",
 					"daysSince": "Mga Adlaw Halin sang Ulihi"

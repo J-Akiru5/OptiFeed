@@ -364,6 +364,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 									<DashboardTHead>
 										<DashboardTh>{tGrowth("dateCol")}</DashboardTh>
 										<DashboardTh align="right">{t("columns.avgWeight")}</DashboardTh>
+										<DashboardTh align="right">{t("columns.sgr")}</DashboardTh>
 										<DashboardTh align="right">{tGrowth("avgLengthCol")}</DashboardTh>
 										<DashboardTh align="right">{t("columns.weightGain")}</DashboardTh>
 										<DashboardTh align="right">{t("columns.lengthGain")}</DashboardTh>
@@ -377,6 +378,17 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 												</DashboardTd>
 												<DashboardTd className="text-right">
 													{row.avgWeightG.toFixed(1)} g
+												</DashboardTd>
+												<DashboardTd className="text-right font-bold">
+													{row.sgrPctPerDay === null ? (
+														<span className="text-gray-400">—</span>
+													) : (
+														<span
+															className={row.sgrPctPerDay >= 0 ? "text-green-700" : "text-red-600"}
+														>
+															{row.sgrPctPerDay.toFixed(2)}
+														</span>
+													)}
 												</DashboardTd>
 												<DashboardTd className="text-right">
 													{row.sampleLengthCm.toFixed(1)} cm
@@ -427,6 +439,9 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 											<div className="mt-2">
 												<DashboardCardRow label={t("columns.avgWeight")}>
 													{row.avgWeightG.toFixed(1)} g
+												</DashboardCardRow>
+												<DashboardCardRow label={t("columns.sgr")}>
+													{row.sgrPctPerDay === null ? "—" : row.sgrPctPerDay.toFixed(2)}
 												</DashboardCardRow>
 												<DashboardCardRow label={tGrowth("avgLengthCol")}>
 													{row.sampleLengthCm.toFixed(1)} cm

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-10-28
+
+### Added
+
+- Specific Growth Rate (SGR, %/day) on the Growth page (latest interval and overall) and per sampling in growth history, using the standard ln formula (capstone objective).
+
+### Changed
+
+- Firmware 1.5.1: the relay pin is a build flag (`-DRELAY_PIN`, default GPIO 25), with an `esp32dev-relay5` build for the CICT Building A unit wired to GPIO 5. The relay is driven OFF as the very first step of boot, and boot logs the relay pin.
+
 ## [1.17.2] - 2026-10-28
 
 ### Added

@@ -1,4 +1,7 @@
 import { FeedLevelDisplay } from "@/components/feed-level-display";
+import { EntityCard } from "@/components/mobile/entity-card";
+import { ListChips } from "@/components/mobile/list-chips";
+import { StatusStrip } from "@/components/mobile/status-strip";
 import { ListToolbar } from "@/components/superadmin/list-chrome";
 import { RegisterDeviceForm } from "@/components/superadmin/register-device-form";
 import { RemoteFeederControl } from "@/components/superadmin/remote-feeder-control";
@@ -7,8 +10,6 @@ import {
 	Badge,
 	Card,
 	EmptyState,
-	MetaPair,
-	MobileCard,
 	PageHeader,
 	SECONDARY_BUTTON,
 	TableFrame,
@@ -20,6 +21,17 @@ import { Link, getPathname } from "@/i18n/routing";
 import { getOrgPondOptions, listPlatformDevices } from "@/lib/actions/platform/devices";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import {
+	deviceListStatus,
+	filterByStatus,
+	isAttention,
+	orderRows,
+	parseAttention,
+	parseDeviceStatusFilter,
+	parseListOrder,
+	summarizeStatuses,
+} from "@/lib/mobile-list";
+import { buildPageHref } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
 import { Cpu, Printer, Wifi, WifiOff } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -47,13 +59,17 @@ export default async function SuperadminDevicesPage({
 	const params = await searchParams;
 	const query = first(params.q)?.trim() ?? "";
 	const page = Number.parseInt(first(params.page) ?? "1", 10) || 1;
+	const status = parseDeviceStatusFilter(first(params.status));
+	const order = parseListOrder(first(params.order));
+	const attention = parseAttention(first(params.attention));
 
-	const [devices, options, locale, t, tCommon, tDates] = await Promise.all([
+	const [devices, options, locale, t, tCommon, tMobile, tDates] = await Promise.all([
 		listPlatformDevices({ query, page }),
 		getOrgPondOptions(),
 		getLocale(),
 		getTranslations("superadmin.devices"),
 		getTranslations("superadmin.common"),
+		getTranslations("dashboard.mobile"),
 		getTranslations("dates"),
 	]);
 	const pageCount = Math.max(1, Math.ceil(devices.total / devices.pageSize));
@@ -78,6 +94,38 @@ export default async function SuperadminDevicesPage({
 			{ levelPercent: row.feedLevelPercent, updatedAt: row.feedLevelUpdatedAt },
 		]),
 	);
+
+	// Mobile status strip and chips (E26): grade the feeders on this page from
+	// the heartbeat and the hopper reading, then filter and order them.
+	const statusOf = (device: (typeof devices.rows)[number]) =>
+		deviceListStatus(
+			{
+				lastSeenAt: device.lastSeenAt,
+				feedLevelPercent: feedLevelById.get(device.id)?.levelPercent ?? null,
+			},
+			new Date(now),
+		);
+	const counts = summarizeStatuses(devices.rows.map(statusOf));
+	const visibleDevices = orderRows(
+		filterByStatus(devices.rows, status, statusOf).filter(
+			(device) => !attention || isAttention(statusOf(device)),
+		),
+		order,
+		(device) => ({ name: device.label, status: statusOf(device) }),
+		locale,
+	);
+	const statusLabels = {
+		all: tMobile("status.all"),
+		online: tMobile("status.online"),
+		alarm: tMobile("status.alarm"),
+		offline: tMobile("status.offline"),
+	};
+	const baseParams = {
+		q: query || undefined,
+		status: status === "all" ? undefined : status,
+		order: order === "newest" ? undefined : order,
+		attention: attention ? "1" : undefined,
+	};
 
 	const lastSeen = (value: Date | null) =>
 		value ? formatDateTimeLocal(value, tDates).full : tCommon("never");
@@ -108,6 +156,33 @@ export default async function SuperadminDevicesPage({
 				)}
 			</ListToolbar>
 
+			{hasRows && (
+				<div className="space-y-2">
+					<StatusStrip
+						counts={counts}
+						active={status}
+						basePath="/superadmin/devices"
+						params={baseParams}
+						label={tMobile("status.label")}
+						labels={statusLabels}
+					/>
+					<ListChips
+						basePath="/superadmin/devices"
+						params={baseParams}
+						order={order}
+						attention={attention}
+						labels={{
+							order: tMobile("order.label"),
+							newest: tMobile("order.newest"),
+							name: tMobile("order.name"),
+							status: tMobile("order.status"),
+							attention: tMobile("order.attention"),
+							hint: tMobile("order.hint"),
+						}}
+					/>
+				</div>
+			)}
+
 			{devices.rows.length === 0 ? (
 				<Card>
 					<EmptyState
@@ -123,6 +198,22 @@ export default async function SuperadminDevicesPage({
 						}
 					/>
 				</Card>
+			) : visibleDevices.length === 0 ? (
+				<Card>
+					<EmptyState
+						icon={Cpu}
+						title={tMobile("status.emptyTitle")}
+						description={tMobile("status.emptyDesc")}
+						action={
+							<Link
+								href={buildPageHref("/superadmin/devices", { q: query || undefined }, 1)}
+								className={SECONDARY_BUTTON}
+							>
+								{tMobile("status.clear")}
+							</Link>
+						}
+					/>
+				</Card>
 			) : (
 				<ListView
 					pageKey="superadmin-devices"
@@ -131,72 +222,67 @@ export default async function SuperadminDevicesPage({
 					toggleLabel={tCommon("viewToggle.label")}
 				>
 					<ItemCardGrid label={t("caption")}>
-						{devices.rows.map((device) => {
-							const offline =
-								!device.lastSeenAt || now - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+						{visibleDevices.map((device) => {
+							const deviceStatus = statusOf(device);
 							return (
-								<MobileCard key={device.id}>
-									<div className="flex items-start gap-3">
+								<EntityCard
+									key={device.id}
+									status={deviceStatus}
+									statusLabel={statusLabels[deviceStatus]}
+									title={device.label}
+									subtitle={`${device.mac} · ${device.pond?.name ?? tCommon("unassigned")}`}
+									icon={Cpu}
+									metrics={[
+										{
+											label: t("columnFeedLevel"),
+											value: (
+												<FeedLevelDisplay
+													levelPercent={feedLevelById.get(device.id)?.levelPercent ?? null}
+													updatedAt={feedLevelById.get(device.id)?.updatedAt ?? null}
+													isOffline={deviceStatus === "offline"}
+													size="sm"
+												/>
+											),
+										},
+										{
+											label: tCommon("organization"),
+											value:
+												device.orgs.length > 0
+													? device.orgs.map((o) => o.name).join(", ")
+													: tCommon("none"),
+										},
+										{
+											label: t("columnSeen"),
+											value: lastSeen(device.lastSeenAt),
+										},
+									]}
+								>
+									<label className="inline-flex items-center gap-2 text-[11px] font-bold text-[#3D5568]">
 										<input
 											type="checkbox"
 											form={LABEL_FORM_ID}
 											name="id"
 											value={device.id}
 											aria-label={t("selectForSticker", { label: device.label })}
-											className="mt-1 h-4 w-4 shrink-0 accent-[#0A3D62]"
+											className="h-4 w-4 accent-[#0A3D62]"
 										/>
-										<div className="flex min-w-0 flex-1 items-start justify-between gap-2">
-											<div className="min-w-0">
-												<p className="truncate font-black text-[#0A3D62]">{device.label}</p>
-												<p className="truncate font-mono text-[11px] font-bold text-[#3D5568]">
-													{device.mac}
-												</p>
-											</div>
-											<Badge tone={offline ? "danger" : "success"} icon={offline ? WifiOff : Wifi}>
-												{offline ? tCommon("offline") : tCommon("online")}
-											</Badge>
-										</div>
-									</div>
-
-									<dl className="grid grid-cols-2 gap-2">
-										<MetaPair label={tCommon("organization")}>
-											{device.orgs.length > 0
-												? device.orgs.map((o) => o.name).join(", ")
-												: tCommon("none")}
-										</MetaPair>
-										<MetaPair label={tCommon("pond")}>
-											{device.pond?.name ?? tCommon("unassigned")}
-										</MetaPair>
-										<MetaPair label={t("columnFeedLevel")}>
-											<FeedLevelDisplay
-												levelPercent={feedLevelById.get(device.id)?.levelPercent ?? null}
-												updatedAt={feedLevelById.get(device.id)?.updatedAt ?? null}
-												isOffline={offline}
-												size="sm"
-											/>
-										</MetaPair>
-									</dl>
-									<p className="text-[11px] text-[#3D5568]">
-										{t("lastSeen", { time: lastSeen(device.lastSeenAt) })}
-									</p>
-
-									<div className="flex flex-col items-start gap-2">
-										<Link
-											href={{ pathname: LABELS_HREF, query: { id: device.id } }}
-											data-help="superadmin-print-sticker"
-											className={SECONDARY_BUTTON}
-										>
-											<Printer className="h-3.5 w-3.5" aria-hidden="true" />
-											{t("printSticker")}
-										</Link>
-										<RotateDeviceToken deviceId={device.id} mac={device.mac} />
-										<RemoteFeederControl
-											deviceId={device.id}
-											label={device.label}
-											isPaused={device.isPaused}
-										/>
-									</div>
-								</MobileCard>
+										{t("columnSelect")}
+									</label>
+									<Link
+										href={{ pathname: LABELS_HREF, query: { id: device.id } }}
+										data-help="superadmin-print-sticker"
+										className={SECONDARY_BUTTON}
+									>
+										<Printer className="h-3.5 w-3.5" aria-hidden="true" />
+										{t("printSticker")}
+									</Link>
+									<RotateDeviceToken deviceId={device.id} mac={device.mac} />
+									<RemoteFeederControl
+										deviceId={device.id}
+										label={device.label}
+										isPaused={device.isPaused}
+									/>
+								</EntityCard>
 							);
 						})}
 					</ItemCardGrid>
@@ -216,7 +302,7 @@ export default async function SuperadminDevicesPage({
 							{ key: "actions", label: t("columnActions") },
 						]}
 					>
-						{devices.rows.map((device) => {
+						{visibleDevices.map((device) => {
 							const offline =
 								!device.lastSeenAt || now - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
 							return (
@@ -296,7 +382,7 @@ export default async function SuperadminDevicesPage({
 
 			<Pagination
 				basePath="/superadmin/devices"
-				params={{ q: query || undefined }}
+				params={baseParams}
 				page={devices.page}
 				pageCount={pageCount}
 				showing={tCommon("pagination.showing", {

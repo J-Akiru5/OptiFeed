@@ -6,17 +6,20 @@ import {
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
 import { NotificationPrefsForm } from "@/components/notification-prefs-form";
+import { AvatarUpload } from "@/components/profile/avatar-upload";
 import { Link } from "@/i18n/routing";
 import { canWrite, getCurrentUser } from "@/lib/auth/session";
+import { getSignedAvatarUrls } from "@/lib/avatars";
 import { DPO_EMAIL, LEGAL_APP_RELEASE, LEGAL_PUBLISHED, LEGAL_VERSION } from "@/lib/legal/config";
 import { getActivePond } from "@/lib/pond-selection";
 import { createClient } from "@/lib/supabase/server";
-import { FileText, Shield, User } from "lucide-react";
+import { Camera, FileText, Shield, User } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export default async function ProfileSettingsPage() {
-	const [t, tLegal, tCommon] = await Promise.all([
+	const [t, tAvatar, tLegal, tCommon] = await Promise.all([
 		getTranslations("dashboard.profileSettings"),
+		getTranslations("dashboard.profileSettings.avatar"),
 		getTranslations("legal"),
 		getTranslations("dashboard.common"),
 	]);
@@ -31,6 +34,11 @@ export default async function ProfileSettingsPage() {
 	const currentUser = await getCurrentUser();
 	const farmId = currentUser?.farmId ?? "\u2014";
 	const writeAccess = await canWrite();
+
+	const avatarUrls = currentUser
+		? await getSignedAvatarUrls([{ id: currentUser.id, avatarPath: currentUser.avatarPath }])
+		: {};
+	const avatarUrl = currentUser ? (avatarUrls[currentUser.id] ?? null) : null;
 
 	const pond = await getActivePond();
 	const notificationPrefs = pond?.notificationPrefs ?? {
@@ -48,6 +56,14 @@ export default async function ProfileSettingsPage() {
 			{!writeAccess && (
 				<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
 			)}
+
+			<DashboardSection title={tAvatar("title")} description={tAvatar("desc")} icon={Camera}>
+				<AvatarUpload
+					avatarUrl={avatarUrl}
+					name={currentUser?.displayName ?? currentUser?.farmId ?? email}
+					canEdit={writeAccess}
+				/>
+			</DashboardSection>
 
 			<DashboardSection title={t("profileInfo")} description={t("profileInfoDesc")} icon={User}>
 				<div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">

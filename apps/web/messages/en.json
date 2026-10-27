@@ -1123,7 +1123,34 @@
 			"managedByAdmin": "Profile details are managed by your administrator.",
 			"defaultName": "User",
 			"notificationsSaved": "Notification preferences saved.",
-			"notificationsSaveError": "Could not save the notification preferences."
+			"notificationsSaveError": "Could not save the notification preferences.",
+			"avatar": {
+				"title": "Profile photo",
+				"desc": "A picture shown to members of your organization.",
+				"choose": "Choose photo",
+				"replace": "Replace photo",
+				"save": "Save photo",
+				"saving": "Saving…",
+				"cancel": "Cancel",
+				"remove": "Remove photo",
+				"removing": "Removing…",
+				"confirmRemove": "Remove photo?",
+				"previewLabel": "Preview",
+				"hint": "JPEG, PNG or WebP up to 2 MB. It is cropped to a square and resized to 512 px.",
+				"readOnly": "You cannot change your photo while this account is read-only or viewing another tenant.",
+				"saved": "Profile photo updated.",
+				"removed": "Profile photo removed.",
+				"errors": {
+					"notAuthenticated": "Your session has expired. Sign in again.",
+					"notAllowed": "You cannot change your photo right now.",
+					"empty": "Choose an image file.",
+					"tooLarge": "That picture is larger than 2 MB.",
+					"invalidType": "Use a JPEG, PNG or WebP picture.",
+					"invalidDimensions": "That picture is too large in pixels. Use one under 4096 × 4096.",
+					"uploadFailed": "Could not upload the picture. Try again.",
+					"saveFailed": "Could not save the picture. Try again."
+				}
+			}
 		},
 		"adminUsers": {
 			"actionsColumn": "Actions",
@@ -1786,7 +1813,8 @@
 				"audit": "Audit log",
 				"settings": "Settings"
 			},
-			"panelLabel": "Admin Panel"
+			"panelLabel": "Admin Panel",
+			"profile": "Your profile photo and settings"
 		},
 		"adminCommon": {
 			"loading": "Loading…",
@@ -2207,6 +2235,7 @@
 			"console": "Platform Console",
 			"backToDashboard": "Back to Dashboard",
 			"signOut": "Sign Out",
+			"profile": "Your profile photo and settings",
 			"bottomNavLabel": "Platform navigation",
 			"nav": {
 				"overview": "Overview",

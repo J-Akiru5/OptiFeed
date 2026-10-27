@@ -17,6 +17,7 @@ import { getViewAsBanner } from "@/lib/actions/platform/impersonation";
 import { isCurrentPlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { getCurrentPondOwnerId, requirePasswordChanged } from "@/lib/auth/session";
 import { isCurrentTenantAdmin } from "@/lib/auth/tenant-admin";
+import { getSignedAvatarUrls } from "@/lib/avatars";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
@@ -36,6 +37,9 @@ export default async function DashboardLayout({
 		getViewAsBanner(),
 	]);
 	const tCommon = await getTranslations("dashboard.common");
+	const avatarUrls = currentUser
+		? await getSignedAvatarUrls([{ id: currentUser.id, avatarPath: currentUser.avatarPath }])
+		: {};
 
 	let pondId = "";
 	let initialUnreadCount = 0;
@@ -162,6 +166,7 @@ export default async function DashboardLayout({
 												email: currentUser.email,
 												role: currentUser.role,
 												displayName: currentUser.displayName,
+												avatarUrl: avatarUrls[currentUser.id] ?? null,
 												isTenantAdmin,
 												isPlatformAdmin,
 											}

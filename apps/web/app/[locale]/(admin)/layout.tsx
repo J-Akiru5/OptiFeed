@@ -2,9 +2,11 @@ import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { AdminSidebar } from "@/components/admin-sidebar";
 import { HelpButton } from "@/components/help/help-button";
+import { UserAvatar } from "@/components/user-avatar";
 import { Link } from "@/i18n/routing";
 import { requirePasswordChanged } from "@/lib/auth/session";
 import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
+import { getSignedAvatarUrls } from "@/lib/avatars";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
 
@@ -13,9 +15,12 @@ export default async function AdminLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	await requirePasswordChanged();
+	const currentUser = await requirePasswordChanged();
 	await requireTenantAdmin();
-	const t = await getTranslations("dashboard.adminShell");
+	const [t, avatarUrls] = await Promise.all([
+		getTranslations("dashboard.adminShell"),
+		getSignedAvatarUrls([{ id: currentUser.id, avatarPath: currentUser.avatarPath }]),
+	]);
 
 	return (
 		<div className="flex min-h-screen flex-col bg-[#F4F7F6] dark:bg-gray-950">
@@ -55,6 +60,18 @@ export default async function AdminLayout({
 						className="rounded-lg px-2 py-1 text-sm font-bold text-white/80 transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
 					>
 						{t("dashboardLink")}
+					</Link>
+					<Link
+						href="/dashboard/settings/profile"
+						aria-label={t("profile")}
+						className="rounded-full transition-all focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+					>
+						<UserAvatar
+							src={avatarUrls[currentUser.id] ?? null}
+							name={currentUser.displayName ?? currentUser.farmId}
+							size="md"
+							className="rounded-full bg-[#C2410C]"
+						/>
 					</Link>
 				</div>
 			</header>

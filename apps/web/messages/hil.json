@@ -1123,7 +1123,34 @@
 			"managedByAdmin": "Ang detalye sang profile gina-manage sang imo administrator.",
 			"defaultName": "User",
 			"notificationsSaved": "Na-save ang mga preferensya sang notipikasyon.",
-			"notificationsSaveError": "Indi ma-save ang mga preferensya sang notipikasyon."
+			"notificationsSaveError": "Indi ma-save ang mga preferensya sang notipikasyon.",
+			"avatar": {
+				"title": "Laray sang profile",
+				"desc": "Isa ka laray nga makita sang mga myembro sang imo organisasyon.",
+				"choose": "Pili sang laray",
+				"replace": "Ilisan ang laray",
+				"save": "I-save ang laray",
+				"saving": "Ginagasave…",
+				"cancel": "Kanselahon",
+				"remove": "Tangtangon ang laray",
+				"removing": "Ginatangtang…",
+				"confirmRemove": "Tangtangon gid ang laray?",
+				"previewLabel": "Preview",
+				"hint": "JPEG, PNG ukon WebP tubtob 2 MB. Gina-crop ini nga kwadrado kag ginadako sa 512 px.",
+				"readOnly": "Indi ka makabag-o sang imo laray samtang read-only ini nga account ukon naga-view ka sang iban nga tenant.",
+				"saved": "Nabag-o na ang laray sang profile.",
+				"removed": "Natangtang na ang laray sang profile.",
+				"errors": {
+					"notAuthenticated": "Natapos na ang imo session. Mag-sign in liwat.",
+					"notAllowed": "Indi ka makabag-o sang imo laray subong.",
+					"empty": "Pili sang file nga laray.",
+					"tooLarge": "Sobra sa 2 MB ang imo laray.",
+					"invalidType": "Gamita ang JPEG, PNG ukon WebP nga laray.",
+					"invalidDimensions": "Sobra kadako ang pixels sang laray. Gamita ang idalom sang 4096 × 4096.",
+					"uploadFailed": "Indi ma-upload ang laray. Tilawi liwat.",
+					"saveFailed": "Indi ma-save ang laray. Tilawi liwat."
+				}
+			}
 		},
 		"audit": {
 			"title": "Talaan ng Audit",
@@ -1765,7 +1792,8 @@
 				"audit": "Talaan sang Audit",
 				"settings": "Mga Setting"
 			},
-			"panelLabel": "Panel sang Admin"
+			"panelLabel": "Panel sang Admin",
+			"profile": "Ang imo laray sang profile kag mga setting"
 		},
 		"adminCommon": {
 			"loading": "Ginakarga…",
@@ -2186,6 +2214,7 @@
 			"console": "Platform Console",
 			"backToDashboard": "Balik sa Dashboard",
 			"signOut": "Mag-sign Out",
+			"profile": "Ang imo laray sang profile kag mga setting",
 			"bottomNavLabel": "Nabigasyon sang plataporma",
 			"nav": {
 				"overview": "Pangkalahatan",

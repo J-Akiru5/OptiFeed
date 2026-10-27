@@ -3,9 +3,11 @@ import { HelpButton } from "@/components/help/help-button";
 import { SuperadminBottomNav } from "@/components/superadmin-bottom-nav";
 import { SuperadminSidebar } from "@/components/superadmin-sidebar";
 import { FOCUS_RING_ON_DARK } from "@/components/superadmin/ui";
+import { UserAvatar } from "@/components/user-avatar";
 import { Link } from "@/i18n/routing";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { requirePasswordChanged } from "@/lib/auth/session";
+import { getSignedAvatarUrls } from "@/lib/avatars";
 import { cn } from "@/lib/utils";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
@@ -24,9 +26,12 @@ export default async function SuperadminLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	await requirePasswordChanged();
+	const currentUser = await requirePasswordChanged();
 	await requirePlatformAdmin();
-	const t = await getTranslations("superadmin.shell");
+	const [t, avatarUrls] = await Promise.all([
+		getTranslations("superadmin.shell"),
+		getSignedAvatarUrls([{ id: currentUser.id, avatarPath: currentUser.avatarPath }]),
+	]);
 
 	return (
 		<div className="flex min-h-screen flex-col bg-[#F4F7F6]">
@@ -71,6 +76,18 @@ export default async function SuperadminLayout({
 						)}
 					>
 						{t("dashboard")}
+					</Link>
+					<Link
+						href="/dashboard/settings/profile"
+						aria-label={t("profile")}
+						className={cn("rounded-full", FOCUS_RING_ON_DARK)}
+					>
+						<UserAvatar
+							src={avatarUrls[currentUser.id] ?? null}
+							name={currentUser.displayName ?? currentUser.farmId}
+							size="md"
+							className="rounded-full bg-[#E85A2A]"
+						/>
 					</Link>
 				</div>
 			</header>

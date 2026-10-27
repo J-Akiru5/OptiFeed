@@ -25,7 +25,7 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 	// Right padding leaves room for the unit suffix; hiding the native number
 	// spinners keeps them from being painted underneath that suffix.
 	const numberInputClass =
-		"w-full rounded-xl border border-gray-200 bg-[#F4F7F6] py-3 pl-4 pr-12 text-sm font-semibold text-[#0A3D62] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/50 focus:border-[#E85A2A] transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
+		"w-full rounded-xl border border-gray-200 bg-[#F4F7F6] py-3 pl-4 pr-12 text-sm font-semibold text-[#0A3D62] placeholder:text-gray-400 transition-all focus:border-[#E85A2A] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/50 [appearance:textfield] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
 
 	const handleCalculate = async () => {
 		const biomass = Number.parseFloat(currentBiomass);
@@ -59,7 +59,7 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 
 	return (
 		<div
-			className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100"
+			className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100 dark:border-gray-700/50 dark:bg-gray-900"
 			data-help="fcr-calculator"
 		>
 			<div className="flex items-center gap-3 mb-6">
@@ -67,8 +67,8 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 					<Calculator className="w-6 h-6 text-[#E85A2A]" />
 				</div>
 				<div>
-					<h3 className="text-lg font-black text-[#0A3D62]">{t("title")}</h3>
-					<p className="text-xs text-[#3D5568]">{t("desc")}</p>
+					<h3 className="text-lg font-black text-[#0A3D62] dark:text-[#5b9bd5]">{t("title")}</h3>
+					<p className="text-xs text-[#3D5568] dark:text-gray-400">{t("desc")}</p>
 				</div>
 			</div>
 
@@ -76,7 +76,7 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 				<div>
 					<label
 						htmlFor="biomass"
-						className="block text-xs font-bold text-[#3D5568] uppercase tracking-wider mb-1.5"
+						className="block text-xs font-bold text-[#3D5568] dark:text-gray-400 uppercase tracking-wider mb-1.5"
 					>
 						{t("currentBiomass")}
 					</label>
@@ -89,7 +89,7 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 							placeholder="0.00"
 							className={numberInputClass}
 						/>
-						<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 select-none text-xs font-bold text-[#3D5568]">
+						<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 select-none text-xs font-bold text-[#3D5568] dark:text-gray-400">
 							kg
 						</span>
 					</div>
@@ -98,7 +98,7 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 				<div>
 					<label
 						htmlFor="target"
-						className="block text-xs font-bold text-[#3D5568] uppercase tracking-wider mb-1.5"
+						className="block text-xs font-bold text-[#3D5568] dark:text-gray-400 uppercase tracking-wider mb-1.5"
 					>
 						{t("targetWeight")}
 					</label>
@@ -111,7 +111,7 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 							placeholder="0.00"
 							className={numberInputClass}
 						/>
-						<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 select-none text-xs font-bold text-[#3D5568]">
+						<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 select-none text-xs font-bold text-[#3D5568] dark:text-gray-400">
 							kg
 						</span>
 					</div>
@@ -120,7 +120,7 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 				<div>
 					<label
 						htmlFor="days"
-						className="block text-xs font-bold text-[#3D5568] uppercase tracking-wider mb-1.5"
+						className="block text-xs font-bold text-[#3D5568] dark:text-gray-400 uppercase tracking-wider mb-1.5"
 					>
 						{t("daysToTarget")}
 					</label>
@@ -133,7 +133,7 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 							placeholder="0"
 							className={numberInputClass}
 						/>
-						<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 select-none text-xs font-bold text-[#3D5568]">
+						<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 select-none text-xs font-bold text-[#3D5568] dark:text-gray-400">
 							{t("days")}
 						</span>
 					</div>
@@ -150,8 +150,8 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 			</button>
 
 			{result && (
-				<div className="mt-6 p-4 bg-[#F4F7F6] rounded-2xl border border-[#0A3D62]/5">
-					<p className="text-xs font-bold text-[#3D5568] uppercase tracking-wider mb-3">
+				<div className="mt-6 p-4 bg-[#F4F7F6] rounded-2xl border border-[#0A3D62]/5 dark:border-gray-700/50 dark:bg-gray-800/60">
+					<p className="text-xs font-bold text-[#3D5568] dark:text-gray-400 uppercase tracking-wider mb-3">
 						{t("results")}
 					</p>
 					<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -160,37 +160,49 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 								<Scale className="w-5 h-5 text-[#E85A2A]" />
 							</div>
 							<div>
-								<p className="text-[10px] font-bold text-[#3D5568] uppercase">{t("totalFeed")}</p>
-								<p className="text-lg font-black text-[#0A3D62]">{result.totalFeedNeededKg} kg</p>
+								<p className="text-[10px] font-bold text-[#3D5568] dark:text-gray-400 uppercase">
+									{t("totalFeed")}
+								</p>
+								<p className="text-lg font-black text-[#0A3D62] dark:text-gray-100">
+									{result.totalFeedNeededKg} kg
+								</p>
 							</div>
 						</div>
 						<div className="flex items-center gap-3">
-							<div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-								<Clock className="w-5 h-5 text-blue-600" />
+							<div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center dark:bg-blue-500/15">
+								<Clock className="w-5 h-5 text-blue-600 dark:text-blue-300" />
 							</div>
 							<div>
-								<p className="text-[10px] font-bold text-[#3D5568] uppercase">{t("dailyRation")}</p>
-								<p className="text-lg font-black text-[#0A3D62]">{result.dailyFeedRationKg} kg</p>
+								<p className="text-[10px] font-bold text-[#3D5568] dark:text-gray-400 uppercase">
+									{t("dailyRation")}
+								</p>
+								<p className="text-lg font-black text-[#0A3D62] dark:text-gray-100">
+									{result.dailyFeedRationKg} kg
+								</p>
 							</div>
 						</div>
 						<div className="flex items-center gap-3">
-							<div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center">
-								<TrendingUp className="w-5 h-5 text-green-600" />
+							<div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center dark:bg-green-500/15">
+								<TrendingUp className="w-5 h-5 text-green-600 dark:text-green-300" />
 							</div>
 							<div>
-								<p className="text-[10px] font-bold text-[#3D5568] uppercase">{t("biomassGain")}</p>
-								<p className="text-lg font-black text-[#0A3D62]">{result.totalBiomassGainKg} kg</p>
+								<p className="text-[10px] font-bold text-[#3D5568] dark:text-gray-400 uppercase">
+									{t("biomassGain")}
+								</p>
+								<p className="text-lg font-black text-[#0A3D62] dark:text-gray-100">
+									{result.totalBiomassGainKg} kg
+								</p>
 							</div>
 						</div>
 						<div className="flex items-center gap-3">
-							<div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
-								<Calculator className="w-5 h-5 text-amber-600" />
+							<div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center dark:bg-amber-500/15">
+								<Calculator className="w-5 h-5 text-amber-600 dark:text-amber-300" />
 							</div>
 							<div>
-								<p className="text-[10px] font-bold text-[#3D5568] uppercase">
+								<p className="text-[10px] font-bold text-[#3D5568] dark:text-gray-400 uppercase">
 									{t("suggestedRate")}
 								</p>
-								<p className="text-lg font-black text-[#0A3D62]">
+								<p className="text-lg font-black text-[#0A3D62] dark:text-gray-100">
 									{result.suggestedFeedingRatePct}%
 								</p>
 							</div>

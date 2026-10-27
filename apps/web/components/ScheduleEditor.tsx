@@ -121,17 +121,20 @@ export function ScheduleEditor({
 
 	return (
 		<div
-			className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
+			className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden dark:border-gray-700/50 dark:bg-gray-900"
 			data-help="schedule-editor"
 		>
-			<div className="border-b border-gray-100 bg-gray-50/50 px-6 py-4">
-				<h3 className="font-semibold text-gray-900">{t("editTitle")}</h3>
+			<div className="border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-700/50 dark:bg-white/5">
+				<h3 className="font-semibold text-gray-900 dark:text-gray-100">{t("editTitle")}</h3>
 			</div>
 
 			<form onSubmit={handleSubmit} className="p-6 space-y-6">
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 					<div className="flex flex-col gap-2">
-						<label htmlFor="startTime" className="text-sm font-medium text-gray-700">
+						<label
+							htmlFor="startTime"
+							className="text-sm font-medium text-gray-700 dark:text-gray-300"
+						>
 							{t("startTime")}
 						</label>
 						<input
@@ -139,13 +142,16 @@ export function ScheduleEditor({
 							type="time"
 							value={start}
 							onChange={(e) => setStart(e.target.value)}
-							className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+							className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-gray-900 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:[color-scheme:dark]"
 							required
 						/>
 					</div>
 
 					<div className="flex flex-col gap-2">
-						<label htmlFor="endTime" className="text-sm font-medium text-gray-700">
+						<label
+							htmlFor="endTime"
+							className="text-sm font-medium text-gray-700 dark:text-gray-300"
+						>
 							{t("endTime")}
 						</label>
 						<input
@@ -153,13 +159,16 @@ export function ScheduleEditor({
 							type="time"
 							value={end}
 							onChange={(e) => setEnd(e.target.value)}
-							className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+							className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-gray-900 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:[color-scheme:dark]"
 							required
 						/>
 					</div>
 
 					<div className="flex flex-col gap-2">
-						<label htmlFor="feedsPerDay" className="text-sm font-medium text-gray-700">
+						<label
+							htmlFor="feedsPerDay"
+							className="text-sm font-medium text-gray-700 dark:text-gray-300"
+						>
 							{t("feedsPerDay")}
 						</label>
 						<input
@@ -169,13 +178,16 @@ export function ScheduleEditor({
 							max="24"
 							value={feedsPerDay}
 							onChange={(e) => setFeedsPerDay(e.target.value)}
-							className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+							className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-gray-900 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:[color-scheme:dark]"
 							required
 						/>
 					</div>
 
 					<div className="flex flex-col gap-2">
-						<label htmlFor="feedingRate" className="text-sm font-medium text-gray-700">
+						<label
+							htmlFor="feedingRate"
+							className="text-sm font-medium text-gray-700 dark:text-gray-300"
+						>
 							{t("feedingRate")}
 						</label>
 						<input
@@ -185,27 +197,31 @@ export function ScheduleEditor({
 							min="0"
 							value={feedingRate}
 							onChange={(e) => setFeedingRate(e.target.value)}
-							className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+							className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-gray-900 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:[color-scheme:dark]"
 							required
 						/>
 					</div>
 				</div>
 
 				{/* Sync Status Card */}
-				<div className="rounded-2xl border border-gray-100 bg-[#F4F7F6] p-4">
+				<div className="rounded-2xl border border-gray-100 bg-[#F4F7F6] p-4 dark:border-gray-700/50 dark:bg-gray-800/60">
 					<div className="flex items-center gap-2 mb-3">
-						<RefreshCw size={16} className="text-[#0A3D62]" />
-						<span className="text-sm font-bold text-[#0A3D62]">{t("syncStatus")}</span>
+						<RefreshCw size={16} className="text-[#0A3D62] dark:text-[#5b9bd5]" />
+						<span className="text-sm font-bold text-[#0A3D62] dark:text-[#5b9bd5]">
+							{t("syncStatus")}
+						</span>
 					</div>
 
 					{hasPendingChanges ? (
 						<div className="space-y-2">
 							<div className="flex items-center gap-2 text-sm">
 								<Clock size={16} className="text-amber-500" />
-								<span className="text-amber-700 font-semibold">{t("syncPending")}</span>
+								<span className="text-amber-700 font-semibold dark:text-amber-300">
+									{t("syncPending")}
+								</span>
 							</div>
 							{pendingCommand && (
-								<div className="text-xs text-gray-500 ml-6">
+								<div className="text-xs text-gray-500 ml-6 dark:text-gray-400">
 									{pendingCommand.scheduleStart !== start ||
 									pendingCommand.scheduleEnd !== end ||
 									pendingCommand.feedsPerDay !== Number(feedsPerDay) ||
@@ -225,7 +241,7 @@ export function ScheduleEditor({
 						<div className="space-y-2">
 							<div className="flex items-center gap-2 text-sm">
 								<CheckCircle2 size={16} className="text-green-500" />
-								<span className="text-green-700 font-semibold">
+								<span className="text-green-700 font-semibold dark:text-green-400">
 									{t("syncApplied", {
 										time: latestAppliedCommand.appliedAt
 											? new Date(latestAppliedCommand.appliedAt).toLocaleTimeString()
@@ -233,15 +249,15 @@ export function ScheduleEditor({
 									})}
 								</span>
 							</div>
-							<div className="text-xs text-gray-500 ml-6">
+							<div className="text-xs text-gray-500 ml-6 dark:text-gray-400">
 								{fmtTimeDisplay(latestAppliedCommand.scheduleStart)} -{" "}
 								{fmtTimeDisplay(latestAppliedCommand.scheduleEnd)},
 								{latestAppliedCommand.feedsPerDay} feeds/day
 							</div>
 						</div>
 					) : (
-						<div className="flex items-center gap-2 text-sm text-gray-600">
-							<CheckCircle2 size={16} className="text-gray-400" />
+						<div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+							<CheckCircle2 size={16} className="text-gray-400 dark:text-gray-500" />
 							<span>{t("syncNone")}</span>
 						</div>
 					)}
@@ -250,7 +266,7 @@ export function ScheduleEditor({
 						type="button"
 						onClick={handleForceResync}
 						disabled={isPending || !canWrite}
-						className="mt-3 flex items-center gap-1.5 rounded-lg border border-[#0A3D62]/20 bg-white px-3 py-1.5 text-xs font-bold text-[#0A3D62] transition-colors hover:bg-[#0A3D62]/5 disabled:opacity-50"
+						className="mt-3 flex items-center gap-1.5 rounded-lg border border-[#0A3D62]/20 bg-white px-3 py-1.5 text-xs font-bold text-[#0A3D62] transition-colors hover:bg-[#0A3D62]/5 disabled:opacity-50 dark:border-[#5b9bd5]/30 dark:bg-gray-900 dark:text-[#5b9bd5] dark:hover:bg-white/10"
 					>
 						{isPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
 						{t("forceResync")}
@@ -267,13 +283,13 @@ export function ScheduleEditor({
 						{isPending ? <Loader2 size={18} className="animate-spin" /> : t("saveChanges")}
 					</button>
 					{success && (
-						<span className="flex items-center gap-1 text-sm font-medium text-green-600 animate-in fade-in">
+						<span className="flex items-center gap-1 text-sm font-medium text-green-600 animate-in fade-in dark:text-green-400">
 							<CheckCircle2 size={16} />
 							{t("saved")}
 						</span>
 					)}
 					{error && (
-						<span className="flex items-center gap-1 text-sm font-medium text-red-600 animate-in fade-in">
+						<span className="flex items-center gap-1 text-sm font-medium text-red-600 animate-in fade-in dark:text-red-400">
 							<XCircle size={16} />
 							{error}
 						</span>

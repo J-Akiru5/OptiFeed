@@ -13,11 +13,13 @@ import {
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
+import { FeederHero } from "@/components/feeder/feeder-hero";
 import { canWrite } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
 import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import { type FeederHeroPond, loadFeederHero } from "@/lib/feeder-hero";
 import { getPageCount, parsePage } from "@/lib/pagination";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
@@ -114,10 +116,22 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 	let historyPage = parsePage(first(rawParams.page));
 	let energyDevice = null;
 	let pondIsFallow = false;
+	let pondName: string | null = null;
+	let heroPond: FeederHeroPond | null = null;
 	try {
 		const pond = await getActivePond();
 		if (pond) {
 			pondIsFallow = Boolean(pond.isFallow);
+			pondName = typeof pond.name === "string" ? pond.name : null;
+			heroPond = {
+				id: pond.id,
+				isFallow: Boolean(pond.isFallow),
+				population: typeof pond.population === "number" ? pond.population : null,
+				feedingRatePct: Number(pond.feedingRatePct),
+				feedsPerDay: Number(pond.feedsPerDay),
+				scheduleStart: pond.scheduleStart,
+				scheduleEnd: pond.scheduleEnd,
+			};
 			energyDevice = await prisma.energyDevice.findFirst({
 				where: { pondId: pond.id },
 				orderBy: { createdAt: "asc" },
@@ -145,6 +159,14 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 	}
 
 	const now = new Date();
+
+	// The hero reads its own bounded slice (daily grams, effective schedule,
+	// reported firmware, the deterministic advisor) for the device the page has
+	// already resolved through the guarded active-pond lookup.
+	const feederHero =
+		energyDevice && heroPond && pondName
+			? await loadFeederHero({ pond: heroPond, deviceId: energyDevice.id, now })
+			: null;
 
 	// Calibration history, session summaries and the rule-based drift check.
 	// Every query is scoped to the active pond's device.
@@ -276,6 +298,8 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 	return (
 		<div className="w-full space-y-6 pb-20">
 			<DashboardPageHeader title={t("title")} description={t("desc")} icon={Settings} />
+
+			{feederHero && pondName && <FeederHero pondName={pondName} {...feederHero} />}
 
 			{!writeAccess && (
 				<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />

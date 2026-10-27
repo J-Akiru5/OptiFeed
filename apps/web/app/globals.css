@@ -255,3 +255,22 @@
 		animation: none;
 	}
 }
+
+/* The feeder hero's callouts fade in once (task I-29, E29). The hero itself is
+   static, and a reader who asked for less motion gets the final state at once. */
+@keyframes feeder-hero-fade {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.feeder-hero-callout {
+		animation: feeder-hero-fade 520ms ease-out both;
+	}
+}

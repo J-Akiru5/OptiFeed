@@ -4,6 +4,7 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { MoveDeviceForm, UnassignDeviceButton } from "@/components/admin/pond-device-actions";
 import { PondStatusToggle } from "@/components/admin/pond-status-toggle";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
+import { FeederHero } from "@/components/feeder/feeder-hero";
 import { Link } from "@/i18n/routing";
 import { getTenantRegistrationOptions } from "@/lib/actions/device-registration";
 import { getPondDetail } from "@/lib/actions/ponds";
@@ -11,6 +12,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { daysBetween, todayDateOnly, utcDateToDateOnly } from "@/lib/crop-cycle/dates";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { isDeviceOffline } from "@/lib/feed-level-display";
+import { loadFeederHero } from "@/lib/feeder-hero";
 import { ArrowLeft, Cpu, Droplets, Pencil, Printer, Trash2 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -75,6 +77,24 @@ export default async function PondDetailPage({
 		? Math.max(0, daysBetween(utcDateToDateOnly(cycle.stockingDate), todayDateOnly()) + 1)
 		: null;
 
+	// The hero summarises the pond's primary feeder (task I-29). Every read is
+	// bounded to this pond and device; without a device there is nothing to show.
+	const primaryDevice = pond.energyDevices[0] ?? null;
+	const feederHero = primaryDevice
+		? await loadFeederHero({
+				pond: {
+					id: pond.id,
+					isFallow: pond.isFallow,
+					population: pond.population,
+					feedingRatePct: pond.feedingRatePct,
+					feedsPerDay: pond.feedsPerDay,
+					scheduleStart: pond.scheduleStart,
+					scheduleEnd: pond.scheduleEnd,
+				},
+				deviceId: primaryDevice.id,
+			})
+		: null;
+
 	return (
 		<div className="space-y-6">
 			<div className="flex flex-wrap items-center justify-between gap-3">
@@ -126,6 +146,8 @@ export default async function PondDetailPage({
 					</span>
 				</div>
 			</AdminPageHeader>
+
+			{feederHero && <FeederHero pondName={pond.name} {...feederHero} />}
 
 			<section aria-labelledby="pond-overview" className={`${adminSurface} p-4 sm:p-6`}>
 				<h2 id="pond-overview" className="text-lg font-black text-[#0A3D62] dark:text-[#8fc0ea]">

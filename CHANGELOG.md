@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Feeder hero on the pond detail and feeder (hardware settings) pages (E29): a dark device-style panel with the feeder drawn in the middle, glassy callouts with thin leader lines to the hopper, spout, housing and water line (hopper level with the shared offline "Last known N%" treatment, grams dispensed today, next scheduled feed with its day or "Schedule paused", water temperature, online/offline with last seen, reported firmware), a status pill and the AI Feed Advisor's one-line summary linking to the full card. Jeff's photo loads from `public/images/feeder/feeder-hero.webp` over a drawn illustration; a missing photo costs at most one request per browser session, and adding the file needs no code change (see the folder's README). Below 768 px the image comes first and the callouts become a 2×3 grid without leader lines. Presentation only — no guards, actions or schema touched.
+
 ## [1.15.0] - 2026-10-27
 
 ### Added

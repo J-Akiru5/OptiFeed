@@ -181,6 +181,20 @@ describe("api/cron/device-watch", () => {
 		expect(cleanupExpiredRateLimitBuckets).toHaveBeenCalledTimes(1);
 	});
 
+	it("scans the most recently stale devices first, so an already-alerted device cannot starve new outages", async () => {
+		// A device that has alerted stays stale forever. With an oldest-first
+		// batch, 100 already-alerted devices permanently occupied the 100-row
+		// window and no newly-offline device ever survived the scan.
+		await GET(cronRequest("Bearer test-cron-secret"));
+
+		expect(mockEnergyDevice.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				orderBy: { lastSeenAt: "desc" },
+				take: 100,
+			}),
+		);
+	});
+
 	it("waits for the org's offlineAfterMin before alerting (default 30 minutes)", async () => {
 		mockEnergyDevice.findMany.mockResolvedValue([
 			{ ...STALE_DEVICE, lastSeenAt: new Date(Date.now() - 16 * 60 * 1000) },

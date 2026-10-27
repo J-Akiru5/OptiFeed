@@ -7,11 +7,23 @@ import { LayoutDashboard } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export default async function AdminOverviewPage() {
-	const [stats, t, tDates] = await Promise.all([
+	const [stats, t, tAudit, tDates] = await Promise.all([
 		getAdminStats(),
 		getTranslations("dashboard.adminOverview"),
+		// The recent-activity table shows the same device event keys as the audit
+		// log, so it borrows the same catalogue instead of printing them raw.
+		getTranslations("dashboard.audit"),
 		getTranslations("dates"),
 	]);
+
+	const eventTypeLabel = (eventType: string) => {
+		const key = `eventType_${eventType}`;
+		return tAudit.has(key) ? tAudit(key) : eventType;
+	};
+	const sourceLabel = (source: string) => {
+		const key = `source_${source}`;
+		return tAudit.has(key) ? tAudit(key) : source;
+	};
 
 	return (
 		<div className="space-y-6">
@@ -38,6 +50,8 @@ export default async function AdminOverviewPage() {
 				<RecentActivityTable
 					events={stats.recentEvents}
 					formatDate={(date) => formatDateTimeLocal(date, tDates).full}
+					formatEventType={eventTypeLabel}
+					formatSource={sourceLabel}
 					labels={{
 						time: t("columnTime"),
 						device: t("columnDevice"),

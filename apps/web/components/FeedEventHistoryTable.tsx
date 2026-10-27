@@ -2,7 +2,7 @@
 
 import { Pagination } from "@/components/ui/pagination";
 import { type FeedEventListItem, getFeedEvents } from "@/lib/actions/history";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { feedSourceKey } from "@/lib/feed-sources";
 import { CheckCircle2, Clock } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -88,7 +88,7 @@ export function FeedEventHistoryTable({
 	const lastRow = Math.min(page * pageSize, total);
 
 	const renderRow = (event: FeedEventListItem) => {
-		const formatted = formatDateTimeLocal(event.receivedAt, tDates);
+		const formatted = formatFarmDateTime(event.receivedAt, tDates);
 		const sourceKey = feedSourceKey(event.source);
 		return (
 			<div className="flex items-center justify-between py-4">

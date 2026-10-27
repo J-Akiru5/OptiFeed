@@ -101,6 +101,15 @@
 	--ofd-base-deep: #0a3d62;
 	--ofd-touch-min: 56px;
 
+	/* Mobile app shell (E26): the brand header band and the bottom bar. The band
+	   is the PakaonAI navy gradient, never the reference app's orange. */
+	--ofd-band-from: #0a3d62;
+	--ofd-band-via: #0c4a73;
+	--ofd-band-to: #08324f;
+	--ofd-band-ink: #ffffff;
+	--ofd-band-ink-muted: rgba(255, 255, 255, 0.72);
+	--ofd-bottom-nav-h: 4.5rem;
+
 	/* Layout tokens — bottom-right FAB cluster (help + chat assistant) */
 	--ofd-fab-size: var(--ofd-touch-min);
 	--ofd-fab-gap: 12px;
@@ -163,6 +172,14 @@
 	--ofd-critical: #f87171;
 	--ofd-warning: #fbbf24;
 	--ofd-base-deep: #5b9bd5;
+
+	/* Mobile app shell in dark mode: same band, deeper so the white copy keeps
+	   its contrast against the dark page behind it. */
+	--ofd-band-from: #06263f;
+	--ofd-band-via: #0b3554;
+	--ofd-band-to: #06263f;
+	--ofd-band-ink: #ffffff;
+	--ofd-band-ink-muted: rgba(255, 255, 255, 0.7);
 }
 
 @layer base {
@@ -226,6 +243,37 @@
 	display: grid;
 }
 
+/*
+ * Mobile app shell (E26).
+ *
+ * The header band uses the PakaonAI navy gradient from the `--ofd-band-*`
+ * tokens (light and dark each define their own), so the band is the same brand
+ * surface as the desktop header instead of the reference app's orange.
+ */
+.ofd-band {
+	background-image: linear-gradient(
+		135deg,
+		var(--ofd-band-from) 0%,
+		var(--ofd-band-via) 55%,
+		var(--ofd-band-to) 100%
+	);
+	color: var(--ofd-band-ink);
+}
+
+/*
+ * Page content clears the fixed bottom bar plus the device safe area, so the
+ * last row is never hidden behind it on a phone with a home indicator.
+ */
+.ofd-main {
+	padding-bottom: calc(var(--ofd-bottom-nav-h) + env(safe-area-inset-bottom) + 1.5rem);
+}
+
+@media (min-width: 64rem) {
+	.ofd-main {
+		padding-bottom: 2rem;
+	}
+}
+
 /* The help centre's "show me" ring. Drawn as a separate element positioned over
    the real control (lib/help/highlight.ts), so it never changes the control and
    never takes its click. */
@@ -253,5 +301,24 @@
 @media (prefers-reduced-motion: reduce) {
 	.help-ring {
 		animation: none;
+	}
+}
+
+/* The feeder hero's callouts fade in once (task I-29, E29). The hero itself is
+   static, and a reader who asked for less motion gets the final state at once. */
+@keyframes feeder-hero-fade {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.feeder-hero-callout {
+		animation: feeder-hero-fade 520ms ease-out both;
 	}
 }

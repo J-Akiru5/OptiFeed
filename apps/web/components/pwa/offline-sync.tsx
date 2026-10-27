@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { clearOfflineDataIfUserChanged, getOfflineMeta } from "@/lib/offline/db";
 import {
 	OUTBOX_CHANGED_EVENT,
@@ -174,7 +174,7 @@ export function OfflineSync({ scope }: { scope: string }) {
 	if (summary.lastSyncedAt) {
 		const date = new Date(summary.lastSyncedAt);
 		if (!Number.isNaN(date.getTime())) {
-			lastSynced = formatDateTimeLocal(date, tDates).full;
+			lastSynced = formatFarmDateTime(date, tDates).full;
 		}
 	}
 
@@ -228,7 +228,7 @@ export function OfflineSync({ scope }: { scope: string }) {
 						const created = new Date(item.createdAt);
 						const createdLabel = Number.isNaN(created.getTime())
 							? ""
-							: formatDateTimeLocal(created, tDates).full;
+							: formatFarmDateTime(created, tDates).full;
 						return (
 							<li
 								key={item.id}

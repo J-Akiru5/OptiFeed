@@ -394,6 +394,10 @@ export function PlatformCalendar({ initialData }: PlatformCalendarProps) {
 							events={displayEvents}
 							canManage={false}
 							allPonds
+							// E25: the superadmin cross-tenant view stays exactly as
+							// it shipped in E16.2 (month/week/list, month default).
+							toolbarViews="dayGridMonth,timeGridWeek,listMonth"
+							defaultView="dayGridMonth"
 							onRangeChange={(from, to) => {
 								setRange((current) =>
 									current.from === from && current.to === to ? current : { from, to },

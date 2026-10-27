@@ -77,6 +77,7 @@
 		"history": "Kasaysayan",
 		"growth": "Pagtubo",
 		"harvest": "Pag-ani",
+		"calendar": "Kalendaryo",
 		"settings": "Mga Setting",
 		"notifications": "Mga Notipikasyon",
 		"audit": "Talaan ng Audit",
@@ -85,7 +86,10 @@
 		"pondFeedPellet": "Pond Feed Pellet",
 		"hopperRemaining": "Mga {kg}kg ang nabilin. Igo para sa {count} ka scheduled feeding.",
 		"deviceOffline": "Wala sa linya",
-		"navLabel": "Pangunahon nga paglibot"
+		"navLabel": "Pangunahon nga paglibot",
+		"overview": "Overview",
+		"alerts": "Mga alerto",
+		"me": "Ako"
 	},
 	"button": {
 		"feedNow": "Pakauna Subong",
@@ -390,6 +394,34 @@
 			"ok": "Maayo",
 			"noData": "Wala sang data"
 		},
+		"feederHero": {
+			"eyebrow": "Live nga pag-monitor",
+			"label": "Buod sang feeder para sa {pond}",
+			"statusOnline": "Online",
+			"statusOffline": "Wala sa linya",
+			"lastSeen": "Katapusan nga nakita {date}, {time}",
+			"neverConnected": "Wala pa nakakonekta",
+			"calloutsLabel": "Mga pagbasa sang feeder",
+			"hopperLabel": "Lebel sang hopper",
+			"fedTodayLabel": "Feed nga naubos subong",
+			"gramsValue": "{grams} g",
+			"sinceMidnight": "Gikan sa tungang gab-i",
+			"nextFeedLabel": "Sunod nga pagpakaon",
+			"nextFeedPaused": "Iskedyul naka-pause",
+			"nextFeedOn": "Sa {date}",
+			"waterLabel": "Temperatura sang tubig",
+			"waterValue": "{temp} °C",
+			"waterUnavailable": "Wala nadetektar ang probe",
+			"connectionLabel": "Status sang device",
+			"firmwareLabel": "Firmware",
+			"firmwareUnknown": "Wala pa nareport",
+			"photoAlt": "Ang automatic feeder sa pilapil",
+			"advisorTitle": "AI Feed Advisor",
+			"advisorGrams": "{grams} g kada pagpakaon",
+			"advisorConfidence": "{level} nga kumpiyansa",
+			"advisorEmpty": "Kulang pa ang data para sa rekomendasyon.",
+			"advisorLink": "Buksan ang completo nga advisor"
+		},
 		"home": {
 			"noData": "Wala pa sang punong nga na-assign. Palihog pamangkot ang imo administrator.",
 			"welcome": "Maayong pagbalik, {name}!",
@@ -517,6 +549,9 @@
 			"syncApplied": "Naka-apply sang {time}",
 			"syncFailed": "Wala nagkumpirma ang device",
 			"syncNone": "Wala nagapaabot nga pagbag-o",
+			"syncPendingValues": "Ginapaabot: {start} – {end}, {feeds} ka pagpakaon kada adlaw",
+			"syncPendingSame": "Pareho nga mga value ang ginapaabot para i-resync",
+			"unknownDeviceTime": "wala mahibaluan",
 			"forceResync": "Piliton ang Resync",
 			"saved": "Naka-save!",
 			"error": "Wala naka-save",
@@ -531,7 +566,8 @@
 				"stuckScheduleTitle": "Wala Nakumpirma nga Pagbag-o sang Iskedyul",
 				"stuckScheduleDesc": "Ang pagbag-o sang iskedyul halin sang {time} ginsugo sa device pero wala nakumpirma nga na-apply.",
 				"retryFeed": "Retry Feed Now",
-				"checkDevice": "Check Device"
+				"checkDevice": "Check Device",
+				"unknownTime": "wala mahibaluan"
 			},
 			"noDeviceTitle": "Wala sang feeder nga naka-pares",
 			"noDeviceDesc": "I-pares ang feeder controller sa sini nga punong antes mag-set sang iskedyul."
@@ -691,6 +727,16 @@
 			"fishCountBadge": "{count} isda",
 			"sampleWeightCol": "Kabug-atan",
 			"sampleLengthCol": "Katas-on",
+			"sgrTitle": "Specific Growth Rate (SGR)",
+			"sgrOverall": "Kabuuan halin sa una nga sampling",
+			"sgrAverageGain": "Average nga pagtubo kada adlaw",
+			"sgrUnit": "%/day",
+			"sgrExplain": "Kon kapaspas ang pagtubo sang timbang sang isda kada adlaw, bilang porsyento sang ila timbang sang lawas.",
+			"sgrReasons": {
+				"insufficientSamples": "Mag-log sang labing menos duha ka sampling para makita ang SGR.",
+				"invalidWeight": "Kinahanglan sang SGR ang positibo nga average nga timbang sang lawas sa duha ka sampling.",
+				"intervalTooShort": "Kinahanglan sang SGR ang sampling nga labing menos isa ka adlaw ang ulot."
+			},
 			"history": {
 				"title": "Kasaysayan sang Pagtubo",
 				"desc": "Bug-os nga feed level, pagtubo kag biomass nga rekord para sa {pond}",
@@ -709,6 +755,7 @@
 				},
 				"columns": {
 					"avgWeight": "Average nga Kabug-atan (g)",
+					"sgr": "SGR (%/day)",
 					"weightGain": "Gin-agnay nga Kabug-atan (g)",
 					"lengthGain": "Gin-agnay nga Katas-on (cm)",
 					"daysSince": "Mga Adlaw Halin sang Ulihi"
@@ -949,10 +996,19 @@
 				"today": "Subong",
 				"month": "Bulan",
 				"week": "Semana",
+				"day": "Adlaw",
 				"list": "Lista",
+				"agenda": "Lista sang mga hitabo",
 				"noEvents": "Wala sang event sa sini nga range.",
 				"eventsLabel": "Kalendaryo sang punong",
 				"recurringChangeConfirm": "Bag-uhon ang bug-os nga nagabalik nga serye? Pilia ang Cancel para indi mabag-o."
+			},
+			"calendarPage": {
+				"title": "Kalendaryo sang punong",
+				"desc": "Ang tanan nga punong nga makita mo, upod ang mga hitabo nga ma-edit mo.",
+				"readOnlyPond": "basa lamang",
+				"readOnlyHint": "Ini nga punong iya sang iban nga uma sa imo organisasyon. Makita mo ang mga hitabo pero indi mo ini ma-edit.",
+				"readOnlyEvent": "Ini nga hitabo iya sang iban nga uma kag basa lamang."
 			},
 			"filters": {
 				"harvest": "Ani",
@@ -1401,6 +1457,7 @@
 			"columnFeedLevel": "Lebel sang feed",
 			"columnLastSeen": "Katapusan nga nakita",
 			"perFeeding": "{grams} g kada feeding",
+			"perFeedingLabel": "Kada pagpakaon",
 			"emptyTitle": "Wala pa sang mga device nga nakarehistro.",
 			"emptyDesc": "Magagwa ang mga device diri pagkatapos ma-provision kag ma-claim ang feeder.",
 			"caption": "Mga device sa imo organisasyon",
@@ -1748,6 +1805,7 @@
 			"categorySystem": "Sistema",
 			"autoCleared": "Ginlimpyo automatiko",
 			"acknowledged": "Gin-acknowledge",
+			"actionError": "Indi ma-update ang notipikasyon. Tilawi liwat.",
 			"alert": "Alerto",
 			"auditLink": "Audit",
 			"receivedAt": "Natanggap",
@@ -1859,7 +1917,8 @@
 				"devices": "Mga Device",
 				"hierarchy": "Hierarkiya",
 				"audit": "Talaan sang Audit",
-				"settings": "Mga Setting"
+				"settings": "Mga Setting",
+				"more": "Dugang"
 			},
 			"panelLabel": "Panel sang Admin",
 			"profile": "Ang imo laray sang profile kag mga setting"
@@ -1963,7 +2022,8 @@
 				"missing_letter": "Kinahanglan nga may isa ka letra ang password.",
 				"missing_number": "Kinahanglan nga may isa ka numero ang password.",
 				"common": "Sobra ka ordinaryo ang password. Pilia ang mas mabaskog."
-			}
+			},
+			"errorGeneric": "May naguba. Tilawi liwat."
 		},
 		"adminPondForm": {
 			"backToList": "Balik sa mga Punong",
@@ -2007,6 +2067,7 @@
 			"statusActive": "Aktibo",
 			"statusArchived": "Gin-archive",
 			"fallowTag": "Fallow",
+			"overviewTitle": "Overview",
 			"fieldId": "ID sang punong",
 			"fieldOwner": "Tag-iya",
 			"fieldFarm": "Farm",
@@ -2113,6 +2174,7 @@
 			"title": "Kalendaryo sang farm",
 			"desc": "Ang tanan {count, plural, one {# ka aktibo nga punong} other {# ka aktibo nga mga punong}} sa imo organisasyon.",
 			"readOnly": "Tan-aw lamang. Abrihi ang Harvest nga pahina sang punong para magsugod, mag-edit ukon mag-ani sang cycle.",
+			"editHint": "Magdugang, mag-edit, magbalhin ukon mag-delete sang mga hitabo para sa tanan nga punong sa imo organisasyon. Ang mga aksyon sang grow-out cycle ara sa Harvest nga pahina sang kada punong.",
 			"emptyTitle": "Wala pa sang mga punong sa sini nga organisasyon",
 			"emptyDesc": "Ginapakita sang kalendaryo ang mga hitabo sang pag-ani, sampling, pagpakaon kag device para sa tagsa ka punong sa imo organisasyon. Magdugang anay sang punong, ukon pangayo sa platform administrator nga mag-assign.",
 			"emptyAction": "Magdugang sang punong"
@@ -2206,6 +2268,45 @@
 				"value": "Bili",
 				"name": "Ngalan",
 				"empty": "Wala sang datos sa sini nga panahon."
+			}
+		},
+		"mobile": {
+			"openMenu": "Madasig nga mga aksyon",
+			"menuLabel": "Madasig nga menu",
+			"moreLabel": "Dugang nga mga seksyon",
+			"close": "Sirad-i ang madasig nga menu",
+			"searchLabel": "Pangitaa ang mga pahina kag aksyon",
+			"searchPlaceholder": "Pangitaa ang mga pahina kag aksyon",
+			"noResults": "Wala sing nagatugma sa “{query}”.",
+			"sections": {
+				"actions": "Mga aksyon",
+				"destinations": "Kadtuan"
+			},
+			"actions": {
+				"addPond": "Dugang punong",
+				"addFeeder": "Dugang feeder",
+				"scanSticker": "I-scan ang sticker QR",
+				"pondLocation": "Lokasyon sang punong",
+				"logSample": "Mag-log sang biomass sample",
+				"registerDevice": "Irehistro ang feeder"
+			},
+			"status": {
+				"label": "Pilia ang kahimtangan sang device",
+				"all": "Tanan",
+				"online": "Online",
+				"alarm": "Alarm",
+				"offline": "Wala sa linya",
+				"emptyTitle": "Wala sing nagatugma sa sini nga filter",
+				"emptyDesc": "Tinluan ang filter para makita ang bug-os nga lista sa sini nga pahina.",
+				"clear": "Tinluan ang filter"
+			},
+			"order": {
+				"label": "Pagkasunodsunod",
+				"newest": "Pinakabag-o",
+				"name": "Ngalan",
+				"status": "Kahimtangan",
+				"attention": "Kinahanglan atensyon",
+				"hint": "Ang pagkasunodsunod kag mga filter para lang sa mga item sa sini nga pahina."
 			}
 		}
 	},
@@ -2458,7 +2559,8 @@
 				"devices": "Mga Device",
 				"aiProviders": "Mga AI Provider",
 				"settings": "Mga Setting",
-				"operations": "Operasyon"
+				"operations": "Operasyon",
+				"more": "Dugang"
 			},
 			"shortNav": {
 				"overview": "Panglantaw",
@@ -2469,7 +2571,8 @@
 				"devices": "Device",
 				"aiProviders": "AI",
 				"settings": "Setting",
-				"operations": "Ops"
+				"operations": "Ops",
+				"more": "Dugang"
 			}
 		},
 		"loading": {
@@ -2826,7 +2929,8 @@
 			"close": "Isira",
 			"stepUpAction": "kontrolaha ang feeder {label}",
 			"open": "Remote control",
-			"openAria": "Remote control para sa {label}"
+			"openAria": "Remote control para sa {label}",
+			"panelTitle": "Remote control — {label}"
 		},
 		"createOrg": {
 			"title": "Maghimo sang organisasyon",

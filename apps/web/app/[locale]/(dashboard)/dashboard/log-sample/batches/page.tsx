@@ -15,7 +15,7 @@ import { ListView } from "@/components/ui/view-toggle";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
 import { getBatchLogPage, parseBatchFilter } from "@/lib/batch-logs";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { getPageCount, parsePage } from "@/lib/pagination";
 import { getActivePond } from "@/lib/pond-selection";
 import { getListPageSize } from "@/lib/settings/platform";
@@ -101,10 +101,10 @@ export default async function BatchLogsPage({ searchParams }: BatchLogsPageProps
 		filter.kind === "unlabeled" ? { unlabeled: "1" } : { label: filter.label };
 	const batchName = filter.kind === "unlabeled" ? t("unlabeled") : filter.label;
 	const firstDate = summary.firstRecordedAt
-		? formatDateTimeLocal(summary.firstRecordedAt, tDates).date
+		? formatFarmDateTime(summary.firstRecordedAt, tDates).date
 		: null;
 	const lastDate = summary.lastRecordedAt
-		? formatDateTimeLocal(summary.lastRecordedAt, tDates).date
+		? formatFarmDateTime(summary.lastRecordedAt, tDates).date
 		: null;
 	const dateRange =
 		firstDate && lastDate
@@ -199,7 +199,7 @@ export default async function BatchLogsPage({ searchParams }: BatchLogsPageProps
 										<Fragment key={entry.id}>
 											<DashboardTr>
 												<DashboardTd className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
-													{formatDateTimeLocal(entry.recordedAt, tDates).full}
+													{formatFarmDateTime(entry.recordedAt, tDates).full}
 												</DashboardTd>
 												<DashboardTd className="text-right">{entry.sampleCount}</DashboardTd>
 												<DashboardTd className="text-right">
@@ -278,7 +278,7 @@ export default async function BatchLogsPage({ searchParams }: BatchLogsPageProps
 									<DashboardCard key={entry.id}>
 										<div className="flex items-baseline justify-between gap-3">
 											<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-												{formatDateTimeLocal(entry.recordedAt, tDates).full}
+												{formatFarmDateTime(entry.recordedAt, tDates).full}
 											</p>
 											<BiomassLogActions
 												canWrite={writeAccess}

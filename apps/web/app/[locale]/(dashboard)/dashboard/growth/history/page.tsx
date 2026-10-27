@@ -15,7 +15,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { ListView } from "@/components/ui/view-toggle";
 import { Link } from "@/i18n/routing";
 import { parseQueryFilters } from "@/lib/actions/query-filters";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
 import {
 	type BiomassHistoryRow,
 	type FeedLevelHistoryRow,
@@ -309,7 +309,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 										{feedRows.map((row) => (
 											<DashboardTr key={row.id}>
 												<DashboardTd className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
-													{formatDateTimeLocal(row.recordedAt, tDates).fullDate}
+													{formatFarmDateTime(row.recordedAt, tDates).fullDate}
 												</DashboardTd>
 												<DashboardTd className="text-right">
 													<span
@@ -336,7 +336,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 										<DashboardCard key={row.id}>
 											<div className="flex items-baseline justify-between gap-3">
 												<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-													{formatDateTimeLocal(row.recordedAt, tDates).fullDate}
+													{formatFarmDateTime(row.recordedAt, tDates).fullDate}
 												</p>
 												<p className="text-sm font-black text-[#0A3D62] dark:text-[#5b9bd5]">
 													{Math.round(row.levelPercent)}%
@@ -364,6 +364,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 									<DashboardTHead>
 										<DashboardTh>{tGrowth("dateCol")}</DashboardTh>
 										<DashboardTh align="right">{t("columns.avgWeight")}</DashboardTh>
+										<DashboardTh align="right">{t("columns.sgr")}</DashboardTh>
 										<DashboardTh align="right">{tGrowth("avgLengthCol")}</DashboardTh>
 										<DashboardTh align="right">{t("columns.weightGain")}</DashboardTh>
 										<DashboardTh align="right">{t("columns.lengthGain")}</DashboardTh>
@@ -373,10 +374,21 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 										{growthRows.map((row) => (
 											<DashboardTr key={row.id}>
 												<DashboardTd className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
-													{formatDateTimeLocal(row.recordedAt, tDates).fullDate}
+													{formatFarmDateTime(row.recordedAt, tDates).fullDate}
 												</DashboardTd>
 												<DashboardTd className="text-right">
 													{row.avgWeightG.toFixed(1)} g
+												</DashboardTd>
+												<DashboardTd className="text-right font-bold">
+													{row.sgrPctPerDay === null ? (
+														<span className="text-gray-400">—</span>
+													) : (
+														<span
+															className={row.sgrPctPerDay >= 0 ? "text-green-700" : "text-red-600"}
+														>
+															{row.sgrPctPerDay.toFixed(2)}
+														</span>
+													)}
 												</DashboardTd>
 												<DashboardTd className="text-right">
 													{row.sampleLengthCm.toFixed(1)} cm
@@ -422,11 +434,14 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 									{growthRows.map((row) => (
 										<DashboardCard key={row.id}>
 											<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-												{formatDateTimeLocal(row.recordedAt, tDates).fullDate}
+												{formatFarmDateTime(row.recordedAt, tDates).fullDate}
 											</p>
 											<div className="mt-2">
 												<DashboardCardRow label={t("columns.avgWeight")}>
 													{row.avgWeightG.toFixed(1)} g
+												</DashboardCardRow>
+												<DashboardCardRow label={t("columns.sgr")}>
+													{row.sgrPctPerDay === null ? "—" : row.sgrPctPerDay.toFixed(2)}
 												</DashboardCardRow>
 												<DashboardCardRow label={tGrowth("avgLengthCol")}>
 													{row.sampleLengthCm.toFixed(1)} cm
@@ -472,7 +487,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 											<DashboardTr key={row.id}>
 												<DashboardTd className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
 													<div className="flex items-center gap-2">
-														{formatDateTimeLocal(row.recordedAt, tDates).fullDate}
+														{formatFarmDateTime(row.recordedAt, tDates).fullDate}
 														{row.source === "import" && (
 															<span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
 																{tGrowth("importedBadge")}
@@ -502,7 +517,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 									{biomassRows.map((row) => (
 										<DashboardCard key={row.id}>
 											<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-												{formatDateTimeLocal(row.recordedAt, tDates).fullDate}
+												{formatFarmDateTime(row.recordedAt, tDates).fullDate}
 											</p>
 											<div className="mt-2">
 												<DashboardCardRow label={tGrowth("batchCol")}>

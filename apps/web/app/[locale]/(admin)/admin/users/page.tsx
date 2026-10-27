@@ -16,6 +16,7 @@ import { ListView } from "@/components/ui/view-toggle";
 import { UserAvatar } from "@/components/user-avatar";
 import { Link } from "@/i18n/routing";
 import { getUsers } from "@/lib/actions/admin";
+import { hasPermission } from "@/lib/auth/permissions";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { parsePage } from "@/lib/pagination";
 import { Eye, KeyRound, Shield, User, Users } from "lucide-react";
@@ -42,8 +43,10 @@ export default async function AdminUsersPage({
 }) {
 	const params = await searchParams;
 	const page = parsePage(params.page);
-	const [usersPage, t, tCommon, tDates] = await Promise.all([
+	const [usersPage, canManageMembers, canManagePonds, t, tCommon, tDates] = await Promise.all([
 		getUsers({ page }),
+		hasPermission("manage_members"),
+		hasPermission("manage_farms_ponds"),
 		getTranslations("dashboard.adminUsers"),
 		getTranslations("dashboard.adminCommon"),
 		getTranslations("dates"),
@@ -64,16 +67,18 @@ export default async function AdminUsersPage({
 				title={t("title")}
 				description={t("desc", { count: usersPage.total })}
 			>
-				<p className="mt-2 max-w-2xl text-[11px] text-[#3D5568] dark:text-gray-400">
-					{t("farmersBefore")}{" "}
-					<Link
-						href="/admin/ponds/new"
-						className="font-bold text-[#C2410C] underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea]"
-					>
-						{t("farmersLink")}
-					</Link>
-					{t("farmersAfter")}
-				</p>
+				{canManagePonds && (
+					<p className="mt-2 max-w-2xl text-[11px] text-[#3D5568] dark:text-gray-400">
+						{t("farmersBefore")}{" "}
+						<Link
+							href="/admin/ponds/new"
+							className="font-bold text-[#C2410C] underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea]"
+						>
+							{t("farmersLink")}
+						</Link>
+						{t("farmersAfter")}
+					</p>
+				)}
 			</AdminPageHeader>
 
 			{users.length === 0 ? (
@@ -82,9 +87,11 @@ export default async function AdminUsersPage({
 					title={t("emptyTitle")}
 					description={t("emptyDesc")}
 					action={
-						<Link href="/admin/ponds/new" className={adminButtonPrimary}>
-							{t("emptyAction")}
-						</Link>
+						canManagePonds ? (
+							<Link href="/admin/ponds/new" className={adminButtonPrimary}>
+								{t("emptyAction")}
+							</Link>
+						) : undefined
 					}
 				/>
 			) : (
@@ -104,7 +111,10 @@ export default async function AdminUsersPage({
 						</AdminTHead>
 						<tbody>
 							{users.map((user) => {
-								const badge = roleBadge[user.role] ?? roleBadge.VIEWER;
+								// Tenant authority is the Membership, not the legacy
+								// `User.role` column; show what the member actually is.
+								const displayRole = user.membershipRole ?? user.role;
+								const badge = roleBadge[displayRole] ?? roleBadge.VIEWER;
 								const Icon = badge.icon;
 								return (
 									<AdminTr key={user.id}>
@@ -146,14 +156,16 @@ export default async function AdminUsersPage({
 											{joined(user.createdAt)}
 										</AdminTd>
 										<AdminTd className="text-right">
-											<Link
-												href={`/admin/settings/members/${user.id}/permissions`}
-												aria-label={`${t("permissionsButton")} — ${user.displayName || user.farmId}`}
-												className={permissionsLinkClass}
-											>
-												<KeyRound aria-hidden="true" className="h-3.5 w-3.5" />
-												{t("permissionsButton")}
-											</Link>
+											{canManageMembers && (
+												<Link
+													href={`/admin/settings/members/${user.id}/permissions`}
+													aria-label={`${t("permissionsButton")} — ${user.displayName || user.farmId}`}
+													className={permissionsLinkClass}
+												>
+													<KeyRound aria-hidden="true" className="h-3.5 w-3.5" />
+													{t("permissionsButton")}
+												</Link>
+											)}
 										</AdminTd>
 									</AdminTr>
 								);
@@ -163,7 +175,8 @@ export default async function AdminUsersPage({
 
 					<ItemCardGrid label={t("caption")}>
 						{users.map((user) => {
-							const badge = roleBadge[user.role] ?? roleBadge.VIEWER;
+							const displayRole = user.membershipRole ?? user.role;
+							const badge = roleBadge[displayRole] ?? roleBadge.VIEWER;
 							const Icon = badge.icon;
 							return (
 								<AdminCard key={user.id}>
@@ -188,7 +201,7 @@ export default async function AdminUsersPage({
 											className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black tracking-wider uppercase ${badge.bg} ${badge.text}`}
 										>
 											<Icon aria-hidden="true" className="h-3 w-3" />
-											{roleLabel(user.role)}
+											{roleLabel(displayRole)}
 										</span>
 									</div>
 
@@ -199,16 +212,18 @@ export default async function AdminUsersPage({
 										<AdminCardRow label={t("columnCreated")}>{joined(user.createdAt)}</AdminCardRow>
 									</div>
 
-									<div className="mt-3">
-										<Link
-											href={`/admin/settings/members/${user.id}/permissions`}
-											aria-label={`${t("permissionsButton")} — ${user.displayName || user.farmId}`}
-											className={permissionsLinkClass}
-										>
-											<KeyRound aria-hidden="true" className="h-3.5 w-3.5" />
-											{t("permissionsButton")}
-										</Link>
-									</div>
+									{canManageMembers && (
+										<div className="mt-3">
+											<Link
+												href={`/admin/settings/members/${user.id}/permissions`}
+												aria-label={`${t("permissionsButton")} — ${user.displayName || user.farmId}`}
+												className={permissionsLinkClass}
+											>
+												<KeyRound aria-hidden="true" className="h-3.5 w-3.5" />
+												{t("permissionsButton")}
+											</Link>
+										</div>
+									)}
 								</AdminCard>
 							);
 						})}

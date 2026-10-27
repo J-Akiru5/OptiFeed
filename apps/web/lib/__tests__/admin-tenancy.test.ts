@@ -56,6 +56,7 @@ vi.mock("next-intl/server", () => ({
 }));
 
 import {
+	changeMemberRole,
 	createPond,
 	createPondWithFarmer,
 	deleteUser,
@@ -63,6 +64,7 @@ import {
 	getAllFarmHierarchies,
 	getAuditLog,
 	getDevices,
+	getPendingDevices,
 	getPonds,
 	getUserPermissionState,
 	getUsers,
@@ -76,6 +78,7 @@ import {
 	ADMIN_A_ID,
 	DEVICE_A_1,
 	DEVICE_A_2,
+	DEVICE_B_1,
 	EVENT_A_1,
 	EVENT_A_2,
 	EVENT_B_1,
@@ -140,6 +143,61 @@ describe("tenant reads stay inside the caller's organization", () => {
 
 		expect(ponds.map((pond) => pond.id).sort()).toEqual([POND_A_1, POND_A_2].sort());
 		expect(ponds.every((pond) => pond.ownerId === FARM_A)).toBe(true);
+	});
+
+	it("getPonds never selects a device credential or a full user row", async () => {
+		const { rows: ponds } = await getPonds();
+
+		// The fixture devices carry a plaintext token; the list query must not
+		// return it (or the User columns such as supabaseId) in any shape.
+		expect(JSON.stringify(ponds)).not.toContain("tok_SECRET");
+		expect(JSON.stringify(ponds)).not.toContain("tokenHash");
+		expect(JSON.stringify(ponds)).not.toContain("sb-farmer-a");
+		expect(
+			ponds.every((pond) => pond.energyDevices.every((device) => device.id !== undefined)),
+		).toBe(true);
+	});
+
+	it("getUsers shows the membership role, which tenant authority follows", async () => {
+		expect(await changeMemberRole(FARMER_A_ID, "ADMIN")).toEqual({ success: true });
+
+		const { rows: users } = await getUsers();
+		const farmer = users.find((user) => user.id === FARMER_A_ID);
+		// The legacy global column is untouched; the row still reports ADMIN.
+		expect(userById(tenancy(), FARMER_A_ID).role).toBe("OPERATOR");
+		expect(farmer?.membershipRole).toBe("ADMIN");
+	});
+
+	it("hides a platform admin only while the grant is active", async () => {
+		const grant = tenancy().tables.platformAdmins[0];
+
+		grant.revokedAt = new Date("2026-10-19T00:00:00.000Z");
+		const revoked = await getUsers();
+		expect(revoked.rows.map((user) => user.id)).toContain(PLATFORM_ADMIN_A_ID);
+
+		grant.revokedAt = null;
+		grant.expiresAt = new Date("2026-10-19T00:00:00.000Z");
+		const expired = await getUsers();
+		expect(expired.rows.map((user) => user.id)).toContain(PLATFORM_ADMIN_A_ID);
+
+		grant.expiresAt = null;
+		const active = await getUsers();
+		expect(active.rows.map((user) => user.id)).not.toContain(PLATFORM_ADMIN_A_ID);
+	});
+
+	it("getDevices excludes pending units and getPendingDevices lists only this org's queue", async () => {
+		const pendingA = tenancy().tables.energyDevices.find((row) => row.id === DEVICE_A_2);
+		const pendingB = tenancy().tables.energyDevices.find((row) => row.id === DEVICE_B_1);
+		if (!pendingA || !pendingB) throw new Error("fixture devices missing");
+		pendingA.approvalStatus = "PENDING";
+		pendingB.approvalStatus = "PENDING";
+
+		const { rows: devices } = await getDevices();
+		expect(devices.map((device) => device.id)).toEqual([DEVICE_A_1]);
+
+		const pending = await getPendingDevices();
+		expect(pending.map((device) => device.id)).toEqual([DEVICE_A_2]);
+		expect(JSON.stringify(pending)).not.toContain("tok_SECRET");
 	});
 
 	it("getDevices lists org A hardware without selecting a credential", async () => {
@@ -253,6 +311,28 @@ describe("tenant writes refuse an org B target and change nothing", () => {
 		expect(tenancy().tables.users.some((user) => user.id === FARMER_B_ID)).toBe(true);
 	});
 
+	it("deleteUser removes the member's Membership and its permission rows", async () => {
+		// Give the farmer an override so the cleanup has both rows to remove.
+		tenancy().tables.membershipPermissions.push({
+			id: "mp-farmer-a",
+			membershipId: MEMBERSHIP_FARMER_A,
+			permission: "control_feeder",
+			grantedAt: new Date("2026-10-01T00:00:00.000Z"),
+			revokedAt: null,
+		});
+
+		expect(await deleteUser(FARMER_A_ID)).toEqual({ success: true });
+
+		expect(membershipFor(tenancy(), FARMER_A_ID)).toHaveLength(0);
+		expect(
+			tenancy().tables.membershipPermissions.some(
+				(row) => row.membershipId === MEMBERSHIP_FARMER_A,
+			),
+		).toBe(false);
+		// Another org's member is untouched.
+		expect(membershipFor(tenancy(), FARMER_B_ID)).toHaveLength(1);
+	});
+
 	it("setUserPermission refuses an org B member and writes no override", async () => {
 		const result = await expectNoCrossOrgAccess(() =>
 			setUserPermission(FARMER_B_ID, "control_feeder", false),
@@ -330,6 +410,39 @@ describe("tenant writes refuse an org B target and change nothing", () => {
 		const pond = tenancy().tables.ponds.find((row) => row.id === result.pondId);
 		expect(pond?.ownerId).toBe(FARM_A);
 		expect(pond?.farmId).toBe(FARM_ROW_A);
+	});
+
+	it("createPond refuses an invalid schedule before writing anything", async () => {
+		const before = tenancy().tables.ponds.length;
+
+		const result = await createPond({
+			name: "Bad Schedule Pond",
+			ownerFarmId: FARM_A,
+			feedingRatePct: 3,
+			feedsPerDay: 2,
+			scheduleStart: "25:99",
+			scheduleEnd: "18:00",
+		});
+
+		expect("error" in result).toBe(true);
+		expect(tenancy().tables.ponds).toHaveLength(before);
+	});
+
+	it("createPondWithFarmer validates the schedule before minting an auth account", async () => {
+		const result = await createPondWithFarmer({
+			farmerName: "New Farmer",
+			loginId: "new-farmer-a",
+			password: "temp-pass-1",
+			pondName: "New Farmer Pond",
+			feedingRatePct: 3,
+			feedsPerDay: 2,
+			scheduleStart: "06:00",
+			scheduleEnd: "99:00",
+		});
+
+		expect("error" in result).toBe(true);
+		expect(auth.createUser).not.toHaveBeenCalled();
+		expect(tenancy().tables.users.some((user) => user.farmId === "new-farmer-a")).toBe(false);
 	});
 
 	it("createPondWithFarmer always attaches the new account to the caller's org", async () => {

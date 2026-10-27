@@ -34,6 +34,14 @@ export const GET = withApi(
 			const staleDevices = await prisma.energyDevice.findMany({
 				where: { lastSeenAt: { lt: scanCutoff }, pondId: { not: null } },
 				select: { id: true, pondId: true, label: true, lastSeenAt: true },
+				// Scan the most recently-stale devices first. An already-alerted
+				// device stays stale forever, so the previous oldest-first order
+				// permanently filled the 100-row batch with devices that the
+				// `alreadyAlerted` check then discarded — once 100 devices had
+				// alerted, no newly-offline device could ever be seen. Newest-first
+				// means a device crossing the threshold is always in this run's
+				// batch, and the already-alerted ones sink out of it over time.
+				orderBy: { lastSeenAt: "desc" },
 				take: 100,
 			});
 

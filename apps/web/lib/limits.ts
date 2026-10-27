@@ -19,6 +19,36 @@ export const GRAMS_PER_SECOND_MAX = 50;
 export const TEMP_OFFSET_C_MIN = -20;
 export const TEMP_OFFSET_C_MAX = 20;
 
+// Hopper shape calibration. The empty distance must be larger than the full
+// distance (the sensor measures downward), and a capacity of zero would make
+// the daily feed cap fall back to the hard maximum, so it is rejected.
+export const HOPPER_FULL_CM_MAX = 200;
+export const HOPPER_EMPTY_CM_MAX = 500;
+export const HOPPER_CAPACITY_G_MAX = 50_000;
+
+export const hopperCalibrationSchema = z
+	.object({
+		hopperFullCm: z
+			.number("Full distance must be a number")
+			.finite("Full distance must be a number")
+			.min(0, "Full distance cannot be negative")
+			.max(HOPPER_FULL_CM_MAX, `Full distance cannot exceed ${HOPPER_FULL_CM_MAX} cm`),
+		hopperEmptyCm: z
+			.number("Empty distance must be a number")
+			.finite("Empty distance must be a number")
+			.min(0, "Empty distance cannot be negative")
+			.max(HOPPER_EMPTY_CM_MAX, `Empty distance cannot exceed ${HOPPER_EMPTY_CM_MAX} cm`),
+		hopperCapacityG: z
+			.number("Hopper capacity must be a number")
+			.finite("Hopper capacity must be a number")
+			.min(1, "Hopper capacity must be greater than 0 g")
+			.max(HOPPER_CAPACITY_G_MAX, `Hopper capacity cannot exceed ${HOPPER_CAPACITY_G_MAX} g`),
+	})
+	.refine((value) => value.hopperEmptyCm > value.hopperFullCm, {
+		message: "The empty distance must be greater than the full distance",
+		path: ["hopperEmptyCm"],
+	});
+
 // Guided motor calibration: run the motor for a bounded test window, weigh the
 // output, then derive grams per second. The upper bounds keep a test dose
 // inside the per-request feed cap and the weighed output physically plausible.

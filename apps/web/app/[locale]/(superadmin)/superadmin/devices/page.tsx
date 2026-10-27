@@ -1,14 +1,20 @@
 import { FeedLevelDisplay } from "@/components/feed-level-display";
+import { EntityCard } from "@/components/mobile/entity-card";
+import { ListChips } from "@/components/mobile/list-chips";
+import { StatusStrip } from "@/components/mobile/status-strip";
 import { ListToolbar } from "@/components/superadmin/list-chrome";
 import { RegisterDeviceForm } from "@/components/superadmin/register-device-form";
-import { RemoteFeederControl } from "@/components/superadmin/remote-feeder-control";
+import {
+	RemoteFeedProvider,
+	RemoteFeederControl,
+	RemoteFeederRow,
+	RemoteFeederTrigger,
+} from "@/components/superadmin/remote-feeder-control";
 import { RotateDeviceToken } from "@/components/superadmin/rotate-device-token";
 import {
 	Badge,
 	Card,
 	EmptyState,
-	MetaPair,
-	MobileCard,
 	PageHeader,
 	SECONDARY_BUTTON,
 	TableFrame,
@@ -20,12 +26,27 @@ import { Link, getPathname } from "@/i18n/routing";
 import { getOrgPondOptions, listPlatformDevices } from "@/lib/actions/platform/devices";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import {
+	deviceListStatus,
+	filterByStatus,
+	isAttention,
+	orderRows,
+	parseAttention,
+	parseDeviceStatusFilter,
+	parseListOrder,
+	summarizeStatuses,
+} from "@/lib/mobile-list";
+import { buildPageHref } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
 import { Cpu, Printer, Wifi, WifiOff } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
+import { Fragment } from "react";
 
 const LABELS_HREF = "/superadmin/devices/labels";
 const LABEL_FORM_ID = "platform-device-label-form";
+
+/** Columns in the device registry table; the expanded row spans all of them. */
+const DEVICE_COLUMNS = 8;
 
 function first(param: string | string[] | undefined): string | undefined {
 	return Array.isArray(param) ? param[0] : param;
@@ -47,13 +68,17 @@ export default async function SuperadminDevicesPage({
 	const params = await searchParams;
 	const query = first(params.q)?.trim() ?? "";
 	const page = Number.parseInt(first(params.page) ?? "1", 10) || 1;
+	const status = parseDeviceStatusFilter(first(params.status));
+	const order = parseListOrder(first(params.order));
+	const attention = parseAttention(first(params.attention));
 
-	const [devices, options, locale, t, tCommon, tDates] = await Promise.all([
+	const [devices, options, locale, t, tCommon, tMobile, tDates] = await Promise.all([
 		listPlatformDevices({ query, page }),
 		getOrgPondOptions(),
 		getLocale(),
 		getTranslations("superadmin.devices"),
 		getTranslations("superadmin.common"),
+		getTranslations("dashboard.mobile"),
 		getTranslations("dates"),
 	]);
 	const pageCount = Math.max(1, Math.ceil(devices.total / devices.pageSize));
@@ -78,6 +103,38 @@ export default async function SuperadminDevicesPage({
 			{ levelPercent: row.feedLevelPercent, updatedAt: row.feedLevelUpdatedAt },
 		]),
 	);
+
+	// Mobile status strip and chips (E26): grade the feeders on this page from
+	// the heartbeat and the hopper reading, then filter and order them.
+	const statusOf = (device: (typeof devices.rows)[number]) =>
+		deviceListStatus(
+			{
+				lastSeenAt: device.lastSeenAt,
+				feedLevelPercent: feedLevelById.get(device.id)?.levelPercent ?? null,
+			},
+			new Date(now),
+		);
+	const counts = summarizeStatuses(devices.rows.map(statusOf));
+	const visibleDevices = orderRows(
+		filterByStatus(devices.rows, status, statusOf).filter(
+			(device) => !attention || isAttention(statusOf(device)),
+		),
+		order,
+		(device) => ({ name: device.label, status: statusOf(device) }),
+		locale,
+	);
+	const statusLabels = {
+		all: tMobile("status.all"),
+		online: tMobile("status.online"),
+		alarm: tMobile("status.alarm"),
+		offline: tMobile("status.offline"),
+	};
+	const baseParams = {
+		q: query || undefined,
+		status: status === "all" ? undefined : status,
+		order: order === "newest" ? undefined : order,
+		attention: attention ? "1" : undefined,
+	};
 
 	const lastSeen = (value: Date | null) =>
 		value ? formatDateTimeLocal(value, tDates).full : tCommon("never");
@@ -108,6 +165,33 @@ export default async function SuperadminDevicesPage({
 				)}
 			</ListToolbar>
 
+			{hasRows && (
+				<div className="space-y-2">
+					<StatusStrip
+						counts={counts}
+						active={status}
+						basePath="/superadmin/devices"
+						params={baseParams}
+						label={tMobile("status.label")}
+						labels={statusLabels}
+					/>
+					<ListChips
+						basePath="/superadmin/devices"
+						params={baseParams}
+						order={order}
+						attention={attention}
+						labels={{
+							order: tMobile("order.label"),
+							newest: tMobile("order.newest"),
+							name: tMobile("order.name"),
+							status: tMobile("order.status"),
+							attention: tMobile("order.attention"),
+							hint: tMobile("order.hint"),
+						}}
+					/>
+				</div>
+			)}
+
 			{devices.rows.length === 0 ? (
 				<Card>
 					<EmptyState
@@ -123,6 +207,22 @@ export default async function SuperadminDevicesPage({
 						}
 					/>
 				</Card>
+			) : visibleDevices.length === 0 ? (
+				<Card>
+					<EmptyState
+						icon={Cpu}
+						title={tMobile("status.emptyTitle")}
+						description={tMobile("status.emptyDesc")}
+						action={
+							<Link
+								href={buildPageHref("/superadmin/devices", { q: query || undefined }, 1)}
+								className={SECONDARY_BUTTON}
+							>
+								{tMobile("status.clear")}
+							</Link>
+						}
+					/>
+				</Card>
 			) : (
 				<ListView
 					pageKey="superadmin-devices"
@@ -131,100 +231,42 @@ export default async function SuperadminDevicesPage({
 					toggleLabel={tCommon("viewToggle.label")}
 				>
 					<ItemCardGrid label={t("caption")}>
-						{devices.rows.map((device) => {
-							const offline =
-								!device.lastSeenAt || now - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+						{visibleDevices.map((device) => {
+							const deviceStatus = statusOf(device);
 							return (
-								<MobileCard key={device.id}>
-									<div className="flex items-start gap-3">
-										<input
-											type="checkbox"
-											form={LABEL_FORM_ID}
-											name="id"
-											value={device.id}
-											aria-label={t("selectForSticker", { label: device.label })}
-											className="mt-1 h-4 w-4 shrink-0 accent-[#0A3D62]"
-										/>
-										<div className="flex min-w-0 flex-1 items-start justify-between gap-2">
-											<div className="min-w-0">
-												<p className="truncate font-black text-[#0A3D62]">{device.label}</p>
-												<p className="truncate font-mono text-[11px] font-bold text-[#3D5568]">
-													{device.mac}
-												</p>
-											</div>
-											<Badge tone={offline ? "danger" : "success"} icon={offline ? WifiOff : Wifi}>
-												{offline ? tCommon("offline") : tCommon("online")}
-											</Badge>
-										</div>
-									</div>
-
-									<dl className="grid grid-cols-2 gap-2">
-										<MetaPair label={tCommon("organization")}>
-											{device.orgs.length > 0
-												? device.orgs.map((o) => o.name).join(", ")
-												: tCommon("none")}
-										</MetaPair>
-										<MetaPair label={tCommon("pond")}>
-											{device.pond?.name ?? tCommon("unassigned")}
-										</MetaPair>
-										<MetaPair label={t("columnFeedLevel")}>
-											<FeedLevelDisplay
-												levelPercent={feedLevelById.get(device.id)?.levelPercent ?? null}
-												updatedAt={feedLevelById.get(device.id)?.updatedAt ?? null}
-												isOffline={offline}
-												size="sm"
-											/>
-										</MetaPair>
-									</dl>
-									<p className="text-[11px] text-[#3D5568]">
-										{t("lastSeen", { time: lastSeen(device.lastSeenAt) })}
-									</p>
-
-									<div className="flex flex-col items-start gap-2">
-										<Link
-											href={{ pathname: LABELS_HREF, query: { id: device.id } }}
-											data-help="superadmin-print-sticker"
-											className={SECONDARY_BUTTON}
-										>
-											<Printer className="h-3.5 w-3.5" aria-hidden="true" />
-											{t("printSticker")}
-										</Link>
-										<RotateDeviceToken deviceId={device.id} mac={device.mac} />
-										<RemoteFeederControl
-											deviceId={device.id}
-											label={device.label}
-											isPaused={device.isPaused}
-										/>
-									</div>
-								</MobileCard>
-							);
-						})}
-					</ItemCardGrid>
-
-					<TableFrame
-						className="hidden md:block"
-						label={t("caption")}
-						minWidth="min-w-[64rem]"
-						columns={[
-							{ key: "select", label: t("columnSelect") },
-							{ key: "device", label: t("columnDevice") },
-							{ key: "mac", label: t("columnMac") },
-							{ key: "org", label: t("columnOrg") },
-							{ key: "pond", label: t("columnPond") },
-							{ key: "feed", label: t("columnFeedLevel") },
-							{ key: "seen", label: t("columnSeen") },
-							{ key: "actions", label: t("columnActions") },
-						]}
-					>
-						{devices.rows.map((device) => {
-							const offline =
-								!device.lastSeenAt || now - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
-							return (
-								<tr
+								<EntityCard
 									key={device.id}
-									className="border-b border-gray-50 align-top transition-colors last:border-0 hover:bg-[#F4F7F6]/50"
+									status={deviceStatus}
+									statusLabel={statusLabels[deviceStatus]}
+									title={device.label}
+									subtitle={`${device.mac} · ${device.pond?.name ?? tCommon("unassigned")}`}
+									icon={Cpu}
+									metrics={[
+										{
+											label: t("columnFeedLevel"),
+											value: (
+												<FeedLevelDisplay
+													levelPercent={feedLevelById.get(device.id)?.levelPercent ?? null}
+													updatedAt={feedLevelById.get(device.id)?.updatedAt ?? null}
+													isOffline={deviceStatus === "offline"}
+													size="sm"
+												/>
+											),
+										},
+										{
+											label: tCommon("organization"),
+											value:
+												device.orgs.length > 0
+													? device.orgs.map((o) => o.name).join(", ")
+													: tCommon("none"),
+										},
+										{
+											label: t("columnSeen"),
+											value: lastSeen(device.lastSeenAt),
+										},
+									]}
 								>
-									<td className="px-6 py-4">
+									<label className="inline-flex items-center gap-2 text-[11px] font-bold text-[#3D5568]">
 										<input
 											type="checkbox"
 											form={LABEL_FORM_ID}
@@ -233,70 +275,133 @@ export default async function SuperadminDevicesPage({
 											aria-label={t("selectForSticker", { label: device.label })}
 											className="h-4 w-4 accent-[#0A3D62]"
 										/>
-									</td>
-									<td className="px-6 py-4">
-										<div className="flex items-center gap-3">
-											<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0A3D62] text-white">
-												<Cpu className="h-4 w-4" aria-hidden="true" />
-											</div>
-											<p className="font-black text-[#0A3D62]">{device.label}</p>
-										</div>
-									</td>
-									<td className="px-6 py-4 font-mono text-xs font-bold text-[#3D5568]">
-										{device.mac}
-									</td>
-									<td className="px-6 py-4 text-xs font-bold text-[#3D5568]">
-										{device.orgs.length > 0
-											? device.orgs.map((o) => o.name).join(", ")
-											: tCommon("none")}
-									</td>
-									<td className="px-6 py-4 text-xs font-bold text-[#3D5568]">
-										{device.pond?.name ?? tCommon("unassigned")}
-									</td>
-									<td className="px-6 py-4">
-										<FeedLevelDisplay
-											levelPercent={feedLevelById.get(device.id)?.levelPercent ?? null}
-											updatedAt={feedLevelById.get(device.id)?.updatedAt ?? null}
-											isOffline={offline}
-											size="sm"
-										/>
-									</td>
-									<td className="px-6 py-4">
-										<div className="space-y-1">
-											<Badge tone={offline ? "danger" : "success"} icon={offline ? WifiOff : Wifi}>
-												{offline ? tCommon("offline") : tCommon("online")}
-											</Badge>
-											<p className="text-[11px] text-[#3D5568]">{lastSeen(device.lastSeenAt)}</p>
-										</div>
-									</td>
-									<td className="px-6 py-4">
-										<div className="flex flex-col items-start gap-2">
-											<Link
-												href={{ pathname: LABELS_HREF, query: { id: device.id } }}
-												data-help="superadmin-print-sticker"
-												className={SECONDARY_BUTTON}
-											>
-												<Printer className="h-3.5 w-3.5" aria-hidden="true" />
-												{t("printSticker")}
-											</Link>
-											<RotateDeviceToken deviceId={device.id} mac={device.mac} />
-											<RemoteFeederControl
-												deviceId={device.id}
-												label={device.label}
-												isPaused={device.isPaused}
-											/>
-										</div>
-									</td>
-								</tr>
+										{t("columnSelect")}
+									</label>
+									<Link
+										href={{ pathname: LABELS_HREF, query: { id: device.id } }}
+										data-help="superadmin-print-sticker"
+										className={SECONDARY_BUTTON}
+									>
+										<Printer className="h-3.5 w-3.5" aria-hidden="true" />
+										{t("printSticker")}
+									</Link>
+									<RotateDeviceToken deviceId={device.id} mac={device.mac} />
+									<RemoteFeederControl
+										deviceId={device.id}
+										label={device.label}
+										isPaused={device.isPaused}
+									/>
+								</EntityCard>
 							);
 						})}
-					</TableFrame>
+					</ItemCardGrid>
+
+					<RemoteFeedProvider>
+						<TableFrame
+							className="hidden md:block"
+							label={t("caption")}
+							minWidth="min-w-[64rem]"
+							columns={[
+								{ key: "select", label: t("columnSelect") },
+								{ key: "device", label: t("columnDevice") },
+								{ key: "mac", label: t("columnMac") },
+								{ key: "org", label: t("columnOrg") },
+								{ key: "pond", label: t("columnPond") },
+								{ key: "feed", label: t("columnFeedLevel") },
+								{ key: "seen", label: t("columnSeen") },
+								{ key: "actions", label: t("columnActions") },
+							]}
+						>
+							{visibleDevices.map((device) => {
+								const offline =
+									!device.lastSeenAt || now - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+								return (
+									<Fragment key={device.id}>
+										<tr className="border-b border-gray-50 align-top transition-colors last:border-0 hover:bg-[#F4F7F6]/50">
+											<td className="px-6 py-4">
+												<input
+													type="checkbox"
+													form={LABEL_FORM_ID}
+													name="id"
+													value={device.id}
+													aria-label={t("selectForSticker", { label: device.label })}
+													className="h-4 w-4 accent-[#0A3D62]"
+												/>
+											</td>
+											<td className="px-6 py-4">
+												<div className="flex items-center gap-3">
+													<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0A3D62] text-white">
+														<Cpu className="h-4 w-4" aria-hidden="true" />
+													</div>
+													<p className="font-black text-[#0A3D62]">{device.label}</p>
+												</div>
+											</td>
+											<td className="px-6 py-4 font-mono text-xs font-bold text-[#3D5568]">
+												{device.mac}
+											</td>
+											<td className="px-6 py-4 text-xs font-bold text-[#3D5568]">
+												{device.orgs.length > 0
+													? device.orgs.map((o) => o.name).join(", ")
+													: tCommon("none")}
+											</td>
+											<td className="px-6 py-4 text-xs font-bold text-[#3D5568]">
+												{device.pond?.name ?? tCommon("unassigned")}
+											</td>
+											<td className="px-6 py-4">
+												<FeedLevelDisplay
+													levelPercent={feedLevelById.get(device.id)?.levelPercent ?? null}
+													updatedAt={feedLevelById.get(device.id)?.updatedAt ?? null}
+													isOffline={offline}
+													size="sm"
+												/>
+											</td>
+											<td className="px-6 py-4">
+												<div className="space-y-1">
+													<Badge
+														tone={offline ? "danger" : "success"}
+														icon={offline ? WifiOff : Wifi}
+													>
+														{offline ? tCommon("offline") : tCommon("online")}
+													</Badge>
+													<p className="text-[11px] text-[#3D5568]">
+														{lastSeen(device.lastSeenAt)}
+													</p>
+												</div>
+											</td>
+											<td className="px-6 py-4">
+												<div className="flex flex-col items-start gap-2">
+													<Link
+														href={{ pathname: LABELS_HREF, query: { id: device.id } }}
+														data-help="superadmin-print-sticker"
+														className={SECONDARY_BUTTON}
+													>
+														<Printer className="h-3.5 w-3.5" aria-hidden="true" />
+														{t("printSticker")}
+													</Link>
+													<RotateDeviceToken deviceId={device.id} mac={device.mac} />
+													{/* The panel opens in the full-width row below, so no
+													    wide form ever sits in this cell (#213). */}
+													<RemoteFeederTrigger deviceId={device.id} label={device.label} />
+												</div>
+											</td>
+										</tr>
+										<RemoteFeederRow
+											deviceId={device.id}
+											label={device.label}
+											isPaused={device.isPaused}
+											colSpan={DEVICE_COLUMNS}
+										/>
+									</Fragment>
+								);
+							})}
+						</TableFrame>
+					</RemoteFeedProvider>
 				</ListView>
 			)}
 
 			<Pagination
 				basePath="/superadmin/devices"
-				params={{ q: query || undefined }}
+				params={baseParams}
 				page={devices.page}
 				pageCount={pageCount}
 				showing={tCommon("pagination.showing", {

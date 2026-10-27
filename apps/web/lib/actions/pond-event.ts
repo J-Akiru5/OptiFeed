@@ -1,9 +1,14 @@
 "use server";
 
 import { requirePermission } from "@/lib/auth/permissions";
-import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
+import { requireWriteAccess } from "@/lib/auth/session";
 import { farmDateTimeToUtcDate, utcDateToFarmDateTime } from "@/lib/calendar/datetime";
 import { expandOccurrences } from "@/lib/calendar/recurrence";
+import {
+	resolveCalendarWriteScope,
+	writablePondEventWhere,
+	writablePondWhere,
+} from "@/lib/calendar/write-scope";
 import { dateOnlyToUtcDate, dateToFarmDateOnly } from "@/lib/crop-cycle/dates";
 import {
 	type PondEventInput,
@@ -23,7 +28,9 @@ export type PondEventActionResult =
 
 function revalidateCalendar(): void {
 	revalidatePath("/[locale]/(dashboard)/dashboard/harvest", "page");
+	revalidatePath("/[locale]/(dashboard)/dashboard/calendar", "page");
 	revalidatePath("/[locale]/(dashboard)/dashboard", "page");
+	revalidatePath("/[locale]/(admin)/admin/calendar", "page");
 }
 
 /** The farm-local value the API and the editor agree on. */
@@ -88,10 +95,11 @@ export async function createPondEvent(input: PondEventInput): Promise<PondEventA
 	const parsed = pondEventInputSchema.safeParse(input);
 	if (!parsed.success) return { success: false, error: formatZodError(parsed.error) };
 	const data = parsed.data;
-	const ownerId = await getCurrentPondOwnerId();
+	const scope = await resolveCalendarWriteScope();
+	const ownerId = scope.ownerId;
 
 	const pond = await prisma.pond.findFirst({
-		where: { id: data.pondId, ownerId },
+		where: { id: data.pondId, ...writablePondWhere(scope) },
 		select: { id: true, farmId: true },
 	});
 	if (!pond) return { success: false, error: "Pond not found." };
@@ -146,10 +154,10 @@ export async function updatePondEvent(input: UpdatePondEventInput): Promise<Pond
 	const parsed = updatePondEventSchema.safeParse(input);
 	if (!parsed.success) return { success: false, error: formatZodError(parsed.error) };
 	const data = parsed.data;
-	const ownerId = await getCurrentPondOwnerId();
+	const scope = await resolveCalendarWriteScope();
 
 	const existing = await prisma.pondEvent.findFirst({
-		where: { id: data.id, pond: { ownerId } },
+		where: { id: data.id, ...writablePondEventWhere(scope) },
 		select: {
 			id: true,
 			source: true,
@@ -217,10 +225,11 @@ export async function completePondEvent(input: {
 
 	const parsed = completePondEventSchema.safeParse(input);
 	if (!parsed.success) return { success: false, error: formatZodError(parsed.error) };
-	const ownerId = await getCurrentPondOwnerId();
+	const scope = await resolveCalendarWriteScope();
+	const ownerId = scope.ownerId;
 
 	const existing = await prisma.pondEvent.findFirst({
-		where: { id: parsed.data.id, pond: { ownerId } },
+		where: { id: parsed.data.id, ...writablePondEventWhere(scope) },
 		select: {
 			id: true,
 			source: true,
@@ -286,10 +295,11 @@ export async function uncompletePondEvent(input: {
 
 	const parsed = completePondEventSchema.safeParse(input);
 	if (!parsed.success) return { success: false, error: formatZodError(parsed.error) };
-	const ownerId = await getCurrentPondOwnerId();
+	const scope = await resolveCalendarWriteScope();
+	const ownerId = scope.ownerId;
 
 	const existing = await prisma.pondEvent.findFirst({
-		where: { id: parsed.data.id, pond: { ownerId } },
+		where: { id: parsed.data.id, ...writablePondEventWhere(scope) },
 		select: {
 			id: true,
 			source: true,
@@ -349,10 +359,10 @@ export async function deletePondEvent(input: {
 
 	const parsed = deletePondEventSchema.safeParse(input);
 	if (!parsed.success) return { success: false, error: formatZodError(parsed.error) };
-	const ownerId = await getCurrentPondOwnerId();
+	const scope = await resolveCalendarWriteScope();
 
 	const existing = await prisma.pondEvent.findFirst({
-		where: { id: parsed.data.id, pond: { ownerId } },
+		where: { id: parsed.data.id, ...writablePondEventWhere(scope) },
 		select: {
 			id: true,
 			source: true,

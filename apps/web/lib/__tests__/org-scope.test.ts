@@ -13,7 +13,7 @@ vi.mock("@/lib/auth/session", () => ({
 	getCurrentUser: vi.fn(),
 }));
 
-import { EMPTY_SCOPE, resolveOrgScope } from "@/lib/auth/org-scope";
+import { EMPTY_SCOPE, resolveMemberOrgScope, resolveOrgScope } from "@/lib/auth/org-scope";
 import { getCurrentUser } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 
@@ -123,5 +123,48 @@ describe("resolveOrgScope", () => {
 		expect(scope.memberUserIds).toEqual(["user_1"]);
 		expect(scope.farmIds).toEqual(["farm-1"]);
 		expect(scope.pondIds).toEqual([]);
+	});
+});
+
+describe("resolveMemberOrgScope", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockGetCurrentUser.mockResolvedValue(USER as never);
+	});
+
+	it("returns EMPTY_SCOPE with no session", async () => {
+		mockGetCurrentUser.mockResolvedValue(null);
+
+		expect(await resolveMemberOrgScope()).toEqual(EMPTY_SCOPE);
+		expect(mockMembershipFindMany).not.toHaveBeenCalled();
+	});
+
+	it("accepts any live membership, not only OWNER/ADMIN", async () => {
+		mockMembershipFindMany
+			.mockResolvedValueOnce([{ orgId: "org_1" }] as never)
+			.mockResolvedValueOnce([{ userId: "user_1" }, { userId: "user_2" }] as never);
+		mockOrganizationFindMany.mockResolvedValue([{ id: "org_1" }] as never);
+		mockUserFindMany.mockResolvedValue([{ farmId: "farm-1" }, { farmId: "farm-2" }] as never);
+		mockPondFindMany.mockResolvedValue([{ id: "pond_1" }, { id: "pond_2" }] as never);
+
+		const scope = await resolveMemberOrgScope();
+
+		expect(scope).toEqual({
+			orgIds: ["org_1"],
+			memberUserIds: ["user_1", "user_2"],
+			farmIds: ["farm-1", "farm-2"],
+			pondIds: ["pond_1", "pond_2"],
+		});
+		// The first query is the caller's own membership and must not filter
+		// on role; this is the read-only org-wide calendar scope.
+		expect(mockMembershipFindMany.mock.calls[0]?.[0]?.where).not.toHaveProperty("role");
+	});
+
+	it("still fails closed when the organization is not ACTIVE", async () => {
+		mockMembershipFindMany.mockResolvedValueOnce([{ orgId: "org_1" }] as never);
+		mockOrganizationFindMany.mockResolvedValue([] as never);
+
+		expect(await resolveMemberOrgScope()).toEqual(EMPTY_SCOPE);
+		expect(mockUserFindMany).not.toHaveBeenCalled();
 	});
 });

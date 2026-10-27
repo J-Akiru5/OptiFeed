@@ -43,10 +43,19 @@ export function ScheduleControls({
 
 	const handleTogglePause = () => {
 		if (blockIfOffline()) return;
+		const previous = isPaused;
 		const newStatus = !isPaused;
 		setIsPaused(newStatus); // Optimistic update
 		startPauseTransition(async () => {
-			await toggleDevicePause(deviceId, newStatus);
+			try {
+				await toggleDevicePause(deviceId, newStatus);
+			} catch (error) {
+				// The action throws when the server refuses (write access, fallow
+				// pond, device gone). Without this the switch stayed flipped and
+				// the farmer believed the feeder was paused.
+				setIsPaused(previous);
+				toast.error(error instanceof Error && error.message ? error.message : tSch("error"));
+			}
 		});
 	};
 

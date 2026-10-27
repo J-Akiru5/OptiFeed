@@ -120,6 +120,26 @@ describe("HelpSheet", () => {
 		expect(startTour).toHaveBeenCalledOnce();
 	});
 
+	it("keeps a fixed-height panel with a scrollable body (#214)", () => {
+		render(<HelpSheet open onOpenChange={() => undefined} audience="farmer" />);
+
+		const dialog = screen.getByRole("dialog");
+		// A `dialog` is content-high by default. Without an explicit height and
+		// clipped overflow the sheet grows past the viewport, so its body never
+		// scrolls and the footer is out of reach.
+		expect(dialog.className).toContain("flex-col");
+		expect(dialog.className).toContain("overflow-hidden");
+		expect(dialog.className).toContain("md:h-dvh");
+
+		const body = document.querySelector("[data-help-sheet-body]");
+		expect(body).not.toBeNull();
+		expect(body?.className).toContain("flex-1");
+		expect(body?.className).toContain("min-h-0");
+		expect(body?.className).toContain("overflow-y-auto");
+		// A wheel or swipe inside the panel must not scroll the page behind it.
+		expect(body?.className).toContain("overscroll-contain");
+	});
+
 	it("closes on Escape, the close button and the backdrop", () => {
 		const onOpenChange = vi.fn();
 		render(<HelpSheet open onOpenChange={onOpenChange} audience="farmer" />);

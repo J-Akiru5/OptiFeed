@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- #244 clickable controls show a hand cursor (login Back to home and app-wide).
+
 ## [1.18.2] - 2026-10-28
 
 ### Fixed

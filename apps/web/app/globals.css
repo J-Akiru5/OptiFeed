@@ -192,6 +192,29 @@
 	html {
 		@apply font-sans;
 	}
+
+	/*
+	 * Clickable controls show a hand cursor (#244).
+	 *
+	 * Tailwind v4's preflight stopped setting `cursor: pointer` on buttons
+	 * (v3 did), so every plain `<button>` in the app fell back to the browser
+	 * default arrow — most visibly the login page's "Back to Home" — and users
+	 * could not tell it was clickable. These rules are in the base layer, so
+	 * per-element utilities such as `cursor-default` on a modal backdrop still
+	 * win, and they cover `<summary>` toggles and `<select>`s too.
+	 */
+	button:not(:disabled),
+	[role="button"]:not([aria-disabled="true"]),
+	summary,
+	label[for],
+	select {
+		cursor: pointer;
+	}
+
+	:disabled,
+	[aria-disabled="true"] {
+		cursor: not-allowed;
+	}
 }
 
 @media (prefers-reduced-motion: no-preference) {

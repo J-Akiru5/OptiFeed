@@ -66,42 +66,56 @@ export default async function GrowthPage() {
 
 	// Bound the chart/table payloads: a decade of logs must not be serialized on
 	// every visit. The history page remains the unbounded, paginated view.
-	const [writeAccess, biomassDesc, fcrDesc, energyDevice, activeCycle, loadedPlan] =
-		await Promise.all([
-			canWrite(),
-			prisma.biomassLog.findMany({
-				where: { pondId: pond.id },
-				orderBy: { recordedAt: "desc" },
-				take: 60,
-				include: {
-					fishSamples: { select: { id: true, weightGrams: true, lengthCm: true } },
-				},
-			}),
-			prisma.fcrReport.findMany({
-				where: { pondId: pond.id },
-				orderBy: { periodEnd: "desc" },
-				take: 12,
-			}),
-			prisma.energyDevice.findFirst({
-				where: { pondId: pond.id },
-				orderBy: { createdAt: "asc" },
-				select: { id: true, gramsPerFeeding: true, hopperCapacityG: true },
-			}),
-			prisma.cropCycle.findFirst({
-				where: { pondId: pond.id, status: "ACTIVE" },
-				select: {
-					id: true,
-					label: true,
-					stockingDate: true,
-					stockingCount: true,
-					growOutDays: true,
-					targetHarvestDate: true,
-					targetHarvestWeightG: true,
-					expectedSurvivalPct: true,
-				},
-			}),
-			loadGrowthPlanForPond(pond.id, { ownerId: pond.ownerId }),
-		]);
+	const [
+		writeAccess,
+		biomassDesc,
+		earliestBiomass,
+		fcrDesc,
+		energyDevice,
+		activeCycle,
+		loadedPlan,
+	] = await Promise.all([
+		canWrite(),
+		prisma.biomassLog.findMany({
+			where: { pondId: pond.id },
+			orderBy: { recordedAt: "desc" },
+			take: 60,
+			include: {
+				fishSamples: { select: { id: true, weightGrams: true, lengthCm: true } },
+			},
+		}),
+		// "Overall since the first sampling" must not be limited to the 60-row
+		// chart window, so fetch only the oldest sample (bounded, pond-scoped).
+		prisma.biomassLog.findFirst({
+			where: { pondId: pond.id },
+			orderBy: [{ recordedAt: "asc" }, { id: "asc" }],
+			select: { recordedAt: true, avgWeightKg: true },
+		}),
+		prisma.fcrReport.findMany({
+			where: { pondId: pond.id },
+			orderBy: { periodEnd: "desc" },
+			take: 12,
+		}),
+		prisma.energyDevice.findFirst({
+			where: { pondId: pond.id },
+			orderBy: { createdAt: "asc" },
+			select: { id: true, gramsPerFeeding: true, hopperCapacityG: true },
+		}),
+		prisma.cropCycle.findFirst({
+			where: { pondId: pond.id, status: "ACTIVE" },
+			select: {
+				id: true,
+				label: true,
+				stockingDate: true,
+				stockingCount: true,
+				growOutDays: true,
+				targetHarvestDate: true,
+				targetHarvestWeightG: true,
+				expectedSurvivalPct: true,
+			},
+		}),
+		loadGrowthPlanForPond(pond.id, { ownerId: pond.ownerId }),
+	]);
 
 	const biomassLogs = biomassDesc.slice().reverse();
 	const fcrReports = fcrDesc.slice().reverse();
@@ -126,9 +140,19 @@ export default async function GrowthPage() {
 	}));
 	const sgrPoints = sgrSeries(sgrSamples);
 	const latestSgrPctPerDay = sgrPoints.at(-1)?.sgrPctPerDay ?? null;
-	const overallSgrPctPerDay = overallSgr(sgrSamples);
-	const sgrAverageDailyGainG = averageDailyGain(sgrSamples);
-	const sgrReason = sgrUnavailableReason(sgrSamples);
+	// Prefer the real first sampling for "overall"; fall back to the loaded set
+	// (correct whenever the pond has 60 samples or fewer, which is the common case).
+	const firstSgrSample = earliestBiomass
+		? { recordedAt: earliestBiomass.recordedAt, avgWeightKg: earliestBiomass.avgWeightKg }
+		: (sgrSamples[0] ?? null);
+	const latestSgrSample = sgrSamples.at(-1) ?? null;
+	const overallSgrSamples =
+		sgrSamples.length >= 2 && firstSgrSample && latestSgrSample
+			? [firstSgrSample, latestSgrSample]
+			: sgrSamples;
+	const overallSgrPctPerDay = overallSgr(overallSgrSamples);
+	const sgrAverageDailyGainG = averageDailyGain(overallSgrSamples);
+	const sgrReason = sgrUnavailableReason(overallSgrSamples);
 
 	const cycleContext = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
 

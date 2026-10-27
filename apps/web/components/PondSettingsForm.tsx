@@ -89,7 +89,7 @@ export function PondSettingsForm({ pond, canWrite = true }: PondSettingsFormProp
 			: null;
 
 	return (
-		<form onSubmit={handleSubmit} className="flex flex-col gap-6">
+		<form onSubmit={handleSubmit} className="flex flex-col gap-6" data-help="pond-settings-form">
 			<div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
 				<div>
 					<label htmlFor="feedingRate" className={dashboardLabel}>

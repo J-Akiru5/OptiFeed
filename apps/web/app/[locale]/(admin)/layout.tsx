@@ -1,6 +1,7 @@
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { AdminSidebar } from "@/components/admin-sidebar";
+import { HelpButton } from "@/components/help/help-button";
 import { Link } from "@/i18n/routing";
 import { requirePasswordChanged } from "@/lib/auth/session";
 import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
@@ -48,6 +49,7 @@ export default async function AdminLayout({
 				</div>
 
 				<div className="flex shrink-0 items-center gap-3">
+					<HelpButton audience="owner" />
 					<Link
 						href="/dashboard"
 						className="rounded-lg px-2 py-1 text-sm font-bold text-white/80 transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"

@@ -64,7 +64,11 @@ export default async function SuperadminUsersPage({
 				title={t("title")}
 				description={t("description", { count: users.total })}
 				actions={
-					<Link href="/superadmin/users/create" className={PRIMARY_BUTTON}>
+					<Link
+						href="/superadmin/users/create"
+						data-help="superadmin-new-user"
+						className={PRIMARY_BUTTON}
+					>
 						<Plus className="h-4 w-4" aria-hidden="true" />
 						{t("newAccount")}
 					</Link>
@@ -92,7 +96,11 @@ export default async function SuperadminUsersPage({
 									{tCommon("clearSearch")}
 								</Link>
 							) : (
-								<Link href="/superadmin/users/create" className={PRIMARY_BUTTON}>
+								<Link
+									href="/superadmin/users/create"
+									data-help="superadmin-new-user"
+									className={PRIMARY_BUTTON}
+								>
 									{t("newAccount")}
 								</Link>
 							)

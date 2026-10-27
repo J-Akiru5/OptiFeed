@@ -51,7 +51,7 @@ export function RecalibrationIntervalForm({
 	};
 
 	return (
-		<div className="space-y-2">
+		<div className="space-y-2" data-help="recalibration-interval">
 			<div className="flex flex-wrap items-end gap-3">
 				<div className="space-y-1">
 					<label

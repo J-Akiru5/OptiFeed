@@ -52,6 +52,7 @@ export function RemoteFeederControl({
 					setOpen(true);
 					setMessage(null);
 				}}
+				data-help="superadmin-remote-feed"
 				aria-label={t("openAria", { label })}
 				className={SECONDARY_BUTTON}
 			>

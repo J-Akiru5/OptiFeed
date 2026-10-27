@@ -183,6 +183,7 @@ export default async function SuperadminDevicesPage({
 									<div className="flex flex-col items-start gap-2">
 										<Link
 											href={{ pathname: LABELS_HREF, query: { id: device.id } }}
+											data-help="superadmin-print-sticker"
 											className={SECONDARY_BUTTON}
 										>
 											<Printer className="h-3.5 w-3.5" aria-hidden="true" />
@@ -272,6 +273,7 @@ export default async function SuperadminDevicesPage({
 										<div className="flex flex-col items-start gap-2">
 											<Link
 												href={{ pathname: LABELS_HREF, query: { id: device.id } }}
+												data-help="superadmin-print-sticker"
 												className={SECONDARY_BUTTON}
 											>
 												<Printer className="h-3.5 w-3.5" aria-hidden="true" />

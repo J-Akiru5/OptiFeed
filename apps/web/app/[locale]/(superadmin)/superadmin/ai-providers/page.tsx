@@ -22,7 +22,9 @@ export default async function SuperadminAiProvidersPage() {
 				</p>
 			</Card>
 
-			<AiProviderSettings providers={providers} />
+			<div data-help="superadmin-ai-providers">
+				<AiProviderSettings providers={providers} />
+			</div>
 		</div>
 	);
 }

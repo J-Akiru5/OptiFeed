@@ -43,6 +43,7 @@ export function ExportPdfButton({ className }: { className?: string }) {
 			type="button"
 			onClick={handleExport}
 			disabled={loading}
+			data-help="dashboard-export"
 			className={`flex items-center gap-2 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#12588c] disabled:opacity-50 ${className ?? ""}`}
 		>
 			<Download className="h-4 w-4" />

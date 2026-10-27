@@ -103,6 +103,7 @@ export function DataExportButton() {
 			<button
 				type="button"
 				onClick={() => setOpen(true)}
+				data-help="export-data"
 				className={cn(dashboardButtonPrimary, "w-full sm:w-auto")}
 			>
 				<Download aria-hidden="true" className="h-4 w-4" /> {t("export")}
@@ -247,6 +248,7 @@ export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 				type="button"
 				onClick={() => setOpen(true)}
 				disabled={!canWrite}
+				data-help="history-import"
 				className={cn(dashboardButtonSecondary, "w-full sm:w-auto")}
 			>
 				<Upload aria-hidden="true" className="w-4 h-4" /> {t("import")}

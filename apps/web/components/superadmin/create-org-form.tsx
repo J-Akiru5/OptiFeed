@@ -51,7 +51,12 @@ export function CreateOrgForm() {
 	};
 
 	return (
-		<form onSubmit={handleSubmit} className={cn(CARD, "space-y-4 p-6")} aria-busy={isPending}>
+		<form
+			onSubmit={handleSubmit}
+			data-help="superadmin-create-org"
+			className={cn(CARD, "space-y-4 p-6")}
+			aria-busy={isPending}
+		>
 			<h2 className="text-xs font-extrabold uppercase tracking-wider text-[#3D5568]">
 				{t("title")}
 			</h2>

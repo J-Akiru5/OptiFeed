@@ -1,4 +1,5 @@
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
+import { HelpButton } from "@/components/help/help-button";
 import { SuperadminBottomNav } from "@/components/superadmin-bottom-nav";
 import { SuperadminSidebar } from "@/components/superadmin-sidebar";
 import { FOCUS_RING_ON_DARK } from "@/components/superadmin/ui";
@@ -61,6 +62,7 @@ export default async function SuperadminLayout({
 				</div>
 
 				<div className="flex shrink-0 items-center gap-3">
+					<HelpButton audience="superadmin" />
 					<Link
 						href="/dashboard"
 						className={cn(

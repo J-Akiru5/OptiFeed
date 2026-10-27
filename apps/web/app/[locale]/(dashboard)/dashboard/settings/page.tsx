@@ -107,7 +107,11 @@ export default async function SettingsPage() {
 				/>
 			)}
 
-			<nav aria-label={t("cardsLabel")} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+			<nav
+				aria-label={t("cardsLabel")}
+				data-help="settings-cards"
+				className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
+			>
 				{cards.map((card) => (
 					<Link
 						key={card.href}

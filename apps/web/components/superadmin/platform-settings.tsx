@@ -83,6 +83,7 @@ export function PlatformListSettings({
 						max={max}
 						step={1}
 						required
+						data-help="superadmin-page-size"
 						value={value}
 						onChange={(event) => setValue(event.target.value)}
 						className={`${FIELD_INPUT} mt-1`}

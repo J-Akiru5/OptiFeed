@@ -76,7 +76,10 @@ export function FeedLevelCard({
 					: t("noData");
 
 	return (
-		<div className="rounded-3xl bg-white dark:bg-gray-900 p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 transition-shadow hover:shadow-md">
+		<div
+			className="rounded-3xl bg-white dark:bg-gray-900 p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 transition-shadow hover:shadow-md"
+			data-help="dashboard-hopper"
+		>
 			<div className="flex items-center justify-between mb-4">
 				<div className="flex items-center gap-3">
 					<div className="h-11 w-11 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">

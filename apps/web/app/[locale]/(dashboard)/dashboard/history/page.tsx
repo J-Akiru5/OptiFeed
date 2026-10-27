@@ -167,7 +167,10 @@ export default async function HistoryPage() {
 				</div>
 			</div>
 
-			<div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden">
+			<div
+				data-help="history-event-log"
+				className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden"
+			>
 				<div className="p-6 border-b border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50">
 					<h2 className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
 						<CalendarDays aria-hidden="true" className="h-5 w-5 text-gray-500" /> {t("eventLog")}

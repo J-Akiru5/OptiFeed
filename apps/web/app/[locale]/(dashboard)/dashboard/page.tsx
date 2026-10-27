@@ -334,6 +334,7 @@ export default async function DashboardHomePage() {
 				<div
 					className="col-span-1 md:col-span-8 bg-white dark:bg-gray-900 rounded-3xl p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50 flex flex-col justify-between min-h-[300px] relative overflow-hidden"
 					data-onboard="next-feeding"
+					data-help="next-feeding"
 				>
 					<div
 						aria-hidden="true"
@@ -411,6 +412,7 @@ export default async function DashboardHomePage() {
 					href="/dashboard/growth"
 					className="col-span-1 md:col-span-4 bg-[#0A3D62] rounded-3xl p-6 md:p-8 text-white flex flex-col justify-between min-h-[300px] relative overflow-hidden shadow-md hover:bg-[#0d4a76] transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C]"
 					data-onboard="fcr"
+					data-help="fcr"
 				>
 					<div
 						aria-hidden="true"
@@ -521,7 +523,10 @@ export default async function DashboardHomePage() {
 				</div>
 
 				{/* Tile 6: Recent feeding logs (12 cols) */}
-				<div className="col-span-1 md:col-span-12 bg-white dark:bg-gray-900 rounded-3xl p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50">
+				<div
+					className="col-span-1 md:col-span-12 bg-white dark:bg-gray-900 rounded-3xl p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50"
+					data-help="dashboard-feed-log"
+				>
 					<div className="flex flex-wrap justify-between items-center gap-3 mb-6">
 						<div>
 							<h2 className="text-lg md:text-xl font-black uppercase tracking-tight text-[#0A3D62] dark:text-[#5b9bd5]">
@@ -590,7 +595,10 @@ export default async function DashboardHomePage() {
 
 				{/* Tile 7: Recent biomass logs (12 cols) */}
 				{recentBiomassLogs.length > 0 && (
-					<div className="col-span-1 md:col-span-12 bg-white dark:bg-gray-900 rounded-3xl p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50">
+					<div
+						className="col-span-1 md:col-span-12 bg-white dark:bg-gray-900 rounded-3xl p-6 md:p-8 shadow-md border border-[#0A3D62]/5 dark:border-gray-700/50"
+						data-help="dashboard-biomass-log"
+					>
 						<div className="flex flex-wrap justify-between items-center gap-3 mb-6">
 							<div>
 								<h2 className="text-lg md:text-xl font-black uppercase tracking-tight text-[#0A3D62] dark:text-[#5b9bd5]">

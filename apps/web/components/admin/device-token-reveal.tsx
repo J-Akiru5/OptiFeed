@@ -82,7 +82,7 @@ export function DeviceTokenReveal({ deviceId, deviceLabel }: DeviceTokenRevealPr
 	}
 
 	return (
-		<div className="flex min-w-[11rem] flex-col items-start gap-2">
+		<div className="flex min-w-[11rem] flex-col items-start gap-2" data-help="device-token">
 			<button
 				type="button"
 				onClick={handleReveal}

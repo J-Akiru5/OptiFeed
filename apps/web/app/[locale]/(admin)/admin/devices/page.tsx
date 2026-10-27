@@ -74,7 +74,7 @@ export default async function AdminDevicesPage({
 	const feedLevelUpdatedAt = new Map(readingTimes.map((row) => [row.id, row.feedLevelUpdatedAt]));
 
 	return (
-		<div className="space-y-6">
+		<div className="space-y-6" data-help="admin-devices-list">
 			<AdminPageHeader
 				icon={Cpu}
 				title={t("title")}
@@ -224,6 +224,7 @@ export default async function AdminDevicesPage({
 												/>
 												<Link
 													href={{ pathname: LABELS_HREF, query: { id: device.id } }}
+													data-help="print-label"
 													className={adminButtonSecondary}
 												>
 													<Printer aria-hidden="true" className="h-3.5 w-3.5" />
@@ -318,6 +319,7 @@ export default async function AdminDevicesPage({
 											</label>
 											<Link
 												href={{ pathname: LABELS_HREF, query: { id: device.id } }}
+												data-help="print-label"
 												className={adminButtonSecondary}
 											>
 												<Printer aria-hidden="true" className="h-3.5 w-3.5" />

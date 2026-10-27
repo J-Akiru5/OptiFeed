@@ -137,7 +137,11 @@ export default async function SuperadminOrgsPage({
 								</dl>
 
 								<div className="flex flex-wrap items-center gap-2">
-									<Link href={`/superadmin/orgs/${org.id}`} className={SECONDARY_BUTTON}>
+									<Link
+										href={`/superadmin/orgs/${org.id}`}
+										data-help="superadmin-org-members"
+										className={SECONDARY_BUTTON}
+									>
 										{t("manageMembers")}
 									</Link>
 									<ViewAsControl orgId={org.id} orgName={org.name} />
@@ -201,7 +205,11 @@ export default async function SuperadminOrgsPage({
 								</td>
 								<td className="px-6 py-4">
 									<div className="flex flex-wrap items-center gap-2">
-										<Link href={`/superadmin/orgs/${org.id}`} className={SECONDARY_BUTTON}>
+										<Link
+											href={`/superadmin/orgs/${org.id}`}
+											data-help="superadmin-org-members"
+											className={SECONDARY_BUTTON}
+										>
 											{t("manageMembers")}
 										</Link>
 										<ViewAsControl orgId={org.id} orgName={org.name} />

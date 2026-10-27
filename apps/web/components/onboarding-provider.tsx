@@ -17,8 +17,9 @@ const VIEWPORT_MARGIN = 12;
 type StepData = { side: TourSide; align: TourAlign };
 type PopoverState = { wrapper: HTMLElement } | undefined;
 
-const OnboardingContext = createContext<{ startTour: () => void }>({
+const OnboardingContext = createContext<{ startTour: () => void; hasTour: boolean }>({
 	startTour: () => {},
+	hasTour: false,
 });
 
 export function useOnboarding() {
@@ -39,7 +40,9 @@ function elementRect(element: Element | null): TourRect | null {
 }
 
 function fabAvoidRect(): TourRect | null {
-	const help = document.querySelector<HTMLElement>('[aria-label="Start onboarding tour"]');
+	const help = document.querySelector<HTMLElement>(
+		'[data-fab-help], [aria-label="Start onboarding tour"]',
+	);
 	const cluster = help?.parentElement;
 	if (!cluster) return null;
 	const rect = cluster.getBoundingClientRect();
@@ -195,5 +198,9 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 		}
 	}, [startTour]);
 
-	return <OnboardingContext.Provider value={{ startTour }}>{children}</OnboardingContext.Provider>;
+	return (
+		<OnboardingContext.Provider value={{ startTour, hasTour: true }}>
+			{children}
+		</OnboardingContext.Provider>
+	);
 }

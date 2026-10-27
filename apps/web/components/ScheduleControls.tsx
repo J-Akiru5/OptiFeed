@@ -74,7 +74,10 @@ export function ScheduleControls({
 	};
 
 	return (
-		<div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+		<div
+			className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col sm:flex-row items-center justify-between gap-6"
+			data-help="schedule-controls"
+		>
 			{/* Pause / Resume Toggle */}
 			<div className="flex items-center gap-4">
 				<div

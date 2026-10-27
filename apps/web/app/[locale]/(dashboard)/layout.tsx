@@ -189,7 +189,7 @@ export default async function DashboardLayout({
 
 					<ChatWidget />
 					<BottomNav />
-					<FabStack />
+					<FabStack audience={isTenantAdmin ? "owner" : "farmer"} />
 				</div>
 			</OnboardingProvider>
 		</ChatWidgetProvider>

@@ -12,7 +12,9 @@ import {
 	TableFrame,
 } from "@/components/superadmin/ui";
 import { ViewAsControl } from "@/components/superadmin/view-as-control";
+import { ItemCardGrid } from "@/components/ui/item-card";
 import { Pagination } from "@/components/ui/pagination";
+import { ListView } from "@/components/ui/view-toggle";
 import { Link, getPathname } from "@/i18n/routing";
 import { listOrgs } from "@/lib/actions/superadmin";
 import { formatDateTimeLocal } from "@/lib/date-local";
@@ -95,8 +97,13 @@ export default async function SuperadminOrgsPage({
 					/>
 				</Card>
 			) : (
-				<>
-					<ul className="space-y-3 md:hidden">
+				<ListView
+					pageKey="superadmin-orgs"
+					listLabel={tCommon("viewToggle.list")}
+					cardsLabel={tCommon("viewToggle.cards")}
+					toggleLabel={tCommon("viewToggle.label")}
+				>
+					<ItemCardGrid label={t("caption")}>
 						{orgs.rows.map((org) => (
 							<MobileCard key={org.id}>
 								<div className="flex items-start gap-3">
@@ -137,7 +144,7 @@ export default async function SuperadminOrgsPage({
 								</div>
 							</MobileCard>
 						))}
-					</ul>
+					</ItemCardGrid>
 
 					<TableFrame
 						className="hidden md:block"
@@ -203,7 +210,7 @@ export default async function SuperadminOrgsPage({
 							</tr>
 						))}
 					</TableFrame>
-				</>
+				</ListView>
 			)}
 
 			<Pagination

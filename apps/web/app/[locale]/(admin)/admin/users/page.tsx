@@ -3,7 +3,6 @@ import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import {
 	AdminCard,
-	AdminCardList,
 	AdminCardRow,
 	AdminTHead,
 	AdminTable,
@@ -11,7 +10,9 @@ import {
 	AdminTh,
 	AdminTr,
 } from "@/components/admin/admin-table";
+import { ItemCardGrid } from "@/components/ui/item-card";
 import { Pagination } from "@/components/ui/pagination";
+import { ListView } from "@/components/ui/view-toggle";
 import { Link } from "@/i18n/routing";
 import { getUsers } from "@/lib/actions/admin";
 import { formatDateTimeLocal } from "@/lib/date-local";
@@ -86,7 +87,12 @@ export default async function AdminUsersPage({
 					}
 				/>
 			) : (
-				<>
+				<ListView
+					pageKey="admin-users"
+					listLabel={tCommon("viewToggle.list")}
+					cardsLabel={tCommon("viewToggle.cards")}
+					toggleLabel={tCommon("viewToggle.label")}
+				>
 					<AdminTable caption={t("caption")} minWidth="min-w-[46rem]">
 						<AdminTHead>
 							<AdminTh>{t("columnUser")}</AdminTh>
@@ -156,7 +162,7 @@ export default async function AdminUsersPage({
 						</tbody>
 					</AdminTable>
 
-					<AdminCardList>
+					<ItemCardGrid label={t("caption")}>
 						{users.map((user) => {
 							const badge = roleBadge[user.role] ?? roleBadge.VIEWER;
 							const Icon = badge.icon;
@@ -209,8 +215,8 @@ export default async function AdminUsersPage({
 								</AdminCard>
 							);
 						})}
-					</AdminCardList>
-				</>
+					</ItemCardGrid>
+				</ListView>
 			)}
 
 			{usersPage.total > 0 && (

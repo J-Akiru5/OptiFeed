@@ -3,7 +3,6 @@ import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import {
 	AdminCard,
-	AdminCardList,
 	AdminCardRow,
 	AdminTHead,
 	AdminTable,
@@ -13,7 +12,9 @@ import {
 } from "@/components/admin/admin-table";
 import { DeviceTokenReveal } from "@/components/admin/device-token-reveal";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
+import { ItemCardGrid } from "@/components/ui/item-card";
 import { Pagination } from "@/components/ui/pagination";
+import { ListView } from "@/components/ui/view-toggle";
 import { Link, getPathname } from "@/i18n/routing";
 import { getDevices } from "@/lib/actions/admin";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
@@ -88,7 +89,12 @@ export default async function AdminDevicesPage({
 			{devices.length === 0 ? (
 				<AdminEmptyState icon={Cpu} title={t("emptyTitle")} description={t("emptyDesc")} />
 			) : (
-				<>
+				<ListView
+					pageKey="admin-devices"
+					listLabel={tCommon("viewToggle.list")}
+					cardsLabel={tCommon("viewToggle.cards")}
+					toggleLabel={tCommon("viewToggle.label")}
+				>
 					<AdminTable caption={t("caption")} minWidth="min-w-[64rem]">
 						<AdminTHead>
 							<AdminTh>{t("columnDevice")}</AdminTh>
@@ -193,7 +199,7 @@ export default async function AdminDevicesPage({
 						</tbody>
 					</AdminTable>
 
-					<AdminCardList>
+					<ItemCardGrid label={t("caption")}>
 						{devices.map((device) => {
 							const now = new Date();
 							const isOffline =
@@ -273,8 +279,8 @@ export default async function AdminDevicesPage({
 								</AdminCard>
 							);
 						})}
-					</AdminCardList>
-				</>
+					</ItemCardGrid>
+				</ListView>
 			)}
 
 			{devicesPage.total > 0 && (

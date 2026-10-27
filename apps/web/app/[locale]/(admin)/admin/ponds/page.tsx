@@ -1,8 +1,18 @@
 import { adminButtonPrimary } from "@/components/admin/admin-classes";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import {
+	AdminCard,
+	AdminTHead,
+	AdminTable,
+	AdminTd,
+	AdminTh,
+	AdminTr,
+} from "@/components/admin/admin-table";
 import { PondStatusToggle } from "@/components/admin/pond-status-toggle";
+import { ItemCardGrid } from "@/components/ui/item-card";
 import { Pagination } from "@/components/ui/pagination";
+import { ListView } from "@/components/ui/view-toggle";
 import { Link } from "@/i18n/routing";
 import { getPonds } from "@/lib/actions/admin";
 import { parsePage } from "@/lib/pagination";
@@ -63,88 +73,150 @@ export default async function AdminPondsPage({
 					}
 				/>
 			) : (
-				<ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-					{ponds.map((pond) => (
-						<li
-							key={pond.id}
-							className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700/60 dark:bg-gray-900"
-						>
-							<div className="flex items-start justify-between gap-3">
-								<div className="min-w-0">
-									<div className="flex min-w-0 flex-wrap items-center gap-2">
-										<h2 className="truncate text-lg font-black text-[#0A3D62] dark:text-gray-100">
-											{pond.name}
-										</h2>
+				<ListView
+					pageKey="admin-ponds"
+					listLabel={tCommon("viewToggle.list")}
+					cardsLabel={tCommon("viewToggle.cards")}
+					toggleLabel={tCommon("viewToggle.label")}
+				>
+					<AdminTable caption={t("caption")} minWidth="min-w-[52rem]">
+						<AdminTHead>
+							<AdminTh>{t("columnPond")}</AdminTh>
+							<AdminTh>{tCommon("owner")}</AdminTh>
+							<AdminTh>{t("feedsPerDay")}</AdminTh>
+							<AdminTh>{tCommon("devices")}</AdminTh>
+							<AdminTh>{t("logs")}</AdminTh>
+							<AdminTh>{tCommon("actions")}</AdminTh>
+						</AdminTHead>
+						<tbody>
+							{ponds.map((pond) => (
+								<AdminTr key={pond.id}>
+									<AdminTd>
+										<p className="font-black text-[#0A3D62] dark:text-gray-100">{pond.name}</p>
+										<p className="mt-0.5 font-mono text-[11px] text-[#3D5568] dark:text-gray-400">
+											{t("idLabel", { id: pond.id.slice(0, 12) })}
+										</p>
 										<span
-											className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-black tracking-wider uppercase ${
+											className={`mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[10px] font-black tracking-wider uppercase ${
 												statusStyles[pond.status]?.bg ?? statusStyles.ACTIVE.bg
 											} ${statusStyles[pond.status]?.text ?? statusStyles.ACTIVE.text}`}
 										>
 											{pond.status === "ARCHIVED" ? t("statusArchived") : t("statusActive")}
 										</span>
-									</div>
-									<p className="mt-0.5 font-mono text-[11px] text-[#3D5568] dark:text-gray-400">
-										{t("idLabel", { id: pond.id.slice(0, 12) })}
-									</p>
-								</div>
-								<span
-									aria-hidden="true"
-									className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0A3D62]/10 dark:bg-white/10"
-								>
-									<Droplets className="h-5 w-5 text-[#0A3D62] dark:text-[#8fc0ea]" />
-								</span>
-							</div>
-
-							<dl className="grid grid-cols-2 gap-3 text-xs">
-								<div className="rounded-xl bg-[#F4F7F6] p-2.5 dark:bg-gray-800">
-									<dt className="text-[10px] font-black tracking-wider text-[#3D5568] uppercase dark:text-gray-400">
-										{tCommon("owner")}
-									</dt>
-									<dd className="mt-0.5 font-bold break-words text-[#0A3D62] dark:text-gray-100">
-										{pond.owner?.displayName || pond.ownerId}
-									</dd>
-									{pond.farm && (
-										<dd className="mt-0.5 text-[10px] text-[#3D5568] dark:text-gray-400">
-											{tCommon("farm")}: {pond.farm.name}
-										</dd>
-									)}
-								</div>
-								<div className="rounded-xl bg-[#F4F7F6] p-2.5 dark:bg-gray-800">
-									<dt className="text-[10px] font-black tracking-wider text-[#3D5568] uppercase dark:text-gray-400">
-										{t("feedsPerDay")}
-									</dt>
-									<dd className="mt-0.5 font-bold text-[#0A3D62] tabular-nums dark:text-gray-100">
+									</AdminTd>
+									<AdminTd>
+										<p className="text-xs font-black text-[#0A3D62] dark:text-gray-100">
+											{pond.owner?.displayName || pond.ownerId}
+										</p>
+										<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
+											{pond.farm ? `${tCommon("farm")}: ${pond.farm.name}` : pond.ownerId}
+										</p>
+									</AdminTd>
+									<AdminTd className="text-xs font-bold text-[#0A3D62] tabular-nums dark:text-gray-100">
 										{pond.feedsPerDay}
-									</dd>
-								</div>
-								<div className="rounded-xl bg-[#F4F7F6] p-2.5 dark:bg-gray-800">
-									<dt className="text-[10px] font-black tracking-wider text-[#3D5568] uppercase dark:text-gray-400">
-										{tCommon("devices")}
-									</dt>
-									<dd className="mt-0.5 flex items-center gap-1 font-bold text-[#0A3D62] tabular-nums dark:text-gray-100">
-										<Cpu aria-hidden="true" className="h-3 w-3" />
+									</AdminTd>
+									<AdminTd className="text-xs font-bold text-[#0A3D62] tabular-nums dark:text-gray-100">
 										{pond.energyDevices.length}
-									</dd>
-								</div>
-								<div className="rounded-xl bg-[#F4F7F6] p-2.5 dark:bg-gray-800">
-									<dt className="text-[10px] font-black tracking-wider text-[#3D5568] uppercase dark:text-gray-400">
-										{t("logs")}
-									</dt>
-									<dd className="mt-0.5 font-bold text-[#0A3D62] tabular-nums dark:text-gray-100">
-										{pond._count.biomassLogs}
-									</dd>
-								</div>
-							</dl>
+									</AdminTd>
+									<AdminTd>
+										<p className="text-xs font-bold text-[#0A3D62] tabular-nums dark:text-gray-100">
+											{pond._count.biomassLogs}
+										</p>
+										<p className="text-[10px] text-[#3D5568] dark:text-gray-400">
+											{t("ownershipHistory", { count: pond._count.ownershipHistory })}
+										</p>
+									</AdminTd>
+									<AdminTd>
+										<PondStatusToggle pondId={pond.id} status={pond.status} />
+									</AdminTd>
+								</AdminTr>
+							))}
+						</tbody>
+					</AdminTable>
 
-							<div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
-								<p className="text-[11px] font-bold text-[#3D5568] dark:text-gray-400">
-									{t("ownershipHistory", { count: pond._count.ownershipHistory })}
-								</p>
-								<PondStatusToggle pondId={pond.id} status={pond.status} />
-							</div>
-						</li>
-					))}
-				</ul>
+					<ItemCardGrid label={t("caption")}>
+						{ponds.map((pond) => (
+							<li
+								key={pond.id}
+								className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700/60 dark:bg-gray-900"
+							>
+								<div className="flex items-start justify-between gap-3">
+									<div className="min-w-0">
+										<div className="flex min-w-0 flex-wrap items-center gap-2">
+											<h2 className="truncate text-lg font-black text-[#0A3D62] dark:text-gray-100">
+												{pond.name}
+											</h2>
+											<span
+												className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-black tracking-wider uppercase ${
+													statusStyles[pond.status]?.bg ?? statusStyles.ACTIVE.bg
+												} ${statusStyles[pond.status]?.text ?? statusStyles.ACTIVE.text}`}
+											>
+												{pond.status === "ARCHIVED" ? t("statusArchived") : t("statusActive")}
+											</span>
+										</div>
+										<p className="mt-0.5 font-mono text-[11px] text-[#3D5568] dark:text-gray-400">
+											{t("idLabel", { id: pond.id.slice(0, 12) })}
+										</p>
+									</div>
+									<span
+										aria-hidden="true"
+										className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0A3D62]/10 dark:bg-white/10"
+									>
+										<Droplets className="h-5 w-5 text-[#0A3D62] dark:text-[#8fc0ea]" />
+									</span>
+								</div>
+
+								<dl className="grid grid-cols-2 gap-3 text-xs">
+									<div className="rounded-xl bg-[#F4F7F6] p-2.5 dark:bg-gray-800">
+										<dt className="text-[10px] font-black tracking-wider text-[#3D5568] uppercase dark:text-gray-400">
+											{tCommon("owner")}
+										</dt>
+										<dd className="mt-0.5 font-bold break-words text-[#0A3D62] dark:text-gray-100">
+											{pond.owner?.displayName || pond.ownerId}
+										</dd>
+										{pond.farm && (
+											<dd className="mt-0.5 text-[10px] text-[#3D5568] dark:text-gray-400">
+												{tCommon("farm")}: {pond.farm.name}
+											</dd>
+										)}
+									</div>
+									<div className="rounded-xl bg-[#F4F7F6] p-2.5 dark:bg-gray-800">
+										<dt className="text-[10px] font-black tracking-wider text-[#3D5568] uppercase dark:text-gray-400">
+											{t("feedsPerDay")}
+										</dt>
+										<dd className="mt-0.5 font-bold text-[#0A3D62] tabular-nums dark:text-gray-100">
+											{pond.feedsPerDay}
+										</dd>
+									</div>
+									<div className="rounded-xl bg-[#F4F7F6] p-2.5 dark:bg-gray-800">
+										<dt className="text-[10px] font-black tracking-wider text-[#3D5568] uppercase dark:text-gray-400">
+											{tCommon("devices")}
+										</dt>
+										<dd className="mt-0.5 flex items-center gap-1 font-bold text-[#0A3D62] tabular-nums dark:text-gray-100">
+											<Cpu aria-hidden="true" className="h-3 w-3" />
+											{pond.energyDevices.length}
+										</dd>
+									</div>
+									<div className="rounded-xl bg-[#F4F7F6] p-2.5 dark:bg-gray-800">
+										<dt className="text-[10px] font-black tracking-wider text-[#3D5568] uppercase dark:text-gray-400">
+											{t("logs")}
+										</dt>
+										<dd className="mt-0.5 font-bold text-[#0A3D62] tabular-nums dark:text-gray-100">
+											{pond._count.biomassLogs}
+										</dd>
+									</div>
+								</dl>
+
+								<div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
+									<p className="text-[11px] font-bold text-[#3D5568] dark:text-gray-400">
+										{t("ownershipHistory", { count: pond._count.ownershipHistory })}
+									</p>
+									<PondStatusToggle pondId={pond.id} status={pond.status} />
+								</div>
+							</li>
+						))}
+					</ItemCardGrid>
+				</ListView>
 			)}
 
 			{pondsPage.total > 0 && (

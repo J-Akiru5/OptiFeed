@@ -1542,6 +1542,8 @@
 			"acknowledged": "Gin-acknowledge",
 			"alert": "Alerto",
 			"auditLink": "Audit",
+			"receivedAt": "Natanggap",
+			"actions": "Mga aksyon",
 			"tiers": {
 				"CRITICAL": "KRITIKAL",
 				"WARNING": "PAANDAM",
@@ -1676,6 +1678,11 @@
 				"next": "Masunod",
 				"showing": "Ginapakita {from}–{to} sang {total}",
 				"label": "Pagpahina"
+			},
+			"viewToggle": {
+				"label": "Pili-a ang dagway",
+				"list": "Lista",
+				"cards": "Mga kard"
 			}
 		},
 		"adminOverview": {
@@ -1705,6 +1712,7 @@
 			"emptyDesc": "I-register ang mangunguma kag ang iya una nga punong para makasugod.",
 			"emptyAction": "I-register ang Mangunguma kag Punong",
 			"caption": "Mga punong sa imo organisasyon",
+			"columnPond": "Punong",
 			"archive": "I-archive",
 			"restore": "Ibalik",
 			"updating": "Gina-update…"
@@ -1811,6 +1819,11 @@
 				"next": "Masunod",
 				"showing": "Ginapakita {from}–{to} sang {total}",
 				"label": "Pagpahina"
+			},
+			"viewToggle": {
+				"label": "Pili-a ang dagway",
+				"list": "Lista",
+				"cards": "Mga kard"
 			}
 		}
 	},
@@ -1932,6 +1945,11 @@
 				"next": "Masunod",
 				"showing": "Ginapakita {from}–{to} sang {total}",
 				"label": "Pagpahina"
+			},
+			"viewToggle": {
+				"label": "Pili-a ang dagway",
+				"list": "Lista",
+				"cards": "Mga kard"
 			}
 		},
 		"roles": {

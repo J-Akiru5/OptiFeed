@@ -1,5 +1,7 @@
 "use client";
 
+import { ItemCardGrid } from "@/components/ui/item-card";
+import { ListView } from "@/components/ui/view-toggle";
 import { Link, useRouter } from "@/i18n/routing";
 import { changeMemberRole, inviteMember, revokeMember } from "@/lib/actions/admin";
 import type { TenantMemberOrgOption, TenantMemberRow } from "@/lib/actions/admin";
@@ -166,6 +168,188 @@ export function MembersSettings({
 		} catch {
 			toast.error(t("copyFailed"));
 		}
+	}
+
+	function memberAccess(member: TenantMemberRow) {
+		const isOwnerTarget = member.role === "OWNER";
+		const ownerLocked = isOwnerTarget && member.callerRole !== "OWNER";
+		return {
+			ownerLocked,
+			canEditRole: canManage && !member.isSelf && !member.isPlatformAdmin && !ownerLocked,
+			canEditPermissions: canManage && !member.isPlatformAdmin && !ownerLocked,
+			canRevoke:
+				canManage &&
+				!member.isSelf &&
+				!member.isPlatformAdmin &&
+				!member.isLastOwner &&
+				!ownerLocked,
+		};
+	}
+
+	const memberName = (member: TenantMemberRow) => member.displayName || member.farmId;
+
+	/** Name, e-mail, farm id and the self/platform/last-owner badges (both views). */
+	function renderIdentity(member: TenantMemberRow) {
+		return (
+			<>
+				<div className="flex flex-wrap items-center gap-1.5">
+					<p className="font-black text-[#0A3D62] dark:text-gray-100">{memberName(member)}</p>
+					{member.isSelf && (
+						<span className="rounded-full bg-[#E8EEF5] px-2 py-0.5 text-[9px] font-black tracking-wider text-[#0A3D62] uppercase dark:bg-white/10 dark:text-[#8fc0ea]">
+							{t("selfBadge")}
+						</span>
+					)}
+					{member.isPlatformAdmin && (
+						<span className="rounded-full bg-[#C2410C] px-2 py-0.5 text-[9px] font-black tracking-wider text-white uppercase">
+							{t("platformAdminBadge")}
+						</span>
+					)}
+					{member.isLastOwner && (
+						<span className="rounded-full bg-[#FDE8EA] px-2 py-0.5 text-[9px] font-black tracking-wider text-[#C42B3A] uppercase dark:bg-red-950/50 dark:text-red-300">
+							{t("lastOwnerBadge")}
+						</span>
+					)}
+				</div>
+				<p className="text-[11px] text-[#3D5568] dark:text-gray-400">{member.email}</p>
+				<p className="font-mono text-[10px] text-[#3D5568] dark:text-gray-400">{member.farmId}</p>
+			</>
+		);
+	}
+
+	/** Role select, or the read-only role pill plus the reason it is locked. */
+	function renderRole(member: TenantMemberRow, isPending: boolean) {
+		const { canEditRole, ownerLocked } = memberAccess(member);
+		return (
+			<>
+				{canEditRole ? (
+					<>
+						<select
+							value={member.role}
+							onChange={(event) => handleRoleChange(member, event.target.value)}
+							disabled={isPending}
+							aria-label={t("changeRole", { name: memberName(member) })}
+							className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-bold text-[#0A3D62] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+						>
+							{MEMBER_ROLES.map((role) => (
+								<option
+									key={role}
+									value={role}
+									disabled={
+										(role === "OWNER" && member.callerRole !== "OWNER") ||
+										(member.isLastOwner && role !== "OWNER")
+									}
+								>
+									{t(`role.${role}`)}
+								</option>
+							))}
+						</select>
+						{member.isLastOwner && (
+							<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#C42B3A] dark:text-red-300">
+								{t("lastOwnerLocked")}
+							</p>
+						)}
+					</>
+				) : (
+					<span className="inline-flex rounded-full bg-[#0A3D62] px-2.5 py-1 text-[10px] font-black tracking-wider text-white uppercase dark:bg-[#8fc0ea]/20 dark:text-[#8fc0ea]">
+						{t(`role.${member.role}`)}
+					</span>
+				)}
+				{member.isSelf && (
+					<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#3D5568] dark:text-gray-400">
+						{t("selfRoleLocked")}
+					</p>
+				)}
+				{member.isPlatformAdmin && (
+					<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#3D5568] dark:text-gray-400">
+						{t("platformAdminLocked")}
+					</p>
+				)}
+				{ownerLocked && (
+					<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#3D5568] dark:text-gray-400">
+						{t("ownerLocked")}
+					</p>
+				)}
+			</>
+		);
+	}
+
+	/** Permission count plus the link to the permissions page (or "view only"). */
+	function renderPermissions(member: TenantMemberRow) {
+		const { canEditPermissions } = memberAccess(member);
+		return (
+			<>
+				<p className="mb-1 text-[11px] font-bold text-[#3D5568] dark:text-gray-400">
+					{t("permissionsSummary", { count: member.permissions.length })}
+				</p>
+				{canEditPermissions ? (
+					<Link
+						href={`/admin/settings/members/${member.userId}/permissions`}
+						aria-label={`${t("permissionsButton")} — ${memberName(member)}`}
+						className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[#0A3D62]/20 px-3 text-xs font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6] dark:border-gray-600 dark:text-[#8fc0ea] dark:hover:bg-gray-800 ${focusRing}`}
+					>
+						<KeyRound aria-hidden="true" className="h-3.5 w-3.5" />
+						{t("permissionsButton")}
+					</Link>
+				) : (
+					<span className="text-[10px] font-medium text-[#3D5568] dark:text-gray-400">
+						{t("viewOnly")}
+					</span>
+				)}
+			</>
+		);
+	}
+
+	/** Revoke button with its two-step confirm. */
+	function renderRevoke(member: TenantMemberRow, isPending: boolean) {
+		const { canRevoke } = memberAccess(member);
+		if (!canRevoke) {
+			return (
+				<>
+					<span className="text-[10px] font-medium text-[#3D5568] dark:text-gray-400">
+						{tCommon("none")}
+					</span>
+					{member.isLastOwner && (
+						<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#C42B3A] dark:text-red-300">
+							{t("lastOwnerLocked")}
+						</p>
+					)}
+				</>
+			);
+		}
+		return (
+			<>
+				{revokeConfirm === member.membershipId ? (
+					<div className="flex flex-wrap gap-1.5">
+						<button
+							type="button"
+							onClick={() => handleRevoke(member)}
+							disabled={isPending}
+							aria-busy={isPending}
+							className={`inline-flex items-center gap-1 rounded-lg bg-[#C42B3A] px-2.5 py-1.5 text-[10px] font-black text-white hover:bg-[#a92330] disabled:opacity-60 ${focusRing}`}
+						>
+							{isPending && <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" />}
+							{t("confirmRevoke")}
+						</button>
+						<button
+							type="button"
+							onClick={() => setRevokeConfirm(null)}
+							disabled={isPending}
+							className={`rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-black text-[#3D5568] ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-60 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-800 ${focusRing}`}
+						>
+							{t("cancel")}
+						</button>
+					</div>
+				) : (
+					<button
+						type="button"
+						onClick={() => setRevokeConfirm(member.membershipId)}
+						className={`rounded-lg border border-[#C42B3A]/30 px-2.5 py-1.5 text-[10px] font-black text-[#C42B3A] transition-colors hover:bg-[#FDE8EA] dark:text-red-300 dark:hover:bg-red-950/40 ${focusRing}`}
+					>
+						{t("revokeButton")}
+					</button>
+				)}
+			</>
+		);
 	}
 
 	return (
@@ -369,218 +553,129 @@ export function MembersSettings({
 				</div>
 			)}
 
-			<div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700/60">
-				<div className="overflow-x-auto">
-					<table className="w-full min-w-[46rem] text-sm">
-						<thead>
-							<tr className="border-b border-gray-100 bg-[#F4F7F6] dark:border-gray-700/60 dark:bg-gray-800/60">
-								{[
-									t("columnMember"),
-									...(showOrgColumn ? [t("columnOrganization")] : []),
-									t("columnRole"),
-									t("columnPermissions"),
-									t("columnJoined"),
-									t("columnActions"),
-								].map((heading) => (
-									<th
-										key={heading}
-										scope="col"
-										className="px-4 py-2.5 text-left text-[10px] font-black tracking-wider text-[#3D5568] uppercase dark:text-gray-400"
-									>
-										{heading}
-									</th>
-								))}
-							</tr>
-						</thead>
-						<tbody>
-							{members.map((member) => {
-								const roleKey = `role:${member.userId}`;
-								const revokeKey = `revoke:${member.userId}`;
-								const isPending = pending === roleKey || pending === revokeKey;
-								const isOwnerTarget = member.role === "OWNER";
-								const ownerLocked = isOwnerTarget && member.callerRole !== "OWNER";
-								const canEditRole =
-									canManage && !member.isSelf && !member.isPlatformAdmin && !ownerLocked;
-								const canEditPermissions = canManage && !member.isPlatformAdmin && !ownerLocked;
-								const canRevoke =
-									canManage &&
-									!member.isSelf &&
-									!member.isPlatformAdmin &&
-									!member.isLastOwner &&
-									!ownerLocked;
-								const name = member.displayName || member.farmId;
-
-								return (
-									<tr
-										key={member.membershipId}
-										className="border-b border-gray-50 last:border-0 dark:border-gray-800"
-									>
-										<td className="px-4 py-3">
-											<div className="flex flex-wrap items-center gap-1.5">
-												<p className="font-black text-[#0A3D62] dark:text-gray-100">{name}</p>
-												{member.isSelf && (
-													<span className="rounded-full bg-[#E8EEF5] px-2 py-0.5 text-[9px] font-black tracking-wider text-[#0A3D62] uppercase dark:bg-white/10 dark:text-[#8fc0ea]">
-														{t("selfBadge")}
-													</span>
-												)}
-												{member.isPlatformAdmin && (
-													<span className="rounded-full bg-[#C2410C] px-2 py-0.5 text-[9px] font-black tracking-wider text-white uppercase">
-														{t("platformAdminBadge")}
-													</span>
-												)}
-												{member.isLastOwner && (
-													<span className="rounded-full bg-[#FDE8EA] px-2 py-0.5 text-[9px] font-black tracking-wider text-[#C42B3A] uppercase dark:bg-red-950/50 dark:text-red-300">
-														{t("lastOwnerBadge")}
-													</span>
-												)}
-											</div>
-											<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
-												{member.email}
-											</p>
-											<p className="font-mono text-[10px] text-[#3D5568] dark:text-gray-400">
-												{member.farmId}
-											</p>
-										</td>
-
-										{showOrgColumn && (
-											<td className="px-4 py-3 text-xs font-bold text-[#3D5568] dark:text-gray-300">
-												{member.orgName}
-											</td>
-										)}
-
-										<td className="px-4 py-3">
-											{canEditRole ? (
-												<>
-													<select
-														value={member.role}
-														onChange={(event) => handleRoleChange(member, event.target.value)}
-														disabled={isPending}
-														aria-label={t("changeRole", { name })}
-														className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-bold text-[#0A3D62] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-													>
-														{MEMBER_ROLES.map((role) => (
-															<option
-																key={role}
-																value={role}
-																disabled={
-																	(role === "OWNER" && member.callerRole !== "OWNER") ||
-																	(member.isLastOwner && role !== "OWNER")
-																}
-															>
-																{t(`role.${role}`)}
-															</option>
-														))}
-													</select>
-													{member.isLastOwner && (
-														<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#C42B3A] dark:text-red-300">
-															{t("lastOwnerLocked")}
-														</p>
-													)}
-												</>
-											) : (
-												<span className="inline-flex rounded-full bg-[#0A3D62] px-2.5 py-1 text-[10px] font-black tracking-wider text-white uppercase dark:bg-[#8fc0ea]/20 dark:text-[#8fc0ea]">
-													{t(`role.${member.role}`)}
-												</span>
-											)}
-											{member.isSelf && (
-												<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#3D5568] dark:text-gray-400">
-													{t("selfRoleLocked")}
-												</p>
-											)}
-											{member.isPlatformAdmin && (
-												<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#3D5568] dark:text-gray-400">
-													{t("platformAdminLocked")}
-												</p>
-											)}
-											{ownerLocked && (
-												<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#3D5568] dark:text-gray-400">
-													{t("ownerLocked")}
-												</p>
-											)}
-										</td>
-
-										<td className="px-4 py-3">
-											<p className="mb-1 text-[11px] font-bold text-[#3D5568] dark:text-gray-400">
-												{t("permissionsSummary", { count: member.permissions.length })}
-											</p>
-											{canEditPermissions ? (
-												<Link
-													href={`/admin/settings/members/${member.userId}/permissions`}
-													aria-label={`${t("permissionsButton")} — ${name}`}
-													className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[#0A3D62]/20 px-3 text-xs font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6] dark:border-gray-600 dark:text-[#8fc0ea] dark:hover:bg-gray-800 ${focusRing}`}
-												>
-													<KeyRound aria-hidden="true" className="h-3.5 w-3.5" />
-													{t("permissionsButton")}
-												</Link>
-											) : (
-												<span className="text-[10px] font-medium text-[#3D5568] dark:text-gray-400">
-													{t("viewOnly")}
-												</span>
-											)}
-										</td>
-
-										<td className="px-4 py-3 text-xs whitespace-nowrap text-[#3D5568] dark:text-gray-400">
-											{formatDateTimeLocal(new Date(member.joinedAt), tDates).fullDate}
-										</td>
-
-										<td className="px-4 py-3">
-											{canRevoke ? (
-												revokeConfirm === member.membershipId ? (
-													<div className="flex flex-wrap gap-1.5">
-														<button
-															type="button"
-															onClick={() => handleRevoke(member)}
-															disabled={isPending}
-															aria-busy={isPending}
-															className={`inline-flex items-center gap-1 rounded-lg bg-[#C42B3A] px-2.5 py-1.5 text-[10px] font-black text-white hover:bg-[#a92330] disabled:opacity-60 ${focusRing}`}
-														>
-															{isPending && (
-																<Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" />
-															)}
-															{t("confirmRevoke")}
-														</button>
-														<button
-															type="button"
-															onClick={() => setRevokeConfirm(null)}
-															disabled={isPending}
-															className={`rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-black text-[#3D5568] ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-60 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-800 ${focusRing}`}
-														>
-															{t("cancel")}
-														</button>
-													</div>
-												) : (
-													<button
-														type="button"
-														onClick={() => setRevokeConfirm(member.membershipId)}
-														className={`rounded-lg border border-[#C42B3A]/30 px-2.5 py-1.5 text-[10px] font-black text-[#C42B3A] transition-colors hover:bg-[#FDE8EA] dark:text-red-300 dark:hover:bg-red-950/40 ${focusRing}`}
-													>
-														{t("revokeButton")}
-													</button>
-												)
-											) : (
-												<span className="text-[10px] font-medium text-[#3D5568] dark:text-gray-400">
-													{tCommon("none")}
-												</span>
-											)}
-											{member.isLastOwner && (
-												<p className="mt-1 max-w-[10rem] text-[10px] font-medium text-[#C42B3A] dark:text-red-300">
-													{t("lastOwnerLocked")}
-												</p>
-											)}
-										</td>
-									</tr>
-								);
-							})}
-						</tbody>
-					</table>
-				</div>
-
-				{members.length === 0 && (
+			{members.length === 0 ? (
+				<div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700/60">
 					<p className="p-6 text-center text-sm text-[#3D5568] dark:text-gray-400">
 						{t("membersEmpty")}
 					</p>
-				)}
-			</div>
+				</div>
+			) : (
+				<ListView
+					pageKey="admin-members"
+					listLabel={tCommon("viewToggle.list")}
+					cardsLabel={tCommon("viewToggle.cards")}
+					toggleLabel={tCommon("viewToggle.label")}
+				>
+					<div className="data-list-table overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700/60">
+						<div className="overflow-x-auto">
+							<table className="w-full min-w-[46rem] text-sm">
+								<thead>
+									<tr className="border-b border-gray-100 bg-[#F4F7F6] dark:border-gray-700/60 dark:bg-gray-800/60">
+										{[
+											t("columnMember"),
+											...(showOrgColumn ? [t("columnOrganization")] : []),
+											t("columnRole"),
+											t("columnPermissions"),
+											t("columnJoined"),
+											t("columnActions"),
+										].map((heading) => (
+											<th
+												key={heading}
+												scope="col"
+												className="px-4 py-2.5 text-left text-[10px] font-black tracking-wider text-[#3D5568] uppercase dark:text-gray-400"
+											>
+												{heading}
+											</th>
+										))}
+									</tr>
+								</thead>
+								<tbody>
+									{members.map((member) => {
+										const roleKey = `role:${member.userId}`;
+										const revokeKey = `revoke:${member.userId}`;
+										const isPending = pending === roleKey || pending === revokeKey;
+
+										return (
+											<tr
+												key={member.membershipId}
+												className="border-b border-gray-50 last:border-0 dark:border-gray-800"
+											>
+												<td className="px-4 py-3">{renderIdentity(member)}</td>
+
+												{showOrgColumn && (
+													<td className="px-4 py-3 text-xs font-bold text-[#3D5568] dark:text-gray-300">
+														{member.orgName}
+													</td>
+												)}
+
+												<td className="px-4 py-3">{renderRole(member, isPending)}</td>
+
+												<td className="px-4 py-3">{renderPermissions(member)}</td>
+
+												<td className="px-4 py-3 text-xs whitespace-nowrap text-[#3D5568] dark:text-gray-400">
+													{formatDateTimeLocal(new Date(member.joinedAt), tDates).fullDate}
+												</td>
+
+												<td className="px-4 py-3">{renderRevoke(member, isPending)}</td>
+											</tr>
+										);
+									})}
+								</tbody>
+							</table>
+						</div>
+					</div>
+
+					<ItemCardGrid label={t("membersTitle")}>
+						{members.map((member) => {
+							const roleKey = `role:${member.userId}`;
+							const revokeKey = `revoke:${member.userId}`;
+							const isPending = pending === roleKey || pending === revokeKey;
+
+							return (
+								<li
+									key={member.membershipId}
+									className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-900"
+								>
+									{renderIdentity(member)}
+
+									{showOrgColumn && (
+										<div>
+											<p className="text-[10px] font-black tracking-wider text-[#3D5568] uppercase dark:text-gray-400">
+												{t("columnOrganization")}
+											</p>
+											<p className="text-xs font-bold text-[#3D5568] dark:text-gray-300">
+												{member.orgName}
+											</p>
+										</div>
+									)}
+
+									<div>
+										<p className="mb-1 text-[10px] font-black tracking-wider text-[#3D5568] uppercase dark:text-gray-400">
+											{t("columnRole")}
+										</p>
+										{renderRole(member, isPending)}
+									</div>
+
+									<div>
+										<p className="mb-1 text-[10px] font-black tracking-wider text-[#3D5568] uppercase dark:text-gray-400">
+											{t("columnPermissions")}
+										</p>
+										{renderPermissions(member)}
+									</div>
+
+									<div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-2 dark:border-gray-800">
+										<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
+											{t("columnJoined")}:{" "}
+											{formatDateTimeLocal(new Date(member.joinedAt), tDates).fullDate}
+										</p>
+										{renderRevoke(member, isPending)}
+									</div>
+								</li>
+							);
+						})}
+					</ItemCardGrid>
+				</ListView>
+			)}
 		</div>
 	);
 }

@@ -27,7 +27,7 @@ export function DashboardTable({
 	className,
 }: DashboardTableProps) {
 	return (
-		<div className={cn("hidden overflow-hidden md:block", className)}>
+		<div className={cn("data-list-table hidden overflow-hidden md:block", className)}>
 			<div className="overflow-x-auto">
 				<table className={cn("w-full text-sm", minWidth)}>
 					{caption && <caption className="sr-only">{caption}</caption>}
@@ -101,7 +101,7 @@ export function DashboardCardList({
 	className?: string;
 }) {
 	return (
-		<ul aria-label={label} className={cn("space-y-3 md:hidden", className)}>
+		<ul aria-label={label} className={cn("data-list-cards space-y-3 md:hidden", className)}>
 			{children}
 		</ul>
 	);

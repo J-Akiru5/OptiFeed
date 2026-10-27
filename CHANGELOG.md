@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Superadmin Operations section (E16.4, #185 batch): a **system health** page with background-job counts, the oldest queued job, the latest 20 failures, jobs/failures per day, inferred cron freshness (with the inference explained) and a sortable last-ingest table with offline highlighting; a **firmware fleet** page showing each device's reported version from its latest OTA lifecycle event, the recent OTA events and the signed stable channel, with "unknown" shown honestly; an **audit log explorer** with action/actor/organization/target/date filters, shared numbered pagination, a before/after detail page and a CSV export of the filtered set (streamed, capped at 5000 rows, formula-safe); and **announcements**, a platform-wide dismissible banner stored in `PlatformSetting` (`announcement.current`) with an optional end date, published and cleared through audited platform actions. No schema change.
+
 ## [1.13.0] - 2026-10-27
 
 ### Added

@@ -7,6 +7,7 @@ import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import {
+	Activity,
 	BarChart3,
 	CalendarDays,
 	Cpu,
@@ -28,6 +29,7 @@ const navItems = [
 	{ href: "/superadmin/orgs", key: "organizations", icon: FolderTree },
 	{ href: "/superadmin/ponds", key: "ponds", icon: Droplets },
 	{ href: "/superadmin/devices", key: "devices", icon: Cpu },
+	{ href: "/superadmin/operations", key: "operations", icon: Activity },
 	{ href: "/superadmin/ai-providers", key: "aiProviders", icon: Sparkles },
 	{ href: "/superadmin/settings", key: "settings", icon: Settings },
 ] as const;

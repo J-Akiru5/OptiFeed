@@ -1274,7 +1274,41 @@
 			"scaleNote": "Sa print dialog, ibutang ang scale sa 100% (indi “Fit to page”), kon indi magaliit ang QR kag teksto kag indi na matuod ang kadak-on sang sticker.",
 			"dupWarning": "Ang duha ka lainlain nga unit may pareho nga katapusan nga apat ka digit, gani pareho man ang ngalan sang setup network nga ila ginapasugod.",
 			"qrTitle": "Ano ang sulod sang QR (una nga unit)",
-			"qrBody": "Ginabasa sang cellphone ini subong “sumulod sa bukas nga Wi-Fi network nga {ssid}”. Wala ini sing password kag device token. Nagapaandar lang ini kon naka-setup mode ang feeder: ang unit nga may natago na nga Wi-Fi indi nagapasugod sang network."
+			"qrBody": "Ginabasa sang cellphone ini subong “sumulod sa bukas nga Wi-Fi network nga {ssid}”. Wala ini sing password kag device token. Nagapaandar lang ini kon naka-setup mode ang feeder: ang unit nga may natago na nga Wi-Fi indi nagapasugod sang network.",
+			"rating": {
+				"title": "Rating sang sticker",
+				"intro": "Ining mga numero ang naga-print sa kada sticker sa sini nga sheet. Islan ini diri kon sayop ang mga halaga sa label.",
+				"voltage": "Boltahe (V)",
+				"frequency": "Frequency (Hz)",
+				"current": "Pinakamataas nga current (A)",
+				"power": "Pinakamataas nga power (VA)",
+				"powerOverride": "Ilisan ang gin-compute nga VA",
+				"powerHint": "V × A, gin-round. I-on ang Override agod makasulat sang halaga halin 1 tubtob 5000.",
+				"measured": "Ginsukat gamit ang meter",
+				"measuredOn": "Petsa sang pagsukat",
+				"perPrint": "Ang mga pagbag-o para lamang sa sini nga print. Ang URL sang pahina nagatago sang mga halaga, gani pwede ma-reload ukon ma-share ang sheet.",
+				"clear": "Kuhaa ang override",
+				"defaultTitle": "Default para sa tanan nga sticker",
+				"defaultBody": "Para sa platform admin: i-save ang rating sa ibabaw subong default para sa tanan nga sticker sheet.",
+				"reason": "Rason",
+				"reasonHint": "Ginarekord sa platform audit log. Kinahanglan bisan 10 ka character.",
+				"save": "I-save subong default",
+				"reset": "Ibalik sa mga halaga sang label",
+				"saving": "Gina-save…",
+				"saved": "Na-save subong default nga rating sang sticker.",
+				"cleared": "Ang rating sang sticker ginbalik sa mga halaga sang label.",
+				"failed": "Indi ma-ilis ang rating sang sticker. Tilawi liwat.",
+				"needReason": "Kinahanglan ang rason nga bisan 10 ka character.",
+				"needDate": "Isulat ang petsa sang pagsukat."
+			},
+			"warning": {
+				"enteredTitle": "Rating nga ginsulat sa kamot.",
+				"enteredBody": "Mga halaga nga ginsulat ni {role}; wala ginsukat.",
+				"enteredHint": "Sukata ang current samtang nagapakaon gamit ang multimeter agod mas mangin malig-on ini nga rating.",
+				"measuredTitle": "Ginsukat nga rating.",
+				"measuredBody": "Ginsukat gamit ang meter sang {date}.",
+				"measuredNoDate": "Ginsukat gamit ang meter."
+			}
 		},
 		"appSettings": {
 			"title": "Mga Setting sang App kag Hardware",

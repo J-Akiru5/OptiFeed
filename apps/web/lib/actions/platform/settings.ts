@@ -2,6 +2,12 @@
 
 import { actorContext, writePlatformAudit } from "@/lib/actions/platform/audit";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
+import {
+	STICKER_RATING_KEY,
+	type StickerRatingInput,
+	normalizeStickerRating,
+	stickerRatingInputSchema,
+} from "@/lib/constants/sticker-rating";
 import prisma from "@/lib/prisma";
 import {
 	LIST_PAGE_SIZE_KEY,
@@ -92,4 +98,119 @@ export async function setListPageSize(
 	revalidatePath("/[locale]/(superadmin)", "layout");
 
 	return { success: true, value: saved };
+}
+
+/**
+ * Sticker rating default (decision E17, issue #197).
+ *
+ * The printed rating is a property of the product, not of one organization,
+ * so only a platform admin may save a new default. Every print can still be
+ * overridden for that print through the URL, which needs no extra permission.
+ */
+
+const MIN_RATING_REASON_LENGTH = 10;
+const MAX_RATING_REASON_LENGTH = 500;
+
+const ratingReasonSchema = z
+	.string()
+	.trim()
+	.min(MIN_RATING_REASON_LENGTH)
+	.max(MAX_RATING_REASON_LENGTH);
+
+export type StickerRatingActionResult = { success: true } | { error: string };
+
+function ratingReasonError(): string {
+	return `A reason of at least ${MIN_RATING_REASON_LENGTH} characters is required.`;
+}
+
+function revalidatePrintPages(): void {
+	revalidatePath("/[locale]/(print)/admin/devices/labels", "page");
+	revalidatePath("/[locale]/(print)/superadmin/devices/labels", "page");
+}
+
+export async function setStickerRatingDefault(
+	values: StickerRatingInput,
+	reason: string,
+): Promise<StickerRatingActionResult> {
+	await requirePlatformAdmin();
+
+	const parsedValues = stickerRatingInputSchema.safeParse(values);
+	if (!parsedValues.success) {
+		if (parsedValues.error.issues.some((issue) => issue.path.includes("measuredAt"))) {
+			return { error: "Enter the measurement date when the rating was measured." };
+		}
+		return { error: "The rating values are outside the allowed range." };
+	}
+
+	const parsedReason = ratingReasonSchema.safeParse(reason);
+	if (!parsedReason.success) return { error: ratingReasonError() };
+
+	const rating = normalizeStickerRating(parsedValues.data);
+	if (!rating) return { error: "The rating values are outside the allowed range." };
+
+	const actor = await actorContext();
+
+	await prisma.$transaction(async (tx) => {
+		const existing = await tx.platformSetting.findUnique({
+			where: { key: STICKER_RATING_KEY },
+			select: { value: true },
+		});
+		const before = normalizeStickerRating(existing?.value);
+
+		await tx.platformSetting.upsert({
+			where: { key: STICKER_RATING_KEY },
+			create: { key: STICKER_RATING_KEY, value: rating, updatedById: actor.id },
+			update: { value: rating, updatedById: actor.id },
+		});
+
+		await writePlatformAudit(tx, {
+			actorUserId: actor.id,
+			action: "platform.settings.sticker_rating",
+			targetType: "platform_setting",
+			targetId: STICKER_RATING_KEY,
+			reason: parsedReason.data,
+			temporaryGrant: actor.temporaryGrant,
+			before: { rating: before },
+			after: { rating },
+		});
+	});
+
+	revalidatePrintPages();
+	return { success: true };
+}
+
+export async function clearStickerRatingDefault(
+	reason: string,
+): Promise<StickerRatingActionResult> {
+	await requirePlatformAdmin();
+
+	const parsedReason = ratingReasonSchema.safeParse(reason);
+	if (!parsedReason.success) return { error: ratingReasonError() };
+
+	const actor = await actorContext();
+
+	const cleared = await prisma.$transaction(async (tx) => {
+		const existing = await tx.platformSetting.findUnique({
+			where: { key: STICKER_RATING_KEY },
+			select: { value: true },
+		});
+		if (!existing) return false;
+
+		const before = normalizeStickerRating(existing.value);
+		await tx.platformSetting.delete({ where: { key: STICKER_RATING_KEY } });
+		await writePlatformAudit(tx, {
+			actorUserId: actor.id,
+			action: "platform.settings.sticker_rating_clear",
+			targetType: "platform_setting",
+			targetId: STICKER_RATING_KEY,
+			reason: parsedReason.data,
+			temporaryGrant: actor.temporaryGrant,
+			before: { rating: before },
+			after: { rating: null },
+		});
+		return true;
+	});
+
+	if (cleared) revalidatePrintPages();
+	return { success: true };
 }

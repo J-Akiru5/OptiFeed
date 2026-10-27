@@ -3,27 +3,29 @@
 import { Link, usePathname } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
 import { CalendarDays, Cpu, Droplets, FileText, Home, Users } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 /**
  * Admin console navigation below `lg`, where AdminSidebar is hidden.
  * Hierarchy and Settings stay in the sidebar.
  */
-const navItems = [
-	{ href: "/admin", label: "Overview", icon: Home },
-	{ href: "/admin/calendar", label: "Calendar", icon: CalendarDays },
-	{ href: "/admin/users", label: "Users", icon: Users },
-	{ href: "/admin/ponds", label: "Ponds", icon: Droplets },
-	{ href: "/admin/devices", label: "Devices", icon: Cpu },
-	{ href: "/admin/audit", label: "Audit", icon: FileText },
-];
-
 export function AdminBottomNav() {
+	const t = useTranslations("dashboard.adminShell");
 	const pathname = usePathname();
+
+	const navItems = [
+		{ href: "/admin", label: t("nav.overview"), icon: Home },
+		{ href: "/admin/calendar", label: t("nav.calendar"), icon: CalendarDays },
+		{ href: "/admin/users", label: t("nav.users"), icon: Users },
+		{ href: "/admin/ponds", label: t("nav.ponds"), icon: Droplets },
+		{ href: "/admin/devices", label: t("nav.devices"), icon: Cpu },
+		{ href: "/admin/audit", label: t("nav.audit"), icon: FileText },
+	];
 
 	return (
 		<nav
-			aria-label="Admin navigation"
-			className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0A3D62] border-t border-white/10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.15)] pb-[env(safe-area-inset-bottom)]"
+			aria-label={t("mobileNavLabel")}
+			className="fixed right-0 bottom-0 left-0 z-40 border-t border-white/10 bg-[#0A3D62] pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.15)] lg:hidden"
 		>
 			<ul className="flex items-stretch px-1">
 				{navItems.map((item) => {
@@ -33,17 +35,17 @@ export function AdminBottomNav() {
 							: pathname.startsWith(item.href);
 
 					return (
-						<li key={item.href} className="flex-1 min-w-0">
+						<li key={item.href} className="min-w-0 flex-1">
 							<Link
 								href={item.href}
 								aria-current={isActive ? "page" : undefined}
 								className={cn(
-									"flex flex-col items-center justify-center gap-1.5 py-3 px-1 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white",
-									isActive ? "text-white" : "text-white/70 hover:text-white",
+									"flex flex-col items-center justify-center gap-1.5 rounded-xl px-1 py-3 transition-colors focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none",
+									isActive ? "text-white" : "text-white/75 hover:text-white",
 								)}
 							>
-								<item.icon size={20} className="shrink-0" />
-								<span className="text-[10px] font-bold text-center leading-tight truncate w-full">
+								<item.icon aria-hidden="true" size={20} className="shrink-0" />
+								<span className="w-full truncate text-center text-[10px] leading-tight font-bold">
 									{item.label}
 								</span>
 							</Link>

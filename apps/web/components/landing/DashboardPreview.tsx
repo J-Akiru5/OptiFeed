@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Waves, Wifi } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 
@@ -15,6 +16,7 @@ import Image from "next/image";
  */
 export function DashboardPreview() {
 	const t = useTranslations("landing");
+	const reduceMotion = useReducedMotion();
 
 	return (
 		<figure className="relative mx-auto w-full max-w-[33rem] pb-2 sm:pb-12 lg:mx-0">
@@ -47,7 +49,15 @@ export function DashboardPreview() {
 				</div>
 			</div>
 
-			<div className="relative z-10 -mt-16 ml-auto w-[94%] rounded-2xl border border-[#E4ECE8] bg-[#F6FAF8] p-3.5 text-[#0A2E47] shadow-[0_28px_60px_-24px_rgba(0,0,0,0.7)] sm:absolute sm:-right-3 sm:bottom-0 sm:mt-0 sm:w-[68%] lg:-right-4">
+			<motion.div
+				animate={reduceMotion ? undefined : { y: [0, -3, 0] }}
+				transition={
+					reduceMotion
+						? undefined
+						: { duration: 7, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }
+				}
+				className="relative z-10 -mt-16 ml-auto w-[94%] rounded-2xl border border-[#E4ECE8] bg-[#F6FAF8] p-3.5 text-[#0A2E47] shadow-[0_28px_60px_-24px_rgba(0,0,0,0.7)] sm:absolute sm:-right-3 sm:bottom-0 sm:mt-0 sm:w-[68%] lg:-right-4"
+			>
 				<div className="flex items-start justify-between gap-2">
 					<p className="text-[9px] font-semibold tracking-[0.14em] text-slate-500 uppercase">
 						{t("previewNextFeed")}
@@ -92,9 +102,22 @@ export function DashboardPreview() {
 						</span>
 					</p>
 				</div>
-			</div>
+			</motion.div>
 
-			<div className="absolute top-16 -right-2 z-10 hidden w-[10.5rem] rounded-xl border border-white/60 bg-white/70 p-3 text-[#0A2E47] shadow-[0_20px_45px_-18px_rgba(0,0,0,0.45)] backdrop-blur-md sm:block lg:-right-4">
+			<motion.div
+				animate={reduceMotion ? undefined : { y: [0, -5, 0] }}
+				transition={
+					reduceMotion
+						? undefined
+						: {
+								duration: 6.5,
+								delay: 0.7,
+								repeat: Number.POSITIVE_INFINITY,
+								ease: "easeInOut",
+							}
+				}
+				className="absolute top-16 -right-2 z-10 hidden w-[10.5rem] rounded-xl border border-white/60 bg-white/70 p-3 text-[#0A2E47] shadow-[0_20px_45px_-18px_rgba(0,0,0,0.45)] backdrop-blur-md sm:block lg:-right-4"
+			>
 				<div className="flex items-center gap-2">
 					<span className="flex size-6 items-center justify-center rounded-full bg-[#ECFDF3] text-[#067647]">
 						<Check className="size-3.5" aria-hidden="true" />
@@ -104,9 +127,22 @@ export function DashboardPreview() {
 					</p>
 				</div>
 				<p className="mt-2 text-[12.5px] font-semibold">{t("previewLoggedValue")}</p>
-			</div>
+			</motion.div>
 
-			<div className="absolute bottom-3 left-4 z-10 hidden w-[9.25rem] rounded-xl border border-white/15 bg-[#0B2336]/55 p-3 text-white shadow-[0_20px_45px_-18px_rgba(0,0,0,0.8)] backdrop-blur-md md:block">
+			<motion.div
+				animate={reduceMotion ? undefined : { y: [0, 4, 0] }}
+				transition={
+					reduceMotion
+						? undefined
+						: {
+								duration: 7.5,
+								delay: 0.4,
+								repeat: Number.POSITIVE_INFINITY,
+								ease: "easeInOut",
+							}
+				}
+				className="absolute bottom-3 left-4 z-10 hidden w-[9.25rem] rounded-xl border border-white/15 bg-[#0B2336]/55 p-3 text-white shadow-[0_20px_45px_-18px_rgba(0,0,0,0.8)] backdrop-blur-md md:block"
+			>
 				<div className="flex items-center gap-2">
 					<span className="flex size-6 items-center justify-center rounded-full bg-white/10 text-[#7CE3A8]">
 						<Wifi className="size-3.5" aria-hidden="true" />
@@ -116,7 +152,7 @@ export function DashboardPreview() {
 					</p>
 				</div>
 				<p className="mt-2 text-[11.5px] text-white/70">{t("previewQueueValue")}</p>
-			</div>
+			</motion.div>
 		</figure>
 	);
 }

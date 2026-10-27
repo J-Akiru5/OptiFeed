@@ -2,33 +2,32 @@
 
 import { PasswordInput } from "@/components/password-input";
 import { PasswordStrength } from "@/components/password-strength";
+import {
+	Alert,
+	CARD,
+	FIELD_HINT,
+	FIELD_INPUT,
+	FIELD_LABEL,
+	FOCUS_RING,
+	PRIMARY_BUTTON,
+} from "@/components/superadmin/ui";
 import { useRouter } from "@/i18n/routing";
 import { createPlatformUser } from "@/lib/actions/superadmin";
 import { getPasswordStrength, passwordErrorMessage, validatePassword } from "@/lib/auth/password";
-import { ArrowLeft, CheckCircle, ShieldAlert } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { type FormEvent, useState, useTransition } from "react";
 
 type Kind = "ADMIN" | "ORG_FARMER" | "INDEPENDENT_FARMER";
 
-const KIND_COPY: Record<Kind, { title: string; blurb: string; needsOrg: boolean }> = {
-	ADMIN: {
-		title: "Tenant Admin",
-		blurb:
-			"Manages only their own organization's members and ponds. Gets OWNER membership in the selected org. No farmer functions of its own.",
-		needsOrg: true,
-	},
-	ORG_FARMER: {
-		title: "Organization Farmer",
-		blurb:
-			"OPERATOR membership in the selected org. The org must already have at least one other member.",
-		needsOrg: true,
-	},
-	INDEPENDENT_FARMER: {
-		title: "Independent Farmer",
-		blurb:
-			"Registered into a brand-new single-person organization of type INDIVIDUAL, which they own.",
-		needsOrg: false,
-	},
+const KINDS: Kind[] = ["ADMIN", "ORG_FARMER", "INDEPENDENT_FARMER"];
+
+/** Which account kinds need an existing organization; the copy lives in the catalogue. */
+const NEEDS_ORG: Record<Kind, boolean> = {
+	ADMIN: true,
+	ORG_FARMER: true,
+	INDEPENDENT_FARMER: false,
 };
 
 export function NewAccountForm({
@@ -36,6 +35,9 @@ export function NewAccountForm({
 }: {
 	orgs: { id: string; name: string; type: string }[];
 }) {
+	const t = useTranslations("superadmin.newAccount");
+	const tCommon = useTranslations("superadmin.common");
+	const tRoot = useTranslations("superadmin");
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const [error, setError] = useState<string | null>(null);
@@ -54,22 +56,26 @@ export function NewAccountForm({
 	const [feedsPerDay, setFeedsPerDay] = useState("3");
 	const [population, setPopulation] = useState("");
 
-	const copy = KIND_COPY[kind];
+	const needsOrg = NEEDS_ORG[kind];
+	const kindBlurb = t(`kinds.${kind}.blurb`);
 	const isFarmer = kind !== "ADMIN";
+	const passwordsMatch = password === confirmPassword;
 
 	const handleSubmit = (e: FormEvent) => {
 		e.preventDefault();
 		setError(null);
 
-		if (!farmId.trim()) return setError("Login ID is required.");
-		if (!displayName.trim()) return setError("Display name is required.");
-		if (!password) return setError("Password is required.");
-		if (password !== confirmPassword) return setError("Passwords do not match.");
+		if (!farmId.trim()) return setError(t("errors.loginRequired"));
+		if (!displayName.trim()) return setError(t("errors.displayRequired"));
+		if (!password) return setError(t("errors.passwordRequired"));
+		if (!passwordsMatch) return setError(t("errors.passwordMismatch"));
 		const passwordCheck = validatePassword(password, "temporary");
 		if (!passwordCheck.ok) return setError(passwordErrorMessage(passwordCheck.code));
-		if (copy.needsOrg && !orgId) return setError("Select an organization.");
-		if (isFarmer && !pondName.trim()) return setError("An initial pond is required.");
-		if (reason.trim().length < 10) return setError("Reason must be at least 10 characters.");
+		if (needsOrg && !orgId) return setError(t("errors.orgRequired"));
+		if (isFarmer && !pondName.trim()) return setError(t("errors.pondRequired"));
+		if (reason.trim().length < 10) {
+			return setError(tCommon("reasonMinLength", { count: 10 }));
+		}
 
 		startTransition(async () => {
 			try {
@@ -79,7 +85,7 @@ export function NewAccountForm({
 					displayName,
 					password,
 					kind,
-					orgId: copy.needsOrg ? orgId : undefined,
+					orgId: needsOrg ? orgId : undefined,
 					pond: isFarmer
 						? {
 								name: pondName.trim(),
@@ -97,138 +103,136 @@ export function NewAccountForm({
 				setSuccess(true);
 				setTimeout(() => router.push("/superadmin/users"), 1200);
 			} catch (e) {
-				setError(e instanceof Error ? e.message : "Failed to create the account.");
+				setError(e instanceof Error ? e.message : t("errors.failed"));
 			}
 		});
 	};
 
 	return (
-		<div className="max-w-xl mx-auto space-y-6">
+		<div className="mx-auto max-w-xl space-y-6">
 			<button
 				type="button"
 				onClick={() => router.push("/superadmin/users")}
-				className="flex items-center gap-2 text-sm font-bold text-[#3D5568] hover:text-[#0A3D62] transition-colors"
+				className={cn(
+					"flex items-center gap-2 rounded text-sm font-bold text-[#3D5568] transition-colors hover:text-[#0A3D62]",
+					FOCUS_RING,
+				)}
 			>
-				<ArrowLeft className="w-4 h-4" />
-				Back to Users
+				<ArrowLeft className="h-4 w-4" aria-hidden="true" />
+				{t("back")}
 			</button>
 
 			<div>
-				<h1 className="text-2xl font-black text-[#0A3D62]">New Account</h1>
-				<p className="text-sm text-[#3D5568] mt-1">
-					Three account kinds, one flow. The login ID doubles as the pond email local part.
-				</p>
+				<h1 className="text-2xl font-black text-[#0A3D62]">{t("title")}</h1>
+				<p className="mt-1 text-sm text-[#3D5568]">{t("description")}</p>
 			</div>
 
-			<form onSubmit={handleSubmit} className="space-y-6">
-				<fieldset className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-					<legend className="sr-only">Account kind</legend>
-					<p className="text-xs uppercase font-extrabold tracking-wider text-[#3D5568]">
-						Account kind *
-					</p>
-					<div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-						{(Object.keys(KIND_COPY) as Kind[]).map((k) => (
-							<button
+			<form onSubmit={handleSubmit} className="space-y-6" aria-busy={isPending}>
+				<fieldset className={cn(CARD, "space-y-4 p-6")}>
+					<legend className="text-[10px] uppercase font-extrabold tracking-wider text-[#3D5568]">
+						{t("kindLegend")}
+					</legend>
+					{/* Real radios: arrow keys move between kinds and the checked state
+					    is announced, which a row of toggle buttons never was. */}
+					<div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+						{KINDS.map((k) => (
+							<label
 								key={k}
-								type="button"
-								onClick={() => setKind(k)}
-								disabled={isPending}
-								className={`p-3 rounded-xl border text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] ${
+								className={cn(
+									"cursor-pointer rounded-xl border p-3 text-left transition-all has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#E85A2A] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60",
 									kind === k
 										? "border-[#E85A2A] bg-[#E85A2A]/5 shadow-sm"
-										: "border-gray-200 bg-[#F4F7F6] hover:border-gray-300"
-								}`}
+										: "border-gray-200 bg-[#F4F7F6] hover:border-gray-300",
+								)}
 							>
+								<input
+									type="radio"
+									name="kind"
+									value={k}
+									checked={kind === k}
+									onChange={() => setKind(k)}
+									disabled={isPending}
+									className="sr-only"
+								/>
 								<span className="block text-xs font-black text-[#0A3D62]">
-									{KIND_COPY[k].title}
+									{t(`kinds.${k}.title`)}
 								</span>
-							</button>
+							</label>
 						))}
 					</div>
-					<p className="text-[11px] text-[#3D5568] leading-relaxed">{copy.blurb}</p>
+					<p className="text-[11px] leading-relaxed text-[#3D5568]">{kindBlurb}</p>
 				</fieldset>
 
-				<div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-5">
+				<div className={cn(CARD, "space-y-5 p-6")}>
 					<TextField
 						id="farmId"
-						label="Login ID *"
+						label={t("loginId")}
 						value={farmId}
 						onChange={(v) => setFarmId(v.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-						placeholder="e.g. juan-dela-cruz"
-						hint="Lowercase alphanumeric + hyphens. Used as the login ID."
+						placeholder={t("loginIdPlaceholder")}
+						hint={t("loginIdHint")}
 						disabled={isPending}
 					/>
 					<TextField
 						id="displayName"
-						label="Display Name *"
+						label={t("displayName")}
 						value={displayName}
 						onChange={setDisplayName}
-						placeholder="e.g. Juan Miguel"
+						placeholder={t("displayNamePlaceholder")}
 						disabled={isPending}
 					/>
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 						<div className="space-y-1.5">
-							<label
-								htmlFor="password"
-								className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568]"
-							>
-								Password *
+							<label htmlFor="password" className={FIELD_LABEL}>
+								{t("password")}
 							</label>
 							<PasswordInput
 								id="password"
 								value={password}
 								onChange={setPassword}
-								placeholder="Temporary password"
+								placeholder={t("passwordPlaceholder")}
 								disabled={isPending}
 								required
 							/>
 							<PasswordStrength password={password} />
 							{password && getPasswordStrength(password) === "weak" && (
-								<p className="text-[11px] font-bold text-[#B54708]">
-									Weak temporary password — the user must change it on first login.
-								</p>
+								<p className="text-[11px] font-bold text-[#B45309]">{t("weak")}</p>
 							)}
 						</div>
 						<div className="space-y-1.5">
-							<label
-								htmlFor="confirmPassword"
-								className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568]"
-							>
-								Confirm password *
+							<label htmlFor="confirmPassword" className={FIELD_LABEL}>
+								{t("confirmPassword")}
 							</label>
 							<PasswordInput
 								id="confirmPassword"
 								value={confirmPassword}
 								onChange={setConfirmPassword}
-								placeholder="Repeat the password"
+								placeholder={t("confirmPlaceholder")}
 								disabled={isPending}
 								required
 							/>
-							{confirmPassword && password !== confirmPassword && (
-								<p className="text-[11px] font-bold text-[#C42B3A]">Passwords do not match.</p>
+							{confirmPassword && !passwordsMatch && (
+								<p id="confirm-mismatch" className="text-[11px] font-bold text-[#C42B3A]">
+									{t("passwordMismatch")}
+								</p>
 							)}
 						</div>
 					</div>
 
-					{copy.needsOrg && (
+					{needsOrg && (
 						<div className="space-y-1.5">
-							<label
-								htmlFor="orgId"
-								className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568]"
-							>
-								Organization *
+							<label htmlFor="orgId" className={FIELD_LABEL}>
+								{t("organization")}
 							</label>
 							{orgs.length === 0 ? (
-								<p className="text-xs font-bold text-[#C42B3A]">
-									No organizations exist yet. Create one from the Organizations page first.
-								</p>
+								<p className="text-xs font-bold text-[#C42B3A]">{t("noOrgs")}</p>
 							) : (
 								<select
 									id="orgId"
 									value={orgId}
 									onChange={(e) => setOrgId(e.target.value)}
 									disabled={isPending}
-									className="w-full px-4 py-3 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#E85A2A] transition-all"
+									className={cn(FIELD_INPUT, "font-bold")}
 								>
 									{orgs.map((o) => (
 										<option key={o.id} value={o.id}>
@@ -242,54 +246,49 @@ export function NewAccountForm({
 				</div>
 
 				{isFarmer && (
-					<div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-5">
-						<p className="text-xs uppercase font-extrabold tracking-wider text-[#3D5568]">
-							Initial pond *
-						</p>
-						<p className="text-[11px] text-[#3D5568] -mt-3">
-							A farmer with no pond has nothing to work with, so this is required.
-						</p>
+					<fieldset className={cn(CARD, "space-y-5 p-6")}>
+						<legend className="text-[10px] uppercase font-extrabold tracking-wider text-[#3D5568]">
+							{t("initialPond")}
+						</legend>
+						<p className="-mt-1 text-[11px] text-[#3D5568]">{t("initialPondDesc")}</p>
 						<TextField
 							id="pondName"
-							label="Pond Name *"
+							label={t("pondName")}
 							value={pondName}
 							onChange={setPondName}
-							placeholder="e.g. POND-01"
+							placeholder={t("pondNamePlaceholder")}
 							disabled={isPending}
 						/>
-						<div className="grid grid-cols-3 gap-3">
+						<div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
 							<TextField
 								id="feedingRatePct"
-								label="Feed % *"
+								label={t("feedPct")}
 								value={feedingRatePct}
 								onChange={(v) => setFeedingRatePct(v.replace(/[^\d.]/g, ""))}
 								disabled={isPending}
 							/>
 							<TextField
 								id="feedsPerDay"
-								label="Feeds/Day *"
+								label={t("feedsPerDay")}
 								value={feedsPerDay}
 								onChange={(v) => setFeedsPerDay(v.replace(/\D/g, ""))}
 								disabled={isPending}
 							/>
 							<TextField
 								id="population"
-								label="Population"
+								label={t("population")}
 								value={population}
 								onChange={(v) => setPopulation(v.replace(/\D/g, ""))}
-								placeholder="Optional"
+								placeholder={t("optional")}
 								disabled={isPending}
 							/>
 						</div>
-					</div>
+					</fieldset>
 				)}
 
-				<div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-1.5">
-					<label
-						htmlFor="reason"
-						className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568]"
-					>
-						Reason *
+				<div className={cn(CARD, "space-y-1.5 p-6")}>
+					<label htmlFor="reason" className={FIELD_LABEL}>
+						{tCommon("reasonRequired")}
 					</label>
 					<textarea
 						id="reason"
@@ -297,44 +296,31 @@ export function NewAccountForm({
 						onChange={(e) => setReason(e.target.value)}
 						rows={3}
 						disabled={isPending}
-						placeholder="e.g. Onboarded partner farm for Q4 rollout"
-						className="w-full px-4 py-3 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E85A2A] transition-all resize-none"
+						placeholder={t("reasonPlaceholder")}
+						aria-describedby="reason-hint"
+						className="w-full resize-none rounded-xl border border-gray-200 bg-[#F4F7F6] px-4 py-3 text-sm text-[#0A3D62] transition-all focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:opacity-60"
 					/>
-					<p className="text-[11px] text-[#3D5568]">
-						Recorded in the platform audit log. At least 10 characters.
+					<p id="reason-hint" className={FIELD_HINT}>
+						{t("reasonHint")}
 					</p>
 				</div>
 
-				{error && (
-					<div className="bg-red-50 text-[#C42B3A] text-xs p-3 rounded-xl border border-red-200 flex items-start gap-2">
-						<ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
-						<span className="font-bold">{error}</span>
-					</div>
-				)}
+				{error && <Alert tone="error">{error}</Alert>}
 
-				{success && (
-					<div className="bg-green-50 text-green-700 text-xs p-3 rounded-xl border border-green-200 flex items-center gap-2">
-						<CheckCircle className="w-4 h-4 shrink-0" />
-						<span className="font-bold">Account created.</span>
-					</div>
-				)}
+				{success && <Alert tone="success">{t("created")}</Alert>}
 
 				<button
 					type="submit"
 					disabled={isPending || success}
-					className={`w-full bg-[#E85A2A] text-white font-extrabold text-sm py-3.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${
-						isPending || success
-							? "opacity-75 cursor-not-allowed"
-							: "hover:bg-[#d04a1f] hover:shadow-lg active:scale-[0.98]"
-					}`}
+					className={cn(PRIMARY_BUTTON, "w-full py-3.5 text-sm font-extrabold")}
 				>
 					{isPending ? (
 						<>
-							<span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-							Creating...
+							<Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+							{t("creating")}
 						</>
 					) : (
-						"Create Account"
+						t("submit")
 					)}
 				</button>
 			</form>
@@ -363,10 +349,7 @@ function TextField({
 }) {
 	return (
 		<div className="space-y-1.5">
-			<label
-				htmlFor={id}
-				className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568]"
-			>
+			<label htmlFor={id} className={FIELD_LABEL}>
 				{label}
 			</label>
 			<input
@@ -376,9 +359,14 @@ function TextField({
 				onChange={(e) => onChange(e.target.value)}
 				placeholder={placeholder}
 				disabled={disabled}
-				className="w-full px-4 py-3 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E85A2A] transition-all disabled:opacity-60"
+				aria-describedby={hint ? `${id}-hint` : undefined}
+				className={FIELD_INPUT}
 			/>
-			{hint && <p className="text-[11px] text-[#3D5568]">{hint}</p>}
+			{hint && (
+				<p id={`${id}-hint`} className={FIELD_HINT}>
+					{hint}
+				</p>
+			)}
 		</div>
 	);
 }

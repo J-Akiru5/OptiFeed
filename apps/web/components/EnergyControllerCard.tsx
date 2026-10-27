@@ -1,6 +1,7 @@
 "use client";
 
 import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
+import { useFeedCommandGuard } from "@/lib/pwa/use-feed-guard";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, Clock, Loader2, Utensils, Wifi, WifiOff } from "lucide-react";
 import { useState, useTransition } from "react";
@@ -47,6 +48,7 @@ export function EnergyControllerCard({
 	const [isPending, startTransition] = useTransition();
 	const [feedSent, setFeedSent] = useState(false);
 	const [alreadyQueued, setAlreadyQueued] = useState(false);
+	const { online, reason, blockIfOffline } = useFeedCommandGuard();
 
 	const dispenseSeconds =
 		gramsPerSecond && gramsPerSecond > 0 && feedGrams > 0
@@ -54,6 +56,7 @@ export function EnergyControllerCard({
 			: null;
 
 	const handleFeedNow = () => {
+		if (blockIfOffline()) return;
 		setFeedSent(false);
 		setAlreadyQueued(false);
 		startTransition(async () => {
@@ -190,7 +193,10 @@ export function EnergyControllerCard({
 					<button
 						type="button"
 						onClick={handleFeedNow}
-						disabled={isPending || feederActive || feedGrams <= 0 || isOffline || !canWrite}
+						disabled={
+							isPending || feederActive || feedGrams <= 0 || isOffline || !canWrite || !online
+						}
+						title={reason}
 						className={cn(
 							"flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 font-medium text-white transition-all shadow-md hover:shadow-lg disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 disabled:shadow-none dark:disabled:bg-gray-700 dark:disabled:text-gray-400",
 							alreadyQueued
@@ -215,6 +221,12 @@ export function EnergyControllerCard({
 										: `Feed Now (${feedGrams}g)`}
 						</span>
 					</button>
+					{reason && (
+						<p className="flex items-center gap-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+							<AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+							{reason}
+						</p>
+					)}
 				</div>
 			</div>
 		</div>

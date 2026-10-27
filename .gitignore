@@ -22,6 +22,9 @@ dist/
 # Misc
 .DS_Store
 *.pem
+# OTA signing: only the PUBLIC keys are committed; private keys stay offline
+# outside the repository (decision OTA-4). See firmware/README.md.
+!firmware/keys/*-public.pem
 
 # TypeScript
 *.tsbuildinfo

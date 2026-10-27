@@ -8,6 +8,7 @@ import prisma from "@/lib/prisma";
 import {
 	checkApiRateLimit,
 	checkDeviceRateLimit,
+	checkDeviceTokenRevealRateLimit,
 	checkLoginRateLimit,
 	selectClientIp,
 } from "../rate-limit";
@@ -59,6 +60,28 @@ describe("Postgres rate limiter", () => {
 	it("device limit fails OPEN when the store is unavailable", async () => {
 		queryRaw.mockRejectedValueOnce(new Error("db down"));
 		const result = await checkDeviceRateLimit("esp32-device-1", "feed");
+		expect(result.success).toBe(true);
+	});
+
+	it("token reveals are keyed per actor and allow ten per hour", async () => {
+		returnsCount(10);
+		expect((await checkDeviceTokenRevealRateLimit("admin-1")).success).toBe(true);
+		returnsCount(11);
+		expect((await checkDeviceTokenRevealRateLimit("admin-1")).success).toBe(false);
+
+		const first = queryRaw.mock.calls[0] as unknown as [string, string, Date];
+		expect(first[1]).toBe("rl:token-reveal:admin-1");
+		// The window is an hour, aligned to the hour boundary.
+		expect(first[2].getTime() % (60 * 60 * 1000)).toBe(0);
+
+		returnsCount(1);
+		await checkDeviceTokenRevealRateLimit("admin-2");
+		expect((queryRaw.mock.calls[2] as unknown[])[1]).toBe("rl:token-reveal:admin-2");
+	});
+
+	it("token reveals fail OPEN when the store is unavailable", async () => {
+		queryRaw.mockRejectedValueOnce(new Error("db down"));
+		const result = await checkDeviceTokenRevealRateLimit("admin-1");
 		expect(result.success).toBe(true);
 	});
 

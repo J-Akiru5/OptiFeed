@@ -467,7 +467,7 @@ export function DurationCalibrationForm({
 							type="button"
 							onClick={handleRunTest}
 							disabled={!canRunTest}
-							className="flex min-h-[var(--ofd-touch-min)] w-full items-center justify-center gap-2 rounded-xl bg-[var(--ofd-action)] px-6 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+							className="flex min-h-[var(--ofd-touch-min)] w-full items-center justify-center gap-2 rounded-xl bg-[#C2410C] px-6 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
 						>
 							{isPolling ? (
 								<Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -628,7 +628,7 @@ export function DurationCalibrationForm({
 							type="button"
 							onClick={handleSaveGuided}
 							disabled={!canWrite || !isActualGramsValid || !isNewRateInRange || isGuidedSaving}
-							className="flex min-h-[var(--ofd-touch-min)] w-full items-center justify-center gap-2 rounded-xl bg-[var(--ofd-action)] px-6 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+							className="flex min-h-[var(--ofd-touch-min)] w-full items-center justify-center gap-2 rounded-xl bg-[#C2410C] px-6 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
 						>
 							{isGuidedSaving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
 							{isGuidedSaving ? t("guided.saving") : t("guided.saveButton")}
@@ -705,7 +705,7 @@ export function DurationCalibrationForm({
 					type="button"
 					onClick={handleSaveManual}
 					disabled={!canWrite || !isManualRateValid || isManualSaving}
-					className="flex min-h-[var(--ofd-touch-min)] w-full items-center justify-center gap-2 rounded-xl bg-[var(--ofd-action)] px-6 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+					className="flex min-h-[var(--ofd-touch-min)] w-full items-center justify-center gap-2 rounded-xl bg-[#C2410C] px-6 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
 				>
 					{isManualSaving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
 					{isManualSaving ? t("manual.saving") : t("manual.saveButton")}

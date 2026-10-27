@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Research Information and Informed Consent Form — PakaonAI</title>
+		<style>
+			:root {
+				--ink: #14212b;
+				--muted: #53636f;
+				--line: #cfdad6;
+				--navy: #0a3d62;
+				--orange: #c4461d;
+				--paper: #ffffff;
+			}
+			* { box-sizing: border-box; }
+			body {
+				margin: 0;
+				background: #eef3f1;
+				color: var(--ink);
+				font-family: Georgia, "Times New Roman", serif;
+				font-size: 11pt;
+				line-height: 1.55;
+			}
+			.sheet {
+				width: 210mm;
+				min-height: 297mm;
+				margin: 12mm auto;
+				padding: 18mm 18mm 16mm;
+				background: var(--paper);
+				box-shadow: 0 8px 30px rgba(10, 46, 71, 0.12);
+			}
+			header { text-align: center; border-bottom: 2px solid var(--navy); padding-bottom: 10px; }
+			header .republic { font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+			header h1 { margin: 6px 0 2px; font-size: 1.18rem; color: var(--navy); }
+			header h2 { margin: 0; font-size: 0.95rem; font-weight: normal; color: var(--muted); }
+			header .college { margin-top: 4px; font-size: 0.82rem; color: var(--muted); }
+			.draft {
+				margin: 12px 0 0;
+				padding: 7px 10px;
+				border: 1px solid #e0b36a;
+				background: #fff8e8;
+				color: #7a4b00;
+				font-size: 0.78rem;
+				font-family: ui-sans-serif, system-ui, sans-serif;
+			}
+			h3 {
+				margin: 18px 0 6px;
+				font-size: 0.98rem;
+				color: var(--navy);
+				border-bottom: 1px solid var(--line);
+				padding-bottom: 3px;
+			}
+			p { margin: 6px 0; }
+			ul, ol { margin: 6px 0 6px 20px; padding: 0; }
+			li { margin: 4px 0; }
+			table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 0.9rem; }
+			th, td { border: 1px solid var(--line); padding: 5px 7px; text-align: left; vertical-align: top; }
+			th { background: #f4f7f6; color: var(--navy); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+			.check { display: flex; gap: 8px; align-items: flex-start; margin: 7px 0; }
+			.check input { margin-top: 3px; }
+			.sign-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; }
+			.sign-line { border-bottom: 1px solid var(--ink); height: 28px; }
+			.sign-label { margin-top: 4px; font-size: 0.78rem; color: var(--muted); }
+			.note { font-size: 0.82rem; color: var(--muted); }
+			.small { font-size: 0.78rem; color: var(--muted); }
+			.page-break { page-break-before: always; }
+			footer { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 6px; font-size: 0.72rem; color: var(--muted); }
+			@media print {
+				body { background: white; }
+				.sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
+				.page-break { page-break-before: always; }
+				a { color: inherit; text-decoration: none; }
+			}
+			@page { size: A4; margin: 16mm; }
+		</style>
+	</head>
+	<body>
+		<main class="sheet">
+			<header>
+				<div class="republic">Republic of the Philippines</div>
+				<h1>Iloilo State University of Fisheries Science and Technology</h1>
+				<h2>College of Information and Communication Technology</h2>
+				<div class="college">Dingle Campus · Dingle, Iloilo · Philippines</div>
+			</header>
+
+			<div class="draft">
+				<strong>Draft for University Legal Office review.</strong> This form is not yet approved.
+				The Privacy Policy is published as version 1.0, effective 26 October 2026.
+			</div>
+
+			<h2 style="margin-top: 14px; color: var(--navy); font-size: 1.05rem;">Research Information and Informed Consent Form</h2>
+			<p><strong>Study:</strong> Precision Feeding System for African Hito: Hybrid Approach to Biomass Monitoring and FCR Optimization</p>
+			<p><strong>Researchers:</strong> Jeff Edrick C. Martinez, Karl F. Calimotan, Jay R. C. Castillo, Aime G. Detore</p>
+			<p><strong>Adviser:</strong> Thesis Adviser, College of Information and Communication Technology, ISUFST Dingle Campus</p>
+			<p><strong>Version:</strong> 1.0 — 26 October 2026</p>
+
+			<h3>1. Invitation</h3>
+			<p>
+				You are invited to take part in a capstone research study that evaluates the PakaonAI
+				Precision Feeding System. The study will be conducted with <strong>20 fish farmers</strong>
+				and <strong>10 IT professionals</strong>. Your participation is voluntary. Please read this
+				form, ask questions, and decide whether you want to take part.
+			</p>
+
+			<h3>2. Purpose</h3>
+			<p>
+				The study develops and evaluates a precision feeding system for African catfish. It
+				combines an ESP32-based feeder with a web dashboard that recalculates feed amounts from
+				manual biomass samples. The evaluation uses the <strong>ISO/IEC 25010:2023</strong>
+				software quality model to assess functionality, reliability, compatibility, security,
+				usability, maintainability, efficiency, and portability.
+			</p>
+
+			<h3>3. What you will be asked to do</h3>
+			<p>
+				If you agree, you will complete a questionnaire about the PakaonAI web dashboard and feeder
+				hardware. You will rate statements about the system and may add comments. The
+				questionnaire is available on <strong>printed paper</strong> or through
+				<strong>Google Forms</strong>.
+			</p>
+			<ul>
+				<li>You may skip any question.</li>
+				<li>You may stop at any time.</li>
+				<li>You do not need to provide your name.</li>
+				<li>We will not audio-record, video-record, or photograph you.</li>
+				<li>We will not ask for your email address, phone number, or other contact details in the form.</li>
+			</ul>
+			<p>You may answer at your own pace.</p>
+
+			<h3>4. Information we collect</h3>
+			<table>
+				<thead>
+					<tr><th>Item</th><th>Required?</th><th>Notes</th></tr>
+				</thead>
+				<tbody>
+					<tr><td>Name</td><td>Optional</td><td>You may leave it blank.</td></tr>
+					<tr><td>Date</td><td>Yes</td><td>Used to organize the responses.</td></tr>
+					<tr><td>Role</td><td>Yes</td><td>IT expert, hardware/electronics expert, agriculturist, or farm operator/field expert.</td></tr>
+					<tr><td>Questionnaire answers</td><td>Yes</td><td>Your ratings and optional comments about the system.</td></tr>
+				</tbody>
+			</table>
+			<p class="note">
+				We do <strong>not</strong> collect email addresses, phone numbers, government IDs, health
+				information, biometrics, precise location, audio, video, or photos. Please do not write
+				sensitive personal information or another person's data on the form.
+			</p>
+
+			<h3>5. Confidentiality</h3>
+			<ul>
+				<li>Only the four researchers and the thesis adviser will have access to the raw responses.</li>
+				<li>Printed forms are kept in a <strong>locked cabinet</strong> accessible only to the researchers.</li>
+				<li>Google Forms responses stay in Google Forms/Drive and are accessible only to the researchers. The form is configured <strong>not to collect email addresses</strong>.</li>
+				<li>Results are reported in <strong>aggregated or anonymized</strong> form.</li>
+				<li>We will not name you, quote you, or publish your photo without separate written permission.</li>
+				<li>The capstone paper may be published in a reputable research journal. Only aggregated or anonymized results will be included.</li>
+			</ul>
+
+			<h3>6. Risks and benefits</h3>
+			<p>
+				There are minimal risks. You may feel uncomfortable answering some questions; you can skip
+				them or stop. There is no direct payment or guaranteed benefit. Your participation helps
+				evaluate a precision feeding system for smallholder catfish farms and contributes to the
+				capstone research.
+			</p>
+
+			<h3>7. Voluntary participation and withdrawal</h3>
+			<p>
+				Participation is voluntary. You may refuse, skip questions, or withdraw at any time
+				without penalty. To withdraw, contact the Data Protection Officer at
+				<strong>privacy@pakaonai.syntaxure.dev</strong>. Withdrawal stops future processing. Data
+				already aggregated or published in a form that no longer identifies you may not be
+				removable.
+			</p>
+
+			<h3>8. Retention</h3>
+			<p>
+				We keep the research data until the capstone is completed and the resulting paper is
+				published in a reputable research journal. After that, we keep it only for the period
+				required by the University's records policy or the journal's data-availability policy,
+				whichever is longer. Then we securely destroy it: printed forms are shredded; Google Forms
+				responses are deleted; any research contact data in Supabase is deleted.
+			</p>
+
+			<h3>9. Data privacy</h3>
+			<p>
+				PakaonAI processes research data under the Philippine Data Privacy Act of 2012 (RA 10173)
+				and its Implementing Rules and Regulations. The legal basis is your <strong>consent</strong>.
+				The Privacy Policy explains your rights and how to exercise them:
+				<strong>https://pakaonai.syntaxure.dev/privacy</strong> (version 1.0, effective 26 October
+				2026).
+			</p>
+			<p>
+				<strong>Data Protection Officer:</strong> Jeff Edrick C. Martinez<br />
+				<strong>Email:</strong> privacy@pakaonai.syntaxure.dev<br />
+				<strong>Address:</strong> PakaonAI Capstone Project, College of Information and
+				Communication Technology, ISUFST Dingle Campus, Dingle, Iloilo, Philippines
+			</p>
+
+			<div class="page-break"></div>
+
+			<h3>10. Consent statement</h3>
+			<p>Please tick each box:</p>
+			<div class="check"><input type="checkbox" id="c1" /><label for="c1">I have read and understood this information sheet, or it was explained to me in a language I understand.</label></div>
+			<div class="check"><input type="checkbox" id="c2" /><label for="c2">I am <strong>18 years old or older</strong>.</label></div>
+			<div class="check"><input type="checkbox" id="c3" /><label for="c3">I understand that my participation is voluntary and that I may skip questions or withdraw at any time without penalty.</label></div>
+			<div class="check"><input type="checkbox" id="c4" /><label for="c4">I understand what data will be collected and how it will be used, stored, and published.</label></div>
+			<div class="check"><input type="checkbox" id="c5" /><label for="c5">I agree to take part in this study.</label></div>
+			<div class="check"><input type="checkbox" id="c6" /><label for="c6">I agree that my <strong>anonymized or aggregated</strong> responses may be used in the capstone paper and a research journal.</label></div>
+
+			<div class="sign-grid">
+				<div>
+					<div class="sign-line"></div>
+					<div class="sign-label">Participant name (optional)</div>
+				</div>
+				<div>
+					<div class="sign-line"></div>
+					<div class="sign-label">Date</div>
+				</div>
+				<div>
+					<div class="sign-line"></div>
+					<div class="sign-label">Participant signature</div>
+				</div>
+				<div>
+					<div class="sign-line"></div>
+					<div class="sign-label">Researcher signature</div>
+				</div>
+			</div>
+
+			<h3>Hiligaynon summary (courtesy translation)</h3>
+			<p class="small">Ang English nga bersyon amo ang opisyal. Ini nga summary para sa kasanag lamang.</p>
+			<ul>
+				<li>Ginadapit ka sa isa ka capstone research sa PakaonAI Precision Feeding System.</li>
+				<li>Ang questionnaire para sa 20 ka fish farmers kag 10 ka IT professionals.</li>
+				<li>Optional ang name. Ginakinahanglan ang petsa, role, kag questionnaire answers.</li>
+				<li>Wala kami ginapangayo nga email, phone, audio, video, ukon photos. Indi magsulat sang sensitibo nga personal data.</li>
+				<li>Kami lamang nga researchers kag adviser ang makakita sang raw responses. Ang printed forms yara sa locked cabinet; ang Google Forms responses yara sa Google kag restricted.</li>
+				<li>Voluntary ang pagpartisipar. Mahimo ka mag-skip, mag-stop, ukon mag-withdraw bisan san-o, nga wala sang penalty.</li>
+				<li>Aggregated ukon anonymized lamang ang i-publish. Indi ka pagngalanan ukon i-quote nga wala sang separate nga pahintulot.</li>
+				<li>Ang data ginatago tubtob matapos ang capstone kag mapublish ang paper, tapos i-destroy.</li>
+				<li>Kontak: privacy@pakaonai.syntaxure.dev.</li>
+			</ul>
+
+			<h3>Google Forms version — settings</h3>
+			<ul>
+				<li><strong>Responses → Collect email addresses: Off.</strong></li>
+				<li><strong>Limit to 1 response:</strong> optional. If on, respondents must sign in to Google; that may collect an account identifier. If anonymity matters, leave it off and use separate links per group.</li>
+				<li><strong>Edit after submit: Off</strong> unless corrections are needed.</li>
+				<li>Do not enable file uploads.</li>
+				<li>Restrict editing/response access to the researchers.</li>
+				<li>Do not export responses to Supabase. Keep them in Google Forms/Drive as stated in this form.</li>
+				<li>Delete the responses after the retention period.</li>
+			</ul>
+
+			<div class="draft">
+				<strong>Review notes:</strong> This form is a draft. The Privacy Policy is published as
+				version 1.0, effective 26 October 2026. The study does not collect sensitive
+				personal information. Confirm the final Privacy Policy URL before printing. The paper's
+				Ethical Considerations section should be updated with the human-participant paragraph in
+				<code>docs/legal/paper-ethics-paragraph.md</code>.
+			</div>
+
+			<footer>
+				PakaonAI Capstone Project · College of Information and Communication Technology · ISUFST
+				Dingle Campus · Dingle, Iloilo · privacy@pakaonai.syntaxure.dev
+			</footer>
+		</main>
+	</body>
+</html>

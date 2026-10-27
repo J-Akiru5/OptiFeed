@@ -22,7 +22,7 @@ before your first commit.
 
 OptiFeed is a live application, not a scaffold:
 
-- Production: <https://optifeed.syntaxure.dev> (Vercel project `opti-feed-web`,
+- Production: <https://pakaonai.syntaxure.dev> (Vercel project `opti-feed-web`,
   root directory `apps/web`).
 - Application: Next.js 16 (App Router), Supabase (Postgres + Auth), Prisma,
   next-intl (English + Hiligaynon), Tailwind 4, pnpm workspace.
@@ -119,9 +119,16 @@ load tests) against staging; use a local database. See
 `docs/deployment-workflow.md` §6.
 
 **WiFi provisioning:** a new device is provisioned from its own access point
-(`OptiFeed-XXXX` at `http://192.168.4.1`), not from the dashboard. The hardware
+(`PakaonAI-XXXX` at `http://192.168.4.1`; units flashed before the rename still show
+`OptiFeed-XXXX` until reflashed), not from the dashboard. The hardware
 settings page only shows the AP name and instructions; WiFi credentials are
 never sent to or stored on the server. See `docs/wifi-provisioning-plan.md`.
+
+**Registering devices:** only platform admins register units, at
+`/superadmin/devices` (plan v2, T15): chip MAC from the boot log, label, org and
+pond, reason. The token is shown once; the sticker never carries it. Procedure:
+`firmware/README.md` → "Registering a new unit". Never test registration or
+token rotation on a preview: previews write to the production database.
 
 ## 7. Working alongside another developer
 

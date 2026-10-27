@@ -1,3 +1,4 @@
+import { DASHBOARD_SNAPSHOT_KEY } from "../pwa/snapshot";
 import { clearOutbox } from "./outbox";
 import type {
 	OfflineMeta,
@@ -12,6 +13,7 @@ const SNAPSHOTS_STORE = "snapshots";
 const META_STORE = "meta";
 export const OFFLINE_FALLBACK_KEY = "optifeed:offline:snapshots:v1";
 export const OFFLINE_META_KEY = "optifeed:offline:active:v1";
+export const OFFLINE_USER_KEY = "optifeed:offline:user:v1";
 export const LEGACY_DASHBOARD_KEY = "optifeed:pwa:dashboard:v1";
 
 export function offlineSnapshotKey(scope: string, pondId: string, page: OfflinePage): string {
@@ -223,7 +225,10 @@ export async function clearOfflineData(): Promise<void> {
 		try {
 			window.localStorage.removeItem(OFFLINE_FALLBACK_KEY);
 			window.localStorage.removeItem(OFFLINE_META_KEY);
+			window.localStorage.removeItem(OFFLINE_USER_KEY);
 			window.localStorage.removeItem(LEGACY_DASHBOARD_KEY);
+			// The pre-IndexedDB dashboard snapshot is separate from the store above.
+			window.localStorage.removeItem(DASHBOARD_SNAPSHOT_KEY);
 		} catch {
 			// Storage may be unavailable.
 		}
@@ -236,4 +241,44 @@ export async function clearOfflineData(): Promise<void> {
 		request.onerror = () => resolve();
 		request.onblocked = () => resolve();
 	});
+}
+
+/**
+ * Which account this device last cached offline data for. Scoped to the whole
+ * store: when a different user signs in, the previous user's queues and
+ * snapshots must not survive.
+ */
+export function getOfflineUser(): string | null {
+	if (typeof window === "undefined") return null;
+	try {
+		const value = window.localStorage.getItem(OFFLINE_USER_KEY);
+		return value && value.length > 0 ? value : null;
+	} catch {
+		return null;
+	}
+}
+
+export function recordOfflineUser(userId: string): void {
+	if (typeof window === "undefined" || userId.length === 0) return;
+	try {
+		window.localStorage.setItem(OFFLINE_USER_KEY, userId);
+	} catch {
+		// Identity tracking is best-effort.
+	}
+}
+
+/**
+ * Clears every cached snapshot/queue when the signed-in user changes. Returns
+ * true when data was cleared. Call this once per authenticated dashboard mount.
+ */
+export async function clearOfflineDataIfUserChanged(userId: string): Promise<boolean> {
+	if (!userId) return false;
+	const previous = getOfflineUser();
+	if (previous !== null && previous !== userId) {
+		await clearOfflineData();
+		recordOfflineUser(userId);
+		return true;
+	}
+	recordOfflineUser(userId);
+	return false;
 }

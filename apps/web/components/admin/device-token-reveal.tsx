@@ -53,6 +53,10 @@ export function DeviceTokenReveal({ deviceId, deviceLabel }: DeviceTokenRevealPr
 			if (result.success) {
 				setToken(result.token);
 				setCopied(false);
+			} else if (result.code === "rate_limited") {
+				// The server sends a stable code because the message itself is
+				// localized here, in the admin's current locale.
+				setError(t("tokenRateLimited"));
 			} else {
 				setError(result.error);
 			}
@@ -83,32 +87,43 @@ export function DeviceTokenReveal({ deviceId, deviceLabel }: DeviceTokenRevealPr
 				type="button"
 				onClick={handleReveal}
 				disabled={loading}
+				aria-expanded={token !== null}
+				aria-controls={`device-token-${deviceId}`}
 				aria-label={`${token ? t("hideToken") : t("showToken")} — ${deviceLabel}`}
-				className="rounded-xl border border-[#0A3D62]/20 px-3 py-2 text-xs font-black text-[#0A3D62] hover:bg-[#F4F7F6] transition-colors disabled:opacity-50"
+				className="rounded-xl border border-[#0A3D62]/20 px-3 py-2 text-xs font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:opacity-50 dark:border-gray-600 dark:text-[#8fc0ea] dark:hover:bg-gray-800 dark:focus-visible:outline-[#8fc0ea]"
 			>
 				{loading ? t("loading") : token ? t("hideToken") : t("showToken")}
 			</button>
 
 			{token && (
-				<div className="w-full rounded-xl border border-[#0A3D62]/15 bg-[#F4F7F6] p-2.5">
-					<p className="text-[10px] font-black uppercase tracking-wider text-[#3D5568]">
+				<div
+					id={`device-token-${deviceId}`}
+					className="w-full rounded-xl border border-[#0A3D62]/15 bg-[#F4F7F6] p-2.5 dark:border-gray-700 dark:bg-gray-800"
+				>
+					<p className="text-[10px] font-black tracking-wider text-[#3D5568] uppercase dark:text-gray-300">
 						{t("tokenColumn")}
 					</p>
-					<code className="mt-1 block break-all font-mono text-[11px] font-bold text-[#0A3D62]">
+					<code className="mt-1 block font-mono text-[11px] font-bold break-all text-[#0A3D62] dark:text-gray-100">
 						{token}
 					</code>
 					<button
 						type="button"
 						onClick={handleCopy}
-						className="mt-2 rounded-lg border border-[#0A3D62]/20 bg-white px-2.5 py-1 text-[10px] font-black text-[#0A3D62] hover:bg-[#F4F7F6] transition-colors"
+						className="mt-2 rounded-lg border border-[#0A3D62]/20 bg-white px-2.5 py-1 text-[10px] font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-gray-600 dark:bg-gray-900 dark:text-[#8fc0ea] dark:hover:bg-gray-700 dark:focus-visible:outline-[#8fc0ea]"
 					>
 						{copied ? t("copied") : t("copy")}
 					</button>
-					<p className="mt-2 text-[10px] leading-snug text-[#3D5568]">{t("tokenWarning")}</p>
+					<p className="mt-2 text-[10px] leading-snug text-[#3D5568] dark:text-gray-400">
+						{t("tokenWarning")}
+					</p>
 				</div>
 			)}
 
-			{error && <p className="text-[11px] font-bold text-[#C42B3A]">{error}</p>}
+			{error && (
+				<p role="alert" className="text-[11px] font-bold text-[#C42B3A] dark:text-red-300">
+					{error}
+				</p>
+			)}
 		</div>
 	);
 }

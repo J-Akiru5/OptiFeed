@@ -93,6 +93,10 @@
 			"reason": "Device-token credential; external firmware contract."
 		},
 		{
+			"path": "/api/v1/firmware/check",
+			"reason": "Device-token credential; external firmware OTA contract, covered by lib/__tests__/firmware-check.test.ts."
+		},
+		{
 			"path": "/api/v1/calendar/events",
 			"reason": "Range-based calendar read; covered by calendar-events tests and the Harvest UI."
 		},

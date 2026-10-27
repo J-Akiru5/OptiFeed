@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import type { MemberRole } from "@prisma/client";
 import { assertPasswordChanged, getCurrentUser } from "./session";
+import { assertNotViewingAs } from "./view-as";
 
 /**
  * Tenant permission names (plan §4.2). The database stores these as free-text
@@ -176,6 +177,9 @@ export async function hasPermission(permission: Permission): Promise<boolean> {
  */
 export async function requirePermission(permission: Permission): Promise<void> {
 	await assertPasswordChanged();
+	// Read-only view-as (plan M5.1) blocks every tenant write, including the
+	// /admin console actions that gate on permissions rather than write access.
+	await assertNotViewingAs();
 	if (!(await hasPermission(permission))) {
 		throw new Error("Forbidden");
 	}

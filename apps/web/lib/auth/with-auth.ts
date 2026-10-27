@@ -7,6 +7,7 @@ import type { NextRequest } from "next/server";
 import { farmIdFromPondEmail } from "./session";
 import { cacheFarm, getCachedFarm } from "./session-cache";
 import { getVerifiedSession } from "./verify-session";
+import { getViewAsFarmId } from "./view-as";
 
 type AuthenticatedHandler = (
 	request: NextRequest,
@@ -55,13 +56,33 @@ export function withAuth(handler: AuthenticatedHandler) {
 
 		const ownerId = binding.farmId && emailFarmId === binding.farmId ? binding.farmId : null;
 
+		if (!ownerId) {
+			recordPhase("auth", performance.now() - startedAt);
+			return fail(unauthorized());
+		}
+
+		// Read-only view-as (plan M5.1): GET/HEAD reads resolve to the target
+		// tenant, while any mutating method is refused. This keeps API-backed
+		// dashboard widgets consistent with the server-rendered pages and closes
+		// the API as a write path during a session.
+		const viewAsFarmId = await getViewAsFarmId();
+		if (viewAsFarmId) {
+			const readOnlyMethod = request.method === "GET" || request.method === "HEAD";
+			if (!readOnlyMethod) {
+				recordPhase("auth", performance.now() - startedAt);
+				return fail(forbidden("This is a read-only view-as session."));
+			}
+			recordPhase("auth", performance.now() - startedAt);
+			return handler(
+				request,
+				{ ownerId: viewAsFarmId, user: { id: session.sub, email: session.email } },
+				routeContext,
+			);
+		}
+
 		// Stop the auth clock before the handler runs: `app` is derived as
 		// total - db - auth, so including handler time here would erase it.
 		recordPhase("auth", performance.now() - startedAt);
-
-		if (!ownerId) {
-			return fail(unauthorized());
-		}
 
 		return handler(
 			request,

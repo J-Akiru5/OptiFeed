@@ -1,7 +1,14 @@
 import { NotificationList } from "@/components/NotificationList";
+import {
+	DashboardEmptyState,
+	DashboardPageHeader,
+	ReadOnlyNotice,
+} from "@/components/dashboard/dashboard-ui";
 import { Link } from "@/i18n/routing";
+import { canWrite } from "@/lib/auth/session";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import { Bell } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0;
@@ -11,14 +18,18 @@ export default async function NotificationsPage({
 }: {
 	searchParams: Promise<{ tier?: string; category?: string }>;
 }) {
-	const t = await getTranslations("dashboard.notifications");
+	const [t, tCommon, writeAccess] = await Promise.all([
+		getTranslations("dashboard.notifications"),
+		getTranslations("dashboard.common"),
+		canWrite(),
+	]);
 	const params = await searchParams;
 	const pond = await getActivePond();
 
 	if (!pond) {
 		return (
-			<div className="flex h-[50vh] items-center justify-center">
-				<p className="text-lg text-gray-500 dark:text-gray-400">{t("noPondData")}</p>
+			<div className="mx-auto max-w-2xl py-10">
+				<DashboardEmptyState icon={Bell} title={t("noPondData")} description={t("empty")} />
 			</div>
 		);
 	}
@@ -88,20 +99,17 @@ export default async function NotificationsPage({
 
 	return (
 		<div className="mx-auto max-w-4xl space-y-6 animate-in fade-in duration-150">
-			<section className="rounded-[32px] border border-[#0A3D62]/5 bg-white p-5 shadow-md dark:bg-gray-900 md:p-8">
-				<div className="flex flex-col justify-between gap-4 border-b border-gray-100 pb-6 dark:border-gray-700/50 sm:flex-row sm:items-end">
-					<div>
-						<h1 className="mt-1 text-2xl font-black uppercase text-[#0A3D62] dark:text-[#5b9bd5] md:text-3xl">
-							{t("title")}
-						</h1>
-						<p className="mt-1 max-w-xl text-sm font-semibold text-[#3D5568] dark:text-gray-300">
-							{t("count", { count: serialized.length })}
-						</p>
-					</div>
+			<section className="rounded-3xl border border-[#0A3D62]/5 bg-white p-4 shadow-md dark:bg-gray-900 sm:p-6 md:p-8">
+				<div className="border-b border-gray-100 pb-6 dark:border-gray-700/50">
+					<DashboardPageHeader
+						icon={Bell}
+						title={t("title")}
+						description={t("count", { count: serialized.length })}
+					/>
 				</div>
 
 				{/* Tier filter tabs */}
-				<div className="mt-6 flex flex-wrap gap-2">
+				<nav aria-label={t("filtersTierLabel")} className="mt-6 flex flex-wrap gap-2">
 					{tiers.map((tier) => {
 						const isActive =
 							tier.key === "all" ? !params.tier || params.tier === "all" : params.tier === tier.key;
@@ -109,7 +117,8 @@ export default async function NotificationsPage({
 							<Link
 								key={tier.key}
 								href={tierHref(tier.key)}
-								className={`rounded-full px-4 py-1.5 text-xs font-bold uppercase transition-colors ${
+								aria-current={isActive ? "page" : undefined}
+								className={`inline-flex min-h-11 items-center rounded-full px-4 py-2 text-xs font-bold uppercase transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea] ${
 									isActive
 										? "bg-[#0A3D62] text-white"
 										: "bg-[#F4F7F6] text-[#3D5568] hover:bg-[#E8EDED] dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
@@ -119,10 +128,10 @@ export default async function NotificationsPage({
 							</Link>
 						);
 					})}
-				</div>
+				</nav>
 
 				{/* Category filter tabs */}
-				<div className="mt-3 flex flex-wrap gap-2">
+				<nav aria-label={t("filtersCategoryLabel")} className="mt-3 flex flex-wrap gap-2">
 					{categories.map((cat) => {
 						const isActive =
 							cat.key === "all"
@@ -132,7 +141,8 @@ export default async function NotificationsPage({
 							<Link
 								key={cat.key}
 								href={categoryHref(cat.key)}
-								className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase transition-colors ${
+								aria-current={isActive ? "page" : undefined}
+								className={`inline-flex min-h-11 items-center rounded-full px-3 py-2 text-[10px] font-bold uppercase transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea] ${
 									isActive
 										? "bg-[#3D5568] text-white"
 										: "bg-gray-100 text-[#3D5568] hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
@@ -142,9 +152,17 @@ export default async function NotificationsPage({
 							</Link>
 						);
 					})}
-				</div>
+				</nav>
 
-				<NotificationList initialNotifications={serialized} pondId={pond.id} />
+				{!writeAccess && (
+					<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
+				)}
+
+				<NotificationList
+					initialNotifications={serialized}
+					pondId={pond.id}
+					canWrite={writeAccess}
+				/>
 			</section>
 		</div>
 	);

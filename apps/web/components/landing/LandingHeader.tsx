@@ -76,7 +76,7 @@ export function LandingHeader() {
 	return (
 		<header
 			className={cn(
-				"sticky top-0 z-50 border-b bg-[#061B2B] transition-shadow duration-300",
+				"sticky top-0 z-50 border-b bg-[#061B2B] dark:bg-[#0D3B5C] transition-colors transition-shadow duration-300",
 				scrolled
 					? "border-white/10 shadow-[0_16px_40px_-24px_rgba(0,0,0,0.9)]"
 					: "border-transparent",

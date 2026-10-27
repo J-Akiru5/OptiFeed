@@ -3,11 +3,11 @@
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { dateOnlyToUtcDate, isValidDateOnly } from "@/lib/crop-cycle/dates";
+import { applyGrowthPlanForPond } from "@/lib/growth-plan-apply";
 import { biomassLogSchema, feedGramsSchema, fishSamplesSchema, formatZodError } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import { calculateNextFeeding } from "@/lib/volumeCalc";
 import { revalidatePath } from "next/cache";
-import { applyGrowthPlanForPond } from "./growth-plan";
 
 const DEVIATION_THRESHOLD = 0.5; // 50% — reject if new value differs this much from current
 

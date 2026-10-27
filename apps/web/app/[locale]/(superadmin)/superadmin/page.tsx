@@ -1,59 +1,49 @@
+import { Card, PageHeader, StatCard } from "@/components/superadmin/ui";
 import { getSuperadminStats } from "@/lib/actions/superadmin";
-
-const cardClass = "bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col gap-1";
-
-function StatCard({
-	label,
-	value,
-	hint,
-}: {
-	label: string;
-	value: number;
-	hint?: string;
-}) {
-	return (
-		<div className={cardClass}>
-			<span className="text-[10px] uppercase font-extrabold tracking-wider text-[#3D5568]">
-				{label}
-			</span>
-			<span className="text-3xl font-black text-[#0A3D62] tabular-nums">{value}</span>
-			{hint && <span className="text-[11px] text-[#3D5568]">{hint}</span>}
-		</div>
-	);
-}
+import { Droplets, FolderTree, ShieldCheck, Users } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 export default async function SuperadminOverviewPage() {
-	const stats = await getSuperadminStats();
+	const [stats, t] = await Promise.all([
+		getSuperadminStats(),
+		getTranslations("superadmin.overview"),
+	]);
 
 	return (
 		<div className="space-y-8">
-			<div>
-				<h1 className="text-2xl font-black text-[#0A3D62]">Platform Overview</h1>
-				<p className="text-sm text-[#3D5568] mt-1">
-					Cross-tenant visibility. Accounts, organizations and read-only pond state.
-				</p>
-			</div>
+			<PageHeader title={t("title")} description={t("description")} />
 
-			<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-				<StatCard label="Users" value={stats.userCount} hint="All tenants" />
-				<StatCard label="Organizations" value={stats.orgCount} hint="Tenants" />
-				<StatCard label="Ponds" value={stats.pondCount} hint="Read-only" />
+			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+				<StatCard label={t("users")} value={stats.userCount} hint={t("usersHint")} icon={Users} />
 				<StatCard
-					label="Platform Admins"
+					label={t("organizations")}
+					value={stats.orgCount}
+					hint={t("organizationsHint")}
+					icon={FolderTree}
+				/>
+				<StatCard
+					label={t("ponds")}
+					value={stats.pondCount}
+					hint={t("pondsHint")}
+					icon={Droplets}
+				/>
+				<StatCard
+					label={t("platformAdmins")}
 					value={stats.activePlatformAdminCount}
-					hint={`${stats.platformAdminCount} grant(s) total`}
+					hint={t("grantsTotal", { count: stats.platformAdminCount })}
+					icon={ShieldCheck}
 				/>
 			</div>
 
-			<div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-3">
-				<h2 className="text-lg font-black text-[#0A3D62]">Scope of this console</h2>
-				<ul className="text-sm text-[#3D5568] space-y-1.5 list-disc pl-5">
-					<li>Manage every user account, including tenant admins.</li>
-					<li>Create organizations and register farmers.</li>
-					<li>Inspect ponds across tenants — view only, no edits or scheduling.</li>
-					<li>Grant or revoke platform admin access, with a recorded reason.</li>
+			<Card className="space-y-3 p-6">
+				<h2 className="text-lg font-black text-[#0A3D62]">{t("scopeTitle")}</h2>
+				<ul className="list-disc space-y-1.5 pl-5 text-sm text-[#3D5568]">
+					<li>{t("scope1")}</li>
+					<li>{t("scope2")}</li>
+					<li>{t("scope3")}</li>
+					<li>{t("scope4")}</li>
 				</ul>
-			</div>
+			</Card>
 		</div>
 	);
 }

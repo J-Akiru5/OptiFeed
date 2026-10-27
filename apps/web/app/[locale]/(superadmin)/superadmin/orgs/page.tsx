@@ -1,88 +1,222 @@
 import { CreateOrgForm } from "@/components/superadmin/create-org-form";
+import { ListPagination, ListToolbar } from "@/components/superadmin/list-chrome";
+import {
+	Badge,
+	type BadgeTone,
+	Card,
+	EmptyState,
+	MetaPair,
+	MobileCard,
+	PageHeader,
+	SECONDARY_BUTTON,
+	TableFrame,
+} from "@/components/superadmin/ui";
+import { ViewAsControl } from "@/components/superadmin/view-as-control";
+import { Link, getPathname } from "@/i18n/routing";
 import { listOrgs } from "@/lib/actions/superadmin";
+import { formatDateTimeLocal } from "@/lib/date-local";
 import { FolderTree } from "lucide-react";
+import { getLocale, getTranslations } from "next-intl/server";
 
-const typeBadge: Record<string, string> = {
-	INDIVIDUAL: "bg-gray-200 text-[#3D5568]",
-	COOPERATIVE: "bg-[#0A3D62] text-white",
-	COMPANY: "bg-[#0A3D62] text-white",
-	LGU: "bg-[#E85A2A] text-white",
-	ACADEMIC: "bg-[#E85A2A] text-white",
+const typeBadge: Record<string, BadgeTone> = {
+	INDIVIDUAL: "neutral",
+	COOPERATIVE: "brand",
+	COMPANY: "brand",
+	LGU: "accent",
+	ACADEMIC: "accent",
 };
 
-export default async function SuperadminOrgsPage() {
-	const orgs = await listOrgs();
+const statusBadge: Record<string, BadgeTone> = {
+	ACTIVE: "success",
+	SUSPENDED: "danger",
+	PENDING_DELETION: "warning",
+	PURGED: "neutral",
+};
+
+function first(param: string | string[] | undefined): string | undefined {
+	return Array.isArray(param) ? param[0] : param;
+}
+
+export default async function SuperadminOrgsPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+	const params = await searchParams;
+	const query = first(params.q)?.trim() ?? "";
+	const page = Number.parseInt(first(params.page) ?? "1", 10) || 1;
+
+	const [orgs, locale, t, tCommon, tRoot, tDates] = await Promise.all([
+		listOrgs({ query, page }),
+		getLocale(),
+		getTranslations("superadmin.orgs"),
+		getTranslations("superadmin.common"),
+		getTranslations("superadmin"),
+		getTranslations("dates"),
+	]);
+	const pageCount = Math.max(1, Math.ceil(orgs.total / orgs.pageSize));
+
+	const labelFor = (namespace: "orgTypes" | "orgStatuses", value: string) => {
+		const key = `${namespace}.${value}`;
+		return tRoot.has(key) ? tRoot(key) : value;
+	};
+
+	const pageHref = (target: number) => ({
+		pathname: "/superadmin/orgs" as const,
+		query: { ...(query ? { q: query } : {}), page: String(target) },
+	});
 
 	return (
 		<div className="space-y-6">
-			<div>
-				<h1 className="text-2xl font-black text-[#0A3D62]">Organizations</h1>
-				<p className="text-sm text-[#3D5568] mt-1">
-					Tenants. Memberships define what each account can see in the admin console.
-				</p>
-			</div>
+			<PageHeader title={t("title")} description={t("description", { count: orgs.total })} />
 
 			<CreateOrgForm />
 
-			<div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-				<div className="overflow-x-auto">
-					<table className="w-full text-sm">
-						<thead>
-							<tr className="border-b border-gray-100 bg-[#F4F7F6]">
-								{["Organization", "Type", "Status", "Members", "Ponds", "Created"].map((h) => (
-									<th
-										key={h}
-										className="text-left px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider"
-									>
-										{h}
-									</th>
-								))}
-							</tr>
-						</thead>
-						<tbody>
-							{orgs.map((org) => (
-								<tr
-									key={org.id}
-									className="border-b border-gray-50 hover:bg-[#F4F7F6]/50 transition-colors"
-								>
-									<td className="px-6 py-4">
-										<div className="flex items-center gap-3">
-											<div className="w-9 h-9 rounded-xl bg-[#0A3D62] flex items-center justify-center text-white">
-												<FolderTree className="w-4 h-4" />
-											</div>
-											<p className="font-black text-[#0A3D62]">{org.name}</p>
-										</div>
-									</td>
-									<td className="px-6 py-4">
-										<span
-											className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${typeBadge[org.type] ?? "bg-gray-200 text-[#3D5568]"}`}
-										>
-											{org.type}
-										</span>
-									</td>
-									<td className="px-6 py-4 text-xs font-bold text-[#3D5568]">{org.status}</td>
-									<td className="px-6 py-4 tabular-nums font-black text-[#0A3D62]">
-										{org.memberCount}
-									</td>
-									<td className="px-6 py-4 tabular-nums font-black text-[#0A3D62]">
-										{org.pondCount}
-									</td>
-									<td className="px-6 py-4 text-xs text-[#3D5568]">
-										{org.createdAt.toLocaleDateString()}
-									</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-				</div>
+			<ListToolbar
+				id="orgs"
+				action={getPathname({ href: "/superadmin/orgs", locale })}
+				query={query}
+				label={t("searchLabel")}
+				placeholder={t("searchPlaceholder")}
+				searchLabel={tCommon("search")}
+			/>
 
-				{orgs.length === 0 && (
-					<p className="p-6 text-sm text-[#3D5568]">
-						No organizations yet. Create one below — tenant admins and farmers are added to an
-						organization.
-					</p>
-				)}
-			</div>
+			{orgs.rows.length === 0 ? (
+				<Card>
+					<EmptyState
+						icon={FolderTree}
+						title={query ? t("emptyQuery", { query }) : t("emptyTitle")}
+						description={query ? t("emptyQueryDesc") : t("emptyDesc")}
+						action={
+							query ? (
+								<Link href="/superadmin/orgs" className={SECONDARY_BUTTON}>
+									{tCommon("clearSearch")}
+								</Link>
+							) : undefined
+						}
+					/>
+				</Card>
+			) : (
+				<>
+					<ul className="space-y-3 md:hidden">
+						{orgs.rows.map((org) => (
+							<MobileCard key={org.id}>
+								<div className="flex items-start gap-3">
+									<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0A3D62] text-white">
+										<FolderTree className="h-4 w-4" aria-hidden="true" />
+									</div>
+									<div className="min-w-0">
+										<Link
+											href={`/superadmin/orgs/${org.id}`}
+											className="font-black text-[#0A3D62] hover:underline"
+										>
+											{org.name}
+										</Link>
+										<div className="mt-1 flex flex-wrap items-center gap-1.5">
+											<Badge tone={typeBadge[org.type] ?? "neutral"}>
+												{labelFor("orgTypes", org.type)}
+											</Badge>
+											<Badge tone={statusBadge[org.status] ?? "neutral"}>
+												{labelFor("orgStatuses", org.status)}
+											</Badge>
+										</div>
+									</div>
+								</div>
+
+								<dl className="grid grid-cols-3 gap-2">
+									<MetaPair label={tCommon("members")}>{org.memberCount}</MetaPair>
+									<MetaPair label={tCommon("ponds")}>{org.pondCount}</MetaPair>
+									<MetaPair label={tCommon("created")}>
+										{formatDateTimeLocal(org.createdAt, tDates).date}
+									</MetaPair>
+								</dl>
+
+								<div className="flex flex-wrap items-center gap-2">
+									<Link href={`/superadmin/orgs/${org.id}`} className={SECONDARY_BUTTON}>
+										{t("manageMembers")}
+									</Link>
+									<ViewAsControl orgId={org.id} orgName={org.name} />
+								</div>
+							</MobileCard>
+						))}
+					</ul>
+
+					<TableFrame
+						className="hidden md:block"
+						label={t("caption")}
+						minWidth="min-w-[62rem]"
+						columns={[
+							{ key: "org", label: t("columnOrganization") },
+							{ key: "type", label: t("columnType") },
+							{ key: "status", label: t("columnStatus") },
+							{ key: "members", label: t("columnMembers") },
+							{ key: "ponds", label: t("columnPonds") },
+							{ key: "created", label: t("columnCreated") },
+							{ key: "actions", label: t("columnActions") },
+						]}
+					>
+						{orgs.rows.map((org) => (
+							<tr
+								key={org.id}
+								className="border-b border-gray-50 transition-colors last:border-0 hover:bg-[#F4F7F6]/50"
+							>
+								<td className="px-6 py-4">
+									<div className="flex items-center gap-3">
+										<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0A3D62] text-white">
+											<FolderTree className="h-4 w-4" aria-hidden="true" />
+										</div>
+										<p className="font-black text-[#0A3D62]">
+											<Link
+												href={`/superadmin/orgs/${org.id}`}
+												className="rounded hover:underline focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+											>
+												{org.name}
+											</Link>
+										</p>
+									</div>
+								</td>
+								<td className="px-6 py-4">
+									<Badge tone={typeBadge[org.type] ?? "neutral"}>
+										{labelFor("orgTypes", org.type)}
+									</Badge>
+								</td>
+								<td className="px-6 py-4">
+									<Badge tone={statusBadge[org.status] ?? "neutral"}>
+										{labelFor("orgStatuses", org.status)}
+									</Badge>
+								</td>
+								<td className="px-6 py-4 font-black tabular-nums text-[#0A3D62]">
+									{org.memberCount}
+								</td>
+								<td className="px-6 py-4 font-black tabular-nums text-[#0A3D62]">
+									{org.pondCount}
+								</td>
+								<td className="px-6 py-4 text-xs text-[#3D5568]">
+									{formatDateTimeLocal(org.createdAt, tDates).date}
+								</td>
+								<td className="px-6 py-4">
+									<div className="flex flex-wrap items-center gap-2">
+										<Link href={`/superadmin/orgs/${org.id}`} className={SECONDARY_BUTTON}>
+											{t("manageMembers")}
+										</Link>
+										<ViewAsControl orgId={org.id} orgName={org.name} />
+									</div>
+								</td>
+							</tr>
+						))}
+					</TableFrame>
+				</>
+			)}
+
+			<ListPagination
+				label={t("pagerLabel")}
+				pageLabel={tCommon("pageOf", { page: orgs.page, count: pageCount })}
+				previousLabel={tCommon("previous")}
+				nextLabel={tCommon("next")}
+				pageCount={pageCount}
+				previousHref={orgs.page > 1 ? pageHref(orgs.page - 1) : null}
+				nextHref={orgs.page < pageCount ? pageHref(orgs.page + 1) : null}
+			/>
 		</div>
 	);
 }

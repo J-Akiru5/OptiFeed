@@ -2018,6 +2018,54 @@
 				"label": "Pagpahina"
 			}
 		},
+		"calendar": {
+			"title": "Kalendaryo sang plataporma",
+			"description": "Mga panghitabo sa punong, mga obra, milestone sang cycle, pahibalo sa sampling kag mga insidente sang device sa tanan nga tenant. Basahon lamang.",
+			"filters": {
+				"orgsLabel": "Mga Organisasyon",
+				"allOrgs": "Tanan nga organisasyon",
+				"typesLabel": "Mga klase sang panghitabo",
+				"pondLabel": "Punong",
+				"allPonds": "Tanan nga punong"
+			},
+			"types": {
+				"harvest": "Pag-ani",
+				"sampling": "Sampling",
+				"manual": "Mga panghitabo kag obra",
+				"device": "Device"
+			},
+			"device": {
+				"disconnected": "Wala sa linya ang device",
+				"pellet_low": "Kulang ang feed"
+			},
+			"readOnly": "Basahon lamang — indi ma-edit diri ang mga butang sang tenant",
+			"refresh": "I-refresh",
+			"retry": "Sulayi liwat",
+			"loadError": "Indi ma-load ang kalendaryo sang plataporma.",
+			"truncated": "Mas madamo ang mga panghitabo sang sa maipakita diri. Pabaskugon ang mga filter ukon ang petsa.",
+			"gridLabel": "Tanan nga tenant",
+			"eventCount": "{count} ka panghitabo",
+			"ota": {
+				"title": "Window sang OTA update",
+				"legend": "Window sang OTA (10:00–15:00)",
+				"description": "Adlaw-adlaw nga window sang firmware update para sa mga feeder. Wala sing feeding samtang nagahimo sang update."
+			},
+			"detail": {
+				"title": "Detalye sang panghitabo",
+				"org": "Organisasyon",
+				"noOrg": "Wala sing organisasyon",
+				"pond": "Punong",
+				"noPond": "Wala sing punong",
+				"when": "San-o",
+				"who": "Ginrekord ni",
+				"unknownWho": "Wala ginrekord",
+				"cycle": "Cycle",
+				"notes": "Mga nota",
+				"openOrg": "Bukas ang organisasyon",
+				"openPond": "Bukas ang punong",
+				"writeHint": "Basahon lamang. Para bag-uhon ang butang sang tenant, gamita ang kaugalingon nga kalendaryo sang organisasyon samtang naga-view ka bilang amo nga organisasyon."
+			}
+		},
 		"roles": {
 			"OWNER": "Tag-iya",
 			"ADMIN": "Admin",
@@ -2066,6 +2114,7 @@
 			"bottomNavLabel": "Nabigasyon sang plataporma",
 			"nav": {
 				"overview": "Pangkalahatan",
+				"calendar": "Kalendaryo",
 				"users": "Mga User",
 				"organizations": "Mga Organisasyon",
 				"ponds": "Mga Punong",
@@ -2075,6 +2124,7 @@
 			},
 			"shortNav": {
 				"overview": "Panglantaw",
+				"calendar": "Kalendaryo",
 				"users": "Mga User",
 				"organizations": "Org",
 				"ponds": "Punong",

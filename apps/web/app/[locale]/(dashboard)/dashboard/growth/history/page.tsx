@@ -23,9 +23,10 @@ import {
 	getGrowthHistory,
 	isGrowthHistoryTab,
 } from "@/lib/growth-history";
-import { getPageCount, parsePage, parsePageSize, resolveDateRange } from "@/lib/pagination";
+import { getPageCount, parsePage, resolveDateRange } from "@/lib/pagination";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import { getListPageSize } from "@/lib/settings/platform";
 import { ArrowLeft, Package, Scale, TrendingUp } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -57,7 +58,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 	const tabParam = first(raw.tab);
 	const tab: GrowthHistoryTab = isGrowthHistoryTab(tabParam) ? tabParam : "feed";
 	let page = parsePage(first(raw.page));
-	const pageSize = parsePageSize(first(raw.pageSize));
+	const pageSize = await getListPageSize();
 	const from = first(raw.from) ?? "";
 	const to = first(raw.to) ?? "";
 	const q = first(raw.q) ?? "";

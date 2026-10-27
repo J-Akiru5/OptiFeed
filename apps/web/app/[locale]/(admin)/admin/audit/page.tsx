@@ -10,18 +10,30 @@ import {
 	AdminTh,
 	AdminTr,
 } from "@/components/admin/admin-table";
+import { Pagination } from "@/components/ui/pagination";
 import { getAuditLog } from "@/lib/actions/admin";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import { parsePage } from "@/lib/pagination";
 import { FileText } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
-export default async function AdminAuditPage() {
-	const [events, t, tCommon, tDates] = await Promise.all([
-		getAuditLog(),
+export default async function AdminAuditPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ page?: string }>;
+}) {
+	const params = await searchParams;
+	const page = parsePage(params.page);
+	const [eventsPage, t, tCommon, tDates] = await Promise.all([
+		getAuditLog({ page }),
 		getTranslations("dashboard.adminAudit"),
 		getTranslations("dashboard.adminCommon"),
 		getTranslations("dates"),
 	]);
+	const events = eventsPage.rows;
+	const pageCount = Math.max(1, Math.ceil(eventsPage.total / eventsPage.pageSize));
+	const firstRow = eventsPage.total === 0 ? 0 : (eventsPage.page - 1) * eventsPage.pageSize + 1;
+	const lastRow = Math.min(eventsPage.page * eventsPage.pageSize, eventsPage.total);
 
 	const formatted = (date: Date) => formatDateTimeLocal(date, tDates).full;
 
@@ -88,6 +100,22 @@ export default async function AdminAuditPage() {
 						))}
 					</AdminCardList>
 				</>
+			)}
+
+			{eventsPage.total > 0 && (
+				<Pagination
+					basePath="/admin/audit"
+					page={eventsPage.page}
+					pageCount={pageCount}
+					showing={tCommon("pagination.showing", {
+						from: firstRow,
+						to: lastRow,
+						total: eventsPage.total,
+					})}
+					previousLabel={tCommon("pagination.previous")}
+					nextLabel={tCommon("pagination.next")}
+					label={tCommon("pagination.label")}
+				/>
 			)}
 		</div>
 	);

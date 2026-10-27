@@ -1,5 +1,5 @@
 import { CreateOrgForm } from "@/components/superadmin/create-org-form";
-import { ListPagination, ListToolbar } from "@/components/superadmin/list-chrome";
+import { ListToolbar } from "@/components/superadmin/list-chrome";
 import {
 	Badge,
 	type BadgeTone,
@@ -12,6 +12,7 @@ import {
 	TableFrame,
 } from "@/components/superadmin/ui";
 import { ViewAsControl } from "@/components/superadmin/view-as-control";
+import { Pagination } from "@/components/ui/pagination";
 import { Link, getPathname } from "@/i18n/routing";
 import { listOrgs } from "@/lib/actions/superadmin";
 import { formatDateTimeLocal } from "@/lib/date-local";
@@ -55,16 +56,13 @@ export default async function SuperadminOrgsPage({
 		getTranslations("dates"),
 	]);
 	const pageCount = Math.max(1, Math.ceil(orgs.total / orgs.pageSize));
+	const firstRow = orgs.total === 0 ? 0 : (orgs.page - 1) * orgs.pageSize + 1;
+	const lastRow = Math.min(orgs.page * orgs.pageSize, orgs.total);
 
 	const labelFor = (namespace: "orgTypes" | "orgStatuses", value: string) => {
 		const key = `${namespace}.${value}`;
 		return tRoot.has(key) ? tRoot(key) : value;
 	};
-
-	const pageHref = (target: number) => ({
-		pathname: "/superadmin/orgs" as const,
-		query: { ...(query ? { q: query } : {}), page: String(target) },
-	});
 
 	return (
 		<div className="space-y-6">
@@ -208,14 +206,19 @@ export default async function SuperadminOrgsPage({
 				</>
 			)}
 
-			<ListPagination
-				label={t("pagerLabel")}
-				pageLabel={tCommon("pageOf", { page: orgs.page, count: pageCount })}
+			<Pagination
+				basePath="/superadmin/orgs"
+				params={{ q: query || undefined }}
+				page={orgs.page}
+				pageCount={pageCount}
+				showing={tCommon("pagination.showing", {
+					from: firstRow,
+					to: lastRow,
+					total: orgs.total,
+				})}
 				previousLabel={tCommon("previous")}
 				nextLabel={tCommon("next")}
-				pageCount={pageCount}
-				previousHref={orgs.page > 1 ? pageHref(orgs.page - 1) : null}
-				nextHref={orgs.page < pageCount ? pageHref(orgs.page + 1) : null}
+				label={tCommon("pagination.label")}
 			/>
 		</div>
 	);

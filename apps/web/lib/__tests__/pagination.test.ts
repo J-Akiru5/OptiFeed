@@ -1,13 +1,12 @@
 import {
-	DEFAULT_PAGE_SIZE,
-	MAX_PAGE_SIZE,
 	buildPageHref,
 	buildPageWindow,
+	clampPage,
 	getPageCount,
 	parseDateParam,
 	parsePage,
-	parsePageSize,
 	resolveDateRange,
+	resolvePagination,
 } from "@/lib/pagination";
 import { describe, expect, it } from "vitest";
 
@@ -24,15 +23,6 @@ describe("parsePage", () => {
 	it("accepts positive page numbers", () => {
 		expect(parsePage("3")).toBe(3);
 		expect(parsePage("42")).toBe(42);
-	});
-});
-
-describe("parsePageSize", () => {
-	it("falls back to the default and clamps the maximum", () => {
-		expect(parsePageSize(undefined)).toBe(DEFAULT_PAGE_SIZE);
-		expect(parsePageSize("nope")).toBe(DEFAULT_PAGE_SIZE);
-		expect(parsePageSize("20")).toBe(20);
-		expect(parsePageSize("9999")).toBe(MAX_PAGE_SIZE);
 	});
 });
 
@@ -103,6 +93,50 @@ describe("buildPageWindow", () => {
 
 	it("handles an empty history", () => {
 		expect(buildPageWindow(1, 0)).toEqual([]);
+	});
+});
+
+describe("clampPage", () => {
+	it("keeps a valid page and clamps stale or invalid pages", () => {
+		expect(clampPage(1, 5)).toBe(1);
+		expect(clampPage(3, 5)).toBe(3);
+		expect(clampPage(99, 5)).toBe(5);
+		expect(clampPage(0, 5)).toBe(1);
+		expect(clampPage(-2, 5)).toBe(1);
+	});
+});
+
+describe("resolvePagination", () => {
+	it("computes the window, row numbers and Prisma offset", () => {
+		expect(resolvePagination(3, 20, 412)).toEqual({
+			page: 3,
+			pageSize: 20,
+			total: 412,
+			pageCount: 21,
+			firstRow: 41,
+			lastRow: 60,
+			offset: 40,
+		});
+	});
+
+	it("clamps a stale page to the last real page", () => {
+		expect(resolvePagination(99, 20, 45)).toMatchObject({
+			page: 3,
+			pageCount: 3,
+			firstRow: 41,
+			lastRow: 45,
+			offset: 40,
+		});
+	});
+
+	it("reports empty row numbers for an empty list", () => {
+		expect(resolvePagination(4, 20, 0)).toMatchObject({
+			page: 1,
+			pageCount: 1,
+			firstRow: 0,
+			lastRow: 0,
+			offset: 0,
+		});
 	});
 });
 

@@ -1566,6 +1566,12 @@
 				"ADMIN": "Admin",
 				"OPERATOR": "Operator",
 				"VIEWER": "Tumatan-aw"
+			},
+			"pagination": {
+				"previous": "Nagligad",
+				"next": "Masunod",
+				"showing": "Ginapakita {from}–{to} sang {total}",
+				"label": "Pagpahina"
 			}
 		},
 		"adminOverview": {
@@ -1695,7 +1701,13 @@
 			"deviceOnline": "ESP32 online",
 			"deviceOffline": "ESP32 offline",
 			"deviceMissing": "ESP32 wala pa na-pares",
-			"skipToContent": "Lumaktaw sa pangunahon nga sulod"
+			"skipToContent": "Lumaktaw sa pangunahon nga sulod",
+			"pagination": {
+				"previous": "Nagligad",
+				"next": "Masunod",
+				"showing": "Ginapakita {from}–{to} sang {total}",
+				"label": "Pagpahina"
+			}
 		}
 	},
 	"errors": {
@@ -1810,7 +1822,13 @@
 			"actions": "Mga Aksyon",
 			"dismissError": "Isira ang error",
 			"dismissNotice": "Isira ang pahibalo",
-			"loading": "Ginakarga…"
+			"loading": "Ginakarga…",
+			"pagination": {
+				"previous": "Nagligad",
+				"next": "Masunod",
+				"showing": "Ginapakita {from}–{to} sang {total}",
+				"label": "Pagpahina"
+			}
 		},
 		"roles": {
 			"OWNER": "Tag-iya",
@@ -1864,7 +1882,8 @@
 				"organizations": "Mga Organisasyon",
 				"ponds": "Mga Punong",
 				"devices": "Mga Device",
-				"aiProviders": "Mga AI Provider"
+				"aiProviders": "Mga AI Provider",
+				"settings": "Mga Setting"
 			},
 			"shortNav": {
 				"overview": "Panglantaw",
@@ -1872,7 +1891,8 @@
 				"organizations": "Org",
 				"ponds": "Punong",
 				"devices": "Device",
-				"aiProviders": "AI"
+				"aiProviders": "AI",
+				"settings": "Setting"
 			}
 		},
 		"loading": {
@@ -2245,6 +2265,22 @@
 				"medium": "medium",
 				"high": "mataas"
 			}
+		},
+		"settings": {
+			"title": "Mga Setting sang Plataporma",
+			"description": "Mga default nga ginagamit sang tanan nga organisasyon.",
+			"listsTitle": "Mga Listahan",
+			"listsDescription": "Isá ka kadamu sang row kada pahina para sa tanan nga listahan. Ginagamit ini sang numbered pagination sa dashboard, tenant console kag platform console.",
+			"pageSizeLabel": "Mga row kada pahina",
+			"pageSizeHint": "Bug-os nga numero halin {min} hasta {max}. Ang default {default}.",
+			"reasonLabel": "Rason",
+			"reasonPlaceholder": "e.g. Para mabasa ang malawig nga audit log sa diutay nga screen",
+			"reasonHint": "Ginarekord sa platform audit log. Bisan 10 ka karakter.",
+			"save": "I-save ang kadamu sang pahina",
+			"saving": "Ginasave…",
+			"saved": "Na-save ang kadamu sang pahina. Ang tanan nga listahan nagapakita na sang {value} ka row kada pahina.",
+			"invalid": "Pilia ang bug-os nga numero halin {min} hasta {max}.",
+			"failed": "Indi ma-save ang kadamu sang pahina."
 		}
 	}
 }

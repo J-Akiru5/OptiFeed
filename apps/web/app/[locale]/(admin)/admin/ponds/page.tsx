@@ -2,8 +2,10 @@ import { adminButtonPrimary } from "@/components/admin/admin-classes";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { PondStatusToggle } from "@/components/admin/pond-status-toggle";
+import { Pagination } from "@/components/ui/pagination";
 import { Link } from "@/i18n/routing";
 import { getPonds } from "@/lib/actions/admin";
+import { parsePage } from "@/lib/pagination";
 import { Cpu, Droplets, Plus } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -18,19 +20,29 @@ const statusStyles: Record<string, { bg: string; text: string }> = {
 	},
 };
 
-export default async function AdminPondsPage() {
-	const [ponds, t, tCommon] = await Promise.all([
-		getPonds(),
+export default async function AdminPondsPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ page?: string }>;
+}) {
+	const params = await searchParams;
+	const page = parsePage(params.page);
+	const [pondsPage, t, tCommon] = await Promise.all([
+		getPonds({ page }),
 		getTranslations("dashboard.adminPonds"),
 		getTranslations("dashboard.adminCommon"),
 	]);
+	const ponds = pondsPage.rows;
+	const pageCount = Math.max(1, Math.ceil(pondsPage.total / pondsPage.pageSize));
+	const firstRow = pondsPage.total === 0 ? 0 : (pondsPage.page - 1) * pondsPage.pageSize + 1;
+	const lastRow = Math.min(pondsPage.page * pondsPage.pageSize, pondsPage.total);
 
 	return (
 		<div className="space-y-6">
 			<AdminPageHeader
 				icon={Droplets}
 				title={t("title")}
-				description={t("desc", { count: ponds.length })}
+				description={t("desc", { count: pondsPage.total })}
 				actions={
 					<Link href="/admin/ponds/new" className={adminButtonPrimary}>
 						<Plus aria-hidden="true" className="h-4 w-4" />
@@ -133,6 +145,22 @@ export default async function AdminPondsPage() {
 						</li>
 					))}
 				</ul>
+			)}
+
+			{pondsPage.total > 0 && (
+				<Pagination
+					basePath="/admin/ponds"
+					page={pondsPage.page}
+					pageCount={pageCount}
+					showing={tCommon("pagination.showing", {
+						from: firstRow,
+						to: lastRow,
+						total: pondsPage.total,
+					})}
+					previousLabel={tCommon("pagination.previous")}
+					nextLabel={tCommon("pagination.next")}
+					label={tCommon("pagination.label")}
+				/>
 			)}
 		</div>
 	);

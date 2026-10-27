@@ -85,7 +85,6 @@
 		"pondFeedPellet": "Pond Feed Pellet",
 		"hopperRemaining": "Approx. {kg}kg remaining. Enough for {count} scheduled feedings.",
 		"deviceOffline": "Offline",
-		"hopperOffline": "Device offline — level reading unavailable. Showing resting state.",
 		"navLabel": "Main navigation"
 	},
 	"button": {
@@ -376,6 +375,21 @@
 		"service": "We can't update your password right now. Try again in a moment."
 	},
 	"dashboard": {
+		"feedLevel": {
+			"title": "Feed Level",
+			"lastKnown": "Last known {percent}%",
+			"offline": "Offline",
+			"noReadingYet": "No reading yet",
+			"readingTime": "{date}, {time}",
+			"unknownTime": "Reading time unavailable",
+			"daysRemaining": "Days remaining",
+			"daysValue": "~{count}d",
+			"lastUpdated": "Last updated",
+			"empty": "Empty",
+			"low": "Low",
+			"ok": "OK",
+			"noData": "No data"
+		},
 		"home": {
 			"noData": "No pond is assigned yet. Ask your administrator to set one up.",
 			"welcome": "Welcome back, {name}!",
@@ -2087,6 +2101,7 @@
 			"columnMac": "Chip MAC",
 			"columnOrg": "Organization",
 			"columnPond": "Pond",
+			"columnFeedLevel": "Feed level",
 			"columnSeen": "Last seen",
 			"columnActions": "Actions"
 		},

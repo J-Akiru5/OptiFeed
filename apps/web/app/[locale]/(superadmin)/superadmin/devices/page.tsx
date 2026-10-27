@@ -1,3 +1,4 @@
+import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { ListPagination, ListToolbar } from "@/components/superadmin/list-chrome";
 import { RegisterDeviceForm } from "@/components/superadmin/register-device-form";
 import { RemoteFeederControl } from "@/components/superadmin/remote-feeder-control";
@@ -16,6 +17,7 @@ import { Link, getPathname } from "@/i18n/routing";
 import { getOrgPondOptions, listPlatformDevices } from "@/lib/actions/platform/devices";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import prisma from "@/lib/prisma";
 import { Cpu, Printer, Wifi, WifiOff } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 
@@ -59,6 +61,23 @@ export default async function SuperadminDevicesPage({
 		pathname: "/superadmin/devices" as const,
 		query: { ...(query ? { q: query } : {}), page: String(target) },
 	});
+
+	// The allow-listed platform list select does not carry the hopper reading,
+	// and this task must not change lib/actions. Read only those fields for the
+	// devices on this page.
+	const readings =
+		devices.rows.length > 0
+			? await prisma.energyDevice.findMany({
+					where: { id: { in: devices.rows.map((device) => device.id) } },
+					select: { id: true, feedLevelPercent: true, feedLevelUpdatedAt: true },
+				})
+			: [];
+	const feedLevelById = new Map(
+		readings.map((row) => [
+			row.id,
+			{ levelPercent: row.feedLevelPercent, updatedAt: row.feedLevelUpdatedAt },
+		]),
+	);
 
 	const lastSeen = (value: Date | null) =>
 		value ? formatDateTimeLocal(value, tDates).full : tCommon("never");
@@ -143,6 +162,14 @@ export default async function SuperadminDevicesPage({
 										<MetaPair label={tCommon("pond")}>
 											{device.pond?.name ?? tCommon("unassigned")}
 										</MetaPair>
+										<MetaPair label={t("columnFeedLevel")}>
+											<FeedLevelDisplay
+												levelPercent={feedLevelById.get(device.id)?.levelPercent ?? null}
+												updatedAt={feedLevelById.get(device.id)?.updatedAt ?? null}
+												isOffline={offline}
+												size="sm"
+											/>
+										</MetaPair>
 									</dl>
 									<p className="text-[11px] text-[#3D5568]">
 										{t("lastSeen", { time: lastSeen(device.lastSeenAt) })}
@@ -178,6 +205,7 @@ export default async function SuperadminDevicesPage({
 							{ key: "mac", label: t("columnMac") },
 							{ key: "org", label: t("columnOrg") },
 							{ key: "pond", label: t("columnPond") },
+							{ key: "feed", label: t("columnFeedLevel") },
 							{ key: "seen", label: t("columnSeen") },
 							{ key: "actions", label: t("columnActions") },
 						]}
@@ -218,6 +246,14 @@ export default async function SuperadminDevicesPage({
 									</td>
 									<td className="px-6 py-4 text-xs font-bold text-[#3D5568]">
 										{device.pond?.name ?? tCommon("unassigned")}
+									</td>
+									<td className="px-6 py-4">
+										<FeedLevelDisplay
+											levelPercent={feedLevelById.get(device.id)?.levelPercent ?? null}
+											updatedAt={feedLevelById.get(device.id)?.updatedAt ?? null}
+											isOffline={offline}
+											size="sm"
+										/>
 									</td>
 									<td className="px-6 py-4">
 										<div className="space-y-1">

@@ -85,7 +85,6 @@
 		"pondFeedPellet": "Pond Feed Pellet",
 		"hopperRemaining": "Mga {kg}kg ang nabilin. Igo para sa {count} ka scheduled feeding.",
 		"deviceOffline": "Wala sa linya",
-		"hopperOffline": "Wala sa linya ang device — wala sang mabasa nga lebel. Ginapakita ang resting state.",
 		"navLabel": "Pangunahon nga paglibot"
 	},
 	"button": {
@@ -376,6 +375,21 @@
 		"service": "Indi namon ma-update ang password subong. Try liwat."
 	},
 	"dashboard": {
+		"feedLevel": {
+			"title": "Lebel sang Hopper",
+			"lastKnown": "Katapusan nga nahibaluan {percent}%",
+			"offline": "Wala sa linya",
+			"noReadingYet": "Wala pa sang pagbasa",
+			"readingTime": "{date}, {time}",
+			"unknownTime": "Wala mahibaluan ang oras sang pagbasa",
+			"daysRemaining": "Mga adlaw nga nabilin",
+			"daysValue": "~{count}d",
+			"lastUpdated": "Katapusan nga gin-update",
+			"empty": "Wala na sang feed",
+			"low": "Kulang",
+			"ok": "Maayo",
+			"noData": "Wala sang data"
+		},
 		"home": {
 			"noData": "Wala pa sang punong nga na-assign. Palihog pamangkot ang imo administrator.",
 			"welcome": "Maayong pagbalik, {name}!",
@@ -2066,6 +2080,7 @@
 			"columnMac": "Chip MAC",
 			"columnOrg": "Organisasyon",
 			"columnPond": "Punong",
+			"columnFeedLevel": "Lebel sang feed",
 			"columnSeen": "Katapusan nga nakita",
 			"columnActions": "Mga Aksyon"
 		},

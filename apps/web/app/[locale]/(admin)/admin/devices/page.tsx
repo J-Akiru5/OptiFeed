@@ -12,10 +12,12 @@ import {
 	AdminTr,
 } from "@/components/admin/admin-table";
 import { DeviceTokenReveal } from "@/components/admin/device-token-reveal";
+import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { Link, getPathname } from "@/i18n/routing";
 import { getDevices } from "@/lib/actions/admin";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import prisma from "@/lib/prisma";
 import { Cpu, Printer, Wifi, WifiOff } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 
@@ -33,6 +35,18 @@ export default async function AdminDevicesPage() {
 
 	const lastSeen = (date: Date | null) =>
 		date ? formatDateTimeLocal(date, tDates).full : tCommon("never");
+
+	// `getDevices` is an allow-listed display select without the reading
+	// timestamp, and this task must not change lib/actions. Read only that one
+	// field for the page's devices here.
+	const readingTimes =
+		devices.length > 0
+			? await prisma.energyDevice.findMany({
+					where: { id: { in: devices.map((device) => device.id) } },
+					select: { id: true, feedLevelUpdatedAt: true },
+				})
+			: [];
+	const feedLevelUpdatedAt = new Map(readingTimes.map((row) => [row.id, row.feedLevelUpdatedAt]));
 
 	return (
 		<div className="space-y-6">
@@ -80,7 +94,6 @@ export default async function AdminDevicesPage() {
 								const isOffline =
 									!device.lastSeenAt ||
 									now.getTime() - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
-								const feedLevel = device.feedLevelPercent ?? 0;
 
 								return (
 									<AdminTr key={device.id}>
@@ -130,22 +143,12 @@ export default async function AdminDevicesPage() {
 											{device.pond?.name || t("unassigned")}
 										</AdminTd>
 										<AdminTd>
-											<div className="flex items-center gap-2">
-												<div
-													aria-hidden="true"
-													className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
-												>
-													<div
-														className={`h-full rounded-full ${
-															feedLevel < 20 ? "bg-[#E85A2A]" : "bg-[#1E7B34]"
-														}`}
-														style={{ width: `${feedLevel}%` }}
-													/>
-												</div>
-												<span className="text-[11px] font-bold text-[#3D5568] tabular-nums dark:text-gray-300">
-													{feedLevel}%
-												</span>
-											</div>
+											<FeedLevelDisplay
+												levelPercent={device.feedLevelPercent}
+												updatedAt={feedLevelUpdatedAt.get(device.id) ?? null}
+												isOffline={isOffline}
+												size="sm"
+											/>
 										</AdminTd>
 										<AdminTd className="text-xs whitespace-nowrap text-[#3D5568] dark:text-gray-400">
 											{lastSeen(device.lastSeenAt)}
@@ -184,7 +187,6 @@ export default async function AdminDevicesPage() {
 							const isOffline =
 								!device.lastSeenAt ||
 								now.getTime() - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
-							const feedLevel = device.feedLevelPercent ?? 0;
 
 							return (
 								<AdminCard key={device.id}>
@@ -220,7 +222,14 @@ export default async function AdminDevicesPage() {
 										<AdminCardRow label={t("columnPond")}>
 											{device.pond?.name || t("unassigned")}
 										</AdminCardRow>
-										<AdminCardRow label={t("columnFeedLevel")}>{feedLevel}%</AdminCardRow>
+										<AdminCardRow label={t("columnFeedLevel")}>
+											<FeedLevelDisplay
+												levelPercent={device.feedLevelPercent}
+												updatedAt={feedLevelUpdatedAt.get(device.id) ?? null}
+												isOffline={isOffline}
+												size="sm"
+											/>
+										</AdminCardRow>
 										<AdminCardRow label={t("columnLastSeen")}>
 											{lastSeen(device.lastSeenAt)}
 										</AdminCardRow>

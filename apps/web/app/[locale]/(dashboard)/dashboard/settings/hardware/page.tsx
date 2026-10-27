@@ -7,6 +7,7 @@ import {
 	DashboardSection,
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
+import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { canWrite } from "@/lib/auth/session";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePond } from "@/lib/pond-selection";
@@ -49,6 +50,7 @@ export default async function HardwareSettingsPage() {
 					label: true,
 					lastSeenAt: true,
 					feedLevelPercent: true,
+					feedLevelUpdatedAt: true,
 					hopperFullCm: true,
 					hopperEmptyCm: true,
 					hopperCapacityG: true,
@@ -117,10 +119,12 @@ export default async function HardwareSettingsPage() {
 						<div className={statTile}>
 							<dt className={statLabel}>{t("hopperLevel")}</dt>
 							<dd className={statValue}>
-								{energyDevice?.feedLevelPercent === null ||
-								energyDevice?.feedLevelPercent === undefined
-									? "—"
-									: t("currentLevelValue", { percent: energyDevice.feedLevelPercent })}
+								<FeedLevelDisplay
+									levelPercent={energyDevice.feedLevelPercent}
+									updatedAt={energyDevice.feedLevelUpdatedAt}
+									isOffline={isDeviceOffline}
+									showBar={false}
+								/>
 							</dd>
 						</div>
 						<div className={statTile}>
@@ -226,13 +230,14 @@ export default async function HardwareSettingsPage() {
 				>
 					<div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-900/50 dark:bg-blue-900/20">
 						<p className="text-xs font-medium text-blue-800 dark:text-blue-200">
-							{t("currentLevelLabel")}:{" "}
-							<strong>
-								{energyDevice.feedLevelPercent === null
-									? "—"
-									: t("currentLevelValue", { percent: energyDevice.feedLevelPercent })}
-							</strong>
+							{t("currentLevelLabel")}
 						</p>
+						<FeedLevelDisplay
+							levelPercent={energyDevice.feedLevelPercent}
+							updatedAt={energyDevice.feedLevelUpdatedAt}
+							isOffline={isDeviceOffline}
+							showBar={false}
+						/>
 					</div>
 
 					<HopperCalibrationForm

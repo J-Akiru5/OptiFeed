@@ -18,11 +18,17 @@ import {
 	isPermission,
 	requirePermission,
 } from "@/lib/auth/permissions";
+import { isPlatformAdminActive } from "@/lib/auth/platform-admin";
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { invalidateFarm } from "@/lib/auth/session-cache";
 import { TENANT_ADMIN_ROLES, requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import { getSignedAvatarUrls } from "@/lib/avatars";
-import { feedingRatePctSchema, formatZodError } from "@/lib/limits";
+import {
+	feedingRatePctSchema,
+	feedsPerDaySchema,
+	formatZodError,
+	populationSchema,
+} from "@/lib/limits";
 import { inviteOrAttachMember } from "@/lib/membership-invite";
 import { deliverMemberInviteEmail } from "@/lib/notify/invite-email";
 import { resolvePagination } from "@/lib/pagination";
@@ -33,6 +39,7 @@ import { getListPageSize, normalizeListPageSize } from "@/lib/settings/platform"
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MemberRole, PondStatus, Prisma, UserRole } from "@prisma/client";
 import { getLocale } from "next-intl/server";
+import { z } from "zod";
 
 /** One numbered page of a tenant-admin list. */
 export interface AdminListPage<T> {
@@ -56,18 +63,26 @@ async function resolveAdminPageSize(provided?: number): Promise<number> {
 // superadmin lives in /superadmin and must not surface in tenant management.
 
 /**
- * userIds holding a PlatformAdmin row.
+ * userIds holding an active PlatformAdmin grant.
  *
  * Excluded from the tenant user list: the platform console is the superadmin's
  * surface, and surfacing it here would imply a tenant admin could manage it.
+ *
+ * A revoked or expired grant is *not* active: those accounts are ordinary
+ * tenant users again and must not stay hidden (or unmanageable) forever. The
+ * expiry check mirrors `isPlatformAdminActive`, the canonical predicate used by
+ * the platform guard.
  */
 async function platformAdminUserIds(): Promise<string[]> {
-	const rows = await prisma.platformAdmin.findMany({ select: { userId: true } });
-	return rows.map((r) => r.userId);
+	const rows = await prisma.platformAdmin.findMany({
+		select: { userId: true, revokedAt: true, expiresAt: true },
+	});
+	const now = new Date();
+	return rows.filter((row) => isPlatformAdminActive(row, now)).map((row) => row.userId);
 }
 
 /**
- * True when the user holds an unrevoked PlatformAdmin grant.
+ * True when the user holds an unrevoked, unexpired PlatformAdmin grant.
  *
  * Tenant admins must never edit or delete a platform admin — the grant is
  * managed from /superadmin, and a tenant console able to reassign or remove it
@@ -75,10 +90,10 @@ async function platformAdminUserIds(): Promise<string[]> {
  */
 async function hasPlatformAdminGrant(userId: string): Promise<boolean> {
 	const grant = await prisma.platformAdmin.findFirst({
-		where: { userId, revokedAt: null },
-		select: { id: true },
+		where: { userId },
+		select: { revokedAt: true, expiresAt: true },
 	});
-	return grant !== null;
+	return grant !== null && isPlatformAdminActive(grant);
 }
 
 const PLATFORM_ADMIN_MANAGED_ELSEWHERE =
@@ -171,6 +186,18 @@ export async function deleteUser(userId: string): Promise<DeleteUserResult> {
 			// Safety net: the guard above refuses active grants, but a revoked
 			// row must not outlive its user (PlatformAdmin has no FK to User).
 			await tx.platformAdmin.deleteMany({ where: { userId } });
+			// Membership is relation-free by design, so it does not cascade from
+			// the User row. Leaving it behind would keep a ghost member in the
+			// org counts and silently re-grant a recycled farm id its old role.
+			const membershipIds = (
+				await tx.membership.findMany({ where: { userId }, select: { id: true } })
+			).map((membership) => membership.id);
+			if (membershipIds.length > 0) {
+				await tx.membershipPermission.deleteMany({
+					where: { membershipId: { in: membershipIds } },
+				});
+				await tx.membership.deleteMany({ where: { userId } });
+			}
 			await deleteUserSubtree(tx, userId, user.farmId);
 		});
 
@@ -200,7 +227,43 @@ export type AdminUserRow = Omit<
 > & {
 	/** 1 h signed URL for the user's picture, or null for initials. */
 	avatarUrl: string | null;
+	/**
+	 * The member's role in the caller's organization. Tenant authority is the
+	 * Membership, not the legacy `User.role` column, so this is what the role
+	 * badge must show; null when the user has no active membership in scope.
+	 */
+	membershipRole: MemberRole | null;
 };
+
+/**
+ * Active membership role per user within the caller's scoped organizations.
+ *
+ * The first active membership wins, matching the single-org assumption in
+ * `resolveManagedMembership`. Tenant authority is this role, not the legacy
+ * `User.role` column, so admin lists must display it.
+ */
+async function membershipRolesFor(
+	userIds: readonly string[],
+	orgIds: readonly string[],
+): Promise<Map<string, MemberRole>> {
+	if (userIds.length === 0 || orgIds.length === 0) return new Map();
+	const memberships = await prisma.membership.findMany({
+		where: {
+			userId: { in: [...userIds] },
+			orgId: { in: [...orgIds] },
+			revokedAt: null,
+		},
+		orderBy: { createdAt: "asc" },
+		select: { userId: true, role: true },
+	});
+	const roleByUserId = new Map<string, MemberRole>();
+	for (const membership of memberships) {
+		if (!roleByUserId.has(membership.userId)) {
+			roleByUserId.set(membership.userId, membership.role);
+		}
+	}
+	return roleByUserId;
+}
 
 export async function getUsers(
 	input: { page?: number; pageSize?: number } = {},
@@ -239,12 +302,18 @@ export async function getUsers(
 
 	// Sign the pictures in one Storage call and drop the object key: callers get
 	// a short-lived URL, never another user's storage path (#198, E20).
+	const roleByUserId = await membershipRolesFor(
+		fetched.map((user) => user.id),
+		scope.orgIds,
+	);
+
 	const avatarUrls = await getSignedAvatarUrls(
 		fetched.map((user) => ({ id: user.id, avatarPath: user.avatarPath })),
 	);
 	const rows: AdminUserRow[] = fetched.map(({ avatarPath: _avatarPath, ...user }) => ({
 		...user,
 		avatarUrl: avatarUrls[user.id] ?? null,
+		membershipRole: roleByUserId.get(user.id) ?? null,
 	}));
 
 	return { rows, total, page: paging.page, pageSize: paging.pageSize };
@@ -895,18 +964,45 @@ export async function revokeMember(userId: string): Promise<MemberActionState> {
 
 // ─── Pond Management ─────────────────────────────────────────────────────────
 
-export async function getPonds(input: { page?: number; pageSize?: number } = {}): Promise<
-	AdminListPage<
-		Prisma.PondGetPayload<{
-			include: {
-				owner: true;
-				farm: true;
-				energyDevices: true;
-				_count: { select: { biomassLogs: true; notifications: true; ownershipHistory: true } };
-			};
-		}>
-	>
-> {
+/**
+ * A tenant pond row as the list page renders it.
+ *
+ * Explicit allow-list: `owner` is reduced to the display name and
+ * `energyDevices` to ids (the page only counts them). `include: { owner: true,
+ * energyDevices: true }` used to return full `User` rows (`supabaseId`,
+ * `avatarPath`, `mustChangePassword`) and every `EnergyDevice` column including
+ * the plaintext `token` and `tokenHash` — the exact credential
+ * `revealDeviceToken` reveals one at a time, rate-limited and audited.
+ */
+export type AdminPondRow = Prisma.PondGetPayload<{
+	select: {
+		id: true;
+		name: true;
+		ownerId: true;
+		status: true;
+		feedsPerDay: true;
+		owner: { select: { displayName: true } };
+		farm: { select: { name: true } };
+		energyDevices: { select: { id: true } };
+		_count: { select: { biomassLogs: true; notifications: true; ownershipHistory: true } };
+	};
+}>;
+
+const ADMIN_POND_SELECT = {
+	id: true,
+	name: true,
+	ownerId: true,
+	status: true,
+	feedsPerDay: true,
+	owner: { select: { displayName: true } },
+	farm: { select: { name: true } },
+	energyDevices: { select: { id: true } },
+	_count: { select: { biomassLogs: true, notifications: true, ownershipHistory: true } },
+} satisfies Prisma.PondSelect;
+
+export async function getPonds(
+	input: { page?: number; pageSize?: number } = {},
+): Promise<AdminListPage<AdminPondRow>> {
 	await requireTenantAdmin();
 	const pageSize = await resolveAdminPageSize(input.pageSize);
 	const scope = await resolveOrgScope();
@@ -917,12 +1013,7 @@ export async function getPonds(input: { page?: number; pageSize?: number } = {})
 		prisma.pond.count({ where }),
 		prisma.pond.findMany({
 			where,
-			include: {
-				owner: true,
-				farm: true,
-				energyDevices: true,
-				_count: { select: { biomassLogs: true, notifications: true, ownershipHistory: true } },
-			},
+			select: ADMIN_POND_SELECT,
 			orderBy: { createdAt: "desc" },
 			skip: (requestedPage - 1) * pageSize,
 			take: pageSize,
@@ -934,12 +1025,7 @@ export async function getPonds(input: { page?: number; pageSize?: number } = {})
 			? firstFetch
 			: await prisma.pond.findMany({
 					where,
-					include: {
-						owner: true,
-						farm: true,
-						energyDevices: true,
-						_count: { select: { biomassLogs: true, notifications: true, ownershipHistory: true } },
-					},
+					select: ADMIN_POND_SELECT,
 					orderBy: { createdAt: "desc" },
 					skip: paging.offset,
 					take: paging.pageSize,
@@ -953,6 +1039,25 @@ export type CreatePondResult = { success: true; pondId: string } | { error: stri
 export type CreatePondWithFarmerResult =
 	| { success: true; pondId: string; userId: string }
 	| { error: string };
+
+/**
+ * Validation for the two legacy pond paths below. The newer `lib/actions/ponds.ts`
+ * schemas are the source of the same bounds, but importing a `"use server"`
+ * module from another one only to reach them would re-export it; the regex and
+ * shared field schemas are cheap to repeat here.
+ */
+const legacyScheduleSchema = z
+	.object({
+		feedsPerDay: feedsPerDaySchema,
+		population: populationSchema.nullish(),
+		scheduleStart: z
+			.string("Schedule start is required")
+			.regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Schedule start must be a time in HH:MM format"),
+		scheduleEnd: z
+			.string("Schedule end is required")
+			.regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Schedule end must be a time in HH:MM format"),
+	})
+	.strict();
 
 /**
  * Register a farmer and their initial pond in one step.
@@ -995,6 +1100,17 @@ export async function createPondWithFarmer(data: {
 	const passwordCheck = validatePassword(data.password ?? "", "temporary");
 	if (!passwordCheck.ok) return { error: passwordErrorMessage(passwordCheck.code) };
 
+	// Validate the schedule before minting the auth account: an invalid time
+	// used to produce an Invalid Date (or roll past midnight) only after the
+	// Supabase user already existed.
+	const schedule = legacyScheduleSchema.safeParse({
+		feedsPerDay: data.feedsPerDay,
+		population: data.population,
+		scheduleStart: data.scheduleStart,
+		scheduleEnd: data.scheduleEnd,
+	});
+	if (!schedule.success) return { error: formatZodError(schedule.error) };
+
 	const [scope, actor] = await Promise.all([resolveOrgScope(), getCurrentUser()]);
 	if (!actor) return { error: "Not authenticated." };
 	// Adding a farmer to no organization would create an account that no admin
@@ -1023,8 +1139,8 @@ export async function createPondWithFarmer(data: {
 	});
 	if (existing) return { error: `A user with login ID "${loginId}" already exists.` };
 
-	const [startHours, startMinutes] = data.scheduleStart.split(":").map(Number);
-	const [endHours, endMinutes] = data.scheduleEnd.split(":").map(Number);
+	const [startHours, startMinutes] = schedule.data.scheduleStart.split(":").map(Number);
+	const [endHours, endMinutes] = schedule.data.scheduleEnd.split(":").map(Number);
 
 	const scheduleStart = new Date();
 	scheduleStart.setUTCHours(startHours, startMinutes, 0, 0);
@@ -1063,8 +1179,8 @@ export async function createPondWithFarmer(data: {
 					ownerId: loginId,
 					farmId: farm.id,
 					feedingRatePct,
-					feedsPerDay: data.feedsPerDay,
-					population: data.population ?? null,
+					feedsPerDay: schedule.data.feedsPerDay,
+					population: schedule.data.population ?? null,
 					scheduleStart,
 					scheduleEnd,
 				},
@@ -1112,6 +1228,14 @@ export async function createPond(data: {
 		return { error: "That farm is outside your organization." };
 	}
 
+	const schedule = legacyScheduleSchema.safeParse({
+		feedsPerDay: data.feedsPerDay,
+		population: data.population,
+		scheduleStart: data.scheduleStart,
+		scheduleEnd: data.scheduleEnd,
+	});
+	if (!schedule.success) return { error: formatZodError(schedule.error) };
+
 	let feedingRatePct: number;
 	if (data.feedingRatePct === undefined) {
 		const orgId = scope.orgIds[0];
@@ -1130,8 +1254,8 @@ export async function createPond(data: {
 		});
 		if (!owner) return { error: `User with farm ID "${data.ownerFarmId}" not found.` };
 
-		const [startHours, startMinutes] = data.scheduleStart.split(":").map(Number);
-		const [endHours, endMinutes] = data.scheduleEnd.split(":").map(Number);
+		const [startHours, startMinutes] = schedule.data.scheduleStart.split(":").map(Number);
+		const [endHours, endMinutes] = schedule.data.scheduleEnd.split(":").map(Number);
 
 		const scheduleStart = new Date();
 		scheduleStart.setUTCHours(startHours, startMinutes, 0, 0);
@@ -1156,8 +1280,8 @@ export async function createPond(data: {
 					ownerId: data.ownerFarmId,
 					farmId: farm.id,
 					feedingRatePct,
-					feedsPerDay: data.feedsPerDay,
-					population: data.population ?? null,
+					feedsPerDay: schedule.data.feedsPerDay,
+					population: schedule.data.population ?? null,
 					scheduleStart,
 					scheduleEnd,
 				},
@@ -1193,7 +1317,10 @@ export async function getDevices(
 	await requireTenantAdmin();
 	const pageSize = await resolveAdminPageSize(input.pageSize);
 	const scope = await resolveOrgScope();
-	const where = { pondId: { in: scope.pondIds } };
+	// Pending units are listed by `getPendingDevices` in their own approval queue.
+	// Leaving them in this paged query made the pager "Showing 1–20 of N" count
+	// rows the table deliberately hides, so later pages could even be empty.
+	const where = { pondId: { in: scope.pondIds }, approvalStatus: { not: "PENDING" as const } };
 	const requestedPage = Math.max(1, Math.floor(input.page ?? 1) || 1);
 
 	const [total, firstFetch] = await Promise.all([
@@ -1241,6 +1368,39 @@ export async function getDevices(
 				});
 
 	return { rows, total, page: paging.page, pageSize: paging.pageSize };
+}
+
+/** Most pending units shown in one approval queue; a bound, not a silent cut. */
+const MAX_PENDING_DEVICES = 100;
+
+/**
+ * Units waiting for org approval, newest first.
+ *
+ * Separate from the paged device list so the queue is complete (pending units on
+ * page 2+ used to be unreachable) and so the table's counts describe the rows it
+ * actually renders. Display fields only: no token, no token hash.
+ */
+export async function getPendingDevices(): Promise<AdminDeviceRow[]> {
+	await requireTenantAdmin();
+	const scope = await resolveOrgScope();
+	if (scope.pondIds.length === 0) return [];
+
+	return prisma.energyDevice.findMany({
+		where: { pondId: { in: scope.pondIds }, approvalStatus: "PENDING" },
+		select: {
+			id: true,
+			label: true,
+			mac: true,
+			pondId: true,
+			lastSeenAt: true,
+			feedLevelPercent: true,
+			gramsPerFeeding: true,
+			approvalStatus: true,
+			pond: { select: { id: true, name: true } },
+		},
+		orderBy: { createdAt: "desc" },
+		take: MAX_PENDING_DEVICES,
+	});
 }
 
 /** Machine-readable failure causes the reveal component can translate. */
@@ -1361,6 +1521,8 @@ export type FarmHierarchyNode = {
 		email: string | null;
 		farmId: string;
 		role: UserRole;
+		/** Active membership role in the caller's org; tenant authority. */
+		membershipRole: MemberRole | null;
 	};
 	farm: { id: string; name: string; ownerId: string } | null;
 	ponds: {
@@ -1404,6 +1566,10 @@ export async function getAllFarmHierarchies(): Promise<FarmHierarchyNode[]> {
 			},
 		},
 	});
+	const membershipRoles = await membershipRolesFor(
+		users.map((user) => user.id),
+		scope.orgIds,
+	);
 
 	return users.map((user) => ({
 		user: {
@@ -1412,6 +1578,7 @@ export async function getAllFarmHierarchies(): Promise<FarmHierarchyNode[]> {
 			email: user.email,
 			farmId: user.farmId,
 			role: user.role,
+			membershipRole: membershipRoles.get(user.id) ?? null,
 		},
 		farm: user.farm ? { id: user.farm.id, name: user.farm.name, ownerId: user.farm.ownerId } : null,
 		ponds: (user.farm?.ponds ?? []).map((pond) => ({

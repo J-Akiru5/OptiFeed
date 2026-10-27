@@ -97,7 +97,9 @@ export function CalendarView({
 	const labelFor = useCallback(
 		(event: CalendarEventDto): string => {
 			let label: string;
-			if (event.kind === "STOCKING") {
+			if (event.source === "manual") {
+				label = event.title;
+			} else if (event.kind === "STOCKING") {
 				label = t("event.stocking", { label: event.cycleLabel ?? event.pondName });
 			} else if (event.kind === "HARVEST_PLANNED") {
 				label = t("event.harvestPlanned", { label: event.cycleLabel ?? event.pondName });

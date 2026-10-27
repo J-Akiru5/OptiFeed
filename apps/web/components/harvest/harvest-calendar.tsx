@@ -319,6 +319,11 @@ export function HarvestCalendar({
 	}, [allPonds, range.from, range.to, selectedPondId, t, typesKey, refreshKey, apiScope]);
 
 	const labelFor = (event: CalendarEventDto): string => {
+		// Manual Events/Tasks carry their own title; cycle milestones use the
+		// cycle label, and derived sources use their fixed copy.
+		if (event.source === "manual") {
+			return allPonds ? `${event.title} · ${event.pondName}` : event.title;
+		}
 		if (event.kind === "STOCKING") {
 			return t("event.stocking", { label: event.cycleLabel ?? event.pondName });
 		}

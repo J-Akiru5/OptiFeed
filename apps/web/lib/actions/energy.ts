@@ -3,7 +3,12 @@
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { createManualFeedRequest } from "@/lib/feed/commands";
-import { GRAMS_PER_SECOND_MAX, GRAMS_PER_SECOND_MIN } from "@/lib/limits";
+import {
+	GRAMS_PER_SECOND_MAX,
+	GRAMS_PER_SECOND_MIN,
+	formatZodError,
+	hopperCalibrationSchema,
+} from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
@@ -50,6 +55,16 @@ export async function saveHopperCalibration(
 	try {
 		await requireWriteAccess();
 		await requirePermission("manage_schedule");
+
+		// A server action is a public entry point: the form bounds are not a
+		// guard. A zero capacity silently raises the daily feed cap to the hard
+		// maximum, and NaN or an inverted full/empty pair makes every feed-level
+		// percentage meaningless on the device.
+		const parsed = hopperCalibrationSchema.safeParse(data);
+		if (!parsed.success) {
+			return { success: false, error: formatZodError(parsed.error) };
+		}
+
 		const ownerId = await getCurrentPondOwnerId();
 		const device = await prisma.energyDevice.findFirst({
 			where: { id: deviceId, pond: { ownerId } },
@@ -63,9 +78,9 @@ export async function saveHopperCalibration(
 		await prisma.energyDevice.update({
 			where: { id: deviceId },
 			data: {
-				hopperFullCm: data.hopperFullCm,
-				hopperEmptyCm: data.hopperEmptyCm,
-				hopperCapacityG: data.hopperCapacityG,
+				hopperFullCm: parsed.data.hopperFullCm,
+				hopperEmptyCm: parsed.data.hopperEmptyCm,
+				hopperCapacityG: parsed.data.hopperCapacityG,
 			},
 		});
 
@@ -76,14 +91,15 @@ export async function saveHopperCalibration(
 				source: "user",
 				actorId: ownerId,
 				metadata: {
-					hopperFullCm: data.hopperFullCm,
-					hopperEmptyCm: data.hopperEmptyCm,
-					hopperCapacityG: data.hopperCapacityG,
+					hopperFullCm: parsed.data.hopperFullCm,
+					hopperEmptyCm: parsed.data.hopperEmptyCm,
+					hopperCapacityG: parsed.data.hopperCapacityG,
 				},
 			},
 		});
 
-		revalidatePath("/[locale]/(dashboard)/dashboard/app-settings", "page");
+		revalidatePath("/[locale]/(dashboard)/dashboard/settings/hardware", "page");
+		revalidatePath("/[locale]/(dashboard)/dashboard", "page");
 		return { success: true };
 	} catch (error) {
 		console.error("Failed to save hopper calibration:", error);

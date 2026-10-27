@@ -248,6 +248,73 @@ describe("POST /api/ingest — heartbeat dedup and thinning (1.4)", () => {
 		expect(sendTelegramMessage).toHaveBeenCalledWith(expect.stringContaining("nearly empty"));
 	});
 
+	it("queues one hopper alert per heartbeat (no duplicate days-remaining warning)", async () => {
+		// A low reading that also leaves under two days of feed used to satisfy
+		// both the tier alert and the days-remaining alert in the same heartbeat,
+		// creating two pellet notifications from one reading.
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			pondId: "pond-1",
+			lastSeenAt: new Date(Date.now() - 5000),
+			hopperCapacityG: 1000,
+			gramsPerFeeding: 150,
+		} as never);
+		mockFeedEvent.findFirst.mockResolvedValue({
+			receivedAt: new Date(),
+			rtcOk: true,
+			feederActive: false,
+		} as never);
+		mockNotification.findFirst.mockResolvedValue(null as never);
+		mockPond.findUnique.mockResolvedValue({
+			feedsPerDay: 2,
+			ownerId: null,
+			notificationPrefs: null,
+		} as never);
+
+		const res = await POST(ingestRequest(heartbeatBody("hb-dupe-1", { feedLevelPercent: 10 })));
+
+		expect(res.status).toBe(204);
+		const pelletNotifications = mockNotification.create.mock.calls.filter(
+			([arg]) => (arg as { data: { category?: string } }).data.category === "pellet",
+		);
+		expect(pelletNotifications).toHaveLength(1);
+		expect(pelletNotifications[0][0]).toMatchObject({ data: { tier: "WARNING" } });
+	});
+
+	it("does not downgrade an outstanding CRITICAL alert to a days-remaining WARNING", async () => {
+		// With a CRITICAL alert still unacknowledged, the days-remaining branch
+		// used to add a WARNING from the same reading. The next heartbeat then saw
+		// a WARNING as the latest alert and re-fired CRITICAL, so the two
+		// alternated on every heartbeat until someone acknowledged one.
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			pondId: "pond-1",
+			lastSeenAt: new Date(Date.now() - 5000),
+			hopperCapacityG: 1000,
+			gramsPerFeeding: 150,
+		} as never);
+		mockFeedEvent.findFirst.mockResolvedValue({
+			receivedAt: new Date(),
+			rtcOk: true,
+			feederActive: false,
+		} as never);
+		mockNotification.findFirst.mockResolvedValue({
+			tier: "CRITICAL",
+			createdAt: new Date(),
+		} as never);
+		mockPond.findUnique.mockResolvedValue({
+			feedsPerDay: 2,
+			ownerId: null,
+			notificationPrefs: null,
+		} as never);
+
+		const res = await POST(ingestRequest(heartbeatBody("hb-crit-dupe", { feedLevelPercent: 3 })));
+
+		expect(res.status).toBe(204);
+		expect(mockNotification.create).not.toHaveBeenCalled();
+		expect(sendTelegramMessage).not.toHaveBeenCalled();
+	});
+
 	it("fires CRITICAL immediately after WARNING (tier transition, even inside window)", async () => {
 		mockEnergyDevice.findUnique.mockResolvedValue({
 			...DEVICE,

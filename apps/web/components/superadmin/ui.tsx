@@ -102,7 +102,8 @@ export function PageHeader({
 			className={cn("flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between", className)}
 		>
 			<div className="min-w-0">
-				<h1 className="text-2xl font-black text-[#0A3D62]">{title}</h1>
+				{/* The mobile band shows the title; the h1 stays for assistive tech. */}
+				<h1 className="sr-only text-2xl font-black text-[#0A3D62] lg:not-sr-only">{title}</h1>
 				{description && <p className="mt-1 max-w-2xl text-sm text-[#3D5568]">{description}</p>}
 			</div>
 			{actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
@@ -220,7 +221,7 @@ export function MobileCard({
 	children: ReactNode;
 	className?: string;
 }) {
-	return <li className={cn(CARD, "space-y-3 p-4", className)}>{children}</li>;
+	return <li className={cn(CARD, "min-w-0 space-y-3 p-4", className)}>{children}</li>;
 }
 
 /** Label/value pair for a mobile card's `<dl>`. */

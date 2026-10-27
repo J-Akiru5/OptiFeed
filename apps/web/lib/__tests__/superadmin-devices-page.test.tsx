@@ -115,4 +115,18 @@ describe("/superadmin/devices layout (T-09c)", () => {
 		expect(html).toContain("No device matches “zzz”.");
 		expect(html).toContain("Clear search");
 	});
+
+	it("keeps the wide remote-control panel out of the Actions cell (#213)", async () => {
+		const html = renderToStaticMarkup(await page());
+
+		// One compact trigger per device in the card view and one per row in the
+		// table, collapsed by default.
+		expect(html.split('data-help="superadmin-remote-feed"').length - 1).toBe(4);
+		expect(html).toContain('aria-expanded="false"');
+
+		// The panel (caps sentence, grams input, Feed button) is not rendered in
+		// the row: it is mounted by its own full-width row when opened.
+		expect(html).not.toContain("Commands use the normal server caps");
+		expect(html).not.toContain("data-remote-feed-row");
+	});
 });

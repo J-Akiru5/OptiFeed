@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { resolveFeedLevelDisplay } from "@/lib/feed-level-display";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
@@ -44,7 +44,7 @@ export function FeedLevelDisplay({
 	const metaClass = "text-[10px] leading-tight text-[#3D5568] dark:text-gray-400";
 
 	const readingTime =
-		display.readingAt !== null ? formatDateTimeLocal(display.readingAt, tDates) : null;
+		display.readingAt !== null ? formatFarmDateTime(display.readingAt, tDates) : null;
 
 	return (
 		<div className={cn("space-y-1", className)}>

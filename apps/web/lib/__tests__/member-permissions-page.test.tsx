@@ -54,6 +54,11 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+vi.mock("@/lib/auth/permissions", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@/lib/auth/permissions")>();
+	return { ...actual, hasPermission: vi.fn(async () => true) };
+});
+
 vi.mock("@/lib/actions/admin", () => ({
 	listTenantMembers: vi.fn(),
 	getUserPermissionState: vi.fn(),
@@ -62,6 +67,7 @@ vi.mock("@/lib/actions/admin", () => ({
 
 import MemberPermissionsPage from "@/app/[locale]/(admin)/admin/settings/members/[userId]/permissions/page";
 import { getUserPermissionState, listTenantMembers } from "@/lib/actions/admin";
+import { hasPermission } from "@/lib/auth/permissions";
 
 const member = {
 	membershipId: "m-1",
@@ -86,6 +92,7 @@ function params(userId = "user-1") {
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	vi.mocked(hasPermission).mockResolvedValue(true);
 	vi.mocked(listTenantMembers).mockResolvedValue({
 		rows: [member],
 		total: 1,
@@ -143,6 +150,16 @@ describe("member permissions page", () => {
 		const html = renderToStaticMarkup(await MemberPermissionsPage(params()));
 
 		expect(html).toContain("Only an owner can manage another owner.");
+		expect(html).not.toContain("Save changes");
+		expect(getUserPermissionState).not.toHaveBeenCalled();
+	});
+
+	it("renders a notice instead of throwing when manage_members is revoked", async () => {
+		vi.mocked(hasPermission).mockResolvedValue(false);
+
+		const html = renderToStaticMarkup(await MemberPermissionsPage(params()));
+
+		expect(html).toContain("Your role can view members but not change them.");
 		expect(html).not.toContain("Save changes");
 		expect(getUserPermissionState).not.toHaveBeenCalled();
 	});

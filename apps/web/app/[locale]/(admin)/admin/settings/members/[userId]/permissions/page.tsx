@@ -3,7 +3,7 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { MemberPermissions } from "@/components/admin/member-permissions";
 import { Link } from "@/i18n/routing";
 import { getUserPermissionState, listTenantMembers } from "@/lib/actions/admin";
-import { PERMISSIONS } from "@/lib/auth/permissions";
+import { PERMISSIONS, hasPermission } from "@/lib/auth/permissions";
 import { ChevronLeft, KeyRound } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -21,8 +21,9 @@ export default async function MemberPermissionsPage({
 	params: Promise<{ userId: string }>;
 }) {
 	const { userId } = await params;
-	const [members, t, tMembers] = await Promise.all([
+	const [members, canManageMembers, t, tMembers] = await Promise.all([
 		listTenantMembers({ userId }),
+		hasPermission("manage_members"),
 		getTranslations("dashboard.adminUsers"),
 		getTranslations("dashboard.adminMembers"),
 	]);
@@ -32,9 +33,11 @@ export default async function MemberPermissionsPage({
 
 	const name = member.displayName || member.farmId;
 	// Mirror the Members table: a platform admin is managed from /superadmin and
-	// only an owner may edit another owner.
+	// only an owner may edit another owner. `getUserPermissionState` requires
+	// `manage_members`, so a revoked permission must render a notice instead of
+	// throwing Forbidden into the page error boundary.
 	const ownerLocked = member.role === "OWNER" && member.callerRole !== "OWNER";
-	const managedElsewhere = member.isPlatformAdmin || ownerLocked;
+	const managedElsewhere = !canManageMembers || member.isPlatformAdmin || ownerLocked;
 
 	const state = managedElsewhere ? null : await getUserPermissionState(userId);
 
@@ -64,7 +67,11 @@ export default async function MemberPermissionsPage({
 			<section className={`${adminSurface} p-4 sm:p-6`}>
 				{managedElsewhere ? (
 					<p className="rounded-xl border border-gray-200 bg-[#F4F7F6] px-4 py-3 text-sm font-bold text-[#3D5568] dark:border-gray-700/60 dark:bg-gray-800/60 dark:text-gray-300">
-						{member.isPlatformAdmin ? tMembers("platformAdminLocked") : tMembers("ownerLocked")}
+						{!canManageMembers
+							? tMembers("notAllowed")
+							: member.isPlatformAdmin
+								? tMembers("platformAdminLocked")
+								: tMembers("ownerLocked")}
 					</p>
 				) : state?.success ? (
 					<MemberPermissions

@@ -26,6 +26,7 @@ import {
 	computePowerVA,
 	isIsoDateString,
 } from "@/lib/constants/sticker-rating";
+import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
@@ -63,7 +64,10 @@ function numberIn(value: string, min: number, max: number): number | null {
 }
 
 function todayIso(): string {
-	return new Date().toISOString().slice(0, 10);
+	// Farm calendar day (Asia/Manila), not the browser's UTC day: at 07:00 local
+	// the UTC date is still yesterday, which would stamp the wrong measurement
+	// date and make the field's `max` reject today.
+	return todayDateOnly();
 }
 
 type Props = {

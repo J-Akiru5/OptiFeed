@@ -90,6 +90,19 @@ vi.mock("@/lib/schedule/resolve-current", () => ({
 	resolveCurrentSchedule: vi.fn(async () => null),
 }));
 
+// The low-hopper alert threshold is an org setting (#190); the page reads it
+// through the farm → org chain. Keep the page test off the database.
+vi.mock("@/lib/settings/org", async () => {
+	const { ORG_SETTINGS_DEFAULTS } = await import("@/lib/settings/org-shared");
+	return {
+		ORG_SETTINGS_DEFAULTS,
+		getOrgSettingsForFarm: vi.fn(async () => ({
+			orgId: "org-1",
+			settings: { ...ORG_SETTINGS_DEFAULTS },
+		})),
+	};
+});
+
 vi.mock("@/lib/pond-charts", () => ({
 	getFeedPerDayBySource: vi.fn(async () => ({
 		dayKeys: [],
@@ -192,6 +205,26 @@ describe("dashboard control room page", () => {
 		expect(prisma.energyDevice.findMany).toHaveBeenCalledWith(
 			expect.objectContaining({ where: { pondId: "pond-1" } }),
 		);
+	});
+
+	it("uses the org's low-hopper threshold, not the hard-coded default", async () => {
+		// 82 % is well above the 20 % default, but this farm raises the warning
+		// threshold to 90 %, so the alert must appear.
+		vi.mocked(prisma.energyDevice.findMany).mockResolvedValueOnce([
+			{ id: "dev-1", label: "CICT Feeder", feedLevelPercent: 82 },
+		] as never);
+		const { getOrgSettingsForFarm } = await import("@/lib/settings/org");
+		const { ORG_SETTINGS_DEFAULTS } = await import("@/lib/settings/org-shared");
+		vi.mocked(getOrgSettingsForFarm).mockResolvedValueOnce({
+			orgId: "org-1",
+			settings: { ...ORG_SETTINGS_DEFAULTS, hopperLowPct: 90 },
+		});
+
+		const html = renderToStaticMarkup(
+			await DashboardHomePage({ searchParams: Promise.resolve({}) }),
+		);
+
+		expect(html).toContain("Hopper low: 82%");
 	});
 
 	it("renders the empty state when the pond has no feeder", async () => {

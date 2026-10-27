@@ -1,11 +1,13 @@
 "use client";
 
+import { mobileStickyActions } from "@/components/mobile/form-actions";
 import { useRouter } from "@/i18n/routing";
 import { type FeedCalculationResult, saveBiomassLog } from "@/lib/actions/biomass";
 import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { dailyFeedG, feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { enqueueBiomassSample, newClientEventId } from "@/lib/offline/outbox";
 import { useOnlineStatus } from "@/lib/pwa/use-online-status";
+import { cn } from "@/lib/utils";
 import { AlertTriangle, CheckCircle2, Fish, Loader2, Plus, Ruler, Scale, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
@@ -698,7 +700,7 @@ export function LogSampleForm({
 				</p>
 			)}
 
-			<div className="flex justify-end pt-4 border-t border-gray-100">
+			<div className={cn("flex justify-end border-t border-gray-100 pt-4", mobileStickyActions)}>
 				<button
 					type="submit"
 					disabled={isPending || avgWeightG === 0 || !canWrite}

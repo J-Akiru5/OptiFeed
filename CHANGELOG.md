@@ -9,6 +9,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-10-28
+
+### Added
+
+- Specific Growth Rate (SGR, %/day) on the Growth page (latest interval and overall) and per sampling in growth history, using the standard ln formula (capstone objective).
+
+### Changed
+
+- Firmware 1.5.1: the relay pin is a build flag (`-DRELAY_PIN`, default GPIO 25), with an `esp32dev-relay5` build for the CICT Building A unit wired to GPIO 5. The relay is driven OFF as the very first step of boot, and boot logs the relay pin.
+
+## [1.17.2] - 2026-10-28
+
+### Added
+
+- Allow + deny tests for the admin pond write pages (I-27).
+
+## [1.17.1] - 2026-10-28
+
+### Fixed
+
+- Admin → Ponds no longer loads each device's plaintext provisioning token (or token hash) and the owner's full account row with the pond list; the page now selects only the fields it renders.
+- Admin → Users now shows the member's organization role and updates it immediately after a role change, instead of the legacy account role.
+- Admin → Users, Ponds and the member-permissions page hide create/archive/edit actions the caller's permissions do not allow, and a direct URL renders a not-found or "view only" notice instead of an error page.
+- Admin → Devices lists pending feeders in the approval queue only, so the numbered pager and the table describe the same rows and pending units on later pages are no longer unreachable.
+- The admin audit log and the overview's Recent Activity table translate device event types and sources instead of printing raw keys; the pond detail "Overview" heading is translated.
+- The sticker print page uses the farm's Asia/Manila calendar date for "measured on" instead of the browser's UTC date.
+- The admin calendar keeps every active grow-out cycle in the all-ponds view; only completed/historical cycles keep the 30-row cap.
+- Deleting a user now also deletes their organization membership and permission overrides, so the org no longer shows a ghost member or re-granted role.
+- A revoked or expired platform-admin grant no longer hides the account from tenant management forever.
+- Creating a farmer and pond from the admin form reports a validation or transport failure instead of leaving the button spinning.
+
+### Security
+
+- Admin → Ponds no longer returns device credentials in bulk through the list action; credentials stay behind the audited, rate-limited single-device reveal.
+
+## [1.17.0] - 2026-10-28
+
+### Added
+
+- Feeder hero on the pond detail and feeder (hardware settings) pages (E29): a dark device-style panel with the feeder drawn in the middle, glassy callouts with thin leader lines to the hopper, spout, housing and water line (hopper level with the shared offline "Last known N%" treatment, grams dispensed today, next scheduled feed with its day or "Schedule paused", water temperature, online/offline with last seen, reported firmware), a status pill and the AI Feed Advisor's one-line summary linking to the full card. Jeff's photo loads from `public/images/feeder/feeder-hero.webp` over a drawn illustration; a missing photo costs at most one request per browser session, and adding the file needs no code change (see the folder's README). Below 768 px the image comes first and the callouts become a 2×3 grid without leader lines. Presentation only — no guards, actions or schema touched.
+
+### Fixed
+
+- The AI chat assistant and the action planner no longer answer a slow-but-valid provider response with `504 TIMEOUT`; the request budget now matches the provider budget, and a provider outage falls back to the keyword assistant instead of an error.
+- `GET /api/schedule-sync` re-sends a schedule command that the feeder has not acknowledged yet, so a lost response no longer leaves a change unapplied, and it no longer writes a `command_sent` audit row on every poll.
+- A single heartbeat can no longer queue two hopper notifications: the days-remaining warning is skipped when a low-hopper alert is already outstanding (the two used to alternate `CRITICAL`/`WARNING` on every heartbeat until one was acknowledged).
+- A scheduled feeding refusal now dedupes per farm calendar day (Asia/Manila) instead of per UTC day, which reset at 08:00 local and could alert twice on one day.
+- CSV and PDF exports report a missing pond or feeder as `404` instead of `500`, reject an unknown or empty dataset selection with `400`, are served with `Cache-Control: private, no-store`, and are named by the farm calendar day instead of the UTC day.
+- The PDF report uses the same active pond as the rest of the app (it could pick an archived pond), prints dates and feeding times in Asia/Manila rather than the server timezone, and derives the download filename from a sanitised pond name.
+- A CSV import with an unparseable date or a non-numeric feeding amount reports the offending row as `400` instead of failing with an opaque `500`, and all import endpoints share the same 5 MB payload ceiling.
+- The background-job queue metrics shown to a farm admin are scoped to that farm instead of the whole platform.
+- The device-watch cron scans the most recently stale feeders first, so once 100 devices had raised an offline alert no newly-offline device could be detected.
+
+- Farm-facing dates and times render in the farm's timezone (Asia/Manila) instead of the server runtime's, so the dashboard, history, growth, sampling-batch, hardware and farmer audit screens no longer read eight hours behind (or a day early) on a UTC host.
+- The dashboard's next feeding time is computed from the farm wall clock, so an overnight schedule and an evening visit no longer report a feed that already happened.
+- A feeder that has never reported a hopper level shows "—" instead of a made-up 0 %, and Feed Now no longer raises a critical-hopper warning for it.
+- The dashboard's low-hopper alert uses the org's configured threshold instead of the built-in 20 % default.
+- Saving the hopper shape calibration refreshes the Hardware settings page that shows the result (it refreshed a legacy redirect stub instead).
+- Hard-deleting a pond whose only remaining record is a legacy `Device` row now reports the device as a blocker instead of failing on the foreign key.
+- The assistant counts "today's feedings" from the Asia/Manila day, and its replies and AI context describe samples and dispenses on the farm clock instead of the server's timezone.
+- The pause/resume switch on the schedule page reverts with the reason when the server refuses the write, instead of showing the wrong state.
+- The schedule sync and stuck-request panels are translated (en/hil) and show device timestamps on the farm clock; "Check device" keeps the active locale and opens Hardware.
+- The offline sync panel shows the last sync and failed-sample times on the farm clock.
+- Notification preferences are hidden on the profile page when the farmer has no pond, instead of failing every toggle with "Pond not found".
+- A corrupt device timestamp degrades to a plain label instead of throwing and breaking the page render.
+
+### Security
+
+- Read-only view-as is fail-closed: when the session cannot be verified (a database error), tenant writes are refused instead of being treated as a normal signed-in session.
+- Invitation and reminder e-mails reject SMTP recipient-list separators and strip line breaks from tenant-controlled names before they reach the subject, so a crafted address or pond name cannot add a recipient or a header.
+- The admin job-metrics endpoint filters by the caller's farm tenant before returning queue counts.
+
+- Hopper shape calibration is validated on the server: a zero or non-finite hopper capacity, an inverted empty/full distance pair or an out-of-range value is rejected before it reaches the database. A zero capacity used to raise the device's daily feed cap to the hard maximum.
+
+## [1.16.0] - 2026-10-27
+
+### Changed
+
+- Mobile app shell (E26): every console now has a PakaonAI-branded header band below `lg` (page title, search, "+" quick menu), the farmer bottom bar is a five-tab bar (Overview, Schedule, Biomass log, Alerts, Me) with the active tab in the brand colour, and the tenant admin and platform consoles are five tabs too (four primary sections plus "More"): the platform console had grown to nine sections, which leaves under 44 px per target at 375 px. "More" opens the same quick menu as the header band, so every page that left a bar — the farmer calendar, history, growth, harvest, audit and settings, and every role-aware quick action (add pond/feeder, scan sticker, pond location, log a sample, register a feeder) — is one tap away.
+- Mobile lists (E26): the tenant Ponds and Devices lists gained a tappable All / Online / Alarm / Offline summary strip, an "order by" and "needs attention" chips row, and large cards with a status dot and three key metrics; the strip, chips and the ordering are URL parameters, so they survive navigation and the numbered pagination.
+- Mobile layout pass (E26): user-facing page titles move into the header band below `lg` (the `h1` stays in the markup for assistive tech), farmer and console mains use `dvh` with bottom padding that clears the fixed bar and the device safe area, and the biomass, schedule, pond-settings and pond create/edit forms pin their primary action above the bar on a phone.
+
+### Fixed
+
+- Notifications (#219): "Mark as Read" now clears every pending alert of the signed-in owner across all of their ponds instead of only the active pond's loaded page, and it stamps the acknowledgement so the rows stop offering "Acknowledge". The bell drops to 0 immediately and re-syncs with the server; a single "Acknowledge" now decrements the badge at once and rolls back on failure. No schema change.
+
+## [1.15.0] - 2026-10-27
+
+### Added
+
+- Full calendar parity for tenant admins and farmers (#212): the admin calendar can now create, edit, move and delete organization events on any pond in the organization, while the farmer gets a dedicated `/dashboard/calendar` page with its own nav entry and the same month, week, day and agenda views, drag/resize, events vs tasks, colours, recurrence, reminders and filters as the Harvest page. Farmers see org-wide events read-only and keep write access to their own farm's ponds; the API returns per-event editability and the shared server actions enforce the same farm/organization boundary. Agenda is the default view below 640 px. The Harvest page keeps its embedded calendar.
+
+### Fixed
+
+- Devices list (#213): the remote-control panel no longer sits inside the Actions cell. A compact trigger opens it in a full-width row under the device, so the tenant and platform device lists (list and card views) stay inside their card at every width; the caps sentence wraps anywhere and the grams box and Feed button stack on narrow screens. Feeding behaviour, guards and server caps are unchanged.
+- Help panel (#214): the sheet is now viewport height with a fixed header and a scrolling body, instead of growing past the bottom of the screen. Wheel and touch scrolling stay inside the panel (`overscroll-contain`), the footer respects the safe-area inset, and "Show me" still closes the sheet or navigates exactly as before.
+
 ## [1.14.0] - 2026-10-27
 
 ### Added

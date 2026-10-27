@@ -3,6 +3,7 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { PondForm } from "@/components/admin/pond-form";
 import { Link } from "@/i18n/routing";
 import { getPondDetail, getPondOwnerOptions } from "@/lib/actions/ponds";
+import { hasPermission } from "@/lib/auth/permissions";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -26,6 +27,7 @@ export default async function EditPondPage({
 	params: Promise<{ pondId: string }>;
 }) {
 	const { pondId } = await params;
+	if (!(await hasPermission("manage_farms_ponds"))) notFound();
 	const [detail, owners, t] = await Promise.all([
 		getPondDetail(pondId),
 		getPondOwnerOptions(),

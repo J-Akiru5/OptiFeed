@@ -5,9 +5,11 @@ import { PondForm } from "@/components/admin/pond-form";
 import { Link } from "@/i18n/routing";
 import { getPondOwnerOptions } from "@/lib/actions/ponds";
 import { resolveOrgScope } from "@/lib/auth/org-scope";
+import { hasPermission } from "@/lib/auth/permissions";
 import { ORG_SETTINGS_DEFAULTS, getOrgSettings } from "@/lib/settings/org";
 import { ArrowLeft, Droplets } from "lucide-react";
 import { getTranslations } from "next-intl/server";
+import { notFound } from "next/navigation";
 
 /**
  * Create a pond for an existing farm owner (#202 / decision E22).
@@ -17,6 +19,11 @@ import { getTranslations } from "next-intl/server";
  * "account + first pond" path that the Users page links to.
  */
 export default async function NewPondPage() {
+	const canManagePonds = await hasPermission("manage_farms_ponds");
+	// `getPondOwnerOptions` throws Forbidden for a revoked permission; a direct
+	// URL should be a 404, not the admin error boundary.
+	if (!canManagePonds) notFound();
+
 	const [t, tCreate, owners, scope] = await Promise.all([
 		getTranslations("dashboard.adminPondForm"),
 		getTranslations("dashboard.adminCreatePond"),

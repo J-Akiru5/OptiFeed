@@ -8,8 +8,10 @@ import {
 	adminLabel,
 	adminSurface,
 } from "@/components/admin/admin-classes";
+import { mobileStickyActions } from "@/components/mobile/form-actions";
 import { useRouter } from "@/i18n/routing";
 import { createTenantPond, updateTenantPond } from "@/lib/actions/ponds";
+import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type FormEvent, useState } from "react";
@@ -295,7 +297,7 @@ export function PondForm({
 				</fieldset>
 			)}
 
-			<div className="flex flex-wrap items-center gap-3">
+			<div className={cn("flex flex-wrap items-center gap-3", mobileStickyActions)}>
 				<button
 					type="submit"
 					disabled={pending || !hasOwners}

@@ -4,6 +4,7 @@ import { DeletePondForm } from "@/components/admin/delete-pond-form";
 import { PondStatusToggle } from "@/components/admin/pond-status-toggle";
 import { Link } from "@/i18n/routing";
 import { getPondDeletionCheck } from "@/lib/actions/ponds";
+import { hasPermission } from "@/lib/auth/permissions";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -31,6 +32,7 @@ export default async function DeletePondPage({
 	params: Promise<{ pondId: string }>;
 }) {
 	const { pondId } = await params;
+	if (!(await hasPermission("manage_farms_ponds"))) notFound();
 	const [check, t] = await Promise.all([
 		getPondDeletionCheck(pondId),
 		getTranslations("dashboard.adminPondDelete"),

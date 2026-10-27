@@ -3,7 +3,7 @@ import { DashboardEmptyState, DashboardPageHeader } from "@/components/dashboard
 import { Pagination } from "@/components/ui/pagination";
 import { Link } from "@/i18n/routing";
 import { getAuditLog } from "@/lib/actions/audit";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { parsePage } from "@/lib/pagination";
 import {
 	AlertCircle,
@@ -177,7 +177,7 @@ export default async function AuditPage({
 	const firstRow = result.total === 0 ? 0 : (result.page - 1) * result.pageSize + 1;
 	const lastRow = Math.min(result.page * result.pageSize, result.total);
 
-	const formatDate = (date: Date) => formatDateTimeLocal(date, tDates);
+	const formatDate = (date: Date) => formatFarmDateTime(date, tDates);
 	const sourceLabel = (s: string) => (t.has(`source_${s}`) ? t(`source_${s}`) : s);
 
 	const filterGroups = [

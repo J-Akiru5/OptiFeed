@@ -1,3 +1,4 @@
+import { fireEvent, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -89,12 +90,30 @@ describe("platform console primitives (T-09c)", () => {
 	});
 });
 
-describe("platform console mobile navigation (T-09c)", () => {
-	it("reaches every section, including AI Providers, at 375 px", () => {
+describe("platform console mobile navigation (T-09c, E26)", () => {
+	it("keeps four primary sections plus More, all at 44 px or more", () => {
 		pathname.current = "/superadmin";
 		const html = renderToStaticMarkup(<SuperadminBottomNav />);
 
-		expect(html.split("<a ").length - 1).toBe(9);
+		// Four links plus the More control: nine columns at 375 px left 41 px per
+		// target, below the 44 px minimum (E26).
+		expect(html.split("<a ").length - 1).toBe(4);
+		expect(html.split('data-mobile-trigger="more"').length - 1).toBe(1);
+		expect(html.split('aria-current="page"').length - 1).toBe(1);
+		expect(html).toContain('href="/superadmin"');
+		expect(html).toContain('href="/superadmin/calendar"');
+		expect(html).toContain('href="/superadmin/devices"');
+		expect(html).toContain('href="/superadmin/orgs"');
+		expect(html.split("min-h-14").length - 1).toBeGreaterThanOrEqual(5);
+	});
+
+	it("reaches every section from More, with the full name", () => {
+		pathname.current = "/superadmin";
+		render(<SuperadminBottomNav />);
+		fireEvent.click(screen.getByRole("button", { name: "More sections" }));
+
+		const dialog = screen.getByRole("dialog", { name: "Quick menu" });
+		expect(dialog).toBeTruthy();
 		for (const label of [
 			"Overview",
 			"Calendar",
@@ -106,13 +125,8 @@ describe("platform console mobile navigation (T-09c)", () => {
 			"AI Providers",
 			"Settings",
 		]) {
-			expect(html).toContain(`aria-label="${label}"`);
+			expect(screen.getAllByText(label).length).toBeGreaterThan(0);
 		}
-		// Short visible labels fit nine columns on a phone.
-		expect(html).toContain(">Calendar<");
-		expect(html).toContain(">Orgs<");
-		expect(html).toContain(">AI<");
-		expect(html.split('aria-current="page"').length - 1).toBe(1);
 	});
 
 	it("marks the active section wherever you are", () => {
@@ -121,5 +135,16 @@ describe("platform console mobile navigation (T-09c)", () => {
 		const activeTag = html.match(/<a [^>]*aria-current="page"[^>]*>/)?.[0] ?? "";
 		expect(activeTag).toContain('href="/superadmin/devices"');
 		expect(activeTag).toContain('aria-label="Devices"');
+	});
+
+	it("marks More when the current page is not one of the primary tabs", () => {
+		pathname.current = "/superadmin/operations/audit";
+		const html = renderToStaticMarkup(<SuperadminBottomNav />);
+		expect(html).not.toContain('aria-current="page"');
+		const more = html.match(/<button [^>]*data-mobile-trigger="more"[^>]*>/)?.[0] ?? "";
+		// The muted class is the inactive state, so its absence is what proves the
+		// tab is marked rather than merely present.
+		expect(more).not.toContain("text-white/75");
+		expect(more).toContain("text-white");
 	});
 });

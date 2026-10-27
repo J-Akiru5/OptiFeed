@@ -4,7 +4,7 @@ import { acceptAssistantActionWith } from "@/lib/assistant/accept";
 import { getAssistantActionDefinition } from "@/lib/assistant/catalog";
 import { getCurrentPermissions } from "@/lib/auth/permissions";
 import { isCurrentPlatformAdmin } from "@/lib/auth/require-platform-admin";
-import { assertPasswordChanged, getCurrentUser } from "@/lib/auth/session";
+import { assertPasswordChanged, canWrite, getCurrentUser } from "@/lib/auth/session";
 import { requireStepUp } from "@/lib/auth/step-up";
 import { isCurrentTenantAdmin } from "@/lib/auth/tenant-admin";
 import { assertNotViewingAs } from "@/lib/auth/view-as";
@@ -80,6 +80,7 @@ export async function acceptAssistantAction(
 			});
 		},
 		hasPermission: async (permission) => (await getCurrentPermissions()).has(permission),
+		canWrite,
 		isPlatformAdmin: isCurrentPlatformAdmin,
 		isTenantAdmin: isCurrentTenantAdmin,
 		requireStepUp: async () => {

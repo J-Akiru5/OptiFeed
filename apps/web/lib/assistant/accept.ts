@@ -35,6 +35,7 @@ export interface AcceptDependencies {
 	markAccepted(actionId: string, result: { message: string }): Promise<void>;
 	markFailed(actionId: string, error: string): Promise<void>;
 	hasPermission(permission: Permission): Promise<boolean>;
+	canWrite(): Promise<boolean>;
 	isPlatformAdmin(): Promise<boolean>;
 	isTenantAdmin(): Promise<boolean>;
 	requireStepUp(): Promise<void>;
@@ -97,6 +98,13 @@ export async function acceptAssistantActionWith(
 			success: false,
 			error: "You no longer have permission to do that.",
 		};
+	}
+	// Kinds with no named permission (logging a sample) still require a writer;
+	// the underlying action re-checks this, but failing early keeps the card
+	// honest and avoids a pointless write attempt.
+	if (!definition.permission && !definition.platformAdminOnly && !(await deps.canWrite())) {
+		await deps.markFailed(row.id, "Write access required.");
+		return { success: false, error: "You have read-only access, so that cannot run." };
 	}
 
 	if (definition.requiresStepUp) {

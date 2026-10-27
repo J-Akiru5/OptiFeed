@@ -274,7 +274,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 	const statValue = "mt-1 text-sm font-bold text-[#0A3D62] dark:text-gray-100";
 
 	return (
-		<div className="mx-auto max-w-4xl space-y-6 pb-20">
+		<div className="w-full space-y-6 pb-20">
 			<DashboardPageHeader title={t("title")} description={t("desc")} icon={Settings} />
 
 			{!writeAccess && (
@@ -284,7 +284,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 			{/* Device Status */}
 			<DashboardSection title={t("deviceStatus")} description={t("deviceStatusDesc")} icon={Cpu}>
 				{energyDevice ? (
-					<dl className="grid gap-4 md:grid-cols-2">
+					<dl className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
 						<div className={statTile}>
 							<dt className={statLabel}>{t("deviceRecordId")}</dt>
 							<dd className={`${statValue} break-all font-mono`}>{energyDevice.id}</dd>

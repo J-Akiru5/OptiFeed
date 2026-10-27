@@ -140,6 +140,8 @@ describe("admin users page", () => {
 		expect(html).toContain("Miguel Farm");
 		expect(html).toContain(formatDate(FIXTURE_DATE).fullDate);
 		expect(html).not.toContain(FIXTURE_DATE.toLocaleDateString());
+		expect(html).toContain('href="/admin/settings/members/user-1/permissions"');
+		expect(html).not.toContain("<dialog");
 	});
 
 	it("shows the empty state with a next step instead of an empty table", async () => {
@@ -377,5 +379,7 @@ describe("admin settings page", () => {
 		expect(html).toContain('scope="col"');
 		expect(html).not.toContain(FIXTURE_DATE.toLocaleDateString());
 		expect(html).toContain("Default Feeding Rate");
+		expect(html).toContain('href="/admin/settings/members/user-1/permissions"');
+		expect(html).not.toContain("<dialog");
 	});
 });

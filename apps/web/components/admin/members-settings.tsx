@@ -1,14 +1,12 @@
 "use client";
 
-import { UserPermissionsDialog } from "@/components/admin/user-permissions-dialog";
-import { useRouter } from "@/i18n/routing";
+import { Link, useRouter } from "@/i18n/routing";
 import { changeMemberRole, inviteMember, revokeMember } from "@/lib/actions/admin";
 import type { TenantMemberRow } from "@/lib/actions/admin";
 import { MEMBER_ROLES, isMemberRole } from "@/lib/auth/member-rules";
-import type { Permission } from "@/lib/auth/permissions";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import type { MemberRole } from "@prisma/client";
-import { Check, Copy, Loader2, ShieldCheck, UserPlus, X } from "lucide-react";
+import { Check, Copy, KeyRound, Loader2, ShieldCheck, UserPlus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -40,11 +38,9 @@ const fieldClass =
 
 export function MembersSettings({
 	members,
-	permissions,
 	canManage,
 }: {
 	members: TenantMemberRow[];
-	permissions: readonly Permission[];
 	canManage: boolean;
 }) {
 	const t = useTranslations("dashboard.adminMembers");
@@ -515,12 +511,14 @@ export function MembersSettings({
 												{t("permissionsSummary", { count: member.permissions.length })}
 											</p>
 											{canEditPermissions ? (
-												<UserPermissionsDialog
-													userId={member.userId}
-													userName={name}
-													permissions={permissions}
-													isSelf={member.isSelf}
-												/>
+												<Link
+													href={`/admin/settings/members/${member.userId}/permissions`}
+													aria-label={`${t("permissionsButton")} — ${name}`}
+													className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[#0A3D62]/20 px-3 text-xs font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6] dark:border-gray-600 dark:text-[#8fc0ea] dark:hover:bg-gray-800 ${focusRing}`}
+												>
+													<KeyRound aria-hidden="true" className="h-3.5 w-3.5" />
+													{t("permissionsButton")}
+												</Link>
 											) : (
 												<span className="text-[10px] font-medium text-[#3D5568] dark:text-gray-400">
 													{t("viewOnly")}

@@ -3,20 +3,31 @@
 import { FOCUS_RING_ON_DARK } from "@/components/superadmin/ui";
 import { Link, usePathname } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
-import { BarChart3, Cpu, Droplets, FolderTree, Settings, Sparkles, Users } from "lucide-react";
+import {
+	BarChart3,
+	CalendarDays,
+	Cpu,
+	Droplets,
+	FolderTree,
+	Settings,
+	Sparkles,
+	Users,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 
 /**
  * Platform console navigation below `lg`, where SuperadminSidebar is hidden.
  * Mirrors the sidebar's scope: Devices is the hardware registry plus remote
- * feeder control (M5.2); Ponds remains visibility only.
+ * feeder control (M5.2); Ponds remains visibility only; Calendar is the
+ * read-only cross-tenant view (E16.2).
  *
- * The labels are shortened so all six sections fit six columns at 375 px
- * (AI Providers used to be reachable only from the desktop sidebar); the
- * `aria-label` keeps the full section name for screen readers.
+ * The labels are shortened so every section fits at 375 px (AI Providers used
+ * to be reachable only from the desktop sidebar); the `aria-label` keeps the
+ * full section name for screen readers.
  */
 const navItems = [
 	{ href: "/superadmin", key: "overview", icon: BarChart3 },
+	{ href: "/superadmin/calendar", key: "calendar", icon: CalendarDays },
 	{ href: "/superadmin/users", key: "users", icon: Users },
 	{ href: "/superadmin/orgs", key: "organizations", icon: FolderTree },
 	{ href: "/superadmin/ponds", key: "ponds", icon: Droplets },

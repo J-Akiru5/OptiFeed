@@ -2114,6 +2114,54 @@
 				"cards": "Cards"
 			}
 		},
+		"calendar": {
+			"title": "Platform calendar",
+			"description": "Pond events, tasks, cycle milestones, sample reminders and device incidents across every tenant. Read-only.",
+			"filters": {
+				"orgsLabel": "Organizations",
+				"allOrgs": "All organizations",
+				"typesLabel": "Event types",
+				"pondLabel": "Pond",
+				"allPonds": "All ponds"
+			},
+			"types": {
+				"harvest": "Harvest",
+				"sampling": "Sampling",
+				"manual": "Events & tasks",
+				"device": "Device"
+			},
+			"device": {
+				"disconnected": "Device offline",
+				"pellet_low": "Feed level low"
+			},
+			"readOnly": "Read-only — tenant items cannot be edited here",
+			"refresh": "Refresh",
+			"retry": "Try again",
+			"loadError": "Could not load the platform calendar.",
+			"truncated": "There are more matching events than this view can show. Narrow the filters or the date range.",
+			"gridLabel": "All tenants",
+			"eventCount": "{count} events",
+			"ota": {
+				"title": "OTA update window",
+				"legend": "OTA window (10:00–15:00)",
+				"description": "Daily firmware-update window for the feeder fleet. Devices are not fed during an update."
+			},
+			"detail": {
+				"title": "Event detail",
+				"org": "Organization",
+				"noOrg": "No organization",
+				"pond": "Pond",
+				"noPond": "No pond",
+				"when": "When",
+				"who": "Recorded by",
+				"unknownWho": "Not recorded",
+				"cycle": "Cycle",
+				"notes": "Notes",
+				"openOrg": "Open organization",
+				"openPond": "Open pond",
+				"writeHint": "Read-only. To change a tenant item, use the organization's own calendar while viewing as that organization."
+			}
+		},
 		"roles": {
 			"OWNER": "Owner",
 			"ADMIN": "Admin",
@@ -2162,6 +2210,7 @@
 			"bottomNavLabel": "Platform navigation",
 			"nav": {
 				"overview": "Overview",
+				"calendar": "Calendar",
 				"users": "Users",
 				"organizations": "Organizations",
 				"ponds": "Ponds",
@@ -2171,6 +2220,7 @@
 			},
 			"shortNav": {
 				"overview": "Overview",
+				"calendar": "Calendar",
 				"users": "Users",
 				"organizations": "Orgs",
 				"ponds": "Ponds",

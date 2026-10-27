@@ -101,6 +101,10 @@
 			"reason": "Range-based calendar read; covered by calendar-events tests and the Harvest UI."
 		},
 		{
+			"path": "/api/v1/platform/calendar/events",
+			"reason": "Platform-admin-only cross-tenant calendar read (requirePlatformAdmin in the loader); covered by platform-calendar tests and the superadmin Calendar page."
+		},
+		{
 			"path": "/api/v1/cron/device-watch",
 			"reason": "Scheduled job with its own bearer secret; verified by Vercel cron logs."
 		},

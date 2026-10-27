@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import {
 	BarChart3,
+	CalendarDays,
 	Cpu,
 	Droplets,
 	FolderTree,
@@ -22,6 +23,7 @@ import { useState } from "react";
 
 const navItems = [
 	{ href: "/superadmin", key: "overview", icon: BarChart3 },
+	{ href: "/superadmin/calendar", key: "calendar", icon: CalendarDays },
 	{ href: "/superadmin/users", key: "users", icon: Users },
 	{ href: "/superadmin/orgs", key: "organizations", icon: FolderTree },
 	{ href: "/superadmin/ponds", key: "ponds", icon: Droplets },

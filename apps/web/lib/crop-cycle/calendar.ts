@@ -19,6 +19,10 @@ export interface CalendarEventDto {
 	source?: string | null;
 	/** The stored row id, without the `pond:` calendar-id prefix. */
 	pondEventId?: string;
+	/** The stored `DeviceStateEvent.eventType`, for translated labels. */
+	deviceEventType?: string;
+	/** The creator/actor user id, when the caller asked for it (platform calendar). */
+	createdByUserId?: string | null;
 	/** UTC ISO instant of this occurrence, used for completion and reminders. */
 	occurrenceKey?: string;
 	recurrenceFreq?: "DAILY" | "WEEKLY" | "MONTHLY" | null;

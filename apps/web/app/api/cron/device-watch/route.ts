@@ -46,6 +46,8 @@ export const GET = withApi(
 					? await prisma.pond.findMany({
 							where: { id: { in: pondIds } },
 							select: { id: true, ownerId: true, notificationPrefs: true },
+							// Bounded by the at most 100 stale devices above.
+							take: pondIds.length,
 						})
 					: [];
 			const pondById = new Map(ponds.map((pond) => [pond.id, pond]));

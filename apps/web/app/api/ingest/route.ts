@@ -25,6 +25,11 @@ export const dynamic = "force-dynamic";
 
 const RATE_LIMIT_MS = 1000;
 
+// Water temperature history is thinned: a new WaterTempLog row at most once per
+// device per 5 minutes, so heartbeats every second do not flood the table the
+// dashboard chart reads (I-06b).
+const WATER_TEMP_LOG_INTERVAL_MS = 5 * 60 * 1000;
+
 // OTA diagnostics are additive heartbeat fields (firmware 1.4.0+, T-12b). They
 // are free-text strings rather than enums so a newer firmware reporting a new
 // state is still accepted; the known values are documented in
@@ -471,6 +476,37 @@ export const POST = withApi(
 							},
 						}),
 					);
+
+					// Also keep the history the dashboard chart reads. Throttled to one
+					// row per device per 5 minutes; a rejected/absent probe writes nothing.
+					const lastTempLog = await prisma.waterTempLog.findFirst({
+						where: { deviceId: device.id },
+						orderBy: { recordedAt: "desc" },
+						select: { recordedAt: true },
+					});
+					const tempLogDue =
+						!lastTempLog ||
+						Date.now() - lastTempLog.recordedAt.getTime() >= WATER_TEMP_LOG_INTERVAL_MS;
+					if (tempLogDue) {
+						// Ownership stamp, same convention as FeedLevelLog.farmId: the
+						// device has no farm of its own, so read it from its pond (at most
+						// once per 5 minutes, only when the row is due).
+						const pondFarm = device.pondId
+							? await prisma.pond.findUnique({
+									where: { id: device.pondId },
+									select: { farmId: true },
+								})
+							: null;
+						operations.push(
+							prisma.waterTempLog.create({
+								data: {
+									deviceId: device.id,
+									tempC: parsed.data.water_temp_c,
+									farmId: pondFarm?.farmId ?? null,
+								},
+							}),
+						);
+					}
 				} else {
 					// Probe undetected (or field omitted) — flag offline without overwriting
 					// the last real reading with the -127 disconnect sentinel.

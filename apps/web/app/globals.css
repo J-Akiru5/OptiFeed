@@ -199,3 +199,29 @@
 		animation: none;
 	}
 }
+
+/*
+ * List/card toggle (decision E2).
+ *
+ * Every item list renders both views: the table is hidden below `md` and the
+ * card grid from `md` up. `data-list-view` appears on the wrapper only after
+ * the client has resolved the reader's stored choice (see
+ * `components/ui/view-toggle.tsx`), so the first server render keeps the
+ * responsive default. These rules are unlayered on purpose: an explicit choice
+ * must beat the Tailwind `hidden`/`md:block`/`md:hidden` utilities.
+ */
+[data-list-view="list"] .data-list-table {
+	display: block;
+}
+
+[data-list-view="list"] .data-list-cards {
+	display: none;
+}
+
+[data-list-view="cards"] .data-list-table {
+	display: none;
+}
+
+[data-list-view="cards"] .data-list-cards {
+	display: grid;
+}

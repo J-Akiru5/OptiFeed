@@ -185,7 +185,7 @@ export function TableFrame({
 	className?: string;
 }) {
 	return (
-		<div className={cn(CARD, "overflow-hidden", className)}>
+		<div className={cn(CARD, "data-list-table overflow-hidden", className)}>
 			<div className="overflow-x-auto">
 				<table className={cn("w-full text-sm", minWidth)}>
 					<caption className="sr-only">{label}</caption>

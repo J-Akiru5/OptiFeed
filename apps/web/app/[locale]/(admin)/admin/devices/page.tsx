@@ -4,7 +4,6 @@ import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import {
 	AdminCard,
-	AdminCardList,
 	AdminCardRow,
 	AdminTHead,
 	AdminTable,
@@ -15,7 +14,9 @@ import {
 import { DeviceTokenReveal } from "@/components/admin/device-token-reveal";
 import { PendingDeviceApprovals } from "@/components/admin/pending-device-approvals";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
+import { ItemCardGrid } from "@/components/ui/item-card";
 import { Pagination } from "@/components/ui/pagination";
+import { ListView } from "@/components/ui/view-toggle";
 import { Link, getPathname } from "@/i18n/routing";
 import { getDevices } from "@/lib/actions/admin";
 import { getTenantRegistrationOptions } from "@/lib/actions/device-registration";
@@ -115,7 +116,12 @@ export default async function AdminDevicesPage({
 			)}
 
 			{listedDevices.length > 0 && (
-				<>
+				<ListView
+					pageKey="admin-devices"
+					listLabel={tCommon("viewToggle.list")}
+					cardsLabel={tCommon("viewToggle.cards")}
+					toggleLabel={tCommon("viewToggle.label")}
+				>
 					<AdminTable caption={t("caption")} minWidth="min-w-[64rem]">
 						<AdminTHead>
 							<AdminTh>{t("columnDevice")}</AdminTh>
@@ -231,7 +237,7 @@ export default async function AdminDevicesPage({
 						</tbody>
 					</AdminTable>
 
-					<AdminCardList>
+					<ItemCardGrid label={t("caption")}>
 						{listedDevices.map((device) => {
 							const now = new Date();
 							const isOffline =
@@ -322,8 +328,8 @@ export default async function AdminDevicesPage({
 								</AdminCard>
 							);
 						})}
-					</AdminCardList>
-				</>
+					</ItemCardGrid>
+				</ListView>
 			)}
 
 			{devicesPage.total > 0 && (

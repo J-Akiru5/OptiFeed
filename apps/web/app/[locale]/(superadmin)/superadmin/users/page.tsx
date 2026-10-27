@@ -11,7 +11,9 @@ import {
 	TableFrame,
 } from "@/components/superadmin/ui";
 import { UserActions } from "@/components/superadmin/user-actions";
+import { ItemCardGrid } from "@/components/ui/item-card";
 import { Pagination } from "@/components/ui/pagination";
+import { ListView } from "@/components/ui/view-toggle";
 import { Link, getPathname } from "@/i18n/routing";
 import { listAllUsers } from "@/lib/actions/superadmin";
 import { Eye, Plus, Shield, ShieldCheck, User, UserX, Users } from "lucide-react";
@@ -98,8 +100,13 @@ export default async function SuperadminUsersPage({
 					/>
 				</Card>
 			) : (
-				<>
-					<ul className="space-y-3 md:hidden">
+				<ListView
+					pageKey="superadmin-users"
+					listLabel={tCommon("viewToggle.list")}
+					cardsLabel={tCommon("viewToggle.cards")}
+					toggleLabel={tCommon("viewToggle.label")}
+				>
+					<ItemCardGrid label={t("caption")}>
 						{users.rows.map((user) => {
 							const badge = roleBadge[user.role] || roleBadge.VIEWER;
 							return (
@@ -175,7 +182,7 @@ export default async function SuperadminUsersPage({
 								</MobileCard>
 							);
 						})}
-					</ul>
+					</ItemCardGrid>
 
 					<TableFrame
 						className="hidden md:block"
@@ -277,7 +284,7 @@ export default async function SuperadminUsersPage({
 							);
 						})}
 					</TableFrame>
-				</>
+				</ListView>
 			)}
 
 			<Pagination

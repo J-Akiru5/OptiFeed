@@ -1,6 +1,5 @@
 import {
 	DashboardCard,
-	DashboardCardList,
 	DashboardCardRow,
 	DashboardTHead,
 	DashboardTable,
@@ -9,7 +8,9 @@ import {
 	DashboardTr,
 } from "@/components/dashboard/dashboard-table";
 import { DashboardEmptyState, DashboardPageHeader } from "@/components/dashboard/dashboard-ui";
+import { ItemCardGrid } from "@/components/ui/item-card";
 import { Pagination } from "@/components/ui/pagination";
+import { ListView } from "@/components/ui/view-toggle";
 import { Link } from "@/i18n/routing";
 import { parseQueryFilters } from "@/lib/actions/query-filters";
 import { formatDateTimeLocal } from "@/lib/date-local";
@@ -52,6 +53,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 	const t = await getTranslations("dashboard.growth.history");
 	const tGrowth = await getTranslations("dashboard.growth");
 	const tDates = await getTranslations("dates");
+	const tCommon = await getTranslations("dashboard.common");
 	const pond = await getActivePond();
 
 	const raw = await searchParams;
@@ -252,7 +254,12 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 				) : (
 					<>
 						{tab === "feed" && (
-							<>
+							<ListView
+								pageKey="growth-history"
+								listLabel={tCommon("viewToggle.list")}
+								cardsLabel={tCommon("viewToggle.cards")}
+								toggleLabel={tCommon("viewToggle.label")}
+							>
 								<DashboardTable caption={tGrowth("feedLevelTableCaption")} minWidth="min-w-[32rem]">
 									<DashboardTHead>
 										<DashboardTh>{tGrowth("dateCol")}</DashboardTh>
@@ -285,7 +292,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 										))}
 									</tbody>
 								</DashboardTable>
-								<DashboardCardList label={tGrowth("feedLevelTableCaption")} className="p-4">
+								<ItemCardGrid label={tGrowth("feedLevelTableCaption")} className="p-4">
 									{feedRows.map((row) => (
 										<DashboardCard key={row.id}>
 											<div className="flex items-baseline justify-between gap-3">
@@ -303,12 +310,17 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 											</div>
 										</DashboardCard>
 									))}
-								</DashboardCardList>
-							</>
+								</ItemCardGrid>
+							</ListView>
 						)}
 
 						{tab === "growth" && (
-							<>
+							<ListView
+								pageKey="growth-history"
+								listLabel={tCommon("viewToggle.list")}
+								cardsLabel={tCommon("viewToggle.cards")}
+								toggleLabel={tCommon("viewToggle.label")}
+							>
 								<DashboardTable caption={tGrowth("tableCaption")} minWidth="min-w-[40rem]">
 									<DashboardTHead>
 										<DashboardTh>{tGrowth("dateCol")}</DashboardTh>
@@ -367,7 +379,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 										))}
 									</tbody>
 								</DashboardTable>
-								<DashboardCardList label={tGrowth("tableCaption")} className="p-4">
+								<ItemCardGrid label={tGrowth("tableCaption")} className="p-4">
 									{growthRows.map((row) => (
 										<DashboardCard key={row.id}>
 											<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
@@ -396,12 +408,17 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 											</div>
 										</DashboardCard>
 									))}
-								</DashboardCardList>
-							</>
+								</ItemCardGrid>
+							</ListView>
 						)}
 
 						{tab === "biomass" && (
-							<>
+							<ListView
+								pageKey="growth-history"
+								listLabel={tCommon("viewToggle.list")}
+								cardsLabel={tCommon("viewToggle.cards")}
+								toggleLabel={tCommon("viewToggle.label")}
+							>
 								<DashboardTable caption={tGrowth("biomassTableCaption")} minWidth="min-w-[40rem]">
 									<DashboardTHead>
 										<DashboardTh>{tGrowth("dateCol")}</DashboardTh>
@@ -442,7 +459,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 										))}
 									</tbody>
 								</DashboardTable>
-								<DashboardCardList label={tGrowth("biomassTableCaption")} className="p-4">
+								<ItemCardGrid label={tGrowth("biomassTableCaption")} className="p-4">
 									{biomassRows.map((row) => (
 										<DashboardCard key={row.id}>
 											<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
@@ -467,8 +484,8 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 											</div>
 										</DashboardCard>
 									))}
-								</DashboardCardList>
-							</>
+								</ItemCardGrid>
+							</ListView>
 						)}
 					</>
 				)}

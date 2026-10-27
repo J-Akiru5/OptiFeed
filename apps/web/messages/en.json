@@ -1675,6 +1675,8 @@
 			"acknowledged": "Acknowledged",
 			"alert": "Alert",
 			"auditLink": "Audit",
+			"receivedAt": "Received",
+			"actions": "Actions",
 			"tiers": {
 				"CRITICAL": "CRITICAL",
 				"WARNING": "WARNING",
@@ -1809,6 +1811,11 @@
 				"next": "Next",
 				"showing": "Showing {from}–{to} of {total}",
 				"label": "Pagination"
+			},
+			"viewToggle": {
+				"label": "Choose layout",
+				"list": "List",
+				"cards": "Cards"
 			}
 		},
 		"adminOverview": {
@@ -1838,6 +1845,7 @@
 			"emptyDesc": "Register a farmer and their first pond to get started.",
 			"emptyAction": "Register Farmer & Pond",
 			"caption": "Ponds in your organization",
+			"columnPond": "Pond",
 			"archive": "Archive",
 			"restore": "Restore",
 			"updating": "Updating…"
@@ -1973,6 +1981,11 @@
 				"next": "Next",
 				"showing": "Showing {from}–{to} of {total}",
 				"label": "Pagination"
+			},
+			"viewToggle": {
+				"label": "Choose layout",
+				"list": "List",
+				"cards": "Cards"
 			}
 		}
 	},
@@ -2094,6 +2107,11 @@
 				"next": "Next",
 				"showing": "Showing {from}–{to} of {total}",
 				"label": "Pagination"
+			},
+			"viewToggle": {
+				"label": "Choose layout",
+				"list": "List",
+				"cards": "Cards"
 			}
 		},
 		"roles": {

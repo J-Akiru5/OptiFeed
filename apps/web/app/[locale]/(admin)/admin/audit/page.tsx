@@ -2,7 +2,6 @@ import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import {
 	AdminCard,
-	AdminCardList,
 	AdminCardRow,
 	AdminTHead,
 	AdminTable,
@@ -10,7 +9,9 @@ import {
 	AdminTh,
 	AdminTr,
 } from "@/components/admin/admin-table";
+import { ItemCardGrid } from "@/components/ui/item-card";
 import { Pagination } from "@/components/ui/pagination";
+import { ListView } from "@/components/ui/view-toggle";
 import { getAuditLog } from "@/lib/actions/admin";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { parsePage } from "@/lib/pagination";
@@ -44,7 +45,12 @@ export default async function AdminAuditPage({
 			{events.length === 0 ? (
 				<AdminEmptyState icon={FileText} title={t("emptyTitle")} description={t("emptyDesc")} />
 			) : (
-				<>
+				<ListView
+					pageKey="admin-audit"
+					listLabel={tCommon("viewToggle.list")}
+					cardsLabel={tCommon("viewToggle.cards")}
+					toggleLabel={tCommon("viewToggle.label")}
+				>
 					<AdminTable caption={t("caption")} minWidth="min-w-[52rem]">
 						<AdminTHead>
 							<AdminTh>{t("columnTime")}</AdminTh>
@@ -78,7 +84,7 @@ export default async function AdminAuditPage({
 						</tbody>
 					</AdminTable>
 
-					<AdminCardList>
+					<ItemCardGrid label={t("caption")}>
 						{events.map((event) => (
 							<AdminCard key={event.id}>
 								<div className="flex items-start justify-between gap-3">
@@ -98,8 +104,8 @@ export default async function AdminAuditPage({
 								</div>
 							</AdminCard>
 						))}
-					</AdminCardList>
-				</>
+					</ItemCardGrid>
+				</ListView>
 			)}
 
 			{eventsPage.total > 0 && (

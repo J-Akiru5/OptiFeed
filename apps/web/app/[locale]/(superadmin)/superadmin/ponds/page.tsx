@@ -9,7 +9,9 @@ import {
 	SECONDARY_BUTTON,
 	TableFrame,
 } from "@/components/superadmin/ui";
+import { ItemCardGrid } from "@/components/ui/item-card";
 import { Pagination } from "@/components/ui/pagination";
+import { ListView } from "@/components/ui/view-toggle";
 import { Link, getPathname } from "@/i18n/routing";
 import { listAllPonds } from "@/lib/actions/superadmin";
 import { Droplets, Lock } from "lucide-react";
@@ -93,8 +95,13 @@ export default async function SuperadminPondsPage({
 					/>
 				</Card>
 			) : (
-				<>
-					<ul className="space-y-3 md:hidden">
+				<ListView
+					pageKey="superadmin-ponds"
+					listLabel={tCommon("viewToggle.list")}
+					cardsLabel={tCommon("viewToggle.cards")}
+					toggleLabel={tCommon("viewToggle.label")}
+				>
+					<ItemCardGrid label={t("caption")}>
 						{ponds.rows.map((pond) => (
 							<MobileCard key={pond.id}>
 								<div className="flex items-start justify-between gap-3">
@@ -133,7 +140,7 @@ export default async function SuperadminPondsPage({
 								</div>
 							</MobileCard>
 						))}
-					</ul>
+					</ItemCardGrid>
 
 					<TableFrame
 						className="hidden md:block"
@@ -182,7 +189,7 @@ export default async function SuperadminPondsPage({
 							</tr>
 						))}
 					</TableFrame>
-				</>
+				</ListView>
 			)}
 
 			<Pagination

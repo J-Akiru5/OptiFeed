@@ -13,7 +13,9 @@ import {
 	SECONDARY_BUTTON,
 	TableFrame,
 } from "@/components/superadmin/ui";
+import { ItemCardGrid } from "@/components/ui/item-card";
 import { Pagination } from "@/components/ui/pagination";
+import { ListView } from "@/components/ui/view-toggle";
 import { Link, getPathname } from "@/i18n/routing";
 import { getOrgPondOptions, listPlatformDevices } from "@/lib/actions/platform/devices";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
@@ -122,8 +124,13 @@ export default async function SuperadminDevicesPage({
 					/>
 				</Card>
 			) : (
-				<>
-					<ul className="space-y-3 md:hidden">
+				<ListView
+					pageKey="superadmin-devices"
+					listLabel={tCommon("viewToggle.list")}
+					cardsLabel={tCommon("viewToggle.cards")}
+					toggleLabel={tCommon("viewToggle.label")}
+				>
+					<ItemCardGrid label={t("caption")}>
 						{devices.rows.map((device) => {
 							const offline =
 								!device.lastSeenAt || now - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
@@ -191,7 +198,7 @@ export default async function SuperadminDevicesPage({
 								</MobileCard>
 							);
 						})}
-					</ul>
+					</ItemCardGrid>
 
 					<TableFrame
 						className="hidden md:block"
@@ -282,7 +289,7 @@ export default async function SuperadminDevicesPage({
 							);
 						})}
 					</TableFrame>
-				</>
+				</ListView>
 			)}
 
 			<Pagination

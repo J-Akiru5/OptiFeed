@@ -85,6 +85,13 @@ describe("buildSystemPrompt", () => {
 		expect(prompt).toContain("Last sample date:");
 	});
 
+	it("describes instants in the farm timezone, not the server runtime", () => {
+		// baseCtx.lastSampleAt is 08:00 UTC, which is 4:00 PM in Asia/Manila. A
+		// runtime-local render (UTC on Vercel) would tell the model 8:00 AM.
+		const prompt = buildSystemPrompt(baseCtx, "en");
+		expect(prompt).toContain("Last sample date: 4:00 PM");
+	});
+
 	it("flags calibration drift and stays quiet when data is insufficient", () => {
 		const drift = buildSystemPrompt(
 			{

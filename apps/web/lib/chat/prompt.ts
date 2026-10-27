@@ -1,12 +1,19 @@
-import { MAX_PROMPT_LENGTH } from "../constants";
+import { MAX_PROMPT_LENGTH, PH_TZ } from "../constants";
 import type { ChatContext } from "./context";
 
 function scheduleTime(d: Date): string {
 	return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
 }
 
+// Instants (a sample, a dispense) are stored in UTC and must be described in the
+// farm's timezone. The runtime's own zone is UTC on Vercel and something else on
+// a developer machine, so it is never the answer.
 function todayTime(d: Date): string {
-	return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+	return d.toLocaleTimeString("en-US", {
+		hour: "numeric",
+		minute: "2-digit",
+		timeZone: PH_TZ,
+	});
 }
 
 function driftLabel(drift: ChatContext["calibrationDrift"]): string {

@@ -1,4 +1,4 @@
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime, formatWallClockTime } from "@/lib/date-local";
 import prisma from "@/lib/prisma";
 import enMessages from "@/messages/en.json";
 import hilMessages from "@/messages/hil.json";
@@ -44,8 +44,12 @@ export async function runFallbackIntent(params: {
 	const t = createNamespaceTranslator(locale, "chat");
 	const tDates = createNamespaceTranslator(locale, "dates");
 
-	const formatTime = (d: Date) => formatDateTimeLocal(d, tDates).time;
-	const formatFull = (d: Date) => formatDateTimeLocal(d, tDates).full;
+	// The schedule window is a farm wall clock stored in a `@db.Time` value, so
+	// its UTC components are the time to show. Instants (a failed command) are
+	// formatted in the farm's timezone.
+	const formatSchedule = (d: Date) =>
+		formatWallClockTime(d.getUTCHours(), d.getUTCMinutes(), tDates);
+	const formatFull = (d: Date) => formatFarmDateTime(d, tDates).full;
 
 	// INTENT 1: How much feed / grams prediction.
 	// Checked before the schedule intent because the Hiligaynon schedule
@@ -94,8 +98,8 @@ export async function runFallbackIntent(params: {
 		}
 		return t("intentScheduleActive", {
 			feedsPerDay: ctx.feedsPerDay,
-			startTime: formatTime(ctx.scheduleStart),
-			endTime: formatTime(ctx.scheduleEnd),
+			startTime: formatSchedule(ctx.scheduleStart),
+			endTime: formatSchedule(ctx.scheduleEnd),
 		});
 	}
 

@@ -1,18 +1,22 @@
 "use client";
 
 import { Link } from "@/i18n/routing";
+import { cn } from "@/lib/utils";
 import { Bell } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useNotifications } from "./notification-provider";
 
-export function NotificationBell() {
+export function NotificationBell({ className }: { className?: string }) {
 	const { unreadCount: count } = useNotifications();
 	const t = useTranslations("dashboard.notifications");
 
 	return (
 		<Link
 			href="/dashboard/notifications"
-			className="relative w-9 h-9 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-all border border-white/10 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+			className={cn(
+				"relative flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white transition-all hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none",
+				className,
+			)}
 			title={t("title")}
 			aria-label={t("title")}
 		>

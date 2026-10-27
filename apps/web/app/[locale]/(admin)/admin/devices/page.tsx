@@ -2,18 +2,13 @@ import { AddFeederForm } from "@/components/admin/add-feeder-form";
 import { adminButtonSecondary } from "@/components/admin/admin-classes";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
-import {
-	AdminCard,
-	AdminCardRow,
-	AdminTHead,
-	AdminTable,
-	AdminTd,
-	AdminTh,
-	AdminTr,
-} from "@/components/admin/admin-table";
+import { AdminTHead, AdminTable, AdminTd, AdminTh, AdminTr } from "@/components/admin/admin-table";
 import { DeviceTokenReveal } from "@/components/admin/device-token-reveal";
 import { PendingDeviceApprovals } from "@/components/admin/pending-device-approvals";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
+import { EntityCard } from "@/components/mobile/entity-card";
+import { ListChips } from "@/components/mobile/list-chips";
+import { StatusStrip } from "@/components/mobile/status-strip";
 import { ItemCardGrid } from "@/components/ui/item-card";
 import { Pagination } from "@/components/ui/pagination";
 import { ListView } from "@/components/ui/view-toggle";
@@ -23,7 +18,17 @@ import { getTenantRegistrationOptions } from "@/lib/actions/device-registration"
 import { hasPermission } from "@/lib/auth/permissions";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
-import { parsePage } from "@/lib/pagination";
+import {
+	deviceListStatus,
+	filterByStatus,
+	isAttention,
+	orderRows,
+	parseAttention,
+	parseDeviceStatusFilter,
+	parseListOrder,
+	summarizeStatuses,
+} from "@/lib/mobile-list";
+import { buildPageHref, parsePage } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
 import { Cpu, Printer, Wifi, WifiOff } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -34,15 +39,19 @@ const LABEL_FORM_ID = "device-label-form";
 export default async function AdminDevicesPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ page?: string }>;
+	searchParams: Promise<{ page?: string; status?: string; order?: string; attention?: string }>;
 }) {
 	const params = await searchParams;
 	const page = parsePage(params.page);
-	const [devicesPage, canClaim, t, tCommon, tDates, locale] = await Promise.all([
+	const status = parseDeviceStatusFilter(params.status);
+	const order = parseListOrder(params.order);
+	const attention = parseAttention(params.attention);
+	const [devicesPage, canClaim, t, tCommon, tMobile, tDates, locale] = await Promise.all([
 		getDevices({ page }),
 		hasPermission("claim_feeder"),
 		getTranslations("dashboard.adminDevices"),
 		getTranslations("dashboard.adminCommon"),
+		getTranslations("dashboard.mobile"),
 		getTranslations("dates"),
 		getLocale(),
 	]);
@@ -57,6 +66,31 @@ export default async function AdminDevicesPage({
 
 	const pendingDevices = devices.filter((device) => device.approvalStatus === "PENDING");
 	const listedDevices = devices.filter((device) => device.approvalStatus !== "PENDING");
+
+	// Mobile status strip (E26): grade the feeders on this page, then filter and
+	// order them. The pending queue above stays unaffected.
+	const now = new Date();
+	const statusOf = (device: (typeof listedDevices)[number]) => deviceListStatus(device, now);
+	const counts = summarizeStatuses(listedDevices.map(statusOf));
+	const visibleDevices = orderRows(
+		filterByStatus(listedDevices, status, statusOf).filter(
+			(device) => !attention || isAttention(statusOf(device)),
+		),
+		order,
+		(device) => ({ name: device.label, status: statusOf(device) }),
+		locale,
+	);
+	const statusLabels = {
+		all: tMobile("status.all"),
+		online: tMobile("status.online"),
+		alarm: tMobile("status.alarm"),
+		offline: tMobile("status.offline"),
+	};
+	const baseParams = {
+		status: status === "all" ? undefined : status,
+		order: order === "newest" ? undefined : order,
+		attention: attention ? "1" : undefined,
+	};
 
 	const lastSeen = (date: Date | null) =>
 		date ? formatDateTimeLocal(date, tDates).full : tCommon("never");
@@ -98,7 +132,38 @@ export default async function AdminDevicesPage({
 				}
 			/>
 
-			{registrationOptions && <AddFeederForm options={registrationOptions} />}
+			{listedDevices.length > 0 && (
+				<div className="space-y-2">
+					<StatusStrip
+						counts={counts}
+						active={status}
+						basePath="/admin/devices"
+						params={baseParams}
+						label={tMobile("status.label")}
+						labels={statusLabels}
+					/>
+					<ListChips
+						basePath="/admin/devices"
+						params={baseParams}
+						order={order}
+						attention={attention}
+						labels={{
+							order: tMobile("order.label"),
+							newest: tMobile("order.newest"),
+							name: tMobile("order.name"),
+							status: tMobile("order.status"),
+							attention: tMobile("order.attention"),
+							hint: tMobile("order.hint"),
+						}}
+					/>
+				</div>
+			)}
+
+			{registrationOptions && (
+				<div id="add-feeder" className="scroll-mt-24">
+					<AddFeederForm options={registrationOptions} />
+				</div>
+			)}
 
 			{canClaim && (
 				<PendingDeviceApprovals
@@ -115,7 +180,24 @@ export default async function AdminDevicesPage({
 				<AdminEmptyState icon={Cpu} title={t("emptyTitle")} description={t("emptyDesc")} />
 			)}
 
-			{listedDevices.length > 0 && (
+			{devices.length > 0 && visibleDevices.length === 0 && (
+				<div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-center dark:border-gray-700 dark:bg-gray-900">
+					<p className="text-sm font-black text-[#0A3D62] dark:text-gray-100">
+						{tMobile("status.emptyTitle")}
+					</p>
+					<p className="mt-1 text-xs text-[#3D5568] dark:text-gray-400">
+						{tMobile("status.emptyDesc")}
+					</p>
+					<Link
+						href={buildPageHref("/admin/devices", {}, 1)}
+						className={`${adminButtonSecondary} mt-4`}
+					>
+						{tMobile("status.clear")}
+					</Link>
+				</div>
+			)}
+
+			{visibleDevices.length > 0 && (
 				<ListView
 					pageKey="admin-devices"
 					listLabel={tCommon("viewToggle.list")}
@@ -134,7 +216,7 @@ export default async function AdminDevicesPage({
 							<AdminTh>{t("labelColumn")}</AdminTh>
 						</AdminTHead>
 						<tbody>
-							{listedDevices.map((device) => {
+							{visibleDevices.map((device) => {
 								const now = new Date();
 								const isOffline =
 									!device.lastSeenAt ||
@@ -239,95 +321,66 @@ export default async function AdminDevicesPage({
 					</AdminTable>
 
 					<ItemCardGrid label={t("caption")}>
-						{listedDevices.map((device) => {
-							const now = new Date();
-							const isOffline =
-								!device.lastSeenAt ||
-								now.getTime() - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+						{visibleDevices.map((device) => {
+							const deviceStatus = statusOf(device);
 
 							return (
-								<AdminCard key={device.id}>
-									<div className="flex items-start justify-between gap-3">
-										<div className="min-w-0">
-											<p className="truncate font-black text-[#0A3D62] dark:text-gray-100">
-												{device.label}
-											</p>
-											<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
-												{t("perFeeding", { grams: device.gramsPerFeeding })}
-											</p>
-											{device.approvalStatus === "REJECTED" && (
-												<p className="mt-1 inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-black tracking-wider text-[#C42B3A] uppercase dark:bg-red-950/50 dark:text-red-300">
-													{t("rejectedBadge")}
-												</p>
-											)}
-										</div>
-										<span
-											className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black tracking-wider uppercase ${
-												isOffline
-													? "bg-red-100 text-[#C42B3A] dark:bg-red-950/50 dark:text-red-300"
-													: "bg-green-100 text-[#1E7B34] dark:bg-green-950/50 dark:text-green-300"
-											}`}
-										>
-											{isOffline ? (
-												<WifiOff aria-hidden="true" className="h-3 w-3" />
-											) : (
-												<Wifi aria-hidden="true" className="h-3 w-3" />
-											)}
-											{isOffline ? tCommon("offline") : tCommon("online")}
-										</span>
-									</div>
-
-									<div className="mt-3 border-t border-gray-100 pt-2 dark:border-gray-800">
-										<AdminCardRow label={t("deviceIdMac")}>
-											<span className="font-mono">{device.mac}</span>
-										</AdminCardRow>
-										<AdminCardRow label={t("columnPond")}>
-											{device.pond?.name || t("unassigned")}
-										</AdminCardRow>
-										<AdminCardRow label={t("columnFeedLevel")}>
-											<FeedLevelDisplay
-												levelPercent={device.feedLevelPercent}
-												updatedAt={feedLevelUpdatedAt.get(device.id) ?? null}
-												isOffline={isOffline}
-												size="sm"
-											/>
-										</AdminCardRow>
-										<AdminCardRow label={t("columnLastSeen")}>
-											{lastSeen(device.lastSeenAt)}
-										</AdminCardRow>
-									</div>
-
-									<div className="mt-3 space-y-3">
-										{device.approvalStatus === "APPROVED" ? (
-											<DeviceTokenReveal deviceId={device.id} deviceLabel={device.label} />
-										) : (
-											<p className="text-xs font-bold text-[#3D5568] dark:text-gray-400">
-												{t("rejectedBadge")}
-											</p>
-										)}
-										<div className="flex flex-wrap items-center gap-3">
-											<label className="inline-flex items-center gap-2 text-[11px] font-bold text-[#3D5568] dark:text-gray-300">
-												<input
-													type="checkbox"
-													form={LABEL_FORM_ID}
-													name="id"
-													value={device.id}
-													aria-label={t("selectForLabel", { label: device.label })}
-													className="h-4 w-4 accent-[#0A3D62] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea]"
+								<EntityCard
+									key={device.id}
+									status={deviceStatus}
+									statusLabel={statusLabels[deviceStatus]}
+									title={device.label}
+									subtitle={`${device.mac} · ${device.pond?.name || t("unassigned")}`}
+									icon={Cpu}
+									metrics={[
+										{
+											label: t("columnFeedLevel"),
+											value: (
+												<FeedLevelDisplay
+													levelPercent={device.feedLevelPercent}
+													updatedAt={feedLevelUpdatedAt.get(device.id) ?? null}
+													isOffline={deviceStatus === "offline"}
+													size="sm"
 												/>
-												{t("labelColumn")}
-											</label>
-											<Link
-												href={{ pathname: LABELS_HREF, query: { id: device.id } }}
-												data-help="print-label"
-												className={adminButtonSecondary}
-											>
-												<Printer aria-hidden="true" className="h-3.5 w-3.5" />
-												{t("printLabel")}
-											</Link>
-										</div>
-									</div>
-								</AdminCard>
+											),
+										},
+										{
+											label: t("columnLastSeen"),
+											value: lastSeen(device.lastSeenAt),
+										},
+										{
+											label: t("perFeedingLabel"),
+											value: device.gramsPerFeeding,
+										},
+									]}
+								>
+									{device.approvalStatus === "APPROVED" ? (
+										<DeviceTokenReveal deviceId={device.id} deviceLabel={device.label} />
+									) : (
+										<p className="text-xs font-bold text-[#3D5568] dark:text-gray-400">
+											{t("rejectedBadge")}
+										</p>
+									)}
+									<label className="ml-auto inline-flex items-center gap-2 text-[11px] font-bold text-[#3D5568] dark:text-gray-300">
+										<input
+											type="checkbox"
+											form={LABEL_FORM_ID}
+											name="id"
+											value={device.id}
+											aria-label={t("selectForLabel", { label: device.label })}
+											className="h-4 w-4 accent-[#0A3D62] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea]"
+										/>
+										{t("labelColumn")}
+									</label>
+									<Link
+										href={{ pathname: LABELS_HREF, query: { id: device.id } }}
+										data-help="print-label"
+										className={adminButtonSecondary}
+									>
+										<Printer aria-hidden="true" className="h-3.5 w-3.5" />
+										{t("printLabel")}
+									</Link>
+								</EntityCard>
 							);
 						})}
 					</ItemCardGrid>
@@ -337,6 +390,7 @@ export default async function AdminDevicesPage({
 			{devicesPage.total > 0 && (
 				<Pagination
 					basePath="/admin/devices"
+					params={baseParams}
 					page={devicesPage.page}
 					pageCount={pageCount}
 					showing={tCommon("pagination.showing", {

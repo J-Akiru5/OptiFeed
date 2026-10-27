@@ -72,13 +72,20 @@ interface HarvestCalendarProps {
 	initialPondName: string;
 	initialPondIsFallow: boolean;
 	initialAllPonds?: boolean;
-	/** `org` asks the events API for every pond in the admin's organization. */
-	apiScope?: "org";
+	/** `org` asks for every pond in the admin's organization; `member-org` adds
+	 * org-wide events for a farmer, read-only outside their own farm. */
+	apiScope?: "org" | "member-org";
+	/** Pond ids the caller may edit. Omitted means every pond in `ponds`. */
+	writablePondIds?: string[];
 	ponds: PondOption[];
 	activeCycle: CropCycleDto | null;
 	activeCycles: CropCycleDto[];
 	recentCycles: CropCycleDto[];
 	canManage: boolean;
+	/** Grow-out cycle actions (start/edit/harvest/cancel). Defaults to `canManage`. */
+	canManageCycles?: boolean;
+	/** `calendar` switches the page heading to the dedicated Calendar copy. */
+	heading?: "harvest" | "calendar";
 	today: string;
 	hopperLevelPct?: number | null;
 	hopperFeedLevelUpdatedAt?: string | null;
@@ -134,11 +141,14 @@ export function HarvestCalendar({
 	initialPondIsFallow,
 	initialAllPonds = false,
 	apiScope,
+	writablePondIds,
 	ponds,
 	activeCycle,
 	activeCycles,
 	recentCycles,
 	canManage,
+	canManageCycles: canManageCyclesProp,
+	heading = "harvest",
 	today,
 	hopperLevelPct,
 	hopperFeedLevelUpdatedAt,
@@ -197,6 +207,22 @@ export function HarvestCalendar({
 	const hopperScheduledFeedings =
 		hopperRemainingKg !== null ? Math.floor(Number.parseFloat(hopperRemainingKg) / 0.35) : 0;
 
+	// E25 (#212): the org calendar shows every pond but only the caller's own
+	// farm is writable. `writablePondIds` is omitted by the farmer's Harvest
+	// page and the tenant admin calendar, where every listed pond is writable.
+	const writableSet = useMemo(
+		() => (writablePondIds ? new Set(writablePondIds) : null),
+		[writablePondIds],
+	);
+	const isPondWritable = (pondId: string) => !writableSet || writableSet.has(pondId);
+	const writablePonds = useMemo(
+		() => (writableSet ? ponds.filter((pond) => writableSet.has(pond.id)) : ponds),
+		[ponds, writableSet],
+	);
+	const selectedPondWritable = isPondWritable(selectedPondId);
+	const canManageCycles = canManageCyclesProp ?? canManage;
+	const canManageCycleActions = canManageCycles && selectedPondWritable;
+
 	// Restore the pond/all-ponds/event-type selection from the URL once, then
 	// keep the URL in sync without triggering a navigation.
 	useEffect(() => {
@@ -225,12 +251,15 @@ export function HarvestCalendar({
 	}, [allPonds, selectedPondId, typesKey]);
 
 	const detailCycle = details ? cycleForPond(details.pondId) : null;
-	const canEditDetails = Boolean(details?.editable && canManage && details.source === "manual");
+	const canEditDetails = Boolean(
+		details?.editable && canManage && details.source === "manual" && isPondWritable(details.pondId),
+	);
 	const canRescheduleDetails = Boolean(
 		details &&
 			details.kind === "HARVEST_PLANNED" &&
 			details.source !== "manual" &&
-			canManage &&
+			canManageCycleActions &&
+			isPondWritable(details.pondId) &&
 			detailCycle,
 	);
 	const selectedRecentCycles = recentCycles
@@ -369,7 +398,7 @@ export function HarvestCalendar({
 	};
 
 	const openNewEvent = (selection: EventEditorSelection) => {
-		if (!canManage || allPonds) return;
+		if (!canManage || allPonds || !isPondWritable(selectedPondId)) return;
 		setEditingEvent(null);
 		setEditorSelection(selection);
 		setEditorOpen(true);
@@ -402,7 +431,7 @@ export function HarvestCalendar({
 	};
 
 	const toggleTask = (event: CalendarEventDto) => {
-		if (!canManage) return;
+		if (!canManage || !isPondWritable(event.pondId)) return;
 		const id = event.pondEventId ?? event.id.replace(/^pond:/, "").split(":")[0];
 		const occurrence = taskOccurrence(event);
 		const nextCompleted = !event.completed;
@@ -456,7 +485,7 @@ export function HarvestCalendar({
 		start: string,
 		end: string | null,
 	): Promise<boolean> => {
-		if (!canManage) return false;
+		if (!canManage || !isPondWritable(event.pondId)) return false;
 
 		// FullCalendar may emit an offset or seconds; the calendar stores naive
 		// farm-local values. All-day ends are exclusive in the grid and
@@ -467,6 +496,7 @@ export function HarvestCalendar({
 		const normalizedEnd = endValue && endValue !== startValue ? endValue : null;
 
 		if (event.source !== "manual") {
+			if (!canManageCycleActions || !isPondWritable(event.pondId)) return false;
 			if (event.kind !== "HARVEST_PLANNED") return false;
 			const cycle = cycleForPond(event.pondId);
 			if (!cycle) return false;
@@ -617,6 +647,17 @@ export function HarvestCalendar({
 		.sort((a, b) => a.start.localeCompare(b.start))
 		.slice(0, 5);
 
+	// Cycle milestones are moved through the cycle actions, which the admin
+	// calendar does not expose (E25). Mark them non-editable so FullCalendar
+	// never starts a drag that the server would reject.
+	const calendarEvents = useMemo(
+		() =>
+			events.map((event) =>
+				canManageCycleActions || event.source === "manual" ? event : { ...event, editable: false },
+			),
+		[events, canManageCycleActions],
+	);
+
 	return (
 		<div
 			className="mx-auto flex w-full min-w-0 max-w-[1600px] flex-col gap-4 animate-in fade-in duration-150 [contain:inline-size] xl:h-[calc(100dvh-8rem)] xl:overflow-hidden"
@@ -629,10 +670,12 @@ export function HarvestCalendar({
 					</div>
 					<div className="min-w-0">
 						<h1 className="text-2xl font-black tracking-tight text-[var(--ofd-base-deep)] sm:text-3xl">
-							{t("title")}
+							{heading === "calendar" ? t("calendarPage.title") : t("title")}
 						</h1>
 						<p className="text-sm text-gray-500 dark:text-gray-400">
-							{t("desc", { pond: selectedPond?.name ?? initialPondName })}
+							{heading === "calendar"
+								? t("calendarPage.desc")
+								: t("desc", { pond: selectedPond?.name ?? initialPondName })}
 						</p>
 					</div>
 				</div>
@@ -651,7 +694,7 @@ export function HarvestCalendar({
 									{activeCycles.length}
 								</span>
 							</div>
-							{canManage && (
+							{canManageCycleActions && (
 								<button
 									type="button"
 									onClick={openNewCycle}
@@ -720,7 +763,7 @@ export function HarvestCalendar({
 									/>
 								</button>
 							</div>
-							{canManage && (
+							{canManageCycleActions && (
 								<div className="flex shrink-0 items-center gap-2">
 									<button
 										type="button"
@@ -753,7 +796,7 @@ export function HarvestCalendar({
 									{isFallow ? t("summary.fallowDesc") : t("summary.noCycleDesc")}
 								</span>
 							</div>
-							{canManage && (
+							{canManageCycleActions && (
 								<button
 									type="button"
 									onClick={openNewCycle}
@@ -849,7 +892,7 @@ export function HarvestCalendar({
 							<Sparkles aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[#FF6B35]" />
 							<span className="truncate">{t("summary.aiHintDesc")}</span>
 						</p>
-						{canManage && (
+						{canManageCycleActions && (
 							<button
 								type="button"
 								onClick={cancelCycle}
@@ -940,6 +983,7 @@ export function HarvestCalendar({
 										{ponds.map((pond) => (
 											<option key={pond.id} value={pond.id}>
 												{pond.name}
+												{!isPondWritable(pond.id) ? ` (${t("calendarPage.readOnlyPond")})` : ""}
 											</option>
 										))}
 										<option value="all">{t("calendar.allPonds")}</option>
@@ -957,7 +1001,7 @@ export function HarvestCalendar({
 									/>
 									{t("calendar.refresh")}
 								</button>
-								{canManage && !allPonds && (
+								{canManage && !allPonds && selectedPondWritable && (
 									<button
 										type="button"
 										data-help="harvest-add-event"
@@ -970,6 +1014,11 @@ export function HarvestCalendar({
 								)}
 							</div>
 						</div>
+						{!allPonds && !selectedPondWritable && (
+							<p className="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-[11px] font-semibold text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-200">
+								{t("calendarPage.readOnlyHint")}
+							</p>
+						)}
 						{error && (
 							<div className="flex flex-col gap-2 rounded-2xl border border-red-200 bg-red-50 p-2.5 text-xs font-semibold text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300 sm:flex-row sm:items-center">
 								<CloudOff aria-hidden="true" className="h-4 w-4 shrink-0" />
@@ -1010,7 +1059,7 @@ export function HarvestCalendar({
 								resetKey={`${range.from}:${range.to}:${typesKey}:${allPonds}:${selectedPondId}`}
 							>
 								<CalendarView
-									events={events}
+									events={calendarEvents}
 									canManage={canManage}
 									allPonds={allPonds}
 									onRangeChange={(from, to) => {
@@ -1122,7 +1171,7 @@ export function HarvestCalendar({
 				open={cycleFormOpen}
 				onClose={() => setCycleFormOpen(false)}
 				onSaved={refresh}
-				ponds={ponds}
+				ponds={writablePonds}
 				initialPondId={selectedPondId}
 				cycle={editingCycle}
 			/>
@@ -1218,6 +1267,11 @@ export function HarvestCalendar({
 			>
 				{details && (
 					<div className="space-y-4 text-sm text-gray-600 dark:text-gray-300">
+						{!isPondWritable(details.pondId) && (
+							<p className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs font-semibold text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-200">
+								{t("calendarPage.readOnlyEvent")}
+							</p>
+						)}
 						<div className="grid gap-2 sm:grid-cols-2">
 							<p className="flex min-w-0 items-center gap-2">
 								<Scale aria-hidden="true" className="h-4 w-4 shrink-0 text-gray-400" />

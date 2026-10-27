@@ -4,6 +4,8 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { HarvestCalendar } from "@/components/harvest/harvest-calendar";
 import { Link } from "@/i18n/routing";
 import { resolveOrgScope } from "@/lib/auth/org-scope";
+import { hasPermission } from "@/lib/auth/permissions";
+import { canWrite } from "@/lib/auth/session";
 import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { serialiseCycle } from "@/lib/crop-cycle/serialise";
@@ -36,10 +38,13 @@ const CYCLE_SELECT = {
 
 export default async function AdminCalendarPage() {
 	await requireTenantAdmin();
-	const [scope, t] = await Promise.all([
+	const [scope, t, canEditEvents, canManageEvents] = await Promise.all([
 		resolveOrgScope(),
 		getTranslations("dashboard.adminCalendar"),
+		canWrite(),
+		hasPermission("manage_crop_cycle"),
 	]);
+	const canManage = canEditEvents && canManageEvents;
 
 	const ponds =
 		scope.pondIds.length > 0
@@ -56,15 +61,29 @@ export default async function AdminCalendarPage() {
 				})
 			: [];
 
-	const cycles =
-		ponds.length > 0
-			? await prisma.cropCycle.findMany({
-					where: { pondId: { in: ponds.map((pond) => pond.id) } },
-					orderBy: { createdAt: "desc" },
-					take: 30,
-					select: CYCLE_SELECT,
-				})
-			: [];
+	const pondIds = ponds.map((pond) => pond.id);
+	// Two bounded reads instead of one page of 30 mixed cycles: an ACTIVE cycle
+	// on an older pond used to fall out of the newest-30 window entirely, so the
+	// "All ponds" view lost its cycle data. Crop-cycle creation enforces one
+	// ACTIVE cycle per pond, so `pondIds.length` is the exact bound for the
+	// active read — no silent cut — while history keeps its own 30-row cap.
+	const [activeCycleRows, recentCycleRows] =
+		pondIds.length > 0
+			? await Promise.all([
+					prisma.cropCycle.findMany({
+						where: { pondId: { in: pondIds }, status: "ACTIVE" },
+						orderBy: { createdAt: "desc" },
+						take: pondIds.length,
+						select: CYCLE_SELECT,
+					}),
+					prisma.cropCycle.findMany({
+						where: { pondId: { in: pondIds }, status: { not: "ACTIVE" } },
+						orderBy: { createdAt: "desc" },
+						take: 30,
+						select: CYCLE_SELECT,
+					}),
+				])
+			: [[], []];
 
 	if (ponds.length === 0) {
 		return (
@@ -95,10 +114,9 @@ export default async function AdminCalendarPage() {
 			averageDepthM: profile.averageDepthM,
 		};
 	});
-	const serialised = cycles.map(serialiseCycle);
-	const activeCycles = serialised.filter((cycle) => cycle.status === "ACTIVE");
+	const activeCycles = activeCycleRows.map(serialiseCycle);
 	const activeCycle = activeCycles.find((cycle) => cycle.pondId === ponds[0].id) ?? null;
-	const recentCycles = serialised.filter((cycle) => cycle.status !== "ACTIVE");
+	const recentCycles = recentCycleRows.map(serialiseCycle);
 
 	return (
 		<div className="mx-auto w-full max-w-7xl min-w-0 space-y-6 pb-20 [contain:inline-size] animate-in fade-in duration-150">
@@ -109,7 +127,7 @@ export default async function AdminCalendarPage() {
 			/>
 
 			<p className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-medium text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-200">
-				{t("readOnly")}
+				{t("editHint")}
 			</p>
 
 			<HarvestCalendar
@@ -122,7 +140,8 @@ export default async function AdminCalendarPage() {
 				activeCycle={activeCycle}
 				activeCycles={activeCycles}
 				recentCycles={recentCycles}
-				canManage={false}
+				canManage={canManage}
+				canManageCycles={false}
 				today={todayDateOnly()}
 			/>
 		</div>

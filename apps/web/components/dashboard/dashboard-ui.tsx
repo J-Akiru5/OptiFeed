@@ -40,13 +40,15 @@ export function DashboardPageHeader({
 				{Icon && (
 					<span
 						aria-hidden="true"
-						className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]"
+						className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] lg:flex dark:bg-white/5 dark:text-[#5b9bd5]"
 					>
 						<Icon className="h-6 w-6" />
 					</span>
 				)}
 				<div className="min-w-0">
-					<h1 className="text-2xl font-black tracking-tight text-[#0A3D62] dark:text-[#5b9bd5] sm:text-3xl">
+					{/* The mobile header band already shows this title; the real h1
+					    stays in the markup for assistive tech and from `sm` up. */}
+					<h1 className="sr-only text-2xl font-black tracking-tight text-[#0A3D62] lg:not-sr-only lg:text-3xl dark:text-[#5b9bd5]">
 						{title}
 					</h1>
 					{description && (

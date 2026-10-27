@@ -280,7 +280,15 @@ export async function getViewAsFarmId(): Promise<string | null> {
  * caller. Used by requireWriteAccess/canWrite and requirePermission.
  */
 export async function assertNotViewingAs(): Promise<void> {
-	if (await isViewingAs()) throw new ViewAsReadOnlyError();
+	const state = await getViewAsState();
+	if (state.active) throw new ViewAsReadOnlyError();
+	// A view-as cookie was present but the server could not confirm whether the
+	// session is still live (database error). The read-only guarantee has to fail
+	// closed: a transient lookup failure must not turn a view-as session into a
+	// writable one.
+	if (state.reason === "unavailable") {
+		throw new Error("Your view-as status could not be verified. Reload the page and try again.");
+	}
 }
 
 export async function setViewAsCookie(token: string, expiresAt: Date): Promise<void> {

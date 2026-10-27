@@ -11,7 +11,7 @@ import {
 	DashboardTr,
 } from "@/components/dashboard/dashboard-table";
 import { Pagination } from "@/components/ui/pagination";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { useTranslations } from "next-intl";
 
 export interface CalibrationHistoryRow {
@@ -87,7 +87,7 @@ export function CalibrationHistory({
 						>
 							<p className="text-[10px] font-black uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 								{t("sessionDate", {
-									date: formatDateTimeLocal(session.lastAt, tDates).fullDate,
+									date: formatFarmDateTime(session.lastAt, tDates).fullDate,
 								})}
 							</p>
 							<p className="mt-1 text-sm font-bold text-[#0A3D62] dark:text-gray-100">
@@ -128,7 +128,7 @@ export function CalibrationHistory({
 							{rows.map((row) => (
 								<DashboardTr key={row.id}>
 									<DashboardTd className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
-										{formatDateTimeLocal(row.createdAt, tDates).fullDate}
+										{formatFarmDateTime(row.createdAt, tDates).fullDate}
 									</DashboardTd>
 									<DashboardTd className="whitespace-nowrap">{kindLabel(row.kind)}</DashboardTd>
 									<DashboardTd className="text-right font-mono">
@@ -176,7 +176,7 @@ export function CalibrationHistory({
 								<div className="flex items-start justify-between gap-3">
 									<div>
 										<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-											{formatDateTimeLocal(row.createdAt, tDates).fullDate}
+											{formatFarmDateTime(row.createdAt, tDates).fullDate}
 										</p>
 										<p className="mt-0.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400">
 											{kindLabel(row.kind)} · {t("attemptValue", { attempt: row.attempt })}

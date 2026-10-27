@@ -19,19 +19,21 @@ import {
 	dashboardSectionLink,
 } from "@/components/dashboard/dashboard-ui";
 import { GrowthPlanCard } from "@/components/growth/GrowthPlanCard";
+import { SgrKpi, type SgrKpiLabels } from "@/components/growth/SgrKpi";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
 import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { loadGrowthPlanForPond } from "@/lib/growth-plan-loader";
 import type { GrowthSnapshotData } from "@/lib/offline/snapshots";
 import { getActivePond } from "@/lib/pond-selection";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { averageDailyGain, overallSgr, sgrSeries, sgrUnavailableReason } from "@/lib/sgr";
 import { Activity, ChevronRight, Fish, Package, Scale, TrendingUp, Wheat } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -64,42 +66,56 @@ export default async function GrowthPage() {
 
 	// Bound the chart/table payloads: a decade of logs must not be serialized on
 	// every visit. The history page remains the unbounded, paginated view.
-	const [writeAccess, biomassDesc, fcrDesc, energyDevice, activeCycle, loadedPlan] =
-		await Promise.all([
-			canWrite(),
-			prisma.biomassLog.findMany({
-				where: { pondId: pond.id },
-				orderBy: { recordedAt: "desc" },
-				take: 60,
-				include: {
-					fishSamples: { select: { id: true, weightGrams: true, lengthCm: true } },
-				},
-			}),
-			prisma.fcrReport.findMany({
-				where: { pondId: pond.id },
-				orderBy: { periodEnd: "desc" },
-				take: 12,
-			}),
-			prisma.energyDevice.findFirst({
-				where: { pondId: pond.id },
-				orderBy: { createdAt: "asc" },
-				select: { id: true, gramsPerFeeding: true, hopperCapacityG: true },
-			}),
-			prisma.cropCycle.findFirst({
-				where: { pondId: pond.id, status: "ACTIVE" },
-				select: {
-					id: true,
-					label: true,
-					stockingDate: true,
-					stockingCount: true,
-					growOutDays: true,
-					targetHarvestDate: true,
-					targetHarvestWeightG: true,
-					expectedSurvivalPct: true,
-				},
-			}),
-			loadGrowthPlanForPond(pond.id, { ownerId: pond.ownerId }),
-		]);
+	const [
+		writeAccess,
+		biomassDesc,
+		earliestBiomass,
+		fcrDesc,
+		energyDevice,
+		activeCycle,
+		loadedPlan,
+	] = await Promise.all([
+		canWrite(),
+		prisma.biomassLog.findMany({
+			where: { pondId: pond.id },
+			orderBy: { recordedAt: "desc" },
+			take: 60,
+			include: {
+				fishSamples: { select: { id: true, weightGrams: true, lengthCm: true } },
+			},
+		}),
+		// "Overall since the first sampling" must not be limited to the 60-row
+		// chart window, so fetch only the oldest sample (bounded, pond-scoped).
+		prisma.biomassLog.findFirst({
+			where: { pondId: pond.id },
+			orderBy: [{ recordedAt: "asc" }, { id: "asc" }],
+			select: { recordedAt: true, avgWeightKg: true },
+		}),
+		prisma.fcrReport.findMany({
+			where: { pondId: pond.id },
+			orderBy: { periodEnd: "desc" },
+			take: 12,
+		}),
+		prisma.energyDevice.findFirst({
+			where: { pondId: pond.id },
+			orderBy: { createdAt: "asc" },
+			select: { id: true, gramsPerFeeding: true, hopperCapacityG: true },
+		}),
+		prisma.cropCycle.findFirst({
+			where: { pondId: pond.id, status: "ACTIVE" },
+			select: {
+				id: true,
+				label: true,
+				stockingDate: true,
+				stockingCount: true,
+				growOutDays: true,
+				targetHarvestDate: true,
+				targetHarvestWeightG: true,
+				expectedSurvivalPct: true,
+			},
+		}),
+		loadGrowthPlanForPond(pond.id, { ownerId: pond.ownerId }),
+	]);
 
 	const biomassLogs = biomassDesc.slice().reverse();
 	const fcrReports = fcrDesc.slice().reverse();
@@ -115,6 +131,28 @@ export default async function GrowthPage() {
 			: null;
 		return { log, weightGain, lengthGain, daysSinceLast };
 	});
+
+	// SGR (capstone objective). Biomass logs are already ascending for the chart,
+	// so the series is oldest interval first and the last point is the latest one.
+	const sgrSamples = biomassLogs.map((log) => ({
+		recordedAt: log.recordedAt,
+		avgWeightKg: log.avgWeightKg,
+	}));
+	const sgrPoints = sgrSeries(sgrSamples);
+	const latestSgrPctPerDay = sgrPoints.at(-1)?.sgrPctPerDay ?? null;
+	// Prefer the real first sampling for "overall"; fall back to the loaded set
+	// (correct whenever the pond has 60 samples or fewer, which is the common case).
+	const firstSgrSample = earliestBiomass
+		? { recordedAt: earliestBiomass.recordedAt, avgWeightKg: earliestBiomass.avgWeightKg }
+		: (sgrSamples[0] ?? null);
+	const latestSgrSample = sgrSamples.at(-1) ?? null;
+	const overallSgrSamples =
+		sgrSamples.length >= 2 && firstSgrSample && latestSgrSample
+			? [firstSgrSample, latestSgrSample]
+			: sgrSamples;
+	const overallSgrPctPerDay = overallSgr(overallSgrSamples);
+	const sgrAverageDailyGainG = averageDailyGain(overallSgrSamples);
+	const sgrReason = sgrUnavailableReason(overallSgrSamples);
 
 	const cycleContext = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
 
@@ -168,7 +206,7 @@ export default async function GrowthPage() {
 	const biomassGrowthPct =
 		previousBiomass > 0 ? ((latestBiomass - previousBiomass) / previousBiomass) * 100 : 0;
 
-	const formatDate = (d: Date) => formatDateTimeLocal(d, tDates).date;
+	const formatDate = (d: Date) => formatFarmDateTime(d, tDates).date;
 
 	// Custom SVG Line Chart generator for Biomass
 	const maxBiomass = Math.max(...biomassLogs.map((l) => l.avgWeightKg), 0.01) * 1.1; // Add 10% padding top
@@ -225,6 +263,19 @@ export default async function GrowthPage() {
 			lengthCm: log.sampleLengthCm,
 			batchLabel: log.batchLabel,
 		})),
+	};
+
+	const sgrLabels: SgrKpiLabels = {
+		title: t("sgrTitle"),
+		overall: t("sgrOverall"),
+		averageGain: t("sgrAverageGain"),
+		unit: t("sgrUnit"),
+		explanation: t("sgrExplain"),
+		reasons: {
+			insufficientSamples: t("sgrReasons.insufficientSamples"),
+			invalidWeight: t("sgrReasons.invalidWeight"),
+			intervalTooShort: t("sgrReasons.intervalTooShort"),
+		},
 	};
 
 	return (
@@ -363,7 +414,10 @@ export default async function GrowthPage() {
 			{/* FCR Calculator */}
 			<FcrCalculator latestFcr={latestFcr} />
 
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-6" data-help="growth-charts">
+			<div
+				className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
+				data-help="growth-charts"
+			>
 				{/* Latest ABW Card */}
 				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex flex-col justify-between relative overflow-hidden">
 					<div className="flex justify-between items-start mb-4 relative z-10">
@@ -376,13 +430,13 @@ export default async function GrowthPage() {
 								<span className="text-lg text-gray-500 font-medium">g</span>
 							</p>
 							{biomassGrowthPct > 0 && (
-								<p className="text-sm text-green-700 font-medium mt-1 flex items-center gap-1">
+								<p className="text-sm text-green-700 font-medium mt-1 flex items-center gap-1 dark:text-green-400">
 									<TrendingUp aria-hidden="true" className="h-4 w-4" />{" "}
 									{t("vsLastSample", { pct: biomassGrowthPct.toFixed(1) })}
 								</p>
 							)}
 						</div>
-						<div className="h-14 w-14 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center">
+						<div className="h-14 w-14 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center dark:bg-teal-500/15 dark:text-teal-300">
 							<Fish aria-hidden="true" className="h-7 w-7" />
 						</div>
 					</div>
@@ -450,11 +504,11 @@ export default async function GrowthPage() {
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
 								{latestFcr.toFixed(2)}
 							</p>
-							<p className="text-sm text-green-700 font-medium mt-1 flex items-center gap-1">
+							<p className="text-sm text-green-700 font-medium mt-1 flex items-center gap-1 dark:text-green-400">
 								{t("trendingDown")} <Activity aria-hidden="true" className="h-4 w-4" />
 							</p>
 						</div>
-						<div className="h-14 w-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+						<div className="h-14 w-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center dark:bg-blue-500/15 dark:text-blue-300">
 							<Scale aria-hidden="true" className="h-7 w-7" />
 						</div>
 					</div>
@@ -473,7 +527,7 @@ export default async function GrowthPage() {
 										{report.fcrValue.toFixed(2)}
 									</div>
 									<div
-										className="w-full bg-blue-100 rounded-t-lg group-hover:bg-blue-300 transition-colors relative"
+										className="w-full bg-blue-100 rounded-t-lg group-hover:bg-blue-300 transition-colors relative dark:bg-blue-500/15 dark:group-hover:bg-blue-500/25"
 										style={{ height: `${heightPct}%` }}
 									>
 										<div
@@ -496,6 +550,15 @@ export default async function GrowthPage() {
 						})}
 					</span>
 				</div>
+
+				{/* Specific Growth Rate (capstone objective) */}
+				<SgrKpi
+					latestSgrPctPerDay={latestSgrPctPerDay}
+					overallSgrPctPerDay={overallSgrPctPerDay}
+					averageDailyGainG={sgrAverageDailyGainG}
+					reason={sgrReason}
+					labels={sgrLabels}
+				/>
 			</div>
 
 			{/* Feed Level Trend Card */}
@@ -588,16 +651,16 @@ export default async function GrowthPage() {
 							{feedLevelPreview.map((log) => (
 								<li key={log.id} className="flex items-center justify-between gap-3 py-3.5">
 									<div className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
-										{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+										{formatFarmDateTime(log.recordedAt, tDates).fullDate}
 									</div>
 									<div>
 										<span
 											className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
 												log.levelPercent <= 5
-													? "bg-red-100 text-red-700"
+													? "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300"
 													: log.levelPercent <= 20
-														? "bg-amber-100 text-amber-700"
-														: "bg-green-100 text-green-700"
+														? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+														: "bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300"
 											}`}
 										>
 											{Math.round(log.levelPercent)}%
@@ -644,7 +707,7 @@ export default async function GrowthPage() {
 									.map(({ log, weightGain, lengthGain, daysSinceLast }) => (
 										<DashboardTr key={log.id}>
 											<DashboardTd className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
-												{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+												{formatFarmDateTime(log.recordedAt, tDates).fullDate}
 											</DashboardTd>
 											<DashboardTd className="text-right">
 												{(log.avgWeightKg * 1000).toFixed(1)} g
@@ -654,7 +717,13 @@ export default async function GrowthPage() {
 											</DashboardTd>
 											<DashboardTd className="text-right font-bold">
 												{weightGain !== null ? (
-													<span className={weightGain >= 0 ? "text-green-700" : "text-red-600"}>
+													<span
+														className={
+															weightGain >= 0
+																? "text-green-700 dark:text-green-400"
+																: "text-red-600 dark:text-red-400"
+														}
+													>
 														{weightGain >= 0 ? "+" : ""}
 														{weightGain.toFixed(1)}
 													</span>
@@ -664,7 +733,13 @@ export default async function GrowthPage() {
 											</DashboardTd>
 											<DashboardTd className="text-right font-bold">
 												{lengthGain !== null ? (
-													<span className={lengthGain >= 0 ? "text-green-700" : "text-red-600"}>
+													<span
+														className={
+															lengthGain >= 0
+																? "text-green-700 dark:text-green-400"
+																: "text-red-600 dark:text-red-400"
+														}
+													>
 														{lengthGain >= 0 ? "+" : ""}
 														{lengthGain.toFixed(1)}
 													</span>
@@ -674,7 +749,7 @@ export default async function GrowthPage() {
 											</DashboardTd>
 											<DashboardTd className="text-right">
 												{daysSinceLast !== null ? (
-													<span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">
+													<span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
 														{daysSinceLast}d
 													</span>
 												) : (
@@ -691,7 +766,7 @@ export default async function GrowthPage() {
 							{growthRows.slice(0, GROWTH_PREVIEW_ROWS).map(({ log, weightGain, lengthGain }) => (
 								<DashboardCard key={log.id}>
 									<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-										{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+										{formatFarmDateTime(log.recordedAt, tDates).fullDate}
 									</p>
 									<div className="mt-2">
 										<DashboardCardRow label={t("history.columns.avgWeight")}>
@@ -758,7 +833,7 @@ export default async function GrowthPage() {
 									{biomassDesc.slice(0, PREVIEW_ROWS).map((log) => (
 										<DashboardTr key={log.id}>
 											<DashboardTd className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
-												{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+												{formatFarmDateTime(log.recordedAt, tDates).fullDate}
 											</DashboardTd>
 											<DashboardTd className="whitespace-nowrap">
 												{log.batchLabel ?? <span className="text-gray-400">—</span>}
@@ -772,23 +847,23 @@ export default async function GrowthPage() {
 											<DashboardTd className="text-right">
 												{log.fishSamples.length > 0 ? (
 													<details className="inline-block text-left">
-														<summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-700 transition-colors hover:bg-teal-100">
+														<summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-700 transition-colors hover:bg-teal-100 dark:bg-teal-500/15 dark:text-teal-300 dark:hover:bg-teal-500/25">
 															<Fish aria-hidden="true" className="w-3 h-3" />
 															{t("fishCountBadge", { count: log.fishSamples.length })}
 														</summary>
-														<div className="mt-2 min-w-[180px] overflow-hidden rounded-xl border border-teal-100 bg-teal-50/50">
-															<div className="flex items-baseline justify-between gap-3 bg-teal-100/70 px-3 py-1.5 text-[10px] font-bold uppercase text-teal-700">
+														<div className="mt-2 min-w-[180px] overflow-hidden rounded-xl border border-teal-100 bg-teal-50/50 dark:border-teal-500/20 dark:bg-teal-500/10">
+															<div className="flex items-baseline justify-between gap-3 bg-teal-100/70 px-3 py-1.5 text-[10px] font-bold uppercase text-teal-700 dark:bg-teal-500/20 dark:text-teal-200">
 																<span className="truncate">
 																	{log.batchLabel ?? t("unlabeledBatch")}
 																</span>
-																<span className="shrink-0 font-medium normal-case text-teal-600">
-																	{formatDateTimeLocal(log.recordedAt, tDates).date}
+																<span className="shrink-0 font-medium normal-case text-teal-600 dark:text-teal-300">
+																	{formatFarmDateTime(log.recordedAt, tDates).date}
 																</span>
 															</div>
 															<table className="w-full text-xs text-gray-600 dark:text-gray-300">
 																<caption className="sr-only">{t("fishSamplesLabel")}</caption>
 																<thead>
-																	<tr className="text-[10px] uppercase text-teal-700">
+																	<tr className="text-[10px] uppercase text-teal-700 dark:text-teal-300">
 																		<th scope="col" className="px-3 py-1.5 text-left font-bold">
 																			#
 																		</th>
@@ -800,7 +875,7 @@ export default async function GrowthPage() {
 																		</th>
 																	</tr>
 																</thead>
-																<tbody className="divide-y divide-teal-100">
+																<tbody className="divide-y divide-teal-100 dark:divide-teal-500/20">
 																	{log.fishSamples.map((sample, sampleIndex) => (
 																		<tr key={sample.id}>
 																			<td className="px-3 py-1.5 text-gray-500 dark:text-gray-400">
@@ -821,7 +896,7 @@ export default async function GrowthPage() {
 														</div>
 													</details>
 												) : (
-													<span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs font-bold text-gray-600 dark:text-gray-400">
+													<span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs font-bold text-gray-600 dark:bg-white/10 dark:text-gray-300">
 														<Scale aria-hidden="true" className="w-3 h-3" />
 														{t("avgBadge")}
 													</span>
@@ -837,7 +912,7 @@ export default async function GrowthPage() {
 									<DashboardCard key={log.id}>
 										<div className="flex items-baseline justify-between gap-3">
 											<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-												{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+												{formatFarmDateTime(log.recordedAt, tDates).fullDate}
 											</p>
 											<p className="text-sm font-black text-[var(--ofd-base-deep)]">
 												{(log.avgWeightKg * 1000).toFixed(1)} g

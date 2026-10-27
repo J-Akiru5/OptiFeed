@@ -75,6 +75,21 @@ pio device monitor -b 115200   # serial log
 CI runs `pio run -d firmware` for every firmware change; it never flashes or
 deploys.
 
+### Relay pin (build flag)
+
+`RELAY_PIN` defaults to GPIO 25. The CICT Building A unit is wired to **GPIO 5**,
+so it is built and flashed with its own environment:
+
+```sh
+pio run -d firmware -e esp32dev-relay5 -t upload
+```
+
+GPIO 5 is a strapping pin with an internal pull-up, so it is HIGH for a moment
+after reset, before `setup()` drives it LOW. With an active-HIGH relay this can
+give a short click at power-up. A 10 kΩ resistor from the relay IN pin to GND
+holds it LOW during boot. Moving the wire to GPIO 25 avoids the issue entirely.
+Boot prints `[INIT] Relay on GPIO <n>`.
+
 ### Relay polarity (build flag)
 
 `RELAY_ACTIVE_LOW` defaults to `0`, the field board's active-HIGH wiring: the

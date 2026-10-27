@@ -25,9 +25,10 @@ export default async function AdminAuditPage({
 }) {
 	const params = await searchParams;
 	const page = parsePage(params.page);
-	const [eventsPage, t, tCommon, tDates] = await Promise.all([
+	const [eventsPage, t, tAudit, tCommon, tDates] = await Promise.all([
 		getAuditLog({ page }),
 		getTranslations("dashboard.adminAudit"),
+		getTranslations("dashboard.audit"),
 		getTranslations("dashboard.adminCommon"),
 		getTranslations("dates"),
 	]);
@@ -37,6 +38,14 @@ export default async function AdminAuditPage({
 	const lastRow = Math.min(eventsPage.page * eventsPage.pageSize, eventsPage.total);
 
 	const formatted = (date: Date) => formatDateTimeLocal(date, tDates).full;
+	const eventTypeLabel = (eventType: string) => {
+		const key = `eventType_${eventType}`;
+		return tAudit.has(key) ? tAudit(key) : eventType;
+	};
+	const sourceLabel = (source: string) => {
+		const key = `source_${source}`;
+		return tAudit.has(key) ? tAudit(key) : source;
+	};
 
 	return (
 		<div className="space-y-6">
@@ -70,11 +79,11 @@ export default async function AdminAuditPage({
 									</AdminTd>
 									<AdminTd>
 										<span className="inline-flex rounded-full bg-[#0A3D62]/10 px-2.5 py-1 text-[10px] font-black tracking-wider text-[#0A3D62] uppercase dark:bg-white/10 dark:text-[#8fc0ea]">
-											{event.eventType}
+											{eventTypeLabel(event.eventType)}
 										</span>
 									</AdminTd>
 									<AdminTd className="text-xs text-[#3D5568] dark:text-gray-400">
-										{event.source}
+										{sourceLabel(event.source)}
 									</AdminTd>
 									<AdminTd className="text-xs text-[#3D5568] dark:text-gray-400">
 										{event.actorId || tCommon("none")}
@@ -92,12 +101,12 @@ export default async function AdminAuditPage({
 										{event.device.label}
 									</p>
 									<span className="shrink-0 rounded-full bg-[#0A3D62]/10 px-2.5 py-1 text-[10px] font-black tracking-wider text-[#0A3D62] uppercase dark:bg-white/10 dark:text-[#8fc0ea]">
-										{event.eventType}
+										{eventTypeLabel(event.eventType)}
 									</span>
 								</div>
 								<div className="mt-2 border-t border-gray-100 pt-2 dark:border-gray-800">
 									<AdminCardRow label={t("columnTime")}>{formatted(event.createdAt)}</AdminCardRow>
-									<AdminCardRow label={t("columnSource")}>{event.source}</AdminCardRow>
+									<AdminCardRow label={t("columnSource")}>{sourceLabel(event.source)}</AdminCardRow>
 									<AdminCardRow label={t("columnActor")}>
 										{event.actorId || tCommon("none")}
 									</AdminCardRow>

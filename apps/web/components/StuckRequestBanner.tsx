@@ -1,7 +1,9 @@
 "use client";
 
+import { Link } from "@/i18n/routing";
 import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
 import { updateScheduleCommand } from "@/lib/actions/schedule";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { useFeedCommandGuard } from "@/lib/pwa/use-feed-guard";
 import { AlertTriangle, BatteryCharging, Cpu, WifiOff } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -46,14 +48,15 @@ export function StuckRequestBanner({
 	canWrite = true,
 }: StuckRequestBannerProps) {
 	const t = useTranslations("dashboard.schedule.stuckBanner");
+	const tDates = useTranslations("dates");
 	const [isPendingFeed, startFeedTransition] = useTransition();
 	const [isPendingSchedule, startScheduleTransition] = useTransition();
 	const { online, reason, blockIfOffline } = useFeedCommandGuard();
 
-	const fmtTime = (iso: string) => {
-		const d = new Date(iso);
-		return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-	};
+	// Instants from the device are rendered in the farm's timezone. A bare
+	// toLocaleTimeString() used the device's zone on the client and UTC on the
+	// server, so the first render could disagree with hydration.
+	const fmtTime = (iso: string) => formatFarmDateTime(new Date(iso), tDates).time;
 
 	const hasRepeatFeedFailure = stuckFeedRequests.length >= 2;
 	const hasSingleFeedFailure = stuckFeedRequests.length === 1;
@@ -62,23 +65,25 @@ export function StuckRequestBanner({
 	// Offline trumps all — single banner explaining root cause.
 	if (deviceOffline) {
 		return (
-			<div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+			<div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm dark:border-amber-900/50 dark:bg-amber-950/30">
 				<div className="flex items-start gap-3">
-					<WifiOff size={20} className="mt-0.5 shrink-0 text-amber-600" />
+					<WifiOff size={20} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
 					<div className="flex-1">
-						<p className="text-sm font-bold text-amber-800">{t("offlineTitle")}</p>
-						<p className="mt-1 text-sm text-amber-700">
+						<p className="text-sm font-bold text-amber-800 dark:text-amber-200">
+							{t("offlineTitle")}
+						</p>
+						<p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
 							{t("offlineDesc", {
-								time: deviceLastSeenAt ? fmtTime(deviceLastSeenAt) : "unknown",
+								time: deviceLastSeenAt ? fmtTime(deviceLastSeenAt) : t("unknownTime"),
 							})}
 						</p>
 					</div>
-					<a
-						href="/dashboard/app-settings"
-						className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-50"
+					<Link
+						href="/dashboard/settings/hardware"
+						className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-200 dark:hover:bg-amber-900/60"
 					>
 						{t("checkDevice")}
-					</a>
+					</Link>
 				</div>
 			</div>
 		);
@@ -105,12 +110,17 @@ export function StuckRequestBanner({
 		const earliest = (stuckFeedRequests[stuckFeedRequests.length - 1] as StuckFeedRequest)
 			.createdAt;
 		banners.push(
-			<div key="repeat-feed" className="rounded-2xl border border-red-200 bg-red-50 p-4 shadow-sm">
+			<div
+				key="repeat-feed"
+				className="rounded-2xl border border-red-200 bg-red-50 p-4 shadow-sm dark:border-red-900/50 dark:bg-red-950/30"
+			>
 				<div className="flex items-start gap-3">
-					<AlertTriangle size={20} className="mt-0.5 shrink-0 text-red-600" />
+					<AlertTriangle size={20} className="mt-0.5 shrink-0 text-red-600 dark:text-red-400" />
 					<div className="flex-1">
-						<p className="text-sm font-bold text-red-800">{t("stuckFeedRepeatTitle")}</p>
-						<p className="mt-1 text-sm text-red-700">
+						<p className="text-sm font-bold text-red-800 dark:text-red-200">
+							{t("stuckFeedRepeatTitle")}
+						</p>
+						<p className="mt-1 text-sm text-red-700 dark:text-red-300">
 							{t("stuckFeedRepeatDesc", {
 								count: stuckFeedRequests.length,
 								time: fmtTime(earliest),
@@ -121,7 +131,7 @@ export function StuckRequestBanner({
 						type="button"
 						disabled={isPendingFeed || !canWrite || !online}
 						title={reason}
-						className="shrink-0 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50"
+						className="shrink-0 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:bg-red-900/40 dark:text-red-200 dark:hover:bg-red-900/60"
 						onClick={() => {
 							if (blockIfOffline()) return;
 							startFeedTransition(async () => {
@@ -139,13 +149,15 @@ export function StuckRequestBanner({
 		banners.push(
 			<div
 				key="single-feed"
-				className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm"
+				className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm dark:border-amber-900/50 dark:bg-amber-950/30"
 			>
 				<div className="flex items-start gap-3">
-					<Cpu size={20} className="mt-0.5 shrink-0 text-amber-600" />
+					<Cpu size={20} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
 					<div className="flex-1">
-						<p className="text-sm font-bold text-amber-800">{t("stuckFeedTitle")}</p>
-						<p className="mt-1 text-sm text-amber-700">
+						<p className="text-sm font-bold text-amber-800 dark:text-amber-200">
+							{t("stuckFeedTitle")}
+						</p>
+						<p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
 							{t("stuckFeedDesc", { time: fmtTime(feed.createdAt) })}
 						</p>
 					</div>
@@ -153,7 +165,7 @@ export function StuckRequestBanner({
 						type="button"
 						disabled={isPendingFeed || !canWrite || !online}
 						title={reason}
-						className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-50 disabled:opacity-50"
+						className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-50 disabled:opacity-50 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-200 dark:hover:bg-amber-900/60"
 						onClick={() => {
 							if (blockIfOffline()) return;
 							startFeedTransition(async () => {
@@ -173,20 +185,22 @@ export function StuckRequestBanner({
 		banners.push(
 			<div
 				key="stuck-schedule"
-				className="rounded-2xl border border-blue-200 bg-blue-50 p-4 shadow-sm"
+				className="rounded-2xl border border-blue-200 bg-blue-50 p-4 shadow-sm dark:border-blue-900/50 dark:bg-blue-950/30"
 			>
 				<div className="flex items-start gap-3">
-					<BatteryCharging size={20} className="mt-0.5 shrink-0 text-blue-600" />
+					<BatteryCharging size={20} className="mt-0.5 shrink-0 text-blue-600 dark:text-blue-400" />
 					<div className="flex-1">
-						<p className="text-sm font-bold text-blue-800">{t("stuckScheduleTitle")}</p>
-						<p className="mt-1 text-sm text-blue-700">
+						<p className="text-sm font-bold text-blue-800 dark:text-blue-200">
+							{t("stuckScheduleTitle")}
+						</p>
+						<p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
 							{t("stuckScheduleDesc", { time: fmtTime(sched.createdAt) })}
 						</p>
 					</div>
 					<button
 						type="button"
 						disabled={isPendingSchedule || !canWrite}
-						className="shrink-0 rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-50 disabled:opacity-50"
+						className="shrink-0 rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-50 disabled:opacity-50 dark:border-blue-800 dark:bg-blue-900/40 dark:text-blue-200 dark:hover:bg-blue-900/60"
 						onClick={() => {
 							startScheduleTransition(async () => {
 								await updateScheduleCommand(pondId, deviceId, {

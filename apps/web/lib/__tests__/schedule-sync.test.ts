@@ -8,6 +8,7 @@ vi.mock("@/lib/prisma", () => ({
 		scheduleCommand: {
 			findFirst: vi.fn(),
 			update: vi.fn(),
+			updateMany: vi.fn(),
 		},
 		deviceStateEvent: {
 			create: vi.fn(),
@@ -63,6 +64,7 @@ describe("GET /api/schedule-sync", () => {
 		mockEnergyDevice.findUnique.mockResolvedValue({ ...DEVICE } as never);
 		mockScheduleCommand.findFirst.mockResolvedValue(null);
 		mockScheduleCommand.update.mockResolvedValue({} as never);
+		mockScheduleCommand.updateMany.mockResolvedValue({ count: 1 } as never);
 		mockDeviceStateEvent.create.mockResolvedValue({} as never);
 		mockDeviceStateEvent.findFirst.mockResolvedValue(null);
 		mockPond.findUnique.mockResolvedValue(null);
@@ -171,8 +173,8 @@ describe("GET /api/schedule-sync", () => {
 		expect(body.feeds_per_day).toBe(4);
 		expect(body.feeding_rate_pct).toBe(4.5);
 
-		expect(mockScheduleCommand.update).toHaveBeenCalledWith({
-			where: { id: "cmd-1" },
+		expect(mockScheduleCommand.updateMany).toHaveBeenCalledWith({
+			where: { id: "cmd-1", status: "pending" },
 			data: { status: "sent" },
 		});
 		expect(mockDeviceStateEvent.create).toHaveBeenCalledWith({
@@ -183,6 +185,32 @@ describe("GET /api/schedule-sync", () => {
 				metadata: expect.objectContaining({ commandId: "cmd-1" }),
 			}),
 		});
+	});
+
+	it("re-serves an already-sent command without logging command_sent again", async () => {
+		// The device keeps polling until it acks; the command must stay in the
+		// response, but the audit row is written once per transition.
+		mockScheduleCommand.findFirst.mockResolvedValue({
+			id: "cmd-2",
+			status: "sent",
+			scheduleStart: new Date("2024-01-01T06:00:00Z"),
+			scheduleEnd: new Date("2024-01-01T18:00:00Z"),
+			feedsPerDay: 4,
+			feedingRatePct: 4.5,
+			createdAt: new Date(),
+		} as never);
+		mockScheduleCommand.updateMany.mockResolvedValue({ count: 0 } as never);
+
+		const res = await GET(syncRequest());
+
+		expect(res.status).toBe(200);
+		const body = await res.json();
+		expect(body.schedule_changed).toBe(true);
+		expect(body.command_id).toBe("cmd-2");
+		const sentEvents = mockDeviceStateEvent.create.mock.calls.filter(
+			([arg]) => (arg as { data: { eventType: string } }).data.eventType === "command_sent",
+		);
+		expect(sentEvents).toHaveLength(0);
 	});
 
 	it("returns the current pond settings as baseline when no command is pending", async () => {

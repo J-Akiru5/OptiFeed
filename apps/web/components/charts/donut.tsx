@@ -43,7 +43,9 @@ export function Donut({
 			className={className}
 			table={<SegmentTable segments={colored} labels={labels} caption={summary} />}
 		>
-			<div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+			{/* Legend under the donut at every width: a card in a 3-column grid is
+			    narrow even on a wide screen, and a side legend truncated the labels (#211). */}
+			<div className="flex flex-col items-center gap-4">
 				<div className="h-[180px] w-full max-w-[220px] shrink-0">
 					<ResponsiveContainer width="100%" height="100%">
 						<PieChart>
@@ -75,19 +77,19 @@ export function Donut({
 					</ResponsiveContainer>
 				</div>
 
-				<ul className="min-w-0 flex-1 space-y-1.5">
+				<ul className="w-full min-w-0 space-y-1.5">
 					{colored.map((segment) => (
 						<li
 							key={segment.name}
 							className="flex items-center justify-between gap-3 text-[11px] font-bold text-[#3D5568] dark:text-gray-300"
 						>
-							<span className="flex min-w-0 items-center gap-1.5">
+							<span className="flex min-w-0 items-start gap-1.5">
 								<span
 									aria-hidden="true"
-									className="h-2.5 w-2.5 shrink-0 rounded-sm"
+									className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-sm"
 									style={{ backgroundColor: segment.color }}
 								/>
-								<span className="truncate">{segment.name}</span>
+								<span className="break-words">{segment.name}</span>
 							</span>
 							<span className="shrink-0 tabular-nums text-[#0A3D62] dark:text-gray-100">
 								{formatChartNumber(segment.value, unit)} · {sharePct(segment.value, total)}%

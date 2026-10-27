@@ -9,7 +9,9 @@ const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 const cspDirectives = [
 	"default-src 'self'",
 	"style-src 'self' 'unsafe-inline'",
-	"img-src 'self' data: blob: https://images.unsplash.com",
+	// Profile pictures are served from the private `avatars` bucket through
+	// short-lived Supabase signed URLs (#198, E20).
+	"img-src 'self' data: blob: https://images.unsplash.com https://*.supabase.co",
 	"font-src 'self'",
 	"connect-src 'self' https://*.supabase.co wss://*.supabase.co",
 	// F-025: forms and <base> tags may only target our origin — without
@@ -55,6 +57,13 @@ const nextConfig: NextConfig = {
 		root: path.resolve(import.meta.dirname ?? process.cwd(), "../.."),
 	},
 	serverExternalPackages: ["@prisma/client"],
+	experimental: {
+		serverActions: {
+			// Avatar uploads accept up to 2 MB; multipart framing needs headroom
+			// above the framework's 1 MB default (#198).
+			bodySizeLimit: "3mb",
+		},
+	},
 	allowedDevOrigins: ["192.168.1.10"],
 	devIndicators: false,
 	// Don't ship the "X-Powered-By: Next.js" disclosure header (F-013).

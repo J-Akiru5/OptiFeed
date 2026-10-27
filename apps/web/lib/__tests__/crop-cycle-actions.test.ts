@@ -48,6 +48,7 @@ const mocks = vi.hoisted(() => {
 		requireWriteAccess: vi.fn(),
 		requirePermission: vi.fn(),
 		getCurrentPondOwnerId: vi.fn(),
+		resolveCalendarWriteScope: vi.fn(),
 		revalidatePath: vi.fn(),
 	};
 });
@@ -60,6 +61,10 @@ vi.mock("@/lib/auth/session", () => ({
 vi.mock("@/lib/auth/permissions", () => ({
 	requirePermission: mocks.requirePermission,
 }));
+vi.mock("@/lib/calendar/write-scope", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@/lib/calendar/write-scope")>();
+	return { ...actual, resolveCalendarWriteScope: mocks.resolveCalendarWriteScope };
+});
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 
 import {
@@ -171,6 +176,7 @@ beforeEach(() => {
 	mocks.requireWriteAccess.mockResolvedValue(undefined);
 	mocks.requirePermission.mockResolvedValue(undefined);
 	mocks.getCurrentPondOwnerId.mockResolvedValue(OWNER);
+	mocks.resolveCalendarWriteScope.mockResolvedValue({ ownerId: OWNER, orgPondIds: [] });
 	mocks.prisma.$transaction.mockImplementation(
 		(run: (client: typeof mocks.tx) => Promise<unknown>) => run(mocks.tx),
 	);
@@ -953,6 +959,108 @@ describe("pond event actions", () => {
 			error: "Event not found.",
 		});
 		expect(mocks.prisma.pondEvent.update).not.toHaveBeenCalled();
+		expect(mocks.prisma.pondEvent.delete).not.toHaveBeenCalled();
+	});
+
+	it("keeps a plain farmer inside their own farm", async () => {
+		mocks.prisma.pondEvent.findFirst.mockResolvedValue(null);
+
+		// No admin membership: resolveCalendarWriteScope carries no org ponds.
+		const result = await updatePondEvent({
+			id: "event-other-farm",
+			title: "Move",
+			startsAt: TODAY,
+			notes: null,
+		});
+
+		expect(result).toEqual({ success: false, error: "Event not found." });
+		expect(mocks.prisma.pondEvent.findFirst).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { id: "event-other-farm", pond: { ownerId: OWNER } },
+			}),
+		);
+	});
+
+	it("lets an org admin create an event on another pond in their organization", async () => {
+		mocks.resolveCalendarWriteScope.mockResolvedValue({
+			ownerId: OWNER,
+			orgPondIds: ["pond-org"],
+		});
+		mocks.prisma.pond.findFirst.mockResolvedValue({ id: "pond-org", farmId: "farm-org" });
+
+		const result = await createPondEvent(manualEventInput({ pondId: "pond-org" }));
+
+		expect(result).toEqual({ success: true, eventId: "event-1" });
+		expect(mocks.prisma.pond.findFirst).toHaveBeenCalledWith({
+			where: {
+				id: "pond-org",
+				OR: [{ ownerId: OWNER }, { id: { in: ["pond-org"] } }],
+			},
+			select: { id: true, farmId: true },
+		});
+		const created = mocks.prisma.pondEvent.create.mock.calls[0]?.[0] as {
+			data: Record<string, unknown>;
+		};
+		expect(created.data).toMatchObject({
+			pondId: "pond-org",
+			farmId: "farm-org",
+			createdBy: OWNER,
+		});
+	});
+
+	it("lets an org admin move an event on an organization pond", async () => {
+		mocks.resolveCalendarWriteScope.mockResolvedValue({
+			ownerId: OWNER,
+			orgPondIds: ["pond-org"],
+		});
+		mocks.prisma.pondEvent.findFirst.mockResolvedValue({
+			id: "event-org",
+			source: "manual",
+			type: "MAINTENANCE",
+			kind: "EVENT",
+			allDay: true,
+			startsAt: new Date(`${TODAY}T00:00:00.000Z`),
+			endsAt: null,
+			recurrenceFreq: null,
+		});
+
+		const result = await updatePondEvent({
+			id: "event-org",
+			startsAt: addDays(TODAY, 1),
+			notes: null,
+		});
+
+		expect(result).toEqual({ success: true, eventId: "event-org" });
+		expect(mocks.prisma.pondEvent.findFirst).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: {
+					id: "event-org",
+					OR: [{ pond: { ownerId: OWNER } }, { pondId: { in: ["pond-org"] } }],
+				},
+			}),
+		);
+	});
+
+	it("does not let an admin reach an event outside the organizations they administer", async () => {
+		mocks.resolveCalendarWriteScope.mockResolvedValue({
+			ownerId: OWNER,
+			orgPondIds: ["pond-org-a"],
+		});
+		mocks.prisma.pondEvent.findFirst.mockResolvedValue(null);
+
+		const result = await deletePondEvent({ id: "event-org-b" });
+
+		expect(result).toEqual({ success: false, error: "Event not found." });
+		// The predicate names only the caller's farm and org A. A row in org B
+		// cannot match, so the null result is the real cross-org denial.
+		expect(mocks.prisma.pondEvent.findFirst).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: {
+					id: "event-org-b",
+					OR: [{ pond: { ownerId: OWNER } }, { pondId: { in: ["pond-org-a"] } }],
+				},
+			}),
+		);
 		expect(mocks.prisma.pondEvent.delete).not.toHaveBeenCalled();
 	});
 

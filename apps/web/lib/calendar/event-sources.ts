@@ -78,6 +78,12 @@ export interface CalendarEventLoadInput {
 	 * farmer API does not need it; the platform calendar resolves names from it.
 	 */
 	includeCreatorIds?: boolean;
+	/**
+	 * Pond ids the caller may edit (E25, #212). Omitted means every supplied
+	 * pond is writable. The farmer org calendar passes only the caller's own
+	 * farm ponds, so org-wide events render read-only.
+	 */
+	editablePondIds?: ReadonlySet<string>;
 }
 
 export interface CalendarEventLoadResult {
@@ -125,6 +131,7 @@ export async function loadCalendarEventSources(
 	const includeFeeding = input.includeFeeding ?? false;
 	const deviceEventTypes = input.deviceEventTypes ?? CALENDAR_DEVICE_EVENT_TYPES;
 	const includeCreatorIds = input.includeCreatorIds ?? false;
+	const editablePondIds = input.editablePondIds;
 
 	if (ponds.length === 0) return { events: [], truncated: false };
 
@@ -190,6 +197,7 @@ export async function loadCalendarEventSources(
 				if (event.kind === "EVENT" && skippedOccurrence) continue;
 
 				const completed = event.status === "DONE" || skippedOccurrence;
+				const writable = !editablePondIds || editablePondIds.has(event.pond.id);
 				events.push({
 					id: recurring ? `pond:${event.id}:${occurrence.occurrenceKey}` : `pond:${event.id}`,
 					pondEventId: event.id,
@@ -212,8 +220,9 @@ export async function loadCalendarEventSources(
 					reminderMinutes: event.reminderMinutes,
 					completed,
 					editable:
-						event.source === "manual" ||
-						(event.type === "HARVEST_PLANNED" && event.status === "PLANNED"),
+						writable &&
+						(event.source === "manual" ||
+							(event.type === "HARVEST_PLANNED" && event.status === "PLANNED")),
 					pondId: event.pond.id,
 					pondName: event.pond.name,
 					cycleLabel: event.cropCycle?.label ?? null,

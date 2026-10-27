@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Full calendar parity for tenant admins and farmers (#212): the admin calendar can now create, edit, move and delete organization events on any pond in the organization, while the farmer gets a dedicated `/dashboard/calendar` page with its own nav entry and the same month, week, day and agenda views, drag/resize, events vs tasks, colours, recurrence, reminders and filters as the Harvest page. Farmers see org-wide events read-only and keep write access to their own farm's ponds; the API returns per-event editability and the shared server actions enforce the same farm/organization boundary. Agenda is the default view below 640 px. The Harvest page keeps its embedded calendar.
+
 ### Fixed
 
 - Devices list (#213): the remote-control panel no longer sits inside the Actions cell. A compact trigger opens it in a full-width row under the device, so the tenant and platform device lists (list and card views) stay inside their card at every width; the caps sentence wraps anywhere and the grams box and Feed button stack on narrow screens. Feeding behaviour, guards and server caps are unchanged.

@@ -243,7 +243,7 @@ export default async function DashboardHomePage() {
 	};
 
 	return (
-		<div className="space-y-6 pb-20 animate-in fade-in duration-150" data-onboard="welcome">
+		<div className="space-y-6 pb-20 animate-in fade-in duration-150">
 			<SnapshotWriter
 				page="dashboard"
 				scope={pond.ownerId}
@@ -318,77 +318,6 @@ export default async function DashboardHomePage() {
 
 			{!writeAccess && (
 				<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
-			)}
-
-			{/* AI Feed Advisor — visible on the first screen the operator sees. */}
-			{pond.isFallow ? (
-				<div className="flex flex-col gap-4 rounded-3xl border border-dashed border-[#0A3D62]/20 bg-white p-6 dark:border-white/10 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
-					<div className="flex items-start gap-3">
-						<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
-							<Wheat aria-hidden="true" className="h-6 w-6" />
-						</div>
-						<div>
-							<p className="text-sm font-black text-gray-900 dark:text-gray-100">
-								{tHarvest("fallowTitle")}
-							</p>
-							<p className="mt-0.5 max-w-xl text-xs text-gray-500 dark:text-gray-400">
-								{tHarvest("fallowDesc")}
-							</p>
-						</div>
-					</div>
-					<Link
-						href="/dashboard/harvest"
-						className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-[#1f66a0]"
-					>
-						{tHarvest("startCycle")} <ChevronRight aria-hidden="true" className="h-4 w-4" />
-					</Link>
-				</div>
-			) : (
-				energyDevice && (
-					<FeedingPredictionCard
-						deviceId={energyDevice.id}
-						initialPrediction={initialPrediction}
-						canWrite={writeAccess}
-						pondName={pond.name}
-					/>
-				)
-			)}
-
-			{/* Grow-out & harvest strip */}
-			{activeCycle && cycleContext && (
-				<div className="flex flex-col gap-3 rounded-2xl border border-[#0A3D62]/10 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
-					<div className="flex items-center gap-2.5">
-						<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
-							<Wheat aria-hidden="true" className="h-5 w-5" />
-						</div>
-						<div>
-							<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-								{activeCycle.label || tHarvest("cycle")}
-							</p>
-							<p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
-								{tHarvest("dayOf", {
-									day: cycleContext.growOutDay,
-									total: activeCycle.growOutDays,
-								})}{" "}
-								·{" "}
-								{cycleContext.daysToHarvest < 0
-									? tHarvest("overdueBy", {
-											days: Math.abs(cycleContext.daysToHarvest),
-										})
-									: tHarvest("harvestIn", { days: cycleContext.daysToHarvest })}
-								{activeCycle.targetHarvestWeightG
-									? ` · ${activeCycle.targetHarvestWeightG} g target`
-									: ""}
-							</p>
-						</div>
-					</div>
-					<Link
-						href="/dashboard/harvest"
-						className="inline-flex min-h-11 items-center gap-1 rounded-lg text-xs font-bold text-[#C2410C] hover:underline focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:text-[#ff8a5c]"
-					>
-						{tHarvest("progress")} <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
-					</Link>
-				</div>
 			)}
 
 			{/* Bento Grid — items-start keeps each tile at its natural height */}
@@ -725,6 +654,77 @@ export default async function DashboardHomePage() {
 					</div>
 				)}
 			</div>
+
+			{/* AI Feed Advisor — below the feeding snapshot, above the grow-out strip. */}
+			{pond.isFallow ? (
+				<div className="flex flex-col gap-4 rounded-3xl border border-dashed border-[#0A3D62]/20 bg-white p-6 dark:border-white/10 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
+					<div className="flex items-start gap-3">
+						<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
+							<Wheat aria-hidden="true" className="h-6 w-6" />
+						</div>
+						<div>
+							<p className="text-sm font-black text-gray-900 dark:text-gray-100">
+								{tHarvest("fallowTitle")}
+							</p>
+							<p className="mt-0.5 max-w-xl text-xs text-gray-500 dark:text-gray-400">
+								{tHarvest("fallowDesc")}
+							</p>
+						</div>
+					</div>
+					<Link
+						href="/dashboard/harvest"
+						className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-[#1f66a0]"
+					>
+						{tHarvest("startCycle")} <ChevronRight aria-hidden="true" className="h-4 w-4" />
+					</Link>
+				</div>
+			) : (
+				energyDevice && (
+					<FeedingPredictionCard
+						deviceId={energyDevice.id}
+						initialPrediction={initialPrediction}
+						canWrite={writeAccess}
+						pondName={pond.name}
+					/>
+				)
+			)}
+
+			{/* Grow-out & harvest strip */}
+			{activeCycle && cycleContext && (
+				<div className="flex flex-col gap-3 rounded-2xl border border-[#0A3D62]/10 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
+					<div className="flex items-center gap-2.5">
+						<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
+							<Wheat aria-hidden="true" className="h-5 w-5" />
+						</div>
+						<div>
+							<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
+								{activeCycle.label || tHarvest("cycle")}
+							</p>
+							<p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+								{tHarvest("dayOf", {
+									day: cycleContext.growOutDay,
+									total: activeCycle.growOutDays,
+								})}{" "}
+								·{" "}
+								{cycleContext.daysToHarvest < 0
+									? tHarvest("overdueBy", {
+											days: Math.abs(cycleContext.daysToHarvest),
+										})
+									: tHarvest("harvestIn", { days: cycleContext.daysToHarvest })}
+								{activeCycle.targetHarvestWeightG
+									? ` · ${activeCycle.targetHarvestWeightG} g target`
+									: ""}
+							</p>
+						</div>
+					</div>
+					<Link
+						href="/dashboard/harvest"
+						className="inline-flex min-h-11 items-center gap-1 rounded-lg text-xs font-bold text-[#C2410C] hover:underline focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:text-[#ff8a5c]"
+					>
+						{tHarvest("progress")} <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
+					</Link>
+				</div>
+			)}
 
 			{energyDevice && (
 				<section className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl items-start">

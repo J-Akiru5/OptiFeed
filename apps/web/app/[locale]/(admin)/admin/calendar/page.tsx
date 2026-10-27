@@ -4,6 +4,8 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { HarvestCalendar } from "@/components/harvest/harvest-calendar";
 import { Link } from "@/i18n/routing";
 import { resolveOrgScope } from "@/lib/auth/org-scope";
+import { hasPermission } from "@/lib/auth/permissions";
+import { canWrite } from "@/lib/auth/session";
 import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { serialiseCycle } from "@/lib/crop-cycle/serialise";
@@ -36,10 +38,13 @@ const CYCLE_SELECT = {
 
 export default async function AdminCalendarPage() {
 	await requireTenantAdmin();
-	const [scope, t] = await Promise.all([
+	const [scope, t, canEditEvents, canManageEvents] = await Promise.all([
 		resolveOrgScope(),
 		getTranslations("dashboard.adminCalendar"),
+		canWrite(),
+		hasPermission("manage_crop_cycle"),
 	]);
+	const canManage = canEditEvents && canManageEvents;
 
 	const ponds =
 		scope.pondIds.length > 0
@@ -109,7 +114,7 @@ export default async function AdminCalendarPage() {
 			/>
 
 			<p className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-medium text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-200">
-				{t("readOnly")}
+				{t("editHint")}
 			</p>
 
 			<HarvestCalendar
@@ -122,7 +127,8 @@ export default async function AdminCalendarPage() {
 				activeCycle={activeCycle}
 				activeCycles={activeCycles}
 				recentCycles={recentCycles}
-				canManage={false}
+				canManage={canManage}
+				canManageCycles={false}
 				today={todayDateOnly()}
 			/>
 		</div>

@@ -37,19 +37,52 @@ describe("setup AP naming matches the firmware", () => {
 		expect(provisioningApSsid("A4:CF:12:7E:3B:09")).toBe("PakaonAI-3B09");
 	});
 
-	it("names the AP from the chip eFuse MAC, not the saved device_id", () => {
-		// The saved device_id falls back to the compile-time DEVICE_MAC, which
-		// would give every unprovisioned unit the same name. The registry and
-		// the sticker use the chip MAC, so the AP must too.
+	it("names the AP from a MAC Device ID, otherwise the chip eFuse MAC", () => {
+		// Provisioned units broadcast the name of their registered Device ID, so
+		// the AP matches the sticker. Until provisioning (or for a non-MAC
+		// Device ID) the chip MAC keeps every unit's name distinct.
 		const fn = firmware.slice(firmware.indexOf("String provisioningApSsid()"));
 		const body = fn.slice(0, fn.indexOf("\n}\n"));
 		expect(body).toContain("chipMacString()");
-		expect(body).not.toContain("provisionedDeviceId");
+		expect(body).toContain("provisionedDeviceId");
+		expect(body).toContain("macDeviceIdLastFour");
+
+		const parser = firmware.slice(firmware.indexOf("bool macDeviceIdLastFour("));
+		const parserBody = parser.slice(0, parser.indexOf("\n}\n"));
+		expect(parserBody).toContain("hex.length() != 12");
+		expect(parserBody).toContain("lastFour = hex.substring(8)");
 
 		const mac = firmware.slice(firmware.indexOf("String chipMacString()"));
 		const macBody = mac.slice(0, mac.indexOf("\n}\n"));
 		expect(macBody).toContain("esp_read_mac(mac, ESP_MAC_WIFI_STA)");
 		expect(macBody).toContain('"%02X:%02X:%02X:%02X:%02X:%02X"');
+	});
+
+	it("has no compile-time device identity fallback", () => {
+		// A public repository must never bake a MAC or token into the image: an
+		// unprovisioned unit would share public credentials and call the API.
+		expect(firmware).not.toMatch(/^#define\s+DEVICE_MAC\b/m);
+		expect(firmware).not.toMatch(/^#define\s+DEVICE_TOKEN\b/m);
+		expect(firmware).toContain("[IDENTITY] not provisioned - API disabled");
+	});
+
+	it("gates every API caller on a provisioned identity", () => {
+		// Ingest, feed-command, schedule-sync and the OTA check must all be
+		// unreachable until the portal has stored both NVS keys.
+		for (const signature of [
+			"void sendTelemetry()",
+			"void pollDashboardFeedCommand()",
+			"void pollScheduleCommand()",
+			"void flushQueuedEvents()",
+			"void maybeCheckForUpdate()",
+		]) {
+			const start = firmware.indexOf(signature);
+			expect(start, `${signature} must exist`).toBeGreaterThan(-1);
+			const body = firmware.slice(start, firmware.indexOf("\n}\n", start));
+			expect(body, `${signature} must check apiIdentityAvailable()`).toContain(
+				"apiIdentityAvailable()",
+			);
+		}
 	});
 
 	it("prints the chip MAC at boot so it can be registered", () => {

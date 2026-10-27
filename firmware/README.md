@@ -6,14 +6,21 @@
 
 1. **SCHEDULED** — RTC-driven, fires at 06:00 and 19:00. Works with NO WiFi/backend connectivity.
 2. **DASHBOARD** — polled every 5s from the backend. Manual/extra feeds triggered remotely.
-3. **PHYSICAL BUTTON** — local override on GPIO 27. Works even with WiFi fully down.
+3. **PHYSICAL BUTTON** — local override on GPIO 27, captured by a falling-edge interrupt so a short press is never lost while the loop is busy with HTTPS. Works even with WiFi fully down.
+
+> **Firmware 1.5.0.** There is no compile-time device identity any more: a unit with no
+> provisioned Device ID/token makes **no API calls** and only runs the setup portal while
+> continuing to feed on its RTC schedule. The setup AP name follows the stored Device ID when
+> it is a MAC (otherwise the chip eFuse MAC), the setup page lists nearby 2.4 GHz networks,
+> the feed button is interrupt-driven, and the relay polarity is a build flag. See
+> **Firmware 1.5.0 hardening** below.
 
 ## Hardware Pinout
 
 | Pin   | Usage                                    |
 |-------|------------------------------------------|
-| GPIO 25 | Relay OUT (Active HIGH — dispensing when HIGH) |
-| GPIO 27 | Physical button (INPUT_PULLUP, press = LOW). Short press dispenses; hold >= 5 s at boot to reset WiFi credentials (device identity is kept) |
+| GPIO 25 | Relay OUT (active HIGH by default; `-DRELAY_ACTIVE_LOW=1` for an active-LOW module) |
+| GPIO 27 | Physical button (INPUT_PULLUP, press = LOW). Falling-edge interrupt dispenses the button dose; hold >= 5 s at boot to reset WiFi credentials (device identity is kept) |
 | GPIO 16 | Factory reset button (INPUT_PULLUP, press = LOW). Hold >= 10 s to clear WiFi, Device ID, Device Token and the `provisioned` marker |
 | GPIO 17 | Wi-Fi reset button (INPUT_PULLUP, press = LOW). Hold >= 5 s to clear WiFi only — the Device ID/Token are kept |
 | GPIO 21 | DS3231 SDA (I²C) — RTC                 |
@@ -68,6 +75,22 @@ pio device monitor -b 115200   # serial log
 CI runs `pio run -d firmware` for every firmware change; it never flashes or
 deploys.
 
+### Relay polarity (build flag)
+
+`RELAY_ACTIVE_LOW` defaults to `0`, the field board's active-HIGH wiring: the
+relay coil energizes when GPIO 25 is HIGH. For an active-LOW relay module, add
+the flag to `build_flags` in `firmware/platformio.ini` and rebuild — no logic
+edit is needed:
+
+```ini
+[env:esp32dev]
+build_flags = -std=gnu++17 -DRELAY_ACTIVE_LOW=1
+```
+
+Boot always forces `RELAY_OFF` in both modes, and every safety cap is unchanged.
+The 2026-10-27 bench unit did not click, so both polarities still need a
+hardware check.
+
 The build must stay warning-free for our own sketch (`firmware-main.ino`), including zero
 ArduinoJson deprecation warnings. The only warnings tolerated are two
 `extra tokens at end of #undef directive` lines emitted by OneWire 2.3.8, which is third-party
@@ -85,7 +108,7 @@ library code this repository does not patch. Any other warning is a regression.
 | `app1` (OTA) | `0x1F0000` | 1,966,080 B (1.875 MB) |
 | `spiffs` | — | unused (the firmware stores nothing in SPIFFS) |
 
-The image that ships with this build uses **54.4 %** of a slot (1,070,189 B),
+The image that ships with this build uses **54.7 %** of a slot (1,075,653 B),
 leaving room for future signed updates. A partition table can never be changed
 over the air, which is why T-12a needs one last USB flash (decision OTA-1,
 `docs/firmware-ota-plan.md` §6).
@@ -106,7 +129,7 @@ over the air, which is why T-12a needs one last USB flash (decision OTA-1,
    keeps the NVS partition at `0x9000`, so `wifi_ssid`, `wifi_pass`,
    `device_id`, `device_token` and `provisioned` keep working and the unit comes
    back online without reopening the setup portal. An erase wipes them and
-   forces provisioning again. (Bench-verify: flash 1.4.0 over an existing unit
+   forces provisioning again. (Bench-verify: flash 1.5.0 over an existing unit
    and confirm the heartbeat arrives with the same device id and no portal.)
 4. Optional while the unit is on the bench:
 
@@ -115,7 +138,7 @@ over the air, which is why T-12a needs one last USB flash (decision OTA-1,
    pio device monitor -b 115200
    ```
 
-   Serial should show the reset reason, `[FIRMWARE] v1.4.0`, the OTA state
+   Serial should show the reset reason, `[FIRMWARE] v1.5.0`, the OTA state
    (`valid`) and `[READY] OptiFeed controller online.`
 
 `pio run -d firmware` builds the **field** image, with the LAN updater compiled
@@ -132,6 +155,21 @@ RTClib, Adafruit BusIO, ArduinoJson, OneWire, DallasTemperature. Select the
 **Minimal SPIFFS (1.9 MB APP / 190 KB SPIFFS)** partition scheme; the default
 1.25 MB scheme will not fit updates.
 
+## Firmware 1.5.0 hardening
+
+Field fixes found on hardware on 2026-10-27. None of them changes a GPIO
+assignment, the relay-off boot state, `MAX_DISPENSE_MS`, the `optifeed` NVS
+namespace or the feeding/safety logic.
+
+| Change | Behaviour |
+|---|---|
+| No placeholder identity | The compile-time `DEVICE_MAC` / `DEVICE_TOKEN` fallbacks are gone. Only NVS `device_id` + `device_token` enable the API. An unprovisioned unit logs `[IDENTITY] not provisioned - API disabled`, broadcasts its setup AP and keeps feeding on the RTC schedule. It sends **no** ingest, feed-command, schedule-sync or OTA request. |
+| Setup AP name | `provisioningApSsid()` now uses the last four hex digits of the stored Device ID when it parses as a MAC (`AA:BB:CC:DD:EE:FF`, `AA-BB-…` or 12 bare hex digits). Otherwise it uses the chip eFuse MAC, as before. Both IDs are logged at boot: `[DEVICE MAC]` (chip) and `[IDENTITY] Device ID` / `[IDENTITY] Setup AP name`. |
+| Watchdog-safe poll cycle | API calls use an 8 s connect + 8 s read timeout and the TLS handshake is capped at 8 s. `esp_task_wdt_reset()` runs between every network call in the 5 s cycle and around each dispense, so a slow link cannot trip the 30 s task watchdog. The OTA check (6/10 s) and download (6/12 s plus its own 60 s no-data bound) keep their separate limits. |
+| Feed button never missed | GPIO 27 is read by a falling-edge interrupt with the same 250 ms debounce, at most one pending press, and presses in the first 5 s after boot ignored. A press during a blocking HTTPS call dispenses on the next loop pass. The OTA download still aborts on a button press and dispenses once. |
+| Wi-Fi picker in the setup portal | The portal scans 2.4 GHz networks once at start, sorts them by signal and renders them as a `<select>` with a “Type it manually” option. Names are case-sensitive; manual entry always works. A Wi-Fi link alone does not close the portal while the identity is missing. |
+| Relay polarity flag | `-DRELAY_ACTIVE_LOW=0` or `1` (default `0`, active HIGH) derives `RELAY_ON` / `RELAY_OFF`; boot still forces OFF. |
+
 ## Configuration
 
 Open `firmware-main.ino` and fill in the `Config` section before flashing:
@@ -143,10 +181,8 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 #define FEED_POLL_URL_BASE     "https://pakaonai.syntaxure.dev/api/feed-command"
 #define SCHEDULE_SYNC_URL_BASE "https://pakaonai.syntaxure.dev/api/schedule-sync"
 #define OTA_CHECK_URL          "https://pakaonai.syntaxure.dev/api/firmware/check"
-#define FW_VERSION             "1.4.0"
+#define FW_VERSION             "1.5.0"
 #define FW_BOARD               "wroom32u"
-#define DEVICE_TOKEN           "esp32-tok-cict-001"
-#define DEVICE_MAC             "A4:CF:12:7E:3B:09"
 ```
 
 > The three API URLs and `OTA_CHECK_URL` are baked to the production host
@@ -178,7 +214,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 > 4. Confirm the five embedded certificates match the fingerprints in the
 >    source comment (`openssl x509 -fingerprint -sha256 -in <pem>`).
 
-> `FW_VERSION` is printed at boot (`[FIRMWARE] v...`, next to the
+> `FW_VERSION` is printed at boot (`[FIRMWARE] v1.5.0`, under the
 > `[DEVICE MAC]` line) and sent as `firmware_version` in every heartbeat. It is
 > also the version the OTA check reports and compares against the signed
 > manifest.
@@ -190,18 +226,18 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 > credentials, or with the placeholder SSID, starts the setup portal instead of trying to join
 > a network.
 
-> `DEVICE_MAC` (the Device ID) and `DEVICE_TOKEN` are only the **fallback identity**. Once a device
-> is provisioned through the setup portal, the NVS keys `device_id` and `device_token` (namespace
-> `optifeed`) take over. Units flashed with the seeded values keep working without ever opening the
-> portal; units left with placeholder values such as `YOUR_DEVICE_ID` must be provisioned.
+> **No compile-time identity.** `DEVICE_MAC` and `DEVICE_TOKEN` no longer exist. The only
+> identity is the NVS pair `device_id` / `device_token` (namespace `optifeed`), written by the
+> setup portal. Until both exist the unit logs `[IDENTITY] not provisioned - API disabled`,
+> runs only the setup portal and keeps feeding locally: it sends no ingest, feed-command,
+> schedule-sync or OTA request, and a feed refusal is not reported either.
 
 > **Naming:** the setup AP prefix is `PROVISIONING_AP_PREFIX` (`PakaonAI-`) in
 > `firmware-main.ino`, mirrored by `AP_PREFIX` in `apps/web/lib/provisioning-ap.ts` (a web test
-> compares the two). Units flashed with an older build still broadcast `OptiFeed-XXXX` until they
-> are reflashed. The NVS namespace stays `optifeed` on purpose: renaming it would orphan the
-> stored WiFi credentials and device identity on every flashed unit.
-
-> The default `DEVICE_TOKEN` and `DEVICE_MAC` match the Prisma seed data so the device is recognized out of the box.
+> compares the two). The four hex digits are the last four of the stored Device ID when it is a
+> MAC, otherwise of the chip eFuse MAC. Units flashed with an older build still broadcast
+> `OptiFeed-XXXX` until they are reflashed. The NVS namespace stays `optifeed` on purpose:
+> renaming it would orphan the stored WiFi credentials and device identity on every flashed unit.
 
 
 ## Setup Portal
@@ -215,8 +251,7 @@ The setup access point starts when:
 
 - NVS has no usable `wifi_ssid` (first boot, erased NVS, or the SSID still equals
   `DEFAULT_WIFI_SSID`), or
-- no usable device identity is available from NVS or from the non-placeholder compile-time
-  defaults, or
+- NVS has no usable `device_id` **and** `device_token` (first-time setup or a factory reset), or
 - five consecutive station join attempts fail (for example, the router is off or the
   saved password changed).
 
@@ -240,13 +275,13 @@ working at once, so re-enter the new one in the setup portal.
 ### Connecting
 
 1. On a phone or laptop, join the open access point **`PakaonAI-XXXX`**, where `XXXX`
-   is the last four hex characters of the **chip's eFuse MAC** (the `[DEVICE MAC]` line in
-   the boot log), uppercase. For a chip MAC of `A4:CF:12:7E:3B:09` the AP is `PakaonAI-3B09`.
-   The name does not depend on the saved Device ID, so it is correct before the unit is
-   provisioned and matches the sticker printed from the registered MAC. Register each unit
-   with that same chip MAC.
+   is four uppercase hex characters. Before provisioning it is the last four of the **chip's
+   eFuse MAC** (the `[DEVICE MAC]` line in the boot log); after provisioning it follows the
+   stored Device ID when that is a MAC, so it matches the registered device and the sticker.
+   The boot log prints `[IDENTITY] Setup AP name` either way.
 2. Open **http://192.168.4.1** (captive-portal redirects also land here).
-3. Enter:
+3. Pick your network from the **Nearby networks** list (2.4 GHz, strongest first) or type the
+   name. Wi-Fi names are **case-sensitive**. Then enter:
    - **SSID** (1-32 characters) and **password** (empty for an open network, otherwise
      8-63 characters),
    - **Device ID** (1-64 characters) and **Device Token** (8-128 characters), both from
@@ -256,9 +291,12 @@ working at once, so re-enter the new one in the setup portal.
    soon as a join succeeds and does not run during normal operation.
 
 The identity fields are always rendered blank — the stored token is never sent back to the
-browser. Leave them blank to keep the identity already in use (the NVS identity, or a
-non-placeholder compile-time default). If the device has no usable identity yet, both fields
-are required.
+browser. Leave them blank to keep the identity already stored in NVS. If the device has no
+usable identity yet, both fields are required.
+
+The network scan runs once when the portal starts (about 2–4 s, never from the main loop).
+If your network is missing, type its name manually: the portal stays usable and the scan is
+not a gate.
 
 ### Button-hold WiFi reset
 
@@ -271,14 +309,17 @@ Hold the physical feed button (**GPIO 27**, wired to GND) during boot for at lea
 - The dedicated **Wi-Fi reset button (GPIO 17)** does the same at any time after boot
   (5 s hold). The **factory reset button (GPIO 16)** wipes the identity as well
   (10 s hold), so the unit must be provisioned again.
-- A normal short press still dispenses the configured button dose.
+- A normal short press still dispenses the configured button dose. Presses are captured by a
+  falling-edge interrupt (250 ms debounce) and queued, so a short press during a blocking
+  HTTPS call is not lost; presses in the first 5 s after boot are ignored.
 - The hold is consumed by the reset, so it does not also trigger a feed.
 - Releasing before 5 seconds cancels the reset and boots normally.
 
 ### Notes
 
 - While the portal is active, local scheduled feeds, the physical button and the
-  relay keep working; backend polling and telemetry are paused until WiFi returns.
+  relay keep working; backend polling and telemetry are paused, and an unprovisioned unit
+  makes no API calls at all.
 - The portal AP is open (no password), local-only (`192.168.4.1`, no internet uplink),
   and exists only for provisioning. Provision the device somewhere you trust, and do not
   leave it in setup mode in public.
@@ -291,9 +332,10 @@ Hold the physical feed button (**GPIO 27**, wired to GND) during boot for at lea
 
 ## Remote updates over the air (OTA)
 
-Firmware 1.4.0 is the **bootstrap** build: it carries the A/B partition table,
+Firmware 1.4.0 introduced the **bootstrap** build: the A/B partition table,
 the multi-root trust store, two embedded signing public keys and the signed
-update path. The server half is T-12b (`GET /api/firmware/check`); this section
+update path. 1.5.0 keeps all of it and fixes the field behaviour described
+above. The server half is T-12b (`GET /api/firmware/check`); this section
 is the contract it must satisfy. Design: `docs/firmware-ota-plan.md` §4–§6,
 decisions OTA-1…OTA-7.
 
@@ -336,7 +378,7 @@ refused and the thermostat-free relay stays OFF.
 Every `OTA_CHECK_INTERVAL_MS` (default 30 minutes) the unit sends:
 
 ```http
-GET /api/firmware/check?device_id=A4%3ACF%3A12%3A7E%3A3B%3A09&version=1.4.0
+GET /api/firmware/check?device_id=<device_id>&version=1.5.0
 X-Device-Token: <provisioned token>
 ```
 
@@ -351,11 +393,11 @@ Response with an update:
 ```json
 {
   "update": true,
-  "version": "1.4.1",
-  "url": "https://<storage-host>/firmware/1.4.1.bin?<signed>",
+  "version": "1.5.1",
+  "url": "https://<storage-host>/firmware/1.5.1.bin?<signed>",
   "size": 1070200,
   "sha256": "0123...cdef",
-  "manifest": "{\"board\":\"wroom32u\",\"key_id\":\"primary\",\"min_from_version\":\"1.4.0\",\"sha256\":\"0123...cdef\",\"size\":1070200,\"version\":\"1.4.1\"}",
+  "manifest": "{\"board\":\"wroom32u\",\"key_id\":\"primary\",\"min_from_version\":\"1.5.0\",\"sha256\":\"0123...cdef\",\"size\":1070200,\"version\":\"1.5.1\"}",
   "signature": "MEUCIQ...",
   "key_id": "primary"
 }
@@ -386,7 +428,7 @@ The device refuses, and postpones, when: the signature is invalid, the
 disagree, the version is not newer (semantic compare), the current version is
 below the signed `min_from_version`, the image does not fit the OTA slot, the
 URL is not HTTPS, or the SHA-256 of the downloaded bytes does not match. There
-is **no downgrade path** in 1.4.0.
+is **no downgrade path**.
 
 ### Pre-flight gate
 
@@ -466,11 +508,11 @@ UI is T-12c). One channel can target every unit or a MAC allowlist (canary).
 
 ```json
 {
-  "version": "1.4.1",
-  "storage_path": "releases/1.4.1/firmware.bin",
+  "version": "1.5.1",
+  "storage_path": "releases/1.5.1/firmware.bin",
   "size": 1070200,
   "sha256": "0123...cdef",
-  "manifest": "{\"board\":\"wroom32u\",\"key_id\":\"primary\",\"min_from_version\":\"1.4.0\",\"sha256\":\"0123...cdef\",\"size\":1070200,\"version\":\"1.4.1\"}",
+  "manifest": "{\"board\":\"wroom32u\",\"key_id\":\"primary\",\"min_from_version\":\"1.5.0\",\"sha256\":\"0123...cdef\",\"size\":1070200,\"version\":\"1.5.1\"}",
   "signature": "MEUCIQ...",
   "key_id": "primary",
   "targets": "*"
@@ -500,10 +542,10 @@ next 30-minute check.
    ```bash
    node scripts/ota/sign-release.mjs \
      --bin firmware/.pio/build/esp32dev/firmware.bin \
-     --version 1.4.1 \
+     --version 1.5.1 \
      --key ../ota-signing-keys/pakaonai-ota-primary-private.pem \
      --key-id primary \
-     --min-from 1.4.0 \
+     --min-from 1.5.0 \
      --targets all \
      --out ota-out
    ```
@@ -518,7 +560,7 @@ next 30-minute check.
 
    | Local file | Storage object |
    |---|---|
-   | `firmware/.pio/build/esp32dev/firmware.bin` | `releases/1.4.1/firmware.bin` |
+   | `firmware/.pio/build/esp32dev/firmware.bin` | `releases/1.5.1/firmware.bin` |
    | `ota-out/channels/stable.json` | `channels/stable.json` |
 
 4. Devices pick the release up on their next check (30 minutes by default)
@@ -531,7 +573,7 @@ next 30-minute check.
 whose `targets` includes or excludes the intended MACs. To pause everything,
 delete the object or point it at the version already installed — a device never
 accepts an equal or older version. There is no force flag and no downgrade path
-in 1.4.0; a bad image rolls back on its own (bench plan step B).
+in 1.5.0; a bad image rolls back on its own (bench plan step B).
 
 **Signing keys:** the private keys stay offline in
 `C:/Users/Lenovo/Documents/PakaonAI/ota-signing-keys` (decision OTA-4) and are
@@ -553,7 +595,7 @@ them identical to the PEMs embedded in `firmware-main.ino`.
   "timestamp": "2026-07-11T12:00:00+00:00",
   "rtc_ok": true,
   "feeder_active": false,
-  "firmware_version": "1.4.0",
+  "firmware_version": "1.5.0",
   "ota_state": "valid",
   "reset_reason": "poweron"
 }
@@ -602,8 +644,8 @@ Response when farmer taps "Feed Now":
 ```
 
 Auth: `X-Device-Token` header on all requests; the token is the provisioned identity
-(NVS `device_token`, or the compile-time `DEVICE_TOKEN` fallback). The `device_id` query and
-payload field come from the provisioned Device ID (NVS `device_id`, or `DEVICE_MAC`).
+(`X-Device-Token` from NVS `device_token`). The `device_id` query and payload field come from
+the provisioned Device ID (NVS `device_id`). An unprovisioned unit sends no request at all.
 
 ## Data Flow
 
@@ -631,8 +673,8 @@ GRAMS_PER_SECOND = grams_dispensed / seconds_run
 Portal checks (no backend needed):
 
 1. Boot with erased NVS (or the placeholder SSID): the `PakaonAI-XXXX` AP appears and
-   `http://192.168.4.1` serves the setup form with **SSID**, **Password**, **Device ID** and
-   **Device Token** fields.
+   `http://192.168.4.1` serves the setup form with a **Nearby networks** picker, **SSID**,
+   **Password**, **Device ID** and **Device Token** fields, and the case-sensitivity note.
 2. Submit a valid SSID/password and a Device ID/Token: success page, reboot after ~2 s,
    then a normal join. The next heartbeat uses the submitted identity.
 3. Hold GPIO 27 for 5 s at boot: serial reports the WiFi reset and the portal returns.
@@ -650,14 +692,24 @@ Portal checks (no backend needed):
 7. Submit an SSID outside 1-32 characters, a password of 1-7 characters, a Device ID
    longer than 64 characters, or a token outside 8-128 characters: the form redisplays
    with an error and the device does not reboot.
-8. Boot a unit with a stored SSID and a non-placeholder compile-time `DEVICE_MAC` /
-   `DEVICE_TOKEN`: the portal does not start.
+8. Boot a unit with a stored SSID and a stored identity: the portal does not start.
+   Boot one with **no** identity (or after a factory reset): the portal starts and the
+   serial log prints `[IDENTITY] not provisioned - API disabled`, and the backend sees
+   no ingest, feed-command, schedule-sync or OTA request while local scheduled feeding
+   still fires.
 9. Confirm the serial log never prints the WiFi password or the Device Token, and that
    the setup page never renders a stored token.
-10. Confirm the boot log prints `[FIRMWARE] v1.4.0` directly under the `[DEVICE MAC]` line,
-    and that a heartbeat carries the same value in `firmware_version`.
+10. Confirm the boot log prints `[FIRMWARE] v1.5.0` under the `[DEVICE MAC]` line and
+    `[IDENTITY] Setup AP name`, and that a heartbeat carries the same version in
+    `firmware_version`.
 11. Confirm the boot log prints `[INIT] Reset reason: ...`, `[OTA] state -> valid` and
     `[OTA] LAN ArduinoOTA disabled (field build; -DENABLE_LAN_OTA for bench)`.
+12. With a stored MAC Device ID, confirm the AP name uses its last four hex digits; with
+    a non-MAC Device ID, confirm it uses the chip eFuse MAC.
+13. Press the feed button for ~50 ms while a 5 s network cycle is running: exactly one
+    button dose dispenses, and the serial log shows no missed press.
+14. Build with `-DRELAY_ACTIVE_LOW=1` and confirm the relay rests OFF at boot and only
+    energizes for a dose.
 
 After flashing, test the API endpoints against the production backend:
 
@@ -665,12 +717,12 @@ After flashing, test the API endpoints against the production backend:
 # Test heartbeat ingest (expect 204 No Content)
 curl -X POST https://pakaonai.syntaxure.dev/api/ingest \
   -H "Content-Type: application/json" \
-  -H "X-Device-Token: esp32-tok-cict-001" \
-  -d '{"device_id":"A4:CF:12:7E:3B:09","event_type":"heartbeat","timestamp":"2026-07-11T12:00:00Z","rtc_ok":true,"feeder_active":false,"firmware_version":"1.4.0","ota_state":"valid","reset_reason":"poweron"}'
+  -H "X-Device-Token: <device-token>" \
+  -d '{"device_id":"A4:CF:12:7E:3B:09","event_type":"heartbeat","timestamp":"2026-07-11T12:00:00Z","rtc_ok":true,"feeder_active":false,"firmware_version":"1.5.0","ota_state":"valid","reset_reason":"poweron"}'
 
 # Test feed command polling (expect feed_requested: false)
 curl https://pakaonai.syntaxure.dev/api/feed-command?device_id=A4:CF:12:7E:3B:09 \
-  -H "X-Device-Token: esp32-tok-cict-001"
+  -H "X-Device-Token: <device-token>"
 ```
 
 ## OTA bench test plan (hardware only)
@@ -681,42 +733,42 @@ Record the serial log for every step.
 
 ### Preparation
 
-1. Flash 1.4.0 over USB (`pio run -d firmware -t upload`) and confirm NVS
+1. Flash 1.5.0 over USB (`pio run -d firmware -t upload`) and confirm NVS
    survived: same `[DEVICE MAC]`, no setup portal, heartbeats arrive.
-2. Build 1.4.1 by changing only `FW_VERSION` to `"1.4.1"`. Build a deliberately
-   broken 1.4.2: keep `FW_VERSION` `"1.4.2"` and make `setup()` hang before the
+2. Build 1.5.1 by changing only `FW_VERSION` to `"1.5.1"`. Build a deliberately
+   broken 1.5.2: keep `FW_VERSION` `"1.5.2"` and make `setup()` hang before the
    health check can pass (for example an infinite loop after 10 s, or a boot
-   that never joins Wi-Fi). **Never** sign 1.4.2 for anything but the bench.
+   that never joins Wi-Fi). **Never** sign 1.5.2 for anything but the bench.
 3. Sign both manifests offline with Jeff's primary key (never in CI, never in
    the repository): `{version, sha256, size, board:"wroom32u",
-   min_from_version:"1.4.0", key_id:"primary"}`. Base64 the DER signature.
+   min_from_version:"1.5.0", key_id:"primary"}`. Base64 the DER signature.
 4. Point the check endpoint at the two manifests; the signed Storage URLs must
    serve the exact bytes with `Content-Length`.
 
-### A. Happy path 1.4.0 → 1.4.1
+### A. Happy path 1.5.0 → 1.5.1
 
 - Wait for a check inside 10:00–15:00 local with no feed within ±20 min.
-- Serial: `[OTA] update 1.4.1 available`, `download 10%…100%`,
+- Serial: `[OTA] update 1.5.1 available`, `download 10%…100%`,
   `state checkpointed`, `image verified and installed`, reboot.
 - After reboot: `[OTA] first boot of a new image`, then Wi-Fi + authenticated
-  poll set `state -> valid` within 5 minutes. `[FIRMWARE] v1.4.1`.
-- The heartbeat reports `firmware_version=1.4.1`, `ota_state=valid`.
+  poll set `state -> valid` within 5 minutes. `[FIRMWARE] v1.5.1`.
+- The heartbeat reports `firmware_version=1.5.1`, `ota_state=valid`.
 - Daily grams, `firedToday` and the server schedule survive the reboot (compare
   before/after; `ota_day` must match the RTC date).
 
-### B. Deliberately bad 1.4.1 → 1.4.2 (must roll back)
+### B. Deliberately bad 1.5.1 → 1.5.2 (must roll back)
 
 - Serial: install starts and completes, then the new image boots and fails the
   health check. After 5 minutes: `health check FAILED`, `state -> rolled_back`,
   `esp_ota_mark_app_invalid_rollback_and_reboot()`.
-- The unit must come back as **1.4.1** and resume feeding on its schedule. The
-  server sees 1.4.1 with `ota_state` reset by the reboot (the failed image
+- The unit must come back as **1.5.1** and resume feeding on its schedule. The
+  server sees 1.5.1 with `ota_state` reset by the reboot (the failed image
   cannot report after rollback).
 
 ### C. Power pulled during the download
 
 - Start the 1.4.2 download and pull power at roughly 50 %.
-- Re-apply power: the unit boots the **old** 1.4.1 slot (the boot partition was
+- Re-apply power: the unit boots the **old** 1.5.1 slot (the boot partition was
   never switched), rejoins Wi-Fi, and keeps feeding. No `pending_verify`.
 
 ### D. Power pulled during pending verify
@@ -724,13 +776,13 @@ Record the serial log for every step.
 - Install the bad 1.4.2 and pull power **before** the 5-minute window ends (for
   example 60 s after the install reboot).
 - Re-apply power: the bootloader must treat the image as unverified and boot
-  the previous 1.4.1 slot. This is the load-bearing rollback proof.
+  the previous 1.5.1 slot. This is the load-bearing rollback proof.
 
 ### E. Watchdog reset during pending verify
 
 - Install the bad 1.4.2 and let it hang so the 30 s task watchdog resets it
   during the pending-verify window.
-- After the reset the bootloader must roll back to 1.4.1, not re-enter the same
+- After the reset the bootloader must roll back to 1.5.1, not re-enter the same
   bad image forever.
 
 ### F. Safety and gate checks

@@ -13,9 +13,10 @@
 
   RELAY LOGIC:
     - Relay is NORMALLY OPEN (NO).
-    - Driving the control pin HIGH energizes the coil, closing NO contacts.
-    - RELAY_ON = HIGH (dispensing), RELAY_OFF = LOW (resting/open).
-    - Boot always forces RELAY_OFF before anything else runs.
+    - The field relay board is active HIGH: the control pin HIGH energizes the
+      coil, closing NO contacts. RELAY_ON = HIGH, RELAY_OFF = LOW.
+    - An active-LOW module is supported with -DRELAY_ACTIVE_LOW=1, which swaps
+      RELAY_ON/RELAY_OFF. Boot always forces RELAY_OFF in both modes.
     - Mutex rule: first-acquire-wins. No source preempts another.
       If the relay is busy, incoming triggers are silently ignored.
       The event queue captures everything that actually dispensed.
@@ -82,7 +83,7 @@
 
 // Reported at boot and in the heartbeat body so the fleet and the OTA rollout
 // can tell builds apart. Bump on every firmware change.
-#define FW_VERSION "1.4.1"
+#define FW_VERSION "1.5.0"
 // Board string the signed manifest must carry. One value for every unit this
 // firmware runs on (ESP32-WROOM-32U); a manifest for another board is refused.
 #define FW_BOARD "wroom32u"
@@ -116,16 +117,22 @@
 #define OTA_DOWNLOAD_TIMEOUT_MS (15UL * 60UL * 1000UL)
 
 
-// Fallback device identity. Once the setup portal saves an identity these
-// compile-time values are superseded by NVS keys device_id / device_token.
-// They remain the defaults so units flashed before identity provisioning, and
-// units that never open the portal, keep working unchanged.
-#define DEVICE_TOKEN    "esp32-tok-cict-001"
-#define DEVICE_MAC      "A4:CF:12:7E:3B:09"
+// Device identity. There is deliberately NO compile-time fallback: this
+// repository is public, so a baked-in MAC or token would give every
+// unprovisioned unit the same public credentials. The setup portal writes
+// device_id / device_token to NVS and only then does the API become available.
+// Until then the unit broadcasts its setup AP and keeps feeding from the RTC
+// schedule; it makes no API calls at all.
 
-// LAN ArduinoOTA password — SEPARATE from DEVICE_TOKEN, and only compiled into
-// bench builds (-DENABLE_LAN_OTA, decision OTA-7). Field builds have no LAN
-// updater at all, so this shared static password can never be a field risk.
+// Explicit HTTP timeouts for a 5 s poll cycle on a slow farm link. One call
+// can never sit for more than connect + read (16 s), and the watchdog is fed
+// between calls.
+#define HTTP_CONNECT_TIMEOUT_MS 8000
+#define HTTP_READ_TIMEOUT_MS    8000
+
+// LAN ArduinoOTA password — separate from the device token and only compiled
+// into bench builds (-DENABLE_LAN_OTA, decision OTA-7). Field builds have no
+// LAN updater at all, so this shared static password can never be a field risk.
 #ifdef ENABLE_LAN_OTA
 #ifndef OTA_PASSWORD
 #define OTA_PASSWORD "change-me-ota"
@@ -352,11 +359,24 @@ bool resetButtonsArmed = false;
 #define ECHO_PIN        33          // HC-SR04 ultrasonic echo
 #define DS18B20_PIN     26          // DS18B20 water temperature probe
 
-#define RELAY_ON        HIGH        // energizes coil, closes NO contacts -> dispensing
-#define RELAY_OFF       LOW         // rest state, contacts open -> not dispensing
+// ---- Relay driver polarity (build flag, default active HIGH) -------------
+// The field board energizes the coil when the pin is HIGH. An active-LOW relay
+// module is supported without editing logic: build with -DRELAY_ACTIVE_LOW=1
+// (see firmware/README.md). Boot still forces RELAY_OFF in both modes.
+// One unconditional definition per macro: PlatformIO's .ino converter keeps
+// both arms of an #if/#else in its intermediate file and would warn about a
+// redefinition.
+#ifndef RELAY_ACTIVE_LOW
+#define RELAY_ACTIVE_LOW 0
+#endif
+#define RELAY_ON        ((RELAY_ACTIVE_LOW) ? LOW : HIGH)   // closes NO contacts
+#define RELAY_OFF       ((RELAY_ACTIVE_LOW) ? HIGH : LOW)   // rest, contacts open
 
 #define POST_INTERVAL_MS    5000    // telemetry + feed-command + schedule-sync poll interval
 #define BUTTON_DEBOUNCE_MS  250
+// Ignore feed-button edges for the first 5 s after boot, matching the reset
+// buttons' grace window and the boot-hold WiFi reset.
+#define BUTTON_STARTUP_GRACE_MS 5000
 #define WIFI_RETRY_INTERVAL_MS 10000
 
 // ---- WiFi provisioning portal ----
@@ -364,6 +384,9 @@ bool resetButtonsArmed = false;
 #define WIFI_FAILURES_BEFORE_PORTAL  5      // consecutive failed joins before the setup AP starts
 // The GPIO 27 boot-button hold uses WIFI_RESET_HOLD_MS (with the reset buttons).
 #define PROVISIONING_REBOOT_DELAY_MS 2000   // let the success page flush before restarting
+// Nearby-network picker. The ESP32 radio is 2.4 GHz only, so every scan result
+// is a usable network. Scanned once at portal start; manual entry always works.
+#define PROVISIONING_SCAN_MAX 20
 
 // ---- Calibration: how fast the feeder dispenses ----
 // Measure by running the feeder for a fixed time and weighing the output:
@@ -423,9 +446,10 @@ RTC_DS3231 rtc;
 WiFiClientSecure secureClient;
 Preferences prefs;  // NVS storage for WiFi credentials and device state
 
-// Active device identity: NVS device_id / device_token once provisioned,
-// otherwise the compile-time DEVICE_MAC / DEVICE_TOKEN fallbacks. All URLs,
-// headers, payloads and the setup AP name read these globals.
+// Active device identity, loaded from NVS only (device_id / device_token).
+// Empty until the setup portal saves both. All URLs, headers, payloads and the
+// setup AP name read these globals, and apiIdentityAvailable() gates every
+// API call.
 String provisionedDeviceId;
 String provisionedDeviceToken;
 bool provisionedFlag = false;  // NVS "provisioned" marker written on a full save
@@ -496,10 +520,30 @@ bool provisioningActive = false;
 bool provisioningRoutesRegistered = false;
 String provisioningApName;
 
-// button debounce
-int lastButtonReading = HIGH;
-unsigned long lastButtonChangeMs = 0;
-unsigned long lastHandledButtonChangeMs = 0;
+// Nearby 2.4 GHz networks shown in the setup page picker. Filled once when the
+// portal starts (the radio scan blocks for a few seconds, never in loop()).
+struct ScannedNetwork {
+  String ssid;
+  int32_t rssi;
+  bool secure;
+};
+ScannedNetwork scannedNetworks[PROVISIONING_SCAN_MAX];
+int scannedNetworkCount = 0;
+
+// Feed button (GPIO 27): falling-edge interrupt, 250 ms debounce, at most one
+// pending press. A short press during a blocking network call is queued and
+// dispensed as soon as loop() runs again.
+volatile bool feedButtonPressQueued = false;
+volatile unsigned long feedButtonLastEdgeMs = 0;
+static portMUX_TYPE feedButtonMux = portMUX_INITIALIZER_UNLOCKED;
+
+// True after esp_task_wdt_add(NULL). The first portal start happens in setup()
+// before the watchdog is subscribed, so resets are skipped until then.
+bool watchdogSubscribed = false;
+
+void kickWatchdog() {
+  if (watchdogSubscribed) esp_task_wdt_reset();
+}
 
 // Event ID counter — combined with esp_random() for uniqueness across reboots
 static uint32_t eventCounter = 0;
@@ -608,23 +652,34 @@ bool identityValueIsPlaceholder(const String &value) {
   return false;
 }
 
-// Load the active identity once, right after prefs.begin(). A missing or empty
-// NVS value falls back to the compile-time default so units flashed before
-// identity provisioning keep working without opening the portal.
+// The API (ingest, feed-command, schedule-sync and OTA check) may only be
+// called with a real provisioned identity. An unprovisioned unit runs the
+// setup portal and keeps feeding locally; it never sends a request.
+bool apiIdentityAvailable() {
+  return !identityValueIsPlaceholder(provisionedDeviceId) &&
+         !identityValueIsPlaceholder(provisionedDeviceToken);
+}
+
+// Load the active identity once, right after prefs.begin(). There is no
+// compile-time fallback: a unit is provisioned only when NVS holds both a
+// device_id and a device_token. Everything that talks to the API checks
+// apiIdentityAvailable() first.
 void loadDeviceIdentity() {
-  provisionedDeviceId = prefs.getString("device_id", DEVICE_MAC);
-  provisionedDeviceToken = prefs.getString("device_token", DEVICE_TOKEN);
+  provisionedDeviceId = prefs.getString("device_id", "");
+  provisionedDeviceToken = prefs.getString("device_token", "");
   provisionedDeviceId.trim();
   provisionedDeviceToken.trim();
-  if (provisionedDeviceId.length() == 0) provisionedDeviceId = DEVICE_MAC;
-  if (provisionedDeviceToken.length() == 0) provisionedDeviceToken = DEVICE_TOKEN;
   provisionedFlag = prefs.getBool("provisioned", false);
 
-  Serial.printf("[IDENTITY] Device ID: %s\n", provisionedDeviceId.c_str());
+  Serial.printf("[IDENTITY] Device ID: %s\n",
+                provisionedDeviceId.length() ? provisionedDeviceId.c_str() : "(none)");
   // Never print the token itself: it authenticates every API call.
   Serial.printf("[IDENTITY] Device token: %s\n",
                 identityValueIsPlaceholder(provisionedDeviceToken) ? "missing" : "configured");
   Serial.printf("[IDENTITY] Provisioned marker: %s\n", provisionedFlag ? "yes" : "no");
+  if (!apiIdentityAvailable()) {
+    Serial.println("[IDENTITY] not provisioned - API disabled");
+  }
 }
 
 void saveDeviceIdentity(const String &deviceId, const String &deviceToken) {
@@ -645,13 +700,10 @@ bool storedSsidAvailable() {
   return ssid.length() > 0 && ssid != DEFAULT_WIFI_SSID;
 }
 
-// Full provisioning gate: a usable SSID AND a usable device identity. The
-// identity may come from NVS or from non-placeholder compile-time defaults, so
-// already-flashed units continue to boot straight into normal operation.
+// Full provisioning gate: a usable SSID AND a usable device identity from NVS.
+// Without both the unit starts the setup portal and makes no API calls.
 bool wifiCredentialsProvisioned() {
-  return storedSsidAvailable() &&
-         !identityValueIsPlaceholder(provisionedDeviceId) &&
-         !identityValueIsPlaceholder(provisionedDeviceToken);
+  return storedSsidAvailable() && apiIdentityAvailable();
 }
 
 // WiFi-only reset: the device identity is deliberately kept in NVS, so the
@@ -777,12 +829,38 @@ String chipMacString() {
   return String(buf);
 }
 
-// "PakaonAI-XXXX", where XXXX is the last four hex characters of the chip's
-// eFuse MAC. Deliberately not the saved device_id: that falls back to the
-// compile-time DEVICE_MAC, which would give every unprovisioned unit the same
-// name, and the printed sticker QR is built from the registered chip MAC.
+// "PakaonAI-XXXX". The last four hex digits come from the stored Device ID
+// when that parses as a MAC (so the broadcast name matches the registered
+// device and the printed sticker), otherwise from the chip's eFuse MAC. Before
+// provisioning there is no stored ID, so an unprovisioned unit uses its chip
+// MAC and every unit has a distinct name.
+bool macDeviceIdLastFour(const String &value, String &lastFour) {
+  String hex;
+  unsigned separators = 0;
+  for (size_t i = 0; i < value.length(); i++) {
+    const char c = value[i];
+    if (isxdigit((unsigned char)c)) {
+      hex += (char)toupper((unsigned char)c);
+    } else if (c == ':' || c == '-' || c == '.' || c == ' ') {
+      separators++;
+    } else {
+      return false;
+    }
+  }
+  if (hex.length() != 12) return false;
+  // Either 12 bare hex digits, or a 17-character separated form.
+  if (separators != 0 && (separators != 5 || value.length() != 17)) return false;
+  lastFour = hex.substring(8);
+  return true;
+}
+
 String provisioningApSsid() {
-  const String source = chipMacString();
+  String source = chipMacString();
+  String storedLastFour;
+  if (!identityValueIsPlaceholder(provisionedDeviceId) &&
+      macDeviceIdLastFour(provisionedDeviceId, storedLastFour)) {
+    source = provisionedDeviceId;
+  }
   String hex;
   hex.reserve(source.length());
   for (size_t i = 0; i < source.length(); i++) {
@@ -810,6 +888,27 @@ String htmlEscape(const String &value) {
   return out;
 }
 
+String buildNetworkOptions(const String &currentSsid) {
+  String options;
+  options.reserve(64 + scannedNetworkCount * 48);
+  options += F("<option value=\"\">Select your network&hellip;</option>");
+  options += F("<option value=\"__manual__\">Type it manually</option>");
+  for (int i = 0; i < scannedNetworkCount; i++) {
+    options += F("<option value=\"");
+    options += htmlEscape(scannedNetworks[i].ssid);
+    options += F("\"");
+    if (scannedNetworks[i].ssid == currentSsid) options += F(" selected");
+    options += F(">");
+    options += htmlEscape(scannedNetworks[i].ssid);
+    options += F(" (");
+    options += String((int)scannedNetworks[i].rssi);
+    options += F(" dBm");
+    if (!scannedNetworks[i].secure) options += F(", open");
+    options += F(")</option>");
+  }
+  return options;
+}
+
 String buildProvisioningPage(const String &ssid, const String &error) {
   // Identity values are never rendered back into the form: the stored token
   // must not be readable by anyone who joins the open setup AP.
@@ -824,7 +923,7 @@ String buildProvisioningPage(const String &ssid, const String &error) {
     "main{max-width:420px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}"
     "h1{font-size:1.35rem;margin:0 0 8px}p{line-height:1.45}"
     "label{display:block;font-weight:600;margin:18px 0 6px}"
-    "input{width:100%;box-sizing:border-box;padding:10px;border:1px solid #b9c2cc;border-radius:8px;font-size:1rem}"
+    "input,select{width:100%;box-sizing:border-box;padding:10px;border:1px solid #b9c2cc;border-radius:8px;font-size:1rem;background:#fff}"
     "button{margin-top:20px;width:100%;padding:12px;border:0;border-radius:8px;background:#166534;color:#fff;font-size:1rem;font-weight:600}"
     ".note{font-size:.9rem;color:#4a5563}.err{background:#fdecec;border:1px solid #f5b5b5;border-radius:8px;padding:10px;color:#8a1c1c}"
     "code{background:#eef1f4;padding:2px 6px;border-radius:4px}"
@@ -834,8 +933,11 @@ String buildProvisioningPage(const String &ssid, const String &error) {
     "<p class=\"note\">Connect the feeder to a 2.4 GHz WiFi network and enter its device identity. The device restarts after saving and joins automatically.</p>"
     "{{ERROR}}"
     "<form method=\"POST\" action=\"/save\">"
+    "<label for=\"ssid_select\">Nearby networks</label>"
+    "<select id=\"ssid_select\">{{NETWORK_OPTIONS}}</select>"
     "<label for=\"ssid\">WiFi name (SSID)</label>"
     "<input id=\"ssid\" name=\"ssid\" type=\"text\" maxlength=\"32\" required autocomplete=\"off\" value=\"{{SSID}}\">"
+    "<p class=\"note\">WiFi names are case-sensitive: type or pick the exact name, including capital letters.</p>"
     "<label for=\"pass\">Password</label>"
     "<input id=\"pass\" name=\"pass\" type=\"password\" maxlength=\"63\" autocomplete=\"new-password\">"
     "<p class=\"note\">Leave the password empty for an open network, otherwise use 8-63 characters.</p>"
@@ -847,6 +949,11 @@ String buildProvisioningPage(const String &ssid, const String &error) {
     "<button type=\"submit\">Save and restart</button>"
     "</form>"
     "<footer>Setup address: <code>192.168.4.1</code> &middot; AP: {{AP}}</footer>"
+    "<script>"
+    "(function(){var s=document.getElementById('ssid_select'),i=document.getElementById('ssid');"
+    "if(!s||!i)return;s.addEventListener('change',function(){"
+    "if(s.value==='__manual__'){i.value='';i.focus();return;}if(s.value){i.value=s.value;}});})();"
+    "</script>"
     "</main></body></html>");
 
   String errorBlock;
@@ -860,12 +967,13 @@ String buildProvisioningPage(const String &ssid, const String &error) {
     ? String(F("leave blank to keep existing"))
     : String(F("required for first-time setup"));
 
-  // AP/ERROR/identity placeholders first, SSID last: a user-supplied SSID must
-  // never be re-scanned for another placeholder.
+  // AP/ERROR/identity/network placeholders first, SSID last: a user-supplied
+  // SSID must never be re-scanned for another placeholder.
   page.replace("{{AP}}", htmlEscape(provisioningApName));
   page.replace("{{ERROR}}", errorBlock);
   page.replace("{{ID_PLACEHOLDER}}", identityPlaceholder);
   page.replace("{{TOKEN_PLACEHOLDER}}", identityPlaceholder);
+  page.replace("{{NETWORK_OPTIONS}}", buildNetworkOptions(ssid));
   page.replace("{{SSID}}", htmlEscape(ssid));
   return page;
 }
@@ -906,9 +1014,9 @@ void handleProvisioningSave() {
     return;
   }
 
-  // Blank identity fields keep the active identity (NVS, or the compile-time
-  // fallback). This is what lets the WiFi-only reset flow save a new network
-  // without re-typing the Device ID / token.
+  // Blank identity fields keep the active NVS identity. This is what lets the
+  // WiFi-only reset flow save a new network without re-typing the Device ID /
+  // token.
   if (deviceId.length() == 0) deviceId = provisionedDeviceId;
   if (deviceToken.length() == 0) deviceToken = provisionedDeviceToken;
 
@@ -950,6 +1058,51 @@ void handleProvisioningNotFound() {
   provisioningServer.send(302, "text/plain", "");
 }
 
+// Blocking 2.4 GHz scan (about 2-4 s across 13 channels). Runs once when the
+// portal starts, never from loop(), so the feed button and watchdog are not
+// starved during normal operation. The ESP32 radio cannot see 5 GHz networks.
+void scanNearbyWiFiNetworks() {
+  scannedNetworkCount = 0;
+
+  Serial.println("[PROV] Scanning for nearby 2.4 GHz WiFi networks...");
+  kickWatchdog();
+  const int found = WiFi.scanNetworks(false, true);  // synchronous, hidden included
+  kickWatchdog();
+
+  if (found > 0) {
+    for (int i = 0; i < found && scannedNetworkCount < PROVISIONING_SCAN_MAX; i++) {
+      String ssid = WiFi.SSID(i);
+      if (ssid.length() == 0 || ssid.length() > 32) continue;
+
+      bool duplicate = false;
+      for (int j = 0; j < scannedNetworkCount; j++) {
+        if (scannedNetworks[j].ssid == ssid) {
+          duplicate = true;
+          break;
+        }
+      }
+      if (duplicate) continue;
+
+      ScannedNetwork entry;
+      entry.ssid = ssid;
+      entry.rssi = WiFi.RSSI(i);
+      entry.secure = WiFi.encryptionType(i) != WIFI_AUTH_OPEN;
+
+      // Insertion sort: strongest signal first.
+      int pos = scannedNetworkCount;
+      while (pos > 0 && scannedNetworks[pos - 1].rssi < entry.rssi) {
+        scannedNetworks[pos] = scannedNetworks[pos - 1];
+        pos--;
+      }
+      scannedNetworks[pos] = entry;
+      scannedNetworkCount++;
+    }
+  }
+
+  WiFi.scanDelete();
+  Serial.printf("[PROV] WiFi scan found %d network(s)\n", scannedNetworkCount);
+}
+
 void startProvisioningPortal() {
   if (provisioningActive) return;
 
@@ -957,6 +1110,11 @@ void startProvisioningPortal() {
   // AP+STA keeps the station side alive, so a network that comes back can
   // close the portal on its own.
   WiFi.mode(WIFI_AP_STA);
+
+  // Fill the setup page's network picker before the AP is up; typing the name
+  // manually stays available.
+  scanNearbyWiFiNetworks();
+
   if (!WiFi.softAP(provisioningApName.c_str())) {
     Serial.println("[PROV] Could not start the setup access point");
     return;
@@ -996,11 +1154,14 @@ void serviceProvisioningPortal() {
   // reset lives in the backend-poll block, which is skipped while the portal is
   // open. Without this the board rebooted ~30 s after the portal started, so a
   // user could never finish the setup form.
-  esp_task_wdt_reset();
+  kickWatchdog();
   provisioningDns.processNextRequest();  // compatibility no-op on ESP32 core 3.x
   provisioningServer.handleClient();
 
-  if (WiFi.status() == WL_CONNECTED) {
+  // Only close the portal once the unit is actually usable: a station link
+  // without a device identity would leave an unprovisioned unit with no way
+  // back into its own setup page.
+  if (WiFi.status() == WL_CONNECTED && apiIdentityAvailable()) {
     Serial.println("[WiFi] Joined a network while the portal was active - closing portal");
     stopProvisioningPortal();
     wifiJoinFailures = 0;
@@ -1455,10 +1616,8 @@ bool performFirmwareUpdate(const String &url, size_t expectedSize, const String 
 
   HTTPClient https;
   do {
-    https.setConnectTimeout(6000);
-    https.setTimeout(12000);
     https.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-    if (!beginHttps(https, url.c_str())) break;
+    if (!beginHttpsWithTimeout(https, url.c_str(), 6000, 12000)) break;
 
     // Deliberately no X-Device-Token: the URL is already short-lived and
     // signed, and the device token must never go to a storage host.
@@ -1621,10 +1780,8 @@ bool performFirmwareUpdate(const String &url, size_t expectedSize, const String 
   if (abortedByButton) {
     otaSetState("aborted");
     Serial.println("[OTA] aborted by the physical feed button - feeding wins");
-    // Consume the press so handleButton() does not fire it twice.
-    lastButtonReading = LOW;
-    lastButtonChangeMs = millis();
-    lastHandledButtonChangeMs = lastButtonChangeMs;
+    // The ISR also saw this press; clear the queue so it cannot dispense twice.
+    discardQueuedFeedButtonPress();
     dispenseFeed(cachedButtonFeedGrams, "button", String());
     otaPostpone("button_abort");
   } else if (abortedForFeed) {
@@ -1646,10 +1803,8 @@ bool checkForUpdate() {
                      urlEncodeValue(FW_VERSION);
 
   HTTPClient https;
-  https.setConnectTimeout(6000);
-  https.setTimeout(10000);
-  esp_task_wdt_reset();
-  if (!beginHttps(https, url.c_str())) {
+  kickWatchdog();
+  if (!beginHttpsWithTimeout(https, url.c_str(), 6000, 10000)) {
     otaSetState("failed");
     otaPostpone("check_connect_failed");
     return false;
@@ -1793,6 +1948,9 @@ bool checkForUpdate() {
 }
 
 void maybeCheckForUpdate() {
+  // No API traffic without a provisioned identity (the signed check sends the
+  // device token and the device id).
+  if (!apiIdentityAvailable()) return;
   if (provisioningActive || otaInProgress) return;
   if ((long)(millis() - nextOtaCheckMs) < 0) return;
 
@@ -1848,15 +2006,16 @@ void setup() {
   loadDeviceIdentity();
 
   // Button held through boot resets WiFi only; the device identity stays.
+  // The interrupt is attached after this hold, so the hold can never queue a
+  // feed press.
   bool credentialsResetAtBoot = false;
   if (bootButtonResetHeld()) {
     clearWiFiCredentials();
     credentialsResetAtBoot = true;
-    // Consume the hold that triggered the reset so it cannot also dispense.
-    lastButtonReading = LOW;
-    lastButtonChangeMs = millis();
-    lastHandledButtonChangeMs = lastButtonChangeMs;
   }
+  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), onFeedButtonPress, FALLING);
+  Serial.printf("[INIT] Feed button GPIO%d: falling-edge interrupt, %d ms debounce, %d s boot grace\n",
+                BUTTON_PIN, BUTTON_DEBOUNCE_MS, BUTTON_STARTUP_GRACE_MS / 1000);
 
   // Seed default schedule: 06:00 and 19:00
   buildDefaultSchedule();
@@ -1880,13 +2039,14 @@ void setup() {
 
   // TLS: verify the server against ROOT_CA, the multi-root bundle in the config
   // section (never setInsecure). Cap the handshake so a dead TLS peer cannot
-  // sit through the 30 s task watchdog.
-  secureClient.setHandshakeTimeout(15);
+  // sit through the 30 s task watchdog (8 s connect + 8 s read + 8 s handshake
+  // stay well inside it).
+  secureClient.setHandshakeTimeout(8);
   secureClient.setCACert(ROOT_CA);
 
   // Missing WiFi credentials, missing identity, or a boot reset -> setup
-  // portal. Units with a stored SSID and a usable compile-time identity keep
-  // using the normal station path and never see the portal.
+  // portal. Only a unit with a stored SSID and a stored identity uses the
+  // normal station path; an unprovisioned unit never calls the API.
   if (credentialsResetAtBoot || !wifiCredentialsProvisioned()) {
     Serial.println("[PROV] Provisioning needed - starting setup portal");
     startProvisioningPortal();
@@ -1904,8 +2064,11 @@ void setup() {
   Serial.println("[OTA] LAN ArduinoOTA disabled (field build; -DENABLE_LAN_OTA for bench)");
 #endif
 
+  // Both identities are logged at boot: the chip eFuse MAC (what the registry
+  // and sticker use) and the stored Device ID, plus the AP name it produces.
   Serial.print("[DEVICE MAC] ");
   Serial.println(chipMacString());
+  Serial.printf("[IDENTITY] Setup AP name: %s\n", provisioningApSsid().c_str());
   Serial.printf("[FIRMWARE] v%s\n", FW_VERSION);
 
   // Task watchdog — a hung loop() reboots the board; boot already forced RELAY_OFF.
@@ -1920,6 +2083,7 @@ void setup() {
   esp_task_wdt_init(30, true);
 #endif
   esp_task_wdt_add(NULL);  // subscribe the Arduino loop task
+  watchdogSubscribed = true;
 
   // If this boot is the first boot of an OTA image, start the 5-minute
   // probation. A normal boot just reports "valid" and does nothing else.
@@ -1945,13 +2109,19 @@ void loop() {
 
   if (rtcAvailable) handleSchedule();
 
-  // Local feeding keeps running while provisioning; backend calls do not.
-  if (!provisioningActive && millis() - lastPoll >= POST_INTERVAL_MS) {
+  // Local feeding keeps running while provisioning; backend calls do not. An
+  // unprovisioned unit makes no API calls at all, and the watchdog is fed
+  // between every network call so a slow link cannot trip it.
+  if (!provisioningActive && apiIdentityAvailable() &&
+      millis() - lastPoll >= POST_INTERVAL_MS) {
     sendTelemetry();
+    kickWatchdog();
     pollDashboardFeedCommand();
-    esp_task_wdt_reset();
+    kickWatchdog();
     pollScheduleCommand();
+    kickWatchdog();
     flushQueuedEvents();
+    kickWatchdog();
     lastPoll = millis();
   }
 
@@ -2006,19 +2176,31 @@ String buildDeviceUrl(const char *baseUrl) {
 
 // ==================== Safety caps + config validation ====================
 
-// Opens a TLS session with ROOT_CA verification. Logs a clear hint when the
-// handshake cannot start (wrong CA for the host, DNS down, etc.).
-bool beginHttps(HTTPClient& https, const char* url) {
+// Opens a TLS session with ROOT_CA verification using explicit timeouts.
+// Logs a clear hint when the handshake cannot start (wrong CA for the host,
+// DNS down, etc.). The shared secure client is reused for every call.
+bool beginHttpsWithTimeout(HTTPClient &https, const char *url, int connectTimeoutMs,
+                           int readTimeoutMs) {
+  https.setConnectTimeout(connectTimeoutMs);
+  https.setTimeout(readTimeoutMs);
   if (https.begin(secureClient, url)) return true;
   Serial.println("[TLS] Connection failed — check ROOT_CA matches the server CA and the URL is correct");
   return false;
 }
 
+// 8 s connect + 8 s read: one poll call can never reach the 30 s task watchdog.
+bool beginHttps(HTTPClient &https, const char *url) {
+  return beginHttpsWithTimeout(https, url, HTTP_CONNECT_TIMEOUT_MS, HTTP_READ_TIMEOUT_MS);
+}
+
 // Best-effort report when a safety cap refuses a dose (audited server-side).
 void reportFeedError(const char* reason, float grams, const char* source) {
   Serial.printf("[FEED] REFUSED %s: %.0fg from %s\n", reason, grams, source);
-  if (WiFi.status() != WL_CONNECTED) return;
+  // No API calls without a provisioned identity: an unprovisioned unit has no
+  // device record to report against.
+  if (!apiIdentityAvailable() || WiFi.status() != WL_CONNECTED) return;
   HTTPClient https;
+  kickWatchdog();
   if (!beginHttps(https, INGEST_URL)) return;
   https.addHeader("Content-Type", "application/json");
   https.addHeader("X-Device-Token", provisionedDeviceToken);
@@ -2034,6 +2216,7 @@ void reportFeedError(const char* reason, float grams, const char* source) {
   serializeJson(doc, out);
   int code = https.POST(out);
   https.end();
+  kickWatchdog();
   Serial.printf("[FEED] refusal report -> %d\n", code);
 }
 
@@ -2076,6 +2259,10 @@ bool validateServerConfig(const JsonDocument &doc) {
 // ==================== Shared dispense logic ====================
 
 void dispenseFeed(float grams, const char* source, const String &requestId = "") {
+  // The relay write itself is instant, but a refusal report below is a network
+  // call: feed the watchdog around the whole dispense decision.
+  kickWatchdog();
+
   // T-12a: never feed while a signed image is downloading. Dashboard requests
   // must be told why, so the refusal is reported as ota_in_progress.
   if (otaInProgress) {
@@ -2128,9 +2315,11 @@ void dispenseFeed(float grams, const char* source, const String &requestId = "")
   currentFeedSource = source;
   currentFeedRequestId = requestId;
   dailyGramsDispensed += grams;
+  kickWatchdog();
 }
 
 void stopFeedCycle() {
+  kickWatchdog();
   digitalWrite(RELAY_PIN, RELAY_OFF);
   feederActive = false;
   Serial.printf("[FEED] complete — %.0fg via %s\n", currentFeedGrams, currentFeedSource);
@@ -2166,11 +2355,14 @@ void handleSchedule() {
 // ==================== Tier 2 — Dashboard poll ====================
 
 void pollDashboardFeedCommand() {
-  HTTPClient https;
+  if (!apiIdentityAvailable()) return;
   const String url = buildDeviceUrl(FEED_POLL_URL_BASE);
+  HTTPClient https;
+  kickWatchdog();
   if (!beginHttps(https, url.c_str())) return;
   https.addHeader("X-Device-Token", provisionedDeviceToken);
   int code = https.GET();
+  kickWatchdog();
   if (code == 200) {
     // A freshly installed OTA image proves itself with one authenticated 200
     // from this poll (the health check also needs WiFi and a valid clock).
@@ -2257,13 +2449,16 @@ void applyIsoTime(const char* iso, bool force) {
 }
 
 void pollScheduleCommand() {
+  if (!apiIdentityAvailable()) return;
   if (WiFi.status() != WL_CONNECTED) return;
 
-  HTTPClient https;
   const String url = buildDeviceUrl(SCHEDULE_SYNC_URL_BASE);
+  HTTPClient https;
+  kickWatchdog();
   if (!beginHttps(https, url.c_str())) return;
   https.addHeader("X-Device-Token", provisionedDeviceToken);
   int code = https.GET();
+  kickWatchdog();
   if (code == 200) {
     // Schedule payloads are larger than the feed-command ones (times, counts,
     // rates); JsonDocument grows on demand, so no capacity constant is needed.
@@ -2345,7 +2540,9 @@ void pollScheduleCommand() {
 }
 
 void postScheduleAck(const String &commandId) {
+  if (!apiIdentityAvailable()) return;
   HTTPClient https;
+  kickWatchdog();
   if (!beginHttps(https, INGEST_URL)) return;
   https.addHeader("Content-Type", "application/json");
   https.addHeader("X-Device-Token", provisionedDeviceToken);
@@ -2362,23 +2559,47 @@ void postScheduleAck(const String &commandId) {
 
   int code = https.POST(out);
   https.end();
+  kickWatchdog();
   Serial.printf("[SCHEDULE ACK] command %s -> %d\n", commandId.c_str(), code);
 }
 
 // ==================== Tier 3 — Physical button ====================
 
+// Falling-edge ISR. Unlike the old loop poll, this cannot miss a short press
+// while loop() is inside a blocking HTTPS call. millis() and the portMUX
+// critical section are ISR-safe on the ESP32.
+void IRAM_ATTR onFeedButtonPress() {
+  const unsigned long now = millis();
+  if (now < BUTTON_STARTUP_GRACE_MS) return;          // boot grace window
+  if (now - feedButtonLastEdgeMs < BUTTON_DEBOUNCE_MS) return;  // 250 ms debounce
+  feedButtonLastEdgeMs = now;
+  portENTER_CRITICAL_ISR(&feedButtonMux);
+  feedButtonPressQueued = true;   // at most one pending press, ever
+  portEXIT_CRITICAL_ISR(&feedButtonMux);
+}
+
+bool takeQueuedFeedButtonPress() {
+  bool pressed = false;
+  portENTER_CRITICAL(&feedButtonMux);
+  if (feedButtonPressQueued) {
+    feedButtonPressQueued = false;
+    pressed = true;
+  }
+  portEXIT_CRITICAL(&feedButtonMux);
+  return pressed;
+}
+
+void discardQueuedFeedButtonPress() {
+  portENTER_CRITICAL(&feedButtonMux);
+  feedButtonPressQueued = false;
+  portEXIT_CRITICAL(&feedButtonMux);
+}
+
+// A queued press is dispensed on the next loop pass. The shared dispense mutex
+// still drops it if the relay is busy, exactly like a polling press did.
 void handleButton() {
-  int reading = digitalRead(BUTTON_PIN);
-  if (reading != lastButtonReading) {
-    lastButtonChangeMs = millis();
-    lastButtonReading = reading;
-  }
-  if ((millis() - lastButtonChangeMs) > BUTTON_DEBOUNCE_MS && reading == LOW) {
-    if (lastButtonChangeMs != lastHandledButtonChangeMs) {
-      lastHandledButtonChangeMs = lastButtonChangeMs;
-      dispenseFeed(cachedButtonFeedGrams, "button");
-    }
-  }
+  if (!takeQueuedFeedButtonPress()) return;
+  dispenseFeed(cachedButtonFeedGrams, "button");
 }
 
 // ==================== Feed level monitoring (HC-SR04) ====================
@@ -2434,20 +2655,24 @@ void enqueueEvent(float grams, const char* source, const String &requestId) {
 }
 
 void flushQueuedEvents() {
-  if (WiFi.status() != WL_CONNECTED) return;
+  // Never replay a feed event without an identity: the server would reject it
+  // and the event remains queued until the unit is provisioned.
+  if (!apiIdentityAvailable() || WiFi.status() != WL_CONNECTED) return;
   for (int i = 0; i < EVENT_QUEUE_SIZE; i++) {
     if (eventQueue[i].used && !eventQueue[i].synced) {
       if (postFeedEvent(eventQueue[i])) {
         eventQueue[i].synced = true;
         eventQueue[i].used = false;
       }
-      esp_task_wdt_reset();  // progress between network posts — not a hang
+      kickWatchdog();  // progress between network posts — not a hang
     }
   }
 }
 
 bool postFeedEvent(QueuedEvent &ev) {
+  if (!apiIdentityAvailable()) return false;
   HTTPClient https;
+  kickWatchdog();
   if (!beginHttps(https, INGEST_URL)) return false;
   https.addHeader("Content-Type", "application/json");
   https.addHeader("X-Device-Token", provisionedDeviceToken);
@@ -2472,7 +2697,10 @@ bool postFeedEvent(QueuedEvent &ev) {
 }
 
 void sendTelemetry() {
+  // No API calls without a provisioned identity; local feeding is unaffected.
+  if (!apiIdentityAvailable()) return;
   HTTPClient https;
+  kickWatchdog();
   if (!beginHttps(https, INGEST_URL)) return;
   https.addHeader("Content-Type", "application/json");
   https.addHeader("X-Device-Token", provisionedDeviceToken);
@@ -2535,9 +2763,11 @@ void sendTelemetry() {
   String out;
   serializeJson(doc, out);
 
+  kickWatchdog();
   int code = https.POST(out);
-  Serial.printf("[POST] %d\n", code);
   https.end();
+  kickWatchdog();
+  Serial.printf("[POST] %d\n", code);
 }
 
 // ==================== WiFi / NTP / RTC helpers ====================

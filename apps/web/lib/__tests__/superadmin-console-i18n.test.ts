@@ -70,6 +70,7 @@ const NAMESPACES = [
 	"superadmin.createOrg",
 	"superadmin.newAccount",
 	"superadmin.aiProviders",
+	"superadmin.operations",
 ];
 
 /** Page-specific keys that must exist in both locales. */
@@ -96,6 +97,11 @@ const REQUIRED = [
 	"superadmin.aiProviders.reset",
 	"superadmin.shell.nav.organizations",
 	"superadmin.shell.shortNav.organizations",
+	"superadmin.shell.nav.operations",
+	"superadmin.shell.shortNav.operations",
+	"superadmin.operations.health.title",
+	"superadmin.operations.audit.title",
+	"superadmin.operations.announcements.title",
 	"superadmin.error.retry",
 	"superadmin.loading.message",
 ];

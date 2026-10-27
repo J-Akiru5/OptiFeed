@@ -10,6 +10,7 @@ import { getFeedEvents } from "@/lib/actions/history";
 import { canWrite } from "@/lib/auth/session";
 import { FEED_CHART_DAYS, HOPPER_RANGE_DAYS, parseHopperRange } from "@/lib/chart-windows";
 import { isDeviceOffline } from "@/lib/feed-level-display";
+import { FEED_EVENT_SOURCES, feedSourceKey } from "@/lib/feed-sources";
 import type { HistorySnapshotData } from "@/lib/offline/snapshots";
 import { getFeedPerDayBySource, getHopperLevelSeries } from "@/lib/pond-charts";
 import { getActivePond } from "@/lib/pond-selection";
@@ -19,12 +20,6 @@ import { CalendarDays, CheckCircle2, Clock, Package } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0;
-
-const SOURCE_LABELS: Record<string, string> = {
-	scheduled: "scheduled",
-	dashboard: "dashboard",
-	button: "button",
-};
 
 interface HistoryPageProps {
 	searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -94,8 +89,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 	}
 
 	const sourceLabel = (s: string) => {
-		const key = SOURCE_LABELS[s] ?? "dashboard";
-		return t(`source_${key}`);
+		return t(`source_${feedSourceKey(s)}`);
 	};
 
 	const chartLabels: ChartLabels = {
@@ -175,7 +169,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 							{t("sourceBreakdown")}
 						</p>
 						<div className="mt-1 space-y-0.5">
-							{["scheduled", "dashboard", "button"].map((src) => (
+							{FEED_EVENT_SOURCES.map((src) => (
 								<p key={src} className="text-sm font-bold text-[var(--ofd-base-deep)]">
 									{sourceLabel(src)}: {sourceCounts[src] ?? 0}
 								</p>

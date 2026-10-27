@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Control-room dashboard (E14, #186/#188): above 1280 px the farmer dashboard fills one viewport with no page scroll. The left column holds the compact next-feeding strip (still the first thing seen), an illustrated pond overview with one pin per feeder (online/offline, last-known hopper level, next feed time, water temperature) and a row of feed-per-day, hopper-level and water-temperature charts. Only the right rail scrolls; it carries the pond summary, Feed Now, the device/hopper card, alerts (offline, low hopper, recalibration due, detected calibration drift), the AI advisor summary, the grow-out strip, recent feedings, recent biomass samples and the stat tiles. Below 1280 px the same blocks stack into the previous scrolling dashboard. Presentation only: the existing loaders and server actions are reused, and the tour and help-centre anchors still resolve.
+
 ## [1.13.0] - 2026-10-27
 
 ### Added

@@ -443,7 +443,50 @@
 			"waterRangeLabel": "Water temperature period",
 			"waterRange24h": "24 h",
 			"waterRange7d": "7 days",
-			"waterChartLatest": "Latest reading: {value}"
+			"waterChartLatest": "Latest reading: {value}",
+			"controlRoom": {
+				"railLabel": "Pond controls",
+				"canvasLabel": "Pond overview for {pond} with {count} feeder.",
+				"feedersLabel": "Feeders on this pond",
+				"feederCount": "{count, plural, one {# feeder} other {# feeders}}",
+				"noFeeders": "No feeder is registered on this pond yet.",
+				"openFeederSettings": "Open feeder settings",
+				"pondPanel": "Pond",
+				"pondLink": "Open pond settings",
+				"cycleLabel": "Grow-out cycle",
+				"noCycle": "No active cycle",
+				"alertsPanel": "Alerts",
+				"advisorPanel": "AI Feed Advisor",
+				"advisorLink": "Open the full advisor",
+				"advisorEmpty": "Not enough data for a recommendation yet.",
+				"advisorGramsLabel": "Recommended per meal",
+				"advisorConfidence": "Confidence",
+				"growOutPanel": "Grow-out",
+				"growOutLink": "Open harvest",
+				"feedingsPanel": "Recent feedings",
+				"statsPanel": "Pond at a glance",
+				"controlsPanel": "Feeder controls",
+				"alerts": {
+					"emptyTitle": "Nothing needs attention",
+					"emptyDetail": "The feeder is online and the schedule is running.",
+					"offlineTitle": "Feeder offline for {duration}",
+					"offlineDetail": "{device} has not sent a heartbeat.",
+					"lowHopperTitle": "Hopper low: {percent}%",
+					"lowHopperDetail": "Refill before the next feeding.",
+					"recalibrationTitle": "Recalibration overdue by {days} days",
+					"recalibrationDetail": "Run a target check so the dispensed grams stay accurate.",
+					"driftTitle": "Possible calibration drift: {percent}% off",
+					"driftDetail": "Dispensed grams and the hopper drop disagree over the last 7 days.",
+					"openHardware": "Open hardware settings"
+				},
+				"charts": {
+					"feedTitle": "Feed per day",
+					"feedSummary": "Grams dispensed per day over the last 30 days, {total} in total.",
+					"hopperTitle": "Hopper level",
+					"hopperSummary": "Average hopper level per day over the last 7 days, latest {latest}.",
+					"hopperEmpty": "No hopper readings yet."
+				}
+			}
 		},
 		"schedule": {
 			"title": "Feeding Schedule",

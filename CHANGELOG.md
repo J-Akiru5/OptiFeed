@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.2] - 2026-10-28
+
 ### Fixed
 
 - Day buckets in the pond charts (feed per day, water temperature, hopper) put readings from 00:00–08:00 Manila on the previous day: the `timestamp` columns hold UTC and were converted with a single `AT TIME ZONE`. Every bucket query now converts UTC → Asia/Manila (verified against the database).

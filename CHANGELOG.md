@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Farm-facing dates and times render in the farm's timezone (Asia/Manila) instead of the server runtime's, so the dashboard, history, growth, sampling-batch, hardware and farmer audit screens no longer read eight hours behind (or a day early) on a UTC host.
+- The dashboard's next feeding time is computed from the farm wall clock, so an overnight schedule and an evening visit no longer report a feed that already happened.
+- A feeder that has never reported a hopper level shows "—" instead of a made-up 0 %, and Feed Now no longer raises a critical-hopper warning for it.
+- The dashboard's low-hopper alert uses the org's configured threshold instead of the built-in 20 % default.
+- Saving the hopper shape calibration refreshes the Hardware settings page that shows the result (it refreshed a legacy redirect stub instead).
+- Hard-deleting a pond whose only remaining record is a legacy `Device` row now reports the device as a blocker instead of failing on the foreign key.
+
+### Security
+
+- Hopper shape calibration is validated on the server: a zero or non-finite hopper capacity, an inverted empty/full distance pair or an out-of-range value is rejected before it reaches the database. A zero capacity used to raise the device's daily feed cap to the hard maximum.
+
 ## [1.15.0] - 2026-10-27
 
 ### Added

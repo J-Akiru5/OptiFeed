@@ -1,3 +1,4 @@
+import type { MascotPose } from "@/components/assistant/mascot";
 import type { TourAlign, TourSide } from "./onboarding-position";
 
 export type OnboardingTourStep = {
@@ -7,6 +8,8 @@ export type OnboardingTourStep = {
 	description: string;
 	side: TourSide;
 	align: TourAlign;
+	/** Optional Pakoy art shown above the step's title (#221). */
+	mascot?: MascotPose;
 };
 
 /**
@@ -18,9 +21,10 @@ export const ONBOARDING_TOUR_STEPS: OnboardingTourStep[] = [
 		selector: null,
 		title: "Welcome to PakaonAI",
 		description:
-			"This dashboard monitors your fish feeding system in real-time. Let's take a quick tour.",
+			"Let's set up your pond! This dashboard monitors your fish feeding system in real-time.",
 		side: "bottom",
 		align: "center",
+		mascot: "hero",
 	},
 	{
 		selector: "[data-onboard='feed-now']",

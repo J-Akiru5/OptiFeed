@@ -44,6 +44,11 @@
 			.brand strong { display: block; color: var(--navy); font-size: 1.1rem; letter-spacing: -0.02em; }
 			.brand small { color: var(--muted); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
 			.badge { margin-left: auto; border-radius: 999px; background: var(--navy); color: white; padding: 0.4rem 0.7rem; font-size: 0.65rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+			.hero-row { display: flex; align-items: center; gap: 1rem; margin-top: 1.6rem; }
+			.hero-row img { width: clamp(72px, 12vw, 120px); height: auto; flex: 0 0 auto; }
+			.hero-row h1 { margin: 0; }
+			@media (max-width: 520px) { .hero-row { gap: 0.6rem; } }
+			.hero-row p.eyebrow { margin: 0 0 0.2rem; color: var(--orange); font-size: 0.66rem; font-weight: 850; letter-spacing: 0.14em; text-transform: uppercase; }
 			h1 { margin: 1.6rem 0 0; color: var(--navy); font-size: clamp(1.7rem, 4vw, 2.8rem); line-height: 1.05; letter-spacing: -0.04em; }
 			.lede { max-width: 52rem; margin: 0.8rem 0 0; color: var(--muted); line-height: 1.6; }
 			.note { margin: 1.2rem 0 0; padding: 0.9rem 1rem; border: 1px solid rgba(30, 123, 52, 0.25); border-radius: 1rem; background: rgba(30, 123, 52, 0.08); color: #155d27; font-size: 0.9rem; font-weight: 650; }
@@ -106,10 +111,16 @@
 				<span class="badge">Offline</span>
 			</header>
 
-			<h1>Last known farm state</h1>
+			<div class="hero-row">
+				<img src="/mascot/pakoy-offline.webp" alt="" aria-hidden="true" width="132" height="164" />
+				<div>
+					<p class="eyebrow">Pakoy</p>
+					<h1>Last known farm state</h1>
+				</div>
+			</div>
 			<p class="lede">
-				You're offline. This page shows the last snapshot saved on this device. Values may be
-				older than the pond's real state.
+				No signal, but the schedule is on the watch. Feeding continues. This page shows the last
+				snapshot saved on this device, so values may be older than the pond's real state.
 			</p>
 
 			<div id="onlineNote" class="note" hidden>

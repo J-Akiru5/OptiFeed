@@ -1,3 +1,4 @@
+import { Mascot } from "@/components/assistant/mascot";
 import { Link } from "@/i18n/routing";
 import { getTranslations } from "next-intl/server";
 
@@ -6,6 +7,7 @@ export default async function NotFound() {
 
 	return (
 		<div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-6 text-center">
+			<Mascot pose="idle" size={120} />
 			<h2 className="text-2xl font-bold text-[#0A3D62] dark:text-gray-100">{t("notFoundTitle")}</h2>
 			<p className="text-gray-600 dark:text-gray-400">{t("notFoundDesc")}</p>
 			<Link

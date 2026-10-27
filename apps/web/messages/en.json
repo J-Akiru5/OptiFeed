@@ -518,7 +518,13 @@
 					"hopperSummary": "Average hopper level per day over the last 7 days, latest {latest}.",
 					"hopperEmpty": "No hopper readings yet."
 				}
-			}
+			},
+			"greetingNextFeeding": "Next feeding at {time}",
+			"greetingPaused": "Feeding is paused — resume it on the Schedule page.",
+			"lowHopperPopupTitle": "Feed level is low ({percent}%).",
+			"lowHopperPopupBody": "Please refill before tomorrow.",
+			"lowHopperPopupGotIt": "Got it",
+			"lowHopperPopupDismiss": "Dismiss reminder"
 		},
 		"schedule": {
 			"title": "Feeding Schedule",
@@ -1853,7 +1859,8 @@
 			},
 			"filtersTierLabel": "Filter by severity",
 			"filtersCategoryLabel": "Filter by category",
-			"listLabel": "Notifications"
+			"listLabel": "Notifications",
+			"categoryHopperLow": "Low hopper"
 		},
 		"timeCalibration": {
 			"title": "Time Calibration",
@@ -2382,12 +2389,12 @@
 		"pm": "PM"
 	},
 	"chat": {
-		"title": "PakaonAI Assistant",
+		"title": "Pakoy",
 		"placeholder": "Ask me something...",
 		"suggestionSchedule": "When is the next feeding time?",
 		"suggestionFcr": "What is my current FCR?",
 		"suggestionLogSample": "How do I log a sample?",
-		"intro": "Hi! I'm your PakaonAI assistant. Ask me about your next feeding time, feed amounts, current FCR, missed feedings, or how to log a sample!",
+		"intro": "Hi! I'm Pakoy. How can I help you today? Ask me about your next feeding time, feed amounts, current FCR, missed feedings, or how to log a sample!",
 		"error": "Oops, something went wrong. Please try again.",
 		"intentScheduleNoPond": "I couldn't find your pond schedule. Please ensure your devices are configured.",
 		"intentSchedulePaused": "Your automated schedule is currently **Paused**. No feedings will occur until you resume it on the Schedule page.",
@@ -2412,9 +2419,9 @@
 		"assistantProposal": "Here is what I can do. Review it, then press Accept to run it.",
 		"assistantNavigating": "Opening {label} for you — I'll highlight the control.",
 		"stepUpHint": "This needs a fresh password check. Press Accept again after you confirm.",
-		"introFarmer": "Hi! I'm the PakaonAI Assistant. I can answer questions about your pond and, when you press Accept, make changes for you — feed amount, schedule, samples, and calendar items. Nothing runs until you Accept.",
-		"introOwner": "Hi! I'm the PakaonAI Assistant. I can help with the pond (feeding, samples, calendar) and with your organization (members, roles, permissions). I only propose actions: nothing runs until you press Accept, and admin actions ask you to re-enter your password.",
-		"introSuperadmin": "Hi! I'm the PakaonAI Assistant. I can help you run the platform — suspend or restore an organization, start a read-only view-as, and take you to any console screen. Every platform action waits for your Accept and a fresh password check.",
+		"introFarmer": "Hi! I'm Pakoy. How can I help you today? I can answer questions about your pond and, when you press Accept, make changes for you — feed amount, schedule, samples, and calendar items. Nothing runs until you Accept.",
+		"introOwner": "Hi! I'm Pakoy. How can I help you today? I can help with the pond (feeding, samples, calendar) and with your organization (members, roles, permissions). I only propose actions: nothing runs until you press Accept, and admin actions ask you to re-enter your password.",
+		"introSuperadmin": "Hi! I'm Pakoy. How can I help you today? I can help you run the platform — suspend or restore an organization, start a read-only view-as, and take you to any console screen. Every platform action waits for your Accept and a fresh password check.",
 		"chipsFarmer0": "How much should I feed?",
 		"chipsFarmer1": "When is the next feeding?",
 		"chipsFarmer2": "Take me to the feeding schedule",
@@ -2428,7 +2435,10 @@
 		"suggestionPredict": "How many grams should I feed?",
 		"intentPredictActive": "Based on your latest biomass sample and FCR, I recommend **{grams}g per feeding** (your device is currently set to **{current}g**). Check the AI Feeding Prediction card on the Growth page to review and apply this recommendation.",
 		"intentPredictActiveNoCurrent": "Based on your latest biomass sample and FCR, I recommend **{grams}g per feeding**. Check the AI Feeding Prediction card on the Growth page to review and apply this recommendation.",
-		"intentPredictNoData": "I need a recent biomass sample to predict your feed amount. Log one from the **Log Biomass** form and then try again — or check the AI Feeding Prediction card on the Growth page."
+		"intentPredictNoData": "I need a recent biomass sample to predict your feed amount. Log one from the **Log Biomass** form and then try again — or check the AI Feeding Prediction card on the Growth page.",
+		"tagline": "Your feeding schedule buddy.",
+		"greeting": "Hi! I'm Pakoy. How can I help you today?",
+		"greetingDismiss": "Dismiss"
 	},
 	"superadmin": {
 		"common": {

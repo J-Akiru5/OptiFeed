@@ -1769,6 +1769,7 @@
 			"categorySystem": "System",
 			"autoCleared": "Auto-cleared",
 			"acknowledged": "Acknowledged",
+			"actionError": "Could not update the notification. Try again.",
 			"alert": "Alert",
 			"auditLink": "Audit",
 			"receivedAt": "Received",

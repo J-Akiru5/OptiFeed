@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Notifications (#219): "Mark as Read" now clears every pending alert of the signed-in owner across all of their ponds instead of only the active pond's loaded page, and it stamps the acknowledgement so the rows stop offering "Acknowledge". The bell drops to 0 immediately and re-syncs with the server; a single "Acknowledge" now decrements the badge at once and rolls back on failure. No schema change.
+
 ## [1.14.0] - 2026-10-27
 
 ### Added

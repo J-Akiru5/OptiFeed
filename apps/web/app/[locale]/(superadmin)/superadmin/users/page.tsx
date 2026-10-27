@@ -14,6 +14,7 @@ import { UserActions } from "@/components/superadmin/user-actions";
 import { ItemCardGrid } from "@/components/ui/item-card";
 import { Pagination } from "@/components/ui/pagination";
 import { ListView } from "@/components/ui/view-toggle";
+import { UserAvatar } from "@/components/user-avatar";
 import { Link, getPathname } from "@/i18n/routing";
 import { listAllUsers } from "@/lib/actions/superadmin";
 import { Eye, Plus, Shield, ShieldCheck, User, UserX, Users } from "lucide-react";
@@ -27,10 +28,6 @@ const roleBadge: Record<string, { tone: BadgeTone; icon: typeof Shield }> = {
 
 function first(param: string | string[] | undefined): string | undefined {
 	return Array.isArray(param) ? param[0] : param;
-}
-
-function initials(user: { displayName: string | null; farmId: string }): string {
-	return (user.displayName || user.farmId).slice(0, 2).toUpperCase();
 }
 
 export default async function SuperadminUsersPage({
@@ -121,12 +118,12 @@ export default async function SuperadminUsersPage({
 								<MobileCard key={user.id}>
 									<div className="flex items-start justify-between gap-3">
 										<div className="flex min-w-0 items-center gap-3">
-											<div
-												aria-hidden="true"
-												className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0A3D62] text-xs font-black text-white"
-											>
-												{initials(user)}
-											</div>
+											<UserAvatar
+												src={user.avatarUrl}
+												name={user.displayName || user.farmId}
+												size="md"
+												className="rounded-xl bg-[#0A3D62]"
+											/>
 											<div className="min-w-0">
 												<p className="truncate font-black text-[#0A3D62]">
 													{user.displayName || user.farmId}
@@ -214,12 +211,12 @@ export default async function SuperadminUsersPage({
 								>
 									<td className="px-6 py-4">
 										<div className="flex items-center gap-3">
-											<div
-												aria-hidden="true"
-												className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0A3D62] text-xs font-black text-white"
-											>
-												{initials(user)}
-											</div>
+											<UserAvatar
+												src={user.avatarUrl}
+												name={user.displayName || user.farmId}
+												size="md"
+												className="rounded-xl bg-[#0A3D62]"
+											/>
 											<div className="min-w-0">
 												<p className="font-black text-[#0A3D62]">
 													{user.displayName || user.farmId}

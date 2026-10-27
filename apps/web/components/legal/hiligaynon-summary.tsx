@@ -13,6 +13,7 @@ export async function HiligaynonSummary({ kind }: { kind: "privacy" | "terms" })
 	const privacy = [
 		"Ang PakaonAI isa ka research project sang ISUFST Dingle Campus.",
 		"Ginakolekta namon ang account, farm, device, AI, kag research data agud mapadalagan ang precision feeding system.",
+		"Ang profile photo opsyonal. Ginagamit ini para makilala ka sang mga myembro sang imo organisasyon, kag mabuhinan ukon mabag-o mo ini bisan san-o.",
 		"Ang farm ukon cooperative amo ang may kontrol sang farm operational data; ang PakaonAI amo ang processor nga nagasunod sa ila instruksyon.",
 		"Ginagamit namon ang Supabase (Singapore), Vercel (Sydney), OpenCodeGo, Resend, kag Google Forms. Wala kami Telegram kag wala kami ginabaligya nga personal data.",
 		"Ang research data para sa 20 ka fish farmers kag 10 ka IT professionals: optional nga name, petsa, role, kag questionnaire answers. May consent ini kag ginabalitaan lamang sa aggregated ukon anonymized nga porma.",

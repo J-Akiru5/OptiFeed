@@ -2,6 +2,7 @@
 
 import { ItemCardGrid } from "@/components/ui/item-card";
 import { ListView } from "@/components/ui/view-toggle";
+import { UserAvatar } from "@/components/user-avatar";
 import { Link, useRouter } from "@/i18n/routing";
 import { changeMemberRole, inviteMember, revokeMember } from "@/lib/actions/admin";
 import type { TenantMemberOrgOption, TenantMemberRow } from "@/lib/actions/admin";
@@ -191,28 +192,36 @@ export function MembersSettings({
 	/** Name, e-mail, farm id and the self/platform/last-owner badges (both views). */
 	function renderIdentity(member: TenantMemberRow) {
 		return (
-			<>
-				<div className="flex flex-wrap items-center gap-1.5">
-					<p className="font-black text-[#0A3D62] dark:text-gray-100">{memberName(member)}</p>
-					{member.isSelf && (
-						<span className="rounded-full bg-[#E8EEF5] px-2 py-0.5 text-[9px] font-black tracking-wider text-[#0A3D62] uppercase dark:bg-white/10 dark:text-[#8fc0ea]">
-							{t("selfBadge")}
-						</span>
-					)}
-					{member.isPlatformAdmin && (
-						<span className="rounded-full bg-[#C2410C] px-2 py-0.5 text-[9px] font-black tracking-wider text-white uppercase">
-							{t("platformAdminBadge")}
-						</span>
-					)}
-					{member.isLastOwner && (
-						<span className="rounded-full bg-[#FDE8EA] px-2 py-0.5 text-[9px] font-black tracking-wider text-[#C42B3A] uppercase dark:bg-red-950/50 dark:text-red-300">
-							{t("lastOwnerBadge")}
-						</span>
-					)}
+			<div className="flex items-start gap-3">
+				<UserAvatar
+					src={member.avatarUrl}
+					name={memberName(member)}
+					size="md"
+					className="mt-0.5 rounded-xl bg-[#0A3D62]"
+				/>
+				<div className="min-w-0">
+					<div className="flex flex-wrap items-center gap-1.5">
+						<p className="font-black text-[#0A3D62] dark:text-gray-100">{memberName(member)}</p>
+						{member.isSelf && (
+							<span className="rounded-full bg-[#E8EEF5] px-2 py-0.5 text-[9px] font-black tracking-wider text-[#0A3D62] uppercase dark:bg-white/10 dark:text-[#8fc0ea]">
+								{t("selfBadge")}
+							</span>
+						)}
+						{member.isPlatformAdmin && (
+							<span className="rounded-full bg-[#C2410C] px-2 py-0.5 text-[9px] font-black tracking-wider text-white uppercase">
+								{t("platformAdminBadge")}
+							</span>
+						)}
+						{member.isLastOwner && (
+							<span className="rounded-full bg-[#FDE8EA] px-2 py-0.5 text-[9px] font-black tracking-wider text-[#C42B3A] uppercase dark:bg-red-950/50 dark:text-red-300">
+								{t("lastOwnerBadge")}
+							</span>
+						)}
+					</div>
+					<p className="text-[11px] text-[#3D5568] dark:text-gray-400">{member.email}</p>
+					<p className="font-mono text-[10px] text-[#3D5568] dark:text-gray-400">{member.farmId}</p>
 				</div>
-				<p className="text-[11px] text-[#3D5568] dark:text-gray-400">{member.email}</p>
-				<p className="font-mono text-[10px] text-[#3D5568] dark:text-gray-400">{member.farmId}</p>
-			</>
+			</div>
 		);
 	}
 

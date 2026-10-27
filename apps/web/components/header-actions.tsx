@@ -7,6 +7,7 @@ import { HelpButton } from "@/components/help/help-button";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { PondSelector } from "@/components/pond-selector";
+import { UserAvatar } from "@/components/user-avatar";
 import { useRouter } from "@/i18n/routing";
 import { clearOfflineData } from "@/lib/offline/db";
 import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
@@ -19,6 +20,8 @@ export type HeaderActionsUser = {
 	email: string;
 	role: string | null;
 	displayName: string | null;
+	/** Short-lived signed URL for the user's profile picture (#198). */
+	avatarUrl?: string | null;
 	isTenantAdmin: boolean;
 	isPlatformAdmin: boolean;
 };
@@ -62,6 +65,8 @@ export function HeaderActions({
 }: HeaderActionsProps) {
 	const [showProfileMenu, setShowProfileMenu] = useState(false);
 	const userEmail = initialUser?.email ?? null;
+	const userDisplayName = initialUser?.displayName || userEmail?.split("@")[0] || "User";
+	const avatarUrl = initialUser?.avatarUrl ?? null;
 	const isTenantAdmin = initialUser?.isTenantAdmin ?? false;
 	const isPlatformAdmin = initialUser?.isPlatformAdmin ?? false;
 	const router = useRouter();
@@ -119,7 +124,12 @@ export function HeaderActions({
 				aria-label="Open profile and settings menu"
 				aria-expanded={showProfileMenu}
 			>
-				{userEmail ? userEmail.split("@")[0].slice(0, 2).toUpperCase() : "\u00B7\u00B7"}
+				<UserAvatar
+					src={avatarUrl}
+					name={userDisplayName}
+					size="md"
+					className="h-full w-full rounded-full bg-[#E85A2A]"
+				/>
 			</button>
 
 			{/* Profile dropdown */}
@@ -128,7 +138,12 @@ export function HeaderActions({
 					<div className="flex items-start justify-between gap-3 border-b border-gray-100 dark:border-gray-700 pb-4">
 						<div className="flex items-center gap-3">
 							<div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#E85A2A] text-lg font-black text-white">
-								{userEmail ? userEmail.split("@")[0].slice(0, 2).toUpperCase() : "\u00B7\u00B7"}
+								<UserAvatar
+									src={avatarUrl}
+									name={userDisplayName}
+									size="lg"
+									className="h-full w-full rounded-2xl bg-[#E85A2A]"
+								/>
 							</div>
 							<div>
 								<p className="text-base font-black">

@@ -1008,6 +1008,8 @@
 				"agenda": "Lista sang mga hitabo",
 				"noEvents": "Wala sang event sa sini nga range.",
 				"eventsLabel": "Kalendaryo sang punong",
+				"readOnlyReason": "Indi ka maka-edit sang mga hitabo sa kalendaryo.",
+				"allPondsEditHint": "Pilia ang isa ka punong para makadugang sang hitabo.",
 				"recurringChangeConfirm": "Bag-uhon ang bug-os nga nagabalik nga serye? Pilia ang Cancel para indi mabag-o."
 			},
 			"calendarPage": {
@@ -2247,6 +2249,11 @@
 		},
 		"common": {
 			"readOnlyTitle": "Tan-aw lang",
+			"capability": {
+				"edit": "Maka-edit",
+				"ownFarm": "Sarili nga uma lamang",
+				"read": "Tan-aw lang"
+			},
 			"readOnlyDesc": "Ang imo papel, ukon ang aktibo nga sesyon nga tan-aw lang, indi makahimo sang pagbag-o diri. Ang mga kontrol naka-disable imbes nga mapaslawan pagkatapos sang pag-tap.",
 			"noPondTitle": "Wala pa sang punong nga na-assign",
 			"noPondDesc": "Palihog pamangkot ang imo administrator nga mag-assign sang punong sa imo umahan, dayon i-reload ini nga pahina.",

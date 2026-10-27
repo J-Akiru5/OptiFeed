@@ -1008,6 +1008,8 @@
 				"agenda": "Agenda",
 				"noEvents": "No events in this range.",
 				"eventsLabel": "Pond calendar",
+				"readOnlyReason": "Your role cannot edit calendar events.",
+				"allPondsEditHint": "Choose a single pond to add an event.",
 				"recurringChangeConfirm": "Change the whole repeating series? Choose Cancel to keep it as it was."
 			},
 			"calendarPage": {
@@ -2268,6 +2270,11 @@
 		},
 		"common": {
 			"readOnlyTitle": "View only",
+			"capability": {
+				"edit": "Editing enabled",
+				"ownFarm": "Own farm only",
+				"read": "View only"
+			},
 			"readOnlyDesc": "Your role, or the active view-only session, cannot make changes here. Controls are disabled instead of failing after a tap.",
 			"noPondTitle": "No pond assigned yet",
 			"noPondDesc": "Ask your administrator to assign a pond to your farm, then reload this page.",

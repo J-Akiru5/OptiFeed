@@ -1,7 +1,14 @@
-import { DashboardEmptyState, ReadOnlyNotice } from "@/components/dashboard/dashboard-ui";
+import {
+	DashboardEmptyState,
+	DashboardPageHeader,
+	ReadOnlyNotice,
+} from "@/components/dashboard/dashboard-ui";
+import { CalendarCapabilityBadge } from "@/components/harvest/calendar-controls";
 import { HarvestCalendar } from "@/components/harvest/harvest-calendar";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { hasPermission } from "@/lib/auth/permissions";
+import { canWrite } from "@/lib/auth/session";
+import { calendarCapability } from "@/lib/calendar/capability";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { computeCropCycleMetrics } from "@/lib/crop-cycle/metrics";
@@ -21,9 +28,10 @@ import { getTranslations } from "next-intl/server";
 export const revalidate = 0;
 
 export default async function HarvestPage() {
-	const [tSchedule, tCommon] = await Promise.all([
+	const [tSchedule, tCommon, tHarvest] = await Promise.all([
 		getTranslations("dashboard.schedule"),
 		getTranslations("dashboard.common"),
+		getTranslations("dashboard.harvest"),
 	]);
 	const pond = await getActivePond({ energyDevices: true });
 
@@ -39,7 +47,8 @@ export default async function HarvestPage() {
 		);
 	}
 
-	const [canManage, ponds, cycles, upcomingEvents] = await Promise.all([
+	const [canWriteNow, canManagePerm, ponds, cycles, upcomingEvents] = await Promise.all([
+		canWrite(),
 		hasPermission("manage_crop_cycle"),
 		prisma.pond.findMany({
 			where: { ownerId: pond.ownerId, status: "ACTIVE" },
@@ -82,6 +91,9 @@ export default async function HarvestPage() {
 			select: { id: true, title: true, type: true, status: true, startsAt: true },
 		}),
 	]);
+
+	const canManage = canWriteNow && canManagePerm;
+	const capability = calendarCapability({ canManage, pondCount: ponds.length });
 
 	const pondOptions: PondOption[] = ponds.map((item) => {
 		const profile = parsePondProfile(item.notificationPrefs);
@@ -159,7 +171,7 @@ export default async function HarvestPage() {
 	};
 
 	return (
-		<>
+		<div className="space-y-6">
 			<SnapshotWriter
 				page="harvest"
 				scope={pond.ownerId}
@@ -167,10 +179,23 @@ export default async function HarvestPage() {
 				pondName={pond.name}
 				data={harvestSnapshot}
 			/>
+			<DashboardPageHeader
+				icon={CalendarDays}
+				title={tHarvest("title")}
+				description={tHarvest("desc", { pond: pond.name })}
+				actions={
+					<CalendarCapabilityBadge
+						capability={capability}
+						labels={{
+							edit: tCommon("capability.edit"),
+							ownFarm: tCommon("capability.ownFarm"),
+							read: tCommon("capability.read"),
+						}}
+					/>
+				}
+			/>
 			{!canManage && (
-				<div className="mb-4">
-					<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
-				</div>
+				<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
 			)}
 			<HarvestCalendar
 				initialPondId={pond.id}
@@ -181,11 +206,12 @@ export default async function HarvestPage() {
 				activeCycles={activeCycles}
 				recentCycles={recentCycles}
 				canManage={canManage}
+				showHeader={false}
 				today={today}
 				hopperLevelPct={hopperLevelPct}
 				hopperFeedLevelUpdatedAt={hopperFeedLevelUpdatedAt?.toISOString() ?? null}
 				hopperIsOffline={hopperIsOffline}
 			/>
-		</>
+		</div>
 	);
 }

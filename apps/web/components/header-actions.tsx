@@ -31,6 +31,8 @@ interface HeaderActionsProps {
 	esp32Status?: "online" | "offline" | "missing";
 	/** True while a read-only view-as session is active (the tenant view stays as-is). */
 	isViewingAs?: boolean;
+	/** Resolved server-side from the `help.centre` feature flag. */
+	helpEnabled?: boolean;
 	/** Resolved by the dashboard layout so the header does not fetch after hydration. */
 	initialUser?: HeaderActionsUser;
 }
@@ -55,6 +57,7 @@ export function HeaderActions({
 	lastSeenAt = null,
 	esp32Status = "missing",
 	isViewingAs = false,
+	helpEnabled = true,
 	initialUser,
 }: HeaderActionsProps) {
 	const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -103,7 +106,9 @@ export function HeaderActions({
 			<DarkModeToggle />
 			<LocaleSwitcher />
 
-			<HelpButton audience={isTenantAdmin ? "owner" : "farmer"} className="hidden sm:flex" />
+			{helpEnabled && (
+				<HelpButton audience={isTenantAdmin ? "owner" : "farmer"} className="hidden sm:flex" />
+			)}
 
 			<NotificationBell />
 

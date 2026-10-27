@@ -2685,18 +2685,125 @@
 		"settings": {
 			"title": "Mga Setting sang Plataporma",
 			"description": "Mga default nga ginagamit sang tanan nga organisasyon.",
-			"listsTitle": "Mga Listahan",
-			"listsDescription": "Isá ka kadamu sang row kada pahina para sa tanan nga listahan. Ginagamit ini sang numbered pagination sa dashboard, tenant console kag platform console.",
-			"pageSizeLabel": "Mga row kada pahina",
-			"pageSizeHint": "Bug-os nga numero halin {min} hasta {max}. Ang default {default}.",
+			"tocTitle": "Mga Seksyon",
+			"tocLabel": "Mga seksyon sang konfigurasyon",
 			"reasonLabel": "Rason",
 			"reasonPlaceholder": "e.g. Para mabasa ang malawig nga audit log sa diutay nga screen",
 			"reasonHint": "Ginarekord sa platform audit log. Bisan 10 ka karakter.",
-			"save": "I-save ang kadamu sang pahina",
+			"save": "I-save",
 			"saving": "Ginasave…",
-			"saved": "Na-save ang kadamu sang pahina. Ang tanan nga listahan nagapakita na sang {value} ka row kada pahina.",
-			"invalid": "Pilia ang bug-os nga numero halin {min} hasta {max}.",
-			"failed": "Indi ma-save ang kadamu sang pahina."
+			"saved": "Na-save.",
+			"failed": "Indi ma-save ina nga setting.",
+			"readOnly": "Basa lamang",
+			"lists": {
+				"title": "Mga Listahan",
+				"description": "Isá ka kadamu sang row kada pahina para sa tanan nga listahan. Ginagamit ini sang numbered pagination sa dashboard, tenant console kag platform console.",
+				"pageSizeLabel": "Mga row kada pahina",
+				"pageSizeHint": "Bug-os nga numero halin {min} hasta {max}. Ang default {default}.",
+				"save": "I-save ang kadamu sang pahina",
+				"saving": "Ginasave…",
+				"saved": "Na-save ang kadamu sang pahina. Ang tanan nga listahan nagapakita na sang {value} ka row kada pahina.",
+				"invalid": "Pilia ang bug-os nga numero halin {min} hasta {max}.",
+				"failed": "Indi ma-save ang kadamu sang pahina."
+			},
+			"stickers": {
+				"title": "Mga Sticker",
+				"description": "Ang power rating nga ginaprinta sa kada sticker sang feeder. Ang isa ka print pwede pa gihapon i-override para sa amo lang nga print.",
+				"currentTitle": "Na-save nga default",
+				"none": "Wala sang na-save nga default. Ginagamit sang sticker ang numero sa hardware label.",
+				"ratingSummary": "{voltage} V · {hz} Hz · {amps} A · {va} VA",
+				"measuredOn": "Ginsukat gamit ang meter sang {date}.",
+				"estimated": "Ginbanabana halin sa hardware label; wala ginsukat gamit ang meter.",
+				"manageHint": "Ilisan ang default sa print page, diin makita ang live nga preview sang sticker.",
+				"manage": "Bukas ang mga device"
+			},
+			"ai": {
+				"title": "Mga AI provider",
+				"description": "Ang ginagamit nga modelo sang tanan nga organisasyon. Ang mga API key nabilin sa environment.",
+				"summary": "{enabled} sa {total} ka provider ang naka-enable.",
+				"openHint": "Ang order, modelo, effort kag enabled switch gina-manage sa AI providers page.",
+				"open": "I-manage ang AI providers"
+			},
+			"email": {
+				"title": "Email kag mga invite",
+				"description": "Kon makapadala bala sang invite kag reminder email. Ang presensya lang ang ginapakita diri; wala sang key ukon value nga ginapakita.",
+				"configured": "Naka-configure",
+				"notConfigured": "Wala naka-configure",
+				"resendLabel": "Resend API key",
+				"inviteFromLabel": "Variable sang invite sender",
+				"baseUrlLabel": "Base URL",
+				"reminderFromLabel": "Variable sang reminder sender",
+				"inviteSenderLabel": "Ginagamit nga invite sender",
+				"reminderSenderLabel": "Ginagamit nga reminder sender",
+				"noReminderSender": "Wala ginset — ginaskip ang reminder email",
+				"defaultSenderNote": "Ang invite sender nagabalik sa dokumentado nga default kon wala ginset ang variable.",
+				"inviteReady": "Handa ang mga invite",
+				"inviteNotReady": "Ginaskip ang mga invite",
+				"reminderReady": "Handa ang mga reminder",
+				"reminderNotReady": "Ginaskip ang mga reminder"
+			},
+			"safety": {
+				"title": "Mga safety cap sang pagpakaon",
+				"description": "Server-side nga ceiling para sa tanan nga feed command. Pwede lang ini ipaubos sa hard-coded maximum, indi pwede ipataas.",
+				"maxDispenseLabel": "Pinakalawig nga relay time (ms)",
+				"maxDispenseHint": "Bug-os nga millisecond halin {min} hasta {max}.",
+				"dailyCapLabel": "Factor sang adlaw-adlaw nga allowance",
+				"dailyCapHint": "Fraction halin {min} hasta {max} sang hard daily cap.",
+				"hardMaxNote": "Hard-coded maximum: {ms} ms kada dose kag factor nga {factor}. Ang reader permi nagagamit sang mas manubo sa setting kag hard maximum.",
+				"save": "I-save ang safety caps",
+				"saved": "Na-save ang safety cap sang pagpakaon.",
+				"invalid": "Tsekan ang duha ka value: dapat sa sulod sang allowed range."
+			},
+			"defaults": {
+				"title": "Mga default para sa bag-o nga organisasyon",
+				"description": "Mga value nga ginasuguran sang bag-o nga organisasyon kon wala ini kaugalingon nga settings row.",
+				"feedingRateLabel": "Default nga feeding rate (%)",
+				"feedingRateHint": "Halin {min}% hasta {max}%.",
+				"hopperLowLabel": "Threshold sang hopper-low (%)",
+				"hopperLowHint": "Bug-os nga porsyento halin {min} hasta {max}.",
+				"offlineLabel": "Delay sang offline alert (minuto)",
+				"offlineHint": "Bug-os nga minuto halin {min} hasta {max}.",
+				"missedFeedingLabel": "Maghimo sang missed-feeding alert bilang default",
+				"alertRolesLabel": "Mga role nga alertado",
+				"alertRolesHint": "Kinahanglan bisan isa ka role ang makabaton sang org alerts.",
+				"deviceRegistrationLabel": "Pagrehistro sang device",
+				"deviceRegistrationHint": "Admin approval nagapila sang bag-o nga feeder hasta aprobahan sang admin; self-register nagabaton dayon.",
+				"adminApproval": "Admin approval",
+				"selfRegister": "Self-register",
+				"save": "I-save ang mga default",
+				"saved": "Na-save ang mga default para sa bag-o nga organisasyon.",
+				"invalid": "Tsekan ang mga value kag pilia ang bisan isa ka alert role."
+			},
+			"firmware": {
+				"title": "Firmware kag OTA",
+				"description": "Read-only nga status sang signed remote-update channel.",
+				"storageConfigured": "Naka-configure ang storage",
+				"storageNotConfigured": "Wala naka-configure ang storage",
+				"releaseAvailable": "May release",
+				"noRelease": "Wala sang release",
+				"channelPathLabel": "Channel file",
+				"versionLabel": "Stable version",
+				"windowValue": "{start}–{end} local",
+				"readOnlyNote": "Ang mga release gina-sign offline kag ginaupload sa private firmware bucket. Wala sang ginatrigger nga update sa sini nga pahina."
+			},
+			"flags": {
+				"title": "Mga feature flag",
+				"description": "Platform-wide nga switch para sa mga feature nga pwede patyon nga wala sang deploy.",
+				"on": "On",
+				"off": "Off",
+				"save": "I-save ang flag",
+				"saved": "Na-save ang feature flag.",
+				"items": {
+					"assistantActions": {
+						"title": "Mga action sang assistant",
+						"description": "Pabay-i ang assistant magpropose sang feed, record kag admin actions. Wala sang magdalagan hasta batunon sang user."
+					},
+					"helpCentre": {
+						"title": "Help centre",
+						"description": "Ipakita ang help button kag ang guidance sa pahina."
+					}
+				}
+			}
 		},
 		"feedPct": "Feed %",
 		"orgDefaultRate": "Default sang org"

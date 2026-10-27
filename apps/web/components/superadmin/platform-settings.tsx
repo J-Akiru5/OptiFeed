@@ -1,7 +1,6 @@
 "use client";
 
 import {
-	CARD,
 	FIELD_HINT,
 	FIELD_INPUT,
 	FIELD_LABEL,
@@ -43,7 +42,7 @@ export function PlatformListSettings({
 		event.preventDefault();
 		const parsed = Number.parseInt(value, 10);
 		if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
-			toast.error(t("invalid", { min, max }));
+			toast.error(t("lists.invalid", { min, max }));
 			return;
 		}
 		setPending(true);
@@ -53,29 +52,24 @@ export function PlatformListSettings({
 				toast.error(result.error);
 				return;
 			}
-			toast.success(t("saved", { value: result.value }));
+			toast.success(t("lists.saved", { value: result.value }));
 			setReason("");
 			router.refresh();
 		} catch {
-			toast.error(t("failed"));
+			toast.error(t("lists.failed"));
 		} finally {
 			setPending(false);
 		}
 	};
 
 	return (
-		<section className="space-y-4">
-			<div>
-				<h2 className="text-lg font-black text-[#0A3D62]">{t("listsTitle")}</h2>
-				<p className="mt-1 max-w-3xl text-sm text-[#3D5568]">{t("listsDescription")}</p>
-			</div>
-
+		<div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
 			<form
 				onSubmit={handleSubmit}
-				className={`${CARD} grid gap-4 p-5 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] sm:items-end`}
+				className="grid gap-4 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] sm:items-end"
 			>
 				<label className="block">
-					<span className={FIELD_LABEL}>{t("pageSizeLabel")}</span>
+					<span className={FIELD_LABEL}>{t("lists.pageSizeLabel")}</span>
 					<input
 						type="number"
 						inputMode="numeric"
@@ -90,7 +84,7 @@ export function PlatformListSettings({
 						aria-describedby="platform-page-size-hint"
 					/>
 					<span id="platform-page-size-hint" className={`${FIELD_HINT} mt-1 block`}>
-						{t("pageSizeHint", { min, max, default: fallback })}
+						{t("lists.pageSizeHint", { min, max, default: fallback })}
 					</span>
 				</label>
 
@@ -118,9 +112,9 @@ export function PlatformListSettings({
 					className={`${PRIMARY_BUTTON} ${FOCUS_RING} sm:mb-5`}
 				>
 					{pending && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
-					{pending ? t("saving") : t("save")}
+					{pending ? t("lists.saving") : t("lists.save")}
 				</button>
 			</form>
-		</section>
+		</div>
 	);
 }

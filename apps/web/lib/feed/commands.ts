@@ -1,5 +1,6 @@
 import { OFFLINE_THRESHOLD_MS, STALE_DISPATCHED_MS } from "@/lib/constants";
-import { MAX_DISPENSE_MS, dailyFeedCapG, feedGramsSchema, formatZodError } from "@/lib/limits";
+import { dailyFeedCapG, feedGramsSchema, formatZodError } from "@/lib/limits";
+import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 /**
@@ -117,11 +118,17 @@ export async function createManualFeedRequest(
 		return { ok: false, code: "invalid_grams", error: formatZodError(gramsCheck.error) };
 	}
 
-	if (device.gramsPerSecond > 0 && feedGrams / device.gramsPerSecond > MAX_DISPENSE_MS / 1000) {
+	// Platform safety caps may only tighten the hard-coded maxima.
+	const limits = await getFeedingLimits();
+
+	if (
+		device.gramsPerSecond > 0 &&
+		feedGrams / device.gramsPerSecond > limits.maxDispenseMs / 1000
+	) {
 		return {
 			ok: false,
 			code: "dispense_too_long",
-			error: `Dose would need more than ${MAX_DISPENSE_MS / 1000} s of relay time at ${device.gramsPerSecond} g/s — reduce the feed amount.`,
+			error: `Dose would need more than ${limits.maxDispenseMs / 1000} s of relay time at ${device.gramsPerSecond} g/s — reduce the feed amount.`,
 		};
 	}
 
@@ -153,7 +160,7 @@ export async function createManualFeedRequest(
 		_sum: { grams: true },
 	});
 	const usedTodayG = today._sum.grams ?? 0;
-	const dailyCapG = dailyFeedCapG(device.hopperCapacityG);
+	const dailyCapG = dailyFeedCapG(device.hopperCapacityG, limits.dailyCapFactor);
 	if (usedTodayG + feedGrams > dailyCapG) {
 		return {
 			ok: false,

@@ -12,7 +12,6 @@ import {
 	CALIBRATION_TEST_SECONDS_MIN,
 	GRAMS_PER_SECOND_MAX,
 	GRAMS_PER_SECOND_MIN,
-	MAX_DISPENSE_MS,
 	OFFLINE_THRESHOLD_MS,
 	TARGET_CHECK_GRAMS_MAX,
 	TARGET_CHECK_GRAMS_MIN,
@@ -20,6 +19,7 @@ import {
 	dailyFeedCapG,
 } from "@/lib/limits";
 import prisma from "@/lib/prisma";
+import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import { revalidatePath } from "next/cache";
 
 export interface CalibrationTestResult {
@@ -273,6 +273,17 @@ export async function runCalibrationTest(
 			return { success: false, error: TEST_DOSE_RANGE_ERROR };
 		}
 
+		// The platform cap may shorten the allowed relay run; the test window is
+		// user-chosen, so refuse a window that no longer fits instead of quietly
+		// queueing a dose the server caps would reject elsewhere.
+		const limits = await getFeedingLimits();
+		if (testSeconds * 1000 > limits.maxDispenseMs) {
+			return {
+				success: false,
+				error: `The test dose would run longer than the ${limits.maxDispenseMs / 1000} s relay limit. Choose a shorter test.`,
+			};
+		}
+
 		const day = manilaDayRange();
 		const today = await prisma.feedRequest.aggregate({
 			where: {
@@ -283,7 +294,7 @@ export async function runCalibrationTest(
 			_sum: { grams: true },
 		});
 		const usedTodayG = today._sum.grams ?? 0;
-		const dailyCapG = dailyFeedCapG(device.hopperCapacityG);
+		const dailyCapG = dailyFeedCapG(device.hopperCapacityG, limits.dailyCapFactor);
 		if (usedTodayG + testGrams > dailyCapG) {
 			return {
 				success: false,
@@ -402,11 +413,12 @@ export async function runTargetCheck(
 		}
 
 		const checkGrams = round1(targetGrams);
+		const limits = await getFeedingLimits();
 		const durationMs = Math.round((checkGrams / device.gramsPerSecond) * 1000);
-		if (durationMs > MAX_DISPENSE_MS) {
+		if (durationMs > limits.maxDispenseMs) {
 			return {
 				success: false,
-				error: `That target needs more than ${MAX_DISPENSE_MS / 1000} s of relay time at ${device.gramsPerSecond} g/s. Enter a smaller target.`,
+				error: `That target needs more than ${limits.maxDispenseMs / 1000} s of relay time at ${device.gramsPerSecond} g/s. Enter a smaller target.`,
 			};
 		}
 
@@ -420,7 +432,7 @@ export async function runTargetCheck(
 			_sum: { grams: true },
 		});
 		const usedTodayG = today._sum.grams ?? 0;
-		const dailyCapG = dailyFeedCapG(device.hopperCapacityG);
+		const dailyCapG = dailyFeedCapG(device.hopperCapacityG, limits.dailyCapFactor);
 		if (usedTodayG + checkGrams > dailyCapG) {
 			return {
 				success: false,

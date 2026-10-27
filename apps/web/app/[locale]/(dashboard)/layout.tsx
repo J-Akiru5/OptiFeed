@@ -22,6 +22,7 @@ import { getViewAsState } from "@/lib/auth/view-as";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import { isFeatureEnabled } from "@/lib/settings/flags";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
 
@@ -30,7 +31,7 @@ export default async function DashboardLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	const [ownerId, currentUser, isTenantAdmin, isPlatformAdmin, viewAs, viewAsState] =
+	const [ownerId, currentUser, isTenantAdmin, isPlatformAdmin, viewAs, viewAsState, helpEnabled] =
 		await Promise.all([
 			getCurrentPondOwnerId(),
 			requirePasswordChanged(),
@@ -38,6 +39,7 @@ export default async function DashboardLayout({
 			isCurrentPlatformAdmin(),
 			getViewAsBanner(),
 			getViewAsState(),
+			isFeatureEnabled("help.centre"),
 		]);
 
 	// E18 (#199): a platform admin's home is the platform console. This runs
@@ -175,6 +177,7 @@ export default async function DashboardLayout({
 								lastSeenAt={lastSeenAtStr}
 								esp32Status={esp32Status}
 								isViewingAs={viewAsState.active}
+								helpEnabled={helpEnabled}
 								initialUser={
 									currentUser
 										? {

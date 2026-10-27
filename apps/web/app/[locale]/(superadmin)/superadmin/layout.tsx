@@ -3,10 +3,12 @@ import { HelpButton } from "@/components/help/help-button";
 import { SuperadminBottomNav } from "@/components/superadmin-bottom-nav";
 import { SuperadminSidebar } from "@/components/superadmin-sidebar";
 import { FOCUS_RING_ON_DARK } from "@/components/superadmin/ui";
+import { UserAvatar } from "@/components/user-avatar";
 import { Link } from "@/i18n/routing";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { requirePasswordChanged } from "@/lib/auth/session";
 import { hasActiveTenantMembership } from "@/lib/auth/tenant-membership";
+import { getSignedAvatarUrls } from "@/lib/avatars";
 import { isFeatureEnabled } from "@/lib/settings/flags";
 import { cn } from "@/lib/utils";
 import { getTranslations } from "next-intl/server";
@@ -30,11 +32,22 @@ export default async function SuperadminLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	const user = await requirePasswordChanged();
+	const currentUser = await requirePasswordChanged();
 	await requirePlatformAdmin();
-	const t = await getTranslations("superadmin.shell");
-	const hasFarmDashboard = await hasActiveTenantMembership(user.id);
-	const helpEnabled = await isFeatureEnabled("help.centre");
+	const [t, avatarUrls, hasFarmDashboard, helpEnabled] = await Promise.all([
+		getTranslations("superadmin.shell"),
+		getSignedAvatarUrls([{ id: currentUser.id, avatarPath: currentUser.avatarPath }]),
+		hasActiveTenantMembership(currentUser.id),
+		isFeatureEnabled("help.centre"),
+	]);
+	const avatar = (
+		<UserAvatar
+			src={avatarUrls[currentUser.id] ?? null}
+			name={currentUser.displayName ?? currentUser.farmId}
+			size="md"
+			className="rounded-full bg-[#E85A2A]"
+		/>
+	);
 
 	return (
 		<div className="flex min-h-screen flex-col bg-[#F4F7F6]">
@@ -81,6 +94,19 @@ export default async function SuperadminLayout({
 						>
 							{t("openFarmDashboard")}
 						</Link>
+					)}
+					{/* The profile page lives under /dashboard, which redirects platform admins
+					    without a farm back here (E18); link it only for those who have one. */}
+					{hasFarmDashboard ? (
+						<Link
+							href="/dashboard/settings/profile"
+							aria-label={t("profile")}
+							className={cn("rounded-full", FOCUS_RING_ON_DARK)}
+						>
+							{avatar}
+						</Link>
+					) : (
+						avatar
 					)}
 				</div>
 			</header>

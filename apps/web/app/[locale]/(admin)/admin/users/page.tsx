@@ -13,6 +13,7 @@ import {
 import { ItemCardGrid } from "@/components/ui/item-card";
 import { Pagination } from "@/components/ui/pagination";
 import { ListView } from "@/components/ui/view-toggle";
+import { UserAvatar } from "@/components/user-avatar";
 import { Link } from "@/i18n/routing";
 import { getUsers } from "@/lib/actions/admin";
 import { formatDateTimeLocal } from "@/lib/date-local";
@@ -109,14 +110,12 @@ export default async function AdminUsersPage({
 									<AdminTr key={user.id}>
 										<AdminTd>
 											<div className="flex items-center gap-3">
-												<div
-													aria-hidden="true"
-													className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#C2410C] text-xs font-black text-white"
-												>
-													{user.displayName
-														? user.displayName.slice(0, 2).toUpperCase()
-														: user.farmId.slice(0, 2).toUpperCase()}
-												</div>
+												<UserAvatar
+													src={user.avatarUrl}
+													name={user.displayName || user.farmId}
+													size="md"
+													className="rounded-xl bg-[#C2410C]"
+												/>
 												<div className="min-w-0">
 													<p className="font-black text-[#0A3D62] dark:text-gray-100">
 														{user.displayName || user.farmId}
@@ -170,14 +169,12 @@ export default async function AdminUsersPage({
 								<AdminCard key={user.id}>
 									<div className="flex items-start justify-between gap-3">
 										<div className="flex min-w-0 items-center gap-3">
-											<div
-												aria-hidden="true"
-												className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#C2410C] text-xs font-black text-white"
-											>
-												{user.displayName
-													? user.displayName.slice(0, 2).toUpperCase()
-													: user.farmId.slice(0, 2).toUpperCase()}
-											</div>
+											<UserAvatar
+												src={user.avatarUrl}
+												name={user.displayName || user.farmId}
+												size="md"
+												className="rounded-xl bg-[#C2410C]"
+											/>
 											<div className="min-w-0">
 												<p className="truncate font-black text-[#0A3D62] dark:text-gray-100">
 													{user.displayName || user.farmId}

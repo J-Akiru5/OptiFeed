@@ -10,6 +10,7 @@ import {
 	PRIMARY_BUTTON,
 	SECONDARY_BUTTON,
 } from "@/components/superadmin/ui";
+import { UserAvatar } from "@/components/user-avatar";
 import { useRouter } from "@/i18n/routing";
 import {
 	changeOrgMemberRole,
@@ -458,14 +459,24 @@ export function OrgMembersPanel({
 										className="border-b border-gray-50 align-top last:border-0"
 									>
 										<td className="px-4 py-3">
-											<div className="flex flex-wrap items-center gap-1.5">
-												<p className="font-black text-[#0A3D62]">{name}</p>
-												{member.isPlatformAdmin && (
-													<Badge tone="accent">{tCommon("platformAdmin")}</Badge>
-												)}
+											<div className="flex items-start gap-3">
+												<UserAvatar
+													src={member.avatarUrl}
+													name={name}
+													size="md"
+													className="mt-0.5 rounded-xl bg-[#0A3D62]"
+												/>
+												<div className="min-w-0">
+													<div className="flex flex-wrap items-center gap-1.5">
+														<p className="font-black text-[#0A3D62]">{name}</p>
+														{member.isPlatformAdmin && (
+															<Badge tone="accent">{tCommon("platformAdmin")}</Badge>
+														)}
+													</div>
+													<p className="text-[11px] text-[#3D5568]">{member.email}</p>
+													<p className="font-mono text-[10px] text-[#3D5568]">{member.farmId}</p>
+												</div>
 											</div>
-											<p className="text-[11px] text-[#3D5568]">{member.email}</p>
-											<p className="font-mono text-[10px] text-[#3D5568]">{member.farmId}</p>
 										</td>
 
 										<td className="px-4 py-3">

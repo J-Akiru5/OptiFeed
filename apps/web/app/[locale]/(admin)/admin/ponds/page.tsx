@@ -1,4 +1,4 @@
-import { adminButtonPrimary } from "@/components/admin/admin-classes";
+import { adminButtonPrimary, adminButtonSecondary } from "@/components/admin/admin-classes";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import {
@@ -92,7 +92,12 @@ export default async function AdminPondsPage({
 							{ponds.map((pond) => (
 								<AdminTr key={pond.id}>
 									<AdminTd>
-										<p className="font-black text-[#0A3D62] dark:text-gray-100">{pond.name}</p>
+										<Link
+											href={`/admin/ponds/${pond.id}`}
+											className="font-black text-[#0A3D62] underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:text-gray-100 dark:focus-visible:outline-[#8fc0ea]"
+										>
+											{pond.name}
+										</Link>
 										<p className="mt-0.5 font-mono text-[11px] text-[#3D5568] dark:text-gray-400">
 											{t("idLabel", { id: pond.id.slice(0, 12) })}
 										</p>
@@ -127,7 +132,12 @@ export default async function AdminPondsPage({
 										</p>
 									</AdminTd>
 									<AdminTd>
-										<PondStatusToggle pondId={pond.id} status={pond.status} />
+										<div className="flex flex-wrap items-center gap-2">
+											<Link href={`/admin/ponds/${pond.id}`} className={adminButtonSecondary}>
+												{t("viewDetails")}
+											</Link>
+											<PondStatusToggle pondId={pond.id} status={pond.status} />
+										</div>
 									</AdminTd>
 								</AdminTr>
 							))}
@@ -144,7 +154,12 @@ export default async function AdminPondsPage({
 									<div className="min-w-0">
 										<div className="flex min-w-0 flex-wrap items-center gap-2">
 											<h2 className="truncate text-lg font-black text-[#0A3D62] dark:text-gray-100">
-												{pond.name}
+												<Link
+													href={`/admin/ponds/${pond.id}`}
+													className="underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea]"
+												>
+													{pond.name}
+												</Link>
 											</h2>
 											<span
 												className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-black tracking-wider uppercase ${
@@ -211,7 +226,12 @@ export default async function AdminPondsPage({
 									<p className="text-[11px] font-bold text-[#3D5568] dark:text-gray-400">
 										{t("ownershipHistory", { count: pond._count.ownershipHistory })}
 									</p>
-									<PondStatusToggle pondId={pond.id} status={pond.status} />
+									<div className="flex flex-wrap items-center gap-2">
+										<Link href={`/admin/ponds/${pond.id}`} className={adminButtonSecondary}>
+											{t("viewDetails")}
+										</Link>
+										<PondStatusToggle pondId={pond.id} status={pond.status} />
+									</div>
 								</div>
 							</li>
 						))}

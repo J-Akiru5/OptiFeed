@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Firmware 1.5.0 (I-17): the setup AP name now follows the stored Device ID when it parses as a MAC (last four hex digits), falling back to the chip eFuse MAC before provisioning or for a non-MAC ID. The boot log prints both IDs and the resulting AP name.
+- Firmware 1.5.0 (I-17): the setup page scans nearby 2.4 GHz networks once at portal start, lists them strongest-first in a picker with a "type it manually" option, and notes that Wi-Fi names are case-sensitive.
+- Firmware 1.5.0 (I-17): relay polarity is a build flag (`-DRELAY_ACTIVE_LOW=0|1`, default active HIGH). Boot still forces the relay OFF in both modes.
+
+### Fixed
+
+- Firmware 1.5.0 (I-17): a short feed-button press is captured by a falling-edge interrupt (250 ms debounce, one pending press, 5 s boot grace) instead of a loop poll, so it is no longer lost during a blocking HTTPS call.
+- Firmware 1.5.0 (I-17): the 5 s network cycle feeds the 30 s task watchdog between every call and around each dispense, with explicit 8 s connect/read and handshake timeouts, so a slow link no longer resets the board with `task_wdt`.
+
+### Security
+
+- Firmware 1.5.0 (I-17): removed the compile-time placeholder Device ID and device token from the public firmware image. An unprovisioned unit logs `[IDENTITY] not provisioned - API disabled`, runs only the setup portal and keeps feeding locally, and sends no ingest, feed-command, schedule-sync or OTA request until an identity is provisioned.
+
 ## [1.13.0] - 2026-10-27
 
 ### Added

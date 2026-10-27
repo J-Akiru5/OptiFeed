@@ -81,10 +81,12 @@ pull-up, and the sketch uses neither.
 
 ## 6. Identity and token
 
-- Firmware default identity: token `esp32-tok-cict-001`, MAC `A4:CF:12:7E:3B:09`.
-- Seed expects `demo-device-token-001` — **these do not match**; the ingest route rejects a
-  mismatched token. Reveal the real token from **Admin → Devices** and provision it (portal
-  or identity flow) before expecting heartbeats to count.
+- Firmware 1.5.0 has **no default identity**: an unprovisioned unit logs
+  `[IDENTITY] not provisioned - API disabled`, only runs the setup portal, and sends no API
+  request. Provision the Device ID and token from **Admin → Devices** through the portal before
+  expecting heartbeats to count.
+- The seed's demo token (`demo-device-token-001`) is for local development only; never reuse it on
+  a real unit.
 - Provisioning/portal details: `docs/wifi-provisioning-plan.md`, `firmware/README.md`.
 
 ## 7. Environment notes

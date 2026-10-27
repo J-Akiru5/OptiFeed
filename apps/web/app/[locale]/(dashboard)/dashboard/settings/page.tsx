@@ -53,7 +53,7 @@ export default async function SettingsPage() {
 	];
 
 	return (
-		<div className="mx-auto max-w-4xl space-y-6 pb-20">
+		<div className="w-full space-y-6 pb-20">
 			<DashboardPageHeader title={t("title")} description={t("desc")} icon={Settings} />
 
 			{!writeAccess && (

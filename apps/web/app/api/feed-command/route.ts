@@ -1,6 +1,6 @@
 import { withApi } from "@/lib/api/instrumentation";
 import { REQUEST_EXPIRY_MS } from "@/lib/constants";
-import { verifyDeviceToken } from "@/lib/device-auth";
+import { isDeviceApproved, verifyDeviceToken } from "@/lib/device-auth";
 import {
 	BUTTON_FEED_GRAMS_MAX,
 	BUTTON_FEED_GRAMS_MIN,
@@ -61,6 +61,10 @@ export const GET = withApi(
 
 			if (!device || device.mac !== deviceId) {
 				return new Response("Unauthorized", { status: 401 });
+			}
+
+			if (!isDeviceApproved(device)) {
+				return new Response("Forbidden", { status: 403 });
 			}
 
 			// Lazy expiry: mark any pending requests older than 60s as expired.

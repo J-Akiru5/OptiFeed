@@ -4,8 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+- `applyGrowthPlanForPond` is no longer a browser-callable server action that trusted the caller's `ownerId`; a static guard test prevents regressions.
+- Device-token reveals are audited and rate limited.
 
 ## [Unreleased]
+
+## [1.12.0] - 2026-10-27
 
 ### Added
 
@@ -27,9 +31,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fallow-pond safety: harvesting or cancelling a cycle pauses the paired feeder and sets `Pond.isFallow`; feed, resume, and schedule changes are blocked until the next cycle starts.
 - Cycle-aware AI advice: the feed advisor and chat prompt receive grow-out day, days to harvest, target weight, projected biomass, and fallow state. The formula and safety clamps remain authoritative.
 - Open Graph and Twitter card metadata now serve a 1200×630 PakaonAI preview image at `/og.png`, using the current logo kit and updated capstone credits.
+- DPA/IRR-aligned Privacy Policy and Terms of Service at `/privacy` and `/terms`, with data-category, cookie/local-storage, subprocessor and retention tables; a research information and informed consent package for the 20 farmer and 10 IT professional respondents; and legal footer/login/profile links. The documents are published as version 1.0, effective 26 October 2026, with sitemap entries and indexable pages.
+- Pre-publication review PDFs for the University Legal Office: Privacy Policy, Terms of Service, and the research information and consent form.
+- Feed-rate calibration target check (#191): dispense a target dose through the normal feed path (daily cap, offline block, `MAX_DISPENSE_MS`), weigh it, and correct g/s from the error; pass at ±5 %, re-test otherwise. Every rate test and target check is a `CalibrationRun` with a session and attempt number, shown as a history table. Per-device recalibration interval with an overdue banner and a deduped reminder, and a rule-based drift detector (dispensed grams vs hopper drop, >15 %) surfaced on Hardware and in the AI chat context.
+- Numbered pagination on every list (#187), with one app-wide page size (default 20) set by the superadmin under Settings → Lists (audited). "Load more" is removed.
+- Org settings (#190): default feeding rate for new ponds; notification settings (hopper-low %, offline-alert delay, missed-feeding alerts, alert roles); and device registration (admin approval or self-register) with an "Add feeder" flow and a pending-approval queue. Device API routes refuse non-approved feeders with 403.
+- Google-Calendar-style calendar (#195, #196): drag to create/move/resize, Event vs Task, colours, daily/weekly/monthly recurrence, and 1 h / 1 day reminders (in-app + email).
+- Sticker rating override on the print page (#197): V/Hz/A/VA with live preview, per-print override in the URL, and a platform-admin default (`PlatformSetting` `sticker.rating`, audited).
+- Member permissions open on a dedicated page instead of a modal (#189).
+- Schema (additive, applied with `migrate deploy` after JSON backups): `PlatformSetting`, `OrgSetting`, `CalibrationRun`, `WaterTempLog`, `AssistantAction`, `EnergyDevice.approvalStatus/lastCalibratedAt/recalibrationIntervalDays`, and calendar fields on `PondEvent`. RLS deny-by-default on every new table.
+- `recharts` for interactive charts.
+- Pond charts (#188): feed dispensed per day over the last 30 days stacked by scheduled/dashboard/button, hopper level over 7 or 30 days on History, an average body-weight trend per sampling batch on Biomass Log, and a 24 h / 7 d water-temperature trend on the dashboard. Series are aggregated in PostgreSQL and scoped to the active pond's devices, rendered with the shared `components/charts` components (dark mode, `aria-label` summary, visually hidden data table, explicit empty state).
+- Superadmin configuration centre (I-14): the sectioned `/superadmin/settings` page now covers lists, sticker rating, AI providers, email/invite readiness (presence only, never a secret), feeding safety caps, defaults for new organizations, firmware/OTA status and feature flags. Every write is a platform action with a required reason and a `PlatformAuditLog` row stored in `PlatformSetting` (no schema change). Feeding caps can only be lowered below the hard-coded maxima and readers clamp with `min(setting, hardMax)`; organization defaults apply when an org has no settings row.
+- Assistant actions with Accept/Reject (#194): the model can only propose, through a server-defined tool catalogue, feeding changes (grams, meals/day, rate, pause/resume), Feed Now, records (biomass sample, calendar event/task, grow-out cycle, mark a task done), member invitations/roles/permissions, and platform suspend/restore or view-as. Every proposal is a 10-minute `AssistantAction` row with a zod-validated payload; Accept re-checks the caller, permissions and step-up, then runs the same server action the UI button uses (same caps, offline/fallow blocks and audit). Nothing runs without Accept. The tool list is filtered by role and permission.
+- Assistant guidance (#194): "take me to X" resolves only from the caller's help-centre destinations and highlights the real control with the help "Show me" engine, and the first message introduces the assistant by role (farmer, farm owner, platform admin). The mascot lives in one `components/assistant/mascot.tsx` slot with a placeholder pending Jeff's art (#193).
+- Power-rating sticker for every feeder (#174): 95 × 66 mm, 8 per A4, English only, with an SSID-only Wi-Fi QR (`PakaonAI-XXXX` from the chip eFuse MAC). It never contains a device token.
+- Superadmin device registry (#179, #183): register a feeder onto an org pond, rotate its token, print labels, and remote feed within the safety caps.
+- Superadmin god mode (#183): read-only view-as with a signed session and red banner; manage any org's members and permissions; step-up re-authentication for dangerous actions; reversible user disable.
+- Tenant RBAC in Admin → Settings (#183): invite members, change roles, grant or revoke per-member permissions, with last-owner protection.
+- Email invites through Resend from `invite@syntaxure.dev` (#183).
+- Remote firmware updates (#183): `/api/firmware/check` with ECDSA P-256 signed manifests in a private `firmware` bucket, `scripts/ota/sign-release.mjs`, and a firmware OTA client with rollback health check, a 10:00–15:00 window at least 20 min from feeds, and feed-button abort.
+- Firmware 1.4.0: Wi-Fi reset on GPIO 17 (5 s) and factory reset on GPIO 16 (10 s); server URLs on `pakaonai.syntaxure.dev`; `FW_VERSION` reported; zero sketch warnings on Arduino core 2.0.17.
+- Production E2E suite with isolated `e2e-` fixtures, guarded seed/cleanup scripts, and specs for auth, sticker print, registry, RBAC, view-as, remote-feed caps and offline PWA.
 
 ### Changed
 
+- Every user-facing "Batch / Batches / Saved Batches" is now "Sampling batch / Sampling batches" (#200), in English and in the Hiligaynon draft (term still needs native review). Labels only: the `batchLabel` column, the `/dashboard/log-sample/batches` route and the `batchLabel` CSV export header are unchanged.
+- The sitemap now uses the production domain and includes `/privacy` and `/terms` only after the legal documents are approved.
+- Platform admins land in the platform console, not on a farmer dashboard (#199): any `/dashboard*` route sends a platform admin who is not in an active view-as session to `/superadmin`, the profile menu shows "Platform admin" instead of "Pond Operator", and farmer pond chrome (pond name/selector, last synced, hopper widget) is hidden outside view-as. A platform admin who is also an active tenant member keeps a working farm dashboard through an "Open my farm dashboard" link in the console; read-only view-as is unchanged.
 - The web app renders the PakaonAI logo kit (fish-and-ring mark plus wordmark) in the landing header/footer and the admin and dashboard headers, replacing the inline SVG mark and the split `Opti`/`Feed` text lockup. `OptiFeedLogo` now takes a `variant` (`ondark`, `color`, `color-light`, `white`, `navy`) and serves the kit's PNG marks.
 - The login page is rebuilt as a focused split layout with a PakaonAI brand panel, remembered farm IDs, password reveal, inline validation, a language switch and dark mode. The field is now a normal password instead of a numeric-only PIN; legacy PINs still work once before the forced password change.
 - The landing page is rebuilt as a product-led SaaS page: a dark hero with an illustrative dashboard preview, a fixed-timer vs PakaonAI comparison, a scroll-driven feeding-loop explainer, wave transitions around the offline section, research and ISO/IEC 25010 cards, and a closing study-access CTA. Public copy now matches what the firmware and app actually do, with no SGR, L298N, power-reset or enforced feeding-window claims. PakaonAI branding now also covers the login, superadmin, chat assistant, onboarding tour and PDF/export labels.
@@ -39,6 +68,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The AI advisor is surfaced on the Dashboard home as well as Growth, and shows the grow-out timeline or a start-cycle/fallow call to action.
 - Device Telegram alerts in `/api/ingest` are scheduled after the response with `after()` instead of blocking the device request.
 - Device list lookups in the export routes are bounded with `take: 100`.
+- The farmer dashboard leads with the feeding schedule; the AI Feed Advisor follows it (#186). Onboarding tour cards are centred and stay inside the viewport (#185).
+- Farmer Settings pages use the full content width (#190).
+- UI/UX pass on admin, dashboard, superadmin and settings (responsive at 375 / 1280 px, AA contrast, 44 px targets); superadmin strings translated (Hiligaynon is a draft); offline PWA hardening (exactly-once replay, visible conflicts, feed commands never queued, cleared on sign-out).
+- Deployments: only `staging` (preview) and `main` (production) deploy; `develop` is never deployed (#182).
 
 ### Fixed
 
@@ -49,6 +82,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The forced password change is now enforced inside the shared tenant, platform, write and permission guards, so a flagged account cannot call a server action directly before changing its password.
 - The error normaliser reads a clone, so a conformant error body is not consumed before the client sees it.
 - Timeout errors are logged once and carry the specific `504 TIMEOUT` message; passthrough routes return a plain 504 body.
+- Offline feeders show their last-known hopper level, greyed, with the reading time, consistently on every screen, instead of a live-looking value or 0 % (#192).
+- Dashboard home, Schedule and Hardware settings checked the deprecated `Device` table, so ponds registered through the superadmin registry showed "No pond is assigned yet"; they now use `EnergyDevice`.
+- The missing `manage_crop_cycle` permission label (#189).
+- A double submit of the same calibration dose no longer compounds the g/s correction.
+- E2E cleanup keeps append-only platform audit rows and removes the rate-limit buckets the suite creates.
 - The dashboard hopper widget rests at 0% behind an "Offline" badge when the ESP32 stops checking in, instead of freezing on the last reported level (#100).
 - Dashboard cards keep their natural height instead of being stretched to match the tallest card in their row (#95).
 - The Biomass Sample History card hides its secondary columns below `lg`, so a phone no longer needs a horizontal scrollbar to read it (#94).

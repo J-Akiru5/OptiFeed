@@ -1,7 +1,8 @@
 "use client";
 
+import { ASSISTANT_NAME, Mascot } from "@/components/assistant/mascot";
 import { cn } from "@/lib/utils";
-import { Bot, ChevronDown, Loader2, Send, User, X } from "lucide-react";
+import { ChevronDown, Loader2, Send, User, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { ChatActionCard } from "./chat-action-card";
@@ -11,6 +12,7 @@ import { Markdown } from "./markdown";
 interface ChatConversationProps {
 	messages: ChatMessage[];
 	isStreaming: boolean;
+	chips: string[];
 	onSend: (content: string) => void;
 	onExecuteAction: (index: number) => void;
 	onCancelAction: (index: number) => void;
@@ -21,6 +23,7 @@ interface ChatConversationProps {
 export function ChatConversation({
 	messages,
 	isStreaming,
+	chips,
 	onSend,
 	onExecuteAction,
 	onCancelAction,
@@ -32,7 +35,6 @@ export function ChatConversation({
 	const [nearBottom, setNearBottom] = useState(true);
 	const scrollRef = useRef<HTMLDivElement>(null);
 
-	const chips = [t("suggestionSchedule"), t("suggestionPredict"), t("suggestionFcr")];
 	const last = messages[messages.length - 1];
 	const showTyping = isStreaming && (last?.role === "user" || last?.content === "");
 
@@ -66,8 +68,8 @@ export function ChatConversation({
 			{/* Header */}
 			<div className="flex items-center justify-between bg-[#0A3D62] px-4 py-3 text-white shrink-0">
 				<div className="flex items-center gap-2">
-					<Bot size={20} />
-					<h3 className="text-sm font-semibold">{t("title")}</h3>
+					<Mascot size={20} className="bg-white/10" />
+					<h3 className="text-sm font-semibold">{ASSISTANT_NAME}</h3>
 				</div>
 				<button
 					type="button"
@@ -97,10 +99,14 @@ export function ChatConversation({
 						<div
 							className={cn(
 								"flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-								m.role === "user" ? "bg-blue-100 text-blue-600" : "bg-gray-200 text-gray-600",
+								m.role === "user" ? "bg-blue-100 text-blue-600" : "",
 							)}
 						>
-							{m.role === "user" ? <User size={16} /> : <Bot size={16} />}
+							{m.role === "user" ? (
+								<User size={16} />
+							) : (
+								<Mascot size={16} className="bg-gray-200 text-[#0A3D62]" />
+							)}
 						</div>
 						<div
 							className={cn(
@@ -126,7 +132,7 @@ export function ChatConversation({
 				{showTyping && (
 					<div className="flex max-w-[85%] gap-2 self-start">
 						<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 text-gray-600">
-							<Bot size={16} />
+							<Mascot size={16} className="bg-gray-200 text-[#0A3D62]" />
 						</div>
 						<div className="flex items-center justify-center rounded-2xl rounded-tl-none border border-gray-100 bg-white px-4 py-3">
 							<Loader2 size={16} className="animate-spin text-gray-400" />

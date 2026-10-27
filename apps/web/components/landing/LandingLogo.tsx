@@ -20,7 +20,12 @@ export function LandingLogo({
 }) {
 	return (
 		<span className={cn("flex items-center gap-2.5", className)}>
-			<OptiFeedLogo size={size} variant="ondark" />
+			<span className="inline-flex dark:hidden">
+				<OptiFeedLogo size={size} variant="ondark" />
+			</span>
+			<span className="hidden dark:inline-flex">
+				<OptiFeedLogo size={size} variant="color-light" />
+			</span>
 			<Image
 				src="/pakaonai-logo-kit/png/pakaonai-wordmark-color.png"
 				alt=""

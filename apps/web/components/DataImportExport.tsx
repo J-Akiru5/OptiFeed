@@ -1,31 +1,37 @@
 "use client";
 
-import { ApiClientError, apiPost } from "@/lib/api-client";
 import {
-	EXPORT_LABELS,
-	type ExportableType,
-	buildFilename,
-	downloadCsv,
-	parseCsvString,
-} from "@/lib/csv";
+	dashboardButtonPrimary,
+	dashboardButtonSecondary,
+	dashboardField,
+} from "@/components/dashboard/dashboard-classes";
+import { ApiClientError, apiPost } from "@/lib/api-client";
+import { type ExportableType, buildFilename, downloadCsv } from "@/lib/csv";
 import { fetchJobArtifact, waitForJob } from "@/lib/jobs/client";
+import { cn } from "@/lib/utils";
 import { AlertCircle, CheckCircle2, Download, FileText, Upload, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
-type DataTypeOption = {
-	id: ExportableType;
-	label: string;
-};
+const DATA_TYPE_IDS: ExportableType[] = [
+	"biomass_logs",
+	"fish_samples",
+	"feed_events",
+	"fcr_reports",
+	"feed_level_logs",
+	"notifications",
+	"audit_events",
+];
 
-const DATA_TYPES: DataTypeOption[] = Object.entries(EXPORT_LABELS).map(([id, label]) => ({
-	id: id as ExportableType,
-	label,
-}));
+function useDataTypes() {
+	const t = useTranslations("dashboard.importExport");
+	return DATA_TYPE_IDS.map((id) => ({ id, label: t(`types.${id}`) }));
+}
 
 export function DataExportButton() {
 	const t = useTranslations("dashboard.importExport");
+	const dataTypes = useDataTypes();
 	const [open, setOpen] = useState(false);
 	const [selectedTypes, setSelectedTypes] = useState<Set<ExportableType>>(new Set());
 	const [exporting, setExporting] = useState(false);
@@ -43,10 +49,10 @@ export function DataExportButton() {
 	};
 
 	const selectAll = () => {
-		if (selectedTypes.size === DATA_TYPES.length) {
+		if (selectedTypes.size === dataTypes.length) {
 			setSelectedTypes(new Set());
 		} else {
-			setSelectedTypes(new Set(DATA_TYPES.map((dt) => dt.id)));
+			setSelectedTypes(new Set(dataTypes.map((dt) => dt.id)));
 		}
 	};
 
@@ -64,10 +70,10 @@ export function DataExportButton() {
 			);
 
 			const { downloadUrl } = await waitForJob(job.id);
-			if (!downloadUrl) throw new Error("The export is not ready.");
+			if (!downloadUrl) throw new Error(t("exportNotReady"));
 
 			const response = await fetchJobArtifact(downloadUrl);
-			if (!response.ok) throw new Error("Export download failed.");
+			if (!response.ok) throw new Error(t("exportDownloadFailed"));
 
 			if (single) {
 				const csv = await response.text();
@@ -97,22 +103,34 @@ export function DataExportButton() {
 			<button
 				type="button"
 				onClick={() => setOpen(true)}
-				className="flex items-center gap-2 bg-[#0A3D62] hover:bg-[#12588c] text-white font-bold py-2.5 px-4 rounded-xl text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
+				data-help="export-data"
+				className={cn(dashboardButtonPrimary, "w-full sm:w-auto")}
 			>
-				<Download className="w-4 h-4" /> {t("export")}
+				<Download aria-hidden="true" className="h-4 w-4" /> {t("export")}
 			</button>
 
 			{open && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-					<div className="bg-white rounded-3xl p-6 max-w-lg w-full mx-4 shadow-2xl max-h-[80vh] overflow-y-auto">
-						<div className="flex items-center justify-between mb-6">
-							<h3 className="text-lg font-black text-[#0A3D62]">{t("exportTitle")}</h3>
+				<dialog
+					open
+					aria-modal="true"
+					aria-labelledby="export-dialog-title"
+					className="fixed inset-0 z-50 m-0 flex h-full max-h-none w-full max-w-none items-center justify-center border-0 bg-black/50 p-4"
+				>
+					<div className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl dark:bg-gray-900 sm:p-6">
+						<div className="mb-6 flex items-center justify-between gap-4">
+							<h2
+								id="export-dialog-title"
+								className="text-lg font-black text-[#0A3D62] dark:text-[#5b9bd5]"
+							>
+								{t("exportTitle")}
+							</h2>
 							<button
 								type="button"
 								onClick={() => setOpen(false)}
-								className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
+								aria-label={t("close")}
+								className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-[#3D5568] transition-colors hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3D62] dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus-visible:ring-[#8fc0ea]"
 							>
-								<X className="w-4 h-4 text-gray-500" />
+								<X aria-hidden="true" className="h-4 w-4" />
 							</button>
 						</div>
 
@@ -120,26 +138,31 @@ export function DataExportButton() {
 							<button
 								type="button"
 								onClick={selectAll}
-								className="text-xs font-bold text-[#E85A2A] hover:underline"
+								className="inline-flex min-h-11 items-center text-xs font-black text-[#C2410C] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3D62] dark:text-[#ff8a5c] dark:focus-visible:ring-[#8fc0ea]"
 							>
-								{selectedTypes.size === DATA_TYPES.length ? t("deselectAll") : t("selectAll")}
+								{selectedTypes.size === dataTypes.length ? t("deselectAll") : t("selectAll")}
 							</button>
 						</div>
 
-						<div className="space-y-2 mb-6">
-							{DATA_TYPES.map((dt) => (
+						<div className="mb-6 space-y-2">
+							{dataTypes.map((dt) => (
 								<label
 									key={dt.id}
-									className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:bg-[#F4F7F6] cursor-pointer transition-colors"
+									className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-gray-200 p-3 transition-colors hover:bg-[#F4F7F6] dark:border-gray-700 dark:hover:bg-gray-800"
 								>
 									<input
 										type="checkbox"
 										checked={selectedTypes.has(dt.id)}
 										onChange={() => toggleType(dt.id)}
-										className="w-4 h-4 rounded border-gray-300 text-[#E85A2A] focus:ring-[#E85A2A]"
+										className="h-4 w-4 rounded border-gray-300 text-[#C2410C] focus:ring-[#0A3D62] dark:border-gray-600"
 									/>
-									<FileText className="w-4 h-4 text-[#3D5568]" />
-									<span className="text-sm font-semibold text-[#0A3D62]">{dt.label}</span>
+									<FileText
+										aria-hidden="true"
+										className="h-4 w-4 text-[#3D5568] dark:text-gray-400"
+									/>
+									<span className="text-sm font-bold text-[#0A3D62] dark:text-gray-100">
+										{dt.label}
+									</span>
 								</label>
 							))}
 						</div>
@@ -148,9 +171,9 @@ export function DataExportButton() {
 							type="button"
 							onClick={handleExport}
 							disabled={selectedTypes.size === 0 || exporting}
-							className="w-full bg-[#E85A2A] hover:bg-[#d14e22] text-white font-bold py-3 px-6 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+							className={cn(dashboardButtonPrimary, "w-full")}
 						>
-							<Download className="w-4 h-4" />
+							<Download aria-hidden="true" className="w-4 h-4" />
 							{exporting
 								? t("exporting")
 								: selectedTypes.size > 1
@@ -158,7 +181,7 @@ export function DataExportButton() {
 									: t("downloadCsv")}
 						</button>
 					</div>
-				</div>
+				</dialog>
 			)}
 		</>
 	);
@@ -166,6 +189,7 @@ export function DataExportButton() {
 
 export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 	const t = useTranslations("dashboard.importExport");
+	const dataTypes = useDataTypes();
 	const [open, setOpen] = useState(false);
 	const [type, setType] = useState<ExportableType>("biomass_logs");
 	const [file, setFile] = useState<File | null>(null);
@@ -224,29 +248,41 @@ export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 				type="button"
 				onClick={() => setOpen(true)}
 				disabled={!canWrite}
-				className="flex items-center gap-2 bg-white border border-gray-200 hover:bg-[#F4F7F6] text-[#0A3D62] font-bold py-2.5 px-4 rounded-xl text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] disabled:opacity-50"
+				data-help="history-import"
+				className={cn(dashboardButtonSecondary, "w-full sm:w-auto")}
 			>
-				<Upload className="w-4 h-4" /> {t("import")}
+				<Upload aria-hidden="true" className="w-4 h-4" /> {t("import")}
 			</button>
 
 			{open && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-					<div className="bg-white rounded-3xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[80vh] overflow-y-auto">
-						<div className="flex items-center justify-between mb-6">
-							<h3 className="text-lg font-black text-[#0A3D62]">{t("importTitle")}</h3>
+				<dialog
+					open
+					aria-modal="true"
+					aria-labelledby="import-dialog-title"
+					className="fixed inset-0 z-50 m-0 flex h-full max-h-none w-full max-w-none items-center justify-center border-0 bg-black/50 p-4"
+				>
+					<div className="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl dark:bg-gray-900 sm:p-6">
+						<div className="mb-6 flex items-center justify-between gap-4">
+							<h2
+								id="import-dialog-title"
+								className="text-lg font-black text-[#0A3D62] dark:text-[#5b9bd5]"
+							>
+								{t("importTitle")}
+							</h2>
 							<button
 								type="button"
 								onClick={() => setOpen(false)}
-								className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
+								aria-label={t("close")}
+								className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-[#3D5568] transition-colors hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3D62] dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus-visible:ring-[#8fc0ea]"
 							>
-								<X className="w-4 h-4 text-gray-500" />
+								<X aria-hidden="true" className="h-4 w-4" />
 							</button>
 						</div>
 
 						<div className="mb-4">
 							<label
 								htmlFor="import-type"
-								className="block text-xs font-bold text-[#3D5568] uppercase tracking-wider mb-1.5"
+								className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[#3D5568] dark:text-gray-300"
 							>
 								{t("dataType")}
 							</label>
@@ -259,9 +295,9 @@ export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 									setPreview(null);
 									setErrors([]);
 								}}
-								className="w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-4 py-3 text-sm font-semibold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/50 transition-all"
+								className={dashboardField}
 							>
-								{DATA_TYPES.map((dt) => (
+								{dataTypes.map((dt) => (
 									<option key={dt.id} value={dt.id}>
 										{dt.label}
 									</option>
@@ -272,7 +308,7 @@ export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 						<div className="mb-4">
 							<label
 								htmlFor="import-file"
-								className="block text-xs font-bold text-[#3D5568] uppercase tracking-wider mb-1.5"
+								className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[#3D5568] dark:text-gray-300"
 							>
 								{t("selectFile")}
 							</label>
@@ -282,25 +318,31 @@ export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 								type="file"
 								accept=".csv"
 								onChange={handleFileChange}
-								className="w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-4 py-3 text-sm font-semibold text-[#0A3D62] file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-[#E85A2A] file:text-white file:font-bold file:text-sm"
+								className="w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-4 py-3 text-sm font-bold text-[#0A3D62] file:mr-4 file:rounded-lg file:border-0 file:bg-[#C2410C] file:px-3 file:py-1 file:text-sm file:font-bold file:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3D62] dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus-visible:ring-[#8fc0ea]"
 							/>
 						</div>
 
 						{errors.length > 0 && (
-							<div className="mb-4 p-4 bg-red-50 rounded-2xl border border-red-200">
-								<div className="flex items-center gap-2 mb-2">
-									<AlertCircle className="w-4 h-4 text-red-600" />
-									<span className="text-sm font-bold text-red-600">
+							<div
+								role="alert"
+								className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-500/25 dark:bg-red-500/10"
+							>
+								<div className="mb-2 flex items-center gap-2">
+									<AlertCircle
+										aria-hidden="true"
+										className="h-4 w-4 text-[#C42B3A] dark:text-red-300"
+									/>
+									<span className="text-sm font-bold text-[#C42B3A] dark:text-red-200">
 										{t("validationErrors", { count: errors.length })}
 									</span>
 								</div>
-								<div className="space-y-1 max-h-32 overflow-y-auto">
+								<div className="max-h-32 space-y-1 overflow-y-auto">
 									{errors.slice(0, 10).map((err) => (
 										<p
 											key={`${err.row}-${err.field}-${err.message}`}
-											className="text-xs text-red-500"
+											className="text-xs text-[#C42B3A] dark:text-red-200"
 										>
-											Row {err.row}: {err.field} — {err.message}
+											{t("rowError", { row: err.row, field: err.field, message: err.message })}
 										</p>
 									))}
 								</div>
@@ -309,25 +351,33 @@ export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 
 						{preview && preview.length > 0 && (
 							<div className="mb-4">
-								<p className="text-xs font-bold text-[#3D5568] uppercase tracking-wider mb-2">
+								<p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#3D5568] dark:text-gray-300">
 									{t("preview", { count: preview.length })}
 								</p>
-								<div className="overflow-x-auto rounded-xl border border-gray-200">
-									<table className="w-full text-xs text-left">
-										<thead className="bg-gray-50">
+								<div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
+									<table className="w-full text-left text-xs">
+										<caption className="sr-only">{t("previewTableLabel")}</caption>
+										<thead className="bg-gray-50 dark:bg-gray-800">
 											<tr>
 												{Object.keys(preview[0]).map((key) => (
-													<th key={key} className="px-3 py-2 font-bold text-[#3D5568]">
+													<th
+														key={key}
+														scope="col"
+														className="px-3 py-2 font-bold text-[#3D5568] dark:text-gray-300"
+													>
 														{key}
 													</th>
 												))}
 											</tr>
 										</thead>
-										<tbody className="divide-y divide-gray-100">
+										<tbody className="divide-y divide-gray-100 dark:divide-gray-800">
 											{preview.map((row, i) => (
-												<tr key={`row-${i}-${JSON.stringify(row)}`} className="hover:bg-gray-50">
+												<tr
+													key={`row-${i}-${JSON.stringify(row)}`}
+													className="hover:bg-gray-50 dark:hover:bg-gray-800/60"
+												>
 													{Object.entries(row).map(([col, val]) => (
-														<td key={col} className="px-3 py-2 text-[#0A3D62]">
+														<td key={col} className="px-3 py-2 text-[#0A3D62] dark:text-gray-100">
 															{String(val ?? "")}
 														</td>
 													))}
@@ -343,18 +393,18 @@ export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 							type="button"
 							onClick={handleImport}
 							disabled={!file || errors.length > 0 || importing}
-							className="w-full bg-[#E85A2A] hover:bg-[#d14e22] text-white font-bold py-3 px-6 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+							className={cn(dashboardButtonPrimary, "w-full")}
 						>
 							{importing ? (
 								t("importing")
 							) : (
 								<>
-									<CheckCircle2 className="w-4 h-4" /> {t("confirmImport")}
+									<CheckCircle2 aria-hidden="true" className="w-4 h-4" /> {t("confirmImport")}
 								</>
 							)}
 						</button>
 					</div>
-				</div>
+				</dialog>
 			)}
 		</>
 	);

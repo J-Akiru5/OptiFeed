@@ -1,6 +1,23 @@
 import { DataExportButton, DataImportDialog } from "@/components/DataImportExport";
 import { FcrCalculator } from "@/components/FcrCalculator";
 import { FeedingPredictionCard } from "@/components/FeedingPredictionCard";
+import {
+	DashboardCard,
+	DashboardCardList,
+	DashboardCardRow,
+	DashboardTHead,
+	DashboardTable,
+	DashboardTd,
+	DashboardTh,
+	DashboardTr,
+} from "@/components/dashboard/dashboard-table";
+import {
+	DashboardEmptyState,
+	DashboardPageHeader,
+	DashboardSection,
+	ReadOnlyNotice,
+	dashboardSectionLink,
+} from "@/components/dashboard/dashboard-ui";
 import { GrowthPlanCard } from "@/components/growth/GrowthPlanCard";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
@@ -24,18 +41,23 @@ const PREVIEW_ROWS = 5;
 const GROWTH_PREVIEW_ROWS = 6;
 
 export default async function GrowthPage() {
-	const [t, tSch, tHarvest, tDates, pond] = await Promise.all([
+	const [t, tSch, tHarvest, tDates, tCommon, pond] = await Promise.all([
 		getTranslations("dashboard.growth"),
 		getTranslations("dashboard.schedule"),
 		getTranslations("dashboard.harvest.summary"),
 		getTranslations("dates"),
+		getTranslations("dashboard.common"),
 		getActivePond(),
 	]);
 
 	if (!pond) {
 		return (
-			<div className="flex h-[50vh] items-center justify-center">
-				<p className="text-lg text-gray-500 dark:text-gray-400">{tSch("noPondData")}</p>
+			<div className="mx-auto max-w-2xl py-10">
+				<DashboardEmptyState
+					icon={Fish}
+					title={tSch("noPondData")}
+					description={tSch("noDeviceDesc")}
+				/>
 			</div>
 		);
 	}
@@ -215,22 +237,28 @@ export default async function GrowthPage() {
 				data={growthSnapshot}
 			/>
 			{/* Header with import/export buttons */}
-			<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-				<div>
-					<h1 className="text-3xl font-extrabold tracking-tight text-[var(--ofd-base-deep)]">
-						{t("title")}
-					</h1>
-					<p className="text-gray-500 dark:text-gray-400 mt-1">{t("desc", { pond: pond.name })}</p>
-				</div>
-				<div className="flex items-center gap-3">
-					<DataImportDialog canWrite={writeAccess} />
-					<DataExportButton />
-				</div>
-			</div>
+			<DashboardPageHeader
+				icon={TrendingUp}
+				title={t("title")}
+				description={t("desc", { pond: pond.name })}
+				actions={
+					<>
+						<DataImportDialog canWrite={writeAccess} />
+						<DataExportButton />
+					</>
+				}
+			/>
+
+			{!writeAccess && (
+				<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
+			)}
 
 			{/* FCR big glance box from Prototype */}
-			<div className="bg-[#0A3D62] text-white p-6 md:p-8 rounded-[32px] shadow-lg relative overflow-hidden">
-				<div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full translate-x-12 -translate-y-12" />
+			<div className="bg-[#0A3D62] text-white p-6 md:p-8 rounded-3xl shadow-lg relative overflow-hidden">
+				<div
+					aria-hidden="true"
+					className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full translate-x-12 -translate-y-12"
+				/>
 				<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
 					<div>
 						<span className="text-xs uppercase font-extrabold text-blue-200 tracking-wider">
@@ -287,9 +315,9 @@ export default async function GrowthPage() {
 					</div>
 					<Link
 						href="/dashboard/harvest"
-						className="inline-flex items-center gap-1 text-xs font-bold text-[#0A3D62] hover:underline dark:text-[#5b9bd5]"
+						className="inline-flex min-h-11 items-center gap-1 rounded-lg text-xs font-bold text-[#0A3D62] hover:underline focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:text-[#5b9bd5] dark:focus-visible:outline-[#8fc0ea]"
 					>
-						{tHarvest("progress")} <ChevronRight className="h-3.5 w-3.5" />
+						{tHarvest("progress")} <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
 					</Link>
 				</div>
 			)}
@@ -300,10 +328,10 @@ export default async function GrowthPage() {
 
 			{/* AI Feeding Prediction / fallow state */}
 			{pond.isFallow ? (
-				<div className="flex flex-col gap-4 rounded-[32px] border border-dashed border-[#0A3D62]/20 bg-white p-6 dark:border-white/10 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
+				<div className="flex flex-col gap-4 rounded-3xl border border-dashed border-[#0A3D62]/20 bg-white p-6 dark:border-white/10 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
 					<div className="flex items-start gap-3">
 						<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
-							<Wheat className="h-6 w-6" />
+							<Wheat aria-hidden="true" className="h-6 w-6" />
 						</div>
 						<div>
 							<p className="text-sm font-black text-gray-900 dark:text-gray-100">
@@ -316,9 +344,9 @@ export default async function GrowthPage() {
 					</div>
 					<Link
 						href="/dashboard/harvest"
-						className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] dark:bg-[#1f66a0]"
+						className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-[#1f66a0] dark:focus-visible:outline-[#8fc0ea]"
 					>
-						{tHarvest("startCycle")} <ChevronRight className="h-4 w-4" />
+						{tHarvest("startCycle")} <ChevronRight aria-hidden="true" className="h-4 w-4" />
 					</Link>
 				</div>
 			) : (
@@ -335,27 +363,27 @@ export default async function GrowthPage() {
 			{/* FCR Calculator */}
 			<FcrCalculator latestFcr={latestFcr} />
 
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-6" data-help="growth-charts">
 				{/* Latest ABW Card */}
 				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex flex-col justify-between relative overflow-hidden">
 					<div className="flex justify-between items-start mb-4 relative z-10">
 						<div>
-							<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+							<p className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
 								{t("latestAbw")}
 							</p>
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
 								{(latestBiomass * 1000).toFixed(1)}{" "}
-								<span className="text-lg text-gray-400 font-medium">g</span>
+								<span className="text-lg text-gray-500 font-medium">g</span>
 							</p>
 							{biomassGrowthPct > 0 && (
-								<p className="text-sm text-green-600 font-medium mt-1 flex items-center gap-1">
-									<TrendingUp className="h-4 w-4" />{" "}
+								<p className="text-sm text-green-700 font-medium mt-1 flex items-center gap-1">
+									<TrendingUp aria-hidden="true" className="h-4 w-4" />{" "}
 									{t("vsLastSample", { pct: biomassGrowthPct.toFixed(1) })}
 								</p>
 							)}
 						</div>
 						<div className="h-14 w-14 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center">
-							<Fish className="h-7 w-7" />
+							<Fish aria-hidden="true" className="h-7 w-7" />
 						</div>
 					</div>
 
@@ -368,6 +396,7 @@ export default async function GrowthPage() {
 							role="img"
 							aria-label={t("biomassChartLabel")}
 						>
+							<title>{t("biomassChartLabel")}</title>
 							<defs>
 								<linearGradient id="bioGrad" x1="0" y1="0" x2="0" y2="1">
 									<stop offset="0%" stopColor="var(--ofd-action)" stopOpacity="0.2" />
@@ -401,6 +430,13 @@ export default async function GrowthPage() {
 								);
 							})}
 						</svg>
+						<span className="sr-only">
+							{t("chartSummary", {
+								count: biomassLogs.length,
+								latest: (latestBiomass * 1000).toFixed(1),
+								fcr: latestFcr.toFixed(2),
+							})}
+						</span>
 					</div>
 				</div>
 
@@ -408,32 +444,32 @@ export default async function GrowthPage() {
 				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex flex-col justify-between">
 					<div className="flex justify-between items-start mb-4">
 						<div>
-							<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+							<p className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
 								{t("currentFcr")}
 							</p>
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
 								{latestFcr.toFixed(2)}
 							</p>
-							<p className="text-sm text-green-600 font-medium mt-1 flex items-center gap-1">
-								{t("trendingDown")} <Activity className="h-4 w-4" />
+							<p className="text-sm text-green-700 font-medium mt-1 flex items-center gap-1">
+								{t("trendingDown")} <Activity aria-hidden="true" className="h-4 w-4" />
 							</p>
 						</div>
 						<div className="h-14 w-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
-							<Scale className="h-7 w-7" />
+							<Scale aria-hidden="true" className="h-7 w-7" />
 						</div>
 					</div>
 
 					{/* FCR Bar Chart (Tailwind CSS) */}
-					<div className="mt-4 flex items-end justify-between h-24 gap-2">
+					<div className="mt-4 flex items-end justify-between h-24 gap-2" aria-hidden="true">
 						{fcrReports.map((report) => {
 							const maxFcr = Math.max(...fcrReports.map((r) => r.fcrValue), 2.5);
 							const heightPct = (report.fcrValue / maxFcr) * 100;
 							return (
 								<div
 									key={report.id}
-									className="flex-1 flex flex-col justify-end items-center group cursor-pointer"
+									className="flex-1 flex flex-col justify-end items-center group"
 								>
-									<div className="text-xs font-bold text-gray-400 mb-1 opacity-0 group-hover:opacity-100 transition-opacity">
+									<div className="text-xs font-bold text-gray-600 dark:text-gray-300 mb-1">
 										{report.fcrValue.toFixed(2)}
 									</div>
 									<div
@@ -445,13 +481,20 @@ export default async function GrowthPage() {
 											style={{ height: "4px" }}
 										/>
 									</div>
-									<div className="text-xs text-gray-400 mt-2 font-medium">
+									<div className="text-xs text-gray-500 dark:text-gray-400 mt-2 font-medium">
 										{formatDate(report.periodEnd)}
 									</div>
 								</div>
 							);
 						})}
 					</div>
+					<span className="sr-only">
+						{t("chartSummary", {
+							count: fcrReports.length,
+							latest: (latestBiomass * 1000).toFixed(1),
+							fcr: latestFcr.toFixed(2),
+						})}
+					</span>
 				</div>
 			</div>
 
@@ -460,12 +503,14 @@ export default async function GrowthPage() {
 				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50">
 					<div className="flex items-center justify-between mb-4">
 						<div>
-							<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+							<h2 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
 								{t("feedLevelTitle")}
+							</h2>
+							<p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+								{t("feedLevelDesc")}
 							</p>
-							<p className="text-xs text-gray-400 mt-0.5">{t("feedLevelDesc")}</p>
 						</div>
-						<Package className="h-6 w-6 text-orange-500" />
+						<Package aria-hidden="true" className="h-6 w-6 text-orange-600" />
 					</div>
 					<div className="h-24 w-full relative">
 						<svg
@@ -475,6 +520,7 @@ export default async function GrowthPage() {
 							role="img"
 							aria-label={t("feedLevelTitle")}
 						>
+							<title>{t("feedLevelTitle")}</title>
 							<defs>
 								<linearGradient id="feedLevelGrad" x1="0" y1="0" x2="0" y2="1">
 									<stop offset="0%" stopColor="#f97316" stopOpacity="0.2" />
@@ -511,6 +557,12 @@ export default async function GrowthPage() {
 									);
 								})}
 						</svg>
+						<span className="sr-only">
+							{t("feedChartSummary", {
+								count: feedLevelLogs.length,
+								latest: Math.round(feedLevelLogs[feedLevelLogs.length - 1]?.levelPercent ?? 0),
+							})}
+						</span>
 					</div>
 				</div>
 			)}
@@ -518,21 +570,23 @@ export default async function GrowthPage() {
 			{/* Feed Level Log preview */}
 			<div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 				{energyDevice && feedLevelPreview.length > 0 && (
-					<div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden">
-						<div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/50 p-6 dark:border-gray-700/50 dark:bg-gray-800/50">
-							<h3 className="font-bold text-gray-800 dark:text-gray-100">
-								{t("feedLevelTableTitle")}
-							</h3>
-							<Link
-								href="/dashboard/growth/history?tab=feed"
-								className="text-sm font-bold text-[var(--ofd-base-deep)] hover:underline"
-							>
+					<DashboardSection
+						icon={Package}
+						title={t("feedLevelTableTitle")}
+						action={
+							<Link href="/dashboard/growth/history?tab=feed" className={dashboardSectionLink}>
 								{t("viewAll")}
+								<ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
 							</Link>
-						</div>
-						<div className="divide-y divide-gray-100 px-6 dark:divide-gray-700/50">
+						}
+						flush
+					>
+						<ul
+							aria-label={t("feedLevelTableCaption")}
+							className="divide-y divide-gray-100 px-4 dark:divide-gray-700/50 sm:px-6"
+						>
 							{feedLevelPreview.map((log) => (
-								<div key={log.id} className="flex items-center justify-between py-3.5">
+								<li key={log.id} className="flex items-center justify-between gap-3 py-3.5">
 									<div className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
 										{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
 									</div>
@@ -552,222 +606,263 @@ export default async function GrowthPage() {
 									<div className="font-mono text-gray-600 dark:text-gray-300">
 										{log.distanceCm.toFixed(1)} cm
 									</div>
-								</div>
+								</li>
 							))}
-						</div>
-					</div>
+						</ul>
+					</DashboardSection>
 				)}
 
 				{/* Growth Summary Table */}
 				{growthRows.length >= 2 && (
-					<div className="@container bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden">
-						<div className="flex items-start justify-between gap-3 border-b border-gray-100 bg-gray-50/50 p-6 dark:border-gray-700/50 dark:bg-gray-800/50">
-							<div>
-								<h3 className="font-bold text-gray-800 dark:text-gray-100">{t("summaryTitle")}</h3>
-								<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t("summaryDesc")}</p>
-							</div>
+					<DashboardSection
+						title={t("summaryTitle")}
+						description={t("summaryDesc")}
+						action={
 							<Link
 								href="/dashboard/growth/history?tab=growth"
-								className="text-sm font-bold text-[var(--ofd-base-deep)] hover:underline"
+								data-help="growth-history"
+								className={dashboardSectionLink}
 							>
 								{t("viewAll")}
+								<ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
 							</Link>
-						</div>
-						<div className="overflow-x-auto">
-							<table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
-								<thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 uppercase text-xs font-semibold">
-									<tr>
-										<th className="px-3 py-3 lg:px-4">{t("dateCol")}</th>
-										<th className="px-3 py-3 text-right lg:px-4">
-											{t("history.columns.avgWeight")}
-										</th>
-										<th className="px-3 py-3 text-right lg:px-4">{t("avgLengthCol")}</th>
-										<th className="px-3 py-3 text-right lg:px-4">
-											{t("history.columns.weightGain")}
-										</th>
-										<th className="px-3 py-3 text-right lg:px-4">
-											{t("history.columns.lengthGain")}
-										</th>
-										<th className="px-3 py-3 text-right hidden @[560px]:table-cell lg:px-4">
-											{t("history.columns.daysSince")}
-										</th>
-									</tr>
-								</thead>
-								<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-									{growthRows
-										.slice(0, GROWTH_PREVIEW_ROWS)
-										.map(({ log, weightGain, lengthGain, daysSinceLast }) => (
-											<tr
-												key={log.id}
-												className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-											>
-												<td className="px-3 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap lg:px-4">
-													{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
-												</td>
-												<td className="px-3 py-3 text-right lg:px-4">
-													{(log.avgWeightKg * 1000).toFixed(1)}
-												</td>
-												<td className="px-3 py-3 text-right lg:px-4">
-													{log.sampleLengthCm.toFixed(1)}
-												</td>
-												<td className="px-3 py-3 text-right font-bold lg:px-4">
-													{weightGain !== null ? (
-														<span className={weightGain >= 0 ? "text-green-600" : "text-red-500"}>
-															{weightGain >= 0 ? "+" : ""}
-															{weightGain.toFixed(1)}
-														</span>
-													) : (
-														<span className="text-gray-400">—</span>
-													)}
-												</td>
-												<td className="px-3 py-3 text-right font-bold lg:px-4">
-													{lengthGain !== null ? (
-														<span className={lengthGain >= 0 ? "text-green-600" : "text-red-500"}>
-															{lengthGain >= 0 ? "+" : ""}
-															{lengthGain.toFixed(1)}
-														</span>
-													) : (
-														<span className="text-gray-400">—</span>
-													)}
-												</td>
-												<td className="px-3 py-3 text-right hidden @[560px]:table-cell lg:px-4">
-													{daysSinceLast !== null ? (
-														<span className="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full">
-															{daysSinceLast}d
-														</span>
-													) : (
-														<span className="text-gray-400">—</span>
-													)}
-												</td>
-											</tr>
-										))}
-								</tbody>
-							</table>
-						</div>
-					</div>
+						}
+						flush
+					>
+						<DashboardTable caption={t("tableCaption")} minWidth="min-w-[36rem]">
+							<DashboardTHead>
+								<DashboardTh>{t("dateCol")}</DashboardTh>
+								<DashboardTh align="right">{t("history.columns.avgWeight")}</DashboardTh>
+								<DashboardTh align="right">{t("avgLengthCol")}</DashboardTh>
+								<DashboardTh align="right">{t("history.columns.weightGain")}</DashboardTh>
+								<DashboardTh align="right">{t("history.columns.lengthGain")}</DashboardTh>
+								<DashboardTh align="right">{t("history.columns.daysSince")}</DashboardTh>
+							</DashboardTHead>
+							<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+								{growthRows
+									.slice(0, GROWTH_PREVIEW_ROWS)
+									.map(({ log, weightGain, lengthGain, daysSinceLast }) => (
+										<DashboardTr key={log.id}>
+											<DashboardTd className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
+												{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+											</DashboardTd>
+											<DashboardTd className="text-right">
+												{(log.avgWeightKg * 1000).toFixed(1)} g
+											</DashboardTd>
+											<DashboardTd className="text-right">
+												{log.sampleLengthCm.toFixed(1)} cm
+											</DashboardTd>
+											<DashboardTd className="text-right font-bold">
+												{weightGain !== null ? (
+													<span className={weightGain >= 0 ? "text-green-700" : "text-red-600"}>
+														{weightGain >= 0 ? "+" : ""}
+														{weightGain.toFixed(1)}
+													</span>
+												) : (
+													<span className="text-gray-400">—</span>
+												)}
+											</DashboardTd>
+											<DashboardTd className="text-right font-bold">
+												{lengthGain !== null ? (
+													<span className={lengthGain >= 0 ? "text-green-700" : "text-red-600"}>
+														{lengthGain >= 0 ? "+" : ""}
+														{lengthGain.toFixed(1)}
+													</span>
+												) : (
+													<span className="text-gray-400">—</span>
+												)}
+											</DashboardTd>
+											<DashboardTd className="text-right">
+												{daysSinceLast !== null ? (
+													<span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">
+														{daysSinceLast}d
+													</span>
+												) : (
+													<span className="text-gray-400">—</span>
+												)}
+											</DashboardTd>
+										</DashboardTr>
+									))}
+							</tbody>
+						</DashboardTable>
+
+						{/* Narrow screens: the same rows as cards, no horizontal scroll. */}
+						<DashboardCardList label={t("tableCaption")} className="p-4">
+							{growthRows.slice(0, GROWTH_PREVIEW_ROWS).map(({ log, weightGain, lengthGain }) => (
+								<DashboardCard key={log.id}>
+									<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
+										{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+									</p>
+									<div className="mt-2">
+										<DashboardCardRow label={t("history.columns.avgWeight")}>
+											{(log.avgWeightKg * 1000).toFixed(1)} g
+										</DashboardCardRow>
+										<DashboardCardRow label={t("avgLengthCol")}>
+											{log.sampleLengthCm.toFixed(1)} cm
+										</DashboardCardRow>
+										<DashboardCardRow label={t("history.columns.weightGain")}>
+											{weightGain !== null
+												? `${weightGain >= 0 ? "+" : ""}${weightGain.toFixed(1)} g`
+												: "—"}
+										</DashboardCardRow>
+										<DashboardCardRow label={t("history.columns.lengthGain")}>
+											{lengthGain !== null
+												? `${lengthGain >= 0 ? "+" : ""}${lengthGain.toFixed(1)} cm`
+												: "—"}
+										</DashboardCardRow>
+									</div>
+								</DashboardCard>
+							))}
+						</DashboardCardList>
+					</DashboardSection>
 				)}
 
 				{/* Biomass Log Table */}
-				<div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden mt-8 xl:mt-0 xl:col-span-2">
-					<div className="flex items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/50 p-6 dark:border-gray-700/50 dark:bg-gray-800/50">
-						<h3 className="font-bold text-gray-800 dark:text-gray-100">{t("historyTitle")}</h3>
-						<Link
-							href="/dashboard/growth/history?tab=biomass"
-							className="text-sm font-bold text-[var(--ofd-base-deep)] hover:underline"
-						>
+				<DashboardSection
+					className="xl:col-span-2"
+					title={t("historyTitle")}
+					action={
+						<Link href="/dashboard/growth/history?tab=biomass" className={dashboardSectionLink}>
 							{t("viewAll")}
+							<ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
 						</Link>
-					</div>
-					{/* No overflow-x-auto: secondary columns collapse below lg so the
-					    card fits a phone without a horizontal scrollbar (GH-94). */}
-					<div>
-						<table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
-							<thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 uppercase text-xs font-semibold">
-								<tr>
-									<th className="px-3 py-3 lg:px-4">{t("dateCol")}</th>
-									<th className="px-3 py-3 hidden lg:table-cell lg:px-4">{t("batchCol")}</th>
-									<th className="px-3 py-3 lg:px-4">{t("totalWeightCol")}</th>
-									<th className="px-3 py-3 hidden lg:table-cell lg:px-4">{t("fishCountCol")}</th>
-									<th className="px-3 py-3 hidden lg:table-cell lg:px-4">{t("avgLengthCol")}</th>
-									<th className="px-3 py-3 text-right text-[var(--ofd-base-deep)] lg:px-4">
-										{t("abwCol")}
-									</th>
-									<th className="px-3 py-3 text-center hidden lg:table-cell lg:px-4">
-										{t("typeCol")}
-									</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-								{biomassDesc.slice(0, PREVIEW_ROWS).map((log) => (
-									<tr
-										key={log.id}
-										className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-									>
-										<td className="px-3 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap lg:px-4">
-											{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
-										</td>
-										<td className="px-3 py-3 whitespace-nowrap hidden lg:table-cell lg:px-4">
-											{log.batchLabel ?? <span className="text-gray-400">—</span>}
-										</td>
-										<td className="px-3 py-3 lg:px-4">{log.sampleWeightKg.toFixed(2)}</td>
-										<td className="hidden px-3 py-3 lg:table-cell lg:px-4">{log.sampleCount}</td>
-										<td className="hidden px-3 py-3 lg:table-cell lg:px-4">
-											{log.sampleLengthCm.toFixed(1)}
-										</td>
-										<td className="px-3 py-3 text-right font-bold text-[var(--ofd-base-deep)] lg:px-4">
-											{(log.avgWeightKg * 1000).toFixed(1)}
-										</td>
-										<td className="px-3 py-3 text-center hidden lg:table-cell lg:px-4">
-											{log.fishSamples.length > 0 ? (
-												<details className="inline-block text-left">
-													<summary className="inline-flex cursor-pointer list-none items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 text-xs font-bold rounded-full hover:bg-teal-100 transition-colors">
-														<Fish className="w-3 h-3" />
-														{t("fishCountBadge", { count: log.fishSamples.length })}
-													</summary>
-													<div className="mt-2 min-w-[180px] rounded-xl border border-teal-100 bg-teal-50/50 overflow-hidden">
-														<div className="flex items-baseline justify-between gap-3 px-3 py-1.5 bg-teal-100/70 text-[10px] font-bold uppercase text-teal-700">
-															<span className="truncate">
-																{log.batchLabel ?? t("unlabeledBatch")}
-															</span>
-															<span className="font-medium normal-case text-teal-600 shrink-0">
-																{formatDateTimeLocal(log.recordedAt, tDates).date}
-															</span>
-														</div>
-														<table className="w-full text-xs text-gray-600 dark:text-gray-300">
-															<thead>
-																<tr className="text-[10px] uppercase text-teal-700">
-																	<th className="px-3 py-1.5 text-left font-bold">#</th>
-																	<th className="px-3 py-1.5 text-right font-bold">
-																		{t("sampleWeightCol")}
-																	</th>
-																	<th className="px-3 py-1.5 text-right font-bold">
-																		{t("sampleLengthCol")}
-																	</th>
-																</tr>
-															</thead>
-															<tbody className="divide-y divide-teal-100">
-																{log.fishSamples.map((sample, sampleIndex) => (
-																	<tr key={sample.id}>
-																		<td className="px-3 py-1.5 text-gray-500 dark:text-gray-400">
-																			{sampleIndex + 1}
-																		</td>
-																		<td className="px-3 py-1.5 text-right font-medium text-gray-800 dark:text-gray-100">
-																			{sample.weightGrams.toFixed(1)} g
-																		</td>
-																		<td className="px-3 py-1.5 text-right">
-																			{sample.lengthCm > 0
-																				? `${sample.lengthCm.toFixed(1)} cm`
-																				: "—"}
-																		</td>
+					}
+					flush
+				>
+					{biomassDesc.length === 0 ? (
+						<div className="p-4 sm:p-6">
+							<DashboardEmptyState
+								icon={Scale}
+								title={t("noSamplesTitle")}
+								description={t("noSamplesDesc")}
+								action={
+									<Link href="/dashboard/log-sample" className={dashboardSectionLink}>
+										{t("logSampleAction")}
+									</Link>
+								}
+							/>
+						</div>
+					) : (
+						<>
+							<DashboardTable caption={t("biomassTableCaption")} minWidth="min-w-[40rem]">
+								<DashboardTHead>
+									<DashboardTh>{t("dateCol")}</DashboardTh>
+									<DashboardTh>{t("batchCol")}</DashboardTh>
+									<DashboardTh>{t("totalWeightCol")}</DashboardTh>
+									<DashboardTh>{t("fishCountCol")}</DashboardTh>
+									<DashboardTh>{t("avgLengthCol")}</DashboardTh>
+									<DashboardTh align="right">{t("abwCol")}</DashboardTh>
+									<DashboardTh align="right">{t("typeCol")}</DashboardTh>
+								</DashboardTHead>
+								<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+									{biomassDesc.slice(0, PREVIEW_ROWS).map((log) => (
+										<DashboardTr key={log.id}>
+											<DashboardTd className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
+												{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+											</DashboardTd>
+											<DashboardTd className="whitespace-nowrap">
+												{log.batchLabel ?? <span className="text-gray-400">—</span>}
+											</DashboardTd>
+											<DashboardTd>{log.sampleWeightKg.toFixed(2)} kg</DashboardTd>
+											<DashboardTd>{log.sampleCount}</DashboardTd>
+											<DashboardTd>{log.sampleLengthCm.toFixed(1)} cm</DashboardTd>
+											<DashboardTd className="text-right font-bold text-[var(--ofd-base-deep)]">
+												{(log.avgWeightKg * 1000).toFixed(1)} g
+											</DashboardTd>
+											<DashboardTd className="text-right">
+												{log.fishSamples.length > 0 ? (
+													<details className="inline-block text-left">
+														<summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-700 transition-colors hover:bg-teal-100">
+															<Fish aria-hidden="true" className="w-3 h-3" />
+															{t("fishCountBadge", { count: log.fishSamples.length })}
+														</summary>
+														<div className="mt-2 min-w-[180px] overflow-hidden rounded-xl border border-teal-100 bg-teal-50/50">
+															<div className="flex items-baseline justify-between gap-3 bg-teal-100/70 px-3 py-1.5 text-[10px] font-bold uppercase text-teal-700">
+																<span className="truncate">
+																	{log.batchLabel ?? t("unlabeledBatch")}
+																</span>
+																<span className="shrink-0 font-medium normal-case text-teal-600">
+																	{formatDateTimeLocal(log.recordedAt, tDates).date}
+																</span>
+															</div>
+															<table className="w-full text-xs text-gray-600 dark:text-gray-300">
+																<caption className="sr-only">{t("fishSamplesLabel")}</caption>
+																<thead>
+																	<tr className="text-[10px] uppercase text-teal-700">
+																		<th scope="col" className="px-3 py-1.5 text-left font-bold">
+																			#
+																		</th>
+																		<th scope="col" className="px-3 py-1.5 text-right font-bold">
+																			{t("sampleWeightCol")}
+																		</th>
+																		<th scope="col" className="px-3 py-1.5 text-right font-bold">
+																			{t("sampleLengthCol")}
+																		</th>
 																	</tr>
-																))}
-															</tbody>
-														</table>
-													</div>
-												</details>
-											) : (
-												<span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 dark:text-gray-400 text-xs font-bold rounded-full">
-													<Scale className="w-3 h-3" />
-													{t("avgBadge")}
-												</span>
-											)}
-										</td>
-									</tr>
+																</thead>
+																<tbody className="divide-y divide-teal-100">
+																	{log.fishSamples.map((sample, sampleIndex) => (
+																		<tr key={sample.id}>
+																			<td className="px-3 py-1.5 text-gray-500 dark:text-gray-400">
+																				{sampleIndex + 1}
+																			</td>
+																			<td className="px-3 py-1.5 text-right font-medium text-gray-800 dark:text-gray-100">
+																				{sample.weightGrams.toFixed(1)} g
+																			</td>
+																			<td className="px-3 py-1.5 text-right">
+																				{sample.lengthCm > 0
+																					? `${sample.lengthCm.toFixed(1)} cm`
+																					: "—"}
+																			</td>
+																		</tr>
+																	))}
+																</tbody>
+															</table>
+														</div>
+													</details>
+												) : (
+													<span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs font-bold text-gray-600 dark:text-gray-400">
+														<Scale aria-hidden="true" className="w-3 h-3" />
+														{t("avgBadge")}
+													</span>
+												)}
+											</DashboardTd>
+										</DashboardTr>
+									))}
+								</tbody>
+							</DashboardTable>
+
+							<DashboardCardList label={t("biomassTableCaption")} className="p-4">
+								{biomassDesc.slice(0, PREVIEW_ROWS).map((log) => (
+									<DashboardCard key={log.id}>
+										<div className="flex items-baseline justify-between gap-3">
+											<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
+												{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+											</p>
+											<p className="text-sm font-black text-[var(--ofd-base-deep)]">
+												{(log.avgWeightKg * 1000).toFixed(1)} g
+											</p>
+										</div>
+										<div className="mt-2">
+											<DashboardCardRow label={t("batchCol")}>
+												{log.batchLabel ?? t("unlabeledBatch")}
+											</DashboardCardRow>
+											<DashboardCardRow label={t("totalWeightCol")}>
+												{log.sampleWeightKg.toFixed(2)} kg
+											</DashboardCardRow>
+											<DashboardCardRow label={t("fishCountCol")}>
+												{log.sampleCount}
+											</DashboardCardRow>
+											<DashboardCardRow label={t("avgLengthCol")}>
+												{log.sampleLengthCm.toFixed(1)} cm
+											</DashboardCardRow>
+										</div>
+									</DashboardCard>
 								))}
-								{biomassLogs.length === 0 && (
-									<tr>
-										<td
-											colSpan={5}
-											className="px-6 py-10 text-center text-gray-500 dark:text-gray-400"
-										>
-											{t("noSamples")}
-										</td>
-									</tr>
-								)}
-							</tbody>
-						</table>
-					</div>
-				</div>
+							</DashboardCardList>
+						</>
+					)}
+				</DashboardSection>
 			</div>
 		</div>
 	);

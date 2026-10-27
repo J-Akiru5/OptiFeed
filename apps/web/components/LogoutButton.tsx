@@ -7,9 +7,11 @@ import { clearOfflineData } from "@/lib/offline/db";
 import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, LogOut } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 export function LogoutButton() {
+	const t = useTranslations("dashboard.settings");
 	const [isPending, setIsPending] = useState(false);
 	const router = useRouter();
 	const supabase = createClient();
@@ -31,10 +33,14 @@ export function LogoutButton() {
 			type="button"
 			onClick={handleLogout}
 			disabled={isPending}
-			className="flex min-h-[var(--ofd-touch-min)] items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-6 font-medium text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
+			className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 text-sm font-black text-[#C42B3A] transition-colors hover:bg-red-100 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-200 dark:hover:bg-red-900/40 dark:focus-visible:outline-[#8fc0ea]"
 		>
-			{isPending ? <Loader2 size={18} className="animate-spin" /> : <LogOut size={18} />}
-			Sign Out
+			{isPending ? (
+				<Loader2 size={18} className="animate-spin" aria-hidden="true" />
+			) : (
+				<LogOut size={18} aria-hidden="true" />
+			)}
+			{t("signOutButton")}
 		</button>
 	);
 }

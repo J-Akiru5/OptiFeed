@@ -37,7 +37,7 @@ shared browser does not keep the previous user's farm values or queued samples.
 ## Offline writes
 
 - The offline shell has a **Log sample** tab with fish count, total sample weight,
-  average length and batch label.
+  average length and sampling batch label.
 - The online Log Sample form queues the same payload if the browser is offline or the
   server call throws before a response.
 - Every queued sample carries a client event id. The server uses that id as the

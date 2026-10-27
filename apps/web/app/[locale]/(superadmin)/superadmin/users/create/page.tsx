@@ -1,8 +1,8 @@
 import { NewAccountForm } from "@/components/superadmin/new-account-form";
-import { listOrgs } from "@/lib/actions/superadmin";
+import { listOrgOptions } from "@/lib/actions/superadmin";
 
 export default async function CreatePlatformUserPage() {
-	const orgs = await listOrgs();
+	const orgs = await listOrgOptions();
 
-	return <NewAccountForm orgs={orgs.map((o) => ({ id: o.id, name: o.name, type: o.type }))} />;
+	return <NewAccountForm orgs={orgs} />;
 }

@@ -1,11 +1,20 @@
 import { DataExportButton, DataImportDialog } from "@/components/DataImportExport";
 import { FeedEventHistoryTable } from "@/components/FeedEventHistoryTable";
+import { type ChartLabels, LineTrend, StackedBars } from "@/components/charts";
+import { formatChartNumber } from "@/components/charts/chart-data";
+import { DashboardEmptyState, DashboardPageHeader } from "@/components/dashboard/dashboard-ui";
+import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
+import { Link } from "@/i18n/routing";
 import { getFeedEvents } from "@/lib/actions/history";
 import { canWrite } from "@/lib/auth/session";
+import { FEED_CHART_DAYS, HOPPER_RANGE_DAYS, parseHopperRange } from "@/lib/chart-windows";
+import { isDeviceOffline } from "@/lib/feed-level-display";
 import type { HistorySnapshotData } from "@/lib/offline/snapshots";
+import { getFeedPerDayBySource, getHopperLevelSeries } from "@/lib/pond-charts";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import { getListPageSize } from "@/lib/settings/platform";
 import { CalendarDays, CheckCircle2, Clock, Package } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -17,15 +26,30 @@ const SOURCE_LABELS: Record<string, string> = {
 	button: "button",
 };
 
-export default async function HistoryPage() {
+interface HistoryPageProps {
+	searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+function first(value: string | string[] | undefined): string | undefined {
+	return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 	const t = await getTranslations("dashboard.history");
 	const tSch = await getTranslations("dashboard.schedule");
+	const tCommon = await getTranslations("dashboard.common");
+	const params = await searchParams;
+	const hopperRange = parseHopperRange(first(params.hopper));
 	const pond = await getActivePond();
 
 	if (!pond) {
 		return (
-			<div className="flex h-[50vh] items-center justify-center">
-				<p className="text-lg text-gray-500 dark:text-gray-400">{tSch("noPondData")}</p>
+			<div className="mx-auto max-w-2xl py-10">
+				<DashboardEmptyState
+					icon={CalendarDays}
+					title={tSch("noPondData")}
+					description={tSch("noDeviceDesc")}
+				/>
 			</div>
 		);
 	}
@@ -37,18 +61,27 @@ export default async function HistoryPage() {
 			id: true,
 			feedLevelPercent: true,
 			feedLevelUpdatedAt: true,
+			lastSeenAt: true,
 			hopperCapacityG: true,
 			gramsPerFeeding: true,
 		},
 	});
 
 	const energyDevice = energyDevices[0];
+	const deviceIds = energyDevices.map((d) => d.id);
 
-	// Live device-confirmed dispenses written by POST /api/ingest (FeedEvent).
-	const initialPage = await getFeedEvents({
-		deviceIds: energyDevices.map((d) => d.id),
-		cursor: null,
-	});
+	// Chart series are aggregated in PostgreSQL and scoped to the same device
+	// ids as the table, so the charts cannot show another pond's history.
+	const pageSize = await getListPageSize();
+	const [initialPage, feedChart, hopperPoints] = await Promise.all([
+		getFeedEvents({
+			deviceIds,
+			page: 1,
+			pageSize,
+		}),
+		getFeedPerDayBySource(deviceIds),
+		getHopperLevelSeries(deviceIds, hopperRange),
+	]);
 	const events = initialPage.items;
 
 	// Calculate stats
@@ -65,7 +98,23 @@ export default async function HistoryPage() {
 		return t(`source_${key}`);
 	};
 
+	const chartLabels: ChartLabels = {
+		period: tCommon("charts.period"),
+		value: tCommon("charts.value"),
+		name: tCommon("charts.name"),
+		empty: tCommon("charts.empty"),
+	};
+	const sourceSeriesLabels = Object.fromEntries(
+		feedChart.stack.sources.map((source) => [source, sourceLabel(source)]),
+	);
+	const feedChartTotal = Object.values(feedChart.stack.totalsBySource).reduce(
+		(sum, value) => sum + value,
+		0,
+	);
+	const hopperLatest = hopperPoints.at(-1)?.value ?? null;
+
 	const writeAccess = await canWrite();
+	const feedLevelOffline = isDeviceOffline(energyDevice?.lastSeenAt ?? null);
 
 	const historySnapshot: HistorySnapshotData = {
 		pondName: pond.name,
@@ -88,41 +137,41 @@ export default async function HistoryPage() {
 				pondName={pond.name}
 				data={historySnapshot}
 			/>
-			<header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-				<div>
-					<h1 className="text-3xl font-extrabold tracking-tight text-[var(--ofd-base-deep)]">
-						{t("title")}
-					</h1>
-					<p className="text-gray-500 dark:text-gray-400 mt-1">{t("desc", { pond: pond.name })}</p>
-				</div>
-				<div className="flex items-center gap-3">
-					<DataImportDialog canWrite={writeAccess} />
-					<DataExportButton />
-				</div>
-			</header>
+			<DashboardPageHeader
+				icon={CalendarDays}
+				title={t("title")}
+				description={t("desc", { pond: pond.name })}
+				actions={
+					<>
+						<DataImportDialog canWrite={writeAccess} />
+						<DataExportButton />
+					</>
+				}
+			/>
 
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+			<h2 className="sr-only">{t("statsLabel")}</h2>
+			<div className="grid grid-cols-1 gap-6 md:grid-cols-3">
 				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex items-center gap-4">
 					<div className="h-14 w-14 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center">
-						<CheckCircle2 className="h-7 w-7" />
+						<CheckCircle2 aria-hidden="true" className="h-7 w-7" />
 					</div>
 					<div>
-						<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+						<p className="text-sm font-semibold text-gray-600 uppercase tracking-wider dark:text-gray-400">
 							{t("recentDispensed")}
 						</p>
 						<p className="text-2xl font-extrabold text-[var(--ofd-base-deep)]">
 							{(totalDispensed / 1000).toFixed(1)}{" "}
-							<span className="text-base text-gray-400 font-medium">kg</span>
+							<span className="text-base text-gray-500 font-medium">kg</span>
 						</p>
 					</div>
 				</div>
 
 				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex items-center gap-4">
 					<div className="h-14 w-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
-						<Clock className="h-7 w-7" />
+						<Clock aria-hidden="true" className="h-7 w-7" />
 					</div>
 					<div>
-						<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+						<p className="text-sm font-semibold text-gray-600 uppercase tracking-wider dark:text-gray-400">
 							{t("sourceBreakdown")}
 						</p>
 						<div className="mt-1 space-y-0.5">
@@ -137,34 +186,98 @@ export default async function HistoryPage() {
 
 				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex items-center gap-4">
 					<div className="h-14 w-14 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center">
-						<Package className="h-7 w-7" />
+						<Package aria-hidden="true" className="h-7 w-7" />
 					</div>
 					<div>
-						<p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+						<p className="text-sm font-semibold text-gray-600 uppercase tracking-wider dark:text-gray-400">
 							{t("feedLevel")}
 						</p>
-						<p className="text-2xl font-extrabold text-[var(--ofd-base-deep)]">
-							{energyDevice?.feedLevelPercent !== null &&
-							energyDevice?.feedLevelPercent !== undefined
-								? `${Math.round(energyDevice.feedLevelPercent)}%`
-								: "—"}
-						</p>
-						<p className="text-xs text-gray-400 mt-0.5">{t("feedLevelDesc")}</p>
+						<FeedLevelDisplay
+							levelPercent={energyDevice?.feedLevelPercent ?? null}
+							updatedAt={energyDevice?.feedLevelUpdatedAt ?? null}
+							isOffline={feedLevelOffline}
+							showBar={false}
+							size="lg"
+						/>
+						<p className="text-xs text-gray-500 mt-0.5 dark:text-gray-400">{t("feedLevelDesc")}</p>
 					</div>
 				</div>
 			</div>
 
-			<div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden">
+			<section
+				aria-label={t("charts.label")}
+				data-help="history-charts"
+				className="grid grid-cols-1 gap-6 xl:grid-cols-2"
+			>
+				<StackedBars
+					title={t("charts.feedTitle")}
+					summary={t("charts.feedSummary", {
+						days: FEED_CHART_DAYS,
+						total: formatChartNumber(feedChartTotal, "g"),
+					})}
+					labels={{
+						...chartLabels,
+						empty: t("charts.feedEmpty", { days: FEED_CHART_DAYS }),
+					}}
+					stack={feedChart.stack}
+					seriesLabels={sourceSeriesLabels}
+					unit="g"
+				/>
+
+				<div className="flex min-w-0 flex-col gap-2">
+					<nav
+						aria-label={t("charts.hopperRangeLabel")}
+						className="flex flex-wrap items-center justify-end gap-1.5"
+					>
+						{HOPPER_RANGE_DAYS.map((option) => (
+							<Link
+								key={option}
+								href={`/dashboard/history?hopper=${option}`}
+								aria-current={option === hopperRange ? "page" : undefined}
+								className={`inline-flex min-h-11 items-center rounded-xl px-3 text-xs font-black transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea] ${
+									option === hopperRange
+										? "bg-[#0A3D62] text-white shadow-sm"
+										: "border border-[#0A3D62]/20 bg-white text-[#0A3D62] hover:bg-[#F4F7F6] dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+								}`}
+							>
+								{option === 7 ? t("charts.range7") : t("charts.range30")}
+							</Link>
+						))}
+					</nav>
+					<LineTrend
+						className="flex-1"
+						title={t("charts.hopperTitle")}
+						summary={t("charts.hopperSummary", {
+							days: hopperRange,
+							points: hopperPoints.length,
+							latest: hopperLatest ?? "—",
+						})}
+						labels={{
+							...chartLabels,
+							empty: t("charts.hopperEmpty", { days: hopperRange }),
+						}}
+						points={hopperPoints}
+						unit="%"
+						decimals={1}
+						height={260}
+					/>
+				</div>
+			</section>
+
+			<div
+				data-help="history-event-log"
+				className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden"
+			>
 				<div className="p-6 border-b border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50">
-					<h3 className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-						<CalendarDays className="h-5 w-5 text-gray-400" /> {t("eventLog")}
-					</h3>
+					<h2 className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+						<CalendarDays aria-hidden="true" className="h-5 w-5 text-gray-500" /> {t("eventLog")}
+					</h2>
 				</div>
 				<FeedEventHistoryTable
 					deviceIds={energyDevices.map((d) => d.id)}
 					initialItems={initialPage.items}
-					initialHasMore={initialPage.hasMore}
-					initialNextCursor={initialPage.nextCursor}
+					initialTotal={initialPage.total}
+					pageSize={initialPage.pageSize}
 				/>
 			</div>
 		</div>

@@ -50,6 +50,130 @@ describe("tenant admin actions", () => {
 		expect(updateUser).not.toContain("role?: UserRole");
 		expect(updateUser).not.toContain("data,");
 	});
+
+	it("gates every member mutation on manage_members", () => {
+		const mutations: [string, string][] = [
+			["inviteMember", "changeMemberRole"],
+			["changeMemberRole", "revokeMember"],
+			["revokeMember", "getPonds"],
+		];
+		for (const [name, next] of mutations) {
+			const block = exportedFunctionBlock(adminActions, name, next);
+			expect(block, `${name} must require manage_members`).toContain(
+				'await requirePermission("manage_members");',
+			);
+		}
+	});
+});
+
+describe("platform membership actions", () => {
+	const actions = read("lib/actions/platform/members.ts");
+
+	it("requires an active PlatformAdmin on every exported action", () => {
+		const names = [...actions.matchAll(/export async function ([A-Za-z0-9_]+)/g)].map(
+			(match) => match[1],
+		);
+		expect(names).toEqual(
+			expect.arrayContaining([
+				"getOrgDetail",
+				"inviteOrgMember",
+				"changeOrgMemberRole",
+				"setOrgMemberPermission",
+				"revokeOrgMembership",
+			]),
+		);
+		names.forEach((name, index) => {
+			const block = exportedFunctionBlock(actions, name, names[index + 1]);
+			expect(block, `${name} must call requirePlatformAdmin()`).toContain(
+				"await requirePlatformAdmin();",
+			);
+		});
+	});
+
+	it("requires a reason, step-up and one membership audit row per mutation", () => {
+		const mutations: [string, string | undefined][] = [
+			["inviteOrgMember", "changeOrgMemberRole"],
+			["changeOrgMemberRole", "setOrgMemberPermission"],
+			["setOrgMemberPermission", "revokeOrgMembership"],
+			["revokeOrgMembership", undefined],
+		];
+		for (const [name, next] of mutations) {
+			const block = exportedFunctionBlock(actions, name, next);
+			expect(block, `${name} must validate a reason`).toMatch(/requireReason|checkedReason/);
+			expect(block, `${name} must require step-up`).toContain("withStepUp(");
+			// Exactly one call site per mutation; invite's call is inside onLinked.
+			expect(block.match(/auditMembership\(/g)?.length, `${name} audit call sites`).toBe(1);
+		}
+	});
+});
+
+describe("platform device registry actions", () => {
+	const actions = read("lib/actions/platform/devices.ts");
+
+	it("requires an active PlatformAdmin on every exported action", () => {
+		const names = [...actions.matchAll(/export async function ([A-Za-z0-9_]+)/g)].map(
+			(match) => match[1],
+		);
+		expect(names).toEqual(
+			expect.arrayContaining([
+				"listPlatformDevices",
+				"getOrgPondOptions",
+				"registerDevice",
+				"rotateDeviceToken",
+				"getPlatformDevicesForLabels",
+				"remoteFeedDevice",
+				"remoteSetDevicePause",
+			]),
+		);
+		names.forEach((name, index) => {
+			const block = exportedFunctionBlock(actions, name, names[index + 1]);
+			expect(block, `${name} must call requirePlatformAdmin()`).toContain(
+				"await requirePlatformAdmin();",
+			);
+		});
+	});
+
+	it("routes remote feed and pause through the shared tenant command path (M5.2)", () => {
+		// Decision D1 grants god mode, but only through the one command module.
+		// A parallel feed/schedule write here would bypass the §6 caps.
+		expect(actions).toContain('from "@/lib/feed/commands"');
+		expect(actions).toMatch(/createManualFeedRequest\(tx/);
+		expect(actions).toMatch(/setSchedulePause\(tx/);
+		expect(actions).not.toMatch(/feed-command|schedule-sync/);
+		expect(actions).not.toMatch(/tx\.feedRequest\.(create|update)/);
+	});
+
+	it("keeps reason, step-up and one energy-device audit row on remote control", () => {
+		const feed = exportedFunctionBlock(actions, "remoteFeedDevice", "remoteSetDevicePause");
+		const pause = exportedFunctionBlock(actions, "remoteSetDevicePause", "orgIdForDevice");
+		for (const block of [feed, pause]) {
+			expect(block).toContain("withStepUp(");
+			expect(block).toContain("auditDevice(");
+			expect(block).toContain("await requirePlatformAdmin();");
+			expect(block).toContain("requireReason(input.reason)");
+		}
+	});
+
+	it("has no force flag on remote commands", () => {
+		expect(actions).not.toMatch(/\bforce\s*:/);
+	});
+});
+
+describe("print route gates", () => {
+	it("gates the tenant sticker page on membership", () => {
+		const layout = read("app/[locale]/(print)/admin/devices/labels/layout.tsx");
+		expect(layout).toContain("await requireTenantAdmin();");
+	});
+
+	it("gates the platform sticker page on an active PlatformAdmin row", () => {
+		const layout = read("app/[locale]/(print)/superadmin/devices/labels/layout.tsx");
+		expect(layout).toContain("await requirePlatformAdmin();");
+	});
+
+	it("keeps the password-change check on the shared print shell", () => {
+		const layout = read("app/[locale]/(print)/layout.tsx");
+		expect(layout).toContain("await requirePasswordChanged();");
+	});
 });
 
 describe("console route layouts", () => {

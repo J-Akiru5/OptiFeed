@@ -1,3 +1,8 @@
+import {
+	farmDateTimeToUtcDate,
+	isCalendarDateTimeValue,
+	isDateOnlyValue,
+} from "@/lib/calendar/datetime";
 import { z } from "zod";
 import { daysBetween, isValidDateOnly, todayDateOnly } from "./dates";
 
@@ -110,37 +115,165 @@ export const harvestInputSchema = z
 		}
 	});
 
-export const manualEventTypes = ["MAINTENANCE", "OTHER"] as const;
+export const manualEventTypes = [
+	"MAINTENANCE",
+	"SAMPLING",
+	"HARVEST_PLANNED",
+	"STOCKING",
+	"OTHER",
+] as const;
+
+export const pondItemKinds = ["EVENT", "TASK"] as const;
+export const recurrenceFrequencies = ["DAILY", "WEEKLY", "MONTHLY"] as const;
+export const eventReminderMinutes = [60, 1440] as const;
+
+const eventColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Use a #RRGGBB colour");
+
+const calendarMomentSchema = z
+	.string()
+	.refine(isCalendarDateTimeValue, "Use a valid date or date-time");
+
+const patchText = (max: number) =>
+	z
+		.string()
+		.trim()
+		.max(max)
+		.nullish()
+		.transform((value) =>
+			value === undefined ? undefined : value && value.length > 0 ? value : null,
+		);
+
+const recurrenceSchema = z
+	.object({
+		freq: z.enum(recurrenceFrequencies).nullish(),
+		interval: z
+			.number("Repeat interval must be a number")
+			.int("Repeat interval must be a whole number")
+			.min(1, "Repeat interval must be at least 1")
+			.max(52, "Repeat interval cannot exceed 52")
+			.nullish(),
+		until: dateOnlySchema.nullish(),
+	})
+	.nullish();
+
+const reminderMinutesSchema = z
+	.array(z.union([z.literal(60), z.literal(1440)]))
+	.transform((values) => [...new Set(values)].sort((a, b) => a - b));
+
+/**
+ * Event/Task fields shared by create and update. `startsAt` keeps its original
+ * name for the existing move/resize call sites; it now accepts a date-only day
+ * (all-day items) or a naive farm-local date-time (timed items).
+ */
+function refineCalendarMoment(
+	value: {
+		allDay?: boolean;
+		startsAt?: string;
+		endsAt?: string | null;
+		reminderMinutes?: number[];
+		recurrence?: {
+			freq?: (typeof recurrenceFrequencies)[number] | null;
+			until?: string | null;
+		} | null;
+	},
+	ctx: z.RefinementCtx,
+): void {
+	if (value.startsAt !== undefined) {
+		const dateOnly = isDateOnlyValue(value.startsAt);
+		if (value.allDay === true && !dateOnly) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["startsAt"],
+				message: "An all-day item needs a date, not a time",
+			});
+		}
+		if (value.allDay === false && dateOnly) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["startsAt"],
+				message: "A timed item needs a date and time",
+			});
+		}
+	}
+	if (value.startsAt !== undefined && value.endsAt) {
+		const end = farmDateTimeToUtcDate(value.endsAt);
+		const start = farmDateTimeToUtcDate(value.startsAt);
+		if (end.getTime() < start.getTime()) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["endsAt"],
+				message: "The end must be after the start",
+			});
+		}
+	}
+	if (
+		value.startsAt !== undefined &&
+		value.recurrence?.freq &&
+		value.recurrence.until &&
+		isValidDateOnly(value.recurrence.until) &&
+		value.recurrence.until < value.startsAt.slice(0, 10)
+	) {
+		ctx.addIssue({
+			code: "custom",
+			path: ["recurrence", "until"],
+			message: "The repeat end cannot be before the first occurrence",
+		});
+	}
+}
 
 export const pondEventInputSchema = z
 	.object({
 		pondId: z.string().min(1),
 		cropCycleId: z.string().min(1).nullish(),
-		type: z.enum(manualEventTypes),
+		kind: z.enum(pondItemKinds).default("EVENT"),
+		type: z.enum(manualEventTypes).default("MAINTENANCE"),
 		title: z.string().trim().min(1, "Add a title").max(80, "Title is too long"),
-		startsAt: dateOnlySchema,
+		allDay: z.boolean().default(true),
+		startsAt: calendarMomentSchema,
+		endsAt: calendarMomentSchema.nullish(),
+		color: eventColorSchema.nullish(),
+		recurrence: recurrenceSchema,
+		reminderMinutes: reminderMinutesSchema.optional(),
 		notes: optionalText(1_000),
 	})
 	.superRefine((value, ctx) => {
-		if (!isValidDateOnly(value.startsAt)) return;
-		if (daysBetween(value.startsAt, todayDateOnly()) < -365) {
-			ctx.addIssue({
-				code: "custom",
-				path: ["startsAt"],
-				message: "Event date is too far in the future",
-			});
+		refineCalendarMoment(value, ctx);
+		if (isDateOnlyValue(value.startsAt)) {
+			if (daysBetween(value.startsAt, todayDateOnly()) < -365) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["startsAt"],
+					message: "Event date is too far in the future",
+				});
+			}
 		}
 	});
 
-export const updatePondEventSchema = z.object({
+export const updatePondEventSchema = z
+	.object({
+		id: z.string().min(1),
+		kind: z.enum(pondItemKinds).optional(),
+		type: z.enum(manualEventTypes).optional(),
+		title: z.string().trim().min(1, "Add a title").max(80, "Title is too long").optional(),
+		allDay: z.boolean().optional(),
+		startsAt: calendarMomentSchema.optional(),
+		endsAt: calendarMomentSchema.nullish(),
+		color: eventColorSchema.nullish(),
+		recurrence: recurrenceSchema,
+		reminderMinutes: reminderMinutesSchema.optional(),
+		notes: patchText(1_000),
+	})
+	.superRefine((value, ctx) => refineCalendarMoment(value, ctx));
+
+export const completePondEventSchema = z.object({
 	id: z.string().min(1),
-	title: z.string().trim().min(1, "Add a title").max(80, "Title is too long"),
-	startsAt: dateOnlySchema,
-	notes: optionalText(1_000),
+	occurrence: z.string().datetime({ offset: true }).nullish(),
 });
 
-export const completePondEventSchema = z.object({ id: z.string().min(1) });
-export const deletePondEventSchema = z.object({ id: z.string().min(1) });
+export const deletePondEventSchema = z.object({
+	id: z.string().min(1),
+	occurrence: z.string().datetime({ offset: true }).nullish(),
+});
 
 export const cancelCycleSchema = z.object({
 	pondId: z.string().min(1),
@@ -150,6 +283,6 @@ export const cancelCycleSchema = z.object({
 
 export type CropCycleInput = z.infer<typeof cropCycleInputSchema>;
 export type HarvestInput = z.infer<typeof harvestInputSchema>;
-export type PondEventInput = z.infer<typeof pondEventInputSchema>;
-export type UpdatePondEventInput = z.infer<typeof updatePondEventSchema>;
+export type PondEventInput = z.input<typeof pondEventInputSchema>;
+export type UpdatePondEventInput = z.input<typeof updatePondEventSchema>;
 export type CancelCycleInput = z.infer<typeof cancelCycleSchema>;

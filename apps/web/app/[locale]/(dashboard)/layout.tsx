@@ -11,13 +11,19 @@ import { NotificationProvider } from "@/components/notification-provider";
 import { OnboardingProvider } from "@/components/onboarding-provider";
 import { OfflineSync } from "@/components/pwa/offline-sync";
 import { Sidebar } from "@/components/sidebar";
+import { ViewAsBanner } from "@/components/superadmin/view-as-banner";
 import { Link } from "@/i18n/routing";
+import { getViewAsBanner } from "@/lib/actions/platform/impersonation";
+import { redirectPlatformAdminFromDashboard } from "@/lib/auth/dashboard-landing";
 import { isCurrentPlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { getCurrentPondOwnerId, requirePasswordChanged } from "@/lib/auth/session";
 import { isCurrentTenantAdmin } from "@/lib/auth/tenant-admin";
+import { getViewAsState } from "@/lib/auth/view-as";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import { isFeatureEnabled } from "@/lib/settings/flags";
+import { getTranslations } from "next-intl/server";
 import Image from "next/image";
 
 export default async function DashboardLayout({
@@ -25,16 +31,36 @@ export default async function DashboardLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	const [ownerId, currentUser, isTenantAdmin, isPlatformAdmin] = await Promise.all([
-		getCurrentPondOwnerId(),
-		requirePasswordChanged(),
-		isCurrentTenantAdmin(),
-		isCurrentPlatformAdmin(),
-	]);
+	const [ownerId, currentUser, isTenantAdmin, isPlatformAdmin, viewAs, viewAsState, helpEnabled] =
+		await Promise.all([
+			getCurrentPondOwnerId(),
+			requirePasswordChanged(),
+			isCurrentTenantAdmin(),
+			isCurrentPlatformAdmin(),
+			getViewAsBanner(),
+			getViewAsState(),
+			isFeatureEnabled("help.centre"),
+		]);
+
+	// E18 (#199): a platform admin's home is the platform console. This runs
+	// before any pond, notification or device read, and leaves an active
+	// read-only view-as session untouched.
+	await redirectPlatformAdminFromDashboard({
+		isPlatformAdmin,
+		viewAsActive: viewAsState.active,
+		userId: currentUser.id,
+	});
+
+	const tCommon = await getTranslations("dashboard.common");
+
+	// Farmer pond chrome (pond name/selector, last synced, hopper widget) is
+	// tenant identity, and a platform admin has none outside view-as.
+	const showPondChrome = !(isPlatformAdmin && !viewAsState.active);
 
 	let pondId = "";
 	let initialUnreadCount = 0;
-	let hopperLevelPct = 0;
+	let hopperLevelPct: number | null = null;
+	let hopperLevelUpdatedAt: Date | null = null;
 	let esp32Status: "online" | "offline" | "missing" = "missing";
 	let pondName = "ILO-POND-01";
 	let lastSeenAtStr: string | null = null;
@@ -71,7 +97,8 @@ export default async function DashboardLayout({
 			initialUnreadCount = unreadCount;
 
 			if (energyDevice) {
-				hopperLevelPct = energyDevice.feedLevelPercent ?? 0;
+				hopperLevelPct = energyDevice.feedLevelPercent;
+				hopperLevelUpdatedAt = energyDevice.feedLevelUpdatedAt;
 				const now = new Date();
 				const isOffline =
 					!energyDevice.lastSeenAt ||
@@ -84,11 +111,31 @@ export default async function DashboardLayout({
 		console.error("[DashboardLayout] Prisma error:", err);
 	}
 
+	const deviceStatusLabel =
+		esp32Status === "online"
+			? tCommon("deviceOnline")
+			: esp32Status === "offline"
+				? tCommon("deviceOffline")
+				: tCommon("deviceMissing");
+
 	return (
-		<ChatWidgetProvider>
+		<ChatWidgetProvider role={isPlatformAdmin ? "superadmin" : isTenantAdmin ? "owner" : "farmer"}>
 			<OfflineSync scope={ownerId} />
 			<OnboardingProvider>
 				<div className="flex flex-col min-h-screen bg-[#F4F7F6] dark:bg-gray-950">
+					<a
+						href="#main-content"
+						className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50 focus:rounded-xl focus:bg-white focus:px-4 focus:py-2.5 focus:text-sm focus:font-black focus:text-[#0A3D62] focus:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-gray-900 dark:text-[#8fc0ea]"
+					>
+						{tCommon("skipToContent")}
+					</a>
+					{viewAs && (
+						<ViewAsBanner
+							orgName={viewAs.orgName}
+							reason={viewAs.reason}
+							expiresAt={viewAs.expiresAt.toISOString()}
+						/>
+					)}
 					<NotificationProvider pondId={pondId} initialUnreadCount={initialUnreadCount}>
 						<header className="sticky top-0 z-30 w-full h-16 bg-[#0A3D62] px-4 md:px-8 flex items-center justify-between shadow-md shrink-0">
 							<div className="flex items-center gap-3">
@@ -108,14 +155,15 @@ export default async function DashboardLayout({
 								{esp32Status !== "missing" && (
 									<div className="hidden md:flex items-center gap-2 border-l border-white/20 pl-3">
 										<span
+											aria-hidden="true"
 											className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] transition-all duration-500 ${
 												esp32Status === "online"
 													? "bg-[#1E7B34] text-[#1E7B34]"
 													: "bg-[#C42B3A] text-[#C42B3A]"
 											}`}
 										/>
-										<span className="text-[10px] text-white/50 uppercase tracking-wider">
-											ESP32 {esp32Status}
+										<span className="text-[10px] text-white/70 uppercase tracking-wider">
+											{deviceStatusLabel}
 										</span>
 									</div>
 								)}
@@ -128,6 +176,8 @@ export default async function DashboardLayout({
 								pondName={pondName}
 								lastSeenAt={lastSeenAtStr}
 								esp32Status={esp32Status}
+								isViewingAs={viewAsState.active}
+								helpEnabled={helpEnabled}
 								initialUser={
 									currentUser
 										? {
@@ -143,8 +193,17 @@ export default async function DashboardLayout({
 						</header>
 
 						<DashboardContentShell>
-							<Sidebar hopperLevelPct={hopperLevelPct} isOffline={esp32Status === "offline"} />
-							<main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 relative z-10">
+							<Sidebar
+								hopperLevelPct={hopperLevelPct}
+								hopperLevelUpdatedAt={hopperLevelUpdatedAt}
+								isOffline={esp32Status === "offline"}
+								showHopperWidget={showPondChrome}
+							/>
+							<main
+								id="main-content"
+								tabIndex={-1}
+								className="flex-1 p-4 md:p-8 pb-24 md:pb-8 relative z-10 focus:outline-none"
+							>
 								<BackToDashboard />
 								{children}
 							</main>
@@ -153,7 +212,7 @@ export default async function DashboardLayout({
 
 					<ChatWidget />
 					<BottomNav />
-					<FabStack />
+					<FabStack audience={isTenantAdmin ? "owner" : "farmer"} />
 				</div>
 			</OnboardingProvider>
 		</ChatWidgetProvider>

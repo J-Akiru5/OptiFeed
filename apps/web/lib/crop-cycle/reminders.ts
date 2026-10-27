@@ -1,3 +1,5 @@
+import { farmDateTimeToUtcDate, utcDateToFarmDateTime } from "@/lib/calendar/datetime";
+import { expandOccurrences } from "@/lib/calendar/recurrence";
 import { normalizeNotificationPrefs } from "@/lib/limits";
 import {
 	type ReminderEmailInput,
@@ -7,7 +9,7 @@ import {
 	warnReminderEmailNotConfiguredOnce,
 } from "@/lib/notify/email";
 import prisma from "@/lib/prisma";
-import { addDays, daysBetween, formatDateOnly, todayDateOnly } from "./dates";
+import { addDays, dateToFarmDateOnly, daysBetween, formatDateOnly, todayDateOnly } from "./dates";
 
 /**
  * Crop reminder calculation and delivery (plan §4.3 / §9).
@@ -33,7 +35,7 @@ const MAX_ERROR_LENGTH = 300;
 const REMINDER_LINK = "/dashboard/harvest";
 
 export type NotificationTier = "INFO" | "WARNING" | "CRITICAL";
-export type ReminderCategory = "harvest" | "sampling";
+export type ReminderCategory = "harvest" | "sampling" | "event";
 export type ReminderChannel = "in_app" | "email";
 
 export interface ReminderCycleInput {
@@ -78,6 +80,47 @@ export interface ReminderCandidateInput {
 	latestSampleByPond?: ReadonlyMap<string, Date | string>;
 }
 
+export interface EventReminderSource {
+	id: string;
+	pondId: string;
+	title: string;
+	kind: "EVENT" | "TASK";
+	allDay: boolean;
+	startsAt: Date | string;
+	endsAt: Date | string | null;
+	recurrenceFreq: "DAILY" | "WEEKLY" | "MONTHLY" | null;
+	recurrenceInterval: number;
+	recurrenceUntil: Date | string | null;
+	reminderMinutes: number[];
+	completedOccurrences: Array<Date | string>;
+	status: string;
+}
+
+export interface EventReminderCandidate {
+	eventId: string;
+	pondId: string;
+	pondName: string;
+	farmId: string | null;
+	title: string;
+	itemKind: "EVENT" | "TASK";
+	occurrenceKey: string;
+	occurrenceDate: string;
+	minutes: number;
+	category: "event";
+	kind: string;
+	occurrenceToken: string;
+	tier: NotificationTier;
+	message: string;
+	timingLabel: string;
+	dateLabel: string;
+}
+
+export interface EventReminderCandidateInput {
+	today: string;
+	events: EventReminderSource[];
+	ponds: ReminderPondInput[];
+}
+
 export interface CropWatchSummary {
 	date: string;
 	activeCycles: number;
@@ -92,6 +135,12 @@ export interface CropWatchSummary {
 	emailRetries: number;
 	emailRetriesSent: number;
 	emailRetriesFailed: number;
+	eventCandidates: number;
+	eventInAppCreated: number;
+	eventInAppSkipped: number;
+	eventEmailsSent: number;
+	eventEmailsFailed: number;
+	eventEmailsSkipped: number;
 }
 
 export type ReminderEmailSender = (input: ReminderEmailInput) => Promise<ReminderEmailResult>;
@@ -165,6 +214,141 @@ export function reminderDedupeKey(candidate: ReminderCandidate, channel: Reminde
 	return candidate.category === "harvest"
 		? `harvest:${candidate.cropCycleId}:${candidate.occurrenceToken}:${channel}`
 		: `sampling:${candidate.pondId}:${candidate.occurrenceToken}:${channel}`;
+}
+
+/**
+ * The brief's identity is `event:<id>:<occurrence ISO>:<minutes>`. The channel
+ * suffix is appended because `ReminderLog.dedupeKey` is unique per row and the
+ * in-app and email rows are separate rows (the same pattern as harvest and
+ * sampling reminders).
+ */
+export function eventReminderDedupeKey(
+	candidate: Pick<EventReminderCandidate, "eventId" | "occurrenceKey" | "minutes">,
+	channel: ReminderChannel,
+): string {
+	return `event:${candidate.eventId}:${candidate.occurrenceKey}:${candidate.minutes}:${channel}`;
+}
+
+export function eventReminderTimingLabel(minutes: number): string {
+	if (minutes >= 1440) {
+		const days = Math.round(minutes / 1440);
+		return days === 1 ? "Starts in 1 day" : `Starts in ${days} days`;
+	}
+	if (minutes >= 60) {
+		const hours = Math.round(minutes / 60);
+		return hours === 1 ? "Starts in 1 hour" : `Starts in ${hours} hours`;
+	}
+	return "Starts soon";
+}
+
+/**
+ * Day-window due check. The daily cron is day-based: a reminder is due when
+ * the farm-local date of `occurrenceStart - minutes` is today. This keeps a
+ * 1-hour and a 1-day reminder for the same all-day occurrence on different
+ * days and makes reruns idempotent through the dedupe key.
+ */
+export function isEventReminderDue(
+	occurrenceStartUtc: Date,
+	minutes: number,
+	today: string,
+): boolean {
+	if (!Number.isFinite(minutes) || minutes < 0) return false;
+	const triggerAt = new Date(occurrenceStartUtc.getTime() - minutes * 60_000);
+	return dateToFarmDateOnly(triggerAt) === today;
+}
+
+export function computeEventReminderCandidates(
+	input: EventReminderCandidateInput,
+): EventReminderCandidate[] {
+	const { today, events, ponds } = input;
+	const pondById = new Map(ponds.map((pond) => [pond.id, pond]));
+	// A 1-day reminder for tomorrow's occurrence fires today; widen the
+	// expansion window by a day on each side so the trigger date is exhaustive.
+	const window = { from: addDays(today, -1), to: addDays(today, 2) };
+	const candidates: EventReminderCandidate[] = [];
+
+	for (const event of events) {
+		const minutesList = event.reminderMinutes ?? [];
+		if (minutesList.length === 0) continue;
+		if (event.status === "DONE" || event.status === "CANCELLED") continue;
+
+		const pond = pondById.get(event.pondId);
+		if (!pond) continue;
+
+		const anchorDate = formatDateOnly(event.startsAt);
+		const anchor = event.allDay ? anchorDate : utcDateToFarmDateTime(new Date(event.startsAt));
+		const end = event.endsAt
+			? event.allDay
+				? formatDateOnly(event.endsAt)
+				: utcDateToFarmDateTime(new Date(event.endsAt))
+			: null;
+		const completed = new Set(
+			event.completedOccurrences.map((value) => new Date(value).toISOString()),
+		);
+
+		const { occurrences } = expandOccurrences({
+			start: anchor,
+			end,
+			allDay: event.allDay,
+			recurrence: event.recurrenceFreq
+				? {
+						freq: event.recurrenceFreq,
+						interval: event.recurrenceInterval,
+						until: event.recurrenceUntil ? formatDateOnly(event.recurrenceUntil) : null,
+					}
+				: null,
+			window,
+		});
+
+		for (const occurrence of occurrences) {
+			if (completed.has(occurrence.occurrenceKey)) continue;
+			// An all-day item starts at farm midnight, not UTC midnight; its
+			// "1 hour before" reminder belongs to the previous farm evening.
+			const triggerBaseUtc = event.allDay
+				? farmDateTimeToUtcDate(`${occurrence.start.slice(0, 10)}T00:00`)
+				: occurrence.startUtc;
+			for (const minutes of minutesList) {
+				if (!isEventReminderDue(triggerBaseUtc, minutes, today)) continue;
+				const timingLabel = eventReminderTimingLabel(minutes);
+				candidates.push({
+					eventId: event.id,
+					pondId: event.pondId,
+					pondName: pond.name,
+					farmId: pond.farmId,
+					title: event.title,
+					itemKind: event.kind,
+					occurrenceKey: occurrence.occurrenceKey,
+					occurrenceDate: occurrence.start.slice(0, 10),
+					minutes,
+					category: "event",
+					kind: `event_${minutes}`,
+					occurrenceToken: occurrence.occurrenceKey,
+					tier: "INFO",
+					message: `${timingLabel} — ${event.title} at ${pond.name}.`,
+					timingLabel,
+					dateLabel: occurrence.start.slice(0, 10),
+				});
+			}
+		}
+		// The day filter above bounds the expansion; `truncated` is only
+		// relevant for the calendar grid's 500-occurrence cap.
+	}
+
+	return candidates;
+}
+
+export function buildEventReminderEmailInput(
+	candidate: EventReminderCandidate,
+	recipients: string[],
+): ReminderEmailInput {
+	return {
+		to: recipients,
+		pondName: candidate.pondName,
+		cycleLabel: null,
+		eventLabel: candidate.itemKind === "TASK" ? "Task" : "Event",
+		dateLabel: candidate.dateLabel,
+		timingLabel: candidate.timingLabel,
+	};
 }
 
 export function dedupeEmailAddresses(values: Array<string | null | undefined>): string[] {
@@ -278,6 +462,12 @@ export async function processCropReminders(
 		emailRetries: 0,
 		emailRetriesSent: 0,
 		emailRetriesFailed: 0,
+		eventCandidates: 0,
+		eventInAppCreated: 0,
+		eventInAppSkipped: 0,
+		eventEmailsSent: 0,
+		eventEmailsFailed: 0,
+		eventEmailsSkipped: 0,
 	};
 
 	const [cycles, ponds] = await Promise.all([
@@ -319,7 +509,7 @@ export async function processCropReminders(
 		ponds.map((pond) => [pond.id, normalizeNotificationPrefs(pond.notificationPrefs)]),
 	);
 
-	const [sampleGroups, users, failedEmails] = await Promise.all([
+	const [sampleGroups, users, failedEmails, reminderEvents] = await Promise.all([
 		prisma.biomassLog.groupBy({
 			by: ["pondId"],
 			where: { pondId: { in: pondIds } },
@@ -356,6 +546,31 @@ export async function processCropReminders(
 				attempts: true,
 			},
 		}),
+		prisma.pondEvent.findMany({
+			where: {
+				pondId: { in: pondIds },
+				status: { in: ["PLANNED", "MISSED"] },
+				source: "manual",
+				reminderMinutes: { isEmpty: false },
+			},
+			orderBy: { startsAt: "asc" },
+			take: 500,
+			select: {
+				id: true,
+				pondId: true,
+				title: true,
+				kind: true,
+				allDay: true,
+				startsAt: true,
+				endsAt: true,
+				recurrenceFreq: true,
+				recurrenceInterval: true,
+				recurrenceUntil: true,
+				reminderMinutes: true,
+				completedOccurrences: true,
+				status: true,
+			},
+		}),
 	]);
 
 	const latestSampleByPond = new Map<string, Date>();
@@ -370,6 +585,13 @@ export async function processCropReminders(
 		latestSampleByPond,
 	});
 	summary.candidates = candidates.length;
+
+	const eventCandidates = computeEventReminderCandidates({
+		today,
+		events: reminderEvents,
+		ponds,
+	});
+	summary.eventCandidates = eventCandidates.length;
 
 	const emailConfigured = options.emailConfigured ?? isReminderEmailConfigured();
 	const sendEmail = options.sendEmail ?? sendReminderEmail;
@@ -411,14 +633,52 @@ export async function processCropReminders(
 		}
 	}
 
+	for (const candidate of eventCandidates) {
+		const dedupeKey = eventReminderDedupeKey(candidate, "in_app");
+		try {
+			await prisma.$transaction(async (tx) => {
+				await tx.reminderLog.create({
+					data: {
+						pondId: candidate.pondId,
+						pondEventId: candidate.eventId,
+						kind: candidate.kind,
+						channel: "in_app",
+						dedupeKey,
+					},
+				});
+				await tx.notification.create({
+					data: {
+						pondId: candidate.pondId,
+						farmId: candidate.farmId,
+						tier: candidate.tier,
+						category: "event",
+						message: candidate.message,
+						linkTo: REMINDER_LINK,
+					},
+				});
+			});
+			summary.eventInAppCreated += 1;
+		} catch (error) {
+			if (isUniqueConstraintError(error)) {
+				summary.eventInAppSkipped += 1;
+				continue;
+			}
+			throw error;
+		}
+	}
+
 	const emailEligible = candidates.filter(
+		(candidate) => prefsByPond.get(candidate.pondId)?.emailReminders,
+	);
+	const eventEmailEligible = eventCandidates.filter(
 		(candidate) => prefsByPond.get(candidate.pondId)?.emailReminders,
 	);
 
 	if (!emailConfigured) {
-		if (emailEligible.length > 0) {
+		if (emailEligible.length > 0 || eventEmailEligible.length > 0) {
 			warnReminderEmailNotConfiguredOnce();
 			summary.emailsSkipped += emailEligible.length;
+			summary.eventEmailsSkipped += eventEmailEligible.length;
 		}
 	}
 
@@ -493,6 +753,71 @@ export async function processCropReminders(
 				});
 			} else {
 				summary.emailsFailed += 1;
+				await updateReminderLog(dedupeKey, {
+					status: "FAILED",
+					attempts: 1,
+					lastError: truncateError(result.error),
+				});
+			}
+		});
+	}
+
+	const eventEmailCandidates = emailConfigured ? eventEmailEligible : [];
+	if (eventEmailCandidates.length > 0) {
+		await mapWithConcurrency(eventEmailCandidates, EMAIL_CONCURRENCY, async (candidate) => {
+			if (Date.now() - startedAt > ROUTE_BUDGET_MS) {
+				summary.emailsDeferred += 1;
+				return;
+			}
+
+			const pond = pondById.get(candidate.pondId);
+			if (!pond) return;
+			const recipients = recipientsByOwner.get(pond.ownerId) ?? [];
+			if (recipients.length === 0) {
+				summary.eventEmailsSkipped += 1;
+				return;
+			}
+
+			const dedupeKey = eventReminderDedupeKey(candidate, "email");
+			try {
+				await prisma.reminderLog.create({
+					data: {
+						pondId: candidate.pondId,
+						pondEventId: candidate.eventId,
+						kind: candidate.kind,
+						channel: "email",
+						dedupeKey,
+						recipient: recipients.join(", "),
+						status: "FAILED",
+						attempts: 0,
+					},
+				});
+			} catch (error) {
+				if (isUniqueConstraintError(error)) {
+					summary.eventEmailsSkipped += 1;
+					return;
+				}
+				throw error;
+			}
+
+			const result = await sendEmail(buildEventReminderEmailInput(candidate, recipients));
+			if (result.ok) {
+				summary.eventEmailsSent += 1;
+				await updateReminderLog(dedupeKey, {
+					status: "SENT",
+					attempts: 1,
+					lastError: null,
+					sentAt: new Date(),
+				});
+			} else if (result.skipped) {
+				summary.eventEmailsSkipped += 1;
+				await updateReminderLog(dedupeKey, {
+					status: "FAILED",
+					attempts: 1,
+					lastError: "Email is not configured",
+				});
+			} else {
+				summary.eventEmailsFailed += 1;
 				await updateReminderLog(dedupeKey, {
 					status: "FAILED",
 					attempts: 1,

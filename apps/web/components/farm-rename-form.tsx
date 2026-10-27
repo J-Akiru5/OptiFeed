@@ -1,7 +1,13 @@
 "use client";
 
+import {
+	dashboardButtonPrimary,
+	dashboardField,
+	dashboardLabel,
+} from "@/components/dashboard/dashboard-classes";
 import { useRouter } from "@/i18n/routing";
 import { renameFarm } from "@/lib/actions/farm";
+import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
@@ -34,18 +40,26 @@ export function FarmRenameForm({ initialName, canWrite = true }: FarmRenameFormP
 	}
 
 	return (
-		<form action={handleSubmit} className="mt-6 space-y-3 border-t border-gray-100 pt-6">
+		<form
+			action={handleSubmit}
+			data-help="settings-farm-name"
+			className="mt-4 space-y-3 border-t border-gray-100 pt-4 dark:border-gray-700/60"
+		>
 			{error && (
-				<div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-[#C42B3A]">
+				<div
+					role="alert"
+					aria-live="assertive"
+					className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-[#C42B3A] dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-200"
+				>
 					{error}
 				</div>
 			)}
 
-			<div className="flex flex-col gap-2">
-				<label htmlFor="farmName" className="text-sm font-medium text-gray-700">
+			<div>
+				<label htmlFor="farmName" className={dashboardLabel}>
 					{t("farmNameLabel")}
 				</label>
-				<div className="flex flex-wrap items-center gap-3">
+				<div className="flex flex-col gap-3 sm:flex-row sm:items-center">
 					<input
 						id="farmName"
 						name="farmName"
@@ -56,14 +70,14 @@ export function FarmRenameForm({ initialName, canWrite = true }: FarmRenameFormP
 						disabled={!canWrite}
 						value={name}
 						onChange={(e) => setName(e.target.value)}
-						className="min-w-[240px] flex-1 rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] disabled:opacity-50"
+						className={cn(dashboardField, "sm:flex-1")}
 					/>
 					<button
 						type="submit"
 						disabled={loading || !canWrite}
-						className="min-h-[var(--ofd-touch-min)] rounded-lg bg-[var(--ofd-action)] px-6 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+						className={cn(dashboardButtonPrimary, "sm:shrink-0")}
 					>
-						{loading ? "…" : t("saveSettings")}
+						{loading ? t("saving") : t("saveSettings")}
 					</button>
 				</div>
 			</div>

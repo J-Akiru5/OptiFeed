@@ -2,8 +2,9 @@
 
 import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
 import { toggleDevicePause } from "@/lib/actions/schedule";
+import { useFeedCommandGuard } from "@/lib/pwa/use-feed-guard";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, Loader2, Pause, Play, Power } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Pause, Play, Power } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -26,6 +27,7 @@ export function ScheduleControls({
 	const tBtn = useTranslations("button");
 	const tSch = useTranslations("dashboard.schedule");
 	const tModal = useTranslations("dashboard.feedNowModal");
+	const { online, reason, blockIfOffline } = useFeedCommandGuard();
 	const [isPaused, setIsPaused] = useState(initialIsPaused);
 	const [isPendingPause, startPauseTransition] = useTransition();
 
@@ -40,6 +42,7 @@ export function ScheduleControls({
 			: null;
 
 	const handleTogglePause = () => {
+		if (blockIfOffline()) return;
 		const newStatus = !isPaused;
 		setIsPaused(newStatus); // Optimistic update
 		startPauseTransition(async () => {
@@ -48,6 +51,7 @@ export function ScheduleControls({
 	};
 
 	const handleFeedNow = () => {
+		if (blockIfOffline()) return;
 		startFeedTransition(async () => {
 			try {
 				const result = await requestFeedAction(deviceId, gramsPerFeeding);
@@ -70,7 +74,10 @@ export function ScheduleControls({
 	};
 
 	return (
-		<div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+		<div
+			className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col sm:flex-row items-center justify-between gap-6"
+			data-help="schedule-controls"
+		>
 			{/* Pause / Resume Toggle */}
 			<div className="flex items-center gap-4">
 				<div
@@ -92,7 +99,8 @@ export function ScheduleControls({
 				<button
 					type="button"
 					onClick={handleTogglePause}
-					disabled={isPendingPause || !canWrite}
+					disabled={isPendingPause || !canWrite || !online}
+					title={reason}
 					className={cn(
 						"ml-4 px-4 py-2 rounded-lg font-medium text-sm transition-all border",
 						isPaused
@@ -127,7 +135,8 @@ export function ScheduleControls({
 							<button
 								type="button"
 								onClick={handleFeedNow}
-								disabled={isPendingFeed}
+								disabled={isPendingFeed || !online}
+								title={reason}
 								className="px-3 py-1.5 rounded-md text-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors flex items-center justify-center min-w-[80px]"
 							>
 								{isPendingFeed ? <Loader2 size={16} className="animate-spin" /> : tBtn("confirm")}
@@ -138,7 +147,8 @@ export function ScheduleControls({
 					<button
 						type="button"
 						onClick={() => setShowConfirm(true)}
-						disabled={!canWrite}
+						disabled={!canWrite || !online}
+						title={reason}
 						className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-white bg-[var(--ofd-base)] hover:bg-[#1a4a6e] transition-all shadow-md hover:shadow-lg w-full sm:w-auto justify-center disabled:opacity-50"
 					>
 						{feedSuccess ? (
@@ -148,6 +158,12 @@ export function ScheduleControls({
 						)}
 						<span>{feedSuccess ? tBtn("feedTriggered") : tBtn("feedNow")}</span>
 					</button>
+				)}
+				{reason && (
+					<p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+						<AlertTriangle size={12} aria-hidden="true" />
+						{reason}
+					</p>
 				)}
 				{feedDurationSeconds && (
 					<p className="mt-2 text-[11px] font-medium text-gray-500 dark:text-gray-400">

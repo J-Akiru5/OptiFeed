@@ -8,7 +8,7 @@ const base = {
 };
 
 describe("getFeedLevelDisplay", () => {
-	it("rests at 0% and hides days remaining when the device is offline", () => {
+	it("keeps the last known reading and hides days remaining when the device is offline", () => {
 		const display = getFeedLevelDisplay({
 			...base,
 			levelPercent: 82,
@@ -16,7 +16,8 @@ describe("getFeedLevelDisplay", () => {
 		});
 
 		expect(display).toMatchObject({
-			percent: 0,
+			state: "stale",
+			percent: 82,
 			hasReading: true,
 			isOffline: true,
 			isCritical: false,
@@ -25,15 +26,16 @@ describe("getFeedLevelDisplay", () => {
 		});
 	});
 
-	it("still reports a resting reading when an offline device has no level", () => {
+	it("reports no reading when an offline device has never reported a level", () => {
 		const display = getFeedLevelDisplay({
 			...base,
 			levelPercent: null,
 			isDeviceOffline: true,
 		});
 
-		expect(display.percent).toBe(0);
-		expect(display.hasReading).toBe(true);
+		expect(display.state).toBe("none");
+		expect(display.percent).toBeNull();
+		expect(display.hasReading).toBe(false);
 		expect(display.daysRemaining).toBeNull();
 	});
 
@@ -44,6 +46,7 @@ describe("getFeedLevelDisplay", () => {
 			isDeviceOffline: false,
 		});
 
+		expect(display.state).toBe("live");
 		expect(display.percent).toBe(82);
 		expect(display.hasReading).toBe(true);
 		expect(display.daysRemaining).toBe(41);
@@ -58,6 +61,7 @@ describe("getFeedLevelDisplay", () => {
 			isDeviceOffline: false,
 		});
 
+		expect(display.state).toBe("none");
 		expect(display.percent).toBeNull();
 		expect(display.hasReading).toBe(false);
 		expect(display.daysRemaining).toBeNull();

@@ -14,6 +14,10 @@ vi.mock("@/lib/prisma", () => ({
 			findFirst: vi.fn(),
 			create: vi.fn(),
 		},
+		waterTempLog: {
+			findFirst: vi.fn(),
+			create: vi.fn(),
+		},
 		pond: {
 			findUnique: vi.fn(),
 		},
@@ -50,6 +54,7 @@ import prisma from "@/lib/prisma";
 const mockEnergyDevice = vi.mocked(prisma.energyDevice);
 const mockFeedEvent = vi.mocked(prisma.feedEvent);
 const mockFeedLevelLog = vi.mocked(prisma.feedLevelLog);
+const mockWaterTempLog = vi.mocked(prisma.waterTempLog);
 const mockPond = vi.mocked(prisma.pond);
 const mockFeedRequest = vi.mocked(prisma.feedRequest);
 const mockDeviceStateEvent = vi.mocked(prisma.deviceStateEvent);
@@ -64,6 +69,7 @@ const DEVICE = {
 	// Auth goes through hash lookup (device-auth) — the mock row must carry
 	// the matching hash for the "test-token" header used by ingestRequest().
 	tokenHash: hashToken("test-token"),
+	approvalStatus: "APPROVED",
 };
 
 function ingestRequest(body: Record<string, unknown>): Request {
@@ -145,11 +151,29 @@ describe("POST /api/ingest — feed_dispensed dedupe (Gap #2)", () => {
 		expect(mockFeedRequest.findMany).toHaveBeenCalledTimes(1);
 		expect(mockFeedEvent.create).toHaveBeenCalledTimes(1);
 	});
+
+	it("rejects a PENDING device with 403 (org approval policy)", async () => {
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			approvalStatus: "PENDING",
+		} as never);
+
+		const res = await POST(ingestRequest(feedDispensedBody("evt-0005", "req-5")));
+		expect(res.status).toBe(403);
+		expect(mockFeedEvent.create).not.toHaveBeenCalled();
+		expect(mockFeedRequest.updateMany).not.toHaveBeenCalled();
+	});
 });
 
 function heartbeatBody(
 	eventId: string,
-	opts: { rtcOk?: boolean; feederActive?: boolean; feedLevelPercent?: number } = {},
+	opts: {
+		rtcOk?: boolean;
+		feederActive?: boolean;
+		feedLevelPercent?: number;
+		waterTempC?: number;
+		waterTempOk?: boolean;
+	} = {},
 ) {
 	return {
 		device_id: DEVICE.mac,
@@ -159,6 +183,8 @@ function heartbeatBody(
 		rtc_ok: opts.rtcOk ?? true,
 		feeder_active: opts.feederActive ?? false,
 		...(opts.feedLevelPercent !== undefined ? { feed_level_percent: opts.feedLevelPercent } : {}),
+		...(opts.waterTempC !== undefined ? { water_temp_c: opts.waterTempC } : {}),
+		...(opts.waterTempOk !== undefined ? { water_temp_ok: opts.waterTempOk } : {}),
 	};
 }
 
@@ -169,6 +195,8 @@ describe("POST /api/ingest — heartbeat dedup and thinning (1.4)", () => {
 		mockFeedEvent.create.mockResolvedValue({} as never);
 		mockFeedLevelLog.findFirst.mockResolvedValue(null as never);
 		mockFeedLevelLog.create.mockResolvedValue({} as never);
+		mockWaterTempLog.findFirst.mockResolvedValue(null as never);
+		mockWaterTempLog.create.mockResolvedValue({} as never);
 		mockFeedRequest.findMany.mockResolvedValue([] as never);
 		mockFeedRequest.updateMany.mockResolvedValue({ count: 0 } as never);
 		mockDeviceStateEvent.create.mockResolvedValue({} as never);
@@ -339,5 +367,82 @@ describe("POST /api/ingest — heartbeat dedup and thinning (1.4)", () => {
 			([arg]) => (arg as { data: { eventType: string } }).data.eventType === "connected",
 		);
 		expect(connectedCalls).toHaveLength(1);
+	});
+});
+
+describe("POST /api/ingest — water temperature history (I-06)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			pondId: "pond-1",
+			lastSeenAt: new Date(Date.now() - 5000),
+		} as never);
+		mockEnergyDevice.update.mockResolvedValue({} as never);
+		mockPond.findUnique.mockResolvedValue({ farmId: "farm-1" } as never);
+		mockFeedEvent.findFirst.mockResolvedValue({
+			receivedAt: new Date(),
+			rtcOk: true,
+			feederActive: false,
+		} as never);
+		mockFeedEvent.create.mockResolvedValue({} as never);
+		mockWaterTempLog.findFirst.mockResolvedValue(null as never);
+		mockWaterTempLog.create.mockResolvedValue({} as never);
+	});
+
+	it("writes a WaterTempLog row for an accepted probe reading", async () => {
+		const res = await POST(
+			ingestRequest(heartbeatBody("hb-temp-1", { waterTempC: 28.4, waterTempOk: true })),
+		);
+
+		expect(res.status).toBe(204);
+		expect(mockWaterTempLog.create).toHaveBeenCalledTimes(1);
+		expect(mockWaterTempLog.create).toHaveBeenCalledWith({
+			data: { deviceId: DEVICE.id, tempC: 28.4, farmId: "farm-1" },
+		});
+	});
+
+	it("throttles to one row per device per 5 minutes", async () => {
+		// Last row 2 minutes ago → still inside the window, no new row.
+		mockWaterTempLog.findFirst.mockResolvedValue({
+			recordedAt: new Date(Date.now() - 2 * 60 * 1000),
+		} as never);
+		const recent = await POST(
+			ingestRequest(heartbeatBody("hb-temp-2", { waterTempC: 27.9, waterTempOk: true })),
+		);
+		expect(recent.status).toBe(204);
+		expect(mockWaterTempLog.create).not.toHaveBeenCalled();
+
+		// Last row 6 minutes ago → due again.
+		mockWaterTempLog.findFirst.mockResolvedValue({
+			recordedAt: new Date(Date.now() - 6 * 60 * 1000),
+		} as never);
+		const due = await POST(
+			ingestRequest(heartbeatBody("hb-temp-3", { waterTempC: 28.1, waterTempOk: true })),
+		);
+		expect(due.status).toBe(204);
+		expect(mockWaterTempLog.create).toHaveBeenCalledTimes(1);
+		expect(mockWaterTempLog.create).toHaveBeenCalledWith({
+			data: { deviceId: DEVICE.id, tempC: 28.1, farmId: "farm-1" },
+		});
+	});
+
+	it("writes no row when the probe is undetected, and flags the device offline", async () => {
+		const res = await POST(
+			ingestRequest(heartbeatBody("hb-temp-bad", { waterTempC: -127, waterTempOk: false })),
+		);
+
+		expect(res.status).toBe(204);
+		expect(mockWaterTempLog.create).not.toHaveBeenCalled();
+		expect(mockEnergyDevice.update).toHaveBeenCalledWith(
+			expect.objectContaining({ data: expect.objectContaining({ waterTempOk: false }) }),
+		);
+	});
+
+	it("writes no row when the heartbeat omits the probe fields", async () => {
+		const res = await POST(ingestRequest(heartbeatBody("hb-temp-absent")));
+
+		expect(res.status).toBe(204);
+		expect(mockWaterTempLog.create).not.toHaveBeenCalled();
 	});
 });

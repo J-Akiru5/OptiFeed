@@ -1,6 +1,13 @@
 "use client";
 
+import {
+	dashboardButtonPrimary,
+	dashboardField,
+	dashboardHint,
+	dashboardLabel,
+} from "@/components/dashboard/dashboard-classes";
 import { updatePondSettings } from "@/lib/actions/settings";
+import { cn } from "@/lib/utils";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
@@ -66,7 +73,7 @@ export function PondSettingsForm({ pond, canWrite = true }: PondSettingsFormProp
 				setSuccess(true);
 				setTimeout(() => setSuccess(false), 3000);
 			} else {
-				setError(result.error ?? "Failed to save settings");
+				setError(result.error ?? t("saveError"));
 			}
 		});
 	};
@@ -82,15 +89,10 @@ export function PondSettingsForm({ pond, canWrite = true }: PondSettingsFormProp
 			: null;
 
 	return (
-		<form
-			onSubmit={handleSubmit}
-			className="mt-6 flex flex-col gap-6 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
-		>
-			<h2 className="text-xl font-semibold text-gray-800">{t("configTitle")}</h2>
-
-			<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-				<div className="flex flex-col gap-2">
-					<label htmlFor="feedingRate" className="text-sm font-medium text-gray-700">
+		<form onSubmit={handleSubmit} className="flex flex-col gap-6" data-help="pond-settings-form">
+			<div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+				<div>
+					<label htmlFor="feedingRate" className={dashboardLabel}>
 						{t("rateLabel")}
 					</label>
 					<input
@@ -98,16 +100,18 @@ export function PondSettingsForm({ pond, canWrite = true }: PondSettingsFormProp
 						type="number"
 						step="0.1"
 						min="0"
+						inputMode="decimal"
 						value={feedingRate}
 						onChange={(e) => setFeedingRate(e.target.value)}
-						className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+						disabled={!canWrite}
+						className={dashboardField}
 						required
 					/>
-					<p className="text-xs text-gray-500">{t("rateDesc")}</p>
+					<span className={dashboardHint}>{t("rateDesc")}</span>
 				</div>
 
-				<div className="flex flex-col gap-2">
-					<label htmlFor="feedsPerDay" className="text-sm font-medium text-gray-700">
+				<div>
+					<label htmlFor="feedsPerDay" className={dashboardLabel}>
 						{t("freqLabel")}
 					</label>
 					<input
@@ -115,53 +119,55 @@ export function PondSettingsForm({ pond, canWrite = true }: PondSettingsFormProp
 						type="number"
 						min="1"
 						max="24"
+						inputMode="numeric"
 						value={feedsPerDay}
 						onChange={(e) => setFeedsPerDay(e.target.value)}
-						className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+						disabled={!canWrite}
+						className={dashboardField}
 						required
 					/>
-					<p className="text-xs text-gray-500">{t("freqDesc")}</p>
+					<span className={dashboardHint}>{t("freqDesc")}</span>
 				</div>
 
-				<div className="flex flex-col gap-2">
-					<label htmlFor="sampleInterval" className="text-sm font-medium text-gray-700">
-						Sample Interval (days)
+				<div>
+					<label htmlFor="sampleInterval" className={dashboardLabel}>
+						{t("sampleIntervalLabel")}
 					</label>
 					<input
 						id="sampleInterval"
 						type="number"
 						min="1"
 						max="90"
+						inputMode="numeric"
 						value={sampleInterval}
 						onChange={(e) => setSampleInterval(e.target.value)}
-						className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+						disabled={!canWrite}
+						className={dashboardField}
 						required
 					/>
-					<p className="text-xs text-gray-500">
-						How often fish samples are taken (e.g. 15 or 30 days)
-					</p>
+					<span className={dashboardHint}>{t("sampleIntervalDesc")}</span>
 				</div>
 
-				<div className="flex flex-col gap-2">
-					<label htmlFor="population" className="text-sm font-medium text-gray-700">
-						Population (fish)
+				<div>
+					<label htmlFor="population" className={dashboardLabel}>
+						{t("populationLabel")}
 					</label>
 					<input
 						id="population"
 						type="number"
 						min="0"
+						inputMode="numeric"
 						value={population}
 						onChange={(e) => setPopulation(e.target.value)}
-						placeholder="e.g. 200"
-						className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+						placeholder={t("populationPlaceholder")}
+						disabled={!canWrite}
+						className={dashboardField}
 					/>
-					<p className="text-xs text-gray-500">
-						Number of fish — used for total biomass and daily feed
-					</p>
+					<span className={dashboardHint}>{t("populationDesc")}</span>
 				</div>
 
-				<div className="flex flex-col gap-2">
-					<label htmlFor="areaM2" className="text-sm font-medium text-gray-700">
+				<div>
+					<label htmlFor="areaM2" className={dashboardLabel}>
 						{t("areaLabel")}
 					</label>
 					<input
@@ -169,16 +175,18 @@ export function PondSettingsForm({ pond, canWrite = true }: PondSettingsFormProp
 						type="number"
 						min="0"
 						step="0.1"
+						inputMode="decimal"
 						value={areaM2}
 						onChange={(e) => setAreaM2(e.target.value)}
-						placeholder="e.g. 500"
-						className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+						placeholder={t("areaPlaceholder")}
+						disabled={!canWrite}
+						className={dashboardField}
 					/>
-					<p className="text-xs text-gray-500">{t("areaDesc")}</p>
+					<span className={dashboardHint}>{t("areaDesc")}</span>
 				</div>
 
-				<div className="flex flex-col gap-2">
-					<label htmlFor="averageDepthM" className="text-sm font-medium text-gray-700">
+				<div>
+					<label htmlFor="averageDepthM" className={dashboardLabel}>
 						{t("depthLabel")}
 					</label>
 					<input
@@ -186,16 +194,18 @@ export function PondSettingsForm({ pond, canWrite = true }: PondSettingsFormProp
 						type="number"
 						min="0"
 						step="0.1"
+						inputMode="decimal"
 						value={averageDepthM}
 						onChange={(e) => setAverageDepthM(e.target.value)}
-						placeholder="e.g. 1.5"
-						className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+						placeholder={t("depthPlaceholder")}
+						disabled={!canWrite}
+						className={dashboardField}
 					/>
-					<p className="text-xs text-gray-500">{t("depthDesc")}</p>
+					<span className={dashboardHint}>{t("depthDesc")}</span>
 				</div>
 
-				<div className="flex flex-col gap-2">
-					<label htmlFor="feedPricePerKg" className="text-sm font-medium text-gray-700">
+				<div>
+					<label htmlFor="feedPricePerKg" className={dashboardLabel}>
 						{t("feedPriceLabel")}
 					</label>
 					<input
@@ -203,17 +213,19 @@ export function PondSettingsForm({ pond, canWrite = true }: PondSettingsFormProp
 						type="number"
 						min="0"
 						step="0.01"
+						inputMode="decimal"
 						value={feedPricePerKg}
 						onChange={(e) => setFeedPricePerKg(e.target.value)}
-						placeholder="e.g. 30"
-						className="rounded-lg border border-gray-200 px-4 py-2 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)]"
+						placeholder={t("feedPricePlaceholder")}
+						disabled={!canWrite}
+						className={dashboardField}
 					/>
-					<p className="text-xs text-gray-500">{t("feedPriceDesc")}</p>
+					<span className={dashboardHint}>{t("feedPriceDesc")}</span>
 				</div>
 
-				<div className="flex flex-col gap-2">
-					<p className="text-sm font-medium text-gray-700">{t("densityLabel")}</p>
-					<p className="rounded-lg bg-[#F4F7F6] px-4 py-2 text-sm font-bold text-[var(--ofd-base-deep)]">
+				<div>
+					<p className={dashboardLabel}>{t("densityLabel")}</p>
+					<p className="flex min-h-11 items-center rounded-xl bg-[#F4F7F6] px-4 py-2 text-sm font-black text-[#0A3D62] dark:bg-gray-800 dark:text-gray-100">
 						{density !== null
 							? t("densityValue", { density: density.toFixed(1) })
 							: t("densityNoArea")}
@@ -221,23 +233,27 @@ export function PondSettingsForm({ pond, canWrite = true }: PondSettingsFormProp
 				</div>
 			</div>
 
-			<div className="flex items-center gap-4">
+			<div className="flex flex-col gap-3 sm:flex-row sm:items-center">
 				<button
 					type="submit"
 					disabled={isPending || !canWrite}
-					className="flex min-h-[var(--ofd-touch-min)] min-w-[120px] items-center justify-center rounded-lg bg-[var(--ofd-action)] px-6 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+					className={cn(dashboardButtonPrimary, "sm:min-w-[140px]")}
 				>
-					{isPending ? <Loader2 size={18} className="animate-spin" /> : t("saveSettings")}
+					{isPending && <Loader2 size={18} className="animate-spin" aria-hidden="true" />}
+					{isPending ? t("saving") : t("saveSettings")}
 				</button>
 				{success && (
-					<span className="flex items-center gap-1 text-sm font-medium text-green-600 animate-in fade-in">
-						<CheckCircle2 size={18} />
+					<output className="flex items-center gap-1 text-sm font-bold text-[#1E7B34] dark:text-green-300">
+						<CheckCircle2 size={18} aria-hidden="true" />
 						{t("success")}
-					</span>
+					</output>
 				)}
 				{error && (
-					<span className="flex items-center gap-1 text-sm font-medium text-red-600">
-						<XCircle size={18} />
+					<span
+						role="alert"
+						className="flex items-center gap-1 text-sm font-bold text-[#C42B3A] dark:text-red-300"
+					>
+						<XCircle size={18} aria-hidden="true" />
 						{error}
 					</span>
 				)}

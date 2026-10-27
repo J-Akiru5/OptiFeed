@@ -4,8 +4,10 @@ import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { STALE_SENT_MS } from "@/lib/constants";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
-import { MAX_DISPENSE_MS, dailyFeedCapG, formatZodError, scheduleInputSchema } from "@/lib/limits";
+import { setSchedulePause } from "@/lib/feed/commands";
+import { dailyFeedCapG, formatZodError, scheduleInputSchema } from "@/lib/limits";
 import prisma from "@/lib/prisma";
+import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import { revalidatePath } from "next/cache";
 
 export async function toggleDevicePause(deviceId: string, isPaused: boolean) {
@@ -16,29 +18,16 @@ export async function toggleDevicePause(deviceId: string, isPaused: boolean) {
 	try {
 		const ownerId = await getCurrentPondOwnerId();
 
-		const device = await prisma.energyDevice.findFirst({
-			where: { id: deviceId, pond: { ownerId } },
-			include: { pond: { select: { isFallow: true } } },
+		// Same pause implementation as superadmin remote control (plan M5.2).
+		const outcome = await setSchedulePause(prisma, {
+			deviceId,
+			isPaused,
+			actorId: ownerId,
+			farmId: ownerId,
 		});
-		if (!device) throw new Error("Device not found or access denied");
-		if (!isPaused && device.pond?.isFallow) {
-			throw new Error("POND_FALLOW");
+		if (!outcome.ok) {
+			throw new Error(outcome.code === "pond_fallow" ? "POND_FALLOW" : outcome.error);
 		}
-
-		await prisma.energyDevice.update({
-			where: { id: deviceId },
-			data: { isPaused },
-		});
-
-		await prisma.deviceStateEvent.create({
-			data: {
-				deviceId,
-				eventType: "pause_toggled",
-				source: "user",
-				actorId: ownerId,
-				metadata: { isPaused },
-			},
-		});
 
 		revalidatePath("/[locale]/(dashboard)/dashboard/schedule", "page");
 	} catch (error) {
@@ -98,7 +87,8 @@ export async function updateScheduleCommand(
 			};
 		}
 
-		const dailyCapG = dailyFeedCapG(device.hopperCapacityG);
+		const limits = await getFeedingLimits();
+		const dailyCapG = dailyFeedCapG(device.hopperCapacityG, limits.dailyCapFactor);
 		const scheduledDailyG = input.feedsPerDay * device.gramsPerFeeding;
 		if (scheduledDailyG > dailyCapG) {
 			return {
@@ -109,11 +99,11 @@ export async function updateScheduleCommand(
 
 		if (
 			device.gramsPerSecond > 0 &&
-			device.gramsPerFeeding / device.gramsPerSecond > MAX_DISPENSE_MS / 1000
+			device.gramsPerFeeding / device.gramsPerSecond > limits.maxDispenseMs / 1000
 		) {
 			return {
 				success: false,
-				error: `Feed amount of ${device.gramsPerFeeding} g would take more than ${MAX_DISPENSE_MS / 1000} s of relay time at ${device.gramsPerSecond} g/s.`,
+				error: `Feed amount of ${device.gramsPerFeeding} g would take more than ${limits.maxDispenseMs / 1000} s of relay time at ${device.gramsPerSecond} g/s.`,
 			};
 		}
 

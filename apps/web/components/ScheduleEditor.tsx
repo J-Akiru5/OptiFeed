@@ -120,7 +120,10 @@ export function ScheduleEditor({
 	};
 
 	return (
-		<div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+		<div
+			className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
+			data-help="schedule-editor"
+		>
 			<div className="border-b border-gray-100 bg-gray-50/50 px-6 py-4">
 				<h3 className="font-semibold text-gray-900">{t("editTitle")}</h3>
 			</div>
@@ -258,6 +261,7 @@ export function ScheduleEditor({
 					<button
 						type="submit"
 						disabled={isPending || !canWrite}
+						data-help="schedule-save"
 						className="flex min-h-[44px] min-w-[120px] items-center justify-center rounded-lg bg-[var(--ofd-action)] px-6 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
 					>
 						{isPending ? <Loader2 size={18} className="animate-spin" /> : t("saveChanges")}

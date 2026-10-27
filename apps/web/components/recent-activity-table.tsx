@@ -1,3 +1,14 @@
+import {
+	AdminCard,
+	AdminCardList,
+	AdminCardRow,
+	AdminTHead,
+	AdminTable,
+	AdminTd,
+	AdminTh,
+	AdminTr,
+} from "@/components/admin/admin-table";
+
 interface RecentActivityProps {
 	events: {
 		id: string;
@@ -6,54 +17,76 @@ interface RecentActivityProps {
 		createdAt: Date;
 		device: { label: string };
 	}[];
+	/** Translated table headings and empty message, supplied by the page. */
+	labels: {
+		time: string;
+		device: string;
+		event: string;
+		source: string;
+		empty: string;
+	};
+	/** Locale-aware date formatter from `lib/date-local`. */
+	formatDate: (date: Date) => string;
 }
 
-export function RecentActivityTable({ events }: RecentActivityProps) {
+/**
+ * Recent device activity, as a table on desktop and cards below `md` so the
+ * page never scrolls sideways on a phone.
+ */
+export function RecentActivityTable({ events, labels, formatDate }: RecentActivityProps) {
 	return (
-		<div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-			<div className="overflow-x-auto">
-				<table className="w-full text-sm">
-					<thead>
-						<tr className="border-b border-gray-100 bg-[#F4F7F6]">
-							<th className="text-left px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider">
-								Time
-							</th>
-							<th className="text-left px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider">
-								Device
-							</th>
-							<th className="text-left px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider">
-								Event
-							</th>
-							<th className="text-left px-6 py-3 font-black text-[#3D5568] uppercase text-[10px] tracking-wider">
-								Source
-							</th>
-						</tr>
-					</thead>
-					<tbody>
-						{events.map((event) => (
-							<tr
-								key={event.id}
-								className="border-b border-gray-50 hover:bg-[#F4F7F6]/50 transition-colors"
-							>
-								<td className="px-6 py-3 text-xs text-[#3D5568] whitespace-nowrap">
-									{event.createdAt.toLocaleString()}
-								</td>
-								<td className="px-6 py-3 text-xs font-bold text-[#0A3D62]">{event.device.label}</td>
-								<td className="px-6 py-3">
-									<span className="inline-flex px-2.5 py-1 rounded-full bg-[#0A3D62]/10 text-[10px] font-black uppercase tracking-wider text-[#0A3D62]">
-										{event.eventType}
-									</span>
-								</td>
-								<td className="px-6 py-3 text-xs text-[#3D5568]">{event.source}</td>
-							</tr>
-						))}
-					</tbody>
-				</table>
-			</div>
+		<div>
+			<AdminTable minWidth="min-w-[36rem]">
+				<AdminTHead>
+					<AdminTh>{labels.time}</AdminTh>
+					<AdminTh>{labels.device}</AdminTh>
+					<AdminTh>{labels.event}</AdminTh>
+					<AdminTh>{labels.source}</AdminTh>
+				</AdminTHead>
+				<tbody>
+					{events.map((event) => (
+						<AdminTr key={event.id}>
+							<AdminTd className="text-xs whitespace-nowrap text-[#3D5568] dark:text-gray-400">
+								{formatDate(event.createdAt)}
+							</AdminTd>
+							<AdminTd className="text-xs font-bold text-[#0A3D62] dark:text-gray-100">
+								{event.device.label}
+							</AdminTd>
+							<AdminTd>
+								<span className="inline-flex rounded-full bg-[#0A3D62]/10 px-2.5 py-1 text-[10px] font-black tracking-wider text-[#0A3D62] uppercase dark:bg-white/10 dark:text-[#8fc0ea]">
+									{event.eventType}
+								</span>
+							</AdminTd>
+							<AdminTd className="text-xs text-[#3D5568] dark:text-gray-400">
+								{event.source}
+							</AdminTd>
+						</AdminTr>
+					))}
+				</tbody>
+			</AdminTable>
+
+			<AdminCardList>
+				{events.map((event) => (
+					<AdminCard key={event.id}>
+						<div className="flex items-start justify-between gap-3">
+							<p className="min-w-0 font-black text-[#0A3D62] dark:text-gray-100">
+								{event.device.label}
+							</p>
+							<span className="shrink-0 rounded-full bg-[#0A3D62]/10 px-2.5 py-1 text-[10px] font-black tracking-wider text-[#0A3D62] uppercase dark:bg-white/10 dark:text-[#8fc0ea]">
+								{event.eventType}
+							</span>
+						</div>
+						<div className="mt-2">
+							<AdminCardRow label={labels.time}>{formatDate(event.createdAt)}</AdminCardRow>
+							<AdminCardRow label={labels.source}>{event.source}</AdminCardRow>
+						</div>
+					</AdminCard>
+				))}
+			</AdminCardList>
 
 			{events.length === 0 && (
-				<div className="text-center py-8 text-[#3D5568]">
-					<p className="font-bold text-sm">No recent activity.</p>
+				<div className="rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-8 text-center dark:border-gray-700 dark:bg-gray-900">
+					<p className="text-sm font-bold text-[#3D5568] dark:text-gray-400">{labels.empty}</p>
 				</div>
 			)}
 		</div>

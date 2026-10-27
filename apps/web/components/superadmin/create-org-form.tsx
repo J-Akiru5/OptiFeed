@@ -1,7 +1,17 @@
 "use client";
 
+import {
+	Alert,
+	CARD,
+	FIELD_HINT,
+	FIELD_INPUT,
+	FIELD_LABEL,
+	PRIMARY_BUTTON,
+} from "@/components/superadmin/ui";
 import { createOrg } from "@/lib/actions/superadmin";
-import { Loader2, Plus, ShieldAlert } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Loader2, Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { type FormEvent, useState, useTransition } from "react";
 
 const ORG_TYPES = ["INDIVIDUAL", "COOPERATIVE", "COMPANY", "LGU", "ACADEMIC"] as const;
@@ -9,6 +19,9 @@ const ORG_TYPES = ["INDIVIDUAL", "COOPERATIVE", "COMPANY", "LGU", "ACADEMIC"] as
 type OrgType = (typeof ORG_TYPES)[number];
 
 export function CreateOrgForm() {
+	const t = useTranslations("superadmin.createOrg");
+	const tCommon = useTranslations("superadmin.common");
+	const tRoot = useTranslations("superadmin");
 	const [isPending, startTransition] = useTransition();
 	const [name, setName] = useState("");
 	const [type, setType] = useState<OrgType>("INDIVIDUAL");
@@ -20,8 +33,8 @@ export function CreateOrgForm() {
 		e.preventDefault();
 		setError(null);
 
-		if (!name.trim()) return setError("Organization name is required.");
-		if (reason.trim().length < 10) return setError("Reason must be at least 10 characters.");
+		if (!name.trim()) return setError(t("nameRequired"));
+		if (reason.trim().length < 10) return setError(tCommon("reasonMinLength", { count: 10 }));
 
 		startTransition(async () => {
 			const result = await createOrg({ name, type, reason: reason.trim() });
@@ -40,19 +53,18 @@ export function CreateOrgForm() {
 	return (
 		<form
 			onSubmit={handleSubmit}
-			className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4"
+			data-help="superadmin-create-org"
+			className={cn(CARD, "space-y-4 p-6")}
+			aria-busy={isPending}
 		>
-			<p className="text-xs uppercase font-extrabold tracking-wider text-[#3D5568]">
-				Create organization
-			</p>
+			<h2 className="text-xs font-extrabold uppercase tracking-wider text-[#3D5568]">
+				{t("title")}
+			</h2>
 
-			<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 				<div className="space-y-1.5">
-					<label
-						htmlFor="org-name"
-						className="block text-[10px] uppercase font-extrabold tracking-wider text-[#3D5568]"
-					>
-						Name *
+					<label htmlFor="org-name" className={FIELD_LABEL}>
+						{t("name")}
 					</label>
 					<input
 						id="org-name"
@@ -60,28 +72,25 @@ export function CreateOrgForm() {
 						value={name}
 						onChange={(e) => setName(e.target.value)}
 						disabled={isPending}
-						placeholder="e.g. San Pablo Fish Farmers Coop"
-						className="w-full px-4 py-3 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E85A2A] transition-all disabled:opacity-60"
+						placeholder={t("namePlaceholder")}
+						className={FIELD_INPUT}
 					/>
 				</div>
 
 				<div className="space-y-1.5">
-					<label
-						htmlFor="org-type"
-						className="block text-[10px] uppercase font-extrabold tracking-wider text-[#3D5568]"
-					>
-						Type *
+					<label htmlFor="org-type" className={FIELD_LABEL}>
+						{tCommon("type")} *
 					</label>
 					<select
 						id="org-type"
 						value={type}
 						onChange={(e) => setType(e.target.value as OrgType)}
 						disabled={isPending}
-						className="w-full px-4 py-3 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#E85A2A] transition-all"
+						className={cn(FIELD_INPUT, "font-bold")}
 					>
-						{ORG_TYPES.map((t) => (
-							<option key={t} value={t}>
-								{t}
+						{ORG_TYPES.map((option) => (
+							<option key={option} value={option}>
+								{tRoot(`orgTypes.${option}`)}
 							</option>
 						))}
 					</select>
@@ -89,11 +98,8 @@ export function CreateOrgForm() {
 			</div>
 
 			<div className="space-y-1.5">
-				<label
-					htmlFor="org-reason"
-					className="block text-[10px] uppercase font-extrabold tracking-wider text-[#3D5568]"
-				>
-					Reason *
+				<label htmlFor="org-reason" className={FIELD_LABEL}>
+					{tCommon("reasonRequired")}
 				</label>
 				<input
 					id="org-reason"
@@ -101,34 +107,26 @@ export function CreateOrgForm() {
 					value={reason}
 					onChange={(e) => setReason(e.target.value)}
 					disabled={isPending}
-					placeholder="e.g. Tenant onboarding for partner cooperative"
-					className="w-full px-4 py-3 bg-[#F4F7F6] text-[#0A3D62] border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#E85A2A] transition-all disabled:opacity-60"
+					placeholder={t("reasonPlaceholder")}
+					aria-describedby="org-reason-hint"
+					className={FIELD_INPUT}
 				/>
-				<p className="text-[11px] text-[#3D5568]">
-					Recorded in the platform audit log. At least 10 characters.
+				<p id="org-reason-hint" className={FIELD_HINT}>
+					{t("reasonHint")}
 				</p>
 			</div>
 
-			{error && (
-				<div className="bg-red-50 text-[#C42B3A] text-xs p-3 rounded-xl border border-red-200 flex items-start gap-2">
-					<ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
-					<span className="font-bold">{error}</span>
-				</div>
-			)}
+			{error && <Alert tone="error">{error}</Alert>}
 
-			{success && (
-				<div className="bg-green-50 text-green-700 text-xs p-3 rounded-xl border border-green-200">
-					<span className="font-bold">Organization created.</span>
-				</div>
-			)}
+			{success && <Alert tone="success">{t("created")}</Alert>}
 
-			<button
-				type="submit"
-				disabled={isPending || success}
-				className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#E85A2A] text-white font-bold text-sm rounded-xl hover:bg-[#d04a1f] transition-colors shadow-sm disabled:opacity-60"
-			>
-				{isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-				Create Organization
+			<button type="submit" disabled={isPending || success} className={PRIMARY_BUTTON}>
+				{isPending ? (
+					<Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+				) : (
+					<Plus className="h-4 w-4" aria-hidden="true" />
+				)}
+				{t("submit")}
 			</button>
 		</form>
 	);

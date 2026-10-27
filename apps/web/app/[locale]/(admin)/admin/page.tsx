@@ -1,27 +1,52 @@
 import { AdminStatsCards } from "@/components/admin-stats-cards";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { RecentActivityTable } from "@/components/recent-activity-table";
 import { getAdminStats } from "@/lib/actions/admin";
+import { formatDateTimeLocal } from "@/lib/date-local";
+import { LayoutDashboard } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 export default async function AdminOverviewPage() {
-	const stats = await getAdminStats();
+	const [stats, t, tDates] = await Promise.all([
+		getAdminStats(),
+		getTranslations("dashboard.adminOverview"),
+		getTranslations("dates"),
+	]);
 
 	return (
-		<div className="space-y-8">
-			<div>
-				<h1 className="text-2xl font-black text-[#0A3D62]">Admin Overview</h1>
-				<p className="text-sm text-[#3D5568] mt-1">System-wide statistics and recent activity.</p>
-			</div>
+		<div className="space-y-6">
+			<AdminPageHeader icon={LayoutDashboard} title={t("title")} description={t("desc")} />
 
 			<AdminStatsCards
 				userCount={stats.userCount}
 				pondCount={stats.pondCount}
 				deviceCount={stats.deviceCount}
+				labels={{
+					users: t("statUsers"),
+					ponds: t("statPonds"),
+					devices: t("statDevices"),
+				}}
 			/>
 
-			<div>
-				<h2 className="text-lg font-black text-[#0A3D62] mb-4">Recent Activity</h2>
-				<RecentActivityTable events={stats.recentEvents} />
-			</div>
+			<section aria-labelledby="admin-recent-activity" className="space-y-4">
+				<h2
+					id="admin-recent-activity"
+					className="text-lg font-black text-[#0A3D62] dark:text-[#8fc0ea]"
+				>
+					{t("recentActivity")}
+				</h2>
+				<RecentActivityTable
+					events={stats.recentEvents}
+					formatDate={(date) => formatDateTimeLocal(date, tDates).full}
+					labels={{
+						time: t("columnTime"),
+						device: t("columnDevice"),
+						event: t("columnEvent"),
+						source: t("columnSource"),
+						empty: t("recentEmpty"),
+					}}
+				/>
+			</section>
 		</div>
 	);
 }

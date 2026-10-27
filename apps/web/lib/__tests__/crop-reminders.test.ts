@@ -20,6 +20,7 @@ vi.mock("@/lib/prisma", () => {
 				update: vi.fn(),
 			},
 			notification: { create: notificationCreate },
+			pondEvent: { findMany: vi.fn() },
 			$transaction: vi.fn(async (input: unknown) => {
 				if (typeof input === "function") {
 					return (input as (tx: unknown) => Promise<unknown>)(transactionClient);
@@ -32,9 +33,12 @@ vi.mock("@/lib/prisma", () => {
 
 import {
 	collectRecipientsByOwner,
+	computeEventReminderCandidates,
 	computeReminderCandidates,
 	dedupeEmailAddresses,
+	eventReminderDedupeKey,
 	harvestOccurrence,
+	isEventReminderDue,
 	nextSamplingDueDate,
 	processCropReminders,
 	reminderDedupeKey,
@@ -76,6 +80,7 @@ const mockBiomass = vi.mocked(prisma.biomassLog);
 const mockUser = vi.mocked(prisma.user);
 const mockReminderLog = vi.mocked(prisma.reminderLog);
 const mockNotification = vi.mocked(prisma.notification);
+const mockPondEvent = vi.mocked(prisma.pondEvent);
 const mockTransaction = vi.mocked(prisma.$transaction) as unknown as {
 	mockImplementation: (fn: unknown) => void;
 };
@@ -92,6 +97,7 @@ beforeEach(() => {
 	mockUser.findMany.mockResolvedValue([{ farmId: "owner-1", email: "owner@example.com" }] as never);
 	mockReminderLog.findMany.mockResolvedValue([] as never);
 	mockReminderLog.update.mockResolvedValue({} as never);
+	mockPondEvent.findMany.mockResolvedValue([] as never);
 
 	mockReminderLog.create.mockImplementation((async (args: unknown) => {
 		const data = (args as { data: { dedupeKey: string } }).data;
@@ -592,5 +598,99 @@ describe("processCropReminders idempotency", () => {
 			emailsSkipped: 1,
 		});
 		expect(seenKeys.has("harvest:cycle-1:d14:email")).toBe(false);
+	});
+});
+
+describe("event reminders", () => {
+	const TODAY = "2026-10-18";
+	const event = {
+		id: "event-1",
+		pondId: "pond-1",
+		title: "Check water quality",
+		kind: "TASK" as const,
+		allDay: true,
+		startsAt: new Date("2026-10-19T00:00:00.000Z"),
+		endsAt: null,
+		recurrenceFreq: null,
+		recurrenceInterval: 1,
+		recurrenceUntil: null,
+		reminderMinutes: [60, 1440],
+		completedOccurrences: [] as Date[],
+		status: "PLANNED",
+	};
+
+	it("fires a 1-day reminder the day before an all-day item", () => {
+		// Farm midnight on 19 Oct is 18 Oct 16:00 UTC.
+		const farmMidnight = new Date("2026-10-18T16:00:00.000Z");
+		expect(isEventReminderDue(farmMidnight, 1440, TODAY)).toBe(true);
+		expect(isEventReminderDue(farmMidnight, 60, TODAY)).toBe(true);
+		// 20 Oct farm midnight minus a day is 19 Oct.
+		expect(isEventReminderDue(new Date("2026-10-19T16:00:00.000Z"), 1440, TODAY)).toBe(false);
+		// A past occurrence is not re-armed by a later cron run.
+		expect(isEventReminderDue(new Date("2026-10-16T16:00:00.000Z"), 60, TODAY)).toBe(false);
+	});
+
+	it("builds one candidate per occurrence and lead time", () => {
+		const candidates = computeEventReminderCandidates({
+			today: TODAY,
+			events: [event],
+			ponds: [POND],
+		});
+
+		expect(candidates).toHaveLength(2);
+		expect(candidates[0]).toMatchObject({
+			eventId: "event-1",
+			pondId: "pond-1",
+			itemKind: "TASK",
+			occurrenceKey: "2026-10-19T00:00:00.000Z",
+			occurrenceDate: "2026-10-19",
+			category: "event",
+			tier: "INFO",
+		});
+		expect(candidates.map((candidate) => candidate.minutes).sort((a, b) => a - b)).toEqual([
+			60, 1440,
+		]);
+		expect(eventReminderDedupeKey(candidates[0], "in_app")).toBe(
+			"event:event-1:2026-10-19T00:00:00.000Z:60:in_app",
+		);
+	});
+
+	it("skips occurrences that are already checked or completed", () => {
+		const candidates = computeEventReminderCandidates({
+			today: TODAY,
+			events: [
+				{
+					...event,
+					completedOccurrences: [new Date("2026-10-19T00:00:00.000Z")],
+				},
+				{ ...event, id: "event-2", status: "DONE" },
+			],
+			ponds: [POND],
+		});
+
+		expect(candidates).toEqual([]);
+	});
+
+	it("writes an in-app reminder with the event dedupe key exactly once", async () => {
+		mockPondEvent.findMany.mockResolvedValue([event] as never);
+
+		const first = await processCropReminders({ today: TODAY, emailConfigured: false });
+		expect(first).toMatchObject({ eventCandidates: 2, eventInAppCreated: 2 });
+		expect(seenKeys.has("event:event-1:2026-10-19T00:00:00.000Z:60:in_app")).toBe(true);
+		expect(seenKeys.has("event:event-1:2026-10-19T00:00:00.000Z:1440:in_app")).toBe(true);
+		expect(mockNotification.create).toHaveBeenCalledWith({
+			data: expect.objectContaining({
+				pondId: "pond-1",
+				category: "event",
+				linkTo: "/dashboard/harvest",
+			}),
+		});
+
+		const second = await processCropReminders({ today: TODAY, emailConfigured: false });
+		expect(second).toMatchObject({
+			eventCandidates: 2,
+			eventInAppCreated: 0,
+			eventInAppSkipped: 2,
+		});
 	});
 });

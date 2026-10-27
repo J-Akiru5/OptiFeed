@@ -1,3 +1,4 @@
+import { DashboardEmptyState, ReadOnlyNotice } from "@/components/dashboard/dashboard-ui";
 import { HarvestCalendar } from "@/components/harvest/harvest-calendar";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -14,18 +15,26 @@ import type {
 import { parsePondProfile } from "@/lib/pond-profile";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import { CalendarDays } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0;
 
 export default async function HarvestPage() {
-	const tSchedule = await getTranslations("dashboard.schedule");
+	const [tSchedule, tCommon] = await Promise.all([
+		getTranslations("dashboard.schedule"),
+		getTranslations("dashboard.common"),
+	]);
 	const pond = await getActivePond({ energyDevices: true });
 
 	if (!pond) {
 		return (
-			<div className="flex h-[50vh] items-center justify-center">
-				<p className="text-lg text-gray-500 dark:text-gray-400">{tSchedule("noPondData")}</p>
+			<div className="mx-auto max-w-2xl py-10">
+				<DashboardEmptyState
+					icon={CalendarDays}
+					title={tSchedule("noPondData")}
+					description={tCommon("noPondDesc")}
+				/>
 			</div>
 		);
 	}
@@ -92,6 +101,7 @@ export default async function HarvestPage() {
 	const today = todayDateOnly();
 	const devices = (pond.energyDevices ?? []) as Array<{
 		feedLevelPercent: number | null;
+		feedLevelUpdatedAt: Date | null;
 		lastSeenAt: Date | null;
 	}>;
 	const latestDevice = devices.reduce<(typeof devices)[number] | null>(
@@ -101,7 +111,8 @@ export default async function HarvestPage() {
 				: latest,
 		null,
 	);
-	const hopperLevelPct = latestDevice?.feedLevelPercent ?? 0;
+	const hopperLevelPct = latestDevice?.feedLevelPercent ?? null;
+	const hopperFeedLevelUpdatedAt = latestDevice?.feedLevelUpdatedAt ?? null;
 	const hopperIsOffline =
 		!latestDevice?.lastSeenAt ||
 		Date.now() - latestDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
@@ -156,6 +167,11 @@ export default async function HarvestPage() {
 				pondName={pond.name}
 				data={harvestSnapshot}
 			/>
+			{!canManage && (
+				<div className="mb-4">
+					<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
+				</div>
+			)}
 			<HarvestCalendar
 				initialPondId={pond.id}
 				initialPondName={pond.name}
@@ -167,6 +183,7 @@ export default async function HarvestPage() {
 				canManage={canManage}
 				today={today}
 				hopperLevelPct={hopperLevelPct}
+				hopperFeedLevelUpdatedAt={hopperFeedLevelUpdatedAt?.toISOString() ?? null}
 				hopperIsOffline={hopperIsOffline}
 			/>
 		</>

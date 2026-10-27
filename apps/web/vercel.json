@@ -19,7 +19,7 @@
 			"*": false,
 			"**": false,
 			"main": true,
-			"develop": true
+			"staging": true
 		}
 	}
 }

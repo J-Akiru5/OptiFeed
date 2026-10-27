@@ -33,6 +33,7 @@ const baseCtx: ChatContext = {
 	targetHarvestDate: null,
 	targetHarvestWeightG: null,
 	growthPlan: null,
+	calibrationDrift: { status: "insufficient_data", dispensedG: 0, observedG: 0, diffPct: null },
 };
 
 describe("buildSystemPrompt", () => {
@@ -82,6 +83,26 @@ describe("buildSystemPrompt", () => {
 	it("includes last sample date", () => {
 		const prompt = buildSystemPrompt(baseCtx, "en");
 		expect(prompt).toContain("Last sample date:");
+	});
+
+	it("flags calibration drift and stays quiet when data is insufficient", () => {
+		const drift = buildSystemPrompt(
+			{
+				...baseCtx,
+				calibrationDrift: {
+					status: "drift",
+					dispensedG: 600,
+					observedG: 900,
+					diffPct: 50,
+				},
+			},
+			"en",
+		);
+		expect(drift).toContain("dispensed 600g vs hopper drop 900g (+50.0%)");
+		expect(drift).toContain("suggest re-running the calibration target check");
+
+		const insufficient = buildSystemPrompt(baseCtx, "en");
+		expect(insufficient).toContain("Not enough feed and hopper readings to compare");
 	});
 
 	it("handles null context", () => {

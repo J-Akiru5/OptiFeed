@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Day buckets in the pond charts (feed per day, water temperature, hopper) put readings from 00:00–08:00 Manila on the previous day: the `timestamp` columns hold UTC and were converted with a single `AT TIME ZONE`. Every bucket query now converts UTC → Asia/Manila (verified against the database).
 - #236 feed figures: the History page's "Recent Feed Dispensed" card added up whatever happened to be on the first page of the event log, mixing machine dispenses (at most 1,000 g each) with imported `hand_fed` daily totals, so 20 rows could read as one 19 kg dispense. It is replaced by "Last feed" (newest machine dispense, with its source and time), "Dispensed today" (every source, current Asia/Manila farm day) and "Last 7 days" (every source, with a daily average), each state its window and uses grams below 1,000 g and kilograms with two decimals at or above it. "By source" now counts the chart's 30-day window and marks hand-fed entries as daily totals, the feed chart is titled "Feed per day" and says hand-fed rows are daily totals, the event log, dashboard, PDF report and feeder hero use the same unit rule,  and the calibration drift check no longer treats hand-fed daily totals as device output.
 
+## [1.18.1] - 2026-10-28
+
+### Fixed
+
+- Dashboard cards, the growth history dates, the sample form actions and the stuck-request banner keep consistent colours in dark mode (Karl, #235).
+
 ## [1.18.0] - 2026-10-28
 
 ### Added

@@ -1758,6 +1758,7 @@
 			"categorySystem": "Sistema",
 			"autoCleared": "Ginlimpyo automatiko",
 			"acknowledged": "Gin-acknowledge",
+			"actionError": "Indi ma-update ang notipikasyon. Tilawi liwat.",
 			"alert": "Alerto",
 			"auditLink": "Audit",
 			"receivedAt": "Natanggap",

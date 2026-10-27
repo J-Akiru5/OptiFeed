@@ -727,6 +727,16 @@
 			"fishCountBadge": "{count} fish",
 			"sampleWeightCol": "Weight",
 			"sampleLengthCol": "Length",
+			"sgrTitle": "Specific Growth Rate",
+			"sgrOverall": "Overall since first sampling",
+			"sgrAverageGain": "Average daily gain",
+			"sgrUnit": "%/day",
+			"sgrExplain": "How fast the fish gain weight each day, as a percentage of their body weight.",
+			"sgrReasons": {
+				"insufficientSamples": "Log at least two samplings to see SGR.",
+				"invalidWeight": "SGR needs a positive average body weight in both samplings.",
+				"intervalTooShort": "SGR needs samplings at least one day apart."
+			},
 			"history": {
 				"title": "Growth history",
 				"desc": "Full feed level, growth and biomass records for {pond}",
@@ -745,6 +755,7 @@
 				},
 				"columns": {
 					"avgWeight": "Avg Weight (g)",
+					"sgr": "SGR (%/day)",
 					"weightGain": "Weight Gain (g)",
 					"lengthGain": "Length Gain (cm)",
 					"daysSince": "Days Since Last"

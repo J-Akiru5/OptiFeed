@@ -19,6 +19,7 @@ import {
 	dashboardSectionLink,
 } from "@/components/dashboard/dashboard-ui";
 import { GrowthPlanCard } from "@/components/growth/GrowthPlanCard";
+import { SgrKpi, type SgrKpiLabels } from "@/components/growth/SgrKpi";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
@@ -32,6 +33,7 @@ import { getActivePond } from "@/lib/pond-selection";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { averageDailyGain, overallSgr, sgrSeries, sgrUnavailableReason } from "@/lib/sgr";
 import { Activity, ChevronRight, Fish, Package, Scale, TrendingUp, Wheat } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -64,42 +66,56 @@ export default async function GrowthPage() {
 
 	// Bound the chart/table payloads: a decade of logs must not be serialized on
 	// every visit. The history page remains the unbounded, paginated view.
-	const [writeAccess, biomassDesc, fcrDesc, energyDevice, activeCycle, loadedPlan] =
-		await Promise.all([
-			canWrite(),
-			prisma.biomassLog.findMany({
-				where: { pondId: pond.id },
-				orderBy: { recordedAt: "desc" },
-				take: 60,
-				include: {
-					fishSamples: { select: { id: true, weightGrams: true, lengthCm: true } },
-				},
-			}),
-			prisma.fcrReport.findMany({
-				where: { pondId: pond.id },
-				orderBy: { periodEnd: "desc" },
-				take: 12,
-			}),
-			prisma.energyDevice.findFirst({
-				where: { pondId: pond.id },
-				orderBy: { createdAt: "asc" },
-				select: { id: true, gramsPerFeeding: true, hopperCapacityG: true },
-			}),
-			prisma.cropCycle.findFirst({
-				where: { pondId: pond.id, status: "ACTIVE" },
-				select: {
-					id: true,
-					label: true,
-					stockingDate: true,
-					stockingCount: true,
-					growOutDays: true,
-					targetHarvestDate: true,
-					targetHarvestWeightG: true,
-					expectedSurvivalPct: true,
-				},
-			}),
-			loadGrowthPlanForPond(pond.id, { ownerId: pond.ownerId }),
-		]);
+	const [
+		writeAccess,
+		biomassDesc,
+		earliestBiomass,
+		fcrDesc,
+		energyDevice,
+		activeCycle,
+		loadedPlan,
+	] = await Promise.all([
+		canWrite(),
+		prisma.biomassLog.findMany({
+			where: { pondId: pond.id },
+			orderBy: { recordedAt: "desc" },
+			take: 60,
+			include: {
+				fishSamples: { select: { id: true, weightGrams: true, lengthCm: true } },
+			},
+		}),
+		// "Overall since the first sampling" must not be limited to the 60-row
+		// chart window, so fetch only the oldest sample (bounded, pond-scoped).
+		prisma.biomassLog.findFirst({
+			where: { pondId: pond.id },
+			orderBy: [{ recordedAt: "asc" }, { id: "asc" }],
+			select: { recordedAt: true, avgWeightKg: true },
+		}),
+		prisma.fcrReport.findMany({
+			where: { pondId: pond.id },
+			orderBy: { periodEnd: "desc" },
+			take: 12,
+		}),
+		prisma.energyDevice.findFirst({
+			where: { pondId: pond.id },
+			orderBy: { createdAt: "asc" },
+			select: { id: true, gramsPerFeeding: true, hopperCapacityG: true },
+		}),
+		prisma.cropCycle.findFirst({
+			where: { pondId: pond.id, status: "ACTIVE" },
+			select: {
+				id: true,
+				label: true,
+				stockingDate: true,
+				stockingCount: true,
+				growOutDays: true,
+				targetHarvestDate: true,
+				targetHarvestWeightG: true,
+				expectedSurvivalPct: true,
+			},
+		}),
+		loadGrowthPlanForPond(pond.id, { ownerId: pond.ownerId }),
+	]);
 
 	const biomassLogs = biomassDesc.slice().reverse();
 	const fcrReports = fcrDesc.slice().reverse();
@@ -115,6 +131,28 @@ export default async function GrowthPage() {
 			: null;
 		return { log, weightGain, lengthGain, daysSinceLast };
 	});
+
+	// SGR (capstone objective). Biomass logs are already ascending for the chart,
+	// so the series is oldest interval first and the last point is the latest one.
+	const sgrSamples = biomassLogs.map((log) => ({
+		recordedAt: log.recordedAt,
+		avgWeightKg: log.avgWeightKg,
+	}));
+	const sgrPoints = sgrSeries(sgrSamples);
+	const latestSgrPctPerDay = sgrPoints.at(-1)?.sgrPctPerDay ?? null;
+	// Prefer the real first sampling for "overall"; fall back to the loaded set
+	// (correct whenever the pond has 60 samples or fewer, which is the common case).
+	const firstSgrSample = earliestBiomass
+		? { recordedAt: earliestBiomass.recordedAt, avgWeightKg: earliestBiomass.avgWeightKg }
+		: (sgrSamples[0] ?? null);
+	const latestSgrSample = sgrSamples.at(-1) ?? null;
+	const overallSgrSamples =
+		sgrSamples.length >= 2 && firstSgrSample && latestSgrSample
+			? [firstSgrSample, latestSgrSample]
+			: sgrSamples;
+	const overallSgrPctPerDay = overallSgr(overallSgrSamples);
+	const sgrAverageDailyGainG = averageDailyGain(overallSgrSamples);
+	const sgrReason = sgrUnavailableReason(overallSgrSamples);
 
 	const cycleContext = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
 
@@ -225,6 +263,19 @@ export default async function GrowthPage() {
 			lengthCm: log.sampleLengthCm,
 			batchLabel: log.batchLabel,
 		})),
+	};
+
+	const sgrLabels: SgrKpiLabels = {
+		title: t("sgrTitle"),
+		overall: t("sgrOverall"),
+		averageGain: t("sgrAverageGain"),
+		unit: t("sgrUnit"),
+		explanation: t("sgrExplain"),
+		reasons: {
+			insufficientSamples: t("sgrReasons.insufficientSamples"),
+			invalidWeight: t("sgrReasons.invalidWeight"),
+			intervalTooShort: t("sgrReasons.intervalTooShort"),
+		},
 	};
 
 	return (
@@ -363,7 +414,10 @@ export default async function GrowthPage() {
 			{/* FCR Calculator */}
 			<FcrCalculator latestFcr={latestFcr} />
 
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-6" data-help="growth-charts">
+			<div
+				className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
+				data-help="growth-charts"
+			>
 				{/* Latest ABW Card */}
 				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex flex-col justify-between relative overflow-hidden">
 					<div className="flex justify-between items-start mb-4 relative z-10">
@@ -496,6 +550,15 @@ export default async function GrowthPage() {
 						})}
 					</span>
 				</div>
+
+				{/* Specific Growth Rate (capstone objective) */}
+				<SgrKpi
+					latestSgrPctPerDay={latestSgrPctPerDay}
+					overallSgrPctPerDay={overallSgrPctPerDay}
+					averageDailyGainG={sgrAverageDailyGainG}
+					reason={sgrReason}
+					labels={sgrLabels}
+				/>
 			</div>
 
 			{/* Feed Level Trend Card */}

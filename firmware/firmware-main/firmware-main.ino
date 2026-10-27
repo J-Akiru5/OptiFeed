@@ -83,7 +83,7 @@
 
 // Reported at boot and in the heartbeat body so the fleet and the OTA rollout
 // can tell builds apart. Bump on every firmware change.
-#define FW_VERSION "1.5.0"
+#define FW_VERSION "1.5.1"
 // Board string the signed manifest must carry. One value for every unit this
 // firmware runs on (ESP32-WROOM-32U); a manifest for another board is refused.
 #define FW_BOARD "wroom32u"
@@ -323,8 +323,12 @@ VC2U+UkjnsS9bS7guFXvY41PNeEVH4lp5iEcgtjQc6E+IgFO8QHwfPoRgg==
 #define DEFAULT_WIFI_SSID "YOUR_WIFI_SSID"
 #define DEFAULT_WIFI_PASS "YOUR_WIFI_PASSWORD"
 
+// Relay signal pin. 25 is the reference wiring; a unit wired to another GPIO is
+// built with -DRELAY_PIN=<n> (see [env:esp32dev-relay5] in platformio.ini).
+#ifndef RELAY_PIN
 #define RELAY_PIN       25
-#define BUTTON_PIN      27          // pick any free GPIO; wired to GND via INPUT_PULLUP
+#endif
+#define BUTTON_PIN     27          // pick any free GPIO; wired to GND via INPUT_PULLUP
 
 // ---- Dedicated reset buttons (both active-low) --------------------------
 // Wire each button between its GPIO and GND; the internal pull-up is enabled.
@@ -1965,6 +1969,13 @@ void maybeCheckForUpdate() {
 }
 
 void setup() {
+  // Relay OFF before anything else: set the level first, then the mode, so the
+  // pin never drives the relay while the board boots. GPIO 5 (a strapping pin
+  // with a pull-up) is HIGH until this runs.
+  digitalWrite(RELAY_PIN, RELAY_OFF);
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, RELAY_OFF);   // feeder must NEVER default to dispensing at boot
+
   Serial.begin(115200);
   bootTime = millis();
 
@@ -1974,9 +1985,8 @@ void setup() {
   resetReasonName = resetReasonLabel(resetReason);
   lastResetWasBrownout = (resetReason == ESP_RST_BROWNOUT);
   Serial.printf("[INIT] Reset reason: %s\n", resetReasonName);
+  Serial.printf("[INIT] Relay on GPIO %d (active %s)\n", RELAY_PIN, RELAY_ACTIVE_LOW ? "LOW" : "HIGH");
 
-  pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, RELAY_OFF);   // feeder must NEVER default to dispensing at boot
   feederActive = false;
 
   pinMode(BUTTON_PIN, INPUT_PULLUP);    // press pulls LOW

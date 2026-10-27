@@ -40,10 +40,10 @@ import { canWrite, getCurrentUser } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
 import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
 import { DEFAULT_HOPPER_RANGE, WATER_TEMP_RANGES, parseWaterTempRange } from "@/lib/chart-windows";
-import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS, PELLET_LOW_PCT } from "@/lib/constants";
+import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime, formatWallClockTime } from "@/lib/date-local";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { isDeviceOffline } from "@/lib/feed-level-display";
 import { feedSourceKey } from "@/lib/feed-sources";
@@ -52,7 +52,9 @@ import { getFeedPerDayBySource, getHopperLevelSeries, getWaterTempSeries } from 
 import { getActivePond } from "@/lib/pond-selection";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
+import { computeNextFeedingSlot } from "@/lib/schedule/next-feeding-slot";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { getOrgSettingsForFarm } from "@/lib/settings/org";
 import { cn } from "@/lib/utils";
 import {
 	AlertTriangle,
@@ -120,55 +122,59 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	// One parallel wave for independent reads. Every device on the pond is read
 	// so the pond overview can pin each feeder; the first one stays the primary
 	// device for the schedule, controller and predictions.
-	const [energyDevices, recentBiomassLogs, fcrReports, activeCycle] = await Promise.all([
-		prisma.energyDevice.findMany({
-			where: { pondId: pond.id },
-			orderBy: { createdAt: "asc" },
-			select: {
-				id: true,
-				mac: true,
-				label: true,
-				rtcOk: true,
-				feederActive: true,
-				isPaused: true,
-				gramsPerFeeding: true,
-				gramsPerSecond: true,
-				lastSeenAt: true,
-				feedLevelPercent: true,
-				feedLevelUpdatedAt: true,
-				hopperCapacityG: true,
-				lastCalibratedAt: true,
-				recalibrationIntervalDays: true,
-				waterTempC: true,
-				waterTempOk: true,
-				waterTempUpdatedAt: true,
-			},
-		}),
-		prisma.biomassLog.findMany({
-			where: { pondId: pond.id },
-			orderBy: { recordedAt: "desc" },
-			take: 5,
-			include: { fishSamples: { select: { id: true } } },
-		}),
-		prisma.fcrReport.findMany({
-			where: { pondId: pond.id },
-			orderBy: { periodEnd: "asc" },
-			take: 5,
-		}),
-		prisma.cropCycle.findFirst({
-			where: { pondId: pond.id, status: "ACTIVE" },
-			select: {
-				id: true,
-				label: true,
-				stockingDate: true,
-				stockingCount: true,
-				growOutDays: true,
-				targetHarvestDate: true,
-				targetHarvestWeightG: true,
-				expectedSurvivalPct: true,
-			},
-		}),
-	]);
+	const [energyDevices, recentBiomassLogs, fcrReports, activeCycle, orgSettings] =
+		await Promise.all([
+			prisma.energyDevice.findMany({
+				where: { pondId: pond.id },
+				orderBy: { createdAt: "asc" },
+				select: {
+					id: true,
+					mac: true,
+					label: true,
+					rtcOk: true,
+					feederActive: true,
+					isPaused: true,
+					gramsPerFeeding: true,
+					gramsPerSecond: true,
+					lastSeenAt: true,
+					feedLevelPercent: true,
+					feedLevelUpdatedAt: true,
+					hopperCapacityG: true,
+					lastCalibratedAt: true,
+					recalibrationIntervalDays: true,
+					waterTempC: true,
+					waterTempOk: true,
+					waterTempUpdatedAt: true,
+				},
+			}),
+			prisma.biomassLog.findMany({
+				where: { pondId: pond.id },
+				orderBy: { recordedAt: "desc" },
+				take: 5,
+				include: { fishSamples: { select: { id: true } } },
+			}),
+			prisma.fcrReport.findMany({
+				where: { pondId: pond.id },
+				orderBy: { periodEnd: "asc" },
+				take: 5,
+			}),
+			prisma.cropCycle.findFirst({
+				where: { pondId: pond.id, status: "ACTIVE" },
+				select: {
+					id: true,
+					label: true,
+					stockingDate: true,
+					stockingCount: true,
+					growOutDays: true,
+					targetHarvestDate: true,
+					targetHarvestWeightG: true,
+					expectedSurvivalPct: true,
+				},
+			}),
+			// The low-hopper threshold is an org setting (#190); the dashboard alert
+			// must honour it instead of the hard-coded default.
+			getOrgSettingsForFarm(pond.ownerId),
+		]);
 
 	const energyDevice = energyDevices[0] ?? null;
 	const deviceIds = energyDevices.map((row) => row.id);
@@ -219,9 +225,6 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 			: Promise.resolve([]),
 	]);
 
-	const today = new Date();
-	today.setHours(0, 0, 0, 0);
-
 	const latestFcr = fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : 0.0;
 	const cycleContext = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
 
@@ -241,32 +244,24 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		cycle: cycleContext,
 	});
 
-	// Calculate next feeding time
-	const startHour = (currentConfig?.scheduleStart ?? pond.scheduleStart).getUTCHours();
-	const endHour = (currentConfig?.scheduleEnd ?? pond.scheduleEnd).getUTCHours();
+	// Calculate next feeding time. The stored schedule is a farm wall clock
+	// (Asia/Manila), so the comparison must be wall clock against wall clock —
+	// the server renders in UTC and a local-time comparison would be 8 hours off.
 	const feedsPerDay = currentConfig?.feedsPerDay ?? pond.feedsPerDay;
 	const feedingRatePct = currentConfig?.feedingRatePct ?? pond.feedingRatePct;
-	const feedInterval = (endHour - startHour) / Math.max(1, feedsPerDay - 1);
+	const nextFeedingSlot = computeNextFeedingSlot({
+		scheduleStart: currentConfig?.scheduleStart ?? pond.scheduleStart,
+		scheduleEnd: currentConfig?.scheduleEnd ?? pond.scheduleEnd,
+		feedsPerDay,
+		now,
+	});
 
-	let nextFeedTimeObj = null;
-	for (let i = 0; i < feedsPerDay; i++) {
-		const feedTime = new Date();
-		feedTime.setHours(startHour + i * feedInterval, 0, 0, 0);
-		if (feedTime > now) {
-			nextFeedTimeObj = feedTime;
-			break;
-		}
-	}
-	if (!nextFeedTimeObj) {
-		nextFeedTimeObj = new Date();
-		nextFeedTimeObj.setDate(nextFeedTimeObj.getDate() + 1);
-		nextFeedTimeObj.setHours(startHour, 0, 0, 0);
-	}
+	const formatTime = (d: Date) => formatFarmDateTime(d, tDates).time;
+	const formatDate = (d: Date) => formatFarmDateTime(d, tDates).date;
 
-	const formatTime = (d: Date) => formatDateTimeLocal(d, tDates).time;
-	const formatDate = (d: Date) => formatDateTimeLocal(d, tDates).date;
-
-	const nextFeedingTimeStr = formatTime(nextFeedTimeObj);
+	const nextFeedingTimeStr = nextFeedingSlot
+		? formatWallClockTime(nextFeedingSlot.hours, nextFeedingSlot.minutes, tDates)
+		: "—";
 
 	// Daily Feed (g) = Total Biomass (g) × Feeding Rate (%)
 	// Feed per Meal (g) = Daily Feed (g) ÷ Feeds Per Day  (see lib/feed-calc.ts)
@@ -392,7 +387,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		});
 	}
 	if (energyDevice?.feedLevelPercent !== null && energyDevice?.feedLevelPercent !== undefined) {
-		if (energyDevice.feedLevelPercent < PELLET_LOW_PCT) {
+		if (energyDevice.feedLevelPercent < orgSettings.settings.hopperLowPct) {
 			alerts.push({
 				id: "hopper-low",
 				tone: "warning",
@@ -632,7 +627,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							label={tBtn("feedNow")}
 							deviceName={energyDevice?.label ?? device.name}
 							connectionStatus={esp32Offline ? "offline" : "online"}
-							hopperLevelPct={energyDevice?.feedLevelPercent ?? 0}
+							hopperLevelPct={energyDevice?.feedLevelPercent ?? null}
 							canWrite={writeAccess}
 							isFallow={pond.isFallow}
 							gramsPerSecond={energyDevice?.gramsPerSecond}

@@ -21,11 +21,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The background-job queue metrics shown to a farm admin are scoped to that farm instead of the whole platform.
 - The device-watch cron scans the most recently stale feeders first, so once 100 devices had raised an offline alert no newly-offline device could be detected.
 
+- Farm-facing dates and times render in the farm's timezone (Asia/Manila) instead of the server runtime's, so the dashboard, history, growth, sampling-batch, hardware and farmer audit screens no longer read eight hours behind (or a day early) on a UTC host.
+- The dashboard's next feeding time is computed from the farm wall clock, so an overnight schedule and an evening visit no longer report a feed that already happened.
+- A feeder that has never reported a hopper level shows "—" instead of a made-up 0 %, and Feed Now no longer raises a critical-hopper warning for it.
+- The dashboard's low-hopper alert uses the org's configured threshold instead of the built-in 20 % default.
+- Saving the hopper shape calibration refreshes the Hardware settings page that shows the result (it refreshed a legacy redirect stub instead).
+- Hard-deleting a pond whose only remaining record is a legacy `Device` row now reports the device as a blocker instead of failing on the foreign key.
+- The assistant counts "today's feedings" from the Asia/Manila day, and its replies and AI context describe samples and dispenses on the farm clock instead of the server's timezone.
+- The pause/resume switch on the schedule page reverts with the reason when the server refuses the write, instead of showing the wrong state.
+- The schedule sync and stuck-request panels are translated (en/hil) and show device timestamps on the farm clock; "Check device" keeps the active locale and opens Hardware.
+- The offline sync panel shows the last sync and failed-sample times on the farm clock.
+- Notification preferences are hidden on the profile page when the farmer has no pond, instead of failing every toggle with "Pond not found".
+- A corrupt device timestamp degrades to a plain label instead of throwing and breaking the page render.
+
 ### Security
 
 - Read-only view-as is fail-closed: when the session cannot be verified (a database error), tenant writes are refused instead of being treated as a normal signed-in session.
 - Invitation and reminder e-mails reject SMTP recipient-list separators and strip line breaks from tenant-controlled names before they reach the subject, so a crafted address or pond name cannot add a recipient or a header.
 - The admin job-metrics endpoint filters by the caller's farm tenant before returning queue counts.
+
+- Hopper shape calibration is validated on the server: a zero or non-finite hopper capacity, an inverted empty/full distance pair or an out-of-range value is rejected before it reaches the database. A zero capacity used to raise the device's daily feed cap to the hard maximum.
 
 ## [1.16.0] - 2026-10-27
 

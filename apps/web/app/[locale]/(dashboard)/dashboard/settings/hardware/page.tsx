@@ -17,7 +17,7 @@ import { canWrite } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
 import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { getPageCount, parsePage } from "@/lib/pagination";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
@@ -78,9 +78,13 @@ async function loadCalibrationSessions(deviceId: string) {
 	if (groups.length === 0) return [];
 
 	const sessionIds = groups.map((group) => group.sessionId);
+	// Bounded: ten sessions' efforts always fit well inside this, and the rows
+	// are newest-first, so the last attempt of every session stays in range. The
+	// list is only used to name the error of the final attempt per session.
 	const runs = await prisma.calibrationRun.findMany({
 		where: { deviceId, sessionId: { in: sessionIds } },
 		orderBy: { createdAt: "desc" },
+		take: 500,
 		select: { sessionId: true, errorPct: true },
 	});
 
@@ -244,7 +248,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 	);
 	const historyPageCount = getPageCount(historyTotal, CALIBRATION_HISTORY_PAGE_SIZE);
 	const dueLabel = recalibration.dueAt
-		? formatDateTimeLocal(recalibration.dueAt, tDates).fullDate
+		? formatFarmDateTime(recalibration.dueAt, tDates).fullDate
 		: null;
 
 	const isDeviceOffline =

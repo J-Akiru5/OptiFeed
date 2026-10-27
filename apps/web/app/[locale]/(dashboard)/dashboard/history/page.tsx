@@ -1,9 +1,11 @@
 import { DataExportButton, DataImportDialog } from "@/components/DataImportExport";
 import { FeedEventHistoryTable } from "@/components/FeedEventHistoryTable";
 import { DashboardEmptyState, DashboardPageHeader } from "@/components/dashboard/dashboard-ui";
+import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { getFeedEvents } from "@/lib/actions/history";
 import { canWrite } from "@/lib/auth/session";
+import { isDeviceOffline } from "@/lib/feed-level-display";
 import type { HistorySnapshotData } from "@/lib/offline/snapshots";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
@@ -42,6 +44,7 @@ export default async function HistoryPage() {
 			id: true,
 			feedLevelPercent: true,
 			feedLevelUpdatedAt: true,
+			lastSeenAt: true,
 			hopperCapacityG: true,
 			gramsPerFeeding: true,
 		},
@@ -71,6 +74,7 @@ export default async function HistoryPage() {
 	};
 
 	const writeAccess = await canWrite();
+	const feedLevelOffline = isDeviceOffline(energyDevice?.lastSeenAt ?? null);
 
 	const historySnapshot: HistorySnapshotData = {
 		pondName: pond.name,
@@ -148,12 +152,13 @@ export default async function HistoryPage() {
 						<p className="text-sm font-semibold text-gray-600 uppercase tracking-wider dark:text-gray-400">
 							{t("feedLevel")}
 						</p>
-						<p className="text-2xl font-extrabold text-[var(--ofd-base-deep)]">
-							{energyDevice?.feedLevelPercent !== null &&
-							energyDevice?.feedLevelPercent !== undefined
-								? `${Math.round(energyDevice.feedLevelPercent)}%`
-								: "—"}
-						</p>
+						<FeedLevelDisplay
+							levelPercent={energyDevice?.feedLevelPercent ?? null}
+							updatedAt={energyDevice?.feedLevelUpdatedAt ?? null}
+							isOffline={feedLevelOffline}
+							showBar={false}
+							size="lg"
+						/>
 						<p className="text-xs text-gray-500 mt-0.5 dark:text-gray-400">{t("feedLevelDesc")}</p>
 					</div>
 				</div>

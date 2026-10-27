@@ -39,7 +39,8 @@ export default async function DashboardLayout({
 
 	let pondId = "";
 	let initialUnreadCount = 0;
-	let hopperLevelPct = 0;
+	let hopperLevelPct: number | null = null;
+	let hopperLevelUpdatedAt: Date | null = null;
 	let esp32Status: "online" | "offline" | "missing" = "missing";
 	let pondName = "ILO-POND-01";
 	let lastSeenAtStr: string | null = null;
@@ -76,7 +77,8 @@ export default async function DashboardLayout({
 			initialUnreadCount = unreadCount;
 
 			if (energyDevice) {
-				hopperLevelPct = energyDevice.feedLevelPercent ?? 0;
+				hopperLevelPct = energyDevice.feedLevelPercent;
+				hopperLevelUpdatedAt = energyDevice.feedLevelUpdatedAt;
 				const now = new Date();
 				const isOffline =
 					!energyDevice.lastSeenAt ||
@@ -169,7 +171,11 @@ export default async function DashboardLayout({
 						</header>
 
 						<DashboardContentShell>
-							<Sidebar hopperLevelPct={hopperLevelPct} isOffline={esp32Status === "offline"} />
+							<Sidebar
+								hopperLevelPct={hopperLevelPct}
+								hopperLevelUpdatedAt={hopperLevelUpdatedAt}
+								isOffline={esp32Status === "offline"}
+							/>
 							<main
 								id="main-content"
 								tabIndex={-1}

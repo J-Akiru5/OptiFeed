@@ -38,6 +38,7 @@ function placeholders(message: string): string[] {
 
 const NAMESPACES = [
 	"nav",
+	"dashboard.feedLevel",
 	"dashboard.common",
 	"dashboard.home",
 	"dashboard.growth",
@@ -54,6 +55,8 @@ const NAMESPACES = [
 
 /** Keys the rewritten pages rely on; a rename without a message fails here. */
 const REQUIRED = [
+	"dashboard.feedLevel.lastKnown",
+	"dashboard.feedLevel.noReadingYet",
 	"dashboard.common.readOnlyTitle",
 	"dashboard.common.readOnlyDesc",
 	"dashboard.common.noPondTitle",

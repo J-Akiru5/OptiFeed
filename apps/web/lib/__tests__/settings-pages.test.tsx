@@ -81,6 +81,7 @@ vi.mock("@/lib/prisma", () => ({
 				label: "Feeder 1",
 				lastSeenAt: new Date(),
 				feedLevelPercent: 62,
+				feedLevelUpdatedAt: new Date(),
 				hopperFullCm: 5,
 				hopperEmptyCm: 30,
 				hopperCapacityG: 7000,

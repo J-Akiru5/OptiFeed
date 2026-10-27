@@ -1,5 +1,6 @@
 "use client";
 
+import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { Link, useRouter } from "@/i18n/routing";
 import { cancelCropCycle, updateCropCycle } from "@/lib/actions/crop-cycle";
 import { completePondEvent, updatePondEvent } from "@/lib/actions/pond-event";
@@ -10,6 +11,7 @@ import { CALENDAR_EVENT_TYPES, isCalendarEventType } from "@/lib/crop-cycle/cale
 import { FARM_TIME_ZONE, addDays, daysBetween, todayDateOnly } from "@/lib/crop-cycle/dates";
 import { computeCropCycleMetrics } from "@/lib/crop-cycle/metrics";
 import type { CropCycleDto, PondOption } from "@/lib/crop-cycle/types";
+import { resolveFeedLevelDisplay } from "@/lib/feed-level-display";
 import {
 	CalendarDays,
 	Check,
@@ -67,7 +69,8 @@ interface HarvestCalendarProps {
 	recentCycles: CropCycleDto[];
 	canManage: boolean;
 	today: string;
-	hopperLevelPct?: number;
+	hopperLevelPct?: number | null;
+	hopperFeedLevelUpdatedAt?: string | null;
 	hopperIsOffline?: boolean;
 }
 
@@ -127,6 +130,7 @@ export function HarvestCalendar({
 	canManage,
 	today,
 	hopperLevelPct,
+	hopperFeedLevelUpdatedAt,
 	hopperIsOffline,
 }: HarvestCalendarProps) {
 	const t = useTranslations("dashboard.harvest");
@@ -168,9 +172,18 @@ export function HarvestCalendar({
 	const metrics = selectedCycle ? computeCropCycleMetrics(selectedCycle, today) : null;
 	const isFallow = selectedPond?.isFallow ?? initialPondIsFallow;
 	const typesKey = useMemo(() => [...types].sort().join(","), [types]);
-	const hopperDisplayPct = hopperLevelPct === undefined || hopperIsOffline ? 0 : hopperLevelPct;
-	const hopperRemainingKg = (HOPPER_CAPACITY_KG * (hopperDisplayPct / 100)).toFixed(1);
-	const hopperScheduledFeedings = Math.floor(Number.parseFloat(hopperRemainingKg) / 0.35);
+	const hopperUpdatedAt = hopperFeedLevelUpdatedAt ? new Date(hopperFeedLevelUpdatedAt) : null;
+	const hopperLevel = resolveFeedLevelDisplay({
+		levelPercent: hopperLevelPct ?? null,
+		updatedAt: hopperUpdatedAt,
+		isOffline: hopperIsOffline ?? false,
+	});
+	const hopperRemainingKg =
+		hopperLevel.state === "live"
+			? (HOPPER_CAPACITY_KG * (hopperLevel.percent / 100)).toFixed(1)
+			: null;
+	const hopperScheduledFeedings =
+		hopperRemainingKg !== null ? Math.floor(Number.parseFloat(hopperRemainingKg) / 0.35) : 0;
 
 	// Restore the pond/all-ponds/event-type selection from the URL once, then
 	// keep the URL in sync without triggering a navigation.
@@ -896,32 +909,26 @@ export function HarvestCalendar({
 									<Cpu aria-hidden="true" className="h-3.5 w-3.5 text-[#E85A2A]" />
 									{tNav("hopperLevel")}
 								</p>
-								{hopperIsOffline && (
-									<span className="rounded-full bg-[#C42B3A]/10 px-1.5 py-0.5 text-[9px] font-bold text-[#C42B3A]">
-										{tNav("deviceOffline")}
-									</span>
-								)}
 							</div>
 							<div className="mt-2 flex items-center justify-between text-xs font-extrabold text-[#0A3D62] dark:text-[#5b9bd5]">
 								<span>{tNav("pondFeedPellet")}</span>
-								<span>{hopperDisplayPct}%</span>
 							</div>
-							<div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-[#3D5568]/20 dark:bg-gray-700">
-								<div
-									className={`h-full rounded-full transition-all duration-1000 ${
-										hopperDisplayPct < 20 ? "bg-[#E85A2A]" : "bg-[#1E7B34]"
-									}`}
-									style={{ width: `${hopperDisplayPct}%` }}
+							<div className="mt-1.5">
+								<FeedLevelDisplay
+									levelPercent={hopperLevelPct ?? null}
+									updatedAt={hopperUpdatedAt}
+									isOffline={hopperIsOffline ?? false}
+									size="sm"
 								/>
 							</div>
-							<div className="mt-2 text-[10px] leading-tight font-mono text-[#3D5568] dark:text-gray-400">
-								{hopperIsOffline
-									? tNav("hopperOffline")
-									: tNav("hopperRemaining", {
-											kg: hopperRemainingKg,
-											count: hopperScheduledFeedings,
-										})}
-							</div>
+							{hopperRemainingKg !== null && (
+								<div className="mt-2 text-[10px] leading-tight font-mono text-[#3D5568] dark:text-gray-400">
+									{tNav("hopperRemaining", {
+										kg: hopperRemainingKg,
+										count: hopperScheduledFeedings,
+									})}
+								</div>
+							)}
 						</section>
 					)}
 				</aside>

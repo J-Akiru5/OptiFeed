@@ -56,6 +56,10 @@ vi.mock("@/lib/auth/permissions", async (importOriginal) => {
 	return { ...actual, hasPermission: vi.fn(async () => true) };
 });
 
+vi.mock("@/lib/prisma", () => ({
+	default: { energyDevice: { findMany: vi.fn(async () => []) } },
+}));
+
 vi.mock("@/lib/actions/admin", () => ({
 	getUsers: vi.fn(),
 	getDevices: vi.fn(),

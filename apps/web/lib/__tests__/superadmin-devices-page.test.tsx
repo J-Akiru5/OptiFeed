@@ -15,6 +15,9 @@ vi.mock("@/lib/actions/platform/devices", () => ({
 	remoteSetDevicePause: vi.fn(),
 }));
 vi.mock("@/lib/actions/step-up", () => ({ startStepUp: vi.fn() }));
+vi.mock("@/lib/prisma", () => ({
+	default: { energyDevice: { findMany: vi.fn(async () => []) } },
+}));
 vi.mock("next-intl/server", async () => {
 	const { createTranslator } = await import("./helpers/messages");
 	return {
@@ -101,7 +104,7 @@ describe("/superadmin/devices layout (T-09c)", () => {
 
 	it("uses scoped headers and an accessible table name", async () => {
 		const html = renderToStaticMarkup(await page());
-		expect(html.split('scope="col"').length - 1).toBe(7);
+		expect(html.split('scope="col"').length - 1).toBe(8);
 		expect(html).toContain("Platform device registry");
 	});
 

@@ -1,5 +1,8 @@
+import { type FeedLevelState, resolveFeedLevelDisplay } from "@/lib/feed-level-display";
+
 export interface FeedLevelDisplayInput {
 	levelPercent: number | null;
+	updatedAt?: Date | null;
 	isDeviceOffline: boolean;
 	hopperCapacityG: number | null;
 	gramsPerFeeding: number;
@@ -7,8 +10,10 @@ export interface FeedLevelDisplayInput {
 }
 
 export interface FeedLevelDisplay {
-	/** Percentage to render; an offline device rests at 0. */
+	state: FeedLevelState;
+	/** Last known percentage; an offline device keeps its last reading. */
 	percent: number | null;
+	readingAt: Date | null;
 	hasReading: boolean;
 	isOffline: boolean;
 	isCritical: boolean;
@@ -17,34 +22,42 @@ export interface FeedLevelDisplay {
 }
 
 /**
- * Resolve what the feed-level card should display.
+ * Resolve what the dashboard feed-level card should display.
  *
- * An offline ESP32 cannot be trusted to still hold the feed it last reported,
- * so the dashboard rests at 0% like the sidebar instead of freezing on a stale
- * reading (GH-100 / GH-113).
+ * The presentation state itself comes from `resolveFeedLevelDisplay` so every
+ * surface agrees on live / last-known / no-reading (decision E4, #192). This
+ * adds the dashboard-only days-remaining estimate, which is only meaningful
+ * while the device is online.
  */
 export function getFeedLevelDisplay({
 	levelPercent,
+	updatedAt = null,
 	isDeviceOffline,
 	hopperCapacityG,
 	gramsPerFeeding,
 	feedsPerDay,
 }: FeedLevelDisplayInput): FeedLevelDisplay {
-	const percent = isDeviceOffline ? 0 : levelPercent;
-	const hasReading = percent !== null;
+	const display = resolveFeedLevelDisplay({
+		levelPercent,
+		updatedAt,
+		isOffline: isDeviceOffline,
+	});
+	const livePercent = display.state === "live" ? display.percent : null;
 
 	const dailyConsumption = gramsPerFeeding * feedsPerDay;
 	const daysRemaining =
-		!isDeviceOffline && percent !== null && hopperCapacityG && dailyConsumption > 0
-			? Math.floor((hopperCapacityG * (percent / 100)) / dailyConsumption)
+		livePercent !== null && hopperCapacityG && dailyConsumption > 0
+			? Math.floor((hopperCapacityG * (livePercent / 100)) / dailyConsumption)
 			: null;
 
 	return {
-		percent,
-		hasReading,
+		state: display.state,
+		percent: display.percent,
+		readingAt: display.readingAt,
+		hasReading: display.state !== "none",
 		isOffline: isDeviceOffline,
-		isCritical: !isDeviceOffline && percent !== null && percent <= 5,
-		isLow: !isDeviceOffline && percent !== null && percent <= 20,
+		isCritical: livePercent !== null && livePercent <= 5,
+		isLow: livePercent !== null && livePercent <= 20,
 		daysRemaining,
 	};
 }

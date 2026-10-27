@@ -1955,6 +1955,7 @@
 			"deviceOffline": "ESP32 offline",
 			"deviceMissing": "ESP32 wala pa na-pares",
 			"skipToContent": "Lumaktaw sa pangunahon nga sulod",
+			"platformAdmin": "Platform admin",
 			"pagination": {
 				"previous": "Nagligad",
 				"next": "Masunod",
@@ -2182,6 +2183,7 @@
 			"homeLabel": "PakaonAI platform console home",
 			"platform": "Plataporma",
 			"dashboard": "Dashboard",
+			"openFarmDashboard": "Buksi ang akon dashboard sang umahan",
 			"navLabel": "Mga seksyon sang plataporma",
 			"console": "Platform Console",
 			"backToDashboard": "Balik sa Dashboard",

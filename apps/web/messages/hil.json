@@ -2826,7 +2826,8 @@
 			"close": "Isira",
 			"stepUpAction": "kontrolaha ang feeder {label}",
 			"open": "Remote control",
-			"openAria": "Remote control para sa {label}"
+			"openAria": "Remote control para sa {label}",
+			"panelTitle": "Remote control — {label}"
 		},
 		"createOrg": {
 			"title": "Maghimo sang organisasyon",

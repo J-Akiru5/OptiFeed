@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Devices list (#213): the remote-control panel no longer sits inside the Actions cell. A compact trigger opens it in a full-width row under the device, so the tenant and platform device lists (list and card views) stay inside their card at every width; the caps sentence wraps anywhere and the grams box and Feed button stack on narrow screens. Feeding behaviour, guards and server caps are unchanged.
+- Help panel (#214): the sheet is now viewport height with a fixed header and a scrolling body, instead of growing past the bottom of the screen. Wheel and touch scrolling stay inside the panel (`overscroll-contain`), the footer respects the safe-area inset, and "Show me" still closes the sheet or navigates exactly as before.
+
 ## [1.14.0] - 2026-10-27
 
 ### Added

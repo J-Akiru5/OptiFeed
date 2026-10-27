@@ -7,13 +7,26 @@ import { remoteFeedDevice, remoteSetDevicePause } from "@/lib/actions/platform/d
 import { cn } from "@/lib/utils";
 import { Loader2, Pause, Play, Sliders, Wheat } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { type FormEvent, useRef, useState, useTransition } from "react";
+import {
+	type FormEvent,
+	type ReactNode,
+	createContext,
+	useContext,
+	useRef,
+	useState,
+	useTransition,
+} from "react";
 
 const MIN_REASON = 10;
 const MIN_GRAMS = 1;
 const MAX_GRAMS = 1000;
 
 type Message = { tone: "ok" | "error" | "refused"; text: string };
+
+/** Id of the full-width row that carries the open panel for one device. */
+export function remoteFeedRowId(deviceId: string): string {
+	return `remote-feed-${deviceId}`;
+}
 
 /**
  * Remote feeder control from the platform device registry (plan M5.2, D1).
@@ -23,44 +36,38 @@ type Message = { tone: "ok" | "error" | "refused"; text: string };
  * daily cap, >1,000 g, fallow pond) comes back as `feed_refused`/`pause_refused`
  * and is displayed, never hidden. Every action needs a reason and a fresh
  * step-up, and writes one audit row under the real admin.
+ *
+ * The panel itself has two hosts:
+ *
+ * - the table (#213): a small remote-control trigger in the Actions cell and
+ *   the panel in a full-width row *under* the device row (`RemoteFeedRow`), so
+ *   the form can never widen or overflow the Actions column;
+ * - the card view: `RemoteFeederControl`, the self-contained button + panel.
+ *
+ * Both render the same `RemoteFeedForm`, so the behaviour, guards and caps are
+ * identical wherever the panel is opened.
  */
-export function RemoteFeederControl({
+
+function RemoteFeedForm({
 	deviceId,
 	label,
 	isPaused,
+	onClose,
 }: {
 	deviceId: string;
 	label: string;
 	isPaused: boolean;
+	onClose: () => void;
 }) {
 	const t = useTranslations("superadmin.remoteFeeder");
 	const tCommon = useTranslations("superadmin.common");
 	const router = useRouter();
-	const [open, setOpen] = useState(false);
 	const [reason, setReason] = useState("");
 	const [grams, setGrams] = useState("150");
 	const [message, setMessage] = useState<Message | null>(null);
 	const [stepUpOpen, setStepUpOpen] = useState(false);
 	const retryRef = useRef<(() => void) | null>(null);
 	const [isPending, startTransition] = useTransition();
-
-	if (!open) {
-		return (
-			<button
-				type="button"
-				onClick={() => {
-					setOpen(true);
-					setMessage(null);
-				}}
-				data-help="superadmin-remote-feed"
-				aria-label={t("openAria", { label })}
-				className={SECONDARY_BUTTON}
-			>
-				<Sliders className="h-3.5 w-3.5" aria-hidden="true" />
-				{t("open")}
-			</button>
-		);
-	}
 
 	const fail = (text: string) => setMessage({ tone: "error", text });
 
@@ -162,8 +169,10 @@ export function RemoteFeederControl({
 
 	return (
 		<>
-			<form onSubmit={submitFeed} className="min-w-[16rem] space-y-2" aria-busy={isPending}>
-				<p className="text-[11px] font-bold leading-snug text-[#3D5568]">
+			<form onSubmit={submitFeed} className="w-full min-w-0 space-y-2" aria-busy={isPending}>
+				{/* The caps sentence is long and unbroken words can be wider than a
+				    phone column: wrap anywhere instead of pushing the panel wide. */}
+				<p className="text-[11px] leading-snug font-bold break-words text-[#3D5568]">
 					{t("note", { max: MAX_GRAMS })}
 				</p>
 				<input
@@ -172,10 +181,12 @@ export function RemoteFeederControl({
 					disabled={isPending}
 					placeholder={tCommon("reasonPlaceholderShort")}
 					aria-label={t("reasonAria", { label })}
-					className="w-full rounded-lg border border-gray-200 bg-[#F4F7F6] px-3 py-2 text-xs text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:opacity-60"
+					className="w-full min-w-0 rounded-lg border border-gray-200 bg-[#F4F7F6] px-3 py-2 text-xs text-[#0A3D62] focus:ring-2 focus:ring-[#E85A2A] focus:outline-none disabled:opacity-60"
 				/>
-				<div className="flex items-end gap-2">
-					<div className="flex-1">
+				{/* Stacked on narrow widths (#213): the grams box and Feed button
+				    never sit side by side in a column too narrow for both. */}
+				<div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-end">
+					<div className="min-w-0 flex-1">
 						<label htmlFor={`grams-${deviceId}`} className={FIELD_LABEL}>
 							{t("grams")}
 						</label>
@@ -188,13 +199,13 @@ export function RemoteFeederControl({
 							value={grams}
 							onChange={(e) => setGrams(e.target.value)}
 							disabled={isPending}
-							className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:opacity-60"
+							className="mt-1 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-[#0A3D62] focus:ring-2 focus:ring-[#E85A2A] focus:outline-none disabled:opacity-60"
 						/>
 					</div>
 					<button
 						type="submit"
 						disabled={isPending}
-						className={cn(PRIMARY_BUTTON, "px-3 py-2 text-xs font-black")}
+						className={cn(PRIMARY_BUTTON, "w-full px-3 py-2 text-xs font-black sm:w-auto")}
 					>
 						{isPending ? (
 							<Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -221,7 +232,7 @@ export function RemoteFeederControl({
 					</button>
 					<button
 						type="button"
-						onClick={() => setOpen(false)}
+						onClick={onClose}
 						disabled={isPending}
 						className={cn(SECONDARY_BUTTON, "px-3 py-1.5")}
 					>
@@ -244,5 +255,150 @@ export function RemoteFeederControl({
 				onVerified={onVerified}
 			/>
 		</>
+	);
+}
+
+function RemoteFeedOpenButton({
+	deviceId,
+	label,
+	onOpen,
+	expanded,
+}: {
+	deviceId: string;
+	label: string;
+	onOpen: () => void;
+	/** Present in the table, where the panel lives in its own row. */
+	expanded?: boolean;
+}) {
+	const t = useTranslations("superadmin.remoteFeeder");
+
+	return (
+		<button
+			type="button"
+			onClick={onOpen}
+			data-help="superadmin-remote-feed"
+			aria-label={t("openAria", { label })}
+			aria-expanded={expanded}
+			aria-controls={expanded ? remoteFeedRowId(deviceId) : undefined}
+			className={SECONDARY_BUTTON}
+		>
+			<Sliders className="h-3.5 w-3.5" aria-hidden="true" />
+			{t("open")}
+		</button>
+	);
+}
+
+/**
+ * Self-contained trigger + panel for the card view. One card, one panel, so no
+ * shared state is needed.
+ */
+export function RemoteFeederControl({
+	deviceId,
+	label,
+	isPaused,
+}: {
+	deviceId: string;
+	label: string;
+	isPaused: boolean;
+}) {
+	const [open, setOpen] = useState(false);
+
+	if (!open) {
+		return <RemoteFeedOpenButton deviceId={deviceId} label={label} onOpen={() => setOpen(true)} />;
+	}
+
+	return (
+		<RemoteFeedForm
+			deviceId={deviceId}
+			label={label}
+			isPaused={isPaused}
+			onClose={() => setOpen(false)}
+		/>
+	);
+}
+
+type RemoteFeedContextValue = {
+	openId: string | null;
+	toggle: (deviceId: string) => void;
+	close: () => void;
+};
+
+const RemoteFeedContext = createContext<RemoteFeedContextValue | null>(null);
+
+function useRemoteFeed(): RemoteFeedContextValue {
+	const context = useContext(RemoteFeedContext);
+	if (!context) {
+		throw new Error("RemoteFeedRow/RemoteFeederTrigger must sit inside RemoteFeedProvider");
+	}
+	return context;
+}
+
+/**
+ * One open panel at a time in the device table: a device row and the row that
+ * carries its panel stay in sync through this provider (it renders no DOM).
+ */
+export function RemoteFeedProvider({ children }: { children: ReactNode }) {
+	const [openId, setOpenId] = useState<string | null>(null);
+
+	return (
+		<RemoteFeedContext.Provider
+			value={{
+				openId,
+				toggle: (deviceId) => setOpenId((current) => (current === deviceId ? null : deviceId)),
+				close: () => setOpenId(null),
+			}}
+		>
+			{children}
+		</RemoteFeedContext.Provider>
+	);
+}
+
+/** The compact trigger button that belongs in the table's Actions cell. */
+export function RemoteFeederTrigger({ deviceId, label }: { deviceId: string; label: string }) {
+	const { openId, toggle } = useRemoteFeed();
+
+	return (
+		<RemoteFeedOpenButton
+			deviceId={deviceId}
+			label={label}
+			onOpen={() => toggle(deviceId)}
+			expanded={openId === deviceId}
+		/>
+	);
+}
+
+/**
+ * The full-width expanded row under a device row (#213). It spans every column
+ * so the panel has room to breathe and the table never overflows its card.
+ */
+export function RemoteFeederRow({
+	deviceId,
+	label,
+	isPaused,
+	colSpan,
+}: {
+	deviceId: string;
+	label: string;
+	isPaused: boolean;
+	colSpan: number;
+}) {
+	const { openId, close } = useRemoteFeed();
+	const t = useTranslations("superadmin.remoteFeeder");
+
+	if (openId !== deviceId) return null;
+
+	return (
+		<tr
+			id={remoteFeedRowId(deviceId)}
+			data-remote-feed-row
+			className="border-b border-gray-50 bg-[#F4F7F6]/70 dark:border-gray-800 dark:bg-gray-800/40"
+		>
+			<td colSpan={colSpan} className="px-6 py-4">
+				<div className="w-full min-w-0 max-w-2xl">
+					<p className="mb-2 text-sm font-black text-[#0A3D62]">{t("panelTitle", { label })}</p>
+					<RemoteFeedForm deviceId={deviceId} label={label} isPaused={isPaused} onClose={close} />
+				</div>
+			</td>
+		</tr>
 	);
 }

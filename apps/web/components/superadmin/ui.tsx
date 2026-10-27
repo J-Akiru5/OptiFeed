@@ -220,7 +220,7 @@ export function MobileCard({
 	children: ReactNode;
 	className?: string;
 }) {
-	return <li className={cn(CARD, "space-y-3 p-4", className)}>{children}</li>;
+	return <li className={cn(CARD, "min-w-0 space-y-3 p-4", className)}>{children}</li>;
 }
 
 /** Label/value pair for a mobile card's `<dl>`. */

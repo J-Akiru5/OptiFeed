@@ -1979,7 +1979,8 @@
 				"missing_letter": "Kinahanglan nga may isa ka letra ang password.",
 				"missing_number": "Kinahanglan nga may isa ka numero ang password.",
 				"common": "Sobra ka ordinaryo ang password. Pilia ang mas mabaskog."
-			}
+			},
+			"errorGeneric": "May naguba. Tilawi liwat."
 		},
 		"adminPondForm": {
 			"backToList": "Balik sa mga Punong",
@@ -2023,6 +2024,7 @@
 			"statusActive": "Aktibo",
 			"statusArchived": "Gin-archive",
 			"fallowTag": "Fallow",
+			"overviewTitle": "Overview",
 			"fieldId": "ID sang punong",
 			"fieldOwner": "Tag-iya",
 			"fieldFarm": "Farm",

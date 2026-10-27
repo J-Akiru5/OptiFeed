@@ -2000,7 +2000,8 @@
 				"missing_letter": "Password must include at least one letter.",
 				"missing_number": "Password must include at least one number.",
 				"common": "That password is too common. Choose a stronger one."
-			}
+			},
+			"errorGeneric": "Something went wrong. Try again."
 		},
 		"adminPondForm": {
 			"backToList": "Back to Ponds",
@@ -2044,6 +2045,7 @@
 			"statusActive": "Active",
 			"statusArchived": "Archived",
 			"fallowTag": "Fallow",
+			"overviewTitle": "Overview",
 			"fieldId": "Pond ID",
 			"fieldOwner": "Owner",
 			"fieldFarm": "Farm",

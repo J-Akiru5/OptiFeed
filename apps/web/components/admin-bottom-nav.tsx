@@ -25,7 +25,7 @@ export function AdminBottomNav() {
 	return (
 		<nav
 			aria-label={t("mobileNavLabel")}
-			className="fixed right-0 bottom-0 left-0 z-40 border-t border-white/10 bg-[#0A3D62] pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.15)] lg:hidden"
+			className="ofd-band fixed right-0 bottom-0 left-0 z-40 border-t border-white/10 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.15)] lg:hidden"
 		>
 			<ul className="flex items-stretch px-1">
 				{navItems.map((item) => {
@@ -40,12 +40,25 @@ export function AdminBottomNav() {
 								href={item.href}
 								aria-current={isActive ? "page" : undefined}
 								className={cn(
-									"flex flex-col items-center justify-center gap-1.5 rounded-xl px-1 py-3 transition-colors focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none",
+									"relative flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 transition-colors focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none",
 									isActive ? "text-white" : "text-white/75 hover:text-white",
 								)}
 							>
-								<item.icon aria-hidden="true" size={20} className="shrink-0" />
-								<span className="w-full truncate text-center text-[10px] leading-tight font-bold">
+								{/* Colour alone is not the only active signal: a bar marks it. */}
+								<span
+									aria-hidden="true"
+									className={cn(
+										"absolute top-0 h-0.5 w-6 rounded-full bg-[#FF6B35] transition-opacity dark:bg-[#ff8a5c]",
+										isActive ? "opacity-100" : "opacity-0",
+									)}
+								/>
+								<item.icon aria-hidden="true" size={22} className="shrink-0" />
+								<span
+									className={cn(
+										"w-full truncate text-center text-[10px] leading-tight",
+										isActive ? "font-black" : "font-bold",
+									)}
+								>
 									{item.label}
 								</span>
 							</Link>

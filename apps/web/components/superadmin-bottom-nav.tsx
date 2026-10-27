@@ -43,7 +43,7 @@ export function SuperadminBottomNav() {
 	return (
 		<nav
 			aria-label={t("bottomNavLabel")}
-			className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-[#0A3D62] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.15)] pb-[env(safe-area-inset-bottom)] lg:hidden"
+			className="ofd-band fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.15)] lg:hidden"
 		>
 			<ul className="flex items-stretch px-1">
 				{navItems.map((item) => {
@@ -59,13 +59,25 @@ export function SuperadminBottomNav() {
 								aria-label={t(`nav.${item.key}`)}
 								aria-current={isActive ? "page" : undefined}
 								className={cn(
-									"flex min-h-14 flex-col items-center justify-center gap-1.5 rounded-xl px-1 py-2.5 transition-colors",
+									"relative flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 transition-colors",
 									FOCUS_RING_ON_DARK,
 									isActive ? "text-white" : "text-white/80 hover:text-white",
 								)}
 							>
+								<span
+									aria-hidden="true"
+									className={cn(
+										"absolute top-0 h-0.5 w-5 rounded-full bg-[#FF6B35] transition-opacity dark:bg-[#ff8a5c]",
+										isActive ? "opacity-100" : "opacity-0",
+									)}
+								/>
 								<item.icon size={20} className="shrink-0" aria-hidden="true" />
-								<span className="w-full truncate text-center text-[10px] font-bold leading-tight">
+								<span
+									className={cn(
+										"w-full truncate text-center text-[10px] leading-tight",
+										isActive ? "font-black" : "font-bold",
+									)}
+								>
 									{t(`shortNav.${item.key}`)}
 								</span>
 							</Link>

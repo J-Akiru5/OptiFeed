@@ -85,7 +85,10 @@
 		"pondFeedPellet": "Pond Feed Pellet",
 		"hopperRemaining": "Approx. {kg}kg remaining. Enough for {count} scheduled feedings.",
 		"deviceOffline": "Offline",
-		"navLabel": "Main navigation"
+		"navLabel": "Main navigation",
+		"overview": "Overview",
+		"alerts": "Alerts",
+		"me": "Me"
 	},
 	"button": {
 		"feedNow": "Feed Now",
@@ -1312,6 +1315,7 @@
 			"columnFeedLevel": "Feed level",
 			"columnLastSeen": "Last seen",
 			"perFeeding": "{grams} g per feeding",
+			"perFeedingLabel": "Per feeding",
 			"emptyTitle": "No devices registered yet.",
 			"emptyDesc": "Devices appear here once a feeder is provisioned and claimed.",
 			"caption": "Devices in your organization",
@@ -2184,6 +2188,44 @@
 				"value": "Value",
 				"name": "Name",
 				"empty": "No data for this period yet."
+			}
+		},
+		"mobile": {
+			"openMenu": "Quick actions",
+			"menuLabel": "Quick menu",
+			"close": "Close quick menu",
+			"searchLabel": "Search pages and actions",
+			"searchPlaceholder": "Search pages and actions",
+			"noResults": "Nothing matches “{query}”.",
+			"sections": {
+				"actions": "Actions",
+				"destinations": "Go to"
+			},
+			"actions": {
+				"addPond": "Add pond",
+				"addFeeder": "Add feeder",
+				"scanSticker": "Scan sticker QR",
+				"pondLocation": "Pond location",
+				"logSample": "Log biomass sample",
+				"registerDevice": "Register feeder"
+			},
+			"status": {
+				"label": "Filter by device status",
+				"all": "All",
+				"online": "Online",
+				"alarm": "Alarm",
+				"offline": "Offline",
+				"emptyTitle": "Nothing matches this filter",
+				"emptyDesc": "Clear the filter to see the full list on this page.",
+				"clear": "Clear filter"
+			},
+			"order": {
+				"label": "Order",
+				"newest": "Newest",
+				"name": "Name",
+				"status": "Status",
+				"attention": "Needs attention",
+				"hint": "Ordering and filters apply to the items on this page."
 			}
 		}
 	},

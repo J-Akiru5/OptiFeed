@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Mobile app shell (E26): every console now has a PakaonAI-branded header band below `lg` (page title, search, "+" quick menu), the farmer bottom bar is a five-tab bar (Overview, Schedule, Biomass log, Alerts, Me) with the active tab in the brand colour, and the admin/platform bars use the same band and active treatment. Every page that left the bar stays one tap away in the quick menu, which also carries role-aware quick actions (add pond/feeder, scan sticker, pond location, log a sample, register a feeder).
+- Mobile lists (E26): the tenant Ponds and Devices lists gained a tappable All / Online / Alarm / Offline summary strip, an "order by" and "needs attention" chips row, and large cards with a status dot and three key metrics; the strip, chips and the ordering are URL parameters, so they survive navigation and the numbered pagination.
+- Mobile layout pass (E26): user-facing page titles move into the header band below `sm` (the `h1` stays in the markup for assistive tech), farmer and console mains use `dvh` with bottom padding that clears the fixed bar and the device safe area, and the biomass and pond-settings forms pin their primary action above the bar on a phone.
+
 ## [1.13.0] - 2026-10-27
 
 ### Added

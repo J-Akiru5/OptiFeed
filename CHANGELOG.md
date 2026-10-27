@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The dashboard's low-hopper alert uses the org's configured threshold instead of the built-in 20 % default.
 - Saving the hopper shape calibration refreshes the Hardware settings page that shows the result (it refreshed a legacy redirect stub instead).
 - Hard-deleting a pond whose only remaining record is a legacy `Device` row now reports the device as a blocker instead of failing on the foreign key.
+- The assistant counts "today's feedings" from the Asia/Manila day, and its replies and AI context describe samples and dispenses on the farm clock instead of the server's timezone.
+- The pause/resume switch on the schedule page reverts with the reason when the server refuses the write, instead of showing the wrong state.
+- The schedule sync and stuck-request panels are translated (en/hil) and show device timestamps on the farm clock; "Check device" keeps the active locale and opens Hardware.
+- The offline sync panel shows the last sync and failed-sample times on the farm clock.
+- Notification preferences are hidden on the profile page when the farmer has no pond, instead of failing every toggle with "Pond not found".
+- A corrupt device timestamp degrades to a plain label instead of throwing and breaking the page render.
 
 ### Security
 

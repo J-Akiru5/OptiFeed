@@ -112,6 +112,19 @@ describe("setOrganizationStatus", () => {
 		expect(mocks.orgUpdate).not.toHaveBeenCalled();
 	});
 
+	it("does not restore an organization pending deletion", async () => {
+		mocks.orgFindUnique.mockResolvedValue({ ...ORG, status: "PENDING_DELETION" });
+
+		const result = await setOrganizationStatus({
+			orgId: "org-1",
+			status: "ACTIVE",
+			reason: REASON,
+		});
+
+		expect("error" in result).toBe(true);
+		expect(mocks.orgUpdate).not.toHaveBeenCalled();
+	});
+
 	it("refuses to restore a purged organization", async () => {
 		mocks.orgFindUnique.mockResolvedValue({ ...ORG, status: "PURGED" });
 

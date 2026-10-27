@@ -29,6 +29,7 @@ function dependencies(overrides: Partial<AcceptDependencies> = {}) {
 		now: vi.fn(() => NOW),
 		load: vi.fn(async () => row()),
 		markExpired: vi.fn(async () => undefined),
+		claim: vi.fn(async () => true),
 		markAccepted: vi.fn(async () => undefined),
 		markFailed: vi.fn(async () => undefined),
 		hasPermission: vi.fn(async () => true),
@@ -43,6 +44,16 @@ function dependencies(overrides: Partial<AcceptDependencies> = {}) {
 }
 
 describe("acceptAssistantActionWith", () => {
+	it("does not run an action another Accept already claimed", async () => {
+		const deps = dependencies({ claim: vi.fn(async () => false) });
+
+		const result = await acceptAssistantActionWith("user-1", "action-1", deps);
+
+		expect(result.success).toBe(false);
+		expect(deps.execute).not.toHaveBeenCalled();
+		expect(deps.markAccepted).not.toHaveBeenCalled();
+	});
+
 	it("runs the stored action once the caller passes every gate", async () => {
 		const deps = dependencies();
 

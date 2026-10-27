@@ -65,6 +65,14 @@ export async function setOrganizationStatus(input: {
 		if (org.status === input.status) {
 			return { success: true, status: input.status };
 		}
+		// Only a suspended org can be restored here. Cancelling a pending deletion is a
+		// separate, deliberate flow and must not happen as a side effect of "restore".
+		if (input.status === "ACTIVE" && org.status !== "SUSPENDED") {
+			return { error: "Only a suspended organization can be restored." };
+		}
+		if (input.status === "SUSPENDED" && org.status !== "ACTIVE") {
+			return { error: "Only an active organization can be suspended." };
+		}
 
 		const actor = await actorContext();
 

@@ -32,6 +32,11 @@ export interface AcceptDependencies {
 	now(): Date;
 	load(actionId: string): Promise<AssistantActionRow | null>;
 	markExpired(actionId: string): Promise<void>;
+	/**
+	 * Atomically claim a PENDING row before running it. Returns false when another
+	 * Accept already claimed it, so two concurrent Accepts can never both execute.
+	 */
+	claim(actionId: string): Promise<boolean>;
 	markAccepted(actionId: string, result: { message: string }): Promise<void>;
 	markFailed(actionId: string, error: string): Promise<void>;
 	hasPermission(permission: Permission): Promise<boolean>;
@@ -119,6 +124,10 @@ export async function acceptAssistantActionWith(
 				error: "Re-enter your password to continue. This action needs a fresh 5-minute check.",
 			};
 		}
+	}
+
+	if (!(await deps.claim(row.id))) {
+		return { success: false, error: "That action was already decided." };
 	}
 
 	let outcome: AssistantExecuteResult;

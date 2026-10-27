@@ -63,6 +63,15 @@ export async function acceptAssistantAction(
 				data: { status: "EXPIRED", decidedAt: new Date() },
 			});
 		},
+		claim: async (id) => {
+			// decidedAt doubles as the claim marker: only one caller can set it while the
+			// row is still PENDING and unclaimed.
+			const { count } = await prisma.assistantAction.updateMany({
+				where: { id, status: "PENDING", decidedAt: null },
+				data: { decidedAt: new Date() },
+			});
+			return count === 1;
+		},
 		markAccepted: async (id, result) => {
 			await prisma.assistantAction.update({
 				where: { id },

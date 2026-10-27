@@ -33,6 +33,10 @@ interface CalendarViewProps {
 	events: CalendarEventDto[];
 	canManage: boolean;
 	allPonds: boolean;
+	/** Toolbar view list. Omitted = month, week, day and agenda. */
+	toolbarViews?: string;
+	/** Initial view. Omitted = agenda below 640 px, month otherwise. */
+	defaultView?: string;
 	onRangeChange: (from: string, to: string) => void;
 	onViewChange: (viewType: string) => void;
 	onEventClick: (event: CalendarEventDto) => void;
@@ -83,6 +87,8 @@ export function CalendarView({
 	events,
 	canManage,
 	allPonds,
+	toolbarViews,
+	defaultView,
 	onRangeChange,
 	onViewChange,
 	onEventClick,
@@ -97,9 +103,11 @@ export function CalendarView({
 	// the viewport is available on the first render. Agenda is the mobile
 	// default; a wider screen starts on the month grid.
 	const [initialView] = useState(() =>
-		initialCalendarView(
-			typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches,
-		),
+		defaultView
+			? defaultView
+			: initialCalendarView(
+					typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches,
+				),
 	);
 	const [viewType, setViewType] = useState(initialView);
 
@@ -275,7 +283,7 @@ export function CalendarView({
 				headerToolbar={{
 					left: "prev,next today",
 					center: "title",
-					right: CALENDAR_TOOLBAR_VIEWS,
+					right: toolbarViews ?? CALENDAR_TOOLBAR_VIEWS,
 				}}
 				// FullCalendar v7 removed the global `buttonText` map. Toolbar copy
 				// now comes from these documented text options (and the theme's

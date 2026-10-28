@@ -1520,6 +1520,8 @@
 			"back": "Balik sa mga device",
 			"print": "I-print / i-save subong PDF",
 			"count": "{count} ka sticker",
+			"emptyTitle": "Wala pa sang device nga i-print.",
+			"emptyDesc": "Kon may feeder na nga nadugang sa pond, magaguwa diri ang iya sticker sheet.",
 			"verifyTitle": "Tan-awa anay antes mag-print.",
 			"verifyIntro": "Ang kasubong sang blower lamang ang nabasa halin sa label. Ang gear motor, speed controller kag electronics sang 12 V nga adapter estimate lang, kag gin-round up ang kabilugan ({volts} V, {hz} Hz, {amps} A). Wala pa masukat gamit ang meter.",
 			"verifyReadLabels": "Itandi ang estimate nga current sang motor kag electronics sa nabasa sang meter, kag ilisan ang rating kon lain.",

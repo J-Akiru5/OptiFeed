@@ -4,7 +4,7 @@ import { FeederIllustration } from "@/components/feeder/feeder-illustration";
 import { Link } from "@/i18n/routing";
 import { formatDateTimeLocal, formatWallClockTime } from "@/lib/date-local";
 import { formatFeedAmountLabel } from "@/lib/feed-figures";
-import { resolveFeedLevelDisplay } from "@/lib/feed-level-display";
+import { isHopperLowDisplay, resolveFeedLevelDisplay } from "@/lib/feed-level-display";
 import {
 	FEEDER_HERO_PHOTO_PATH,
 	FEEDER_HERO_PHOTO_SESSION_KEY,
@@ -102,6 +102,8 @@ interface CalloutProps {
 	detail?: string;
 	/** Dim a value that is stale or absent (E4). */
 	muted?: boolean;
+	/** #259: live hopper reading at or below the low display threshold. */
+	danger?: boolean;
 	tag?: string;
 	position: string;
 	index: number;
@@ -113,6 +115,7 @@ function Callout({
 	value,
 	detail,
 	muted = false,
+	danger = false,
 	tag,
 	position,
 	index,
@@ -122,14 +125,19 @@ function Callout({
 			className={cn(
 				"feeder-hero-callout relative rounded-2xl border border-white/12 bg-[#0d2433]/80 px-3 py-2 shadow-lg backdrop-blur-md",
 				"md:absolute md:w-[25%] md:max-w-[13rem]",
+				danger && "border-[#C42B3A]/70",
 				position,
 			)}
 			style={{ animationDelay: `${index * 70}ms` }}
+			data-hopper-low={danger ? "true" : undefined}
 		>
 			<div className="flex items-start gap-2">
 				<span
 					aria-hidden="true"
-					className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-white/10 text-[#8fc0ea]"
+					className={cn(
+						"mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-white/10 text-[#8fc0ea]",
+						danger && "hopper-low-pulse bg-[#C42B3A]/25 text-[#ffc0c7]",
+					)}
 				>
 					<Icon className="h-3.5 w-3.5" />
 				</span>
@@ -138,12 +146,17 @@ function Callout({
 					<p
 						className={cn(
 							"mt-0.5 flex flex-wrap items-center gap-1.5 text-sm font-black tabular-nums",
-							muted ? "text-white/60" : "text-white",
+							danger ? "text-[#ffc0c7]" : muted ? "text-white/60" : "text-white",
 						)}
 					>
 						{value}
 						{tag && (
-							<span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-white/75">
+							<span
+								className={cn(
+									"rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider",
+									danger ? "bg-[#C42B3A]/30 text-[#ffc0c7]" : "bg-white/10 text-white/75",
+								)}
+							>
 								{tag}
 							</span>
 						)}
@@ -219,6 +232,7 @@ export function FeederHero({ pondName, className, ...data }: FeederHeroProps) {
 	});
 	const hopperReading =
 		hopper.readingAt !== null ? formatDateTimeLocal(hopper.readingAt, tDates) : null;
+	const hopperLow = hopper.state === "live" && isHopperLowDisplay(hopperLevelPercent);
 
 	const lastSeenParts = lastSeenAt ? formatDateTimeLocal(lastSeenAt, tDates) : null;
 	const lastSeenLabel = lastSeenParts
@@ -247,7 +261,13 @@ export function FeederHero({ pondName, className, ...data }: FeederHeroProps) {
 						? tFeedLevel("noReadingYet")
 						: undefined,
 			muted: hopper.state !== "live",
-			tag: hopper.state === "stale" ? tFeedLevel("offline") : undefined,
+			danger: hopperLow,
+			tag:
+				hopper.state === "stale"
+					? tFeedLevel("offline")
+					: hopperLow
+						? tFeedLevel("lowRefill")
+						: undefined,
 			position: CALLOUT_POSITIONS[0],
 			index: 0,
 		},

@@ -10,8 +10,8 @@ import { getFeedEvents } from "@/lib/actions/history";
 import { canWrite } from "@/lib/auth/session";
 import { FEED_CHART_DAYS, HOPPER_RANGE_DAYS, parseHopperRange } from "@/lib/chart-windows";
 import { formatFarmDateTime } from "@/lib/date-local";
+import { toHopperSnapshot } from "@/lib/device-hopper";
 import { formatFeedAmount, isDailyTotalSource } from "@/lib/feed-figures";
-import { isDeviceOffline } from "@/lib/feed-level-display";
 import { FEED_EVENT_SOURCES, feedSourceKey } from "@/lib/feed-sources";
 import type { HistorySnapshotData } from "@/lib/offline/snapshots";
 import { getFeedPerDayBySource, getFeedTotals, getHopperLevelSeries } from "@/lib/pond-charts";
@@ -114,7 +114,8 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 	const hopperLatest = hopperPoints.at(-1)?.value ?? null;
 
 	const writeAccess = await canWrite();
-	const feedLevelOffline = isDeviceOffline(energyDevice?.lastSeenAt ?? null);
+	const hopper = energyDevice ? toHopperSnapshot(energyDevice) : null;
+	const feedLevelOffline = hopper?.isOffline ?? true;
 
 	const historySnapshot: HistorySnapshotData = {
 		pondName: pond.name,
@@ -225,8 +226,8 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 							{t("feedLevel")}
 						</p>
 						<FeedLevelDisplay
-							levelPercent={energyDevice?.feedLevelPercent ?? null}
-							updatedAt={energyDevice?.feedLevelUpdatedAt ?? null}
+							levelPercent={hopper?.levelPercent ?? null}
+							updatedAt={hopper?.levelUpdatedAt ?? null}
 							isOffline={feedLevelOffline}
 							showBar={false}
 							size="lg"

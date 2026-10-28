@@ -26,6 +26,7 @@ import { Link, getPathname } from "@/i18n/routing";
 import { getOrgPondOptions, listPlatformDevices } from "@/lib/actions/platform/devices";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import { toHopperSnapshot } from "@/lib/device-hopper";
 import {
 	deviceListStatus,
 	filterByStatus,
@@ -103,6 +104,13 @@ export default async function SuperadminDevicesPage({
 			{ levelPercent: row.feedLevelPercent, updatedAt: row.feedLevelUpdatedAt },
 		]),
 	);
+	const hopperFor = (device: (typeof devices.rows)[number]) =>
+		toHopperSnapshot({
+			id: device.id,
+			lastSeenAt: device.lastSeenAt,
+			feedLevelPercent: feedLevelById.get(device.id)?.levelPercent ?? null,
+			feedLevelUpdatedAt: feedLevelById.get(device.id)?.updatedAt ?? null,
+		});
 
 	// Mobile status strip and chips (E26): grade the feeders on this page from
 	// the heartbeat and the hopper reading, then filter and order them.
@@ -246,8 +254,8 @@ export default async function SuperadminDevicesPage({
 											label: t("columnFeedLevel"),
 											value: (
 												<FeedLevelDisplay
-													levelPercent={feedLevelById.get(device.id)?.levelPercent ?? null}
-													updatedAt={feedLevelById.get(device.id)?.updatedAt ?? null}
+													levelPercent={hopperFor(device).levelPercent}
+													updatedAt={hopperFor(device).levelUpdatedAt}
 													isOffline={deviceStatus === "offline"}
 													size="sm"
 												/>
@@ -349,8 +357,8 @@ export default async function SuperadminDevicesPage({
 											</td>
 											<td className="px-6 py-4">
 												<FeedLevelDisplay
-													levelPercent={feedLevelById.get(device.id)?.levelPercent ?? null}
-													updatedAt={feedLevelById.get(device.id)?.updatedAt ?? null}
+													levelPercent={hopperFor(device).levelPercent}
+													updatedAt={hopperFor(device).levelUpdatedAt}
 													isOffline={offline}
 													size="sm"
 												/>

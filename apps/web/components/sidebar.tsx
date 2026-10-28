@@ -2,8 +2,7 @@
 
 import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { Link, usePathname } from "@/i18n/routing";
-import { HOPPER_CAPACITY_KG } from "@/lib/constants";
-import { resolveFeedLevelDisplay } from "@/lib/feed-level-display";
+import { getFeedLevelDisplay } from "@/lib/feed-level";
 import { cn } from "@/lib/utils";
 import {
 	CalendarRange,
@@ -22,6 +21,12 @@ interface SidebarProps {
 	hopperLevelPct?: number | null;
 	/** When the last hopper-level reading arrived. */
 	hopperLevelUpdatedAt?: Date | null;
+	/** The device's hopper capacity, so kg remaining matches the reading. */
+	hopperCapacityG?: number | null;
+	/** The device's configured grams per feeding (#263). */
+	gramsPerFeeding?: number | null;
+	/** Meals per day from the active pond/schedule. */
+	feedsPerDay?: number | null;
 	/** True when the ESP32 has not checked in within OFFLINE_THRESHOLD_MS. */
 	isOffline?: boolean;
 	/**
@@ -34,6 +39,9 @@ interface SidebarProps {
 export function Sidebar({
 	hopperLevelPct = null,
 	hopperLevelUpdatedAt = null,
+	hopperCapacityG = null,
+	gramsPerFeeding = null,
+	feedsPerDay = null,
 	isOffline = false,
 	showHopperWidget = true,
 }: SidebarProps) {
@@ -52,19 +60,23 @@ export function Sidebar({
 	];
 
 	// An offline device keeps its last known reading (decision E4, #192), but the
-	// remaining-kg estimate is only meaningful while the device is online.
-	const level = resolveFeedLevelDisplay({
+	// remaining-feed estimate is only meaningful while the device is online.
+	const level = getFeedLevelDisplay({
 		levelPercent: hopperLevelPct,
 		updatedAt: hopperLevelUpdatedAt,
-		isOffline,
+		isDeviceOffline: isOffline,
+		hopperCapacityG,
+		gramsPerFeeding: gramsPerFeeding ?? 0,
+		feedsPerDay: feedsPerDay ?? 0,
 	});
 
-	// Math for remaining metrics
-	const capacityKg = HOPPER_CAPACITY_KG;
+	// Same estimate as the dashboard card (#263): level × the device's capacity,
+	// divided by the device's grams per feeding. No hard-coded capacity or dose.
 	const remainingKg =
-		level.state === "live" ? (capacityKg * (level.percent / 100)).toFixed(1) : null;
-	const scheduledFeedings =
-		remainingKg !== null ? Math.floor(Number.parseFloat(remainingKg) / 0.35) : 0;
+		level.state === "live" && level.remainingGrams !== null
+			? (level.remainingGrams / 1000).toFixed(1)
+			: null;
+	const scheduledFeedings = remainingKg !== null ? (level.feedingsRemaining ?? 0) : 0;
 
 	return (
 		<aside className="hidden lg:flex w-64 bg-white dark:bg-gray-900 border-r border-[#0A3D62]/10 dark:border-gray-700/50 flex-col p-6 shrink-0 sticky top-[64px] h-[calc(100vh-64px)] z-20 overflow-y-auto scrollbar-none">

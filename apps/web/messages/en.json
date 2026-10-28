@@ -391,6 +391,7 @@
 			"lastUpdated": "Last updated",
 			"empty": "Empty",
 			"low": "Low",
+			"lowRefill": "Low: refill soon",
 			"ok": "OK",
 			"noData": "No data"
 		},
@@ -1545,6 +1546,7 @@
 			"deviceStatus": "Device Status",
 			"deviceStatusDesc": "Current status of your ESP32 feeder device.",
 			"deviceRecordId": "Device record ID",
+			"supportId": "Support ID: {id}",
 			"connectionStatus": "Connection Status",
 			"online": "Online",
 			"offline": "Offline",
@@ -3336,9 +3338,10 @@
 				"eventTypes": {
 					"ota_installed": "Installed",
 					"ota_valid": "Verified",
-					"ota_rolled_back": "Rolled back"
+					"ota_rolled_back": "Rolled back",
+					"firmware_reported": "Reported"
 				},
-				"versionSourceNote": "A unit reports its version on the heartbeat that changes its OTA state. That transition is stored as a device event, which is what this page shows.",
+				"versionSourceNote": "A unit reports its version on the heartbeat, and the first report after a change is stored as a device event (OTA transition or a USB-flashed unit's first heartbeat). That is what this page shows.",
 				"unknownNote": "“Unknown” means the unit never reported an OTA state. It is not an error and is never estimated from a build date."
 			},
 			"audit": {

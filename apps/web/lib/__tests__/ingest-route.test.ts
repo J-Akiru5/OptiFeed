@@ -27,6 +27,7 @@ vi.mock("@/lib/prisma", () => ({
 			updateMany: vi.fn(),
 		},
 		deviceStateEvent: {
+			findFirst: vi.fn(),
 			create: vi.fn(),
 		},
 		notification: {
@@ -200,6 +201,7 @@ describe("POST /api/ingest — heartbeat dedup and thinning (1.4)", () => {
 		mockFeedRequest.findMany.mockResolvedValue([] as never);
 		mockFeedRequest.updateMany.mockResolvedValue({ count: 0 } as never);
 		mockDeviceStateEvent.create.mockResolvedValue({} as never);
+		mockDeviceStateEvent.findFirst.mockResolvedValue(null as never);
 		mockNotification.create.mockResolvedValue({} as never);
 		mockNotification.updateMany.mockResolvedValue({ count: 0 } as never);
 		mockPond.findUnique.mockResolvedValue(null as never);
@@ -434,6 +436,60 @@ describe("POST /api/ingest — heartbeat dedup and thinning (1.4)", () => {
 			([arg]) => (arg as { data: { eventType: string } }).data.eventType === "connected",
 		);
 		expect(connectedCalls).toHaveLength(1);
+	});
+
+	it("records a new reported firmware version once, without a schema column", async () => {
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			lastSeenAt: new Date(Date.now() - 5000),
+		} as never);
+		mockFeedEvent.findFirst.mockResolvedValue({
+			receivedAt: new Date(),
+			rtcOk: true,
+			feederActive: false,
+		} as never);
+
+		const res = await POST(
+			ingestRequest({ ...heartbeatBody("hb-fw-0001"), firmware_version: "1.6.0" }),
+		);
+
+		expect(res.status).toBe(204);
+		expect(mockDeviceStateEvent.create).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					eventType: "firmware_reported",
+					source: "device",
+					metadata: { version: "1.6.0" },
+				}),
+			}),
+		);
+	});
+
+	it("does not write another firmware row when the reported version is unchanged", async () => {
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			lastSeenAt: new Date(Date.now() - 5000),
+		} as never);
+		mockFeedEvent.findFirst.mockResolvedValue({
+			receivedAt: new Date(),
+			rtcOk: true,
+			feederActive: false,
+		} as never);
+		mockDeviceStateEvent.findFirst.mockResolvedValue({
+			eventType: "firmware_reported",
+			metadata: { version: "1.6.0" },
+			createdAt: new Date(),
+		} as never);
+
+		const res = await POST(
+			ingestRequest({ ...heartbeatBody("hb-fw-0002"), firmware_version: "1.6.0" }),
+		);
+
+		expect(res.status).toBe(204);
+		const firmwareCalls = mockDeviceStateEvent.create.mock.calls.filter(
+			([arg]) => (arg as { data: { eventType: string } }).data.eventType === "firmware_reported",
+		);
+		expect(firmwareCalls).toHaveLength(0);
 	});
 });
 

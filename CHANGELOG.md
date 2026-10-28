@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- #259 the hopper card turns red and pulses at 30 % or below, with a "Low: refill soon" label and a reduced-motion fallback. The alert threshold (`OrgSetting.hopperLowPct`, default 20 %) is unchanged.
+
+### Fixed
+
+- #263 every hopper display reads the same live level; the firmware version stays current from the heartbeat; the Device ID shows the sticker MAC.
+
 ## [1.21.0] - 2026-10-28
 
 ### Added

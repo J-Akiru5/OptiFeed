@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- #277 the farm-owner Admin Overview now shows feed dispensed per day, device activity and fleet-health charts, built on the existing shared Recharts components (no new dependency) and scoped to the caller's organization.
+
 ## [1.21.2] - 2026-10-28
 
 ### Changed

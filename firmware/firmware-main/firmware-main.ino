@@ -325,24 +325,29 @@ VC2U+UkjnsS9bS7guFXvY41PNeEVH4lp5iEcgtjQc6E+IgFO8QHwfPoRgg==
 
 // Relay signal pin. 25 is the reference wiring; a unit wired to another GPIO is
 // built with -DRELAY_PIN=<n> (see [env:esp32dev-relay5] in platformio.ini).
+// The relay is on GPIO 25 (active HIGH). It must NOT move to GPIO 5: that pin
+// is a strapping pin that also emits a PWM glitch at boot, which would energise
+// the coil on every reset and dispense feed.
 #ifndef RELAY_PIN
 #define RELAY_PIN       25
 #endif
-#define BUTTON_PIN     27          // pick any free GPIO; wired to GND via INPUT_PULLUP
+#define BUTTON_PIN      23          // hardwired feed button; wired to GND via INPUT_PULLUP
 
 // ---- Dedicated reset buttons (both active-low) --------------------------
 // Wire each button between its GPIO and GND; the internal pull-up is enabled.
 // GPIO 17 is the Wi-Fi reset (5 s, device identity kept), GPIO 16 the factory
 // reset (10 s, WiFi and identity wiped). Both are free on the ESP32-WROOM-32U
 // used here (not used by this sketch) and neither is a strapping pin. Still
-// free: 13, 14, 18, 19, 23. Do NOT use 32/33 (HC-SR04), 25/26/27 (relay,
-// DS18B20, feed button), 21/22 (RTC I2C), 0/2/12/15 (strapping), 34-39
-// (input-only, no internal pull-up) or 1/3 (USB serial).
+// free: 13, 18, 19, 33. Do NOT use 25 (relay), 23 (feed button), 32 (DS18B20),
+// 12/14 (HC-SR04), 21/22 (RTC I2C), 0/2/15 (strapping), 34-39 (input-only, no
+// internal pull-up), 1/3 (USB serial) or 6-11 (flash). GPIO 12 is a strapping
+// pin that selects the flash voltage at boot, so it must sit LOW then: the
+// HC-SR04 echo idles low and an external 10k pull-down holds it there.
 #define WIFI_RESET_BUTTON_PIN       17   // hold to clear WiFi only
 #define FACTORY_RESET_BUTTON_PIN    16   // hold to clear WiFi + identity
 #define WIFI_RESET_HOLD_MS        5000   // continuous hold: WiFi reset
 #define FACTORY_RESET_HOLD_MS    10000   // continuous hold: factory reset
-// WIFI_RESET_HOLD_MS also governs the GPIO 27 feed-button hold at boot.
+// WIFI_RESET_HOLD_MS also governs the GPIO 23 feed-button hold at boot.
 #define RESET_BUTTON_DEBOUNCE_MS         50
 #define RESET_BUTTON_STARTUP_GRACE_MS  5000  // ignore presses during boot
 
@@ -359,9 +364,13 @@ ResetButtonState factoryResetButton = { false, 0, 0 };
 bool resetButtonsArmed = false;
 #define RTC_SDA         21
 #define RTC_SCL         22
-#define TRIG_PIN        32          // HC-SR04 ultrasonic trigger
-#define ECHO_PIN        33          // HC-SR04 ultrasonic echo
-#define DS18B20_PIN     26          // DS18B20 water temperature probe
+// TRIG sits on GPIO 12 and ECHO on GPIO 14 deliberately: GPIO 14 emits a PWM
+// glitch at boot, which as an input is harmless but as a trigger would fire a
+// spurious ping and drive GPIO 12 high during the flash-voltage strapping
+// window. Swapping them risks a boot failure.
+#define TRIG_PIN        12          // HC-SR04 ultrasonic trigger (needs 10k pull-down)
+#define ECHO_PIN        14          // HC-SR04 ultrasonic echo (5 V - use a divider)
+#define DS18B20_PIN     32          // DS18B20 water temperature probe (4.7k pull-up)
 
 // ---- Relay driver polarity (build flag, default active HIGH) -------------
 // The field board energizes the coil when the pin is HIGH. An active-LOW relay
@@ -386,7 +395,7 @@ bool resetButtonsArmed = false;
 // ---- WiFi provisioning portal ----
 #define WIFI_JOIN_WINDOW_MS          15000  // time allowed for each join attempt
 #define WIFI_FAILURES_BEFORE_PORTAL  5      // consecutive failed joins before the setup AP starts
-// The GPIO 27 boot-button hold uses WIFI_RESET_HOLD_MS (with the reset buttons).
+// The GPIO 23 boot-button hold uses WIFI_RESET_HOLD_MS (with the reset buttons).
 #define PROVISIONING_REBOOT_DELAY_MS 2000   // let the success page flush before restarting
 // Nearby-network picker. The ESP32 radio is 2.4 GHz only, so every scan result
 // is a usable network. Scanned once at portal start; manual entry always works.
@@ -534,7 +543,7 @@ struct ScannedNetwork {
 ScannedNetwork scannedNetworks[PROVISIONING_SCAN_MAX];
 int scannedNetworkCount = 0;
 
-// Feed button (GPIO 27): falling-edge interrupt, 250 ms debounce, at most one
+// Feed button (GPIO 23): falling-edge interrupt, 250 ms debounce, at most one
 // pending press. A short press during a blocking network call is queued and
 // dispensed as soon as loop() runs again.
 volatile bool feedButtonPressQueued = false;
@@ -1970,8 +1979,9 @@ void maybeCheckForUpdate() {
 
 void setup() {
   // Relay OFF before anything else: set the level first, then the mode, so the
-  // pin never drives the relay while the board boots. GPIO 5 (a strapping pin
-  // with a pull-up) is HIGH until this runs.
+  // pin never drives the relay while the board boots. On a unit still wired to
+  // GPIO 5 (strapping pin with a pull-up) that pin is HIGH until this runs,
+  // which is why those units need the external pull-down or a rewire to 25.
   digitalWrite(RELAY_PIN, RELAY_OFF);
   pinMode(RELAY_PIN, OUTPUT);
   digitalWrite(RELAY_PIN, RELAY_OFF);   // feeder must NEVER default to dispensing at boot

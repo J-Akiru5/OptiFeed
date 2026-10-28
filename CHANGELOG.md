@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Firmware pin map now matches the hardwired CICT Building A board: feed button GPIO 27 → 23, DS18B20 GPIO 26 → 32, HC-SR04 TRIG GPIO 32 → 12, ECHO GPIO 33 → 14. The relay stays on GPIO 25 and the unit is rewired off GPIO 5, a strapping pin with a boot PWM glitch that could energise an active-HIGH coil on every reset. Units still wired the old way need rewiring or the previous firmware.
+- The firmware README's reset-button table had the Wi-Fi and factory reset pins swapped (16/17) relative to the code; corrected.
+
 ## [1.19.0] - 2026-10-28
 
 ### Added

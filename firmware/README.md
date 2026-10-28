@@ -6,7 +6,7 @@
 
 1. **SCHEDULED** — RTC-driven, fires at 06:00 and 19:00. Works with NO WiFi/backend connectivity.
 2. **DASHBOARD** — polled every 5s from the backend. Manual/extra feeds triggered remotely.
-3. **PHYSICAL BUTTON** — local override on GPIO 27, captured by a falling-edge interrupt so a short press is never lost while the loop is busy with HTTPS. Works even with WiFi fully down.
+3. **PHYSICAL BUTTON** — local override on GPIO 23, captured by a falling-edge interrupt so a short press is never lost while the loop is busy with HTTPS. Works even with WiFi fully down.
 
 > **Firmware 1.5.0.** There is no compile-time device identity any more: a unit with no
 > provisioned Device ID/token makes **no API calls** and only runs the setup portal while
@@ -19,8 +19,11 @@
 
 | Pin   | Usage                                    |
 |-------|------------------------------------------|
-| GPIO 25 | Relay OUT (active HIGH by default; `-DRELAY_ACTIVE_LOW=1` for an active-LOW module) |
-| GPIO 27 | Physical button (INPUT_PULLUP, press = LOW). Falling-edge interrupt dispenses the button dose; hold >= 5 s at boot to reset WiFi credentials (device identity is kept) |
+| GPIO 25 | Relay OUT (active HIGH by default; `-DRELAY_ACTIVE_LOW=1` for an active-LOW module). Never GPIO 5: strapping pin with a boot PWM glitch |
+| GPIO 23 | Physical button (INPUT_PULLUP, press = LOW). Falling-edge interrupt dispenses the button dose; hold >= 5 s at boot to reset WiFi credentials (device identity is kept) |
+| GPIO 32 | DS18B20 water temperature probe (1-Wire; 4.7 kOhm pull-up to 3.3 V) |
+| GPIO 12 | HC-SR04 TRIG (output). Strapping pin: a 10 kOhm pull-down to GND holds it LOW at boot |
+| GPIO 14 | HC-SR04 ECHO (input, 5 V logic — level-shift or divide before the pin) |
 | GPIO 16 | Factory reset button (INPUT_PULLUP, press = LOW). Hold >= 10 s to clear WiFi, Device ID, Device Token and the `provisioned` marker |
 | GPIO 17 | Wi-Fi reset button (INPUT_PULLUP, press = LOW). Hold >= 5 s to clear WiFi only — the Device ID/Token are kept |
 | GPIO 21 | DS3231 SDA (I²C) — RTC                 |
@@ -37,26 +40,29 @@ needed.
 
 | Button | Define | GPIO | Hold | Effect |
 |--------|--------|------|------|--------|
-| Wi-Fi reset | `WIFI_RESET_BUTTON_PIN` | `16` | 5 s (`WIFI_RESET_HOLD_MS`) | Clears WiFi SSID/password **and the WiFi stack cache**, keeps Device ID/Token, reboots into the setup portal |
-| Factory reset | `FACTORY_RESET_BUTTON_PIN` | `17` | 10 s (`FACTORY_RESET_HOLD_MS`) | Clears WiFi, Device ID, Device Token and the `provisioned` marker, reboots into the setup portal |
+| Wi-Fi reset | `WIFI_RESET_BUTTON_PIN` | `17` | 5 s (`WIFI_RESET_HOLD_MS`) | Clears WiFi SSID/password **and the WiFi stack cache**, keeps Device ID/Token, reboots into the setup portal |
+| Factory reset | `FACTORY_RESET_BUTTON_PIN` | `16` | 10 s (`FACTORY_RESET_HOLD_MS`) | Clears WiFi, Device ID, Device Token and the `provisioned` marker, reboots into the setup portal |
 
 Safety rules: buttons are ignored for the first 5 s after boot and must be
 released once before they arm, so a stuck button cannot wipe a unit. While the
 factory-reset button is held the Wi-Fi reset is suppressed, so a two-button hold
 cannot reboot into the portal at 5 s: the factory reset wins at 10 s. The
-existing feed-button hold (GPIO 27, 5 s at boot) remains a WiFi-only reset.
+existing feed-button hold (GPIO 23, 5 s at boot) remains a WiFi-only reset.
 
 GPIO 16 and 17 are free on the ESP32-WROOM-32U, are not strapping pins, and
 support the internal pull-up. They are held by these two buttons; other free,
 safe GPIO candidates are:
 
 ```
-13, 14, 18, 19, 23
+13, 18, 19, 33
 ```
 
-Do **not** use: 32/33 (HC-SR04 trigger/echo), 25 (relay), 26 (DS18B20),
-27 (feed button), 21/22 (RTC I2C), 0/2/12/15 (strapping), 34–39 (input-only, no
-internal pull-up), 1/3 (USB serial), 6–11 (flash).
+Do **not** use: 25 (relay), 23 (feed button), 32 (DS18B20), 12/14 (HC-SR04),
+21/22 (RTC I2C), 0/2/15 (strapping), 34-39 (input-only, no internal pull-up),
+1/3 (USB serial), 6-11 (flash). GPIO 12 is a strapping pin that selects the
+flash voltage at boot; the HC-SR04 echo idles LOW and the 10 kOhm pull-down
+keeps it there. Never put the relay on GPIO 5: it is a strapping pin with a boot
+PWM glitch that can click an active-HIGH coil on every reset.
 
 ## Build & flash (PlatformIO)
 
@@ -77,8 +83,9 @@ deploys.
 
 ### Relay pin (build flag)
 
-`RELAY_PIN` defaults to GPIO 25. The CICT Building A unit is wired to **GPIO 5**,
-so it is built and flashed with its own environment:
+`RELAY_PIN` defaults to GPIO 25. Units wired to **GPIO 5** (the CICT Building A
+feeder was, until it was rewired to 25 on 2026-10-28) are built with their own
+environment:
 
 ```sh
 pio run -d firmware -e esp32dev-relay5 -t upload
@@ -181,7 +188,7 @@ namespace or the feeding/safety logic.
 | No placeholder identity | The compile-time `DEVICE_MAC` / `DEVICE_TOKEN` fallbacks are gone. Only NVS `device_id` + `device_token` enable the API. An unprovisioned unit logs `[IDENTITY] not provisioned - API disabled`, broadcasts its setup AP and keeps feeding on the RTC schedule. It sends **no** ingest, feed-command, schedule-sync or OTA request. |
 | Setup AP name | `provisioningApSsid()` now uses the last four hex digits of the stored Device ID when it parses as a MAC (`AA:BB:CC:DD:EE:FF`, `AA-BB-…` or 12 bare hex digits). Otherwise it uses the chip eFuse MAC, as before. Both IDs are logged at boot: `[DEVICE MAC]` (chip) and `[IDENTITY] Device ID` / `[IDENTITY] Setup AP name`. |
 | Watchdog-safe poll cycle | API calls use an 8 s connect + 8 s read timeout and the TLS handshake is capped at 8 s. `esp_task_wdt_reset()` runs between every network call in the 5 s cycle and around each dispense, so a slow link cannot trip the 30 s task watchdog. The OTA check (6/10 s) and download (6/12 s plus its own 60 s no-data bound) keep their separate limits. |
-| Feed button never missed | GPIO 27 is read by a falling-edge interrupt with the same 250 ms debounce, at most one pending press, and presses in the first 5 s after boot ignored. A press during a blocking HTTPS call dispenses on the next loop pass. The OTA download still aborts on a button press and dispenses once. |
+| Feed button never missed | GPIO 23 is read by a falling-edge interrupt with the same 250 ms debounce, at most one pending press, and presses in the first 5 s after boot ignored. A press during a blocking HTTPS call dispenses on the next loop pass. The OTA download still aborts on a button press and dispenses once. |
 | Wi-Fi picker in the setup portal | The portal scans 2.4 GHz networks once at start, sorts them by signal and renders them as a `<select>` with a “Type it manually” option. Names are case-sensitive; manual entry always works. A Wi-Fi link alone does not close the portal while the identity is missing. |
 | Relay polarity flag | `-DRELAY_ACTIVE_LOW=0` or `1` (default `0`, active HIGH) derives `RELAY_ON` / `RELAY_OFF`; boot still forces OFF. |
 
@@ -315,7 +322,7 @@ not a gate.
 
 ### Button-hold WiFi reset
 
-Hold the physical feed button (**GPIO 27**, wired to GND) during boot for at least
+Hold the physical feed button (**GPIO 23**, wired to GND) during boot for at least
 5 seconds. The serial log confirms the reset, the two NVS keys `wifi_ssid` and
 `wifi_pass` (namespace `optifeed`) are removed, and the `PakaonAI-XXXX` portal starts.
 
@@ -692,7 +699,7 @@ Portal checks (no backend needed):
    **Password**, **Device ID** and **Device Token** fields, and the case-sensitivity note.
 2. Submit a valid SSID/password and a Device ID/Token: success page, reboot after ~2 s,
    then a normal join. The next heartbeat uses the submitted identity.
-3. Hold GPIO 27 for 5 s at boot: serial reports the WiFi reset and the portal returns.
+3. Hold GPIO 23 for 5 s at boot: serial reports the WiFi reset and the portal returns.
    The identity fields are blank with the "leave blank to keep existing" placeholder;
    submit only a new SSID/password and confirm the same Device ID is still used.
 4. Let the unit run for more than 5 s, then hold the **Wi-Fi reset button (GPIO 17)**

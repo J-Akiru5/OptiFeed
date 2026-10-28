@@ -1,7 +1,7 @@
 "use client";
 
 import { formatFarmDateTime } from "@/lib/date-local";
-import { resolveFeedLevelDisplay } from "@/lib/feed-level-display";
+import { isHopperLowDisplay, resolveFeedLevelDisplay } from "@/lib/feed-level-display";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 
@@ -34,6 +34,9 @@ export function FeedLevelDisplay({
 	const t = useTranslations("dashboard.feedLevel");
 	const tDates = useTranslations("dates");
 	const display = resolveFeedLevelDisplay({ levelPercent, updatedAt, isOffline });
+	// #259: a live reading at or below 30 % turns red and pulses. Offline keeps
+	// the greyed last-known treatment, so the blink never implies fresh data.
+	const isLowDisplay = display.state === "live" && isHopperLowDisplay(levelPercent);
 
 	const valueClass =
 		size === "sm"
@@ -47,7 +50,7 @@ export function FeedLevelDisplay({
 		display.readingAt !== null ? formatFarmDateTime(display.readingAt, tDates) : null;
 
 	return (
-		<div className={cn("space-y-1", className)}>
+		<div className={cn("space-y-1", className)} data-hopper-low={isLowDisplay ? "true" : undefined}>
 			<div className="flex flex-wrap items-center gap-2">
 				{showBar && (
 					<div
@@ -61,10 +64,11 @@ export function FeedLevelDisplay({
 							className={cn(
 								"h-full rounded-full transition-all",
 								display.state === "live"
-									? display.percent < 20
-										? "bg-[#E85A2A]"
+									? isLowDisplay || display.percent < 20
+										? "bg-red-500"
 										: "bg-[#1E7B34]"
 									: "bg-gray-400",
+								isLowDisplay && "hopper-low-pulse",
 							)}
 							style={{ width: `${display.percent ?? 0}%` }}
 						/>
@@ -74,9 +78,11 @@ export function FeedLevelDisplay({
 					className={cn(
 						"tabular-nums",
 						valueClass,
-						display.state === "live"
-							? "text-[#0A3D62] dark:text-gray-100"
-							: "text-[#3D5568] dark:text-gray-400",
+						isLowDisplay
+							? "text-red-700 dark:text-red-300"
+							: display.state === "live"
+								? "text-[#0A3D62] dark:text-gray-100"
+								: "text-[#3D5568] dark:text-gray-400",
 					)}
 				>
 					{display.state === "none"
@@ -91,6 +97,11 @@ export function FeedLevelDisplay({
 					</span>
 				)}
 			</div>
+			{isLowDisplay && (
+				<p className="text-[10px] font-bold leading-tight text-red-700 dark:text-red-300">
+					{t("lowRefill")}
+				</p>
+			)}
 			{display.state === "stale" && (
 				<p className={metaClass}>
 					{readingTime

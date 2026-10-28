@@ -45,6 +45,7 @@ import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatFarmDateTime, formatWallClockTime } from "@/lib/date-local";
+import { toHopperSnapshot } from "@/lib/device-hopper";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { MACHINE_FEED_SOURCES, formatFeedAmountLabel } from "@/lib/feed-figures";
 import { isDeviceOffline } from "@/lib/feed-level-display";
@@ -182,6 +183,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	const energyDevice = energyDevices[0] ?? null;
 	const deviceIds = energyDevices.map((row) => row.id);
 	const now = new Date();
+	const hopper = energyDevice ? toHopperSnapshot(energyDevice, now) : null;
 	const driftWindowStart = new Date(now.getTime() - DRIFT_WINDOW_MS);
 
 	const latestBiomass = recentBiomassLogs[0] ?? null;
@@ -655,7 +657,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							label={tBtn("feedNow")}
 							deviceName={energyDevice?.label ?? device.name}
 							connectionStatus={esp32Offline ? "offline" : "online"}
-							hopperLevelPct={energyDevice?.feedLevelPercent ?? null}
+							hopperLevelPct={hopper?.levelPercent ?? null}
 							canWrite={writeAccess}
 							isFallow={pond.isFallow}
 							gramsPerSecond={energyDevice?.gramsPerSecond}
@@ -666,12 +668,12 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					{energyDevice && (
 						<div className={CONTROL_ROOM_ORDER.device}>
 							<FeedLevelCard
-								levelPercent={energyDevice.feedLevelPercent}
-								updatedAt={energyDevice.feedLevelUpdatedAt}
-								hopperCapacityG={energyDevice.hopperCapacityG}
+								levelPercent={hopper?.levelPercent ?? null}
+								updatedAt={hopper?.levelUpdatedAt ?? null}
+								hopperCapacityG={hopper?.hopperCapacityG ?? null}
 								gramsPerFeeding={energyDevice.gramsPerFeeding}
 								feedsPerDay={pond.feedsPerDay}
-								isDeviceOffline={esp32Offline}
+								isDeviceOffline={hopper?.isOffline ?? esp32Offline}
 							/>
 						</div>
 					)}

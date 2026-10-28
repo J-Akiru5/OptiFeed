@@ -391,6 +391,7 @@
 			"lastUpdated": "Katapusan nga gin-update",
 			"empty": "Wala na sang feed",
 			"low": "Kulang",
+			"lowRefill": "Kulang: i-refill sa madali",
 			"ok": "Maayo",
 			"noData": "Wala sang data"
 		},
@@ -1570,6 +1571,7 @@
 			"deviceStatus": "Estado sang Device",
 			"deviceStatusDesc": "Kasamtangan nga estado sang imo ESP32 feeder device.",
 			"deviceRecordId": "ID sang Rekord sang Device",
+			"supportId": "Support ID: {id}",
 			"connectionStatus": "Estado sang Koneksyon",
 			"online": "Online",
 			"offline": "Offline",
@@ -3315,9 +3317,10 @@
 				"eventTypes": {
 					"ota_installed": "Nainstall",
 					"ota_valid": "Na-verify",
-					"ota_rolled_back": "Ginbalik"
+					"ota_rolled_back": "Ginbalik",
+					"firmware_reported": "Ginreport"
 				},
-				"versionSourceNote": "Ang unit nagareport sang version sa heartbeat nga nagabag-o sang iya OTA state. Ang amo nga transition gina-store bilang device event, kag amo ini ang ginapakita sang pahina.",
+				"versionSourceNote": "Ang unit nagareport sang version sa heartbeat, kag ang una nga report pagkatapos sang pagbag-o gina-store bilang device event (OTA transition ukon pinakauna nga heartbeat sang USB-flashed unit). Amo ini ang ginapakita sang pahina.",
 				"unknownNote": "Ang “Wala mahibaluan” nagakahulugan nga wala pa nagreport sang OTA state ang unit. Indi ini error kag indi gina-estimate halin sa build date."
 			},
 			"audit": {

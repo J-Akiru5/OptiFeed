@@ -42,5 +42,7 @@ is switching noise coupling into the button line (internal pull-up only, long wi
 Hardware fix (to do): 10 kΩ GPIO 23 → 3V3, 100 nF GPIO 23 → GND at the pin, flyback
 diode across the motor (stripe to motor +), and button wires twisted and kept away
 from the motor/relay wiring. Recommended: 470–1000 µF on the 5 V rail, 100 nF on
-GPIO 16/17. A firmware guard (press must stay LOW ≥ 50 ms; ignore the button during
-a dispense and for 2 s after) is proposed but not built yet.
+GPIO 16/17. A firmware guard is built in 1.5.3 (press must stay LOW ≥ 50 ms; edges
+ignored during a dispense and for 2 s after; one button dispense per 30 s) — see
+`firmware/README.md` → **Firmware 1.5.3 button guard**. The hardware fix is still
+recommended: the guard removes the symptom, not the noise.

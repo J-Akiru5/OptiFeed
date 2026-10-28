@@ -83,7 +83,7 @@
 
 // Reported at boot and in the heartbeat body so the fleet and the OTA rollout
 // can tell builds apart. Bump on every firmware change.
-#define FW_VERSION "1.5.2"
+#define FW_VERSION "1.5.3"
 // Board string the signed manifest must carry. One value for every unit this
 // firmware runs on (ESP32-WROOM-32U); a manifest for another board is refused.
 #define FW_BOARD "wroom32u"
@@ -393,6 +393,30 @@ bool resetButtonsArmed = false;
 // Ignore feed-button edges for the first 5 s after boot, matching the reset
 // buttons' grace window and the boot-hold WiFi reset.
 #define BUTTON_STARTUP_GRACE_MS 5000
+
+// ---- Feed-button press guard (firmware 1.5.3, CICT phantom feeds) ---------
+// GPIO 23 uses the internal pull-up (~45 kOhm) only and runs on a long wire next
+// to the relay and motor, so a microsecond switching spike looks exactly like a
+// falling edge to the interrupt. A falling edge is now only a *candidate*: loop()
+// samples the pin for 50 ms and accepts the press only when it stays LOW.
+//
+// A real press holds the line LOW until the user lets go (tens to hundreds of
+// ms); relay/motor noise is a spike of a few microseconds. 10 samples over
+// 50 ms with a 90 % threshold tolerates one missed sample at the release edge
+// without ever accepting a spike. Hardware mitigation (external pull-up, RC
+// filter, flyback diode) is documented in firmware/README.md.
+#define BUTTON_CONFIRM_SAMPLES            10    // samples in the confirmation window
+#define BUTTON_CONFIRM_SAMPLE_MS           5    // 10 x 5 ms = 50 ms total
+#define BUTTON_CONFIRM_MIN_LOW_SAMPLES     9    // >= 90 % of the samples must be LOW
+// Relay ON through 2 s after OFF: a button edge in that window is never a new
+// dose. It is cleared so it cannot dispense once the window ends.
+#define BUTTON_QUIET_AFTER_DISPENSE_MS  2000UL
+// At most one *button* dispense per 30 s. Scheduled and dashboard feeds are not
+// affected; this only bounds a noisy or stuck button.
+#define BUTTON_COOLDOWN_MS             30000UL
+// Rate limit for the diagnostic button log lines (glitch / ignored edge).
+#define BUTTON_LOG_INTERVAL_MS         10000UL
+
 #define WIFI_RETRY_INTERVAL_MS 10000
 
 // ---- WiFi provisioning portal ----
@@ -599,10 +623,21 @@ String provisioningJoinDetail;    // machine reason for /status (wrong_password,
 
 // Feed button (GPIO 23): falling-edge interrupt, 250 ms debounce, at most one
 // pending press. A short press during a blocking network call is queued and
-// dispensed as soon as loop() runs again.
+// dispensed as soon as loop() runs again. The interrupt only ever records a
+// *candidate*; handleButton() confirms it by sampling the pin and applies the
+// quiet window and cooldown (firmware 1.5.3).
 volatile bool feedButtonPressQueued = false;
 volatile unsigned long feedButtonLastEdgeMs = 0;
 static portMUX_TYPE feedButtonMux = portMUX_INITIALIZER_UNLOCKED;
+
+// Press guard state (1.5.3). dispenseQuietUntilMs is set when the relay turns
+// OFF and is compared with a signed difference so a millis() wrap is harmless.
+unsigned long dispenseQuietUntilMs = 0;
+unsigned long lastButtonDispenseMs = 0;
+bool buttonCooldownArmed = false;   // no cooldown before the first button dose
+uint32_t buttonGlitchCount = 0;     // rejected edges, reported in the heartbeat
+unsigned long lastGlitchLogMs = 0;
+unsigned long lastQuietLogMs = 0;
 
 // True after esp_task_wdt_add(NULL). The first portal start happens in setup()
 // before the watchdog is subscribed, so resets are skipped until then.
@@ -2241,6 +2276,11 @@ void restoreFeedingStateAfterOta() {
 // default argument, and the button-abort path below calls dispenseFeed() before
 // its definition.
 void dispenseFeed(float grams, const char* source, const String &requestId);
+// Defined with the rest of the button handling (Tier 3). The OTA download uses
+// them to confirm that a press is real before aborting, and to dispense through
+// the same cooldown/dispense path as a normal button press.
+bool confirmFeedButtonPress(unsigned long &lowMs);
+bool requestButtonDispense();
 
 bool performFirmwareUpdate(const String &url, size_t expectedSize, const String &expectedSha256) {
   if (!url.startsWith("https://")) {
@@ -2318,11 +2358,13 @@ bool performFirmwareUpdate(const String &url, size_t expectedSize, const String 
     while (written < expectedSize) {
       esp_task_wdt_reset();
 
-      // Decision OTA-2: feeding wins over updating. A debounced press aborts
-      // the download; the press is consumed and dispensed below.
+      // Decision OTA-2: feeding wins over updating. A *confirmed* press (the
+      // same 50 ms LOW window as the normal button path, 1.5.3) aborts the
+      // download; the press is consumed and dispensed below. A noise spike on
+      // the button line must never abort an update.
       if (digitalRead(BUTTON_PIN) == LOW) {
-        delay(30);
-        if (digitalRead(BUTTON_PIN) == LOW) {
+        unsigned long lowMs = 0;
+        if (confirmFeedButtonPress(lowMs)) {
           abortedByButton = true;
           break;
         }
@@ -2438,9 +2480,11 @@ bool performFirmwareUpdate(const String &url, size_t expectedSize, const String 
   if (abortedByButton) {
     otaSetState("aborted");
     Serial.println("[OTA] aborted by the physical feed button - feeding wins");
-    // The ISR also saw this press; clear the queue so it cannot dispense twice.
+    // The ISR may also have queued this press; clear it so it cannot dispense
+    // twice, then dispense through the same cooldown/dispense path as a normal
+    // button press (1.5.3).
     discardQueuedFeedButtonPress();
-    dispenseFeed(cachedButtonFeedGrams, "button", String());
+    requestButtonDispense();
     otaPostpone("button_abort");
   } else if (abortedForFeed) {
     otaSetState("aborted");
@@ -2679,8 +2723,11 @@ void setup() {
     credentialsResetAtBoot = true;
   }
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), onFeedButtonPress, FALLING);
-  Serial.printf("[INIT] Feed button GPIO%d: falling-edge interrupt, %d ms debounce, %d s boot grace\n",
-                BUTTON_PIN, BUTTON_DEBOUNCE_MS, BUTTON_STARTUP_GRACE_MS / 1000);
+  Serial.printf("[INIT] Feed button GPIO%d: falling-edge interrupt, %d ms debounce, "
+                "%d ms confirmation, %d s boot grace\n",
+                BUTTON_PIN, BUTTON_DEBOUNCE_MS,
+                BUTTON_CONFIRM_SAMPLES * BUTTON_CONFIRM_SAMPLE_MS,
+                BUTTON_STARTUP_GRACE_MS / 1000);
 
   // Seed default schedule: 06:00 and 19:00
   buildDefaultSchedule();
@@ -2987,6 +3034,10 @@ void stopFeedCycle() {
   kickWatchdog();
   digitalWrite(RELAY_PIN, RELAY_OFF);
   feederActive = false;
+  // 1.5.3: every button edge is ignored from relay ON until 2 s after relay OFF,
+  // whatever started the dispense. The stamp is taken when the motor is
+  // actually switched off, so the quiet window follows a long or short dose.
+  dispenseQuietUntilMs = millis() + BUTTON_QUIET_AFTER_DISPENSE_MS;
   Serial.printf("[FEED] complete — %.0fg via %s\n", currentFeedGrams, currentFeedSource);
   enqueueEvent(currentFeedGrams, currentFeedSource, currentFeedRequestId);
   currentFeedRequestId = "";
@@ -3233,6 +3284,10 @@ void postScheduleAck(const String &commandId) {
 // Falling-edge ISR. Unlike the old loop poll, this cannot miss a short press
 // while loop() is inside a blocking HTTPS call. millis() and the portMUX
 // critical section are ISR-safe on the ESP32.
+//
+// Since 1.5.3 this only records a *candidate*: a microsecond spike on the long,
+// internally pulled-up button line looks exactly like a falling edge inside an
+// interrupt. handleButton() confirms a real press by sampling the pin.
 void IRAM_ATTR onFeedButtonPress() {
   const unsigned long now = millis();
   if (now < BUTTON_STARTUP_GRACE_MS) return;          // boot grace window
@@ -3260,11 +3315,83 @@ void discardQueuedFeedButtonPress() {
   portEXIT_CRITICAL(&feedButtonMux);
 }
 
-// A queued press is dispensed on the next loop pass. The shared dispense mutex
-// still drops it if the relay is busy, exactly like a polling press did.
-void handleButton() {
-  if (!takeQueuedFeedButtonPress()) return;
+// True from relay ON until 2 s after relay OFF, whatever started the dispense.
+bool buttonQuietWindowActive() {
+  if (feederActive) return true;
+  return (long)(millis() - dispenseQuietUntilMs) < 0;
+}
+
+// Rate limiter for the diagnostic button lines: the first call in a window logs,
+// later ones stay silent. Unsigned subtraction stays correct across a wrap.
+bool buttonLogDue(unsigned long &lastMs) {
+  const unsigned long now = millis();
+  if (lastMs != 0 && now - lastMs < BUTTON_LOG_INTERVAL_MS) return false;
+  lastMs = now;
+  return true;
+}
+
+// Samples GPIO 23 for 50 ms after a candidate edge. Accepts the press only when
+// the line stays LOW: every sample, or at least 90 % of them if one is missed at
+// release. `lowMs` reports how long the line was observed LOW (diagnostics).
+bool confirmFeedButtonPress(unsigned long &lowMs) {
+  const unsigned long startedMs = millis();
+  uint8_t lowSamples = 0;
+  unsigned long lastLowAtMs = 0;
+  for (uint8_t i = 0; i < BUTTON_CONFIRM_SAMPLES; i++) {
+    if (digitalRead(BUTTON_PIN) == LOW) {
+      lowSamples++;
+      lastLowAtMs = millis() - startedMs;
+    }
+    delay(BUTTON_CONFIRM_SAMPLE_MS);
+  }
+  kickWatchdog();   // 50 ms is far inside the 30 s task watchdog; be explicit
+  lowMs = lowSamples ? lastLowAtMs : 0;
+  return lowSamples >= BUTTON_CONFIRM_MIN_LOW_SAMPLES;
+}
+
+// The one path a confirmed button press takes to the relay. The 30 s cooldown is
+// armed only when a dispense actually starts, so a refusal (daily cap, OTA
+// probation) does not lock the button for 30 s.
+bool requestButtonDispense() {
+  if (buttonCooldownArmed && (millis() - lastButtonDispenseMs) < BUTTON_COOLDOWN_MS) {
+    Serial.println("[BUTTON] cooldown");
+    return false;
+  }
+  const bool wasActive = feederActive;
   dispenseFeed(cachedButtonFeedGrams, "button");
+  const bool started = !wasActive && feederActive;
+  if (started) {
+    lastButtonDispenseMs = millis();
+    buttonCooldownArmed = true;
+  }
+  return started;
+}
+
+// A queued press is evaluated on the next loop pass. The shared dispense mutex
+// still drops it if the relay is busy.
+void handleButton() {
+  // Relay ON .. 2 s after OFF: clear the candidate instead of dispensing it
+  // late. This is what breaks the phantom-feed pattern: the relay/motor
+  // switching off used to register as a fresh button press ~20 s later.
+  if (buttonQuietWindowActive()) {
+    if (takeQueuedFeedButtonPress() && buttonLogDue(lastQuietLogMs)) {
+      Serial.println("[BUTTON] ignored during/after dispense");
+    }
+    return;
+  }
+
+  if (!takeQueuedFeedButtonPress()) return;
+
+  unsigned long lowMs = 0;
+  if (!confirmFeedButtonPress(lowMs)) {
+    buttonGlitchCount++;
+    if (buttonLogDue(lastGlitchLogMs)) {
+      Serial.printf("[BUTTON] rejected glitch (%lu ms low)\n", lowMs);
+    }
+    return;
+  }
+
+  requestButtonDispense();
 }
 
 // ==================== Feed level monitoring (HC-SR04) ====================
@@ -3382,6 +3509,10 @@ void sendTelemetry() {
   doc["timestamp"]         = rtcAvailable ? getRTCiso8601() : "unknown";
   doc["rtc_ok"]            = rtcAvailable;
   doc["feeder_active"]     = feederActive;
+  // 1.5.3: rejected button edges since boot. Zod strips unknown heartbeat keys,
+  // so the ingest route accepts and ignores this field (no server change); the
+  // same counter is named by the `[BUTTON] rejected glitch` Serial line.
+  doc["button_glitches"]   = buttonGlitchCount;
   doc["feed_level_percent"] = readFeedLevelPercent();
   doc["feed_level_cm"]     = 0; // filled below with actual median distance
 

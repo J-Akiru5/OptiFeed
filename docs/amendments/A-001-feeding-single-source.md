@@ -77,7 +77,7 @@ Branch `feat/feeding-single-source`, worktree `C:\Users\Client\CApstone\OptiFeed
 | F-05 growth-plan chain | `6f53b59` | `growth-plan-apply.ts` writes `Pond.feedingRatePct` (bounded) and re-derives the dose; metadata records `ratePrevious`, `rateApplied`, `gramsRequested`, `gramsApplied`. |
 | F-06 daily ceiling | `a57fc9b` | `lib/__tests__/daily-cap.test.ts` (8 tests) plus 170 focused tests across cap, config, prediction, schedule, ponds, feed-command and biomass suites. Additive migration `20261028010000_add_device_daily_cap`. |
 | F-07 one clock | `6f53b59` | `lib/schedule/next-feeding.ts` and its test deleted; the hero returns `nextFeedSlot` from `computeNextFeedingSlot`. `/api/feed-command` and `/api/schedule-sync` now send `server_time_utc` and `farm_offset_minutes`. |
-| F-08 tests and changelog | `f6ce770` | Full Vitest suite after merging `origin/develop`: 219 files, 2,240 tests, all passing. `tsc --noEmit` and `biome check` clean. `pnpm self-check` 52/56; the four failures are pre-existing and untouched by this branch. |
+| F-08 tests and changelog | `f6ce770`, `e4dd4b7` | Full Vitest suite after merging `origin/develop`: 219 files, 2,240 tests, all passing. `tsc --noEmit` and `biome check` clean. The final cleanup (`e4dd4b7`) removed the last `DEFAULT_FISH_COUNT` references; typecheck, lint and 48 focused feed/legal tests pass. `pnpm self-check` 52/56; the four failures are pre-existing and untouched by this branch. |
 
 ## 8. Reversal
 

@@ -513,3 +513,81 @@ describe("POST /api/ingest — water temperature history (I-06)", () => {
 		expect(mockWaterTempLog.create).not.toHaveBeenCalled();
 	});
 });
+
+describe("POST /api/ingest - firmware 1.6.0 fail-safe diagnostics", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			pondId: "pond-1",
+			lastSeenAt: null,
+		} as never);
+		mockEnergyDevice.update.mockResolvedValue({} as never);
+		mockFeedEvent.findFirst.mockResolvedValue(null as never);
+		mockFeedEvent.create.mockResolvedValue({} as never);
+		mockFeedLevelLog.findFirst.mockResolvedValue(null as never);
+		mockFeedLevelLog.create.mockResolvedValue({} as never);
+		mockWaterTempLog.findFirst.mockResolvedValue(null as never);
+		mockWaterTempLog.create.mockResolvedValue({} as never);
+		mockFeedRequest.findMany.mockResolvedValue([] as never);
+		mockFeedRequest.updateMany.mockResolvedValue({ count: 0 } as never);
+		mockDeviceStateEvent.create.mockResolvedValue({} as never);
+		mockNotification.create.mockResolvedValue({} as never);
+		mockNotification.findFirst.mockResolvedValue(null as never);
+		mockNotification.updateMany.mockResolvedValue({ count: 0 } as never);
+		mockPond.findUnique.mockResolvedValue({ farmId: "farm-1" } as never);
+	});
+
+	it("accepts the extra heartbeat keys and strips them from the persisted row", async () => {
+		// The firmware sends safe_mode, last_reset_reasons and a nested diag
+		// object. The Zod schema strips everything it does not declare, so the
+		// heartbeat must still parse (204) and the FeedEvent row keeps its shape.
+		const res = await POST(
+			ingestRequest({
+				...heartbeatBody("hb-failsafe-1"),
+				firmware_version: "1.6.0",
+				safe_mode: true,
+				last_reset_reasons: "task_wdt,brownout",
+				diag: {
+					fw: "1.6.0",
+					safe_mode: true,
+					relay_overruns: 1,
+					queue_drops: 0,
+					refusals_by_reason: { too_soon: 2 },
+				},
+			}),
+		);
+
+		expect(res.status).toBe(204);
+		const call = mockFeedEvent.create.mock.calls[0];
+		expect(call).toBeDefined();
+		const data = (call?.[0] as { data: Record<string, unknown> }).data;
+		expect(data).not.toHaveProperty("safe_mode");
+		expect(data).not.toHaveProperty("diag");
+		expect(data).toMatchObject({ eventType: "heartbeat", rtcOk: true, feederActive: false });
+	});
+
+	it("accepts every new refusal reason on the unchanged feed_refused contract", async () => {
+		const reasons = ["too_soon", "hourly_limit", "safe_mode", "brownout_hold", "relay_overrun"];
+		for (const reason of reasons) {
+			const res = await POST(
+				ingestRequest({
+					device_id: DEVICE.mac,
+					event_type: "feed_refused",
+					event_id: `evt-${reason}`,
+					timestamp: "2026-10-28T00:00:00+00:00",
+					grams: 80,
+					source: "button",
+					reason,
+				}),
+			);
+			expect(res.status).toBe(204);
+		}
+
+		const recorded = mockDeviceStateEvent.create.mock.calls.map(
+			(call) =>
+				(call[0] as unknown as { data: { metadata: { reason: string } } }).data.metadata.reason,
+		);
+		expect(recorded).toEqual(reasons);
+	});
+});

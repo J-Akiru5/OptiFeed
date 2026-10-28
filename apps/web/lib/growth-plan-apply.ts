@@ -210,7 +210,7 @@ export async function applyGrowthPlanForPond(params: {
 		}
 
 		revalidatePath("/[locale]/(dashboard)/dashboard/growth", "page");
-		revalidatePath("/[locale]/(dashboard)/dashboard/harvest", "page");
+		revalidatePath("/[locale]/(dashboard)/dashboard/calendar", "page");
 		revalidatePath("/[locale]/(dashboard)/dashboard", "page");
 		return {
 			success: true,

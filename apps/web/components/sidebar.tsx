@@ -6,7 +6,6 @@ import { HOPPER_CAPACITY_KG } from "@/lib/constants";
 import { resolveFeedLevelDisplay } from "@/lib/feed-level-display";
 import { cn } from "@/lib/utils";
 import {
-	CalendarDays,
 	CalendarRange,
 	Clock,
 	Cpu,
@@ -48,7 +47,6 @@ export function Sidebar({
 		{ href: "/dashboard/history", label: t("history"), icon: History },
 		{ href: "/dashboard/growth", label: t("growth"), icon: TrendingUp },
 		{ href: "/dashboard/calendar", label: t("calendar"), icon: CalendarRange },
-		{ href: "/dashboard/harvest", label: t("harvest"), icon: CalendarDays },
 		{ href: "/dashboard/audit", label: t("audit"), icon: FileText },
 		{ href: "/dashboard/settings", label: t("settings"), icon: Settings, onboard: "settings" },
 	];

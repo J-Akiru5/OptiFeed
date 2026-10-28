@@ -413,7 +413,12 @@ export default async function GrowthPage() {
 			)}
 
 			{/* FCR Calculator */}
-			<FcrCalculator latestFcr={latestFcr} />
+			<FcrCalculator
+				latestFcr={latestFcr}
+				pondId={pond.id}
+				population={pond.population}
+				feedsPerDay={currentConfig?.feedsPerDay ?? pond.feedsPerDay}
+			/>
 
 			<div
 				className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"

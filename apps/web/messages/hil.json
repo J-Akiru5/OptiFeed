@@ -1860,7 +1860,10 @@
 		"fcrCalculator": {
 			"title": "Kalkulador sang Kinahanglanon nga Pagkaon",
 			"desc": "Kalkulahon ang pagkaon nga kinahanglan para mabatunon ang imo target nga timbang.",
-			"currentBiomass": "Kasamtangan nga Biomass (kg)",
+			"currentWeight": "Kasamtangan nga average nga timbang (kg)",
+			"population": "Kadamu sang isda",
+			"fish": "isda",
+			"kg": "kg",
 			"targetWeight": "Target nga Timbang (kg)",
 			"daysToTarget": "Adlaw Padulong sa Target",
 			"days": "ka adlaw",
@@ -1871,7 +1874,10 @@
 			"totalFeed": "Kabug-atan sang Pagkaon Nabilin",
 			"dailyRation": "Adlaw-adlaw nga Bahin sang Pagkaon",
 			"biomassGain": "Kabug-atan sang Biomass Gain",
-			"suggestedRate": "Ginasugyot nga Rate sang Pagpakaon"
+			"suggestedRate": "Ginasugyot nga Rate sang Pagpakaon",
+			"perMeal": "Kada pakaon: {grams} g",
+			"usingFcr": "Ginagamit ang pinakabag-o nga FCR: {fcr}",
+			"noFcr": "Wala pa FCR report - 1.5 nga reference ang ginagamit."
 		},
 		"importExport": {
 			"export": "I-export ang Datos",

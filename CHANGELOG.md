@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Daily feed ceiling per device (`EnergyDevice.dailyCapG`): 2,000 g/day by default, configurable by the farmer (App & Hardware) and by an admin (pond detail), and never above the 5,000 g emergency guard the firmware enforces. Amendment A-001; contract `docs/feeding-single-source-plan.md`.
 
+### Fixed
+
+- The FCR feed calculator understated the suggested feeding rate by exactly 5,000x (it divided by `DEFAULT_FISH_COUNT` twice), treated "current biomass" as a per-fish weight, labelled per-fish feed as a total, and read the first active pond instead of the pond on screen. It now takes the pond and the fish count explicitly, reports true totals, and returns a per-meal dose when meals/day is known.
+
 ### Changed
 
 - Every daily-cap check now calls one resolver (`resolveDailyCapG`), so the platform `dailyCapFactor` applies identically to schedule saves, manual feeds, calibration doses, pond edits and the AI advisor. Two paths previously ignored the factor.

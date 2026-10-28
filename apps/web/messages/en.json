@@ -1881,7 +1881,10 @@
 		"fcrCalculator": {
 			"title": "Feed Requirement Calculator",
 			"desc": "Calculate the feed needed to reach your target weight.",
-			"currentBiomass": "Current Biomass (kg)",
+			"currentWeight": "Current average weight (kg)",
+			"population": "Fish count",
+			"fish": "fish",
+			"kg": "kg",
 			"targetWeight": "Target Weight (kg)",
 			"daysToTarget": "Days to Target",
 			"days": "days",
@@ -1892,7 +1895,10 @@
 			"totalFeed": "Total Feed Needed",
 			"dailyRation": "Daily Feed Ration",
 			"biomassGain": "Total Biomass Gain",
-			"suggestedRate": "Suggested Feeding Rate"
+			"suggestedRate": "Suggested Feeding Rate",
+			"perMeal": "Per meal: {grams} g",
+			"usingFcr": "Uses your latest FCR: {fcr}",
+			"noFcr": "No FCR report yet - using the 1.5 reference."
 		},
 		"importExport": {
 			"export": "Export Data",

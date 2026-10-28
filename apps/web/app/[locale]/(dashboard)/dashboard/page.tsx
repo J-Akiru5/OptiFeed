@@ -39,6 +39,7 @@ import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
 import { canWrite, getCurrentUser } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
+import { loadCalibrationDriftWindow } from "@/lib/calibration/drift-data";
 import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
 import { DEFAULT_HOPPER_RANGE, WATER_TEMP_RANGES, parseWaterTempRange } from "@/lib/chart-windows";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
@@ -47,7 +48,7 @@ import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatFarmDateTime, formatWallClockTime } from "@/lib/date-local";
 import { toHopperSnapshot } from "@/lib/device-hopper";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
-import { MACHINE_FEED_SOURCES, formatFeedAmountLabel } from "@/lib/feed-figures";
+import { formatFeedAmountLabel } from "@/lib/feed-figures";
 import { isDeviceOffline } from "@/lib/feed-level-display";
 import { feedSourceKey } from "@/lib/feed-sources";
 import type { DashboardSnapshotData } from "@/lib/offline/snapshots";
@@ -73,9 +74,6 @@ import {
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0; // Ensure data is always fresh
-
-/** The drift detector compares seven days of dispensed grams with the hopper drop. */
-const DRIFT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface DashboardHomePageProps {
 	searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -184,54 +182,30 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	const deviceIds = energyDevices.map((row) => row.id);
 	const now = new Date();
 	const hopper = energyDevice ? toHopperSnapshot(energyDevice, now) : null;
-	const driftWindowStart = new Date(now.getTime() - DRIFT_WINDOW_MS);
 
 	const latestBiomass = recentBiomassLogs[0] ?? null;
 
 	// Schedule resolution needs the device id; feeding history, the charts and
 	// the drift check use the same ids, so they share the second wave. The
 	// water-temperature trend is scoped to the primary device.
-	const [
-		currentConfig,
-		feedingHistory,
-		waterTempPoints,
-		feedChart,
-		hopperPoints,
-		driftFeeds,
-		driftLevels,
-	] = await Promise.all([
-		resolveCurrentSchedule(pond.id, energyDevice?.id ?? null),
-		energyDevice
-			? prisma.feedEvent.findMany({
-					where: { deviceId: energyDevice.id, eventType: "feed_dispensed" },
-					orderBy: { receivedAt: "desc" },
-					take: 5,
-				})
-			: Promise.resolve([]),
-		energyDevice ? getWaterTempSeries([energyDevice.id], waterRange) : Promise.resolve([]),
-		getFeedPerDayBySource(deviceIds),
-		getHopperLevelSeries(deviceIds, DEFAULT_HOPPER_RANGE),
-		energyDevice
-			? prisma.feedEvent.findMany({
-					where: {
-						deviceId: energyDevice.id,
-						eventType: "feed_dispensed",
-						// Drift compares what the device dispensed with the hopper
-						// drop; an imported hand-fed daily total never came from it.
-						source: { in: [...MACHINE_FEED_SOURCES] },
-						receivedAt: { gte: driftWindowStart },
-					},
-					select: { grams: true, receivedAt: true },
-				})
-			: Promise.resolve([]),
-		energyDevice
-			? prisma.feedLevelLog.findMany({
-					where: { deviceId: energyDevice.id, recordedAt: { gte: driftWindowStart } },
-					orderBy: { recordedAt: "asc" },
-					select: { levelPercent: true, recordedAt: true },
-				})
-			: Promise.resolve([]),
-	]);
+	const [currentConfig, feedingHistory, waterTempPoints, feedChart, hopperPoints, driftWindow] =
+		await Promise.all([
+			resolveCurrentSchedule(pond.id, energyDevice?.id ?? null),
+			energyDevice
+				? prisma.feedEvent.findMany({
+						where: { deviceId: energyDevice.id, eventType: "feed_dispensed" },
+						orderBy: { receivedAt: "desc" },
+						take: 5,
+					})
+				: Promise.resolve([]),
+			energyDevice ? getWaterTempSeries([energyDevice.id], waterRange) : Promise.resolve([]),
+			getFeedPerDayBySource(deviceIds),
+			getHopperLevelSeries(deviceIds, DEFAULT_HOPPER_RANGE),
+			// One loader for every surface (#6): device output only, seven days.
+			energyDevice
+				? loadCalibrationDriftWindow(energyDevice.id, now)
+				: Promise.resolve({ feeds: [], levels: [], start: now }),
+		]);
 
 	const latestFcr = fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : 0.0;
 	const cycleContext = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
@@ -303,8 +277,8 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		now,
 	);
 	const drift = computeCalibrationDrift({
-		feeds: driftFeeds,
-		levels: driftLevels,
+		feeds: driftWindow.feeds,
+		levels: driftWindow.levels,
 		hopperCapacityG: energyDevice?.hopperCapacityG ?? null,
 	});
 
@@ -672,7 +646,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 								updatedAt={hopper?.levelUpdatedAt ?? null}
 								hopperCapacityG={hopper?.hopperCapacityG ?? null}
 								gramsPerFeeding={energyDevice.gramsPerFeeding}
-								feedsPerDay={pond.feedsPerDay}
+								feedsPerDay={feedsPerDay}
 								isDeviceOffline={hopper?.isOffline ?? esp32Offline}
 							/>
 						</div>
@@ -871,7 +845,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					</div>
 
 					{energyDevice && (
-						<div className={cn(CONTROL_ROOM_ORDER.controller, "space-y-3")}>
+						<div className={cn(CONTROL_ROOM_ORDER.controller, "min-w-0 space-y-3")}>
 							<ControlPanel title={t("controlRoom.controlsPanel")} icon={Sliders}>
 								<EnergyControllerCard
 									deviceId={energyDevice.id}

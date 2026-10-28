@@ -13,6 +13,7 @@ import { MobileHeader } from "@/components/mobile/mobile-header";
 import { NotificationProvider } from "@/components/notification-provider";
 import { OnboardingProvider } from "@/components/onboarding-provider";
 import { OfflineSync } from "@/components/pwa/offline-sync";
+import { GlobalSearch } from "@/components/search/global-search";
 import { Sidebar } from "@/components/sidebar";
 import { ViewAsBanner } from "@/components/superadmin/view-as-banner";
 import { Link } from "@/i18n/routing";
@@ -155,6 +156,7 @@ export default async function DashboardLayout({
 					)}
 					<NotificationProvider pondId={pondId} initialUnreadCount={initialUnreadCount}>
 						<header className="sticky top-0 z-30 w-full shrink-0 bg-[#0A3D62] shadow-md">
+							<GlobalSearch shell="farmer" />
 							<MobileHeader
 								shell="farmer"
 								isTenantAdmin={isTenantAdmin}
@@ -186,6 +188,7 @@ export default async function DashboardLayout({
 											: undefined
 									}
 									isViewingAs={viewAsState.active}
+									helpEnabled={helpEnabled}
 								/>
 							</MobileHeader>
 
@@ -279,7 +282,7 @@ export default async function DashboardLayout({
 
 					<ChatWidget />
 					<BottomNav />
-					<FabStack audience={isTenantAdmin ? "owner" : "farmer"} />
+					<FabStack />
 				</div>
 			</OnboardingProvider>
 		</ChatWidgetProvider>

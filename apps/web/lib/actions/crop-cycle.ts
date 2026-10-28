@@ -29,7 +29,7 @@ export type CropCycleActionResult =
 const CYCLE_EXISTS = "This pond already has an active grow-out cycle. Harvest or cancel it first.";
 
 function revalidateCropPaths(): void {
-	revalidatePath("/[locale]/(dashboard)/dashboard/harvest", "page");
+	revalidatePath("/[locale]/(dashboard)/dashboard/calendar", "page");
 	revalidatePath("/[locale]/(dashboard)/dashboard", "page");
 	revalidatePath("/[locale]/(dashboard)/dashboard/growth", "page");
 }
@@ -336,7 +336,7 @@ export async function markCycleHarvested(input: HarvestInput): Promise<CropCycle
 					tier: "INFO",
 					category: "harvest",
 					message: `Harvest recorded for ${cycle.pond.name}: ${data.actualHarvestWeightKg.toFixed(2)} kg. The feeder is paused until the next cycle.`,
-					linkTo: "/dashboard/harvest",
+					linkTo: "/dashboard/calendar",
 				},
 			});
 
@@ -431,7 +431,7 @@ export async function cancelCropCycle(input: CancelCycleInput): Promise<CropCycl
 					tier: "WARNING",
 					category: "harvest",
 					message: `Grow-out cycle cancelled for ${cycle.pond.name}. The feeder is paused.`,
-					linkTo: "/dashboard/harvest",
+					linkTo: "/dashboard/calendar",
 				},
 			});
 

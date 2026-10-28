@@ -7,7 +7,11 @@ import {
 	DashboardTh,
 	DashboardTr,
 } from "@/components/dashboard/dashboard-table";
-import { DashboardEmptyState, DashboardPageHeader } from "@/components/dashboard/dashboard-ui";
+import {
+	DashboardEmptyState,
+	DashboardPageHeader,
+	DashboardPageShell,
+} from "@/components/dashboard/dashboard-ui";
 import { BiomassLogActions } from "@/components/growth/BiomassLogActions";
 import { ItemCardGrid } from "@/components/ui/item-card";
 import { Pagination } from "@/components/ui/pagination";
@@ -114,7 +118,7 @@ export default async function BatchLogsPage({ searchParams }: BatchLogsPageProps
 			: "—";
 
 	return (
-		<div className="mx-auto w-full min-w-0 max-w-4xl space-y-6 pb-20 animate-in fade-in duration-150 [contain:inline-size]">
+		<DashboardPageShell className="min-w-0 space-y-6 pb-20 animate-in fade-in duration-150 [contain:inline-size]">
 			<div className="space-y-4">
 				<Link
 					href="/dashboard/log-sample"
@@ -357,6 +361,6 @@ export default async function BatchLogsPage({ searchParams }: BatchLogsPageProps
 					</>
 				)}
 			</section>
-		</div>
+		</DashboardPageShell>
 	);
 }

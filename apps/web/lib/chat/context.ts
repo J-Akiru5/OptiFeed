@@ -1,6 +1,6 @@
 import { type CalibrationDriftResult, computeCalibrationDrift } from "@/lib/calibration/drift";
 import { startOfDayInTimeZone } from "@/lib/chart-windows";
-import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS, PH_TZ } from "@/lib/constants";
+import { OFFLINE_THRESHOLD_MS, PH_TZ } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { totalBiomassG } from "@/lib/feed-calc";
@@ -15,7 +15,7 @@ export interface ChatContext {
 	pondName: string;
 	feedsPerDay: number;
 	feedingRatePct: number;
-	population: number;
+	population: number | null;
 	totalBiomassG: number | null;
 	scheduleStart: Date;
 	scheduleEnd: Date;
@@ -168,7 +168,7 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 	const prediction = computeDeterministicPrediction({
 		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
 		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
-		population: pond.population ?? DEFAULT_FISH_COUNT,
+		population: pond.population,
 		avgWeightKg: latestBiomass?.avgWeightKg ?? null,
 		latestFcr: latestFcrValue,
 		currentGrams: energyDevice?.gramsPerFeeding ?? null,
@@ -187,7 +187,7 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 			.slice(0, 100),
 		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
 		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
-		population: pond.population ?? DEFAULT_FISH_COUNT,
+		population: pond.population,
 		totalBiomassG: latestBiomass ? totalBiomassG(pond.population, latestBiomass.avgWeightKg) : null,
 		scheduleStart: currentConfig?.scheduleStart ?? pond.scheduleStart,
 		scheduleEnd: currentConfig?.scheduleEnd ?? pond.scheduleEnd,

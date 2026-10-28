@@ -198,27 +198,59 @@ export function formatZodError(error: z.ZodError): string {
 /**
  * The daily feed allowance for one device.
  *
- * `dailyCapFactor` is the platform safety setting: it may only lower the
- * hard-coded maximum (1 = unchanged, 0.5 = half). The factor is clamped again
- * here so a caller that forgets to read the setting still cannot raise the cap.
+ * The farmer/admin ceiling (`EnergyDevice.dailyCapG`) defaults to 2,000 g and
+ * may be raised to the hard guard (5,000 g, matching the firmware's
+ * `MAX_GRAMS_PER_DAY`). The platform setting (`dailyCapFactor`) may only lower
+ * the result, and a calibrated hopper is the final physical limit.
  */
-export function dailyFeedCapG(
-	hopperCapacityG: number | null | undefined,
-	dailyCapFactor = 1,
-): number {
+export const DAILY_CAP_MIN_G = 500;
+export const DEFAULT_DAILY_CAP_G = 2000;
+
+export const dailyCapSchema = z
+	.number("Daily feed ceiling must be a number")
+	.int("Daily feed ceiling must be a whole number")
+	.min(DAILY_CAP_MIN_G, `Daily feed ceiling must be at least ${DAILY_CAP_MIN_G} g`)
+	.max(
+		MAX_FEED_GRAMS_PER_DAY_PER_DEVICE,
+		`Daily feed ceiling cannot exceed ${MAX_FEED_GRAMS_PER_DAY_PER_DEVICE} g`,
+	);
+
+/** Coerce any stored value into the writable window; null/invalid → the default. */
+export function normalizeDailyCapG(value: number | null | undefined): number {
+	if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_DAILY_CAP_G;
+	return Math.min(Math.max(Math.round(value), DAILY_CAP_MIN_G), MAX_FEED_GRAMS_PER_DAY_PER_DEVICE);
+}
+
+export interface DailyCapInput {
+	/** The pond's configured ceiling; null/undefined uses DEFAULT_DAILY_CAP_G. */
+	configuredCapG?: number | null;
+	/** Physical hopper capacity, when calibrated. */
+	hopperCapacityG?: number | null;
+	/** Platform safety multiplier (0-1); may only lower the cap. */
+	dailyCapFactor?: number | null;
+}
+
+/**
+ * The one daily-cap calculation. Every server path (schedule save, manual feed,
+ * calibration, prediction, pond edit) must call this instead of doing the
+ * arithmetic itself, so a tightened platform cap and a raised farmer ceiling
+ * cannot disagree between screens.
+ */
+export function resolveDailyCapG(input: DailyCapInput = {}): number {
+	const configured = normalizeDailyCapG(input.configuredCapG);
 	const factor =
-		typeof dailyCapFactor === "number" && Number.isFinite(dailyCapFactor)
-			? Math.min(Math.max(dailyCapFactor, 0), 1)
+		typeof input.dailyCapFactor === "number" && Number.isFinite(input.dailyCapFactor)
+			? Math.min(Math.max(input.dailyCapFactor, 0), 1)
 			: 1;
-	const hardCap = MAX_FEED_GRAMS_PER_DAY_PER_DEVICE * factor;
-	if (
-		typeof hopperCapacityG === "number" &&
-		Number.isFinite(hopperCapacityG) &&
-		hopperCapacityG > 0
-	) {
-		return Math.min(hardCap, hopperCapacityG);
-	}
-	return hardCap;
+	const platformCapped = configured * factor;
+	const hopper =
+		typeof input.hopperCapacityG === "number" &&
+		Number.isFinite(input.hopperCapacityG) &&
+		input.hopperCapacityG > 0
+			? input.hopperCapacityG
+			: null;
+	const capped = hopper === null ? platformCapped : Math.min(platformCapped, hopper);
+	return Math.round(capped * 100) / 100;
 }
 
 export function clamp(value: number, min: number, max: number): number {

@@ -101,7 +101,7 @@ describe("clampPredictionGrams safety", () => {
 			currentGrams: 1000,
 		});
 		expect(result.grams).toBeLessThanOrEqual(upper);
-		expect(result.grams).toBe(208.3);
+		expect(result.grams).toBe(83.3);
 		expect(result.clamped).toBe(true);
 		expect(result.reasons).toContain("deviceLimit");
 	});

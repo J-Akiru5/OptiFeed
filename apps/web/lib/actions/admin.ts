@@ -24,6 +24,7 @@ import { invalidateFarm } from "@/lib/auth/session-cache";
 import { TENANT_ADMIN_ROLES, requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import { getSignedAvatarUrls } from "@/lib/avatars";
 import {
+	dailyCapSchema,
 	feedingRatePctSchema,
 	feedsPerDaySchema,
 	formatZodError,
@@ -39,6 +40,7 @@ import { getListPageSize, normalizeListPageSize } from "@/lib/settings/platform"
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MemberRole, PondStatus, Prisma, UserRole } from "@prisma/client";
 import { getLocale } from "next-intl/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 /** One numbered page of a tenant-admin list. */
@@ -1411,6 +1413,60 @@ export async function getPendingDevices(): Promise<AdminDeviceRow[]> {
 		orderBy: { createdAt: "desc" },
 		take: MAX_PENDING_DEVICES,
 	});
+}
+
+/**
+ * Admin-side daily ceiling change. Scoped to the caller's org, audited the same
+ * way as the farmer action so both surfaces produce one event type.
+ */
+export async function adminUpdateDeviceDailyCap(
+	deviceId: string,
+	dailyCapG: number,
+): Promise<{ success: boolean; error?: string; dailyCapG?: number }> {
+	try {
+		await requireTenantAdmin();
+		const parsed = dailyCapSchema.safeParse(dailyCapG);
+		if (!parsed.success) {
+			return { success: false, error: formatZodError(parsed.error) };
+		}
+
+		const actor = await getCurrentUser();
+		const scope = await resolveOrgScope();
+		const device = await prisma.energyDevice.findFirst({
+			where: { id: deviceId, pondId: { in: scope.pondIds } },
+			select: { id: true, dailyCapG: true },
+		});
+		if (!device) {
+			return { success: false, error: "Device not found" };
+		}
+
+		await prisma.$transaction([
+			prisma.energyDevice.update({
+				where: { id: device.id },
+				data: { dailyCapG: parsed.data },
+			}),
+			prisma.deviceStateEvent.create({
+				data: {
+					deviceId: device.id,
+					eventType: "daily_cap_changed",
+					source: "user",
+					actorId: actor?.id ?? null,
+					metadata: {
+						previousCapG: device.dailyCapG,
+						dailyCapG: parsed.data,
+						changedBy: "admin",
+					},
+				},
+			}),
+		]);
+
+		revalidatePath("/[locale]/(admin)/admin/devices", "page");
+		revalidatePath("/[locale]/(dashboard)", "layout");
+		return { success: true, dailyCapG: parsed.data };
+	} catch (error) {
+		console.error("[admin] updateDeviceDailyCap error:", error);
+		return { success: false, error: "Failed to update the daily feed ceiling" };
+	}
 }
 
 /** Machine-readable failure causes the reveal component can translate. */

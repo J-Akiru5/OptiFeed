@@ -16,6 +16,7 @@ import {
 	utcDateToFarmDateOnly,
 	utcDateToFarmDateTime,
 } from "@/lib/calendar/datetime";
+import { selectUpcomingEvents, upcomingWindow } from "@/lib/calendar/upcoming";
 import { HOPPER_CAPACITY_KG } from "@/lib/constants";
 import type { CalendarEventDto, CalendarEventType } from "@/lib/crop-cycle/calendar";
 import { CALENDAR_EVENT_TYPES, isCalendarEventType } from "@/lib/crop-cycle/calendar";
@@ -169,6 +170,7 @@ export function HarvestCalendar({
 	const [viewType, setViewType] = useState("dayGridMonth");
 	const [events, setEvents] = useState<CalendarEventDto[]>([]);
 	const [upcomingEvents, setUpcomingEvents] = useState<CalendarEventDto[]>([]);
+	const [upcomingLoading, setUpcomingLoading] = useState(true);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [truncated, setTruncated] = useState(false);
@@ -286,9 +288,10 @@ export function HarvestCalendar({
 	// upcoming events" and browsing a future month would hide this week's work.
 	useEffect(() => {
 		const controller = new AbortController();
+		const window = upcomingWindow(today);
 		const params = new URLSearchParams({
-			from: today,
-			to: addDays(today, 45),
+			from: window.from,
+			to: window.to,
 			pondId: allPonds ? "all" : selectedPondId,
 			types: typesKey,
 			refresh: String(refreshKey),
@@ -305,6 +308,11 @@ export function HarvestCalendar({
 			.catch(() => {
 				// The calendar error banner is authoritative; keep the last good
 				// upcoming list rather than replacing it with a second error.
+			})
+			.finally(() => {
+				// Never show "no upcoming events" while the first request is in
+				// flight: that empty state was the #248 bug on a slow load.
+				if (!controller.signal.aborted) setUpcomingLoading(false);
 			});
 
 		return () => controller.abort();
@@ -645,10 +653,7 @@ export function HarvestCalendar({
 		});
 	};
 
-	const upcoming = upcomingEvents
-		.filter((event) => event.start.slice(0, 10) >= today)
-		.sort((a, b) => a.start.localeCompare(b.start))
-		.slice(0, 5);
+	const upcoming = selectUpcomingEvents(upcomingEvents, today);
 
 	// Cycle milestones are moved through the cycle actions, which the admin
 	// calendar does not expose (E25). Mark them non-editable so FullCalendar
@@ -1093,7 +1098,12 @@ export function HarvestCalendar({
 								{t("upcoming.next", { count: upcoming.length })}
 							</span>
 						</div>
-						{upcoming.length === 0 ? (
+						{upcomingLoading ? (
+							<p className="mt-3 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+								<Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
+								{t("upcoming.loading")}
+							</p>
+						) : upcoming.length === 0 ? (
 							<p className="mt-3 text-sm text-gray-500 dark:text-gray-400">{t("upcoming.empty")}</p>
 						) : (
 							<ul

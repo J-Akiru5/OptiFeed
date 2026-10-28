@@ -1,6 +1,12 @@
 import { utcDateToFarmDateTime } from "@/lib/calendar/datetime";
 import { expandOccurrences } from "@/lib/calendar/recurrence";
 import {
+	UPCOMING_LIMIT,
+	type UpcomingWindow,
+	selectUpcomingEvents,
+	upcomingWindow,
+} from "@/lib/calendar/upcoming";
+import {
 	CALENDAR_EVENT_TYPES,
 	type CalendarEventDto,
 	type CalendarEventStatus,
@@ -227,7 +233,7 @@ export async function loadCalendarEventSources(
 					pondName: event.pond.name,
 					cycleLabel: event.cropCycle?.label ?? null,
 					notes: event.notes,
-					href: "/dashboard/harvest",
+					href: "/dashboard/calendar",
 					...(includeCreatorIds ? { createdByUserId: event.createdBy } : {}),
 				});
 			}
@@ -385,4 +391,45 @@ export async function loadCalendarEventSources(
 	}
 
 	return { events, truncated };
+}
+
+export interface UpcomingCalendarInput {
+	/** The selected ponds, after the caller applied its pond/org scope. */
+	ponds: CalendarEventPond[];
+	/** Today in the farm timezone, as `YYYY-MM-DD`. */
+	today: string;
+	/** Defaults to every non-feeding type, the calendar's default set. */
+	types?: ReadonlySet<CalendarEventType>;
+	deviceEventTypes?: readonly string[];
+	editablePondIds?: ReadonlySet<string>;
+}
+
+/**
+ * The single upcoming-events loader (#248).
+ *
+ * The farmer Calendar page uses it for the offline Harvest snapshot and the
+ * component requests the same window from `/api/calendar/events`; both then
+ * select with `selectUpcomingEvents`, so sampling due, harvest, manual and
+ * device events agree for every entry point. Feeding bands are background
+ * decoration and never appear in the upcoming list.
+ */
+export async function loadUpcomingCalendarEvents(
+	input: UpcomingCalendarInput,
+): Promise<CalendarEventLoadResult> {
+	const window: UpcomingWindow = upcomingWindow(input.today);
+	const { events, truncated } = await loadCalendarEventSources({
+		ponds: input.ponds,
+		from: window.from,
+		to: window.to,
+		today: input.today,
+		types: input.types ?? new Set(defaultCalendarEventTypes()),
+		includeFeeding: false,
+		deviceEventTypes: input.deviceEventTypes,
+		editablePondIds: input.editablePondIds,
+	});
+
+	return {
+		events: selectUpcomingEvents(events, input.today, UPCOMING_LIMIT),
+		truncated,
+	};
 }

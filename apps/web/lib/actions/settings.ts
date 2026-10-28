@@ -2,7 +2,12 @@
 
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
-import { formatZodError, notificationPrefsSchema, pondSettingsSchema } from "@/lib/limits";
+import {
+	dailyCapSchema,
+	formatZodError,
+	notificationPrefsSchema,
+	pondSettingsSchema,
+} from "@/lib/limits";
 import { type PondProfileInput, mergePondProfile, pondProfileSchema } from "@/lib/pond-profile";
 import prisma from "@/lib/prisma";
 import type { InputJsonValue } from "@prisma/client/runtime/library";
@@ -185,5 +190,59 @@ export async function updatePondSettings(
 	} catch (error) {
 		console.error("Failed to update pond settings:", error);
 		return { success: false, error: "Failed to update pond settings" };
+	}
+}
+
+/**
+ * Raise or lower the daily feed ceiling for one device.
+ *
+ * The pond owner (ADMIN/OPERATOR) may set anything inside the writable window;
+ * the hard guard and the platform factor are applied by `resolveDailyCapG`
+ * wherever the cap is enforced, so a stored value can never exceed them.
+ */
+export async function updateDeviceDailyCap(
+	deviceId: string,
+	dailyCapG: number,
+): Promise<{ success: boolean; error?: string; dailyCapG?: number }> {
+	try {
+		await requireWriteAccess();
+		const parsed = dailyCapSchema.safeParse(dailyCapG);
+		if (!parsed.success) {
+			return { success: false, error: formatZodError(parsed.error) };
+		}
+
+		const ownerId = await getCurrentPondOwnerId();
+		const device = await prisma.energyDevice.findFirst({
+			where: { id: deviceId, pond: { ownerId } },
+			select: { id: true, dailyCapG: true },
+		});
+		if (!device) {
+			return { success: false, error: "Device not found" };
+		}
+
+		await prisma.$transaction([
+			prisma.energyDevice.update({
+				where: { id: device.id },
+				data: { dailyCapG: parsed.data },
+			}),
+			prisma.deviceStateEvent.create({
+				data: {
+					deviceId: device.id,
+					eventType: "daily_cap_changed",
+					source: "user",
+					actorId: ownerId,
+					metadata: {
+						previousCapG: device.dailyCapG,
+						dailyCapG: parsed.data,
+					},
+				},
+			}),
+		]);
+
+		revalidatePath("/[locale]/(dashboard)", "layout");
+		return { success: true, dailyCapG: parsed.data };
+	} catch (error) {
+		console.error("Failed to update daily feed ceiling:", error);
+		return { success: false, error: "Failed to update the daily feed ceiling" };
 	}
 }

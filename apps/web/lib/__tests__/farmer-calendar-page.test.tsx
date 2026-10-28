@@ -10,6 +10,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
 	pondFindMany: vi.fn(),
 	cropCycleFindMany: vi.fn(),
+	energyDeviceFindMany: vi.fn(),
+	pondEventFindMany: vi.fn(),
+	biomassLogGroupBy: vi.fn(),
+	deviceStateEventFindMany: vi.fn(),
 	resolveMemberOrgScope: vi.fn(),
 	canWrite: vi.fn(),
 	hasPermission: vi.fn(),
@@ -21,7 +25,15 @@ vi.mock("@/lib/prisma", () => ({
 	default: {
 		pond: { findMany: mocks.pondFindMany },
 		cropCycle: { findMany: mocks.cropCycleFindMany },
+		energyDevice: { findMany: mocks.energyDeviceFindMany },
+		pondEvent: { findMany: mocks.pondEventFindMany },
+		biomassLog: { groupBy: mocks.biomassLogGroupBy },
+		deviceStateEvent: { findMany: mocks.deviceStateEventFindMany },
 	},
+}));
+
+vi.mock("@/lib/schedule/resolve-current", () => ({
+	resolveCurrentSchedule: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/org-scope", () => ({
@@ -49,6 +61,11 @@ vi.mock("@/components/harvest/harvest-calendar", () => ({
 		writablePondIds?: string[];
 		apiScope?: string;
 		heading?: string;
+		activeCycle?: { id: string } | null;
+		activeCycles?: Array<{ id: string }>;
+		recentCycles?: Array<{ id: string }>;
+		hopperLevelPct?: number | null;
+		hopperIsOffline?: boolean;
 	}) => (
 		<div
 			data-testid="calendar"
@@ -58,6 +75,11 @@ vi.mock("@/components/harvest/harvest-calendar", () => ({
 			data-writable={props.writablePondIds?.join(",") ?? "all"}
 			data-scope={props.apiScope}
 			data-heading={props.heading}
+			data-active-cycle={props.activeCycle?.id ?? ""}
+			data-active-cycles={props.activeCycles?.map((cycle) => cycle.id).join(",") ?? ""}
+			data-recent-cycles={props.recentCycles?.map((cycle) => cycle.id).join(",") ?? ""}
+			data-hopper={props.hopperLevelPct ?? ""}
+			data-hopper-offline={String(props.hopperIsOffline ?? false)}
 		/>
 	),
 }));
@@ -81,6 +103,8 @@ const ownPond = {
 	population: 1000,
 	notificationPrefs: null,
 	ownerId: "farm-own",
+	sampleIntervalDays: 14,
+	createdAt: new Date("2026-01-01T00:00:00.000Z"),
 };
 
 const otherPond = {
@@ -90,6 +114,8 @@ const otherPond = {
 	population: null,
 	notificationPrefs: null,
 	ownerId: "farm-other",
+	sampleIntervalDays: 14,
+	createdAt: new Date("2026-02-01T00:00:00.000Z"),
 };
 
 beforeEach(() => {
@@ -101,6 +127,10 @@ beforeEach(() => {
 	mocks.resolveMemberOrgScope.mockResolvedValue(EMPTY_SCOPE);
 	mocks.pondFindMany.mockResolvedValue([ownPond]);
 	mocks.cropCycleFindMany.mockResolvedValue([]);
+	mocks.energyDeviceFindMany.mockResolvedValue([]);
+	mocks.pondEventFindMany.mockResolvedValue([]);
+	mocks.biomassLogGroupBy.mockResolvedValue([]);
+	mocks.deviceStateEventFindMany.mockResolvedValue([]);
 });
 
 describe("/dashboard/calendar page", () => {
@@ -121,7 +151,51 @@ describe("/dashboard/calendar page", () => {
 		expect(html).toContain('data-can-manage="true"');
 		expect(html).toContain('data-writable="pond-own"');
 		expect(html).toContain('data-scope="member-org"');
-		expect(html).toContain('data-heading="calendar"');
+	});
+
+	it("merges the Harvest page data into the one page (#248)", async () => {
+		const cycle = {
+			id: "cycle-1",
+			pondId: "pond-own",
+			label: "Cycle 1",
+			status: "ACTIVE" as const,
+			stockingDate: new Date("2026-09-01T00:00:00.000Z"),
+			stockingCount: 1000,
+			stockingAvgWeightG: 5,
+			growOutDays: 90,
+			targetHarvestDate: new Date("2026-11-30T00:00:00.000Z"),
+			targetHarvestWeightG: 250,
+			expectedSurvivalPct: 80,
+			actualHarvestDate: null,
+			actualHarvestWeightKg: null,
+			actualHarvestCount: null,
+			actualFcr: null,
+			notes: null,
+		};
+		mocks.cropCycleFindMany.mockResolvedValue([cycle]);
+		mocks.energyDeviceFindMany.mockResolvedValue([
+			{
+				feedLevelPercent: 82,
+				feedLevelUpdatedAt: new Date("2026-10-27T01:00:00.000Z"),
+				lastSeenAt: new Date("2026-10-27T01:00:00.000Z"),
+			},
+		]);
+
+		const html = renderToStaticMarkup(await FarmerCalendarPage());
+
+		// Grow-out start/edit, harvest planning and projection all read from the
+		// cycle the Harvest page used to load.
+		expect(html).toContain('data-active-cycle="cycle-1"');
+		expect(html).toContain('data-active-cycles="cycle-1"');
+		// The hopper card is the one Harvest-only panel on the page rail.
+		expect(html).toContain('data-hopper="82"');
+		expect(html).toContain('data-hopper-offline="true"');
+	});
+
+	it("keeps the merged page heading", async () => {
+		const html = renderToStaticMarkup(await FarmerCalendarPage());
+
+		expect(html).toContain("Calendar &amp; Harvest");
 	});
 
 	it("falls back to the caller's own farm when they have no org", async () => {

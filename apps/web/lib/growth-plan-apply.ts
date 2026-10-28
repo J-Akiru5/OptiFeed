@@ -1,7 +1,8 @@
 import { ADJUSTMENT_INTERVAL_DAYS, MAX_ADJUSTMENT_PCT } from "@/lib/growth-plan";
 import { loadGrowthPlanForPond } from "@/lib/growth-plan-loader";
-import { feedGramsSchema } from "@/lib/limits";
+import { FEEDING_RATE_PCT_MAX, FEEDING_RATE_PCT_MIN, feedGramsSchema } from "@/lib/limits";
 import prisma from "@/lib/prisma";
+import { calculateNextFeeding } from "@/lib/volumeCalc";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -167,9 +168,65 @@ export async function applyGrowthPlanForPond(params: {
 				};
 			}
 
+			// The rate is the setting; the device dose is derived from it so the
+			// website and the feeder cannot diverge (Amendment A-001, D5/D6).
+			const pond = await tx.pond.findUnique({
+				where: { id: params.pondId },
+				select: { feedingRatePct: true, feedsPerDay: true, population: true },
+			});
+			if (!pond) return { kind: "error" as const, message: "Pond not found." };
+			if (!pond.population || pond.population <= 0) {
+				return {
+					kind: "error" as const,
+					message: "Set the pond's fish count before applying a feeding plan.",
+				};
+			}
+			const latestBiomass = await tx.biomassLog.findFirst({
+				where: { pondId: params.pondId },
+				orderBy: { recordedAt: "desc" },
+				select: { avgWeightKg: true },
+			});
+			if (!latestBiomass) {
+				return {
+					kind: "error" as const,
+					message: "Log a biomass sample before applying a feeding plan.",
+				};
+			}
+
+			const currentRate = pond.feedingRatePct;
+			const proportionalRate =
+				initialize || !currentValid ? null : currentRate * (requested / previous);
+			const nextRate = Math.min(
+				Math.max(
+					proportionalRate ?? plan.requiredFeedingRatePct ?? currentRate,
+					FEEDING_RATE_PCT_MIN,
+				),
+				FEEDING_RATE_PCT_MAX,
+			);
+			const derivedGrams = calculateNextFeeding(
+				latestBiomass.avgWeightKg,
+				nextRate,
+				pond.feedsPerDay,
+				pond.population,
+			);
+			if (derivedGrams === null) {
+				return {
+					kind: "error" as const,
+					message:
+						"The feeding plan could not produce a valid dose. Check the fish count and sample.",
+				};
+			}
+			const derivedCheck = feedGramsSchema.safeParse(derivedGrams);
+			if (!derivedCheck.success) {
+				return {
+					kind: "error" as const,
+					message: "The feeding plan produced a dose outside the feeder limits.",
+				};
+			}
+
 			const updated = await tx.energyDevice.updateMany({
 				where: { id: device.id, gramsPerFeeding: previous },
-				data: { gramsPerFeeding: requested },
+				data: { gramsPerFeeding: derivedGrams },
 			});
 			if (updated.count !== 1) {
 				return {
@@ -177,6 +234,11 @@ export async function applyGrowthPlanForPond(params: {
 					message: "The schedule changed while you were reviewing. Refresh and try again.",
 				};
 			}
+
+			await tx.pond.update({
+				where: { id: params.pondId },
+				data: { feedingRatePct: nextRate },
+			});
 
 			await tx.deviceStateEvent.create({
 				data: {
@@ -191,8 +253,11 @@ export async function applyGrowthPlanForPond(params: {
 						sampleDate: plan.currentSampleDate,
 						recommendedGrams: plan.recommendedGramsPerFeeding,
 						applicableGrams: plan.applicableGramsPerFeeding,
-						gramsApplied: requested,
+						gramsRequested: requested,
+						gramsApplied: derivedGrams,
 						gramsPrevious: previous,
+						ratePrevious: currentRate,
+						rateApplied: nextRate,
 						adjustmentPct: plan.adjustmentPct,
 						confidence: plan.confidence,
 						fcrAssumption: plan.feed.fcrAssumption,
@@ -202,7 +267,7 @@ export async function applyGrowthPlanForPond(params: {
 				},
 			});
 
-			return { kind: "ok" as const, previous, requested };
+			return { kind: "ok" as const, previous, requested: derivedGrams };
 		});
 
 		if (result.kind === "error") {
@@ -210,7 +275,7 @@ export async function applyGrowthPlanForPond(params: {
 		}
 
 		revalidatePath("/[locale]/(dashboard)/dashboard/growth", "page");
-		revalidatePath("/[locale]/(dashboard)/dashboard/harvest", "page");
+		revalidatePath("/[locale]/(dashboard)/dashboard/calendar", "page");
 		revalidatePath("/[locale]/(dashboard)/dashboard", "page");
 		return {
 			success: true,

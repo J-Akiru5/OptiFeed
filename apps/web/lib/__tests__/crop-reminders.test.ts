@@ -450,7 +450,7 @@ describe("processCropReminders idempotency", () => {
 				pondId: "pond-1",
 				category: "harvest",
 				tier: "INFO",
-				linkTo: "/dashboard/harvest",
+				linkTo: "/dashboard/calendar",
 			}),
 		});
 		expect(seenKeys.has("harvest:cycle-1:d14:in_app")).toBe(true);
@@ -682,7 +682,7 @@ describe("event reminders", () => {
 			data: expect.objectContaining({
 				pondId: "pond-1",
 				category: "event",
-				linkTo: "/dashboard/harvest",
+				linkTo: "/dashboard/calendar",
 			}),
 		});
 

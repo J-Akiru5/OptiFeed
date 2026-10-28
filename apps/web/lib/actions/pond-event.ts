@@ -27,7 +27,7 @@ export type PondEventActionResult =
 	| { success: false; error: string };
 
 function revalidateCalendar(): void {
-	revalidatePath("/[locale]/(dashboard)/dashboard/harvest", "page");
+	revalidatePath("/[locale]/(dashboard)/dashboard/calendar", "page");
 	revalidatePath("/[locale]/(dashboard)/dashboard/calendar", "page");
 	revalidatePath("/[locale]/(dashboard)/dashboard", "page");
 	revalidatePath("/[locale]/(admin)/admin/calendar", "page");

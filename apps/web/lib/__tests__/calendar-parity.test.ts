@@ -14,7 +14,6 @@ const read = (path: string) => readFileSync(join(webRoot, path), "utf8");
 
 const PAGES = {
 	farmer: "app/[locale]/(dashboard)/dashboard/calendar/page.tsx",
-	harvest: "app/[locale]/(dashboard)/dashboard/harvest/page.tsx",
 	admin: "app/[locale]/(admin)/admin/calendar/page.tsx",
 	platform: "app/[locale]/(superadmin)/superadmin/calendar/page.tsx",
 } as const;
@@ -34,7 +33,6 @@ describe("calendar parity", () => {
 	it("renders exactly one page heading per route", () => {
 		// The console page owns the h1; the embedded calendar hides its own.
 		expect(read(PAGES.farmer)).toContain("showHeader={false}");
-		expect(read(PAGES.harvest)).toContain("showHeader={false}");
 		expect(read(PAGES.admin)).toContain("showHeader={false}");
 		// The platform calendar never rendered an in-body heading.
 		expect(read("components/superadmin/platform-calendar.tsx")).not.toContain("<h1");

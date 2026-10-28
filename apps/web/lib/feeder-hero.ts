@@ -5,7 +5,7 @@ import type { FeederHeroData } from "@/lib/feeder-hero-types";
 import { OTA_EVENT_TYPES, versionFromMetadata } from "@/lib/platform/firmware";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
-import { nextFeedingAt } from "@/lib/schedule/next-feeding";
+import { computeNextFeedingSlot } from "@/lib/schedule/next-feeding-slot";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 
 /**
@@ -58,6 +58,7 @@ export async function loadFeederHero({
 			waterTempUpdatedAt: true,
 			gramsPerFeeding: true,
 			hopperCapacityG: true,
+			dailyCapG: true,
 		},
 	});
 	if (!device) return null;
@@ -110,6 +111,7 @@ export async function loadFeederHero({
 			latestFcr: latestFcr?.fcrValue ?? null,
 			currentGrams: device.gramsPerFeeding,
 			hopperCapacityG: device.hopperCapacityG,
+			dailyCapG: device.dailyCapG,
 			lastSampleAt: latestBiomass?.recordedAt ?? null,
 			isFallow: pond.isFallow,
 			cycle: null,
@@ -125,7 +127,12 @@ export async function loadFeederHero({
 		hopperLevelPercent: device.feedLevelPercent,
 		hopperUpdatedAt: device.feedLevelUpdatedAt,
 		gramsToday: feedToday._sum.grams ?? 0,
-		nextFeedAt: nextFeedingAt({ ...effective, now }),
+		nextFeedSlot: computeNextFeedingSlot({
+			scheduleStart: effective.scheduleStart,
+			scheduleEnd: effective.scheduleEnd,
+			feedsPerDay: effective.feedsPerDay,
+			now,
+		}),
 		waterTempC: device.waterTempC,
 		waterTempOk: device.waterTempOk,
 		waterTempUpdatedAt: device.waterTempUpdatedAt,

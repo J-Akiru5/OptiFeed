@@ -21,6 +21,27 @@
       If the relay is busy, incoming triggers are silently ignored.
       The event queue captures everything that actually dispensed.
 
+  FAIL-SAFE MODEL (1.6.0):
+    - The relay is OFF at boot, in a shutdown handler before any software
+      reset, and is force-opened if a dose overruns its expected end + 2 s.
+    - One gate for every source: a 10 s minimum gap between doses, 6 doses per
+      rolling hour, the daily gram cap and MAX_DISPENSE_MS. Each refusal is
+      reported with a reason.
+    - Three abnormal resets (brownout/panic/watchdog) within 10 minutes boot
+      the unit into SAFE MODE: the relay is locked OFF, every trigger is
+      refused with reason safe_mode, and the heartbeat says so. A clean
+      power-on clears the history; 30 quiet minutes (or a reset-button hold)
+      leave it.
+    - The hopper takes 5 samples, rejects impossible echoes, uses the median
+      and an EMA, and only believes a change that persists. Hysteresis plus a
+      10-minute hold stop the pellet alerts flapping. An invalid cycle reports
+      "unknown" (omitted), never 0 %.
+    - The DS18B20 rejects its -127 C / 85 C sentinels.
+    - Events are rate-limited per type, the offline queue drops its oldest
+      entry and counts the loss, and HTTP calls retry with exponential backoff
+      and jitter, capped at 5 minutes. Pure logic lives in safety.h/filters.h
+      and is covered by `pio test -d firmware -e native`.
+
   REMOTE UPDATES (OTA, T-12a):
     - A/B app slots from min_spiffs.csv; the bootloader only switches slots in
       Update.end(true), so power loss mid-download is harmless.
@@ -60,6 +81,10 @@
 #include <mbedtls/pk.h>
 #include <mbedtls/sha256.h>
 #include <ctype.h>
+
+// Pure, host-testable modules (firmware 1.6.0). No Arduino calls inside.
+#include "filters.h"
+#include "safety.h"
 #ifdef ENABLE_LAN_OTA
 #include <ArduinoOTA.h>
 #endif
@@ -83,7 +108,7 @@
 
 // Reported at boot and in the heartbeat body so the fleet and the OTA rollout
 // can tell builds apart. Bump on every firmware change.
-#define FW_VERSION "1.5.1"
+#define FW_VERSION "1.6.1"
 // Board string the signed manifest must carry. One value for every unit this
 // firmware runs on (ESP32-WROOM-32U); a manifest for another board is refused.
 #define FW_BOARD "wroom32u"
@@ -393,16 +418,108 @@ bool resetButtonsArmed = false;
 // Ignore feed-button edges for the first 5 s after boot, matching the reset
 // buttons' grace window and the boot-hold WiFi reset.
 #define BUTTON_STARTUP_GRACE_MS 5000
+
+// ---- Feed-button press guard (firmware 1.5.3, CICT phantom feeds) ---------
+// GPIO 23 uses the internal pull-up (~45 kOhm) only and runs on a long wire next
+// to the relay and motor, so a microsecond switching spike looks exactly like a
+// falling edge to the interrupt. A falling edge is now only a *candidate*: loop()
+// samples the pin for 50 ms and accepts the press only when it stays LOW.
+//
+// A real press holds the line LOW until the user lets go (tens to hundreds of
+// ms); relay/motor noise is a spike of a few microseconds. 10 samples over
+// 50 ms with a 90 % threshold tolerates one missed sample at the release edge
+// without ever accepting a spike. Hardware mitigation (external pull-up, RC
+// filter, flyback diode) is documented in firmware/README.md.
+#define BUTTON_CONFIRM_SAMPLES            10    // samples in the confirmation window
+#define BUTTON_CONFIRM_SAMPLE_MS           5    // 10 x 5 ms = 50 ms total
+#define BUTTON_CONFIRM_MIN_LOW_SAMPLES     9    // >= 90 % of the samples must be LOW
+// Relay ON through 2 s after OFF: a button edge in that window is never a new
+// dose. It is cleared so it cannot dispense once the window ends.
+#define BUTTON_QUIET_AFTER_DISPENSE_MS  2000UL
+// At most one *button* dispense per 30 s. Scheduled and dashboard feeds are not
+// affected; this only bounds a noisy or stuck button.
+#define BUTTON_COOLDOWN_MS             30000UL
+// Rate limit for the diagnostic button log lines (glitch / ignored edge).
+#define BUTTON_LOG_INTERVAL_MS         10000UL
+
+// ---- Fail-safe limits (firmware 1.6.0) ------------------------------------
+// One gate for every trigger source (docs/missions/2026-10-27-issues.md I-41).
+// These are deliberately tighter than the server caps: the server can refuse a
+// dose, the firmware must also bound a unit that is off the network.
+#define MIN_DISPENSE_GAP_MS            10000UL   // any two doses, any source
+#define MAX_DISPENSES_PER_HOUR         6         // rolling hour, any source
+#define RELAY_OVERRUN_GRACE_MS         2000UL    // expected end + this = trip
+#define BROWNOUT_HOLD_MS               (60UL * 1000UL)
+
+// Crash / brownout loop -> SAFE MODE.
+#define SAFE_MODE_ABNORMAL_WINDOW_MS   (10UL * 60UL * 1000UL)
+#define SAFE_MODE_ABNORMAL_THRESHOLD   3
+#define SAFE_MODE_QUIET_MS             (30UL * 60UL * 1000UL)
+#define SAFE_MODE_HEALTHY_CLEAR_MS     (10UL * 60UL * 1000UL)
+
+// Noisy feed-button line: more than 5 rejected glitches in a minute disables
+// the button for 10 minutes (1.5.3 keeps its 50 ms confirmation window).
+#define BUTTON_NOISE_WINDOW_MS         60000UL
+#define BUTTON_NOISE_MAX               5
+#define BUTTON_DISABLE_MS              (10UL * 60UL * 1000UL)
+
+// Hopper plausibility (HC-SR04 / filters.h). The low threshold mirrors the
+// organization default (OrgSetting.hopperLowPct = 20) and the refill margin is
+// the hysteresis that stops pellet alerts flapping.
+#define HOPPER_SAMPLE_COUNT            5
+#define HOPPER_REJECT_BELOW_CM         2.0f
+#define HOPPER_REJECT_ABOVE_MARGIN_CM  10.0f
+#define HOPPER_EMA_ALPHA               0.35f
+#define HOPPER_JUMP_PCT                15.0f
+#define HOPPER_PERSIST_CYCLES          3
+#define HOPPER_LOW_PCT                 20.0f
+#define HOPPER_REFILL_MARGIN_PCT       10.0f
+#define HOPPER_STATE_HOLD_MS           (10UL * 60UL * 1000UL)
+
+// Event rate limits (a token bucket per event type). The dispense bucket is
+// sized above MAX_DISPENSES_PER_HOUR, so a real feeding record is never lost.
+#define FEED_EVENT_BUCKET_CAPACITY     12
+#define FEED_EVENT_REFILL_MS           (5UL * 60UL * 1000UL)
+#define REFUSAL_BUCKET_CAPACITY        6
+#define REFUSAL_REFILL_MS              (10UL * 60UL * 1000UL)
+#define ACK_BUCKET_CAPACITY            6
+#define ACK_REFILL_MS                  (60UL * 1000UL)
+
+// HTTP retry backoff (safety.h NetRetry): 5 s, 10 s, 20 s ... capped at 5 min,
+// +-20 % jitter. OTA keeps its own 1 h -> 6 h -> 24 h update ladder.
+#define HTTP_RETRY_BASE_MS             5000UL
+#define HTTP_RETRY_CAP_MS              (5UL * 60UL * 1000UL)
+
+// NVS keys for the reset history and safe mode (namespace "optifeed", 15-char
+// NVS limit). New keys only; the existing ones are untouched.
+#define NVS_RESET_COUNT_KEY   "rst_abn_cnt"
+#define NVS_RESET_MASK_KEY    "rst_abn_mask"
+#define NVS_RESET_FIRST_KEY   "rst_first_ep"
+#define NVS_RESET_LAST_KEY    "rst_last_ep"
+#define NVS_SAFE_MODE_KEY     "safe_mode"
+#define NVS_SAFE_UNTIL_KEY    "safe_until_ep"
+
 #define WIFI_RETRY_INTERVAL_MS 10000
 
 // ---- WiFi provisioning portal ----
 #define WIFI_JOIN_WINDOW_MS          15000  // time allowed for each join attempt
 #define WIFI_FAILURES_BEFORE_PORTAL  5      // consecutive failed joins before the setup AP starts
 // The GPIO 23 boot-button hold uses WIFI_RESET_HOLD_MS (with the reset buttons).
-#define PROVISIONING_REBOOT_DELAY_MS 2000   // let the success page flush before restarting
+// After the form is submitted the unit tests the new network before saving it:
+// the setup AP stays up for the whole test, and only a proven link is written
+// to NVS. A definitive failure (network absent, password refused) ends the test
+// early once a full station attempt has had time to run.
+#define PROVISIONING_SETUP_JOIN_TIMEOUT_MS 20000UL
+#define PROVISIONING_JOIN_QUICK_FAIL_MS     6000UL
+// Connected -> restart. Long enough for the status page to show the result.
+#define PROVISIONING_SUCCESS_RESTART_MS     5000UL
 // Nearby-network picker. The ESP32 radio is 2.4 GHz only, so every scan result
-// is a usable network. Scanned once at portal start; manual entry always works.
+// is a usable network. Scans are asynchronous (never block loop()); one
+// automatic retry covers a radio that was still settling.
 #define PROVISIONING_SCAN_MAX 20
+#define PROVISIONING_SCAN_CHANNEL_MS 300      // max ms per channel for an active scan
+#define PROVISIONING_SCAN_TIMEOUT_MS 12000UL  // give up waiting on a stuck async scan
+#define PROVISIONING_SCAN_RETRY_MS   2000UL   // one retry after an empty or failed scan
 
 // ---- Calibration: how fast the feeder dispenses ----
 // Measure by running the feeder for a fixed time and weighing the output:
@@ -452,6 +569,7 @@ int feedTimesCount = 0;
 struct QueuedEvent {
   bool used;
   bool synced;
+  uint32_t seq;          // enqueue order; the oldest unsynced entry is dropped first
   float grams;
   char source[12];       // "scheduled" | "dashboard" | "button"
   String requestId;      // non-empty only for dashboard-sourced feeds
@@ -540,8 +658,8 @@ bool provisioningActive = false;
 bool provisioningRoutesRegistered = false;
 String provisioningApName;
 
-// Nearby 2.4 GHz networks shown in the setup page picker. Filled once when the
-// portal starts (the radio scan blocks for a few seconds, never in loop()).
+// Nearby 2.4 GHz networks shown in the setup page picker. Filled by the async
+// scan below; typing the name by hand always works, so a scan is never a gate.
 struct ScannedNetwork {
   String ssid;
   int32_t rssi;
@@ -550,19 +668,124 @@ struct ScannedNetwork {
 ScannedNetwork scannedNetworks[PROVISIONING_SCAN_MAX];
 int scannedNetworkCount = 0;
 
+// ---- Async 2.4 GHz scan (issue #252) ----
+// The old synchronous scan ran while the station side was still retrying a
+// failed join. esp_wifi_scan_start() refuses to run then, and the Arduino
+// wrapper reports that as WIFI_SCAN_FAILED (-2), which the firmware printed as
+// "0 network(s)". The scan now settles the station first, runs asynchronously
+// and is polled from serviceProvisioningScan(), so loop() (and the feed button)
+// never blocks on the radio.
+enum ProvisioningScanState {
+  PROV_SCAN_IDLE,
+  PROV_SCAN_RUNNING,
+  PROV_SCAN_RETRY_WAIT,
+};
+ProvisioningScanState provisioningScanState = PROV_SCAN_IDLE;
+unsigned long provisioningScanStartedMs = 0;
+unsigned long provisioningScanRetryAtMs = 0;
+bool provisioningScanRetried = false;
+int provisioningScanRawCount = 0;
+int provisioningScanLastError = 0;   // raw return from scanNetworks/scanComplete
+unsigned long provisioningScanCompletedAtMs = 0;
+
+// ---- Test-before-save join (issue #252) ----
+// The submitted credentials live in RAM until the station link is proven; only
+// then are they written to NVS. A failure keeps the setup form (and the stored
+// credentials untouched) so the user can retry.
+enum ProvisioningJoinState {
+  PROV_JOIN_IDLE,
+  PROV_JOIN_CONNECTING,
+  PROV_JOIN_CONNECTED,
+  PROV_JOIN_FAILED,
+};
+ProvisioningJoinState provisioningJoinState = PROV_JOIN_IDLE;
+unsigned long provisioningJoinStartedMs = 0;
+unsigned long provisioningJoinConnectedMs = 0;
+String provisioningPendingSsid;
+String provisioningPendingPass;
+String provisioningPendingDeviceId;
+String provisioningPendingDeviceToken;
+String provisioningJoinFailure;   // human-readable message for the form/status page
+String provisioningJoinDetail;    // machine reason for /status (wrong_password, no_ssid, ...)
+
 // Feed button (GPIO 23): falling-edge interrupt, 250 ms debounce, at most one
 // pending press. A short press during a blocking network call is queued and
-// dispensed as soon as loop() runs again.
+// dispensed as soon as loop() runs again. The interrupt only ever records a
+// *candidate*; handleButton() confirms it by sampling the pin and applies the
+// quiet window and cooldown (firmware 1.5.3).
 volatile bool feedButtonPressQueued = false;
 volatile unsigned long feedButtonLastEdgeMs = 0;
 static portMUX_TYPE feedButtonMux = portMUX_INITIALIZER_UNLOCKED;
+
+// Press guard state (1.5.3). dispenseQuietUntilMs is set when the relay turns
+// OFF and is compared with a signed difference so a millis() wrap is harmless.
+unsigned long dispenseQuietUntilMs = 0;
+unsigned long lastButtonDispenseMs = 0;
+bool buttonCooldownArmed = false;   // no cooldown before the first button dose
+uint32_t buttonGlitchCount = 0;     // rejected edges, reported in the heartbeat
+unsigned long lastGlitchLogMs = 0;
+unsigned long lastQuietLogMs = 0;
 
 // True after esp_task_wdt_add(NULL). The first portal start happens in setup()
 // before the watchdog is subscribed, so resets are skipped until then.
 bool watchdogSubscribed = false;
 
+// ==================== Fail-safe state (firmware 1.6.0) ====================
+
+// Pure logic lives in safety.h / filters.h so `pio test -e native` covers it.
+fw::DispenseGate dispenseGate;
+fw::ResetHistory resetHistory;
+fw::SafeModeWindow safeModeWindow;
+fw::ButtonNoiseGuard buttonNoise;
+fw::HopperFilter hopperFilter;
+fw::TokenBucket dispensedEventBucket;
+fw::TokenBucket refusedEventBucket;
+fw::TokenBucket ackEventBucket;
+fw::NetRetry heartbeatRetry;
+fw::NetRetry feedPollRetry;
+fw::NetRetry scheduleRetry;
+fw::NetRetry eventFlushRetry;
+fw::NetRetry refusalRetry;
+fw::NetRetry ackRetry;
+
+bool safeModeActive = false;
+char lastResetReasons[48] = "none";
+uint16_t refusalCounts[(uint8_t)fw::Refusal::COUNT];
+uint32_t relayOverruns = 0;
+uint32_t sensorInvalidCount = 0;
+uint32_t queueDropCount = 0;
+
+// A relay overrun turns the motor off straight away, but the refusal report is
+// a network call. It is deferred to loop() so it never runs inside an open TLS
+// session (kickWatchdog() can trip this in the middle of a poll cycle).
+bool pendingRelayOverrunReport = false;
+float overrunGrams = 0.0f;
+const char *overrunSource = "";
+
+bool buttonWasDisabled = false;
+unsigned long lastDisabledLogMs = 0;
+bool safetyHealthyCleared = false;
+unsigned long lastSafeModeCheckMs = 0;
+uint32_t nextEventSequence = 1;
+
+// Set by stopFeedCycle() and serviceDispenseSafety(); never re-enter a stop.
+void stopFeedCycle();
+void serviceDispenseSafety();
+void serviceSafetyReports();
+void serviceSafeMode();
+void configureSafety();
+void configureHopperFilter();
+void clearSafetyStateForReset();
+void initSafetyState(esp_reset_reason_t reason);
+bool readHopperLevel(float &percent, float &cm);
+int8_t netJitter();
+
 void kickWatchdog() {
   if (watchdogSubscribed) esp_task_wdt_reset();
+  // A blocking HTTPS call can delay loop() past the end of a short dose. The
+  // relay is switched off here, at every network boundary, instead of waiting
+  // for the next pass.
+  serviceDispenseSafety();
 }
 
 // Event ID counter — combined with esp_random() for uniqueness across reboots
@@ -855,6 +1078,7 @@ void handleResetButtons() {
     clearWiFiStackCredentials();
     clearWiFiCredentials();
     clearDeviceIdentity();
+    clearSafetyStateForReset();
     delay(300);
     ESP.restart();
   }
@@ -864,6 +1088,7 @@ void handleResetButtons() {
     Serial.println("[RESET] WiFi reset button held - clearing WiFi, keeping device identity");
     clearWiFiStackCredentials();
     clearWiFiCredentials();
+    clearSafetyStateForReset();
     delay(300);
     ESP.restart();
   }
@@ -942,114 +1167,367 @@ String htmlEscape(const String &value) {
   return out;
 }
 
-String buildNetworkOptions(const String &currentSsid) {
-  String options;
-  options.reserve(64 + scannedNetworkCount * 48);
-  options += F("<option value=\"\">Select your network&hellip;</option>");
-  options += F("<option value=\"__manual__\">Type it manually</option>");
+// PakaonAI mark, simplified to a small inline SVG: the portal must work with no
+// external file, CDN or web font (the full logo kit SVGs are 30-250 KB).
+// Navy field, white fish, three orange feed pellets (brand #0A3D62 / #E8722C).
+static const char PORTAL_MARK_SVG[] PROGMEM =
+  "<svg class=\"mark\" viewBox=\"0 0 64 64\" role=\"img\" aria-label=\"PakaonAI\">"
+  "<circle cx=\"32\" cy=\"32\" r=\"32\" fill=\"#0A3D62\"/>"
+  "<path d=\"M9 22l13 10-13 10z\" fill=\"#fff\"/>"
+  "<ellipse cx=\"37\" cy=\"32\" rx=\"17\" ry=\"11\" fill=\"#fff\"/>"
+  "<circle cx=\"46\" cy=\"28\" r=\"2.2\" fill=\"#0A3D62\"/>"
+  "<circle cx=\"57\" cy=\"20\" r=\"2.4\" fill=\"#E8722C\"/>"
+  "<circle cx=\"60\" cy=\"28\" r=\"2.8\" fill=\"#E8722C\"/>"
+  "<circle cx=\"57\" cy=\"36\" r=\"2.2\" fill=\"#E8722C\"/>"
+  "</svg>";
+
+static const char PORTAL_LOCK_SVG[] PROGMEM =
+  "<span class=\"lock\" title=\"Secured network\" aria-label=\"Secured\">"
+  "<svg viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\">"
+  "<path d=\"M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm0 2a3 3 0 0 1 3 3v3H9V7a3 3 0 0 1 3-3z\"/>"
+  "</svg></span>";
+
+// Mobile-first, no external resources (no CDN, no web fonts): the portal is
+// opened from a phone over an AP with no internet uplink.
+static const char PORTAL_CSS[] PROGMEM =
+  ":root{--navy:#0A3D62;--orange:#E8722C;--ink:#1B2430;--muted:#5A6775;--line:#D8E0E8;--bg:#F1F5F9;--card:#fff}"
+  "*{box-sizing:border-box}"
+  "html{-webkit-text-size-adjust:100%}"
+  "body{margin:0;font-family:system-ui,-apple-system,\"Segoe UI\",Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45}"
+  "header.brand{background:var(--navy);color:#fff;padding:14px 18px;display:flex;align-items:center;gap:10px}"
+  ".brand .mark{width:34px;height:34px;flex:none}"
+  ".word{font-weight:800;font-size:1.25rem;letter-spacing:-.02em;color:#fff}"
+  ".word .ai{color:#FF9A5A}"
+  "main{max-width:460px;margin:0 auto;padding:18px 18px 6px}"
+  ".card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 2px 10px rgba(10,61,98,.06)}"
+  "h1{font-size:1.3rem;margin:0 0 4px;color:var(--navy)}"
+  ".tagline{margin:0 0 14px;color:var(--muted);font-size:.95rem}"
+  "label{display:block;font-weight:600;margin:16px 0 6px;font-size:.95rem}"
+  "input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:1rem;background:#fff;color:inherit}"
+  "input:focus,button:focus-visible,a:focus-visible{outline:3px solid rgba(232,114,44,.55);outline-offset:2px}"
+  "button{font:inherit}"
+  ".btn{display:block;width:100%;margin-top:16px;padding:13px;border:0;border-radius:10px;background:var(--navy);color:#fff;font-size:1rem;font-weight:700;text-align:center;text-decoration:none;cursor:pointer}"
+  ".btn.secondary{background:#fff;color:var(--navy);border:1px solid var(--line);font-weight:600}"
+  ".btn.small{display:inline-block;width:auto;margin:0;padding:8px 14px;font-size:.9rem}"
+  ".note{font-size:.85rem;color:var(--muted);margin:6px 0 0}"
+  ".err{background:#FDECEC;border:1px solid #F5B5B5;border-radius:10px;padding:10px 12px;color:#8A1C1C;font-size:.92rem;margin:10px 0 0}"
+  ".ok{background:#E8F5EC;border:1px solid #B7E0C4;border-radius:10px;padding:10px 12px;color:#14532D;font-size:.92rem;margin:12px 0 0}"
+  ".networks{display:grid;gap:8px;margin-top:10px}"
+  ".net{display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:inherit;text-align:left;cursor:pointer}"
+  ".net[aria-pressed=\"true\"]{border-color:var(--orange);box-shadow:0 0 0 2px rgba(232,114,44,.2)}"
+  ".net .name{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"
+  ".meta{font-size:.78rem;color:var(--muted);flex:none}"
+  ".bars{display:inline-flex;align-items:flex-end;gap:2px;height:14px;flex:none}"
+  ".bars i{width:3px;background:#C3CDD8;border-radius:1px}"
+  ".bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:7px}"
+  ".bars i:nth-child(3){height:10px}.bars i:nth-child(4){height:14px}"
+  ".bars.s1 i:nth-child(1),.bars.s2 i:nth-child(-n+2),.bars.s3 i:nth-child(-n+3),.bars.s4 i{background:var(--navy)}"
+  ".lock{flex:none;color:var(--muted);display:inline-flex}"
+  ".lock svg{width:14px;height:14px;display:block}"
+  ".scanrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;font-size:.85rem;color:var(--muted)}"
+  ".spin{width:34px;height:34px;border:3px solid #DCE5EE;border-top-color:var(--orange);border-radius:50%;animation:sp 900ms linear infinite;margin:18px auto}"
+  "@keyframes sp{to{transform:rotate(360deg)}}"
+  "dl.facts{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:14px 0 0;font-size:.92rem}"
+  "dt{color:var(--muted)}dd{margin:0;font-weight:600;word-break:break-all}"
+  "footer{max-width:460px;margin:0 auto;padding:14px 18px 30px;color:var(--muted);font-size:.8rem}"
+  "footer code{background:#E6ECF2;padding:1px 5px;border-radius:4px;color:var(--navy)}"
+  "@media (prefers-color-scheme:dark){:root{--ink:#E8EEF4;--muted:#A7B4C2;--line:#2A3A4A;--bg:#0D1B26;--card:#132635}"
+  "input,.net,.btn.secondary{background:#0F2231}"
+  "footer code{background:#1A2C3C;color:#CFE2F3}"
+  ".bars i{background:#3A4C5E}}";
+
+int signalBarsForRssi(int32_t rssi) {
+  if (rssi > -55) return 4;
+  if (rssi > -67) return 3;
+  if (rssi > -78) return 2;
+  return 1;
+}
+
+String portalDeviceIdForDisplay() {
+  if (!identityValueIsPlaceholder(provisionedDeviceId)) return provisionedDeviceId;
+  return chipMacString();
+}
+
+// Shared page shell: brand bar with the fish mark and the PakaonAI wordmark.
+String portalPageHead(const char *title) {
+  String page;
+  page.reserve(4096);
+  page += F("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\">"
+            "<meta name=\"theme-color\" content=\"#0A3D62\">"
+            "<title>");
+  page += title;
+  page += F("</title><style>");
+  page += FPSTR(PORTAL_CSS);
+  page += F("</style></head><body><header class=\"brand\">");
+  page += FPSTR(PORTAL_MARK_SVG);
+  page += F("<span class=\"word\">Pakaon<span class=\"ai\">AI</span></span></header>");
+  return page;
+}
+
+// Footer: the unit's Device ID (the chip MAC before provisioning) and the AP
+// name, so the person provisioning can match the box to the dashboard record.
+String portalFooter() {
+  String page;
+  page += F("<footer><div>Device ID: <code>");
+  page += htmlEscape(portalDeviceIdForDisplay());
+  page += F("</code></div><div>Setup AP: <code>");
+  page += htmlEscape(provisioningApName.length() ? provisioningApName : provisioningApSsid());
+  page += F("</code> &middot; Portal: <code>192.168.4.1</code></div>"
+            "<div>Firmware ");
+  page += F(FW_VERSION);
+  page += F(" &middot; Sakto nga pakaon, sakto nga oras.</div></footer>");
+  return page;
+}
+
+bool provisioningScanInProgress() {
+  return provisioningScanState == PROV_SCAN_RUNNING ||
+         provisioningScanState == PROV_SCAN_RETRY_WAIT;
+}
+
+String buildNetworkRows(const String &currentSsid) {
+  String rows;
+  rows.reserve(120 + scannedNetworkCount * 240);
   for (int i = 0; i < scannedNetworkCount; i++) {
-    options += F("<option value=\"");
-    options += htmlEscape(scannedNetworks[i].ssid);
-    options += F("\"");
-    if (scannedNetworks[i].ssid == currentSsid) options += F(" selected");
-    options += F(">");
-    options += htmlEscape(scannedNetworks[i].ssid);
-    options += F(" (");
-    options += String((int)scannedNetworks[i].rssi);
-    options += F(" dBm");
-    if (!scannedNetworks[i].secure) options += F(", open");
-    options += F(")</option>");
+    rows += F("<button type=\"button\" class=\"net\" data-ssid=\"");
+    rows += htmlEscape(scannedNetworks[i].ssid);
+    rows += F("\" aria-pressed=\"");
+    rows += scannedNetworks[i].ssid == currentSsid ? F("true") : F("false");
+    rows += F("\"><span class=\"bars s");
+    rows += String(signalBarsForRssi(scannedNetworks[i].rssi));
+    rows += F("\" aria-hidden=\"true\"><i></i><i></i><i></i><i></i></span>"
+              "<span class=\"name\">");
+    rows += htmlEscape(scannedNetworks[i].ssid);
+    rows += F("</span>");
+    if (scannedNetworks[i].secure) {
+      rows += FPSTR(PORTAL_LOCK_SVG);
+    } else {
+      rows += F("<span class=\"meta\">Open</span>");
+    }
+    rows += F("<span class=\"meta\">");
+    rows += String((int)scannedNetworks[i].rssi);
+    rows += F(" dBm</span></button>");
   }
-  return options;
+  return rows;
+}
+
+String scanHintText() {
+  if (provisioningScanInProgress()) return String(F("Scanning&hellip;"));
+  if (scannedNetworkCount > 0) {
+    String hint = String(scannedNetworkCount);
+    hint += F(" network(s) found");
+    return hint;
+  }
+  return String(F("No networks found"));
+}
+
+// Network picker body. The JS keeps this in sync after a Rescan; without JS the
+// server-rendered list and the manual SSID field are both usable.
+String buildNetworkPicker(const String &currentSsid) {
+  String picker;
+  if (provisioningScanInProgress()) {
+    picker += F("<p class=\"note\">Scanning for nearby 2.4 GHz networks&hellip;</p>");
+  }
+  if (scannedNetworkCount > 0) {
+    picker += buildNetworkRows(currentSsid);
+  } else if (!provisioningScanInProgress()) {
+    picker += F("<p class=\"err\">No Wi-Fi networks found. Check that the antenna is "
+                "attached, move closer to the router (2.4 GHz only), then tap "
+                "Rescan.</p>");
+  }
+  picker += F("<button type=\"button\" class=\"btn secondary\" id=\"manual\">"
+              "Type it manually</button>");
+  return picker;
+}
+
+// Portal JS. Plain ES5: an old phone must still be able to provision a feeder.
+String portalSetupScript() {
+  return String(F(
+    "<script>(function(){"
+    "var box=document.getElementById('networks'),hint=document.getElementById('scanhint'),"
+    "rescan=document.getElementById('rescan'),ssid=document.getElementById('ssid');"
+    "if(!box||!ssid)return;"
+    "function esc(s){return String(s).replace(/[&<>\"']/g,function(c){"
+    "return{'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c];});}"
+    "function bars(n){return '<span class=\"bars s'+n+'\" aria-hidden=\"true\">"
+    "<i></i><i></i><i></i><i></i></span>';}"
+    "function lock(){return '<span class=\"lock\" title=\"Secured network\" aria-label=\"Secured\">"
+    "<svg viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\">"
+    "<path d=\"M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm0 2a3 3 0 0 1 3 3v3H9V7a3 3 0 0 1 3-3z\"/>"
+    "</svg></span>';}"
+    "function level(r){return r>-55?4:r>-67?3:r>-78?2:1;}"
+    "function render(nets){var h='';"
+    "if(!nets.length){h='<p class=\"err\">No Wi-Fi networks found. Check that the antenna is attached, "
+    "move closer to the router (2.4 GHz only), then tap Rescan.</p>';}"
+    "for(var i=0;i<nets.length;i++){var n=nets[i];"
+    "h+='<button type=\"button\" class=\"net\" data-ssid=\"'+esc(n.ssid)+'\" aria-pressed=\"'"
+    "+(n.ssid===ssid.value?'true':'false')+'\">'+bars(level(n.rssi))"
+    "+'<span class=\"name\">'+esc(n.ssid)+'</span>'+(n.secure?lock():'<span class=\"meta\">Open</span>')"
+    "+'<span class=\"meta\">'+n.rssi+' dBm</span></button>';}"
+    "h+='<button type=\"button\" class=\"btn secondary\" id=\"manual\">Type it manually</button>';"
+    "box.innerHTML=h;"
+    "hint.textContent=nets.length?(nets.length+' network(s) found'):'No networks found';}"
+    "function refresh(){"
+    "fetch('/scan',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){"
+    "if(j.scanning){hint.textContent='Scanning\\u2026';setTimeout(refresh,900);return;}"
+    "render(j.networks||[]);"
+    "}).catch(function(){hint.textContent='Scan failed. Tap Rescan.';});}"
+    "box.addEventListener('click',function(e){var t=e.target;"
+    "while(t&&t!==box&&(' '+t.className+' ').indexOf(' net ')===-1)t=t.parentNode;"
+    "if(t&&t!==box){ssid.value=t.getAttribute('data-ssid')||'';ssid.focus();refresh();}"
+    "if(e.target&&e.target.id==='manual'){ssid.value='';ssid.focus();}});"
+    "if(rescan)rescan.addEventListener('click',function(){rescan.disabled=true;"
+    "hint.textContent='Scanning\\u2026';"
+    "fetch('/scan',{method:'POST',cache:'no-store'}).then(function(r){return r.json();})"
+    ".then(function(){setTimeout(refresh,600);})"
+    ".catch(function(){hint.textContent='Scan failed. Tap Rescan.';})"
+    ".then(function(){rescan.disabled=false;});});"
+    "refresh();"
+    "})();</script>"));
+}
+
+String portalStatusScript() {
+  return String(F(
+    "<script>(function(){"
+    "var h=document.getElementById('state'),msg=document.getElementById('msg'),"
+    "spin=document.getElementById('spin'),facts=document.getElementById('facts'),"
+    "err=document.getElementById('err'),done=document.getElementById('done'),"
+    "back=document.getElementById('back'),fSsid=document.getElementById('f-ssid'),"
+    "fIp=document.getElementById('f-ip'),fRssi=document.getElementById('f-rssi'),stopped=false;"
+    "function dbm(v){return v<0?('\\u2212'+Math.abs(v)+' dBm'):(v+' dBm');}"
+    "function tick(){"
+    "fetch('/status',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){"
+    "if(j.state==='connected'){stopped=true;h.textContent='Connected!';"
+    "msg.textContent='Connected to '+j.ssid+'.';"
+    "fSsid.textContent=j.ssid;fIp.textContent=j.ip;fRssi.textContent=dbm(j.rssi);"
+    "facts.hidden=false;spin.hidden=true;err.hidden=true;done.hidden=false;"
+    "done.textContent='PakaonAI will finish setup and restart in 5 s. You can close this page.';return;}"
+    "if(j.state==='failed'){stopped=true;h.textContent='Not connected';"
+    "msg.textContent='The feeder could not join that network.';"
+    "err.textContent=j.message||'Check the name and password, then try again.';"
+    "err.hidden=false;spin.hidden=true;back.hidden=false;return;}"
+    "setTimeout(tick,1000);"
+    "}).catch(function(){if(!stopped)setTimeout(tick,1500);});}"
+    "tick();})();</script>"));
 }
 
 String buildProvisioningPage(const String &ssid, const String &error) {
   // Identity values are never rendered back into the form: the stored token
   // must not be readable by anyone who joins the open setup AP.
-  const bool identityAvailable = !identityValueIsPlaceholder(provisionedDeviceId) &&
-                                 !identityValueIsPlaceholder(provisionedDeviceToken);
-
-  String page = F(
-    "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
-    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-    "<title>PakaonAI device setup</title><style>"
-    "body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;margin:0;padding:24px;background:#f3f5f7;color:#1b2430}"
-    "main{max-width:420px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}"
-    "h1{font-size:1.35rem;margin:0 0 8px}p{line-height:1.45}"
-    "label{display:block;font-weight:600;margin:18px 0 6px}"
-    "input,select{width:100%;box-sizing:border-box;padding:10px;border:1px solid #b9c2cc;border-radius:8px;font-size:1rem;background:#fff}"
-    "button{margin-top:20px;width:100%;padding:12px;border:0;border-radius:8px;background:#166534;color:#fff;font-size:1rem;font-weight:600}"
-    ".note{font-size:.9rem;color:#4a5563}.err{background:#fdecec;border:1px solid #f5b5b5;border-radius:8px;padding:10px;color:#8a1c1c}"
-    "code{background:#eef1f4;padding:2px 6px;border-radius:4px}"
-    "footer{margin-top:20px;font-size:.8rem;color:#6b7684}"
-    "</style></head><body><main>"
-    "<h1>PakaonAI device setup</h1>"
-    "<p class=\"note\">Connect the feeder to a 2.4 GHz WiFi network and enter its device identity. The device restarts after saving and joins automatically.</p>"
-    "{{ERROR}}"
-    "<form method=\"POST\" action=\"/save\">"
-    "<label for=\"ssid_select\">Nearby networks</label>"
-    "<select id=\"ssid_select\">{{NETWORK_OPTIONS}}</select>"
-    "<label for=\"ssid\">WiFi name (SSID)</label>"
-    "<input id=\"ssid\" name=\"ssid\" type=\"text\" maxlength=\"32\" required autocomplete=\"off\" value=\"{{SSID}}\">"
-    "<p class=\"note\">WiFi names are case-sensitive: type or pick the exact name, including capital letters.</p>"
-    "<label for=\"pass\">Password</label>"
-    "<input id=\"pass\" name=\"pass\" type=\"password\" maxlength=\"63\" autocomplete=\"new-password\">"
-    "<p class=\"note\">Leave the password empty for an open network, otherwise use 8-63 characters.</p>"
-    "<label for=\"device_id\">Device ID</label>"
-    "<input id=\"device_id\" name=\"device_id\" type=\"text\" maxlength=\"64\" autocomplete=\"off\" value=\"\" placeholder=\"{{ID_PLACEHOLDER}}\">"
-    "<label for=\"device_token\">Device Token</label>"
-    "<input id=\"device_token\" name=\"device_token\" type=\"password\" maxlength=\"128\" autocomplete=\"new-password\" value=\"\" placeholder=\"{{TOKEN_PLACEHOLDER}}\">"
-    "<p class=\"note\">Find both under Admin &rarr; Devices in the PakaonAI dashboard. Leave them blank to keep the identity already stored on this device.</p>"
-    "<button type=\"submit\">Save and restart</button>"
-    "</form>"
-    "<footer>Setup address: <code>192.168.4.1</code> &middot; AP: {{AP}}</footer>"
-    "<script>"
-    "(function(){var s=document.getElementById('ssid_select'),i=document.getElementById('ssid');"
-    "if(!s||!i)return;s.addEventListener('change',function(){"
-    "if(s.value==='__manual__'){i.value='';i.focus();return;}if(s.value){i.value=s.value;}});})();"
-    "</script>"
-    "</main></body></html>");
-
-  String errorBlock;
-  if (error.length() > 0) {
-    errorBlock = F("<p class=\"err\">");
-    errorBlock += htmlEscape(error);
-    errorBlock += F("</p>");
-  }
-
+  const bool identityAvailable = apiIdentityAvailable();
   const String identityPlaceholder = identityAvailable
     ? String(F("leave blank to keep existing"))
     : String(F("required for first-time setup"));
 
-  // AP/ERROR/identity/network placeholders first, SSID last: a user-supplied
-  // SSID must never be re-scanned for another placeholder.
-  page.replace("{{AP}}", htmlEscape(provisioningApName));
-  page.replace("{{ERROR}}", errorBlock);
-  page.replace("{{ID_PLACEHOLDER}}", identityPlaceholder);
-  page.replace("{{TOKEN_PLACEHOLDER}}", identityPlaceholder);
-  page.replace("{{NETWORK_OPTIONS}}", buildNetworkOptions(ssid));
-  page.replace("{{SSID}}", htmlEscape(ssid));
+  String page = portalPageHead("PakaonAI device setup");
+  page += F("<main><div class=\"card\"><h1>Device setup</h1>"
+            "<p class=\"tagline\">Sakto nga pakaon, sakto nga oras.</p>");
+  if (error.length() > 0) {
+    page += F("<p class=\"err\">");
+    page += htmlEscape(error);
+    page += F("</p>");
+  }
+  page += F("<p class=\"note\"><strong>Step 1. Wi-Fi</strong> &mdash; pick your 2.4 GHz "
+            "network, or type its name.</p>"
+            "<div class=\"networks\" id=\"networks\">");
+  page += buildNetworkPicker(ssid);
+  page += F("</div><div class=\"scanrow\"><span id=\"scanhint\">");
+  page += scanHintText();
+  page += F("</span><button type=\"button\" class=\"btn secondary small\" id=\"rescan\">"
+            "Rescan</button></div>"
+            "<form method=\"post\" action=\"/save\" id=\"setupform\">"
+            "<label for=\"ssid\">Wi-Fi name (SSID)</label>"
+            "<input id=\"ssid\" name=\"ssid\" type=\"text\" maxlength=\"32\" required "
+            "autocomplete=\"off\" autocapitalize=\"none\" spellcheck=\"false\" value=\"");
+  page += htmlEscape(ssid);
+  page += F("\"><p class=\"note\">Wi-Fi names are case-sensitive. The feeder is 2.4 GHz "
+            "only, so 5 GHz networks are not listed.</p>"
+            "<label for=\"pass\">Password</label>"
+            "<input id=\"pass\" name=\"pass\" type=\"password\" maxlength=\"63\" "
+            "autocomplete=\"new-password\">"
+            "<p class=\"note\">Leave empty for an open network; otherwise 8-63 characters. "
+            "Nothing is saved until the connection works.</p>"
+            "<p class=\"note\"><strong>Step 2. Device identity</strong> &mdash; from "
+            "Admin &rarr; Devices in the PakaonAI dashboard.</p>"
+            "<label for=\"device_id\">Device ID</label>"
+            "<input id=\"device_id\" name=\"device_id\" type=\"text\" maxlength=\"64\" "
+            "autocomplete=\"off\" value=\"\" placeholder=\"");
+  page += identityPlaceholder;
+  page += F("\"><label for=\"device_token\">Device Token</label>"
+            "<input id=\"device_token\" name=\"device_token\" type=\"password\" maxlength=\"128\" "
+            "autocomplete=\"new-password\" value=\"\" placeholder=\"");
+  page += identityPlaceholder;
+  page += F("\"><button class=\"btn\" type=\"submit\">Connect and save</button>"
+            "</form>"
+            "<p class=\"note\">The feeder tests the network first. It restarts only after the "
+            "connection is confirmed, and discards the password if the join fails.</p>"
+            "</div></main>");
+  page += portalFooter();
+  page += portalSetupScript();
+  page += F("</body></html>");
   return page;
 }
 
-String buildProvisioningSuccessPage() {
-  return String(F(
-    "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
-    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-    "<title>PakaonAI saved</title></head>"
-    "<body style=\"font-family:system-ui,sans-serif;padding:32px;max-width:420px;margin:0 auto\">"
-    "<h1>Settings saved</h1>"
-    "<p>The feeder is restarting and will join your WiFi network. You can close this page.</p>"
-    "</body></html>"));
+String buildProvisioningStatusPage() {
+  String page = portalPageHead("PakaonAI connecting");
+  page += F("<main><div class=\"card\">"
+            "<h1 id=\"state\">Connecting&hellip;</h1>"
+            "<p class=\"tagline\" id=\"msg\">Testing <strong>");
+  page += htmlEscape(provisioningPendingSsid);
+  page += F("</strong> &mdash; this can take up to 20 seconds.</p>"
+            "<div class=\"spin\" id=\"spin\" aria-hidden=\"true\"></div>"
+            "<dl class=\"facts\" id=\"facts\" hidden>"
+            "<dt>Network</dt><dd id=\"f-ssid\">&mdash;</dd>"
+            "<dt>IP address</dt><dd id=\"f-ip\">&mdash;</dd>"
+            "<dt>Signal</dt><dd id=\"f-rssi\">&mdash;</dd></dl>"
+            "<p class=\"err\" id=\"err\" hidden></p>"
+            "<p class=\"ok\" id=\"done\" hidden></p>"
+            "<a class=\"btn\" id=\"back\" href=\"/\" hidden>Back to setup</a>"
+            "</div></main>");
+  page += portalFooter();
+  page += portalStatusScript();
+  page += F("</body></html>");
+  return page;
+}
+
+void sendPortalJson(const String &json, int code) {
+  provisioningServer.sendHeader("Cache-Control", "no-store");
+  provisioningServer.send(code, "application/json", json);
 }
 
 void handleProvisioningRoot() {
+  provisioningServer.sendHeader("Cache-Control", "no-store");
+  // While a join is being tested the root shows the live status page; the
+  // status page polls /status and reports the result.
+  if (provisioningJoinState == PROV_JOIN_CONNECTING ||
+      provisioningJoinState == PROV_JOIN_CONNECTED) {
+    provisioningServer.send(200, "text/html", buildProvisioningStatusPage());
+    return;
+  }
+
   String currentSsid;
-  if (storedSsidAvailable()) currentSsid = prefs.getString("wifi_ssid", "");
-  provisioningServer.send(200, "text/html", buildProvisioningPage(currentSsid, ""));
+  if (provisioningPendingSsid.length() > 0) {
+    currentSsid = provisioningPendingSsid;
+  } else if (storedSsidAvailable()) {
+    currentSsid = prefs.getString("wifi_ssid", "");
+  }
+
+  // After a failed join the form comes back with the reason, so the user can
+  // correct it and retry. Nothing was written to NVS.
+  const String error = provisioningJoinState == PROV_JOIN_FAILED
+    ? provisioningJoinFailure
+    : String("");
+  provisioningServer.send(200, "text/html", buildProvisioningPage(currentSsid, error));
 }
 
 void handleProvisioningSave() {
+  if (provisioningJoinState == PROV_JOIN_CONNECTING ||
+      provisioningJoinState == PROV_JOIN_CONNECTED) {
+    provisioningServer.sendHeader("Location", "/", true);
+    provisioningServer.send(303, "text/plain", "");
+    return;
+  }
+
   const String ssid = provisioningServer.arg("ssid");
   const String pass = provisioningServer.arg("pass");
   String deviceId = provisioningServer.arg("device_id");
@@ -1070,9 +1548,19 @@ void handleProvisioningSave() {
 
   // Blank identity fields keep the active NVS identity. This is what lets the
   // WiFi-only reset flow save a new network without re-typing the Device ID /
-  // token.
-  if (deviceId.length() == 0) deviceId = provisionedDeviceId;
-  if (deviceToken.length() == 0) deviceToken = provisionedDeviceToken;
+  // token. A blank field also reuses the identity from the previous attempt in
+  // the same portal session, so a mistyped password does not force the token to
+  // be retyped (it is still never rendered back into the page).
+  if (deviceId.length() == 0) {
+    deviceId = provisioningPendingDeviceId.length() > 0
+      ? provisioningPendingDeviceId
+      : provisionedDeviceId;
+  }
+  if (deviceToken.length() == 0) {
+    deviceToken = provisioningPendingDeviceToken.length() > 0
+      ? provisioningPendingDeviceToken
+      : provisionedDeviceToken;
+  }
 
   if (deviceId.length() < 1 || deviceId.length() > 64) {
     provisioningServer.send(400, "text/html",
@@ -1091,18 +1579,15 @@ void handleProvisioningSave() {
     return;
   }
 
-  // Persist WiFi and identity together; a reboot must never land on a partial
-  // configuration that has a new network but the wrong device identity.
-  saveWiFiCredentials(ssid, pass);       // NVS keys: wifi_ssid / wifi_pass
-  saveDeviceIdentity(deviceId, deviceToken);  // NVS keys: device_id / device_token / provisioned
-  Serial.printf("[PROV] Provisioning saved for device %s - restarting\n", deviceId.c_str());
+  // Test-before-save (issue #252): the credentials and identity stay in RAM
+  // until the station link is proven, then both are written to NVS together and
+  // the unit restarts. A failure keeps the old NVS values untouched.
+  startProvisioningJoin(ssid, pass, deviceId, deviceToken);
 
-  provisioningServer.send(200, "text/html", buildProvisioningSuccessPage());
-  provisioningServer.client().flush();
-  provisioningServer.client().stop();
-
-  delay(PROVISIONING_REBOOT_DELAY_MS);
-  ESP.restart();
+  // 303 so a refresh does not resubmit the form; the status page takes over.
+  provisioningServer.sendHeader("Location", "/", true);
+  provisioningServer.sendHeader("Cache-Control", "no-store");
+  provisioningServer.send(303, "text/plain", "");
 }
 
 // Captive-portal behaviour: anything else resolves to the setup page.
@@ -1112,62 +1597,369 @@ void handleProvisioningNotFound() {
   provisioningServer.send(302, "text/plain", "");
 }
 
-// Blocking 2.4 GHz scan (about 2-4 s across 13 channels). Runs once when the
-// portal starts, never from loop(), so the feed button and watchdog are not
-// starved during normal operation. The ESP32 radio cannot see 5 GHz networks.
-void scanNearbyWiFiNetworks() {
+// ---- Async scan ----
+
+void settleStationForScan() {
+  // Root cause of the empty scan (issue #252): the portal starts right after a
+  // failed join, so the station was still connecting when the scan ran.
+  // esp_wifi_scan_start() refuses to start then (ESP_ERR_WIFI_STATE) and the
+  // Arduino wrapper returns WIFI_SCAN_FAILED (-2), which the old code printed as
+  // "0 network(s)". Stop the retry loop, finish the half-open attempt, then
+  // scan with the station idle.
+  if (WiFi.status() != WL_CONNECTED) {
+    WiFi.setAutoReconnect(false);   // no background begin() racing the radio
+    WiFi.disconnect(false, false);
+  }
+  WiFi.mode(WIFI_AP_STA);           // scan needs STA; the setup AP stays up
+}
+
+void collectScannedNetworks(int found) {
   scannedNetworkCount = 0;
+  // Look at a few more records than are shown so several BSSIDs of the same
+  // SSID can be reduced to their strongest signal.
+  const int limit = found > PROVISIONING_SCAN_MAX * 2 ? PROVISIONING_SCAN_MAX * 2 : found;
 
-  Serial.println("[PROV] Scanning for nearby 2.4 GHz WiFi networks...");
-  kickWatchdog();
-  const int found = WiFi.scanNetworks(false, true);  // synchronous, hidden included
-  kickWatchdog();
+  for (int i = 0; i < limit; i++) {
+    String ssid = WiFi.SSID(i);
+    if (ssid.length() == 0 || ssid.length() > 32) continue;
 
-  if (found > 0) {
-    for (int i = 0; i < found && scannedNetworkCount < PROVISIONING_SCAN_MAX; i++) {
-      String ssid = WiFi.SSID(i);
-      if (ssid.length() == 0 || ssid.length() > 32) continue;
+    const int32_t rssi = WiFi.RSSI(i);
+    const bool secure = WiFi.encryptionType(i) != WIFI_AUTH_OPEN;
 
-      bool duplicate = false;
-      for (int j = 0; j < scannedNetworkCount; j++) {
-        if (scannedNetworks[j].ssid == ssid) {
-          duplicate = true;
-          break;
-        }
+    int existing = -1;
+    for (int j = 0; j < scannedNetworkCount; j++) {
+      if (scannedNetworks[j].ssid == ssid) {
+        existing = j;
+        break;
       }
-      if (duplicate) continue;
-
-      ScannedNetwork entry;
-      entry.ssid = ssid;
-      entry.rssi = WiFi.RSSI(i);
-      entry.secure = WiFi.encryptionType(i) != WIFI_AUTH_OPEN;
-
-      // Insertion sort: strongest signal first.
-      int pos = scannedNetworkCount;
-      while (pos > 0 && scannedNetworks[pos - 1].rssi < entry.rssi) {
-        scannedNetworks[pos] = scannedNetworks[pos - 1];
-        pos--;
-      }
-      scannedNetworks[pos] = entry;
-      scannedNetworkCount++;
     }
+    if (existing >= 0) {
+      if (rssi > scannedNetworks[existing].rssi) {
+        scannedNetworks[existing].rssi = rssi;
+        scannedNetworks[existing].secure = secure;
+      }
+      continue;
+    }
+    if (scannedNetworkCount >= PROVISIONING_SCAN_MAX) continue;
+
+    ScannedNetwork entry;
+    entry.ssid = ssid;
+    entry.rssi = rssi;
+    entry.secure = secure;
+
+    // Insertion sort: strongest signal first.
+    int pos = scannedNetworkCount;
+    while (pos > 0 && scannedNetworks[pos - 1].rssi < entry.rssi) {
+      scannedNetworks[pos] = scannedNetworks[pos - 1];
+      pos--;
+    }
+    scannedNetworks[pos] = entry;
+    scannedNetworkCount++;
   }
 
   WiFi.scanDelete();
-  Serial.printf("[PROV] WiFi scan found %d network(s)\n", scannedNetworkCount);
+
+  Serial.printf("[PROV] WiFi scan finished: %d raw, %d shown\n", found, scannedNetworkCount);
+  for (int i = 0; i < scannedNetworkCount && i < 5; i++) {
+    Serial.printf("[PROV]   %s  %d dBm%s\n",
+                  scannedNetworks[i].ssid.c_str(),
+                  (int)scannedNetworks[i].rssi,
+                  scannedNetworks[i].secure ? " (secured)" : " (open)");
+  }
+  if (scannedNetworkCount == 0) {
+    Serial.println("[PROV] No 2.4 GHz networks visible - check the antenna");
+  }
+}
+
+void finishScanAttempt(int count, bool failed);
+
+// Starts (or restarts) an asynchronous scan. Never blocks loop(); the result is
+// polled by serviceProvisioningScan().
+void startAsyncWiFiScan(bool userInitiated) {
+  if (provisioningScanState == PROV_SCAN_RUNNING) return;
+  if (userInitiated) provisioningScanRetried = false;
+
+  settleStationForScan();
+  WiFi.scanDelete();   // release the previous result buffer before a new scan
+
+  provisioningScanLastError = 0;
+  provisioningScanStartedMs = millis();
+  provisioningScanState = PROV_SCAN_RUNNING;
+
+  // async, hidden networks included, active scan with a per-channel bound.
+  const int16_t rc = WiFi.scanNetworks(true, true, false, PROVISIONING_SCAN_CHANNEL_MS);
+  Serial.printf("[PROV] WiFi scan started (rc=%d)\n", (int)rc);
+
+  if (rc == WIFI_SCAN_RUNNING) return;   // normal async path
+  if (rc >= 0) {                          // completed before returning
+    provisioningScanRawCount = rc;
+    collectScannedNetworks(rc);
+    finishScanAttempt(rc, false);
+    return;
+  }
+  // WIFI_SCAN_FAILED: log the real value instead of pretending it was empty.
+  provisioningScanLastError = rc;
+  Serial.printf("[PROV] WiFi scan could not start (%d)\n", (int)rc);
+  finishScanAttempt(0, true);
+}
+
+void finishScanAttempt(int count, bool failed) {
+  provisioningScanCompletedAtMs = millis();
+  if (!failed && count > 0) {
+    provisioningScanState = PROV_SCAN_IDLE;
+    return;
+  }
+  if (!provisioningScanRetried) {
+    // One automatic retry covers a radio that was still settling right after
+    // the failed join (the field case on 2026-10-28).
+    provisioningScanRetried = true;
+    provisioningScanState = PROV_SCAN_RETRY_WAIT;
+    provisioningScanRetryAtMs = millis() + PROVISIONING_SCAN_RETRY_MS;
+    Serial.printf("[PROV] Scan returned %d network(s)%s - retrying once in %lu ms\n",
+                  count, failed ? " (failed)" : "",
+                  (unsigned long)PROVISIONING_SCAN_RETRY_MS);
+    return;
+  }
+  provisioningScanState = PROV_SCAN_IDLE;
+  Serial.println(failed
+    ? "[PROV] WiFi scan failed twice - manual entry only"
+    : "[PROV] WiFi scan found 0 networks twice - check the antenna");
+}
+
+// Called from loop() while the portal is active. Keeps the scan state machine
+// moving without ever blocking on the radio.
+void serviceProvisioningScan() {
+  if (provisioningScanState == PROV_SCAN_RUNNING) {
+    const int16_t count = WiFi.scanComplete();
+    if (count == WIFI_SCAN_RUNNING) {
+      if (millis() - provisioningScanStartedMs >= PROVISIONING_SCAN_TIMEOUT_MS) {
+        Serial.println("[PROV] WiFi scan timed out");
+        provisioningScanLastError = WIFI_SCAN_FAILED;
+        esp_wifi_scan_stop();
+        WiFi.scanDelete();
+        finishScanAttempt(0, true);
+      }
+      return;
+    }
+    if (count >= 0) {
+      provisioningScanLastError = 0;
+      provisioningScanRawCount = count;
+      collectScannedNetworks(count);
+      finishScanAttempt(count, false);
+      return;
+    }
+    provisioningScanLastError = count;
+    Serial.printf("[PROV] WiFi scan failed (%d)\n", (int)count);
+    WiFi.scanDelete();
+    finishScanAttempt(0, true);
+    return;
+  }
+
+  if (provisioningScanState == PROV_SCAN_RETRY_WAIT &&
+      (long)(millis() - provisioningScanRetryAtMs) >= 0) {
+    startAsyncWiFiScan(false);   // automatic retry: keep the "already retried" flag
+  }
+}
+
+// ---- Test-before-save join ----
+
+String provisioningJoinMessage(const String &detail) {
+  if (detail == "no_ssid") {
+    return String(F("Network not found. Check the name (2.4 GHz only) and that the router "
+                    "is switched on."));
+  }
+  if (detail == "wrong_password") {
+    return String(F("Wrong password, or the router refused the connection."));
+  }
+  if (detail == "connection_lost") {
+    return String(F("The connection dropped during setup. Move closer to the router and "
+                    "try again."));
+  }
+  if (detail == "invalid_config") {
+    return String(F("The radio rejected these Wi-Fi settings. Check the password and try "
+                    "again."));
+  }
+  if (detail == "no_ip") {
+    return String(F("No IP address from the network. Check that the router hands out "
+                    "addresses (DHCP) and try again."));
+  }
+  return String(F("Could not join the network. Check the name and password, then try again."));
+}
+
+void failProvisioningJoin(const String &detail) {
+  provisioningJoinDetail = detail;
+  provisioningJoinFailure = provisioningJoinMessage(detail);
+  provisioningJoinState = PROV_JOIN_FAILED;
+  provisioningPendingPass = "";       // never keep the password after a failure
+  WiFi.disconnect(false, false);      // stop the station retry cycle
+  WiFi.setAutoReconnect(false);
+  Serial.printf("[PROV] Join failed (%s) - credentials NOT saved\n", detail.c_str());
+}
+
+void provisioningJoinSucceeded() {
+  // Save only after the link is proven. A wrong password must never replace
+  // credentials that still work, nor leave a first-time unit provisioned with a
+  // network it cannot reach.
+  saveWiFiCredentials(provisioningPendingSsid, provisioningPendingPass);
+  saveDeviceIdentity(provisioningPendingDeviceId, provisioningPendingDeviceToken);
+  provisioningJoinState = PROV_JOIN_CONNECTED;
+  provisioningJoinConnectedMs = millis();
+  provisioningPendingPass = "";   // NVS owns it now; drop it from RAM
+  Serial.printf("[PROV] Connected to \"%s\" IP %s RSSI %d dBm - saved, restarting in %lu s\n",
+                provisioningPendingSsid.c_str(), WiFi.localIP().toString().c_str(),
+                (int)WiFi.RSSI(),
+                (unsigned long)(PROVISIONING_SUCCESS_RESTART_MS / 1000));
+}
+
+void startProvisioningJoin(const String &ssid, const String &pass,
+                           const String &deviceId, const String &deviceToken) {
+  provisioningPendingSsid = ssid;
+  provisioningPendingPass = pass;
+  provisioningPendingDeviceId = deviceId;
+  provisioningPendingDeviceToken = deviceToken;
+  provisioningJoinFailure = "";
+  provisioningJoinDetail = "";
+
+  // A scan in flight owns the radio; stop it before the join.
+  if (provisioningScanInProgress()) {
+    esp_wifi_scan_stop();
+    WiFi.scanDelete();
+    provisioningScanState = PROV_SCAN_IDLE;
+  }
+
+  WiFi.mode(WIFI_AP_STA);          // the setup AP stays reachable during the test
+  WiFi.setAutoReconnect(false);    // one attempt we control, not a retry loop
+  WiFi.disconnect(false, false);
+  provisioningJoinState = PROV_JOIN_CONNECTING;
+  provisioningJoinStartedMs = millis();
+
+  const wl_status_t rc = WiFi.begin(ssid.c_str(), pass.c_str());
+  Serial.printf("[PROV] Testing \"%s\" before saving (begin rc=%d)\n", ssid.c_str(), (int)rc);
+  if (rc == WL_CONNECT_FAILED) failProvisioningJoin("invalid_config");
+}
+
+// Called from loop() while the portal is active. Non-blocking: the join is
+// observed through WiFi.status(), and the watchdog is fed every pass.
+void serviceProvisioningJoin() {
+  if (provisioningJoinState == PROV_JOIN_CONNECTED) {
+    if (millis() - provisioningJoinConnectedMs >= PROVISIONING_SUCCESS_RESTART_MS) {
+      Serial.println("[PROV] Restarting with the verified WiFi settings");
+      provisioningServer.client().flush();
+      provisioningServer.client().stop();
+      delay(100);
+      ESP.restart();
+    }
+    return;
+  }
+  if (provisioningJoinState != PROV_JOIN_CONNECTING) return;
+
+  kickWatchdog();
+  const wl_status_t status = WiFi.status();
+  if (status == WL_CONNECTED) {
+    provisioningJoinSucceeded();
+    return;
+  }
+
+  const unsigned long elapsed = millis() - provisioningJoinStartedMs;
+  // A definitive answer (no such network, auth refused, link dropped) ends the
+  // wait early once a full station attempt has had time to run; otherwise the
+  // attempt gets the full 20 s before it is called a failure.
+  const bool answered = status == WL_NO_SSID_AVAIL ||
+                        status == WL_CONNECT_FAILED ||
+                        status == WL_CONNECTION_LOST;
+  if (answered && elapsed >= PROVISIONING_JOIN_QUICK_FAIL_MS) {
+    if (status == WL_NO_SSID_AVAIL) failProvisioningJoin("no_ssid");
+    else if (status == WL_CONNECT_FAILED) failProvisioningJoin("wrong_password");
+    else failProvisioningJoin("connection_lost");
+    return;
+  }
+  if (elapsed >= PROVISIONING_SETUP_JOIN_TIMEOUT_MS) {
+    if (status == WL_NO_SSID_AVAIL) failProvisioningJoin("no_ssid");
+    else if (status == WL_CONNECT_FAILED) failProvisioningJoin("wrong_password");
+    else failProvisioningJoin("no_ip");
+  }
+}
+
+// Small JSON status for the status page. No password or token is ever included.
+void handleProvisioningStatus() {
+  JsonDocument doc;
+  const char *state = "idle";
+  if (provisioningJoinState == PROV_JOIN_CONNECTING) state = "connecting";
+  else if (provisioningJoinState == PROV_JOIN_CONNECTED) state = "connected";
+  else if (provisioningJoinState == PROV_JOIN_FAILED) state = "failed";
+
+  doc["state"] = state;
+  doc["ssid"] = provisioningPendingSsid;
+  if (provisioningJoinState == PROV_JOIN_CONNECTED) {
+    doc["ip"] = WiFi.localIP().toString();
+    doc["rssi"] = WiFi.RSSI();
+    const unsigned long elapsed = millis() - provisioningJoinConnectedMs;
+    doc["restartInMs"] = elapsed >= PROVISIONING_SUCCESS_RESTART_MS
+      ? 0UL
+      : (PROVISIONING_SUCCESS_RESTART_MS - elapsed);
+  }
+  if (provisioningJoinState == PROV_JOIN_FAILED) {
+    doc["detail"] = provisioningJoinDetail;
+    doc["message"] = provisioningJoinFailure;
+  }
+
+  String out;
+  serializeJson(doc, out);
+  sendPortalJson(out, 200);
+}
+
+void handleProvisioningScanGet() {
+  JsonDocument doc;
+  doc["scanning"] = provisioningScanInProgress();
+  doc["count"] = scannedNetworkCount;
+  doc["rawCount"] = provisioningScanRawCount;
+  doc["error"] = provisioningScanLastError;
+  doc["completedAtMs"] = provisioningScanCompletedAtMs;
+  JsonArray nets = doc["networks"].to<JsonArray>();
+  for (int i = 0; i < scannedNetworkCount; i++) {
+    JsonObject network = nets.add<JsonObject>();
+    network["ssid"] = scannedNetworks[i].ssid;
+    network["rssi"] = scannedNetworks[i].rssi;
+    network["secure"] = scannedNetworks[i].secure;
+  }
+  String out;
+  serializeJson(doc, out);
+  sendPortalJson(out, 200);
+}
+
+void handleProvisioningScanPost() {
+  if (provisioningJoinState == PROV_JOIN_CONNECTING ||
+      provisioningJoinState == PROV_JOIN_CONNECTED) {
+    sendPortalJson(F("{\"ok\":false,\"error\":\"busy\"}"), 409);
+    return;
+  }
+  if (provisioningScanInProgress()) {
+    sendPortalJson(F("{\"ok\":true,\"scanning\":true}"), 200);
+    return;
+  }
+  startAsyncWiFiScan(true);
+  sendPortalJson(provisioningScanInProgress()
+    ? F("{\"ok\":true,\"scanning\":true}")
+    : F("{\"ok\":true,\"scanning\":false}"), 200);
 }
 
 void startProvisioningPortal() {
   if (provisioningActive) return;
 
   provisioningApName = provisioningApSsid();
-  // AP+STA keeps the station side alive, so a network that comes back can
-  // close the portal on its own.
-  WiFi.mode(WIFI_AP_STA);
 
-  // Fill the setup page's network picker before the AP is up; typing the name
-  // manually stays available.
-  scanNearbyWiFiNetworks();
+  // Stop the station retry loop before touching the radio: an in-progress
+  // connect makes esp_wifi_set_mode() and esp_wifi_scan_start() fail with
+  // ESP_ERR_WIFI_STATE (issue #252, the empty scan).
+  WiFi.setAutoReconnect(false);
+  if (WiFi.status() != WL_CONNECTED) {
+    WiFi.disconnect(false, false);
+  }
+  // AP+STA keeps the setup AP and the station interface alive together: the new
+  // credentials are tested on the station side while this AP stays reachable.
+  // Auto-reconnect is restored when the portal stops, so the portal owns the
+  // radio while it is open and a background begin() cannot race a scan.
+  WiFi.mode(WIFI_AP_STA);
 
   if (!WiFi.softAP(provisioningApName.c_str())) {
     Serial.println("[PROV] Could not start the setup access point");
@@ -1180,6 +1972,9 @@ void startProvisioningPortal() {
   if (!provisioningRoutesRegistered) {
     provisioningServer.on("/", HTTP_GET, handleProvisioningRoot);
     provisioningServer.on("/save", HTTP_POST, handleProvisioningSave);
+    provisioningServer.on("/status", HTTP_GET, handleProvisioningStatus);
+    provisioningServer.on("/scan", HTTP_GET, handleProvisioningScanGet);
+    provisioningServer.on("/scan", HTTP_POST, handleProvisioningScanPost);
     provisioningServer.onNotFound(handleProvisioningNotFound);
     provisioningRoutesRegistered = true;
   }
@@ -1187,17 +1982,33 @@ void startProvisioningPortal() {
 
   provisioningActive = true;
   wifiJoinPending = false;
+  provisioningJoinState = PROV_JOIN_IDLE;
+  provisioningJoinFailure = "";
   Serial.println("[PROV] Setup portal active");
   Serial.printf("[PROV] Join \"%s\" and open http://%s\n",
                 provisioningApName.c_str(), WiFi.softAPIP().toString().c_str());
+
+  // Scan after the AP is up and the station is idle. The page can be opened
+  // while it runs: it shows "Scanning..." and the Rescan button refreshes it.
+  startAsyncWiFiScan(true);
 }
 
 void stopProvisioningPortal() {
   if (!provisioningActive) return;
+  if (provisioningScanInProgress()) {
+    esp_wifi_scan_stop();
+    WiFi.scanDelete();
+    provisioningScanState = PROV_SCAN_IDLE;
+  }
   provisioningDns.stop();
   provisioningServer.stop();
   WiFi.softAPdisconnect(true);   // drops the AP interface, keeps STA credentials
+  // Normal operation keeps the core's auto-reconnect; the portal disables it
+  // only so a background begin() does not race the scan.
+  WiFi.setAutoReconnect(true);
   provisioningActive = false;
+  provisioningApName = "";
+  provisioningJoinState = PROV_JOIN_IDLE;
   Serial.println("[PROV] Setup portal stopped");
 }
 
@@ -1212,10 +2023,15 @@ void serviceProvisioningPortal() {
   provisioningDns.processNextRequest();  // compatibility no-op on ESP32 core 3.x
   provisioningServer.handleClient();
 
-  // Only close the portal once the unit is actually usable: a station link
-  // without a device identity would leave an unprovisioned unit with no way
-  // back into its own setup page.
-  if (WiFi.status() == WL_CONNECTED && apiIdentityAvailable()) {
+  serviceProvisioningJoin();
+  serviceProvisioningScan();
+
+  // Only close the portal once the unit is actually usable and no setup attempt
+  // is on screen: a station link without a device identity would leave an
+  // unprovisioned unit with no way back into its own setup page. Wait for a
+  // running scan (a few seconds) instead of leaving its result buffer behind.
+  if (provisioningJoinState == PROV_JOIN_IDLE && !provisioningScanInProgress() &&
+      WiFi.status() == WL_CONNECTED && apiIdentityAvailable()) {
     Serial.println("[WiFi] Joined a network while the portal was active - closing portal");
     stopProvisioningPortal();
     wifiJoinFailures = 0;
@@ -1452,6 +2268,9 @@ bool scheduledFeedDueNow() {
 const char *otaPreflightFailure() {
   if (otaInProgress) return "update_in_progress";
   if (otaHealthCheckActive || otaVerifyPending) return "pending_verify";
+  // A unit in safe mode is unstable by definition: do not replace its firmware
+  // until it has proved 30 quiet minutes (1.6.0).
+  if (safeModeActive) return "safe_mode";
   if (feederActive) return "feeding";
   if (provisioningActive) return "provisioning";
   if (WiFi.status() != WL_CONNECTED) return "wifi_down";
@@ -1637,6 +2456,11 @@ void restoreFeedingStateAfterOta() {
 // default argument, and the button-abort path below calls dispenseFeed() before
 // its definition.
 void dispenseFeed(float grams, const char* source, const String &requestId);
+// Defined with the rest of the button handling (Tier 3). The OTA download uses
+// them to confirm that a press is real before aborting, and to dispense through
+// the same cooldown/dispense path as a normal button press.
+bool confirmFeedButtonPress(unsigned long &lowMs);
+bool requestButtonDispense();
 
 bool performFirmwareUpdate(const String &url, size_t expectedSize, const String &expectedSha256) {
   if (!url.startsWith("https://")) {
@@ -1714,11 +2538,13 @@ bool performFirmwareUpdate(const String &url, size_t expectedSize, const String 
     while (written < expectedSize) {
       esp_task_wdt_reset();
 
-      // Decision OTA-2: feeding wins over updating. A debounced press aborts
-      // the download; the press is consumed and dispensed below.
+      // Decision OTA-2: feeding wins over updating. A *confirmed* press (the
+      // same 50 ms LOW window as the normal button path, 1.5.3) aborts the
+      // download; the press is consumed and dispensed below. A noise spike on
+      // the button line must never abort an update.
       if (digitalRead(BUTTON_PIN) == LOW) {
-        delay(30);
-        if (digitalRead(BUTTON_PIN) == LOW) {
+        unsigned long lowMs = 0;
+        if (confirmFeedButtonPress(lowMs)) {
           abortedByButton = true;
           break;
         }
@@ -1834,9 +2660,11 @@ bool performFirmwareUpdate(const String &url, size_t expectedSize, const String 
   if (abortedByButton) {
     otaSetState("aborted");
     Serial.println("[OTA] aborted by the physical feed button - feeding wins");
-    // The ISR also saw this press; clear the queue so it cannot dispense twice.
+    // The ISR may also have queued this press; clear it so it cannot dispense
+    // twice, then dispense through the same cooldown/dispense path as a normal
+    // button press (1.5.3).
     discardQueuedFeedButtonPress();
-    dispenseFeed(cachedButtonFeedGrams, "button", String());
+    requestButtonDispense();
     otaPostpone("button_abort");
   } else if (abortedForFeed) {
     otaSetState("aborted");
@@ -2018,6 +2846,188 @@ void maybeCheckForUpdate() {
   checkForUpdate();
 }
 
+// ==================== Fail-safe: boot, safe mode, gate (1.6.0) ====================
+
+// Maps the ESP-IDF reason to the stable code in safety.h. The on-wire names
+// (`reset_reason` in the heartbeat) are unchanged.
+uint8_t resetCodeFromEsp(esp_reset_reason_t reason) {
+  switch (reason) {
+    case ESP_RST_POWERON: return fw::RESET_POWERON;
+    case ESP_RST_EXT: return fw::RESET_EXTERNAL;
+    case ESP_RST_SW: return fw::RESET_SOFTWARE;
+    case ESP_RST_PANIC: return fw::RESET_PANIC;
+    case ESP_RST_INT_WDT: return fw::RESET_INT_WDT;
+    case ESP_RST_TASK_WDT: return fw::RESET_TASK_WDT;
+    case ESP_RST_WDT: return fw::RESET_WDT;
+    case ESP_RST_DEEPSLEEP: return fw::RESET_DEEPSLEEP;
+    case ESP_RST_BROWNOUT: return fw::RESET_BROWNOUT;
+    case ESP_RST_SDIO: return fw::RESET_SDIO;
+    default: return fw::RESET_UNKNOWN;
+  }
+}
+
+// A usable wall clock for the reset history and the safe-mode window. The DS3231
+// is read over I2C, so callers must not run this every loop pass.
+bool clockValidNow() {
+  if (!rtcAvailable) return false;
+  return rtc.now().year() >= 2024;
+}
+
+// Runs before every software reset, panic reboot, OTA reboot and ESP.restart().
+// It uses the register-level GPIO write so it works even when the Arduino HAL or
+// the flash cache is not available. Boot already writes RELAY_OFF first.
+void relayOffShutdownHandler() {
+  gpio_set_level((gpio_num_t)RELAY_PIN, (uint32_t)RELAY_OFF);
+  feederActive = false;
+}
+
+// +-20 % jitter for the HTTP retry backoff (safety.h NetRetry).
+int8_t netJitter() { return (int8_t)((esp_random() % 41) - 20); }
+
+void persistResetHistory() {
+  prefs.putUChar(NVS_RESET_COUNT_KEY, resetHistory.count());
+  prefs.putUInt(NVS_RESET_MASK_KEY, resetHistory.mask());
+  prefs.putUInt(NVS_RESET_FIRST_KEY, resetHistory.firstEpoch());
+  prefs.putUInt(NVS_RESET_LAST_KEY, resetHistory.lastEpoch());
+}
+
+// Called from the Wi-Fi/factory reset holds: a deliberate human intervention
+// leaves safe mode and clears the history so the unit does not immediately
+// re-enter it on the next boot.
+void clearSafetyStateForReset() {
+  resetHistory.clear();
+  safeModeActive = false;
+  prefs.putBool(NVS_SAFE_MODE_KEY, false);
+  prefs.remove(NVS_SAFE_UNTIL_KEY);
+  persistResetHistory();
+  Serial.println("[SAFETY] safe mode and reset history cleared by a reset hold");
+}
+
+void enterSafeMode() {
+  safeModeActive = true;
+  digitalWrite(RELAY_PIN, RELAY_OFF);
+  feederActive = false;
+  const bool clockValid = clockValidNow();
+  const uint32_t epoch = clockValid ? (uint32_t)rtc.now().unixtime() : 0;
+  safeModeWindow.begin(clockValid, epoch, millis(), SAFE_MODE_QUIET_MS);
+  prefs.putBool(NVS_SAFE_MODE_KEY, true);
+  if (clockValid) prefs.putUInt(NVS_SAFE_UNTIL_KEY, safeModeWindow.untilEpoch());
+  else prefs.remove(NVS_SAFE_UNTIL_KEY);
+  Serial.printf("[SAFETY] SAFE MODE: %s\n", lastResetReasons);
+}
+
+void leaveSafeMode(const char *reason) {
+  if (!safeModeActive) {
+    return;
+  }
+  safeModeActive = false;
+  prefs.putBool(NVS_SAFE_MODE_KEY, false);
+  prefs.remove(NVS_SAFE_UNTIL_KEY);
+  Serial.printf("[SAFETY] safe mode cleared (%s)\n", reason);
+}
+
+// Restores the reset history, decides whether this boot is safe mode, and
+// persists at most once (never in a loop).
+void initSafetyState(esp_reset_reason_t reason) {
+  const bool clockValid = clockValidNow();
+  const uint32_t epoch = clockValid ? (uint32_t)rtc.now().unixtime() : 0;
+
+  resetHistory.restore(prefs.getUChar(NVS_RESET_COUNT_KEY, 0),
+                       prefs.getUInt(NVS_RESET_MASK_KEY, 0),
+                       prefs.getUInt(NVS_RESET_FIRST_KEY, 0),
+                       prefs.getUInt(NVS_RESET_LAST_KEY, 0));
+  const bool historyChanged = resetHistory.addBoot(
+      resetCodeFromEsp(reason), epoch, clockValid, SAFE_MODE_ABNORMAL_WINDOW_MS / 1000UL);
+  fw::describeResetReasons(resetHistory.mask(), lastResetReasons, sizeof(lastResetReasons));
+
+  if (historyChanged) {
+    persistResetHistory();
+    Serial.printf("[SAFETY] abnormal resets: %u (%s)\n", (unsigned)resetHistory.count(),
+                  lastResetReasons);
+  }
+
+  const bool safeModeNvs = prefs.getBool(NVS_SAFE_MODE_KEY, false);
+  const uint32_t until = prefs.getUInt(NVS_SAFE_UNTIL_KEY, 0);
+  if (safeModeNvs) {
+    safeModeActive = true;
+    safeModeWindow.resume(until, millis(), SAFE_MODE_QUIET_MS);
+    if (safeModeWindow.elapsed(clockValid, epoch, millis())) {
+      leaveSafeMode("quiet period elapsed while off");
+    } else {
+      Serial.printf("[SAFETY] SAFE MODE persists: %s\n", lastResetReasons);
+    }
+  }
+
+  if (!safeModeActive && resetHistory.safeModeRequired(SAFE_MODE_ABNORMAL_THRESHOLD)) {
+    enterSafeMode();
+  }
+}
+
+// Once per second: leave safe mode after the quiet period, and clear the reset
+// history after 10 healthy minutes so a later fault starts from zero.
+void serviceSafeMode() {
+  const unsigned long now = millis();
+  if (now - lastSafeModeCheckMs < 1000UL) return;
+  lastSafeModeCheckMs = now;
+
+  if (safeModeActive) {
+    const bool clockValid = clockValidNow();
+    const uint32_t epoch = clockValid ? (uint32_t)rtc.now().unixtime() : 0;
+    if (safeModeWindow.elapsed(clockValid, epoch, now)) {
+      leaveSafeMode("30 minutes without an abnormal reset");
+    }
+    return;
+  }
+
+  if (!safetyHealthyCleared && resetHistory.count() > 0 &&
+      (now - bootTime) >= SAFE_MODE_HEALTHY_CLEAR_MS) {
+    safetyHealthyCleared = true;
+    resetHistory.clear();
+    persistResetHistory();
+    Serial.println("[SAFETY] reset history cleared after 10 healthy minutes");
+  }
+}
+
+void configureHopperFilter() {
+  fw::HopperFilter::Config config;
+  config.emptyCm = hopperEmptyCm;
+  config.fullCm = hopperFullCm;
+  config.rejectBelowCm = HOPPER_REJECT_BELOW_CM;
+  config.rejectAboveMarginCm = HOPPER_REJECT_ABOVE_MARGIN_CM;
+  config.emaAlpha = HOPPER_EMA_ALPHA;
+  config.jumpPct = HOPPER_JUMP_PCT;
+  config.persistCycles = HOPPER_PERSIST_CYCLES;
+  config.lowPct = HOPPER_LOW_PCT;
+  config.refillMarginPct = HOPPER_REFILL_MARGIN_PCT;
+  config.stateHoldMs = HOPPER_STATE_HOLD_MS;
+  hopperFilter.configure(config);
+}
+
+void configureSafety() {
+  fw::DispenseLimits limits;
+  limits.minGapMs = MIN_DISPENSE_GAP_MS;
+  limits.maxPerHour = MAX_DISPENSES_PER_HOUR;
+  limits.maxGramsPerDose = MAX_GRAMS_PER_DISPENSE;
+  limits.maxGramsPerDay = MAX_GRAMS_PER_DAY;
+  limits.maxDispenseMs = MAX_DISPENSE_MS;
+  dispenseGate.configure(limits);
+
+  buttonNoise.configure(BUTTON_NOISE_WINDOW_MS, BUTTON_NOISE_MAX, BUTTON_DISABLE_MS);
+
+  dispensedEventBucket.configure(FEED_EVENT_BUCKET_CAPACITY, FEED_EVENT_REFILL_MS);
+  refusedEventBucket.configure(REFUSAL_BUCKET_CAPACITY, REFUSAL_REFILL_MS);
+  ackEventBucket.configure(ACK_BUCKET_CAPACITY, ACK_REFILL_MS);
+
+  heartbeatRetry.configure(HTTP_RETRY_BASE_MS, HTTP_RETRY_CAP_MS);
+  feedPollRetry.configure(HTTP_RETRY_BASE_MS, HTTP_RETRY_CAP_MS);
+  scheduleRetry.configure(HTTP_RETRY_BASE_MS, HTTP_RETRY_CAP_MS);
+  eventFlushRetry.configure(HTTP_RETRY_BASE_MS, HTTP_RETRY_CAP_MS);
+  refusalRetry.configure(HTTP_RETRY_BASE_MS, HTTP_RETRY_CAP_MS);
+  ackRetry.configure(HTTP_RETRY_BASE_MS, HTTP_RETRY_CAP_MS);
+
+  configureHopperFilter();
+}
+
 void setup() {
   // Relay OFF before anything else: set the level first, then the mode, so the
   // pin never drives the relay while the board boots. On a GPIO 5 unit the weak
@@ -2037,6 +3047,17 @@ void setup() {
   lastResetWasBrownout = (resetReason == ESP_RST_BROWNOUT);
   Serial.printf("[INIT] Reset reason: %s\n", resetReasonName);
   Serial.printf("[INIT] Relay on GPIO %d (active %s)\n", RELAY_PIN, RELAY_ACTIVE_LOW ? "LOW" : "HIGH");
+
+  // The relay is also switched off before every software reset, panic reboot,
+  // OTA install reboot and ESP.restart(). Registered before anything can restart.
+  if (esp_register_shutdown_handler(relayOffShutdownHandler) == ESP_OK) {
+    Serial.println("[INIT] Relay shutdown handler registered");
+  } else {
+    Serial.println("[WARN] Relay shutdown handler could not be registered");
+  }
+
+  // Gate, event buckets, retry states and the hopper filter, before any trigger.
+  configureSafety();
 
   feederActive = false;
 
@@ -2073,11 +3094,15 @@ void setup() {
   bool credentialsResetAtBoot = false;
   if (bootButtonResetHeld()) {
     clearWiFiCredentials();
+    clearSafetyStateForReset();   // a deliberate reset hold also leaves safe mode
     credentialsResetAtBoot = true;
   }
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), onFeedButtonPress, FALLING);
-  Serial.printf("[INIT] Feed button GPIO%d: falling-edge interrupt, %d ms debounce, %d s boot grace\n",
-                BUTTON_PIN, BUTTON_DEBOUNCE_MS, BUTTON_STARTUP_GRACE_MS / 1000);
+  Serial.printf("[INIT] Feed button GPIO%d: falling-edge interrupt, %d ms debounce, "
+                "%d ms confirmation, %d s boot grace\n",
+                BUTTON_PIN, BUTTON_DEBOUNCE_MS,
+                BUTTON_CONFIRM_SAMPLES * BUTTON_CONFIRM_SAMPLE_MS,
+                BUTTON_STARTUP_GRACE_MS / 1000);
 
   // Seed default schedule: 06:00 and 19:00
   buildDefaultSchedule();
@@ -2098,6 +3123,10 @@ void setup() {
   // when the checkpoint is from today). After a plain power cycle there is
   // nothing to restore.
   restoreFeedingStateAfterOta();
+
+  // Fail-safe state (1.6.0). The RTC is up, so this boot can be placed in the
+  // reset history window and safe mode can be anchored on a real clock.
+  initSafetyState(resetReason);
 
   // TLS: verify the server against ROOT_CA, the multi-root bundle in the config
   // section (never setInsecure). Cap the handshake so a dead TLS peer cannot
@@ -2151,6 +3180,16 @@ void setup() {
   // probation. A normal boot just reports "valid" and does nothing else.
   otaBeginHealthCheck();
 
+  // One concise boot summary: what the unit is, how it last died, and the
+  // limits it is now enforcing.
+  Serial.printf("[BOOT] summary: fw=%s reset=%s safe_mode=%d brownout_hold=%lus relay=GPIO%d "
+                "identity=%s wifi=%s feeds=%d limits=%lus-gap/%d-per-hour/%.0fL-per-day/hold=%lus\n",
+                FW_VERSION, resetReasonName, safeModeActive ? 1 : 0, BROWNOUT_HOLD_MS / 1000UL,
+                RELAY_PIN, apiIdentityAvailable() ? "yes" : "no",
+                WiFi.status() == WL_CONNECTED ? "online" : "offline", feedTimesCount,
+                MIN_DISPENSE_GAP_MS / 1000UL, MAX_DISPENSES_PER_HOUR, MAX_GRAMS_PER_DAY / 1000.0f,
+                SAFE_MODE_QUIET_MS / 1000UL);
+
   Serial.println("[READY] OptiFeed controller online.");
 }
 
@@ -2159,6 +3198,11 @@ void loop() {
   ArduinoOTA.handle();  // bench builds only
 #endif
   handleResetButtons(); // Dedicated WiFi / factory reset buttons, if wired
+  // Relay first: stop a dose at its expected end (or trip an overrun) before
+  // any blocking work below. Also runs at every kickWatchdog() boundary.
+  serviceDispenseSafety();
+  serviceSafetyReports();
+  serviceSafeMode();
   serviceOtaHealthCheck();  // pending-verify deadline; relay stays OFF until valid
 
   if (provisioningActive) {
@@ -2190,14 +3234,6 @@ void loop() {
   // Signed update check every OTA_CHECK_INTERVAL_MS, behind the pre-flight
   // gate. It blocks only while it is actually due (or downloading).
   maybeCheckForUpdate();
-
-  if (feederActive && (millis() - feedStartTime >= feedDurationMs)) {
-    stopFeedCycle();
-  }
-  // Safety hard stop — never leave the relay energized past MAX_DISPENSE_MS.
-  if (feederActive && (millis() - feedStartTime >= MAX_DISPENSE_MS)) {
-    stopFeedCycle();
-  }
 }
 
 // ==================== Default schedule ====================
@@ -2255,15 +3291,31 @@ bool beginHttps(HTTPClient &https, const char *url) {
   return beginHttpsWithTimeout(https, url, HTTP_CONNECT_TIMEOUT_MS, HTTP_READ_TIMEOUT_MS);
 }
 
-// Best-effort report when a safety cap refuses a dose (audited server-side).
-void reportFeedError(const char* reason, float grams, const char* source) {
-  Serial.printf("[FEED] REFUSED %s: %.0fg from %s\n", reason, grams, source);
+// Best-effort report when a safety rule refuses a dose (audited server-side).
+// The server's ingest contract has no `safety_trip` event type, so every
+// refusal -- including a relay overrun -- travels as the existing
+// `feed_refused` event with a stable reason. The reason values are asserted by
+// the native tests and documented in firmware/README.md.
+void reportFeedError(fw::Refusal reason, float grams, const char* source) {
+  refusalCounts[(uint8_t)reason]++;
+  Serial.printf("[FEED] REFUSED %s: %.0fg from %s\n", fw::refusalReason(reason), grams, source);
   // No API calls without a provisioned identity: an unprovisioned unit has no
   // device record to report against.
   if (!apiIdentityAvailable() || WiFi.status() != WL_CONNECTED) return;
+
+  const unsigned long now = millis();
+  if (!refusalRetry.ready(now)) return;            // backoff after a failed report
+  if (!refusedEventBucket.tryConsume(now)) {       // token bucket per event type
+    Serial.println("[FEED] refusal report rate-limited");
+    return;
+  }
+
   HTTPClient https;
   kickWatchdog();
-  if (!beginHttps(https, INGEST_URL)) return;
+  if (!beginHttps(https, INGEST_URL)) {
+    refusalRetry.recordFailure(millis(), netJitter());
+    return;
+  }
   https.addHeader("Content-Type", "application/json");
   https.addHeader("X-Device-Token", provisionedDeviceToken);
   JsonDocument doc;
@@ -2272,13 +3324,18 @@ void reportFeedError(const char* reason, float grams, const char* source) {
   doc["event_id"]   = generateEventId();
   doc["grams"]      = grams;
   doc["source"]     = source;
-  doc["reason"]     = reason;
+  doc["reason"]     = fw::refusalReason(reason);
   doc["timestamp"]  = rtcAvailable ? getRTCiso8601() : "unknown";
   String out;
   serializeJson(doc, out);
   int code = https.POST(out);
   https.end();
   kickWatchdog();
+  if (code >= 200 && code < 300) {
+    refusalRetry.recordSuccess();
+  } else {
+    refusalRetry.recordFailure(millis(), netJitter());
+  }
   Serial.printf("[FEED] refusal report -> %d\n", code);
 }
 
@@ -2325,10 +3382,22 @@ void dispenseFeed(float grams, const char* source, const String &requestId = "")
   // call: feed the watchdog around the whole dispense decision.
   kickWatchdog();
 
+  // Fail-safe order: a unit in safe mode or inside its post-brownout hold must
+  // not energize the relay for anything, including a schedule that was already
+  // due. Both report a refusal so the server audit trail shows the skip.
+  if (safeModeActive) {
+    reportFeedError(fw::Refusal::SAFE_MODE, grams, source);
+    return;
+  }
+  if (lastResetWasBrownout && (millis() - bootTime) < BROWNOUT_HOLD_MS) {
+    reportFeedError(fw::Refusal::BROWNOUT_HOLD, grams, source);
+    return;
+  }
+
   // T-12a: never feed while a signed image is downloading. Dashboard requests
   // must be told why, so the refusal is reported as ota_in_progress.
   if (otaInProgress) {
-    reportFeedError("ota_in_progress", grams, source);
+    reportFeedError(fw::Refusal::OTA_IN_PROGRESS, grams, source);
     return;
   }
 
@@ -2336,40 +3405,36 @@ void dispenseFeed(float grams, const char* source, const String &requestId = "")
   // health check marks it valid (at most five minutes). The heartbeat already
   // reports ota_state=pending_verify, so this does not report a refusal.
   if (otaHealthCheckActive) {
+    refusalCounts[(uint8_t)fw::Refusal::OTA_PENDING_VERIFY]++;
     Serial.printf("[FEED] refused - OTA image pending verification (%s)\n", source);
     return;
   }
 
   if (feederActive) {
+    refusalCounts[(uint8_t)fw::Refusal::BUSY]++;
     Serial.printf("[FEED] busy — ignoring %s trigger (mutex held)\n", source);
     return;
   }
 
   maybeResetDailyBudget();
 
-  if (grams <= 0 || grams > MAX_GRAMS_PER_DISPENSE) {
-    reportFeedError("grams_out_of_range", grams, source);
+  // One gate for every source: grams, dose time, daily cap, the 10 s gap and
+  // the six-per-hour ceiling. A slow calibration REFUSES rather than truncating
+  // (1000 g at 2 g/s = 500 s is over the 300 s cap, not a 500 s dose).
+  const float rate = (gramsPerSecond > 0.0f) ? gramsPerSecond : 4.0f;
+  const unsigned long durationMs = (unsigned long)((grams / rate) * 1000.0);
+  const fw::Refusal refusal =
+      dispenseGate.evaluate(millis(), grams, durationMs, dailyGramsDispensed);
+  if (refusal != fw::Refusal::NONE) {
+    reportFeedError(refusal, grams, source);
     return;
   }
 
-  unsigned long durationMs = (unsigned long)((grams / gramsPerSecond) * 1000.0);
-  if (durationMs > MAX_DISPENSE_MS) {
-    // REFUSE, never truncate: a slow calibration must not silently halve a
-    // valid dose (e.g. 1000 g at 2 g/s = 500 s, over the 300 s cap).
-    reportFeedError("dose_time_exceeds_cap", grams, source);
-    return;
-  }
-
-  if (dailyGramsDispensed + grams > MAX_GRAMS_PER_DAY) {
-    reportFeedError("daily_gram_cap_exceeded", grams, source);
-    return;
-  }
-
-  // Backstop clamp only — unreachable while the refusals above hold.
-  feedDurationMs = (durationMs < MAX_DISPENSE_MS) ? durationMs : MAX_DISPENSE_MS;
+  feedDurationMs = durationMs;
 
   Serial.printf("[FEED] dispensing %.0fg (~%lums) — source: %s\n", grams, feedDurationMs, source);
 
+  dispenseGate.recordStart(millis());
   digitalWrite(RELAY_PIN, RELAY_ON);
   feederActive = true;
   feedStartTime = millis();
@@ -2380,13 +3445,50 @@ void dispenseFeed(float grams, const char* source, const String &requestId = "")
   kickWatchdog();
 }
 
+// Relay hard stop shared by loop() and kickWatchdog(). Switching the relay off
+// comes first, so the watchdog kick at the end cannot re-enter this path with
+// feederActive still true.
 void stopFeedCycle() {
-  kickWatchdog();
   digitalWrite(RELAY_PIN, RELAY_OFF);
   feederActive = false;
+  // 1.5.3: every button edge is ignored from relay ON until 2 s after relay OFF,
+  // whatever started the dispense. The stamp is taken when the motor is
+  // actually switched off, so the quiet window follows a long or short dose.
+  dispenseQuietUntilMs = millis() + BUTTON_QUIET_AFTER_DISPENSE_MS;
   Serial.printf("[FEED] complete — %.0fg via %s\n", currentFeedGrams, currentFeedSource);
   enqueueEvent(currentFeedGrams, currentFeedSource, currentFeedRequestId);
   currentFeedRequestId = "";
+  kickWatchdog();
+}
+
+// Independent overrun check (1.6.0): a dose may run at most 2 s past its
+// expected end. That happens when a blocking HTTPS call delayed loop(), and the
+// relay must not wait for the next pass. The trip is reported from loop(), not
+// from here, so it never opens a second TLS session.
+void serviceDispenseSafety() {
+  if (!feederActive) return;
+  const unsigned long elapsed = millis() - feedStartTime;
+  if (elapsed >= feedDurationMs + RELAY_OVERRUN_GRACE_MS) {
+    relayOverruns++;
+    refusalCounts[(uint8_t)fw::Refusal::RELAY_OVERRUN]++;
+    pendingRelayOverrunReport = true;
+    overrunGrams = currentFeedGrams;
+    overrunSource = currentFeedSource;
+    Serial.printf("[SAFETY] relay overrun: %lums for a %lums dose (%s)\n", elapsed,
+                  feedDurationMs, currentFeedSource);
+    stopFeedCycle();
+    return;
+  }
+  if (elapsed >= feedDurationMs) {
+    stopFeedCycle();
+  }
+}
+
+// Deferred out-of-band safety reports (currently only the relay overrun).
+void serviceSafetyReports() {
+  if (!pendingRelayOverrunReport) return;
+  pendingRelayOverrunReport = false;
+  reportFeedError(fw::Refusal::RELAY_OVERRUN, overrunGrams, overrunSource);
 }
 
 // ==================== Tier 1 — RTC Schedule ====================
@@ -2418,14 +3520,22 @@ void handleSchedule() {
 
 void pollDashboardFeedCommand() {
   if (!apiIdentityAvailable()) return;
+  if (WiFi.status() != WL_CONNECTED) return;
+  const unsigned long now = millis();
+  if (!feedPollRetry.ready(now)) return;   // exponential backoff + jitter after a failure
+
   const String url = buildDeviceUrl(FEED_POLL_URL_BASE);
   HTTPClient https;
   kickWatchdog();
-  if (!beginHttps(https, url.c_str())) return;
+  if (!beginHttps(https, url.c_str())) {
+    feedPollRetry.recordFailure(millis(), netJitter());
+    return;
+  }
   https.addHeader("X-Device-Token", provisionedDeviceToken);
   int code = https.GET();
   kickWatchdog();
   if (code == 200) {
+    feedPollRetry.recordSuccess();
     // A freshly installed OTA image proves itself with one authenticated 200
     // from this poll (the health check also needs WiFi and a valid clock).
     otaHealthSawPoll = true;
@@ -2435,6 +3545,7 @@ void pollDashboardFeedCommand() {
         // N9: ignore the whole config when any pushed value is out of range.
         Serial.println("[POLL] invalid config from server — ignoring whole response");
       } else {
+        bool hopperCalibrationChanged = false;
         if (doc["grams_per_feeding"].is<float>()) {
           cachedScheduledGrams = doc["grams_per_feeding"] | cachedScheduledGrams;
         }
@@ -2449,12 +3560,19 @@ void pollDashboardFeedCommand() {
         // Hopper calibration — overrides compile-time defaults
         if (doc["hopper_full_cm"].is<float>()) {
           float hf = doc["hopper_full_cm"];
-          if (hf > 0) hopperFullCm = hf;
+          if (hf > 0 && hf != hopperFullCm) {
+            hopperFullCm = hf;
+            hopperCalibrationChanged = true;
+          }
         }
         if (doc["hopper_empty_cm"].is<float>()) {
           float he = doc["hopper_empty_cm"];
-          if (he > 0) hopperEmptyCm = he;
+          if (he > 0 && he != hopperEmptyCm) {
+            hopperEmptyCm = he;
+            hopperCalibrationChanged = true;
+          }
         }
+        if (hopperCalibrationChanged) configureHopperFilter();
         // Duration calibration — motor dispense rate
         if (doc["grams_per_second"].is<float>()) {
           applyGramsPerSecond(doc["grams_per_second"] | gramsPerSecond, "feed-command");
@@ -2471,6 +3589,10 @@ void pollDashboardFeedCommand() {
         }
       }
     }
+  } else {
+    // A timeout, a 5xx or a TLS failure: back off instead of hammering the
+    // endpoint every 5 s for as long as the outage lasts.
+    feedPollRetry.recordFailure(millis(), netJitter());
   }
   https.end();
 }
@@ -2512,15 +3634,21 @@ void applyIsoTime(const char* iso, bool force) {
 void pollScheduleCommand() {
   if (!apiIdentityAvailable()) return;
   if (WiFi.status() != WL_CONNECTED) return;
+  const unsigned long now = millis();
+  if (!scheduleRetry.ready(now)) return;   // backoff after a failure
 
   const String url = buildDeviceUrl(SCHEDULE_SYNC_URL_BASE);
   HTTPClient https;
   kickWatchdog();
-  if (!beginHttps(https, url.c_str())) return;
+  if (!beginHttps(https, url.c_str())) {
+    scheduleRetry.recordFailure(millis(), netJitter());
+    return;
+  }
   https.addHeader("X-Device-Token", provisionedDeviceToken);
   int code = https.GET();
   kickWatchdog();
   if (code == 200) {
+    scheduleRetry.recordSuccess();
     // Schedule payloads are larger than the feed-command ones (times, counts,
     // rates); JsonDocument grows on demand, so no capacity constant is needed.
     JsonDocument doc;
@@ -2595,15 +3723,26 @@ void pollScheduleCommand() {
         }
       }
     }
+  } else {
+    scheduleRetry.recordFailure(millis(), netJitter());
   }
   https.end();
 }
 
 void postScheduleAck(const String &commandId) {
   if (!apiIdentityAvailable()) return;
+  const unsigned long now = millis();
+  if (!ackRetry.ready(now)) return;
+  if (!ackEventBucket.tryConsume(now)) {
+    Serial.println("[SCHEDULE ACK] rate-limited");
+    return;
+  }
   HTTPClient https;
   kickWatchdog();
-  if (!beginHttps(https, INGEST_URL)) return;
+  if (!beginHttps(https, INGEST_URL)) {
+    ackRetry.recordFailure(millis(), netJitter());
+    return;
+  }
   https.addHeader("Content-Type", "application/json");
   https.addHeader("X-Device-Token", provisionedDeviceToken);
 
@@ -2620,6 +3759,11 @@ void postScheduleAck(const String &commandId) {
   int code = https.POST(out);
   https.end();
   kickWatchdog();
+  if (code >= 200 && code < 300) {
+    ackRetry.recordSuccess();
+  } else {
+    ackRetry.recordFailure(millis(), netJitter());
+  }
   Serial.printf("[SCHEDULE ACK] command %s -> %d\n", commandId.c_str(), code);
 }
 
@@ -2628,6 +3772,10 @@ void postScheduleAck(const String &commandId) {
 // Falling-edge ISR. Unlike the old loop poll, this cannot miss a short press
 // while loop() is inside a blocking HTTPS call. millis() and the portMUX
 // critical section are ISR-safe on the ESP32.
+//
+// Since 1.5.3 this only records a *candidate*: a microsecond spike on the long,
+// internally pulled-up button line looks exactly like a falling edge inside an
+// interrupt. handleButton() confirms a real press by sampling the pin.
 void IRAM_ATTR onFeedButtonPress() {
   const unsigned long now = millis();
   if (now < BUTTON_STARTUP_GRACE_MS) return;          // boot grace window
@@ -2655,78 +3803,208 @@ void discardQueuedFeedButtonPress() {
   portEXIT_CRITICAL(&feedButtonMux);
 }
 
-// A queued press is dispensed on the next loop pass. The shared dispense mutex
-// still drops it if the relay is busy, exactly like a polling press did.
-void handleButton() {
-  if (!takeQueuedFeedButtonPress()) return;
+// True from relay ON until 2 s after relay OFF, whatever started the dispense.
+bool buttonQuietWindowActive() {
+  if (feederActive) return true;
+  return (long)(millis() - dispenseQuietUntilMs) < 0;
+}
+
+// Rate limiter for the diagnostic button lines: the first call in a window logs,
+// later ones stay silent. Unsigned subtraction stays correct across a wrap.
+bool buttonLogDue(unsigned long &lastMs) {
+  const unsigned long now = millis();
+  if (lastMs != 0 && now - lastMs < BUTTON_LOG_INTERVAL_MS) return false;
+  lastMs = now;
+  return true;
+}
+
+// Samples GPIO 23 for 50 ms after a candidate edge. Accepts the press only when
+// the line stays LOW: every sample, or at least 90 % of them if one is missed at
+// release. `lowMs` reports how long the line was observed LOW (diagnostics).
+bool confirmFeedButtonPress(unsigned long &lowMs) {
+  const unsigned long startedMs = millis();
+  uint8_t lowSamples = 0;
+  unsigned long lastLowAtMs = 0;
+  for (uint8_t i = 0; i < BUTTON_CONFIRM_SAMPLES; i++) {
+    if (digitalRead(BUTTON_PIN) == LOW) {
+      lowSamples++;
+      lastLowAtMs = millis() - startedMs;
+    }
+    delay(BUTTON_CONFIRM_SAMPLE_MS);
+  }
+  kickWatchdog();   // 50 ms is far inside the 30 s task watchdog; be explicit
+  lowMs = lowSamples ? lastLowAtMs : 0;
+  return lowSamples >= BUTTON_CONFIRM_MIN_LOW_SAMPLES;
+}
+
+// The one path a confirmed button press takes to the relay. The 30 s cooldown is
+// armed only when a dispense actually starts, so a refusal (daily cap, OTA
+// probation) does not lock the button for 30 s.
+bool requestButtonDispense() {
+  if (buttonCooldownArmed && (millis() - lastButtonDispenseMs) < BUTTON_COOLDOWN_MS) {
+    Serial.println("[BUTTON] cooldown");
+    return false;
+  }
+  const bool wasActive = feederActive;
   dispenseFeed(cachedButtonFeedGrams, "button");
+  const bool started = !wasActive && feederActive;
+  if (started) {
+    lastButtonDispenseMs = millis();
+    buttonCooldownArmed = true;
+  }
+  return started;
+}
+
+// A queued press is evaluated on the next loop pass. The shared dispense mutex
+// still drops it if the relay is busy.
+void handleButton() {
+  const unsigned long now = millis();
+
+  // A line that keeps producing rejected edges is faulty, not pressed. More than
+  // five glitches in a minute disables the button for ten minutes; the heartbeat
+  // reports button_disabled so the fleet view can show it.
+  if (buttonNoise.disabled(now)) {
+    if (!buttonWasDisabled) {
+      buttonWasDisabled = true;
+      Serial.printf("[BUTTON] disabled for %lu s: noisy line\n", BUTTON_DISABLE_MS / 1000UL);
+    }
+    if (takeQueuedFeedButtonPress() && buttonLogDue(lastDisabledLogMs)) {
+      Serial.println("[BUTTON] disabled: noisy line");
+    }
+    return;
+  }
+  if (buttonWasDisabled) {
+    buttonWasDisabled = false;
+    Serial.println("[BUTTON] re-enabled after the noise window");
+  }
+
+  // Relay ON .. 2 s after OFF: clear the candidate instead of dispensing it
+  // late. This is what breaks the phantom-feed pattern: the relay/motor
+  // switching off used to register as a fresh button press ~20 s later.
+  if (buttonQuietWindowActive()) {
+    if (takeQueuedFeedButtonPress() && buttonLogDue(lastQuietLogMs)) {
+      Serial.println("[BUTTON] ignored during/after dispense");
+    }
+    return;
+  }
+
+  if (!takeQueuedFeedButtonPress()) return;
+
+  unsigned long lowMs = 0;
+  if (!confirmFeedButtonPress(lowMs)) {
+    buttonGlitchCount++;
+    buttonNoise.recordGlitch(millis());
+    if (buttonNoise.justDisabled()) {
+      buttonNoise.clearJustDisabled();
+      Serial.printf("[BUTTON] disabled for %lu s: noisy line\n", BUTTON_DISABLE_MS / 1000UL);
+      buttonWasDisabled = true;
+    } else if (buttonLogDue(lastGlitchLogMs)) {
+      Serial.printf("[BUTTON] rejected glitch (%lu ms low)\n", lowMs);
+    }
+    return;
+  }
+
+  requestButtonDispense();
 }
 
 // ==================== Feed level monitoring (HC-SR04) ====================
 
-float readFeedLevelPercent() {
-  // Take 3 readings, return median, then linear convert to percent
-  float readings[3];
-  for (int i = 0; i < 3; i++) {
+// Five samples, then the pure filter chain (range rejection, median, EMA,
+// persistence, hysteresis). Returns false when this cycle is not plausible: the
+// heartbeat then omits the level instead of reporting a fake 0 %.
+bool readHopperLevel(float &percent, float &cm) {
+  float samples[HOPPER_SAMPLE_COUNT];
+  for (int i = 0; i < HOPPER_SAMPLE_COUNT; i++) {
     digitalWrite(TRIG_PIN, LOW);
     delayMicroseconds(2);
     digitalWrite(TRIG_PIN, HIGH);
     delayMicroseconds(10);
     digitalWrite(TRIG_PIN, LOW);
-    long duration = pulseIn(ECHO_PIN, HIGH, 30000); // 30ms timeout ~5m max range
-    readings[i] = (duration == 0) ? -1 : duration * 0.034 / 2;
+    long duration = pulseIn(ECHO_PIN, HIGH, 30000);  // 30 ms timeout (~5 m)
+    samples[i] = (duration == 0) ? -1.0f : (float)duration * 0.034f / 2.0f;
     delay(10);
   }
 
-  // Bubble-sort 3 elements for median
-  for (int i = 0; i < 2; i++) {
-    for (int j = 0; j < 2 - i; j++) {
-      if (readings[j] > readings[j + 1]) {
-        float tmp = readings[j];
-        readings[j] = readings[j + 1];
-        readings[j + 1] = tmp;
-      }
-    }
+  const fw::HopperFilter::Result result = hopperFilter.update(samples, HOPPER_SAMPLE_COUNT, millis());
+  if (!result.valid) {
+    sensorInvalidCount++;
+    return false;
   }
-
-  float distance = readings[1]; // median
-  if (distance < 0 || distance >= hopperEmptyCm) return 0;
-  if (distance <= hopperFullCm) return 100;
-  // Linear interpolation for cylindrical bottle
-  return ((hopperEmptyCm - distance) / (hopperEmptyCm - hopperFullCm)) * 100.0;
+  if (result.stateChanged) {
+    Serial.printf("[HOPPER] %s at %.0f%%\n", result.refilled ? "refilled" : "low", result.percent);
+  }
+  percent = result.percent;
+  cm = result.cm;
+  return true;
 }
 
 // ==================== Telemetry + offline event queue ====================
 
 void enqueueEvent(float grams, const char* source, const String &requestId) {
+  // Rate limit at the source. The dispense bucket is sized above the six-per-hour
+  // ceiling, so a real feeding record is never dropped by this limit.
+  if (!dispensedEventBucket.tryConsume(millis())) {
+    queueDropCount++;
+    Serial.println("[WARN] feed_dispensed event rate-limited — dropped");
+    return;
+  }
+
+  int slot = -1;
+  int oldestSlot = -1;
+  uint32_t oldestSeq = 0;
   for (int i = 0; i < EVENT_QUEUE_SIZE; i++) {
     if (!eventQueue[i].used) {
-      eventQueue[i].used = true;
-      eventQueue[i].synced = false;
-      eventQueue[i].grams = grams;
-      strncpy(eventQueue[i].source, source, sizeof(eventQueue[i].source) - 1);
-      eventQueue[i].requestId = requestId;
-      eventQueue[i].isoTimestamp = rtcAvailable ? getRTCiso8601() : "unknown";
-      eventQueue[i].eventId = generateEventId();  // id fixed at creation (Gap #2)
-      return;
+      slot = i;
+      break;
+    }
+    if (!eventQueue[i].synced && (oldestSlot < 0 || eventQueue[i].seq < oldestSeq)) {
+      oldestSlot = i;
+      oldestSeq = eventQueue[i].seq;
     }
   }
-  Serial.println("[WARN] event queue full — oldest unsynced event may be lost");
+  if (slot < 0) {
+    // Bounded queue: drop the oldest unsynced item, never the newest. The loss
+    // is counted in the heartbeat (diag.queue_drops) and on the Serial line.
+    queueDropCount++;
+    if (oldestSlot < 0) {
+      Serial.println("[WARN] event queue full — event dropped");
+      return;
+    }
+    slot = oldestSlot;
+    Serial.println("[WARN] event queue full — oldest event dropped");
+  }
+
+  eventQueue[slot].used = true;
+  eventQueue[slot].synced = false;
+  eventQueue[slot].seq = nextEventSequence++;
+  eventQueue[slot].grams = grams;
+  strncpy(eventQueue[slot].source, source, sizeof(eventQueue[slot].source) - 1);
+  eventQueue[slot].source[sizeof(eventQueue[slot].source) - 1] = '\0';
+  eventQueue[slot].requestId = requestId;
+  eventQueue[slot].isoTimestamp = rtcAvailable ? getRTCiso8601() : "unknown";
+  eventQueue[slot].eventId = generateEventId();  // id fixed at creation (Gap #2)
 }
 
 void flushQueuedEvents() {
   // Never replay a feed event without an identity: the server would reject it
   // and the event remains queued until the unit is provisioned.
   if (!apiIdentityAvailable() || WiFi.status() != WL_CONNECTED) return;
+  if (!eventFlushRetry.ready(millis())) return;
+
   for (int i = 0; i < EVENT_QUEUE_SIZE; i++) {
     if (eventQueue[i].used && !eventQueue[i].synced) {
       if (postFeedEvent(eventQueue[i])) {
         eventQueue[i].synced = true;
         eventQueue[i].used = false;
+      } else {
+        // Back off the whole flush; the next attempt resends the same event_id.
+        eventFlushRetry.recordFailure(millis(), netJitter());
+        return;
       }
       kickWatchdog();  // progress between network posts — not a hang
     }
   }
+  eventFlushRetry.recordSuccess();
 }
 
 bool postFeedEvent(QueuedEvent &ev) {
@@ -2759,9 +4037,16 @@ bool postFeedEvent(QueuedEvent &ev) {
 void sendTelemetry() {
   // No API calls without a provisioned identity; local feeding is unaffected.
   if (!apiIdentityAvailable()) return;
+  const unsigned long now = millis();
+  if (!heartbeatRetry.ready(now)) return;   // backoff after a failed heartbeat
+  if (WiFi.status() != WL_CONNECTED) return;
+
   HTTPClient https;
   kickWatchdog();
-  if (!beginHttps(https, INGEST_URL)) return;
+  if (!beginHttps(https, INGEST_URL)) {
+    heartbeatRetry.recordFailure(millis(), netJitter());
+    return;
+  }
   https.addHeader("Content-Type", "application/json");
   https.addHeader("X-Device-Token", provisionedDeviceToken);
 
@@ -2777,41 +4062,56 @@ void sendTelemetry() {
   doc["timestamp"]         = rtcAvailable ? getRTCiso8601() : "unknown";
   doc["rtc_ok"]            = rtcAvailable;
   doc["feeder_active"]     = feederActive;
-  doc["feed_level_percent"] = readFeedLevelPercent();
-  doc["feed_level_cm"]     = 0; // filled below with actual median distance
+  // 1.5.3: rejected button edges since boot. Zod strips unknown heartbeat keys,
+  // so the ingest route accepts and ignores this field (no server change); the
+  // same counter is named by the `[BUTTON] rejected glitch` Serial line.
+  doc["button_glitches"]   = buttonGlitchCount;
 
-  // Re-read for the cm value (minimal overhead — 3 reads already cached by readFeedLevelPercent)
-  float readings[3];
-  for (int i = 0; i < 3; i++) {
-    digitalWrite(TRIG_PIN, LOW);
-    delayMicroseconds(2);
-    digitalWrite(TRIG_PIN, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(TRIG_PIN, LOW);
-    long duration = pulseIn(ECHO_PIN, HIGH, 30000);
-    readings[i] = (duration == 0) ? -1 : duration * 0.034 / 2;
-    delay(10);
-  }
-  for (int i = 0; i < 2; i++) {
-    for (int j = 0; j < 2 - i; j++) {
-      if (readings[j] > readings[j + 1]) {
-        float tmp = readings[j];
-        readings[j] = readings[j + 1];
-        readings[j + 1] = tmp;
-      }
+  // 1.6.0 fail-safe state. Ingest strips keys its Zod schema does not declare
+  // (verified by apps/web/lib/__tests__/ingest-route.test.ts), so these are
+  // diagnostic until the server stores them; the analog values below
+  // (feed_level_percent, water_temp_c) are still persisted as before.
+  doc["safe_mode"]         = safeModeActive;
+  doc["last_reset_reasons"] = lastResetReasons;
+  JsonObject diag = doc["diag"].to<JsonObject>();
+  diag["fw"] = FW_VERSION;
+  diag["safe_mode"] = safeModeActive;
+  diag["reset_abnormal_count"] = resetHistory.count();
+  diag["reset_reason_mask"] = resetHistory.mask();
+  diag["button_glitches"] = buttonGlitchCount;
+  diag["button_disabled"] = buttonNoise.disabled(millis());
+  diag["relay_overruns"] = relayOverruns;
+  diag["sensor_invalid_count"] = sensorInvalidCount;
+  diag["queue_drops"] = queueDropCount;
+  diag["uptime_s"] = (millis() - bootTime) / 1000UL;
+  diag["min_dispense_gap_s"] = MIN_DISPENSE_GAP_MS / 1000UL;
+  diag["max_dispenses_per_hour"] = MAX_DISPENSES_PER_HOUR;
+  JsonObject refusals = diag["refusals_by_reason"].to<JsonObject>();
+  for (uint8_t i = 1; i < (uint8_t)fw::Refusal::COUNT; i++) {
+    if (refusalCounts[i] > 0) {
+      refusals[fw::refusalReason((fw::Refusal)i)] = refusalCounts[i];
     }
   }
-  doc["feed_level_cm"] = readings[1] >= 0 ? readings[1] : 0;
 
-  // Water temperature (DS18B20)
+  // One hopper read per heartbeat. An implausible cycle is omitted (the server
+  // keeps the last known level and shows it as stale) instead of sending 0 %.
+  float hopperPercent = 0.0f;
+  float hopperCm = 0.0f;
+  if (readHopperLevel(hopperPercent, hopperCm)) {
+    doc["feed_level_percent"] = hopperPercent;
+    doc["feed_level_cm"] = hopperCm;
+  }
+
+  // Water temperature (DS18B20): reject the library's -127/85 sentinels and
+  // anything outside 0..50 C. "Unknown" is an omitted value plus ok=false.
   tempSensor.requestTemperatures();
-  float rawTempC = tempSensor.getTempCByIndex(0);
-  bool tempOk = (rawTempC != DEVICE_DISCONNECTED_C && rawTempC > -10 && rawTempC < 80);
-  if (tempOk) {
+  const float rawTempC = tempSensor.getTempCByIndex(0);
+  if (fw::temperaturePlausible(rawTempC)) {
     doc["water_temp_c"] = rawTempC + tempOffsetC;
     doc["water_temp_ok"] = true;
   } else {
     doc["water_temp_ok"] = false;
+    sensorInvalidCount++;
   }
 
   // Device health metrics
@@ -2827,6 +4127,11 @@ void sendTelemetry() {
   int code = https.POST(out);
   https.end();
   kickWatchdog();
+  if (code >= 200 && code < 300) {
+    heartbeatRetry.recordSuccess();
+  } else {
+    heartbeatRetry.recordFailure(millis(), netJitter());
+  }
   Serial.printf("[POST] %d\n", code);
 }
 
@@ -2905,9 +4210,12 @@ void maintainWiFi() {
     // Deep sleep after prolonged failure (>5 min of retries). The portal
     // starts long before this, so the device never sleeps while provisioning.
     // A pending-verify image must stay awake to honour its 5-minute deadline;
-    // sleeping would leave it pending until the next reset.
-    if (!provisioningActive && !otaHealthCheckActive && wifiRetryCount > 30) {
+    // sleeping would leave it pending until the next reset. Never sleep during
+    // a dispense either: the relay would stay energized with the CPU off, so
+    // the motor is switched off first as a belt-and-braces measure.
+    if (!provisioningActive && !otaHealthCheckActive && !feederActive && wifiRetryCount > 30) {
       Serial.println("[WiFi] prolonged failure — entering deep sleep for 5 minutes");
+      digitalWrite(RELAY_PIN, RELAY_OFF);
       esp_sleep_enable_timer_wakeup(5 * 60 * 1000000ULL);  // 5 minutes in microseconds
       esp_deep_sleep_start();
     }

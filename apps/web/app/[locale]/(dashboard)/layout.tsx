@@ -138,7 +138,7 @@ export default async function DashboardLayout({
 		<ChatWidgetProvider role={isPlatformAdmin ? "superadmin" : isTenantAdmin ? "owner" : "farmer"}>
 			<OfflineSync scope={ownerId} />
 			<OnboardingProvider>
-				<div className="flex min-h-dvh flex-col bg-[#F4F7F6] dark:bg-gray-950">
+				<div className="flex min-h-dvh flex-col overflow-x-clip bg-[#F4F7F6] dark:bg-gray-950">
 					<a
 						href="#main-content"
 						className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50 focus:rounded-xl focus:bg-white focus:px-4 focus:py-2.5 focus:text-sm focus:font-black focus:text-[#0A3D62] focus:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-gray-900 dark:text-[#8fc0ea]"
@@ -255,7 +255,7 @@ export default async function DashboardLayout({
 							<main
 								id="main-content"
 								tabIndex={-1}
-								className="ofd-main relative z-10 flex-1 p-4 focus:outline-none md:p-8"
+								className="ofd-main relative z-10 min-w-0 flex-1 overflow-x-clip p-4 focus:outline-none md:p-8"
 							>
 								<BackToDashboard />
 								{announcement && (

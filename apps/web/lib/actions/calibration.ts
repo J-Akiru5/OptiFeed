@@ -16,7 +16,7 @@ import {
 	TARGET_CHECK_GRAMS_MAX,
 	TARGET_CHECK_GRAMS_MIN,
 	TARGET_CHECK_TOLERANCE_PCT,
-	dailyFeedCapG,
+	resolveDailyCapG,
 } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
@@ -222,6 +222,7 @@ export async function runCalibrationTest(
 				gramsPerSecond: true,
 				lastSeenAt: true,
 				hopperCapacityG: true,
+				dailyCapG: true,
 				pond: { select: { isFallow: true } },
 			},
 		});
@@ -294,7 +295,11 @@ export async function runCalibrationTest(
 			_sum: { grams: true },
 		});
 		const usedTodayG = today._sum.grams ?? 0;
-		const dailyCapG = dailyFeedCapG(device.hopperCapacityG, limits.dailyCapFactor);
+		const dailyCapG = resolveDailyCapG({
+			configuredCapG: device.dailyCapG,
+			hopperCapacityG: device.hopperCapacityG,
+			dailyCapFactor: limits.dailyCapFactor,
+		});
 		if (usedTodayG + testGrams > dailyCapG) {
 			return {
 				success: false,
@@ -361,6 +366,7 @@ export async function runTargetCheck(
 				gramsPerSecond: true,
 				lastSeenAt: true,
 				hopperCapacityG: true,
+				dailyCapG: true,
 				pond: { select: { isFallow: true } },
 			},
 		});
@@ -432,7 +438,11 @@ export async function runTargetCheck(
 			_sum: { grams: true },
 		});
 		const usedTodayG = today._sum.grams ?? 0;
-		const dailyCapG = dailyFeedCapG(device.hopperCapacityG, limits.dailyCapFactor);
+		const dailyCapG = resolveDailyCapG({
+			configuredCapG: device.dailyCapG,
+			hopperCapacityG: device.hopperCapacityG,
+			dailyCapFactor: limits.dailyCapFactor,
+		});
 		if (usedTodayG + checkGrams > dailyCapG) {
 			return {
 				success: false,

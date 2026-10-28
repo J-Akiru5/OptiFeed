@@ -1,5 +1,5 @@
 import { OFFLINE_THRESHOLD_MS, STALE_DISPATCHED_MS } from "@/lib/constants";
-import { dailyFeedCapG, feedGramsSchema, formatZodError } from "@/lib/limits";
+import { feedGramsSchema, formatZodError, resolveDailyCapG } from "@/lib/limits";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
@@ -75,6 +75,7 @@ export async function createManualFeedRequest(
 			gramsPerSecond: true,
 			lastSeenAt: true,
 			hopperCapacityG: true,
+			dailyCapG: true,
 			pond: { select: { isFallow: true } },
 		},
 	});
@@ -160,7 +161,11 @@ export async function createManualFeedRequest(
 		_sum: { grams: true },
 	});
 	const usedTodayG = today._sum.grams ?? 0;
-	const dailyCapG = dailyFeedCapG(device.hopperCapacityG, limits.dailyCapFactor);
+	const dailyCapG = resolveDailyCapG({
+		configuredCapG: device.dailyCapG,
+		hopperCapacityG: device.hopperCapacityG,
+		dailyCapFactor: limits.dailyCapFactor,
+	});
 	if (usedTodayG + feedGrams > dailyCapG) {
 		return {
 			ok: false,

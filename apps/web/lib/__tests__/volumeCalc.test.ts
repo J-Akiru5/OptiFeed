@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_FISH_COUNT } from "../constants";
 import { calculateNextFeeding } from "../volumeCalc";
 
 describe("calculateNextFeeding", () => {
@@ -8,13 +7,17 @@ describe("calculateNextFeeding", () => {
 		// totalBiomass = 0.5 * 5000 = 2500 kg
 		// dailyFeed = 2500 * 0.03 = 75 kg
 		// perFeed = 75 / 3 = 25 kg = 25000 g
-		expect(calculateNextFeeding(0.5, 3, 3)).toBe(25000);
+		expect(calculateNextFeeding(0.5, 3, 3, 5000)).toBe(25000);
 	});
 
-	it("uses default fish count when population is null", () => {
-		const result = calculateNextFeeding(0.5, 3, 3, null);
-		const expected = Math.round(((0.5 * DEFAULT_FISH_COUNT * 0.03) / 3) * 1000 * 100) / 100;
-		expect(result).toBe(expected);
+	it("returns null when population is null", () => {
+		// Amendment A-001, D8: no phantom 5,000-fish fallback.
+		expect(calculateNextFeeding(0.5, 3, 3, null)).toBeNull();
+	});
+
+	it("returns null when population is zero or negative", () => {
+		expect(calculateNextFeeding(0.5, 3, 3, 0)).toBeNull();
+		expect(calculateNextFeeding(0.5, 3, 3, -10)).toBeNull();
 	});
 
 	it("accepts a real pond population", () => {
@@ -34,11 +37,11 @@ describe("calculateNextFeeding", () => {
 	});
 
 	it("returns 0 when feedsPerDay is 0", () => {
-		expect(calculateNextFeeding(0.5, 3, 0)).toBe(0);
+		expect(calculateNextFeeding(0.5, 3, 0, 5000)).toBe(0);
 	});
 
 	it("returns 0 when feedsPerDay is negative", () => {
-		expect(calculateNextFeeding(0.5, 3, -1)).toBe(0);
+		expect(calculateNextFeeding(0.5, 3, -1, 5000)).toBe(0);
 	});
 
 	it("rounds to 2 decimals", () => {
@@ -49,11 +52,11 @@ describe("calculateNextFeeding", () => {
 		expect(calculateNextFeeding(0.123, 4.5, 3, 100)).toBe(184.5);
 	});
 
-	it("handles zero avgWeightKg", () => {
-		expect(calculateNextFeeding(0, 3, 3)).toBe(0);
+	it("returns null for a zero average weight", () => {
+		expect(calculateNextFeeding(0, 3, 3, 5000)).toBeNull();
 	});
 
-	it("handles zero feedingRatePct", () => {
-		expect(calculateNextFeeding(0.5, 0, 3)).toBe(0);
+	it("returns 0 when feedingRatePct is 0", () => {
+		expect(calculateNextFeeding(0.5, 0, 3, 5000)).toBe(0);
 	});
 });

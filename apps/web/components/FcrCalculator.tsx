@@ -11,13 +11,24 @@ interface FcrResult {
 	dailyFeedRationKg: number;
 	totalBiomassGainKg: number;
 	suggestedFeedingRatePct: number;
+	gramsPerFeeding: number | null;
 	latestFcr: number;
 }
 
-export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
+interface FcrCalculatorProps {
+	latestFcr: number;
+	/** The pond this card is shown for; the action never guesses. */
+	pondId: string;
+	/** Pond fish count, prefilled so the farmer does not retype it. */
+	population: number | null;
+	feedsPerDay?: number | null;
+}
+
+export function FcrCalculator({ latestFcr, pondId, population, feedsPerDay }: FcrCalculatorProps) {
 	const t = useTranslations("dashboard.fcrCalculator");
-	const [currentBiomass, setCurrentBiomass] = useState("");
+	const [currentWeight, setCurrentWeight] = useState("");
 	const [targetWeight, setTargetWeight] = useState("");
+	const [fishCount, setFishCount] = useState(population ? String(population) : "");
 	const [days, setDays] = useState("");
 	const [result, setResult] = useState<FcrResult | null>(null);
 	const [loading, setLoading] = useState(false);
@@ -28,11 +39,21 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 		"w-full rounded-xl border border-gray-200 bg-[#F4F7F6] py-3 pl-4 pr-12 text-sm font-semibold text-[#0A3D62] placeholder:text-gray-400 transition-all focus:border-[#E85A2A] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/50 [appearance:textfield] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
 
 	const handleCalculate = async () => {
-		const biomass = Number.parseFloat(currentBiomass);
+		const current = Number.parseFloat(currentWeight);
 		const target = Number.parseFloat(targetWeight);
+		const count = Number.parseInt(fishCount, 10);
 		const daysNum = Number.parseInt(days, 10);
 
-		if (!biomass || !target || !daysNum || biomass <= 0 || target <= 0 || daysNum <= 0) {
+		if (
+			!current ||
+			!target ||
+			!count ||
+			!daysNum ||
+			current <= 0 ||
+			target <= 0 ||
+			count <= 0 ||
+			daysNum <= 0
+		) {
 			toast.error(t("error"));
 			return;
 		}
@@ -40,10 +61,12 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 		setLoading(true);
 		try {
 			const res = await calculateFcrFeed({
-				currentBiomassKg: biomass,
+				pondId,
+				currentWeightKg: current,
 				targetWeightKg: target,
+				population: count,
 				days: daysNum,
-				currentFcr: latestFcr,
+				feedsPerDay: feedsPerDay ?? null,
 			});
 			if (res.success && "totalFeedNeededKg" in res) {
 				setResult(res);
@@ -69,28 +92,31 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 				<div>
 					<h3 className="text-lg font-black text-[#0A3D62] dark:text-[#5b9bd5]">{t("title")}</h3>
 					<p className="text-xs text-[#3D5568] dark:text-gray-400">{t("desc")}</p>
+					<p className="mt-1 text-[11px] font-semibold text-[#3D5568] dark:text-gray-400">
+						{latestFcr > 0 ? t("usingFcr", { fcr: latestFcr.toFixed(2) }) : t("noFcr")}
+					</p>
 				</div>
 			</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
 				<div>
 					<label
-						htmlFor="biomass"
+						htmlFor="currentWeight"
 						className="block text-xs font-bold text-[#3D5568] dark:text-gray-400 uppercase tracking-wider mb-1.5"
 					>
-						{t("currentBiomass")}
+						{t("currentWeight")}
 					</label>
 					<div className="relative">
 						<input
-							id="biomass"
+							id="currentWeight"
 							type="number"
-							value={currentBiomass}
-							onChange={(e) => setCurrentBiomass(e.target.value)}
+							value={currentWeight}
+							onChange={(e) => setCurrentWeight(e.target.value)}
 							placeholder="0.00"
 							className={numberInputClass}
 						/>
 						<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 select-none text-xs font-bold text-[#3D5568] dark:text-gray-400">
-							kg
+							{t("kg")}
 						</span>
 					</div>
 				</div>
@@ -112,7 +138,29 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 							className={numberInputClass}
 						/>
 						<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 select-none text-xs font-bold text-[#3D5568] dark:text-gray-400">
-							kg
+							{t("kg")}
+						</span>
+					</div>
+				</div>
+
+				<div>
+					<label
+						htmlFor="fishCount"
+						className="block text-xs font-bold text-[#3D5568] dark:text-gray-400 uppercase tracking-wider mb-1.5"
+					>
+						{t("population")}
+					</label>
+					<div className="relative">
+						<input
+							id="fishCount"
+							type="number"
+							value={fishCount}
+							onChange={(e) => setFishCount(e.target.value)}
+							placeholder="0"
+							className={numberInputClass}
+						/>
+						<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 select-none text-xs font-bold text-[#3D5568] dark:text-gray-400">
+							{t("fish")}
 						</span>
 					</div>
 				</div>
@@ -164,7 +212,7 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 									{t("totalFeed")}
 								</p>
 								<p className="text-lg font-black text-[#0A3D62] dark:text-gray-100">
-									{result.totalFeedNeededKg} kg
+									{result.totalFeedNeededKg} {t("kg")}
 								</p>
 							</div>
 						</div>
@@ -177,7 +225,7 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 									{t("dailyRation")}
 								</p>
 								<p className="text-lg font-black text-[#0A3D62] dark:text-gray-100">
-									{result.dailyFeedRationKg} kg
+									{result.dailyFeedRationKg} {t("kg")}
 								</p>
 							</div>
 						</div>
@@ -190,7 +238,7 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 									{t("biomassGain")}
 								</p>
 								<p className="text-lg font-black text-[#0A3D62] dark:text-gray-100">
-									{result.totalBiomassGainKg} kg
+									{result.totalBiomassGainKg} {t("kg")}
 								</p>
 							</div>
 						</div>
@@ -208,6 +256,11 @@ export function FcrCalculator({ latestFcr }: { latestFcr: number }) {
 							</div>
 						</div>
 					</div>
+					{result.gramsPerFeeding !== null && (
+						<p className="mt-3 text-xs font-bold text-[#3D5568] dark:text-gray-400">
+							{t("perMeal", { grams: result.gramsPerFeeding })}
+						</p>
+					)}
 				</div>
 			)}
 		</div>

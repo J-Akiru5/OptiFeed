@@ -77,7 +77,7 @@
 		"history": "Kasaysayan",
 		"growth": "Pagtubo",
 		"harvest": "Pag-ani",
-		"calendar": "Kalendaryo",
+		"calendar": "Kalendaryo kag Pag-ani",
 		"settings": "Mga Setting",
 		"notifications": "Mga Notipikasyon",
 		"audit": "Talaan ng Audit",
@@ -409,6 +409,8 @@
 			"nextFeedLabel": "Sunod nga pagpakaon",
 			"nextFeedPaused": "Iskedyul naka-pause",
 			"nextFeedOn": "Sa {date}",
+			"nextFeedToday": "Subong nga adlaw",
+			"nextFeedTomorrow": "Buwas",
 			"waterLabel": "Temperatura sang tubig",
 			"waterValue": "{temp} °C",
 			"waterUnavailable": "Wala nadetektar ang probe",
@@ -562,6 +564,7 @@
 			"saved": "Naka-save!",
 			"error": "Wala naka-save",
 			"feedDurationHint": "Ini nga pagpakaon: {grams}g ≈ {seconds}s",
+			"controlsLabel": "Estado kag mga kontrol sang feeder",
 			"stuckBanner": {
 				"offlineTitle": "Nadiskonekta ang Device",
 				"offlineDesc": "Ang imo device wala nakakonekta halin pa sang {time}. Ang mga request sang pagpakaon ma-reject habang wala nakakonekta; ang pagbag-o sang iskedyul na-save na kag i-apply gihapon kon magkonekta na liwat ini.",
@@ -631,7 +634,11 @@
 			"noBatchesTitle": "Wala pa sang na-save nga sampling batch",
 			"noBatchesDesc": "Ang sampling batch nagagrupo sang mga sampol nga gin-log mo sa parehas nga label.",
 			"formLabel": "Mag-log sang biomass sample",
-			"batchesLabel": "Mga na-save nga sampling batch"
+			"batchesLabel": "Mga na-save nga sampling batch",
+			"howCalculatedTitle": "Paano Ginkuenta",
+			"howBiomass": "Total nga biomass = kadamuon sang isda × average nga timbang.",
+			"howDailyFeed": "Adlaw-adlaw nga pagkaon = total nga biomass × feeding rate.",
+			"howPerMeal": "Pagkaon kada pagpakaon = adlaw-adlaw nga pagkaon ÷ kadamuon sang pagpakaon kada adlaw."
 		},
 		"history": {
 			"amount": "KADAM-ON",
@@ -1019,8 +1026,8 @@
 				"recurringChangeConfirm": "Bag-uhon ang bug-os nga nagabalik nga serye? Pilia ang Cancel para indi mabag-o."
 			},
 			"calendarPage": {
-				"title": "Kalendaryo sang punong",
-				"desc": "Ang tanan nga punong nga makita mo, upod ang mga hitabo nga ma-edit mo.",
+				"title": "Kalendaryo kag Pag-ani",
+				"desc": "Ang crop cycle kag ang tanan nga hitabo sa punong, sa isa ka kalendaryo.",
 				"readOnlyPond": "basa lamang",
 				"readOnlyHint": "Ini nga punong iya sang iban nga uma sa imo organisasyon. Makita mo ang mga hitabo pero indi mo ini ma-edit.",
 				"readOnlyEvent": "Ini nga hitabo iya sang iban nga uma kag basa lamang."
@@ -1042,6 +1049,7 @@
 			"upcoming": {
 				"title": "Palapit nga events",
 				"next": "Sunod {count}",
+				"loading": "Ginakarga ang palapit nga mga event…",
 				"empty": "Wala sang palapit nga event.",
 				"listLabel": "Mga masunod nga hitabo"
 			},
@@ -1589,7 +1597,7 @@
 				"step2": "Bukas ang http://192.168.4.1 sa imo browser.",
 				"step3": "Ibutang ang ngalan sang WiFi sang uma kag ang password.",
 				"step4": "Ibutang ang Device ID nga makita sa ibabaw kag ang Device Token.",
-				"step5": "I-save. Mag-restart ang device kag magakonekta ini.",
+				"step5": "Pinduta ang Connect and save. Ginatest anay sang device ang network, tapos mag-restart kag magkonekta ini.",
 				"credentialsNote": "Pangayo-a ang Device Token sa imo farm administrator, ukon buksi ang Admin → Devices kag pinduta ang “Show token” para sa sini nga unit.",
 				"tokenWarning": "Ang Device Token kredensyal ini — ipaambit lamang sa tawo nga naga-provision sini nga unit.",
 				"recoveryTitle": "Kon indi magpakita ang setup network",
@@ -1597,6 +1605,13 @@
 			},
 			"hopperCalibration": "Pag-calibrate sang Hopper",
 			"hopperCalibrationDesc": "I-set ang distansya sang ultrasonic sensor para sa imo hopper. Ginagamit para sa pagkalkula sang lebel kag nabilin nga mga adlaw.",
+			"dailyCeiling": "Limit sang pakaon sa isa ka adlaw",
+			"dailyCeilingDesc": "Ang pinakamadamo nga pakaon nga maibubo sang feeder sa isa ka adlaw (Asia/Manila). 2,000 g ang default; indi puede magsobra sa 5,000 g.",
+			"dailyCeilingLabel": "Limit (g/adlaw)",
+			"dailyCeilingHint": "Default 2000 g. Halin 500 tubtob 5,000 g.",
+			"dailyCeilingSave": "I-save ang limit",
+			"dailyCeilingSaved": "Naisave ang limit sang pakaon.",
+			"dailyCeilingError": "Indi maisave ang limit sang pakaon.",
 			"hopperFullCm": "Distansya kon Puno (cm)",
 			"hopperFullCmDesc": "Pagbasa sang sensor kon puno ang hopper",
 			"hopperEmptyCm": "Distansya kon Wala (cm)",
@@ -1853,7 +1868,10 @@
 		"fcrCalculator": {
 			"title": "Kalkulador sang Kinahanglanon nga Pagkaon",
 			"desc": "Kalkulahon ang pagkaon nga kinahanglan para mabatunon ang imo target nga timbang.",
-			"currentBiomass": "Kasamtangan nga Biomass (kg)",
+			"currentWeight": "Kasamtangan nga average nga timbang (kg)",
+			"population": "Kadamu sang isda",
+			"fish": "isda",
+			"kg": "kg",
 			"targetWeight": "Target nga Timbang (kg)",
 			"daysToTarget": "Adlaw Padulong sa Target",
 			"days": "ka adlaw",
@@ -1864,7 +1882,10 @@
 			"totalFeed": "Kabug-atan sang Pagkaon Nabilin",
 			"dailyRation": "Adlaw-adlaw nga Bahin sang Pagkaon",
 			"biomassGain": "Kabug-atan sang Biomass Gain",
-			"suggestedRate": "Ginasugyot nga Rate sang Pagpakaon"
+			"suggestedRate": "Ginasugyot nga Rate sang Pagpakaon",
+			"perMeal": "Kada pakaon: {grams} g",
+			"usingFcr": "Ginagamit ang pinakabag-o nga FCR: {fcr}",
+			"noFcr": "Wala pa FCR report - 1.5 nga reference ang ginagamit."
 		},
 		"importExport": {
 			"export": "I-export ang Datos",
@@ -3434,7 +3455,7 @@
 				"intro": "Average nga timbang sang lawas, feed conversion kag ang plano nga ginasunod sang feeder. Ang history nagatago sang tanan nga sampol."
 			},
 			"harvest": {
-				"title": "Pag-ani kag Kalendaryo",
+				"title": "Kalendaryo kag Pag-ani",
 				"intro": "Ang crop cycle kag ang mga event sa kalendaryo sang punong."
 			},
 			"settings": {
@@ -3513,6 +3534,7 @@
 			"settings-pond": "Ang pond settings may feeding rate, meals per day, sampling interval kag kadako sang punong. Ang pag-save nagapila sang pagbag-o sa feeder.",
 			"settings-calibration": "Ang rate calibration nagapagwa sang sukod nga dosis kag nagacorrect sang grams per second. Ang target check nagapagwa sang dosis nga imo timbangon, kag ginasulit hasta ang error lima ka porsyento lang.",
 			"settings-hopper": "Ang hopper calibration nagakombertir sang distance reading sang sensor sa kilo, gamit ang full kag empty nga kataas kag ang kapasidad sang imo hopper.",
+			"settings-daily-ceiling": "Ang limit sa adlaw amo ang pinakamadamo nga pakaon nga maibubo sang feeder sa isa ka adlaw. Nagasugod sa 2,000 g kag puede mapataas tubtob 5,000 g nga safety guard.",
 			"settings-recalibration": "Ibutang kon ano kasami dapat i-recalibrate ang feeder. Ginamarkahan sang app ang device nga overdue kon malabawan na ang interval.",
 			"settings-password": "Diri ka magbag-o sang password. Magapabilin ka nga naka-sign in sa sini nga device.",
 			"settings-notifications": "Ang notification settings nagapili kon diin nga alerts ang magwa sa app kag kon diin man ang mag-email.",

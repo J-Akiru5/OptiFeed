@@ -35,7 +35,7 @@ function heroData(overrides: Partial<FeederHeroData> = {}): FeederHeroData {
 		hopperLevelPercent: 82,
 		hopperUpdatedAt: new Date(2026, 9, 27, 9, 10),
 		gramsToday: 1240,
-		nextFeedAt: new Date(2026, 9, 27, 14, 0),
+		nextFeedSlot: { hours: 14, minutes: 0, dayOffset: 0 },
 		waterTempC: 28.4,
 		waterTempOk: true,
 		waterTempUpdatedAt: new Date(2026, 9, 27, 9, 5),
@@ -100,10 +100,10 @@ describe("FeederHero readings", () => {
 	});
 
 	it("says which day the next feed falls on, not just the hour", () => {
-		renderHero({ nextFeedAt: new Date(2026, 9, 28, 8, 0) });
+		renderHero({ nextFeedSlot: { hours: 8, minutes: 0, dayOffset: 1 } });
 
 		expect(within(callouts()).getByText("8:00 AM")).toBeInTheDocument();
-		expect(within(callouts()).getByText("On Oct 28")).toBeInTheDocument();
+		expect(within(callouts()).getByText("Tomorrow")).toBeInTheDocument();
 	});
 
 	it("reports a paused schedule instead of a feed time", () => {

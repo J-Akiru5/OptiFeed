@@ -108,7 +108,7 @@
 
 // Reported at boot and in the heartbeat body so the fleet and the OTA rollout
 // can tell builds apart. Bump on every firmware change.
-#define FW_VERSION "1.6.0"
+#define FW_VERSION "1.6.1"
 // Board string the signed manifest must carry. One value for every unit this
 // firmware runs on (ESP32-WROOM-32U); a manifest for another board is refused.
 #define FW_BOARD "wroom32u"
@@ -524,8 +524,12 @@ bool resetButtonsArmed = false;
 // ---- Calibration: how fast the feeder dispenses ----
 // Measure by running the feeder for a fixed time and weighing the output:
 // gramsPerSecond = grams_dispensed / seconds_run.
-// Mutable — overridden by backend poll response (grams_per_second).
-float gramsPerSecond = 4.0;
+// Mutable — overridden by the backend poll response (grams_per_second) and
+// persisted to NVS, so a reboot keeps the dashboard calibration instead of
+// running on the compile-time default until the next successful poll.
+#define DEFAULT_GRAMS_PER_SECOND 4.0f
+#define NVS_KEY_CAL_GPS "cal_gps"
+float gramsPerSecond = DEFAULT_GRAMS_PER_SECOND;
 
 // ---- Default dispense amounts per trigger source ----
 #define DEFAULT_SCHEDULED_GRAMS 150.0  // used until backend gives us a real value
@@ -919,6 +923,40 @@ void loadDeviceIdentity() {
   if (!apiIdentityAvailable()) {
     Serial.println("[IDENTITY] not provisioned - API disabled");
   }
+}
+
+// ---- Dispense calibration (grams per second) -----------------------------
+// The dashboard is the source of truth: the backend poll and schedule-sync
+// both carry grams_per_second. It is mirrored into NVS so that a reboot does
+// not silently revert to DEFAULT_GRAMS_PER_SECOND until the next poll - a feed
+// triggered in that window would otherwise run at the wrong rate.
+void loadCalibration() {
+  const bool stored = prefs.isKey(NVS_KEY_CAL_GPS);
+  float gps = prefs.getFloat(NVS_KEY_CAL_GPS, DEFAULT_GRAMS_PER_SECOND);
+  if (!(gps >= GRAMS_PER_SECOND_MIN && gps <= GRAMS_PER_SECOND_MAX)) {
+    Serial.printf("[CAL] stored grams_per_second %.2f out of range - using %.2f\n",
+                  gps, (double)DEFAULT_GRAMS_PER_SECOND);
+    gps = DEFAULT_GRAMS_PER_SECOND;
+  }
+  gramsPerSecond = gps;
+  Serial.printf("[CAL] grams_per_second=%.2f (%s)\n", gramsPerSecond,
+                stored ? "from NVS" : "compile-time default");
+}
+
+// Apply a server-pushed calibration. Writes NVS only when the value actually
+// changes, so a poll every few seconds cannot wear the flash.
+void applyGramsPerSecond(float gps, const char *source) {
+  if (!(gps >= GRAMS_PER_SECOND_MIN && gps <= GRAMS_PER_SECOND_MAX)) {
+    Serial.printf("[CAL] refused grams_per_second %.2f from %s (out of range)\n",
+                  gps, source);
+    return;
+  }
+  const float delta = gps - gramsPerSecond;
+  if (delta < 0.001f && delta > -0.001f) return;  // unchanged - no NVS write
+  gramsPerSecond = gps;
+  prefs.putFloat(NVS_KEY_CAL_GPS, gramsPerSecond);
+  Serial.printf("[CAL] grams_per_second=%.2f applied from %s (saved to NVS)\n",
+                gramsPerSecond, source);
 }
 
 void saveDeviceIdentity(const String &deviceId, const String &deviceToken) {
@@ -3048,6 +3086,7 @@ void setup() {
   prefs.putUInt("rebootCount", rebootCount);
   Serial.printf("[INIT] Boot #%lu\n", rebootCount);
   loadDeviceIdentity();
+  loadCalibration();
 
   // Button held through boot resets WiFi only; the device identity stays.
   // The interrupt is attached after this hold, so the hold can never queue a
@@ -3536,8 +3575,7 @@ void pollDashboardFeedCommand() {
         if (hopperCalibrationChanged) configureHopperFilter();
         // Duration calibration — motor dispense rate
         if (doc["grams_per_second"].is<float>()) {
-          float gps = doc["grams_per_second"];
-          if (gps > 0) gramsPerSecond = gps;
+          applyGramsPerSecond(doc["grams_per_second"] | gramsPerSecond, "feed-command");
         }
         // Temperature calibration offset
         if (doc["temp_offset_c"].is<float>()) {
@@ -3670,8 +3708,7 @@ void pollScheduleCommand() {
           }
           // Duration calibration — motor dispense rate
           if (doc["grams_per_second"].is<float>()) {
-            float gps = doc["grams_per_second"];
-            if (gps > 0) gramsPerSecond = gps;
+            applyGramsPerSecond(doc["grams_per_second"] | gramsPerSecond, "schedule-sync");
           }
           // Temperature calibration offset
           if (doc["temp_offset_c"].is<float>()) {

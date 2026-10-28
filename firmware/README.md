@@ -136,6 +136,37 @@ Boot always forces `RELAY_OFF` in both modes, and every safety cap is unchanged.
 The 2026-10-27 bench unit did not click, so both polarities still need a
 hardware check.
 
+### Dispense calibration (dashboard is the source of truth)
+
+The dashboard writes `EnergyDevice.gramsPerSecond`; both poll endpoints push it
+as `grams_per_second`, and the sketch applies it on the next poll:
+
+```
+[CAL] grams_per_second=2.00 applied from feed-command (saved to NVS)
+```
+
+The value is mirrored into NVS (`cal_gps`), so a reboot continues on the
+calibrated rate instead of the `4.0` compile-time default. NVS is written only
+when the value actually changes, so a poll every few seconds cannot wear the
+flash. At boot the sketch prints where the value came from:
+
+```
+[CAL] grams_per_second=2.00 (from NVS)      // restored after reboot
+[CAL] grams_per_second=4.00 (compile-time default)   // never calibrated
+```
+
+An out-of-range value is refused and logged rather than applied:
+
+```
+[CAL] refused grams_per_second 0.10 from feed-command (out of range)
+```
+
+The relay duration is `grams / gramsPerSecond`, confirmed at fire time:
+
+```
+[FEED] dispensing 150g (~75000ms) - source: scheduled
+```
+
 The build must stay warning-free for our own sketch (`firmware-main.ino`), including zero
 ArduinoJson deprecation warnings. The only warnings tolerated are two
 `extra tokens at end of #undef directive` lines emitted by OneWire 2.3.8, which is third-party

@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Feed figures now use **live fish** (stocked count less the grow-out cycle's mortality allowance) instead of the stocked count: for the data sheet's last row, 0.1405 kg × 285 × 5 % = 2.002 kg/day instead of 2.110 kg from the 300 stocked fish. The value the feeder dispenses, the sample-save recommendation, the log-sample preview, the feeder hero and the PDF report all use the same count. A pond with no fish count no longer silently assumes 5,000 fish for the advisor.
+- Hopper level: an ultrasonic read that times out is reported by the firmware as `0 %` with a `0 cm` distance. Ingest now treats that pair as "no reading" instead of overwriting the last level and firing a false CRITICAL "hopper nearly empty" alert (and Telegram message) on every failed read. A real empty hopper (0 % with a real distance) still alerts.
+- Days of feed remaining is computed once (`lib/feed-level.ts`) and used by both the dashboard card and the two-day alert, with zero/negative guards so an uncalibrated device shows "—" instead of 0, Infinity or NaN. The dashboard uses the pending/effective schedule's meals per day, and the hopper badge follows the org's low-hopper threshold (e.g. 30 %) instead of the legacy 20 %.
+- Calibration drift: an upward sensor spike of 5 points or less no longer counts the same pellets twice (70 % → 75 % noise → 60 % is a 10-point drop, not 15), and the hardware page's drift check excludes imported `hand_fed` daily totals the same way the dashboard and assistant already did.
+- The feeder hero's "next feed" time is resolved in the farm's timezone (`Asia/Manila`) instead of the server's local timezone, so it no longer renders eight hours off when the server runs in UTC. The duplicate next-feeding maths was consolidated onto `computeNextFeedingSlot`.
+- The recalibration reminder job pages through every device instead of stopping at the first 200, so a platform with more feeders does not silently drop the rest.
+
 ### Changed
 
 - Firmware pin map now matches the hardwired CICT Building A board: feed button GPIO 27 → 23, DS18B20 GPIO 26 → 32, HC-SR04 TRIG GPIO 32 → 12, ECHO GPIO 33 → 14. The relay default stays on GPIO 25 and the CICT unit stays on GPIO 5, built with `-e esp32dev-relay5`: GPIO 5 straps only SDIO slave timing, so it does not need rewiring. Units still on the old map need the matching build flags or a rewire.

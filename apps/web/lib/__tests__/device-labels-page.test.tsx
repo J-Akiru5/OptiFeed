@@ -16,45 +16,68 @@ vi.mock("@/lib/settings/sticker-rating", () => ({ getStickerRatingDefault: vi.fn
 vi.mock("@/lib/prisma", () => ({ default: {} }));
 
 import DeviceLabelsPage from "@/app/[locale]/(print)/admin/devices/labels/page";
+import { DeviceLabelEmptyState } from "@/components/admin/device-label-empty-state";
 import { getDevicesForLabels } from "@/lib/actions/admin";
 
 const mockGetDevicesForLabels = vi.mocked(getDevicesForLabels);
+
+const devices = [
+	{ id: "dev-a1", label: "Feeder 1", mac: "A4:CF:12:7E:3B:09" },
+	{ id: "dev-a2", label: "Feeder 2", mac: "a4:cf:12:7e:00:ff" },
+];
 
 beforeEach(() => {
 	vi.clearAllMocks();
 });
 
 describe("device labels page", () => {
-	it("answers not found when no requested device is in scope", async () => {
+	it("answers not found when an explicitly requested device is out of scope", async () => {
 		mockGetDevicesForLabels.mockResolvedValue([]);
 		await expect(
 			DeviceLabelsPage({ searchParams: Promise.resolve({ id: "dev-b1" }) }),
 		).rejects.toThrow("NEXT_NOT_FOUND");
+		expect(mockGetDevicesForLabels).toHaveBeenCalledWith(["dev-b1"]);
 	});
 
-	it("accepts one id, a repeated id parameter, or none", async () => {
-		mockGetDevicesForLabels.mockResolvedValue([]);
-		await expect(
-			DeviceLabelsPage({ searchParams: Promise.resolve({ id: ["a", "b"] }) }),
-		).rejects.toThrow("NEXT_NOT_FOUND");
-		expect(mockGetDevicesForLabels).toHaveBeenLastCalledWith(["a", "b"]);
+	it("prints every device in scope when no id is requested", async () => {
+		mockGetDevicesForLabels.mockResolvedValue(devices);
 
-		await expect(DeviceLabelsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(
-			"NEXT_NOT_FOUND",
+		const element = await DeviceLabelsPage({ searchParams: Promise.resolve({}) });
+
+		expect(mockGetDevicesForLabels).toHaveBeenCalledWith([]);
+		expect(element.props).toEqual(
+			expect.objectContaining({
+				devices,
+				backHref: "/admin/devices",
+				searchParams: {},
+			}),
 		);
-		expect(mockGetDevicesForLabels).toHaveBeenLastCalledWith([]);
+	});
+
+	it("keeps the caller's selected ids, including a repeated parameter", async () => {
+		mockGetDevicesForLabels.mockResolvedValue(devices);
+		await DeviceLabelsPage({ searchParams: Promise.resolve({ id: ["a", "b"] }) });
+		expect(mockGetDevicesForLabels).toHaveBeenLastCalledWith(["a", "b"]);
+	});
+
+	it("renders an empty state instead of a 404 when the scope has no devices", async () => {
+		mockGetDevicesForLabels.mockResolvedValue([]);
+
+		const element = await DeviceLabelsPage({ searchParams: Promise.resolve({}) });
+
+		expect(element.type).toBe(DeviceLabelEmptyState);
+		expect(element.props).toEqual({ backHref: "/admin/devices" });
 	});
 
 	it("passes the per-print rating params through to the sheet", async () => {
-		const devices = [{ id: "dev-a1", label: "Feeder 1", mac: "A4:CF:12:7E:3B:09" }];
-		mockGetDevicesForLabels.mockResolvedValue(devices);
+		mockGetDevicesForLabels.mockResolvedValue([devices[0]]);
 		const searchParams = { id: "dev-a1", voltage: "230", hz: "50", measured: "1" };
 
 		const element = await DeviceLabelsPage({ searchParams: Promise.resolve(searchParams) });
 
 		expect(element.props).toEqual(
 			expect.objectContaining({
-				devices,
+				devices: [devices[0]],
 				backHref: "/admin/devices",
 				searchParams,
 			}),

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- #274 Admin → Devices: "Print selected labels" submits no `id` when no device is ticked, so `/admin/devices/labels` called `notFound()` and showed a 404. A label sheet opened without `?id=` now prints every device in the caller's tenant scope (bounded by 40, newest first), an explicit selection still returns 404 when nothing in it is in scope, and an empty device registry renders an empty state instead of a not-found page. The Superadmin → Devices label sheet behaves the same way, behind the unchanged platform-admin gate.
+
 ## [1.21.2] - 2026-10-28
 
 ### Changed

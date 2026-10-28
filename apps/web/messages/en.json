@@ -1474,6 +1474,8 @@
 			"back": "Back to devices",
 			"print": "Print / save as PDF",
 			"count": "{count, plural, one {# sticker} other {# stickers}}",
+			"emptyTitle": "No devices to print yet.",
+			"emptyDesc": "Once a feeder is added to a pond, its sticker sheet appears here.",
 			"verifyTitle": "Check before you print.",
 			"verifyIntro": "Only the blower current is read from a label. The gear motor, speed controller and 12 V adapter electronics are estimated, and the total is rounded up ({volts} V, {hz} Hz, {amps} A). It has not been measured with a meter.",
 			"verifyReadLabels": "Compare the estimated motor and electronics current with a meter reading, and update the rating if it differs.",

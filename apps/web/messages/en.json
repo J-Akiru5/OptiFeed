@@ -1564,7 +1564,7 @@
 				"step2": "Open http://192.168.4.1 in your browser.",
 				"step3": "Enter your farm WiFi name and password.",
 				"step4": "Enter the Device ID shown above and the Device Token.",
-				"step5": "Save. The device restarts and connects on its own.",
+				"step5": "Press Connect and save. The device tests the network first, then restarts and connects on its own.",
 				"credentialsNote": "Ask your farm administrator for the Device Token, or open Admin → Devices and press “Show token” for this unit.",
 				"tokenWarning": "The Device Token is a credential — share it only with the person provisioning this unit.",
 				"recoveryTitle": "If the setup network does not appear",

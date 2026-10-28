@@ -14,6 +14,14 @@
 > it is a MAC (otherwise the chip eFuse MAC), the setup page lists nearby 2.4 GHz networks,
 > the feed button is interrupt-driven, and the relay polarity is a build flag. See
 > **Firmware 1.5.0 hardening** below.
+>
+> **Firmware 1.5.2 (issue #252).** The setup portal is branded (PakaonAI fish mark, wordmark
+> and tagline), the network list is filled by an **asynchronous** scan with a **Rescan**
+> button, and a submitted network is **tested before it is saved**: the portal shows
+> `Connecting…`, then either `Connected to <SSID> · IP · signal` (save, restart in 5 s) or a
+> reason (`Not connected: wrong password / network not found / no IP`) with the form kept for
+> a retry. Nothing is written to NVS until the join works. The 1.5.2 changes are described
+> under **Setup Portal** below.
 
 ## Hardware Pinout
 
@@ -191,7 +199,7 @@ namespace or the feeding/safety logic.
 | Setup AP name | `provisioningApSsid()` now uses the last four hex digits of the stored Device ID when it parses as a MAC (`AA:BB:CC:DD:EE:FF`, `AA-BB-…` or 12 bare hex digits). Otherwise it uses the chip eFuse MAC, as before. Both IDs are logged at boot: `[DEVICE MAC]` (chip) and `[IDENTITY] Device ID` / `[IDENTITY] Setup AP name`. |
 | Watchdog-safe poll cycle | API calls use an 8 s connect + 8 s read timeout and the TLS handshake is capped at 8 s. `esp_task_wdt_reset()` runs between every network call in the 5 s cycle and around each dispense, so a slow link cannot trip the 30 s task watchdog. The OTA check (6/10 s) and download (6/12 s plus its own 60 s no-data bound) keep their separate limits. |
 | Feed button never missed | GPIO 23 is read by a falling-edge interrupt with the same 250 ms debounce, at most one pending press, and presses in the first 5 s after boot ignored. A press during a blocking HTTPS call dispenses on the next loop pass. The OTA download still aborts on a button press and dispenses once. |
-| Wi-Fi picker in the setup portal | The portal scans 2.4 GHz networks once at start, sorts them by signal and renders them as a `<select>` with a “Type it manually” option. Names are case-sensitive; manual entry always works. A Wi-Fi link alone does not close the portal while the identity is missing. |
+| Wi-Fi picker in the setup portal | 1.5.2 (issue #252): the portal fills the picker with an **asynchronous** 2.4 GHz scan after the AP is up and the station is idle, sorts the result by signal, deduplicates by SSID, and offers a **Rescan** button. A scan that returns nothing retries once after 2 s; the real `scanNetworks`/`scanComplete` value is logged instead of being shown as "0 networks". Networks render as rows with signal bars and a lock icon (open networks are marked), plus "Type it manually". See **Setup Portal**. |
 | Relay polarity flag | `-DRELAY_ACTIVE_LOW=0` or `1` (default `0`, active HIGH) derives `RELAY_ON` / `RELAY_OFF`; boot still forces OFF. |
 
 ## Configuration
@@ -205,7 +213,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 #define FEED_POLL_URL_BASE     "https://pakaonai.syntaxure.dev/api/feed-command"
 #define SCHEDULE_SYNC_URL_BASE "https://pakaonai.syntaxure.dev/api/schedule-sync"
 #define OTA_CHECK_URL          "https://pakaonai.syntaxure.dev/api/firmware/check"
-#define FW_VERSION             "1.5.0"
+#define FW_VERSION             "1.5.2"
 #define FW_BOARD               "wroom32u"
 ```
 
@@ -304,23 +312,70 @@ working at once, so re-enter the new one in the setup portal.
    stored Device ID when that is a MAC, so it matches the registered device and the sticker.
    The boot log prints `[IDENTITY] Setup AP name` either way.
 2. Open **http://192.168.4.1** (captive-portal redirects also land here).
-3. Pick your network from the **Nearby networks** list (2.4 GHz, strongest first) or type the
-   name. Wi-Fi names are **case-sensitive**. Then enter:
+3. Pick your network from the list (2.4 GHz, strongest first; a lock icon means the network
+   is secured, "Open" means it is not) or type the name. Wi-Fi names are **case-sensitive**.
+   **Rescan** repeats the scan without blocking the feeder. Then enter:
    - **SSID** (1-32 characters) and **password** (empty for an open network, otherwise
      8-63 characters),
    - **Device ID** (1-64 characters) and **Device Token** (8-128 characters), both from
      **Admin → Devices** in the PakaonAI dashboard.
-4. Press **Save and restart**. The device acknowledges the save, reboots after about
-   2 seconds, and joins the network through the normal station path. The portal stops as
-   soon as a join succeeds and does not run during normal operation.
+4. Press **Connect and save**. The unit **tests the network before saving it**: the setup AP
+   stays up, the status page shows `Connecting…` for up to 20 s, and then either
+   - **`Connected to <SSID> · IP x.x.x.x · signal -NN dBm`** — the credentials and identity
+     are written to NVS together, the page says it will restart in 5 s, and the unit
+     restarts into normal operation, or
+   - **`Not connected`** with the reason (wrong password / network not found / no IP) —
+     **nothing is written to NVS**, the old credentials keep working, and the form returns
+     with the error so the network can be corrected and retried.
 
 The identity fields are always rendered blank — the stored token is never sent back to the
-browser. Leave them blank to keep the identity already stored in NVS. If the device has no
-usable identity yet, both fields are required.
+browser. Leave them blank to keep the identity already stored in NVS (or the one from the
+previous attempt in the same portal session). If the device has no usable identity yet, both
+fields are required.
 
-The network scan runs once when the portal starts (about 2–4 s, never from the main loop).
-If your network is missing, type its name manually: the portal stays usable and the scan is
-not a gate.
+### Scan that actually finds networks (1.5.2, issue #252)
+
+The field failure on 2026-10-28 (`WiFi scan found 0 network(s)` with five networks in range)
+had a code cause, not an antenna cause: the portal starts immediately after a failed join, and
+the old synchronous scan ran while the station side was still connecting.
+`esp_wifi_scan_start()` refuses to start in that state (`ESP_ERR_WIFI_STATE`) and the Arduino
+wrapper reports it as `WIFI_SCAN_FAILED` (-2), which the firmware printed as "0 networks".
+
+The 1.5.2 behaviour:
+
+- the station is settled first (`WiFi.setAutoReconnect(false)` + `WiFi.disconnect(false,
+  false)` when it is not connected) and the mode is set to `WIFI_AP_STA` **before** the scan;
+- the scan is **asynchronous** (`WiFi.scanNetworks(true, …)`, polled with `scanComplete()` from
+  `serviceProvisioningScan()`), so `loop()`, the feed button and the 30 s task watchdog are
+  never blocked;
+- the AP and the portal server are already up before the scan starts, so the page loads while
+  the scan runs;
+- an empty or failed scan retries **once after 2 s**; a stuck scan is abandoned after 12 s;
+- the serial log prints the raw value (`WiFi scan started (rc=…)`, `WiFi scan finished: N raw,
+  M shown`, the first five SSIDs/RSSI, or the failure), never a password;
+- a submit stops a running scan before it starts testing the new network.
+
+If a unit still shows no networks: check that the u.FL antenna is attached (the 32U has no PCB
+antenna), move closer to a 2.4 GHz router, then tap **Rescan**. 5 GHz networks are invisible to
+the radio; type the 2.4 GHz SSID by hand if the router hides it.
+
+### Portal endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/` | Setup form; while a join is being tested, the live status page |
+| POST | `/save` | Validate the form and start the test-before-save join (303 to `/`) |
+| GET | `/status` | JSON: `state` (`connecting`/`connected`/`failed`), `ssid`, `ip`, `rssi`, `restartInMs`, `detail` and `message` on failure. Never contains a password or token |
+| GET | `/scan` | JSON: `scanning`, `networks[]` (`ssid`, `rssi`, `secure`), `count`, `rawCount`, `error` |
+| POST | `/scan` | Start an asynchronous rescan (409 while a join is being tested) |
+| any other | — | Captive-portal 302 to `/` |
+
+### Dependencies
+
+Firmware 1.5.2 adds **no library**. The asynchronous scan uses the `WiFi` class that ships with
+the Arduino-ESP32 core (`scanNetworks(async)`, `scanComplete()`, `scanDelete()`), and the JSON
+endpoints use the `ArduinoJson` already listed in `platformio.ini`. `lib_deps` is unchanged, so
+`pio pkg install -d firmware` and all three build environments work from a clean checkout.
 
 ### Button-hold WiFi reset
 
@@ -697,42 +752,58 @@ GRAMS_PER_SECOND = grams_dispensed / seconds_run
 Portal checks (no backend needed):
 
 1. Boot with erased NVS (or the placeholder SSID): the `PakaonAI-XXXX` AP appears and
-   `http://192.168.4.1` serves the setup form with a **Nearby networks** picker, **SSID**,
-   **Password**, **Device ID** and **Device Token** fields, and the case-sensitivity note.
-2. Submit a valid SSID/password and a Device ID/Token: success page, reboot after ~2 s,
-   then a normal join. The next heartbeat uses the submitted identity.
-3. Hold GPIO 23 for 5 s at boot: serial reports the WiFi reset and the portal returns.
+   `http://192.168.4.1` serves the branded setup page (fish mark + PakaonAI wordmark, tagline
+   "Sakto nga pakaon, sakto nga oras.", Device ID and AP name in the footer) with a network
+   list, **SSID**, **Password**, **Device ID** and **Device Token** fields, and the
+   case-sensitivity note.
+2. Confirm the network list shows nearby 2.4 GHz networks after the scan: signal bars, a lock
+   icon on secured networks, strongest first, no duplicate SSID. Serial prints
+   `WiFi scan started (rc=-1)`, then `WiFi scan finished: N raw, M shown` and the first five
+   SSIDs/RSSI. **Rescan** refreshes the list without a page reload or a feeder pause. Put the
+   unit next to a 5 GHz-only router: no network is expected, and the page says
+   "No Wi-Fi networks found. Check that the antenna is attached…".
+3. Submit a valid SSID/password and a Device ID/Token: the status page shows `Connecting…`,
+   then `Connected!` with the SSID, IP and signal, and the unit restarts ~5 s later. The next
+   heartbeat uses the submitted identity.
+4. Submit a **wrong password**: the status page shows `Not connected` with the wrong-password
+   message, the form returns with the error, and the serial log says
+   `[PROV] Join failed (wrong_password) - credentials NOT saved`. Confirm the unit still uses
+   its previous credentials (or stays unprovisioned if this was the first setup) — the NVS
+   keys must be unchanged.
+5. Submit an SSID that does not exist: `Not connected` with `network not found`, nothing saved.
+6. Hold GPIO 23 for 5 s at boot: serial reports the WiFi reset and the portal returns.
    The identity fields are blank with the "leave blank to keep existing" placeholder;
    submit only a new SSID/password and confirm the same Device ID is still used.
-4. Let the unit run for more than 5 s, then hold the **Wi-Fi reset button (GPIO 17)**
+7. Let the unit run for more than 5 s, then hold the **Wi-Fi reset button (GPIO 17)**
    for 5 s: serial reports `[RESET] WiFi reset button held`, the unit reboots and the
    portal returns with the identity kept (both identity fields say "leave blank to
    keep existing").
-5. Provision the unit, let it run past the 5 s grace, then hold the **factory reset
+8. Provision the unit, let it run past the 5 s grace, then hold the **factory reset
    button (GPIO 16)** for 10 s: serial reports `[RESET] Factory reset button held`,
    and the portal returns with no usable identity (both identity fields are required).
-6. Hold **both** buttons: no reset happens at 5 s, and the factory reset completes at
+9. Hold **both** buttons: no reset happens at 5 s, and the factory reset completes at
    10 s — the factory reset wins.
-7. Submit an SSID outside 1-32 characters, a password of 1-7 characters, a Device ID
-   longer than 64 characters, or a token outside 8-128 characters: the form redisplays
-   with an error and the device does not reboot.
-8. Boot a unit with a stored SSID and a stored identity: the portal does not start.
-   Boot one with **no** identity (or after a factory reset): the portal starts and the
-   serial log prints `[IDENTITY] not provisioned - API disabled`, and the backend sees
-   no ingest, feed-command, schedule-sync or OTA request while local scheduled feeding
-   still fires.
-9. Confirm the serial log never prints the WiFi password or the Device Token, and that
-   the setup page never renders a stored token.
-10. Confirm the boot log prints `[FIRMWARE] v1.5.0` under the `[DEVICE MAC]` line and
+10. Submit an SSID outside 1-32 characters, a password of 1-7 characters, a Device ID
+    longer than 64 characters, or a token outside 8-128 characters: the form redisplays
+    with an error and no join is started.
+11. Boot a unit with a stored SSID and a stored identity: the portal does not start.
+    Boot one with **no** identity (or after a factory reset): the portal starts and the
+    serial log prints `[IDENTITY] not provisioned - API disabled`, and the backend sees
+    no ingest, feed-command, schedule-sync or OTA request while local scheduled feeding
+    still fires.
+12. Confirm the serial log never prints the WiFi password or the Device Token, and that
+    the setup page never renders a stored token. `/status` and `/scan` must not contain
+    either.
+13. Confirm the boot log prints `[FIRMWARE] v1.5.2` under the `[DEVICE MAC]` line and
     `[IDENTITY] Setup AP name`, and that a heartbeat carries the same version in
     `firmware_version`.
-11. Confirm the boot log prints `[INIT] Reset reason: ...`, `[OTA] state -> valid` and
+14. Confirm the boot log prints `[INIT] Reset reason: ...`, `[OTA] state -> valid` and
     `[OTA] LAN ArduinoOTA disabled (field build; -DENABLE_LAN_OTA for bench)`.
-12. With a stored MAC Device ID, confirm the AP name uses its last four hex digits; with
+15. With a stored MAC Device ID, confirm the AP name uses its last four hex digits; with
     a non-MAC Device ID, confirm it uses the chip eFuse MAC.
-13. Press the feed button for ~50 ms while a 5 s network cycle is running: exactly one
+16. Press the feed button for ~50 ms while a 5 s network cycle is running: exactly one
     button dose dispenses, and the serial log shows no missed press.
-14. Build with `-DRELAY_ACTIVE_LOW=1` and confirm the relay rests OFF at boot and only
+17. Build with `-DRELAY_ACTIVE_LOW=1` and confirm the relay rests OFF at boot and only
     energizes for a dose.
 
 After flashing, test the API endpoints against the production backend:

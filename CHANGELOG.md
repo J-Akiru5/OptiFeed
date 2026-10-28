@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Firmware 1.5.2 (#252): the setup portal is branded (PakaonAI fish mark, wordmark, tagline "Sakto nga pakaon, sakto nga oras.") and fills its network list with an asynchronous 2.4 GHz scan with a **Rescan** button, signal bars, a lock icon for secured networks and deduplication by SSID. The footer shows the unit's Device ID and AP name.
+- Firmware 1.5.2 (#252): submitting the portal form now tests the network first. The setup AP stays up, the status page shows `Connecting…` and then `Connected to <SSID> · IP · signal` or a failure reason, and only a working link is saved (restart after 5 s).
+
+### Fixed
+
+- Firmware 1.5.2 (#252): the setup portal's network scan reported 0 networks when the portal started right after a failed join, because the station was still connecting (`esp_wifi_scan_start` returns `ESP_ERR_WIFI_STATE`, which the old code printed as "0 network(s)"). The scan now settles the station first, runs after `WIFI_AP_STA` is set and asynchronously, logs the real return value and retries once after 2 s.
+- Firmware 1.5.2 (#252): a failed join no longer saves the credentials. The old NVS values are left untouched and the form returns with the reason (wrong password / network not found / no IP) so it can be retried.
+
 ## [1.19.1] - 2026-10-28
 
 ### Changed

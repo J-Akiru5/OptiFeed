@@ -189,7 +189,7 @@ export default async function SchedulePage() {
 					aria-label={t("controlsLabel")}
 					className="contents xl:sticky xl:top-24 xl:flex xl:min-w-0 xl:flex-col xl:gap-4"
 				>
-					<div className="order-2 xl:order-none">
+					<div className="order-2 empty:hidden xl:order-none">
 						<StuckRequestBanner
 							stuckFeedRequests={stuckFeedRequests.map((r) => ({
 								id: r.id,

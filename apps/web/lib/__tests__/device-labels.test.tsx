@@ -34,16 +34,20 @@ const { findMany } = vi.hoisted(() => {
 		},
 	];
 	type Args = {
-		where: { id: { in: string[] }; pondId: { in: string[] } };
+		where: { id?: { in: string[] }; pondId: { in: string[] } };
 		select: Record<string, true>;
+		take?: number;
 	};
-	const findMany = vi.fn(async (args: Args) =>
-		rows
-			.filter((r) => args.where.id.in.includes(r.id) && args.where.pondId.in.includes(r.pondId))
+	const findMany = vi.fn(async (args: Args) => {
+		const scoped = rows.filter((r) => args.where.pondId.in.includes(r.pondId));
+		const matched =
+			args.where.id === undefined ? scoped : scoped.filter((r) => args.where.id?.in.includes(r.id));
+		return matched
+			.slice(0, args.take ?? matched.length)
 			.map((r) =>
 				Object.fromEntries(Object.keys(args.select).map((k) => [k, r[k as keyof typeof r]])),
-			),
-	);
+			);
+	});
 	return { findMany };
 });
 
@@ -149,12 +153,33 @@ describe("getDevicesForLabels access", () => {
 			pondIds: [],
 		});
 		expect(await getDevicesForLabels(["dev-a1", "dev-b1"])).toEqual([]);
+		// "Print all" fails closed the same way: no ponds in scope, no devices.
+		expect(await getDevicesForLabels([])).toEqual([]);
 	});
 
-	it("ignores blank ids and does not query for an empty selection", async () => {
-		expect(await getDevicesForLabels([])).toEqual([]);
-		expect(await getDevicesForLabels(["", "  "])).toEqual([]);
+	it("prints every device in scope when the selection is missing or blank", async () => {
+		const result = await getDevicesForLabels([]);
+		expect(result.map((d) => d.id).sort()).toEqual(["dev-a1", "dev-a2"]);
+		expect(JSON.stringify(result)).not.toContain("11:22:33:44:55:66");
+
+		// A form submitted with `?id=` and nothing else is not a selection.
+		const blank = await getDevicesForLabels(["", "  "]);
+		expect(blank.map((d) => d.id).sort()).toEqual(["dev-a1", "dev-a2"]);
+	});
+
+	it("bounds the print-all query to MAX_DEVICE_LABELS", async () => {
+		await getDevicesForLabels([]);
+		const args = findMany.mock.calls[0][0];
+		expect(args.where).toEqual({ pondId: { in: orgAScope.pondIds } });
+		expect(args.take).toBe(40);
+		expect(Object.keys(args.select).sort()).toEqual(["id", "label", "mac"]);
+	});
+
+	it("applies the tenant gate before the print-all query", async () => {
+		mockRequireTenantAdmin.mockRejectedValue(new Error("NEXT_REDIRECT"));
+		await expect(getDevicesForLabels([])).rejects.toThrow("NEXT_REDIRECT");
 		expect(findMany).not.toHaveBeenCalled();
+		expect(mockResolveOrgScope).not.toHaveBeenCalled();
 	});
 
 	it("keeps the selected order and de-duplicates", async () => {

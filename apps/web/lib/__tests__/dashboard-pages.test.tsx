@@ -143,6 +143,9 @@ describe("audit page", () => {
 					eventType: "feed_dispensed",
 					source: "scheduled",
 					actorId: null,
+					actorLabel: null,
+					actorRole: null,
+					actorFarmId: null,
 					deviceTime: null,
 					createdAt: new Date("2026-07-08T16:19:00"),
 					metadata: { grams: 500, source: "scheduled" },
@@ -152,6 +155,7 @@ describe("audit page", () => {
 			total: 1,
 			page: 1,
 			pageSize: 20,
+			lastTouch: null,
 		});
 
 		const html = renderToStaticMarkup(await AuditPage({ searchParams: Promise.resolve({}) }));
@@ -170,12 +174,56 @@ describe("audit page", () => {
 			total: 0,
 			page: 1,
 			pageSize: 20,
+			lastTouch: null,
 		});
 
 		const html = renderToStaticMarkup(await AuditPage({ searchParams: Promise.resolve({}) }));
 
 		expect(html).toContain("No events recorded yet.");
 		expect(html).toContain("<ol");
+	});
+
+	it("shows the last touch, the resolved actor and escaped metadata details", async () => {
+		const touch = {
+			id: "evt-touch",
+			eventType: "settings_changed",
+			source: "user",
+			actorId: "farm-1",
+			actorLabel: "Nong Juan",
+			actorRole: "ADMIN",
+			actorFarmId: "farm-1",
+			deviceTime: null,
+			createdAt: new Date("2026-07-09T08:30:00"),
+			metadata: {
+				before: { feedsPerDay: 2 },
+				after: { feedsPerDay: 3 },
+				note: "<script>alert(1)</script>",
+			},
+			device: { id: "dev-1", label: "Feeder 1" },
+		};
+		vi.mocked(getAuditLog).mockResolvedValue({
+			events: [touch],
+			total: 1,
+			page: 1,
+			pageSize: 20,
+			lastTouch: touch,
+		});
+
+		const html = renderToStaticMarkup(await AuditPage({ searchParams: Promise.resolve({}) }));
+
+		expect(html).toContain('aria-label="Last recorded user action"');
+		expect(html).toContain("Last touch");
+		expect(html).toContain("Nong Juan — Settings Changed");
+		expect(html).toContain("by Nong Juan");
+		expect(html).toContain("<details");
+		expect(html).toContain("<summary");
+		expect(html).toContain("Details");
+		expect(html).toContain("Event metadata");
+		expect(html).toContain("ADMIN");
+		expect(html).toContain("feedsPerDay");
+		// Metadata is plain text: React escapes the payload, never executes it.
+		expect(html).toContain("&lt;script&gt;");
+		expect(html).not.toContain("<script>");
 	});
 });
 

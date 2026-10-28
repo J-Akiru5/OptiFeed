@@ -23,6 +23,7 @@ import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { invalidateFarm } from "@/lib/auth/session-cache";
 import { TENANT_ADMIN_ROLES, requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import { getSignedAvatarUrls } from "@/lib/avatars";
+import { parseDeviceLabelIds } from "@/lib/device-label-selection";
 import {
 	dailyCapSchema,
 	feedingRatePctSchema,
@@ -1552,9 +1553,15 @@ export type DeviceLabelRow = { id: string; label: string; mac: string };
 /**
  * Display fields for the printable Wi-Fi/power-rating sticker.
  *
- * Same gate as `revealDeviceToken`: tenant admin, and the device must sit on a
- * pond in the caller's org scope. A device outside the scope is simply absent
- * from the result — indistinguishable from one that does not exist.
+ * Same gate as `revealDeviceToken`: tenant admin, and every device must sit on
+ * a pond in the caller's org scope. A device outside the scope is simply
+ * absent from the result — indistinguishable from one that does not exist.
+ *
+ * An empty selection is not an error. The Devices page's "print selected
+ * labels" form submits no `id` when nothing is ticked, so an empty selection
+ * means "every device in scope", newest first like the list it came from. An
+ * explicit selection keeps the admin's order instead. Both are bounded by
+ * MAX_DEVICE_LABELS.
  *
  * The select is an explicit allow-list. `token` and `tokenHash` are device
  * credentials and must never reach a sticker, so they are not read at all.
@@ -1562,12 +1569,18 @@ export type DeviceLabelRow = { id: string; label: string; mac: string };
 export async function getDevicesForLabels(deviceIds: string[]): Promise<DeviceLabelRow[]> {
 	await requireTenantAdmin();
 
-	const ids = [
-		...new Set(deviceIds.filter((id) => typeof id === "string" && id.trim().length > 0)),
-	].slice(0, MAX_DEVICE_LABELS);
-	if (ids.length === 0) return [];
-
+	const ids = parseDeviceLabelIds(deviceIds).slice(0, MAX_DEVICE_LABELS);
 	const scope = await resolveOrgScope();
+
+	if (ids.length === 0) {
+		return prisma.energyDevice.findMany({
+			where: { pondId: { in: scope.pondIds } },
+			select: { id: true, label: true, mac: true },
+			orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+			take: MAX_DEVICE_LABELS,
+		});
+	}
+
 	const devices = await prisma.energyDevice.findMany({
 		where: { id: { in: ids }, pondId: { in: scope.pondIds } },
 		select: { id: true, label: true, mac: true },

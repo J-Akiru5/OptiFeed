@@ -24,7 +24,6 @@ import { SgrKpi, type SgrKpiLabels } from "@/components/growth/SgrKpi";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
-import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatFarmDateTime } from "@/lib/date-local";

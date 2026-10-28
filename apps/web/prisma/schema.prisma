@@ -92,7 +92,7 @@ model Pond {
   name               String
   feedingRatePct     Float
   feedsPerDay        Int
-  population         Int? // real fish count for total biomass; null → DEFAULT_FISH_COUNT
+  population         Int? // real fish count; null means not set, so no automatic feed calculation
   sampleIntervalDays Int        @default(14)
   scheduleStart      DateTime   @db.Time()
   scheduleEnd        DateTime   @db.Time()

@@ -3,7 +3,7 @@
  *
  * Inputs are per-fish body weights, which is what a farmer measures; the
  * population turns them into biomass. The previous version divided by the
- * hard-coded DEFAULT_FISH_COUNT and treated the labelled "biomass" as a
+ * hard-coded 5,000-fish constant and treated the labelled "biomass" as a
  * per-fish weight, which understated the suggested rate by exactly that
  * constant (5,000x). See Amendment A-001.
  */

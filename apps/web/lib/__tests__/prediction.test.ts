@@ -127,7 +127,7 @@ describe("computeDeterministicPrediction", () => {
 
 	it("baseline matches calculateNextFeeding with same inputs", () => {
 		const result = computeDeterministicPrediction({ ...baseInputs, latestFcr: null });
-		const expected = calculateNextFeeding(0.25, 5, 3, 1000);
+		const expected = calculateNextFeeding(0.25, 5, 3, 1000) ?? 0;
 		expect(result.baselineGrams).toBe(Math.round(expected * 10) / 10);
 	});
 

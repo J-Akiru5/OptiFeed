@@ -164,7 +164,7 @@ export default async function GrowthPage() {
 	const initialPrediction = computeDeterministicPrediction({
 		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
 		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
-		population: pond.population ?? DEFAULT_FISH_COUNT,
+		population: pond.population,
 		avgWeightKg: biomassLogs.length > 0 ? biomassLogs[biomassLogs.length - 1].avgWeightKg : null,
 		latestFcr: fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : null,
 		currentGrams: energyDevice?.gramsPerFeeding ?? null,

@@ -6,6 +6,8 @@ export const EXPORT_ROW_LIMIT = 50_000;
 export const IMPORT_ROW_LIMIT = 5_000;
 export const MAX_PROMPT_LENGTH = 10_000;
 export const PH_TZ = "Asia/Manila";
+/** Asia/Manila has no DST; the device RTC is treated as this offset from UTC. */
+export const PH_UTC_OFFSET_MINUTES = 480;
 
 // §3.1 retrofit: unversioned /api/* paths are dual-served alongside /api/v1/*
 // until this date. New endpoints MUST be created under /api/v1 only.

@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-10-28
+
 ### Added
 
 - Daily feed ceiling per device (`EnergyDevice.dailyCapG`): 2,000 g/day by default, configurable by the farmer (App & Hardware) and by an admin (pond detail), and never above the 5,000 g emergency guard the firmware enforces. Amendment A-001; contract `docs/feeding-single-source-plan.md`.
@@ -21,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Every feeding read now goes through one pond-scoped reader (`lib/feeding/source.ts`). A pond's population is returned as `null` when it is not set, and the phantom 5,000-fish fallback is removed from the dashboard, PDF, growth plan, prediction, chat and sampling preview: the UI asks for the fish count instead of inventing one.
+- Every settings-driven dose is written by one function (`deriveDeviceDose`). The growth-plan adjustment now writes `Pond.feedingRatePct` and re-derives the device dose, so the formula and the feeder cannot diverge after an adjustment.
+- Next-feed time is computed only in Asia/Manila (`computeNextFeedingSlot`); the server-local `setHours` variant was deleted. Device poll responses now carry `server_time_utc` and `farm_offset_minutes` so the firmware can link the RTC to UTC (firmware consumption is a later, reflash-required step).
 - Every daily-cap check now calls one resolver (`resolveDailyCapG`), so the platform `dailyCapFactor` applies identically to schedule saves, manual feeds, calibration doses, pond edits and the AI advisor. Two paths previously ignored the factor.
 - The advisor's per-meal bound derives from the device's ceiling instead of the flat 5,000 g maximum: 1,000 g at two meals and 500 g at four under the new default.
 

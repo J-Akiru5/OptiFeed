@@ -124,7 +124,10 @@ vi.mock("@/lib/actions/farm", () => ({
 	renameFarm: vi.fn(),
 }));
 
-vi.mock("@/lib/actions/settings", () => ({ updatePondSettings: vi.fn() }));
+vi.mock("@/lib/actions/settings", () => ({
+	updatePondSettings: vi.fn(),
+	updateDeviceDailyCap: vi.fn(),
+}));
 vi.mock("@/lib/actions/energy", () => ({
 	saveHopperCalibration: vi.fn(),
 	saveTemperatureCalibration: vi.fn(),

@@ -64,6 +64,7 @@ export type PredictionConfidenceReason =
 	| "fcrMissing"
 	| "aiConfidenceCapped"
 	| "fallow"
+	| "populationMissing"
 	| "noData";
 
 export interface PredictionCycleContext {
@@ -405,6 +406,33 @@ function emptyFactors(inputs: PredictionInputs, sampleAgeDays: number | null): P
 }
 
 /**
+ * A prediction that cannot be produced yet, with the reason the UI shows.
+ * Used for fallow ponds, missing population, and incomplete configuration.
+ */
+function unavailablePrediction(
+	inputs: PredictionInputs,
+	now: Date,
+	sampleAgeDays: number | null,
+	reason: PredictionConfidenceReason,
+	reasoning: string,
+): FeedingPrediction {
+	const clampResult = { clamped: false, reasons: [] as PredictionClampReason[] };
+	return {
+		grams: null,
+		baselineGrams: null,
+		currentGrams: inputs.currentGrams,
+		confidence: "low",
+		confidenceReasons: [reason],
+		reasoning,
+		source: "deterministic",
+		safety: buildSafety(inputs, clampResult),
+		cycle: inputs.cycle ?? null,
+		factors: emptyFactors(inputs, sampleAgeDays),
+		generatedAt: now.toISOString(),
+	};
+}
+
+/**
  * Deterministic per-meal feed prediction — always available, no AI needed.
  *
  * 1. Baseline: standard formula (biomass × feedingRatePct ÷ feedsPerDay).
@@ -446,23 +474,36 @@ export function computeDeterministicPrediction(
 	}
 
 	if (!avgWeightKg || feedsPerDay <= 0 || feedingRatePct <= 0) {
-		const clampResult = { clamped: false, reasons: [] as PredictionClampReason[] };
-		return {
-			grams: null,
-			baselineGrams: null,
-			currentGrams: inputs.currentGrams,
-			confidence: "low",
-			confidenceReasons: ["noData"],
-			reasoning: "Not enough data to predict — log a biomass sample and check pond settings.",
-			source: "deterministic",
-			safety: buildSafety(inputs, clampResult),
-			cycle: inputs.cycle ?? null,
-			factors: emptyFactors(inputs, sampleAgeDays),
-			generatedAt: now.toISOString(),
-		};
+		return unavailablePrediction(
+			inputs,
+			now,
+			sampleAgeDays,
+			"noData",
+			"Not enough data to predict — log a biomass sample and check pond settings.",
+		);
 	}
 
-	const baseline = calculateNextFeeding(avgWeightKg, feedingRatePct, feedsPerDay, population);
+	if (population === null) {
+		return unavailablePrediction(
+			inputs,
+			now,
+			sampleAgeDays,
+			"populationMissing",
+			"Set this pond's fish count to calculate feed — the total biomass cannot be known without it.",
+		);
+	}
+
+	const baselineGrams = calculateNextFeeding(avgWeightKg, feedingRatePct, feedsPerDay, population);
+	if (baselineGrams === null) {
+		return unavailablePrediction(
+			inputs,
+			now,
+			sampleAgeDays,
+			"noData",
+			"Not enough data to predict — log a biomass sample and check pond settings.",
+		);
+	}
+	const baseline = baselineGrams;
 
 	let adjustedRate = feedingRatePct;
 	let fcrNote = "";
@@ -477,8 +518,17 @@ export function computeDeterministicPrediction(
 				: ` Your FCR of ${latestFcr.toFixed(2)} is above the ${REFERENCE_FCR} reference, so the rate is trimmed ${pct}% to reduce waste.`;
 	}
 
-	const adjusted = calculateNextFeeding(avgWeightKg, adjustedRate, feedsPerDay, population);
-	const clampResult = clampPredictionGrams(adjusted, inputs);
+	const adjustedGrams = calculateNextFeeding(avgWeightKg, adjustedRate, feedsPerDay, population);
+	if (adjustedGrams === null) {
+		return unavailablePrediction(
+			inputs,
+			now,
+			sampleAgeDays,
+			"noData",
+			"Not enough data to predict — log a biomass sample and check pond settings.",
+		);
+	}
+	const clampResult = clampPredictionGrams(adjustedGrams, inputs);
 	const { confidence, reasons } = confidenceFor(inputs, now);
 
 	const ageNote =
@@ -497,7 +547,8 @@ export function computeDeterministicPrediction(
 
 	const reasoning = `Standard feed math (biomass × ${feedingRatePct}% ÷ ${feedsPerDay} meals) gives ${round1(baseline)}g per meal from your ${ageNote}.${fcrNote}${currentNote}${cycleNote}`;
 
-	const biomassKg = round2(totalBiomassG(population, avgWeightKg) / 1000);
+	const biomassG = totalBiomassG(population, avgWeightKg);
+	const biomassKg = biomassG === null ? null : round2(biomassG / 1000);
 
 	return {
 		grams: clampResult.grams,

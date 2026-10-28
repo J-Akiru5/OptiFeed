@@ -41,7 +41,7 @@ import { canWrite, getCurrentUser } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
 import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
 import { DEFAULT_HOPPER_RANGE, WATER_TEMP_RANGES, parseWaterTempRange } from "@/lib/chart-windows";
-import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatFarmDateTime, formatWallClockTime } from "@/lib/date-local";
@@ -240,7 +240,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	const initialPrediction = computeDeterministicPrediction({
 		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
 		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
-		population: pond.population ?? DEFAULT_FISH_COUNT,
+		population: pond.population,
 		avgWeightKg: latestBiomass?.avgWeightKg ?? null,
 		latestFcr: fcrReports.length > 0 ? latestFcr : null,
 		currentGrams: energyDevice?.gramsPerFeeding ?? null,
@@ -273,13 +273,14 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	// Daily Feed (g) = Total Biomass (g) × Feeding Rate (%)
 	// Feed per Meal (g) = Daily Feed (g) ÷ Feeds Per Day  (see lib/feed-calc.ts)
 	const pondPopulation = pond.population;
-	let nextFeedingVolumeG = energyDevice?.gramsPerFeeding ?? 330;
+	let nextFeedingVolumeG: number | null = energyDevice?.gramsPerFeeding ?? null;
 	if (latestBiomass) {
-		nextFeedingVolumeG = feedPerMealG(
+		const recommended = feedPerMealG(
 			totalBiomassG(pondPopulation, latestBiomass.avgWeightKg),
 			feedingRatePct,
 			feedsPerDay,
 		);
+		if (recommended !== null) nextFeedingVolumeG = recommended;
 	}
 
 	// Calculate days until next physical weighing (assuming every 14 days)
@@ -353,7 +354,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		waterTempC: energyDevice?.waterTempC ?? null,
 		waterTempOk: energyDevice?.waterTempOk ?? null,
 		waterTempUpdatedAt: energyDevice?.waterTempUpdatedAt?.toISOString() ?? null,
-		population: pond.population ?? DEFAULT_FISH_COUNT,
+		population: pond.population,
 		avgWeightG: latestBiomass ? latestBiomass.avgWeightKg * 1000 : null,
 		latestFcr: fcrReports.length > 0 ? latestFcr : null,
 		nextFeedingTime: isPaused ? null : nextFeedingTimeStr,
@@ -436,7 +437,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	const pondMeta = [
 		{
 			label: t("populationLabel"),
-			value: t("populationValue", { count: pond.population ?? DEFAULT_FISH_COUNT }),
+			value: pond.population ? t("populationValue", { count: pond.population }) : "—",
 		},
 		{
 			label: t("controlRoom.cycleLabel"),
@@ -859,9 +860,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 								/>
 								<StatTile
 									label={t("populationLabel")}
-									value={t("populationValue", {
-										count: pond.population ?? DEFAULT_FISH_COUNT,
-									})}
+									value={pond.population ? t("populationValue", { count: pond.population }) : "—"}
 									detail={t("populationStable")}
 									icon={Layers}
 								/>

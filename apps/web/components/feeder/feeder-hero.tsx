@@ -2,7 +2,7 @@
 
 import { FeederIllustration } from "@/components/feeder/feeder-illustration";
 import { Link } from "@/i18n/routing";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatDateTimeLocal, formatWallClockTime } from "@/lib/date-local";
 import { formatFeedAmountLabel } from "@/lib/feed-figures";
 import { resolveFeedLevelDisplay } from "@/lib/feed-level-display";
 import {
@@ -201,7 +201,7 @@ export function FeederHero({ pondName, className, ...data }: FeederHeroProps) {
 		hopperLevelPercent,
 		hopperUpdatedAt,
 		gramsToday,
-		nextFeedAt,
+		nextFeedSlot,
 		waterTempC,
 		waterTempOk,
 		waterTempUpdatedAt,
@@ -256,17 +256,17 @@ export function FeederHero({ pondName, className, ...data }: FeederHeroProps) {
 			label: t("nextFeedLabel"),
 			value: isPaused
 				? t("nextFeedPaused")
-				: nextFeedAt
-					? formatDateTimeLocal(nextFeedAt, tDates).time
+				: nextFeedSlot
+					? formatWallClockTime(nextFeedSlot.hours, nextFeedSlot.minutes, tDates)
 					: "—",
 			// The time alone would read as today even when the slot is tomorrow's,
 			// so the chip names the day as well.
 			detail: isPaused
 				? undefined
-				: nextFeedAt
-					? t("nextFeedOn", { date: formatDateTimeLocal(nextFeedAt, tDates).date })
+				: nextFeedSlot
+					? t(nextFeedSlot.dayOffset === 1 ? "nextFeedTomorrow" : "nextFeedToday")
 					: undefined,
-			muted: isPaused || !nextFeedAt,
+			muted: isPaused || !nextFeedSlot,
 			position: CALLOUT_POSITIONS[1],
 			index: 1,
 		},

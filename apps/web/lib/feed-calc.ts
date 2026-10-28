@@ -1,5 +1,3 @@
-import { DEFAULT_FISH_COUNT } from "./constants";
-
 function round2(n: number): number {
 	// Epsilon guards float artifacts on exact half values (17.775 → 17.78).
 	return Math.round((n + Math.abs(n) * 1e-9) * 100) / 100;
@@ -7,18 +5,28 @@ function round2(n: number): number {
 
 /**
  * Total biomass in grams: population × average body weight.
- * Null/invalid population falls back to DEFAULT_FISH_COUNT.
+ *
+ * A missing or invalid population returns null instead of assuming a fish
+ * count. Amendment A-001 (D8): no automatic feed number may be produced from a
+ * phantom population.
  */
-export function totalBiomassG(population: number | null | undefined, avgWeightKg: number): number {
-	const count = population && population > 0 ? population : DEFAULT_FISH_COUNT;
-	return round2(avgWeightKg * 1000 * count);
+export function totalBiomassG(
+	population: number | null | undefined,
+	avgWeightKg: number,
+): number | null {
+	if (typeof population !== "number" || !Number.isFinite(population) || population <= 0) {
+		return null;
+	}
+	if (!Number.isFinite(avgWeightKg) || avgWeightKg <= 0) return null;
+	return round2(avgWeightKg * 1000 * population);
 }
 
 /**
  * Daily Feed (g) = Total Biomass (g) × Feeding Rate (%)
  * e.g. 1,185g × 5% = 59.25g
  */
-export function dailyFeedG(biomassG: number, feedingRatePct: number): number {
+export function dailyFeedG(biomassG: number | null, feedingRatePct: number): number | null {
+	if (biomassG === null) return null;
 	return round2(biomassG * (feedingRatePct / 100));
 }
 
@@ -27,10 +35,12 @@ export function dailyFeedG(biomassG: number, feedingRatePct: number): number {
  * e.g. 59.25g ÷ 2 = 29.63g
  */
 export function feedPerMealG(
-	biomassG: number,
+	biomassG: number | null,
 	feedingRatePct: number,
 	feedsPerDay: number,
-): number {
+): number | null {
 	if (feedsPerDay <= 0) return 0;
-	return round2(dailyFeedG(biomassG, feedingRatePct) / feedsPerDay);
+	const daily = dailyFeedG(biomassG, feedingRatePct);
+	if (daily === null) return null;
+	return round2(daily / feedsPerDay);
 }

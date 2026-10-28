@@ -17,6 +17,8 @@ export interface FeederHeroAdvisor {
 }
 
 /** Everything the hero renders. Assembled by `loadFeederHero` on the server. */
+import type { NextFeedingSlot } from "@/lib/schedule/next-feeding-slot";
+
 export interface FeederHeroData {
 	deviceLabel: string;
 	isOffline: boolean;
@@ -26,7 +28,8 @@ export interface FeederHeroData {
 	hopperUpdatedAt: Date | null;
 	/** Grams dispensed since local midnight; 0 when nothing was fed today. */
 	gramsToday: number;
-	nextFeedAt: Date | null;
+	/** Next slot in the farm's wall clock; null when the schedule is invalid. */
+	nextFeedSlot: NextFeedingSlot | null;
 	waterTempC: number | null;
 	waterTempOk: boolean;
 	waterTempUpdatedAt: Date | null;

@@ -27,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Every daily-cap check now calls one resolver (`resolveDailyCapG`), so the platform `dailyCapFactor` applies identically to schedule saves, manual feeds, calibration doses, pond edits and the AI advisor. Two paths previously ignored the factor.
 - The advisor's per-meal bound derives from the device's ceiling instead of the flat 5,000 g maximum: 1,000 g at two meals and 500 g at four under the new default.
 
+## [1.20.1] - 2026-10-28
+
+### Fixed
+
+- Firmware 1.5.3: the feed button needs a 50 ms press, is ignored during and 2 s after a dispense, and is limited to one dispense per 30 s (phantom button feeds on the CICT unit).
+
 ## [1.20.0] - 2026-10-28
 
 ### Changed

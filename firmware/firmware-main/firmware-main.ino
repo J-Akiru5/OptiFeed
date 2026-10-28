@@ -325,9 +325,12 @@ VC2U+UkjnsS9bS7guFXvY41PNeEVH4lp5iEcgtjQc6E+IgFO8QHwfPoRgg==
 
 // Relay signal pin. 25 is the reference wiring; a unit wired to another GPIO is
 // built with -DRELAY_PIN=<n> (see [env:esp32dev-relay5] in platformio.ini).
-// The relay is on GPIO 25 (active HIGH). It must NOT move to GPIO 5: that pin
-// is a strapping pin that also emits a PWM glitch at boot, which would energise
-// the coil on every reset and dispense feed.
+// GPIO 25 is the reference wiring. GPIO 5 also works and is what the CICT unit
+// uses (-DRELAY_PIN=5, env esp32dev-relay5): it is a strapping pin, but only for
+// SDIO slave timing, which this sketch never configures, and strapping is only
+// sampled at reset. Its reset state is a weak internal pull-up, so it sits
+// weakly HIGH until setup() drives it LOW; confirm on the bench that this does
+// not click the relay at power-up.
 #ifndef RELAY_PIN
 #define RELAY_PIN       25
 #endif
@@ -1979,9 +1982,9 @@ void maybeCheckForUpdate() {
 
 void setup() {
   // Relay OFF before anything else: set the level first, then the mode, so the
-  // pin never drives the relay while the board boots. On a unit still wired to
-  // GPIO 5 (strapping pin with a pull-up) that pin is HIGH until this runs,
-  // which is why those units need the external pull-down or a rewire to 25.
+  // pin never drives the relay while the board boots. On a GPIO 5 unit the weak
+  // internal pull-up holds that pin HIGH until this runs; a typical
+  // opto-isolated relay input draws far less than its turn-on current from it.
   digitalWrite(RELAY_PIN, RELAY_OFF);
   pinMode(RELAY_PIN, OUTPUT);
   digitalWrite(RELAY_PIN, RELAY_OFF);   // feeder must NEVER default to dispensing at boot

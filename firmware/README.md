@@ -19,7 +19,7 @@
 
 | Pin   | Usage                                    |
 |-------|------------------------------------------|
-| GPIO 25 | Relay OUT (active HIGH by default; `-DRELAY_ACTIVE_LOW=1` for an active-LOW module). Never GPIO 5: strapping pin with a boot PWM glitch |
+| GPIO 25 | Relay OUT (active HIGH by default; `-DRELAY_ACTIVE_LOW=1` for an active-LOW module). GPIO 5 also works via `-DRELAY_PIN=5` (see Relay pin) |
 | GPIO 23 | Physical button (INPUT_PULLUP, press = LOW). Falling-edge interrupt dispenses the button dose; hold >= 5 s at boot to reset WiFi credentials (device identity is kept) |
 | GPIO 32 | DS18B20 water temperature probe (1-Wire; 4.7 kOhm pull-up to 3.3 V) |
 | GPIO 12 | HC-SR04 TRIG (output). Strapping pin: a 10 kOhm pull-down to GND holds it LOW at boot |
@@ -61,8 +61,9 @@ Do **not** use: 25 (relay), 23 (feed button), 32 (DS18B20), 12/14 (HC-SR04),
 21/22 (RTC I2C), 0/2/15 (strapping), 34-39 (input-only, no internal pull-up),
 1/3 (USB serial), 6-11 (flash). GPIO 12 is a strapping pin that selects the
 flash voltage at boot; the HC-SR04 echo idles LOW and the 10 kOhm pull-down
-keeps it there. Never put the relay on GPIO 5: it is a strapping pin with a boot
-PWM glitch that can click an active-HIGH coil on every reset.
+keeps it there. GPIO 5 stays usable for the relay: strapping only selects SDIO
+slave timing, which this sketch never configures, and it is sampled at reset
+only. Just confirm the weak reset pull-up does not click the module at power-up.
 
 ## Build & flash (PlatformIO)
 
@@ -83,19 +84,20 @@ deploys.
 
 ### Relay pin (build flag)
 
-`RELAY_PIN` defaults to GPIO 25. Units wired to **GPIO 5** (the CICT Building A
-feeder was, until it was rewired to 25 on 2026-10-28) are built with their own
-environment:
+`RELAY_PIN` defaults to GPIO 25. The CICT Building A feeder is wired to
+**GPIO 5**, so it is built and flashed with its own environment:
 
 ```sh
 pio run -d firmware -e esp32dev-relay5 -t upload
 ```
 
-GPIO 5 is a strapping pin with an internal pull-up, so it is HIGH for a moment
-after reset, before `setup()` drives it LOW. With an active-HIGH relay this can
-give a short click at power-up. A 10 kΩ resistor from the relay IN pin to GND
-holds it LOW during boot. Moving the wire to GPIO 25 avoids the issue entirely.
-Boot prints `[INIT] Relay on GPIO <n>`.
+GPIO 5 is a strapping pin, but only for SDIO slave timing, which this firmware
+never configures; strapping is sampled at reset and the pin is an ordinary GPIO
+afterwards. Its reset state is a weak internal pull-up, so it sits weakly HIGH
+until `setup()` drives it LOW. That is normally far too little current to trip
+an opto-isolated relay input, but confirm it on the bench: power-cycle a few
+times and watch the module LED. If it blips, add a 10 kΩ resistor from the relay
+IN pin to GND, or move the wire to GPIO 25. Boot prints `[INIT] Relay on GPIO <n>`.
 
 ### Relay polarity (build flag)
 

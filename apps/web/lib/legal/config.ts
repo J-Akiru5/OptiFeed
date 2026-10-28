@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Legal document configuration.
  *
  * Legal documents use their own semantic version, separate from the app

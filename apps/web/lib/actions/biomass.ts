@@ -231,6 +231,25 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 				pond.population,
 			);
 
+			if (newGrams === null) {
+				await tx.deviceStateEvent.create({
+					data: {
+						deviceId: energyDevice.id,
+						eventType: "biomass_logged",
+						source: "user",
+						actorId: ownerId,
+						metadata: {
+							biomassLogId: log.id,
+							avgWeightKg,
+							sampleCount,
+							autoAdjustSkipped: true,
+							reason: "population or average weight invalid",
+						},
+					},
+				});
+				return finish("skipped_config", null, previousGrams);
+			}
+
 			const newGramsCheck = feedGramsSchema.safeParse(newGrams);
 			if (!newGramsCheck.success) {
 				await tx.deviceStateEvent.create({

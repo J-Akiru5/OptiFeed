@@ -1,4 +1,3 @@
-export const DEFAULT_FISH_COUNT = 5000;
 export const HOPPER_CAPACITY_KG = 22.19;
 export const EXPORT_ROW_LIMIT = 50_000;
 // A single CSV import is capped far below the export ceiling so one request
@@ -6,6 +5,8 @@ export const EXPORT_ROW_LIMIT = 50_000;
 export const IMPORT_ROW_LIMIT = 5_000;
 export const MAX_PROMPT_LENGTH = 10_000;
 export const PH_TZ = "Asia/Manila";
+/** Asia/Manila has no DST; the device RTC is treated as this offset from UTC. */
+export const PH_UTC_OFFSET_MINUTES = 480;
 
 // §3.1 retrofit: unversioned /api/* paths are dual-served alongside /api/v1/*
 // until this date. New endpoints MUST be created under /api/v1 only.

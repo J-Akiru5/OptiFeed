@@ -1,3 +1,4 @@
+import { DeviceDailyCapForm } from "@/components/DeviceDailyCapForm";
 import { DurationCalibrationForm } from "@/components/DurationCalibrationForm";
 import { HopperCalibrationForm } from "@/components/HopperCalibrationForm";
 import { TemperatureCalibrationForm } from "@/components/TemperatureCalibrationForm";
@@ -14,6 +15,7 @@ import {
 } from "@/components/dashboard/dashboard-ui";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { FeederHero } from "@/components/feeder/feeder-hero";
+import { updateDeviceDailyCap } from "@/lib/actions/settings";
 import { canWrite } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
 import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
@@ -28,6 +30,7 @@ import {
 	Activity,
 	CalendarClock,
 	Cpu,
+	Gauge,
 	History,
 	RefreshCw,
 	Ruler,
@@ -151,6 +154,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 					hopperCapacityG: true,
 					gramsPerSecond: true,
 					gramsPerFeeding: true,
+					dailyCapG: true,
 					lastCalibratedAt: true,
 					recalibrationIntervalDays: true,
 					tempOffsetC: true,
@@ -429,6 +433,22 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 					</div>
 				)}
 			</DashboardSection>
+
+			{/* Daily feed ceiling */}
+			{energyDevice && (
+				<DashboardSection
+					title={t("dailyCeiling")}
+					description={t("dailyCeilingDesc")}
+					icon={Gauge}
+				>
+					<DeviceDailyCapForm
+						deviceId={energyDevice.id}
+						currentCapG={energyDevice.dailyCapG}
+						saveAction={updateDeviceDailyCap}
+						canWrite={writeAccess}
+					/>
+				</DashboardSection>
+			)}
 
 			{/* Hopper Calibration */}
 			{energyDevice && (

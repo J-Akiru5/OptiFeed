@@ -1,3 +1,4 @@
+import { DeviceDailyCapForm } from "@/components/DeviceDailyCapForm";
 import { AddFeederForm } from "@/components/admin/add-feeder-form";
 import { adminButtonSecondary, adminSurface } from "@/components/admin/admin-classes";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
@@ -6,6 +7,7 @@ import { PondStatusToggle } from "@/components/admin/pond-status-toggle";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { FeederHero } from "@/components/feeder/feeder-hero";
 import { Link } from "@/i18n/routing";
+import { adminUpdateDeviceDailyCap } from "@/lib/actions/admin";
 import { getTenantRegistrationOptions } from "@/lib/actions/device-registration";
 import { getPondDetail } from "@/lib/actions/ponds";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -290,6 +292,14 @@ export default async function PondDetailPage({
 											<p className="mt-1 text-[11px] font-bold text-[#3D5568] dark:text-gray-400">
 												{t("deviceGrams", { grams: device.gramsPerFeeding })}
 											</p>
+											<div className="mt-3">
+												<DeviceDailyCapForm
+													deviceId={device.id}
+													currentCapG={device.dailyCapG}
+													saveAction={adminUpdateDeviceDailyCap}
+													canWrite={canManage}
+												/>
+											</div>
 											<p className="mt-1 text-[11px] text-[#3D5568] dark:text-gray-400">
 												{t("deviceLastSeen")}:{" "}
 												{device.lastSeenAt

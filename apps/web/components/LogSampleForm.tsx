@@ -3,7 +3,6 @@
 import { mobileStickyActions } from "@/components/mobile/form-actions";
 import { useRouter } from "@/i18n/routing";
 import { type FeedCalculationResult, saveBiomassLog } from "@/lib/actions/biomass";
-import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { dailyFeedG, feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { enqueueBiomassSample, newClientEventId } from "@/lib/offline/outbox";
 import { useOnlineStatus } from "@/lib/pwa/use-online-status";
@@ -46,8 +45,8 @@ export function LogSampleForm({
 	const [isPending, startTransition] = useTransition();
 	const [queuedOffline, setQueuedOffline] = useState(false);
 
-	const effectivePopulation = population && population > 0 ? population : DEFAULT_FISH_COUNT;
-	const populationUnset = effectivePopulation !== population;
+	const effectivePopulation = population && population > 0 ? population : null;
+	const populationUnset = effectivePopulation === null;
 	const fmtG2 = (g: number) =>
 		g.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -71,9 +70,9 @@ export function LogSampleForm({
 	const l = Number.parseFloat(lengthCm);
 	const c = Number.parseInt(count, 10);
 
-	let biomassG = 0;
-	let dailyFeed = 0;
-	let nextFeedingG = 0;
+	let biomassG: number | null = null;
+	let dailyFeed: number | null = null;
+	let nextFeedingG: number | null = null;
 	let avgWeightG = 0;
 	let avgLengthCm = 0;
 	let individualCount = 0;
@@ -81,7 +80,7 @@ export function LogSampleForm({
 	if (inputMode === "average") {
 		if (!Number.isNaN(w) && !Number.isNaN(c) && c > 0) {
 			avgWeightG = w;
-			biomassG = totalBiomassG(population, w / 1000);
+			biomassG = totalBiomassG(effectivePopulation, w / 1000);
 			dailyFeed = dailyFeedG(biomassG, feedingRatePct);
 			nextFeedingG = feedPerMealG(biomassG, feedingRatePct, feedsPerDay);
 		}
@@ -106,7 +105,7 @@ export function LogSampleForm({
 				avgLengthCm = totalLength / validLengthFish.length;
 			}
 
-			biomassG = totalBiomassG(population, avgWeightG / 1000);
+			biomassG = totalBiomassG(effectivePopulation, avgWeightG / 1000);
 			dailyFeed = dailyFeedG(biomassG, feedingRatePct);
 			nextFeedingG = feedPerMealG(biomassG, feedingRatePct, feedsPerDay);
 		}
@@ -661,23 +660,24 @@ export function LogSampleForm({
 						<div className="flex items-baseline justify-between gap-4">
 							<span className="font-medium text-[#3D5568] dark:text-gray-400">
 								Total Biomass
-								{biomassG === 0 && (
+								{biomassG === null && (
 									<span className="block text-[11px] font-normal text-[#3D5568]/60 dark:text-gray-500">
-										= {populationUnset ? "estimate assuming " : ""}
-										{effectivePopulation.toLocaleString("en-US")} fish × avg weight
+										{populationUnset
+											? "Set the pond's fish count to calculate"
+											: "= fish count × avg weight"}
 									</span>
 								)}
 							</span>
 							<span className="text-right text-[#3D5568] dark:text-gray-400">
 								<strong className="text-[#0A3D62] dark:text-gray-100">
-									{biomassG > 0 ? Math.round(biomassG).toLocaleString("en-US") : "—"}
+									{biomassG === null ? "—" : Math.round(biomassG).toLocaleString("en-US")}
 								</strong>
-								{biomassG > 0 && (
+								{biomassG !== null && effectivePopulation !== null && (
 									<>
 										g{" "}
 										<span>
-											({populationUnset ? "estimate: " : ""}
-											{effectivePopulation.toLocaleString("en-US")} fish × {avgWeightG.toFixed(1)}g)
+											({effectivePopulation.toLocaleString("en-US")} fish × {avgWeightG.toFixed(1)}
+											g)
 										</span>
 									</>
 								)}
@@ -686,7 +686,7 @@ export function LogSampleForm({
 						<div className="flex items-baseline justify-between gap-4">
 							<span className="font-medium text-[#3D5568] dark:text-gray-400">
 								Daily Feed
-								{dailyFeed === 0 && (
+								{dailyFeed === null && (
 									<span className="block text-[11px] font-normal text-[#3D5568]/60 dark:text-gray-500">
 										= biomass × {feedingRatePct}%
 									</span>
@@ -694,13 +694,13 @@ export function LogSampleForm({
 							</span>
 							<span className="text-right text-[#3D5568] dark:text-gray-400">
 								<strong className="text-[#0A3D62] dark:text-gray-100">
-									{dailyFeed > 0 ? fmtG2(dailyFeed) : "—"}
+									{dailyFeed === null ? "—" : fmtG2(dailyFeed)}
 								</strong>
-								{dailyFeed > 0 && (
+								{dailyFeed !== null && (
 									<>
 										g{" "}
 										<span>
-											({Math.round(biomassG).toLocaleString("en-US")}g × {feedingRatePct}%)
+											({Math.round(biomassG ?? 0).toLocaleString("en-US")}g × {feedingRatePct}%)
 										</span>
 									</>
 								)}
@@ -709,7 +709,7 @@ export function LogSampleForm({
 						<div className="flex items-baseline justify-between gap-4">
 							<span className="font-medium text-[#3D5568] dark:text-gray-400">
 								Feed per Meal
-								{nextFeedingG === 0 && (
+								{nextFeedingG === null && (
 									<span className="block text-[11px] font-normal text-[#3D5568]/60 dark:text-gray-500">
 										= daily ÷ {feedsPerDay} feeds
 									</span>
@@ -717,9 +717,9 @@ export function LogSampleForm({
 							</span>
 							<span className="text-right text-[#3D5568] dark:text-gray-400">
 								<strong className="text-sm text-[#E85A2A]">
-									{nextFeedingG > 0 ? fmtG2(nextFeedingG) : "—"}
+									{nextFeedingG === null ? "—" : fmtG2(nextFeedingG)}
 								</strong>
-								{nextFeedingG > 0 && (
+								{nextFeedingG !== null && (
 									<>
 										g <span>(÷ {feedsPerDay} feeds)</span>
 									</>

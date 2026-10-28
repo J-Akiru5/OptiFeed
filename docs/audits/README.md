@@ -46,3 +46,11 @@ titled "Defects fixed" describe the held branches, not `develop`.
 - There must be one next-feeding implementation, in Asia/Manila time.
 - There must be one daily-cap function, which the platform factor can only lower.
 - `hand_fed` rows count as feed given for FCR, but never as device output.
+
+## Related audit (not a calculation audit)
+
+- [2026-10-28-audit-trail-benchmark.md](2026-10-28-audit-trail-benchmark.md) — the
+  industry comparison and RBAC/retention gap analysis behind issue #273. It records what
+  the current `DeviceStateEvent` audit trail can prove and the schema-level gaps
+  (IP/user-agent, typed before/after, actor snapshots, hash chain/WORM, retention) that
+  would need a migration. Implemented work is on `develop` since v1.22.0.

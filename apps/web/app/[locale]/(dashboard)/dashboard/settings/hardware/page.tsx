@@ -18,6 +18,7 @@ import { FeederHero } from "@/components/feeder/feeder-hero";
 import { updateDeviceDailyCap } from "@/lib/actions/settings";
 import { canWrite } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
+import { loadCalibrationDriftWindow } from "@/lib/calibration/drift-data";
 import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { formatFarmDateTime } from "@/lib/date-local";
@@ -47,8 +48,6 @@ import { getTranslations } from "next-intl/server";
 const WIFI_ONLINE_WINDOW_MS = 5 * 60 * 1000;
 
 const CALIBRATION_HISTORY_PAGE_SIZE = 20;
-const DRIFT_WINDOW_DAYS = 7;
-const DRIFT_WINDOW_MS = DRIFT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
 function first(value: string | string[] | undefined): string | undefined {
 	return Array.isArray(value) ? value[0] : value;
@@ -196,8 +195,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 		const pagesForDevice = getPageCount(historyTotal, CALIBRATION_HISTORY_PAGE_SIZE);
 		if (historyPage > pagesForDevice) historyPage = pagesForDevice;
 
-		const weekAgo = new Date(now.getTime() - DRIFT_WINDOW_MS);
-		const [runs, sessions, driftFeeds, driftLevels] = await Promise.all([
+		const [runs, sessions, driftWindow] = await Promise.all([
 			prisma.calibrationRun.findMany({
 				where: { deviceId: energyDevice.id },
 				orderBy: { createdAt: "desc" },
@@ -218,19 +216,9 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 				},
 			}),
 			loadCalibrationSessions(energyDevice.id),
-			prisma.feedEvent.findMany({
-				where: {
-					deviceId: energyDevice.id,
-					eventType: "feed_dispensed",
-					receivedAt: { gte: weekAgo },
-				},
-				select: { grams: true, receivedAt: true },
-			}),
-			prisma.feedLevelLog.findMany({
-				where: { deviceId: energyDevice.id, recordedAt: { gte: weekAgo } },
-				orderBy: { recordedAt: "asc" },
-				select: { levelPercent: true, recordedAt: true },
-			}),
+			// One loader for every drift surface (#6): the hardware page used to
+			// compare imported hand_fed daily totals with the hopper drop.
+			loadCalibrationDriftWindow(energyDevice.id, now),
 		]);
 
 		historySessions = sessions;
@@ -263,8 +251,8 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 		}));
 
 		drift = computeCalibrationDrift({
-			feeds: driftFeeds,
-			levels: driftLevels,
+			feeds: driftWindow.feeds,
+			levels: driftWindow.levels,
 			hopperCapacityG: energyDevice.hopperCapacityG,
 		});
 	}

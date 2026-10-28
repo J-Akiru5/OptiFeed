@@ -90,7 +90,7 @@ export function EnergyControllerCard({
 	};
 
 	return (
-		<div className="rounded-3xl bg-white dark:bg-gray-900 p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 transition-shadow hover:shadow-md">
+		<div className="@container rounded-3xl bg-white dark:bg-gray-900 p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 transition-shadow hover:shadow-md min-w-0">
 			<div className="flex items-center justify-between mb-5">
 				<div className="flex items-center gap-3">
 					<div className="h-11 w-11 rounded-xl bg-[var(--ofd-base)]/10 text-[var(--ofd-base)] flex items-center justify-center">
@@ -148,25 +148,28 @@ export function EnergyControllerCard({
 				</div>
 			)}
 
-			<div className="grid gap-6 lg:grid-cols-2">
+			{/* #269: the two-column split follows the card's own width. At a 1280 px
+			    viewport the old `lg:` rule halved this card inside the 22 rem rail,
+			    which squeezed the mono MAC address past the card edge. */}
+			<div className="grid gap-6 @xl:grid-cols-2">
 				<div className="space-y-4">
 					<div className="grid grid-cols-2 gap-3">
-						<div className="flex items-center gap-2 rounded-xl bg-gray-50 dark:bg-gray-800 p-3">
+						<div className="flex min-w-0 items-center gap-2 rounded-xl bg-gray-50 dark:bg-gray-800 p-3">
 							{rtcOk ? (
 								<Wifi className="h-4 w-4 text-green-500" />
 							) : (
 								<WifiOff className="h-4 w-4 text-red-500" />
 							)}
-							<div>
+							<div className="min-w-0">
 								<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">RTC</p>
 								<p className={cn("text-sm font-medium", rtcOk ? "text-green-600" : "text-red-600")}>
 									{rtcOk ? "OK" : "Offline"}
 								</p>
 							</div>
 						</div>
-						<div className="flex items-center gap-2 rounded-xl bg-gray-50 dark:bg-gray-800 p-3">
+						<div className="flex min-w-0 items-center gap-2 rounded-xl bg-gray-50 dark:bg-gray-800 p-3">
 							<Clock className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-							<div>
+							<div className="min-w-0">
 								<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Last seen</p>
 								<p className="text-sm text-gray-700 dark:text-gray-200">
 									{formatLastSeen(lastSeenAt)}
@@ -175,10 +178,10 @@ export function EnergyControllerCard({
 						</div>
 					</div>
 
-					<div className="flex items-center justify-between gap-4 rounded-2xl bg-gray-50 dark:bg-gray-800 p-4">
-						<div>
+					<div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-gray-50 dark:bg-gray-800 p-4">
+						<div className="min-w-0">
 							<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">MAC Address</p>
-							<p className="text-sm font-mono text-gray-700 dark:text-gray-200">{mac}</p>
+							<p className="text-sm font-mono break-all text-gray-700 dark:text-gray-200">{mac}</p>
 						</div>
 						<div className="text-right">
 							<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Default Feed</p>

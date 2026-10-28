@@ -1,5 +1,6 @@
 "use client";
 
+import { SearchTrigger } from "@/components/search/global-search";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
@@ -56,7 +57,7 @@ export function MobileHeader({
 					</p>
 				</div>
 				<div className="flex shrink-0 items-center gap-1.5">
-					<QuickMenu shell={shell} isTenantAdmin={isTenantAdmin} trigger="search" />
+					<SearchTrigger variant="icon" />
 					<QuickMenu shell={shell} isTenantAdmin={isTenantAdmin} trigger="plus" />
 				</div>
 			</div>

@@ -7,6 +7,7 @@ import { HelpButton } from "@/components/help/help-button";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { PondSelector } from "@/components/pond-selector";
+import { SearchTrigger } from "@/components/search/global-search";
 import { UserAvatar } from "@/components/user-avatar";
 import { useRouter } from "@/i18n/routing";
 import { clearOfflineData } from "@/lib/offline/db";
@@ -299,6 +300,8 @@ export function HeaderActions({
 				</div>
 			)}
 
+			<SearchTrigger className="hidden sm:flex" />
+
 			<DarkModeToggle />
 			<LocaleSwitcher />
 
@@ -354,7 +357,8 @@ export function HeaderActions({
 export function CompactHeaderActions({
 	initialUser,
 	isViewingAs = false,
-}: Pick<HeaderActionsProps, "initialUser" | "isViewingAs">) {
+	helpEnabled = true,
+}: Pick<HeaderActionsProps, "initialUser" | "isViewingAs" | "helpEnabled">) {
 	const [showProfileMenu, setShowProfileMenu] = useState(false);
 	const userEmail = initialUser?.email ?? null;
 	const userDisplayName = initialUser?.displayName || userEmail?.split("@")[0] || "User";
@@ -378,6 +382,12 @@ export function CompactHeaderActions({
 
 	return (
 		<div className="relative flex items-center gap-1.5">
+			{/* #269: the floating "?" is gone, so the band carries the same help
+			    control as the desktop header. It is the one help entry point on
+			    every dashboard width. */}
+			{helpEnabled && (
+				<HelpButton audience={isTenantAdmin ? "owner" : "farmer"} className="h-11 w-11" />
+			)}
 			<NotificationBell className="h-11 w-11" />
 			<button
 				type="button"

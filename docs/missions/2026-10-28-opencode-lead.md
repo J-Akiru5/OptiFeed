@@ -1,0 +1,62 @@
+# Mission 2026-10-28 (OpenCode lead): issues #272–#277
+
+Owner: Jeff. Lead / integrator: OpenCode (`opencode-go/deepseek-v4.1-flash`).
+Base: `origin/develop` @ `74a0582` (v1.21.2, 2026-10-28 15:49 UTC).
+Integration branch: `integration/lead-2026-10-28-opencode` (worktree `S:/Dev/optifeed/mission-I-08`).
+
+## Coordination boundary with Claude
+
+Claude's live session already owns and is editing:
+
+| Branch | Worktree | Scope |
+|---|---|---|
+| `mission/I-44-dashboard-overflow` | `S:/Dev/optifeed/mission-I-43` | #269 dashboard right-rail overflow + redundant help FAB |
+| `mission/I-45-global-search` | `S:/Dev/optifeed/mission-I-37` | #270 global ⌘K / Ctrl+K search |
+| `mission/I-46-device-reconcile` | `S:/Dev/optifeed/mission-I-36` | internal device/calibration data reconciliation (A-001 follow-up) |
+| `integration/lead-2026-10-28` | `S:/Dev/optifeed/integration-mission` | Claude's integration of the above |
+
+**Those branches, worktrees, and files are out of scope for this mission.** This mission does not
+edit, rebase, reset, merge, or clean them. If a file overlaps, stop and report; do not duplicate.
+
+## Scope and task board
+
+| ID | Issues | Branch | Worktree | Scope | Status |
+|---|---|---|---|---|---|
+| I-47 | #274 | `mission/I-47-print-labels` | `S:/Dev/optifeed/mission-I-01` | Device-label print route returns 404 when the URL carries no device id (the "Print selected labels" action) and for devices outside a pond scope. Print must work for every in-scope device and never dead-end in `notFound()` for a recoverable user action. | dispatched |
+| I-48 | #275 | `mission/I-48-schedule-mobile` | `S:/Dev/optifeed/mission-I-02` | Mobile Schedule: the sticky "Save Changes" bar overlaps the Sync Status card and hides "Force Resync". Fix the mobile layout so the card is fully readable and the save bar does not cover controls. | dispatched |
+| I-49 | #272, #276 | `mission/I-49-calendar-contrast-range` | `S:/Dev/optifeed/mission-I-03` | (a) dark-mode calendar event chips fail contrast (red on navy, `+N more` unreadable); (b) the admin calendar demands "Choose a date range between 1 and 400 days" before it renders and filters do not refresh data. Default to a valid range, make filters refresh, and make event colours meet WCAG AA in both themes. | dispatched |
+| I-50 | #273 | `mission/I-50-audit-trail` | `S:/Dev/optifeed/mission-I-05` | Audit trail must show *who* last touched a record (actor identity, role, source, IP/user-agent where available), not just the device event. Benchmark industry-grade audit trails (immutable append-only, who/what/when/before-after, retention, RBAC) and implement the highest-value gap without a schema migration. Preserve tenant RBAC: a farmer sees only their org, admins only their tenant, platform admins the platform log. | queued |
+| I-51 | #277 | `mission/I-51-admin-dashboard` | `S:/Dev/optifeed/mission-I-06a` | Farm-owner Admin Overview is three stat cards plus a table. Add decision-useful graphs/KPIs (feeding, hopper/device health, pond performance, activity trend) using the existing shared chart components (`recharts` already installed — **no new dependency**), responsive and dark-mode aware. | implemented @ `8cd13cd`; focused tests 23/23 and `tsc --noEmit` green |
+
+## Decisions
+
+| ID | Decision |
+|---|---|
+| L1 | **No schema changes and no migrations in this mission.** #273 must work with the existing `FeedEvent`/`AuditLog`/`PlatformAuditLog` data and derive actor identity from `actorId`/user joins. If a schema change is genuinely required, stop and report instead of adding one. |
+| L2 | **No dependency installs.** `recharts@3.10.1` and the shared `components/charts/*` wrappers already exist on `develop`. Disk is at ~96 % and RAM is at ~74 %; an install is a stop condition. |
+| L3 | **No full build, no Playwright/E2E, no production deploy** in the workers. Focused `vitest` + `biome check` on touched files + `tsc --noEmit` only when the worker has headroom. The lead runs the full gates once on the integration branch. |
+| L4 | **One issue group per worktree/branch.** Do not edit another worker's files. `CHANGELOG.md` is the only shared file; add a single `### Fixed` / `### Added` bullet under `## [Unreleased]` and expect a union at integration. |
+| L5 | **RBAC is not weakened.** Any new read path gets an allow test *and* a deny test. Any new query is scoped by the caller's org/tenant, and the platform path by platform-admin. |
+| L6 | **No user-facing claim without evidence.** A worker that could not run a check says so; the lead re-runs it before integration. |
+| L7 | **Integration is gated on green.** Merge worker branches one at a time into `integration/lead-2026-10-28-opencode`, run `lint`, `typecheck`, `test`, `api:check` and a production build, then open a PR into `develop`. Claude's branches are reconciled by Claude, not here. |
+
+## Environment
+
+- RAM: 6.2 GB free of 23.7 GB (red). CPU load 100 %. Disk: 4.6 GB free (red).
+- Therefore: 3 workers in the first wave, 2 in the second. Focused tests only; no parallel production builds.
+- Worktrees reused from completed missions so `node_modules` is already present (no new install).
+
+## Verification plan (lead)
+
+1. Per branch: `pnpm exec biome check <touched files>`, `pnpm --filter web exec vitest run <touched tests>`.
+2. Integration branch: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm api:check`, `pnpm build`.
+3. Diff review for scope, RBAC, i18n (`en` + `hil`), dark mode, and no accidental deletions.
+4. Push the integration branch and open a PR into `develop`; merge only after CI `quality` is green.
+5. Record the final `develop` SHA, the issues closed, and anything deferred.
+
+## Discussion log
+
+| When (local) | Topic | What was agreed or done |
+|---|---|---|
+| 10-28 22:50 | Mission start | Jeff asked the OpenCode lead to own every open issue not already being worked by Claude, run multiple subagents, amend the plan, and deploy a benchmark subagent if needed. Inventory: 8 open issues (#269–#277); Claude owns #269, #270 and internal I-46; this mission owns #272–#277. |
+| 10-28 22:58 | I-51 done | #277 implemented on `mission/I-51-admin-dashboard` @ `8cd13cd`: feed-per-day, device-activity and fleet-health charts built on the shared Recharts components; `admin-overview` action is tenant-scoped and `requireTenantAdmin`-gated; 23/23 focused tests and `tsc --noEmit` pass. |

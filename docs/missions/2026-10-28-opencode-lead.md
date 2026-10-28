@@ -4,6 +4,16 @@ Owner: Jeff. Lead / integrator: OpenCode (`opencode-go/deepseek-v4.1-flash`).
 Base: `origin/develop` @ `74a0582` (v1.21.2, 2026-10-28 15:49 UTC).
 Integration branch: `integration/lead-2026-10-28-opencode` (worktree `S:/Dev/optifeed/mission-I-08`).
 
+## Final outcome
+
+- **PR #278 merged into `develop`** as `db63728` on 2026-10-28 15:45 UTC (merge commit).
+- `develop` CI run **40719182586** passed every step: install, Prisma generate/validate, lint, typecheck, 224 files / 2305 tests, API conformance, route-auth check, production build.
+- **#272–#277 closed** with a comment pointing at `develop` / `db63728`.
+- **Release prep: `v1.22.0` (MINOR)** — new Admin Overview charts (#277) and Audit Trail capabilities (#273), plus four fixes. `package.json`, `apps/web/package.json` and `LEGAL_APP_RELEASE` are aligned; `Unreleased` moved to `[1.22.0] - 2026-10-28`.
+- **Tag and publication are not created here.** The versioning rule reserves annotated tags/releases for the owner; `v1.22.0` is ready to tag after the release-prep PR merges.
+- Claude's **#269/#270** were not touched. PR #279 (`integration/lead-2026-10-28` → `develop`) became `CONFLICTING` after this merge and needs Claude's session to rebase; #270 is still in progress.
+- No manual deployment, no schema change, no migration, no dependency change. Worktrees are clean and were not purged.
+
 ## Coordination boundary with Claude
 
 Claude's live session already owns and is editing:
@@ -88,3 +98,6 @@ Findings recorded as follow-ups (not fixed here, and not claimed as benchmarks):
 | 10-28 23:20 | I-49 done | #272/#276 fixed on `mission/I-49-calendar-contrast-range` @ `c0fa7d8`: inclusive day counting accepts a one-day Day view (and makes 400 exact / 401 rejected), and theme-aware chip pairs meet WCAG AA in light and dark; 63 focused + 98 broader calendar tests pass. |
 | 10-28 23:24 | Full gate | Integration branch: `pnpm lint`, `pnpm typecheck`, `pnpm api:check`, Prisma schema validation (dummy env) and the **full unit suite (224 files / 2302 tests)** pass; production `pnpm build` succeeds. |
 | 10-28 23:29 | Benchmark follow-up | The read-only benchmark review found a real #277 correctness gap: capped series zero-filled unfetched days and read as exact totals. Fixed on `mission/I-51-admin-dashboard` @ `de91050` and merged; 26 focused tests + `tsc` green. The audit `lastTouch` index/time-bound gap and the other index/auth-caching items are recorded as follow-ups, not silently fixed. |
+| 10-28 23:45 | Merge + closure | PR #278 merged into `develop` as `db63728`; `quality` on the PR passed in 4m06s and the post-merge `develop` CI run `40719182586` passed every step. #272–#277 closed with the develop merge reference (the repo's default branch is `staging`, so GitHub did not auto-close them). |
+| 10-28 23:55 | Release prep | Preparing **v1.22.0** (MINOR: new Admin Overview charts and Audit Trail capabilities; four fixes). Root/web `package.json` and `LEGAL_APP_RELEASE` aligned; `Unreleased` moved to `[1.22.0] - 2026-10-28`; docs and audit index updated. Tag/publication left to the owner per the versioning rule. |
+| 10-28 23:56 | Claude boundary | PR #279 (`integration/lead-2026-10-28` → `develop`) is now `CONFLICTING` after the #278 merge. It was not modified or merged here; Claude's session must rebase it onto `db63728`. #270 remains in progress. |

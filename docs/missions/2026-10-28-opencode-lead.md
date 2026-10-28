@@ -24,7 +24,7 @@ edit, rebase, reset, merge, or clean them. If a file overlaps, stop and report; 
 |---|---|---|---|---|---|
 | I-47 | #274 | `mission/I-47-print-labels` | `S:/Dev/optifeed/mission-I-01` | Device-label print route returns 404 when the URL carries no device id (the "Print selected labels" action) and for devices outside a pond scope. Print must work for every in-scope device and never dead-end in `notFound()` for a recoverable user action. | merged @ `cc4b975`; 72 tests |
 | I-48 | #275 | `mission/I-48-schedule-mobile` | `S:/Dev/optifeed/mission-I-02` | Mobile Schedule: the sticky "Save Changes" bar overlaps the Sync Status card and hides "Force Resync". Fix the mobile layout so the card is fully readable and the save bar does not cover controls. | merged @ `731a31a`; 25 tests |
-| I-49 | #272, #276 | `mission/I-49-calendar-contrast-range` | `S:/Dev/optifeed/mission-I-03` | (a) dark-mode calendar event chips fail contrast (red on navy, `+N more` unreadable); (b) the admin calendar demands "Choose a date range between 1 and 400 days" before it renders and filters do not refresh data. Default to a valid range, make filters refresh, and make event colours meet WCAG AA in both themes. | running |
+| I-49 | #272, #276 | `mission/I-49-calendar-contrast-range` | `S:/Dev/optifeed/mission-I-03` | (a) dark-mode calendar event chips fail contrast (red on navy, `+N more` unreadable); (b) the admin calendar demands "Choose a date range between 1 and 400 days" before it renders and filters do not refresh data. Default to a valid range, make filters refresh, and make event colours meet WCAG AA in both themes. | merged @ `c0fa7d8`; 63 focused + 98 broader calendar tests |
 | I-50 | #273 | `mission/I-50-audit-trail` | `S:/Dev/optifeed/mission-I-05` | Audit trail must show *who* last touched a record (actor identity, role, source, IP/user-agent where available), not just the device event. Benchmark industry-grade audit trails (immutable append-only, who/what/when/before-after, retention, RBAC) and implement the highest-value gap without a schema migration. Preserve tenant RBAC: a farmer sees only their org, admins only their tenant, platform admins the platform log. | merged @ `359ae78`; 26 tests + benchmark doc |
 | I-51 | #277 | `mission/I-51-admin-dashboard` | `S:/Dev/optifeed/mission-I-06a` | Farm-owner Admin Overview is three stat cards plus a table. Add decision-useful graphs/KPIs (feeding, hopper/device health, pond performance, activity trend) using the existing shared chart components (`recharts` already installed — **no new dependency**), responsive and dark-mode aware. | merged @ `8cd13cd`; 23 tests |
 
@@ -54,6 +54,27 @@ edit, rebase, reset, merge, or clean them. If a file overlaps, stop and report; 
 4. Push the integration branch and open a PR into `develop`; merge only after CI `quality` is green.
 5. Record the final `develop` SHA, the issues closed, and anything deferred.
 
+## Benchmark review (read-only, independent)
+
+The `benchmark` subagent reviewed the merged tree at `4818df7` and was explicit that this is a **static query-shape review, not a latency benchmark**; no database/`EXPLAIN` was available, so no latency figure is recorded.
+
+Findings that changed this mission:
+
+| Finding | Action |
+|---|---|
+| Admin overview charts zero-filled days older than the 5,000-row cap and their accessible totals read as exact | Fixed in `de91050`: the series now starts at the oldest fetched day and the totals are labelled as lower bounds, with a visible truncation note. 26 focused tests and `tsc` green. |
+
+Findings recorded as follow-ups (not fixed here, and not claimed as benchmarks):
+
+| Finding | Why deferred |
+|---|---|
+| Audit `lastTouch` is `LIMIT 1` but has no time bound and no index for `actorId`/`source`; a device-only farm can scan a long way to prove absence | Needs a product decision on the lookback window and, for a real fix, a partial index migration. Mission L1 forbids schema changes. |
+| Audit count + deep-offset pagination can scan a large history for a crafted `?page=` | Pre-existing pagination behaviour; a keyset/cursor change is a separate task. |
+| `EnergyDevice.pondId` and `FeedEvent.eventType` are unindexed for the new reads | Needs migration; current tenant sizes are small. |
+| `resolveOrgScope` / `getTenantAdminState` are uncached and repeated on the admin page | Pre-existing auth/scope architecture; caching them is a broader change. |
+| Accepted audit metadata is stringified before the 2,000-character cap | Metadata is app-written and bounded; low risk. |
+| `Pond.findMany` in the audit action and `resolveOrgScope` has no `take` | Realistic farm sizes are small; a ceiling would need a supported upper bound. |
+
 ## Discussion log
 
 | When (local) | Topic | What was agreed or done |
@@ -64,3 +85,6 @@ edit, rebase, reset, merge, or clean them. If a file overlaps, stop and report; 
 | 10-28 23:05 | I-48 done | #275 fixed on `mission/I-48-schedule-mobile` @ `731a31a`: a mobile-only `h-20` spacer absorbs the sticky row's offset inside the clipping schedule card, so the Sync Status card and Force Resync stay visible; 25 tests pass (2 new). |
 | 10-28 23:12 | I-50 done | #273 fixed on `mission/I-50-audit-trail` @ `359ae78`: all active ponds are in scope, actor ids resolve to names only inside the caller's farm, a Last touch card and per-event Details block were added, and `docs/audits/2026-10-28-audit-trail-benchmark.md` records the industry comparison and remaining schema-migration gaps; 26 tests pass. |
 | 10-28 23:15 | Integration wave 1 | I-47, I-48, I-50 and I-51 merged into `integration/lead-2026-10-28-opencode`. `pnpm lint`, `pnpm typecheck` and the 12 focused suites (146 tests) are green. I-49 is the only branch still running. |
+| 10-28 23:20 | I-49 done | #272/#276 fixed on `mission/I-49-calendar-contrast-range` @ `c0fa7d8`: inclusive day counting accepts a one-day Day view (and makes 400 exact / 401 rejected), and theme-aware chip pairs meet WCAG AA in light and dark; 63 focused + 98 broader calendar tests pass. |
+| 10-28 23:24 | Full gate | Integration branch: `pnpm lint`, `pnpm typecheck`, `pnpm api:check`, Prisma schema validation (dummy env) and the **full unit suite (224 files / 2302 tests)** pass; production `pnpm build` succeeds. |
+| 10-28 23:29 | Benchmark follow-up | The read-only benchmark review found a real #277 correctness gap: capped series zero-filled unfetched days and read as exact totals. Fixed on `mission/I-51-admin-dashboard` @ `de91050` and merged; 26 focused tests + `tsc` green. The audit `lastTouch` index/time-bound gap and the other index/auth-caching items are recorded as follow-ups, not silently fixed. |

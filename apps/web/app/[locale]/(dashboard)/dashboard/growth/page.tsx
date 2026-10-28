@@ -24,7 +24,6 @@ import { SgrKpi, type SgrKpiLabels } from "@/components/growth/SgrKpi";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
-import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatFarmDateTime } from "@/lib/date-local";
@@ -164,7 +163,7 @@ export default async function GrowthPage() {
 	const initialPrediction = computeDeterministicPrediction({
 		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
 		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
-		population: pond.population ?? DEFAULT_FISH_COUNT,
+		population: pond.population,
 		avgWeightKg: biomassLogs.length > 0 ? biomassLogs[biomassLogs.length - 1].avgWeightKg : null,
 		latestFcr: fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : null,
 		currentGrams: energyDevice?.gramsPerFeeding ?? null,
@@ -414,7 +413,12 @@ export default async function GrowthPage() {
 			)}
 
 			{/* FCR Calculator */}
-			<FcrCalculator latestFcr={latestFcr} />
+			<FcrCalculator
+				latestFcr={latestFcr}
+				pondId={pond.id}
+				population={pond.population}
+				feedsPerDay={currentConfig?.feedsPerDay ?? pond.feedsPerDay}
+			/>
 
 			<div
 				className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"

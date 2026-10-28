@@ -11,13 +11,14 @@ import { dateOnlySchema } from "@/lib/crop-cycle/schema";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
 import {
 	MAX_DISPENSE_MS,
-	dailyFeedCapG,
 	feedingRatePctSchema,
 	feedsPerDaySchema,
 	formatZodError,
 	populationSchema,
+	resolveDailyCapG,
 } from "@/lib/limits";
 import prisma from "@/lib/prisma";
+import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import { ORG_SETTINGS_DEFAULTS, getOrgSettings } from "@/lib/settings/org";
 import type { PondStatus, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -436,10 +437,16 @@ export async function updateTenantPond(input: UpdateTenantPondInput): Promise<Po
 			gramsPerFeeding: true,
 			gramsPerSecond: true,
 			hopperCapacityG: true,
+			dailyCapG: true,
 		},
 	});
+	const feedingLimits = await getFeedingLimits();
 	for (const device of devices) {
-		const dailyCapG = dailyFeedCapG(device.hopperCapacityG);
+		const dailyCapG = resolveDailyCapG({
+			configuredCapG: device.dailyCapG,
+			hopperCapacityG: device.hopperCapacityG,
+			dailyCapFactor: feedingLimits.dailyCapFactor,
+		});
 		const scheduledDailyG = data.feedsPerDay * device.gramsPerFeeding;
 		if (scheduledDailyG > dailyCapG) {
 			return {
@@ -597,6 +604,7 @@ export async function getPondDetail(pondId: string) {
 					feedLevelUpdatedAt: true,
 					approvalStatus: true,
 					gramsPerFeeding: true,
+					dailyCapG: true,
 					createdAt: true,
 				},
 			},

@@ -129,6 +129,11 @@ export const HELP_SECTIONS: HelpSection[] = [
 				route: "/dashboard/settings/hardware",
 			},
 			{
+				text: "items.settings-daily-ceiling",
+				target: "device-daily-ceiling",
+				route: "/dashboard/settings/hardware",
+			},
+			{
 				text: "items.settings-recalibration",
 				target: "recalibration-interval",
 				route: "/dashboard/settings/hardware",

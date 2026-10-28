@@ -23,11 +23,13 @@ describe("predictionUpperBound", () => {
 		expect(predictionUpperBound(1, 1_000_000)).toBe(1000);
 	});
 
-	it("limits by daily cap divided by feedsPerDay", () => {
-		// 5000g daily cap / 4 feeds = 1250 → capped by MAX 1000
-		expect(predictionUpperBound(4, null)).toBe(1000);
-		// 5000 / 24 = 208.33
-		expect(predictionUpperBound(24, null)).toBeCloseTo(208.3, 1);
+	it("limits by the daily ceiling divided by feedsPerDay", () => {
+		// 2,000 g default ceiling / 4 feeds = 500 g
+		expect(predictionUpperBound(4, null)).toBe(500);
+		// 2,000 / 24 = 83.33
+		expect(predictionUpperBound(24, null)).toBeCloseTo(83.3, 1);
+		// A raised 5,000 g ceiling / 4 feeds = 1,250 → capped by MAX 1000
+		expect(predictionUpperBound(4, null, 5000)).toBe(1000);
 	});
 
 	it("uses hopper capacity as daily cap when smaller", () => {
@@ -125,7 +127,7 @@ describe("computeDeterministicPrediction", () => {
 
 	it("baseline matches calculateNextFeeding with same inputs", () => {
 		const result = computeDeterministicPrediction({ ...baseInputs, latestFcr: null });
-		const expected = calculateNextFeeding(0.25, 5, 3, 1000);
+		const expected = calculateNextFeeding(0.25, 5, 3, 1000) ?? 0;
 		expect(result.baselineGrams).toBe(Math.round(expected * 10) / 10);
 	});
 

@@ -1,4 +1,3 @@
-import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { dateToFarmDateOnly, todayDateOnly } from "@/lib/crop-cycle/dates";
 import { type GrowthPlan, buildGrowthPlan } from "@/lib/growth-plan";
 import { parsePondProfile } from "@/lib/pond-profile";
@@ -71,6 +70,7 @@ export async function loadGrowthPlanForPond(
 				id: true,
 				gramsPerFeeding: true,
 				hopperCapacityG: true,
+				dailyCapG: true,
 			},
 		}),
 		prisma.fcrReport.findFirst({
@@ -136,13 +136,14 @@ export async function loadGrowthPlanForPond(
 					sampleCount: previous.sampleCount,
 				}
 			: null,
-		population: activeCycle?.stockingCount ?? pond.population ?? DEFAULT_FISH_COUNT,
+		population: pond.population,
 		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
 		feedsPerDay,
 		currentGramsPerFeeding: energyDevice?.gramsPerFeeding ?? null,
 		deviceMaxGramsPerFeeding: predictionUpperBound(
 			feedsPerDay,
 			energyDevice?.hopperCapacityG ?? null,
+			energyDevice?.dailyCapG ?? null,
 		),
 		hasDevice: Boolean(energyDevice),
 		latestFcr: latestFcr?.fcrValue ?? null,

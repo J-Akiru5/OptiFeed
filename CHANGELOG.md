@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.1] - 2026-10-28
+
 ### Fixed
 
 - Firmware 1.5.3: the feed button needs a 50 ms press, is ignored during and 2 s after a dispense, and is limited to one dispense per 30 s (phantom button feeds on the CICT unit).

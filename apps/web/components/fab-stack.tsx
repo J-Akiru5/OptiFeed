@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { HelpCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { PakoyGreeting } from "./assistant/pakoy-greeting";
 import { ChatToggleButton } from "./chat/chat-toggle-button";
 import { useChatWidget } from "./chat/chat-widget-provider";
 import { HelpSheet } from "./help/help-sheet";
@@ -29,6 +30,10 @@ export function FabStack({ audience = "farmer" }: { audience?: HelpRole }) {
 					isOpen && "max-md:hidden md:right-[calc(var(--ofd-chat-panel-w)_+_var(--ofd-fab-inset))]",
 				)}
 			>
+				{/* Pakoy's one-per-session hello sits left of the chat button (#221). */}
+				<div className="absolute bottom-0 right-[calc(100%+0.5rem)]">
+					<PakoyGreeting />
+				</div>
 				<button
 					type="button"
 					data-fab-help

@@ -65,11 +65,14 @@ export function ChatConversation({
 
 	return (
 		<div className={cn("flex min-h-0 flex-col overflow-hidden bg-white", className)}>
-			{/* Header */}
+			{/* Header: Pakoy's head and name replace the old bot glyph (#221). */}
 			<div className="flex items-center justify-between bg-[#0A3D62] px-4 py-3 text-white shrink-0">
-				<div className="flex items-center gap-2">
-					<Mascot size={20} className="bg-white/10" />
-					<h3 className="text-sm font-semibold">{ASSISTANT_NAME}</h3>
+				<div className="flex min-w-0 items-center gap-2.5">
+					<Mascot size={32} className="ring-1 ring-white/25" />
+					<div className="min-w-0">
+						<h3 className="truncate text-sm font-semibold leading-tight">{ASSISTANT_NAME}</h3>
+						<p className="truncate text-[10px] font-medium text-white/70">{t("tagline")}</p>
+					</div>
 				</div>
 				<button
 					type="button"
@@ -102,11 +105,7 @@ export function ChatConversation({
 								m.role === "user" ? "bg-blue-100 text-blue-600" : "",
 							)}
 						>
-							{m.role === "user" ? (
-								<User size={16} />
-							) : (
-								<Mascot size={16} className="bg-gray-200 text-[#0A3D62]" />
-							)}
+							{m.role === "user" ? <User size={16} /> : <Mascot size={22} />}
 						</div>
 						<div
 							className={cn(
@@ -132,7 +131,7 @@ export function ChatConversation({
 				{showTyping && (
 					<div className="flex max-w-[85%] gap-2 self-start">
 						<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 text-gray-600">
-							<Mascot size={16} className="bg-gray-200 text-[#0A3D62]" />
+							<Mascot size={22} />
 						</div>
 						<div className="flex items-center justify-center rounded-2xl rounded-tl-none border border-gray-100 bg-white px-4 py-3">
 							<Loader2 size={16} className="animate-spin text-gray-400" />

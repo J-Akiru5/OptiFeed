@@ -1,5 +1,6 @@
 "use client";
 
+import { Mascot } from "@/components/assistant/mascot";
 import { Link } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef } from "react";
@@ -24,6 +25,7 @@ export default function AdminError({
 
 	return (
 		<div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 p-6 text-center">
+			<Mascot pose="powerFault" size={96} />
 			<h2
 				ref={headingRef}
 				tabIndex={-1}

@@ -9,9 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.19.1] - 2026-10-28
+
+### Changed
+
+- Firmware pin map now matches the hardwired CICT Building A board: feed button GPIO 27 → 23, DS18B20 GPIO 26 → 32, HC-SR04 TRIG GPIO 32 → 12, ECHO GPIO 33 → 14. The relay default stays on GPIO 25 and the CICT unit stays on GPIO 5, built with `-e esp32dev-relay5`: GPIO 5 straps only SDIO slave timing, so it does not need rewiring. Units still on the old map need the matching build flags or a rewire.
+- The firmware README's reset-button table had the Wi-Fi and factory reset pins swapped (16/17) relative to the code; corrected.
+
 ### Fixed
 
 - #244 clickable controls show a hand cursor (login Back to home and app-wide).
+
+## [1.19.0] - 2026-10-28
+
+### Added
+
+- Pakoy, the PakaonAI mascot, in the chat, dashboard greeting, alerts, empty states, onboarding and offline/error pages (#193, #232, #221).
 
 ## [1.18.2] - 2026-10-28
 

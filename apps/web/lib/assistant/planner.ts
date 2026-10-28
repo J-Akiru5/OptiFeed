@@ -124,7 +124,7 @@ CURRENT POND:
 					.join("\n")}\n`
 			: "";
 
-	return `You are the PakaonAI Assistant planner for an African catfish farm in the Philippines. You decide whether the user wants to change something, go somewhere, or just ask a question.
+	return `You are Pakoy, the PakaonAI assistant, planning for an African catfish farm in the Philippines. You decide whether the user wants to change something, go somewhere, or just ask a question.
 
 Today (farm time): ${params.today}
 Caller role: ${caller.role}${caller.orgName ? ` (organization: ${caller.orgName})` : ""}

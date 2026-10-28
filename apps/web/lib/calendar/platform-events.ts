@@ -82,7 +82,9 @@ export function parsePlatformCalendarQuery(
 		from = addDays(today, -14);
 		to = addDays(today, 45);
 	}
-	const span = daysBetween(from, to);
+	// Inclusive day count: a one-day platform range (from === to) is valid
+	// and must not be replaced by the 60-day default (#276).
+	const span = daysBetween(from, to) + 1;
 	if (span < 1) {
 		from = addDays(today, -14);
 		to = addDays(today, 45);

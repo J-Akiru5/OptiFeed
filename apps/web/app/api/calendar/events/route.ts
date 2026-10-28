@@ -23,7 +23,10 @@ export const GET = withApi(
 		if (!isValidDateOnly(from) || !isValidDateOnly(to)) {
 			throw validationFailed("`from` and `to` must be valid YYYY-MM-DD dates.");
 		}
-		const span = daysBetween(from, to);
+		// `from` and `to` are inclusive date-only bounds. Counting only the
+		// difference made a one-day range (the FullCalendar day view sends
+		// from === to) look empty, and let a 401-day range through (#276).
+		const span = daysBetween(from, to) + 1;
 		if (span < 1 || span > MAX_CALENDAR_RANGE_DAYS) {
 			throw validationFailed(`Choose a date range between 1 and ${MAX_CALENDAR_RANGE_DAYS} days.`);
 		}

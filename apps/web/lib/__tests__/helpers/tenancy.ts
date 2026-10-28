@@ -236,6 +236,34 @@ export type TenancyPlatformAuditLog = {
 	createdAt: Date;
 };
 
+export type TenancyBiomassLog = {
+	id: string;
+	pondId: string;
+	batchLabel: string | null;
+	recordedAt: Date;
+	farmId: string | null;
+};
+
+export type TenancyPondEvent = {
+	id: string;
+	pondId: string;
+	title: string;
+	startsAt: Date;
+	type: string;
+	status: string;
+	farmId: string | null;
+};
+
+export type TenancyFeedEvent = {
+	id: string;
+	deviceId: string;
+	eventType: string;
+	receivedAt: Date;
+	grams: number | null;
+	source: string | null;
+	farmId: string | null;
+};
+
 export type TenancyFixture = {
 	organizations: TenancyOrganization[];
 	users: TenancyUser[];
@@ -246,6 +274,9 @@ export type TenancyFixture = {
 	energyDevices: TenancyEnergyDevice[];
 	orgSettings: TenancyOrgSetting[];
 	deviceStateEvents: TenancyDeviceStateEvent[];
+	biomassLogs: TenancyBiomassLog[];
+	pondEvents: TenancyPondEvent[];
+	feedEvents: TenancyFeedEvent[];
 	platformAdmins: TenancyPlatformAdmin[];
 	platformAuditLogs: TenancyPlatformAuditLog[];
 };
@@ -588,6 +619,9 @@ export function createTenancyFixture(): TenancyFixture {
 		ponds,
 		energyDevices,
 		deviceStateEvents,
+		biomassLogs: [],
+		pondEvents: [],
+		feedEvents: [],
 		platformAdmins,
 		platformAuditLogs: [],
 		orgSettings: [],
@@ -715,6 +749,9 @@ type ModelName =
 	| "pond"
 	| "energyDevice"
 	| "deviceStateEvent"
+	| "biomassLog"
+	| "pondEvent"
+	| "feedEvent"
 	| "platformAdmin"
 	| "platformAuditLog"
 	| "orgSetting";
@@ -762,6 +799,9 @@ const MODEL_TABLE: Record<ModelName, keyof TenancyFixture> = {
 	pond: "ponds",
 	energyDevice: "energyDevices",
 	deviceStateEvent: "deviceStateEvents",
+	biomassLog: "biomassLogs",
+	pondEvent: "pondEvents",
+	feedEvent: "feedEvents",
 	platformAdmin: "platformAdmins",
 	platformAuditLog: "platformAuditLogs",
 	orgSetting: "orgSettings",
@@ -955,6 +995,15 @@ function decorate(model: ModelName, row: Row, fixture: TenancyFixture): Row {
 		case "energyDevice": {
 			return { ...row, pond: ponds.find((pond) => pond.id === row.pondId) ?? null };
 		}
+		case "biomassLog": {
+			return { ...row, pond: ponds.find((pond) => pond.id === row.pondId) ?? null };
+		}
+		case "pondEvent": {
+			return { ...row, pond: ponds.find((pond) => pond.id === row.pondId) ?? null };
+		}
+		case "feedEvent": {
+			return { ...row, device: devices.find((device) => device.id === row.deviceId) ?? null };
+		}
 		case "deviceStateEvent": {
 			return { ...row, device: devices.find((device) => device.id === row.deviceId) ?? null };
 		}
@@ -1059,6 +1108,24 @@ function defaultsFor(model: ModelName, now: Date): Row {
 				metadata: null,
 				deviceTime: null,
 				createdAt: now,
+				farmId: null,
+			};
+		case "biomassLog":
+			return { batchLabel: null, recordedAt: now, farmId: null };
+		case "pondEvent":
+			return {
+				title: "",
+				startsAt: now,
+				type: "OTHER",
+				status: "PLANNED",
+				farmId: null,
+			};
+		case "feedEvent":
+			return {
+				eventType: "feed_dispensed",
+				receivedAt: now,
+				grams: null,
+				source: null,
 				farmId: null,
 			};
 		case "platformAdmin":
@@ -1214,6 +1281,9 @@ export function createTenancyDb(base: TenancyFixture = createTenancyFixture()): 
 		pond: delegateFor("pond"),
 		energyDevice: delegateFor("energyDevice"),
 		deviceStateEvent: delegateFor("deviceStateEvent"),
+		biomassLog: delegateFor("biomassLog"),
+		pondEvent: delegateFor("pondEvent"),
+		feedEvent: delegateFor("feedEvent"),
 		platformAdmin: delegateFor("platformAdmin"),
 		platformAuditLog: delegateFor("platformAuditLog"),
 		orgSetting: delegateFor("orgSetting"),

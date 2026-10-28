@@ -91,6 +91,41 @@
 		"alerts": "Alerts",
 		"me": "Me"
 	},
+	"search": {
+		"trigger": "Search",
+		"triggerLabel": "Search everything (Ctrl+K or Command+K)",
+		"dialogTitle": "Search",
+		"placeholder": "Search pages, ponds, devices, members and records",
+		"resultsLabel": "Search results",
+		"resultsCount": "{count, plural, one {# result} other {# results}}",
+		"loading": "Searching…",
+		"unavailable": "Search is unavailable right now.",
+		"close": "Close search",
+		"suggested": "Suggested for you",
+		"noResults": "Nothing matches “{query}”.",
+		"hintMove": "to move",
+		"hintOpen": "to open",
+		"hintClose": "to close",
+		"groups": {
+			"pages": "Pages",
+			"ponds": "Ponds",
+			"devices": "Devices",
+			"members": "Members",
+			"records": "Records"
+		},
+		"status": {
+			"archived": "Archived",
+			"pending": "Awaiting approval",
+			"unassigned": "Unassigned"
+		},
+		"pages": {
+			"members": "Members",
+			"createUser": "Create user"
+		},
+		"records": {
+			"feedEvent": "Feed event"
+		}
+	},
 	"button": {
 		"feedNow": "Feed Now",
 		"saveSample": "Save Sample",

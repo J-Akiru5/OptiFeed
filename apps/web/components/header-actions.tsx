@@ -7,6 +7,7 @@ import { HelpButton } from "@/components/help/help-button";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { PondSelector } from "@/components/pond-selector";
+import { SearchTrigger } from "@/components/search/global-search";
 import { UserAvatar } from "@/components/user-avatar";
 import { useRouter } from "@/i18n/routing";
 import { clearOfflineData } from "@/lib/offline/db";
@@ -298,6 +299,8 @@ export function HeaderActions({
 					</p>
 				</div>
 			)}
+
+			<SearchTrigger className="hidden sm:flex" />
 
 			<DarkModeToggle />
 			<LocaleSwitcher />

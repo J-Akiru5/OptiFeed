@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- #270 global search in the top navbar (⌘K / Ctrl+K) across pages, ponds, devices, members and records, scoped to what the caller can read.
+
 ## [1.21.2] - 2026-10-28
 
 ### Changed

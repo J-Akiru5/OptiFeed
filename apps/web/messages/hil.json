@@ -91,6 +91,41 @@
 		"alerts": "Mga alerto",
 		"me": "Ako"
 	},
+	"search": {
+		"trigger": "Pangitaa",
+		"triggerLabel": "Pangitaa ang tanan (Ctrl+K ukon Command+K)",
+		"dialogTitle": "Pangitaa",
+		"placeholder": "Pangitaa ang mga pahina, punong, device, miyembro kag rekord",
+		"resultsLabel": "Mga resulta sang pagpangita",
+		"resultsCount": "{count, plural, one {# resulta} other {# resulta}}",
+		"loading": "Nagapangita…",
+		"unavailable": "Indi magamit ang pagpangita subong.",
+		"close": "Sirad-i ang pagpangita",
+		"suggested": "Ginarekomendar para sa imo",
+		"noResults": "Wala sing nagatugma sa “{query}”.",
+		"hintMove": "para magbalhin",
+		"hintOpen": "para magbukas",
+		"hintClose": "para magsira",
+		"groups": {
+			"pages": "Mga pahina",
+			"ponds": "Mga punong",
+			"devices": "Mga device",
+			"members": "Mga miyembro",
+			"records": "Mga rekord"
+		},
+		"status": {
+			"archived": "Naka-archive",
+			"pending": "Nagahulat sang pag-apruba",
+			"unassigned": "Wala sing punong"
+		},
+		"pages": {
+			"members": "Mga miyembro",
+			"createUser": "Maghimo sang user"
+		},
+		"records": {
+			"feedEvent": "Rekord sang pagpakaon"
+		}
+	},
 	"button": {
 		"feedNow": "Pakauna Subong",
 		"saveSample": "I-save",

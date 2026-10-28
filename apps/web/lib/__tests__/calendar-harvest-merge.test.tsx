@@ -23,6 +23,7 @@ vi.mock("next-intl/server", () => ({
 }));
 
 import HarvestRedirectPage from "@/app/[locale]/(dashboard)/dashboard/harvest/page";
+import { navigationEntries } from "@/lib/assistant/navigation";
 
 const webRoot = join(__dirname, "../..");
 const read = (path: string) => readFileSync(join(webRoot, path), "utf8");
@@ -85,5 +86,13 @@ describe("the farmer navigation has one Calendar & Harvest entry", () => {
 			'prefix: "/dashboard/calendar", key: "calendar"',
 		);
 		expect(read("lib/help/guides.ts")).toContain('routes: ["/dashboard/calendar"]');
+
+		const entries = navigationEntries("farmer", "en").filter(
+			(entry) => entry.id === "section:harvest" || entry.id.startsWith("item:harvest:"),
+		);
+		expect(entries.length).toBeGreaterThan(0);
+		for (const entry of entries) {
+			expect(entry.route, entry.id).toBe("/dashboard/calendar");
+		}
 	});
 });

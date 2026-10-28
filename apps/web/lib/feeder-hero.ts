@@ -58,6 +58,7 @@ export async function loadFeederHero({
 			waterTempUpdatedAt: true,
 			gramsPerFeeding: true,
 			hopperCapacityG: true,
+			dailyCapG: true,
 		},
 	});
 	if (!device) return null;
@@ -110,6 +111,7 @@ export async function loadFeederHero({
 			latestFcr: latestFcr?.fcrValue ?? null,
 			currentGrams: device.gramsPerFeeding,
 			hopperCapacityG: device.hopperCapacityG,
+			dailyCapG: device.dailyCapG,
 			lastSampleAt: latestBiomass?.recordedAt ?? null,
 			isFallow: pond.isFallow,
 			cycle: null,

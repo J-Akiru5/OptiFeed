@@ -31,7 +31,7 @@ export const POST = withApi(
 			prisma.energyDevice.findFirst({
 				where: { pondId: pond.id },
 				orderBy: { createdAt: "asc" },
-				select: { id: true, gramsPerFeeding: true, hopperCapacityG: true },
+				select: { id: true, gramsPerFeeding: true, hopperCapacityG: true, dailyCapG: true },
 			}),
 			prisma.biomassLog.findFirst({
 				where: { pondId: pond.id },
@@ -73,6 +73,7 @@ export const POST = withApi(
 			latestFcr: latestFcr?.fcrValue ?? null,
 			currentGrams: energyDevice.gramsPerFeeding ?? null,
 			hopperCapacityG: energyDevice.hopperCapacityG ?? null,
+			dailyCapG: energyDevice.dailyCapG ?? null,
 			lastSampleAt: latestBiomass?.recordedAt ?? null,
 			isFallow: Boolean(pond.isFallow),
 			cycle,

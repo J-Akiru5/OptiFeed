@@ -79,7 +79,13 @@ export async function applyPredictedGrams(
 				pondId: activePond.id,
 				pond: { ownerId },
 			},
-			select: { id: true, pondId: true, gramsPerFeeding: true, hopperCapacityG: true },
+			select: {
+				id: true,
+				pondId: true,
+				gramsPerFeeding: true,
+				hopperCapacityG: true,
+				dailyCapG: true,
+			},
 		});
 
 		if (!device || !device.pondId) {
@@ -98,6 +104,7 @@ export async function applyPredictedGrams(
 		const upperBound = predictionUpperBound(
 			currentConfig?.feedsPerDay ?? 0,
 			device.hopperCapacityG,
+			device.dailyCapG,
 		);
 		if (safeGrams > upperBound + 0.05) {
 			return {

@@ -8,7 +8,7 @@ import {
 	MAX_FEED_GRAMS_PER_REQUEST,
 	POPULATION_MAX,
 	POPULATION_MIN,
-	dailyFeedCapG,
+	resolveDailyCapG,
 } from "@/lib/limits";
 import { calculateNextFeeding } from "@/lib/volumeCalc";
 
@@ -86,6 +86,10 @@ export interface PredictionInputs {
 	latestFcr: number | null;
 	currentGrams: number | null;
 	hopperCapacityG: number | null;
+	/** The pond's daily ceiling; null/undefined uses DEFAULT_DAILY_CAP_G. */
+	dailyCapG?: number | null;
+	/** Platform safety multiplier; may only lower the ceiling. */
+	dailyCapFactor?: number;
 	lastSampleAt: Date | null;
 	isFallow?: boolean;
 	cycle?: PredictionCycleContext | null;
@@ -218,6 +222,8 @@ export function normalisePredictionInputs(inputs: PredictionInputs): PredictionI
 		latestFcr,
 		currentGrams,
 		hopperCapacityG,
+		dailyCapG: isFiniteNumber(inputs.dailyCapG) && inputs.dailyCapG > 0 ? inputs.dailyCapG : null,
+		dailyCapFactor: isFiniteNumber(inputs.dailyCapFactor) ? inputs.dailyCapFactor : 1,
 		lastSampleAt,
 		isFallow: Boolean(inputs.isFallow),
 		cycle: inputs.cycle ?? null,
@@ -226,15 +232,28 @@ export function normalisePredictionInputs(inputs: PredictionInputs): PredictionI
 
 /**
  * Upper bound for per-meal grams from device safety limits:
- * feedGramsSchema max, and the daily cap spread across feedsPerDay.
+ * feedGramsSchema max, and the daily ceiling spread across feedsPerDay.
+ * The ceiling is the pond's configured value (default 2,000 g), optionally
+ * tightened by the platform factor, and never above the 5,000 g guard.
  */
-export function predictionUpperBound(feedsPerDay: number, hopperCapacityG: number | null): number {
+export function predictionUpperBound(
+	feedsPerDay: number,
+	hopperCapacityG: number | null,
+	dailyCapG?: number | null,
+	dailyCapFactor = 1,
+): number {
 	const safeFeeds =
 		isFiniteNumber(feedsPerDay) && feedsPerDay > 0
 			? clamp(feedsPerDay, FEEDS_PER_DAY_MIN, FEEDS_PER_DAY_MAX)
 			: 0;
 	const dailyCapPerMeal =
-		safeFeeds > 0 ? dailyFeedCapG(hopperCapacityG) / safeFeeds : MAX_FEED_GRAMS_PER_REQUEST;
+		safeFeeds > 0
+			? resolveDailyCapG({
+					configuredCapG: dailyCapG,
+					hopperCapacityG,
+					dailyCapFactor,
+				}) / safeFeeds
+			: MAX_FEED_GRAMS_PER_REQUEST;
 	return Math.min(MAX_FEED_GRAMS_PER_REQUEST, Math.max(1, dailyCapPerMeal));
 }
 
@@ -245,9 +264,17 @@ interface SafetyEnvelope {
 }
 
 function safetyEnvelope(
-	inputs: Pick<PredictionInputs, "feedsPerDay" | "hopperCapacityG" | "currentGrams">,
+	inputs: Pick<
+		PredictionInputs,
+		"feedsPerDay" | "hopperCapacityG" | "currentGrams" | "dailyCapG" | "dailyCapFactor"
+	>,
 ): SafetyEnvelope {
-	const upper = predictionUpperBound(inputs.feedsPerDay, inputs.hopperCapacityG);
+	const upper = predictionUpperBound(
+		inputs.feedsPerDay,
+		inputs.hopperCapacityG,
+		inputs.dailyCapG,
+		inputs.dailyCapFactor,
+	);
 	const current = inputs.currentGrams;
 	const currentValid = isFiniteNumber(current) && current > 0;
 
@@ -271,7 +298,10 @@ function safetyEnvelope(
  */
 export function clampPredictionGrams(
 	candidate: number,
-	inputs: Pick<PredictionInputs, "feedsPerDay" | "hopperCapacityG" | "currentGrams">,
+	inputs: Pick<
+		PredictionInputs,
+		"feedsPerDay" | "hopperCapacityG" | "currentGrams" | "dailyCapG" | "dailyCapFactor"
+	>,
 ): { grams: number; clamped: boolean; reasons: PredictionClampReason[] } {
 	const envelope = safetyEnvelope(inputs);
 	const reasons = new Set<PredictionClampReason>();

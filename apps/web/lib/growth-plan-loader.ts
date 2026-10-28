@@ -71,6 +71,7 @@ export async function loadGrowthPlanForPond(
 				id: true,
 				gramsPerFeeding: true,
 				hopperCapacityG: true,
+				dailyCapG: true,
 			},
 		}),
 		prisma.fcrReport.findFirst({
@@ -143,6 +144,7 @@ export async function loadGrowthPlanForPond(
 		deviceMaxGramsPerFeeding: predictionUpperBound(
 			feedsPerDay,
 			energyDevice?.hopperCapacityG ?? null,
+			energyDevice?.dailyCapG ?? null,
 		),
 		hasDevice: Boolean(energyDevice),
 		latestFcr: latestFcr?.fcrValue ?? null,

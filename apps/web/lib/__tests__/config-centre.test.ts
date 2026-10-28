@@ -31,7 +31,7 @@ import {
 	setOrgDefaults,
 } from "@/lib/actions/platform/config";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
-import { dailyFeedCapG } from "@/lib/limits";
+import { resolveDailyCapG } from "@/lib/limits";
 import { DEFAULT_INVITE_FROM, getEmailConfiguration } from "@/lib/settings/email-status";
 import {
 	FEEDING_CAPS_DEFAULTS,
@@ -314,10 +314,15 @@ describe("feeding-cap readers clamp to the hard maximum", () => {
 	});
 
 	it("lowers the daily allowance without ever being able to raise it", () => {
-		expect(dailyFeedCapG(10_000, 0.5)).toBe(2_500);
-		expect(dailyFeedCapG(1_000, 1)).toBe(1_000);
-		expect(dailyFeedCapG(10_000, 5)).toBe(5_000);
-		expect(dailyFeedCapG(10_000)).toBe(5_000);
+		// The default is 2,000 g; the platform factor may only lower it.
+		expect(resolveDailyCapG({ hopperCapacityG: 10_000, dailyCapFactor: 0.5 })).toBe(1_000);
+		// A small hopper is the physical limit.
+		expect(resolveDailyCapG({ hopperCapacityG: 1_000 })).toBe(1_000);
+		// The platform factor is clamped to 1, so it cannot raise the default.
+		expect(resolveDailyCapG({ hopperCapacityG: 10_000, dailyCapFactor: 5 })).toBe(2_000);
+		// A raised ceiling is honoured up to the hard guard.
+		expect(resolveDailyCapG({ configuredCapG: 5_000, hopperCapacityG: 10_000 })).toBe(5_000);
+		expect(resolveDailyCapG({ configuredCapG: 6_000 })).toBe(5_000);
 	});
 });
 

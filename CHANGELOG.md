@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Daily feed ceiling per device (`EnergyDevice.dailyCapG`): 2,000 g/day by default, configurable by the farmer (App & Hardware) and by an admin (pond detail), and never above the 5,000 g emergency guard the firmware enforces. Amendment A-001; contract `docs/feeding-single-source-plan.md`.
+
+### Changed
+
+- Every daily-cap check now calls one resolver (`resolveDailyCapG`), so the platform `dailyCapFactor` applies identically to schedule saves, manual feeds, calibration doses, pond edits and the AI advisor. Two paths previously ignored the factor.
+- The advisor's per-meal bound derives from the device's ceiling instead of the flat 5,000 g maximum: 1,000 g at two meals and 500 g at four under the new default.
+
 ## [1.19.1] - 2026-10-28
 
 ### Changed

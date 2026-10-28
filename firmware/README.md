@@ -22,13 +22,18 @@
 > reason (`Not connected: wrong password / network not found / no IP`) with the form kept for
 > a retry. Nothing is written to NVS until the join works. The 1.5.2 changes are described
 > under **Setup Portal** below.
+>
+> **Firmware 1.5.3 (phantom button feeds).** A falling edge is no longer a press: the
+> interrupt only records a candidate, `loop()` samples GPIO 23 for 50 ms and accepts it only
+> when the line stays LOW. Button edges are ignored from relay ON until 2 s after relay OFF,
+> and a button dose is limited to one per 30 s. See **Firmware 1.5.3 button guard** below.
 
 ## Hardware Pinout
 
 | Pin   | Usage                                    |
 |-------|------------------------------------------|
 | GPIO 25 | Relay OUT (active HIGH by default; `-DRELAY_ACTIVE_LOW=1` for an active-LOW module). GPIO 5 also works via `-DRELAY_PIN=5` (see Relay pin) |
-| GPIO 23 | Physical button (INPUT_PULLUP, press = LOW). Falling-edge interrupt dispenses the button dose; hold >= 5 s at boot to reset WiFi credentials (device identity is kept) |
+| GPIO 23 | Physical button (INPUT_PULLUP, press = LOW). A press must stay LOW for 50 ms before it dispenses the button dose (1.5.3); edges during and 2 s after a dispense are ignored, and button doses are limited to one per 30 s. Hold >= 5 s at boot to reset WiFi credentials (device identity is kept) |
 | GPIO 32 | DS18B20 water temperature probe (1-Wire; 4.7 kOhm pull-up to 3.3 V) |
 | GPIO 12 | HC-SR04 TRIG (output). Strapping pin: a 10 kOhm pull-down to GND holds it LOW at boot |
 | GPIO 14 | HC-SR04 ECHO (input, 5 V logic — level-shift or divide before the pin) |
@@ -198,9 +203,41 @@ namespace or the feeding/safety logic.
 | No placeholder identity | The compile-time `DEVICE_MAC` / `DEVICE_TOKEN` fallbacks are gone. Only NVS `device_id` + `device_token` enable the API. An unprovisioned unit logs `[IDENTITY] not provisioned - API disabled`, broadcasts its setup AP and keeps feeding on the RTC schedule. It sends **no** ingest, feed-command, schedule-sync or OTA request. |
 | Setup AP name | `provisioningApSsid()` now uses the last four hex digits of the stored Device ID when it parses as a MAC (`AA:BB:CC:DD:EE:FF`, `AA-BB-…` or 12 bare hex digits). Otherwise it uses the chip eFuse MAC, as before. Both IDs are logged at boot: `[DEVICE MAC]` (chip) and `[IDENTITY] Device ID` / `[IDENTITY] Setup AP name`. |
 | Watchdog-safe poll cycle | API calls use an 8 s connect + 8 s read timeout and the TLS handshake is capped at 8 s. `esp_task_wdt_reset()` runs between every network call in the 5 s cycle and around each dispense, so a slow link cannot trip the 30 s task watchdog. The OTA check (6/10 s) and download (6/12 s plus its own 60 s no-data bound) keep their separate limits. |
-| Feed button never missed | GPIO 23 is read by a falling-edge interrupt with the same 250 ms debounce, at most one pending press, and presses in the first 5 s after boot ignored. A press during a blocking HTTPS call dispenses on the next loop pass. The OTA download still aborts on a button press and dispenses once. |
+| Feed button never missed | GPIO 23 is read by a falling-edge interrupt with the same 250 ms debounce, at most one pending press, and presses in the first 5 s after boot ignored. A press during a blocking HTTPS call dispenses on the next loop pass. The OTA download aborts on a confirmed button press and dispenses once. **1.5.3** adds the 50 ms confirmation, the post-dispense quiet window and the 30 s cooldown described below. |
 | Wi-Fi picker in the setup portal | 1.5.2 (issue #252): the portal fills the picker with an **asynchronous** 2.4 GHz scan after the AP is up and the station is idle, sorts the result by signal, deduplicates by SSID, and offers a **Rescan** button. A scan that returns nothing retries once after 2 s; the real `scanNetworks`/`scanComplete` value is logged instead of being shown as "0 networks". Networks render as rows with signal bars and a lock icon (open networks are marked), plus "Type it manually". See **Setup Portal**. |
 | Relay polarity flag | `-DRELAY_ACTIVE_LOW=0` or `1` (default `0`, active HIGH) derives `RELAY_ON` / `RELAY_OFF`; boot still forces OFF. |
+
+## Firmware 1.5.3 button guard
+
+Field issue on the CICT Building A unit (2026-10-28): 22 feeds with
+`source = button`, 80 g each, with no server feed request, in pairs or triples
+~20 s apart, plus one 25 minutes after the last dispense. That is relay/motor
+switching noise coupling into the GPIO 23 line (internal ~45 kOhm pull-up only,
+long wire), not a person pressing the button.
+
+| Rule | Behaviour |
+|---|---|
+| A press must be real | The falling-edge interrupt only records a *candidate*. `loop()` samples GPIO 23 ten times over 50 ms; the press is accepted only when every sample reads LOW (or at least 90 %, tolerating one missed sample at release). Otherwise it is dropped and logged `[BUTTON] rejected glitch (<n> ms low)`, at most one log per 10 s. |
+| Quiet window | Every button edge is ignored and cleared from relay ON until 2 s after relay OFF, whatever started the dispense (button, schedule or dashboard). Log: `[BUTTON] ignored during/after dispense`, at most one per 10 s. |
+| Cooldown | At most one *button* dispense per 30 s (`BUTTON_COOLDOWN_MS`). A confirmed second press is refused with `[BUTTON] cooldown`; scheduled and dashboard feeds are unaffected. |
+| Telemetry | Rejected edges are counted and sent as the optional `button_glitches` heartbeat field. The ingest schema strips unknown heartbeat keys, so this is diagnostic only until a server change stores it; each rejection is also on the Serial line. |
+| Unchanged | 250 ms debounce, 5 s boot grace, one pending press, the GPIO 23 hold-at-boot WiFi reset, the relay-OFF boot state, `MAX_DISPENSE_MS`, the daily cap, the NVS namespace `optifeed`, device auth and OTA signing. |
+
+A real press holds the line LOW for tens to hundreds of milliseconds; a switching
+spike lasts microseconds. The firmware guard removes the symptom, but the wiring
+should still be fixed:
+
+- 10 kOhm pull-up from GPIO 23 to 3V3: the internal pull-up alone is too weak for
+  a long run next to the motor.
+- 100 nF from GPIO 23 to GND at the pin, so RF and switching noise is shunted.
+- Flyback diode across the motor (stripe/cathode to motor +), so the collapsing
+  coil current does not couple into the button wiring.
+- Twist the button pair and keep it away from the motor and relay wiring.
+- Recommended nearby: 100 nF on GPIO 16 and 17, and 470-1000 uF on the 5 V rail.
+
+Bench check: a normal press (>= 100 ms) dispenses exactly once; a tap shorter than
+50 ms is rejected; a press during a dispense is ignored; a second press inside 30 s
+logs `[BUTTON] cooldown` and does not dispense.
 
 ## Configuration
 
@@ -213,7 +250,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 #define FEED_POLL_URL_BASE     "https://pakaonai.syntaxure.dev/api/feed-command"
 #define SCHEDULE_SYNC_URL_BASE "https://pakaonai.syntaxure.dev/api/schedule-sync"
 #define OTA_CHECK_URL          "https://pakaonai.syntaxure.dev/api/firmware/check"
-#define FW_VERSION             "1.5.2"
+#define FW_VERSION             "1.5.3"
 #define FW_BOARD               "wroom32u"
 ```
 
@@ -794,17 +831,24 @@ Portal checks (no backend needed):
 12. Confirm the serial log never prints the WiFi password or the Device Token, and that
     the setup page never renders a stored token. `/status` and `/scan` must not contain
     either.
-13. Confirm the boot log prints `[FIRMWARE] v1.5.2` under the `[DEVICE MAC]` line and
+13. Confirm the boot log prints `[FIRMWARE] v1.5.3` under the `[DEVICE MAC]` line and
     `[IDENTITY] Setup AP name`, and that a heartbeat carries the same version in
     `firmware_version`.
 14. Confirm the boot log prints `[INIT] Reset reason: ...`, `[OTA] state -> valid` and
     `[OTA] LAN ArduinoOTA disabled (field build; -DENABLE_LAN_OTA for bench)`.
 15. With a stored MAC Device ID, confirm the AP name uses its last four hex digits; with
     a non-MAC Device ID, confirm it uses the chip eFuse MAC.
-16. Press the feed button for ~50 ms while a 5 s network cycle is running: exactly one
+16. Press the feed button for >= 100 ms while a 5 s network cycle is running: exactly one
     button dose dispenses, and the serial log shows no missed press.
 17. Build with `-DRELAY_ACTIVE_LOW=1` and confirm the relay rests OFF at boot and only
     energizes for a dose.
+18. Tap the button for < 50 ms: nothing dispenses and the serial prints
+    `[BUTTON] rejected glitch (<n> ms low)`. Repeat within 10 s: the log line is
+    rate-limited to one per 10 s.
+19. Press the button while a dose is running (and again within 2 s of it ending):
+    `[BUTTON] ignored during/after dispense`, and no extra dose.
+20. Press twice, 5 s apart: the first dispenses, the second prints `[BUTTON] cooldown`
+    and does not. Press again after 30 s: it dispenses.
 
 After flashing, test the API endpoints against the production backend:
 

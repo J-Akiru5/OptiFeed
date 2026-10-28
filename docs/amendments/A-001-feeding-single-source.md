@@ -77,7 +77,7 @@ Branch `feat/feeding-single-source`, worktree `C:\Users\Client\CApstone\OptiFeed
 | F-05 growth-plan chain | `6f53b59` | `growth-plan-apply.ts` writes `Pond.feedingRatePct` (bounded) and re-derives the dose; metadata records `ratePrevious`, `rateApplied`, `gramsRequested`, `gramsApplied`. |
 | F-06 daily ceiling | `a57fc9b` | `lib/__tests__/daily-cap.test.ts` (8 tests) plus 170 focused tests across cap, config, prediction, schedule, ponds, feed-command and biomass suites. Additive migration `20261028010000_add_device_daily_cap`. |
 | F-07 one clock | `6f53b59` | `lib/schedule/next-feeding.ts` and its test deleted; the hero returns `nextFeedSlot` from `computeNextFeedingSlot`. `/api/feed-command` and `/api/schedule-sync` now send `server_time_utc` and `farm_offset_minutes`. |
-| F-08 tests and changelog | `6f53b59` | Full Vitest suite: 218 files, 2,229 tests, all passing. `tsc --noEmit` and `biome check` clean. `pnpm self-check` 52/56; the four failures are pre-existing and untouched by this branch. |
+| F-08 tests and changelog | `f6ce770` | Full Vitest suite after merging `origin/develop`: 219 files, 2,240 tests, all passing. `tsc --noEmit` and `biome check` clean. `pnpm self-check` 52/56; the four failures are pre-existing and untouched by this branch. |
 
 ## 8. Reversal
 
@@ -85,7 +85,7 @@ Revert the implementation commits; the additive column can remain unused. Restor
 
 ## 9. Versioning (prepared, not published)
 
-- Proposed bump: **MINOR, 1.20.0 → 1.21.0**. The change adds a setting and changes a default; it removes no API and no file path.
+- Proposed bump: **MINOR, 1.20.1 → 1.21.0**. The change adds a setting and changes a default; it removes no API and no file path.
 - Updated on the implementation branch: `package.json`, `apps/web/package.json`, `lib/legal/config.ts` (`LEGAL_APP_RELEASE`), and `CHANGELOG.md` (new `## [1.21.0] - 2026-10-28`, fresh empty `## [Unreleased]`).
 - Not done, and must stay with a human: annotated tag, GitHub Release, npm publication, and production promotion.
 - The merge to `develop` is the single automatic deployment trigger; no deployment was created or triggered while preparing this amendment.

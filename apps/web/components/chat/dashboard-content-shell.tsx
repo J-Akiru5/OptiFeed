@@ -13,7 +13,7 @@ export function DashboardContentShell({ children }: { children: ReactNode }) {
 	return (
 		<div
 			className={cn(
-				"flex w-full flex-1 min-h-[calc(100vh-4rem)] transition-[margin-right] duration-300",
+				"flex w-full min-w-0 flex-1 min-h-[calc(100vh-4rem)] transition-[margin-right] duration-300",
 				isOpen && "md:mr-[var(--ofd-chat-panel-w)]",
 			)}
 		>

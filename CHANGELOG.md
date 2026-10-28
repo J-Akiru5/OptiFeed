@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.2] - 2026-10-28
+
 ### Changed
 
 - #259 the hopper card turns red and pulses at 30 % or below, with a "Low: refill soon" label and a reduced-motion fallback. The alert threshold (`OrgSetting.hopperLowPct`, default 20 %) is unchanged.
@@ -16,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - #263 every hopper display reads the same live level; the firmware version stays current from the heartbeat; the Device ID shows the sticker MAC.
+
+## [1.21.1] - 2026-10-28
+
+### Fixed
+
+- Firmware 1.6.1: the dispense calibration set on the dashboard was lost on every reboot: the ESP32 held `gramsPerSecond` only in RAM and fell back to the `4.0` compile-time default until the next successful poll, so a feed triggered in that window ran at the wrong rate and dispensed the wrong amount. The applied value is now mirrored into NVS (`cal_gps`) and restored at boot, written only when it actually changes so polling cannot wear the flash. Applied and refused values are logged with a `[CAL]` prefix, which makes the dashboard-to-device calibration path observable on serial for the first time.
+- The dashboard no longer scrolls sideways on a phone. The content column is a shrinkable flex child (`min-w-0`) and the dashboard shell clips horizontal overflow, so only vertical scrolling remains.
 
 ## [1.21.0] - 2026-10-28
 

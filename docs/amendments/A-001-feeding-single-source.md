@@ -70,14 +70,14 @@ Branch `feat/feeding-single-source`, worktree `C:\Users\Client\CApstone\OptiFeed
 
 | Task | Commit | Evidence |
 |---|---|---|
-| F-06 daily ceiling | pending | pending |
-| F-01 pond-scoped source | pending | pending |
-| F-02 single derivation | pending | pending |
-| F-03 no phantom population | pending | pending |
-| F-04 FCR calculator | pending | pending |
-| F-05 growth-plan chain | pending | pending |
-| F-07 one clock | pending | pending |
-| F-08 tests and changelog | pending | pending |
+| F-06 daily ceiling | `a57fc9b` | `lib/__tests__/daily-cap.test.ts` (8 tests) plus 170 focused tests across cap, config, prediction, schedule, ponds, feed-command and biomass suites; `tsc --noEmit` and `biome check` clean. Migration `20261028010000_add_device_daily_cap` is additive. |
+| F-01 pond-scoped source | pending | FCR path is pond-scoped (`lib/actions/fcr.ts` takes `pondId` and scopes by owner); the shared `resolvePondFeeding` reader is not built yet. |
+| F-02 single derivation | pending | `syncDeviceGramsForPond` remains the only settings-driven writer; the biomass path still contains its own deviation veto. |
+| F-03 no phantom population | pending | `DEFAULT_FISH_COUNT` still appears in dashboard, PDF, growth-plan-loader, prediction callers and chat context. |
+| F-04 FCR calculator | `60e2e68` | `lib/__tests__/fcr-calculation.test.ts` rewritten (9 tests): rate 6.57 %/day for 13.78 g to 50 g over 60 days at FCR 1.5, population-independent rate, correct per-meal dose, default-FCR and zero-day cases. 85 focused tests pass. |
+| F-05 growth-plan chain | pending | `growth-plan-apply.ts` still writes `gramsPerFeeding` directly. |
+| F-07 one clock | pending | `next-feeding.ts` still uses `setHours`; no `server_time_utc`/`farm_offset_minutes` in the poll payloads. |
+| F-08 tests and changelog | partial | Changelog updated; full `pnpm self-check` not run yet. |
 
 ## 8. Reversal
 

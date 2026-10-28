@@ -204,7 +204,7 @@ Acceptance: the label round-trips (form → DB → Growth table → CSV export);
 
 Acceptance: a settings change and a biomass log produce exactly `feedPerMealG(population, rate, feeds)` on the device; two ponds owned by one farmer never cross-read; no automatic dose exists without a population; the FCR rate for 13.78 g -> 50 g over 60 days at FCR 1.5 is about 88 %/day, not 0.018 %; every cap path agrees at 499 / 500 / 5,000 / 5,001 g; the hero and dashboard show the same next-feed time under `TZ=UTC`.
 
-**Status (2026-10-28): proposed.** No code merged. Implementation branch `feat/feeding-single-source` from `origin/develop` `2a5d5e4`. Migration needs the H7/H8 gates and the backfill decision in the contract section 7.
+**Status (2026-10-28): partial.** F-06 (daily ceiling) landed in `a57fc9b`; F-04 (FCR calculator) landed in `60e2e68`. Both are pushed on `feat/feeding-single-source`. F-01, F-02, F-03, F-05 and F-07 remain open; the phantom population fallback and the duplicate next-feeding calculator are still in the tree. The migration needs the H7/H8 gates and the backfill decision in the contract section 7. `develop` has advanced 11 commits since the branch was cut, so a rebase is required before the PR.
 
 ### Phase 2: Security
 

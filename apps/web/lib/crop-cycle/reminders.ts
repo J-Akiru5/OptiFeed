@@ -32,7 +32,7 @@ const EMAIL_CONCURRENCY = 4;
 // route's 8 s cap even after the in-app writes.
 const ROUTE_BUDGET_MS = 5_000;
 const MAX_ERROR_LENGTH = 300;
-const REMINDER_LINK = "/dashboard/harvest";
+const REMINDER_LINK = "/dashboard/calendar";
 
 export type NotificationTier = "INFO" | "WARNING" | "CRITICAL";
 export type ReminderCategory = "harvest" | "sampling" | "event";

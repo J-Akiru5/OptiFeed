@@ -732,7 +732,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 									</div>
 								</div>
 								<Link
-									href="/dashboard/harvest"
+									href="/dashboard/calendar"
 									className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-[#1f66a0]"
 								>
 									{tHarvest("startCycle")}
@@ -772,7 +772,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 												: ""}
 										</>
 									}
-									href="/dashboard/harvest"
+									href="/dashboard/calendar"
 									linkLabel={t("controlRoom.growOutLink")}
 								/>
 							</ControlPanel>

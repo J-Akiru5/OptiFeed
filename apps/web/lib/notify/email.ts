@@ -56,7 +56,7 @@ export async function sendReminderEmail(
 	}
 
 	const baseUrl = (env.NEXT_PUBLIC_BASE_URL ?? "").replace(/\/+$/, "");
-	const link = `${baseUrl}/dashboard/harvest`;
+	const link = `${baseUrl}/dashboard/calendar`;
 
 	try {
 		const resend = new Resend(env.RESEND_API_KEY);

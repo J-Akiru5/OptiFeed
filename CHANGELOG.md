@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [Unreleased]
+
 ### Added
 
 - Daily feed ceiling per device (`EnergyDevice.dailyCapG`): 2,000 g/day by default, configurable by the farmer (App & Hardware) and by an admin (pond detail), and never above the 5,000 g emergency guard the firmware enforces. Amendment A-001; contract `docs/feeding-single-source-plan.md`.
@@ -21,6 +23,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Every daily-cap check now calls one resolver (`resolveDailyCapG`), so the platform `dailyCapFactor` applies identically to schedule saves, manual feeds, calibration doses, pond edits and the AI advisor. Two paths previously ignored the factor.
 - The advisor's per-meal bound derives from the device's ceiling instead of the flat 5,000 g maximum: 1,000 g at two meals and 500 g at four under the new default.
+
+## [1.20.0] - 2026-10-28
+
+### Changed
+
+- #247 Biomass Log and Schedule use the full width on large screens: the sample form sits beside a sticky Live Preview with a short "How it's calculated" panel, and the schedule editor sits beside a sticky status/Feed Now/offline rail. Saved sampling batches show three or four across on wide screens. Below `xl` the stacked layout and the mobile sticky action bar are unchanged.
+- The same centred page width now applies to Notifications, Audit, Growth, Growth history and the sampling-batch log, which were each capped at a narrow left-aligned column.
+- #248 Calendar and Harvest are one page (Calendar & Harvest); the old Harvest link redirects.
+
+### Fixed
+
+- #248 upcoming events were empty on the Harvest page.
+
+## [1.19.2] - 2026-10-28
+
+### Changed
+
+- Firmware 1.5.2 (#252): the setup portal is branded (PakaonAI fish mark, wordmark, tagline "Sakto nga pakaon, sakto nga oras.") and fills its network list with an asynchronous 2.4 GHz scan with a **Rescan** button, signal bars, a lock icon for secured networks and deduplication by SSID. The footer shows the unit's Device ID and AP name.
+- Firmware 1.5.2 (#252): submitting the portal form now tests the network first. The setup AP stays up, the status page shows `Connecting…` and then `Connected to <SSID> · IP · signal` or a failure reason, and only a working link is saved (restart after 5 s).
+
+### Fixed
+
+- Firmware 1.5.2 (#252): the setup portal's network scan reported 0 networks when the portal started right after a failed join, because the station was still connecting (`esp_wifi_scan_start` returns `ESP_ERR_WIFI_STATE`, which the old code printed as "0 network(s)"). The scan now settles the station first, runs after `WIFI_AP_STA` is set and asynchronously, logs the real return value and retries once after 2 s.
+- Firmware 1.5.2 (#252): a failed join no longer saves the credentials. The old NVS values are left untouched and the form returns with the reason (wrong password / network not found / no IP) so it can be retried.
 
 ## [1.19.1] - 2026-10-28
 

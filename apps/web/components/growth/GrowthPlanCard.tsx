@@ -48,7 +48,7 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 							{t("noCycle")}
 						</p>
 						<Link
-							href="/dashboard/harvest"
+							href="/dashboard/calendar"
 							className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#164e7c]"
 						>
 							{t("startCycle")}
@@ -75,7 +75,7 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 							{plan.status === "noTarget" ? t("noTarget") : t("noWeight")}
 						</p>
 						<Link
-							href={plan.status === "noTarget" ? "/dashboard/harvest" : "/dashboard/log-sample"}
+							href={plan.status === "noTarget" ? "/dashboard/calendar" : "/dashboard/log-sample"}
 							className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#164e7c]"
 						>
 							{plan.status === "noTarget" ? t("editPlan") : t("logSample")}
@@ -439,7 +439,7 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 						<span>{t("density", { density: plan.density.fishPerM2.toFixed(1) })}</span>
 					)}
 					<Link
-						href="/dashboard/harvest"
+						href="/dashboard/calendar"
 						className="font-bold text-[var(--ofd-base)] hover:underline"
 					>
 						{t("editPlan")}

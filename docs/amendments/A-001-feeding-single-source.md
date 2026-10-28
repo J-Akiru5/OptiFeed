@@ -70,7 +70,7 @@ Branch `feat/feeding-single-source`, worktree `C:\Users\Client\CApstone\OptiFeed
 
 | Task | Commit | Evidence |
 |---|---|---|
-| F-01 pond-scoped source | `6f53b59` | `lib/feeding/source.ts` + `lib/__tests__/feeding-source.test.ts` (6 tests): reads only the requested pond, returns null for an unknown pond, lets a pending command override the row, exposes a null population, resolves the cap through `resolveDailyCapG`, and falls back to the 2,000 g default. |
+| F-01 pond-scoped source | `6f53b59` | `lib/feeding/source.ts` + `lib/__tests__/feeding-source.test.ts` (6 tests): reads only the requested pond, returns null for an unknown pond, lets a pending command override the row, exposes a null population, resolves the cap through `resolveDailyCapG`, and falls back to the 2,000 g default. Adoption: the FCR action now takes an explicit `pondId`; dashboard, growth, PDF and chat read the same pond row directly (correctly scoped) without the 5,000 fallback. Swapping those remaining direct queries onto the reader is mechanical. |
 | F-02 single derivation | `6f53b59` | `lib/feeding/derive.ts` is the only writer of `gramsPerFeeding`; `syncDeviceGramsForPond` delegates to it. Settings, biomass and growth-plan paths all derive through `feed-calc`. |
 | F-03 no phantom population | `6f53b59` | `totalBiomassG`/`dailyFeedG`/`feedPerMealG`/`calculateNextFeeding` return null without a real count. `DEFAULT_FISH_COUNT` is gone from dashboard, PDF, growth plan, prediction, chat and the sampling preview; tests updated. |
 | F-04 FCR calculator | `60e2e68` | `lib/__tests__/fcr-calculation.test.ts` rewritten (9 tests): rate 6.57 %/day for 13.78 g to 50 g over 60 days at FCR 1.5, population-independent rate, correct per-meal dose, default-FCR and zero-day cases. |

@@ -4,8 +4,8 @@ import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import {
 	dateOnlyToUtcDate,
-	dateRangeUtc,
 	daysBetween,
+	farmDayRangeUtc,
 	todayDateOnly,
 } from "@/lib/crop-cycle/dates";
 import { computeFinalFcr } from "@/lib/crop-cycle/metrics";
@@ -259,13 +259,17 @@ export async function markCycleHarvested(input: HarvestInput): Promise<CropCycle
 				select: { id: true },
 			});
 			const deviceIds = devices.map((device) => device.id);
-			const range = dateRangeUtc(stockingDate, data.actualHarvestDate);
+			// Farm calendar days, not UTC days: `receivedAt` is an instant and a
+			// Manila day starts at 16:00 UTC the day before. Every feed source is
+			// included, so an imported `hand_fed` daily total counts as feed given
+			// (data sheet: FCR = all feed ÷ biomass gain).
+			const range = farmDayRangeUtc(stockingDate, data.actualHarvestDate);
 			const feed = deviceIds.length
 				? await tx.feedEvent.aggregate({
 						where: {
 							deviceId: { in: deviceIds },
 							eventType: "feed_dispensed",
-							receivedAt: { gte: range.gte, lt: range.lte },
+							receivedAt: { gte: range.gte, lt: range.lt },
 						},
 						_sum: { grams: true },
 					})

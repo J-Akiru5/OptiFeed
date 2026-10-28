@@ -14,20 +14,25 @@ export interface FcrCalculationResult {
 	daysToTarget: number;
 }
 
-import { DEFAULT_FISH_COUNT } from "./constants";
-
 const DEFAULT_FCR = 1.5;
 
 export function calculateFeedRequirement(input: FcrCalculationInput): FcrCalculationResult {
-	const fcr = input.currentFcr > 0 ? input.currentFcr : DEFAULT_FCR;
-	const totalBiomassGainKg = Math.max(0, input.targetWeightKg - input.currentBiomassKg);
+	const fcr =
+		Number.isFinite(input.currentFcr) && input.currentFcr > 0 ? input.currentFcr : DEFAULT_FCR;
+	const currentBiomassKg = Number.isFinite(input.currentBiomassKg)
+		? Math.max(0, input.currentBiomassKg)
+		: 0;
+	const targetWeightKg = Number.isFinite(input.targetWeightKg) ? input.targetWeightKg : 0;
+	const days = Number.isFinite(input.days) && input.days > 0 ? input.days : 0;
+	const totalBiomassGainKg = Math.max(0, targetWeightKg - currentBiomassKg);
 	const totalFeedNeededKg = totalBiomassGainKg * fcr;
-	const dailyBiomassGainKg = input.days > 0 ? totalBiomassGainKg / input.days : 0;
-	const dailyFeedRationKg = input.days > 0 ? totalFeedNeededKg / input.days : 0;
-	const dailyFeedPerFishG = (dailyFeedRationKg * 1000) / DEFAULT_FISH_COUNT;
-	const totalBiomassG = input.currentBiomassKg * 1000 * DEFAULT_FISH_COUNT;
+	const dailyBiomassGainKg = days > 0 ? totalBiomassGainKg / days : 0;
+	const dailyFeedRationKg = days > 0 ? totalFeedNeededKg / days : 0;
+	// Feeding rate = daily ration ÷ total biomass × 100. Both inputs are total
+	// kilograms, so no fish count is involved; dividing by a fish count here made
+	// the answer DEFAULT_FISH_COUNT (5,000) times too small.
 	const suggestedFeedingRatePct =
-		totalBiomassG > 0 ? (dailyFeedPerFishG / (totalBiomassG / DEFAULT_FISH_COUNT)) * 100 : 0;
+		currentBiomassKg > 0 ? (dailyFeedRationKg / currentBiomassKg) * 100 : 0;
 
 	return {
 		totalFeedNeededKg: Math.round(totalFeedNeededKg * 100) / 100,
@@ -35,6 +40,6 @@ export function calculateFeedRequirement(input: FcrCalculationInput): FcrCalcula
 		totalBiomassGainKg: Math.round(totalBiomassGainKg * 100) / 100,
 		dailyBiomassGainKg: Math.round(dailyBiomassGainKg * 100) / 100,
 		suggestedFeedingRatePct: Math.round(suggestedFeedingRatePct * 100) / 100,
-		daysToTarget: input.days,
+		daysToTarget: days,
 	};
 }

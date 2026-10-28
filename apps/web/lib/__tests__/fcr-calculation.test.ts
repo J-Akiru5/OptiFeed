@@ -66,7 +66,7 @@ describe("calculateFeedRequirement", () => {
 		expect(result.totalFeedNeededKg).toBe(0);
 	});
 
-	it("calculates suggestedFeedingRatePct correctly", () => {
+	it("calculates suggestedFeedingRatePct as daily ration ÷ current biomass", () => {
 		const result = calculateFeedRequirement({
 			currentBiomassKg: 1000,
 			targetWeightKg: 1500,
@@ -74,11 +74,23 @@ describe("calculateFeedRequirement", () => {
 			currentFcr: 1.5,
 		});
 
-		// dailyFeedPerFishG = (25 * 1000) / 5000 = 5
-		// totalBiomassG = 1000 * 1000 * 5000 = 5e9
-		// suggestedFeedingRatePct = (5 / (5e9 / 5000)) * 100 = 0.0005
-		// After rounding to 2 decimals: Math.round(0.0005 * 100) / 100 = 0
+		// 25 kg/day ÷ 1,000 kg total biomass × 100 = 2.5%. This used to
+		// divide by DEFAULT_FISH_COUNT (5,000) and report 0.00%.
+		expect(result.suggestedFeedingRatePct).toBe(2.5);
+	});
+
+	it("treats a non-finite FCR or day count as missing rather than returning NaN", () => {
+		const result = calculateFeedRequirement({
+			currentBiomassKg: 100,
+			targetWeightKg: 200,
+			days: Number.NaN,
+			currentFcr: Number.POSITIVE_INFINITY,
+		});
+
+		expect(result.totalFeedNeededKg).toBe(150);
+		expect(result.dailyFeedRationKg).toBe(0);
 		expect(result.suggestedFeedingRatePct).toBe(0);
+		expect(result.daysToTarget).toBe(0);
 	});
 
 	it("returns 0 suggestedFeedingRatePct when currentBiomassKg is 0", () => {

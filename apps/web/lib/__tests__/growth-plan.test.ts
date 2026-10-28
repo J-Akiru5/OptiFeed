@@ -64,19 +64,19 @@ describe("buildGrowthPlan", () => {
 		expect(plan.track).toBe("behind");
 		expect(plan.trackDeltaG).toBe(-50);
 		expect(plan.requiredDailyGainG).toBe(3.5);
-		expect(plan.requiredDailyFeedKg).toBe(4.73);
+		expect(plan.requiredDailyFeedKg).toBe(5.25);
 		expect(plan.requiredFeedingRatePct).toBe(4.38);
-		expect(plan.recommendedGramsPerFeeding).toBe(1575);
-		expect(plan.feed.remainingFeedKg).toBe(283.5);
-		expect(plan.feed.totalCycleFeedKg).toBe(432);
-		expect(plan.feed.estimatedRemainingCost).toBe(8505);
+		expect(plan.recommendedGramsPerFeeding).toBe(1750);
+		expect(plan.feed.remainingFeedKg).toBe(315);
+		expect(plan.feed.totalCycleFeedKg).toBe(480);
+		expect(plan.feed.estimatedRemainingCost).toBe(9450);
 		expect(plan.feed.estimatedCostPerFish).toBe(9.45);
 		expect(plan.density.fishPerM2).toBe(10);
 		expect(plan.density.fishPerM3).toBe(6.7);
 		expect(plan.density.advisory).toBe("ok");
 		expect(plan.device.feasible).toBe(false);
-		expect(plan.device.deficitGrams).toBe(575);
-		expect(plan.device.extraMealsNeeded).toBe(2);
+		expect(plan.device.deficitGrams).toBe(750);
+		expect(plan.device.extraMealsNeeded).toBe(3);
 		expect(plan.adjustmentBlock).toBe("deviceCap");
 		expect(plan.confidence).toBe("high");
 		expect(plan.hasPriorAdjustment).toBe(false);
@@ -98,7 +98,7 @@ describe("buildGrowthPlan", () => {
 			}),
 		);
 
-		expect(plan.recommendedGramsPerFeeding).toBe(1200);
+		expect(plan.recommendedGramsPerFeeding).toBe(1333.3);
 		expect(plan.applicableGramsPerFeeding).toBe(1100);
 		expect(plan.adjustmentPct).toBe(10);
 		expect(plan.adjustmentAllowed).toBe(true);
@@ -209,7 +209,7 @@ describe("buildGrowthPlan", () => {
 		);
 
 		expect(plan.adjustmentAllowed).toBe(true);
-		expect(plan.applicableGramsPerFeeding).toBe(1200);
+		expect(plan.applicableGramsPerFeeding).toBe(1333.3);
 	});
 
 	it("blocks the adjustment when no feeder is linked", () => {
@@ -232,5 +232,22 @@ describe("buildGrowthPlan", () => {
 		expect(plan.density.advisory).toBe("unknown");
 		expect(plan.density.fishPerM2).toBeNull();
 		expect(plan.notes.join(" ")).toContain("Add pond area");
+	});
+
+	it("uses the pond's live count instead of the stocked count", () => {
+		// Data-sheet rule: 210 g gap × 285 live fish × 1.5 FCR = 89,775 g.
+		const plan = buildGrowthPlan(input({ population: 285 }));
+
+		expect(plan.feed.remainingFeedKg).toBe(89.78);
+		expect(plan.recommendedGramsPerFeeding).toBe(498.8);
+	});
+
+	it("estimates live fish from stocked × expected survival when the pond count is missing", () => {
+		const plan = buildGrowthPlan(input({ population: null }));
+
+		// 1000 stocked × 90% expected survival = 900 live.
+		expect(plan.feed.remainingFeedKg).toBe(283.5);
+		expect(plan.recommendedGramsPerFeeding).toBe(1575);
+		expect(plan.notes.join(" ")).toContain("Live fish estimated at 900");
 	});
 });

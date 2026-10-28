@@ -111,6 +111,9 @@ export default async function HarvestPage() {
 	const activeCycle = activeCycles.find((cycle) => cycle.pondId === pond.id) ?? null;
 	const recentCycles = serialised.filter((cycle) => cycle.status !== "ACTIVE");
 	const today = todayDateOnly();
+	// Live fish per pond, so a projection uses the real count when the farmer
+	// has kept it current instead of stocked × expected survival.
+	const populationByPondId = new Map(ponds.map((item) => [item.id, item.population]));
 	const devices = (pond.energyDevices ?? []) as Array<{
 		feedLevelPercent: number | null;
 		feedLevelUpdatedAt: Date | null;
@@ -138,6 +141,7 @@ export default async function HarvestPage() {
 				stockingCount: cycle.stockingCount,
 				targetHarvestWeightG: cycle.targetHarvestWeightG,
 				expectedSurvivalPct: cycle.expectedSurvivalPct,
+				liveCount: populationByPondId.get(cycle.pondId) ?? null,
 			},
 			today,
 		);

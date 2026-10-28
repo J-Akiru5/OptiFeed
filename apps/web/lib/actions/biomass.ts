@@ -358,7 +358,7 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 				effectiveGrams: planResult.newGrams ?? null,
 				previousGrams: planResult.previousGrams ?? null,
 				dailyFeedG:
-					planResult.newGrams !== undefined && txResult.feedsPerDay > 0
+					typeof planResult.newGrams === "number" && txResult.feedsPerDay > 0
 						? Math.round(planResult.newGrams * txResult.feedsPerDay * 100) / 100
 						: null,
 			};

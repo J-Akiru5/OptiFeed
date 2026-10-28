@@ -33,7 +33,13 @@ import { getActivePond } from "@/lib/pond-selection";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
-import { averageDailyGain, overallSgr, sgrSeries, sgrUnavailableReason } from "@/lib/sgr";
+import {
+	averageDailyGain,
+	elapsedFarmDays,
+	overallSgr,
+	sgrSeries,
+	sgrUnavailableReason,
+} from "@/lib/sgr";
 import { Activity, ChevronRight, Fish, Package, Scale, TrendingUp, Wheat } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -127,9 +133,9 @@ export default async function GrowthPage() {
 		const previous = biomassDesc[index + 1] ?? null;
 		const weightGain = previous ? log.avgWeightKg * 1000 - previous.avgWeightKg * 1000 : null;
 		const lengthGain = previous ? log.sampleLengthCm - previous.sampleLengthCm : null;
-		const daysSinceLast = previous
-			? Math.round((log.recordedAt.getTime() - previous.recordedAt.getTime()) / 86_400_000)
-			: null;
+		// Farm calendar days so the column matches SGR's day count.
+		const elapsed = previous ? elapsedFarmDays(previous.recordedAt, log.recordedAt) : null;
+		const daysSinceLast = elapsed === null ? null : Math.max(0, Math.round(elapsed));
 		return { log, weightGain, lengthGain, daysSinceLast };
 	});
 

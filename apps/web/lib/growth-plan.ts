@@ -1,4 +1,5 @@
 import { MAX_FEED_GRAMS_PER_REQUEST } from "@/lib/limits";
+import { resolveLiveFishCount } from "@/lib/stock";
 
 /**
  * The plan is deliberately transparent: a straight line from the stocking
@@ -66,7 +67,12 @@ export interface GrowthPlanInput {
 	cycle: GrowthPlanCycle | null;
 	latestSample: GrowthPlanSample | null;
 	previousSample: GrowthPlanSample | null;
-	population: number;
+	/**
+	 * `Pond.population`, the pond's current (live) fish count. When absent the
+	 * plan estimates live fish from the cycle's stocked count × expected
+	 * survival. Never pass the stocked count here when the live count is known.
+	 */
+	population: number | null;
 	feedingRatePct: number;
 	feedsPerDay: number;
 	currentGramsPerFeeding: number | null;
@@ -264,8 +270,14 @@ export function buildGrowthPlan(input: GrowthPlanInput): GrowthPlan {
 	}
 
 	const targetWeightG = positive(cycle.targetHarvestWeightG);
-	const population = Math.max(1, Math.round(positive(input.population) ?? cycle.stockingCount));
-	const survivalPct = clamp(cycle.expectedSurvivalPct ?? 100, 1, 100) / 100;
+	// Live fish, never the stocked count: daily feed and every projection use
+	// ABW × live fish (data sheet). The estimate path is labelled below.
+	const liveCount = resolveLiveFishCount({
+		population: input.population,
+		stockingCount: cycle.stockingCount,
+		expectedSurvivalPct: cycle.expectedSurvivalPct,
+	}) ?? { count: Math.max(1, cycle.stockingCount), source: "default" as const };
+	const population = liveCount.count;
 	const daysToHarvest = daysBetween(input.today, cycle.targetHarvestDate);
 	const growOutDays = Math.max(1, cycle.growOutDays);
 	const elapsedDays = clamp(daysBetween(cycle.stockingDate, input.today), 0, growOutDays);
@@ -359,7 +371,7 @@ export function buildGrowthPlan(input: GrowthPlanInput): GrowthPlan {
 				: null;
 
 	const targetGapG = Math.max(0, targetWeightG - currentWeightG);
-	const currentBiomassG = currentWeightG * population * survivalPct;
+	const currentBiomassG = currentWeightG * population;
 	const fcrAssumption =
 		input.latestFcr !== null && Number.isFinite(input.latestFcr)
 			? clamp(input.latestFcr, MIN_FCR, MAX_FCR)
@@ -368,7 +380,7 @@ export function buildGrowthPlan(input: GrowthPlanInput): GrowthPlan {
 
 	if (targetGapG > 0 && daysToHarvest > 0 && input.feedsPerDay > 0) {
 		plan.requiredDailyGainG = round1(targetGapG / daysToHarvest);
-		const remainingFeedG = targetGapG * population * survivalPct * fcrAssumption;
+		const remainingFeedG = targetGapG * population * fcrAssumption;
 		const dailyFeedG = remainingFeedG / daysToHarvest;
 		plan.requiredDailyFeedKg = round2(dailyFeedG / 1000);
 		plan.requiredFeedingRatePct =
@@ -380,7 +392,7 @@ export function buildGrowthPlan(input: GrowthPlanInput): GrowthPlan {
 	}
 
 	if (stockingWeightG !== null && targetWeightG > stockingWeightG) {
-		const totalGainG = (targetWeightG - stockingWeightG) * population * survivalPct;
+		const totalGainG = (targetWeightG - stockingWeightG) * population;
 		plan.feed.totalCycleFeedKg = round2((totalGainG * fcrAssumption) / 1000);
 	}
 
@@ -405,7 +417,7 @@ export function buildGrowthPlan(input: GrowthPlanInput): GrowthPlan {
 		const price = positive(input.pond.feedPricePerKg) as number;
 		if (plan.feed.remainingFeedKg !== null) {
 			plan.feed.estimatedRemainingCost = round2(plan.feed.remainingFeedKg * price);
-			const harvestCount = population * survivalPct;
+			const harvestCount = population;
 			plan.feed.estimatedCostPerFish =
 				harvestCount > 0 ? round2((plan.feed.remainingFeedKg * price) / harvestCount) : null;
 		}
@@ -491,6 +503,12 @@ export function buildGrowthPlan(input: GrowthPlanInput): GrowthPlan {
 	if (!plan.device.feasible && plan.recommendedGramsPerFeeding !== null) {
 		plan.notes.push(
 			`The target needs ${plan.recommendedGramsPerFeeding}g per meal, above the ${maxGramsPerFeeding}g device limit. Add meals or feeders.`,
+		);
+	}
+	if (liveCount.source === "stocking-estimate") {
+		const survivalLabel = Math.round(clamp(cycle.expectedSurvivalPct ?? 100, 1, 100));
+		plan.notes.push(
+			`Live fish estimated at ${population} (${cycle.stockingCount} stocked × ${survivalLabel}% expected survival). Set the pond population to use the real count.`,
 		);
 	}
 	if (plan.adjustmentBlock === "adjustmentWindow" && plan.nextAdjustmentDate) {

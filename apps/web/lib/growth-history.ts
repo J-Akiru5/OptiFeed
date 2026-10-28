@@ -1,6 +1,6 @@
 import type { DateRange } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
-import { computeSgr } from "@/lib/sgr";
+import { computeSgr, elapsedFarmDays } from "@/lib/sgr";
 
 export const GROWTH_HISTORY_TABS = ["feed", "growth", "biomass"] as const;
 export type GrowthHistoryTab = (typeof GROWTH_HISTORY_TABS)[number];
@@ -108,9 +108,12 @@ export async function getGrowthHistory(params: PageSlice & { pondId: string }) {
 
 	const items: GrowthHistoryRow[] = rows.slice(0, params.pageSize).map((row, index) => {
 		const older = rows[index + 1] ?? null;
-		const daysSinceLast = older
-			? Math.round((row.recordedAt.getTime() - older.recordedAt.getTime()) / 86_400_000)
-			: null;
+		// Farm calendar days, not UTC milliseconds: a sample at 00:30 Manila and
+		// one at 23:30 the same farm day are the same day even though 23 hours
+		// separate them in UTC. SGR already counts farm days, so the column now
+		// agrees with it.
+		const elapsed = older ? elapsedFarmDays(older.recordedAt, row.recordedAt) : null;
+		const daysSinceLast = elapsed === null ? null : Math.max(0, Math.round(elapsed));
 		return {
 			id: row.id,
 			recordedAt: row.recordedAt,

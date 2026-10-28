@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - #244 clickable controls show a hand cursor (login Back to home and app-wide).
+- Growth plan feed budget now uses the pond's live fish count instead of the stocked count, and no longer applies expected survival twice. A 300-stocked pond with 285 live fish plans 89.78 kg of remaining feed where it planned 94.50 kg (data sheet: daily feed = ABW × live fish × rate). When the pond count is missing, the plan estimates live fish from stocked × expected survival and says so.
+- Harvest projection uses the live count when the pond has one: 285 live × 250 g = 71.25 kg instead of 1,000 stocked × 85 % × 250 g = 212.5 kg.
+- Final FCR counts feed over Asia/Manila farm days, so feed between 00:00 and 08:00 Manila no longer falls on the previous day; imported hand-fed daily totals remain included as feed given.
+- FCR calculator feeding rate is the daily ration ÷ current biomass: 25 kg/day on 1,000 kg now reads 2.50 %, not 0.00 % (it was divided by the 5,000-fish default).
+- FCR calculator uses the selected pond's latest FCR instead of an arbitrary active pond on multi-pond farms.
+- "Days since" on the Growth page and growth history counts Asia/Manila farm days, agreeing with SGR near midnight.
 
 ## [1.19.0] - 2026-10-28
 

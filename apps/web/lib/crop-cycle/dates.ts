@@ -71,6 +71,20 @@ export function dateRangeUtc(from: string, to: string): { gte: Date; lte: Date }
 	};
 }
 
+/**
+ * Half-open bounds covering the farm calendar days `from`..`to` inclusive.
+ *
+ * Use this for `timestamp(3)` instants (for example `FeedEvent.receivedAt`)
+ * that are filtered by a farm date. Phase 4 of the calc audit: a Manila day
+ * starts at 16:00 UTC on the previous date, so UTC-midnight bounds silently
+ * moved up to 8 hours of feed between days.
+ */
+export function farmDayRangeUtc(from: string, to: string): { gte: Date; lt: Date } {
+	const start = parseDateOnly(from).toZonedDateTime(FARM_TIME_ZONE).toInstant();
+	const end = parseDateOnly(to).add({ days: 1 }).toZonedDateTime(FARM_TIME_ZONE).toInstant();
+	return { gte: new Date(start.epochMilliseconds), lt: new Date(end.epochMilliseconds) };
+}
+
 /** Date-only events are stored at UTC midnight; render them back as a date. */
 export function dateOnlyEventStart(value: Date | string): string {
 	return formatDateOnly(value);

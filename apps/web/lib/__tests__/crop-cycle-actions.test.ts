@@ -501,8 +501,8 @@ describe("markCycleHarvested", () => {
 				deviceId: { in: ["dev-1", "dev-2"] },
 				eventType: "feed_dispensed",
 				receivedAt: {
-					gte: new Date("2026-01-01T00:00:00.000Z"),
-					lt: new Date("2026-04-02T00:00:00.000Z"),
+					gte: new Date("2025-12-31T16:00:00.000Z"),
+					lt: new Date("2026-04-01T16:00:00.000Z"),
 				},
 			},
 			_sum: { grams: true },

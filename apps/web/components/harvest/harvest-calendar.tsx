@@ -194,7 +194,15 @@ export function HarvestCalendar({
 	);
 	const selectedPond = ponds.find((pond) => pond.id === selectedPondId);
 	const selectedCycle = cycleForPond(selectedPondId);
-	const metrics = selectedCycle ? computeCropCycleMetrics(selectedCycle, today) : null;
+	const metrics = selectedCycle
+		? computeCropCycleMetrics(
+				{
+					...selectedCycle,
+					liveCount: ponds.find((pond) => pond.id === selectedCycle.pondId)?.population ?? null,
+				},
+				today,
+			)
+		: null;
 	const isFallow = selectedPond?.isFallow ?? initialPondIsFallow;
 	const typesKey = useMemo(() => [...types].sort().join(","), [types]);
 	const hopperUpdatedAt = hopperFeedLevelUpdatedAt ? new Date(hopperFeedLevelUpdatedAt) : null;

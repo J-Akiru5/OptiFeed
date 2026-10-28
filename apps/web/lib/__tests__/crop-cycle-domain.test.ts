@@ -18,6 +18,7 @@ import {
 	dateOnlyToUtcDate,
 	dateRangeUtc,
 	daysBetween,
+	farmDayRangeUtc,
 	formatDateOnly,
 	isValidDateOnly,
 	parseDateOnly,
@@ -109,6 +110,13 @@ describe("date-only helpers", () => {
 		// The upper bound is the next day's midnight so `lt` includes `to`.
 		expect(range.lte.toISOString()).toBe("2026-11-01T00:00:00.000Z");
 	});
+
+	it("builds farm-day bounds for timestamp columns (Asia/Manila, UTC+8)", () => {
+		const range = farmDayRangeUtc("2026-10-01", "2026-10-31");
+		// A Manila day starts at 16:00 UTC on the previous date.
+		expect(range.gte.toISOString()).toBe("2026-09-30T16:00:00.000Z");
+		expect(range.lt.toISOString()).toBe("2026-10-31T16:00:00.000Z");
+	});
 });
 
 describe("computeCropCycleMetrics", () => {
@@ -128,6 +136,12 @@ describe("computeCropCycleMetrics", () => {
 		expect(metrics.progressPct).toBeCloseTo((23 / 135) * 100, 6);
 		expect(metrics.stage).toBe("early");
 		expect(metrics.projectedHarvestBiomassKg).toBe(212.5);
+	});
+
+	it("projects harvest biomass from the live count instead of stocked × survival", () => {
+		// 285 live fish × 250 g target = 71.25 kg, not 1000 × 85% × 250 g.
+		const metrics = computeCropCycleMetrics({ ...cycle, liveCount: 285 }, "2026-10-24");
+		expect(metrics.projectedHarvestBiomassKg).toBe(71.25);
 	});
 
 	it("never reports a day before day 1 when the stocking date is future", () => {
@@ -237,7 +251,8 @@ describe("computeCropCycleMetrics", () => {
 			},
 			"2026-10-24",
 		);
-		expect(rounded.projectedHarvestBiomassKg).toBe(70.76);
+		// Whole fish first (333 × 85% = 283.05 → 283), then biomass: 70.75 kg.
+		expect(rounded.projectedHarvestBiomassKg).toBe(70.75);
 	});
 
 	it("returns no projected biomass without a positive target weight", () => {

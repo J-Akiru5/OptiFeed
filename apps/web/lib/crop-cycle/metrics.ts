@@ -1,3 +1,4 @@
+import { resolveLiveFishCount } from "@/lib/stock";
 import { daysBetween, formatDateOnly, todayDateOnly } from "./dates";
 
 export type CropCycleStage = "early" | "grow" | "finish" | "overdue";
@@ -9,6 +10,11 @@ export interface CropCycleMetricsInput {
 	stockingCount: number;
 	targetHarvestWeightG?: number | null;
 	expectedSurvivalPct?: number | null;
+	/**
+	 * `Pond.population`, the current live fish count. When set, the harvest
+	 * projection uses the real count instead of stocked × expected survival.
+	 */
+	liveCount?: number | null;
 }
 
 export interface CropCycleMetrics {
@@ -48,14 +54,14 @@ export function computeCropCycleMetrics(
 					? "early"
 					: "grow";
 
+	const liveFish = resolveLiveFishCount({
+		population: input.liveCount ?? null,
+		stockingCount: input.stockingCount,
+		expectedSurvivalPct: input.expectedSurvivalPct,
+	});
 	const projectedHarvestBiomassKg =
-		input.targetHarvestWeightG && input.targetHarvestWeightG > 0
-			? round2(
-					(input.stockingCount *
-						((input.expectedSurvivalPct ?? 100) / 100) *
-						input.targetHarvestWeightG) /
-						1000,
-				)
+		input.targetHarvestWeightG && input.targetHarvestWeightG > 0 && liveFish
+			? round2((liveFish.count * input.targetHarvestWeightG) / 1000)
 			: null;
 
 	return {

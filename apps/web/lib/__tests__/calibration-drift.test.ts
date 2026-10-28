@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-	DRIFT_REFILL_JUMP_POINTS,
 	DRIFT_THRESHOLD_PCT,
 	type DriftLevelSample,
 	computeCalibrationDrift,
@@ -145,9 +144,24 @@ describe("computeCalibrationDrift", () => {
 });
 
 describe("levelDropGrams", () => {
-	it("treats a jump at the threshold as noise, not a refill", () => {
-		const levels = [level(70, 0), level(70 + DRIFT_REFILL_JUMP_POINTS, 1), level(60, 2)];
-		// The +5 rise contributes no drop; the later 75 -> 60 fall is 15 points.
+	it("ignores a small rise without raising the baseline (sensor noise)", () => {
+		const levels = [level(70, 0), level(75, 1), level(60, 2)];
+		// 70 → 75 is noise, so it does not raise the baseline; the fall to 60
+		// is measured from the real peak of 70. Drop = 10 points = 100 g, not
+		// the 15 points the old consecutive-pair sum counted.
+		expect(levelDropGrams(levels, 1000)).toBe(100);
+	});
+
+	it("does not let repeated noise ratchet the baseline up", () => {
+		const levels = [level(50, 0), level(53, 1), level(55, 2), level(40, 3)];
+		// Every rise is ≤ 5 points, so the fall is still measured from 50.
+		expect(levelDropGrams(levels, 1000)).toBe(100);
+	});
+
+	it("keeps the drop before a refill and restarts from the new level", () => {
+		const levels = [level(80, 0), level(70, 1), level(95, 2), level(90, 3)];
+		// 80 → 70 = 10 points kept; 70 → 95 is a refill (> 5 points); 95 → 90
+		// is a further 5 points. Total 15 points = 150 g.
 		expect(levelDropGrams(levels, 1000)).toBe(150);
 	});
 

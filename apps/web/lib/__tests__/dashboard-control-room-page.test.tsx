@@ -199,6 +199,26 @@ describe("dashboard control room page", () => {
 		expect(html.match(/data-help="feed-now"/g)).toHaveLength(1);
 	});
 
+	it("keeps the Time Calibration controls inside the rail without sideways overflow", async () => {
+		const html = renderToStaticMarkup(
+			await DashboardHomePage({ searchParams: Promise.resolve({}) }),
+		);
+
+		// The rail scrolls on its own, vertically only (#269).
+		expect(html).toContain("xl:overflow-y-auto");
+		expect(html).toContain("xl:overflow-x-hidden");
+
+		// The card's two controls are present and the row follows the card width
+		// instead of the viewport, so it stacks in the 22 rem rail.
+		expect(html).toContain("Time Calibration");
+		expect(html).toContain("Select Date &amp; Time");
+		expect(html).toContain('id="device-time"');
+		expect(html).toContain('type="datetime-local"');
+		expect(html).toContain("Set Device Time");
+		expect(html).toContain("@sm:flex-row");
+		expect(html).not.toContain("flex flex-col sm:flex-row gap-4");
+	});
+
 	it("reads every device on the pond so the canvas can pin each feeder", async () => {
 		await DashboardHomePage({ searchParams: Promise.resolve({}) });
 

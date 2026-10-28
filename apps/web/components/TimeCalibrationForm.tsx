@@ -52,9 +52,17 @@ export function TimeCalibrationForm({
 		}
 	};
 
+	// #269: this card lives in the 22rem control-room rail as well as in the wide
+	// schedule column, so the input/button row must follow the *card* width, not
+	// the viewport. `@container` + `@sm:flex-row` stacks the two controls while
+	// the card is narrow (the rail) and keeps them side by side when there is
+	// room. The old `sm:flex-row` split them at 640 px of viewport, which put a
+	// ~200 px unshrinkable `datetime-local` input and the button inside a ~300 px
+	// card: the row overflowed, the button was clipped and the rail scrolled
+	// horizontally. `min-w-0` lets the flex item shrink with the card.
 	return (
 		<div
-			className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 dark:bg-gray-900"
+			className="@container min-w-0 bg-white rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 dark:bg-gray-900"
 			data-help="schedule-calibration"
 		>
 			<div className="flex items-center gap-3 mb-6">
@@ -67,8 +75,8 @@ export function TimeCalibrationForm({
 				</div>
 			</div>
 
-			<div className="flex flex-col sm:flex-row gap-4">
-				<div className="flex-1">
+			<div className="flex flex-col gap-4 @sm:flex-row">
+				<div className="min-w-0 flex-1">
 					<label
 						htmlFor="device-time"
 						className="block text-xs font-bold text-[#3D5568] dark:text-gray-400 uppercase tracking-wider mb-1.5"
@@ -80,16 +88,16 @@ export function TimeCalibrationForm({
 						type="datetime-local"
 						value={selectedTime}
 						onChange={(e) => setSelectedTime(e.target.value)}
-						className="w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-4 py-3 text-sm font-semibold text-[#0A3D62] transition-all focus:border-[#E85A2A] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:[color-scheme:dark]"
+						className="w-full min-w-0 rounded-xl border border-gray-200 bg-[#F4F7F6] px-4 py-3 text-sm font-semibold text-[#0A3D62] transition-all focus:border-[#E85A2A] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:[color-scheme:dark]"
 					/>
 				</div>
 
-				<div className="flex items-end">
+				<div className="flex @sm:items-end">
 					<button
 						type="button"
 						onClick={handleSetTime}
 						disabled={saving || !canWrite}
-						className="w-full sm:w-auto bg-[#0A3D62] hover:bg-[#12588c] text-white font-bold py-3 px-6 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] dark:bg-[#1f66a0] dark:hover:bg-[#2a7ab8]"
+						className="w-full @sm:w-auto bg-[#0A3D62] hover:bg-[#12588c] text-white font-bold py-3 px-6 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] dark:bg-[#1f66a0] dark:hover:bg-[#2a7ab8]"
 					>
 						{success ? (
 							<>

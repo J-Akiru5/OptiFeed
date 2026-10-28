@@ -871,7 +871,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					</div>
 
 					{energyDevice && (
-						<div className={cn(CONTROL_ROOM_ORDER.controller, "space-y-3")}>
+						<div className={cn(CONTROL_ROOM_ORDER.controller, "min-w-0 space-y-3")}>
 							<ControlPanel title={t("controlRoom.controlsPanel")} icon={Sliders}>
 								<EnergyControllerCard
 									deviceId={energyDevice.id}

@@ -53,7 +53,10 @@ export function ControlRoomRail({ label, children, className }: ControlRoomRailP
 			aria-label={label}
 			className={cn(
 				"contents",
-				"xl:col-start-2 xl:row-span-3 xl:row-start-1 xl:flex xl:min-h-0 xl:flex-col xl:gap-3 xl:overflow-y-auto xl:pr-1 xl:pb-2",
+				// #269: the rail scrolls vertically only. A wide child used to turn
+				// the implicit `overflow-x` into a horizontal scrollbar; the rail
+				// must never scroll sideways, so it is pinned to x-hidden as well.
+				"xl:col-start-2 xl:row-span-3 xl:row-start-1 xl:flex xl:min-h-0 xl:min-w-0 xl:flex-col xl:gap-3 xl:overflow-x-hidden xl:overflow-y-auto xl:pr-1 xl:pb-2",
 				className,
 			)}
 		>

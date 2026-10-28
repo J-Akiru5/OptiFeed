@@ -70,15 +70,22 @@ Branch `feat/feeding-single-source`, worktree `C:\Users\Client\CApstone\OptiFeed
 
 | Task | Commit | Evidence |
 |---|---|---|
-| F-06 daily ceiling | `a57fc9b` | `lib/__tests__/daily-cap.test.ts` (8 tests) plus 170 focused tests across cap, config, prediction, schedule, ponds, feed-command and biomass suites; `tsc --noEmit` and `biome check` clean. Migration `20261028010000_add_device_daily_cap` is additive. |
-| F-01 pond-scoped source | pending | FCR path is pond-scoped (`lib/actions/fcr.ts` takes `pondId` and scopes by owner); the shared `resolvePondFeeding` reader is not built yet. |
-| F-02 single derivation | pending | `syncDeviceGramsForPond` remains the only settings-driven writer; the biomass path still contains its own deviation veto. |
-| F-03 no phantom population | pending | `DEFAULT_FISH_COUNT` still appears in dashboard, PDF, growth-plan-loader, prediction callers and chat context. |
-| F-04 FCR calculator | `60e2e68` | `lib/__tests__/fcr-calculation.test.ts` rewritten (9 tests): rate 6.57 %/day for 13.78 g to 50 g over 60 days at FCR 1.5, population-independent rate, correct per-meal dose, default-FCR and zero-day cases. 85 focused tests pass. |
-| F-05 growth-plan chain | pending | `growth-plan-apply.ts` still writes `gramsPerFeeding` directly. |
-| F-07 one clock | pending | `next-feeding.ts` still uses `setHours`; no `server_time_utc`/`farm_offset_minutes` in the poll payloads. |
-| F-08 tests and changelog | partial | Changelog updated; full `pnpm self-check` not run yet. |
+| F-01 pond-scoped source | `6f53b59` | `lib/feeding/source.ts` + `lib/__tests__/feeding-source.test.ts` (6 tests): reads only the requested pond, returns null for an unknown pond, lets a pending command override the row, exposes a null population, resolves the cap through `resolveDailyCapG`, and falls back to the 2,000 g default. |
+| F-02 single derivation | `6f53b59` | `lib/feeding/derive.ts` is the only writer of `gramsPerFeeding`; `syncDeviceGramsForPond` delegates to it. Settings, biomass and growth-plan paths all derive through `feed-calc`. |
+| F-03 no phantom population | `6f53b59` | `totalBiomassG`/`dailyFeedG`/`feedPerMealG`/`calculateNextFeeding` return null without a real count. `DEFAULT_FISH_COUNT` is gone from dashboard, PDF, growth plan, prediction, chat and the sampling preview; tests updated. |
+| F-04 FCR calculator | `60e2e68` | `lib/__tests__/fcr-calculation.test.ts` rewritten (9 tests): rate 6.57 %/day for 13.78 g to 50 g over 60 days at FCR 1.5, population-independent rate, correct per-meal dose, default-FCR and zero-day cases. |
+| F-05 growth-plan chain | `6f53b59` | `growth-plan-apply.ts` writes `Pond.feedingRatePct` (bounded) and re-derives the dose; metadata records `ratePrevious`, `rateApplied`, `gramsRequested`, `gramsApplied`. |
+| F-06 daily ceiling | `a57fc9b` | `lib/__tests__/daily-cap.test.ts` (8 tests) plus 170 focused tests across cap, config, prediction, schedule, ponds, feed-command and biomass suites. Additive migration `20261028010000_add_device_daily_cap`. |
+| F-07 one clock | `6f53b59` | `lib/schedule/next-feeding.ts` and its test deleted; the hero returns `nextFeedSlot` from `computeNextFeedingSlot`. `/api/feed-command` and `/api/schedule-sync` now send `server_time_utc` and `farm_offset_minutes`. |
+| F-08 tests and changelog | `6f53b59` | Full Vitest suite: 218 files, 2,229 tests, all passing. `tsc --noEmit` and `biome check` clean. `pnpm self-check` 52/56; the four failures are pre-existing and untouched by this branch. |
 
 ## 8. Reversal
 
 Revert the implementation commits; the additive column can remain unused. Restore the original cap sentence in section 0.5 and mark this amendment `withdrawn`. No data is destroyed by the change itself.
+
+## 9. Versioning (prepared, not published)
+
+- Proposed bump: **MINOR, 1.20.0 → 1.21.0**. The change adds a setting and changes a default; it removes no API and no file path.
+- Updated on the implementation branch: `package.json`, `apps/web/package.json`, `lib/legal/config.ts` (`LEGAL_APP_RELEASE`), and `CHANGELOG.md` (new `## [1.21.0] - 2026-10-28`, fresh empty `## [Unreleased]`).
+- Not done, and must stay with a human: annotated tag, GitHub Release, npm publication, and production promotion.
+- The merge to `develop` is the single automatic deployment trigger; no deployment was created or triggered while preparing this amendment.

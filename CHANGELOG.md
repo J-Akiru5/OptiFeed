@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-10-28
+
 ### Added
 
 - Firmware 1.6.0 (I-41) fail-safe model: a shutdown handler that opens the relay on every software reset, panic, OTA reboot and `ESP.restart()`; an independent relay-overrun trip (expected dose + 2 s) checked at every network boundary; one dispense gate for every source (10 s minimum gap, six doses per rolling hour, daily gram cap, `MAX_DISPENSE_MS`); a 60 s no-dispense hold after a brownout reset; and reset-reason accounting in NVS.

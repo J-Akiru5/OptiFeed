@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.3] - 2026-10-28
+
 ### Fixed
 
 - #269 dashboard right rail no longer scrolls horizontally; the redundant floating help button is gone. The Time Calibration input/button row now follows the card's own width (container query) instead of the 640 px viewport breakpoint, so both controls fit in the 22 rem rail and the "Set Device Time" button is no longer clipped; the device/controller card no longer splits into two columns inside the rail. Help keeps one entry point: the header control is now on the mobile band too.

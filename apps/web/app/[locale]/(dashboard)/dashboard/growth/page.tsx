@@ -14,6 +14,7 @@ import {
 import {
 	DashboardEmptyState,
 	DashboardPageHeader,
+	DashboardPageShell,
 	DashboardSection,
 	ReadOnlyNotice,
 	dashboardSectionLink,
@@ -280,7 +281,7 @@ export default async function GrowthPage() {
 	};
 
 	return (
-		<div className="space-y-8 pb-20 animate-in fade-in duration-150 max-w-7xl mx-auto">
+		<DashboardPageShell className="space-y-8 pb-20 animate-in fade-in duration-150">
 			<SnapshotWriter
 				page="growth"
 				scope={pond.ownerId}
@@ -941,6 +942,6 @@ export default async function GrowthPage() {
 					)}
 				</DashboardSection>
 			</div>
-		</div>
+		</DashboardPageShell>
 	);
 }

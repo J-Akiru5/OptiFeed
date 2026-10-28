@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- #247 Biomass Log and Schedule use the full width on large screens: the sample form sits beside a sticky Live Preview with a short "How it's calculated" panel, and the schedule editor sits beside a sticky status/Feed Now/offline rail. Saved sampling batches show three or four across on wide screens. Below `xl` the stacked layout and the mobile sticky action bar are unchanged.
+- The same centred page width now applies to Notifications, Audit, Growth, Growth history and the sampling-batch log, which were each capped at a narrow left-aligned column.
+
 ## [1.19.1] - 2026-10-28
 
 ### Changed

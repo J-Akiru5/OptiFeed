@@ -562,6 +562,7 @@
 			"saved": "Naka-save!",
 			"error": "Wala naka-save",
 			"feedDurationHint": "Ini nga pagpakaon: {grams}g ≈ {seconds}s",
+			"controlsLabel": "Estado kag mga kontrol sang feeder",
 			"stuckBanner": {
 				"offlineTitle": "Nadiskonekta ang Device",
 				"offlineDesc": "Ang imo device wala nakakonekta halin pa sang {time}. Ang mga request sang pagpakaon ma-reject habang wala nakakonekta; ang pagbag-o sang iskedyul na-save na kag i-apply gihapon kon magkonekta na liwat ini.",
@@ -631,7 +632,11 @@
 			"noBatchesTitle": "Wala pa sang na-save nga sampling batch",
 			"noBatchesDesc": "Ang sampling batch nagagrupo sang mga sampol nga gin-log mo sa parehas nga label.",
 			"formLabel": "Mag-log sang biomass sample",
-			"batchesLabel": "Mga na-save nga sampling batch"
+			"batchesLabel": "Mga na-save nga sampling batch",
+			"howCalculatedTitle": "Paano Ginkuenta",
+			"howBiomass": "Total nga biomass = kadamuon sang isda × average nga timbang.",
+			"howDailyFeed": "Adlaw-adlaw nga pagkaon = total nga biomass × feeding rate.",
+			"howPerMeal": "Pagkaon kada pagpakaon = adlaw-adlaw nga pagkaon ÷ kadamuon sang pagpakaon kada adlaw."
 		},
 		"history": {
 			"amount": "KADAM-ON",

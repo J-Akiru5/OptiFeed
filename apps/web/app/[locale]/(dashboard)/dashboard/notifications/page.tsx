@@ -2,6 +2,7 @@ import { NotificationList } from "@/components/NotificationList";
 import {
 	DashboardEmptyState,
 	DashboardPageHeader,
+	DashboardPageShell,
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
 import { Pagination } from "@/components/ui/pagination";
@@ -119,7 +120,7 @@ export default async function NotificationsPage({
 				};
 
 	return (
-		<div className="mx-auto max-w-4xl space-y-6 animate-in fade-in duration-150">
+		<DashboardPageShell className="space-y-6 animate-in fade-in duration-150">
 			<section className="rounded-3xl border border-[#0A3D62]/5 bg-white p-4 shadow-md dark:bg-gray-900 sm:p-6 md:p-8">
 				<div className="border-b border-gray-100 pb-6 dark:border-gray-700/50">
 					<DashboardPageHeader
@@ -205,6 +206,6 @@ export default async function NotificationsPage({
 					/>
 				)}
 			</section>
-		</div>
+		</DashboardPageShell>
 	);
 }

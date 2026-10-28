@@ -562,6 +562,7 @@
 			"saved": "Changes saved!",
 			"error": "Failed to save changes",
 			"feedDurationHint": "This feed: {grams}g ≈ {seconds}s",
+			"controlsLabel": "Feeder status and controls",
 			"stuckBanner": {
 				"offlineTitle": "Device Offline",
 				"offlineDesc": "Your device has been offline since {time}. Feed requests are rejected while it is offline; schedule changes are saved and still apply when it reconnects.",
@@ -631,7 +632,11 @@
 			"noBatchesTitle": "No saved sampling batches yet",
 			"noBatchesDesc": "A sampling batch groups the samples you log under the same label.",
 			"formLabel": "Log a biomass sample",
-			"batchesLabel": "Saved sampling batches"
+			"batchesLabel": "Saved sampling batches",
+			"howCalculatedTitle": "How it's calculated",
+			"howBiomass": "Total biomass = fish count × average body weight.",
+			"howDailyFeed": "Daily feed = total biomass × feeding rate.",
+			"howPerMeal": "Feed per meal = daily feed ÷ feeds per day."
 		},
 		"history": {
 			"amount": "AMOUNT",

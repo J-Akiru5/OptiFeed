@@ -5,6 +5,7 @@ import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
 import {
 	DashboardEmptyState,
 	DashboardPageHeader,
+	DashboardPageShell,
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
@@ -144,7 +145,7 @@ export default async function SchedulePage() {
 	};
 
 	return (
-		<div className="space-y-8 max-w-5xl">
+		<DashboardPageShell className="space-y-8">
 			<SnapshotWriter
 				page="schedule"
 				scope={pond.ownerId}
@@ -158,48 +159,69 @@ export default async function SchedulePage() {
 				<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
 			)}
 
-			<TimeCalibrationForm deviceId={energyDevice.id} canWrite={writeAccess} />
+			{/* Below `xl` this is one column in the order farmers already had:
+			    time calibration, device notices, feed controls, then the editor.
+			    From `xl` the notices and controls move into a sticky rail and the
+			    editor keeps the wide column (#247). The `contents` wrappers let
+			    the same DOM serve both layouts, with `order-*` restoring the
+			    mobile order (same pattern as the dashboard control room). */}
+			<div className="flex flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
+				<div className="contents xl:flex xl:min-w-0 xl:flex-col xl:gap-6">
+					<div className="order-1 xl:order-none">
+						<TimeCalibrationForm deviceId={energyDevice.id} canWrite={writeAccess} />
+					</div>
+					<div className="order-4 xl:order-none">
+						<ScheduleEditor
+							pondId={pond.id}
+							deviceId={energyDevice.id}
+							initialStart={currentCommand?.scheduleStart ?? fmtTime(pond.scheduleStart)}
+							initialEnd={currentCommand?.scheduleEnd ?? fmtTime(pond.scheduleEnd)}
+							initialFeedsPerDay={currentCommand?.feedsPerDay ?? pond.feedsPerDay}
+							initialFeedingRatePct={currentCommand?.feedingRatePct ?? pond.feedingRatePct}
+							pendingCommand={serializeCommand(pendingCommand)}
+							latestAppliedCommand={serializeCommand(latestAppliedCommand)}
+							canWrite={writeAccess}
+						/>
+					</div>
+				</div>
 
-			<StuckRequestBanner
-				stuckFeedRequests={stuckFeedRequests.map((r) => ({
-					id: r.id,
-					grams: r.grams,
-					createdAt: r.createdAt.toISOString(),
-				}))}
-				stuckScheduleCommands={stuckScheduleCommands.map((c) => ({
-					id: c.id,
-					createdAt: c.createdAt.toISOString(),
-				}))}
-				deviceOffline={deviceOffline}
-				deviceLastSeenAt={energyDevice.lastSeenAt?.toISOString() ?? null}
-				deviceId={energyDevice.id}
-				pondId={pond.id}
-				scheduleStart={currentCommand?.scheduleStart ?? fmtTime(pond.scheduleStart)}
-				scheduleEnd={currentCommand?.scheduleEnd ?? fmtTime(pond.scheduleEnd)}
-				feedsPerDay={currentCommand?.feedsPerDay ?? pond.feedsPerDay}
-				feedingRatePct={currentCommand?.feedingRatePct ?? pond.feedingRatePct}
-				canWrite={writeAccess}
-			/>
-
-			<ScheduleControls
-				deviceId={energyDevice.id}
-				initialIsPaused={energyDevice.isPaused}
-				gramsPerFeeding={energyDevice.gramsPerFeeding}
-				gramsPerSecond={energyDevice.gramsPerSecond}
-				canWrite={writeAccess}
-			/>
-
-			<ScheduleEditor
-				pondId={pond.id}
-				deviceId={energyDevice.id}
-				initialStart={currentCommand?.scheduleStart ?? fmtTime(pond.scheduleStart)}
-				initialEnd={currentCommand?.scheduleEnd ?? fmtTime(pond.scheduleEnd)}
-				initialFeedsPerDay={currentCommand?.feedsPerDay ?? pond.feedsPerDay}
-				initialFeedingRatePct={currentCommand?.feedingRatePct ?? pond.feedingRatePct}
-				pendingCommand={serializeCommand(pendingCommand)}
-				latestAppliedCommand={serializeCommand(latestAppliedCommand)}
-				canWrite={writeAccess}
-			/>
-		</div>
+				<aside
+					aria-label={t("controlsLabel")}
+					className="contents xl:sticky xl:top-24 xl:flex xl:min-w-0 xl:flex-col xl:gap-4"
+				>
+					<div className="order-2 xl:order-none">
+						<StuckRequestBanner
+							stuckFeedRequests={stuckFeedRequests.map((r) => ({
+								id: r.id,
+								grams: r.grams,
+								createdAt: r.createdAt.toISOString(),
+							}))}
+							stuckScheduleCommands={stuckScheduleCommands.map((c) => ({
+								id: c.id,
+								createdAt: c.createdAt.toISOString(),
+							}))}
+							deviceOffline={deviceOffline}
+							deviceLastSeenAt={energyDevice.lastSeenAt?.toISOString() ?? null}
+							deviceId={energyDevice.id}
+							pondId={pond.id}
+							scheduleStart={currentCommand?.scheduleStart ?? fmtTime(pond.scheduleStart)}
+							scheduleEnd={currentCommand?.scheduleEnd ?? fmtTime(pond.scheduleEnd)}
+							feedsPerDay={currentCommand?.feedsPerDay ?? pond.feedsPerDay}
+							feedingRatePct={currentCommand?.feedingRatePct ?? pond.feedingRatePct}
+							canWrite={writeAccess}
+						/>
+					</div>
+					<div className="order-3 xl:order-none">
+						<ScheduleControls
+							deviceId={energyDevice.id}
+							initialIsPaused={energyDevice.isPaused}
+							gramsPerFeeding={energyDevice.gramsPerFeeding}
+							gramsPerSecond={energyDevice.gramsPerSecond}
+							canWrite={writeAccess}
+						/>
+					</div>
+				</aside>
+			</div>
+		</DashboardPageShell>
 	);
 }

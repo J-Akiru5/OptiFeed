@@ -4,6 +4,7 @@ import { AdminSidebar } from "@/components/admin-sidebar";
 import { AnnouncementBanner } from "@/components/announcements/announcement-banner";
 import { HelpButton } from "@/components/help/help-button";
 import { MobileHeader } from "@/components/mobile/mobile-header";
+import { GlobalSearch, SearchTrigger } from "@/components/search/global-search";
 import { UserAvatar } from "@/components/user-avatar";
 import { Link } from "@/i18n/routing";
 import { requirePasswordChanged } from "@/lib/auth/session";
@@ -39,6 +40,7 @@ export default async function AdminLayout({
 
 			{/* Header */}
 			<header className="sticky top-0 z-30 w-full shrink-0 bg-[#0A3D62] shadow-md">
+				<GlobalSearch shell="admin" />
 				<MobileHeader shell="admin" isTenantAdmin subtitle={t("panelLabel")}>
 					{helpEnabled && <HelpButton audience="owner" className="h-11 w-11" />}
 					<Link
@@ -77,6 +79,7 @@ export default async function AdminLayout({
 					</div>
 
 					<div className="flex shrink-0 items-center gap-3">
+						<SearchTrigger />
 						{helpEnabled && <HelpButton audience="owner" />}
 						<Link
 							href="/dashboard"

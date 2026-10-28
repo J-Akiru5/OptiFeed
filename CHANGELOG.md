@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-10-29
+
+### Added
+
+- #270 global search in the top navbar (⌘K / Ctrl+K) across pages, ponds, devices, members and records, scoped to what the caller can read.
+
+### Fixed
+
+- #269 dashboard right rail no longer scrolls horizontally; the redundant floating help button is gone. The Time Calibration input/button row now follows the card's own width (container query) instead of the 640 px viewport breakpoint, so both controls fit in the 22 rem rail and the "Set Device Time" button is no longer clipped; the device/controller card no longer splits into two columns inside the rail. Help keeps one entry point: the header control is now on the mobile band too.
+- `docs/audits/2026-10-28-calc-device.md` #1: a failed ultrasonic read (the firmware's `0 %` + `0 cm` timeout sentinel) is no longer stored as an empty hopper — the heartbeat still updates `lastSeenAt`, but the level, history row and low/critical alerts are skipped; a real empty hopper still alerts, and a heartbeat without `feed_level_cm` keeps the last known distance.
+- `docs/audits/2026-10-28-calc-device.md` #3: days of feed remaining is computed by one helper with guards (`estimateDaysOfFeedRemaining`); a missing, zero or negative capacity, meal size or meals/day returns null instead of the old `99`-day sentinel, the card floors it for display and the ingest two-day warning compares the fraction.
+- `docs/audits/2026-10-28-calc-device.md` #5: the drift detector walks the level against a baseline, so a rise of ≤ 5 points is ignored without raising it (70 → 75 → 60 now counts 10 points, not 15) while a larger rise starts a refill segment and keeps the earlier drop.
+- `docs/audits/2026-10-28-calc-device.md` #6: the dashboard, hardware page and assistant load the drift inputs through one query that counts device output only, so imported `hand_fed` daily totals are no longer compared with the hopper drop.
+- `docs/audits/2026-10-28-calc-device.md` #7: recalibration reminders page through every eligible device instead of silently stopping at 200.
+- `docs/audits/2026-10-28-calc-device.md` #8: the feeder hero's next-feed time is covered by a regression test proving it resolves in Asia/Manila on a UTC host; current `develop` already uses the wall-clock helper, so no runtime change was needed.
+
 ## [1.22.0] - 2026-10-28
 
 ### Added
@@ -22,17 +38,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - #275 the phone Schedule page no longer lets the sticky Save Changes bar cover the Sync Status card; a mobile-only spacer keeps the applied-at line, the schedule summary and Force Resync fully visible and tappable above the bar.
 - #276 the admin, farmer and platform calendars accept a one-day range again: date-range validation counts inclusive days, so the Day view no longer fails with "Choose a date range between 1 and 400 days", and the 400-day limit is exact (400 accepted, 401 rejected).
 - #272 calendar event chips, the "+N more" link, agenda rows and the more popover meet WCAG AA contrast in dark mode while keeping each event's colour identity, instead of saturated red-on-navy with white text.
-## [1.21.3] - 2026-10-28
-
-### Fixed
-
-- #269 dashboard right rail no longer scrolls horizontally; the redundant floating help button is gone. The Time Calibration input/button row now follows the card's own width (container query) instead of the 640 px viewport breakpoint, so both controls fit in the 22 rem rail and the "Set Device Time" button is no longer clipped; the device/controller card no longer splits into two columns inside the rail. Help keeps one entry point: the header control is now on the mobile band too.
-- `docs/audits/2026-10-28-calc-device.md` #1: a failed ultrasonic read (the firmware's `0 %` + `0 cm` timeout sentinel) is no longer stored as an empty hopper — the heartbeat still updates `lastSeenAt`, but the level, history row and low/critical alerts are skipped; a real empty hopper still alerts, and a heartbeat without `feed_level_cm` keeps the last known distance.
-- `docs/audits/2026-10-28-calc-device.md` #3: days of feed remaining is computed by one helper with guards (`estimateDaysOfFeedRemaining`); a missing, zero or negative capacity, meal size or meals/day returns null instead of the old `99`-day sentinel, the card floors it for display and the ingest two-day warning compares the fraction.
-- `docs/audits/2026-10-28-calc-device.md` #5: the drift detector walks the level against a baseline, so a rise of ≤ 5 points is ignored without raising it (70 → 75 → 60 now counts 10 points, not 15) while a larger rise starts a refill segment and keeps the earlier drop.
-- `docs/audits/2026-10-28-calc-device.md` #6: the dashboard, hardware page and assistant load the drift inputs through one query that counts device output only, so imported `hand_fed` daily totals are no longer compared with the hopper drop.
-- `docs/audits/2026-10-28-calc-device.md` #7: recalibration reminders page through every eligible device instead of silently stopping at 200.
-- `docs/audits/2026-10-28-calc-device.md` #8: the feeder hero's next-feed time is covered by a regression test proving it resolves in Asia/Manila on a UTC host; current `develop` already uses the wall-clock helper, so no runtime change was needed.
 
 ## [1.21.2] - 2026-10-28
 

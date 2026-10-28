@@ -52,7 +52,7 @@ export type TestTranslator = ((key: string, values?: Record<string, string | num
 /** Build the `getTranslations(namespace)` / `useTranslations(namespace)` shape. */
 export function createTranslator(namespace: string, locale: "en" | "hil" = "en"): TestTranslator {
 	const messages = loadMessages(locale);
-	const resolve = (key: string) => messages[`${namespace}.${key}`];
+	const resolve = (key: string) => messages[namespace ? `${namespace}.${key}` : key];
 
 	const translator = (key: string, values?: Record<string, string | number>) => {
 		const template = resolve(key);

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The dashboard no longer scrolls sideways on a phone. The content column is a shrinkable flex child (`min-w-0`) and the dashboard shell clips horizontal overflow, so only vertical scrolling remains.
+
 ## [1.21.0] - 2026-10-28
 
 ### Added

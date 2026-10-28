@@ -246,20 +246,33 @@ describe("GET /api/calendar/events validation", () => {
 		expect(missing.response.status).toBe(422);
 	});
 
-	it("rejects an empty or inverted range", async () => {
-		const empty = await callCalendar({ from: TODAY, to: TODAY });
-		expect(empty.response.status).toBe(422);
-		expect(empty.body.error?.message).toContain("between 1 and 400 days");
+	it("accepts a one-day range, which is what the day view sends", async () => {
+		const result = await callCalendar({ from: TODAY, to: TODAY });
 
-		const inverted = await callCalendar({ from: addDays(TODAY, 2), to: TODAY });
-		expect(inverted.response.status).toBe(422);
+		expect(result.response.status).toBe(200);
+		expect(result.body.data).toMatchObject({ from: TODAY, to: TODAY });
 	});
 
-	it("rejects a range longer than 400 days", async () => {
-		const result = await callCalendar({
-			from: addDays(TODAY, -200),
-			to: addDays(TODAY, 201),
-		});
+	it("rejects an inverted range", async () => {
+		const result = await callCalendar({ from: addDays(TODAY, 2), to: TODAY });
+
+		expect(result.response.status).toBe(422);
+		expect(result.body.error?.code).toBe("VALIDATION_FAILED");
+		expect(result.body.error?.message).toContain("between 1 and 400 days");
+	});
+
+	it("accepts the exact maximum of 400 inclusive days", async () => {
+		const from = TODAY;
+		const result = await callCalendar({ from, to: addDays(from, 399) });
+
+		expect(result.response.status).toBe(200);
+		expect(result.body.data).toMatchObject({ from, to: addDays(from, 399) });
+	});
+
+	it("rejects 401 inclusive days", async () => {
+		const from = TODAY;
+		const result = await callCalendar({ from, to: addDays(from, 400) });
+
 		expect(result.response.status).toBe(422);
 		expect(result.body.error?.message).toContain("400");
 	});

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- #276 the admin, farmer and platform calendars accept a one-day range again: date-range validation counts inclusive days, so the Day view no longer fails with "Choose a date range between 1 and 400 days", and the 400-day limit is exact (400 accepted, 401 rejected).
+- #272 calendar event chips, the "+N more" link, agenda rows and the more popover meet WCAG AA contrast in dark mode while keeping each event's colour identity, instead of saturated red-on-navy with white text.
+
 ## [1.21.2] - 2026-10-28
 
 ### Changed

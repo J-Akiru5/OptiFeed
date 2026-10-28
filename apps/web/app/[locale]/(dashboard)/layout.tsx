@@ -186,6 +186,7 @@ export default async function DashboardLayout({
 											: undefined
 									}
 									isViewingAs={viewAsState.active}
+									helpEnabled={helpEnabled}
 								/>
 							</MobileHeader>
 
@@ -279,7 +280,7 @@ export default async function DashboardLayout({
 
 					<ChatWidget />
 					<BottomNav />
-					<FabStack audience={isTenantAdmin ? "owner" : "farmer"} />
+					<FabStack />
 				</div>
 			</OnboardingProvider>
 		</ChatWidgetProvider>

@@ -41,10 +41,10 @@ function elementRect(element: Element | null): TourRect | null {
 }
 
 function fabAvoidRect(): TourRect | null {
-	const help = document.querySelector<HTMLElement>(
-		'[data-fab-help], [aria-label="Start onboarding tour"]',
+	const anchor = document.querySelector<HTMLElement>(
+		'[aria-label="Open chat"], [aria-label="Close chat"], [aria-label="Start onboarding tour"]',
 	);
-	const cluster = help?.parentElement;
+	const cluster = anchor?.parentElement;
 	if (!cluster) return null;
 	const rect = cluster.getBoundingClientRect();
 	if (rect.width <= 0 || rect.height <= 0) return null;

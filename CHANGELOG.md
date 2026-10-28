@@ -14,10 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Daily feed ceiling per device (`EnergyDevice.dailyCapG`): 2,000 g/day by default, configurable by the farmer (App & Hardware) and by an admin (pond detail), and never above the 5,000 g emergency guard the firmware enforces. Amendment A-001; contract `docs/feeding-single-source-plan.md`.
-
-### Fixed
-
-- The FCR feed calculator understated the suggested feeding rate by exactly 5,000x (it divided by `DEFAULT_FISH_COUNT` twice), treated "current biomass" as a per-fish weight, labelled per-fish feed as a total, and read the first active pond instead of the pond on screen. It now takes the pond and the fish count explicitly, reports true totals, and returns a per-meal dose when meals/day is known.
+- Firmware 1.6.0 (I-41) fail-safe model: a shutdown handler that opens the relay on every software reset, panic, OTA reboot and `ESP.restart()`; an independent relay-overrun trip (expected dose + 2 s) checked at every network boundary; one dispense gate for every source (10 s minimum gap, six doses per rolling hour, daily gram cap, `MAX_DISPENSE_MS`); a 60 s no-dispense hold after a brownout reset; and reset-reason accounting in NVS.
+- Firmware 1.6.0 safe mode: three brownout/panic/watchdog resets within ten minutes lock the relay OFF, refuse every trigger with reason `safe_mode`, report `safe_mode` and `last_reset_reasons` in the heartbeat, postpone OTA, and clear after 30 quiet minutes or on a Wi-Fi/factory reset hold. A normal power-on clears the history.
+- Firmware 1.6.0 hopper and probe plausibility: five samples with range rejection, median, EMA, a three-cycle persistence rule, hysteresis (low at 20 %, refill above 30 %) and a ten-minute state hold; an invalid cycle omits the level instead of reporting 0 %. The DS18B20 rejects its -127/85 sentinels and anything outside 0..50 C.
+- Firmware 1.6.0 network hygiene: per-event-type token buckets, a bounded offline queue that drops its oldest entry and counts it, and non-blocking HTTP retries with exponential backoff and ±20 % jitter capped at five minutes.
+- Firmware 1.6.0 noisy-button guard: more than five rejected glitches in a minute disable the feed button for ten minutes and report `button_disabled`; 1.5.3's 50 ms confirmation, quiet window and 30 s cooldown are unchanged.
+- `firmware/firmware-main/safety.h` and `filters.h`: Arduino-free, header-only safety/filter logic, plus a PlatformIO `[env:native]` Unity suite (`pio test -d firmware -e native`, 27 tests) covering spike rejection, persistence, hysteresis, the gap/hourly/daily caps, safe-mode entry and exit, the button disable, token buckets and retry backoff.
+- A web test proving the ingest schema still accepts a 1.6.0 heartbeat with the new diagnostic keys and every new `feed_refused` reason (no server change).
 
 ### Changed
 
@@ -26,6 +29,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Next-feed time is computed only in Asia/Manila (`computeNextFeedingSlot`); the server-local `setHours` variant was deleted. Device poll responses now carry `server_time_utc` and `farm_offset_minutes` so the firmware can link the RTC to UTC (firmware consumption is a later, reflash-required step).
 - Every daily-cap check now calls one resolver (`resolveDailyCapG`), so the platform `dailyCapFactor` applies identically to schedule saves, manual feeds, calibration doses, pond edits and the AI advisor. Two paths previously ignored the factor.
 - The advisor's per-meal bound derives from the device's ceiling instead of the flat 5,000 g maximum: 1,000 g at two meals and 500 g at four under the new default.
+- Firmware heartbeat now carries `safe_mode`, `last_reset_reasons` and a nested `diag` object (fw, reset counts, button state, overruns, invalid sensors, queue drops, uptime, limits, refusals by reason). Ingest strips the new keys, so they are diagnostic until a server change stores them.
+- `firmware/README.md`: new **Firmware 1.6.0 fail-safe model**, **Safety model** and **Safe mode** sections, the refusal-reason table, the native-test instructions and bench checks 21-31.
+
+### Fixed
+
+- The FCR feed calculator understated the suggested feeding rate by exactly 5,000x (it divided by `DEFAULT_FISH_COUNT` twice), treated "current biomass" as a per-fish weight, labelled per-fish feed as a total, and read the first active pond instead of the pond on screen. It now takes the pond and the fish count explicitly, reports true totals, and returns a per-meal dose when meals/day is known.
+- Firmware 1.5.x reported `feed_level_percent: 0` when the HC-SR04 echo was implausible; it now reports "unknown" and keeps the last valid level.
+- Firmware 1.5.x accepted the DS18B20's -127 C / 85 C sentinel values as real temperatures; they are now treated as "unknown".
+- Firmware 1.5.x could leave the relay energized past the end of a short dose while `loop()` was blocked in an HTTPS call; the relay is now opened at the first network boundary.
+- Firmware 1.5.x would deep-sleep during a dispense; it now refuses to sleep while the relay is on and opens it before sleeping.
 
 ## [1.20.1] - 2026-10-28
 

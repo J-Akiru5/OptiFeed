@@ -27,6 +27,14 @@
 > interrupt only records a candidate, `loop()` samples GPIO 23 for 50 ms and accepts it only
 > when the line stays LOW. Button edges are ignored from relay ON until 2 s after relay OFF,
 > and a button dose is limited to one per 30 s. See **Firmware 1.5.3 button guard** below.
+>
+> **Firmware 1.6.0 (fail-safe).** One dispense gate for every source (10 s minimum gap,
+> six doses per rolling hour, daily cap), a relay overrun trip, a shutdown handler that
+> opens the relay on every reset, **safe mode** after three abnormal resets in ten minutes,
+> plausibility filtering for the hopper and the water probe, source-side event rate limits,
+> a bounded queue that drops its oldest entry, and jittered HTTP backoff capped at five
+> minutes. Pure logic is in `safety.h` / `filters.h` and covered by
+> `pio test -d firmware -e native`. See **Firmware 1.6.0 fail-safe model** below.
 
 ## Hardware Pinout
 
@@ -239,6 +247,87 @@ Bench check: a normal press (>= 100 ms) dispenses exactly once; a tap shorter th
 50 ms is rejected; a press during a dispense is ignored; a second press inside 30 s
 logs `[BUTTON] cooldown` and does not dispense.
 
+## Firmware 1.6.0 fail-safe model
+
+Firmware 1.6.0 makes the unit behave safely **without** the wiring fixes listed
+above (pull-up, 100 nF, flyback diode, bulk capacitor). It was driven by the CICT
+Building A field evidence in `docs/hardware/2026-10-28-cict-pin-map-and-health.md`:
+phantom button feeds, a hopper reading flapping 0 % <-> 47 % in under a minute,
+brownout reset loops with the motor on the same supply, and one task-watchdog
+reset during a slow network cycle.
+
+The pure logic lives in two header-only modules and is covered on the host:
+
+- `firmware/firmware-main/safety.h` — dispense gate, reset history, safe mode,
+  button noise guard, token buckets, HTTP backoff.
+- `firmware/firmware-main/filters.h` — hopper plausibility, median/EMA,
+  persistence, hysteresis, DS18B20 plausibility.
+
+### Safety model
+
+| Rule | Constant | Default | Behaviour |
+|---|---|---|---|
+| Relay OFF at boot | `RELAY_OFF` | active HIGH board | The pin is driven OFF before `pinMode`, again after it, and once more in a shutdown handler registered with `esp_register_shutdown_handler`, so every software reset, panic reboot, OTA install reboot and `ESP.restart()` opens the contacts first. |
+| Dose hard stop | `MAX_DISPENSE_MS` | 300 000 ms | A dose longer than the cap is **refused**, never truncated (a slow calibration must not halve a valid dose). |
+| Relay overrun | `RELAY_OVERRUN_GRACE_MS` | 2 000 ms | If the relay is still on `expected duration + 2 s`, `kickWatchdog()` forces it OFF at the next network boundary (a blocking HTTPS call can delay `loop()`), logs `[SAFETY] relay overrun` and reports `feed_refused` with reason `relay_overrun`. |
+| Minimum gap, any source | `MIN_DISPENSE_GAP_MS` | 10 000 ms | A second dose from button, schedule or dashboard inside 10 s is refused with reason `too_soon`. |
+| Hourly ceiling, any source | `MAX_DISPENSES_PER_HOUR` | 6 | The seventh dose in a rolling hour is refused with reason `hourly_limit`. |
+| Daily gram cap | `MAX_GRAMS_PER_DAY` | 5 000 g | Unchanged, now enforced inside the same gate as the two limits above. |
+| Post-brownout hold | `BROWNOUT_HOLD_MS` | 60 000 ms | After a brownout reset every trigger is refused with reason `brownout_hold` for the first 60 s. The hardware brownout detector stays enabled. |
+| Button noise | `BUTTON_NOISE_WINDOW_MS` / `BUTTON_NOISE_MAX` / `BUTTON_DISABLE_MS` | 60 s / 5 / 10 min | 1.5.3's 50 ms confirmation is kept. More than five rejected glitches in a minute disable the button for ten minutes (`[BUTTON] disabled: noisy line`); the heartbeat reports `button_disabled`. |
+| Hopper samples | `HOPPER_SAMPLE_COUNT` | 5 | Median, with samples outside `2 cm .. empty + 10 cm` rejected. Fewer than three plausible samples is an **unknown** cycle, never 0 %. |
+| Hopper smoothing | `HOPPER_EMA_ALPHA` | 0.35 | EMA on the distance, so one plausible-but-wrong echo moves the level by a third at most. |
+| Hopper persistence | `HOPPER_JUMP_PCT` / `HOPPER_PERSIST_CYCLES` | 15 points / 3 | A change larger than 15 points is believed only after three consecutive cycles agree. |
+| Pellet hysteresis | `HOPPER_LOW_PCT` / `HOPPER_REFILL_MARGIN_PCT` | 20 % / 10 points | Low at or below 20 %; leaves low only above 30 %. While low the reported value is capped at 20 %, so the server cannot see a refill or a warning from a value inside the band. |
+| Pellet hold | `HOPPER_STATE_HOLD_MS` | 10 min | A low/refilled transition needs ten minutes since the previous one. Under-reporting the level is the safe direction. |
+| Water probe | `temperaturePlausible()` | 0..50 C | The DS18B20 `-127 C` (disconnected) and `85 C` (power-on) sentinels are rejected, as is anything outside 0..50 C. The heartbeat sends `water_temp_ok: false` and omits `water_temp_c`. |
+| Event rate limit | `FEED_EVENT_*`, `REFUSAL_*`, `ACK_*` | 12 / 5 min, 6 / 10 min, 6 / 60 s | One token bucket per event type at the source. The dispense bucket is sized above the hourly ceiling, so a real feeding record is never dropped by the limiter. |
+| Offline queue | `EVENT_QUEUE_SIZE` | 50 | Bounded; when full it drops the **oldest** unsynced entry (never the newest) and counts the loss in `diag.queue_drops`. |
+| HTTP retry | `HTTP_RETRY_BASE_MS` / `HTTP_RETRY_CAP_MS` | 5 s / 5 min | Every non-OTA call (heartbeat, feed poll, schedule sync, event flush, refusal report, schedule ack) backs off exponentially with +-20 % jitter, capped at five minutes. Retries are non-blocking: `loop()` keeps running. OTA keeps its own 1 h -> 6 h -> 24 h update ladder. |
+
+The pure protections are checked by `pio test -d firmware -e native`
+(27 tests): range rejection, median, persistence, hysteresis/hold, the 10 s gap,
+the hourly ceiling, the daily cap, safe-mode entry/exit, the button disable, the
+token buckets and the retry backoff.
+
+### Safe mode
+
+Three abnormal resets (`brownout`, `panic`, `interrupt_wdt`, `task_wdt`, `wdt`)
+inside ten minutes put the unit into **safe mode**:
+
+- The relay is locked OFF and every trigger (button, schedule, dashboard) is
+  refused with reason `safe_mode`.
+- The heartbeat still goes out and reports `safe_mode: true`,
+  `last_reset_reasons` (for example `"task_wdt,brownout"`) and the same values
+  inside `diag`.
+- Serial logs exactly one `[SAFETY] SAFE MODE: <reasons>` line.
+- OTA checks are postponed with reason `safe_mode` while it is active.
+
+It leaves safe mode after **30 quiet minutes** (RTC-anchored, so a reboot does
+not restart the clock; uptime-based when no clock is available) or immediately
+on a Wi-Fi/factory reset hold. A **normal power-on** clears the reset counter;
+a power cycle does **not** clear safe mode by itself. The counter is also
+cleared after ten healthy minutes, so a later fault starts from zero.
+
+NVS keys (namespace `optifeed`, new keys only):
+`rst_abn_cnt`, `rst_abn_mask`, `rst_first_ep`, `rst_last_ep`, `safe_mode`,
+`safe_until_ep`. The history is written at most once per boot (and once more
+when safe mode is entered or left); never in a loop.
+
+### Native tests (host)
+
+```bash
+pio test -d firmware -e native
+```
+
+The `[env:native]` environment excludes the sketch (it needs the ESP32 core) and
+compiles `firmware-main/filters.h` and `firmware-main/safety.h` against Unity.
+On Windows, `scripts/native_toolchain.py` falls back to the MinGW that
+PlatformIO keeps in `~/.platformio/packages/toolchain-gccmingw32` when no `gcc`
+is on `PATH`, and `scripts/native_runtime.py` copies its runtime DLLs beside the
+test binary. On Linux/macOS both scripts are no-ops and the host compiler is
+used directly.
+
 ## Configuration
 
 Open `firmware-main.ino` and fill in the `Config` section before flashing:
@@ -250,7 +339,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 #define FEED_POLL_URL_BASE     "https://pakaonai.syntaxure.dev/api/feed-command"
 #define SCHEDULE_SYNC_URL_BASE "https://pakaonai.syntaxure.dev/api/schedule-sync"
 #define OTA_CHECK_URL          "https://pakaonai.syntaxure.dev/api/firmware/check"
-#define FW_VERSION             "1.5.3"
+#define FW_VERSION             "1.6.0"
 #define FW_BOARD               "wroom32u"
 ```
 
@@ -283,7 +372,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 > 4. Confirm the five embedded certificates match the fingerprints in the
 >    source comment (`openssl x509 -fingerprint -sha256 -in <pem>`).
 
-> `FW_VERSION` is printed at boot (`[FIRMWARE] v1.5.0`, under the
+> `FW_VERSION` is printed at boot (`[FIRMWARE] v1.6.0`, under the
 > `[DEVICE MAC]` line) and sent as `firmware_version` in every heartbeat. It is
 > also the version the OTA check reports and compares against the signed
 > manifest.
@@ -554,6 +643,7 @@ The check and the download only happen while **all** of these hold
 | Condition | Constant / source |
 |---|---|
 | Not feeding | `feederActive == false` |
+| Not in safe mode | `safeModeActive == false` |
 | No scheduled feed within ±20 min | `OTA_FEED_GUARD_MINUTES` |
 | Not provisioning | setup portal inactive |
 | Not in a pending-verify boot | `ota_state != pending_verify` |
@@ -711,9 +801,26 @@ them identical to the PEMs embedded in `firmware-main.ino`.
   "timestamp": "2026-07-11T12:00:00+00:00",
   "rtc_ok": true,
   "feeder_active": false,
-  "firmware_version": "1.5.0",
+  "firmware_version": "1.6.0",
   "ota_state": "valid",
-  "reset_reason": "poweron"
+  "reset_reason": "poweron",
+  "safe_mode": false,
+  "last_reset_reasons": "none",
+  "diag": {
+    "fw": "1.6.0",
+    "safe_mode": false,
+    "reset_abnormal_count": 0,
+    "reset_reason_mask": 0,
+    "button_glitches": 0,
+    "button_disabled": false,
+    "relay_overruns": 0,
+    "sensor_invalid_count": 0,
+    "queue_drops": 0,
+    "uptime_s": 3500,
+    "min_dispense_gap_s": 10,
+    "max_dispenses_per_hour": 6,
+    "refusals_by_reason": { "too_soon": 1 }
+  }
 }
 ```
 
@@ -724,6 +831,17 @@ them identical to the PEMs embedded in `firmware-main.ino`.
 > `pending_verify`, `valid`, `downloading`, `installed`, `aborted`, `failed`, `rolled_back`;
 > `reset_reason` is one of `poweron`, `external`, `software`, `panic`, `interrupt_wdt`,
 > `task_wdt`, `wdt`, `deepsleep`, `brownout`, `sdio`, `unknown`.
+>
+> **1.6.0 diagnostics.** `safe_mode`, `last_reset_reasons` and the nested `diag` object are
+> additive and currently **stripped** by the ingest schema (verified by
+> `apps/web/lib/__tests__/ingest-route.test.ts`, which posts a heartbeat with all of them and
+> asserts the stored row keeps its shape). They are therefore visible on the serial log and
+> in the heartbeat body, not yet in the database. No server change is required for 1.6.0;
+> storing them is a separate, additive follow-up. The analog fields the server does persist
+> (`feed_level_percent`, `feed_level_cm`, `water_temp_c`, `water_temp_ok`) keep exactly the
+> old contract; an implausible hopper cycle now **omits** the level instead of sending 0 %,
+> and an implausible probe sends `water_temp_ok: false` with no `water_temp_c`.
+
 
 **Feed dispensed**:
 ```json
@@ -736,6 +854,25 @@ them identical to the PEMs embedded in `firmware-main.ino`.
   "feed_request_id": null
 }
 ```
+
+**Feed refused** (`event_type: "feed_refused"`, unchanged contract, `reason` is the only
+extension point). Firmware 1.6.0 adds these reasons; the server stores the string verbatim
+in the `feed_refused` device-state event and uses a scheduled refusal for the missed-feeding
+alert:
+
+| Reason | Meaning |
+|---|---|
+| `safe_mode` | the unit is in safe mode after repeated abnormal resets |
+| `brownout_hold` | inside the 60 s hold after a brownout reset |
+| `too_soon` | another dose started less than 10 s ago (any source) |
+| `hourly_limit` | six doses already started in the rolling hour |
+| `relay_overrun` | the relay ran past its expected end + 2 s and was force-opened |
+| `ota_in_progress` | a signed update is downloading (existing) |
+| `grams_out_of_range`, `dose_time_exceeds_cap`, `daily_gram_cap_exceeded` | existing caps |
+| `ota_pending_verify`, `busy` | counted in `diag.refusals_by_reason`, not posted |
+
+> The ingest enum has no `safety_trip` event type, so a relay overrun is reported as the
+> existing `feed_refused` with reason `relay_overrun` rather than by changing the server.
 
 ### `GET /api/feed-command?device_id=...` — Dashboard Feed Request
 
@@ -831,7 +968,7 @@ Portal checks (no backend needed):
 12. Confirm the serial log never prints the WiFi password or the Device Token, and that
     the setup page never renders a stored token. `/status` and `/scan` must not contain
     either.
-13. Confirm the boot log prints `[FIRMWARE] v1.5.3` under the `[DEVICE MAC]` line and
+13. Confirm the boot log prints `[FIRMWARE] v1.6.0` under the `[DEVICE MAC]` line and
     `[IDENTITY] Setup AP name`, and that a heartbeat carries the same version in
     `firmware_version`.
 14. Confirm the boot log prints `[INIT] Reset reason: ...`, `[OTA] state -> valid` and
@@ -850,6 +987,43 @@ Portal checks (no backend needed):
 20. Press twice, 5 s apart: the first dispenses, the second prints `[BUTTON] cooldown`
     and does not. Press again after 30 s: it dispenses.
 
+### Fail-safe checks (1.6.0, bench)
+
+21. Boot and confirm one `[BOOT] summary:` line (fw, reset reason, safe mode, relay GPIO,
+    identity, Wi-Fi, feed count, limits) and `[INIT] Relay shutdown handler registered`.
+22. Trigger two doses inside 10 s (button, then a dashboard feed): the second is refused
+    with `[FEED] REFUSED too_soon` and reports `feed_refused` with reason `too_soon`.
+23. Trigger seven doses in one hour: the seventh is refused with `hourly_limit`.
+24. Hold the feed button during a long blocking network cycle with a *short* stored dose
+    (for example 1 g): the relay opens at the expected end, and if the loop was delayed
+    past 2 s the log shows `[SAFETY] relay overrun` and the server records `relay_overrun`.
+25. Disconnect the HC-SR04 (or point it at nothing) for one heartbeat: the log increments
+    `sensor_invalid_count`, no `feed_level_percent` is sent for that beat, and the dashboard
+    keeps the last known level instead of showing 0 %.
+26. Short the DS18B20 data line or unplug the probe: `water_temp_ok: false`, no
+    `water_temp_c`, `sensor_invalid_count` increments. Reconnect: values resume.
+27. Cover/uncover the hopper repeatedly for a minute: the reported level must not alternate
+    `0 %`/`47 %` on every heartbeat. A real refill (above threshold + 10 points for 10
+    minutes) prints one `[HOPPER] refilled` line.
+28. Pull power three times in a row while the motor is on (bench, with the motor on the same
+    supply): the fourth boot prints exactly one `[SAFETY] SAFE MODE: <reasons>` line, the
+    heartbeat reports `safe_mode: true`, a button press is refused with `safe_mode`, and the
+    relay stays open. Leave it powered for 30 minutes: `[SAFETY] safe mode cleared`.
+29. While in safe mode, hold the Wi-Fi reset button for 5 s: the unit reboots with safe mode
+    cleared (`[SAFETY] safe mode and reset history cleared by a reset hold`).
+30. Noise the button line (tap a wire on GPIO 23 briefly, six times within a minute): after
+    the sixth rejection the log prints `[BUTTON] disabled for 600 s: noisy line`, the
+    heartbeat reports `button_disabled: true`, and a real press does nothing until the
+    window ends.
+31. Watch a Wi-Fi outage: heartbeat/feed-poll retries space out (5 s, 10 s, 20 s …) and stop
+    at five minutes instead of hammering every 5 s.
+
+Run the host tests before flashing:
+
+```bash
+pio test -d firmware -e native     # 27 tests, no board required
+```
+
 After flashing, test the API endpoints against the production backend:
 
 ```bash
@@ -857,7 +1031,7 @@ After flashing, test the API endpoints against the production backend:
 curl -X POST https://pakaonai.syntaxure.dev/api/ingest \
   -H "Content-Type: application/json" \
   -H "X-Device-Token: <device-token>" \
-  -d '{"device_id":"A4:CF:12:7E:3B:09","event_type":"heartbeat","timestamp":"2026-07-11T12:00:00Z","rtc_ok":true,"feeder_active":false,"firmware_version":"1.5.0","ota_state":"valid","reset_reason":"poweron"}'
+  -d '{"device_id":"A4:CF:12:7E:3B:09","event_type":"heartbeat","timestamp":"2026-07-11T12:00:00Z","rtc_ok":true,"feeder_active":false,"firmware_version":"1.6.0","ota_state":"valid","reset_reason":"poweron","safe_mode":false,"diag":{"fw":"1.6.0"}}'
 
 # Test feed command polling (expect feed_requested: false)
 curl https://pakaonai.syntaxure.dev/api/feed-command?device_id=A4:CF:12:7E:3B:09 \

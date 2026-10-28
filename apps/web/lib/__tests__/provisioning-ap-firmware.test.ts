@@ -182,7 +182,7 @@ describe("setup portal scan and test-before-save", () => {
 	});
 
 	it("carries the PakaonAI brand and the reported firmware version", () => {
-		expect(firmware).toContain('#define FW_VERSION "1.5.3"');
+		expect(firmware).toContain('#define FW_VERSION "1.6.0"');
 		expect(firmware).toContain("#0A3D62");
 		expect(firmware).toContain("#E8722C");
 		expect(firmware).toContain("Sakto nga pakaon, sakto nga oras.");

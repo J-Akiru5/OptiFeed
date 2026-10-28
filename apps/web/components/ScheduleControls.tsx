@@ -84,11 +84,11 @@ export function ScheduleControls({
 
 	return (
 		<div
-			className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col sm:flex-row items-center justify-between gap-6 dark:border-gray-700/50 dark:bg-gray-900"
+			className="@container bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col gap-6 @lg:flex-row @lg:items-center @lg:justify-between dark:border-gray-700/50 dark:bg-gray-900"
 			data-help="schedule-controls"
 		>
 			{/* Pause / Resume Toggle */}
-			<div className="flex items-center gap-4">
+			<div className="flex flex-wrap items-center gap-3 @lg:flex-nowrap @lg:gap-4">
 				<div
 					className={cn(
 						"p-3 rounded-full transition-colors",
@@ -99,7 +99,7 @@ export function ScheduleControls({
 				>
 					{isPaused ? <Pause size={24} /> : <Play size={24} />}
 				</div>
-				<div>
+				<div className="min-w-0">
 					<h3 className="font-semibold text-gray-900 text-lg dark:text-gray-100">
 						{isPaused ? tSch("pausedStatus") : tSch("activeStatus")}
 					</h3>
@@ -113,7 +113,7 @@ export function ScheduleControls({
 					disabled={isPendingPause || !canWrite || !online}
 					title={reason}
 					className={cn(
-						"ml-4 px-4 py-2 rounded-lg font-medium text-sm transition-all border",
+						"ml-auto px-4 py-2 rounded-lg font-medium text-sm transition-all border @lg:ml-4",
 						isPaused
 							? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-300 dark:hover:bg-green-500/20"
 							: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20",
@@ -131,7 +131,7 @@ export function ScheduleControls({
 			</div>
 
 			{/* Manual Override (Feed Now) */}
-			<div className="relative border-t sm:border-t-0 sm:border-l border-gray-100 pt-6 sm:pt-0 sm:pl-6 w-full sm:w-auto flex flex-col items-center dark:border-gray-700/50">
+			<div className="relative border-t @lg:border-t-0 @lg:border-l border-gray-100 pt-6 @lg:pt-0 @lg:pl-6 w-full @lg:w-auto flex flex-col items-center dark:border-gray-700/50">
 				{showConfirm ? (
 					<div className="flex flex-col items-center animate-in fade-in zoom-in duration-200">
 						<p className="text-sm text-gray-700 font-medium mb-3 dark:text-gray-300">
@@ -162,7 +162,7 @@ export function ScheduleControls({
 						onClick={() => setShowConfirm(true)}
 						disabled={!canWrite || !online}
 						title={reason}
-						className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-white bg-[var(--ofd-base)] hover:bg-[#1a4a6e] transition-all shadow-md hover:shadow-lg w-full sm:w-auto justify-center disabled:opacity-50 dark:bg-[#1f66a0] dark:hover:bg-[#2a7ab8]"
+						className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-white bg-[var(--ofd-base)] hover:bg-[#1a4a6e] transition-all shadow-md hover:shadow-lg w-full @lg:w-auto justify-center disabled:opacity-50 dark:bg-[#1f66a0] dark:hover:bg-[#2a7ab8]"
 					>
 						{feedSuccess ? (
 							<CheckCircle2 size={20} className="text-green-400" />

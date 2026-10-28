@@ -77,7 +77,7 @@
 		"history": "History",
 		"growth": "Growth",
 		"harvest": "Harvest",
-		"calendar": "Calendar",
+		"calendar": "Calendar & Harvest",
 		"settings": "Settings",
 		"notifications": "Notifications",
 		"audit": "Audit Trail",
@@ -562,6 +562,7 @@
 			"saved": "Changes saved!",
 			"error": "Failed to save changes",
 			"feedDurationHint": "This feed: {grams}g ≈ {seconds}s",
+			"controlsLabel": "Feeder status and controls",
 			"stuckBanner": {
 				"offlineTitle": "Device Offline",
 				"offlineDesc": "Your device has been offline since {time}. Feed requests are rejected while it is offline; schedule changes are saved and still apply when it reconnects.",
@@ -631,7 +632,11 @@
 			"noBatchesTitle": "No saved sampling batches yet",
 			"noBatchesDesc": "A sampling batch groups the samples you log under the same label.",
 			"formLabel": "Log a biomass sample",
-			"batchesLabel": "Saved sampling batches"
+			"batchesLabel": "Saved sampling batches",
+			"howCalculatedTitle": "How it's calculated",
+			"howBiomass": "Total biomass = fish count × average body weight.",
+			"howDailyFeed": "Daily feed = total biomass × feeding rate.",
+			"howPerMeal": "Feed per meal = daily feed ÷ feeds per day."
 		},
 		"history": {
 			"amount": "AMOUNT",
@@ -1019,8 +1024,8 @@
 				"recurringChangeConfirm": "Change the whole repeating series? Choose Cancel to keep it as it was."
 			},
 			"calendarPage": {
-				"title": "Pond calendar",
-				"desc": "Every pond you can see, with the events you can edit.",
+				"title": "Calendar & Harvest",
+				"desc": "The grow-out cycle and every pond event, on one calendar.",
 				"readOnlyPond": "read-only",
 				"readOnlyHint": "This pond belongs to another farm in your organization. Its events are visible but read-only.",
 				"readOnlyEvent": "This event belongs to another farm and is read-only."
@@ -1042,6 +1047,7 @@
 			"upcoming": {
 				"title": "Upcoming events",
 				"next": "Next {count}",
+				"loading": "Loading upcoming events…",
 				"empty": "No upcoming events in this range.",
 				"listLabel": "Upcoming events"
 			},
@@ -3455,7 +3461,7 @@
 				"intro": "Average body weight, feed conversion and the plan the feeder follows. History keeps every sample."
 			},
 			"harvest": {
-				"title": "Harvest & calendar",
+				"title": "Calendar & harvest",
 				"intro": "The crop cycle and the events on the pond calendar."
 			},
 			"settings": {

@@ -5,6 +5,25 @@ import type { LucideIcon } from "lucide-react";
 import { Lock } from "lucide-react";
 import type { ReactNode } from "react";
 
+interface DashboardPageShellProps {
+	children: ReactNode;
+	/** Page spacing/animation utilities, appended to the shared width. */
+	className?: string;
+}
+
+/**
+ * Shared content width for every farmer page (#247).
+ *
+ * Pages used to cap themselves at an ad-hoc `max-w-4xl`/`max-w-5xl` without
+ * centring, so a wide monitor showed a narrow column pinned to the left with a
+ * large unused gap. The widest farmer page (Growth) already used `max-w-7xl`;
+ * this component makes that the one page width, and the pages that gained room
+ * spend it on a two-column layout instead of stretching a single form.
+ */
+export function DashboardPageShell({ children, className }: DashboardPageShellProps) {
+	return <div className={cn("mx-auto w-full max-w-7xl", className)}>{children}</div>;
+}
+
 interface DashboardPageHeaderProps {
 	/** Translated page title. Rendered as the only `h1` on the page. */
 	title: string;

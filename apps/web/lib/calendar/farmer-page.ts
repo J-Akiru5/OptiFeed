@@ -1,6 +1,8 @@
 import { resolveMemberOrgScope } from "@/lib/auth/org-scope";
 import { hasPermission } from "@/lib/auth/permissions";
 import { canWrite, getCurrentPondOwnerId } from "@/lib/auth/session";
+import type { CalendarEventPond } from "@/lib/calendar/event-sources";
+import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { serialiseCycle } from "@/lib/crop-cycle/serialise";
 import type { CropCycleDto, PondOption } from "@/lib/crop-cycle/types";
@@ -39,6 +41,8 @@ export interface FarmerCalendarPageData {
 	initialPondId: string;
 	initialPondName: string;
 	initialPondIsFallow: boolean;
+	/** The caller's farm id, used as the offline snapshot scope. */
+	ownerId: string;
 	ponds: PondOption[];
 	activeCycle: CropCycleDto | null;
 	activeCycles: CropCycleDto[];
@@ -47,6 +51,12 @@ export interface FarmerCalendarPageData {
 	writablePondIds: string[];
 	canManage: boolean;
 	today: string;
+	/** Last known hopper reading for the initial pond (#192/E4). */
+	hopperLevelPct: number | null;
+	hopperFeedLevelUpdatedAt: string | null;
+	hopperIsOffline: boolean;
+	/** The initial pond in the shape the shared calendar sources expect. */
+	initialCalendarPond: CalendarEventPond;
 }
 
 export async function loadFarmerCalendarPageData(): Promise<FarmerCalendarPageData | null> {
@@ -71,6 +81,8 @@ export async function loadFarmerCalendarPageData(): Promise<FarmerCalendarPageDa
 			population: true,
 			notificationPrefs: true,
 			ownerId: true,
+			sampleIntervalDays: true,
+			createdAt: true,
 		},
 	});
 	if (ponds.length === 0) return null;
@@ -101,10 +113,30 @@ export async function loadFarmerCalendarPageData(): Promise<FarmerCalendarPageDa
 		};
 	});
 
+	// The Harvest page used to render the hopper card from its own device
+	// include; the merged page keeps it with the same last-known/offline rule
+	// (#192/E4). One bounded read for the selected pond only.
+	const devices = await prisma.energyDevice.findMany({
+		where: { pondId: initialPond.id },
+		select: { feedLevelPercent: true, feedLevelUpdatedAt: true, lastSeenAt: true },
+		take: 20,
+	});
+	const latestDevice = devices.reduce<(typeof devices)[number] | null>(
+		(latest, device) =>
+			!latest || (device.lastSeenAt?.getTime() ?? 0) > (latest.lastSeenAt?.getTime() ?? 0)
+				? device
+				: latest,
+		null,
+	);
+	const hopperIsOffline =
+		!latestDevice?.lastSeenAt ||
+		Date.now() - latestDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+
 	return {
 		initialPondId: initialPond.id,
 		initialPondName: initialPond.name,
 		initialPondIsFallow: initialPond.isFallow,
+		ownerId,
 		ponds: pondOptions,
 		activeCycle: activeCycles.find((cycle) => cycle.pondId === initialPond.id) ?? null,
 		activeCycles,
@@ -112,5 +144,15 @@ export async function loadFarmerCalendarPageData(): Promise<FarmerCalendarPageDa
 		writablePondIds,
 		canManage: canWriteNow && canManageEvents,
 		today: todayDateOnly(),
+		hopperLevelPct: latestDevice?.feedLevelPercent ?? null,
+		hopperFeedLevelUpdatedAt: latestDevice?.feedLevelUpdatedAt?.toISOString() ?? null,
+		hopperIsOffline,
+		initialCalendarPond: {
+			id: initialPond.id,
+			name: initialPond.name,
+			sampleIntervalDays: initialPond.sampleIntervalDays,
+			createdAt: initialPond.createdAt,
+			isFallow: initialPond.isFallow,
+		},
 	};
 }

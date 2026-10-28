@@ -183,12 +183,13 @@ describe("quick menu (E26)", () => {
 			"/dashboard/calendar",
 			"/dashboard/history",
 			"/dashboard/growth",
-			"/dashboard/harvest",
 			"/dashboard/audit",
 			"/dashboard/settings",
 		]) {
 			expect(hrefs).toContain(href);
 		}
+		// #248: Calendar and Harvest are one page, so the sheet has one entry.
+		expect(hrefs).not.toContain("/dashboard/harvest");
 	});
 
 	it("registers feeders from the platform console", () => {

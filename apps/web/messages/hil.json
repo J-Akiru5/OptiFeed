@@ -77,7 +77,7 @@
 		"history": "Kasaysayan",
 		"growth": "Pagtubo",
 		"harvest": "Pag-ani",
-		"calendar": "Kalendaryo",
+		"calendar": "Kalendaryo kag Pag-ani",
 		"settings": "Mga Setting",
 		"notifications": "Mga Notipikasyon",
 		"audit": "Talaan ng Audit",
@@ -562,6 +562,7 @@
 			"saved": "Naka-save!",
 			"error": "Wala naka-save",
 			"feedDurationHint": "Ini nga pagpakaon: {grams}g ≈ {seconds}s",
+			"controlsLabel": "Estado kag mga kontrol sang feeder",
 			"stuckBanner": {
 				"offlineTitle": "Nadiskonekta ang Device",
 				"offlineDesc": "Ang imo device wala nakakonekta halin pa sang {time}. Ang mga request sang pagpakaon ma-reject habang wala nakakonekta; ang pagbag-o sang iskedyul na-save na kag i-apply gihapon kon magkonekta na liwat ini.",
@@ -631,7 +632,11 @@
 			"noBatchesTitle": "Wala pa sang na-save nga sampling batch",
 			"noBatchesDesc": "Ang sampling batch nagagrupo sang mga sampol nga gin-log mo sa parehas nga label.",
 			"formLabel": "Mag-log sang biomass sample",
-			"batchesLabel": "Mga na-save nga sampling batch"
+			"batchesLabel": "Mga na-save nga sampling batch",
+			"howCalculatedTitle": "Paano Ginkuenta",
+			"howBiomass": "Total nga biomass = kadamuon sang isda × average nga timbang.",
+			"howDailyFeed": "Adlaw-adlaw nga pagkaon = total nga biomass × feeding rate.",
+			"howPerMeal": "Pagkaon kada pagpakaon = adlaw-adlaw nga pagkaon ÷ kadamuon sang pagpakaon kada adlaw."
 		},
 		"history": {
 			"amount": "KADAM-ON",
@@ -1019,8 +1024,8 @@
 				"recurringChangeConfirm": "Bag-uhon ang bug-os nga nagabalik nga serye? Pilia ang Cancel para indi mabag-o."
 			},
 			"calendarPage": {
-				"title": "Kalendaryo sang punong",
-				"desc": "Ang tanan nga punong nga makita mo, upod ang mga hitabo nga ma-edit mo.",
+				"title": "Kalendaryo kag Pag-ani",
+				"desc": "Ang crop cycle kag ang tanan nga hitabo sa punong, sa isa ka kalendaryo.",
 				"readOnlyPond": "basa lamang",
 				"readOnlyHint": "Ini nga punong iya sang iban nga uma sa imo organisasyon. Makita mo ang mga hitabo pero indi mo ini ma-edit.",
 				"readOnlyEvent": "Ini nga hitabo iya sang iban nga uma kag basa lamang."
@@ -1042,6 +1047,7 @@
 			"upcoming": {
 				"title": "Palapit nga events",
 				"next": "Sunod {count}",
+				"loading": "Ginakarga ang palapit nga mga event…",
 				"empty": "Wala sang palapit nga event.",
 				"listLabel": "Mga masunod nga hitabo"
 			},
@@ -3434,7 +3440,7 @@
 				"intro": "Average nga timbang sang lawas, feed conversion kag ang plano nga ginasunod sang feeder. Ang history nagatago sang tanan nga sampol."
 			},
 			"harvest": {
-				"title": "Pag-ani kag Kalendaryo",
+				"title": "Kalendaryo kag Pag-ani",
 				"intro": "Ang crop cycle kag ang mga event sa kalendaryo sang punong."
 			},
 			"settings": {

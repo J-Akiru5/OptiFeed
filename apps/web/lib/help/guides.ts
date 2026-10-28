@@ -91,7 +91,7 @@ export const HELP_SECTIONS: HelpSection[] = [
 		title: "sections.harvest.title",
 		intro: "sections.harvest.intro",
 		roles: ["farmer", "owner"],
-		routes: ["/dashboard/harvest"],
+		routes: ["/dashboard/calendar"],
 		items: [
 			{ text: "items.harvest-calendar", target: "harvest-calendar" },
 			{ text: "items.harvest-add-event", target: "harvest-add-event" },

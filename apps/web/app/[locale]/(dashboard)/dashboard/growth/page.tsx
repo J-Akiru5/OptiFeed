@@ -57,6 +57,7 @@ export default async function GrowthPage() {
 			<div className="mx-auto max-w-2xl py-10">
 				<DashboardEmptyState
 					icon={Fish}
+					mascot="idle"
 					title={tSch("noPondData")}
 					description={tSch("noDeviceDesc")}
 				/>
@@ -808,6 +809,7 @@ export default async function GrowthPage() {
 						<div className="p-4 sm:p-6">
 							<DashboardEmptyState
 								icon={Scale}
+								mascot="idle"
 								title={t("noSamplesTitle")}
 								description={t("noSamplesDesc")}
 								action={

@@ -15,7 +15,7 @@ describe("service worker caching rules", () => {
 	const sw = publicFile("sw.js");
 
 	it("bumps the cache version so old static caches are purged", () => {
-		expect(sw).toContain('const CACHE_NAME = "pakaonai-static-v3"');
+		expect(sw).toContain('const CACHE_NAME = "pakaonai-static-v4"');
 		expect(sw).toMatch(
 			/filter\(\(key\) => key\.startsWith\(CACHE_PREFIX\) && key !== CACHE_NAME\)/,
 		);
@@ -40,7 +40,7 @@ describe("service worker caching rules", () => {
 			'const CACHEABLE_DESTINATIONS = new Set(["script", "style", "image", "font", "manifest"])',
 		);
 		expect(sw).toContain(
-			'const STATIC_PREFIXES = ["/_next/static/", "/icons/", "/pakaonai-logo-kit/"]',
+			'const STATIC_PREFIXES = ["/_next/static/", "/icons/", "/pakaonai-logo-kit/", "/mascot/"]',
 		);
 		expect(sw).toContain("isCacheableAsset(url.pathname, request)");
 	});
@@ -75,6 +75,13 @@ describe("offline shell queue handling", () => {
 	it("never offers a queued feed command", () => {
 		expect(offline).toContain("Feed commands are disabled offline");
 		expect(offline).not.toContain('type: "feed"');
+	});
+
+	it("shows Pakoy on the offline page and precaches his art", () => {
+		expect(offline).toContain("/mascot/pakoy-offline.webp");
+		expect(offline).toContain("No signal, but the schedule is on the watch. Feeding continues.");
+		// Without the precache the offline page would render a broken image.
+		expect(publicFile("sw.js")).toContain('"/mascot/pakoy-offline.webp"');
 	});
 });
 

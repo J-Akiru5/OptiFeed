@@ -1,6 +1,7 @@
 "use client";
 
-import { AlertTriangle, RefreshCcw } from "lucide-react";
+import { Mascot } from "@/components/assistant/mascot";
+import { RefreshCcw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 
@@ -23,9 +24,7 @@ export default function DashboardError({
 			role="alert"
 			className="flex min-h-[60vh] flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in duration-500"
 		>
-			<div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-red-200 bg-red-100 text-red-600 shadow-sm dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-400">
-				<AlertTriangle aria-hidden="true" size={40} />
-			</div>
+			<Mascot pose="powerFault" size={120} className="mb-4" />
 
 			<h2 className="mb-3 text-3xl font-extrabold text-[var(--ofd-base-deep)]">{t("title")}</h2>
 

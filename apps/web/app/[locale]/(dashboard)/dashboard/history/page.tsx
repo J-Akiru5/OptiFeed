@@ -45,6 +45,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 			<div className="mx-auto max-w-2xl py-10">
 				<DashboardEmptyState
 					icon={CalendarDays}
+					mascot="idle"
 					title={tSch("noPondData")}
 					description={tSch("noDeviceDesc")}
 				/>

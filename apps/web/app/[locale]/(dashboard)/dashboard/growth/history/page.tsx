@@ -78,6 +78,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 			<div className="mx-auto max-w-2xl py-10">
 				<DashboardEmptyState
 					icon={Scale}
+					mascot="idle"
 					title={tSch("noPondData")}
 					description={tSch("noDeviceDesc")}
 				/>
@@ -286,6 +287,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 					<div className="p-4 sm:p-6">
 						<DashboardEmptyState
 							icon={Scale}
+							mascot="idle"
 							title={t("emptyTitle")}
 							description={t("emptyDesc")}
 						/>

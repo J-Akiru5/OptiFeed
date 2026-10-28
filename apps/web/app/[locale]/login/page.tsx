@@ -232,14 +232,13 @@ export default function LoginPage() {
 						/>
 					</div>
 
-					<button
-						type="button"
-						onClick={() => router.push("/")}
+					<Link
+						href="/"
 						className="hidden items-center gap-1.5 rounded-md text-[13px] font-medium text-slate-500 transition-colors hover:text-[#0A3D62] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]/40 focus-visible:ring-offset-2 lg:inline-flex dark:text-slate-400 dark:focus-visible:ring-offset-[#0B1117] dark:hover:text-white"
 					>
 						<ArrowLeft className="size-4" aria-hidden="true" />
 						{tBtn("backToHome")}
-					</button>
+					</Link>
 
 					<button
 						type="button"
@@ -441,14 +440,13 @@ export default function LoginPage() {
 
 				<footer className="border-t border-[#E1E8E5] px-5 py-5 text-[11.5px] text-slate-500 sm:px-8 lg:px-10 dark:border-white/[0.06] dark:text-slate-500">
 					<div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-						<button
-							type="button"
-							onClick={() => router.push("/")}
+						<Link
+							href="/"
 							className="inline-flex items-center gap-1.5 rounded-md font-medium transition-colors hover:text-[#0A3D62] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]/40 lg:hidden dark:hover:text-white"
 						>
 							<ArrowLeft className="size-3.5" aria-hidden="true" />
 							{tBtn("backToHome")}
-						</button>
+						</Link>
 
 						<p className="order-last w-full sm:w-auto lg:order-none">{t("footer")}</p>
 

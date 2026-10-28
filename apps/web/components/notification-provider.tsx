@@ -1,5 +1,7 @@
 "use client";
 
+import { Mascot } from "@/components/assistant/mascot";
+import { showsPakoy } from "@/lib/pakoy-alerts";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
@@ -9,6 +11,8 @@ interface NotificationPayload {
 	id: string;
 	tier: string;
 	message: string;
+	/** Present on the realtime row; drives Pakoy's icon (#221). */
+	category?: string | null;
 }
 
 interface NotificationContextType {
@@ -126,7 +130,11 @@ export function NotificationProvider({
 				<div className="fixed top-0 left-0 w-full z-[100] animate-in slide-in-from-top-4 fade-in duration-300">
 					<div className="bg-red-600 text-white px-4 py-3 shadow-lg flex items-center justify-between border-b-4 border-red-800">
 						<div className="flex items-center gap-3">
-							<AlertCircle className="shrink-0 animate-pulse" size={24} />
+							{showsPakoy(activeBanner.category) ? (
+								<Mascot size={32} className="shrink-0" />
+							) : (
+								<AlertCircle className="shrink-0 animate-pulse" size={24} />
+							)}
 							<p className="font-medium text-sm md:text-base">
 								<span className="font-bold mr-2 uppercase tracking-wide">Critical Alert:</span>
 								{activeBanner.message}
@@ -159,14 +167,20 @@ export function NotificationProvider({
 									: "border-blue-500",
 						)}
 					>
-						{activeToast.tier === "SUCCESS" && (
-							<CheckCircle2 className="text-green-500 shrink-0 mt-0.5" size={20} />
-						)}
-						{activeToast.tier === "WARNING" && (
-							<AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={20} />
-						)}
-						{activeToast.tier === "INFO" && (
-							<Info className="text-blue-500 shrink-0 mt-0.5" size={20} />
+						{showsPakoy(activeToast.category) ? (
+							<Mascot size={26} className="shrink-0" />
+						) : (
+							<>
+								{activeToast.tier === "SUCCESS" && (
+									<CheckCircle2 className="text-green-500 shrink-0 mt-0.5" size={20} />
+								)}
+								{activeToast.tier === "WARNING" && (
+									<AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={20} />
+								)}
+								{activeToast.tier === "INFO" && (
+									<Info className="text-blue-500 shrink-0 mt-0.5" size={20} />
+								)}
+							</>
 						)}
 
 						<div className="flex-1">

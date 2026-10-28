@@ -9,7 +9,7 @@
  * - API and auth requests are never intercepted or cached.
  * - Bumping CACHE_NAME purges every previous cache on activate.
  */
-const CACHE_NAME = "pakaonai-static-v3";
+const CACHE_NAME = "pakaonai-static-v4";
 const CACHE_PREFIX = "pakaonai-static-";
 const OFFLINE_URL = "/offline.html";
 const PRECACHE_URLS = [
@@ -20,9 +20,11 @@ const PRECACHE_URLS = [
 	"/icons/maskable-512.png",
 	"/icons/apple-touch-icon.png",
 	"/favicon.ico",
+	// Pakoy's offline pose is part of the offline page (#221).
+	"/mascot/pakoy-offline.webp",
 ];
 
-const STATIC_PREFIXES = ["/_next/static/", "/icons/", "/pakaonai-logo-kit/"];
+const STATIC_PREFIXES = ["/_next/static/", "/icons/", "/pakaonai-logo-kit/", "/mascot/"];
 const STATIC_FILES = new Set([
 	"/manifest.webmanifest",
 	"/favicon.ico",

@@ -1,10 +1,12 @@
 "use client";
 
+import { Mascot } from "@/components/assistant/mascot";
 import { ItemCardGrid } from "@/components/ui/item-card";
 import { ViewToggle, useListViewPreference } from "@/components/ui/view-toggle";
 import { Link, useRouter } from "@/i18n/routing";
 import { acknowledgeNotification, markAllNotificationsRead } from "@/lib/actions/notifications";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import { showsPakoy } from "@/lib/pakoy-alerts";
 import { AlertTriangle, Check, CheckCircle2, FileText, Info, WifiOff } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -50,6 +52,10 @@ const categoryConfig: Record<string, { labelKey: string; className: string }> = 
 	feeding: {
 		labelKey: "categoryFeeding",
 		className: "bg-amber-100 text-amber-700 border-amber-200",
+	},
+	hopper_low: {
+		labelKey: "categoryHopperLow",
+		className: "bg-orange-100 text-orange-700 border-orange-200",
 	},
 	pellet: {
 		labelKey: "categoryPellet",
@@ -278,7 +284,11 @@ export function NotificationList({ initialNotifications, canWrite = true }: Noti
 													aria-hidden="true"
 													className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${tier.className}`}
 												>
-													<Icon className="h-4 w-4" />
+													{showsPakoy(notification.category) ? (
+														<Mascot size={26} />
+													) : (
+														<Icon className="h-4 w-4" />
+													)}
 												</span>
 												<div className="min-w-0">
 													<div className="flex flex-wrap items-center gap-2">
@@ -327,7 +337,11 @@ export function NotificationList({ initialNotifications, canWrite = true }: Noti
 								aria-hidden="true"
 								className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${tier.className}`}
 							>
-								<Icon className="h-5 w-5" />
+								{showsPakoy(notification.category) ? (
+									<Mascot size={34} />
+								) : (
+									<Icon className="h-5 w-5" />
+								)}
 							</span>
 							<span className="min-w-0 flex-1">
 								<span className="flex flex-wrap items-center gap-2">

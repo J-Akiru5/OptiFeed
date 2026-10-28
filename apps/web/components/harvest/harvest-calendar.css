@@ -153,6 +153,16 @@
 	font-weight: 700;
 }
 
+/* "…more" opens the day list and an editable day accepts a click to create an
+   event, so both are clickable surfaces (#244). */
+.harvest-calendar .ofc-more {
+	cursor: pointer;
+}
+
+.harvest-calendar[data-calendar-editable] .ofc-day-cell {
+	cursor: pointer;
+}
+
 .harvest-calendar .ofc-list-event-title {
 	font-size: 0.8rem;
 	font-weight: 700;

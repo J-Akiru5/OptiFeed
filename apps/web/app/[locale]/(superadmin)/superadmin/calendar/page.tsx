@@ -1,7 +1,8 @@
+import { CalendarCapabilityBadge } from "@/components/harvest/calendar-controls";
 import { PlatformCalendar } from "@/components/superadmin/platform-calendar";
-import { Badge, PageHeader } from "@/components/superadmin/ui";
+import { PageHeader } from "@/components/superadmin/ui";
 import { listPlatformCalendarEvents } from "@/lib/calendar/platform-events";
-import { CalendarDays, Lock } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const dynamic = "force-dynamic";
@@ -19,8 +20,9 @@ export default async function SuperadminCalendarPage({
 	searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
 	const params = await searchParams;
-	const [t, data] = await Promise.all([
+	const [t, tCommon, data] = await Promise.all([
 		getTranslations("superadmin.calendar"),
+		getTranslations("dashboard.common"),
 		listPlatformCalendarEvents(params),
 	]);
 
@@ -35,9 +37,14 @@ export default async function SuperadminCalendarPage({
 				}
 				description={t("description")}
 				actions={
-					<Badge tone="neutral" icon={Lock}>
-						{t("readOnly")}
-					</Badge>
+					<CalendarCapabilityBadge
+						capability="read"
+						labels={{
+							edit: tCommon("capability.edit"),
+							ownFarm: tCommon("capability.ownFarm"),
+							read: tCommon("capability.read"),
+						}}
+					/>
 				}
 			/>
 

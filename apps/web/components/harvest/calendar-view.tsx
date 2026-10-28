@@ -276,7 +276,12 @@ export function CalendarView({
 	};
 
 	return (
-		<div className="harvest-calendar min-w-0">
+		<div
+			className="harvest-calendar min-w-0"
+			// Day cells only show a hand when a click creates an event (#244);
+			// `data-calendar-editable` mirrors the `selectable`/`editable` props.
+			data-calendar-editable={canManage ? "true" : undefined}
+		>
 			<FullCalendar
 				plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, classicThemePlugin]}
 				initialView={initialView}

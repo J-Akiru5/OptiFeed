@@ -1,12 +1,14 @@
 import { adminButtonPrimary } from "@/components/admin/admin-classes";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { CalendarCapabilityBadge } from "@/components/harvest/calendar-controls";
 import { HarvestCalendar } from "@/components/harvest/harvest-calendar";
 import { Link } from "@/i18n/routing";
 import { resolveOrgScope } from "@/lib/auth/org-scope";
 import { hasPermission } from "@/lib/auth/permissions";
 import { canWrite } from "@/lib/auth/session";
 import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
+import { calendarCapability } from "@/lib/calendar/capability";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { serialiseCycle } from "@/lib/crop-cycle/serialise";
 import type { PondOption } from "@/lib/crop-cycle/types";
@@ -38,9 +40,10 @@ const CYCLE_SELECT = {
 
 export default async function AdminCalendarPage() {
 	await requireTenantAdmin();
-	const [scope, t, canEditEvents, canManageEvents] = await Promise.all([
+	const [scope, t, tCommon, canEditEvents, canManageEvents] = await Promise.all([
 		resolveOrgScope(),
 		getTranslations("dashboard.adminCalendar"),
+		getTranslations("dashboard.common"),
 		canWrite(),
 		hasPermission("manage_crop_cycle"),
 	]);
@@ -124,11 +127,21 @@ export default async function AdminCalendarPage() {
 				icon={CalendarDays}
 				title={t("title")}
 				description={t("desc", { count: ponds.length })}
-			/>
-
-			<p className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-medium text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-200">
-				{t("editHint")}
-			</p>
+				actions={
+					<CalendarCapabilityBadge
+						capability={calendarCapability({ canManage, pondCount: ponds.length })}
+						labels={{
+							edit: tCommon("capability.edit"),
+							ownFarm: tCommon("capability.ownFarm"),
+							read: tCommon("capability.read"),
+						}}
+					/>
+				}
+			>
+				<p className="mt-1 text-xs font-medium text-[#3D5568] dark:text-gray-400">
+					{t("editHint")}
+				</p>
+			</AdminPageHeader>
 
 			<HarvestCalendar
 				initialPondId={ponds[0].id}
@@ -142,6 +155,7 @@ export default async function AdminCalendarPage() {
 				recentCycles={recentCycles}
 				canManage={canManage}
 				canManageCycles={false}
+				showHeader={false}
 				today={todayDateOnly()}
 			/>
 		</div>

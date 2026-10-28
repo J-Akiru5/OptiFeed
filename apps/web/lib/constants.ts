@@ -38,5 +38,10 @@ export const PELLET_ALERT_WINDOW_MS = 6 * 60 * 60 * 1000;
 export const PELLET_CRITICAL_PCT = 5;
 export const PELLET_LOW_PCT = 20;
 
+// #259: every hopper surface turns red and pulses at or below this displayed
+// level. This is a presentation threshold only; pellet alerts keep using the
+// org's `hopperLowPct` (default 20) through lib/settings/org-alerts.ts.
+export const HOPPER_LOW_DISPLAY_PCT = 30;
+
 // Advance warning when projected feed remaining drops below this many days.
 export const FEED_DAYS_WARNING = 2;

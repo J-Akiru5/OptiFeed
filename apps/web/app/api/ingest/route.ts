@@ -7,6 +7,7 @@ import {
 	RECONCILIATION_LOOKBACK_HOURS,
 } from "@/lib/constants";
 import { isDeviceApproved, verifyDeviceToken } from "@/lib/device-auth";
+import { FIRMWARE_REPORTED_EVENT, getDeviceFirmwareVersion } from "@/lib/device-firmware";
 import { normalizeNotificationPrefs } from "@/lib/limits";
 import { absoluteAppUrl, sendTelegramMessage } from "@/lib/notify/telegram";
 import { reportError } from "@/lib/observability";
@@ -218,6 +219,24 @@ export const POST = withApi(
 			// Telegram fan-out (3.5) runs once, after the transaction commits.
 			let pelletCriticalAlert = false;
 
+			// #263: a unit that was flashed over USB never reports an OTA
+			// transition, so the hardware card would keep showing the version
+			// baked in at provisioning. Store the reported version once per
+			// change in the existing event stream (no schema change).
+			const reportedVersion = parsed.data.firmware_version ?? null;
+			let firmwareReportedEvent = false;
+			if (reportedVersion && !otaTransitionEvent) {
+				try {
+					const latestVersion = await getDeviceFirmwareVersion(device.id);
+					firmwareReportedEvent = latestVersion?.version !== reportedVersion;
+				} catch (error) {
+					console.warn(
+						"[ingest] firmware version lookup failed",
+						error instanceof Error ? error.message : String(error),
+					);
+				}
+			}
+
 			try {
 				const operations: Prisma.PrismaPromise<unknown>[] = [
 					prisma.energyDevice.update({
@@ -263,6 +282,22 @@ export const POST = withApi(
 										: {}),
 									...(parsed.data.reset_reason ? { resetReason: parsed.data.reset_reason } : {}),
 								},
+							},
+						}),
+					);
+				}
+
+				// #263: one row per observed version change, so the hardware card
+				// reads the version the unit actually runs after a USB flash.
+				if (firmwareReportedEvent && reportedVersion) {
+					operations.push(
+						prisma.deviceStateEvent.create({
+							data: {
+								deviceId: device.id,
+								eventType: FIRMWARE_REPORTED_EVENT,
+								source: "device",
+								deviceTime: parsed.data.timestamp,
+								metadata: { version: reportedVersion },
 							},
 						}),
 					);

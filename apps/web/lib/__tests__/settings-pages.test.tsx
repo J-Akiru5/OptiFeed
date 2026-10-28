@@ -180,6 +180,7 @@ import SettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/page";
 import PondSettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/pond/page";
 import ProfileSettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/profile/page";
 import { canWrite } from "@/lib/auth/session";
+import prisma from "@/lib/prisma";
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -236,6 +237,23 @@ describe("hardware settings page", () => {
 
 		expect(html).toContain("PakaonAI-ABCD");
 		expect(html).toContain("Device ID (MAC)");
+	});
+
+	it("shows the sticker MAC as the Device ID and the heartbeat's firmware version", async () => {
+		vi.mocked(prisma.deviceStateEvent.findFirst).mockResolvedValueOnce({
+			eventType: "firmware_reported",
+			metadata: { version: "1.6.0" },
+			createdAt: new Date(),
+		} as never);
+
+		const html = renderToStaticMarkup(
+			await HardwareSettingsPage({ searchParams: Promise.resolve({}) }),
+		);
+
+		expect(html).toContain("AA:BB:CC:DD:AB:CD");
+		expect(html).toContain("v1.6.0");
+		expect(html).toContain("Support ID: dev-1");
+		expect(html).not.toContain("Device record ID");
 	});
 
 	it("explains read-only mode on the hardware controls", async () => {

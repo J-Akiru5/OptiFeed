@@ -1,5 +1,10 @@
 import { OFFLINE_THRESHOLD_MS, STALE_DISPATCHED_MS } from "@/lib/constants";
-import { dailyFeedCapG, feedGramsSchema, formatZodError } from "@/lib/limits";
+import {
+	MAX_FEED_GRAMS_PER_REQUEST,
+	dailyFeedCapG,
+	feedGramsSchema,
+	formatZodError,
+} from "@/lib/limits";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
@@ -242,4 +247,58 @@ export async function setSchedulePause(
 	});
 
 	return { ok: true, wasPaused: device.isPaused };
+}
+
+export type ScheduleCapsCheck = { ok: true } | { ok: false; error: string };
+
+/**
+ * Does a schedule's per-meal amount stay inside the device and platform caps?
+ *
+ * The tenant schedule form (`lib/actions/settings.ts`) and the schedule save
+ * (`lib/actions/schedule.ts`) both need this answer, and they must ask it about
+ * the amount the feeder will *actually dispense* after the save — not the grams
+ * already stored on the device. One implementation keeps the two entry points
+ * from drifting, which is how a rate change used to slip past the daily cap
+ * (audit 2026-10-28).
+ *
+ * Pure: the caller supplies the effective caps and the dispense rate.
+ */
+export function checkScheduleCaps(input: {
+	gramsPerMeal: number;
+	feedsPerDay: number;
+	hopperCapacityG: number | null;
+	gramsPerSecond: number;
+	maxDispenseMs: number;
+	dailyCapFactor: number;
+}): ScheduleCapsCheck {
+	if (!Number.isFinite(input.gramsPerMeal) || input.gramsPerMeal <= 0) {
+		return { ok: false, error: "The calculated feed amount is not a usable number." };
+	}
+	if (input.gramsPerMeal > MAX_FEED_GRAMS_PER_REQUEST) {
+		return {
+			ok: false,
+			error: `That feeding rate needs more than the ${MAX_FEED_GRAMS_PER_REQUEST} g per-meal limit. Lower the rate or add meals.`,
+		};
+	}
+
+	const dailyCapG = dailyFeedCapG(input.hopperCapacityG, input.dailyCapFactor);
+	const scheduledDailyG = input.feedsPerDay * input.gramsPerMeal;
+	if (scheduledDailyG > dailyCapG) {
+		return {
+			ok: false,
+			error: `Schedule would dispense ${Math.round(scheduledDailyG)} g/day — over the ${Math.round(dailyCapG)} g/day limit. Lower feeds per day or the feed amount.`,
+		};
+	}
+
+	if (
+		input.gramsPerSecond > 0 &&
+		input.gramsPerMeal / input.gramsPerSecond > input.maxDispenseMs / 1000
+	) {
+		return {
+			ok: false,
+			error: `Feed amount of ${Math.round(input.gramsPerMeal * 10) / 10} g would take more than ${input.maxDispenseMs / 1000} s of relay time at ${input.gramsPerSecond} g/s.`,
+		};
+	}
+
+	return { ok: true };
 }

@@ -8,7 +8,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { db } = vi.hoisted(() => ({
 	db: {
-		pond: { findMany: vi.fn() },
+		pond: { findMany: vi.fn(), findUnique: vi.fn() },
+		cropCycle: { findFirst: vi.fn() },
 		energyDevice: { findFirst: vi.fn() },
 		biomassLog: { findFirst: vi.fn() },
 		fcrReport: { findMany: vi.fn() },
@@ -44,6 +45,8 @@ function pond(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
 	vi.clearAllMocks();
 	db.pond.findMany.mockResolvedValue([pond()] as never);
+	db.pond.findUnique.mockResolvedValue({ population: 100 } as never);
+	db.cropCycle.findFirst.mockResolvedValue(null as never);
 	db.energyDevice.findFirst.mockResolvedValue(null as never);
 	db.biomassLog.findFirst.mockResolvedValue(null as never);
 	db.fcrReport.findMany.mockResolvedValue([] as never);

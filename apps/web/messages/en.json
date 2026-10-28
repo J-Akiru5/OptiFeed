@@ -444,6 +444,7 @@
 			"populationLabel": "POND POPULATION",
 			"populationValue": "{count} Catfish",
 			"populationStable": "Stable stocked quantity",
+			"populationLive": "{live} live of {stocked} stocked",
 			"feedingLogsTitle": "FEEDING LOGS — WESTERN VISAYAS HUB",
 			"feedingLogsDesc": "Auditable chronological logs fetched from your automatic dispenser.",
 			"feedLevelLabel": "Feed Level",

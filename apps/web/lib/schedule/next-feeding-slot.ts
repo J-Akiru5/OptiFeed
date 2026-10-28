@@ -53,10 +53,16 @@ function toSlot(minutesFromTodayMidnight: number): NextFeedingSlot {
 /**
  * The next feed time for a schedule, or null when the stored times are invalid.
  *
- * Feed `i` of `n` sits evenly between the start and end of the window, matching
- * the device's own spacing. Slots are compared in minutes from the current
- * farm day's midnight; candidates from yesterday's overnight tail and today's
- * whole series are considered, and the earliest one in the future wins.
+ * The firmware computes the slots itself (`firmware-main.ino`, schedule sync):
+ * `interval = (end − start) / (feeds − 1)` in **whole minutes, truncated**, and
+ * feed `i` sits at `start + i × interval`. This module mirrors that integer
+ * arithmetic exactly — a fractional interval rounded here would predict a
+ * different minute than the device actually fires (e.g. 06:00→17:50 with four
+ * meals is 236 minutes per slot on the board, 237 if rounded).
+ *
+ * Slots are compared in minutes from the current farm day's midnight; candidates
+ * from yesterday's overnight tail and today's whole series are considered, and
+ * the earliest one in the future wins.
  */
 export function computeNextFeedingSlot(input: NextFeedingInput): NextFeedingSlot | null {
 	const start = wallClockMinutesOfDay(input.scheduleStart);
@@ -65,7 +71,7 @@ export function computeNextFeedingSlot(input: NextFeedingInput): NextFeedingSlot
 
 	const feeds = clampFeedsPerDay(input.feedsPerDay);
 	const end = rawEnd >= start ? rawEnd : rawEnd + MINUTES_PER_DAY;
-	const interval = feeds > 1 ? (end - start) / (feeds - 1) : 0;
+	const interval = feeds > 1 ? Math.trunc((end - start) / (feeds - 1)) : 0;
 
 	const clock = farmWallClock(input.now ?? new Date(), input.timeZone ?? PH_TZ);
 	const nowMinutes = clock.hour * 60 + clock.minute;
@@ -76,7 +82,7 @@ export function computeNextFeedingSlot(input: NextFeedingInput): NextFeedingSlot
 	let next: number | null = null;
 	for (const offset of seriesOffsets) {
 		for (let index = 0; index < feeds; index += 1) {
-			const minutes = offset + Math.round(start + index * interval);
+			const minutes = offset + start + index * interval;
 			if (minutes <= nowMinutes) continue;
 			if (next === null || minutes < next) next = minutes;
 		}

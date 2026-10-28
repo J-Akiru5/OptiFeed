@@ -7,6 +7,7 @@ import { getBatchSummaryPage } from "@/lib/batch-logs";
 import { formatFarmDateTime } from "@/lib/date-local";
 import { parsePage } from "@/lib/pagination";
 import { getActivePond } from "@/lib/pond-selection";
+import { getPondPopulation } from "@/lib/population-server";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 import { getListPageSize } from "@/lib/settings/platform";
@@ -63,6 +64,8 @@ export default async function LogSamplePage({
 	// prefer the newest pending/sent command, then the last applied one.
 	const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice?.id ?? null);
 	const writeAccess = await canWrite();
+	// The preview must use live fish, like the stored sample's auto-adjust does.
+	const liveFish = await getPondPopulation(pond.id);
 
 	const logRows = await getBatchSummaryPage({ pondId: pond.id, page, pageSize });
 	const batches = logRows.rows;
@@ -91,7 +94,7 @@ export default async function LogSamplePage({
 					pondId={pond.id}
 					feedingRatePct={currentConfig?.feedingRatePct ?? pond.feedingRatePct}
 					feedsPerDay={currentConfig?.feedsPerDay ?? pond.feedsPerDay}
-					population={pond.population}
+					population={liveFish.liveFish}
 					canWrite={writeAccess}
 					batchLabels={batchLabels}
 					scope={pond.ownerId}

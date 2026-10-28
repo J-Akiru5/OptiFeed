@@ -5,6 +5,7 @@ import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { dateOnlyToUtcDate, isValidDateOnly } from "@/lib/crop-cycle/dates";
 import { applyGrowthPlanForPond } from "@/lib/growth-plan-apply";
 import { biomassLogSchema, feedGramsSchema, fishSamplesSchema, formatZodError } from "@/lib/limits";
+import { resolveLiveFish } from "@/lib/population";
 import prisma from "@/lib/prisma";
 import { calculateNextFeeding } from "@/lib/volumeCalc";
 import { revalidatePath } from "next/cache";
@@ -159,15 +160,29 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 			const deviceOffline = energyDevice
 				? Date.now() - (energyDevice.lastSeenAt?.getTime() ?? 0) > OFFLINE_THRESHOLD_MS
 				: false;
-			const population = pond.population ?? 0;
+
+			// Feed the fish that are still alive. The active cycle's stocking count
+			// is newer than `Pond.population`, and its survival applies the same
+			// mortality correction the reference sheet uses (300 → 285).
+			const activeCycle = await tx.cropCycle.findFirst({
+				where: { pondId, status: "ACTIVE" },
+				select: {
+					id: true,
+					targetHarvestWeightG: true,
+					stockingCount: true,
+					expectedSurvivalPct: true,
+				},
+			});
+			const liveFish = resolveLiveFish({
+				stockedCount: activeCycle?.stockingCount ?? pond.population,
+				expectedSurvivalPct: activeCycle?.expectedSurvivalPct ?? null,
+			});
+			const population = liveFish.liveFish ?? 0;
 
 			// A target-weight cycle owns the feeding adjustment. The generic
 			// biomass formula must not also move the device, or a single sample
 			// could apply two changes inside the 15-day safety window.
-			const activeTargetCycle = await tx.cropCycle.findFirst({
-				where: { pondId, status: "ACTIVE", targetHarvestWeightG: { not: null } },
-				select: { id: true },
-			});
+			const activeTargetCycle = activeCycle?.targetHarvestWeightG ? activeCycle : null;
 
 			const finish = (
 				status: FeedScheduleStatus,
@@ -205,7 +220,7 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 				return finish("skipped_no_device", null, null);
 			}
 
-			if (!pond.population || pond.population <= 0) {
+			if (!population || population <= 0) {
 				await tx.deviceStateEvent.create({
 					data: {
 						deviceId: energyDevice.id,
@@ -228,8 +243,11 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 				avgWeightKg,
 				pond.feedingRatePct,
 				pond.feedsPerDay,
-				pond.population,
+				population,
 			);
+			if (newGrams === null) {
+				return finish("skipped_no_population", null, previousGrams);
+			}
 
 			const newGramsCheck = feedGramsSchema.safeParse(newGrams);
 			if (!newGramsCheck.success) {

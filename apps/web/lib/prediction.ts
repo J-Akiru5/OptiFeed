@@ -87,6 +87,12 @@ export interface PredictionInputs {
 	currentGrams: number | null;
 	hopperCapacityG: number | null;
 	lastSampleAt: Date | null;
+	/**
+	 * Platform safety setting `feeding.limits.dailyCapFactor` (0–1). The daily
+	 * cap the prediction may use is `dailyFeedCapG(hopper, factor)` — the same
+	 * one the manual-feed and schedule paths enforce. Omitted = 1 (hard max).
+	 */
+	dailyCapFactor?: number;
 	isFallow?: boolean;
 	cycle?: PredictionCycleContext | null;
 }
@@ -210,6 +216,11 @@ export function normalisePredictionInputs(inputs: PredictionInputs): PredictionI
 			? inputs.lastSampleAt
 			: null;
 
+	const dailyCapFactor =
+		isFiniteNumber(inputs.dailyCapFactor) && inputs.dailyCapFactor >= 0
+			? clamp(inputs.dailyCapFactor, 0, 1)
+			: 1;
+
 	return {
 		feedingRatePct,
 		feedsPerDay,
@@ -219,6 +230,7 @@ export function normalisePredictionInputs(inputs: PredictionInputs): PredictionI
 		currentGrams,
 		hopperCapacityG,
 		lastSampleAt,
+		dailyCapFactor,
 		isFallow: Boolean(inputs.isFallow),
 		cycle: inputs.cycle ?? null,
 	};
@@ -227,14 +239,25 @@ export function normalisePredictionInputs(inputs: PredictionInputs): PredictionI
 /**
  * Upper bound for per-meal grams from device safety limits:
  * feedGramsSchema max, and the daily cap spread across feedsPerDay.
+ *
+ * `dailyCapFactor` is the platform safety setting (`PlatformSetting`
+ * `feeding.limits`). The prediction used to assume the hard maximum, so a
+ * pond whose org lowered the cap could be offered a dose that the manual feed
+ * and schedule paths then refused. The same factor now bounds both.
  */
-export function predictionUpperBound(feedsPerDay: number, hopperCapacityG: number | null): number {
+export function predictionUpperBound(
+	feedsPerDay: number,
+	hopperCapacityG: number | null,
+	dailyCapFactor = 1,
+): number {
 	const safeFeeds =
 		isFiniteNumber(feedsPerDay) && feedsPerDay > 0
 			? clamp(feedsPerDay, FEEDS_PER_DAY_MIN, FEEDS_PER_DAY_MAX)
 			: 0;
 	const dailyCapPerMeal =
-		safeFeeds > 0 ? dailyFeedCapG(hopperCapacityG) / safeFeeds : MAX_FEED_GRAMS_PER_REQUEST;
+		safeFeeds > 0
+			? dailyFeedCapG(hopperCapacityG, dailyCapFactor) / safeFeeds
+			: MAX_FEED_GRAMS_PER_REQUEST;
 	return Math.min(MAX_FEED_GRAMS_PER_REQUEST, Math.max(1, dailyCapPerMeal));
 }
 
@@ -245,9 +268,16 @@ interface SafetyEnvelope {
 }
 
 function safetyEnvelope(
-	inputs: Pick<PredictionInputs, "feedsPerDay" | "hopperCapacityG" | "currentGrams">,
+	inputs: Pick<
+		PredictionInputs,
+		"feedsPerDay" | "hopperCapacityG" | "currentGrams" | "dailyCapFactor"
+	>,
 ): SafetyEnvelope {
-	const upper = predictionUpperBound(inputs.feedsPerDay, inputs.hopperCapacityG);
+	const upper = predictionUpperBound(
+		inputs.feedsPerDay,
+		inputs.hopperCapacityG,
+		inputs.dailyCapFactor ?? 1,
+	);
 	const current = inputs.currentGrams;
 	const currentValid = isFiniteNumber(current) && current > 0;
 
@@ -271,7 +301,10 @@ function safetyEnvelope(
  */
 export function clampPredictionGrams(
 	candidate: number,
-	inputs: Pick<PredictionInputs, "feedsPerDay" | "hopperCapacityG" | "currentGrams">,
+	inputs: Pick<
+		PredictionInputs,
+		"feedsPerDay" | "hopperCapacityG" | "currentGrams" | "dailyCapFactor"
+	>,
 ): { grams: number; clamped: boolean; reasons: PredictionClampReason[] } {
 	const envelope = safetyEnvelope(inputs);
 	const reasons = new Set<PredictionClampReason>();
@@ -415,7 +448,7 @@ export function computeDeterministicPrediction(
 		};
 	}
 
-	if (!avgWeightKg || feedsPerDay <= 0 || feedingRatePct <= 0) {
+	if (!avgWeightKg || !population || feedsPerDay <= 0 || feedingRatePct <= 0) {
 		const clampResult = { clamped: false, reasons: [] as PredictionClampReason[] };
 		return {
 			grams: null,
@@ -423,7 +456,8 @@ export function computeDeterministicPrediction(
 			currentGrams: inputs.currentGrams,
 			confidence: "low",
 			confidenceReasons: ["noData"],
-			reasoning: "Not enough data to predict — log a biomass sample and check pond settings.",
+			reasoning:
+				"Not enough data to predict — log a biomass sample, set the pond population and check pond settings.",
 			source: "deterministic",
 			safety: buildSafety(inputs, clampResult),
 			cycle: inputs.cycle ?? null,
@@ -432,7 +466,7 @@ export function computeDeterministicPrediction(
 		};
 	}
 
-	const baseline = calculateNextFeeding(avgWeightKg, feedingRatePct, feedsPerDay, population);
+	const baseline = calculateNextFeeding(avgWeightKg, feedingRatePct, feedsPerDay, population) ?? 0;
 
 	let adjustedRate = feedingRatePct;
 	let fcrNote = "";
@@ -447,7 +481,8 @@ export function computeDeterministicPrediction(
 				: ` Your FCR of ${latestFcr.toFixed(2)} is above the ${REFERENCE_FCR} reference, so the rate is trimmed ${pct}% to reduce waste.`;
 	}
 
-	const adjusted = calculateNextFeeding(avgWeightKg, adjustedRate, feedsPerDay, population);
+	const adjusted =
+		calculateNextFeeding(avgWeightKg, adjustedRate, feedsPerDay, population) ?? baseline;
 	const clampResult = clampPredictionGrams(adjusted, inputs);
 	const { confidence, reasons } = confidenceFor(inputs, now);
 
@@ -467,7 +502,8 @@ export function computeDeterministicPrediction(
 
 	const reasoning = `Standard feed math (biomass × ${feedingRatePct}% ÷ ${feedsPerDay} meals) gives ${round1(baseline)}g per meal from your ${ageNote}.${fcrNote}${currentNote}${cycleNote}`;
 
-	const biomassKg = round2(totalBiomassG(population, avgWeightKg) / 1000);
+	const biomassG = totalBiomassG(population, avgWeightKg);
+	const biomassKg = biomassG === null ? null : round2(biomassG / 1000);
 
 	return {
 		grams: clampResult.grams,
@@ -617,6 +653,7 @@ function cacheKey(inputs: PredictionInputs, baseline: FeedingPrediction): string
 		latestFcr: inputs.latestFcr,
 		currentGrams: inputs.currentGrams,
 		hopperCapacityG: inputs.hopperCapacityG,
+		dailyCapFactor: inputs.dailyCapFactor ?? 1,
 		lastSampleAt: inputs.lastSampleAt?.toISOString().slice(0, 10) ?? null,
 		grams: baseline.grams,
 		baselineGrams: baseline.baselineGrams,

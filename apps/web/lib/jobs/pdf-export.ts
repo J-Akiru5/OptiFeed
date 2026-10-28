@@ -1,10 +1,11 @@
 import { notFound } from "@/lib/api/errors";
 import { resolveActivePond } from "@/lib/auth/pond-access";
-import { DEFAULT_FISH_COUNT, PH_TZ } from "@/lib/constants";
+import { PH_TZ } from "@/lib/constants";
 import { dateToFarmDateOnly } from "@/lib/crop-cycle/dates";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { formatFeedAmountLabel, isDailyTotalSource } from "@/lib/feed-figures";
 import type { ExportArtifact } from "@/lib/jobs/export-data";
+import { getPondPopulation } from "@/lib/population-server";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 import { jsPDF } from "jspdf";
@@ -63,6 +64,7 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 	});
 
 	const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice?.id ?? null);
+	const liveFish = await getPondPopulation(pond.id);
 
 	const latestBiomass = await prisma.biomassLog.findFirst({
 		where: { pondId: pond.id },
@@ -109,17 +111,18 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 	const scheduleStart = currentConfig?.scheduleStart ?? pond.scheduleStart;
 	const scheduleEnd = currentConfig?.scheduleEnd ?? pond.scheduleEnd;
 
-	// Daily Feed (g) = Total Biomass (g) × Feeding Rate (%)
+	// Daily Feed (g) = Live fish × ABW (g) × Feeding Rate (%)
 	// Feed per Meal (g) = Daily Feed (g) ÷ Feeds Per Day  (see lib/feed-calc.ts)
-	const pondPopulation = pond.population;
-	let nextFeedingVolumeG = energyDevice?.gramsPerFeeding ?? 330;
-	if (latestBiomass) {
-		nextFeedingVolumeG = feedPerMealG(
-			totalBiomassG(pondPopulation, latestBiomass.avgWeightKg),
-			feedingRatePct,
-			feedsPerDay,
-		);
-	}
+	// The device's stored grams are what it dispenses; the formula is the
+	// fallback when no feeder is paired or no sample exists.
+	const computedNextFeedingG = latestBiomass
+		? feedPerMealG(
+				totalBiomassG(liveFish.liveFish, latestBiomass.avgWeightKg),
+				feedingRatePct,
+				feedsPerDay,
+			)
+		: null;
+	const nextFeedingVolumeG = energyDevice?.gramsPerFeeding ?? computedNextFeedingG;
 
 	autoTable(doc, {
 		startY: 48,
@@ -129,8 +132,11 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 			["Schedule", `${scheduleStart.getUTCHours()}:00 - ${scheduleEnd.getUTCHours()}:00`],
 			["Feeds Per Day", `${feedsPerDay}`],
 			["Feeding Rate", `${feedingRatePct}%`],
-			["Feed Volume", `${nextFeedingVolumeG}g`],
-			["Population", `${pondPopulation ?? DEFAULT_FISH_COUNT}`],
+			// This is the per-meal dose, not the daily total; the old "Feed Volume"
+			// label made a 2,110 g figure look like one day's feed.
+			["Feed per Meal", nextFeedingVolumeG === null ? "—" : `${nextFeedingVolumeG}g`],
+			["Population (live)", liveFish.liveFish === null ? "—" : `${liveFish.liveFish}`],
+			["Population (stocked)", `${liveFish.stockedCount ?? "—"}`],
 			["Sample Interval", `${pond.sampleIntervalDays ?? 14} days`],
 		],
 		theme: "grid",

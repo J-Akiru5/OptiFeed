@@ -11,7 +11,8 @@ export type DashboardSnapshotInput = {
 	waterTempC: number | null;
 	waterTempOk: boolean | null;
 	waterTempUpdatedAt: string | null;
-	population: number;
+	/** Live fish used for the feed figures; null when the pond records none. */
+	population: number | null;
 	avgWeightG: number | null;
 	latestFcr: number | null;
 	nextFeedingTime: string | null;

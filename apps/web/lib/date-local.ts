@@ -95,3 +95,47 @@ export function formatWallClockTime(
 	const anchor = new Date(2000, 0, 1, hour, minute, 0, 0);
 	return formatDateTimeLocal(anchor, tDates).time;
 }
+
+/** Offset of `timeZone` at `date`, in milliseconds (wall clock − UTC). */
+function zoneOffsetMs(date: Date, timeZone: string): number {
+	const formatter = new Intl.DateTimeFormat("en-US", {
+		timeZone,
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+		second: "2-digit",
+		hourCycle: "h23",
+	});
+	const parts = new Map(formatter.formatToParts(date).map((part) => [part.type, part.value]));
+	const asUtc = Date.UTC(
+		Number(parts.get("year")),
+		Number(parts.get("month")) - 1,
+		Number(parts.get("day")),
+		Number(parts.get("hour")),
+		Number(parts.get("minute")),
+		Number(parts.get("second")),
+	);
+	return asUtc - date.getTime();
+}
+
+/**
+ * The instant at which the farm's wall clock reads `clock`.
+ *
+ * The reverse of `farmWallClock`, so a time computed in farm wall clock (next
+ * feeding, schedule windows) can be stored or rendered as a real instant. Two
+ * passes resolve the offset even across a DST change; the Philippines has no
+ * DST, so the second pass is a no-op there.
+ */
+export function farmWallClockToUtc(
+	clock: Pick<FarmWallClock, "year" | "month" | "day" | "hour" | "minute">,
+	timeZone: string = PH_TZ,
+): Date {
+	const asUtc = Date.UTC(clock.year, clock.month - 1, clock.day, clock.hour, clock.minute, 0, 0);
+	let instant = asUtc;
+	for (let pass = 0; pass < 2; pass += 1) {
+		instant = asUtc - zoneOffsetMs(new Date(instant), timeZone);
+	}
+	return new Date(instant);
+}

@@ -3,14 +3,16 @@ import { ok } from "@/lib/api/envelope";
 import { notFound, rateLimited } from "@/lib/api/errors";
 import { withApi } from "@/lib/api/instrumentation";
 import { withAuth } from "@/lib/auth/with-auth";
-import { DEFAULT_FISH_COUNT, LEGACY_API_SUNSET } from "@/lib/constants";
+import { LEGACY_API_SUNSET } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { getActivePond } from "@/lib/pond-selection";
+import { resolveLiveFish } from "@/lib/population";
 import { type PredictionInputs, predictFeeding } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { checkPredictionRateLimit } from "@/lib/rate-limit";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 
 export const dynamic = "force-dynamic";
 
@@ -65,15 +67,22 @@ export const POST = withApi(
 		const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice.id);
 		const cycle = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
 
+		// Live fish, the same count the dashboard and the growth plan use.
+		const liveFish = resolveLiveFish({
+			stockedCount: activeCycle?.stockingCount ?? pond.population,
+			expectedSurvivalPct: activeCycle?.expectedSurvivalPct ?? null,
+		});
+
 		const inputs: PredictionInputs = {
 			feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
 			feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
-			population: pond.population ?? DEFAULT_FISH_COUNT,
+			population: liveFish.liveFish,
 			avgWeightKg: latestBiomass?.avgWeightKg ?? null,
 			latestFcr: latestFcr?.fcrValue ?? null,
 			currentGrams: energyDevice.gramsPerFeeding ?? null,
 			hopperCapacityG: energyDevice.hopperCapacityG ?? null,
 			lastSampleAt: latestBiomass?.recordedAt ?? null,
+			dailyCapFactor: (await getFeedingLimits()).dailyCapFactor,
 			isFallow: Boolean(pond.isFallow),
 			cycle,
 		};

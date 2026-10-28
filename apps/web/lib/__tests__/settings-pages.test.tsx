@@ -112,6 +112,10 @@ vi.mock("@/lib/prisma", () => ({
 		fcrReport: { findFirst: vi.fn(async () => null) },
 		feedLevelLog: { findMany: vi.fn(async () => []) },
 		user: { findMany: vi.fn(async () => []) },
+		// Population resolver (audit 2026-10-28): the pond row and, when there
+		// is one, the active cycle's stocking count and survival.
+		pond: { findUnique: vi.fn(async () => ({ population: 1000 })) },
+		cropCycle: { findFirst: vi.fn(async () => null) },
 	},
 }));
 

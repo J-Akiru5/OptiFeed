@@ -26,19 +26,24 @@ vi.mock("@/i18n/routing", async () => {
 import { FeederHero } from "@/components/feeder/feeder-hero";
 import { FEEDER_HERO_PHOTO_SESSION_KEY, type FeederHeroData } from "@/lib/feeder-hero-types";
 
+/** An instant whose Asia/Manila wall clock is `hour:minute` on 27 Oct 2026. */
+function farm(hour: number, minute = 0, day = 27): Date {
+	return new Date(Date.UTC(2026, 9, day, hour - 8, minute));
+}
+
 function heroData(overrides: Partial<FeederHeroData> = {}): FeederHeroData {
 	return {
 		deviceLabel: "Feeder A",
 		isOffline: false,
 		isPaused: false,
-		lastSeenAt: new Date(2026, 9, 27, 9, 12),
+		lastSeenAt: farm(9, 12),
 		hopperLevelPercent: 82,
-		hopperUpdatedAt: new Date(2026, 9, 27, 9, 10),
+		hopperUpdatedAt: farm(9, 10),
 		gramsToday: 1240,
-		nextFeedAt: new Date(2026, 9, 27, 14, 0),
+		nextFeedAt: farm(14, 0),
 		waterTempC: 28.4,
 		waterTempOk: true,
-		waterTempUpdatedAt: new Date(2026, 9, 27, 9, 5),
+		waterTempUpdatedAt: farm(9, 5),
 		firmwareVersion: "1.5.0",
 		advisor: { grams: 330, confidence: "medium", reasoning: "Fresh sample, stable FCR." },
 		...overrides,
@@ -100,7 +105,7 @@ describe("FeederHero readings", () => {
 	});
 
 	it("says which day the next feed falls on, not just the hour", () => {
-		renderHero({ nextFeedAt: new Date(2026, 9, 28, 8, 0) });
+		renderHero({ nextFeedAt: farm(8, 0, 28) });
 
 		expect(within(callouts()).getByText("8:00 AM")).toBeInTheDocument();
 		expect(within(callouts()).getByText("On Oct 28")).toBeInTheDocument();

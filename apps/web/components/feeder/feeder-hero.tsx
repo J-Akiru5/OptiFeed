@@ -2,7 +2,7 @@
 
 import { FeederIllustration } from "@/components/feeder/feeder-illustration";
 import { Link } from "@/i18n/routing";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { formatFeedAmountLabel } from "@/lib/feed-figures";
 import { resolveFeedLevelDisplay } from "@/lib/feed-level-display";
 import {
@@ -218,15 +218,15 @@ export function FeederHero({ pondName, className, ...data }: FeederHeroProps) {
 		isOffline,
 	});
 	const hopperReading =
-		hopper.readingAt !== null ? formatDateTimeLocal(hopper.readingAt, tDates) : null;
+		hopper.readingAt !== null ? formatFarmDateTime(hopper.readingAt, tDates) : null;
 
-	const lastSeenParts = lastSeenAt ? formatDateTimeLocal(lastSeenAt, tDates) : null;
+	const lastSeenParts = lastSeenAt ? formatFarmDateTime(lastSeenAt, tDates) : null;
 	const lastSeenLabel = lastSeenParts
 		? t("lastSeen", { date: lastSeenParts.date, time: lastSeenParts.time })
 		: t("neverConnected");
 
 	const waterReading =
-		waterTempUpdatedAt !== null ? formatDateTimeLocal(waterTempUpdatedAt, tDates) : null;
+		waterTempUpdatedAt !== null ? formatFarmDateTime(waterTempUpdatedAt, tDates) : null;
 
 	const callouts: CalloutProps[] = [
 		{
@@ -257,14 +257,14 @@ export function FeederHero({ pondName, className, ...data }: FeederHeroProps) {
 			value: isPaused
 				? t("nextFeedPaused")
 				: nextFeedAt
-					? formatDateTimeLocal(nextFeedAt, tDates).time
+					? formatFarmDateTime(nextFeedAt, tDates).time
 					: "—",
 			// The time alone would read as today even when the slot is tomorrow's,
 			// so the chip names the day as well.
 			detail: isPaused
 				? undefined
 				: nextFeedAt
-					? t("nextFeedOn", { date: formatDateTimeLocal(nextFeedAt, tDates).date })
+					? t("nextFeedOn", { date: formatFarmDateTime(nextFeedAt, tDates).date })
 					: undefined,
 			muted: isPaused || !nextFeedAt,
 			position: CALLOUT_POSITIONS[1],

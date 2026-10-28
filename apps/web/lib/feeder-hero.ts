@@ -3,10 +3,12 @@ import { MACHINE_FEED_SOURCES } from "@/lib/feed-figures";
 import { isDeviceOffline } from "@/lib/feed-level-display";
 import type { FeederHeroData } from "@/lib/feeder-hero-types";
 import { OTA_EVENT_TYPES, versionFromMetadata } from "@/lib/platform/firmware";
+import { getPondPopulation } from "@/lib/population-server";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { nextFeedingAt } from "@/lib/schedule/next-feeding";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 
 /**
  * Read-only data for the feeder hero (task I-29, decision E29).
@@ -64,7 +66,7 @@ export async function loadFeederHero({
 
 	const todayStart = startOfDayInTimeZone(now);
 
-	const [schedule, feedToday, latestOta, latestBiomass, latestFcr] = await Promise.all([
+	const [schedule, feedToday, latestOta, latestBiomass, latestFcr, population] = await Promise.all([
 		resolveCurrentSchedule(pond.id, device.id),
 		prisma.feedEvent.aggregate({
 			where: {
@@ -92,6 +94,7 @@ export async function loadFeederHero({
 			orderBy: { periodEnd: "desc" },
 			select: { fcrValue: true },
 		}),
+		getPondPopulation(pond.id),
 	]);
 
 	const effective = schedule ?? {
@@ -100,17 +103,19 @@ export async function loadFeederHero({
 		feedsPerDay: pond.feedsPerDay,
 		feedingRatePct: pond.feedingRatePct,
 	};
+	const feedingLimits = await getFeedingLimits();
 
 	const prediction = computeDeterministicPrediction(
 		{
 			feedingRatePct: effective.feedingRatePct,
 			feedsPerDay: effective.feedsPerDay,
-			population: pond.population,
+			population: population.liveFish,
 			avgWeightKg: latestBiomass?.avgWeightKg ?? null,
 			latestFcr: latestFcr?.fcrValue ?? null,
 			currentGrams: device.gramsPerFeeding,
 			hopperCapacityG: device.hopperCapacityG,
 			lastSampleAt: latestBiomass?.recordedAt ?? null,
+			dailyCapFactor: feedingLimits.dailyCapFactor,
 			isFallow: pond.isFallow,
 			cycle: null,
 		},

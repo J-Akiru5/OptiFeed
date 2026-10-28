@@ -1,59 +1,49 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_FISH_COUNT } from "../constants";
 import { calculateNextFeeding } from "../volumeCalc";
 
+/**
+ * The per-meal feed amount. Fixtures are the team's reference sheet
+ * ("Catfish Feed Calculation Data Collection Sheet", 2026-10-28), which feeds
+ * **live fish** (stocked − mortality): 300 → 285 after 15 losses.
+ *
+ *   daily feed = ABW × live fish × rate        per meal = daily ÷ meals
+ */
 describe("calculateNextFeeding", () => {
-	it("calculates correct feeding volume for standard inputs", () => {
-		// avgWeightKg=0.5, feedsPerDay=3, feedingRatePct=3, population=5000
-		// totalBiomass = 0.5 * 5000 = 2500 kg
-		// dailyFeed = 2500 * 0.03 = 75 kg
-		// perFeed = 75 / 3 = 25 kg = 25000 g
-		expect(calculateNextFeeding(0.5, 3, 3)).toBe(25000);
+	it("matches the sheet's daily feed for each sampling row", () => {
+		// Sampling 2: 0.0138 kg × 285 × 10 % = 0.3933 kg/day = 393.3 g/day.
+		const perMeal = calculateNextFeeding(0.0138, 10, 1, 285);
+		expect(perMeal).toBe(393.3);
 	});
 
-	it("uses default fish count when population is null", () => {
-		const result = calculateNextFeeding(0.5, 3, 3, null);
-		const expected = Math.round(((0.5 * DEFAULT_FISH_COUNT * 0.03) / 3) * 1000 * 100) / 100;
-		expect(result).toBe(expected);
+	it("uses live fish, not the stocked count", () => {
+		// Sampling 5: 0.1405 kg × 285 × 5 % = 2.002 kg/day → 1,001.07 g per meal.
+		expect(calculateNextFeeding(0.1405, 5, 2, 285)).toBe(1001.07);
+
+		// The old (wrong) stocked count feeds 300 fish: 2,107.5 g/day → 1,053.75 g.
+		expect(calculateNextFeeding(0.1405, 5, 2, 300)).toBe(1053.75);
+	});
+
+	it("returns null instead of inventing a population", () => {
+		expect(calculateNextFeeding(0.5, 3, 3, null)).toBeNull();
 	});
 
 	it("accepts a real pond population", () => {
-		// avgWeightKg=1, feedingRatePct=5, feedsPerDay=2, population=1000
-		// totalBiomass = 1 * 1000 = 1000 kg
-		// dailyFeed = 1000 * 0.05 = 50 kg
-		// perFeed = 50 / 2 = 25 kg = 25000 g
+		// 1 kg × 1,000 fish × 5 % = 50 kg/day ÷ 2 meals = 25 kg = 25,000 g.
 		expect(calculateNextFeeding(1, 5, 2, 1000)).toBe(25000);
 	});
 
-	it("matches the reference daily-feed table (1,185g × 5% ÷ 2 = 29.63g)", () => {
-		// 86 fish × 13.78g ≈ 1,185g total biomass
-		const biomass = 86 * 13.78; // 1185.08g
-		const perMeal = calculateNextFeeding(0.01378, 5, 2, 86);
-		expect(biomass).toBeCloseTo(1185, 0);
-		expect(perMeal).toBe(29.63); // 1185.08 × 5% = 59.254 → ÷2 = 29.63
-	});
-
-	it("returns 0 when feedsPerDay is 0", () => {
-		expect(calculateNextFeeding(0.5, 3, 0)).toBe(0);
-	});
-
-	it("returns 0 when feedsPerDay is negative", () => {
-		expect(calculateNextFeeding(0.5, 3, -1)).toBe(0);
-	});
-
 	it("rounds to 2 decimals", () => {
-		// avgWeightKg=0.123, feedingRatePct=4.5, feedsPerDay=3, population=100
-		// totalBiomass = 0.123 * 100 = 12.3 kg
-		// dailyFeed = 12.3 * 0.045 = 0.5535 kg
-		// perFeed = 0.5535 / 3 = 0.1845 kg = 184.5 g
+		// 0.123 kg × 100 fish × 4.5 % = 0.5535 kg/day ÷ 3 = 184.5 g.
 		expect(calculateNextFeeding(0.123, 4.5, 3, 100)).toBe(184.5);
 	});
 
-	it("handles zero avgWeightKg", () => {
-		expect(calculateNextFeeding(0, 3, 3)).toBe(0);
+	it("returns 0 when no meal is scheduled", () => {
+		expect(calculateNextFeeding(0.5, 3, 0, 100)).toBe(0);
+		expect(calculateNextFeeding(0.5, 3, -1, 100)).toBe(0);
 	});
 
-	it("handles zero feedingRatePct", () => {
-		expect(calculateNextFeeding(0.5, 0, 3)).toBe(0);
+	it("handles a zero weight or rate", () => {
+		expect(calculateNextFeeding(0, 3, 3, 100)).toBeNull();
+		expect(calculateNextFeeding(0.5, 0, 3, 100)).toBeNull();
 	});
 });

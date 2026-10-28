@@ -1,10 +1,17 @@
 "use server";
 
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
-import { syncDeviceGramsForPond } from "@/lib/feed-grams";
-import { formatZodError, notificationPrefsSchema, pondSettingsSchema } from "@/lib/limits";
+import { computePondFeedAmount, syncDeviceGramsForPond } from "@/lib/feed-grams";
+import { checkScheduleCaps } from "@/lib/feed/commands";
+import {
+	MAX_FEED_GRAMS_PER_REQUEST,
+	formatZodError,
+	notificationPrefsSchema,
+	pondSettingsSchema,
+} from "@/lib/limits";
 import { type PondProfileInput, mergePondProfile, pondProfileSchema } from "@/lib/pond-profile";
 import prisma from "@/lib/prisma";
+import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import type { InputJsonValue } from "@prisma/client/runtime/library";
 import { revalidatePath } from "next/cache";
 import { updateScheduleCommand } from "./schedule";
@@ -97,7 +104,7 @@ export async function updatePondSettings(
 
 		const energyDevice = await prisma.energyDevice.findFirst({
 			where: { pondId },
-			select: { id: true },
+			select: { id: true, gramsPerFeeding: true, gramsPerSecond: true, hopperCapacityG: true },
 		});
 
 		const pondUpdateData: {
@@ -126,6 +133,35 @@ export async function updatePondSettings(
 		if (energyDevice) {
 			const fmt = (d: Date) =>
 				`${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+
+			// Check the caps against the state this save will produce. The schedule
+			// action re-checks against the stored pond row, which still holds the
+			// old population at this point, so a population change submitted with a
+			// rate change would otherwise be validated against the wrong fish count
+			// (audit 2026-10-28).
+			const feedAmount = await computePondFeedAmount(pondId, {
+				feedsPerDay: input.feedsPerDay,
+				feedingRatePct: input.feedingRatePct,
+				population: pondUpdateData.population,
+			});
+			if (feedAmount?.reason === "over_device_limit") {
+				return {
+					success: false,
+					error: `That feeding rate needs more than the ${MAX_FEED_GRAMS_PER_REQUEST} g per-meal limit. Lower the rate or add meals.`,
+				};
+			}
+			const feedingLimits = await getFeedingLimits();
+			const capsCheck = checkScheduleCaps({
+				gramsPerMeal: feedAmount?.grams ?? energyDevice.gramsPerFeeding,
+				feedsPerDay: input.feedsPerDay,
+				hopperCapacityG: energyDevice.hopperCapacityG,
+				gramsPerSecond: energyDevice.gramsPerSecond,
+				maxDispenseMs: feedingLimits.maxDispenseMs,
+				dailyCapFactor: feedingLimits.dailyCapFactor,
+			});
+			if (!capsCheck.ok) {
+				return { success: false, error: capsCheck.error };
+			}
 
 			const commandResult = await updateScheduleCommand(pondId, energyDevice.id, {
 				scheduleStart: fmt(pond.scheduleStart),

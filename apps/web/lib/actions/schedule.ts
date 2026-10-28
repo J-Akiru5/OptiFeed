@@ -3,9 +3,9 @@
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { STALE_SENT_MS } from "@/lib/constants";
-import { syncDeviceGramsForPond } from "@/lib/feed-grams";
-import { setSchedulePause } from "@/lib/feed/commands";
-import { dailyFeedCapG, formatZodError, scheduleInputSchema } from "@/lib/limits";
+import { computePondFeedAmount, syncDeviceGramsForPond } from "@/lib/feed-grams";
+import { checkScheduleCaps, setSchedulePause } from "@/lib/feed/commands";
+import { MAX_FEED_GRAMS_PER_REQUEST, formatZodError, scheduleInputSchema } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import { revalidatePath } from "next/cache";
@@ -88,23 +88,31 @@ export async function updateScheduleCommand(
 		}
 
 		const limits = await getFeedingLimits();
-		const dailyCapG = dailyFeedCapG(device.hopperCapacityG, limits.dailyCapFactor);
-		const scheduledDailyG = input.feedsPerDay * device.gramsPerFeeding;
-		if (scheduledDailyG > dailyCapG) {
+
+		// Validate the value the device will actually dispense after this save.
+		// The old check multiplied the *stored* grams by the *new* meals per day,
+		// so raising the feeding rate in the same save could push the real daily
+		// total past the cap after `syncDeviceGramsForPond` ran.
+		const feedAmount = await computePondFeedAmount(pondId, {
+			feedsPerDay: input.feedsPerDay,
+			feedingRatePct: input.feedingRatePct,
+		});
+		if (feedAmount?.reason === "over_device_limit") {
 			return {
 				success: false,
-				error: `Schedule would dispense ${Math.round(scheduledDailyG)} g/day — over the ${Math.round(dailyCapG)} g/day limit. Lower feeds per day or the feed amount.`,
+				error: `That feeding rate needs more than the ${MAX_FEED_GRAMS_PER_REQUEST} g per-meal limit. Lower the rate or add meals.`,
 			};
 		}
-
-		if (
-			device.gramsPerSecond > 0 &&
-			device.gramsPerFeeding / device.gramsPerSecond > limits.maxDispenseMs / 1000
-		) {
-			return {
-				success: false,
-				error: `Feed amount of ${device.gramsPerFeeding} g would take more than ${limits.maxDispenseMs / 1000} s of relay time at ${device.gramsPerSecond} g/s.`,
-			};
+		const capsCheck = checkScheduleCaps({
+			gramsPerMeal: feedAmount?.grams ?? device.gramsPerFeeding,
+			feedsPerDay: input.feedsPerDay,
+			hopperCapacityG: device.hopperCapacityG,
+			gramsPerSecond: device.gramsPerSecond,
+			maxDispenseMs: limits.maxDispenseMs,
+			dailyCapFactor: limits.dailyCapFactor,
+		});
+		if (!capsCheck.ok) {
+			return { success: false, error: capsCheck.error };
 		}
 
 		// Expire stale sent commands that were picked up by the device

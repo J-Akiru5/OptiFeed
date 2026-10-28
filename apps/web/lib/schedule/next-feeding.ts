@@ -1,19 +1,30 @@
+import { PH_TZ } from "@/lib/constants";
+import { farmWallClock, farmWallClockToUtc } from "@/lib/date-local";
+import { computeNextFeedingSlot } from "./next-feeding-slot";
+
 /**
  * When the feeder dispenses next, from the effective schedule.
  *
- * The firmware spreads `feedsPerDay` meals evenly between the start and end
- * hour, so the slot list is `start + i * interval`. This mirrors the dashboard
- * home page's computation exactly (including the machine-local `setHours`
- * semantics) so the hero and the next-feeding strip can never disagree.
+ * Kept as the `Date`-returning wrapper the feeder hero renders. It no longer
+ * has its own maths: `computeNextFeedingSlot` is the single implementation of
+ * the schedule spacing (it mirrors the firmware's integer arithmetic), so the
+ * hero and the dashboard's next-feeding strip can never disagree.
+ *
+ * Creates no Date from wall-clock string or machine-local `setHours`: this
+ * used to build the "next feed" in the *server's* timezone, which on Vercel is
+ * UTC — eight hours off the farmer's clock. The returned Date is the real
+ * instant whose Asia/Manila wall clock is the next slot; render it with
+ * `formatFarmDateTime`.
  *
  * Times are stored as `@db.Time`, which Prisma hands back as a `Date` whose UTC
- * hours are the configured hour of day — hence `getUTCHours()`.
+ * hours are the configured hour of day — hence the slot module's `getUTCHours()`.
  */
 export interface NextFeedingInput {
 	scheduleStart: Date;
 	scheduleEnd: Date;
 	feedsPerDay: number;
 	now?: Date;
+	timeZone?: string;
 }
 
 export function nextFeedingAt({
@@ -21,20 +32,27 @@ export function nextFeedingAt({
 	scheduleEnd,
 	feedsPerDay,
 	now = new Date(),
+	timeZone = PH_TZ,
 }: NextFeedingInput): Date {
-	const startHour = scheduleStart.getUTCHours();
-	const endHour = scheduleEnd.getUTCHours();
-	const feeds = Math.max(1, feedsPerDay);
-	const interval = (endHour - startHour) / Math.max(1, feeds - 1);
+	const slot = computeNextFeedingSlot({ scheduleStart, scheduleEnd, feedsPerDay, now, timeZone });
+	const clock = farmWallClock(now, timeZone);
 
-	for (let index = 0; index < feeds; index++) {
-		const candidate = new Date(now);
-		candidate.setHours(startHour + index * interval, 0, 0, 0);
-		if (candidate > now) return candidate;
+	if (!slot) {
+		// Unreadable stored times: the next whole hour is the safest answer and
+		// is still expressed in farm time.
+		const fallback = new Date(now.getTime() + 60 * 60_000);
+		const fallbackClock = farmWallClock(fallback, timeZone);
+		return farmWallClockToUtc(fallbackClock, timeZone);
 	}
 
-	const tomorrow = new Date(now);
-	tomorrow.setDate(tomorrow.getDate() + 1);
-	tomorrow.setHours(startHour, 0, 0, 0);
-	return tomorrow;
+	return farmWallClockToUtc(
+		{
+			year: clock.year,
+			month: clock.month,
+			day: clock.day + slot.dayOffset,
+			hour: slot.hours,
+			minute: slot.minutes,
+		},
+		timeZone,
+	);
 }

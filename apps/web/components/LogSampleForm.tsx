@@ -81,9 +81,9 @@ export function LogSampleForm({
 	if (inputMode === "average") {
 		if (!Number.isNaN(w) && !Number.isNaN(c) && c > 0) {
 			avgWeightG = w;
-			biomassG = totalBiomassG(population, w / 1000);
-			dailyFeed = dailyFeedG(biomassG, feedingRatePct);
-			nextFeedingG = feedPerMealG(biomassG, feedingRatePct, feedsPerDay);
+			biomassG = totalBiomassG(effectivePopulation, w / 1000) ?? 0;
+			dailyFeed = dailyFeedG(biomassG, feedingRatePct) ?? 0;
+			nextFeedingG = feedPerMealG(biomassG, feedingRatePct, feedsPerDay) ?? 0;
 		}
 	} else {
 		const validFish = individualFish.filter(
@@ -106,9 +106,9 @@ export function LogSampleForm({
 				avgLengthCm = totalLength / validLengthFish.length;
 			}
 
-			biomassG = totalBiomassG(population, avgWeightG / 1000);
-			dailyFeed = dailyFeedG(biomassG, feedingRatePct);
-			nextFeedingG = feedPerMealG(biomassG, feedingRatePct, feedsPerDay);
+			biomassG = totalBiomassG(effectivePopulation, avgWeightG / 1000) ?? 0;
+			dailyFeed = dailyFeedG(biomassG, feedingRatePct) ?? 0;
+			nextFeedingG = feedPerMealG(biomassG, feedingRatePct, feedsPerDay) ?? 0;
 		}
 	}
 

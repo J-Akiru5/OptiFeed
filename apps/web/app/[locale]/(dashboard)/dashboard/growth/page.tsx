@@ -23,16 +23,17 @@ import { SgrKpi, type SgrKpiLabels } from "@/components/growth/SgrKpi";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
-import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatFarmDateTime } from "@/lib/date-local";
 import { loadGrowthPlanForPond } from "@/lib/growth-plan-loader";
 import type { GrowthSnapshotData } from "@/lib/offline/snapshots";
 import { getActivePond } from "@/lib/pond-selection";
+import { resolveLiveFish } from "@/lib/population";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import { averageDailyGain, overallSgr, sgrSeries, sgrUnavailableReason } from "@/lib/sgr";
 import { Activity, ChevronRight, Fish, Package, Scale, TrendingUp, Wheat } from "lucide-react";
 import { getTranslations } from "next-intl/server";
@@ -157,18 +158,27 @@ export default async function GrowthPage() {
 
 	const cycleContext = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
 
+	// Live fish (stocked − mortality via the cycle's survival), the same input
+	// the growth plan and the dashboard use (audit 2026-10-28).
+	const liveFish = resolveLiveFish({
+		stockedCount: activeCycle?.stockingCount ?? pond.population,
+		expectedSurvivalPct: activeCycle?.expectedSurvivalPct ?? null,
+	});
+	const feedingLimits = await getFeedingLimits();
+
 	// Deterministic prediction shown instantly; the client card refines it
 	// with the AI provider in the background.
 	const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice?.id ?? null);
 	const initialPrediction = computeDeterministicPrediction({
 		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
 		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
-		population: pond.population ?? DEFAULT_FISH_COUNT,
+		population: liveFish.liveFish,
 		avgWeightKg: biomassLogs.length > 0 ? biomassLogs[biomassLogs.length - 1].avgWeightKg : null,
 		latestFcr: fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : null,
 		currentGrams: energyDevice?.gramsPerFeeding ?? null,
 		hopperCapacityG: energyDevice?.hopperCapacityG ?? null,
 		lastSampleAt: biomassLogs.length > 0 ? biomassLogs[biomassLogs.length - 1].recordedAt : null,
+		dailyCapFactor: feedingLimits.dailyCapFactor,
 		isFallow: pond.isFallow,
 		cycle: cycleContext,
 	});

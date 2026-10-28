@@ -74,11 +74,24 @@ describe("calculateFeedRequirement", () => {
 			currentFcr: 1.5,
 		});
 
-		// dailyFeedPerFishG = (25 * 1000) / 5000 = 5
-		// totalBiomassG = 1000 * 1000 * 5000 = 5e9
-		// suggestedFeedingRatePct = (5 / (5e9 / 5000)) * 100 = 0.0005
-		// After rounding to 2 decimals: Math.round(0.0005 * 100) / 100 = 0
-		expect(result.suggestedFeedingRatePct).toBe(0);
+		// gain 500 kg × FCR 1.5 = 750 kg feed over 30 days = 25 kg/day.
+		// Rate = daily feed ÷ standing biomass = 25 ÷ 1000 × 100 = 2.5 %.
+		// The fish count cancels; the old formula divided by 5,000 and showed 0 %.
+		expect(result.suggestedFeedingRatePct).toBe(2.5);
+	});
+
+	it("matches the reference sheet's rate for the same feed and biomass", () => {
+		// 285 live fish at 140.5 g = 40.04 kg biomass; the sheet feeds 2.002 kg/day
+		// (≈5 % of body weight).
+		const result = calculateFeedRequirement({
+			currentBiomassKg: 40.04,
+			targetWeightKg: 80.08,
+			days: 30,
+			currentFcr: 1.5,
+		});
+
+		expect(result.dailyFeedRationKg).toBe(2);
+		expect(result.suggestedFeedingRatePct).toBe(5);
 	});
 
 	it("returns 0 suggestedFeedingRatePct when currentBiomassKg is 0", () => {

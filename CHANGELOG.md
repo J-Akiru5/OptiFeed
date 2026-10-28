@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Feed amounts now use **live fish** (stocked − mortality) instead of the stocked count, which over-fed every pond that had lost fish. With the reference sheet's numbers the Demo Pond reads 2,004.55 g instead of 2,110.05 g (300 → 285 live fish at 5 % of body weight); the dashboard, prediction, device gram sync, biomass auto-adjust, FCR plan, PDF report and feeder hero all use one resolver (`lib/population.ts`).
+- A pond with no population no longer pretends to hold 5,000 fish (the demo default) in its feed figures: the amount shows "—" and the automatic device adjustment records why it skipped.
+- The FCR calculator's "suggested feeding rate" was 5,000× too small and always displayed 0 %; 1,000 kg of biomass gaining 500 kg in 30 days now reads 2.5 %.
+- Saving a feeding schedule validated the daily cap against the previous feed amount while changing the rate and meals, so the device could be left dispensing more than the cap. The save now checks the amount the feeder will actually dispense and refuses a dose above the 1,000 g per-meal limit with a clear message.
+- The feed prediction assumed the hard 5,000 g/day maximum and ignored a platform admin's tightened daily cap, so it could propose a dose that Feed Now refuses. The same cap now bounds both.
+- The next-feeding time was computed twice (once in farm time, once in the server's own timezone, eight hours off on a UTC server) and the schedule spacing rounded fractions of a minute while the feeder truncates them: 06:00→17:50 with four meals now reads 09:56 like the device, and the feeder hero agrees with the dashboard strip.
+- The PDF report labelled a per-meal dose as "Feed Volume" and printed the demo fish count; it now says "Feed per Meal" and lists live and stocked fish separately.
+
 ### Changed
 
 - Firmware pin map now matches the hardwired CICT Building A board: feed button GPIO 27 → 23, DS18B20 GPIO 26 → 32, HC-SR04 TRIG GPIO 32 → 12, ECHO GPIO 33 → 14. The relay default stays on GPIO 25 and the CICT unit stays on GPIO 5, built with `-e esp32dev-relay5`: GPIO 5 straps only SDIO slave timing, so it does not need rewiring. Units still on the old map need the matching build flags or a rewire.

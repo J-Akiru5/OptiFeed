@@ -444,6 +444,7 @@
 			"populationLabel": "POPULASYON SA PUNONG",
 			"populationValue": "{count} ka Katpis",
 			"populationStable": "Estable nga kadamuon",
+			"populationLive": "{live} buhi sa {stocked} nga gintanom",
 			"feedingLogsTitle": "MGA LOG SANG PAGPAKAON",
 			"feedingLogsDesc": "Makita kag ma-audit nga log halin sa awtomatik nga dispenser.",
 			"feedLevelLabel": "Lebel sang Feed",

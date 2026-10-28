@@ -10,6 +10,7 @@ import {
 } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import { revalidatePath } from "next/cache";
 
 export interface ApplyPredictionContext {
@@ -95,9 +96,11 @@ export async function applyPredictedGrams(
 		}
 
 		const currentConfig = await resolveCurrentSchedule(device.pondId, device.id);
+		const limits = await getFeedingLimits();
 		const upperBound = predictionUpperBound(
 			currentConfig?.feedsPerDay ?? 0,
 			device.hopperCapacityG,
+			limits.dailyCapFactor,
 		);
 		if (safeGrams > upperBound + 0.05) {
 			return {

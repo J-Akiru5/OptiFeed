@@ -80,4 +80,17 @@ describe("computeNextFeedingSlot", () => {
 		});
 		expect(slot).toEqual({ hours: 6, minutes: 0, dayOffset: 1 });
 	});
+
+	it("truncates the interval like the firmware, not rounds it", () => {
+		// 06:00 → 17:50 is 710 minutes; four meals give 710 / 3 = 236.67.
+		// The board truncates to 236 (06:00, 09:56, 13:32, 17:08); rounding
+		// here would predict 09:57 for a feed the feeder fires at 09:56.
+		const slot = computeNextFeedingSlot({
+			scheduleStart: time(6),
+			scheduleEnd: time(17, 50),
+			feedsPerDay: 4,
+			now: manila(9),
+		});
+		expect(slot).toEqual({ hours: 9, minutes: 56, dayOffset: 0 });
+	});
 });

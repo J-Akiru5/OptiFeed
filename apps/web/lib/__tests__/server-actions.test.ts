@@ -24,6 +24,10 @@ vi.mock("@/lib/prisma", () => ({
 		},
 		biomassLog: {
 			create: vi.fn(),
+			findFirst: vi.fn(),
+		},
+		cropCycle: {
+			findFirst: vi.fn(),
 		},
 		fishSample: {
 			createMany: vi.fn(),
@@ -370,6 +374,66 @@ describe("updateScheduleCommand", () => {
 		});
 		expect(mockScheduleCommand.create).not.toHaveBeenCalled();
 		expect(mockDeviceStateEvent.create).not.toHaveBeenCalled();
+	});
+
+	it("checks the cap against the feed amount the new rate will produce, not the stored one", async () => {
+		// Stored 100 g × 4 meals = 400 g/day looked safe under the 480 g cap,
+		// but the requested 5 % rate on 250 fish at 100 g (25 kg biomass) needs
+		// 1,250 g/day. The old check passed and then wrote the larger value.
+		mockEnergyDevice.findFirst.mockResolvedValue(
+			onlineDevice({ id: "device-1", gramsPerFeeding: 100, hopperCapacityG: 480 }),
+		);
+		mockScheduleCommand.findMany.mockResolvedValue([]);
+		mockPond.findUnique.mockImplementation((async (args: { select?: Record<string, unknown> }) => {
+			// The population resolver reads only `population`; the feed maths reads
+			// the rate and meals. One mock serves both calls.
+			return args?.select?.population ? { population: 250 } : { feedingRatePct: 3, feedsPerDay: 2 };
+		}) as never);
+		vi.mocked(prisma.cropCycle).findFirst.mockResolvedValue(null);
+		vi.mocked(prisma.biomassLog).findFirst.mockResolvedValue({ avgWeightKg: 0.1 } as never);
+
+		const { updateScheduleCommand } = await import("@/lib/actions/schedule");
+		const result = await updateScheduleCommand("pond-1", "device-1", {
+			scheduleStart: "06:00",
+			scheduleEnd: "18:00",
+			feedsPerDay: 4,
+			feedingRatePct: 5.0,
+		});
+
+		expect(result).toEqual({
+			success: false,
+			error: expect.stringContaining("g/day limit"),
+		});
+		expect(mockScheduleCommand.create).not.toHaveBeenCalled();
+	});
+
+	it("refuses a per-meal amount above the 1,000 g device limit", async () => {
+		mockEnergyDevice.findFirst.mockResolvedValue(
+			onlineDevice({ id: "device-1", gramsPerFeeding: 100, hopperCapacityG: 5000 }),
+		);
+		mockScheduleCommand.findMany.mockResolvedValue([]);
+		mockPond.findUnique.mockResolvedValue({
+			feedingRatePct: 3,
+			feedsPerDay: 2,
+			population: 1000,
+		} as never);
+		vi.mocked(prisma.cropCycle).findFirst.mockResolvedValue(null);
+		vi.mocked(prisma.biomassLog).findFirst.mockResolvedValue({ avgWeightKg: 1 } as never);
+
+		const { updateScheduleCommand } = await import("@/lib/actions/schedule");
+		const result = await updateScheduleCommand("pond-1", "device-1", {
+			scheduleStart: "06:00",
+			scheduleEnd: "18:00",
+			feedsPerDay: 4,
+			feedingRatePct: 5.0,
+		});
+
+		// 1,000 fish × 1 kg × 5 % = 50 kg/day ÷ 4 = 12,500 g per meal.
+		expect(result).toEqual({
+			success: false,
+			error: expect.stringContaining("1000 g per-meal limit"),
+		});
+		expect(mockScheduleCommand.create).not.toHaveBeenCalled();
 	});
 });
 

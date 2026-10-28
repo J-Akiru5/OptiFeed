@@ -41,7 +41,7 @@ import { canWrite, getCurrentUser } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
 import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
 import { DEFAULT_HOPPER_RANGE, WATER_TEMP_RANGES, parseWaterTempRange } from "@/lib/chart-windows";
-import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatFarmDateTime, formatWallClockTime } from "@/lib/date-local";
@@ -52,10 +52,12 @@ import { feedSourceKey } from "@/lib/feed-sources";
 import type { DashboardSnapshotData } from "@/lib/offline/snapshots";
 import { getFeedPerDayBySource, getHopperLevelSeries, getWaterTempSeries } from "@/lib/pond-charts";
 import { getActivePond } from "@/lib/pond-selection";
+import { resolveLiveFish } from "@/lib/population";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { computeNextFeedingSlot } from "@/lib/schedule/next-feeding-slot";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import { getOrgSettingsForFarm } from "@/lib/settings/org";
 import { cn } from "@/lib/utils";
 import {
@@ -236,15 +238,27 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	// The advisor is surfaced on the home page so it is not hidden behind the
 	// Growth tab. The server renders the deterministic value instantly; the
 	// client card refines it with the AI provider in the background.
+	// Feed the fish that are still alive: the active cycle's stocking count and
+	// survival, not the stale stocked figure on the pond row (audit 2026-10-28).
+	const liveFish = resolveLiveFish({
+		stockedCount: activeCycle?.stockingCount ?? pond.population,
+		expectedSurvivalPct: activeCycle?.expectedSurvivalPct ?? null,
+	});
+	const pondPopulation = liveFish.liveFish;
+	// The platform's tightened daily cap must bound the suggestion exactly as it
+	// bounds Feed Now and the schedule save.
+	const feedingLimits = await getFeedingLimits();
+
 	const initialPrediction = computeDeterministicPrediction({
 		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
 		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
-		population: pond.population ?? DEFAULT_FISH_COUNT,
+		population: pondPopulation,
 		avgWeightKg: latestBiomass?.avgWeightKg ?? null,
 		latestFcr: fcrReports.length > 0 ? latestFcr : null,
 		currentGrams: energyDevice?.gramsPerFeeding ?? null,
 		hopperCapacityG: energyDevice?.hopperCapacityG ?? null,
 		lastSampleAt: latestBiomass?.recordedAt ?? null,
+		dailyCapFactor: feedingLimits.dailyCapFactor,
 		isFallow: pond.isFallow,
 		cycle: cycleContext,
 	});
@@ -270,15 +284,17 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 
 	// Daily Feed (g) = Total Biomass (g) × Feeding Rate (%)
 	// Feed per Meal (g) = Daily Feed (g) ÷ Feeds Per Day  (see lib/feed-calc.ts)
-	const pondPopulation = pond.population;
-	let nextFeedingVolumeG = energyDevice?.gramsPerFeeding ?? 330;
-	if (latestBiomass) {
-		nextFeedingVolumeG = feedPerMealG(
-			totalBiomassG(pondPopulation, latestBiomass.avgWeightKg),
-			feedingRatePct,
-			feedsPerDay,
-		);
-	}
+	// The device's stored grams are what it will actually dispense (a growth
+	// plan or an applied prediction can move them without a new sample), so
+	// they win; the formula is the fallback when no feeder is paired.
+	const computedNextFeedingG = latestBiomass
+		? feedPerMealG(
+				totalBiomassG(pondPopulation, latestBiomass.avgWeightKg),
+				feedingRatePct,
+				feedsPerDay,
+			)
+		: null;
+	const nextFeedingVolumeG = energyDevice?.gramsPerFeeding ?? computedNextFeedingG;
 
 	// Calculate days until next physical weighing (assuming every 14 days)
 	const daysSinceSample = latestBiomass
@@ -351,7 +367,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		waterTempC: energyDevice?.waterTempC ?? null,
 		waterTempOk: energyDevice?.waterTempOk ?? null,
 		waterTempUpdatedAt: energyDevice?.waterTempUpdatedAt?.toISOString() ?? null,
-		population: pond.population ?? DEFAULT_FISH_COUNT,
+		population: pondPopulation,
 		avgWeightG: latestBiomass ? latestBiomass.avgWeightKg * 1000 : null,
 		latestFcr: fcrReports.length > 0 ? latestFcr : null,
 		nextFeedingTime: isPaused ? null : nextFeedingTimeStr,
@@ -434,7 +450,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	const pondMeta = [
 		{
 			label: t("populationLabel"),
-			value: t("populationValue", { count: pond.population ?? DEFAULT_FISH_COUNT }),
+			value: pondPopulation === null ? t("na") : t("populationValue", { count: pondPopulation }),
 		},
 		{
 			label: t("controlRoom.cycleLabel"),
@@ -519,7 +535,9 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					isPaused={isPaused}
 					statusLabel={isPaused ? t("schedulePaused") : t("timerOn")}
 					volumeLabel={t("feedVolumeLabel")}
-					volumeValue={pond.isFallow ? "—" : `${nextFeedingVolumeG} g`}
+					volumeValue={
+						pond.isFallow || nextFeedingVolumeG === null ? "—" : `${nextFeedingVolumeG} g`
+					}
 					rateLabel={t("feedRateLabel")}
 					rateValue={`${feedingRatePct}${t("feedRateSuffix")}`}
 					basedOn={
@@ -648,7 +666,9 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					>
 						<FeedNowButton
 							deviceId={energyDevice?.id ?? device.id}
-							nextFeedingVolume={pond.isFallow ? "0g" : `${nextFeedingVolumeG}g`}
+							nextFeedingVolume={
+								pond.isFallow || nextFeedingVolumeG === null ? "—" : `${nextFeedingVolumeG}g`
+							}
 							label={tBtn("feedNow")}
 							deviceName={energyDevice?.label ?? device.name}
 							connectionStatus={esp32Offline ? "offline" : "online"}
@@ -857,10 +877,19 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 								/>
 								<StatTile
 									label={t("populationLabel")}
-									value={t("populationValue", {
-										count: pond.population ?? DEFAULT_FISH_COUNT,
-									})}
-									detail={t("populationStable")}
+									value={
+										pondPopulation === null
+											? t("na")
+											: t("populationValue", { count: pondPopulation })
+									}
+									detail={
+										liveFish.source === "survival" && liveFish.stockedCount !== null
+											? t("populationLive", {
+													live: pondPopulation ?? 0,
+													stocked: liveFish.stockedCount,
+												})
+											: t("populationStable")
+									}
 									icon={Layers}
 								/>
 							</div>

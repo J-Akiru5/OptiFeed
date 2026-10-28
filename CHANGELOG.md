@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `docs/audits/2026-10-28-calc-device.md` #1: a failed ultrasonic read (the firmware's `0 %` + `0 cm` timeout sentinel) is no longer stored as an empty hopper — the heartbeat still updates `lastSeenAt`, but the level, history row and low/critical alerts are skipped; a real empty hopper still alerts, and a heartbeat without `feed_level_cm` keeps the last known distance.
+- `docs/audits/2026-10-28-calc-device.md` #3: days of feed remaining is computed by one helper with guards (`estimateDaysOfFeedRemaining`); a missing, zero or negative capacity, meal size or meals/day returns null instead of the old `99`-day sentinel, the card floors it for display and the ingest two-day warning compares the fraction.
+- `docs/audits/2026-10-28-calc-device.md` #5: the drift detector walks the level against a baseline, so a rise of ≤ 5 points is ignored without raising it (70 → 75 → 60 now counts 10 points, not 15) while a larger rise starts a refill segment and keeps the earlier drop.
+- `docs/audits/2026-10-28-calc-device.md` #6: the dashboard, hardware page and assistant load the drift inputs through one query that counts device output only, so imported `hand_fed` daily totals are no longer compared with the hopper drop.
+- `docs/audits/2026-10-28-calc-device.md` #7: recalibration reminders page through every eligible device instead of silently stopping at 200.
+- `docs/audits/2026-10-28-calc-device.md` #8: the feeder hero's next-feed time is covered by a regression test proving it resolves in Asia/Manila on a UTC host; current `develop` already uses the wall-clock helper, so no runtime change was needed.
+
 ## [1.21.2] - 2026-10-28
 
 ### Changed

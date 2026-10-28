@@ -30,6 +30,54 @@ export interface FeedLevelDisplay extends FeedLevelRemaining {
 }
 
 /**
+ * Days of feed left in the hopper, as a fractional number, or null when it
+ * cannot be estimated.
+ *
+ *   grams left = hopper capacity × level %
+ *   grams/day  = feed per meal × meals per day
+ *   days left  = grams left ÷ grams/day
+ *
+ * This is the one implementation (audit
+ * `docs/audits/2026-10-28-calc-device.md` #3): the dashboard card floors it
+ * for display and the ingest two-day warning compares the fraction. Every
+ * input is validated, so a missing, zero or negative capacity, meal size or
+ * meal count yields null instead of 0, Infinity or NaN — never a `99`-style
+ * sentinel.
+ */
+export function estimateDaysOfFeedRemaining(input: {
+	levelPercent: number | null | undefined;
+	hopperCapacityG: number | null | undefined;
+	gramsPerFeeding: number | null | undefined;
+	feedsPerDay: number | null | undefined;
+}): number | null {
+	const { levelPercent, hopperCapacityG, gramsPerFeeding, feedsPerDay } = input;
+	if (typeof levelPercent !== "number" || !Number.isFinite(levelPercent)) return null;
+	if (
+		typeof hopperCapacityG !== "number" ||
+		!Number.isFinite(hopperCapacityG) ||
+		hopperCapacityG <= 0
+	) {
+		return null;
+	}
+	if (
+		typeof gramsPerFeeding !== "number" ||
+		!Number.isFinite(gramsPerFeeding) ||
+		gramsPerFeeding <= 0
+	) {
+		return null;
+	}
+	if (typeof feedsPerDay !== "number" || !Number.isFinite(feedsPerDay) || feedsPerDay <= 0) {
+		return null;
+	}
+
+	const dailyConsumption = gramsPerFeeding * feedsPerDay;
+	if (!(dailyConsumption > 0)) return null;
+
+	const percent = Math.min(100, Math.max(0, levelPercent));
+	return (hopperCapacityG * (percent / 100)) / dailyConsumption;
+}
+
+/**
  * Remaining feed from one level reading.
  *
  * The level, the hopper capacity and the device's grams-per-feeding are the
@@ -51,17 +99,19 @@ export function estimateFeedRemaining({
 	const hasCapacity =
 		typeof hopperCapacityG === "number" && Number.isFinite(hopperCapacityG) && hopperCapacityG > 0;
 	const hasMeal = Number.isFinite(gramsPerFeeding) && gramsPerFeeding > 0;
-	const hasDay = Number.isFinite(feedsPerDay) && feedsPerDay > 0;
 
 	const remainingGrams =
 		hasLevel && hasCapacity ? hopperCapacityG * (Math.max(0, levelPercent) / 100) : null;
 	const feedingsRemaining =
 		remainingGrams !== null && hasMeal ? Math.floor(remainingGrams / gramsPerFeeding) : null;
-	const dailyConsumption = hasMeal && hasDay ? gramsPerFeeding * feedsPerDay : null;
-	const daysRemaining =
-		remainingGrams !== null && dailyConsumption !== null && dailyConsumption > 0
-			? Math.floor(remainingGrams / dailyConsumption)
-			: null;
+	const days = estimateDaysOfFeedRemaining({
+		levelPercent: hasLevel ? levelPercent : null,
+		hopperCapacityG,
+		gramsPerFeeding,
+		feedsPerDay,
+	});
+	// Display uses whole days; the alert compares the fraction (see the helper).
+	const daysRemaining = days === null ? null : Math.floor(days);
 
 	return { remainingGrams, feedingsRemaining, daysRemaining };
 }

@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- #277 the farm-owner Admin Overview now shows feed dispensed per day, device activity and fleet-health charts, built on the existing shared Recharts components (no new dependency) and scoped to the caller's organization. When a series hits its 5,000-row cap the total is labelled as a lower bound and days that were not fetched are no longer zero-filled.
+
+### Fixed
+
+- #274 Admin → Devices: "Print selected labels" submits no `id` when no device is ticked, so `/admin/devices/labels` called `notFound()` and showed a 404. A label sheet opened without `?id=` now prints every device in the caller's tenant scope (bounded by 40, newest first), an explicit selection still returns 404 when nothing in it is in scope, and an empty device registry renders an empty state instead of a not-found page. The Superadmin → Devices label sheet behaves the same way, behind the unchanged platform-admin gate.
+- #275 the phone Schedule page no longer lets the sticky Save Changes bar cover the Sync Status card; a mobile-only spacer keeps the applied-at line, the schedule summary and Force Resync fully visible and tappable above the bar.
+- #273 the farmer Audit Trail now covers every active pond on the farm instead of only the first one, resolves actor ids to human-readable names, surfaces the newest user touch, and shows each event's actor, role and bounded metadata in an expandable Details block. RBAC scoping is documented and tested: farmers see their own farm only, tenant admins use `/admin/audit`, platform admins use `/superadmin/operations/audit`.
+- #276 the admin, farmer and platform calendars accept a one-day range again: date-range validation counts inclusive days, so the Day view no longer fails with "Choose a date range between 1 and 400 days", and the 400-day limit is exact (400 accepted, 401 rejected).
+- #272 calendar event chips, the "+N more" link, agenda rows and the more popover meet WCAG AA contrast in dark mode while keeping each event's colour identity, instead of saturated red-on-navy with white text.
 ## [1.21.3] - 2026-10-28
 
 ### Fixed

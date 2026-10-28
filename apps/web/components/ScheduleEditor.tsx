@@ -269,6 +269,12 @@ export function ScheduleEditor({
 					</button>
 				</div>
 
+				{/* #275: the card clips its overflow, so it is the sticky row's
+				    scrollport and the row's bottom offset pulls it up over the
+				    sync card. This mobile-only spacer gives the row empty space
+				    to cover instead, keeping the sync card fully tappable. */}
+				<div aria-hidden="true" className="h-20 sm:hidden" />
+
 				<div className={cn("flex items-center gap-4", mobileStickyActions)}>
 					<button
 						type="submit"

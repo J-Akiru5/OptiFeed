@@ -1,4 +1,5 @@
 import { type CalibrationDriftResult, computeCalibrationDrift } from "@/lib/calibration/drift";
+import { loadCalibrationDriftWindow } from "@/lib/calibration/drift-data";
 import { startOfDayInTimeZone } from "@/lib/chart-windows";
 import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS, PH_TZ } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
@@ -77,84 +78,60 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 	// UTC host the local midnight is 08:00 in Manila, which dropped every
 	// early-morning feeding from the count the assistant reports.
 	const startOfToday = startOfDayInTimeZone(new Date(), PH_TZ);
-	const driftWindowStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-	const [
-		todayFeedEvents,
-		latestFcr,
-		latestBiomass,
-		latestCommand,
-		activeCycle,
-		driftFeeds,
-		driftLevels,
-	] = await Promise.all([
-		energyDevice
-			? prisma.feedEvent.findMany({
-					where: {
-						deviceId: energyDevice.id,
-						eventType: "feed_dispensed",
-						// "Feedings today" counts device feedings; an imported
-						// hand-fed daily total is one record, not a feeding slot.
-						source: { in: [...MACHINE_FEED_SOURCES] },
-						receivedAt: { gte: startOfToday },
-					},
-					orderBy: { receivedAt: "desc" },
-					select: { receivedAt: true },
-				})
-			: Promise.resolve([] as { receivedAt: Date }[]),
-		prisma.fcrReport.findFirst({
-			where: { pondId: pond.id },
-			orderBy: { periodEnd: "desc" },
-		}),
-		prisma.biomassLog.findFirst({
-			where: { pondId: pond.id },
-			orderBy: { recordedAt: "desc" },
-		}),
-		energyDevice
-			? prisma.scheduleCommand.findFirst({
-					where: { deviceId: energyDevice.id },
-					orderBy: { createdAt: "desc" },
-					select: { status: true },
-				})
-			: Promise.resolve(null),
-		prisma.cropCycle.findFirst({
-			where: { pondId: pond.id, status: "ACTIVE" },
-			select: {
-				id: true,
-				label: true,
-				stockingDate: true,
-				stockingCount: true,
-				growOutDays: true,
-				targetHarvestDate: true,
-				targetHarvestWeightG: true,
-				expectedSurvivalPct: true,
-			},
-		}),
-		energyDevice
-			? prisma.feedEvent.findMany({
-					where: {
-						deviceId: energyDevice.id,
-						eventType: "feed_dispensed",
-						// Drift is about what the device dispensed versus the hopper
-						// drop; imported hand-fed daily totals are not device output.
-						source: { in: [...MACHINE_FEED_SOURCES] },
-						receivedAt: { gte: driftWindowStart },
-					},
-					select: { grams: true, receivedAt: true },
-				})
-			: Promise.resolve([] as { grams: number | null; receivedAt: Date }[]),
-		energyDevice
-			? prisma.feedLevelLog.findMany({
-					where: { deviceId: energyDevice.id, recordedAt: { gte: driftWindowStart } },
-					orderBy: { recordedAt: "asc" },
-					select: { levelPercent: true, recordedAt: true },
-				})
-			: Promise.resolve([] as { levelPercent: number; recordedAt: Date }[]),
-	]);
+	const [todayFeedEvents, latestFcr, latestBiomass, latestCommand, activeCycle, driftWindow] =
+		await Promise.all([
+			energyDevice
+				? prisma.feedEvent.findMany({
+						where: {
+							deviceId: energyDevice.id,
+							eventType: "feed_dispensed",
+							// "Feedings today" counts device feedings; an imported
+							// hand-fed daily total is one record, not a feeding slot.
+							source: { in: [...MACHINE_FEED_SOURCES] },
+							receivedAt: { gte: startOfToday },
+						},
+						orderBy: { receivedAt: "desc" },
+						select: { receivedAt: true },
+					})
+				: Promise.resolve([] as { receivedAt: Date }[]),
+			prisma.fcrReport.findFirst({
+				where: { pondId: pond.id },
+				orderBy: { periodEnd: "desc" },
+			}),
+			prisma.biomassLog.findFirst({
+				where: { pondId: pond.id },
+				orderBy: { recordedAt: "desc" },
+			}),
+			energyDevice
+				? prisma.scheduleCommand.findFirst({
+						where: { deviceId: energyDevice.id },
+						orderBy: { createdAt: "desc" },
+						select: { status: true },
+					})
+				: Promise.resolve(null),
+			prisma.cropCycle.findFirst({
+				where: { pondId: pond.id, status: "ACTIVE" },
+				select: {
+					id: true,
+					label: true,
+					stockingDate: true,
+					stockingCount: true,
+					growOutDays: true,
+					targetHarvestDate: true,
+					targetHarvestWeightG: true,
+					expectedSurvivalPct: true,
+				},
+			}),
+			// One loader owns the drift window (device dispenses only, no hand_fed).
+			energyDevice
+				? loadCalibrationDriftWindow(energyDevice.id)
+				: Promise.resolve({ feeds: [], levels: [], start: new Date() }),
+		]);
 
 	const calibrationDrift = computeCalibrationDrift({
-		feeds: driftFeeds,
-		levels: driftLevels,
+		feeds: driftWindow.feeds,
+		levels: driftWindow.levels,
 		hopperCapacityG: energyDevice?.hopperCapacityG ?? null,
 	});
 

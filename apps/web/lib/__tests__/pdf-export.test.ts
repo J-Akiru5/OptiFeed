@@ -13,6 +13,7 @@ const { db } = vi.hoisted(() => ({
 		biomassLog: { findFirst: vi.fn() },
 		fcrReport: { findMany: vi.fn() },
 		feedEvent: { findMany: vi.fn() },
+		cropCycle: { findFirst: vi.fn() },
 	},
 }));
 
@@ -48,6 +49,7 @@ beforeEach(() => {
 	db.biomassLog.findFirst.mockResolvedValue(null as never);
 	db.fcrReport.findMany.mockResolvedValue([] as never);
 	db.feedEvent.findMany.mockResolvedValue([] as never);
+	db.cropCycle.findFirst.mockResolvedValue(null as never);
 });
 
 describe("buildPdfExport", () => {

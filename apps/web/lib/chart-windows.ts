@@ -1,5 +1,6 @@
 import { buildDayKeys } from "@/components/charts/chart-data";
 import { PH_TZ } from "@/lib/constants";
+import { zoneOffsetMs } from "@/lib/date-local";
 
 /**
  * Time windows for the pond charts (#188, E15).
@@ -37,30 +38,6 @@ export function parseHopperRange(value: string | null | undefined): HopperRange 
 /** Accept only the two supported water windows; anything else is 24 hours. */
 export function parseWaterTempRange(value: string | null | undefined): WaterTempRange {
 	return value === "7d" ? "7d" : DEFAULT_WATER_TEMP_RANGE;
-}
-
-/** Offset of `timeZone` at `date`, in milliseconds (wall clock − UTC). */
-function zoneOffsetMs(date: Date, timeZone: string): number {
-	const formatter = new Intl.DateTimeFormat("en-US", {
-		timeZone,
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit",
-		hour: "2-digit",
-		minute: "2-digit",
-		second: "2-digit",
-		hourCycle: "h23",
-	});
-	const parts = new Map(formatter.formatToParts(date).map((part) => [part.type, part.value]));
-	const asUtc = Date.UTC(
-		Number(parts.get("year")),
-		Number(parts.get("month")) - 1,
-		Number(parts.get("day")),
-		Number(parts.get("hour")),
-		Number(parts.get("minute")),
-		Number(parts.get("second")),
-	);
-	return asUtc - date.getTime();
 }
 
 /** Start of the local day (or hour) that contains `date`, as an instant. */

@@ -84,4 +84,36 @@ describe("syncDeviceGramsForPond", () => {
 			data: { gramsPerFeeding: 19.75 },
 		});
 	});
+
+	it("feeds live fish (stocked × survival), not the stocked count", async () => {
+		// The data sheet's last row: 300 stocked at 95 % survival = 285 live
+		// fish; 0.1405 kg × 285 × 5 % = 2,002.13 g/day (not 2,107.5 g).
+		mockPond.findUnique.mockResolvedValue({
+			feedingRatePct: 5,
+			feedsPerDay: 2,
+			population: 300,
+			cropCycles: [{ stockingCount: 300, expectedSurvivalPct: 95 }],
+		} as never);
+		mockBiomassLog.findFirst.mockResolvedValue({ avgWeightKg: 0.1405 } as never);
+
+		const result = await syncDeviceGramsForPond("pond-1");
+
+		expect(result).toBe(1001.07);
+		expect(mockEnergyDevice.updateMany).toHaveBeenCalledWith({
+			where: { pondId: "pond-1" },
+			data: { gramsPerFeeding: 1001.07 },
+		});
+	});
+
+	it("falls back to the active cycle's stocking count when the pond has none", async () => {
+		mockPond.findUnique.mockResolvedValue({
+			feedingRatePct: 5,
+			feedsPerDay: 2,
+			population: null,
+			cropCycles: [{ stockingCount: 300, expectedSurvivalPct: 95 }],
+		} as never);
+		mockBiomassLog.findFirst.mockResolvedValue({ avgWeightKg: 0.1405 } as never);
+
+		expect(await syncDeviceGramsForPond("pond-1")).toBe(1001.07);
+	});
 });

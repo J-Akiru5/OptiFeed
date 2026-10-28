@@ -1,11 +1,57 @@
 import { describe, expect, it } from "vitest";
-import { getFeedLevelDisplay } from "../feed-level";
+import { estimateDaysOfFeedRemaining, getFeedLevelDisplay } from "../feed-level";
 
 const base = {
 	hopperCapacityG: 10_000,
 	gramsPerFeeding: 100,
 	feedsPerDay: 2,
 };
+
+describe("estimateDaysOfFeedRemaining", () => {
+	it("divides the remaining grams by the daily consumption", () => {
+		// 50 % of 10,000 g = 5,000 g; 100 g × 2 meals = 200 g/day → 25 days.
+		expect(
+			estimateDaysOfFeedRemaining({
+				levelPercent: 50,
+				hopperCapacityG: 10_000,
+				gramsPerFeeding: 100,
+				feedsPerDay: 2,
+			}),
+		).toBe(25);
+	});
+
+	it("keeps the fraction so the caller can round it", () => {
+		// 10 % of 10,000 = 1,000 g over 300 g/day = 3.33 days.
+		const days = estimateDaysOfFeedRemaining({
+			levelPercent: 10,
+			hopperCapacityG: 10_000,
+			gramsPerFeeding: 100,
+			feedsPerDay: 3,
+		});
+		expect(days).toBeCloseTo(3.333, 2);
+	});
+
+	it("returns null instead of 0, Infinity or NaN", () => {
+		const common = { levelPercent: 50, hopperCapacityG: 10_000, gramsPerFeeding: 100 };
+		expect(estimateDaysOfFeedRemaining({ ...common, feedsPerDay: 0 })).toBeNull();
+		expect(estimateDaysOfFeedRemaining({ ...common, feedsPerDay: -1 })).toBeNull();
+		expect(
+			estimateDaysOfFeedRemaining({ ...common, hopperCapacityG: 0, feedsPerDay: 2 }),
+		).toBeNull();
+		expect(
+			estimateDaysOfFeedRemaining({ ...common, gramsPerFeeding: 0, feedsPerDay: 2 }),
+		).toBeNull();
+		expect(
+			estimateDaysOfFeedRemaining({ ...common, levelPercent: null, feedsPerDay: 2 }),
+		).toBeNull();
+	});
+
+	it("clamps a corrupt level above 100 % and below 0 %", () => {
+		const baseInput = { hopperCapacityG: 10_000, gramsPerFeeding: 100, feedsPerDay: 2 };
+		expect(estimateDaysOfFeedRemaining({ ...baseInput, levelPercent: 150 })).toBe(50);
+		expect(estimateDaysOfFeedRemaining({ ...baseInput, levelPercent: -20 })).toBe(0);
+	});
+});
 
 describe("getFeedLevelDisplay", () => {
 	it("keeps the last known reading and hides days remaining when the device is offline", () => {
@@ -89,6 +135,25 @@ describe("getFeedLevelDisplay", () => {
 		expect(low.isCritical).toBe(false);
 		expect(low.isLow).toBe(true);
 		expect(healthy.isCritical).toBe(false);
+		expect(healthy.isLow).toBe(false);
+	});
+
+	it("uses the org's low threshold instead of the legacy 20 %", () => {
+		const low = getFeedLevelDisplay({
+			...base,
+			levelPercent: 25,
+			isDeviceOffline: false,
+			hopperLowPct: 30,
+		});
+		const healthy = getFeedLevelDisplay({
+			...base,
+			levelPercent: 25,
+			isDeviceOffline: false,
+			hopperLowPct: 20,
+		});
+
+		expect(low.isLow).toBe(true);
+		expect(low.isCritical).toBe(false);
 		expect(healthy.isLow).toBe(false);
 	});
 });

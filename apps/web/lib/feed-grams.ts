@@ -1,5 +1,5 @@
+import { feedPerMealG, liveFishCount, totalBiomassG } from "@/lib/feed-calc";
 import prisma from "@/lib/prisma";
-import { calculateNextFeeding } from "@/lib/volumeCalc";
 
 export type GramsSyncConfig = {
 	feedingRatePct?: number;
@@ -12,11 +12,15 @@ export type GramsSyncConfig = {
  * sample — keeping the value the ESP32 dispenses in sync with the value the
  * dashboard shows:
  *
+ *   Live fish      = population × expected survival %  (lib/feed-calc.ts)
  *   Daily Feed (g) = Total Biomass (g) × Feeding Rate (%)
  *   Feed per Meal (g) = Daily Feed (g) ÷ Feeds Per Day   (2 decimals)
  *
- * `config` overrides the Pond row (for callers that just saved new values).
- * No-op (returns null) when the pond has no biomass sample yet.
+ * The population comes from the active crop cycle when the pond row has none,
+ * and its mortality allowance (`expectedSurvivalPct`) is applied either way, so
+ * a 300-fish pond at 95 % survival feeds 285 fish, as the team's data sheet
+ * does. `config` overrides the Pond row (for callers that just saved new
+ * values). No-op (returns null) when no live count or biomass sample exists.
  */
 export async function syncDeviceGramsForPond(
 	pondId: string,
@@ -24,7 +28,17 @@ export async function syncDeviceGramsForPond(
 ): Promise<number | null> {
 	const pond = await prisma.pond.findUnique({
 		where: { id: pondId },
-		select: { feedingRatePct: true, feedsPerDay: true, population: true },
+		select: {
+			feedingRatePct: true,
+			feedsPerDay: true,
+			population: true,
+			cropCycles: {
+				where: { status: "ACTIVE" },
+				orderBy: { createdAt: "desc" },
+				take: 1,
+				select: { stockingCount: true, expectedSurvivalPct: true },
+			},
+		},
 	});
 	if (!pond) return null;
 
@@ -35,8 +49,13 @@ export async function syncDeviceGramsForPond(
 	});
 	if (!latestBiomass) return null;
 
+	const cycle = pond.cropCycles?.[0] ?? null;
 	const population = config?.population !== undefined ? config.population : pond.population;
-	if (!population || population <= 0) {
+	const fishCount =
+		typeof population === "number" && population > 0 ? population : (cycle?.stockingCount ?? null);
+	const liveCount = liveFishCount(fishCount, cycle?.expectedSurvivalPct ?? null);
+
+	if (liveCount === null) {
 		const device = await prisma.energyDevice.findFirst({
 			where: { pondId },
 			select: { id: true },
@@ -58,11 +77,10 @@ export async function syncDeviceGramsForPond(
 		return null;
 	}
 
-	const grams = calculateNextFeeding(
-		latestBiomass.avgWeightKg,
+	const grams = feedPerMealG(
+		totalBiomassG(liveCount, latestBiomass.avgWeightKg),
 		config?.feedingRatePct ?? pond.feedingRatePct,
 		config?.feedsPerDay ?? pond.feedsPerDay,
-		population,
 	);
 
 	await prisma.energyDevice.updateMany({

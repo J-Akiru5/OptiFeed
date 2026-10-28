@@ -6,8 +6,62 @@ function round2(n: number): number {
 }
 
 /**
+ * Fish alive today: the stocked (or entered) count less its mortality
+ * allowance.
+ *
+ * The team's data sheet computes daily feed from **live fish** (stocked −
+ * mortality), not from the number stocked: 300 stocked at 95 % survival is 285
+ * live fish, and 0.1405 kg × 285 × 5 % = 2.002 kg — not 2.110 kg, which is what
+ * the stocked count gives.
+ *
+ * `CropCycle.expectedSurvivalPct` is the only mortality figure the app stores,
+ * so it is applied here once, in one place. A caller with an observed live
+ * count passes 100 (or omits the percentage). Null/zero counts return null so a
+ * feed figure can say "not enough data" instead of inventing a population.
+ */
+export function liveFishCount(
+	population: number | null | undefined,
+	expectedSurvivalPct: number | null | undefined,
+): number | null {
+	if (typeof population !== "number" || !Number.isFinite(population) || population <= 0) {
+		return null;
+	}
+	const survival =
+		typeof expectedSurvivalPct === "number" &&
+		Number.isFinite(expectedSurvivalPct) &&
+		expectedSurvivalPct > 0
+			? Math.min(100, expectedSurvivalPct)
+			: 100;
+	const live = Math.round(population * (survival / 100));
+	return live >= 1 ? live : null;
+}
+
+/**
+ * Total biomass of the live fish in grams: live fish × average body weight.
+ *
+ * Prefer this over `totalBiomassG(population, …)` for feed maths: the plain
+ * helper takes the count at face value, which is how the stocked count used to
+ * reach the dashboard. Returns null when the count or the weight is unknown.
+ */
+export function liveBiomassG(
+	population: number | null | undefined,
+	avgWeightKg: number | null | undefined,
+	expectedSurvivalPct: number | null | undefined,
+): number | null {
+	const count = liveFishCount(population, expectedSurvivalPct);
+	if (count === null) return null;
+	if (typeof avgWeightKg !== "number" || !Number.isFinite(avgWeightKg) || avgWeightKg <= 0) {
+		return null;
+	}
+	return totalBiomassG(count, avgWeightKg);
+}
+
+/**
  * Total biomass in grams: population × average body weight.
  * Null/invalid population falls back to DEFAULT_FISH_COUNT.
+ *
+ * Kept for callers that already hold a live count (or a preview estimate). Feed
+ * paths that start from `Pond.population` should resolve `liveFishCount` first.
  */
 export function totalBiomassG(population: number | null | undefined, avgWeightKg: number): number {
 	const count = population && population > 0 ? population : DEFAULT_FISH_COUNT;

@@ -5,6 +5,7 @@ import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
 import { getBatchSummaryPage } from "@/lib/batch-logs";
 import { formatFarmDateTime } from "@/lib/date-local";
+import { liveFishCount } from "@/lib/feed-calc";
 import { parsePage } from "@/lib/pagination";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
@@ -64,6 +65,17 @@ export default async function LogSamplePage({
 	const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice?.id ?? null);
 	const writeAccess = await canWrite();
 
+	// The preview must use the same live-fish count the save path uses.
+	const activeCycle = await prisma.cropCycle.findFirst({
+		where: { pondId: pond.id, status: "ACTIVE" },
+		orderBy: { createdAt: "desc" },
+		select: { stockingCount: true, expectedSurvivalPct: true },
+	});
+	const livePopulation = liveFishCount(
+		pond.population ?? activeCycle?.stockingCount ?? null,
+		activeCycle?.expectedSurvivalPct ?? null,
+	);
+
 	const logRows = await getBatchSummaryPage({ pondId: pond.id, page, pageSize });
 	const batches = logRows.rows;
 	const firstRow = logRows.total === 0 ? 0 : (logRows.page - 1) * logRows.pageSize + 1;
@@ -91,7 +103,7 @@ export default async function LogSamplePage({
 					pondId={pond.id}
 					feedingRatePct={currentConfig?.feedingRatePct ?? pond.feedingRatePct}
 					feedsPerDay={currentConfig?.feedsPerDay ?? pond.feedsPerDay}
-					population={pond.population}
+					population={livePopulation}
 					canWrite={writeAccess}
 					batchLabels={batchLabels}
 					scope={pond.ownerId}

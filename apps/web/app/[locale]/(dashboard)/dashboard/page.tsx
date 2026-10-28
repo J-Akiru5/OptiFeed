@@ -39,14 +39,15 @@ import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
 import { canWrite, getCurrentUser } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
+import { loadCalibrationDriftWindow } from "@/lib/calibration/drift-data";
 import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
 import { DEFAULT_HOPPER_RANGE, WATER_TEMP_RANGES, parseWaterTempRange } from "@/lib/chart-windows";
 import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatFarmDateTime, formatWallClockTime } from "@/lib/date-local";
-import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
-import { MACHINE_FEED_SOURCES, formatFeedAmountLabel } from "@/lib/feed-figures";
+import { feedPerMealG, liveFishCount, totalBiomassG } from "@/lib/feed-calc";
+import { formatFeedAmountLabel } from "@/lib/feed-figures";
 import { isDeviceOffline } from "@/lib/feed-level-display";
 import { feedSourceKey } from "@/lib/feed-sources";
 import type { DashboardSnapshotData } from "@/lib/offline/snapshots";
@@ -72,9 +73,6 @@ import {
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0; // Ensure data is always fresh
-
-/** The drift detector compares seven days of dispensed grams with the hopper drop. */
-const DRIFT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface DashboardHomePageProps {
 	searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -181,57 +179,41 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	const energyDevice = energyDevices[0] ?? null;
 	const deviceIds = energyDevices.map((row) => row.id);
 	const now = new Date();
-	const driftWindowStart = new Date(now.getTime() - DRIFT_WINDOW_MS);
 
 	const latestBiomass = recentBiomassLogs[0] ?? null;
 
 	// Schedule resolution needs the device id; feeding history, the charts and
 	// the drift check use the same ids, so they share the second wave. The
 	// water-temperature trend is scoped to the primary device.
-	const [
-		currentConfig,
-		feedingHistory,
-		waterTempPoints,
-		feedChart,
-		hopperPoints,
-		driftFeeds,
-		driftLevels,
-	] = await Promise.all([
-		resolveCurrentSchedule(pond.id, energyDevice?.id ?? null),
-		energyDevice
-			? prisma.feedEvent.findMany({
-					where: { deviceId: energyDevice.id, eventType: "feed_dispensed" },
-					orderBy: { receivedAt: "desc" },
-					take: 5,
-				})
-			: Promise.resolve([]),
-		energyDevice ? getWaterTempSeries([energyDevice.id], waterRange) : Promise.resolve([]),
-		getFeedPerDayBySource(deviceIds),
-		getHopperLevelSeries(deviceIds, DEFAULT_HOPPER_RANGE),
-		energyDevice
-			? prisma.feedEvent.findMany({
-					where: {
-						deviceId: energyDevice.id,
-						eventType: "feed_dispensed",
-						// Drift compares what the device dispensed with the hopper
-						// drop; an imported hand-fed daily total never came from it.
-						source: { in: [...MACHINE_FEED_SOURCES] },
-						receivedAt: { gte: driftWindowStart },
-					},
-					select: { grams: true, receivedAt: true },
-				})
-			: Promise.resolve([]),
-		energyDevice
-			? prisma.feedLevelLog.findMany({
-					where: { deviceId: energyDevice.id, recordedAt: { gte: driftWindowStart } },
-					orderBy: { recordedAt: "asc" },
-					select: { levelPercent: true, recordedAt: true },
-				})
-			: Promise.resolve([]),
-	]);
+	const [currentConfig, feedingHistory, waterTempPoints, feedChart, hopperPoints, driftWindow] =
+		await Promise.all([
+			resolveCurrentSchedule(pond.id, energyDevice?.id ?? null),
+			energyDevice
+				? prisma.feedEvent.findMany({
+						where: { deviceId: energyDevice.id, eventType: "feed_dispensed" },
+						orderBy: { receivedAt: "desc" },
+						take: 5,
+					})
+				: Promise.resolve([]),
+			energyDevice ? getWaterTempSeries([energyDevice.id], waterRange) : Promise.resolve([]),
+			getFeedPerDayBySource(deviceIds),
+			getHopperLevelSeries(deviceIds, DEFAULT_HOPPER_RANGE),
+			energyDevice
+				? loadCalibrationDriftWindow(energyDevice.id, now)
+				: Promise.resolve({ feeds: [], levels: [], start: now }),
+		]);
 
 	const latestFcr = fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : 0.0;
 	const cycleContext = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
+
+	// Feed maths use live fish: the stocked count less its mortality allowance
+	// (`CropCycle.expectedSurvivalPct`). The pond row wins when set, the active
+	// cycle's stocking count is the fallback, and null means "not enough data"
+	// rather than a made-up population (lib/feed-calc.ts).
+	const livePopulation = liveFishCount(
+		pond.population ?? activeCycle?.stockingCount ?? null,
+		activeCycle?.expectedSurvivalPct ?? null,
+	);
 
 	// The advisor is surfaced on the home page so it is not hidden behind the
 	// Growth tab. The server renders the deterministic value instantly; the
@@ -239,7 +221,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	const initialPrediction = computeDeterministicPrediction({
 		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
 		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
-		population: pond.population ?? DEFAULT_FISH_COUNT,
+		population: livePopulation,
 		avgWeightKg: latestBiomass?.avgWeightKg ?? null,
 		latestFcr: fcrReports.length > 0 ? latestFcr : null,
 		currentGrams: energyDevice?.gramsPerFeeding ?? null,
@@ -270,11 +252,11 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 
 	// Daily Feed (g) = Total Biomass (g) × Feeding Rate (%)
 	// Feed per Meal (g) = Daily Feed (g) ÷ Feeds Per Day  (see lib/feed-calc.ts)
-	const pondPopulation = pond.population;
+	// Live fish, not the stocked count: 300 stocked at 95 % survival feeds 285.
 	let nextFeedingVolumeG = energyDevice?.gramsPerFeeding ?? 330;
-	if (latestBiomass) {
+	if (latestBiomass && livePopulation !== null) {
 		nextFeedingVolumeG = feedPerMealG(
-			totalBiomassG(pondPopulation, latestBiomass.avgWeightKg),
+			totalBiomassG(livePopulation, latestBiomass.avgWeightKg),
 			feedingRatePct,
 			feedsPerDay,
 		);
@@ -298,8 +280,8 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		now,
 	);
 	const drift = computeCalibrationDrift({
-		feeds: driftFeeds,
-		levels: driftLevels,
+		feeds: driftWindow.feeds,
+		levels: driftWindow.levels,
 		hopperCapacityG: energyDevice?.hopperCapacityG ?? null,
 	});
 
@@ -667,8 +649,9 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 								updatedAt={energyDevice.feedLevelUpdatedAt}
 								hopperCapacityG={energyDevice.hopperCapacityG}
 								gramsPerFeeding={energyDevice.gramsPerFeeding}
-								feedsPerDay={pond.feedsPerDay}
+								feedsPerDay={feedsPerDay}
 								isDeviceOffline={esp32Offline}
+								hopperLowPct={orgSettings.settings.hopperLowPct}
 							/>
 						</div>
 					)}

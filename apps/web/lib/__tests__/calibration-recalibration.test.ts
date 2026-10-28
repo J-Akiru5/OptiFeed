@@ -107,6 +107,34 @@ describe("processRecalibrationReminders", () => {
 		expect(mockReminderLog.create).not.toHaveBeenCalled();
 	});
 
+	it("pages past 200 devices instead of silently skipping the rest", async () => {
+		// A full first page (200 not-yet-due devices) must not end the run.
+		const firstPage = Array.from({ length: 200 }, (_, index) => ({
+			id: `dev-${String(index).padStart(3, "0")}`,
+			label: `Feeder ${index}`,
+			pondId: `pond-${index}`,
+			lastCalibratedAt: NOW,
+			recalibrationIntervalDays: 30,
+		}));
+		mockEnergyDevice.findMany.mockResolvedValueOnce(firstPage as never).mockResolvedValueOnce([
+			{
+				id: "dev-200",
+				label: "Feeder overdue",
+				pondId: "pond-200",
+				lastCalibratedAt: new Date(NOW.getTime() - 40 * DAY_MS),
+				recalibrationIntervalDays: 30,
+			},
+		] as never);
+
+		const result = await processRecalibrationReminders(NOW);
+
+		expect(mockEnergyDevice.findMany).toHaveBeenCalledTimes(2);
+		expect(mockEnergyDevice.findMany).toHaveBeenLastCalledWith(
+			expect.objectContaining({ cursor: { id: "dev-199" }, skip: 1 }),
+		);
+		expect(result).toEqual({ checked: 201, notified: 1, skipped: 0, failed: 0 });
+	});
+
 	it("creates one in-app notification for an overdue device", async () => {
 		mockEnergyDevice.findMany.mockResolvedValue([
 			{

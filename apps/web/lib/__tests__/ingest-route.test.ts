@@ -171,6 +171,7 @@ function heartbeatBody(
 		rtcOk?: boolean;
 		feederActive?: boolean;
 		feedLevelPercent?: number;
+		feedLevelCm?: number;
 		waterTempC?: number;
 		waterTempOk?: boolean;
 	} = {},
@@ -183,6 +184,7 @@ function heartbeatBody(
 		rtc_ok: opts.rtcOk ?? true,
 		feeder_active: opts.feederActive ?? false,
 		...(opts.feedLevelPercent !== undefined ? { feed_level_percent: opts.feedLevelPercent } : {}),
+		...(opts.feedLevelCm !== undefined ? { feed_level_cm: opts.feedLevelCm } : {}),
 		...(opts.waterTempC !== undefined ? { water_temp_c: opts.waterTempC } : {}),
 		...(opts.waterTempOk !== undefined ? { water_temp_ok: opts.waterTempOk } : {}),
 	};
@@ -434,6 +436,121 @@ describe("POST /api/ingest — heartbeat dedup and thinning (1.4)", () => {
 			([arg]) => (arg as { data: { eventType: string } }).data.eventType === "connected",
 		);
 		expect(connectedCalls).toHaveLength(1);
+	});
+});
+
+describe("POST /api/ingest — hopper sensor arbitration", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			pondId: "pond-1",
+			lastSeenAt: new Date(Date.now() - 5000),
+			hopperCapacityG: 1000,
+			gramsPerFeeding: 150,
+		} as never);
+		mockEnergyDevice.update.mockResolvedValue({} as never);
+		mockPond.findUnique.mockResolvedValue({
+			feedsPerDay: 2,
+			ownerId: null,
+			notificationPrefs: null,
+		} as never);
+		mockFeedEvent.findFirst.mockResolvedValue({
+			receivedAt: new Date(),
+			rtcOk: true,
+			feederActive: false,
+		} as never);
+		mockFeedEvent.create.mockResolvedValue({} as never);
+		mockFeedLevelLog.findFirst.mockResolvedValue(null as never);
+		mockFeedLevelLog.create.mockResolvedValue({} as never);
+		mockWaterTempLog.findFirst.mockResolvedValue(null as never);
+		mockWaterTempLog.create.mockResolvedValue({} as never);
+		mockFeedRequest.findMany.mockResolvedValue([] as never);
+		mockFeedRequest.updateMany.mockResolvedValue({ count: 0 } as never);
+		mockDeviceStateEvent.create.mockResolvedValue({} as never);
+		mockNotification.create.mockResolvedValue({} as never);
+		mockNotification.findFirst.mockResolvedValue(null as never);
+		mockNotification.updateMany.mockResolvedValue({ count: 0 } as never);
+	});
+
+	function levelUpdateCalls() {
+		return mockEnergyDevice.update.mock.calls.filter(
+			([arg]) => "feedLevelPercent" in (arg as { data: Record<string, unknown> }).data,
+		);
+	}
+
+	it("ignores the firmware's no-echo sentinel (0 % with a 0 cm distance)", async () => {
+		// The HC-SR04 timeout path reports 0 % and 0 cm. Treating that as a real
+		// reading overwrote the level and fired a false CRITICAL refill alert.
+		const res = await POST(
+			ingestRequest(heartbeatBody("hb-sentinel", { feedLevelPercent: 0, feedLevelCm: 0 })),
+		);
+
+		expect(res.status).toBe(204);
+		// The heartbeat itself still lands (lastSeenAt), only the level is skipped.
+		expect(mockEnergyDevice.update).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({ lastSeenAt: expect.any(Date) }),
+			}),
+		);
+		expect(levelUpdateCalls()).toHaveLength(0);
+		expect(mockFeedLevelLog.create).not.toHaveBeenCalled();
+		expect(mockNotification.create).not.toHaveBeenCalled();
+		expect(sendTelegramMessage).not.toHaveBeenCalled();
+	});
+
+	it("accepts a real empty hopper (0 % but a non-zero distance)", async () => {
+		const res = await POST(
+			ingestRequest(heartbeatBody("hb-empty", { feedLevelPercent: 0, feedLevelCm: 28 })),
+		);
+
+		expect(res.status).toBe(204);
+		expect(levelUpdateCalls()).toHaveLength(1);
+		expect(mockNotification.create).toHaveBeenCalledWith(
+			expect.objectContaining({ data: expect.objectContaining({ tier: "CRITICAL" }) }),
+		);
+	});
+
+	it("keeps the last known distance when the heartbeat omits feed_level_cm", async () => {
+		const res = await POST(ingestRequest(heartbeatBody("hb-no-cm", { feedLevelPercent: 45 })));
+
+		expect(res.status).toBe(204);
+		const [update] = levelUpdateCalls();
+		expect((update[0] as { data: Record<string, unknown> }).data).toEqual({
+			feedLevelPercent: 45,
+			feedLevelUpdatedAt: expect.any(Date),
+		});
+	});
+
+	it("stores the distance when the heartbeat reports one", async () => {
+		const res = await POST(
+			ingestRequest(heartbeatBody("hb-with-cm", { feedLevelPercent: 45, feedLevelCm: 9.5 })),
+		);
+
+		expect(res.status).toBe(204);
+		const [update] = levelUpdateCalls();
+		expect((update[0] as { data: Record<string, unknown> }).data).toEqual({
+			feedLevelPercent: 45,
+			feedLevelCm: 9.5,
+			feedLevelUpdatedAt: expect.any(Date),
+		});
+	});
+
+	it("warns two days ahead using the shared days-of-feed estimate", async () => {
+		// 25 % of 1,000 g = 250 g; 150 g × 2 meals = 300 g/day → 0.83 days.
+		// 25 % is above the 20 % low threshold, so only the days alert fires.
+		const res = await POST(
+			ingestRequest(heartbeatBody("hb-days-1", { feedLevelPercent: 25, feedLevelCm: 18 })),
+		);
+
+		expect(res.status).toBe(204);
+		const pellet = mockNotification.create.mock.calls.filter(
+			([arg]) => (arg as { data: { category?: string } }).data.category === "pellet",
+		);
+		expect(pellet).toHaveLength(1);
+		expect(pellet[0][0]).toMatchObject({
+			data: { tier: "WARNING", message: expect.stringContaining("run out") },
+		});
 	});
 });
 

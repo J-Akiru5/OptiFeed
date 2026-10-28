@@ -1,6 +1,46 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_FISH_COUNT } from "../constants";
-import { dailyFeedG, feedPerMealG, totalBiomassG } from "../feed-calc";
+import { dailyFeedG, feedPerMealG, liveBiomassG, liveFishCount, totalBiomassG } from "../feed-calc";
+
+describe("liveFishCount", () => {
+	// The team's data sheet: 300 stocked, 285 live after mortality.
+	it("deducts the mortality allowance", () => {
+		expect(liveFishCount(300, 95)).toBe(285);
+		expect(liveFishCount(300, 100)).toBe(300);
+		expect(liveFishCount(300, null)).toBe(300);
+	});
+
+	it("treats an invalid survival percentage as no known mortality", () => {
+		// 0/-10/140 are corrupt values, not "almost every fish died".
+		expect(liveFishCount(300, 0)).toBe(300);
+		expect(liveFishCount(300, -10)).toBe(300);
+		expect(liveFishCount(300, 140)).toBe(300);
+	});
+
+	it("returns null instead of inventing a population", () => {
+		expect(liveFishCount(null, 95)).toBeNull();
+		expect(liveFishCount(0, 95)).toBeNull();
+		expect(liveFishCount(Number.NaN, 95)).toBeNull();
+		// One fish at 1 % survival rounds to none alive.
+		expect(liveFishCount(1, 1)).toBeNull();
+	});
+});
+
+describe("liveBiomassG", () => {
+	it("matches the data sheet's daily feed for 285 live fish", () => {
+		const biomass = liveBiomassG(300, 0.1405, 95);
+		expect(biomass).toBe(40042.5);
+		// 40,042.5 g × 5 % = 2,002.13 g (the sheet's "2.0 kg"), not the
+		// 2,107.5 g the stocked count of 300 produces.
+		expect(dailyFeedG(biomass ?? 0, 5)).toBe(2002.13);
+		expect(dailyFeedG(totalBiomassG(300, 0.1405), 5)).toBe(2107.5);
+	});
+
+	it("returns null when the weight or the count is unknown", () => {
+		expect(liveBiomassG(300, null, 95)).toBeNull();
+		expect(liveBiomassG(null, 0.1405, 95)).toBeNull();
+	});
+});
 
 describe("totalBiomassG", () => {
 	it("computes population × average weight in grams", () => {

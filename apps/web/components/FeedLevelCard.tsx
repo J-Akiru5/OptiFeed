@@ -11,6 +11,8 @@ interface FeedLevelCardProps {
 	gramsPerFeeding: number;
 	feedsPerDay: number;
 	isDeviceOffline?: boolean;
+	/** Org low-hopper threshold; defaults to the legacy 20 %. */
+	hopperLowPct?: number;
 }
 
 export function FeedLevelCard({
@@ -20,6 +22,7 @@ export function FeedLevelCard({
 	gramsPerFeeding,
 	feedsPerDay,
 	isDeviceOffline = false,
+	hopperLowPct,
 }: FeedLevelCardProps) {
 	const t = useTranslations("dashboard.feedLevel");
 	const tDates = useTranslations("dates");
@@ -31,6 +34,7 @@ export function FeedLevelCard({
 			hopperCapacityG,
 			gramsPerFeeding,
 			feedsPerDay,
+			hopperLowPct,
 		});
 
 	const isStale = state === "stale";

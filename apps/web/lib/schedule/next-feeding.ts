@@ -1,13 +1,18 @@
+import { farmWallClock, farmWallClockToInstant } from "@/lib/date-local";
+import { computeNextFeedingSlot } from "./next-feeding-slot";
+
 /**
  * When the feeder dispenses next, from the effective schedule.
  *
  * The firmware spreads `feedsPerDay` meals evenly between the start and end
- * hour, so the slot list is `start + i * interval`. This mirrors the dashboard
- * home page's computation exactly (including the machine-local `setHours`
- * semantics) so the hero and the next-feeding strip can never disagree.
+ * hour, so the slot list is `start + i * interval` (see
+ * `computeNextFeedingSlot`, which owns the farm wall-clock maths and the
+ * overnight-window handling).
  *
- * Times are stored as `@db.Time`, which Prisma hands back as a `Date` whose UTC
- * hours are the configured hour of day — hence `getUTCHours()`.
+ * `Pond.scheduleStart` / `scheduleEnd` are stored as `@db.Time` and read back
+ * with the farm wall-clock hour in their UTC components. This resolves the slot
+ * to a real instant in the farm's timezone (`Asia/Manila`); using `setHours`
+ * would follow the runtime timezone and render eight hours off on Vercel.
  */
 export interface NextFeedingInput {
 	scheduleStart: Date;
@@ -16,25 +21,41 @@ export interface NextFeedingInput {
 	now?: Date;
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export function nextFeedingAt({
 	scheduleStart,
 	scheduleEnd,
 	feedsPerDay,
 	now = new Date(),
 }: NextFeedingInput): Date {
-	const startHour = scheduleStart.getUTCHours();
-	const endHour = scheduleEnd.getUTCHours();
-	const feeds = Math.max(1, feedsPerDay);
-	const interval = (endHour - startHour) / Math.max(1, feeds - 1);
+	const clock = farmWallClock(now);
+	const slot = computeNextFeedingSlot({ scheduleStart, scheduleEnd, feedsPerDay, now });
 
-	for (let index = 0; index < feeds; index++) {
-		const candidate = new Date(now);
-		candidate.setHours(startHour + index * interval, 0, 0, 0);
-		if (candidate > now) return candidate;
+	if (!slot) {
+		// Invalid stored times: keep the old "tomorrow at the start hour" shape
+		// when the start hour is usable, otherwise one day from now.
+		const startHour = scheduleStart.getUTCHours();
+		const startMinute = scheduleStart.getUTCMinutes();
+		if (Number.isFinite(startHour) && Number.isFinite(startMinute)) {
+			const tomorrow = new Date(Date.UTC(clock.year, clock.month - 1, clock.day + 1));
+			return farmWallClockToInstant({
+				year: tomorrow.getUTCFullYear(),
+				month: tomorrow.getUTCMonth() + 1,
+				day: tomorrow.getUTCDate(),
+				hour: startHour,
+				minute: startMinute,
+			});
+		}
+		return new Date(now.getTime() + DAY_MS);
 	}
 
-	const tomorrow = new Date(now);
-	tomorrow.setDate(tomorrow.getDate() + 1);
-	tomorrow.setHours(startHour, 0, 0, 0);
-	return tomorrow;
+	const day = new Date(Date.UTC(clock.year, clock.month - 1, clock.day + slot.dayOffset));
+	return farmWallClockToInstant({
+		year: day.getUTCFullYear(),
+		month: day.getUTCMonth() + 1,
+		day: day.getUTCDate(),
+		hour: slot.hours,
+		minute: slot.minutes,
+	});
 }

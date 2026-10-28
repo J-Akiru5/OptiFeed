@@ -86,6 +86,7 @@ export default async function PondDetailPage({
 					id: pond.id,
 					isFallow: pond.isFallow,
 					population: pond.population,
+					expectedSurvivalPct: cycle?.expectedSurvivalPct ?? null,
 					feedingRatePct: pond.feedingRatePct,
 					feedsPerDay: pond.feedsPerDay,
 					scheduleStart: pond.scheduleStart,

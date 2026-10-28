@@ -2,7 +2,7 @@ import { notFound } from "@/lib/api/errors";
 import { resolveActivePond } from "@/lib/auth/pond-access";
 import { DEFAULT_FISH_COUNT, PH_TZ } from "@/lib/constants";
 import { dateToFarmDateOnly } from "@/lib/crop-cycle/dates";
-import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
+import { feedPerMealG, liveFishCount, totalBiomassG } from "@/lib/feed-calc";
 import { formatFeedAmountLabel, isDailyTotalSource } from "@/lib/feed-figures";
 import type { ExportArtifact } from "@/lib/jobs/export-data";
 import prisma from "@/lib/prisma";
@@ -111,11 +111,20 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 
 	// Daily Feed (g) = Total Biomass (g) × Feeding Rate (%)
 	// Feed per Meal (g) = Daily Feed (g) ÷ Feeds Per Day  (see lib/feed-calc.ts)
-	const pondPopulation = pond.population;
+	// Live fish, not the stocked count, so the report matches the dashboard.
+	const activeCycle = await prisma.cropCycle.findFirst({
+		where: { pondId: pond.id, status: "ACTIVE" },
+		orderBy: { createdAt: "desc" },
+		select: { stockingCount: true, expectedSurvivalPct: true },
+	});
+	const livePopulation = liveFishCount(
+		pond.population ?? activeCycle?.stockingCount ?? null,
+		activeCycle?.expectedSurvivalPct ?? null,
+	);
 	let nextFeedingVolumeG = energyDevice?.gramsPerFeeding ?? 330;
-	if (latestBiomass) {
+	if (latestBiomass && livePopulation !== null) {
 		nextFeedingVolumeG = feedPerMealG(
-			totalBiomassG(pondPopulation, latestBiomass.avgWeightKg),
+			totalBiomassG(livePopulation, latestBiomass.avgWeightKg),
 			feedingRatePct,
 			feedsPerDay,
 		);
@@ -130,7 +139,7 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 			["Feeds Per Day", `${feedsPerDay}`],
 			["Feeding Rate", `${feedingRatePct}%`],
 			["Feed Volume", `${nextFeedingVolumeG}g`],
-			["Population", `${pondPopulation ?? DEFAULT_FISH_COUNT}`],
+			["Population", `${pond.population ?? DEFAULT_FISH_COUNT}`],
 			["Sample Interval", `${pond.sampleIntervalDays ?? 14} days`],
 		],
 		theme: "grid",

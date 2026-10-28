@@ -147,8 +147,27 @@ describe("computeCalibrationDrift", () => {
 describe("levelDropGrams", () => {
 	it("treats a jump at the threshold as noise, not a refill", () => {
 		const levels = [level(70, 0), level(70 + DRIFT_REFILL_JUMP_POINTS, 1), level(60, 2)];
-		// The +5 rise contributes no drop; the later 75 -> 60 fall is 15 points.
-		expect(levelDropGrams(levels, 1000)).toBe(150);
+		// The +5 rise was noise: the hopper really fell from 70 % to 60 %, so
+		// the drop is 10 points (100 g at 1,000 g capacity), not 15.
+		expect(levelDropGrams(levels, 1000)).toBe(100);
+	});
+
+	it("does not count an upward noise spike as extra dispensed feed", () => {
+		// 50 → 53 (noise, ignored) → 40: the real drop is 10 points. Measuring
+		// each pair's fall would count 13 and overstate the feed by 30 %.
+		const levels = [level(50, 0), level(53, 1), level(40, 2)];
+		expect(levelDropGrams(levels, 1000)).toBe(100);
+	});
+
+	it("keeps measuring from the real peak after several small noise rises", () => {
+		const levels = [level(50, 0), level(52, 1), level(54, 2), level(53, 3), level(45, 4)];
+		expect(levelDropGrams(levels, 1000)).toBe(50);
+	});
+
+	it("starts a new segment at a refill and keeps the drop before it", () => {
+		// 80 → 70 = 10 points, refill to 95, then 95 → 85 = 10 points.
+		const levels = [level(80, 0), level(70, 1), level(95, 2), level(85, 3)];
+		expect(levelDropGrams(levels, 1000)).toBe(200);
 	});
 
 	it("returns 0 without a capacity", () => {

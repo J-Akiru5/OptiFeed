@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { formatDateTimeLocal, formatFarmDateTime, formatWallClockTime } from "../date-local";
+import {
+	farmWallClock,
+	farmWallClockToInstant,
+	formatDateTimeLocal,
+	formatFarmDateTime,
+	formatWallClockTime,
+	zoneOffsetMs,
+} from "../date-local";
 
 describe("formatDateTimeLocal", () => {
 	const mockTranslator = (key: string): string => {
@@ -119,5 +126,28 @@ describe("formatWallClockTime", () => {
 		expect(formatWallClockTime(16, 5, mockTranslator)).toBe("4:05 PM");
 		expect(formatWallClockTime(0, 30, mockTranslator)).toBe("12:30 AM");
 		expect(formatWallClockTime(12, 0, mockTranslator)).toBe("12:00 PM");
+	});
+
+	it("never derives an instant from the runtime timezone", () => {
+		// 08:00 Manila is 00:00 UTC, not 08:00 UTC.
+		const instant = farmWallClockToInstant({
+			year: 2026,
+			month: 10,
+			day: 27,
+			hour: 8,
+			minute: 30,
+		});
+		expect(instant.toISOString()).toBe("2026-10-27T00:30:00.000Z");
+		expect(farmWallClock(instant)).toMatchObject({ day: 27, hour: 8, minute: 30 });
+	});
+
+	it("is the inverse of farmWallClock across a day boundary", () => {
+		const instant = new Date("2026-10-27T18:00:00.000Z"); // 02:00 Oct 28 Manila
+		const clock = farmWallClock(instant);
+		expect(farmWallClockToInstant(clock).toISOString()).toBe(instant.toISOString());
+	});
+
+	it("reports the farm zone offset in milliseconds", () => {
+		expect(zoneOffsetMs(new Date("2026-10-27T00:00:00.000Z"))).toBe(8 * 60 * 60 * 1000);
 	});
 });

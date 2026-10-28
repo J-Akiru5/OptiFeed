@@ -111,6 +111,7 @@ vi.mock("@/lib/prisma", () => ({
 		biomassLog: { findFirst: vi.fn(async () => null) },
 		fcrReport: { findFirst: vi.fn(async () => null) },
 		feedLevelLog: { findMany: vi.fn(async () => []) },
+		cropCycle: { findFirst: vi.fn(async () => null) },
 		user: { findMany: vi.fn(async () => []) },
 	},
 }));

@@ -1,4 +1,5 @@
 import { startOfDayInTimeZone } from "@/lib/chart-windows";
+import { liveFishCount } from "@/lib/feed-calc";
 import { MACHINE_FEED_SOURCES } from "@/lib/feed-figures";
 import { isDeviceOffline } from "@/lib/feed-level-display";
 import type { FeederHeroData } from "@/lib/feeder-hero-types";
@@ -27,6 +28,8 @@ export interface FeederHeroPond {
 	id: string;
 	isFallow: boolean;
 	population: number | null;
+	/** Active cycle's mortality allowance; omitted/100 % means no deduction. */
+	expectedSurvivalPct?: number | null;
 	feedingRatePct: number;
 	feedsPerDay: number;
 	scheduleStart: Date;
@@ -105,7 +108,8 @@ export async function loadFeederHero({
 		{
 			feedingRatePct: effective.feedingRatePct,
 			feedsPerDay: effective.feedsPerDay,
-			population: pond.population,
+			// Live fish, not the stocked count (lib/feed-calc.ts).
+			population: liveFishCount(pond.population, pond.expectedSurvivalPct ?? null),
 			avgWeightKg: latestBiomass?.avgWeightKg ?? null,
 			latestFcr: latestFcr?.fcrValue ?? null,
 			currentGrams: device.gramsPerFeeding,

@@ -95,3 +95,51 @@ export function formatWallClockTime(
 	const anchor = new Date(2000, 0, 1, hour, minute, 0, 0);
 	return formatDateTimeLocal(anchor, tDates).time;
 }
+
+/**
+ * Offset of `timeZone` at `date`, in milliseconds (wall clock − UTC).
+ *
+ * Exported so the chart windows and the schedule helpers share one offset
+ * implementation instead of re-deriving it.
+ */
+export function zoneOffsetMs(date: Date, timeZone: string = PH_TZ): number {
+	const formatter = new Intl.DateTimeFormat("en-US", {
+		timeZone,
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+		second: "2-digit",
+		hourCycle: "h23",
+	});
+	const parts = new Map(formatter.formatToParts(date).map((part) => [part.type, part.value]));
+	const asUtc = Date.UTC(
+		Number(parts.get("year")),
+		Number(parts.get("month")) - 1,
+		Number(parts.get("day")),
+		Number(parts.get("hour")),
+		Number(parts.get("minute")),
+		Number(parts.get("second")),
+	);
+	return asUtc - date.getTime();
+}
+
+/**
+ * The instant at which the farm's wall clock reads `clock`.
+ *
+ * The inverse of `farmWallClock`. Two passes settle a zone whose offset changes
+ * between the UTC guess and the resulting instant (not needed in Asia/Manila,
+ * harmless elsewhere). Use this whenever a stored farm wall-clock time must
+ * become a real Date — never `setHours`, which follows the runtime timezone
+ * (UTC on Vercel) instead of the farm's.
+ */
+export function farmWallClockToInstant(
+	clock: Pick<FarmWallClock, "year" | "month" | "day" | "hour" | "minute">,
+	timeZone: string = PH_TZ,
+): Date {
+	const asUtc = Date.UTC(clock.year, clock.month - 1, clock.day, clock.hour, clock.minute, 0, 0);
+	let instant = new Date(asUtc - zoneOffsetMs(new Date(asUtc), timeZone));
+	instant = new Date(asUtc - zoneOffsetMs(instant, timeZone));
+	return instant;
+}

@@ -1345,7 +1345,18 @@
 			"markedRead": "{count} ka notipikasyon ang ginmarka nga nabasa",
 			"loadMore": "Ipakita pa",
 			"filtersLabel": "I-filter ang mga hitabo",
-			"timelineLabel": "Talaan sang mga hitabo"
+			"timelineLabel": "Talaan sang mga hitabo",
+			"lastTouch": "Katapusan nga Pagtandog",
+			"lastTouchLabel": "Katapusan nga aksyon sang user nga narekord",
+			"lastTouchSummary": "{actor} — {event}",
+			"details": "Mga Detalye",
+			"metadata": "Metadata sang hitabo",
+			"actor": "Nagbuhat",
+			"actorRole": "Papel",
+			"actorFarmId": "Farm ID",
+			"actorSystem": "System",
+			"actorDevice": "Device",
+			"actorUnknown": "Wala makilala nga nagbuhat"
 		},
 		"adminUsers": {
 			"actionsColumn": "Mga Aksyon",

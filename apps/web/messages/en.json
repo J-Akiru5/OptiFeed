@@ -1832,7 +1832,18 @@
 			"markedRead": "{count} notification(s) marked as read",
 			"loadMore": "Load more",
 			"filtersLabel": "Filter events",
-			"timelineLabel": "Event timeline"
+			"timelineLabel": "Event timeline",
+			"lastTouch": "Last touch",
+			"lastTouchLabel": "Last recorded user action",
+			"lastTouchSummary": "{actor} — {event}",
+			"details": "Details",
+			"metadata": "Event metadata",
+			"actor": "Actor",
+			"actorRole": "Role",
+			"actorFarmId": "Farm ID",
+			"actorSystem": "System",
+			"actorDevice": "Device",
+			"actorUnknown": "Unknown actor"
 		},
 		"notifications": {
 			"title": "Notifications",

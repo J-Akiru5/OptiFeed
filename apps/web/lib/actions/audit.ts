@@ -1,15 +1,19 @@
 "use server";
 
+import {
+	type AuditFilterInput,
+	actorLookupKeys,
+	buildAuditWhere,
+	indexAuditActors,
+	isUserTouch,
+	labelForActor,
+} from "@/lib/audit/trail";
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import { resolvePagination } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
 import { LIST_PAGE_SIZE_DEFAULT, getListPageSize } from "@/lib/settings/platform";
 
-export interface AuditFilter {
-	eventTypes?: string[];
-	source?: string;
-	dateFrom?: Date;
-	dateTo?: Date;
+export interface AuditFilter extends AuditFilterInput {
 	page?: number;
 }
 
@@ -18,6 +22,10 @@ export interface AuditEvent {
 	eventType: string;
 	source: string;
 	actorId: string | null;
+	/** Resolved display name/email, or the raw actor id when no user row is visible. */
+	actorLabel: string | null;
+	actorRole: string | null;
+	actorFarmId: string | null;
 	deviceTime: string | null;
 	createdAt: Date;
 	metadata: Record<string, unknown> | null;
@@ -29,62 +37,57 @@ export interface AuditResult {
 	total: number;
 	page: number;
 	pageSize: number;
+	/** Newest user-touched event in the current filter scope, if any. */
+	lastTouch: AuditEvent | null;
 }
 
+function emptyResult(pageSize: number): AuditResult {
+	return { events: [], total: 0, page: 1, pageSize, lastTouch: null };
+}
+
+/**
+ * Farmer audit trail (#273).
+ *
+ * Scope: every ACTIVE pond owned by the caller, never one arbitrary pond. The
+ * device relation filter keeps the tenant boundary (a device belongs to a
+ * pond; the pond list is owner-scoped). Actor ids are resolved in one batch
+ * query per page and only for users on the caller's farm; an actor outside
+ * that boundary stays a raw id so another farm's name is never exposed.
+ *
+ * "Last touch" is a separate first-row query so it still finds the newest
+ * human action when the current page is full of device heartbeats.
+ */
 export async function getAuditLog(filters: AuditFilter = {}): Promise<AuditResult> {
 	try {
 		const pageSize = await getListPageSize();
 		const ownerId = await getCurrentPondOwnerId();
-		const pond = await prisma.pond.findFirst({
+		const ponds = await prisma.pond.findMany({
 			where: { ownerId, status: "ACTIVE" },
 			select: { id: true },
 		});
 
-		if (!pond) {
-			return { events: [], total: 0, page: 1, pageSize };
+		if (ponds.length === 0) {
+			return emptyResult(pageSize);
 		}
 
-		const energyDevices = await prisma.energyDevice.findMany({
-			where: { pondId: pond.id },
-			select: { id: true },
-		});
-
-		if (energyDevices.length === 0) {
-			return { events: [], total: 0, page: 1, pageSize };
-		}
-
-		const deviceIds = energyDevices.map((d) => d.id);
-
-		const where: Record<string, unknown> = {
-			deviceId: { in: deviceIds },
-		};
-
-		if (filters.eventTypes && filters.eventTypes.length > 0) {
-			where.eventType = { in: filters.eventTypes };
-		}
-
-		if (filters.source) {
-			where.source = filters.source;
-		}
-
-		if (filters.dateFrom || filters.dateTo) {
-			where.createdAt = {};
-			if (filters.dateFrom) {
-				(where.createdAt as Record<string, unknown>).gte = filters.dateFrom;
-			}
-			if (filters.dateTo) {
-				(where.createdAt as Record<string, unknown>).lte = filters.dateTo;
-			}
-		}
+		const pondIds = ponds.map((pond) => pond.id);
+		const where = buildAuditWhere(pondIds, filters);
 
 		const requestedPage = Math.max(1, Math.floor(filters.page ?? 1) || 1);
-		const [total, firstFetch] = await Promise.all([
+		const [total, firstFetch, lastTouchRow] = await Promise.all([
 			prisma.deviceStateEvent.count({ where }),
 			prisma.deviceStateEvent.findMany({
 				where,
 				orderBy: { id: "desc" },
 				skip: (requestedPage - 1) * pageSize,
 				take: pageSize,
+				include: {
+					device: { select: { id: true, label: true } },
+				},
+			}),
+			prisma.deviceStateEvent.findFirst({
+				where: buildAuditWhere(pondIds, filters, { userTouchedOnly: true }),
+				orderBy: { id: "desc" },
 				include: {
 					device: { select: { id: true, label: true } },
 				},
@@ -104,23 +107,57 @@ export async function getAuditLog(filters: AuditFilter = {}): Promise<AuditResul
 						},
 					});
 
+		// One actor query per page. `farmId: ownerId` is the tenant boundary:
+		// an id belonging to another farm resolves to nothing and stays raw.
+		const actorKeys = actorLookupKeys([
+			...rows.map((row) => row.actorId),
+			lastTouchRow?.actorId ?? null,
+		]);
+		const actors =
+			actorKeys.length > 0
+				? await prisma.user.findMany({
+						where: {
+							farmId: ownerId,
+							OR: [{ id: { in: actorKeys } }, { farmId: { in: actorKeys } }],
+						},
+						take: actorKeys.length,
+						select: {
+							id: true,
+							farmId: true,
+							email: true,
+							displayName: true,
+							role: true,
+						},
+					})
+				: [];
+		const actorByKey = indexAuditActors(actors);
+
+		const toEvent = (event: (typeof rows)[number]): AuditEvent => {
+			const actor = event.actorId ? actorByKey.get(event.actorId) : undefined;
+			return {
+				id: event.id,
+				eventType: event.eventType,
+				source: event.source,
+				actorId: event.actorId,
+				actorLabel: labelForActor(actor) ?? event.actorId,
+				actorRole: actor?.role ?? null,
+				actorFarmId: actor?.farmId ?? null,
+				deviceTime: event.deviceTime,
+				createdAt: event.createdAt,
+				metadata: event.metadata as Record<string, unknown> | null,
+				device: event.device,
+			};
+		};
+
 		return {
-			events: rows.map((e) => ({
-				id: e.id,
-				eventType: e.eventType,
-				source: e.source,
-				actorId: e.actorId,
-				deviceTime: e.deviceTime,
-				createdAt: e.createdAt,
-				metadata: e.metadata as Record<string, unknown> | null,
-				device: e.device,
-			})),
+			events: rows.map(toEvent),
 			total,
 			page: paging.page,
 			pageSize: paging.pageSize,
+			lastTouch: lastTouchRow && isUserTouch(lastTouchRow) ? toEvent(lastTouchRow) : null,
 		};
 	} catch (error) {
 		console.error("Failed to fetch audit log:", error);
-		return { events: [], total: 0, page: 1, pageSize: LIST_PAGE_SIZE_DEFAULT };
+		return emptyResult(LIST_PAGE_SIZE_DEFAULT);
 	}
 }

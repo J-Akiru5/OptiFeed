@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- #273 the farmer Audit Trail now covers every active pond on the farm instead of only the first one, resolves actor ids to human-readable names, surfaces the newest user touch, and shows each event's actor, role and bounded metadata in an expandable Details block. RBAC scoping is documented and tested: farmers see their own farm only, tenant admins use `/admin/audit`, platform admins use `/superadmin/operations/audit`.
+
 ## [1.21.2] - 2026-10-28
 
 ### Changed

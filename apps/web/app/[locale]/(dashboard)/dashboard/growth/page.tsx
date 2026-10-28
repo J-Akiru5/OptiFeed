@@ -366,7 +366,7 @@ export default async function GrowthPage() {
 						</div>
 					</div>
 					<Link
-						href="/dashboard/harvest"
+						href="/dashboard/calendar"
 						className="inline-flex min-h-11 items-center gap-1 rounded-lg text-xs font-bold text-[#0A3D62] hover:underline focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:text-[#5b9bd5] dark:focus-visible:outline-[#8fc0ea]"
 					>
 						{tHarvest("progress")} <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
@@ -395,7 +395,7 @@ export default async function GrowthPage() {
 						</div>
 					</div>
 					<Link
-						href="/dashboard/harvest"
+						href="/dashboard/calendar"
 						className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-[#1f66a0] dark:focus-visible:outline-[#8fc0ea]"
 					>
 						{tHarvest("startCycle")} <ChevronRight aria-hidden="true" className="h-4 w-4" />

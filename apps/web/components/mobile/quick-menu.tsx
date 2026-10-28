@@ -199,7 +199,6 @@ export function quickMenuSections(input: {
 				},
 				{ id: "history", label: nav("history"), href: "/dashboard/history", icon: History },
 				{ id: "growth", label: nav("growth"), href: "/dashboard/growth", icon: TrendingUp },
-				{ id: "harvest", label: nav("harvest"), href: "/dashboard/harvest", icon: CalendarDays },
 				{
 					id: "notifications",
 					label: nav("notifications"),

@@ -77,7 +77,7 @@
 		"history": "Kasaysayan",
 		"growth": "Pagtubo",
 		"harvest": "Pag-ani",
-		"calendar": "Kalendaryo",
+		"calendar": "Kalendaryo kag Pag-ani",
 		"settings": "Mga Setting",
 		"notifications": "Mga Notipikasyon",
 		"audit": "Talaan ng Audit",
@@ -1019,8 +1019,8 @@
 				"recurringChangeConfirm": "Bag-uhon ang bug-os nga nagabalik nga serye? Pilia ang Cancel para indi mabag-o."
 			},
 			"calendarPage": {
-				"title": "Kalendaryo sang punong",
-				"desc": "Ang tanan nga punong nga makita mo, upod ang mga hitabo nga ma-edit mo.",
+				"title": "Kalendaryo kag Pag-ani",
+				"desc": "Ang crop cycle kag ang tanan nga hitabo sa punong, sa isa ka kalendaryo.",
 				"readOnlyPond": "basa lamang",
 				"readOnlyHint": "Ini nga punong iya sang iban nga uma sa imo organisasyon. Makita mo ang mga hitabo pero indi mo ini ma-edit.",
 				"readOnlyEvent": "Ini nga hitabo iya sang iban nga uma kag basa lamang."
@@ -1042,6 +1042,7 @@
 			"upcoming": {
 				"title": "Palapit nga events",
 				"next": "Sunod {count}",
+				"loading": "Ginakarga ang palapit nga mga event…",
 				"empty": "Wala sang palapit nga event.",
 				"listLabel": "Mga masunod nga hitabo"
 			},
@@ -3434,7 +3435,7 @@
 				"intro": "Average nga timbang sang lawas, feed conversion kag ang plano nga ginasunod sang feeder. Ang history nagatago sang tanan nga sampol."
 			},
 			"harvest": {
-				"title": "Pag-ani kag Kalendaryo",
+				"title": "Kalendaryo kag Pag-ani",
 				"intro": "Ang crop cycle kag ang mga event sa kalendaryo sang punong."
 			},
 			"settings": {

@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- #277 the farm-owner Admin Overview now shows feed dispensed per day, device activity and fleet-health charts, built on the existing shared Recharts components (no new dependency) and scoped to the caller's organization.
+- #277 the farm-owner Admin Overview now shows feed dispensed per day, device activity and fleet-health charts, built on the existing shared Recharts components (no new dependency) and scoped to the caller's organization. When a series hits its 5,000-row cap the total is labelled as a lower bound and days that were not fetched are no longer zero-filled.
 
 ### Fixed
 

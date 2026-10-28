@@ -388,6 +388,8 @@ describe("admin overview page", () => {
 			activityDays: 14,
 			feedTotalGrams: 0,
 			activityTotal: 0,
+			feedTruncated: false,
+			activityTruncated: false,
 		});
 
 		const html = renderToStaticMarkup(await AdminOverviewPage());

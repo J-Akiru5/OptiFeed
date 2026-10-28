@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- #275 the phone Schedule page no longer lets the sticky Save Changes bar cover the Sync Status card; a mobile-only spacer keeps the applied-at line, the schedule summary and Force Resync fully visible and tappable above the bar.
+
 ## [1.21.2] - 2026-10-28
 
 ### Changed

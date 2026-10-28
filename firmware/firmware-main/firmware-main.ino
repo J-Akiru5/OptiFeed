@@ -21,6 +21,27 @@
       If the relay is busy, incoming triggers are silently ignored.
       The event queue captures everything that actually dispensed.
 
+  FAIL-SAFE MODEL (1.6.0):
+    - The relay is OFF at boot, in a shutdown handler before any software
+      reset, and is force-opened if a dose overruns its expected end + 2 s.
+    - One gate for every source: a 10 s minimum gap between doses, 6 doses per
+      rolling hour, the daily gram cap and MAX_DISPENSE_MS. Each refusal is
+      reported with a reason.
+    - Three abnormal resets (brownout/panic/watchdog) within 10 minutes boot
+      the unit into SAFE MODE: the relay is locked OFF, every trigger is
+      refused with reason safe_mode, and the heartbeat says so. A clean
+      power-on clears the history; 30 quiet minutes (or a reset-button hold)
+      leave it.
+    - The hopper takes 5 samples, rejects impossible echoes, uses the median
+      and an EMA, and only believes a change that persists. Hysteresis plus a
+      10-minute hold stop the pellet alerts flapping. An invalid cycle reports
+      "unknown" (omitted), never 0 %.
+    - The DS18B20 rejects its -127 C / 85 C sentinels.
+    - Events are rate-limited per type, the offline queue drops its oldest
+      entry and counts the loss, and HTTP calls retry with exponential backoff
+      and jitter, capped at 5 minutes. Pure logic lives in safety.h/filters.h
+      and is covered by `pio test -d firmware -e native`.
+
   REMOTE UPDATES (OTA, T-12a):
     - A/B app slots from min_spiffs.csv; the bootloader only switches slots in
       Update.end(true), so power loss mid-download is harmless.
@@ -60,6 +81,10 @@
 #include <mbedtls/pk.h>
 #include <mbedtls/sha256.h>
 #include <ctype.h>
+
+// Pure, host-testable modules (firmware 1.6.0). No Arduino calls inside.
+#include "filters.h"
+#include "safety.h"
 #ifdef ENABLE_LAN_OTA
 #include <ArduinoOTA.h>
 #endif
@@ -83,7 +108,7 @@
 
 // Reported at boot and in the heartbeat body so the fleet and the OTA rollout
 // can tell builds apart. Bump on every firmware change.
-#define FW_VERSION "1.5.3"
+#define FW_VERSION "1.6.0"
 // Board string the signed manifest must carry. One value for every unit this
 // firmware runs on (ESP32-WROOM-32U); a manifest for another board is refused.
 #define FW_BOARD "wroom32u"
@@ -417,6 +442,63 @@ bool resetButtonsArmed = false;
 // Rate limit for the diagnostic button log lines (glitch / ignored edge).
 #define BUTTON_LOG_INTERVAL_MS         10000UL
 
+// ---- Fail-safe limits (firmware 1.6.0) ------------------------------------
+// One gate for every trigger source (docs/missions/2026-10-27-issues.md I-41).
+// These are deliberately tighter than the server caps: the server can refuse a
+// dose, the firmware must also bound a unit that is off the network.
+#define MIN_DISPENSE_GAP_MS            10000UL   // any two doses, any source
+#define MAX_DISPENSES_PER_HOUR         6         // rolling hour, any source
+#define RELAY_OVERRUN_GRACE_MS         2000UL    // expected end + this = trip
+#define BROWNOUT_HOLD_MS               (60UL * 1000UL)
+
+// Crash / brownout loop -> SAFE MODE.
+#define SAFE_MODE_ABNORMAL_WINDOW_MS   (10UL * 60UL * 1000UL)
+#define SAFE_MODE_ABNORMAL_THRESHOLD   3
+#define SAFE_MODE_QUIET_MS             (30UL * 60UL * 1000UL)
+#define SAFE_MODE_HEALTHY_CLEAR_MS     (10UL * 60UL * 1000UL)
+
+// Noisy feed-button line: more than 5 rejected glitches in a minute disables
+// the button for 10 minutes (1.5.3 keeps its 50 ms confirmation window).
+#define BUTTON_NOISE_WINDOW_MS         60000UL
+#define BUTTON_NOISE_MAX               5
+#define BUTTON_DISABLE_MS              (10UL * 60UL * 1000UL)
+
+// Hopper plausibility (HC-SR04 / filters.h). The low threshold mirrors the
+// organization default (OrgSetting.hopperLowPct = 20) and the refill margin is
+// the hysteresis that stops pellet alerts flapping.
+#define HOPPER_SAMPLE_COUNT            5
+#define HOPPER_REJECT_BELOW_CM         2.0f
+#define HOPPER_REJECT_ABOVE_MARGIN_CM  10.0f
+#define HOPPER_EMA_ALPHA               0.35f
+#define HOPPER_JUMP_PCT                15.0f
+#define HOPPER_PERSIST_CYCLES          3
+#define HOPPER_LOW_PCT                 20.0f
+#define HOPPER_REFILL_MARGIN_PCT       10.0f
+#define HOPPER_STATE_HOLD_MS           (10UL * 60UL * 1000UL)
+
+// Event rate limits (a token bucket per event type). The dispense bucket is
+// sized above MAX_DISPENSES_PER_HOUR, so a real feeding record is never lost.
+#define FEED_EVENT_BUCKET_CAPACITY     12
+#define FEED_EVENT_REFILL_MS           (5UL * 60UL * 1000UL)
+#define REFUSAL_BUCKET_CAPACITY        6
+#define REFUSAL_REFILL_MS              (10UL * 60UL * 1000UL)
+#define ACK_BUCKET_CAPACITY            6
+#define ACK_REFILL_MS                  (60UL * 1000UL)
+
+// HTTP retry backoff (safety.h NetRetry): 5 s, 10 s, 20 s ... capped at 5 min,
+// +-20 % jitter. OTA keeps its own 1 h -> 6 h -> 24 h update ladder.
+#define HTTP_RETRY_BASE_MS             5000UL
+#define HTTP_RETRY_CAP_MS              (5UL * 60UL * 1000UL)
+
+// NVS keys for the reset history and safe mode (namespace "optifeed", 15-char
+// NVS limit). New keys only; the existing ones are untouched.
+#define NVS_RESET_COUNT_KEY   "rst_abn_cnt"
+#define NVS_RESET_MASK_KEY    "rst_abn_mask"
+#define NVS_RESET_FIRST_KEY   "rst_first_ep"
+#define NVS_RESET_LAST_KEY    "rst_last_ep"
+#define NVS_SAFE_MODE_KEY     "safe_mode"
+#define NVS_SAFE_UNTIL_KEY    "safe_until_ep"
+
 #define WIFI_RETRY_INTERVAL_MS 10000
 
 // ---- WiFi provisioning portal ----
@@ -483,6 +565,7 @@ int feedTimesCount = 0;
 struct QueuedEvent {
   bool used;
   bool synced;
+  uint32_t seq;          // enqueue order; the oldest unsynced entry is dropped first
   float grams;
   char source[12];       // "scheduled" | "dashboard" | "button"
   String requestId;      // non-empty only for dashboard-sourced feeds
@@ -643,8 +726,62 @@ unsigned long lastQuietLogMs = 0;
 // before the watchdog is subscribed, so resets are skipped until then.
 bool watchdogSubscribed = false;
 
+// ==================== Fail-safe state (firmware 1.6.0) ====================
+
+// Pure logic lives in safety.h / filters.h so `pio test -e native` covers it.
+fw::DispenseGate dispenseGate;
+fw::ResetHistory resetHistory;
+fw::SafeModeWindow safeModeWindow;
+fw::ButtonNoiseGuard buttonNoise;
+fw::HopperFilter hopperFilter;
+fw::TokenBucket dispensedEventBucket;
+fw::TokenBucket refusedEventBucket;
+fw::TokenBucket ackEventBucket;
+fw::NetRetry heartbeatRetry;
+fw::NetRetry feedPollRetry;
+fw::NetRetry scheduleRetry;
+fw::NetRetry eventFlushRetry;
+fw::NetRetry refusalRetry;
+fw::NetRetry ackRetry;
+
+bool safeModeActive = false;
+char lastResetReasons[48] = "none";
+uint16_t refusalCounts[(uint8_t)fw::Refusal::COUNT];
+uint32_t relayOverruns = 0;
+uint32_t sensorInvalidCount = 0;
+uint32_t queueDropCount = 0;
+
+// A relay overrun turns the motor off straight away, but the refusal report is
+// a network call. It is deferred to loop() so it never runs inside an open TLS
+// session (kickWatchdog() can trip this in the middle of a poll cycle).
+bool pendingRelayOverrunReport = false;
+float overrunGrams = 0.0f;
+const char *overrunSource = "";
+
+bool buttonWasDisabled = false;
+unsigned long lastDisabledLogMs = 0;
+bool safetyHealthyCleared = false;
+unsigned long lastSafeModeCheckMs = 0;
+uint32_t nextEventSequence = 1;
+
+// Set by stopFeedCycle() and serviceDispenseSafety(); never re-enter a stop.
+void stopFeedCycle();
+void serviceDispenseSafety();
+void serviceSafetyReports();
+void serviceSafeMode();
+void configureSafety();
+void configureHopperFilter();
+void clearSafetyStateForReset();
+void initSafetyState(esp_reset_reason_t reason);
+bool readHopperLevel(float &percent, float &cm);
+int8_t netJitter();
+
 void kickWatchdog() {
   if (watchdogSubscribed) esp_task_wdt_reset();
+  // A blocking HTTPS call can delay loop() past the end of a short dose. The
+  // relay is switched off here, at every network boundary, instead of waiting
+  // for the next pass.
+  serviceDispenseSafety();
 }
 
 // Event ID counter — combined with esp_random() for uniqueness across reboots
@@ -903,6 +1040,7 @@ void handleResetButtons() {
     clearWiFiStackCredentials();
     clearWiFiCredentials();
     clearDeviceIdentity();
+    clearSafetyStateForReset();
     delay(300);
     ESP.restart();
   }
@@ -912,6 +1050,7 @@ void handleResetButtons() {
     Serial.println("[RESET] WiFi reset button held - clearing WiFi, keeping device identity");
     clearWiFiStackCredentials();
     clearWiFiCredentials();
+    clearSafetyStateForReset();
     delay(300);
     ESP.restart();
   }
@@ -2091,6 +2230,9 @@ bool scheduledFeedDueNow() {
 const char *otaPreflightFailure() {
   if (otaInProgress) return "update_in_progress";
   if (otaHealthCheckActive || otaVerifyPending) return "pending_verify";
+  // A unit in safe mode is unstable by definition: do not replace its firmware
+  // until it has proved 30 quiet minutes (1.6.0).
+  if (safeModeActive) return "safe_mode";
   if (feederActive) return "feeding";
   if (provisioningActive) return "provisioning";
   if (WiFi.status() != WL_CONNECTED) return "wifi_down";
@@ -2666,6 +2808,188 @@ void maybeCheckForUpdate() {
   checkForUpdate();
 }
 
+// ==================== Fail-safe: boot, safe mode, gate (1.6.0) ====================
+
+// Maps the ESP-IDF reason to the stable code in safety.h. The on-wire names
+// (`reset_reason` in the heartbeat) are unchanged.
+uint8_t resetCodeFromEsp(esp_reset_reason_t reason) {
+  switch (reason) {
+    case ESP_RST_POWERON: return fw::RESET_POWERON;
+    case ESP_RST_EXT: return fw::RESET_EXTERNAL;
+    case ESP_RST_SW: return fw::RESET_SOFTWARE;
+    case ESP_RST_PANIC: return fw::RESET_PANIC;
+    case ESP_RST_INT_WDT: return fw::RESET_INT_WDT;
+    case ESP_RST_TASK_WDT: return fw::RESET_TASK_WDT;
+    case ESP_RST_WDT: return fw::RESET_WDT;
+    case ESP_RST_DEEPSLEEP: return fw::RESET_DEEPSLEEP;
+    case ESP_RST_BROWNOUT: return fw::RESET_BROWNOUT;
+    case ESP_RST_SDIO: return fw::RESET_SDIO;
+    default: return fw::RESET_UNKNOWN;
+  }
+}
+
+// A usable wall clock for the reset history and the safe-mode window. The DS3231
+// is read over I2C, so callers must not run this every loop pass.
+bool clockValidNow() {
+  if (!rtcAvailable) return false;
+  return rtc.now().year() >= 2024;
+}
+
+// Runs before every software reset, panic reboot, OTA reboot and ESP.restart().
+// It uses the register-level GPIO write so it works even when the Arduino HAL or
+// the flash cache is not available. Boot already writes RELAY_OFF first.
+void relayOffShutdownHandler() {
+  gpio_set_level((gpio_num_t)RELAY_PIN, (uint32_t)RELAY_OFF);
+  feederActive = false;
+}
+
+// +-20 % jitter for the HTTP retry backoff (safety.h NetRetry).
+int8_t netJitter() { return (int8_t)((esp_random() % 41) - 20); }
+
+void persistResetHistory() {
+  prefs.putUChar(NVS_RESET_COUNT_KEY, resetHistory.count());
+  prefs.putUInt(NVS_RESET_MASK_KEY, resetHistory.mask());
+  prefs.putUInt(NVS_RESET_FIRST_KEY, resetHistory.firstEpoch());
+  prefs.putUInt(NVS_RESET_LAST_KEY, resetHistory.lastEpoch());
+}
+
+// Called from the Wi-Fi/factory reset holds: a deliberate human intervention
+// leaves safe mode and clears the history so the unit does not immediately
+// re-enter it on the next boot.
+void clearSafetyStateForReset() {
+  resetHistory.clear();
+  safeModeActive = false;
+  prefs.putBool(NVS_SAFE_MODE_KEY, false);
+  prefs.remove(NVS_SAFE_UNTIL_KEY);
+  persistResetHistory();
+  Serial.println("[SAFETY] safe mode and reset history cleared by a reset hold");
+}
+
+void enterSafeMode() {
+  safeModeActive = true;
+  digitalWrite(RELAY_PIN, RELAY_OFF);
+  feederActive = false;
+  const bool clockValid = clockValidNow();
+  const uint32_t epoch = clockValid ? (uint32_t)rtc.now().unixtime() : 0;
+  safeModeWindow.begin(clockValid, epoch, millis(), SAFE_MODE_QUIET_MS);
+  prefs.putBool(NVS_SAFE_MODE_KEY, true);
+  if (clockValid) prefs.putUInt(NVS_SAFE_UNTIL_KEY, safeModeWindow.untilEpoch());
+  else prefs.remove(NVS_SAFE_UNTIL_KEY);
+  Serial.printf("[SAFETY] SAFE MODE: %s\n", lastResetReasons);
+}
+
+void leaveSafeMode(const char *reason) {
+  if (!safeModeActive) {
+    return;
+  }
+  safeModeActive = false;
+  prefs.putBool(NVS_SAFE_MODE_KEY, false);
+  prefs.remove(NVS_SAFE_UNTIL_KEY);
+  Serial.printf("[SAFETY] safe mode cleared (%s)\n", reason);
+}
+
+// Restores the reset history, decides whether this boot is safe mode, and
+// persists at most once (never in a loop).
+void initSafetyState(esp_reset_reason_t reason) {
+  const bool clockValid = clockValidNow();
+  const uint32_t epoch = clockValid ? (uint32_t)rtc.now().unixtime() : 0;
+
+  resetHistory.restore(prefs.getUChar(NVS_RESET_COUNT_KEY, 0),
+                       prefs.getUInt(NVS_RESET_MASK_KEY, 0),
+                       prefs.getUInt(NVS_RESET_FIRST_KEY, 0),
+                       prefs.getUInt(NVS_RESET_LAST_KEY, 0));
+  const bool historyChanged = resetHistory.addBoot(
+      resetCodeFromEsp(reason), epoch, clockValid, SAFE_MODE_ABNORMAL_WINDOW_MS / 1000UL);
+  fw::describeResetReasons(resetHistory.mask(), lastResetReasons, sizeof(lastResetReasons));
+
+  if (historyChanged) {
+    persistResetHistory();
+    Serial.printf("[SAFETY] abnormal resets: %u (%s)\n", (unsigned)resetHistory.count(),
+                  lastResetReasons);
+  }
+
+  const bool safeModeNvs = prefs.getBool(NVS_SAFE_MODE_KEY, false);
+  const uint32_t until = prefs.getUInt(NVS_SAFE_UNTIL_KEY, 0);
+  if (safeModeNvs) {
+    safeModeActive = true;
+    safeModeWindow.resume(until, millis(), SAFE_MODE_QUIET_MS);
+    if (safeModeWindow.elapsed(clockValid, epoch, millis())) {
+      leaveSafeMode("quiet period elapsed while off");
+    } else {
+      Serial.printf("[SAFETY] SAFE MODE persists: %s\n", lastResetReasons);
+    }
+  }
+
+  if (!safeModeActive && resetHistory.safeModeRequired(SAFE_MODE_ABNORMAL_THRESHOLD)) {
+    enterSafeMode();
+  }
+}
+
+// Once per second: leave safe mode after the quiet period, and clear the reset
+// history after 10 healthy minutes so a later fault starts from zero.
+void serviceSafeMode() {
+  const unsigned long now = millis();
+  if (now - lastSafeModeCheckMs < 1000UL) return;
+  lastSafeModeCheckMs = now;
+
+  if (safeModeActive) {
+    const bool clockValid = clockValidNow();
+    const uint32_t epoch = clockValid ? (uint32_t)rtc.now().unixtime() : 0;
+    if (safeModeWindow.elapsed(clockValid, epoch, now)) {
+      leaveSafeMode("30 minutes without an abnormal reset");
+    }
+    return;
+  }
+
+  if (!safetyHealthyCleared && resetHistory.count() > 0 &&
+      (now - bootTime) >= SAFE_MODE_HEALTHY_CLEAR_MS) {
+    safetyHealthyCleared = true;
+    resetHistory.clear();
+    persistResetHistory();
+    Serial.println("[SAFETY] reset history cleared after 10 healthy minutes");
+  }
+}
+
+void configureHopperFilter() {
+  fw::HopperFilter::Config config;
+  config.emptyCm = hopperEmptyCm;
+  config.fullCm = hopperFullCm;
+  config.rejectBelowCm = HOPPER_REJECT_BELOW_CM;
+  config.rejectAboveMarginCm = HOPPER_REJECT_ABOVE_MARGIN_CM;
+  config.emaAlpha = HOPPER_EMA_ALPHA;
+  config.jumpPct = HOPPER_JUMP_PCT;
+  config.persistCycles = HOPPER_PERSIST_CYCLES;
+  config.lowPct = HOPPER_LOW_PCT;
+  config.refillMarginPct = HOPPER_REFILL_MARGIN_PCT;
+  config.stateHoldMs = HOPPER_STATE_HOLD_MS;
+  hopperFilter.configure(config);
+}
+
+void configureSafety() {
+  fw::DispenseLimits limits;
+  limits.minGapMs = MIN_DISPENSE_GAP_MS;
+  limits.maxPerHour = MAX_DISPENSES_PER_HOUR;
+  limits.maxGramsPerDose = MAX_GRAMS_PER_DISPENSE;
+  limits.maxGramsPerDay = MAX_GRAMS_PER_DAY;
+  limits.maxDispenseMs = MAX_DISPENSE_MS;
+  dispenseGate.configure(limits);
+
+  buttonNoise.configure(BUTTON_NOISE_WINDOW_MS, BUTTON_NOISE_MAX, BUTTON_DISABLE_MS);
+
+  dispensedEventBucket.configure(FEED_EVENT_BUCKET_CAPACITY, FEED_EVENT_REFILL_MS);
+  refusedEventBucket.configure(REFUSAL_BUCKET_CAPACITY, REFUSAL_REFILL_MS);
+  ackEventBucket.configure(ACK_BUCKET_CAPACITY, ACK_REFILL_MS);
+
+  heartbeatRetry.configure(HTTP_RETRY_BASE_MS, HTTP_RETRY_CAP_MS);
+  feedPollRetry.configure(HTTP_RETRY_BASE_MS, HTTP_RETRY_CAP_MS);
+  scheduleRetry.configure(HTTP_RETRY_BASE_MS, HTTP_RETRY_CAP_MS);
+  eventFlushRetry.configure(HTTP_RETRY_BASE_MS, HTTP_RETRY_CAP_MS);
+  refusalRetry.configure(HTTP_RETRY_BASE_MS, HTTP_RETRY_CAP_MS);
+  ackRetry.configure(HTTP_RETRY_BASE_MS, HTTP_RETRY_CAP_MS);
+
+  configureHopperFilter();
+}
+
 void setup() {
   // Relay OFF before anything else: set the level first, then the mode, so the
   // pin never drives the relay while the board boots. On a GPIO 5 unit the weak
@@ -2685,6 +3009,17 @@ void setup() {
   lastResetWasBrownout = (resetReason == ESP_RST_BROWNOUT);
   Serial.printf("[INIT] Reset reason: %s\n", resetReasonName);
   Serial.printf("[INIT] Relay on GPIO %d (active %s)\n", RELAY_PIN, RELAY_ACTIVE_LOW ? "LOW" : "HIGH");
+
+  // The relay is also switched off before every software reset, panic reboot,
+  // OTA install reboot and ESP.restart(). Registered before anything can restart.
+  if (esp_register_shutdown_handler(relayOffShutdownHandler) == ESP_OK) {
+    Serial.println("[INIT] Relay shutdown handler registered");
+  } else {
+    Serial.println("[WARN] Relay shutdown handler could not be registered");
+  }
+
+  // Gate, event buckets, retry states and the hopper filter, before any trigger.
+  configureSafety();
 
   feederActive = false;
 
@@ -2720,6 +3055,7 @@ void setup() {
   bool credentialsResetAtBoot = false;
   if (bootButtonResetHeld()) {
     clearWiFiCredentials();
+    clearSafetyStateForReset();   // a deliberate reset hold also leaves safe mode
     credentialsResetAtBoot = true;
   }
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), onFeedButtonPress, FALLING);
@@ -2748,6 +3084,10 @@ void setup() {
   // when the checkpoint is from today). After a plain power cycle there is
   // nothing to restore.
   restoreFeedingStateAfterOta();
+
+  // Fail-safe state (1.6.0). The RTC is up, so this boot can be placed in the
+  // reset history window and safe mode can be anchored on a real clock.
+  initSafetyState(resetReason);
 
   // TLS: verify the server against ROOT_CA, the multi-root bundle in the config
   // section (never setInsecure). Cap the handshake so a dead TLS peer cannot
@@ -2801,6 +3141,16 @@ void setup() {
   // probation. A normal boot just reports "valid" and does nothing else.
   otaBeginHealthCheck();
 
+  // One concise boot summary: what the unit is, how it last died, and the
+  // limits it is now enforcing.
+  Serial.printf("[BOOT] summary: fw=%s reset=%s safe_mode=%d brownout_hold=%lus relay=GPIO%d "
+                "identity=%s wifi=%s feeds=%d limits=%lus-gap/%d-per-hour/%.0fL-per-day/hold=%lus\n",
+                FW_VERSION, resetReasonName, safeModeActive ? 1 : 0, BROWNOUT_HOLD_MS / 1000UL,
+                RELAY_PIN, apiIdentityAvailable() ? "yes" : "no",
+                WiFi.status() == WL_CONNECTED ? "online" : "offline", feedTimesCount,
+                MIN_DISPENSE_GAP_MS / 1000UL, MAX_DISPENSES_PER_HOUR, MAX_GRAMS_PER_DAY / 1000.0f,
+                SAFE_MODE_QUIET_MS / 1000UL);
+
   Serial.println("[READY] OptiFeed controller online.");
 }
 
@@ -2809,6 +3159,11 @@ void loop() {
   ArduinoOTA.handle();  // bench builds only
 #endif
   handleResetButtons(); // Dedicated WiFi / factory reset buttons, if wired
+  // Relay first: stop a dose at its expected end (or trip an overrun) before
+  // any blocking work below. Also runs at every kickWatchdog() boundary.
+  serviceDispenseSafety();
+  serviceSafetyReports();
+  serviceSafeMode();
   serviceOtaHealthCheck();  // pending-verify deadline; relay stays OFF until valid
 
   if (provisioningActive) {
@@ -2840,14 +3195,6 @@ void loop() {
   // Signed update check every OTA_CHECK_INTERVAL_MS, behind the pre-flight
   // gate. It blocks only while it is actually due (or downloading).
   maybeCheckForUpdate();
-
-  if (feederActive && (millis() - feedStartTime >= feedDurationMs)) {
-    stopFeedCycle();
-  }
-  // Safety hard stop — never leave the relay energized past MAX_DISPENSE_MS.
-  if (feederActive && (millis() - feedStartTime >= MAX_DISPENSE_MS)) {
-    stopFeedCycle();
-  }
 }
 
 // ==================== Default schedule ====================
@@ -2905,15 +3252,31 @@ bool beginHttps(HTTPClient &https, const char *url) {
   return beginHttpsWithTimeout(https, url, HTTP_CONNECT_TIMEOUT_MS, HTTP_READ_TIMEOUT_MS);
 }
 
-// Best-effort report when a safety cap refuses a dose (audited server-side).
-void reportFeedError(const char* reason, float grams, const char* source) {
-  Serial.printf("[FEED] REFUSED %s: %.0fg from %s\n", reason, grams, source);
+// Best-effort report when a safety rule refuses a dose (audited server-side).
+// The server's ingest contract has no `safety_trip` event type, so every
+// refusal -- including a relay overrun -- travels as the existing
+// `feed_refused` event with a stable reason. The reason values are asserted by
+// the native tests and documented in firmware/README.md.
+void reportFeedError(fw::Refusal reason, float grams, const char* source) {
+  refusalCounts[(uint8_t)reason]++;
+  Serial.printf("[FEED] REFUSED %s: %.0fg from %s\n", fw::refusalReason(reason), grams, source);
   // No API calls without a provisioned identity: an unprovisioned unit has no
   // device record to report against.
   if (!apiIdentityAvailable() || WiFi.status() != WL_CONNECTED) return;
+
+  const unsigned long now = millis();
+  if (!refusalRetry.ready(now)) return;            // backoff after a failed report
+  if (!refusedEventBucket.tryConsume(now)) {       // token bucket per event type
+    Serial.println("[FEED] refusal report rate-limited");
+    return;
+  }
+
   HTTPClient https;
   kickWatchdog();
-  if (!beginHttps(https, INGEST_URL)) return;
+  if (!beginHttps(https, INGEST_URL)) {
+    refusalRetry.recordFailure(millis(), netJitter());
+    return;
+  }
   https.addHeader("Content-Type", "application/json");
   https.addHeader("X-Device-Token", provisionedDeviceToken);
   JsonDocument doc;
@@ -2922,13 +3285,18 @@ void reportFeedError(const char* reason, float grams, const char* source) {
   doc["event_id"]   = generateEventId();
   doc["grams"]      = grams;
   doc["source"]     = source;
-  doc["reason"]     = reason;
+  doc["reason"]     = fw::refusalReason(reason);
   doc["timestamp"]  = rtcAvailable ? getRTCiso8601() : "unknown";
   String out;
   serializeJson(doc, out);
   int code = https.POST(out);
   https.end();
   kickWatchdog();
+  if (code >= 200 && code < 300) {
+    refusalRetry.recordSuccess();
+  } else {
+    refusalRetry.recordFailure(millis(), netJitter());
+  }
   Serial.printf("[FEED] refusal report -> %d\n", code);
 }
 
@@ -2975,10 +3343,22 @@ void dispenseFeed(float grams, const char* source, const String &requestId = "")
   // call: feed the watchdog around the whole dispense decision.
   kickWatchdog();
 
+  // Fail-safe order: a unit in safe mode or inside its post-brownout hold must
+  // not energize the relay for anything, including a schedule that was already
+  // due. Both report a refusal so the server audit trail shows the skip.
+  if (safeModeActive) {
+    reportFeedError(fw::Refusal::SAFE_MODE, grams, source);
+    return;
+  }
+  if (lastResetWasBrownout && (millis() - bootTime) < BROWNOUT_HOLD_MS) {
+    reportFeedError(fw::Refusal::BROWNOUT_HOLD, grams, source);
+    return;
+  }
+
   // T-12a: never feed while a signed image is downloading. Dashboard requests
   // must be told why, so the refusal is reported as ota_in_progress.
   if (otaInProgress) {
-    reportFeedError("ota_in_progress", grams, source);
+    reportFeedError(fw::Refusal::OTA_IN_PROGRESS, grams, source);
     return;
   }
 
@@ -2986,40 +3366,36 @@ void dispenseFeed(float grams, const char* source, const String &requestId = "")
   // health check marks it valid (at most five minutes). The heartbeat already
   // reports ota_state=pending_verify, so this does not report a refusal.
   if (otaHealthCheckActive) {
+    refusalCounts[(uint8_t)fw::Refusal::OTA_PENDING_VERIFY]++;
     Serial.printf("[FEED] refused - OTA image pending verification (%s)\n", source);
     return;
   }
 
   if (feederActive) {
+    refusalCounts[(uint8_t)fw::Refusal::BUSY]++;
     Serial.printf("[FEED] busy — ignoring %s trigger (mutex held)\n", source);
     return;
   }
 
   maybeResetDailyBudget();
 
-  if (grams <= 0 || grams > MAX_GRAMS_PER_DISPENSE) {
-    reportFeedError("grams_out_of_range", grams, source);
+  // One gate for every source: grams, dose time, daily cap, the 10 s gap and
+  // the six-per-hour ceiling. A slow calibration REFUSES rather than truncating
+  // (1000 g at 2 g/s = 500 s is over the 300 s cap, not a 500 s dose).
+  const float rate = (gramsPerSecond > 0.0f) ? gramsPerSecond : 4.0f;
+  const unsigned long durationMs = (unsigned long)((grams / rate) * 1000.0);
+  const fw::Refusal refusal =
+      dispenseGate.evaluate(millis(), grams, durationMs, dailyGramsDispensed);
+  if (refusal != fw::Refusal::NONE) {
+    reportFeedError(refusal, grams, source);
     return;
   }
 
-  unsigned long durationMs = (unsigned long)((grams / gramsPerSecond) * 1000.0);
-  if (durationMs > MAX_DISPENSE_MS) {
-    // REFUSE, never truncate: a slow calibration must not silently halve a
-    // valid dose (e.g. 1000 g at 2 g/s = 500 s, over the 300 s cap).
-    reportFeedError("dose_time_exceeds_cap", grams, source);
-    return;
-  }
-
-  if (dailyGramsDispensed + grams > MAX_GRAMS_PER_DAY) {
-    reportFeedError("daily_gram_cap_exceeded", grams, source);
-    return;
-  }
-
-  // Backstop clamp only — unreachable while the refusals above hold.
-  feedDurationMs = (durationMs < MAX_DISPENSE_MS) ? durationMs : MAX_DISPENSE_MS;
+  feedDurationMs = durationMs;
 
   Serial.printf("[FEED] dispensing %.0fg (~%lums) — source: %s\n", grams, feedDurationMs, source);
 
+  dispenseGate.recordStart(millis());
   digitalWrite(RELAY_PIN, RELAY_ON);
   feederActive = true;
   feedStartTime = millis();
@@ -3030,8 +3406,10 @@ void dispenseFeed(float grams, const char* source, const String &requestId = "")
   kickWatchdog();
 }
 
+// Relay hard stop shared by loop() and kickWatchdog(). Switching the relay off
+// comes first, so the watchdog kick at the end cannot re-enter this path with
+// feederActive still true.
 void stopFeedCycle() {
-  kickWatchdog();
   digitalWrite(RELAY_PIN, RELAY_OFF);
   feederActive = false;
   // 1.5.3: every button edge is ignored from relay ON until 2 s after relay OFF,
@@ -3041,6 +3419,37 @@ void stopFeedCycle() {
   Serial.printf("[FEED] complete — %.0fg via %s\n", currentFeedGrams, currentFeedSource);
   enqueueEvent(currentFeedGrams, currentFeedSource, currentFeedRequestId);
   currentFeedRequestId = "";
+  kickWatchdog();
+}
+
+// Independent overrun check (1.6.0): a dose may run at most 2 s past its
+// expected end. That happens when a blocking HTTPS call delayed loop(), and the
+// relay must not wait for the next pass. The trip is reported from loop(), not
+// from here, so it never opens a second TLS session.
+void serviceDispenseSafety() {
+  if (!feederActive) return;
+  const unsigned long elapsed = millis() - feedStartTime;
+  if (elapsed >= feedDurationMs + RELAY_OVERRUN_GRACE_MS) {
+    relayOverruns++;
+    refusalCounts[(uint8_t)fw::Refusal::RELAY_OVERRUN]++;
+    pendingRelayOverrunReport = true;
+    overrunGrams = currentFeedGrams;
+    overrunSource = currentFeedSource;
+    Serial.printf("[SAFETY] relay overrun: %lums for a %lums dose (%s)\n", elapsed,
+                  feedDurationMs, currentFeedSource);
+    stopFeedCycle();
+    return;
+  }
+  if (elapsed >= feedDurationMs) {
+    stopFeedCycle();
+  }
+}
+
+// Deferred out-of-band safety reports (currently only the relay overrun).
+void serviceSafetyReports() {
+  if (!pendingRelayOverrunReport) return;
+  pendingRelayOverrunReport = false;
+  reportFeedError(fw::Refusal::RELAY_OVERRUN, overrunGrams, overrunSource);
 }
 
 // ==================== Tier 1 — RTC Schedule ====================
@@ -3072,14 +3481,22 @@ void handleSchedule() {
 
 void pollDashboardFeedCommand() {
   if (!apiIdentityAvailable()) return;
+  if (WiFi.status() != WL_CONNECTED) return;
+  const unsigned long now = millis();
+  if (!feedPollRetry.ready(now)) return;   // exponential backoff + jitter after a failure
+
   const String url = buildDeviceUrl(FEED_POLL_URL_BASE);
   HTTPClient https;
   kickWatchdog();
-  if (!beginHttps(https, url.c_str())) return;
+  if (!beginHttps(https, url.c_str())) {
+    feedPollRetry.recordFailure(millis(), netJitter());
+    return;
+  }
   https.addHeader("X-Device-Token", provisionedDeviceToken);
   int code = https.GET();
   kickWatchdog();
   if (code == 200) {
+    feedPollRetry.recordSuccess();
     // A freshly installed OTA image proves itself with one authenticated 200
     // from this poll (the health check also needs WiFi and a valid clock).
     otaHealthSawPoll = true;
@@ -3089,6 +3506,7 @@ void pollDashboardFeedCommand() {
         // N9: ignore the whole config when any pushed value is out of range.
         Serial.println("[POLL] invalid config from server — ignoring whole response");
       } else {
+        bool hopperCalibrationChanged = false;
         if (doc["grams_per_feeding"].is<float>()) {
           cachedScheduledGrams = doc["grams_per_feeding"] | cachedScheduledGrams;
         }
@@ -3103,12 +3521,19 @@ void pollDashboardFeedCommand() {
         // Hopper calibration — overrides compile-time defaults
         if (doc["hopper_full_cm"].is<float>()) {
           float hf = doc["hopper_full_cm"];
-          if (hf > 0) hopperFullCm = hf;
+          if (hf > 0 && hf != hopperFullCm) {
+            hopperFullCm = hf;
+            hopperCalibrationChanged = true;
+          }
         }
         if (doc["hopper_empty_cm"].is<float>()) {
           float he = doc["hopper_empty_cm"];
-          if (he > 0) hopperEmptyCm = he;
+          if (he > 0 && he != hopperEmptyCm) {
+            hopperEmptyCm = he;
+            hopperCalibrationChanged = true;
+          }
         }
+        if (hopperCalibrationChanged) configureHopperFilter();
         // Duration calibration — motor dispense rate
         if (doc["grams_per_second"].is<float>()) {
           float gps = doc["grams_per_second"];
@@ -3126,6 +3551,10 @@ void pollDashboardFeedCommand() {
         }
       }
     }
+  } else {
+    // A timeout, a 5xx or a TLS failure: back off instead of hammering the
+    // endpoint every 5 s for as long as the outage lasts.
+    feedPollRetry.recordFailure(millis(), netJitter());
   }
   https.end();
 }
@@ -3167,15 +3596,21 @@ void applyIsoTime(const char* iso, bool force) {
 void pollScheduleCommand() {
   if (!apiIdentityAvailable()) return;
   if (WiFi.status() != WL_CONNECTED) return;
+  const unsigned long now = millis();
+  if (!scheduleRetry.ready(now)) return;   // backoff after a failure
 
   const String url = buildDeviceUrl(SCHEDULE_SYNC_URL_BASE);
   HTTPClient https;
   kickWatchdog();
-  if (!beginHttps(https, url.c_str())) return;
+  if (!beginHttps(https, url.c_str())) {
+    scheduleRetry.recordFailure(millis(), netJitter());
+    return;
+  }
   https.addHeader("X-Device-Token", provisionedDeviceToken);
   int code = https.GET();
   kickWatchdog();
   if (code == 200) {
+    scheduleRetry.recordSuccess();
     // Schedule payloads are larger than the feed-command ones (times, counts,
     // rates); JsonDocument grows on demand, so no capacity constant is needed.
     JsonDocument doc;
@@ -3251,15 +3686,26 @@ void pollScheduleCommand() {
         }
       }
     }
+  } else {
+    scheduleRetry.recordFailure(millis(), netJitter());
   }
   https.end();
 }
 
 void postScheduleAck(const String &commandId) {
   if (!apiIdentityAvailable()) return;
+  const unsigned long now = millis();
+  if (!ackRetry.ready(now)) return;
+  if (!ackEventBucket.tryConsume(now)) {
+    Serial.println("[SCHEDULE ACK] rate-limited");
+    return;
+  }
   HTTPClient https;
   kickWatchdog();
-  if (!beginHttps(https, INGEST_URL)) return;
+  if (!beginHttps(https, INGEST_URL)) {
+    ackRetry.recordFailure(millis(), netJitter());
+    return;
+  }
   https.addHeader("Content-Type", "application/json");
   https.addHeader("X-Device-Token", provisionedDeviceToken);
 
@@ -3276,6 +3722,11 @@ void postScheduleAck(const String &commandId) {
   int code = https.POST(out);
   https.end();
   kickWatchdog();
+  if (code >= 200 && code < 300) {
+    ackRetry.recordSuccess();
+  } else {
+    ackRetry.recordFailure(millis(), netJitter());
+  }
   Serial.printf("[SCHEDULE ACK] command %s -> %d\n", commandId.c_str(), code);
 }
 
@@ -3370,6 +3821,26 @@ bool requestButtonDispense() {
 // A queued press is evaluated on the next loop pass. The shared dispense mutex
 // still drops it if the relay is busy.
 void handleButton() {
+  const unsigned long now = millis();
+
+  // A line that keeps producing rejected edges is faulty, not pressed. More than
+  // five glitches in a minute disables the button for ten minutes; the heartbeat
+  // reports button_disabled so the fleet view can show it.
+  if (buttonNoise.disabled(now)) {
+    if (!buttonWasDisabled) {
+      buttonWasDisabled = true;
+      Serial.printf("[BUTTON] disabled for %lu s: noisy line\n", BUTTON_DISABLE_MS / 1000UL);
+    }
+    if (takeQueuedFeedButtonPress() && buttonLogDue(lastDisabledLogMs)) {
+      Serial.println("[BUTTON] disabled: noisy line");
+    }
+    return;
+  }
+  if (buttonWasDisabled) {
+    buttonWasDisabled = false;
+    Serial.println("[BUTTON] re-enabled after the noise window");
+  }
+
   // Relay ON .. 2 s after OFF: clear the candidate instead of dispensing it
   // late. This is what breaks the phantom-feed pattern: the relay/motor
   // switching off used to register as a fresh button press ~20 s later.
@@ -3385,7 +3856,12 @@ void handleButton() {
   unsigned long lowMs = 0;
   if (!confirmFeedButtonPress(lowMs)) {
     buttonGlitchCount++;
-    if (buttonLogDue(lastGlitchLogMs)) {
+    buttonNoise.recordGlitch(millis());
+    if (buttonNoise.justDisabled()) {
+      buttonNoise.clearJustDisabled();
+      Serial.printf("[BUTTON] disabled for %lu s: noisy line\n", BUTTON_DISABLE_MS / 1000UL);
+      buttonWasDisabled = true;
+    } else if (buttonLogDue(lastGlitchLogMs)) {
       Serial.printf("[BUTTON] rejected glitch (%lu ms low)\n", lowMs);
     }
     return;
@@ -3396,69 +3872,102 @@ void handleButton() {
 
 // ==================== Feed level monitoring (HC-SR04) ====================
 
-float readFeedLevelPercent() {
-  // Take 3 readings, return median, then linear convert to percent
-  float readings[3];
-  for (int i = 0; i < 3; i++) {
+// Five samples, then the pure filter chain (range rejection, median, EMA,
+// persistence, hysteresis). Returns false when this cycle is not plausible: the
+// heartbeat then omits the level instead of reporting a fake 0 %.
+bool readHopperLevel(float &percent, float &cm) {
+  float samples[HOPPER_SAMPLE_COUNT];
+  for (int i = 0; i < HOPPER_SAMPLE_COUNT; i++) {
     digitalWrite(TRIG_PIN, LOW);
     delayMicroseconds(2);
     digitalWrite(TRIG_PIN, HIGH);
     delayMicroseconds(10);
     digitalWrite(TRIG_PIN, LOW);
-    long duration = pulseIn(ECHO_PIN, HIGH, 30000); // 30ms timeout ~5m max range
-    readings[i] = (duration == 0) ? -1 : duration * 0.034 / 2;
+    long duration = pulseIn(ECHO_PIN, HIGH, 30000);  // 30 ms timeout (~5 m)
+    samples[i] = (duration == 0) ? -1.0f : (float)duration * 0.034f / 2.0f;
     delay(10);
   }
 
-  // Bubble-sort 3 elements for median
-  for (int i = 0; i < 2; i++) {
-    for (int j = 0; j < 2 - i; j++) {
-      if (readings[j] > readings[j + 1]) {
-        float tmp = readings[j];
-        readings[j] = readings[j + 1];
-        readings[j + 1] = tmp;
-      }
-    }
+  const fw::HopperFilter::Result result = hopperFilter.update(samples, HOPPER_SAMPLE_COUNT, millis());
+  if (!result.valid) {
+    sensorInvalidCount++;
+    return false;
   }
-
-  float distance = readings[1]; // median
-  if (distance < 0 || distance >= hopperEmptyCm) return 0;
-  if (distance <= hopperFullCm) return 100;
-  // Linear interpolation for cylindrical bottle
-  return ((hopperEmptyCm - distance) / (hopperEmptyCm - hopperFullCm)) * 100.0;
+  if (result.stateChanged) {
+    Serial.printf("[HOPPER] %s at %.0f%%\n", result.refilled ? "refilled" : "low", result.percent);
+  }
+  percent = result.percent;
+  cm = result.cm;
+  return true;
 }
 
 // ==================== Telemetry + offline event queue ====================
 
 void enqueueEvent(float grams, const char* source, const String &requestId) {
+  // Rate limit at the source. The dispense bucket is sized above the six-per-hour
+  // ceiling, so a real feeding record is never dropped by this limit.
+  if (!dispensedEventBucket.tryConsume(millis())) {
+    queueDropCount++;
+    Serial.println("[WARN] feed_dispensed event rate-limited — dropped");
+    return;
+  }
+
+  int slot = -1;
+  int oldestSlot = -1;
+  uint32_t oldestSeq = 0;
   for (int i = 0; i < EVENT_QUEUE_SIZE; i++) {
     if (!eventQueue[i].used) {
-      eventQueue[i].used = true;
-      eventQueue[i].synced = false;
-      eventQueue[i].grams = grams;
-      strncpy(eventQueue[i].source, source, sizeof(eventQueue[i].source) - 1);
-      eventQueue[i].requestId = requestId;
-      eventQueue[i].isoTimestamp = rtcAvailable ? getRTCiso8601() : "unknown";
-      eventQueue[i].eventId = generateEventId();  // id fixed at creation (Gap #2)
-      return;
+      slot = i;
+      break;
+    }
+    if (!eventQueue[i].synced && (oldestSlot < 0 || eventQueue[i].seq < oldestSeq)) {
+      oldestSlot = i;
+      oldestSeq = eventQueue[i].seq;
     }
   }
-  Serial.println("[WARN] event queue full — oldest unsynced event may be lost");
+  if (slot < 0) {
+    // Bounded queue: drop the oldest unsynced item, never the newest. The loss
+    // is counted in the heartbeat (diag.queue_drops) and on the Serial line.
+    queueDropCount++;
+    if (oldestSlot < 0) {
+      Serial.println("[WARN] event queue full — event dropped");
+      return;
+    }
+    slot = oldestSlot;
+    Serial.println("[WARN] event queue full — oldest event dropped");
+  }
+
+  eventQueue[slot].used = true;
+  eventQueue[slot].synced = false;
+  eventQueue[slot].seq = nextEventSequence++;
+  eventQueue[slot].grams = grams;
+  strncpy(eventQueue[slot].source, source, sizeof(eventQueue[slot].source) - 1);
+  eventQueue[slot].source[sizeof(eventQueue[slot].source) - 1] = '\0';
+  eventQueue[slot].requestId = requestId;
+  eventQueue[slot].isoTimestamp = rtcAvailable ? getRTCiso8601() : "unknown";
+  eventQueue[slot].eventId = generateEventId();  // id fixed at creation (Gap #2)
 }
 
 void flushQueuedEvents() {
   // Never replay a feed event without an identity: the server would reject it
   // and the event remains queued until the unit is provisioned.
   if (!apiIdentityAvailable() || WiFi.status() != WL_CONNECTED) return;
+  if (!eventFlushRetry.ready(millis())) return;
+
   for (int i = 0; i < EVENT_QUEUE_SIZE; i++) {
     if (eventQueue[i].used && !eventQueue[i].synced) {
       if (postFeedEvent(eventQueue[i])) {
         eventQueue[i].synced = true;
         eventQueue[i].used = false;
+      } else {
+        // Back off the whole flush; the next attempt resends the same event_id.
+        eventFlushRetry.recordFailure(millis(), netJitter());
+        return;
       }
       kickWatchdog();  // progress between network posts — not a hang
     }
   }
+  eventFlushRetry.recordSuccess();
 }
 
 bool postFeedEvent(QueuedEvent &ev) {
@@ -3491,9 +4000,16 @@ bool postFeedEvent(QueuedEvent &ev) {
 void sendTelemetry() {
   // No API calls without a provisioned identity; local feeding is unaffected.
   if (!apiIdentityAvailable()) return;
+  const unsigned long now = millis();
+  if (!heartbeatRetry.ready(now)) return;   // backoff after a failed heartbeat
+  if (WiFi.status() != WL_CONNECTED) return;
+
   HTTPClient https;
   kickWatchdog();
-  if (!beginHttps(https, INGEST_URL)) return;
+  if (!beginHttps(https, INGEST_URL)) {
+    heartbeatRetry.recordFailure(millis(), netJitter());
+    return;
+  }
   https.addHeader("Content-Type", "application/json");
   https.addHeader("X-Device-Token", provisionedDeviceToken);
 
@@ -3513,41 +4029,52 @@ void sendTelemetry() {
   // so the ingest route accepts and ignores this field (no server change); the
   // same counter is named by the `[BUTTON] rejected glitch` Serial line.
   doc["button_glitches"]   = buttonGlitchCount;
-  doc["feed_level_percent"] = readFeedLevelPercent();
-  doc["feed_level_cm"]     = 0; // filled below with actual median distance
 
-  // Re-read for the cm value (minimal overhead — 3 reads already cached by readFeedLevelPercent)
-  float readings[3];
-  for (int i = 0; i < 3; i++) {
-    digitalWrite(TRIG_PIN, LOW);
-    delayMicroseconds(2);
-    digitalWrite(TRIG_PIN, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(TRIG_PIN, LOW);
-    long duration = pulseIn(ECHO_PIN, HIGH, 30000);
-    readings[i] = (duration == 0) ? -1 : duration * 0.034 / 2;
-    delay(10);
-  }
-  for (int i = 0; i < 2; i++) {
-    for (int j = 0; j < 2 - i; j++) {
-      if (readings[j] > readings[j + 1]) {
-        float tmp = readings[j];
-        readings[j] = readings[j + 1];
-        readings[j + 1] = tmp;
-      }
+  // 1.6.0 fail-safe state. Ingest strips keys its Zod schema does not declare
+  // (verified by apps/web/lib/__tests__/ingest-route.test.ts), so these are
+  // diagnostic until the server stores them; the analog values below
+  // (feed_level_percent, water_temp_c) are still persisted as before.
+  doc["safe_mode"]         = safeModeActive;
+  doc["last_reset_reasons"] = lastResetReasons;
+  JsonObject diag = doc["diag"].to<JsonObject>();
+  diag["fw"] = FW_VERSION;
+  diag["safe_mode"] = safeModeActive;
+  diag["reset_abnormal_count"] = resetHistory.count();
+  diag["reset_reason_mask"] = resetHistory.mask();
+  diag["button_glitches"] = buttonGlitchCount;
+  diag["button_disabled"] = buttonNoise.disabled(millis());
+  diag["relay_overruns"] = relayOverruns;
+  diag["sensor_invalid_count"] = sensorInvalidCount;
+  diag["queue_drops"] = queueDropCount;
+  diag["uptime_s"] = (millis() - bootTime) / 1000UL;
+  diag["min_dispense_gap_s"] = MIN_DISPENSE_GAP_MS / 1000UL;
+  diag["max_dispenses_per_hour"] = MAX_DISPENSES_PER_HOUR;
+  JsonObject refusals = diag["refusals_by_reason"].to<JsonObject>();
+  for (uint8_t i = 1; i < (uint8_t)fw::Refusal::COUNT; i++) {
+    if (refusalCounts[i] > 0) {
+      refusals[fw::refusalReason((fw::Refusal)i)] = refusalCounts[i];
     }
   }
-  doc["feed_level_cm"] = readings[1] >= 0 ? readings[1] : 0;
 
-  // Water temperature (DS18B20)
+  // One hopper read per heartbeat. An implausible cycle is omitted (the server
+  // keeps the last known level and shows it as stale) instead of sending 0 %.
+  float hopperPercent = 0.0f;
+  float hopperCm = 0.0f;
+  if (readHopperLevel(hopperPercent, hopperCm)) {
+    doc["feed_level_percent"] = hopperPercent;
+    doc["feed_level_cm"] = hopperCm;
+  }
+
+  // Water temperature (DS18B20): reject the library's -127/85 sentinels and
+  // anything outside 0..50 C. "Unknown" is an omitted value plus ok=false.
   tempSensor.requestTemperatures();
-  float rawTempC = tempSensor.getTempCByIndex(0);
-  bool tempOk = (rawTempC != DEVICE_DISCONNECTED_C && rawTempC > -10 && rawTempC < 80);
-  if (tempOk) {
+  const float rawTempC = tempSensor.getTempCByIndex(0);
+  if (fw::temperaturePlausible(rawTempC)) {
     doc["water_temp_c"] = rawTempC + tempOffsetC;
     doc["water_temp_ok"] = true;
   } else {
     doc["water_temp_ok"] = false;
+    sensorInvalidCount++;
   }
 
   // Device health metrics
@@ -3563,6 +4090,11 @@ void sendTelemetry() {
   int code = https.POST(out);
   https.end();
   kickWatchdog();
+  if (code >= 200 && code < 300) {
+    heartbeatRetry.recordSuccess();
+  } else {
+    heartbeatRetry.recordFailure(millis(), netJitter());
+  }
   Serial.printf("[POST] %d\n", code);
 }
 
@@ -3641,9 +4173,12 @@ void maintainWiFi() {
     // Deep sleep after prolonged failure (>5 min of retries). The portal
     // starts long before this, so the device never sleeps while provisioning.
     // A pending-verify image must stay awake to honour its 5-minute deadline;
-    // sleeping would leave it pending until the next reset.
-    if (!provisioningActive && !otaHealthCheckActive && wifiRetryCount > 30) {
+    // sleeping would leave it pending until the next reset. Never sleep during
+    // a dispense either: the relay would stay energized with the CPU off, so
+    // the motor is switched off first as a belt-and-braces measure.
+    if (!provisioningActive && !otaHealthCheckActive && !feederActive && wifiRetryCount > 30) {
       Serial.println("[WiFi] prolonged failure — entering deep sleep for 5 minutes");
+      digitalWrite(RELAY_PIN, RELAY_OFF);
       esp_sleep_enable_timer_wakeup(5 * 60 * 1000000ULL);  // 5 minutes in microseconds
       esp_deep_sleep_start();
     }

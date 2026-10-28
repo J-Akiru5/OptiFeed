@@ -30,7 +30,7 @@ export function ControlRoomLayout({ children, className }: ControlRoomLayoutProp
 	return (
 		<div
 			className={cn(
-				"flex min-h-0 flex-col gap-6 animate-in fade-in duration-150",
+				"flex w-full min-w-0 flex-col gap-6 animate-in fade-in duration-150",
 				"xl:grid xl:h-[calc(100dvh-8rem)] xl:grid-cols-[minmax(0,1fr)_22rem] xl:grid-rows-[auto_minmax(0,1fr)_auto] xl:gap-4 xl:overflow-hidden",
 				className,
 			)}

@@ -101,6 +101,27 @@ describe("farmer bottom bar (E26)", () => {
 	});
 });
 
+describe("dashboard never scrolls sideways", () => {
+	const read = (relative: string) => readFileSync(join(__dirname, "../..", relative), "utf8");
+
+	it("contains horizontal overflow at the dashboard root and main", () => {
+		const layout = read("app/[locale]/(dashboard)/layout.tsx");
+		// A phone must only scroll vertically. Any stray wide or edge-positioned
+		// element has to be clipped by the shell, never widen the document.
+		expect(layout).toContain("flex min-h-dvh flex-col overflow-x-clip");
+		expect(layout).toContain("ofd-main relative z-10 min-w-0 flex-1 overflow-x-clip");
+	});
+
+	it("keeps the flex columns shrinkable so content cannot widen the page", () => {
+		expect(read("components/chat/dashboard-content-shell.tsx")).toContain(
+			"flex w-full min-w-0 flex-1",
+		);
+		expect(read("components/dashboard/control-room/control-room-shell.tsx")).toContain(
+			"flex w-full min-w-0 flex-col",
+		);
+	});
+});
+
 describe("console bottom bars keep every destination", () => {
 	it("admin bar keeps four primary sections plus More, at 44 px or more", () => {
 		pathname.current = "/admin/ponds";

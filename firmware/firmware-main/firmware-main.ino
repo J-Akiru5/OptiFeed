@@ -83,7 +83,7 @@
 
 // Reported at boot and in the heartbeat body so the fleet and the OTA rollout
 // can tell builds apart. Bump on every firmware change.
-#define FW_VERSION "1.5.1"
+#define FW_VERSION "1.5.2"
 // Board string the signed manifest must carry. One value for every unit this
 // firmware runs on (ESP32-WROOM-32U); a manifest for another board is refused.
 #define FW_BOARD "wroom32u"
@@ -399,10 +399,21 @@ bool resetButtonsArmed = false;
 #define WIFI_JOIN_WINDOW_MS          15000  // time allowed for each join attempt
 #define WIFI_FAILURES_BEFORE_PORTAL  5      // consecutive failed joins before the setup AP starts
 // The GPIO 23 boot-button hold uses WIFI_RESET_HOLD_MS (with the reset buttons).
-#define PROVISIONING_REBOOT_DELAY_MS 2000   // let the success page flush before restarting
+// After the form is submitted the unit tests the new network before saving it:
+// the setup AP stays up for the whole test, and only a proven link is written
+// to NVS. A definitive failure (network absent, password refused) ends the test
+// early once a full station attempt has had time to run.
+#define PROVISIONING_SETUP_JOIN_TIMEOUT_MS 20000UL
+#define PROVISIONING_JOIN_QUICK_FAIL_MS     6000UL
+// Connected -> restart. Long enough for the status page to show the result.
+#define PROVISIONING_SUCCESS_RESTART_MS     5000UL
 // Nearby-network picker. The ESP32 radio is 2.4 GHz only, so every scan result
-// is a usable network. Scanned once at portal start; manual entry always works.
+// is a usable network. Scans are asynchronous (never block loop()); one
+// automatic retry covers a radio that was still settling.
 #define PROVISIONING_SCAN_MAX 20
+#define PROVISIONING_SCAN_CHANNEL_MS 300      // max ms per channel for an active scan
+#define PROVISIONING_SCAN_TIMEOUT_MS 12000UL  // give up waiting on a stuck async scan
+#define PROVISIONING_SCAN_RETRY_MS   2000UL   // one retry after an empty or failed scan
 
 // ---- Calibration: how fast the feeder dispenses ----
 // Measure by running the feeder for a fixed time and weighing the output:
@@ -536,8 +547,8 @@ bool provisioningActive = false;
 bool provisioningRoutesRegistered = false;
 String provisioningApName;
 
-// Nearby 2.4 GHz networks shown in the setup page picker. Filled once when the
-// portal starts (the radio scan blocks for a few seconds, never in loop()).
+// Nearby 2.4 GHz networks shown in the setup page picker. Filled by the async
+// scan below; typing the name by hand always works, so a scan is never a gate.
 struct ScannedNetwork {
   String ssid;
   int32_t rssi;
@@ -545,6 +556,46 @@ struct ScannedNetwork {
 };
 ScannedNetwork scannedNetworks[PROVISIONING_SCAN_MAX];
 int scannedNetworkCount = 0;
+
+// ---- Async 2.4 GHz scan (issue #252) ----
+// The old synchronous scan ran while the station side was still retrying a
+// failed join. esp_wifi_scan_start() refuses to run then, and the Arduino
+// wrapper reports that as WIFI_SCAN_FAILED (-2), which the firmware printed as
+// "0 network(s)". The scan now settles the station first, runs asynchronously
+// and is polled from serviceProvisioningScan(), so loop() (and the feed button)
+// never blocks on the radio.
+enum ProvisioningScanState {
+  PROV_SCAN_IDLE,
+  PROV_SCAN_RUNNING,
+  PROV_SCAN_RETRY_WAIT,
+};
+ProvisioningScanState provisioningScanState = PROV_SCAN_IDLE;
+unsigned long provisioningScanStartedMs = 0;
+unsigned long provisioningScanRetryAtMs = 0;
+bool provisioningScanRetried = false;
+int provisioningScanRawCount = 0;
+int provisioningScanLastError = 0;   // raw return from scanNetworks/scanComplete
+unsigned long provisioningScanCompletedAtMs = 0;
+
+// ---- Test-before-save join (issue #252) ----
+// The submitted credentials live in RAM until the station link is proven; only
+// then are they written to NVS. A failure keeps the setup form (and the stored
+// credentials untouched) so the user can retry.
+enum ProvisioningJoinState {
+  PROV_JOIN_IDLE,
+  PROV_JOIN_CONNECTING,
+  PROV_JOIN_CONNECTED,
+  PROV_JOIN_FAILED,
+};
+ProvisioningJoinState provisioningJoinState = PROV_JOIN_IDLE;
+unsigned long provisioningJoinStartedMs = 0;
+unsigned long provisioningJoinConnectedMs = 0;
+String provisioningPendingSsid;
+String provisioningPendingPass;
+String provisioningPendingDeviceId;
+String provisioningPendingDeviceToken;
+String provisioningJoinFailure;   // human-readable message for the form/status page
+String provisioningJoinDetail;    // machine reason for /status (wrong_password, no_ssid, ...)
 
 // Feed button (GPIO 23): falling-edge interrupt, 250 ms debounce, at most one
 // pending press. A short press during a blocking network call is queued and
@@ -904,114 +955,367 @@ String htmlEscape(const String &value) {
   return out;
 }
 
-String buildNetworkOptions(const String &currentSsid) {
-  String options;
-  options.reserve(64 + scannedNetworkCount * 48);
-  options += F("<option value=\"\">Select your network&hellip;</option>");
-  options += F("<option value=\"__manual__\">Type it manually</option>");
+// PakaonAI mark, simplified to a small inline SVG: the portal must work with no
+// external file, CDN or web font (the full logo kit SVGs are 30-250 KB).
+// Navy field, white fish, three orange feed pellets (brand #0A3D62 / #E8722C).
+static const char PORTAL_MARK_SVG[] PROGMEM =
+  "<svg class=\"mark\" viewBox=\"0 0 64 64\" role=\"img\" aria-label=\"PakaonAI\">"
+  "<circle cx=\"32\" cy=\"32\" r=\"32\" fill=\"#0A3D62\"/>"
+  "<path d=\"M9 22l13 10-13 10z\" fill=\"#fff\"/>"
+  "<ellipse cx=\"37\" cy=\"32\" rx=\"17\" ry=\"11\" fill=\"#fff\"/>"
+  "<circle cx=\"46\" cy=\"28\" r=\"2.2\" fill=\"#0A3D62\"/>"
+  "<circle cx=\"57\" cy=\"20\" r=\"2.4\" fill=\"#E8722C\"/>"
+  "<circle cx=\"60\" cy=\"28\" r=\"2.8\" fill=\"#E8722C\"/>"
+  "<circle cx=\"57\" cy=\"36\" r=\"2.2\" fill=\"#E8722C\"/>"
+  "</svg>";
+
+static const char PORTAL_LOCK_SVG[] PROGMEM =
+  "<span class=\"lock\" title=\"Secured network\" aria-label=\"Secured\">"
+  "<svg viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\">"
+  "<path d=\"M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm0 2a3 3 0 0 1 3 3v3H9V7a3 3 0 0 1 3-3z\"/>"
+  "</svg></span>";
+
+// Mobile-first, no external resources (no CDN, no web fonts): the portal is
+// opened from a phone over an AP with no internet uplink.
+static const char PORTAL_CSS[] PROGMEM =
+  ":root{--navy:#0A3D62;--orange:#E8722C;--ink:#1B2430;--muted:#5A6775;--line:#D8E0E8;--bg:#F1F5F9;--card:#fff}"
+  "*{box-sizing:border-box}"
+  "html{-webkit-text-size-adjust:100%}"
+  "body{margin:0;font-family:system-ui,-apple-system,\"Segoe UI\",Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45}"
+  "header.brand{background:var(--navy);color:#fff;padding:14px 18px;display:flex;align-items:center;gap:10px}"
+  ".brand .mark{width:34px;height:34px;flex:none}"
+  ".word{font-weight:800;font-size:1.25rem;letter-spacing:-.02em;color:#fff}"
+  ".word .ai{color:#FF9A5A}"
+  "main{max-width:460px;margin:0 auto;padding:18px 18px 6px}"
+  ".card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 2px 10px rgba(10,61,98,.06)}"
+  "h1{font-size:1.3rem;margin:0 0 4px;color:var(--navy)}"
+  ".tagline{margin:0 0 14px;color:var(--muted);font-size:.95rem}"
+  "label{display:block;font-weight:600;margin:16px 0 6px;font-size:.95rem}"
+  "input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:1rem;background:#fff;color:inherit}"
+  "input:focus,button:focus-visible,a:focus-visible{outline:3px solid rgba(232,114,44,.55);outline-offset:2px}"
+  "button{font:inherit}"
+  ".btn{display:block;width:100%;margin-top:16px;padding:13px;border:0;border-radius:10px;background:var(--navy);color:#fff;font-size:1rem;font-weight:700;text-align:center;text-decoration:none;cursor:pointer}"
+  ".btn.secondary{background:#fff;color:var(--navy);border:1px solid var(--line);font-weight:600}"
+  ".btn.small{display:inline-block;width:auto;margin:0;padding:8px 14px;font-size:.9rem}"
+  ".note{font-size:.85rem;color:var(--muted);margin:6px 0 0}"
+  ".err{background:#FDECEC;border:1px solid #F5B5B5;border-radius:10px;padding:10px 12px;color:#8A1C1C;font-size:.92rem;margin:10px 0 0}"
+  ".ok{background:#E8F5EC;border:1px solid #B7E0C4;border-radius:10px;padding:10px 12px;color:#14532D;font-size:.92rem;margin:12px 0 0}"
+  ".networks{display:grid;gap:8px;margin-top:10px}"
+  ".net{display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:inherit;text-align:left;cursor:pointer}"
+  ".net[aria-pressed=\"true\"]{border-color:var(--orange);box-shadow:0 0 0 2px rgba(232,114,44,.2)}"
+  ".net .name{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"
+  ".meta{font-size:.78rem;color:var(--muted);flex:none}"
+  ".bars{display:inline-flex;align-items:flex-end;gap:2px;height:14px;flex:none}"
+  ".bars i{width:3px;background:#C3CDD8;border-radius:1px}"
+  ".bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:7px}"
+  ".bars i:nth-child(3){height:10px}.bars i:nth-child(4){height:14px}"
+  ".bars.s1 i:nth-child(1),.bars.s2 i:nth-child(-n+2),.bars.s3 i:nth-child(-n+3),.bars.s4 i{background:var(--navy)}"
+  ".lock{flex:none;color:var(--muted);display:inline-flex}"
+  ".lock svg{width:14px;height:14px;display:block}"
+  ".scanrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;font-size:.85rem;color:var(--muted)}"
+  ".spin{width:34px;height:34px;border:3px solid #DCE5EE;border-top-color:var(--orange);border-radius:50%;animation:sp 900ms linear infinite;margin:18px auto}"
+  "@keyframes sp{to{transform:rotate(360deg)}}"
+  "dl.facts{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:14px 0 0;font-size:.92rem}"
+  "dt{color:var(--muted)}dd{margin:0;font-weight:600;word-break:break-all}"
+  "footer{max-width:460px;margin:0 auto;padding:14px 18px 30px;color:var(--muted);font-size:.8rem}"
+  "footer code{background:#E6ECF2;padding:1px 5px;border-radius:4px;color:var(--navy)}"
+  "@media (prefers-color-scheme:dark){:root{--ink:#E8EEF4;--muted:#A7B4C2;--line:#2A3A4A;--bg:#0D1B26;--card:#132635}"
+  "input,.net,.btn.secondary{background:#0F2231}"
+  "footer code{background:#1A2C3C;color:#CFE2F3}"
+  ".bars i{background:#3A4C5E}}";
+
+int signalBarsForRssi(int32_t rssi) {
+  if (rssi > -55) return 4;
+  if (rssi > -67) return 3;
+  if (rssi > -78) return 2;
+  return 1;
+}
+
+String portalDeviceIdForDisplay() {
+  if (!identityValueIsPlaceholder(provisionedDeviceId)) return provisionedDeviceId;
+  return chipMacString();
+}
+
+// Shared page shell: brand bar with the fish mark and the PakaonAI wordmark.
+String portalPageHead(const char *title) {
+  String page;
+  page.reserve(4096);
+  page += F("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\">"
+            "<meta name=\"theme-color\" content=\"#0A3D62\">"
+            "<title>");
+  page += title;
+  page += F("</title><style>");
+  page += FPSTR(PORTAL_CSS);
+  page += F("</style></head><body><header class=\"brand\">");
+  page += FPSTR(PORTAL_MARK_SVG);
+  page += F("<span class=\"word\">Pakaon<span class=\"ai\">AI</span></span></header>");
+  return page;
+}
+
+// Footer: the unit's Device ID (the chip MAC before provisioning) and the AP
+// name, so the person provisioning can match the box to the dashboard record.
+String portalFooter() {
+  String page;
+  page += F("<footer><div>Device ID: <code>");
+  page += htmlEscape(portalDeviceIdForDisplay());
+  page += F("</code></div><div>Setup AP: <code>");
+  page += htmlEscape(provisioningApName.length() ? provisioningApName : provisioningApSsid());
+  page += F("</code> &middot; Portal: <code>192.168.4.1</code></div>"
+            "<div>Firmware ");
+  page += F(FW_VERSION);
+  page += F(" &middot; Sakto nga pakaon, sakto nga oras.</div></footer>");
+  return page;
+}
+
+bool provisioningScanInProgress() {
+  return provisioningScanState == PROV_SCAN_RUNNING ||
+         provisioningScanState == PROV_SCAN_RETRY_WAIT;
+}
+
+String buildNetworkRows(const String &currentSsid) {
+  String rows;
+  rows.reserve(120 + scannedNetworkCount * 240);
   for (int i = 0; i < scannedNetworkCount; i++) {
-    options += F("<option value=\"");
-    options += htmlEscape(scannedNetworks[i].ssid);
-    options += F("\"");
-    if (scannedNetworks[i].ssid == currentSsid) options += F(" selected");
-    options += F(">");
-    options += htmlEscape(scannedNetworks[i].ssid);
-    options += F(" (");
-    options += String((int)scannedNetworks[i].rssi);
-    options += F(" dBm");
-    if (!scannedNetworks[i].secure) options += F(", open");
-    options += F(")</option>");
+    rows += F("<button type=\"button\" class=\"net\" data-ssid=\"");
+    rows += htmlEscape(scannedNetworks[i].ssid);
+    rows += F("\" aria-pressed=\"");
+    rows += scannedNetworks[i].ssid == currentSsid ? F("true") : F("false");
+    rows += F("\"><span class=\"bars s");
+    rows += String(signalBarsForRssi(scannedNetworks[i].rssi));
+    rows += F("\" aria-hidden=\"true\"><i></i><i></i><i></i><i></i></span>"
+              "<span class=\"name\">");
+    rows += htmlEscape(scannedNetworks[i].ssid);
+    rows += F("</span>");
+    if (scannedNetworks[i].secure) {
+      rows += FPSTR(PORTAL_LOCK_SVG);
+    } else {
+      rows += F("<span class=\"meta\">Open</span>");
+    }
+    rows += F("<span class=\"meta\">");
+    rows += String((int)scannedNetworks[i].rssi);
+    rows += F(" dBm</span></button>");
   }
-  return options;
+  return rows;
+}
+
+String scanHintText() {
+  if (provisioningScanInProgress()) return String(F("Scanning&hellip;"));
+  if (scannedNetworkCount > 0) {
+    String hint = String(scannedNetworkCount);
+    hint += F(" network(s) found");
+    return hint;
+  }
+  return String(F("No networks found"));
+}
+
+// Network picker body. The JS keeps this in sync after a Rescan; without JS the
+// server-rendered list and the manual SSID field are both usable.
+String buildNetworkPicker(const String &currentSsid) {
+  String picker;
+  if (provisioningScanInProgress()) {
+    picker += F("<p class=\"note\">Scanning for nearby 2.4 GHz networks&hellip;</p>");
+  }
+  if (scannedNetworkCount > 0) {
+    picker += buildNetworkRows(currentSsid);
+  } else if (!provisioningScanInProgress()) {
+    picker += F("<p class=\"err\">No Wi-Fi networks found. Check that the antenna is "
+                "attached, move closer to the router (2.4 GHz only), then tap "
+                "Rescan.</p>");
+  }
+  picker += F("<button type=\"button\" class=\"btn secondary\" id=\"manual\">"
+              "Type it manually</button>");
+  return picker;
+}
+
+// Portal JS. Plain ES5: an old phone must still be able to provision a feeder.
+String portalSetupScript() {
+  return String(F(
+    "<script>(function(){"
+    "var box=document.getElementById('networks'),hint=document.getElementById('scanhint'),"
+    "rescan=document.getElementById('rescan'),ssid=document.getElementById('ssid');"
+    "if(!box||!ssid)return;"
+    "function esc(s){return String(s).replace(/[&<>\"']/g,function(c){"
+    "return{'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c];});}"
+    "function bars(n){return '<span class=\"bars s'+n+'\" aria-hidden=\"true\">"
+    "<i></i><i></i><i></i><i></i></span>';}"
+    "function lock(){return '<span class=\"lock\" title=\"Secured network\" aria-label=\"Secured\">"
+    "<svg viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\">"
+    "<path d=\"M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm0 2a3 3 0 0 1 3 3v3H9V7a3 3 0 0 1 3-3z\"/>"
+    "</svg></span>';}"
+    "function level(r){return r>-55?4:r>-67?3:r>-78?2:1;}"
+    "function render(nets){var h='';"
+    "if(!nets.length){h='<p class=\"err\">No Wi-Fi networks found. Check that the antenna is attached, "
+    "move closer to the router (2.4 GHz only), then tap Rescan.</p>';}"
+    "for(var i=0;i<nets.length;i++){var n=nets[i];"
+    "h+='<button type=\"button\" class=\"net\" data-ssid=\"'+esc(n.ssid)+'\" aria-pressed=\"'"
+    "+(n.ssid===ssid.value?'true':'false')+'\">'+bars(level(n.rssi))"
+    "+'<span class=\"name\">'+esc(n.ssid)+'</span>'+(n.secure?lock():'<span class=\"meta\">Open</span>')"
+    "+'<span class=\"meta\">'+n.rssi+' dBm</span></button>';}"
+    "h+='<button type=\"button\" class=\"btn secondary\" id=\"manual\">Type it manually</button>';"
+    "box.innerHTML=h;"
+    "hint.textContent=nets.length?(nets.length+' network(s) found'):'No networks found';}"
+    "function refresh(){"
+    "fetch('/scan',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){"
+    "if(j.scanning){hint.textContent='Scanning\\u2026';setTimeout(refresh,900);return;}"
+    "render(j.networks||[]);"
+    "}).catch(function(){hint.textContent='Scan failed. Tap Rescan.';});}"
+    "box.addEventListener('click',function(e){var t=e.target;"
+    "while(t&&t!==box&&(' '+t.className+' ').indexOf(' net ')===-1)t=t.parentNode;"
+    "if(t&&t!==box){ssid.value=t.getAttribute('data-ssid')||'';ssid.focus();refresh();}"
+    "if(e.target&&e.target.id==='manual'){ssid.value='';ssid.focus();}});"
+    "if(rescan)rescan.addEventListener('click',function(){rescan.disabled=true;"
+    "hint.textContent='Scanning\\u2026';"
+    "fetch('/scan',{method:'POST',cache:'no-store'}).then(function(r){return r.json();})"
+    ".then(function(){setTimeout(refresh,600);})"
+    ".catch(function(){hint.textContent='Scan failed. Tap Rescan.';})"
+    ".then(function(){rescan.disabled=false;});});"
+    "refresh();"
+    "})();</script>"));
+}
+
+String portalStatusScript() {
+  return String(F(
+    "<script>(function(){"
+    "var h=document.getElementById('state'),msg=document.getElementById('msg'),"
+    "spin=document.getElementById('spin'),facts=document.getElementById('facts'),"
+    "err=document.getElementById('err'),done=document.getElementById('done'),"
+    "back=document.getElementById('back'),fSsid=document.getElementById('f-ssid'),"
+    "fIp=document.getElementById('f-ip'),fRssi=document.getElementById('f-rssi'),stopped=false;"
+    "function dbm(v){return v<0?('\\u2212'+Math.abs(v)+' dBm'):(v+' dBm');}"
+    "function tick(){"
+    "fetch('/status',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){"
+    "if(j.state==='connected'){stopped=true;h.textContent='Connected!';"
+    "msg.textContent='Connected to '+j.ssid+'.';"
+    "fSsid.textContent=j.ssid;fIp.textContent=j.ip;fRssi.textContent=dbm(j.rssi);"
+    "facts.hidden=false;spin.hidden=true;err.hidden=true;done.hidden=false;"
+    "done.textContent='PakaonAI will finish setup and restart in 5 s. You can close this page.';return;}"
+    "if(j.state==='failed'){stopped=true;h.textContent='Not connected';"
+    "msg.textContent='The feeder could not join that network.';"
+    "err.textContent=j.message||'Check the name and password, then try again.';"
+    "err.hidden=false;spin.hidden=true;back.hidden=false;return;}"
+    "setTimeout(tick,1000);"
+    "}).catch(function(){if(!stopped)setTimeout(tick,1500);});}"
+    "tick();})();</script>"));
 }
 
 String buildProvisioningPage(const String &ssid, const String &error) {
   // Identity values are never rendered back into the form: the stored token
   // must not be readable by anyone who joins the open setup AP.
-  const bool identityAvailable = !identityValueIsPlaceholder(provisionedDeviceId) &&
-                                 !identityValueIsPlaceholder(provisionedDeviceToken);
-
-  String page = F(
-    "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
-    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-    "<title>PakaonAI device setup</title><style>"
-    "body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;margin:0;padding:24px;background:#f3f5f7;color:#1b2430}"
-    "main{max-width:420px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}"
-    "h1{font-size:1.35rem;margin:0 0 8px}p{line-height:1.45}"
-    "label{display:block;font-weight:600;margin:18px 0 6px}"
-    "input,select{width:100%;box-sizing:border-box;padding:10px;border:1px solid #b9c2cc;border-radius:8px;font-size:1rem;background:#fff}"
-    "button{margin-top:20px;width:100%;padding:12px;border:0;border-radius:8px;background:#166534;color:#fff;font-size:1rem;font-weight:600}"
-    ".note{font-size:.9rem;color:#4a5563}.err{background:#fdecec;border:1px solid #f5b5b5;border-radius:8px;padding:10px;color:#8a1c1c}"
-    "code{background:#eef1f4;padding:2px 6px;border-radius:4px}"
-    "footer{margin-top:20px;font-size:.8rem;color:#6b7684}"
-    "</style></head><body><main>"
-    "<h1>PakaonAI device setup</h1>"
-    "<p class=\"note\">Connect the feeder to a 2.4 GHz WiFi network and enter its device identity. The device restarts after saving and joins automatically.</p>"
-    "{{ERROR}}"
-    "<form method=\"POST\" action=\"/save\">"
-    "<label for=\"ssid_select\">Nearby networks</label>"
-    "<select id=\"ssid_select\">{{NETWORK_OPTIONS}}</select>"
-    "<label for=\"ssid\">WiFi name (SSID)</label>"
-    "<input id=\"ssid\" name=\"ssid\" type=\"text\" maxlength=\"32\" required autocomplete=\"off\" value=\"{{SSID}}\">"
-    "<p class=\"note\">WiFi names are case-sensitive: type or pick the exact name, including capital letters.</p>"
-    "<label for=\"pass\">Password</label>"
-    "<input id=\"pass\" name=\"pass\" type=\"password\" maxlength=\"63\" autocomplete=\"new-password\">"
-    "<p class=\"note\">Leave the password empty for an open network, otherwise use 8-63 characters.</p>"
-    "<label for=\"device_id\">Device ID</label>"
-    "<input id=\"device_id\" name=\"device_id\" type=\"text\" maxlength=\"64\" autocomplete=\"off\" value=\"\" placeholder=\"{{ID_PLACEHOLDER}}\">"
-    "<label for=\"device_token\">Device Token</label>"
-    "<input id=\"device_token\" name=\"device_token\" type=\"password\" maxlength=\"128\" autocomplete=\"new-password\" value=\"\" placeholder=\"{{TOKEN_PLACEHOLDER}}\">"
-    "<p class=\"note\">Find both under Admin &rarr; Devices in the PakaonAI dashboard. Leave them blank to keep the identity already stored on this device.</p>"
-    "<button type=\"submit\">Save and restart</button>"
-    "</form>"
-    "<footer>Setup address: <code>192.168.4.1</code> &middot; AP: {{AP}}</footer>"
-    "<script>"
-    "(function(){var s=document.getElementById('ssid_select'),i=document.getElementById('ssid');"
-    "if(!s||!i)return;s.addEventListener('change',function(){"
-    "if(s.value==='__manual__'){i.value='';i.focus();return;}if(s.value){i.value=s.value;}});})();"
-    "</script>"
-    "</main></body></html>");
-
-  String errorBlock;
-  if (error.length() > 0) {
-    errorBlock = F("<p class=\"err\">");
-    errorBlock += htmlEscape(error);
-    errorBlock += F("</p>");
-  }
-
+  const bool identityAvailable = apiIdentityAvailable();
   const String identityPlaceholder = identityAvailable
     ? String(F("leave blank to keep existing"))
     : String(F("required for first-time setup"));
 
-  // AP/ERROR/identity/network placeholders first, SSID last: a user-supplied
-  // SSID must never be re-scanned for another placeholder.
-  page.replace("{{AP}}", htmlEscape(provisioningApName));
-  page.replace("{{ERROR}}", errorBlock);
-  page.replace("{{ID_PLACEHOLDER}}", identityPlaceholder);
-  page.replace("{{TOKEN_PLACEHOLDER}}", identityPlaceholder);
-  page.replace("{{NETWORK_OPTIONS}}", buildNetworkOptions(ssid));
-  page.replace("{{SSID}}", htmlEscape(ssid));
+  String page = portalPageHead("PakaonAI device setup");
+  page += F("<main><div class=\"card\"><h1>Device setup</h1>"
+            "<p class=\"tagline\">Sakto nga pakaon, sakto nga oras.</p>");
+  if (error.length() > 0) {
+    page += F("<p class=\"err\">");
+    page += htmlEscape(error);
+    page += F("</p>");
+  }
+  page += F("<p class=\"note\"><strong>Step 1. Wi-Fi</strong> &mdash; pick your 2.4 GHz "
+            "network, or type its name.</p>"
+            "<div class=\"networks\" id=\"networks\">");
+  page += buildNetworkPicker(ssid);
+  page += F("</div><div class=\"scanrow\"><span id=\"scanhint\">");
+  page += scanHintText();
+  page += F("</span><button type=\"button\" class=\"btn secondary small\" id=\"rescan\">"
+            "Rescan</button></div>"
+            "<form method=\"post\" action=\"/save\" id=\"setupform\">"
+            "<label for=\"ssid\">Wi-Fi name (SSID)</label>"
+            "<input id=\"ssid\" name=\"ssid\" type=\"text\" maxlength=\"32\" required "
+            "autocomplete=\"off\" autocapitalize=\"none\" spellcheck=\"false\" value=\"");
+  page += htmlEscape(ssid);
+  page += F("\"><p class=\"note\">Wi-Fi names are case-sensitive. The feeder is 2.4 GHz "
+            "only, so 5 GHz networks are not listed.</p>"
+            "<label for=\"pass\">Password</label>"
+            "<input id=\"pass\" name=\"pass\" type=\"password\" maxlength=\"63\" "
+            "autocomplete=\"new-password\">"
+            "<p class=\"note\">Leave empty for an open network; otherwise 8-63 characters. "
+            "Nothing is saved until the connection works.</p>"
+            "<p class=\"note\"><strong>Step 2. Device identity</strong> &mdash; from "
+            "Admin &rarr; Devices in the PakaonAI dashboard.</p>"
+            "<label for=\"device_id\">Device ID</label>"
+            "<input id=\"device_id\" name=\"device_id\" type=\"text\" maxlength=\"64\" "
+            "autocomplete=\"off\" value=\"\" placeholder=\"");
+  page += identityPlaceholder;
+  page += F("\"><label for=\"device_token\">Device Token</label>"
+            "<input id=\"device_token\" name=\"device_token\" type=\"password\" maxlength=\"128\" "
+            "autocomplete=\"new-password\" value=\"\" placeholder=\"");
+  page += identityPlaceholder;
+  page += F("\"><button class=\"btn\" type=\"submit\">Connect and save</button>"
+            "</form>"
+            "<p class=\"note\">The feeder tests the network first. It restarts only after the "
+            "connection is confirmed, and discards the password if the join fails.</p>"
+            "</div></main>");
+  page += portalFooter();
+  page += portalSetupScript();
+  page += F("</body></html>");
   return page;
 }
 
-String buildProvisioningSuccessPage() {
-  return String(F(
-    "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
-    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-    "<title>PakaonAI saved</title></head>"
-    "<body style=\"font-family:system-ui,sans-serif;padding:32px;max-width:420px;margin:0 auto\">"
-    "<h1>Settings saved</h1>"
-    "<p>The feeder is restarting and will join your WiFi network. You can close this page.</p>"
-    "</body></html>"));
+String buildProvisioningStatusPage() {
+  String page = portalPageHead("PakaonAI connecting");
+  page += F("<main><div class=\"card\">"
+            "<h1 id=\"state\">Connecting&hellip;</h1>"
+            "<p class=\"tagline\" id=\"msg\">Testing <strong>");
+  page += htmlEscape(provisioningPendingSsid);
+  page += F("</strong> &mdash; this can take up to 20 seconds.</p>"
+            "<div class=\"spin\" id=\"spin\" aria-hidden=\"true\"></div>"
+            "<dl class=\"facts\" id=\"facts\" hidden>"
+            "<dt>Network</dt><dd id=\"f-ssid\">&mdash;</dd>"
+            "<dt>IP address</dt><dd id=\"f-ip\">&mdash;</dd>"
+            "<dt>Signal</dt><dd id=\"f-rssi\">&mdash;</dd></dl>"
+            "<p class=\"err\" id=\"err\" hidden></p>"
+            "<p class=\"ok\" id=\"done\" hidden></p>"
+            "<a class=\"btn\" id=\"back\" href=\"/\" hidden>Back to setup</a>"
+            "</div></main>");
+  page += portalFooter();
+  page += portalStatusScript();
+  page += F("</body></html>");
+  return page;
+}
+
+void sendPortalJson(const String &json, int code) {
+  provisioningServer.sendHeader("Cache-Control", "no-store");
+  provisioningServer.send(code, "application/json", json);
 }
 
 void handleProvisioningRoot() {
+  provisioningServer.sendHeader("Cache-Control", "no-store");
+  // While a join is being tested the root shows the live status page; the
+  // status page polls /status and reports the result.
+  if (provisioningJoinState == PROV_JOIN_CONNECTING ||
+      provisioningJoinState == PROV_JOIN_CONNECTED) {
+    provisioningServer.send(200, "text/html", buildProvisioningStatusPage());
+    return;
+  }
+
   String currentSsid;
-  if (storedSsidAvailable()) currentSsid = prefs.getString("wifi_ssid", "");
-  provisioningServer.send(200, "text/html", buildProvisioningPage(currentSsid, ""));
+  if (provisioningPendingSsid.length() > 0) {
+    currentSsid = provisioningPendingSsid;
+  } else if (storedSsidAvailable()) {
+    currentSsid = prefs.getString("wifi_ssid", "");
+  }
+
+  // After a failed join the form comes back with the reason, so the user can
+  // correct it and retry. Nothing was written to NVS.
+  const String error = provisioningJoinState == PROV_JOIN_FAILED
+    ? provisioningJoinFailure
+    : String("");
+  provisioningServer.send(200, "text/html", buildProvisioningPage(currentSsid, error));
 }
 
 void handleProvisioningSave() {
+  if (provisioningJoinState == PROV_JOIN_CONNECTING ||
+      provisioningJoinState == PROV_JOIN_CONNECTED) {
+    provisioningServer.sendHeader("Location", "/", true);
+    provisioningServer.send(303, "text/plain", "");
+    return;
+  }
+
   const String ssid = provisioningServer.arg("ssid");
   const String pass = provisioningServer.arg("pass");
   String deviceId = provisioningServer.arg("device_id");
@@ -1032,9 +1336,19 @@ void handleProvisioningSave() {
 
   // Blank identity fields keep the active NVS identity. This is what lets the
   // WiFi-only reset flow save a new network without re-typing the Device ID /
-  // token.
-  if (deviceId.length() == 0) deviceId = provisionedDeviceId;
-  if (deviceToken.length() == 0) deviceToken = provisionedDeviceToken;
+  // token. A blank field also reuses the identity from the previous attempt in
+  // the same portal session, so a mistyped password does not force the token to
+  // be retyped (it is still never rendered back into the page).
+  if (deviceId.length() == 0) {
+    deviceId = provisioningPendingDeviceId.length() > 0
+      ? provisioningPendingDeviceId
+      : provisionedDeviceId;
+  }
+  if (deviceToken.length() == 0) {
+    deviceToken = provisioningPendingDeviceToken.length() > 0
+      ? provisioningPendingDeviceToken
+      : provisionedDeviceToken;
+  }
 
   if (deviceId.length() < 1 || deviceId.length() > 64) {
     provisioningServer.send(400, "text/html",
@@ -1053,18 +1367,15 @@ void handleProvisioningSave() {
     return;
   }
 
-  // Persist WiFi and identity together; a reboot must never land on a partial
-  // configuration that has a new network but the wrong device identity.
-  saveWiFiCredentials(ssid, pass);       // NVS keys: wifi_ssid / wifi_pass
-  saveDeviceIdentity(deviceId, deviceToken);  // NVS keys: device_id / device_token / provisioned
-  Serial.printf("[PROV] Provisioning saved for device %s - restarting\n", deviceId.c_str());
+  // Test-before-save (issue #252): the credentials and identity stay in RAM
+  // until the station link is proven, then both are written to NVS together and
+  // the unit restarts. A failure keeps the old NVS values untouched.
+  startProvisioningJoin(ssid, pass, deviceId, deviceToken);
 
-  provisioningServer.send(200, "text/html", buildProvisioningSuccessPage());
-  provisioningServer.client().flush();
-  provisioningServer.client().stop();
-
-  delay(PROVISIONING_REBOOT_DELAY_MS);
-  ESP.restart();
+  // 303 so a refresh does not resubmit the form; the status page takes over.
+  provisioningServer.sendHeader("Location", "/", true);
+  provisioningServer.sendHeader("Cache-Control", "no-store");
+  provisioningServer.send(303, "text/plain", "");
 }
 
 // Captive-portal behaviour: anything else resolves to the setup page.
@@ -1074,62 +1385,369 @@ void handleProvisioningNotFound() {
   provisioningServer.send(302, "text/plain", "");
 }
 
-// Blocking 2.4 GHz scan (about 2-4 s across 13 channels). Runs once when the
-// portal starts, never from loop(), so the feed button and watchdog are not
-// starved during normal operation. The ESP32 radio cannot see 5 GHz networks.
-void scanNearbyWiFiNetworks() {
+// ---- Async scan ----
+
+void settleStationForScan() {
+  // Root cause of the empty scan (issue #252): the portal starts right after a
+  // failed join, so the station was still connecting when the scan ran.
+  // esp_wifi_scan_start() refuses to start then (ESP_ERR_WIFI_STATE) and the
+  // Arduino wrapper returns WIFI_SCAN_FAILED (-2), which the old code printed as
+  // "0 network(s)". Stop the retry loop, finish the half-open attempt, then
+  // scan with the station idle.
+  if (WiFi.status() != WL_CONNECTED) {
+    WiFi.setAutoReconnect(false);   // no background begin() racing the radio
+    WiFi.disconnect(false, false);
+  }
+  WiFi.mode(WIFI_AP_STA);           // scan needs STA; the setup AP stays up
+}
+
+void collectScannedNetworks(int found) {
   scannedNetworkCount = 0;
+  // Look at a few more records than are shown so several BSSIDs of the same
+  // SSID can be reduced to their strongest signal.
+  const int limit = found > PROVISIONING_SCAN_MAX * 2 ? PROVISIONING_SCAN_MAX * 2 : found;
 
-  Serial.println("[PROV] Scanning for nearby 2.4 GHz WiFi networks...");
-  kickWatchdog();
-  const int found = WiFi.scanNetworks(false, true);  // synchronous, hidden included
-  kickWatchdog();
+  for (int i = 0; i < limit; i++) {
+    String ssid = WiFi.SSID(i);
+    if (ssid.length() == 0 || ssid.length() > 32) continue;
 
-  if (found > 0) {
-    for (int i = 0; i < found && scannedNetworkCount < PROVISIONING_SCAN_MAX; i++) {
-      String ssid = WiFi.SSID(i);
-      if (ssid.length() == 0 || ssid.length() > 32) continue;
+    const int32_t rssi = WiFi.RSSI(i);
+    const bool secure = WiFi.encryptionType(i) != WIFI_AUTH_OPEN;
 
-      bool duplicate = false;
-      for (int j = 0; j < scannedNetworkCount; j++) {
-        if (scannedNetworks[j].ssid == ssid) {
-          duplicate = true;
-          break;
-        }
+    int existing = -1;
+    for (int j = 0; j < scannedNetworkCount; j++) {
+      if (scannedNetworks[j].ssid == ssid) {
+        existing = j;
+        break;
       }
-      if (duplicate) continue;
-
-      ScannedNetwork entry;
-      entry.ssid = ssid;
-      entry.rssi = WiFi.RSSI(i);
-      entry.secure = WiFi.encryptionType(i) != WIFI_AUTH_OPEN;
-
-      // Insertion sort: strongest signal first.
-      int pos = scannedNetworkCount;
-      while (pos > 0 && scannedNetworks[pos - 1].rssi < entry.rssi) {
-        scannedNetworks[pos] = scannedNetworks[pos - 1];
-        pos--;
-      }
-      scannedNetworks[pos] = entry;
-      scannedNetworkCount++;
     }
+    if (existing >= 0) {
+      if (rssi > scannedNetworks[existing].rssi) {
+        scannedNetworks[existing].rssi = rssi;
+        scannedNetworks[existing].secure = secure;
+      }
+      continue;
+    }
+    if (scannedNetworkCount >= PROVISIONING_SCAN_MAX) continue;
+
+    ScannedNetwork entry;
+    entry.ssid = ssid;
+    entry.rssi = rssi;
+    entry.secure = secure;
+
+    // Insertion sort: strongest signal first.
+    int pos = scannedNetworkCount;
+    while (pos > 0 && scannedNetworks[pos - 1].rssi < entry.rssi) {
+      scannedNetworks[pos] = scannedNetworks[pos - 1];
+      pos--;
+    }
+    scannedNetworks[pos] = entry;
+    scannedNetworkCount++;
   }
 
   WiFi.scanDelete();
-  Serial.printf("[PROV] WiFi scan found %d network(s)\n", scannedNetworkCount);
+
+  Serial.printf("[PROV] WiFi scan finished: %d raw, %d shown\n", found, scannedNetworkCount);
+  for (int i = 0; i < scannedNetworkCount && i < 5; i++) {
+    Serial.printf("[PROV]   %s  %d dBm%s\n",
+                  scannedNetworks[i].ssid.c_str(),
+                  (int)scannedNetworks[i].rssi,
+                  scannedNetworks[i].secure ? " (secured)" : " (open)");
+  }
+  if (scannedNetworkCount == 0) {
+    Serial.println("[PROV] No 2.4 GHz networks visible - check the antenna");
+  }
+}
+
+void finishScanAttempt(int count, bool failed);
+
+// Starts (or restarts) an asynchronous scan. Never blocks loop(); the result is
+// polled by serviceProvisioningScan().
+void startAsyncWiFiScan(bool userInitiated) {
+  if (provisioningScanState == PROV_SCAN_RUNNING) return;
+  if (userInitiated) provisioningScanRetried = false;
+
+  settleStationForScan();
+  WiFi.scanDelete();   // release the previous result buffer before a new scan
+
+  provisioningScanLastError = 0;
+  provisioningScanStartedMs = millis();
+  provisioningScanState = PROV_SCAN_RUNNING;
+
+  // async, hidden networks included, active scan with a per-channel bound.
+  const int16_t rc = WiFi.scanNetworks(true, true, false, PROVISIONING_SCAN_CHANNEL_MS);
+  Serial.printf("[PROV] WiFi scan started (rc=%d)\n", (int)rc);
+
+  if (rc == WIFI_SCAN_RUNNING) return;   // normal async path
+  if (rc >= 0) {                          // completed before returning
+    provisioningScanRawCount = rc;
+    collectScannedNetworks(rc);
+    finishScanAttempt(rc, false);
+    return;
+  }
+  // WIFI_SCAN_FAILED: log the real value instead of pretending it was empty.
+  provisioningScanLastError = rc;
+  Serial.printf("[PROV] WiFi scan could not start (%d)\n", (int)rc);
+  finishScanAttempt(0, true);
+}
+
+void finishScanAttempt(int count, bool failed) {
+  provisioningScanCompletedAtMs = millis();
+  if (!failed && count > 0) {
+    provisioningScanState = PROV_SCAN_IDLE;
+    return;
+  }
+  if (!provisioningScanRetried) {
+    // One automatic retry covers a radio that was still settling right after
+    // the failed join (the field case on 2026-10-28).
+    provisioningScanRetried = true;
+    provisioningScanState = PROV_SCAN_RETRY_WAIT;
+    provisioningScanRetryAtMs = millis() + PROVISIONING_SCAN_RETRY_MS;
+    Serial.printf("[PROV] Scan returned %d network(s)%s - retrying once in %lu ms\n",
+                  count, failed ? " (failed)" : "",
+                  (unsigned long)PROVISIONING_SCAN_RETRY_MS);
+    return;
+  }
+  provisioningScanState = PROV_SCAN_IDLE;
+  Serial.println(failed
+    ? "[PROV] WiFi scan failed twice - manual entry only"
+    : "[PROV] WiFi scan found 0 networks twice - check the antenna");
+}
+
+// Called from loop() while the portal is active. Keeps the scan state machine
+// moving without ever blocking on the radio.
+void serviceProvisioningScan() {
+  if (provisioningScanState == PROV_SCAN_RUNNING) {
+    const int16_t count = WiFi.scanComplete();
+    if (count == WIFI_SCAN_RUNNING) {
+      if (millis() - provisioningScanStartedMs >= PROVISIONING_SCAN_TIMEOUT_MS) {
+        Serial.println("[PROV] WiFi scan timed out");
+        provisioningScanLastError = WIFI_SCAN_FAILED;
+        esp_wifi_scan_stop();
+        WiFi.scanDelete();
+        finishScanAttempt(0, true);
+      }
+      return;
+    }
+    if (count >= 0) {
+      provisioningScanLastError = 0;
+      provisioningScanRawCount = count;
+      collectScannedNetworks(count);
+      finishScanAttempt(count, false);
+      return;
+    }
+    provisioningScanLastError = count;
+    Serial.printf("[PROV] WiFi scan failed (%d)\n", (int)count);
+    WiFi.scanDelete();
+    finishScanAttempt(0, true);
+    return;
+  }
+
+  if (provisioningScanState == PROV_SCAN_RETRY_WAIT &&
+      (long)(millis() - provisioningScanRetryAtMs) >= 0) {
+    startAsyncWiFiScan(false);   // automatic retry: keep the "already retried" flag
+  }
+}
+
+// ---- Test-before-save join ----
+
+String provisioningJoinMessage(const String &detail) {
+  if (detail == "no_ssid") {
+    return String(F("Network not found. Check the name (2.4 GHz only) and that the router "
+                    "is switched on."));
+  }
+  if (detail == "wrong_password") {
+    return String(F("Wrong password, or the router refused the connection."));
+  }
+  if (detail == "connection_lost") {
+    return String(F("The connection dropped during setup. Move closer to the router and "
+                    "try again."));
+  }
+  if (detail == "invalid_config") {
+    return String(F("The radio rejected these Wi-Fi settings. Check the password and try "
+                    "again."));
+  }
+  if (detail == "no_ip") {
+    return String(F("No IP address from the network. Check that the router hands out "
+                    "addresses (DHCP) and try again."));
+  }
+  return String(F("Could not join the network. Check the name and password, then try again."));
+}
+
+void failProvisioningJoin(const String &detail) {
+  provisioningJoinDetail = detail;
+  provisioningJoinFailure = provisioningJoinMessage(detail);
+  provisioningJoinState = PROV_JOIN_FAILED;
+  provisioningPendingPass = "";       // never keep the password after a failure
+  WiFi.disconnect(false, false);      // stop the station retry cycle
+  WiFi.setAutoReconnect(false);
+  Serial.printf("[PROV] Join failed (%s) - credentials NOT saved\n", detail.c_str());
+}
+
+void provisioningJoinSucceeded() {
+  // Save only after the link is proven. A wrong password must never replace
+  // credentials that still work, nor leave a first-time unit provisioned with a
+  // network it cannot reach.
+  saveWiFiCredentials(provisioningPendingSsid, provisioningPendingPass);
+  saveDeviceIdentity(provisioningPendingDeviceId, provisioningPendingDeviceToken);
+  provisioningJoinState = PROV_JOIN_CONNECTED;
+  provisioningJoinConnectedMs = millis();
+  provisioningPendingPass = "";   // NVS owns it now; drop it from RAM
+  Serial.printf("[PROV] Connected to \"%s\" IP %s RSSI %d dBm - saved, restarting in %lu s\n",
+                provisioningPendingSsid.c_str(), WiFi.localIP().toString().c_str(),
+                (int)WiFi.RSSI(),
+                (unsigned long)(PROVISIONING_SUCCESS_RESTART_MS / 1000));
+}
+
+void startProvisioningJoin(const String &ssid, const String &pass,
+                           const String &deviceId, const String &deviceToken) {
+  provisioningPendingSsid = ssid;
+  provisioningPendingPass = pass;
+  provisioningPendingDeviceId = deviceId;
+  provisioningPendingDeviceToken = deviceToken;
+  provisioningJoinFailure = "";
+  provisioningJoinDetail = "";
+
+  // A scan in flight owns the radio; stop it before the join.
+  if (provisioningScanInProgress()) {
+    esp_wifi_scan_stop();
+    WiFi.scanDelete();
+    provisioningScanState = PROV_SCAN_IDLE;
+  }
+
+  WiFi.mode(WIFI_AP_STA);          // the setup AP stays reachable during the test
+  WiFi.setAutoReconnect(false);    // one attempt we control, not a retry loop
+  WiFi.disconnect(false, false);
+  provisioningJoinState = PROV_JOIN_CONNECTING;
+  provisioningJoinStartedMs = millis();
+
+  const wl_status_t rc = WiFi.begin(ssid.c_str(), pass.c_str());
+  Serial.printf("[PROV] Testing \"%s\" before saving (begin rc=%d)\n", ssid.c_str(), (int)rc);
+  if (rc == WL_CONNECT_FAILED) failProvisioningJoin("invalid_config");
+}
+
+// Called from loop() while the portal is active. Non-blocking: the join is
+// observed through WiFi.status(), and the watchdog is fed every pass.
+void serviceProvisioningJoin() {
+  if (provisioningJoinState == PROV_JOIN_CONNECTED) {
+    if (millis() - provisioningJoinConnectedMs >= PROVISIONING_SUCCESS_RESTART_MS) {
+      Serial.println("[PROV] Restarting with the verified WiFi settings");
+      provisioningServer.client().flush();
+      provisioningServer.client().stop();
+      delay(100);
+      ESP.restart();
+    }
+    return;
+  }
+  if (provisioningJoinState != PROV_JOIN_CONNECTING) return;
+
+  kickWatchdog();
+  const wl_status_t status = WiFi.status();
+  if (status == WL_CONNECTED) {
+    provisioningJoinSucceeded();
+    return;
+  }
+
+  const unsigned long elapsed = millis() - provisioningJoinStartedMs;
+  // A definitive answer (no such network, auth refused, link dropped) ends the
+  // wait early once a full station attempt has had time to run; otherwise the
+  // attempt gets the full 20 s before it is called a failure.
+  const bool answered = status == WL_NO_SSID_AVAIL ||
+                        status == WL_CONNECT_FAILED ||
+                        status == WL_CONNECTION_LOST;
+  if (answered && elapsed >= PROVISIONING_JOIN_QUICK_FAIL_MS) {
+    if (status == WL_NO_SSID_AVAIL) failProvisioningJoin("no_ssid");
+    else if (status == WL_CONNECT_FAILED) failProvisioningJoin("wrong_password");
+    else failProvisioningJoin("connection_lost");
+    return;
+  }
+  if (elapsed >= PROVISIONING_SETUP_JOIN_TIMEOUT_MS) {
+    if (status == WL_NO_SSID_AVAIL) failProvisioningJoin("no_ssid");
+    else if (status == WL_CONNECT_FAILED) failProvisioningJoin("wrong_password");
+    else failProvisioningJoin("no_ip");
+  }
+}
+
+// Small JSON status for the status page. No password or token is ever included.
+void handleProvisioningStatus() {
+  JsonDocument doc;
+  const char *state = "idle";
+  if (provisioningJoinState == PROV_JOIN_CONNECTING) state = "connecting";
+  else if (provisioningJoinState == PROV_JOIN_CONNECTED) state = "connected";
+  else if (provisioningJoinState == PROV_JOIN_FAILED) state = "failed";
+
+  doc["state"] = state;
+  doc["ssid"] = provisioningPendingSsid;
+  if (provisioningJoinState == PROV_JOIN_CONNECTED) {
+    doc["ip"] = WiFi.localIP().toString();
+    doc["rssi"] = WiFi.RSSI();
+    const unsigned long elapsed = millis() - provisioningJoinConnectedMs;
+    doc["restartInMs"] = elapsed >= PROVISIONING_SUCCESS_RESTART_MS
+      ? 0UL
+      : (PROVISIONING_SUCCESS_RESTART_MS - elapsed);
+  }
+  if (provisioningJoinState == PROV_JOIN_FAILED) {
+    doc["detail"] = provisioningJoinDetail;
+    doc["message"] = provisioningJoinFailure;
+  }
+
+  String out;
+  serializeJson(doc, out);
+  sendPortalJson(out, 200);
+}
+
+void handleProvisioningScanGet() {
+  JsonDocument doc;
+  doc["scanning"] = provisioningScanInProgress();
+  doc["count"] = scannedNetworkCount;
+  doc["rawCount"] = provisioningScanRawCount;
+  doc["error"] = provisioningScanLastError;
+  doc["completedAtMs"] = provisioningScanCompletedAtMs;
+  JsonArray nets = doc["networks"].to<JsonArray>();
+  for (int i = 0; i < scannedNetworkCount; i++) {
+    JsonObject network = nets.add<JsonObject>();
+    network["ssid"] = scannedNetworks[i].ssid;
+    network["rssi"] = scannedNetworks[i].rssi;
+    network["secure"] = scannedNetworks[i].secure;
+  }
+  String out;
+  serializeJson(doc, out);
+  sendPortalJson(out, 200);
+}
+
+void handleProvisioningScanPost() {
+  if (provisioningJoinState == PROV_JOIN_CONNECTING ||
+      provisioningJoinState == PROV_JOIN_CONNECTED) {
+    sendPortalJson(F("{\"ok\":false,\"error\":\"busy\"}"), 409);
+    return;
+  }
+  if (provisioningScanInProgress()) {
+    sendPortalJson(F("{\"ok\":true,\"scanning\":true}"), 200);
+    return;
+  }
+  startAsyncWiFiScan(true);
+  sendPortalJson(provisioningScanInProgress()
+    ? F("{\"ok\":true,\"scanning\":true}")
+    : F("{\"ok\":true,\"scanning\":false}"), 200);
 }
 
 void startProvisioningPortal() {
   if (provisioningActive) return;
 
   provisioningApName = provisioningApSsid();
-  // AP+STA keeps the station side alive, so a network that comes back can
-  // close the portal on its own.
-  WiFi.mode(WIFI_AP_STA);
 
-  // Fill the setup page's network picker before the AP is up; typing the name
-  // manually stays available.
-  scanNearbyWiFiNetworks();
+  // Stop the station retry loop before touching the radio: an in-progress
+  // connect makes esp_wifi_set_mode() and esp_wifi_scan_start() fail with
+  // ESP_ERR_WIFI_STATE (issue #252, the empty scan).
+  WiFi.setAutoReconnect(false);
+  if (WiFi.status() != WL_CONNECTED) {
+    WiFi.disconnect(false, false);
+  }
+  // AP+STA keeps the setup AP and the station interface alive together: the new
+  // credentials are tested on the station side while this AP stays reachable.
+  // Auto-reconnect is restored when the portal stops, so the portal owns the
+  // radio while it is open and a background begin() cannot race a scan.
+  WiFi.mode(WIFI_AP_STA);
 
   if (!WiFi.softAP(provisioningApName.c_str())) {
     Serial.println("[PROV] Could not start the setup access point");
@@ -1142,6 +1760,9 @@ void startProvisioningPortal() {
   if (!provisioningRoutesRegistered) {
     provisioningServer.on("/", HTTP_GET, handleProvisioningRoot);
     provisioningServer.on("/save", HTTP_POST, handleProvisioningSave);
+    provisioningServer.on("/status", HTTP_GET, handleProvisioningStatus);
+    provisioningServer.on("/scan", HTTP_GET, handleProvisioningScanGet);
+    provisioningServer.on("/scan", HTTP_POST, handleProvisioningScanPost);
     provisioningServer.onNotFound(handleProvisioningNotFound);
     provisioningRoutesRegistered = true;
   }
@@ -1149,17 +1770,33 @@ void startProvisioningPortal() {
 
   provisioningActive = true;
   wifiJoinPending = false;
+  provisioningJoinState = PROV_JOIN_IDLE;
+  provisioningJoinFailure = "";
   Serial.println("[PROV] Setup portal active");
   Serial.printf("[PROV] Join \"%s\" and open http://%s\n",
                 provisioningApName.c_str(), WiFi.softAPIP().toString().c_str());
+
+  // Scan after the AP is up and the station is idle. The page can be opened
+  // while it runs: it shows "Scanning..." and the Rescan button refreshes it.
+  startAsyncWiFiScan(true);
 }
 
 void stopProvisioningPortal() {
   if (!provisioningActive) return;
+  if (provisioningScanInProgress()) {
+    esp_wifi_scan_stop();
+    WiFi.scanDelete();
+    provisioningScanState = PROV_SCAN_IDLE;
+  }
   provisioningDns.stop();
   provisioningServer.stop();
   WiFi.softAPdisconnect(true);   // drops the AP interface, keeps STA credentials
+  // Normal operation keeps the core's auto-reconnect; the portal disables it
+  // only so a background begin() does not race the scan.
+  WiFi.setAutoReconnect(true);
   provisioningActive = false;
+  provisioningApName = "";
+  provisioningJoinState = PROV_JOIN_IDLE;
   Serial.println("[PROV] Setup portal stopped");
 }
 
@@ -1174,10 +1811,15 @@ void serviceProvisioningPortal() {
   provisioningDns.processNextRequest();  // compatibility no-op on ESP32 core 3.x
   provisioningServer.handleClient();
 
-  // Only close the portal once the unit is actually usable: a station link
-  // without a device identity would leave an unprovisioned unit with no way
-  // back into its own setup page.
-  if (WiFi.status() == WL_CONNECTED && apiIdentityAvailable()) {
+  serviceProvisioningJoin();
+  serviceProvisioningScan();
+
+  // Only close the portal once the unit is actually usable and no setup attempt
+  // is on screen: a station link without a device identity would leave an
+  // unprovisioned unit with no way back into its own setup page. Wait for a
+  // running scan (a few seconds) instead of leaving its result buffer behind.
+  if (provisioningJoinState == PROV_JOIN_IDLE && !provisioningScanInProgress() &&
+      WiFi.status() == WL_CONNECTED && apiIdentityAvailable()) {
     Serial.println("[WiFi] Joined a network while the portal was active - closing portal");
     stopProvisioningPortal();
     wifiJoinFailures = 0;

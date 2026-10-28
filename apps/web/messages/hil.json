@@ -1589,7 +1589,7 @@
 				"step2": "Bukas ang http://192.168.4.1 sa imo browser.",
 				"step3": "Ibutang ang ngalan sang WiFi sang uma kag ang password.",
 				"step4": "Ibutang ang Device ID nga makita sa ibabaw kag ang Device Token.",
-				"step5": "I-save. Mag-restart ang device kag magakonekta ini.",
+				"step5": "Pinduta ang Connect and save. Ginatest anay sang device ang network, tapos mag-restart kag magkonekta ini.",
 				"credentialsNote": "Pangayo-a ang Device Token sa imo farm administrator, ukon buksi ang Admin → Devices kag pinduta ang “Show token” para sa sini nga unit.",
 				"tokenWarning": "Ang Device Token kredensyal ini — ipaambit lamang sa tawo nga naga-provision sini nga unit.",
 				"recoveryTitle": "Kon indi magpakita ang setup network",

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.19.2] - 2026-10-28
+
 ### Changed
 
 - Firmware 1.5.2 (#252): the setup portal is branded (PakaonAI fish mark, wordmark, tagline "Sakto nga pakaon, sakto nga oras.") and fills its network list with an asynchronous 2.4 GHz scan with a **Rescan** button, signal bars, a lock icon for secured networks and deduplication by SSID. The footer shows the unit's Device ID and AP name.

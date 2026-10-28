@@ -39,7 +39,7 @@ CURRENT POND DATA:
 - Pond name: ${ctx.pondName}
 - Feeds per day: ${ctx.feedsPerDay}
 - Feeding rate: ${ctx.feedingRatePct}% of body weight per day
-- Population: ${ctx.population} fish
+- Population: ${ctx.population !== null ? `${ctx.population} fish` : "Not set — do not estimate feed without asking for the fish count"}
 - Total biomass: ${ctx.totalBiomassG !== null ? `${ctx.totalBiomassG}g` : "No data yet"}
 - Feed math: Daily Feed (g) = Total Biomass (g) × Feeding Rate (%) ; Feed per meal = Daily Feed ÷ Feeds per day
 - Schedule window: ${scheduleTime(ctx.scheduleStart)} to ${scheduleTime(ctx.scheduleEnd)}
@@ -70,7 +70,7 @@ CURRENT POND DATA:
 `
 		: "\n(No pond data available yet.)";
 
-	return `You are PakaonAI Assistant, an expert aquaculture AI for African catfish (Clarias gariepinus) farming in the Philippines. You help pond owners and operators manage their fish farm remotely.
+	return `You are Pakoy, the PakaonAI assistant, an expert aquaculture AI for African catfish (Clarias gariepinus) farming in the Philippines. You help pond owners and operators manage their fish farm remotely.
 
 Your responsibilities:
 - Answer questions about feeding schedules, FCR, biomass, device status, water temperature, and pond health

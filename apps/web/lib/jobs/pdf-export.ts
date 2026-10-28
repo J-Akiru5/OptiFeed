@@ -1,6 +1,6 @@
 import { notFound } from "@/lib/api/errors";
 import { resolveActivePond } from "@/lib/auth/pond-access";
-import { DEFAULT_FISH_COUNT, PH_TZ } from "@/lib/constants";
+import { PH_TZ } from "@/lib/constants";
 import { dateToFarmDateOnly } from "@/lib/crop-cycle/dates";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { formatFeedAmountLabel, isDailyTotalSource } from "@/lib/feed-figures";
@@ -112,13 +112,14 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 	// Daily Feed (g) = Total Biomass (g) × Feeding Rate (%)
 	// Feed per Meal (g) = Daily Feed (g) ÷ Feeds Per Day  (see lib/feed-calc.ts)
 	const pondPopulation = pond.population;
-	let nextFeedingVolumeG = energyDevice?.gramsPerFeeding ?? 330;
+	let nextFeedingVolumeG: number | null = energyDevice?.gramsPerFeeding ?? null;
 	if (latestBiomass) {
-		nextFeedingVolumeG = feedPerMealG(
+		const recommended = feedPerMealG(
 			totalBiomassG(pondPopulation, latestBiomass.avgWeightKg),
 			feedingRatePct,
 			feedsPerDay,
 		);
+		if (recommended !== null) nextFeedingVolumeG = recommended;
 	}
 
 	autoTable(doc, {
@@ -129,8 +130,8 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 			["Schedule", `${scheduleStart.getUTCHours()}:00 - ${scheduleEnd.getUTCHours()}:00`],
 			["Feeds Per Day", `${feedsPerDay}`],
 			["Feeding Rate", `${feedingRatePct}%`],
-			["Feed Volume", `${nextFeedingVolumeG}g`],
-			["Population", `${pondPopulation ?? DEFAULT_FISH_COUNT}`],
+			["Feed Volume", nextFeedingVolumeG === null ? "Set fish count" : `${nextFeedingVolumeG} g`],
+			["Population", pondPopulation === null ? "Not set" : `${pondPopulation}`],
 			["Sample Interval", `${pond.sampleIntervalDays ?? 14} days`],
 		],
 		theme: "grid",

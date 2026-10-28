@@ -9,7 +9,11 @@ import {
 	DashboardTh,
 	DashboardTr,
 } from "@/components/dashboard/dashboard-table";
-import { DashboardEmptyState, DashboardPageHeader } from "@/components/dashboard/dashboard-ui";
+import {
+	DashboardEmptyState,
+	DashboardPageHeader,
+	DashboardPageShell,
+} from "@/components/dashboard/dashboard-ui";
 import { ItemCardGrid } from "@/components/ui/item-card";
 import { Pagination } from "@/components/ui/pagination";
 import { ListView } from "@/components/ui/view-toggle";
@@ -78,6 +82,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 			<div className="mx-auto max-w-2xl py-10">
 				<DashboardEmptyState
 					icon={Scale}
+					mascot="idle"
 					title={tSch("noPondData")}
 					description={tSch("noDeviceDesc")}
 				/>
@@ -173,7 +178,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 	};
 
 	return (
-		<div className="mx-auto max-w-7xl space-y-6 pb-20 animate-in fade-in duration-150">
+		<DashboardPageShell className="space-y-6 pb-20 animate-in fade-in duration-150">
 			<header>
 				<Link
 					href="/dashboard/growth"
@@ -286,6 +291,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 					<div className="p-4 sm:p-6">
 						<DashboardEmptyState
 							icon={Scale}
+							mascot="idle"
 							title={t("emptyTitle")}
 							description={t("emptyDesc")}
 						/>
@@ -561,6 +567,6 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 					/>
 				)}
 			</section>
-		</div>
+		</DashboardPageShell>
 	);
 }

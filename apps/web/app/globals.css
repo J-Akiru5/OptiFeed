@@ -192,6 +192,29 @@
 	html {
 		@apply font-sans;
 	}
+
+	/*
+	 * Clickable controls show a hand cursor (#244).
+	 *
+	 * Tailwind v4's preflight stopped setting `cursor: pointer` on buttons
+	 * (v3 did), so every plain `<button>` in the app fell back to the browser
+	 * default arrow — most visibly the login page's "Back to Home" — and users
+	 * could not tell it was clickable. These rules are in the base layer, so
+	 * per-element utilities such as `cursor-default` on a modal backdrop still
+	 * win, and they cover `<summary>` toggles and `<select>`s too.
+	 */
+	button:not(:disabled),
+	[role="button"]:not([aria-disabled="true"]),
+	summary,
+	label[for],
+	select {
+		cursor: pointer;
+	}
+
+	:disabled,
+	[aria-disabled="true"] {
+		cursor: not-allowed;
+	}
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -320,5 +343,29 @@
 @media (prefers-reduced-motion: no-preference) {
 	.feeder-hero-callout {
 		animation: feeder-hero-fade 520ms ease-out both;
+	}
+}
+
+/* #259: the hopper bar breathes while the level is at or below 30 %. The red
+   accent and the text label carry the meaning without motion. */
+@keyframes hopper-low-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.55;
+	}
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.hopper-low-pulse {
+		animation: hopper-low-pulse 1.8s ease-in-out infinite;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.hopper-low-pulse {
+		animation: none;
 	}
 }

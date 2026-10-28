@@ -1,11 +1,11 @@
 import { startOfDayInTimeZone } from "@/lib/chart-windows";
+import { getDeviceFirmwareVersion } from "@/lib/device-firmware";
 import { MACHINE_FEED_SOURCES } from "@/lib/feed-figures";
 import { isDeviceOffline } from "@/lib/feed-level-display";
 import type { FeederHeroData } from "@/lib/feeder-hero-types";
-import { OTA_EVENT_TYPES, versionFromMetadata } from "@/lib/platform/firmware";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
-import { nextFeedingAt } from "@/lib/schedule/next-feeding";
+import { computeNextFeedingSlot } from "@/lib/schedule/next-feeding-slot";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 
 /**
@@ -58,13 +58,14 @@ export async function loadFeederHero({
 			waterTempUpdatedAt: true,
 			gramsPerFeeding: true,
 			hopperCapacityG: true,
+			dailyCapG: true,
 		},
 	});
 	if (!device) return null;
 
 	const todayStart = startOfDayInTimeZone(now);
 
-	const [schedule, feedToday, latestOta, latestBiomass, latestFcr] = await Promise.all([
+	const [schedule, feedToday, firmware, latestBiomass, latestFcr] = await Promise.all([
 		resolveCurrentSchedule(pond.id, device.id),
 		prisma.feedEvent.aggregate({
 			where: {
@@ -77,11 +78,7 @@ export async function loadFeederHero({
 			},
 			_sum: { grams: true },
 		}),
-		prisma.deviceStateEvent.findFirst({
-			where: { deviceId: device.id, eventType: { in: [...OTA_EVENT_TYPES] } },
-			orderBy: { createdAt: "desc" },
-			select: { metadata: true },
-		}),
+		getDeviceFirmwareVersion(device.id),
 		prisma.biomassLog.findFirst({
 			where: { pondId: pond.id },
 			orderBy: { recordedAt: "desc" },
@@ -110,6 +107,7 @@ export async function loadFeederHero({
 			latestFcr: latestFcr?.fcrValue ?? null,
 			currentGrams: device.gramsPerFeeding,
 			hopperCapacityG: device.hopperCapacityG,
+			dailyCapG: device.dailyCapG,
 			lastSampleAt: latestBiomass?.recordedAt ?? null,
 			isFallow: pond.isFallow,
 			cycle: null,
@@ -125,11 +123,16 @@ export async function loadFeederHero({
 		hopperLevelPercent: device.feedLevelPercent,
 		hopperUpdatedAt: device.feedLevelUpdatedAt,
 		gramsToday: feedToday._sum.grams ?? 0,
-		nextFeedAt: nextFeedingAt({ ...effective, now }),
+		nextFeedSlot: computeNextFeedingSlot({
+			scheduleStart: effective.scheduleStart,
+			scheduleEnd: effective.scheduleEnd,
+			feedsPerDay: effective.feedsPerDay,
+			now,
+		}),
 		waterTempC: device.waterTempC,
 		waterTempOk: device.waterTempOk,
 		waterTempUpdatedAt: device.waterTempUpdatedAt,
-		firmwareVersion: latestOta ? versionFromMetadata(latestOta.metadata) : null,
+		firmwareVersion: firmware?.version ?? null,
 		advisor: {
 			grams: prediction.grams,
 			confidence: prediction.confidence,

@@ -1,3 +1,4 @@
+import { DeviceDailyCapForm } from "@/components/DeviceDailyCapForm";
 import { DurationCalibrationForm } from "@/components/DurationCalibrationForm";
 import { HopperCalibrationForm } from "@/components/HopperCalibrationForm";
 import { TemperatureCalibrationForm } from "@/components/TemperatureCalibrationForm";
@@ -14,11 +15,13 @@ import {
 } from "@/components/dashboard/dashboard-ui";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { FeederHero } from "@/components/feeder/feeder-hero";
+import { updateDeviceDailyCap } from "@/lib/actions/settings";
 import { canWrite } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
 import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { formatFarmDateTime } from "@/lib/date-local";
+import { toHopperSnapshot } from "@/lib/device-hopper";
 import { type FeederHeroPond, loadFeederHero } from "@/lib/feeder-hero";
 import { getPageCount, parsePage } from "@/lib/pagination";
 import { getActivePond } from "@/lib/pond-selection";
@@ -28,6 +31,7 @@ import {
 	Activity,
 	CalendarClock,
 	Cpu,
+	Gauge,
 	History,
 	RefreshCw,
 	Ruler,
@@ -151,6 +155,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 					hopperCapacityG: true,
 					gramsPerSecond: true,
 					gramsPerFeeding: true,
+					dailyCapG: true,
 					lastCalibratedAt: true,
 					recalibrationIntervalDays: true,
 					tempOffsetC: true,
@@ -163,6 +168,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 	}
 
 	const now = new Date();
+	const hopper = energyDevice ? toHopperSnapshot(energyDevice, now) : null;
 
 	// The hero reads its own bounded slice (daily grams, effective schedule,
 	// reported firmware, the deterministic advisor) for the device the page has
@@ -276,6 +282,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 	const isDeviceOffline =
 		!energyDevice?.lastSeenAt ||
 		now.getTime() - energyDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+	const hopperOffline = hopper?.isOffline ?? isDeviceOffline;
 	const isWifiConfigured =
 		!!energyDevice?.lastSeenAt &&
 		now.getTime() - energyDevice.lastSeenAt.getTime() <= WIFI_ONLINE_WINDOW_MS;
@@ -314,8 +321,13 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 				{energyDevice ? (
 					<dl className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
 						<div className={statTile}>
-							<dt className={statLabel}>{t("deviceRecordId")}</dt>
-							<dd className={`${statValue} break-all font-mono`}>{energyDevice.id}</dd>
+							<dt className={statLabel}>{t("wifiSetup.deviceId")}</dt>
+							<dd className={`${statValue} break-all font-mono`}>
+								{energyDevice.mac}
+								<span className="mt-1 block font-mono text-[10px] font-medium text-[#3D5568] dark:text-gray-500">
+									{t("supportId", { id: energyDevice.id })}
+								</span>
+							</dd>
 						</div>
 						<div className={statTile}>
 							<dt className={statLabel}>{t("connectionStatus")}</dt>
@@ -329,16 +341,18 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 							<dt className={statLabel}>{t("hopperLevel")}</dt>
 							<dd className={statValue}>
 								<FeedLevelDisplay
-									levelPercent={energyDevice.feedLevelPercent}
-									updatedAt={energyDevice.feedLevelUpdatedAt}
-									isOffline={isDeviceOffline}
+									levelPercent={hopper?.levelPercent ?? null}
+									updatedAt={hopper?.levelUpdatedAt ?? null}
+									isOffline={hopperOffline}
 									showBar={false}
 								/>
 							</dd>
 						</div>
 						<div className={statTile}>
 							<dt className={statLabel}>{t("firmware")}</dt>
-							<dd className={`${statValue} font-mono`}>v1.4.2</dd>
+							<dd className={`${statValue} font-mono`}>
+								{feederHero?.firmwareVersion ? `v${feederHero.firmwareVersion}` : "—"}
+							</dd>
 						</div>
 					</dl>
 				) : (
@@ -430,6 +444,22 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 				)}
 			</DashboardSection>
 
+			{/* Daily feed ceiling */}
+			{energyDevice && (
+				<DashboardSection
+					title={t("dailyCeiling")}
+					description={t("dailyCeilingDesc")}
+					icon={Gauge}
+				>
+					<DeviceDailyCapForm
+						deviceId={energyDevice.id}
+						currentCapG={energyDevice.dailyCapG}
+						saveAction={updateDeviceDailyCap}
+						canWrite={writeAccess}
+					/>
+				</DashboardSection>
+			)}
+
 			{/* Hopper Calibration */}
 			{energyDevice && (
 				<DashboardSection
@@ -442,9 +472,9 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 							{t("currentLevelLabel")}
 						</p>
 						<FeedLevelDisplay
-							levelPercent={energyDevice.feedLevelPercent}
-							updatedAt={energyDevice.feedLevelUpdatedAt}
-							isOffline={isDeviceOffline}
+							levelPercent={hopper?.levelPercent ?? null}
+							updatedAt={hopper?.levelUpdatedAt ?? null}
+							isOffline={hopperOffline}
 							showBar={false}
 						/>
 					</div>

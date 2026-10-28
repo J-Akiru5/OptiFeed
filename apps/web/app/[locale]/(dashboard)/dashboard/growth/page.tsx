@@ -14,6 +14,7 @@ import {
 import {
 	DashboardEmptyState,
 	DashboardPageHeader,
+	DashboardPageShell,
 	DashboardSection,
 	ReadOnlyNotice,
 	dashboardSectionLink,
@@ -23,7 +24,6 @@ import { SgrKpi, type SgrKpiLabels } from "@/components/growth/SgrKpi";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
-import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatFarmDateTime } from "@/lib/date-local";
@@ -57,6 +57,7 @@ export default async function GrowthPage() {
 			<div className="mx-auto max-w-2xl py-10">
 				<DashboardEmptyState
 					icon={Fish}
+					mascot="idle"
 					title={tSch("noPondData")}
 					description={tSch("noDeviceDesc")}
 				/>
@@ -162,7 +163,7 @@ export default async function GrowthPage() {
 	const initialPrediction = computeDeterministicPrediction({
 		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
 		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
-		population: pond.population ?? DEFAULT_FISH_COUNT,
+		population: pond.population,
 		avgWeightKg: biomassLogs.length > 0 ? biomassLogs[biomassLogs.length - 1].avgWeightKg : null,
 		latestFcr: fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : null,
 		currentGrams: energyDevice?.gramsPerFeeding ?? null,
@@ -279,7 +280,7 @@ export default async function GrowthPage() {
 	};
 
 	return (
-		<div className="space-y-8 pb-20 animate-in fade-in duration-150 max-w-7xl mx-auto">
+		<DashboardPageShell className="space-y-8 pb-20 animate-in fade-in duration-150">
 			<SnapshotWriter
 				page="growth"
 				scope={pond.ownerId}
@@ -365,7 +366,7 @@ export default async function GrowthPage() {
 						</div>
 					</div>
 					<Link
-						href="/dashboard/harvest"
+						href="/dashboard/calendar"
 						className="inline-flex min-h-11 items-center gap-1 rounded-lg text-xs font-bold text-[#0A3D62] hover:underline focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:text-[#5b9bd5] dark:focus-visible:outline-[#8fc0ea]"
 					>
 						{tHarvest("progress")} <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
@@ -394,7 +395,7 @@ export default async function GrowthPage() {
 						</div>
 					</div>
 					<Link
-						href="/dashboard/harvest"
+						href="/dashboard/calendar"
 						className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-[#1f66a0] dark:focus-visible:outline-[#8fc0ea]"
 					>
 						{tHarvest("startCycle")} <ChevronRight aria-hidden="true" className="h-4 w-4" />
@@ -412,7 +413,12 @@ export default async function GrowthPage() {
 			)}
 
 			{/* FCR Calculator */}
-			<FcrCalculator latestFcr={latestFcr} />
+			<FcrCalculator
+				latestFcr={latestFcr}
+				pondId={pond.id}
+				population={pond.population}
+				feedsPerDay={currentConfig?.feedsPerDay ?? pond.feedsPerDay}
+			/>
 
 			<div
 				className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
@@ -808,6 +814,7 @@ export default async function GrowthPage() {
 						<div className="p-4 sm:p-6">
 							<DashboardEmptyState
 								icon={Scale}
+								mascot="idle"
 								title={t("noSamplesTitle")}
 								description={t("noSamplesDesc")}
 								action={
@@ -939,6 +946,6 @@ export default async function GrowthPage() {
 					)}
 				</DashboardSection>
 			</div>
-		</div>
+		</DashboardPageShell>
 	);
 }

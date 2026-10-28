@@ -6,6 +6,7 @@ import { BottomNav } from "@/components/bottom-nav";
 import { ChatWidget } from "@/components/chat/chat-widget";
 import { ChatWidgetProvider } from "@/components/chat/chat-widget-provider";
 import { DashboardContentShell } from "@/components/chat/dashboard-content-shell";
+import { DashboardLiveRefresh } from "@/components/dashboard-live-refresh";
 import { FabStack } from "@/components/fab-stack";
 import { CompactHeaderActions, HeaderActions } from "@/components/header-actions";
 import { MobileHeader } from "@/components/mobile/mobile-header";
@@ -22,7 +23,7 @@ import { getCurrentPondOwnerId, requirePasswordChanged } from "@/lib/auth/sessio
 import { isCurrentTenantAdmin } from "@/lib/auth/tenant-admin";
 import { getViewAsState } from "@/lib/auth/view-as";
 import { getSignedAvatarUrls } from "@/lib/avatars";
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { loadPondHopper } from "@/lib/device-hopper";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { getActiveAnnouncement } from "@/lib/settings/announcement";
@@ -77,6 +78,9 @@ export default async function DashboardLayout({
 	let initialUnreadCount = 0;
 	let hopperLevelPct: number | null = null;
 	let hopperLevelUpdatedAt: Date | null = null;
+	let hopperCapacityG: number | null = null;
+	let hopperGramsPerFeeding: number | null = null;
+	let hopperFeedsPerDay: number | null = null;
 	let esp32Status: "online" | "offline" | "missing" = "missing";
 	let pondName = "ILO-POND-01";
 	let lastSeenAtStr: string | null = null;
@@ -100,27 +104,23 @@ export default async function DashboardLayout({
 			pondId = pond.id;
 			activePondId = pond.id;
 			pondName = pond.name;
+			hopperFeedsPerDay = pond.feedsPerDay ?? null;
 
-			const [unreadCount, energyDevice] = await Promise.all([
+			const [unreadCount, hopper] = await Promise.all([
 				prisma.notification.count({
 					where: { pondId: pond.id, read: false },
 				}),
-				prisma.energyDevice.findFirst({
-					where: { pondId: pond.id },
-					orderBy: { createdAt: "asc" },
-				}),
+				loadPondHopper(pond.id),
 			]);
 			initialUnreadCount = unreadCount;
 
-			if (energyDevice) {
-				hopperLevelPct = energyDevice.feedLevelPercent;
-				hopperLevelUpdatedAt = energyDevice.feedLevelUpdatedAt;
-				const now = new Date();
-				const isOffline =
-					!energyDevice.lastSeenAt ||
-					now.getTime() - energyDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
-				esp32Status = isOffline ? "offline" : "online";
-				lastSeenAtStr = energyDevice.lastSeenAt ? energyDevice.lastSeenAt.toISOString() : null;
+			if (hopper) {
+				hopperLevelPct = hopper.levelPercent;
+				hopperLevelUpdatedAt = hopper.levelUpdatedAt;
+				hopperCapacityG = hopper.hopperCapacityG;
+				hopperGramsPerFeeding = hopper.gramsPerFeeding;
+				esp32Status = hopper.isOffline ? "offline" : "online";
+				lastSeenAtStr = hopper.lastSeenAt ? hopper.lastSeenAt.toISOString() : null;
 			}
 		}
 	} catch (err) {
@@ -137,8 +137,9 @@ export default async function DashboardLayout({
 	return (
 		<ChatWidgetProvider role={isPlatformAdmin ? "superadmin" : isTenantAdmin ? "owner" : "farmer"}>
 			<OfflineSync scope={ownerId} />
+			<DashboardLiveRefresh enabled={Boolean(pondId)} />
 			<OnboardingProvider>
-				<div className="flex min-h-dvh flex-col bg-[#F4F7F6] dark:bg-gray-950">
+				<div className="flex min-h-dvh flex-col overflow-x-clip bg-[#F4F7F6] dark:bg-gray-950">
 					<a
 						href="#main-content"
 						className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50 focus:rounded-xl focus:bg-white focus:px-4 focus:py-2.5 focus:text-sm focus:font-black focus:text-[#0A3D62] focus:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-gray-900 dark:text-[#8fc0ea]"
@@ -249,13 +250,16 @@ export default async function DashboardLayout({
 							<Sidebar
 								hopperLevelPct={hopperLevelPct}
 								hopperLevelUpdatedAt={hopperLevelUpdatedAt}
+								hopperCapacityG={hopperCapacityG}
+								gramsPerFeeding={hopperGramsPerFeeding}
+								feedsPerDay={hopperFeedsPerDay}
 								isOffline={esp32Status === "offline"}
 								showHopperWidget={showPondChrome}
 							/>
 							<main
 								id="main-content"
 								tabIndex={-1}
-								className="ofd-main relative z-10 flex-1 p-4 focus:outline-none md:p-8"
+								className="ofd-main relative z-10 min-w-0 flex-1 overflow-x-clip p-4 focus:outline-none md:p-8"
 							>
 								<BackToDashboard />
 								{announcement && (

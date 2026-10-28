@@ -77,7 +77,7 @@
 		"history": "History",
 		"growth": "Growth",
 		"harvest": "Harvest",
-		"calendar": "Calendar",
+		"calendar": "Calendar & Harvest",
 		"settings": "Settings",
 		"notifications": "Notifications",
 		"audit": "Audit Trail",
@@ -391,6 +391,7 @@
 			"lastUpdated": "Last updated",
 			"empty": "Empty",
 			"low": "Low",
+			"lowRefill": "Low: refill soon",
 			"ok": "OK",
 			"noData": "No data"
 		},
@@ -409,6 +410,8 @@
 			"nextFeedLabel": "Next scheduled feed",
 			"nextFeedPaused": "Schedule paused",
 			"nextFeedOn": "On {date}",
+			"nextFeedToday": "Today",
+			"nextFeedTomorrow": "Tomorrow",
 			"waterLabel": "Water temperature",
 			"waterValue": "{temp} °C",
 			"waterUnavailable": "Probe not detected",
@@ -518,7 +521,13 @@
 					"hopperSummary": "Average hopper level per day over the last 7 days, latest {latest}.",
 					"hopperEmpty": "No hopper readings yet."
 				}
-			}
+			},
+			"greetingNextFeeding": "Next feeding at {time}",
+			"greetingPaused": "Feeding is paused — resume it on the Schedule page.",
+			"lowHopperPopupTitle": "Feed level is low ({percent}%).",
+			"lowHopperPopupBody": "Please refill before tomorrow.",
+			"lowHopperPopupGotIt": "Got it",
+			"lowHopperPopupDismiss": "Dismiss reminder"
 		},
 		"schedule": {
 			"title": "Feeding Schedule",
@@ -556,6 +565,7 @@
 			"saved": "Changes saved!",
 			"error": "Failed to save changes",
 			"feedDurationHint": "This feed: {grams}g ≈ {seconds}s",
+			"controlsLabel": "Feeder status and controls",
 			"stuckBanner": {
 				"offlineTitle": "Device Offline",
 				"offlineDesc": "Your device has been offline since {time}. Feed requests are rejected while it is offline; schedule changes are saved and still apply when it reconnects.",
@@ -625,7 +635,11 @@
 			"noBatchesTitle": "No saved sampling batches yet",
 			"noBatchesDesc": "A sampling batch groups the samples you log under the same label.",
 			"formLabel": "Log a biomass sample",
-			"batchesLabel": "Saved sampling batches"
+			"batchesLabel": "Saved sampling batches",
+			"howCalculatedTitle": "How it's calculated",
+			"howBiomass": "Total biomass = fish count × average body weight.",
+			"howDailyFeed": "Daily feed = total biomass × feeding rate.",
+			"howPerMeal": "Feed per meal = daily feed ÷ feeds per day."
 		},
 		"history": {
 			"amount": "AMOUNT",
@@ -1008,11 +1022,13 @@
 				"agenda": "Agenda",
 				"noEvents": "No events in this range.",
 				"eventsLabel": "Pond calendar",
+				"readOnlyReason": "Your role cannot edit calendar events.",
+				"allPondsEditHint": "Choose a single pond to add an event.",
 				"recurringChangeConfirm": "Change the whole repeating series? Choose Cancel to keep it as it was."
 			},
 			"calendarPage": {
-				"title": "Pond calendar",
-				"desc": "Every pond you can see, with the events you can edit.",
+				"title": "Calendar & Harvest",
+				"desc": "The grow-out cycle and every pond event, on one calendar.",
 				"readOnlyPond": "read-only",
 				"readOnlyHint": "This pond belongs to another farm in your organization. Its events are visible but read-only.",
 				"readOnlyEvent": "This event belongs to another farm and is read-only."
@@ -1034,6 +1050,7 @@
 			"upcoming": {
 				"title": "Upcoming events",
 				"next": "Next {count}",
+				"loading": "Loading upcoming events…",
 				"empty": "No upcoming events in this range.",
 				"listLabel": "Upcoming events"
 			},
@@ -1529,6 +1546,7 @@
 			"deviceStatus": "Device Status",
 			"deviceStatusDesc": "Current status of your ESP32 feeder device.",
 			"deviceRecordId": "Device record ID",
+			"supportId": "Support ID: {id}",
 			"connectionStatus": "Connection Status",
 			"online": "Online",
 			"offline": "Offline",
@@ -1556,7 +1574,7 @@
 				"step2": "Open http://192.168.4.1 in your browser.",
 				"step3": "Enter your farm WiFi name and password.",
 				"step4": "Enter the Device ID shown above and the Device Token.",
-				"step5": "Save. The device restarts and connects on its own.",
+				"step5": "Press Connect and save. The device tests the network first, then restarts and connects on its own.",
 				"credentialsNote": "Ask your farm administrator for the Device Token, or open Admin → Devices and press “Show token” for this unit.",
 				"tokenWarning": "The Device Token is a credential — share it only with the person provisioning this unit.",
 				"recoveryTitle": "If the setup network does not appear",
@@ -1564,6 +1582,13 @@
 			},
 			"hopperCalibration": "Hopper Calibration",
 			"hopperCalibrationDesc": "Set the ultrasonic sensor distances for your hopper. Used to calculate feed level percent and days-remaining estimates.",
+			"dailyCeiling": "Daily feed ceiling",
+			"dailyCeilingDesc": "The most feed this feeder may dispense in one Asia/Manila day. 2,000 g is the default; the 5,000 g guard cannot be exceeded.",
+			"dailyCeilingLabel": "Ceiling (g/day)",
+			"dailyCeilingHint": "Default 2000 g. Range 500-5000 g.",
+			"dailyCeilingSave": "Save ceiling",
+			"dailyCeilingSaved": "Daily ceiling saved.",
+			"dailyCeilingError": "Could not save the daily ceiling.",
 			"hopperFullCm": "Full Distance (cm)",
 			"hopperFullCmDesc": "Sensor reading when hopper is full",
 			"hopperEmptyCm": "Empty Distance (cm)",
@@ -1851,7 +1876,8 @@
 			},
 			"filtersTierLabel": "Filter by severity",
 			"filtersCategoryLabel": "Filter by category",
-			"listLabel": "Notifications"
+			"listLabel": "Notifications",
+			"categoryHopperLow": "Low hopper"
 		},
 		"timeCalibration": {
 			"title": "Time Calibration",
@@ -1865,7 +1891,10 @@
 		"fcrCalculator": {
 			"title": "Feed Requirement Calculator",
 			"desc": "Calculate the feed needed to reach your target weight.",
-			"currentBiomass": "Current Biomass (kg)",
+			"currentWeight": "Current average weight (kg)",
+			"population": "Fish count",
+			"fish": "fish",
+			"kg": "kg",
 			"targetWeight": "Target Weight (kg)",
 			"daysToTarget": "Days to Target",
 			"days": "days",
@@ -1876,7 +1905,10 @@
 			"totalFeed": "Total Feed Needed",
 			"dailyRation": "Daily Feed Ration",
 			"biomassGain": "Total Biomass Gain",
-			"suggestedRate": "Suggested Feeding Rate"
+			"suggestedRate": "Suggested Feeding Rate",
+			"perMeal": "Per meal: {grams} g",
+			"usingFcr": "Uses your latest FCR: {fcr}",
+			"noFcr": "No FCR report yet - using the 1.5 reference."
 		},
 		"importExport": {
 			"export": "Export Data",
@@ -2268,6 +2300,11 @@
 		},
 		"common": {
 			"readOnlyTitle": "View only",
+			"capability": {
+				"edit": "Editing enabled",
+				"ownFarm": "Own farm only",
+				"read": "View only"
+			},
 			"readOnlyDesc": "Your role, or the active view-only session, cannot make changes here. Controls are disabled instead of failing after a tap.",
 			"noPondTitle": "No pond assigned yet",
 			"noPondDesc": "Ask your administrator to assign a pond to your farm, then reload this page.",
@@ -2375,12 +2412,12 @@
 		"pm": "PM"
 	},
 	"chat": {
-		"title": "PakaonAI Assistant",
+		"title": "Pakoy",
 		"placeholder": "Ask me something...",
 		"suggestionSchedule": "When is the next feeding time?",
 		"suggestionFcr": "What is my current FCR?",
 		"suggestionLogSample": "How do I log a sample?",
-		"intro": "Hi! I'm your PakaonAI assistant. Ask me about your next feeding time, feed amounts, current FCR, missed feedings, or how to log a sample!",
+		"intro": "Hi! I'm Pakoy. How can I help you today? Ask me about your next feeding time, feed amounts, current FCR, missed feedings, or how to log a sample!",
 		"error": "Oops, something went wrong. Please try again.",
 		"intentScheduleNoPond": "I couldn't find your pond schedule. Please ensure your devices are configured.",
 		"intentSchedulePaused": "Your automated schedule is currently **Paused**. No feedings will occur until you resume it on the Schedule page.",
@@ -2405,9 +2442,9 @@
 		"assistantProposal": "Here is what I can do. Review it, then press Accept to run it.",
 		"assistantNavigating": "Opening {label} for you — I'll highlight the control.",
 		"stepUpHint": "This needs a fresh password check. Press Accept again after you confirm.",
-		"introFarmer": "Hi! I'm the PakaonAI Assistant. I can answer questions about your pond and, when you press Accept, make changes for you — feed amount, schedule, samples, and calendar items. Nothing runs until you Accept.",
-		"introOwner": "Hi! I'm the PakaonAI Assistant. I can help with the pond (feeding, samples, calendar) and with your organization (members, roles, permissions). I only propose actions: nothing runs until you press Accept, and admin actions ask you to re-enter your password.",
-		"introSuperadmin": "Hi! I'm the PakaonAI Assistant. I can help you run the platform — suspend or restore an organization, start a read-only view-as, and take you to any console screen. Every platform action waits for your Accept and a fresh password check.",
+		"introFarmer": "Hi! I'm Pakoy. How can I help you today? I can answer questions about your pond and, when you press Accept, make changes for you — feed amount, schedule, samples, and calendar items. Nothing runs until you Accept.",
+		"introOwner": "Hi! I'm Pakoy. How can I help you today? I can help with the pond (feeding, samples, calendar) and with your organization (members, roles, permissions). I only propose actions: nothing runs until you press Accept, and admin actions ask you to re-enter your password.",
+		"introSuperadmin": "Hi! I'm Pakoy. How can I help you today? I can help you run the platform — suspend or restore an organization, start a read-only view-as, and take you to any console screen. Every platform action waits for your Accept and a fresh password check.",
 		"chipsFarmer0": "How much should I feed?",
 		"chipsFarmer1": "When is the next feeding?",
 		"chipsFarmer2": "Take me to the feeding schedule",
@@ -2421,7 +2458,10 @@
 		"suggestionPredict": "How many grams should I feed?",
 		"intentPredictActive": "Based on your latest biomass sample and FCR, I recommend **{grams}g per feeding** (your device is currently set to **{current}g**). Check the AI Feeding Prediction card on the Growth page to review and apply this recommendation.",
 		"intentPredictActiveNoCurrent": "Based on your latest biomass sample and FCR, I recommend **{grams}g per feeding**. Check the AI Feeding Prediction card on the Growth page to review and apply this recommendation.",
-		"intentPredictNoData": "I need a recent biomass sample to predict your feed amount. Log one from the **Log Biomass** form and then try again — or check the AI Feeding Prediction card on the Growth page."
+		"intentPredictNoData": "I need a recent biomass sample to predict your feed amount. Log one from the **Log Biomass** form and then try again — or check the AI Feeding Prediction card on the Growth page.",
+		"tagline": "Your feeding schedule buddy.",
+		"greeting": "Hi! I'm Pakoy. How can I help you today?",
+		"greetingDismiss": "Dismiss"
 	},
 	"superadmin": {
 		"common": {
@@ -3298,9 +3338,10 @@
 				"eventTypes": {
 					"ota_installed": "Installed",
 					"ota_valid": "Verified",
-					"ota_rolled_back": "Rolled back"
+					"ota_rolled_back": "Rolled back",
+					"firmware_reported": "Reported"
 				},
-				"versionSourceNote": "A unit reports its version on the heartbeat that changes its OTA state. That transition is stored as a device event, which is what this page shows.",
+				"versionSourceNote": "A unit reports its version on the heartbeat, and the first report after a change is stored as a device event (OTA transition or a USB-flashed unit's first heartbeat). That is what this page shows.",
 				"unknownNote": "“Unknown” means the unit never reported an OTA state. It is not an error and is never estimated from a build date."
 			},
 			"audit": {
@@ -3438,7 +3479,7 @@
 				"intro": "Average body weight, feed conversion and the plan the feeder follows. History keeps every sample."
 			},
 			"harvest": {
-				"title": "Harvest & calendar",
+				"title": "Calendar & harvest",
 				"intro": "The crop cycle and the events on the pond calendar."
 			},
 			"settings": {
@@ -3517,6 +3558,7 @@
 			"settings-pond": "Pond settings hold the feeding rate, meals per day, sampling interval and pond size. Saving queues the change to the feeder.",
 			"settings-calibration": "Rate calibration dispenses a measured dose and corrects grams per second. A target check dispenses a dose you weigh, and repeats until the error is within five percent.",
 			"settings-hopper": "Hopper calibration converts the sensor's distance reading into kilos, using the full and empty heights and the capacity of your hopper.",
+			"settings-daily-ceiling": "The daily ceiling is the most feed this feeder may dispense in one farm day. It starts at 2,000 g and can be raised to the 5,000 g safety guard.",
 			"settings-recalibration": "Set how often a feeder should be recalibrated. The app flags the device as overdue when the interval passes.",
 			"settings-password": "Change your password here. You will stay signed in on this device.",
 			"settings-notifications": "Notification settings choose which alerts arrive in the app and which also go by email.",

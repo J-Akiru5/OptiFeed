@@ -1,5 +1,5 @@
 import { withApi } from "@/lib/api/instrumentation";
-import { REQUEST_EXPIRY_MS } from "@/lib/constants";
+import { PH_UTC_OFFSET_MINUTES, REQUEST_EXPIRY_MS } from "@/lib/constants";
 import { isDeviceApproved, verifyDeviceToken } from "@/lib/device-auth";
 import {
 	BUTTON_FEED_GRAMS_MAX,
@@ -34,6 +34,10 @@ function deviceConfig(device: DeviceConfig) {
 		hopper_full_cm: device.hopperFullCm,
 		grams_per_second: clamp(device.gramsPerSecond, GRAMS_PER_SECOND_MIN, GRAMS_PER_SECOND_MAX),
 		temp_offset_c: clamp(device.tempOffsetC, TEMP_OFFSET_C_MIN, TEMP_OFFSET_C_MAX),
+		// The device RTC runs on farm-local time. These two fields let the
+		// firmware link it to UTC and reset the daily counter at farm midnight.
+		server_time_utc: new Date().toISOString(),
+		farm_offset_minutes: PH_UTC_OFFSET_MINUTES,
 	};
 }
 

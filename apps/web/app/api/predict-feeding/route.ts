@@ -3,7 +3,7 @@ import { ok } from "@/lib/api/envelope";
 import { notFound, rateLimited } from "@/lib/api/errors";
 import { withApi } from "@/lib/api/instrumentation";
 import { withAuth } from "@/lib/auth/with-auth";
-import { DEFAULT_FISH_COUNT, LEGACY_API_SUNSET } from "@/lib/constants";
+import { LEGACY_API_SUNSET } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { getActivePond } from "@/lib/pond-selection";
@@ -31,7 +31,7 @@ export const POST = withApi(
 			prisma.energyDevice.findFirst({
 				where: { pondId: pond.id },
 				orderBy: { createdAt: "asc" },
-				select: { id: true, gramsPerFeeding: true, hopperCapacityG: true },
+				select: { id: true, gramsPerFeeding: true, hopperCapacityG: true, dailyCapG: true },
 			}),
 			prisma.biomassLog.findFirst({
 				where: { pondId: pond.id },
@@ -68,11 +68,12 @@ export const POST = withApi(
 		const inputs: PredictionInputs = {
 			feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
 			feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
-			population: pond.population ?? DEFAULT_FISH_COUNT,
+			population: pond.population,
 			avgWeightKg: latestBiomass?.avgWeightKg ?? null,
 			latestFcr: latestFcr?.fcrValue ?? null,
 			currentGrams: energyDevice.gramsPerFeeding ?? null,
 			hopperCapacityG: energyDevice.hopperCapacityG ?? null,
+			dailyCapG: energyDevice.dailyCapG ?? null,
 			lastSampleAt: latestBiomass?.recordedAt ?? null,
 			isFallow: Boolean(pond.isFallow),
 			cycle,

@@ -66,7 +66,7 @@ export interface GrowthPlanInput {
 	cycle: GrowthPlanCycle | null;
 	latestSample: GrowthPlanSample | null;
 	previousSample: GrowthPlanSample | null;
-	population: number;
+	population: number | null;
 	feedingRatePct: number;
 	feedsPerDay: number;
 	currentGramsPerFeeding: number | null;
@@ -264,7 +264,7 @@ export function buildGrowthPlan(input: GrowthPlanInput): GrowthPlan {
 	}
 
 	const targetWeightG = positive(cycle.targetHarvestWeightG);
-	const population = Math.max(1, Math.round(positive(input.population) ?? cycle.stockingCount));
+	const population = Math.round(positive(input.population) ?? positive(cycle.stockingCount) ?? 0);
 	const survivalPct = clamp(cycle.expectedSurvivalPct ?? 100, 1, 100) / 100;
 	const daysToHarvest = daysBetween(input.today, cycle.targetHarvestDate);
 	const growOutDays = Math.max(1, cycle.growOutDays);
@@ -366,7 +366,7 @@ export function buildGrowthPlan(input: GrowthPlanInput): GrowthPlan {
 			: DEFAULT_TARGET_FCR;
 	plan.feed.fcrAssumption = round2(fcrAssumption);
 
-	if (targetGapG > 0 && daysToHarvest > 0 && input.feedsPerDay > 0) {
+	if (targetGapG > 0 && daysToHarvest > 0 && input.feedsPerDay > 0 && population > 0) {
 		plan.requiredDailyGainG = round1(targetGapG / daysToHarvest);
 		const remainingFeedG = targetGapG * population * survivalPct * fcrAssumption;
 		const dailyFeedG = remainingFeedG / daysToHarvest;
@@ -379,7 +379,7 @@ export function buildGrowthPlan(input: GrowthPlanInput): GrowthPlan {
 		plan.notes.push("Target weight reached or exceeded.");
 	}
 
-	if (stockingWeightG !== null && targetWeightG > stockingWeightG) {
+	if (stockingWeightG !== null && targetWeightG > stockingWeightG && population > 0) {
 		const totalGainG = (targetWeightG - stockingWeightG) * population * survivalPct;
 		plan.feed.totalCycleFeedKg = round2((totalGainG * fcrAssumption) / 1000);
 	}

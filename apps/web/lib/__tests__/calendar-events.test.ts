@@ -224,7 +224,7 @@ describe("calendar helper types", () => {
 			pondName: "Pond A",
 			cycleLabel: "Batch A",
 			notes: null,
-			href: "/dashboard/harvest",
+			href: "/dashboard/calendar",
 		};
 		expect(dto).toMatchObject({
 			id: expect.stringContaining(":"),
@@ -442,7 +442,7 @@ describe("GET /api/calendar/events persisted events", () => {
 			pondName: "Pond A",
 			cycleLabel: "Batch A",
 			notes: null,
-			href: "/dashboard/harvest",
+			href: "/dashboard/calendar",
 		});
 		expect(events[1]).toMatchObject({
 			type: "manual",

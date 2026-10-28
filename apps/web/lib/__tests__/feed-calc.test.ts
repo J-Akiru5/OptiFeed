@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_FISH_COUNT } from "../constants";
 import { dailyFeedG, feedPerMealG, totalBiomassG } from "../feed-calc";
 
 describe("totalBiomassG", () => {
@@ -8,12 +7,13 @@ describe("totalBiomassG", () => {
 		expect(totalBiomassG(86, 0.01378)).toBe(1185.08);
 	});
 
-	it("falls back to DEFAULT_FISH_COUNT when population is null", () => {
-		expect(totalBiomassG(null, 0.5)).toBe(0.5 * 1000 * DEFAULT_FISH_COUNT);
+	it("returns null when population is null (no phantom fish)", () => {
+		expect(totalBiomassG(null, 0.5)).toBeNull();
 	});
 
-	it("falls back to DEFAULT_FISH_COUNT when population is 0", () => {
-		expect(totalBiomassG(0, 0.5)).toBe(0.5 * 1000 * DEFAULT_FISH_COUNT);
+	it("returns null when population is zero or negative", () => {
+		expect(totalBiomassG(0, 0.5)).toBeNull();
+		expect(totalBiomassG(-10, 0.5)).toBeNull();
 	});
 
 	it("rounds to 2 decimals", () => {
@@ -37,6 +37,10 @@ describe("dailyFeedG", () => {
 	it("returns 0 for a 0% rate", () => {
 		expect(dailyFeedG(1185, 0)).toBe(0);
 	});
+
+	it("propagates an unknown biomass instead of inventing a number", () => {
+		expect(dailyFeedG(null, 5)).toBeNull();
+	});
 });
 
 describe("feedPerMealG", () => {
@@ -57,5 +61,9 @@ describe("feedPerMealG", () => {
 	it("returns 0 when feedsPerDay is 0 or negative", () => {
 		expect(feedPerMealG(1185, 5, 0)).toBe(0);
 		expect(feedPerMealG(1185, 5, -2)).toBe(0);
+	});
+
+	it("returns null when the biomass is unknown", () => {
+		expect(feedPerMealG(null, 5, 2)).toBeNull();
 	});
 });

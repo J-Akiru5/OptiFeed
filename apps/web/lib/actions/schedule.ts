@@ -5,7 +5,7 @@ import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { STALE_SENT_MS } from "@/lib/constants";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
 import { setSchedulePause } from "@/lib/feed/commands";
-import { dailyFeedCapG, formatZodError, scheduleInputSchema } from "@/lib/limits";
+import { formatZodError, resolveDailyCapG, scheduleInputSchema } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import { revalidatePath } from "next/cache";
@@ -88,7 +88,11 @@ export async function updateScheduleCommand(
 		}
 
 		const limits = await getFeedingLimits();
-		const dailyCapG = dailyFeedCapG(device.hopperCapacityG, limits.dailyCapFactor);
+		const dailyCapG = resolveDailyCapG({
+			configuredCapG: device.dailyCapG,
+			hopperCapacityG: device.hopperCapacityG,
+			dailyCapFactor: limits.dailyCapFactor,
+		});
 		const scheduledDailyG = input.feedsPerDay * device.gramsPerFeeding;
 		if (scheduledDailyG > dailyCapG) {
 			return {

@@ -1,4 +1,4 @@
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { HOPPER_LOW_DISPLAY_PCT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 
 /** How a hopper-level reading should be presented. */
 export type FeedLevelState = "live" | "stale" | "none";
@@ -68,4 +68,15 @@ export function resolveFeedLevelDisplay({
 	}
 
 	return { state: "live", percent, readingAt: updatedAt ?? null, isOffline: false };
+}
+
+/**
+ * #259: a live hopper reading at or below `HOPPER_LOW_DISPLAY_PCT` gets the
+ * red, pulsing treatment. The raw reading is compared (not the rounded
+ * display value), so 30.1 % is above the line while 30 % is on it. Offline is
+ * handled by the caller: a last-known reading never blinks.
+ */
+export function isHopperLowDisplay(levelPercent: number | null): boolean {
+	if (levelPercent === null || !Number.isFinite(levelPercent)) return false;
+	return Math.min(100, Math.max(0, levelPercent)) <= HOPPER_LOW_DISPLAY_PCT;
 }

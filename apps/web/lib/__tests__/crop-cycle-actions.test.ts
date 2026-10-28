@@ -273,7 +273,7 @@ describe("createCropCycle", () => {
 			data: { population: 1000, isFallow: false },
 		});
 		expect(mocks.revalidatePath).toHaveBeenCalledWith(
-			"/[locale]/(dashboard)/dashboard/harvest",
+			"/[locale]/(dashboard)/dashboard/calendar",
 			"page",
 		);
 		expect(mocks.revalidatePath).toHaveBeenCalledWith("/[locale]/(dashboard)/dashboard", "page");
@@ -562,7 +562,7 @@ describe("markCycleHarvested", () => {
 				category: "harvest",
 				message:
 					"Harvest recorded for Pond A: 150.00 kg. The feeder is paused until the next cycle.",
-				linkTo: "/dashboard/harvest",
+				linkTo: "/dashboard/calendar",
 			},
 		});
 
@@ -728,7 +728,7 @@ describe("cancelCropCycle", () => {
 				tier: "WARNING",
 				category: "harvest",
 				message: "Grow-out cycle cancelled for Pond A. The feeder is paused.",
-				linkTo: "/dashboard/harvest",
+				linkTo: "/dashboard/calendar",
 			},
 		});
 	});
@@ -807,7 +807,7 @@ describe("pond event actions", () => {
 			},
 		});
 		expect(mocks.revalidatePath).toHaveBeenCalledWith(
-			"/[locale]/(dashboard)/dashboard/harvest",
+			"/[locale]/(dashboard)/dashboard/calendar",
 			"page",
 		);
 		expect(mocks.revalidatePath).toHaveBeenCalledWith("/[locale]/(dashboard)/dashboard", "page");

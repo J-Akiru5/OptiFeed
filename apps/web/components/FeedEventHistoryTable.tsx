@@ -1,5 +1,6 @@
 "use client";
 
+import { Mascot } from "@/components/assistant/mascot";
 import { Pagination } from "@/components/ui/pagination";
 import { type FeedEventListItem, getFeedEvents } from "@/lib/actions/history";
 import { formatFarmDateTime } from "@/lib/date-local";
@@ -135,8 +136,9 @@ export function FeedEventHistoryTable({
 					{t("loading")}
 				</div>
 			) : items.length === 0 ? (
-				<div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-					{t("noEvents")}
+				<div className="flex flex-col items-center justify-center gap-1 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+					<Mascot pose="idle" size={72} />
+					<p className="font-black text-[#0A3D62] dark:text-gray-200">{t("noEvents")}</p>
 				</div>
 			) : (
 				<div className="divide-y divide-gray-100 dark:divide-gray-700/50">

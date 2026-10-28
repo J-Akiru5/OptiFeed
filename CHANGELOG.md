@@ -9,6 +9,101 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.2] - 2026-10-28
+
+### Changed
+
+- #259 the hopper card turns red and pulses at 30 % or below, with a "Low: refill soon" label and a reduced-motion fallback. The alert threshold (`OrgSetting.hopperLowPct`, default 20 %) is unchanged.
+
+### Fixed
+
+- #263 every hopper display reads the same live level; the firmware version stays current from the heartbeat; the Device ID shows the sticker MAC.
+
+## [1.21.1] - 2026-10-28
+
+### Fixed
+
+- Firmware 1.6.1: the dispense calibration set on the dashboard was lost on every reboot: the ESP32 held `gramsPerSecond` only in RAM and fell back to the `4.0` compile-time default until the next successful poll, so a feed triggered in that window ran at the wrong rate and dispensed the wrong amount. The applied value is now mirrored into NVS (`cal_gps`) and restored at boot, written only when it actually changes so polling cannot wear the flash. Applied and refused values are logged with a `[CAL]` prefix, which makes the dashboard-to-device calibration path observable on serial for the first time.
+- The dashboard no longer scrolls sideways on a phone. The content column is a shrinkable flex child (`min-w-0`) and the dashboard shell clips horizontal overflow, so only vertical scrolling remains.
+
+## [1.21.0] - 2026-10-28
+
+### Added
+
+- Daily feed ceiling per device (`EnergyDevice.dailyCapG`): 2,000 g/day by default, configurable by the farmer (App & Hardware) and by an admin (pond detail), and never above the 5,000 g emergency guard the firmware enforces. Amendment A-001; contract `docs/feeding-single-source-plan.md`.
+- Firmware 1.6.0 (I-41) fail-safe model: a shutdown handler that opens the relay on every software reset, panic, OTA reboot and `ESP.restart()`; an independent relay-overrun trip (expected dose + 2 s) checked at every network boundary; one dispense gate for every source (10 s minimum gap, six doses per rolling hour, daily gram cap, `MAX_DISPENSE_MS`); a 60 s no-dispense hold after a brownout reset; and reset-reason accounting in NVS.
+- Firmware 1.6.0 safe mode: three brownout/panic/watchdog resets within ten minutes lock the relay OFF, refuse every trigger with reason `safe_mode`, report `safe_mode` and `last_reset_reasons` in the heartbeat, postpone OTA, and clear after 30 quiet minutes or on a Wi-Fi/factory reset hold. A normal power-on clears the history.
+- Firmware 1.6.0 hopper and probe plausibility: five samples with range rejection, median, EMA, a three-cycle persistence rule, hysteresis (low at 20 %, refill above 30 %) and a ten-minute state hold; an invalid cycle omits the level instead of reporting 0 %. The DS18B20 rejects its -127/85 sentinels and anything outside 0..50 C.
+- Firmware 1.6.0 network hygiene: per-event-type token buckets, a bounded offline queue that drops its oldest entry and counts it, and non-blocking HTTP retries with exponential backoff and ±20 % jitter capped at five minutes.
+- Firmware 1.6.0 noisy-button guard: more than five rejected glitches in a minute disable the feed button for ten minutes and report `button_disabled`; 1.5.3's 50 ms confirmation, quiet window and 30 s cooldown are unchanged.
+- `firmware/firmware-main/safety.h` and `filters.h`: Arduino-free, header-only safety/filter logic, plus a PlatformIO `[env:native]` Unity suite (`pio test -d firmware -e native`, 27 tests) covering spike rejection, persistence, hysteresis, the gap/hourly/daily caps, safe-mode entry and exit, the button disable, token buckets and retry backoff.
+- A web test proving the ingest schema still accepts a 1.6.0 heartbeat with the new diagnostic keys and every new `feed_refused` reason (no server change).
+
+### Changed
+
+- Every feeding read now goes through one pond-scoped reader (`lib/feeding/source.ts`). A pond's population is returned as `null` when it is not set, and the phantom 5,000-fish fallback is removed from the dashboard, PDF, growth plan, prediction, chat and sampling preview: the UI asks for the fish count instead of inventing one.
+- Every settings-driven dose is written by one function (`deriveDeviceDose`). The growth-plan adjustment now writes `Pond.feedingRatePct` and re-derives the device dose, so the formula and the feeder cannot diverge after an adjustment.
+- Next-feed time is computed only in Asia/Manila (`computeNextFeedingSlot`); the server-local `setHours` variant was deleted. Device poll responses now carry `server_time_utc` and `farm_offset_minutes` so the firmware can link the RTC to UTC (firmware consumption is a later, reflash-required step).
+- Every daily-cap check now calls one resolver (`resolveDailyCapG`), so the platform `dailyCapFactor` applies identically to schedule saves, manual feeds, calibration doses, pond edits and the AI advisor. Two paths previously ignored the factor.
+- The advisor's per-meal bound derives from the device's ceiling instead of the flat 5,000 g maximum: 1,000 g at two meals and 500 g at four under the new default.
+- Firmware heartbeat now carries `safe_mode`, `last_reset_reasons` and a nested `diag` object (fw, reset counts, button state, overruns, invalid sensors, queue drops, uptime, limits, refusals by reason). Ingest strips the new keys, so they are diagnostic until a server change stores them.
+- `firmware/README.md`: new **Firmware 1.6.0 fail-safe model**, **Safety model** and **Safe mode** sections, the refusal-reason table, the native-test instructions and bench checks 21-31.
+
+### Fixed
+
+- The FCR feed calculator understated the suggested feeding rate by exactly 5,000x (it divided by `DEFAULT_FISH_COUNT` twice), treated "current biomass" as a per-fish weight, labelled per-fish feed as a total, and read the first active pond instead of the pond on screen. It now takes the pond and the fish count explicitly, reports true totals, and returns a per-meal dose when meals/day is known.
+- Firmware 1.5.x reported `feed_level_percent: 0` when the HC-SR04 echo was implausible; it now reports "unknown" and keeps the last valid level.
+- Firmware 1.5.x accepted the DS18B20's -127 C / 85 C sentinel values as real temperatures; they are now treated as "unknown".
+- Firmware 1.5.x could leave the relay energized past the end of a short dose while `loop()` was blocked in an HTTPS call; the relay is now opened at the first network boundary.
+- Firmware 1.5.x would deep-sleep during a dispense; it now refuses to sleep while the relay is on and opens it before sleeping.
+
+## [1.20.1] - 2026-10-28
+
+### Fixed
+
+- Firmware 1.5.3: the feed button needs a 50 ms press, is ignored during and 2 s after a dispense, and is limited to one dispense per 30 s (phantom button feeds on the CICT unit).
+
+## [1.20.0] - 2026-10-28
+
+### Changed
+
+- #247 Biomass Log and Schedule use the full width on large screens: the sample form sits beside a sticky Live Preview with a short "How it's calculated" panel, and the schedule editor sits beside a sticky status/Feed Now/offline rail. Saved sampling batches show three or four across on wide screens. Below `xl` the stacked layout and the mobile sticky action bar are unchanged.
+- The same centred page width now applies to Notifications, Audit, Growth, Growth history and the sampling-batch log, which were each capped at a narrow left-aligned column.
+- #248 Calendar and Harvest are one page (Calendar & Harvest); the old Harvest link redirects.
+
+### Fixed
+
+- #248 upcoming events were empty on the Harvest page.
+
+## [1.19.2] - 2026-10-28
+
+### Changed
+
+- Firmware 1.5.2 (#252): the setup portal is branded (PakaonAI fish mark, wordmark, tagline "Sakto nga pakaon, sakto nga oras.") and fills its network list with an asynchronous 2.4 GHz scan with a **Rescan** button, signal bars, a lock icon for secured networks and deduplication by SSID. The footer shows the unit's Device ID and AP name.
+- Firmware 1.5.2 (#252): submitting the portal form now tests the network first. The setup AP stays up, the status page shows `Connecting…` and then `Connected to <SSID> · IP · signal` or a failure reason, and only a working link is saved (restart after 5 s).
+
+### Fixed
+
+- Firmware 1.5.2 (#252): the setup portal's network scan reported 0 networks when the portal started right after a failed join, because the station was still connecting (`esp_wifi_scan_start` returns `ESP_ERR_WIFI_STATE`, which the old code printed as "0 network(s)"). The scan now settles the station first, runs after `WIFI_AP_STA` is set and asynchronously, logs the real return value and retries once after 2 s.
+- Firmware 1.5.2 (#252): a failed join no longer saves the credentials. The old NVS values are left untouched and the form returns with the reason (wrong password / network not found / no IP) so it can be retried.
+
+## [1.19.1] - 2026-10-28
+
+### Changed
+
+- Firmware pin map now matches the hardwired CICT Building A board: feed button GPIO 27 → 23, DS18B20 GPIO 26 → 32, HC-SR04 TRIG GPIO 32 → 12, ECHO GPIO 33 → 14. The relay default stays on GPIO 25 and the CICT unit stays on GPIO 5, built with `-e esp32dev-relay5`: GPIO 5 straps only SDIO slave timing, so it does not need rewiring. Units still on the old map need the matching build flags or a rewire.
+- The firmware README's reset-button table had the Wi-Fi and factory reset pins swapped (16/17) relative to the code; corrected.
+
+### Fixed
+
+- #244 clickable controls show a hand cursor (login Back to home and app-wide).
+
+## [1.19.0] - 2026-10-28
+
+### Added
+
+- Pakoy, the PakaonAI mascot, in the chat, dashboard greeting, alerts, empty states, onboarding and offline/error pages (#193, #232, #221).
+
 ## [1.18.2] - 2026-10-28
 
 ### Fixed

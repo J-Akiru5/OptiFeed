@@ -16,8 +16,8 @@ import { Link, getPathname } from "@/i18n/routing";
 import { getDevices, getPendingDevices } from "@/lib/actions/admin";
 import { getTenantRegistrationOptions } from "@/lib/actions/device-registration";
 import { hasPermission } from "@/lib/auth/permissions";
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import { toHopperSnapshot } from "@/lib/device-hopper";
 import {
 	deviceListStatus,
 	filterByStatus,
@@ -217,9 +217,14 @@ export default async function AdminDevicesPage({
 						<tbody>
 							{visibleDevices.map((device) => {
 								const now = new Date();
-								const isOffline =
-									!device.lastSeenAt ||
-									now.getTime() - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+								const hopper = toHopperSnapshot(
+									{
+										...device,
+										feedLevelUpdatedAt: feedLevelUpdatedAt.get(device.id) ?? null,
+									},
+									now,
+								);
+								const isOffline = hopper.isOffline;
 
 								return (
 									<AdminTr key={device.id}>
@@ -275,9 +280,9 @@ export default async function AdminDevicesPage({
 										</AdminTd>
 										<AdminTd>
 											<FeedLevelDisplay
-												levelPercent={device.feedLevelPercent}
-												updatedAt={feedLevelUpdatedAt.get(device.id) ?? null}
-												isOffline={isOffline}
+												levelPercent={hopper.levelPercent}
+												updatedAt={hopper.levelUpdatedAt}
+												isOffline={hopper.isOffline}
 												size="sm"
 											/>
 										</AdminTd>
@@ -322,6 +327,10 @@ export default async function AdminDevicesPage({
 					<ItemCardGrid label={t("caption")}>
 						{visibleDevices.map((device) => {
 							const deviceStatus = statusOf(device);
+							const hopper = toHopperSnapshot({
+								...device,
+								feedLevelUpdatedAt: feedLevelUpdatedAt.get(device.id) ?? null,
+							});
 
 							return (
 								<EntityCard
@@ -336,8 +345,8 @@ export default async function AdminDevicesPage({
 											label: t("columnFeedLevel"),
 											value: (
 												<FeedLevelDisplay
-													levelPercent={device.feedLevelPercent}
-													updatedAt={feedLevelUpdatedAt.get(device.id) ?? null}
+													levelPercent={hopper.levelPercent}
+													updatedAt={hopper.levelUpdatedAt}
 													isOffline={deviceStatus === "offline"}
 													size="sm"
 												/>

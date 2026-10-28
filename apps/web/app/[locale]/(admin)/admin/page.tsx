@@ -51,21 +51,36 @@ export default async function AdminOverviewPage() {
 				>
 					{t("chartsHeading")}
 				</h2>
+				{(overview.feedTruncated || overview.activityTruncated) && (
+					<p className="text-xs font-semibold text-[#3D5568] dark:text-gray-400">
+						{t("chartTruncatedNote")}
+					</p>
+				)}
 				<AdminOverviewCharts
 					feedStack={overview.feedStack}
 					activityPoints={overview.activityPoints}
 					deviceHealth={overview.deviceHealth}
 					labels={{
 						feedTitle: t("chartFeedTitle"),
-						feedSummary: t("chartFeedSummary", {
-							days: overview.feedDays,
-							total: Math.round(overview.feedTotalGrams),
-						}),
+						feedSummary: overview.feedTruncated
+							? t("chartFeedSummaryTruncated", {
+									days: overview.feedDays,
+									total: Math.round(overview.feedTotalGrams),
+								})
+							: t("chartFeedSummary", {
+									days: overview.feedDays,
+									total: Math.round(overview.feedTotalGrams),
+								}),
 						activityTitle: t("chartActivityTitle"),
-						activitySummary: t("chartActivitySummary", {
-							days: overview.activityDays,
-							total: overview.activityTotal,
-						}),
+						activitySummary: overview.activityTruncated
+							? t("chartActivitySummaryTruncated", {
+									days: overview.activityDays,
+									total: overview.activityTotal,
+								})
+							: t("chartActivitySummary", {
+									days: overview.activityDays,
+									total: overview.activityTotal,
+								}),
 						healthTitle: t("chartHealthTitle"),
 						healthSummary: t("chartHealthSummary", {
 							online: overview.deviceHealth.online,

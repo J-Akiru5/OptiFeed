@@ -29,6 +29,7 @@ import {
 	buildDeviceHealth,
 	buildFeedRows,
 	farmDayKey,
+	trimTruncatedDayKeys,
 } from "@/lib/admin-overview";
 import { resolveOrgScope } from "@/lib/auth/org-scope";
 import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
@@ -103,6 +104,25 @@ describe("buildActivityRows", () => {
 	});
 });
 
+describe("trimTruncatedDayKeys", () => {
+	const keys = ["2026-10-01", "2026-10-02", "2026-10-03"];
+
+	it("keeps the full window when the query was complete", () => {
+		expect(trimTruncatedDayKeys(keys, new Date("2026-10-03T01:00:00.000Z"), false)).toEqual(keys);
+	});
+
+	it("drops days older than the oldest fetched event when truncated", () => {
+		expect(trimTruncatedDayKeys(keys, new Date("2026-10-02T01:00:00.000Z"), true)).toEqual([
+			"2026-10-02",
+			"2026-10-03",
+		]);
+	});
+
+	it("returns the full window when there is no oldest event", () => {
+		expect(trimTruncatedDayKeys(keys, null, true)).toEqual(keys);
+	});
+});
+
 describe("getAdminOverview", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -133,6 +153,8 @@ describe("getAdminOverview", () => {
 		);
 		expect(overview.feedDays).toBe(ADMIN_FEED_DAYS);
 		expect(overview.activityDays).toBe(ADMIN_ACTIVITY_DAYS);
+		expect(overview.feedTruncated).toBe(false);
+		expect(overview.activityTruncated).toBe(false);
 	});
 
 	it("returns an empty overview without querying when the tenant has no ponds", async () => {

@@ -94,6 +94,22 @@ export function buildActivityRows(events: ReadonlyArray<AdminOverviewActivityEve
 	return events.map((event) => ({ label: farmDayKey(event.createdAt), value: 1 }));
 }
 
+/**
+ * When a capped query is truncated, the oldest fetched day is partial and the
+ * days before it were never read. Drop those keys instead of zero-filling them
+ * so the chart never shows a false zero for a day we did not fetch. A complete
+ * window keeps every key, because a genuine zero is information.
+ */
+export function trimTruncatedDayKeys(
+	dayKeys: ReadonlyArray<string>,
+	oldestEventAt: Date | null,
+	truncated: boolean,
+): string[] {
+	if (!truncated || !oldestEventAt) return [...dayKeys];
+	const oldestKey = farmDayKey(oldestEventAt);
+	return dayKeys.filter((key) => key >= oldestKey);
+}
+
 /** The empty feed series; the chart frame treats an empty row list as "no data". */
 export const EMPTY_FEED_SERIES = {
 	sources: [] as string[],

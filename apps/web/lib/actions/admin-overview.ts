@@ -15,6 +15,7 @@ import {
 	buildActivityRows,
 	buildDeviceHealth,
 	buildFeedRows,
+	trimTruncatedDayKeys,
 } from "@/lib/admin-overview";
 import { resolveOrgScope } from "@/lib/auth/org-scope";
 import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
@@ -38,6 +39,9 @@ export interface AdminOverviewData {
 	activityDays: number;
 	feedTotalGrams: number;
 	activityTotal: number;
+	/** The 5,000-row cap bound, so the totals are a lower bound and the oldest day is partial. */
+	feedTruncated: boolean;
+	activityTruncated: boolean;
 }
 
 /**
@@ -60,6 +64,8 @@ function emptyOverview(): AdminOverviewData {
 		activityDays: ADMIN_ACTIVITY_DAYS,
 		feedTotalGrams: 0,
 		activityTotal: 0,
+		feedTruncated: false,
+		activityTruncated: false,
 	};
 }
 
@@ -101,16 +107,28 @@ export async function getAdminOverview(): Promise<AdminOverviewData> {
 		}),
 	]);
 
+	const feedTruncated = feedEvents.length >= OVERVIEW_ROW_LIMIT;
+	const activityTruncated = activityEvents.length >= OVERVIEW_ROW_LIMIT;
+
 	const feedRows = buildFeedRows(feedEvents);
+	const feedKeys = trimTruncatedDayKeys(
+		feedWindow.dayKeys,
+		feedEvents.at(-1)?.receivedAt ?? null,
+		feedTruncated,
+	);
 	const feedStack =
 		feedRows.length > 0
-			? buildStackedSeries(feedRows, feedWindow.dayKeys, { value: "grams" })
+			? buildStackedSeries(feedRows, feedKeys, { value: "grams" })
 			: EMPTY_FEED_SERIES;
+
 	const activityRows = buildActivityRows(activityEvents);
+	const activityKeys = trimTruncatedDayKeys(
+		activityWindow.dayKeys,
+		activityEvents.at(-1)?.createdAt ?? null,
+		activityTruncated,
+	);
 	const activityPoints =
-		activityRows.length > 0
-			? fillDailySeries(activityRows, activityWindow.dayKeys)
-			: EMPTY_ACTIVITY_POINTS;
+		activityRows.length > 0 ? fillDailySeries(activityRows, activityKeys) : EMPTY_ACTIVITY_POINTS;
 
 	const feedTotalGrams = Object.values(feedStack.totalsBySource).reduce(
 		(total, grams) => total + (Number.isFinite(grams) ? grams : 0),
@@ -129,5 +147,7 @@ export async function getAdminOverview(): Promise<AdminOverviewData> {
 		activityDays: ADMIN_ACTIVITY_DAYS,
 		feedTotalGrams,
 		activityTotal,
+		feedTruncated,
+		activityTruncated,
 	};
 }

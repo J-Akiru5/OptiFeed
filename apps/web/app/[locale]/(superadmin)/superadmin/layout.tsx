@@ -1,6 +1,7 @@
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { HelpButton } from "@/components/help/help-button";
 import { MobileHeader } from "@/components/mobile/mobile-header";
+import { GlobalSearch, SearchTrigger } from "@/components/search/global-search";
 import { SuperadminBottomNav } from "@/components/superadmin-bottom-nav";
 import { SuperadminSidebar } from "@/components/superadmin-sidebar";
 import { FOCUS_RING_ON_DARK } from "@/components/superadmin/ui";
@@ -60,6 +61,7 @@ export default async function SuperadminLayout({
 			</a>
 
 			<header className="sticky top-0 z-30 w-full shrink-0 bg-[#0A3D62] shadow-md">
+				<GlobalSearch shell="platform" />
 				<MobileHeader shell="platform" isTenantAdmin={hasFarmDashboard} subtitle={t("console")}>
 					{helpEnabled && <HelpButton audience="superadmin" className="h-11 w-11" />}
 					{hasFarmDashboard ? (
@@ -100,6 +102,7 @@ export default async function SuperadminLayout({
 					</div>
 
 					<div className="flex shrink-0 items-center gap-3">
+						<SearchTrigger />
 						{helpEnabled && <HelpButton audience="superadmin" />}
 						{hasFarmDashboard && (
 							<Link

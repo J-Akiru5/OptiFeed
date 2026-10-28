@@ -356,9 +356,33 @@ describe("read paths never select a credential", () => {
 		expect(rows.map((r) => r.id)).toEqual(["a", "b"]);
 	});
 
+	it("getPlatformDevicesForLabels prints every device when no ids are requested", async () => {
+		db.energyDevice.findMany.mockResolvedValue([
+			{ id: "b", label: "B", mac: "11:22:33:44:55:66" },
+			{ id: "a", label: "A", mac: "A4:CF:12:7E:3B:09" },
+		]);
+
+		const rows = await getPlatformDevicesForLabels([]);
+		const args = db.energyDevice.findMany.mock.calls[0][0];
+		expect(Object.keys(args.select).sort()).toEqual(["id", "label", "mac"]);
+		expect(args.where).toBeUndefined();
+		expect(args.take).toBe(40);
+		expect(rows.map((r) => r.id)).toEqual(["b", "a"]);
+
+		// A blank `?id=` is not a selection either.
+		await getPlatformDevicesForLabels(["", "  "]);
+		expect(db.energyDevice.findMany.mock.calls[1][0].where).toBeUndefined();
+	});
+
 	it("getPlatformDevicesForLabels requires a platform admin", async () => {
 		mockGate.mockRejectedValue(new Error("NEXT_REDIRECT"));
 		await expect(getPlatformDevicesForLabels(["a"])).rejects.toThrow("NEXT_REDIRECT");
+		expect(db.energyDevice.findMany).not.toHaveBeenCalled();
+	});
+
+	it("getPlatformDevicesForLabels keeps the platform gate on the print-all path", async () => {
+		mockGate.mockRejectedValue(new Error("NEXT_REDIRECT"));
+		await expect(getPlatformDevicesForLabels([])).rejects.toThrow("NEXT_REDIRECT");
 		expect(db.energyDevice.findMany).not.toHaveBeenCalled();
 	});
 });

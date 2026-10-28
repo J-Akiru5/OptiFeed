@@ -91,6 +91,41 @@
 		"alerts": "Mga alerto",
 		"me": "Ako"
 	},
+	"search": {
+		"trigger": "Pangitaa",
+		"triggerLabel": "Pangitaa ang tanan (Ctrl+K ukon Command+K)",
+		"dialogTitle": "Pangitaa",
+		"placeholder": "Pangitaa ang mga pahina, punong, device, miyembro kag rekord",
+		"resultsLabel": "Mga resulta sang pagpangita",
+		"resultsCount": "{count, plural, one {# resulta} other {# resulta}}",
+		"loading": "Nagapangita…",
+		"unavailable": "Indi magamit ang pagpangita subong.",
+		"close": "Sirad-i ang pagpangita",
+		"suggested": "Ginarekomendar para sa imo",
+		"noResults": "Wala sing nagatugma sa “{query}”.",
+		"hintMove": "para magbalhin",
+		"hintOpen": "para magbukas",
+		"hintClose": "para magsira",
+		"groups": {
+			"pages": "Mga pahina",
+			"ponds": "Mga punong",
+			"devices": "Mga device",
+			"members": "Mga miyembro",
+			"records": "Mga rekord"
+		},
+		"status": {
+			"archived": "Naka-archive",
+			"pending": "Nagahulat sang pag-apruba",
+			"unassigned": "Wala sing punong"
+		},
+		"pages": {
+			"members": "Mga miyembro",
+			"createUser": "Maghimo sang user"
+		},
+		"records": {
+			"feedEvent": "Rekord sang pagpakaon"
+		}
+	},
 	"button": {
 		"feedNow": "Pakauna Subong",
 		"saveSample": "I-save",
@@ -1345,7 +1380,18 @@
 			"markedRead": "{count} ka notipikasyon ang ginmarka nga nabasa",
 			"loadMore": "Ipakita pa",
 			"filtersLabel": "I-filter ang mga hitabo",
-			"timelineLabel": "Talaan sang mga hitabo"
+			"timelineLabel": "Talaan sang mga hitabo",
+			"lastTouch": "Katapusan nga Pagtandog",
+			"lastTouchLabel": "Katapusan nga aksyon sang user nga narekord",
+			"lastTouchSummary": "{actor} — {event}",
+			"details": "Mga Detalye",
+			"metadata": "Metadata sang hitabo",
+			"actor": "Nagbuhat",
+			"actorRole": "Papel",
+			"actorFarmId": "Farm ID",
+			"actorSystem": "System",
+			"actorDevice": "Device",
+			"actorUnknown": "Wala makilala nga nagbuhat"
 		},
 		"adminUsers": {
 			"actionsColumn": "Mga Aksyon",
@@ -1520,6 +1566,8 @@
 			"back": "Balik sa mga device",
 			"print": "I-print / i-save subong PDF",
 			"count": "{count} ka sticker",
+			"emptyTitle": "Wala pa sang device nga i-print.",
+			"emptyDesc": "Kon may feeder na nga nadugang sa pond, magaguwa diri ang iya sticker sheet.",
 			"verifyTitle": "Tan-awa anay antes mag-print.",
 			"verifyIntro": "Ang kasubong sang blower lamang ang nabasa halin sa label. Ang gear motor, speed controller kag electronics sang 12 V nga adapter estimate lang, kag gin-round up ang kabilugan ({volts} V, {hz} Hz, {amps} A). Wala pa masukat gamit ang meter.",
 			"verifyReadLabels": "Itandi ang estimate nga current sang motor kag electronics sa nabasa sang meter, kag ilisan ang rating kon lain.",
@@ -1996,9 +2044,27 @@
 			"title": "Overview sang Admin",
 			"desc": "Estadistika sang bilog nga sistema kag pinakabag-o nga aktibidad.",
 			"recentActivity": "Pinakabag-o nga Aktibidad",
+			"chartsHeading": "Sa isa ka pagtan-aw",
 			"statUsers": "Mga User",
 			"statPonds": "Mga Punong",
 			"statDevices": "Mga Device",
+			"chartFeedTitle": "Pagkaon nga ginhatag kada adlaw",
+			"chartFeedSummary": "Pagkaon nga ginhatag sa nagligad nga {days} ka adlaw: {total} g sa kabuuan.",
+			"chartFeedSummaryTruncated": "Pagkaon nga ginhatag sa nagligad nga {days} ka adlaw: labing menos {total} g (ang pinakabag-o nga 5,000 ka row).",
+			"chartActivityTitle": "Aktibidad sang device",
+			"chartActivitySummary": "Mga panghitabo sang device kada adlaw sa nagligad nga {days} ka adlaw: {total} ka panghitabo.",
+			"chartActivitySummaryTruncated": "Mga panghitabo sang device kada adlaw sa nagligad nga {days} ka adlaw: labing menos {total} ka panghitabo (ang pinakabag-o nga 5,000 ka row).",
+			"chartTruncatedNote": "Ang isa ka series naka-cap sa pinakabag-o nga 5,000 ka row, gani ang total sini lower bound kag ang pinakaluma nga adlaw puede partial.",
+			"chartHealthTitle": "Kahimtangan sang mga device",
+			"chartHealthSummary": "{online} online kag {offline} offline sa {total} ka device.",
+			"chartOnline": "Online",
+			"chartOffline": "Offline",
+			"chartPending": "Nagahulat sang pag-apruba",
+			"chartSourceScheduled": "Ginplano",
+			"chartSourceDashboard": "Dashboard",
+			"chartSourceButton": "Button",
+			"chartSourceHandFed": "Precision feeding (ginhatag sang kamot)",
+			"chartSourceUnknown": "Iban pa",
 			"recentEmpty": "Wala pa sang pinakabag-o nga aktibidad.",
 			"columnTime": "Oras",
 			"columnDevice": "Device",

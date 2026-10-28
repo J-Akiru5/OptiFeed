@@ -23,7 +23,7 @@ export const LEGAL_VERSION = "1.0";
 export const LEGAL_LAST_UPDATED = "2026-10-26";
 /** Approved effective date; published after University Legal Office review. */
 export const LEGAL_EFFECTIVE_DATE = "2026-10-26";
-export const LEGAL_APP_RELEASE = "1.21.2";
+export const LEGAL_APP_RELEASE = "1.23.0";
 export const LEGAL_REVIEWER = "University Legal Office, ISUFST Dingle Campus";
 
 export const DPO_NAME = "Jeff Edrick C. Martinez";
@@ -32,7 +32,7 @@ export const DPO_ADDRESS =
 	"PakaonAI Capstone Project, College of Information and Communication Technology, ISUFST Dingle Campus, Dingle, Iloilo, Philippines";
 
 export const NPC_ADDRESS =
-	"25th–27th Floors, The Upper Class Tower, Quezon Avenue corner Scout Reyes Street, Quezon City, Philippines";
+	"25thâ€“27th Floors, The Upper Class Tower, Quezon Avenue corner Scout Reyes Street, Quezon City, Philippines";
 export const NPC_PHONE = "(+63) 2 5322 1322";
 export const NPC_WEBSITE = "https://privacy.gov.ph";
 export const NPC_COMPLAINT_URL = "https://privacy.gov.ph/contactus/";

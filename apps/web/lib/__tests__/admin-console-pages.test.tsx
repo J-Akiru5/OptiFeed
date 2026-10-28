@@ -102,6 +102,10 @@ vi.mock("@/lib/actions/admin", () => ({
 	revokeMember: vi.fn(),
 }));
 
+vi.mock("@/lib/actions/admin-overview", () => ({
+	getAdminOverview: vi.fn(),
+}));
+
 import AdminAuditPage from "@/app/[locale]/(admin)/admin/audit/page";
 import AdminDevicesPage from "@/app/[locale]/(admin)/admin/devices/page";
 import AdminHierarchyPage from "@/app/[locale]/(admin)/admin/hierarchy/page";
@@ -119,6 +123,7 @@ import {
 	getUsers,
 	listTenantMembers,
 } from "@/lib/actions/admin";
+import { getAdminOverview } from "@/lib/actions/admin-overview";
 import { hasPermission } from "@/lib/auth/permissions";
 import { formatDateTimeLocal } from "@/lib/date-local";
 
@@ -375,10 +380,26 @@ describe("admin overview page", () => {
 			],
 		} as unknown as Awaited<ReturnType<typeof getAdminStats>>);
 
+		vi.mocked(getAdminOverview).mockResolvedValue({
+			deviceHealth: { online: 1, offline: 0, pending: 0, paused: 0, total: 1 },
+			feedStack: { sources: [], rows: [], totalsBySource: {} },
+			activityPoints: [],
+			feedDays: 30,
+			activityDays: 14,
+			feedTotalGrams: 0,
+			activityTotal: 0,
+			feedTruncated: false,
+			activityTruncated: false,
+		});
+
 		const html = renderToStaticMarkup(await AdminOverviewPage());
 
 		expect(html).toContain("Admin Overview");
 		expect(html).toContain("System-wide statistics and recent activity.");
+		expect(html).toContain("At a glance");
+		expect(html).toContain("Feed dispensed per day");
+		expect(html).toContain("Fleet health");
+		expect(html).toContain("Device activity");
 		expect(html).toContain("Recent Activity");
 		expect(html).toContain("Feeder 1");
 		expect(html).toContain(formatDate(FIXTURE_DATE).full);

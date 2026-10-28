@@ -3,6 +3,7 @@
 import { actorContext, writePlatformAudit } from "@/lib/actions/platform/audit";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { isStepUpRequiredError, withStepUp } from "@/lib/auth/step-up";
+import { parseDeviceLabelIds } from "@/lib/device-label-selection";
 import {
 	DUPLICATE_MAC_MESSAGE,
 	createDeviceCredentials,
@@ -496,16 +497,24 @@ export type PlatformDeviceLabelRow = { id: string; label: string; mac: string };
 /**
  * Display fields for the printable sticker, for any device on the platform.
  * Allow-listed select: token and tokenHash are never read.
+ *
+ * An empty selection means "every device on the platform" (the Superadmin
+ * → Devices print-selected form submits no ids when nothing is ticked),
+ * newest first and bounded by MAX_LABELS.
  */
 export async function getPlatformDevicesForLabels(
 	deviceIds: string[],
 ): Promise<PlatformDeviceLabelRow[]> {
 	await requirePlatformAdmin();
 
-	const ids = [
-		...new Set(deviceIds.filter((id) => typeof id === "string" && id.trim().length > 0)),
-	].slice(0, MAX_LABELS);
-	if (ids.length === 0) return [];
+	const ids = parseDeviceLabelIds(deviceIds).slice(0, MAX_LABELS);
+	if (ids.length === 0) {
+		return prisma.energyDevice.findMany({
+			select: { id: true, label: true, mac: true },
+			orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+			take: MAX_LABELS,
+		});
+	}
 
 	const devices = await prisma.energyDevice.findMany({
 		where: { id: { in: ids } },

@@ -2490,6 +2490,12 @@
 				"value": "Value",
 				"name": "Name",
 				"empty": "No data for this period yet."
+			},
+			"terminology": {
+				"aboutAbw": "What does ABW mean?",
+				"abw": "Average Body Weight: the mean weight of the fish in your latest biomass sample, in grams. It is the sample weight divided by the number of fish weighed.",
+				"aboutFcr": "What does FCR mean?",
+				"fcr": "Feed Conversion Ratio: the kilograms of feed used for every kilogram of fish weight gained, taken from your latest FCR report. Lower is better."
 			}
 		},
 		"mobile": {

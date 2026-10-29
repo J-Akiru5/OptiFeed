@@ -33,6 +33,7 @@ import {
 	DashboardPageHeader,
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
+import { TermInfo } from "@/components/dashboard/term-info";
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { DashboardSnapshot } from "@/components/pwa/dashboard-snapshot";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
@@ -808,7 +809,13 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							<div className="grid grid-cols-2 gap-2">
 								<div data-help="fcr" data-onboard="fcr">
 									<StatTile
-										label={t("currentFcrLabel")}
+										label={
+											<TermInfo
+												label={t("currentFcrLabel")}
+												hint={tCommon("terminology.aboutFcr")}
+												description={tCommon("terminology.fcr")}
+											/>
+										}
 										value={fcrReports.length > 0 ? latestFcr.toFixed(2) : "—"}
 										detail={t("fcrTag")}
 										icon={Sparkles}
@@ -822,7 +829,13 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 									href="/dashboard/log-sample"
 								/>
 								<StatTile
-									label={t("lastBiomassLabel")}
+									label={
+										<TermInfo
+											label={t("lastBiomassLabel")}
+											hint={tCommon("terminology.aboutAbw")}
+											description={tCommon("terminology.abw")}
+										/>
+									}
 									value={
 										latestBiomass ? `${(latestBiomass.avgWeightKg * 1000).toFixed(1)} g` : t("na")
 									}

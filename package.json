@@ -18,7 +18,9 @@
 		"api:check": "node scripts/api/conformance-check.mjs",
 		"api:live": "node scripts/api/live-check.mjs",
 		"self-check": "node scripts/self-check.mjs",
-		"audit:gate": "node scripts/security/audit-gate.mjs"
+		"audit:gate": "node scripts/security/audit-gate.mjs",
+		"dead-code": "knip",
+		"complexity": "pnpm --filter web complexity"
 	},
 	"lint-staged": {
 		"*.{js,ts,tsx,json,css,md}": ["biome check --write --staged --no-errors-on-unmatched"]
@@ -31,6 +33,7 @@
 		"@commitlint/cli": "^19.8.0",
 		"@commitlint/config-conventional": "^19.8.0",
 		"husky": "^9.1.7",
+		"knip": "6.43.0",
 		"lint-staged": "^15.5.2"
 	},
 	"pnpm": {

@@ -1,11 +1,6 @@
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
-import {
-	FIRMWARE_VERSION_EVENT_TYPES,
-	OTA_EVENT_TYPES,
-	type OtaEventType,
-	versionFromMetadata,
-} from "@/lib/device-firmware";
+import { FIRMWARE_VERSION_EVENT_TYPES, versionFromMetadata } from "@/lib/device-firmware";
 import prisma from "@/lib/prisma";
 import { type FirmwareStatus, getFirmwareStatus } from "@/lib/settings/firmware-status";
 
@@ -26,7 +21,7 @@ import { type FirmwareStatus, getFirmwareStatus } from "@/lib/settings/firmware-
  *  - Nothing here triggers an update or writes a row.
  */
 
-export { OTA_EVENT_TYPES, type OtaEventType, versionFromMetadata };
+export { versionFromMetadata };
 
 /** A large fleet still fits in one screen of OTA history. */
 export const OTA_EVENT_LIMIT = 20;

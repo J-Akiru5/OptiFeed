@@ -1,0 +1,76 @@
+name: Maintainability
+
+# Dead-code and complexity budgets.
+#
+# Separate from `ci.yml` on purpose: these are maintainability gates, not
+# correctness gates. A failure here means the code still works but the
+# repository got harder to maintain, and the check name should say so.
+#
+# Validation only: no deploy, no database, no secrets. Both jobs read the
+# repository and fail on a regression.
+
+on:
+  push:
+    branches: [develop, staging, main]
+  pull_request:
+    branches: [develop, staging, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maintainability-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  dead-code:
+    name: dead-code
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Fails on unused files, exports, dependencies and unlisted imports.
+      # Suppressions and entry points are explained in knip.jsonc; anything
+      # added there needs a written reason in the same change.
+      - name: Dead code (knip)
+        run: pnpm dead-code
+
+  complexity:
+    name: complexity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Purpose-built script over the TypeScript compiler API (no new dependency).
+      # Budgets are measured baselines; see apps/web/scripts/complexity-budget.json.
+      - name: Complexity budget (apps/web/lib)
+        run: pnpm complexity

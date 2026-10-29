@@ -97,7 +97,7 @@ export function FormPageSkeleton({ label }: { label?: string }) {
 const CALENDAR_SKELETON_CELLS = Array.from({ length: 35 }, (_, index) => `cell-${index}`);
 
 /** Calendar page: header, summary strip, month grid and upcoming list. */
-export function CalendarPageSkeleton({ label }: { label?: string }) {
+function CalendarPageSkeleton({ label }: { label?: string }) {
 	return (
 		<div aria-busy="true" className={pageShell}>
 			<SkeletonStatus label={label} />

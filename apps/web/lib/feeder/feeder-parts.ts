@@ -8,14 +8,14 @@ import manifest from "@/lib/feeder/model-manifest.json";
  * client viewer.
  */
 
-export const FEEDER_VIEWER_CONTRACT = manifest.contract;
+const FEEDER_VIEWER_CONTRACT = manifest.contract;
 export const FEEDER_MODEL_FILE = manifest.file;
 export const FEEDER_MODEL_VERSION = manifest.version;
 
 export type FeederStatus = "idle" | "dispensing" | "paused" | "offline";
 export type FeederViewerTier = "high" | "medium" | "low";
 
-export const FEEDER_STATUS_LABEL_KEYS: Record<FeederStatus, string> = {
+const FEEDER_STATUS_LABEL_KEYS: Record<FeederStatus, string> = {
 	idle: "statusIdle",
 	dispensing: "statusDispensing",
 	paused: "statusPaused",
@@ -124,4 +124,4 @@ export const FEEDER_NODES = {
 	tubeGlass: "Tube_Glass",
 } as const;
 
-export const FEEDER_MODEL_MANIFEST = manifest;
+const FEEDER_MODEL_MANIFEST = manifest;

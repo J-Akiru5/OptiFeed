@@ -14,8 +14,6 @@ import type { LucideIcon } from "lucide-react";
  * data and the permission behind a control change.
  */
 
-export type { CalendarCapability };
-
 const CHIP_BASE =
 	"inline-flex min-h-11 items-center rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea]";
 

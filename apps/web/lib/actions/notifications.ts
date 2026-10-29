@@ -223,7 +223,7 @@ export async function updateNotificationPrefs(
 	}
 }
 
-export async function createDemoNotification(
+async function createDemoNotification(
 	pondId: string,
 	tier: string,
 	message: string,

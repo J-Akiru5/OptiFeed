@@ -23,14 +23,14 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 /** Repository root (`scripts/ops` -> repository root). */
-export const REPO_ROOT = join(HERE, "..", "..");
+const REPO_ROOT = join(HERE, "..", "..");
 /** The Next.js app that owns the Prisma schema and client. */
-export const WEB_DIR = join(REPO_ROOT, "apps", "web");
+const WEB_DIR = join(REPO_ROOT, "apps", "web");
 
 /** Every row this drill owns starts with this prefix (see drill-fixture.mjs). */
 export const DRILL_PREFIX = "drill-";
 /** The only accepted value of RESTORE_DRILL_ALLOW_NONLOCAL. */
-export const NONLOCAL_ACK_VALUE = "yes";
+const NONLOCAL_ACK_VALUE = "yes";
 
 const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "0.0.0.0"]);
 const POSTGRES_PROTOCOLS = new Set(["postgres:", "postgresql:"]);
@@ -41,7 +41,7 @@ function envValue(env, key) {
 }
 
 /** `[::1]` -> `::1`, `LocalHost` -> `localhost`. */
-export function normalizeHost(hostname) {
+function normalizeHost(hostname) {
 	return hostname.trim().toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
 }
 
@@ -49,7 +49,7 @@ export function normalizeHost(hostname) {
  * Parse DATABASE_URL without ever returning the credentials.
  * Returns the target description the scripts print (host, port, database).
  */
-export function readDatabaseTarget(env = process.env) {
+function readDatabaseTarget(env = process.env) {
 	const url = envValue(env, "DATABASE_URL");
 	if (!url) {
 		throw new Error(
@@ -143,6 +143,6 @@ export function loadPrismaClient() {
 }
 
 /** True only for the reserved drill fixture prefix. */
-export function isDrillIdentifier(value) {
+function isDrillIdentifier(value) {
 	return typeof value === "string" && value.startsWith(DRILL_PREFIX);
 }

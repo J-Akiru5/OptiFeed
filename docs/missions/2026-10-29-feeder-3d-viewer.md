@@ -36,9 +36,22 @@ onto this branch, and built headlessly. No worker worktree was edited.
 
 ## Deferred / limits
 
-- Dimensions are provisional; chassis, base plate, hopper, tube, motor and shelf height need
-  tape measurements.
-- Model is 26,856 triangles, above the 20k plan target but under the 2 MB ceiling.
+- Initial dimensions were provisional; the tape-calibrated rebuild below resolves the chassis,
+  base plate, hopper, tube, motor and shelf measurements.
+- The initial model was 26,856 triangles, above the 20k plan target but under the 2 MB ceiling.
 - No browser E2E or FPS benchmark (resource constraints); the benchmark subagent should measure
   high/medium tiers and GLB load time when a browser/DB-capable environment is available.
 - No staging/main promotion, no tag, no manual deployment.
+
+## Tape-calibrated rebuild (2026-10-29)
+
+Jeff filled the standalone sheet at `docs/feeder-dimensions-form.html`; the export is
+`feeder-dimensions-2026-10-29.json`. The model was rebuilt to `feeder-v1.1.0.glb`:
+**1,147,420 bytes / 37,800 triangles**, manifest checksum, no Draco/Meshopt, dimensions revision
+`tape-2026-10-29`. The rebuild corrects the silhouette to a 340 × 450 mm base, a
+145 × 450 × 315 mm chassis, one whole 400 mm PET jar on a 200 mm shelf, a 50 mm auger tube and a
+60 mm motor. The ultrasonic sensor sits on the jar lid; the 750 mm post and short arm are a wire
+guide only. The viewer camera is reframed for the smaller machine, the auger and coupling rotate
+about the tube axis, and the service-worker cache moves to **v6**. `B10 = 20` is applied as
+**200 mm** (20 cm), the only reading consistent with the 400 mm jar, the 530 mm sensor and the
+photos. App release **1.30.2** (PATCH).

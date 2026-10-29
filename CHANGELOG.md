@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.30.2] - 2026-10-29
+
+### Fixed
+
+- The feeder 3D model is rebuilt from the tape measurements: a 340 × 450 mm base, a 145 × 450 × 315 mm chassis, one 400 mm PET jar on a 200 mm shelf, and a 50 mm auger tube with a 60 mm motor. The ultrasonic sensor now sits on the jar lid, the 750 mm post and short arm are a wire guide, and the model includes the red rubber motor coupling, the brown tube-end plug, the blue outlet with the red cap, and the two wood tube cradles. Model asset `feeder-v1.1.0.glb` (1.1 MB, 37,800 triangles); the service-worker cache moves to **v6** for the new URL.
+- The viewer camera presets and orbit target are reframed for the smaller machine, and the dispensing auger/coupling now rotate around the tube axis instead of the vertical axis.
+
 ## [1.30.1] - 2026-10-29
 
 ### Fixed

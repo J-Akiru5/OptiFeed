@@ -73,6 +73,14 @@ export const chatActionAccept =
 export const chatToggleButton =
 	"flex h-[var(--ofd-fab-size)] w-[var(--ofd-fab-size)] items-center justify-center rounded-full bg-[#E85A2A] text-white shadow-lg transition-transform hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] focus-visible:ring-offset-2 dark:focus-visible:ring-[#ff8a5c] dark:focus-visible:ring-offset-gray-950";
 
+/**
+ * Selector for the floating control that opens the chat, so Escape on the panel
+ * or sheet can put focus back on the control the reader came from instead of
+ * dropping it on `<body>` when the surface collapses. The attribute is on
+ * `ChatToggleButton`.
+ */
+export const CHAT_TOGGLE_SELECTOR = "[data-chat-toggle]";
+
 export interface ChatContrastPair {
 	/** What the pair paints, e.g. "assistant message text". */
 	label: string;

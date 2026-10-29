@@ -64,6 +64,9 @@ export function ChatSheet() {
 	return (
 		<div
 			aria-hidden={!isOpen}
+			// Same reason as the desktop panel: keep the collapsed sheet out of the
+			// tab order instead of letting focus land on hidden controls.
+			inert={!isOpen}
 			className={cn(
 				"fixed inset-x-0 bottom-0 z-50 flex h-[80vh] flex-col rounded-t-3xl shadow-2xl md:hidden",
 				chatSurface,

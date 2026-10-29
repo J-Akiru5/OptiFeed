@@ -15,7 +15,9 @@ import {
 /**
  * Delete ONLY the isolated e2e fixture (mission T-08).
  *
- * The suite runs against the production project, so this script:
+ * Used for the remote production fixture and for the disposable local stack
+ * (where `supabase stop --no-backup` also wipes everything). Because the remote
+ * target is a real project, this script:
  * - collects rows by the reserved "e2e-" prefix, the two fake MACs, or a
  *   parent that is already confirmed e2e-owned;
  * - validates every collected identifier BEFORE the first delete and refuses

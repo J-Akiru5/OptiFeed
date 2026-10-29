@@ -9,8 +9,17 @@ vi.mock("next-intl", async () => {
 });
 
 vi.mock("@/i18n/routing", () => ({
-	Link: ({ href, children }: { href: string; children?: React.ReactNode }) => (
-		<a href={href}>{children}</a>
+	Link: ({
+		href,
+		children,
+		...rest
+	}: {
+		href: string;
+		children?: React.ReactNode;
+	} & Record<string, unknown>) => (
+		<a href={href} {...rest}>
+			{children}
+		</a>
 	),
 	usePathname: () => "/dashboard",
 	useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
@@ -133,5 +142,35 @@ describe("low hopper display (#259)", () => {
 		expect(html).toContain("30%");
 		expect(html).toContain("Low: refill soon");
 		expect(html).toContain("hopper-low-pulse");
+	});
+});
+
+describe("sidebar hopper card opens the hopper chart (#286)", () => {
+	it("makes the whole card a link with an accessible name", () => {
+		const html = sidebarHtml(30);
+		const label = 'aria-label="View hopper level history"';
+		const labelStart = html.indexOf(label);
+
+		expect(html).toContain('href="/dashboard/history#hopper-level"');
+		expect(labelStart).toBeGreaterThan(-1);
+
+		// The anchor wraps the card contents, and no nested control sits inside it.
+		const contentStart = html.indexOf(">", labelStart) + 1;
+		const contentEnd = html.indexOf("</a>", contentStart);
+		expect(contentEnd).toBeGreaterThan(contentStart);
+		const cardContent = html.slice(contentStart, contentEnd);
+		expect(cardContent).toContain("Pond Feed Pellet");
+		expect(cardContent).toContain("30%");
+		expect(cardContent).not.toContain("<a ");
+		expect(cardContent).not.toContain("<button");
+	});
+
+	it("points at an anchor target that clears the sticky header", () => {
+		const source = readFileSync(
+			join(__dirname, "../../app/[locale]/(dashboard)/dashboard/history/page.tsx"),
+			"utf8",
+		);
+
+		expect(source).toMatch(/id="hopper-level"[\s\S]{0,160}scroll-mt-/);
 	});
 });

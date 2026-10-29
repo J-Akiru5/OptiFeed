@@ -85,6 +85,7 @@
 		"hopperLevel": "Hopper level",
 		"pondFeedPellet": "Pond Feed Pellet",
 		"hopperRemaining": "Approx. {kg}kg remaining. Enough for {count} scheduled feedings.",
+		"viewHopperLevel": "View hopper level history",
 		"deviceOffline": "Offline",
 		"navLabel": "Main navigation",
 		"overview": "Overview",

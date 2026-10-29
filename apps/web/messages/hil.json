@@ -1701,6 +1701,7 @@
 			"hopperEmptyCmDesc": "Pagbasa sang sensor kon wala sang feed ang hopper",
 			"hopperCapacityG": "Kapasidad sang Hopper (grams)",
 			"hopperCapacityGDesc": "Kabug-atan sang feed nga kaya sang hopper",
+			"hopperEmptyGreaterThanFull": "Ang distansya kon wala dapat mas dako sa distansya kon puno.",
 			"saveCalibration": "I-save ang Calibration",
 			"calibrationSaved": "Na-save ang calibration!",
 			"calibrationSaveError": "Indi ma-save ang calibration.",
@@ -1724,6 +1725,14 @@
 			"restartDevice": "I-restart ang Device",
 			"actionsUnavailable": "Wala pa available ang mga aksyon sa device.",
 			"calibration": {
+				"numberField": {
+					"decrease": "Buhinan ang {label}",
+					"increase": "Dugangan ang {label}",
+					"format": "Magbutang sang numero.",
+					"range": "Magbutang sang halaga halin {min} tubtob {max}.",
+					"wholeNumber": "Gamita lang ang bug-os nga mga numero.",
+					"decimalPlaces": "Gamita ang indi sobra sa {decimals} ka decimal."
+				},
 				"title": "Pag-calibrate sang Rate sang Pagpakaon",
 				"desc": "Sukda kon kapaspas mag-dispense sang feed ang feeder agud husto ang oras sang pagpakaon sa schedule.",
 				"currentRate": "Karon nga rate",

@@ -117,6 +117,19 @@
 		"backToDashboard": "Bumalik sa Dashboard"
 	},
 	"dashboard": {
+		"appSettings": {
+			"hopperEmptyGreaterThanFull": "Dapat mas malaki ang distansya kapag walang laman kaysa sa distansya kapag puno.",
+			"calibration": {
+				"numberField": {
+					"decrease": "Bawasan ang {label}",
+					"increase": "Dagdagan ang {label}",
+					"format": "Maglagay ng numero.",
+					"range": "Maglagay ng halaga mula {min} hanggang {max}.",
+					"wholeNumber": "Gumamit lamang ng buong numero.",
+					"decimalPlaces": "Gumamit ng hindi hihigit sa {decimals} na decimal."
+				}
+			}
+		},
 		"feederViewer": {
 			"viewerLabel": "Feeder 3D",
 			"canvasLabel": "Interactive na 3D na modelo ng {label}. I-drag upang i-orbit at gamitin ang mga preset upang palitan ang view.",

@@ -574,3 +574,388 @@ describe("the guard matrix matches the UI", () => {
 		expect(owner).not.toContain("superadmin.disable_user");
 	});
 });
+
+describe("the proposal card names the change for the newly exposed writes", () => {
+	const POND = {
+		pondName: "Pond A",
+		orgName: "Org A",
+		deviceLabel: "Feeder A",
+		currentGrams: 120,
+		currentFeedsPerDay: 3,
+		currentRatePct: 2.5,
+	};
+	const NO_POND = {
+		pondName: null,
+		orgName: null,
+		deviceLabel: null,
+		currentGrams: null,
+		currentFeedsPerDay: null,
+		currentRatePct: null,
+	};
+
+	it("records.update_biomass states the corrected average and sample size", () => {
+		const card = ASSISTANT_ACTION_DEFINITIONS["records.update_biomass"].describe(
+			{ logId: "log-1", avgWeightG: 150, sampleCount: 12 },
+			POND,
+		);
+
+		expect(card.summary).toBe("Correct the biomass sample to 150 g average across 12 fish.");
+		expect(card.fields).toEqual([
+			{ label: "Sample", value: "log-1" },
+			{ label: "Average weight", value: "150 g/fish" },
+			{ label: "Sample size", value: "12 fish" },
+		]);
+	});
+
+	it("records.delete_biomass names the date when it has one", () => {
+		const dated = ASSISTANT_ACTION_DEFINITIONS["records.delete_biomass"].describe(
+			{ logId: "log-1", sampleDate: "2026-10-01" },
+			POND,
+		);
+		expect(dated.summary).toBe(
+			"Delete the biomass sample from 2026-10-01. This removes it from the feeding plan history.",
+		);
+		expect(dated.fields).toEqual([
+			{ label: "Sample", value: "log-1" },
+			{ label: "Date", value: "2026-10-01" },
+		]);
+
+		const undated = ASSISTANT_ACTION_DEFINITIONS["records.delete_biomass"].describe(
+			{ logId: "log-1" },
+			POND,
+		);
+		expect(undated.summary).toBe(
+			"Delete the biomass sample. This removes it from the feeding plan history.",
+		);
+		expect(undated.fields).toEqual([
+			{ label: "Sample", value: "log-1" },
+			{ label: "Date", value: "as logged" },
+		]);
+	});
+
+	it("records.update_calendar_item quotes the new title and time, or says unchanged", () => {
+		const changed = ASSISTANT_ACTION_DEFINITIONS["records.update_calendar_item"].describe(
+			{ eventId: "event-1", title: "Clean the net", startsAt: "2026-10-30" },
+			POND,
+		);
+		expect(changed.summary).toBe(
+			'Change the calendar item on Pond A to "Clean the net" at 2026-10-30.',
+		);
+		expect(changed.fields).toEqual([
+			{ label: "Item", value: "event-1" },
+			{ label: "Title", value: "Clean the net" },
+			{ label: "When", value: "2026-10-30" },
+		]);
+
+		const untouched = ASSISTANT_ACTION_DEFINITIONS["records.update_calendar_item"].describe(
+			{ eventId: "event-1" },
+			NO_POND,
+		);
+		expect(untouched.summary).toBe("Change the calendar item on the active pond.");
+		expect(untouched.fields).toEqual([
+			{ label: "Item", value: "event-1" },
+			{ label: "Title", value: "unchanged" },
+			{ label: "When", value: "unchanged" },
+		]);
+	});
+
+	it("records.delete_calendar_item distinguishes one occurrence from the whole item", () => {
+		const occurrence = "2026-10-30T08:00:00+08:00";
+		const single = ASSISTANT_ACTION_DEFINITIONS["records.delete_calendar_item"].describe(
+			{ eventId: "event-1", occurrence },
+			POND,
+		);
+		expect(single.summary).toBe(`Delete the calendar item on Pond A for ${occurrence}.`);
+		expect(single.fields).toEqual([
+			{ label: "Item", value: "event-1" },
+			{ label: "Occurrence", value: occurrence },
+		]);
+
+		const whole = ASSISTANT_ACTION_DEFINITIONS["records.delete_calendar_item"].describe(
+			{ eventId: "event-1" },
+			POND,
+		);
+		expect(whole.summary).toBe("Delete the calendar item on Pond A.");
+		expect(whole.fields).toEqual([
+			{ label: "Item", value: "event-1" },
+			{ label: "Occurrence", value: "the whole item" },
+		]);
+	});
+
+	it("records.reopen_task names the pond and the task", () => {
+		const card = ASSISTANT_ACTION_DEFINITIONS["records.reopen_task"].describe(
+			{ eventId: "event-1" },
+			POND,
+		);
+		expect(card.summary).toBe("Reopen the task on Pond A.");
+		expect(card.fields).toEqual([{ label: "Task", value: "event-1" }]);
+	});
+
+	it("ponds.archive uses the name the caller gave, the id, or the active pond", () => {
+		const named = ASSISTANT_ACTION_DEFINITIONS["ponds.archive"].describe(
+			{ pondId: "pond-2", pondName: "Pond B" },
+			POND,
+		);
+		expect(named.summary).toBe(
+			"Archive Pond B. It disappears from the farmer's pond selector; nothing is deleted.",
+		);
+		expect(named.fields).toEqual([{ label: "Pond", value: "Pond B" }]);
+
+		const byId = ASSISTANT_ACTION_DEFINITIONS["ponds.archive"].describe({ pondId: "pond-2" }, POND);
+		expect(byId.fields).toEqual([{ label: "Pond", value: "the selected pond" }]);
+
+		const active = ASSISTANT_ACTION_DEFINITIONS["ponds.archive"].describe({}, POND);
+		expect(active.fields).toEqual([{ label: "Pond", value: "Pond A" }]);
+		expect(active.summary).toContain("Archive Pond A.");
+
+		const unknown = ASSISTANT_ACTION_DEFINITIONS["ponds.archive"].describe({}, NO_POND);
+		expect(unknown.fields).toEqual([{ label: "Pond", value: "Active pond" }]);
+		expect(unknown.summary).toContain("Archive Active pond.");
+	});
+
+	it("ponds.restore describes the pond that comes back", () => {
+		const card = ASSISTANT_ACTION_DEFINITIONS["ponds.restore"].describe(
+			{ pondId: "pond-2", pondName: "Pond B" },
+			POND,
+		);
+		expect(card.summary).toBe("Restore Pond B so the farmer can use it again.");
+		expect(card.fields).toEqual([{ label: "Pond", value: "Pond B" }]);
+	});
+
+	it("ponds.delete repeats the typed confirmation on the card", () => {
+		const card = ASSISTANT_ACTION_DEFINITIONS["ponds.delete"].describe(
+			{ pondId: "pond-2", confirmName: "Pond B" },
+			POND,
+		);
+		expect(card.summary).toBe(
+			"Permanently delete the empty pond the selected pond. This cannot be undone.",
+		);
+		expect(card.fields).toEqual([
+			{ label: "Pond", value: "the selected pond" },
+			{ label: "Confirm", value: "Pond B" },
+		]);
+	});
+
+	it("ponds.move_device names both ends of the move, falling back to the named id", () => {
+		const labelled = ASSISTANT_ACTION_DEFINITIONS["ponds.move_device"].describe(
+			{ deviceLabel: "Feeder A", targetPondId: "pond-2", targetPondName: "Pond B" },
+			POND,
+		);
+		expect(labelled.summary).toBe("Move Feeder A to Pond B.");
+		expect(labelled.fields).toEqual([
+			{ label: "Feeder", value: "Feeder A" },
+			{ label: "Target", value: "Pond B" },
+		]);
+
+		const unnamed = ASSISTANT_ACTION_DEFINITIONS["ponds.move_device"].describe(
+			{ targetPondId: "pond-2" },
+			POND,
+		);
+		expect(unnamed.summary).toBe("Move the active feeder to the selected pond.");
+		expect(unnamed.fields).toEqual([
+			{ label: "Feeder", value: "Active feeder" },
+			{ label: "Target", value: "pond-2" },
+		]);
+	});
+
+	it("ponds.unassign_device names the feeder or says the active one", () => {
+		const named = ASSISTANT_ACTION_DEFINITIONS["ponds.unassign_device"].describe(
+			{ deviceId: "device-1", deviceLabel: "Feeder A" },
+			POND,
+		);
+		expect(named.summary).toBe("Detach Feeder A from its pond. It will stop receiving a schedule.");
+		expect(named.fields).toEqual([{ label: "Feeder", value: "Feeder A" }]);
+
+		const unnamed = ASSISTANT_ACTION_DEFINITIONS["ponds.unassign_device"].describe(
+			{ deviceId: "device-1" },
+			POND,
+		);
+		expect(unnamed.summary).toBe(
+			"Detach the active feeder from its pond. It will stop receiving a schedule.",
+		);
+		expect(unnamed.fields).toEqual([{ label: "Feeder", value: "Active feeder" }]);
+	});
+
+	it("admin.revoke_member names the member, or falls back to the id", () => {
+		const named = ASSISTANT_ACTION_DEFINITIONS["admin.revoke_member"].describe(
+			{ userId: "member-1", memberName: "Ana" },
+			POND,
+		);
+		expect(named.summary).toBe(
+			"Remove Ana from the organization. Their account stays, but they lose access.",
+		);
+		expect(named.fields).toEqual([{ label: "Member", value: "Ana" }]);
+
+		const unnamed = ASSISTANT_ACTION_DEFINITIONS["admin.revoke_member"].describe(
+			{ userId: "member-1" },
+			POND,
+		);
+		expect(unnamed.summary).toBe(
+			"Remove the member from the organization. Their account stays, but they lose access.",
+		);
+		expect(unnamed.fields).toEqual([{ label: "Member", value: "member-1" }]);
+	});
+
+	it("admin.reveal_device_token warns that the token is a credential", () => {
+		const named = ASSISTANT_ACTION_DEFINITIONS["admin.reveal_device_token"].describe(
+			{ deviceId: "device-1", deviceLabel: "Feeder A" },
+			POND,
+		);
+		expect(named.summary).toContain("Show the provisioning token for Feeder A.");
+		expect(named.summary).toContain("counted against the hourly limit");
+		expect(named.fields).toEqual([{ label: "Feeder", value: "Feeder A" }]);
+
+		const unnamed = ASSISTANT_ACTION_DEFINITIONS["admin.reveal_device_token"].describe(
+			{ deviceId: "device-1" },
+			POND,
+		);
+		expect(unnamed.summary).toContain("Show the provisioning token for the active feeder.");
+		expect(unnamed.fields).toEqual([{ label: "Feeder", value: "Active feeder" }]);
+	});
+
+	it("superadmin.stop_view_as explains that it ends the session", () => {
+		const card = ASSISTANT_ACTION_DEFINITIONS["superadmin.stop_view_as"].describe({}, POND);
+		expect(card.summary).toBe(
+			"End the current read-only view-as session and return to the platform console.",
+		);
+		expect(card.fields).toEqual([]);
+	});
+
+	it("superadmin.rotate_device_token names the feeder and the reason", () => {
+		const named = ASSISTANT_ACTION_DEFINITIONS["superadmin.rotate_device_token"].describe(
+			{ deviceId: "device-1", deviceLabel: "Feeder A", reason },
+			POND,
+		);
+		expect(named.summary).toBe(
+			`Rotate the token for Feeder A. The old credential stops working at once. Reason: ${reason}`,
+		);
+		expect(named.fields).toEqual([
+			{ label: "Feeder", value: "Feeder A" },
+			{ label: "Reason", value: reason },
+		]);
+
+		const unnamed = ASSISTANT_ACTION_DEFINITIONS["superadmin.rotate_device_token"].describe(
+			{ deviceId: "device-1", reason },
+			POND,
+		);
+		expect(unnamed.summary).toContain("Rotate the token for the selected feeder.");
+		expect(unnamed.fields).toEqual([
+			{ label: "Feeder", value: "device-1" },
+			{ label: "Reason", value: reason },
+		]);
+	});
+
+	it("superadmin.remote_feed states the dose and the offline limits still apply", () => {
+		const card = ASSISTANT_ACTION_DEFINITIONS["superadmin.remote_feed"].describe(
+			{ deviceId: "device-1", deviceLabel: "Feeder A", grams: 120, reason },
+			POND,
+		);
+		expect(card.summary).toBe(
+			`Dispense 120 g now on Feeder A. The device caps and offline rules still apply. Reason: ${reason}`,
+		);
+		expect(card.fields).toEqual([
+			{ label: "Feeder", value: "Feeder A" },
+			{ label: "Dose", value: "120 g" },
+			{ label: "Reason", value: reason },
+		]);
+	});
+
+	it("superadmin.pause_device changes its verb with the requested state", () => {
+		const pause = ASSISTANT_ACTION_DEFINITIONS["superadmin.pause_device"].describe(
+			{ deviceId: "device-1", deviceLabel: "Feeder A", isPaused: true, reason },
+			POND,
+		);
+		expect(pause.summary).toBe(`Pause automatic feeding on Feeder A. Reason: ${reason}`);
+		expect(pause.fields).toContainEqual({ label: "Action", value: "Pause" });
+
+		const resume = ASSISTANT_ACTION_DEFINITIONS["superadmin.pause_device"].describe(
+			{ deviceId: "device-1", isPaused: false, reason },
+			POND,
+		);
+		expect(resume.summary).toBe(
+			`Resume automatic feeding on the selected feeder. Reason: ${reason}`,
+		);
+		expect(resume.fields).toContainEqual({ label: "Action", value: "Resume" });
+	});
+
+	it("superadmin.disable_user names the account the admin must confirm", () => {
+		const card = ASSISTANT_ACTION_DEFINITIONS["superadmin.disable_user"].describe(
+			{ userId: "user-2", confirmFarmId: "farm-2", reason },
+			POND,
+		);
+		expect(card.summary).toBe(
+			`Disable farm-2. The login is banned and every membership and platform grant is revoked; nothing is deleted. Reason: ${reason}`,
+		);
+		expect(card.fields).toEqual([
+			{ label: "Account", value: "farm-2" },
+			{ label: "Reason", value: reason },
+		]);
+	});
+
+	it("superadmin.enable_user states what is restored", () => {
+		const card = ASSISTANT_ACTION_DEFINITIONS["superadmin.enable_user"].describe(
+			{ userId: "user-2", reason },
+			POND,
+		);
+		expect(card.summary).toBe(
+			`Enable user user-2 again and restore the memberships and grant recorded at disable time. Reason: ${reason}`,
+		);
+		expect(card.fields).toEqual([
+			{ label: "User", value: "user-2" },
+			{ label: "Reason", value: reason },
+		]);
+	});
+
+	it("superadmin.grant_platform_admin shows the expiry, or that there is none", () => {
+		const expiring = ASSISTANT_ACTION_DEFINITIONS["superadmin.grant_platform_admin"].describe(
+			{ userId: "user-2", reason, expiresAt: "2026-12-31T00:00:00Z" },
+			POND,
+		);
+		expect(expiring.summary).toBe(
+			`Grant platform admin to user-2 until 2026-12-31T00:00:00Z. Reason: ${reason}`,
+		);
+		expect(expiring.fields).toContainEqual({
+			label: "Expires",
+			value: "2026-12-31T00:00:00Z",
+		});
+
+		const permanent = ASSISTANT_ACTION_DEFINITIONS["superadmin.grant_platform_admin"].describe(
+			{ userId: "user-2", reason },
+			POND,
+		);
+		expect(permanent.summary).toBe(`Grant platform admin to user-2. Reason: ${reason}`);
+		expect(permanent.fields).toContainEqual({ label: "Expires", value: "no expiry" });
+	});
+
+	it("superadmin.revoke_platform_admin names the user and the reason", () => {
+		const card = ASSISTANT_ACTION_DEFINITIONS["superadmin.revoke_platform_admin"].describe(
+			{ userId: "user-2", reason },
+			POND,
+		);
+		expect(card.summary).toBe(`Revoke platform admin from user-2. Reason: ${reason}`);
+		expect(card.fields).toEqual([
+			{ label: "User", value: "user-2" },
+			{ label: "Reason", value: reason },
+		]);
+	});
+
+	it("superadmin.create_org shows the type, defaulting to INDIVIDUAL", () => {
+		const typed = ASSISTANT_ACTION_DEFINITIONS["superadmin.create_org"].describe(
+			{ name: "Org B", type: "COOPERATIVE", reason },
+			POND,
+		);
+		expect(typed.summary).toBe(`Create the organization "Org B" (COOPERATIVE). Reason: ${reason}`);
+		expect(typed.fields).toEqual([
+			{ label: "Name", value: "Org B" },
+			{ label: "Type", value: "COOPERATIVE" },
+			{ label: "Reason", value: reason },
+		]);
+
+		const untyped = ASSISTANT_ACTION_DEFINITIONS["superadmin.create_org"].describe(
+			{ name: "Org B", reason },
+			POND,
+		);
+		expect(untyped.summary).toBe(`Create the organization "Org B" (INDIVIDUAL). Reason: ${reason}`);
+		expect(untyped.fields).toContainEqual({ label: "Type", value: "INDIVIDUAL" });
+	});
+});

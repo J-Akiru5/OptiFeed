@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - #307 calibration number fields could not be cleared once they held `0`, so a full distance of zero could not be replaced with a real measurement. Every numeric calibration field now keeps the raw text and parses on submit, so a field can be emptied and re-typed. Hopper centimetre fields step 1 → 2 → 3 → 4 instead of 0.1, and all numeric calibration controls share one field pattern — label, steppers, unit, help text and an announced error — laid out in a responsive three-column grid (one column on phones, two on tablets, three on desktop).
 
+## [1.27.1] - 2026-10-29
+
+### Fixed
+
+- The hardware **Settings → Live Monitoring** hero now renders the interactive 3D feeder viewer instead of the legacy SVG illustration, and the live status poll runs immediately on load.
+
 ## [1.27.0] - 2026-10-29
 
 ### Added

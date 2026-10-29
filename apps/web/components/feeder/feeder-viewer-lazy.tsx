@@ -147,6 +147,7 @@ export function FeederViewerLazy({
 				// Keep the last known reading; the next tick retries.
 			}
 		};
+		void poll();
 		const timer = window.setInterval(poll, 15_000);
 		return () => {
 			active = false;

@@ -148,6 +148,9 @@
 			"deviceMac": "Device ID (MAC)",
 			"openViewer": "Buksan ang 3D view"
 		},
+		"adminOverview": {
+			"chartActivityRange": "Saklaw: {from} – {to} · {days} araw sa bukid (Asia/Manila)."
+		},
 		"adminDevices": {
 			"view3d": "3D view"
 		},

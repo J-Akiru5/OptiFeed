@@ -39,6 +39,9 @@ export interface AdminOverviewData {
 	activityDays: number;
 	feedTotalGrams: number;
 	activityTotal: number;
+	/** Inclusive farm-day keys for the activity window, even when empty. */
+	activityFrom: string | null;
+	activityTo: string | null;
 	/** The 5,000-row cap bound, so the totals are a lower bound and the oldest day is partial. */
 	feedTruncated: boolean;
 	activityTruncated: boolean;
@@ -64,6 +67,8 @@ function emptyOverview(): AdminOverviewData {
 		activityDays: ADMIN_ACTIVITY_DAYS,
 		feedTotalGrams: 0,
 		activityTotal: 0,
+		activityFrom: null,
+		activityTo: null,
 		feedTruncated: false,
 		activityTruncated: false,
 	};
@@ -147,6 +152,8 @@ export async function getAdminOverview(): Promise<AdminOverviewData> {
 		activityDays: ADMIN_ACTIVITY_DAYS,
 		feedTotalGrams,
 		activityTotal,
+		activityFrom: activityWindow.dayKeys[0] ?? null,
+		activityTo: activityWindow.dayKeys.at(-1) ?? null,
 		feedTruncated,
 		activityTruncated,
 	};

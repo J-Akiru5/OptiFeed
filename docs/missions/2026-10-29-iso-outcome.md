@@ -39,3 +39,28 @@ missing paperwork.
   raised to the A target rather than left at the measured floor.
 - 24 follow-up issues (#316–#339) carry every finding that was not fixed inside this mission, each with
   evidence and done-when criteria.
+
+## Authorized production migration (2026-10-29)
+
+The mission constraint said "no production database writes and no production migrations". The owner
+explicitly authorized an exception while the system is not operational, so that `staging` — which shares
+the production database — runs the complete v1.30.0 feature set.
+
+- **Applied:** `20261029010000_add_error_events` via `prisma migrate deploy` against project ref
+  `xjjnkikgkraixlfhhvoh` (the production project, verified before the run).
+- **Before:** 38 migrations applied, exactly one pending. **After:** `Database schema is up to date!` (39).
+- **Verified after the run:** `ErrorEvent` exists with all 13 designed columns, the three indexes plus the
+  primary key (`ErrorEvent_fingerprint_key`, `ErrorEvent_lastSeenAt_idx`,
+  `ErrorEvent_resolved_lastSeenAt_idx`), the `ErrorSeverity` enum (`ERROR`/`WARNING`/`INFO`), one
+  `_prisma_migrations` row, and **0** rows.
+- **Why it was needed:** `scripts/migrate-if-production.mjs` only runs migrations when
+  `VERCEL_ENV === "production"`, so the staging (Preview) deployment shipped code referencing a table that
+  did not exist. Without this, error capture silently no-ops, `/superadmin/operations/errors` returns 500,
+  and `/api/cron/device-watch` returns 500 after its useful work.
+- **Verification limit, stated plainly:** `staging` preview deployments sit behind Vercel SSO, so the
+  application-level check cannot be made with an unauthenticated request. The evidence above is database-level;
+  a signed-in browser is needed to confirm the admin page.
+
+This addendum supersedes the earlier "no production migration" line for this one migration only. The migration
+is additive: `CREATE TYPE`, `CREATE TABLE` and three `CREATE INDEX` statements, with no drops, renames or
+data changes.

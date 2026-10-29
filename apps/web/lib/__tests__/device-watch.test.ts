@@ -39,6 +39,10 @@ vi.mock("@/lib/retention", () => ({
 	deleteOldHeartbeatEvents: vi.fn().mockResolvedValue(3),
 }));
 
+vi.mock("@/lib/error-capture", () => ({
+	deleteExpiredErrorEvents: vi.fn().mockResolvedValue(0),
+}));
+
 vi.mock("@/lib/rate-limit", () => ({
 	cleanupExpiredRateLimitBuckets: vi.fn().mockResolvedValue(7),
 }));
@@ -52,6 +56,7 @@ vi.mock("@/lib/notify/telegram", () => ({
 }));
 
 import { GET } from "@/app/api/cron/device-watch/route";
+import { deleteExpiredErrorEvents } from "@/lib/error-capture";
 import { sendTelegramMessage } from "@/lib/notify/telegram";
 import prisma from "@/lib/prisma";
 import { cleanupExpiredRateLimitBuckets } from "@/lib/rate-limit";
@@ -179,6 +184,8 @@ describe("api/cron/device-watch", () => {
 		await GET(cronRequest("Bearer test-cron-secret"));
 		expect(deleteOldHeartbeatEvents).toHaveBeenCalledTimes(1);
 		expect(cleanupExpiredRateLimitBuckets).toHaveBeenCalledTimes(1);
+		// I-64: the 30-day ErrorEvent retention rides the same housekeeping pass.
+		expect(deleteExpiredErrorEvents).toHaveBeenCalledTimes(1);
 	});
 
 	it("scans the most recently stale devices first, so an already-alerted device cannot starve new outages", async () => {

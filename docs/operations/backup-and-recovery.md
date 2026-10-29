@@ -161,8 +161,10 @@ of staging onto its own database (which would add a second recovery target).
 
 Backup retention is capped by what the published Privacy Policy tells users, not by what the
 provider defaults to. The policy says backups are kept **"Up to 30 days, then overwritten or
-deleted"**, and security, rate-limit, and audit logs are kept **90 days**. Neither figure may be
-exceeded without changing the policy and the legal version first.
+deleted"**, and security, rate-limit, and audit logs are kept **90 days, unless needed for an
+incident investigation or legal claim**. Neither figure may be exceeded for routine data without
+changing the policy and the legal version first; the investigation exception is the policy's own,
+not a licence to keep data indefinitely.
 
 | Data | Retention | Basis | Enforced by |
 | --- | --- | --- | --- |
@@ -178,7 +180,9 @@ exceeded without changing the policy and the legal version first.
 **Decision: 30 days, then delete.** Error records are diagnostic telemetry, not farm records.
 They are useful for the release that produced them and for one comparison cycle after it; beyond
 that they are a liability, because a stack trace can contain a user id, a route, or a device
-identifier even after scrubbing.
+identifier even after scrubbing. Rows tied to an open incident investigation or a legal claim may
+be preserved beyond 30 days, which the Privacy Policy's security-log exception already covers;
+the exception is recorded in the drill or incident record, not assumed.
 
 Thirty days is **deliberately below** the 90-day maximum the Privacy Policy publishes for
 security and audit logs. A shorter period needs no policy change. If this ever moves above 90

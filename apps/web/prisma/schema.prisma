@@ -794,3 +794,41 @@ model AssistantAction {
 
   @@index([userId, status, createdAt])
 }
+
+enum ErrorSeverity {
+  ERROR
+  WARNING
+  INFO
+}
+
+/// First-party error capture (mission 2026-10-29e, owner decision E1).
+///
+/// One row per distinct error, keyed by `fingerprint` (sha256 of severity,
+/// scrubbed route, scrubbed message and the first stack frame). A repeat
+/// occurrence increments `count` and moves `lastSeenAt`; it does not insert.
+/// Recurrence reopens a resolved row, so a "fixed" error that comes back is
+/// visible again.
+///
+/// `message`, `stack`, `route` and `context` are scrubbed before write by
+/// lib/error-scrub.ts — no device token, bearer token, password, e-mail or
+/// Supabase key may reach this table. Rows silent for
+/// ERROR_EVENT_RETENTION_DAYS (30) are pruned by deleteExpiredErrorEvents()
+/// from the device-watch cron, so the table cannot grow unbounded.
+model ErrorEvent {
+  id          String        @id @default(cuid())
+  fingerprint String        @unique
+  message     String
+  stack       String?
+  route       String
+  severity    ErrorSeverity @default(ERROR)
+  context     Json?
+  firstSeenAt DateTime      @default(now())
+  lastSeenAt  DateTime      @default(now())
+  count       Int           @default(1)
+  resolved    Boolean       @default(false)
+  resolvedAt  DateTime?
+  resolvedBy  String?
+
+  @@index([lastSeenAt])
+  @@index([resolved, lastSeenAt])
+}

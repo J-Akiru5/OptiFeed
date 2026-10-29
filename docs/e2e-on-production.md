@@ -5,6 +5,12 @@ integrator runs this suite against the **production Supabase project** while
 PakaonAI is not in operation. Workers write code only; they never run anything
 here.
 
+> This is the **remote** target. For the disposable local stack (local
+> development and the CI `e2e` job) and for the full guard matrix, see
+> [e2e.md](./e2e.md). Setting `E2E_ALLOW_LOCAL_STACK=yes` never relaxes the
+> rules below: a non-loopback host still needs `E2E_ALLOWED_DB_HOST` and
+> `E2E_CONFIRM_PRODUCTION=yes`.
+
 The suite is isolated by construction:
 
 - the seed creates only `e2e-org`, the three `e2e-*` logins, the farmer's farm,
@@ -123,12 +129,29 @@ A rerun without cleanup can fail on the already-registered
 `E2:E0:00:00:00:02`; the spec fails with a message telling you to clean up and
 seed again.
 
+## Cross-browser smoke (no database)
+
+The authenticated suite above is Chromium-only. The public pages are also
+smoke-tested on Chromium, Firefox and WebKit by a separate, credential-free
+suite:
+
+```powershell
+pnpm exec playwright install firefox webkit   # once per machine
+pnpm test:e2e:smoke
+```
+
+It needs only a build (`next build`) — the config starts `next start -p 3100`
+itself, or uses `PLAYWRIGHT_BASE_URL`. CI runs it in
+`.github/workflows/e2e-smoke.yml`. The supported matrix, the split rationale and
+the exact coverage are in [`docs/compatibility.md`](./compatibility.md).
+
 ## Guard behaviour
 
 | Mistake | What happens |
 | --- | --- |
 | `E2E_ALLOWED_DB_HOST` differs from the `DATABASE_URL` host | Seed, cleanup and Playwright all refuse before touching data |
 | `E2E_CONFIRM_PRODUCTION` is missing or not `yes` | Same refusal |
+| `E2E_ALLOW_LOCAL_STACK=yes` with a non-loopback `DATABASE_URL` | Refused: local mode only authorises loopback hosts, the remote path still needs the allow-list and the acknowledgement |
 | `E2E_PASSWORD` is empty | Seed and Playwright refuse |
 | Cleanup collects a row that is not `e2e-`-owned | Cleanup refuses the whole run and deletes nothing |
 | Seed/global setup finds missing fixture rows | Fails with “run scripts/e2e/seed-e2e.ts first” |

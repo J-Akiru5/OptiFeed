@@ -1,9 +1,11 @@
 "use client";
 
+import { useRouter } from "@/i18n/routing";
 import { calculateFcrFeed } from "@/lib/actions/fcr";
-import { Calculator, Clock, Scale, TrendingUp } from "lucide-react";
+import { setGrowthTarget } from "@/lib/actions/growth-target";
+import { Calculator, CheckCircle2, Clock, Scale, Target, TrendingUp } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 interface FcrResult {
@@ -15,6 +17,11 @@ interface FcrResult {
 	latestFcr: number;
 }
 
+interface FcrRequestSnapshot {
+	targetWeightKg: number;
+	population: number;
+}
+
 interface FcrCalculatorProps {
 	latestFcr: number;
 	/** The pond this card is shown for; the action never guesses. */
@@ -22,16 +29,28 @@ interface FcrCalculatorProps {
 	/** Pond fish count, prefilled so the farmer does not retype it. */
 	population: number | null;
 	feedsPerDay?: number | null;
+	/** A target belongs to a cycle; without one there is nothing to attach it to. */
+	canSetTarget?: boolean;
 }
 
-export function FcrCalculator({ latestFcr, pondId, population, feedsPerDay }: FcrCalculatorProps) {
+export function FcrCalculator({
+	latestFcr,
+	pondId,
+	population,
+	feedsPerDay,
+	canSetTarget = false,
+}: FcrCalculatorProps) {
 	const t = useTranslations("dashboard.fcrCalculator");
+	const router = useRouter();
 	const [currentWeight, setCurrentWeight] = useState("");
 	const [targetWeight, setTargetWeight] = useState("");
 	const [fishCount, setFishCount] = useState(population ? String(population) : "");
 	const [days, setDays] = useState("");
 	const [result, setResult] = useState<FcrResult | null>(null);
+	const [request, setRequest] = useState<FcrRequestSnapshot | null>(null);
+	const [savedWeightKg, setSavedWeightKg] = useState<number | null>(null);
 	const [loading, setLoading] = useState(false);
+	const [isSavingTarget, startSaveTarget] = useTransition();
 
 	// Right padding leaves room for the unit suffix; hiding the native number
 	// spinners keeps them from being painted underneath that suffix.
@@ -70,6 +89,8 @@ export function FcrCalculator({ latestFcr, pondId, population, feedsPerDay }: Fc
 			});
 			if (res.success && "totalFeedNeededKg" in res) {
 				setResult(res);
+				setRequest({ targetWeightKg: target, population: count });
+				setSavedWeightKg(null);
 			} else {
 				toast.error(res.error ?? t("error"));
 			}
@@ -78,6 +99,23 @@ export function FcrCalculator({ latestFcr, pondId, population, feedsPerDay }: Fc
 		} finally {
 			setLoading(false);
 		}
+	};
+
+	const handleSetTarget = () => {
+		if (!canSetTarget || request === null) return;
+		startSaveTarget(async () => {
+			const res = await setGrowthTarget(pondId, {
+				targetWeightKg: request.targetWeightKg,
+				population: request.population,
+			});
+			if (res.success) {
+				setSavedWeightKg(request.targetWeightKg);
+				toast.success(t("targetSaved", { weight: request.targetWeightKg }));
+				router.refresh();
+			} else {
+				toast.error(res.error ?? t("targetError"));
+			}
+		});
 	};
 
 	return (
@@ -261,6 +299,29 @@ export function FcrCalculator({ latestFcr, pondId, population, feedsPerDay }: Fc
 							{t("perMeal", { grams: result.gramsPerFeeding })}
 						</p>
 					)}
+
+					<div className="mt-4 flex flex-col gap-3 border-t border-[#0A3D62]/10 pt-4 dark:border-gray-700/50 sm:flex-row sm:items-center sm:justify-between">
+						<div>
+							<p className="text-xs font-semibold text-[#3D5568] dark:text-gray-400">
+								{canSetTarget ? t("targetHint") : t("targetNeedsCycle")}
+							</p>
+							{savedWeightKg !== null && (
+								<p className="mt-1 flex items-center gap-1 text-xs font-bold text-green-700 dark:text-green-400">
+									<CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5" />
+									{t("targetSavedShort", { weight: savedWeightKg })}
+								</p>
+							)}
+						</div>
+						<button
+							type="button"
+							onClick={handleSetTarget}
+							disabled={!canSetTarget || isSavingTarget}
+							className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-all hover:bg-[#164e7c] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3D62] focus-visible:ring-offset-2 dark:bg-[#1f66a0] dark:hover:bg-[#2a7ab5]"
+						>
+							<Target aria-hidden="true" className="h-4 w-4" />
+							{isSavingTarget ? t("settingTarget") : t("setAsTarget")}
+						</button>
+					</div>
 				</div>
 			)}
 		</div>

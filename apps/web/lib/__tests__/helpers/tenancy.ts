@@ -640,7 +640,7 @@ export const ORG_A_SCOPE = {
 	pondIds: [POND_A_1, POND_A_2],
 };
 
-export const ORG_B_SCOPE = {
+const ORG_B_SCOPE = {
 	orgIds: [ORG_B_ID],
 	memberUserIds: [ADMIN_B_ID, FARMER_B_ID],
 	farmIds: [FARM_B_ADMIN, FARM_B],

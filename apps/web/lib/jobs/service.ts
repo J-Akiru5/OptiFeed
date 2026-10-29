@@ -11,7 +11,7 @@ export const JOB_TTL_MS = 24 * 60 * 60 * 1000;
 const STALE_LOCK_MS = 5 * 60 * 1000;
 
 export type JobType = "export_csv" | "export_zip" | "export_pdf" | "import_confirm";
-export type JobStatus = "queued" | "running" | "succeeded" | "failed";
+type JobStatus = "queued" | "running" | "succeeded" | "failed";
 
 interface CreateJobInput {
 	ownerId: string;

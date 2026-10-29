@@ -1,0 +1,12 @@
+{
+	"description": "Production-dependency advisories that cannot be patched yet. Every entry must carry a written reason and an expiry no more than 90 days away; scripts/security/audit-gate.mjs fails when an entry is expired, malformed, or past that horizon. Remove an entry as soon as the finding is fixed or the package leaves the production tree.",
+	"entries": [
+		{
+			"id": 1145093,
+			"package": "deepmerge-ts",
+			"reason": "Build/CLI only, never shipped: the path is @prisma/client -> optional prisma CLI -> @prisma/config, which merges prisma.config.ts while the CLI runs. The generated runtime client does not import it, and no request-controlled object reaches the merge. The fix is deepmerge-ts 8 (a major) inside a Prisma 6.19.3 tree that pins 7.1.5 exactly; take it with the Prisma upgrade instead of forcing a major override here.",
+			"expires": "2027-01-27",
+			"owner": "I-62"
+		}
+	]
+}

@@ -6,7 +6,7 @@ import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { serialiseCycle } from "@/lib/crop-cycle/serialise";
 import type { CropCycleDto, PondOption } from "@/lib/crop-cycle/types";
-import { parsePondProfile } from "@/lib/pond-profile";
+import { parsePondGrowthTarget, parsePondProfile } from "@/lib/pond-profile";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 
@@ -101,8 +101,11 @@ export async function loadFarmerCalendarPageData(): Promise<FarmerCalendarPageDa
 	});
 	const serialised = cycles.map(serialiseCycle);
 	const activeCycles = serialised.filter((cycle) => cycle.status === "ACTIVE");
+	const activeCycleIdByPond = new Map(activeCycles.map((cycle) => [cycle.pondId, cycle.id]));
 	const pondOptions: PondOption[] = ponds.map((pond) => {
 		const profile = parsePondProfile(pond.notificationPrefs);
+		const savedTarget = parsePondGrowthTarget(pond.notificationPrefs);
+		const activeCycleId = activeCycleIdByPond.get(pond.id) ?? null;
 		return {
 			id: pond.id,
 			name: pond.name,
@@ -110,6 +113,12 @@ export async function loadFarmerCalendarPageData(): Promise<FarmerCalendarPageDa
 			population: pond.population,
 			areaM2: profile.areaM2,
 			averageDepthM: profile.averageDepthM,
+			// Only a target bound to the current cycle can collide with a
+			// cycle-form edit (D-2); a harvested cycle's target must not.
+			savedTargetWeightG:
+				savedTarget && activeCycleId !== null && savedTarget.cycleId === activeCycleId
+					? savedTarget.targetWeightG
+					: null,
 		};
 	});
 

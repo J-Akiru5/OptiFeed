@@ -12,10 +12,10 @@ import Image from "next/image";
 export const ASSISTANT_NAME = "Pakoy";
 
 /** Placement guide identity line: "Pakoy · Your feeding schedule buddy." */
-export const ASSISTANT_TAGLINE = "Your feeding schedule buddy.";
+const ASSISTANT_TAGLINE = "Your feeding schedule buddy.";
 
 /** Hiligaynon tagline from the placement guide. */
-export const ASSISTANT_TAGLINE_HIL = "Sakto nga pakaon, sakto nga oras.";
+const ASSISTANT_TAGLINE_HIL = "Sakto nga pakaon, sakto nga oras.";
 
 export const MASCOT_ALT = "Pakoy, the PakaonAI mascot";
 

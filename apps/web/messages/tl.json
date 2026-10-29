@@ -117,6 +117,19 @@
 		"backToDashboard": "Bumalik sa Dashboard"
 	},
 	"dashboard": {
+		"appSettings": {
+			"hopperEmptyGreaterThanFull": "Dapat mas malaki ang distansya kapag walang laman kaysa sa distansya kapag puno.",
+			"calibration": {
+				"numberField": {
+					"decrease": "Bawasan ang {label}",
+					"increase": "Dagdagan ang {label}",
+					"format": "Maglagay ng numero.",
+					"range": "Maglagay ng halaga mula {min} hanggang {max}.",
+					"wholeNumber": "Gumamit lamang ng buong numero.",
+					"decimalPlaces": "Gumamit ng hindi hihigit sa {decimals} na decimal."
+				}
+			}
+		},
 		"feederViewer": {
 			"viewerLabel": "Feeder 3D",
 			"canvasLabel": "Interactive na 3D na modelo ng {label}. I-drag upang i-orbit at gamitin ang mga preset upang palitan ang view.",
@@ -153,6 +166,12 @@
 		},
 		"adminDevices": {
 			"view3d": "3D view"
+		},
+		"pondSwitcher": {
+			"labelNamed": "Aktibong pond: {name}",
+			"listLabel": "Pumili ng pond",
+			"switching": "Nagpapalit…",
+			"switchFailed": "Hindi mapalitan ang pond. Subukan muli."
 		},
 		"common": {
 			"readOnlyTitle": "Tingnan lang",
@@ -247,6 +266,45 @@
 					"uploadFailed": "Hindi ma-upload ang larawan. Subukan muli.",
 					"saveFailed": "Hindi ma-save ang larawan. Subukan muli."
 				}
+			}
+		},
+		"fcrCalculator": {
+			"setAsTarget": "Gawing growth target",
+			"settingTarget": "Sine-save ang target...",
+			"targetSaved": "Na-save ang growth target: {weight} kg sa ani.",
+			"targetSavedShort": "Na-save na target: {weight} kg sa ani.",
+			"targetError": "Hindi ma-save ang growth target.",
+			"targetHint": "Ise-save ang timbang na ito bilang harvest target ng active na cycle. Ang rekomendasyon sa pagpapakain ay mag-a-adjust sa loob ng 10% / 15-araw na limit.",
+			"targetNeedsCycle": "Magsimula muna ng grow-out cycle bago mag-set ng growth target."
+		},
+		"harvest": {
+			"cycleForm": {
+				"targetConflictTitle": "May naka-save nang target mula sa calculator",
+				"targetConflictDesc": "Ginagamit ng plano sa pond na ito ang {saved} g mula sa feed calculator. Binago mo ang target ng cycle sa {next} g. Piliin kung alin ang itatabi bago mag-save.",
+				"targetConflictDescEmpty": "Ginagamit ng plano sa pond na ito ang {saved} g mula sa feed calculator. Binura mo ang target ng cycle. Piliin kung alin ang itatabi bago mag-save.",
+				"targetConflictReplace": "Palitan ang target ng calculator",
+				"targetConflictReplaceHint": "Palitan ito ng value ng cycle. Ang calculator at target ng cycle ay magiging {next} g.",
+				"targetConflictReplaceClearHint": "Burahin ang target ng calculator at ang target ng cycle.",
+				"targetConflictKeep": "Itabi ang target ng calculator",
+				"targetConflictKeepHint": "Itabi ang {saved} g bilang target ng plano. Ibabalik ang target ng cycle sa {saved} g.",
+				"targetConflictCancel": "Kanselahin"
+			}
+		},
+		"growth": {
+			"growthPlan": {
+				"sourceCalculator": "Target mula sa calculator",
+				"biomassTitle": "Biomass sa ani",
+				"targetBiomass": "Target sa ani",
+				"currentBiomass": "Kasalukuyang biomass",
+				"expectedBiomass": "Inaasahan ngayon",
+				"biomassGap": "Agwat sa target",
+				"projectedBiomass": "Inaasahan sa ani",
+				"projectedGap": "Inaasahang agwat",
+				"savedTargetHint": "Ang target na ito ay mula sa feed calculator at naka-mirror sa target ng cycle. Alisin ito para mabura ang dalawa.",
+				"clearTarget": "Alisin ang target",
+				"clearingTarget": "Inaalis...",
+				"targetCleared": "Naalis ang growth target. Nabura rin ang target ng cycle.",
+				"targetClearError": "Hindi maalis ang growth target."
 			}
 		}
 	},

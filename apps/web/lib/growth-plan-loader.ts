@@ -1,6 +1,6 @@
 import { dateToFarmDateOnly, todayDateOnly } from "@/lib/crop-cycle/dates";
 import { type GrowthPlan, buildGrowthPlan } from "@/lib/growth-plan";
-import { parsePondProfile } from "@/lib/pond-profile";
+import { parsePondGrowthTarget, parsePondProfile } from "@/lib/pond-profile";
 import { predictionUpperBound } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
@@ -102,6 +102,7 @@ export async function loadGrowthPlanForPond(
 		: null;
 
 	const profile = parsePondProfile(pond.notificationPrefs);
+	const savedTarget = parsePondGrowthTarget(pond.notificationPrefs);
 	const feedsPerDay = currentConfig?.feedsPerDay ?? pond.feedsPerDay;
 	const latest = latestSamples[0] ?? null;
 	const previous = latestSamples[1] ?? null;
@@ -155,6 +156,7 @@ export async function loadGrowthPlanForPond(
 			feedPricePerKg: profile.feedPricePerKg,
 		},
 		currency: "PHP",
+		savedTarget,
 	});
 
 	return {

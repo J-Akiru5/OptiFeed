@@ -24,4 +24,9 @@ export interface PondOption {
 	population: number | null;
 	areaM2: number | null;
 	averageDepthM: number | null;
+	/**
+	 * The saved calculator target (D-1/D-2) when it belongs to this pond's
+	 * ACTIVE cycle. `null` means the cycle form must save without asking.
+	 */
+	savedTargetWeightG: number | null;
 }

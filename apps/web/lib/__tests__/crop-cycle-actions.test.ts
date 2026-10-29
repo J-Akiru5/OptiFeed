@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => {
 		pond: {
 			findFirst: vi.fn(),
 			update: vi.fn(),
+			updateMany: vi.fn(),
 		},
 		cropCycle: {
 			findFirst: vi.fn(),
@@ -90,7 +91,12 @@ const TARGET_DATE = addDays(STOCKING_DATE, 135);
 const STOCKING_UTC = new Date(`${STOCKING_DATE}T00:00:00.000Z`);
 const TARGET_UTC = new Date(`${TARGET_DATE}T00:00:00.000Z`);
 
-const pond = { id: "pond-1", name: "Pond A", farmId: "farm-1" };
+const pond = {
+	id: "pond-1",
+	name: "Pond A",
+	farmId: "farm-1",
+	notificationPrefs: null as unknown,
+};
 
 const activeCycle = {
 	id: "cycle-1",
@@ -100,6 +106,8 @@ const activeCycle = {
 	stockingDate: STOCKING_UTC,
 	stockingCount: 1000,
 	stockingAvgWeightG: 50,
+	targetHarvestWeightG: 250,
+	expectedSurvivalPct: 85,
 	notes: null,
 	pond,
 };
@@ -156,6 +164,29 @@ function harvestInput(overrides: Record<string, unknown> = {}) {
 	};
 }
 
+/** The D-2 case: a calculator target is saved against the edited cycle. */
+function cycleWithSavedTarget(savedWeightG: number, overrides: Record<string, unknown> = {}) {
+	return {
+		...activeCycle,
+		...overrides,
+		pond: {
+			...pond,
+			notificationPrefs: {
+				missedFeeding: true,
+				profile: {
+					areaM2: 100,
+					growthTarget: {
+						targetWeightG: savedWeightG,
+						population: 900,
+						cycleId: "cycle-1",
+						setAt: "2026-10-01T00:00:00.000Z",
+					},
+				},
+			},
+		},
+	};
+}
+
 function manualEventInput(overrides: Partial<PondEventInput> = {}): PondEventInput {
 	return {
 		pondId: "pond-1",
@@ -183,6 +214,7 @@ beforeEach(() => {
 
 	mocks.tx.pond.findFirst.mockResolvedValue(null);
 	mocks.tx.pond.update.mockResolvedValue({});
+	mocks.tx.pond.updateMany.mockResolvedValue({ count: 1 });
 	mocks.tx.cropCycle.findFirst.mockResolvedValue(null);
 	mocks.tx.cropCycle.create.mockResolvedValue({ id: "cycle-1" });
 	mocks.tx.cropCycle.update.mockResolvedValue({});
@@ -378,7 +410,11 @@ describe("updateCropCycle", () => {
 		expect(result).toEqual({ success: true, cycleId: "cycle-1" });
 		expect(mocks.tx.cropCycle.findFirst).toHaveBeenCalledWith({
 			where: { id: "cycle-1", pond: { ownerId: OWNER } },
-			include: { pond: { select: { id: true, name: true, farmId: true } } },
+			include: {
+				pond: {
+					select: { id: true, name: true, farmId: true, notificationPrefs: true },
+				},
+			},
 		});
 
 		const updated = mocks.tx.cropCycle.update.mock.calls[0]?.[0] as {
@@ -410,6 +446,143 @@ describe("updateCropCycle", () => {
 				status: "PLANNED",
 			},
 		});
+	});
+
+	it("refuses a changed target when a saved calculator target exists and no choice was made", async () => {
+		mocks.tx.cropCycle.findFirst.mockResolvedValue(cycleWithSavedTarget(400));
+
+		const result = await updateCropCycle("cycle-1", validCycleInput({ targetHarvestWeightG: 300 }));
+
+		expect(result).toEqual({
+			success: false,
+			error:
+				"A saved calculator target exists for this cycle. Choose whether to replace it or keep it.",
+		});
+		expect(mocks.tx.cropCycle.update).not.toHaveBeenCalled();
+		expect(mocks.tx.pond.updateMany).not.toHaveBeenCalled();
+		expect(mocks.tx.pond.update).not.toHaveBeenCalled();
+	});
+
+	it("replace writes the new cycle value into both the cycle and the pond target", async () => {
+		mocks.tx.cropCycle.findFirst.mockResolvedValue(cycleWithSavedTarget(400));
+
+		const result = await updateCropCycle(
+			"cycle-1",
+			validCycleInput({ targetHarvestWeightG: 300, stockingCount: 1200 }),
+			{ growthTargetResolution: "replace" },
+		);
+
+		expect(result).toEqual({ success: true, cycleId: "cycle-1" });
+		const updated = mocks.tx.cropCycle.update.mock.calls[0]?.[0] as {
+			data: Record<string, unknown>;
+		};
+		expect(updated.data.targetHarvestWeightG).toBe(300);
+
+		const pondWrite = mocks.tx.pond.updateMany.mock.calls[0]?.[0] as {
+			where: Record<string, unknown>;
+			data: { notificationPrefs: unknown };
+		};
+		expect(pondWrite.where).toEqual({ id: "pond-1", ownerId: OWNER });
+		expect(pondWrite.data.notificationPrefs).toMatchObject({
+			missedFeeding: true,
+			profile: {
+				areaM2: 100,
+				growthTarget: {
+					targetWeightG: 300,
+					// The cycle's stocking count becomes the target's population.
+					population: 1200,
+					cycleId: "cycle-1",
+					setAt: expect.any(String),
+				},
+			},
+		});
+	});
+
+	it("keep leaves the calculator target authoritative and restores the mirror", async () => {
+		mocks.tx.cropCycle.findFirst.mockResolvedValue(cycleWithSavedTarget(400));
+
+		const result = await updateCropCycle(
+			"cycle-1",
+			validCycleInput({ targetHarvestWeightG: 300 }),
+			{ growthTargetResolution: "keep" },
+		);
+
+		expect(result).toEqual({ success: true, cycleId: "cycle-1" });
+		const updated = mocks.tx.cropCycle.update.mock.calls[0]?.[0] as {
+			data: Record<string, unknown>;
+		};
+		// The edit is discarded: the plan and the cycle both stay at 400 g.
+		expect(updated.data.targetHarvestWeightG).toBe(400);
+		expect(mocks.tx.pond.updateMany).not.toHaveBeenCalled();
+	});
+
+	it("replace with an empty cycle target removes the saved target as explicitly chosen", async () => {
+		mocks.tx.cropCycle.findFirst.mockResolvedValue(cycleWithSavedTarget(400));
+
+		const result = await updateCropCycle(
+			"cycle-1",
+			validCycleInput({ targetHarvestWeightG: null }),
+			{ growthTargetResolution: "replace" },
+		);
+
+		expect(result).toEqual({ success: true, cycleId: "cycle-1" });
+		const updated = mocks.tx.cropCycle.update.mock.calls[0]?.[0] as {
+			data: Record<string, unknown>;
+		};
+		expect(updated.data.targetHarvestWeightG).toBeNull();
+		const pondWrite = mocks.tx.pond.updateMany.mock.calls[0]?.[0] as {
+			data: { notificationPrefs: { profile: Record<string, unknown> } };
+		};
+		expect(pondWrite.data.notificationPrefs.profile.growthTarget).toBeUndefined();
+		// The rest of the shared profile survives.
+		expect(pondWrite.data.notificationPrefs.profile.areaM2).toBe(100);
+	});
+
+	it("does not ask when the reschedule path sends the stored target back unchanged", async () => {
+		mocks.tx.cropCycle.findFirst.mockResolvedValue(cycleWithSavedTarget(400));
+
+		const result = await updateCropCycle(
+			"cycle-1",
+			validCycleInput({ targetHarvestWeightG: activeCycle.targetHarvestWeightG }),
+		);
+
+		expect(result).toEqual({ success: true, cycleId: "cycle-1" });
+		const updated = mocks.tx.cropCycle.update.mock.calls[0]?.[0] as {
+			data: Record<string, unknown>;
+		};
+		expect(updated.data.targetHarvestWeightG).toBe(250);
+		expect(mocks.tx.pond.updateMany).not.toHaveBeenCalled();
+	});
+
+	it("refuses keep when the stored target cannot be mirrored into the cycle field", async () => {
+		mocks.tx.cropCycle.findFirst.mockResolvedValue(cycleWithSavedTarget(20_000));
+
+		const result = await updateCropCycle(
+			"cycle-1",
+			validCycleInput({ targetHarvestWeightG: 300 }),
+			{ growthTargetResolution: "keep" },
+		);
+
+		expect(result.success).toBe(false);
+		if (!result.success) expect(result.error).toMatch(/outside the range/i);
+		expect(mocks.tx.cropCycle.update).not.toHaveBeenCalled();
+		expect(mocks.tx.pond.updateMany).not.toHaveBeenCalled();
+	});
+
+	it("denies a resolution supplied by a caller without permission", async () => {
+		mocks.requirePermission.mockRejectedValue(new Error("Forbidden"));
+
+		const result = await updateCropCycle(
+			"cycle-1",
+			validCycleInput({ targetHarvestWeightG: 300 }),
+			{ growthTargetResolution: "replace" },
+		);
+
+		expect(result).toEqual({
+			success: false,
+			error: "You do not have permission to manage grow-out cycles.",
+		});
+		expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
 	});
 
 	it("rejects a cycle that is no longer active", async () => {

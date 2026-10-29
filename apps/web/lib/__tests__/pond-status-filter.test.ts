@@ -16,6 +16,7 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/auth/session", () => ({
 	getCurrentPondOwnerId: vi.fn().mockResolvedValue("test-farm"),
+	getCurrentPondOwnerIdSafe: vi.fn().mockResolvedValue("test-farm"),
 }));
 
 vi.mock("next/headers", () => ({
@@ -76,19 +77,16 @@ describe("switchPond (archived filtering)", () => {
 	});
 
 	it("refuses to select an archived pond", async () => {
-		mockPond.findFirst.mockResolvedValue(null);
+		// Only the caller's ACTIVE ponds come back, so the archived id is not a
+		// candidate and the action must refuse without setting the cookie.
+		mockPond.findMany.mockResolvedValue([{ id: "active-1" }] as never);
 
 		await expect(switchPond("archived-pond")).rejects.toThrow("Pond not found or access denied");
-		expect(mockPond.findFirst).toHaveBeenCalledWith(
-			expect.objectContaining({
-				where: { id: "archived-pond", ownerId: "test-farm", status: "ACTIVE" },
-			}),
-		);
 		expect(cookieSet).not.toHaveBeenCalled();
 	});
 
-	it("sets the cookie and redirects for an active pond", async () => {
-		mockPond.findFirst.mockResolvedValue({ id: "p1" } as never);
+	it("sets the cookie for an active pond without leaving the page", async () => {
+		mockPond.findMany.mockResolvedValue([{ id: "p1" }] as never);
 
 		await switchPond("p1");
 
@@ -97,6 +95,8 @@ describe("switchPond (archived filtering)", () => {
 			"p1",
 			expect.objectContaining({ httpOnly: true, path: "/" }),
 		);
-		expect(mockRedirect).toHaveBeenCalledWith({ href: "/dashboard", locale: "en" });
+		// The switcher re-renders the current route; it must not bounce the
+		// reader back to /dashboard.
+		expect(mockRedirect).not.toHaveBeenCalled();
 	});
 });

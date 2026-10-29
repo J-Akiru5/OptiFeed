@@ -889,7 +889,20 @@
 				"fcr": "FCR {fcr}",
 				"density": "{density} fish/m²",
 				"densityHigh": "Density {density}/m² — check aeration.",
-				"densityUnknown": "Add pond area in Settings for density."
+				"densityUnknown": "Add pond area in Settings for density.",
+				"sourceCalculator": "Calculator target",
+				"biomassTitle": "Harvest biomass",
+				"targetBiomass": "Target at harvest",
+				"currentBiomass": "Current biomass",
+				"expectedBiomass": "Expected today",
+				"biomassGap": "Gap to target",
+				"projectedBiomass": "Projected at harvest",
+				"projectedGap": "Projected gap",
+				"savedTargetHint": "This target came from the feed calculator and is mirrored into the cycle target. Remove it to clear both.",
+				"clearTarget": "Remove target",
+				"clearingTarget": "Removing...",
+				"targetCleared": "Growth target removed. The cycle target was cleared too.",
+				"targetClearError": "Could not remove the growth target."
 			},
 			"prediction": {
 				"eyebrow": "AI Feed Advisor",
@@ -1142,7 +1155,16 @@
 				"saving": "Saving…",
 				"cancel": "Cancel",
 				"successCreate": "Grow-out cycle started.",
-				"successUpdate": "Grow-out plan updated."
+				"successUpdate": "Grow-out plan updated.",
+				"targetConflictTitle": "A saved calculator target already exists",
+				"targetConflictDesc": "The plan for this pond uses {saved} g from the feed calculator. You changed the cycle target to {next} g. Choose which one to keep before saving.",
+				"targetConflictDescEmpty": "The plan for this pond uses {saved} g from the feed calculator. You cleared the cycle target. Choose which one to keep before saving.",
+				"targetConflictReplace": "Replace calculator target",
+				"targetConflictReplaceHint": "Replace it with the cycle value. The calculator and the cycle target both become {next} g.",
+				"targetConflictReplaceClearHint": "Clear the calculator target and the cycle target.",
+				"targetConflictKeep": "Keep calculator target",
+				"targetConflictKeepHint": "Keep {saved} g as the plan target. The cycle target is set back to {saved} g.",
+				"targetConflictCancel": "Cancel"
 			},
 			"harvestForm": {
 				"title": "Record harvest",
@@ -1665,6 +1687,7 @@
 			"hopperEmptyCmDesc": "Sensor reading when hopper is empty",
 			"hopperCapacityG": "Hopper Capacity (grams)",
 			"hopperCapacityGDesc": "Total feed weight the hopper can hold",
+			"hopperEmptyGreaterThanFull": "The empty distance must be greater than the full distance.",
 			"saveCalibration": "Save Calibration",
 			"calibrationSaved": "Calibration saved!",
 			"calibrationSaveError": "Could not save the calibration.",
@@ -1688,6 +1711,14 @@
 			"restartDevice": "Restart Device",
 			"actionsUnavailable": "Device actions are not available yet.",
 			"calibration": {
+				"numberField": {
+					"decrease": "Decrease {label}",
+					"increase": "Increase {label}",
+					"format": "Enter a number.",
+					"range": "Enter a value from {min} to {max}.",
+					"wholeNumber": "Use whole numbers only.",
+					"decimalPlaces": "Use at most {decimals} decimal places."
+				},
 				"title": "Feed Rate Calibration",
 				"desc": "Measure how fast the feeder dispenses feed so scheduled feed times stay accurate.",
 				"currentRate": "Current rate",
@@ -1989,7 +2020,14 @@
 			"suggestedRate": "Suggested Feeding Rate",
 			"perMeal": "Per meal: {grams} g",
 			"usingFcr": "Uses your latest FCR: {fcr}",
-			"noFcr": "No FCR report yet - using the 1.5 reference."
+			"noFcr": "No FCR report yet - using the 1.5 reference.",
+			"setAsTarget": "Set as growth target",
+			"settingTarget": "Saving target...",
+			"targetSaved": "Growth target saved: {weight} kg at harvest.",
+			"targetSavedShort": "Saved target: {weight} kg at harvest.",
+			"targetError": "Could not save the growth target.",
+			"targetHint": "Saves this weight as the active cycle's harvest target. The feed recommendation adapts inside the 10% / 15-day limit.",
+			"targetNeedsCycle": "Start a grow-out cycle before setting a growth target."
 		},
 		"importExport": {
 			"export": "Export Data",
@@ -2397,6 +2435,12 @@
 			"title": "The admin console hit an error",
 			"desc": "Nothing was changed. Retry the page, or go back to the dashboard if it keeps failing.",
 			"retry": "Try again"
+		},
+		"pondSwitcher": {
+			"labelNamed": "Active pond: {name}",
+			"listLabel": "Choose a pond",
+			"switching": "Switching…",
+			"switchFailed": "Could not switch pond. Try again."
 		},
 		"common": {
 			"readOnlyTitle": "View only",
@@ -3329,9 +3373,38 @@
 			"tabsLabel": "Operations sections",
 			"tabs": {
 				"health": "System health",
+				"errors": "Error events",
 				"firmware": "Firmware fleet",
 				"audit": "Audit log",
 				"announcements": "Announcements"
+			},
+			"errors": {
+				"title": "Error events",
+				"description": "First-party error capture. Message, stack, route and context are scrubbed before they are stored; repeated occurrences of one error increment a single row. Rows silent for {days} days are pruned.",
+				"filtersLabel": "Filter errors by status",
+				"status": {
+					"unresolved": "Unresolved",
+					"resolved": "Resolved",
+					"all": "All"
+				},
+				"caption": "Captured error events",
+				"emptyTitle": "No error events",
+				"emptyDescription": "Nothing matches this filter. Errors reported by the app will appear here.",
+				"severity": {
+					"ERROR": "Error",
+					"WARNING": "Warning",
+					"INFO": "Info"
+				},
+				"occurrences": "{count, plural, one {# occurrence} other {# occurrences}}",
+				"resolvedAt": "Resolved {when}",
+				"resolvedBadge": "Resolved",
+				"firstSeen": "First seen {when}",
+				"lastSeen": "Last seen {when}",
+				"showStack": "Show stack trace",
+				"resolve": "Mark resolved",
+				"resolving": "Resolving…",
+				"resolveFailed": "Could not mark this error resolved. Try again.",
+				"resolvedJustNow": "Resolved. The list will refresh."
 			},
 			"health": {
 				"title": "System health",

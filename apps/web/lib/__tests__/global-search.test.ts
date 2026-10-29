@@ -57,6 +57,7 @@ import {
 	PLATFORM_ADMIN_A_ID,
 	POND_A_1,
 	POND_A_1_NAME,
+	POND_A_2,
 	POND_B_1,
 	POND_B_1_NAME,
 	userById,
@@ -219,6 +220,24 @@ describe("data results stay inside the caller's scope", () => {
 		const result = await globalSearch({ query: "Pond", shell: "farmer" });
 
 		expect(result.rows.map((row) => row.title)).not.toContain(POND_B_1_NAME);
+	});
+
+	it("lets a farmer pick an own pond from search results (allow)", async () => {
+		signInAs(FARMER_A_ID);
+		const result = await globalSearch({ query: "Pond", shell: "farmer" });
+		const ponds = result.rows.filter((row) => row.group === "ponds");
+
+		expect(ponds.map((row) => row.switchPondId)).toEqual([POND_A_1, POND_A_2]);
+		expect(ponds.map((row) => row.switchPondId)).not.toContain(POND_B_1);
+	});
+
+	it("sends a tenant admin to pond administration instead of the switcher", async () => {
+		signInAs(ADMIN_A_ID);
+		const result = await globalSearch({ query: "Pond A One", shell: "admin" });
+		const pondRow = result.rows.find((row) => row.group === "ponds");
+
+		expect(pondRow?.href).toBe(`/admin/ponds/${POND_A_1}`);
+		expect(pondRow?.switchPondId).toBeUndefined();
 	});
 
 	it("denies a farmer another organization's device (and never returns a token)", async () => {

@@ -695,10 +695,11 @@ export const ASSISTANT_ACTION_DEFINITIONS: Record<AssistantToolId, AssistantActi
 };
 
 export function getAssistantActionDefinition(id: string): AssistantActionDefinition | null {
-	return (
-		(ASSISTANT_ACTION_DEFINITIONS as Record<string, AssistantActionDefinition | undefined>)[id] ??
-		null
-	);
+	// Own-property check: a plain record lookup also resolves inherited members,
+	// so a caller-supplied id such as "toString" or "constructor" would return a
+	// function instead of null and violate the return type.
+	if (!Object.hasOwn(ASSISTANT_ACTION_DEFINITIONS, id)) return null;
+	return (ASSISTANT_ACTION_DEFINITIONS as Record<string, AssistantActionDefinition>)[id] ?? null;
 }
 
 /** Today in farm time, exported for the planner prompt. */

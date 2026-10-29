@@ -13,7 +13,7 @@ import { calendarCapability } from "@/lib/calendar/capability";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { serialiseCycle } from "@/lib/crop-cycle/serialise";
 import type { PondOption } from "@/lib/crop-cycle/types";
-import { parsePondProfile } from "@/lib/pond-profile";
+import { parsePondGrowthTarget, parsePondProfile } from "@/lib/pond-profile";
 import prisma from "@/lib/prisma";
 import { CalendarDays } from "lucide-react";
 import { getTranslations } from "next-intl/server";
@@ -107,8 +107,12 @@ export default async function AdminCalendarPage() {
 		);
 	}
 
+	const activeCycles = activeCycleRows.map(serialiseCycle);
+	const activeCycleIdByPond = new Map(activeCycles.map((cycle) => [cycle.pondId, cycle.id]));
 	const pondOptions: PondOption[] = ponds.map((pond) => {
 		const profile = parsePondProfile(pond.notificationPrefs);
+		const savedTarget = parsePondGrowthTarget(pond.notificationPrefs);
+		const activeCycleId = activeCycleIdByPond.get(pond.id) ?? null;
 		return {
 			id: pond.id,
 			name: pond.name,
@@ -116,9 +120,12 @@ export default async function AdminCalendarPage() {
 			population: pond.population,
 			areaM2: profile.areaM2,
 			averageDepthM: profile.averageDepthM,
+			savedTargetWeightG:
+				savedTarget && activeCycleId !== null && savedTarget.cycleId === activeCycleId
+					? savedTarget.targetWeightG
+					: null,
 		};
 	});
-	const activeCycles = activeCycleRows.map(serialiseCycle);
 	const activeCycle = activeCycles.find((cycle) => cycle.pondId === ponds[0].id) ?? null;
 	const recentCycles = recentCycleRows.map(serialiseCycle);
 

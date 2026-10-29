@@ -2,6 +2,7 @@ import { ok } from "@/lib/api/envelope";
 import { withApi } from "@/lib/api/instrumentation";
 import { withCronAuth } from "@/lib/auth/with-auth";
 import { processRecalibrationReminders } from "@/lib/calibration/recalibration-reminders";
+import { deleteExpiredErrorEvents } from "@/lib/error-capture";
 import { normalizeNotificationPrefs } from "@/lib/limits";
 import { absoluteAppUrl, sendTelegramMessage } from "@/lib/notify/telegram";
 import { reportError } from "@/lib/observability";
@@ -154,8 +155,17 @@ export const GET = withApi(
 			//    10-second limit: one small batch per job per run.
 			const heartbeatsDeleted = await deleteOldHeartbeatEvents();
 			const bucketsDeleted = await cleanupExpiredRateLimitBuckets();
+			// First-party error capture keeps at most ERROR_EVENT_RETENTION_DAYS
+			// (30) days of silence; one bounded batch per run.
+			const errorEventsDeleted = await deleteExpiredErrorEvents();
 
-			return ok({ offlineAlerts, recalibration, heartbeatsDeleted, bucketsDeleted });
+			return ok({
+				offlineAlerts,
+				recalibration,
+				heartbeatsDeleted,
+				bucketsDeleted,
+				errorEventsDeleted,
+			});
 		} catch (error) {
 			reportError(error, { route: "cron/device-watch" });
 			return Response.json({ error: "Internal Error" }, { status: 500 });

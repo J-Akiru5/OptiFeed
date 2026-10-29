@@ -1,8 +1,9 @@
 import { LEGAL_PUBLISHED } from "@/lib/legal/config";
+import { resolveSiteUrl } from "@/lib/site-url";
 import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-	const baseUrl = "https://pakaonai.syntaxure.dev";
+	const baseUrl = resolveSiteUrl();
 	const now = new Date();
 
 	const legalEntries: MetadataRoute.Sitemap = LEGAL_PUBLISHED

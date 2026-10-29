@@ -1,0 +1,31 @@
+{
+	"$comment": "Complexity budget for apps/web/lib, measured 2026-10-29 on v1.29.0 (commit 8eb6ce4). Tests are excluded. The limits sit just above the measured worst offenders: a function may not grow past the current worst, and a file may not accumulate more total complexity than the current worst. Raise a limit only with a measured reason in review; see docs/operations/maintainability.md.",
+	"measuredAt": "2026-10-29",
+	"measuredCommit": "8eb6ce4",
+	"baseline": {
+		"files": 213,
+		"functions": 1073,
+		"worstFunction": {
+			"name": "buildGrowthPlan",
+			"file": "lib/growth-plan.ts",
+			"line": 310,
+			"complexity": 98
+		},
+		"worstFile": {
+			"file": "lib/actions/admin.ts",
+			"functions": 30,
+			"totalComplexity": 174
+		},
+		"distribution": {
+			"1-5": 819,
+			"6-10": 163,
+			"11-15": 57,
+			"16-20": 16,
+			"21-25": 12,
+			"26-40": 3,
+			"41+": 3
+		}
+	},
+	"maxFunctionComplexity": 100,
+	"maxFileComplexity": 180
+}

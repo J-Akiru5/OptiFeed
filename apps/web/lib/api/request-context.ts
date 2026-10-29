@@ -31,7 +31,7 @@ export function runWithRequestMetrics<T>(metrics: RequestMetrics, fn: () => T): 
 	return storage.run(metrics, fn);
 }
 
-export function getRequestMetrics(): RequestMetrics | undefined {
+function getRequestMetrics(): RequestMetrics | undefined {
 	return storage.getStore();
 }
 

@@ -681,7 +681,7 @@ export async function getPondDetail(pondId: string) {
 	return { pond, movableDevices, feedEventCount };
 }
 
-export type PondDetail = NonNullable<Awaited<ReturnType<typeof getPondDetail>>>;
+type PondDetail = NonNullable<Awaited<ReturnType<typeof getPondDetail>>>;
 
 async function blockersFor(
 	client: Prisma.TransactionClient,

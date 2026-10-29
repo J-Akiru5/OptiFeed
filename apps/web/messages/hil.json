@@ -889,7 +889,20 @@
 				"fcr": "FCR {fcr}",
 				"density": "{density} isda/m²",
 				"densityHigh": "Density {density}/m² — i-check ang aeration.",
-				"densityUnknown": "Idugang ang area sang punong sa Settings para sa density."
+				"densityUnknown": "Idugang ang area sang punong sa Settings para sa density.",
+				"sourceCalculator": "Target halin sa calculator",
+				"biomassTitle": "Biomass sa ani",
+				"targetBiomass": "Target sa ani",
+				"currentBiomass": "Subong nga biomass",
+				"expectedBiomass": "Expected subong",
+				"biomassGap": "Gap sa target",
+				"projectedBiomass": "Projected sa ani",
+				"projectedGap": "Projected nga gap",
+				"savedTargetHint": "Ini nga target halin sa feed calculator kag naka-mirror sa target sang cycle. Tangtanga para malimpyohan ang duha.",
+				"clearTarget": "Tangtanga ang target",
+				"clearingTarget": "Ginatangtang...",
+				"targetCleared": "Natangtang ang growth target. Nalimpyohan man ang target sang cycle.",
+				"targetClearError": "Indi matangtang ang growth target."
 			},
 			"prediction": {
 				"eyebrow": "AI nga Manuglaygay sa Pagpakaon",
@@ -1142,7 +1155,16 @@
 				"saving": "Ginasave…",
 				"cancel": "I-cancel",
 				"successCreate": "Na-start ang siklo.",
-				"successUpdate": "Na-update ang plano."
+				"successUpdate": "Na-update ang plano.",
+				"targetConflictTitle": "May naka-save na nga target halin sa calculator",
+				"targetConflictDesc": "Ang plano sa punong nga ni nagagamit sang {saved} g halin sa feed calculator. Ginbaylo mo ang target sang siklo sa {next} g. Pilion kon diin ang tipigan antes mag-save.",
+				"targetConflictDescEmpty": "Ang plano sa punong nga ni nagagamit sang {saved} g halin sa feed calculator. Ginlimpyohan mo ang target sang siklo. Pilion kon diin ang tipigan antes mag-save.",
+				"targetConflictReplace": "Ilisan ang target sang calculator",
+				"targetConflictReplaceHint": "Ilisan sang value sang siklo. Ang calculator kag target sang siklo mangin {next} g.",
+				"targetConflictReplaceClearHint": "Limpyohan ang target sang calculator kag ang target sang siklo.",
+				"targetConflictKeep": "Tipigan ang target sang calculator",
+				"targetConflictKeepHint": "Tipigan ang {saved} g bilang target sang plano. Ibalik ang target sang siklo sa {saved} g.",
+				"targetConflictCancel": "I-cancel"
 			},
 			"harvestForm": {
 				"title": "I-record ang ani",
@@ -1644,6 +1666,27 @@
 				"measuredTitle": "Ginsukat nga rating.",
 				"measuredBody": "Ginsukat gamit ang meter sang {date}.",
 				"measuredNoDate": "Ginsukat gamit ang meter."
+			},
+			"sticker": {
+				"subtitle": "Precision Feeder Unit",
+				"tag": "{type} nga input lamang",
+				"tagAc": "AC nga input",
+				"sectionRating": "Rating sang power",
+				"input": "Input",
+				"current": "Current",
+				"power": "Power",
+				"max": "max",
+				"unitId": "Unit ID",
+				"stepScan": "I-scan ang QR kag sumulod sa {ssid}",
+				"stepPortal": "Bukha ang {address} kon indi magaguwa ang pahina",
+				"stepSave": "Isulod ang Wi-Fi sang farm kag detalye sang device, dayon i-save",
+				"noteTitle": "Wala nagapakita ang setup network?",
+				"noteBody": "Hupta ang Wi-Fi reset button sing 5 s agod maablihan liwat ang setup.",
+				"scan": "I-scan agod ma-set up\nang Wi-Fi",
+				"qrLabel": "QR code sang Wi-Fi setup",
+				"footerSupply": "{type} nga supply lamang",
+				"footerUnplug": "Ibton antes serbisyohan",
+				"footerDry": "Indi pabasa"
 			}
 		},
 		"appSettings": {
@@ -1701,6 +1744,7 @@
 			"hopperEmptyCmDesc": "Pagbasa sang sensor kon wala sang feed ang hopper",
 			"hopperCapacityG": "Kapasidad sang Hopper (grams)",
 			"hopperCapacityGDesc": "Kabug-atan sang feed nga kaya sang hopper",
+			"hopperEmptyGreaterThanFull": "Ang distansya kon wala dapat mas dako sa distansya kon puno.",
 			"saveCalibration": "I-save ang Calibration",
 			"calibrationSaved": "Na-save ang calibration!",
 			"calibrationSaveError": "Indi ma-save ang calibration.",
@@ -1724,6 +1768,14 @@
 			"restartDevice": "I-restart ang Device",
 			"actionsUnavailable": "Wala pa available ang mga aksyon sa device.",
 			"calibration": {
+				"numberField": {
+					"decrease": "Buhinan ang {label}",
+					"increase": "Dugangan ang {label}",
+					"format": "Magbutang sang numero.",
+					"range": "Magbutang sang halaga halin {min} tubtob {max}.",
+					"wholeNumber": "Gamita lang ang bug-os nga mga numero.",
+					"decimalPlaces": "Gamita ang indi sobra sa {decimals} ka decimal."
+				},
 				"title": "Pag-calibrate sang Rate sang Pagpakaon",
 				"desc": "Sukda kon kapaspas mag-dispense sang feed ang feeder agud husto ang oras sang pagpakaon sa schedule.",
 				"currentRate": "Karon nga rate",
@@ -1968,7 +2020,14 @@
 			"suggestedRate": "Ginasugyot nga Rate sang Pagpakaon",
 			"perMeal": "Kada pakaon: {grams} g",
 			"usingFcr": "Ginagamit ang pinakabag-o nga FCR: {fcr}",
-			"noFcr": "Wala pa FCR report - 1.5 nga reference ang ginagamit."
+			"noFcr": "Wala pa FCR report - 1.5 nga reference ang ginagamit.",
+			"setAsTarget": "I-set bilang growth target",
+			"settingTarget": "Gina-save ang target...",
+			"targetSaved": "Na-save ang growth target: {weight} kg sa ani.",
+			"targetSavedShort": "Na-save nga target: {weight} kg sa ani.",
+			"targetError": "Indi ma-save ang growth target.",
+			"targetHint": "I-save ini nga timbang bilang harvest target sang active nga cycle. Ang rekomendasyon sa pagpakaon maga-adjust sa sulod sang 10% / 15 ka adlaw nga limit.",
+			"targetNeedsCycle": "Mag-start sang grow-out cycle antes mag-set sang growth target."
 		},
 		"importExport": {
 			"export": "I-export ang Datos",
@@ -2376,6 +2435,12 @@
 			"title": "Nakasumalang sang error ang admin console",
 			"desc": "Wala sang nabag-o. Sulayi liwat ang pahina, ukon balik sa dashboard kon padayon nga nagakapaslawan.",
 			"retry": "Sulayi liwat"
+		},
+		"pondSwitcher": {
+			"labelNamed": "Aktibo nga punong: {name}",
+			"listLabel": "Pili-a ang punong",
+			"switching": "Nagabaylo…",
+			"switchFailed": "Indi mabayluan ang punong. Tilawi liwat."
 		},
 		"common": {
 			"readOnlyTitle": "Tan-aw lang",
@@ -3308,9 +3373,38 @@
 			"tabsLabel": "Mga seksyon sang operasyon",
 			"tabs": {
 				"health": "Kahimsog sang sistema",
+				"errors": "Mga error event",
 				"firmware": "Firmware sang mga device",
 				"audit": "Audit log",
 				"announcements": "Mga abiso"
+			},
+			"errors": {
+				"title": "Mga error event",
+				"description": "First-party nga pagdakop sang error. Ang mensahe, stack, ruta kag konteksto gina-scrub antes tagoan; ang balik-balik nga pagkaparehas sang isa ka error nagadugang sa isa ka row. Ang mga row nga wala sang aktibidad sa {days} ka adlaw gina-prune.",
+				"filtersLabel": "I-filter ang mga error sa status",
+				"status": {
+					"unresolved": "Wala pa naresolba",
+					"resolved": "Naresolba",
+					"all": "Tanan"
+				},
+				"caption": "Mga nadakpan nga error event",
+				"emptyTitle": "Wala sang error event",
+				"emptyDescription": "Wala sang nagatugma sa sini nga filter. Ang mga error nga i-report sang app makita diri.",
+				"severity": {
+					"ERROR": "Error",
+					"WARNING": "Pahibalo",
+					"INFO": "Impormasyon"
+				},
+				"occurrences": "{count, plural, one {# ka beses} other {# ka beses}}",
+				"resolvedAt": "Naresolba {when}",
+				"resolvedBadge": "Naresolba",
+				"firstSeen": "Una nga nakita {when}",
+				"lastSeen": "Katapusan nga nakita {when}",
+				"showStack": "Ipakita ang stack trace",
+				"resolve": "Markahi nga naresolba",
+				"resolving": "Ginaresolba…",
+				"resolveFailed": "Indi maresolba ini nga error. Sulayi liwat.",
+				"resolvedJustNow": "Naresolba. Maga-refresh ang listahan."
 			},
 			"health": {
 				"title": "Kahimsog sang sistema",

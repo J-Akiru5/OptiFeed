@@ -1,6 +1,6 @@
 {
 	"name": "optifeed",
-	"version": "1.27.1",
+	"version": "1.30.0",
 	"private": true,
 	"type": "module",
 	"packageManager": "pnpm@10.33.3",
@@ -17,7 +17,13 @@
 		"test": "pnpm --filter web test",
 		"api:check": "node scripts/api/conformance-check.mjs",
 		"api:live": "node scripts/api/live-check.mjs",
-		"self-check": "node scripts/self-check.mjs"
+		"self-check": "node scripts/self-check.mjs",
+		"audit:gate": "node scripts/security/audit-gate.mjs",
+		"dead-code": "knip",
+		"complexity": "pnpm --filter web complexity",
+		"perf:bundle": "node scripts/perf/bundle-budget.mjs",
+		"perf:latency": "node scripts/perf/api-latency.mjs",
+		"perf:lighthouse": "pnpm dlx @lhci/cli@0.15.1 autorun"
 	},
 	"lint-staged": {
 		"*.{js,ts,tsx,json,css,md}": ["biome check --write --staged --no-errors-on-unmatched"]
@@ -30,6 +36,16 @@
 		"@commitlint/cli": "^19.8.0",
 		"@commitlint/config-conventional": "^19.8.0",
 		"husky": "^9.1.7",
+		"knip": "6.43.0",
 		"lint-staged": "^15.5.2"
+	},
+	"pnpm": {
+		"overrides": {
+			"baseline-browser-mapping": "^2.11.0",
+			"browserslist": "^4.28.7",
+			"dompurify": "^3.4.17",
+			"proxy-addr": "^2.0.8",
+			"source-map-js": "^1.2.2"
+		}
 	}
 }

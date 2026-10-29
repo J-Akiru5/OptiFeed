@@ -68,7 +68,11 @@ export function ListChips({
 				))}
 				<Link
 					href={buildPageHref(basePath, { ...params, attention: attention ? undefined : "1" }, 1)}
-					aria-pressed={attention}
+					// The chip is a link that navigates to a filtered list, so its
+					// state is `aria-current` — `aria-pressed` is not allowed on the
+					// link role (axe `aria-allowed-attr`) and would tell a screen
+					// reader this is a toggle button that does not navigate.
+					aria-current={attention ? "true" : undefined}
 					className={cn(chipBase, attention ? chipActive : chipIdle)}
 				>
 					<Flag aria-hidden="true" className="h-3.5 w-3.5" />

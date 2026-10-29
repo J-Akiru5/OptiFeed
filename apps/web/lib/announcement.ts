@@ -39,7 +39,7 @@ export const announcementInputSchema = z.object({
 		.nullable(),
 });
 
-export type AnnouncementInput = z.infer<typeof announcementInputSchema>;
+type AnnouncementInput = z.infer<typeof announcementInputSchema>;
 
 /**
  * End of the chosen day as an ISO instant, or null when the date is not a real

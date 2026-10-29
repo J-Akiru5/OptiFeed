@@ -1,6 +1,12 @@
 "use client";
 
+import {
+	CalibrationNumberField,
+	calibrationFieldGrid,
+	parseCalibrationNumber,
+} from "@/components/calibration/CalibrationNumberField";
 import { saveRecalibrationInterval } from "@/lib/actions/calibration";
+import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -9,6 +15,7 @@ import { toast } from "sonner";
 
 const MIN_DAYS = 7;
 const MAX_DAYS = 180;
+const INTERVAL_RULES = { min: MIN_DAYS, max: MAX_DAYS, decimals: 0, step: 1 } as const;
 
 interface RecalibrationIntervalFormProps {
 	deviceId: string;
@@ -23,21 +30,21 @@ export function RecalibrationIntervalForm({
 }: RecalibrationIntervalFormProps) {
 	const t = useTranslations("dashboard.appSettings.calibration.recalibration");
 	const router = useRouter();
-	const [value, setValue] = useState(String(currentIntervalDays));
+	// String state so the field can be cleared and retyped (issue #307).
+	const [value, setValue] = useState(() => String(currentIntervalDays));
 	const [error, setError] = useState<string | null>(null);
 	const [isSaving, startSaving] = useTransition();
 
-	const days = Number(value);
-	const isValid =
-		value.trim() !== "" && Number.isInteger(days) && days >= MIN_DAYS && days <= MAX_DAYS;
+	const days = parseCalibrationNumber(value, INTERVAL_RULES);
 
 	const handleSave = () => {
-		if (!canWrite || !isValid) return;
+		if (!canWrite || days.status !== "valid") return;
+		const nextDays = days.value;
 		setError(null);
 
 		startSaving(async () => {
 			try {
-				const result = await saveRecalibrationInterval(deviceId, days);
+				const result = await saveRecalibrationInterval(deviceId, nextDays);
 				if (!result.success) {
 					setError(result.error ?? t("saveError"));
 					return;
@@ -52,45 +59,29 @@ export function RecalibrationIntervalForm({
 
 	return (
 		<div className="space-y-2" data-help="recalibration-interval">
-			<div className="flex flex-wrap items-end gap-3">
-				<div className="space-y-1">
-					<label
-						htmlFor="recalibration-interval-days"
-						className="text-sm font-medium text-gray-700 dark:text-gray-200"
+			<div className={cn(calibrationFieldGrid, "items-end")}>
+				<CalibrationNumberField
+					id="recalibration-interval-days"
+					label={t("label")}
+					unit="d"
+					value={value}
+					onValueChange={setValue}
+					disabled={!canWrite}
+					help={t("help", { min: MIN_DAYS, max: MAX_DAYS })}
+					{...INTERVAL_RULES}
+				/>
+				<div>
+					<button
+						type="button"
+						onClick={handleSave}
+						disabled={!canWrite || days.status !== "valid" || isSaving}
+						className="flex min-h-[var(--ofd-touch-min)] w-full items-center justify-center gap-2 rounded-xl bg-[#C2410C] px-6 text-sm font-bold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:cursor-not-allowed disabled:opacity-50 dark:focus-visible:outline-[#8fc0ea] sm:w-auto"
 					>
-						{t("label")}
-					</label>
-					<input
-						id="recalibration-interval-days"
-						type="number"
-						min={MIN_DAYS}
-						max={MAX_DAYS}
-						step={1}
-						inputMode="numeric"
-						value={value}
-						onChange={(event) => setValue(event.target.value)}
-						disabled={!canWrite}
-						className="min-h-[var(--ofd-touch-min)] w-28 rounded-lg border border-gray-200 bg-white px-4 text-base text-gray-900 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-					/>
+						{isSaving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+						{isSaving ? t("saving") : t("saveButton")}
+					</button>
 				</div>
-				<button
-					type="button"
-					onClick={handleSave}
-					disabled={!canWrite || !isValid || isSaving}
-					className="flex min-h-[var(--ofd-touch-min)] items-center justify-center gap-2 rounded-xl bg-[#C2410C] px-6 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-				>
-					{isSaving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-					{isSaving ? t("saving") : t("saveButton")}
-				</button>
 			</div>
-			<p className="text-xs text-gray-500 dark:text-gray-400">
-				{t("help", { min: MIN_DAYS, max: MAX_DAYS })}
-			</p>
-			{value.trim() !== "" && !isValid && (
-				<p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">
-					{t("invalid", { min: MIN_DAYS, max: MAX_DAYS })}
-				</p>
-			)}
 			{error && (
 				<p role="alert" className="text-sm font-medium text-red-600 dark:text-red-400">
 					{error}

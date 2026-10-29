@@ -234,3 +234,155 @@ describe("buildGrowthPlan", () => {
 		expect(plan.notes.join(" ")).toContain("Add pond area");
 	});
 });
+
+describe("buildGrowthPlan biomass target", () => {
+	it("reports target, current, expected and projected biomass with the gap", () => {
+		const plan = buildGrowthPlan(input());
+
+		expect(plan.targetSource).toBe("cycle");
+		// 330 g x 1,000 fish x 90% survival.
+		expect(plan.targetBiomassKg).toBe(297);
+		expect(plan.currentBiomassKg).toBe(108);
+		expect(plan.expectedBiomassKg).toBe(153);
+		expect(plan.projectedBiomassKg).toBe(145.26);
+		expect(plan.biomassGapKg).toBe(189);
+		expect(plan.projectedBiomassGapKg).toBe(151.74);
+	});
+
+	it("uses a saved calculator target instead of the cycle target", () => {
+		const plan = buildGrowthPlan(
+			input({
+				savedTarget: { targetWeightG: 400, cycleId: "cycle-1", population: 1000 },
+			}),
+		);
+
+		expect(plan.status).toBe("ok");
+		expect(plan.targetSource).toBe("saved");
+		expect(plan.targetWeightG).toBe(400);
+		// The target is a weight goal at the cycle's harvest, so the date is kept.
+		expect(plan.targetDate).toBe("2026-05-01");
+		expect(plan.targetBiomassKg).toBe(360);
+		expect(plan.currentBiomassKg).toBe(108);
+		expect(plan.biomassGapKg).toBe(252);
+		expect(plan.expectedBiomassKg).toBe(184.5);
+		expect(plan.projectedBiomassGapKg).toBe(214.74);
+	});
+
+	it("derives the feed recommendation from the saved target", () => {
+		const plan = buildGrowthPlan(
+			input({
+				savedTarget: { targetWeightG: 400, cycleId: "cycle-1", population: 1000 },
+			}),
+		);
+
+		// 280 g gap x 1,000 fish x 90% survival x FCR 1.5 over 60 days.
+		expect(plan.requiredDailyGainG).toBe(4.7);
+		expect(plan.requiredDailyFeedKg).toBe(6.3);
+		expect(plan.requiredFeedingRatePct).toBe(5.83);
+		expect(plan.recommendedGramsPerFeeding).toBe(2100);
+		// 2,100 g/meal is above the 1,000 g device limit, so the plan blocks.
+		expect(plan.adjustmentBlock).toBe("deviceCap");
+		expect(plan.adjustmentAllowed).toBe(false);
+	});
+
+	it("keeps the 10% envelope around a recommendation driven by the saved target", () => {
+		const plan = buildGrowthPlan(
+			input({
+				latestSample: {
+					id: "sample-2",
+					date: "2026-03-02",
+					avgWeightG: 170,
+					sampleCount: 30,
+				},
+				previousSample: null,
+				deviceMaxGramsPerFeeding: 5000,
+				savedTarget: { targetWeightG: 400, cycleId: "cycle-1", population: 1000 },
+			}),
+		);
+
+		expect(plan.recommendedGramsPerFeeding).toBe(1725);
+		expect(plan.applicableGramsPerFeeding).toBe(1100);
+		expect(plan.adjustmentPct).toBe(10);
+		expect(plan.adjustmentAllowed).toBe(true);
+	});
+
+	it("still blocks a saved-target adjustment inside the 15-day window", () => {
+		const plan = buildGrowthPlan(
+			input({
+				latestSample: {
+					id: "sample-2",
+					date: "2026-03-02",
+					avgWeightG: 170,
+					sampleCount: 30,
+				},
+				previousSample: null,
+				deviceMaxGramsPerFeeding: 5000,
+				lastAdjustmentAt: "2026-02-25",
+				savedTarget: { targetWeightG: 400, cycleId: "cycle-1", population: 1000 },
+			}),
+		);
+
+		expect(plan.adjustmentAllowed).toBe(false);
+		expect(plan.adjustmentBlock).toBe("adjustmentWindow");
+		expect(plan.nextAdjustmentDate).toBe("2026-03-12");
+	});
+
+	it("ignores a saved target that belongs to a different cycle", () => {
+		const plan = buildGrowthPlan(
+			input({
+				savedTarget: { targetWeightG: 400, cycleId: "cycle-old", population: 1000 },
+			}),
+		);
+
+		expect(plan.targetSource).toBe("cycle");
+		expect(plan.targetWeightG).toBe(330);
+		expect(plan.targetBiomassKg).toBe(297);
+	});
+
+	it("activates a cycle that has no target when a saved target exists", () => {
+		const plan = buildGrowthPlan(
+			input({
+				cycle: { ...cycle, targetHarvestWeightG: null },
+				savedTarget: { targetWeightG: 350, cycleId: "cycle-1", population: 1000 },
+			}),
+		);
+
+		expect(plan.status).toBe("ok");
+		expect(plan.targetSource).toBe("saved");
+		expect(plan.targetWeightG).toBe(350);
+	});
+
+	it("falls back to the saved population when the pond count is missing", () => {
+		const plan = buildGrowthPlan(
+			input({
+				population: null,
+				savedTarget: { targetWeightG: 400, cycleId: "cycle-1", population: 500 },
+			}),
+		);
+
+		expect(plan.targetBiomassKg).toBe(180);
+		expect(plan.currentBiomassKg).toBe(54);
+		expect(plan.biomassGapKg).toBe(126);
+	});
+
+	it("ignores an invalid saved target", () => {
+		const plan = buildGrowthPlan(
+			input({
+				savedTarget: { targetWeightG: 0, cycleId: "cycle-1", population: 1000 },
+			}),
+		);
+
+		expect(plan.targetSource).toBe("cycle");
+		expect(plan.targetWeightG).toBe(330);
+	});
+
+	it("has no target source when neither the cycle nor the calculator sets one", () => {
+		const plan = buildGrowthPlan(
+			input({ cycle: { ...cycle, targetHarvestWeightG: null }, savedTarget: null }),
+		);
+
+		expect(plan.status).toBe("noTarget");
+		expect(plan.targetSource).toBeNull();
+		expect(plan.targetBiomassKg).toBeNull();
+	});
+});

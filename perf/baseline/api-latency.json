@@ -1,0 +1,271 @@
+{
+	"$comment": "Recorded latency baseline. `gate` is the rule the CI check applies: fail when p95 exceeds max(floorMs, baselineP95 * factor). Regenerate with scripts/perf/api-latency.mjs --write; see docs/performance/api-latency.md for the environment and the endpoints that still need a database.",
+	"environment": {
+		"recordedAt": "2026-10-29T08:53:48.329Z",
+		"node": "v24.14.0",
+		"platform": "win32-x64",
+		"cpu": "12th Gen Intel(R) Core(TM) i5-12450HX",
+		"cpuCount": 12,
+		"totalMemMb": 24284,
+		"baseUrl": "http://127.0.0.1:3151",
+		"iterations": 100,
+		"warmup": 20,
+		"server": {
+			"started": true,
+			"command": "pnpm --filter web start -p 3151"
+		}
+	},
+	"gate": {
+		"metric": "clientMs.p95",
+		"floorMs": 50,
+		"factor": 1.5,
+		"note": "floorMs absorbs cross-machine variance for sub-10 ms endpoints; factor catches order-of-magnitude regressions above the floor. --strict ignores floorMs."
+	},
+	"endpoints": {
+		"api-not-found": {
+			"gated": true,
+			"method": "GET",
+			"path": "/api/__perf_probe_missing__",
+			"kind": "api",
+			"expectedStatuses": [404],
+			"observedStatuses": [404],
+			"clientMs": {
+				"count": 100,
+				"p50": 2.4,
+				"p95": 3.3,
+				"p99": 3.7,
+				"max": 6.2,
+				"min": 1.8,
+				"mean": 2.5
+			},
+			"serverMs": {
+				"count": 100,
+				"p50": 0.2,
+				"p95": 0.4,
+				"p99": 0.4,
+				"max": 0.5,
+				"min": 0.2,
+				"mean": 0.3
+			}
+		},
+		"api-not-found-post": {
+			"gated": true,
+			"method": "POST",
+			"path": "/api/__perf_probe_missing__",
+			"kind": "api",
+			"expectedStatuses": [404],
+			"observedStatuses": [404],
+			"clientMs": {
+				"count": 100,
+				"p50": 2.3,
+				"p95": 3,
+				"p99": 3.6,
+				"max": 3.8,
+				"min": 1.7,
+				"mean": 2.4
+			},
+			"serverMs": {
+				"count": 100,
+				"p50": 0.2,
+				"p95": 0.3,
+				"p99": 0.4,
+				"max": 0.4,
+				"min": 0.2,
+				"mean": 0.2
+			}
+		},
+		"page-landing": {
+			"gated": false,
+			"method": "GET",
+			"path": "/en",
+			"kind": "page",
+			"expectedStatuses": [200],
+			"observedStatuses": [200],
+			"clientMs": {
+				"count": 100,
+				"p50": 31,
+				"p95": 40.5,
+				"p99": 41.8,
+				"max": 47.1,
+				"min": 22.2,
+				"mean": 31.8
+			},
+			"serverMs": {
+				"count": 0,
+				"p50": null,
+				"p95": null,
+				"p99": null,
+				"min": null,
+				"max": null,
+				"mean": null
+			}
+		},
+		"page-login": {
+			"gated": false,
+			"method": "GET",
+			"path": "/en/login",
+			"kind": "page",
+			"expectedStatuses": [200],
+			"observedStatuses": [200],
+			"clientMs": {
+				"count": 100,
+				"p50": 24.4,
+				"p95": 29.1,
+				"p99": 40.4,
+				"max": 42.7,
+				"min": 20,
+				"mean": 25
+			},
+			"serverMs": {
+				"count": 0,
+				"p50": null,
+				"p95": null,
+				"p99": null,
+				"min": null,
+				"max": null,
+				"mean": null
+			}
+		},
+		"page-privacy": {
+			"gated": false,
+			"method": "GET",
+			"path": "/en/privacy",
+			"kind": "page",
+			"expectedStatuses": [200],
+			"observedStatuses": [200],
+			"clientMs": {
+				"count": 100,
+				"p50": 30.8,
+				"p95": 39.4,
+				"p99": 48.1,
+				"max": 54.5,
+				"min": 25.1,
+				"mean": 31.5
+			},
+			"serverMs": {
+				"count": 0,
+				"p50": null,
+				"p95": null,
+				"p99": null,
+				"min": null,
+				"max": null,
+				"mean": null
+			}
+		},
+		"page-terms": {
+			"gated": false,
+			"method": "GET",
+			"path": "/en/terms",
+			"kind": "page",
+			"expectedStatuses": [200],
+			"observedStatuses": [200],
+			"clientMs": {
+				"count": 100,
+				"p50": 28.6,
+				"p95": 38.1,
+				"p99": 47.8,
+				"max": 49.6,
+				"min": 23,
+				"mean": 29.9
+			},
+			"serverMs": {
+				"count": 0,
+				"p50": null,
+				"p95": null,
+				"p99": null,
+				"min": null,
+				"max": null,
+				"mean": null
+			}
+		},
+		"page-dashboard-guard": {
+			"gated": true,
+			"method": "GET",
+			"path": "/en/dashboard",
+			"kind": "page",
+			"expectedStatuses": [307],
+			"observedStatuses": [307],
+			"clientMs": {
+				"count": 100,
+				"p50": 2.2,
+				"p95": 3,
+				"p99": 3.6,
+				"max": 9.1,
+				"min": 1.4,
+				"mean": 2.3
+			},
+			"serverMs": {
+				"count": 0,
+				"p50": null,
+				"p95": null,
+				"p99": null,
+				"min": null,
+				"max": null,
+				"mean": null
+			}
+		},
+		"api-health-degraded": {
+			"gated": false,
+			"method": "GET",
+			"path": "/api/health",
+			"kind": "api",
+			"expectedStatuses": [200, 503, 504],
+			"observedStatuses": [503],
+			"clientMs": {
+				"count": 10,
+				"p50": 4,
+				"p95": 4.8,
+				"p99": 4.8,
+				"max": 4.8,
+				"min": 3.2,
+				"mean": 4
+			},
+			"serverMs": {
+				"count": 10,
+				"p50": 1.6,
+				"p95": 2.1,
+				"p99": 2.1,
+				"max": 2.1,
+				"min": 1.2,
+				"mean": 1.7
+			}
+		}
+	},
+	"deferred": [
+		{
+			"name": "api-ingest",
+			"method": "POST",
+			"path": "/api/ingest",
+			"requires": "database + provisioned device token",
+			"why": "The hottest write path (heartbeat, dispense, schedule ack) and the only one whose cost scales with fleet size."
+		},
+		{
+			"name": "api-feed-command",
+			"method": "POST",
+			"path": "/api/feed-command",
+			"requires": "database + device token",
+			"why": "Poll endpoint the feeder hits on a timer; its p95 is the device-visible latency."
+		},
+		{
+			"name": "api-calendar-events",
+			"method": "GET",
+			"path": "/api/calendar/events",
+			"requires": "database + authenticated session",
+			"why": "Fan-out read over Pond, CropCycle, EnergyDevice and PondEvent for one month window."
+		},
+		{
+			"name": "api-jobs-metrics",
+			"method": "GET",
+			"path": "/api/jobs/metrics",
+			"requires": "database + authenticated session",
+			"why": "Aggregates BackgroundJob/JobArtifact for the export queue."
+		},
+		{
+			"name": "page-dashboard",
+			"method": "GET",
+			"path": "/en/dashboard",
+			"requires": "database + authenticated session",
+			"why": "The heaviest server render (feeder hero, charts, FCR, biomass, firmware)."
+		}
+	]
+}

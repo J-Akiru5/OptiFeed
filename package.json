@@ -20,7 +20,10 @@
 		"self-check": "node scripts/self-check.mjs",
 		"audit:gate": "node scripts/security/audit-gate.mjs",
 		"dead-code": "knip",
-		"complexity": "pnpm --filter web complexity"
+		"complexity": "pnpm --filter web complexity",
+		"perf:bundle": "node scripts/perf/bundle-budget.mjs",
+		"perf:latency": "node scripts/perf/api-latency.mjs",
+		"perf:lighthouse": "pnpm dlx @lhci/cli@0.15.1 autorun"
 	},
 	"lint-staged": {
 		"*.{js,ts,tsx,json,css,md}": ["biome check --write --staged --no-errors-on-unmatched"]

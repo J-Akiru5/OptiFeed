@@ -1,0 +1,117 @@
+name: Release
+
+# Every version that reaches `main` must exist as a real release: an annotated
+# `vX.Y.Z` tag plus a GitHub Release whose notes come from CHANGELOG.md.
+#
+# Idempotent by design - an ordinary push to `main` whose version is already
+# tagged publishes nothing - so this can run on every promotion without
+# creating duplicates. It only creates artefacts; it never deploys.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: tag and publish
+    # Never tag a commit that is not on main, even via manual dispatch.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve version and existing artefacts
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          root=$(node -p "require('./package.json').version")
+          app=$(node -p "require('./apps/web/package.json').version")
+
+          if [ "$root" != "$app" ]; then
+            echo "::error::package.json versions disagree: root=$root apps/web=$app"
+            exit 1
+          fi
+
+          tag="v$root"
+          echo "version=$root" >> "$GITHUB_OUTPUT"
+
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "tag_exists=true" >> "$GITHUB_OUTPUT"
+            echo "tag $tag already exists"
+          else
+            echo "tag_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "release_exists=true" >> "$GITHUB_OUTPUT"
+            echo "release $tag already exists"
+          else
+            echo "release_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Require a changelog section
+        if: steps.version.outputs.release_exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if ! grep -q "^## \[${VERSION}\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [${VERSION}]' section. Add it in the release PR before promoting to main."
+            exit 1
+          fi
+          echo "CHANGELOG.md has a section for ${VERSION}"
+
+      - name: Create annotated tag
+        if: steps.version.outputs.tag_exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          git tag -a "v${VERSION}" -m "v${VERSION}"
+          git push origin "refs/tags/v${VERSION}"
+          echo "tagged v${VERSION} at ${GITHUB_SHA}"
+
+      - name: Publish GitHub Release
+        if: steps.version.outputs.release_exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          node scripts/release-notes.mjs "${VERSION}" > /tmp/release-notes.md
+          gh release create "v${VERSION}" \
+            --verify-tag \
+            --title "v${VERSION}" \
+            --notes-file /tmp/release-notes.md
+          echo "published https://github.com/${GITHUB_REPOSITORY}/releases/tag/v${VERSION}"
+
+      - name: Summary
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG_EXISTS: ${{ steps.version.outputs.tag_exists }}
+          RELEASE_EXISTS: ${{ steps.version.outputs.release_exists }}
+        run: |
+          {
+            echo "### Release v${VERSION}"
+            echo ""
+            echo "| Artefact | State |"
+            echo "| --- | --- |"
+            echo "| annotated tag | $([ "$TAG_EXISTS" = "true" ] && echo 'already present' || echo 'created') |"
+            echo "| GitHub Release | $([ "$RELEASE_EXISTS" = "true" ] && echo 'already present' || echo 'published') |"
+          } >> "$GITHUB_STEP_SUMMARY"

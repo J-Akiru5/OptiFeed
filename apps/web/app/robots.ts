@@ -1,7 +1,8 @@
+import { resolveSiteUrl } from "@/lib/site-url";
 import type { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
-	const baseUrl = "https://pakaonai.syntaxure.dev";
+	const baseUrl = resolveSiteUrl();
 
 	return {
 		rules: [

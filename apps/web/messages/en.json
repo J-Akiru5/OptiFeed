@@ -3699,5 +3699,9 @@
 			"info": "Information",
 			"warning": "Important"
 		}
+	},
+	"sidebar": {
+		"collapse": "Collapse sidebar",
+		"expand": "Expand sidebar"
 	}
 }

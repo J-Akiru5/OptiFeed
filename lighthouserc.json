@@ -1,0 +1,79 @@
+{
+	"$schema": "https://raw.githubusercontent.com/GoogleChrome/lighthouse-ci/main/docs/configuration.md",
+	"ci": {
+		"collect": {
+			"url": [
+				"http://127.0.0.1:3111/en",
+				"http://127.0.0.1:3111/en/login",
+				"http://127.0.0.1:3111/en/privacy",
+				"http://127.0.0.1:3111/en/terms"
+			],
+			"numberOfRuns": 3,
+			"startServerCommand": "pnpm --filter web start -p 3111",
+			"startServerReadyPattern": "Ready in",
+			"startServerReadyTimeout": 120000,
+			"settings": {
+				"chromeFlags": "--headless=new --no-sandbox --disable-dev-shm-usage",
+				"onlyCategories": ["performance", "accessibility", "best-practices", "seo"]
+			}
+		},
+		"assert": {
+			"assertMatrix": [
+				{
+					"matchingUrlPattern": "http://127\\.0\\.0\\.1:3111/en$",
+					"assertions": {
+						"categories:performance": ["error", { "minScore": 0.58 }],
+						"categories:accessibility": ["error", { "minScore": 0.9 }],
+						"categories:best-practices": ["error", { "minScore": 0.9 }],
+						"categories:seo": ["error", { "minScore": 0.95 }]
+					}
+				},
+				{
+					"matchingUrlPattern": "http://127\\.0\\.0\\.1:3111/en/login$",
+					"assertions": {
+						"categories:performance": ["error", { "minScore": 0.71 }],
+						"categories:accessibility": ["error", { "minScore": 0.93 }],
+						"categories:best-practices": ["error", { "minScore": 0.86 }]
+					}
+				},
+				{
+					"matchingUrlPattern": "http://127\\.0\\.0\\.1:3111/en/privacy$",
+					"assertions": {
+						"categories:performance": ["error", { "minScore": 0.73 }],
+						"categories:accessibility": ["error", { "minScore": 0.94 }],
+						"categories:best-practices": ["error", { "minScore": 0.9 }],
+						"categories:seo": ["error", { "minScore": 0.95 }]
+					}
+				},
+				{
+					"matchingUrlPattern": "http://127\\.0\\.0\\.1:3111/en/terms$",
+					"assertions": {
+						"categories:performance": ["error", { "minScore": 0.76 }],
+						"categories:accessibility": ["error", { "minScore": 0.94 }],
+						"categories:best-practices": ["error", { "minScore": 0.9 }],
+						"categories:seo": ["error", { "minScore": 0.95 }]
+					}
+				},
+				{
+					"matchingUrlPattern": ".*",
+					"assertions": {
+						"first-contentful-paint": ["error", { "maxNumericValue": 2500 }],
+						"largest-contentful-paint": ["error", { "maxNumericValue": 5000 }],
+						"total-blocking-time": ["error", { "maxNumericValue": 800 }],
+						"cumulative-layout-shift": ["error", { "maxNumericValue": 0.02 }],
+						"speed-index": ["error", { "maxNumericValue": 6000 }],
+						"interactive": ["error", { "maxNumericValue": 6000 }],
+						"server-response-time": ["error", { "maxNumericValue": 1000 }],
+						"resource-summary:script:size": ["error", { "maxNumericValue": 285000 }],
+						"resource-summary:total:size": ["error", { "maxNumericValue": 520000 }],
+						"resource-summary:third-party:count": ["error", { "maxNumericValue": 0 }]
+					}
+				}
+			]
+		},
+		"upload": {
+			"target": "filesystem",
+			"outputDir": ".lighthouseci"
+		}
+	}
+}

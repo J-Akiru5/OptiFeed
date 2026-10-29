@@ -57,6 +57,19 @@ Existing foundations the workers must extend rather than duplicate:
 | #303 | A user with several ponds can switch the active pond from the dashboard top bar, the choice survives navigation/reload, only permitted ponds are listed (allow **and** deny tests), and searching a pond name finds it. |
 | #304 | A saved growth target survives reload, is scoped per pond and tenant (allow **and** deny tests), the Growth page shows target biomass and the gap, and the recommendation is derived from the saved target via the existing planner — with no schema change. |
 
+## Outcome
+
+Merged into `develop` as **`46ca268`** through PR **#311**, released as **v1.28.0** (MINOR). Post-merge
+`develop` CI run for `46ca268` is **green**. #303, #304 and #307 were closed against that SHA.
+
+| Item | Final state |
+|---|---|
+| Batch PR | #311, merged @ `46ca268` |
+| Version | v1.28.0 — root and `apps/web` `package.json`, `LEGAL_APP_RELEASE`, changelog section |
+| Issues | #303 closed, #304 closed, #307 closed |
+| Gate | lint, typecheck, prisma validate, `api:check` 56/56, 239 files / 2453 tests, production build |
+| Follow-on | `docs/missions/2026-10-29-opencode-batch-c.md` carries #309 (chat contrast), filed after this batch merged |
+
 ## Discussion log
 
 | When (local) | Topic | What was agreed or done |

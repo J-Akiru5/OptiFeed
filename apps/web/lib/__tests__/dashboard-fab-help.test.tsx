@@ -35,6 +35,10 @@ describe("dashboard floating controls (#269)", () => {
 		// The talk-to-Pakoy control stays.
 		expect(html).toContain('aria-label="Open chat"');
 
+		// #287 the closed FAB shows Pakoy's head instead of a generic
+		// message-square glyph.
+		expect(html).toContain("pakoy-head.webp");
+
 		// The redundant floating "?" is gone: no help anchor, no dialog trigger.
 		expect(html).not.toContain("data-fab-help");
 		expect(html).not.toContain('aria-haspopup="dialog"');

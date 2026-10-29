@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.27.0] - 2026-10-29
+
+### Added
+
+- #297 the desktop dashboard and admin sidebars are now retractable, with the collapsed state persisted and the benchmark notes in `docs/sidebar-benchmark.md`.
+
+### Changed
+
+- #296 the Admin Overview **Device activity** chart now states its inclusive 14-farm-day range (from/to dates, Asia/Manila) instead of leaving the window implicit.
+- #298 the calendar now uses one shared full-viewport shell across the farmer, admin and superadmin views: the grid stays static and the side pane is the only scrolling surface. Architecture notes are in `docs/calendar-architecture.md`.
+
+## [1.26.0] - 2026-10-29
+
+### Added
+
+- Feeder 3D viewer (plan v1.1.0): Blender-built `feeder-v1.0.0.glb` with a versioned manifest, a lazy React Three Fiber scene on `/dashboard/devices/[id]`, live hopper/status polling, camera presets, a no-WebGL illustrated fallback, dashboard and admin links, and a service-worker `v5` cache rule for `/models/`.
+
+## [1.25.0] - 2026-10-29
+
+### Added
+
+- #289 Tagalog (`tl`) is now a third locale, selectable from a top-bar language dropdown (English / Hiligaynon / Tagalog) on the landing, dashboard, legal and mobile surfaces. The whole `[locale]` tree switches together; `tl.json` is a core-UI overlay that falls back to English for untranslated copy, so coverage can grow one key at a time. Documented in `docs/i18n.md`.
+- #288 the change-password form now raises a top-right success toast and a top-right server-error toast, while keeping the existing inline messages. The confirmation standard for mutating actions is documented in `docs/ui-confirmations.md`.
+
+## [1.24.0] - 2026-10-29
+
+### Changed
+
+- #286 the desktop sidebar's hopper card is one link to the hopper-level chart on the History page (`/dashboard/history#hopper-level`), with a hover state, a keyboard focus ring and an accessible name; the chart wrapper is an anchor target that clears the sticky header.
+- #287 the floating chat button now shows Pakoy's head instead of a generic message-square glyph while the chat is closed; the open state keeps the close (X) control, and the button's accessible name is unchanged.
+
 ## [1.23.0] - 2026-10-29
 
 ### Added

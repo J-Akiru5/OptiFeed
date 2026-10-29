@@ -85,6 +85,7 @@
 		"hopperLevel": "Hopper level",
 		"pondFeedPellet": "Pond Feed Pellet",
 		"hopperRemaining": "Approx. {kg}kg remaining. Enough for {count} scheduled feedings.",
+		"viewHopperLevel": "View hopper level history",
 		"deviceOffline": "Offline",
 		"navLabel": "Main navigation",
 		"overview": "Overview",
@@ -1445,7 +1446,39 @@
 				"VIEWER": "Viewer"
 			}
 		},
+		"feederViewer": {
+			"viewerLabel": "Feeder 3D",
+			"canvasLabel": "Interactive 3D model of {label}. Drag to orbit and use the preset buttons to change the view.",
+			"statusIdle": "Idle",
+			"statusDispensing": "Dispensing",
+			"statusPaused": "Paused",
+			"statusOffline": "Offline",
+			"hopperLevel": "Hopper level",
+			"lastFed": "Last fed",
+			"noReading": "No reading yet",
+			"presetsLabel": "Camera presets",
+			"presetIso": "Iso",
+			"presetFront": "Front",
+			"presetLeft": "Left",
+			"presetRight": "Right",
+			"presetRear": "Rear",
+			"presetTop": "Top",
+			"simpleView": "Simple view",
+			"modelVersion": "Model",
+			"statusAnnouncement": "Feeder status: {status}",
+			"dragHint": "Drag to orbit. Pinch or scroll to zoom.",
+			"back": "Back to dashboard",
+			"desc": "Live 3D view of the feeder on {pond}.",
+			"detailsLabel": "Device details",
+			"perFeeding": "Per feeding",
+			"rtc": "RTC",
+			"rtcOk": "OK",
+			"rtcUnknown": "No RTC",
+			"deviceMac": "Device ID (MAC)",
+			"openViewer": "Open 3D view"
+		},
 		"adminDevices": {
+			"view3d": "3D view",
 			"deviceIdMac": "Device ID (MAC)",
 			"deviceIdMacHint": "The Device ID the setup portal asks for.",
 			"tokenColumn": "Device token",
@@ -2075,6 +2108,7 @@
 			"chartActivityTitle": "Device activity",
 			"chartActivitySummary": "Device events per day over the last {days} days: {total} events.",
 			"chartActivitySummaryTruncated": "Device events per day over the last {days} days: at least {total} events (the newest 5,000 rows).",
+			"chartActivityRange": "Range: {from} – {to} · {days} farm days (Asia/Manila).",
 			"chartTruncatedNote": "One series is capped at the newest 5,000 rows, so its total is a lower bound and its oldest day may be partial.",
 			"chartHealthTitle": "Fleet health",
 			"chartHealthSummary": "{online} online and {offline} offline of {total} devices.",
@@ -3665,5 +3699,9 @@
 			"info": "Information",
 			"warning": "Important"
 		}
+	},
+	"sidebar": {
+		"collapse": "Collapse sidebar",
+		"expand": "Expand sidebar"
 	}
 }

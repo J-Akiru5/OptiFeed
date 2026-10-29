@@ -1,6 +1,7 @@
 import { adminButtonPrimary } from "@/components/admin/admin-classes";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { CalendarPageShell } from "@/components/calendar/calendar-shell";
 import { CalendarCapabilityBadge } from "@/components/harvest/calendar-controls";
 import { HarvestCalendar } from "@/components/harvest/harvest-calendar";
 import { Link } from "@/i18n/routing";
@@ -122,27 +123,29 @@ export default async function AdminCalendarPage() {
 	const recentCycles = recentCycleRows.map(serialiseCycle);
 
 	return (
-		<div className="mx-auto w-full max-w-7xl min-w-0 space-y-6 pb-20 [contain:inline-size] animate-in fade-in duration-150">
-			<AdminPageHeader
-				icon={CalendarDays}
-				title={t("title")}
-				description={t("desc", { count: ponds.length })}
-				actions={
-					<CalendarCapabilityBadge
-						capability={calendarCapability({ canManage, pondCount: ponds.length })}
-						labels={{
-							edit: tCommon("capability.edit"),
-							ownFarm: tCommon("capability.ownFarm"),
-							read: tCommon("capability.read"),
-						}}
-					/>
-				}
-			>
-				<p className="mt-1 text-xs font-medium text-[#3D5568] dark:text-gray-400">
-					{t("editHint")}
-				</p>
-			</AdminPageHeader>
-
+		<CalendarPageShell
+			header={
+				<AdminPageHeader
+					icon={CalendarDays}
+					title={t("title")}
+					description={t("desc", { count: ponds.length })}
+					actions={
+						<CalendarCapabilityBadge
+							capability={calendarCapability({ canManage, pondCount: ponds.length })}
+							labels={{
+								edit: tCommon("capability.edit"),
+								ownFarm: tCommon("capability.ownFarm"),
+								read: tCommon("capability.read"),
+							}}
+						/>
+					}
+				>
+					<p className="mt-1 text-xs font-medium text-[#3D5568] dark:text-gray-400">
+						{t("editHint")}
+					</p>
+				</AdminPageHeader>
+			}
+		>
 			<HarvestCalendar
 				initialPondId={ponds[0].id}
 				initialPondName={ponds[0].name}
@@ -158,6 +161,6 @@ export default async function AdminCalendarPage() {
 				showHeader={false}
 				today={todayDateOnly()}
 			/>
-		</div>
+		</CalendarPageShell>
 	);
 }

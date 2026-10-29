@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The calendar's details sheet and editor now name the item they act on: a task no longer says "Edit pond event" or "Delete this pond event?", and the reschedule, delete and mark-done copy follows `itemKind` (#348).
+
 ## [1.30.1] - 2026-10-29
 
 ### Fixed

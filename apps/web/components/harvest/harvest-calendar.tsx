@@ -440,7 +440,9 @@ export function HarvestCalendar({
 				toast.error(result.error);
 				return;
 			}
-			toast.success(t("eventForm.successUpdate"));
+			toast.success(
+				details.itemKind === "TASK" ? t("task.completed") : t("eventForm.successUpdate"),
+			);
 			setDetails(null);
 			router.refresh();
 			refresh();
@@ -492,6 +494,10 @@ export function HarvestCalendar({
 	const handleSelect = (selection: EventEditorSelection) => {
 		openNewEvent(selection);
 	};
+
+	/** A drag moves an event's time range or a task's due date (#348). */
+	const rescheduledCopy = (event: CalendarEventDto) =>
+		t(event.itemKind === "TASK" ? "calendar.rescheduledTask" : "calendar.rescheduled");
 
 	/**
 	 * Persist a drag/resize. FullCalendar has already moved the block; returning
@@ -577,7 +583,7 @@ export function HarvestCalendar({
 				toast.error(result.error);
 				return false;
 			}
-			toast.success(t("calendar.rescheduled"));
+			toast.success(rescheduledCopy(event));
 			router.refresh();
 			refresh();
 			return true;
@@ -593,7 +599,7 @@ export function HarvestCalendar({
 			toast.error(result.error);
 			return false;
 		}
-		toast.success(t("calendar.rescheduled"));
+		toast.success(rescheduledCopy(event));
 		router.refresh();
 		refresh();
 		return true;
@@ -616,7 +622,11 @@ export function HarvestCalendar({
 				toast.error(result.error);
 				return;
 			}
-			toast.success(t("eventForm.successDelete"));
+			toast.success(
+				details.itemKind === "TASK"
+					? t("eventForm.successDeleteTask")
+					: t("eventForm.successDelete"),
+			);
 			setDetails(null);
 			router.refresh();
 			refresh();
@@ -625,7 +635,14 @@ export function HarvestCalendar({
 
 	const deleteSeries = () => {
 		if (!details || !canDeleteSeries || isDeleting) return;
-		if (!window.confirm(t("eventForm.deleteConfirm"))) return;
+		if (
+			!window.confirm(
+				details.itemKind === "TASK"
+					? t("eventForm.deleteConfirmTask")
+					: t("eventForm.deleteConfirm"),
+			)
+		)
+			return;
 		const id = details.pondEventId ?? details.id.replace(/^pond:/, "").split(":")[0];
 		startDelete(async () => {
 			const result = await deletePondEvent({ id });
@@ -633,7 +650,11 @@ export function HarvestCalendar({
 				toast.error(result.error);
 				return;
 			}
-			toast.success(t("eventForm.successDelete"));
+			toast.success(
+				details.itemKind === "TASK"
+					? t("eventForm.successDeleteTask")
+					: t("eventForm.successDelete"),
+			);
 			setDetails(null);
 			router.refresh();
 			refresh();
@@ -1246,7 +1267,7 @@ export function HarvestCalendar({
 								onClick={openEventEditor}
 								className="inline-flex min-h-11 items-center rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-[#8fc0ea]"
 							>
-								{t("eventForm.titleEdit")}
+								{details?.itemKind === "TASK" ? t("eventForm.editTask") : t("eventForm.editEvent")}
 							</button>
 						)}
 						{canRescheduleDetails && (
@@ -1272,7 +1293,9 @@ export function HarvestCalendar({
 					<div className="space-y-4 text-sm text-gray-600 dark:text-gray-300">
 						{!isPondWritable(details.pondId) && (
 							<p className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs font-semibold text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-200">
-								{t("calendarPage.readOnlyEvent")}
+								{details.itemKind === "TASK"
+									? t("calendarPage.readOnlyTask")
+									: t("calendarPage.readOnlyEvent")}
 							</p>
 						)}
 						<div className="grid gap-2 sm:grid-cols-2">

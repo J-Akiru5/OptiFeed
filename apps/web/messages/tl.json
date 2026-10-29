@@ -254,6 +254,32 @@
 					"saveFailed": "Hindi ma-save ang larawan. Subukan muli."
 				}
 			}
+		},
+		"fcrCalculator": {
+			"setAsTarget": "Gawing growth target",
+			"settingTarget": "Sine-save ang target...",
+			"targetSaved": "Na-save ang growth target: {weight} kg sa ani.",
+			"targetSavedShort": "Na-save na target: {weight} kg sa ani.",
+			"targetError": "Hindi ma-save ang growth target.",
+			"targetHint": "Ise-save ang timbang na ito bilang harvest target ng active na cycle. Ang rekomendasyon sa pagpapakain ay mag-a-adjust sa loob ng 10% / 15-araw na limit.",
+			"targetNeedsCycle": "Magsimula muna ng grow-out cycle bago mag-set ng growth target."
+		},
+		"growth": {
+			"growthPlan": {
+				"sourceCalculator": "Target mula sa calculator",
+				"biomassTitle": "Biomass sa ani",
+				"targetBiomass": "Target sa ani",
+				"currentBiomass": "Kasalukuyang biomass",
+				"expectedBiomass": "Inaasahan ngayon",
+				"biomassGap": "Agwat sa target",
+				"projectedBiomass": "Inaasahan sa ani",
+				"projectedGap": "Inaasahang agwat",
+				"savedTargetHint": "Ang target na ito ay mula sa feed calculator. Alisin ito para gamitin ang target ng cycle.",
+				"clearTarget": "Alisin ang target",
+				"clearingTarget": "Inaalis...",
+				"targetCleared": "Naalis ang growth target. Target ng cycle na ang ginagamit.",
+				"targetClearError": "Hindi maalis ang growth target."
+			}
 		}
 	},
 	"chat": {

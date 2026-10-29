@@ -6,6 +6,7 @@ import { withAuth } from "@/lib/auth/with-auth";
 import { LEGACY_API_SUNSET } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
+import { savedTargetWeightForCycle } from "@/lib/growth-target";
 import { getActivePond } from "@/lib/pond-selection";
 import { type PredictionInputs, predictFeeding } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
@@ -63,7 +64,20 @@ export const POST = withApi(
 		}
 
 		const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice.id);
-		const cycle = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
+		// The saved calculator target (if any) overrides the cycle's target
+		// weight for the feeder recommendation, but never its harvest date.
+		const savedTargetWeightG = activeCycle
+			? savedTargetWeightForCycle(pond.notificationPrefs, activeCycle.id)
+			: null;
+		const cycle = activeCycle
+			? toPredictionCycleContext(
+					{
+						...activeCycle,
+						targetHarvestWeightG: savedTargetWeightG ?? activeCycle.targetHarvestWeightG,
+					},
+					todayDateOnly(),
+				)
+			: null;
 
 		const inputs: PredictionInputs = {
 			feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,

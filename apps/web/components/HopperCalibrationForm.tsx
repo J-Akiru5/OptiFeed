@@ -42,8 +42,11 @@ export function HopperCalibrationForm({
 	const [saved, setSaved] = useState(false);
 	const [isPending, startTransition] = useTransition();
 
-	const fullRules = { min: 0, max: HOPPER_FULL_CM_MAX, decimals: 0 } as const;
-	const emptyRules = { min: 0, max: HOPPER_EMPTY_CM_MAX, decimals: 0 } as const;
+	// Centimetre fields accept one decimal (owner decision, 2026-10-29) so a
+	// stored 12.3 stays 12.3 instead of being rejected, but the steppers still
+	// move a whole centimetre at a time.
+	const fullRules = { min: 0, max: HOPPER_FULL_CM_MAX, decimals: 1, step: 1 } as const;
+	const emptyRules = { min: 0, max: HOPPER_EMPTY_CM_MAX, decimals: 1, step: 1 } as const;
 	const capacityRules = { min: 1, max: HOPPER_CAPACITY_G_MAX, decimals: 0 } as const;
 
 	const full = parseCalibrationNumber(fullCm, fullRules);

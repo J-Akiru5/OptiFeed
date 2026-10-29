@@ -277,6 +277,19 @@
 			"targetHint": "Ise-save ang timbang na ito bilang harvest target ng active na cycle. Ang rekomendasyon sa pagpapakain ay mag-a-adjust sa loob ng 10% / 15-araw na limit.",
 			"targetNeedsCycle": "Magsimula muna ng grow-out cycle bago mag-set ng growth target."
 		},
+		"harvest": {
+			"cycleForm": {
+				"targetConflictTitle": "May naka-save nang target mula sa calculator",
+				"targetConflictDesc": "Ginagamit ng plano sa pond na ito ang {saved} g mula sa feed calculator. Binago mo ang target ng cycle sa {next} g. Piliin kung alin ang itatabi bago mag-save.",
+				"targetConflictDescEmpty": "Ginagamit ng plano sa pond na ito ang {saved} g mula sa feed calculator. Binura mo ang target ng cycle. Piliin kung alin ang itatabi bago mag-save.",
+				"targetConflictReplace": "Palitan ang target ng calculator",
+				"targetConflictReplaceHint": "Palitan ito ng value ng cycle. Ang calculator at target ng cycle ay magiging {next} g.",
+				"targetConflictReplaceClearHint": "Burahin ang target ng calculator at ang target ng cycle.",
+				"targetConflictKeep": "Itabi ang target ng calculator",
+				"targetConflictKeepHint": "Itabi ang {saved} g bilang target ng plano. Ibabalik ang target ng cycle sa {saved} g.",
+				"targetConflictCancel": "Kanselahin"
+			}
+		},
 		"growth": {
 			"growthPlan": {
 				"sourceCalculator": "Target mula sa calculator",
@@ -287,10 +300,10 @@
 				"biomassGap": "Agwat sa target",
 				"projectedBiomass": "Inaasahan sa ani",
 				"projectedGap": "Inaasahang agwat",
-				"savedTargetHint": "Ang target na ito ay mula sa feed calculator. Alisin ito para gamitin ang target ng cycle.",
+				"savedTargetHint": "Ang target na ito ay mula sa feed calculator at naka-mirror sa target ng cycle. Alisin ito para mabura ang dalawa.",
 				"clearTarget": "Alisin ang target",
 				"clearingTarget": "Inaalis...",
-				"targetCleared": "Naalis ang growth target. Target ng cycle na ang ginagamit.",
+				"targetCleared": "Naalis ang growth target. Nabura rin ang target ng cycle.",
 				"targetClearError": "Hindi maalis ang growth target."
 			}
 		}

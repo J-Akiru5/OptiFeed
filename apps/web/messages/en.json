@@ -1678,6 +1678,7 @@
 			"hopperEmptyCmDesc": "Sensor reading when hopper is empty",
 			"hopperCapacityG": "Hopper Capacity (grams)",
 			"hopperCapacityGDesc": "Total feed weight the hopper can hold",
+			"hopperEmptyGreaterThanFull": "The empty distance must be greater than the full distance.",
 			"saveCalibration": "Save Calibration",
 			"calibrationSaved": "Calibration saved!",
 			"calibrationSaveError": "Could not save the calibration.",
@@ -1701,6 +1702,14 @@
 			"restartDevice": "Restart Device",
 			"actionsUnavailable": "Device actions are not available yet.",
 			"calibration": {
+				"numberField": {
+					"decrease": "Decrease {label}",
+					"increase": "Increase {label}",
+					"format": "Enter a number.",
+					"range": "Enter a value from {min} to {max}.",
+					"wholeNumber": "Use whole numbers only.",
+					"decimalPlaces": "Use at most {decimals} decimal places."
+				},
 				"title": "Feed Rate Calibration",
 				"desc": "Measure how fast the feeder dispenses feed so scheduled feed times stay accurate.",
 				"currentRate": "Current rate",

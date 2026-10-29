@@ -236,6 +236,31 @@ describe("computeEventReminderCandidates", () => {
 			dateLabel: "2026-10-19",
 		});
 	});
+
+	it("fires for the next occurrence of a recurring series, not the anchor", () => {
+		const daily = allDayEvent({
+			startsAt: new Date("2026-10-17T00:00:00.000Z"),
+			recurrenceFreq: "DAILY",
+			recurrenceInterval: 1,
+			recurrenceUntil: new Date("2026-10-21T00:00:00.000Z"),
+			reminderMinutes: [60],
+		});
+
+		const candidates = computeEventReminderCandidates({
+			today: "2026-10-19",
+			events: [daily],
+			ponds: [POND],
+		});
+
+		// The 60-minute reminder for the 20 Oct occurrence fires on 19 Oct.
+		expect(candidates).toHaveLength(1);
+		expect(candidates[0]).toMatchObject({
+			occurrenceDate: "2026-10-20",
+			occurrenceKey: "2026-10-20T00:00:00.000Z",
+			dateLabel: "2026-10-20",
+			minutes: 60,
+		});
+	});
 });
 
 describe("computeReminderCandidates fallbacks", () => {

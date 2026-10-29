@@ -109,9 +109,13 @@ export function Sidebar({
 				})}
 			</nav>
 
-			{/* Hopper level widget */}
+			{/* Hopper level widget: the whole card opens the hopper chart (#286). */}
 			{showHopperWidget && (
-				<div className="bg-[#0A3D62]/5 dark:bg-gray-800/60 rounded-2xl p-4 border border-[#0A3D62]/10 dark:border-gray-700/50 space-y-3 mt-auto">
+				<Link
+					href="/dashboard/history#hopper-level"
+					aria-label={t("viewHopperLevel")}
+					className="mt-auto block bg-[#0A3D62]/5 dark:bg-gray-800/60 rounded-2xl p-4 border border-[#0A3D62]/10 dark:border-gray-700/50 space-y-3 transition-colors hover:border-[#0A3D62]/25 hover:bg-[#0A3D62]/10 dark:hover:border-gray-600 dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea]"
+				>
 					<p className="text-[10px] uppercase font-extrabold text-[#3D5568] dark:text-gray-400 tracking-widest flex items-center gap-1.5">
 						<Cpu aria-hidden="true" className="w-3.5 h-3.5 text-[#C2410C] dark:text-[#ff8a5c]" />{" "}
 						{t("hopperLevel")}
@@ -130,7 +134,7 @@ export function Sidebar({
 							{t("hopperRemaining", { kg: remainingKg, count: scheduledFeedings })}
 						</div>
 					)}
-				</div>
+				</Link>
 			)}
 		</aside>
 	);

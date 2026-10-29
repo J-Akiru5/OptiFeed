@@ -506,8 +506,8 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
     <div class="side-foot">
       <b>PakaonAI</b><br>
       System functions &amp; evaluation dossier<br>
-      Baseline <span class="mono">fdfc830</span><br>
-      App <span class="mono">v1.30.3</span>
+      Baseline <span class="mono">c9f1fbe</span><br>
+      App <span class="mono">v1.31.0</span>
     </div>
   </aside>
 
@@ -521,8 +521,8 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
     <h1>Everything PakaonAI does, and the evidence behind it.</h1>
     <p class="sub">A complete inventory of the implemented system, the ISO/IEC&nbsp;25010 engineering self-assessment, the operational posture, and the plan for the five-minute explainer film.</p>
     <dl class="meta-strip">
-      <div><dt>Baseline</dt><dd>fdfc830<span>develop · 29 Oct 2026</span></dd></div>
-      <div><dt>Application</dt><dd>v1.30.3<span>on develop, not tagged</span></dd></div>
+      <div><dt>Baseline</dt><dd>c9f1fbe<span>develop · 30 Oct 2026</span></dd></div>
+      <div><dt>Application</dt><dd>v1.31.0<span>on develop, not tagged</span></dd></div>
       <div><dt>Feature freeze</dt><dd>31 Oct 2026<span>Saturday</span></dd></div>
       <div><dt>Status</dt><dd>Internal<span>research prototype</span></dd></div>
     </dl>
@@ -541,7 +541,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
     <div class="callout plain">
       <span class="tag chip neutral">TL;DR</span>
       <h3>The system is broad, the engineering evidence is real, and the evaluation is not finished.</h3>
-      <p>Fifteen functional domains are implemented at <span class="mono">fdfc830</span>, across three console surfaces and one device firmware. The repository carries re-checkable engineering evidence for most ISO/IEC&nbsp;25010 characteristics — but the performance workflow is currently failing to execute, there is no requirement-to-test traceability matrix, and no respondent questionnaire data exists yet.</p>
+      <p>Fifteen functional domains are implemented at <span class="mono">c9f1fbe</span>, across three console surfaces and one device firmware. The repository carries re-checkable engineering evidence for most ISO/IEC&nbsp;25010 characteristics — but the performance workflow is currently failing to execute, there is no requirement-to-test traceability matrix, and no respondent questionnaire data exists yet.</p>
       <p>The film therefore sells the product and the engineering discipline, and explicitly labels the evaluation as work in progress. It does not show an ISO score, a certification, or a final FCR result.</p>
     </div>
 
@@ -549,7 +549,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
     <ol>
       <li><strong>The feature surface is much larger than the landing page suggests.</strong> Beyond feeding, there is tenant administration, platform administration, device provisioning, calibration, audit, background jobs, exports and imports, and a full calendar.</li>
       <li><strong>Multi-tenancy is real but not complete.</strong> Organization → Farm → Pond → Device is implemented with role scoping and audit; the planned FeederUnit/Controller split and tenant purge are not.</li>
-      <li><strong>The engineering evidence is specific and re-checkable.</strong> 3,335 unit tests, 92.42% line coverage on <span class="mono">apps/web/lib</span>, 35 passing E2E tests, 54 cross-browser smoke passes, and an executed restore drill.</li>
+      <li><strong>The engineering evidence is specific and re-checkable.</strong> 3,357 unit tests, 92.45% line coverage on <span class="mono">apps/web/lib</span>, 35 passing E2E tests, 54 cross-browser smoke passes, and an executed restore drill.</li>
       <li><strong>There are named gaps, and they are written down.</strong> No MFA, no provider-backup verification, no physical-device testing, an unbuilt Docker image, and a performance gate that creates no jobs.</li>
       <li><strong>One five-minute film can serve three audiences</strong> if the evidence layer is sequenced after the product story rather than mixed into it.</li>
     </ol>
@@ -557,7 +557,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
 
   <article class="section" id="s-scope" data-title="Scope and method">
     <header class="sec-head"><span class="sec-num">02</span><h2>Scope and method</h2></header>
-    <p>This dossier describes the system as it exists on <span class="mono">origin/develop</span> at commit <span class="mono">fdfc830</span>, application version <span class="mono">1.30.3</span>, inspected on 29 October 2026. It is a documentation deliverable, not a release artefact; it does not change application code, version files, or deployment configuration.</p>
+    <p>This dossier describes the system as it exists on <span class="mono">origin/develop</span> at commit <span class="mono">c9f1fbe</span>, application version <span class="mono">1.31.0</span>, inspected on 30 October 2026. It is a documentation deliverable, not a release artefact; it does not change application code, version files, or deployment configuration.</p>
 
     <h3>What was inspected</h3>
     <div class="table-wrap">
@@ -587,8 +587,8 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
 
     <div class="callout warn">
       <span class="tag chip flight">Baseline caveat</span>
-      <h3>Version 1.30.3 is on <span class="mono">develop</span>, not released</h3>
-      <p>The latest Git tag is <span class="mono">v1.23.0</span> and the latest GitHub release is <span class="mono">v1.22.0</span>. Any statement that 1.30.3 is “released” or “live in production” is incorrect. This document says “on develop” everywhere it matters.</p>
+      <h3>Version 1.31.0 is on <span class="mono">develop</span>, not released</h3>
+      <p>The latest Git tag is <span class="mono">v1.23.0</span> and the latest GitHub release is <span class="mono">v1.22.0</span>. Any statement that 1.31.0 is “released” or “live in production” is incorrect. This document says “on develop” everywhere it matters.</p>
     </div>
   </article>
 
@@ -612,7 +612,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
 
     <h3>Conventions</h3>
     <ul>
-      <li><strong>Evidence paths</strong> are repository-relative and resolve at <span class="mono">fdfc830</span>. They are written in monospace under each function or claim.</li>
+      <li><strong>Evidence paths</strong> are repository-relative and resolve at <span class="mono">c9f1fbe</span>. They are written in monospace under each function or claim.</li>
       <li><strong>Status tags</strong> describe the baseline, not intent. “Implemented” means merged on <span class="mono">develop</span> and traceable to code or documentation.</li>
       <li><strong>Grades</strong> in the Evaluation tab are the owner's internal self-assessment. Where an independent re-check disagreed, both values are shown.</li>
       <li><strong>Numbers</strong> are taken from the CI run at the stated commit. Where the repository's own documents disagree with CI, CI wins and the discrepancy is noted.</li>
@@ -1112,6 +1112,11 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
         <p class="fn-desc">Versioned public pages effective 26 October 2026, linked from the footer, login, and dashboard. Review status by the University Legal Office is recorded inconsistently in the repository and needs owner confirmation before it is presented as approved.</p>
         <p class="fn-ev"><b>Evidence</b> apps/web/app/[locale]/privacy/ · apps/web/app/[locale]/terms/ · lib/legal/config.ts</p>
       </div>
+      <div class="fn" data-name="Public model showcase" data-status="live" data-role="support" data-domain="Public site">
+        <p class="fn-name">Public model showcase</p><span class="chip live">Implemented</span>
+        <p class="fn-desc">The landing hardware section shows the feeder as a transparent ISO poster rendered from model 1.1.2, with a research-prototype caption and a parts table. It is a static image: no 3D runtime, no device polling, and no live data on the public page.</p>
+        <p class="fn-ev"><b>Evidence</b> apps/web/app/[locale]/page.tsx · apps/web/public/landing/feeder-stage.webp</p>
+      </div>
       <div class="fn" data-name="SEO, robots, sitemap" data-status="live" data-role="eval" data-domain="Public site">
         <p class="fn-name">SEO, robots, and sitemap</p><span class="chip live">Implemented</span>
         <p class="fn-desc">Environment-driven canonical origin, sitemap including legal pages, robots rules, and Open Graph metadata.</p>
@@ -1364,8 +1369,13 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
       </div>
       <div class="fn" data-name="3D feeder viewer" data-status="live" data-role="core" data-domain="Device">
         <p class="fn-name">3D feeder viewer</p><span class="chip live">Implemented</span>
-        <p class="fn-desc">A lazy-loaded React Three Fiber model — version 1.1.1, 38,284 triangles, about 1.16 MB — with camera presets, live hopper fill and motor rotation, status-driven lighting, and a no-WebGL SVG fallback. It appears on the device detail and hardware settings pages, not on the dashboard.</p>
+        <p class="fn-desc">A lazy-loaded React Three Fiber model — version 1.1.2, 38,284 triangles, about 1.17 MB — with camera presets including the ISO component view, live hopper fill and motor rotation, status-driven lighting, and a no-WebGL SVG fallback. It appears on the device detail and hardware settings pages, not on the dashboard.</p>
         <p class="fn-ev"><b>Evidence</b> components/feeder/ · lib/feeder/model-manifest.json</p>
+      </div>
+      <div class="fn" data-name="ISO component labels" data-status="live" data-role="core" data-domain="Device">
+        <p class="fn-name">ISO component labels</p><span class="chip live">Implemented</span>
+        <p class="fn-desc">Six read-only callouts — hopper, ultrasonic sensor, controller, motor, auger, and outlet — anchored to the 3D model with leader lines. Status is derived from the single feeder status and the hopper level, with no invented telemetry. The ISO camera preset restores the overlay; a semantic list replaces the callouts on mobile and for screen readers.</p>
+        <p class="fn-ev"><b>Evidence</b> apps/web/components/feeder/feeder-labels.tsx · lib/feeder/feeder-label-layout.ts · docs/feeder-iso-labels-design.md</p>
       </div>
       <div class="fn" data-name="Signed OTA firmware" data-status="live" data-role="eval" data-domain="Device">
         <p class="fn-name">Signed OTA firmware</p><span class="chip live">Implemented</span>
@@ -1630,17 +1640,17 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
 
   <article class="section" id="s-fn-m" data-title="M · Security and quality">
     <header class="sec-head"><span class="sec-num">14</span><h2>M · Security, quality, and engineering operations</h2></header>
-    <p>This is the domain the ISO evaluators care about most. The numbers below are from the CI run at <span class="mono">fdfc830</span>, not from the repository's prose.</p>
+    <p>This is the domain the ISO evaluators care about most. The numbers below are from the CI run at <span class="mono">c9f1fbe</span>, not from the repository's prose.</p>
 
     <div class="fn-list">
       <div class="fn" data-name="Automated test suite" data-status="live" data-role="eval" data-domain="Quality">
         <p class="fn-name">Automated test suite</p><span class="chip live">Implemented</span>
-        <p class="fn-desc">3,335 unit tests over 280 files, plus 35 passing end-to-end tests with 4 skipped and 54 cross-browser smoke passes.</p>
+        <p class="fn-desc">3,357 unit tests over 282 files, plus 35 passing end-to-end tests with 4 skipped and 54 cross-browser smoke passes.</p>
         <p class="fn-ev"><b>Evidence</b> .github/workflows/ci.yml · docs/e2e.md</p>
       </div>
       <div class="fn" data-name="Coverage gate" data-status="live" data-role="eval" data-domain="Quality">
         <p class="fn-name">Coverage gate</p><span class="chip live">Implemented</span>
-        <p class="fn-desc">92.42% lines, 84.95% branches, and 94.77% functions on <span class="mono">apps/web/lib</span>, gated at 90/90/94.5/84.5. UI components are outside the coverage denominator.</p>
+        <p class="fn-desc">92.45% lines, 85.03% branches, and 94.81% functions on <span class="mono">apps/web/lib</span>, gated at 90/90/94.5/84.5. UI components are outside the coverage denominator.</p>
         <p class="fn-ev"><b>Evidence</b> vitest coverage config · CHANGELOG 1.30.0</p>
       </div>
       <div class="fn" data-name="Accessibility gate" data-status="live" data-role="eval" data-domain="Quality">
@@ -1795,7 +1805,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
       <table>
         <thead><tr><th style="width:20%">Characteristic</th><th class="center" style="width:11%">Owner grade</th><th class="center" style="width:12%">Re-check</th><th>Basis</th></tr></thead>
         <tbody>
-          <tr><td><strong>Functional suitability</strong></td><td class="center">A</td><td class="center part">A−</td><td>3,335 unit tests, 35 E2E passes, feature breadth. No requirement-to-test traceability matrix, which the rubric itself requires.</td></tr>
+          <tr><td><strong>Functional suitability</strong></td><td class="center">A</td><td class="center part">A−</td><td>3,357 unit tests, 35 E2E passes, feature breadth. No requirement-to-test traceability matrix, which the rubric itself requires.</td></tr>
           <tr><td><strong>Performance efficiency</strong></td><td class="center">A</td><td class="center part">A−</td><td>Budgets and local measurements exist, but the CI performance workflow creates no jobs. Unenforced.</td></tr>
           <tr><td><strong>Compatibility</strong></td><td class="center">A</td><td class="center tick">A</td><td>54 cross-browser smoke passes across Chromium, Firefox, and WebKit at three widths.</td></tr>
           <tr><td><strong>Usability</strong></td><td class="center">A</td><td class="center tick">A*</td><td>Zero axe violations on six audited surfaces; keyboard flows; Hiligaynon parity. *Scoped — not a site-wide WCAG claim, and Tagalog is partial.</td></tr>
@@ -1822,16 +1832,16 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
 
   <article class="section" id="s-eval-ledger" data-title="Evidence ledger">
     <header class="sec-head"><span class="sec-num">03</span><h2>Evidence ledger</h2></header>
-    <p>Every number the portal or the film may show, with its source and its qualifier. Numbers are from the CI run at <span class="mono">fdfc830</span> unless stated otherwise.</p>
+    <p>Every number the portal or the film may show, with its source and its qualifier. Numbers are from the CI run at <span class="mono">c9f1fbe</span> unless stated otherwise.</p>
 
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th style="width:28%">Claim</th><th style="width:20%">Value</th><th style="width:26%">Re-check</th><th>Qualifier</th></tr></thead>
         <tbody>
-          <tr><td>Unit tests</td><td><strong>3,335</strong> over 280 files</td><td class="mono">ci.yml · vitest</td><td>Passing at baseline</td></tr>
-          <tr><td>Line coverage</td><td><strong>92.42%</strong></td><td class="mono">coverage summary</td><td><span class="mono">apps/web/lib</span> only; components excluded</td></tr>
-          <tr><td>Branch coverage</td><td><strong>84.95%</strong></td><td class="mono">coverage summary</td><td>Gate 84.5%</td></tr>
-          <tr><td>Function coverage</td><td><strong>94.77%</strong></td><td class="mono">coverage summary</td><td>Docs say 94.85%; CI wins</td></tr>
+          <tr><td>Unit tests</td><td><strong>3,357</strong> over 282 files</td><td class="mono">ci.yml · vitest</td><td>Passing at baseline</td></tr>
+          <tr><td>Line coverage</td><td><strong>92.45%</strong></td><td class="mono">coverage summary</td><td><span class="mono">apps/web/lib</span> only; components excluded</td></tr>
+          <tr><td>Branch coverage</td><td><strong>85.03%</strong></td><td class="mono">coverage summary</td><td>Gate 84.5%</td></tr>
+          <tr><td>Function coverage</td><td><strong>94.81%</strong></td><td class="mono">coverage summary</td><td>Docs say 94.85%; CI wins</td></tr>
           <tr><td>End-to-end tests</td><td><strong>35 passed · 4 skipped</strong></td><td class="mono">e2e job</td><td>Docs say 31; CI wins</td></tr>
           <tr><td>Cross-browser smoke</td><td><strong>54 passed</strong></td><td class="mono">e2e-smoke.yml</td><td>Chromium, Firefox, WebKit</td></tr>
           <tr><td>API conformance</td><td><strong>28 routes · 56 checks · 0 failures</strong></td><td class="mono">api:check</td><td>Static contract check</td></tr>
@@ -1862,7 +1872,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
     <h3>What is strong</h3>
     <ul>
       <li>Fifteen functional domains are implemented across three consoles and one firmware.</li>
-      <li>3,335 unit tests and 35 E2E tests run in CI, against a disposable Supabase stack.</li>
+      <li>3,357 unit tests and 35 E2E tests run in CI, against a disposable Supabase stack.</li>
       <li>The API surface has a static conformance check: 28 route files, 56 checks, zero failures.</li>
       <li>The feeding loop is covered end to end, from sample to harvest FCR.</li>
     </ul>
@@ -2007,8 +2017,8 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
             <td>Any ISO score, rating, certification, “compliant”, or “passed an ISO audit”.</td>
           </tr>
           <tr>
-            <td>“3,335 unit tests; 92.42% line coverage on <span class="mono">apps/web/lib</span>.”</td>
-            <td>“35 E2E passed, 4 skipped” — at <span class="mono">fdfc830</span>, because the docs say 31.</td>
+            <td>“3,357 unit tests; 92.45% line coverage on <span class="mono">apps/web/lib</span>.”</td>
+            <td>“35 E2E passed, 4 skipped” — at <span class="mono">c9f1fbe</span>, because the docs say 31.</td>
             <td>“100% coverage”, “all routes tested”, “zero defects”.</td>
           </tr>
           <tr>
@@ -2022,9 +2032,9 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
             <td>“Provider backups verified”, “PITR proven”, “production RTO demonstrated”.</td>
           </tr>
           <tr>
-            <td>“Version 1.30.3 on <span class="mono">develop</span>.”</td>
+            <td>“Version 1.31.0 on <span class="mono">develop</span>.”</td>
             <td>“Pilot deployment” — <span class="mono">main</span> runs an earlier release.</td>
-            <td>“Released v1.30.3”, “live in production”, “commercial SaaS”.</td>
+            <td>“Released v1.31.0”, “live in production”, “commercial SaaS”.</td>
           </tr>
           <tr>
             <td>“Password step-up, reason, and audit on dangerous platform actions.”</td>
@@ -2170,7 +2180,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
     </ol>
 
     <h3>Version discipline</h3>
-    <p>The release check requires <span class="mono">package.json</span>, the <span class="mono">VERSION</span> file, the changelog section, and the Git tag to agree. Version 1.30.3 is on <span class="mono">develop</span>; the latest tag is <span class="mono">v1.23.0</span>. That gap is normal for an integration branch, but it means “released” is the wrong word in the film.</p>
+    <p>The release check requires <span class="mono">package.json</span>, the <span class="mono">VERSION</span> file, the changelog section, and the Git tag to agree. Version 1.31.0 is on <span class="mono">develop</span>; the latest tag is <span class="mono">v1.23.0</span>. That gap is normal for an integration branch, but it means “released” is the wrong word in the film.</p>
 
     <div class="callout">
       <span class="tag chip neutral">Operational note</span>
@@ -2560,10 +2570,11 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
     <p>The feeder model is the film's strongest original asset. It should be rendered once, deliberately, rather than rebuilt in the edit.</p>
 
     <dl class="kv">
-      <dt>Source</dt><dd><span class="mono">apps/web/public/models/feeder-v1.1.1.glb</span>, the same model the product viewer loads. Do not remodel it for the film.</dd>
+      <dt>Source</dt><dd><span class="mono">apps/web/public/models/feeder-v1.1.2.glb</span>, the same model the product viewer loads. Do not remodel it for the film.</dd>
       <dt>Tool</dt><dd>Blender 5.2.3 LTS. Import the GLB, keep the materials, add a neutral studio setup.</dd>
       <dt>Lighting</dt><dd>Large soft key from camera left, cool fill from right, thin rim to separate the hopper from the background. White or very light grey world.</dd>
       <dt>Camera</dt><dd>50 mm equivalent, f/8 look, slight low angle for the hero. Turntable at 24 frames per second, 8 seconds, 15-degree elevation.</dd>
+      <dt>Component names</dt><dd>Use the six labels from the viewer's ISO preset — hopper, ultrasonic sensor, controller, motor, auger, outlet — so the film and the product name the same parts.</dd>
       <dt>Output</dt><dd>1920×1080, 60 fps, ProRes or high-bitrate H.264, alpha where the shot will be composited.</dd>
     </dl>
 
@@ -2609,7 +2620,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
           <tr><td class="mono">/en/dashboard/log-sample</td><td>Enter a sample, show validation, save</td><td>12 s</td></tr>
           <tr><td class="mono">/en/dashboard/growth</td><td>Show the growth card and target gap</td><td>9 s</td></tr>
           <tr><td class="mono">/en/dashboard/schedule</td><td>Change meals per day, show preview</td><td>12 s</td></tr>
-          <tr><td class="mono">/en/dashboard/devices/[id]</td><td>Rotate the 3D viewer, switch a camera preset</td><td>10 s</td></tr>
+          <tr><td class="mono">/en/dashboard/devices/[id]</td><td>Rotate the 3D viewer, switch the ISO preset</td><td>10 s</td></tr>
           <tr><td class="mono">/en/dashboard/harvest</td><td>Show computed FCR on a harvested cycle</td><td>8 s</td></tr>
           <tr><td class="mono">/en/dashboard/calendar</td><td>Switch month to week, drag one event</td><td>8 s</td></tr>
           <tr><td class="mono">/en/admin/devices</td><td>Show an approval and a label sheet</td><td>9 s</td></tr>
@@ -3237,7 +3248,7 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
 
     <h3>Inspected directly</h3>
     <ul>
-      <li>Page and API route trees at <span class="mono">fdfc830</span>.</li>
+      <li>Page and API route trees at <span class="mono">c9f1fbe</span>.</li>
       <li>Prisma schema models, enums, and tenancy relations.</li>
       <li>Firmware README and safety documentation.</li>
       <li>ISO readiness and outcome documents, and their stated numbers.</li>
@@ -3279,9 +3290,9 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
     <header class="sec-head"><span class="sec-num">06</span><h2>Document control</h2></header>
     <dl class="kv">
       <dt>Title</dt><dd>PakaonAI — System Functions &amp; Evaluation Dossier</dd>
-      <dt>Version</dt><dd>1.0.0</dd>
+      <dt>Version</dt><dd>1.1.0</dd>
       <dt>Prepared</dt><dd>30 October 2026</dd>
-      <dt>Baseline</dt><dd><span class="mono">origin/develop</span> at <span class="mono">fdfc830</span>, application 1.30.3, inspected 29 October 2026</dd>
+      <dt>Baseline</dt><dd><span class="mono">origin/develop</span> at <span class="mono">c9f1fbe</span>, application 1.31.0, inspected 30 October 2026</dd>
       <dt>Owner</dt><dd>Jeff · PakaonAI capstone</dd>
       <dt>Audience</dt><dd>Capstone defense panel, ISO/IEC 25010 evaluators, film production team</dd>
       <dt>Classification</dt><dd>Internal working document. Not a certification record.</dd>
@@ -3292,6 +3303,7 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
       <table class="compact">
         <thead><tr><th style="width:14%">Version</th><th style="width:18%">Date</th><th>Change</th></tr></thead>
         <tbody>
+          <tr><td>1.1.0</td><td>30 Oct 2026</td><td>Re-snapshotted to develop <span class="mono">c9f1fbe</span> / app 1.31.0 / model 1.1.2. Added the ISO component labels and the public model showcase; updated the test count to 3,357 over 282 files.</td></tr>
           <tr><td>1.0.0</td><td>30 Oct 2026</td><td>Initial dossier: system map, 15-domain function catalog, ISO self-assessment with claims ledger, operations, five-minute film plan, appendix.</td></tr>
         </tbody>
       </table>
@@ -3301,8 +3313,8 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
     <p>After the 31 October freeze, this document is updated only for corrections, not for feature additions. If a feature lands after the freeze, it is recorded in the next version and excluded from the film. That keeps the film, the portal, and the repository telling the same story.</p>
 
     <footer class="doc-foot">
-      <span>PakaonAI · System Functions &amp; Evaluation Dossier · v1.0.0</span>
-      <span>Baseline fdfc830 · prepared 30 Oct 2026</span>
+      <span>PakaonAI · System Functions &amp; Evaluation Dossier · v1.1.0</span>
+      <span>Baseline c9f1fbe · prepared 30 Oct 2026</span>
     </footer>
   </article>
 
@@ -3325,8 +3337,8 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
     <div class="rail-card">
       <p class="rail-title">At a glance</p>
       <dl class="rail-facts">
-        <div><dt>Baseline</dt><dd>fdfc830</dd></div>
-        <div><dt>App version</dt><dd>1.30.3</dd></div>
+        <div><dt>Baseline</dt><dd>c9f1fbe</dd></div>
+        <div><dt>App version</dt><dd>1.31.0</dd></div>
         <div><dt>Domains</dt><dd>15</dd></div>
         <div><dt>Functions listed</dt><dd id="factFns">â€”</dd></div>
         <div><dt>ISO evidence</dt><dd>5 A Â· 3 Aâˆ’</dd></div>

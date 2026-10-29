@@ -12,10 +12,11 @@ required. The logo, diagrams, styles, and scripts are all inlined.
 | | |
 |---|---|
 | Repository | `optifeed` |
-| Branch / commit | `origin/develop` at `fdfc830` |
-| Application version | `1.30.3` (on `develop`, not tagged) |
-| Inspected | 29 October 2026 |
-| Document version | 1.0.0, prepared 30 October 2026 |
+| Branch / commit | `origin/develop` at `c9f1fbe` |
+| Application version | `1.31.0` (on `develop`, not tagged) |
+| Feeder model | `1.1.2` (38,284 triangles, 1,165,172 bytes) |
+| Inspected | 30 October 2026 |
+| Document version | 1.1.0, prepared 30 October 2026 |
 | Feature freeze | 31 October 2026 |
 
 If the application moves, the dossier is stale. Re-check the function catalog against the new

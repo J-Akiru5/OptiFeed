@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.30.0] - 2026-10-29
+
 ### Security
 
 - Production dependency audit: `critical` 2 → 0 and `high` 37 → 1 (one allowlisted build/CLI finding, expiring 2027-01-27). `dompurify`, `proxy-addr`, `browserslist`, `source-map-js` and `baseline-browser-mapping` are pinned to patched versions through `pnpm.overrides`; `zod` moves to `^4.6.6`. `shadcn` is a code-generation CLI and now lives in `devDependencies`, so the server stack it drags in is no longer counted as shipped. See `docs/security/supply-chain.md`.
@@ -20,6 +22,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated accessibility gate (ISO 25010 usability, W9): axe-core runs over the login page, the dashboard page shell, the growth plan card, the hardware calibration page, the chat widget and the admin devices console, and fails on any serious or critical violation. Keyboard flows — pond switcher, chat composer, calibration steppers and the harvest modal — are driven with real key presses and assert focus movement, not only that a handler ran.
 - The chat closes on **Escape** from anywhere inside it, including the composer, and returns focus to the floating chat control.
 - `en` ↔ `hil` message-catalogue parity is enforced by a test, and the 19 missing sticker strings are translated. Tagalog stays an English overlay at 9.3% complete and is reported, not gated, pending the owner's decision in #327.
+
+- First-party error capture (ISO 25010 reliability): an additive `ErrorEvent` model stores failures with a sha256 fingerprint, increments instead of duplicating, scrubs tokens/JWTs/Supabase keys/e-mails **before** truncation, and never throws into the request path. Visible and resolvable at `/superadmin/operations/errors`, swept after 30 days by the existing `device-watch` cron.
+- Automated tests now cover **92.42% of `apps/web/lib` lines** (from 80.92%), enforced by a coverage threshold that fails CI on regression.
+- **E2E runs in CI** against a disposable local Supabase stack (Postgres + Auth + storage) with a CI-only guard mode; production credentials never enter CI and a remote database is still refused without the explicit acknowledgement.
+- Cross-browser smoke on **Chromium, Firefox and WebKit** for the public pages and the language switch, plus responsive assertions at 390/834/1440 and a documented supported matrix in `docs/compatibility.md`.
+- Performance evidence is measured and gated: a bundle budget for all 56 routes (validated against a live server), Lighthouse budgets, and an API latency baseline with only stable endpoints gated. See `docs/performance/`.
+- **A restore drill that actually executed** in CI: migrate, seed, snapshot, dump, drop the whole public schema, restore, and verify 37 table counts, 9 schema-object counts, 18 invariants and 11 Prisma round-trips. Reports an artefact plus `docs/operations/restore-drill.md`. Scope is explicit: it proves our dump/restore, not the provider backups (#325) or `auth.users` (#322).
+- Portability: multi-stage Dockerfile, compose, environment matrix, and the production host is env-driven (`NEXT_PUBLIC_SITE_URL`) instead of hard-coded.
+- Maintainability: Knip reports zero unused files/dependencies/exports/types, a measured complexity budget is enforced, and six ADRs plus an operations index record the decisions and runbooks.
+- `SECURITY.md` (private disclosure), `CODEOWNERS`, threat model, incident-response plan and a supply-chain policy document.
 
 ### Fixed
 

@@ -14,11 +14,16 @@ import {
 /**
  * Playwright global setup.
  *
- * Refuses to start unless:
- * - DATABASE_URL's host equals E2E_ALLOWED_DB_HOST,
- * - E2E_CONFIRM_PRODUCTION is the explicit acknowledgement,
- * - E2E_PASSWORD is set (the three e2e logins share it),
- * - the seeded e2e fixture actually exists.
+ * Refuses to start unless the target is explicitly acknowledged (see
+ * scripts/e2e/guards.ts):
+ *
+ * - local disposable stack: E2E_ALLOW_LOCAL_STACK="yes" + a loopback
+ *   DATABASE_URL host — the CI and local-development path;
+ * - remote fixture: DATABASE_URL's host equals E2E_ALLOWED_DB_HOST and
+ *   E2E_CONFIRM_PRODUCTION is the explicit acknowledgement.
+ *
+ * Both paths also require E2E_PASSWORD (the three e2e logins share it) and a
+ * seeded e2e fixture.
  *
  * It never resets a password. The previous demo-account reset could change the
  * real demo user's password; the suite now uses only its own e2e- accounts and
@@ -51,7 +56,7 @@ export default async function globalSetup(): Promise<void> {
 		// .env may be absent; the ambient environment is used instead.
 	}
 
-	const { host } = assertE2eEnvironment();
+	const { host, mode } = assertE2eEnvironment();
 	requireE2ePassword();
 
 	const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -163,7 +168,7 @@ export default async function globalSetup(): Promise<void> {
 			}
 		}
 
-		console.log(`[e2e] Fixture verified on ${host}; all e2e- accounts exist.`);
+		console.log(`[e2e] Fixture verified on ${host} (${mode} target); all e2e- accounts exist.`);
 	} finally {
 		await prisma.$disconnect();
 	}

@@ -1,7 +1,7 @@
 import { getRequestConfig } from "next-intl/server";
 import { routing } from "./routing";
 
-type Messages = Record<string, unknown>;
+type Messages = { [key: string]: string | Messages };
 
 /**
  * Tagalog starts as an overlay on top of English. Every key that is not in
@@ -12,15 +12,8 @@ function mergeMessages(base: Messages, overlay: Messages): Messages {
 	const merged: Messages = { ...base };
 	for (const [key, value] of Object.entries(overlay)) {
 		const current = merged[key];
-		if (
-			value &&
-			typeof value === "object" &&
-			!Array.isArray(value) &&
-			current &&
-			typeof current === "object" &&
-			!Array.isArray(current)
-		) {
-			merged[key] = mergeMessages(current as Messages, value as Messages);
+		if (typeof value === "object" && typeof current === "object") {
+			merged[key] = mergeMessages(current, value);
 		} else {
 			merged[key] = value;
 		}
@@ -41,7 +34,10 @@ export default getRequestConfig(async ({ requestLocale }) => {
 		]);
 		return {
 			locale,
-			messages: mergeMessages(english.default as Messages, tagalog.default as Messages),
+			messages: mergeMessages(
+				english.default as unknown as Messages,
+				tagalog.default as unknown as Messages,
+			),
 		};
 	}
 

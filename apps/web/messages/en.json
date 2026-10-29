@@ -2398,6 +2398,12 @@
 			"desc": "Nothing was changed. Retry the page, or go back to the dashboard if it keeps failing.",
 			"retry": "Try again"
 		},
+		"pondSwitcher": {
+			"labelNamed": "Active pond: {name}",
+			"listLabel": "Choose a pond",
+			"switching": "Switching…",
+			"switchFailed": "Could not switch pond. Try again."
+		},
 		"common": {
 			"readOnlyTitle": "View only",
 			"capability": {

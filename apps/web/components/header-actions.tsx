@@ -117,7 +117,8 @@ function ProfileMenu({
 						</p>
 						{!showPlatformIdentity && (
 							<p className="mt-0.5 font-mono text-[11px] font-bold text-[#3D5568] uppercase dark:text-gray-400">
-								{ponds.find((p) => p.id === activePondId)?.name ?? pondName}
+								{ponds.find((p) => p.id === activePondId)?.name ??
+									(pondName || tCommon("noPondTitle"))}
 							</p>
 						)}
 					</div>
@@ -250,7 +251,7 @@ function ProfileMenu({
 export function HeaderActions({
 	ponds = [],
 	activePondId = "",
-	pondName = "ILO-POND-01",
+	pondName = "",
 	lastSeenAt = null,
 	esp32Status = "missing",
 	isViewingAs = false,
@@ -286,11 +287,9 @@ export function HeaderActions({
 		<div className="relative flex items-center gap-2 md:gap-3">
 			{!showPlatformIdentity && (
 				<div className="hidden text-right sm:block">
-					{ponds.length > 1 ? (
-						<PondSelector ponds={ponds} activePondId={activePondId} />
-					) : (
-						<p className="text-xs font-bold text-white uppercase">{pondName}</p>
-					)}
+					{/* The selector owns all three states: no ponds, a single pond and
+					    a real choice. It must not fall back to a hard-coded pond name. */}
+					<PondSelector ponds={ponds} activePondId={activePondId} />
 					<p
 						className="text-[10px] tracking-wider text-white/60 uppercase"
 						suppressHydrationWarning

@@ -106,4 +106,23 @@ describe("HeaderActions identity (E18, #199)", () => {
 		openProfileMenu();
 		expect(screen.getByText("Pond Operator")).toBeInTheDocument();
 	});
+
+	it("shows the no-pond empty state instead of a hard-coded pond name", () => {
+		const { container } = render(
+			<HeaderActions
+				ponds={[]}
+				activePondId=""
+				pondName=""
+				lastSeenAt={null}
+				esp32Status="missing"
+				initialUser={FARMER}
+			/>,
+		);
+
+		expect(screen.getByText("No pond assigned yet")).toBeInTheDocument();
+		expect(container.innerHTML).not.toContain("ILO-POND-01");
+
+		openProfileMenu();
+		expect(screen.getAllByText("No pond assigned yet").length).toBeGreaterThan(0);
+	});
 });

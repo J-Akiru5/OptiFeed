@@ -2377,6 +2377,12 @@
 			"desc": "Wala sang nabag-o. Sulayi liwat ang pahina, ukon balik sa dashboard kon padayon nga nagakapaslawan.",
 			"retry": "Sulayi liwat"
 		},
+		"pondSwitcher": {
+			"labelNamed": "Aktibo nga punong: {name}",
+			"listLabel": "Pili-a ang punong",
+			"switching": "Nagabaylo…",
+			"switchFailed": "Indi mabayluan ang punong. Tilawi liwat."
+		},
 		"common": {
 			"readOnlyTitle": "Tan-aw lang",
 			"capability": {

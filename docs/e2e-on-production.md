@@ -123,6 +123,22 @@ A rerun without cleanup can fail on the already-registered
 `E2:E0:00:00:00:02`; the spec fails with a message telling you to clean up and
 seed again.
 
+## Cross-browser smoke (no database)
+
+The authenticated suite above is Chromium-only. The public pages are also
+smoke-tested on Chromium, Firefox and WebKit by a separate, credential-free
+suite:
+
+```powershell
+pnpm exec playwright install firefox webkit   # once per machine
+pnpm test:e2e:smoke
+```
+
+It needs only a build (`next build`) — the config starts `next start -p 3100`
+itself, or uses `PLAYWRIGHT_BASE_URL`. CI runs it in
+`.github/workflows/e2e-smoke.yml`. The supported matrix, the split rationale and
+the exact coverage are in [`docs/compatibility.md`](./compatibility.md).
+
 ## Guard behaviour
 
 | Mistake | What happens |

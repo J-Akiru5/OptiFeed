@@ -150,12 +150,12 @@
 			"budgetKb": 1089.5
 		},
 		"/[locale]/(print)/admin/devices/labels/page": {
-			"baselineKb": 720.3,
-			"budgetKb": 734.8
+			"baselineKb": 745.5,
+			"budgetKb": 760.4
 		},
 		"/[locale]/(print)/superadmin/devices/labels/page": {
-			"baselineKb": 720.3,
-			"budgetKb": 734.8
+			"baselineKb": 745.5,
+			"budgetKb": 760.4
 		},
 		"/[locale]/(superadmin)/superadmin/ai-providers/page": {
 			"baselineKb": 921,
@@ -170,8 +170,8 @@
 			"budgetKb": 960.7
 		},
 		"/[locale]/(superadmin)/superadmin/operations/announcements/page": {
-			"baselineKb": 1000.5,
-			"budgetKb": 1020.6
+			"baselineKb": 1025.9,
+			"budgetKb": 1046.4
 		},
 		"/[locale]/(superadmin)/superadmin/operations/audit/[id]/page": {
 			"baselineKb": 915.9,

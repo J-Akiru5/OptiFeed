@@ -47,6 +47,7 @@ Key env vars (full list in `apps/web/.env.example`):
 | `pnpm typecheck` | `tsc --noEmit` for apps/web |
 | `pnpm test` | Vitest unit tests (apps/web) |
 | `pnpm test:e2e` | Playwright (requires `DATABASE_URL` + `E2E_ALLOWED_DB_HOST`) |
+| `pnpm test:e2e:smoke` | Cross-browser public smoke on Chromium, Firefox and WebKit (no database; see [docs/compatibility.md](../../docs/compatibility.md)) |
 | `pnpm self-check` | Full plan gate incl. build; `--quick` skips build |
 
 ## Crop reminders

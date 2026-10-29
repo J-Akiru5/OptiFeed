@@ -19,6 +19,7 @@ interface AdminOverviewChartsProps {
 		feedSummary: string;
 		activityTitle: string;
 		activitySummary: string;
+		activityRange: string;
 		healthTitle: string;
 		healthSummary: string;
 		online: string;
@@ -65,13 +66,17 @@ export function AdminOverviewCharts({
 				labels={labels.chart}
 				segments={segments}
 			/>
-			<LineTrend
-				className="min-w-0 lg:col-span-3"
-				title={labels.activityTitle}
-				summary={labels.activitySummary}
-				labels={labels.chart}
-				points={activityPoints}
-			/>
+			<div className="min-w-0 lg:col-span-3">
+				<LineTrend
+					title={labels.activityTitle}
+					summary={labels.activitySummary}
+					labels={labels.chart}
+					points={activityPoints}
+				/>
+				<p className="mt-2 text-[11px] font-semibold text-[#3D5568] dark:text-gray-400">
+					{labels.activityRange}
+				</p>
+			</div>
 		</div>
 	);
 }

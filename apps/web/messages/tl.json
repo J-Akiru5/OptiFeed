@@ -117,6 +117,43 @@
 		"backToDashboard": "Bumalik sa Dashboard"
 	},
 	"dashboard": {
+		"feederViewer": {
+			"viewerLabel": "Feeder 3D",
+			"canvasLabel": "Interactive na 3D na modelo ng {label}. I-drag upang i-orbit at gamitin ang mga preset upang palitan ang view.",
+			"statusIdle": "Idle",
+			"statusDispensing": "Nagpapakain",
+			"statusPaused": "Naka-pause",
+			"statusOffline": "Offline",
+			"hopperLevel": "Antas ng hopper",
+			"lastFed": "Huling pagpakain",
+			"noReading": "Wala pang reading",
+			"presetsLabel": "Mga camera preset",
+			"presetIso": "Iso",
+			"presetFront": "Harap",
+			"presetLeft": "Kaliwa",
+			"presetRight": "Kanan",
+			"presetRear": "Likod",
+			"presetTop": "Taas",
+			"simpleView": "Simpleng view",
+			"modelVersion": "Modelo",
+			"statusAnnouncement": "Kalagayan ng feeder: {status}",
+			"dragHint": "I-drag upang i-orbit. I-pinch o i-scroll upang mag-zoom.",
+			"back": "Bumalik sa dashboard",
+			"desc": "Live na 3D na view ng feeder sa {pond}.",
+			"detailsLabel": "Mga detalye ng device",
+			"perFeeding": "Bawat pagpakain",
+			"rtc": "RTC",
+			"rtcOk": "OK",
+			"rtcUnknown": "Walang RTC",
+			"deviceMac": "Device ID (MAC)",
+			"openViewer": "Buksan ang 3D view"
+		},
+		"adminOverview": {
+			"chartActivityRange": "Saklaw: {from} – {to} · {days} araw sa bukid (Asia/Manila)."
+		},
+		"adminDevices": {
+			"view3d": "3D view"
+		},
 		"common": {
 			"readOnlyTitle": "Tingnan lang",
 			"capability": {

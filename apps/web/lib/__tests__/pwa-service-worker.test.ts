@@ -15,7 +15,7 @@ describe("service worker caching rules", () => {
 	const sw = publicFile("sw.js");
 
 	it("bumps the cache version so old static caches are purged", () => {
-		expect(sw).toContain('const CACHE_NAME = "pakaonai-static-v4"');
+		expect(sw).toContain('const CACHE_NAME = "pakaonai-static-v5"');
 		expect(sw).toMatch(
 			/filter\(\(key\) => key\.startsWith\(CACHE_PREFIX\) && key !== CACHE_NAME\)/,
 		);
@@ -39,10 +39,17 @@ describe("service worker caching rules", () => {
 		expect(sw).toContain(
 			'const CACHEABLE_DESTINATIONS = new Set(["script", "style", "image", "font", "manifest"])',
 		);
-		expect(sw).toContain(
-			'const STATIC_PREFIXES = ["/_next/static/", "/icons/", "/pakaonai-logo-kit/", "/mascot/"]',
-		);
+		expect(sw).toContain("const STATIC_PREFIXES = [");
+		expect(sw).toContain('"/_next/static/"');
+		expect(sw).toContain('"/mascot/"');
+		expect(sw).toContain('"/models/"');
 		expect(sw).toContain("isCacheableAsset(url.pathname, request)");
+	});
+
+	it("allows the GLB fetch under /models/ without caching HTML", () => {
+		expect(sw).toContain('const modelAsset = pathname.startsWith("/models/")');
+		expect(sw).toContain("if (!modelAsset && !CACHEABLE_DESTINATIONS.has(request.destination))");
+		expect(sw).toContain('"/models/"');
 	});
 
 	it("bypasses API, auth and authorized requests", () => {

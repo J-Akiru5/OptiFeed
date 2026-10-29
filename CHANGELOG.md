@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.0] - 2026-10-29
+
+### Added
+
+- #289 Tagalog (`tl`) is now a third locale, selectable from a top-bar language dropdown (English / Hiligaynon / Tagalog) on the landing, dashboard, legal and mobile surfaces. The whole `[locale]` tree switches together; `tl.json` is a core-UI overlay that falls back to English for untranslated copy, so coverage can grow one key at a time. Documented in `docs/i18n.md`.
+- #288 the change-password form now raises a top-right success toast and a top-right server-error toast, while keeping the existing inline messages. The confirmation standard for mutating actions is documented in `docs/ui-confirmations.md`.
+
 ## [1.24.0] - 2026-10-29
 
 ### Changed

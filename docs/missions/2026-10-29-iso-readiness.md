@@ -43,7 +43,7 @@ evidence and remediation, not a certificate.
 | ID | Workstream | Branch | Worktree | Depends on | Status |
 |---|---|---|---|---|---|
 | I-62 | **W1 Supply chain.** Triage the 93 findings, pin `pnpm.overrides`/targeted upgrades for the 2 criticals and reachable highs, add `.github/workflows/security.yml` (`pnpm audit --audit-level=high`) and `.github/dependabot.yml`. No broad majors. | `mission/I-62-supply-chain` | `iso-supply-chain` | — | running |
-| I-63 | **W2+W3 Quality gates.** Coverage thresholds ratcheted at the current level (no drop allowed), and a Playwright E2E job in `.github/workflows/ci.yml` backed by a Postgres service container with `prisma migrate deploy` + seed. | `mission/I-63-ci-quality` | `iso-ci` | I-62 (to avoid concurrent heavy installs) | queued |
+| I-63 | **W2+W3 Quality gates.** Coverage thresholds ratcheted at the current level (no drop allowed), and a Playwright E2E job in `.github/workflows/ci.yml` backed by a **local Supabase stack** (`supabase start`: Postgres + Auth + storage) with `prisma migrate deploy` + `scripts/e2e/seed-e2e.ts`. A plain Postgres service container is **not sufficient** — see discovery below. | `mission/I-63-ci-quality` | `iso-ci` | I-62 (to avoid concurrent heavy installs) | queued |
 | I-64 | **W4 Reliability.** Additive `ErrorEvent` model + migration, `reportError()` persistence with dedupe and scrubbing, and an admin/superadmin error view. Additive only. | `mission/I-64-error-capture` | `iso-errors` | — | running |
 | I-65 | **W5+W6 Governance.** `SECURITY.md` (disclosure policy), `CODEOWNERS`, RPO/RTO and retention policy, and a restore-drill runbook in `docs/`. | `mission/I-65-governance` | `iso-governance` | — | running |
 
@@ -83,6 +83,14 @@ evidence and remediation, not a certificate.
 - Production errors persisted and visible to an administrator.
 - `SECURITY.md`, `CODEOWNERS`, RPO/RTO, retention and restore runbook present.
 - Plan updated with final evidence; issues/PRs reflect reality; nothing claimed that was not run.
+
+## Findings during the mission
+
+| Date | Finding | Consequence |
+|---|---|---|
+| 10-29 | The E2E suite authenticates through **Supabase Auth** (`supabase.auth.admin.listUsers`, `@supabase/ssr` sessions), and `e2e/global-setup.ts` refuses to run unless `DATABASE_URL` host matches `E2E_ALLOWED_DB_HOST` **and** `E2E_CONFIRM_PRODUCTION=yes`. There is no `supabase/` project config in the repo. | E2 "disposable Postgres" cannot be implemented with a bare Postgres service container. The faithful, credential-free implementation is the **Supabase local stack** (`supabase start`, Docker on the runner), plus a CI-only guard mode that keeps the production acknowledgement intact for any real-project run. |
+| 10-29 | `vitest.config.ts` has **no coverage block**, and `@vitest/coverage-v8` is not installed (vitest 3.2.7). | I-63 must add the matching coverage provider as a dev dependency — the only sanctioned dependency addition in this mission. |
+| 10-29 | `playwright.config.ts` runs `workers: 1` and `retries: 0` because the suite is stateful against a shared fixture. | The CI job must preserve serial execution; do not raise workers to make it "faster". |
 
 ## Risks and mitigations
 

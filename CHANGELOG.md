@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Automated accessibility gate (ISO 25010 usability, W9): axe-core runs over the login page, the dashboard page shell, the growth plan card, the hardware calibration page, the chat widget and the admin devices console, and fails on any serious or critical violation. Keyboard flows — pond switcher, chat composer, calibration steppers and the harvest modal — are driven with real key presses and assert focus movement, not only that a handler ran.
+- The chat closes on **Escape** from anywhere inside it, including the composer, and returns focus to the floating chat control.
+- `en` ↔ `hil` message-catalogue parity is enforced by a test, and the 19 missing sticker strings are translated. Tagalog stays an English overlay at 9.3% complete and is reported, not gated, pending the owner's decision in #327.
+
+### Fixed
+
+- Chat messages rendered list items as `<span>` inside `<ul>`/`<ol>`. The markup was invalid and screen readers would not announce the list; items are now `<li>`.
+- The admin devices "needs attention" filter put `aria-pressed` on a link, which is not a valid ARIA attribute for that role (`aria-current` now marks the active filter).
+- The collapsed chat panel and mobile sheet stayed in the tab order while `aria-hidden`, so a keyboard user could tab into a chat they could not see. Both are `inert` while closed.
+
 ## [1.29.0] - 2026-10-29
 
 ### Added

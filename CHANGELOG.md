@@ -9,9 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.27.0] - 2026-10-29
+
+### Added
+
+- #297 the desktop dashboard and admin sidebars are now retractable, with the collapsed state persisted and the benchmark notes in `docs/sidebar-benchmark.md`.
+
 ### Changed
 
 - #296 the Admin Overview **Device activity** chart now states its inclusive 14-farm-day range (from/to dates, Asia/Manila) instead of leaving the window implicit.
+- #298 the calendar now uses one shared full-viewport shell across the farmer, admin and superadmin views: the grid stays static and the side pane is the only scrolling surface. Architecture notes are in `docs/calendar-architecture.md`.
 
 ## [1.26.0] - 2026-10-29
 

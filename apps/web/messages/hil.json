@@ -2087,6 +2087,7 @@
 			"chartActivityTitle": "Aktibidad sang device",
 			"chartActivitySummary": "Mga panghitabo sang device kada adlaw sa nagligad nga {days} ka adlaw: {total} ka panghitabo.",
 			"chartActivitySummaryTruncated": "Mga panghitabo sang device kada adlaw sa nagligad nga {days} ka adlaw: labing menos {total} ka panghitabo (ang pinakabag-o nga 5,000 ka row).",
+			"chartActivityRange": "Range: {from} – {to} · {days} ka adlaw sa uma (Asia/Manila).",
 			"chartTruncatedNote": "Ang isa ka series naka-cap sa pinakabag-o nga 5,000 ka row, gani ang total sini lower bound kag ang pinakaluma nga adlaw puede partial.",
 			"chartHealthTitle": "Kahimtangan sang mga device",
 			"chartHealthSummary": "{online} online kag {offline} offline sa {total} ka device.",

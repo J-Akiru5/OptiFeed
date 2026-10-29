@@ -2108,6 +2108,7 @@
 			"chartActivityTitle": "Device activity",
 			"chartActivitySummary": "Device events per day over the last {days} days: {total} events.",
 			"chartActivitySummaryTruncated": "Device events per day over the last {days} days: at least {total} events (the newest 5,000 rows).",
+			"chartActivityRange": "Range: {from} – {to} · {days} farm days (Asia/Manila).",
 			"chartTruncatedNote": "One series is capped at the newest 5,000 rows, so its total is a lower bound and its oldest day may be partial.",
 			"chartHealthTitle": "Fleet health",
 			"chartHealthSummary": "{online} online and {offline} offline of {total} devices.",

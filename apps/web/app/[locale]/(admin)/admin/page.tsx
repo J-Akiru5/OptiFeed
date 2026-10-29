@@ -4,7 +4,7 @@ import { AdminOverviewCharts } from "@/components/admin/overview-charts";
 import { RecentActivityTable } from "@/components/recent-activity-table";
 import { getAdminStats } from "@/lib/actions/admin";
 import { getAdminOverview } from "@/lib/actions/admin-overview";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatDateTimeLocal, formatFarmDateTime } from "@/lib/date-local";
 import { LayoutDashboard } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -28,6 +28,12 @@ export default async function AdminOverviewPage() {
 		const key = `source_${source}`;
 		return tAudit.has(key) ? tAudit(key) : source;
 	};
+	const activityFromLabel = overview.activityFrom
+		? formatFarmDateTime(new Date(`${overview.activityFrom}T00:00:00+08:00`), tDates).fullDate
+		: "—";
+	const activityToLabel = overview.activityTo
+		? formatFarmDateTime(new Date(`${overview.activityTo}T00:00:00+08:00`), tDates).fullDate
+		: "—";
 
 	return (
 		<div className="space-y-6">
@@ -81,6 +87,11 @@ export default async function AdminOverviewPage() {
 									days: overview.activityDays,
 									total: overview.activityTotal,
 								}),
+						activityRange: t("chartActivityRange", {
+							from: activityFromLabel,
+							to: activityToLabel,
+							days: overview.activityDays,
+						}),
 						healthTitle: t("chartHealthTitle"),
 						healthSummary: t("chartHealthSummary", {
 							online: overview.deviceHealth.online,

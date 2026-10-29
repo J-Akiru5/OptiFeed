@@ -19,7 +19,7 @@ import prisma from "@/lib/prisma";
 
 /** OTA lifecycle rows written by the ingest transition detector. */
 export const OTA_EVENT_TYPES = ["ota_installed", "ota_valid", "ota_rolled_back"] as const;
-export type OtaEventType = (typeof OTA_EVENT_TYPES)[number];
+type OtaEventType = (typeof OTA_EVENT_TYPES)[number];
 
 /** A heartbeat-first version row (covers USB flashes and first contact). */
 export const FIRMWARE_REPORTED_EVENT = "firmware_reported";

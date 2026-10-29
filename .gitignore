@@ -31,3 +31,6 @@ dist/
 
 # Prisma
 prisma/migrations/*/migration_engine.log
+
+# Restore-drill evidence generated locally (CI uploads its own copy)
+artifacts/

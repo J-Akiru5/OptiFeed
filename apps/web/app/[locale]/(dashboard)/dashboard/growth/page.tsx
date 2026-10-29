@@ -155,7 +155,18 @@ export default async function GrowthPage() {
 	const sgrAverageDailyGainG = averageDailyGain(overallSgrSamples);
 	const sgrReason = sgrUnavailableReason(overallSgrSamples);
 
-	const cycleContext = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
+	const effectiveTargetWeightG =
+		loadedPlan?.plan.targetWeightG ?? activeCycle?.targetHarvestWeightG ?? null;
+	// The Growth page shows the plan's effective target, which may come from
+	// the calculator rather than the cycle (issue #304). Passing it into the
+	// context keeps the prediction card's target and projected biomass in step
+	// with the plan.
+	const cycleContext = activeCycle
+		? toPredictionCycleContext(
+				{ ...activeCycle, targetHarvestWeightG: effectiveTargetWeightG },
+				todayDateOnly(),
+			)
+		: null;
 
 	// Deterministic prediction shown instantly; the client card refines it
 	// with the AI provider in the background.
@@ -359,9 +370,7 @@ export default async function GrowthPage() {
 											days: Math.abs(cycleContext.daysToHarvest),
 										})
 									: tHarvest("harvestIn", { days: cycleContext.daysToHarvest })}
-								{activeCycle.targetHarvestWeightG
-									? ` · ${activeCycle.targetHarvestWeightG} g target`
-									: ""}
+								{effectiveTargetWeightG ? ` · ${effectiveTargetWeightG} g target` : ""}
 							</p>
 						</div>
 					</div>
@@ -418,6 +427,7 @@ export default async function GrowthPage() {
 				pondId={pond.id}
 				population={pond.population}
 				feedsPerDay={currentConfig?.feedsPerDay ?? pond.feedsPerDay}
+				canSetTarget={Boolean(activeCycle)}
 			/>
 
 			<div

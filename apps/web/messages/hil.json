@@ -889,7 +889,20 @@
 				"fcr": "FCR {fcr}",
 				"density": "{density} isda/m²",
 				"densityHigh": "Density {density}/m² — i-check ang aeration.",
-				"densityUnknown": "Idugang ang area sang punong sa Settings para sa density."
+				"densityUnknown": "Idugang ang area sang punong sa Settings para sa density.",
+				"sourceCalculator": "Target halin sa calculator",
+				"biomassTitle": "Biomass sa ani",
+				"targetBiomass": "Target sa ani",
+				"currentBiomass": "Subong nga biomass",
+				"expectedBiomass": "Expected subong",
+				"biomassGap": "Gap sa target",
+				"projectedBiomass": "Projected sa ani",
+				"projectedGap": "Projected nga gap",
+				"savedTargetHint": "Ini nga target halin sa feed calculator. Tangtanga para magamit ang target sang cycle.",
+				"clearTarget": "Tangtanga ang target",
+				"clearingTarget": "Ginatangtang...",
+				"targetCleared": "Natangtang ang growth target. Ang target sang cycle ang ginagamit liwat.",
+				"targetClearError": "Indi matangtang ang growth target."
 			},
 			"prediction": {
 				"eyebrow": "AI nga Manuglaygay sa Pagpakaon",
@@ -1968,7 +1981,14 @@
 			"suggestedRate": "Ginasugyot nga Rate sang Pagpakaon",
 			"perMeal": "Kada pakaon: {grams} g",
 			"usingFcr": "Ginagamit ang pinakabag-o nga FCR: {fcr}",
-			"noFcr": "Wala pa FCR report - 1.5 nga reference ang ginagamit."
+			"noFcr": "Wala pa FCR report - 1.5 nga reference ang ginagamit.",
+			"setAsTarget": "I-set bilang growth target",
+			"settingTarget": "Gina-save ang target...",
+			"targetSaved": "Na-save ang growth target: {weight} kg sa ani.",
+			"targetSavedShort": "Na-save nga target: {weight} kg sa ani.",
+			"targetError": "Indi ma-save ang growth target.",
+			"targetHint": "I-save ini nga timbang bilang harvest target sang active nga cycle. Ang rekomendasyon sa pagpakaon maga-adjust sa sulod sang 10% / 15 ka adlaw nga limit.",
+			"targetNeedsCycle": "Mag-start sang grow-out cycle antes mag-set sang growth target."
 		},
 		"importExport": {
 			"export": "I-export ang Datos",

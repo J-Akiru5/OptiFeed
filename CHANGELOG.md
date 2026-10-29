@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- #304 the feed calculator can save its result as the pond's growth target. The Growth page now shows the target biomass at harvest, the current/expected biomass and the remaining gap, and the feeding recommendation (including the AI feeder card) derives from the saved target inside the existing 10% / 15-day envelope and device per-meal cap. The target is stored in the pond profile JSON bridge, scoped per pond and tenant, and never moves the cycle's harvest date.
+
 ### Changed
 
 - #296 the Admin Overview **Device activity** chart now states its inclusive 14-farm-day range (from/to dates, Asia/Manila) instead of leaving the window implicit.

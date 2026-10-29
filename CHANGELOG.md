@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- #287 the floating chat button now shows Pakoy's head instead of a generic message-square glyph while the chat is closed; the open state keeps the close (X) control, and the button's accessible name is unchanged.
+
 ## [1.23.0] - 2026-10-29
 
 ### Added

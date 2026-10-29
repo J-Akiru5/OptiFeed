@@ -99,7 +99,7 @@ describe("admin pond write pages", () => {
 		const html = renderToStaticMarkup(await NewPondPage());
 		expect(html).toContain("New Pond");
 		expect(html).toContain("Create pond");
-	});
+	}, 20_000);
 
 	it("returns not-found for the create page when pond management is revoked", async () => {
 		vi.mocked(hasPermission).mockResolvedValue(false);

@@ -51,14 +51,14 @@ Four independent versions. They do not replace each other.
 | **Plan document** | SemVer | `1.1.0` | MAJOR: scope/decision reversal; MINOR: added phase/contract; PATCH: wording or evidence |
 | **Model asset** | SemVer | `1.1.0` | MAJOR: silhouette, topology or live-node contract breaks; MINOR: new detail/material; PATCH: geometry fix |
 | **Viewer contract** | Integer | `1` | Increment on a breaking prop, status or node-name change |
-| **App release** | SemVer | `1.30.2` | The tape-calibrated model rebuild ships as PATCH 1.30.2; applied at release prep |
+| **App release** | SemVer | `1.30.3` | The tape-calibrated model rebuild ships as PATCH 1.30.3; applied at release prep |
 
 Rules:
 
-1. The GLB filename carries the model version: `feeder-v1.1.0.glb`. A new version is a new file; published versions are never overwritten.
+1. The GLB filename carries the model version: `feeder-v1.1.1.glb`. A new version is a new file; published versions are never overwritten.
 2. `apps/web/lib/feeder/model-manifest.json` is the single source of truth for `version`, `contract`, `file`, `sha256`, triangle count, dimensions revision, generator and build time. The viewer imports it; it never hard-codes the URL.
 3. The build script writes the manifest and the GLB together, so they cannot drift.
-4. `CACHE_NAME` in `public/sw.js` is bumped when the model URL changes (`pakaonai-static-v5` → `v6`). Old cache entries are purged on activate.
+4. `CACHE_NAME` in `public/sw.js` is bumped when the model URL changes (`pakaonai-static-v6` → `v7`). Old cache entries are purged on activate.
 5. A breaking node rename or removal increments the model MAJOR **and** the viewer contract, in the same change.
 6. `CHANGELOG.md` gets an `Unreleased` entry with the change. Version files (`package.json` root and `apps/web`) are updated only during release prep, after all gates pass.
 7. Agents prepare releases. The owner creates and pushes the tag and publishes. No tag, no GitHub Release and no npm publication by an agent.
@@ -76,7 +76,7 @@ Proposed release note (draft, not final):
 
 All dimensions live in `tools/feeder-model/dimensions.json`. Changing a measurement updates the model without touching code.
 
-The current revision is `tape-2026-10-29`, built from Jeff's filled measurement sheet (`feeder-dimensions-2026-10-29.json`). It supersedes the photo-ratio estimates: a 340 × 450 mm base, a 145 × 450 × 315 mm chassis, one whole 400 mm PET jar on a 200 mm shelf, a 50 mm auger tube, a 60 mm motor, the ultrasonic sensor on the lid, and a 750 mm wire-guide post. The sheet's `B10 = 20` is applied as **200 mm** (20 cm), the only reading consistent with the 400 mm jar, the 530 mm sensor and the photos. The model asset is `1.1.0`; this is a PATCH to the app, not a viewer-contract change.
+The current revision is `tape-2026-10-29-amended`, built from Jeff's filled measurement sheet (`feeder-dimensions-2026-10-29.json`) plus the 2026-10-29 layout review. It supersedes the photo-ratio estimates: a 340 × 450 mm base, a 145 × 450 × 315 mm chassis, one whole 380 mm PET jar on a 200 mm shelf, a 50 mm auger tube, a 60 mm motor, the ultrasonic sensor on the lid at 515 mm, and a 750 mm wire-guide post. The sheet's `B10 = 20` is applied as **200 mm** (20 cm), the only reading consistent with the jar, the sensor and the photos. The model asset is `1.1.1`; this is a PATCH to the app, not a viewer-contract change. The 2026-10-29 layout amendments move the controller panel under the sticker, attach the post to the jar with a front-parallel arm, shorten the jar by 20 mm and add the left shelf-support plank.
 
 ### Parts
 
@@ -118,7 +118,7 @@ tools/feeder-model/
   dimensions.json      # every measurement in one place (mm)
   preview.py           # optional preview renderer
 apps/web/public/models/
-  feeder-v1.1.0.glb
+  feeder-v1.1.1.glb
 apps/web/lib/feeder/
   model-manifest.json
 docs/feeder/
@@ -131,7 +131,7 @@ Commands:
 ```powershell
 blender --background --factory-startup --python tools/feeder-model/build.py -- `
   --dims tools/feeder-model/dimensions.json `
-  --glb apps/web/public/models/feeder-v1.1.0.glb `
+  --glb apps/web/public/models/feeder-v1.1.1.glb `
   --manifest apps/web/lib/feeder/model-manifest.json `
   --preview docs/feeder
 ```
@@ -372,7 +372,7 @@ Reference photos stay in `Downloads`; they are not committed.
 | Phase | State |
 | --- | --- |
 | 0 — plan | Merged to `develop` in PR #295 (`21def62`). |
-| 1 — model | Tape-calibrated and built headlessly with Blender 5.2.3 LTS: `feeder-v1.1.0.glb` is **1,147,420 bytes / 37,800 triangles**, with a generated manifest and `docs/feeder/preview-{iso,front,side,rear,top}.png`. Triangles are above the 20k target; the model is under the 2 MB ceiling and has no Draco/Meshopt. Dimensions revision is `tape-2026-10-29`. |
+| 1 — model | Tape-calibrated and built headlessly with Blender 5.2.3 LTS: `feeder-v1.1.1.glb` is **1,165,132 bytes / 38,284 triangles**, with a generated manifest and `docs/feeder/preview-{iso,front,side,rear,top}.png`. Triangles are above the 20k target; the model is under the 2 MB ceiling and has no Draco/Meshopt. Dimensions revision is `tape-2026-10-29-amended`. |
 | 2 — viewer | Device detail route, lazy R3F scene, camera presets, live level/status binding, SVG fallback, and a full-viewer/simple-view switch. |
 | 3 — data/auth | `getDeviceDetail` resolves org scope first and falls back to the caller's active farm; `/api/devices/[id]/state` is session-authenticated, no-store and scoped by the same query. |
 | 4 — surfaces | Controller-card link, admin device-row/card 3D links, `en`/`hil`/`tl` keys, and service-worker v5 caching for `/models/`. |

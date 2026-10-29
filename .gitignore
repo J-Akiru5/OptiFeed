@@ -10,6 +10,11 @@ build/
 dist/
 .pio/
 
+# Test / coverage outputs
+coverage/
+playwright-report/
+test-results/
+
 # Environment variables
 .env
 .env.local

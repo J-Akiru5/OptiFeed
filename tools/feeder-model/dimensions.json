@@ -1,7 +1,7 @@
 {
-	"revision": "tape-2026-10-29-amended",
+	"revision": "tape-2026-10-29-post",
 	"units": "mm",
-	"notes": "Tape measurements supplied by Jeff in feeder-dimensions-2026-10-29.json, with the 2026-10-29 layout amendments. The base top is height 0 and +Z is the front. The hopper is one whole PET jar on its conical shoulder, not three tiers. The jar is shortened by 20 mm from the tape value (400 -> 380) so the pot sits lower; the shelf stays at 200 mm. The black controller panel now sits directly under the sticker with no gap. The vertical post is moved into the 10 mm gap against the jar's right side and the chassis, so it supports the hopper/shelf; its arm runs left-to-right, parallel to the front. A vertical white plank under the left edge of the shelf supports the platform from the base (reference photo). The ultrasonic sensor sits on the jar lid; the post arm is a wire guide. Missing from the sheet: separate jar-tier heights (single jar) and hinge spacing (defaulting to 60% of the chassis width).",
+	"notes": "Tape measurements supplied by Jeff in feeder-dimensions-2026-10-29.json, with the 2026-10-29 layout amendments. The base top is height 0 and +Z is the front. The hopper is one whole PET jar on its conical shoulder, not three tiers. The jar is shortened by 20 mm from the tape value (400 -> 380) so the pot sits lower; the shelf stays at 200 mm. The black controller panel now sits directly under the sticker with no gap. The vertical post is moved into the 10 mm gap against the jar's right side and the chassis, so it supports the hopper/shelf; its arm runs left-to-right, parallel to the front. A vertical white plank under the left edge of the shelf supports the platform from the base (reference photo). The ultrasonic sensor sits on the jar lid; the post arm is a wire guide. The post top is 105 mm above the hopper/lid top: lid top 510 -> post top 615, not the earlier 750 estimate. Missing from the sheet: separate jar-tier heights (single jar) and hinge spacing (defaulting to 60% of the chassis width).",
 	"base_plate": {
 		"width": 340,
 		"depth": 450,
@@ -69,13 +69,13 @@
 		"transducer_offset": 12
 	},
 	"post": {
-		"center": [20, 375, 127.5],
+		"center": [20, 307.5, 127.5],
 		"width": 10,
-		"height": 750,
+		"height": 615,
 		"depth": 30
 	},
 	"post_arm": {
-		"center": [-20, 745, 127.5],
+		"center": [-20, 610, 127.5],
 		"width": 80,
 		"height": 10,
 		"depth": 10

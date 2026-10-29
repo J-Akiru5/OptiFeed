@@ -18,6 +18,11 @@ import { useTranslations } from "next-intl";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { type Object3D, PMREMGenerator } from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import {
+	FEEDER_COMPONENT_STATUS_ID,
+	FeederComponentStatusList,
+	FeederLabels,
+} from "./feeder-labels";
 
 interface FeederViewerProps {
 	label: string;
@@ -47,12 +52,13 @@ function StudioEnvironment() {
 	return null;
 }
 
-function CameraRig({ preset }: { preset: CameraPreset }) {
+function CameraRig({ preset }: { preset: CameraPreset | "custom" }) {
 	const { camera } = useThree();
 	useEffect(() => {
+		if (preset === "custom") return;
 		const [x, y, z] = CAMERA_PRESETS[preset];
 		camera.position.set(x, y, z);
-		camera.lookAt(0, 0.37, 0.03);
+		camera.lookAt(0, 0.31, 0.03);
 	}, [camera, preset]);
 	return null;
 }
@@ -94,12 +100,12 @@ export function FeederViewer({
 	onSimpleView,
 }: FeederViewerProps) {
 	const t = useTranslations("dashboard.feederViewer");
-	const [preset, setPreset] = useState<CameraPreset>("iso");
+	const [preset, setPreset] = useState<CameraPreset | "custom">("iso");
 	const statusLabel = t(`status${status.charAt(0).toUpperCase()}${status.slice(1)}`);
 	const level = feedLevelPercent === null ? null : Math.min(100, Math.max(0, feedLevelPercent));
 
 	return (
-		<div className="overflow-hidden rounded-3xl border border-[#0A3D62]/10 bg-[#0B2336] text-white shadow-sm dark:border-white/10">
+		<div className="overflow-hidden rounded-3xl border border-[#0A3D62]/10 bg-[radial-gradient(circle_at_50%_42%,rgba(125,211,252,0.16),transparent_38%),radial-gradient(ellipse_at_50%_40%,#143c5e_0%,#0B2336_58%,#071a2a_100%)] text-white shadow-sm dark:border-white/10">
 			<div className="flex flex-wrap items-start justify-between gap-3 px-4 pt-4">
 				<div>
 					<p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/55">
@@ -124,9 +130,11 @@ export function FeederViewer({
 			</div>
 
 			<div
-				className="relative h-[300px] w-full sm:h-[380px]"
+				className="relative h-[300px] w-full md:h-[400px] lg:h-[440px]"
 				role="img"
 				aria-label={t("canvasLabel", { label })}
+				aria-describedby={preset === "iso" ? FEEDER_COMPONENT_STATUS_ID : undefined}
+				data-camera-preset={preset}
 			>
 				<Canvas
 					camera={{ position: [...CAMERA_PRESETS.iso], fov: 34 }}
@@ -134,7 +142,6 @@ export function FeederViewer({
 					shadows
 					gl={{ antialias: true, alpha: true }}
 				>
-					<color attach="background" args={["#0B2336"]} />
 					<StudioEnvironment />
 					<ambientLight intensity={0.6} />
 					<hemisphereLight args={["#e8f2ff", "#081624", 0.7]} />
@@ -154,10 +161,13 @@ export function FeederViewer({
 						maxDistance={2.8}
 						minPolarAngle={0.25}
 						maxPolarAngle={Math.PI / 2.02}
-						target={[0, 0.37, 0.03]}
+						target={[0, 0.31, 0.03]}
+						onStart={() => setPreset("custom")}
 					/>
 				</Canvas>
+				<FeederLabels status={status} level={level} active={preset === "iso"} />
 			</div>
+			<FeederComponentStatusList status={status} level={level} active={preset === "iso"} />
 
 			<div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 px-4 py-3">
 				<div className="flex flex-wrap gap-1" aria-label={t("presetsLabel")}>
@@ -168,10 +178,10 @@ export function FeederViewer({
 							onClick={() => setPreset(key)}
 							aria-pressed={preset === key}
 							className={cn(
-								"rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
+								"rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
 								preset === key
-									? "bg-white text-[#0A3D62]"
-									: "bg-white/10 text-white/70 hover:bg-white/15",
+									? "bg-[#ff9a70] text-[#071a2a] shadow-[0_4px_16px_rgba(255,154,112,0.28)]"
+									: "bg-white/[0.07] text-white/65 hover:bg-white/15",
 							)}
 						>
 							{t(CAMERA_PRESET_LABELS[key])}
@@ -182,7 +192,7 @@ export function FeederViewer({
 					<button
 						type="button"
 						onClick={onSimpleView}
-						className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-white/70 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+						className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white/70 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
 					>
 						<RotateCcw className="size-3" aria-hidden="true" />
 						{t("simpleView")}

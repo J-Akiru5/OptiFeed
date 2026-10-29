@@ -42,8 +42,13 @@ in the dashboard; VIEWER is read-only.
 
 ## 4. Restore a backup
 
-- **Supabase PITR** (preferred): Database → Backups → point-in-time restore
-  to just before the incident. This creates a new project — repoint
+The full procedure, RPO/RTO, retention and the drill record live in
+`docs/operations/backup-and-recovery.md`. This section is the short incident form.
+PITR availability on this project has **not** been confirmed; check it there before
+relying on it.
+
+- **Supabase PITR** (preferred, if the plan provides it): Database → Backups →
+  point-in-time restore to just before the incident. This creates a new project — repoint
   `DATABASE_URL`/`DIRECT_URL` after the restore.
 - **Logical restore**: `pg_restore` from a scheduled `pg_dump`, or re-run
   migrations on an empty database and restore the dump:

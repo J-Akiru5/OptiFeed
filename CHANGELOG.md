@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.30.3] - 2026-10-29
+
+### Fixed
+
+- Feeder layout amendments from the owner's photos: the black controller panel now touches the sticker with no gap, the 750 mm post sits against the jar's right side and the chassis with its arm parallel to the front, the jar is 20 mm shorter, and a vertical white plank supports the left edge of the hopper shelf. Model asset `feeder-v1.1.1.glb` (1,165,132 bytes, 38,284 triangles); service-worker cache **v7**.
+
 ## [1.30.2] - 2026-10-29
 
 ### Fixed

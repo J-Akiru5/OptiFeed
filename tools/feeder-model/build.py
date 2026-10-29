@@ -829,6 +829,27 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
         collection,
         bevel_mm=1,
     )
+    support = dims["shelf_support"]
+    add_box(
+        "Shelf_Support",
+        (support["width"], support["height"], support["depth"]),
+        tuple(support["center"]),
+        mats["paint_white"],
+        collection,
+        bevel_mm=1.5,
+    )
+    for index, screw_y in enumerate((100, 160)):
+        add_cylinder(
+            f"Shelf_Support_Screw_{index + 1}",
+            3,
+            1.5,
+            (support["center"][0] - support["width"] / 2.0 - 0.5, screw_y, support["center"][2]),
+            mats["silver"],
+            collection,
+            axis="X",
+            verts=16,
+            bevel_mm=0.3,
+        )
 
     neck = dims["neck"]
     add_cylinder(
@@ -875,9 +896,9 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
         (shoulder_r + 10, 90),
         (body_r - 2, 105),
         (body_r, body_h),
-        (body_r, 370),
-        (body_r - 2, 385),
-        (body_r - 4, 395),
+        (body_r, hopper_height - 30),
+        (body_r - 2, hopper_height - 15),
+        (body_r - 4, hopper_height - 5),
         (body_r - 5, hopper_height),
     ]
     ribbed: list[tuple[float, float]] = []
@@ -1291,12 +1312,12 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
         "Cable_Sensor",
         [
             (sensor["center"][0], sensor["center"][1] + sensor["height"] / 2.0, sensor["center"][2] - sensor["depth"] / 2.0),
-            (-40, 555, 130),
-            (20, 620, -60),
-            (20, 745, -157.5),
-            (20, 750, -210),
-            (20, 300, -210),
-            (24, 30, -195),
+            (-70, 555, 140),
+            (-20, 620, 127.5),
+            (-20, 745, 127.5),
+            (20, 750, 127.5),
+            (20, 300, 127.5),
+            (24, 30, 150),
         ],
         1.5,
         mats["cable_gray"],
@@ -1634,7 +1655,7 @@ def main() -> int:
     }
     manifest_path = Path(args.manifest)
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(json.dumps(manifest, indent="\t") + "\n", encoding="utf-8")
+    manifest_path.write_text(json.dumps(manifest, indent="\t") + "\n", encoding="utf-8", newline="\n")
     print(f"[manifest] {manifest_path} triangles={triangles}")
     return 0
 

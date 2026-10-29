@@ -2,6 +2,7 @@ import { OfflineBanner } from "@/components/pwa/offline-banner";
 import { PwaRegister } from "@/components/pwa/pwa-register";
 import { ThemeProvider } from "@/components/theme-provider";
 import { routing } from "@/i18n/routing";
+import { resolveSiteUrl } from "@/lib/site-url";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata, Viewport } from "next";
@@ -17,7 +18,9 @@ const inter = Inter({
 	variable: "--font-inter",
 });
 
-const SITE_URL = "https://pakaonai.syntaxure.dev";
+// Env-driven so a container or preview deployment advertises its own host;
+// unset falls back to the production origin (lib/site-url.ts).
+const SITE_URL = resolveSiteUrl();
 const OG_IMAGE_ALT = "PakaonAI — AI-powered smart feeding for catfish farms";
 
 export const metadata: Metadata = {

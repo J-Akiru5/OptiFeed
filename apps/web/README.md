@@ -33,6 +33,7 @@ Key env vars (full list in `apps/web/.env.example`):
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | CRITICAL alerts (no-op until set) |
 | `RESEND_API_KEY` / `REMINDER_FROM_EMAIL` | Harvest/sampling reminder email (optional; in-app only until all email vars are set) |
 | `NEXT_PUBLIC_BASE_URL` | Absolute links in alerts/exports and reminder emails |
+| `NEXT_PUBLIC_SITE_URL` | Origin advertised by `robots.txt`, `sitemap.xml` and social metadata (defaults to production) |
 | `OPENCODE_GO_API_KEY` / `OPENCODE_GO_MODEL` / `OPENCODE_GO_REASONING_EFFORT` | AI chat + feeding prediction (OpenCode Go) |
 | `GEMINI_API_KEY` | Gemini fallback when the primary provider fails |
 | `E2E_ALLOWED_DB_HOST` | Playwright guard: e2e only runs against this DB host |

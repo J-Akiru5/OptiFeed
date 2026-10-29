@@ -1,0 +1,60 @@
+# Keep the build context to what `pnpm install` and `next build` actually read.
+
+# Version control and editor state
+.git
+.gitignore
+.gitattributes
+.github
+.husky
+.vscode
+.idea
+
+# Installed dependencies and previous build output — always rebuilt in-image
+node_modules
+**/node_modules
+.next
+**/.next
+.turbo
+**/.turbo
+.vercel
+out
+dist
+build
+.pio
+
+# Environment files and secrets. Nothing at build time needs them; the runtime
+# receives configuration through the environment (docker compose `env_file`).
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+
+# Test and coverage artifacts
+test-results
+**/test-results
+playwright-report
+**/playwright-report
+blob-report
+**/blob-report
+coverage
+**/coverage
+*.tsbuildinfo
+
+# Firmware and hardware assets — not part of the web image
+firmware
+
+# Documentation and design sources — not part of the web image
+docs
+*.md
+*.pdf
+roadmap.html
+pantat_biomass_dataset.html
+default_shadcn_theme.css
+
+# Logs and OS noise
+*.log
+.DS_Store
+
+# Local compose file overrides
+docker-compose.override.yml

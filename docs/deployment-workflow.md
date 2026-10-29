@@ -7,6 +7,10 @@ production. `CONTRIBUTING.md` covers the day-to-day developer workflow; this
 document covers the pipeline itself, what is verified, and what is still
 blocked on manual action.
 
+Container deployment (`Dockerfile`, `docker-compose.yml`, environment matrix) is
+documented separately in [`docs/operations/deployment.md`](./operations/deployment.md);
+it is not part of the Vercel pipeline and does not affect it.
+
 ---
 
 ## 1. Branch and deployment matrix
@@ -112,8 +116,9 @@ Guarantees:
   branch runs always finish so their result is a trustworthy gate.
 
 Not covered by the `quality` job (run manually when relevant): Playwright
-end-to-end specs (need a database and a running server) and Vercel project
-configuration. Firmware compilation has its own `Firmware` workflow
+end-to-end specs (need a database and a running server), Vercel project
+configuration, and the container image (`Dockerfile` / `docker-compose.yml` —
+CI does not build it yet). Firmware compilation has its own `Firmware` workflow
 (`.github/workflows/firmware.yml`): it runs on `firmware/**` changes, compiles
 the ESP32 sketch with `arduino-cli`, and never flashes or deploys a device.
 

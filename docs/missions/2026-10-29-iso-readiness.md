@@ -64,7 +64,7 @@ An "A" that a stranger cannot re-verify from this repository alone does not coun
 | I-62 | **W1 Supply chain.** Triage the 93 findings, pin `pnpm.overrides`/targeted upgrades for the 2 criticals and reachable highs, add `.github/workflows/security.yml` (`pnpm audit --audit-level=high`) and `.github/dependabot.yml`. No broad majors. | `mission/I-62-supply-chain` | `iso-supply-chain` | — | running |
 | I-63 | **W2+W3 Quality gates.** Coverage thresholds ratcheted at the current level (no drop allowed), and a Playwright E2E job in `.github/workflows/ci.yml` backed by a **local Supabase stack** (`supabase start`: Postgres + Auth + storage) with `prisma migrate deploy` + `scripts/e2e/seed-e2e.ts`. A plain Postgres service container is **not sufficient** — see discovery below. | `mission/I-63-ci-quality` | `iso-ci` | I-62 (to avoid concurrent heavy installs) | queued |
 | I-64 | **W4 Reliability.** Additive `ErrorEvent` model + migration, `reportError()` persistence with dedupe and scrubbing, and an admin/superadmin error view. Additive only. | `mission/I-64-error-capture` | `iso-errors` | — | running |
-| I-65 | **W5+W6 Governance.** `SECURITY.md` (disclosure policy), `CODEOWNERS`, RPO/RTO and retention policy, and a restore-drill runbook in `docs/`. | `mission/I-65-governance` | `iso-governance` | — | running |
+| I-65 | **W5+W6 Governance.** `SECURITY.md` (disclosure policy), `CODEOWNERS`, RPO/RTO and retention policy, and a restore-drill runbook in `docs/`. | `mission/I-65-governance` | `iso-governance` | — | merged @ `8e51d75` (`810bf9b`) |
 | I-66 | **W7 Performance.** Bundle-size budget in CI, Lighthouse CI budgets on key pages, API latency baseline (p50/p95) with a regression gate, and an index/EXPLAIN audit of the heaviest queries. | `mission/I-66-performance` | `iso-perf` | I-62 (bundle tooling) | queued |
 | I-67 | **W8 Compatibility.** Playwright smoke on Chromium + Firefox + WebKit, responsive assertions, supported-browser matrix. | `mission/I-67-compatibility` | `iso-compat` | I-63 | queued |
 | I-68 | **W9 Usability/a11y.** axe-core on key pages with zero serious/critical enforced, keyboard tests for primary flows, i18n key parity. | `mission/I-68-a11y` | `iso-a11y` | — | queued |
@@ -132,6 +132,11 @@ An "A" that a stranger cannot re-verify from this repository alone does not coun
 | #319 | Pre-mirror growth targets need a one-off backfill | #304 follow-up |
 | #320 | `DeviceDailyCapForm` not migrated to the shared calibration field | #307 |
 | #321 | Superadmin step-up dialog has no dark palette | #309 scope decision |
+| #322 | Historical JSON exports omit `auth.users`, so a restore leaves orphan `User` rows | I-65 governance review |
+| #323 | Repository deployment docs and agent deployment governance disagree about `staging` | I-65 governance review |
+| #324 | `docs/legal/README.md` version snapshot is stale (1.11.0 vs 1.29.0) | I-65 governance review |
+| #325 | Privacy Policy commits to backups, but no backup configuration has ever been verified | I-65 governance review |
+| #326 | `CODEOWNERS` uses an inferred, unverified handle | I-65 governance review |
 
 The dependency allowlist review is filed once I-62 lands and the surviving entries are known.
 
@@ -152,3 +157,7 @@ The dependency allowlist review is filed once I-62 lands and the surviving entri
 | 10-29 | Assessment | Repo scanned (1,014 files, ~127k LOC, 241 test files, 38 migrations). Graded C+ overall with Security C- as the anchor. |
 | 10-29 | Owner decisions | E1 first-party error capture, E2 disposable Postgres E2E, E3 patch criticals + gate, E4 no production restore by agents. |
 | 10-29 | Mission opened | This plan committed before any worker started, per the owner's instruction. Worktrees and branches cut from `origin/develop` `8eb6ce4`. |
+| 10-29 | Bar raised | Owner requires **A** on every characteristic. The mission was restructured from 4 to 11 workstreams with measurable A-level exit criteria, and performance/usability moved from "out of scope" to in scope. |
+| 10-29 | E5 adopted | Every audit finding becomes a tracked issue. Six already filed (#316–#321), five more from the I-65 governance review (#322–#326). |
+| 10-29 | I-65 delivered | `mission/I-65-governance` @ `810bf9b`, 5 docs-only files, merged as `8e51d75`. `SECURITY.md`, `CODEOWNERS`, `backup-and-recovery.md` (RPO/RTO **24 h/24 h** with rationale and sub-targets), `restore-drill-record.md`, and a softened PITR claim in `docs/runbook.md`. Retention: backups 30 days, `ErrorEvent` 30 days — to be reconciled with I-64's implementation when it lands. |
+| 10-29 | I-65 findings | Five defects filed rather than fixed in scope: stale legal version snapshot (#324), unverified backup commitment behind the Privacy Policy (#325), JSON exports omitting `auth.users` (#322), inferred CODEOWNERS handle (#326), and the staging-deployment policy conflict (#323). |

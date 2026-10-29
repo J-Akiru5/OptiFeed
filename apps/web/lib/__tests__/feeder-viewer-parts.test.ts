@@ -1,6 +1,8 @@
 import {
 	CAMERA_PRESETS,
+	type FeederStatus,
 	chooseViewerTier,
+	feederComponentStatus,
 	feederStatus,
 	grainFillScale,
 } from "@/lib/feeder/feeder-parts";
@@ -65,6 +67,76 @@ describe("feeder viewer geometry", () => {
 
 	it("offers the six named camera presets", () => {
 		expect(Object.keys(CAMERA_PRESETS)).toEqual(["iso", "front", "left", "right", "rear", "top"]);
+	});
+
+	it("points the ISO preset at the front-left angle", () => {
+		expect(CAMERA_PRESETS.iso[0]).toBeLessThan(0);
+		expect(CAMERA_PRESETS.iso[2]).toBeGreaterThan(0);
+	});
+});
+
+describe("feeder viewer component status", () => {
+	function summary(status: FeederStatus, level: number | null) {
+		return feederComponentStatus({ status, level }).map(({ id, state, percent }) => [
+			id,
+			state,
+			percent,
+		]);
+	}
+
+	it("keeps the last hopper reading while every component is offline", () => {
+		expect(summary("offline", 30)).toEqual([
+			["hopper", "lastKnown", 30],
+			["sensor", "lastKnown", 30],
+			["controller", "offline", null],
+			["motor", "offline", null],
+			["auger", "offline", null],
+			["outlet", "offline", null],
+		]);
+	});
+
+	it("reports an idle feeder as online, idle and ready", () => {
+		expect(summary("idle", 30)).toEqual([
+			["hopper", "live", 30],
+			["sensor", "live", 30],
+			["controller", "online", null],
+			["motor", "idle", null],
+			["auger", "idle", null],
+			["outlet", "ready", null],
+		]);
+	});
+
+	it("reports a dispensing feeder as running with an open outlet", () => {
+		expect(summary("dispensing", 30).slice(2)).toEqual([
+			["controller", "online", null],
+			["motor", "running", null],
+			["auger", "running", null],
+			["outlet", "dispensing", null],
+		]);
+	});
+
+	it("reports a paused feeder as paused everywhere", () => {
+		expect(summary("paused", 30)).toEqual([
+			["hopper", "live", 30],
+			["sensor", "live", 30],
+			["controller", "paused", null],
+			["motor", "paused", null],
+			["auger", "paused", null],
+			["outlet", "paused", null],
+		]);
+	});
+
+	it("has no hopper reading when the level is missing, online or offline", () => {
+		for (const status of ["idle", "offline"] as const) {
+			const [hopper, sensor] = summary(status, null);
+			expect(hopper).toEqual(["hopper", "noReading", null]);
+			expect(sensor).toEqual(["sensor", "noReading", null]);
+		}
+	});
+
+	it("clamps the reported hopper percentage", () => {
+		expect(summary("idle", 150)[0]).toEqual(["hopper", "live", 100]);
+		expect(summary("idle", -5)[0]).toEqual(["hopper", "live", 0]);
 	});
 });
 

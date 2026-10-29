@@ -15,7 +15,7 @@ describe("service worker caching rules", () => {
 	const sw = publicFile("sw.js");
 
 	it("bumps the cache version so old static caches are purged", () => {
-		expect(sw).toContain('const CACHE_NAME = "pakaonai-static-v7"');
+		expect(sw).toContain('const CACHE_NAME = "pakaonai-static-v8"');
 		expect(sw).toMatch(
 			/filter\(\(key\) => key\.startsWith\(CACHE_PREFIX\) && key !== CACHE_NAME\)/,
 		);

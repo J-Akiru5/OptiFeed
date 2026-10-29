@@ -1085,6 +1085,15 @@ describe("catalogue lookups", () => {
 		expect(getAssistantActionDefinition("")).toBeNull();
 	});
 
+	it("returns null for inherited object members, not a prototype function", () => {
+		// A plain record lookup resolves inherited members, so "toString" used to
+		// return Object.prototype.toString (truthy) while the signature promises
+		// AssistantActionDefinition | null.
+		for (const id of ["toString", "constructor", "__proto__", "hasOwnProperty", "valueOf"]) {
+			expect(getAssistantActionDefinition(id), id).toBeNull();
+		}
+	});
+
 	it("reports today in farm time rather than UTC", () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date("2026-10-29T17:30:00.000Z"));

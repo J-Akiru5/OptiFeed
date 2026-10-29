@@ -3,6 +3,7 @@
 import { CheckCircle2, CircleAlert, Clock, Loader2, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type ChatActionState, isChatActionExpired } from "./chat-storage";
+import { chatActionAccept } from "./chat-theme";
 
 interface ChatActionCardProps {
 	action: ChatActionState;
@@ -47,7 +48,7 @@ export function ChatActionCard({ action, disabled, onConfirm, onCancel }: ChatAc
 							type="button"
 							onClick={onConfirm}
 							disabled={disabled}
-							className="inline-flex items-center gap-1.5 rounded-lg bg-[#E85A2A] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#d14e22] disabled:opacity-50"
+							className={chatActionAccept}
 						>
 							{disabled && <Loader2 className="h-3 w-3 animate-spin" />}
 							{t("actionAccept")}
@@ -56,7 +57,7 @@ export function ChatActionCard({ action, disabled, onConfirm, onCancel }: ChatAc
 							type="button"
 							onClick={onCancel}
 							disabled={disabled}
-							className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-600 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+							className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-600 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
 						>
 							{t("actionReject")}
 						</button>
@@ -65,12 +66,12 @@ export function ChatActionCard({ action, disabled, onConfirm, onCancel }: ChatAc
 					<p
 						className={`flex items-center gap-1.5 pt-1 text-xs font-bold ${
 							action.status === "confirmed"
-								? "text-green-600"
+								? "text-green-700 dark:text-green-400"
 								: action.status === "cancelled"
-									? "text-gray-500"
+									? "text-gray-500 dark:text-gray-400"
 									: expired || missingRow
 										? "text-amber-700 dark:text-amber-400"
-										: "text-red-600"
+										: "text-red-600 dark:text-red-400"
 						}`}
 					>
 						{action.status === "confirmed" ? (

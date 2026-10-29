@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { ChatConversation } from "./chat-conversation";
+import { chatSurface } from "./chat-theme";
 import { useChatWidget } from "./chat-widget-provider";
 
 const SWIPE_CLOSE_THRESHOLD_PX = 80;
@@ -64,7 +65,8 @@ export function ChatSheet() {
 		<div
 			aria-hidden={!isOpen}
 			className={cn(
-				"fixed inset-x-0 bottom-0 z-50 flex h-[80vh] flex-col rounded-t-3xl bg-white shadow-2xl md:hidden",
+				"fixed inset-x-0 bottom-0 z-50 flex h-[80vh] flex-col rounded-t-3xl shadow-2xl md:hidden",
+				chatSurface,
 				isOpen ? "translate-y-0" : "pointer-events-none translate-y-full",
 			)}
 			style={{
@@ -83,7 +85,7 @@ export function ChatSheet() {
 				onPointerCancel={handlePointerUp}
 				className="flex shrink-0 cursor-grab items-center justify-center py-2.5 active:cursor-grabbing"
 			>
-				<div className="h-1.5 w-12 rounded-full bg-gray-300" />
+				<div className="h-1.5 w-12 rounded-full bg-gray-300 dark:bg-gray-600" />
 			</div>
 
 			<div className="flex min-h-0 flex-1 flex-col">

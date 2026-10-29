@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.28.1] - 2026-10-29
+
+### Fixed
+
+- #309 the chat assistant is readable in dark mode. The panel, sheet, message list, bubbles, markdown, suggestion chips, composer and action card now use the dashboard's dark palette instead of light-only surfaces. The composer had no text colour at all, so it inherited the near-white dark-mode foreground on a light field. Message, composer, placeholder and action-status pairs meet WCAG AA (4.5:1) in both themes, and a regression test fails on any light-only chat class that has no dark counterpart.
+
 ## [1.28.0] - 2026-10-29
 
 ### Added

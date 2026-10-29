@@ -1,121 +1,169 @@
 {
-	"revision": "provisional-2026-10-29",
+	"revision": "tape-2026-10-29-amended",
 	"units": "mm",
-	"notes": "Provisional dimensions derived from reference photos. Replace with tape measurements; the build script reads every value from this file.",
+	"notes": "Tape measurements supplied by Jeff in feeder-dimensions-2026-10-29.json, with the 2026-10-29 layout amendments. The base top is height 0 and +Z is the front. The hopper is one whole PET jar on its conical shoulder, not three tiers. The jar is shortened by 20 mm from the tape value (400 -> 380) so the pot sits lower; the shelf stays at 200 mm. The black controller panel now sits directly under the sticker with no gap. The vertical post is moved into the 10 mm gap against the jar's right side and the chassis, so it supports the hopper/shelf; its arm runs left-to-right, parallel to the front. A vertical white plank under the left edge of the shelf supports the platform from the base (reference photo). The ultrasonic sensor sits on the jar lid; the post arm is a wire guide. Missing from the sheet: separate jar-tier heights (single jar) and hinge spacing (defaulting to 60% of the chassis width).",
 	"base_plate": {
-		"width": 760,
-		"depth": 480,
-		"thickness": 12,
-		"center": [40, 6, 0]
+		"width": 340,
+		"depth": 450,
+		"thickness": 10,
+		"center": [0, -5, 0]
 	},
 	"chassis": {
-		"width": 420,
-		"height": 330,
-		"depth": 300,
-		"center": [170, 177, -70],
-		"wall": 3
-	},
-	"frame": {
-		"width": 260,
-		"depth": 270,
-		"height": 318,
-		"center": [-170, 171, 0],
-		"panel": 18
+		"width": 145,
+		"height": 305,
+		"depth": 450,
+		"lid_thickness": 10,
+		"center": [97.5, 152.5, 0]
 	},
 	"shelf": {
-		"width": 260,
-		"depth": 270,
-		"thickness": 18,
-		"center": [-170, 321, 0]
+		"width": 195,
+		"depth": 240,
+		"thickness": 10,
+		"height": 200,
+		"center": [-82.5, 195, 105],
+		"hole_diameter": 155
+	},
+	"shelf_cleat": {
+		"center": [15, 185, 105],
+		"width": 20,
+		"height": 10,
+		"depth": 200
+	},
+	"shelf_support": {
+		"center": [-162.5, 95, 105],
+		"width": 15,
+		"height": 190,
+		"depth": 240
 	},
 	"hopper": {
-		"center": [-165, 330, 20],
-		"diameter": 230,
-		"height": 360,
-		"wall": 2.5
+		"center": [-82.5, 125, 127.5],
+		"diameter": 195,
+		"height": 380,
+		"wall": 3,
+		"neck_diameter": 45,
+		"shoulder_diameter": 155,
+		"shoulder_height": 75,
+		"body_start_height": 115,
+		"straps": 2,
+		"strap_heights": [225, 310],
+		"strap_width": 25
 	},
 	"lid": {
-		"diameter": 250,
-		"thickness": 18,
-		"center": [-165, 699, 20]
+		"diameter": 195,
+		"thickness": 5,
+		"center": [-82.5, 507.5, 127.5]
 	},
 	"grain": {
-		"center": [-165, 330, 20],
-		"max_diameter": 216,
-		"height": 354,
+		"center": [-82.5, 125, 127.5],
+		"max_diameter": 185,
+		"height": 250,
 		"default_fill_pct": 62
 	},
-	"funnel": {
-		"top": [-165, 330, 20],
-		"bottom": [-125, 253, 45],
-		"top_diameter": 110,
-		"bottom_diameter": 60
-	},
-	"tube": {
-		"start": [-165, 240, 20],
-		"yaw_deg": 32,
-		"pitch_deg": 20,
-		"length": 360,
-		"outer_diameter": 60,
-		"wall": 2.5,
-		"inlet_offset": 50
-	},
-	"auger": {
-		"diameter": 52,
-		"wire_diameter": 8,
-		"pitch": 60,
-		"shaft_diameter": 14
-	},
-	"motor": {
-		"body_length": 150,
-		"body_diameter": 84,
-		"offset_from_tube_start": 80,
-		"gearbox_width": 90,
-		"gearbox_height": 90,
-		"gearbox_depth": 40
-	},
-	"outlet": {
-		"cap_diameter": 72,
-		"cap_length": 25
+	"sensor": {
+		"center": [-82.5, 515, 170],
+		"width": 20,
+		"height": 10,
+		"depth": 45,
+		"transducer_diameter": 8,
+		"transducer_height": 3,
+		"transducer_offset": 12
 	},
 	"post": {
-		"center": [-55, 555, -105],
-		"width": 30,
-		"height": 450,
+		"center": [20, 375, 127.5],
+		"width": 10,
+		"height": 750,
 		"depth": 30
 	},
 	"post_arm": {
-		"center": [-130, 770, -105],
-		"width": 160,
-		"height": 20,
-		"depth": 30
-	},
-	"sensor": {
-		"center": [-165, 715, 20],
-		"width": 60,
+		"center": [-20, 745, 127.5],
+		"width": 80,
 		"height": 10,
-		"depth": 40
+		"depth": 10
 	},
+	"neck": {
+		"center": [-82.5, 120, 127.5],
+		"diameter": 60,
+		"height": 15
+	},
+	"riser": {
+		"center": [-82.5, 93.75, 127.5],
+		"outer_diameter": 50,
+		"inner_diameter": 44,
+		"height": 37.5
+	},
+	"tube": {
+		"start": [-82.5, 50, -150],
+		"yaw_deg": 90,
+		"pitch_deg": 0,
+		"length": 510,
+		"outer_diameter": 50,
+		"wall": 3,
+		"inlet_offset": 277.5
+	},
+	"auger": {
+		"diameter": 42,
+		"wire_diameter": 6,
+		"pitch": 50,
+		"shaft_diameter": 12
+	},
+	"motor": {
+		"body_length": 135,
+		"body_diameter": 60,
+		"offset_from_tube_start": 97.5
+	},
+	"coupling": {
+		"center": [-82.5, 50, -165],
+		"diameter": 45,
+		"length": 30,
+		"clamps": 3,
+		"clamp_diameter": 48,
+		"clamp_width": 6
+	},
+	"motor_mount": {
+		"center": [-82.5, 10, -245],
+		"width": 90,
+		"height": 20,
+		"depth": 150
+	},
+	"outlet": {
+		"plug_center": [-82.5, 50, 375],
+		"plug_diameter": 48,
+		"plug_length": 30,
+		"nozzle_center": [-82.5, 40, 360],
+		"nozzle_diameter": 50,
+		"nozzle_height": 40,
+		"cap_center": [-82.5, 10, 360],
+		"cap_diameter": 35,
+		"cap_height": 20
+	},
+	"cradles": [
+		{
+			"z": -60,
+			"width": 80,
+			"height": 25,
+			"depth": 60
+		},
+		{
+			"z": 270,
+			"width": 80,
+			"height": 25,
+			"depth": 60
+		}
+	],
 	"panel": {
-		"center": [170, 190, 83],
-		"width": 120,
-		"height": 170,
+		"center": [90, 170, 228],
+		"width": 60,
+		"height": 100,
 		"depth": 6,
-		"dial_center": [150, 225, 90],
-		"dial_diameter": 56,
-		"switch_center": [195, 210, 90],
-		"led_centers": [[210, 250, 90], [210, 270, 90]]
+		"dial_center": [90, 190, 228],
+		"dial_diameter": 30,
+		"switch_center": [90, 150, 228],
+		"led_centers": [[130, 190, 225], [130, 150, 225]]
 	},
 	"sticker": {
-		"center": [170, 295, 83],
-		"width": 160,
-		"height": 80,
+		"center": [92.5, 252.5, 226],
+		"width": 95,
+		"height": 65,
 		"depth": 2
-	},
-	"motor_pedestal": {
-		"center": [-229, 120, -20],
-		"width": 120,
-		"height": 216,
-		"depth": 100
 	}
 }

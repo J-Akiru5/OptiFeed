@@ -94,12 +94,12 @@ export function chooseViewerTier({
 }
 
 export const CAMERA_PRESETS = {
-	iso: [1.15, 0.9, 1.35],
-	front: [0, 0.55, 1.75],
-	left: [-1.65, 0.55, 0.35],
-	right: [1.65, 0.55, 0.35],
-	rear: [0, 0.6, -1.7],
-	top: [0, 1.85, 0.01],
+	iso: [1.0, 0.42, 1.35],
+	front: [0, 0.42, 1.75],
+	left: [-1.75, 0.42, 0.1],
+	right: [1.75, 0.42, 0.1],
+	rear: [0, 0.42, -1.75],
+	top: [0, 1.9, 0.01],
 } as const;
 
 export type CameraPreset = keyof typeof CAMERA_PRESETS;

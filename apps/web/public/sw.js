@@ -9,7 +9,7 @@
  * - API and auth requests are never intercepted or cached.
  * - Bumping CACHE_NAME purges every previous cache on activate.
  */
-const CACHE_NAME = "pakaonai-static-v5";
+const CACHE_NAME = "pakaonai-static-v7";
 const CACHE_PREFIX = "pakaonai-static-";
 const OFFLINE_URL = "/offline.html";
 const PRECACHE_URLS = [

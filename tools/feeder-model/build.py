@@ -100,8 +100,8 @@ def reset_scene() -> bpy.types.Scene:
     world.use_nodes = True
     background = world.node_tree.nodes.get("Background")
     if background:
-        background.inputs[0].default_value = (0.9, 0.92, 0.94, 1.0)
-        background.inputs[1].default_value = 1.0
+        background.inputs[0].default_value = (0.82, 0.84, 0.86, 1.0)
+        background.inputs[1].default_value = 0.45
     scene.world = world
     return scene
 
@@ -156,22 +156,31 @@ def build_materials() -> dict[str, bpy.types.Material]:
         "paint_white": make_material("Paint_White", (0.86, 0.87, 0.85), roughness=0.42),
         "paint_white_dim": make_material("Paint_White_Dim", (0.78, 0.79, 0.77), roughness=0.5),
         "paint_black": make_material("Paint_Black", (0.025, 0.028, 0.03), roughness=0.48),
-        "glass": make_material("Glass_PET", (0.92, 0.96, 0.98), roughness=0.08, transmission=1.0, alpha=0.35),
-        "tube_glass": make_material("Glass_Tube", (0.93, 0.97, 0.99), roughness=0.06, transmission=1.0, alpha=0.32),
+        # Alpha blending, not transmission: the GLB viewer has no environment map,
+        # so transmissive glass would render nearly black in the browser.
+        "glass": make_material("Glass_PET", (0.97, 0.99, 1.0), roughness=0.02, alpha=0.05),
+        "tube_glass": make_material("Glass_Tube", (0.88, 0.95, 0.99), roughness=0.18, alpha=0.42),
         "rubber": make_material("Rubber_Black", (0.012, 0.012, 0.012), roughness=0.88),
+        "rubber_brown": make_material("Rubber_Coupling", (0.42, 0.16, 0.10), roughness=0.78),
+        "pvc_brown": make_material("PVC_Brown", (0.36, 0.10, 0.08), roughness=0.52),
+        "funnel_gray": make_material("Funnel_Gray", (0.55, 0.56, 0.55), roughness=0.45),
+        "glass_rim": make_material("Glass_Rim", (0.78, 0.84, 0.87), roughness=0.32),
+        "auger_dark": make_material("Auger_Dark", (0.05, 0.05, 0.05), roughness=0.45, metallic=0.5),
+        "cable_red": make_material("Cable_Red", (0.55, 0.04, 0.05), roughness=0.62),
+        "cable_gray": make_material("Cable_Gray", (0.20, 0.21, 0.22), roughness=0.7),
         "motor": make_material("Motor_Olive", (0.24, 0.23, 0.14), roughness=0.55, metallic=0.35),
         "silver": make_material("Metal_Silver", (0.72, 0.73, 0.74), roughness=0.25, metallic=1.0),
         "brass": make_material("Metal_Brass", (0.72, 0.55, 0.22), roughness=0.3, metallic=1.0),
         "plywood": make_material("Plywood", (0.55, 0.38, 0.21), roughness=0.72),
         "blue": make_material("Blue_PETG", (0.03, 0.20, 0.72), roughness=0.38),
         "red": make_material("Red_PVC", (0.62, 0.07, 0.09), roughness=0.48),
-        "grain": make_material("Feed_Grain", (0.33, 0.21, 0.11), roughness=0.9),
+        "grain": make_material("Feed_Grain", (0.34, 0.22, 0.10), roughness=0.92, emission=(0.10, 0.05, 0.02), emission_strength=0.15),
         "label": make_material("Label_White", (0.95, 0.95, 0.94), roughness=0.35),
         "dark_text": make_material("Label_Dark", (0.04, 0.09, 0.14), roughness=0.5),
         "led_red": make_material("LED_Red", (0.9, 0.05, 0.05), roughness=0.3, emission=(1.0, 0.03, 0.02), emission_strength=4.0),
         "led_green": make_material("LED_Green", (0.05, 0.8, 0.2), roughness=0.3, emission=(0.05, 1.0, 0.15), emission_strength=3.0),
         "pcb": make_material("PCB_Blue", (0.02, 0.12, 0.3), roughness=0.45),
-        "ground": make_material("Preview_Ground", (0.82, 0.84, 0.85), roughness=0.85),
+        "ground": make_material("Preview_Ground", (0.58, 0.60, 0.62), roughness=0.9),
     }
 
 
@@ -194,6 +203,33 @@ def bevel_object(obj: bpy.types.Object, width_mm: float = 2.0, segments: int = 2
     mod.limit_method = "ANGLE"
     mod.angle_limit = math.radians(35)
     apply_modifier(obj, mod)
+
+
+def cut_cylinder_hole(
+    obj: bpy.types.Object,
+    center: tuple[float, float, float],
+    radius: float,
+    depth: float,
+) -> None:
+    """Cut a vertical cylindrical hole through a horizontal panel."""
+    bpy.ops.mesh.primitive_cylinder_add(
+        vertices=64,
+        radius=radius * M,
+        depth=depth * M,
+        location=bp(*center),
+    )
+    cutter = bpy.context.object
+    assert cutter is not None
+    cutter.name = "Hole_Cutter"
+    boolean = obj.modifiers.new("Hole", "BOOLEAN")
+    boolean.operation = "DIFFERENCE"
+    boolean.object = cutter
+    try:
+        boolean.solver = "EXACT"
+    except Exception:
+        pass
+    apply_modifier(obj, boolean)
+    bpy.data.objects.remove(cutter, do_unlink=True)
 
 
 def add_box(
@@ -525,6 +561,7 @@ def add_tube_part_open(
 
 
 def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types.Collection) -> None:
+    # --- Base plate -------------------------------------------------------
     base = dims["base_plate"]
     add_box(
         "Base_Plate",
@@ -532,19 +569,36 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
         tuple(base["center"]),
         mats["paint_white"],
         collection,
-        bevel_mm=3,
+        bevel_mm=2,
     )
 
-    # --- Chassis -----------------------------------------------------------
+    # --- Chassis ----------------------------------------------------------
     chassis = dims["chassis"]
+    chassis_center = chassis["center"]
+    chassis_w = chassis["width"]
+    chassis_d = chassis["depth"]
+    lid_t = chassis["lid_thickness"]
+    body_h = chassis["height"] - lid_t
+    body_center_y = chassis_center[1] - lid_t / 2.0
     add_box(
         "Chassis",
-        (chassis["width"], chassis["height"], chassis["depth"]),
-        tuple(chassis["center"]),
+        (chassis_w, body_h, chassis_d),
+        (chassis_center[0], body_center_y, chassis_center[2]),
         mats["paint_white"],
         collection,
-        bevel_mm=6,
+        bevel_mm=4,
     )
+    add_box(
+        "Chassis_Lid",
+        (chassis_w + 4, lid_t, chassis_d + 4),
+        (chassis_center[0], body_center_y + body_h / 2.0 + lid_t / 2.0, chassis_center[2]),
+        mats["paint_white"],
+        collection,
+        bevel_mm=2,
+    )
+    chassis_front = chassis_center[2] + chassis_d / 2.0
+    chassis_back = chassis_center[2] - chassis_d / 2.0
+    chassis_top = body_center_y + body_h / 2.0 + lid_t
 
     panel = dims["panel"]
     add_box(
@@ -553,8 +607,9 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
         tuple(panel["center"]),
         mats["paint_black"],
         collection,
-        bevel_mm=2,
+        bevel_mm=1.5,
     )
+    panel_front = panel["center"][2] + panel["depth"] / 2.0
 
     sticker = dims["sticker"]
     add_box(
@@ -563,138 +618,162 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
         tuple(sticker["center"]),
         mats["label"],
         collection,
-        bevel_mm=1.5,
+        bevel_mm=1,
     )
+    sticker_front = sticker["center"][2] + sticker["depth"] / 2.0
 
     dial = panel["dial_center"]
     add_cylinder(
         "Dial",
         panel["dial_diameter"] / 2.0,
-        12,
-        (dial[0], dial[1], dial[2] + 4),
+        8,
+        (dial[0], dial[1], panel_front + 3.0),
         mats["paint_black"],
         collection,
         axis="Z",
-        verts=48,
-        bevel_mm=2,
+        verts=40,
+        bevel_mm=1.5,
     )
     add_cylinder(
         "Dial_Cap",
         panel["dial_diameter"] / 2.0 - 4,
         2,
-        (dial[0], dial[1], dial[2] + 11),
+        (dial[0], dial[1], panel_front + 7.5),
         mats["silver"],
         collection,
         axis="Z",
-        verts=48,
-        bevel_mm=0.8,
+        verts=40,
+        bevel_mm=0.6,
     )
     add_cylinder(
         "Dial_Marker",
-        2,
-        14,
-        (dial[0], dial[1] + panel["dial_diameter"] / 2.0 - 6, dial[2] + 11),
+        1.3,
+        9,
+        (dial[0], dial[1] + panel["dial_diameter"] / 2.0 - 3, panel_front + 7.5),
         mats["label"],
         collection,
         axis="Z",
-        verts=16,
+        verts=12,
         bevel_mm=0,
     )
 
     switch = panel["switch_center"]
     add_box(
         "Switch",
-        (34, 16, 10),
-        (switch[0], switch[1], switch[2] + 5),
+        (14, 8, 5),
+        (switch[0], switch[1], panel_front + 2.5),
         mats["label"],
         collection,
-        bevel_mm=2,
+        bevel_mm=1,
     )
     add_box(
         "Switch_Toggle",
-        (10, 8, 14),
-        (switch[0], switch[1] + 6, switch[2] + 8),
+        (5, 4, 7),
+        (switch[0], switch[1] + 3, panel_front + 4),
         mats["silver"],
         collection,
-        bevel_mm=1,
+        bevel_mm=0.6,
     )
 
     for index, led in enumerate(panel["led_centers"]):
         add_cylinder(
             f"LED_{'Power' if index == 0 else 'Status'}",
-            5,
-            5,
-            (led[0], led[1], led[2] + 2),
+            3,
+            3,
+            (led[0], led[1], chassis_front + 1.5),
             mats["led_red"] if index == 0 else mats["led_green"],
             collection,
             axis="Z",
-            verts=24,
-            bevel_mm=1,
+            verts=20,
+            bevel_mm=0.5,
         )
 
     add_cylinder(
         "Chassis_Lock",
-        10,
-        8,
-        (330, 190, 83),
+        5,
+        4,
+        (chassis_center[0], 20, chassis_front + 2),
         mats["silver"],
         collection,
         axis="Z",
-        verts=32,
-        bevel_mm=1,
+        verts=24,
+        bevel_mm=0.6,
     )
 
-    for index, hinge_x in enumerate((90, 280)):
+    hinge_y = chassis_top + 3
+    hinge_z = chassis_back + 15
+    for index, hinge_x in enumerate(
+        (
+            chassis_center[0] - chassis_w * 0.3,
+            chassis_center[0] + chassis_w * 0.3,
+        )
+    ):
         add_box(
             f"Hinge_{index + 1}",
-            (34, 6, 20),
-            (hinge_x, 342, 72),
+            (20, 5, 15),
+            (hinge_x, hinge_y, hinge_z),
             mats["silver"],
             collection,
-            bevel_mm=2,
+            bevel_mm=1,
+        )
+
+    # Side-panel screws from the reference photos.
+    for index, (screw_y, screw_z) in enumerate(
+        ((60, -150), (240, -150), (60, 150), (240, 150))
+    ):
+        add_cylinder(
+            f"Chassis_Screw_{index + 1}",
+            3,
+            2,
+            (chassis_center[0] + chassis_w / 2.0 + 1.5, screw_y, screw_z),
+            mats["silver"],
+            collection,
+            axis="X",
+            verts=16,
+            bevel_mm=0.4,
         )
 
     # Sticker detail: logo bar, text, QR-like grid.
     add_box(
         "Sticker_LogoBar",
-        (34, 5, 2),
-        (sticker["center"][0] - 52, sticker["center"][1] + 26, 84.5),
+        (18, 3, 1),
+        (sticker["center"][0] - 30, sticker["center"][1] + 22, sticker_front + 0.8),
         mats["blue"],
         collection,
-        bevel_mm=0.6,
+        bevel_mm=0.3,
     )
     add_text(
         "Sticker_Text_Title",
         "Pakaon AI",
-        10,
-        (sticker["center"][0] + 8, sticker["center"][1] + 28, 84.5),
+        5,
+        (sticker["center"][0] + 8, sticker["center"][1] + 22, sticker_front + 0.8),
         mats["dark_text"],
         collection,
     )
     add_text(
         "Sticker_Text_Rating",
         "220V  1.2A   264VA",
-        4.4,
-        (sticker["center"][0] - 16, sticker["center"][1] + 8, 84.5),
+        2.2,
+        (sticker["center"][0] - 14, sticker["center"][1] + 5, sticker_front + 0.8),
         mats["dark_text"],
         collection,
     )
     add_text(
         "Sticker_Text_Model",
         "FEEDER CONTROLLER",
-        3.8,
-        (sticker["center"][0] - 18, sticker["center"][1] - 4, 84.5),
+        1.8,
+        (sticker["center"][0] - 16, sticker["center"][1] - 8, sticker_front + 0.8),
         mats["dark_text"],
         collection,
     )
-    qr_origin = (sticker["center"][0] + 53, sticker["center"][1] + 10)
+    qr_origin = (sticker["center"][0] + 30, sticker["center"][1] - 2)
     for row in range(7):
         for col in range(7):
             if (row * 3 + col * 5) % 4 in (0, 1):
                 add_box(
                     f"QR_{row}_{col}",
-                    (2.2, 2.2, 0.6),
-                    (qr_origin[0] + (col - 3) * 3.0, qr_origin[1] + (row - 3) * 3.0, 84.4),
+                    (1.6, 1.6, 0.4),
+                    (qr_origin[0] + (col - 3) * 2.2, qr_origin[1] + (row - 3) * 2.2, sticker_front + 0.7),
                     mats["dark_text"],
                     collection,
                     bevel_mm=0,
@@ -702,57 +781,30 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
 
     add_text(
         "Panel_Text_Title",
-        "MOTOR SPEED CONTROLLER",
-        4.0,
-        (panel["center"][0], panel["center"][1] + 58, 86.5),
+        "MOTOR CONTROLLER",
+        2.2,
+        (panel["center"][0], panel["center"][1] + 42, panel_front + 0.8),
         mats["label"],
         collection,
     )
     add_text(
         "Panel_Text_Run",
         "RUN",
-        3.4,
-        (switch[0], switch[1] - 18, 86.5),
+        1.7,
+        (switch[0], switch[1] - 14, panel_front + 0.8),
         mats["label"],
         collection,
     )
     add_text(
         "Panel_Text_Stop",
         "STOP",
-        3.4,
-        (switch[0], switch[1] - 28, 86.5),
+        1.7,
+        (switch[0], switch[1] - 20, panel_front + 0.8),
         mats["label"],
         collection,
     )
 
-    # --- Frame, shelf, post ------------------------------------------------
-    frame = dims["frame"]
-    panel_t = frame["panel"]
-    frame_center = frame["center"]
-    half_w = frame["width"] / 2.0
-    half_d = frame["depth"] / 2.0
-    frame_bottom = frame_center[1] - frame["height"] / 2.0
-    frame_top = frame_center[1] + frame["height"] / 2.0
-
-    for name, x in (("Frame_Left", frame_center[0] - half_w + panel_t / 2.0), ("Frame_Right", frame_center[0] + half_w - panel_t / 2.0)):
-        add_box(
-            name,
-            (panel_t, frame["height"], frame["depth"]),
-            (x, frame_center[1], frame_center[2]),
-            mats["paint_white"],
-            collection,
-            bevel_mm=2,
-        )
-
-    add_box(
-        "Frame_Back",
-        (frame["width"], frame["height"], panel_t),
-        (frame_center[0], frame_center[1], frame_center[2] - half_d + panel_t / 2.0),
-        mats["paint_white"],
-        collection,
-        bevel_mm=2,
-    )
-
+    # --- Shelf and jar ----------------------------------------------------
     shelf = dims["shelf"]
     add_box(
         "Shelf",
@@ -760,56 +812,106 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
         tuple(shelf["center"]),
         mats["paint_white"],
         collection,
-        bevel_mm=3,
+        bevel_mm=1.5,
     )
-
-    post = dims["post"]
+    cut_cylinder_hole(
+        bpy.data.objects["Shelf"],
+        (dims["hopper"]["center"][0], shelf["center"][1], dims["hopper"]["center"][2]),
+        shelf["hole_diameter"] / 2.0,
+        shelf["thickness"] + 10,
+    )
+    cleat = dims["shelf_cleat"]
     add_box(
-        "Post",
-        (post["width"], post["height"], post["depth"]),
-        tuple(post["center"]),
+        "Shelf_Cleat",
+        (cleat["width"], cleat["height"], cleat["depth"]),
+        tuple(cleat["center"]),
+        mats["paint_white_dim"],
+        collection,
+        bevel_mm=1,
+    )
+    support = dims["shelf_support"]
+    add_box(
+        "Shelf_Support",
+        (support["width"], support["height"], support["depth"]),
+        tuple(support["center"]),
         mats["paint_white"],
         collection,
-        bevel_mm=2,
+        bevel_mm=1.5,
     )
-    arm = dims["post_arm"]
-    add_box(
-        "Post_Arm",
-        (arm["width"], arm["height"], arm["depth"]),
-        tuple(arm["center"]),
+    for index, screw_y in enumerate((100, 160)):
+        add_cylinder(
+            f"Shelf_Support_Screw_{index + 1}",
+            3,
+            1.5,
+            (support["center"][0] - support["width"] / 2.0 - 0.5, screw_y, support["center"][2]),
+            mats["silver"],
+            collection,
+            axis="X",
+            verts=16,
+            bevel_mm=0.3,
+        )
+
+    neck = dims["neck"]
+    add_cylinder(
+        "Neck_Collar",
+        neck["diameter"] / 2.0,
+        neck["height"],
+        tuple(neck["center"]),
         mats["paint_white"],
         collection,
-        bevel_mm=2,
+        axis="Y",
+        verts=40,
+        bevel_mm=1,
+    )
+    riser = dims["riser"]
+    add_tube(
+        "Feed_Riser",
+        riser["outer_diameter"] / 2.0,
+        riser["inner_diameter"] / 2.0,
+        riser["height"],
+        tuple(riser["center"]),
+        mats["blue"],
+        collection,
+        axis="Y",
+        verts=40,
     )
 
-    # --- Hopper ------------------------------------------------------------
     hopper = dims["hopper"]
     hopper_height = hopper["height"]
+    body_r = hopper["diameter"] / 2.0
+    neck_r = hopper["neck_diameter"] / 2.0
+    shoulder_r = hopper["shoulder_diameter"] / 2.0
+    shoulder_h = hopper["shoulder_height"]
+    body_h = hopper["body_start_height"]
+    # One whole PET jar: threaded neck at the bottom, conical shoulder, then
+    # the cylindrical body. The profile carries the bottle's horizontal ribs.
     hopper_profile = [
-        (36, 0),
-        (66, 2),
-        (96, 7),
-        (111, 20),
-        (117, 48),
-        (118, 92),
-        (112, 98),
-        (118, 108),
-        (118, 178),
-        (112, 184),
-        (118, 194),
-        (116, 258),
-        (110, 264),
-        (116, 274),
-        (112, 318),
-        (105, 338),
-        (105, 350),
-        (110, 354),
+        (neck_r, 0),
+        (neck_r + 3, 5),
+        (neck_r + 10, 15),
+        (neck_r + 20, 30),
+        (55, 48),
+        (70, 64),
+        (shoulder_r, shoulder_h),
+        (shoulder_r + 10, 90),
+        (body_r - 2, 105),
+        (body_r, body_h),
+        (body_r, hopper_height - 30),
+        (body_r - 2, hopper_height - 15),
+        (body_r - 4, hopper_height - 5),
+        (body_r - 5, hopper_height),
     ]
-    scale_profile = hopper_height / 354.0
-    hopper_profile = [(r, y * scale_profile) for r, y in hopper_profile]
+    ribbed: list[tuple[float, float]] = []
+    ribs = {150, 210, 270, 330}
+    for radius, height in hopper_profile:
+        ribbed.append((radius, height))
+    # Add ribs that fall on the long straight section rather than a profile point.
+    for rib in sorted(ribs):
+        ribbed.extend(((body_r, rib - 2), (body_r - 2.5, rib), (body_r, rib + 2)))
+    ribbed.sort(key=lambda point: point[1])
     add_lathe(
         "Hopper_Glass",
-        hopper_profile,
+        ribbed,
         tuple(hopper["center"]),
         mats["glass"],
         collection,
@@ -817,14 +919,15 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
         solidify_mm=hopper["wall"],
     )
 
-    # Straps and buckles.
-    for index, strap_y in enumerate((100, 200, 300)):
+    strap_radius = body_r + 3.0
+    for index, strap_height in enumerate(hopper.get("strap_heights", [])):
+        strap_y = hopper["center"][1] + float(strap_height)
         add_tube(
             f"Hopper_Strap_{index + 1}",
-            121,
-            116,
-            30,
-            (hopper["center"][0], hopper["center"][1] + strap_y, hopper["center"][2]),
+            strap_radius,
+            strap_radius - 3.5,
+            hopper["strap_width"],
+            (hopper["center"][0], strap_y, hopper["center"][2]),
             mats["rubber"],
             collection,
             axis="Y",
@@ -832,11 +935,15 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
         )
         add_box(
             f"Strap_Buckle_{index + 1}",
-            (32, 40, 8),
-            (hopper["center"][0], hopper["center"][1] + strap_y, hopper["center"][2] + 120),
+            (22, 25, 6),
+            (
+                hopper["center"][0],
+                strap_y,
+                hopper["center"][2] + strap_radius,
+            ),
             mats["rubber"],
             collection,
-            bevel_mm=1.5,
+            bevel_mm=1,
         )
 
     lid = dims["lid"]
@@ -849,81 +956,106 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
         collection,
         axis="Y",
         verts=72,
-        bevel_mm=2,
+        bevel_mm=1,
     )
-    for index, angle in enumerate((0, 90, 180, 270)):
+    for index, angle in enumerate((0, 120, 240)):
         radians = math.radians(angle)
         add_cylinder(
             f"Lid_Bolt_{index + 1}",
-            5,
-            4,
+            3,
+            2.5,
             (
-                lid["center"][0] + 100 * math.cos(radians),
+                lid["center"][0] + 70 * math.cos(radians),
                 lid["center"][1] + lid["thickness"] / 2.0 + 1,
-                lid["center"][2] + 100 * math.sin(radians),
+                lid["center"][2] + 70 * math.sin(radians),
             ),
             mats["silver"],
             collection,
             axis="Y",
-            verts=16,
-            bevel_mm=0.5,
+            verts=12,
+            bevel_mm=0.3,
         )
 
+    # --- Ultrasonic sensor on the lid ------------------------------------
     sensor = dims["sensor"]
+    add_box(
+        "Sensor_Gasket",
+        (sensor["width"] + 4, 1, sensor["depth"] + 4),
+        (sensor["center"][0], sensor["center"][1] - sensor["height"] / 2.0, sensor["center"][2]),
+        mats["rubber"],
+        collection,
+        bevel_mm=0.3,
+    )
     add_box(
         "Sensor_Top",
         (sensor["width"], sensor["height"], sensor["depth"]),
         tuple(sensor["center"]),
-        mats["pcb"],
+        mats["label"],
+        collection,
+        bevel_mm=0.8,
+    )
+    add_box(
+        "Sensor_Connector",
+        (10, 4, 2),
+        (
+            sensor["center"][0],
+            sensor["center"][1],
+            sensor["center"][2] + sensor["depth"] / 2.0 + 1,
+        ),
+        mats["paint_black"],
+        collection,
+        bevel_mm=0.3,
+    )
+    for index, direction in enumerate((-1, 1)):
+        add_cylinder(
+            f"Sensor_Transducer_{index + 1}",
+            sensor["transducer_diameter"] / 2.0,
+            sensor["transducer_height"],
+            (
+                sensor["center"][0],
+                sensor["center"][1] + sensor["height"] / 2.0 + sensor["transducer_height"] / 2.0,
+                sensor["center"][2] + direction * sensor["transducer_offset"],
+            ),
+            mats["paint_black"],
+            collection,
+            axis="Y",
+            verts=20,
+            bevel_mm=0.4,
+        )
+    add_box(
+        "Sensor_Chip",
+        (14, 4, 6),
+        (
+            sensor["center"][0],
+            sensor["center"][1] - 1,
+            sensor["center"][2] - sensor["depth"] / 2.0 - 2,
+        ),
+        mats["paint_black"],
+        collection,
+        bevel_mm=0.3,
+    )
+
+    # --- Sensor post and wire arm ----------------------------------------
+    post = dims["post"]
+    add_box(
+        "Post",
+        (post["width"], post["height"], post["depth"]),
+        tuple(post["center"]),
+        mats["paint_white"],
         collection,
         bevel_mm=1,
     )
+    arm = dims["post_arm"]
     add_box(
-        "Sensor_Chip",
-        (18, 4, 14),
-        (sensor["center"][0] + 10, sensor["center"][1] + 7, sensor["center"][2] - 8),
-        mats["paint_black"],
+        "Post_Arm",
+        (arm["width"], arm["height"], arm["depth"]),
+        tuple(arm["center"]),
+        mats["paint_white"],
         collection,
-        bevel_mm=0.6,
+        bevel_mm=1,
     )
 
-    grain = dims["grain"]
-    grain_height = grain["height"]
-    grain_radius = grain["max_diameter"] / 2.0
-    grain_profile = [
-        (0.6, 0),
-        (grain_radius * 0.7, 0),
-        (grain_radius * 0.92, 8),
-        (grain_radius, 34),
-        (grain_radius, grain_height - 36),
-        (grain_radius * 0.95, grain_height - 18),
-        (grain_radius * 0.8, grain_height - 8),
-        (grain_radius * 0.5, grain_height - 2),
-        (0.6, grain_height),
-    ]
-    add_lathe(
-        "Grain_Fill",
-        grain_profile,
-        tuple(grain["center"]),
-        mats["grain"],
-        collection,
-        segments=48,
-        cap_bottom=True,
-        cap_top=True,
-    )
-
-    funnel = dims["funnel"]
-    add_cone_between(
-        "Funnel",
-        tuple(funnel["top"]),
-        funnel["top_diameter"] / 2.0,
-        tuple(funnel["bottom"]),
-        funnel["bottom_diameter"] / 2.0,
-        mats["paint_black"],
-        collection,
-    )
-
-    # --- Tube, auger, motor ------------------------------------------------
+    # --- Auger tube, motor, outlet ---------------------------------------
     tube = dims["tube"]
     yaw = math.radians(tube["yaw_deg"])
     pitch = math.radians(tube["pitch_deg"])
@@ -957,7 +1089,7 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
         auger["diameter"] / 2.0,
         auger["pitch"],
         auger["wire_diameter"] / 2.0,
-        mats["silver"],
+        mats["auger_dark"],
         collection,
     )
     add_tube_part_cylinder(
@@ -966,20 +1098,22 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
         length / 2.0,
         auger["shaft_diameter"] / 2.0,
         length,
-        mats["silver"],
+        mats["auger_dark"],
         collection,
-        bevel_mm=0.5,
+        bevel_mm=0.3,
     )
 
-    add_tube_part_cylinder(
-        "Motor_Coupling",
-        mount,
-        0,
-        18,
+    # Blue inlet collar and vertical riser from the jar neck.
+    add_tube(
+        "Tube_Inlet_Blue",
+        30,
+        26,
         34,
-        mats["brass"],
+        (dims["hopper"]["center"][0], tube["start"][1], dims["hopper"]["center"][2]),
+        mats["blue"],
         collection,
-        bevel_mm=1,
+        axis="Z",
+        verts=40,
     )
 
     motor = dims["motor"]
@@ -992,83 +1126,214 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
         motor["body_length"],
         mats["motor"],
         collection,
-        bevel_mm=2,
+        bevel_mm=1.5,
     )
-    add_tube_part_cylinder(
-        "Motor_Gearbox",
-        mount,
-        motor_center + motor["body_length"] / 2.0 + 10,
-        motor["gearbox_height"] / 2.0,
-        motor["gearbox_depth"],
-        mats["motor"],
+    for index in range(5):
+        add_tube_part_cylinder(
+            f"Motor_Rib_{index + 1}",
+            mount,
+            motor_center - 50 + index * 20,
+            motor["body_diameter"] / 2.0 + 0.8,
+            1.6,
+            mats["motor"],
+            collection,
+            bevel_mm=0,
+        )
+    add_cylinder(
+        "Motor_End_Cap",
+        motor["body_diameter"] / 2.0 - 4,
+        10,
+        (tube["start"][0], tube["start"][1], motor_center + tube["start"][2] - motor["body_length"] / 2.0 - 5),
+        mats["paint_black"],
         collection,
-        bevel_mm=2,
+        axis="Z",
+        verts=32,
+        bevel_mm=1,
     )
-    add_tube_part_cylinder(
+    add_box(
         "Motor_Label",
-        mount,
-        motor_center - 10,
-        motor["body_diameter"] / 2.0 + 0.8,
-        44,
+        (2, 40, 45),
+        (tube["start"][0] + motor["body_diameter"] / 2.0 + 0.5, tube["start"][1], motor_center + tube["start"][2]),
         mats["label"],
         collection,
-        bevel_mm=0.4,
+        bevel_mm=0.3,
+    )
+    add_text(
+        "Motor_Text_Title",
+        "CHUAN MOTOR",
+        3.2,
+        (tube["start"][0] + motor["body_diameter"] / 2.0 + 1.7, tube["start"][1] + 8, motor_center + tube["start"][2]),
+        mats["dark_text"],
+        collection,
+        face="right",
+    )
+    add_text(
+        "Motor_Text_Rating",
+        "1/4 HP  200W",
+        2,
+        (tube["start"][0] + motor["body_diameter"] / 2.0 + 1.7, tube["start"][1] - 8, motor_center + tube["start"][2]),
+        mats["dark_text"],
+        collection,
+        face="right",
     )
 
-    add_tube_part_open(
-        "Tube_Collar_Blue",
-        mount,
-        tube["inlet_offset"],
-        36,
-        31,
-        42,
-        mats["blue"],
+    coupling = dims["coupling"]
+    add_cylinder(
+        "Motor_Coupling",
+        coupling["diameter"] / 2.0,
+        coupling["length"],
+        tuple(coupling["center"]),
+        mats["rubber_brown"],
         collection,
+        axis="Z",
+        verts=40,
+        bevel_mm=1,
     )
-    add_tube_part_cylinder(
-        "Outlet_Cap",
-        mount,
-        length + dims["outlet"]["cap_length"] / 2.0,
-        dims["outlet"]["cap_diameter"] / 2.0,
-        dims["outlet"]["cap_length"],
-        mats["red"],
+    for index in range(coupling["clamps"]):
+        clamp_z = coupling["center"][2] - coupling["length"] / 2.0 + 5 + index * (coupling["length"] - 10) / max(coupling["clamps"] - 1, 1)
+        add_cylinder(
+            f"Coupling_Clamp_{index + 1}",
+            coupling["clamp_diameter"] / 2.0,
+            coupling["clamp_width"],
+            (coupling["center"][0], coupling["center"][1], clamp_z),
+            mats["silver"],
+            collection,
+            axis="Z",
+            verts=40,
+            bevel_mm=0.4,
+        )
+
+    mount_block = dims["motor_mount"]
+    add_box(
+        "Motor_Mount",
+        (mount_block["width"], mount_block["height"], mount_block["depth"]),
+        tuple(mount_block["center"]),
+        mats["paint_white_dim"],
         collection,
         bevel_mm=2,
     )
 
-    pedestal = dims["motor_pedestal"]
-    add_box(
-        "Motor_Pedestal",
-        (pedestal["width"], pedestal["height"], pedestal["depth"]),
-        tuple(pedestal["center"]),
-        mats["paint_white_dim"],
+    outlet = dims["outlet"]
+    add_cylinder(
+        "Outlet_Plug",
+        outlet["plug_diameter"] / 2.0,
+        outlet["plug_length"],
+        tuple(outlet["plug_center"]),
+        mats["pvc_brown"],
         collection,
-        bevel_mm=3,
+        axis="Z",
+        verts=48,
+        bevel_mm=1.5,
+    )
+    add_cylinder(
+        "Outlet_Nozzle",
+        outlet["nozzle_diameter"] / 2.0,
+        outlet["nozzle_height"],
+        tuple(outlet["nozzle_center"]),
+        mats["blue"],
+        collection,
+        axis="Y",
+        verts=48,
+        bevel_mm=1.5,
+    )
+    add_cylinder(
+        "Outlet_Cap",
+        outlet["cap_diameter"] / 2.0,
+        outlet["cap_height"],
+        tuple(outlet["cap_center"]),
+        mats["red"],
+        collection,
+        axis="Y",
+        verts=48,
+        bevel_mm=2,
     )
 
-    # --- Cables ------------------------------------------------------------
+    for index, cradle in enumerate(dims["cradles"]):
+        add_box(
+            f"Tube_Cradle_{index + 1}",
+            (cradle["width"], cradle["height"], cradle["depth"]),
+            (tube["start"][0], cradle["height"] / 2.0, cradle["z"]),
+            mats["paint_white_dim"],
+            collection,
+            bevel_mm=1.5,
+        )
+        add_tube(
+            f"Tube_Strap_{index + 1}",
+            28,
+            26,
+            20,
+            (tube["start"][0], tube["start"][1], cradle["z"]),
+            mats["rubber"],
+            collection,
+            axis="Z",
+            verts=48,
+        )
+        add_box(
+            f"Tube_Strap_Buckle_{index + 1}",
+            (12, 6, 20),
+            (tube["start"][0], tube["start"][1] + radius_outer + 4, cradle["z"]),
+            mats["rubber"],
+            collection,
+            bevel_mm=1,
+        )
+
+    # --- Grain fill -------------------------------------------------------
+    grain = dims["grain"]
+    grain_height = grain["height"]
+    grain_r = grain["max_diameter"] / 2.0
+    # The grain follows the jar's lower cone, then ends in a shallow mound.
+    grain_profile = [
+        (neck_r - 3.5, 0),
+        (neck_r + 1, 5),
+        (neck_r + 7, 15),
+        (neck_r + 17, 30),
+        (52, 48),
+        (67, 64),
+        (shoulder_r - 4, shoulder_h),
+        (grain_r - 6, 120),
+        (grain_r, grain_height * 0.94),
+        (grain_r * 0.94, grain_height * 0.985),
+        (grain_r * 0.55, grain_height * 0.997),
+        (0.6, grain_height),
+    ]
+    add_lathe(
+        "Grain_Fill",
+        grain_profile,
+        tuple(grain["center"]),
+        mats["grain"],
+        collection,
+        segments=48,
+        cap_bottom=True,
+        cap_top=True,
+    )
+
+    # --- Cables -----------------------------------------------------------
     add_poly_curve(
         "Cable_Sensor",
         [
-            (sensor["center"][0], sensor["center"][1] + 6, sensor["center"][2]),
-            (sensor["center"][0], sensor["center"][1] + 40, sensor["center"][2] - 20),
-            (arm["center"][0], arm["center"][1] + 2, arm["center"][2]),
-            (post["center"][0], post["center"][1] + 10, post["center"][2]),
-            (post["center"][0], chassis["center"][1] + chassis["height"] / 2.0, post["center"][2]),
+            (sensor["center"][0], sensor["center"][1] + sensor["height"] / 2.0, sensor["center"][2] - sensor["depth"] / 2.0),
+            (-70, 555, 140),
+            (-20, 620, 127.5),
+            (-20, 745, 127.5),
+            (20, 750, 127.5),
+            (20, 300, 127.5),
+            (24, 30, 150),
         ],
-        2.4,
-        mats["paint_black"],
+        1.5,
+        mats["cable_gray"],
         collection,
     )
     add_poly_curve(
         "Cable_Motor",
         [
-            (motor_center, 0, 0),
-            (-120, 170, -80),
-            (-40, 200, -120),
+            (tube["start"][0], tube["start"][1] + 5, motor_center + tube["start"][2] - motor["body_length"] / 2.0 - 6),
+            (tube["start"][0], 8, -325),
+            (-40, 8, -230),
+            (24, 8, -210),
+            (24, 40, -190),
         ],
-        3.0,
-        mats["paint_black"],
+        2.2,
+        mats["cable_red"],
         collection,
     )
 
@@ -1188,8 +1453,8 @@ def world_bounds(objects: list[bpy.types.Object]) -> tuple[Vector, Vector]:
 def add_preview(scene: bpy.types.Scene, collection: bpy.types.Collection, mats: dict[str, bpy.types.Material]) -> bpy.types.Object:
     ground = add_box(
         "Preview_Ground",
-        (2400, 2, 2400),
-        (0, -1, 0),
+        (1200, 2, 1200),
+        (0, -11, 0),
         mats["ground"],
         collection,
         bevel_mm=0,
@@ -1201,21 +1466,21 @@ def add_preview(scene: bpy.types.Scene, collection: bpy.types.Collection, mats: 
     assert camera is not None
     camera.name = "Preview_Camera"
     link(camera, collection)
-    camera.data.lens = 55
+    camera.data.lens = 45
     camera.data.sensor_width = 36
 
-    bpy.ops.object.light_add(type="AREA", location=(1.4, -1.8, 1.8))
+    bpy.ops.object.light_add(type="AREA", location=(0.9, -1.0, 1.1))
     key = bpy.context.object
     key.name = "Preview_Key"
-    key.data.energy = 450
-    key.data.size = 2.0
+    key.data.energy = 80
+    key.data.size = 1.4
     link(key, collection)
 
-    bpy.ops.object.light_add(type="AREA", location=(-1.4, -0.8, 1.2))
+    bpy.ops.object.light_add(type="AREA", location=(-0.8, -0.5, 0.8))
     fill = bpy.context.object
     fill.name = "Preview_Fill"
-    fill.data.energy = 180
-    fill.data.size = 2.5
+    fill.data.energy = 25
+    fill.data.size = 1.6
     link(fill, collection)
 
     scene.camera = camera
@@ -1238,28 +1503,39 @@ def render_previews(
     size = maximum - minimum
     max_dim = max(size.x, size.y, size.z)
 
-    scene.render.engine = "BLENDER_WORKBENCH"
-    shading = scene.display.shading
-    shading.light = "STUDIO"
-    shading.color_type = "MATERIAL"
-    shading.show_shadows = True
-    shading.show_cavity = True
-    shading.cavity_type = "BOTH"
-    shading.show_specular_highlight = True
-    shading.background_type = "VIEWPORT"
-    shading.background_color = (0.92, 0.93, 0.94)
+    # Show the preview at the default 62 % hopper level, like the live viewer.
+    grain = bpy.data.objects.get("Grain_Fill")
+    if grain is not None:
+        grain.scale.z = 0.62
 
-    scene.render.resolution_x = 1000
-    scene.render.resolution_y = 1000
-    scene.render.resolution_percentage = 100
     scene.render.film_transparent = False
+    scene.render.resolution_x = 900
+    scene.render.resolution_y = 900
+    scene.render.resolution_percentage = 100
     scene.render.image_settings.file_format = "PNG"
+    scene.view_settings.exposure = -0.35
 
-    distance = (max_dim * 0.5) / math.tan(math.radians(20.0)) * 1.15
+    # EEVEE handles the blended PET jars; Cycles is the fallback when the
+    # headless GPU context is unavailable.
+    engine = "BLENDER_EEVEE_NEXT"
+    try:
+        scene.render.engine = engine
+        if hasattr(scene, "eevee"):
+            scene.eevee.taa_render_samples = 32
+    except Exception:
+        engine = "CYCLES"
+        scene.render.engine = engine
+        scene.cycles.samples = 32
+        scene.cycles.use_denoising = True
+    print(f"[preview] engine={scene.render.engine}")
+
+    distance = (max_dim * 0.5) / math.tan(math.radians(19.0)) * 1.55
     views = {
-        "iso": Vector((0.95, -1.35, 0.78)),
-        "front": Vector((0.05, -2.0, 0.42)),
-        "side": Vector((1.9, 0.0, 0.42)),
+        "iso": Vector((0.9, -1.05, 0.28)),
+        "front": Vector((0.02, -1.0, 0.05)),
+        "side": Vector((1.0, 0.02, 0.05)),
+        "rear": Vector((-0.02, 1.0, 0.05)),
+        "top": Vector((0.02, 0.08, 1.0)),
     }
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1379,7 +1655,7 @@ def main() -> int:
     }
     manifest_path = Path(args.manifest)
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(json.dumps(manifest, indent="\t") + "\n", encoding="utf-8")
+    manifest_path.write_text(json.dumps(manifest, indent="\t") + "\n", encoding="utf-8", newline="\n")
     print(f"[manifest] {manifest_path} triangles={triangles}")
     return 0
 

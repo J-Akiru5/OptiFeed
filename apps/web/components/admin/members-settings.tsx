@@ -37,7 +37,7 @@ type InviteFormState = {
 const focusRing =
 	"focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea]";
 const fieldClass =
-	"mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#0A3D62] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] dark:border-gray-600 dark:bg-gray-800 dark:text-white";
+	"mt-1 min-h-11 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#0A3D62] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] dark:border-gray-600 dark:bg-gray-800 dark:text-white";
 
 export function MembersSettings({
 	members,
@@ -237,7 +237,7 @@ export function MembersSettings({
 							onChange={(event) => handleRoleChange(member, event.target.value)}
 							disabled={isPending}
 							aria-label={t("changeRole", { name: memberName(member) })}
-							className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-bold text-[#0A3D62] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+							className="min-h-11 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-[#0A3D62] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
 						>
 							{MEMBER_ROLES.map((role) => (
 								<option
@@ -335,7 +335,7 @@ export function MembersSettings({
 							onClick={() => handleRevoke(member)}
 							disabled={isPending}
 							aria-busy={isPending}
-							className={`inline-flex items-center gap-1 rounded-lg bg-[#C42B3A] px-2.5 py-1.5 text-[10px] font-black text-white hover:bg-[#a92330] disabled:opacity-60 ${focusRing}`}
+							className={`inline-flex min-h-11 items-center justify-center gap-1 rounded-xl bg-[#C42B3A] px-3 text-xs font-black text-white hover:bg-[#a92330] disabled:opacity-60 ${focusRing}`}
 						>
 							{isPending && <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" />}
 							{t("confirmRevoke")}
@@ -344,7 +344,7 @@ export function MembersSettings({
 							type="button"
 							onClick={() => setRevokeConfirm(null)}
 							disabled={isPending}
-							className={`rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-black text-[#3D5568] ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-60 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-800 ${focusRing}`}
+							className={`inline-flex min-h-11 items-center justify-center rounded-xl bg-white px-3 text-xs font-black text-[#3D5568] ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-60 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-800 ${focusRing}`}
 						>
 							{t("cancel")}
 						</button>
@@ -353,7 +353,7 @@ export function MembersSettings({
 					<button
 						type="button"
 						onClick={() => setRevokeConfirm(member.membershipId)}
-						className={`rounded-lg border border-[#C42B3A]/30 px-2.5 py-1.5 text-[10px] font-black text-[#C42B3A] transition-colors hover:bg-[#FDE8EA] dark:text-red-300 dark:hover:bg-red-950/40 ${focusRing}`}
+						className={`inline-flex min-h-11 items-center justify-center rounded-xl border border-[#C42B3A]/30 px-3 text-xs font-black text-[#C42B3A] transition-colors hover:bg-[#FDE8EA] dark:text-red-300 dark:hover:bg-red-950/40 ${focusRing}`}
 					>
 						{t("revokeButton")}
 					</button>
@@ -363,15 +363,9 @@ export function MembersSettings({
 	}
 
 	return (
-		<div className="space-y-5" data-help="admin-members-list">
-			<div className="flex flex-wrap items-start justify-between gap-3">
-				<div>
-					<h2 className="font-black text-[#0A3D62] dark:text-[#8fc0ea]">{t("membersTitle")}</h2>
-					<p className="mt-1 text-xs text-[#3D5568] dark:text-gray-400">
-						{t("membersDesc", { count: members.length })}
-					</p>
-				</div>
-				{canManage && (
+		<div className="space-y-4" data-help="admin-members-list">
+			{canManage && (
+				<div className="flex flex-wrap items-center justify-end gap-2">
 					<button
 						type="button"
 						onClick={() => {
@@ -379,13 +373,13 @@ export function MembersSettings({
 							setInviteError(null);
 						}}
 						data-help="admin-invite-member"
-						className={`inline-flex items-center gap-1.5 rounded-xl bg-[#C2410C] px-3 py-2 text-xs font-black text-white shadow-sm transition-colors hover:bg-[#9A3412] ${focusRing}`}
+						className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-[#C2410C] px-4 text-xs font-black text-white shadow-sm transition-colors hover:bg-[#9A3412] ${focusRing}`}
 					>
 						<UserPlus aria-hidden="true" className="h-3.5 w-3.5" />
 						{t("inviteButton")}
 					</button>
-				)}
-			</div>
+				</div>
+			)}
 
 			{!canManage && (
 				<div className="rounded-xl border border-gray-200 bg-[#F4F7F6] px-4 py-3 text-xs font-bold text-[#3D5568] dark:border-gray-700/60 dark:bg-gray-800/60 dark:text-gray-300">
@@ -477,7 +471,7 @@ export function MembersSettings({
 							type="submit"
 							disabled={invitePending}
 							aria-busy={invitePending}
-							className={`inline-flex items-center gap-1.5 rounded-xl bg-[#0A3D62] px-3 py-2 text-xs font-black text-white transition-colors hover:bg-[#082f4c] disabled:opacity-60 ${focusRing}`}
+							className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 text-xs font-black text-white transition-colors hover:bg-[#082f4c] disabled:opacity-60 ${focusRing}`}
 						>
 							{invitePending && <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />}
 							{invitePending ? t("inviting") : t("inviteSubmit")}
@@ -489,7 +483,7 @@ export function MembersSettings({
 								setInviteError(null);
 							}}
 							disabled={invitePending}
-							className={`rounded-xl bg-white px-3 py-2 text-xs font-bold text-[#3D5568] ring-1 ring-gray-200 transition-colors hover:bg-gray-50 disabled:opacity-60 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-800 ${focusRing}`}
+							className={`inline-flex min-h-11 items-center justify-center rounded-xl bg-white px-3 text-xs font-bold text-[#3D5568] ring-1 ring-gray-200 transition-colors hover:bg-gray-50 disabled:opacity-60 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-800 ${focusRing}`}
 						>
 							{t("cancel")}
 						</button>
@@ -522,7 +516,7 @@ export function MembersSettings({
 										<button
 											type="button"
 											onClick={copyPassword}
-											className={`inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-black text-[#1E7B34] ring-1 ring-[#1E7B34]/20 hover:bg-[#f3fbf5] ${focusRing}`}
+											className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-white px-3 text-xs font-black text-[#1E7B34] ring-1 ring-[#1E7B34]/20 hover:bg-[#f3fbf5] ${focusRing}`}
 										>
 											{copied ? (
 												<Check aria-hidden="true" className="h-3.5 w-3.5" />
@@ -539,7 +533,7 @@ export function MembersSettings({
 							type="button"
 							onClick={() => setInviteResult(null)}
 							aria-label={t("done")}
-							className={`rounded-lg p-1 text-[#1E7B34] hover:bg-white/70 dark:text-green-300 ${focusRing}`}
+							className={`inline-flex h-11 w-11 items-center justify-center rounded-lg text-[#1E7B34] hover:bg-white/70 dark:text-green-300 ${focusRing}`}
 						>
 							<X aria-hidden="true" className="h-4 w-4" />
 						</button>
@@ -557,7 +551,7 @@ export function MembersSettings({
 						type="button"
 						onClick={() => setActionError(null)}
 						aria-label={t("dismiss")}
-						className={`rounded p-0.5 text-[#C42B3A] hover:bg-white/60 dark:text-red-300 ${focusRing}`}
+						className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[#C42B3A] hover:bg-white/60 dark:text-red-300 ${focusRing}`}
 					>
 						<X aria-hidden="true" className="h-3.5 w-3.5" />
 					</button>
@@ -577,7 +571,7 @@ export function MembersSettings({
 					cardsLabel={tCommon("viewToggle.cards")}
 					toggleLabel={tCommon("viewToggle.label")}
 				>
-					<div className="data-list-table overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700/60">
+					<div className="data-list-table hidden overflow-hidden rounded-xl border border-gray-200 md:block dark:border-gray-700/60">
 						<div className="overflow-x-auto">
 							<table className="w-full min-w-[46rem] text-sm">
 								<thead>

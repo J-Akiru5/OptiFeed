@@ -2459,6 +2459,12 @@
 			"deviceOnline": "ESP32 online",
 			"deviceOffline": "ESP32 offline",
 			"deviceMissing": "ESP32 wala pa na-pares",
+			"lastSynced": "Huli nga na-sync: {time}",
+			"lastSyncedNever": "wala pa",
+			"lastSyncedJustNow": "bag-o lang",
+			"lastSyncedMinutesAgo": "{count, plural, one {# ka minuto ang nakaligad} other {# ka minuto ang nakaligad}}",
+			"lastSyncedHoursAgo": "{count, plural, one {# ka oras ang nakaligad} other {# ka oras ang nakaligad}}",
+			"lastSyncedDaysAgo": "{count, plural, one {# ka adlaw ang nakaligad} other {# ka adlaw ang nakaligad}}",
 			"skipToContent": "Lumaktaw sa pangunahon nga sulod",
 			"platformAdmin": "Platform admin",
 			"pagination": {

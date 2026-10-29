@@ -41,17 +41,31 @@ interface HeaderActionsProps {
 	initialUser?: HeaderActionsUser;
 }
 
-function formatRelativeTime(dateStr: string | null): string {
-	if (!dateStr) return "NEVER";
+type RelativeTimeKey =
+	| "lastSyncedNever"
+	| "lastSyncedJustNow"
+	| "lastSyncedMinutesAgo"
+	| "lastSyncedHoursAgo"
+	| "lastSyncedDaysAgo";
+
+type RelativeTimeTranslator = (key: RelativeTimeKey, values?: { count: number }) => string;
+
+/**
+ * #316: the relative time is a catalogue string of its own, with ICU plurals for
+ * the count, and the caller plugs the result into `lastSynced` so the sentence
+ * order belongs to the locale rather than to this function.
+ */
+function formatRelativeTime(dateStr: string | null, t: RelativeTimeTranslator): string {
+	if (!dateStr) return t("lastSyncedNever");
 	const date = new Date(dateStr);
 	const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-	if (seconds < 60) return "JUST NOW";
+	if (seconds < 60) return t("lastSyncedJustNow");
 	const minutes = Math.floor(seconds / 60);
-	if (minutes < 60) return `${minutes} ${minutes === 1 ? "MINUTE" : "MINUTES"} AGO`;
+	if (minutes < 60) return t("lastSyncedMinutesAgo", { count: minutes });
 	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours} ${hours === 1 ? "HOUR" : "HOURS"} AGO`;
+	if (hours < 24) return t("lastSyncedHoursAgo", { count: hours });
 	const days = Math.floor(hours / 24);
-	return `${days} ${days === 1 ? "DAY" : "DAYS"} AGO`;
+	return t("lastSyncedDaysAgo", { count: days });
 }
 
 interface ProfileMenuProps {
@@ -95,6 +109,12 @@ function ProfileMenu({
 	const router = useRouter();
 	const locale = useLocale();
 	const tCommon = useTranslations("dashboard.common");
+	const deviceStatusLabel =
+		esp32Status === "online"
+			? tCommon("deviceOnline")
+			: esp32Status === "offline"
+				? tCommon("deviceOffline")
+				: tCommon("deviceMissing");
 
 	return (
 		<div
@@ -155,7 +175,7 @@ function ProfileMenu({
 									: "text-gray-500"
 						}`}
 					>
-						{esp32Status}
+						{deviceStatusLabel}
 					</p>
 				</div>
 			</div>
@@ -266,6 +286,7 @@ export function HeaderActions({
 	const isPlatformAdmin = initialUser?.isPlatformAdmin ?? false;
 	const router = useRouter();
 	const { clearMessages } = useChatWidget();
+	const tCommon = useTranslations("dashboard.common");
 
 	// E18 (#199): a platform admin has no farm identity of their own, so the
 	// pond name/selector and the last-synced line are not theirs to show. In
@@ -294,7 +315,7 @@ export function HeaderActions({
 						className="text-[10px] tracking-wider text-white/60 uppercase"
 						suppressHydrationWarning
 					>
-						LAST SYNCED: {formatRelativeTime(lastSeenAt)}
+						{tCommon("lastSynced", { time: formatRelativeTime(lastSeenAt, tCommon) })}
 					</p>
 				</div>
 			)}

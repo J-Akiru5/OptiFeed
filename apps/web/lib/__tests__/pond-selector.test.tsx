@@ -139,10 +139,17 @@ describe("PondSelector states", () => {
 		expect(screen.queryByRole("menu")).toBeNull();
 	});
 
-	it("shows the pond name without a menu when there is only one pond", () => {
+	it("still exposes the switcher when there is only one pond", () => {
 		renderSelector([PONDS[0]], "pond-1");
 
-		expect(screen.getByText("Pond One")).toBeInTheDocument();
-		expect(screen.queryByRole("button")).toBeNull();
+		const trigger = screen.getByRole("button", { name: /Pond One/ });
+		expect(trigger).toHaveAttribute("aria-haspopup", "menu");
+
+		fireEvent.click(trigger);
+
+		const items = screen.getAllByRole("menuitemradio");
+		expect(items).toHaveLength(1);
+		expect(items[0]).toHaveAttribute("aria-checked", "true");
+		expect(items[0]).toHaveTextContent("Pond One");
 	});
 });

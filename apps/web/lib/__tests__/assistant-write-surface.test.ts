@@ -123,7 +123,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import type { AssistantCaller } from "../assistant/caller";
 import { ASSISTANT_ACTION_DEFINITIONS } from "../assistant/catalog";
 import { availableToolIds } from "../assistant/tools";
-import type { AssistantToolId } from "../assistant/types";
+import { ASSISTANT_TOOL_IDS, type AssistantToolId } from "../assistant/types";
 
 const ctx = { userId: "user-1" };
 const reason = "Investigating a support ticket";
@@ -475,6 +475,12 @@ describe("platform user and organization actions", () => {
 });
 
 describe("the guard matrix matches the UI", () => {
+	it("registers exactly one definition for every declared tool id", () => {
+		expect(Object.keys(ASSISTANT_ACTION_DEFINITIONS).sort()).toEqual(
+			[...ASSISTANT_TOOL_IDS].sort(),
+		);
+	});
+
 	const GUARDS: Array<
 		[AssistantToolId, Partial<(typeof ASSISTANT_ACTION_DEFINITIONS)[AssistantToolId]>]
 	> = [

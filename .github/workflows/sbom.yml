@@ -52,10 +52,10 @@ jobs:
         run: |
           set -euo pipefail
           base="https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}"
-          curl -sSfL -o syft.tar.gz "${base}/syft_${SYFT_VERSION}_linux_amd64.tar.gz"
+          curl -sSfL -o "syft_${SYFT_VERSION}_linux_amd64.tar.gz" "${base}/syft_${SYFT_VERSION}_linux_amd64.tar.gz"
           curl -sSfL -o syft_checksums.txt "${base}/syft_${SYFT_VERSION}_checksums.txt"
           grep " syft_${SYFT_VERSION}_linux_amd64.tar.gz$" syft_checksums.txt | sha256sum -c -
-          tar -xzf syft.tar.gz syft
+          tar -xzf "syft_${SYFT_VERSION}_linux_amd64.tar.gz" syft
           ./syft version
 
       # `syft dir` catalogs the lockfile; it needs no `pnpm install`, so nothing
@@ -110,10 +110,10 @@ jobs:
         run: |
           set -euo pipefail
           base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
-          curl -sSfL -o gitleaks.tar.gz "${base}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" "${base}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           curl -sSfL -o gitleaks_checksums.txt "${base}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
           grep " gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz$" gitleaks_checksums.txt | sha256sum -c -
-          tar -xzf gitleaks.tar.gz gitleaks
+          tar -xzf "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" gitleaks
           ./gitleaks version
 
       # `.gitleaks.toml` extends the default ruleset and allowlists only three

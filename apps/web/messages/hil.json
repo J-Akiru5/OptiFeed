@@ -2477,6 +2477,12 @@
 				"value": "Bili",
 				"name": "Ngalan",
 				"empty": "Wala sang datos sa sini nga panahon."
+			},
+			"terminology": {
+				"aboutAbw": "Ano ang buot silingon sang ABW?",
+				"abw": "Average Body Weight: ang average nga timbang sang isda sa pinakabag-o nga biomass sample, sa gramo. Ini ang timbang sang sample nga ginbahin sa kadamuon sang isda nga gin-timbang.",
+				"aboutFcr": "Ano ang buot silingon sang FCR?",
+				"fcr": "Feed Conversion Ratio: ang kilo nga patuka nga gingamit sa kada kilo nga pagtubo sang timbang sang isda, halin sa pinakabag-o nga FCR report. Kon mas manubo, mas maayo."
 			}
 		},
 		"mobile": {

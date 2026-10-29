@@ -12,7 +12,7 @@ import { join } from "node:path";
 
 type Tree = { [key: string]: string | Tree };
 
-export function loadMessages(locale: "en" | "hil" = "en"): Record<string, string> {
+export function loadMessages(locale: "en" | "hil" | "tl" = "en"): Record<string, string> {
 	const raw = JSON.parse(
 		readFileSync(join(__dirname, "../../../messages", `${locale}.json`), "utf8"),
 	);

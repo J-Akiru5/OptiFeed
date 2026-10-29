@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.27.1] - 2026-10-29
+
+### Fixed
+
+- The hardware **Settings → Live Monitoring** hero now renders the interactive 3D feeder viewer instead of the legacy SVG illustration, and the live status poll runs immediately on load.
+
 ## [1.27.0] - 2026-10-29
 
 ### Added

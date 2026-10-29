@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { ChatConversation } from "./chat-conversation";
+import { chatPanelBorder } from "./chat-theme";
 import { useChatWidget } from "./chat-widget-provider";
 
 // Desktop (>=768px) side panel. Fixed to the right edge below the header; the
@@ -17,7 +18,8 @@ export function ChatPanel() {
 		<aside
 			aria-hidden={!isOpen}
 			className={cn(
-				"fixed right-0 top-16 bottom-0 z-40 hidden w-[var(--ofd-chat-panel-w)] flex-col overflow-hidden border-l border-gray-200 shadow-2xl transition-transform duration-300 md:flex",
+				"fixed right-0 top-16 bottom-0 z-40 hidden w-[var(--ofd-chat-panel-w)] flex-col overflow-hidden shadow-2xl transition-transform duration-300 md:flex",
+				chatPanelBorder,
 				isOpen ? "translate-x-0" : "pointer-events-none translate-x-full",
 			)}
 		>

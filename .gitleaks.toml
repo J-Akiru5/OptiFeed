@@ -39,7 +39,7 @@ regexes = ['''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJyb2xlIjoiYW5vbiJ9\.c2lnbm
 
 [[allowlists]]
 description = "Supabase-secret-shaped fixture for the scrubber assertions (apps/web/lib/__tests__/error-scrub.test.ts:14). The body is an alphabetical sequence, not a key."
-targetRules = ["generic-api-key", "supabase-secret-key"]
+targetRules = ["generic-api-key"]
 regexes = ['''sb_secret_abcdefghijklmnopqrstuvwxyz''']
 
 [[allowlists]]

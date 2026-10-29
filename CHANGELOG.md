@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.31.0] - 2026-10-30
+
+### Added
+
+- The feeder 3D viewer now shows six component labels ? hopper, ultrasonic sensor, controller, motor, auger and outlet ? with statuses derived from the feeder status and hopper level. They appear only in the ISO preset, use fixed Solis-style callout slots with 1 px leaders and anchor dots, and fall back to a 2 x 3 semantic status list below `md`. The ISO stage is now the owner-approved front-left angle; manual orbit clears the labels and pressing ISO restores them. The card gains the PakaonAI navy product-stage glow and an orange active preset pill.
+- The public landing hardware section now features the tape-calibrated feeder model as a transparent ISO poster, with a research-prototype caption and the existing six-row parts table below. The poster is 20.9 kB WebP and loads lazily; the 3D runtime is not added to the public page.
+
+### Fixed
+
+- The post top is 105 mm above the hopper/lid top: **615 mm**, down from 750 mm. Model asset **1.1.2**; service-worker cache **v8**.
+
 ## [1.30.3] - 2026-10-29
 
 ### Fixed

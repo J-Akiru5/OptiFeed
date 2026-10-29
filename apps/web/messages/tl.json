@@ -159,7 +159,21 @@
 			"rtcOk": "OK",
 			"rtcUnknown": "Walang RTC",
 			"deviceMac": "Device ID (MAC)",
-			"openViewer": "Buksan ang 3D view"
+			"openViewer": "Buksan ang 3D view",
+			"componentHopper": "Hopper",
+			"componentSensor": "Ultrasonic sensor",
+			"componentController": "Controller",
+			"componentMotor": "Motor",
+			"componentAuger": "Auger",
+			"componentOutlet": "Outlet",
+			"componentLive": "Live",
+			"componentLastKnown": "Huling alam",
+			"componentOnline": "Online",
+			"componentRunning": "Tumatakbo",
+			"componentReady": "Handa",
+			"componentNoReading": "Walang reading",
+			"componentReading": "Nagbabasa",
+			"componentsTitle": "Mga komponente"
 		},
 		"adminOverview": {
 			"chartActivityRange": "Saklaw: {from} – {to} · {days} araw sa bukid (Asia/Manila)."

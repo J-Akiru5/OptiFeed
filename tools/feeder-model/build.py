@@ -47,6 +47,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--glb", required=True)
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--preview", default="")
+    parser.add_argument("--poster", default="")
     parser.add_argument("--version", default="1.0.0")
     parser.add_argument("--contract", type=int, default=1)
     parser.add_argument("--skip-preview", action="store_true")
@@ -1312,10 +1313,10 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
         "Cable_Sensor",
         [
             (sensor["center"][0], sensor["center"][1] + sensor["height"] / 2.0, sensor["center"][2] - sensor["depth"] / 2.0),
-            (-70, 555, 140),
-            (-20, 620, 127.5),
-            (-20, 745, 127.5),
-            (20, 750, 127.5),
+            (-70, 550, 140),
+            (-20, 590, 127.5),
+            (-20, 610, 127.5),
+            (20, 615, 127.5),
             (20, 300, 127.5),
             (24, 30, 150),
         ],
@@ -1601,6 +1602,51 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def render_poster(
+    scene: bpy.types.Scene,
+    camera: bpy.types.Object,
+    feeder: bpy.types.Collection,
+    path: Path,
+) -> None:
+    """Transparent 4:3 ISO poster for the public hardware showcase."""
+    ground = bpy.data.objects.get("Preview_Ground")
+    if ground is not None:
+        ground.hide_render = True
+
+    grain = bpy.data.objects.get("Grain_Fill")
+    if grain is not None:
+        grain.scale.z = 0.62
+
+    minimum, maximum = world_bounds(list(feeder.objects))
+    center = (minimum + maximum) / 2.0
+    size = maximum - minimum
+    max_dim = max(size.x, size.y, size.z)
+    # Mirror the preview ISO to the owner-approved front-left angle.
+    direction = Vector((-0.9, -1.05, 0.28)).normalized()
+    distance = (max_dim * 0.5) / math.tan(math.radians(19.0)) * 1.55
+    camera.location = center + direction * distance
+    look_at(camera, center)
+
+    scene.render.engine = "CYCLES"
+    scene.cycles.samples = 48
+    scene.cycles.use_denoising = True
+    scene.render.film_transparent = True
+    scene.render.resolution_x = 1600
+    scene.render.resolution_y = 1200
+    scene.render.resolution_percentage = 100
+    scene.render.image_settings.file_format = "PNG"
+    scene.render.image_settings.color_mode = "RGBA"
+    scene.view_settings.exposure = -0.35
+
+    camera.data.lens = 45
+    camera.data.sensor_width = 36
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    scene.render.filepath = str(path)
+    bpy.ops.render.render(write_still=True)
+    print(f"[poster] {path}")
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -1632,12 +1678,21 @@ def main() -> int:
     export_glb(glb_path, objects)
     print(f"[export] {glb_path} ({glb_path.stat().st_size / 1024 / 1024:.2f} MB)")
 
+    camera = None
     if args.preview and not args.skip_preview:
         camera = add_preview(scene, preview_collection, mats)
         try:
             render_previews(scene, camera, feeder, Path(args.preview))
         except Exception as exc:
             print(f"[warn] preview render failed: {exc}")
+
+    if args.poster:
+        if camera is None:
+            camera = add_preview(scene, preview_collection, mats)
+        try:
+            render_poster(scene, camera, feeder, Path(args.poster))
+        except Exception as exc:
+            print(f"[warn] poster render failed: {exc}")
 
     triangles = count_triangles(objects)
     manifest = {

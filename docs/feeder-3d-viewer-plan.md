@@ -376,7 +376,7 @@ Reference photos stay in `Downloads`; they are not committed.
 | 2 — viewer | Device detail route, lazy R3F scene, camera presets, live level/status binding, SVG fallback, and a full-viewer/simple-view switch. |
 | 3 — data/auth | `getDeviceDetail` resolves org scope first and falls back to the caller's active farm; `/api/devices/[id]/state` is session-authenticated, no-store and scoped by the same query. |
 | 4 — surfaces | Controller-card link, admin device-row/card 3D links, `en`/`hil`/`tl` keys, and service-worker v5 caching for `/models/`. |
-| 5 — release | Unit/type/lint/build gates pass; browser E2E, a real FPS benchmark and the `1.26.0` release-prep version bump remain deferred. |
+| 5 — release | Unit/type/lint/build gates pass; **v1.26.0 release prep is included**. Browser E2E and a real FPS benchmark remain deferred. |
 
 The authoritative measurement gaps are unchanged: chassis, base plate, hopper, tube, motor
 and shelf height still need tape measurements before the model leaves the provisional revision.

@@ -3645,5 +3645,9 @@
 			"info": "Impormasyon",
 			"warning": "Importante"
 		}
+	},
+	"sidebar": {
+		"collapse": "Pil-ona ang sidebar",
+		"expand": "Bukasa ang sidebar"
 	}
 }

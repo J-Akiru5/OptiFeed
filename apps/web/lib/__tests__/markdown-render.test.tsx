@@ -69,8 +69,10 @@ describe("Markdown key stability", () => {
 
 		expect(duplicateKeyWarnings()).toEqual([]);
 		expect(container.querySelector("p")).toHaveTextContent("intro");
-		// List items are rendered as <span>, not <li> — see the note below.
-		expect(container.querySelector("ul")?.querySelectorAll("span")).toHaveLength(2);
+		// List items must be real <li> elements: a <span> inside <ul>/<ol> is
+		// invalid markup and screen readers will not announce the list (axe
+		// `list`/`listitem`, see a11y-chat.test.tsx).
+		expect(container.querySelector("ul")?.querySelectorAll("li")).toHaveLength(2);
 	});
 
 	it("renders bold and italic inline without key warnings", () => {

@@ -4,10 +4,11 @@ import { ASSISTANT_NAME, Mascot } from "@/components/assistant/mascot";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Loader2, Send, User, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ChatActionCard } from "./chat-action-card";
 import type { ChatMessage } from "./chat-storage";
 import {
+	CHAT_TOGGLE_SELECTOR,
 	chatAssistantAvatar,
 	chatAssistantBubble,
 	chatChip,
@@ -47,6 +48,10 @@ export function ChatConversation({
 	const [input, setInput] = useState("");
 	const [nearBottom, setNearBottom] = useState(true);
 	const scrollRef = useRef<HTMLDivElement>(null);
+	// The panel and the mobile sheet can both be mounted, so the composer needs
+	// a unique id for its label. A placeholder is not a label: it disappears as
+	// soon as someone types.
+	const composerId = useId();
 
 	const last = messages[messages.length - 1];
 	const showTyping = isStreaming && (last?.role === "user" || last?.content === "");
@@ -76,8 +81,23 @@ export function ChatConversation({
 		setInput("");
 	};
 
+	/**
+	 * Escape closes the chat from anywhere inside it (the composer included) and
+	 * puts focus back on the floating control that opened it. The handler stops
+	 * there so an enclosing dialog does not also see the Escape.
+	 */
+	const handleKeyDown = (event: React.KeyboardEvent) => {
+		if (event.key !== "Escape") return;
+		event.stopPropagation();
+		onClose();
+		document.querySelector<HTMLElement>(CHAT_TOGGLE_SELECTOR)?.focus();
+	};
+
 	return (
-		<div className={cn("flex min-h-0 flex-col overflow-hidden", chatSurface, className)}>
+		<div
+			onKeyDown={handleKeyDown}
+			className={cn("flex min-h-0 flex-col overflow-hidden", chatSurface, className)}
+		>
 			{/* Header: Pakoy's head and name replace the old bot glyph (#221). */}
 			<div className="flex items-center justify-between bg-[#0A3D62] px-4 py-3 text-white shrink-0">
 				<div className="flex min-w-0 items-center gap-2.5">
@@ -185,7 +205,11 @@ export function ChatConversation({
 
 			{/* Input */}
 			<form onSubmit={handleSubmit} className="flex shrink-0 gap-2 p-3">
+				<label htmlFor={composerId} className="sr-only">
+					{t("placeholder")}
+				</label>
 				<input
+					id={composerId}
 					type="text"
 					value={input}
 					onChange={(e) => setInput(e.target.value)}

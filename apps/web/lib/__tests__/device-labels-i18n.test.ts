@@ -26,7 +26,9 @@ function placeholders(message: string): string[] {
 }
 
 const sections = ["dashboard.adminDeviceLabels"] as const;
-// The sticker is a physical label and is English only, so it has no translations.
+// The sticker sheet is a physical label printed in English (see the last test),
+// but its strings live in the catalogue like every other key, so the catalogue
+// itself must stay in parity across locales (ISO 25010 W9, issue #327).
 const STICKER = "dashboard.adminDeviceLabels.sticker.";
 const deviceKeys = ["printLabel", "printSelected", "labelColumn", "selectForLabel"];
 
@@ -60,13 +62,19 @@ describe("device label strings exist in every locale", () => {
 	}
 });
 
-describe("the sticker text is English only", () => {
-	it("has no translated copy outside en", () => {
+describe("the printed sticker is English whatever the locale", () => {
+	it("carries the sticker keys in every locale instead of leaving a gap", () => {
 		const en = flatten(load("en"));
-		expect(Object.keys(en).filter((k) => k.startsWith(STICKER)).length).toBeGreaterThan(15);
-		for (const locale of locales.filter((l) => l !== "en")) {
-			const keys = Object.keys(flatten(load(locale)));
-			expect(keys.filter((k) => k.startsWith(STICKER))).toEqual([]);
+		const enKeys = Object.keys(en)
+			.filter((key) => key.startsWith(STICKER))
+			.sort();
+		expect(enKeys.length).toBeGreaterThan(15);
+
+		for (const locale of locales) {
+			const keys = Object.keys(flatten(load(locale)))
+				.filter((key) => key.startsWith(STICKER))
+				.sort();
+			expect(keys, `${locale} is missing sticker keys`).toEqual(enKeys);
 		}
 	});
 

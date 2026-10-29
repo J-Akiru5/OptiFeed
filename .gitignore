@@ -9,6 +9,7 @@ out/
 build/
 dist/
 .pio/
+.lighthouseci/
 
 # Environment variables
 .env

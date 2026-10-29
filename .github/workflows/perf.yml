@@ -1,0 +1,145 @@
+name: Performance
+
+# Measurement only. This workflow never deploys, never touches a real database
+# and never writes to a shared branch.
+#
+# Three budgets, each derived from a recorded measurement on this tree rather
+# than a guessed constant:
+#
+#   1. first-load JS per route      -> perf/bundle-budget.json
+#   2. public-page Lighthouse scores + resource budgets -> lighthouserc.json
+#   3. API/page latency p50/p95     -> perf/baseline/api-latency.json
+#
+# The baseline files are the source of truth and are reviewed like code: a
+# number may only rise in a PR that explains why. See
+# docs/performance/README.md.
+#
+# Kept out of ci.yml on purpose: the correctness gate stays fast, and a
+# performance regression must be attributable to this workflow's two jobs.
+
+on:
+  push:
+    branches: [develop, staging, main]
+  pull_request:
+    branches: [develop, staging, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: perf-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event.pull_request }}
+
+env:
+  # Dummy values only. `next build` and `next start` need the variables to
+  # exist; nothing here can reach a real project. Same values as ci.yml.
+  DATABASE_URL: postgresql://user:pass@localhost:5432/ci_dummy
+  DIRECT_URL: postgresql://user:pass@localhost:5432/ci_dummy
+  NEXT_PUBLIC_SUPABASE_URL: https://ci-dummy.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-dummy-anon-key
+  NEXT_TELEMETRY_DISABLED: "1"
+  # Lighthouse CI is pinned so a new release cannot change the scores a
+  # committed budget was calibrated against.
+  LHCI_VERSION: "0.15.1"
+
+jobs:
+  bundle-and-latency:
+    name: bundle budget + latency
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter web prisma:generate
+
+      # `next build` directly, not `pnpm build`: the package script runs
+      # `prisma migrate deploy`, which this workflow must never do.
+      - name: Build
+        run: npx next build
+        working-directory: apps/web
+
+      - name: First-load JS budget
+        run: |
+          set -euo pipefail
+          node scripts/perf/bundle-budget.mjs | tee "$RUNNER_TEMP/bundle-budget.txt"
+          {
+            echo '### First-load JS'
+            echo ''
+            echo '```'
+            cat "$RUNNER_TEMP/bundle-budget.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Starts its own `next start` on port 3111 and stops it before exiting.
+      - name: API + page latency budget
+        run: |
+          set -euo pipefail
+          node scripts/perf/api-latency.mjs \
+            --spawn --port 3111 \
+            --baseline perf/baseline/api-latency.json \
+            | tee "$RUNNER_TEMP/api-latency.txt"
+          {
+            echo '### Latency (p50 / p95, ms)'
+            echo ''
+            echo '```'
+            cat "$RUNNER_TEMP/api-latency.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  lighthouse:
+    name: lighthouse budgets
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter web prisma:generate
+
+      - name: Build
+        run: npx next build
+        working-directory: apps/web
+
+      # `autorun` = collect (starting the server itself) + assert + upload.
+      # Only the four routes that render without a session are audited; every
+      # other page is behind the auth guard, so auditing it would measure the
+      # login redirect instead of the page.
+      - name: Lighthouse CI
+        run: pnpm dlx "@lhci/cli@${LHCI_VERSION}" autorun
+
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci
+          retention-days: 14
+          if-no-files-found: warn

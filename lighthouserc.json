@@ -22,7 +22,7 @@
 				{
 					"matchingUrlPattern": "http://127\\.0\\.0\\.1:3111/en$",
 					"assertions": {
-						"categories:performance": ["error", { "minScore": 0.58 }],
+						"categories:performance": ["error", { "minScore": 0.52 }],
 						"categories:accessibility": ["error", { "minScore": 0.9 }],
 						"categories:best-practices": ["error", { "minScore": 0.9 }],
 						"categories:seo": ["error", { "minScore": 0.95 }]
@@ -31,7 +31,7 @@
 				{
 					"matchingUrlPattern": "http://127\\.0\\.0\\.1:3111/en/login$",
 					"assertions": {
-						"categories:performance": ["error", { "minScore": 0.71 }],
+						"categories:performance": ["error", { "minScore": 0.72 }],
 						"categories:accessibility": ["error", { "minScore": 0.93 }],
 						"categories:best-practices": ["error", { "minScore": 0.86 }]
 					}
@@ -39,7 +39,7 @@
 				{
 					"matchingUrlPattern": "http://127\\.0\\.0\\.1:3111/en/privacy$",
 					"assertions": {
-						"categories:performance": ["error", { "minScore": 0.73 }],
+						"categories:performance": ["error", { "minScore": 0.67 }],
 						"categories:accessibility": ["error", { "minScore": 0.94 }],
 						"categories:best-practices": ["error", { "minScore": 0.9 }],
 						"categories:seo": ["error", { "minScore": 0.95 }]
@@ -48,7 +48,7 @@
 				{
 					"matchingUrlPattern": "http://127\\.0\\.0\\.1:3111/en/terms$",
 					"assertions": {
-						"categories:performance": ["error", { "minScore": 0.76 }],
+						"categories:performance": ["error", { "minScore": 0.71 }],
 						"categories:accessibility": ["error", { "minScore": 0.94 }],
 						"categories:best-practices": ["error", { "minScore": 0.9 }],
 						"categories:seo": ["error", { "minScore": 0.95 }]
@@ -59,7 +59,7 @@
 					"assertions": {
 						"first-contentful-paint": ["error", { "maxNumericValue": 2500 }],
 						"largest-contentful-paint": ["error", { "maxNumericValue": 5000 }],
-						"total-blocking-time": ["error", { "maxNumericValue": 800 }],
+						"total-blocking-time": ["error", { "maxNumericValue": 1000 }],
 						"cumulative-layout-shift": ["error", { "maxNumericValue": 0.02 }],
 						"speed-index": ["error", { "maxNumericValue": 6000 }],
 						"interactive": ["error", { "maxNumericValue": 6000 }],

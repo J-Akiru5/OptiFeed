@@ -114,9 +114,9 @@ node scripts/perf/bundle-budget.mjs --write --out perf/bundle-budget.json
 
 - The shared bootstrap is 432.4 kB uncompressed, about 3:1 compressible. On `/en` Lighthouse measures
   269 kB of script over the wire for 798 kB of first-load JS.
-- The heaviest routes are the dashboard family at 1.40-1.46 MB. `recharts`, `jspdf`/`jspdf-autotable`,
-  `jszip`, `papaparse` and `@fullcalendar/*` are all dependencies of pages in that group, and the
-  dashboard is the most expensive single page.
+- The heaviest routes are the dashboard family at 1,396-1,455 kB. `recharts`,
+  `jspdf`/`jspdf-autotable`, `jszip`, `papaparse` and `@fullcalendar/*` are all dependencies of pages in
+  that group, and the dashboard is the most expensive single page.
 - The landing page carries a large amount of client-side markup for a marketing page: the whole
   `app/[locale]/page.tsx` is a client component (`"use client"`), so its entire tree ships.
 
@@ -155,58 +155,69 @@ returns a `307` to `/en/login`, so Lighthouse would score the redirect, not the 
 Auditing them is a follow-up that needs a seeded database and a session fixture (see
 [`api-latency.md`](./api-latency.md), which lists the same prerequisite for the DB-backed requests).
 
-### Measured baseline (2026-10-29, three runs each)
+### Measured baseline
 
-Medians as LHCI reports them, with the full spread in brackets:
+Two independent sessions on 2026-10-29, three runs per URL each, same build and config. Medians as LHCI
+reports them, with the spread of individual runs:
 
-| URL | Performance | Accessibility | Best practices | SEO |
+| URL | Performance (session 1 / 2) | Accessibility | Best practices | SEO |
 |---|---|---|---|---|
-| `/en` | 77 (61-81) | 93 | 93 | 100 |
-| `/en/login` | 80 (74-83) | 96 | 89 | 66 |
-| `/en/privacy` | 83 (76-89) | 97 | 93 | 100 |
-| `/en/terms` | 91 (79-91) | 97 | 93 | 100 |
+| `/en` | 77 (61-81) / 64 (64-73) | 93 / 93 | 93 / 93 | 100 / 100 |
+| `/en/login` | 80 (74-83) / 89 (76-90) | 96 / 96 | 89 / 89 | 66 / 66 |
+| `/en/privacy` | 83 (76-89) / 75 (67-83) | 97 / 97 | 93 / 93 | 100 / 100 |
+| `/en/terms` | 91 (79-91) / 79 (68-80) | 97 / 97 | 93 / 93 | 100 / 100 |
 
-| Metric | `/en` | `/en/login` | `/en/privacy` | `/en/terms` |
+Accessibility, best practices and SEO are identical across all six runs per URL, which is why those
+floors are tight. Performance moves by up to 13 points between sessions with no code change.
+
+| Metric (worst of six runs) | `/en` | `/en/login` | `/en/privacy` | `/en/terms` |
 |---|---|---|---|---|
-| FCP (ms) | 1364-1786 | 1368-1390 | 1512-1604 | 1362-1377 |
-| LCP (ms) | 4175-4557 | 4129-4493 | 3719-3858 | 3383-3838 |
-| TBT (ms) | 227-891 | 182-373 | 63-487 | 45-387 |
+| FCP (ms) | 1786 | 1390 | 1604 | 1377 |
+| LCP (ms) | 4557 | 4493 | 4214 | 4208 |
+| TBT (ms) | 891 | 373 | 487 | 651 |
 | CLS | 0 | 0 | 0 | 0 |
+| Server response (ms) | 354 | 77 | 172 | 76 |
 | Transfer, script | 269,222 B | 270,836 B | 200,223 B | 200,223 B |
-| Transfer, total | 495,837 B | 466,301 B | 408,810 B | 396,948 B |
+| Transfer, total | 495,841 B | 466,542 B | 409,004 B | 397,779 B |
 | Third-party requests | 0 | 0 | 0 | 0 |
+
+The resource figures are byte-identical across all twelve runs. Only the timing-derived scores move.
 
 ### Budgets
 
-Category floors, each set two to three points under the **worst** of the three measured runs so that
-the recorded spread cannot fail the job and a real regression still does:
+The categories have two jobs, and they are budgeted differently.
+
+**Category floors are collapse detectors.** A Lighthouse performance score is a weighted composite
+whose inputs swing on a shared host (TBT on `/en` ranged 227-891 ms). A tight floor would fail on a
+noisy run; the floor below is the lowest observed median minus 6-8 points, which catches a genuine
+collapse without encoding the noise:
 
 | URL | Performance | Accessibility | Best practices | SEO |
 |---|---|---|---|---|
-| `/en` | 0.58 | 0.90 | 0.90 | 0.95 |
-| `/en/login` | 0.71 | 0.93 | 0.86 | *not asserted* |
-| `/en/privacy` | 0.73 | 0.94 | 0.90 | 0.95 |
-| `/en/terms` | 0.76 | 0.94 | 0.90 | 0.95 |
+| `/en` | 0.52 | 0.90 | 0.90 | 0.95 |
+| `/en/login` | 0.72 | 0.93 | 0.86 | *not asserted* |
+| `/en/privacy` | 0.67 | 0.94 | 0.90 | 0.95 |
+| `/en/terms` | 0.71 | 0.94 | 0.90 | 0.95 |
 
-Numeric budgets, identical for every audited URL:
+**Numeric budgets are the real gate.** They are asserted on the median run and measure the things a
+visitor experiences, at roughly +10% over the worst observed value:
 
-| Assertion | Budget | Measured worst |
+| Assertion | Budget | Worst of six runs |
 |---|---|---|
 | `first-contentful-paint` | 2500 ms | 1786 ms |
 | `largest-contentful-paint` | 5000 ms | 4557 ms |
-| `total-blocking-time` | 800 ms | 891 ms (single outlier run; median 233 ms) |
 | `cumulative-layout-shift` | 0.02 | 0 |
 | `speed-index` | 6000 ms | 5054 ms |
 | `interactive` | 6000 ms | 5070 ms |
-| `server-response-time` | 1000 ms | 299 ms |
+| `server-response-time` | 1000 ms | 354 ms |
 | `resource-summary:script:size` | 285,000 B | 270,836 B |
 | `resource-summary:total:size` | 520,000 B | 495,841 B |
 | `resource-summary:third-party:count` | 0 | 0 |
 
-`total-blocking-time` is the one budget above a measured value rather than at +10%: a single `/en` run
-hit 891 ms while its median was 233 ms. Budgeting the outlier would make the gate meaningless;
-budgeting 233 ms would make it flaky. 800 ms is above every recorded median and below every recorded
-maximum, so it catches a genuine main-thread regression without tripping on a noisy run.
+`total-blocking-time` is the exception: budgeted at 1000 ms, just above the worst observed run (891 ms)
+rather than at +10% of it. Budgeting the median (233-635 ms) would fail on a noisy run; budgeting the
+maximum would encode the worst day as normal. At 1000 ms it catches a collapse in main-thread work, and
+the honest statement about TBT on this app is in "findings" below: it is already too high.
 
 ### Why two categories are capped where they are
 
@@ -225,9 +236,11 @@ a deployed preview would remove the artifact.
 
 ### Findings worth acting on later (not fixed here)
 
-- `/en` LCP is 4.2-4.6 s under mobile simulation, above the 2.5 s "good" threshold. The `unused-javascript`
-  and `legacy-javascript` audits both fail: the route ships a full client component tree and the
-  shared bootstrap includes code the landing page never uses.
+- **Total blocking time is the worst metric on every page**: 200-900 ms under mobile simulation, against
+  the 200 ms "good" threshold. That is the single reason performance scores sit where they do.
+- `/en` LCP is 4.1-4.6 s under mobile simulation, above the 2.5 s "good" threshold. The
+  `unused-javascript` and `legacy-javascript` audits both fail: the route ships a full client component
+  tree and the shared bootstrap includes code the landing page never uses.
 - `color-contrast` fails on all four pages, and `label-content-name-mismatch` on `/en`, `/en/privacy`
   and `/en/terms` (`/en` also trips `aria-prohibited-attr`). These belong to the accessibility
   workstream (I-68), and they are why accessibility is 93/96/97 rather than 100.
@@ -237,9 +250,10 @@ a deployed preview would remove the artifact.
 
 ## Known limits of this evidence
 
-- Lighthouse ran locally (Chrome 156.0.8078.48, Windows 11, Node 24.14.0) and in `perf.yml` on
-  `ubuntu-latest`. Numbers move between them; the budgets are set from the local run and have
-  between 15% and 100% headroom on the numeric assertions.
+- Lighthouse ran locally (Chrome 156.0.8078.48, Windows 11, Node 24.14.0, two sessions) and will run in
+  `perf.yml` on `ubuntu-latest`. A CI runner is a different machine: the numeric budgets carry roughly
+  10-100% headroom over the worst local run, but expect the first scheduled CI run to be the useful
+  calibration for the runner, not this table.
 - **The page-render latency numbers are evidence, not a gate.** The same four pages measured 24-31 ms
   p50 on a quiet machine and 43-119 ms p50 twenty minutes later with no code change, because other
   work was running on the host. Wall-clock gates are on the stable surfaces (the DB-free API pipeline,

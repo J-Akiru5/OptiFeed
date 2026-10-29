@@ -8,6 +8,7 @@ import { validatePassword } from "@/lib/auth/password";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type FormEvent, useState, useTransition } from "react";
+import { toast } from "sonner";
 
 export function ChangePasswordForm({ forced = false }: { forced?: boolean }) {
 	const t = useTranslations("password");
@@ -45,12 +46,16 @@ export function ChangePasswordForm({ forced = false }: { forced?: boolean }) {
 			const result = await changeOwnPassword({ currentPassword, newPassword });
 
 			if ("error" in result) {
-				if (result.error === "wrong_current") setError(t("wrongCurrent"));
-				else if (result.error === "weak_password") setError(t("weak"));
-				else if (result.error === "same_password") setError(t("same"));
-				else setError(t("service"));
+				let message = t("service");
+				if (result.error === "wrong_current") message = t("wrongCurrent");
+				else if (result.error === "weak_password") message = t("weak");
+				else if (result.error === "same_password") message = t("same");
+				setError(message);
+				toast.error(message);
 				return;
 			}
+
+			toast.success(t("updated"));
 
 			if (forced) {
 				router.replace(result.redirectTo);

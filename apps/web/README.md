@@ -5,10 +5,12 @@ biomass/FCR tracking, ESP32 feeder control, and low-pellet / offline alerts.
 
 ## Stack
 
-- **Next.js 16** (App Router, next-intl for en/hil) + **Prisma** + **Supabase** (PostgreSQL + Auth)
+- **Next.js 16** (App Router, next-intl for en/hil/tl) + **Prisma** + **Supabase** (PostgreSQL + Auth)
 - **ESP32** feeder over device-token REST (`/api/ingest`, `/api/feed-command`, `/api/schedule-sync`)
 - **Telegram** alerts for CRITICAL events, **OpenCode Go (DeepSeek V4.1 Flash)** chat assistant
 - pnpm workspaces monorepo (`apps/web`, `packages/config`)
+- **Languages:** English, Hiligaynon and Tagalog. Tagalog is an incremental overlay with English fallback; see [docs/i18n.md](../../docs/i18n.md).
+- **Confirmations:** every mutating action uses a top-right Sonner toast; see [docs/ui-confirmations.md](../../docs/ui-confirmations.md).
 
 ## Setup
 

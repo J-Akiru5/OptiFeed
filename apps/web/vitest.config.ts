@@ -19,28 +19,22 @@ export default defineConfig({
 			reportsDirectory: "./coverage",
 			// RATCHET — raise these, never lower them.
 			//
-			// Measured 2026-10-29 on develop @ 8eb6ce4 (242 files, 2498 tests,
-			// vitest 3.2.7 + @vitest/coverage-v8 3.2.7, 214 lib files):
-			//   lines      80.92% (19,871 / 24,554)
-			//   statements 80.92% (19,871 / 24,554)
-			//   functions  89.25% (955 / 1,070)
-			//   branches   78.78% (4,964 / 6,301)
+			// Measured 2026-10-29 after four coverage campaigns (I-73, I-74, I-75,
+			// I-76), vitest 3.2.7 + @vitest/coverage-v8 3.2.7:
+			//   lines      92.42%
+			//   statements 92.42%
+			//   functions  94.85%
+			//   branches   84.94%
 			//
-			// The A-level target is 90% lines: that needs 22,099 covered lines,
-			// i.e. 2,228 more than today (4,683 lines are uncovered). The
-			// thresholds below are the measured floor, not the target, so the
-			// gate fails a regression while the gap is closed file by file.
-			// Largest uncovered files: lib/actions/admin.ts (302),
-			// lib/growth-plan-apply.ts (234), lib/assistant/catalog.ts (204),
-			// lib/membership-invite.ts (160), lib/actions/superadmin.ts (156).
-			// Lines/statements sit 0.02pp under the measurement (a few lines);
-			// branch totals move by a handful between runs (module-init order in
-			// mocked tests), so branches/functions keep ~0.3pp of headroom.
+			// The A-level target of 90% lines is met and enforced below. Lines and
+			// statements carry ~0.4pp of headroom, branches and functions ~0.3pp,
+			// because branch totals move by a handful between runs (module-init order
+			// in mocked tests). Raise the floors as the numbers rise; never lower them.
 			thresholds: {
-				lines: 80.9,
-				statements: 80.9,
-				functions: 89,
-				branches: 78.5,
+				lines: 90,
+				statements: 90,
+				functions: 94.5,
+				branches: 84.5,
 			},
 		},
 	},

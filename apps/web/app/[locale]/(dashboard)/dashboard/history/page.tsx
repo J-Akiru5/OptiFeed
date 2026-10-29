@@ -275,7 +275,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 					unit="g"
 				/>
 
-				<div className="flex min-w-0 flex-col gap-2">
+				<div id="hopper-level" className="flex min-w-0 flex-col gap-2 scroll-mt-24">
 					<nav
 						aria-label={t("charts.hopperRangeLabel")}
 						className="flex flex-wrap items-center justify-end gap-1.5"

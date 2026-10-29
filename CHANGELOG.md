@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.30.1] - 2026-10-29
+
+### Fixed
+
+- The pond switcher rendered as inert header text when a farm had exactly one ACTIVE pond, so the control looked like a label and nobody could tell it existed. It now always renders the dropdown trigger and opens a menu listing the single pond, already checked.
+
 ## [1.30.0] - 2026-10-29
 
 ### Security

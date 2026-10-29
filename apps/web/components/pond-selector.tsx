@@ -154,19 +154,9 @@ export function PondSelector({ ponds, activePondId, className }: PondSelectorPro
 		);
 	}
 
-	if (ponds.length === 1) {
-		return (
-			<span
-				className={cn(
-					"inline-block max-w-[14rem] truncate text-xs font-bold text-white uppercase tracking-wider",
-					className,
-				)}
-			>
-				{activePond?.name}
-			</span>
-		);
-	}
-
+	// A single pond still renders the trigger: a static label looked like plain
+	// header text, so nobody could tell the switcher existed. The menu simply
+	// lists the one pond, already checked.
 	return (
 		<div className={cn("relative", className)} ref={containerRef}>
 			<button

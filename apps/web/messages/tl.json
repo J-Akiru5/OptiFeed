@@ -154,6 +154,12 @@
 		"adminDevices": {
 			"view3d": "3D view"
 		},
+		"pondSwitcher": {
+			"labelNamed": "Aktibong pond: {name}",
+			"listLabel": "Pumili ng pond",
+			"switching": "Nagpapalit…",
+			"switchFailed": "Hindi mapalitan ang pond. Subukan muli."
+		},
 		"common": {
 			"readOnlyTitle": "Tingnan lang",
 			"capability": {

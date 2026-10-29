@@ -12,6 +12,7 @@ import { CompactHeaderActions, HeaderActions } from "@/components/header-actions
 import { MobileHeader } from "@/components/mobile/mobile-header";
 import { NotificationProvider } from "@/components/notification-provider";
 import { OnboardingProvider } from "@/components/onboarding-provider";
+import { PondSelector } from "@/components/pond-selector";
 import { OfflineSync } from "@/components/pwa/offline-sync";
 import { GlobalSearch } from "@/components/search/global-search";
 import { Sidebar } from "@/components/sidebar";
@@ -25,7 +26,7 @@ import { isCurrentTenantAdmin } from "@/lib/auth/tenant-admin";
 import { getViewAsState } from "@/lib/auth/view-as";
 import { getSignedAvatarUrls } from "@/lib/avatars";
 import { loadPondHopper } from "@/lib/device-hopper";
-import { getActivePondId } from "@/lib/pond-selection";
+import { getActivePondId, listSelectablePonds } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { getActiveAnnouncement } from "@/lib/settings/announcement";
 import { isFeatureEnabled } from "@/lib/settings/flags";
@@ -83,19 +84,13 @@ export default async function DashboardLayout({
 	let hopperGramsPerFeeding: number | null = null;
 	let hopperFeedsPerDay: number | null = null;
 	let esp32Status: "online" | "offline" | "missing" = "missing";
-	let pondName = "ILO-POND-01";
+	let pondName = "";
 	let lastSeenAtStr: string | null = null;
 	let ponds: { id: string; name: string }[] = [];
 	let activePondId = "";
 
 	try {
-		const [allPonds, selectedId] = await Promise.all([
-			prisma.pond.findMany({
-				where: { ownerId, status: "ACTIVE" },
-				orderBy: { createdAt: "asc" },
-			}),
-			getActivePondId(),
-		]);
+		const [allPonds, selectedId] = await Promise.all([listSelectablePonds(), getActivePondId()]);
 
 		ponds = allPonds.map((p) => ({ id: p.id, name: p.name }));
 
@@ -162,15 +157,15 @@ export default async function DashboardLayout({
 								isTenantAdmin={isTenantAdmin}
 								subtitle={
 									showPondChrome ? (
-										<span className="flex items-center gap-1.5">
-											<span className="truncate">{pondName}</span>
+										<div className="flex items-center gap-1.5">
+											<PondSelector ponds={ponds} activePondId={activePondId} />
 											{esp32Status !== "missing" && (
 												<>
 													<span aria-hidden="true">·</span>
 													<span className="shrink-0">{deviceStatusLabel}</span>
 												</>
 											)}
-										</span>
+										</div>
 									) : null
 								}
 							>

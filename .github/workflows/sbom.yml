@@ -1,0 +1,151 @@
+name: SBOM and secret scan
+
+# Software-supply-chain evidence, split out from the dependency-audit gate in
+# `.github/workflows/security.yml` so each control fails and reports on its own.
+#
+#   sbom        CycloneDX SBOM for the pnpm workspace, kept as a build artifact.
+#   secret-scan gitleaks over the working tree and the last N commits.
+#
+# Verification only: no deploy, no migration, no application secret, no write
+# permission beyond reading the repository.
+
+on:
+  push:
+    branches: [develop, staging, main]
+  pull_request:
+    branches: [develop, staging, main]
+  schedule:
+    # Weekly, an hour after the dependency-audit gate. A newly added commit is
+    # covered by the push run; this catches a scanner or ruleset change.
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sbom-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Pinned so a run is reproducible and an upstream release cannot change the
+  # output (or the CLI flags) under us. Bump deliberately.
+  SYFT_VERSION: "1.55.0"
+  GITLEAKS_VERSION: "8.30.1"
+  # History window for the secret scan. The working tree is always scanned in
+  # full; this only bounds how far back the commit scan reaches.
+  GITLEAKS_HISTORY_DEPTH: "100"
+
+jobs:
+  sbom:
+    name: CycloneDX SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Syft is a single static binary. It is downloaded and checksum-verified
+      # here rather than added to package.json, so the SBOM job cannot affect
+      # the application dependency tree it is measuring.
+      - name: Install syft
+        run: |
+          set -euo pipefail
+          base="https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}"
+          curl -sSfL -o syft.tar.gz "${base}/syft_${SYFT_VERSION}_linux_amd64.tar.gz"
+          curl -sSfL -o syft_checksums.txt "${base}/syft_${SYFT_VERSION}_checksums.txt"
+          grep " syft_${SYFT_VERSION}_linux_amd64.tar.gz$" syft_checksums.txt | sha256sum -c -
+          tar -xzf syft.tar.gz syft
+          ./syft version
+
+      # `syft dir` catalogs the lockfile; it needs no `pnpm install`, so nothing
+      # in this job executes a dependency lifecycle script.
+      - name: Generate CycloneDX SBOM
+        run: |
+          set -euo pipefail
+          ./syft dir:. --quiet -o cyclonedx-json=sbom.cdx.json
+          node --input-type=commonjs -e '
+            const fs = require("node:fs");
+            const sbom = JSON.parse(fs.readFileSync("sbom.cdx.json", "utf8"));
+            if (sbom.bomFormat !== "CycloneDX") {
+              throw new Error("sbom.cdx.json is not a CycloneDX document");
+            }
+            const components = sbom.components ?? [];
+            if (components.length < 100) {
+              throw new Error(`only ${components.length} components; the pnpm lockfile was not cataloged`);
+            }
+            const app = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            console.log([
+              "### CycloneDX SBOM",
+              "",
+              `- spec version: ${sbom.specVersion}`,
+              `- components: ${components.length}`,
+              `- app version: ${app.version}`,
+              `- commit: ${process.env.GITHUB_SHA}`,
+              "",
+            ].join("\n"));
+          ' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx-${{ github.sha }}
+          path: sbom.cdx.json
+          retention-days: 90
+          if-no-files-found: error
+
+  secret-scan:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Full history is required for the commit scan; a shallow clone makes
+      # `git log` lie about what it saw.
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          curl -sSfL -o gitleaks.tar.gz "${base}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o gitleaks_checksums.txt "${base}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          grep " gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz$" gitleaks_checksums.txt | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks version
+
+      # `.gitleaks.toml` extends the default ruleset and allowlists only three
+      # documented placeholder values, each with its reason in that file.
+      - name: Scan the working tree
+        run: |
+          ./gitleaks dir . \
+            --config .gitleaks.toml \
+            --redact \
+            --no-banner \
+            --verbose \
+            --report-format sarif \
+            --report-path gitleaks-working-tree.sarif
+
+      - name: Scan the last ${{ env.GITLEAKS_HISTORY_DEPTH }} commits
+        run: |
+          ./gitleaks git . \
+            --config .gitleaks.toml \
+            --log-opts="--max-count=${GITLEAKS_HISTORY_DEPTH}" \
+            --redact \
+            --no-banner \
+            --verbose \
+            --report-format sarif \
+            --report-path gitleaks-history.sarif
+
+      # A failed scan still writes the SARIF file; keep it so the finding can
+      # be read without re-running the job.
+      - name: Upload gitleaks reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-sarif-${{ github.sha }}
+          path: "*.sarif"
+          retention-days: 30
+          if-no-files-found: warn

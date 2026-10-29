@@ -6,6 +6,7 @@ import { useFeedCommandGuard } from "@/lib/pwa/use-feed-guard";
 import { cn } from "@/lib/utils";
 import {
 	AlertTriangle,
+	Box,
 	CalendarClock,
 	Clock,
 	Loader2,
@@ -13,6 +14,7 @@ import {
 	Wifi,
 	WifiOff,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -63,6 +65,7 @@ export function EnergyControllerCard({
 	const [feedSent, setFeedSent] = useState(false);
 	const [alreadyQueued, setAlreadyQueued] = useState(false);
 	const { online, reason, blockIfOffline } = useFeedCommandGuard();
+	const tViewer = useTranslations("dashboard.feederViewer");
 
 	const dispenseSeconds =
 		gramsPerSecond && gramsPerSecond > 0 && feedGrams > 0
@@ -256,6 +259,16 @@ export function EnergyControllerCard({
 						</p>
 					)}
 				</div>
+			</div>
+
+			<div className="mt-4 border-t border-gray-100 pt-3 dark:border-gray-800">
+				<Link
+					href={`/dashboard/devices/${deviceId}`}
+					className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0A3D62] transition-colors hover:text-[#E85A2A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3D62] dark:text-[#8fc0ea] dark:focus-visible:ring-[#8fc0ea]"
+				>
+					<Box aria-hidden="true" className="size-3.5" />
+					{tViewer("openViewer")}
+				</Link>
 			</div>
 		</div>
 	);

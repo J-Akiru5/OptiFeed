@@ -30,7 +30,7 @@ import {
 } from "@/lib/mobile-list";
 import { buildPageHref, parsePage } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
-import { Cpu, Printer, Wifi, WifiOff } from "lucide-react";
+import { Cpu, Eye, Printer, Wifi, WifiOff } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 
 const LABELS_HREF = "/admin/devices/labels";
@@ -316,6 +316,13 @@ export default async function AdminDevicesPage({
 													<Printer aria-hidden="true" className="h-3.5 w-3.5" />
 													{t("printLabel")}
 												</Link>
+												<Link
+													href={`/dashboard/devices/${device.id}`}
+													className={adminButtonSecondary}
+												>
+													<Eye aria-hidden="true" className="h-3.5 w-3.5" />
+													{t("view3d")}
+												</Link>
 											</div>
 										</AdminTd>
 									</AdminTr>
@@ -387,6 +394,10 @@ export default async function AdminDevicesPage({
 									>
 										<Printer aria-hidden="true" className="h-3.5 w-3.5" />
 										{t("printLabel")}
+									</Link>
+									<Link href={`/dashboard/devices/${device.id}`} className={adminButtonSecondary}>
+										<Eye aria-hidden="true" className="h-3.5 w-3.5" />
+										{t("view3d")}
 									</Link>
 								</EntityCard>
 							);

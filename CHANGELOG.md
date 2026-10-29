@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- #296 the Admin Overview **Device activity** chart now states its inclusive 14-farm-day range (from/to dates, Asia/Manila) instead of leaving the window implicit.
+
+## [1.26.0] - 2026-10-29
+
+### Added
+
+- Feeder 3D viewer (plan v1.1.0): Blender-built `feeder-v1.0.0.glb` with a versioned manifest, a lazy React Three Fiber scene on `/dashboard/devices/[id]`, live hopper/status polling, camera presets, a no-WebGL illustrated fallback, dashboard and admin links, and a service-worker `v5` cache rule for `/models/`.
+
 ## [1.25.0] - 2026-10-29
 
 ### Added

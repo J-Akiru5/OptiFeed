@@ -144,7 +144,7 @@ describe("hopper calibration form", () => {
 		const increase = screen.getByRole("button", { name: "Increase Full Distance (cm)" });
 
 		expect(full).toHaveAttribute("step", "1");
-		expect(full).toHaveAttribute("inputMode", "numeric");
+		expect(full).toHaveAttribute("inputMode", "decimal");
 
 		fireEvent.click(increase);
 		expect(full).toHaveValue(2);
@@ -152,6 +152,32 @@ describe("hopper calibration form", () => {
 		expect(full).toHaveValue(3);
 		fireEvent.click(increase);
 		expect(full).toHaveValue(4);
+	});
+
+	it("accepts one decimal for a hopper distance (owner decision, 2026-10-29)", async () => {
+		vi.mocked(saveHopperCalibration).mockResolvedValue({ success: true });
+
+		render(
+			<HopperCalibrationForm
+				deviceId="dev-1"
+				hopperFullCm={12.3}
+				hopperEmptyCm={30}
+				hopperCapacityG={7000}
+			/>,
+		);
+
+		const full = screen.getByLabelText("Full Distance (cm)");
+		expect(full).toHaveValue(12.3);
+
+		fireEvent.click(screen.getByRole("button", { name: "Save Calibration" }));
+
+		await waitFor(() =>
+			expect(saveHopperCalibration).toHaveBeenCalledWith("dev-1", {
+				hopperFullCm: 12.3,
+				hopperEmptyCm: 30,
+				hopperCapacityG: 7000,
+			}),
+		);
 	});
 
 	it("lays the numeric fields out in a responsive three-column grid", () => {

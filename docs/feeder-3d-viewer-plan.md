@@ -364,3 +364,19 @@ Reference photos stay in `Downloads`; they are not committed.
 - All gates green: typecheck, lint, unit, build, targeted E2E.
 - Benchmark recorded or deferral recorded.
 - `Unreleased` changelog entry present; proposed MINOR release prepared; no tag or publication by an agent.
+
+---
+
+## Implementation status (2026-10-29)
+
+| Phase | State |
+| --- | --- |
+| 0 — plan | Merged to `develop` in PR #295 (`21def62`). |
+| 1 — model | Built headlessly with Blender 5.2.3 LTS: `feeder-v1.0.0.glb` is **823,620 bytes / 26,856 triangles**, with a generated manifest and `docs/feeder/preview-{iso,front,side}.png`. Triangles are above the 20k target; the model is under the 2 MB ceiling and has no Draco/Meshopt. Dimensions remain `provisional-2026-10-29`. |
+| 2 — viewer | Device detail route, lazy R3F scene, camera presets, live level/status binding, SVG fallback, and a full-viewer/simple-view switch. |
+| 3 — data/auth | `getDeviceDetail` resolves org scope first and falls back to the caller's active farm; `/api/devices/[id]/state` is session-authenticated, no-store and scoped by the same query. |
+| 4 — surfaces | Controller-card link, admin device-row/card 3D links, `en`/`hil`/`tl` keys, and service-worker v5 caching for `/models/`. |
+| 5 — release | Unit/type/lint/build gates pass; browser E2E, a real FPS benchmark and the `1.26.0` release-prep version bump remain deferred. |
+
+The authoritative measurement gaps are unchanged: chassis, base plate, hopper, tube, motor
+and shelf height still need tape measurements before the model leaves the provisional revision.

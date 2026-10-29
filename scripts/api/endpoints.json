@@ -61,6 +61,16 @@
 			"level": "L1",
 			"contract": true,
 			"latency": false
+		},
+		{
+			"id": "device-state",
+			"method": "GET",
+			"path": "/api/v1/devices/{id}/state",
+			"shape": "envelope",
+			"auth": "session",
+			"level": "L2",
+			"contract": false,
+			"latency": false
 		}
 	],
 	"excluded": [

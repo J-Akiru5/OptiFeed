@@ -14,7 +14,7 @@ import {
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
-import { FeederHero } from "@/components/feeder/feeder-hero";
+import { FeederViewerLazy } from "@/components/feeder/feeder-viewer-lazy";
 import { updateDeviceDailyCap } from "@/lib/actions/settings";
 import { canWrite } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
@@ -298,7 +298,15 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 		<div className="w-full space-y-6 pb-20">
 			<DashboardPageHeader title={t("title")} description={t("desc")} icon={Settings} />
 
-			{feederHero && pondName && <FeederHero pondName={pondName} {...feederHero} />}
+			{feederHero && pondName && energyDevice && (
+				<FeederViewerLazy
+					deviceId={energyDevice.id}
+					label={feederHero.deviceLabel}
+					initialStatus={feederHero.isOffline ? "offline" : feederHero.isPaused ? "paused" : "idle"}
+					initialLevel={feederHero.hopperLevelPercent}
+					initialLastFedAt={null}
+				/>
+			)}
 
 			{!writeAccess && (
 				<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />

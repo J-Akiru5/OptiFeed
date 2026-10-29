@@ -10,7 +10,8 @@ Integration branch: `integration/batch-2026-10-29a` (worktree `S:/Dev/optifeed/m
 `feat/issues-288-289` (worktree `S:/Dev/Capstone/optifeed-worktrees/issues-288-289`). That agent
 merged **PR #291** into `develop` as **`6c9d8d4`**; this lead did not duplicate or edit its work.
 This lead verified the post-merge `develop` CI run **40805233910** (green), closed #288/#289 with
-the merge SHA, and prepared the **v1.25.0** release + plan record in `release/v1.25.0`.
+the merge SHA, and prepared + merged the **v1.25.0** release via PR #292 (`2bde61b`); post-merge
+CI run **40806407079** is green.
 
 ## Scope
 
@@ -56,3 +57,4 @@ the issues; the branches were created and pushed from `origin/develop` before wo
 | 10-29 10:06 | Batch merge | PR #290 merged into `develop` as **`9ff9514`**; post-merge CI run `40804339626` green; #286/#287 closed. |
 | 10-29 10:15 | Parallel #288/#289 | The parallel agent merged PR #291 (`feat/issues-288-289`) as **`6c9d8d4`**: Tagalog + language dropdown, password toast, `docs/i18n.md`, `docs/ui-confirmations.md`. Post-merge CI run `40805233910` green. |
 | 10-29 10:20 | Reconciliation + release | #288/#289 closed with `6c9d8d4`; no duplicate implementation. Prepared **v1.25.0** (MINOR): root/web `package.json`, `LEGAL_APP_RELEASE`, changelog and this plan record. |
+| 10-29 10:27 | v1.25.0 on develop | PR #292 merged as **`2bde61b`**; post-merge CI run `40806407079` green. Open issues: 0. Tag/publication left to the owner. |

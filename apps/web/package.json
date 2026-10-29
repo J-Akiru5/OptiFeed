@@ -16,6 +16,7 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"test:e2e": "playwright test",
+		"test:e2e:smoke": "playwright test --config=playwright.smoke.config.ts",
 		"seed:dev": "tsx prisma/seed-dev.ts",
 		"manage-user": "tsx prisma/manage-users.ts",
 		"platform-admin": "tsx scripts/platform-admin.ts"

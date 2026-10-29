@@ -11,6 +11,10 @@ import { defineConfig } from "@playwright/test";
  */
 export default defineConfig({
 	testDir: "./e2e",
+	// `e2e/smoke/` needs no database or fixture and runs on Chromium, Firefox
+	// and WebKit through playwright.smoke.config.ts. It is excluded here so the
+	// authenticated suite stays single-browser and does not run it a second time.
+	testIgnore: /smoke[\\/]/,
 	globalSetup: "./e2e/global-setup",
 	timeout: 60_000,
 	// Stateful specs (device registration, RBAC) must not replay a half-finished
@@ -23,4 +27,6 @@ export default defineConfig({
 		trace: "on-first-retry",
 	},
 	projects: [{ name: "chromium", use: { browserName: "chromium" } }],
+	// Firefox and WebKit are covered by the public smoke suite only
+	// (playwright.smoke.config.ts); see docs/compatibility.md for the split.
 });

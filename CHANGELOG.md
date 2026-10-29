@@ -13,9 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - #304 the feed calculator can save its result as the pond's growth target. The Growth page now shows the target biomass at harvest, the current/expected biomass and the remaining gap, and the feeding recommendation (including the AI feeder card) derives from the saved target inside the existing 10% / 15-day envelope and device per-meal cap. The target is stored in the pond profile JSON bridge, scoped per pond and tenant, and never moves the cycle's harvest date.
 
+## [1.27.0] - 2026-10-29
+
+### Added
+
+- #297 the desktop dashboard and admin sidebars are now retractable, with the collapsed state persisted and the benchmark notes in `docs/sidebar-benchmark.md`.
+
 ### Changed
 
 - #296 the Admin Overview **Device activity** chart now states its inclusive 14-farm-day range (from/to dates, Asia/Manila) instead of leaving the window implicit.
+- #298 the calendar now uses one shared full-viewport shell across the farmer, admin and superadmin views: the grid stays static and the side pane is the only scrolling surface. Architecture notes are in `docs/calendar-architecture.md`.
 
 ## [1.26.0] - 2026-10-29
 

@@ -31,7 +31,7 @@ function CameraRig({ preset }: { preset: CameraPreset }) {
 	useEffect(() => {
 		const [x, y, z] = CAMERA_PRESETS[preset];
 		camera.position.set(x, y, z);
-		camera.lookAt(0, 0.34, 0);
+		camera.lookAt(0, 0.37, 0.03);
 	}, [camera, preset]);
 	return null;
 }
@@ -54,8 +54,8 @@ function FeederModel({ level, status }: { level: number | null; status: FeederSt
 
 	useFrame((_state, delta) => {
 		if (status !== "dispensing") return;
-		if (nodes.auger) nodes.auger.rotation.z += delta * 5;
-		if (nodes.coupling) nodes.coupling.rotation.z += delta * 5;
+		if (nodes.auger) nodes.auger.rotation.x += delta * 5;
+		if (nodes.coupling) nodes.coupling.rotation.x += delta * 5;
 	});
 
 	return <primitive object={scene} />;
@@ -127,11 +127,11 @@ export function FeederViewer({
 						enablePan={false}
 						enableDamping
 						dampingFactor={0.08}
-						minDistance={0.9}
-						maxDistance={3.2}
+						minDistance={0.8}
+						maxDistance={2.8}
 						minPolarAngle={0.25}
 						maxPolarAngle={Math.PI / 2.02}
-						target={[0, 0.34, 0]}
+						target={[0, 0.37, 0.03]}
 					/>
 				</Canvas>
 			</div>

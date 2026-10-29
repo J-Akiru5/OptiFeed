@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
 	OUTBOX_STORAGE_KEY,
 	clearOutbox,
-	discardOutboxItem,
 	enqueueBiomassSample,
 	enqueueFeedCommand,
 	isBiomassOutboxItem,
@@ -234,7 +233,7 @@ describe("removal", () => {
 	});
 
 	it("exposes discard as the same operation", async () => {
-		await discardOutboxItem("offline-sample-1");
+		await removeOutboxItem("offline-sample-1");
 
 		expect(await listOutbox()).toEqual([]);
 	});

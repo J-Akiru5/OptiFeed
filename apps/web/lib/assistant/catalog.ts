@@ -708,7 +708,7 @@ export function assistantToday(): string {
 }
 
 /** Used by the proposal context for the current pond settings. */
-async function loadPondProposalSettings(): Promise<{
+export async function loadPondProposalSettings(): Promise<{
 	pondName: string | null;
 	feedsPerDay: number | null;
 	feedingRatePct: number | null;

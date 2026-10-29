@@ -139,6 +139,10 @@ An "A" that a stranger cannot re-verify from this repository alone does not coun
 | #326 | `CODEOWNERS` uses an inferred, unverified handle | I-65 governance review |
 | #327 | Tagalog catalogue is 9% complete (307/3,320) and the parity gate ignores it | ISO i18n measurement |
 | #328 | Dev-only criticals remain via vitest 3; the fix is a vitest 4 major | I-62 triage |
+| #329 | `PlatformAuditLog` IP spoofable via left-most `X-Forwarded-For` (A1) | I-69 authz review |
+| #330 | Device rate-limit bucket consumed by unverified `device_id` — 429 DoS (A2) | I-69 authz review |
+| #331 | Platform token reveal + legacy role change lack tenant step-up/rate limits (A3/A4) | I-69 authz review |
+| #332 | CI API-auth check asserts an import, not handler guarding (A5) | I-69 authz review |
 
 The dependency allowlist review is filed once I-62 lands and the surviving entries are known.
 
@@ -168,3 +172,5 @@ The dependency allowlist review is filed once I-62 lands and the surviving entri
 | 10-29 | I-62 delivered | `mission/I-62-supply-chain` @ `ba5a0a7`, merged as `ca9be76`. **Production audit 93 → 1** (independently re-run by the lead: 0 critical, 1 high allowlisted, 0 moderate/low; gate exits 0; production packages 606 → 357). Root cause of most findings was `shadcn` being a **runtime** dependency: it is a code-generation CLI, nothing imports its JS, so it was moved to `devDependencies` — a classification fix, not a suppression. Targeted `pnpm.overrides` (dompurify, proxy-addr, browserslist, source-map-js, baseline-browser-mapping) each stay inside the parent's declared range; `zod` bumped `^4.4.3 → ^4.6.6`. New `scripts/security/audit-gate.mjs` (fails on unallowlisted crit/high, expired/malformed/>90-day entries, exit 2 when the audit cannot run), `security.yml`, `dependabot.yml`, `docs/security/supply-chain.md`. Checks: lint 815 files, typecheck, **2,481 tests**, build, api:check 56/56, gate PASS. |
 | 10-29 | I-62 residual | The full (non-`--prod`) tree still has 2 criticals and ~40 highs through the vitest/vite toolchain. Dev-only, never shipped, fix is a vitest 4 major. Filed as #328 rather than forced. |
 | 10-29 | Wave 2 dispatched | I-63 (coverage + E2E on a local Supabase stack), I-68 (axe-core a11y, keyboard flows, en↔hil parity), I-69 (SBOM, gitleaks, CSP review, threat model, incident response). |
+| 10-29 | I-69 delivered | `mission/I-69-security-depth` @ `ad0f787`, merged as `84816e4`. 7 files, zero application code. SBOM via checksum-pinned syft (chosen over `@cyclonedx/cyclonedx-npm`, which is npm-only, and cdxgen, which needs Node ≥24 while the repo pins 22); gitleaks on the tree and 100 commits with a 3-entry allowlist, each justified; full 609-commit history yields 11 findings, all verified placeholders. `object-src 'none'` **applied by the lead** with a test, since no `<object>/<embed>` exists in the app. Threat model, incident-response plan and authz review added. |
+| 10-29 | I-69 authz findings | No route or action is missing a guard, but five defects in *how* controls apply were filed instead of silently patched: spoofable audit IP (#329), pre-auth rate-limit bucket (#330), platform step-up/rate-limit gaps (#331), and a CI check that verifies an import rather than a guarded handler (#332). |

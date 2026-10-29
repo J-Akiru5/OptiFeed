@@ -29,6 +29,15 @@ describe("CSP (F-025)", () => {
 		expect(csp).toContain("base-uri 'self'");
 	});
 
+	it("blocks plugin content in both policies (I-69)", async () => {
+		expect(headerValue(await globalHeaders(), "Content-Security-Policy")).toContain(
+			"object-src 'none'",
+		);
+		expect(headerValue(await globalHeaders(), "Content-Security-Policy-Report-Only")).toContain(
+			"object-src 'none'",
+		);
+	});
+
 	it("ships a stricter Report-Only policy without 'unsafe-inline' scripts", async () => {
 		const reportOnly = headerValue(await globalHeaders(), "Content-Security-Policy-Report-Only");
 		expect(reportOnly).toBeTruthy();

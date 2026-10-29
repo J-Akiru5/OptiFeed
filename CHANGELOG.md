@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Production dependency audit: `critical` 2 → 0 and `high` 37 → 1 (one allowlisted build/CLI finding, expiring 2027-01-27). `dompurify`, `proxy-addr`, `browserslist`, `source-map-js` and `baseline-browser-mapping` are pinned to patched versions through `pnpm.overrides`; `zod` moves to `^4.6.6`. `shadcn` is a code-generation CLI and now lives in `devDependencies`, so the server stack it drags in is no longer counted as shipped. See `docs/security/supply-chain.md`.
+- `pnpm audit --prod` now runs in CI as `.github/workflows/security.yml`: an unallowlisted `critical`/`high` fails the build, and every allowlist entry in `security/audit-allowlist.json` needs a written reason and an expiry of at most 90 days.
+- `.github/dependabot.yml` adds weekly, grouped npm and GitHub Actions update pull requests. No auto-merge.
+
 ## [1.29.0] - 2026-10-29
 
 ### Added

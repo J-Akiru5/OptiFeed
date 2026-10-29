@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.30.2] - 2026-10-29
+
+### Fixed
+
+- #316 the dashboard header's `LAST SYNCED` label and its relative time are translated (`en`/`hil`/`tl`) with ICU plurals instead of hard-coded English, and the profile menu's device status uses the catalogue rather than the raw enum. A gate entry stops the literal from coming back.
+- #320 `DeviceDailyCapForm` now uses the shared calibration field, so the daily ceiling is clearable, steps in 50 g units, reports range errors accessibly and lines up with the other calibration cards.
+- #345 the account dropdown is readable in dark mode (Admin Panel 3.34:1 → 4.89:1, device offline 2.62 → 5.08, missing 3.03 → 9.96) and finally links to Account settings at `/dashboard/settings/profile`.
+
 ## [1.30.1] - 2026-10-29
 
 ### Fixed

@@ -157,7 +157,7 @@ describe("account menu contrast (#345)", () => {
 		renderHeader("offline");
 		openProfileMenu();
 
-		expect(screen.getByText("offline")).toHaveClass("text-[#C42B3A]", "dark:text-red-400");
+		expect(screen.getByText("ESP32 offline")).toHaveClass("text-[#C42B3A]", "dark:text-red-400");
 
 		const admin = screen.getByRole("button", { name: "Admin Panel" });
 		expect(admin).toHaveClass("text-[#C2410C]", "dark:text-[#ff8a5c]");
@@ -175,6 +175,6 @@ describe("account menu contrast (#345)", () => {
 		renderHeader("missing");
 		openProfileMenu();
 
-		expect(screen.getByText("missing")).toHaveClass("text-gray-600", "dark:text-gray-300");
+		expect(screen.getByText("ESP32 not paired")).toHaveClass("text-gray-600", "dark:text-gray-300");
 	});
 });

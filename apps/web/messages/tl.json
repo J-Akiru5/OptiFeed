@@ -190,6 +190,12 @@
 			"deviceOnline": "Online ang ESP32",
 			"deviceOffline": "Offline ang ESP32",
 			"deviceMissing": "Hindi pa naka-pair ang ESP32",
+			"lastSynced": "Huling sync: {time}",
+			"lastSyncedNever": "hindi pa",
+			"lastSyncedJustNow": "ngayon lang",
+			"lastSyncedMinutesAgo": "{count, plural, one {# minuto ang nakalipas} other {# minuto ang nakalipas}}",
+			"lastSyncedHoursAgo": "{count, plural, one {# oras ang nakalipas} other {# oras ang nakalipas}}",
+			"lastSyncedDaysAgo": "{count, plural, one {# araw ang nakalipas} other {# araw ang nakalipas}}",
 			"skipToContent": "Lumipat sa pangunahing nilalaman",
 			"platformAdmin": "Platform admin",
 			"pagination": {

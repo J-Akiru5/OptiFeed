@@ -71,7 +71,7 @@ export function PakoyGreeting() {
 					<X aria-hidden="true" className="h-3.5 w-3.5" />
 				</button>
 				<button type="button" onClick={() => open()} className="block text-left">
-					<span className="block text-[11px] font-black uppercase tracking-wider text-[#E85A2A] dark:text-[#ff8a5c]">
+					<span className="block text-[11px] font-black uppercase tracking-wider text-[#C2410C] dark:text-[#ff8a5c]">
 						{ASSISTANT_NAME}
 					</span>
 					<span className="mt-0.5 block text-xs font-semibold leading-snug text-[#0A3D62] dark:text-gray-100">

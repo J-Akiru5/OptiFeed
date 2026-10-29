@@ -7,6 +7,19 @@ import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { ChatActionCard } from "./chat-action-card";
 import type { ChatMessage } from "./chat-storage";
+import {
+	chatAssistantAvatar,
+	chatAssistantBubble,
+	chatChip,
+	chatComposer,
+	chatFooter,
+	chatMessageList,
+	chatSendButton,
+	chatSurface,
+	chatTypingBubble,
+	chatUserAvatar,
+	chatUserBubble,
+} from "./chat-theme";
 import { Markdown } from "./markdown";
 
 interface ChatConversationProps {
@@ -64,7 +77,7 @@ export function ChatConversation({
 	};
 
 	return (
-		<div className={cn("flex min-h-0 flex-col overflow-hidden bg-white", className)}>
+		<div className={cn("flex min-h-0 flex-col overflow-hidden", chatSurface, className)}>
 			{/* Header: Pakoy's head and name replace the old bot glyph (#221). */}
 			<div className="flex items-center justify-between bg-[#0A3D62] px-4 py-3 text-white shrink-0">
 				<div className="flex min-w-0 items-center gap-2.5">
@@ -89,7 +102,7 @@ export function ChatConversation({
 			<div
 				ref={scrollRef}
 				onScroll={handleScroll}
-				className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto bg-gray-50 p-4"
+				className={cn("flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4", chatMessageList)}
 			>
 				{messages.map((m, i) => (
 					<div
@@ -102,7 +115,7 @@ export function ChatConversation({
 						<div
 							className={cn(
 								"flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-								m.role === "user" ? "bg-blue-100 text-blue-600" : "",
+								m.role === "user" ? chatUserAvatar : "",
 							)}
 						>
 							{m.role === "user" ? <User size={16} /> : <Mascot size={22} />}
@@ -111,8 +124,8 @@ export function ChatConversation({
 							className={cn(
 								"rounded-2xl px-4 py-2 text-sm shadow-sm",
 								m.role === "user"
-									? "rounded-tr-none bg-blue-600 text-white"
-									: "rounded-tl-none border border-gray-100 bg-white text-gray-800",
+									? cn("rounded-tr-none", chatUserBubble)
+									: cn("rounded-tl-none", chatAssistantBubble),
 							)}
 						>
 							{m.content ? <Markdown text={m.content} /> : "\u00A0"}
@@ -130,10 +143,20 @@ export function ChatConversation({
 
 				{showTyping && (
 					<div className="flex max-w-[85%] gap-2 self-start">
-						<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 text-gray-600">
+						<div
+							className={cn(
+								"flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+								chatAssistantAvatar,
+							)}
+						>
 							<Mascot size={22} />
 						</div>
-						<div className="flex items-center justify-center rounded-2xl rounded-tl-none border border-gray-100 bg-white px-4 py-3">
+						<div
+							className={cn(
+								"flex items-center justify-center rounded-2xl rounded-tl-none px-4 py-3",
+								chatTypingBubble,
+							)}
+						>
 							<Loader2 size={16} className="animate-spin text-gray-400" />
 						</div>
 					</div>
@@ -141,7 +164,7 @@ export function ChatConversation({
 			</div>
 
 			{/* Suggestion chips */}
-			<div className="flex shrink-0 flex-wrap gap-2 border-t border-gray-100 bg-white px-3 pt-3 pb-1">
+			<div className={cn("flex shrink-0 flex-wrap gap-2 px-3 pt-3 pb-1", chatFooter)}>
 				{chips.map((chip) => (
 					<button
 						key={chip}
@@ -150,7 +173,10 @@ export function ChatConversation({
 						onClick={() => {
 							onSend(chip);
 						}}
-						className="max-w-full shrink-0 whitespace-normal rounded-full border border-[#0A3D62]/15 bg-[#F4F7F6] px-3 py-1.5 text-left text-xs font-semibold text-[#0A3D62] transition hover:bg-[#E85A2A]/10 disabled:opacity-50"
+						className={cn(
+							"max-w-full shrink-0 whitespace-normal rounded-full px-3 py-1.5 text-left text-xs font-semibold",
+							chatChip,
+						)}
 					>
 						{chip}
 					</button>
@@ -164,12 +190,12 @@ export function ChatConversation({
 					value={input}
 					onChange={(e) => setInput(e.target.value)}
 					placeholder={t("placeholder")}
-					className="flex-1 rounded-full bg-gray-100 px-4 py-2 text-sm outline-none transition-all focus:ring-2 focus:ring-[#0A3D62]/20"
+					className={chatComposer}
 				/>
 				<button
 					type="submit"
 					disabled={isStreaming || !input.trim()}
-					className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0A3D62] text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+					className={chatSendButton}
 					aria-label={t("placeholder")}
 				>
 					<Send size={16} className="ml-1" />

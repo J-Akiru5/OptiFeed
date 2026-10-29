@@ -17,7 +17,7 @@ import { PH_TZ } from "@/lib/constants";
 /** Sources the device itself reports. Each row is one dispense. */
 export const MACHINE_FEED_SOURCES = ["scheduled", "dashboard", "button"] as const;
 
-export type MachineFeedSource = (typeof MACHINE_FEED_SOURCES)[number];
+type MachineFeedSource = (typeof MACHINE_FEED_SOURCES)[number];
 
 /** Imported precision-feeding record. One row is a whole day, not a dispense. */
 export const HAND_FED_SOURCE = "hand_fed";

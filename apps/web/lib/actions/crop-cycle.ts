@@ -547,6 +547,6 @@ export async function cancelCropCycle(input: CancelCycleInput): Promise<CropCycl
  * same operation as starting the first one, including permission, ownership and
  * one-active-cycle checks.
  */
-export async function startNextCycle(input: CropCycleInput): Promise<CropCycleActionResult> {
+async function startNextCycle(input: CropCycleInput): Promise<CropCycleActionResult> {
 	return createCropCycle(input);
 }

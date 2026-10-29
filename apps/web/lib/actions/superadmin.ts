@@ -134,7 +134,7 @@ export type SuperadminStats = {
 	activePlatformAdminCount: number;
 };
 
-export async function getSuperadminStats(): Promise<SuperadminStats> {
+async function getSuperadminStats(): Promise<SuperadminStats> {
 	await requirePlatformAdmin();
 
 	const [userCount, orgCount, pondCount, platformAdmins] = await Promise.all([
@@ -1131,7 +1131,7 @@ export type PlatformAdminRow = {
 	active: boolean;
 };
 
-export async function getPlatformAdmins(): Promise<PlatformAdminRow[]> {
+async function getPlatformAdmins(): Promise<PlatformAdminRow[]> {
 	await requirePlatformAdmin();
 
 	const [rows, users] = await Promise.all([

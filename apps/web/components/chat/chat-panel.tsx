@@ -8,7 +8,7 @@ import { useChatWidget } from "./chat-widget-provider";
 // Desktop (>=768px) side panel. Fixed to the right edge below the header; the
 // dashboard content shell pushes itself left by exactly PANEL_WIDTH when open
 // (see DashboardContentShell), so opening smoothly resizes the layout.
-export const CHAT_PANEL_WIDTH = 380;
+const CHAT_PANEL_WIDTH = 380;
 
 export function ChatPanel() {
 	const { isOpen, close, messages, isStreaming, send, executeAction, cancelAction, chips } =

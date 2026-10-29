@@ -142,7 +142,7 @@ export async function getCurrentUserRole(): Promise<UserRole | null> {
  * Require the current user to have one of the specified roles.
  * Redirects to /dashboard if not authorized.
  */
-export async function requireRole(...roles: UserRole[]): Promise<void> {
+async function requireRole(...roles: UserRole[]): Promise<void> {
 	const locale = await getLocale();
 	const userRole = await getCurrentUserRole();
 
@@ -185,7 +185,7 @@ export async function canWrite(): Promise<boolean> {
 /**
  * Get all ponds owned by the current user.
  */
-export async function getCurrentUserPonds() {
+async function getCurrentUserPonds() {
 	const ownerId = await getCurrentPondOwnerId();
 	return prisma.pond.findMany({
 		where: { ownerId },

@@ -29,7 +29,7 @@ export async function isCurrentPlatformAdmin(): Promise<boolean> {
  * signInWithPassword, before a fresh session can be read back reliably.
  * Same fail-closed contract as isCurrentPlatformAdmin().
  */
-export async function isPlatformAdminFarmId(farmId: string): Promise<boolean> {
+async function isPlatformAdminFarmId(farmId: string): Promise<boolean> {
 	// PlatformAdmin.userId is a plain String with no relation (plan §3.2 keeps
 	// it decoupled from User), so this is two lookups, not a nested where.
 	const user = await prisma.user.findUnique({

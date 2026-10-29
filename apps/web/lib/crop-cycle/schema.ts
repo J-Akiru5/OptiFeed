@@ -125,7 +125,7 @@ export const manualEventTypes = [
 
 export const pondItemKinds = ["EVENT", "TASK"] as const;
 export const recurrenceFrequencies = ["DAILY", "WEEKLY", "MONTHLY"] as const;
-export const eventReminderMinutes = [60, 1440] as const;
+const eventReminderMinutes = [60, 1440] as const;
 
 const eventColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Use a #RRGGBB colour");
 

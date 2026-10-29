@@ -93,7 +93,7 @@ export const LEGAL_HISTORY = [
 export const RESEARCH_RETENTION =
 	"Until the capstone is completed and the resulting paper is published in a reputable research journal, then for the period required by the University's records policy or the journal's data-availability policy, whichever is longer. After that, the data is securely destroyed.";
 
-export const LEGAL_PATHS = {
+const LEGAL_PATHS = {
 	privacy: "/privacy",
 	terms: "/terms",
 } as const;

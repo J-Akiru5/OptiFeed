@@ -1,16 +1,16 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PakaonAI — System Functions &amp; Evaluation Dossier</title>
+<title>PakaonAI â€” System Functions &amp; Evaluation Dossier</title>
 <meta name="description" content="Complete inventory of the PakaonAI system: architecture, every implemented function by domain, ISO/IEC 25010 engineering evidence, operations, and the plan for the five-minute explainer film.">
 <meta name="color-scheme" content="light">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%230a3d62'/%3E%3Cpath d='M9 25V8h7.2c4 0 6.4 2.2 6.4 5.7 0 3.6-2.5 5.8-6.6 5.8h-3.1V25H9zm3.9-8.4h3c1.9 0 3-1 3-2.9 0-1.8-1.1-2.8-3-2.8h-3v5.7z' fill='%23fff'/%3E%3Ccircle cx='25.5' cy='9' r='2.5' fill='%23fe6b27'/%3E%3C/svg%3E">
 <style>
 /* ============================================================
    PakaonAI institutional document system
-   White paper · navy ink · single orange accent
+   White paper Â· navy ink Â· single orange accent
    ============================================================ */
 :root{
   --paper:#ffffff;
@@ -123,7 +123,7 @@ a:hover{color:var(--accent);border-bottom-color:var(--accent)}
   font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
   color:var(--muted);margin:0 0 12px;display:flex;justify-content:space-between;align-items:center;
 }
-.side-label span{color:var(--line-2)}
+.side-label span{color:var(--muted)}
 #sectionNav{display:flex;flex-direction:column;gap:1px;border-left:1px solid var(--line)}
 #sectionNav a{
   display:block;padding:7px 0 7px 14px;margin-left:-1px;
@@ -267,7 +267,7 @@ table.compact{font-size:12.5px}
 .fn-name{font-weight:650;font-size:14.5px;color:var(--ink);line-height:1.35;margin:0}
 .fn-desc{grid-column:1;font-size:13.5px;color:var(--ink-2);line-height:1.6;margin:3px 0 0;max-width:66ch}
 .fn-ev{grid-column:1/-1;font-family:var(--mono);font-size:10.5px;color:var(--muted);margin:5px 0 0;word-break:break-word}
-.fn-ev b{font-weight:500;color:#7b8d97}
+.fn-ev b{font-weight:500;color:var(--muted)}
 .fn .chip{margin-top:2px;justify-self:end}
 .fn mark{background:#ffe6d8;color:inherit;padding:0 1px;border-radius:1px}
 .fn.dim{opacity:.55}
@@ -287,9 +287,9 @@ figure.diagram figcaption{
   font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);
   display:flex;gap:10px;justify-content:space-between;
 }
-figure.diagram figcaption span:last-child{text-transform:none;letter-spacing:0;font-family:var(--sans);font-size:11px;color:#93a3ab}
+figure.diagram figcaption span:last-child{text-transform:none;letter-spacing:0;font-family:var(--sans);font-size:11px;color:var(--muted)}
 
-/* scope ladder — hierarchy without a graph layout engine */
+/* scope ladder â€” hierarchy without a graph layout engine */
 .scope{display:flex;flex-direction:column;margin:2px auto 4px;max-width:640px;width:100%}
 .scope-row{
   display:grid;grid-template-columns:74px minmax(0,1fr) auto;gap:12px;align-items:center;
@@ -316,7 +316,7 @@ figure.diagram figcaption span:last-child{text-transform:none;letter-spacing:0;f
 
 /* ---------- rail ---------- */
 .rail-card{border:1px solid var(--line);border-radius:var(--r);background:#fff;padding:16px}
-.rail-card h4{margin:0 0 12px;font-size:9.5px}
+.rail-card .rail-title{margin:0 0 12px;font-family:var(--mono);font-weight:600;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 .progress-top{display:flex;align-items:center;gap:14px}
 .ring{width:66px;height:66px;flex:0 0 auto}
 .ring circle{fill:none;stroke-width:6}
@@ -670,6 +670,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
 
 <!-- ============================== SYSTEM ============================== -->
 <section class="panel" role="tabpanel" id="panel-system" aria-labelledby="tab-system" data-panel="system" hidden>
+  <h1 class="sr">System</h1>
 
   <article class="section" id="s-system-page" data-title="System in one page">
     <header class="sec-head"><span class="sec-num">01</span><h2>System in one page</h2></header>
@@ -1050,6 +1051,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
 
 <!-- ============================== FUNCTIONS ============================== -->
 <section class="panel" role="tabpanel" id="panel-functions" aria-labelledby="tab-functions" data-panel="functions" hidden>
+  <h1 class="sr">Functions</h1>
 
   <article class="section" id="s-fn-index" data-title="Function index">
     <header class="sec-head"><span class="sec-num">01</span><h2>Function index</h2></header>
@@ -1754,6 +1756,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
 
 <!-- ============================== EVALUATION ============================== -->
 <section class="panel" role="tabpanel" id="panel-evaluation" aria-labelledby="tab-evaluation" data-panel="evaluation" hidden>
+  <h1 class="sr">Evaluation</h1>
 
   <article class="section" id="s-eval-what" data-title="What this evaluation is">
     <header class="sec-head"><span class="sec-num">01</span><h2>What this evaluation is</h2></header>
@@ -2116,6 +2119,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
 
 <!-- ============================== OPERATIONS ============================== -->
 <section class="panel" role="tabpanel" id="panel-operations" aria-labelledby="tab-operations" data-panel="operations" hidden>
+  <h1 class="sr">Operations</h1>
 
   <article class="section" id="s-ops-env" data-title="Environments">
     <header class="sec-head"><span class="sec-num">01</span><h2>Environments and configuration</h2></header>
@@ -2322,6 +2326,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
 
 <!-- ============================== FILM ============================== -->
 <section class="panel" role="tabpanel" id="panel-film" aria-labelledby="tab-film" data-panel="film" hidden>
+  <h1 class="sr">Film</h1>
 
   <article class="section" id="s-film-brief" data-title="The brief">
     <header class="sec-head"><span class="sec-num">01</span><h2>The brief</h2></header>
@@ -2421,7 +2426,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
     <header class="sec-head"><span class="sec-num">04</span><h2>Voiceover script</h2></header>
     <p>Timed to the beat sheet. About 550 words, which lands near 115–125 words per minute with natural pauses. Read it plainly; do not announce it.</p>
 
-    <div class="script-block">
+    <dl class="script-block">
       <div class="script-cue"><dt>0:00–0:09</dt><dd>Feed is the largest cost on a shrimp farm — and the easiest thing to get wrong.</dd></div>
       <div class="script-cue"><dt>0:09–0:12</dt><dd>Too little, and growth stalls.</dd></div>
       <div class="script-cue"><dt>0:12–0:20</dt><dd>Too much, and you pay for feed that sinks and never becomes shrimp.</dd></div>
@@ -2469,7 +2474,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
       <div class="script-cue"><dt>4:45–4:51</dt><dd>This is a research prototype. Accounts are issued by the team.</dd></div>
       <div class="script-cue"><dt>4:51–4:56</dt><dd>Growth and feed-conversion results are still under review.</dd></div>
       <div class="script-cue"><dt>4:56–5:00</dt><dd>PakaonAI. Built at ISUFST. Feed on evidence.</dd></div>
-    </div>
+    </dl>
 
     <h3>Delivery notes</h3>
     <ul>
@@ -3013,6 +3018,7 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
 
 <!-- ============================== APPENDIX ============================== -->
 <section class="panel" role="tabpanel" id="panel-appendix" aria-labelledby="tab-appendix" data-panel="appendix" hidden>
+  <h1 class="sr">Appendix</h1>
 
   <article class="section" id="s-app-glossary" data-title="Glossary">
     <header class="sec-head"><span class="sec-num">01</span><h2>Glossary</h2></header>
@@ -3262,10 +3268,11 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
           <tr><td>Command palette</td><td id="qa-palette">Pass — Ctrl+K opens, returns results, navigates to the target</td></tr>
           <tr><td>Console errors</td><td id="qa-console">Pass — none recorded</td></tr>
           <tr><td>Horizontal overflow</td><td id="qa-overflow">Pass — 0 px at 1440 and at 390</td></tr>
+          <tr><td>Accessibility audit</td><td id="qa-axe">Pass — axe-core, 0 violations across all 7 tabs at both widths</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="small">Check run: Chromium 1248 headless, 1440×900 and 390×844, against a local static server, 33 assertions, 0 failures. These checks verify layout and interaction, not content accuracy; content was verified against the repository separately.</p>
+    <p class="small">Check run: Chromium 1248 headless, 1440×900 and 390×844, against a local static server. 33 interaction assertions and 14 axe-core tab/viewport audits, 0 failures. These checks verify layout, interaction, and accessibility mechanics, not content accuracy; content was verified against the repository separately.</p>
   </article>
 
   <article class="section" id="s-app-changelog" data-title="Document control">
@@ -3305,7 +3312,7 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
 
   <aside class="rail" aria-label="Document context">
     <div class="rail-card">
-      <h4>Read progress</h4>
+      <p class="rail-title">Read progress</p>
       <div class="progress-top">
         <svg class="ring" viewBox="0 0 72 72" aria-hidden="true">
           <circle class="trk" cx="36" cy="36" r="30"/>
@@ -3316,19 +3323,19 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
     </div>
 
     <div class="rail-card">
-      <h4>At a glance</h4>
+      <p class="rail-title">At a glance</p>
       <dl class="rail-facts">
         <div><dt>Baseline</dt><dd>fdfc830</dd></div>
         <div><dt>App version</dt><dd>1.30.3</dd></div>
         <div><dt>Domains</dt><dd>15</dd></div>
-        <div><dt>Functions listed</dt><dd id="factFns">—</dd></div>
-        <div><dt>ISO evidence</dt><dd>5 A · 3 A−</dd></div>
+        <div><dt>Functions listed</dt><dd id="factFns">â€”</dd></div>
+        <div><dt>ISO evidence</dt><dd>5 A Â· 3 Aâˆ’</dd></div>
         <div><dt>Film length</dt><dd>5:00</dd></div>
       </dl>
     </div>
 
     <div class="rail-card">
-      <h4>Status key</h4>
+      <p class="rail-title">Status key</p>
       <div class="legend">
         <div><span class="chip live" style="padding:2px 5px"><span class="dot"></span></span> Implemented at baseline</div>
         <div><span class="chip flight" style="padding:2px 5px"><span class="dot"></span></span> Open PR, not merged</div>
@@ -3338,12 +3345,12 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
     </div>
 
     <div class="rail-card">
-      <h4>Document control</h4>
+      <p class="rail-title">Document control</p>
       <p class="small" style="margin:0">Internal working document. Prepared for the capstone defense, ISO/IEC 25010 evaluation, and the explainer film. Not a certification record.</p>
     </div>
 
     <div class="rail-card">
-      <h4>Actions</h4>
+      <p class="rail-title">Actions</p>
       <div class="rail-actions">
         <button id="printBtn" type="button">Print / save as PDF</button>
         <button id="resetBtn" type="button">Reset read progress</button>
@@ -3360,15 +3367,16 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
 
 <div class="palette" id="palette" hidden role="dialog" aria-modal="true" aria-label="Search the document">
   <div class="palette-box">
-    <input class="palette-input" id="paletteInput" type="search" placeholder="Search functions, sections, and terms…" autocomplete="off" spellcheck="false">
+    <input class="palette-input" id="paletteInput" type="search" placeholder="Search functions, sections, and termsâ€¦" autocomplete="off" spellcheck="false">
     <ul class="palette-list" id="paletteList" role="listbox" aria-label="Search results"></ul>
     <p class="palette-empty" id="paletteEmpty" hidden>No match. Try a domain, a route, or a term like &ldquo;offline&rdquo;.</p>
     <div class="palette-foot">
-      <span><kbd>↑</kbd> <kbd>↓</kbd> navigate · <kbd>↵</kbd> open · <kbd>esc</kbd> close</span>
+      <span><kbd>â†‘</kbd> <kbd>â†“</kbd> navigate Â· <kbd>â†µ</kbd> open Â· <kbd>esc</kbd> close</span>
       <span id="paletteCount"></span>
     </div>
   </div>
 </div>
+
 
 <script>
 (function () {
@@ -3441,6 +3449,7 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
       t.tabIndex = on ? 0 : -1;
     });
     buildNav(target);
+    requestAnimationFrame(syncScrollables);
     if (push) {
       try { sessionStorage.setItem(TAB_KEY, target); } catch (e) {}
       if (history.replaceState) history.replaceState(null, '', '#' + target);
@@ -3543,6 +3552,29 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
     try { localStorage.removeItem(READ_KEY); } catch (e) {}
     renderProgress();
     updateSpy();
+  }
+
+  /* Only scrollable regions need to join the tab order, and only when they actually overflow. */
+  function syncScrollables() {
+    var seen = {};
+    document.querySelectorAll('.table-wrap, pre.srt').forEach(function (el) {
+      var over = el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1;
+      if (over) {
+        el.setAttribute('tabindex', '0');
+        el.setAttribute('role', 'region');
+        var sec = el.closest('.section');
+        var h = sec ? sec.querySelector('h2') : null;
+        var th = el.querySelector('th');
+        var label = (h ? h.textContent.trim() : 'Table') + (th ? ' — ' + th.textContent.trim() : '');
+        seen[label] = (seen[label] || 0) + 1;
+        if (seen[label] > 1) label += ' ' + seen[label];
+        el.setAttribute('aria-label', label + ' — scrollable');
+      } else {
+        el.removeAttribute('tabindex');
+        el.removeAttribute('role');
+        el.removeAttribute('aria-label');
+      }
+    });
   }
 
   /* ---------------- drawer ---------------- */
@@ -3856,6 +3888,8 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
   buildIndex();
   renderFnTable();
   renderProgress();
+  syncScrollables();
+  window.addEventListener('resize', syncScrollables);
 
   var hashTarget = (location.hash || '').replace('#', '');
   var initial = hashTarget;

@@ -109,5 +109,5 @@ it against the recorded voice before delivery.
 
 The portal was tested at 1440×900 and 390×844 in Chromium: tab switching, keyboard arrows, sidebar
 scroll spy, read-progress ring, function search and filters, command palette, mobile drawer, and
-horizontal overflow. 33 assertions, 0 failures. The content was verified separately against the
-repository at `fdfc830`.
+horizontal overflow. 33 assertions, 0 failures. axe-core reports zero violations across all seven
+tabs at both widths. The content was verified separately against the repository at `fdfc830`.

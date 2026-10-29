@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.29.0] - 2026-10-29
+
+### Added
+
+- #304 editing a crop cycle's target weight while the pond has a saved calculator target now asks first: **Replace** the calculator target, **Keep** it, or cancel. The choice is enforced on the server, not only in the form, so a request that edits the target without a choice is refused instead of silently letting one value win. No prompt appears when there is no saved target or when the target field was not edited, so calendar drag-and-reschedule still works.
+
+### Changed
+
+- #304 a saved calculator target is now mirrored into the active cycle's `targetHarvestWeightG`, so the Growth page, calendar, harvest and admin views show the same number instead of two. The pond profile stays the plan's source of truth. Removing the target clears the mirror, but a harvested cycle keeps its historical target.
+- #307 hopper distances accept one decimal again (`12.3`), so values stored by the old 0.1 stepper no longer open with a validation error. The steppers still move a whole centimetre at a time.
+
 ## [1.28.1] - 2026-10-29
 
 ### Fixed

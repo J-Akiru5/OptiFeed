@@ -3,10 +3,12 @@
 import { useRouter } from "@/i18n/routing";
 import { createCropCycle, updateCropCycle } from "@/lib/actions/crop-cycle";
 import { addDays, daysBetween, isValidDateOnly, todayDateOnly } from "@/lib/crop-cycle/dates";
+import type { CropCycleInput } from "@/lib/crop-cycle/schema";
 import type { CropCycleDto, PondOption } from "@/lib/crop-cycle/types";
+import { type GrowthTargetResolution, cycleTargetConflict } from "@/lib/growth-target";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Modal } from "./modal";
 
@@ -52,6 +54,15 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 	);
 	const [notes, setNotes] = useState(cycle?.notes ?? "");
 	const [error, setError] = useState<string | null>(null);
+	/**
+	 * Set when saving would overwrite a saved calculator target (D-2). Holds the
+	 * saved weight so the confirmation can name both numbers; the input is
+	 * rebuilt from the form at confirm time so it cannot go stale.
+	 */
+	const [pendingSavedWeightG, setPendingSavedWeightG] = useState<number | null>(null);
+	const confirmRef = useRef<HTMLDivElement>(null);
+	const confirmTitleId = useId();
+	const confirmDescId = useId();
 	const [isPending, startTransition] = useTransition();
 
 	useEffect(() => {
@@ -73,7 +84,15 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 		setExpectedSurvivalPct(cycle?.expectedSurvivalPct ? String(cycle.expectedSurvivalPct) : "85");
 		setNotes(cycle?.notes ?? "");
 		setError(null);
+		setPendingSavedWeightG(null);
 	}, [open, cycle, initialPondId, ponds, today]);
+
+	useEffect(() => {
+		if (pendingSavedWeightG === null) return;
+		// Announce the decision and put the keyboard inside it; Tab reaches
+		// the three buttons from here.
+		confirmRef.current?.focus();
+	}, [pendingSavedWeightG]);
 
 	const span =
 		isValidDateOnly(stockingDate) && isValidDateOnly(targetHarvestDate)
@@ -90,6 +109,12 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 			: null;
 
 	const selectedPond = ponds.find((pond) => pond.id === pondId);
+	const savedTargetWeightG = selectedPond?.savedTargetWeightG ?? null;
+	const pendingSavedLabel = pendingSavedWeightG === null ? null : pendingSavedWeightG.toFixed(1);
+	const pendingNextLabel =
+		pendingSavedWeightG === null
+			? null
+			: (optionalNumber(targetHarvestWeightG)?.toFixed(1) ?? null);
 	const areaM2 = selectedPond?.areaM2 ?? null;
 	const averageDepthM = selectedPond?.averageDepthM ?? null;
 	const stockingCountNumber = Number(stockingCount);
@@ -122,26 +147,27 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 		}
 	};
 
-	const submit = () => {
+	/** Validate the form and return the payload, or show the existing error. */
+	const buildInput = (): CropCycleInput | null => {
 		setError(null);
 		if (!pondId) {
 			setError(t("pondRequired"));
-			return;
+			return null;
 		}
 		if (dateRangeInvalid) {
 			setError(t("dateRangeError"));
-			return;
+			return null;
 		}
 		if (stockingFuture) {
 			setError(t("stockingFuture"));
-			return;
+			return null;
 		}
 		if (!Number.isFinite(Number(stockingCount)) || Number(stockingCount) < 1) {
 			setError(t("stockingCountError"));
-			return;
+			return null;
 		}
 
-		const input = {
+		return {
 			pondId,
 			label: label.trim() || null,
 			stockingDate,
@@ -153,9 +179,16 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 			expectedSurvivalPct: optionalNumber(expectedSurvivalPct),
 			notes: notes.trim() || null,
 		};
+	};
 
+	const persist = (input: CropCycleInput, resolution: GrowthTargetResolution | null) => {
+		setPendingSavedWeightG(null);
 		startTransition(async () => {
-			const result = cycle ? await updateCropCycle(cycle.id, input) : await createCropCycle(input);
+			const result = cycle
+				? resolution
+					? await updateCropCycle(cycle.id, input, { growthTargetResolution: resolution })
+					: await updateCropCycle(cycle.id, input)
+				: await createCropCycle(input);
 			if (!result.success) {
 				setError(result.error);
 				return;
@@ -165,6 +198,36 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 			onSaved();
 			onClose();
 		});
+	};
+
+	const submit = () => {
+		const input = buildInput();
+		if (!input) return;
+
+		const conflict =
+			cycle && savedTargetWeightG !== null
+				? cycleTargetConflict({
+						savedWeightG: savedTargetWeightG,
+						cycleWeightG: cycle.targetHarvestWeightG,
+						nextWeightG: input.targetHarvestWeightG ?? null,
+					})
+				: null;
+		if (conflict) {
+			// D-2: never let the edit or the saved target win silently.
+			setPendingSavedWeightG(conflict.savedWeightG);
+			return;
+		}
+
+		persist(input, null);
+	};
+
+	const resolveTargetConflict = (resolution: GrowthTargetResolution) => {
+		const input = buildInput();
+		if (!input) {
+			setPendingSavedWeightG(null);
+			return;
+		}
+		persist(input, resolution);
 	};
 
 	return (
@@ -373,6 +436,74 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 					<p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
 						{error}
 					</p>
+				)}
+
+				{pendingSavedWeightG !== null && pendingSavedLabel !== null && (
+					<div
+						ref={confirmRef}
+						role="alertdialog"
+						aria-labelledby={confirmTitleId}
+						aria-describedby={confirmDescId}
+						tabIndex={-1}
+						onKeyDown={(event) => {
+							if (event.key !== "Escape") return;
+							event.stopPropagation();
+							setPendingSavedWeightG(null);
+						}}
+						className="rounded-2xl border border-amber-300 bg-amber-50 p-4 outline-none focus:ring-2 focus:ring-amber-500 dark:border-amber-900/50 dark:bg-amber-950/30"
+					>
+						<p
+							id={confirmTitleId}
+							className="text-sm font-black text-amber-900 dark:text-amber-200"
+						>
+							{t("targetConflictTitle")}
+						</p>
+						<p
+							id={confirmDescId}
+							className="mt-1 text-xs font-medium text-amber-800 dark:text-amber-200"
+						>
+							{pendingNextLabel !== null
+								? t("targetConflictDesc", {
+										saved: pendingSavedLabel,
+										next: pendingNextLabel,
+									})
+								: t("targetConflictDescEmpty", { saved: pendingSavedLabel })}
+						</p>
+						<div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+							<button
+								type="button"
+								onClick={() => resolveTargetConflict("replace")}
+								disabled={isPending}
+								className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#0A3D62] px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-[#164e7c] disabled:opacity-50 dark:bg-[#1f66a0] dark:hover:bg-[#2a7ab5]"
+							>
+								{t("targetConflictReplace")}
+							</button>
+							<button
+								type="button"
+								onClick={() => resolveTargetConflict("keep")}
+								disabled={isPending}
+								className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#0A3D62]/30 bg-white px-3 py-2 text-xs font-bold text-[#0A3D62] transition-colors hover:bg-[#0A3D62]/5 disabled:opacity-50 dark:border-white/20 dark:bg-gray-900 dark:text-blue-200 dark:hover:bg-white/5"
+							>
+								{t("targetConflictKeep")}
+							</button>
+							<button
+								type="button"
+								onClick={() => setPendingSavedWeightG(null)}
+								disabled={isPending}
+								className="inline-flex min-h-11 items-center justify-center rounded-xl px-3 py-2 text-xs font-bold text-gray-600 transition-colors hover:bg-amber-100 disabled:opacity-50 dark:text-gray-300 dark:hover:bg-white/10"
+							>
+								{t("targetConflictCancel")}
+							</button>
+						</div>
+						<p className="mt-2 text-[11px] font-medium text-amber-800 dark:text-amber-200/90">
+							{pendingNextLabel !== null
+								? t("targetConflictReplaceHint", { next: pendingNextLabel })
+								: t("targetConflictReplaceClearHint")}
+						</p>
+						<p className="text-[11px] font-medium text-amber-800 dark:text-amber-200/90">
+							{t("targetConflictKeepHint", { saved: pendingSavedLabel })}
+						</p>
+					</div>
 				)}
 			</div>
 		</Modal>

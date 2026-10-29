@@ -898,10 +898,10 @@
 				"biomassGap": "Gap to target",
 				"projectedBiomass": "Projected at harvest",
 				"projectedGap": "Projected gap",
-				"savedTargetHint": "This target came from the feed calculator. Remove it to use the cycle target.",
+				"savedTargetHint": "This target came from the feed calculator and is mirrored into the cycle target. Remove it to clear both.",
 				"clearTarget": "Remove target",
 				"clearingTarget": "Removing...",
-				"targetCleared": "Growth target removed. The cycle target is used again.",
+				"targetCleared": "Growth target removed. The cycle target was cleared too.",
 				"targetClearError": "Could not remove the growth target."
 			},
 			"prediction": {
@@ -1155,7 +1155,16 @@
 				"saving": "Saving…",
 				"cancel": "Cancel",
 				"successCreate": "Grow-out cycle started.",
-				"successUpdate": "Grow-out plan updated."
+				"successUpdate": "Grow-out plan updated.",
+				"targetConflictTitle": "A saved calculator target already exists",
+				"targetConflictDesc": "The plan for this pond uses {saved} g from the feed calculator. You changed the cycle target to {next} g. Choose which one to keep before saving.",
+				"targetConflictDescEmpty": "The plan for this pond uses {saved} g from the feed calculator. You cleared the cycle target. Choose which one to keep before saving.",
+				"targetConflictReplace": "Replace calculator target",
+				"targetConflictReplaceHint": "Replace it with the cycle value. The calculator and the cycle target both become {next} g.",
+				"targetConflictReplaceClearHint": "Clear the calculator target and the cycle target.",
+				"targetConflictKeep": "Keep calculator target",
+				"targetConflictKeepHint": "Keep {saved} g as the plan target. The cycle target is set back to {saved} g.",
+				"targetConflictCancel": "Cancel"
 			},
 			"harvestForm": {
 				"title": "Record harvest",

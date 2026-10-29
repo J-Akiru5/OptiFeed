@@ -898,10 +898,10 @@
 				"biomassGap": "Gap sa target",
 				"projectedBiomass": "Projected sa ani",
 				"projectedGap": "Projected nga gap",
-				"savedTargetHint": "Ini nga target halin sa feed calculator. Tangtanga para magamit ang target sang cycle.",
+				"savedTargetHint": "Ini nga target halin sa feed calculator kag naka-mirror sa target sang cycle. Tangtanga para malimpyohan ang duha.",
 				"clearTarget": "Tangtanga ang target",
 				"clearingTarget": "Ginatangtang...",
-				"targetCleared": "Natangtang ang growth target. Ang target sang cycle ang ginagamit liwat.",
+				"targetCleared": "Natangtang ang growth target. Nalimpyohan man ang target sang cycle.",
 				"targetClearError": "Indi matangtang ang growth target."
 			},
 			"prediction": {
@@ -1155,7 +1155,16 @@
 				"saving": "Ginasave…",
 				"cancel": "I-cancel",
 				"successCreate": "Na-start ang siklo.",
-				"successUpdate": "Na-update ang plano."
+				"successUpdate": "Na-update ang plano.",
+				"targetConflictTitle": "May naka-save na nga target halin sa calculator",
+				"targetConflictDesc": "Ang plano sa punong nga ni nagagamit sang {saved} g halin sa feed calculator. Ginbaylo mo ang target sang siklo sa {next} g. Pilion kon diin ang tipigan antes mag-save.",
+				"targetConflictDescEmpty": "Ang plano sa punong nga ni nagagamit sang {saved} g halin sa feed calculator. Ginlimpyohan mo ang target sang siklo. Pilion kon diin ang tipigan antes mag-save.",
+				"targetConflictReplace": "Ilisan ang target sang calculator",
+				"targetConflictReplaceHint": "Ilisan sang value sang siklo. Ang calculator kag target sang siklo mangin {next} g.",
+				"targetConflictReplaceClearHint": "Limpyohan ang target sang calculator kag ang target sang siklo.",
+				"targetConflictKeep": "Tipigan ang target sang calculator",
+				"targetConflictKeepHint": "Tipigan ang {saved} g bilang target sang plano. Ibalik ang target sang siklo sa {saved} g.",
+				"targetConflictCancel": "I-cancel"
 			},
 			"harvestForm": {
 				"title": "I-record ang ani",

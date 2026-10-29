@@ -55,6 +55,7 @@ An "A" that a stranger cannot re-verify from this repository alone does not coun
 | E2 | **E2E runs against a disposable Postgres service container in CI.** No production or staging credentials ever enter CI. |
 | E3 | **Patch criticals and reachable highs, then gate at `high`** with a documented, expiring allowlist for unreachable transitive cases. No broad major-version upgrades. |
 | E4 | **No production restore is executed by an agent.** The mission documents RPO/RTO and a runnable drill procedure; executing a restore against Supabase stays an owner action. |
+| E5 | **Every finding becomes a tracked issue.** Anything spotted during the audit that is not fixed inside the current workstream is filed as a GitHub issue with evidence and acceptance criteria — never left only in a chat message or a worker report. The lead files them centrally to avoid duplicates. |
 
 ## Workstreams
 
@@ -120,6 +121,19 @@ An "A" that a stranger cannot re-verify from this repository alone does not coun
 | 10-29 | The E2E suite authenticates through **Supabase Auth** (`supabase.auth.admin.listUsers`, `@supabase/ssr` sessions), and `e2e/global-setup.ts` refuses to run unless `DATABASE_URL` host matches `E2E_ALLOWED_DB_HOST` **and** `E2E_CONFIRM_PRODUCTION=yes`. There is no `supabase/` project config in the repo. | E2 "disposable Postgres" cannot be implemented with a bare Postgres service container. The faithful, credential-free implementation is the **Supabase local stack** (`supabase start`, Docker on the runner), plus a CI-only guard mode that keeps the production acknowledgement intact for any real-project run. |
 | 10-29 | `vitest.config.ts` has **no coverage block**, and `@vitest/coverage-v8` is not installed (vitest 3.2.7). | I-63 must add the matching coverage provider as a dev dependency — the only sanctioned dependency addition in this mission. |
 | 10-29 | `playwright.config.ts` runs `workers: 1` and `retries: 0` because the suite is stateful against a shared fixture. | The CI job must preserve serial execution; do not raise workers to make it "faster". |
+
+## Findings filed as issues
+
+| Issue | Finding | Origin |
+|---|---|---|
+| #316 | Header `LAST SYNCED` label is hard-coded English | #303 review |
+| #317 | E2E guards/docs assume a production Supabase project; a CI-only local mode is needed | ISO audit → I-63 |
+| #318 | Other `targetHarvestWeightG` writers bypass the Replace/Keep guard | #304 follow-up |
+| #319 | Pre-mirror growth targets need a one-off backfill | #304 follow-up |
+| #320 | `DeviceDailyCapForm` not migrated to the shared calibration field | #307 |
+| #321 | Superadmin step-up dialog has no dark palette | #309 scope decision |
+
+The dependency allowlist review is filed once I-62 lands and the surviving entries are known.
 
 ## Risks and mitigations
 

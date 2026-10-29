@@ -3352,9 +3352,38 @@
 			"tabsLabel": "Mga seksyon sang operasyon",
 			"tabs": {
 				"health": "Kahimsog sang sistema",
+				"errors": "Mga error event",
 				"firmware": "Firmware sang mga device",
 				"audit": "Audit log",
 				"announcements": "Mga abiso"
+			},
+			"errors": {
+				"title": "Mga error event",
+				"description": "First-party nga pagdakop sang error. Ang mensahe, stack, ruta kag konteksto gina-scrub antes tagoan; ang balik-balik nga pagkaparehas sang isa ka error nagadugang sa isa ka row. Ang mga row nga wala sang aktibidad sa {days} ka adlaw gina-prune.",
+				"filtersLabel": "I-filter ang mga error sa status",
+				"status": {
+					"unresolved": "Wala pa naresolba",
+					"resolved": "Naresolba",
+					"all": "Tanan"
+				},
+				"caption": "Mga nadakpan nga error event",
+				"emptyTitle": "Wala sang error event",
+				"emptyDescription": "Wala sang nagatugma sa sini nga filter. Ang mga error nga i-report sang app makita diri.",
+				"severity": {
+					"ERROR": "Error",
+					"WARNING": "Pahibalo",
+					"INFO": "Impormasyon"
+				},
+				"occurrences": "{count, plural, one {# ka beses} other {# ka beses}}",
+				"resolvedAt": "Naresolba {when}",
+				"resolvedBadge": "Naresolba",
+				"firstSeen": "Una nga nakita {when}",
+				"lastSeen": "Katapusan nga nakita {when}",
+				"showStack": "Ipakita ang stack trace",
+				"resolve": "Markahi nga naresolba",
+				"resolving": "Ginaresolba…",
+				"resolveFailed": "Indi maresolba ini nga error. Sulayi liwat.",
+				"resolvedJustNow": "Naresolba. Maga-refresh ang listahan."
 			},
 			"health": {
 				"title": "Kahimsog sang sistema",

@@ -16,7 +16,8 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { RotateCcw, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Suspense, useEffect, useMemo, useState } from "react";
-import type { Object3D } from "three";
+import { type Object3D, PMREMGenerator } from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 
 interface FeederViewerProps {
 	label: string;
@@ -24,6 +25,26 @@ interface FeederViewerProps {
 	feedLevelPercent: number | null;
 	lastFedLabel: string | null;
 	onSimpleView?: () => void;
+}
+
+/**
+ * A tiny procedural studio environment. The clear PET jar needs something to
+ * reflect; a CDN HDR would be an extra request and a CSP exception.
+ */
+function StudioEnvironment() {
+	const { gl, scene } = useThree();
+	useEffect(() => {
+		const pmrem = new PMREMGenerator(gl);
+		const texture = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+		scene.environment = texture;
+		scene.environmentIntensity = 0.55;
+		return () => {
+			scene.environment = null;
+			texture.dispose();
+			pmrem.dispose();
+		};
+	}, [gl, scene]);
+	return null;
 }
 
 function CameraRig({ preset }: { preset: CameraPreset }) {
@@ -114,10 +135,12 @@ export function FeederViewer({
 					gl={{ antialias: true, alpha: true }}
 				>
 					<color attach="background" args={["#0B2336"]} />
-					<ambientLight intensity={0.75} />
-					<hemisphereLight args={["#e8f2ff", "#081624", 0.9]} />
-					<directionalLight position={[2.6, 4, 3]} intensity={2.4} castShadow />
-					<directionalLight position={[-3, 2, -2]} intensity={0.85} color="#9ec5ea" />
+					<StudioEnvironment />
+					<ambientLight intensity={0.6} />
+					<hemisphereLight args={["#e8f2ff", "#081624", 0.7]} />
+					<directionalLight position={[2.6, 4, 3]} intensity={2.2} castShadow />
+					<directionalLight position={[-3, 2, -2]} intensity={0.8} color="#9ec5ea" />
+					<directionalLight position={[0, 2.6, -3]} intensity={1.1} color="#d8ecff" />
 					<Suspense fallback={null}>
 						<FeederModel level={level} status={status} />
 					</Suspense>

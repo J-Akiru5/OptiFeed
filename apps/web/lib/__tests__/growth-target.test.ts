@@ -2,12 +2,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
 	ponds: new Map<string, { id: string; ownerId: string; notificationPrefs: unknown }>(),
-	cycles: [] as { id: string; pondId: string; status: string }[],
+	cycles: [] as {
+		id: string;
+		pondId: string;
+		status: string;
+		targetHarvestWeightG: number | null;
+	}[],
 	writes: 0,
+	cycleWrites: 0,
 }));
 
-vi.mock("@/lib/prisma", () => ({
-	default: {
+vi.mock("@/lib/prisma", () => {
+	const client = {
 		pond: {
 			findFirst: vi.fn(async ({ where }: { where: { id: string; ownerId: string } }) => {
 				const pond = state.ponds.get(where.id);
@@ -40,9 +46,33 @@ vi.mock("@/lib/prisma", () => ({
 						(cycle) => cycle.pondId === where.pondId && cycle.status === where.status,
 					) ?? null,
 			),
+			updateMany: vi.fn(
+				async ({
+					where,
+					data,
+				}: {
+					where: { id: string; pondId?: string; status?: string };
+					data: { targetHarvestWeightG: number | null };
+				}) => {
+					const cycle = state.cycles.find((candidate) => candidate.id === where.id);
+					if (!cycle) return { count: 0 };
+					if (where.pondId !== undefined && cycle.pondId !== where.pondId) return { count: 0 };
+					if (where.status !== undefined && cycle.status !== where.status) return { count: 0 };
+					cycle.targetHarvestWeightG = data.targetHarvestWeightG;
+					state.cycleWrites += 1;
+					return { count: 1 };
+				},
+			),
 		},
-	},
-}));
+	};
+
+	return {
+		default: {
+			...client,
+			$transaction: vi.fn(async (run: (tx: typeof client) => Promise<unknown>) => run(client)),
+		},
+	};
+});
 
 vi.mock("@/lib/auth/session", () => ({
 	requireWriteAccess: vi.fn(),
@@ -61,8 +91,12 @@ import { clearGrowthTarget, setGrowthTarget } from "@/lib/actions/growth-target"
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
+import { cropCycleInputSchema } from "@/lib/crop-cycle/schema";
 import {
+	MAX_CYCLE_TARGET_WEIGHT_G,
+	cycleTargetConflict,
 	growthTargetInputSchema,
+	isCycleTargetWeightInRange,
 	savedTargetWeightForCycle,
 	targetWeightGrams,
 } from "@/lib/growth-target";
@@ -75,6 +109,7 @@ function seed() {
 	state.ponds.clear();
 	state.cycles.length = 0;
 	state.writes = 0;
+	state.cycleWrites = 0;
 	state.ponds.set("pond-a", {
 		id: "pond-a",
 		ownerId: "farm-1",
@@ -94,13 +129,17 @@ function seed() {
 		notificationPrefs: { profile: {} },
 	});
 	state.cycles.push(
-		{ id: "cycle-a", pondId: "pond-a", status: "ACTIVE" },
-		{ id: "cycle-b", pondId: "pond-b", status: "ACTIVE" },
+		{ id: "cycle-a", pondId: "pond-a", status: "ACTIVE", targetHarvestWeightG: null },
+		{ id: "cycle-b", pondId: "pond-b", status: "ACTIVE", targetHarvestWeightG: null },
 	);
 }
 
 function prefsOf(pondId: string): unknown {
 	return state.ponds.get(pondId)?.notificationPrefs;
+}
+
+function cycleOf(cycleId: string) {
+	return state.cycles.find((cycle) => cycle.id === cycleId);
 }
 
 beforeEach(() => {
@@ -139,6 +178,57 @@ describe("growthTargetInputSchema", () => {
 	});
 });
 
+describe("cycle target mirror rules", () => {
+	it("uses the same ceiling as the cycle target field", () => {
+		expect(MAX_CYCLE_TARGET_WEIGHT_G).toBe(10_000);
+		expect(
+			cropCycleInputSchema.safeParse({
+				pondId: "pond-a",
+				stockingDate: "2026-01-01",
+				stockingCount: 1000,
+				growOutDays: 120,
+				targetHarvestDate: "2026-05-01",
+				targetHarvestWeightG: MAX_CYCLE_TARGET_WEIGHT_G,
+			}).success,
+		).toBe(true);
+		expect(
+			cropCycleInputSchema.safeParse({
+				pondId: "pond-a",
+				stockingDate: "2026-01-01",
+				stockingCount: 1000,
+				growOutDays: 120,
+				targetHarvestDate: "2026-05-01",
+				targetHarvestWeightG: MAX_CYCLE_TARGET_WEIGHT_G + 1,
+			}).success,
+		).toBe(false);
+		expect(isCycleTargetWeightInRange(MAX_CYCLE_TARGET_WEIGHT_G)).toBe(true);
+		expect(isCycleTargetWeightInRange(MAX_CYCLE_TARGET_WEIGHT_G + 1)).toBe(false);
+		expect(isCycleTargetWeightInRange(0)).toBe(false);
+	});
+
+	it("asks only when the saved target and the edited cycle value differ", () => {
+		// Unchanged target: the drag/reschedule path must not be interrupted.
+		expect(
+			cycleTargetConflict({ savedWeightG: 400, cycleWeightG: 250, nextWeightG: 250 }),
+		).toBeNull();
+		// Edited to exactly the saved value: the mirror is already consistent.
+		expect(
+			cycleTargetConflict({ savedWeightG: 400, cycleWeightG: 250, nextWeightG: 400 }),
+		).toBeNull();
+		expect(
+			cycleTargetConflict({ savedWeightG: null, cycleWeightG: 250, nextWeightG: 300 }),
+		).toBeNull();
+		expect(cycleTargetConflict({ savedWeightG: 400, cycleWeightG: 250, nextWeightG: 300 })).toEqual(
+			{ savedWeightG: 400, nextWeightG: 300 },
+		);
+		// Clearing the cycle target is a conflict too: the saved target must
+		// not be deleted without an explicit choice.
+		expect(
+			cycleTargetConflict({ savedWeightG: 400, cycleWeightG: 250, nextWeightG: null }),
+		).toEqual({ savedWeightG: 400, nextWeightG: null });
+	});
+});
+
 describe("pond growth target storage", () => {
 	it("round-trips through the JSON bridge without disturbing the profile", async () => {
 		const result = await saveGrowthTargetForPond({
@@ -159,6 +249,58 @@ describe("pond growth target storage", () => {
 		expect(parsePondProfile(prefsOf("pond-a")).areaM2).toBe(100);
 		const prefs = prefsOf("pond-a") as { missedFeeding?: boolean };
 		expect(prefs.missedFeeding).toBe(true);
+		// D-1: the same weight is mirrored into the active cycle so every
+		// page reads one number.
+		expect(cycleOf("cycle-a")?.targetHarvestWeightG).toBe(350);
+		expect(cycleOf("cycle-b")?.targetHarvestWeightG).toBeNull();
+	});
+
+	it("clears the mirrored cycle value when the target is removed", async () => {
+		await saveGrowthTargetForPond({
+			pondId: "pond-a",
+			ownerId: "farm-1",
+			input: { targetWeightKg: 0.35, population: 1000 },
+			now: NOW,
+		});
+		expect(cycleOf("cycle-a")?.targetHarvestWeightG).toBe(350);
+
+		const cleared = await clearGrowthTargetForPond({ pondId: "pond-a", ownerId: "farm-1" });
+
+		expect(cleared.success).toBe(true);
+		expect(parsePondGrowthTarget(prefsOf("pond-a"))).toBeNull();
+		expect(cycleOf("cycle-a")?.targetHarvestWeightG).toBeNull();
+	});
+
+	it("keeps a harvested cycle's historical target when the pond target is removed", async () => {
+		await saveGrowthTargetForPond({
+			pondId: "pond-a",
+			ownerId: "farm-1",
+			input: { targetWeightKg: 0.35, population: 1000 },
+			now: NOW,
+		});
+		const cycle = cycleOf("cycle-a");
+		if (cycle) cycle.status = "HARVESTED";
+
+		const cleared = await clearGrowthTargetForPond({ pondId: "pond-a", ownerId: "farm-1" });
+
+		expect(cleared.success).toBe(true);
+		expect(parsePondGrowthTarget(prefsOf("pond-a"))).toBeNull();
+		expect(cycleOf("cycle-a")?.targetHarvestWeightG).toBe(350);
+	});
+
+	it("clears the pond target when the mirrored cycle no longer exists", async () => {
+		await saveGrowthTargetForPond({
+			pondId: "pond-a",
+			ownerId: "farm-1",
+			input: { targetWeightKg: 0.35, population: 1000 },
+			now: NOW,
+		});
+		state.cycles.splice(0, state.cycles.length);
+
+		const cleared = await clearGrowthTargetForPond({ pondId: "pond-a", ownerId: "farm-1" });
+
+		expect(cleared.success).toBe(true);
+		expect(parsePondGrowthTarget(prefsOf("pond-a"))).toBeNull();
 	});
 
 	it("keeps each pond's target separate", async () => {
@@ -178,6 +320,8 @@ describe("pond growth target storage", () => {
 		expect(parsePondGrowthTarget(prefsOf("pond-a"))?.targetWeightG).toBe(350);
 		expect(parsePondGrowthTarget(prefsOf("pond-b"))?.targetWeightG).toBe(500);
 		expect(parsePondGrowthTarget(prefsOf("pond-other"))).toBeNull();
+		expect(cycleOf("cycle-a")?.targetHarvestWeightG).toBe(350);
+		expect(cycleOf("cycle-b")?.targetHarvestWeightG).toBe(500);
 	});
 
 	it("denies a write for a pond owned by another tenant", async () => {
@@ -190,7 +334,9 @@ describe("pond growth target storage", () => {
 
 		expect(result).toEqual({ success: false, error: "Pond not found." });
 		expect(state.writes).toBe(0);
+		expect(state.cycleWrites).toBe(0);
 		expect(parsePondGrowthTarget(prefsOf("pond-a"))).toBeNull();
+		expect(cycleOf("cycle-a")?.targetHarvestWeightG).toBeNull();
 	});
 
 	it("refuses to save before a grow-out cycle exists", async () => {
@@ -198,6 +344,7 @@ describe("pond growth target storage", () => {
 			id: "cycle-b",
 			pondId: "pond-b",
 			status: "ACTIVE",
+			targetHarvestWeightG: null,
 		});
 
 		const result = await saveGrowthTargetForPond({
@@ -241,6 +388,7 @@ describe("pond growth target storage", () => {
 		expect(cleared).toEqual({ success: false, error: "Pond not found." });
 		expect(state.writes).toBe(writesBefore);
 		expect(parsePondGrowthTarget(prefsOf("pond-a"))?.targetWeightG).toBe(350);
+		expect(cycleOf("cycle-a")?.targetHarvestWeightG).toBe(350);
 	});
 });
 

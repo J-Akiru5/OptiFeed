@@ -26,7 +26,7 @@ export interface ChartSummary {
 }
 
 /** True when there is nothing to plot (no points at all). */
-export function isChartEmpty(points: ReadonlyArray<{ value: number }>): boolean {
+function isChartEmpty(points: ReadonlyArray<{ value: number }>): boolean {
 	return points.length === 0;
 }
 

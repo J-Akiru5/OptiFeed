@@ -20,6 +20,8 @@ export function ChatToggleButton() {
 			type="button"
 			aria-label={isOpen ? "Close chat" : "Open chat"}
 			onClick={toggle}
+			// Read by the panel/sheet Escape handler to restore focus here.
+			data-chat-toggle=""
 			className={chatToggleButton}
 		>
 			{isOpen ? <X size={24} /> : <Mascot pose="head" size={38} className="ring-1 ring-white/80" />}

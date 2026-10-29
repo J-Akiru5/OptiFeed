@@ -1,0 +1,271 @@
+name: Restore drill
+
+# ISO/IEC 25010 reliability evidence (workstream W12): an executed dump ->
+# destroy -> restore drill with a machine-checked baseline.
+#
+# Everything runs against the postgres:16 service container below. No
+# repository secret is read, no cloud credential is configured, and the job's
+# DATABASE_URL cannot point anywhere else: `Assert the drill target` fails if
+# the host is not loopback, and every script refuses a non-local database
+# unless an operator acknowledges that exact host.
+#
+# Evidence a reviewer can re-check from the run:
+#   * artifacts/restore-drill-report.md  (also appended to the job summary)
+#   * artifacts/restore-drill.dump       (custom-format dump, with size + sha256)
+#   * artifacts/restore-drill-baseline.json / -restored.json / -destroyed.json
+#   * artifacts/restore-drill-roundtrip.json
+#
+# Scope: this drills our own logical dump/restore and schema recovery. It does
+# NOT verify Supabase provider backups or PITR (issue #325) and does not cover
+# auth.users (issue #322). See docs/operations/restore-drill.md.
+
+on:
+  workflow_dispatch:
+  # The drill validates itself: any change to the drill tooling runs it. This is
+  # also how the first execution happens before the workflow exists on the
+  # default branch, because GitHub will not dispatch a workflow that the
+  # default branch does not contain yet.
+  push:
+    paths:
+      - ".github/workflows/restore-drill.yml"
+      - "scripts/ops/**"
+  # Weekly evidence on the default (integration) branch. Disable this block if
+  # a scheduled run would compete with other CI; manual dispatch still works.
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: restore-drill-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  drill:
+    name: dump, destroy, restore
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: drill
+          POSTGRES_PASSWORD: drill_only
+          POSTGRES_DB: drill
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U drill -d drill"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+          --health-start-period 10s
+    env:
+      DATABASE_URL: postgresql://drill:drill_only@localhost:5432/drill
+      DIRECT_URL: postgresql://drill:drill_only@localhost:5432/drill
+      NEXT_TELEMETRY_DISABLED: "1"
+      DRILL_ARTIFACTS: artifacts
+      DRILL_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      DRILL_RUN_ID: ${{ github.run_id }}
+      DRILL_REPO: ${{ github.repository }}
+      DRILL_REF: ${{ github.ref_name }}
+      DRILL_SHA: ${{ github.sha }}
+      DRILL_TRIGGER: ${{ github.event_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter web prisma:generate
+
+      - name: Install PostgreSQL 16 client
+        # The restore needs a client whose major version is not older than the
+        # server's. Prefer 16; fall back to the image's default client, then
+        # verify the versions actually match before any data is touched.
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client-16 \
+            || sudo apt-get install -y --no-install-recommends postgresql-client
+          psql --version
+          pg_dump --version
+          pg_restore --version
+          client_major="$(pg_dump --version | sed -E 's/^pg_dump \(PostgreSQL\) ([0-9]+).*/\1/')"
+          server_num="$(psql "$DATABASE_URL" -tAc 'SHOW server_version_num' | tr -d '[:space:]')"
+          server_major=$((server_num / 10000))
+          if [ "$client_major" -lt "$server_major" ]; then
+            echo "::error::pg_dump $client_major is older than the Postgres server $server_major."
+            exit 1
+          fi
+          echo "client major $client_major / server major $server_major"
+
+      - name: Assert the drill target is the service container
+        run: |
+          set -euo pipefail
+          host="$(node -e 'const u = new URL(process.env.DATABASE_URL); console.log(u.hostname.replace(/^\[|\]$/g, ""));')"
+          case "$host" in
+            localhost|127.0.0.1|::1) ;;
+            *)
+              echo "::error::DATABASE_URL host '$host' is not the drill service container."
+              exit 1
+              ;;
+          esac
+          case "${DATABASE_URL,,}" in
+            *supabase.co*|*supabase.in*|*supabase.com*)
+              echo "::error::Refusing a Supabase DATABASE_URL. The drill only runs on its own container."
+              exit 1
+              ;;
+          esac
+          echo "drill target: $host (service container only)"
+
+      - name: Record environment
+        run: |
+          set -euo pipefail
+          {
+            echo "DRILL_TS_START=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "DRILL_POSTGRES_VERSION=$(psql "$DATABASE_URL" -tAc 'select version()')"
+            echo "DRILL_PSQL_VERSION=$(psql --version)"
+            echo "DRILL_NODE_VERSION=$(node --version)"
+            echo "DRILL_RUNNER_OS=${RUNNER_OS:-unknown}"
+            echo "DRILL_RUNNER_IMAGE=${ImageOS:-unknown} ${ImageVersion:-unknown}"
+          } >> "$GITHUB_ENV"
+
+      - name: Bootstrap Supabase-compatible baseline
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f scripts/ops/bootstrap-drill-db.sql
+
+      - name: Apply migrations
+        run: pnpm --filter web exec prisma migrate deploy
+
+      - name: Seed the deterministic dataset
+        run: node scripts/ops/seed-drill.mjs
+
+      - name: Record baseline
+        run: |
+          set -euo pipefail
+          mkdir -p "$DRILL_ARTIFACTS"
+          node scripts/ops/snapshot-drill.mjs \
+            --label baseline \
+            --out "$DRILL_ARTIFACTS/restore-drill-baseline.json"
+          echo "DRILL_TS_BASELINE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
+      - name: Dump the database
+        run: |
+          set -euo pipefail
+          file="$DRILL_ARTIFACTS/restore-drill.dump"
+          pg_dump --format=custom --no-owner --no-privileges --file "$file" "$DATABASE_URL"
+          bytes="$(stat -c%s "$file")"
+          sha="$(sha256sum "$file" | awk '{print $1}')"
+          {
+            echo "DRILL_DUMP_FILE=$file"
+            echo "DRILL_DUMP_BYTES=$bytes"
+            echo "DRILL_DUMP_SHA256=$sha"
+            echo "DRILL_TS_DUMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_ENV"
+          echo "dump: $bytes bytes, sha256 $sha"
+
+      - name: Destroy the application schema
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q \
+            -c 'DROP SCHEMA IF EXISTS public CASCADE;' \
+            -c 'CREATE SCHEMA public;'
+          echo "DRILL_TS_DESTROY=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
+      - name: Verify the database is empty
+        run: |
+          set -euo pipefail
+          node scripts/ops/snapshot-drill.mjs \
+            --expect-empty \
+            --label destroyed \
+            --out "$DRILL_ARTIFACTS/restore-drill-destroyed.json"
+
+      - name: Restore from the dump
+        run: |
+          set -euo pipefail
+          echo "DRILL_TS_RESTORE_START=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          start="$(date +%s%3N)"
+          pg_restore \
+            --clean --if-exists \
+            --no-owner --no-privileges \
+            --exit-on-error \
+            --dbname "$DATABASE_URL" \
+            "$DRILL_ARTIFACTS/restore-drill.dump"
+          end="$(date +%s%3N)"
+          {
+            echo "DRILL_RESTORE_MS=$((end - start))"
+            echo "DRILL_TS_RESTORE_END=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_ENV"
+          echo "restore wall clock: $((end - start)) ms"
+
+      - name: Check the migration history after restore
+        run: |
+          set -euo pipefail
+          if ! output="$(pnpm --filter web exec prisma migrate status 2>&1)"; then
+            echo "$output"
+            echo "::error::prisma migrate status failed after the restore"
+            exit 1
+          fi
+          echo "$output"
+          if ! grep -qi "up to date" <<< "$output"; then
+            echo "::error::prisma migrate status does not report the restored schema as up to date"
+            exit 1
+          fi
+          echo "DRILL_MIGRATE_STATUS=up to date" >> "$GITHUB_ENV"
+
+      - name: Verify the restored state
+        run: |
+          set -euo pipefail
+          node scripts/ops/snapshot-drill.mjs \
+            --label restored \
+            --out "$DRILL_ARTIFACTS/restore-drill-restored.json"
+          node scripts/ops/snapshot-drill.mjs \
+            --roundtrip \
+            --out "$DRILL_ARTIFACTS/restore-drill-roundtrip.json"
+          echo "DRILL_TS_VERIFY=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
+      - name: Compare and render the report
+        run: |
+          set -euo pipefail
+          node scripts/ops/render-drill-report.mjs \
+            --baseline "$DRILL_ARTIFACTS/restore-drill-baseline.json" \
+            --restored "$DRILL_ARTIFACTS/restore-drill-restored.json" \
+            --destroyed "$DRILL_ARTIFACTS/restore-drill-destroyed.json" \
+            --roundtrip "$DRILL_ARTIFACTS/restore-drill-roundtrip.json" \
+            --out "$DRILL_ARTIFACTS/restore-drill-report.md"
+
+      - name: Publish the report to the job summary
+        if: always()
+        run: |
+          report="$DRILL_ARTIFACTS/restore-drill-report.md"
+          if [ -f "$report" ]; then
+            cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "## Restore drill: report not generated"
+              echo ""
+              echo "An earlier step failed, so there is no comparison report. The job log and"
+              echo "any uploaded artefacts show how far the drill got."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: restore-drill-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 90

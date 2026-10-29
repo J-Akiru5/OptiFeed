@@ -38,14 +38,14 @@ export const dashboardLabel =
 export const dashboardHint = "mt-1 block text-[11px] text-[#3D5568] dark:text-gray-400";
 
 /** Filter pill (tier/category tabs). Meets the 44 px touch target. */
-export const dashboardPill =
+const dashboardPill =
 	"inline-flex min-h-11 items-center rounded-full px-4 py-2 text-xs font-bold uppercase transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea]";
 
 /** Filter pill, selected. */
-export const dashboardPillActive = "bg-[#0A3D62] text-white";
+const dashboardPillActive = "bg-[#0A3D62] text-white";
 
 /** Filter pill, idle. */
-export const dashboardPillIdle =
+const dashboardPillIdle =
 	"bg-[#F4F7F6] text-[#3D5568] hover:bg-[#E8EDED] dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700";
 
 /** Keyboard focus ring for links and icon buttons. */

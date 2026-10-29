@@ -3373,9 +3373,38 @@
 			"tabsLabel": "Operations sections",
 			"tabs": {
 				"health": "System health",
+				"errors": "Error events",
 				"firmware": "Firmware fleet",
 				"audit": "Audit log",
 				"announcements": "Announcements"
+			},
+			"errors": {
+				"title": "Error events",
+				"description": "First-party error capture. Message, stack, route and context are scrubbed before they are stored; repeated occurrences of one error increment a single row. Rows silent for {days} days are pruned.",
+				"filtersLabel": "Filter errors by status",
+				"status": {
+					"unresolved": "Unresolved",
+					"resolved": "Resolved",
+					"all": "All"
+				},
+				"caption": "Captured error events",
+				"emptyTitle": "No error events",
+				"emptyDescription": "Nothing matches this filter. Errors reported by the app will appear here.",
+				"severity": {
+					"ERROR": "Error",
+					"WARNING": "Warning",
+					"INFO": "Info"
+				},
+				"occurrences": "{count, plural, one {# occurrence} other {# occurrences}}",
+				"resolvedAt": "Resolved {when}",
+				"resolvedBadge": "Resolved",
+				"firstSeen": "First seen {when}",
+				"lastSeen": "Last seen {when}",
+				"showStack": "Show stack trace",
+				"resolve": "Mark resolved",
+				"resolving": "Resolving…",
+				"resolveFailed": "Could not mark this error resolved. Try again.",
+				"resolvedJustNow": "Resolved. The list will refresh."
 			},
 			"health": {
 				"title": "System health",

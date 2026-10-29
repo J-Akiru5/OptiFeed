@@ -3,13 +3,17 @@ import { pathToFileURL } from "node:url";
 /**
  * Shared safety rules for the e2e fixture scripts and the Playwright setup.
  *
- * The suite runs against the PRODUCTION Supabase project (decision D5,
- * amended). These guards are the last line of defence:
+ * The suite runs against either the PRODUCTION Supabase project (decision D5,
+ * amended — the integrator's remote fixture) or the disposable local stack.
+ * These guards are the last line of defence:
  *
- * - the DATABASE_URL host must equal E2E_ALLOWED_DB_HOST, so a stray dev URL
- *   cannot silently point the suite at another database;
- * - E2E_CONFIRM_PRODUCTION must be the literal string "yes", so an accidental
- *   `pnpm test:e2e` without the explicit acknowledgement still refuses;
+ * - a **remote** target needs BOTH E2E_ALLOWED_DB_HOST (exact host match) and
+ *   E2E_CONFIRM_PRODUCTION="yes", so a stray dev URL cannot silently point the
+ *   suite at another database and an accidental `pnpm test:e2e` still refuses;
+ * - the exception is the disposable **local** stack (CI and local development):
+ *   E2E_ALLOW_LOCAL_STACK="yes" permits a loopback DATABASE_URL host only. It
+ *   never relaxes the remote path — a non-loopback host still needs the
+ *   allow-list and the production acknowledgement above;
  * - every row the suite owns is named with the reserved "e2e-" prefix (or uses
  *   one of the reserved fake MACs).
  *
@@ -19,6 +23,16 @@ import { pathToFileURL } from "node:url";
 
 export const E2E_PREFIX = "e2e-";
 export const E2E_CONFIRM_VALUE = "yes";
+/** Opt-in for the disposable local Supabase stack (`supabase start`). */
+export const E2E_LOCAL_STACK_VALUE = "yes";
+
+/**
+ * Hostnames a disposable local stack may bind to. Matched exactly after
+ * lower-casing, so `127.0.0.1.example.com` and `localhost.evil` are remote.
+ */
+export const E2E_LOCAL_HOSTS = ["localhost", "127.0.0.1", "[::1]", "::1"] as const;
+
+export type E2eTargetMode = "local" | "remote";
 
 export const E2E_LOGIN_IDS = {
 	farmer: "e2e-farmer",
@@ -54,6 +68,7 @@ export const E2E_PLATFORM_GRANT_HOURS = 2;
 
 export type E2eDatabaseTarget = {
 	host: string;
+	mode: E2eTargetMode;
 };
 
 function envValue(env: Record<string, string | undefined>, key: string): string {
@@ -61,25 +76,40 @@ function envValue(env: Record<string, string | undefined>, key: string): string 
 	return typeof value === "string" ? value.trim() : "";
 }
 
+/** True only for an exact loopback hostname (never a prefix match). */
+export function isLocalE2eHost(host: string): boolean {
+	const normalized = host.trim().toLowerCase();
+	return E2E_LOCAL_HOSTS.some((local) => local === normalized);
+}
+
 /**
  * Refuse to continue unless the database target is explicitly acknowledged.
- * Returns the verified host so the caller can print it without echoing the
- * connection string.
+ *
+ * Two accepted shapes:
+ *
+ * 1. **local** — E2E_ALLOW_LOCAL_STACK="yes" and a loopback DATABASE_URL host.
+ *    This is the disposable `supabase start` stack used by CI and by local
+ *    runs; no acknowledgement is needed because the target is throwaway.
+ * 2. **remote** — DATABASE_URL host equals E2E_ALLOWED_DB_HOST and
+ *    E2E_CONFIRM_PRODUCTION is the literal "yes". This is the production
+ *    fixture path and its rules are unchanged.
+ *
+ * Enabling local-stack mode does not weaken the remote path: any non-loopback
+ * host falls through to the full allow-list + acknowledgement checks.
+ *
+ * Returns the verified host and mode so the caller can print them without
+ * echoing the connection string.
  */
 export function assertE2eEnvironment(
 	env: Record<string, string | undefined> = process.env,
 ): E2eDatabaseTarget {
 	const databaseUrl = envValue(env, "DATABASE_URL");
 	const allowedHost = envValue(env, "E2E_ALLOWED_DB_HOST");
+	const localStack = envValue(env, "E2E_ALLOW_LOCAL_STACK") === E2E_LOCAL_STACK_VALUE;
 
 	if (!databaseUrl) {
 		throw new Error(
 			"e2e blocked: DATABASE_URL is not set. Set DATABASE_URL and E2E_ALLOWED_DB_HOST first.",
-		);
-	}
-	if (!allowedHost) {
-		throw new Error(
-			"e2e blocked: E2E_ALLOWED_DB_HOST is not set. Set it to the exact host of the e2e database.",
 		);
 	}
 
@@ -88,6 +118,18 @@ export function assertE2eEnvironment(
 		host = new URL(databaseUrl).hostname;
 	} catch {
 		throw new Error("e2e blocked: DATABASE_URL is not a valid URL.");
+	}
+
+	if (localStack && isLocalE2eHost(host)) {
+		return { host, mode: "local" };
+	}
+
+	if (!allowedHost) {
+		throw new Error(
+			localStack
+				? `e2e blocked: E2E_ALLOW_LOCAL_STACK=yes only authorises a loopback DATABASE_URL host (${E2E_LOCAL_HOSTS.join(", ")}), but the host is "${host}". Set E2E_ALLOWED_DB_HOST to that exact host and E2E_CONFIRM_PRODUCTION="${E2E_CONFIRM_VALUE}" to run against a remote target.`
+				: "e2e blocked: E2E_ALLOWED_DB_HOST is not set. Set it to the exact host of the e2e database.",
+		);
 	}
 
 	if (host !== allowedHost) {
@@ -102,7 +144,7 @@ export function assertE2eEnvironment(
 		);
 	}
 
-	return { host };
+	return { host, mode: "remote" };
 }
 
 /** The one password shared by the three e2e logins. Required, never logged. */

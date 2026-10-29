@@ -73,7 +73,7 @@ export async function aiDebugInfo(options: AiCallOptions = {}) {
 }
 
 /** Registered provider ids, for the superadmin console. */
-export function listRegisteredProviders() {
+function listRegisteredProviders() {
 	return listProviders().map((p) => ({
 		id: p.id,
 		label: p.label,

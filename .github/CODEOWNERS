@@ -1,0 +1,65 @@
+# CODEOWNERS — OptiFeed / PakaonAI
+#
+# GitHub requests a review from the listed owner(s) when a pull request changes a matching
+# path. Ownership here is about who reviews, not who may write: branch protection in
+# CONTRIBUTING.md §7 remains the merge gate.
+#
+# Order matters. The last matching pattern wins, so the general rules come first and the
+# sensitive paths come last.
+#
+# Handles
+#   @J-Akiru5       Verified from the repository history: the repo URL in CONTRIBUTING.md and
+#                   every merge commit ("Merge pull request #N from J-Akiru5/...").
+#   @Karlcalimotan  Inferred from the git author name "Karlcalimotan". It has not been
+#                   confirmed against the GitHub account. If the handle is wrong, GitHub will
+#                   not request that review (and may flag the entry as an unknown user); fix
+#                   the handle in a follow-up commit. Confirm it before relying on this file
+#                   as an approval gate.
+
+# Default: the owner reviews everything not listed below.
+*                                   @J-Akiru5
+
+# Application
+/apps/web/                          @J-Akiru5 @Karlcalimotan
+/apps/web/app/                      @J-Akiru5 @Karlcalimotan
+/apps/web/components/               @J-Akiru5 @Karlcalimotan
+/apps/web/lib/                      @J-Akiru5 @Karlcalimotan
+
+# Shared contracts and security-sensitive application paths (CONTRIBUTING.md §4).
+/apps/web/prisma/                   @J-Akiru5
+/apps/web/lib/auth/                 @J-Akiru5
+/apps/web/lib/actions/              @J-Akiru5
+/apps/web/proxy.ts                  @J-Akiru5
+/apps/web/app/api/                  @J-Akiru5
+/apps/web/vercel.json               @J-Akiru5
+/apps/web/next.config.*             @J-Akiru5
+/apps/web/.env.example              @J-Akiru5
+
+# Firmware: safety caps, device auth, and the OTA signing keys.
+/firmware/                          @J-Akiru5
+/firmware/keys/                     @J-Akiru5
+
+# Documentation
+/docs/                              @J-Akiru5 @Karlcalimotan
+/docs/legal/                        @J-Akiru5
+/docs/operations/                   @J-Akiru5
+/SECURITY.md                        @J-Akiru5
+/CONTRIBUTING.md                    @J-Akiru5
+/HANDOFF.md                         @J-Akiru5
+/API_REGULATION.md                  @J-Akiru5
+/ATTRIBUTIONS.md                    @J-Akiru5
+/LICENSE                            @J-Akiru5
+
+# Repository configuration, tooling, and CI.
+/.github/                           @J-Akiru5
+/.github/workflows/                 @J-Akiru5
+/.github/CODEOWNERS                 @J-Akiru5
+/.husky/                            @J-Akiru5
+/scripts/                           @J-Akiru5
+/biome.json                         @J-Akiru5
+/package.json                       @J-Akiru5
+/pnpm-lock.yaml                     @J-Akiru5
+/pnpm-workspace.yaml                @J-Akiru5
+/.npmrc                             @J-Akiru5
+/.gitattributes                     @J-Akiru5
+/.gitignore                         @J-Akiru5

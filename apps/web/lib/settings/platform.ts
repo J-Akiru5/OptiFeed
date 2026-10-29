@@ -34,7 +34,7 @@ export function normalizeListPageSize(value: unknown): number {
 }
 
 /** True when `value` can be stored as the app-wide page size. */
-export function isValidListPageSize(value: unknown): value is number {
+function isValidListPageSize(value: unknown): value is number {
 	return (
 		typeof value === "number" &&
 		Number.isInteger(value) &&

@@ -8,8 +8,8 @@ Integration branch: `integration/batch-2026-10-29a` (worktree `S:/Dev/optifeed/m
 
 | ID | Issue | Branch | Worktree | Scope | Status |
 |---|---|---|---|---|---|
-| I-52 | #286 | `mission/I-52-hopper-card-link` | `S:/Dev/optifeed/mission-I-01` | The desktop sidebar "Hopper level" card is static. Make the whole card a link to the hopper-level history chart at `/dashboard/history#hopper-level`, with keyboard focus and an accessible name. | running |
-| I-53 | #287 | `mission/I-53-pakoy-chat-face` | `S:/Dev/optifeed/mission-I-02` | The floating chat toggle shows a generic message-square glyph. Show Pakoy's existing `head` art while closed; keep the `X` and accessible name while open. | running |
+| I-52 | #286 | `mission/I-52-hopper-card-link` | `S:/Dev/optifeed/mission-I-01` | The desktop sidebar "Hopper level" card is static. Make the whole card a link to the hopper-level history chart at `/dashboard/history#hopper-level`, with keyboard focus and an accessible name. | merged @ `d8b5ee6`; 9 tests |
+| I-53 | #287 | `mission/I-53-pakoy-chat-face` | `S:/Dev/optifeed/mission-I-02` | The floating chat toggle shows a generic message-square glyph. Show Pakoy's existing `head` art while closed; keep the `X` and accessible name while open. | merged @ `c0382fd`; 4 tests |
 
 Both issues were unassigned and had no Claude branch when claimed. Claim comments were posted on
 the issues; the branches were created and pushed from `origin/develop` before work started.
@@ -38,3 +38,6 @@ the issues; the branches were created and pushed from `origin/develop` before wo
 | When (local) | Topic | What was agreed or done |
 |---|---|---|
 | 10-29 09:40 | Mission start | Jeff asked for all new issues to be addressed at once and reconciled to `develop`. Inventory: #286 (hopper card clickable) and #287 (Pakoy face on chat bubble); both unclaimed, no Claude branch. Claimed as I-52/I-53. |
+| 10-29 09:46 | Workers done | I-53 @ `c0382fd`: Pakoy head on the closed FAB, `X` open state, 4 focused tests. I-52 @ `d8b5ee6`: whole sidebar card links to `/dashboard/history#hopper-level`, anchor target + scroll margin, 9 focused tests. Both branches pushed and merged into `integration/batch-2026-10-29a`. |
+| 10-29 09:48 | Release prep | **v1.24.0** (MINOR): root/web `package.json` and `LEGAL_APP_RELEASE` aligned; `Unreleased` moved to `[1.24.0] - 2026-10-29`. No schema, migration or dependency change. |
+| 10-29 09:55 | Full gate | `lint`, `typecheck`, `api:check` (54 checks), Prisma schema validation and `pnpm build` pass. Full unit suite: **230 files / 2360 tests**. One transient collection failure in `admin-pond-write-guards.test.tsx` was isolated (4/4 green) and the complete rerun passed 2360/2360. |

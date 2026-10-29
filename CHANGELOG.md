@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-10-29
+
 ### Changed
 
 - #286 the desktop sidebar's hopper card is one link to the hopper-level chart on the History page (`/dashboard/history#hopper-level`), with a hover state, a keyboard focus ring and an accessible name; the chart wrapper is an anchor target that clears the sticky header.

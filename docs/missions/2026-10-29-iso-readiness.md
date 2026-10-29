@@ -29,6 +29,24 @@ evidence and remediation, not a certificate.
 | Maintainability | A- | — |
 | Portability | B | — |
 
+## A-level exit criteria (owner raised the bar, 2026-10-29)
+
+The mission does not close at "B/B+". Every characteristic must reach **A**, and each A must be
+evidenced by something re-verifiable from this repository or a green CI job.
+
+| Characteristic | A-level exit criterion |
+|---|---|
+| Functional suitability | ≥90% line coverage on `apps/web/lib` enforced as a CI threshold; E2E green in CI across the core flows; requirement→test traceability matrix; API conformance 100% |
+| Performance efficiency | Enforced bundle-size budget; Lighthouse CI budgets on key pages; recorded API latency baseline (p50/p95) with a regression gate; documented index/EXPLAIN audit for the heaviest queries |
+| Compatibility | Playwright smoke on Chromium **and** Firefox **and** WebKit; responsive assertions at phone/tablet/desktop; documented supported matrix |
+| Usability | axe-core on key pages with **zero serious/critical** violations enforced in CI; keyboard-navigation tests for primary flows; i18n key parity across en/hil/tl |
+| Reliability | Error capture + admin view; readiness/health probes; SLOs documented; **an executed restore drill against a disposable database with a recorded result** |
+| Security | Zero reachable critical/high; audit gate + Dependabot; SBOM in CI; secret scanning in CI; threat model; incident-response plan; SECURITY.md |
+| Maintainability | Coverage threshold met; dead-code and complexity checks enforced; ADR index; docs for every operational process |
+| Portability | Reproducible container build (Dockerfile + compose) and a documented environment matrix; no hard-coded production hosts |
+
+An "A" that a stranger cannot re-verify from this repository alone does not count.
+
 ## Owner decisions (Jeff, 2026-10-29)
 
 | ID | Decision |
@@ -46,6 +64,13 @@ evidence and remediation, not a certificate.
 | I-63 | **W2+W3 Quality gates.** Coverage thresholds ratcheted at the current level (no drop allowed), and a Playwright E2E job in `.github/workflows/ci.yml` backed by a **local Supabase stack** (`supabase start`: Postgres + Auth + storage) with `prisma migrate deploy` + `scripts/e2e/seed-e2e.ts`. A plain Postgres service container is **not sufficient** — see discovery below. | `mission/I-63-ci-quality` | `iso-ci` | I-62 (to avoid concurrent heavy installs) | queued |
 | I-64 | **W4 Reliability.** Additive `ErrorEvent` model + migration, `reportError()` persistence with dedupe and scrubbing, and an admin/superadmin error view. Additive only. | `mission/I-64-error-capture` | `iso-errors` | — | running |
 | I-65 | **W5+W6 Governance.** `SECURITY.md` (disclosure policy), `CODEOWNERS`, RPO/RTO and retention policy, and a restore-drill runbook in `docs/`. | `mission/I-65-governance` | `iso-governance` | — | running |
+| I-66 | **W7 Performance.** Bundle-size budget in CI, Lighthouse CI budgets on key pages, API latency baseline (p50/p95) with a regression gate, and an index/EXPLAIN audit of the heaviest queries. | `mission/I-66-performance` | `iso-perf` | I-62 (bundle tooling) | queued |
+| I-67 | **W8 Compatibility.** Playwright smoke on Chromium + Firefox + WebKit, responsive assertions, supported-browser matrix. | `mission/I-67-compatibility` | `iso-compat` | I-63 | queued |
+| I-68 | **W9 Usability/a11y.** axe-core on key pages with zero serious/critical enforced, keyboard tests for primary flows, i18n key parity. | `mission/I-68-a11y` | `iso-a11y` | — | queued |
+| I-69 | **W10 Security depth.** CycloneDX SBOM in CI, secret scanning (gitleaks), threat model, incident-response plan, CSP enforcement review. | `mission/I-69-security-depth` | `iso-security` | I-62 | queued |
+| I-70 | **W11 Portability.** Multi-stage Dockerfile, compose for local, environment matrix, removal of hard-coded production hosts. | `mission/I-70-portability` | `iso-portability` | — | queued |
+| I-71 | **W12 Reliability drill.** SLOs, readiness probe, and an **executed** restore drill against a disposable database with a written record. | `mission/I-71-reliability-drill` | `iso-drill` | I-64, I-65 | queued |
+| I-72 | **W13 Maintainability.** Dead-code (knip) and complexity budgets, ADR index, operational docs index. | `mission/I-72-maintainability` | `iso-maint` | — | queued |
 
 ## Constraints that apply to every workstream
 
@@ -76,13 +101,17 @@ evidence and remediation, not a certificate.
 
 ## Definition of done
 
-- All four workstreams merged into `develop` through one PR.
-- `pnpm audit` gated in CI, with a documented allowlist.
-- E2E executing in CI against a disposable database.
-- Coverage cannot regress below the recorded baseline.
+- All workstreams merged into `develop` through the mission PR(s).
+- Every **A-level exit criterion** above evidenced: a green CI job, a recorded measurement, or a document a stranger can follow.
+- `pnpm audit` gated in CI with a documented, expiring allowlist.
+- E2E executing in CI against a disposable local Supabase stack.
+- Coverage ≥90% on `apps/web/lib` and cannot regress.
 - Production errors persisted and visible to an administrator.
-- `SECURITY.md`, `CODEOWNERS`, RPO/RTO, retention and restore runbook present.
-- Plan updated with final evidence; issues/PRs reflect reality; nothing claimed that was not run.
+- `SECURITY.md`, `CODEOWNERS`, SBOM, secret scanning, threat model, incident-response plan, RPO/RTO, retention and an **executed** restore drill.
+- Bundle, Lighthouse, latency and complexity budgets enforced.
+- Cross-browser smoke green; axe-core clean on key pages.
+- Reproducible container build.
+- Plan updated with final evidence; nothing claimed that was not run.
 
 ## Findings during the mission
 

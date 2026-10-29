@@ -1,0 +1,27 @@
+# gitleaks configuration for the working-tree and history scans in
+# `.github/workflows/sbom.yml`.
+#
+# The built-in default ruleset is used unchanged; this file only allowlists
+# values that were reviewed and confirmed to be placeholders, not credentials.
+# Every entry is an exact literal, scoped to the single rule that flags it, so
+# nothing else in the same file is suppressed.
+#
+# Reviewed 2026-10-29 (worker I-69). A new entry needs the same treatment: the
+# real value, the location, and why it cannot be a live credential.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Fake API key in a test that proves a pasted key where an env-var name belongs is rejected. The assertion only needs a lowercase string (apps/web/lib/__tests__/ai-provider-actions.test.ts)."
+targetRules = ["generic-api-key"]
+regexes = ['''sk-or-v1-abcdef123456''']
+
+[[allowlists]]
+description = "Demo device token in documentation and in the frozen planning document. It was never a production credential, the plan requires zero production rows for it, and real units are provisioned per device (docs/OPTIFEED-INDUSTRY-GRADE-PLAN v3.md, H5)."
+targetRules = ["generic-api-key"]
+regexes = ['''esp32-tok-cict-001''']
+
+[[allowlists]]
+description = "This file: it necessarily repeats the two placeholder values above."
+paths = ['''gitleaks\.toml''']

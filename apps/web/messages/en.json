@@ -2459,6 +2459,12 @@
 			"deviceOnline": "ESP32 online",
 			"deviceOffline": "ESP32 offline",
 			"deviceMissing": "ESP32 not paired",
+			"lastSynced": "Last synced: {time}",
+			"lastSyncedNever": "never",
+			"lastSyncedJustNow": "just now",
+			"lastSyncedMinutesAgo": "{count, plural, one {# minute ago} other {# minutes ago}}",
+			"lastSyncedHoursAgo": "{count, plural, one {# hour ago} other {# hours ago}}",
+			"lastSyncedDaysAgo": "{count, plural, one {# day ago} other {# days ago}}",
 			"skipToContent": "Skip to main content",
 			"platformAdmin": "Platform admin",
 			"pagination": {

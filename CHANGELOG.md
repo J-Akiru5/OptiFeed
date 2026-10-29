@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.28.0] - 2026-10-29
+
+### Added
+
+- #303 the dashboard has pond context. A pond switcher in the header lists only the ponds the signed-in user may switch to, remembers the choice in an httpOnly cookie and re-validates it server-side on every read and write, so a tampered or foreign id falls back to the user's own pond instead of selecting another farm's. Ponds are searchable in the global search and selecting one switches pond in place rather than throwing the reader back to `/dashboard`. All three locales, keyboard operable, with an empty state for a user without ponds.
+- #304 the feed calculator can save its result as the pond's growth target. The Growth page now shows the target biomass at harvest, the current/expected biomass and the remaining gap, and the feeding recommendation (including the AI feeder card) derives from the saved target inside the existing 10% / 15-day envelope and device per-meal cap. The target is stored in the pond profile JSON bridge, scoped per pond and tenant, and never moves the cycle's harvest date.
+
+### Fixed
+
+- #307 calibration number fields could not be cleared once they held `0`, so a full distance of zero could not be replaced with a real measurement. Every numeric calibration field now keeps the raw text and parses on submit, so a field can be emptied and re-typed. Hopper centimetre fields step 1 → 2 → 3 → 4 instead of 0.1, and all numeric calibration controls share one field pattern — label, steppers, unit, help text and an announced error — laid out in a responsive three-column grid (one column on phones, two on tablets, three on desktop).
+
 ## [1.27.1] - 2026-10-29
 
 ### Fixed

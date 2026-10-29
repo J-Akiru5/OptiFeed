@@ -250,6 +250,7 @@ export async function applyGrowthPlanForPond(params: {
 						cycleId: loaded.cycleId,
 						targetWeightG: plan.targetWeightG,
 						targetDate: plan.targetDate,
+						targetSource: plan.targetSource,
 						sampleDate: plan.currentSampleDate,
 						recommendedGrams: plan.recommendedGramsPerFeeding,
 						applicableGrams: plan.applicableGramsPerFeeding,

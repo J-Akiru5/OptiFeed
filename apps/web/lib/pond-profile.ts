@@ -41,6 +41,26 @@ export const pondProfileSchema = z.object({
 
 export type PondProfileInput = z.infer<typeof pondProfileSchema>;
 
+/**
+ * The harvest growth target saved from the feed calculator (issue #304).
+ *
+ * It lives in the same JSON bridge as the pond profile for the same reason: a
+ * real column would require a production migration. The target is scoped to
+ * the pond (the row that holds it) and to the tenant (`Pond.ownerId`), and it
+ * names the crop cycle it was set for so a finished cycle cannot leak its
+ * target into the next one.
+ */
+export interface PondGrowthTarget {
+	/** Target average body weight per fish at harvest, in grams. */
+	targetWeightG: number;
+	/** Population used by the calculator; null when it was not provided. */
+	population: number | null;
+	/** The active cycle this target belongs to. */
+	cycleId: string;
+	/** When the target was saved, ISO 8601. */
+	setAt: string;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -76,5 +96,57 @@ export function mergePondProfile(
 	return {
 		...base,
 		profile: next,
+	};
+}
+
+/**
+ * Read the saved harvest target. Anything incomplete or malformed is treated
+ * as "no target" so a hand-edited or legacy JSON blob cannot produce a plan
+ * with a missing cycle, date or weight.
+ */
+export function parsePondGrowthTarget(prefs: unknown): PondGrowthTarget | null {
+	if (!isRecord(prefs) || !isRecord(prefs.profile)) return null;
+	const raw = prefs.profile.growthTarget;
+	if (!isRecord(raw)) return null;
+
+	const targetWeightG = finitePositive(raw.targetWeightG);
+	const cycleId = typeof raw.cycleId === "string" && raw.cycleId.length > 0 ? raw.cycleId : null;
+	const setAt =
+		typeof raw.setAt === "string" && !Number.isNaN(Date.parse(raw.setAt)) ? raw.setAt : null;
+	if (targetWeightG === null || cycleId === null || setAt === null) return null;
+
+	return {
+		targetWeightG,
+		population: finitePositive(raw.population),
+		cycleId,
+		setAt,
+	};
+}
+
+/**
+ * Store or clear the saved target without disturbing the rest of the pond
+ * profile or the notification preferences that share this JSON column.
+ */
+export function mergePondGrowthTarget(
+	prefs: unknown,
+	target: PondGrowthTarget | null,
+): Record<string, unknown> {
+	const base = isRecord(prefs) ? { ...prefs } : {};
+	const existing = isRecord(base.profile) ? { ...base.profile } : {};
+	const profile =
+		target === null
+			? Object.fromEntries(Object.entries(existing).filter(([key]) => key !== "growthTarget"))
+			: {
+					...existing,
+					growthTarget: {
+						targetWeightG: target.targetWeightG,
+						population: target.population,
+						cycleId: target.cycleId,
+						setAt: target.setAt,
+					},
+				};
+	return {
+		...base,
+		profile,
 	};
 }

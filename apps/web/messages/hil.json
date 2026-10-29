@@ -889,7 +889,20 @@
 				"fcr": "FCR {fcr}",
 				"density": "{density} isda/m²",
 				"densityHigh": "Density {density}/m² — i-check ang aeration.",
-				"densityUnknown": "Idugang ang area sang punong sa Settings para sa density."
+				"densityUnknown": "Idugang ang area sang punong sa Settings para sa density.",
+				"sourceCalculator": "Target halin sa calculator",
+				"biomassTitle": "Biomass sa ani",
+				"targetBiomass": "Target sa ani",
+				"currentBiomass": "Subong nga biomass",
+				"expectedBiomass": "Expected subong",
+				"biomassGap": "Gap sa target",
+				"projectedBiomass": "Projected sa ani",
+				"projectedGap": "Projected nga gap",
+				"savedTargetHint": "Ini nga target halin sa feed calculator. Tangtanga para magamit ang target sang cycle.",
+				"clearTarget": "Tangtanga ang target",
+				"clearingTarget": "Ginatangtang...",
+				"targetCleared": "Natangtang ang growth target. Ang target sang cycle ang ginagamit liwat.",
+				"targetClearError": "Indi matangtang ang growth target."
 			},
 			"prediction": {
 				"eyebrow": "AI nga Manuglaygay sa Pagpakaon",
@@ -1701,6 +1714,7 @@
 			"hopperEmptyCmDesc": "Pagbasa sang sensor kon wala sang feed ang hopper",
 			"hopperCapacityG": "Kapasidad sang Hopper (grams)",
 			"hopperCapacityGDesc": "Kabug-atan sang feed nga kaya sang hopper",
+			"hopperEmptyGreaterThanFull": "Ang distansya kon wala dapat mas dako sa distansya kon puno.",
 			"saveCalibration": "I-save ang Calibration",
 			"calibrationSaved": "Na-save ang calibration!",
 			"calibrationSaveError": "Indi ma-save ang calibration.",
@@ -1724,6 +1738,14 @@
 			"restartDevice": "I-restart ang Device",
 			"actionsUnavailable": "Wala pa available ang mga aksyon sa device.",
 			"calibration": {
+				"numberField": {
+					"decrease": "Buhinan ang {label}",
+					"increase": "Dugangan ang {label}",
+					"format": "Magbutang sang numero.",
+					"range": "Magbutang sang halaga halin {min} tubtob {max}.",
+					"wholeNumber": "Gamita lang ang bug-os nga mga numero.",
+					"decimalPlaces": "Gamita ang indi sobra sa {decimals} ka decimal."
+				},
 				"title": "Pag-calibrate sang Rate sang Pagpakaon",
 				"desc": "Sukda kon kapaspas mag-dispense sang feed ang feeder agud husto ang oras sang pagpakaon sa schedule.",
 				"currentRate": "Karon nga rate",
@@ -1968,7 +1990,14 @@
 			"suggestedRate": "Ginasugyot nga Rate sang Pagpakaon",
 			"perMeal": "Kada pakaon: {grams} g",
 			"usingFcr": "Ginagamit ang pinakabag-o nga FCR: {fcr}",
-			"noFcr": "Wala pa FCR report - 1.5 nga reference ang ginagamit."
+			"noFcr": "Wala pa FCR report - 1.5 nga reference ang ginagamit.",
+			"setAsTarget": "I-set bilang growth target",
+			"settingTarget": "Gina-save ang target...",
+			"targetSaved": "Na-save ang growth target: {weight} kg sa ani.",
+			"targetSavedShort": "Na-save nga target: {weight} kg sa ani.",
+			"targetError": "Indi ma-save ang growth target.",
+			"targetHint": "I-save ini nga timbang bilang harvest target sang active nga cycle. Ang rekomendasyon sa pagpakaon maga-adjust sa sulod sang 10% / 15 ka adlaw nga limit.",
+			"targetNeedsCycle": "Mag-start sang grow-out cycle antes mag-set sang growth target."
 		},
 		"importExport": {
 			"export": "I-export ang Datos",
@@ -2376,6 +2405,12 @@
 			"title": "Nakasumalang sang error ang admin console",
 			"desc": "Wala sang nabag-o. Sulayi liwat ang pahina, ukon balik sa dashboard kon padayon nga nagakapaslawan.",
 			"retry": "Sulayi liwat"
+		},
+		"pondSwitcher": {
+			"labelNamed": "Aktibo nga punong: {name}",
+			"listLabel": "Pili-a ang punong",
+			"switching": "Nagabaylo…",
+			"switchFailed": "Indi mabayluan ang punong. Tilawi liwat."
 		},
 		"common": {
 			"readOnlyTitle": "Tan-aw lang",

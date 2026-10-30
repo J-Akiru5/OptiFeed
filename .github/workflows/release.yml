@@ -83,6 +83,10 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
+          # GitHub's runner starts with no git identity; annotated tags fail with
+          # "empty ident name" without one. Use the Actions bot identity.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "v${VERSION}" -m "v${VERSION}"
           git push origin "refs/tags/v${VERSION}"
           echo "tagged v${VERSION} at ${GITHUB_SHA}"

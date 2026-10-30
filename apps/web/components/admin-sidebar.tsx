@@ -38,7 +38,7 @@ export function AdminSidebar() {
 			aria-label={t("sidebarLabel")}
 			data-collapsed={collapsed ? "true" : undefined}
 			className={cn(
-				"sticky top-[64px] z-20 hidden h-[calc(100vh-64px)] shrink-0 flex-col overflow-y-auto bg-[#0A3D62] text-white lg:flex",
+				"z-20 hidden h-full shrink-0 flex-col overflow-y-auto bg-[#0A3D62] text-white lg:flex",
 				collapsed ? "w-[76px] p-3" : "w-64 p-6",
 				animate && "transition-[width,padding] duration-200 ease-out motion-reduce:transition-none",
 			)}

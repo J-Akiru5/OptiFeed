@@ -16,6 +16,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
  *   hardware         /dashboard/settings/hardware, the real server page
  *   admin devices    /admin/devices, the real server page with rows, the
  *                    pending-approval queue and the add-feeder form
+ *   admin settings   /admin/settings, the real server page with the settings
+ *                    grid and the members card (table + card list)
  *
  * Server pages are rendered with `renderToStaticMarkup()` and mounted into a
  * real jsdom document, so axe sees the markup a browser would parse; effects do
@@ -228,6 +230,8 @@ vi.mock("@/lib/prisma", () => ({
 		fcrReport: { findFirst: vi.fn(async () => null) },
 		feedLevelLog: { findMany: vi.fn(async () => []) },
 		user: { findMany: vi.fn(async () => []) },
+		orgSetting: { findUnique: vi.fn(async () => null) },
+		platformSetting: { findUnique: vi.fn(async () => null) },
 	},
 }));
 
@@ -243,6 +247,7 @@ vi.mock("@/lib/offline/db", () => ({ clearOfflineData: vi.fn() }));
 vi.mock("@/lib/pwa/snapshot", () => ({ clearDashboardSnapshot: vi.fn() }));
 
 import AdminDevicesPage from "@/app/[locale]/(admin)/admin/devices/page";
+import AdminSettingsPage from "@/app/[locale]/(admin)/admin/settings/page";
 import HardwareSettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/hardware/page";
 import LoginPage from "@/app/[locale]/login/page";
 import { DashboardContentShell } from "@/components/chat/dashboard-content-shell";
@@ -253,7 +258,7 @@ import {
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
 import { GrowthPlanCard } from "@/components/growth/GrowthPlanCard";
-import { getDevices, getPendingDevices } from "@/lib/actions/admin";
+import { getDevices, getPendingDevices, listTenantMembers } from "@/lib/actions/admin";
 import { buildGrowthPlan } from "@/lib/growth-plan";
 import { Activity, CalendarClock, Scale } from "lucide-react";
 import { expectNoSeriousOrCriticalViolations } from "./helpers/axe";
@@ -470,6 +475,51 @@ describe("admin devices page", () => {
 		expect(host.querySelector("caption")).not.toBeNull();
 		expect(host.textContent).toContain("Feeder Pending");
 		expect(host.textContent).toContain("Add feeder");
+
+		await expectNoSeriousOrCriticalViolations(host);
+	});
+});
+
+describe("admin settings page", () => {
+	beforeEach(() => {
+		vi.mocked(listTenantMembers).mockResolvedValue({
+			rows: [
+				{
+					membershipId: "m-1",
+					userId: "user-1",
+					orgId: "org-1",
+					orgName: "Miguel Farm",
+					displayName: "Juan Miguel",
+					farmId: "juan-miguel",
+					email: "juan@example.com",
+					avatarUrl: null,
+					role: "OWNER",
+					callerRole: "OWNER",
+					permissions: [],
+					joinedAt: new Date("2026-07-08T16:19:00"),
+					isSelf: true,
+					isPlatformAdmin: false,
+					isLastOwner: true,
+				},
+			],
+			total: 1,
+			page: 1,
+			pageSize: 20,
+			orgOptions: [{ id: "org-1", name: "Miguel Farm", callerRole: "OWNER" }],
+		} as unknown as Awaited<ReturnType<typeof listTenantMembers>>);
+	});
+
+	it("has no serious or critical violations across the settings and members sections", async () => {
+		const host = mountStaticPage(
+			renderToStaticMarkup(await AdminSettingsPage({ searchParams: Promise.resolve({}) })),
+		);
+
+		// Both sections carry a heading of their own; the members card renders
+		// the desktop table and the mobile card list in the same markup.
+		expect(host.querySelector("#general-settings-title")?.textContent).toBe("General Settings");
+		expect(host.querySelector("#members-title")?.textContent).toBe("Members");
+		expect(host.querySelector(".data-list-table")).not.toBeNull();
+		expect(host.querySelector(".data-list-cards")).not.toBeNull();
 
 		await expectNoSeriousOrCriticalViolations(host);
 	});

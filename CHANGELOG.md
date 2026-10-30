@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.31.1] - 2026-10-30
+
+### Fixed
+
+- #347 ABW and FCR now explain themselves: an info affordance on the dashboard, growth, history and calculator surfaces opens on hover **and** keyboard focus, is announced through `aria-describedby`, and describes the real math (average body weight = sample weight / fish weighed; FCR = kg feed per kg gained, lower is better).
+- #348 the calendar's details sheet and editor name the item they act on, so a task no longer says "Edit pond event" or "Delete this pond event?"; every task label, toast and confirmation follows `itemKind`, while cycle milestones keep their event wording.
+- #351 the admin settings page now has one consistent structure: a single labelled section per group, real heading hierarchy (h2 to h3), the shared 1/2/3 column grid, the pager bled to the card edges, a members table hidden below `md` (no more phone-width horizontal scroll), a corrected members total, and every control at least 44 px. The page is also covered by the axe gate.
 ## [1.31.0] - 2026-10-30
 
 ### Added

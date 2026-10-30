@@ -204,7 +204,7 @@ export function StatTile({
 	href,
 	className,
 }: {
-	label: string;
+	label: ReactNode;
 	value: string;
 	detail?: string;
 	icon?: LucideIcon;

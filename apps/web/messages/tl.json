@@ -228,6 +228,12 @@
 				"value": "Halaga",
 				"name": "Pangalan",
 				"empty": "Wala pang data para sa panahong ito."
+			},
+			"terminology": {
+				"aboutAbw": "Ano ang ibig sabihin ng ABW?",
+				"abw": "Average Body Weight: ang karaniwang timbang ng isda sa pinakabagong biomass sample, sa gramo. Ito ang timbang ng sample na hinati sa bilang ng isdang tinimbang.",
+				"aboutFcr": "Ano ang ibig sabihin ng FCR?",
+				"fcr": "Feed Conversion Ratio: ang kilo ng pakain na ginamit sa bawat kilo ng paglaki ng timbang ng isda, mula sa pinakabagong FCR report. Mas mababa, mas mabuti."
 			}
 		},
 		"profileSettings": {

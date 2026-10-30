@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.31.8] - 2026-10-30
+
+### Changed
+
+- Reconciles the GitHub Actions version bumps that landed on `staging` (dependabot targeted the default branch) back into `develop`: `checkout`, `setup-node`, `pnpm/action-setup`, `upload-artifact` and the rest of the group move from v4 to v7 across all nine workflows.
 ## [1.31.7] - 2026-10-30
 
 ### Fixed

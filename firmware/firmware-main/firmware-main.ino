@@ -5,8 +5,9 @@
 
     1. SCHEDULED  — RTC-driven, works with NO WiFi/backend connectivity.
        Schedule dynamically set via pollScheduleCommand() from backend.
-    2. DASHBOARD  — polled every POST_INTERVAL_MS from the backend, for
-       manual/extra feeds or malfunction workarounds triggered remotely.
+    2. DASHBOARD  — polled every deviceConfig.heartbeatIntervalS from the
+       backend, for manual/extra feeds or malfunction workarounds triggered
+       remotely.
     3. PHYSICAL BUTTON — local override, works even with WiFi fully down.
        Dose amount is set via backend poll response (button_feed_grams),
        not a compile-time constant.
@@ -24,9 +25,9 @@
   FAIL-SAFE MODEL (1.6.0):
     - The relay is OFF at boot, in a shutdown handler before any software
       reset, and is force-opened if a dose overruns its expected end + 2 s.
-    - One gate for every source: a 10 s minimum gap between doses, 6 doses per
-      rolling hour, the daily gram cap and MAX_DISPENSE_MS. Each refusal is
-      reported with a reason.
+    - One gate for every source: the configured minimum gap between doses, the
+      configured doses per rolling hour, the daily gram cap and the configured
+      relay-time envelope. Each refusal is reported with a reason.
     - Three abnormal resets (brownout/panic/watchdog) within 10 minutes boot
       the unit into SAFE MODE: the relay is locked OFF, every trigger is
       refused with reason safe_mode, and the heartbeat says so. A clean
@@ -85,6 +86,8 @@
 // Pure, host-testable modules (firmware 1.6.0). No Arduino calls inside.
 #include "filters.h"
 #include "safety.h"
+// Dashboard-driven configuration and its absolute safety envelope (1.7.0).
+#include "config.h"
 #ifdef ENABLE_LAN_OTA
 #include <ArduinoOTA.h>
 #endif
@@ -108,7 +111,7 @@
 
 // Reported at boot and in the heartbeat body so the fleet and the OTA rollout
 // can tell builds apart. Bump on every firmware change.
-#define FW_VERSION "1.6.2"
+#define FW_VERSION "1.7.0"
 // Board string the signed manifest must carry. One value for every unit this
 // firmware runs on (ESP32-WROOM-32U); a manifest for another board is refused.
 #define FW_BOARD "wroom32u"
@@ -118,28 +121,18 @@
 // The response is {update:false} or
 // {update:true, version, url, size, sha256, manifest, signature, key_id}.
 #define OTA_CHECK_URL "https://pakaonai.syntaxure.dev/api/firmware/check"
-// How often an idle, online unit asks for an update (30 minutes).
-#define OTA_CHECK_INTERVAL_MS (30UL * 60UL * 1000UL)
-// First boot of a new image: this long to prove itself before rolling back.
-#define OTA_HEALTH_CHECK_TIMEOUT_MS (5UL * 60UL * 1000UL)
-// Pre-flight gate (docs/firmware-ota-plan.md §4.4, decisions OTA-2/OTA-3).
-#define OTA_MIN_UPTIME_MS (10UL * 60UL * 1000UL)   // strictly longer than 10 min
-#define OTA_MIN_RSSI_DBM (-75)                     // require RSSI > -75 dBm
-#define OTA_FEED_GUARD_MINUTES 20                  // +/- 20 min around a feed
-#define OTA_WINDOW_START_MINUTE (10 * 60)          // 10:00 local
-#define OTA_WINDOW_END_MINUTE (15 * 60)            // 15:00 local (exclusive)
+// Operational OTA values (check interval, health-check timeout, minimum
+// uptime/RSSI/heap, feed guard, maintenance window and download timeouts) are
+// dashboard-driven since 1.7.0: see deviceConfig.ota* in config.h. The values
+// there equal the 1.6.x constants, so behaviour is unchanged until a server
+// sends a different (still envelope-bounded) value.
 // The RTC runs UTC (NTP and the server clock are UTC). Local time for the
 // maintenance window is UTC + this offset; the Philippines is UTC+8 with no
 // daylight saving. Change it when the fleet moves time zone.
 #define OTA_LOCAL_UTC_OFFSET_MINUTES 480
-// Heap needed for the TLS session, the 1 KB stream buffer and Update. Every
-// extra root costs roughly 2 KB while a connection is open.
-#define OTA_MIN_FREE_HEAP_BYTES 60000
 // One check response is a few hundred bytes; anything large is a bug or abuse.
+// Transport constant: never configurable.
 #define OTA_MAX_CHECK_RESPONSE_BYTES 8192
-// Give a 1.1 MB image a fair chance on a slow farm link, but never hang.
-#define OTA_NO_DATA_TIMEOUT_MS (60UL * 1000UL)
-#define OTA_DOWNLOAD_TIMEOUT_MS (15UL * 60UL * 1000UL)
 
 
 // Device identity. There is deliberately NO compile-time fallback: this
@@ -413,71 +406,24 @@ bool resetButtonsArmed = false;
 #define RELAY_ON        ((RELAY_ACTIVE_LOW) ? LOW : HIGH)   // closes NO contacts
 #define RELAY_OFF       ((RELAY_ACTIVE_LOW) ? HIGH : LOW)   // rest, contacts open
 
-#define POST_INTERVAL_MS    5000    // telemetry + feed-command + schedule-sync poll interval
-#define BUTTON_DEBOUNCE_MS  250
-// Ignore feed-button edges for the first 5 s after boot, matching the reset
-// buttons' grace window and the boot-hold WiFi reset.
-#define BUTTON_STARTUP_GRACE_MS 5000
-
-// ---- Feed-button press guard (firmware 1.5.3, CICT phantom feeds) ---------
-// GPIO 23 uses the internal pull-up (~45 kOhm) only and runs on a long wire next
-// to the relay and motor, so a microsecond switching spike looks exactly like a
-// falling edge to the interrupt. A falling edge is now only a *candidate*: loop()
-// samples the pin for 50 ms and accepts the press only when it stays LOW.
-//
-// A real press holds the line LOW until the user lets go (tens to hundreds of
-// ms); relay/motor noise is a spike of a few microseconds. 10 samples over
-// 50 ms with a 90 % threshold tolerates one missed sample at the release edge
-// without ever accepting a spike. Hardware mitigation (external pull-up, RC
-// filter, flyback diode) is documented in firmware/README.md.
+// Poll cadence and button-guard values are server-driven (1.7.0): see
+// deviceConfig.heartbeatIntervalS / button* in config.h. Only the anti-spike
+// confirmation window stays compile-time: it is the guard itself, not a
+// preference, and 10 samples x 5 ms with a 90 % threshold was tuned on the
+// CICT unit (I-41).
 #define BUTTON_CONFIRM_SAMPLES            10    // samples in the confirmation window
 #define BUTTON_CONFIRM_SAMPLE_MS           5    // 10 x 5 ms = 50 ms total
 #define BUTTON_CONFIRM_MIN_LOW_SAMPLES     9    // >= 90 % of the samples must be LOW
-// Relay ON through 2 s after OFF: a button edge in that window is never a new
-// dose. It is cleared so it cannot dispense once the window ends.
-#define BUTTON_QUIET_AFTER_DISPENSE_MS  2000UL
-// At most one *button* dispense per 30 s. Scheduled and dashboard feeds are not
-// affected; this only bounds a noisy or stuck button.
-#define BUTTON_COOLDOWN_MS             30000UL
-// Rate limit for the diagnostic button log lines (glitch / ignored edge).
-#define BUTTON_LOG_INTERVAL_MS         10000UL
 
-// ---- Fail-safe limits (firmware 1.6.0) ------------------------------------
-// One gate for every trigger source (docs/missions/2026-10-27-issues.md I-41).
-// These are deliberately tighter than the server caps: the server can refuse a
-// dose, the firmware must also bound a unit that is off the network.
-#define MIN_DISPENSE_GAP_MS            10000UL   // any two doses, any source
-#define MAX_DISPENSES_PER_HOUR         6         // rolling hour, any source
-#define RELAY_OVERRUN_GRACE_MS         2000UL    // expected end + this = trip
-#define BROWNOUT_HOLD_MS               (60UL * 1000UL)
-
-// Crash / brownout loop -> SAFE MODE.
-#define SAFE_MODE_ABNORMAL_WINDOW_MS   (10UL * 60UL * 1000UL)
-#define SAFE_MODE_ABNORMAL_THRESHOLD   3
-#define SAFE_MODE_QUIET_MS             (30UL * 60UL * 1000UL)
-#define SAFE_MODE_HEALTHY_CLEAR_MS     (10UL * 60UL * 1000UL)
-
-// Noisy feed-button line: more than 5 rejected glitches in a minute disables
-// the button for 10 minutes (1.5.3 keeps its 50 ms confirmation window).
-#define BUTTON_NOISE_WINDOW_MS         60000UL
-#define BUTTON_NOISE_MAX               5
-#define BUTTON_DISABLE_MS              (10UL * 60UL * 1000UL)
-
-// Hopper plausibility (HC-SR04 / filters.h). The low threshold mirrors the
-// organization default (OrgSetting.hopperLowPct = 20) and the refill margin is
-// the hysteresis that stops pellet alerts flapping.
-#define HOPPER_SAMPLE_COUNT            5
-#define HOPPER_REJECT_BELOW_CM         2.0f
-#define HOPPER_REJECT_ABOVE_MARGIN_CM  10.0f
-#define HOPPER_EMA_ALPHA               0.35f
-#define HOPPER_JUMP_PCT                15.0f
-#define HOPPER_PERSIST_CYCLES          3
-#define HOPPER_LOW_PCT                 20.0f
-#define HOPPER_REFILL_MARGIN_PCT       10.0f
-#define HOPPER_STATE_HOLD_MS           (10UL * 60UL * 1000UL)
+// ---- Fail-safe relay guard (firmware 1.6.0) -------------------------------
+// The 2 s overrun trip is safety logic, not an operational value: it is never
+// configurable, so no dashboard write can let a stuck relay keep running.
+// The dispense gap, doses per hour, daily cap, safe-mode thresholds and hopper
+// filter values are operational and live in config.h / deviceConfig.
 
 // Event rate limits (a token bucket per event type). The dispense bucket is
-// sized above MAX_DISPENSES_PER_HOUR, so a real feeding record is never lost.
+// sized above the maximum doses per hour, so a real feeding record is never
+// lost. Transport/implementation constants: no dashboard home.
 #define FEED_EVENT_BUCKET_CAPACITY     12
 #define FEED_EVENT_REFILL_MS           (5UL * 60UL * 1000UL)
 #define REFUSAL_BUCKET_CAPACITY        6
@@ -524,11 +470,13 @@ bool resetButtonsArmed = false;
 // ---- Calibration: how fast the feeder dispenses ----
 // Measure by running the feeder for a fixed time and weighing the output:
 // gramsPerSecond = grams_dispensed / seconds_run.
-// Mutable — overridden by the backend poll response (grams_per_second) and
-// persisted to NVS, so a reboot keeps the dashboard calibration instead of
-// running on the compile-time default until the next successful poll.
+// Mutable — overridden by the dashboard `config` object (and the legacy
+// `grams_per_second` field) and persisted to NVS, so a reboot keeps the
+// dashboard calibration instead of running on the compile-time default until
+// the next successful poll.
 #define DEFAULT_GRAMS_PER_SECOND 4.0f
 #define NVS_KEY_CAL_GPS "cal_gps"
+// Runtime calibration value, always kept equal to deviceConfig.gramsPerSecond.
 float gramsPerSecond = DEFAULT_GRAMS_PER_SECOND;
 
 // ---- Default dispense amounts per trigger source ----
@@ -536,23 +484,22 @@ float gramsPerSecond = DEFAULT_GRAMS_PER_SECOND;
 #define DEFAULT_BUTTON_FEED_GRAMS 80.0 // overridden by backend poll response
 #define DEFAULT_MANUAL_GRAMS    100.0  // used if dashboard omits a grams value
 
-// ---- Safety caps — MUST equal server apps/web/lib/limits.ts ----
-#define MAX_DISPENSE_MS        300000UL  // = limits.ts MAX_DISPENSE_MS (5 min)
-#define MAX_CALIBRATION_GRAMS  5000.0f   // = limits.ts CALIBRATION_TEST_GRAMS_MAX
-#define MAX_CALIBRATION_DISPENSE_MS 600000UL // = limits.ts CALIBRATION_MAX_DISPENSE_MS (10 min)
-#define MAX_GRAMS_PER_DISPENSE 1000.0    // = limits.ts MAX_FEED_GRAMS_PER_REQUEST
-#define MAX_GRAMS_PER_DAY      5000.0    // = limits.ts MAX_FEED_GRAMS_PER_DAY_PER_DEVICE
+// ---- Dashboard-driven configuration (1.7.0, I-100) ----
+// Every operational value lives in `deviceConfig` and is bounded by the
+// absolute safety envelope in config.h. These globals are only the boot
+// defaults until the first valid `config` object (or the NVS last-good copy)
+// is applied.
+#define NVS_CONFIG_REV_KEY  "cfg_rev"
+#define NVS_CONFIG_JSON_KEY "cfg_json"
 
-// ---- Validation ranges for server-pushed values (match limits.ts) ----
-#define GRAMS_PER_FEEDING_MIN  1.0
-#define GRAMS_PER_FEEDING_MAX  MAX_GRAMS_PER_DISPENSE
-#define BUTTON_FEED_GRAMS_MIN  1.0
-#define BUTTON_FEED_GRAMS_MAX  500.0
-#define GRAMS_PER_SECOND_MIN   0.5
-#define GRAMS_PER_SECOND_MAX   50.0
-#define TEMP_OFFSET_C_MIN     -20.0
-#define TEMP_OFFSET_C_MAX      20.0
-#define HOPPER_CM_MAX          500.0    // HC-SR04 practical max (~5 m)
+fw::DeviceConfig deviceConfig = fw::defaultDeviceConfig();
+uint32_t appliedConfigRev = 0;         // echoed as `config_rev` in the heartbeat
+bool configLoadedFromNvs = false;      // a persisted last-good copy is in force
+bool configFromServer = false;         // a server object has been applied this boot
+
+// The fixed safety envelope that is never configurable (class A/C). Pins, the
+// NVS namespace, URLs, TLS and the relay overrun guard stay compile-time.
+#define RELAY_OVERRUN_GRACE_MS         2000UL    // expected end + this = trip
 
 // ---- Max feed times (schedule supports up to 24 feeds per day) ----
 #define MAX_FEED_TIMES 24
@@ -605,12 +552,8 @@ String currentFeedRequestId = "";
 float cachedScheduledGrams = DEFAULT_SCHEDULED_GRAMS;
 float cachedButtonFeedGrams = DEFAULT_BUTTON_FEED_GRAMS;  // mutable — set from backend poll
 
-// Feed hopper calibration (linear conversion for cylindrical 10L bottle)
-float hopperEmptyCm = 30.0;   // sensor distance when hopper is empty — overridden by backend
-float hopperFullCm  = 5.0;    // sensor distance when hopper is full — overridden by backend
-
-// Temperature calibration offset (°C) — overridden by backend
-float tempOffsetC = 0.0;
+// Hopper geometry and the temperature offset live in deviceConfig (1.7.0);
+// these two caches are only kept in step for the schedule/feeding paths.
 
 // ---- Daily dispense budget (RAM; reset at local midnight from the RTC) ----
 float dailyGramsDispensed = 0.0;
@@ -827,7 +770,8 @@ bool otaHealthSawTime = false;
 bool otaHealthSawPoll = false;
 
 // Next scheduled check and the 1 h -> 6 h -> 24 h deferral ladder.
-unsigned long nextOtaCheckMs = OTA_CHECK_INTERVAL_MS;
+// Scheduled in setup() once the persisted/server configuration is known.
+unsigned long nextOtaCheckMs = 0;
 uint8_t otaBackoffLevel = 0;
 
 // Boot diagnostics, filled at the top of setup().
@@ -929,18 +873,30 @@ void loadDeviceIdentity() {
 
 // ---- Dispense calibration (grams per second) -----------------------------
 // The dashboard is the source of truth: the backend poll and schedule-sync
-// both carry grams_per_second. It is mirrored into NVS so that a reboot does
-// not silently revert to DEFAULT_GRAMS_PER_SECOND until the next poll - a feed
+// both carry grams_per_second. It is mirrored into NVS (both the 1.6.x
+// `cal_gps` key and the 1.7.0 last-good config blob) so that a reboot does not
+// silently revert to DEFAULT_GRAMS_PER_SECOND until the next poll - a feed
 // triggered in that window would otherwise run at the wrong rate.
 void loadCalibration() {
+  // A persisted 1.7.0 config blob already carries the calibrated rate; do not
+  // let the legacy key overwrite it.
+  if (configLoadedFromNvs) {
+    gramsPerSecond = deviceConfig.gramsPerSecond;
+    Serial.printf("[CAL] grams_per_second=%.2f (persisted config)\n", gramsPerSecond);
+    return;
+  }
   const bool stored = prefs.isKey(NVS_KEY_CAL_GPS);
   float gps = prefs.getFloat(NVS_KEY_CAL_GPS, DEFAULT_GRAMS_PER_SECOND);
-  if (!(gps >= GRAMS_PER_SECOND_MIN && gps <= GRAMS_PER_SECOND_MAX)) {
+  const fw::ConfigFieldSpec *spec = fw::findConfigSpec("grams_per_second");
+  const float minGps = spec ? spec->minValue : 0.5f;
+  const float maxGps = spec ? spec->maxValue : 50.0f;
+  if (!(gps >= minGps && gps <= maxGps)) {
     Serial.printf("[CAL] stored grams_per_second %.2f out of range - using %.2f\n",
                   gps, (double)DEFAULT_GRAMS_PER_SECOND);
     gps = DEFAULT_GRAMS_PER_SECOND;
   }
   gramsPerSecond = gps;
+  deviceConfig.gramsPerSecond = gps;
   Serial.printf("[CAL] grams_per_second=%.2f (%s)\n", gramsPerSecond,
                 stored ? "from NVS" : "compile-time default");
 }
@@ -948,7 +904,10 @@ void loadCalibration() {
 // Apply a server-pushed calibration. Writes NVS only when the value actually
 // changes, so a poll every few seconds cannot wear the flash.
 void applyGramsPerSecond(float gps, const char *source) {
-  if (!(gps >= GRAMS_PER_SECOND_MIN && gps <= GRAMS_PER_SECOND_MAX)) {
+  const fw::ConfigFieldSpec *spec = fw::findConfigSpec("grams_per_second");
+  const float minGps = spec ? spec->minValue : 0.5f;
+  const float maxGps = spec ? spec->maxValue : 50.0f;
+  if (!(gps >= minGps && gps <= maxGps)) {
     Serial.printf("[CAL] refused grams_per_second %.2f from %s (out of range)\n",
                   gps, source);
     return;
@@ -956,9 +915,111 @@ void applyGramsPerSecond(float gps, const char *source) {
   const float delta = gps - gramsPerSecond;
   if (delta < 0.001f && delta > -0.001f) return;  // unchanged - no NVS write
   gramsPerSecond = gps;
+  deviceConfig.gramsPerSecond = gps;
   prefs.putFloat(NVS_KEY_CAL_GPS, gramsPerSecond);
   Serial.printf("[CAL] grams_per_second=%.2f applied from %s (saved to NVS)\n",
                 gramsPerSecond, source);
+}
+
+// ==================== Dashboard-driven configuration (1.7.0) ====================
+// One versioned `config` object in the feed-command poll response drives every
+// operational value. The absolute envelope lives in config.h; this block owns
+// the NVS last-good copy, the runtime application and the all-or-nothing rule.
+
+// Persist the last-good configuration (new NVS keys only; namespace unchanged).
+void persistConfig() {
+  JsonDocument doc;
+  fw::writeConfigJson(deviceConfig, doc);
+  String json;
+  serializeJson(doc, json);
+  prefs.putString(NVS_CONFIG_JSON_KEY, json);
+  prefs.putUInt(NVS_CONFIG_REV_KEY, appliedConfigRev);
+}
+
+// Restore the last-good copy at boot. Missing, corrupt or out-of-range: keep
+// the compile-time defaults (the only values that are always safe).
+void loadPersistedConfig() {
+  deviceConfig = fw::defaultDeviceConfig();
+  if (!prefs.isKey(NVS_CONFIG_JSON_KEY)) {
+    Serial.println("[CONFIG] no persisted config - compile-time defaults");
+    return;
+  }
+  const String json = prefs.getString(NVS_CONFIG_JSON_KEY, "");
+  JsonDocument doc;
+  const DeserializationError error = deserializeJson(doc, json);
+  const char *badKey = nullptr;
+  fw::DeviceConfig restored;
+  const fw::ConfigStatus status =
+      error ? fw::ConfigStatus::MALFORMED : fw::restoreConfig(doc, restored, &badKey);
+  if (!fw::configStatusOk(status)) {
+    Serial.printf("[CONFIG] persisted config rejected (%s %s) - defaults\n",
+                  fw::configStatusName(status), badKey ? badKey : "");
+    return;
+  }
+  deviceConfig = restored;
+  appliedConfigRev = prefs.getUInt(NVS_CONFIG_REV_KEY, 0);
+  configLoadedFromNvs = true;
+  Serial.printf("[CONFIG] restored rev %lu from NVS\n", (unsigned long)appliedConfigRev);
+}
+
+// Push the current DeviceConfig into the runtime guards. Called at boot and
+// after every accepted server object, never from inside a dispense.
+void applyConfigToRuntime() {
+  fw::DispenseLimits limits;
+  limits.minGapMs = (unsigned long)(deviceConfig.minDispenseGapS * 1000.0f);
+  limits.maxPerHour = (uint8_t)deviceConfig.maxDispensesPerHour;
+  // E38: no per-dose gram cap. The daily ceiling bounds a dose, and the relay
+  // time envelope bounds the rest (grams / gramsPerSecond <= maxDispenseMs).
+  limits.maxGramsPerDose = fw::effectiveMaxGramsPerDose(deviceConfig);
+  limits.maxGramsPerDay = deviceConfig.maxGramsPerDay;
+  limits.maxDispenseMs = (unsigned long)deviceConfig.maxDispenseMs;
+  dispenseGate.configure(limits);
+
+  buttonNoise.configure((unsigned long)deviceConfig.buttonNoiseWindowMs,
+                        (uint8_t)deviceConfig.buttonNoiseMax,
+                        (unsigned long)deviceConfig.buttonDisableMs);
+  configureHopperFilter();
+  gramsPerSecond = deviceConfig.gramsPerSecond;
+}
+
+/*
+  Apply the optional `config` object from a poll response.
+
+  MISSING (an older server) keeps the last-good copy. MALFORMED,
+  OUT_OF_RANGE and UNSUPPORTED keep the last-good copy and are logged by name,
+  so the server never sends a value that raises a bound or disables a guard.
+*/
+fw::ConfigStatus applyServerConfig(const JsonDocument &doc, const char *source) {
+  fw::ConfigPatch patch;
+  const fw::ConfigStatus read = fw::readConfigPatch(doc, patch);
+  if (read != fw::ConfigStatus::OK) return read;
+
+  // The revision is a hash of the whole object, so an unchanged rev means an
+  // unchanged configuration. Skip the work (and the NVS write) in that case.
+  if (configFromServer && patch.rev == appliedConfigRev) return fw::ConfigStatus::OK;
+
+  const char *badKey = nullptr;
+  fw::DeviceConfig next;
+  const fw::ConfigStatus applied = fw::applyConfigPatch(patch, deviceConfig, next, &badKey);
+  if (!fw::configStatusOk(applied)) {
+    Serial.printf("[CONFIG] %s config from %s rejected at %s - keeping rev %lu\n",
+                  fw::configStatusName(applied), source, badKey ? badKey : "?",
+                  (unsigned long)appliedConfigRev);
+    return applied;
+  }
+
+  deviceConfig = next;
+  appliedConfigRev = patch.rev;
+  configFromServer = true;
+  applyConfigToRuntime();
+  persistConfig();
+  Serial.printf("[CONFIG] applied rev %lu from %s (dose<=%.0fg day<=%.0fg gap=%lus "
+                "hourly=%u relay=%lums)\n",
+                (unsigned long)appliedConfigRev, source, fw::effectiveMaxGramsPerDose(deviceConfig),
+                deviceConfig.maxGramsPerDay, (unsigned long)deviceConfig.minDispenseGapS,
+                (unsigned)deviceConfig.maxDispensesPerHour,
+                (unsigned long)deviceConfig.maxDispenseMs);
+  return fw::ConfigStatus::OK;
 }
 
 void saveDeviceIdentity(const String &deviceId, const String &deviceToken) {
@@ -2233,7 +2294,8 @@ bool otaLocalMinuteOfDay(int &minuteOfDay) {
 bool otaWithinWindow() {
   int localMinute = 0;
   if (!otaLocalMinuteOfDay(localMinute)) return false;
-  return localMinute >= OTA_WINDOW_START_MINUTE && localMinute < OTA_WINDOW_END_MINUTE;
+  return localMinute >= (int)deviceConfig.otaWindowStartMin &&
+         localMinute < (int)deviceConfig.otaWindowEndMin;
 }
 
 // Uses the same RTC clock handleSchedule() fires on, so the guard matches when
@@ -2248,7 +2310,7 @@ bool otaScheduledFeedNearby() {
     if (delta < -720) delta += 1440;
     if (delta > 720) delta -= 1440;
     const int distance = delta < 0 ? -delta : delta;
-    if (distance <= OTA_FEED_GUARD_MINUTES) return true;
+    if (distance <= (int)deviceConfig.otaFeedGuardMin) return true;
   }
   return false;
 }
@@ -2277,12 +2339,14 @@ const char *otaPreflightFailure() {
   if (provisioningActive) return "provisioning";
   if (WiFi.status() != WL_CONNECTED) return "wifi_down";
   if (!validTimeAvailable()) return "time_invalid";
-  if (WiFi.RSSI() <= OTA_MIN_RSSI_DBM) return "rssi_weak";
-  if (millis() - bootTime <= OTA_MIN_UPTIME_MS) return "uptime_too_short";
+  if (WiFi.RSSI() <= (int32_t)deviceConfig.otaMinRssiDbm) return "rssi_weak";
+  if (millis() - bootTime <= (unsigned long)deviceConfig.otaMinUptimeS * 1000UL) {
+    return "uptime_too_short";
+  }
   if (lastResetWasBrownout) return "brownout_reset";
   if (!otaWithinWindow()) return "outside_window";
   if (otaScheduledFeedNearby()) return "scheduled_feed_nearby";
-  if (ESP.getFreeHeap() < OTA_MIN_FREE_HEAP_BYTES) return "low_heap";
+  if (ESP.getFreeHeap() < (uint32_t)deviceConfig.otaMinFreeHeapBytes) return "low_heap";
   return nullptr;
 }
 
@@ -2327,7 +2391,7 @@ void otaBeginHealthCheck() {
   otaHealthSawPoll = false;
   otaSetState("pending_verify");
   Serial.printf("[OTA] first boot of a new image - %lu s to pass the health check\n",
-                OTA_HEALTH_CHECK_TIMEOUT_MS / 1000UL);
+                (unsigned long)deviceConfig.otaHealthCheckTimeoutMs / 1000UL);
 }
 
 void serviceOtaHealthCheck() {
@@ -2350,7 +2414,7 @@ void serviceOtaHealthCheck() {
     return;
   }
 
-  if (millis() - bootTime >= OTA_HEALTH_CHECK_TIMEOUT_MS) {
+  if (millis() - bootTime >= (unsigned long)deviceConfig.otaHealthCheckTimeoutMs) {
     Serial.printf("[OTA] health check FAILED (wifi=%d time=%d poll=%d) - rolling back\n",
                   otaHealthSawWifi, otaHealthSawTime, otaHealthSawPoll);
     otaHealthCheckActive = false;
@@ -2480,7 +2544,7 @@ bool performFirmwareUpdate(const String &url, size_t expectedSize, const String 
                   (unsigned long)expectedSize, (unsigned long)slot->size);
     return false;
   }
-  if (ESP.getFreeHeap() < OTA_MIN_FREE_HEAP_BYTES) {
+  if (ESP.getFreeHeap() < (uint32_t)deviceConfig.otaMinFreeHeapBytes) {
     Serial.printf("[OTA] not enough heap (%u free)\n", (unsigned)ESP.getFreeHeap());
     return false;
   }
@@ -2567,12 +2631,12 @@ bool performFirmwareUpdate(const String &url, size_t expectedSize, const String 
           transferFailed = true;
           break;
         }
-        if (millis() - lastDataMs > OTA_NO_DATA_TIMEOUT_MS) {
+        if (millis() - lastDataMs > (unsigned long)deviceConfig.otaNoDataTimeoutMs) {
           Serial.println("[OTA] download stalled - aborting");
           transferFailed = true;
           break;
         }
-        if (millis() - startedMs > OTA_DOWNLOAD_TIMEOUT_MS) {
+        if (millis() - startedMs > (unsigned long)deviceConfig.otaDownloadTimeoutMs) {
           Serial.println("[OTA] download took too long - aborting");
           transferFailed = true;
           break;
@@ -2727,7 +2791,7 @@ bool checkForUpdate() {
 
   if (!(doc["update"] | false)) {
     otaBackoffLevel = 0;
-    otaScheduleNextCheck(OTA_CHECK_INTERVAL_MS);
+    otaScheduleNextCheck((unsigned long)deviceConfig.otaCheckIntervalS * 1000UL);
     otaSetState("idle");
     Serial.println("[OTA] no update");
     return true;
@@ -2911,7 +2975,8 @@ void enterSafeMode() {
   feederActive = false;
   const bool clockValid = clockValidNow();
   const uint32_t epoch = clockValid ? (uint32_t)rtc.now().unixtime() : 0;
-  safeModeWindow.begin(clockValid, epoch, millis(), SAFE_MODE_QUIET_MS);
+  safeModeWindow.begin(clockValid, epoch, millis(),
+                       (unsigned long)deviceConfig.safeModeQuietS * 1000UL);
   prefs.putBool(NVS_SAFE_MODE_KEY, true);
   if (clockValid) prefs.putUInt(NVS_SAFE_UNTIL_KEY, safeModeWindow.untilEpoch());
   else prefs.remove(NVS_SAFE_UNTIL_KEY);
@@ -2939,7 +3004,8 @@ void initSafetyState(esp_reset_reason_t reason) {
                        prefs.getUInt(NVS_RESET_FIRST_KEY, 0),
                        prefs.getUInt(NVS_RESET_LAST_KEY, 0));
   const bool historyChanged = resetHistory.addBoot(
-      resetCodeFromEsp(reason), epoch, clockValid, SAFE_MODE_ABNORMAL_WINDOW_MS / 1000UL);
+      resetCodeFromEsp(reason), epoch, clockValid,
+      (unsigned long)deviceConfig.safeModeAbnormalWindowS);
   fw::describeResetReasons(resetHistory.mask(), lastResetReasons, sizeof(lastResetReasons));
 
   if (historyChanged) {
@@ -2952,7 +3018,7 @@ void initSafetyState(esp_reset_reason_t reason) {
   const uint32_t until = prefs.getUInt(NVS_SAFE_UNTIL_KEY, 0);
   if (safeModeNvs) {
     safeModeActive = true;
-    safeModeWindow.resume(until, millis(), SAFE_MODE_QUIET_MS);
+    safeModeWindow.resume(until, millis(), (unsigned long)deviceConfig.safeModeQuietS * 1000UL);
     if (safeModeWindow.elapsed(clockValid, epoch, millis())) {
       leaveSafeMode("quiet period elapsed while off");
     } else {
@@ -2960,7 +3026,8 @@ void initSafetyState(esp_reset_reason_t reason) {
     }
   }
 
-  if (!safeModeActive && resetHistory.safeModeRequired(SAFE_MODE_ABNORMAL_THRESHOLD)) {
+  if (!safeModeActive &&
+      resetHistory.safeModeRequired((uint8_t)deviceConfig.safeModeAbnormalThreshold)) {
     enterSafeMode();
   }
 }
@@ -2982,39 +3049,34 @@ void serviceSafeMode() {
   }
 
   if (!safetyHealthyCleared && resetHistory.count() > 0 &&
-      (now - bootTime) >= SAFE_MODE_HEALTHY_CLEAR_MS) {
+      (now - bootTime) >= (unsigned long)deviceConfig.safeModeHealthyClearS * 1000UL) {
     safetyHealthyCleared = true;
     resetHistory.clear();
     persistResetHistory();
-    Serial.println("[SAFETY] reset history cleared after 10 healthy minutes");
+    Serial.println("[SAFETY] reset history cleared after the healthy window");
   }
 }
 
 void configureHopperFilter() {
   fw::HopperFilter::Config config;
-  config.emptyCm = hopperEmptyCm;
-  config.fullCm = hopperFullCm;
-  config.rejectBelowCm = HOPPER_REJECT_BELOW_CM;
-  config.rejectAboveMarginCm = HOPPER_REJECT_ABOVE_MARGIN_CM;
-  config.emaAlpha = HOPPER_EMA_ALPHA;
-  config.jumpPct = HOPPER_JUMP_PCT;
-  config.persistCycles = HOPPER_PERSIST_CYCLES;
-  config.lowPct = HOPPER_LOW_PCT;
-  config.refillMarginPct = HOPPER_REFILL_MARGIN_PCT;
-  config.stateHoldMs = HOPPER_STATE_HOLD_MS;
+  config.emptyCm = deviceConfig.hopperEmptyCm;
+  config.fullCm = deviceConfig.hopperFullCm;
+  config.rejectBelowCm = deviceConfig.hopperRejectBelowCm;
+  config.rejectAboveMarginCm = deviceConfig.hopperRejectAboveMarginCm;
+  config.emaAlpha = deviceConfig.hopperEmaAlpha;
+  config.jumpPct = deviceConfig.hopperJumpPct;
+  config.persistCycles = (uint8_t)deviceConfig.hopperPersistCycles;
+  config.lowPct = deviceConfig.hopperLowPct;
+  config.refillMarginPct = deviceConfig.hopperRefillMarginPct;
+  config.stateHoldMs = (unsigned long)deviceConfig.hopperStateHoldS * 1000UL;
   hopperFilter.configure(config);
 }
 
 void configureSafety() {
-  fw::DispenseLimits limits;
-  limits.minGapMs = MIN_DISPENSE_GAP_MS;
-  limits.maxPerHour = MAX_DISPENSES_PER_HOUR;
-  limits.maxGramsPerDose = MAX_GRAMS_PER_DISPENSE;
-  limits.maxGramsPerDay = MAX_GRAMS_PER_DAY;
-  limits.maxDispenseMs = MAX_DISPENSE_MS;
-  dispenseGate.configure(limits);
-
-  buttonNoise.configure(BUTTON_NOISE_WINDOW_MS, BUTTON_NOISE_MAX, BUTTON_DISABLE_MS);
+  // Gate, button guard and hopper filter all come from the dashboard config
+  // (envelope-bounded in config.h); the token buckets and retry ladders below
+  // are transport constants that only change on a reflash.
+  applyConfigToRuntime();
 
   dispensedEventBucket.configure(FEED_EVENT_BUCKET_CAPACITY, FEED_EVENT_REFILL_MS);
   refusedEventBucket.configure(REFUSAL_BUCKET_CAPACITY, REFUSAL_REFILL_MS);
@@ -3026,8 +3088,6 @@ void configureSafety() {
   eventFlushRetry.configure(HTTP_RETRY_BASE_MS, HTTP_RETRY_CAP_MS);
   refusalRetry.configure(HTTP_RETRY_BASE_MS, HTTP_RETRY_CAP_MS);
   ackRetry.configure(HTTP_RETRY_BASE_MS, HTTP_RETRY_CAP_MS);
-
-  configureHopperFilter();
 }
 
 void setup() {
@@ -3088,7 +3148,14 @@ void setup() {
   prefs.putUInt("rebootCount", rebootCount);
   Serial.printf("[INIT] Boot #%lu\n", rebootCount);
   loadDeviceIdentity();
+  // The dashboard-driven last-good configuration (1.7.0) must be in force
+  // before the safety state, the hopper filter and the boot summary are built.
+  loadPersistedConfig();
   loadCalibration();
+  // configureSafety() already ran with the defaults; re-apply the restored or
+  // calibrated values now that NVS has been read.
+  applyConfigToRuntime();
+  nextOtaCheckMs = millis() + (unsigned long)deviceConfig.otaCheckIntervalS * 1000UL;
 
   // Button held through boot resets WiFi only; the device identity stays.
   // The interrupt is attached after this hold, so the hold can never queue a
@@ -3100,11 +3167,11 @@ void setup() {
     credentialsResetAtBoot = true;
   }
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), onFeedButtonPress, FALLING);
-  Serial.printf("[INIT] Feed button GPIO%d: falling-edge interrupt, %d ms debounce, "
-                "%d ms confirmation, %d s boot grace\n",
-                BUTTON_PIN, BUTTON_DEBOUNCE_MS,
+  Serial.printf("[INIT] Feed button GPIO%d: falling-edge interrupt, %lums debounce, "
+                "%d ms confirmation, %lus boot grace\n",
+                BUTTON_PIN, (unsigned long)deviceConfig.buttonDebounceMs,
                 BUTTON_CONFIRM_SAMPLES * BUTTON_CONFIRM_SAMPLE_MS,
-                BUTTON_STARTUP_GRACE_MS / 1000);
+                (unsigned long)deviceConfig.buttonStartupGraceMs / 1000UL);
 
   // Seed default schedule: 06:00 and 19:00
   buildDefaultSchedule();
@@ -3183,14 +3250,18 @@ void setup() {
   otaBeginHealthCheck();
 
   // One concise boot summary: what the unit is, how it last died, and the
-  // limits it is now enforcing.
+  // limits it is now enforcing (dashboard config, envelope-bounded).
   Serial.printf("[BOOT] summary: fw=%s reset=%s safe_mode=%d brownout_hold=%lus relay=GPIO%d "
-                "identity=%s wifi=%s feeds=%d limits=%lus-gap/%d-per-hour/%.0fL-per-day/hold=%lus\n",
-                FW_VERSION, resetReasonName, safeModeActive ? 1 : 0, BROWNOUT_HOLD_MS / 1000UL,
-                RELAY_PIN, apiIdentityAvailable() ? "yes" : "no",
+                "identity=%s wifi=%s feeds=%d limits=%lus-gap/%u-per-hour/%.0fg-per-day/"
+                "dose<=%.0fg/hold=%lus/config_rev=%lu\n",
+                FW_VERSION, resetReasonName, safeModeActive ? 1 : 0,
+                (unsigned long)deviceConfig.brownoutHoldS, RELAY_PIN,
+                apiIdentityAvailable() ? "yes" : "no",
                 WiFi.status() == WL_CONNECTED ? "online" : "offline", feedTimesCount,
-                MIN_DISPENSE_GAP_MS / 1000UL, MAX_DISPENSES_PER_HOUR, MAX_GRAMS_PER_DAY / 1000.0f,
-                SAFE_MODE_QUIET_MS / 1000UL);
+                (unsigned long)deviceConfig.minDispenseGapS,
+                (unsigned)deviceConfig.maxDispensesPerHour, deviceConfig.maxGramsPerDay,
+                fw::effectiveMaxGramsPerDose(deviceConfig),
+                (unsigned long)deviceConfig.safeModeQuietS, (unsigned long)appliedConfigRev);
 
   Serial.println("[READY] OptiFeed controller online.");
 }
@@ -3220,8 +3291,9 @@ void loop() {
   // Local feeding keeps running while provisioning; backend calls do not. An
   // unprovisioned unit makes no API calls at all, and the watchdog is fed
   // between every network call so a slow link cannot trip it.
-  if (!provisioningActive && apiIdentityAvailable() &&
-      millis() - lastPoll >= POST_INTERVAL_MS) {
+  const unsigned long pollIntervalMs =
+      (unsigned long)deviceConfig.heartbeatIntervalS * 1000UL;
+  if (!provisioningActive && apiIdentityAvailable() && millis() - lastPoll >= pollIntervalMs) {
     sendTelemetry();
     kickWatchdog();
     pollDashboardFeedCommand();
@@ -3233,7 +3305,7 @@ void loop() {
     lastPoll = millis();
   }
 
-  // Signed update check every OTA_CHECK_INTERVAL_MS, behind the pre-flight
+  // Signed update check at the configured interval, behind the pre-flight gate.
   // gate. It blocks only while it is actually due (or downloading).
   maybeCheckForUpdate();
 }
@@ -3341,38 +3413,32 @@ void reportFeedError(fw::Refusal reason, float grams, const char* source) {
   Serial.printf("[FEED] refusal report -> %d\n", code);
 }
 
-// Validates every server-pushed value BEFORE anything is stored.
-// Returns false if any present value is out of range — callers must then
-// ignore the whole response (no stores, no dispense, no schedule update).
+// Validates the legacy flat server-pushed values (firmware <= 1.6.x contract)
+// BEFORE anything is stored. Bounds come from the same envelope table as the
+// 1.7.0 `config` object, so the two paths can never disagree. Returns false if
+// any present value is out of range — callers must then ignore the whole
+// response (no stores, no dispense, no schedule update).
+bool legacyValueInRange(const JsonDocument &doc, const char *key) {
+  if (!doc[key].is<float>()) return true;  // absent: nothing to validate
+  const fw::ConfigFieldSpec *spec = fw::findConfigSpec(key);
+  if (spec == nullptr) return true;
+  const float value = doc[key];
+  if (isnan(value) || isinf(value)) return false;
+  return value >= spec->minValue && value <= spec->maxValue;
+}
+
 bool validateServerConfig(const JsonDocument &doc) {
-  float v;
-  if (doc["grams_per_feeding"].is<float>()) {
-    v = doc["grams_per_feeding"];
-    if (!(v >= GRAMS_PER_FEEDING_MIN && v <= GRAMS_PER_FEEDING_MAX)) return false;
-  }
-  if (doc["button_feed_grams"].is<float>()) {
-    v = doc["button_feed_grams"];
-    if (!(v >= BUTTON_FEED_GRAMS_MIN && v <= BUTTON_FEED_GRAMS_MAX)) return false;
-  }
-  if (doc["grams_per_second"].is<float>()) {
-    v = doc["grams_per_second"];
-    if (!(v >= GRAMS_PER_SECOND_MIN && v <= GRAMS_PER_SECOND_MAX)) return false;
-  }
-  if (doc["temp_offset_c"].is<float>()) {
-    v = doc["temp_offset_c"];
-    if (!(v >= TEMP_OFFSET_C_MIN && v <= TEMP_OFFSET_C_MAX)) return false;
-  }
-  if (doc["hopper_full_cm"].is<float>()) {
-    v = doc["hopper_full_cm"];
-    if (!(v > 0 && v <= HOPPER_CM_MAX)) return false;
-  }
-  if (doc["hopper_empty_cm"].is<float>()) {
-    v = doc["hopper_empty_cm"];
-    if (!(v > 0 && v <= HOPPER_CM_MAX)) return false;
-  }
+  if (!legacyValueInRange(doc, "grams_per_feeding")) return false;
+  if (!legacyValueInRange(doc, "button_feed_grams")) return false;
+  if (!legacyValueInRange(doc, "grams_per_second")) return false;
+  if (!legacyValueInRange(doc, "temp_offset_c")) return false;
+  if (!legacyValueInRange(doc, "hopper_full_cm")) return false;
+  if (!legacyValueInRange(doc, "hopper_empty_cm")) return false;
   // Cross-field: hopper full distance must be nearer than the empty distance.
-  float fullCm = doc["hopper_full_cm"].is<float>() ? (float)doc["hopper_full_cm"] : hopperFullCm;
-  float emptyCm = doc["hopper_empty_cm"].is<float>() ? (float)doc["hopper_empty_cm"] : hopperEmptyCm;
+  float fullCm = doc["hopper_full_cm"].is<float>() ? (float)doc["hopper_full_cm"]
+                                                   : deviceConfig.hopperFullCm;
+  float emptyCm = doc["hopper_empty_cm"].is<float>() ? (float)doc["hopper_empty_cm"]
+                                                     : deviceConfig.hopperEmptyCm;
   if (fullCm >= emptyCm) return false;
   return true;
 }
@@ -3391,7 +3457,8 @@ void dispenseFeed(float grams, const char* source, const String &requestId, bool
     reportFeedError(fw::Refusal::SAFE_MODE, grams, source);
     return;
   }
-  if (lastResetWasBrownout && (millis() - bootTime) < BROWNOUT_HOLD_MS) {
+  if (lastResetWasBrownout &&
+      (millis() - bootTime) < (unsigned long)deviceConfig.brownoutHoldS * 1000UL) {
     reportFeedError(fw::Refusal::BROWNOUT_HOLD, grams, source);
     return;
   }
@@ -3420,17 +3487,19 @@ void dispenseFeed(float grams, const char* source, const String &requestId, bool
 
   maybeResetDailyBudget();
 
-  // One gate for every source: grams, dose time, daily cap, the 10 s gap and
-  // the six-per-hour ceiling. A slow calibration REFUSES rather than truncating.
-  // Calibration is the one deliberate exception: it may run up to 10 minutes and
-  // 5000 g, but only when the request carries the calibration flag from the
-  // server. Normal feeds keep the 1000 g / 300 s ceiling.
+  // One gate for every source: grams, dose time, daily cap, the configured gap
+  // and the configured hourly ceiling. E38: there is no per-dose gram cap - a
+  // single dose may use whatever the daily ceiling allows, bounded only by the
+  // relay-time envelope (grams / gramsPerSecond <= maxDispenseMs). Calibration
+  // is the one deliberate exception: it may run up to the configured
+  // calibration window (10 minutes / 5,000 g envelope) when the request carries
+  // the calibration flag from the server.
   const float rate = (gramsPerSecond > 0.0f) ? gramsPerSecond : 4.0f;
   const unsigned long durationMs = (unsigned long)((grams / rate) * 1000.0);
   fw::DispenseLimits limits = dispenseGate.limits();
   if (calibration) {
-    limits.maxGramsPerDose = MAX_CALIBRATION_GRAMS;
-    limits.maxDispenseMs = MAX_CALIBRATION_DISPENSE_MS;
+    limits.maxGramsPerDose = deviceConfig.calibrationMaxGrams;
+    limits.maxDispenseMs = (unsigned long)deviceConfig.calibrationMaxDispenseMs;
   }
   const fw::Refusal refusal =
       dispenseGate.evaluate(millis(), grams, durationMs, dailyGramsDispensed, limits);
@@ -3463,7 +3532,7 @@ void stopFeedCycle() {
   // 1.5.3: every button edge is ignored from relay ON until 2 s after relay OFF,
   // whatever started the dispense. The stamp is taken when the motor is
   // actually switched off, so the quiet window follows a long or short dose.
-  dispenseQuietUntilMs = millis() + BUTTON_QUIET_AFTER_DISPENSE_MS;
+  dispenseQuietUntilMs = millis() + (unsigned long)deviceConfig.buttonQuietAfterDispenseMs;
   Serial.printf("[FEED] complete — %.0fg via %s\n", currentFeedGrams, currentFeedSource);
   enqueueEvent(currentFeedGrams, currentFeedSource, currentFeedRequestId);
   currentFeedRequestId = "";
@@ -3525,6 +3594,37 @@ void handleSchedule() {
   }
 }
 
+// Apply the flat fields of the pre-1.7.0 contract (an older server sends no
+// `config` object). Every value was already validated against the envelope by
+// validateServerConfig(), so direct assignment cannot leave the window.
+void applyLegacyDeviceValues(const JsonDocument &doc, const char *source) {
+  if (doc["grams_per_feeding"].is<float>()) {
+    deviceConfig.gramsPerFeeding = doc["grams_per_feeding"];
+  }
+  if (doc["button_feed_grams"].is<float>()) {
+    const float value = doc["button_feed_grams"];
+    if (value > 0) deviceConfig.buttonFeedGrams = value;
+  }
+  if (doc["hopper_full_cm"].is<float>()) {
+    const float value = doc["hopper_full_cm"];
+    if (value > 0) deviceConfig.hopperFullCm = value;
+  }
+  if (doc["hopper_empty_cm"].is<float>()) {
+    const float value = doc["hopper_empty_cm"];
+    if (value > 0) deviceConfig.hopperEmptyCm = value;
+  }
+  if (doc["grams_per_second"].is<float>()) {
+    applyGramsPerSecond(doc["grams_per_second"] | gramsPerSecond, source);
+  }
+  if (doc["temp_offset_c"].is<float>()) {
+    deviceConfig.tempOffsetC = doc["temp_offset_c"];
+  }
+  // Recompute the derived per-dose ceiling and the hopper filter from the
+  // values just applied (a legacy server can change grams_per_second, which
+  // changes grams-per-dose; nothing here resets state).
+  applyConfigToRuntime();
+}
+
 // ==================== Tier 2 — Dashboard poll ====================
 
 void pollDashboardFeedCommand() {
@@ -3554,42 +3654,19 @@ void pollDashboardFeedCommand() {
         // N9: ignore the whole config when any pushed value is out of range.
         Serial.println("[POLL] invalid config from server — ignoring whole response");
       } else {
-        bool hopperCalibrationChanged = false;
-        if (doc["grams_per_feeding"].is<float>()) {
-          cachedScheduledGrams = doc["grams_per_feeding"] | cachedScheduledGrams;
+        // 1.7.0: the versioned `config` object is the source of truth. A
+        // missing object means an older server, whose flat fields below are the
+        // whole contract. Any malformed/out-of-range object keeps last-good.
+        const fw::ConfigStatus configStatus = applyServerConfig(doc, "feed-command");
+        if (configStatus == fw::ConfigStatus::MISSING) {
+          applyLegacyDeviceValues(doc, "feed-command");
+        } else if (!fw::configStatusOk(configStatus)) {
+          Serial.printf("[POLL] config ignored (%s) — last-good kept\n",
+                        fw::configStatusName(configStatus));
         }
-        // Dynamic button dose — overrides compile-time default.
-        // The backend returns button_feed_grams from EnergyDevice.buttonFeedGrams.
-        if (doc["button_feed_grams"].is<float>()) {
-          float bfg = doc["button_feed_grams"];
-          if (bfg > 0) {
-            cachedButtonFeedGrams = bfg;
-          }
-        }
-        // Hopper calibration — overrides compile-time defaults
-        if (doc["hopper_full_cm"].is<float>()) {
-          float hf = doc["hopper_full_cm"];
-          if (hf > 0 && hf != hopperFullCm) {
-            hopperFullCm = hf;
-            hopperCalibrationChanged = true;
-          }
-        }
-        if (doc["hopper_empty_cm"].is<float>()) {
-          float he = doc["hopper_empty_cm"];
-          if (he > 0 && he != hopperEmptyCm) {
-            hopperEmptyCm = he;
-            hopperCalibrationChanged = true;
-          }
-        }
-        if (hopperCalibrationChanged) configureHopperFilter();
-        // Duration calibration — motor dispense rate
-        if (doc["grams_per_second"].is<float>()) {
-          applyGramsPerSecond(doc["grams_per_second"] | gramsPerSecond, "feed-command");
-        }
-        // Temperature calibration offset
-        if (doc["temp_offset_c"].is<float>()) {
-          tempOffsetC = doc["temp_offset_c"];
-        }
+        // The caches mirror the applied configuration, whichever path was used.
+        cachedScheduledGrams = deviceConfig.gramsPerFeeding;
+        cachedButtonFeedGrams = deviceConfig.buttonFeedGrams;
         bool requested = doc["feed_requested"] | false;
         if (requested) {
           float grams = doc["grams"] | DEFAULT_MANUAL_GRAMS;
@@ -3708,22 +3785,12 @@ void pollScheduleCommand() {
           Serial.printf("[SCHEDULE] updated from backend: %d feeds from %s to %s\n",
                         feedsPerDay, startStr, endStr);
 
-          // Also update scheduled grams if feeding_rate_pct provided
-          if (doc["grams_per_feeding"].is<float>()) {
-            cachedScheduledGrams = doc["grams_per_feeding"] | cachedScheduledGrams;
-          }
-          if (doc["button_feed_grams"].is<float>()) {
-            float bfg = doc["button_feed_grams"];
-            if (bfg > 0) cachedButtonFeedGrams = bfg;
-          }
-          // Duration calibration — motor dispense rate
-          if (doc["grams_per_second"].is<float>()) {
-            applyGramsPerSecond(doc["grams_per_second"] | gramsPerSecond, "schedule-sync");
-          }
-          // Temperature calibration offset
-          if (doc["temp_offset_c"].is<float>()) {
-            tempOffsetC = doc["temp_offset_c"];
-          }
+          // Also update scheduled grams if feeding_rate_pct provided. With a
+          // 1.7.0 config object in force the flat fields are ignored, so the
+          // two paths can never disagree.
+          if (!configFromServer) applyLegacyDeviceValues(doc, "schedule-sync");
+          cachedScheduledGrams = deviceConfig.gramsPerFeeding;
+          cachedButtonFeedGrams = deviceConfig.buttonFeedGrams;
 
           // Ack the schedule change
           String commandId = doc["command_id"] | "";
@@ -3788,8 +3855,8 @@ void postScheduleAck(const String &commandId) {
 // interrupt. handleButton() confirms a real press by sampling the pin.
 void IRAM_ATTR onFeedButtonPress() {
   const unsigned long now = millis();
-  if (now < BUTTON_STARTUP_GRACE_MS) return;          // boot grace window
-  if (now - feedButtonLastEdgeMs < BUTTON_DEBOUNCE_MS) return;  // 250 ms debounce
+  if (now < (unsigned long)deviceConfig.buttonStartupGraceMs) return;  // boot grace
+  if (now - feedButtonLastEdgeMs < (unsigned long)deviceConfig.buttonDebounceMs) return;
   feedButtonLastEdgeMs = now;
   portENTER_CRITICAL_ISR(&feedButtonMux);
   feedButtonPressQueued = true;   // at most one pending press, ever
@@ -3823,7 +3890,7 @@ bool buttonQuietWindowActive() {
 // later ones stay silent. Unsigned subtraction stays correct across a wrap.
 bool buttonLogDue(unsigned long &lastMs) {
   const unsigned long now = millis();
-  if (lastMs != 0 && now - lastMs < BUTTON_LOG_INTERVAL_MS) return false;
+  if (lastMs != 0 && now - lastMs < (unsigned long)deviceConfig.buttonLogIntervalMs) return false;
   lastMs = now;
   return true;
 }
@@ -3851,7 +3918,8 @@ bool confirmFeedButtonPress(unsigned long &lowMs) {
 // armed only when a dispense actually starts, so a refusal (daily cap, OTA
 // probation) does not lock the button for 30 s.
 bool requestButtonDispense() {
-  if (buttonCooldownArmed && (millis() - lastButtonDispenseMs) < BUTTON_COOLDOWN_MS) {
+  if (buttonCooldownArmed &&
+      (millis() - lastButtonDispenseMs) < (unsigned long)deviceConfig.buttonCooldownMs) {
     Serial.println("[BUTTON] cooldown");
     return false;
   }
@@ -3876,7 +3944,7 @@ void handleButton() {
   if (buttonNoise.disabled(now)) {
     if (!buttonWasDisabled) {
       buttonWasDisabled = true;
-      Serial.printf("[BUTTON] disabled for %lu s: noisy line\n", BUTTON_DISABLE_MS / 1000UL);
+      Serial.printf("[BUTTON] disabled for %lu s: noisy line\n", (unsigned long)deviceConfig.buttonDisableMs / 1000UL);
     }
     if (takeQueuedFeedButtonPress() && buttonLogDue(lastDisabledLogMs)) {
       Serial.println("[BUTTON] disabled: noisy line");
@@ -3906,7 +3974,7 @@ void handleButton() {
     buttonNoise.recordGlitch(millis());
     if (buttonNoise.justDisabled()) {
       buttonNoise.clearJustDisabled();
-      Serial.printf("[BUTTON] disabled for %lu s: noisy line\n", BUTTON_DISABLE_MS / 1000UL);
+      Serial.printf("[BUTTON] disabled for %lu s: noisy line\n", (unsigned long)deviceConfig.buttonDisableMs / 1000UL);
       buttonWasDisabled = true;
     } else if (buttonLogDue(lastGlitchLogMs)) {
       Serial.printf("[BUTTON] rejected glitch (%lu ms low)\n", lowMs);
@@ -3923,8 +3991,10 @@ void handleButton() {
 // persistence, hysteresis). Returns false when this cycle is not plausible: the
 // heartbeat then omits the level instead of reporting a fake 0 %.
 bool readHopperLevel(float &percent, float &cm) {
-  float samples[HOPPER_SAMPLE_COUNT];
-  for (int i = 0; i < HOPPER_SAMPLE_COUNT; i++) {
+  // Five samples per reading: an engineering constant, not a dashboard value
+  // (the plausibility rules around them are configurable).
+  float samples[5];
+  for (int i = 0; i < 5; i++) {
     digitalWrite(TRIG_PIN, LOW);
     delayMicroseconds(2);
     digitalWrite(TRIG_PIN, HIGH);
@@ -3935,7 +4005,7 @@ bool readHopperLevel(float &percent, float &cm) {
     delay(10);
   }
 
-  const fw::HopperFilter::Result result = hopperFilter.update(samples, HOPPER_SAMPLE_COUNT, millis());
+  const fw::HopperFilter::Result result = hopperFilter.update(samples, 5, millis());
   if (!result.valid) {
     sensorInvalidCount++;
     return false;
@@ -4076,6 +4146,10 @@ void sendTelemetry() {
   // so the ingest route accepts and ignores this field (no server change); the
   // same counter is named by the `[BUTTON] rejected glitch` Serial line.
   doc["button_glitches"]   = buttonGlitchCount;
+  // 1.7.0: the revision of the configuration this unit has applied. An old
+  // server strips the unknown key; the new ingest records a `config_applied`
+  // state event when it changes, so ops can confirm the unit took a change.
+  doc["config_rev"]        = appliedConfigRev;
 
   // 1.6.0 fail-safe state. Ingest strips keys its Zod schema does not declare
   // (verified by apps/web/lib/__tests__/ingest-route.test.ts), so these are
@@ -4094,8 +4168,14 @@ void sendTelemetry() {
   diag["sensor_invalid_count"] = sensorInvalidCount;
   diag["queue_drops"] = queueDropCount;
   diag["uptime_s"] = (millis() - bootTime) / 1000UL;
-  diag["min_dispense_gap_s"] = MIN_DISPENSE_GAP_MS / 1000UL;
-  diag["max_dispenses_per_hour"] = MAX_DISPENSES_PER_HOUR;
+  diag["min_dispense_gap_s"] = (unsigned long)deviceConfig.minDispenseGapS;
+  diag["max_dispenses_per_hour"] = (unsigned)deviceConfig.maxDispensesPerHour;
+  diag["max_grams_per_day"] = deviceConfig.maxGramsPerDay;
+  diag["max_grams_per_dose"] = fw::effectiveMaxGramsPerDose(deviceConfig);
+  diag["config_rev"] = appliedConfigRev;
+  diag["config_source"] = configFromServer ? "server" : (configLoadedFromNvs ? "nvs" : "default");
+  diag["weak_after_min"] = (unsigned long)deviceConfig.weakAfterMin;
+  diag["offline_after_min"] = (unsigned long)deviceConfig.offlineAfterMin;
   JsonObject refusals = diag["refusals_by_reason"].to<JsonObject>();
   for (uint8_t i = 1; i < (uint8_t)fw::Refusal::COUNT; i++) {
     if (refusalCounts[i] > 0) {
@@ -4117,7 +4197,7 @@ void sendTelemetry() {
   tempSensor.requestTemperatures();
   const float rawTempC = tempSensor.getTempCByIndex(0);
   if (fw::temperaturePlausible(rawTempC)) {
-    doc["water_temp_c"] = rawTempC + tempOffsetC;
+    doc["water_temp_c"] = rawTempC + deviceConfig.tempOffsetC;
     doc["water_temp_ok"] = true;
   } else {
     doc["water_temp_ok"] = false;

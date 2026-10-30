@@ -65,7 +65,7 @@ struct DispenseLimits {
   DispenseLimits()
       : minGapMs(10000UL),
         maxPerHour(6),
-        maxGramsPerDose(1000.0f),
+        maxGramsPerDose(5000.0f),  // 1.7.0: the daily ceiling is the only gram cap
         maxGramsPerDay(5000.0f),
         maxDispenseMs(300000UL) {}
 };

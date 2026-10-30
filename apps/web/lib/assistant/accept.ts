@@ -1,5 +1,13 @@
 import type { Permission } from "@/lib/auth/permissions";
+import { formatZodError } from "@/lib/limits";
 import { getAssistantActionDefinition } from "./catalog";
+import {
+	permissionRefusal,
+	platformAdminRefusal,
+	stepUpRefusal,
+	tenantAdminRefusal,
+	writeRefusal,
+} from "./guard-message";
 import type { AssistantExecuteResult } from "./types";
 
 /**
@@ -85,23 +93,27 @@ export async function acceptAssistantActionWith(
 	const stored = row.payload && typeof row.payload === "object" ? row.payload : {};
 	const parsed = definition.schema.safeParse(stored);
 	if (!parsed.success) {
-		await deps.markFailed(row.id, "The stored action is no longer valid.");
-		return { success: false, error: "The stored action is no longer valid. Ask me again." };
+		const detail = formatZodError(parsed.error);
+		await deps.markFailed(row.id, `The stored action is no longer valid: ${detail}`);
+		return {
+			success: false,
+			error: `That action is no longer valid (${detail}). Ask me again.`,
+		};
 	}
 
 	if (definition.platformAdminOnly && !(await deps.isPlatformAdmin())) {
 		await deps.markFailed(row.id, "Platform admin required.");
-		return { success: false, error: "Only a platform admin can do that." };
+		return { success: false, error: platformAdminRefusal(definition) };
 	}
 	if (definition.tenantAdminOnly && !(await deps.isTenantAdmin())) {
 		await deps.markFailed(row.id, "Tenant admin required.");
-		return { success: false, error: "Only an organization owner or admin can do that." };
+		return { success: false, error: tenantAdminRefusal(definition) };
 	}
 	if (definition.permission && !(await deps.hasPermission(definition.permission))) {
 		await deps.markFailed(row.id, "Permission denied.");
 		return {
 			success: false,
-			error: "You no longer have permission to do that.",
+			error: permissionRefusal(definition),
 		};
 	}
 	// Kinds with no named permission (logging a sample) still require a writer;
@@ -109,7 +121,7 @@ export async function acceptAssistantActionWith(
 	// honest and avoids a pointless write attempt.
 	if (!definition.permission && !definition.platformAdminOnly && !(await deps.canWrite())) {
 		await deps.markFailed(row.id, "Write access required.");
-		return { success: false, error: "You have read-only access, so that cannot run." };
+		return { success: false, error: writeRefusal(definition) };
 	}
 
 	if (definition.requiresStepUp) {
@@ -121,7 +133,7 @@ export async function acceptAssistantActionWith(
 			return {
 				success: false,
 				code: "step_up_required",
-				error: "Re-enter your password to continue. This action needs a fresh 5-minute check.",
+				error: stepUpRefusal(definition),
 			};
 		}
 	}

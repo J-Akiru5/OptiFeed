@@ -13,9 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- #329 platform audit rows recorded the **left-most** `X-Forwarded-For` entry, which is client-controlled, so an action could be attributed to a forged IP. Client-address derivation now lives in one helper that uses only the trusted edge hop, records `null` for a missing or malformed header, and is shared by the audit writer and the rate limiter.
-- #330 `feed-command` and `schedule-sync` consumed the **device** rate-limit bucket using an unverified `device_id`, so anyone knowing a MAC could hold a unit at 429. Both routes now verify the token first and limit on the verified MAC; a 25-request unauthenticated flood no longer affects the real device.
+- #329 platform audit rows recorded the left-most `X-Forwarded-For` entry, which is client-controlled, so an action could be attributed to a forged IP. Client-address derivation now lives in one helper that uses only the trusted edge hop, records `null` for a missing or malformed header, and is shared by the audit writer and the rate limiter.
+- #330 `feed-command` and `schedule-sync` consumed the device rate-limit bucket using an unverified `device_id`, so anyone knowing a MAC could hold a unit at 429. Both routes now verify the token first and limit on the verified MAC; a 25-request unauthenticated flood no longer affects the real device.
 - #331 platform `rotateDeviceToken` returned a plaintext token with no reveal limiter, and `updatePlatformUser` could change a legacy role without step-up. Rotation now uses the same 10/hour reveal bucket as the tenant path, and role changes run inside `withStepUp` with an audit row; display-name-only edits stay unprivileged.
+## [1.31.2] - 2026-10-30
+
+### Added
+
+- #344 Pakoy can now perform the whole write surface the signed-in user is permitted to use: biomass update/delete, calendar item update/delete/reopen, pond archive/restore/delete, device move/unassign, member revocation, device-token reveal and rotation, platform remote feed/pause, platform user disable/enable and platform-admin grant/revoke. Every new action reuses the existing server action and its guards, and the proposal step surfaces `step_up_required` rather than executing.
+- Refusals are specific ("Only a platform admin can...", "You need the manage_members permission...", "Re-enter your password...") and are produced by both the planner and Accept.
+- The intent router understands the wider vocabulary and carries conversation history, so a short reply to Pakoy's own clarifying question continues the same action instead of falling through to chat.
+
+### Security
+
+- 21 new assistant actions were added with an allow **and** deny matrix (74 accept cases across all 37 kinds) and a guard-matrix test asserting each action satisfies the same guard as its UI counterpart. Password-bearing provisioning, hardware enrolment, calibration procedures and pond/cycle forms remain intentionally unavailable in chat.
+- The assistant catalogue was split into per-surface modules so the complexity budget holds (worst file 79/180); function coverage is 95.08% against a 94.5% threshold.
 ## [1.31.1] - 2026-10-30
 
 ### Fixed

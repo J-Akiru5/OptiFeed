@@ -3,6 +3,12 @@ import { formatZodError } from "@/lib/limits";
 import type { AssistantCaller } from "./caller";
 import { ASSISTANT_ACTION_DEFINITIONS } from "./catalog";
 import {
+	permissionRefusal,
+	platformAdminRefusal,
+	tenantAdminRefusal,
+	writeRefusal,
+} from "./guard-message";
+import {
 	type AssistantNavigationEntry,
 	matchNavigation,
 	navigationEntries,
@@ -39,10 +45,31 @@ export interface AssistantTurnContext {
 	locale: string;
 	/** Open tasks on the active pond, so "mark the net cleaning done" has ids. */
 	openTasks: Array<{ id: string; title: string; startsAt: string }>;
+	/** Ponds the caller can target with a pond action. */
+	ponds: Array<{ id: string; name: string; status: string }>;
+	/** Upcoming manual calendar items, so edit/delete has ids. */
+	calendarEvents: Array<{ id: string; title: string; startsAt: string; kind: string }>;
+	/** Recent biomass samples, so "delete the last sample" has an id. */
+	samples: Array<{ id: string; date: string; avgWeightG: number; sampleCount: number }>;
 	/** Members of the caller's organization, for role/permission proposals. */
 	members: Array<{ userId: string; name: string; role: string }>;
 	/** Organizations, for platform admin proposals. */
 	organizations: Array<{ id: string; name: string; status: string }>;
+	/** Platform devices, for remote feed/token actions. */
+	devices: Array<{
+		id: string;
+		label: string;
+		mac: string;
+		isPaused: boolean;
+		pondName: string | null;
+	}>;
+	/** Platform users, for disable/enable and platform-admin grants. */
+	platformUsers: Array<{
+		userId: string;
+		farmId: string;
+		name: string;
+		platformAdmin: boolean;
+	}>;
 }
 
 export type AssistantDecision =
@@ -123,12 +150,51 @@ CURRENT POND:
 					.map((org) => `- ${org.id} — ${org.name} (${org.status})`)
 					.join("\n")}\n`
 			: "";
+	const ponds =
+		(context.ponds?.length ?? 0) > 0
+			? `\nPONDS (use the id for ponds.archive / restore / delete / move_device; the active pond is used when no id is given):\n${context.ponds
+					.map((pond) => `- ${pond.id} — ${pond.name} (${pond.status})`)
+					.join("\n")}\n`
+			: "";
+	const calendarEvents =
+		(context.calendarEvents?.length ?? 0) > 0
+			? `\nCALENDAR ITEMS (use the id for records.update_calendar_item / delete_calendar_item):\n${context.calendarEvents
+					.map((event) => `- ${event.id} — ${event.title} (${event.kind}, ${event.startsAt})`)
+					.join("\n")}\n`
+			: "";
+	const samples =
+		(context.samples?.length ?? 0) > 0
+			? `\nRECENT BIOMASS SAMPLES (use the id for records.update_biomass / delete_biomass):\n${context.samples
+					.map(
+						(sample) =>
+							`- ${sample.id} — ${sample.date}, ${sample.avgWeightG} g average across ${sample.sampleCount} fish`,
+					)
+					.join("\n")}\n`
+			: "";
+	const devices =
+		(context.devices?.length ?? 0) > 0
+			? `\nPLATFORM DEVICES (use the id for superadmin.rotate_device_token / remote_feed / pause_device):\n${context.devices
+					.map(
+						(device) =>
+							`- ${device.id} — ${device.label} (MAC ${device.mac}, ${device.pondName ?? "no pond"}, ${device.isPaused ? "paused" : "running"})`,
+					)
+					.join("\n")}\n`
+			: "";
+	const platformUsers =
+		(context.platformUsers?.length ?? 0) > 0
+			? `\nPLATFORM USERS (use the userId for superadmin.disable_user / enable_user / grant_platform_admin / revoke_platform_admin; use farmId for the disable confirmation):\n${context.platformUsers
+					.map(
+						(user) =>
+							`- ${user.userId} — ${user.name} (${user.farmId})${user.platformAdmin ? ", platform admin" : ""}`,
+					)
+					.join("\n")}\n`
+			: "";
 
 	return `You are Pakoy, the PakaonAI assistant, planning for an African catfish farm in the Philippines. You decide whether the user wants to change something, go somewhere, or just ask a question.
 
 Today (farm time): ${params.today}
 Caller role: ${caller.role}${caller.orgName ? ` (organization: ${caller.orgName})` : ""}
-${pondData}${tasks}${members}${organizations}
+${pondData}${tasks}${ponds}${calendarEvents}${samples}${members}${organizations}${devices}${platformUsers}
 ${history ? `\nRECENT CONVERSATION:\n${history}\n` : ""}
 ACTION TOOLS AVAILABLE TO THIS CALLER:
 ${describeToolsForPrompt(caller)}
@@ -145,8 +211,10 @@ Return ONLY one JSON object, no markdown, no prose outside it:
 Rules:
 - Use only the tool ids and destination ids listed above. Never invent one.
 - One action at a time. If the user asks for several, propose the first and ask them to do the next one after.
-- Never include pondId, deviceId, organization ids or user ids that the user did not give; the server fills the current pond and device.
+- Never invent an id. Use only ids from the lists above, or omit pondId/deviceId so the server uses the active pond/feeder.
 - Do not invent a feed amount or a number. "Feed them" with no amount means the standard dose (omit grams).
+- Every sensitive action (token rotation, role/permission change, delete, disable) still needs the user's Accept and may ask for a fresh password check; never say it is already done.
+- Refuse only when the tool list has no matching tool. Never claim the assistant cannot write to a screen: if a permitted action exists, propose it.
 - Resolve relative dates ("tomorrow", "next Monday") from today and write YYYY-MM-DD.
 - If the user only asks a question ("what is my FCR", "are we on track"), return answer.
 - Destructive or administrative actions still need the user's Accept; never say they are done.`;
@@ -169,6 +237,27 @@ function clarify(text: string): AssistantDecision {
  * Validate a proposed tool call against the server catalogue. Exported so the
  * acceptance path can reuse the exact same schemas.
  */
+/** Why this caller cannot be offered a known tool, in the same words Accept uses. */
+function unavailableReason(toolId: string, caller: AssistantCaller): string {
+	if (!Object.hasOwn(ASSISTANT_ACTION_DEFINITIONS, toolId)) {
+		return "I don't have an action for that.";
+	}
+	const definition = ASSISTANT_ACTION_DEFINITIONS[toolId as AssistantToolId];
+	if (definition.platformAdminOnly && !caller.isPlatformAdmin) {
+		return platformAdminRefusal(definition);
+	}
+	if (definition.tenantAdminOnly && !caller.isTenantAdmin) {
+		return tenantAdminRefusal(definition);
+	}
+	if (definition.permission && !caller.permissions.has(definition.permission)) {
+		return permissionRefusal(definition);
+	}
+	if (!definition.permission && !definition.platformAdminOnly && !caller.canWrite) {
+		return writeRefusal(definition);
+	}
+	return "I can't do that with your current role and permissions. Ask an administrator if you need access.";
+}
+
 export function validateToolCall(
 	toolId: string,
 	args: unknown,
@@ -177,10 +266,7 @@ export function validateToolCall(
 	| { ok: true; toolId: AssistantToolId; payload: Record<string, unknown> }
 	| { ok: false; text: string } {
 	if (!availableToolIds(caller).includes(toolId as AssistantToolId)) {
-		return {
-			ok: false,
-			text: "I can't do that with your current role and permissions. Ask an administrator if you need access.",
-		};
+		return { ok: false, text: unavailableReason(toolId, caller) };
 	}
 	const definition = ASSISTANT_ACTION_DEFINITIONS[toolId as AssistantToolId];
 	const parsed = definition.schema.safeParse(args ?? {});

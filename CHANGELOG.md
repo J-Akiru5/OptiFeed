@@ -13,14 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- #344 Pakoy can now perform the whole write surface the signed-in user is permitted to use, instead of falling back to "no write access": biomass update/delete, calendar item update/delete/reopen, pond archive/restore/delete, device move/unassign, member revocation, device-token reveal and rotation, platform remote feed/pause, platform user disable/enable and platform-admin grant/revoke. Every new action reuses the existing server action and its guards, and the proposal step surfaces `step_up_required` rather than executing.
-- Refusals are specific ("Only a platform admin can…", "You need the manage_members permission…", "Re-enter your password…") and are produced by both the planner and Accept.
+- #344 Pakoy can now perform the whole write surface the signed-in user is permitted to use: biomass update/delete, calendar item update/delete/reopen, pond archive/restore/delete, device move/unassign, member revocation, device-token reveal and rotation, platform remote feed/pause, platform user disable/enable and platform-admin grant/revoke. Every new action reuses the existing server action and its guards, and the proposal step surfaces `step_up_required` rather than executing.
+- Refusals are specific ("Only a platform admin can...", "You need the manage_members permission...", "Re-enter your password...") and are produced by both the planner and Accept.
 - The intent router understands the wider vocabulary and carries conversation history, so a short reply to Pakoy's own clarifying question continues the same action instead of falling through to chat.
 
 ### Security
 
 - 21 new assistant actions were added with an allow **and** deny matrix (74 accept cases across all 37 kinds) and a guard-matrix test asserting each action satisfies the same guard as its UI counterpart. Password-bearing provisioning, hardware enrolment, calibration procedures and pond/cycle forms remain intentionally unavailable in chat.
-- The assistant catalogue was split into per-surface modules so the complexity budget holds (worst file 79/180); function coverage is 95.08% (threshold 94.5).
+- The assistant catalogue was split into per-surface modules so the complexity budget holds (worst file 79/180); function coverage is 95.08% against a 94.5% threshold.
+## [1.31.1] - 2026-10-30
+
+### Fixed
+
+- #347 ABW and FCR now explain themselves: an info affordance on the dashboard, growth, history and calculator surfaces opens on hover **and** keyboard focus, is announced through `aria-describedby`, and describes the real math (average body weight = sample weight / fish weighed; FCR = kg feed per kg gained, lower is better).
+- #348 the calendar's details sheet and editor name the item they act on, so a task no longer says "Edit pond event" or "Delete this pond event?"; every task label, toast and confirmation follows `itemKind`, while cycle milestones keep their event wording.
+- #351 the admin settings page now has one consistent structure: a single labelled section per group, real heading hierarchy (h2 to h3), the shared 1/2/3 column grid, the pager bled to the card edges, a members table hidden below `md` (no more phone-width horizontal scroll), a corrected members total, and every control at least 44 px. The page is also covered by the axe gate.
 ## [1.31.0] - 2026-10-30
 
 ### Added

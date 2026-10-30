@@ -30,10 +30,26 @@ Pakoy's full write surface (#344) shipped in v1.31.2 (`5ad31c9`, `5b8a54e`, merg
 
 | Task | Issue | Branch | Status |
 |---|---|---|---|
-| I-94 | #387 Feed Now cap = pond setting | `mission/I-94-feed-now-cap` | running |
-| I-95 | #388 three connectivity states, superadmin thresholds | `mission/I-95-offline-states` | running |
-| I-96 | #371 keep typed values + #370 search settings keys | `mission/I-96-settings-search` | running |
+| I-94 | #387 Feed Now cap = pond setting | `mission/I-94-feed-now-cap` | merged (v1.32.0, `cd37e21`) |
+| I-95 | #388 three connectivity states, superadmin thresholds | `mission/I-95-offline-states` | merged (v1.33.0, `f687163`) |
+| I-96 | #371 keep typed values + #370 search settings keys | `mission/I-96-settings-search` | merged (v1.32.0, `cd37e21`) |
 
 ## Integration log
 
-Empty. Workers push branches only; Claude reviews, gates, versions (re-reading `origin/develop` first), opens the PR into develop and closes issues with the version and SHA.
+| Version | PR | Content | Notes |
+|---|---|---|---|
+| v1.32.0 | #391 | I-94 (#387) and I-96 (#371, #370) | Required checks green. `bundle budget + latency` (not required) failed: first-load JS +87 to +107 kB on dashboard, schedule and pond settings, because client components imported `lib/limits` (zod). Merged anyway; fixed in v1.33.0. |
+| v1.33.0 | #392 | I-95 (#388) plus `lib/limits-core` (zod-free) | All 57 routes within budget locally and in CI. |
+
+Issues #387, #371, #370, #388 closed with version and SHA. #365 verified (see above), left open for Jeff to confirm.
+
+## Open for Jeff
+
+1. **RSSI storage.** Neither `EnergyDevice` nor ingest keeps Wi-Fi RSSI, so "Weak signal" uses heartbeat timing only. Proposed additive migration: `EnergyDevice.wifiRssiDbm Int?`, `wifiRssiUpdatedAt DateTime?`, plus an optional `wifi_rssi` heartbeat field (firmware change). Needs backup + approval.
+2. Should alerts (org `offlineAfterMin`, default 30 min) follow the platform connectivity thresholds?
+3. Pond-settings drafts: `sessionStorage` (now) or `localStorage`?
+4. Should scheduled doses also be capped at 1,000 g like Feed Now? (They are not today.)
+5. Org values as pond caps: `defaultFeedingRatePct` is only a default; make it a ceiling?
+6. Hiligaynon strings from I-94, I-95, I-96 are drafts for native review.
+7. Process note: `bundle budget + latency` is not a required check; consider making it required (#323 governance).
+8. Production is behind develop; promotion is yours.

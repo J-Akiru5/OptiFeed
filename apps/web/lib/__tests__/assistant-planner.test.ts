@@ -30,8 +30,13 @@ const context: AssistantTurnContext = {
 	orgName: "Org A",
 	locale: "en",
 	openTasks: [],
+	ponds: [{ id: "pond-1", name: "Pond A", status: "ACTIVE" }],
+	calendarEvents: [],
+	samples: [],
 	members: [],
 	organizations: [],
+	devices: [],
+	platformUsers: [],
 };
 
 function caller(overrides: Partial<AssistantCaller> = {}): AssistantCaller {
@@ -106,6 +111,15 @@ describe("availableToolIds", () => {
 			"superadmin.suspend_org",
 			"superadmin.restore_org",
 			"superadmin.start_view_as",
+			"superadmin.stop_view_as",
+			"superadmin.rotate_device_token",
+			"superadmin.remote_feed",
+			"superadmin.pause_device",
+			"superadmin.disable_user",
+			"superadmin.enable_user",
+			"superadmin.grant_platform_admin",
+			"superadmin.revoke_platform_admin",
+			"superadmin.create_org",
 		]);
 	});
 });
@@ -125,6 +139,43 @@ describe("validateToolCall", () => {
 			caller(),
 		);
 		expect(result.ok).toBe(false);
+	});
+
+	it("names the missing platform role, permission or write access", () => {
+		const platform = validateToolCall(
+			"superadmin.suspend_org",
+			{ orgId: "o1", reason: "x".repeat(10) },
+			caller(),
+		);
+		expect(platform).toEqual({
+			ok: false,
+			text: "Only a platform admin can suspend an organization.",
+		});
+
+		const permission = validateToolCall(
+			"admin.invite_member",
+			{ email: "new@example.com", role: "OPERATOR" },
+			caller({ isTenantAdmin: true, permissions: new Set() }),
+		);
+		expect(permission).toEqual({
+			ok: false,
+			text: 'You need the "manage_members" permission to invite a member. Ask an organization admin to grant it.',
+		});
+
+		const readOnly = validateToolCall(
+			"records.delete_biomass",
+			{ logId: "log-1" },
+			caller({ canWrite: false }),
+		);
+		expect(readOnly).toEqual({
+			ok: false,
+			text: "You have read-only access, so you cannot delete a biomass sample.",
+		});
+
+		expect(validateToolCall("not.a.tool", {}, caller())).toEqual({
+			ok: false,
+			text: "I don't have an action for that.",
+		});
 	});
 
 	it("refuses an out-of-range payload", () => {

@@ -605,6 +605,8 @@ export async function getPondDetail(pondId: string) {
 					approvalStatus: true,
 					gramsPerFeeding: true,
 					dailyCapG: true,
+					wifiRssiDbm: true,
+					wifiRssiUpdatedAt: true,
 					createdAt: true,
 				},
 			},

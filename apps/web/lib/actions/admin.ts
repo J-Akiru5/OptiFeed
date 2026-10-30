@@ -1608,7 +1608,14 @@ export type FarmHierarchyNode = {
 		id: string;
 		name: string;
 		status: PondStatus;
-		devices: { id: string; label: string; lastSeenAt: string | null }[];
+		devices: {
+			id: string;
+			label: string;
+			lastSeenAt: string | null;
+			/** Last reported Wi-Fi RSSI (I-97), null on firmware without it. */
+			wifiRssiDbm: number | null;
+			wifiRssiUpdatedAt: string | null;
+		}[];
 	}[];
 };
 
@@ -1637,7 +1644,13 @@ export async function getAllFarmHierarchies(): Promise<FarmHierarchyNode[]> {
 						include: {
 							energyDevices: {
 								orderBy: { createdAt: "asc" },
-								select: { id: true, label: true, lastSeenAt: true },
+								select: {
+									id: true,
+									label: true,
+									lastSeenAt: true,
+									wifiRssiDbm: true,
+									wifiRssiUpdatedAt: true,
+								},
 							},
 						},
 					},
@@ -1668,6 +1681,8 @@ export async function getAllFarmHierarchies(): Promise<FarmHierarchyNode[]> {
 				id: device.id,
 				label: device.label,
 				lastSeenAt: device.lastSeenAt?.toISOString() ?? null,
+				wifiRssiDbm: device.wifiRssiDbm,
+				wifiRssiUpdatedAt: device.wifiRssiUpdatedAt?.toISOString() ?? null,
 			})),
 		})),
 	}));

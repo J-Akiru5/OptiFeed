@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - The device daily ceiling is now the only gram cap for Feed Now, scheduled meals and prediction apply. The 1,000 g per-request ceiling from #387 and the pond per-meal dose clamp are removed; a 5,000 g schema sanity bound (the daily hard guard) still rejects malformed input. Refusals name the grams left of the daily ceiling and where to change it, and the Feed Now input is capped to the remaining daily grams. The relay-time guard and the daily-cap calculation are unchanged.
+- I-97 offline alerts now follow the platform device connectivity policy (offline window plus grace) instead of the per-organization `offlineAfterMin` delay, so the alert and the badge cannot disagree. The organization column and setting are kept for compatibility and marked deprecated in the UI; nothing is dropped.
+
+### Added
+
+- I-97 feeders now report their Wi-Fi signal (`wifi_rssi`, firmware 1.6.2) and the app stores it in two additive, nullable columns (`EnergyDevice.wifiRssiDbm`, `wifiRssiUpdatedAt`, no backfill). A plausible, fresh low reading turns a reachable unit into "weak signal" and the device screens show the dBm value with a bars icon and text, never colour alone. Old firmware that reports no signal keeps the timing-only rule.
+
 
 ## [1.33.0] - 2026-10-30
 

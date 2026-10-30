@@ -13,6 +13,7 @@ import {
 	DashboardSection,
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
+import { DeviceSignalReading } from "@/components/device-signal";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { FeederViewerLazy } from "@/components/feeder/feeder-viewer-lazy";
 import { updateDeviceDailyCap } from "@/lib/actions/settings";
@@ -23,7 +24,7 @@ import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
 import { DEVICE_COMMAND_IN_FLIGHT_MS } from "@/lib/constants";
 import { formatFarmDateTime } from "@/lib/date-local";
 import { toHopperSnapshot } from "@/lib/device-hopper";
-import { evaluateDeviceStatus } from "@/lib/device-status";
+import { evaluateDeviceStatus, resolveRssiDbm } from "@/lib/device-status";
 import { type FeederHeroPond, loadFeederHero } from "@/lib/feeder-hero";
 import { getPageCount, parsePage } from "@/lib/pagination";
 import { getActivePond } from "@/lib/pond-selection";
@@ -178,6 +179,8 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 					recalibrationIntervalDays: true,
 					tempOffsetC: true,
 					waterTempC: true,
+					wifiRssiDbm: true,
+					wifiRssiUpdatedAt: true,
 				},
 			});
 		}
@@ -195,10 +198,17 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 	const commandInFlight =
 		!!activeFeedRequest &&
 		now.getTime() - activeFeedRequest.updatedAt.getTime() <= DEVICE_COMMAND_IN_FLIGHT_MS;
+	const rssiDbm = resolveRssiDbm({
+		rssiDbm: energyDevice?.wifiRssiDbm ?? null,
+		updatedAt: energyDevice?.wifiRssiUpdatedAt ?? null,
+		now,
+		policy: statusPolicy,
+	});
 	const connection = evaluateDeviceStatus({
 		lastSeenAt: energyDevice?.lastSeenAt ?? null,
 		now,
 		policy: statusPolicy,
+		rssiDbm,
 		inFlight: commandInFlight,
 	});
 	const hopper = energyDevice ? toHopperSnapshot(energyDevice, now, statusPolicy) : null;
@@ -381,6 +391,10 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 								}`}
 							>
 								{connectionLabel}
+								<DeviceSignalReading
+									rssiDbm={rssiDbm}
+									className="mt-1 block text-xs font-bold text-[#3D5568] dark:text-gray-400"
+								/>
 							</dd>
 						</div>
 						<div className={statTile}>

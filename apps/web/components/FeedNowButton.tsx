@@ -1,5 +1,6 @@
 "use client";
 
+import { DeviceSignalReading } from "@/components/device-signal";
 import { Link } from "@/i18n/routing";
 import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
 import { type FeedNowLimit, formatFeedGrams } from "@/lib/limits-core";
@@ -15,6 +16,8 @@ interface FeedNowButtonProps {
 	label: string;
 	deviceName?: string;
 	connectionStatus?: string;
+	/** Fresh Wi-Fi RSSI in dBm (I-97); null when the unit reports none. */
+	rssiDbm?: number | null;
 	/** Last known hopper level; null/undefined means the device never reported one. */
 	hopperLevelPct?: number | null;
 	canWrite?: boolean;
@@ -31,6 +34,7 @@ export function FeedNowButton({
 	label,
 	deviceName = "ILO-POND-01",
 	connectionStatus = "online",
+	rssiDbm = null,
 	hopperLevelPct = null,
 	canWrite = true,
 	isFallow = false,
@@ -230,6 +234,7 @@ export function FeedNowButton({
 								>
 									{isOffline ? t("offline") : isWeak ? t("weakSignal") : t("connected")}
 								</strong>
+								<DeviceSignalReading rssiDbm={rssiDbm} className="ml-2 font-bold" />
 							</p>
 							<p>
 								{t.rich("feedPortion", {

@@ -201,8 +201,8 @@
 				"description": "Level sang hopper nga nagapahayag sang low-hopper alert."
 			},
 			"orgOfflineThreshold": {
-				"title": "Threshold sang offline",
-				"description": "Pila ka minuto nga wala sing heartbeat antes markahan nga offline."
+				"title": "Delay sang offline alert (deprecated)",
+				"description": "Indi na ini gamiton sa timing. Ang offline alerts kag badges nagasunod na sa platform device connectivity policy."
 			},
 			"orgMissedFeeding": {
 				"title": "Mga alert sa nalipatan nga pagpakaon",
@@ -839,7 +839,7 @@
 			"triggerDesc": "Mapadala ini sang gilayon nga auger motor manual override request nga <bold>{volume}</bold> direkta sa physical ESP32 automatic feeder controller.",
 			"feederNode": "📍 Node sang Feeder: <bold>{name}</bold>",
 			"connectionLink": "📍 Koneksyon: ",
-			"connected": "Konektado • RSSI −58dB",
+			"connected": "Konektado",
 			"offline": "Offline",
 			"feedPortion": "📍 Bahin sang Pagkaon: <bold>{volume} nga 4mm pellets</bold>",
 			"requestSent": "Ang pangayo sang pagpakaon naipadala — magadispense ang aparato sa sulod sang 5s",
@@ -2603,8 +2603,9 @@
 			"percentOfBodyWeight": "% sang timbang sang lawas kada adlaw",
 			"hopperLowLabel": "Kahabaan sang hopper (%)",
 			"hopperLowHint": "Magpadala warning kon ini nga lebel ukon kubos pa. Ang critical alerts naga-andar gihapon sa 5 %.",
-			"offlineAfterLabel": "Offline alert pagkatapos sang (minuto)",
-			"offlineAfterHint": "Kon daw ano kalawig ang feeder nga wala tingog antes magpadala alert. Ang status badge offline gihapon sa 15 minutos.",
+			"offlineAfterLabel": "Delay sang offline alert (minuto) — deprecated",
+			"offlineAfterHint": "Indi na ini gamiton sa timing. Ang offline alerts kag badges nagasunod sa platform device connectivity policy (offline window plus grace) sa Superadmin → Settings → Device status. Ginatago ang value para sa compatibility.",
+			"offlineAfterDeprecated": "Deprecated",
 			"missedFeedingLabel": "Mga alert sang nalipatan nga pagpakaon",
 			"missedFeedingHint": "Magpahibalo kon ang naka-schedule nga pagpakaon ginsikway kag wala natabo.",
 			"rolesLabel": "Sin-o ang makabaton sang alert",
@@ -2681,7 +2682,9 @@
 				"aboutFcr": "Ano ang buot silingon sang FCR?",
 				"fcr": "Feed Conversion Ratio: ang kilo nga patuka nga gingamit sa kada kilo nga pagtubo sang timbang sang isda, halin sa pinakabag-o nga FCR report. Kon mas manubo, mas maayo."
 			},
-			"deviceWeak": "Maluya ang signal sang ESP32"
+			"deviceWeak": "Maluya ang signal sang ESP32",
+			"signalLabel": "Signal sang Wi-Fi",
+			"signalDbm": "{dbm} dBm"
 		},
 		"mobile": {
 			"openMenu": "Madasig nga mga aksyon",
@@ -3527,8 +3530,8 @@
 				"feedingRateHint": "Halin {min}% hasta {max}%.",
 				"hopperLowLabel": "Threshold sang hopper-low (%)",
 				"hopperLowHint": "Bug-os nga porsyento halin {min} hasta {max}.",
-				"offlineLabel": "Delay sang offline alert (minuto)",
-				"offlineHint": "Bug-os nga minuto halin {min} hasta {max}.",
+				"offlineLabel": "Delay sang offline alert (minuto) — deprecated",
+				"offlineHint": "Indi na ini gamiton sa timing: ang alerts kag badges nagasunod sa platform device connectivity policy. Ginatago ang value para sa compatibility ({min}-{max} minutos).",
 				"missedFeedingLabel": "Maghimo sang missed-feeding alert bilang default",
 				"alertRolesLabel": "Mga role nga alertado",
 				"alertRolesHint": "Kinahanglan bisan isa ka role ang makabaton sang org alerts.",

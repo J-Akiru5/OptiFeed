@@ -17,7 +17,7 @@ export const CALIBRATION_MAX_DISPENSE_MS = 600_000;
  * payload) is rejected. Any dose up to the remaining daily ceiling is valid.
  * The firmware's own per-dispense guard is a separate hardware safety check.
  */
-export const MAX_ACCEPTED_FEED_GRAMS = MAX_FEED_GRAMS_PER_DAY_PER_DEVICE;
+export const MAX_ACCEPTED_FEED_GRAMS = 5000;
 
 export interface FeedNowLimit {
 	/** The highest grams a manual Feed Now may dispense right now. */

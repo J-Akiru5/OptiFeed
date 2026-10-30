@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.34.1] - 2026-10-31
+
+### Fixed
+
+- Dead-code gate: `MAX_ACCEPTED_FEED_GRAMS` is a literal (5,000 g, equal to the daily hard guard) instead of an alias of `MAX_FEED_GRAMS_PER_DAY_PER_DEVICE`, which knip reported as a duplicate export.
+
 ## [1.34.0] - 2026-10-30
 
 ### Changed

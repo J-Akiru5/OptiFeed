@@ -1,5 +1,6 @@
 "use client";
 
+import { TermInfo } from "@/components/dashboard/term-info";
 import { Link, useRouter } from "@/i18n/routing";
 import { applyGrowthPlan } from "@/lib/actions/growth-plan";
 import { clearGrowthTarget } from "@/lib/actions/growth-target";
@@ -45,6 +46,7 @@ function signedKg(value: number): string {
 
 export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) {
 	const t = useTranslations("dashboard.growth.growthPlan");
+	const tCommon = useTranslations("dashboard.common");
 	const router = useRouter();
 	const [confirming, setConfirming] = useState(false);
 	const [applied, setApplied] = useState(false);
@@ -226,7 +228,11 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 				<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
 					<div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800">
 						<p className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400">
-							{t("current")}
+							<TermInfo
+								label={t("current")}
+								hint={tCommon("terminology.aboutAbw")}
+								description={tCommon("terminology.abw")}
+							/>
 						</p>
 						<p className="mt-1 text-xl font-black text-[var(--ofd-base-deep)]">
 							{currentWeight.toFixed(0)} g
@@ -543,7 +549,11 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 					<span>
 						{t("confidence")}: {t(`confidence_${plan.confidence}`)}
 					</span>
-					<span>{t("fcr", { fcr: plan.feed.fcrAssumption })}</span>
+					<TermInfo
+						label={t("fcr", { fcr: plan.feed.fcrAssumption })}
+						hint={tCommon("terminology.aboutFcr")}
+						description={tCommon("terminology.fcr")}
+					/>
 					{plan.density.fishPerM2 !== null && (
 						<span>{t("density", { density: plan.density.fishPerM2.toFixed(1) })}</span>
 					)}

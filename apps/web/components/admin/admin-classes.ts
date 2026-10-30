@@ -34,3 +34,11 @@ export const adminLabel =
 
 /** Helper text under a field. */
 export const adminHint = "mt-1 block text-[11px] text-[#3D5568] dark:text-gray-400";
+
+/**
+ * Form/card grid used by the console settings: one column on phones, two on
+ * tablets and three from `xl`. It is the same 1 / 2 / 3 rhythm as
+ * `calibrationFieldGrid`, so a settings section rearranges the way the
+ * hardware page does instead of inventing a second breakpoint scale.
+ */
+export const adminFieldGrid = "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3";

@@ -1065,6 +1065,7 @@
 				"truncated": "This range has more events than can be shown. Narrow the dates or hide feeding events.",
 				"dateRangeError": "The harvest date must stay between 30 and 365 days after stocking.",
 				"rescheduled": "Event rescheduled.",
+				"rescheduledTask": "Task rescheduled.",
 				"rescheduleConfirm": "Move this cycle's harvest date?",
 				"today": "Today",
 				"month": "Month",
@@ -1083,7 +1084,8 @@
 				"desc": "The grow-out cycle and every pond event, on one calendar.",
 				"readOnlyPond": "read-only",
 				"readOnlyHint": "This pond belongs to another farm in your organization. Its events are visible but read-only.",
-				"readOnlyEvent": "This event belongs to another farm and is read-only."
+				"readOnlyEvent": "This event belongs to another farm and is read-only.",
+				"readOnlyTask": "This task belongs to another farm and is read-only."
 			},
 			"filters": {
 				"harvest": "Harvest",
@@ -1190,8 +1192,13 @@
 			"eventForm": {
 				"titleNew": "Add pond event",
 				"titleEdit": "Edit pond event",
+				"titleNewTask": "Add task",
+				"titleEditTask": "Edit task",
+				"editEvent": "Edit event",
+				"editTask": "Edit task",
 				"desc": "Maintenance, pond work, or any other dated note.",
 				"type": "Event type",
+				"typeTask": "Task type",
 				"typeMaintenance": "Maintenance",
 				"typeOther": "Other",
 				"title": "Title",
@@ -1201,14 +1208,20 @@
 				"notes": "Notes",
 				"notesPlaceholder": "Optional details.",
 				"save": "Save event",
+				"saveTask": "Save task",
 				"saving": "Saving…",
 				"cancel": "Cancel",
 				"delete": "Delete",
 				"deleteConfirm": "Delete this pond event?",
+				"deleteConfirmTask": "Delete this task?",
 				"successCreate": "Pond event added.",
+				"successCreateTask": "Task added.",
 				"successUpdate": "Pond event updated.",
+				"successUpdateTask": "Task updated.",
 				"successDelete": "Pond event deleted.",
+				"successDeleteTask": "Task deleted.",
 				"descPond": "Event or task for {pond}.",
+				"descPondTask": "Task for {pond}.",
 				"kind": "Item type",
 				"kindEvent": "Event",
 				"kindTask": "Task",
@@ -2500,6 +2513,12 @@
 				"value": "Value",
 				"name": "Name",
 				"empty": "No data for this period yet."
+			},
+			"terminology": {
+				"aboutAbw": "What does ABW mean?",
+				"abw": "Average Body Weight: the mean weight of the fish in your latest biomass sample, in grams. It is the sample weight divided by the number of fish weighed.",
+				"aboutFcr": "What does FCR mean?",
+				"fcr": "Feed Conversion Ratio: the kilograms of feed used for every kilogram of fish weight gained, taken from your latest FCR report. Lower is better."
 			}
 		},
 		"mobile": {

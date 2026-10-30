@@ -67,7 +67,15 @@ export function EventEditor({
 	const today = todayDateOnly();
 	const editing = Boolean(event);
 
-	const [kind, setKind] = useState<ItemKind>("EVENT");
+	const [kind, setKind] = useState<ItemKind>(event?.itemKind ?? "EVENT");
+	const [kindItemId, setKindItemId] = useState(event?.id ?? null);
+	// The sheet renders before the effect below runs, so a task that is opened
+	// straight from the grid must not paint "event" copy for a frame (#348).
+	const currentItemId = event?.id ?? null;
+	if (currentItemId !== kindItemId) {
+		setKindItemId(currentItemId);
+		setKind(event?.itemKind ?? "EVENT");
+	}
 	const [type, setType] = useState<ManualType>("MAINTENANCE");
 	const [title, setTitle] = useState("");
 	const [allDay, setAllDay] = useState(true);
@@ -88,6 +96,7 @@ export function EventEditor({
 
 	const recurring = Boolean(event?.recurrenceFreq);
 	const selectedPond = ponds.find((pond) => pond.id === pondId);
+	const isTask = kind === "TASK";
 
 	useEffect(() => {
 		if (!open) return;
@@ -230,7 +239,15 @@ export function EventEditor({
 				setError(result.error);
 				return;
 			}
-			toast.success(editing ? t("successUpdate") : t("successCreate"));
+			toast.success(
+				editing
+					? isTask
+						? t("successUpdateTask")
+						: t("successUpdate")
+					: isTask
+						? t("successCreateTask")
+						: t("successCreate"),
+			);
 			router.refresh();
 			onSaved();
 			onClose();
@@ -239,7 +256,11 @@ export function EventEditor({
 
 	const remove = () => {
 		if (!event) return;
-		const confirmMessage = recurring ? t("deleteSeriesConfirm") : t("deleteConfirm");
+		const confirmMessage = recurring
+			? t("deleteSeriesConfirm")
+			: isTask
+				? t("deleteConfirmTask")
+				: t("deleteConfirm");
 		if (!window.confirm(confirmMessage)) return;
 		setError(null);
 		startTransition(async () => {
@@ -250,7 +271,7 @@ export function EventEditor({
 				setError(result.error);
 				return;
 			}
-			toast.success(t("successDelete"));
+			toast.success(isTask ? t("successDeleteTask") : t("successDelete"));
 			router.refresh();
 			onSaved();
 			onClose();
@@ -263,8 +284,22 @@ export function EventEditor({
 			side="right"
 			size="lg"
 			onClose={isPending ? () => undefined : onClose}
-			title={editing ? t("titleEdit") : t("titleNew")}
-			description={selectedPond ? t("descPond", { pond: selectedPond.name }) : t("desc")}
+			title={
+				editing
+					? isTask
+						? t("titleEditTask")
+						: t("titleEdit")
+					: isTask
+						? t("titleNewTask")
+						: t("titleNew")
+			}
+			description={
+				selectedPond
+					? isTask
+						? t("descPondTask", { pond: selectedPond.name })
+						: t("descPond", { pond: selectedPond.name })
+					: t("desc")
+			}
 			footer={
 				<div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
 					<div>
@@ -296,7 +331,7 @@ export function EventEditor({
 							className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] disabled:opacity-50 dark:bg-[#1f66a0]"
 						>
 							{isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-							{isPending ? t("saving") : t("save")}
+							{isPending ? t("saving") : isTask ? t("saveTask") : t("save")}
 						</button>
 					</div>
 				</div>
@@ -331,7 +366,7 @@ export function EventEditor({
 
 				<div className="grid gap-3 sm:grid-cols-2">
 					<label className="block">
-						<span className={labelClass}>{t("type")}</span>
+						<span className={labelClass}>{isTask ? t("typeTask") : t("type")}</span>
 						<select
 							value={type}
 							onChange={(change) => setType(change.target.value as ManualType)}

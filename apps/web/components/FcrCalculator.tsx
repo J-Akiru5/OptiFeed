@@ -1,5 +1,6 @@
 "use client";
 
+import { TermInfo } from "@/components/dashboard/term-info";
 import { useRouter } from "@/i18n/routing";
 import { calculateFcrFeed } from "@/lib/actions/fcr";
 import { setGrowthTarget } from "@/lib/actions/growth-target";
@@ -41,6 +42,7 @@ export function FcrCalculator({
 	canSetTarget = false,
 }: FcrCalculatorProps) {
 	const t = useTranslations("dashboard.fcrCalculator");
+	const tCommon = useTranslations("dashboard.common");
 	const router = useRouter();
 	const [currentWeight, setCurrentWeight] = useState("");
 	const [targetWeight, setTargetWeight] = useState("");
@@ -131,7 +133,11 @@ export function FcrCalculator({
 					<h3 className="text-lg font-black text-[#0A3D62] dark:text-[#5b9bd5]">{t("title")}</h3>
 					<p className="text-xs text-[#3D5568] dark:text-gray-400">{t("desc")}</p>
 					<p className="mt-1 text-[11px] font-semibold text-[#3D5568] dark:text-gray-400">
-						{latestFcr > 0 ? t("usingFcr", { fcr: latestFcr.toFixed(2) }) : t("noFcr")}
+						<TermInfo
+							label={latestFcr > 0 ? t("usingFcr", { fcr: latestFcr.toFixed(2) }) : t("noFcr")}
+							hint={tCommon("terminology.aboutFcr")}
+							description={tCommon("terminology.fcr")}
+						/>
 					</p>
 				</div>
 			</div>

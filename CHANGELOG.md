@@ -9,8 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.31.5] - 2026-10-30
+
+### Security
+
+- #329 platform audit rows recorded the left-most `X-Forwarded-For` entry, which is client-controlled, so an action could be attributed to a forged IP. Client-address derivation now lives in one helper that uses only the trusted edge hop, records `null` for a missing or malformed header, and is shared by the audit writer and the rate limiter.
+- #330 `feed-command` and `schedule-sync` consumed the device rate-limit bucket using an unverified `device_id`, so anyone knowing a MAC could hold a unit at 429. Both routes now verify the token first and limit on the verified MAC; a 25-request unauthenticated flood no longer affects the real device.
+- #331 platform `rotateDeviceToken` returned a plaintext token with no reveal limiter, and `updatePlatformUser` could change a legacy role without step-up. Rotation now uses the same 10/hour reveal bucket as the tenant path, and role changes run inside `withStepUp` with an audit row; display-name-only edits stay unprivileged.
+- #364 `firmware/check` consumed its rate-limit bucket on an unverified `device_id`, so anyone knowing a MAC could hold a unit out of the OTA channel. It now verifies the token and approval first and limits on the verified MAC.
+
 ### Fixed
 
+- #335 `updatePlatformUser` persisted blank, whitespace-only or over-long display names. It now applies the same trim/required/max-80 rule as the tenant `updateUser` and writes nothing on rejection.
+- #324 the legal working note still described release 1.11.0 and "only v1.0.0" in its version snapshot; it now matches the current release and tag history.
 - The CI performance job no longer waits out its 30-minute timeout: the latency harness signals the spawned Next server's process group, releases the child pipes and has a bounded exit.
 
 ## [1.31.3] - 2026-10-30

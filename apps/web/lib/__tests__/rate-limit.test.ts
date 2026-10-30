@@ -10,7 +10,6 @@ import {
 	checkDeviceRateLimit,
 	checkDeviceTokenRevealRateLimit,
 	checkLoginRateLimit,
-	selectClientIp,
 } from "../rate-limit";
 
 const queryRaw = vi.mocked(prisma.$queryRaw);
@@ -97,41 +96,5 @@ describe("Postgres rate limiter", () => {
 		returnsCount(1);
 		await checkDeviceRateLimit("device-b", "feed");
 		expect((queryRaw.mock.calls[2] as unknown[])[1]).toBe("rl:device:feed:device-b");
-	});
-});
-
-// F-014: the leftmost X-Forwarded-For entry is client-written and spoofable.
-// Rate limiting must key on the rightmost entry — the hop appended by the
-// single trusted proxy (Vercel's edge) — or an attacker rotates a fake
-// header per request and gets a fresh bucket every time.
-describe("selectClientIp (F-014 XFF hardening)", () => {
-	it("takes the rightmost entry, not the spoofed leftmost one", () => {
-		expect(selectClientIp("1.2.3.4, 9.9.9.9")).toBe("9.9.9.9");
-	});
-
-	it("ignores garbage the client wrote into the left of the chain", () => {
-		expect(selectClientIp("not-an-ip, 203.0.113.7")).toBe("203.0.113.7");
-	});
-
-	it("trims whitespace around the trusted entry", () => {
-		expect(selectClientIp("1.2.3.4,   198.51.100.23  ")).toBe("198.51.100.23");
-	});
-
-	it("accepts IPv6 entries", () => {
-		expect(selectClientIp("2001:db8::1")).toBe("2001:db8::1");
-	});
-
-	it("falls back when the rightmost entry is not an IP", () => {
-		expect(selectClientIp("1.2.3.4, boom")).toBe("127.0.0.1");
-	});
-
-	it("falls back when the header is absent or empty", () => {
-		expect(selectClientIp(null)).toBe("127.0.0.1");
-		expect(selectClientIp("")).toBe("127.0.0.1");
-		expect(selectClientIp("   ")).toBe("127.0.0.1");
-	});
-
-	it("rejects overlong values so bucket keys stay bounded", () => {
-		expect(selectClientIp(`1.2.3.4, ${"a".repeat(46)}`)).toBe("127.0.0.1");
 	});
 });

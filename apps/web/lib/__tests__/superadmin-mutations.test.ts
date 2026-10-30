@@ -18,6 +18,7 @@ const auth = vi.hoisted(() => ({
 	createUser: vi.fn(),
 	deleteUser: vi.fn(),
 }));
+const STEP_UP_AT = vi.hoisted(() => new Date("2026-10-26T00:00:00.000Z"));
 
 vi.mock("@/lib/prisma", async () => {
 	const { createTenancyDb } = await import("./helpers/tenancy");
@@ -32,6 +33,14 @@ vi.mock("@/lib/auth/session", () => ({
 }));
 
 vi.mock("@/lib/auth/session-cache", () => ({ invalidateFarm: vi.fn() }));
+
+vi.mock("@/lib/auth/step-up", () => ({
+	withStepUp: vi.fn(async (action: (stepUpAt: Date) => Promise<unknown>) => action(STEP_UP_AT)),
+	isStepUpRequiredError: (error: unknown) =>
+		typeof error === "object" &&
+		error !== null &&
+		(error as { code?: unknown }).code === "step_up_required",
+}));
 
 vi.mock("@/lib/supabase/admin", () => ({
 	createAdminClient: () => ({ auth: { admin: auth } }),
@@ -49,6 +58,7 @@ vi.mock("next-intl/server", () => ({
 
 import { createOrg, createPlatformUser, updatePlatformUser } from "@/lib/actions/superadmin";
 import { getCurrentUser } from "@/lib/auth/session";
+import { withStepUp } from "@/lib/auth/step-up";
 import {
 	ADMIN_A_ID,
 	FARMER_B_ID,
@@ -60,6 +70,7 @@ import {
 
 const REASON = "Support ticket 4412 reviewed by the platform team";
 const mockUser = vi.mocked(getCurrentUser);
+const mockWithStepUp = vi.mocked(withStepUp);
 
 function tenancy(): TenancyDb {
 	if (!holder.db) throw new Error("tenancy database was not initialised");
@@ -199,9 +210,61 @@ describe("updatePlatformUser", () => {
 			targetId: FARMER_B_ID,
 			reason: REASON,
 			actorUserId: PLATFORM_ADMIN_A_ID,
+			stepUpAt: STEP_UP_AT,
 			before: { displayName: "Farmer B", role: "OPERATOR" },
 			after: { displayName: "Renamed Farmer B", role: "VIEWER" },
 		});
+	});
+
+	it("requires a fresh step-up to change the legacy role and writes nothing without one", async () => {
+		mockWithStepUp.mockRejectedValueOnce(
+			Object.assign(new Error("Re-enter your password to continue."), {
+				code: "step_up_required",
+			}),
+		);
+
+		const result = await updatePlatformUser(FARMER_B_ID, { role: "ADMIN" }, REASON);
+
+		expect(result).toMatchObject({ code: "step_up_required" });
+		expect(tenancy().tables.users.find((row) => row.id === FARMER_B_ID)?.role).toBe("OPERATOR");
+		expect(tenancy().tables.platformAuditLogs).toHaveLength(0);
+	});
+
+	it("changes the legacy role when step-up is satisfied and records stepUpAt", async () => {
+		await expect(updatePlatformUser(FARMER_B_ID, { role: "ADMIN" }, REASON)).resolves.toEqual({
+			success: true,
+			userId: FARMER_B_ID,
+		});
+
+		expect(tenancy().tables.users.find((row) => row.id === FARMER_B_ID)?.role).toBe("ADMIN");
+		const audits = tenancy().tables.platformAuditLogs;
+		expect(audits).toHaveLength(1);
+		expect(audits[0]).toMatchObject({
+			action: "platform.user.update",
+			targetType: "user",
+			targetId: FARMER_B_ID,
+			reason: REASON,
+			actorUserId: PLATFORM_ADMIN_A_ID,
+			stepUpAt: STEP_UP_AT,
+			before: { displayName: "Farmer B", role: "OPERATOR" },
+			after: { displayName: "Farmer B", role: "ADMIN" },
+		});
+	});
+
+	it("does not demand step-up for a display-name-only edit", async () => {
+		const result = await updatePlatformUser(
+			FARMER_B_ID,
+			{ displayName: "Renamed Farmer B" },
+			REASON,
+		);
+
+		expect(result).toEqual({ success: true, userId: FARMER_B_ID });
+		expect(mockWithStepUp).not.toHaveBeenCalled();
+		expect(tenancy().tables.users.find((row) => row.id === FARMER_B_ID)).toMatchObject({
+			displayName: "Renamed Farmer B",
+			role: "OPERATOR",
+		});
+		expect(tenancy().tables.platformAuditLogs).toHaveLength(1);
 	});
 
 	it("answers not found for an unknown user without an audit row", async () => {
@@ -209,6 +272,35 @@ describe("updatePlatformUser", () => {
 
 		expect(result).toEqual({ error: "User not found." });
 		expect(tenancy().tables.platformAuditLogs).toHaveLength(0);
+	});
+
+	it("refuses a blank display name without writing (#335)", async () => {
+		const result = await updatePlatformUser(FARMER_B_ID, { displayName: "   " }, REASON);
+
+		expect(result).toEqual({ error: "Display name is required." });
+		expect(tenancy().tables.users.find((row) => row.id === FARMER_B_ID)?.displayName).toBe(
+			"Farmer B",
+		);
+		expect(tenancy().tables.platformAuditLogs).toHaveLength(0);
+	});
+
+	it("refuses an over-long display name without writing (#335)", async () => {
+		const result = await updatePlatformUser(FARMER_B_ID, { displayName: "x".repeat(81) }, REASON);
+
+		expect(result).toEqual({ error: "Display name is too long." });
+		expect(tenancy().tables.users.find((row) => row.id === FARMER_B_ID)?.displayName).toBe(
+			"Farmer B",
+		);
+		expect(tenancy().tables.platformAuditLogs).toHaveLength(0);
+	});
+
+	it("trims the display name before storing it (#335)", async () => {
+		const result = await updatePlatformUser(FARMER_B_ID, { displayName: "  Farmer B  " }, REASON);
+
+		expect(result).toEqual({ success: true, userId: FARMER_B_ID });
+		expect(tenancy().tables.users.find((row) => row.id === FARMER_B_ID)?.displayName).toBe(
+			"Farmer B",
+		);
 	});
 
 	it("denies a tenant admin and changes nothing", async () => {

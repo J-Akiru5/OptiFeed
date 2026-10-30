@@ -52,7 +52,7 @@ export default async function SuperadminLayout({
 	);
 
 	return (
-		<div className="flex min-h-dvh flex-col bg-[#F4F7F6]">
+		<div className="flex h-dvh flex-col overflow-hidden bg-[#F4F7F6]">
 			<a
 				href="#main-content"
 				className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-black focus:text-[#0A3D62] focus:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
@@ -132,14 +132,14 @@ export default async function SuperadminLayout({
 				</div>
 			</header>
 
-			<div className="flex min-h-[calc(100dvh-4rem)] w-full flex-1">
+			<div className="flex min-h-0 w-full flex-1 overflow-hidden">
 				<SuperadminSidebar showFarmDashboard={hasFarmDashboard} />
 				{/* min-w-0 lets a wide table scroll inside its own card instead of
 				    widening the page. */}
 				<main
 					id="main-content"
 					tabIndex={-1}
-					className="ofd-main relative z-10 min-w-0 flex-1 p-4 md:p-8"
+					className="ofd-main relative z-10 min-h-0 min-w-0 flex-1 overflow-y-auto p-4 md:p-8"
 				>
 					{children}
 				</main>

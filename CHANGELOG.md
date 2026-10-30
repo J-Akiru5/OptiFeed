@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.31.7] - 2026-10-30
+
+### Fixed
+
+- #382 the sidebar scrolled away with the page on the farmer dashboard (and in the admin and superadmin consoles). The shell was a `min-h-dvh` column whose document scrolled while the sidebar used `position: sticky`; the document scroll container won. All three shells are now fixed-height app frames: the document does not scroll, the sidebar is a full-height column, and only the main pane scrolls.
 ## [1.31.6] - 2026-10-30
 
 ### Changed

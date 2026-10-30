@@ -54,6 +54,6 @@ Issues #387, #371, #370, #388 closed with version and SHA. #365 verified (see ab
 ## Open for Jeff
 
 1. Hiligaynon strings from I-94 to I-99 are drafts for native review.
-2. Make `bundle budget + latency` a required check (see #323).
+2. DONE (Jeff 10-30): `bundle budget + latency` is now a required check on develop, staging and main (branch protection: quality + bundle budget + latency).
 3. Production is behind develop; promotion is yours.
 4. Firmware 1.6.2 (adds wifi_rssi) must be flashed by you, with your yes; applying the two migrations (EnergyDevice RSSI columns, PondSettingsDraft table) is done by Claude after a full JSON backup.

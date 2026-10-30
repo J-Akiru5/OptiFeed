@@ -1442,7 +1442,8 @@
 			"errorSummaryTitle": "Fix these before saving",
 			"errorSummaryHint": "Your values are kept. Open a setting to correct it.",
 			"restoredDraft": "Restored the values you had not saved yet.",
-			"discardDraft": "Discard",
+			"restoredDraftAt": "Restored your unsaved changes ({time}).",
+			"discardDraft": "Discard draft",
 			"draftDiscarded": "Unsaved changes discarded.",
 			"conflicts": {
 				"dailyTitle": "Daily feed is above the device ceiling",

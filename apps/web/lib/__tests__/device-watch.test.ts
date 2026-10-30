@@ -37,6 +37,7 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/retention", () => ({
 	deleteOldHeartbeatEvents: vi.fn().mockResolvedValue(3),
+	deleteExpiredPondSettingsDrafts: vi.fn().mockResolvedValue(2),
 }));
 
 vi.mock("@/lib/error-capture", () => ({
@@ -69,7 +70,7 @@ import { deleteExpiredErrorEvents } from "@/lib/error-capture";
 import { sendTelegramMessage } from "@/lib/notify/telegram";
 import prisma from "@/lib/prisma";
 import { cleanupExpiredRateLimitBuckets } from "@/lib/rate-limit";
-import { deleteOldHeartbeatEvents } from "@/lib/retention";
+import { deleteExpiredPondSettingsDrafts, deleteOldHeartbeatEvents } from "@/lib/retention";
 import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 
 const mockEnergyDevice = vi.mocked(prisma.energyDevice);
@@ -197,6 +198,8 @@ describe("api/cron/device-watch", () => {
 		expect(cleanupExpiredRateLimitBuckets).toHaveBeenCalledTimes(1);
 		// I-64: the 30-day ErrorEvent retention rides the same housekeeping pass.
 		expect(deleteExpiredErrorEvents).toHaveBeenCalledTimes(1);
+		// I-99: expired pond-settings drafts are pruned in the same pass.
+		expect(deleteExpiredPondSettingsDrafts).toHaveBeenCalledTimes(1);
 	});
 
 	it("scans the most recently stale devices first, so an already-alerted device cannot starve new outages", async () => {

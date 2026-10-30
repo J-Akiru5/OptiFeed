@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - I-97 feeders now report their Wi-Fi signal (`wifi_rssi`, firmware 1.6.2) and the app stores it in two additive, nullable columns (`EnergyDevice.wifiRssiDbm`, `wifiRssiUpdatedAt`, no backfill). A plausible, fresh low reading turns a reachable unit into "weak signal" and the device screens show the dBm value with a bars icon and text, never colour alone. Old firmware that reports no signal keeps the timing-only rule.
+- #371 unsaved pond settings drafts are now stored in the database (`PondSettingsDraft`, one row per pond and user) instead of only `sessionStorage`, so typed values survive a closed browser and are never visible to another member of the farm. The form restores a draft only when it is newer than the saved settings and actually differs from them, shows the restore time with a Discard button, clears the draft after a successful save, and keeps `sessionStorage` only as the offline fallback. The device-watch cron prunes drafts untouched for 30 days. Additive migration `20261030120000_add_pond_settings_draft` (new table only).
 
 
 ## [1.33.0] - 2026-10-30

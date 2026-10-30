@@ -1,18 +1,38 @@
 import type { PondSettingsDraft } from "./pond-input";
 
 /**
- * The unsaved pond settings draft (#371).
+ * The unsaved pond settings draft (#371, I-99).
  *
  * The form keeps its typed values in React state, but the reader often has to
- * leave the page to fix the conflicting device setting and come back. A
- * `sessionStorage` draft survives that trip (and a reload) without turning the
- * values into saved settings. Storage is best-effort: private mode, a full
- * quota or a corrupted value must never break the form, so every access is
- * wrapped and a malformed draft is ignored.
+ * leave the page to fix the conflicting device setting and come back — or close
+ * the browser entirely. Since I-99 the draft lives in the database
+ * (`PondSettingsDraft`, one row per pond and user) and is loaded through a
+ * server action. `sessionStorage` is only the offline fallback for when that
+ * action cannot be reached.
+ *
+ * Storage here is best-effort: private mode, a full quota or a corrupted value
+ * must never break the form, so every access is wrapped and a malformed draft
+ * is ignored. This module is client-safe and deliberately free of zod/prisma.
  */
 
 const DRAFT_PREFIX = "optifeed:pond-settings-draft:";
 const DRAFT_VERSION = 1;
+
+/** The raw fields a draft stores, in render order. */
+export const POND_DRAFT_VALUE_KEYS: readonly (keyof PondSettingsDraft)[] = [
+	"feedingRate",
+	"feedsPerDay",
+	"sampleInterval",
+	"population",
+	"areaM2",
+	"averageDepthM",
+	"feedPricePerKg",
+];
+
+/** True when two drafts hold exactly the same typed values. */
+export function pondDraftValuesEqual(a: PondSettingsDraft, b: PondSettingsDraft): boolean {
+	return POND_DRAFT_VALUE_KEYS.every((key) => a[key] === b[key]);
+}
 
 export interface StoredPondDraft {
 	version: number;

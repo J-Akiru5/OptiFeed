@@ -9,7 +9,7 @@ import { absoluteAppUrl, sendTelegramMessage } from "@/lib/notify/telegram";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
 import { cleanupExpiredRateLimitBuckets } from "@/lib/rate-limit";
-import { deleteOldHeartbeatEvents } from "@/lib/retention";
+import { deleteExpiredPondSettingsDrafts, deleteOldHeartbeatEvents } from "@/lib/retention";
 import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import {
 	ORG_SETTINGS_DEFAULTS,
@@ -162,6 +162,9 @@ export const GET = withApi(
 			// First-party error capture keeps at most ERROR_EVENT_RETENTION_DAYS
 			// (30) days of silence; one bounded batch per run.
 			const errorEventsDeleted = await deleteExpiredErrorEvents();
+			// Unsaved pond-settings drafts nobody returned to (I-99), one batch
+			// per run like the other housekeeping jobs.
+			const draftsDeleted = await deleteExpiredPondSettingsDrafts();
 
 			return ok({
 				offlineAlerts,
@@ -169,6 +172,7 @@ export const GET = withApi(
 				heartbeatsDeleted,
 				bucketsDeleted,
 				errorEventsDeleted,
+				draftsDeleted,
 			});
 		} catch (error) {
 			reportError(error, { route: "cron/device-watch" });

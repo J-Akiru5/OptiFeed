@@ -1442,7 +1442,8 @@
 			"errorSummaryTitle": "Ayuhon ini antes mag-save",
 			"errorSummaryHint": "Ginatipigan ang imo mga value. Bukasi ang setting para ayuhon.",
 			"restoredDraft": "Ginbalik ang mga value nga wala mo pa na-save.",
-			"discardDraft": "Ilabay",
+			"restoredDraftAt": "Ginbalik ang mga wala mo pa na-save nga mga pagbag-o ({time}).",
+			"discardDraft": "Ilabay ang draft",
 			"draftDiscarded": "Ginlabay ang wala pa na-save nga mga pagbag-o.",
 			"conflicts": {
 				"dailyTitle": "Ang lawog kada adlaw sobra sa takda sang device",

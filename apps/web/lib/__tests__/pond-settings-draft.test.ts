@@ -1,6 +1,7 @@
 import {
 	clearPondDraft,
 	pondDraftKey,
+	pondDraftValuesEqual,
 	readPondDraft,
 	writePondDraft,
 } from "@/lib/settings/pond-draft";
@@ -109,5 +110,17 @@ describe("pond settings draft", () => {
 		expect(() => writePondDraft(broken, "pond-1", VALUES)).not.toThrow();
 		expect(readPondDraft(broken, "pond-1")).toBeNull();
 		expect(() => clearPondDraft(broken, "pond-1")).not.toThrow();
+	});
+});
+
+describe("pond draft comparison", () => {
+	it("treats identical typed values as equal", () => {
+		expect(pondDraftValuesEqual(VALUES, { ...VALUES })).toBe(true);
+	});
+
+	it("detects a difference in any field, including a cleared one", () => {
+		expect(pondDraftValuesEqual(VALUES, { ...VALUES, feedsPerDay: "4" })).toBe(false);
+		expect(pondDraftValuesEqual(VALUES, { ...VALUES, population: "" })).toBe(false);
+		expect(pondDraftValuesEqual({ ...VALUES, population: "" }, VALUES)).toBe(false);
 	});
 });

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- #387 Feed Now is no longer hard-rejected at the 1,000 g request cap regardless of the pond configuration. The manual ceiling is now the lower of the pond/device per-meal dose, the remaining daily ceiling from the single daily-cap calculation, and the 1,000 g absolute safety ceiling. The dashboard, schedule and controller dialogs show the effective limit and the reason, refusals name the setting and every relevant number with a Settings > Pond hint, and the dashboard's scheduled dose is capped to the effective limit instead of failing. The 1,000 g hard ceiling is unchanged and was not raised.
+
 ## [1.31.8] - 2026-10-30
 
 ### Changed

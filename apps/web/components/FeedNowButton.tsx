@@ -1,6 +1,8 @@
 "use client";
 
+import { Link } from "@/i18n/routing";
 import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
+import { type FeedNowLimit, formatFeedGrams } from "@/lib/limits";
 import { useOnlineStatus } from "@/lib/pwa/use-online-status";
 import { Activity, AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -18,6 +20,8 @@ interface FeedNowButtonProps {
 	canWrite?: boolean;
 	isFallow?: boolean;
 	gramsPerSecond?: number;
+	/** Effective Feed Now ceiling (issue #387); the dose is capped to this. */
+	feedNowLimit?: FeedNowLimit | null;
 	"data-onboard"?: string;
 }
 
@@ -31,6 +35,7 @@ export function FeedNowButton({
 	canWrite = true,
 	isFallow = false,
 	gramsPerSecond,
+	feedNowLimit = null,
 	"data-onboard": dataOnboard,
 }: FeedNowButtonProps) {
 	const t = useTranslations("dashboard.feedNowModal");
@@ -50,25 +55,43 @@ export function FeedNowButton({
 
 	// 2-decimal doses like "29.63g"
 	const feedGrams = Number.parseFloat(nextFeedingVolume.replace("g", ""));
+	// Issue #387: the button sends the scheduled dose only up to the effective
+	// Feed Now ceiling. A pond configured above the hard ceiling still works,
+	// and the dialog states exactly what will be sent.
+	const dispenseGrams =
+		feedNowLimit && !Number.isNaN(feedGrams)
+			? Math.min(feedGrams, feedNowLimit.effectiveG)
+			: feedGrams;
+	const displayVolume = Number.isNaN(dispenseGrams)
+		? nextFeedingVolume
+		: `${formatFeedGrams(dispenseGrams)}g`;
+	const limited =
+		feedNowLimit !== null && !Number.isNaN(feedGrams) && feedGrams > feedNowLimit.effectiveG + 1e-9;
+	const limitReasonKey: "limitReasonDaily" | "limitReasonPond" | "limitReasonHard" =
+		feedNowLimit?.source === "remaining_daily"
+			? "limitReasonDaily"
+			: feedNowLimit?.source === "pond_per_meal"
+				? "limitReasonPond"
+				: "limitReasonHard";
 	const dispenseSeconds =
-		gramsPerSecond && gramsPerSecond > 0 && !Number.isNaN(feedGrams) && feedGrams > 0
-			? String(Number((feedGrams / gramsPerSecond).toFixed(1)))
+		gramsPerSecond && gramsPerSecond > 0 && dispenseGrams > 0
+			? String(Number((dispenseGrams / gramsPerSecond).toFixed(1)))
 			: null;
 
 	async function handleFeedNow() {
 		setShowConfirm(false);
-		if (isOffline || browserOffline) return;
+		if (isOffline || browserOffline || dispenseGrams < 1) return;
 		setDispensing(true);
 		try {
 			// NaN → let the server use the device default
 			const result = await requestFeedAction(
 				deviceId,
-				Number.isNaN(feedGrams) ? undefined : feedGrams,
+				Number.isNaN(dispenseGrams) ? undefined : dispenseGrams,
 			);
 			if (result.success && result.message === "Feed already pending") {
 				toast.info(t("alreadyQueued"));
 			} else if (result.success) {
-				toast.success(t("requestSent", { volume: nextFeedingVolume }));
+				toast.success(t("requestSent", { volume: displayVolume }));
 			} else {
 				toast.error(result.error || t("error"));
 			}
@@ -85,7 +108,9 @@ export function FeedNowButton({
 				<button
 					type="button"
 					onClick={() => setShowConfirm(true)}
-					disabled={dispensing || isOffline || browserOffline || !canWrite || isFallow}
+					disabled={
+						dispensing || isOffline || browserOffline || !canWrite || isFallow || dispenseGrams < 1
+					}
 					className="bg-[#E85A2A] text-white font-black text-sm md:text-base px-6 py-3 rounded-2xl hover:bg-[#d04a1f] shadow-lg hover:shadow-xl transition-all transform active:scale-95 flex items-center gap-2 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600 disabled:shadow-none dark:disabled:bg-gray-700 dark:disabled:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
 					data-onboard={dataOnboard}
 					data-help="feed-now"
@@ -159,11 +184,29 @@ export function FeedNowButton({
 							</h3>
 							<p className="text-sm text-[#3D5568] leading-relaxed">
 								{t.rich("triggerDesc", {
-									volume: nextFeedingVolume,
+									volume: displayVolume,
 									bold: (chunks) => <strong className="text-[#0A3D62] font-black">{chunks}</strong>,
 								})}
 							</p>
 						</div>
+						{feedNowLimit && (
+							<p
+								data-testid="feed-now-limit-hint"
+								className="text-xs leading-relaxed text-[#3D5568] dark:text-gray-300"
+							>
+								{t("limitHint", {
+									limit: formatFeedGrams(feedNowLimit.effectiveG),
+									reason: t(limitReasonKey),
+								})}{" "}
+								{limited && t("limitClamped", { grams: displayVolume })}{" "}
+								<Link
+									href="/dashboard/settings/pond"
+									className="font-bold underline underline-offset-2 text-[#0A3D62] hover:text-[#E85A2A] dark:text-[#8fc0ea]"
+								>
+									{t("changeInSettings")}
+								</Link>
+							</p>
+						)}
 						<div className="bg-[#F4F7F6] p-4 rounded-2xl border border-gray-200 text-xs text-[#3D5568] space-y-1">
 							<p>
 								{t.rich("feederNode", {
@@ -181,7 +224,7 @@ export function FeedNowButton({
 							</p>
 							<p>
 								{t.rich("feedPortion", {
-									volume: nextFeedingVolume,
+									volume: displayVolume,
 									bold: (chunks) => (
 										<strong className="text-[#E85A2A] font-extrabold">{chunks}</strong>
 									),
@@ -199,7 +242,7 @@ export function FeedNowButton({
 							<button
 								type="button"
 								onClick={handleFeedNow}
-								disabled={browserOffline}
+								disabled={browserOffline || dispenseGrams < 1}
 								className="flex-1 bg-[#E85A2A] text-white font-extrabold text-sm py-3.5 rounded-xl hover:bg-[#d04a1f] shadow-lg transition-all disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600 disabled:shadow-none dark:disabled:bg-gray-700 dark:disabled:text-gray-300"
 							>
 								{tBtn("yesDispenseNow")}

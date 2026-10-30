@@ -741,6 +741,12 @@
 			"fallowWarning": "Pahulay ang punong pagkatapos sang ani. Starta ang sunod nga siklo antes magpakaon.",
 			"hopperLow": "Manubo ang hopper level ({level}%). Paminsaron ang pag-refill madali.",
 			"hopperCritical": "Grabe kamanubo ang hopper level ({level}%)! Mag-refill agud malikawan ang wala nga pagpakaon.",
+			"limitHint": "Limit sang Feed Now: {limit} g ({reason}).",
+			"limitReasonPond": "per-meal ceiling sang punong",
+			"limitReasonHard": "absoluto nga safety ceiling",
+			"limitReasonDaily": "nabilin nga daily ceiling",
+			"changeInSettings": "Ilisan sa Settings > Pond",
+			"limitClamped": "Nagapadala sang {grams}, ginkapon sang limit.",
 			"error": "Pagtublag sa manual nga pagpakaon napaslawan.",
 			"durationHint": "≈ {seconds}s dispensa"
 		},

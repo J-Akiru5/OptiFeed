@@ -64,7 +64,7 @@ function allowDevice(overrides: { isPaused?: boolean; isFallow?: boolean } = {})
 	});
 	tx.energyDevice.findFirst.mockResolvedValue({
 		id: DEVICE_ID,
-		gramsPerFeeding: 150,
+		gramsPerFeeding: 500,
 		gramsPerSecond: 4,
 		lastSeenAt: new Date(),
 		hopperCapacityG: null,

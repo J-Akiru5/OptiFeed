@@ -1,5 +1,6 @@
 import { OFFLINE_THRESHOLD_MS, STALE_DISPATCHED_MS } from "@/lib/constants";
-import { feedGramsSchema, formatZodError, resolveDailyCapG } from "@/lib/limits";
+import { manilaDayRange } from "@/lib/feed/day";
+import { feedNowLimitMessage, resolveDailyCapG, resolveFeedNowLimitG } from "@/lib/limits";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
@@ -24,6 +25,7 @@ export type ManualFeedFailureCode =
 	| "pond_fallow"
 	| "offline"
 	| "invalid_grams"
+	| "per_meal_cap"
 	| "dispense_too_long"
 	| "in_progress"
 	| "daily_cap";
@@ -36,22 +38,14 @@ export type SchedulePauseOutcome =
 	| { ok: true; wasPaused: boolean }
 	| { ok: false; code: "device_not_found" | "pond_fallow"; error: string };
 
-/** Asia/Manila day window (UTC+8), matching the dashboard's daily feed cap. */
-function manilaDayRange(nowMs: number = Date.now()): { start: Date; end: Date } {
-	const HOUR_MS = 60 * 60 * 1000;
-	const DAY_MS = 24 * HOUR_MS;
-	const startOfLocalDay = Math.floor((nowMs + 8 * HOUR_MS) / DAY_MS) * DAY_MS - 8 * HOUR_MS;
-	return { start: new Date(startOfLocalDay), end: new Date(startOfLocalDay + DAY_MS) };
-}
-
 /**
  * Queue a manual feed for a device.
  *
- * Order matters and mirrors the original dashboard implementation: scope,
- * fallow, stale cleanup, offline, per-request cap, relay-time cap, duplicate
- * checks, daily cap, then the write. A refusal returns a code and message and
- * writes no FeedRequest, so a remote command that safety rejects can never
- * look like it was accepted.
+ * Order matters: scope, fallow, stale cleanup, offline, basic amount validation,
+ * duplicate checks, the effective Feed Now ceiling (pond per-meal, remaining
+ * daily, absolute hard), relay-time cap, then the write. A refusal returns a
+ * code and message and writes no FeedRequest, so a remote command that safety
+ * rejects can never look like it was accepted.
  */
 export async function createManualFeedRequest(
 	db: CommandDb,
@@ -113,24 +107,9 @@ export async function createManualFeedRequest(
 		};
 	}
 
-	const feedGrams = input.grams ?? device.gramsPerFeeding;
-	const gramsCheck = feedGramsSchema.safeParse(feedGrams);
-	if (!gramsCheck.success) {
-		return { ok: false, code: "invalid_grams", error: formatZodError(gramsCheck.error) };
-	}
-
-	// Platform safety caps may only tighten the hard-coded maxima.
-	const limits = await getFeedingLimits();
-
-	if (
-		device.gramsPerSecond > 0 &&
-		feedGrams / device.gramsPerSecond > limits.maxDispenseMs / 1000
-	) {
-		return {
-			ok: false,
-			code: "dispense_too_long",
-			error: `Dose would need more than ${limits.maxDispenseMs / 1000} s of relay time at ${device.gramsPerSecond} g/s — reduce the feed amount.`,
-		};
+	const requestedGrams = input.grams ?? device.gramsPerFeeding;
+	if (!Number.isFinite(requestedGrams) || requestedGrams < 1) {
+		return { ok: false, code: "invalid_grams", error: "Feed amount must be at least 1 g" };
 	}
 
 	const existing = await db.feedRequest.findFirst({
@@ -151,6 +130,13 @@ export async function createManualFeedRequest(
 		};
 	}
 
+	// Platform safety caps may only tighten the hard-coded maxima.
+	const limits = await getFeedingLimits();
+	const dailyCapG = resolveDailyCapG({
+		configuredCapG: device.dailyCapG,
+		hopperCapacityG: device.hopperCapacityG,
+		dailyCapFactor: limits.dailyCapFactor,
+	});
 	const day = manilaDayRange();
 	const today = await db.feedRequest.aggregate({
 		where: {
@@ -161,16 +147,48 @@ export async function createManualFeedRequest(
 		_sum: { grams: true },
 	});
 	const usedTodayG = today._sum.grams ?? 0;
-	const dailyCapG = resolveDailyCapG({
-		configuredCapG: device.dailyCapG,
-		hopperCapacityG: device.hopperCapacityG,
-		dailyCapFactor: limits.dailyCapFactor,
+	const feedNowLimit = resolveFeedNowLimitG({
+		perMealG: device.gramsPerFeeding,
+		dailyCapG,
+		usedTodayG,
 	});
-	if (usedTodayG + feedGrams > dailyCapG) {
+
+	// Issue #387 / E30: a manual Feed Now may not exceed the pond per-meal
+	// ceiling, the remaining daily ceiling, or the absolute safety ceiling.
+	// An explicit amount is refused with the numbers and the setting to change;
+	// the default dose is clamped so a pond configured above the hard ceiling
+	// still has a usable button.
+	const explicitRequest = typeof input.grams === "number";
+	if (explicitRequest && requestedGrams > feedNowLimit.effectiveG + 1e-9) {
+		const overHard = requestedGrams > feedNowLimit.hardCeilingG + 1e-9;
+		const code: ManualFeedFailureCode = overHard
+			? "invalid_grams"
+			: requestedGrams > feedNowLimit.perMealCeilingG + 1e-9
+				? "per_meal_cap"
+				: "daily_cap";
+		const prefix = code === "daily_cap" ? "Daily feed limit reached — " : "";
+		return { ok: false, code, error: `${prefix}${feedNowLimitMessage(feedNowLimit)}` };
+	}
+
+	const feedGrams = explicitRequest
+		? requestedGrams
+		: Math.min(requestedGrams, feedNowLimit.effectiveG);
+	if (feedGrams < 1) {
 		return {
 			ok: false,
 			code: "daily_cap",
-			error: `Daily feed limit reached — ${Math.round(dailyCapG)} g/day cap with ${Math.round(usedTodayG)} g already used today. Try again after midnight (Asia/Manila).`,
+			error: `Daily feed limit reached — ${feedNowLimitMessage(feedNowLimit)} Try again after midnight (Asia/Manila).`,
+		};
+	}
+
+	if (
+		device.gramsPerSecond > 0 &&
+		feedGrams / device.gramsPerSecond > limits.maxDispenseMs / 1000
+	) {
+		return {
+			ok: false,
+			code: "dispense_too_long",
+			error: `Dose would need more than ${limits.maxDispenseMs / 1000} s of relay time at ${device.gramsPerSecond} g/s — reduce the feed amount.`,
 		};
 	}
 

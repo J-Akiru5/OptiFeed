@@ -741,6 +741,12 @@
 			"fallowWarning": "This pond is fallow after harvest. Start the next grow-out cycle before feeding.",
 			"hopperLow": "Hopper level is low ({level}%). Consider refilling soon.",
 			"hopperCritical": "Hopper level is critically low ({level}%)! Refill to avoid missed feedings.",
+			"limitHint": "Feed Now limit: {limit} g ({reason}).",
+			"limitReasonPond": "pond per-meal ceiling",
+			"limitReasonHard": "absolute safety ceiling",
+			"limitReasonDaily": "remaining daily ceiling",
+			"changeInSettings": "Change it in Settings > Pond",
+			"limitClamped": "Sending {grams}, capped by this limit.",
 			"error": "Failed to trigger manual feed.",
 			"durationHint": "≈ {seconds}s dispense"
 		},

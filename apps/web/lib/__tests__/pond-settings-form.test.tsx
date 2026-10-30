@@ -16,6 +16,11 @@ const actions = vi.hoisted(() => ({
 	updatePondSettings: vi.fn(),
 	updateDeviceDailyCap: vi.fn(),
 }));
+const draftActions = vi.hoisted(() => ({
+	loadPondSettingsDraft: vi.fn(),
+	savePondSettingsDraft: vi.fn(),
+	discardPondSettingsDraft: vi.fn(),
+}));
 const help = vi.hoisted(() => ({
 	requestHelpTarget: vi.fn(),
 	revealHelpTarget: vi.fn(),
@@ -24,6 +29,7 @@ const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 
 vi.mock("@/lib/actions/settings", () => actions);
+vi.mock("@/lib/actions/pond-draft", () => draftActions);
 vi.mock("@/lib/help/reveal", () => help);
 vi.mock("sonner", () => ({ toast }));
 vi.mock("@/i18n/routing", async () => {
@@ -86,6 +92,12 @@ beforeEach(() => {
 	window.sessionStorage.clear();
 	actions.updatePondSettings.mockResolvedValue({ success: true });
 	actions.updateDeviceDailyCap.mockResolvedValue({ success: true, dailyCapG: 2500 });
+	draftActions.loadPondSettingsDraft.mockResolvedValue({ success: true, draft: null });
+	draftActions.savePondSettingsDraft.mockResolvedValue({
+		success: true,
+		savedAt: "2026-10-30T10:00:00.000Z",
+	});
+	draftActions.discardPondSettingsDraft.mockResolvedValue({ success: true });
 });
 
 describe("typed values survive a failed save", () => {
@@ -115,8 +127,16 @@ describe("typed values survive a failed save", () => {
 		expect(screen.getByLabelText("Feeds Per Day")).toHaveValue(3);
 		expect(screen.getByLabelText("Population (fish)")).toHaveValue(120);
 		expect(screen.getByLabelText("Pond Area (m²)")).toHaveValue(600);
-		// The draft is kept for the next visit, not discarded on failure.
-		expect(window.sessionStorage.getItem(pondDraftKey("pond-1"))).toContain("600");
+		// The draft is kept for the next visit, not discarded on failure: it is
+		// written to the database (I-99) after the debounce.
+		await waitFor(
+			() =>
+				expect(draftActions.savePondSettingsDraft).toHaveBeenCalledWith(
+					"pond-1",
+					expect.objectContaining({ feedsPerDay: "3", population: "120", areaM2: "600" }),
+				),
+			{ timeout: 3000 },
+		);
 	});
 
 	it("shows the server field error under the field and in the summary", async () => {
@@ -170,6 +190,11 @@ describe("typed values survive a failed save", () => {
 
 		await waitFor(() => expect(actions.updatePondSettings).toHaveBeenCalled());
 		await waitFor(() => expect(window.sessionStorage.getItem(pondDraftKey("pond-1"))).toBeNull());
+		// The database draft is dropped too, so the next visit starts from the
+		// saved values (I-99).
+		await waitFor(() =>
+			expect(draftActions.discardPondSettingsDraft).toHaveBeenCalledWith("pond-1"),
+		);
 		expect(screen.getByLabelText("Feeds Per Day")).toHaveValue(3);
 	});
 });
@@ -196,10 +221,112 @@ describe("a restored draft", () => {
 		expect(await screen.findByText("Restored the values you had not saved yet.")).toBeTruthy();
 		expect(screen.getByLabelText("Feeds Per Day")).toHaveValue(4);
 
-		fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+		fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
 
 		expect(screen.getByLabelText("Feeds Per Day")).toHaveValue(2);
 		expect(window.sessionStorage.getItem(pondDraftKey("pond-1"))).toBeNull();
+	});
+});
+
+const DATABASE_DRAFT = {
+	values: {
+		feedingRate: "3.5",
+		feedsPerDay: "4",
+		sampleInterval: "20",
+		population: "150",
+		areaM2: "600",
+		averageDepthM: "2",
+		feedPricePerKg: "40",
+	},
+	updatedAt: "2026-10-30T09:00:00.000Z",
+	deviceId: "device-1",
+};
+
+const OFFLINE_DRAFT = {
+	version: 1,
+	values: {
+		feedingRate: "3.5",
+		feedsPerDay: "4",
+		sampleInterval: "20",
+		population: "150",
+		areaM2: "600",
+		averageDepthM: "2",
+		feedPricePerKg: "40",
+	},
+};
+
+describe("the database draft (I-99)", () => {
+	it("restores the database draft with its time and discards it on request", async () => {
+		draftActions.loadPondSettingsDraft.mockResolvedValue({
+			success: true,
+			draft: DATABASE_DRAFT,
+		});
+		renderForm();
+
+		expect(await screen.findByText(/Restored your unsaved changes/)).toBeTruthy();
+		expect(screen.getByLabelText("Feeds Per Day")).toHaveValue(4);
+
+		fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
+
+		expect(draftActions.discardPondSettingsDraft).toHaveBeenCalledWith("pond-1");
+		expect(screen.getByLabelText("Feeds Per Day")).toHaveValue(2);
+	});
+
+	it("prefers the database draft over a stale offline copy", async () => {
+		window.sessionStorage.setItem(
+			pondDraftKey("pond-1"),
+			JSON.stringify({
+				version: 1,
+				values: { ...OFFLINE_DRAFT.values, population: "999" },
+			}),
+		);
+		draftActions.loadPondSettingsDraft.mockResolvedValue({
+			success: true,
+			draft: DATABASE_DRAFT,
+		});
+		renderForm();
+
+		await waitFor(() => expect(screen.getByLabelText("Population (fish)")).toHaveValue(150));
+		expect(window.sessionStorage.getItem(pondDraftKey("pond-1"))).toBeNull();
+	});
+
+	it("falls back to sessionStorage when the load action fails (offline)", async () => {
+		draftActions.loadPondSettingsDraft.mockRejectedValue(new Error("offline"));
+		window.sessionStorage.setItem(pondDraftKey("pond-1"), JSON.stringify(OFFLINE_DRAFT));
+		renderForm();
+
+		expect(await screen.findByText("Restored the values you had not saved yet.")).toBeTruthy();
+		expect(screen.getByLabelText("Feeds Per Day")).toHaveValue(4);
+	});
+
+	it("debounces the draft write and sends the typed values", async () => {
+		renderForm();
+
+		fireEvent.change(screen.getByLabelText("Feeds Per Day"), { target: { value: "6" } });
+
+		await waitFor(
+			() =>
+				expect(draftActions.savePondSettingsDraft).toHaveBeenCalledWith(
+					"pond-1",
+					expect.objectContaining({ feedsPerDay: "6" }),
+				),
+			{ timeout: 3000 },
+		);
+	});
+
+	it("keeps a sessionStorage fallback when the draft write fails (offline)", async () => {
+		draftActions.savePondSettingsDraft.mockRejectedValue(new Error("offline"));
+		renderForm();
+
+		fireEvent.change(screen.getByLabelText("Feeds Per Day"), { target: { value: "7" } });
+
+		await waitFor(
+			() =>
+				expect(window.sessionStorage.getItem(pondDraftKey("pond-1"))).toContain(
+					'"feedsPerDay":"7"',
+				),
+			{ timeout: 3000 },
+		);
 	});
 });
 

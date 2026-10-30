@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- #371 unsaved pond settings drafts are now stored in the database (`PondSettingsDraft`, one row per pond and user) instead of only `sessionStorage`, so typed values survive a closed browser and are never visible to another member of the farm. The form restores a draft only when it is newer than the saved settings and actually differs from them, shows the restore time with a Discard button, clears the draft after a successful save, and keeps `sessionStorage` only as the offline fallback. The device-watch cron prunes drafts untouched for 30 days. Additive migration `20261030120000_add_pond_settings_draft` (new table only).
+
 ## [1.33.0] - 2026-10-30
 
 ### Fixed

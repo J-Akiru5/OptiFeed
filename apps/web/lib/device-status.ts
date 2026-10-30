@@ -14,6 +14,11 @@
  * back to the defaults below when the row is missing, unreadable or invalid, so
  * a bad setting can never break a device screen.
  *
+ * A heartbeat may also carry the Wi-Fi RSSI (firmware 1.6.2+). `resolveRssiDbm`
+ * keeps only a plausible, recent reading (older than the display offline window
+ * is stale), and a low reading turns a reachable unit into "weak signal".
+ * Firmware that reports no RSSI keeps the timing-only behaviour.
+ *
  * Two deliberate distinctions:
  *
  *  - **Display vs safety.** `evaluateDeviceStatus` includes the grace window, so
@@ -43,6 +48,10 @@ export const DEVICE_OFFLINE_GRACE_MIN_DEFAULT = 2;
 
 /** At or below this RSSI a reachable unit is shown as "weak signal". */
 export const DEVICE_WEAK_RSSI_DBM = -80;
+
+/** The range an ESP32 can report from `WiFi.RSSI()` (0 is effectively "no signal"). */
+export const DEVICE_RSSI_DBM_MIN = -127;
+export const DEVICE_RSSI_DBM_MAX = 0;
 
 const MINUTE_MS = 60 * 1000;
 
@@ -137,6 +146,62 @@ export function isValidDeviceStatusValue(value: DeviceStatusSettingValue): boole
 		value.graceMin <= DEVICE_OFFLINE_GRACE_MIN_MAX &&
 		value.weakAfterMin < value.offlineAfterMin
 	);
+}
+
+/**
+ * True for a plausible integer RSSI in dBm. Anything else (a string, a float, a
+ * sentinel outside the ESP32 range) is treated as "not reported".
+ */
+export function isValidRssiDbm(value: unknown): value is number {
+	return (
+		typeof value === "number" &&
+		Number.isInteger(value) &&
+		value >= DEVICE_RSSI_DBM_MIN &&
+		value <= DEVICE_RSSI_DBM_MAX
+	);
+}
+
+export interface ResolveRssiInput {
+	/** The stored `EnergyDevice.wifiRssiDbm`. */
+	rssiDbm: number | null | undefined;
+	/** The stored `EnergyDevice.wifiRssiUpdatedAt`. */
+	updatedAt: Date | null | undefined;
+	now?: Date;
+	policy?: DeviceStatusPolicy;
+}
+
+/**
+ * The RSSI to feed into `evaluateDeviceStatus`, or null when it cannot be
+ * trusted. A reading older than the display offline window (offline plus grace)
+ * describes a unit that is no longer reporting, so showing it as the current
+ * signal would be misleading. Old firmware never reports RSSI at all, so null
+ * keeps the timing-only rule (issue #388).
+ */
+export function resolveRssiDbm({
+	rssiDbm,
+	updatedAt,
+	now = new Date(),
+	policy = DEFAULT_DEVICE_STATUS_POLICY,
+}: ResolveRssiInput): number | null {
+	if (!isValidRssiDbm(rssiDbm)) return null;
+	if (!updatedAt) return null;
+	const ageMs = now.getTime() - updatedAt.getTime();
+	if (!Number.isFinite(ageMs)) return null;
+	if (ageMs > policy.offlineAfterMs + policy.graceMs) return null;
+	return rssiDbm;
+}
+
+/**
+ * Signal bars (0-4) for a known RSSI, mirroring the firmware portal ladder
+ * (`signalBarsForRssi`), so the app and the setup page agree. 0 means "no
+ * reading", never "no signal".
+ */
+export function deviceSignalBars(rssiDbm: number | null | undefined): number {
+	if (!isValidRssiDbm(rssiDbm)) return 0;
+	if (rssiDbm > -55) return 4;
+	if (rssiDbm > -67) return 3;
+	if (rssiDbm > -78) return 2;
+	return 1;
 }
 
 export interface EvaluateDeviceStatusInput {

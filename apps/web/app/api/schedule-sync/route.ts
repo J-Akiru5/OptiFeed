@@ -10,7 +10,7 @@ import {
 	FEEDS_PER_DAY_MIN,
 	GRAMS_PER_SECOND_MAX,
 	GRAMS_PER_SECOND_MIN,
-	MAX_FEED_GRAMS_PER_REQUEST,
+	MAX_ACCEPTED_FEED_GRAMS,
 	TEMP_OFFSET_C_MAX,
 	TEMP_OFFSET_C_MIN,
 	clamp,
@@ -37,7 +37,7 @@ type DeviceConfig = {
 
 function deviceConfig(device: DeviceConfig) {
 	return {
-		grams_per_feeding: clamp(device.gramsPerFeeding, 0, MAX_FEED_GRAMS_PER_REQUEST),
+		grams_per_feeding: clamp(device.gramsPerFeeding, 0, MAX_ACCEPTED_FEED_GRAMS),
 		button_feed_grams: clamp(device.buttonFeedGrams, BUTTON_FEED_GRAMS_MIN, BUTTON_FEED_GRAMS_MAX),
 		hopper_empty_cm: device.hopperEmptyCm,
 		hopper_full_cm: device.hopperFullCm,

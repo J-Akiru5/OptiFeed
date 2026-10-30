@@ -129,13 +129,13 @@ describe("remoteFeedDevice", () => {
 		expect(tx.platformAuditLog.create).not.toHaveBeenCalled();
 	});
 
-	it("refuses more than 1,000 g and shows it as a refusal, never a queued feed", async () => {
+	it("refuses absurd input above the 5,000 g sanity bound, never a queued feed", async () => {
 		allowDevice();
 
-		const result = await remoteFeedDevice({ deviceId: DEVICE_ID, grams: 1500, reason: REASON });
+		const result = await remoteFeedDevice({ deviceId: DEVICE_ID, grams: 5001, reason: REASON });
 
 		expect(result).toMatchObject({ success: false, code: "feed_refused" });
-		expect(result).toHaveProperty("error", expect.stringContaining("1000"));
+		expect(result).toHaveProperty("error", expect.stringContaining("5000"));
 		expect(tx.feedRequest.create).not.toHaveBeenCalled();
 
 		const row = auditRows()[0];
@@ -147,7 +147,7 @@ describe("remoteFeedDevice", () => {
 			reason: REASON,
 			stepUpAt: STEP_UP_AT,
 		});
-		expect(row.after).toMatchObject({ grams: 1500, code: "invalid_grams" });
+		expect(row.after).toMatchObject({ grams: 5001, code: "invalid_grams" });
 	});
 
 	it("enforces the daily cap through the shared tenant command path", async () => {
@@ -157,7 +157,7 @@ describe("remoteFeedDevice", () => {
 		const result = await remoteFeedDevice({ deviceId: DEVICE_ID, grams: 150, reason: REASON });
 
 		expect(result).toMatchObject({ success: false, code: "feed_refused" });
-		expect(result).toHaveProperty("error", expect.stringContaining("Daily feed limit"));
+		expect(result).toHaveProperty("error", expect.stringContaining("daily ceiling"));
 		expect(tx.feedRequest.create).not.toHaveBeenCalled();
 		expect(auditRows()).toHaveLength(1);
 	});
@@ -180,12 +180,12 @@ describe("remoteFeedDevice", () => {
 		expect(tx.feedRequest.create).not.toHaveBeenCalled();
 	});
 
-	it("has no force flag: an extra force property cannot bypass the cap", async () => {
+	it("has no force flag: an extra force property cannot bypass the limit", async () => {
 		allowDevice();
 
 		const result = await remoteFeedDevice({
 			deviceId: DEVICE_ID,
-			grams: 1500,
+			grams: 5001,
 			reason: REASON,
 			force: true,
 		} as unknown as Parameters<typeof remoteFeedDevice>[0]);

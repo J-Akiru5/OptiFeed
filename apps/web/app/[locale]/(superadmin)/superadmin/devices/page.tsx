@@ -1,3 +1,4 @@
+import { DeviceSignalReading } from "@/components/device-signal";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { EntityCard } from "@/components/mobile/entity-card";
 import { ListChips } from "@/components/mobile/list-chips";
@@ -26,7 +27,6 @@ import { Link, getPathname } from "@/i18n/routing";
 import { getOrgPondOptions, listPlatformDevices } from "@/lib/actions/platform/devices";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { toHopperSnapshot } from "@/lib/device-hopper";
-import { evaluateDeviceStatus } from "@/lib/device-status";
 import {
 	deviceListStatus,
 	filterByStatus,
@@ -90,20 +90,31 @@ export default async function SuperadminDevicesPage({
 	const now = Date.now();
 	const hasRows = devices.rows.length > 0;
 
-	// The allow-listed platform list select does not carry the hopper reading,
-	// and this task must not change lib/actions. Read only those fields for the
-	// devices on this page.
+	// The allow-listed platform list select does not carry the hopper reading or
+	// the reported signal, and this task must not change lib/actions. Read only
+	// those fields for the devices on this page.
 	const readings =
 		devices.rows.length > 0
 			? await prisma.energyDevice.findMany({
 					where: { id: { in: devices.rows.map((device) => device.id) } },
-					select: { id: true, feedLevelPercent: true, feedLevelUpdatedAt: true },
+					select: {
+						id: true,
+						feedLevelPercent: true,
+						feedLevelUpdatedAt: true,
+						wifiRssiDbm: true,
+						wifiRssiUpdatedAt: true,
+					},
 				})
 			: [];
 	const feedLevelById = new Map(
 		readings.map((row) => [
 			row.id,
-			{ levelPercent: row.feedLevelPercent, updatedAt: row.feedLevelUpdatedAt },
+			{
+				levelPercent: row.feedLevelPercent,
+				updatedAt: row.feedLevelUpdatedAt,
+				rssiDbm: row.wifiRssiDbm,
+				rssiUpdatedAt: row.wifiRssiUpdatedAt,
+			},
 		]),
 	);
 	const hopperFor = (device: (typeof devices.rows)[number]) =>
@@ -113,6 +124,8 @@ export default async function SuperadminDevicesPage({
 				lastSeenAt: device.lastSeenAt,
 				feedLevelPercent: feedLevelById.get(device.id)?.levelPercent ?? null,
 				feedLevelUpdatedAt: feedLevelById.get(device.id)?.updatedAt ?? null,
+				wifiRssiDbm: feedLevelById.get(device.id)?.rssiDbm ?? null,
+				wifiRssiUpdatedAt: feedLevelById.get(device.id)?.rssiUpdatedAt ?? null,
 			},
 			new Date(now),
 			statusPolicy,
@@ -328,13 +341,9 @@ export default async function SuperadminDevicesPage({
 							]}
 						>
 							{visibleDevices.map((device) => {
-								const connection = evaluateDeviceStatus({
-									lastSeenAt: device.lastSeenAt,
-									now: new Date(now),
-									policy: statusPolicy,
-								});
-								const offline = connection.isOffline;
-								const weak = connection.isWeak;
+								const hopper = hopperFor(device);
+								const offline = hopper.isOffline;
+								const weak = hopper.status === "weak";
 								return (
 									<Fragment key={device.id}>
 										<tr className="border-b border-gray-50 align-top transition-colors last:border-0 hover:bg-[#F4F7F6]/50">
@@ -387,6 +396,10 @@ export default async function SuperadminDevicesPage({
 																? tCommon("weak")
 																: tCommon("online")}
 													</Badge>
+													<DeviceSignalReading
+														rssiDbm={hopper.rssiDbm}
+														className="text-[11px] font-bold text-[#3D5568]"
+													/>
 													<p className="text-[11px] text-[#3D5568]">
 														{lastSeen(device.lastSeenAt)}
 													</p>

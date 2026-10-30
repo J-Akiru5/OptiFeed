@@ -78,7 +78,7 @@ function conflictSentence(conflicts: PondDeviceConflict[]): string {
 	if (first.code === "relay-time") {
 		return `The pond needs ${Math.round(first.pondValueG)} g per meal, more than the ${Math.round(first.deviceValueG)} g the feeder can dispense in one relay window. Recalibrate the feeder or split the feed into more meals.`;
 	}
-	return `The pond needs ${Math.round(first.pondValueG)} g per meal, over the ${Math.round(first.deviceValueG)} g per-request cap. Split the feed into more meals.`;
+	return `The pond needs ${Math.round(first.pondValueG)} g per meal, over the feeder's ${Math.round(first.deviceValueG)} g limit. Split the feed into more meals.`;
 }
 
 export interface NotificationPrefs {

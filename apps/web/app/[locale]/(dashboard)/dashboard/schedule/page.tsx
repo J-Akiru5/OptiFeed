@@ -10,7 +10,7 @@ import {
 } from "@/components/dashboard/dashboard-ui";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { canWrite } from "@/lib/auth/session";
-import { evaluateDeviceStatus } from "@/lib/device-status";
+import { evaluateDeviceStatus, resolveRssiDbm } from "@/lib/device-status";
 import { getFeedNowLimitForDevice } from "@/lib/feed/feed-now-limit";
 import type { ScheduleSnapshotData } from "@/lib/offline/snapshots";
 import { getActivePond } from "@/lib/pond-selection";
@@ -58,6 +58,8 @@ export default async function SchedulePage() {
 			gramsPerSecond: true,
 			dailyCapG: true,
 			hopperCapacityG: true,
+			wifiRssiDbm: true,
+			wifiRssiUpdatedAt: true,
 		},
 	});
 
@@ -73,8 +75,8 @@ export default async function SchedulePage() {
 		);
 	}
 
-	// The Feed Now ceiling (issue #387): pond per-meal dose, remaining daily
-	// allowance and the absolute hard ceiling, whichever is lowest.
+	// The Feed Now ceiling (issue #387 / #398): whatever is left of today's
+	// daily allowance. The daily ceiling is the only gram cap.
 	const feedNowLimit = await getFeedNowLimitForDevice(energyDevice);
 
 	const [latestAppliedCommand, pendingCommands, stuckFeedRequests, stuckScheduleCommands] =
@@ -124,6 +126,11 @@ export default async function SchedulePage() {
 		lastSeenAt: energyDevice.lastSeenAt,
 		now: new Date(),
 		policy: statusPolicy,
+		rssiDbm: resolveRssiDbm({
+			rssiDbm: energyDevice.wifiRssiDbm,
+			updatedAt: energyDevice.wifiRssiUpdatedAt,
+			policy: statusPolicy,
+		}),
 		inFlight: commandInFlight,
 	});
 	const deviceOffline = connection.isOffline;

@@ -3,6 +3,7 @@ import {
 	type DeviceConnectionState,
 	type DeviceStatusPolicy,
 	evaluateDeviceStatus,
+	resolveRssiDbm,
 } from "@/lib/device-status";
 import prisma from "@/lib/prisma";
 import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
@@ -33,6 +34,8 @@ export const HOPPER_SNAPSHOT_SELECT = {
 	lastSeenAt: true,
 	hopperCapacityG: true,
 	gramsPerFeeding: true,
+	wifiRssiDbm: true,
+	wifiRssiUpdatedAt: true,
 } satisfies Prisma.EnergyDeviceSelect;
 
 export interface HopperSourceRow {
@@ -42,6 +45,9 @@ export interface HopperSourceRow {
 	lastSeenAt: Date | null;
 	hopperCapacityG?: number | null;
 	gramsPerFeeding?: number | null;
+	/** Last reported Wi-Fi RSSI in dBm (firmware 1.6.2+), null on old units. */
+	wifiRssiDbm?: number | null;
+	wifiRssiUpdatedAt?: Date | null;
 }
 
 export interface HopperSnapshot {
@@ -53,6 +59,8 @@ export interface HopperSnapshot {
 	status: DeviceConnectionState;
 	/** True only for the full offline state; weak signal keeps its reading live. */
 	isOffline: boolean;
+	/** Fresh, plausible RSSI in dBm, or null when none/old firmware/stale. */
+	rssiDbm: number | null;
 	hopperCapacityG: number | null;
 	gramsPerFeeding: number | null;
 }
@@ -63,7 +71,15 @@ export function toHopperSnapshot(
 	now: Date = new Date(),
 	policy: DeviceStatusPolicy = DEFAULT_DEVICE_STATUS_POLICY,
 ): HopperSnapshot {
-	const status = evaluateDeviceStatus({ lastSeenAt: row.lastSeenAt, now, policy }).state;
+	// I-97: the stored signal feeds the same rule; a stale reading is dropped so
+	// a silent unit is not shown as a current "weak signal".
+	const rssiDbm = resolveRssiDbm({
+		rssiDbm: row.wifiRssiDbm,
+		updatedAt: row.wifiRssiUpdatedAt,
+		now,
+		policy,
+	});
+	const status = evaluateDeviceStatus({ lastSeenAt: row.lastSeenAt, now, policy, rssiDbm }).state;
 	return {
 		deviceId: row.id,
 		levelPercent: row.feedLevelPercent,
@@ -71,6 +87,7 @@ export function toHopperSnapshot(
 		lastSeenAt: row.lastSeenAt,
 		status,
 		isOffline: status === "offline",
+		rssiDbm,
 		hopperCapacityG: row.hopperCapacityG ?? null,
 		gramsPerFeeding: row.gramsPerFeeding ?? null,
 	};

@@ -6,7 +6,7 @@ import { PH_TZ } from "@/lib/constants";
  *
  * The History page used to add up the grams of whatever rows happened to be on
  * the first page and call that "Recent Feed Dispensed". One page mixes machine
- * dispenses (at most 1,000 g each) with imported `hand_fed` rows, which are a
+ * dispenses with imported `hand_fed` rows, which are a
  * whole day's hand feeding, so the sum was not a dispense and not a window.
  *
  * These helpers keep the answer to a farmer's real questions — what the last

@@ -4,56 +4,45 @@
  * re-exports everything here for server code.
  */
 
-export const MAX_FEED_GRAMS_PER_REQUEST = 1000;
 export const MAX_FEED_GRAMS_PER_DAY_PER_DEVICE = 5000;
 export const MAX_DISPENSE_MS = 300_000;
 /** Calibration is the one deliberate exception: a measured run may last 10 minutes. */
 export const CALIBRATION_MAX_DISPENSE_MS = 600_000;
 
 /**
- * Why a Feed Now request was limited. The effective limit is the lowest of:
- * - the pond/device per-meal ceiling (`EnergyDevice.gramsPerFeeding`),
- * - the remaining daily ceiling from `resolveDailyCapG()`,
- * - the absolute safety ceiling `MAX_FEED_GRAMS_PER_REQUEST`.
+ * The only gram cap is the daily ceiling (`resolveDailyCapG`).
+ *
+ * This constant is deliberately NOT a per-dose limit: it is the schema sanity
+ * bound, equal to the daily hard guard, so malformed input (a typo or an attack
+ * payload) is rejected. Any dose up to the remaining daily ceiling is valid.
+ * The firmware's own per-dispense guard is a separate hardware safety check.
  */
-export type FeedNowLimitSource = "hard_ceiling" | "pond_per_meal" | "remaining_daily";
+export const MAX_ACCEPTED_FEED_GRAMS = MAX_FEED_GRAMS_PER_DAY_PER_DEVICE;
 
 export interface FeedNowLimit {
 	/** The highest grams a manual Feed Now may dispense right now. */
 	effectiveG: number;
-	/** The configured per-meal ceiling (not clamped; may exceed the hard ceiling). */
-	perMealCeilingG: number;
-	/** The absolute safety ceiling (`MAX_FEED_GRAMS_PER_REQUEST`). */
-	hardCeilingG: number;
+	/** The resolved daily ceiling for this device. */
+	dailyCapG: number;
+	/** Grams already queued/dispensed today (Asia/Manila). */
+	usedTodayG: number;
 	/** What is left of the daily ceiling (never negative). */
 	remainingDailyG: number;
-	/** Which ceiling produced `effectiveG`. */
-	source: FeedNowLimitSource;
 }
 
 /**
- * Resolve the manual Feed Now ceiling (issue #387, decision E30).
+ * Resolve the manual Feed Now ceiling (issue #387 / #398).
  *
- * The pond/device per-meal dose is the farm's chosen ceiling, but it can only
- * lower the manual limit: `MAX_FEED_GRAMS_PER_REQUEST` stays the absolute hard
- * safety ceiling and is never raised. The remaining daily allowance can lower
- * it further, and comes from the same resolved daily cap every server path
- * uses. Callers must not do this arithmetic themselves.
+ * The daily ceiling is the only gram cap: a manual feed may use whatever is
+ * left of `resolveDailyCapG()` today. There is no per-request or per-meal gram
+ * limit. Callers must not do this arithmetic themselves.
  */
 export function resolveFeedNowLimitG(input: {
-	/** `EnergyDevice.gramsPerFeeding` — the configured per-meal dose. */
-	perMealG?: number | null;
 	/** The resolved daily ceiling (`resolveDailyCapG()`); defaults to the standard cap. */
 	dailyCapG?: number | null;
 	/** Grams already queued/dispensed today (Asia/Manila). */
 	usedTodayG?: number | null;
 }): FeedNowLimit {
-	const hardCeilingG = MAX_FEED_GRAMS_PER_REQUEST;
-	const configuredPerMeal =
-		typeof input.perMealG === "number" && Number.isFinite(input.perMealG) && input.perMealG > 0
-			? input.perMealG
-			: hardCeilingG;
-	const manualCeiling = Math.min(configuredPerMeal, hardCeilingG);
 	const dailyCapG =
 		typeof input.dailyCapG === "number" && Number.isFinite(input.dailyCapG) && input.dailyCapG > 0
 			? input.dailyCapG
@@ -65,18 +54,12 @@ export function resolveFeedNowLimitG(input: {
 			? input.usedTodayG
 			: 0;
 	const remainingDailyG = Math.max(0, dailyCapG - usedTodayG);
-	const effectiveG = Math.min(manualCeiling, remainingDailyG);
-
-	let source: FeedNowLimitSource = "hard_ceiling";
-	if (remainingDailyG < manualCeiling) source = "remaining_daily";
-	else if (configuredPerMeal < hardCeilingG) source = "pond_per_meal";
 
 	return {
-		effectiveG,
-		perMealCeilingG: configuredPerMeal,
-		hardCeilingG,
+		effectiveG: remainingDailyG,
+		dailyCapG,
+		usedTodayG,
 		remainingDailyG,
-		source,
 	};
 }
 
@@ -87,19 +70,12 @@ export function formatFeedGrams(value: number): string {
 }
 
 /**
- * The refusal text for a Feed Now request above the effective limit. It names
- * every setting and number the operator needs (issue #387): the limit that
- * tripped, the pond per-meal ceiling, the absolute safety ceiling, the
- * remaining daily ceiling, and where to change it.
+ * The refusal text for a Feed Now request above the remaining daily ceiling
+ * (issue #387 / #398). It names the number the operator needs and where to
+ * change it.
  */
 export function feedNowLimitMessage(limit: FeedNowLimit): string {
-	const reason =
-		limit.source === "remaining_daily"
-			? "remaining daily ceiling"
-			: limit.source === "pond_per_meal"
-				? "pond per-meal ceiling"
-				: "absolute safety ceiling";
-	return `Feed Now limit is ${formatFeedGrams(limit.effectiveG)} g (${reason}). Pond per-meal ceiling: ${formatFeedGrams(limit.perMealCeilingG)} g. Absolute safety ceiling: ${formatFeedGrams(limit.hardCeilingG)} g. Remaining daily ceiling: ${formatFeedGrams(limit.remainingDailyG)} g. Change the pond feeding rate or meals per day in Settings > Pond.`;
+	return `Feed Now would exceed today's daily ceiling: ${formatFeedGrams(limit.remainingDailyG)} g left of ${formatFeedGrams(limit.dailyCapG)} g. Change it in Settings > Pond or the device daily ceiling in Settings > Hardware.`;
 }
 
 export const DAILY_CAP_MIN_G = 500;

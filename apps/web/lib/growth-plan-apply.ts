@@ -223,6 +223,15 @@ export async function applyGrowthPlanForPond(params: {
 					message: "The feeding plan produced a dose outside the feeder limits.",
 				};
 			}
+			// feedGramsSchema is only the 5,000 g sanity bound. The plan's device
+			// ceiling is the daily ceiling shared over the meals, and the derived
+			// dose must still fit it (the only gram cap).
+			if (derivedGrams > plan.device.maxGramsPerFeeding + 0.05) {
+				return {
+					kind: "error" as const,
+					message: "The feeding plan produced a dose outside the feeder limits.",
+				};
+			}
 
 			const updated = await tx.energyDevice.updateMany({
 				where: { id: device.id, gramsPerFeeding: previous },

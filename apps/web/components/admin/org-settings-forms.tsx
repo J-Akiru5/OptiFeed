@@ -263,6 +263,9 @@ export function NotificationSettingsForm({
 					<div>
 						<label htmlFor="offlineAfterMin" className={adminLabel}>
 							{t("offlineAfterLabel")}
+							<span className="ml-2 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black tracking-wider text-amber-800 uppercase dark:bg-amber-950/50 dark:text-amber-300">
+								{t("offlineAfterDeprecated")}
+							</span>
 						</label>
 						<input
 							id="offlineAfterMin"

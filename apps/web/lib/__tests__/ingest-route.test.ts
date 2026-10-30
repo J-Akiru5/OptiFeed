@@ -175,6 +175,7 @@ function heartbeatBody(
 		feedLevelCm?: number;
 		waterTempC?: number;
 		waterTempOk?: boolean;
+		wifiRssi?: unknown;
 	} = {},
 ) {
 	return {
@@ -188,6 +189,7 @@ function heartbeatBody(
 		...(opts.feedLevelCm !== undefined ? { feed_level_cm: opts.feedLevelCm } : {}),
 		...(opts.waterTempC !== undefined ? { water_temp_c: opts.waterTempC } : {}),
 		...(opts.waterTempOk !== undefined ? { water_temp_ok: opts.waterTempOk } : {}),
+		...(opts.wifiRssi !== undefined ? { wifi_rssi: opts.wifiRssi } : {}),
 	};
 }
 
@@ -782,5 +784,93 @@ describe("POST /api/ingest - firmware 1.6.0 fail-safe diagnostics", () => {
 				(call[0] as unknown as { data: { metadata: { reason: string } } }).data.metadata.reason,
 		);
 		expect(recorded).toEqual(reasons);
+	});
+});
+
+describe("POST /api/ingest — heartbeat Wi-Fi RSSI (I-97)", () => {
+	function wifiWrites(): Record<string, unknown>[] {
+		return mockEnergyDevice.update.mock.calls
+			.map(([arg]) => (arg as { data: Record<string, unknown> }).data)
+			.filter((data) => "wifiRssiDbm" in data);
+	}
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			lastSeenAt: new Date(Date.now() - 5000),
+		} as never);
+		mockEnergyDevice.update.mockResolvedValue({} as never);
+		mockFeedEvent.findFirst.mockResolvedValue({
+			receivedAt: new Date(),
+			rtcOk: true,
+			feederActive: false,
+		} as never);
+		mockFeedEvent.create.mockResolvedValue({} as never);
+		mockFeedLevelLog.findFirst.mockResolvedValue(null as never);
+		mockFeedLevelLog.create.mockResolvedValue({} as never);
+		mockWaterTempLog.findFirst.mockResolvedValue(null as never);
+		mockWaterTempLog.create.mockResolvedValue({} as never);
+		mockDeviceStateEvent.create.mockResolvedValue({} as never);
+		mockDeviceStateEvent.findFirst.mockResolvedValue(null as never);
+		mockNotification.create.mockResolvedValue({} as never);
+		mockNotification.findFirst.mockResolvedValue(null as never);
+		mockNotification.updateMany.mockResolvedValue({ count: 0 } as never);
+		mockPond.findUnique.mockResolvedValue(null as never);
+	});
+
+	it("stores a plausible RSSI with the heartbeat write already made", async () => {
+		const res = await POST(ingestRequest(heartbeatBody("hb-rssi-1", { wifiRssi: -72 })));
+
+		expect(res.status).toBe(204);
+		const writes = wifiWrites();
+		expect(writes).toHaveLength(1);
+		expect(writes[0]).toMatchObject({
+			lastSeenAt: expect.any(Date),
+			wifiRssiDbm: -72,
+			wifiRssiUpdatedAt: expect.any(Date),
+		});
+	});
+
+	it("accepts both ends of the ESP32 range", async () => {
+		for (const dbm of [-127, 0, -80]) {
+			vi.clearAllMocks();
+			mockEnergyDevice.update.mockResolvedValue({} as never);
+			mockFeedEvent.findFirst.mockResolvedValue(null as never);
+			mockFeedEvent.create.mockResolvedValue({} as never);
+			mockEnergyDevice.findUnique.mockResolvedValue({
+				...DEVICE,
+				lastSeenAt: new Date(Date.now() - 5000),
+			} as never);
+
+			const res = await POST(ingestRequest(heartbeatBody(`hb-rssi-ok-${dbm}`, { wifiRssi: dbm })));
+			expect(res.status).toBe(204);
+			expect(wifiWrites()[0]).toMatchObject({ wifiRssiDbm: dbm });
+		}
+	});
+
+	it.each([
+		["below the range", -128],
+		["above the range", 1],
+		["a non-integer", -72.5],
+		["a string", "-72"],
+		["null", null],
+		["a boolean", true],
+	])("ignores %s without failing the heartbeat", async (_label, value) => {
+		const res = await POST(ingestRequest(heartbeatBody("hb-rssi-bad", { wifiRssi: value })));
+
+		// The heartbeat itself is still accepted and still refreshes lastSeenAt.
+		expect(res.status).toBe(204);
+		expect(wifiWrites()).toHaveLength(0);
+		expect(mockEnergyDevice.update).toHaveBeenCalledWith(
+			expect.objectContaining({ data: expect.objectContaining({ lastSeenAt: expect.any(Date) }) }),
+		);
+	});
+
+	it("leaves the stored signal untouched when old firmware omits the field", async () => {
+		const res = await POST(ingestRequest(heartbeatBody("hb-rssi-old")));
+
+		expect(res.status).toBe(204);
+		expect(wifiWrites()).toHaveLength(0);
 	});
 });

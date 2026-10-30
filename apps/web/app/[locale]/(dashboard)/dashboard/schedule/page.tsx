@@ -11,6 +11,7 @@ import {
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { canWrite } from "@/lib/auth/session";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { getFeedNowLimitForDevice } from "@/lib/feed/feed-now-limit";
 import type { ScheduleSnapshotData } from "@/lib/offline/snapshots";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
@@ -54,6 +55,8 @@ export default async function SchedulePage() {
 			isPaused: true,
 			gramsPerFeeding: true,
 			gramsPerSecond: true,
+			dailyCapG: true,
+			hopperCapacityG: true,
 		},
 	});
 
@@ -68,6 +71,10 @@ export default async function SchedulePage() {
 			</div>
 		);
 	}
+
+	// The Feed Now ceiling (issue #387): pond per-meal dose, remaining daily
+	// allowance and the absolute hard ceiling, whichever is lowest.
+	const feedNowLimit = await getFeedNowLimitForDevice(energyDevice);
 
 	const [latestAppliedCommand, pendingCommands, stuckFeedRequests, stuckScheduleCommands] =
 		await Promise.all([
@@ -218,6 +225,7 @@ export default async function SchedulePage() {
 							gramsPerFeeding={energyDevice.gramsPerFeeding}
 							gramsPerSecond={energyDevice.gramsPerSecond}
 							canWrite={writeAccess}
+							feedNowLimit={feedNowLimit}
 						/>
 					</div>
 				</aside>

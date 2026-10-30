@@ -443,6 +443,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 			{/* Daily feed ceiling */}
 			{energyDevice && (
 				<DashboardSection
+					id="daily-ceiling"
 					title={t("dailyCeiling")}
 					description={t("dailyCeilingDesc")}
 					icon={Gauge}
@@ -459,6 +460,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 			{/* Hopper Calibration */}
 			{energyDevice && (
 				<DashboardSection
+					id="hopper-calibration"
 					title={t("hopperCalibration")}
 					description={t("hopperCalibrationDesc")}
 					icon={Ruler}
@@ -488,6 +490,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 			{/* Duration Calibration */}
 			{energyDevice && (
 				<DashboardSection
+					id="calibration"
 					title={t("calibration.title")}
 					description={t("calibration.desc")}
 					icon={Timer}
@@ -506,6 +509,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 			{/* Recalibration schedule + drift detector */}
 			{energyDevice && (
 				<DashboardSection
+					id="recalibration"
 					title={t("calibration.recalibration.title")}
 					description={t("calibration.recalibration.desc")}
 					icon={CalendarClock}
@@ -564,6 +568,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 			{/* Temperature sensor calibration */}
 			{energyDevice && (
 				<DashboardSection
+					id="temperature-calibration"
 					title={t("temperatureCalibration")}
 					description={t("temperatureCalibrationDesc")}
 					icon={Thermometer}
@@ -584,12 +589,14 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 						</p>
 					</div>
 
-					<TemperatureCalibrationForm
-						deviceId={energyDevice.id}
-						currentTempOffsetC={energyDevice.tempOffsetC}
-						currentTempC={energyDevice.waterTempC}
-						canWrite={writeAccess}
-					/>
+					<div data-help="setting-temperature-calibration">
+						<TemperatureCalibrationForm
+							deviceId={energyDevice.id}
+							currentTempOffsetC={energyDevice.tempOffsetC}
+							currentTempC={energyDevice.waterTempC}
+							canWrite={writeAccess}
+						/>
+					</div>
 				</DashboardSection>
 			)}
 

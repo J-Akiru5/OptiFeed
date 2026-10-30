@@ -52,6 +52,7 @@ import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { formatFeedAmountLabel } from "@/lib/feed-figures";
 import { isDeviceOffline } from "@/lib/feed-level-display";
 import { feedSourceKey } from "@/lib/feed-sources";
+import { getFeedNowLimitForDevice } from "@/lib/feed/feed-now-limit";
 import type { DashboardSnapshotData } from "@/lib/offline/snapshots";
 import { getFeedPerDayBySource, getHopperLevelSeries, getWaterTempSeries } from "@/lib/pond-charts";
 import { getActivePond } from "@/lib/pond-selection";
@@ -189,24 +190,34 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	// Schedule resolution needs the device id; feeding history, the charts and
 	// the drift check use the same ids, so they share the second wave. The
 	// water-temperature trend is scoped to the primary device.
-	const [currentConfig, feedingHistory, waterTempPoints, feedChart, hopperPoints, driftWindow] =
-		await Promise.all([
-			resolveCurrentSchedule(pond.id, energyDevice?.id ?? null),
-			energyDevice
-				? prisma.feedEvent.findMany({
-						where: { deviceId: energyDevice.id, eventType: "feed_dispensed" },
-						orderBy: { receivedAt: "desc" },
-						take: 5,
-					})
-				: Promise.resolve([]),
-			energyDevice ? getWaterTempSeries([energyDevice.id], waterRange) : Promise.resolve([]),
-			getFeedPerDayBySource(deviceIds),
-			getHopperLevelSeries(deviceIds, DEFAULT_HOPPER_RANGE),
-			// One loader for every surface (#6): device output only, seven days.
-			energyDevice
-				? loadCalibrationDriftWindow(energyDevice.id, now)
-				: Promise.resolve({ feeds: [], levels: [], start: now }),
-		]);
+	const [
+		currentConfig,
+		feedingHistory,
+		waterTempPoints,
+		feedChart,
+		hopperPoints,
+		driftWindow,
+		feedNowLimit,
+	] = await Promise.all([
+		resolveCurrentSchedule(pond.id, energyDevice?.id ?? null),
+		energyDevice
+			? prisma.feedEvent.findMany({
+					where: { deviceId: energyDevice.id, eventType: "feed_dispensed" },
+					orderBy: { receivedAt: "desc" },
+					take: 5,
+				})
+			: Promise.resolve([]),
+		energyDevice ? getWaterTempSeries([energyDevice.id], waterRange) : Promise.resolve([]),
+		getFeedPerDayBySource(deviceIds),
+		getHopperLevelSeries(deviceIds, DEFAULT_HOPPER_RANGE),
+		// One loader for every surface (#6): device output only, seven days.
+		energyDevice
+			? loadCalibrationDriftWindow(energyDevice.id, now)
+			: Promise.resolve({ feeds: [], levels: [], start: now }),
+		// The Feed Now ceiling (issue #387) is the lower of the pond/device
+		// per-meal dose, the remaining daily allowance and the hard ceiling.
+		energyDevice ? getFeedNowLimitForDevice(energyDevice) : Promise.resolve(null),
+	]);
 
 	const latestFcr = fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : 0.0;
 	const cycleContext = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
@@ -636,6 +647,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							canWrite={writeAccess}
 							isFallow={pond.isFallow}
 							gramsPerSecond={energyDevice?.gramsPerSecond}
+							feedNowLimit={feedNowLimit}
 							data-onboard="feed-now"
 						/>
 					</div>
@@ -873,6 +885,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 									canWrite={writeAccess}
 									recalibrationDue={recalibration.isOverdue}
 									recalibrationDaysOverdue={recalibration.daysOverdue}
+									feedNowLimit={feedNowLimit}
 								/>
 							</ControlPanel>
 							<TimeCalibrationForm deviceId={energyDevice.id} canWrite={writeAccess} />

@@ -110,7 +110,9 @@ export default async function SuperadminSettingsPage() {
 			title: t("safety.title"),
 			description: t("safety.description"),
 			content: (
-				<FeedingCapsForm initial={caps} min={FEEDING_CAPS_MIN} hardMax={FEEDING_CAPS_HARD_MAX} />
+				<div data-help="setting-platform-safety-caps">
+					<FeedingCapsForm initial={caps} min={FEEDING_CAPS_MIN} hardMax={FEEDING_CAPS_HARD_MAX} />
+				</div>
 			),
 		},
 		{
@@ -119,20 +121,22 @@ export default async function SuperadminSettingsPage() {
 			title: t("defaults.title"),
 			description: t("defaults.description"),
 			content: (
-				<OrgDefaultsForm
-					initial={orgDefaults}
-					bounds={{
-						feedingRateMin: ORG_DEFAULT_FEEDING_RATE_MIN,
-						feedingRateMax: ORG_DEFAULT_FEEDING_RATE_MAX,
-						hopperLowMin: ORG_HOPPER_LOW_PCT_MIN,
-						hopperLowMax: ORG_HOPPER_LOW_PCT_MAX,
-						offlineAfterMinMin: ORG_OFFLINE_AFTER_MIN_MIN,
-						offlineAfterMinMax: ORG_OFFLINE_AFTER_MIN_MAX,
-					}}
-					roles={MEMBER_ROLES}
-					modes={DEVICE_REGISTRATION_MODES}
-					adminApprovalMode="ADMIN_APPROVAL"
-				/>
+				<div data-help="setting-platform-org-defaults">
+					<OrgDefaultsForm
+						initial={orgDefaults}
+						bounds={{
+							feedingRateMin: ORG_DEFAULT_FEEDING_RATE_MIN,
+							feedingRateMax: ORG_DEFAULT_FEEDING_RATE_MAX,
+							hopperLowMin: ORG_HOPPER_LOW_PCT_MIN,
+							hopperLowMax: ORG_HOPPER_LOW_PCT_MAX,
+							offlineAfterMinMin: ORG_OFFLINE_AFTER_MIN_MIN,
+							offlineAfterMinMax: ORG_OFFLINE_AFTER_MIN_MAX,
+						}}
+						roles={MEMBER_ROLES}
+						modes={DEVICE_REGISTRATION_MODES}
+						adminApprovalMode="ADMIN_APPROVAL"
+					/>
+				</div>
 			),
 		},
 		{
@@ -148,13 +152,15 @@ export default async function SuperadminSettingsPage() {
 			title: t("flags.title"),
 			description: t("flags.description"),
 			content: (
-				<FeatureFlagsForm
-					flags={FEATURE_FLAGS.map((flag) => ({
-						key: flag.key,
-						id: flag.id,
-						enabled: flags[flag.id],
-					}))}
-				/>
+				<div data-help="setting-platform-flags">
+					<FeatureFlagsForm
+						flags={FEATURE_FLAGS.map((flag) => ({
+							key: flag.key,
+							id: flag.id,
+							enabled: flags[flag.id],
+						}))}
+					/>
+				</div>
 			),
 		},
 	];

@@ -1,8 +1,9 @@
 "use client";
 
-import { useRouter } from "@/i18n/routing";
+import { usePathname, useRouter } from "@/i18n/routing";
 import { switchPond } from "@/lib/actions/pond-selection";
 import { globalSearch } from "@/lib/actions/search";
+import { requestHelpTarget, revealHelpTarget } from "@/lib/help/reveal";
 import type { GlobalSearchResult, SearchGroup, SearchRow, SearchShell } from "@/lib/search/types";
 import { cn } from "@/lib/utils";
 import {
@@ -15,6 +16,7 @@ import {
 	Loader2,
 	Search,
 	SearchX,
+	SlidersHorizontal,
 	Users,
 	X,
 } from "lucide-react";
@@ -51,13 +53,14 @@ const FOCUSABLE =
 
 const GROUP_ICON = {
 	pages: FileText,
+	settings: SlidersHorizontal,
 	ponds: Droplets,
 	devices: Cpu,
 	members: Users,
 	records: CalendarClock,
 } as const;
 
-const GROUP_ORDER: SearchGroup[] = ["pages", "ponds", "devices", "members", "records"];
+const GROUP_ORDER: SearchGroup[] = ["pages", "settings", "ponds", "devices", "members", "records"];
 
 /**
  * Mount one palette for the current shell. Nothing renders until it is opened
@@ -157,6 +160,7 @@ export function GlobalSearchDialog({
 	const tRoot = useTranslations();
 	const locale = useLocale();
 	const router = useRouter();
+	const pathname = usePathname();
 	const panelRef = useRef<HTMLDialogElement>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const requestId = useRef(0);
@@ -165,6 +169,7 @@ export function GlobalSearchDialog({
 
 	const [query, setQuery] = useState("");
 	const [pages, setPages] = useState<SearchRow[]>([]);
+	const [settings, setSettings] = useState<SearchRow[]>([]);
 	const [rows, setRows] = useState<SearchRow[]>([]);
 	const [status, setStatus] = useState<"idle" | "loading" | "ready" | "unavailable">("idle");
 	const [activeIndex, setActiveIndex] = useState(0);
@@ -248,6 +253,7 @@ export function GlobalSearchDialog({
 				if (id !== requestId.current) return;
 				pagesLoaded.current = result.status === "ok";
 				setPages(result.pages);
+				setSettings(result.settings);
 				setStatus(result.status === "unavailable" ? "unavailable" : "idle");
 			});
 			return;
@@ -259,6 +265,7 @@ export function GlobalSearchDialog({
 			if (id !== requestId.current) return;
 			pagesLoaded.current = pagesLoaded.current || result.status === "ok";
 			setPages(result.pages);
+			setSettings(result.settings);
 			setRows(result.rows);
 			setStatus(result.status === "unavailable" ? "unavailable" : "ready");
 			setActiveIndex(0);
@@ -277,13 +284,32 @@ export function GlobalSearchDialog({
 		});
 	}, [pages, query, tRoot]);
 
+	// Settings are matched on their translated label, the one-line description
+	// and their English + Hiligaynon synonyms (#370). They are only offered once
+	// the reader is searching, so the empty state stays a short suggestion list.
+	const settingMatches = useMemo(() => {
+		const needle = query.trim().toLowerCase();
+		if (!needle) return [];
+		return settings.filter((setting) => {
+			const title = setting.titleKey ? tRoot(setting.titleKey) : setting.title;
+			const description = setting.descriptionKey ? tRoot(setting.descriptionKey) : "";
+			const haystack = [title, description, ...(setting.keywords ?? [])].join(" ").toLowerCase();
+			return haystack.includes(needle);
+		});
+	}, [settings, query, tRoot]);
+
 	const groups = useMemo(
 		() =>
 			GROUP_ORDER.map((group) => ({
 				group,
-				rows: group === "pages" ? pageMatches : rows.filter((row) => row.group === group),
+				rows:
+					group === "pages"
+						? pageMatches
+						: group === "settings"
+							? settingMatches
+							: rows.filter((row) => row.group === group),
 			})).filter((entry) => entry.rows.length > 0),
-		[pageMatches, rows],
+		[pageMatches, settingMatches, rows],
 	);
 
 	const visibleRows = useMemo(() => groups.flatMap((entry) => entry.rows), [groups]);
@@ -307,6 +333,7 @@ export function GlobalSearchDialog({
 
 	const subtitle = useCallback(
 		(row: SearchRow): string | null => {
+			if (row.descriptionKey) return tRoot(row.descriptionKey);
 			const meta = row.meta;
 			if (!meta) return null;
 			const statusLabel = meta.status ? t(`status.${meta.status}`) : null;
@@ -325,11 +352,12 @@ export function GlobalSearchDialog({
 			}
 			if (row.group === "members") return meta.email ?? statusLabel;
 			if (row.group === "ponds") return statusLabel;
+			if (row.group === "settings") return null;
 
 			const grams = meta.grams === undefined ? null : `${Math.round(meta.grams)} g`;
 			return [meta.pondName, date, grams, statusLabel].filter(Boolean).join(" · ") || null;
 		},
-		[locale, t],
+		[locale, t, tRoot],
 	);
 
 	const select = (row: SearchRow | undefined) => {
@@ -339,6 +367,19 @@ export function GlobalSearchDialog({
 			// Reuse the app's existing pond switch (it validates ownership) rather
 			// than inventing a second navigation path for a pond row.
 			void switchPond(row.switchPondId).catch(() => router.push(row.href));
+			return;
+		}
+		// A settings result opens the page and then scrolls to, focuses and rings
+		// the real control, using the same navigate-then-highlight engine as the
+		// help sheet (#370, E13). On the same screen no navigation is needed.
+		if (row.settingTarget && row.settingRoute) {
+			const settingTarget = row.settingTarget;
+			if (row.settingRoute === pathname) {
+				window.setTimeout(() => revealHelpTarget(settingTarget), 140);
+				return;
+			}
+			requestHelpTarget(settingTarget, row.settingRoute);
+			router.push(row.href);
 			return;
 		}
 		router.push(row.href);

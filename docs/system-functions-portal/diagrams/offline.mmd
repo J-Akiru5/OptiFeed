@@ -1,0 +1,38 @@
+flowchart TB
+  subgraph Online["Online"]
+    direction LR
+    O1["Reads<br/>dashboard · schedule<br/>growth · history"]
+    O2["Writes<br/>feed · schedule<br/>harvest · calibration"]
+    O3["Biomass sample<br/>submitted"]
+  end
+
+  subgraph Cache["On the device"]
+    direction LR
+    C1["App shell<br/>service worker"]
+    C2["Snapshots<br/>last known state"]
+    C3["Outbox<br/>queued samples"]
+  end
+
+  subgraph Offline["Offline"]
+    direction LR
+    F1["Read snapshots<br/>banner + last synced"]
+    F2["Queue sample<br/>idempotent replay"]
+    F3["Writes blocked<br/>by design"]
+  end
+
+  subgraph Edge["Pond edge"]
+    direction LR
+    E1["RTC schedule<br/>06:00 · 19:00"]
+    E2["Physical button<br/>GPIO interrupt"]
+  end
+
+  O1 --> C2 --> F1
+  O3 --> C3 --> F2
+  O2 --> F3
+  F3 -.->|"feeding continues"| E1
+  E1 --> E2
+
+  classDef offline fill:#fff8f3,stroke:#d9a58c,color:#7a4a33;
+  classDef safe fill:#eef3f1,stroke:#7a8c85,color:#0a2e47;
+  class F1,F2,F3 offline;
+  class E1,E2 safe;

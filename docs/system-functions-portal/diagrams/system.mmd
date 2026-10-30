@@ -1,0 +1,26 @@
+flowchart TB
+  U["Farmer · tenant admin · platform admin"] --> WEB
+
+  subgraph WEB["Next.js 16 application"]
+    direction LR
+    UI["Pages<br/>landing · dashboard · admin · superadmin"]
+    API["Server actions + API<br/>session · device auth · rate limits"]
+    UI --> API
+  end
+
+  WEB --> DATA
+
+  subgraph DATA["Supabase"]
+    direction LR
+    PG[("Postgres<br/>Prisma")]
+    AUTH["Auth · storage"]
+  end
+
+  API --> AI["AI provider chain"]
+  API --> NOTIFY["Telegram · email"]
+  JOB["Cron + background jobs"] --> PG
+  API <-->|"heartbeat · commands · events"| ESP
+  ESP["ESP32 controller<br/>RTC · relay · sensors"] --> FEED["Feeder auger"]
+
+  classDef accent fill:#fff1ea,stroke:#e85a2a,color:#0a2e47,stroke-width:1.5px;
+  class API,ESP accent;

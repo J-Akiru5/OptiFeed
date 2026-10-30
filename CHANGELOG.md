@@ -9,22 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.30.4] - 2026-10-29
+## [1.31.2] - 2026-10-30
 
 ### Added
 
-- #344 Pakoy can now perform the whole write surface the signed-in user is permitted to use, instead of falling back to "no write access": biomass update/delete, calendar item update/delete/reopen, pond archive/restore/delete, device move/unassign, member revocation, device-token reveal and rotation, platform remote feed/pause, platform user disable/enable and platform-admin grant/revoke. Every new action reuses the existing server action and its guards — nothing bypasses permission, tenant scope, reason or step-up — and the proposal step surfaces `step_up_required` rather than executing.
-- Refusals are now specific ("Only a platform admin can…", "You need the manage_members permission…", "Re-enter your password…") instead of one generic sentence, and are produced by both the planner and Accept.
-- The intent router understands the wider vocabulary and carries conversation history, so a short reply to Pakoy's own clarifying question (for example "same day, does not repeat, now go") continues the same action instead of falling through to chat.
+- #344 Pakoy can now perform the whole write surface the signed-in user is permitted to use, instead of falling back to "no write access": biomass update/delete, calendar item update/delete/reopen, pond archive/restore/delete, device move/unassign, member revocation, device-token reveal and rotation, platform remote feed/pause, platform user disable/enable and platform-admin grant/revoke. Every new action reuses the existing server action and its guards, and the proposal step surfaces `step_up_required` rather than executing.
+- Refusals are specific ("Only a platform admin can…", "You need the manage_members permission…", "Re-enter your password…") and are produced by both the planner and Accept.
+- The intent router understands the wider vocabulary and carries conversation history, so a short reply to Pakoy's own clarifying question continues the same action instead of falling through to chat.
 
 ### Security
 
 - 21 new assistant actions were added with an allow **and** deny matrix (74 accept cases across all 37 kinds) and a guard-matrix test asserting each action satisfies the same guard as its UI counterpart. Password-bearing provisioning, hardware enrolment, calibration procedures and pond/cycle forms remain intentionally unavailable in chat.
+- The assistant catalogue was split into per-surface modules so the complexity budget holds (worst file 79/180); function coverage is 95.08% (threshold 94.5).
+## [1.31.0] - 2026-10-30
+
+### Added
+
+- The feeder 3D viewer now shows six component labels ? hopper, ultrasonic sensor, controller, motor, auger and outlet ? with statuses derived from the feeder status and hopper level. They appear only in the ISO preset, use fixed Solis-style callout slots with 1 px leaders and anchor dots, and fall back to a 2 x 3 semantic status list below `md`. The ISO stage is now the owner-approved front-left angle; manual orbit clears the labels and pressing ISO restores them. The card gains the PakaonAI navy product-stage glow and an orange active preset pill.
+- The public landing hardware section now features the tape-calibrated feeder model as a transparent ISO poster, with a research-prototype caption and the existing six-row parts table below. The poster is 20.9 kB WebP and loads lazily; the 3D runtime is not added to the public page.
+
+### Fixed
+
+- The post top is 105 mm above the hopper/lid top: **615 mm**, down from 750 mm. Model asset **1.1.2**; service-worker cache **v8**.
+
+## [1.30.3] - 2026-10-29
+
+### Fixed
+
+- Feeder layout amendments from the owner's photos: the black controller panel now touches the sticker with no gap, the 750 mm post sits against the jar's right side and the chassis with its arm parallel to the front, the jar is 20 mm shorter, and a vertical white plank supports the left edge of the hopper shelf. Model asset `feeder-v1.1.1.glb` (1,165,132 bytes, 38,284 triangles); service-worker cache **v7**.
 
 ## [1.30.2] - 2026-10-29
 
 ### Fixed
 
+- #316 the dashboard header's `LAST SYNCED` label and its relative time are translated (`en`/`hil`/`tl`) with ICU plurals instead of hard-coded English, and the profile menu's device status uses the catalogue rather than the raw enum. A gate entry stops the literal from coming back.
+- #320 `DeviceDailyCapForm` now uses the shared calibration field, so the daily ceiling is clearable, steps in 50 g units, reports range errors accessibly and lines up with the other calibration cards.
+- #345 the account dropdown is readable in dark mode (Admin Panel 3.34:1 → 4.89:1, device offline 2.62 → 5.08, missing 3.03 → 9.96) and finally links to Account settings at `/dashboard/settings/profile`.
 - The feeder 3D model is rebuilt from the tape measurements: a 340 × 450 mm base, a 145 × 450 × 315 mm chassis, one 400 mm PET jar on a 200 mm shelf, and a 50 mm auger tube with a 60 mm motor. The ultrasonic sensor now sits on the jar lid, the 750 mm post and short arm are a wire guide, and the model includes the red rubber motor coupling, the brown tube-end plug, the blue outlet with the red cap, and the two wood tube cradles. Model asset `feeder-v1.1.0.glb` (1.1 MB, 37,800 triangles); the service-worker cache moves to **v6** for the new URL.
 - The viewer camera presets and orbit target are reframed for the smaller machine, and the dispensing auger/coupling now rotate around the tube axis instead of the vertical axis.
 

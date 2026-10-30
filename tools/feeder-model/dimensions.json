@@ -1,7 +1,7 @@
 {
-	"revision": "tape-2026-10-29",
+	"revision": "tape-2026-10-29-post",
 	"units": "mm",
-	"notes": "Tape measurements supplied by Jeff in feeder-dimensions-2026-10-29.json. The base top is height 0 and +Z is the front (sticker/panel face). The hopper is one whole PET jar on the jar's own conical shoulder, not three tiers. The ultrasonic sensor sits on the jar lid; the post and short arm are a wire guide only. B10 was entered as 20 (cm) and is applied as 200 mm because that is the reading consistent with the 400 mm jar, the 530 mm lid sensor and the photos. Missing from the sheet: separate jar-tier heights (single jar) and hinge spacing (defaulting to 60% of the chassis width).",
+	"notes": "Tape measurements supplied by Jeff in feeder-dimensions-2026-10-29.json, with the 2026-10-29 layout amendments. The base top is height 0 and +Z is the front. The hopper is one whole PET jar on its conical shoulder, not three tiers. The jar is shortened by 20 mm from the tape value (400 -> 380) so the pot sits lower; the shelf stays at 200 mm. The black controller panel now sits directly under the sticker with no gap. The vertical post is moved into the 10 mm gap against the jar's right side and the chassis, so it supports the hopper/shelf; its arm runs left-to-right, parallel to the front. A vertical white plank under the left edge of the shelf supports the platform from the base (reference photo). The ultrasonic sensor sits on the jar lid; the post arm is a wire guide. The post top is 105 mm above the hopper/lid top: lid top 510 -> post top 615, not the earlier 750 estimate. Missing from the sheet: separate jar-tier heights (single jar) and hinge spacing (defaulting to 60% of the chassis width).",
 	"base_plate": {
 		"width": 340,
 		"depth": 450,
@@ -29,10 +29,16 @@
 		"height": 10,
 		"depth": 200
 	},
+	"shelf_support": {
+		"center": [-162.5, 95, 105],
+		"width": 15,
+		"height": 190,
+		"depth": 240
+	},
 	"hopper": {
 		"center": [-82.5, 125, 127.5],
 		"diameter": 195,
-		"height": 400,
+		"height": 380,
 		"wall": 3,
 		"neck_diameter": 45,
 		"shoulder_diameter": 155,
@@ -45,16 +51,16 @@
 	"lid": {
 		"diameter": 195,
 		"thickness": 5,
-		"center": [-82.5, 527.5, 127.5]
+		"center": [-82.5, 507.5, 127.5]
 	},
 	"grain": {
 		"center": [-82.5, 125, 127.5],
 		"max_diameter": 185,
-		"height": 260,
+		"height": 250,
 		"default_fill_pct": 62
 	},
 	"sensor": {
-		"center": [-82.5, 535, 170],
+		"center": [-82.5, 515, 170],
 		"width": 20,
 		"height": 10,
 		"depth": 45,
@@ -63,16 +69,16 @@
 		"transducer_offset": 12
 	},
 	"post": {
-		"center": [20, 375, -210],
+		"center": [20, 307.5, 127.5],
 		"width": 10,
-		"height": 750,
+		"height": 615,
 		"depth": 30
 	},
 	"post_arm": {
-		"center": [20, 745, -157.5],
-		"width": 10,
+		"center": [-20, 610, 127.5],
+		"width": 80,
 		"height": 10,
-		"depth": 80
+		"depth": 10
 	},
 	"neck": {
 		"center": [-82.5, 120, 127.5],
@@ -145,14 +151,14 @@
 		}
 	],
 	"panel": {
-		"center": [90, 120, 228],
+		"center": [90, 170, 228],
 		"width": 60,
 		"height": 100,
 		"depth": 6,
-		"dial_center": [90, 140, 228],
+		"dial_center": [90, 190, 228],
 		"dial_diameter": 30,
-		"switch_center": [90, 100, 228],
-		"led_centers": [[130, 120, 225], [130, 90, 225]]
+		"switch_center": [90, 150, 228],
+		"led_centers": [[130, 190, 225], [130, 150, 225]]
 	},
 	"sticker": {
 		"center": [92.5, 252.5, 226],

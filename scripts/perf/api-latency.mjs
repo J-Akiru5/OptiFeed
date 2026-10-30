@@ -573,6 +573,10 @@ function startServer(port) {
 		cwd: process.cwd(),
 		stdio: ["ignore", "pipe", "pipe"],
 		shell: true,
+		// POSIX: a detached shell becomes its own process-group leader, so stop()
+		// can signal the whole tree (shell -> pnpm -> next-server) instead of
+		// leaving next-server alive with our stdout/stderr pipes attached.
+		detached: process.platform !== "win32",
 	});
 	let output = "";
 	const collect = (chunk) => {
@@ -591,8 +595,20 @@ function startServer(port) {
 			if (process.platform === "win32") {
 				spawn(`taskkill /pid ${child.pid} /T /F`, { stdio: "ignore", shell: true });
 			} else {
-				child.kill("SIGTERM");
+				try {
+					// Negative pid = the detached process group, including the
+					// next-server grandchild that inherits our pipes.
+					process.kill(-child.pid, "SIGTERM");
+				} catch {
+					child.kill("SIGTERM");
+				}
 			}
+			// Release the pipes even if the tree ignored the signal. Open
+			// stdout/stderr handles keep this Node process alive after the
+			// measurements, which is what held CI for its full 30-minute timeout.
+			child.stdout?.destroy();
+			child.stderr?.destroy();
+			child.unref();
 		},
 	};
 }
@@ -702,4 +718,11 @@ async function main() {
 	}
 }
 
-process.exitCode = await main();
+const exitCode = await main();
+process.exitCode = exitCode;
+
+// Safety net: if a spawned server (or any other handle) survives stop(), do not
+// let the CI job hang until GitHub's timeout. The timer is unref'd, so the
+// normal path exits immediately; it only fires when something still holds the
+// event loop open.
+setTimeout(() => process.exit(exitCode), 5_000).unref();

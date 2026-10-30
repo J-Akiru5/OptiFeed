@@ -14,7 +14,7 @@ import { ORG_SETTINGS_DEFAULTS, getOrgSettings } from "@/lib/settings/org";
 import { getListPageSize } from "@/lib/settings/platform";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MemberRole, Prisma, UserRole } from "@prisma/client";
-import { headers } from "next/headers";
+import { requestOrigin } from "./platform/audit";
 
 /**
  * Platform-console actions. Every export is gated by requirePlatformAdmin()
@@ -65,20 +65,6 @@ function auditTargetType(action: string): AuditTargetType {
 	if (action.startsWith("platform.org.")) return "organization";
 	if (action.startsWith("platform.admin.")) return "platform_admin";
 	throw new Error(`Unknown platform audit action: ${action}`);
-}
-
-/** Request origin for the audit row (who/what/when/where), same as devices.ts. */
-async function requestOrigin(): Promise<{ ip: string | null; userAgent: string | null }> {
-	try {
-		const h = await headers();
-		const forwarded = h.get("x-forwarded-for")?.split(",")[0]?.trim();
-		return {
-			ip: forwarded || h.get("x-real-ip") || null,
-			userAgent: h.get("user-agent")?.slice(0, 512) ?? null,
-		};
-	} catch {
-		return { ip: null, userAgent: null };
-	}
 }
 
 /** Append an audit row (T5). Every mutation in this file calls it. */
@@ -348,7 +334,9 @@ export async function listAllUsers(
 	};
 }
 
-export type PlatformUserResult = { success: true; userId: string } | { error: string };
+export type PlatformUserResult =
+	| { success: true; userId: string }
+	| { error: string; code?: "step_up_required" };
 
 export type CreatePlatformUserInput = {
 	reason: string;
@@ -525,6 +513,14 @@ export async function createPlatformUser(
 	}
 }
 
+/**
+ * Update a user's display name and/or legacy `User.role`.
+ *
+ * Changing the legacy role can confer authority on paths that still read it,
+ * so it follows the same fresh-step-up rule as grant/revoke and the tenant role
+ * change. A display-name-only edit is not privileged and does not demand one.
+ * The audit row records `stepUpAt` only when the role was checked.
+ */
 export async function updatePlatformUser(
 	userId: string,
 	data: { displayName?: string; role?: UserRole },
@@ -541,23 +537,37 @@ export async function updatePlatformUser(
 		if (!before) return { error: "User not found." };
 
 		const actor = await actorId();
-		await prisma.$transaction(async (tx) => {
-			await tx.user.update({ where: { id: userId }, data });
-			await audit(
-				{
-					action: "platform.user.update",
-					targetId: userId,
-					reason: trimmedReason,
-					actorUserId: actor,
-					before,
-					after: { ...before, ...data },
-				},
-				tx,
-			);
-		});
+		// A no-op role value is not a change, so it is not treated as privileged.
+		const roleChanged = data.role !== undefined && data.role !== before.role;
+
+		const applyUpdate = async (stepUpAt: Date | null) => {
+			await prisma.$transaction(async (tx) => {
+				await tx.user.update({ where: { id: userId }, data });
+				await audit(
+					{
+						action: "platform.user.update",
+						targetId: userId,
+						reason: trimmedReason,
+						actorUserId: actor,
+						...(stepUpAt ? { stepUpAt } : {}),
+						before,
+						after: { ...before, ...data },
+					},
+					tx,
+				);
+			});
+		};
+
+		if (roleChanged) {
+			await withStepUp((stepUpAt) => applyUpdate(stepUpAt));
+		} else {
+			await applyUpdate(null);
+		}
 
 		return { success: true, userId };
 	} catch (e) {
+		const stepUp = stepUpFailure(e);
+		if (stepUp) return stepUp;
 		console.error("[superadmin] updatePlatformUser error:", e);
 		return { error: "Failed to update the user." };
 	}

@@ -108,11 +108,6 @@ export const GET = withApi(
 			return new Response("Unprocessable Entity", { status: 422 });
 		}
 
-		const { success } = await checkDeviceRateLimit(deviceId, "schedule");
-		if (!success) {
-			return new Response("Too Many Requests", { status: 429 });
-		}
-
 		let device: Awaited<ReturnType<typeof verifyDeviceToken>> = null;
 		try {
 			device = await verifyDeviceToken(token);
@@ -123,6 +118,15 @@ export const GET = withApi(
 
 			if (!isDeviceApproved(device)) {
 				return new Response("Forbidden", { status: 403 });
+			}
+
+			// #330: the bucket is keyed on the *verified* MAC. Keying on the raw
+			// `device_id` query param (unauthenticated) let anyone who knows a MAC
+			// spend that device's budget and hold it at 429. A rejected token now
+			// costs one indexed lookup and writes no bucket row.
+			const { success } = await checkDeviceRateLimit(device.mac, "schedule");
+			if (!success) {
+				return new Response("Too Many Requests", { status: 429 });
 			}
 
 			const timeSync = await timeSyncFields(device.id);

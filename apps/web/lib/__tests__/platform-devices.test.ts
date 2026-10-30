@@ -34,9 +34,11 @@ vi.mock("@/lib/auth/step-up", () => ({
 		error !== null &&
 		(error as { code?: unknown }).code === "step_up_required",
 }));
+vi.mock("@/lib/rate-limit", () => ({ checkDeviceTokenRevealRateLimit: vi.fn() }));
 vi.mock("next/headers", () => ({
 	headers: vi.fn(
-		async () => new Headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1", "user-agent": "vitest" }),
+		async () =>
+			new Headers({ "x-forwarded-for": "10.0.0.99, 203.0.113.7", "user-agent": "vitest" }),
 	),
 }));
 
@@ -52,11 +54,13 @@ import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { getCurrentUser } from "@/lib/auth/session";
 import { withStepUp } from "@/lib/auth/step-up";
 import { hashToken } from "@/lib/device-auth";
+import { checkDeviceTokenRevealRateLimit } from "@/lib/rate-limit";
 import { Prisma } from "@prisma/client";
 
 const mockGate = vi.mocked(requirePlatformAdmin);
 const mockUser = vi.mocked(getCurrentUser);
 const mockWithStepUp = vi.mocked(withStepUp);
+const mockRevealLimit = vi.mocked(checkDeviceTokenRevealRateLimit);
 
 const validInput = {
 	mac: "a4-cf-12-7e-3b-09",
@@ -84,6 +88,7 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	mockGate.mockResolvedValue(undefined);
 	mockUser.mockResolvedValue({ id: "admin-1" } as Awaited<ReturnType<typeof getCurrentUser>>);
+	mockRevealLimit.mockResolvedValue({ success: true, remaining: 9 });
 	db.platformAdmin.findUnique.mockResolvedValue({ expiresAt: null });
 	db.$transaction.mockImplementation(async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx));
 	// clearAllMocks keeps implementations; a failing write set by one test
@@ -280,6 +285,25 @@ describe("rotateDeviceToken", () => {
 		const result = await rotateDeviceToken({ deviceId: "dev-1", reason: "Token lost on site" });
 
 		expect(result).toMatchObject({ code: "step_up_required" });
+		expect(result).not.toHaveProperty("token");
+		expect(tx.energyDevice.update).not.toHaveBeenCalled();
+		expect(tx.platformAuditLog.create).not.toHaveBeenCalled();
+	});
+
+	it("refuses once the caller's hourly reveal allowance is spent and returns no token", async () => {
+		mockRevealLimit.mockResolvedValueOnce({ success: false, remaining: 0 });
+
+		const result = await rotateDeviceToken({ deviceId: "dev-1", reason: "Token lost on site" });
+
+		expect(result).toEqual({
+			error: "Too many token reveals. Try again in an hour.",
+			code: "rate_limited",
+		});
+		expect(result).not.toHaveProperty("token");
+		// The limiter is checked before the device is even looked up, exactly
+		// like the tenant reveal path.
+		expect(db.energyDevice.findUnique).not.toHaveBeenCalled();
+		expect(mockWithStepUp).not.toHaveBeenCalled();
 		expect(tx.energyDevice.update).not.toHaveBeenCalled();
 		expect(tx.platformAuditLog.create).not.toHaveBeenCalled();
 	});
@@ -296,6 +320,10 @@ describe("rotateDeviceToken", () => {
 
 		const result = await rotateDeviceToken({ deviceId: "dev-1", reason: "Token lost on site" });
 		if (!("success" in result)) throw new Error("expected success");
+
+		// The rotation draws from the same per-actor allowance as a tenant reveal.
+		expect(mockRevealLimit).toHaveBeenCalledTimes(1);
+		expect(mockRevealLimit).toHaveBeenCalledWith("admin-1");
 
 		const update = tx.energyDevice.update.mock.calls[0][0];
 		expect(update.where).toEqual({ id: "dev-1" });

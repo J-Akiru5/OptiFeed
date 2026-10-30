@@ -16,7 +16,7 @@ required. The logo, diagrams, styles, and scripts are all inlined.
 | Application version | `1.31.0` (on `develop`, not tagged) |
 | Feeder model | `1.1.2` (38,284 triangles, 1,165,172 bytes) |
 | Inspected | 30 October 2026 |
-| Document version | 1.1.0, prepared 30 October 2026 |
+| Document version | 1.1.1, prepared 30 October 2026 |
 | Feature freeze | 31 October 2026 |
 
 If the application moves, the dossier is stale. Re-check the function catalog against the new
@@ -94,6 +94,11 @@ The Film tab contains the full five-minute plan: nine beats, a timed voiceover s
 list, the 3D render specification, the app-capture plan, sound and music direction, and the SRT
 rules. `assets/pakaonai-explainer-v0.1.srt` is a **timing draft** generated from the script. Re-time
 it against the recorded voice before delivery.
+
+The music plan uses a licensed library track — Mixkit "Sonor #2" as the primary candidate and Scott
+Buckley "Adrift Among Infinite Stars" (CC BY 4.0) as the fallback. Suno is not used: its free-tier
+downloads are non-commercial and its terms prohibit capturing the player. Record the licence URL
+and a SHA-256 of the chosen file in the cue sheet.
 
 ## What this document is not
 

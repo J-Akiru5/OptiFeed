@@ -38,9 +38,9 @@ Pakoy's full write surface (#344) shipped in v1.31.2 (`5ad31c9`, `5b8a54e`, merg
 | I-94 | #387 Feed Now cap = pond setting | `mission/I-94-feed-now-cap` | merged (v1.32.0, `cd37e21`) |
 | I-95 | #388 three connectivity states, superadmin thresholds | `mission/I-95-offline-states` | merged (v1.33.0, `f687163`) |
 | I-96 | #371 keep typed values + #370 search settings keys | `mission/I-96-settings-search` | merged (v1.32.0, `cd37e21`) |
-| I-97 | RSSI storage, Weak signal from RSSI, alerts follow platform thresholds (E35, E36) | `mission/I-97-rssi-alerts` | running |
-| I-98 | Daily cap only (E38) | `mission/I-98-daily-cap-only` | running |
-| I-99 | Pond drafts in the database (E37) | `mission/I-99-pond-drafts-db` | running |
+| I-97 | RSSI storage, Weak signal from RSSI, alerts follow platform thresholds (E35, E36) | `mission/I-97-rssi-alerts` | merged (v1.34.0, `6e463a3`) |
+| I-98 | Daily cap only (E38) | `mission/I-98-daily-cap-only` | merged (v1.34.0, `6e463a3`) |
+| I-99 | Pond drafts in the database (E37) | `mission/I-99-pond-drafts-db` | merged (v1.34.0, `6e463a3`) |
 
 ## Integration log
 
@@ -49,6 +49,8 @@ Pakoy's full write surface (#344) shipped in v1.31.2 (`5ad31c9`, `5b8a54e`, merg
 | v1.32.0 | #391 | I-94 (#387) and I-96 (#371, #370) | Required checks green. `bundle budget + latency` (not required) failed: first-load JS +87 to +107 kB on dashboard, schedule and pond settings, because client components imported `lib/limits` (zod). Merged anyway; fixed in v1.33.0. |
 | v1.33.0 | #392 | I-95 (#388) plus `lib/limits-core` (zod-free) | All 57 routes within budget locally and in CI. |
 
+| v1.34.0 | #394 | I-98 daily cap only (E38), I-97 RSSI + alerts on platform policy (E35, E36), I-99 drafts in the database (E37) | quality, compile and bundle budget green. Full JSON backup `db-backups/full-before-v1.34.0-rssi-drafts.json` (38 tables, 3,354 rows), then `prisma migrate deploy` applied `20261030010000_add_feed_request_kind` (from another session), `20261030020000_add_device_wifi_rssi`, `20261030120000_add_pond_settings_draft` (all additive); schema up to date. |
+
 Issues #387, #371, #370, #388 closed with version and SHA. #365 verified (see above), left open for Jeff to confirm.
 
 ## Open for Jeff
@@ -56,4 +58,5 @@ Issues #387, #371, #370, #388 closed with version and SHA. #365 verified (see ab
 1. Hiligaynon strings from I-94 to I-99 are drafts for native review.
 2. DONE (Jeff 10-30): `bundle budget + latency` is now a required check on develop, staging and main (branch protection: quality + bundle budget + latency).
 3. Production is behind develop; promotion is yours.
-4. Firmware 1.6.2 (adds wifi_rssi) must be flashed by you, with your yes; applying the two migrations (EnergyDevice RSSI columns, PondSettingsDraft table) is done by Claude after a full JSON backup.
+4. **Firmware per-dose limit.** The app no longer caps a single dose (E38), but `firmware-main.ino` still has `MAX_GRAMS_PER_DISPENSE 1000.0` and refuses larger doses (`feed_refused`). Lifting it is a safety change and a flash: Jeff's explicit yes needed. Units on firmware 1.6.0/1.6.1 already send `wifi_rssi`; 1.6.2 is a version bump.
+5. (Applied) Firmware 1.6.2 (adds wifi_rssi) must be flashed by you, with your yes; applying the two migrations (EnergyDevice RSSI columns, PondSettingsDraft table) is done by Claude after a full JSON backup.

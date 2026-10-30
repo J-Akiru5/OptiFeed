@@ -12,6 +12,7 @@ import {
 import { createManualFeedRequest, setSchedulePause } from "@/lib/feed/commands";
 import { resolvePagination } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
+import { checkDeviceTokenRevealRateLimit } from "@/lib/rate-limit";
 import { getListPageSize } from "@/lib/settings/platform";
 import { Prisma } from "@prisma/client";
 
@@ -284,6 +285,7 @@ export async function getOrgPondOptions(): Promise<OrgPondOption[]> {
 // ─── Register ─────────────────────────────────────────────────────────────────
 
 export type StepUpRequiredResult = { error: string; code: "step_up_required" };
+export type RateLimitedResult = { error: string; code: "rate_limited" };
 
 export type RegisterDeviceResult =
 	| { success: true; deviceId: string; mac: string; token: string }
@@ -416,12 +418,17 @@ export async function registerDevice(input: {
 export type RotateDeviceTokenResult =
 	| { success: true; token: string }
 	| StepUpRequiredResult
+	| RateLimitedResult
 	| { error: string; code?: undefined };
 
 /**
  * Issue a new token for a device. The old token stops authenticating at once,
  * because device auth looks tokens up by hash. The unit keeps failing until
  * the new token is set on it through the setup portal.
+ *
+ * Rotation mints a fresh long-lived credential, so it draws from the same
+ * per-actor reveal allowance as the tenant "Show token" path: a stolen platform
+ * session cannot loop over the registry draining one token per device.
  */
 export async function rotateDeviceToken(input: {
 	deviceId: string;
@@ -440,6 +447,18 @@ export async function rotateDeviceToken(input: {
 	}
 
 	try {
+		const actor = await actorContext();
+
+		// Same bucket and window as revealDeviceToken (issue #331): the actor is
+		// the key, so a rotation cannot rotate device ids to buy a new allowance.
+		const limit = await checkDeviceTokenRevealRateLimit(actor.id);
+		if (!limit.success) {
+			return {
+				error: "Too many token reveals. Try again in an hour.",
+				code: "rate_limited",
+			};
+		}
+
 		const device = await prisma.energyDevice.findUnique({
 			where: { id: input.deviceId },
 			select: { id: true, mac: true, pond: { select: { ownerId: true } } },
@@ -448,8 +467,6 @@ export async function rotateDeviceToken(input: {
 
 		const orgs = device.pond ? await orgsForFarms([device.pond.ownerId]) : new Map();
 		const orgId = device.pond ? (orgs.get(device.pond.ownerId)?.[0]?.id ?? null) : null;
-
-		const actor = await actorContext();
 
 		// A rotation invalidates the unit's working credential, so it needs a
 		// fresh step-up just like registration.

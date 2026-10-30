@@ -1,0 +1,22 @@
+flowchart TB
+  subgraph P1["1 · Register the unit"]
+    direction LR
+    R1["Admin registers MAC<br/>organization + pond"] --> R2["Device record<br/>token issued once"] --> R3["Tenant approves<br/>labels · stickers"]
+  end
+
+  subgraph P2["2 · Power with no network"]
+    direction LR
+    A1["Controller raises<br/>open setup AP"] --> A2["PakaonAI-XXXX<br/>branded setup page"] --> A3["Scan 2.4 GHz<br/>test + save"]
+  end
+
+  subgraph P3["3 · Bind identity"]
+    direction LR
+    B1["Enter Device ID<br/>and token"] --> B2["Write Wi-Fi + identity<br/>to NVS"] --> B3["Restart and<br/>first heartbeat"]
+  end
+
+  P1 --> P2 --> P3
+
+  classDef platform fill:#fff1ea,stroke:#e85a2a,color:#0a2e47,stroke-width:1.5px;
+  classDef device fill:#ffffff,stroke:#0a3d62,color:#0a2e47;
+  class R1,R2,R3 platform;
+  class A1,A2,A3,B1,B2,B3 device;

@@ -1,6 +1,6 @@
 {
 	"name": "@optifeed/web",
-	"version": "1.30.3",
+	"version": "1.31.1",
 	"private": true,
 	"type": "module",
 	"scripts": {

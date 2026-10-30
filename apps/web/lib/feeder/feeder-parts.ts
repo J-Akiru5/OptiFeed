@@ -65,6 +65,75 @@ export function grainFillScale(level: number | null): number {
 	return 0.02 + (percent / 100) * 0.98;
 }
 
+export type FeederComponentId = "hopper" | "sensor" | "controller" | "motor" | "auger" | "outlet";
+
+export type FeederComponentState =
+	| "live"
+	| "lastKnown"
+	| "noReading"
+	| "online"
+	| "running"
+	| "idle"
+	| "paused"
+	| "dispensing"
+	| "ready"
+	| "offline";
+
+export interface FeederComponentReading {
+	id: FeederComponentId;
+	state: FeederComponentState;
+	percent: number | null;
+}
+
+/** The hopper and its lid sensor share the level-derived state. */
+function levelComponentState(status: FeederStatus, percent: number | null): FeederComponentState {
+	if (percent === null) return "noReading";
+	return status === "offline" ? "lastKnown" : "live";
+}
+
+function controllerComponentState(status: FeederStatus): FeederComponentState {
+	if (status === "offline") return "offline";
+	if (status === "paused") return "paused";
+	return "online";
+}
+
+function motorComponentState(status: FeederStatus): FeederComponentState {
+	if (status === "offline") return "offline";
+	if (status === "paused") return "paused";
+	if (status === "dispensing") return "running";
+	return "idle";
+}
+
+function outletComponentState(status: FeederStatus): FeederComponentState {
+	if (status === "offline") return "offline";
+	if (status === "paused") return "paused";
+	if (status === "dispensing") return "dispensing";
+	return "ready";
+}
+
+/**
+ * Describe every part of the feeder for the status labels.
+ * Offline feeders keep the last hopper reading instead of dropping it.
+ */
+export function feederComponentStatus({
+	status,
+	level,
+}: {
+	status: FeederStatus;
+	level: number | null;
+}): FeederComponentReading[] {
+	const percent = clampLevel(level);
+	const levelState = levelComponentState(status, percent);
+	return [
+		{ id: "hopper", state: levelState, percent },
+		{ id: "sensor", state: levelState, percent },
+		{ id: "controller", state: controllerComponentState(status), percent: null },
+		{ id: "motor", state: motorComponentState(status), percent: null },
+		{ id: "auger", state: motorComponentState(status), percent: null },
+		{ id: "outlet", state: outletComponentState(status), percent: null },
+	];
+}
+
 export interface ViewerCapabilities {
 	webgl2: boolean;
 	renderer: string;
@@ -94,7 +163,7 @@ export function chooseViewerTier({
 }
 
 export const CAMERA_PRESETS = {
-	iso: [1.0, 0.42, 1.35],
+	iso: [-1.1, 0.45, 1.3],
 	front: [0, 0.42, 1.75],
 	left: [-1.75, 0.42, 0.1],
 	right: [1.75, 0.42, 0.1],

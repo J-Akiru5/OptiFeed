@@ -29,7 +29,7 @@ permissions:
 
 concurrency:
   group: perf-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event.pull_request }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   # Dummy values only. `next build` and `next start` need the variables to

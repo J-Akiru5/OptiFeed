@@ -47,6 +47,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--glb", required=True)
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--preview", default="")
+    parser.add_argument("--poster", default="")
     parser.add_argument("--version", default="1.0.0")
     parser.add_argument("--contract", type=int, default=1)
     parser.add_argument("--skip-preview", action="store_true")
@@ -829,6 +830,27 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
         collection,
         bevel_mm=1,
     )
+    support = dims["shelf_support"]
+    add_box(
+        "Shelf_Support",
+        (support["width"], support["height"], support["depth"]),
+        tuple(support["center"]),
+        mats["paint_white"],
+        collection,
+        bevel_mm=1.5,
+    )
+    for index, screw_y in enumerate((100, 160)):
+        add_cylinder(
+            f"Shelf_Support_Screw_{index + 1}",
+            3,
+            1.5,
+            (support["center"][0] - support["width"] / 2.0 - 0.5, screw_y, support["center"][2]),
+            mats["silver"],
+            collection,
+            axis="X",
+            verts=16,
+            bevel_mm=0.3,
+        )
 
     neck = dims["neck"]
     add_cylinder(
@@ -875,9 +897,9 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
         (shoulder_r + 10, 90),
         (body_r - 2, 105),
         (body_r, body_h),
-        (body_r, 370),
-        (body_r - 2, 385),
-        (body_r - 4, 395),
+        (body_r, hopper_height - 30),
+        (body_r - 2, hopper_height - 15),
+        (body_r - 4, hopper_height - 5),
         (body_r - 5, hopper_height),
     ]
     ribbed: list[tuple[float, float]] = []
@@ -1291,12 +1313,12 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
         "Cable_Sensor",
         [
             (sensor["center"][0], sensor["center"][1] + sensor["height"] / 2.0, sensor["center"][2] - sensor["depth"] / 2.0),
-            (-40, 555, 130),
-            (20, 620, -60),
-            (20, 745, -157.5),
-            (20, 750, -210),
-            (20, 300, -210),
-            (24, 30, -195),
+            (-70, 550, 140),
+            (-20, 590, 127.5),
+            (-20, 610, 127.5),
+            (20, 615, 127.5),
+            (20, 300, 127.5),
+            (24, 30, 150),
         ],
         1.5,
         mats["cable_gray"],
@@ -1580,6 +1602,51 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def render_poster(
+    scene: bpy.types.Scene,
+    camera: bpy.types.Object,
+    feeder: bpy.types.Collection,
+    path: Path,
+) -> None:
+    """Transparent 4:3 ISO poster for the public hardware showcase."""
+    ground = bpy.data.objects.get("Preview_Ground")
+    if ground is not None:
+        ground.hide_render = True
+
+    grain = bpy.data.objects.get("Grain_Fill")
+    if grain is not None:
+        grain.scale.z = 0.62
+
+    minimum, maximum = world_bounds(list(feeder.objects))
+    center = (minimum + maximum) / 2.0
+    size = maximum - minimum
+    max_dim = max(size.x, size.y, size.z)
+    # Mirror the preview ISO to the owner-approved front-left angle.
+    direction = Vector((-0.9, -1.05, 0.28)).normalized()
+    distance = (max_dim * 0.5) / math.tan(math.radians(19.0)) * 1.55
+    camera.location = center + direction * distance
+    look_at(camera, center)
+
+    scene.render.engine = "CYCLES"
+    scene.cycles.samples = 48
+    scene.cycles.use_denoising = True
+    scene.render.film_transparent = True
+    scene.render.resolution_x = 1600
+    scene.render.resolution_y = 1200
+    scene.render.resolution_percentage = 100
+    scene.render.image_settings.file_format = "PNG"
+    scene.render.image_settings.color_mode = "RGBA"
+    scene.view_settings.exposure = -0.35
+
+    camera.data.lens = 45
+    camera.data.sensor_width = 36
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    scene.render.filepath = str(path)
+    bpy.ops.render.render(write_still=True)
+    print(f"[poster] {path}")
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -1611,12 +1678,21 @@ def main() -> int:
     export_glb(glb_path, objects)
     print(f"[export] {glb_path} ({glb_path.stat().st_size / 1024 / 1024:.2f} MB)")
 
+    camera = None
     if args.preview and not args.skip_preview:
         camera = add_preview(scene, preview_collection, mats)
         try:
             render_previews(scene, camera, feeder, Path(args.preview))
         except Exception as exc:
             print(f"[warn] preview render failed: {exc}")
+
+    if args.poster:
+        if camera is None:
+            camera = add_preview(scene, preview_collection, mats)
+        try:
+            render_poster(scene, camera, feeder, Path(args.poster))
+        except Exception as exc:
+            print(f"[warn] poster render failed: {exc}")
 
     triangles = count_triangles(objects)
     manifest = {
@@ -1634,7 +1710,7 @@ def main() -> int:
     }
     manifest_path = Path(args.manifest)
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(json.dumps(manifest, indent="\t") + "\n", encoding="utf-8")
+    manifest_path.write_text(json.dumps(manifest, indent="\t") + "\n", encoding="utf-8", newline="\n")
     print(f"[manifest] {manifest_path} triangles={triangles}")
     return 0
 

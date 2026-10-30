@@ -55,3 +55,11 @@ guide only. The viewer camera is reframed for the smaller machine, the auger and
 about the tube axis, and the service-worker cache moves to **v6**. `B10 = 20` is applied as
 **200 mm** (20 cm), the only reading consistent with the 400 mm jar, the 530 mm sensor and the
 photos. App release **1.30.2** (PATCH).
+
+## Layout amendments (2026-10-29)
+
+Owner review of the tape model added four layout corrections and the left shelf support: the black
+controller panel now touches the sticker, the post sits against the jar/chassis with a front-parallel
+arm, the jar is 20 mm shorter, and a vertical white plank carries the left edge of the hopper shelf.
+Model asset **`feeder-v1.1.1.glb`** (1,165,132 bytes / 38,284 triangles), dimensions
+`tape-2026-10-29-amended`, service-worker **v7**, app release **1.30.3** (PATCH).

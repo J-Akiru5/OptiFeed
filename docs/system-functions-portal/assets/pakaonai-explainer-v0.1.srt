@@ -1,0 +1,238 @@
+1
+00:00:00,000 --> 00:00:09,700
+Feed is the largest cost on a shrimp farm — and
+the easiest thing to get wrong.
+
+2
+00:00:09,700 --> 00:00:12,600
+Too little, and growth stalls.
+
+3
+00:00:12,600 --> 00:00:20,000
+Too much, and you pay for feed that sinks and
+never becomes shrimp.
+
+4
+00:00:20,000 --> 00:00:30,300
+Most small farms still feed by habit: a fixed
+timer, a fixed scoop, a fixed time of day.
+
+5
+00:00:30,300 --> 00:00:37,200
+But a pond is not fixed. Biomass changes.
+Appetite changes. Water changes.
+
+6
+00:00:37,200 --> 00:00:43,000
+And when the signal drops, the schedule keeps
+running anyway.
+
+7
+00:00:43,000 --> 00:00:45,200
+Samples live in notebooks.
+
+8
+00:00:45,200 --> 00:00:55,000
+By harvest, nobody can say what was fed, what it
+produced, or what to change next cycle.
+
+9
+00:00:55,000 --> 00:01:02,500
+PakaonAI starts from a different premise: the
+pond should decide the ration.
+
+10
+00:01:02,500 --> 00:01:12,500
+A controller at the pond. A dashboard in your
+hand. A record that survives the season.
+
+11
+00:01:12,500 --> 00:01:22,600
+At the edge, an ESP32 runs the feeder: auger,
+relay, real-time clock, hopper sensor,
+temperature probe.
+
+12
+00:01:22,600 --> 00:01:30,700
+It keeps its own schedule, so feeding does not
+depend on the network.
+
+13
+00:01:30,700 --> 00:01:42,000
+In the cloud, samples become biomass, biomass
+becomes a ration, and rations become a schedule
+you can adjust.
+
+14
+00:01:42,000 --> 00:01:50,600
+The loop starts with a sample. Weigh a few
+shrimp, count the pond, and log it.
+
+15
+00:01:50,600 --> 00:01:58,100
+PakaonAI computes average weight, estimated
+biomass, and the feed your pond should receive
+today.
+
+16
+00:01:58,100 --> 00:02:04,000
+Set meals per day, a feeding window, and a daily
+cap.
+
+17
+00:02:04,000 --> 00:02:08,900
+The schedule previews the dose before you save
+it.
+
+18
+00:02:08,900 --> 00:02:18,000
+When the feeder runs, every dose is recorded
+with its trigger: scheduled, remote, or the
+physical button.
+
+19
+00:02:18,000 --> 00:02:25,000
+At harvest, those records become feed conversion
+ratio. Not a guess. A calculation.
+
+20
+00:02:25,000 --> 00:02:34,900
+Connectivity in the field is not a guarantee, so
+PakaonAI installs as an app and keeps working
+offline.
+
+21
+00:02:34,900 --> 00:02:39,200
+Dashboard snapshots, schedule, growth, and
+history stay readable.
+
+22
+00:02:39,200 --> 00:02:45,800
+Biomass samples queue locally and replay when
+the connection returns, without double-counting.
+
+23
+00:02:45,800 --> 00:02:49,100
+What does not queue is deliberate.
+
+24
+00:02:49,100 --> 00:02:55,100
+Feed commands, schedule edits, harvest, and
+calibration require a live connection.
+
+25
+00:02:55,100 --> 00:02:59,000
+Feeding itself continues on the controller's
+clock.
+
+26
+00:02:59,000 --> 00:03:05,000
+And Pakoy reads the pond context you are allowed
+to see.
+
+27
+00:03:05,000 --> 00:03:09,900
+PakaonAI is multi-tenant by design. The
+organization is the tenant boundary.
+
+28
+00:03:09,900 --> 00:03:15,200
+Below it: membership, farms, ponds, and devices,
+each scoped on the server.
+
+29
+00:03:15,200 --> 00:03:19,200
+A pond owns its cycles, samples, schedules, and
+devices.
+
+30
+00:03:19,200 --> 00:03:26,700
+Roles are scoped: owner, admin, operator,
+viewer. A viewer can read the pond but not
+change it.
+
+31
+00:03:26,700 --> 00:03:29,400
+Platform administrators sit above every tenant.
+
+32
+00:03:29,400 --> 00:03:35,200
+The actions that matter require a reason, are
+written to an audit log,
+
+33
+00:03:35,200 --> 00:03:38,300
+and destructive actions require a fresh
+password.
+
+34
+00:03:38,300 --> 00:03:40,000
+Devices are provisioned deliberately.
+
+35
+00:03:40,000 --> 00:03:44,500
+An administrator registers the unit to an
+organization and pond.
+
+36
+00:03:44,500 --> 00:03:52,000
+Then the controller raises its own setup
+network, and you scan for Wi-Fi and save the
+identity.
+
+37
+00:03:52,000 --> 00:04:01,600
+We assessed the system against the eight
+characteristics of ISO/IEC 25010, as an
+engineering self-assessment, not a
+certification.
+
+38
+00:04:01,600 --> 00:04:04,800
+Three thousand three hundred automated tests.
+
+39
+00:04:04,800 --> 00:04:09,000
+Ninety-two percent line coverage on the
+application library.
+
+40
+00:04:09,000 --> 00:04:16,500
+End-to-end runs, cross-browser smoke tests,
+accessibility checks with zero violations on the
+audited surfaces.
+
+41
+00:04:16,500 --> 00:04:25,000
+And a restore drill that passes in CI. Where a
+gap remains, it is written down.
+
+42
+00:04:25,000 --> 00:04:29,900
+The market problem is real: feed dominates
+operating cost,
+
+43
+00:04:29,900 --> 00:04:36,900
+and most small farms have no defensible record
+of how it was used.
+
+44
+00:04:36,900 --> 00:04:45,000
+PakaonAI does not promise a yield. It makes the
+feeding decision visible, repeatable, and
+reviewable.
+
+45
+00:04:45,000 --> 00:04:51,300
+This is a research prototype. Accounts are
+issued by the team.
+
+46
+00:04:51,300 --> 00:04:56,000
+Growth and feed-conversion results are still
+under review.
+
+47
+00:04:56,000 --> 00:05:00,000
+PakaonAI. Built at ISUFST. Feed on evidence.

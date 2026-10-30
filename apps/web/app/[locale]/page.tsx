@@ -527,42 +527,59 @@ export default function LandingPage() {
 						id="hardware"
 						className="scroll-mt-24 border-b border-[#E3EAE7] bg-white py-20 sm:py-24 dark:border-white/10 dark:bg-[#0A1016]"
 					>
-						<div
-							className={cn(
-								container,
-								"grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-16",
-							)}
-						>
-							<Reveal className="lg:sticky lg:top-28 lg:self-start">
-								<p className={eyebrow}>{t("hardwareEyebrow")}</p>
-								<h2 className={sectionTitle}>{t("hardwareTitle")}</h2>
-								<p className={cn(sectionBody, "max-w-md")}>{t("hardwareDesc")}</p>
-								<ul className="mt-6 space-y-2.5 text-[12.5px] text-slate-600 dark:text-slate-400">
-									<li className="flex items-center gap-2">
-										<Cpu
-											className="size-3.5 text-[#C4461D] dark:text-[#FF8A5C]"
-											aria-hidden="true"
-										/>
-										ESP32 DevKit V1
-									</li>
-									<li className="flex items-center gap-2">
-										<Clock3
-											className="size-3.5 text-[#C4461D] dark:text-[#FF8A5C]"
-											aria-hidden="true"
-										/>
-										DS3231 real-time clock
-									</li>
-									<li className="flex items-center gap-2">
-										<Gauge
-											className="size-3.5 text-[#C4461D] dark:text-[#FF8A5C]"
-											aria-hidden="true"
-										/>
-										HC-SR04 hopper sensor
-									</li>
-								</ul>
-							</Reveal>
+						<div className={container}>
+							<div className="grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-16">
+								<Reveal className="lg:sticky lg:top-28 lg:self-start">
+									<p className={eyebrow}>{t("hardwareEyebrow")}</p>
+									<h2 className={sectionTitle}>{t("hardwareTitle")}</h2>
+									<p className={cn(sectionBody, "max-w-md")}>{t("hardwareDesc")}</p>
+									<ul className="mt-6 space-y-2.5 text-[12.5px] text-slate-600 dark:text-slate-400">
+										<li className="flex items-center gap-2">
+											<Cpu
+												className="size-3.5 text-[#C4461D] dark:text-[#FF8A5C]"
+												aria-hidden="true"
+											/>
+											ESP32 DevKit V1
+										</li>
+										<li className="flex items-center gap-2">
+											<Clock3
+												className="size-3.5 text-[#C4461D] dark:text-[#FF8A5C]"
+												aria-hidden="true"
+											/>
+											DS3231 real-time clock
+										</li>
+										<li className="flex items-center gap-2">
+											<Gauge
+												className="size-3.5 text-[#C4461D] dark:text-[#FF8A5C]"
+												aria-hidden="true"
+											/>
+											HC-SR04 hopper sensor
+										</li>
+									</ul>
+								</Reveal>
 
-							<Reveal delay={0.06} className="min-w-0">
+								<Reveal delay={0.06} className="min-w-0">
+									<figure className="overflow-hidden rounded-[28px] border border-[#0A3D62]/10 bg-[radial-gradient(circle_at_50%_42%,rgba(125,211,252,0.14),transparent_38%),radial-gradient(ellipse_at_50%_40%,#143c5e_0%,#0B2336_58%,#071a2a_100%)] shadow-sm dark:border-white/10">
+										<div className="relative aspect-[4/3]">
+											<Image
+												src="/landing/feeder-stage.webp"
+												alt={t("feederAlt")}
+												fill
+												sizes="(min-width: 1024px) 46vw, 100vw"
+												className="object-contain p-2 sm:p-4"
+											/>
+										</div>
+										<figcaption className="border-t border-white/10 px-4 py-3 text-[11px] leading-relaxed text-white/55">
+											<span className="block text-[9px] font-bold tracking-[0.16em] text-[#A9C1D3] uppercase">
+												{t("feederModelLabel")}
+											</span>
+											<span className="mt-1 block">{t("feederCaption")}</span>
+										</figcaption>
+									</figure>
+								</Reveal>
+							</div>
+
+							<Reveal delay={0.1} className="mt-10 min-w-0">
 								<div className={cn(card, "overflow-hidden")}>
 									<table className="w-full table-fixed text-left text-[12.5px]">
 										<caption className="sr-only">{t("hardwareTitle")}</caption>

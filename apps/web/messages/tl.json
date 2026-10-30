@@ -150,7 +150,7 @@
 			"simpleView": "Simpleng view",
 			"modelVersion": "Modelo",
 			"statusAnnouncement": "Kalagayan ng feeder: {status}",
-			"dragHint": "I-drag upang i-orbit. I-pinch o i-scroll upang mag-zoom.",
+			"isoLabelsTip": "Lumalabas lang ang mga label ng komponent kapag nasa Isometric view ang modelo. Naka-lock ang Iso; pumili ng ibang view para mag-orbit.",
 			"back": "Bumalik sa dashboard",
 			"desc": "Live na 3D na view ng feeder sa {pond}.",
 			"detailsLabel": "Mga detalye ng device",

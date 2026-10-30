@@ -5,7 +5,7 @@
 
 ## 1. Design intent
 
-These labels borrow Solis's product-stage feel: an airy stage, thin 1px leaders, small anchor dots, value-first typography and one soft orange active pill on the selected camera preset. They keep PakaonAI's navy-and-orange brand, Inter typography, uppercase micro-labels and heavy tabular values, so the card reads as our device screen rather than a Solis screenshot. The stage stays `#0B2336` in both app themes; only the surrounding card chrome follows the theme. Labels are read-only annotations, never controls: they do not intercept orbit, hover, focus or selection.
+These labels borrow Solis's product-stage feel: an airy stage, thin 1px leaders, small anchor dots, value-first typography and one soft orange active pill on the selected camera preset. They keep PakaonAI's navy-and-orange brand, Inter typography, uppercase micro-labels and heavy tabular values, so the card reads as our device screen rather than a Solis screenshot. The stage stays `#0B2336` in both app themes; only the surrounding card chrome follows the theme. Labels are read-only annotations, never controls: they do not intercept orbit, hover, focus or selection. The Iso preset locks rotate and zoom so the callouts cannot drift; every other preset allows orbit and zoom and shows no labels.
 
 Primary direction: **one dark stage in both themes.** The contained light stage in §2 is a future option only; it is not a theme flip and must not become the default.
 
@@ -35,14 +35,15 @@ The light column is a **contained stage** only: `#F1F6F4` inside the normal app 
 
 ### 2.2 Type and spacing
 
-| Role | Desktop ≥1024 | Tablet 768–1023 | Mobile list |
+| Role | Desktop ≥1024 | Tablet 768–1023 | Mobile <768 |
 | --- | --- | --- | --- |
-| Name | 10px / 1.2 / 800 / `0.16em` / uppercase | 10px / 1.2 / 800 / `0.16em` | 10px / 1.2 / 800 / `0.14em` |
-| Value | 26px / 1.05 / 800 / `-0.02em` / tabular | 22px / 1.05 / 800 / `-0.02em` | 15px / 1.2 / 800 / tabular |
-| Status | 10.5px / 1.2 / 700 / `0.02em` | 10px / 1.2 / 700 / `0.02em` | 11px / 1.2 / 600 |
+| Name | 10px / 1.2 / 800 / `0.16em` / uppercase | 10px / 1.2 / 800 / `0.16em` | 8px / 1.2 / 800 / `0.1em` |
+| Value | 26px / 1.05 / 800 / `-0.02em` / tabular | 22px / 1.05 / 800 / `-0.02em` | 15px / 1.05 / 800 / tabular |
+| Status | 10.5px / 1.2 / 700 / `0.02em` | 10px / 1.2 / 700 / `0.02em` | 9px / 1.2 / 700 / `0.02em` |
+| Active pill | 10px / 1 / 800 / `0.12em` / uppercase | same | same |
 | Active pill | 10px / 1 / 800 / `0.12em` / uppercase | same | n/a |
 
-Font: existing `var(--font-sans)` (Inter). No new typeface. Safe inset 16px desktop, 12px tablet. Label max width 168px desktop, 144px tablet. Internal spacing: name→value 2px, value→status 4px, dot→word 6px, same-column gap ≥12px, leader origin 6px outside the text. Radii: pill 999px, optional scrim 8px, stage keeps 24px, dot 50%. Leader 1px at 45% white with a 1px `#061520` under-stroke at 50%; anchor 5px core with a 1px `#061520` ring at 60%. Text shadow only: `0 1px 2px rgba(3,12,20,0.55)`; no box-shadow or halo on labels. The active pill may carry `0 4px 16px rgba(255,154,112,0.28)`. Mobile list: 8px column gap, 6px row gap, 48px row, 8px 10px padding.
+Font: existing `var(--font-sans)` (Inter). No new typeface. Safe inset 16px desktop, 12px tablet, 8px mobile. Label max width 168px desktop, 144px tablet, `min(96px, 28%)` mobile. Internal spacing: name→value 2px, value→status 4px, dot→word 6px, same-column gap ≥12px, leader origin 6px outside the text. Radii: pill 999px, optional scrim 8px, stage keeps 24px, dot 50%. Leader 1px at 45% white with a 1px `#061520` under-stroke at 50%; anchor 5px core (4px mobile) with a 1px `#061520` ring at 60%. Text shadow only: `0 1px 2px rgba(3,12,20,0.55)`; no box-shadow or halo on labels. The active pill may carry `0 4px 16px rgba(255,154,112,0.28)`.
 
 ### 2.3 CSS token example
 
@@ -132,14 +133,24 @@ For this view: sensor top-left, hopper left-upper, motor left-lower, auger botto
 | --- | --- | --- | --- |
 | ≥1024 | Six callouts + 1px leaders + dots | 440px | 26px values |
 | 768–1023 | Six callouts, tighter | 400px | 22px values, 144px max width |
-| <768 | 2-column × 3-row status list under the canvas | 300px | No leaders or dots on the model |
+| <768 | Six compact callouts + 1px leaders + dots | 300px | 15px values, card width capped at `min(96px, 28%)` |
 
-Mobile order (row-major): Hopper, Ultrasonic sensor / Controller, Motor / Auger, Outlet. It follows the physical top-to-bottom order, not the desktop column order.
+The same six anchors, fixed slots, dots and leader directions are used at every width. Mobile
+does not swap to a list: the callouts stay inside an 8px inset and the card width is capped at
+28% of the stage so the model stays visible at 320–430px. The left column is sensor, hopper,
+motor and auger; the right column is controller and outlet. Leaders are measured from the real
+card boxes, so a locale or status change cannot detach a line from its label.
 
-- The list is a `<dl>` with six entries, 48px minimum rows, 1px `rgba(255,255,255,0.10)` dividers and no card per row. Name and status share the top line; the value sits below at 15px.
-- It appears only in ISO, has no tap targets, and rows do not change the camera. On 390px the stage is 300px and the grid uses an 8px gap; no horizontal scroll at 320–430px.
-- Label mode is bound to the ISO preset, not just the initial camera. A manual orbit hides the overlay immediately and leaves the view marked custom; labels return only when ISO is pressed again. Never reflow labels during a drag or let them float over an arbitrary angle.
-- At 200% zoom on 1440px the effective width drops below 768px, so the list appears automatically. Do not build a separate zoom layout.
+- A visually hidden `<dl>` carries the same six readings for screen readers at every width. It
+  is referenced by the canvas wrapper's `aria-describedby`; the visual callouts are
+  `aria-hidden="true"` to avoid duplicate, out-of-order announcements.
+- Label mode is bound to the ISO preset. Iso disables orbit and zoom, so the composition is
+  persistent; choosing Front/Left/Right/Rear/Top hides the callouts and enables orbit/zoom.
+  Never reflow labels during a drag or let them float over an arbitrary angle.
+- The viewer's bottom hint states that labels appear only in the Isometric view and that Iso is
+  locked. It is the only place that explains the rule; no duplicate tip lives inside the card.
+- At 200% zoom on 1440px the effective width drops below 768px, so the compact callout sizes
+  apply automatically. Do not build a separate zoom layout.
 
 ## 7. Motion
 
@@ -185,8 +196,8 @@ Leader contrast is measured on the stage as a non-text graphic. Over the white c
 ### 8.2 Semantics and behaviour
 
 - Not colour-only: every dot has a status word. `—` plus `Paused`/`Offline`/`No reading` carries the state without colour.
-- Desktop: one visually hidden summary referenced by the canvas wrapper's `aria-describedby`, e.g. "Feeder components: Hopper 30 percent, live. Ultrasonic sensor: reading, live. Controller online. Motor idle. Auger idle. Outlet ready." Visual labels are `aria-hidden="true"` to avoid duplicate, out-of-order announcements.
-- Mobile: the visible 2×3 list is the semantic summary; do not also render the hidden one.
+- Every width: one visually hidden `<dl>` summary referenced by the canvas wrapper's `aria-describedby`, e.g. "Feeder components: Hopper 30 percent, live. Ultrasonic sensor: reading, live. Controller online. Motor idle. Auger idle. Outlet ready." Visual callouts are `aria-hidden="true"` to avoid duplicate, out-of-order announcements.
+- Mobile uses the same hidden summary; the compact callouts are visual only and are not duplicated in the accessibility tree.
 - Reuse the viewer's existing polite live region for overall status. Do not add six live regions; component changes are not announced individually.
 - Labels, leaders and dots are not focusable: no `tabindex`, `role="button"`, `aria-pressed`, hover or focus styles. The overlay is `pointer-events: none` and `user-select: none`, including the SVG leader layer, so orbit drags pass through.
 - Decorative SVG leaders and dots are `aria-hidden="true"`. Forced colours: text uses `CanvasText`, dots get a `CanvasText` border, and status words still carry meaning if leaders disappear. No motion is required to understand the labels.
@@ -195,8 +206,8 @@ Leader contrast is measured on the stage as a non-text graphic. Over the white c
 
 **ISO trigger**
 
-- [ ] Labels render only when `preset === "iso"`; no other preset shows labels, leaders, dots or the mobile list.
-- [ ] ISO uses `[-1.1, 0.45, 1.3]` with target `[0, 0.31, 0.03]`; switching away or orbiting removes the overlay within one frame.
+- [ ] Labels render only when `preset === "iso"`; no other preset shows labels, leaders, dots or callouts.
+- [ ] ISO uses `[-1.1, 0.45, 1.3]` with target `[0, 0.31, 0.03]`; Iso disables rotate and zoom, so the six labels stay perfectly placed. Switching to another preset hides the overlay and enables orbit/zoom.
 - [ ] Only Hopper, Ultrasonic sensor, Controller, Motor, Auger and Outlet are labelled. Post, shelf, plank, chassis and base plate are never labelled.
 
 **Status derivation**
@@ -213,19 +224,20 @@ Leader contrast is measured on the stage as a non-text graphic. Over the white c
 - [ ] No background, border or box-shadow on labels; the only new pill is the active preset.
 - [ ] Orbit works when dragging across a label, leader or dot; text is not selectable while dragging.
 
-**Mobile (390)**
+**Mobile (390, 320)**
 
-- [ ] At 390×844, no callouts or leaders render; a 2-column × 3-row list sits under the canvas.
-- [ ] Order is Hopper, Sensor / Controller, Motor / Auger, Outlet; rows ≥48px, values ≥15px.
-- [ ] No horizontal scroll at 320px; the stage is 300px; the list appears only in ISO and has no tap targets.
-- [ ] At 200% zoom the layout falls back to the list, not overlapping callouts.
+- [ ] At 390 × 844 the six compact callouts, leaders and dots render over the stage; no list replaces them.
+- [ ] Card width is capped at `min(96px, 28%)`; at 320px the labels stay inside the 8px inset and do not cover the hopper jar.
+- [ ] Names are 8px uppercase, values 15px, status 9px with a dot; no horizontal scroll at 320–430px.
+- [ ] Leaders are measured from the real card boxes and point at the same six anchors as desktop; the tip below the viewer explains that labels appear only in the Isometric view.
+- [ ] At 200% zoom the compact layout still applies, not overlapping callouts.
 
 **Motion, themes, accessibility**
 
 - [ ] Labels fade/scale in once, total stagger under 450ms, and never animate continuously; reduced motion renders instantly.
 - [ ] Both app themes show the same `#0B2336` stage; the card border/shadow follow the theme only.
 - [ ] All §8.1 pairs pass at runtime, including the preset pill; no white on `#E85A2A`, `#FF6B35` or `#FF9A70`.
-- [ ] Desktop exposes one status summary via `aria-describedby`; mobile uses the visible list. No label is focusable or tappable, and forced-colours mode keeps text and dots distinguishable.
+- [ ] Every width exposes one status summary via `aria-describedby`; the visual callouts are `aria-hidden`. No label is focusable or tappable, and forced-colours mode keeps text and dots distinguishable.
 - [ ] Dark and light app themes are screenshotted at 390, 834 and 1440 for visual QA.
 
 ## 10. Anti-patterns
@@ -239,7 +251,7 @@ Leader contrast is measured on the stage as a non-text graphic. Over the white c
 7. **Colour as the only cue.** Never drop the status word; never use a red dot without words.
 8. **Leader spaghetti.** No crossing labels, lines through other dots, or elbow routing that hides a placement problem.
 9. **More than six labels.** Structural parts stay unlabelled; this is not an exploded parts list.
-10. **Tiny type or white on orange.** Nothing below 10px desktop or 11px mobile status; white on orange fails AA (3.54:1 on `#E85A2A`, 2.08:1 on `#FF9A70`).
+10. **Tiny type or white on orange.** Nothing below 10px desktop; mobile keeps 8px names, 15px values and 9px status words. White on orange fails AA (3.54:1 on `#E85A2A`, 2.08:1 on `#FF9A70`).
 
 ## Open design questions
 

@@ -3,6 +3,8 @@ import { z } from "zod";
 export const MAX_FEED_GRAMS_PER_REQUEST = 1000;
 export const MAX_FEED_GRAMS_PER_DAY_PER_DEVICE = 5000;
 export const MAX_DISPENSE_MS = 300_000;
+/** Calibration is the one deliberate exception: a measured run may last 10 minutes. */
+export const CALIBRATION_MAX_DISPENSE_MS = 600_000;
 
 export const FEEDING_RATE_PCT_MIN = 0.1;
 export const FEEDING_RATE_PCT_MAX = 10;
@@ -51,11 +53,19 @@ export const hopperCalibrationSchema = z
 
 // Guided motor calibration: run the motor for a bounded test window, weigh the
 // output, then derive grams per second. The upper bounds keep a test dose
-// inside the per-request feed cap and the weighed output physically plausible.
+// inside the calibration ceiling and the weighed output physically plausible.
 export const CALIBRATION_TEST_SECONDS_MIN = 3;
-export const CALIBRATION_TEST_SECONDS_MAX = 30;
-export const CALIBRATION_TEST_GRAMS_MAX = 1000;
-export const CALIBRATION_ACTUAL_GRAMS_MAX = 2000;
+export const CALIBRATION_TEST_SECONDS_MAX = 600;
+export const CALIBRATION_TEST_GRAMS_MAX = 5000;
+export const CALIBRATION_ACTUAL_GRAMS_MAX = 5000;
+
+/**
+ * The per-request ceiling for a queued feed. Calibration is the only kind that
+ * may exceed the normal feed cap; every other request stays at 1,000 g.
+ */
+export function maxFeedRequestGrams(kind: string): number {
+	return kind === "calibration" ? CALIBRATION_TEST_GRAMS_MAX : MAX_FEED_GRAMS_PER_REQUEST;
+}
 
 // Target check (issue #191): dispense an exact target, weigh it, and correct
 // grams per second from the error. The target bounds match the dashboard Feed

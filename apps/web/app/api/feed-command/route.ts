@@ -10,6 +10,7 @@ import {
 	TEMP_OFFSET_C_MAX,
 	TEMP_OFFSET_C_MIN,
 	clamp,
+	maxFeedRequestGrams,
 } from "@/lib/limits";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
@@ -100,10 +101,16 @@ export const GET = withApi(
 					data: { status: "dispatched" },
 				});
 
+				// A calibration dose is deliberate and measured; it may exceed the
+				// normal per-request feed cap, so it is clamped to its own ceiling
+				// and flagged for the firmware's calibration limits.
+				const calibration = pendingRequest.kind === "calibration";
+
 				return Response.json({
 					feed_requested: true,
 					feed_request_id: pendingRequest.id,
-					grams: clamp(pendingRequest.grams, 0, MAX_FEED_GRAMS_PER_REQUEST),
+					grams: clamp(pendingRequest.grams, 0, maxFeedRequestGrams(pendingRequest.kind)),
+					calibration,
 					...deviceConfig(device),
 				});
 			}
@@ -112,6 +119,7 @@ export const GET = withApi(
 				feed_requested: false,
 				feed_request_id: null,
 				grams: 0,
+				calibration: false,
 				...deviceConfig(device),
 			});
 		} catch (error) {

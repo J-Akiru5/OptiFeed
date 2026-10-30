@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Calibration test doses may now run up to 10 minutes and 5,000 g. The exception is deliberately scoped to calibration: the queued `FeedRequest` carries `kind = "calibration"`, the device pickup route clamps it to the calibration ceiling and sends `calibration: true`, and the firmware raises its per-dose limits only for that flagged command. Normal feeds keep the 1,000 g and 300 s caps, and the 10 s gap, six-per-hour ceiling and daily cap still apply. The form warns on runs longer than 120 s.
+
 ## [1.31.8] - 2026-10-30
 
 ### Changed

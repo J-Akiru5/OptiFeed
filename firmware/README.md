@@ -299,7 +299,7 @@ The pure logic lives in two header-only modules and is covered on the host:
 | Rule | Constant | Default | Behaviour |
 |---|---|---|---|
 | Relay OFF at boot | `RELAY_OFF` | active HIGH board | The pin is driven OFF before `pinMode`, again after it, and once more in a shutdown handler registered with `esp_register_shutdown_handler`, so every software reset, panic reboot, OTA install reboot and `ESP.restart()` opens the contacts first. |
-| Dose hard stop | `MAX_DISPENSE_MS` | 300 000 ms | A dose longer than the cap is **refused**, never truncated (a slow calibration must not halve a valid dose). |
+| Dose hard stop | `MAX_DISPENSE_MS` | 300 000 ms (600 000 ms for a calibration-flagged dose) | A dose longer than the cap is **refused**, never truncated (a slow calibration must not halve a valid dose). |
 | Relay overrun | `RELAY_OVERRUN_GRACE_MS` | 2 000 ms | If the relay is still on `expected duration + 2 s`, `kickWatchdog()` forces it OFF at the next network boundary (a blocking HTTPS call can delay `loop()`), logs `[SAFETY] relay overrun` and reports `feed_refused` with reason `relay_overrun`. |
 | Minimum gap, any source | `MIN_DISPENSE_GAP_MS` | 10 000 ms | A second dose from button, schedule or dashboard inside 10 s is refused with reason `too_soon`. |
 | Hourly ceiling, any source | `MAX_DISPENSES_PER_HOUR` | 6 | The seventh dose in a rolling hour is refused with reason `hourly_limit`. |
@@ -951,6 +951,8 @@ The `GRAMS_PER_SECOND` constant (default 4.0) determines how long the relay stay
 ```
 GRAMS_PER_SECOND = grams_dispensed / seconds_run
 ```
+
+A dashboard calibration test may run up to **600 s** and dispense up to **5,000 g**. That exception applies only when the server's feed command carries `calibration: true`; every other source keeps the 300 s / 1,000 g ceiling. The 10 s gap, six-per-hour ceiling and 5,000 g daily cap still apply, so a long test can consume the day's allowance.
 
 ## Verification
 

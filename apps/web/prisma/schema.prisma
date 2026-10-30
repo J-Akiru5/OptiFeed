@@ -395,6 +395,7 @@ model FeedRequest {
   deviceId  String
   grams     Float    @default(100)
   status    String   @default("pending") // "pending" | "dispatched" | "completed" | "expired" | "fulfilled_by_other_trigger"
+  kind      String   @default("feed") // "feed" | "calibration"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   farmId    String? // immutable ownership stamp — no FK by design (survives farm lifecycle)

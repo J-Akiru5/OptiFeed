@@ -96,7 +96,7 @@
 		"trigger": "Search",
 		"triggerLabel": "Search everything (Ctrl+K or Command+K)",
 		"dialogTitle": "Search",
-		"placeholder": "Search pages, ponds, devices, members and records",
+		"placeholder": "Search pages, settings, ponds, devices, members and records",
 		"resultsLabel": "Search results",
 		"resultsCount": "{count, plural, one {# result} other {# results}}",
 		"loading": "Searching…",
@@ -109,6 +109,7 @@
 		"hintClose": "to close",
 		"groups": {
 			"pages": "Pages",
+			"settings": "Settings",
 			"ponds": "Ponds",
 			"devices": "Devices",
 			"members": "Members",
@@ -125,6 +126,108 @@
 		},
 		"records": {
 			"feedEvent": "Feed event"
+		},
+		"settings": {
+			"pondFeedingRate": {
+				"title": "Daily feeding rate",
+				"description": "Percentage of pond biomass fed per day."
+			},
+			"pondFeedsPerDay": {
+				"title": "Feeds per day",
+				"description": "How many meals the feeder dispenses in a day."
+			},
+			"pondSampleInterval": {
+				"title": "Sample interval",
+				"description": "How often fish samples are taken, in days."
+			},
+			"pondPopulation": {
+				"title": "Population",
+				"description": "Fish count used for biomass and the daily feed."
+			},
+			"pondArea": {
+				"title": "Pond area",
+				"description": "Surface area in square metres, used for stocking density."
+			},
+			"pondDepth": {
+				"title": "Average depth",
+				"description": "Average water depth in metres."
+			},
+			"pondFeedPrice": {
+				"title": "Feed price",
+				"description": "Feed price per kilogram, used to estimate feed cost."
+			},
+			"feedingSchedule": {
+				"title": "Feeding schedule",
+				"description": "The window in which the feeder dispenses meals."
+			},
+			"dailyFeedCeiling": {
+				"title": "Daily feed ceiling",
+				"description": "The most feed one feeder may dispense in a day."
+			},
+			"perMealCeiling": {
+				"title": "Per-meal feed ceiling",
+				"description": "The most feed one meal may dispense, set by the relay window and calibration."
+			},
+			"calibration": {
+				"title": "Feeder calibration",
+				"description": "Grams per second, the guided test and the target check."
+			},
+			"hopperCalibration": {
+				"title": "Hopper calibration",
+				"description": "Full and empty sensor distances for the hopper."
+			},
+			"hopperCapacity": {
+				"title": "Hopper capacity",
+				"description": "How much feed the hopper holds when full."
+			},
+			"recalibrationInterval": {
+				"title": "Recalibration interval",
+				"description": "Days between calibration reminders for this feeder."
+			},
+			"temperatureCalibration": {
+				"title": "Temperature calibration",
+				"description": "Water temperature offset for the probe."
+			},
+			"notifications": {
+				"title": "Notification preferences",
+				"description": "Which alerts you receive: missed feeding, offline and low hopper."
+			},
+			"orgDefaultFeedingRate": {
+				"title": "Default feeding rate",
+				"description": "The feeding rate given to new ponds in this organization."
+			},
+			"orgLowHopper": {
+				"title": "Low-hopper threshold",
+				"description": "Hopper level that raises a low-hopper alert."
+			},
+			"orgOfflineThreshold": {
+				"title": "Offline alert delay (deprecated)",
+				"description": "Not used for timing any more. Offline alerts and badges follow the platform device connectivity policy."
+			},
+			"orgMissedFeeding": {
+				"title": "Missed-feeding alerts",
+				"description": "Whether a missed feeding raises an alert for this organization."
+			},
+			"orgDeviceRegistration": {
+				"title": "Device registration",
+				"description": "Whether new feeders need admin approval or may self-register."
+			},
+			"platformPageSize": {
+				"title": "List page size",
+				"description": "Rows per page on every list in the app."
+			},
+			"platformSafetyCaps": {
+				"title": "Feeding safety caps",
+				"description": "Relay-time and daily-allowance ceilings for the whole platform."
+			},
+			"platformOrgDefaults": {
+				"title": "Organization defaults",
+				"description": "Starting settings for new organizations."
+			},
+			"platformFeatureFlags": {
+				"title": "Feature flags",
+				"description": "Turn platform features on or off."
+			}
 		}
 	},
 	"button": {
@@ -462,7 +565,8 @@
 			"advisorGrams": "{grams} g per meal",
 			"advisorConfidence": "{level} confidence",
 			"advisorEmpty": "Not enough data for a recommendation yet.",
-			"advisorLink": "Open the full advisor"
+			"advisorLink": "Open the full advisor",
+			"statusWeak": "Weak signal"
 		},
 		"home": {
 			"noData": "No pond is assigned yet. Ask your administrator to set one up.",
@@ -559,6 +663,11 @@
 					"hopperTitle": "Hopper level",
 					"hopperSummary": "Average hopper level per day over the last 7 days, latest {latest}.",
 					"hopperEmpty": "No hopper readings yet."
+				},
+				"connection": {
+					"online": "Online",
+					"weak": "Weak signal",
+					"offline": "Offline"
 				}
 			},
 			"greetingNextFeeding": "Next feeding at {time}",
@@ -730,7 +839,7 @@
 			"triggerDesc": "This will send an immediate auger motor manual override request of <bold>{volume}</bold> directly to the physical ESP32 automatic feeder controller.",
 			"feederNode": "📍 Feeder Node: <bold>{name}</bold>",
 			"connectionLink": "📍 Connection Link: ",
-			"connected": "Connected • RSSI −58dB",
+			"connected": "Connected",
 			"offline": "Offline",
 			"feedPortion": "📍 Feed Portion: <bold>{volume} of 4mm pellets</bold>",
 			"requestSent": "Feed request sent — device will dispense within 5s",
@@ -741,8 +850,15 @@
 			"fallowWarning": "This pond is fallow after harvest. Start the next grow-out cycle before feeding.",
 			"hopperLow": "Hopper level is low ({level}%). Consider refilling soon.",
 			"hopperCritical": "Hopper level is critically low ({level}%)! Refill to avoid missed feedings.",
+			"limitHint": "Feed Now limit: {limit} g ({reason}).",
+			"limitInputHint": "Enter at most {limit} g — today's remaining daily ceiling.",
+			"limitReasonDaily": "remaining daily ceiling",
+			"changeInSettings": "Change it in Settings > Pond or the device daily ceiling in Settings > Hardware.",
+			"limitClamped": "Sending {grams}, capped by today's remaining daily ceiling.",
 			"error": "Failed to trigger manual feed.",
-			"durationHint": "≈ {seconds}s dispense"
+			"durationHint": "≈ {seconds}s dispense",
+			"weakSignal": "Weak signal",
+			"weakSignalWarning": "Weak signal. The feeder is still reachable, but this command may take a little longer."
 		},
 		"growth": {
 			"title": "Growth & FCR",
@@ -1315,7 +1431,48 @@
 			"populationPlaceholder": "e.g. 200",
 			"areaPlaceholder": "e.g. 500",
 			"depthPlaceholder": "e.g. 1.5",
-			"feedPricePlaceholder": "e.g. 30"
+			"feedPricePlaceholder": "e.g. 30",
+			"derivedTitle": "Derived from pond settings",
+			"derivedDaily": "Daily feed",
+			"derivedPerMeal": "Per meal",
+			"derivedDeviceCeiling": "Device ceiling",
+			"derivedDeviceMaxDose": "Max dose per meal",
+			"derivedHint": "These numbers come from the feeding rate, population and your latest sample. They are what the feeder will dispense.",
+			"derivedNoBiomass": "Add a sampling batch (average body weight) to see the grams these settings produce.",
+			"errorSummaryTitle": "Fix these before saving",
+			"errorSummaryHint": "Your values are kept. Open a setting to correct it.",
+			"restoredDraft": "Restored the values you had not saved yet.",
+			"restoredDraftAt": "Restored your unsaved changes ({time}).",
+			"discardDraft": "Discard draft",
+			"draftDiscarded": "Unsaved changes discarded.",
+			"conflicts": {
+				"dailyTitle": "Daily feed is above the device ceiling",
+				"relayTitle": "One meal is longer than the relay window",
+				"pondWins": "Pond settings win. The feeder must follow this pond, so change the device setting below.",
+				"suggestedFeeds": "Increasing feeds per day to {count} would fit the window.",
+				"aboveHardMax": "The pond needs more than the hard safety maximum of {max} per day. Lower the feeding rate or population.",
+				"platformCap": "A platform safety cap sets this ceiling; a platform admin has to raise it.",
+				"hopperCap": "The calibrated hopper capacity is the ceiling; recalibrate the hopper to hold more.",
+				"usePondValue": "Use pond value ({value})",
+				"usePondValueDone": "Device ceiling set to {value} per day.",
+				"openSetting": "Open the device setting"
+			},
+			"errors": {
+				"rateMin": "Feeding rate must be at least 0.1%.",
+				"rateMax": "Feeding rate cannot exceed 10%.",
+				"feedsMin": "At least one feed per day.",
+				"feedsMax": "At most 24 feeds per day.",
+				"intervalMin": "At least 1 day.",
+				"intervalMax": "At most 90 days.",
+				"populationMin": "Population must be at least 1.",
+				"populationMax": "Population is too large.",
+				"areaInvalid": "Enter a pond area greater than 0.",
+				"depthInvalid": "Enter a depth greater than 0.",
+				"priceInvalid": "Enter a feed price of 0 or more.",
+				"invalidNumber": "Enter a number.",
+				"deviceDailyCeiling": "The pond needs {pond}/day, above the device ceiling of {device}/day.",
+				"deviceRelayTime": "One meal is {pond}, longer than the {device} the feeder can run in one relay window."
+			}
 		},
 		"profileSettings": {
 			"title": "Profile Settings",
@@ -1527,7 +1684,8 @@
 			"componentReady": "Ready",
 			"componentNoReading": "No reading",
 			"componentReading": "Reading",
-			"componentsTitle": "Components"
+			"componentsTitle": "Components",
+			"statusWeak": "Weak signal"
 		},
 		"adminDevices": {
 			"view3d": "3D view",
@@ -1764,7 +1922,8 @@
 				"guided": {
 					"intro": "Run the feeder for a set time, weigh what comes out, and enter the weight. We do the math.",
 					"durationLabel": "Test duration (seconds)",
-					"durationHelp": "Use 3–30 seconds. Longer tests are more accurate.",
+					"durationHelp": "Use 3-600 seconds. Longer runs are more accurate while the hopper stays loaded.",
+					"longRunWarning": "Long run: {seconds} s uses the calibration relay exception (max 600 s). Watch the hopper and the motor; stop if it runs dry or heats up.",
 					"presetsLabel": "Quick presets",
 					"presetValue": "{seconds}s",
 					"expectedDose": "Expected test dose",
@@ -1776,8 +1935,8 @@
 					"blockedFallow": "This pond is fallow after harvest. Start the next grow-out cycle before running a test dose.",
 					"blockedReadOnly": "You do not have permission to calibrate this device.",
 					"blockedInvalidRate": "The current rate is invalid. Use manual entry to set a new rate.",
-					"blockedInvalidDuration": "Enter a test duration between 3 and 30 seconds.",
-					"blockedTooLarge": "The expected test dose ({grams} g) is above the 1000 g test limit. Shorten the test.",
+					"blockedInvalidDuration": "Enter a test duration between 3 and 600 seconds.",
+					"blockedTooLarge": "The expected test dose ({grams} g) is above the 5000 g test limit. Shorten the test.",
 					"statusLabel": "Test status",
 					"statusPending": "Queued — waiting for the device to pick up the test…",
 					"statusDispatched": "Dispensing the test dose now. Keep clear of the feeder.",
@@ -1917,7 +2076,9 @@
 					"title": "Recalibration suggested",
 					"desc": "Over the last 7 days the device reported {dispensed} dispensed, but the hopper level dropped by about {observed} ({diff}). A difference above 15% suggests the feed rate has drifted — re-run the target check."
 				}
-			}
+			},
+			"weakSignal": "Weak signal",
+			"weakFor": "Weak signal — last heartbeat {duration} ago"
 		},
 		"audit": {
 			"title": "Audit Trail",
@@ -2160,7 +2321,8 @@
 				"label": "Choose layout",
 				"list": "List",
 				"cards": "Cards"
-			}
+			},
+			"weak": "Weak signal"
 		},
 		"adminOverview": {
 			"title": "Admin Overview",
@@ -2442,8 +2604,9 @@
 			"percentOfBodyWeight": "% of body weight per day",
 			"hopperLowLabel": "Hopper low threshold (%)",
 			"hopperLowHint": "Send a low-feed warning at or below this level. Critical alerts still fire at 5 %.",
-			"offlineAfterLabel": "Offline alert after (minutes)",
-			"offlineAfterHint": "How long a feeder may be silent before an alert is sent. The status badge still shows offline after 15 minutes.",
+			"offlineAfterLabel": "Offline alert delay (minutes) — deprecated",
+			"offlineAfterHint": "Not used for timing any more. Offline alerts and badges follow the platform device connectivity policy (offline window plus grace) in Superadmin → Settings → Device status. The value is kept for compatibility.",
+			"offlineAfterDeprecated": "Deprecated",
 			"missedFeedingLabel": "Missed-feeding alerts",
 			"missedFeedingHint": "Notify when a scheduled feeding is refused and does not happen.",
 			"rolesLabel": "Who receives alerts",
@@ -2519,7 +2682,10 @@
 				"abw": "Average Body Weight: the mean weight of the fish in your latest biomass sample, in grams. It is the sample weight divided by the number of fish weighed.",
 				"aboutFcr": "What does FCR mean?",
 				"fcr": "Feed Conversion Ratio: the kilograms of feed used for every kilogram of fish weight gained, taken from your latest FCR report. Lower is better."
-			}
+			},
+			"deviceWeak": "ESP32 weak signal",
+			"signalLabel": "Wi-Fi signal",
+			"signalDbm": "{dbm} dBm"
 		},
 		"mobile": {
 			"openMenu": "Quick actions",
@@ -2706,7 +2872,8 @@
 				"label": "Choose layout",
 				"list": "List",
 				"cards": "Cards"
-			}
+			},
+			"weak": "Weak signal"
 		},
 		"calendar": {
 			"title": "Platform calendar",
@@ -3174,7 +3341,7 @@
 			"paused": "Schedule paused.",
 			"resumed": "Schedule resumed.",
 			"pauseFailed": "The schedule command failed.",
-			"note": "Commands use the normal server caps: max {max} g per feed and the daily limit. The unit can still refuse (empty hopper, offline).",
+			"note": "Commands use the normal server rules: the daily ceiling, the relay window and the unit's own safety checks. The unit can still refuse (empty hopper, offline).",
 			"reasonAria": "Reason for controlling {label}",
 			"grams": "Grams",
 			"feed": "Feed",
@@ -3364,8 +3531,8 @@
 				"feedingRateHint": "From {min}% to {max}%.",
 				"hopperLowLabel": "Hopper-low threshold (%)",
 				"hopperLowHint": "Whole percent from {min} to {max}.",
-				"offlineLabel": "Offline alert delay (minutes)",
-				"offlineHint": "Whole minutes from {min} to {max}.",
+				"offlineLabel": "Offline alert delay (minutes) — deprecated",
+				"offlineHint": "Not used for timing any more: alerts and badges follow the platform device connectivity policy. The value is kept for compatibility ({min}-{max} minutes).",
 				"missedFeedingLabel": "Create missed-feeding alerts by default",
 				"alertRolesLabel": "Alert roles",
 				"alertRolesHint": "At least one role must receive org alerts.",
@@ -3406,6 +3573,25 @@
 						"description": "Show the help button and in-page guidance."
 					}
 				}
+			},
+			"deviceStatus": {
+				"title": "Device connectivity",
+				"description": "When a feeder is shown as online, weak signal or offline. One late heartbeat must never flip the whole screen to offline.",
+				"weakLabel": "Weak signal after (minutes)",
+				"weakHint": "Whole minutes from {min} to {max}. Must be shorter than the offline window.",
+				"offlineLabel": "Offline after (minutes)",
+				"offlineHint": "Whole minutes from {min} to {max}.",
+				"graceLabel": "Grace after the offline window (minutes)",
+				"graceHint": "Whole minutes from {min} to {max}. Absorbs one late heartbeat.",
+				"reasonLabel": "Reason",
+				"reasonPlaceholder": "e.g. The CICT feeder reports every five minutes on a weak link",
+				"reasonHint": "Recorded in the platform audit log. At least 10 characters.",
+				"save": "Save thresholds",
+				"saving": "Saving…",
+				"saved": "Device thresholds saved: weak after {weak} min, offline after {offline} min plus {grace} min grace.",
+				"invalid": "Use whole minutes and keep the weak-signal window shorter than the offline window.",
+				"failed": "The device thresholds could not be saved.",
+				"summary": "Currently offline after {offline} min plus {grace} min grace ({total} min of silence). The safety checks for feed commands still use the {offline}-minute window without the grace."
 			}
 		},
 		"feedPct": "Feed %",

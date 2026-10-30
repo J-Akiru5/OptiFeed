@@ -11,21 +11,21 @@ import { describe, expect, it } from "vitest";
 describe("feeder viewer status", () => {
 	const now = new Date("2026-10-29T10:00:00+08:00");
 
-	it("is offline when there has never been a heartbeat or it is over 15 minutes old", () => {
+	it("is offline when there has never been a heartbeat or silence passes the grace window", () => {
 		expect(feederStatus({ isPaused: false, lastSeenAt: null, lastFedAt: null, now })).toBe(
 			"offline",
 		);
 		expect(
 			feederStatus({
 				isPaused: false,
-				lastSeenAt: "2026-10-29T09:44:59+08:00",
+				lastSeenAt: "2026-10-29T09:42:59+08:00",
 				lastFedAt: null,
 				now,
 			}),
 		).toBe("offline");
 	});
 
-	it("keeps exactly 15 minutes online, then pauses before dispensing", () => {
+	it("shows weak signal for a late heartbeat instead of flipping to offline", () => {
 		expect(
 			feederStatus({
 				isPaused: false,
@@ -33,7 +33,18 @@ describe("feeder viewer status", () => {
 				lastFedAt: null,
 				now,
 			}),
-		).toBe("idle");
+		).toBe("weak");
+		expect(
+			feederStatus({
+				isPaused: false,
+				lastSeenAt: "2026-10-29T09:43:00+08:00",
+				lastFedAt: null,
+				now,
+			}),
+		).toBe("weak");
+	});
+
+	it("pauses before dispensing while the heartbeat is fresh", () => {
 		expect(
 			feederStatus({
 				isPaused: true,

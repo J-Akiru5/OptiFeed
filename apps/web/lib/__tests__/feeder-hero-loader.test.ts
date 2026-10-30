@@ -88,4 +88,58 @@ describe("loadFeederHero — next feed is farm wall clock", () => {
 
 		expect(hero?.nextFeedSlot).toEqual({ hours: 6, minutes: 0, dayOffset: 1 });
 	});
+
+	it("uses a fresh reported RSSI for the state and drops a stale one (I-97)", async () => {
+		const now = new Date("2026-10-27T14:30:00.000Z");
+		const device = {
+			id: "dev-1",
+			label: "Feeder A",
+			lastSeenAt: now,
+			isPaused: false,
+			feedLevelPercent: 80,
+			feedLevelUpdatedAt: now,
+			waterTempC: null,
+			waterTempOk: false,
+			waterTempUpdatedAt: null,
+			gramsPerFeeding: 150,
+			hopperCapacityG: 1000,
+			dailyCapG: 2000,
+			wifiRssiDbm: -84,
+			wifiRssiUpdatedAt: new Date(now.getTime() - 60_000),
+		};
+		mockEnergyDevice.findFirst.mockResolvedValue(device as never);
+		mockFeedEvent.aggregate.mockResolvedValue({ _sum: { grams: 0 } } as never);
+		mockBiomassLog.findFirst.mockResolvedValue(null as never);
+		mockFcrReport.findFirst.mockResolvedValue(null as never);
+		mockFirmware.mockResolvedValue(null);
+		mockSchedule.mockResolvedValue({
+			scheduleStart: time(6),
+			scheduleEnd: time(16),
+			feedsPerDay: 3,
+			feedingRatePct: 3,
+		});
+
+		const pond = {
+			id: "pond-1",
+			isFallow: false,
+			population: 300,
+			feedingRatePct: 5,
+			feedsPerDay: 2,
+			scheduleStart: time(6),
+			scheduleEnd: time(16),
+		};
+
+		const fresh = await loadFeederHero({ pond, deviceId: "dev-1", now });
+		expect(fresh?.connectionState).toBe("weak");
+		expect(fresh?.rssiDbm).toBe(-84);
+
+		// A reading older than the display window no longer describes this unit.
+		mockEnergyDevice.findFirst.mockResolvedValue({
+			...device,
+			wifiRssiUpdatedAt: new Date(now.getTime() - 60 * 60 * 1000),
+		} as never);
+		const stale = await loadFeederHero({ pond, deviceId: "dev-1", now });
+		expect(stale?.connectionState).toBe("online");
+		expect(stale?.rssiDbm).toBeNull();
+	});
 });

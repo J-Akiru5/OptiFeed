@@ -44,7 +44,7 @@ interface HeaderActionsProps {
 	activePondId?: string;
 	pondName?: string;
 	lastSeenAt?: string | null;
-	esp32Status?: "online" | "offline" | "missing";
+	esp32Status?: "online" | "weak" | "offline" | "missing";
 	/** True while a read-only view-as session is active (the tenant view stays as-is). */
 	isViewingAs?: boolean;
 	/** Resolved server-side from the `help.centre` feature flag. */
@@ -88,7 +88,7 @@ interface ProfileMenuProps {
 	ponds: { id: string; name: string }[];
 	activePondId: string;
 	pondName: string;
-	esp32Status: "online" | "offline" | "missing";
+	esp32Status: "online" | "weak" | "offline" | "missing";
 	isTenantAdmin: boolean;
 	isPlatformAdmin: boolean;
 	onClose: () => void;
@@ -127,9 +127,11 @@ function ProfileMenu({
 	const deviceStatusLabel =
 		esp32Status === "online"
 			? tCommon("deviceOnline")
-			: esp32Status === "offline"
-				? tCommon("deviceOffline")
-				: tCommon("deviceMissing");
+			: esp32Status === "weak"
+				? tCommon("deviceWeak")
+				: esp32Status === "offline"
+					? tCommon("deviceOffline")
+					: tCommon("deviceMissing");
 
 	// Escape dismisses the disclosure and puts focus back on the avatar that
 	// opened it, so keyboard readers are not dropped on <body>.

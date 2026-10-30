@@ -9,7 +9,7 @@
  * - API and auth requests are never intercepted or cached.
  * - Bumping CACHE_NAME purges every previous cache on activate.
  */
-const CACHE_NAME = "pakaonai-static-v8";
+const CACHE_NAME = "pakaonai-static-v9";
 const CACHE_PREFIX = "pakaonai-static-";
 const OFFLINE_URL = "/offline.html";
 const PRECACHE_URLS = [
@@ -105,10 +105,33 @@ async function cacheFirst(request) {
 	return response;
 }
 
+/**
+ * Network first with two short retries (#388).
+ *
+ * On a weak mobile link a single aborted request used to drop the reader
+ * straight onto the offline dashboard, even when the connection was merely
+ * slow. A navigation is idempotent, so retrying twice before showing the
+ * offline shell turns that instant flip into a brief wait.
+ */
+async function fetchWithRetry(request) {
+	let lastError;
+	for (let attempt = 0; attempt < 3; attempt += 1) {
+		try {
+			return await fetch(request);
+		} catch (error) {
+			lastError = error;
+			if (attempt < 2) {
+				await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+			}
+		}
+	}
+	throw lastError;
+}
+
 async function navigationFallback(request) {
 	try {
 		// Network first, always. HTML is never written to the cache.
-		const response = await fetch(request);
+		const response = await fetchWithRetry(request);
 		if (response) return response;
 	} catch {
 		// Network unavailable; serve the cached offline shell below.

@@ -384,8 +384,9 @@ GPIO 18 and 19 are not strapping pins (0, 2, 5, 12, 15), not input-only (34–39
 
 ```
 Superadmin / tenant UI command
-   ↓  server caps (feed-command route): ≤1,000 g/request, ≤5,000 g/day or hopperCapacityG
-   ↓  firmware caps: ≤300,000 ms dispense, hopper-empty → feed_refused
+   ↓  server rules (feed-command route): daily ceiling ≤5,000 g/day or hopperCapacityG
+      (the only gram cap; 5,000 g is also the payload sanity bound), relay window
+   ↓  firmware caps: ≤300,000 ms dispense, ≤1,000 g per dose, hopper-empty → feed_refused
    ↓  motor
 ```
 

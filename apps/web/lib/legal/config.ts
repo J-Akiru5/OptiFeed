@@ -23,7 +23,7 @@ export const LEGAL_VERSION = "1.0";
 export const LEGAL_LAST_UPDATED = "2026-10-26";
 /** Approved effective date; published after University Legal Office review. */
 export const LEGAL_EFFECTIVE_DATE = "2026-10-26";
-export const LEGAL_APP_RELEASE = "1.31.7";
+export const LEGAL_APP_RELEASE = "1.34.1";
 export const LEGAL_REVIEWER = "University Legal Office, ISUFST Dingle Campus";
 
 export const DPO_NAME = "Jeff Edrick C. Martinez";

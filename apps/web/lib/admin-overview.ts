@@ -1,6 +1,10 @@
 import type { ChartPoint, DailyRow, FeedBucketRow } from "@/components/charts/chart-data";
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { farmWallClock } from "@/lib/date-local";
+import {
+	DEFAULT_DEVICE_STATUS_POLICY,
+	type DeviceStatusPolicy,
+	evaluateDeviceStatus,
+} from "@/lib/device-status";
 
 /**
  * Pure data shaping for the farm-owner Admin Overview (#277).
@@ -48,8 +52,8 @@ export function farmDayKey(date: Date): string {
 }
 
 /**
- * Fleet health with one offline rule, reused from `isDeviceOffline`:
- * no heartbeat within `OFFLINE_THRESHOLD_MS`.
+ * Fleet health with the shared three-state rule (#388). A weak-signal unit is
+ * still reachable, so only the full offline state is counted as offline.
  *
  * A device awaiting approval is counted as `pending`, not online/offline, so
  * the three donut segments always add up to `total`.
@@ -57,6 +61,7 @@ export function farmDayKey(date: Date): string {
 export function buildDeviceHealth(
 	devices: ReadonlyArray<AdminOverviewDevice>,
 	now: Date = new Date(),
+	policy: DeviceStatusPolicy = DEFAULT_DEVICE_STATUS_POLICY,
 ): AdminDeviceHealth {
 	let online = 0;
 	let offline = 0;
@@ -69,7 +74,7 @@ export function buildDeviceHealth(
 			pending += 1;
 			continue;
 		}
-		if (device.lastSeenAt && now.getTime() - device.lastSeenAt.getTime() <= OFFLINE_THRESHOLD_MS) {
+		if (!evaluateDeviceStatus({ lastSeenAt: device.lastSeenAt, now, policy }).isOffline) {
 			online += 1;
 		} else {
 			offline += 1;

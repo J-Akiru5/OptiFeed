@@ -262,6 +262,31 @@ void test_dispense_gate_daily_cap_and_absolute_limits(void) {
   TEST_ASSERT_TRUE(gate.evaluate(1000, 100.0f, 25000UL, 4900.0f) == Refusal::NONE);
 }
 
+void test_dispense_gate_calibration_exception(void) {
+  DispenseGate gate;
+  DispenseLimits normal;
+  normal.minGapMs = 0;
+  normal.maxPerHour = 6;
+  normal.maxGramsPerDose = 1000.0f;
+  normal.maxGramsPerDay = 5000.0f;
+  normal.maxDispenseMs = 300000UL;
+  gate.configure(normal);
+
+  DispenseLimits calibration = normal;
+  calibration.maxGramsPerDose = 5000.0f;
+  calibration.maxDispenseMs = 600000UL;
+
+  // A 10-minute, 5 kg dose is refused by the normal gate...
+  TEST_ASSERT_TRUE(gate.evaluate(1000, 5000.0f, 600000UL, 0.0f) == Refusal::GRAMS_OUT_OF_RANGE);
+  // ...and allowed only when the calibration limits are passed explicitly.
+  TEST_ASSERT_TRUE(gate.evaluate(1000, 5000.0f, 600000UL, 0.0f, calibration) == Refusal::NONE);
+  // The calibration ceiling is still a ceiling.
+  TEST_ASSERT_TRUE(gate.evaluate(1000, 5000.1f, 600000UL, 0.0f, calibration) ==
+                   Refusal::GRAMS_OUT_OF_RANGE);
+  TEST_ASSERT_TRUE(gate.evaluate(1000, 5000.0f, 600001UL, 0.0f, calibration) ==
+                   Refusal::DOSE_TOO_LONG);
+}
+
 void test_refusal_reasons_match_the_server_contract(void) {
   TEST_ASSERT_EQUAL_STRING("too_soon", refusalReason(Refusal::TOO_SOON));
   TEST_ASSERT_EQUAL_STRING("hourly_limit", refusalReason(Refusal::HOURLY_LIMIT));
@@ -446,6 +471,7 @@ int main(int, char **) {
   RUN_TEST(test_dispense_gate_gap_between_any_two_dispenses);
   RUN_TEST(test_dispense_gate_hourly_ceiling);
   RUN_TEST(test_dispense_gate_daily_cap_and_absolute_limits);
+  RUN_TEST(test_dispense_gate_calibration_exception);
   RUN_TEST(test_refusal_reasons_match_the_server_contract);
 
   RUN_TEST(test_reset_history_counts_three_abnormal_resets_in_ten_minutes);

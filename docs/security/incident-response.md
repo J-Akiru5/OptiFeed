@@ -136,7 +136,7 @@ production credentials.
 | Stop one unit feeding | Platform console → pause the device (`remoteSetDevicePause`, step-up + reason + audit), or cut relay power | A paused device still keeps its RTC schedule but refuses new `FeedRequest`s |
 | Stop a stolen token | Platform console → rotate the device token (`rotateDeviceToken`), then re-provision the unit | The old hash stops matching immediately; the physical unit needs the new token |
 | Stop a bad firmware release | Remove or correct `channels/stable.json` in the `firmware` bucket **[owner decision]** | Devices that already installed it keep running it; there is no remote rollback command |
-| Check for rogue commands | Inspect `FeedRequest`, `FeedEvent` and `DeviceStateEvent` for the affected unit; compare grams against the caps | Per-dose cap 1,000 g, daily cap 5,000 g, 300 s pump limit |
+| Check for rogue commands | Inspect `FeedRequest`, `FeedEvent` and `DeviceStateEvent` for the affected unit; compare grams against the caps | Server daily cap 5,000 g and 300 s pump limit; firmware still refuses >1,000 g per dose |
 | Signing key compromised | Treat as SEV1: stop OTA, publish a new key through a manifest signed by a still-trusted key if possible, otherwise reflash units physically | There is no revocation list; `primary`/`spare` rotation is the only in-band path |
 
 ### 5.4 Credentials

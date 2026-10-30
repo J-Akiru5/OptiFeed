@@ -8,6 +8,17 @@ import {
 	normalizeStickerRating,
 	stickerRatingInputSchema,
 } from "@/lib/constants/sticker-rating";
+import {
+	DEVICE_OFFLINE_AFTER_MIN_MAX,
+	DEVICE_OFFLINE_AFTER_MIN_MIN,
+	DEVICE_OFFLINE_GRACE_MIN_MAX,
+	DEVICE_OFFLINE_GRACE_MIN_MIN,
+	DEVICE_STATUS_SETTING_KEY,
+	DEVICE_WEAK_AFTER_MIN_MAX,
+	DEVICE_WEAK_AFTER_MIN_MIN,
+	type DeviceStatusSettingValue,
+	normalizeDeviceStatusValue,
+} from "@/lib/device-status";
 import prisma from "@/lib/prisma";
 import {
 	LIST_PAGE_SIZE_KEY,
@@ -15,6 +26,7 @@ import {
 	LIST_PAGE_SIZE_MIN,
 	normalizeListPageSize,
 } from "@/lib/settings/platform";
+import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -98,6 +110,99 @@ export async function setListPageSize(
 	revalidatePath("/[locale]/(superadmin)", "layout");
 
 	return { success: true, value: saved };
+}
+
+/**
+ * Device connectivity thresholds (issue #388).
+ *
+ * Three whole-minute values: when a late heartbeat becomes "weak signal", when
+ * the unit becomes offline, and the grace added on top of the offline window so
+ * one missed beat cannot flip the UI. Stored in `PlatformSetting` under
+ * `device.status`; no schema change. `weakAfterMin` must stay below
+ * `offlineAfterMin`, and every value is inside the same bounds the reader
+ * enforces, so a hand-edited row cannot create an impossible policy.
+ */
+
+const deviceStatusSchema = z
+	.object({
+		weakAfterMin: z.number().int().min(DEVICE_WEAK_AFTER_MIN_MIN).max(DEVICE_WEAK_AFTER_MIN_MAX),
+		offlineAfterMin: z
+			.number()
+			.int()
+			.min(DEVICE_OFFLINE_AFTER_MIN_MIN)
+			.max(DEVICE_OFFLINE_AFTER_MIN_MAX),
+		graceMin: z.number().int().min(DEVICE_OFFLINE_GRACE_MIN_MIN).max(DEVICE_OFFLINE_GRACE_MIN_MAX),
+	})
+	.refine((value) => value.weakAfterMin < value.offlineAfterMin, {
+		message: "The weak-signal window must be shorter than the offline window.",
+		path: ["weakAfterMin"],
+	});
+
+export type DeviceStatusActionResult =
+	| { success: true; value: DeviceStatusSettingValue }
+	| { error: string };
+
+export async function setDeviceStatusThresholds(
+	input: DeviceStatusSettingValue,
+	reason: string,
+): Promise<DeviceStatusActionResult> {
+	await requirePlatformAdmin();
+
+	const parsed = deviceStatusSchema.safeParse(input);
+	if (!parsed.success) {
+		const issue = parsed.error.issues[0];
+		const field = issue?.path.join(".");
+		if (field === "weakAfterMin" && issue?.message.includes("shorter")) {
+			return { error: issue.message };
+		}
+		return {
+			error: `Use whole minutes: weak signal ${DEVICE_WEAK_AFTER_MIN_MIN}–${DEVICE_WEAK_AFTER_MIN_MAX}, offline ${DEVICE_OFFLINE_AFTER_MIN_MIN}–${DEVICE_OFFLINE_AFTER_MIN_MAX}, grace ${DEVICE_OFFLINE_GRACE_MIN_MIN}–${DEVICE_OFFLINE_GRACE_MIN_MAX}.`,
+		};
+	}
+
+	const parsedReason = inputSchema.shape.reason.safeParse(reason);
+	if (!parsedReason.success) {
+		return {
+			error: `A reason of at least ${MIN_REASON_LENGTH} characters is required.`,
+		};
+	}
+
+	const next = normalizeDeviceStatusValue(parsed.data);
+	const actor = await actorContext();
+
+	await prisma.$transaction(async (tx) => {
+		const existing = await tx.platformSetting.findUnique({
+			where: { key: DEVICE_STATUS_SETTING_KEY },
+			select: { value: true },
+		});
+		const before = normalizeDeviceStatusValue(existing?.value);
+
+		await tx.platformSetting.upsert({
+			where: { key: DEVICE_STATUS_SETTING_KEY },
+			create: {
+				key: DEVICE_STATUS_SETTING_KEY,
+				value: next as unknown as Prisma.InputJsonValue,
+				updatedById: actor.id,
+			},
+			update: { value: next as unknown as Prisma.InputJsonValue, updatedById: actor.id },
+		});
+
+		await writePlatformAudit(tx, {
+			actorUserId: actor.id,
+			action: "platform.settings.device_status",
+			targetType: "platform_setting",
+			targetId: DEVICE_STATUS_SETTING_KEY,
+			reason: parsedReason.data,
+			temporaryGrant: actor.temporaryGrant,
+			before: { ...before },
+			after: { ...next },
+		});
+	});
+
+	revalidatePath("/[locale]/(superadmin)", "layout");
+	revalidatePath("/[locale]/(admin)", "layout");
+	revalidatePath("/[locale]/(dashboard)", "layout");
+	return { success: true, value: next };
 }
 
 /**

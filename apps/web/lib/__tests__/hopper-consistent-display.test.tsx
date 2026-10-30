@@ -174,3 +174,43 @@ describe("sidebar hopper card opens the hopper chart (#286)", () => {
 		expect(source).toMatch(/id="hopper-level"[\s\S]{0,160}scroll-mt-/);
 	});
 });
+
+describe("hopper snapshot uses the stored signal (I-97)", () => {
+	const now = new Date("2026-10-30T12:00:00.000Z");
+	const row = {
+		id: "dev-1",
+		feedLevelPercent: 40,
+		feedLevelUpdatedAt: now,
+		lastSeenAt: now,
+		hopperCapacityG: 1000,
+		gramsPerFeeding: 150,
+	};
+
+	it("turns a fresh low reading into weak signal and reports the dBm", () => {
+		const snapshot = toHopperSnapshot(
+			{ ...row, wifiRssiDbm: -85, wifiRssiUpdatedAt: new Date(now.getTime() - 1000) },
+			now,
+		);
+
+		expect(snapshot.status).toBe("weak");
+		expect(snapshot.isOffline).toBe(false);
+		expect(snapshot.rssiDbm).toBe(-85);
+	});
+
+	it("drops a stale reading so a silent unit is not shown as weak", () => {
+		const snapshot = toHopperSnapshot(
+			{ ...row, wifiRssiDbm: -85, wifiRssiUpdatedAt: new Date(now.getTime() - 60 * 60 * 1000) },
+			now,
+		);
+
+		expect(snapshot.status).toBe("online");
+		expect(snapshot.rssiDbm).toBeNull();
+	});
+
+	it("keeps the timing-only rule for firmware without RSSI", () => {
+		const snapshot = toHopperSnapshot(row, now);
+
+		expect(snapshot.status).toBe("online");
+		expect(snapshot.rssiDbm).toBeNull();
+	});
+});

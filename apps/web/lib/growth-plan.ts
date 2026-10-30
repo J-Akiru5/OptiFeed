@@ -1,4 +1,4 @@
-import { MAX_FEED_GRAMS_PER_REQUEST } from "@/lib/limits";
+import { MAX_ACCEPTED_FEED_GRAMS } from "@/lib/limits";
 
 /**
  * The plan is deliberately transparent: a straight line from the stocking
@@ -234,7 +234,7 @@ function emptyPlan(input: GrowthPlanInput): GrowthPlan {
 		hasPriorAdjustment: false,
 		maxChangePct: MAX_ADJUSTMENT_PCT,
 		device: {
-			maxGramsPerFeeding: positive(input.deviceMaxGramsPerFeeding) ?? MAX_FEED_GRAMS_PER_REQUEST,
+			maxGramsPerFeeding: positive(input.deviceMaxGramsPerFeeding) ?? MAX_ACCEPTED_FEED_GRAMS,
 			requiredGramsPerFeeding: null,
 			feasible: true,
 			deficitGrams: null,
@@ -455,7 +455,7 @@ export function buildGrowthPlan(input: GrowthPlanInput): GrowthPlan {
 		plan.feed.totalCycleFeedKg = round2((totalGainG * fcrAssumption) / 1000);
 	}
 
-	const maxGramsPerFeeding = positive(input.deviceMaxGramsPerFeeding) ?? MAX_FEED_GRAMS_PER_REQUEST;
+	const maxGramsPerFeeding = positive(input.deviceMaxGramsPerFeeding) ?? MAX_ACCEPTED_FEED_GRAMS;
 	plan.device.maxGramsPerFeeding = maxGramsPerFeeding;
 	plan.device.requiredGramsPerFeeding = plan.recommendedGramsPerFeeding;
 	plan.device.feasible =

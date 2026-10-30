@@ -17,11 +17,17 @@ export interface FeederHeroAdvisor {
 }
 
 /** Everything the hero renders. Assembled by `loadFeederHero` on the server. */
+import type { DeviceConnectionState } from "@/lib/device-status";
 import type { NextFeedingSlot } from "@/lib/schedule/next-feeding-slot";
 
 export interface FeederHeroData {
 	deviceLabel: string;
+	/** Online, weak signal or offline (issue #388). */
+	connectionState: DeviceConnectionState;
+	/** True only when the feeder is fully offline. */
 	isOffline: boolean;
+	/** Fresh Wi-Fi RSSI in dBm, or null when it is unknown (old firmware/stale). */
+	rssiDbm: number | null;
 	isPaused: boolean;
 	lastSeenAt: Date | null;
 	hopperLevelPercent: number | null;

@@ -50,6 +50,7 @@ vi.mock("@/lib/prisma", () => ({
 
 import type { Permission } from "@/lib/auth/permissions";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { DEVICE_OFFLINE_GRACE_MIN_DEFAULT } from "@/lib/device-status";
 import type { AssistantCaller } from "../assistant/caller";
 import { buildAssistantTurnData } from "../assistant/turn-context";
 
@@ -209,7 +210,9 @@ describe("feeder snapshot", () => {
 	it("treats a heartbeat older than the offline window as offline", async () => {
 		mocks.deviceFindFirst.mockResolvedValue({
 			...DEVICE,
-			lastSeenAt: new Date(Date.now() - OFFLINE_THRESHOLD_MS - 1_000),
+			lastSeenAt: new Date(
+				Date.now() - OFFLINE_THRESHOLD_MS - DEVICE_OFFLINE_GRACE_MIN_DEFAULT * 60 * 1000 - 1_000,
+			),
 		});
 
 		const data = await buildAssistantTurnData("en", CALLER);

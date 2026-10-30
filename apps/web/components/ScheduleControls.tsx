@@ -1,7 +1,9 @@
 "use client";
 
+import { Link } from "@/i18n/routing";
 import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
 import { toggleDevicePause } from "@/lib/actions/schedule";
+import { type FeedNowLimit, formatFeedGrams } from "@/lib/limits-core";
 import { useFeedCommandGuard } from "@/lib/pwa/use-feed-guard";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, CheckCircle2, Loader2, Pause, Play, Power } from "lucide-react";
@@ -15,6 +17,8 @@ interface ScheduleControlsProps {
 	gramsPerFeeding?: number;
 	gramsPerSecond?: number;
 	canWrite?: boolean;
+	/** Remaining daily ceiling for Feed Now (issue #387 / #398); omitted falls back to the dose. */
+	feedNowLimit?: FeedNowLimit | null;
 }
 
 export function ScheduleControls({
@@ -23,6 +27,7 @@ export function ScheduleControls({
 	gramsPerFeeding = 150,
 	gramsPerSecond,
 	canWrite = true,
+	feedNowLimit = null,
 }: ScheduleControlsProps) {
 	const tBtn = useTranslations("button");
 	const tSch = useTranslations("dashboard.schedule");
@@ -35,10 +40,11 @@ export function ScheduleControls({
 	const [isPendingFeed, startFeedTransition] = useTransition();
 	const [feedSuccess, setFeedSuccess] = useState(false);
 
-	const feedGramsLabel = String(Number(gramsPerFeeding.toFixed(1)));
+	const dispenseGrams = Math.min(gramsPerFeeding, feedNowLimit?.effectiveG ?? gramsPerFeeding);
+	const feedGramsLabel = formatFeedGrams(dispenseGrams);
 	const feedDurationSeconds =
-		gramsPerSecond && gramsPerSecond > 0 && gramsPerFeeding > 0
-			? String(Number((gramsPerFeeding / gramsPerSecond).toFixed(1)))
+		gramsPerSecond && gramsPerSecond > 0 && dispenseGrams > 0
+			? String(Number((dispenseGrams / gramsPerSecond).toFixed(1)))
 			: null;
 
 	const handleTogglePause = () => {
@@ -63,18 +69,20 @@ export function ScheduleControls({
 		if (blockIfOffline()) return;
 		startFeedTransition(async () => {
 			try {
-				const result = await requestFeedAction(deviceId, gramsPerFeeding);
+				const result = await requestFeedAction(deviceId, dispenseGrams);
 				if (result.success) {
 					if (result.message === "Feed already pending") {
 						toast.info(tModal("alreadyQueued"));
 					} else {
-						toast.success(tModal("requestSent", { volume: `${gramsPerFeeding}g` }));
+						toast.success(tModal("requestSent", { volume: `${feedGramsLabel}g` }));
 					}
 					setShowConfirm(false);
 					setFeedSuccess(true);
 					setTimeout(() => setFeedSuccess(false), 3000);
 				} else {
-					toast.error(tModal("error"));
+					// The server names the setting and the number (issue #387);
+					// a generic toast would hide the actionable message.
+					toast.error(result.error || tModal("error"));
 				}
 			} catch {
 				toast.error(tModal("error"));
@@ -148,7 +156,7 @@ export function ScheduleControls({
 							<button
 								type="button"
 								onClick={handleFeedNow}
-								disabled={isPendingFeed || !online}
+								disabled={isPendingFeed || !online || dispenseGrams < 1}
 								title={reason}
 								className="px-3 py-1.5 rounded-md text-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors flex items-center justify-center min-w-[80px]"
 							>
@@ -160,7 +168,7 @@ export function ScheduleControls({
 					<button
 						type="button"
 						onClick={() => setShowConfirm(true)}
-						disabled={!canWrite || !online}
+						disabled={!canWrite || !online || dispenseGrams < 1}
 						title={reason}
 						className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-white bg-[var(--ofd-base)] hover:bg-[#1a4a6e] transition-all shadow-md hover:shadow-lg w-full @lg:w-auto justify-center disabled:opacity-50 dark:bg-[#1f66a0] dark:hover:bg-[#2a7ab8]"
 					>
@@ -171,6 +179,20 @@ export function ScheduleControls({
 						)}
 						<span>{feedSuccess ? tBtn("feedTriggered") : tBtn("feedNow")}</span>
 					</button>
+				)}
+				{feedNowLimit && (
+					<p className="mt-2 text-[11px] font-medium text-gray-500 dark:text-gray-400">
+						{tModal("limitHint", {
+							limit: formatFeedGrams(feedNowLimit.effectiveG),
+							reason: tModal("limitReasonDaily"),
+						})}{" "}
+						<Link
+							href="/dashboard/settings/pond"
+							className="font-semibold underline underline-offset-2 text-[#0A3D62] hover:text-[#E85A2A] dark:text-[#8fc0ea]"
+						>
+							{tModal("changeInSettings")}
+						</Link>
+					</p>
 				)}
 				{reason && (
 					<p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">

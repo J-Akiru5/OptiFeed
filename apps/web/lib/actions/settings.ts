@@ -10,9 +10,76 @@ import {
 } from "@/lib/limits";
 import { type PondProfileInput, mergePondProfile, pondProfileSchema } from "@/lib/pond-profile";
 import prisma from "@/lib/prisma";
+import { getFeedingLimits } from "@/lib/settings/feeding-caps";
+import {
+	type PondDeviceConflict,
+	type PondSettingsFieldError,
+	buildPondDeviceConstraints,
+	buildPondFeedPreview,
+	detectPondDeviceConflicts,
+	pondFieldError,
+} from "@/lib/settings/pond-conflicts";
+import type { PondSettingsField } from "@/lib/settings/pond-fields";
 import type { InputJsonValue } from "@prisma/client/runtime/library";
 import { revalidatePath } from "next/cache";
+import type { ZodError } from "zod";
 import { updateScheduleCommand } from "./schedule";
+
+/**
+ * The pond settings save result (#371).
+ *
+ * A failure is never a bare sentence any more: it carries the field-level
+ * errors (so each input can explain itself), the device conflicts (so the form
+ * can link to the exact setting and offer the pond value) and no writes. The
+ * form keeps the reader's typed values either way; this shape is what makes
+ * that possible to test.
+ */
+export type PondSettingsActionResult =
+	| { success: true }
+	| {
+			success: false;
+			error: string;
+			fieldErrors: PondSettingsFieldError[];
+			conflicts: PondDeviceConflict[];
+	  };
+
+const POND_FIELD_CODES: Record<
+	PondSettingsField,
+	{ min: Parameters<typeof pondFieldError>[1]; max: Parameters<typeof pondFieldError>[1] }
+> = {
+	feedingRatePct: { min: "rate_min", max: "rate_max" },
+	feedsPerDay: { min: "feeds_min", max: "feeds_max" },
+	sampleIntervalDays: { min: "interval_min", max: "interval_max" },
+	population: { min: "population_min", max: "population_max" },
+	areaM2: { min: "area_invalid", max: "area_invalid" },
+	averageDepthM: { min: "depth_invalid", max: "depth_invalid" },
+	feedPricePerKg: { min: "price_invalid", max: "price_invalid" },
+};
+
+function zodFieldErrors(error: ZodError): PondSettingsFieldError[] {
+	const fieldErrors: PondSettingsFieldError[] = [];
+	for (const issue of error.issues) {
+		const field = issue.path[0];
+		if (typeof field !== "string" || !(field in POND_FIELD_CODES)) continue;
+		const codes = POND_FIELD_CODES[field as PondSettingsField];
+		const code =
+			issue.code === "too_small" ? codes.min : issue.code === "too_big" ? codes.max : codes.min;
+		fieldErrors.push(pondFieldError(field as PondSettingsField, code, issue.message));
+	}
+	return fieldErrors;
+}
+
+function conflictSentence(conflicts: PondDeviceConflict[]): string {
+	const first = conflicts[0];
+	if (!first) return "The pond settings conflict with the device limits.";
+	if (first.code === "daily-ceiling") {
+		return `The pond needs ${Math.round(first.pondValueG)} g/day, over the feeder's ${Math.round(first.deviceValueG)} g/day ceiling. Pond settings win; raise the device ceiling or link the setting.`;
+	}
+	if (first.code === "relay-time") {
+		return `The pond needs ${Math.round(first.pondValueG)} g per meal, more than the ${Math.round(first.deviceValueG)} g the feeder can dispense in one relay window. Recalibrate the feeder or split the feed into more meals.`;
+	}
+	return `The pond needs ${Math.round(first.pondValueG)} g per meal, over the feeder's ${Math.round(first.deviceValueG)} g limit. Split the feed into more meals.`;
+}
 
 export interface NotificationPrefs {
 	missedFeeding: boolean;
@@ -73,12 +140,17 @@ export async function updatePondSettings(
 	sampleIntervalDays?: number,
 	population?: number | null,
 	profile?: PondProfileInput,
-) {
+): Promise<PondSettingsActionResult> {
 	try {
 		await requireWriteAccess();
 		const parsed = pondSettingsSchema.safeParse({ feedingRatePct, feedsPerDay, population });
 		if (!parsed.success) {
-			return { success: false, error: formatZodError(parsed.error) };
+			return {
+				success: false,
+				error: formatZodError(parsed.error),
+				fieldErrors: zodFieldErrors(parsed.error),
+				conflicts: [],
+			};
 		}
 		const input = parsed.data;
 
@@ -86,7 +158,12 @@ export async function updatePondSettings(
 		if (profile !== undefined) {
 			const profileResult = pondProfileSchema.safeParse(profile);
 			if (!profileResult.success) {
-				return { success: false, error: formatZodError(profileResult.error) };
+				return {
+					success: false,
+					error: formatZodError(profileResult.error),
+					fieldErrors: zodFieldErrors(profileResult.error),
+					conflicts: [],
+				};
 			}
 			parsedProfile = profileResult.data;
 		}
@@ -97,13 +174,65 @@ export async function updatePondSettings(
 		});
 
 		if (!pond) {
-			return { success: false, error: "Pond not found" };
+			return {
+				success: false,
+				error: "Pond not found",
+				fieldErrors: [],
+				conflicts: [],
+			};
 		}
 
 		const energyDevice = await prisma.energyDevice.findFirst({
 			where: { pondId },
-			select: { id: true },
+			select: {
+				id: true,
+				dailyCapG: true,
+				hopperCapacityG: true,
+				gramsPerSecond: true,
+			},
 		});
+
+		// The pond is the source of truth (#371): compute the grams these typed
+		// values ask for, compare them with what the feeder can safely dispense,
+		// and report every disagreement before a single write. A conflict is a
+		// save failure with its own field/card, not a generic sentence.
+		const effectivePopulation =
+			population !== undefined ? (input.population ?? null) : pond.population;
+		let conflicts: PondDeviceConflict[] = [];
+		if (energyDevice) {
+			const [latestBiomass, limits] = await Promise.all([
+				prisma.biomassLog.findFirst({
+					where: { pondId },
+					orderBy: { recordedAt: "desc" },
+					select: { avgWeightKg: true },
+				}),
+				getFeedingLimits(),
+			]);
+			const preview = buildPondFeedPreview({
+				population: effectivePopulation,
+				avgWeightKg: latestBiomass?.avgWeightKg ?? null,
+				feedingRatePct: input.feedingRatePct,
+				feedsPerDay: input.feedsPerDay,
+			});
+			const constraints = buildPondDeviceConstraints({
+				deviceId: energyDevice.id,
+				configuredDailyCapG: energyDevice.dailyCapG,
+				hopperCapacityG: energyDevice.hopperCapacityG,
+				gramsPerSecond: energyDevice.gramsPerSecond,
+				maxDispenseMs: limits.maxDispenseMs,
+				dailyCapFactor: limits.dailyCapFactor,
+			});
+			conflicts = detectPondDeviceConflicts(preview, constraints);
+		}
+
+		if (conflicts.length > 0) {
+			return {
+				success: false,
+				error: conflictSentence(conflicts),
+				fieldErrors: [],
+				conflicts,
+			};
+		}
 
 		const pondUpdateData: {
 			feedingRatePct: number;
@@ -132,6 +261,16 @@ export async function updatePondSettings(
 			const fmt = (d: Date) =>
 				`${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 
+			// Derive the device's per-meal grams from the *typed* values before the
+			// schedule command validates them. Otherwise the command checks a stale
+			// dose from the previous biomass and can refuse a save that is actually
+			// lighter, while accepting one the new settings make too heavy.
+			await syncDeviceGramsForPond(pondId, {
+				feedingRatePct: input.feedingRatePct,
+				feedsPerDay: input.feedsPerDay,
+				population: pondUpdateData.population,
+			});
+
 			const commandResult = await updateScheduleCommand(pondId, energyDevice.id, {
 				scheduleStart: fmt(pond.scheduleStart),
 				scheduleEnd: fmt(pond.scheduleEnd),
@@ -139,7 +278,12 @@ export async function updatePondSettings(
 				feedingRatePct: input.feedingRatePct,
 			});
 			if (!commandResult.success) {
-				return commandResult;
+				return {
+					success: false,
+					error: commandResult.error ?? "Failed to update the feeding schedule",
+					fieldErrors: [],
+					conflicts: [],
+				};
 			}
 
 			await prisma.deviceStateEvent.create({
@@ -163,13 +307,6 @@ export async function updatePondSettings(
 				data: pondUpdateData,
 			});
 
-			// Keep the device's dispensed grams in sync with the new config/biomass.
-			await syncDeviceGramsForPond(pondId, {
-				feedingRatePct: input.feedingRatePct,
-				feedsPerDay: input.feedsPerDay,
-				population: pondUpdateData.population,
-			});
-
 			revalidatePath("/[locale]/(dashboard)", "layout");
 			return { success: true };
 		}
@@ -189,7 +326,12 @@ export async function updatePondSettings(
 		return { success: true };
 	} catch (error) {
 		console.error("Failed to update pond settings:", error);
-		return { success: false, error: "Failed to update pond settings" };
+		return {
+			success: false,
+			error: "Failed to update pond settings",
+			fieldErrors: [],
+			conflicts: [],
+		};
 	}
 }
 

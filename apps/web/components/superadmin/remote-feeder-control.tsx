@@ -4,6 +4,7 @@ import { StepUpDialog } from "@/components/superadmin/step-up-dialog";
 import { Alert, FIELD_LABEL, PRIMARY_BUTTON, SECONDARY_BUTTON } from "@/components/superadmin/ui";
 import { useRouter } from "@/i18n/routing";
 import { remoteFeedDevice, remoteSetDevicePause } from "@/lib/actions/platform/devices";
+import { MAX_ACCEPTED_FEED_GRAMS } from "@/lib/limits-core";
 import { cn } from "@/lib/utils";
 import { Loader2, Pause, Play, Sliders, Wheat } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -19,7 +20,9 @@ import {
 
 const MIN_REASON = 10;
 const MIN_GRAMS = 1;
-const MAX_GRAMS = 1000;
+// Payload sanity bound only; the daily ceiling is the only gram cap and is
+// enforced by the server command.
+const MAX_GRAMS = MAX_ACCEPTED_FEED_GRAMS;
 
 type Message = { tone: "ok" | "error" | "refused"; text: string };
 
@@ -33,7 +36,7 @@ export function remoteFeedRowId(deviceId: string): string {
  *
  * Manual feed and pause/resume call the same server command as the tenant
  * dashboard. There is no force flag and no cap override: a refusal (offline,
- * daily cap, >1,000 g, fallow pond) comes back as `feed_refused`/`pause_refused`
+ * daily cap, absurd input, fallow pond) comes back as `feed_refused`/`pause_refused`
  * and is displayed, never hidden. Every action needs a reason and a fresh
  * step-up, and writes one audit row under the real admin.
  *
@@ -170,11 +173,9 @@ function RemoteFeedForm({
 	return (
 		<>
 			<form onSubmit={submitFeed} className="w-full min-w-0 space-y-2" aria-busy={isPending}>
-				{/* The caps sentence is long and unbroken words can be wider than a
+				{/* The rules sentence is long and unbroken words can be wider than a
 				    phone column: wrap anywhere instead of pushing the panel wide. */}
-				<p className="text-[11px] leading-snug font-bold break-words text-[#3D5568]">
-					{t("note", { max: MAX_GRAMS })}
-				</p>
+				<p className="text-[11px] leading-snug font-bold break-words text-[#3D5568]">{t("note")}</p>
 				<input
 					value={reason}
 					onChange={(e) => setReason(e.target.value)}

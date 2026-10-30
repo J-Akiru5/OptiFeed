@@ -13,7 +13,13 @@ export const PH_UTC_OFFSET_MINUTES = 480;
 export const LEGACY_API_SUNSET = "2027-06-30";
 
 // Devices are considered offline when no heartbeat arrives within this window.
+// #388 adds the platform-configurable weak/offline thresholds on top of this
+// default; display and command checks use `lib/device-status.ts`.
 export const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
+
+// A queued feed/calibration command younger than this counts as "in flight", so
+// the device status never flips to offline while the command is being delivered.
+export const DEVICE_COMMAND_IN_FLIGHT_MS = 2 * 60 * 1000;
 
 // A dispatched/sent schedule command older than this never reached the
 // device (lib/actions/energy.ts and schedule.ts clear the stale rows).

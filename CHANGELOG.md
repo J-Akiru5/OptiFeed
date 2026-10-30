@@ -9,6 +9,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.34.1] - 2026-10-31
+
+### Fixed
+
+- Dead-code gate: `MAX_ACCEPTED_FEED_GRAMS` is a literal (5,000 g, equal to the daily hard guard) instead of an alias of `MAX_FEED_GRAMS_PER_DAY_PER_DEVICE`, which knip reported as a duplicate export.
+
+## [1.34.0] - 2026-10-30
+
+### Changed
+
+- The device daily ceiling is now the only gram cap for Feed Now, scheduled meals and prediction apply. The 1,000 g per-request ceiling from #387 and the pond per-meal dose clamp are removed; a 5,000 g schema sanity bound (the daily hard guard) still rejects malformed input. Refusals name the grams left of the daily ceiling and where to change it, and the Feed Now input is capped to the remaining daily grams. The relay-time guard and the daily-cap calculation are unchanged.
+- I-97 offline alerts now follow the platform device connectivity policy (offline window plus grace) instead of the per-organization `offlineAfterMin` delay, so the alert and the badge cannot disagree. The organization column and setting are kept for compatibility and marked deprecated in the UI; nothing is dropped.
+
+### Added
+
+- I-97 feeders now report their Wi-Fi signal (`wifi_rssi`, firmware 1.6.2) and the app stores it in two additive, nullable columns (`EnergyDevice.wifiRssiDbm`, `wifiRssiUpdatedAt`, no backfill). A plausible, fresh low reading turns a reachable unit into "weak signal" and the device screens show the dBm value with a bars icon and text, never colour alone. Old firmware that reports no signal keeps the timing-only rule.
+- #371 unsaved pond settings drafts are now stored in the database (`PondSettingsDraft`, one row per pond and user) instead of only `sessionStorage`, so typed values survive a closed browser and are never visible to another member of the farm. The form restores a draft only when it is newer than the saved settings and actually differs from them, shows the restore time with a Discard button, clears the draft after a successful save, and keeps `sessionStorage` only as the offline fallback. The device-watch cron prunes drafts untouched for 30 days. Additive migration `20261030120000_add_pond_settings_draft` (new table only).
+
+
+## [1.33.0] - 2026-10-30
+
+### Fixed
+
+- Bundle budget: Feed Now, schedule and pond-settings client components import the zod-free `lib/limits-core` instead of `lib/limits`, which removes the first-load JS regression introduced in 1.32.0.
+
+### Fixed
+
+- #388 device connectivity is now one three-state rule (online / weak signal / offline) shared by the header indicator, sidebar, dashboard, feeder hero, admin and superadmin lists, alerts, assistant context and PWA snapshot. A late heartbeat shows "weak signal" instead of flipping the screen to offline; offline starts only after the platform-configured window plus a grace, with hysteresis so it cannot flap. The weak-signal window, offline window and grace are editable by a platform admin in Settings → Device connectivity (stored in `PlatformSetting` key `device.status`; no schema change), and feed/calibration commands keep the stricter no-grace safety check. A command that is being delivered keeps the device out of the offline state, and the service worker retries a navigation twice before showing the offline shell so a slow link no longer lands readers on the offline dashboard after a single failed request.
+
+## [1.32.0] - 2026-10-30
+
+### Added
+
+- #370 global search (⌘K / Ctrl+K) finds settings (daily feed ceiling, per-meal ceiling, calibration, hopper capacity and thresholds, schedule) in English and Hiligaynon, only for roles allowed to open them, and jumps to and highlights the field.
+
+### Fixed
+
+- #387 Feed Now is no longer hard-rejected at the 1,000 g request cap regardless of the pond configuration. The manual ceiling is now the lower of the pond/device per-meal dose, the remaining daily ceiling from the single daily-cap calculation, and the 1,000 g absolute safety ceiling. The dashboard, schedule and controller dialogs show the effective limit and the reason, refusals name the setting and every relevant number with a Settings > Pond hint, and the dashboard's scheduled dose is capped to the effective limit instead of failing. The 1,000 g hard ceiling is unchanged and was not raised.
+
+### Changed
+
+- #371 a failed pond settings save keeps every value the reader typed and restores an unsaved draft after leaving the page; errors render under their field and in a summary whose links move focus to the field. Device conflicts are resolved in the pond's favour: the daily ceiling can be set from the pond value (still bounded by the 500-5,000 g window and never above a platform or hopper ceiling), and a meal the relay window cannot run links to calibration with the fewest feeds that would fit. The per-meal dose is derived from the typed values before the schedule command validates it, so a save is no longer refused by a stale dose.
+
+
+## [1.31.8] - 2026-10-30
+
+### Changed
+
+- Reconciles the GitHub Actions version bumps that landed on `staging` (dependabot targeted the default branch) back into `develop`: `checkout`, `setup-node`, `pnpm/action-setup`, `upload-artifact` and the rest of the group move from v4 to v7 across all nine workflows.
 ## [1.31.7] - 2026-10-30
 
 ### Fixed

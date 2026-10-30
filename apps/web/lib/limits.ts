@@ -1,8 +1,11 @@
 import { z } from "zod";
+import {
+	DAILY_CAP_MIN_G,
+	MAX_ACCEPTED_FEED_GRAMS,
+	MAX_FEED_GRAMS_PER_DAY_PER_DEVICE,
+} from "./limits-core";
 
-export const MAX_FEED_GRAMS_PER_REQUEST = 1000;
-export const MAX_FEED_GRAMS_PER_DAY_PER_DEVICE = 5000;
-export const MAX_DISPENSE_MS = 300_000;
+export * from "./limits-core";
 
 export const FEEDING_RATE_PCT_MIN = 0.1;
 export const FEEDING_RATE_PCT_MAX = 10;
@@ -51,15 +54,15 @@ export const hopperCalibrationSchema = z
 
 // Guided motor calibration: run the motor for a bounded test window, weigh the
 // output, then derive grams per second. The upper bounds keep a test dose
-// inside the per-request feed cap and the weighed output physically plausible.
+// inside the calibration ceiling and the weighed output physically plausible.
 export const CALIBRATION_TEST_SECONDS_MIN = 3;
-export const CALIBRATION_TEST_SECONDS_MAX = 30;
-export const CALIBRATION_TEST_GRAMS_MAX = 1000;
-export const CALIBRATION_ACTUAL_GRAMS_MAX = 2000;
+export const CALIBRATION_TEST_SECONDS_MAX = 600;
+export const CALIBRATION_TEST_GRAMS_MAX = 5000;
+export const CALIBRATION_ACTUAL_GRAMS_MAX = 5000;
 
 // Target check (issue #191): dispense an exact target, weigh it, and correct
-// grams per second from the error. The target bounds match the dashboard Feed
-// Now cap; ±5% is the acceptance window.
+// grams per second from the error. The target bounds are the calibration
+// limits; ±5% is the acceptance window.
 export const TARGET_CHECK_GRAMS_MIN = 5;
 export const TARGET_CHECK_GRAMS_MAX = 500;
 export const TARGET_CHECK_TOLERANCE_PCT = 5;
@@ -88,13 +91,12 @@ export const populationSchema = z
 	.min(POPULATION_MIN, `Population must be at least ${POPULATION_MIN}`)
 	.max(POPULATION_MAX, `Population cannot exceed ${POPULATION_MAX.toLocaleString("en-US")}`);
 
+// The daily ceiling is the only gram cap. This upper bound is a sanity guard
+// (the daily hard guard), not a per-request limit: it rejects impossible input.
 export const feedGramsSchema = z
 	.number("Feed amount must be a number")
 	.min(1, "Feed amount must be at least 1 g")
-	.max(
-		MAX_FEED_GRAMS_PER_REQUEST,
-		`Feed amount cannot exceed ${MAX_FEED_GRAMS_PER_REQUEST} g per request`,
-	);
+	.max(MAX_ACCEPTED_FEED_GRAMS, `Feed amount cannot exceed ${MAX_ACCEPTED_FEED_GRAMS} g`);
 
 const hhmm = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -203,8 +205,6 @@ export function formatZodError(error: z.ZodError): string {
  * `MAX_GRAMS_PER_DAY`). The platform setting (`dailyCapFactor`) may only lower
  * the result, and a calibrated hopper is the final physical limit.
  */
-export const DAILY_CAP_MIN_G = 500;
-export const DEFAULT_DAILY_CAP_G = 2000;
 
 export const dailyCapSchema = z
 	.number("Daily feed ceiling must be a number")
@@ -214,45 +214,3 @@ export const dailyCapSchema = z
 		MAX_FEED_GRAMS_PER_DAY_PER_DEVICE,
 		`Daily feed ceiling cannot exceed ${MAX_FEED_GRAMS_PER_DAY_PER_DEVICE} g`,
 	);
-
-/** Coerce any stored value into the writable window; null/invalid → the default. */
-export function normalizeDailyCapG(value: number | null | undefined): number {
-	if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_DAILY_CAP_G;
-	return Math.min(Math.max(Math.round(value), DAILY_CAP_MIN_G), MAX_FEED_GRAMS_PER_DAY_PER_DEVICE);
-}
-
-export interface DailyCapInput {
-	/** The pond's configured ceiling; null/undefined uses DEFAULT_DAILY_CAP_G. */
-	configuredCapG?: number | null;
-	/** Physical hopper capacity, when calibrated. */
-	hopperCapacityG?: number | null;
-	/** Platform safety multiplier (0-1); may only lower the cap. */
-	dailyCapFactor?: number | null;
-}
-
-/**
- * The one daily-cap calculation. Every server path (schedule save, manual feed,
- * calibration, prediction, pond edit) must call this instead of doing the
- * arithmetic itself, so a tightened platform cap and a raised farmer ceiling
- * cannot disagree between screens.
- */
-export function resolveDailyCapG(input: DailyCapInput = {}): number {
-	const configured = normalizeDailyCapG(input.configuredCapG);
-	const factor =
-		typeof input.dailyCapFactor === "number" && Number.isFinite(input.dailyCapFactor)
-			? Math.min(Math.max(input.dailyCapFactor, 0), 1)
-			: 1;
-	const platformCapped = configured * factor;
-	const hopper =
-		typeof input.hopperCapacityG === "number" &&
-		Number.isFinite(input.hopperCapacityG) &&
-		input.hopperCapacityG > 0
-			? input.hopperCapacityG
-			: null;
-	const capped = hopper === null ? platformCapped : Math.min(platformCapped, hopper);
-	return Math.round(capped * 100) / 100;
-}
-
-export function clamp(value: number, min: number, max: number): number {
-	return Math.min(Math.max(value, min), max);
-}

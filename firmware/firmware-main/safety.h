@@ -88,16 +88,21 @@ class DispenseGate {
   // Pure: no state change. Order matches the historical refusal reasons so an
   // existing log line keeps its meaning.
   Refusal evaluate(unsigned long nowMs, float grams, unsigned long durationMs,
-                   float dailyGrams) const {
-    if (!(grams > 0.0f) || grams > limits_.maxGramsPerDose) return Refusal::GRAMS_OUT_OF_RANGE;
-    if (durationMs > limits_.maxDispenseMs) return Refusal::DOSE_TOO_LONG;
-    if (dailyGrams + grams > limits_.maxGramsPerDay) return Refusal::DAILY_CAP;
+                   float dailyGrams, const DispenseLimits &limits) const {
+    if (!(grams > 0.0f) || grams > limits.maxGramsPerDose) return Refusal::GRAMS_OUT_OF_RANGE;
+    if (durationMs > limits.maxDispenseMs) return Refusal::DOSE_TOO_LONG;
+    if (dailyGrams + grams > limits.maxGramsPerDay) return Refusal::DAILY_CAP;
     if (count_ > 0) {
       const unsigned long last = starts_[(next_ + kSlots - 1) % kSlots];
-      if ((nowMs - last) < limits_.minGapMs) return Refusal::TOO_SOON;
+      if ((nowMs - last) < limits.minGapMs) return Refusal::TOO_SOON;
     }
-    if (dispensesLastHour(nowMs) >= limits_.maxPerHour) return Refusal::HOURLY_LIMIT;
+    if (dispensesLastHour(nowMs) >= limits.maxPerHour) return Refusal::HOURLY_LIMIT;
     return Refusal::NONE;
+  }
+
+  Refusal evaluate(unsigned long nowMs, float grams, unsigned long durationMs,
+                   float dailyGrams) const {
+    return evaluate(nowMs, grams, durationMs, dailyGrams, limits_);
   }
 
   // Call only when a dispense actually starts.

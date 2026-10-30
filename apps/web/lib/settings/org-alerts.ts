@@ -1,4 +1,5 @@
 import { PELLET_CRITICAL_PCT, PELLET_LOW_PCT } from "@/lib/constants";
+import { DEFAULT_DEVICE_STATUS_POLICY, type DeviceStatusPolicy } from "@/lib/device-status";
 import type { NotificationPrefs } from "@/lib/limits";
 import type { MemberRole } from "@prisma/client";
 import type { OrgSettings } from "./org";
@@ -83,23 +84,33 @@ export function hopperAlertTier(
 	return levelPercent <= low ? "WARNING" : null;
 }
 
-/** The org's alert delay in milliseconds. */
-export function offlineAlertThresholdMs(settings: OrgSettings): number {
-	const minutes = Number.isFinite(settings.offlineAfterMin) ? settings.offlineAfterMin : 30;
-	return Math.max(0, minutes) * 60 * 1000;
+/**
+ * The delay before an offline alert, in milliseconds.
+ *
+ * I-97: alerts follow the platform connectivity policy (Superadmin → Settings →
+ * Device status), the same window the device badge uses: the offline threshold
+ * plus its grace. The org-level `offlineAfterMin` column is kept for
+ * compatibility but no longer decides timing.
+ */
+export function offlineAlertThresholdMs(
+	policy: DeviceStatusPolicy = DEFAULT_DEVICE_STATUS_POLICY,
+): number {
+	return Math.max(0, policy.offlineAfterMs) + Math.max(0, policy.graceMs);
 }
 
 /**
- * True when a device has been silent long enough for the org's offline alert.
+ * True when a device has been silent long enough for the offline alert.
  *
- * `lastSeenAt` null means no heartbeat was ever received; the existing cron
+ * The boundary matches `evaluateDeviceStatus`: exactly the threshold is still
+ * "weak" on screen, so the alert fires on the first millisecond after it. A
+ * `lastSeenAt` of null means no heartbeat was ever received; the existing cron
  * skips those rows, so this returns false for them too.
  */
 export function offlineAlertDue(
 	lastSeenAt: Date | null | undefined,
 	now: Date,
-	settings: OrgSettings,
+	policy: DeviceStatusPolicy = DEFAULT_DEVICE_STATUS_POLICY,
 ): boolean {
 	if (!lastSeenAt) return false;
-	return now.getTime() - lastSeenAt.getTime() >= offlineAlertThresholdMs(settings);
+	return now.getTime() - lastSeenAt.getTime() > offlineAlertThresholdMs(policy);
 }

@@ -15,7 +15,11 @@ import {
 	submitTargetCheck,
 } from "@/lib/actions/calibration";
 import { saveDurationCalibration } from "@/lib/actions/energy";
-import { CALIBRATION_ACTUAL_GRAMS_MAX } from "@/lib/limits";
+import {
+	CALIBRATION_ACTUAL_GRAMS_MAX,
+	CALIBRATION_TEST_GRAMS_MAX,
+	CALIBRATION_TEST_SECONDS_MAX,
+} from "@/lib/limits";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, CheckCircle2, FlaskConical, Loader2, Scale, Target } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -24,9 +28,9 @@ import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 const MIN_TEST_SECONDS = 3;
-const MAX_TEST_SECONDS = 30;
+const MAX_TEST_SECONDS = CALIBRATION_TEST_SECONDS_MAX;
 const TEST_PRESETS = [5, 10, 15, 20];
-const MAX_TEST_DOSE_G = 1000;
+const MAX_TEST_DOSE_G = CALIBRATION_TEST_GRAMS_MAX;
 const MIN_RATE = 0.5;
 const MAX_RATE = 50;
 const MIN_TARGET_G = 5;
@@ -695,6 +699,12 @@ export function DurationCalibrationForm({
 				className="space-y-4"
 			>
 				<p className="text-sm text-gray-600 dark:text-gray-300">{t("guided.intro")}</p>
+
+				{testSeconds > 120 && (
+					<p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold leading-relaxed text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-200">
+						{t("guided.longRunWarning", { seconds: testSeconds })}
+					</p>
+				)}
 
 				<div className={calibrationFieldGrid}>
 					<CalibrationNumberField

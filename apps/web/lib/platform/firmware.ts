@@ -1,7 +1,8 @@
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { FIRMWARE_VERSION_EVENT_TYPES, versionFromMetadata } from "@/lib/device-firmware";
+import { evaluateDeviceStatus } from "@/lib/device-status";
 import prisma from "@/lib/prisma";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { type FirmwareStatus, getFirmwareStatus } from "@/lib/settings/firmware-status";
 
 /**
@@ -122,7 +123,7 @@ export async function getFirmwareFleet(now: Date = new Date()): Promise<Firmware
 	// reach Storage through this page.
 	await requirePlatformAdmin();
 
-	const [deviceRows, otaRows, recentRows, channel] = await Promise.all([
+	const [deviceRows, otaRows, recentRows, channel, statusPolicy] = await Promise.all([
 		prisma.energyDevice.findMany({
 			orderBy: { label: "asc" },
 			take: FIRMWARE_DEVICE_LIMIT + 1,
@@ -154,6 +155,7 @@ export async function getFirmwareFleet(now: Date = new Date()): Promise<Firmware
 			},
 		}),
 		getFirmwareStatus(),
+		getDeviceStatusPolicy(),
 	]);
 
 	const latest = latestOtaByDevice(otaRows);
@@ -165,9 +167,11 @@ export async function getFirmwareFleet(now: Date = new Date()): Promise<Firmware
 			mac: row.mac,
 			pondName: row.pond?.name ?? null,
 			lastSeenAt: row.lastSeenAt,
-			online:
-				Boolean(row.lastSeenAt) &&
-				now.getTime() - (row.lastSeenAt as Date).getTime() <= OFFLINE_THRESHOLD_MS,
+			online: !evaluateDeviceStatus({
+				lastSeenAt: row.lastSeenAt,
+				now,
+				policy: statusPolicy,
+			}).isOffline,
 			reportedVersion: version?.version ?? null,
 			versionEvent: version ? { eventType: version.eventType, createdAt: version.createdAt } : null,
 		};

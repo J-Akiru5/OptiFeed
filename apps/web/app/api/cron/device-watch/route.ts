@@ -2,15 +2,16 @@ import { ok } from "@/lib/api/envelope";
 import { withApi } from "@/lib/api/instrumentation";
 import { withCronAuth } from "@/lib/auth/with-auth";
 import { processRecalibrationReminders } from "@/lib/calibration/recalibration-reminders";
+import { DEVICE_OFFLINE_AFTER_MIN_MIN } from "@/lib/device-status";
 import { deleteExpiredErrorEvents } from "@/lib/error-capture";
 import { normalizeNotificationPrefs } from "@/lib/limits";
 import { absoluteAppUrl, sendTelegramMessage } from "@/lib/notify/telegram";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
 import { cleanupExpiredRateLimitBuckets } from "@/lib/rate-limit";
-import { deleteOldHeartbeatEvents } from "@/lib/retention";
+import { deleteExpiredPondSettingsDrafts, deleteOldHeartbeatEvents } from "@/lib/retention";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import {
-	ORG_OFFLINE_AFTER_MIN_MIN,
 	ORG_SETTINGS_DEFAULTS,
 	getOrgAlertRoles,
 	getOrgSettingsForFarms,
@@ -27,11 +28,14 @@ export const GET = withApi(
 			//    since the last contact. The event itself is the dedup marker, so
 			//    a device alerts exactly once per outage (no repeats on later runs).
 			//
-			//    The org's `offlineAfterMin` decides when the ALERT fires; the
-			//    dashboard badge keeps the fixed 15-minute OFFLINE_THRESHOLD_MS.
-			//    Scan from the smallest allowed delay so a 5-minute org policy is
-			//    honoured, then filter per device below.
-			const scanCutoff = new Date(Date.now() - ORG_OFFLINE_AFTER_MIN_MIN * 60 * 1000);
+			//    I-97: the ALERT follows the same platform `device.status` policy
+			//    as the badges (offline window plus grace), so the screen and the
+			//    notification can never disagree. The org `offlineAfterMin` column
+			//    is kept for compatibility but no longer decides timing.
+			//    Scan from the smallest allowed offline window so a short policy is
+			//    honoured, then filter per device with the resolved policy below.
+			const statusPolicy = await getDeviceStatusPolicy();
+			const scanCutoff = new Date(Date.now() - DEVICE_OFFLINE_AFTER_MIN_MIN * 60 * 1000);
 			const staleDevices = await prisma.energyDevice.findMany({
 				where: { lastSeenAt: { lt: scanCutoff }, pondId: { not: null } },
 				select: { id: true, pondId: true, label: true, lastSeenAt: true },
@@ -85,7 +89,7 @@ export const GET = withApi(
 					: { orgId: null, settings: ORG_SETTINGS_DEFAULTS };
 				const prefs = normalizeNotificationPrefs(pond?.notificationPrefs);
 
-				if (!offlineAlertDue(device.lastSeenAt, now, orgContext.settings)) continue;
+				if (!offlineAlertDue(device.lastSeenAt, now, statusPolicy)) continue;
 
 				const roles = await rolesForOrg(orgContext.orgId);
 				const allowed = shouldCreatePondAlert({
@@ -158,6 +162,9 @@ export const GET = withApi(
 			// First-party error capture keeps at most ERROR_EVENT_RETENTION_DAYS
 			// (30) days of silence; one bounded batch per run.
 			const errorEventsDeleted = await deleteExpiredErrorEvents();
+			// Unsaved pond-settings drafts nobody returned to (I-99), one batch
+			// per run like the other housekeeping jobs.
+			const draftsDeleted = await deleteExpiredPondSettingsDrafts();
 
 			return ok({
 				offlineAlerts,
@@ -165,6 +172,7 @@ export const GET = withApi(
 				heartbeatsDeleted,
 				bucketsDeleted,
 				errorEventsDeleted,
+				draftsDeleted,
 			});
 		} catch (error) {
 			reportError(error, { route: "cron/device-watch" });

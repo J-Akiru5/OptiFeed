@@ -28,7 +28,7 @@ export interface OfflineMeta {
 export interface DashboardSnapshotData {
 	pondName: string;
 	deviceName: string;
-	deviceStatus: "online" | "offline" | "missing";
+	deviceStatus: "online" | "weak" | "offline" | "missing";
 	lastSeenAt: string | null;
 	feedLevelPercent: number | null;
 	feedLevelUpdatedAt: string | null;
@@ -49,7 +49,7 @@ export interface DashboardSnapshotData {
 export interface ScheduleSnapshotData {
 	pondName: string;
 	deviceName: string;
-	deviceStatus: "online" | "offline";
+	deviceStatus: "online" | "weak" | "offline";
 	lastSeenAt: string | null;
 	scheduleStart: string;
 	scheduleEnd: string;

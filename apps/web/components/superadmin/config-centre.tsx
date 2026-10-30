@@ -10,12 +10,13 @@ import {
 	Gauge,
 	ListChecks,
 	Mail,
+	Radio,
 	Settings2,
 	Tag,
 	ToggleLeft,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 /**
  * Sectioned shell for the platform configuration centre (I-14).
@@ -29,6 +30,7 @@ import { type ReactNode, useState } from "react";
 
 export type ConfigSectionIcon =
 	| "lists"
+	| "device"
 	| "stickers"
 	| "ai"
 	| "email"
@@ -39,6 +41,7 @@ export type ConfigSectionIcon =
 
 const ICONS = {
 	lists: ListChecks,
+	device: Radio,
 	stickers: Tag,
 	ai: Bot,
 	email: Mail,
@@ -61,6 +64,19 @@ export type ConfigSection = {
 export function ConfigCentre({ sections }: { sections: ConfigSection[] }) {
 	const t = useTranslations("superadmin.settings");
 	const [openId, setOpenId] = useState<string>(sections[0]?.id ?? "");
+
+	// A deep link (global search, #370) names a section in the hash. On mobile
+	// the sections are an accordion, so the target control only exists once its
+	// section is open; open it before the highlight engine starts looking.
+	useEffect(() => {
+		const sync = () => {
+			const id = window.location.hash.replace(/^#/, "");
+			if (id && sections.some((section) => section.id === id)) setOpenId(id);
+		};
+		sync();
+		window.addEventListener("hashchange", sync);
+		return () => window.removeEventListener("hashchange", sync);
+	}, [sections]);
 
 	return (
 		<div className="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-8">

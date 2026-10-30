@@ -3,6 +3,7 @@ import { getCurrentPondOwnerIdSafe, getCurrentUser } from "@/lib/auth/session";
 import { MACHINE_FEED_SOURCES } from "@/lib/feed-figures";
 import { type FeederStatus, feederStatus } from "@/lib/feeder/feeder-parts";
 import prisma from "@/lib/prisma";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 
 /**
  * One guarded read for the device detail / 3D viewer (plan v1.1.0).
@@ -79,6 +80,8 @@ export async function getDeviceDetail(
 		select: { receivedAt: true, grams: true },
 	});
 
+	const policy = await getDeviceStatusPolicy();
+
 	return {
 		...device,
 		pond: device.pond,
@@ -89,6 +92,7 @@ export async function getDeviceDetail(
 			lastSeenAt: device.lastSeenAt,
 			lastFedAt: latestFeed?.receivedAt ?? null,
 			now,
+			policy,
 		}),
 	};
 }

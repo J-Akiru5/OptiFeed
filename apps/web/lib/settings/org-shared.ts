@@ -19,6 +19,11 @@ import type { DeviceRegistrationMode, MemberRole } from "@prisma/client";
 export type OrgSettings = {
 	defaultFeedingRatePct: number;
 	hopperLowPct: number;
+	/**
+	 * Deprecated (I-97): kept for compatibility with older clients and rows.
+	 * Offline alert timing now follows the platform `device.status` policy, the
+	 * same window the status badge uses.
+	 */
 	offlineAfterMin: number;
 	missedFeedingAlerts: boolean;
 	alertRoles: MemberRole[];

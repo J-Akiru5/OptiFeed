@@ -2,17 +2,23 @@ import { withApi } from "@/lib/api/instrumentation";
 import {
 	FEED_DAYS_WARNING,
 	HEARTBEAT_ROW_INTERVAL_MS,
-	OFFLINE_THRESHOLD_MS,
 	PELLET_ALERT_WINDOW_MS,
 	RECONCILIATION_LOOKBACK_HOURS,
 } from "@/lib/constants";
 import { isDeviceApproved, verifyDeviceToken } from "@/lib/device-auth";
 import { FIRMWARE_REPORTED_EVENT, getDeviceFirmwareVersion } from "@/lib/device-firmware";
+import {
+	DEVICE_RSSI_DBM_MAX,
+	DEVICE_RSSI_DBM_MIN,
+	isDeviceUnreachable,
+	isValidRssiDbm,
+} from "@/lib/device-status";
 import { estimateDaysOfFeedRemaining } from "@/lib/feed-level";
 import { normalizeNotificationPrefs } from "@/lib/limits";
 import { absoluteAppUrl, sendTelegramMessage } from "@/lib/notify/telegram";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { recordMissedFeedingAlert } from "@/lib/settings/missed-feeding";
 import { ORG_SETTINGS_DEFAULTS, getOrgAlertRoles, getOrgSettingsForFarm } from "@/lib/settings/org";
 import { hopperAlertTier, shouldCreatePondAlert } from "@/lib/settings/org-alerts";
@@ -22,8 +28,9 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-// Devices are considered disconnected if no heartbeat for OFFLINE_THRESHOLD_MS
-// (lib/constants.ts) — matches the dashboard's offline threshold.
+// A heartbeat that arrives after a real outage records a reconnect. This uses
+// the strict command-safety window (no display grace) so the event still fires
+// after the configured offline window (#388).
 
 const RATE_LIMIT_MS = 1000;
 
@@ -77,6 +84,13 @@ const heartbeatSchema = baseSchema.extend({
 	// Water temperature (DS18B20 probe) — piggybacked on existing heartbeat
 	water_temp_c: z.number().optional(),
 	water_temp_ok: z.boolean().optional(),
+	// Wi-Fi signal (firmware 1.6.2+). Advisory only: a malformed value is
+	// dropped here instead of failing the whole heartbeat, so one buggy field
+	// can never cost a device its connectivity.
+	wifi_rssi: z.preprocess(
+		(value) => (isValidRssiDbm(value) ? value : undefined),
+		z.number().int().min(DEVICE_RSSI_DBM_MIN).max(DEVICE_RSSI_DBM_MAX).optional(),
+	),
 });
 
 const feedDispensedSchema = baseSchema.extend({
@@ -163,8 +177,17 @@ export const POST = withApi(
 				return new Response("Unprocessable Entity", { status: 422 });
 			}
 
-			const wasOffline =
-				!device.lastSeenAt || Date.now() - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+			// I-97: an absent/invalid `wifi_rssi` must not clear the last known
+			// reading, so only a plausible value becomes an update.
+			const rssiDbm = parsed.data.wifi_rssi;
+			const rssiUpdate =
+				rssiDbm === undefined ? {} : { wifiRssiDbm: rssiDbm, wifiRssiUpdatedAt: new Date() };
+
+			const wasOffline = isDeviceUnreachable(
+				device.lastSeenAt,
+				new Date(),
+				await getDeviceStatusPolicy(),
+			);
 
 			// Thinning (N11): look up the last heartbeat row so we only write a new
 			// one when 5 minutes have passed or a stored value changed.
@@ -246,6 +269,10 @@ export const POST = withApi(
 							lastSeenAt: new Date(),
 							rtcOk: parsed.data.rtc_ok,
 							feederActive: parsed.data.feeder_active,
+							// I-97: the signal rides the heartbeat write that already
+							// exists, so no extra query per beat. A beat without an RSSI
+							// (old firmware) leaves the last known reading untouched.
+							...rssiUpdate,
 						},
 					}),
 				];

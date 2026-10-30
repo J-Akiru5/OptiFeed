@@ -23,6 +23,7 @@ import {
 	summarizeStatuses,
 } from "@/lib/mobile-list";
 import { buildPageHref, parsePage } from "@/lib/pagination";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { Cpu, Droplets, Plus } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 
@@ -48,13 +49,14 @@ export default async function AdminPondsPage({
 	const order = parseListOrder(params.order);
 	const attention = parseAttention(params.attention);
 
-	const [pondsPage, canManagePonds, t, tCommon, tMobile, locale] = await Promise.all([
+	const [pondsPage, canManagePonds, t, tCommon, tMobile, locale, statusPolicy] = await Promise.all([
 		getPonds({ page }),
 		hasPermission("manage_farms_ponds"),
 		getTranslations("dashboard.adminPonds"),
 		getTranslations("dashboard.adminCommon"),
 		getTranslations("dashboard.mobile"),
 		getLocale(),
+		getDeviceStatusPolicy(),
 	]);
 	const ponds = pondsPage.rows;
 	const pageCount = Math.max(1, Math.ceil(pondsPage.total / pondsPage.pageSize));
@@ -64,7 +66,7 @@ export default async function AdminPondsPage({
 	// Mobile status strip (E26). A pond is graded by its feeders, so the strip
 	// answers "which ponds need me?" rather than repeating the archive flag.
 	const statusOf = (pond: (typeof ponds)[number]) =>
-		pondListStatus(pond.energyDevices, new Date(), pond.status === "ARCHIVED");
+		pondListStatus(pond.energyDevices, new Date(), pond.status === "ARCHIVED", statusPolicy);
 	const counts = summarizeStatuses(ponds.map(statusOf));
 	const visiblePonds = orderRows(
 		filterByStatus(ponds, status, statusOf).filter(

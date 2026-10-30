@@ -13,6 +13,7 @@ import {
 	DashboardSection,
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
+import { DeviceSignalReading } from "@/components/device-signal";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { FeederViewerLazy } from "@/components/feeder/feeder-viewer-lazy";
 import { updateDeviceDailyCap } from "@/lib/actions/settings";
@@ -20,14 +21,16 @@ import { canWrite } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
 import { loadCalibrationDriftWindow } from "@/lib/calibration/drift-data";
 import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { DEVICE_COMMAND_IN_FLIGHT_MS } from "@/lib/constants";
 import { formatFarmDateTime } from "@/lib/date-local";
 import { toHopperSnapshot } from "@/lib/device-hopper";
+import { evaluateDeviceStatus, resolveRssiDbm } from "@/lib/device-status";
 import { type FeederHeroPond, loadFeederHero } from "@/lib/feeder-hero";
 import { getPageCount, parsePage } from "@/lib/pagination";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { AP_PREFIX } from "@/lib/provisioning-ap";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import {
 	Activity,
 	CalendarClock,
@@ -51,6 +54,23 @@ const CALIBRATION_HISTORY_PAGE_SIZE = 20;
 
 function first(value: string | string[] | undefined): string | undefined {
 	return Array.isArray(value) ? value[0] : value;
+}
+
+/**
+ * The most recent queued/dispatched dose, used only to keep #388 from showing
+ * "offline" while a calibration or manual command is being delivered. The read
+ * is best-effort: a failure here must not break the hardware page.
+ */
+async function loadActiveFeedRequest(deviceId: string): Promise<{ updatedAt: Date } | null> {
+	try {
+		return await prisma.feedRequest.findFirst({
+			where: { deviceId, status: { in: ["pending", "dispatched"] } },
+			orderBy: { updatedAt: "desc" },
+			select: { updatedAt: true },
+		});
+	} catch {
+		return null;
+	}
 }
 
 function formatGrams(grams: number): string {
@@ -159,6 +179,8 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 					recalibrationIntervalDays: true,
 					tempOffsetC: true,
 					waterTempC: true,
+					wifiRssiDbm: true,
+					wifiRssiUpdatedAt: true,
 				},
 			});
 		}
@@ -167,7 +189,29 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 	}
 
 	const now = new Date();
-	const hopper = energyDevice ? toHopperSnapshot(energyDevice, now) : null;
+	const [statusPolicy, activeFeedRequest] = await Promise.all([
+		getDeviceStatusPolicy(),
+		energyDevice ? loadActiveFeedRequest(energyDevice.id) : Promise.resolve(null),
+	]);
+	// #388: a dose being delivered keeps the status out of offline. Only a recent
+	// request counts; an abandoned pending row must not mask a silent device.
+	const commandInFlight =
+		!!activeFeedRequest &&
+		now.getTime() - activeFeedRequest.updatedAt.getTime() <= DEVICE_COMMAND_IN_FLIGHT_MS;
+	const rssiDbm = resolveRssiDbm({
+		rssiDbm: energyDevice?.wifiRssiDbm ?? null,
+		updatedAt: energyDevice?.wifiRssiUpdatedAt ?? null,
+		now,
+		policy: statusPolicy,
+	});
+	const connection = evaluateDeviceStatus({
+		lastSeenAt: energyDevice?.lastSeenAt ?? null,
+		now,
+		policy: statusPolicy,
+		rssiDbm,
+		inFlight: commandInFlight,
+	});
+	const hopper = energyDevice ? toHopperSnapshot(energyDevice, now, statusPolicy) : null;
 
 	// The hero reads its own bounded slice (daily grams, effective schedule,
 	// reported firmware, the deterministic advisor) for the device the page has
@@ -267,9 +311,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 		? formatFarmDateTime(recalibration.dueAt, tDates).fullDate
 		: null;
 
-	const isDeviceOffline =
-		!energyDevice?.lastSeenAt ||
-		now.getTime() - energyDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+	const isDeviceOffline = connection.isOffline;
 	const hopperOffline = hopper?.isOffline ?? isDeviceOffline;
 	const isWifiConfigured =
 		!!energyDevice?.lastSeenAt &&
@@ -288,7 +330,11 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 		? energyDevice?.lastSeenAt
 			? t("offlineFor", { duration: formatOfflineDuration(energyDevice.lastSeenAt) })
 			: t("offline")
-		: t("online");
+		: connection.isWeak
+			? energyDevice?.lastSeenAt
+				? t("weakFor", { duration: formatOfflineDuration(energyDevice.lastSeenAt) })
+				: t("weakSignal")
+			: t("online");
 
 	const statLabel = "text-xs font-bold uppercase tracking-wide text-[#3D5568] dark:text-gray-400";
 	const statTile = "rounded-xl bg-[#F4F7F6] p-4 dark:bg-gray-800/60";
@@ -302,7 +348,15 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 				<FeederViewerLazy
 					deviceId={energyDevice.id}
 					label={feederHero.deviceLabel}
-					initialStatus={feederHero.isOffline ? "offline" : feederHero.isPaused ? "paused" : "idle"}
+					initialStatus={
+						feederHero.connectionState === "offline"
+							? "offline"
+							: feederHero.connectionState === "weak"
+								? "weak"
+								: feederHero.isPaused
+									? "paused"
+									: "idle"
+					}
 					initialLevel={feederHero.hopperLevelPercent}
 					initialLastFedAt={null}
 				/>
@@ -328,9 +382,19 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 						<div className={statTile}>
 							<dt className={statLabel}>{t("connectionStatus")}</dt>
 							<dd
-								className={`mt-1 text-sm font-bold ${isDeviceOffline ? "text-[#C42B3A] dark:text-red-300" : "text-[#1E7B34] dark:text-green-300"}`}
+								className={`mt-1 text-sm font-bold ${
+									isDeviceOffline
+										? "text-[#C42B3A] dark:text-red-300"
+										: connection.isWeak
+											? "text-[#9A3412] dark:text-amber-300"
+											: "text-[#1E7B34] dark:text-green-300"
+								}`}
 							>
 								{connectionLabel}
+								<DeviceSignalReading
+									rssiDbm={rssiDbm}
+									className="mt-1 block text-xs font-bold text-[#3D5568] dark:text-gray-400"
+								/>
 							</dd>
 						</div>
 						<div className={statTile}>
@@ -443,6 +507,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 			{/* Daily feed ceiling */}
 			{energyDevice && (
 				<DashboardSection
+					id="daily-ceiling"
 					title={t("dailyCeiling")}
 					description={t("dailyCeilingDesc")}
 					icon={Gauge}
@@ -459,6 +524,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 			{/* Hopper Calibration */}
 			{energyDevice && (
 				<DashboardSection
+					id="hopper-calibration"
 					title={t("hopperCalibration")}
 					description={t("hopperCalibrationDesc")}
 					icon={Ruler}
@@ -488,6 +554,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 			{/* Duration Calibration */}
 			{energyDevice && (
 				<DashboardSection
+					id="calibration"
 					title={t("calibration.title")}
 					description={t("calibration.desc")}
 					icon={Timer}
@@ -506,6 +573,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 			{/* Recalibration schedule + drift detector */}
 			{energyDevice && (
 				<DashboardSection
+					id="recalibration"
 					title={t("calibration.recalibration.title")}
 					description={t("calibration.recalibration.desc")}
 					icon={CalendarClock}
@@ -564,6 +632,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 			{/* Temperature sensor calibration */}
 			{energyDevice && (
 				<DashboardSection
+					id="temperature-calibration"
 					title={t("temperatureCalibration")}
 					description={t("temperatureCalibrationDesc")}
 					icon={Thermometer}
@@ -584,12 +653,14 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 						</p>
 					</div>
 
-					<TemperatureCalibrationForm
-						deviceId={energyDevice.id}
-						currentTempOffsetC={energyDevice.tempOffsetC}
-						currentTempC={energyDevice.waterTempC}
-						canWrite={writeAccess}
-					/>
+					<div data-help="setting-temperature-calibration">
+						<TemperatureCalibrationForm
+							deviceId={energyDevice.id}
+							currentTempOffsetC={energyDevice.tempOffsetC}
+							currentTempC={energyDevice.waterTempC}
+							canWrite={writeAccess}
+						/>
+					</div>
 				</DashboardSection>
 			)}
 

@@ -4,7 +4,7 @@ export const DASHBOARD_SNAPSHOT_VERSION = 1;
 export type DashboardSnapshotInput = {
 	pondName: string;
 	deviceName: string;
-	deviceStatus: "online" | "offline" | "missing";
+	deviceStatus: "online" | "weak" | "offline" | "missing";
 	lastSeenAt: string | null;
 	feedLevelPercent: number | null;
 	feedLevelUpdatedAt: string | null;

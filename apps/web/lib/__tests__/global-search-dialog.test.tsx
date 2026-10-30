@@ -11,13 +11,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const search = vi.hoisted(() => ({ globalSearch: vi.fn() }));
 const pond = vi.hoisted(() => ({ switchPond: vi.fn() }));
 const navigation = vi.hoisted(() => ({ push: vi.fn() }));
+const help = vi.hoisted(() => ({ requestHelpTarget: vi.fn(), revealHelpTarget: vi.fn() }));
 
 vi.mock("@/lib/actions/search", () => ({ globalSearch: search.globalSearch }));
 vi.mock("@/lib/actions/pond-selection", () => ({ switchPond: pond.switchPond }));
+vi.mock("@/lib/help/reveal", () => help);
 vi.mock("@/i18n/routing", async () => {
 	const react = await import("react");
 	return {
 		useRouter: () => ({ push: navigation.push }),
+		usePathname: () => "/dashboard",
 		Link: ({
 			href,
 			children,
@@ -57,9 +60,38 @@ const PAGES: SearchRow[] = [
 	},
 ];
 
-function ok(rows: SearchRow[] = [], pages: SearchRow[] = PAGES): GlobalSearchResult {
-	return { status: "ok", pages, rows };
+function ok(
+	rows: SearchRow[] = [],
+	pages: SearchRow[] = PAGES,
+	settings: SearchRow[] = [],
+): GlobalSearchResult {
+	return { status: "ok", pages, settings, rows };
 }
+
+const SETTINGS: SearchRow[] = [
+	{
+		id: "settings:daily-feed-ceiling",
+		group: "settings",
+		title: "",
+		titleKey: "search.settings.dailyFeedCeiling.title",
+		descriptionKey: "search.settings.dailyFeedCeiling.description",
+		keywords: ["ceiling", "cap", "limit", "takda"],
+		href: "/dashboard/settings/hardware#daily-ceiling",
+		settingTarget: "device-daily-ceiling",
+		settingRoute: "/dashboard/settings/hardware",
+	},
+	{
+		id: "settings:hopper-capacity",
+		group: "settings",
+		title: "",
+		titleKey: "search.settings.hopperCapacity.title",
+		descriptionKey: "search.settings.hopperCapacity.description",
+		keywords: ["capacity", "silo"],
+		href: "/dashboard/settings/hardware#hopper-calibration",
+		settingTarget: "hopper-calibration",
+		settingRoute: "/dashboard/settings/hardware",
+	},
+];
 
 function renderPalette() {
 	return render(
@@ -197,7 +229,12 @@ describe("global search states", () => {
 	});
 
 	it("shows the quiet unavailable message when the read fails", async () => {
-		search.globalSearch.mockResolvedValue({ status: "unavailable", pages: [], rows: [] });
+		search.globalSearch.mockResolvedValue({
+			status: "unavailable",
+			pages: [],
+			settings: [],
+			rows: [],
+		});
 		renderPalette();
 		fireEvent.keyDown(document, { key: "k", ctrlKey: true });
 		const input = await screen.findByRole("searchbox");
@@ -207,7 +244,12 @@ describe("global search states", () => {
 	});
 
 	it("shows the quiet unavailable message when the suggestions fail to load", async () => {
-		search.globalSearch.mockResolvedValue({ status: "unavailable", pages: [], rows: [] });
+		search.globalSearch.mockResolvedValue({
+			status: "unavailable",
+			pages: [],
+			settings: [],
+			rows: [],
+		});
 		renderPalette();
 		fireEvent.keyDown(document, { key: "k", ctrlKey: true });
 		const input = await screen.findByRole("searchbox");
@@ -246,5 +288,64 @@ describe("global search states", () => {
 
 		expect(await screen.findByText("Feeder A One")).toBeTruthy();
 		expect(screen.getByText("A4:CF:12:7E:3B:09 · Pond A One")).toBeTruthy();
+	});
+});
+
+describe("settings in the palette (#370)", () => {
+	function renderWithSettings() {
+		search.globalSearch.mockImplementation(async () => ok([], PAGES, SETTINGS));
+		renderPalette();
+		fireEvent.keyDown(document, { key: "k", ctrlKey: true });
+		return screen.findByRole("searchbox").then((input) => {
+			fireEvent.change(input, { target: { value: "feed ceiling" } });
+			return input;
+		});
+	}
+
+	it("finds 'feed ceiling' and shows the settings group", async () => {
+		await renderWithSettings();
+
+		expect(await screen.findByText("Daily feed ceiling")).toBeTruthy();
+		expect(screen.getByText("The most feed one feeder may dispense in a day.")).toBeTruthy();
+		expect(screen.getByText("Settings")).toBeTruthy();
+	});
+
+	it("does not offer settings before the reader searches", async () => {
+		search.globalSearch.mockImplementation(async () => ok([], PAGES, SETTINGS));
+		renderPalette();
+		fireEvent.keyDown(document, { key: "k", ctrlKey: true });
+
+		expect(await screen.findByText("Suggested for you")).toBeTruthy();
+		expect(screen.queryByText("Daily feed ceiling")).toBeNull();
+	});
+
+	it("opens the page and asks the highlight engine to ring the control", async () => {
+		await renderWithSettings();
+
+		fireEvent.click(await screen.findByText("Daily feed ceiling"));
+
+		expect(help.requestHelpTarget).toHaveBeenCalledWith(
+			"device-daily-ceiling",
+			"/dashboard/settings/hardware",
+		);
+		expect(navigation.push).toHaveBeenCalledWith("/dashboard/settings/hardware#daily-ceiling");
+	});
+
+	it("selects a settings row with Enter too", async () => {
+		const input = await renderWithSettings();
+		await screen.findByText("Daily feed ceiling");
+
+		fireEvent.keyDown(input, { key: "Enter" });
+
+		expect(help.requestHelpTarget).toHaveBeenCalled();
+		expect(navigation.push).toHaveBeenCalledWith("/dashboard/settings/hardware#daily-ceiling");
+	});
+
+	it("matches a synonym that is not in the visible label", async () => {
+		await renderWithSettings();
+		const input = screen.getByRole("searchbox");
+		fireEvent.change(input, { target: { value: "takda" } });
+
+		expect(await screen.findByText("Daily feed ceiling")).toBeTruthy();
 	});
 });

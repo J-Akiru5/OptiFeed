@@ -34,6 +34,7 @@ import {
 import { resolveOrgScope } from "@/lib/auth/org-scope";
 import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { DEVICE_OFFLINE_GRACE_MIN_DEFAULT } from "@/lib/device-status";
 import prisma from "@/lib/prisma";
 
 describe("farmDayKey", () => {
@@ -55,7 +56,9 @@ describe("buildDeviceHealth", () => {
 					isPaused: false,
 				},
 				{
-					lastSeenAt: new Date(now.getTime() - OFFLINE_THRESHOLD_MS - 1),
+					lastSeenAt: new Date(
+						now.getTime() - OFFLINE_THRESHOLD_MS - DEVICE_OFFLINE_GRACE_MIN_DEFAULT * 60 * 1000 - 1,
+					),
 					approvalStatus: "APPROVED",
 					isPaused: false,
 				},

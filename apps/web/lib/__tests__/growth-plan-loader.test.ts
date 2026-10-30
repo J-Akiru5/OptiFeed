@@ -152,9 +152,9 @@ describe("a fully configured pond", () => {
 	it("derives the device ceiling from the hopper and the daily cap", async () => {
 		const loaded = await loadGrowthPlanForPond("pond-1");
 
-		// 6,000 g configured (capped at the 5,000 g guard) over 3 meals is above
-		// the 1,000 g per-request maximum, so the request maximum is the ceiling.
-		expect(loaded?.plan.device.maxGramsPerFeeding).toBe(1000);
+		// 6,000 g configured (capped at the 5,000 g guard) over 3 meals is the
+		// daily ceiling shared three ways; there is no 1,000 g per-request cap.
+		expect(loaded?.plan.device.maxGramsPerFeeding).toBeCloseTo(1666.7, 1);
 	});
 });
 

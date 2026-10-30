@@ -11,7 +11,11 @@
  * say so under the chips instead of implying a global count.
  */
 
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import {
+	DEFAULT_DEVICE_STATUS_POLICY,
+	type DeviceStatusPolicy,
+	evaluateDeviceStatus,
+} from "@/lib/device-status";
 
 /** The three states the strip can show, plus "all". */
 export type DeviceListStatus = "online" | "alarm" | "offline";
@@ -27,9 +31,6 @@ export const DEVICE_STATUS_FILTERS: readonly DeviceStatusFilter[] = [
 
 /** Hopper level at or below this is treated as an alarm (OrgSetting default). */
 export const LOW_HOPPER_PCT = 20;
-
-/** Rows older than this are offline; mirrors `lib/constants`. */
-const OFFLINE_AFTER_MS = OFFLINE_THRESHOLD_MS;
 
 export type ListOrder = "newest" | "name" | "status";
 
@@ -77,17 +78,26 @@ export function parseAttention(value: string | string[] | undefined | null): boo
  * value never turns a silent feeder into a green dot (decision E4). A pending
  * registration is not reporting yet, so it is offline too. A live unit with a
  * hopper at or below `LOW_HOPPER_PCT` needs attention.
+ *
+ * The strip keeps three tiles (All / Online / Alarm / Offline). A weak-signal
+ * unit is still reachable, so it counts as `online` here; the detailed
+ * Online / Weak signal / Offline badge is shown on the device rows themselves.
  */
 export function deviceListStatus(
 	device: DeviceStatusInput,
 	now: Date = new Date(),
-	offlineAfterMs: number = OFFLINE_AFTER_MS,
+	policy: DeviceStatusPolicy = DEFAULT_DEVICE_STATUS_POLICY,
 ): DeviceListStatus {
 	if (device.approvalStatus === "PENDING" || device.approvalStatus === "REJECTED") {
 		return "offline";
 	}
 	const seen = toTime(device.lastSeenAt);
-	if (seen === null || now.getTime() - seen > offlineAfterMs) return "offline";
+	const state = evaluateDeviceStatus({
+		lastSeenAt: seen === null ? null : new Date(seen),
+		now,
+		policy,
+	}).state;
+	if (state === "offline") return "offline";
 	if (device.feedLevelPercent !== null && device.feedLevelPercent <= LOW_HOPPER_PCT) return "alarm";
 	return "online";
 }
@@ -101,9 +111,10 @@ export function pondListStatus(
 	devices: DeviceStatusInput[],
 	now: Date = new Date(),
 	archived = false,
+	policy: DeviceStatusPolicy = DEFAULT_DEVICE_STATUS_POLICY,
 ): DeviceListStatus {
 	if (archived) return "offline";
-	const statuses = devices.map((device) => deviceListStatus(device, now));
+	const statuses = devices.map((device) => deviceListStatus(device, now, policy));
 	if (statuses.includes("alarm")) return "alarm";
 	if (statuses.includes("online")) return "online";
 	return "offline";

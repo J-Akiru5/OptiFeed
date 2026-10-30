@@ -1,12 +1,13 @@
 import { startOfDayInTimeZone } from "@/lib/chart-windows";
 import { getDeviceFirmwareVersion } from "@/lib/device-firmware";
+import { evaluateDeviceStatus, resolveRssiDbm } from "@/lib/device-status";
 import { MACHINE_FEED_SOURCES } from "@/lib/feed-figures";
-import { isDeviceOffline } from "@/lib/feed-level-display";
 import type { FeederHeroData } from "@/lib/feeder-hero-types";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { computeNextFeedingSlot } from "@/lib/schedule/next-feeding-slot";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 
 /**
  * Read-only data for the feeder hero (task I-29, decision E29).
@@ -59,37 +60,42 @@ export async function loadFeederHero({
 			gramsPerFeeding: true,
 			hopperCapacityG: true,
 			dailyCapG: true,
+			wifiRssiDbm: true,
+			wifiRssiUpdatedAt: true,
 		},
 	});
 	if (!device) return null;
 
 	const todayStart = startOfDayInTimeZone(now);
 
-	const [schedule, feedToday, firmware, latestBiomass, latestFcr] = await Promise.all([
-		resolveCurrentSchedule(pond.id, device.id),
-		prisma.feedEvent.aggregate({
-			where: {
-				deviceId: device.id,
-				eventType: "feed_dispensed",
-				// The hero is the device screen: an imported hand-fed daily total
-				// did not come from this feeder and is not "dispensed today".
-				source: { in: [...MACHINE_FEED_SOURCES] },
-				receivedAt: { gte: todayStart },
-			},
-			_sum: { grams: true },
-		}),
-		getDeviceFirmwareVersion(device.id),
-		prisma.biomassLog.findFirst({
-			where: { pondId: pond.id },
-			orderBy: { recordedAt: "desc" },
-			select: { avgWeightKg: true, recordedAt: true },
-		}),
-		prisma.fcrReport.findFirst({
-			where: { pondId: pond.id },
-			orderBy: { periodEnd: "desc" },
-			select: { fcrValue: true },
-		}),
-	]);
+	const [schedule, feedToday, firmware, latestBiomass, latestFcr, statusPolicy] = await Promise.all(
+		[
+			resolveCurrentSchedule(pond.id, device.id),
+			prisma.feedEvent.aggregate({
+				where: {
+					deviceId: device.id,
+					eventType: "feed_dispensed",
+					// The hero is the device screen: an imported hand-fed daily total
+					// did not come from this feeder and is not "dispensed today".
+					source: { in: [...MACHINE_FEED_SOURCES] },
+					receivedAt: { gte: todayStart },
+				},
+				_sum: { grams: true },
+			}),
+			getDeviceFirmwareVersion(device.id),
+			prisma.biomassLog.findFirst({
+				where: { pondId: pond.id },
+				orderBy: { recordedAt: "desc" },
+				select: { avgWeightKg: true, recordedAt: true },
+			}),
+			prisma.fcrReport.findFirst({
+				where: { pondId: pond.id },
+				orderBy: { periodEnd: "desc" },
+				select: { fcrValue: true },
+			}),
+			getDeviceStatusPolicy(),
+		],
+	);
 
 	const effective = schedule ?? {
 		scheduleStart: pond.scheduleStart,
@@ -115,9 +121,24 @@ export async function loadFeederHero({
 		now,
 	);
 
+	const rssiDbm = resolveRssiDbm({
+		rssiDbm: device.wifiRssiDbm,
+		updatedAt: device.wifiRssiUpdatedAt,
+		now,
+		policy: statusPolicy,
+	});
+	const connection = evaluateDeviceStatus({
+		lastSeenAt: device.lastSeenAt,
+		now,
+		policy: statusPolicy,
+		rssiDbm,
+	});
+
 	return {
 		deviceLabel: device.label,
-		isOffline: isDeviceOffline(device.lastSeenAt, now),
+		connectionState: connection.state,
+		isOffline: connection.isOffline,
+		rssiDbm,
 		isPaused: device.isPaused,
 		lastSeenAt: device.lastSeenAt,
 		hopperLevelPercent: device.feedLevelPercent,

@@ -83,7 +83,7 @@ export default async function DashboardLayout({
 	let hopperCapacityG: number | null = null;
 	let hopperGramsPerFeeding: number | null = null;
 	let hopperFeedsPerDay: number | null = null;
-	let esp32Status: "online" | "offline" | "missing" = "missing";
+	let esp32Status: "online" | "weak" | "offline" | "missing" = "missing";
 	let pondName = "";
 	let lastSeenAtStr: string | null = null;
 	let ponds: { id: string; name: string }[] = [];
@@ -115,7 +115,7 @@ export default async function DashboardLayout({
 				hopperLevelUpdatedAt = hopper.levelUpdatedAt;
 				hopperCapacityG = hopper.hopperCapacityG;
 				hopperGramsPerFeeding = hopper.gramsPerFeeding;
-				esp32Status = hopper.isOffline ? "offline" : "online";
+				esp32Status = hopper.status;
 				lastSeenAtStr = hopper.lastSeenAt ? hopper.lastSeenAt.toISOString() : null;
 			}
 		}
@@ -126,16 +126,18 @@ export default async function DashboardLayout({
 	const deviceStatusLabel =
 		esp32Status === "online"
 			? tCommon("deviceOnline")
-			: esp32Status === "offline"
-				? tCommon("deviceOffline")
-				: tCommon("deviceMissing");
+			: esp32Status === "weak"
+				? tCommon("deviceWeak")
+				: esp32Status === "offline"
+					? tCommon("deviceOffline")
+					: tCommon("deviceMissing");
 
 	return (
 		<ChatWidgetProvider role={isPlatformAdmin ? "superadmin" : isTenantAdmin ? "owner" : "farmer"}>
 			<OfflineSync scope={ownerId} />
 			<DashboardLiveRefresh enabled={Boolean(pondId)} />
 			<OnboardingProvider>
-				<div className="flex min-h-dvh flex-col overflow-x-clip bg-[#F4F7F6] dark:bg-gray-950">
+				<div className="flex h-dvh flex-col overflow-hidden bg-[#F4F7F6] dark:bg-gray-950">
 					<a
 						href="#main-content"
 						className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50 focus:rounded-xl focus:bg-white focus:px-4 focus:py-2.5 focus:text-sm focus:font-black focus:text-[#0A3D62] focus:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-gray-900 dark:text-[#8fc0ea]"
@@ -209,7 +211,9 @@ export default async function DashboardLayout({
 												className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] transition-all duration-500 ${
 													esp32Status === "online"
 														? "bg-[#1E7B34] text-[#1E7B34]"
-														: "bg-[#C42B3A] text-[#C42B3A]"
+														: esp32Status === "weak"
+															? "bg-[#B45309] text-[#B45309]"
+															: "bg-[#C42B3A] text-[#C42B3A]"
 												}`}
 											/>
 											<span className="text-[10px] text-white/70 uppercase tracking-wider">
@@ -257,7 +261,7 @@ export default async function DashboardLayout({
 							<main
 								id="main-content"
 								tabIndex={-1}
-								className="ofd-main relative z-10 min-w-0 flex-1 overflow-x-clip p-4 focus:outline-none md:p-8"
+								className="ofd-main relative z-10 min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-clip p-4 focus:outline-none md:p-8"
 							>
 								<BackToDashboard />
 								{announcement && (

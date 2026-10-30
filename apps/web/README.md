@@ -92,6 +92,7 @@ never sent twice.
 
 `firmware/firmware-main/firmware-main.ino` — ESP32-WROOM feeder: polls
 `/api/feed-command` + `/api/schedule-sync`, posts events to `/api/ingest`
-with an `X-Device-Token`. Safety caps live in firmware and mirror
-`lib/limits.ts` (`MAX_DISPENSE_MS`, `MAX_GRAMS_PER_DISPENSE`,
-`MAX_GRAMS_PER_DAY`).
+with an `X-Device-Token`. The server's only gram cap is the device's daily
+ceiling (`resolveDailyCapG`, hard guard 5,000 g); 5,000 g is also the payload
+sanity bound, not a per-dose limit. The firmware keeps its own hardware safety
+caps (`MAX_DISPENSE_MS`, `MAX_GRAMS_PER_DISPENSE`, `MAX_GRAMS_PER_DAY`).

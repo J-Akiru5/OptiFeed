@@ -20,9 +20,7 @@ test.describe("Offline PWA", () => {
 			const banner = page.getByTestId("offline-banner");
 			await expect(banner).toBeVisible();
 			await expect(banner).toContainText("Offline mode");
-			await expect(banner).toContainText(
-				"Feed and pause controls are disabled — feed commands are never queued.",
-			);
+			await expect(banner).toContainText("Feed commands are disabled until you reconnect.");
 			await expect(feedButton).toBeDisabled();
 		} finally {
 			await page.context().setOffline(false);

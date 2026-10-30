@@ -6,7 +6,7 @@ import { useState } from "react";
 
 export type HierarchyBadge = {
 	text: string;
-	tone: "navy" | "muted" | "green";
+	tone: "navy" | "muted" | "green" | "amber";
 };
 
 export type HierarchyNode = {
@@ -29,6 +29,7 @@ const badgeTones: Record<HierarchyBadge["tone"], string> = {
 	navy: "bg-[#0A3D62]/10 text-[#0A3D62] dark:bg-white/10 dark:text-[#8fc0ea]",
 	muted: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
 	green: "bg-[#1E7B34]/10 text-[#1E7B34] dark:bg-green-950/50 dark:text-green-300",
+	amber: "bg-[#B45309]/10 text-[#9A3412] dark:bg-amber-950/50 dark:text-amber-300",
 };
 
 function TreeNode({ node, depth }: { node: HierarchyNode; depth: number }) {

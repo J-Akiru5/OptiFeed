@@ -30,7 +30,7 @@ export default async function AdminLayout({
 	]);
 
 	return (
-		<div className="flex min-h-dvh flex-col bg-[#F4F7F6] dark:bg-gray-950">
+		<div className="flex h-dvh flex-col overflow-hidden bg-[#F4F7F6] dark:bg-gray-950">
 			<a
 				href="#admin-main"
 				className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-[#0A3D62] dark:focus:bg-gray-900 dark:focus:text-[#8fc0ea]"
@@ -103,12 +103,12 @@ export default async function AdminLayout({
 				</div>
 			</header>
 
-			<div className="flex min-h-[calc(100dvh-4rem)] w-full flex-1">
+			<div className="flex min-h-0 w-full flex-1 overflow-hidden">
 				<AdminSidebar />
 				<main
 					id="admin-main"
 					tabIndex={-1}
-					className="ofd-main relative z-10 min-w-0 flex-1 p-4 focus-visible:outline-none md:p-8"
+					className="ofd-main relative z-10 min-h-0 min-w-0 flex-1 overflow-y-auto p-4 focus-visible:outline-none md:p-8"
 				>
 					{announcement && (
 						<div className="mb-4">

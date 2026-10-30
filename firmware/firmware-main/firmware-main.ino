@@ -108,7 +108,7 @@
 
 // Reported at boot and in the heartbeat body so the fleet and the OTA rollout
 // can tell builds apart. Bump on every firmware change.
-#define FW_VERSION "1.6.1"
+#define FW_VERSION "1.6.2"
 // Board string the signed manifest must carry. One value for every unit this
 // firmware runs on (ESP32-WROOM-32U); a manifest for another board is refused.
 #define FW_BOARD "wroom32u"
@@ -538,6 +538,8 @@ float gramsPerSecond = DEFAULT_GRAMS_PER_SECOND;
 
 // ---- Safety caps — MUST equal server apps/web/lib/limits.ts ----
 #define MAX_DISPENSE_MS        300000UL  // = limits.ts MAX_DISPENSE_MS (5 min)
+#define MAX_CALIBRATION_GRAMS  5000.0f   // = limits.ts CALIBRATION_TEST_GRAMS_MAX
+#define MAX_CALIBRATION_DISPENSE_MS 600000UL // = limits.ts CALIBRATION_MAX_DISPENSE_MS (10 min)
 #define MAX_GRAMS_PER_DISPENSE 1000.0    // = limits.ts MAX_FEED_GRAMS_PER_REQUEST
 #define MAX_GRAMS_PER_DAY      5000.0    // = limits.ts MAX_FEED_GRAMS_PER_DAY_PER_DEVICE
 
@@ -2455,7 +2457,7 @@ void restoreFeedingStateAfterOta() {
 // Forward declaration: PlatformIO's prototype generator skips functions with a
 // default argument, and the button-abort path below calls dispenseFeed() before
 // its definition.
-void dispenseFeed(float grams, const char* source, const String &requestId);
+void dispenseFeed(float grams, const char* source, const String &requestId = "", bool calibration = false);
 // Defined with the rest of the button handling (Tier 3). The OTA download uses
 // them to confirm that a press is real before aborting, and to dispense through
 // the same cooldown/dispense path as a normal button press.
@@ -3377,7 +3379,7 @@ bool validateServerConfig(const JsonDocument &doc) {
 
 // ==================== Shared dispense logic ====================
 
-void dispenseFeed(float grams, const char* source, const String &requestId = "") {
+void dispenseFeed(float grams, const char* source, const String &requestId, bool calibration) {
   // The relay write itself is instant, but a refusal report below is a network
   // call: feed the watchdog around the whole dispense decision.
   kickWatchdog();
@@ -3419,12 +3421,19 @@ void dispenseFeed(float grams, const char* source, const String &requestId = "")
   maybeResetDailyBudget();
 
   // One gate for every source: grams, dose time, daily cap, the 10 s gap and
-  // the six-per-hour ceiling. A slow calibration REFUSES rather than truncating
-  // (1000 g at 2 g/s = 500 s is over the 300 s cap, not a 500 s dose).
+  // the six-per-hour ceiling. A slow calibration REFUSES rather than truncating.
+  // Calibration is the one deliberate exception: it may run up to 10 minutes and
+  // 5000 g, but only when the request carries the calibration flag from the
+  // server. Normal feeds keep the 1000 g / 300 s ceiling.
   const float rate = (gramsPerSecond > 0.0f) ? gramsPerSecond : 4.0f;
   const unsigned long durationMs = (unsigned long)((grams / rate) * 1000.0);
+  fw::DispenseLimits limits = dispenseGate.limits();
+  if (calibration) {
+    limits.maxGramsPerDose = MAX_CALIBRATION_GRAMS;
+    limits.maxDispenseMs = MAX_CALIBRATION_DISPENSE_MS;
+  }
   const fw::Refusal refusal =
-      dispenseGate.evaluate(millis(), grams, durationMs, dailyGramsDispensed);
+      dispenseGate.evaluate(millis(), grams, durationMs, dailyGramsDispensed, limits);
   if (refusal != fw::Refusal::NONE) {
     reportFeedError(refusal, grams, source);
     return;
@@ -3585,7 +3594,8 @@ void pollDashboardFeedCommand() {
         if (requested) {
           float grams = doc["grams"] | DEFAULT_MANUAL_GRAMS;
           String requestId = doc["feed_request_id"] | "";
-          dispenseFeed(grams, "dashboard", requestId);
+          bool calibration = doc["calibration"] | false;
+          dispenseFeed(grams, calibration ? "calibration" : "dashboard", requestId, calibration);
         }
       }
     }

@@ -106,15 +106,26 @@ describe("dashboard never scrolls sideways", () => {
 
 	it("contains horizontal overflow at the dashboard root and main", () => {
 		const layout = read("app/[locale]/(dashboard)/layout.tsx");
-		// A phone must only scroll vertically. Any stray wide or edge-positioned
-		// element has to be clipped by the shell, never widen the document.
-		expect(layout).toContain("flex min-h-dvh flex-col overflow-x-clip");
-		expect(layout).toContain("ofd-main relative z-10 min-w-0 flex-1 overflow-x-clip");
+		// A phone must only scroll vertically. The shell is a fixed-height app
+		// frame: the document itself never scrolls, the main pane does (#382).
+		expect(layout).toContain("flex h-dvh flex-col overflow-hidden");
+		expect(layout).toContain("ofd-main relative z-10 min-h-0 min-w-0 flex-1 overflow-y-auto");
+	});
+
+	it("locks the sidebar while the content pane scrolls (#382)", () => {
+		const sidebar = read("components/sidebar.tsx");
+		// Sticky inside a scrolling document scrolled away with the content, so
+		// the sidebar is now a full-height column of the fixed shell.
+		expect(sidebar).toContain("hidden h-full shrink-0 flex-col overflow-y-auto");
+		expect(sidebar).not.toContain("sticky top-[64px]");
+		expect(read("components/chat/dashboard-content-shell.tsx")).toContain(
+			"flex min-h-0 w-full min-w-0 flex-1 overflow-hidden",
+		);
 	});
 
 	it("keeps the flex columns shrinkable so content cannot widen the page", () => {
 		expect(read("components/chat/dashboard-content-shell.tsx")).toContain(
-			"flex w-full min-w-0 flex-1",
+			"flex min-h-0 w-full min-w-0 flex-1",
 		);
 		expect(read("components/dashboard/control-room/control-room-shell.tsx")).toContain(
 			"flex w-full min-w-0 flex-col",

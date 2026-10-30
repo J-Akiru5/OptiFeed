@@ -3,9 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /**
  * Applying a predicted feed amount is a write to hardware, so every safety
  * layer is asserted with both an allow and a deny case: write access, pond and
- * device ownership, the 1–1000 g schema range, the device's per-meal ceiling,
- * the ±50% deviation veto, and the compare-and-swap that refuses to overwrite a
- * concurrent schedule change.
+ * device ownership, the 1–5,000 g sanity range, the daily ceiling split over
+ * the day's meals, the ±50% deviation veto, and the compare-and-swap that
+ * refuses to overwrite a concurrent schedule change.
  */
 
 const {
@@ -126,12 +126,30 @@ describe("schema range", () => {
 		expect(prisma.$transaction).not.toHaveBeenCalled();
 	});
 
-	it("rejects a value above the 1000 g request cap", async () => {
-		const result = await applyPredictedGrams("dev-1", 1001);
+	it("rejects absurd input above the 5,000 g sanity bound", async () => {
+		const result = await applyPredictedGrams("dev-1", 5001);
 
 		expect(result.success).toBe(false);
-		expect(result.error).toContain("1000 g");
+		expect(result.error).toContain("5000 g");
 		expect(prisma.$transaction).not.toHaveBeenCalled();
+	});
+
+	it("accepts a value above 1,000 g inside the daily ceiling", async () => {
+		resolveCurrentSchedule.mockResolvedValue({ feedsPerDay: 2, feedingRatePct: 3 });
+		prisma.energyDevice.findFirst.mockResolvedValue({
+			...DEVICE,
+			gramsPerFeeding: 1200,
+			dailyCapG: 5000,
+		});
+		tx.energyDevice.updateMany.mockResolvedValue({ count: 1 });
+
+		const result = await applyPredictedGrams("dev-1", 1500);
+
+		expect(result).toMatchObject({ success: true, newGrams: 1500 });
+		expect(tx.energyDevice.updateMany).toHaveBeenCalledWith({
+			where: { id: "dev-1", gramsPerFeeding: 1200 },
+			data: { gramsPerFeeding: 1500 },
+		});
 	});
 
 	it("rounds sub-gram precision before validating and storing", async () => {
@@ -158,7 +176,7 @@ describe("device ceiling", () => {
 
 		expect(result).toEqual({
 			success: false,
-			error: "That amount exceeds this device's safe per-meal limit of 500.0 g.",
+			error: "That amount exceeds today's daily ceiling divided over 4 meals (500.0 g per meal).",
 		});
 		expect(tx.energyDevice.updateMany).not.toHaveBeenCalled();
 	});
@@ -181,7 +199,7 @@ describe("device ceiling", () => {
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain("safety threshold");
-		expect(result.error).not.toContain("safe per-meal limit");
+		expect(result.error).not.toContain("daily ceiling divided");
 	});
 });
 
@@ -270,15 +288,15 @@ describe("successful apply", () => {
 		await applyPredictedGrams("dev-1", 150, {
 			source: "human" as never,
 			confidence: "certain" as never,
-			// Above the 1,000 g device ceiling the client must not be trusted.
-			baselineGrams: 5_000,
+			// Above the 5,000 g sanity bound the client must not be trusted.
+			baselineGrams: 9_000,
 		});
 
 		const metadata = tx.deviceStateEvent.create.mock.calls[0][0].data.metadata;
 		expect(metadata).toMatchObject({
 			predictionSource: null,
 			predictionConfidence: null,
-			predictionBaselineGrams: 1000,
+			predictionBaselineGrams: 5000,
 		});
 	});
 

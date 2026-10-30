@@ -2,7 +2,7 @@ import { requestFeed } from "@/lib/actions/energy";
 import { applyGrowthPlan } from "@/lib/actions/growth-plan";
 import { toggleDevicePause } from "@/lib/actions/schedule";
 import {
-	MAX_FEED_GRAMS_PER_REQUEST,
+	MAX_ACCEPTED_FEED_GRAMS,
 	feedGramsSchema,
 	feedingRatePctSchema,
 	feedsPerDaySchema,
@@ -28,7 +28,7 @@ export const feedingActions = {
 		description:
 			"Change how many grams the feeder dispenses per meal. The growth-plan adjustment window, the device g/s limit and the daily cap still apply.",
 		params: "grams: number (grams per meal, 1 or more)",
-		schema: z.object({ grams: z.coerce.number().positive().max(MAX_FEED_GRAMS_PER_REQUEST) }),
+		schema: z.object({ grams: z.coerce.number().positive().max(MAX_ACCEPTED_FEED_GRAMS) }),
 		permission: "manage_schedule",
 		requiresStepUp: false,
 		describe(payload, context) {

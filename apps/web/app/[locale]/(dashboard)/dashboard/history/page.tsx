@@ -17,6 +17,7 @@ import type { HistorySnapshotData } from "@/lib/offline/snapshots";
 import { getFeedPerDayBySource, getFeedTotals, getHopperLevelSeries } from "@/lib/pond-charts";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { getListPageSize } from "@/lib/settings/platform";
 import { CalendarDays, CheckCircle2, Clock, Package } from "lucide-react";
 import { getTranslations } from "next-intl/server";
@@ -63,6 +64,8 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 			lastSeenAt: true,
 			hopperCapacityG: true,
 			gramsPerFeeding: true,
+			wifiRssiDbm: true,
+			wifiRssiUpdatedAt: true,
 		},
 	});
 
@@ -72,6 +75,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 	// Chart series are aggregated in PostgreSQL and scoped to the same device
 	// ids as the table, so the charts cannot show another pond's history.
 	const pageSize = await getListPageSize();
+	const statusPolicy = await getDeviceStatusPolicy();
 	const [initialPage, feedChart, hopperPoints, feedTotals] = await Promise.all([
 		getFeedEvents({
 			deviceIds,
@@ -114,7 +118,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 	const hopperLatest = hopperPoints.at(-1)?.value ?? null;
 
 	const writeAccess = await canWrite();
-	const hopper = energyDevice ? toHopperSnapshot(energyDevice) : null;
+	const hopper = energyDevice ? toHopperSnapshot(energyDevice, new Date(), statusPolicy) : null;
 	const feedLevelOffline = hopper?.isOffline ?? true;
 
 	const historySnapshot: HistorySnapshotData = {

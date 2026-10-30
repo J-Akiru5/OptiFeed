@@ -13,17 +13,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next-intl/server", async () => {
 	const { createTranslator } = await import("./helpers/messages");
-	type TestTranslator = ReturnType<typeof createTranslator>;
-	type RichTranslator = TestTranslator & {
-		rich: (key: string, values?: Record<string, string | number>) => string;
-	};
-	const withRich = (namespace: string): RichTranslator => {
-		const translator = createTranslator(namespace) as RichTranslator;
-		translator.rich = (key, values) => translator(key, values);
-		return translator;
-	};
 	return {
-		getTranslations: async (namespace: string) => withRich(namespace),
+		getTranslations: async (namespace: string) => createTranslator(namespace),
 		getLocale: async () => "en",
 	};
 });
@@ -202,6 +193,8 @@ describe("feeding schedule page (#247)", () => {
 		}
 		expect(html).toContain("Device Offline");
 		expect(html).toContain("Feed Now");
+		// The only gram cap is the daily ceiling; the helper names it.
+		expect(html).toContain("remaining daily ceiling");
 	});
 
 	it("keeps the mobile stacking order below xl", async () => {

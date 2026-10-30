@@ -121,7 +121,9 @@ export function FeederViewer({
 								? "bg-emerald-400/15 text-emerald-200"
 								: status === "paused"
 									? "bg-amber-300/15 text-amber-200"
-									: "bg-sky-300/15 text-sky-200",
+									: status === "weak"
+										? "bg-amber-400/15 text-amber-200"
+										: "bg-sky-300/15 text-sky-200",
 					)}
 				>
 					{statusLabel}

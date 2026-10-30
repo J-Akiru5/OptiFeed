@@ -31,15 +31,18 @@ function Card({
 	icon,
 	title,
 	description,
+	anchor,
 	children,
 }: {
 	icon: ReactNode;
 	title: string;
 	description: string;
+	/** The `data-help` anchor global search highlights (#370). */
+	anchor?: string;
 	children: ReactNode;
 }) {
 	return (
-		<section className={`${adminSurface} flex h-full flex-col p-4 sm:p-6`}>
+		<section data-help={anchor} className={`${adminSurface} flex h-full flex-col p-4 sm:p-6`}>
 			<div className="mb-4 flex items-start gap-3">
 				<span
 					aria-hidden="true"
@@ -150,6 +153,7 @@ export function DefaultFeedingRateForm({
 			icon={<Gauge className={iconClass} />}
 			title={t("defaultFeedingRateTitle")}
 			description={t("defaultFeedingRateDesc")}
+			anchor="setting-org-feeding-rate"
 		>
 			<form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
 				{error && <ErrorNote message={error} />}
@@ -233,6 +237,7 @@ export function NotificationSettingsForm({
 			icon={<Bell className={iconClass} />}
 			title={t("notificationsTitle")}
 			description={t("notificationsDesc")}
+			anchor="setting-org-notifications"
 		>
 			<form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
 				{error && <ErrorNote message={error} />}
@@ -258,6 +263,9 @@ export function NotificationSettingsForm({
 					<div>
 						<label htmlFor="offlineAfterMin" className={adminLabel}>
 							{t("offlineAfterLabel")}
+							<span className="ml-2 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black tracking-wider text-amber-800 uppercase dark:bg-amber-950/50 dark:text-amber-300">
+								{t("offlineAfterDeprecated")}
+							</span>
 						</label>
 						<input
 							id="offlineAfterMin"
@@ -343,10 +351,11 @@ export function DeviceRegistrationForm({
 			icon={<Router className={iconClass} />}
 			title={t("deviceRegistrationTitle")}
 			description={t("deviceRegistrationDesc")}
+			anchor="setting-org-device-registration"
 		>
 			<form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
 				{error && <ErrorNote message={error} />}
-				<fieldset className="m-0 space-y-2 border-0 p-0">
+				<fieldset id="deviceRegistration" className="m-0 space-y-2 border-0 p-0">
 					<legend className={adminLabel}>{t("registrationModeLabel")}</legend>
 					<label className="flex items-start gap-3 rounded-xl border border-gray-200 p-3 dark:border-gray-700">
 						<input

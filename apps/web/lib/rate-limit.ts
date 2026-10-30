@@ -86,35 +86,11 @@ export function checkDeviceTokenRevealRateLimit(actorId: string) {
 	return checkRateLimit(`rl:token-reveal:${actorId}`, 10, 60 * 60 * 1000, true);
 }
 
-/**
- * Pick the client IP to rate-limit key on from an X-Forwarded-For header.
- *
- * F-014: the LEFTMOST entry is written by the client and is trivially
- * spoofable — rotating it grants a fresh rate-limit bucket per request and
- * defeats both the login limiter and the per-(farm, IP) lockout. The
- * RIGHTMOST entry is the one appended by the single trusted proxy in front
- * of the app (Vercel's edge), so it is the only hop safe for security use
- * (MDN: trusted-proxy-count = 1). The value is also validated so garbage
- * can't become an unbounded rate_limit_bucket key.
- */
-export function selectClientIp(raw: string | null): string {
-	const entries = (raw ?? "").split(",");
-	const candidate = entries[entries.length - 1]?.trim() ?? "";
-	// IPv4 / IPv6 character set; 45 chars is the max length of an IPv6 form.
-	if (candidate.length > 45 || !/^[0-9a-fA-F:.]+$/.test(candidate)) {
-		return "127.0.0.1";
-	}
-	return candidate;
-}
-
-/**
- * Extract client IP from Vercel-proxied headers.
- */
-export async function getClientIp(): Promise<string> {
-	const { headers } = await import("next/headers");
-	const hdrs = await headers();
-	return selectClientIp(hdrs.get("x-forwarded-for"));
-}
+// F-014: the client address comes from `lib/client-ip.ts` — the one
+// trusted-hop derivation shared with the audit trail (issue #329). Login
+// limiting re-exports it here because `lib/actions/auth.ts` imports it from
+// the rate-limit module.
+export { getClientIp } from "@/lib/client-ip";
 
 /**
  * Delete rate-limit windows older than one hour (windows are at most 60 s).

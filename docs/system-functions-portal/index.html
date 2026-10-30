@@ -2127,7 +2127,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
 
 </section>
 
-<!-- ============================== OPERATIONS ============================== -->
+﻿<!-- ============================== OPERATIONS ============================== -->
 <section class="panel" role="tabpanel" id="panel-operations" aria-labelledby="tab-operations" data-panel="operations" hidden>
   <h1 class="sr">Operations</h1>
 
@@ -2148,20 +2148,20 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
 
     <h3>Configuration groups</h3>
     <ul>
-      <li><strong>Database</strong> — pooled and direct Postgres URLs; the direct URL is used for migrations.</li>
-      <li><strong>Auth</strong> — Supabase URL, anon key, service role key, JWT verification settings.</li>
-      <li><strong>Site</strong> — canonical origin used by metadata, sitemap, and email links.</li>
-      <li><strong>Notifications</strong> — Resend key and sender; Telegram bot token and chat id, both optional.</li>
-      <li><strong>AI</strong> — provider keys and model configuration; the deterministic formula remains when they are absent.</li>
-      <li><strong>Cron</strong> — a dedicated secret that authenticates scheduled workers.</li>
-      <li><strong>Storage</strong> — avatars, firmware artifacts, and export artifacts.</li>
+      <li><strong>Database</strong> â€” pooled and direct Postgres URLs; the direct URL is used for migrations.</li>
+      <li><strong>Auth</strong> â€” Supabase URL, anon key, service role key, JWT verification settings.</li>
+      <li><strong>Site</strong> â€” canonical origin used by metadata, sitemap, and email links.</li>
+      <li><strong>Notifications</strong> â€” Resend key and sender; Telegram bot token and chat id, both optional.</li>
+      <li><strong>AI</strong> â€” provider keys and model configuration; the deterministic formula remains when they are absent.</li>
+      <li><strong>Cron</strong> â€” a dedicated secret that authenticates scheduled workers.</li>
+      <li><strong>Storage</strong> â€” avatars, firmware artifacts, and export artifacts.</li>
     </ul>
 
     <div class="callout warn">
       <span class="tag chip risk">Configuration finding</span>
       <h3>The deployment allowlist does not match the working model</h3>
       <p><span class="mono">apps/web/vercel.json</span> currently enables automatic Git deployments for <span class="mono">main</span> and <span class="mono">staging</span>. <span class="mono">develop</span> is not in the allowlist, and <span class="mono">staging</span> is. The project's working model is <span class="mono">main</span> production plus <span class="mono">develop</span> integration. This needs a decision and a one-line configuration change before capture, because the film should be recorded against a known, eligible environment.</p>
-      <p class="mono" style="font-size:10.5px">apps/web/vercel.json · docs/deployment-workflow.md</p>
+      <p class="mono" style="font-size:10.5px">apps/web/vercel.json Â· docs/deployment-workflow.md</p>
     </div>
   </article>
 
@@ -2171,16 +2171,16 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
 
     <h3>Gate sequence</h3>
     <ol>
-      <li><strong>Quality</strong> — Biome, type checks, unit tests, and the coverage gate.</li>
-      <li><strong>End to end</strong> — Playwright against a disposable Supabase stack.</li>
-      <li><strong>Public smoke</strong> — Chromium, Firefox, and WebKit at three widths.</li>
-      <li><strong>Security</strong> — dependency audit, SBOM, and secret scanning.</li>
-      <li><strong>Repository hygiene</strong> — dead-code and complexity budgets.</li>
-      <li><strong>Performance</strong> — intended, but currently not executing.</li>
+      <li><strong>Quality</strong> â€” Biome, type checks, unit tests, and the coverage gate.</li>
+      <li><strong>End to end</strong> â€” Playwright against a disposable Supabase stack.</li>
+      <li><strong>Public smoke</strong> â€” Chromium, Firefox, and WebKit at three widths.</li>
+      <li><strong>Security</strong> â€” dependency audit, SBOM, and secret scanning.</li>
+      <li><strong>Repository hygiene</strong> â€” dead-code and complexity budgets.</li>
+      <li><strong>Performance</strong> â€” intended, but currently not executing.</li>
     </ol>
 
     <h3>Version discipline</h3>
-    <p>The release check requires <span class="mono">package.json</span>, the <span class="mono">VERSION</span> file, the changelog section, and the Git tag to agree. Version 1.31.0 is on <span class="mono">develop</span>; the latest tag is <span class="mono">v1.23.0</span>. That gap is normal for an integration branch, but it means “released” is the wrong word in the film.</p>
+    <p>The release check requires <span class="mono">package.json</span>, the <span class="mono">VERSION</span> file, the changelog section, and the Git tag to agree. Version 1.31.0 is on <span class="mono">develop</span>; the latest tag is <span class="mono">v1.23.0</span>. That gap is normal for an integration branch, but it means â€œreleasedâ€ is the wrong word in the film.</p>
 
     <div class="callout">
       <span class="tag chip neutral">Operational note</span>
@@ -2199,7 +2199,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
         <tbody>
           <tr><td>Health and readiness</td><td>Whether the app and its dependencies can serve traffic</td><td class="mono">/api/health</td></tr>
           <tr><td>Error events</td><td>Fingerprint-deduplicated exceptions with scrubbed context</td><td class="mono">superadmin/operations/errors</td></tr>
-          <tr><td>Audit trail</td><td>Who changed what, with reason and before/after where relevant</td><td class="mono">admin/audit · superadmin/operations/audit</td></tr>
+          <tr><td>Audit trail</td><td>Who changed what, with reason and before/after where relevant</td><td class="mono">admin/audit Â· superadmin/operations/audit</td></tr>
           <tr><td>Job metrics</td><td>Queue depth, duration, failures, artifact retention</td><td class="mono">/api/jobs/metrics</td></tr>
           <tr><td>Request timing</td><td>Per-request server timing and request id</td><td>Response headers</td></tr>
           <tr><td>Device telemetry</td><td>Heartbeat, hopper, temperature, firmware state</td><td class="mono">DeviceStateEvent</td></tr>
@@ -2233,7 +2233,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
       <li>The operations index still says no drill has been executed. That document is stale and should be corrected before the defense.</li>
     </ul>
 
-    <p class="note">If asked “can you recover from a database loss?”, the accurate answer is: “We have proven our logical dump and restore path on a synthetic dataset. We have not proven the provider's backup or point-in-time recovery, and authentication records are not in our dump. That is a known gap.”</p>
+    <p class="note">If asked â€œcan you recover from a database loss?â€, the accurate answer is: â€œWe have proven our logical dump and restore path on a synthetic dataset. We have not proven the provider's backup or point-in-time recovery, and authentication records are not in our dump. That is a known gap.â€</p>
   </article>
 
   <article class="section" id="s-ops-security" data-title="Security operations">
@@ -2265,16 +2265,16 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
 
     <h3>Routine operations</h3>
     <ul>
-      <li><strong>Registration</strong> — by MAC, with organization policy deciding auto-approval or admin approval.</li>
-      <li><strong>Approval</strong> — pending devices are visible in the tenant console and do not receive commands until approved.</li>
-      <li><strong>Token lifecycle</strong> — shown once, revealed only under audit and rate limit, rotated with immediate invalidation.</li>
-      <li><strong>Calibration</strong> — feed rate, hopper distance, temperature offset, device time, daily cap, and a recalibration interval with drift reminders.</li>
-      <li><strong>Firmware</strong> — signed manifests, A/B slots, pending-verify rollback, and a MAC canary channel. There is no rollout UI; the channel file is uploaded manually.</li>
-      <li><strong>Labels</strong> — print sheets with unit data and a setup-hotspot QR.</li>
+      <li><strong>Registration</strong> â€” by MAC, with organization policy deciding auto-approval or admin approval.</li>
+      <li><strong>Approval</strong> â€” pending devices are visible in the tenant console and do not receive commands until approved.</li>
+      <li><strong>Token lifecycle</strong> â€” shown once, revealed only under audit and rate limit, rotated with immediate invalidation.</li>
+      <li><strong>Calibration</strong> â€” feed rate, hopper distance, temperature offset, device time, daily cap, and a recalibration interval with drift reminders.</li>
+      <li><strong>Firmware</strong> â€” signed manifests, A/B slots, pending-verify rollback, and a MAC canary channel. There is no rollout UI; the channel file is uploaded manually.</li>
+      <li><strong>Labels</strong> â€” print sheets with unit data and a setup-hotspot QR.</li>
     </ul>
 
     <h3>Failure handling</h3>
-    <p>A device that stops heartbeating is flagged by the device-watch cron. A device that loses Wi-Fi keeps feeding on its RTC schedule. A device that browns out holds safe mode rather than closing the relay. The failure modes are designed to fail toward “no feed” rather than “unlimited feed”.</p>
+    <p>A device that stops heartbeating is flagged by the device-watch cron. A device that loses Wi-Fi keeps feeding on its RTC schedule. A device that browns out holds safe mode rather than closing the relay. The failure modes are designed to fail toward â€œno feedâ€ rather than â€œunlimited feedâ€.</p>
   </article>
 
   <article class="section" id="s-ops-risk" data-title="Risk register">
@@ -2293,7 +2293,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
           <tr><td>R6</td><td>Hardware footage unavailable or unsafe to shoot</td><td>Use bench footage and 3D renders; do not stage a pond shot that implies a completed field trial.</td><td><span class="chip flight">Medium</span></td></tr>
           <tr><td>R7</td><td>Deployment configuration mismatch</td><td>Align <span class="mono">vercel.json</span> to <span class="mono">main</span> + <span class="mono">develop</span> before capture.</td><td><span class="chip flight">Medium</span></td></tr>
           <tr><td>R8</td><td>Stale operations documents contradict CI</td><td>Correct the restore-drill index and the version references before publishing.</td><td><span class="chip planned">Low</span></td></tr>
-          <tr><td>R9</td><td>Music licence unclear</td><td>Use a Suno track with a recorded licence note, plus a fallback from a licensed library.</td><td><span class="chip planned">Low</span></td></tr>
+          <tr><td>R9</td><td>Music licence unclear</td><td>Use a licensed library track with a recorded licence note, plus a second cleared fallback.</td><td><span class="chip planned">Low</span></td></tr>
           <tr><td>R10</td><td>Voiceover and captions drift</td><td>Lock picture first, record VO to picture, generate SRT from the recorded audio, then spot-check.</td><td><span class="chip planned">Low</span></td></tr>
           <tr><td>R11</td><td>3D render time exceeds the schedule</td><td>Render a fixed shot list at 1080p60, not an open-ended turntable; keep stills as fallback.</td><td><span class="chip planned">Low</span></td></tr>
         </tbody>
@@ -2302,7 +2302,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
   </article>
 
   <article class="section" id="s-ops-freeze" data-title="Freeze checklist">
-    <header class="sec-head"><span class="sec-num">08</span><h2>Freeze checklist · 31 October</h2></header>
+    <header class="sec-head"><span class="sec-num">08</span><h2>Freeze checklist Â· 31 October</h2></header>
     <p>The Saturday freeze decides what the film is allowed to show. Work through this list in order; the film cannot be captured until every line is either checked or explicitly waived.</p>
 
     <div class="table-wrap">
@@ -2317,7 +2317,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
           <tr><td>6</td><td>Confirm the physical feeder and pond are available for B-roll, with consent for anyone on camera.</td><td>Jeff</td></tr>
           <tr><td>7</td><td>Choose human voiceover or a synthetic voice; record a 20-second test for tone.</td><td>Producer</td></tr>
           <tr><td>8</td><td>Approve the script and storyboard, including every number and qualifier.</td><td>Jeff</td></tr>
-          <tr><td>9</td><td>Decide the Suno track and record its licence note; keep a licensed fallback.</td><td>Producer</td></tr>
+          <tr><td>9</td><td>Choose the licensed library track, record its licence and SHA-256, and keep a fallback.</td><td>Producer</td></tr>
           <tr><td>10</td><td>Confirm the legal review status of privacy and terms before any compliance-adjacent line.</td><td>Jeff</td></tr>
           <tr><td>11</td><td>Confirm that no growth or FCR number appears unless it has been reviewed and approved.</td><td>Jeff</td></tr>
           <tr><td>12</td><td>Align the deployment allowlist and confirm which environment will be filmed.</td><td>Jeff</td></tr>
@@ -2334,17 +2334,19 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
 
 </section>
 
-<!-- ============================== FILM ============================== -->
+
+
+﻿<!-- ============================== FILM ============================== -->
 <section class="panel" role="tabpanel" id="panel-film" aria-labelledby="tab-film" data-panel="film" hidden>
   <h1 class="sr">Film</h1>
 
   <article class="section" id="s-film-brief" data-title="The brief">
     <header class="sec-head"><span class="sec-num">01</span><h2>The brief</h2></header>
-    <p class="lede">One five-minute master. Three audiences. English voiceover, burned-in captions plus an SRT pair, 1920×1080 at 30 or 60 fps. No ISO respondent data, no final growth or FCR numbers, and no feature that is not on <span class="mono">develop</span> at the freeze commit.</p>
+    <p class="lede">One five-minute master. Three audiences. English voiceover, burned-in captions plus an SRT pair, 1920Ã—1080 at 30 or 60 fps. No ISO respondent data, no final growth or FCR numbers, and no feature that is not on <span class="mono">develop</span> at the freeze commit.</p>
 
     <dl class="kv">
       <dt>Length</dt><dd>5:00 maximum. Target 4:55 to leave a safety margin.</dd>
-      <dt>Format</dt><dd>16:9, 1920×1080, H.264 master at a high bitrate; a 1080p web encode and a 60-second cut are optional derivatives.</dd>
+      <dt>Format</dt><dd>16:9, 1920Ã—1080, H.264 master at a high bitrate; a 1080p web encode and a 60-second cut are optional derivatives.</dd>
       <dt>Language</dt><dd>English voiceover. Burned-in captions for rooms without sound, plus a sidecar SRT with identical text and timing.</dd>
       <dt>Style</dt><dd>Calm, institutional, evidence-led. Chapter cards, lower-left captions, slow camera moves, no hard-sell editing, no stock-photo farmers.</dd>
       <dt>Reference</dt><dd>The supplied SmartHatch cut is a <em>pacing and structure</em> reference only. None of its footage, palette, or copy is reused.</dd>
@@ -2360,7 +2362,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
       <ul style="margin-bottom:0">
         <li>Show a respondent chart, a Likert mean, or a claim that 30 people evaluated the system.</li>
         <li>Show a growth, survival, or FCR improvement number.</li>
-        <li>Use the words “certified”, “ISO compliant”, or “passed evaluation”.</li>
+        <li>Use the words â€œcertifiedâ€, â€œISO compliantâ€, or â€œpassed evaluationâ€.</li>
         <li>Show a feature that exists only in an unmerged pull request.</li>
         <li>Show real farmer names, emails, pond names, device tokens, or production admin screens.</li>
       </ul>
@@ -2374,15 +2376,15 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
     <div class="audience-grid">
       <div>
         <h3>Defense panel</h3>
-        <p>“They built a real system, they know exactly what is finished, and they can defend the architecture under questioning.”</p>
+        <p>â€œThey built a real system, they know exactly what is finished, and they can defend the architecture under questioning.â€</p>
       </div>
       <div>
         <h3>ISO evaluators</h3>
-        <p>“The quality claims are tied to re-checkable engineering evidence, and the gaps are named rather than hidden.”</p>
+        <p>â€œThe quality claims are tied to re-checkable engineering evidence, and the gaps are named rather than hidden.â€</p>
       </div>
       <div>
         <h3>Market / farmer</h3>
-        <p>“This solves a cost problem I recognise, and I can see how it works in a pond, not just on a slide.”</p>
+        <p>â€œThis solves a cost problem I recognise, and I can see how it works in a pond, not just on a slide.â€</p>
       </div>
     </div>
 
@@ -2391,19 +2393,19 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
       <table class="compact">
         <thead><tr><th>Beat</th><th class="center">Panel</th><th class="center">ISO</th><th class="center">Market</th></tr></thead>
         <tbody>
-          <tr><td>Hook</td><td class="center tick">●</td><td class="center">○</td><td class="center tick">●</td></tr>
-          <tr><td>Problem</td><td class="center tick">●</td><td class="center tick">●</td><td class="center tick">●</td></tr>
-          <tr><td>Solution and 3D</td><td class="center tick">●</td><td class="center">○</td><td class="center tick">●</td></tr>
-          <tr><td>Farmer workflow</td><td class="center tick">●</td><td class="center">○</td><td class="center tick">●</td></tr>
-          <tr><td>Resilience and AI</td><td class="center tick">●</td><td class="center tick">●</td><td class="center tick">●</td></tr>
-          <tr><td>Platform and tenancy</td><td class="center tick">●</td><td class="center tick">●</td><td class="center">○</td></tr>
-          <tr><td>ISO evidence</td><td class="center tick">●</td><td class="center tick">●</td><td class="center">—</td></tr>
-          <tr><td>Why it matters</td><td class="center">○</td><td class="center">○</td><td class="center tick">●</td></tr>
-          <tr><td>Team and close</td><td class="center tick">●</td><td class="center tick">●</td><td class="center tick">●</td></tr>
+          <tr><td>Hook</td><td class="center tick">â—</td><td class="center">â—‹</td><td class="center tick">â—</td></tr>
+          <tr><td>Problem</td><td class="center tick">â—</td><td class="center tick">â—</td><td class="center tick">â—</td></tr>
+          <tr><td>Solution and 3D</td><td class="center tick">â—</td><td class="center">â—‹</td><td class="center tick">â—</td></tr>
+          <tr><td>Farmer workflow</td><td class="center tick">â—</td><td class="center">â—‹</td><td class="center tick">â—</td></tr>
+          <tr><td>Resilience and AI</td><td class="center tick">â—</td><td class="center tick">â—</td><td class="center tick">â—</td></tr>
+          <tr><td>Platform and tenancy</td><td class="center tick">â—</td><td class="center tick">â—</td><td class="center">â—‹</td></tr>
+          <tr><td>ISO evidence</td><td class="center tick">â—</td><td class="center tick">â—</td><td class="center">â€”</td></tr>
+          <tr><td>Why it matters</td><td class="center">â—‹</td><td class="center">â—‹</td><td class="center tick">â—</td></tr>
+          <tr><td>Team and close</td><td class="center tick">â—</td><td class="center tick">â—</td><td class="center tick">â—</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="small">● primary · ○ present but brief · — absent by design.</p>
+    <p class="small">â— primary Â· â—‹ present but brief Â· â€” absent by design.</p>
   </article>
 
   <article class="section" id="s-film-beats" data-title="Beat sheet">
@@ -2414,27 +2416,27 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
       <table class="beat-table">
         <thead><tr><th style="width:13%">Time</th><th style="width:18%">Beat</th><th>On-screen idea</th><th style="width:26%">Primary visual</th></tr></thead>
         <tbody>
-          <tr><td>0:00–0:20</td><td>Hook</td><td>Feed is the largest cost and the easiest thing to get wrong.</td><td>Dawn pond, feeder silhouette, title card</td></tr>
-          <tr><td>0:20–0:55</td><td>01 · Problem</td><td>A timer cannot see the pond. Sampling lives in notebooks.</td><td>Three problem cards, notebook inserts, timer close-up</td></tr>
-          <tr><td>0:55–1:42</td><td>02 · Solution</td><td>One machine, one dashboard, one record.</td><td>3D turntable with sensor callouts, dashboard reveal</td></tr>
-          <tr><td>1:42–2:25</td><td>03 · Workflow</td><td>Sample → biomass → ration → schedule → dispense → FCR.</td><td>Screen capture of the loop, auger animation</td></tr>
-          <tr><td>2:25–3:05</td><td>04 · Resilience</td><td>Keeps feeding when the network does not.</td><td>Airplane mode, offline banner, outbox replay, Pakoy chat</td></tr>
-          <tr><td>3:05–3:52</td><td>05 · Platform</td><td>Multi-tenant by design, with scoped roles and audited authority.</td><td>Tenancy diagram, role matrix, provisioning footage</td></tr>
-          <tr><td>3:52–4:25</td><td>06 · Evidence</td><td>Engineering self-assessment against ISO/IEC 25010.</td><td>Evidence board, CI screen, coverage and test output</td></tr>
-          <tr><td>4:25–4:45</td><td>07 · Why</td><td>Visible, repeatable, reviewable — the precondition for improvement.</td><td>Market frame, research-prototype label</td></tr>
-          <tr><td>4:45–5:00</td><td>08 · Close</td><td>Research prototype. Built at ISUFST. Feed on evidence.</td><td>Team, campus, logo, QR</td></tr>
-          <tr class="total"><td>5:00</td><td>Total</td><td colspan="2">300 seconds · ~550 spoken words · 1080p · English VO · SRT pair</td></tr>
+          <tr><td>0:00â€“0:20</td><td>Hook</td><td>Feed is the largest cost and the easiest thing to get wrong.</td><td>Dawn pond, feeder silhouette, title card</td></tr>
+          <tr><td>0:20â€“0:55</td><td>01 Â· Problem</td><td>A timer cannot see the pond. Sampling lives in notebooks.</td><td>Three problem cards, notebook inserts, timer close-up</td></tr>
+          <tr><td>0:55â€“1:42</td><td>02 Â· Solution</td><td>One machine, one dashboard, one record.</td><td>3D turntable with sensor callouts, dashboard reveal</td></tr>
+          <tr><td>1:42â€“2:25</td><td>03 Â· Workflow</td><td>Sample â†’ biomass â†’ ration â†’ schedule â†’ dispense â†’ FCR.</td><td>Screen capture of the loop, auger animation</td></tr>
+          <tr><td>2:25â€“3:05</td><td>04 Â· Resilience</td><td>Keeps feeding when the network does not.</td><td>Airplane mode, offline banner, outbox replay, Pakoy chat</td></tr>
+          <tr><td>3:05â€“3:52</td><td>05 Â· Platform</td><td>Multi-tenant by design, with scoped roles and audited authority.</td><td>Tenancy diagram, role matrix, provisioning footage</td></tr>
+          <tr><td>3:52â€“4:25</td><td>06 Â· Evidence</td><td>Engineering self-assessment against ISO/IEC 25010.</td><td>Evidence board, CI screen, coverage and test output</td></tr>
+          <tr><td>4:25â€“4:45</td><td>07 Â· Why</td><td>Visible, repeatable, reviewable â€” the precondition for improvement.</td><td>Market frame, research-prototype label</td></tr>
+          <tr><td>4:45â€“5:00</td><td>08 Â· Close</td><td>Research prototype. Built at ISUFST. Feed on evidence.</td><td>Team, campus, logo, QR</td></tr>
+          <tr class="total"><td>5:00</td><td>Total</td><td colspan="2">300 seconds Â· ~550 spoken words Â· 1080p Â· English VO Â· SRT pair</td></tr>
         </tbody>
       </table>
     </div>
 
     <h3>Rhythm</h3>
-    <p>The cut moves in a slow–fast–slow pattern. The problem is the slowest section, because it needs to be understood rather than admired. The workflow and platform sections carry the most cuts, because they are showing a product doing things. The evidence section slows again and lets the numbers sit on screen for at least three seconds each.</p>
+    <p>The cut moves in a slowâ€“fastâ€“slow pattern. The problem is the slowest section, because it needs to be understood rather than admired. The workflow and platform sections carry the most cuts, because they are showing a product doing things. The evidence section slows again and lets the numbers sit on screen for at least three seconds each.</p>
   </article>
 
   <article class="section" id="s-film-script" data-title="Voiceover script">
     <header class="sec-head"><span class="sec-num">04</span><h2>Voiceover script</h2></header>
-    <p>Timed to the beat sheet. About 550 words, which lands near 115–125 words per minute with natural pauses. Read it plainly; do not announce it.</p>
+    <p>Timed to the beat sheet. About 550 words, which lands near 115â€“125 words per minute with natural pauses. Read it plainly; do not announce it.</p>
 
     <dl class="script-block">
       <div class="script-cue"><dt>0:00–0:09</dt><dd>Feed is the largest cost on a shrimp farm — and the easiest thing to get wrong.</dd></div>
@@ -2489,11 +2491,11 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
     <h3>Delivery notes</h3>
     <ul>
       <li><strong>Tone:</strong> a researcher explaining a working system to a skeptical but fair audience. Not a startup pitch.</li>
-      <li><strong>Pace:</strong> 115–125 words per minute. Slow by roughly 10% on the problem and evidence beats.</li>
-      <li><strong>Emphasis:</strong> the nouns, not the adjectives. “The pond should decide the ration” — stress <em>pond</em> and <em>ration</em>.</li>
-      <li><strong>Pauses:</strong> a full beat after “Not a guess.” and before “A calculation.”</li>
+      <li><strong>Pace:</strong> 115â€“125 words per minute. Slow by roughly 10% on the problem and evidence beats.</li>
+      <li><strong>Emphasis:</strong> the nouns, not the adjectives. â€œThe pond should decide the rationâ€ â€” stress <em>pond</em> and <em>ration</em>.</li>
+      <li><strong>Pauses:</strong> a full beat after â€œNot a guess.â€ and before â€œA calculation.â€</li>
       <li><strong>Pronunciation:</strong> Pa-ka-on A-I (four syllables, stress on <em>ka</em>); ISUFST as letters, I-S-U-F-S-T; Pakoy as pa-KOY.</li>
-      <li><strong>Numbers:</strong> say “three thousand three hundred”, not “three point three thousand”; “ninety-two percent”, not “ninety-two point four two”.</li>
+      <li><strong>Numbers:</strong> say â€œthree thousand three hundredâ€, not â€œthree point three thousandâ€; â€œninety-two percentâ€, not â€œninety-two point four twoâ€.</li>
     </ul>
   </article>
 
@@ -2505,34 +2507,34 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
       <table class="compact">
         <thead><tr><th style="width:6%">#</th><th style="width:10%">Source</th><th style="width:11%">Dur.</th><th>Shot</th><th style="width:26%">Note</th></tr></thead>
         <tbody>
-          <tr><td>01</td><td>HW</td><td>0:00–0:05</td><td>Pond at dawn, wide, mist, no people</td><td>Static or slow push; natural sound only</td></tr>
-          <tr><td>02</td><td>3D</td><td>0:05–0:08</td><td>Feeder silhouette against a pale background</td><td>Low key, single rim light</td></tr>
-          <tr><td>03</td><td>MG</td><td>0:08–0:20</td><td>Title card: “Feed on evidence, not a calendar.”</td><td>Wordmark, navy on white, orange rule</td></tr>
-          <tr><td>04</td><td>HW</td><td>0:20–0:26</td><td>Hand scooping feed; timer on a post</td><td>Shallow depth of field</td></tr>
-          <tr><td>05</td><td>MG</td><td>0:26–0:36</td><td>Three problem cards animate in</td><td>Fixed timer · manual sampling · no record</td></tr>
-          <tr><td>06</td><td>HW</td><td>0:36–0:45</td><td>Phone showing no signal at the pond</td><td>Screen must be a demo device</td></tr>
-          <tr><td>07</td><td>HW</td><td>0:45–0:55</td><td>Notebook with handwritten feed notes</td><td>Fictional notes, no real farm names</td></tr>
-          <tr><td>08</td><td>3D</td><td>0:55–1:04</td><td>Feeder turntable, three-quarter view</td><td>8-second loop, studio background</td></tr>
-          <tr><td>09</td><td>3D</td><td>1:04–1:13</td><td>Exploded view: hopper, auger, controller, sensor</td><td>Labels appear in sync with VO</td></tr>
-          <tr><td>10</td><td>3D</td><td>1:13–1:25</td><td>Macro: auger turning, pellets falling</td><td>Slow motion, shallow focus</td></tr>
-          <tr><td>11</td><td>APP</td><td>1:25–1:33</td><td>Dashboard loads, pond switcher visible</td><td>Seeded demo organization</td></tr>
-          <tr><td>12</td><td>APP</td><td>1:33–1:42</td><td>Schedule editor, live preview</td><td>Cursor moves deliberately, no jitter</td></tr>
-          <tr><td>13</td><td>APP</td><td>1:42–1:52</td><td>Biomass form: weight, count, batch label</td><td>Show validation state once</td></tr>
-          <tr><td>14</td><td>APP</td><td>1:52–2:01</td><td>Growth card: average weight, biomass, target gap</td><td>Numbers must be plausible demo values</td></tr>
-          <tr><td>15</td><td>APP</td><td>2:01–2:10</td><td>AI recommendation card with reasoning</td><td>Label “demo recommendation”</td></tr>
-          <tr><td>16</td><td>APP</td><td>2:10–2:18</td><td>Feed-now confirmation and device acknowledgement</td><td>Show caps in the UI</td></tr>
-          <tr><td>17</td><td>APP</td><td>2:18–2:25</td><td>Calendar harvest panel with computed FCR</td><td>Demo value; label “computed from demo records”</td></tr>
-          <tr><td>18</td><td>APP</td><td>2:25–2:33</td><td>Airplane mode toggled; app remains usable</td><td>Real device or emulator, no fake UI</td></tr>
-          <tr><td>19</td><td>APP</td><td>2:33–2:42</td><td>Offline banner and cached dashboard</td><td>Last-synced time visible</td></tr>
-          <tr><td>20</td><td>APP</td><td>2:42–2:51</td><td>Queued sample; reconnect; sync completes</td><td>Show the queued state before sync</td></tr>
-          <tr><td>21</td><td>APP</td><td>2:51–3:05</td><td>Pakoy chat answers a pond question</td><td>Use a seeded question, not a scripted fake</td></tr>
-          <tr><td>22</td><td>MG</td><td>3:05–3:22</td><td>Tenancy diagram builds: org → farm → pond → device</td><td>Use Fig. 2 geometry</td></tr>
-          <tr><td>23</td><td>APP</td><td>3:22–3:31</td><td>Member permissions matrix</td><td>Blur names; roles only</td></tr>
-          <tr><td>24</td><td>APP</td><td>3:31–3:40</td><td>Platform audit row with reason and step-up marker</td><td>Fictional actor, real UI</td></tr>
-          <tr><td>25</td><td>HW</td><td>3:40–3:52</td><td>Phone joins the setup AP; Wi-Fi scan; save</td><td>Shoot the real portal; no credentials on screen</td></tr>
-          <tr><td>26</td><td>EV</td><td>3:52–4:25</td><td>Evidence board: eight characteristics, then CI output</td><td>Numbers from the evidence ledger only</td></tr>
-          <tr><td>27</td><td>MG</td><td>4:25–4:45</td><td>Market frame and research-prototype label</td><td>No outcome numbers</td></tr>
-          <tr><td>28</td><td>HW</td><td>4:45–5:00</td><td>Team wide shot, campus, logo, QR</td><td>Consent for every person on camera</td></tr>
+          <tr><td>01</td><td>HW</td><td>0:00â€“0:05</td><td>Pond at dawn, wide, mist, no people</td><td>Static or slow push; natural sound only</td></tr>
+          <tr><td>02</td><td>3D</td><td>0:05â€“0:08</td><td>Feeder silhouette against a pale background</td><td>Low key, single rim light</td></tr>
+          <tr><td>03</td><td>MG</td><td>0:08â€“0:20</td><td>Title card: â€œFeed on evidence, not a calendar.â€</td><td>Wordmark, navy on white, orange rule</td></tr>
+          <tr><td>04</td><td>HW</td><td>0:20â€“0:26</td><td>Hand scooping feed; timer on a post</td><td>Shallow depth of field</td></tr>
+          <tr><td>05</td><td>MG</td><td>0:26â€“0:36</td><td>Three problem cards animate in</td><td>Fixed timer Â· manual sampling Â· no record</td></tr>
+          <tr><td>06</td><td>HW</td><td>0:36â€“0:45</td><td>Phone showing no signal at the pond</td><td>Screen must be a demo device</td></tr>
+          <tr><td>07</td><td>HW</td><td>0:45â€“0:55</td><td>Notebook with handwritten feed notes</td><td>Fictional notes, no real farm names</td></tr>
+          <tr><td>08</td><td>3D</td><td>0:55â€“1:04</td><td>Feeder turntable, three-quarter view</td><td>8-second loop, studio background</td></tr>
+          <tr><td>09</td><td>3D</td><td>1:04â€“1:13</td><td>Exploded view: hopper, auger, controller, sensor</td><td>Labels appear in sync with VO</td></tr>
+          <tr><td>10</td><td>3D</td><td>1:13â€“1:25</td><td>Macro: auger turning, pellets falling</td><td>Slow motion, shallow focus</td></tr>
+          <tr><td>11</td><td>APP</td><td>1:25â€“1:33</td><td>Dashboard loads, pond switcher visible</td><td>Seeded demo organization</td></tr>
+          <tr><td>12</td><td>APP</td><td>1:33â€“1:42</td><td>Schedule editor, live preview</td><td>Cursor moves deliberately, no jitter</td></tr>
+          <tr><td>13</td><td>APP</td><td>1:42â€“1:52</td><td>Biomass form: weight, count, batch label</td><td>Show validation state once</td></tr>
+          <tr><td>14</td><td>APP</td><td>1:52â€“2:01</td><td>Growth card: average weight, biomass, target gap</td><td>Numbers must be plausible demo values</td></tr>
+          <tr><td>15</td><td>APP</td><td>2:01â€“2:10</td><td>AI recommendation card with reasoning</td><td>Label â€œdemo recommendationâ€</td></tr>
+          <tr><td>16</td><td>APP</td><td>2:10â€“2:18</td><td>Feed-now confirmation and device acknowledgement</td><td>Show caps in the UI</td></tr>
+          <tr><td>17</td><td>APP</td><td>2:18â€“2:25</td><td>Calendar harvest panel with computed FCR</td><td>Demo value; label â€œcomputed from demo recordsâ€</td></tr>
+          <tr><td>18</td><td>APP</td><td>2:25â€“2:33</td><td>Airplane mode toggled; app remains usable</td><td>Real device or emulator, no fake UI</td></tr>
+          <tr><td>19</td><td>APP</td><td>2:33â€“2:42</td><td>Offline banner and cached dashboard</td><td>Last-synced time visible</td></tr>
+          <tr><td>20</td><td>APP</td><td>2:42â€“2:51</td><td>Queued sample; reconnect; sync completes</td><td>Show the queued state before sync</td></tr>
+          <tr><td>21</td><td>APP</td><td>2:51â€“3:05</td><td>Pakoy chat answers a pond question</td><td>Use a seeded question, not a scripted fake</td></tr>
+          <tr><td>22</td><td>MG</td><td>3:05â€“3:22</td><td>Tenancy diagram builds: org â†’ farm â†’ pond â†’ device</td><td>Use Fig. 2 geometry</td></tr>
+          <tr><td>23</td><td>APP</td><td>3:22â€“3:31</td><td>Member permissions matrix</td><td>Blur names; roles only</td></tr>
+          <tr><td>24</td><td>APP</td><td>3:31â€“3:40</td><td>Platform audit row with reason and step-up marker</td><td>Fictional actor, real UI</td></tr>
+          <tr><td>25</td><td>HW</td><td>3:40â€“3:52</td><td>Phone joins the setup AP; Wi-Fi scan; save</td><td>Shoot the real portal; no credentials on screen</td></tr>
+          <tr><td>26</td><td>EV</td><td>3:52â€“4:25</td><td>Evidence board: eight characteristics, then CI output</td><td>Numbers from the evidence ledger only</td></tr>
+          <tr><td>27</td><td>MG</td><td>4:25â€“4:45</td><td>Market frame and research-prototype label</td><td>No outcome numbers</td></tr>
+          <tr><td>28</td><td>HW</td><td>4:45â€“5:00</td><td>Team wide shot, campus, logo, QR</td><td>Consent for every person on camera</td></tr>
         </tbody>
       </table>
     </div>
@@ -2552,9 +2554,9 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
           <tr><td>Ink</td><td>Navy #0A3D62 for headings; #0A2B45 for body; #5D7280 for secondary text.</td></tr>
           <tr><td>Accent</td><td>Orange #FE6B27 for rules, markers, and one word per card. Never for large fills.</td></tr>
           <tr><td>Type</td><td>Inter or equivalent for UI; a serif for chapter titles. Minimum on-screen body size 28 px at 1080p.</td></tr>
-          <tr><td>Chapter cards</td><td>Numbered 01–08, a two-to-five word title, one line of context, hairline rule.</td></tr>
+          <tr><td>Chapter cards</td><td>Numbered 01â€“08, a two-to-five word title, one line of context, hairline rule.</td></tr>
           <tr><td>Captions</td><td>Lower left, 42-character lines, two lines maximum, white text on a 72% navy plate.</td></tr>
-          <tr><td>Data labels</td><td>Every demo screen carries a small “DEMO DATA” mark in the lower right.</td></tr>
+          <tr><td>Data labels</td><td>Every demo screen carries a small â€œDEMO DATAâ€ mark in the lower right.</td></tr>
           <tr><td>Transitions</td><td>Cuts and 8-frame dissolves. No spins, no whooshes, no zoom punches.</td></tr>
           <tr><td>Lower thirds</td><td>Name and role only when a real person speaks; no invented titles.</td></tr>
         </tbody>
@@ -2562,7 +2564,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
     </div>
 
     <h3>Evidence board</h3>
-    <p>The ISO beat uses a single board rather than eight separate slides: eight rows, each with a characteristic, a one-line evidence statement, and a grade chip. The board builds row by row over four seconds, holds for eight, then the camera pushes into the three rows with gaps. This is the only place in the film where a table is the hero, and it should feel like a document, not a dashboard. A fixed footnote reads <span class="mono">ISO/IEC 25010:2011 · internal self-assessment · not a certification</span>; if the paper adopts the 2023 model, the footnote and the row names change together.</p>
+    <p>The ISO beat uses a single board rather than eight separate slides: eight rows, each with a characteristic, a one-line evidence statement, and a grade chip. The board builds row by row over four seconds, holds for eight, then the camera pushes into the three rows with gaps. This is the only place in the film where a table is the hero, and it should feel like a document, not a dashboard. A fixed footnote reads <span class="mono">ISO/IEC 25010:2011 Â· internal self-assessment Â· not a certification</span>; if the paper adopts the 2023 model, the footnote and the row names change together.</p>
   </article>
 
   <article class="section" id="s-film-3d" data-title="3D render plan">
@@ -2574,20 +2576,20 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
       <dt>Tool</dt><dd>Blender 5.2.3 LTS. Import the GLB, keep the materials, add a neutral studio setup.</dd>
       <dt>Lighting</dt><dd>Large soft key from camera left, cool fill from right, thin rim to separate the hopper from the background. White or very light grey world.</dd>
       <dt>Camera</dt><dd>50 mm equivalent, f/8 look, slight low angle for the hero. Turntable at 24 frames per second, 8 seconds, 15-degree elevation.</dd>
-      <dt>Component names</dt><dd>Use the six labels from the viewer's ISO preset — hopper, ultrasonic sensor, controller, motor, auger, outlet — so the film and the product name the same parts.</dd>
-      <dt>Output</dt><dd>1920×1080, 60 fps, ProRes or high-bitrate H.264, alpha where the shot will be composited.</dd>
+      <dt>Component names</dt><dd>Use the six labels from the viewer's ISO preset â€” hopper, ultrasonic sensor, controller, motor, auger, outlet â€” so the film and the product name the same parts.</dd>
+      <dt>Output</dt><dd>1920Ã—1080, 60 fps, ProRes or high-bitrate H.264, alpha where the shot will be composited.</dd>
     </dl>
 
     <h3>Five renders</h3>
     <ol>
-      <li><strong>Hero turntable</strong> — 8 seconds, three-quarter view, no labels.</li>
-      <li><strong>Exploded view</strong> — 4 seconds, hopper, auger, controller, and sensor separate along one axis.</li>
-      <li><strong>Auger macro</strong> — 3 seconds, slow rotation with pellet motion.</li>
-      <li><strong>Sensor callouts</strong> — 2 seconds, four labels appear one at a time.</li>
-      <li><strong>Still frames</strong> — three high-resolution stills for the thumbnail, the evidence board, and the poster frame.</li>
+      <li><strong>Hero turntable</strong> â€” 8 seconds, three-quarter view, no labels.</li>
+      <li><strong>Exploded view</strong> â€” 4 seconds, hopper, auger, controller, and sensor separate along one axis.</li>
+      <li><strong>Auger macro</strong> â€” 3 seconds, slow rotation with pellet motion.</li>
+      <li><strong>Sensor callouts</strong> â€” 2 seconds, four labels appear one at a time.</li>
+      <li><strong>Still frames</strong> â€” three high-resolution stills for the thumbnail, the evidence board, and the poster frame.</li>
     </ol>
 
-    <p class="note">If render time becomes a constraint, cut the exploded view before cutting the turntable. The turntable carries the “one machine” idea; the exploded view is a bonus.</p>
+    <p class="note">If render time becomes a constraint, cut the exploded view before cutting the turntable. The turntable carries the â€œone machineâ€ idea; the exploded view is a bonus.</p>
   </article>
 
   <article class="section" id="s-film-app" data-title="App capture plan">
@@ -2597,17 +2599,17 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
     <h3>Setup</h3>
     <ul>
       <li>Create a demo organization, two farms, three ponds, three devices, and thirty days of plausible feeding history.</li>
-      <li>Use fictional names: “Demo Farm”, “Pond A”, “Pond B”. No real farmer, member, or email address.</li>
+      <li>Use fictional names: â€œDemo Farmâ€, â€œPond Aâ€, â€œPond Bâ€. No real farmer, member, or email address.</li>
       <li>Seed biomass samples so the growth chart has a believable shape, and a harvested cycle so FCR has a value.</li>
       <li>Disable browser extensions, notifications, and the bookmarks bar. Use a clean profile.</li>
-      <li>Capture at 1280×720 CSS pixels with a device scale factor of 2, then scale about 1.2× into the 1056×594 right-hand panel. A full 1728-pixel dashboard makes 14-pixel UI text unreadable at 1080p.</li>
+      <li>Capture at 1280Ã—720 CSS pixels with a device scale factor of 2, then scale about 1.2Ã— into the 1056Ã—594 right-hand panel. A full 1728-pixel dashboard makes 14-pixel UI text unreadable at 1080p.</li>
       <li>Record at 60 fps with a deterministic Playwright script; do not drive the UI by hand. Use screenshots plus editor push-ins for static screens, and video only for typing and interaction.</li>
     </ul>
 
     <div class="callout stop">
       <span class="tag chip risk">Capture hazards</span>
       <h3>Three strings in the product must not reach the film</h3>
-      <p>The growth page contains the phrases “premium commercial growth efficiency” and “EXCELLENT / OPTIMAL” stock-health labels. The landing preview shows an FCR of 1.15 and an “AI confidence” badge. In a film, all four read as measured claims. Crop them out, or capture around them, and add them to the claims lint at the rough-cut gate.</p>
+      <p>The growth page contains the phrases â€œpremium commercial growth efficiencyâ€ and â€œEXCELLENT / OPTIMALâ€ stock-health labels. The landing preview shows an FCR of 1.15 and an â€œAI confidenceâ€ badge. In a film, all four read as measured claims. Crop them out, or capture around them, and add them to the claims lint at the rough-cut gate.</p>
     </div>
 
     <h3>Capture list</h3>
@@ -2633,7 +2635,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
     <div class="callout warn">
       <span class="tag chip flight">Redaction</span>
       <h3>Three passes before any frame reaches the edit</h3>
-      <p>First, blur emails and avatars inside the app. Second, blur the browser chrome and any OS notification. Third, watch the full capture at 1× and pause on every frame that contains a name. Do not rely on the demo dataset alone; a tooltip or a toast can still surface an identifier.</p>
+      <p>First, blur emails and avatars inside the app. Second, blur the browser chrome and any OS notification. Third, watch the full capture at 1Ã— and pause on every frame that contains a name. Do not rely on the demo dataset alone; a tooltip or a toast can still surface an identifier.</p>
     </div>
   </article>
 
@@ -2669,29 +2671,31 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
 
     <h3>Voiceover</h3>
     <ul>
-      <li>Record in a treated room or a closet with soft furnishings; a dynamic microphone at 15–20 cm, slightly off-axis.</li>
-      <li>Target −18 dBFS average, peaks below −6 dBFS. Record room tone for 20 seconds.</li>
-      <li>De-noise lightly, compress gently, and de-ess. Do not use a “movie trailer” voice preset.</li>
+      <li>Record in a treated room or a closet with soft furnishings; a dynamic microphone at 15â€“20 cm, slightly off-axis.</li>
+      <li>Target âˆ’18 dBFS average, peaks below âˆ’6 dBFS. Record room tone for 20 seconds.</li>
+      <li>De-noise lightly, compress gently, and de-ess. Do not use a â€œmovie trailerâ€ voice preset.</li>
       <li>Record to the locked picture, not to the script's estimated timings. Re-time the SRT from the recorded audio.</li>
     </ul>
 
     <h3>Music</h3>
-    <p>A free Suno instrumental is acceptable if the licence for the account tier permits the intended publication. Generate after the edit timing is locked, not before.</p>
+    <p>Use a licensed library track, not a generated track. Suno's terms prohibit capturing its player, and free-tier output is non-commercial â€” so it cannot carry a defense and marketing film. Choose the track after picture lock, against the actual cut.</p>
     <div class="callout">
-      <span class="tag chip neutral">Suno prompt</span>
-      <h3>Instrumental bed, 78 BPM</h3>
-      <p class="mono" style="font-size:11.5px;line-height:1.7">“Cinematic ambient technology, warm marimba and soft piano, gentle pulse, optimistic documentary, 78 BPM, no vocals, no lyrics, loopable, five minutes, restrained, space for narration.”</p>
-      <p>Generate two or three options, choose the one with the least melodic movement under the voice, and keep the generation record with the licence note. Have a licensed fallback ready from a library with a clear commercial licence.</p>
+      <span class="tag chip neutral">Primary candidate</span>
+      <h3>â€œSonor #2â€ â€” Eugenio Mininni Â· Mixkit</h3>
+      <p>Warm synth ambience, no dominant melody, 4:22, cleared for online and live screening under the Mixkit Stock Music Free License. No attribution is required, but record the licence URL and a SHA-256 of the file.</p>
+      <p class="mono" style="font-size:10.5px">mixkit.co/free-stock-music/sonor-2/ Â· Licence: mixkit.co/license/#musicFree</p>
     </div>
+    <p><strong>Fallback:</strong> Scott Buckley, â€œAdrift Among Infinite Starsâ€ (CC BY 4.0). It requires the exact credit line in the video description and end card. <strong>Third option:</strong> a Pixabay ambient or technology track, with the licence certificate saved.</p>
+    <p>Search brief if none fit: warm analog pad, soft piano, 78 BPM, no drums, no vocals, loopable, restrained. Log every candidate in a cue sheet with title, artist, source URL, licence, download date, and SHA-256.</p>
 
     <h3>Mix targets</h3>
     <div class="table-wrap">
       <table class="compact">
         <thead><tr><th>Element</th><th>Target</th></tr></thead>
         <tbody>
-          <tr><td>Integrated loudness</td><td>−14 LUFS for web; −16 LUFS if the master may be played in a lecture room</td></tr>
-          <tr><td>True peak</td><td>−1.0 dBTP or lower</td></tr>
-          <tr><td>Music under voice</td><td>−18 to −22 dB relative to the voice, with a slow duck of 1.5–2 dB</td></tr>
+          <tr><td>Integrated loudness</td><td>âˆ’16 LUFS Â±1 for online and lecture-room playback</td></tr>
+          <tr><td>True peak</td><td>âˆ’1.5 dBTP or lower</td></tr>
+          <tr><td>Music under voice</td><td>15â€“20 dB below the voice; duck 6â€“9 dB with a 200 ms attack and a 500 ms release</td></tr>
           <tr><td>Sound effects</td><td>Only three: a soft whoosh on chapter cards, a relay click on dispense, a subtle UI tick on save. No risers.</td></tr>
         </tbody>
       </table>
@@ -2711,7 +2715,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
       <li>Re-time after the final voiceover. Never ship an SRT generated from the script's estimated timings.</li>
     </ul>
 
-    <h3>Draft SRT · v0.1</h3>
+    <h3>Draft SRT Â· v0.1</h3>
     <p class="small">Generated from the locked script timings. This is a timing draft for review, not the final deliverable; it must be re-timed against the recorded voice. The same file is included beside this document as <span class="mono">assets/pakaonai-explainer-v0.1.srt</span>.</p>
     <pre class="srt" id="srtBlock">1
 00:00:00,000 --&gt; 00:00:09,700
@@ -2965,7 +2969,7 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
           <tr><td>2</td><td>Storyboard</td><td>28 shots, visual references, motion notes, VO scratch.</td><td>Owner approves the visual argument.</td></tr>
           <tr><td>3</td><td>Asset production</td><td>3D renders, Playwright captures, hardware footage, evidence screens.</td><td>Redaction pass and asset log complete.</td></tr>
           <tr><td>4</td><td>Assembly</td><td>Picture lock, chapter cards, callouts, captions, scratch music.</td><td>Rough cut reviewed against the beat sheet.</td></tr>
-          <tr><td>5</td><td>Sound and finish</td><td>VO record, music, mix, colour, titles, SRT timing.</td><td>Full watch at 1× with sound and without.</td></tr>
+          <tr><td>5</td><td>Sound and finish</td><td>VO record, music, mix, colour, titles, SRT timing.</td><td>Full watch at 1Ã— with sound and without.</td></tr>
           <tr><td>6</td><td>Delivery</td><td>Master, web encode, SRT, thumbnail, poster frame, archive.</td><td>Checksum, duration, loudness, caption sync.</td></tr>
         </tbody>
       </table>
@@ -3003,7 +3007,7 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
     <div class="callout plain">
       <span class="tag chip neutral">Default if unanswered</span>
       <h3>Choose the conservative branch</h3>
-      <p>If a decision is not made by the freeze, the film uses the smaller claim: proposals instead of writes, “gate under repair” instead of “gated”, “results pending” instead of a number, and 3D instead of a pond shot. A smaller true film is better than a larger one that collapses under a question.</p>
+      <p>If a decision is not made by the freeze, the film uses the smaller claim: proposals instead of writes, â€œgate under repairâ€ instead of â€œgatedâ€, â€œresults pendingâ€ instead of a number, and 3D instead of a pond shot. A smaller true film is better than a larger one that collapses under a question.</p>
     </div>
   </article>
 
@@ -3018,7 +3022,7 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
           <tr><td>F3</td><td>Claim outruns evidence</td><td>Claims ledger checked at script, rough cut, and final.</td><td><span class="chip risk">High</span></td></tr>
           <tr><td>F4</td><td>3D render slips</td><td>Five fixed renders; turntable prioritised; stills as fallback.</td><td><span class="chip flight">Medium</span></td></tr>
           <tr><td>F5</td><td>Voiceover and picture drift</td><td>Record to locked picture; re-time SRT from audio.</td><td><span class="chip flight">Medium</span></td></tr>
-          <tr><td>F6</td><td>Music licence unclear</td><td>Record the Suno tier and terms; keep a licensed fallback.</td><td><span class="chip planned">Low</span></td></tr>
+          <tr><td>F6</td><td>Music licence unclear</td><td>Record the library licence, source URL, and SHA-256; keep a licensed fallback.</td><td><span class="chip planned">Low</span></td></tr>
           <tr><td>F7</td><td>Film is too dense at 5:00</td><td>Cut the platform beat to 35 seconds before cutting the evidence beat.</td><td><span class="chip planned">Low</span></td></tr>
         </tbody>
       </table>
@@ -3027,7 +3031,8 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
 
 </section>
 
-<!-- ============================== APPENDIX ============================== -->
+
+﻿<!-- ============================== APPENDIX ============================== -->
 <section class="panel" role="tabpanel" id="panel-appendix" aria-labelledby="tab-appendix" data-panel="appendix" hidden>
   <h1 class="sr">Appendix</h1>
 
@@ -3190,16 +3195,16 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
       <table class="compact">
         <thead><tr><th style="width:20%">Group</th><th>Models</th></tr></thead>
         <tbody>
-          <tr><td>Identity</td><td class="mono">User · PlatformAdmin · LoginLockout · UserLockout · RateLimitBucket</td></tr>
-          <tr><td>Tenancy</td><td class="mono">Organization · Farm · Pond · PondOwnershipHistory · Membership · MembershipPermission · OrgSetting · PlatformSetting</td></tr>
-          <tr><td>Cycle</td><td class="mono">CropCycle · PondEvent · FishSample · BiomassLog</td></tr>
-          <tr><td>Feeding</td><td class="mono">FeedEvent · FeedingEvent · ScheduleCommand · FeedRequest · FcrReport</td></tr>
-          <tr><td>Device</td><td class="mono">EnergyDevice · Device · DeviceStateEvent · CalibrationRun · FeedLevelLog · WaterTempLog</td></tr>
-          <tr><td>Operations</td><td class="mono">BackgroundJob · JobArtifact · ErrorEvent · Notification · ReminderLog · AiProviderConfig · AssistantAction · PlatformAuditLog · ImpersonationSession</td></tr>
+          <tr><td>Identity</td><td class="mono">User Â· PlatformAdmin Â· LoginLockout Â· UserLockout Â· RateLimitBucket</td></tr>
+          <tr><td>Tenancy</td><td class="mono">Organization Â· Farm Â· Pond Â· PondOwnershipHistory Â· Membership Â· MembershipPermission Â· OrgSetting Â· PlatformSetting</td></tr>
+          <tr><td>Cycle</td><td class="mono">CropCycle Â· PondEvent Â· FishSample Â· BiomassLog</td></tr>
+          <tr><td>Feeding</td><td class="mono">FeedEvent Â· FeedingEvent Â· ScheduleCommand Â· FeedRequest Â· FcrReport</td></tr>
+          <tr><td>Device</td><td class="mono">EnergyDevice Â· Device Â· DeviceStateEvent Â· CalibrationRun Â· FeedLevelLog Â· WaterTempLog</td></tr>
+          <tr><td>Operations</td><td class="mono">BackgroundJob Â· JobArtifact Â· ErrorEvent Â· Notification Â· ReminderLog Â· AiProviderConfig Â· AssistantAction Â· PlatformAuditLog Â· ImpersonationSession</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="small">Two model names — <span class="mono">Device</span> and <span class="mono">EnergyDevice</span> — both appear in the schema. The device story in this dossier treats the controller as one device row; the exact model split is a schema detail that the planned FeederUnit work will resolve.</p>
+    <p class="small">Two model names â€” <span class="mono">Device</span> and <span class="mono">EnergyDevice</span> â€” both appear in the schema. The device story in this dossier treats the controller as one device row; the exact model split is a schema detail that the planned FeederUnit work will resolve.</p>
   </article>
 
   <article class="section" id="s-app-docs" data-title="Document index">
@@ -3213,7 +3218,7 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
           <tr><td class="mono">docs/missions/2026-10-29-iso-readiness.md</td><td>Baseline grades, the five gaps, and the scope boundary</td></tr>
           <tr><td class="mono">docs/missions/2026-10-29-iso-outcome.md</td><td>Owner scorecard and remediation outcome</td></tr>
           <tr><td class="mono">docs/SUPERADMIN-MULTITENANCY-PLAN.md</td><td>Target tenancy model and superadmin powers</td></tr>
-          <tr><td class="mono">docs/adr/0001–0006</td><td>Deployment, JSON bridges, error capture, supply chain, release, RBAC</td></tr>
+          <tr><td class="mono">docs/adr/0001â€“0006</td><td>Deployment, JSON bridges, error capture, supply chain, release, RBAC</td></tr>
           <tr><td class="mono">docs/pwa-offline.md</td><td>Offline contract and limits</td></tr>
           <tr><td class="mono">docs/calendar-architecture.md</td><td>Calendar sources, views, and permissions</td></tr>
           <tr><td class="mono">docs/feeder-3d-viewer-plan.md</td><td>3D model pipeline and viewer scope</td></tr>
@@ -3236,9 +3241,9 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
 
     <h3>Companion files for this portal</h3>
     <ul>
-      <li><span class="mono">docs/system-functions-portal/assets/pakaonai-explainer-v0.1.srt</span> — draft caption file.</li>
-      <li><span class="mono">docs/system-functions-portal/diagrams/*.mmd</span> — Mermaid sources for the five figures.</li>
-      <li><span class="mono">docs/system-functions-portal/README.md</span> — how to regenerate the diagrams and update the dossier.</li>
+      <li><span class="mono">docs/system-functions-portal/assets/pakaonai-explainer-v0.1.srt</span> â€” draft caption file.</li>
+      <li><span class="mono">docs/system-functions-portal/diagrams/*.mmd</span> â€” Mermaid sources for the five figures.</li>
+      <li><span class="mono">docs/system-functions-portal/README.md</span> â€” how to regenerate the diagrams and update the dossier.</li>
     </ul>
   </article>
 
@@ -3271,29 +3276,29 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
       <table class="compact">
         <thead><tr><th style="width:34%">Check</th><th>Result</th></tr></thead>
         <tbody>
-          <tr><td>Desktop layout at 1440 px</td><td id="qa-desktop">Pass — three-column shell intact, no horizontal overflow</td></tr>
-          <tr><td>Mobile layout at 390 px</td><td id="qa-mobile">Pass — drawer, scrollable tabs, no horizontal overflow</td></tr>
-          <tr><td>Tab switching and keyboard arrows</td><td id="qa-tabs">Pass — 7 tabs; arrow keys move and activate</td></tr>
-          <tr><td>Sidebar scroll spy and read progress</td><td id="qa-spy">Pass — exactly one active link; ring advances on scroll</td></tr>
-          <tr><td>Function index search and filters</td><td id="qa-search">Pass — 105 rows; search, domain, and status filters all reduce correctly</td></tr>
-          <tr><td>Command palette</td><td id="qa-palette">Pass — Ctrl+K opens, returns results, navigates to the target</td></tr>
-          <tr><td>Console errors</td><td id="qa-console">Pass — none recorded</td></tr>
-          <tr><td>Horizontal overflow</td><td id="qa-overflow">Pass — 0 px at 1440 and at 390</td></tr>
-          <tr><td>Accessibility audit</td><td id="qa-axe">Pass — axe-core, 0 violations across all 7 tabs at both widths</td></tr>
+          <tr><td>Desktop layout at 1440 px</td><td id="qa-desktop">Pass â€” three-column shell intact, no horizontal overflow</td></tr>
+          <tr><td>Mobile layout at 390 px</td><td id="qa-mobile">Pass â€” drawer, scrollable tabs, no horizontal overflow</td></tr>
+          <tr><td>Tab switching and keyboard arrows</td><td id="qa-tabs">Pass â€” 7 tabs; arrow keys move and activate</td></tr>
+          <tr><td>Sidebar scroll spy and read progress</td><td id="qa-spy">Pass â€” exactly one active link; ring advances on scroll</td></tr>
+          <tr><td>Function index search and filters</td><td id="qa-search">Pass â€” 105 rows; search, domain, and status filters all reduce correctly</td></tr>
+          <tr><td>Command palette</td><td id="qa-palette">Pass â€” Ctrl+K opens, returns results, navigates to the target</td></tr>
+          <tr><td>Console errors</td><td id="qa-console">Pass â€” none recorded</td></tr>
+          <tr><td>Horizontal overflow</td><td id="qa-overflow">Pass â€” 0 px at 1440 and at 390</td></tr>
+          <tr><td>Accessibility audit</td><td id="qa-axe">Pass â€” axe-core, 0 violations across all 7 tabs at both widths</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="small">Check run: Chromium 1248 headless, 1440×900 and 390×844, against a local static server. 33 interaction assertions and 14 axe-core tab/viewport audits, 0 failures. These checks verify layout, interaction, and accessibility mechanics, not content accuracy; content was verified against the repository separately.</p>
+    <p class="small">Check run: Chromium 1248 headless, 1440Ã—900 and 390Ã—844, against a local static server. 33 interaction assertions and 14 axe-core tab/viewport audits, 0 failures. These checks verify layout, interaction, and accessibility mechanics, not content accuracy; content was verified against the repository separately.</p>
   </article>
 
   <article class="section" id="s-app-changelog" data-title="Document control">
     <header class="sec-head"><span class="sec-num">06</span><h2>Document control</h2></header>
     <dl class="kv">
-      <dt>Title</dt><dd>PakaonAI — System Functions &amp; Evaluation Dossier</dd>
-      <dt>Version</dt><dd>1.1.0</dd>
+      <dt>Title</dt><dd>PakaonAI â€” System Functions &amp; Evaluation Dossier</dd>
+      <dt>Version</dt><dd>1.1.1</dd>
       <dt>Prepared</dt><dd>30 October 2026</dd>
       <dt>Baseline</dt><dd><span class="mono">origin/develop</span> at <span class="mono">c9f1fbe</span>, application 1.31.0, inspected 30 October 2026</dd>
-      <dt>Owner</dt><dd>Jeff · PakaonAI capstone</dd>
+      <dt>Owner</dt><dd>Jeff Â· PakaonAI capstone</dd>
       <dt>Audience</dt><dd>Capstone defense panel, ISO/IEC 25010 evaluators, film production team</dd>
       <dt>Classification</dt><dd>Internal working document. Not a certification record.</dd>
     </dl>
@@ -3303,6 +3308,7 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
       <table class="compact">
         <thead><tr><th style="width:14%">Version</th><th style="width:18%">Date</th><th>Change</th></tr></thead>
         <tbody>
+          <tr><td>1.1.1</td><td>30 Oct 2026</td><td>Replaced the Suno plan with a licensed-library plan after Suno downloads were unavailable, and corrected the master target to −16 LUFS / −1.5 dBTP for spoken-word delivery.</td></tr>
           <tr><td>1.1.0</td><td>30 Oct 2026</td><td>Re-snapshotted to develop <span class="mono">c9f1fbe</span> / app 1.31.0 / model 1.1.2. Added the ISO component labels and the public model showcase; updated the test count to 3,357 over 282 files.</td></tr>
           <tr><td>1.0.0</td><td>30 Oct 2026</td><td>Initial dossier: system map, 15-domain function catalog, ISO self-assessment with claims ledger, operations, five-minute film plan, appendix.</td></tr>
         </tbody>
@@ -3313,12 +3319,15 @@ PakaonAI. Built at ISUFST. Feed on evidence.</pre>
     <p>After the 31 October freeze, this document is updated only for corrections, not for feature additions. If a feature lands after the freeze, it is recorded in the next version and excluded from the film. That keeps the film, the portal, and the repository telling the same story.</p>
 
     <footer class="doc-foot">
-      <span>PakaonAI · System Functions &amp; Evaluation Dossier · v1.1.0</span>
-      <span>Baseline c9f1fbe · prepared 30 Oct 2026</span>
+      <span>PakaonAI Â· System Functions &amp; Evaluation Dossier Â· v1.1.1</span>
+      <span>Baseline c9f1fbe Â· prepared 30 Oct 2026</span>
     </footer>
   </article>
 
 </section>
+
+
+
 
   </main>
 

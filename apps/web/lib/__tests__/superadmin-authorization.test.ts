@@ -358,14 +358,15 @@ describe("createPlatformUser validation", () => {
 		).resolves.toEqual({ error: "User not found." });
 	});
 
-	it("stores the display name verbatim, including blank values (current behaviour)", async () => {
-		// Unlike the tenant action (`updateUser`), the platform console applies
-		// no display-name rules. Recorded here so the gap is visible rather than
-		// silently changing: reported to the lead as a validation inconsistency.
+	it("rejects a blank display name instead of storing it (#335)", async () => {
+		// The platform console now applies the same rule as the tenant action:
+		// trim, required, max 80. This fixture used to pin the old gap.
 		const result = await updatePlatformUser(FARMER_B_ID, { displayName: "   " }, REASON);
 
-		expect(result).toEqual({ success: true, userId: FARMER_B_ID });
-		expect(tenancy().tables.users.find((row) => row.id === FARMER_B_ID)?.displayName).toBe("   ");
+		expect(result).toEqual({ error: "Display name is required." });
+		expect(tenancy().tables.users.find((row) => row.id === FARMER_B_ID)?.displayName).toBe(
+			"Farmer B",
+		);
 	});
 });
 

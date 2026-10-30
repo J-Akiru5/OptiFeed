@@ -36,7 +36,7 @@ vi.mock("next/headers", () => ({
 	headers: vi.fn(
 		async () =>
 			new Headers({
-				"x-forwarded-for": "198.51.100.4, 10.0.0.1",
+				"x-forwarded-for": "203.0.113.66, 198.51.100.4",
 				"user-agent": "vitest-superadmin-audit",
 			}),
 	),

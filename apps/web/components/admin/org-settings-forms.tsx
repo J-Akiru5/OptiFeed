@@ -39,16 +39,17 @@ function Card({
 	children: ReactNode;
 }) {
 	return (
-		<section className={`${adminSurface} p-6`}>
-			<div className="mb-5 flex items-start gap-3">
+		<section className={`${adminSurface} flex h-full flex-col p-4 sm:p-6`}>
+			<div className="mb-4 flex items-start gap-3">
 				<span
 					aria-hidden="true"
 					className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0A3D62]/10 dark:bg-white/10"
 				>
 					{icon}
 				</span>
-				<div>
-					<h2 className="font-black text-[#0A3D62] dark:text-[#8fc0ea]">{title}</h2>
+				<div className="min-w-0">
+					{/* Nested under the section `h2`, so the card title is an `h3`. */}
+					<h3 className="text-sm font-black text-[#0A3D62] dark:text-[#8fc0ea]">{title}</h3>
 					<p className="mt-0.5 text-xs text-[#3D5568] dark:text-gray-400">{description}</p>
 				</div>
 			</div>
@@ -150,13 +151,13 @@ export function DefaultFeedingRateForm({
 			title={t("defaultFeedingRateTitle")}
 			description={t("defaultFeedingRateDesc")}
 		>
-			<form onSubmit={onSubmit} className="space-y-4">
+			<form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
 				{error && <ErrorNote message={error} />}
 				<div>
 					<label htmlFor="defaultFeedingRatePct" className={adminLabel}>
 						{t("defaultRateLabel")}
 					</label>
-					<div className="flex items-center gap-2">
+					<div className="relative max-w-32">
 						<input
 							id="defaultFeedingRatePct"
 							name="defaultFeedingRatePct"
@@ -167,15 +168,24 @@ export function DefaultFeedingRateForm({
 							value={rate}
 							onChange={(event) => setRate(event.target.value)}
 							disabled={!canManage || saving}
-							className={`${adminField} max-w-32`}
+							className={`${adminField} pr-10 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
 						/>
-						<span className="text-sm font-bold text-[#3D5568] dark:text-gray-300">
-							{t("percentOfBodyWeight")}
+						<span
+							aria-hidden="true"
+							className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-bold text-[#3D5568] dark:text-gray-400"
+						>
+							%
 						</span>
 					</div>
-					<p className={adminHint}>{t("defaultRateHint")}</p>
+					<p className={adminHint}>
+						{t("percentOfBodyWeight")}
+						<br />
+						{t("defaultRateHint")}
+					</p>
 				</div>
-				<SaveButton loading={saving} label={t("save")} pendingLabel={t("saving")} />
+				<div className="mt-auto">
+					<SaveButton loading={saving} label={t("save")} pendingLabel={t("saving")} />
+				</div>
 			</form>
 		</Card>
 	);
@@ -224,7 +234,7 @@ export function NotificationSettingsForm({
 			title={t("notificationsTitle")}
 			description={t("notificationsDesc")}
 		>
-			<form onSubmit={onSubmit} className="space-y-4">
+			<form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
 				{error && <ErrorNote message={error} />}
 
 				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -264,14 +274,14 @@ export function NotificationSettingsForm({
 					</div>
 				</div>
 
-				<label className="flex items-start gap-2 text-sm font-bold text-[#0A3D62] dark:text-gray-200">
+				<label className="flex min-h-11 items-start gap-3 text-sm font-bold text-[#0A3D62] dark:text-gray-200">
 					<input
 						type="checkbox"
 						name="missedFeedingAlerts"
 						checked={missedFeeding}
 						onChange={(event) => setMissedFeeding(event.target.checked)}
 						disabled={!canManage || saving}
-						className="mt-0.5 h-4 w-4 accent-[#0A3D62]"
+						className="mt-1 h-4 w-4 shrink-0 accent-[#0A3D62]"
 					/>
 					<span>
 						{t("missedFeedingLabel")}
@@ -288,14 +298,14 @@ export function NotificationSettingsForm({
 						{MEMBER_ROLES.map((role) => (
 							<label
 								key={role}
-								className="flex items-center gap-2 rounded-lg border border-gray-200 px-2.5 py-2 text-xs font-bold text-[#0A3D62] dark:border-gray-700 dark:text-gray-200"
+								className="flex min-h-11 items-center gap-2 rounded-lg border border-gray-200 px-3 text-xs font-bold text-[#0A3D62] dark:border-gray-700 dark:text-gray-200"
 							>
 								<input
 									type="checkbox"
 									checked={roles.includes(role)}
 									onChange={(event) => toggleRole(role, event.target.checked)}
 									disabled={!canManage || saving}
-									className="h-4 w-4 accent-[#0A3D62]"
+									className="h-4 w-4 shrink-0 accent-[#0A3D62]"
 								/>
 								{t(`roles.${role}`)}
 							</label>
@@ -303,7 +313,9 @@ export function NotificationSettingsForm({
 					</div>
 				</fieldset>
 
-				<SaveButton loading={saving} label={t("save")} pendingLabel={t("saving")} />
+				<div className="mt-auto">
+					<SaveButton loading={saving} label={t("save")} pendingLabel={t("saving")} />
+				</div>
 			</form>
 		</Card>
 	);
@@ -332,11 +344,11 @@ export function DeviceRegistrationForm({
 			title={t("deviceRegistrationTitle")}
 			description={t("deviceRegistrationDesc")}
 		>
-			<form onSubmit={onSubmit} className="space-y-4">
+			<form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
 				{error && <ErrorNote message={error} />}
 				<fieldset className="m-0 space-y-2 border-0 p-0">
 					<legend className={adminLabel}>{t("registrationModeLabel")}</legend>
-					<label className="flex items-start gap-2 rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+					<label className="flex items-start gap-3 rounded-xl border border-gray-200 p-3 dark:border-gray-700">
 						<input
 							type="radio"
 							name="deviceRegistration"
@@ -344,7 +356,7 @@ export function DeviceRegistrationForm({
 							checked={mode === "ADMIN_APPROVAL"}
 							onChange={() => setMode("ADMIN_APPROVAL")}
 							disabled={!canManage || saving}
-							className="mt-0.5 h-4 w-4 accent-[#0A3D62]"
+							className="mt-1 h-4 w-4 shrink-0 accent-[#0A3D62]"
 						/>
 						<span>
 							<span className="block text-sm font-black text-[#0A3D62] dark:text-gray-100">
@@ -355,7 +367,7 @@ export function DeviceRegistrationForm({
 							</span>
 						</span>
 					</label>
-					<label className="flex items-start gap-2 rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+					<label className="flex items-start gap-3 rounded-xl border border-gray-200 p-3 dark:border-gray-700">
 						<input
 							type="radio"
 							name="deviceRegistration"
@@ -363,7 +375,7 @@ export function DeviceRegistrationForm({
 							checked={mode === "SELF_REGISTER"}
 							onChange={() => setMode("SELF_REGISTER")}
 							disabled={!canManage || saving}
-							className="mt-0.5 h-4 w-4 accent-[#0A3D62]"
+							className="mt-1 h-4 w-4 shrink-0 accent-[#0A3D62]"
 						/>
 						<span>
 							<span className="block text-sm font-black text-[#0A3D62] dark:text-gray-100">
@@ -375,7 +387,9 @@ export function DeviceRegistrationForm({
 						</span>
 					</label>
 				</fieldset>
-				<SaveButton loading={saving} label={t("save")} pendingLabel={t("saving")} />
+				<div className="mt-auto">
+					<SaveButton loading={saving} label={t("save")} pendingLabel={t("saving")} />
+				</div>
 			</form>
 		</Card>
 	);

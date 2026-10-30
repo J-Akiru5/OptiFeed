@@ -14,6 +14,7 @@ import {
 	DashboardPageHeader,
 	DashboardPageShell,
 } from "@/components/dashboard/dashboard-ui";
+import { TermInfo } from "@/components/dashboard/term-info";
 import { ItemCardGrid } from "@/components/ui/item-card";
 import { Pagination } from "@/components/ui/pagination";
 import { ListView } from "@/components/ui/view-toggle";
@@ -486,7 +487,13 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 										<DashboardTh>{tGrowth("totalWeightCol")}</DashboardTh>
 										<DashboardTh>{tGrowth("fishCountCol")}</DashboardTh>
 										<DashboardTh>{tGrowth("avgLengthCol")}</DashboardTh>
-										<DashboardTh align="right">{tGrowth("abwCol")}</DashboardTh>
+										<DashboardTh align="right">
+											<TermInfo
+												label={tGrowth("abwCol")}
+												hint={tCommon("terminology.aboutAbw")}
+												description={tCommon("terminology.abw")}
+											/>
+										</DashboardTh>
 									</DashboardTHead>
 									<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
 										{biomassRows.map((row) => (
@@ -538,7 +545,15 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 												<DashboardCardRow label={tGrowth("avgLengthCol")}>
 													{row.sampleLengthCm.toFixed(1)} cm
 												</DashboardCardRow>
-												<DashboardCardRow label={tGrowth("abwCol")}>
+												<DashboardCardRow
+													label={
+														<TermInfo
+															label={tGrowth("abwCol")}
+															hint={tCommon("terminology.aboutAbw")}
+															description={tCommon("terminology.abw")}
+														/>
+													}
+												>
 													{(row.avgWeightKg * 1000).toFixed(1)} g
 												</DashboardCardRow>
 											</div>

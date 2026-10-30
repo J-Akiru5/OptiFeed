@@ -383,11 +383,13 @@ describe("admin overview page", () => {
 		vi.mocked(getAdminOverview).mockResolvedValue({
 			deviceHealth: { online: 1, offline: 0, pending: 0, paused: 0, total: 1 },
 			feedStack: { sources: [], rows: [], totalsBySource: {} },
-			activityPoints: [],
+			activityPoints: [{ label: "2026-10-29", value: 1 }],
 			feedDays: 30,
 			activityDays: 14,
 			feedTotalGrams: 0,
-			activityTotal: 0,
+			activityTotal: 1,
+			activityFrom: "2026-10-16",
+			activityTo: "2026-10-29",
 			feedTruncated: false,
 			activityTruncated: false,
 		});
@@ -400,6 +402,8 @@ describe("admin overview page", () => {
 		expect(html).toContain("Feed dispensed per day");
 		expect(html).toContain("Fleet health");
 		expect(html).toContain("Device activity");
+		expect(html).toContain("Range:");
+		expect(html).toContain("Oct 16");
 		expect(html).toContain("Recent Activity");
 		expect(html).toContain("Feeder 1");
 		expect(html).toContain(formatDate(FIXTURE_DATE).full);

@@ -1,6 +1,7 @@
 import { adminButtonPrimary } from "@/components/admin/admin-classes";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { CalendarPageShell } from "@/components/calendar/calendar-shell";
 import { CalendarCapabilityBadge } from "@/components/harvest/calendar-controls";
 import { HarvestCalendar } from "@/components/harvest/harvest-calendar";
 import { Link } from "@/i18n/routing";
@@ -12,7 +13,7 @@ import { calendarCapability } from "@/lib/calendar/capability";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { serialiseCycle } from "@/lib/crop-cycle/serialise";
 import type { PondOption } from "@/lib/crop-cycle/types";
-import { parsePondProfile } from "@/lib/pond-profile";
+import { parsePondGrowthTarget, parsePondProfile } from "@/lib/pond-profile";
 import prisma from "@/lib/prisma";
 import { CalendarDays } from "lucide-react";
 import { getTranslations } from "next-intl/server";
@@ -106,8 +107,12 @@ export default async function AdminCalendarPage() {
 		);
 	}
 
+	const activeCycles = activeCycleRows.map(serialiseCycle);
+	const activeCycleIdByPond = new Map(activeCycles.map((cycle) => [cycle.pondId, cycle.id]));
 	const pondOptions: PondOption[] = ponds.map((pond) => {
 		const profile = parsePondProfile(pond.notificationPrefs);
+		const savedTarget = parsePondGrowthTarget(pond.notificationPrefs);
+		const activeCycleId = activeCycleIdByPond.get(pond.id) ?? null;
 		return {
 			id: pond.id,
 			name: pond.name,
@@ -115,34 +120,39 @@ export default async function AdminCalendarPage() {
 			population: pond.population,
 			areaM2: profile.areaM2,
 			averageDepthM: profile.averageDepthM,
+			savedTargetWeightG:
+				savedTarget && activeCycleId !== null && savedTarget.cycleId === activeCycleId
+					? savedTarget.targetWeightG
+					: null,
 		};
 	});
-	const activeCycles = activeCycleRows.map(serialiseCycle);
 	const activeCycle = activeCycles.find((cycle) => cycle.pondId === ponds[0].id) ?? null;
 	const recentCycles = recentCycleRows.map(serialiseCycle);
 
 	return (
-		<div className="mx-auto w-full max-w-7xl min-w-0 space-y-6 pb-20 [contain:inline-size] animate-in fade-in duration-150">
-			<AdminPageHeader
-				icon={CalendarDays}
-				title={t("title")}
-				description={t("desc", { count: ponds.length })}
-				actions={
-					<CalendarCapabilityBadge
-						capability={calendarCapability({ canManage, pondCount: ponds.length })}
-						labels={{
-							edit: tCommon("capability.edit"),
-							ownFarm: tCommon("capability.ownFarm"),
-							read: tCommon("capability.read"),
-						}}
-					/>
-				}
-			>
-				<p className="mt-1 text-xs font-medium text-[#3D5568] dark:text-gray-400">
-					{t("editHint")}
-				</p>
-			</AdminPageHeader>
-
+		<CalendarPageShell
+			header={
+				<AdminPageHeader
+					icon={CalendarDays}
+					title={t("title")}
+					description={t("desc", { count: ponds.length })}
+					actions={
+						<CalendarCapabilityBadge
+							capability={calendarCapability({ canManage, pondCount: ponds.length })}
+							labels={{
+								edit: tCommon("capability.edit"),
+								ownFarm: tCommon("capability.ownFarm"),
+								read: tCommon("capability.read"),
+							}}
+						/>
+					}
+				>
+					<p className="mt-1 text-xs font-medium text-[#3D5568] dark:text-gray-400">
+						{t("editHint")}
+					</p>
+				</AdminPageHeader>
+			}
+		>
 			<HarvestCalendar
 				initialPondId={ponds[0].id}
 				initialPondName={ponds[0].name}
@@ -158,6 +168,6 @@ export default async function AdminCalendarPage() {
 				showHeader={false}
 				today={todayDateOnly()}
 			/>
-		</div>
+		</CalendarPageShell>
 	);
 }

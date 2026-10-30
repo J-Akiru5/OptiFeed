@@ -1,5 +1,6 @@
-import { adminSurface } from "@/components/admin/admin-classes";
+import { adminFieldGrid, adminSurface } from "@/components/admin/admin-classes";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { AdminSection } from "@/components/admin/admin-section";
 import { MembersSettings } from "@/components/admin/members-settings";
 import {
 	DefaultFeedingRateForm,
@@ -22,14 +23,16 @@ export default async function AdminSettingsPage({
 }) {
 	const params = await searchParams;
 	const page = parsePage(params.page);
-	const [membersPage, canManageMembers, canManageSettings, scope, t, tCommon] = await Promise.all([
-		listTenantMembers({ page }),
-		hasPermission("manage_members"),
-		hasPermission("manage_farms_ponds"),
-		resolveOrgScope(),
-		getTranslations("dashboard.adminSettings"),
-		getTranslations("dashboard.adminCommon"),
-	]);
+	const [membersPage, canManageMembers, canManageSettings, scope, t, tCommon, tMembers] =
+		await Promise.all([
+			listTenantMembers({ page }),
+			hasPermission("manage_members"),
+			hasPermission("manage_farms_ponds"),
+			resolveOrgScope(),
+			getTranslations("dashboard.adminSettings"),
+			getTranslations("dashboard.adminCommon"),
+			getTranslations("dashboard.adminMembers"),
+		]);
 	const members = membersPage.rows;
 	const pageCount = Math.max(1, Math.ceil(membersPage.total / membersPage.pageSize));
 	const firstRow = membersPage.total === 0 ? 0 : (membersPage.page - 1) * membersPage.pageSize + 1;
@@ -43,48 +46,57 @@ export default async function AdminSettingsPage({
 		<div className="space-y-6">
 			<AdminPageHeader icon={Settings} title={t("title")} description={t("desc")} />
 
-			<section aria-label={t("generalTitle")} className={`${adminSurface} p-6`}>
-				<MembersSettings
-					members={members}
-					canManage={canManageMembers}
-					orgOptions={membersPage.orgOptions}
-				/>
-				{membersPage.total > 0 && (
-					<Pagination
-						basePath="/admin/settings"
-						page={membersPage.page}
-						pageCount={pageCount}
-						showing={tCommon("pagination.showing", {
-							from: firstRow,
-							to: lastRow,
-							total: membersPage.total,
-						})}
-						previousLabel={tCommon("pagination.previous")}
-						nextLabel={tCommon("pagination.next")}
-						label={tCommon("pagination.label")}
-					/>
+			<AdminSection id="general-settings" title={t("generalTitle")} description={t("generalDesc")}>
+				{!orgId && (
+					<p
+						role="note"
+						className="rounded-xl border border-[#B54708]/30 bg-amber-50 px-4 py-3 text-xs font-bold text-[#B54708] dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
+					>
+						{t("noOrg")}
+					</p>
 				)}
-			</section>
 
-			<section aria-label={t("generalTitle")} className="space-y-4">
-				<div>
-					<h2 className="text-lg font-black text-[#0A3D62] dark:text-[#8fc0ea]">
-						{t("generalTitle")}
-					</h2>
-					<p className="mt-1 text-xs text-[#3D5568] dark:text-gray-400">{t("generalDesc")}</p>
-					{!orgId && (
-						<p className="mt-1 text-xs font-bold text-[#B54708] dark:text-amber-300">
-							{t("noOrg")}
-						</p>
-					)}
-				</div>
-
-				<div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+				<div className={adminFieldGrid}>
 					<DefaultFeedingRateForm orgId={orgId ?? ""} settings={settings} canManage={canEdit} />
 					<NotificationSettingsForm orgId={orgId ?? ""} settings={settings} canManage={canEdit} />
 					<DeviceRegistrationForm orgId={orgId ?? ""} settings={settings} canManage={canEdit} />
 				</div>
-			</section>
+			</AdminSection>
+
+			<AdminSection
+				id="members"
+				title={tMembers("membersTitle")}
+				description={tMembers("membersDesc", { count: membersPage.total })}
+			>
+				<div className={`${adminSurface} overflow-hidden`}>
+					<div className="p-4 sm:p-6">
+						<MembersSettings
+							members={members}
+							canManage={canManageMembers}
+							orgOptions={membersPage.orgOptions}
+						/>
+						{membersPage.total > 0 && (
+							// Bleed the pager to the card edges so its top border spans the card
+							// instead of stopping at the inner padding.
+							<div className="-mx-4 -mb-4 mt-4 sm:-mx-6 sm:-mb-6">
+								<Pagination
+									basePath="/admin/settings"
+									page={membersPage.page}
+									pageCount={pageCount}
+									showing={tCommon("pagination.showing", {
+										from: firstRow,
+										to: lastRow,
+										total: membersPage.total,
+									})}
+									previousLabel={tCommon("pagination.previous")}
+									nextLabel={tCommon("pagination.next")}
+									label={tCommon("pagination.label")}
+								/>
+							</div>
+						)}
+					</div>
+				</div>
+			</AdminSection>
 		</div>
 	);
 }

@@ -665,7 +665,7 @@ UPSTASH_REDIS_REST_TOKEN=      # DEAD</code></pre>
       <tr><td><code>SENTRY_DSN</code></td><td><code>sentry.{client,server,edge}.config.ts</code></td></tr>
       <tr><td><code>SENTRY_ORG</code>, <code>SENTRY_PROJECT</code></td><td><code>next.config.ts</code> (build-time, <code>withSentryConfig</code>)</td></tr>
       <tr><td><code>GEMINI_MODEL</code></td><td><code>lib/gemini.ts</code> (default <code>gemini-2.5-flash</code>)</td></tr>
-      <tr><td><code>NEXT_PUBLIC_BASE_URL</code></td><td><code>app/sitemap.ts</code>, <code>app/robots.ts</code> (default <code>https://optifeed.app</code>)</td></tr>
+      <tr><td><code>NEXT_PUBLIC_SITE_URL</code></td><td><code>app/sitemap.ts</code>, <code>app/robots.ts</code>, <code>app/[locale]/layout.tsx</code> (default <code>https://pakaonai.syntaxure.dev</code>, resolved at build time)</td></tr>
       <tr><td><code>DEMO_PIN</code></td><td><code>scripts/provision-demo-user.ts</code>, <code>e2e/auth.spec.ts</code> (default <code>1234</code>)</td></tr>
     </tbody>
   </table>

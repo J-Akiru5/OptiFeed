@@ -1,6 +1,6 @@
 import { performance } from "node:perf_hooks";
 
-export const DEFAULT_BUDGETS = {
+const DEFAULT_BUDGETS = {
 	p95Ms: 300,
 	maxMs: 400,
 	coverageFloor: 0.9,
@@ -70,7 +70,7 @@ export function resolveConfig(args) {
 	};
 }
 
-export function authHeaders(config, endpoint) {
+function authHeaders(config, endpoint) {
 	const headers = { Accept: "application/json" };
 	if (endpoint.auth === "session") {
 		if (config.cookie) headers.Cookie = config.cookie;

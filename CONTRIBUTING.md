@@ -271,6 +271,36 @@ After a production deployment: verify the deployment in Vercel, check the
 health endpoint (`/api/health`), spot-check login and dashboard data, and write
 the deployed SHA plus any follow-up work into the release PR.
 
+### Every version must be a release
+
+A version that reaches `main` must exist as a real Git release, not just a
+number in a file. This is enforced, not advisory:
+
+- The version lives in **both** `package.json` files (root and `apps/web/`), and
+  the two must match.
+- `CHANGELOG.md` must contain `## [x.y.z] - YYYY-MM-DD` for it, written in the
+  release PR. Semver: MAJOR for breaking changes, MINOR for features, PATCH for
+  fixes and docs.
+- On every push to `main`, `.github/workflows/release.yml` creates the annotated
+  `vX.Y.Z` tag and publishes the GitHub Release, with notes taken **verbatim**
+  from that changelog section (`scripts/release-notes.mjs`). Nothing is invented
+  and no notes are edited by hand.
+- The job is **idempotent**. If the tag and release already exist for the
+  current version it publishes nothing, so routine `main` pushes are unaffected.
+  If the changelog section is missing it **fails** rather than publishing an
+  empty release.
+- Published tags and releases are **immutable**. Never move, retag, delete or
+  re-publish one; fix forward with a new PATCH version.
+- A release is not a deployment and a deployment is not a release. A `main` push
+  does both, from the same commit, and neither substitutes for the other.
+
+After a promotion, confirm the release exists:
+
+```sh
+gh release list --limit 5
+gh release view "v$(node -p "require('./package.json').version")"
+```
+
 If production requires an urgent fix, branch from `main`, PR into `main` with
 Jeff's approval, then **reconcile it back into `develop` with a separate PR**.
 Do not merge `main` into `develop` as a routine step and do not assume the

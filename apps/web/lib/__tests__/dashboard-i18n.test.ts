@@ -40,6 +40,7 @@ const NAMESPACES = [
 	"nav",
 	"dashboard.feedLevel",
 	"dashboard.common",
+	"dashboard.pondSwitcher",
 	"dashboard.home",
 	"dashboard.growth",
 	"dashboard.growth.history",
@@ -65,6 +66,16 @@ const REQUIRED = [
 	"dashboard.common.deviceOnline",
 	"dashboard.common.deviceOffline",
 	"dashboard.common.skipToContent",
+	"dashboard.common.lastSynced",
+	"dashboard.common.lastSyncedNever",
+	"dashboard.common.lastSyncedJustNow",
+	"dashboard.common.lastSyncedMinutesAgo",
+	"dashboard.common.lastSyncedHoursAgo",
+	"dashboard.common.lastSyncedDaysAgo",
+	"dashboard.pondSwitcher.labelNamed",
+	"dashboard.pondSwitcher.listLabel",
+	"dashboard.pondSwitcher.switching",
+	"dashboard.pondSwitcher.switchFailed",
 	"dashboard.home.welcome",
 	"dashboard.home.monitoring",
 	"dashboard.home.criticalTitle",
@@ -117,6 +128,17 @@ describe("dashboard strings exist in every locale", () => {
 			}
 		}
 	});
+
+	// #316: the header prints "Last synced: 5 minutes ago". The sentence and the
+	// plural both live in the catalogue so no locale inherits English word order.
+	it("keeps the last-synced relative time in the catalogue with ICU plurals", () => {
+		expect(en["dashboard.common.lastSynced"], "lastSynced must take {time}").toContain("{time}");
+		for (const unit of ["Minutes", "Hours", "Days"]) {
+			const key = `dashboard.common.lastSynced${unit}Ago`;
+			expect(en[key], `en ${key} must use an ICU plural`).toContain("{count, plural,");
+			expect(hil[key], `hil ${key} must use an ICU plural`).toContain("{count, plural,");
+		}
+	});
 });
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -136,6 +158,8 @@ const dashboardFiles = [
 	...walk(join(webRoot, "components/harvest")),
 	join(webRoot, "components/sidebar.tsx"),
 	join(webRoot, "components/bottom-nav.tsx"),
+	join(webRoot, "components/header-actions.tsx"),
+	join(webRoot, "components/pond-selector.tsx"),
 	join(webRoot, "components/NotificationList.tsx"),
 	join(webRoot, "components/FeedEventHistoryTable.tsx"),
 ].filter((file) => !file.includes(".test."));
@@ -153,6 +177,8 @@ const RETIRED_LITERALS = [
 	"No events in this range",
 	"No feedings recorded yet",
 	"No biomass samples recorded yet",
+	"LAST SYNCED",
+	"JUST NOW",
 ];
 
 describe("the dashboard reads its copy from the catalogue", () => {
@@ -184,5 +210,14 @@ describe("the dashboard reads its copy from the catalogue", () => {
 		expect(calendar).toContain('useTranslations("dashboard.harvest")');
 		expect(calendar).toContain("upcoming.listLabel");
 		expect(calendar).toContain("calendar.eventsLabel");
+	});
+
+	it("keeps the header last-synced line and device status on the catalogue", () => {
+		const header = readFileSync(join(webRoot, "components/header-actions.tsx"), "utf8");
+		expect(header).toContain('useTranslations("dashboard.common")');
+		expect(header).toContain('tCommon("lastSynced"');
+		expect(header).toContain('tCommon("deviceOnline")');
+		expect(header).toContain('tCommon("deviceOffline")');
+		expect(header).toContain('tCommon("deviceMissing")');
 	});
 });

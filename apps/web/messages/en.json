@@ -85,6 +85,7 @@
 		"hopperLevel": "Hopper level",
 		"pondFeedPellet": "Pond Feed Pellet",
 		"hopperRemaining": "Approx. {kg}kg remaining. Enough for {count} scheduled feedings.",
+		"viewHopperLevel": "View hopper level history",
 		"deviceOffline": "Offline",
 		"navLabel": "Main navigation",
 		"overview": "Overview",
@@ -217,6 +218,9 @@
 		"views3": "FCR trend: cumulative feed against biomass gained",
 		"hardwareTitle": "Hardware",
 		"hardwareDesc": "Low-cost, locally replaceable parts.",
+		"feederModelLabel": "Study feeder ? 3D model",
+		"feederAlt": "Transparent studio render of the study feeder with its clear hopper jar, controller enclosure, motor and auger outlet.",
+		"feederCaption": "Rendered from the study feeder's 3D model. Research prototype; not a live reading.",
 		"hwColPart": "Component",
 		"hwColRole": "Role",
 		"hw1Part": "ESP32 DevKit V1",
@@ -888,7 +892,20 @@
 				"fcr": "FCR {fcr}",
 				"density": "{density} fish/m²",
 				"densityHigh": "Density {density}/m² — check aeration.",
-				"densityUnknown": "Add pond area in Settings for density."
+				"densityUnknown": "Add pond area in Settings for density.",
+				"sourceCalculator": "Calculator target",
+				"biomassTitle": "Harvest biomass",
+				"targetBiomass": "Target at harvest",
+				"currentBiomass": "Current biomass",
+				"expectedBiomass": "Expected today",
+				"biomassGap": "Gap to target",
+				"projectedBiomass": "Projected at harvest",
+				"projectedGap": "Projected gap",
+				"savedTargetHint": "This target came from the feed calculator and is mirrored into the cycle target. Remove it to clear both.",
+				"clearTarget": "Remove target",
+				"clearingTarget": "Removing...",
+				"targetCleared": "Growth target removed. The cycle target was cleared too.",
+				"targetClearError": "Could not remove the growth target."
 			},
 			"prediction": {
 				"eyebrow": "AI Feed Advisor",
@@ -1048,6 +1065,7 @@
 				"truncated": "This range has more events than can be shown. Narrow the dates or hide feeding events.",
 				"dateRangeError": "The harvest date must stay between 30 and 365 days after stocking.",
 				"rescheduled": "Event rescheduled.",
+				"rescheduledTask": "Task rescheduled.",
 				"rescheduleConfirm": "Move this cycle's harvest date?",
 				"today": "Today",
 				"month": "Month",
@@ -1066,7 +1084,8 @@
 				"desc": "The grow-out cycle and every pond event, on one calendar.",
 				"readOnlyPond": "read-only",
 				"readOnlyHint": "This pond belongs to another farm in your organization. Its events are visible but read-only.",
-				"readOnlyEvent": "This event belongs to another farm and is read-only."
+				"readOnlyEvent": "This event belongs to another farm and is read-only.",
+				"readOnlyTask": "This task belongs to another farm and is read-only."
 			},
 			"filters": {
 				"harvest": "Harvest",
@@ -1141,7 +1160,16 @@
 				"saving": "Saving…",
 				"cancel": "Cancel",
 				"successCreate": "Grow-out cycle started.",
-				"successUpdate": "Grow-out plan updated."
+				"successUpdate": "Grow-out plan updated.",
+				"targetConflictTitle": "A saved calculator target already exists",
+				"targetConflictDesc": "The plan for this pond uses {saved} g from the feed calculator. You changed the cycle target to {next} g. Choose which one to keep before saving.",
+				"targetConflictDescEmpty": "The plan for this pond uses {saved} g from the feed calculator. You cleared the cycle target. Choose which one to keep before saving.",
+				"targetConflictReplace": "Replace calculator target",
+				"targetConflictReplaceHint": "Replace it with the cycle value. The calculator and the cycle target both become {next} g.",
+				"targetConflictReplaceClearHint": "Clear the calculator target and the cycle target.",
+				"targetConflictKeep": "Keep calculator target",
+				"targetConflictKeepHint": "Keep {saved} g as the plan target. The cycle target is set back to {saved} g.",
+				"targetConflictCancel": "Cancel"
 			},
 			"harvestForm": {
 				"title": "Record harvest",
@@ -1164,8 +1192,13 @@
 			"eventForm": {
 				"titleNew": "Add pond event",
 				"titleEdit": "Edit pond event",
+				"titleNewTask": "Add task",
+				"titleEditTask": "Edit task",
+				"editEvent": "Edit event",
+				"editTask": "Edit task",
 				"desc": "Maintenance, pond work, or any other dated note.",
 				"type": "Event type",
+				"typeTask": "Task type",
 				"typeMaintenance": "Maintenance",
 				"typeOther": "Other",
 				"title": "Title",
@@ -1175,14 +1208,20 @@
 				"notes": "Notes",
 				"notesPlaceholder": "Optional details.",
 				"save": "Save event",
+				"saveTask": "Save task",
 				"saving": "Saving…",
 				"cancel": "Cancel",
 				"delete": "Delete",
 				"deleteConfirm": "Delete this pond event?",
+				"deleteConfirmTask": "Delete this task?",
 				"successCreate": "Pond event added.",
+				"successCreateTask": "Task added.",
 				"successUpdate": "Pond event updated.",
+				"successUpdateTask": "Task updated.",
 				"successDelete": "Pond event deleted.",
+				"successDeleteTask": "Task deleted.",
 				"descPond": "Event or task for {pond}.",
+				"descPondTask": "Task for {pond}.",
 				"kind": "Item type",
 				"kindEvent": "Event",
 				"kindTask": "Task",
@@ -1445,7 +1484,53 @@
 				"VIEWER": "Viewer"
 			}
 		},
+		"feederViewer": {
+			"viewerLabel": "Feeder 3D",
+			"canvasLabel": "Interactive 3D model of {label}. Drag to orbit and use the preset buttons to change the view.",
+			"statusIdle": "Idle",
+			"statusDispensing": "Dispensing",
+			"statusPaused": "Paused",
+			"statusOffline": "Offline",
+			"hopperLevel": "Hopper level",
+			"lastFed": "Last fed",
+			"noReading": "No reading yet",
+			"presetsLabel": "Camera presets",
+			"presetIso": "Iso",
+			"presetFront": "Front",
+			"presetLeft": "Left",
+			"presetRight": "Right",
+			"presetRear": "Rear",
+			"presetTop": "Top",
+			"simpleView": "Simple view",
+			"modelVersion": "Model",
+			"statusAnnouncement": "Feeder status: {status}",
+			"isoLabelsTip": "Component labels appear only when the model is in the Isometric view. Iso is locked; choose another view to orbit.",
+			"back": "Back to dashboard",
+			"desc": "Live 3D view of the feeder on {pond}.",
+			"detailsLabel": "Device details",
+			"perFeeding": "Per feeding",
+			"rtc": "RTC",
+			"rtcOk": "OK",
+			"rtcUnknown": "No RTC",
+			"deviceMac": "Device ID (MAC)",
+			"openViewer": "Open 3D view",
+			"componentHopper": "Hopper",
+			"componentSensor": "Ultrasonic sensor",
+			"componentController": "Controller",
+			"componentMotor": "Motor",
+			"componentAuger": "Auger",
+			"componentOutlet": "Outlet",
+			"componentLive": "Live",
+			"componentLastKnown": "Last known",
+			"componentOnline": "Online",
+			"componentRunning": "Running",
+			"componentReady": "Ready",
+			"componentNoReading": "No reading",
+			"componentReading": "Reading",
+			"componentsTitle": "Components"
+		},
 		"adminDevices": {
+			"view3d": "3D view",
 			"deviceIdMac": "Device ID (MAC)",
 			"deviceIdMacHint": "The Device ID the setup portal asks for.",
 			"tokenColumn": "Device token",
@@ -1632,6 +1717,7 @@
 			"hopperEmptyCmDesc": "Sensor reading when hopper is empty",
 			"hopperCapacityG": "Hopper Capacity (grams)",
 			"hopperCapacityGDesc": "Total feed weight the hopper can hold",
+			"hopperEmptyGreaterThanFull": "The empty distance must be greater than the full distance.",
 			"saveCalibration": "Save Calibration",
 			"calibrationSaved": "Calibration saved!",
 			"calibrationSaveError": "Could not save the calibration.",
@@ -1655,6 +1741,14 @@
 			"restartDevice": "Restart Device",
 			"actionsUnavailable": "Device actions are not available yet.",
 			"calibration": {
+				"numberField": {
+					"decrease": "Decrease {label}",
+					"increase": "Increase {label}",
+					"format": "Enter a number.",
+					"range": "Enter a value from {min} to {max}.",
+					"wholeNumber": "Use whole numbers only.",
+					"decimalPlaces": "Use at most {decimals} decimal places."
+				},
 				"title": "Feed Rate Calibration",
 				"desc": "Measure how fast the feeder dispenses feed so scheduled feed times stay accurate.",
 				"currentRate": "Current rate",
@@ -1956,7 +2050,14 @@
 			"suggestedRate": "Suggested Feeding Rate",
 			"perMeal": "Per meal: {grams} g",
 			"usingFcr": "Uses your latest FCR: {fcr}",
-			"noFcr": "No FCR report yet - using the 1.5 reference."
+			"noFcr": "No FCR report yet - using the 1.5 reference.",
+			"setAsTarget": "Set as growth target",
+			"settingTarget": "Saving target...",
+			"targetSaved": "Growth target saved: {weight} kg at harvest.",
+			"targetSavedShort": "Saved target: {weight} kg at harvest.",
+			"targetError": "Could not save the growth target.",
+			"targetHint": "Saves this weight as the active cycle's harvest target. The feed recommendation adapts inside the 10% / 15-day limit.",
+			"targetNeedsCycle": "Start a grow-out cycle before setting a growth target."
 		},
 		"importExport": {
 			"export": "Export Data",
@@ -2075,6 +2176,7 @@
 			"chartActivityTitle": "Device activity",
 			"chartActivitySummary": "Device events per day over the last {days} days: {total} events.",
 			"chartActivitySummaryTruncated": "Device events per day over the last {days} days: at least {total} events (the newest 5,000 rows).",
+			"chartActivityRange": "Range: {from} – {to} · {days} farm days (Asia/Manila).",
 			"chartTruncatedNote": "One series is capped at the newest 5,000 rows, so its total is a lower bound and its oldest day may be partial.",
 			"chartHealthTitle": "Fleet health",
 			"chartHealthSummary": "{online} online and {offline} offline of {total} devices.",
@@ -2364,6 +2466,12 @@
 			"desc": "Nothing was changed. Retry the page, or go back to the dashboard if it keeps failing.",
 			"retry": "Try again"
 		},
+		"pondSwitcher": {
+			"labelNamed": "Active pond: {name}",
+			"listLabel": "Choose a pond",
+			"switching": "Switching…",
+			"switchFailed": "Could not switch pond. Try again."
+		},
 		"common": {
 			"readOnlyTitle": "View only",
 			"capability": {
@@ -2381,6 +2489,12 @@
 			"deviceOnline": "ESP32 online",
 			"deviceOffline": "ESP32 offline",
 			"deviceMissing": "ESP32 not paired",
+			"lastSynced": "Last synced: {time}",
+			"lastSyncedNever": "never",
+			"lastSyncedJustNow": "just now",
+			"lastSyncedMinutesAgo": "{count, plural, one {# minute ago} other {# minutes ago}}",
+			"lastSyncedHoursAgo": "{count, plural, one {# hour ago} other {# hours ago}}",
+			"lastSyncedDaysAgo": "{count, plural, one {# day ago} other {# days ago}}",
 			"skipToContent": "Skip to main content",
 			"platformAdmin": "Platform admin",
 			"pagination": {
@@ -2399,6 +2513,12 @@
 				"value": "Value",
 				"name": "Name",
 				"empty": "No data for this period yet."
+			},
+			"terminology": {
+				"aboutAbw": "What does ABW mean?",
+				"abw": "Average Body Weight: the mean weight of the fish in your latest biomass sample, in grams. It is the sample weight divided by the number of fish weighed.",
+				"aboutFcr": "What does FCR mean?",
+				"fcr": "Feed Conversion Ratio: the kilograms of feed used for every kilogram of fish weight gained, taken from your latest FCR report. Lower is better."
 			}
 		},
 		"mobile": {
@@ -3295,9 +3415,38 @@
 			"tabsLabel": "Operations sections",
 			"tabs": {
 				"health": "System health",
+				"errors": "Error events",
 				"firmware": "Firmware fleet",
 				"audit": "Audit log",
 				"announcements": "Announcements"
+			},
+			"errors": {
+				"title": "Error events",
+				"description": "First-party error capture. Message, stack, route and context are scrubbed before they are stored; repeated occurrences of one error increment a single row. Rows silent for {days} days are pruned.",
+				"filtersLabel": "Filter errors by status",
+				"status": {
+					"unresolved": "Unresolved",
+					"resolved": "Resolved",
+					"all": "All"
+				},
+				"caption": "Captured error events",
+				"emptyTitle": "No error events",
+				"emptyDescription": "Nothing matches this filter. Errors reported by the app will appear here.",
+				"severity": {
+					"ERROR": "Error",
+					"WARNING": "Warning",
+					"INFO": "Info"
+				},
+				"occurrences": "{count, plural, one {# occurrence} other {# occurrences}}",
+				"resolvedAt": "Resolved {when}",
+				"resolvedBadge": "Resolved",
+				"firstSeen": "First seen {when}",
+				"lastSeen": "Last seen {when}",
+				"showStack": "Show stack trace",
+				"resolve": "Mark resolved",
+				"resolving": "Resolving…",
+				"resolveFailed": "Could not mark this error resolved. Try again.",
+				"resolvedJustNow": "Resolved. The list will refresh."
 			},
 			"health": {
 				"title": "System health",
@@ -3665,5 +3814,9 @@
 			"info": "Information",
 			"warning": "Important"
 		}
+	},
+	"sidebar": {
+		"collapse": "Collapse sidebar",
+		"expand": "Expand sidebar"
 	}
 }

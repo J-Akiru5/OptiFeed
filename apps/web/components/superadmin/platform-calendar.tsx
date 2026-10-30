@@ -1,8 +1,14 @@
 "use client";
 
+import {
+	CalendarSidePane,
+	CalendarSidePanel,
+	CalendarSurface,
+	CalendarWorkbench,
+} from "@/components/calendar/calendar-shell";
 import { CalendarTypeFilters, calendarChipClass } from "@/components/harvest/calendar-controls";
 import { Modal } from "@/components/harvest/modal";
-import { Card, SECONDARY_BUTTON } from "@/components/superadmin/ui";
+import { SECONDARY_BUTTON } from "@/components/superadmin/ui";
 import { Link } from "@/i18n/routing";
 import { ApiClientError, apiGet } from "@/lib/api-client";
 import type {
@@ -261,11 +267,13 @@ export function PlatformCalendar({ initialData }: PlatformCalendarProps) {
 	};
 
 	return (
-		<div className="space-y-4">
-			<div className="flex min-h-0 flex-col gap-4 xl:flex-row">
-				<div className="flex min-w-0 flex-1 flex-col gap-4">
-					<Card className="min-w-0 overflow-hidden">
-						<div className="flex flex-none flex-col gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+		<>
+			<CalendarWorkbench>
+				<CalendarSurface
+					label={t("title")}
+					busy={loading}
+					toolbar={
+						<>
 							<fieldset
 								aria-label={t("filters.orgsLabel")}
 								className="m-0 flex min-w-0 flex-wrap items-center gap-1.5 border-0 p-0"
@@ -371,38 +379,30 @@ export function PlatformCalendar({ initialData }: PlatformCalendarProps) {
 									{t("truncated")}
 								</div>
 							)}
-						</div>
-						<div className="relative min-h-[420px] px-2 pb-2 pt-2 sm:px-3" aria-busy={loading}>
-							{loading && (
-								<div className="pointer-events-none absolute inset-x-3 top-0 z-10 h-0.5 overflow-hidden rounded-full bg-[#0A3D62]/10">
-									<div className="h-full w-1/3 animate-pulse rounded-full bg-[#0A3D62]" />
-								</div>
-							)}
-							<div className="h-[62vh] min-h-[420px] xl:h-[calc(100dvh-19rem)]">
-								<CalendarView
-									events={displayEvents}
-									canManage={false}
-									allPonds
-									onRangeChange={(from, to) => {
-										setRange((current) =>
-											current.from === from && current.to === to ? current : { from, to },
-										);
-									}}
-									onViewChange={() => {}}
-									onEventClick={handleEventClick}
-									onDateClick={() => {}}
-									onSelect={() => {}}
-									onEventDrop={async () => false}
-									onEventResize={async () => false}
-									onToggleTask={() => {}}
-								/>
-							</div>
-						</div>
-					</Card>
-				</div>
+						</>
+					}
+				>
+					<CalendarView
+						events={displayEvents}
+						canManage={false}
+						allPonds
+						onRangeChange={(from, to) => {
+							setRange((current) =>
+								current.from === from && current.to === to ? current : { from, to },
+							);
+						}}
+						onViewChange={() => {}}
+						onEventClick={handleEventClick}
+						onDateClick={() => {}}
+						onSelect={() => {}}
+						onEventDrop={async () => false}
+						onEventResize={async () => false}
+						onToggleTask={() => {}}
+					/>
+				</CalendarSurface>
 
-				<aside className="flex w-full flex-col gap-4 xl:w-[300px] xl:flex-none">
-					<Card className="flex min-h-0 flex-col p-4 xl:flex-1 xl:overflow-hidden">
+				<CalendarSidePane>
+					<CalendarSidePanel className="flex min-h-0 flex-col">
 						<div className="flex flex-none items-center justify-between gap-3">
 							<h2 className="text-base font-black text-[#0A3D62] dark:text-[#5b9bd5]">
 								{tHarvest("upcoming.title")}
@@ -418,7 +418,7 @@ export function PlatformCalendar({ initialData }: PlatformCalendarProps) {
 						) : (
 							<ul
 								aria-label={tHarvest("upcoming.listLabel")}
-								className="mt-2 min-h-0 divide-y divide-gray-100 dark:divide-gray-800 xl:flex-1 xl:overflow-y-auto"
+								className="mt-2 divide-y divide-gray-100 dark:divide-gray-800"
 							>
 								{upcoming.map((event) => (
 									<li key={event.id}>
@@ -445,9 +445,9 @@ export function PlatformCalendar({ initialData }: PlatformCalendarProps) {
 								))}
 							</ul>
 						)}
-					</Card>
-				</aside>
-			</div>
+					</CalendarSidePanel>
+				</CalendarSidePane>
+			</CalendarWorkbench>
 
 			<Modal
 				open={Boolean(details)}
@@ -582,6 +582,6 @@ export function PlatformCalendar({ initialData }: PlatformCalendarProps) {
 					</div>
 				)}
 			</Modal>
-		</div>
+		</>
 	);
 }

@@ -9,6 +9,176 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.31.5] - 2026-10-30
+
+### Security
+
+- #329 platform audit rows recorded the left-most `X-Forwarded-For` entry, which is client-controlled, so an action could be attributed to a forged IP. Client-address derivation now lives in one helper that uses only the trusted edge hop, records `null` for a missing or malformed header, and is shared by the audit writer and the rate limiter.
+- #330 `feed-command` and `schedule-sync` consumed the device rate-limit bucket using an unverified `device_id`, so anyone knowing a MAC could hold a unit at 429. Both routes now verify the token first and limit on the verified MAC; a 25-request unauthenticated flood no longer affects the real device.
+- #331 platform `rotateDeviceToken` returned a plaintext token with no reveal limiter, and `updatePlatformUser` could change a legacy role without step-up. Rotation now uses the same 10/hour reveal bucket as the tenant path, and role changes run inside `withStepUp` with an audit row; display-name-only edits stay unprivileged.
+- #364 `firmware/check` consumed its rate-limit bucket on an unverified `device_id`, so anyone knowing a MAC could hold a unit out of the OTA channel. It now verifies the token and approval first and limits on the verified MAC.
+
+### Fixed
+
+- #335 `updatePlatformUser` persisted blank, whitespace-only or over-long display names. It now applies the same trim/required/max-80 rule as the tenant `updateUser` and writes nothing on rejection.
+- #324 the legal working note still described release 1.11.0 and "only v1.0.0" in its version snapshot; it now matches the current release and tag history.
+- The CI performance job no longer waits out its 30-minute timeout: the latency harness signals the spawned Next server's process group, releases the child pipes and has a bounded exit.
+
+## [1.31.3] - 2026-10-30
+
+### Fixed
+
+- The feeder Iso view now locks rotate and zoom, so the six component labels stay perfectly anchored instead of disappearing after a drag. Every other preset keeps orbit/zoom and shows no labels; this supersedes the 1.31.0 orbit-clears behavior.
+- Mobile now renders the same six anchor dots and leaders as desktop, with compact 8/15/9 px callouts capped at `min(96px, 28%)` of the stage. The 2 x 3 status list is now `sr-only` at every width and remains the `aria-describedby` summary.
+- Added a bottom hint stating that component labels appear only while the model is in the Isometric view.
+
+## [1.31.2] - 2026-10-30
+
+### Added
+
+- #344 Pakoy can now perform the whole write surface the signed-in user is permitted to use: biomass update/delete, calendar item update/delete/reopen, pond archive/restore/delete, device move/unassign, member revocation, device-token reveal and rotation, platform remote feed/pause, platform user disable/enable and platform-admin grant/revoke. Every new action reuses the existing server action and its guards, and the proposal step surfaces `step_up_required` rather than executing.
+- Refusals are specific ("Only a platform admin can...", "You need the manage_members permission...", "Re-enter your password...") and are produced by both the planner and Accept.
+- The intent router understands the wider vocabulary and carries conversation history, so a short reply to Pakoy's own clarifying question continues the same action instead of falling through to chat.
+
+### Security
+
+- 21 new assistant actions were added with an allow **and** deny matrix (74 accept cases across all 37 kinds) and a guard-matrix test asserting each action satisfies the same guard as its UI counterpart. Password-bearing provisioning, hardware enrolment, calibration procedures and pond/cycle forms remain intentionally unavailable in chat.
+- The assistant catalogue was split into per-surface modules so the complexity budget holds (worst file 79/180); function coverage is 95.08% against a 94.5% threshold.
+## [1.31.1] - 2026-10-30
+
+### Fixed
+
+- #347 ABW and FCR now explain themselves: an info affordance on the dashboard, growth, history and calculator surfaces opens on hover **and** keyboard focus, is announced through `aria-describedby`, and describes the real math (average body weight = sample weight / fish weighed; FCR = kg feed per kg gained, lower is better).
+- #348 the calendar's details sheet and editor name the item they act on, so a task no longer says "Edit pond event" or "Delete this pond event?"; every task label, toast and confirmation follows `itemKind`, while cycle milestones keep their event wording.
+- #351 the admin settings page now has one consistent structure: a single labelled section per group, real heading hierarchy (h2 to h3), the shared 1/2/3 column grid, the pager bled to the card edges, a members table hidden below `md` (no more phone-width horizontal scroll), a corrected members total, and every control at least 44 px. The page is also covered by the axe gate.
+## [1.31.0] - 2026-10-30
+
+### Added
+
+- The feeder 3D viewer now shows six component labels ? hopper, ultrasonic sensor, controller, motor, auger and outlet ? with statuses derived from the feeder status and hopper level. They appear only in the ISO preset, use fixed Solis-style callout slots with 1 px leaders and anchor dots, and fall back to a 2 x 3 semantic status list below `md`. The ISO stage is now the owner-approved front-left angle; manual orbit clears the labels and pressing ISO restores them. The card gains the PakaonAI navy product-stage glow and an orange active preset pill.
+- The public landing hardware section now features the tape-calibrated feeder model as a transparent ISO poster, with a research-prototype caption and the existing six-row parts table below. The poster is 20.9 kB WebP and loads lazily; the 3D runtime is not added to the public page.
+
+### Fixed
+
+- The post top is 105 mm above the hopper/lid top: **615 mm**, down from 750 mm. Model asset **1.1.2**; service-worker cache **v8**.
+
+## [1.30.3] - 2026-10-29
+
+### Fixed
+
+- Feeder layout amendments from the owner's photos: the black controller panel now touches the sticker with no gap, the 750 mm post sits against the jar's right side and the chassis with its arm parallel to the front, the jar is 20 mm shorter, and a vertical white plank supports the left edge of the hopper shelf. Model asset `feeder-v1.1.1.glb` (1,165,132 bytes, 38,284 triangles); service-worker cache **v7**.
+
+## [1.30.2] - 2026-10-29
+
+### Fixed
+
+- #316 the dashboard header's `LAST SYNCED` label and its relative time are translated (`en`/`hil`/`tl`) with ICU plurals instead of hard-coded English, and the profile menu's device status uses the catalogue rather than the raw enum. A gate entry stops the literal from coming back.
+- #320 `DeviceDailyCapForm` now uses the shared calibration field, so the daily ceiling is clearable, steps in 50 g units, reports range errors accessibly and lines up with the other calibration cards.
+- #345 the account dropdown is readable in dark mode (Admin Panel 3.34:1 → 4.89:1, device offline 2.62 → 5.08, missing 3.03 → 9.96) and finally links to Account settings at `/dashboard/settings/profile`.
+- The feeder 3D model is rebuilt from the tape measurements: a 340 × 450 mm base, a 145 × 450 × 315 mm chassis, one 400 mm PET jar on a 200 mm shelf, and a 50 mm auger tube with a 60 mm motor. The ultrasonic sensor now sits on the jar lid, the 750 mm post and short arm are a wire guide, and the model includes the red rubber motor coupling, the brown tube-end plug, the blue outlet with the red cap, and the two wood tube cradles. Model asset `feeder-v1.1.0.glb` (1.1 MB, 37,800 triangles); the service-worker cache moves to **v6** for the new URL.
+- The viewer camera presets and orbit target are reframed for the smaller machine, and the dispensing auger/coupling now rotate around the tube axis instead of the vertical axis.
+
+## [1.30.1] - 2026-10-29
+
+### Fixed
+
+- The pond switcher rendered as inert header text when a farm had exactly one ACTIVE pond, so the control looked like a label and nobody could tell it existed. It now always renders the dropdown trigger and opens a menu listing the single pond, already checked.
+
+## [1.30.0] - 2026-10-29
+
+### Security
+
+- Production dependency audit: `critical` 2 → 0 and `high` 37 → 1 (one allowlisted build/CLI finding, expiring 2027-01-27). `dompurify`, `proxy-addr`, `browserslist`, `source-map-js` and `baseline-browser-mapping` are pinned to patched versions through `pnpm.overrides`; `zod` moves to `^4.6.6`. `shadcn` is a code-generation CLI and now lives in `devDependencies`, so the server stack it drags in is no longer counted as shipped. See `docs/security/supply-chain.md`.
+- `pnpm audit --prod` now runs in CI as `.github/workflows/security.yml`: an unallowlisted `critical`/`high` fails the build, and every allowlist entry in `security/audit-allowlist.json` needs a written reason and an expiry of at most 90 days.
+- `.github/dependabot.yml` adds weekly, grouped npm and GitHub Actions update pull requests. No auto-merge.
+
+### Added
+
+- Automated accessibility gate (ISO 25010 usability, W9): axe-core runs over the login page, the dashboard page shell, the growth plan card, the hardware calibration page, the chat widget and the admin devices console, and fails on any serious or critical violation. Keyboard flows — pond switcher, chat composer, calibration steppers and the harvest modal — are driven with real key presses and assert focus movement, not only that a handler ran.
+- The chat closes on **Escape** from anywhere inside it, including the composer, and returns focus to the floating chat control.
+- `en` ↔ `hil` message-catalogue parity is enforced by a test, and the 19 missing sticker strings are translated. Tagalog stays an English overlay at 9.3% complete and is reported, not gated, pending the owner's decision in #327.
+
+- First-party error capture (ISO 25010 reliability): an additive `ErrorEvent` model stores failures with a sha256 fingerprint, increments instead of duplicating, scrubs tokens/JWTs/Supabase keys/e-mails **before** truncation, and never throws into the request path. Visible and resolvable at `/superadmin/operations/errors`, swept after 30 days by the existing `device-watch` cron.
+- Automated tests now cover **92.42% of `apps/web/lib` lines** (from 80.92%), enforced by a coverage threshold that fails CI on regression.
+- **E2E runs in CI** against a disposable local Supabase stack (Postgres + Auth + storage) with a CI-only guard mode; production credentials never enter CI and a remote database is still refused without the explicit acknowledgement.
+- Cross-browser smoke on **Chromium, Firefox and WebKit** for the public pages and the language switch, plus responsive assertions at 390/834/1440 and a documented supported matrix in `docs/compatibility.md`.
+- Performance evidence is measured and gated: a bundle budget for all 56 routes (validated against a live server), Lighthouse budgets, and an API latency baseline with only stable endpoints gated. See `docs/performance/`.
+- **A restore drill that actually executed** in CI: migrate, seed, snapshot, dump, drop the whole public schema, restore, and verify 37 table counts, 9 schema-object counts, 18 invariants and 11 Prisma round-trips. Reports an artefact plus `docs/operations/restore-drill.md`. Scope is explicit: it proves our dump/restore, not the provider backups (#325) or `auth.users` (#322).
+- Portability: multi-stage Dockerfile, compose, environment matrix, and the production host is env-driven (`NEXT_PUBLIC_SITE_URL`) instead of hard-coded.
+- Maintainability: Knip reports zero unused files/dependencies/exports/types, a measured complexity budget is enforced, and six ADRs plus an operations index record the decisions and runbooks.
+- `SECURITY.md` (private disclosure), `CODEOWNERS`, threat model, incident-response plan and a supply-chain policy document.
+
+### Fixed
+
+- Chat messages rendered list items as `<span>` inside `<ul>`/`<ol>`. The markup was invalid and screen readers would not announce the list; items are now `<li>`.
+- The admin devices "needs attention" filter put `aria-pressed` on a link, which is not a valid ARIA attribute for that role (`aria-current` now marks the active filter).
+- The collapsed chat panel and mobile sheet stayed in the tab order while `aria-hidden`, so a keyboard user could tab into a chat they could not see. Both are `inert` while closed.
+
+## [1.29.0] - 2026-10-29
+
+### Added
+
+- #304 editing a crop cycle's target weight while the pond has a saved calculator target now asks first: **Replace** the calculator target, **Keep** it, or cancel. The choice is enforced on the server, not only in the form, so a request that edits the target without a choice is refused instead of silently letting one value win. No prompt appears when there is no saved target or when the target field was not edited, so calendar drag-and-reschedule still works.
+
+### Changed
+
+- #304 a saved calculator target is now mirrored into the active cycle's `targetHarvestWeightG`, so the Growth page, calendar, harvest and admin views show the same number instead of two. The pond profile stays the plan's source of truth. Removing the target clears the mirror, but a harvested cycle keeps its historical target.
+- #307 hopper distances accept one decimal again (`12.3`), so values stored by the old 0.1 stepper no longer open with a validation error. The steppers still move a whole centimetre at a time.
+
+## [1.28.1] - 2026-10-29
+
+### Fixed
+
+- #309 the chat assistant is readable in dark mode. The panel, sheet, message list, bubbles, markdown, suggestion chips, composer and action card now use the dashboard's dark palette instead of light-only surfaces. The composer had no text colour at all, so it inherited the near-white dark-mode foreground on a light field. Message, composer, placeholder and action-status pairs meet WCAG AA (4.5:1) in both themes, and a regression test fails on any light-only chat class that has no dark counterpart.
+
+## [1.28.0] - 2026-10-29
+
+### Added
+
+- #303 the dashboard has pond context. A pond switcher in the header lists only the ponds the signed-in user may switch to, remembers the choice in an httpOnly cookie and re-validates it server-side on every read and write, so a tampered or foreign id falls back to the user's own pond instead of selecting another farm's. Ponds are searchable in the global search and selecting one switches pond in place rather than throwing the reader back to `/dashboard`. All three locales, keyboard operable, with an empty state for a user without ponds.
+- #304 the feed calculator can save its result as the pond's growth target. The Growth page now shows the target biomass at harvest, the current/expected biomass and the remaining gap, and the feeding recommendation (including the AI feeder card) derives from the saved target inside the existing 10% / 15-day envelope and device per-meal cap. The target is stored in the pond profile JSON bridge, scoped per pond and tenant, and never moves the cycle's harvest date.
+
+### Fixed
+
+- #307 calibration number fields could not be cleared once they held `0`, so a full distance of zero could not be replaced with a real measurement. Every numeric calibration field now keeps the raw text and parses on submit, so a field can be emptied and re-typed. Hopper centimetre fields step 1 → 2 → 3 → 4 instead of 0.1, and all numeric calibration controls share one field pattern — label, steppers, unit, help text and an announced error — laid out in a responsive three-column grid (one column on phones, two on tablets, three on desktop).
+
+## [1.27.1] - 2026-10-29
+
+### Fixed
+
+- The hardware **Settings → Live Monitoring** hero now renders the interactive 3D feeder viewer instead of the legacy SVG illustration, and the live status poll runs immediately on load.
+
+## [1.27.0] - 2026-10-29
+
+### Added
+
+- #297 the desktop dashboard and admin sidebars are now retractable, with the collapsed state persisted and the benchmark notes in `docs/sidebar-benchmark.md`.
+
+### Changed
+
+- #296 the Admin Overview **Device activity** chart now states its inclusive 14-farm-day range (from/to dates, Asia/Manila) instead of leaving the window implicit.
+- #298 the calendar now uses one shared full-viewport shell across the farmer, admin and superadmin views: the grid stays static and the side pane is the only scrolling surface. Architecture notes are in `docs/calendar-architecture.md`.
+
+## [1.26.0] - 2026-10-29
+
+### Added
+
+- Feeder 3D viewer (plan v1.1.0): Blender-built `feeder-v1.0.0.glb` with a versioned manifest, a lazy React Three Fiber scene on `/dashboard/devices/[id]`, live hopper/status polling, camera presets, a no-WebGL illustrated fallback, dashboard and admin links, and a service-worker `v5` cache rule for `/models/`.
+
+## [1.25.0] - 2026-10-29
+
+### Added
+
+- #289 Tagalog (`tl`) is now a third locale, selectable from a top-bar language dropdown (English / Hiligaynon / Tagalog) on the landing, dashboard, legal and mobile surfaces. The whole `[locale]` tree switches together; `tl.json` is a core-UI overlay that falls back to English for untranslated copy, so coverage can grow one key at a time. Documented in `docs/i18n.md`.
+- #288 the change-password form now raises a top-right success toast and a top-right server-error toast, while keeping the existing inline messages. The confirmation standard for mutating actions is documented in `docs/ui-confirmations.md`.
+
+## [1.24.0] - 2026-10-29
+
+### Changed
+
+- #286 the desktop sidebar's hopper card is one link to the hopper-level chart on the History page (`/dashboard/history#hopper-level`), with a hover state, a keyboard focus ring and an accessible name; the chart wrapper is an anchor target that clears the sticky header.
+- #287 the floating chat button now shows Pakoy's head instead of a generic message-square glyph while the chat is closed; the open state keeps the close (X) control, and the button's accessible name is unchanged.
+
 ## [1.23.0] - 2026-10-29
 
 ### Added

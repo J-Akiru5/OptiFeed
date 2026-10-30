@@ -1,0 +1,59 @@
+version: 2
+
+# Automated dependency updates. No auto-merge: every pull request here is
+# reviewed and merged by a human, and `main` is never a Dependabot target.
+#
+# Groups only cover minor and patch updates of the same channel. Major updates
+# stay as individual pull requests so each one is read on its own — the
+# repository does not take broad major upgrades (see CONTRIBUTING.md).
+#
+# Security advisories are handled by GitHub's Dependabot security updates, not
+# by this schedule; `pnpm audit` runs weekly in .github/workflows/security.yml.
+
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Asia/Manila"
+    open-pull-requests-limit: 5
+    versioning-strategy: "increase"
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    labels:
+      - "dependencies"
+    groups:
+      production-minor-patch:
+        dependency-type: "production"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      development-minor-patch:
+        dependency-type: "development"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Asia/Manila"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci(deps)"
+    labels:
+      - "dependencies"
+    groups:
+      github-actions:
+        patterns:
+          - "*"

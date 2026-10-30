@@ -18,6 +18,9 @@ const cspDirectives = [
 	// these, an injected <base> or form action could exfiltrate payloads.
 	"form-action 'self'",
 	"base-uri 'self'",
+	// I-69: no plugin content exists in the app, so legacy <object>/<embed>
+	// execution is blocked outright rather than inherited from default-src.
+	"object-src 'none'",
 	"frame-ancestors 'none'",
 ];
 

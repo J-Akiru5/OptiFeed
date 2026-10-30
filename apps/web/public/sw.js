@@ -9,7 +9,7 @@
  * - API and auth requests are never intercepted or cached.
  * - Bumping CACHE_NAME purges every previous cache on activate.
  */
-const CACHE_NAME = "pakaonai-static-v4";
+const CACHE_NAME = "pakaonai-static-v8";
 const CACHE_PREFIX = "pakaonai-static-";
 const OFFLINE_URL = "/offline.html";
 const PRECACHE_URLS = [
@@ -24,7 +24,13 @@ const PRECACHE_URLS = [
 	"/mascot/pakoy-offline.webp",
 ];
 
-const STATIC_PREFIXES = ["/_next/static/", "/icons/", "/pakaonai-logo-kit/", "/mascot/"];
+const STATIC_PREFIXES = [
+	"/_next/static/",
+	"/icons/",
+	"/pakaonai-logo-kit/",
+	"/mascot/",
+	"/models/",
+];
 const STATIC_FILES = new Set([
 	"/manifest.webmanifest",
 	"/favicon.ico",
@@ -67,7 +73,11 @@ self.addEventListener("message", (event) => {
 
 function isCacheableAsset(pathname, request) {
 	if (request.mode === "navigate" || request.destination === "document") return false;
-	if (!CACHEABLE_DESTINATIONS.has(request.destination)) return false;
+	// A GLB fetched by useGLTF arrives with destination "empty"/"other", not
+	// "image". Allow that exception only under the explicit /models/ prefix;
+	// every other asset still needs an allowlisted destination.
+	const modelAsset = pathname.startsWith("/models/");
+	if (!modelAsset && !CACHEABLE_DESTINATIONS.has(request.destination)) return false;
 	if (STATIC_FILES.has(pathname)) return true;
 	return STATIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }

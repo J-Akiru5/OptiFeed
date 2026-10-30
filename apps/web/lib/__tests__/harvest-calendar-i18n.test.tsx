@@ -69,6 +69,7 @@ function renderCalendar() {
 					population: 1000,
 					areaM2: 500,
 					averageDepthM: 1.5,
+					savedTargetWeightG: null,
 				},
 			]}
 			activeCycle={null}
@@ -143,6 +144,7 @@ describe("HarvestCalendar copy", () => {
 						population: 1000,
 						areaM2: 500,
 						averageDepthM: 1.5,
+						savedTargetWeightG: null,
 					},
 				]}
 				activeCycle={activeCycle}

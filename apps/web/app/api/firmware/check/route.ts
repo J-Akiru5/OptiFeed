@@ -40,13 +40,10 @@ export const GET = withApi(
 			return new Response("Unprocessable Entity", { status: 422 });
 		}
 
-		// Separate fail-open bucket: a check every 30 minutes is far below the
-		// ceiling, and a limiter blip must never stop an update check.
-		const { success } = await checkDeviceRateLimit(deviceId, "firmware");
-		if (!success) {
-			return new Response("Too Many Requests", { status: 429 });
-		}
-
+		// Fail-open bucket, but only for a verified device: a check every 30
+		// minutes is far below the ceiling, and a limiter blip must never stop
+		// an update check. Limiting before verification would let anyone who
+		// knows a MAC hold that unit out of the OTA channel (#364).
 		const device = await verifyDeviceToken(token);
 		if (!device || device.mac !== deviceId) {
 			return new Response("Unauthorized", { status: 401 });
@@ -54,6 +51,11 @@ export const GET = withApi(
 
 		if (!isDeviceApproved(device)) {
 			return new Response("Forbidden", { status: 403 });
+		}
+
+		const { success } = await checkDeviceRateLimit(device.mac, "firmware");
+		if (!success) {
+			return new Response("Too Many Requests", { status: 429 });
 		}
 
 		const channel = await readStableChannel();

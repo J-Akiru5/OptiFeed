@@ -162,7 +162,7 @@ export function ChatWidgetProvider({
 			let placeholderAdded = false;
 
 			try {
-				if (looksLikeAssistantRequest(trimmed)) {
+				if (looksLikeAssistantRequest(trimmed, messages.slice(-8))) {
 					const response = await fetch("/api/chat/assistant", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },

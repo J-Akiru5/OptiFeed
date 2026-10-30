@@ -76,7 +76,7 @@ describe("HeaderActions identity (E18, #199)", () => {
 		const html = container.innerHTML;
 
 		expect(html).toContain("ILO-POND-01");
-		expect(html).toContain("LAST SYNCED");
+		expect(html).toContain("Last synced");
 
 		openProfileMenu();
 		expect(screen.getByText("Pond Operator")).toBeInTheDocument();
@@ -87,7 +87,7 @@ describe("HeaderActions identity (E18, #199)", () => {
 		const { container } = renderHeader(PLATFORM_ADMIN);
 		const html = container.innerHTML;
 
-		expect(html).not.toContain("LAST SYNCED");
+		expect(html).not.toContain("Last synced");
 		expect(html).not.toContain("ILO-POND-01");
 
 		openProfileMenu();
@@ -101,9 +101,28 @@ describe("HeaderActions identity (E18, #199)", () => {
 		const html = container.innerHTML;
 
 		expect(html).toContain("ILO-POND-01");
-		expect(html).toContain("LAST SYNCED");
+		expect(html).toContain("Last synced");
 
 		openProfileMenu();
 		expect(screen.getByText("Pond Operator")).toBeInTheDocument();
+	});
+
+	it("shows the no-pond empty state instead of a hard-coded pond name", () => {
+		const { container } = render(
+			<HeaderActions
+				ponds={[]}
+				activePondId=""
+				pondName=""
+				lastSeenAt={null}
+				esp32Status="missing"
+				initialUser={FARMER}
+			/>,
+		);
+
+		expect(screen.getByText("No pond assigned yet")).toBeInTheDocument();
+		expect(container.innerHTML).not.toContain("ILO-POND-01");
+
+		openProfileMenu();
+		expect(screen.getAllByText("No pond assigned yet").length).toBeGreaterThan(0);
 	});
 });

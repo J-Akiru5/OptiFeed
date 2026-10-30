@@ -131,7 +131,7 @@ export function DashboardCardRow({
 	label,
 	children,
 }: {
-	label: string;
+	label: ReactNode;
 	children: ReactNode;
 }) {
 	return (

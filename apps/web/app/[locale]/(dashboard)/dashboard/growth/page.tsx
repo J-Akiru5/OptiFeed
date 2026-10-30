@@ -19,6 +19,7 @@ import {
 	ReadOnlyNotice,
 	dashboardSectionLink,
 } from "@/components/dashboard/dashboard-ui";
+import { TermInfo } from "@/components/dashboard/term-info";
 import { GrowthPlanCard } from "@/components/growth/GrowthPlanCard";
 import { SgrKpi, type SgrKpiLabels } from "@/components/growth/SgrKpi";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
@@ -155,7 +156,18 @@ export default async function GrowthPage() {
 	const sgrAverageDailyGainG = averageDailyGain(overallSgrSamples);
 	const sgrReason = sgrUnavailableReason(overallSgrSamples);
 
-	const cycleContext = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
+	const effectiveTargetWeightG =
+		loadedPlan?.plan.targetWeightG ?? activeCycle?.targetHarvestWeightG ?? null;
+	// The Growth page shows the plan's effective target, which may come from
+	// the calculator rather than the cycle (issue #304). Passing it into the
+	// context keeps the prediction card's target and projected biomass in step
+	// with the plan.
+	const cycleContext = activeCycle
+		? toPredictionCycleContext(
+				{ ...activeCycle, targetHarvestWeightG: effectiveTargetWeightG },
+				todayDateOnly(),
+			)
+		: null;
 
 	// Deterministic prediction shown instantly; the client card refines it
 	// with the AI provider in the background.
@@ -359,9 +371,7 @@ export default async function GrowthPage() {
 											days: Math.abs(cycleContext.daysToHarvest),
 										})
 									: tHarvest("harvestIn", { days: cycleContext.daysToHarvest })}
-								{activeCycle.targetHarvestWeightG
-									? ` · ${activeCycle.targetHarvestWeightG} g target`
-									: ""}
+								{effectiveTargetWeightG ? ` · ${effectiveTargetWeightG} g target` : ""}
 							</p>
 						</div>
 					</div>
@@ -418,6 +428,7 @@ export default async function GrowthPage() {
 				pondId={pond.id}
 				population={pond.population}
 				feedsPerDay={currentConfig?.feedsPerDay ?? pond.feedsPerDay}
+				canSetTarget={Boolean(activeCycle)}
 			/>
 
 			<div
@@ -429,7 +440,11 @@ export default async function GrowthPage() {
 					<div className="flex justify-between items-start mb-4 relative z-10">
 						<div>
 							<p className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-								{t("latestAbw")}
+								<TermInfo
+									label={t("latestAbw")}
+									hint={tCommon("terminology.aboutAbw")}
+									description={tCommon("terminology.abw")}
+								/>
 							</p>
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
 								{(latestBiomass * 1000).toFixed(1)}{" "}
@@ -505,7 +520,11 @@ export default async function GrowthPage() {
 					<div className="flex justify-between items-start mb-4">
 						<div>
 							<p className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-								{t("currentFcr")}
+								<TermInfo
+									label={t("currentFcr")}
+									hint={tCommon("terminology.aboutFcr")}
+									description={tCommon("terminology.fcr")}
+								/>
 							</p>
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
 								{latestFcr.toFixed(2)}
@@ -833,7 +852,13 @@ export default async function GrowthPage() {
 									<DashboardTh>{t("totalWeightCol")}</DashboardTh>
 									<DashboardTh>{t("fishCountCol")}</DashboardTh>
 									<DashboardTh>{t("avgLengthCol")}</DashboardTh>
-									<DashboardTh align="right">{t("abwCol")}</DashboardTh>
+									<DashboardTh align="right">
+										<TermInfo
+											label={t("abwCol")}
+											hint={tCommon("terminology.aboutAbw")}
+											description={tCommon("terminology.abw")}
+										/>
+									</DashboardTh>
 									<DashboardTh align="right">{t("typeCol")}</DashboardTh>
 								</DashboardTHead>
 								<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">

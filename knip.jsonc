@@ -1,0 +1,41 @@
+{
+	// Knip: dead files, unused exports and unused dependencies.
+	//
+	// The configuration only names things Knip cannot infer. Every entry below
+	// is a file that is executed or loaded by path from outside the module
+	// graph, not an exemption for code Knip could have found. See
+	// docs/operations/maintainability.md for the policy and the baseline.
+	"$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+	"workspaces": {
+		".": {
+			"entry": [
+				// Offline OTA release signer: run by hand per docs/firmware-ota-plan.md,
+				// exercised by apps/web/lib/__tests__/firmware-sign-release.test.ts.
+				// Nothing imports it, which is correct for a CLI tool.
+				"scripts/ota/sign-release.mjs"
+			]
+		},
+		"apps/web": {
+			"entry": [
+				// Playwright loads globalSetup by path from playwright.config.ts,
+				// so no module imports it.
+				"e2e/global-setup.ts",
+				// Run by name from CI and docs/e2e-on-production.md, never imported.
+				"scripts/e2e/seed-e2e.ts",
+				// Run by hand from docs/password-auth-plan.md; a one-off admin CLI.
+				"scripts/provision-demo-user.ts"
+			],
+			"ignoreFiles": [
+				// Static service worker: registered at runtime by
+				// components/pwa/pwa-register.tsx and asserted by
+				// lib/__tests__/pwa-service-worker.test.ts. It is not an ES module
+				// and has no importer.
+				"public/sw.js"
+			],
+			// A symbol exported only for use inside its own file is not dead: the
+			// export is redundant, not the code. Reporting it would bury the real
+			// findings under style noise. Remove the keyword when touching the file.
+			"ignoreExportsUsedInFile": true
+		}
+	}
+}

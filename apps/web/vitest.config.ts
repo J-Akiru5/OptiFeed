@@ -6,7 +6,37 @@ export default defineConfig({
 		environment: "jsdom",
 		globals: true,
 		setupFiles: ["./test/setup.ts"],
-		include: ["lib/**/*.test.ts", "lib/**/*.test.tsx"],
+		// lib/ is the measured application surface (see `coverage.include`);
+		// scripts/e2e/ holds the fixture guards, whose unit tests live next to
+		// the code because they are operational tooling, not app code.
+		include: ["lib/**/*.test.ts", "lib/**/*.test.tsx", "scripts/**/*.test.ts"],
+		coverage: {
+			provider: "v8",
+			// The A-level quality bar is line coverage on lib/ only.
+			include: ["lib/**/*.ts", "lib/**/*.tsx"],
+			exclude: ["lib/**/*.test.ts", "lib/**/*.test.tsx", "lib/**/__tests__/**"],
+			reporter: ["text-summary", "text", "json-summary"],
+			reportsDirectory: "./coverage",
+			// RATCHET — raise these, never lower them.
+			//
+			// Measured 2026-10-29 after four coverage campaigns (I-73, I-74, I-75,
+			// I-76), vitest 3.2.7 + @vitest/coverage-v8 3.2.7:
+			//   lines      92.42%
+			//   statements 92.42%
+			//   functions  94.85%
+			//   branches   84.94%
+			//
+			// The A-level target of 90% lines is met and enforced below. Lines and
+			// statements carry ~0.4pp of headroom, branches and functions ~0.3pp,
+			// because branch totals move by a handful between runs (module-init order
+			// in mocked tests). Raise the floors as the numbers rise; never lower them.
+			thresholds: {
+				lines: 90,
+				statements: 90,
+				functions: 94.5,
+				branches: 84.5,
+			},
+		},
 	},
 	resolve: {
 		alias: {

@@ -1,3 +1,4 @@
+import { CalendarPageShell } from "@/components/calendar/calendar-shell";
 import {
 	DashboardEmptyState,
 	DashboardPageHeader,
@@ -110,7 +111,7 @@ export default async function FarmerCalendarPage() {
 	};
 
 	return (
-		<div className="space-y-6">
+		<>
 			<SnapshotWriter
 				page="harvest"
 				scope={data.ownerId}
@@ -118,41 +119,52 @@ export default async function FarmerCalendarPage() {
 				pondName={data.initialPondName}
 				data={harvestSnapshot}
 			/>
-			<DashboardPageHeader
-				icon={CalendarRange}
-				title={tPage("title")}
-				description={tPage("desc")}
-				actions={
-					<CalendarCapabilityBadge
-						capability={capability}
-						labels={{
-							edit: tCommon("capability.edit"),
-							ownFarm: tCommon("capability.ownFarm"),
-							read: tCommon("capability.read"),
-						}}
-					/>
+			<CalendarPageShell
+				reserveBackLink
+				header={
+					<>
+						<DashboardPageHeader
+							icon={CalendarRange}
+							title={tPage("title")}
+							description={tPage("desc")}
+							actions={
+								<CalendarCapabilityBadge
+									capability={capability}
+									labels={{
+										edit: tCommon("capability.edit"),
+										ownFarm: tCommon("capability.ownFarm"),
+										read: tCommon("capability.read"),
+									}}
+								/>
+							}
+						/>
+						{!data.canManage && (
+							<ReadOnlyNotice
+								title={tCommon("readOnlyTitle")}
+								description={tCommon("readOnlyDesc")}
+							/>
+						)}
+					</>
 				}
-			/>
-			{!data.canManage && (
-				<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
-			)}
-			<HarvestCalendar
-				initialPondId={data.initialPondId}
-				initialPondName={data.initialPondName}
-				initialPondIsFallow={data.initialPondIsFallow}
-				apiScope="member-org"
-				writablePondIds={data.writablePondIds}
-				ponds={data.ponds}
-				activeCycle={data.activeCycle}
-				activeCycles={data.activeCycles}
-				recentCycles={data.recentCycles}
-				canManage={data.canManage}
-				showHeader={false}
-				today={data.today}
-				hopperLevelPct={data.hopperLevelPct}
-				hopperFeedLevelUpdatedAt={data.hopperFeedLevelUpdatedAt}
-				hopperIsOffline={data.hopperIsOffline}
-			/>
-		</div>
+			>
+				<HarvestCalendar
+					initialPondId={data.initialPondId}
+					initialPondName={data.initialPondName}
+					initialPondIsFallow={data.initialPondIsFallow}
+					apiScope="member-org"
+					writablePondIds={data.writablePondIds}
+					ponds={data.ponds}
+					activeCycle={data.activeCycle}
+					activeCycles={data.activeCycles}
+					recentCycles={data.recentCycles}
+					canManage={data.canManage}
+					showHeader={false}
+					today={data.today}
+					hopperLevelPct={data.hopperLevelPct}
+					hopperFeedLevelUpdatedAt={data.hopperFeedLevelUpdatedAt}
+					hopperIsOffline={data.hopperIsOffline}
+				/>
+			</CalendarPageShell>
+		</>
 	);
 }

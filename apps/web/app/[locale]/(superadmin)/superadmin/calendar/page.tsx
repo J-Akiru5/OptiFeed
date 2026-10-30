@@ -1,3 +1,4 @@
+import { CalendarPageShell } from "@/components/calendar/calendar-shell";
 import { CalendarCapabilityBadge } from "@/components/harvest/calendar-controls";
 import { PlatformCalendar } from "@/components/superadmin/platform-calendar";
 import { PageHeader } from "@/components/superadmin/ui";
@@ -27,28 +28,30 @@ export default async function SuperadminCalendarPage({
 	]);
 
 	return (
-		<div className="space-y-6">
-			<PageHeader
-				title={
-					<span className="flex items-center gap-2">
-						<CalendarDays aria-hidden="true" className="h-6 w-6 text-[#E85A2A]" />
-						{t("title")}
-					</span>
-				}
-				description={t("description")}
-				actions={
-					<CalendarCapabilityBadge
-						capability="read"
-						labels={{
-							edit: tCommon("capability.edit"),
-							ownFarm: tCommon("capability.ownFarm"),
-							read: tCommon("capability.read"),
-						}}
-					/>
-				}
-			/>
-
+		<CalendarPageShell
+			header={
+				<PageHeader
+					title={
+						<span className="flex items-center gap-2">
+							<CalendarDays aria-hidden="true" className="h-6 w-6 text-[#E85A2A]" />
+							{t("title")}
+						</span>
+					}
+					description={t("description")}
+					actions={
+						<CalendarCapabilityBadge
+							capability="read"
+							labels={{
+								edit: tCommon("capability.edit"),
+								ownFarm: tCommon("capability.ownFarm"),
+								read: tCommon("capability.read"),
+							}}
+						/>
+					}
+				/>
+			}
+		>
 			<PlatformCalendar initialData={data} />
-		</div>
+		</CalendarPageShell>
 	);
 }

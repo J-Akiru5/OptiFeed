@@ -1,16 +1,17 @@
 "use client";
 
 import {
-	dashboardButtonPrimary,
-	dashboardField,
-	dashboardHint,
-	dashboardLabel,
-} from "@/components/dashboard/dashboard-classes";
+	CalibrationNumberField,
+	calibrationFieldGrid,
+	parseCalibrationNumber,
+} from "@/components/calibration/CalibrationNumberField";
+import { dashboardButtonPrimary } from "@/components/dashboard/dashboard-classes";
 import {
 	DAILY_CAP_MIN_G,
 	DEFAULT_DAILY_CAP_G,
 	MAX_FEED_GRAMS_PER_DAY_PER_DEVICE,
 } from "@/lib/limits";
+import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -28,6 +29,15 @@ interface DeviceDailyCapFormProps {
 	canWrite?: boolean;
 }
 
+// Whole grams only, matching the schema, and a 50 g stepper because a ceiling
+// is tuned in coarse increments rather than 1 g at a time.
+const DAILY_CAP_RULES = {
+	min: DAILY_CAP_MIN_G,
+	max: MAX_FEED_GRAMS_PER_DAY_PER_DEVICE,
+	decimals: 0,
+	step: 50,
+} as const;
+
 /**
  * The farmer- and admin-editable daily feed ceiling.
  *
@@ -42,16 +52,25 @@ export function DeviceDailyCapForm({
 	canWrite = true,
 }: DeviceDailyCapFormProps) {
 	const t = useTranslations("dashboard.appSettings");
-	const [capG, setCapG] = useState(currentCapG ?? DEFAULT_DAILY_CAP_G);
+	// String, not number: a numeric state cannot be cleared while typing
+	// (`Number("")` is 0, which snaps the zero straight back). Issue #307.
+	const [capInput, setCapInput] = useState(() => String(currentCapG ?? DEFAULT_DAILY_CAP_G));
 	const [error, setError] = useState<string | null>(null);
 	const [saved, setSaved] = useState(false);
 	const [isPending, startTransition] = useTransition();
 
+	const cap = parseCalibrationNumber(capInput, DAILY_CAP_RULES);
+	// The admin pond page renders one form per device, so the id (which also
+	// names the help and error nodes) has to be unique per device.
+	const fieldId = `dailyCapG-${deviceId}`;
+
 	const handleSave = () => {
+		if (!canWrite || cap.status !== "valid") return;
+		const nextCapG = cap.value;
 		setError(null);
 		setSaved(false);
 		startTransition(async () => {
-			const result = await saveAction(deviceId, Number(capG));
+			const result = await saveAction(deviceId, nextCapG);
 			if (result.success) {
 				setSaved(true);
 				toast.success(t("dailyCeilingSaved"));
@@ -65,37 +84,35 @@ export function DeviceDailyCapForm({
 
 	return (
 		<div className="space-y-4" data-help="device-daily-ceiling">
-			<div>
-				<label htmlFor="dailyCapG" className={dashboardLabel}>
-					{t("dailyCeilingLabel")}
-				</label>
-				<input
-					id="dailyCapG"
-					type="number"
-					min={DAILY_CAP_MIN_G}
-					max={MAX_FEED_GRAMS_PER_DAY_PER_DEVICE}
-					step={50}
-					inputMode="numeric"
-					value={capG}
-					onChange={(e) => setCapG(Number(e.target.value))}
+			<div className={calibrationFieldGrid}>
+				<CalibrationNumberField
+					id={fieldId}
+					label={t("dailyCeilingLabel")}
+					unit="g/day"
+					value={capInput}
+					onValueChange={setCapInput}
 					disabled={!canWrite || isPending}
-					className={dashboardField}
+					help={t("dailyCeilingHint")}
+					{...DAILY_CAP_RULES}
 				/>
-				<span className={dashboardHint}>{t("dailyCeilingHint")}</span>
 			</div>
 
-			{error && <p className="text-sm font-semibold text-red-600 dark:text-red-400">{error}</p>}
-			{!error && saved && (
-				<p className="text-sm font-semibold text-green-600 dark:text-green-400">
-					{t("dailyCeilingSaved")}
+			{error && (
+				<p role="alert" className="text-sm font-bold text-[#C42B3A] dark:text-red-300">
+					{error}
 				</p>
+			)}
+			{saved && (
+				<output className="block text-sm font-bold text-[#1E7B34] dark:text-green-300">
+					{t("dailyCeilingSaved")}
+				</output>
 			)}
 
 			<button
 				type="button"
 				onClick={handleSave}
-				disabled={!canWrite || isPending}
-				className={dashboardButtonPrimary}
+				disabled={!canWrite || isPending || cap.status !== "valid"}
+				className={cn(dashboardButtonPrimary, "w-full sm:w-auto")}
 			>
 				{isPending ? t("saving") : t("dailyCeilingSave")}
 			</button>

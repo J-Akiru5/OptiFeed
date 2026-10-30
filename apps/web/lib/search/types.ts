@@ -15,7 +15,7 @@ export type SearchShell = "farmer" | "admin" | "platform";
  */
 export type SearchAudience = "farmer" | "tenantAdmin" | "platform";
 
-export type SearchGroup = "pages" | "ponds" | "devices" | "members" | "records";
+export type SearchGroup = "pages" | "settings" | "ponds" | "devices" | "members" | "records";
 
 /** Extra data a row needs to render its subtitle in the reader's locale. */
 export type SearchRowMeta = {
@@ -36,11 +36,17 @@ export type SearchRow = {
 	title: string;
 	/** Fully-qualified next-intl key (for example `nav.dashboard`). */
 	titleKey?: string;
+	/** A second translated line (settings entries explain what the field does). */
+	descriptionKey?: string;
 	/** Extra search terms that are not part of the visible label. */
 	keywords?: string[];
 	subtitleKey?: string;
 	href: string;
 	meta?: SearchRowMeta;
+	/** Settings rows: the `data-help` anchor to scroll to and ring. */
+	settingTarget?: string;
+	/** Settings rows: the locale-less route that holds the anchor. */
+	settingRoute?: string;
 	/**
 	 * Farmer pond rows: the client calls the existing `switchPond` action so
 	 * the active pond changes before the route renders.
@@ -52,6 +58,8 @@ export type GlobalSearchResult = {
 	status: "ok" | "unavailable";
 	/** Every page this caller may open from this shell, already role-filtered. */
 	pages: SearchRow[];
+	/** Every settings field this caller may open, already role-filtered. */
+	settings: SearchRow[];
 	/** Data matches for the query (empty for an empty query). */
 	rows: SearchRow[];
 };

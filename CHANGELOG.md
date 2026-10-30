@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- #370 global search now indexes settings, not just pages and records: the pond feeding rate, feeds per day, sample interval, population, area, depth and feed price, the feeding schedule, the daily and per-meal feed ceilings, calibration, hopper calibration and capacity, the recalibration interval, temperature calibration, notification preferences, the organization defaults and thresholds, and the platform configuration sections. Results carry English and Hiligaynon synonyms ("ceiling", "cap", "limit", "takda"), are role-filtered on the server, and open the page then scroll to, focus and ring the real control with the help panel's highlight engine.
+- #371 pond settings now show the grams the typed values ask for (daily and per meal) beside the feeder's real ceiling and maximum dose, with every device disagreement reported as a card that names both values and links to the exact device setting.
+
+### Changed
+
+- #371 a failed pond settings save keeps every value the reader typed and restores an unsaved draft after leaving the page; errors render under their field and in a summary whose links move focus to the field. Device conflicts are resolved in the pond's favour: the daily ceiling can be set from the pond value (still bounded by the 500-5,000 g window and never above a platform or hopper ceiling), and a meal the relay window cannot run links to calibration with the fewest feeds that would fit. The per-meal dose is derived from the typed values before the schedule command validates it, so a save is no longer refused by a stale dose.
+
 ## [1.31.8] - 2026-10-30
 
 ### Changed

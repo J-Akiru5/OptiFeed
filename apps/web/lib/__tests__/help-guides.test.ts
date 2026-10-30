@@ -8,6 +8,7 @@ import {
 	sectionsFor,
 } from "@/lib/help/guides";
 import { itemRoute, matchesRoute } from "@/lib/help/types";
+import { settingTargets } from "@/lib/search/settings-catalogue";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -22,6 +23,10 @@ import { describe, expect, it } from "vitest";
 const ROOTS = ["app", "components"];
 const WEB_ROOT = process.cwd();
 const CHROME_ANCHORS = new Set(["help-button", "help-sheet"]);
+// Settings fields are explained by the global-search settings catalogue (#370),
+// which has its own copy and its own anchor test. They are legitimate targets
+// for the same `data-help` highlight engine, so they are not orphans.
+const SETTING_ANCHORS = new Set(settingTargets());
 const ANCHOR_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 
 function sourceFiles(dir: string): string[] {
@@ -102,7 +107,7 @@ describe("help guides", () => {
 	it("leaves no data-help attribute that no guide explains", () => {
 		const explained = new Set(helpTargets());
 		for (const [anchor, files] of anchorsInSource()) {
-			if (CHROME_ANCHORS.has(anchor)) continue;
+			if (CHROME_ANCHORS.has(anchor) || SETTING_ANCHORS.has(anchor)) continue;
 			expect(
 				explained.has(anchor),
 				`data-help="${anchor}" in ${files.join(", ")} is in no guide`,

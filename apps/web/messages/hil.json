@@ -3592,6 +3592,49 @@
 				"invalid": "Gamita ang bug-os nga minuto kag ipabilin nga mas malip-ot ang weak-signal window sa offline nga window.",
 				"failed": "Indi ma-save ang device thresholds.",
 				"summary": "Sa subong, wala sa linya pagkatapos {offline} min plus {grace} min nga grasya ({total} min nga kahilom). Ang safety checks para sa feed commands nagagamit gihapon sang {offline}-minute nga window nga wala sang grasya."
+			},
+			"firmwareGates": {
+				"title": "Mga limitasyon sang firmware para sa kaluwasan",
+				"description": "Ang mga limitasyon nga ginapatuman sang feeder sa uma. Ang tagsa ka balor yara sa sulod sang permanente nga safety envelope: puede mo ini huguton ukon huklason sa sulod sini, pero wala sing setting diri ang makapatay sang guard.",
+				"fields": {
+					"min_dispense_gap_s": {
+						"label": "Pinakamalip-ot nga pagitan sang mga dosis (s)",
+						"hint": "Bug-os nga segundo halin {min} hasta {max}. Indi gid magbaton ang firmware sang kubos sa 10 s."
+					},
+					"max_dispenses_per_hour": {
+						"label": "Pinakamataas nga dosis kada nagaligid nga oras",
+						"hint": "Bug-os nga numero halin {min} hasta {max}. Indi gid magbaton ang firmware sang sobra sa 6."
+					},
+					"brownout_hold_s": {
+						"label": "Hold pagkatapos sang brownout (s)",
+						"hint": "Bug-os nga segundo halin {min} hasta {max}. Wala sing dosis nga magadalagan samtang nagabangon ang unit halin sa brownout."
+					},
+					"safe_mode_abnormal_window_s": {
+						"label": "Window sang abnormal nga pag-restart (s)",
+						"hint": "Bug-os nga segundo halin {min} hasta {max}. Ang mga restart sa guwa sini nga window indi magdugang."
+					},
+					"safe_mode_abnormal_threshold": {
+						"label": "Abnormal nga restart antes mag-safe mode",
+						"hint": "Bug-os nga numero halin {min} hasta {max}. Ginakandado sang unit ang relay pagkatapos sini kadamu nga abnormal nga restart sa sulod sang window."
+					},
+					"safe_mode_quiet_s": {
+						"label": "Tinaw nga tion sang safe mode (s)",
+						"hint": "Bug-os nga segundo halin {min} hasta {max}. Makagwa lang ang unit sa safe mode pagkatapos sini nga kalawig nga wala sing abnormal nga restart."
+					},
+					"safe_mode_healthy_clear_s": {
+						"label": "Maayo nga pagpadagan antes limpyohan ang history (s)",
+						"hint": "Bug-os nga segundo halin {min} hasta {max}. Ginatinluan ang reset history pagkatapos sini nga kalawig nga maayo nga pagpadagan."
+					}
+				},
+				"reasonLabel": "Rason",
+				"reasonPlaceholder": "hal. Huguton ang oras-oras nga limitasyon pagkatapos sang ulat sang doble nga dosis sa CICT",
+				"reasonHint": "Narekord sa platform audit log. Labing diutay 10 ka karakter.",
+				"save": "I-save ang mga limitasyon",
+				"saving": "Ginasave…",
+				"saved": "Na-save ang mga limitasyon sang firmware. Makita ini sang mga device sa ila masunod nga poll.",
+				"invalidField": "{field} dapat yara sa {min} hasta {max}.",
+				"failed": "Indi ma-save ang mga limitasyon sang firmware.",
+				"note": "Ginailapat sang mga device ang pagbag-o sa ila masunod nga poll (mga kada 5 s). Ang permanente nga envelope — relay on-time, ang 5,000 g nga adlaw-adlaw nga hard guard, ang relay overrun trip kag ang mga pin — naka-compile sa firmware kag indi gid madugangan halin diri."
 			}
 		},
 		"feedPct": "Feed %",

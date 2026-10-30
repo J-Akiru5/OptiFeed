@@ -3592,6 +3592,49 @@
 				"invalid": "Use whole minutes and keep the weak-signal window shorter than the offline window.",
 				"failed": "The device thresholds could not be saved.",
 				"summary": "Currently offline after {offline} min plus {grace} min grace ({total} min of silence). The safety checks for feed commands still use the {offline}-minute window without the grace."
+			},
+			"firmwareGates": {
+				"title": "Firmware safety gates",
+				"description": "The limits the feeder firmware enforces in the field. Every value stays inside a fixed safety envelope: a value can be tightened or relaxed within it, but no setting here can disable a guard.",
+				"fields": {
+					"min_dispense_gap_s": {
+						"label": "Minimum gap between doses (s)",
+						"hint": "Whole seconds from {min} to {max}. The firmware never accepts less than 10 s."
+					},
+					"max_dispenses_per_hour": {
+						"label": "Maximum doses per rolling hour",
+						"hint": "Whole number from {min} to {max}. The firmware never accepts more than 6."
+					},
+					"brownout_hold_s": {
+						"label": "Hold after a brownout (s)",
+						"hint": "Whole seconds from {min} to {max}. No dose runs while the unit recovers from a brownout."
+					},
+					"safe_mode_abnormal_window_s": {
+						"label": "Abnormal-reset window (s)",
+						"hint": "Whole seconds from {min} to {max}. Resets outside this window do not add up."
+					},
+					"safe_mode_abnormal_threshold": {
+						"label": "Abnormal resets before safe mode",
+						"hint": "Whole number from {min} to {max}. The unit locks the relay off after this many abnormal resets inside the window."
+					},
+					"safe_mode_quiet_s": {
+						"label": "Safe-mode quiet period (s)",
+						"hint": "Whole seconds from {min} to {max}. The unit only leaves safe mode after this long without an abnormal reset."
+					},
+					"safe_mode_healthy_clear_s": {
+						"label": "Healthy running before clearing the history (s)",
+						"hint": "Whole seconds from {min} to {max}. The reset history is cleared after this much healthy running."
+					}
+				},
+				"reasonLabel": "Reason",
+				"reasonPlaceholder": "e.g. Tighten the hourly ceiling after the CICT double-dose report",
+				"reasonHint": "Recorded in the platform audit log. At least 10 characters.",
+				"save": "Save safety gates",
+				"saving": "Saving…",
+				"saved": "Firmware safety gates saved. Devices apply them on their next poll.",
+				"invalidField": "{field} must be between {min} and {max}.",
+				"failed": "The firmware safety gates could not be saved.",
+				"note": "Devices apply a change on their next poll (about every 5 s). The absolute envelope — relay on-time, the 5,000 g daily hard guard, the relay overrun trip and the pins — is compiled into the firmware and can never be raised from here."
 			}
 		},
 		"feedPct": "Feed %",

@@ -565,7 +565,8 @@
 			"advisorGrams": "{grams} g per meal",
 			"advisorConfidence": "{level} confidence",
 			"advisorEmpty": "Not enough data for a recommendation yet.",
-			"advisorLink": "Open the full advisor"
+			"advisorLink": "Open the full advisor",
+			"statusWeak": "Weak signal"
 		},
 		"home": {
 			"noData": "No pond is assigned yet. Ask your administrator to set one up.",
@@ -662,6 +663,11 @@
 					"hopperTitle": "Hopper level",
 					"hopperSummary": "Average hopper level per day over the last 7 days, latest {latest}.",
 					"hopperEmpty": "No hopper readings yet."
+				},
+				"connection": {
+					"online": "Online",
+					"weak": "Weak signal",
+					"offline": "Offline"
 				}
 			},
 			"greetingNextFeeding": "Next feeding at {time}",
@@ -851,7 +857,9 @@
 			"changeInSettings": "Change it in Settings > Pond",
 			"limitClamped": "Sending {grams}, capped by this limit.",
 			"error": "Failed to trigger manual feed.",
-			"durationHint": "≈ {seconds}s dispense"
+			"durationHint": "≈ {seconds}s dispense",
+			"weakSignal": "Weak signal",
+			"weakSignalWarning": "Weak signal. The feeder is still reachable, but this command may take a little longer."
 		},
 		"growth": {
 			"title": "Growth & FCR",
@@ -1676,7 +1684,8 @@
 			"componentReady": "Ready",
 			"componentNoReading": "No reading",
 			"componentReading": "Reading",
-			"componentsTitle": "Components"
+			"componentsTitle": "Components",
+			"statusWeak": "Weak signal"
 		},
 		"adminDevices": {
 			"view3d": "3D view",
@@ -2067,7 +2076,9 @@
 					"title": "Recalibration suggested",
 					"desc": "Over the last 7 days the device reported {dispensed} dispensed, but the hopper level dropped by about {observed} ({diff}). A difference above 15% suggests the feed rate has drifted — re-run the target check."
 				}
-			}
+			},
+			"weakSignal": "Weak signal",
+			"weakFor": "Weak signal — last heartbeat {duration} ago"
 		},
 		"audit": {
 			"title": "Audit Trail",
@@ -2310,7 +2321,8 @@
 				"label": "Choose layout",
 				"list": "List",
 				"cards": "Cards"
-			}
+			},
+			"weak": "Weak signal"
 		},
 		"adminOverview": {
 			"title": "Admin Overview",
@@ -2669,7 +2681,8 @@
 				"abw": "Average Body Weight: the mean weight of the fish in your latest biomass sample, in grams. It is the sample weight divided by the number of fish weighed.",
 				"aboutFcr": "What does FCR mean?",
 				"fcr": "Feed Conversion Ratio: the kilograms of feed used for every kilogram of fish weight gained, taken from your latest FCR report. Lower is better."
-			}
+			},
+			"deviceWeak": "ESP32 weak signal"
 		},
 		"mobile": {
 			"openMenu": "Quick actions",
@@ -2856,7 +2869,8 @@
 				"label": "Choose layout",
 				"list": "List",
 				"cards": "Cards"
-			}
+			},
+			"weak": "Weak signal"
 		},
 		"calendar": {
 			"title": "Platform calendar",
@@ -3556,6 +3570,25 @@
 						"description": "Show the help button and in-page guidance."
 					}
 				}
+			},
+			"deviceStatus": {
+				"title": "Device connectivity",
+				"description": "When a feeder is shown as online, weak signal or offline. One late heartbeat must never flip the whole screen to offline.",
+				"weakLabel": "Weak signal after (minutes)",
+				"weakHint": "Whole minutes from {min} to {max}. Must be shorter than the offline window.",
+				"offlineLabel": "Offline after (minutes)",
+				"offlineHint": "Whole minutes from {min} to {max}.",
+				"graceLabel": "Grace after the offline window (minutes)",
+				"graceHint": "Whole minutes from {min} to {max}. Absorbs one late heartbeat.",
+				"reasonLabel": "Reason",
+				"reasonPlaceholder": "e.g. The CICT feeder reports every five minutes on a weak link",
+				"reasonHint": "Recorded in the platform audit log. At least 10 characters.",
+				"save": "Save thresholds",
+				"saving": "Saving…",
+				"saved": "Device thresholds saved: weak after {weak} min, offline after {offline} min plus {grace} min grace.",
+				"invalid": "Use whole minutes and keep the weak-signal window shorter than the offline window.",
+				"failed": "The device thresholds could not be saved.",
+				"summary": "Currently offline after {offline} min plus {grace} min grace ({total} min of silence). The safety checks for feed commands still use the {offline}-minute window without the grace."
 			}
 		},
 		"feedPct": "Feed %",

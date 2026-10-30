@@ -1,9 +1,10 @@
 import { type CalibrationDriftResult, computeCalibrationDrift } from "@/lib/calibration/drift";
 import { loadCalibrationDriftWindow } from "@/lib/calibration/drift-data";
 import { startOfDayInTimeZone } from "@/lib/chart-windows";
-import { OFFLINE_THRESHOLD_MS, PH_TZ } from "@/lib/constants";
+import { PH_TZ } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
+import { evaluateDeviceStatus } from "@/lib/device-status";
 import { totalBiomassG } from "@/lib/feed-calc";
 import { MACHINE_FEED_SOURCES } from "@/lib/feed-figures";
 import type { GrowthPlan } from "@/lib/growth-plan";
@@ -11,6 +12,7 @@ import { loadGrowthPlanForPond } from "@/lib/growth-plan-loader";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 
 export interface ChatContext {
 	pondName: string;
@@ -136,8 +138,12 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 	});
 
 	const now = Date.now();
-	const deviceOnline =
-		!!energyDevice?.lastSeenAt && now - energyDevice.lastSeenAt.getTime() <= OFFLINE_THRESHOLD_MS;
+	const statusPolicy = await getDeviceStatusPolicy();
+	const deviceOnline = !evaluateDeviceStatus({
+		lastSeenAt: energyDevice?.lastSeenAt ?? null,
+		now: new Date(now),
+		policy: statusPolicy,
+	}).isOffline;
 
 	// Deterministic feeding prediction (no AI call — keeps chat fast and free).
 	const latestFcrValue = latestFcr?.fcrValue ?? null;

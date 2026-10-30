@@ -25,8 +25,9 @@ vi.mock("next/headers", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { setListPageSize } from "@/lib/actions/platform/settings";
+import { setDeviceStatusThresholds, setListPageSize } from "@/lib/actions/platform/settings";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
+import { DEVICE_STATUS_DEFAULT_VALUE, DEVICE_STATUS_SETTING_KEY } from "@/lib/device-status";
 import {
 	LIST_PAGE_SIZE_DEFAULT,
 	LIST_PAGE_SIZE_KEY,
@@ -130,6 +131,92 @@ describe("setListPageSize", () => {
 
 	it("rejects a reason shorter than 10 characters", async () => {
 		const result = await setListPageSize(20, "too short");
+
+		expect(result).toEqual({
+			error: "A reason of at least 10 characters is required.",
+		});
+		expect(tx.platformSetting.upsert).not.toHaveBeenCalled();
+	});
+});
+
+describe("setDeviceStatusThresholds (#388)", () => {
+	it("allows a platform admin, upserts the setting and writes one audit row", async () => {
+		const result = await setDeviceStatusThresholds(
+			{ weakAfterMin: 3, offlineAfterMin: 20, graceMin: 4 },
+			VALID_REASON,
+		);
+
+		expect(result).toEqual({
+			success: true,
+			value: { weakAfterMin: 3, offlineAfterMin: 20, graceMin: 4 },
+		});
+		expect(tx.platformSetting.upsert).toHaveBeenCalledWith({
+			where: { key: DEVICE_STATUS_SETTING_KEY },
+			create: {
+				key: DEVICE_STATUS_SETTING_KEY,
+				value: { weakAfterMin: 3, offlineAfterMin: 20, graceMin: 4 },
+				updatedById: "admin-1",
+			},
+			update: {
+				value: { weakAfterMin: 3, offlineAfterMin: 20, graceMin: 4 },
+				updatedById: "admin-1",
+			},
+		});
+		expect(tx.platformAuditLog.create).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					actorUserId: "admin-1",
+					action: "platform.settings.device_status",
+					targetType: "platform_setting",
+					targetId: DEVICE_STATUS_SETTING_KEY,
+					reason: VALID_REASON,
+					before: DEVICE_STATUS_DEFAULT_VALUE,
+					after: { weakAfterMin: 3, offlineAfterMin: 20, graceMin: 4 },
+				}),
+			}),
+		);
+	});
+
+	it("denies a caller without a platform grant", async () => {
+		mockGate.mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
+
+		await expect(
+			setDeviceStatusThresholds(
+				{ weakAfterMin: 3, offlineAfterMin: 20, graceMin: 4 },
+				VALID_REASON,
+			),
+		).rejects.toThrow("NEXT_REDIRECT");
+		expect(tx.platformSetting.upsert).not.toHaveBeenCalled();
+		expect(tx.platformAuditLog.create).not.toHaveBeenCalled();
+	});
+
+	it("rejects a weak window at or beyond the offline window", async () => {
+		const result = await setDeviceStatusThresholds(
+			{ weakAfterMin: 20, offlineAfterMin: 20, graceMin: 2 },
+			VALID_REASON,
+		);
+
+		expect(result).toEqual({
+			error: "The weak-signal window must be shorter than the offline window.",
+		});
+		expect(tx.platformSetting.upsert).not.toHaveBeenCalled();
+	});
+
+	it("rejects out-of-range whole minutes", async () => {
+		const result = await setDeviceStatusThresholds(
+			{ weakAfterMin: 0, offlineAfterMin: 200, graceMin: -1 },
+			VALID_REASON,
+		);
+
+		expect("error" in result).toBe(true);
+		expect(tx.platformSetting.upsert).not.toHaveBeenCalled();
+	});
+
+	it("rejects a short reason", async () => {
+		const result = await setDeviceStatusThresholds(
+			{ weakAfterMin: 3, offlineAfterMin: 20, graceMin: 4 },
+			"short",
+		);
 
 		expect(result).toEqual({
 			error: "A reason of at least 10 characters is required.",

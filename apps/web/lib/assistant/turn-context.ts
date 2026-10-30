@@ -1,10 +1,11 @@
 import { getCurrentPondOwnerIdSafe } from "@/lib/auth/session";
 import { utcDateToFarmDateTime } from "@/lib/calendar/datetime";
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { dateToFarmDateOnly } from "@/lib/crop-cycle/dates";
+import { evaluateDeviceStatus } from "@/lib/device-status";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import type { AssistantCaller } from "./caller";
 import type { AssistantTurnContext } from "./planner";
 import type { AssistantProposalContext } from "./types";
@@ -29,6 +30,7 @@ export async function buildAssistantTurnData(
 	caller: AssistantCaller,
 ): Promise<AssistantTurnData> {
 	const ownerId = await getCurrentPondOwnerIdSafe();
+	const statusPolicy = await getDeviceStatusPolicy();
 
 	let pondId: string | null = null;
 	let pondName: string | null = null;
@@ -78,8 +80,11 @@ export async function buildAssistantTurnData(
 				devicePaused = device.isPaused;
 				hopperLevelPct = device.feedLevelPercent;
 				currentGrams = device.gramsPerFeeding;
-				deviceOnline =
-					!!device.lastSeenAt && Date.now() - device.lastSeenAt.getTime() <= OFFLINE_THRESHOLD_MS;
+				deviceOnline = !evaluateDeviceStatus({
+					lastSeenAt: device.lastSeenAt,
+					now: new Date(),
+					policy: statusPolicy,
+				}).isOffline;
 			}
 
 			const schedule = await resolveCurrentSchedule(pond.id, deviceId);

@@ -342,6 +342,12 @@
 					);
 				}
 
+				function deviceStatusLabel(value) {
+					const state = String(value || "unknown").toLowerCase();
+					if (state === "weak") return "WEAK SIGNAL";
+					return state.toUpperCase();
+				}
+
 				function renderOverview(snapshot) {
 					const data = snapshot ? snapshot.data : {};
 					return (
@@ -349,7 +355,7 @@
 						card("Pond", data.pondName || "—", data.deviceName ? "Device: " + data.deviceName : "") +
 						card(
 							"Device",
-							String(data.deviceStatus || "unknown").toUpperCase(),
+							deviceStatusLabel(data.deviceStatus),
 							data.lastSeenAt ? "Last seen " + date(data.lastSeenAt) : "No heartbeat",
 						) +
 						card(
@@ -395,7 +401,7 @@
 							"Grams / meal",
 							data.gramsPerFeeding == null ? "—" : number(data.gramsPerFeeding, 1) + " g",
 						) +
-						card("Device", String(data.deviceStatus || "unknown").toUpperCase()) +
+						card("Device", deviceStatusLabel(data.deviceStatus)) +
 						card("Last seen", data.lastSeenAt ? date(data.lastSeenAt) : "—") +
 						card("Paused", data.isPaused ? "Yes" : "No") +
 						card("Pending command", data.pendingCommandStatus || "None") +

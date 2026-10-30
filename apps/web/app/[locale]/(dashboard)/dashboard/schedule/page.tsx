@@ -10,11 +10,12 @@ import {
 } from "@/components/dashboard/dashboard-ui";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { canWrite } from "@/lib/auth/session";
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { evaluateDeviceStatus } from "@/lib/device-status";
 import { getFeedNowLimitForDevice } from "@/lib/feed/feed-now-limit";
 import type { ScheduleSnapshotData } from "@/lib/offline/snapshots";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { CalendarClock } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -113,9 +114,19 @@ export default async function SchedulePage() {
 
 	const pendingCommand = pendingCommands.length > 0 ? pendingCommands[0] : null;
 
-	const deviceOffline =
-		!energyDevice.lastSeenAt ||
-		Date.now() - energyDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+	// A schedule command still being delivered must not flip the page to offline
+	// (#388). Only a recent command counts; a stale pending row is handled by the
+	// stuck-request banner instead of masking a genuinely silent device.
+	const statusPolicy = await getDeviceStatusPolicy();
+	const commandInFlight =
+		!!pendingCommand && Date.now() - pendingCommand.updatedAt.getTime() <= STALE_THRESHOLD_MS;
+	const connection = evaluateDeviceStatus({
+		lastSeenAt: energyDevice.lastSeenAt,
+		now: new Date(),
+		policy: statusPolicy,
+		inFlight: commandInFlight,
+	});
+	const deviceOffline = connection.isOffline;
 
 	const serializeCommand = (cmd: typeof latestAppliedCommand) => {
 		if (!cmd) return null;
@@ -139,7 +150,7 @@ export default async function SchedulePage() {
 	const scheduleSnapshot: ScheduleSnapshotData = {
 		pondName: pond.name,
 		deviceName: energyDevice.label ?? "Feeder",
-		deviceStatus: deviceOffline ? "offline" : "online",
+		deviceStatus: connection.state,
 		lastSeenAt: energyDevice.lastSeenAt?.toISOString() ?? null,
 		scheduleStart: currentCommand?.scheduleStart ?? fmtTime(pond.scheduleStart),
 		scheduleEnd: currentCommand?.scheduleEnd ?? fmtTime(pond.scheduleEnd),

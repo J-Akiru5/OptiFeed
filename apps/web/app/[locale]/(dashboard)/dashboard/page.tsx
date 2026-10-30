@@ -43,14 +43,13 @@ import { computeCalibrationDrift } from "@/lib/calibration/drift";
 import { loadCalibrationDriftWindow } from "@/lib/calibration/drift-data";
 import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
 import { DEFAULT_HOPPER_RANGE, WATER_TEMP_RANGES, parseWaterTempRange } from "@/lib/chart-windows";
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatFarmDateTime, formatWallClockTime } from "@/lib/date-local";
 import { toHopperSnapshot } from "@/lib/device-hopper";
+import { evaluateDeviceStatus } from "@/lib/device-status";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { formatFeedAmountLabel } from "@/lib/feed-figures";
-import { isDeviceOffline } from "@/lib/feed-level-display";
 import { feedSourceKey } from "@/lib/feed-sources";
 import { getFeedNowLimitForDevice } from "@/lib/feed/feed-now-limit";
 import type { DashboardSnapshotData } from "@/lib/offline/snapshots";
@@ -60,6 +59,7 @@ import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { computeNextFeedingSlot } from "@/lib/schedule/next-feeding-slot";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { getOrgSettingsForFarm } from "@/lib/settings/org";
 import { cn } from "@/lib/utils";
 import {
@@ -125,7 +125,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	// One parallel wave for independent reads. Every device on the pond is read
 	// so the pond overview can pin each feeder; the first one stays the primary
 	// device for the schedule, controller and predictions.
-	const [energyDevices, recentBiomassLogs, fcrReports, activeCycle, orgSettings] =
+	const [energyDevices, recentBiomassLogs, fcrReports, activeCycle, orgSettings, statusPolicy] =
 		await Promise.all([
 			prisma.energyDevice.findMany({
 				where: { pondId: pond.id },
@@ -178,12 +178,18 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 			// The low-hopper threshold is an org setting (#190); the dashboard alert
 			// must honour it instead of the hard-coded default.
 			getOrgSettingsForFarm(pond.ownerId),
+			getDeviceStatusPolicy(),
 		]);
 
 	const energyDevice = energyDevices[0] ?? null;
 	const deviceIds = energyDevices.map((row) => row.id);
 	const now = new Date();
-	const hopper = energyDevice ? toHopperSnapshot(energyDevice, now) : null;
+	const hopper = energyDevice ? toHopperSnapshot(energyDevice, now, statusPolicy) : null;
+	const connection = evaluateDeviceStatus({
+		lastSeenAt: energyDevice?.lastSeenAt ?? null,
+		now,
+		policy: statusPolicy,
+	});
 
 	const latestBiomass = recentBiomassLogs[0] ?? null;
 
@@ -278,9 +284,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	const daysUntilSample = Math.max(0, (pond.sampleIntervalDays ?? 14) - daysSinceSample);
 
 	// Determine Critical Alert — lazy offline detection from energyDevice.lastSeenAt
-	const esp32Offline =
-		!energyDevice?.lastSeenAt ||
-		now.getTime() - energyDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+	const esp32Offline = connection.isOffline;
 	const criticalAlert = esp32Offline && !!energyDevice;
 	const isPaused = energyDevice?.isPaused ?? false;
 	const recalibration = getRecalibrationStatus(
@@ -335,7 +339,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	const dashboardSnapshot: DashboardSnapshotData = {
 		pondName: pond.name,
 		deviceName: energyDevice?.label ?? device.name,
-		deviceStatus: energyDevice ? (esp32Offline ? "offline" : "online") : "missing",
+		deviceStatus: energyDevice ? connection.state : "missing",
 		lastSeenAt: energyDevice?.lastSeenAt?.toISOString() ?? null,
 		feedLevelPercent: energyDevice?.feedLevelPercent ?? null,
 		feedLevelUpdatedAt: energyDevice?.feedLevelUpdatedAt?.toISOString() ?? null,
@@ -355,17 +359,25 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		isPaused,
 	};
 
-	const feeders: PondOverviewFeeder[] = energyDevices.map((row) => ({
-		id: row.id,
-		label: row.label,
-		isOffline: isDeviceOffline(row.lastSeenAt, now),
-		isPaused: row.isPaused,
-		levelPercent: row.feedLevelPercent,
-		levelUpdatedAt: row.feedLevelUpdatedAt,
-		nextFeedLabel: row.isPaused ? null : nextFeedingTimeStr,
-		waterTempLabel:
-			row.waterTempOk && row.waterTempC !== null ? `${row.waterTempC.toFixed(1)} °C` : null,
-	}));
+	const feeders: PondOverviewFeeder[] = energyDevices.map((row) => {
+		const rowStatus = evaluateDeviceStatus({
+			lastSeenAt: row.lastSeenAt,
+			now,
+			policy: statusPolicy,
+		});
+		return {
+			id: row.id,
+			label: row.label,
+			status: rowStatus.state,
+			isOffline: rowStatus.isOffline,
+			isPaused: row.isPaused,
+			levelPercent: row.feedLevelPercent,
+			levelUpdatedAt: row.feedLevelUpdatedAt,
+			nextFeedLabel: row.isPaused ? null : nextFeedingTimeStr,
+			waterTempLabel:
+				row.waterTempOk && row.waterTempC !== null ? `${row.waterTempC.toFixed(1)} °C` : null,
+		};
+	});
 
 	// The rail's alerts are derived from the same reads as the cards above; the
 	// offline banner is repeated from the page-level critical alert.
@@ -642,7 +654,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							nextFeedingVolume={pond.isFallow ? "0g" : `${nextFeedingVolumeG}g`}
 							label={tBtn("feedNow")}
 							deviceName={energyDevice?.label ?? device.name}
-							connectionStatus={esp32Offline ? "offline" : "online"}
+							connectionStatus={connection.state}
 							hopperLevelPct={hopper?.levelPercent ?? null}
 							canWrite={writeAccess}
 							isFallow={pond.isFallow}

@@ -159,9 +159,10 @@ describe("isDeviceOffline", () => {
 		expect(isDeviceOffline(null, NOW)).toBe(true);
 	});
 
-	it("uses the 15-minute window", () => {
+	it("keeps the grace window, then flips after 17 minutes by default", () => {
 		expect(isDeviceOffline(new Date(NOW.getTime() - 5 * 60 * 1000), NOW)).toBe(false);
-		expect(isDeviceOffline(new Date(NOW.getTime() - 16 * 60 * 1000), NOW)).toBe(true);
+		expect(isDeviceOffline(new Date(NOW.getTime() - 17 * 60 * 1000), NOW)).toBe(false);
+		expect(isDeviceOffline(new Date(NOW.getTime() - 18 * 60 * 1000), NOW)).toBe(true);
 	});
 });
 

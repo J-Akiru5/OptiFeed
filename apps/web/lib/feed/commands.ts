@@ -1,6 +1,8 @@
-import { OFFLINE_THRESHOLD_MS, STALE_DISPATCHED_MS } from "@/lib/constants";
+import { STALE_DISPATCHED_MS } from "@/lib/constants";
+import { isDeviceUnreachable } from "@/lib/device-status";
 import { manilaDayRange } from "@/lib/feed/day";
 import { feedNowLimitMessage, resolveDailyCapG, resolveFeedNowLimitG } from "@/lib/limits";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
@@ -99,7 +101,7 @@ export async function createManualFeedRequest(
 
 	// N10: reject while the device is offline — it cannot pick the request up,
 	// so queueing it would silently strand the dose.
-	if (!device.lastSeenAt || Date.now() - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS) {
+	if (isDeviceUnreachable(device.lastSeenAt, new Date(), await getDeviceStatusPolicy())) {
 		return {
 			ok: false,
 			code: "offline",

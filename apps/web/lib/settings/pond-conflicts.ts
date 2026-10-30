@@ -4,7 +4,7 @@ import {
 	clamp,
 	normalizeDailyCapG,
 	resolveDailyCapG,
-} from "@/lib/limits";
+} from "@/lib/limits-core";
 import type { PondSettingsField } from "./pond-fields";
 
 /**

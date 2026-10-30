@@ -15,7 +15,7 @@ describe("service worker caching rules", () => {
 	const sw = publicFile("sw.js");
 
 	it("bumps the cache version so old static caches are purged", () => {
-		expect(sw).toContain('const CACHE_NAME = "pakaonai-static-v8"');
+		expect(sw).toContain('const CACHE_NAME = "pakaonai-static-v9"');
 		expect(sw).toMatch(
 			/filter\(\(key\) => key\.startsWith\(CACHE_PREFIX\) && key !== CACHE_NAME\)/,
 		);
@@ -30,9 +30,15 @@ describe("service worker caching rules", () => {
 			sw.indexOf("async function navigationFallback"),
 			sw.indexOf('self.addEventListener("fetch"'),
 		);
-		expect(navigation).toContain("fetch(request)");
+		expect(navigation).toContain("fetchWithRetry(request)");
 		expect(navigation).toContain("caches.match(OFFLINE_URL)");
 		expect(navigation).not.toContain("cache.put");
+	});
+
+	it("retries a navigation twice before showing the offline shell (#388)", () => {
+		expect(sw).toContain("async function fetchWithRetry(request)");
+		expect(sw).toContain("attempt < 3");
+		expect(sw).toContain("await fetchWithRetry(request)");
 	});
 
 	it("only caches explicit same-origin static destinations", () => {

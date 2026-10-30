@@ -83,7 +83,7 @@ export default async function DashboardLayout({
 	let hopperCapacityG: number | null = null;
 	let hopperGramsPerFeeding: number | null = null;
 	let hopperFeedsPerDay: number | null = null;
-	let esp32Status: "online" | "offline" | "missing" = "missing";
+	let esp32Status: "online" | "weak" | "offline" | "missing" = "missing";
 	let pondName = "";
 	let lastSeenAtStr: string | null = null;
 	let ponds: { id: string; name: string }[] = [];
@@ -115,7 +115,7 @@ export default async function DashboardLayout({
 				hopperLevelUpdatedAt = hopper.levelUpdatedAt;
 				hopperCapacityG = hopper.hopperCapacityG;
 				hopperGramsPerFeeding = hopper.gramsPerFeeding;
-				esp32Status = hopper.isOffline ? "offline" : "online";
+				esp32Status = hopper.status;
 				lastSeenAtStr = hopper.lastSeenAt ? hopper.lastSeenAt.toISOString() : null;
 			}
 		}
@@ -126,9 +126,11 @@ export default async function DashboardLayout({
 	const deviceStatusLabel =
 		esp32Status === "online"
 			? tCommon("deviceOnline")
-			: esp32Status === "offline"
-				? tCommon("deviceOffline")
-				: tCommon("deviceMissing");
+			: esp32Status === "weak"
+				? tCommon("deviceWeak")
+				: esp32Status === "offline"
+					? tCommon("deviceOffline")
+					: tCommon("deviceMissing");
 
 	return (
 		<ChatWidgetProvider role={isPlatformAdmin ? "superadmin" : isTenantAdmin ? "owner" : "farmer"}>
@@ -209,7 +211,9 @@ export default async function DashboardLayout({
 												className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] transition-all duration-500 ${
 													esp32Status === "online"
 														? "bg-[#1E7B34] text-[#1E7B34]"
-														: "bg-[#C42B3A] text-[#C42B3A]"
+														: esp32Status === "weak"
+															? "bg-[#B45309] text-[#B45309]"
+															: "bg-[#C42B3A] text-[#C42B3A]"
 												}`}
 											/>
 											<span className="text-[10px] text-white/70 uppercase tracking-wider">

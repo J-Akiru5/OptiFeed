@@ -29,6 +29,7 @@ import { FEEDER_HERO_PHOTO_SESSION_KEY, type FeederHeroData } from "@/lib/feeder
 function heroData(overrides: Partial<FeederHeroData> = {}): FeederHeroData {
 	return {
 		deviceLabel: "Feeder A",
+		connectionState: "online",
 		isOffline: false,
 		isPaused: false,
 		lastSeenAt: new Date(2026, 9, 27, 9, 12),
@@ -79,8 +80,17 @@ describe("FeederHero readings", () => {
 		expect(screen.getByText("Fresh sample, stable FCR.")).toBeInTheDocument();
 	});
 
+	it("shows a weak-signal state without treating the feeder as offline", () => {
+		renderHero({ connectionState: "weak" });
+
+		expect(within(callouts()).getByText("Weak signal")).toBeInTheDocument();
+		// The hopper reading is still current, not the greyed "last known" value.
+		expect(within(callouts()).getByText("82%")).toBeInTheDocument();
+		expect(within(callouts()).queryByText("Last known 82%")).not.toBeInTheDocument();
+	});
+
 	it("keeps the last known hopper reading for an offline feeder", () => {
-		renderHero({ isOffline: true, isPaused: false });
+		renderHero({ connectionState: "offline", isOffline: true, isPaused: false });
 
 		expect(within(callouts()).getByText("Last known 82%")).toBeInTheDocument();
 		const items = within(callouts()).getAllByRole("listitem");
@@ -93,7 +103,12 @@ describe("FeederHero readings", () => {
 	});
 
 	it("says there is no reading when the feeder never reported one", () => {
-		renderHero({ isOffline: true, hopperLevelPercent: null, hopperUpdatedAt: null });
+		renderHero({
+			connectionState: "offline",
+			isOffline: true,
+			hopperLevelPercent: null,
+			hopperUpdatedAt: null,
+		});
 
 		expect(within(callouts()).getByText("—")).toBeInTheDocument();
 		expect(within(callouts()).getByText("No reading yet")).toBeInTheDocument();

@@ -9,9 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.33.0] - 2026-10-30
+
+### Fixed
+
+- Bundle budget: Feed Now, schedule and pond-settings client components import the zod-free `lib/limits-core` instead of `lib/limits`, which removes the first-load JS regression introduced in 1.32.0.
+
+### Fixed
+
+- #388 device connectivity is now one three-state rule (online / weak signal / offline) shared by the header indicator, sidebar, dashboard, feeder hero, admin and superadmin lists, alerts, assistant context and PWA snapshot. A late heartbeat shows "weak signal" instead of flipping the screen to offline; offline starts only after the platform-configured window plus a grace, with hysteresis so it cannot flap. The weak-signal window, offline window and grace are editable by a platform admin in Settings → Device connectivity (stored in `PlatformSetting` key `device.status`; no schema change), and feed/calibration commands keep the stricter no-grace safety check. A command that is being delivered keeps the device out of the offline state, and the service worker retries a navigation twice before showing the offline shell so a slow link no longer lands readers on the offline dashboard after a single failed request.
+
 ## [1.32.0] - 2026-10-30
 
 ### Added
+
+- #370 global search (⌘K / Ctrl+K) finds settings (daily feed ceiling, per-meal ceiling, calibration, hopper capacity and thresholds, schedule) in English and Hiligaynon, only for roles allowed to open them, and jumps to and highlights the field.
 
 ### Fixed
 

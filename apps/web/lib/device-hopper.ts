@@ -1,5 +1,11 @@
-import { isDeviceOffline } from "@/lib/feed-level-display";
+import {
+	DEFAULT_DEVICE_STATUS_POLICY,
+	type DeviceConnectionState,
+	type DeviceStatusPolicy,
+	evaluateDeviceStatus,
+} from "@/lib/device-status";
 import prisma from "@/lib/prisma";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import type { Prisma } from "@prisma/client";
 
 /**
@@ -12,8 +18,8 @@ import type { Prisma } from "@prisma/client";
  *    same convention the dashboard uses for its schedule and controller;
  *  - the live value is `feedLevelPercent` + `feedLevelUpdatedAt`, never a
  *    recomputed distance or a cached snapshot;
- *  - offline is the shared `OFFLINE_THRESHOLD_MS` rule from
- *    `lib/feed-level-display.ts`, so the last-known treatment cannot drift.
+ *  - connection state is the shared three-state rule from
+ *    `lib/device-status.ts` (#388), so the last-known treatment cannot drift.
  *
  * Surfaces that already load the full device row pass it to
  * `toHopperSnapshot`; surfaces that only need the reading use
@@ -43,19 +49,28 @@ export interface HopperSnapshot {
 	levelPercent: number | null;
 	levelUpdatedAt: Date | null;
 	lastSeenAt: Date | null;
+	/** The three-state connection rule from `lib/device-status.ts`. */
+	status: DeviceConnectionState;
+	/** True only for the full offline state; weak signal keeps its reading live. */
 	isOffline: boolean;
 	hopperCapacityG: number | null;
 	gramsPerFeeding: number | null;
 }
 
 /** Normalise a device row into the snapshot every hopper surface renders. */
-export function toHopperSnapshot(row: HopperSourceRow, now: Date = new Date()): HopperSnapshot {
+export function toHopperSnapshot(
+	row: HopperSourceRow,
+	now: Date = new Date(),
+	policy: DeviceStatusPolicy = DEFAULT_DEVICE_STATUS_POLICY,
+): HopperSnapshot {
+	const status = evaluateDeviceStatus({ lastSeenAt: row.lastSeenAt, now, policy }).state;
 	return {
 		deviceId: row.id,
 		levelPercent: row.feedLevelPercent,
 		levelUpdatedAt: row.feedLevelUpdatedAt,
 		lastSeenAt: row.lastSeenAt,
-		isOffline: isDeviceOffline(row.lastSeenAt, now),
+		status,
+		isOffline: status === "offline",
 		hopperCapacityG: row.hopperCapacityG ?? null,
 		gramsPerFeeding: row.gramsPerFeeding ?? null,
 	};
@@ -66,10 +81,13 @@ export async function loadPondHopper(
 	pondId: string,
 	now: Date = new Date(),
 ): Promise<HopperSnapshot | null> {
-	const row = await prisma.energyDevice.findFirst({
-		where: { pondId },
-		orderBy: { createdAt: "asc" },
-		select: HOPPER_SNAPSHOT_SELECT,
-	});
-	return row ? toHopperSnapshot(row, now) : null;
+	const [row, policy] = await Promise.all([
+		prisma.energyDevice.findFirst({
+			where: { pondId },
+			orderBy: { createdAt: "asc" },
+			select: HOPPER_SNAPSHOT_SELECT,
+		}),
+		getDeviceStatusPolicy(),
+	]);
+	return row ? toHopperSnapshot(row, now, policy) : null;
 }

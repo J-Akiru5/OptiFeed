@@ -2,7 +2,7 @@
 
 import { Link } from "@/i18n/routing";
 import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
-import { type FeedNowLimit, formatFeedGrams } from "@/lib/limits";
+import { type FeedNowLimit, formatFeedGrams } from "@/lib/limits-core";
 import { useFeedCommandGuard } from "@/lib/pwa/use-feed-guard";
 import { cn } from "@/lib/utils";
 import {

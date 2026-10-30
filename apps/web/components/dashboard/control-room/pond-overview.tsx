@@ -2,6 +2,7 @@
 
 import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { Link } from "@/i18n/routing";
+import type { DeviceConnectionState } from "@/lib/device-status";
 import { cn } from "@/lib/utils";
 import { Clock, Droplets, PauseCircle, Wheat } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -10,6 +11,9 @@ import { useTranslations } from "next-intl";
 export interface PondOverviewFeeder {
 	id: string;
 	label: string;
+	/** Online / weak signal / offline (issue #388). */
+	status: DeviceConnectionState;
+	/** True only for a full offline state. */
 	isOffline: boolean;
 	isPaused: boolean;
 	levelPercent: number | null;
@@ -141,12 +145,17 @@ export function PondOverview({ pondName, feeders, className }: PondOverviewProps
 											aria-hidden="true"
 											className={cn(
 												"h-2 w-2 shrink-0 rounded-full",
-												feeder.isOffline ? "bg-[#C42B3A]" : "bg-[#1E7B34]",
+												feeder.status === "offline"
+													? "bg-[#C42B3A]"
+													: feeder.status === "weak"
+														? "bg-[#B45309]"
+														: "bg-[#1E7B34]",
 											)}
 										/>
 										<span className="truncate text-[11px] font-black text-[#0A3D62] dark:text-gray-100">
 											{feeder.label}
 										</span>
+										<span className="sr-only">{t(`connection.${feeder.status}`)}</span>
 									</span>
 
 									<FeedLevelDisplay

@@ -5,6 +5,7 @@ import { getCurrentPondOwnerId, getCurrentUser, requireWriteAccess } from "@/lib
 import { isValidRecalibrationIntervalDays } from "@/lib/calibration/recalibration";
 import { isValidCalibrationSessionId } from "@/lib/calibration/session";
 import { STALE_DISPATCHED_MS } from "@/lib/constants";
+import { isDeviceUnreachable } from "@/lib/device-status";
 import {
 	CALIBRATION_ACTUAL_GRAMS_MAX,
 	CALIBRATION_MAX_DISPENSE_MS,
@@ -13,13 +14,13 @@ import {
 	CALIBRATION_TEST_SECONDS_MIN,
 	GRAMS_PER_SECOND_MAX,
 	GRAMS_PER_SECOND_MIN,
-	OFFLINE_THRESHOLD_MS,
 	TARGET_CHECK_GRAMS_MAX,
 	TARGET_CHECK_GRAMS_MIN,
 	TARGET_CHECK_TOLERANCE_PCT,
 	resolveDailyCapG,
 } from "@/lib/limits";
 import prisma from "@/lib/prisma";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import { revalidatePath } from "next/cache";
 
@@ -251,7 +252,7 @@ export async function runCalibrationTest(
 			data: { status: "expired" },
 		});
 
-		if (!device.lastSeenAt || Date.now() - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS) {
+		if (isDeviceUnreachable(device.lastSeenAt, new Date(), await getDeviceStatusPolicy())) {
 			return {
 				success: false,
 				error: "Device is offline — calibration test rejected. Retry once the device reconnects.",
@@ -393,7 +394,7 @@ export async function runTargetCheck(
 			data: { status: "expired" },
 		});
 
-		if (!device.lastSeenAt || Date.now() - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS) {
+		if (isDeviceUnreachable(device.lastSeenAt, new Date(), await getDeviceStatusPolicy())) {
 			return {
 				success: false,
 				error: "Device is offline — target check rejected. Retry once the device reconnects.",

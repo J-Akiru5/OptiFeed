@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The CI performance job no longer waits out its 30-minute timeout: the latency harness signals the spawned Next server's process group, releases the child pipes and has a bounded exit.
+
 ## [1.31.3] - 2026-10-30
 
 ### Fixed

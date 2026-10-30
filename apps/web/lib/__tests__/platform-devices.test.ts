@@ -36,7 +36,8 @@ vi.mock("@/lib/auth/step-up", () => ({
 }));
 vi.mock("next/headers", () => ({
 	headers: vi.fn(
-		async () => new Headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1", "user-agent": "vitest" }),
+		async () =>
+			new Headers({ "x-forwarded-for": "10.0.0.99, 203.0.113.7", "user-agent": "vitest" }),
 	),
 }));
 

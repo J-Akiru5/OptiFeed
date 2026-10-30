@@ -21,6 +21,11 @@ No open PRs. Older issues #316-#339 are handled by other sessions in the `iso-*`
 | E32 | #371 A failed Pond Settings save keeps every typed value; errors are inline with a link to the conflicting setting. Where device or org values conflict, the pond setting wins. |
 | E33 | #370 Global search indexes settings keys (daily feed ceiling, calibration, capacity, thresholds) and deep-links to the field. |
 | E34 | #365 Verify only: no new code. |
+| E35 | Jeff 10-30 22:20: Wi-Fi RSSI is stored (additive migration on EnergyDevice, optional heartbeat field wifi_rssi, firmware 1.6.2 change; flashing still needs Jeff's yes). |
+| E36 | Offline alerts follow the platform connectivity thresholds; the org offlineAfterMin is deprecated for timing. |
+| E37 | Pond-settings drafts live in the database, one per (pond, user) with the device reference, and survive browser sessions. |
+| E38 | SUPERSEDES E30: the only gram cap is the daily cap. No per-dispensation cap; the relay-time guard and firmware gate stay. |
+| E39 | The org default feeding rate stays a default, not a ceiling; ponds may override. |
 
 ## #365 verification (Claude)
 
@@ -33,6 +38,9 @@ Pakoy's full write surface (#344) shipped in v1.31.2 (`5ad31c9`, `5b8a54e`, merg
 | I-94 | #387 Feed Now cap = pond setting | `mission/I-94-feed-now-cap` | merged (v1.32.0, `cd37e21`) |
 | I-95 | #388 three connectivity states, superadmin thresholds | `mission/I-95-offline-states` | merged (v1.33.0, `f687163`) |
 | I-96 | #371 keep typed values + #370 search settings keys | `mission/I-96-settings-search` | merged (v1.32.0, `cd37e21`) |
+| I-97 | RSSI storage, Weak signal from RSSI, alerts follow platform thresholds (E35, E36) | `mission/I-97-rssi-alerts` | running |
+| I-98 | Daily cap only (E38) | `mission/I-98-daily-cap-only` | running |
+| I-99 | Pond drafts in the database (E37) | `mission/I-99-pond-drafts-db` | running |
 
 ## Integration log
 
@@ -45,11 +53,7 @@ Issues #387, #371, #370, #388 closed with version and SHA. #365 verified (see ab
 
 ## Open for Jeff
 
-1. **RSSI storage.** Neither `EnergyDevice` nor ingest keeps Wi-Fi RSSI, so "Weak signal" uses heartbeat timing only. Proposed additive migration: `EnergyDevice.wifiRssiDbm Int?`, `wifiRssiUpdatedAt DateTime?`, plus an optional `wifi_rssi` heartbeat field (firmware change). Needs backup + approval.
-2. Should alerts (org `offlineAfterMin`, default 30 min) follow the platform connectivity thresholds?
-3. Pond-settings drafts: `sessionStorage` (now) or `localStorage`?
-4. Should scheduled doses also be capped at 1,000 g like Feed Now? (They are not today.)
-5. Org values as pond caps: `defaultFeedingRatePct` is only a default; make it a ceiling?
-6. Hiligaynon strings from I-94, I-95, I-96 are drafts for native review.
-7. Process note: `bundle budget + latency` is not a required check; consider making it required (#323 governance).
-8. Production is behind develop; promotion is yours.
+1. Hiligaynon strings from I-94 to I-99 are drafts for native review.
+2. Make `bundle budget + latency` a required check (see #323).
+3. Production is behind develop; promotion is yours.
+4. Firmware 1.6.2 (adds wifi_rssi) must be flashed by you, with your yes; applying the two migrations (EnergyDevice RSSI columns, PondSettingsDraft table) is done by Claude after a full JSON backup.

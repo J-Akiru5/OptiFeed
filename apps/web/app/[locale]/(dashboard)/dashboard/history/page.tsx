@@ -64,6 +64,8 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 			lastSeenAt: true,
 			hopperCapacityG: true,
 			gramsPerFeeding: true,
+			wifiRssiDbm: true,
+			wifiRssiUpdatedAt: true,
 		},
 	});
 

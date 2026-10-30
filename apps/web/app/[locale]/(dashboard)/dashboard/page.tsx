@@ -47,7 +47,7 @@ import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatFarmDateTime, formatWallClockTime } from "@/lib/date-local";
 import { toHopperSnapshot } from "@/lib/device-hopper";
-import { evaluateDeviceStatus } from "@/lib/device-status";
+import { evaluateDeviceStatus, resolveRssiDbm } from "@/lib/device-status";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { formatFeedAmountLabel } from "@/lib/feed-figures";
 import { feedSourceKey } from "@/lib/feed-sources";
@@ -149,6 +149,8 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					waterTempC: true,
 					waterTempOk: true,
 					waterTempUpdatedAt: true,
+					wifiRssiDbm: true,
+					wifiRssiUpdatedAt: true,
 				},
 			}),
 			prisma.biomassLog.findMany({
@@ -189,6 +191,12 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		lastSeenAt: energyDevice?.lastSeenAt ?? null,
 		now,
 		policy: statusPolicy,
+		rssiDbm: resolveRssiDbm({
+			rssiDbm: energyDevice?.wifiRssiDbm ?? null,
+			updatedAt: energyDevice?.wifiRssiUpdatedAt ?? null,
+			now,
+			policy: statusPolicy,
+		}),
 	});
 
 	const latestBiomass = recentBiomassLogs[0] ?? null;
@@ -364,6 +372,12 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 			lastSeenAt: row.lastSeenAt,
 			now,
 			policy: statusPolicy,
+			rssiDbm: resolveRssiDbm({
+				rssiDbm: row.wifiRssiDbm,
+				updatedAt: row.wifiRssiUpdatedAt,
+				now,
+				policy: statusPolicy,
+			}),
 		});
 		return {
 			id: row.id,
@@ -655,6 +669,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							label={tBtn("feedNow")}
 							deviceName={energyDevice?.label ?? device.name}
 							connectionStatus={connection.state}
+							rssiDbm={hopper?.rssiDbm ?? null}
 							hopperLevelPct={hopper?.levelPercent ?? null}
 							canWrite={writeAccess}
 							isFallow={pond.isFallow}

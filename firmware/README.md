@@ -370,7 +370,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 #define FEED_POLL_URL_BASE     "https://pakaonai.syntaxure.dev/api/feed-command"
 #define SCHEDULE_SYNC_URL_BASE "https://pakaonai.syntaxure.dev/api/schedule-sync"
 #define OTA_CHECK_URL          "https://pakaonai.syntaxure.dev/api/firmware/check"
-#define FW_VERSION             "1.6.0"
+#define FW_VERSION             "1.6.2"
 #define FW_BOARD               "wroom32u"
 ```
 
@@ -403,7 +403,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 > 4. Confirm the five embedded certificates match the fingerprints in the
 >    source comment (`openssl x509 -fingerprint -sha256 -in <pem>`).
 
-> `FW_VERSION` is printed at boot (`[FIRMWARE] v1.6.0`, under the
+> `FW_VERSION` is printed at boot (`[FIRMWARE] v1.6.2`, under the
 > `[DEVICE MAC]` line) and sent as `firmware_version` in every heartbeat. It is
 > also the version the OTA check reports and compares against the signed
 > manifest.
@@ -832,7 +832,8 @@ them identical to the PEMs embedded in `firmware-main.ino`.
   "timestamp": "2026-07-11T12:00:00+00:00",
   "rtc_ok": true,
   "feeder_active": false,
-  "firmware_version": "1.6.0",
+  "firmware_version": "1.6.2",
+  "wifi_rssi": -58,
   "ota_state": "valid",
   "reset_reason": "poweron",
   "safe_mode": false,
@@ -862,6 +863,12 @@ them identical to the PEMs embedded in `firmware-main.ino`.
 > `pending_verify`, `valid`, `downloading`, `installed`, `aborted`, `failed`, `rolled_back`;
 > `reset_reason` is one of `poweron`, `external`, `software`, `panic`, `interrupt_wdt`,
 > `task_wdt`, `wdt`, `deepsleep`, `brownout`, `sdio`, `unknown`.
+>
+> **Wi-Fi signal (1.6.2, I-97).** `wifi_rssi` is `WiFi.RSSI()` in dBm. The heartbeat has
+> carried it since 1.6.0, but the server only started accepting and storing it in 1.6.2:
+> a value outside -127..0 (or a non-integer) is dropped without failing the heartbeat, and
+> a heartbeat without the field leaves the last stored reading untouched. The app uses it
+> for the "weak signal" state and the dBm text; units without it keep the timing-only rule.
 >
 > **1.6.0 diagnostics.** `safe_mode`, `last_reset_reasons` and the nested `diag` object are
 > additive and currently **stripped** by the ingest schema (verified by
@@ -1001,7 +1008,7 @@ Portal checks (no backend needed):
 12. Confirm the serial log never prints the WiFi password or the Device Token, and that
     the setup page never renders a stored token. `/status` and `/scan` must not contain
     either.
-13. Confirm the boot log prints `[FIRMWARE] v1.6.0` under the `[DEVICE MAC]` line and
+13. Confirm the boot log prints `[FIRMWARE] v1.6.2` under the `[DEVICE MAC]` line and
     `[IDENTITY] Setup AP name`, and that a heartbeat carries the same version in
     `firmware_version`.
 14. Confirm the boot log prints `[INIT] Reset reason: ...`, `[OTA] state -> valid` and

@@ -201,8 +201,8 @@
 				"description": "Hopper level that raises a low-hopper alert."
 			},
 			"orgOfflineThreshold": {
-				"title": "Offline threshold",
-				"description": "Minutes without a heartbeat before a feeder is marked offline."
+				"title": "Offline alert delay (deprecated)",
+				"description": "Not used for timing any more. Offline alerts and badges follow the platform device connectivity policy."
 			},
 			"orgMissedFeeding": {
 				"title": "Missed-feeding alerts",
@@ -839,7 +839,7 @@
 			"triggerDesc": "This will send an immediate auger motor manual override request of <bold>{volume}</bold> directly to the physical ESP32 automatic feeder controller.",
 			"feederNode": "📍 Feeder Node: <bold>{name}</bold>",
 			"connectionLink": "📍 Connection Link: ",
-			"connected": "Connected • RSSI −58dB",
+			"connected": "Connected",
 			"offline": "Offline",
 			"feedPortion": "📍 Feed Portion: <bold>{volume} of 4mm pellets</bold>",
 			"requestSent": "Feed request sent — device will dispense within 5s",
@@ -2604,8 +2604,9 @@
 			"percentOfBodyWeight": "% of body weight per day",
 			"hopperLowLabel": "Hopper low threshold (%)",
 			"hopperLowHint": "Send a low-feed warning at or below this level. Critical alerts still fire at 5 %.",
-			"offlineAfterLabel": "Offline alert after (minutes)",
-			"offlineAfterHint": "How long a feeder may be silent before an alert is sent. The status badge still shows offline after 15 minutes.",
+			"offlineAfterLabel": "Offline alert delay (minutes) — deprecated",
+			"offlineAfterHint": "Not used for timing any more. Offline alerts and badges follow the platform device connectivity policy (offline window plus grace) in Superadmin → Settings → Device status. The value is kept for compatibility.",
+			"offlineAfterDeprecated": "Deprecated",
 			"missedFeedingLabel": "Missed-feeding alerts",
 			"missedFeedingHint": "Notify when a scheduled feeding is refused and does not happen.",
 			"rolesLabel": "Who receives alerts",
@@ -2682,7 +2683,9 @@
 				"aboutFcr": "What does FCR mean?",
 				"fcr": "Feed Conversion Ratio: the kilograms of feed used for every kilogram of fish weight gained, taken from your latest FCR report. Lower is better."
 			},
-			"deviceWeak": "ESP32 weak signal"
+			"deviceWeak": "ESP32 weak signal",
+			"signalLabel": "Wi-Fi signal",
+			"signalDbm": "{dbm} dBm"
 		},
 		"mobile": {
 			"openMenu": "Quick actions",
@@ -3528,8 +3531,8 @@
 				"feedingRateHint": "From {min}% to {max}%.",
 				"hopperLowLabel": "Hopper-low threshold (%)",
 				"hopperLowHint": "Whole percent from {min} to {max}.",
-				"offlineLabel": "Offline alert delay (minutes)",
-				"offlineHint": "Whole minutes from {min} to {max}.",
+				"offlineLabel": "Offline alert delay (minutes) — deprecated",
+				"offlineHint": "Not used for timing any more: alerts and badges follow the platform device connectivity policy. The value is kept for compatibility ({min}-{max} minutes).",
 				"missedFeedingLabel": "Create missed-feeding alerts by default",
 				"alertRolesLabel": "Alert roles",
 				"alertRolesHint": "At least one role must receive org alerts.",

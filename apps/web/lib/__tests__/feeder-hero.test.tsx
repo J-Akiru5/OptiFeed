@@ -33,6 +33,7 @@ function heroData(overrides: Partial<FeederHeroData> = {}): FeederHeroData {
 		isOffline: false,
 		isPaused: false,
 		lastSeenAt: new Date(2026, 9, 27, 9, 12),
+		rssiDbm: null,
 		hopperLevelPercent: 82,
 		hopperUpdatedAt: new Date(2026, 9, 27, 9, 10),
 		gramsToday: 1240,
@@ -87,6 +88,22 @@ describe("FeederHero readings", () => {
 		// The hopper reading is still current, not the greyed "last known" value.
 		expect(within(callouts()).getByText("82%")).toBeInTheDocument();
 		expect(within(callouts()).queryByText("Last known 82%")).not.toBeInTheDocument();
+	});
+
+	it("names the reported signal next to the weak state (I-97)", () => {
+		renderHero({ connectionState: "weak", rssiDbm: -84 });
+
+		const connectionChip = within(callouts()).getAllByRole("listitem")[4] as HTMLElement;
+		// Text, not colour alone: the state and the reading are both readable.
+		expect(within(connectionChip).getByText("Weak signal")).toBeInTheDocument();
+		expect(within(connectionChip).getByText(/-84 dBm/)).toBeInTheDocument();
+	});
+
+	it("omits the signal line when the unit has not reported one", () => {
+		renderHero({ connectionState: "weak", rssiDbm: null });
+
+		const connectionChip = within(callouts()).getAllByRole("listitem")[4] as HTMLElement;
+		expect(within(connectionChip).queryByText(/dBm/)).not.toBeInTheDocument();
 	});
 
 	it("keeps the last known hopper reading for an offline feeder", () => {

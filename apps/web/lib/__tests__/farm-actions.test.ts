@@ -261,6 +261,8 @@ describe("getAllFarmHierarchies", () => {
 									id: "d1",
 									label: "Feeder",
 									lastSeenAt: new Date("2026-01-01T00:00:00.000Z"),
+									wifiRssiDbm: -79,
+									wifiRssiUpdatedAt: new Date("2026-01-01T00:00:00.000Z"),
 								},
 							],
 						},
@@ -295,7 +297,15 @@ describe("getAllFarmHierarchies", () => {
 					id: "p1",
 					name: "Pond One",
 					status: "ACTIVE",
-					devices: [{ id: "d1", label: "Feeder", lastSeenAt: "2026-01-01T00:00:00.000Z" }],
+					devices: [
+						{
+							id: "d1",
+							label: "Feeder",
+							lastSeenAt: "2026-01-01T00:00:00.000Z",
+							wifiRssiDbm: -79,
+							wifiRssiUpdatedAt: "2026-01-01T00:00:00.000Z",
+						},
+					],
 				},
 			],
 		});

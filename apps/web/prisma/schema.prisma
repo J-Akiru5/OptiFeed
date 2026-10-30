@@ -346,6 +346,11 @@ model EnergyDevice {
   waterTempOk        Boolean   @default(false) // false if probe undetected on last heartbeat
   waterTempUpdatedAt DateTime? // last time a reading was ingested
 
+  // Wi-Fi signal reported on the heartbeat (firmware 1.6.2+). Both stay null on
+  // old firmware, which keeps the timing-only connectivity rule working.
+  wifiRssiDbm       Int? // last RSSI in dBm (-127..0), null until reported
+  wifiRssiUpdatedAt DateTime? // last time an RSSI was ingested
+
   // Per-device calibration
   hopperEmptyCm             Float? // sensor distance when hopper is empty (~30cm for 10L bottle)
   hopperFullCm              Float? // sensor distance when hopper is full (~5cm)
@@ -711,7 +716,7 @@ model OrgSetting {
   orgId                 String                 @id
   defaultFeedingRatePct Float                  @default(3)
   hopperLowPct          Int                    @default(20)
-  offlineAfterMin       Int                    @default(30)
+  offlineAfterMin       Int                    @default(30) // deprecated (I-97): kept for compatibility; offline alerts follow PlatformSetting "device.status"
   missedFeedingAlerts   Boolean                @default(true)
   alertRoles            MemberRole[]           @default([OWNER, ADMIN])
   deviceRegistration    DeviceRegistrationMode @default(ADMIN_APPROVAL)

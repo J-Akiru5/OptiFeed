@@ -7,7 +7,12 @@ import {
 } from "@/lib/constants";
 import { isDeviceApproved, verifyDeviceToken } from "@/lib/device-auth";
 import { FIRMWARE_REPORTED_EVENT, getDeviceFirmwareVersion } from "@/lib/device-firmware";
-import { isDeviceUnreachable } from "@/lib/device-status";
+import {
+	DEVICE_RSSI_DBM_MAX,
+	DEVICE_RSSI_DBM_MIN,
+	isDeviceUnreachable,
+	isValidRssiDbm,
+} from "@/lib/device-status";
 import { estimateDaysOfFeedRemaining } from "@/lib/feed-level";
 import { normalizeNotificationPrefs } from "@/lib/limits";
 import { absoluteAppUrl, sendTelegramMessage } from "@/lib/notify/telegram";
@@ -79,6 +84,13 @@ const heartbeatSchema = baseSchema.extend({
 	// Water temperature (DS18B20 probe) — piggybacked on existing heartbeat
 	water_temp_c: z.number().optional(),
 	water_temp_ok: z.boolean().optional(),
+	// Wi-Fi signal (firmware 1.6.2+). Advisory only: a malformed value is
+	// dropped here instead of failing the whole heartbeat, so one buggy field
+	// can never cost a device its connectivity.
+	wifi_rssi: z.preprocess(
+		(value) => (isValidRssiDbm(value) ? value : undefined),
+		z.number().int().min(DEVICE_RSSI_DBM_MIN).max(DEVICE_RSSI_DBM_MAX).optional(),
+	),
 });
 
 const feedDispensedSchema = baseSchema.extend({
@@ -164,6 +176,12 @@ export const POST = withApi(
 			if (!parsed.success) {
 				return new Response("Unprocessable Entity", { status: 422 });
 			}
+
+			// I-97: an absent/invalid `wifi_rssi` must not clear the last known
+			// reading, so only a plausible value becomes an update.
+			const rssiDbm = parsed.data.wifi_rssi;
+			const rssiUpdate =
+				rssiDbm === undefined ? {} : { wifiRssiDbm: rssiDbm, wifiRssiUpdatedAt: new Date() };
 
 			const wasOffline = isDeviceUnreachable(
 				device.lastSeenAt,
@@ -251,6 +269,10 @@ export const POST = withApi(
 							lastSeenAt: new Date(),
 							rtcOk: parsed.data.rtc_ok,
 							feederActive: parsed.data.feeder_active,
+							// I-97: the signal rides the heartbeat write that already
+							// exists, so no extra query per beat. A beat without an RSSI
+							// (old firmware) leaves the last known reading untouched.
+							...rssiUpdate,
 						},
 					}),
 				];

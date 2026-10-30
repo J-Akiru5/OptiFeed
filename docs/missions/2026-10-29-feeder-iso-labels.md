@@ -3,7 +3,7 @@
 Owner: Jeff. Orchestrator: OpenCode lead.
 Branch: `feat/feeder-iso-labels`. Worktree: `S:/Dev/optifeed/feeder-iso-labels`.
 Base: `origin/develop` @ `fdfc830`.
-App release target: **1.31.0** (MINOR: new labels feature). No model-asset change.
+App release target: **1.31.0** (MINOR: new labels feature). Fix follow-up: **1.31.3** (PATCH: locked Iso, mobile callouts, bottom tip; 1.31.1 and 1.31.2 were already released from develop). No model-asset change.
 
 ## Objective
 
@@ -13,11 +13,11 @@ Show component labels with live statuses on the feeder 3D viewer, **only while t
 
 - Six live modules: hopper, ultrasonic sensor, controller, motor, auger, outlet. No structural labels.
 - Statuses are derived from the one live feeder status + hopper level; they do not imply independent telemetry.
-- ISO camera: `[-1.1, 0.45, 1.3]`, target `[0, 0.37, 0.03]`.
-- Labels are read-only and must not block orbit.
-- Desktop: floating callouts with 1 px leaders and anchor dots. Mobile: compact status list under the canvas, ISO only.
+- ISO camera: `[-1.1, 0.45, 1.3]`, target `[0, 0.31, 0.03]`. Iso locks rotate and zoom so the labels stay placed.
+- Labels are read-only. Iso locks orbit/zoom; the other presets hide the labels and allow orbit/zoom.
+- Both widths: floating callouts with 1 px leaders and anchor dots. Mobile uses compact 8/15/9 px type and caps cards at `min(96px, 28%)` instead of a list.
 - Keep the PakaonAI dark product stage; do not clone the Solis light theme.
-- Labels disappear when Front/Left/Right/Rear/Top is selected, and manual orbit clears them; press ISO to restore the composed view.
+- Labels appear only in Iso. Choosing Front/Left/Right/Rear/Top hides them and enables orbit/zoom; pressing Iso restores the locked composition. A bottom hint explains the rule.
 
 ## Status mapping
 
@@ -50,13 +50,25 @@ Tones: green = live/online/running/ready; orange = dispensing; amber = last know
 
 - ISO shows the six labels with the correct derived statuses; every other preset hides them.
 - The ISO camera is the front-left angle and is the default.
-- The model remains interactive; labels have `pointer-events: none`.
+- The model allows orbit/zoom in every preset except Iso; labels have `pointer-events: none`.
 - Desktop callouts do not overlap the model or each other at 834/1440 px.
-- Mobile shows a legible status list under the canvas; no labels floating over a 300 px model.
+- Mobile shows the same six callouts, dots and leaders in compact type; at 320-430 px they stay inside the stage and off the hopper.
 - Labels are readable in both app themes; status is not conveyed by colour alone.
 - Screen readers receive the component statuses outside the canvas.
 - `pnpm lint`, `pnpm typecheck`, focused Vitest, `pnpm build` pass; CI is green.
 - No schema, migration, dependency, model-asset or service-worker cache change.
+
+## Latest fix: locked ISO and mobile callouts
+
+The owner rejected the first cut because labels vanished as soon as the model was orbited and
+because mobile replaced the callouts with a list. The current behavior is:
+
+- Iso locks `enableRotate`/`enableZoom`; labels cannot drift. Other presets allow orbit/zoom and
+  show no labels.
+- Mobile renders the same six anchors, dots and leaders as desktop. Cards cap at `min(96px, 28%)`
+  with 8/15/9 px type so the 300 px stage stays legible.
+- The 2 x 3 list is now `sr-only` at every width and remains the `aria-describedby` summary.
+- The bottom hint (`isoLabelsTip`) states that labels appear only in the Isometric view.
 
 ## Model correction
 
@@ -66,7 +78,9 @@ The post top is **615 mm** (105 mm above the 510 mm hopper/lid top), not the ear
 
 - i18n parity: **6/6 passed** (subagent B).
 - Component status: **14/14 passed** (subagent A).
-- Pending: labels component, parent integration, full gates, visual QA.
+- Locked-ISO fix: focused suite **35/35** (labels 5, layout 10, parts 14, i18n 6).
+- Local browser QA at **356 × 300** and **958 × 440**: six cards, six anchor dots and twelve leader strokes; an Iso drag produced an identical frame; a Front drag orbited and kept the labels hidden; Iso restored all six.
+- Full gates: lint, typecheck, build and **282 files / 3,357 tests** passed; CI pending.
 
 ## Public showcase
 

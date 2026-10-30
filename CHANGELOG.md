@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.31.3] - 2026-10-30
+
+### Fixed
+
+- The feeder Iso view now locks rotate and zoom, so the six component labels stay perfectly anchored instead of disappearing after a drag. Every other preset keeps orbit/zoom and shows no labels; this supersedes the 1.31.0 orbit-clears behavior.
+- Mobile now renders the same six anchor dots and leaders as desktop, with compact 8/15/9 px callouts capped at `min(96px, 28%)` of the stage. The 2 x 3 status list is now `sr-only` at every width and remains the `aria-describedby` summary.
+- Added a bottom hint stating that component labels appear only while the model is in the Isometric view.
+
 ## [1.31.2] - 2026-10-30
 
 ### Added

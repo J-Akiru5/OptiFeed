@@ -1504,7 +1504,7 @@
 			"simpleView": "Simple view",
 			"modelVersion": "Model",
 			"statusAnnouncement": "Feeder status: {status}",
-			"dragHint": "Drag to orbit. Pinch or scroll to zoom.",
+			"isoLabelsTip": "Component labels appear only when the model is in the Isometric view. Iso is locked; choose another view to orbit.",
 			"back": "Back to dashboard",
 			"desc": "Live 3D view of the feeder on {pond}.",
 			"detailsLabel": "Device details",

@@ -52,10 +52,9 @@ function StudioEnvironment() {
 	return null;
 }
 
-function CameraRig({ preset }: { preset: CameraPreset | "custom" }) {
+function CameraRig({ preset }: { preset: CameraPreset }) {
 	const { camera } = useThree();
 	useEffect(() => {
-		if (preset === "custom") return;
 		const [x, y, z] = CAMERA_PRESETS[preset];
 		camera.position.set(x, y, z);
 		camera.lookAt(0, 0.31, 0.03);
@@ -100,7 +99,7 @@ export function FeederViewer({
 	onSimpleView,
 }: FeederViewerProps) {
 	const t = useTranslations("dashboard.feederViewer");
-	const [preset, setPreset] = useState<CameraPreset | "custom">("iso");
+	const [preset, setPreset] = useState<CameraPreset>("iso");
 	const statusLabel = t(`status${status.charAt(0).toUpperCase()}${status.slice(1)}`);
 	const level = feedLevelPercent === null ? null : Math.min(100, Math.max(0, feedLevelPercent));
 
@@ -155,6 +154,8 @@ export function FeederViewer({
 					<OrbitControls
 						makeDefault
 						enablePan={false}
+						enableRotate={preset !== "iso"}
+						enableZoom={preset !== "iso"}
 						enableDamping
 						dampingFactor={0.08}
 						minDistance={0.8}
@@ -162,7 +163,6 @@ export function FeederViewer({
 						minPolarAngle={0.25}
 						maxPolarAngle={Math.PI / 2.02}
 						target={[0, 0.31, 0.03]}
-						onStart={() => setPreset("custom")}
 					/>
 				</Canvas>
 				<FeederLabels status={status} level={level} active={preset === "iso"} />

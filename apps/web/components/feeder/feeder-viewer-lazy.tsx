@@ -191,7 +191,7 @@ export function FeederViewerLazy({
 				</ViewerBoundary>
 			)}
 			<p className={cn("mt-2 text-[11px] text-[#3D5568] dark:text-gray-400", simple && "sr-only")}>
-				{t("dragHint")}
+				{t("isoLabelsTip")}
 			</p>
 		</div>
 	);

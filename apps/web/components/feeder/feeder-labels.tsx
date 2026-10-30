@@ -26,12 +26,20 @@ export const FEEDER_COMPONENT_STATUS_ID = "feeder-component-status";
 type LabelTone = "live" | "active" | "paused" | "muted";
 type ViewerTranslate = (key: string) => string;
 
+interface CardBox {
+	left: number;
+	width: number;
+}
+
 const LABEL_INSET_PX = 16;
 const LEADER_GAP_PX = 6;
 const ANCHOR_EDGE_PX = 8;
 const LABEL_STAGGER_MS = 35;
-const LABEL_MAX_WIDTH_DESKTOP_PX = 168;
+const LABEL_MAX_WIDTH_MOBILE_PX = 96;
 const LABEL_MAX_WIDTH_TABLET_PX = 144;
+const LABEL_MAX_WIDTH_DESKTOP_PX = 168;
+/** Mobile cards may never take more than this share of the stage. */
+const LABEL_MOBILE_WIDTH_RATIO = 0.28;
 
 const TONE_COLOR: Record<LabelTone, string> = {
 	live: "#4ADE80",
@@ -209,13 +217,18 @@ function clampToStage(value: number, maximum: number): number {
 	return Math.min(Math.max(value, ANCHOR_EDGE_PX), Math.max(ANCHOR_EDGE_PX, maximum));
 }
 
-function sameCardWidths(
-	current: Partial<Record<FeederComponentId, number>>,
-	next: Partial<Record<FeederComponentId, number>>,
+function sameCardBoxes(
+	current: Partial<Record<FeederComponentId, CardBox>>,
+	next: Partial<Record<FeederComponentId, CardBox>>,
 ): boolean {
 	const ids = Object.keys(next) as FeederComponentId[];
 	if (ids.length !== Object.keys(current).length) return false;
-	return ids.every((id) => Math.abs((current[id] ?? -1) - (next[id] ?? -2)) < 0.5);
+	return ids.every((id) => {
+		const a = current[id];
+		const b = next[id];
+		if (!a || !b) return false;
+		return Math.abs(a.left - b.left) < 0.5 && Math.abs(a.width - b.width) < 0.5;
+	});
 }
 
 function FeederLabelCard({
@@ -235,8 +248,8 @@ function FeederLabelCard({
 		<div
 			ref={cardRef}
 			className={cn(
-				"ofd-feeder-iso-label absolute max-w-[144px] lg:max-w-[168px]",
-				isRight ? "right-4 text-right" : "left-4 text-left",
+				"ofd-feeder-iso-label absolute max-w-[min(96px,28%)] md:max-w-[144px] lg:max-w-[168px]",
+				isRight ? "right-2 text-right md:right-4" : "left-2 text-left md:left-4",
 			)}
 			style={{
 				top: `${slot.top}%`,
@@ -246,27 +259,27 @@ function FeederLabelCard({
 			}}
 		>
 			<p
-				className="text-[10px] font-extrabold leading-[1.2] tracking-[0.16em] uppercase"
+				className="text-[8px] font-extrabold leading-[1.2] tracking-[0.1em] uppercase md:text-[10px] md:tracking-[0.16em]"
 				style={{ color: NAME_COLOR }}
 			>
 				{content.name}
 			</p>
 			<p
-				className="mt-0.5 text-[22px] font-extrabold leading-[1.05] tracking-[-0.02em] tabular-nums lg:text-[26px]"
+				className="mt-0.5 text-[15px] font-extrabold leading-[1.05] tracking-[-0.02em] tabular-nums md:text-[22px] lg:text-[26px]"
 				style={{ color: content.valueActive ? TONE_COLOR.active : VALUE_COLOR }}
 			>
 				{content.value}
 			</p>
 			<p
 				className={cn(
-					"mt-1 flex items-center gap-1.5 text-[10px] font-bold leading-[1.2] tracking-[0.02em] lg:text-[10.5px]",
+					"mt-0.5 flex items-center gap-1 text-[9px] font-bold leading-[1.2] tracking-[0.02em] md:mt-1 md:gap-1.5 md:text-[10px] lg:text-[10.5px]",
 					isRight && "justify-end",
 				)}
 				style={{ color: TONE_COLOR[content.wordTone] }}
 			>
 				<span
 					aria-hidden="true"
-					className="ofd-feeder-iso-dot inline-block size-[5px] shrink-0 rounded-full"
+					className="ofd-feeder-iso-dot inline-block size-[4px] shrink-0 rounded-full md:size-[5px]"
 					style={{ backgroundColor: TONE_COLOR[content.dotTone] }}
 				/>
 				{content.status}
@@ -277,30 +290,29 @@ function FeederLabelCard({
 
 /**
  * Presentational ISO callouts: fixed-slot text, one leader per projected model
- * anchor and a decorative SVG layer. It never intercepts orbit, hover or focus
- * and is hidden below `md`, where the semantic status list takes over.
+ * anchor and a decorative SVG layer. It never intercepts orbit, hover or focus.
  */
 export function FeederLabels({ status, level, active }: FeederLabelsProps): ReactElement | null {
 	const t = useTranslations("dashboard.feederViewer");
 	const overlayRef = useRef<HTMLDivElement | null>(null);
 	const cardRefs = useRef<Partial<Record<FeederComponentId, HTMLDivElement | null>>>({});
 	const [stage, setStage] = useState({ width: 0, height: 0 });
-	const [cardWidths, setCardWidths] = useState<Partial<Record<FeederComponentId, number>>>({});
+	const [cardBoxes, setCardBoxes] = useState<Partial<Record<FeederComponentId, CardBox>>>({});
 
 	const measureCards = useCallback(() => {
-		const next: Partial<Record<FeederComponentId, number>> = {};
+		const next: Partial<Record<FeederComponentId, CardBox>> = {};
 
 		for (const slot of VISUAL_SLOTS) {
 			const card = cardRefs.current[slot.id];
 			if (!card) continue;
 			const width = card.offsetWidth;
-			if (width > 0) next[slot.id] = width;
+			if (width > 0) next[slot.id] = { left: card.offsetLeft, width };
 		}
 
-		// Keep the last good widths while the overlay is display:none below md;
-		// the observer measures again as soon as it is shown.
+		// Keep the last good boxes while the overlay has no layout yet; the
+		// observer measures again as soon as the stage is visible.
 		if (Object.keys(next).length === 0) return;
-		setCardWidths((current) => (sameCardWidths(current, next) ? current : next));
+		setCardBoxes((current) => (sameCardBoxes(current, next) ? current : next));
 	}, []);
 
 	useEffect(() => {
@@ -332,7 +344,7 @@ export function FeederLabels({ status, level, active }: FeederLabelsProps): Reac
 		return () => observer.disconnect();
 	}, [active, measureCards]);
 
-	// Card widths set the leader origin. Runs after each commit so a locale or
+	// Card boxes set the leader origin. Runs after each commit so a locale or
 	// status change that widens a card also moves its leader; the equality guard
 	// keeps it from looping.
 	useEffect(() => {
@@ -347,8 +359,13 @@ export function FeederLabels({ status, level, active }: FeederLabelsProps): Reac
 	const anchors = projectFeederAnchors(stage.width, stage.height);
 	const visibleSlots = VISUAL_SLOTS.filter((slot) => anchors[slot.id].visible);
 	const hasStage = stage.width > 0 && stage.height > 0;
-	const fallbackCardWidth =
-		stage.width >= 1024 ? LABEL_MAX_WIDTH_DESKTOP_PX : LABEL_MAX_WIDTH_TABLET_PX;
+	const mobileStage = stage.width < 768;
+	const inset = mobileStage ? 8 : LABEL_INSET_PX;
+	const fallbackCardWidth = mobileStage
+		? Math.min(LABEL_MAX_WIDTH_MOBILE_PX, Math.round(stage.width * LABEL_MOBILE_WIDTH_RATIO))
+		: stage.width >= 1024
+			? LABEL_MAX_WIDTH_DESKTOP_PX
+			: LABEL_MAX_WIDTH_TABLET_PX;
 
 	return (
 		<div
@@ -356,7 +373,7 @@ export function FeederLabels({ status, level, active }: FeederLabelsProps): Reac
 			aria-hidden="true"
 			data-feeder-labels="iso"
 			data-testid="feeder-labels"
-			className="pointer-events-none absolute inset-0 z-10 hidden select-none md:block"
+			className="pointer-events-none absolute inset-0 z-10 select-none"
 		>
 			<style>{LABEL_STYLES}</style>
 
@@ -368,11 +385,14 @@ export function FeederLabels({ status, level, active }: FeederLabelsProps): Reac
 				>
 					{visibleSlots.map((slot) => {
 						const anchor = anchors[slot.id];
-						const cardWidth = cardWidths[slot.id] ?? fallbackCardWidth;
-						const startX =
-							slot.side === "left"
-								? LABEL_INSET_PX + cardWidth + LEADER_GAP_PX
-								: stage.width - LABEL_INSET_PX - cardWidth - LEADER_GAP_PX;
+						const box = cardBoxes[slot.id];
+						const startX = box
+							? slot.side === "left"
+								? box.left + box.width + LEADER_GAP_PX
+								: box.left - LEADER_GAP_PX
+							: slot.side === "left"
+								? inset + fallbackCardWidth + LEADER_GAP_PX
+								: stage.width - inset - fallbackCardWidth - LEADER_GAP_PX;
 						const startY = (slot.top / 100) * stage.height;
 						const endX = clampToStage(anchor.x, stage.width - ANCHOR_EDGE_PX);
 						const endY = clampToStage(anchor.y, stage.height - ANCHOR_EDGE_PX);
@@ -429,9 +449,9 @@ export function FeederLabels({ status, level, active }: FeederLabelsProps): Reac
 }
 
 /**
- * The semantic component summary. It is the visible 2 × 3 list below `md` and
- * stays available to screen readers on desktop, where the visual callouts are
- * `aria-hidden`.
+ * The semantic component summary. It is visually hidden at every width and is
+ * referenced by the stage's `aria-describedby`; the visual ISO callouts are
+ * `aria-hidden` so the six readings are announced once, in physical order.
  */
 export function FeederComponentStatusList({
 	status,
@@ -446,11 +466,7 @@ export function FeederComponentStatusList({
 	const contents = buildLabelContents(readings, t);
 
 	return (
-		<dl
-			id={FEEDER_COMPONENT_STATUS_ID}
-			data-testid="feeder-component-status"
-			className="grid grid-cols-2 gap-x-2 gap-y-1.5 border-t border-white/10 px-1 py-2 md:sr-only"
-		>
+		<dl id={FEEDER_COMPONENT_STATUS_ID} data-testid="feeder-component-status" className="sr-only">
 			{readings.map((reading) => {
 				const content = contents[reading.id];
 

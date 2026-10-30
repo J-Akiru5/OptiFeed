@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.31.6] - 2026-10-30
+
+### Changed
+
+- #381 the offline indicator is no longer a large, undismissable card that read like an error toast. It is now a compact pill with a dismiss control and a polite live region; dismissing hides it for that outage only, and it returns after the connection recovers and drops again.
 ## [1.31.5] - 2026-10-30
 
 ### Security

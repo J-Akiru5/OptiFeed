@@ -47,6 +47,7 @@ export function formatMessage(
 
 export type TestTranslator = ((key: string, values?: Record<string, string | number>) => string) & {
 	has: (key: string) => boolean;
+	rich: (key: string, values?: Record<string, unknown>) => string;
 };
 
 /** Build the `getTranslations(namespace)` / `useTranslations(namespace)` shape. */
@@ -60,5 +61,7 @@ export function createTranslator(namespace: string, locale: "en" | "hil" = "en")
 		return formatMessage(template, values);
 	};
 	translator.has = (key: string) => resolve(key) !== undefined;
+	translator.rich = (key: string, values?: Record<string, unknown>) =>
+		translator(key, values as Record<string, string | number> | undefined);
 	return translator;
 }

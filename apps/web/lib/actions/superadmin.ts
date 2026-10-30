@@ -541,8 +541,18 @@ export async function updatePlatformUser(
 		if (!before) return { error: "User not found." };
 
 		const actor = await actorId();
+
+		// Same rule as the tenant `updateUser`: blank, whitespace-only or
+		// over-long display names are refused before any write (#335).
+		const displayName = typeof data.displayName === "string" ? data.displayName.trim() : undefined;
+		if (data.displayName !== undefined) {
+			if (!displayName) return { error: "Display name is required." };
+			if (displayName.length > 80) return { error: "Display name is too long." };
+		}
+		const patch = displayName === undefined ? data : { ...data, displayName };
+
 		await prisma.$transaction(async (tx) => {
-			await tx.user.update({ where: { id: userId }, data });
+			await tx.user.update({ where: { id: userId }, data: patch });
 			await audit(
 				{
 					action: "platform.user.update",
@@ -550,7 +560,7 @@ export async function updatePlatformUser(
 					reason: trimmedReason,
 					actorUserId: actor,
 					before,
-					after: { ...before, ...data },
+					after: { ...before, ...patch },
 				},
 				tx,
 			);

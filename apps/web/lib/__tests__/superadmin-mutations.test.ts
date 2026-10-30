@@ -211,6 +211,35 @@ describe("updatePlatformUser", () => {
 		expect(tenancy().tables.platformAuditLogs).toHaveLength(0);
 	});
 
+	it("refuses a blank display name without writing (#335)", async () => {
+		const result = await updatePlatformUser(FARMER_B_ID, { displayName: "   " }, REASON);
+
+		expect(result).toEqual({ error: "Display name is required." });
+		expect(tenancy().tables.users.find((row) => row.id === FARMER_B_ID)?.displayName).toBe(
+			"Farmer B",
+		);
+		expect(tenancy().tables.platformAuditLogs).toHaveLength(0);
+	});
+
+	it("refuses an over-long display name without writing (#335)", async () => {
+		const result = await updatePlatformUser(FARMER_B_ID, { displayName: "x".repeat(81) }, REASON);
+
+		expect(result).toEqual({ error: "Display name is too long." });
+		expect(tenancy().tables.users.find((row) => row.id === FARMER_B_ID)?.displayName).toBe(
+			"Farmer B",
+		);
+		expect(tenancy().tables.platformAuditLogs).toHaveLength(0);
+	});
+
+	it("trims the display name before storing it (#335)", async () => {
+		const result = await updatePlatformUser(FARMER_B_ID, { displayName: "  Farmer B  " }, REASON);
+
+		expect(result).toEqual({ success: true, userId: FARMER_B_ID });
+		expect(tenancy().tables.users.find((row) => row.id === FARMER_B_ID)?.displayName).toBe(
+			"Farmer B",
+		);
+	});
+
 	it("denies a tenant admin and changes nothing", async () => {
 		signInAs(ADMIN_A_ID);
 

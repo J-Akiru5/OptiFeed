@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.31.4] - 2026-10-30
+
+### Fixed
+
+- #364 `firmware/check` consumed its rate-limit bucket on an unverified `device_id`, so anyone knowing a MAC could hold a unit out of the OTA channel. The route now verifies the token and approval first and limits on the verified MAC, matching `feed-command` and `schedule-sync`.
+- #335 `updatePlatformUser` persisted blank, whitespace-only or over-long display names. It now applies the same trim/required/max-80 rule as the tenant `updateUser` and writes nothing on rejection.
+- #324 the legal working note still described release 1.11.0 and "only v1.0.0" in its version snapshot; it now matches the current release and tag history.
 ## [1.31.2] - 2026-10-30
 
 ### Added

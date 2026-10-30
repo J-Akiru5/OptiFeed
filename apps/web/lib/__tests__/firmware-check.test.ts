@@ -161,6 +161,27 @@ describe("GET /api/firmware/check — auth and rate limit", () => {
 		expect(res.status).toBe(429);
 		expect(storage.download).not.toHaveBeenCalled();
 	});
+
+	it("does not spend the bucket for an unverified device (#364)", async () => {
+		mockEnergyDevice.findUnique.mockResolvedValue(null as never);
+		const res = await GET(checkRequest({ token: "wrong-token" }));
+		expect(res.status).toBe(401);
+		expect(mockRateLimit).not.toHaveBeenCalled();
+	});
+
+	it("still answers a verified device after a flood of unauthenticated checks (#364)", async () => {
+		mockEnergyDevice.findUnique.mockResolvedValue(null as never);
+		for (let i = 0; i < 25; i++) {
+			expect((await GET(checkRequest({ token: "wrong-token" }))).status).toBe(401);
+		}
+		expect(mockRateLimit).not.toHaveBeenCalled();
+
+		mockEnergyDevice.findUnique.mockResolvedValue({ ...DEVICE } as never);
+		const res = await GET(checkRequest());
+		expect(res.status).not.toBe(429);
+		expect(mockRateLimit).toHaveBeenCalledTimes(1);
+		expect(mockRateLimit).toHaveBeenCalledWith(DEVICE.mac, "firmware");
+	});
 });
 
 describe("GET /api/firmware/check — release decision", () => {

@@ -85,7 +85,7 @@ export function Sidebar({
 		<aside
 			data-collapsed={collapsed ? "true" : undefined}
 			className={cn(
-				"hidden lg:flex bg-white dark:bg-gray-900 border-r border-[#0A3D62]/10 dark:border-gray-700/50 flex-col shrink-0 sticky top-[64px] h-[calc(100vh-64px)] z-20 overflow-y-auto scrollbar-none",
+				"hidden h-full shrink-0 flex-col overflow-y-auto border-r border-[#0A3D62]/10 bg-white scrollbar-none dark:border-gray-700/50 dark:bg-gray-900 lg:flex",
 				collapsed ? "w-[76px] p-3" : "w-64 p-6",
 				animate && "transition-[width,padding] duration-200 ease-out motion-reduce:transition-none",
 			)}

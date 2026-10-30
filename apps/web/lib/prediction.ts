@@ -5,7 +5,7 @@ import {
 	FEEDING_RATE_PCT_MIN,
 	FEEDS_PER_DAY_MAX,
 	FEEDS_PER_DAY_MIN,
-	MAX_FEED_GRAMS_PER_REQUEST,
+	MAX_ACCEPTED_FEED_GRAMS,
 	POPULATION_MAX,
 	POPULATION_MIN,
 	resolveDailyCapG,
@@ -202,7 +202,7 @@ export function normalisePredictionInputs(inputs: PredictionInputs): PredictionI
 
 	const currentGrams =
 		isFiniteNumber(inputs.currentGrams) && inputs.currentGrams > 0
-			? round1(clamp(inputs.currentGrams, 1, MAX_FEED_GRAMS_PER_REQUEST))
+			? round1(clamp(inputs.currentGrams, 1, MAX_ACCEPTED_FEED_GRAMS))
 			: null;
 
 	const hopperCapacityG =
@@ -232,10 +232,11 @@ export function normalisePredictionInputs(inputs: PredictionInputs): PredictionI
 }
 
 /**
- * Upper bound for per-meal grams from device safety limits:
- * feedGramsSchema max, and the daily ceiling spread across feedsPerDay.
- * The ceiling is the pond's configured value (default 2,000 g), optionally
- * tightened by the platform factor, and never above the 5,000 g guard.
+ * Upper bound for per-meal grams: the daily ceiling spread across feedsPerDay.
+ * The only gram cap is the daily ceiling; 5,000 g is a schema sanity bound, not
+ * a per-dose cap. The ceiling is the pond's configured value (default 2,000 g),
+ * optionally tightened by the platform factor, and never above the 5,000 g
+ * daily guard.
  */
 export function predictionUpperBound(
 	feedsPerDay: number,
@@ -254,8 +255,8 @@ export function predictionUpperBound(
 					hopperCapacityG,
 					dailyCapFactor,
 				}) / safeFeeds
-			: MAX_FEED_GRAMS_PER_REQUEST;
-	return Math.min(MAX_FEED_GRAMS_PER_REQUEST, Math.max(1, dailyCapPerMeal));
+			: MAX_ACCEPTED_FEED_GRAMS;
+	return Math.min(MAX_ACCEPTED_FEED_GRAMS, Math.max(1, dailyCapPerMeal));
 }
 
 interface SafetyEnvelope {
@@ -294,7 +295,8 @@ function safetyEnvelope(
 
 /**
  * Clamps a candidate per-meal grams value into the safe envelope:
- * [1, min(1000, dailyCap/feedsPerDay)] ∩ [current × (1±50%)] when current is valid.
+ * [1, min(5,000, dailyCap/feedsPerDay)] ∩ [current × (1±50%)] when current is
+ * valid. The only gram cap is the daily ceiling; 5,000 g is a sanity bound.
  * Returns the clamped value plus whether/how it was clamped.
  */
 export function clampPredictionGrams(

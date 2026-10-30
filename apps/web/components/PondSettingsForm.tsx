@@ -8,7 +8,13 @@ import {
 } from "@/components/dashboard/dashboard-classes";
 import { mobileStickyActions } from "@/components/mobile/form-actions";
 import { Link, useRouter } from "@/i18n/routing";
+import {
+	discardPondSettingsDraft,
+	loadPondSettingsDraft,
+	savePondSettingsDraft,
+} from "@/lib/actions/pond-draft";
 import { updateDeviceDailyCap, updatePondSettings } from "@/lib/actions/settings";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { requestHelpTarget } from "@/lib/help/reveal";
 import { MAX_FEED_GRAMS_PER_DAY_PER_DEVICE } from "@/lib/limits-core";
 import {
@@ -129,14 +135,23 @@ function initialDraft(pond: PondSettingsFormProps["pond"]): PondSettingsDraft {
 }
 
 /**
+ * How long the form waits after the last keystroke before writing the database
+ * draft (I-99). One write per pause, never one per character.
+ */
+const POND_DRAFT_SAVE_DEBOUNCE_MS = 800;
+
+/**
  * Pond settings (#371).
  *
  * Two rules shape this form:
  *
  *  1. Never lose what the reader typed. The values live in one controlled draft,
- *     a failed save leaves it untouched, and a `sessionStorage` draft brings it
- *     back after leaving the page to fix a conflicting setting. On success the
- *     draft is cleared.
+ *     a failed save leaves it untouched, and the unsaved draft follows the
+ *     reader to another device or after the browser is closed: since I-99 it is
+ *     stored in the database per pond and user (debounced), with
+ *     `sessionStorage` as the offline fallback. A draft is restored only when
+ *     it is newer than the saved settings and actually differs from them, and
+ *     it is cleared after a successful save.
  *  2. Say exactly what is wrong and where. Parse and server errors render under
  *     their field and in a summary whose links move focus to that field. A
  *     conflict with the feeder's limits renders as a card that names the pond
@@ -150,33 +165,101 @@ export function PondSettingsForm({
 	device = null,
 }: PondSettingsFormProps) {
 	const t = useTranslations("dashboard.settings");
+	const tDates = useTranslations("dates");
 	const locale = useLocale();
 	const router = useRouter();
 	const summaryId = useId();
 	const [draft, setDraft] = useState<PondSettingsDraft>(() => initialDraft(pond));
 	const [dirty, setDirty] = useState(false);
 	const [restored, setRestored] = useState(false);
+	const [restoredAt, setRestoredAt] = useState<string | null>(null);
+	const [hydrated, setHydrated] = useState(false);
 	const [fieldErrors, setFieldErrors] = useState<PondSettingsFieldError[]>([]);
 	const [serverError, setServerError] = useState<string | null>(null);
 	const [appliedCeilingG, setAppliedCeilingG] = useState<number | null>(null);
 	const [isPending, startTransition] = useTransition();
 	const [success, setSuccess] = useState(false);
 
-	// Bring back an unsaved draft once per mount. Reading is best-effort: a
-	// corrupted or unavailable sessionStorage simply means no draft.
+	// Bring back an unsaved draft once per mount (I-99). The database copy is
+	// the real one — it survives a closed browser and is scoped to this pond and
+	// this user. `sessionStorage` is only the offline fallback: it is used when
+	// the action cannot be reached, or when it answers but the database holds no
+	// draft (the last save happened while offline). A database draft always wins.
 	useEffect(() => {
-		const stored = readPondDraft(sessionStorageOrNull(), pond.id);
-		if (!stored) return;
-		setDraft(stored);
-		setRestored(true);
-	}, [pond.id]);
+		let cancelled = false;
+
+		// A VIEWER cannot save, so there is no draft worth restoring; skip the
+		// call instead of provoking a rejected guard on every read-only visit.
+		if (!canWrite) {
+			setHydrated(true);
+			return;
+		}
+
+		const restore = async () => {
+			let fromDatabase: { values: PondSettingsDraft; updatedAt: string } | null = null;
+			try {
+				const result = await loadPondSettingsDraft(pond.id);
+				if (cancelled) return;
+				if (result.success && result.draft) {
+					fromDatabase = result.draft;
+				}
+			} catch {
+				// Offline or the action failed: fall through to the local copy.
+			}
+			if (cancelled) return;
+
+			if (fromDatabase) {
+				setDraft(fromDatabase.values);
+				setRestored(true);
+				setRestoredAt(fromDatabase.updatedAt);
+				clearPondDraft(sessionStorageOrNull(), pond.id);
+				setHydrated(true);
+				return;
+			}
+
+			const stored = readPondDraft(sessionStorageOrNull(), pond.id);
+			if (stored) {
+				setDraft(stored);
+				setRestored(true);
+				setRestoredAt(null);
+				// Push the local copy to the database on the next debounce, so a
+				// draft typed while offline becomes durable once the link is back.
+				setDirty(true);
+			}
+			setHydrated(true);
+		};
+
+		void restore();
+		return () => {
+			cancelled = true;
+		};
+	}, [canWrite, pond.id]);
 
 	// Persist while the reader edits, never the pristine values (that would show
-	// "restored" on every visit).
+	// "restored" on every visit). The write is debounced so a typing burst costs
+	// one action call; a failed call keeps the values in sessionStorage.
 	useEffect(() => {
-		if (!dirty) return;
-		writePondDraft(sessionStorageOrNull(), pond.id, draft);
-	}, [dirty, draft, pond.id]);
+		if (!dirty || !hydrated || !canWrite) return;
+
+		const values = draft;
+		const timer = window.setTimeout(() => {
+			void (async () => {
+				try {
+					const result = await savePondSettingsDraft(pond.id, values);
+					if (result.success) {
+						// The database is authoritative again; drop the offline copy.
+						clearPondDraft(sessionStorageOrNull(), pond.id);
+						return;
+					}
+				} catch {
+					// Offline: keep the local fallback below.
+				}
+				writePondDraft(sessionStorageOrNull(), pond.id, values);
+			})();
+		}, POND_DRAFT_SAVE_DEBOUNCE_MS);
+
+		return () => window.clearTimeout(timer);
+	}, [dirty, hydrated, draft, pond.id, canWrite]);
 
 	const parsed = parsePondSettingsDraft(draft);
 	const preview = buildPondFeedPreview({
@@ -282,8 +365,12 @@ export function PondSettingsForm({
 			);
 			if (response.success) {
 				clearPondDraft(sessionStorageOrNull(), pond.id);
+				// Best effort: even if a late debounced write re-creates the row, a
+				// draft that matches the saved values is ignored on load.
+				void discardPondSettingsDraft(pond.id).catch(() => undefined);
 				setDirty(false);
 				setRestored(false);
+				setRestoredAt(null);
 				setFieldErrors([]);
 				setSuccess(true);
 				window.setTimeout(() => setSuccess(false), 3000);
@@ -313,9 +400,11 @@ export function PondSettingsForm({
 
 	const discardDraft = () => {
 		clearPondDraft(sessionStorageOrNull(), pond.id);
+		void discardPondSettingsDraft(pond.id).catch(() => undefined);
 		setDraft(initialDraft(pond));
 		setDirty(false);
 		setRestored(false);
+		setRestoredAt(null);
 		setFieldErrors([]);
 		setServerError(null);
 		setAppliedCeilingG(null);
@@ -335,7 +424,11 @@ export function PondSettingsForm({
 				<output className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-bold text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-200">
 					<span className="flex items-center gap-2">
 						<RotateCcw aria-hidden="true" className="h-4 w-4 shrink-0" />
-						{t("restoredDraft")}
+						{restoredAt
+							? t("restoredDraftAt", {
+									time: formatFarmDateTime(new Date(restoredAt), (key) => tDates(key)).full,
+								})
+							: t("restoredDraft")}
 					</span>
 					<button
 						type="button"

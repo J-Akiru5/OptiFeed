@@ -14,8 +14,8 @@ import { revalidatePath } from "next/cache";
 
 // The caps and the full command sequence live in lib/feed/commands.ts, shared
 // with superadmin remote control (plan M5.2). STALE_DISPATCHED_MS there is 10
-// minutes: a 500 g feed dispenses in ~125 s at the default 4.0 g/s, so the
-// window leaves a 4.6x margin even for a hypothetical 1,000 g dose.
+// minutes, twice the 5-minute MAX_DISPENSE_MS relay window, so no accepted
+// dose can still be running when a stale dispatched request expires.
 
 export async function requestFeed(deviceId: string, grams?: number) {
 	// Guard outside try: the catch below returns a generic message and would

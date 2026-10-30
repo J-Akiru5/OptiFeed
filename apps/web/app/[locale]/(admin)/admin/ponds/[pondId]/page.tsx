@@ -4,6 +4,7 @@ import { adminButtonSecondary, adminSurface } from "@/components/admin/admin-cla
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { MoveDeviceForm, UnassignDeviceButton } from "@/components/admin/pond-device-actions";
 import { PondStatusToggle } from "@/components/admin/pond-status-toggle";
+import { DeviceSignalReading } from "@/components/device-signal";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { FeederHero } from "@/components/feeder/feeder-hero";
 import { Link } from "@/i18n/routing";
@@ -13,7 +14,7 @@ import { getPondDetail } from "@/lib/actions/ponds";
 import { hasPermission } from "@/lib/auth/permissions";
 import { daysBetween, todayDateOnly, utcDateToDateOnly } from "@/lib/crop-cycle/dates";
 import { formatDateTimeLocal } from "@/lib/date-local";
-import { evaluateDeviceStatus } from "@/lib/device-status";
+import { evaluateDeviceStatus, resolveRssiDbm } from "@/lib/device-status";
 import { loadFeederHero } from "@/lib/feeder-hero";
 import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { ArrowLeft, Cpu, Droplets, Pencil, Printer, Trash2 } from "lucide-react";
@@ -279,9 +280,15 @@ export default async function PondDetailPage({
 				) : (
 					<ul className="mt-4 space-y-3">
 						{pond.energyDevices.map((device) => {
+							const rssiDbm = resolveRssiDbm({
+								rssiDbm: device.wifiRssiDbm,
+								updatedAt: device.wifiRssiUpdatedAt,
+								policy: statusPolicy,
+							});
 							const connection = evaluateDeviceStatus({
 								lastSeenAt: device.lastSeenAt,
 								policy: statusPolicy,
+								rssiDbm,
 							});
 							const offline = connection.isOffline;
 							const weak = connection.isWeak;
@@ -326,6 +333,10 @@ export default async function PondDetailPage({
 											>
 												{offline ? tCommon("offline") : weak ? tCommon("weak") : tCommon("online")}
 											</span>
+											<DeviceSignalReading
+												rssiDbm={rssiDbm}
+												className="text-[11px] font-bold text-[#3D5568] dark:text-gray-400"
+											/>
 											<span className="inline-flex rounded-full bg-[#0A3D62]/10 px-2.5 py-1 text-[10px] font-black tracking-wider text-[#0A3D62] uppercase dark:bg-white/10 dark:text-[#8fc0ea]">
 												{t(`approval.${device.approvalStatus}`)}
 											</span>

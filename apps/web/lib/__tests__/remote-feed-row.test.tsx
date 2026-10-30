@@ -102,7 +102,7 @@ describe("the remote-control panel (#213)", () => {
 
 		// The panel is complete: title, the caps sentence and the feed form.
 		expect(row).toHaveTextContent("Remote control — Pond 1 feeder");
-		expect(row).toHaveTextContent("Commands use the normal server caps");
+		expect(row).toHaveTextContent("Commands use the normal server rules");
 		expect(cell?.querySelector("form")).not.toBeNull();
 		expect(within(row as HTMLElement).getByRole("spinbutton")).toHaveValue(150);
 

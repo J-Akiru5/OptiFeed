@@ -1,8 +1,8 @@
 import { z } from "zod";
 import {
 	DAILY_CAP_MIN_G,
+	MAX_ACCEPTED_FEED_GRAMS,
 	MAX_FEED_GRAMS_PER_DAY_PER_DEVICE,
-	MAX_FEED_GRAMS_PER_REQUEST,
 } from "./limits-core";
 
 export * from "./limits-core";
@@ -60,17 +60,9 @@ export const CALIBRATION_TEST_SECONDS_MAX = 600;
 export const CALIBRATION_TEST_GRAMS_MAX = 5000;
 export const CALIBRATION_ACTUAL_GRAMS_MAX = 5000;
 
-/**
- * The per-request ceiling for a queued feed. Calibration is the only kind that
- * may exceed the normal feed cap; every other request stays at 1,000 g.
- */
-export function maxFeedRequestGrams(kind: string): number {
-	return kind === "calibration" ? CALIBRATION_TEST_GRAMS_MAX : MAX_FEED_GRAMS_PER_REQUEST;
-}
-
 // Target check (issue #191): dispense an exact target, weigh it, and correct
-// grams per second from the error. The target bounds match the dashboard Feed
-// Now cap; ±5% is the acceptance window.
+// grams per second from the error. The target bounds are the calibration
+// limits; ±5% is the acceptance window.
 export const TARGET_CHECK_GRAMS_MIN = 5;
 export const TARGET_CHECK_GRAMS_MAX = 500;
 export const TARGET_CHECK_TOLERANCE_PCT = 5;
@@ -99,13 +91,12 @@ export const populationSchema = z
 	.min(POPULATION_MIN, `Population must be at least ${POPULATION_MIN}`)
 	.max(POPULATION_MAX, `Population cannot exceed ${POPULATION_MAX.toLocaleString("en-US")}`);
 
+// The daily ceiling is the only gram cap. This upper bound is a sanity guard
+// (the daily hard guard), not a per-request limit: it rejects impossible input.
 export const feedGramsSchema = z
 	.number("Feed amount must be a number")
 	.min(1, "Feed amount must be at least 1 g")
-	.max(
-		MAX_FEED_GRAMS_PER_REQUEST,
-		`Feed amount cannot exceed ${MAX_FEED_GRAMS_PER_REQUEST} g per request`,
-	);
+	.max(MAX_ACCEPTED_FEED_GRAMS, `Feed amount cannot exceed ${MAX_ACCEPTED_FEED_GRAMS} g`);
 
 const hhmm = /^([01]\d|2[0-3]):[0-5]\d$/;
 

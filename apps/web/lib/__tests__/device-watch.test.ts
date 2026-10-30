@@ -37,6 +37,7 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/retention", () => ({
 	deleteOldHeartbeatEvents: vi.fn().mockResolvedValue(3),
+	deleteExpiredPondSettingsDrafts: vi.fn().mockResolvedValue(2),
 }));
 
 vi.mock("@/lib/error-capture", () => ({
@@ -55,12 +56,22 @@ vi.mock("@/lib/notify/telegram", () => ({
 	absoluteAppUrl: vi.fn().mockReturnValue(null),
 }));
 
+vi.mock("@/lib/settings/device-status", () => ({
+	getDeviceStatusPolicy: vi.fn(),
+}));
+
 import { GET } from "@/app/api/cron/device-watch/route";
+import {
+	DEFAULT_DEVICE_STATUS_POLICY,
+	DEVICE_OFFLINE_AFTER_MIN_MIN,
+	deviceStatusPolicyFromValue,
+} from "@/lib/device-status";
 import { deleteExpiredErrorEvents } from "@/lib/error-capture";
 import { sendTelegramMessage } from "@/lib/notify/telegram";
 import prisma from "@/lib/prisma";
 import { cleanupExpiredRateLimitBuckets } from "@/lib/rate-limit";
-import { deleteOldHeartbeatEvents } from "@/lib/retention";
+import { deleteExpiredPondSettingsDrafts, deleteOldHeartbeatEvents } from "@/lib/retention";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 
 const mockEnergyDevice = vi.mocked(prisma.energyDevice);
 const mockDeviceStateEvent = vi.mocked(prisma.deviceStateEvent);
@@ -70,8 +81,8 @@ const STALE_DEVICE = {
 	id: "dev-1",
 	pondId: "pond-1",
 	label: "Feeder A",
-	// Default org policy alerts after 30 minutes (#190); the old 15-minute
-	// badge threshold no longer decides when the alert is sent.
+	// The platform policy decides when the alert fires (I-97): the default is a
+	// 15-minute offline window plus 2 minutes of grace, so 31 minutes is stale.
 	lastSeenAt: new Date(Date.now() - 31 * 60 * 1000),
 };
 
@@ -101,6 +112,7 @@ describe("api/cron/device-watch", () => {
 		vi.mocked(prisma.membership.findMany).mockResolvedValue([] as never);
 		vi.mocked(prisma.organization.findMany).mockResolvedValue([] as never);
 		vi.mocked(prisma.orgSetting.findMany).mockResolvedValue([] as never);
+		vi.mocked(getDeviceStatusPolicy).mockResolvedValue(DEFAULT_DEVICE_STATUS_POLICY);
 		vi.mocked(deleteOldHeartbeatEvents).mockResolvedValue(3);
 		vi.mocked(cleanupExpiredRateLimitBuckets).mockResolvedValue(7);
 	});
@@ -186,6 +198,8 @@ describe("api/cron/device-watch", () => {
 		expect(cleanupExpiredRateLimitBuckets).toHaveBeenCalledTimes(1);
 		// I-64: the 30-day ErrorEvent retention rides the same housekeeping pass.
 		expect(deleteExpiredErrorEvents).toHaveBeenCalledTimes(1);
+		// I-99: expired pond-settings drafts are pruned in the same pass.
+		expect(deleteExpiredPondSettingsDrafts).toHaveBeenCalledTimes(1);
 	});
 
 	it("scans the most recently stale devices first, so an already-alerted device cannot starve new outages", async () => {
@@ -202,7 +216,7 @@ describe("api/cron/device-watch", () => {
 		);
 	});
 
-	it("waits for the org's offlineAfterMin before alerting (default 30 minutes)", async () => {
+	it("waits for the platform offline window plus grace before alerting (default 17 minutes)", async () => {
 		mockEnergyDevice.findMany.mockResolvedValue([
 			{ ...STALE_DEVICE, lastSeenAt: new Date(Date.now() - 16 * 60 * 1000) },
 		] as never);
@@ -213,7 +227,46 @@ describe("api/cron/device-watch", () => {
 		expect(mockNotification.create).not.toHaveBeenCalled();
 	});
 
-	it("uses a shorter org offline delay from OrgSetting", async () => {
+	it("scans from the smallest allowed window so a short policy is seen", async () => {
+		await GET(cronRequest("Bearer test-cron-secret"));
+
+		const scan = mockEnergyDevice.findMany.mock.calls[0]?.[0] as {
+			where: { lastSeenAt: { lt: Date } };
+		};
+		const ageMs = Date.now() - scan.where.lastSeenAt.lt.getTime();
+		// 5 minutes (the minimum offline window) with no grace added.
+		expect(ageMs).toBeGreaterThanOrEqual(DEVICE_OFFLINE_AFTER_MIN_MIN * 60 * 1000 - 2000);
+		expect(ageMs).toBeLessThan(DEVICE_OFFLINE_AFTER_MIN_MIN * 60 * 1000 + 5000);
+	});
+
+	it("uses the platform policy, not the org offlineAfterMin", async () => {
+		// A short platform policy (5 min + no grace) alerts a 6-minute outage even
+		// though the org still stores a 90-minute value.
+		vi.mocked(getDeviceStatusPolicy).mockResolvedValue(
+			deviceStatusPolicyFromValue({ weakAfterMin: 2, offlineAfterMin: 5, graceMin: 0 }),
+		);
+		vi.mocked(prisma.pond.findMany).mockResolvedValue([{ ...POND, ownerId: "farm-user" }] as never);
+		vi.mocked(prisma.user.findMany).mockResolvedValue([
+			{ id: "user-1", farmId: "farm-user" },
+		] as never);
+		vi.mocked(prisma.membership.findMany).mockResolvedValue([
+			{ userId: "user-1", orgId: "org-1", role: "OWNER" },
+		] as never);
+		vi.mocked(prisma.organization.findMany).mockResolvedValue([{ id: "org-1" }] as never);
+		vi.mocked(prisma.orgSetting.findMany).mockResolvedValue([
+			{ orgId: "org-1", offlineAfterMin: 90 },
+		] as never);
+		mockEnergyDevice.findMany.mockResolvedValue([
+			{ ...STALE_DEVICE, lastSeenAt: new Date(Date.now() - 6 * 60 * 1000) },
+		] as never);
+
+		const res = await GET(cronRequest("Bearer test-cron-secret"));
+		expect(res.status).toBe(200);
+		await expect(res.json()).resolves.toMatchObject({ data: { offlineAlerts: 1 } });
+		expect(mockNotification.create).toHaveBeenCalledTimes(1);
+	});
+
+	it("ignores a short org delay: 16 minutes is still inside the default policy", async () => {
 		vi.mocked(prisma.pond.findMany).mockResolvedValue([{ ...POND, ownerId: "farm-user" }] as never);
 		vi.mocked(prisma.user.findMany).mockResolvedValue([
 			{ id: "user-1", farmId: "farm-user" },
@@ -231,8 +284,26 @@ describe("api/cron/device-watch", () => {
 
 		const res = await GET(cronRequest("Bearer test-cron-secret"));
 		expect(res.status).toBe(200);
-		await expect(res.json()).resolves.toMatchObject({ data: { offlineAlerts: 1 } });
-		expect(mockNotification.create).toHaveBeenCalledTimes(1);
+		await expect(res.json()).resolves.toMatchObject({ data: { offlineAlerts: 0 } });
+		expect(mockNotification.create).not.toHaveBeenCalled();
+	});
+
+	it("alerts after the display window, not inside it", async () => {
+		const policyMs =
+			DEFAULT_DEVICE_STATUS_POLICY.offlineAfterMs + DEFAULT_DEVICE_STATUS_POLICY.graceMs;
+
+		// Five seconds inside the window (never due), then five seconds past it.
+		mockEnergyDevice.findMany.mockResolvedValue([
+			{ ...STALE_DEVICE, lastSeenAt: new Date(Date.now() - policyMs + 5000) },
+		] as never);
+		const inside = await GET(cronRequest("Bearer test-cron-secret"));
+		await expect(inside.json()).resolves.toMatchObject({ data: { offlineAlerts: 0 } });
+
+		mockEnergyDevice.findMany.mockResolvedValue([
+			{ ...STALE_DEVICE, lastSeenAt: new Date(Date.now() - policyMs - 5000) },
+		] as never);
+		const past = await GET(cronRequest("Bearer test-cron-secret"));
+		await expect(past.json()).resolves.toMatchObject({ data: { offlineAlerts: 1 } });
 	});
 
 	it("respects the pond's deviceOffline preference", async () => {

@@ -15,13 +15,13 @@ import type { PondSettingsField } from "./pond-fields";
  * has three limits that can disagree with that number:
  *
  *  - its daily ceiling (`EnergyDevice.dailyCapG`, possibly lowered by the
- *    platform factor or the calibrated hopper capacity),
- *  - the relay-time window (`gramsPerSecond x maxDispenseMs`),
- *  - the hard per-request cap (`MAX_FEED_GRAMS_PER_REQUEST`).
+ *    platform factor or the calibrated hopper capacity), and
+ *  - the relay-time window (`gramsPerSecond x maxDispenseMs`).
  *
- * This module only computes the disagreement. It never writes and never relaxes
- * a limit; the caller shows the conflict and offers to move a *setting* (never
- * a hard maximum) to the pond value.
+ * The daily ceiling is the only gram cap; the relay-time window is a hardware
+ * limit, not a gram cap. This module only computes the disagreement. It never
+ * writes and never relaxes a limit; the caller shows the conflict and offers to
+ * move a *setting* (never a hard maximum) to the pond value.
  *
  * It is intentionally free of Prisma and `"use server"` so the client form can
  * run the same arithmetic live and a unit test can pin every boundary.

@@ -65,8 +65,9 @@ model User {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  farm  Farm? // exactly one farm per farmer (enforced by Farm.ownerId @unique)
-  ponds Pond[]
+  farm           Farm?               // exactly one farm per farmer (enforced by Farm.ownerId @unique)
+  ponds          Pond[]
+  settingsDrafts PondSettingsDraft[]
 
   @@index([farmId])
   @@index([role])
@@ -112,6 +113,7 @@ model Pond {
   ownershipHistory PondOwnershipHistory[]
   cropCycles       CropCycle[]
   pondEvents       PondEvent[]
+  settingsDrafts   PondSettingsDraft[]
 
   @@index([ownerId])
   @@index([farmId])
@@ -346,6 +348,11 @@ model EnergyDevice {
   waterTempOk        Boolean   @default(false) // false if probe undetected on last heartbeat
   waterTempUpdatedAt DateTime? // last time a reading was ingested
 
+  // Wi-Fi signal reported on the heartbeat (firmware 1.6.2+). Both stay null on
+  // old firmware, which keeps the timing-only connectivity rule working.
+  wifiRssiDbm       Int? // last RSSI in dBm (-127..0), null until reported
+  wifiRssiUpdatedAt DateTime? // last time an RSSI was ingested
+
   // Per-device calibration
   hopperEmptyCm             Float? // sensor distance when hopper is empty (~30cm for 10L bottle)
   hopperFullCm              Float? // sensor distance when hopper is full (~5cm)
@@ -367,6 +374,7 @@ model EnergyDevice {
   scheduleCommands ScheduleCommand[]
   feedLevelLogs    FeedLevelLog[]
   waterTempLogs    WaterTempLog[]
+  settingsDrafts   PondSettingsDraft[]
 }
 
 model FeedEvent {
@@ -711,7 +719,7 @@ model OrgSetting {
   orgId                 String                 @id
   defaultFeedingRatePct Float                  @default(3)
   hopperLowPct          Int                    @default(20)
-  offlineAfterMin       Int                    @default(30)
+  offlineAfterMin       Int                    @default(30) // deprecated (I-97): kept for compatibility; offline alerts follow PlatformSetting "device.status"
   missedFeedingAlerts   Boolean                @default(true)
   alertRoles            MemberRole[]           @default([OWNER, ADMIN])
   deviceRegistration    DeviceRegistrationMode @default(ADMIN_APPROVAL)
@@ -832,4 +840,31 @@ model ErrorEvent {
 
   @@index([lastSeenAt])
   @@index([resolved, lastSeenAt])
+}
+
+/// Unsaved pond-settings form values, kept per (pond, user) so a reader can
+/// leave the page (fix a conflicting device setting, close the browser) and
+/// still find their typed values on return (I-99, #371).
+///
+/// `data` holds the form values only — never a secret, token or password. The
+/// row is scoped to the editing user, so one member's draft can never surface
+/// for another member of the same farm. `deviceId` records the pond's feeder at
+/// save time (null when the pond has none) and is cleared if that feeder is
+/// deleted. `deleteExpiredPondSettingsDrafts()` prunes rows after 30 days.
+model PondSettingsDraft {
+  id        String   @id @default(cuid())
+  pondId    String
+  userId    String
+  deviceId  String?
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pond   Pond          @relation(fields: [pondId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device EnergyDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@unique([pondId, userId])
+  @@index([pondId])
+  @@index([deviceId])
 }

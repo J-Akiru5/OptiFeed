@@ -178,8 +178,8 @@ describe("GET /api/feed-command", () => {
 		const body = await res.json();
 		expect(body.feed_requested).toBe(true);
 		expect(body.feed_request_id).toBe("req-1");
-		// Clamped to MAX_FEED_GRAMS_PER_REQUEST (1000)
-		expect(body.grams).toBe(1000);
+		// Clamped to the 5,000 g payload sanity bound, not a feed cap.
+		expect(body.grams).toBe(5000);
 		expect(mockFeedRequest.update).toHaveBeenCalledWith({
 			where: { id: "req-1" },
 			data: { status: "dispatched" },

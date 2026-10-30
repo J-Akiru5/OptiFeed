@@ -5,6 +5,7 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminTHead, AdminTable, AdminTd, AdminTh, AdminTr } from "@/components/admin/admin-table";
 import { DeviceTokenReveal } from "@/components/admin/device-token-reveal";
 import { PendingDeviceApprovals } from "@/components/admin/pending-device-approvals";
+import { DeviceSignalReading } from "@/components/device-signal";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { EntityCard } from "@/components/mobile/entity-card";
 import { ListChips } from "@/components/mobile/list-chips";
@@ -100,15 +101,26 @@ export default async function AdminDevicesPage({
 		date ? formatDateTimeLocal(date, tDates).full : tCommon("never");
 
 	// `getDevices` is an allow-listed display select without the reading
-	// timestamp, so read only that one field for the page's devices here.
+	// timestamp or the reported signal, so read only those fields for the
+	// page's devices here.
 	const readingTimes =
 		devices.length > 0
 			? await prisma.energyDevice.findMany({
 					where: { id: { in: devices.map((device) => device.id) } },
-					select: { id: true, feedLevelUpdatedAt: true },
+					select: {
+						id: true,
+						feedLevelUpdatedAt: true,
+						wifiRssiDbm: true,
+						wifiRssiUpdatedAt: true,
+					},
 				})
 			: [];
 	const feedLevelUpdatedAt = new Map(readingTimes.map((row) => [row.id, row.feedLevelUpdatedAt]));
+	const signalById = new Map(
+		readingTimes.map((row) => [row.id, { dbm: row.wifiRssiDbm, updatedAt: row.wifiRssiUpdatedAt }]),
+	);
+	const signalOf = (deviceId: string) =>
+		signalById.get(deviceId) ?? { dbm: null as number | null, updatedAt: null as Date | null };
 
 	return (
 		<div className="space-y-6" data-help="admin-devices-list">
@@ -225,6 +237,8 @@ export default async function AdminDevicesPage({
 									{
 										...device,
 										feedLevelUpdatedAt: feedLevelUpdatedAt.get(device.id) ?? null,
+										wifiRssiDbm: signalOf(device.id).dbm,
+										wifiRssiUpdatedAt: signalOf(device.id).updatedAt,
 									},
 									now,
 									statusPolicy,
@@ -288,6 +302,10 @@ export default async function AdminDevicesPage({
 														? tCommon("weak")
 														: tCommon("online")}
 											</span>
+											<DeviceSignalReading
+												rssiDbm={hopper.rssiDbm}
+												className="mt-1 text-[11px] font-bold text-[#3D5568] dark:text-gray-400"
+											/>
 										</AdminTd>
 										<AdminTd className="text-xs font-bold text-[#3D5568] dark:text-gray-300">
 											{device.pond?.name || t("unassigned")}
@@ -352,6 +370,8 @@ export default async function AdminDevicesPage({
 								{
 									...device,
 									feedLevelUpdatedAt: feedLevelUpdatedAt.get(device.id) ?? null,
+									wifiRssiDbm: signalOf(device.id).dbm,
+									wifiRssiUpdatedAt: signalOf(device.id).updatedAt,
 								},
 								new Date(),
 								statusPolicy,

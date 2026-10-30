@@ -198,41 +198,25 @@ describe("requestFeed", () => {
 		expect(mockFeedRequest.create).not.toHaveBeenCalled();
 	});
 
-	it("rejects grams above the per-request cap", async () => {
+	it("rejects absurd input above the 5,000 g sanity bound", async () => {
 		mockEnergyDevice.findFirst.mockResolvedValue(onlineDevice());
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		mockFeedRequest.updateMany.mockResolvedValue({ count: 0 } as any);
 
 		const { requestFeed } = await import("@/lib/actions/energy");
-		const result = await requestFeed("device-1", 1001);
+		const result = await requestFeed("device-1", 5001);
 
 		expect(result).toEqual({
 			success: false,
-			error: expect.stringContaining("1000"),
+			error: "Feed amount cannot exceed 5000 g.",
 		});
 		expect(mockFeedRequest.create).not.toHaveBeenCalled();
 	});
 
-	it("rejects above the pond per-meal ceiling and names the setting and numbers", async () => {
-		mockEnergyDevice.findFirst.mockResolvedValue(onlineDevice({ gramsPerFeeding: 400 }));
-		// biome-ignore lint/suspicious/noExplicitAny: test mock
-		mockFeedRequest.updateMany.mockResolvedValue({ count: 0 } as any);
-
-		const { requestFeed } = await import("@/lib/actions/energy");
-		const result = await requestFeed("device-1", 401);
-
-		expect(result.success).toBe(false);
-		if (!result.success) {
-			expect(result.error).toContain("Feed Now limit is 400 g (pond per-meal ceiling)");
-			expect(result.error).toContain("Absolute safety ceiling: 1000 g");
-			expect(result.error).toContain("Remaining daily ceiling");
-			expect(result.error).toContain("Settings > Pond");
-		}
-		expect(mockFeedRequest.create).not.toHaveBeenCalled();
-	});
-
-	it("accepts a dose exactly at the pond per-meal ceiling", async () => {
-		mockEnergyDevice.findFirst.mockResolvedValue(onlineDevice({ gramsPerFeeding: 400 }));
+	it("allows a dose above 1,000 g when the daily ceiling allows it", async () => {
+		mockEnergyDevice.findFirst.mockResolvedValue(
+			onlineDevice({ gramsPerFeeding: 1500, dailyCapG: 2000, gramsPerSecond: 50 }),
+		);
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		mockFeedRequest.updateMany.mockResolvedValue({ count: 0 } as any);
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
@@ -241,22 +225,44 @@ describe("requestFeed", () => {
 		mockDeviceStateEvent.create.mockResolvedValue({} as any);
 
 		const { requestFeed } = await import("@/lib/actions/energy");
-		const result = await requestFeed("device-1", 400);
+		const result = await requestFeed("device-1", 1500);
 
 		expect(result).toEqual({ success: true });
 		expect(mockFeedRequest.create).toHaveBeenCalledWith({
-			data: { deviceId: "device-1", grams: 400, status: "pending" },
+			data: { deviceId: "device-1", grams: 1500, status: "pending" },
 		});
 	});
 
-	it("caps the default dose to the effective Feed Now limit", async () => {
-		// The screenshot case: the pond is configured for 2,110.06 g per meal,
-		// above the unchanged 1,000 g absolute safety ceiling.
+	it("accepts a dose exactly at the remaining daily ceiling", async () => {
 		mockEnergyDevice.findFirst.mockResolvedValue(
-			onlineDevice({ gramsPerFeeding: 2110.06, dailyCapG: 5000 }),
+			onlineDevice({ gramsPerFeeding: 400, dailyCapG: 2000 }),
 		);
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		mockFeedRequest.updateMany.mockResolvedValue({ count: 0 } as any);
+		mockFeedRequest.aggregate.mockResolvedValue({ _sum: { grams: 1900 } } as never);
+		// biome-ignore lint/suspicious/noExplicitAny: test mock
+		mockFeedRequest.create.mockResolvedValue({ id: "req-1" } as any);
+		// biome-ignore lint/suspicious/noExplicitAny: test mock
+		mockDeviceStateEvent.create.mockResolvedValue({} as any);
+
+		const { requestFeed } = await import("@/lib/actions/energy");
+		const result = await requestFeed("device-1", 100);
+
+		expect(result).toEqual({ success: true });
+		expect(mockFeedRequest.create).toHaveBeenCalledWith({
+			data: { deviceId: "device-1", grams: 100, status: "pending" },
+		});
+	});
+
+	it("caps the default dose to the remaining daily ceiling, not a per-meal limit", async () => {
+		// The pond is configured for 2,110.06 g per meal, but only 400 g is left
+		// today: the default dose is clamped to the daily allowance.
+		mockEnergyDevice.findFirst.mockResolvedValue(
+			onlineDevice({ gramsPerFeeding: 2110.06, dailyCapG: 1000, gramsPerSecond: 50 }),
+		);
+		// biome-ignore lint/suspicious/noExplicitAny: test mock
+		mockFeedRequest.updateMany.mockResolvedValue({ count: 0 } as any);
+		mockFeedRequest.aggregate.mockResolvedValue({ _sum: { grams: 600 } } as never);
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		mockFeedRequest.create.mockResolvedValue({ id: "req-1" } as any);
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
@@ -267,29 +273,11 @@ describe("requestFeed", () => {
 
 		expect(result).toEqual({ success: true });
 		expect(mockFeedRequest.create).toHaveBeenCalledWith({
-			data: { deviceId: "device-1", grams: 1000, status: "pending" },
+			data: { deviceId: "device-1", grams: 400, status: "pending" },
 		});
 	});
 
-	it("keeps the absolute hard ceiling for a pond configured above it", async () => {
-		mockEnergyDevice.findFirst.mockResolvedValue(
-			onlineDevice({ gramsPerFeeding: 2110.06, dailyCapG: 5000 }),
-		);
-		// biome-ignore lint/suspicious/noExplicitAny: test mock
-		mockFeedRequest.updateMany.mockResolvedValue({ count: 0 } as any);
-
-		const { requestFeed } = await import("@/lib/actions/energy");
-		const result = await requestFeed("device-1", 1001);
-
-		expect(result.success).toBe(false);
-		if (!result.success) {
-			expect(result.error).toContain("absolute safety ceiling");
-			expect(result.error).toContain("1000 g");
-		}
-		expect(mockFeedRequest.create).not.toHaveBeenCalled();
-	});
-
-	it("rejects above the remaining daily ceiling and shows it", async () => {
+	it("rejects above the remaining daily ceiling and names the number", async () => {
 		mockEnergyDevice.findFirst.mockResolvedValue(
 			onlineDevice({ gramsPerFeeding: 1000, dailyCapG: 2000 }),
 		);
@@ -302,8 +290,10 @@ describe("requestFeed", () => {
 
 		expect(result.success).toBe(false);
 		if (!result.success) {
-			expect(result.error).toContain("remaining daily ceiling");
-			expect(result.error).toContain("Remaining daily ceiling: 100 g");
+			expect(result.error).toContain(
+				"Feed Now would exceed today's daily ceiling: 100 g left of 2000 g",
+			);
+			expect(result.error).toContain("Settings > Pond");
 		}
 		expect(mockFeedRequest.create).not.toHaveBeenCalled();
 	});
@@ -322,6 +312,10 @@ describe("requestFeed", () => {
 			success: false,
 			error: expect.stringContaining("relay time"),
 		});
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error).toContain("add more meals per day");
+		}
 		expect(mockFeedRequest.create).not.toHaveBeenCalled();
 	});
 
@@ -356,7 +350,7 @@ describe("requestFeed", () => {
 
 		expect(result).toEqual({
 			success: false,
-			error: expect.stringContaining("Daily feed limit"),
+			error: expect.stringContaining("daily ceiling"),
 		});
 		expect(mockFeedRequest.create).not.toHaveBeenCalled();
 	});

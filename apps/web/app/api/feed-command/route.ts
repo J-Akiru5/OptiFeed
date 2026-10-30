@@ -6,11 +6,10 @@ import {
 	BUTTON_FEED_GRAMS_MIN,
 	GRAMS_PER_SECOND_MAX,
 	GRAMS_PER_SECOND_MIN,
-	MAX_FEED_GRAMS_PER_REQUEST,
+	MAX_ACCEPTED_FEED_GRAMS,
 	TEMP_OFFSET_C_MAX,
 	TEMP_OFFSET_C_MIN,
 	clamp,
-	maxFeedRequestGrams,
 } from "@/lib/limits";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
@@ -29,7 +28,7 @@ type DeviceConfig = {
 
 function deviceConfig(device: DeviceConfig) {
 	return {
-		grams_per_feeding: clamp(device.gramsPerFeeding, 0, MAX_FEED_GRAMS_PER_REQUEST),
+		grams_per_feeding: clamp(device.gramsPerFeeding, 0, MAX_ACCEPTED_FEED_GRAMS),
 		button_feed_grams: clamp(device.buttonFeedGrams, BUTTON_FEED_GRAMS_MIN, BUTTON_FEED_GRAMS_MAX),
 		hopper_empty_cm: device.hopperEmptyCm,
 		hopper_full_cm: device.hopperFullCm,
@@ -101,15 +100,14 @@ export const GET = withApi(
 					data: { status: "dispatched" },
 				});
 
-				// A calibration dose is deliberate and measured; it may exceed the
-				// normal per-request feed cap, so it is clamped to its own ceiling
-				// and flagged for the firmware's calibration limits.
+				// The 5,000 g clamp is a payload sanity bound, not a feed cap: the
+				// daily ceiling is enforced when the request is queued.
 				const calibration = pendingRequest.kind === "calibration";
 
 				return Response.json({
 					feed_requested: true,
 					feed_request_id: pendingRequest.id,
-					grams: clamp(pendingRequest.grams, 0, maxFeedRequestGrams(pendingRequest.kind)),
+					grams: clamp(pendingRequest.grams, 0, MAX_ACCEPTED_FEED_GRAMS),
 					calibration,
 					...deviceConfig(device),
 				});

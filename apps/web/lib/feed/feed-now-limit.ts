@@ -4,16 +4,15 @@ import prisma from "@/lib/prisma";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 
 /**
- * The effective Feed Now ceiling for a device (issue #387, decision E30),
- * loaded on the server so every dialog can show it before the request is sent.
+ * The effective Feed Now ceiling for a device (issue #387 / #398), loaded on
+ * the server so every dialog can show it before the request is sent.
  *
- * It reuses the same resolved daily cap and Asia/Manila day window as
- * `createManualFeedRequest`, so the number in the dialog and the number the
- * server enforces cannot disagree.
+ * The remaining daily ceiling is the only gram cap. It reuses the same resolved
+ * daily cap and Asia/Manila day window as `createManualFeedRequest`, so the
+ * number in the dialog and the number the server enforces cannot disagree.
  */
 export interface FeedNowLimitDevice {
 	id: string;
-	gramsPerFeeding: number;
 	dailyCapG: number | null;
 	hopperCapacityG: number | null;
 }
@@ -41,7 +40,6 @@ export async function getFeedNowLimitForDevice(device: FeedNowLimitDevice): Prom
 	}
 
 	return resolveFeedNowLimitG({
-		perMealG: device.gramsPerFeeding,
 		dailyCapG: resolveDailyCapG({
 			configuredCapG: device.dailyCapG,
 			hopperCapacityG: device.hopperCapacityG,

@@ -1,6 +1,6 @@
 import { startOfDayInTimeZone } from "@/lib/chart-windows";
 import { getDeviceFirmwareVersion } from "@/lib/device-firmware";
-import { evaluateDeviceStatus } from "@/lib/device-status";
+import { evaluateDeviceStatus, resolveRssiDbm } from "@/lib/device-status";
 import { MACHINE_FEED_SOURCES } from "@/lib/feed-figures";
 import type { FeederHeroData } from "@/lib/feeder-hero-types";
 import { computeDeterministicPrediction } from "@/lib/prediction";
@@ -60,6 +60,8 @@ export async function loadFeederHero({
 			gramsPerFeeding: true,
 			hopperCapacityG: true,
 			dailyCapG: true,
+			wifiRssiDbm: true,
+			wifiRssiUpdatedAt: true,
 		},
 	});
 	if (!device) return null;
@@ -119,16 +121,24 @@ export async function loadFeederHero({
 		now,
 	);
 
+	const rssiDbm = resolveRssiDbm({
+		rssiDbm: device.wifiRssiDbm,
+		updatedAt: device.wifiRssiUpdatedAt,
+		now,
+		policy: statusPolicy,
+	});
 	const connection = evaluateDeviceStatus({
 		lastSeenAt: device.lastSeenAt,
 		now,
 		policy: statusPolicy,
+		rssiDbm,
 	});
 
 	return {
 		deviceLabel: device.label,
 		connectionState: connection.state,
 		isOffline: connection.isOffline,
+		rssiDbm,
 		isPaused: device.isPaused,
 		lastSeenAt: device.lastSeenAt,
 		hopperLevelPercent: device.feedLevelPercent,

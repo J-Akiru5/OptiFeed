@@ -193,6 +193,8 @@ describe("feeding schedule page (#247)", () => {
 		}
 		expect(html).toContain("Device Offline");
 		expect(html).toContain("Feed Now");
+		// The only gram cap is the daily ceiling; the helper names it.
+		expect(html).toContain("remaining daily ceiling");
 	});
 
 	it("keeps the mobile stacking order below xl", async () => {

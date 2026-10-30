@@ -202,6 +202,7 @@ export interface FeederHeroProps extends FeederHeroData {
 
 export function FeederHero({ pondName, className, ...data }: FeederHeroProps) {
 	const t = useTranslations("dashboard.feederHero");
+	const tCommon = useTranslations("dashboard.common");
 	const tFeedLevel = useTranslations("dashboard.feedLevel");
 	const tPrediction = useTranslations("dashboard.growth.prediction");
 	const tDates = useTranslations("dates");
@@ -213,6 +214,7 @@ export function FeederHero({ pondName, className, ...data }: FeederHeroProps) {
 		isOffline,
 		isPaused,
 		lastSeenAt,
+		rssiDbm,
 		hopperLevelPercent,
 		hopperUpdatedAt,
 		gramsToday,
@@ -247,6 +249,11 @@ export function FeederHero({ pondName, className, ...data }: FeederHeroProps) {
 	const lastSeenLabel = lastSeenParts
 		? t("lastSeen", { date: lastSeenParts.date, time: lastSeenParts.time })
 		: t("neverConnected");
+
+	// I-97: the reported signal is text, not colour alone, and is only shown
+	// when the reading is fresh and inside the ESP32's range.
+	const signalLabel = rssiDbm !== null ? tCommon("signalDbm", { dbm: rssiDbm }) : null;
+	const connectionDetail = [lastSeenLabel, signalLabel].filter(Boolean).join(" · ");
 
 	const waterReading =
 		waterTempUpdatedAt !== null ? formatDateTimeLocal(waterTempUpdatedAt, tDates) : null;
@@ -326,7 +333,7 @@ export function FeederHero({ pondName, className, ...data }: FeederHeroProps) {
 			icon: isOffline ? WifiOff : isWeak ? Signal : Radio,
 			label: t("connectionLabel"),
 			value: connectionLabel,
-			detail: lastSeenLabel,
+			detail: connectionDetail,
 			muted: isOffline,
 			position: CALLOUT_POSITIONS[4],
 			index: 4,

@@ -56,9 +56,9 @@ export function FeedNowButton({
 
 	// 2-decimal doses like "29.63g"
 	const feedGrams = Number.parseFloat(nextFeedingVolume.replace("g", ""));
-	// Issue #387: the button sends the scheduled dose only up to the effective
-	// Feed Now ceiling. A pond configured above the hard ceiling still works,
-	// and the dialog states exactly what will be sent.
+	// Issue #387 / #398: the button sends the scheduled dose only up to what is
+	// left of today's daily ceiling. The daily ceiling is the only gram cap, and
+	// the dialog states exactly what will be sent.
 	const dispenseGrams =
 		feedNowLimit && !Number.isNaN(feedGrams)
 			? Math.min(feedGrams, feedNowLimit.effectiveG)
@@ -68,12 +68,6 @@ export function FeedNowButton({
 		: `${formatFeedGrams(dispenseGrams)}g`;
 	const limited =
 		feedNowLimit !== null && !Number.isNaN(feedGrams) && feedGrams > feedNowLimit.effectiveG + 1e-9;
-	const limitReasonKey: "limitReasonDaily" | "limitReasonPond" | "limitReasonHard" =
-		feedNowLimit?.source === "remaining_daily"
-			? "limitReasonDaily"
-			: feedNowLimit?.source === "pond_per_meal"
-				? "limitReasonPond"
-				: "limitReasonHard";
 	const dispenseSeconds =
 		gramsPerSecond && gramsPerSecond > 0 && dispenseGrams > 0
 			? String(Number((dispenseGrams / gramsPerSecond).toFixed(1)))
@@ -205,7 +199,7 @@ export function FeedNowButton({
 							>
 								{t("limitHint", {
 									limit: formatFeedGrams(feedNowLimit.effectiveG),
-									reason: t(limitReasonKey),
+									reason: t("limitReasonDaily"),
 								})}{" "}
 								{limited && t("limitClamped", { grams: displayVolume })}{" "}
 								<Link

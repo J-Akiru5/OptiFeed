@@ -53,8 +53,8 @@ import { isValidCalibrationSessionId } from "@/lib/calibration/session";
 import {
 	CALIBRATION_TEST_GRAMS_MAX,
 	CALIBRATION_TEST_SECONDS_MAX,
+	MAX_ACCEPTED_FEED_GRAMS,
 	OFFLINE_THRESHOLD_MS,
-	maxFeedRequestGrams,
 } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -96,10 +96,9 @@ beforeEach(() => {
 	mockCalibrationRun.create.mockResolvedValue({} as never);
 });
 
-describe("maxFeedRequestGrams", () => {
-	it("keeps normal feeds at 1000 g and allows calibration up to 5000 g", () => {
-		expect(maxFeedRequestGrams("feed")).toBe(1000);
-		expect(maxFeedRequestGrams("calibration")).toBe(5000);
+describe("feed schema sanity bound", () => {
+	it("is the 5,000 g daily guard, not a per-request gram cap", () => {
+		expect(MAX_ACCEPTED_FEED_GRAMS).toBe(5000);
 	});
 });
 

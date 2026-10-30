@@ -343,9 +343,10 @@ describe("saveBiomassLog result shape", () => {
 	});
 
 	it("rejects an out-of-range recommendation but still saves the log", async () => {
-		// Default form data: 10kg / 5 fish → avg 2kg → per-meal 3,000g > 1,000g max.
+		// Default form data: 10kg / 5 fish → avg 2kg. At one meal a day the
+		// recommendation is 9,000g, above the 5,000g sanity bound.
 		const mockTx = await runTransaction({
-			pondConfig: validPond,
+			pondConfig: { ...validPond, feedsPerDay: 1 },
 			device: { gramsPerFeeding: 300, lastSeenAt: new Date() },
 		});
 
@@ -354,7 +355,7 @@ describe("saveBiomassLog result shape", () => {
 		if (result.success) {
 			expect(result.feed).toMatchObject({
 				status: "rejected_out_of_range",
-				calculatedGrams: 3000,
+				calculatedGrams: 9000,
 				previousGrams: 300,
 				effectiveGrams: 300,
 			});

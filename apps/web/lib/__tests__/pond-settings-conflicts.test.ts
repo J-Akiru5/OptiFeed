@@ -105,8 +105,8 @@ describe("detectPondDeviceConflicts", () => {
 	});
 
 	it("reports the daily ceiling only once the daily feed is over it", () => {
-		// 2.001% of 100,000 g = 2,001 g/day; four meals keep the per-meal dose
-		// inside the per-request cap, so the daily ceiling is the only conflict.
+		// 2.001% of 100,000 g = 2,001 g/day; four meals keep each dose inside the
+		// relay window, so the daily ceiling is the only conflict.
 		const over = detectPondDeviceConflicts(
 			preview({ feedingRatePct: 2.001, feedsPerDay: 4 }),
 			constraints(),

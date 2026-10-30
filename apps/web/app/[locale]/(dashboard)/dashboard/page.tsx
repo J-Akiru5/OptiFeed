@@ -220,8 +220,8 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		energyDevice
 			? loadCalibrationDriftWindow(energyDevice.id, now)
 			: Promise.resolve({ feeds: [], levels: [], start: now }),
-		// The Feed Now ceiling (issue #387) is the lower of the pond/device
-		// per-meal dose, the remaining daily allowance and the hard ceiling.
+		// The Feed Now ceiling (issue #387 / #398) is what is left of today's
+		// daily allowance; the daily ceiling is the only gram cap.
 		energyDevice ? getFeedNowLimitForDevice(energyDevice) : Promise.resolve(null),
 	]);
 

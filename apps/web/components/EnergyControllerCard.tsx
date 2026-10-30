@@ -2,7 +2,7 @@
 
 import { Link } from "@/i18n/routing";
 import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
-import { type FeedNowLimit, formatFeedGrams } from "@/lib/limits-core";
+import { type FeedNowLimit, MAX_ACCEPTED_FEED_GRAMS, formatFeedGrams } from "@/lib/limits-core";
 import { useFeedCommandGuard } from "@/lib/pwa/use-feed-guard";
 import { cn } from "@/lib/utils";
 import {
@@ -76,14 +76,12 @@ export function EnergyControllerCard({
 	const tViewer = useTranslations("dashboard.feederViewer");
 	const tLimit = useTranslations("dashboard.feedNowModal");
 
-	const maxFeedGrams = feedNowLimit ? Math.max(1, Math.floor(feedNowLimit.effectiveG)) : 500;
+	// The daily ceiling is the only gram cap: the input accepts whatever is
+	// left of today's allowance. Without a limit, only the sanity bound applies.
+	const maxFeedGrams = feedNowLimit
+		? Math.max(0, feedNowLimit.effectiveG)
+		: MAX_ACCEPTED_FEED_GRAMS;
 	const overLimit = feedNowLimit !== null && feedGrams > feedNowLimit.effectiveG + 1e-9;
-	const limitReasonKey: "limitReasonDaily" | "limitReasonPond" | "limitReasonHard" =
-		feedNowLimit?.source === "remaining_daily"
-			? "limitReasonDaily"
-			: feedNowLimit?.source === "pond_per_meal"
-				? "limitReasonPond"
-				: "limitReasonHard";
 
 	const dispenseSeconds =
 		gramsPerSecond && gramsPerSecond > 0 && feedGrams > 0
@@ -91,7 +89,7 @@ export function EnergyControllerCard({
 			: null;
 
 	const handleFeedNow = () => {
-		if (blockIfOffline()) return;
+		if (blockIfOffline() || overLimit || feedGrams < 1) return;
 		setFeedSent(false);
 		setAlreadyQueued(false);
 		startTransition(async () => {
@@ -242,11 +240,11 @@ export function EnergyControllerCard({
 						{feedNowLimit && (
 							<p
 								id="feed-now-limit-hint"
+								data-testid="feed-now-limit-hint"
 								className="mt-1 text-[11px] font-medium text-gray-500 dark:text-gray-400"
 							>
-								{tLimit("limitHint", {
+								{tLimit("limitInputHint", {
 									limit: formatFeedGrams(feedNowLimit.effectiveG),
-									reason: tLimit(limitReasonKey),
 								})}{" "}
 								<Link
 									href="/dashboard/settings/pond"
@@ -262,7 +260,13 @@ export function EnergyControllerCard({
 						type="button"
 						onClick={handleFeedNow}
 						disabled={
-							isPending || feederActive || feedGrams <= 0 || isOffline || !canWrite || !online
+							isPending ||
+							feederActive ||
+							feedGrams < 1 ||
+							overLimit ||
+							isOffline ||
+							!canWrite ||
+							!online
 						}
 						title={reason}
 						className={cn(

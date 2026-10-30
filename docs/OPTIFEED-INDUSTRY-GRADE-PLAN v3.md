@@ -43,6 +43,8 @@ These are decided. Do not reopen them. Do not ask the user about them again.
 
 **Approved feeder caps (no longer "confirm"):** max dispense time 300,000 ms (5 minutes), max feed per request 1,000 g, max daily feeder allocation 5,000 g (or `hopperCapacityG` when that is lower).
 
+**Superseded 2026-10-30 (I-98):** the server no longer enforces a 1,000 g per-request cap. Its only gram cap is the device daily ceiling; 5,000 g remains a payload sanity bound. The firmware still refuses more than 1,000 g in one dispense.
+
 **Stop-point status (2026-10-24): the stop-point is resolved in code, but Jeff's written confirmation is still owed — see open question 2 (section 8).** Task 0.3 landed through a different mechanism than originally written: the build script is now `prisma generate && node scripts/migrate-if-production.mjs && next build`, and `apps/web/scripts/migrate-if-production.mjs` runs `prisma migrate deploy` only when `VERCEL_ENV=production`, i.e. only for the production deployment of `main` (`docs/deployment-workflow.md` section 4, verified against `apps/web/package.json`). The original H3 question — whether Vercel's Build Command runs `migrate deploy` — is superseded by that guard. Until Jeff confirms, record H3 as open; do not guess.
 
 **Verification status:** every finding in section 1 was checked against the code by an independent review. Rows marked **(corrected)** replace earlier wrong or overstated claims. Rows marked **(confirmed)** were verified.
@@ -127,7 +129,7 @@ Acceptance: tests that send out-of-range values get a validation error and write
 - N1 needs no change (already guarded). Do not touch the interval logic.
 - Enable the ESP32 task watchdog (`esp_task_wdt_init`) so a hung loop reboots, and the boot code still forces `RELAY_OFF`.
 
-Acceptance: static checks in self-check (names above must exist). The firmware caps equal the server caps in `lib/limits.ts`: `MAX_GRAMS_PER_DISPENSE` = `MAX_FEED_GRAMS_PER_REQUEST` (1,000 g), `MAX_GRAMS_PER_DAY` = `MAX_FEED_GRAMS_PER_DAY_PER_DEVICE` (5,000 g), `MAX_DISPENSE_MS` (300,000 ms) identical on both sides. Human test on the bench device (H6): command a huge dose and confirm the relay stops at the cap.
+Acceptance: static checks in self-check (names above must exist). `MAX_GRAMS_PER_DAY` = `MAX_FEED_GRAMS_PER_DAY_PER_DEVICE` (5,000 g) and `MAX_DISPENSE_MS` (300,000 ms) match the server in `lib/limits.ts`. `MAX_GRAMS_PER_DISPENSE` (1,000 g) is now a firmware-only hardware guard: since I-98 the server cap is the daily ceiling, so a larger single dose is accepted server-side and may be refused by the firmware. Human test on the bench device (H6): command a huge dose and confirm the relay stops at the cap.
 
 **Status (2026-10-24): done in code; the bench test (H6) is still open.** `firmware-main.ino` defines `MAX_GRAMS_PER_DISPENSE 1000.0` and `MAX_GRAMS_PER_DAY 5000.0` (lines 167-168, commented as matching `limits.ts`), keeps the RAM daily counter `dailyGramsDispensed` with midnight/RTC reset (lines 238-251), and refuses out-of-range or over-cap doses (lines 978, 991). Watchdog `esp_task_wdt_init` is enabled. The server accepts a `feed_refused` event type (`app/api/ingest/route.ts` line 28), closing the "dose refused" reporting loop.
 

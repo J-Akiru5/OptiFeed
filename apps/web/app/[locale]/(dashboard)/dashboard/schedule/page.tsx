@@ -73,8 +73,8 @@ export default async function SchedulePage() {
 		);
 	}
 
-	// The Feed Now ceiling (issue #387): pond per-meal dose, remaining daily
-	// allowance and the absolute hard ceiling, whichever is lowest.
+	// The Feed Now ceiling (issue #387 / #398): whatever is left of today's
+	// daily allowance. The daily ceiling is the only gram cap.
 	const feedNowLimit = await getFeedNowLimitForDevice(energyDevice);
 
 	const [latestAppliedCommand, pendingCommands, stuckFeedRequests, stuckScheduleCommands] =

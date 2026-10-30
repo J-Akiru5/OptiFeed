@@ -107,7 +107,7 @@ export async function updateScheduleCommand(
 		) {
 			return {
 				success: false,
-				error: `Feed amount of ${device.gramsPerFeeding} g would take more than ${limits.maxDispenseMs / 1000} s of relay time at ${device.gramsPerSecond} g/s.`,
+				error: `Feed amount of ${device.gramsPerFeeding} g would take more than ${limits.maxDispenseMs / 1000} s of relay time at ${device.gramsPerSecond} g/s. Add more meals per day or reduce the feed amount.`,
 			};
 		}
 

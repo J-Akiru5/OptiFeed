@@ -57,12 +57,12 @@ describe("daily feed ceiling", () => {
 	});
 
 	it("feeds the same ceiling into the advisor's per-meal bound", () => {
-		// 2,000 g default over 2 meals = the 1,000 g request cap.
+		// 2,000 g default over 2 meals = 1,000 g per meal.
 		expect(predictionUpperBound(2, null)).toBe(1000);
-		// Over 3 meals the ceiling, not the request cap, is the binding limit.
+		// Over 3 meals the daily ceiling is shared three ways.
 		expect(predictionUpperBound(3, null)).toBeCloseTo(666.67, 1);
-		// A raised ceiling still cannot exceed one request.
-		expect(predictionUpperBound(2, null, 5000)).toBe(1000);
+		// A raised ceiling is not capped at 1,000 g per meal any more.
+		expect(predictionUpperBound(2, null, 5000)).toBe(2500);
 		expect(predictionUpperBound(10, null, 5000)).toBe(500);
 		// A tightened platform factor flows through.
 		expect(predictionUpperBound(2, null, 2000, 0.5)).toBe(500);

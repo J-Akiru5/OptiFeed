@@ -560,8 +560,8 @@ const NO_DEVICE_MESSAGE = "Device not found.";
 /**
  * Feed any feeder on the platform (god mode, decision D1).
  *
- * This is the same command the tenant dashboard issues: the caps (1,000 g per
- * request, the daily cap, relay-time and offline checks) are enforced inside
+ * This is the same command the tenant dashboard issues: the daily ceiling (the
+ * only gram cap), the relay-time and offline checks are enforced inside
  * lib/feed/commands.ts. There is deliberately no force/burst parameter, so a
  * remote command to an empty hopper or an offline unit is refused by the same
  * rules as a local one. A refusal is audited and returned as `feed_refused`.

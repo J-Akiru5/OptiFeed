@@ -17,7 +17,7 @@ interface ScheduleControlsProps {
 	gramsPerFeeding?: number;
 	gramsPerSecond?: number;
 	canWrite?: boolean;
-	/** Effective Feed Now ceiling (issue #387); omitted falls back to the per-meal dose. */
+	/** Remaining daily ceiling for Feed Now (issue #387 / #398); omitted falls back to the dose. */
 	feedNowLimit?: FeedNowLimit | null;
 }
 
@@ -46,12 +46,6 @@ export function ScheduleControls({
 		gramsPerSecond && gramsPerSecond > 0 && dispenseGrams > 0
 			? String(Number((dispenseGrams / gramsPerSecond).toFixed(1)))
 			: null;
-	const limitReasonKey: "limitReasonDaily" | "limitReasonPond" | "limitReasonHard" =
-		feedNowLimit?.source === "remaining_daily"
-			? "limitReasonDaily"
-			: feedNowLimit?.source === "pond_per_meal"
-				? "limitReasonPond"
-				: "limitReasonHard";
 
 	const handleTogglePause = () => {
 		if (blockIfOffline()) return;
@@ -190,7 +184,7 @@ export function ScheduleControls({
 					<p className="mt-2 text-[11px] font-medium text-gray-500 dark:text-gray-400">
 						{tModal("limitHint", {
 							limit: formatFeedGrams(feedNowLimit.effectiveG),
-							reason: tModal(limitReasonKey),
+							reason: tModal("limitReasonDaily"),
 						})}{" "}
 						<Link
 							href="/dashboard/settings/pond"

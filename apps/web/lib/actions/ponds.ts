@@ -458,7 +458,7 @@ export async function updateTenantPond(input: UpdateTenantPondInput): Promise<Po
 			device.gramsPerFeeding / device.gramsPerSecond > MAX_DISPENSE_MS / 1000
 		) {
 			return {
-				error: `Feed amount of ${device.gramsPerFeeding} g would take more than ${MAX_DISPENSE_MS / 1000} s of relay time at ${device.gramsPerSecond} g/s.`,
+				error: `Feed amount of ${device.gramsPerFeeding} g would take more than ${MAX_DISPENSE_MS / 1000} s of relay time at ${device.gramsPerSecond} g/s. Add more meals per day or reduce the feed amount.`,
 			};
 		}
 	}

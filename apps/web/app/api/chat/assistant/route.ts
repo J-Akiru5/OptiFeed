@@ -60,7 +60,7 @@ export const POST = withApi(
 			throw badRequest("Invalid assistant request.");
 		}
 		if (!message.trim()) throw badRequest("Message is required.");
-		if (!looksLikeAssistantRequest(message)) {
+		if (!looksLikeAssistantRequest(message, history)) {
 			return ok({ kind: "fallback" });
 		}
 

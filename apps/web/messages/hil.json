@@ -1065,6 +1065,7 @@
 				"truncated": "Sobra ang events sa sini nga range. Pabuhina ang petsa ukon tagoa ang feeding events.",
 				"dateRangeError": "Ang petsa sang ani dapat 30 hasta 365 ka adlaw pagkatapos sang pagbutang.",
 				"rescheduled": "Na-reschedule ang event.",
+				"rescheduledTask": "Na-reschedule ang task.",
 				"rescheduleConfirm": "Ibalhin ang petsa sang ani sa sini nga siklo?",
 				"today": "Subong",
 				"month": "Bulan",
@@ -1083,7 +1084,8 @@
 				"desc": "Ang crop cycle kag ang tanan nga hitabo sa punong, sa isa ka kalendaryo.",
 				"readOnlyPond": "basa lamang",
 				"readOnlyHint": "Ini nga punong iya sang iban nga uma sa imo organisasyon. Makita mo ang mga hitabo pero indi mo ini ma-edit.",
-				"readOnlyEvent": "Ini nga hitabo iya sang iban nga uma kag basa lamang."
+				"readOnlyEvent": "Ini nga hitabo iya sang iban nga uma kag basa lamang.",
+				"readOnlyTask": "Ini nga task iya sang iban nga uma kag basa lamang."
 			},
 			"filters": {
 				"harvest": "Ani",
@@ -1190,8 +1192,13 @@
 			"eventForm": {
 				"titleNew": "Dugang event sa punong",
 				"titleEdit": "I-edit ang event",
+				"titleNewTask": "Dugang task",
+				"titleEditTask": "I-edit ang task",
+				"editEvent": "I-edit ang event",
+				"editTask": "I-edit ang task",
 				"desc": "Maintenance, trabaho sa punong, ukon iban nga may petsa.",
 				"type": "Klase sang event",
+				"typeTask": "Klase sang task",
 				"typeMaintenance": "Maintenance",
 				"typeOther": "Iban",
 				"title": "Titulo",
@@ -1201,14 +1208,20 @@
 				"notes": "Mga nota",
 				"notesPlaceholder": "Opsyonal nga detalye.",
 				"save": "I-save ang event",
+				"saveTask": "I-save ang task",
 				"saving": "Ginasave…",
 				"cancel": "I-cancel",
 				"delete": "I-delete",
 				"deleteConfirm": "I-delete ini nga event?",
+				"deleteConfirmTask": "I-delete ini nga task?",
 				"successCreate": "Nadugang ang event.",
+				"successCreateTask": "Nadugang ang task.",
 				"successUpdate": "Na-update ang event.",
+				"successUpdateTask": "Na-update ang task.",
 				"successDelete": "Na-delete ang event.",
+				"successDeleteTask": "Na-delete ang task.",
 				"descPond": "Event ukon task para sa {pond}.",
+				"descPondTask": "Task para sa {pond}.",
 				"kind": "Klase sang item",
 				"kindEvent": "Event",
 				"kindTask": "Task",
@@ -1548,7 +1561,7 @@
 			"simpleView": "Simple nga view",
 			"modelVersion": "Modelo",
 			"statusAnnouncement": "Estado sang feeder: {status}",
-			"dragHint": "I-drag para i-orbit. I-pinch ukon i-scroll para i-zoom.",
+			"isoLabelsTip": "Ang mga label sang komponente makita lamang kon ang modelo ara sa Isometric view. Naka-lock ang Iso; magpili sang iban nga view para i-orbit.",
 			"back": "Balik sa dashboard",
 			"desc": "Live nga 3D nga view sang feeder sa {pond}.",
 			"detailsLabel": "Detalye sang device",
@@ -2500,6 +2513,12 @@
 				"value": "Bili",
 				"name": "Ngalan",
 				"empty": "Wala sang datos sa sini nga panahon."
+			},
+			"terminology": {
+				"aboutAbw": "Ano ang buot silingon sang ABW?",
+				"abw": "Average Body Weight: ang average nga timbang sang isda sa pinakabag-o nga biomass sample, sa gramo. Ini ang timbang sang sample nga ginbahin sa kadamuon sang isda nga gin-timbang.",
+				"aboutFcr": "Ano ang buot silingon sang FCR?",
+				"fcr": "Feed Conversion Ratio: ang kilo nga patuka nga gingamit sa kada kilo nga pagtubo sang timbang sang isda, halin sa pinakabag-o nga FCR report. Kon mas manubo, mas maayo."
 			}
 		},
 		"mobile": {

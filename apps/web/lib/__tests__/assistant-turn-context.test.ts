@@ -15,11 +15,14 @@ const mocks = vi.hoisted(() => ({
 	resolveCurrentSchedule: vi.fn(),
 	pondFindMany: vi.fn(),
 	deviceFindFirst: vi.fn(),
+	deviceFindMany: vi.fn(),
 	membershipFindFirst: vi.fn(),
 	membershipFindMany: vi.fn(),
 	pondEventFindMany: vi.fn(),
+	biomassLogFindMany: vi.fn(),
 	userFindMany: vi.fn(),
 	organizationFindMany: vi.fn(),
+	platformAdminFindMany: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -32,14 +35,16 @@ vi.mock("@/lib/schedule/resolve-current", () => ({
 vi.mock("@/lib/prisma", () => ({
 	default: {
 		pond: { findMany: mocks.pondFindMany },
-		energyDevice: { findFirst: mocks.deviceFindFirst },
+		energyDevice: { findFirst: mocks.deviceFindFirst, findMany: mocks.deviceFindMany },
 		membership: {
 			findFirst: mocks.membershipFindFirst,
 			findMany: mocks.membershipFindMany,
 		},
 		pondEvent: { findMany: mocks.pondEventFindMany },
+		biomassLog: { findMany: mocks.biomassLogFindMany },
 		user: { findMany: mocks.userFindMany },
 		organization: { findMany: mocks.organizationFindMany },
+		platformAdmin: { findMany: mocks.platformAdminFindMany },
 	},
 }));
 
@@ -72,8 +77,8 @@ const PLATFORM_ADMIN: AssistantCaller = {
 };
 
 const PONDS = [
-	{ id: "pond-1", name: "Pond A", feedsPerDay: 3, feedingRatePct: 3 },
-	{ id: "pond-2", name: "Pond B", feedsPerDay: 2, feedingRatePct: 2.5 },
+	{ id: "pond-1", name: "Pond A", status: "ACTIVE", feedsPerDay: 3, feedingRatePct: 3 },
+	{ id: "pond-2", name: "Pond B", status: "ACTIVE", feedsPerDay: 2, feedingRatePct: 2.5 },
 ];
 
 const DEVICE = {
@@ -95,18 +100,27 @@ beforeEach(() => {
 	mocks.membershipFindFirst.mockResolvedValue(null);
 	mocks.membershipFindMany.mockResolvedValue([]);
 	mocks.pondEventFindMany.mockResolvedValue([]);
+	mocks.biomassLogFindMany.mockResolvedValue([]);
+	mocks.deviceFindMany.mockResolvedValue([]);
 	mocks.userFindMany.mockResolvedValue([]);
 	mocks.organizationFindMany.mockResolvedValue([]);
+	mocks.platformAdminFindMany.mockResolvedValue([]);
 });
 
 describe("pond selection", () => {
-	it("reads only the caller's ACTIVE ponds, oldest first", async () => {
+	it("reads the caller's manageable ponds, oldest first", async () => {
 		await buildAssistantTurnData("en", CALLER);
 
 		expect(mocks.pondFindMany).toHaveBeenCalledWith({
-			where: { ownerId: "farm-1", status: "ACTIVE" },
+			where: { ownerId: "farm-1", status: { in: ["ACTIVE", "ARCHIVED"] } },
 			orderBy: { createdAt: "asc" },
-			select: { id: true, name: true, feedsPerDay: true, feedingRatePct: true },
+			select: {
+				id: true,
+				name: true,
+				status: true,
+				feedsPerDay: true,
+				feedingRatePct: true,
+			},
 		});
 	});
 
@@ -284,6 +298,113 @@ describe("open tasks", () => {
 
 		expect(data.turn.openTasks).toEqual([]);
 		expect(data.turn.pondName).toBe("Pond A");
+	});
+});
+
+describe("calendar and sample ids", () => {
+	it("lists planned calendar items in farm time so edit/delete has ids", async () => {
+		mocks.pondEventFindMany.mockImplementation(async (args: { kind?: string }) =>
+			args.kind === "TASK"
+				? []
+				: [
+						{
+							id: "event-1",
+							title: "Pond sampling",
+							startsAt: new Date("2026-10-30T00:00:00.000Z"),
+							kind: "EVENT",
+							allDay: true,
+						},
+						{
+							id: "event-2",
+							title: "Vet visit",
+							startsAt: new Date("2026-10-30T01:00:00.000Z"),
+							kind: "EVENT",
+							allDay: false,
+						},
+					],
+		);
+
+		const data = await buildAssistantTurnData("en", CALLER);
+
+		expect(mocks.pondEventFindMany).toHaveBeenCalledWith({
+			where: { pondId: "pond-1", status: "PLANNED" },
+			orderBy: { startsAt: "asc" },
+			take: 10,
+			select: { id: true, title: true, startsAt: true, kind: true, allDay: true },
+		});
+		expect(data.turn.calendarEvents).toEqual([
+			{ id: "event-1", title: "Pond sampling", startsAt: "2026-10-30", kind: "EVENT" },
+			{ id: "event-2", title: "Vet visit", startsAt: "2026-10-30T09:00", kind: "EVENT" },
+		]);
+	});
+
+	it("lists the five newest samples with an id and a farm-date", async () => {
+		mocks.biomassLogFindMany.mockResolvedValue([
+			{
+				id: "log-1",
+				recordedAt: new Date("2026-10-29T16:00:00.000Z"),
+				avgWeightKg: 0.1504,
+				sampleCount: 10,
+			},
+		]);
+
+		const data = await buildAssistantTurnData("en", CALLER);
+
+		expect(mocks.biomassLogFindMany).toHaveBeenCalledWith({
+			where: { pondId: "pond-1" },
+			orderBy: { recordedAt: "desc" },
+			take: 5,
+			select: { id: true, recordedAt: true, avgWeightKg: true, sampleCount: true },
+		});
+		// 16:00 UTC is already the next day in Asia/Manila.
+		expect(data.turn.samples).toEqual([
+			{ id: "log-1", date: "2026-10-30", avgWeightG: 150.4, sampleCount: 10 },
+		]);
+	});
+});
+
+describe("platform lists", () => {
+	it("lists devices and users for a platform admin", async () => {
+		mocks.deviceFindMany.mockResolvedValue([
+			{
+				id: "device-1",
+				label: "Feeder A",
+				mac: "AA:BB:CC:DD:EE:FF",
+				isPaused: false,
+				pond: { name: "Pond A" },
+			},
+		]);
+		mocks.userFindMany.mockResolvedValue([
+			{ id: "user-1", farmId: "farm-1", displayName: "Maria Cruz" },
+			{ id: "user-2", farmId: "farm-2", displayName: null },
+		]);
+		mocks.platformAdminFindMany.mockResolvedValue([
+			{ userId: "user-1", revokedAt: null, expiresAt: null },
+			{ userId: "user-2", revokedAt: null, expiresAt: new Date("2020-01-01T00:00:00Z") },
+		]);
+
+		const data = await buildAssistantTurnData("en", PLATFORM_ADMIN);
+
+		expect(data.turn.devices).toEqual([
+			{
+				id: "device-1",
+				label: "Feeder A",
+				mac: "AA:BB:CC:DD:EE:FF",
+				isPaused: false,
+				pondName: "Pond A",
+			},
+		]);
+		expect(data.turn.platformUsers).toEqual([
+			{ userId: "user-1", farmId: "farm-1", name: "Maria Cruz", platformAdmin: true },
+			{ userId: "user-2", farmId: "farm-2", name: "farm-2", platformAdmin: false },
+		]);
+	});
+
+	it("does not read platform devices or users for a tenant-only caller", async () => {
+		await buildAssistantTurnData("en", TENANT_ADMIN);
+
+		expect(mocks.deviceFindMany).not.toHaveBeenCalled();
+		expect(mocks.platformAdminFindMany).not.toHaveBeenCalled();
 	});
 });
 

@@ -57,6 +57,7 @@ const ROW = {
 function definition(overrides: Record<string, unknown> = {}) {
 	return {
 		id: "log_sample",
+		label: "Log a sample",
 		schema: z.object({ weightGrams: z.number().positive() }),
 		execute: vi.fn(async () => ({ success: true, message: "Sample logged." })),
 		...overrides,
@@ -178,10 +179,12 @@ describe("acceptAssistantAction execution", () => {
 			payload: { weightGrams: -5 },
 		});
 
-		await expect(acceptAssistantAction("action-1")).resolves.toEqual({
-			success: false,
-			error: "The stored action is no longer valid. Ask me again.",
-		});
+		const result = await acceptAssistantAction("action-1");
+
+		expect(result.success).toBe(false);
+		if (result.success) return;
+		expect(result.error).toContain("That action is no longer valid (weightGrams:");
+		expect(result.error).toContain("Ask me again.");
 		expect(prisma.assistantAction.update.mock.calls[0][0].data.status).toBe("FAILED");
 	});
 
@@ -191,7 +194,11 @@ describe("acceptAssistantAction execution", () => {
 
 		const result = await acceptAssistantAction("action-1");
 
-		expect(result).toMatchObject({ success: false, code: "step_up_required" });
+		expect(result).toMatchObject({
+			success: false,
+			code: "step_up_required",
+			error: "Re-enter your password to log a sample. This action needs a fresh 5-minute check.",
+		});
 		expect(prisma.assistantAction.updateMany).not.toHaveBeenCalled();
 		expect(prisma.assistantAction.update).not.toHaveBeenCalled();
 	});
@@ -259,7 +266,7 @@ describe("acceptAssistantAction execution", () => {
 
 		await expect(acceptAssistantAction("action-1")).resolves.toEqual({
 			success: false,
-			error: "Only a platform admin can do that.",
+			error: "Only a platform admin can log a sample.",
 		});
 		expect(prisma.assistantAction.updateMany).not.toHaveBeenCalled();
 	});
@@ -269,7 +276,7 @@ describe("acceptAssistantAction execution", () => {
 
 		await expect(acceptAssistantAction("action-1")).resolves.toEqual({
 			success: false,
-			error: "Only an organization owner or admin can do that.",
+			error: "Only an organization owner or admin can log a sample.",
 		});
 	});
 
@@ -278,7 +285,8 @@ describe("acceptAssistantAction execution", () => {
 
 		await expect(acceptAssistantAction("action-1")).resolves.toEqual({
 			success: false,
-			error: "You no longer have permission to do that.",
+			error:
+				'You need the "control_feeder" permission to log a sample. Ask an organization admin to grant it.',
 		});
 	});
 
@@ -287,7 +295,7 @@ describe("acceptAssistantAction execution", () => {
 
 		await expect(acceptAssistantAction("action-1")).resolves.toEqual({
 			success: false,
-			error: "You have read-only access, so that cannot run.",
+			error: "You have read-only access, so you cannot log a sample.",
 		});
 		expect(prisma.assistantAction.updateMany).not.toHaveBeenCalled();
 	});

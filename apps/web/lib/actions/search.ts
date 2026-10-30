@@ -9,6 +9,7 @@ import { getViewAsState } from "@/lib/auth/view-as";
 import { isValidDateOnly } from "@/lib/crop-cycle/dates";
 import prisma from "@/lib/prisma";
 import { pagesFor } from "@/lib/search/catalogue";
+import { settingsFor } from "@/lib/search/settings-catalogue";
 import type {
 	GlobalSearchResult,
 	SearchAudience,
@@ -405,20 +406,24 @@ export async function globalSearch(input: {
 }): Promise<GlobalSearchResult> {
 	try {
 		const context = await resolveContext();
-		if (!context) return { status: "unavailable", pages: [], rows: [] };
+		if (!context) return { status: "unavailable", pages: [], settings: [], rows: [] };
 
 		const query = normaliseQuery(input.query);
 		const shell = normaliseShell(input.shell);
 		const pages = pagesFor(context.audience, context.permissions, shell);
+		// Settings are a small, static, role-filtered catalogue: returning them
+		// with the pages lets the dialog match their translated labels + synonyms
+		// in the reader's language, exactly like page titles (#370).
+		const settings = settingsFor(context.audience, context.permissions, shell);
 
 		if (query.length === 0) {
-			return { status: "ok", pages, rows: [] };
+			return { status: "ok", pages, settings, rows: [] };
 		}
 
-		return { status: "ok", pages, rows: await searchData(context, query) };
+		return { status: "ok", pages, settings, rows: await searchData(context, query) };
 	} catch {
 		// Quiet by design: no stack, no query, no table name reaches the client.
 		console.error("[search] global search failed");
-		return { status: "unavailable", pages: [], rows: [] };
+		return { status: "unavailable", pages: [], settings: [], rows: [] };
 	}
 }

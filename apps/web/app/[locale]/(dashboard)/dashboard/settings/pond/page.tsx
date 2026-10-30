@@ -11,6 +11,8 @@ import { parsePondProfile } from "@/lib/pond-profile";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { getFeedingLimits } from "@/lib/settings/feeding-caps";
+import { buildPondDeviceConstraints } from "@/lib/settings/pond-conflicts";
 import { Settings, SlidersHorizontal, User } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -35,14 +37,40 @@ export default async function PondSettingsPage() {
 
 	const energyDevice = await prisma.energyDevice.findFirst({
 		where: { pondId: pond.id },
-		select: { id: true },
+		select: {
+			id: true,
+			dailyCapG: true,
+			hopperCapacityG: true,
+			gramsPerSecond: true,
+		},
 	});
 
 	// `pond.*` goes stale when a device is paired (saves queue ScheduleCommands);
 	// prefer the newest pending/sent command, then the last applied one.
-	const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice?.id ?? null);
-	const writeAccess = await canWrite();
+	const [currentConfig, writeAccess, latestBiomass, feedingLimits] = await Promise.all([
+		resolveCurrentSchedule(pond.id, energyDevice?.id ?? null),
+		canWrite(),
+		prisma.biomassLog.findFirst({
+			where: { pondId: pond.id },
+			orderBy: { recordedAt: "desc" },
+			select: { avgWeightKg: true },
+		}),
+		getFeedingLimits(),
+	]);
 	const profile = parsePondProfile(pond.notificationPrefs);
+
+	// The form shows the pond's derived grams beside the feeder's real limits,
+	// and every conflict links to the exact device setting (#371).
+	const device = energyDevice
+		? buildPondDeviceConstraints({
+				deviceId: energyDevice.id,
+				configuredDailyCapG: energyDevice.dailyCapG,
+				hopperCapacityG: energyDevice.hopperCapacityG,
+				gramsPerSecond: energyDevice.gramsPerSecond,
+				maxDispenseMs: feedingLimits.maxDispenseMs,
+				dailyCapFactor: feedingLimits.dailyCapFactor,
+			})
+		: null;
 
 	return (
 		<div className="w-full space-y-6 pb-20">
@@ -65,6 +93,8 @@ export default async function PondSettingsPage() {
 						feedPricePerKg: profile.feedPricePerKg,
 					}}
 					canWrite={writeAccess}
+					avgWeightKg={latestBiomass?.avgWeightKg ?? null}
+					device={device}
 				/>
 			</DashboardSection>
 

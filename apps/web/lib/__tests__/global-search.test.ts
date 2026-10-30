@@ -367,7 +367,7 @@ describe("empty, quiet failure and edge cases", () => {
 
 		const result = await globalSearch({ query: "secret", shell: "admin" });
 
-		expect(result).toEqual({ status: "unavailable", pages: [], rows: [] });
+		expect(result).toEqual({ status: "unavailable", pages: [], settings: [], rows: [] });
 		expect(error).toHaveBeenCalled();
 		error.mockRestore();
 	});
@@ -377,6 +377,67 @@ describe("empty, quiet failure and edge cases", () => {
 		session.farm = null;
 		const result = await globalSearch({ query: "Pond", shell: "farmer" });
 
-		expect(result).toEqual({ status: "unavailable", pages: [], rows: [] });
+		expect(result).toEqual({ status: "unavailable", pages: [], settings: [], rows: [] });
+	});
+});
+
+describe("settings are part of the result and follow the role (#370)", () => {
+	it("gives a farmer the pond and hardware settings, never the admin or platform ones", async () => {
+		signInAs(FARMER_A_ID);
+		const result = await globalSearch({ query: "feed ceiling", shell: "farmer" });
+		const ids = result.settings.map((row) => row.id);
+
+		expect(ids).toContain("settings:daily-feed-ceiling");
+		expect(ids).toContain("settings:pond-feeding-rate");
+		expect(ids.some((id) => id.startsWith("settings:org-"))).toBe(false);
+		expect(ids.some((id) => id.startsWith("settings:platform-"))).toBe(false);
+	});
+
+	it("gives a tenant admin the organization settings too", async () => {
+		signInAs(ADMIN_A_ID);
+		const result = await globalSearch({ query: "hopper", shell: "admin" });
+		const ids = result.settings.map((row) => row.id);
+
+		expect(ids).toContain("settings:org-low-hopper-threshold");
+		expect(ids.some((id) => id.startsWith("settings:platform-"))).toBe(false);
+	});
+
+	it("gives a platform admin the platform configuration only", async () => {
+		signInAs(PLATFORM_ADMIN_A_ID);
+		const result = await globalSearch({ query: "ceiling", shell: "platform" });
+		const ids = result.settings.map((row) => row.id);
+
+		expect(ids).toContain("settings:platform-safety-caps");
+		expect(ids).toContain("settings:platform-page-size");
+		expect(ids).not.toContain("settings:daily-feed-ceiling");
+	});
+
+	it("treats view-as as the viewed farmer for settings as well", async () => {
+		signInAs(PLATFORM_ADMIN_A_ID);
+		session.farm = FARM_B;
+		viewAs.state = {
+			active: true,
+			sessionId: "view-1",
+			actorUserId: PLATFORM_ADMIN_A_ID,
+			orgId: "org-b",
+			farmId: FARM_B,
+			reason: "support",
+			expiresAt: new Date("2026-10-20T09:00:00.000Z"),
+		};
+
+		const result = await globalSearch({ query: "ceiling", shell: "platform" });
+		const ids = result.settings.map((row) => row.id);
+
+		expect(ids).toContain("settings:daily-feed-ceiling");
+		expect(ids.some((id) => id.startsWith("settings:platform-"))).toBe(false);
+	});
+
+	it("never returns a setting the reader cannot open, even for an empty query", async () => {
+		signInAs(FARMER_A_ID);
+		const result = await globalSearch({ query: "", shell: "farmer" });
+
+		expect(result.settings.length).toBeGreaterThan(0);
+		expect(result.settings.some((row) => row.id.startsWith("settings:platform-"))).toBe(false);
+		expect(result.rows).toEqual([]);
 	});
 });

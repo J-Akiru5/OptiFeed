@@ -96,7 +96,7 @@
 		"trigger": "Search",
 		"triggerLabel": "Search everything (Ctrl+K or Command+K)",
 		"dialogTitle": "Search",
-		"placeholder": "Search pages, ponds, devices, members and records",
+		"placeholder": "Search pages, settings, ponds, devices, members and records",
 		"resultsLabel": "Search results",
 		"resultsCount": "{count, plural, one {# result} other {# results}}",
 		"loading": "Searching…",
@@ -109,6 +109,7 @@
 		"hintClose": "to close",
 		"groups": {
 			"pages": "Pages",
+			"settings": "Settings",
 			"ponds": "Ponds",
 			"devices": "Devices",
 			"members": "Members",
@@ -125,6 +126,108 @@
 		},
 		"records": {
 			"feedEvent": "Feed event"
+		},
+		"settings": {
+			"pondFeedingRate": {
+				"title": "Daily feeding rate",
+				"description": "Percentage of pond biomass fed per day."
+			},
+			"pondFeedsPerDay": {
+				"title": "Feeds per day",
+				"description": "How many meals the feeder dispenses in a day."
+			},
+			"pondSampleInterval": {
+				"title": "Sample interval",
+				"description": "How often fish samples are taken, in days."
+			},
+			"pondPopulation": {
+				"title": "Population",
+				"description": "Fish count used for biomass and the daily feed."
+			},
+			"pondArea": {
+				"title": "Pond area",
+				"description": "Surface area in square metres, used for stocking density."
+			},
+			"pondDepth": {
+				"title": "Average depth",
+				"description": "Average water depth in metres."
+			},
+			"pondFeedPrice": {
+				"title": "Feed price",
+				"description": "Feed price per kilogram, used to estimate feed cost."
+			},
+			"feedingSchedule": {
+				"title": "Feeding schedule",
+				"description": "The window in which the feeder dispenses meals."
+			},
+			"dailyFeedCeiling": {
+				"title": "Daily feed ceiling",
+				"description": "The most feed one feeder may dispense in a day."
+			},
+			"perMealCeiling": {
+				"title": "Per-meal feed ceiling",
+				"description": "The most feed one meal may dispense, set by the relay window and calibration."
+			},
+			"calibration": {
+				"title": "Feeder calibration",
+				"description": "Grams per second, the guided test and the target check."
+			},
+			"hopperCalibration": {
+				"title": "Hopper calibration",
+				"description": "Full and empty sensor distances for the hopper."
+			},
+			"hopperCapacity": {
+				"title": "Hopper capacity",
+				"description": "How much feed the hopper holds when full."
+			},
+			"recalibrationInterval": {
+				"title": "Recalibration interval",
+				"description": "Days between calibration reminders for this feeder."
+			},
+			"temperatureCalibration": {
+				"title": "Temperature calibration",
+				"description": "Water temperature offset for the probe."
+			},
+			"notifications": {
+				"title": "Notification preferences",
+				"description": "Which alerts you receive: missed feeding, offline and low hopper."
+			},
+			"orgDefaultFeedingRate": {
+				"title": "Default feeding rate",
+				"description": "The feeding rate given to new ponds in this organization."
+			},
+			"orgLowHopper": {
+				"title": "Low-hopper threshold",
+				"description": "Hopper level that raises a low-hopper alert."
+			},
+			"orgOfflineThreshold": {
+				"title": "Offline threshold",
+				"description": "Minutes without a heartbeat before a feeder is marked offline."
+			},
+			"orgMissedFeeding": {
+				"title": "Missed-feeding alerts",
+				"description": "Whether a missed feeding raises an alert for this organization."
+			},
+			"orgDeviceRegistration": {
+				"title": "Device registration",
+				"description": "Whether new feeders need admin approval or may self-register."
+			},
+			"platformPageSize": {
+				"title": "List page size",
+				"description": "Rows per page on every list in the app."
+			},
+			"platformSafetyCaps": {
+				"title": "Feeding safety caps",
+				"description": "Relay-time and daily-allowance ceilings for the whole platform."
+			},
+			"platformOrgDefaults": {
+				"title": "Organization defaults",
+				"description": "Starting settings for new organizations."
+			},
+			"platformFeatureFlags": {
+				"title": "Feature flags",
+				"description": "Turn platform features on or off."
+			}
 		}
 	},
 	"button": {
@@ -1321,7 +1424,47 @@
 			"populationPlaceholder": "e.g. 200",
 			"areaPlaceholder": "e.g. 500",
 			"depthPlaceholder": "e.g. 1.5",
-			"feedPricePlaceholder": "e.g. 30"
+			"feedPricePlaceholder": "e.g. 30",
+			"derivedTitle": "Derived from pond settings",
+			"derivedDaily": "Daily feed",
+			"derivedPerMeal": "Per meal",
+			"derivedDeviceCeiling": "Device ceiling",
+			"derivedDeviceMaxDose": "Max dose per meal",
+			"derivedHint": "These numbers come from the feeding rate, population and your latest sample. They are what the feeder will dispense.",
+			"derivedNoBiomass": "Add a sampling batch (average body weight) to see the grams these settings produce.",
+			"errorSummaryTitle": "Fix these before saving",
+			"errorSummaryHint": "Your values are kept. Open a setting to correct it.",
+			"restoredDraft": "Restored the values you had not saved yet.",
+			"discardDraft": "Discard",
+			"draftDiscarded": "Unsaved changes discarded.",
+			"conflicts": {
+				"dailyTitle": "Daily feed is above the device ceiling",
+				"relayTitle": "One meal is longer than the relay window",
+				"pondWins": "Pond settings win. The feeder must follow this pond, so change the device setting below.",
+				"suggestedFeeds": "Increasing feeds per day to {count} would fit the window.",
+				"aboveHardMax": "The pond needs more than the hard safety maximum of {max} per day. Lower the feeding rate or population.",
+				"platformCap": "A platform safety cap sets this ceiling; a platform admin has to raise it.",
+				"hopperCap": "The calibrated hopper capacity is the ceiling; recalibrate the hopper to hold more.",
+				"usePondValue": "Use pond value ({value})",
+				"usePondValueDone": "Device ceiling set to {value} per day.",
+				"openSetting": "Open the device setting"
+			},
+			"errors": {
+				"rateMin": "Feeding rate must be at least 0.1%.",
+				"rateMax": "Feeding rate cannot exceed 10%.",
+				"feedsMin": "At least one feed per day.",
+				"feedsMax": "At most 24 feeds per day.",
+				"intervalMin": "At least 1 day.",
+				"intervalMax": "At most 90 days.",
+				"populationMin": "Population must be at least 1.",
+				"populationMax": "Population is too large.",
+				"areaInvalid": "Enter a pond area greater than 0.",
+				"depthInvalid": "Enter a depth greater than 0.",
+				"priceInvalid": "Enter a feed price of 0 or more.",
+				"invalidNumber": "Enter a number.",
+				"deviceDailyCeiling": "The pond needs {pond}/day, above the device ceiling of {device}/day.",
+				"deviceRelayTime": "One meal is {pond}, longer than the {device} the feeder can run in one relay window."
+			}
 		},
 		"profileSettings": {
 			"title": "Profile Settings",

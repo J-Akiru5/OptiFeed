@@ -479,7 +479,7 @@ describe("updatePondSettings validation", () => {
 		const { updatePondSettings } = await import("@/lib/actions/settings");
 		const result = await updatePondSettings("pond-1", 0, 2);
 
-		expect(result).toEqual({
+		expect(result).toMatchObject({
 			success: false,
 			error: expect.stringContaining("Feeding rate"),
 		});
@@ -490,7 +490,7 @@ describe("updatePondSettings validation", () => {
 		const { updatePondSettings } = await import("@/lib/actions/settings");
 		const result = await updatePondSettings("pond-1", 4, 2, 14, 0);
 
-		expect(result).toEqual({
+		expect(result).toMatchObject({
 			success: false,
 			error: expect.stringContaining("Population"),
 		});

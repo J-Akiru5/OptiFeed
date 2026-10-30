@@ -96,7 +96,7 @@
 		"trigger": "Pangitaa",
 		"triggerLabel": "Pangitaa ang tanan (Ctrl+K ukon Command+K)",
 		"dialogTitle": "Pangitaa",
-		"placeholder": "Pangitaa ang mga pahina, punong, device, miyembro kag rekord",
+		"placeholder": "Pangitaa ang mga pahina, setting, punong, device, miyembro kag rekord",
 		"resultsLabel": "Mga resulta sang pagpangita",
 		"resultsCount": "{count, plural, one {# resulta} other {# resulta}}",
 		"loading": "Nagapangita…",
@@ -109,6 +109,7 @@
 		"hintClose": "para magsira",
 		"groups": {
 			"pages": "Mga pahina",
+			"settings": "Mga setting",
 			"ponds": "Mga punong",
 			"devices": "Mga device",
 			"members": "Mga miyembro",
@@ -125,6 +126,108 @@
 		},
 		"records": {
 			"feedEvent": "Rekord sang pagpakaon"
+		},
+		"settings": {
+			"pondFeedingRate": {
+				"title": "Adlaw-adlaw nga feeding rate",
+				"description": "Porsyento sang biomass sang punong nga ginapakaon kada adlaw."
+			},
+			"pondFeedsPerDay": {
+				"title": "Pila ka beses pagpakaon kada adlaw",
+				"description": "Pila ka lamesa ang ginadispense sang feeder sa isa ka adlaw."
+			},
+			"pondSampleInterval": {
+				"title": "Interval sang sampling",
+				"description": "Pila ka adlaw antes magkuha liwat sang sample sang isda."
+			},
+			"pondPopulation": {
+				"title": "Kadamu sang isda",
+				"description": "Kadamu sang isda nga ginagamit sa biomass kag sa adlaw-adlaw nga lawog."
+			},
+			"pondArea": {
+				"title": "Kalaparon sang punong",
+				"description": "Kalaparon sa metro kwadrado, ginagamit sa stocking density."
+			},
+			"pondDepth": {
+				"title": "Kasangkaron sang tubig",
+				"description": "Kasangkaron sang tubig sa metro."
+			},
+			"pondFeedPrice": {
+				"title": "Presyo sang lawog",
+				"description": "Presyo sang lawog kada kilo, ginagamit sa pagbana-bana sang gasto."
+			},
+			"feedingSchedule": {
+				"title": "Iskedyul sang pagpakaon",
+				"description": "Ang oras nga ginadispense sang feeder ang mga lamesa."
+			},
+			"dailyFeedCeiling": {
+				"title": "Takda sang lawog kada adlaw",
+				"description": "Ang pinakamadamu nga lawog nga pwede idispense sang feeder sa isa ka adlaw."
+			},
+			"perMealCeiling": {
+				"title": "Takda sang lawog kada lamesa",
+				"description": "Ang pinakamadamu nga lawog sa isa ka lamesa, base sa relay window kag calibration."
+			},
+			"calibration": {
+				"title": "Calibration sang feeder",
+				"description": "Gramo kada segundo, ang guided test kag ang target check."
+			},
+			"hopperCalibration": {
+				"title": "Calibration sang hopper",
+				"description": "Distansya sang sensor kon puno kag kon wala sing lawog."
+			},
+			"hopperCapacity": {
+				"title": "Kapasidad sang hopper",
+				"description": "Pila ka lawog ang masulod sa hopper kon puno."
+			},
+			"recalibrationInterval": {
+				"title": "Interval sang recalibration",
+				"description": "Pila ka adlaw antes magpaandar sang recalibration reminder."
+			},
+			"temperatureCalibration": {
+				"title": "Calibration sang temperatura",
+				"description": "Offset sang temperatura sang tubig para sa probe."
+			},
+			"notifications": {
+				"title": "Mga setting sang notification",
+				"description": "Mga alert nga mabaton mo: nalipatan nga pagpakaon, offline, kag ubos nga hopper."
+			},
+			"orgDefaultFeedingRate": {
+				"title": "Default nga feeding rate",
+				"description": "Ang feeding rate para sa mga bag-o nga punong sa organisasyon."
+			},
+			"orgLowHopper": {
+				"title": "Threshold sang ubos nga hopper",
+				"description": "Level sang hopper nga nagapahayag sang low-hopper alert."
+			},
+			"orgOfflineThreshold": {
+				"title": "Threshold sang offline",
+				"description": "Pila ka minuto nga wala sing heartbeat antes markahan nga offline."
+			},
+			"orgMissedFeeding": {
+				"title": "Mga alert sa nalipatan nga pagpakaon",
+				"description": "Kon ang nalipatan nga pagpakaon magapahayag sang alert."
+			},
+			"orgDeviceRegistration": {
+				"title": "Pagparehistro sang device",
+				"description": "Kon ang bag-o nga feeder kinahanglan sang apruba sang admin ukon pwede magparehistro mismo."
+			},
+			"platformPageSize": {
+				"title": "Kadak-on sang pahina sang listahan",
+				"description": "Pila ka row kada pahina sa tanan nga listahan."
+			},
+			"platformSafetyCaps": {
+				"title": "Mga safety cap sang pagpakaon",
+				"description": "Takda sang relay time kag adlaw-adlaw nga allowance para sa bilog nga platform."
+			},
+			"platformOrgDefaults": {
+				"title": "Mga default sang organisasyon",
+				"description": "Sugod nga setting para sa mga bag-o nga organisasyon."
+			},
+			"platformFeatureFlags": {
+				"title": "Mga feature flag",
+				"description": "I-on ukon i-off ang mga feature sang platform."
+			}
 		}
 	},
 	"button": {
@@ -1321,7 +1424,47 @@
 			"populationPlaceholder": "hal. 200",
 			"areaPlaceholder": "hal. 500",
 			"depthPlaceholder": "hal. 1.5",
-			"feedPricePlaceholder": "hal. 30"
+			"feedPricePlaceholder": "hal. 30",
+			"derivedTitle": "Ginakuha sa mga setting sang punong",
+			"derivedDaily": "Lawog kada adlaw",
+			"derivedPerMeal": "Kada lamesa",
+			"derivedDeviceCeiling": "Takda sang device",
+			"derivedDeviceMaxDose": "Pinakamadamu nga dose kada lamesa",
+			"derivedHint": "Ini nga numero halin sa feeding rate, kadamu sang isda kag pinakaulihi nga sample. Amo ini ang idispense sang feeder.",
+			"derivedNoBiomass": "Magdugang sang sampling batch (average body weight) para makita ang gramo nga mabuhat sang mga setting.",
+			"errorSummaryTitle": "Ayuhon ini antes mag-save",
+			"errorSummaryHint": "Ginatipigan ang imo mga value. Bukasi ang setting para ayuhon.",
+			"restoredDraft": "Ginbalik ang mga value nga wala mo pa na-save.",
+			"discardDraft": "Ilabay",
+			"draftDiscarded": "Ginlabay ang wala pa na-save nga mga pagbag-o.",
+			"conflicts": {
+				"dailyTitle": "Ang lawog kada adlaw sobra sa takda sang device",
+				"relayTitle": "Ang isa ka lamesa mas malawig sa relay window",
+				"pondWins": "Ang setting sang punong ang masunod. Dapat tumanon sang feeder ini nga punong, gani bag-oha ang setting sang device sa idalom.",
+				"suggestedFeeds": "Kon dugangan ang pagpakaon kada adlaw sa {count}, masulod na sa window.",
+				"aboveHardMax": "Kinahanglan sang punong sobra sa hard safety maximum nga {max} kada adlaw. Paubson ang feeding rate ukon kadamu sang isda.",
+				"platformCap": "Ang platform safety cap ang nagatakda sini; kinahanglan sang platform admin para ipataas.",
+				"hopperCap": "Ang calibrated nga kapasidad sang hopper ang takda; i-recalibrate ang hopper para masulod ang mas madamu.",
+				"usePondValue": "Gamita ang value sang punong ({value})",
+				"usePondValueDone": "Gin-set ang takda sang device sa {value} kada adlaw.",
+				"openSetting": "Bukasi ang setting sang device"
+			},
+			"errors": {
+				"rateMin": "Ang feeding rate dapat indi magubos sa 0.1%.",
+				"rateMax": "Ang feeding rate indi pwede magsobra sa 10%.",
+				"feedsMin": "Bisan isa ka pagpakaon kada adlaw.",
+				"feedsMax": "Indi magsobra sa 24 ka pagpakaon kada adlaw.",
+				"intervalMin": "Bisan 1 ka adlaw.",
+				"intervalMax": "Indi magsobra sa 90 ka adlaw.",
+				"populationMin": "Ang kadamu sang isda dapat indi magubos sa 1.",
+				"populationMax": "Sobra kadamu ang isda.",
+				"areaInvalid": "Magbutang sang kalaparon sang punong nga sobra sa 0.",
+				"depthInvalid": "Magbutang sang kasangkaron nga sobra sa 0.",
+				"priceInvalid": "Magbutang sang presyo sang lawog nga 0 ukon sobra.",
+				"invalidNumber": "Magbutang sang numero.",
+				"deviceDailyCeiling": "Kinahanglan sang punong ang {pond} kada adlaw, sobra sa takda sang device nga {device} kada adlaw.",
+				"deviceRelayTime": "Ang isa ka lamesa {pond}, mas malawig sa {device} nga kaya sang feeder sa isa ka relay window."
+			}
 		},
 		"profileSettings": {
 			"title": "Mga Setting sang Profile",

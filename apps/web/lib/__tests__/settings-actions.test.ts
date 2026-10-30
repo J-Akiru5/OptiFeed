@@ -15,6 +15,7 @@ const { db } = vi.hoisted(() => {
 	const db = {
 		pond: { findFirst: vi.fn(), update: vi.fn() },
 		energyDevice: { findFirst: vi.fn(), update: vi.fn() },
+		biomassLog: { findFirst: vi.fn() },
 		deviceStateEvent: { create: vi.fn() },
 		$transaction: vi.fn(),
 	};
@@ -28,6 +29,9 @@ vi.mock("@/lib/auth/session", () => ({
 }));
 vi.mock("@/lib/feed-grams", () => ({ syncDeviceGramsForPond: vi.fn() }));
 vi.mock("@/lib/actions/schedule", () => ({ updateScheduleCommand: vi.fn() }));
+vi.mock("@/lib/settings/feeding-caps", () => ({
+	getFeedingLimits: vi.fn(async () => ({ maxDispenseMs: 300_000, dailyCapFactor: 1 })),
+}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { updateScheduleCommand } from "@/lib/actions/schedule";
@@ -82,6 +86,7 @@ beforeEach(() => {
 	db.pond.update.mockResolvedValue({});
 	db.energyDevice.findFirst.mockResolvedValue(null);
 	db.energyDevice.update.mockResolvedValue({});
+	db.biomassLog.findFirst.mockResolvedValue(null);
 	db.deviceStateEvent.create.mockResolvedValue({});
 	db.$transaction.mockImplementation(async (operations: Promise<unknown>[]) =>
 		Promise.all(operations),
@@ -203,7 +208,7 @@ describe("updatePondSettings", () => {
 	])("rejects %s without touching the database", async (_label, args, message) => {
 		const result = await updatePondSettings("pond-1", ...(args as [number, number]));
 
-		expect(result).toEqual({ success: false, error: expect.stringMatching(message) });
+		expect(result).toMatchObject({ success: false, error: expect.stringMatching(message) });
 		expect(db.pond.findFirst).not.toHaveBeenCalled();
 		expect(db.pond.update).not.toHaveBeenCalled();
 	});
@@ -213,7 +218,7 @@ describe("updatePondSettings", () => {
 			areaM2: -5,
 		});
 
-		expect(result).toEqual({ success: false, error: expect.stringContaining("areaM2") });
+		expect(result).toMatchObject({ success: false, error: expect.stringContaining("areaM2") });
 		expect(db.pond.findFirst).not.toHaveBeenCalled();
 	});
 
@@ -222,7 +227,7 @@ describe("updatePondSettings", () => {
 
 		const result = await updatePondSettings("pond-1", 3, 2);
 
-		expect(result).toEqual({ success: false, error: "Pond not found" });
+		expect(result).toMatchObject({ success: false, error: "Pond not found" });
 		expect(db.pond.update).not.toHaveBeenCalled();
 	});
 
@@ -318,10 +323,12 @@ describe("updatePondSettings", () => {
 
 		const result = await updatePondSettings("pond-1", 5, 24);
 
-		expect(result).toEqual({ success: false, error: "Schedule exceeds the g/day limit" });
+		expect(result).toMatchObject({ success: false, error: "Schedule exceeds the g/day limit" });
 		expect(db.deviceStateEvent.create).not.toHaveBeenCalled();
 		expect(db.pond.update).not.toHaveBeenCalled();
-		expect(mockSyncGrams).not.toHaveBeenCalled();
+		// The dose is derived from the typed values before the command validates
+		// it (#371), so the sync happens even when the command then refuses.
+		expect(mockSyncGrams).toHaveBeenCalled();
 	});
 
 	it("returns a generic error when persistence fails", async () => {
@@ -330,7 +337,10 @@ describe("updatePondSettings", () => {
 
 		const result = await updatePondSettings("pond-1", 3, 2);
 
-		expect(result).toEqual({ success: false, error: "Failed to update pond settings" });
+		expect(result).toMatchObject({
+			success: false,
+			error: "Failed to update pond settings",
+		});
 		consoleError.mockRestore();
 	});
 });

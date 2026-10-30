@@ -11,11 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Calibration test doses may now run up to 10 minutes and 5,000 g. The exception is deliberately scoped to calibration: the queued `FeedRequest` carries `kind = "calibration"`, the device pickup route clamps it to the calibration ceiling and sends `calibration: true`, and the firmware raises its per-dose limits only for that flagged command. Normal feeds keep the 1,000 g and 300 s caps, and the 10 s gap, six-per-hour ceiling and daily cap still apply. The form warns on runs longer than 120 s.
-
 ### Fixed
 
 - #387 Feed Now is no longer hard-rejected at the 1,000 g request cap regardless of the pond configuration. The manual ceiling is now the lower of the pond/device per-meal dose, the remaining daily ceiling from the single daily-cap calculation, and the 1,000 g absolute safety ceiling. The dashboard, schedule and controller dialogs show the effective limit and the reason, refusals name the setting and every relevant number with a Settings > Pond hint, and the dashboard's scheduled dose is capped to the effective limit instead of failing. The 1,000 g hard ceiling is unchanged and was not raised.
+
+### Changed
+
+- #371 a failed pond settings save keeps every value the reader typed and restores an unsaved draft after leaving the page; errors render under their field and in a summary whose links move focus to the field. Device conflicts are resolved in the pond's favour: the daily ceiling can be set from the pond value (still bounded by the 500-5,000 g window and never above a platform or hopper ceiling), and a meal the relay window cannot run links to calibration with the fewest feeds that would fit. The per-meal dose is derived from the typed values before the schedule command validates it, so a save is no longer refused by a stale dose.
 
 
 ## [1.31.8] - 2026-10-30

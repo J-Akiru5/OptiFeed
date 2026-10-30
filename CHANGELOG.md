@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.34.0] - 2026-10-30
+
 ### Changed
 
 - The device daily ceiling is now the only gram cap for Feed Now, scheduled meals and prediction apply. The 1,000 g per-request ceiling from #387 and the pond per-meal dose clamp are removed; a 5,000 g schema sanity bound (the daily hard guard) still rejects malformed input. Refusals name the grams left of the daily ceiling and where to change it, and the Feed Now input is capped to the remaining daily grams. The relay-time guard and the daily-cap calculation are unchanged.

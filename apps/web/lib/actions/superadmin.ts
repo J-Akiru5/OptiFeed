@@ -14,7 +14,7 @@ import { ORG_SETTINGS_DEFAULTS, getOrgSettings } from "@/lib/settings/org";
 import { getListPageSize } from "@/lib/settings/platform";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MemberRole, Prisma, UserRole } from "@prisma/client";
-import { headers } from "next/headers";
+import { requestOrigin } from "./platform/audit";
 
 /**
  * Platform-console actions. Every export is gated by requirePlatformAdmin()
@@ -65,20 +65,6 @@ function auditTargetType(action: string): AuditTargetType {
 	if (action.startsWith("platform.org.")) return "organization";
 	if (action.startsWith("platform.admin.")) return "platform_admin";
 	throw new Error(`Unknown platform audit action: ${action}`);
-}
-
-/** Request origin for the audit row (who/what/when/where), same as devices.ts. */
-async function requestOrigin(): Promise<{ ip: string | null; userAgent: string | null }> {
-	try {
-		const h = await headers();
-		const forwarded = h.get("x-forwarded-for")?.split(",")[0]?.trim();
-		return {
-			ip: forwarded || h.get("x-real-ip") || null,
-			userAgent: h.get("user-agent")?.slice(0, 512) ?? null,
-		};
-	} catch {
-		return { ip: null, userAgent: null };
-	}
 }
 
 /** Append an audit row (T5). Every mutation in this file calls it. */

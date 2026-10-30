@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/lib/auth/session";
+import { parseClientIp } from "@/lib/client-ip";
 import prisma from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { headers } from "next/headers";
@@ -16,12 +17,21 @@ import { headers } from "next/headers";
  * browser.
  */
 
+/**
+ * Request origin for the audit row (who/what/when/where).
+ *
+ * The address comes from `lib/client-ip.ts`, the same trusted-hop derivation
+ * the login rate limiter uses: only the final `x-forwarded-for` entry is
+ * trusted (Vercel's edge, one proxy — see that module). A missing or malformed
+ * header records `null`; the audit trail must not claim an address it did not
+ * observe, and must not fall back to a client-supplied header such as
+ * `x-real-ip`.
+ */
 export async function requestOrigin(): Promise<{ ip: string | null; userAgent: string | null }> {
 	try {
 		const h = await headers();
-		const forwarded = h.get("x-forwarded-for")?.split(",")[0]?.trim();
 		return {
-			ip: forwarded || h.get("x-real-ip") || null,
+			ip: parseClientIp(h.get("x-forwarded-for")),
 			userAgent: h.get("user-agent")?.slice(0, 512) ?? null,
 		};
 	} catch {

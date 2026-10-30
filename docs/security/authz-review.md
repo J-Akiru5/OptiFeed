@@ -130,8 +130,9 @@ attacker-influenced by the very actor it is meant to identify. Impact is limited
 actor is already authenticated and identified by `actorUserId`, and only platform admins can reach
 these actions. A stolen admin session could misdirect an investigation.
 
-Suggested fix (not applied): call `selectClientIp()` from `lib/rate-limit.ts`, or move the helper
-into one shared module so the next copy cannot drift.
+Suggested fix (now applied in #329): call `selectClientIp()` from `lib/rate-limit.ts`, or move the helper
+into one shared module so the next copy cannot drift. The derivation now lives in `lib/client-ip.ts`;
+`requestOrigin` and the rate limiter both use it, and a missing or malformed header records no IP.
 
 ### A2 — Device rate limit is consumed before the token is verified (Low/Medium; availability)
 

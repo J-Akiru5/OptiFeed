@@ -10,7 +10,7 @@ import { mobileStickyActions } from "@/components/mobile/form-actions";
 import { Link, useRouter } from "@/i18n/routing";
 import { updateDeviceDailyCap, updatePondSettings } from "@/lib/actions/settings";
 import { requestHelpTarget } from "@/lib/help/reveal";
-import { MAX_FEED_GRAMS_PER_DAY_PER_DEVICE } from "@/lib/limits";
+import { MAX_FEED_GRAMS_PER_DAY_PER_DEVICE } from "@/lib/limits-core";
 import {
 	POND_SETTINGS_ERROR_KEYS,
 	type PondDeviceConflict,

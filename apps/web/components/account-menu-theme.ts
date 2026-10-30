@@ -29,7 +29,7 @@ export const accountMenuMutedText = "text-[#3D5568] dark:text-gray-400";
 export const accountMenuCloseButton =
 	"bg-gray-100 text-[#3D5568] hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700";
 
-export type AccountMenuDeviceStatus = "online" | "offline" | "missing";
+export type AccountMenuDeviceStatus = "online" | "weak" | "offline" | "missing";
 
 /**
  * Device health on the gray-800 tile. The light values already cleared AA on
@@ -38,6 +38,7 @@ export type AccountMenuDeviceStatus = "online" | "offline" | "missing";
  */
 export const ACCOUNT_MENU_DEVICE_STATUS: Record<AccountMenuDeviceStatus, string> = {
 	online: "text-[#1E7B34] dark:text-green-400",
+	weak: "text-[#9A3412] dark:text-amber-300",
 	offline: "text-[#C42B3A] dark:text-red-400",
 	missing: "text-gray-600 dark:text-gray-300",
 };
@@ -114,6 +115,12 @@ export const ACCOUNT_MENU_CONTRAST: readonly AccountMenuContrastPair[] = [
 		// text-[#1E7B34]  ·  dark:text-green-400
 		light: { background: "#F4F7F6", foreground: "#1E7B34" },
 		dark: { background: "#1E2939", foreground: "#05DF72" },
+	},
+	{
+		label: "device weak status",
+		// text-[#9A3412]  ·  dark:text-amber-300
+		light: { background: "#F4F7F6", foreground: "#9A3412" },
+		dark: { background: "#1E2939", foreground: "#FCD34D" },
 	},
 	{
 		label: "device offline status",

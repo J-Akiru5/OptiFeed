@@ -18,6 +18,7 @@ import {
 	Cpu,
 	Droplets,
 	Radio,
+	Signal,
 	Timer,
 	Wheat,
 	WifiOff,
@@ -208,6 +209,7 @@ export function FeederHero({ pondName, className, ...data }: FeederHeroProps) {
 
 	const {
 		deviceLabel,
+		connectionState,
 		isOffline,
 		isPaused,
 		lastSeenAt,
@@ -221,6 +223,13 @@ export function FeederHero({ pondName, className, ...data }: FeederHeroProps) {
 		firmwareVersion,
 		advisor,
 	} = data;
+
+	const isWeak = connectionState === "weak";
+	const connectionLabel = isOffline
+		? t("statusOffline")
+		: isWeak
+			? t("statusWeak")
+			: t("statusOnline");
 
 	const number = (value: number, digits = 0) =>
 		new Intl.NumberFormat(locale, { maximumFractionDigits: digits }).format(value);
@@ -314,9 +323,9 @@ export function FeederHero({ pondName, className, ...data }: FeederHeroProps) {
 			index: 3,
 		},
 		{
-			icon: isOffline ? WifiOff : Radio,
+			icon: isOffline ? WifiOff : isWeak ? Signal : Radio,
 			label: t("connectionLabel"),
-			value: isOffline ? t("statusOffline") : t("statusOnline"),
+			value: connectionLabel,
 			detail: lastSeenLabel,
 			muted: isOffline,
 			position: CALLOUT_POSITIONS[4],
@@ -363,17 +372,19 @@ export function FeederHero({ pondName, className, ...data }: FeederHeroProps) {
 							"inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ring-1 ring-inset",
 							isOffline
 								? "bg-[#C42B3A]/20 text-[#ffc0c7] ring-[#C42B3A]/45"
-								: "bg-[#1E7B34]/25 text-[#b7f7cd] ring-[#1E7B34]/45",
+								: isWeak
+									? "bg-[#B45309]/25 text-[#ffd8a8] ring-[#B45309]/50"
+									: "bg-[#1E7B34]/25 text-[#b7f7cd] ring-[#1E7B34]/45",
 						)}
 					>
 						<span
 							aria-hidden="true"
 							className={cn(
 								"h-1.5 w-1.5 rounded-full",
-								isOffline ? "bg-[#ff8a95]" : "bg-[#4ade80]",
+								isOffline ? "bg-[#ff8a95]" : isWeak ? "bg-[#fbbf24]" : "bg-[#4ade80]",
 							)}
 						/>
-						{isOffline ? t("statusOffline") : t("statusOnline")}
+						{connectionLabel}
 					</span>
 					<p className="max-w-[14rem] text-right text-[10px] font-semibold text-white/60">
 						{lastSeenLabel}

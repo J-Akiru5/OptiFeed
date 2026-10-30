@@ -2,13 +2,14 @@ import { resolveMemberOrgScope } from "@/lib/auth/org-scope";
 import { hasPermission } from "@/lib/auth/permissions";
 import { canWrite, getCurrentPondOwnerId } from "@/lib/auth/session";
 import type { CalendarEventPond } from "@/lib/calendar/event-sources";
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { serialiseCycle } from "@/lib/crop-cycle/serialise";
 import type { CropCycleDto, PondOption } from "@/lib/crop-cycle/types";
+import { evaluateDeviceStatus } from "@/lib/device-status";
 import { parsePondGrowthTarget, parsePondProfile } from "@/lib/pond-profile";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 
 /**
  * Data for the farmer's dedicated Calendar page (E25, #212).
@@ -137,9 +138,11 @@ export async function loadFarmerCalendarPageData(): Promise<FarmerCalendarPageDa
 				: latest,
 		null,
 	);
-	const hopperIsOffline =
-		!latestDevice?.lastSeenAt ||
-		Date.now() - latestDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+	const hopperIsOffline = evaluateDeviceStatus({
+		lastSeenAt: latestDevice?.lastSeenAt ?? null,
+		now: new Date(),
+		policy: await getDeviceStatusPolicy(),
+	}).isOffline;
 
 	return {
 		initialPondId: initialPond.id,

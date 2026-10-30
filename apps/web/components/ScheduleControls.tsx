@@ -3,7 +3,7 @@
 import { Link } from "@/i18n/routing";
 import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
 import { toggleDevicePause } from "@/lib/actions/schedule";
-import { type FeedNowLimit, formatFeedGrams } from "@/lib/limits";
+import { type FeedNowLimit, formatFeedGrams } from "@/lib/limits-core";
 import { useFeedCommandGuard } from "@/lib/pwa/use-feed-guard";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, CheckCircle2, Loader2, Pause, Play, Power } from "lucide-react";

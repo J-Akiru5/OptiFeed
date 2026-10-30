@@ -28,7 +28,8 @@ export const GET = withApi(
 			//    a device alerts exactly once per outage (no repeats on later runs).
 			//
 			//    The org's `offlineAfterMin` decides when the ALERT fires; the
-			//    dashboard badge keeps the fixed 15-minute OFFLINE_THRESHOLD_MS.
+			//    device badges use the platform `device.status` policy (#388),
+			//    which includes its own grace window.
 			//    Scan from the smallest allowed delay so a 5-minute org policy is
 			//    honoured, then filter per device below.
 			const scanCutoff = new Date(Date.now() - ORG_OFFLINE_AFTER_MIN_MIN * 60 * 1000);

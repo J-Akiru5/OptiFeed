@@ -1,3 +1,8 @@
+import {
+	DEFAULT_DEVICE_STATUS_POLICY,
+	type DeviceStatusPolicy,
+	evaluateDeviceStatus,
+} from "@/lib/device-status";
 import manifest from "@/lib/feeder/model-manifest.json";
 
 /**
@@ -12,13 +17,14 @@ const FEEDER_VIEWER_CONTRACT = manifest.contract;
 export const FEEDER_MODEL_FILE = manifest.file;
 export const FEEDER_MODEL_VERSION = manifest.version;
 
-export type FeederStatus = "idle" | "dispensing" | "paused" | "offline";
+export type FeederStatus = "idle" | "dispensing" | "paused" | "weak" | "offline";
 export type FeederViewerTier = "high" | "medium" | "low";
 
 const FEEDER_STATUS_LABEL_KEYS: Record<FeederStatus, string> = {
 	idle: "statusIdle",
 	dispensing: "statusDispensing",
 	paused: "statusPaused",
+	weak: "statusWeak",
 	offline: "statusOffline",
 };
 
@@ -30,6 +36,7 @@ export interface FeederStatusInput {
 	lastSeenAt: Date | string | null;
 	lastFedAt: Date | string | null;
 	now?: Date;
+	policy?: DeviceStatusPolicy;
 }
 
 function toDate(value: Date | string | null): Date | null {
@@ -44,12 +51,15 @@ export function feederStatus({
 	lastSeenAt,
 	lastFedAt,
 	now = new Date(),
+	policy = DEFAULT_DEVICE_STATUS_POLICY,
 }: FeederStatusInput): FeederStatus {
-	const seen = toDate(lastSeenAt);
-	if (!seen || now.getTime() - seen.getTime() > 15 * 60 * 1000) return "offline";
+	const state = evaluateDeviceStatus({ lastSeenAt: toDate(lastSeenAt), now, policy }).state;
+	if (state === "offline") return "offline";
 	if (isPaused) return "paused";
 	const fed = toDate(lastFedAt);
 	if (fed && now.getTime() - fed.getTime() <= DISPENSING_WINDOW_MS) return "dispensing";
+	// The unit is reachable but its last heartbeat is late or its signal is low.
+	if (state === "weak") return "weak";
 	return "idle";
 }
 

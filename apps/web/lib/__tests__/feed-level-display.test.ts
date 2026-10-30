@@ -1,15 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { OFFLINE_THRESHOLD_MS } from "../constants";
+import { DEVICE_OFFLINE_GRACE_MIN_DEFAULT } from "../device-status";
 import { isDeviceOffline, resolveFeedLevelDisplay } from "../feed-level-display";
 
 const readingAt = new Date("2026-08-28T09:32:00+08:00");
 
 describe("isDeviceOffline", () => {
-	it("treats the exact threshold as online and one millisecond later as offline", () => {
+	it("keeps the grace window online and flips one millisecond after it", () => {
 		const now = new Date("2026-10-27T12:00:00Z");
+		const graceMs = DEVICE_OFFLINE_GRACE_MIN_DEFAULT * 60 * 1000;
 
-		expect(isDeviceOffline(new Date(now.getTime() - OFFLINE_THRESHOLD_MS), now)).toBe(false);
-		expect(isDeviceOffline(new Date(now.getTime() - OFFLINE_THRESHOLD_MS - 1), now)).toBe(true);
+		expect(isDeviceOffline(new Date(now.getTime() - OFFLINE_THRESHOLD_MS - graceMs), now)).toBe(
+			false,
+		);
+		expect(isDeviceOffline(new Date(now.getTime() - OFFLINE_THRESHOLD_MS - graceMs - 1), now)).toBe(
+			true,
+		);
 	});
 
 	it("treats a device that never checked in as offline", () => {

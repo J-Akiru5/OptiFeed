@@ -27,6 +27,7 @@ import {
 	parseDeviceSort,
 	sortHealthDevices,
 } from "@/lib/platform/health";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { cn } from "@/lib/utils";
 import {
 	AlertTriangle,
@@ -66,11 +67,12 @@ export default async function OperationsHealthPage({
 		first(params.dir),
 	);
 
-	const [health, t, tCommon, tDates] = await Promise.all([
+	const [health, t, tCommon, tDates, statusPolicy] = await Promise.all([
 		getSystemHealth(),
 		getTranslations("superadmin.operations"),
 		getTranslations("superadmin.common"),
 		getTranslations("dates"),
+		getDeviceStatusPolicy(),
 	]);
 
 	const chartLabels: ChartLabels = {
@@ -304,7 +306,7 @@ export default async function OperationsHealthPage({
 					>
 						<ItemCardGrid label={t("devices.caption")}>
 							{devices.map((device) => {
-								const offline = isDeviceOffline(device.lastSeenAt, now);
+								const offline = isDeviceOffline(device.lastSeenAt, now, statusPolicy);
 								return (
 									<MobileCard key={device.id}>
 										<div className="flex items-start justify-between gap-2">
@@ -344,7 +346,7 @@ export default async function OperationsHealthPage({
 							]}
 						>
 							{devices.map((device) => {
-								const offline = isDeviceOffline(device.lastSeenAt, now);
+								const offline = isDeviceOffline(device.lastSeenAt, now, statusPolicy);
 								return (
 									<tr
 										key={device.id}

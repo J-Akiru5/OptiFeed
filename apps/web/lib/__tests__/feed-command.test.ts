@@ -77,12 +77,19 @@ describe("GET /api/feed-command", () => {
 		mockRateLimit.mockResolvedValue({ success: false } as never);
 		const res = await GET(pollRequest("test-token"));
 		expect(res.status).toBe(429);
+		expect(await res.text()).toBe("Too Many Requests");
+		// Consumed only after verification and keyed on the verified mac.
+		expect(mockRateLimit).toHaveBeenCalledTimes(1);
+		expect(mockRateLimit).toHaveBeenCalledWith(DEVICE.mac, "feed");
+		expect(mockFeedRequest.findFirst).not.toHaveBeenCalled();
 	});
 
 	it("returns 401 when the token does not resolve to a device", async () => {
 		mockEnergyDevice.findUnique.mockResolvedValue(null as never);
 		const res = await GET(pollRequest("wrong-token"));
 		expect(res.status).toBe(401);
+		// #330: an unverified token must not touch the named device's budget.
+		expect(mockRateLimit).not.toHaveBeenCalled();
 	});
 
 	it("returns 401 when the token resolves to a different mac than device_id", async () => {
@@ -93,6 +100,33 @@ describe("GET /api/feed-command", () => {
 			}),
 		);
 		expect(res.status).toBe(401);
+		// #330: naming another device's MAC with a valid token of your own does
+		// not spend that device's bucket.
+		expect(mockRateLimit).not.toHaveBeenCalled();
+	});
+
+	it("#330: an unauthenticated flood cannot exhaust a verified device's bucket", async () => {
+		// Mirrors the real limiter's 20/min ceiling: before the fix, attacker
+		// traffic keyed on the victim MAC pushed the counter past it and the
+		// real device's next poll came back 429.
+		let consumed = 0;
+		mockRateLimit.mockImplementation(async () => {
+			consumed += 1;
+			return { success: consumed <= 20, remaining: Math.max(0, 20 - consumed) } as never;
+		});
+
+		mockEnergyDevice.findUnique.mockResolvedValue(null as never);
+		for (let i = 0; i < 25; i += 1) {
+			const res = await GET(pollRequest("attacker-token"));
+			expect(res.status).toBe(401);
+		}
+		expect(mockRateLimit).not.toHaveBeenCalled();
+
+		mockEnergyDevice.findUnique.mockResolvedValue({ ...DEVICE } as never);
+		const res = await GET(pollRequest("test-token"));
+		expect(res.status).toBe(200);
+		expect(mockRateLimit).toHaveBeenCalledTimes(1);
+		expect(mockRateLimit).toHaveBeenCalledWith(DEVICE.mac, "feed");
 	});
 
 	it("returns an idle body when no request is pending", async () => {
@@ -103,6 +137,7 @@ describe("GET /api/feed-command", () => {
 		expect(body.feed_request_id).toBeNull();
 		expect(body.grams).toBe(0);
 		expect(body.grams_per_feeding).toBe(150);
+		expect(mockRateLimit).toHaveBeenCalledWith(DEVICE.mac, "feed");
 	});
 
 	it("returns 403 for a PENDING device (org approval policy)", async () => {

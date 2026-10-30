@@ -10,10 +10,12 @@ import {
 	FirmwareStatusCard,
 	StickerDefaultCard,
 } from "@/components/superadmin/config-status";
+import { DeviceStatusSettings } from "@/components/superadmin/device-status-settings";
 import { PlatformListSettings } from "@/components/superadmin/platform-settings";
 import { PageHeader } from "@/components/superadmin/ui";
 import { listAiProviderConfig } from "@/lib/actions/ai-providers";
 import { MEMBER_ROLES } from "@/lib/auth/member-rules";
+import { getDeviceStatusSetting } from "@/lib/settings/device-status";
 import { getEmailConfiguration } from "@/lib/settings/email-status";
 import {
 	FEEDING_CAPS_HARD_MAX,
@@ -44,21 +46,23 @@ import { getTranslations } from "next-intl/server";
 /**
  * Platform configuration centre (decision E16.3, task I-14).
  *
- * Eight sections in one place: lists, sticker rating, AI providers, email and
- * invites, feeding safety caps, defaults for new organizations, firmware/OTA
- * status and feature flags. Writes live in `lib/actions/platform/config.ts` and
+ * Nine sections in one place: lists, device connectivity, sticker rating, AI
+ * providers, email and invites, feeding safety caps, defaults for new
+ * organizations, firmware/OTA status and feature flags. Writes live in `lib/actions/platform/config.ts` and
  * every one of them is a platform action with a reason and an audit row.
  */
 export default async function SuperadminSettingsPage() {
-	const [pageSize, caps, orgDefaults, flags, stickerRating, aiProviders, t] = await Promise.all([
-		getListPageSize(),
-		getFeedingLimits(),
-		getOrgDefaultSettings(),
-		getFeatureFlags(),
-		getStickerRatingDefault(),
-		listAiProviderConfig(),
-		getTranslations("superadmin.settings"),
-	]);
+	const [pageSize, caps, orgDefaults, flags, stickerRating, aiProviders, deviceStatus, t] =
+		await Promise.all([
+			getListPageSize(),
+			getFeedingLimits(),
+			getOrgDefaultSettings(),
+			getFeatureFlags(),
+			getStickerRatingDefault(),
+			listAiProviderConfig(),
+			getDeviceStatusSetting(),
+			getTranslations("superadmin.settings"),
+		]);
 
 	const email = getEmailConfiguration();
 	const firmware = await getFirmwareStatus();
@@ -77,6 +81,13 @@ export default async function SuperadminSettingsPage() {
 					fallback={LIST_PAGE_SIZE_DEFAULT}
 				/>
 			),
+		},
+		{
+			id: "device-status",
+			icon: "device",
+			title: t("deviceStatus.title"),
+			description: t("deviceStatus.description"),
+			content: <DeviceStatusSettings initial={deviceStatus} />,
 		},
 		{
 			id: "stickers",

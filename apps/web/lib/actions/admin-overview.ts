@@ -21,6 +21,7 @@ import { resolveOrgScope } from "@/lib/auth/org-scope";
 import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import { resolveDayWindow } from "@/lib/chart-windows";
 import prisma from "@/lib/prisma";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 
 /**
  * Read-only data for the farm-owner Admin Overview graphs (#277).
@@ -81,6 +82,7 @@ export async function getAdminOverview(): Promise<AdminOverviewData> {
 	if (scope.pondIds.length === 0) return emptyOverview();
 
 	const now = new Date();
+	const statusPolicy = await getDeviceStatusPolicy();
 	const feedWindow = resolveDayWindow(ADMIN_FEED_DAYS, now);
 	const activityWindow = resolveDayWindow(ADMIN_ACTIVITY_DAYS, now);
 
@@ -145,7 +147,7 @@ export async function getAdminOverview(): Promise<AdminOverviewData> {
 	);
 
 	return {
-		deviceHealth: buildDeviceHealth(devices, now),
+		deviceHealth: buildDeviceHealth(devices, now, statusPolicy),
 		feedStack,
 		activityPoints,
 		feedDays: ADMIN_FEED_DAYS,

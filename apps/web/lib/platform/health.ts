@@ -1,7 +1,12 @@
 import { type ChartPoint, fillDailySeries } from "@/components/charts/chart-data";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { resolveDayWindow } from "@/lib/chart-windows";
-import { OFFLINE_THRESHOLD_MS, PH_TZ } from "@/lib/constants";
+import { PH_TZ } from "@/lib/constants";
+import {
+	DEFAULT_DEVICE_STATUS_POLICY,
+	type DeviceStatusPolicy,
+	evaluateDeviceStatus,
+} from "@/lib/device-status";
 import prisma from "@/lib/prisma";
 
 /**
@@ -134,8 +139,12 @@ export function sortHealthDevices(
 }
 
 /** True when a device has not been heard from inside the offline window. */
-export function isDeviceOffline(lastSeenAt: Date | null, now = new Date()): boolean {
-	return !lastSeenAt || now.getTime() - lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+export function isDeviceOffline(
+	lastSeenAt: Date | null,
+	now = new Date(),
+	policy: DeviceStatusPolicy = DEFAULT_DEVICE_STATUS_POLICY,
+): boolean {
+	return evaluateDeviceStatus({ lastSeenAt, now, policy }).isOffline;
 }
 
 export async function getSystemHealth(

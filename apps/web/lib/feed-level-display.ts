@@ -1,4 +1,9 @@
-import { HOPPER_LOW_DISPLAY_PCT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { HOPPER_LOW_DISPLAY_PCT } from "@/lib/constants";
+import {
+	DEFAULT_DEVICE_STATUS_POLICY,
+	type DeviceStatusPolicy,
+	isDeviceOffline as resolveDeviceOffline,
+} from "@/lib/device-status";
 
 /** How a hopper-level reading should be presented. */
 export type FeedLevelState = "live" | "stale" | "none";
@@ -33,16 +38,17 @@ export interface FeedLevelDisplayInput {
 }
 
 /**
- * The single offline rule for a device: no heartbeat within
- * `OFFLINE_THRESHOLD_MS`. Exactly at the threshold still counts as online,
- * matching every other offline check in the app.
+ * Display offline rule: the shared three-state helper's `offline` state, which
+ * includes the platform-configured grace window (issue #388). A "weak signal"
+ * device still has a usable last reading, so only a full offline state turns the
+ * hopper level into "last known".
  */
 export function isDeviceOffline(
 	lastSeenAt: Date | null | undefined,
 	now: Date = new Date(),
+	policy: DeviceStatusPolicy = DEFAULT_DEVICE_STATUS_POLICY,
 ): boolean {
-	if (!lastSeenAt) return true;
-	return now.getTime() - lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+	return resolveDeviceOffline(lastSeenAt, now, policy);
 }
 
 /**

@@ -7,9 +7,10 @@ import {
 } from "@/components/charts/chart-data";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { startOfDayInTimeZone } from "@/lib/chart-windows";
-import { OFFLINE_THRESHOLD_MS, PH_TZ } from "@/lib/constants";
+import { PH_TZ } from "@/lib/constants";
 import { MACHINE_FEED_SOURCES, isMachineFeedSource } from "@/lib/feed-figures";
 import prisma from "@/lib/prisma";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 
 /**
  * Cross-tenant analytics for the platform overview (E16.1).
@@ -166,7 +167,12 @@ export async function getPlatformAnalytics(
 	const window = resolveAnalyticsWindow(range, now);
 	const current = { gte: window.start, lt: window.end };
 	const previous = { gte: window.previousStart, lt: window.previousEnd };
-	const onlineCutoff = new Date(window.end.getTime() - OFFLINE_THRESHOLD_MS);
+	const statusPolicy = await getDeviceStatusPolicy();
+	// Weak signal is still reachable, so "online" uses the full display window
+	// (offline threshold + grace) exactly like the device badges (#388).
+	const onlineCutoff = new Date(
+		window.end.getTime() - (statusPolicy.offlineAfterMs + statusPolicy.graceMs),
+	);
 
 	const [
 		userTotal,

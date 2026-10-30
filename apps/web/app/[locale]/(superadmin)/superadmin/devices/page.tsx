@@ -24,9 +24,9 @@ import { Pagination } from "@/components/ui/pagination";
 import { ListView } from "@/components/ui/view-toggle";
 import { Link, getPathname } from "@/i18n/routing";
 import { getOrgPondOptions, listPlatformDevices } from "@/lib/actions/platform/devices";
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { toHopperSnapshot } from "@/lib/device-hopper";
+import { evaluateDeviceStatus } from "@/lib/device-status";
 import {
 	deviceListStatus,
 	filterByStatus,
@@ -39,7 +39,8 @@ import {
 } from "@/lib/mobile-list";
 import { buildPageHref } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
-import { Cpu, Printer, Wifi, WifiOff } from "lucide-react";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
+import { Cpu, Printer, Signal, Wifi, WifiOff } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Fragment } from "react";
 
@@ -73,7 +74,7 @@ export default async function SuperadminDevicesPage({
 	const order = parseListOrder(first(params.order));
 	const attention = parseAttention(first(params.attention));
 
-	const [devices, options, locale, t, tCommon, tMobile, tDates] = await Promise.all([
+	const [devices, options, locale, t, tCommon, tMobile, tDates, statusPolicy] = await Promise.all([
 		listPlatformDevices({ query, page }),
 		getOrgPondOptions(),
 		getLocale(),
@@ -81,6 +82,7 @@ export default async function SuperadminDevicesPage({
 		getTranslations("superadmin.common"),
 		getTranslations("dashboard.mobile"),
 		getTranslations("dates"),
+		getDeviceStatusPolicy(),
 	]);
 	const pageCount = Math.max(1, Math.ceil(devices.total / devices.pageSize));
 	const firstRow = devices.total === 0 ? 0 : (devices.page - 1) * devices.pageSize + 1;
@@ -105,12 +107,16 @@ export default async function SuperadminDevicesPage({
 		]),
 	);
 	const hopperFor = (device: (typeof devices.rows)[number]) =>
-		toHopperSnapshot({
-			id: device.id,
-			lastSeenAt: device.lastSeenAt,
-			feedLevelPercent: feedLevelById.get(device.id)?.levelPercent ?? null,
-			feedLevelUpdatedAt: feedLevelById.get(device.id)?.updatedAt ?? null,
-		});
+		toHopperSnapshot(
+			{
+				id: device.id,
+				lastSeenAt: device.lastSeenAt,
+				feedLevelPercent: feedLevelById.get(device.id)?.levelPercent ?? null,
+				feedLevelUpdatedAt: feedLevelById.get(device.id)?.updatedAt ?? null,
+			},
+			new Date(now),
+			statusPolicy,
+		);
 
 	// Mobile status strip and chips (E26): grade the feeders on this page from
 	// the heartbeat and the hopper reading, then filter and order them.
@@ -121,6 +127,7 @@ export default async function SuperadminDevicesPage({
 				feedLevelPercent: feedLevelById.get(device.id)?.levelPercent ?? null,
 			},
 			new Date(now),
+			statusPolicy,
 		);
 	const counts = summarizeStatuses(devices.rows.map(statusOf));
 	const visibleDevices = orderRows(
@@ -321,8 +328,13 @@ export default async function SuperadminDevicesPage({
 							]}
 						>
 							{visibleDevices.map((device) => {
-								const offline =
-									!device.lastSeenAt || now - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+								const connection = evaluateDeviceStatus({
+									lastSeenAt: device.lastSeenAt,
+									now: new Date(now),
+									policy: statusPolicy,
+								});
+								const offline = connection.isOffline;
+								const weak = connection.isWeak;
 								return (
 									<Fragment key={device.id}>
 										<tr className="border-b border-gray-50 align-top transition-colors last:border-0 hover:bg-[#F4F7F6]/50">
@@ -366,10 +378,14 @@ export default async function SuperadminDevicesPage({
 											<td className="px-6 py-4">
 												<div className="space-y-1">
 													<Badge
-														tone={offline ? "danger" : "success"}
-														icon={offline ? WifiOff : Wifi}
+														tone={offline ? "danger" : weak ? "warning" : "success"}
+														icon={offline ? WifiOff : weak ? Signal : Wifi}
 													>
-														{offline ? tCommon("offline") : tCommon("online")}
+														{offline
+															? tCommon("offline")
+															: weak
+																? tCommon("weak")
+																: tCommon("online")}
 													</Badge>
 													<p className="text-[11px] text-[#3D5568]">
 														{lastSeen(device.lastSeenAt)}

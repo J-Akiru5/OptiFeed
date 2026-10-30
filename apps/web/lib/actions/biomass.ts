@@ -1,11 +1,12 @@
 "use server";
 
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { dateOnlyToUtcDate, isValidDateOnly } from "@/lib/crop-cycle/dates";
+import { isDeviceUnreachable } from "@/lib/device-status";
 import { applyGrowthPlanForPond } from "@/lib/growth-plan-apply";
 import { biomassLogSchema, feedGramsSchema, fishSamplesSchema, formatZodError } from "@/lib/limits";
 import prisma from "@/lib/prisma";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { calculateNextFeeding } from "@/lib/volumeCalc";
 import { revalidatePath } from "next/cache";
 
@@ -157,7 +158,7 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 			});
 			const previousGrams = energyDevice?.gramsPerFeeding ?? null;
 			const deviceOffline = energyDevice
-				? Date.now() - (energyDevice.lastSeenAt?.getTime() ?? 0) > OFFLINE_THRESHOLD_MS
+				? isDeviceUnreachable(energyDevice.lastSeenAt, new Date(), await getDeviceStatusPolicy())
 				: false;
 			const population = pond.population ?? 0;
 

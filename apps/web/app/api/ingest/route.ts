@@ -2,17 +2,18 @@ import { withApi } from "@/lib/api/instrumentation";
 import {
 	FEED_DAYS_WARNING,
 	HEARTBEAT_ROW_INTERVAL_MS,
-	OFFLINE_THRESHOLD_MS,
 	PELLET_ALERT_WINDOW_MS,
 	RECONCILIATION_LOOKBACK_HOURS,
 } from "@/lib/constants";
 import { isDeviceApproved, verifyDeviceToken } from "@/lib/device-auth";
 import { FIRMWARE_REPORTED_EVENT, getDeviceFirmwareVersion } from "@/lib/device-firmware";
+import { isDeviceUnreachable } from "@/lib/device-status";
 import { estimateDaysOfFeedRemaining } from "@/lib/feed-level";
 import { normalizeNotificationPrefs } from "@/lib/limits";
 import { absoluteAppUrl, sendTelegramMessage } from "@/lib/notify/telegram";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { recordMissedFeedingAlert } from "@/lib/settings/missed-feeding";
 import { ORG_SETTINGS_DEFAULTS, getOrgAlertRoles, getOrgSettingsForFarm } from "@/lib/settings/org";
 import { hopperAlertTier, shouldCreatePondAlert } from "@/lib/settings/org-alerts";
@@ -22,8 +23,9 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-// Devices are considered disconnected if no heartbeat for OFFLINE_THRESHOLD_MS
-// (lib/constants.ts) — matches the dashboard's offline threshold.
+// A heartbeat that arrives after a real outage records a reconnect. This uses
+// the strict command-safety window (no display grace) so the event still fires
+// after the configured offline window (#388).
 
 const RATE_LIMIT_MS = 1000;
 
@@ -163,8 +165,11 @@ export const POST = withApi(
 				return new Response("Unprocessable Entity", { status: 422 });
 			}
 
-			const wasOffline =
-				!device.lastSeenAt || Date.now() - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+			const wasOffline = isDeviceUnreachable(
+				device.lastSeenAt,
+				new Date(),
+				await getDeviceStatusPolicy(),
+			);
 
 			// Thinning (N11): look up the last heartbeat row so we only write a new
 			// one when 5 minutes have passed or a stored value changed.

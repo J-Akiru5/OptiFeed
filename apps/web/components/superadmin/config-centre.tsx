@@ -10,6 +10,7 @@ import {
 	Gauge,
 	ListChecks,
 	Mail,
+	Radio,
 	Settings2,
 	Tag,
 	ToggleLeft,
@@ -29,6 +30,7 @@ import { type ReactNode, useState } from "react";
 
 export type ConfigSectionIcon =
 	| "lists"
+	| "device"
 	| "stickers"
 	| "ai"
 	| "email"
@@ -39,6 +41,7 @@ export type ConfigSectionIcon =
 
 const ICONS = {
 	lists: ListChecks,
+	device: Radio,
 	stickers: Tag,
 	ai: Bot,
 	email: Mail,

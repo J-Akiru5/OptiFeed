@@ -2,22 +2,28 @@ import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { type HierarchyNode, HierarchyTree } from "@/components/hierarchy-tree";
 import { getAllFarmHierarchies } from "@/lib/actions/admin";
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { evaluateDeviceStatus } from "@/lib/device-status";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { FolderTree } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0;
 
 export default async function AdminHierarchyPage() {
-	const [hierarchies, t, tCommon] = await Promise.all([
+	const [hierarchies, t, tCommon, statusPolicy] = await Promise.all([
 		getAllFarmHierarchies(),
 		getTranslations("dashboard.adminHierarchy"),
 		getTranslations("dashboard.adminCommon"),
+		getDeviceStatusPolicy(),
 	]);
-	const now = Date.now();
+	const now = new Date();
 
-	const isOnline = (lastSeenAt: string | null) =>
-		!!lastSeenAt && now - Date.parse(lastSeenAt) <= OFFLINE_THRESHOLD_MS;
+	const connectionOf = (lastSeenAt: string | null) =>
+		evaluateDeviceStatus({
+			lastSeenAt: lastSeenAt ? new Date(Date.parse(lastSeenAt)) : null,
+			now,
+			policy: statusPolicy,
+		});
 
 	const roleLabel = (role: string) =>
 		tCommon.has(`roleName.${role}`) ? tCommon(`roleName.${role}`) : role;
@@ -46,14 +52,24 @@ export default async function AdminHierarchyPage() {
 									: undefined,
 							subtitle: t("deviceCount", { count: pond.devices.length }),
 							children: pond.devices.map((device) => {
-								const online = isOnline(device.lastSeenAt);
+								const connection = connectionOf(device.lastSeenAt);
 								return {
 									id: `device-${device.id}`,
 									kind: "device" as const,
 									title: device.label,
 									badge: {
-										text: online ? tCommon("online") : tCommon("offline"),
-										tone: online ? ("green" as const) : ("muted" as const),
+										text:
+											connection.state === "offline"
+												? tCommon("offline")
+												: connection.state === "weak"
+													? tCommon("weak")
+													: tCommon("online"),
+										tone:
+											connection.state === "offline"
+												? ("muted" as const)
+												: connection.state === "weak"
+													? ("amber" as const)
+													: ("green" as const),
 									},
 								};
 							}),

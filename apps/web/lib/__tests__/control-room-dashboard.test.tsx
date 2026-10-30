@@ -70,6 +70,7 @@ describe("pond overview canvas", () => {
 					{
 						id: "dev-1",
 						label: "CICT Feeder",
+						status: "online",
 						isOffline: false,
 						isPaused: false,
 						levelPercent: 82,
@@ -97,6 +98,7 @@ describe("pond overview canvas", () => {
 					{
 						id: "dev-1",
 						label: "CICT Feeder",
+						status: "offline",
 						isOffline: true,
 						isPaused: false,
 						levelPercent: 82,
@@ -121,6 +123,7 @@ describe("pond overview canvas", () => {
 					{
 						id: "dev-1",
 						label: "CICT Feeder",
+						status: "offline",
 						isOffline: true,
 						isPaused: true,
 						levelPercent: null,

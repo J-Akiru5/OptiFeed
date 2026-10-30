@@ -41,6 +41,7 @@ export function FeedNowButton({
 	const online = useOnlineStatus();
 
 	const isOffline = connectionStatus === "offline";
+	const isWeak = connectionStatus === "weak";
 	const browserOffline = !online;
 
 	// A device that has never reported a level has no reading at all (decision
@@ -104,6 +105,14 @@ export function FeedNowButton({
 				<div className="mt-3 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
 					<AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
 					<p className="text-xs font-medium text-red-700">{t("offlineWarning")}</p>
+				</div>
+			)}
+			{isWeak && (
+				<div className="mt-3 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+					<AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+					<p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+						{t("weakSignalWarning")}
+					</p>
 				</div>
 			)}
 			{browserOffline && !isOffline && (
@@ -174,9 +183,15 @@ export function FeedNowButton({
 							<p>
 								{t("connectionLink")}
 								<strong
-									className={!isOffline ? "text-[#1E7B34] font-bold" : "text-[#C42B3A] font-bold"}
+									className={
+										isOffline
+											? "text-[#C42B3A] font-bold"
+											: isWeak
+												? "text-[#9A3412] font-bold dark:text-amber-300"
+												: "text-[#1E7B34] font-bold"
+									}
 								>
-									{!isOffline ? t("connected") : t("offline")}
+									{isOffline ? t("offline") : isWeak ? t("weakSignal") : t("connected")}
 								</strong>
 							</p>
 							<p>

@@ -30,7 +30,8 @@ import {
 } from "@/lib/mobile-list";
 import { buildPageHref, parsePage } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
-import { Cpu, Eye, Printer, Wifi, WifiOff } from "lucide-react";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
+import { Cpu, Eye, Printer, Signal, Wifi, WifiOff } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 
 const LABELS_HREF = "/admin/devices/labels";
@@ -46,15 +47,17 @@ export default async function AdminDevicesPage({
 	const status = parseDeviceStatusFilter(params.status);
 	const order = parseListOrder(params.order);
 	const attention = parseAttention(params.attention);
-	const [devicesPage, canClaim, t, tCommon, tMobile, tDates, locale] = await Promise.all([
-		getDevices({ page }),
-		hasPermission("claim_feeder"),
-		getTranslations("dashboard.adminDevices"),
-		getTranslations("dashboard.adminCommon"),
-		getTranslations("dashboard.mobile"),
-		getTranslations("dates"),
-		getLocale(),
-	]);
+	const [devicesPage, canClaim, t, tCommon, tMobile, tDates, locale, statusPolicy] =
+		await Promise.all([
+			getDevices({ page }),
+			hasPermission("claim_feeder"),
+			getTranslations("dashboard.adminDevices"),
+			getTranslations("dashboard.adminCommon"),
+			getTranslations("dashboard.mobile"),
+			getTranslations("dates"),
+			getLocale(),
+			getDeviceStatusPolicy(),
+		]);
 	const devices = devicesPage.rows;
 	const pageCount = Math.max(1, Math.ceil(devicesPage.total / devicesPage.pageSize));
 	const firstRow = devicesPage.total === 0 ? 0 : (devicesPage.page - 1) * devicesPage.pageSize + 1;
@@ -70,7 +73,8 @@ export default async function AdminDevicesPage({
 	// Mobile status strip (E26): grade the feeders on this page, then filter and
 	// order them. The pending queue above stays unaffected.
 	const now = new Date();
-	const statusOf = (device: (typeof devices)[number]) => deviceListStatus(device, now);
+	const statusOf = (device: (typeof devices)[number]) =>
+		deviceListStatus(device, now, statusPolicy);
 	const counts = summarizeStatuses(devices.map(statusOf));
 	const visibleDevices = orderRows(
 		filterByStatus(devices, status, statusOf).filter(
@@ -223,8 +227,10 @@ export default async function AdminDevicesPage({
 										feedLevelUpdatedAt: feedLevelUpdatedAt.get(device.id) ?? null,
 									},
 									now,
+									statusPolicy,
 								);
 								const isOffline = hopper.isOffline;
+								const isWeak = hopper.status === "weak";
 
 								return (
 									<AdminTr key={device.id}>
@@ -264,15 +270,23 @@ export default async function AdminDevicesPage({
 												className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black tracking-wider uppercase ${
 													isOffline
 														? "bg-red-100 text-[#C42B3A] dark:bg-red-950/50 dark:text-red-300"
-														: "bg-green-100 text-[#1E7B34] dark:bg-green-950/50 dark:text-green-300"
+														: isWeak
+															? "bg-amber-100 text-[#9A3412] dark:bg-amber-950/50 dark:text-amber-300"
+															: "bg-green-100 text-[#1E7B34] dark:bg-green-950/50 dark:text-green-300"
 												}`}
 											>
 												{isOffline ? (
 													<WifiOff aria-hidden="true" className="h-3 w-3" />
+												) : isWeak ? (
+													<Signal aria-hidden="true" className="h-3 w-3" />
 												) : (
 													<Wifi aria-hidden="true" className="h-3 w-3" />
 												)}
-												{isOffline ? tCommon("offline") : tCommon("online")}
+												{isOffline
+													? tCommon("offline")
+													: isWeak
+														? tCommon("weak")
+														: tCommon("online")}
 											</span>
 										</AdminTd>
 										<AdminTd className="text-xs font-bold text-[#3D5568] dark:text-gray-300">
@@ -334,10 +348,14 @@ export default async function AdminDevicesPage({
 					<ItemCardGrid label={t("caption")}>
 						{visibleDevices.map((device) => {
 							const deviceStatus = statusOf(device);
-							const hopper = toHopperSnapshot({
-								...device,
-								feedLevelUpdatedAt: feedLevelUpdatedAt.get(device.id) ?? null,
-							});
+							const hopper = toHopperSnapshot(
+								{
+									...device,
+									feedLevelUpdatedAt: feedLevelUpdatedAt.get(device.id) ?? null,
+								},
+								new Date(),
+								statusPolicy,
+							);
 
 							return (
 								<EntityCard

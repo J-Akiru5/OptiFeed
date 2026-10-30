@@ -462,7 +462,8 @@
 			"advisorGrams": "{grams} g kada pagpakaon",
 			"advisorConfidence": "{level} nga kumpiyansa",
 			"advisorEmpty": "Kulang pa ang data para sa rekomendasyon.",
-			"advisorLink": "Buksan ang completo nga advisor"
+			"advisorLink": "Buksan ang completo nga advisor",
+			"statusWeak": "Maluya ang signal"
 		},
 		"home": {
 			"noData": "Wala pa sang punong nga na-assign. Palihog pamangkot ang imo administrator.",
@@ -559,6 +560,11 @@
 					"hopperTitle": "Lebel sang hopper",
 					"hopperSummary": "Average nga lebel sang hopper kada adlaw sa nagligad nga 7 ka adlaw, pinakabag-o {latest}.",
 					"hopperEmpty": "Wala pa sang reading sang hopper."
+				},
+				"connection": {
+					"online": "Online",
+					"weak": "Maluya ang signal",
+					"offline": "Wala sa linya"
 				}
 			},
 			"greetingNextFeeding": "Masunod nga pagpakaon sa {time}",
@@ -742,7 +748,9 @@
 			"hopperLow": "Manubo ang hopper level ({level}%). Paminsaron ang pag-refill madali.",
 			"hopperCritical": "Grabe kamanubo ang hopper level ({level}%)! Mag-refill agud malikawan ang wala nga pagpakaon.",
 			"error": "Pagtublag sa manual nga pagpakaon napaslawan.",
-			"durationHint": "≈ {seconds}s dispensa"
+			"durationHint": "≈ {seconds}s dispensa",
+			"weakSignal": "Maluya ang signal",
+			"weakSignalWarning": "Maluya ang signal. Maabot pa ang feeder, pero basi mas mahalawig ini nga command."
 		},
 		"growth": {
 			"title": "Pagdako kag FCR",
@@ -1584,7 +1592,8 @@
 			"componentReady": "Handa",
 			"componentNoReading": "Wala sing reading",
 			"componentReading": "Nagabasa",
-			"componentsTitle": "Mga komponente"
+			"componentsTitle": "Mga komponente",
+			"statusWeak": "Maluya ang signal"
 		},
 		"adminDevices": {
 			"view3d": "3D view",
@@ -1974,7 +1983,9 @@
 					"title": "Ginarekomendar ang recalibration",
 					"desc": "Sa nagligad nga 7 ka adlaw, nagreport ang device sang {dispensed} nga nadispense, pero nagbaba ang hopper level sang mga {observed} ({diff}). Ang sobra 15% nga diperensya nagapahayag nga nag-drift ang feed rate — mag-target check liwat."
 				}
-			}
+			},
+			"weakSignal": "Maluya ang signal",
+			"weakFor": "Maluya ang signal — katapusan nga heartbeat {duration} ang nagligad"
 		},
 		"notifications": {
 			"title": "Mga Notipikasyon",
@@ -2160,7 +2171,8 @@
 				"label": "Pili-a ang dagway",
 				"list": "Lista",
 				"cards": "Mga kard"
-			}
+			},
+			"weak": "Maluya ang signal"
 		},
 		"adminOverview": {
 			"title": "Overview sang Admin",
@@ -2519,7 +2531,8 @@
 				"abw": "Average Body Weight: ang average nga timbang sang isda sa pinakabag-o nga biomass sample, sa gramo. Ini ang timbang sang sample nga ginbahin sa kadamuon sang isda nga gin-timbang.",
 				"aboutFcr": "Ano ang buot silingon sang FCR?",
 				"fcr": "Feed Conversion Ratio: ang kilo nga patuka nga gingamit sa kada kilo nga pagtubo sang timbang sang isda, halin sa pinakabag-o nga FCR report. Kon mas manubo, mas maayo."
-			}
+			},
+			"deviceWeak": "Maluya ang signal sang ESP32"
 		},
 		"mobile": {
 			"openMenu": "Madasig nga mga aksyon",
@@ -2706,7 +2719,8 @@
 				"label": "Pili-a ang dagway",
 				"list": "Lista",
 				"cards": "Mga kard"
-			}
+			},
+			"weak": "Maluya ang signal"
 		},
 		"calendar": {
 			"title": "Kalendaryo sang plataporma",
@@ -3406,6 +3420,25 @@
 						"description": "Ipakita ang help button kag ang guidance sa pahina."
 					}
 				}
+			},
+			"deviceStatus": {
+				"title": "Koneksyon sang device",
+				"description": "Kon san-o maipakita ang feeder nga online, maluya ang signal ukon wala sa linya. Indi dapat magbalhin sa offline ang bug-os nga screen tungod sa isa ka nahuli nga heartbeat.",
+				"weakLabel": "Maluya ang signal pagkatapos sang (minuto)",
+				"weakHint": "Bug-os nga minuto halin {min} hasta {max}. Dapat mas malip-ot sa offline nga window.",
+				"offlineLabel": "Wala sa linya pagkatapos sang (minuto)",
+				"offlineHint": "Bug-os nga minuto halin {min} hasta {max}.",
+				"graceLabel": "Grasya pagkatapos sang offline nga window (minuto)",
+				"graceHint": "Bug-os nga minuto halin {min} hasta {max}. Nagasalo sang isa ka nahuli nga heartbeat.",
+				"reasonLabel": "Rason",
+				"reasonPlaceholder": "hal. Ang CICT feeder nagareport kada lima ka minuto sa maluya nga link",
+				"reasonHint": "Narekord sa platform audit log. Labing diutay 10 ka karakter.",
+				"save": "I-save ang mga threshold",
+				"saving": "Ginasave…",
+				"saved": "Na-save ang device thresholds: maluya ang signal pagkatapos {weak} min, wala sa linya pagkatapos {offline} min plus {grace} min nga grasya.",
+				"invalid": "Gamita ang bug-os nga minuto kag ipabilin nga mas malip-ot ang weak-signal window sa offline nga window.",
+				"failed": "Indi ma-save ang device thresholds.",
+				"summary": "Sa subong, wala sa linya pagkatapos {offline} min plus {grace} min nga grasya ({total} min nga kahilom). Ang safety checks para sa feed commands nagagamit gihapon sang {offline}-minute nga window nga wala sang grasya."
 			}
 		},
 		"feedPct": "Feed %",

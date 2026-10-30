@@ -537,12 +537,21 @@ export async function updatePlatformUser(
 		if (!before) return { error: "User not found." };
 
 		const actor = await actorId();
+		// Same rule as the tenant `updateUser`: blank, whitespace-only or
+		// over-long display names are refused before any write (#335).
+		const displayName = typeof data.displayName === "string" ? data.displayName.trim() : undefined;
+		if (data.displayName !== undefined) {
+			if (!displayName) return { error: "Display name is required." };
+			if (displayName.length > 80) return { error: "Display name is too long." };
+		}
+		const patch = displayName === undefined ? data : { ...data, displayName };
+
 		// A no-op role value is not a change, so it is not treated as privileged.
-		const roleChanged = data.role !== undefined && data.role !== before.role;
+		const roleChanged = patch.role !== undefined && patch.role !== before.role;
 
 		const applyUpdate = async (stepUpAt: Date | null) => {
 			await prisma.$transaction(async (tx) => {
-				await tx.user.update({ where: { id: userId }, data });
+				await tx.user.update({ where: { id: userId }, data: patch });
 				await audit(
 					{
 						action: "platform.user.update",
@@ -551,7 +560,7 @@ export async function updatePlatformUser(
 						actorUserId: actor,
 						...(stepUpAt ? { stepUpAt } : {}),
 						before,
-						after: { ...before, ...data },
+						after: { ...before, ...patch },
 					},
 					tx,
 				);

@@ -224,12 +224,34 @@ const FAULT_KEYS = {
 	relay_overrun: "healthFaultRelayOverrun",
 } as const;
 
+/** The hero sits on a dark card; the settings page is themed light or dark. */
+const HEALTH_TONES = {
+	dark: {
+		safe: "border-[#C42B3A]/45 bg-[#C42B3A]/20 text-[#ffc0c7]",
+		fault: "border-[#B45309]/50 bg-[#B45309]/25 text-[#ffd8a8]",
+		refusal: "text-white/70",
+	},
+	themed: {
+		safe: "border-red-200 bg-red-50 text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300",
+		fault:
+			"border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300",
+		refusal: "text-muted-foreground",
+	},
+} as const;
+
 /**
  * What the unit itself reports about its health: safe mode (relay locked off
  * after repeated resets), active faults and the last refused dose. Text first,
  * colour second, and nothing at all while the feeder is healthy.
  */
-function HealthNotice({ health }: { health: FeederHeroData["health"] }) {
+export function HealthNotice({
+	health,
+	tone = "dark",
+}: {
+	health: FeederHeroData["health"];
+	tone?: keyof typeof HEALTH_TONES;
+}) {
+	const colours = HEALTH_TONES[tone];
 	const t = useTranslations("dashboard.feederHero");
 	const tDates = useTranslations("dates");
 
@@ -243,12 +265,9 @@ function HealthNotice({ health }: { health: FeederHeroData["health"] }) {
 	const sourceKey = refusal?.source ? REFUSAL_SOURCE_KEYS[refusal.source] : undefined;
 
 	return (
-		<div className="relative mt-3 space-y-2" data-testid="feeder-hero-health">
+		<div className="relative mt-3 space-y-2" data-testid="feeder-hero-health" data-tone={tone}>
 			{health.safeMode ? (
-				<div
-					role="alert"
-					className="rounded-2xl border border-[#C42B3A]/45 bg-[#C42B3A]/20 p-3 text-[#ffc0c7]"
-				>
+				<div role="alert" className={cn("rounded-2xl border p-3", colours.safe)}>
 					<p className="flex items-center gap-1.5 text-xs font-black">
 						<ShieldAlert aria-hidden="true" className="h-4 w-4 shrink-0" />
 						{t("healthSafeModeTitle")}
@@ -267,7 +286,7 @@ function HealthNotice({ health }: { health: FeederHeroData["health"] }) {
 				</div>
 			) : null}
 			{health.faults.length > 0 ? (
-				<output className="block rounded-2xl border border-[#B45309]/50 bg-[#B45309]/25 p-3 text-[#ffd8a8]">
+				<output className={cn("block rounded-2xl border p-3", colours.fault)}>
 					<p className="flex items-center gap-1.5 text-xs font-black">
 						<AlertTriangle aria-hidden="true" className="h-4 w-4 shrink-0" />
 						{t("healthFaultsTitle")}
@@ -280,7 +299,7 @@ function HealthNotice({ health }: { health: FeederHeroData["health"] }) {
 				</output>
 			) : null}
 			{refusal && refusalAt ? (
-				<p className="text-[11px] font-semibold text-white/70">
+				<p className={cn("text-[11px] font-semibold", colours.refusal)}>
 					<span className="font-black">{t("refusalTitle")}: </span>
 					{t("refusalDetail", {
 						grams: Math.round(refusal.grams ?? 0),

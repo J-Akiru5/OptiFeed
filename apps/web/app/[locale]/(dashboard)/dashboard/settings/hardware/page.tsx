@@ -15,6 +15,7 @@ import {
 } from "@/components/dashboard/dashboard-ui";
 import { DeviceSignalReading } from "@/components/device-signal";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
+import { HealthNotice } from "@/components/feeder/feeder-hero";
 import { FeederViewerLazy } from "@/components/feeder/feeder-viewer-lazy";
 import {
 	DeviceSettingsTabs,
@@ -415,6 +416,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 				panels={{
 					overview: (
 						<>
+							{feederHero && <HealthNotice health={feederHero.health} tone="themed" />}
 							{feederHero && pondName && energyDevice && (
 								<FeederViewerLazy
 									deviceId={energyDevice.id}

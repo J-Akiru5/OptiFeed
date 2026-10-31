@@ -1,11 +1,19 @@
 import { z } from "zod";
 import {
+	HOPPER_DENSITY_G_CM3_MAX,
+	HOPPER_DENSITY_G_CM3_MIN,
+	HOPPER_DIAMETER_CM_MAX,
+	HOPPER_DIAMETER_CM_MIN,
+	hopperCapacityFromGeometry,
+} from "./hopper-capacity";
+import {
 	DAILY_CAP_MIN_G,
 	MAX_ACCEPTED_FEED_GRAMS,
 	MAX_FEED_GRAMS_PER_DAY_PER_DEVICE,
 } from "./limits-core";
 
 export * from "./limits-core";
+export * from "./hopper-capacity";
 
 export const FEEDING_RATE_PCT_MIN = 0.1;
 export const FEEDING_RATE_PCT_MAX = 10;
@@ -25,6 +33,13 @@ export const TEMP_OFFSET_C_MAX = 20;
 // Hopper shape calibration. The empty distance must be larger than the full
 // distance (the sensor measures downward), and a capacity of zero would make
 // the daily feed cap fall back to the hard maximum, so it is rejected.
+//
+// Issue #415: the tank diameter and feed bulk density let the capacity be
+// computed from the cylinder between the two marks (lib/hopper-capacity.ts)
+// instead of typed in. A device is valid with either the computed geometry or
+// an explicit capacity, so rows calibrated before this field existed keep
+// working; a diameter alone is enough because the density has a documented
+// default.
 export const HOPPER_FULL_CM_MAX = 200;
 export const HOPPER_EMPTY_CM_MAX = 500;
 export const HOPPER_CAPACITY_G_MAX = 50_000;
@@ -45,12 +60,49 @@ export const hopperCalibrationSchema = z
 			.number("Hopper capacity must be a number")
 			.finite("Hopper capacity must be a number")
 			.min(1, "Hopper capacity must be greater than 0 g")
-			.max(HOPPER_CAPACITY_G_MAX, `Hopper capacity cannot exceed ${HOPPER_CAPACITY_G_MAX} g`),
+			.max(HOPPER_CAPACITY_G_MAX, `Hopper capacity cannot exceed ${HOPPER_CAPACITY_G_MAX} g`)
+			.optional(),
+		hopperDiameterCm: z
+			.number("Tank diameter must be a number")
+			.finite("Tank diameter must be a number")
+			.min(HOPPER_DIAMETER_CM_MIN, `Tank diameter cannot be below ${HOPPER_DIAMETER_CM_MIN} cm`)
+			.max(HOPPER_DIAMETER_CM_MAX, `Tank diameter cannot exceed ${HOPPER_DIAMETER_CM_MAX} cm`)
+			.optional(),
+		hopperBulkDensityGCm3: z
+			.number("Feed density must be a number")
+			.finite("Feed density must be a number")
+			.min(
+				HOPPER_DENSITY_G_CM3_MIN,
+				`Feed density cannot be below ${HOPPER_DENSITY_G_CM3_MIN} g/cm³`,
+			)
+			.max(HOPPER_DENSITY_G_CM3_MAX, `Feed density cannot exceed ${HOPPER_DENSITY_G_CM3_MAX} g/cm³`)
+			.optional(),
 	})
 	.refine((value) => value.hopperEmptyCm > value.hopperFullCm, {
 		message: "The empty distance must be greater than the full distance",
 		path: ["hopperEmptyCm"],
-	});
+	})
+	.refine(
+		(value) => {
+			// A diameter is only useful if the geometry it implies is physically
+			// possible; the computed number is what gets stored, so it is checked
+			// here rather than only in the form.
+			if (value.hopperDiameterCm === undefined) return true;
+			const capacity = hopperCapacityFromGeometry(
+				{
+					diameterCm: value.hopperDiameterCm,
+					fullCm: value.hopperFullCm,
+					emptyCm: value.hopperEmptyCm,
+				},
+				value.hopperBulkDensityGCm3,
+			);
+			return capacity !== null && capacity <= HOPPER_CAPACITY_G_MAX;
+		},
+		{
+			message: `The computed hopper capacity cannot exceed ${HOPPER_CAPACITY_G_MAX} g`,
+			path: ["hopperDiameterCm"],
+		},
+	);
 
 // Guided motor calibration: run the motor for a bounded test window, weigh the
 // output, then derive grams per second. The upper bounds keep a test dose

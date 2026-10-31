@@ -464,6 +464,7 @@
 		"passwordDesc": "Ginhatag sang imo pond administrator. Ang PIN makasulod isa ka beses.",
 		"showPassword": "Ipakita ang password",
 		"hidePassword": "Taguon ang password",
+		"forgotPassword": "Nakalimot sang password?",
 		"rememberFarmId": "Dumdumon ini nga farm ID sa sini nga device",
 		"submit": "Mag-log in",
 		"submitting": "Naga-log in…",
@@ -519,6 +520,29 @@
 		"desc": "I-update ang password sang imo account.",
 		"temporaryWarning": "Maluya ini nga temporaryo nga password. Kinahanglan bag-uhon sang user sa first login.",
 		"service": "Indi namon ma-update ang password subong. Try liwat."
+	},
+	"forgotPassword": {
+		"title": "Nakalimot sang imo password?",
+		"desc": "Isulod ang imo farm ID kag magpadala kami sang password reset link sa mailbox nga naka-register dira.",
+		"farmIdLabel": "Farm ID",
+		"farmIdPlaceholder": "imong-farm-id",
+		"farmIdDesc": "Amo ini ang farm ID nga ginagamit mo sa pag-log in.",
+		"submit": "Magpadala sang reset link",
+		"submitting": "Nagapadala…",
+		"successDesc": "Kon may {farmId} nga account, ginpadala na ang reset link sa iya mailbox. Ang link magabukas sang isa ka page diin makaset sang bag-o nga password.",
+		"fallbackNote": "Mga internal nga pond address ang mga login address. Kon indi mo mabuksan ang mailbox — ukon kon wala gid sang mail — pangayo sang platform administrator nga bag-uhon ang imo password sa platform console. Isa ka beses lang magamit ang mga reset link kag may expiration ini.",
+		"backToLogin": "Balik sa pag-log in",
+		"errorEmpty": "Isulod ang imo farm ID.",
+		"errorRateLimited": "Sobra nga reset request sang madali. Maghulat sang pila ka minuto kag i-try liwat.",
+		"errorService": "Indi namon masugdan ang password reset subong. I-try liwat sang madali."
+	},
+	"resetPassword": {
+		"title": "Mag-set sang bag-o nga password",
+		"desc": "Pili sang bag-o nga password para sa imo account. Diretso ka na sa dashboard gamit ini.",
+		"expiredTitle": "Indi valid ini nga reset link",
+		"expiredDesc": "Indi husto ang link, nagamit na, ukon expire na. Mag-request sang bag-o sa sign-in page.",
+		"requestNew": "Mag-request sang bag-o nga reset link",
+		"sessionExpired": "Expire na ang imo reset session. Mag-request sang bag-o nga link kag i-try liwat."
 	},
 	"dashboard": {
 		"feedLevel": {
@@ -1932,6 +1956,16 @@
 			"hopperEmptyCmDesc": "Pagbasa sang sensor kon wala sang feed ang hopper",
 			"hopperCapacityG": "Kapasidad sang Hopper (grams)",
 			"hopperCapacityGDesc": "Kabug-atan sang feed nga kaya sang hopper",
+			"hopperDiameterCm": "Diametro sang Tank (cm)",
+			"hopperDiameterCmDesc": "Sulod nga diametro sang hopper. Upod ang full kag empty nga distansya, makita ang magamit nga volume.",
+			"hopperDiameterPlaceholder": "hal. 20",
+			"hopperBulkDensityGCm3": "Densidad sang Feed (g/cm³)",
+			"hopperBulkDensityGCm3Desc": "Bulk density sang feed. Ang usual nga floating pellet mga 0.65 g/cm³.",
+			"hopperCapacitySummary": "Kapasidad sang hopper",
+			"hopperCapacityComputed": "≈ {grams} g halin sa {litres} L sa {density} g/cm³",
+			"hopperCapacityStored": "Naka-save nga kapasidad {grams} g. Isulod ang diametro sang tank para makomputar halin sa tank.",
+			"hopperCapacityEnterDiameter": "Isulod ang diametro sang tank para makomputar ang kapasidad.",
+			"hopperCapacityTooLarge": "Ang nakomputar nga kapasidad sobra sa {max} g. Check ang diametro kag ang distansya.",
 			"hopperEmptyGreaterThanFull": "Ang distansya kon wala dapat mas dako sa distansya kon puno.",
 			"saveCalibration": "I-save ang Calibration",
 			"calibrationSaved": "Na-save ang calibration!",
@@ -3231,22 +3265,35 @@
 				"grant": "Hatagan sang platform access",
 				"revoke": "Bawion ang platform access",
 				"disable": "I-disable ang account",
-				"enable": "I-enable ang account"
+				"enable": "I-enable ang account",
+				"reset": "Bag-oha ang password"
 			},
 			"stepUpActions": {
 				"grant": "hatagan sang platform access",
 				"revoke": "bawion ang platform access",
 				"disable": "i-disable ini nga account",
-				"enable": "i-enable ini nga account"
+				"enable": "i-enable ini nga account",
+				"reset": "bag-uhon ang password"
 			},
 			"buttons": {
 				"grant": "Hatag",
 				"revoke": "Bawi",
 				"disable": "Disable",
-				"enable": "Enable"
+				"enable": "Enable",
+				"reset": "Bag-oha"
 			},
 			"disableWarning": "Ginadilian sini ang pag-login kag ginabawi ang tanan nga membership. Wala sing data nga ginatangtang; ang Enable nagabalik sang access sa ulihi.",
 			"enableWarning": "Ginabalik ang pag-login kag ang mga membership nga ginrekord sang katapusan nga pag-disable.",
+			"resetWarning": "Pamalihun ang password sang account ubos sang isa ka beses nga temporary password, nga ipakita sa idalom. Kinahanglan bag-uhon ini sa sunod nga pag-log in.",
+			"issued": {
+				"title": "Temporaryo nga password",
+				"descriptionPrefix": "Ipaambit direkta sa",
+				"descriptionSuffix": "kag isira ang dialog. Wala ini nga ginatago kag indi na makita pa.",
+				"copy": "Kopyaha",
+				"copied": "Gin-kopya",
+				"warning": "Kopyaha na: isa ka beses lang makita ini nga password kag wala gid ini nga ginarekord sa audit log.",
+				"done": "Tapos na"
+			},
 			"reasonPlaceholder": "halimbawa: Una nga platform setup para sa deployment",
 			"confirmLabel": "Isulat ang {farmId} para makumpirma *",
 			"descriptionPrefix": "Platform account"
@@ -4149,7 +4196,7 @@
 			"settings-farm-name": "Ang farm name amo ang makita sang mga miyembro. Kon bag-uhon, wala nagabag-o ang farm id.",
 			"settings-pond": "Ang pond settings may feeding rate, meals per day, sampling interval kag kadako sang punong. Ang pag-save nagapila sang pagbag-o sa feeder.",
 			"settings-calibration": "Ang rate calibration nagapagwa sang sukod nga dosis kag nagacorrect sang grams per second. Ang target check nagapagwa sang dosis nga imo timbangon, kag ginasulit hasta ang error lima ka porsyento lang.",
-			"settings-hopper": "Ang hopper calibration nagakombertir sang distance reading sang sensor sa kilo, gamit ang full kag empty nga kataas kag ang kapasidad sang imo hopper.",
+			"settings-hopper": "Ang hopper calibration nagahimo sang distance reading sang sensor nga gramo, gamit ang full kag empty nga kataas, diametro sang tank kag densidad sang feed. Isulod ang diametro sang tank isa ka beses kag ang app na ang magakomputar sang kapasidad.",
 			"settings-daily-ceiling": "Ang limit sa adlaw amo ang pinakamadamo nga pakaon nga maibubo sang feeder sa isa ka adlaw. Nagasugod sa 2,000 g kag puede mapataas tubtob 5,000 g nga safety guard.",
 			"settings-recalibration": "Ibutang kon ano kasami dapat i-recalibrate ang feeder. Ginamarkahan sang app ang device nga overdue kon malabawan na ang interval.",
 			"settings-password": "Diri ka magbag-o sang password. Magapabilin ka nga naka-sign in sa sini nga device.",

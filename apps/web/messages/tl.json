@@ -52,6 +52,7 @@
 		"passwordDesc": "Ibinigay ng administrator ng iyong pond. Gagana nang isang beses ang kasalukuyang PIN.",
 		"showPassword": "Ipakita ang password",
 		"hidePassword": "Itago ang password",
+		"forgotPassword": "Nakalimut ang password?",
 		"rememberFarmId": "Tandaan ang Farm ID na ito sa device",
 		"submit": "Mag-sign in",
 		"submitting": "Nagsi-sign in…",
@@ -107,6 +108,29 @@
 		"desc": "I-update ang password ng iyong account.",
 		"temporaryWarning": "Mahina ang pansamantalang password na ito. Kailangang palitan ng user sa unang pag-log in.",
 		"service": "Hindi ma-update ang password ngayon. Subukan muli mamaya."
+	},
+	"forgotPassword": {
+		"title": "Nakalimut ang iyong password?",
+		"desc": "Ilagay ang iyong Farm ID at magpapadala kami ng link sa pag-reset ng password sa mailbox na nakatalaga rito.",
+		"farmIdLabel": "Farm ID",
+		"farmIdPlaceholder": "iyong-farm-id",
+		"farmIdDesc": "Ito ang parehong Farm ID na ginagamit mo sa pag-sign in.",
+		"submit": "Magpadala ng reset link",
+		"submitting": "Ipinapadala…",
+		"successDesc": "Kung may account na {farmId}, naipadala na ang reset link sa kanyang mailbox. Ang link ay magbubukas ng pahina kung saan ka maaaring magtakda ng bagong password.",
+		"fallbackNote": "Mga internal na pond address ang mga login address. Kung hindi mo mabuksan ang kahon ng surat — o kung walang dumating na email — humiling sa platform administrator na i-reset ang iyong password mula sa platform console. Isang beses lang ang paggamit ng mga reset link at may expiring din ito.",
+		"backToLogin": "Bumalik sa pag-sign in",
+		"errorEmpty": "Ilagay ang iyong Farm ID.",
+		"errorRateLimited": "Masyadong maraming kahiling ng reset sa maikling panahon. Maghintay ng ilang minuto at subukan muli.",
+		"errorService": "Hindi maumpisahan ngayon ang pag-reset ng password. Subukan muli mamaya."
+	},
+	"resetPassword": {
+		"title": "Magtakda ng bagong password",
+		"desc": "Pumili ng bagong password para sa iyong account. Diretso ka na sa dashboard pagkatapos nito.",
+		"expiredTitle": "Hindi wasto ang reset link na ito",
+		"expiredDesc": "Hindi wasto ang link, nagamit na, o nag-expire na. Humiling ng bago mula sa sign-in page.",
+		"requestNew": "Humiling ng bagong reset link",
+		"sessionExpired": "Nag-expire na ang iyong reset session. Humiling ng bagong link at subukan muli."
 	},
 	"errors": {
 		"title": "May naging problema!",
@@ -353,6 +377,16 @@
 			"hopperEmptyCmDesc": "Reading ng sensor kapag walang laman ang hopper",
 			"hopperCapacityG": "Kapasidad ng Hopper (gramo)",
 			"hopperCapacityGDesc": "Kabuuang timbang ng pakain na kayang hawakan ng hopper",
+			"hopperDiameterCm": "Diyametro ng Tangke (cm)",
+			"hopperDiameterCmDesc": "Panloob na diyametro ng tangke ng hopper. Kasama ang full at empty na distansya, makukuha ang magagamit na volume.",
+			"hopperDiameterPlaceholder": "hal. 20",
+			"hopperBulkDensityGCm3": "Densidad ng Pakain (g/cm³)",
+			"hopperBulkDensityGCm3Desc": "Bulk density ng pakain. Ang karaniwang floating pellet ay mga 0.65 g/cm³.",
+			"hopperCapacitySummary": "Kapasidad ng hopper",
+			"hopperCapacityComputed": "≈ {grams} g mula sa {litres} L sa {density} g/cm³",
+			"hopperCapacityStored": "Naka-save na kapasidad {grams} g. Ilagay ang diyametro ng tangke para makuwenta ito mula sa tangke.",
+			"hopperCapacityEnterDiameter": "Ilagay ang diyametro ng tangke para makuwenta ang kapasidad.",
+			"hopperCapacityTooLarge": "Ang nakuwentang kapasidad ay lumampas sa {max} g. Suriin ang diyametro at ang mga distansya.",
 			"saveCalibration": "I-save ang Kalibrasyon",
 			"calibrationSaved": "Na-save ang kalibrasyon!",
 			"calibrationSaveError": "Hindi ma-save ang kalibrasyon.",
@@ -3184,22 +3218,35 @@
 				"grant": "Bigyan ng access sa platform",
 				"revoke": "Bawiin ang access sa platform",
 				"disable": "I-disable ang account",
-				"enable": "I-enable ang account"
+				"enable": "I-enable ang account",
+				"reset": "I-reset ang password"
 			},
 			"stepUpActions": {
 				"grant": "bigyan ng access sa platform",
 				"revoke": "bawiin ang access sa platform",
 				"disable": "i-disable ang account na ito",
-				"enable": "i-enable ang account na ito"
+				"enable": "i-enable ang account na ito",
+				"reset": "i-reset ang password na ito"
 			},
 			"buttons": {
 				"grant": "Ibigay",
 				"revoke": "Bawiin",
 				"disable": "I-disable",
-				"enable": "I-enable"
+				"enable": "I-enable",
+				"reset": "I-reset"
 			},
 			"disableWarning": "Nagba-ban ito ng login at nagbabawi sa lahat ng membership. Walang data na nabubura; ibinabalik ng I-enable ang access mamaya.",
 			"enableWarning": "Ibinabalik ang login at ang mga membership na naitala noong huling pag-disable.",
+			"resetWarning": "Pinapalitan ang password ng account ng isang beses na temporary password, na ipapakita sa ibaba. Kailangang palitan ito ng user sa susunod na pag-sign in.",
+			"issued": {
+				"title": "Temporary password",
+				"descriptionPrefix": "Ibahagi nang direkta sa",
+				"descriptionSuffix": "at isara ang dialog na ito. Hindi ito nase-save at hindi na makikita muli.",
+				"copy": "Kopyahin",
+				"copied": "Nakopya",
+				"warning": "Kopyahin na: isang beses lang ang pagpapakita ng password na ito at hindi ito nakasulat sa audit log.",
+				"done": "Tapos na"
+			},
 			"reasonPlaceholder": "hal. Paunang setup ng platform para sa deployment",
 			"confirmLabel": "I-type ang {farmId} para kumpirmahin *",
 			"descriptionPrefix": "Account ng platform"
@@ -4157,7 +4204,7 @@
 			"settings-farm-name": "Ang pangalan ng bukid ang nakikita ng mga miyembro. Hindi binabago ng pagpapalit ng pangalan ang farm id.",
 			"settings-pond": "Naglalaman ang mga setting ng pond ng rate ng pagpapakain, bilang ng pagpapakain kada araw, agwat ng sampling at laki ng pond. Ang pag-save ay nagpapa-queue ng pagbabago sa feeder.",
 			"settings-calibration": "Ang rate calibration ay naglalabas ng may sukat na dose at nagwawasto ng gram kada segundo. Ang target check ay naglalabas ng dose na iyong titimbangin, at inuulit hanggang ang error ay nasa loob ng limang porsyento.",
-			"settings-hopper": "Ginagawang kilo ng hopper calibration ang reading ng distansya ng sensor, gamit ang taas kapag puno at walang laman at ang kapasidad ng iyong hopper.",
+			"settings-hopper": "Ginagawang gramo ng hopper calibration ang reading ng distansya ng sensor, gamit ang taas kapag puno at walang laman, diyametro ng tangke at densidad ng feed. Ilagay ang diyametro ng tangke nang isang beses at ang app na ang magkuwenta ng kapasidad.",
 			"settings-daily-ceiling": "Ang pang-araw-araw na hangganan ang pinakamaraming pakain na maaaring ilabas ng feeder na ito sa isang araw ng bukid. Nagsisimula ito sa 2,000 g at maaaring itaas hanggang sa 5,000 g na safety guard.",
 			"settings-recalibration": "Itakda kung gaano kadalas dapat i-recalibrate ang feeder. Minamarkahan ng app ang device bilang overdue kapag lumampas ang agwat.",
 			"settings-password": "Palitan ang iyong password dito. Mananatili kang naka-sign in sa device na ito.",

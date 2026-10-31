@@ -183,11 +183,13 @@ for (const key of [
 	"INVITE_FROM_EMAIL",
 	"DEMO_PIN",
 	"CRON_SECRET",
-	"TELEGRAM_BOT_TOKEN",
-	"TELEGRAM_CHAT_ID",
 ]) {
 	record(`.env.example documents ${key}`, envExample.includes(key));
 }
+// ADR-0007: the platform does not use Telegram, so no Telegram variable may
+// reappear in the example environment. (Prose that says we do not use it is
+// allowed; the variables are not.)
+record(".env.example documents no Telegram variable", !/TELEGRAM_[A-Z_]+/.test(envExample));
 
 const ci = read(".github/workflows/ci.yml");
 record("CI runs for develop", ci.includes("develop"));
@@ -209,7 +211,10 @@ record(
 record("CI workflow never deploys", !read(".github/workflows/ci.yml").includes("vercel deploy"));
 record("device-watch cron route exists", existsSync(`${web}/app/api/cron/device-watch/route.ts`));
 record("cron SQL file exists", existsSync("docs/sql/cron-device-watch.sql"));
-record("telegram helper exists", existsSync(`${web}/lib/notify/telegram.ts`));
+record(
+	"no Telegram integration in the app (ADR-0007)",
+	!existsSync(`${web}/lib/notify/telegram.ts`),
+);
 record("no Upstash dependency (D1 uses Postgres)", !/@upstash\//.test(read(`${web}/package.json`)));
 const limiterFiles = sourceFiles.filter(
 	(f) => /rate-limit|limiter/.test(f) && !f.includes("__tests__"),

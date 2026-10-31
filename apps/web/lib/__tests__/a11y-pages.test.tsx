@@ -446,7 +446,7 @@ describe("hardware settings page", () => {
 		// Every calibration field is labelled with its unit; if this fails the
 		// page changed shape and the axe run is no longer meaningful.
 		expect(host.textContent).toContain("Full Distance (cm)");
-		expect(host.textContent).toContain("Hopper Capacity (grams)");
+		expect(host.textContent).toContain("Tank Diameter (cm)");
 
 		await expectNoSeriousOrCriticalViolations(host);
 	});

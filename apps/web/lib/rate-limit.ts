@@ -74,6 +74,15 @@ export function checkStepUpRateLimit(userId: string) {
 	return checkRateLimit(`rl:stepup:${userId}`, 5, 5 * 60_000, false);
 }
 
+// Password-reset request limit: 3 requests per 10 minutes per IP. Fail-closed.
+//
+// Each request can make Supabase generate and email a recovery link, so this
+// is both a mail-bomb vector and a way to burn an account's recovery allowance.
+// Keyed on the IP because the requester is, by definition, not authenticated.
+export function checkPasswordResetRateLimit(ip: string) {
+	return checkRateLimit(`rl:pw-reset:${ip}`, 3, 10 * 60_000, false);
+}
+
 // Device-token reveal limit: 10 reveals per hour per admin.
 //
 // A reveal hands out a long-lived device credential, so the bucket is keyed on

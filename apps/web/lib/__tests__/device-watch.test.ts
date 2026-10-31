@@ -51,11 +51,6 @@ vi.mock("@/lib/rate-limit", () => ({
 vi.mock("@/i18n/routing", () => ({ redirect: vi.fn() }));
 vi.mock("next-intl/server", () => ({ getLocale: vi.fn(async () => "en") }));
 
-vi.mock("@/lib/notify/telegram", () => ({
-	sendTelegramMessage: vi.fn().mockResolvedValue(true),
-	absoluteAppUrl: vi.fn().mockReturnValue(null),
-}));
-
 vi.mock("@/lib/settings/device-status", () => ({
 	getDeviceStatusPolicy: vi.fn(),
 }));
@@ -67,7 +62,6 @@ import {
 	deviceStatusPolicyFromValue,
 } from "@/lib/device-status";
 import { deleteExpiredErrorEvents } from "@/lib/error-capture";
-import { sendTelegramMessage } from "@/lib/notify/telegram";
 import prisma from "@/lib/prisma";
 import { cleanupExpiredRateLimitBuckets } from "@/lib/rate-limit";
 import { deleteExpiredPondSettingsDrafts, deleteOldHeartbeatEvents } from "@/lib/retention";
@@ -168,9 +162,8 @@ describe("api/cron/device-watch", () => {
 			}),
 		});
 
-		// 3.5: one Telegram message on the first detection, none on the repeat.
-		expect(sendTelegramMessage).toHaveBeenCalledTimes(1);
-		expect(sendTelegramMessage).toHaveBeenCalledWith(expect.stringContaining("Feeder A"));
+		// The alert is in-app only (ADR-0007): one Notification row on the first
+		// detection, none on the repeat.
 
 		// Second run: the disconnected event now exists after lastSeenAt.
 		mockDeviceStateEvent.findFirst.mockResolvedValue({ id: "evt-1" } as never);
@@ -180,7 +173,6 @@ describe("api/cron/device-watch", () => {
 
 		expect(mockDeviceStateEvent.create).toHaveBeenCalledTimes(1);
 		expect(mockNotification.create).toHaveBeenCalledTimes(1);
-		expect(sendTelegramMessage).toHaveBeenCalledTimes(1);
 	});
 
 	it("skips devices that are offline but already have a newer disconnected event", async () => {
@@ -216,9 +208,9 @@ describe("api/cron/device-watch", () => {
 		);
 	});
 
-	it("waits for the platform offline window plus grace before alerting (default 17 minutes)", async () => {
+	it("waits for the platform offline window before alerting (default five minutes)", async () => {
 		mockEnergyDevice.findMany.mockResolvedValue([
-			{ ...STALE_DEVICE, lastSeenAt: new Date(Date.now() - 16 * 60 * 1000) },
+			{ ...STALE_DEVICE, lastSeenAt: new Date(Date.now() - 4 * 60 * 1000) },
 		] as never);
 
 		const res = await GET(cronRequest("Bearer test-cron-secret"));
@@ -266,7 +258,12 @@ describe("api/cron/device-watch", () => {
 		expect(mockNotification.create).toHaveBeenCalledTimes(1);
 	});
 
-	it("ignores a short org delay: 16 minutes is still inside the default policy", async () => {
+	it("ignores a short org delay: the platform policy alone decides", async () => {
+		// The org wants an alert after five minutes, the platform policy waits
+		// thirty, so six minutes of silence is not due yet (I-97).
+		vi.mocked(getDeviceStatusPolicy).mockResolvedValue(
+			deviceStatusPolicyFromValue({ weakAfterMin: 10, offlineAfterMin: 30, graceMin: 0 }),
+		);
 		vi.mocked(prisma.pond.findMany).mockResolvedValue([{ ...POND, ownerId: "farm-user" }] as never);
 		vi.mocked(prisma.user.findMany).mockResolvedValue([
 			{ id: "user-1", farmId: "farm-user" },
@@ -279,7 +276,7 @@ describe("api/cron/device-watch", () => {
 			{ orgId: "org-1", offlineAfterMin: 5 },
 		] as never);
 		mockEnergyDevice.findMany.mockResolvedValue([
-			{ ...STALE_DEVICE, lastSeenAt: new Date(Date.now() - 16 * 60 * 1000) },
+			{ ...STALE_DEVICE, lastSeenAt: new Date(Date.now() - 6 * 60 * 1000) },
 		] as never);
 
 		const res = await GET(cronRequest("Bearer test-cron-secret"));

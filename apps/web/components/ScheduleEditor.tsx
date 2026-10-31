@@ -4,6 +4,7 @@ import { mobileStickyActions } from "@/components/mobile/form-actions";
 import { updateScheduleCommand } from "@/lib/actions/schedule";
 import type { UpdateScheduleResult } from "@/lib/actions/schedule";
 import { formatFarmDateTime } from "@/lib/date-local";
+import { scheduleSlotTimes } from "@/lib/schedule/slots";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Clock, Loader2, RefreshCw, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -39,6 +40,33 @@ function fmtTimeDisplay(hhmm: string): string {
 	return `${hr12}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
+/** One row per meal, used by both the live preview and the sync status. */
+function FeedTimeList({
+	times,
+	label,
+	testId,
+}: {
+	times: string[];
+	label: string;
+	testId: string;
+}) {
+	if (times.length === 0) return null;
+
+	return (
+		<ol aria-label={label} data-testid={testId} className="flex flex-wrap gap-2">
+			{times.map((time, index) => (
+				<li
+					key={`${index}-${time}`}
+					data-testid="feed-time-slot"
+					className="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold tabular-nums text-gray-700 shadow-sm ring-1 ring-gray-100 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-700/60"
+				>
+					{fmtTimeDisplay(time)}
+				</li>
+			))}
+		</ol>
+	);
+}
+
 export function ScheduleEditor({
 	pondId,
 	deviceId,
@@ -61,6 +89,25 @@ export function ScheduleEditor({
 	const [error, setError] = useState<string | null>(null);
 
 	const hasPendingChanges = pendingCommand !== null;
+
+	// #431: the displayed times must follow the inputs, not the last command the
+	// device applied. Deriving them on every render means changing the frequency
+	// from 2 to 3 adds the third row immediately, before the device reconnects.
+	const previewSlots = scheduleSlotTimes(start, end, Number.parseInt(feedsPerDay, 10));
+	const pendingSlots = pendingCommand
+		? scheduleSlotTimes(
+				pendingCommand.scheduleStart,
+				pendingCommand.scheduleEnd,
+				pendingCommand.feedsPerDay,
+			)
+		: [];
+	const appliedSlots = latestAppliedCommand
+		? scheduleSlotTimes(
+				latestAppliedCommand.scheduleStart,
+				latestAppliedCommand.scheduleEnd,
+				latestAppliedCommand.feedsPerDay,
+			)
+		: [];
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
@@ -197,6 +244,36 @@ export function ScheduleEditor({
 					</div>
 				</div>
 
+				{/* #431: the window and frequency describe the meals; show them as
+				    concrete times so a frequency change is visible before saving. */}
+				<div
+					data-testid="feeding-times-preview"
+					className="rounded-2xl border border-gray-100 bg-[#F9FBFA] p-4 dark:border-gray-700/50 dark:bg-gray-800/40"
+				>
+					<div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+						<div className="flex items-center gap-2">
+							<Clock size={16} className="text-[#0A3D62] dark:text-[#5b9bd5]" />
+							<span className="text-sm font-bold text-[#0A3D62] dark:text-[#5b9bd5]">
+								{t("feedingTimesTitle")}
+							</span>
+						</div>
+						{previewSlots.length > 0 && (
+							<span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+								{t("timesPerDay", { count: previewSlots.length })}
+							</span>
+						)}
+					</div>
+					{previewSlots.length > 0 ? (
+						<FeedTimeList
+							times={previewSlots}
+							label={t("feedingTimesLabel")}
+							testId="preview-feed-times"
+						/>
+					) : (
+						<p className="text-xs text-gray-500 dark:text-gray-400">{t("feedingTimesInvalid")}</p>
+					)}
+				</div>
+
 				{/* Sync Status Card */}
 				<div className="rounded-2xl border border-gray-100 bg-[#F4F7F6] p-4 dark:border-gray-700/50 dark:bg-gray-800/60">
 					<div className="flex items-center gap-2 mb-3">
@@ -232,6 +309,15 @@ export function ScheduleEditor({
 									)}
 								</div>
 							)}
+							{pendingSlots.length > 0 && (
+								<div className="ml-6">
+									<FeedTimeList
+										times={pendingSlots}
+										label={t("feedingTimesLabel")}
+										testId="pending-feed-times"
+									/>
+								</div>
+							)}
 						</div>
 					) : latestAppliedCommand ? (
 						<div className="space-y-2">
@@ -250,6 +336,15 @@ export function ScheduleEditor({
 								{fmtTimeDisplay(latestAppliedCommand.scheduleEnd)},
 								{latestAppliedCommand.feedsPerDay} feeds/day
 							</div>
+							{appliedSlots.length > 0 && (
+								<div className="ml-6">
+									<FeedTimeList
+										times={appliedSlots}
+										label={t("feedingTimesLabel")}
+										testId="applied-feed-times"
+									/>
+								</div>
+							)}
 						</div>
 					) : (
 						<div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">

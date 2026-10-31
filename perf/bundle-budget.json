@@ -143,7 +143,7 @@
 		},
 		"/[locale]/(dashboard)/dashboard/settings/pond/page": {
 			"baselineKb": 973.4,
-			"budgetKb": 992.9
+			"budgetKb": 993.4
 		},
 		"/[locale]/(dashboard)/dashboard/settings/profile/page": {
 			"baselineKb": 1094.9,

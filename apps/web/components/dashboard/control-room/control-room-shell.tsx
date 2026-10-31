@@ -29,12 +29,18 @@ interface ControlRoomLayoutProps {
 /**
  * The page shell. Height comes from `ofd-control-room`: the viewport minus the
  * dashboard header and the `main` pane padding, with height-based density tiers.
+ *
+ * `relative` is load-bearing (#399): the blocks below carry absolutely
+ * positioned helpers (the `.sr-only` text alternatives and the charts' hidden
+ * tables). Without a positioned ancestor inside the shell, those 1 px boxes are
+ * positioned against `main` and escape the room's `overflow-hidden`, which
+ * leaves the page with a phantom scroll range even when everything fits.
  */
 export function ControlRoomLayout({ children, className }: ControlRoomLayoutProps) {
 	return (
 		<div
 			className={cn(
-				"ofd-control-room flex w-full min-w-0 flex-col gap-6 animate-in fade-in duration-150",
+				"ofd-control-room relative flex w-full min-w-0 flex-col gap-6 animate-in fade-in duration-150",
 				"xl:grid xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_22rem] xl:grid-rows-[auto_minmax(0,1fr)_auto] xl:overflow-hidden",
 				className,
 			)}
@@ -60,7 +66,10 @@ export function ControlRoomRail({ label, children, className }: ControlRoomRailP
 				// #269: the rail scrolls vertically only. A wide child used to turn
 				// the implicit `overflow-x` into a horizontal scrollbar; the rail
 				// must never scroll sideways, so it is pinned to x-hidden as well.
-				"xl:col-start-2 xl:row-span-3 xl:row-start-1 xl:flex xl:min-h-0 xl:min-w-0 xl:flex-col xl:gap-3 xl:overflow-x-hidden xl:overflow-y-auto xl:pr-1 xl:pb-2",
+				// `xl:relative` keeps the rail's own absolutely positioned helpers
+				// (`.sr-only` text) inside its scroll box, so they cannot add a
+				// phantom scroll range to the page (#399).
+				"xl:relative xl:col-start-2 xl:row-span-3 xl:row-start-1 xl:flex xl:min-h-0 xl:min-w-0 xl:flex-col xl:gap-3 xl:overflow-x-hidden xl:overflow-y-auto xl:pr-1 xl:pb-2",
 				className,
 			)}
 		>

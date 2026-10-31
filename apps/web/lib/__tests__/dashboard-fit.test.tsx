@@ -254,6 +254,28 @@ describe("control-room markup (#399)", () => {
 		expect(rail).toContain("xl:min-h-0");
 	});
 
+	it("positions both scrollers so 1 px sr-only helpers cannot add a phantom scroll", () => {
+		// The blocks carry absolutely positioned `.sr-only` text alternatives and
+		// the charts' hidden tables. With no positioned ancestor inside the room
+		// they are positioned against `main`, escape `overflow-hidden`, and the
+		// page scrolls even though every block fits — the reported symptom (#399).
+		const room = renderToStaticMarkup(
+			<ControlRoomLayout>
+				<div>block</div>
+			</ControlRoomLayout>,
+		);
+		expect(room).toContain("relative");
+		expect(room).not.toContain("absolute");
+
+		const rail = renderToStaticMarkup(
+			<ControlRoomRail label="Pond controls">
+				<div>rail</div>
+			</ControlRoomRail>,
+		);
+		expect(rail).toContain("xl:relative");
+		expect(rail).toContain("xl:overflow-y-auto");
+	});
+
 	it("marks the hero strip and the CSS-sized chart cards on the dashboard", () => {
 		const hero = renderToStaticMarkup(
 			<NextFeedingStrip

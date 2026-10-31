@@ -61,7 +61,7 @@ The legal pages use the root version, 1.31.5. A separate release task should syn
 
 ## Review artifacts
 
-The Vercel develop preview is behind Vercel SSO, so these are the pre-publication review copies for the University Legal Office:
+The Vercel `staging` preview is behind Vercel SSO, so these are the pre-publication review copies for the University Legal Office:
 
 - `privacy-policy-draft.pdf` — 16 pages.
 - `terms-of-service-draft.pdf` — 7 pages.

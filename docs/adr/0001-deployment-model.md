@@ -73,9 +73,12 @@ The decision was recorded as T20 in
 - **Configuration is branch content.** `vercel.json` only takes effect for
   commits that contain it. A long-lived branch that never merged the allowlist
   remains deployable (recorded in `docs/deployment-workflow.md` section 2).
-- **The repository rule differs from the global agent governance rule**, which
-  treats `develop` as deployable. The conflict is filed as issue #323; this ADR
-  records what the checked-in configuration actually enforces.
+- **The repository rule overrides the global agent governance default.** The
+  global rule treats `develop` deployments as pre-authorized; this repository
+  forbids them, and mission decision D7 records the override. Issue #323 was
+  resolved on 2026-10-31 (I-105) by aligning every repository document, the
+  self-check assertion and mission guidance with this ADR; the repository
+  policy is authoritative for this repository.
 
 ### Follow-ups
 
@@ -85,7 +88,8 @@ The decision was recorded as T20 in
 - Re-enable preview deployments only after Preview-scoped credentials exist; do
   not re-enable them by widening the branch allowlist.
 - Resolve #323 by aligning the governance text with this record, or by changing
-  this decision deliberately. Do not let two documents disagree.
+  this decision deliberately. **Done 2026-10-31 (I-105):** all repository
+  documents, `scripts/self-check.mjs` and mission guidance now match this ADR.
 
 ## Links
 

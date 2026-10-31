@@ -198,11 +198,12 @@ record(
 const vercelCfg = JSON.parse(read(`${web}/vercel.json`) || "{}");
 const deploymentEnabled = vercelCfg?.git?.deploymentEnabled ?? {};
 record(
-	"Vercel deployments restricted to develop and main",
+	"Vercel deployments restricted to staging and main (develop never deploys)",
 	deploymentEnabled["*"] === false &&
 		deploymentEnabled["**"] === false &&
-		deploymentEnabled.develop === true &&
-		deploymentEnabled.main === true,
+		deploymentEnabled.staging === true &&
+		deploymentEnabled.main === true &&
+		deploymentEnabled.develop !== true,
 	JSON.stringify(deploymentEnabled),
 );
 record("CI workflow never deploys", !read(".github/workflows/ci.yml").includes("vercel deploy"));

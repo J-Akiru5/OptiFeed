@@ -5,14 +5,17 @@ import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
 import {
 	DashboardEmptyState,
 	DashboardPageHeader,
+	DashboardPageShell,
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { canWrite } from "@/lib/auth/session";
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { evaluateDeviceStatus, resolveRssiDbm } from "@/lib/device-status";
+import { getFeedNowLimitForDevice } from "@/lib/feed/feed-now-limit";
 import type { ScheduleSnapshotData } from "@/lib/offline/snapshots";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { CalendarClock } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -53,6 +56,10 @@ export default async function SchedulePage() {
 			isPaused: true,
 			gramsPerFeeding: true,
 			gramsPerSecond: true,
+			dailyCapG: true,
+			hopperCapacityG: true,
+			wifiRssiDbm: true,
+			wifiRssiUpdatedAt: true,
 		},
 	});
 
@@ -67,6 +74,10 @@ export default async function SchedulePage() {
 			</div>
 		);
 	}
+
+	// The Feed Now ceiling (issue #387 / #398): whatever is left of today's
+	// daily allowance. The daily ceiling is the only gram cap.
+	const feedNowLimit = await getFeedNowLimitForDevice(energyDevice);
 
 	const [latestAppliedCommand, pendingCommands, stuckFeedRequests, stuckScheduleCommands] =
 		await Promise.all([
@@ -105,9 +116,24 @@ export default async function SchedulePage() {
 
 	const pendingCommand = pendingCommands.length > 0 ? pendingCommands[0] : null;
 
-	const deviceOffline =
-		!energyDevice.lastSeenAt ||
-		Date.now() - energyDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+	// A schedule command still being delivered must not flip the page to offline
+	// (#388). Only a recent command counts; a stale pending row is handled by the
+	// stuck-request banner instead of masking a genuinely silent device.
+	const statusPolicy = await getDeviceStatusPolicy();
+	const commandInFlight =
+		!!pendingCommand && Date.now() - pendingCommand.updatedAt.getTime() <= STALE_THRESHOLD_MS;
+	const connection = evaluateDeviceStatus({
+		lastSeenAt: energyDevice.lastSeenAt,
+		now: new Date(),
+		policy: statusPolicy,
+		rssiDbm: resolveRssiDbm({
+			rssiDbm: energyDevice.wifiRssiDbm,
+			updatedAt: energyDevice.wifiRssiUpdatedAt,
+			policy: statusPolicy,
+		}),
+		inFlight: commandInFlight,
+	});
+	const deviceOffline = connection.isOffline;
 
 	const serializeCommand = (cmd: typeof latestAppliedCommand) => {
 		if (!cmd) return null;
@@ -131,7 +157,7 @@ export default async function SchedulePage() {
 	const scheduleSnapshot: ScheduleSnapshotData = {
 		pondName: pond.name,
 		deviceName: energyDevice.label ?? "Feeder",
-		deviceStatus: deviceOffline ? "offline" : "online",
+		deviceStatus: connection.state,
 		lastSeenAt: energyDevice.lastSeenAt?.toISOString() ?? null,
 		scheduleStart: currentCommand?.scheduleStart ?? fmtTime(pond.scheduleStart),
 		scheduleEnd: currentCommand?.scheduleEnd ?? fmtTime(pond.scheduleEnd),
@@ -144,7 +170,7 @@ export default async function SchedulePage() {
 	};
 
 	return (
-		<div className="space-y-8 max-w-5xl">
+		<DashboardPageShell className="space-y-8">
 			<SnapshotWriter
 				page="schedule"
 				scope={pond.ownerId}
@@ -158,48 +184,70 @@ export default async function SchedulePage() {
 				<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
 			)}
 
-			<TimeCalibrationForm deviceId={energyDevice.id} canWrite={writeAccess} />
+			{/* Below `xl` this is one column in the order farmers already had:
+			    time calibration, device notices, feed controls, then the editor.
+			    From `xl` the notices and controls move into a sticky rail and the
+			    editor keeps the wide column (#247). The `contents` wrappers let
+			    the same DOM serve both layouts, with `order-*` restoring the
+			    mobile order (same pattern as the dashboard control room). */}
+			<div className="flex flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
+				<div className="contents xl:flex xl:min-w-0 xl:flex-col xl:gap-6">
+					<div className="order-1 xl:order-none">
+						<TimeCalibrationForm deviceId={energyDevice.id} canWrite={writeAccess} />
+					</div>
+					<div className="order-4 xl:order-none">
+						<ScheduleEditor
+							pondId={pond.id}
+							deviceId={energyDevice.id}
+							initialStart={currentCommand?.scheduleStart ?? fmtTime(pond.scheduleStart)}
+							initialEnd={currentCommand?.scheduleEnd ?? fmtTime(pond.scheduleEnd)}
+							initialFeedsPerDay={currentCommand?.feedsPerDay ?? pond.feedsPerDay}
+							initialFeedingRatePct={currentCommand?.feedingRatePct ?? pond.feedingRatePct}
+							pendingCommand={serializeCommand(pendingCommand)}
+							latestAppliedCommand={serializeCommand(latestAppliedCommand)}
+							canWrite={writeAccess}
+						/>
+					</div>
+				</div>
 
-			<StuckRequestBanner
-				stuckFeedRequests={stuckFeedRequests.map((r) => ({
-					id: r.id,
-					grams: r.grams,
-					createdAt: r.createdAt.toISOString(),
-				}))}
-				stuckScheduleCommands={stuckScheduleCommands.map((c) => ({
-					id: c.id,
-					createdAt: c.createdAt.toISOString(),
-				}))}
-				deviceOffline={deviceOffline}
-				deviceLastSeenAt={energyDevice.lastSeenAt?.toISOString() ?? null}
-				deviceId={energyDevice.id}
-				pondId={pond.id}
-				scheduleStart={currentCommand?.scheduleStart ?? fmtTime(pond.scheduleStart)}
-				scheduleEnd={currentCommand?.scheduleEnd ?? fmtTime(pond.scheduleEnd)}
-				feedsPerDay={currentCommand?.feedsPerDay ?? pond.feedsPerDay}
-				feedingRatePct={currentCommand?.feedingRatePct ?? pond.feedingRatePct}
-				canWrite={writeAccess}
-			/>
-
-			<ScheduleControls
-				deviceId={energyDevice.id}
-				initialIsPaused={energyDevice.isPaused}
-				gramsPerFeeding={energyDevice.gramsPerFeeding}
-				gramsPerSecond={energyDevice.gramsPerSecond}
-				canWrite={writeAccess}
-			/>
-
-			<ScheduleEditor
-				pondId={pond.id}
-				deviceId={energyDevice.id}
-				initialStart={currentCommand?.scheduleStart ?? fmtTime(pond.scheduleStart)}
-				initialEnd={currentCommand?.scheduleEnd ?? fmtTime(pond.scheduleEnd)}
-				initialFeedsPerDay={currentCommand?.feedsPerDay ?? pond.feedsPerDay}
-				initialFeedingRatePct={currentCommand?.feedingRatePct ?? pond.feedingRatePct}
-				pendingCommand={serializeCommand(pendingCommand)}
-				latestAppliedCommand={serializeCommand(latestAppliedCommand)}
-				canWrite={writeAccess}
-			/>
-		</div>
+				<aside
+					aria-label={t("controlsLabel")}
+					className="contents xl:sticky xl:top-24 xl:flex xl:min-w-0 xl:flex-col xl:gap-4"
+				>
+					<div className="order-2 empty:hidden xl:order-none">
+						<StuckRequestBanner
+							stuckFeedRequests={stuckFeedRequests.map((r) => ({
+								id: r.id,
+								grams: r.grams,
+								createdAt: r.createdAt.toISOString(),
+							}))}
+							stuckScheduleCommands={stuckScheduleCommands.map((c) => ({
+								id: c.id,
+								createdAt: c.createdAt.toISOString(),
+							}))}
+							deviceOffline={deviceOffline}
+							deviceLastSeenAt={energyDevice.lastSeenAt?.toISOString() ?? null}
+							deviceId={energyDevice.id}
+							pondId={pond.id}
+							scheduleStart={currentCommand?.scheduleStart ?? fmtTime(pond.scheduleStart)}
+							scheduleEnd={currentCommand?.scheduleEnd ?? fmtTime(pond.scheduleEnd)}
+							feedsPerDay={currentCommand?.feedsPerDay ?? pond.feedsPerDay}
+							feedingRatePct={currentCommand?.feedingRatePct ?? pond.feedingRatePct}
+							canWrite={writeAccess}
+						/>
+					</div>
+					<div className="order-3 xl:order-none">
+						<ScheduleControls
+							deviceId={energyDevice.id}
+							initialIsPaused={energyDevice.isPaused}
+							gramsPerFeeding={energyDevice.gramsPerFeeding}
+							gramsPerSecond={energyDevice.gramsPerSecond}
+							canWrite={writeAccess}
+							feedNowLimit={feedNowLimit}
+						/>
+					</div>
+				</aside>
+			</div>
+		</DashboardPageShell>
 	);
 }

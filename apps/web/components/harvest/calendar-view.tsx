@@ -6,7 +6,12 @@ import "@fullcalendar/react/themes/classic/theme.css";
 import "./harvest-calendar.css";
 
 import { fullCalendarValueToFarmValue } from "@/lib/calendar/datetime";
-import { resolveEventColor } from "@/lib/calendar/event-colors";
+import {
+	type EventChipColors,
+	eventChipColors,
+	resolveEventColor,
+} from "@/lib/calendar/event-colors";
+import { CALENDAR_TOOLBAR_VIEWS, initialCalendarView } from "@/lib/calendar/views";
 import type { CalendarEventDto } from "@/lib/crop-cycle/calendar";
 import { FARM_TIME_ZONE, addDays } from "@/lib/crop-cycle/dates";
 import FullCalendar from "@fullcalendar/react";
@@ -32,6 +37,10 @@ interface CalendarViewProps {
 	events: CalendarEventDto[];
 	canManage: boolean;
 	allPonds: boolean;
+	/** Toolbar view list. Omitted = month, week, day and agenda. */
+	toolbarViews?: string;
+	/** Initial view. Omitted = agenda below 640 px, month otherwise. */
+	defaultView?: string;
 	onRangeChange: (from: string, to: string) => void;
 	onViewChange: (viewType: string) => void;
 	onEventClick: (event: CalendarEventDto) => void;
@@ -42,46 +51,48 @@ interface CalendarViewProps {
 	onToggleTask: (event: CalendarEventDto) => void;
 }
 
-interface EventColors {
-	color: string;
-	contrastColor: string;
+interface EventChipTheme {
+	light: EventChipColors;
+	dark: EventChipColors;
 }
 
-function colorsFor(event: CalendarEventDto): EventColors {
+/**
+ * The stored/derived base colour for an event. The accessible light and dark
+ * pairs are derived from it by `eventChipColors()` (#272).
+ */
+function baseColorFor(event: CalendarEventDto): string {
 	// Manual items respect the per-item colour and each type's accessible
 	// default; the derived cycle/feeding/device sources keep their established
 	// status colours.
 	if (event.source === "manual") {
-		return {
-			color: resolveEventColor(event.color, event.kind ?? "OTHER"),
-			contrastColor: "#ffffff",
-		};
+		return resolveEventColor(event.color, event.kind ?? "OTHER");
 	}
 	if (event.type === "harvest") {
-		if (event.status === "cancelled") {
-			return { color: "#9ca3af", contrastColor: "#ffffff" };
-		}
-		if (event.status === "done") {
-			return { color: "#1e7b34", contrastColor: "#ffffff" };
-		}
-		return { color: "#ff6b35", contrastColor: "#ffffff" };
+		if (event.status === "cancelled") return "#9CA3AF";
+		if (event.status === "done") return "#1E7B34";
+		return "#FF6B35";
 	}
-	if (event.type === "sampling") {
-		return { color: "#0f766e", contrastColor: "#ffffff" };
-	}
-	if (event.type === "manual") {
-		return { color: "#7c3aed", contrastColor: "#ffffff" };
-	}
-	if (event.type === "device") {
-		return { color: "#c42b3a", contrastColor: "#ffffff" };
-	}
-	return { color: "#64748b", contrastColor: "#ffffff" };
+	if (event.type === "sampling") return "#0F766E";
+	if (event.type === "manual") return "#7C3AED";
+	if (event.type === "device") return "#C42B3A";
+	return "#64748B";
+}
+
+function chipThemeFor(event: CalendarEventDto): EventChipTheme | undefined {
+	if (event.display === "background") return undefined;
+	const base = baseColorFor(event);
+	return {
+		light: eventChipColors(base, "light"),
+		dark: eventChipColors(base, "dark"),
+	};
 }
 
 export function CalendarView({
 	events,
 	canManage,
 	allPonds,
+	toolbarViews,
+	defaultView,
 	onRangeChange,
 	onViewChange,
 	onEventClick,
@@ -92,7 +103,17 @@ export function CalendarView({
 	onToggleTask,
 }: CalendarViewProps) {
 	const t = useTranslations("dashboard.harvest");
-	const [viewType, setViewType] = useState("dayGridMonth");
+	// The calendar is client-only (HarvestCalendar loads it with ssr:false), so
+	// the viewport is available on the first render. Agenda is the mobile
+	// default; a wider screen starts on the month grid.
+	const [initialView] = useState(() =>
+		defaultView
+			? defaultView
+			: initialCalendarView(
+					typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches,
+				),
+	);
+	const [viewType, setViewType] = useState(initialView);
 
 	const labelFor = useCallback(
 		(event: CalendarEventDto): string => {
@@ -142,7 +163,7 @@ export function CalendarView({
 				end = undefined;
 			}
 
-			const colors = colorsFor(event);
+			const colors = chipThemeFor(event);
 			const isTask = event.itemKind === "TASK";
 			items.push({
 				id,
@@ -153,14 +174,17 @@ export function CalendarView({
 				end: allDay && end ? addDays(end.slice(0, 10), 1) : end,
 				allDay,
 				display: event.display,
-				color: event.display === "background" ? undefined : colors.color,
-				contrastColor: event.display === "background" ? undefined : colors.contrastColor,
+				// FullCalendar's own variables seed the first paint; the
+				// theme-aware pair is attached in `eventDidMount` and switched
+				// by the `.dark` class without re-rendering every event.
+				color: colors?.light.background,
+				contrastColor: colors?.light.foreground,
 				editable: canManage && event.editable,
 				startEditable: canManage && event.editable,
 				// A task has a due date, not a duration; only Events resize.
 				durationEditable: canManage && event.editable && !isTask,
 				classNames: event.completed ? ["ofc-event-done"] : undefined,
-				extendedProps: { dto: event },
+				extendedProps: { dto: event, chip: colors },
 			});
 		}
 
@@ -217,11 +241,14 @@ export function CalendarView({
 	const renderEventContent = (arg: EventDisplayInfo) => {
 		const dto = arg.event.extendedProps.dto as CalendarEventDto | undefined;
 		if (!dto || dto.itemKind !== "TASK" || dto.display === "background") return true;
+		// A task on a pond the caller cannot write (an org-wide event on the
+		// farmer calendar) stays visible but the checkbox is disabled.
+		const canToggleTask = canManage && Boolean(dto.editable);
 		return (
 			<span className="flex min-w-0 items-center gap-1 overflow-hidden">
 				<button
 					type="button"
-					disabled={!canManage}
+					disabled={!canToggleTask}
 					aria-label={
 						dto.completed
 							? t("task.reopenLabel", { title: dto.title })
@@ -230,7 +257,7 @@ export function CalendarView({
 					aria-pressed={Boolean(dto.completed)}
 					onClick={(click) => {
 						click.stopPropagation();
-						if (!canManage) return;
+						if (!canToggleTask) return;
 						onToggleTask(dto);
 					}}
 					onMouseDown={(down) => down.stopPropagation()}
@@ -239,13 +266,15 @@ export function CalendarView({
 						dto.completed
 							? "border-transparent bg-white/90 text-[#0A3D62]"
 							: "border-white/70 bg-transparent text-transparent"
-					} ${canManage ? "cursor-pointer" : "cursor-default"}`}
+					} ${canToggleTask ? "cursor-pointer" : "cursor-default"}`}
 				>
 					<Check className="h-3 w-3" aria-hidden="true" />
 				</button>
+				{/* No opacity on completed tasks: dimming the chip pushed the
+				    accessible pair below AA (#272). Strikethrough still reads. */}
 				<span
 					className={`min-w-0 overflow-hidden text-ellipsis whitespace-nowrap ${
-						dto.completed ? "line-through opacity-70" : ""
+						dto.completed ? "line-through" : ""
 					}`}
 				>
 					{arg.timeText ? `${arg.timeText} ` : ""}
@@ -256,14 +285,19 @@ export function CalendarView({
 	};
 
 	return (
-		<div className="harvest-calendar min-w-0">
+		<div
+			className="harvest-calendar min-w-0"
+			// Day cells only show a hand when a click creates an event (#244);
+			// `data-calendar-editable` mirrors the `selectable`/`editable` props.
+			data-calendar-editable={canManage ? "true" : undefined}
+		>
 			<FullCalendar
 				plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, classicThemePlugin]}
-				initialView="dayGridMonth"
+				initialView={initialView}
 				headerToolbar={{
 					left: "prev,next today",
 					center: "title",
-					right: "dayGridMonth,timeGridWeek,listMonth",
+					right: toolbarViews ?? CALENDAR_TOOLBAR_VIEWS,
 				}}
 				// FullCalendar v7 removed the global `buttonText` map. Toolbar copy
 				// now comes from these documented text options (and the theme's
@@ -271,7 +305,8 @@ export function CalendarView({
 				todayText={t("calendar.today")}
 				monthText={t("calendar.month")}
 				weekTextLong={t("calendar.week")}
-				listText={t("calendar.list")}
+				dayText={t("calendar.day")}
+				listText={t("calendar.agenda")}
 				height="100%"
 				firstDay={1}
 				fixedWeekCount={false}
@@ -303,6 +338,12 @@ export function CalendarView({
 				datesSet={handleDatesSet}
 				eventDidMount={(info) => {
 					info.el.setAttribute("title", info.event.title);
+					const chip = info.event.extendedProps.chip as EventChipTheme | undefined;
+					if (!chip) return;
+					info.el.style.setProperty("--ofc-chip-bg-light", chip.light.background);
+					info.el.style.setProperty("--ofc-chip-fg-light", chip.light.foreground);
+					info.el.style.setProperty("--ofc-chip-bg-dark", chip.dark.background);
+					info.el.style.setProperty("--ofc-chip-fg-dark", chip.dark.foreground);
 				}}
 				noEventsText={t("calendar.noEvents")}
 				headerToolbarClass="ofc-toolbar"
@@ -351,6 +392,8 @@ export function CalendarView({
 				listDayHeaderInnerClass="ofc-list-day-inner"
 				moreLinkClass="ofc-more"
 				moreLinkInnerClass="ofc-more-inner"
+				popoverClass="ofc-popover"
+				popoverCloseClass="ofc-popover-close"
 				noEventsClass="ofc-no-events"
 				noEventsInnerClass="ofc-no-events-inner"
 				slotHeaderClass="ofc-slot-header"

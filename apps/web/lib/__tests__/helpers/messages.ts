@@ -12,7 +12,7 @@ import { join } from "node:path";
 
 type Tree = { [key: string]: string | Tree };
 
-export function loadMessages(locale: "en" | "hil" = "en"): Record<string, string> {
+export function loadMessages(locale: "en" | "hil" | "tl" = "en"): Record<string, string> {
 	const raw = JSON.parse(
 		readFileSync(join(__dirname, "../../../messages", `${locale}.json`), "utf8"),
 	);
@@ -47,12 +47,13 @@ export function formatMessage(
 
 export type TestTranslator = ((key: string, values?: Record<string, string | number>) => string) & {
 	has: (key: string) => boolean;
+	rich: (key: string, values?: Record<string, unknown>) => string;
 };
 
 /** Build the `getTranslations(namespace)` / `useTranslations(namespace)` shape. */
 export function createTranslator(namespace: string, locale: "en" | "hil" = "en"): TestTranslator {
 	const messages = loadMessages(locale);
-	const resolve = (key: string) => messages[`${namespace}.${key}`];
+	const resolve = (key: string) => messages[namespace ? `${namespace}.${key}` : key];
 
 	const translator = (key: string, values?: Record<string, string | number>) => {
 		const template = resolve(key);
@@ -60,5 +61,7 @@ export function createTranslator(namespace: string, locale: "en" | "hil" = "en")
 		return formatMessage(template, values);
 	};
 	translator.has = (key: string) => resolve(key) !== undefined;
+	translator.rich = (key: string, values?: Record<string, unknown>) =>
+		translator(key, values as Record<string, string | number> | undefined);
 	return translator;
 }

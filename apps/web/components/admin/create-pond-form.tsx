@@ -62,28 +62,34 @@ export function CreatePondForm({
 
 		setLoading(true);
 
-		const result = await createPondWithFarmer({
-			farmerName: formData.get("farmerName") as string,
-			loginId: formData.get("loginId") as string,
-			password,
-			pondName: formData.get("pondName") as string,
-			feedingRatePct: Number.parseFloat(formData.get("feedingRatePct") as string),
-			feedsPerDay: Number.parseInt(formData.get("feedsPerDay") as string, 10),
-			population: formData.get("population")
-				? Number.parseInt(formData.get("population") as string, 10)
-				: null,
-			scheduleStart: formData.get("scheduleStart") as string,
-			scheduleEnd: formData.get("scheduleEnd") as string,
-		});
+		try {
+			const result = await createPondWithFarmer({
+				farmerName: formData.get("farmerName") as string,
+				loginId: formData.get("loginId") as string,
+				password,
+				pondName: formData.get("pondName") as string,
+				feedingRatePct: Number.parseFloat(formData.get("feedingRatePct") as string),
+				feedsPerDay: Number.parseInt(formData.get("feedsPerDay") as string, 10),
+				population: formData.get("population")
+					? Number.parseInt(formData.get("population") as string, 10)
+					: null,
+				scheduleStart: formData.get("scheduleStart") as string,
+				scheduleEnd: formData.get("scheduleEnd") as string,
+			});
 
-		setLoading(false);
+			if ("error" in result) {
+				setError(result.error);
+				return;
+			}
 
-		if ("error" in result) {
-			setError(result.error);
-			return;
+			router.push("/admin/ponds");
+		} catch {
+			// A denied guard or a dropped request must not leave the form stuck in
+			// its loading state with an unhandled rejection.
+			setError(t("errorGeneric"));
+		} finally {
+			setLoading(false);
 		}
-
-		router.push("/admin/ponds");
 	}
 
 	const passwordMismatch = Boolean(confirmPassword) && password !== confirmPassword;

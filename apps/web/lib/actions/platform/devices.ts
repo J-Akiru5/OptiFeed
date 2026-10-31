@@ -3,6 +3,7 @@
 import { actorContext, writePlatformAudit } from "@/lib/actions/platform/audit";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { isStepUpRequiredError, withStepUp } from "@/lib/auth/step-up";
+import { parseDeviceLabelIds } from "@/lib/device-label-selection";
 import {
 	DUPLICATE_MAC_MESSAGE,
 	createDeviceCredentials,
@@ -11,6 +12,7 @@ import {
 import { createManualFeedRequest, setSchedulePause } from "@/lib/feed/commands";
 import { resolvePagination } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
+import { checkDeviceTokenRevealRateLimit } from "@/lib/rate-limit";
 import { getListPageSize } from "@/lib/settings/platform";
 import { Prisma } from "@prisma/client";
 
@@ -283,6 +285,7 @@ export async function getOrgPondOptions(): Promise<OrgPondOption[]> {
 // ─── Register ─────────────────────────────────────────────────────────────────
 
 export type StepUpRequiredResult = { error: string; code: "step_up_required" };
+export type RateLimitedResult = { error: string; code: "rate_limited" };
 
 export type RegisterDeviceResult =
 	| { success: true; deviceId: string; mac: string; token: string }
@@ -415,12 +418,17 @@ export async function registerDevice(input: {
 export type RotateDeviceTokenResult =
 	| { success: true; token: string }
 	| StepUpRequiredResult
+	| RateLimitedResult
 	| { error: string; code?: undefined };
 
 /**
  * Issue a new token for a device. The old token stops authenticating at once,
  * because device auth looks tokens up by hash. The unit keeps failing until
  * the new token is set on it through the setup portal.
+ *
+ * Rotation mints a fresh long-lived credential, so it draws from the same
+ * per-actor reveal allowance as the tenant "Show token" path: a stolen platform
+ * session cannot loop over the registry draining one token per device.
  */
 export async function rotateDeviceToken(input: {
 	deviceId: string;
@@ -439,6 +447,18 @@ export async function rotateDeviceToken(input: {
 	}
 
 	try {
+		const actor = await actorContext();
+
+		// Same bucket and window as revealDeviceToken (issue #331): the actor is
+		// the key, so a rotation cannot rotate device ids to buy a new allowance.
+		const limit = await checkDeviceTokenRevealRateLimit(actor.id);
+		if (!limit.success) {
+			return {
+				error: "Too many token reveals. Try again in an hour.",
+				code: "rate_limited",
+			};
+		}
+
 		const device = await prisma.energyDevice.findUnique({
 			where: { id: input.deviceId },
 			select: { id: true, mac: true, pond: { select: { ownerId: true } } },
@@ -447,8 +467,6 @@ export async function rotateDeviceToken(input: {
 
 		const orgs = device.pond ? await orgsForFarms([device.pond.ownerId]) : new Map();
 		const orgId = device.pond ? (orgs.get(device.pond.ownerId)?.[0]?.id ?? null) : null;
-
-		const actor = await actorContext();
 
 		// A rotation invalidates the unit's working credential, so it needs a
 		// fresh step-up just like registration.
@@ -496,16 +514,24 @@ export type PlatformDeviceLabelRow = { id: string; label: string; mac: string };
 /**
  * Display fields for the printable sticker, for any device on the platform.
  * Allow-listed select: token and tokenHash are never read.
+ *
+ * An empty selection means "every device on the platform" (the Superadmin
+ * → Devices print-selected form submits no ids when nothing is ticked),
+ * newest first and bounded by MAX_LABELS.
  */
 export async function getPlatformDevicesForLabels(
 	deviceIds: string[],
 ): Promise<PlatformDeviceLabelRow[]> {
 	await requirePlatformAdmin();
 
-	const ids = [
-		...new Set(deviceIds.filter((id) => typeof id === "string" && id.trim().length > 0)),
-	].slice(0, MAX_LABELS);
-	if (ids.length === 0) return [];
+	const ids = parseDeviceLabelIds(deviceIds).slice(0, MAX_LABELS);
+	if (ids.length === 0) {
+		return prisma.energyDevice.findMany({
+			select: { id: true, label: true, mac: true },
+			orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+			take: MAX_LABELS,
+		});
+	}
 
 	const devices = await prisma.energyDevice.findMany({
 		where: { id: { in: ids } },
@@ -534,8 +560,8 @@ const NO_DEVICE_MESSAGE = "Device not found.";
 /**
  * Feed any feeder on the platform (god mode, decision D1).
  *
- * This is the same command the tenant dashboard issues: the caps (1,000 g per
- * request, the daily cap, relay-time and offline checks) are enforced inside
+ * This is the same command the tenant dashboard issues: the daily ceiling (the
+ * only gram cap), the relay-time and offline checks are enforced inside
  * lib/feed/commands.ts. There is deliberately no force/burst parameter, so a
  * remote command to an empty hopper or an offline unit is refused by the same
  * rules as a local one. A refusal is audited and returned as `feed_refused`.

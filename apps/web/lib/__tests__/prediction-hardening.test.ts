@@ -80,7 +80,7 @@ describe("normalisePredictionInputs", () => {
 		expect(result.population).toBe(1_000_000);
 		expect(result.avgWeightKg).toBe(50);
 		expect(result.latestFcr).toBe(10);
-		expect(result.currentGrams).toBe(1_000);
+		expect(result.currentGrams).toBe(5_000);
 		expect(result.hopperCapacityG).toBeNull();
 	});
 
@@ -92,8 +92,9 @@ describe("normalisePredictionInputs", () => {
 
 describe("clampPredictionGrams safety", () => {
 	it("never exceeds the device ceiling when the deviation floor is higher", () => {
-		// 24 meals/day gives a 208.3 g per-meal ceiling, but the current value
-		// of 1000 g would put the ±50% floor at 500 g. Device safety must win.
+		// 24 meals/day shares the 2,000 g daily ceiling (83.3 g per meal), but
+		// the current value of 1000 g would put the ±50% floor at 500 g. Device
+		// safety must win.
 		const upper = predictionUpperBound(24, null);
 		const result = clampPredictionGrams(500, {
 			feedsPerDay: 24,
@@ -101,7 +102,7 @@ describe("clampPredictionGrams safety", () => {
 			currentGrams: 1000,
 		});
 		expect(result.grams).toBeLessThanOrEqual(upper);
-		expect(result.grams).toBe(208.3);
+		expect(result.grams).toBe(83.3);
 		expect(result.clamped).toBe(true);
 		expect(result.reasons).toContain("deviceLimit");
 	});

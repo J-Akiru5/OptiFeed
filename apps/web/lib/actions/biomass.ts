@@ -1,11 +1,19 @@
 "use server";
 
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
 import { dateOnlyToUtcDate, isValidDateOnly } from "@/lib/crop-cycle/dates";
+import { isDeviceUnreachable } from "@/lib/device-status";
 import { applyGrowthPlanForPond } from "@/lib/growth-plan-apply";
-import { biomassLogSchema, feedGramsSchema, fishSamplesSchema, formatZodError } from "@/lib/limits";
+import {
+	biomassLogSchema,
+	feedGramsSchema,
+	fishSamplesSchema,
+	formatZodError,
+	resolveDailyCapG,
+} from "@/lib/limits";
 import prisma from "@/lib/prisma";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
+import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import { calculateNextFeeding } from "@/lib/volumeCalc";
 import { revalidatePath } from "next/cache";
 
@@ -157,7 +165,7 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 			});
 			const previousGrams = energyDevice?.gramsPerFeeding ?? null;
 			const deviceOffline = energyDevice
-				? Date.now() - (energyDevice.lastSeenAt?.getTime() ?? 0) > OFFLINE_THRESHOLD_MS
+				? isDeviceUnreachable(energyDevice.lastSeenAt, new Date(), await getDeviceStatusPolicy())
 				: false;
 			const population = pond.population ?? 0;
 
@@ -231,6 +239,25 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 				pond.population,
 			);
 
+			if (newGrams === null) {
+				await tx.deviceStateEvent.create({
+					data: {
+						deviceId: energyDevice.id,
+						eventType: "biomass_logged",
+						source: "user",
+						actorId: ownerId,
+						metadata: {
+							biomassLogId: log.id,
+							avgWeightKg,
+							sampleCount,
+							autoAdjustSkipped: true,
+							reason: "population or average weight invalid",
+						},
+					},
+				});
+				return finish("skipped_config", null, previousGrams);
+			}
+
 			const newGramsCheck = feedGramsSchema.safeParse(newGrams);
 			if (!newGramsCheck.success) {
 				await tx.deviceStateEvent.create({
@@ -247,6 +274,39 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 							reason: formatZodError(newGramsCheck.error),
 							gramsProposed: newGrams,
 							gramsCurrent: energyDevice.gramsPerFeeding,
+						},
+					},
+				});
+				return finish("rejected_out_of_range", newGrams, previousGrams);
+			}
+
+			// The daily ceiling is the only gram cap. feedGramsSchema is just the
+			// 5,000 g sanity bound, so a within-schema dose still has to fit the
+			// pond's daily allowance before it may move the device.
+			const feedingLimits = await getFeedingLimits();
+			const dailyCapG = resolveDailyCapG({
+				configuredCapG: energyDevice.dailyCapG,
+				hopperCapacityG: energyDevice.hopperCapacityG,
+				dailyCapFactor: feedingLimits.dailyCapFactor,
+			});
+			const scheduledDailyG = newGrams * pond.feedsPerDay;
+			if (scheduledDailyG > dailyCapG + 0.05) {
+				await tx.deviceStateEvent.create({
+					data: {
+						deviceId: energyDevice.id,
+						eventType: "biomass_logged",
+						source: "user",
+						actorId: ownerId,
+						metadata: {
+							biomassLogId: log.id,
+							avgWeightKg,
+							sampleCount,
+							autoAdjustRejected: true,
+							reason: "recommendation would exceed the daily feed ceiling",
+							gramsProposed: newGrams,
+							gramsCurrent: energyDevice.gramsPerFeeding,
+							scheduledDailyG,
+							dailyCapG,
 						},
 					},
 				});

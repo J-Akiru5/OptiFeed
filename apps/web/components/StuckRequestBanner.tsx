@@ -1,7 +1,9 @@
 "use client";
 
+import { Link } from "@/i18n/routing";
 import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
 import { updateScheduleCommand } from "@/lib/actions/schedule";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { useFeedCommandGuard } from "@/lib/pwa/use-feed-guard";
 import { AlertTriangle, BatteryCharging, Cpu, WifiOff } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -46,14 +48,15 @@ export function StuckRequestBanner({
 	canWrite = true,
 }: StuckRequestBannerProps) {
 	const t = useTranslations("dashboard.schedule.stuckBanner");
+	const tDates = useTranslations("dates");
 	const [isPendingFeed, startFeedTransition] = useTransition();
 	const [isPendingSchedule, startScheduleTransition] = useTransition();
 	const { online, reason, blockIfOffline } = useFeedCommandGuard();
 
-	const fmtTime = (iso: string) => {
-		const d = new Date(iso);
-		return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-	};
+	// Instants from the device are rendered in the farm's timezone. A bare
+	// toLocaleTimeString() used the device's zone on the client and UTC on the
+	// server, so the first render could disagree with hydration.
+	const fmtTime = (iso: string) => formatFarmDateTime(new Date(iso), tDates).time;
 
 	const hasRepeatFeedFailure = stuckFeedRequests.length >= 2;
 	const hasSingleFeedFailure = stuckFeedRequests.length === 1;
@@ -71,16 +74,16 @@ export function StuckRequestBanner({
 						</p>
 						<p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
 							{t("offlineDesc", {
-								time: deviceLastSeenAt ? fmtTime(deviceLastSeenAt) : "unknown",
+								time: deviceLastSeenAt ? fmtTime(deviceLastSeenAt) : t("unknownTime"),
 							})}
 						</p>
 					</div>
-					<a
-						href="/dashboard/app-settings"
+					<Link
+						href="/dashboard/settings/hardware"
 						className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-200 dark:hover:bg-amber-900/60"
 					>
 						{t("checkDevice")}
-					</a>
+					</Link>
 				</div>
 			</div>
 		);

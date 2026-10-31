@@ -19,15 +19,19 @@ const baseInputs: PredictionInputs = {
 };
 
 describe("predictionUpperBound", () => {
-	it("caps at MAX_FEED_GRAMS_PER_REQUEST", () => {
-		expect(predictionUpperBound(1, 1_000_000)).toBe(1000);
+	it("uses the daily ceiling, not a 1,000 g per-meal cap", () => {
+		// One meal a day may use the whole 5,000 g daily guard.
+		expect(predictionUpperBound(1, 1_000_000)).toBe(2000);
+		expect(predictionUpperBound(1, null, 5000)).toBe(5000);
 	});
 
-	it("limits by daily cap divided by feedsPerDay", () => {
-		// 5000g daily cap / 4 feeds = 1250 → capped by MAX 1000
-		expect(predictionUpperBound(4, null)).toBe(1000);
-		// 5000 / 24 = 208.33
-		expect(predictionUpperBound(24, null)).toBeCloseTo(208.3, 1);
+	it("limits by the daily ceiling divided by feedsPerDay", () => {
+		// 2,000 g default ceiling / 4 feeds = 500 g
+		expect(predictionUpperBound(4, null)).toBe(500);
+		// 2,000 / 24 = 83.33
+		expect(predictionUpperBound(24, null)).toBeCloseTo(83.3, 1);
+		// A raised 5,000 g ceiling / 4 feeds = 1,250 g, above the old 1,000 g cap
+		expect(predictionUpperBound(4, null, 5000)).toBe(1250);
 	});
 
 	it("uses hopper capacity as daily cap when smaller", () => {
@@ -35,8 +39,8 @@ describe("predictionUpperBound", () => {
 		expect(predictionUpperBound(2, 500)).toBe(250);
 	});
 
-	it("returns MAX when feedsPerDay is 0", () => {
-		expect(predictionUpperBound(0, null)).toBe(1000);
+	it("returns the daily hard guard when feedsPerDay is 0", () => {
+		expect(predictionUpperBound(0, null)).toBe(5000);
 	});
 });
 
@@ -48,7 +52,7 @@ describe("clampPredictionGrams", () => {
 			currentGrams: null,
 		});
 		expect(clamped).toBe(true);
-		expect(grams).toBeLessThanOrEqual(1000);
+		expect(grams).toBeLessThanOrEqual(83.4);
 	});
 
 	it("clamps candidate below 1 up to 1", () => {
@@ -125,7 +129,7 @@ describe("computeDeterministicPrediction", () => {
 
 	it("baseline matches calculateNextFeeding with same inputs", () => {
 		const result = computeDeterministicPrediction({ ...baseInputs, latestFcr: null });
-		const expected = calculateNextFeeding(0.25, 5, 3, 1000);
+		const expected = calculateNextFeeding(0.25, 5, 3, 1000) ?? 0;
 		expect(result.baselineGrams).toBe(Math.round(expected * 10) / 10);
 	});
 

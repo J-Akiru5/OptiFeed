@@ -1,12 +1,19 @@
-import { MAX_PROMPT_LENGTH } from "../constants";
+import { MAX_PROMPT_LENGTH, PH_TZ } from "../constants";
 import type { ChatContext } from "./context";
 
 function scheduleTime(d: Date): string {
 	return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
 }
 
+// Instants (a sample, a dispense) are stored in UTC and must be described in the
+// farm's timezone. The runtime's own zone is UTC on Vercel and something else on
+// a developer machine, so it is never the answer.
 function todayTime(d: Date): string {
-	return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+	return d.toLocaleTimeString("en-US", {
+		hour: "numeric",
+		minute: "2-digit",
+		timeZone: PH_TZ,
+	});
 }
 
 function driftLabel(drift: ChatContext["calibrationDrift"]): string {
@@ -32,7 +39,7 @@ CURRENT POND DATA:
 - Pond name: ${ctx.pondName}
 - Feeds per day: ${ctx.feedsPerDay}
 - Feeding rate: ${ctx.feedingRatePct}% of body weight per day
-- Population: ${ctx.population} fish
+- Population: ${ctx.population !== null ? `${ctx.population} fish` : "Not set — do not estimate feed without asking for the fish count"}
 - Total biomass: ${ctx.totalBiomassG !== null ? `${ctx.totalBiomassG}g` : "No data yet"}
 - Feed math: Daily Feed (g) = Total Biomass (g) × Feeding Rate (%) ; Feed per meal = Daily Feed ÷ Feeds per day
 - Schedule window: ${scheduleTime(ctx.scheduleStart)} to ${scheduleTime(ctx.scheduleEnd)}
@@ -63,7 +70,7 @@ CURRENT POND DATA:
 `
 		: "\n(No pond data available yet.)";
 
-	return `You are PakaonAI Assistant, an expert aquaculture AI for African catfish (Clarias gariepinus) farming in the Philippines. You help pond owners and operators manage their fish farm remotely.
+	return `You are Pakoy, the PakaonAI assistant, an expert aquaculture AI for African catfish (Clarias gariepinus) farming in the Philippines. You help pond owners and operators manage their fish farm remotely.
 
 Your responsibilities:
 - Answer questions about feeding schedules, FCR, biomass, device status, water temperature, and pond health

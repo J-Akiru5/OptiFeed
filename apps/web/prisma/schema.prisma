@@ -65,8 +65,9 @@ model User {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  farm  Farm? // exactly one farm per farmer (enforced by Farm.ownerId @unique)
-  ponds Pond[]
+  farm           Farm?               // exactly one farm per farmer (enforced by Farm.ownerId @unique)
+  ponds          Pond[]
+  settingsDrafts PondSettingsDraft[]
 
   @@index([farmId])
   @@index([role])
@@ -92,7 +93,7 @@ model Pond {
   name               String
   feedingRatePct     Float
   feedsPerDay        Int
-  population         Int? // real fish count for total biomass; null → DEFAULT_FISH_COUNT
+  population         Int? // real fish count; null means not set, so no automatic feed calculation
   sampleIntervalDays Int        @default(14)
   scheduleStart      DateTime   @db.Time()
   scheduleEnd        DateTime   @db.Time()
@@ -112,6 +113,7 @@ model Pond {
   ownershipHistory PondOwnershipHistory[]
   cropCycles       CropCycle[]
   pondEvents       PondEvent[]
+  settingsDrafts   PondSettingsDraft[]
 
   @@index([ownerId])
   @@index([farmId])
@@ -346,10 +348,16 @@ model EnergyDevice {
   waterTempOk        Boolean   @default(false) // false if probe undetected on last heartbeat
   waterTempUpdatedAt DateTime? // last time a reading was ingested
 
+  // Wi-Fi signal reported on the heartbeat (firmware 1.6.2+). Both stay null on
+  // old firmware, which keeps the timing-only connectivity rule working.
+  wifiRssiDbm       Int? // last RSSI in dBm (-127..0), null until reported
+  wifiRssiUpdatedAt DateTime? // last time an RSSI was ingested
+
   // Per-device calibration
   hopperEmptyCm             Float? // sensor distance when hopper is empty (~30cm for 10L bottle)
   hopperFullCm              Float? // sensor distance when hopper is full (~5cm)
   hopperCapacityG           Float? // total hopper capacity in grams (e.g. 7000 for 10L)
+  dailyCapG                 Int? // pond's daily feed ceiling; null → DEFAULT_DAILY_CAP_G (2000)
   gramsPerSecond            Float     @default(4.0) // motor dispense rate — pushed via poll response
   tempOffsetC               Float     @default(0) // DS18B20 calibration offset in °C
   lastCalibratedAt          DateTime? // last saved rate test or passing target check
@@ -366,6 +374,9 @@ model EnergyDevice {
   scheduleCommands ScheduleCommand[]
   feedLevelLogs    FeedLevelLog[]
   waterTempLogs    WaterTempLog[]
+  settingsDrafts   PondSettingsDraft[]
+
+  @@index([pondId])
 }
 
 model FeedEvent {
@@ -386,6 +397,7 @@ model FeedEvent {
   device EnergyDevice @relation(fields: [deviceId], references: [id])
 
   @@index([deviceId, receivedAt])
+  @@index([eventType, receivedAt])
   @@index([farmId])
 }
 
@@ -394,6 +406,7 @@ model FeedRequest {
   deviceId  String
   grams     Float    @default(100)
   status    String   @default("pending") // "pending" | "dispatched" | "completed" | "expired" | "fulfilled_by_other_trigger"
+  kind      String   @default("feed") // "feed" | "calibration"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   farmId    String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
@@ -409,7 +422,7 @@ model FeedRequest {
 model DeviceStateEvent {
   id         String   @id @default(cuid())
   deviceId   String
-  eventType  String // "connected" | "disconnected" | "command_sent" | "command_acked" | "command_failed" | "schedule_changed" | "schedule_applied" | "feed_dispensed" | "feed_reconciled" | "pge_reading" | "pellet_low" | "pellet_refilled" | "manual_trigger" | "notification_acknowledged" | "set_time" | "data_imported" | "data_exported" | "prediction_applied" | "token_revealed"
+  eventType  String // "connected" | "disconnected" | "command_sent" | "command_acked" | "command_failed" | "schedule_changed" | "schedule_applied" | "feed_dispensed" | "feed_reconciled" | "pge_reading" | "pellet_low" | "pellet_refilled" | "manual_trigger" | "notification_acknowledged" | "set_time" | "data_imported" | "data_exported" | "prediction_applied" | "token_revealed" | "config_applied"
   source     String // "system" | "user" | "device"
   actorId    String? // userId who triggered it (nullable for device-originated)
   metadata   Json? // flexible payload (old/new values, request IDs, error details)
@@ -709,7 +722,7 @@ model OrgSetting {
   orgId                 String                 @id
   defaultFeedingRatePct Float                  @default(3)
   hopperLowPct          Int                    @default(20)
-  offlineAfterMin       Int                    @default(30)
+  offlineAfterMin       Int                    @default(30) // deprecated (I-97): kept for compatibility; offline alerts follow PlatformSetting "device.status"
   missedFeedingAlerts   Boolean                @default(true)
   alertRoles            MemberRole[]           @default([OWNER, ADMIN])
   deviceRegistration    DeviceRegistrationMode @default(ADMIN_APPROVAL)
@@ -792,4 +805,69 @@ model AssistantAction {
   createdAt DateTime              @default(now())
 
   @@index([userId, status, createdAt])
+}
+
+enum ErrorSeverity {
+  ERROR
+  WARNING
+  INFO
+}
+
+/// First-party error capture (mission 2026-10-29e, owner decision E1).
+///
+/// One row per distinct error, keyed by `fingerprint` (sha256 of severity,
+/// scrubbed route, scrubbed message and the first stack frame). A repeat
+/// occurrence increments `count` and moves `lastSeenAt`; it does not insert.
+/// Recurrence reopens a resolved row, so a "fixed" error that comes back is
+/// visible again.
+///
+/// `message`, `stack`, `route` and `context` are scrubbed before write by
+/// lib/error-scrub.ts — no device token, bearer token, password, e-mail or
+/// Supabase key may reach this table. Rows silent for
+/// ERROR_EVENT_RETENTION_DAYS (30) are pruned by deleteExpiredErrorEvents()
+/// from the device-watch cron, so the table cannot grow unbounded.
+model ErrorEvent {
+  id          String        @id @default(cuid())
+  fingerprint String        @unique
+  message     String
+  stack       String?
+  route       String
+  severity    ErrorSeverity @default(ERROR)
+  context     Json?
+  firstSeenAt DateTime      @default(now())
+  lastSeenAt  DateTime      @default(now())
+  count       Int           @default(1)
+  resolved    Boolean       @default(false)
+  resolvedAt  DateTime?
+  resolvedBy  String?
+
+  @@index([lastSeenAt])
+  @@index([resolved, lastSeenAt])
+}
+
+/// Unsaved pond-settings form values, kept per (pond, user) so a reader can
+/// leave the page (fix a conflicting device setting, close the browser) and
+/// still find their typed values on return (I-99, #371).
+///
+/// `data` holds the form values only — never a secret, token or password. The
+/// row is scoped to the editing user, so one member's draft can never surface
+/// for another member of the same farm. `deviceId` records the pond's feeder at
+/// save time (null when the pond has none) and is cleared if that feeder is
+/// deleted. `deleteExpiredPondSettingsDrafts()` prunes rows after 30 days.
+model PondSettingsDraft {
+  id        String   @id @default(cuid())
+  pondId    String
+  userId    String
+  deviceId  String?
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pond   Pond          @relation(fields: [pondId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device EnergyDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@unique([pondId, userId])
+  @@index([pondId])
+  @@index([deviceId])
 }

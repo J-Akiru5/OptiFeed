@@ -1,5 +1,11 @@
 "use client";
 
+import {
+	CalendarSidePane,
+	CalendarSidePanel,
+	CalendarSurface,
+	CalendarWorkbench,
+} from "@/components/calendar/calendar-shell";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { Link, useRouter } from "@/i18n/routing";
 import { cancelCropCycle, updateCropCycle } from "@/lib/actions/crop-cycle";
@@ -16,6 +22,7 @@ import {
 	utcDateToFarmDateOnly,
 	utcDateToFarmDateTime,
 } from "@/lib/calendar/datetime";
+import { selectUpcomingEvents, upcomingWindow } from "@/lib/calendar/upcoming";
 import { HOPPER_CAPACITY_KG } from "@/lib/constants";
 import type { CalendarEventDto, CalendarEventType } from "@/lib/crop-cycle/calendar";
 import { CALENDAR_EVENT_TYPES, isCalendarEventType } from "@/lib/crop-cycle/calendar";
@@ -32,7 +39,6 @@ import {
 	CloudOff,
 	Cpu,
 	ExternalLink,
-	Filter,
 	Fish,
 	Loader2,
 	PauseCircle,
@@ -46,6 +52,7 @@ import { useLocale, useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { CalendarTypeFilters } from "./calendar-controls";
 import { CalendarErrorBoundary } from "./calendar-error-boundary";
 import { CycleForm } from "./cycle-form";
 import { EventEditor, type EventEditorSelection } from "./event-editor";
@@ -72,13 +79,22 @@ interface HarvestCalendarProps {
 	initialPondName: string;
 	initialPondIsFallow: boolean;
 	initialAllPonds?: boolean;
-	/** `org` asks the events API for every pond in the admin's organization. */
-	apiScope?: "org";
+	/** `org` asks for every pond in the admin's organization; `member-org` adds
+	 * org-wide events for a farmer, read-only outside their own farm. */
+	apiScope?: "org" | "member-org";
+	/** Pond ids the caller may edit. Omitted means every pond in `ponds`. */
+	writablePondIds?: string[];
 	ponds: PondOption[];
 	activeCycle: CropCycleDto | null;
 	activeCycles: CropCycleDto[];
 	recentCycles: CropCycleDto[];
 	canManage: boolean;
+	/** Grow-out cycle actions (start/edit/harvest/cancel). Defaults to `canManage`. */
+	canManageCycles?: boolean;
+	/** `calendar` switches the page heading to the dedicated Calendar copy. */
+	heading?: "harvest" | "calendar";
+	/** Console pages render their own page header; hide the in-body one. */
+	showHeader?: boolean;
 	today: string;
 	hopperLevelPct?: number | null;
 	hopperFeedLevelUpdatedAt?: string | null;
@@ -134,11 +150,15 @@ export function HarvestCalendar({
 	initialPondIsFallow,
 	initialAllPonds = false,
 	apiScope,
+	writablePondIds,
 	ponds,
 	activeCycle,
 	activeCycles,
 	recentCycles,
 	canManage,
+	canManageCycles: canManageCyclesProp,
+	heading = "harvest",
+	showHeader = true,
 	today,
 	hopperLevelPct,
 	hopperFeedLevelUpdatedAt,
@@ -156,6 +176,7 @@ export function HarvestCalendar({
 	const [viewType, setViewType] = useState("dayGridMonth");
 	const [events, setEvents] = useState<CalendarEventDto[]>([]);
 	const [upcomingEvents, setUpcomingEvents] = useState<CalendarEventDto[]>([]);
+	const [upcomingLoading, setUpcomingLoading] = useState(true);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [truncated, setTruncated] = useState(false);
@@ -197,6 +218,22 @@ export function HarvestCalendar({
 	const hopperScheduledFeedings =
 		hopperRemainingKg !== null ? Math.floor(Number.parseFloat(hopperRemainingKg) / 0.35) : 0;
 
+	// E25 (#212): the org calendar shows every pond but only the caller's own
+	// farm is writable. `writablePondIds` is omitted by the farmer's Harvest
+	// page and the tenant admin calendar, where every listed pond is writable.
+	const writableSet = useMemo(
+		() => (writablePondIds ? new Set(writablePondIds) : null),
+		[writablePondIds],
+	);
+	const isPondWritable = (pondId: string) => !writableSet || writableSet.has(pondId);
+	const writablePonds = useMemo(
+		() => (writableSet ? ponds.filter((pond) => writableSet.has(pond.id)) : ponds),
+		[ponds, writableSet],
+	);
+	const selectedPondWritable = isPondWritable(selectedPondId);
+	const canManageCycles = canManageCyclesProp ?? canManage;
+	const canManageCycleActions = canManageCycles && selectedPondWritable;
+
 	// Restore the pond/all-ponds/event-type selection from the URL once, then
 	// keep the URL in sync without triggering a navigation.
 	useEffect(() => {
@@ -225,12 +262,15 @@ export function HarvestCalendar({
 	}, [allPonds, selectedPondId, typesKey]);
 
 	const detailCycle = details ? cycleForPond(details.pondId) : null;
-	const canEditDetails = Boolean(details?.editable && canManage && details.source === "manual");
+	const canEditDetails = Boolean(
+		details?.editable && canManage && details.source === "manual" && isPondWritable(details.pondId),
+	);
 	const canRescheduleDetails = Boolean(
 		details &&
 			details.kind === "HARVEST_PLANNED" &&
 			details.source !== "manual" &&
-			canManage &&
+			canManageCycleActions &&
+			isPondWritable(details.pondId) &&
 			detailCycle,
 	);
 	const selectedRecentCycles = recentCycles
@@ -254,9 +294,10 @@ export function HarvestCalendar({
 	// upcoming events" and browsing a future month would hide this week's work.
 	useEffect(() => {
 		const controller = new AbortController();
+		const window = upcomingWindow(today);
 		const params = new URLSearchParams({
-			from: today,
-			to: addDays(today, 45),
+			from: window.from,
+			to: window.to,
 			pondId: allPonds ? "all" : selectedPondId,
 			types: typesKey,
 			refresh: String(refreshKey),
@@ -273,6 +314,11 @@ export function HarvestCalendar({
 			.catch(() => {
 				// The calendar error banner is authoritative; keep the last good
 				// upcoming list rather than replacing it with a second error.
+			})
+			.finally(() => {
+				// Never show "no upcoming events" while the first request is in
+				// flight: that empty state was the #248 bug on a slow load.
+				if (!controller.signal.aborted) setUpcomingLoading(false);
 			});
 
 		return () => controller.abort();
@@ -369,7 +415,7 @@ export function HarvestCalendar({
 	};
 
 	const openNewEvent = (selection: EventEditorSelection) => {
-		if (!canManage || allPonds) return;
+		if (!canManage || allPonds || !isPondWritable(selectedPondId)) return;
 		setEditingEvent(null);
 		setEditorSelection(selection);
 		setEditorOpen(true);
@@ -394,7 +440,9 @@ export function HarvestCalendar({
 				toast.error(result.error);
 				return;
 			}
-			toast.success(t("eventForm.successUpdate"));
+			toast.success(
+				details.itemKind === "TASK" ? t("task.completed") : t("eventForm.successUpdate"),
+			);
 			setDetails(null);
 			router.refresh();
 			refresh();
@@ -402,7 +450,7 @@ export function HarvestCalendar({
 	};
 
 	const toggleTask = (event: CalendarEventDto) => {
-		if (!canManage) return;
+		if (!canManage || !isPondWritable(event.pondId)) return;
 		const id = event.pondEventId ?? event.id.replace(/^pond:/, "").split(":")[0];
 		const occurrence = taskOccurrence(event);
 		const nextCompleted = !event.completed;
@@ -447,6 +495,10 @@ export function HarvestCalendar({
 		openNewEvent(selection);
 	};
 
+	/** A drag moves an event's time range or a task's due date (#348). */
+	const rescheduledCopy = (event: CalendarEventDto) =>
+		t(event.itemKind === "TASK" ? "calendar.rescheduledTask" : "calendar.rescheduled");
+
 	/**
 	 * Persist a drag/resize. FullCalendar has already moved the block; returning
 	 * false reverts it (the rollback the brief asks for).
@@ -456,7 +508,7 @@ export function HarvestCalendar({
 		start: string,
 		end: string | null,
 	): Promise<boolean> => {
-		if (!canManage) return false;
+		if (!canManage || !isPondWritable(event.pondId)) return false;
 
 		// FullCalendar may emit an offset or seconds; the calendar stores naive
 		// farm-local values. All-day ends are exclusive in the grid and
@@ -467,6 +519,7 @@ export function HarvestCalendar({
 		const normalizedEnd = endValue && endValue !== startValue ? endValue : null;
 
 		if (event.source !== "manual") {
+			if (!canManageCycleActions || !isPondWritable(event.pondId)) return false;
 			if (event.kind !== "HARVEST_PLANNED") return false;
 			const cycle = cycleForPond(event.pondId);
 			if (!cycle) return false;
@@ -530,7 +583,7 @@ export function HarvestCalendar({
 				toast.error(result.error);
 				return false;
 			}
-			toast.success(t("calendar.rescheduled"));
+			toast.success(rescheduledCopy(event));
 			router.refresh();
 			refresh();
 			return true;
@@ -546,7 +599,7 @@ export function HarvestCalendar({
 			toast.error(result.error);
 			return false;
 		}
-		toast.success(t("calendar.rescheduled"));
+		toast.success(rescheduledCopy(event));
 		router.refresh();
 		refresh();
 		return true;
@@ -569,7 +622,11 @@ export function HarvestCalendar({
 				toast.error(result.error);
 				return;
 			}
-			toast.success(t("eventForm.successDelete"));
+			toast.success(
+				details.itemKind === "TASK"
+					? t("eventForm.successDeleteTask")
+					: t("eventForm.successDelete"),
+			);
 			setDetails(null);
 			router.refresh();
 			refresh();
@@ -578,7 +635,14 @@ export function HarvestCalendar({
 
 	const deleteSeries = () => {
 		if (!details || !canDeleteSeries || isDeleting) return;
-		if (!window.confirm(t("eventForm.deleteConfirm"))) return;
+		if (
+			!window.confirm(
+				details.itemKind === "TASK"
+					? t("eventForm.deleteConfirmTask")
+					: t("eventForm.deleteConfirm"),
+			)
+		)
+			return;
 		const id = details.pondEventId ?? details.id.replace(/^pond:/, "").split(":")[0];
 		startDelete(async () => {
 			const result = await deletePondEvent({ id });
@@ -586,7 +650,11 @@ export function HarvestCalendar({
 				toast.error(result.error);
 				return;
 			}
-			toast.success(t("eventForm.successDelete"));
+			toast.success(
+				details.itemKind === "TASK"
+					? t("eventForm.successDeleteTask")
+					: t("eventForm.successDelete"),
+			);
 			setDetails(null);
 			router.refresh();
 			refresh();
@@ -612,30 +680,43 @@ export function HarvestCalendar({
 		});
 	};
 
-	const upcoming = upcomingEvents
-		.filter((event) => event.start.slice(0, 10) >= today)
-		.sort((a, b) => a.start.localeCompare(b.start))
-		.slice(0, 5);
+	const upcoming = selectUpcomingEvents(upcomingEvents, today);
+
+	// Cycle milestones are moved through the cycle actions, which the admin
+	// calendar does not expose (E25). Mark them non-editable so FullCalendar
+	// never starts a drag that the server would reject.
+	const calendarEvents = useMemo(
+		() =>
+			events.map((event) =>
+				canManageCycleActions || event.source === "manual" ? event : { ...event, editable: false },
+			),
+		[events, canManageCycleActions],
+	);
 
 	return (
-		<div
-			className="mx-auto flex w-full min-w-0 max-w-[1600px] flex-col gap-4 animate-in fade-in duration-150 [contain:inline-size] xl:h-[calc(100dvh-8rem)] xl:overflow-hidden"
-			data-help="harvest-calendar"
-		>
-			<div className="flex flex-none flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-				<div className="flex items-center gap-2">
-					<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
-						<CalendarDays aria-hidden="true" className="h-6 w-6" />
+		<div className="flex min-h-0 flex-1 flex-col gap-4" data-help="harvest-calendar">
+			<div
+				className={`flex flex-none flex-col gap-3 xl:flex-row xl:items-start ${
+					showHeader ? "xl:justify-between" : "xl:justify-end"
+				}`}
+			>
+				{showHeader && (
+					<div className="flex items-center gap-2">
+						<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
+							<CalendarDays aria-hidden="true" className="h-6 w-6" />
+						</div>
+						<div className="min-w-0">
+							<h1 className="text-2xl font-black tracking-tight text-[var(--ofd-base-deep)] sm:text-3xl">
+								{heading === "calendar" ? t("calendarPage.title") : t("title")}
+							</h1>
+							<p className="text-sm text-gray-500 dark:text-gray-400">
+								{heading === "calendar"
+									? t("calendarPage.desc")
+									: t("desc", { pond: selectedPond?.name ?? initialPondName })}
+							</p>
+						</div>
 					</div>
-					<div className="min-w-0">
-						<h1 className="text-2xl font-black tracking-tight text-[var(--ofd-base-deep)] sm:text-3xl">
-							{t("title")}
-						</h1>
-						<p className="text-sm text-gray-500 dark:text-gray-400">
-							{t("desc", { pond: selectedPond?.name ?? initialPondName })}
-						</p>
-					</div>
-				</div>
+				)}
 
 				<div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center xl:justify-end">
 					{allPonds ? (
@@ -651,7 +732,7 @@ export function HarvestCalendar({
 									{activeCycles.length}
 								</span>
 							</div>
-							{canManage && (
+							{canManageCycleActions && (
 								<button
 									type="button"
 									onClick={openNewCycle}
@@ -720,7 +801,7 @@ export function HarvestCalendar({
 									/>
 								</button>
 							</div>
-							{canManage && (
+							{canManageCycleActions && (
 								<div className="flex shrink-0 items-center gap-2">
 									<button
 										type="button"
@@ -753,7 +834,7 @@ export function HarvestCalendar({
 									{isFallow ? t("summary.fallowDesc") : t("summary.noCycleDesc")}
 								</span>
 							</div>
-							{canManage && (
+							{canManageCycleActions && (
 								<button
 									type="button"
 									onClick={openNewCycle}
@@ -849,7 +930,7 @@ export function HarvestCalendar({
 							<Sparkles aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[#FF6B35]" />
 							<span className="truncate">{t("summary.aiHintDesc")}</span>
 						</p>
-						{canManage && (
+						{canManageCycleActions && (
 							<button
 								type="button"
 								onClick={cancelCycle}
@@ -890,152 +971,139 @@ export function HarvestCalendar({
 				</div>
 			)}
 
-			<div className="flex min-h-0 flex-1 flex-col gap-4 xl:flex-row">
-				<section
-					aria-label={t("calendar.eventsLabel")}
-					className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-gray-100 bg-white shadow-sm dark:border-gray-700/60 dark:bg-gray-900"
-				>
-					<div className="flex flex-none flex-col gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-						<div className="flex min-w-0 flex-wrap items-center gap-2">
-							<fieldset
-								aria-label={t("calendar.filters")}
-								className="m-0 flex min-w-0 flex-wrap items-center gap-1.5 border-0 p-0"
-							>
-								<span className="mr-1 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-gray-400">
-									<Filter aria-hidden="true" className="h-3 w-3" />
-									{t("calendar.filters")}
-								</span>
-								{CALENDAR_EVENT_TYPES.map((type) => (
+			<CalendarWorkbench>
+				<CalendarSurface
+					label={t("calendar.eventsLabel")}
+					busy={loading}
+					toolbar={
+						<>
+							<div className="flex min-w-0 flex-wrap items-center gap-2">
+								<CalendarTypeFilters
+									types={CALENDAR_EVENT_TYPES}
+									isSelected={(type) => types.has(type)}
+									onToggle={toggleType}
+									label={t("calendar.filters")}
+									labelFor={(type) => t(`filters.${type}`)}
+								/>
+								<div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
+									<label className="flex min-w-0 items-center gap-1.5 text-[11px] font-bold text-gray-500 dark:text-gray-400">
+										<Fish aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+										<select
+											value={allPonds ? "all" : selectedPondId}
+											aria-label={t("calendar.allPonds")}
+											onChange={(event) => {
+												if (event.target.value === "all") {
+													setAllPonds(true);
+												} else {
+													setSelectedPondId(event.target.value);
+													setAllPonds(false);
+												}
+											}}
+											className="max-w-[11rem] min-w-0 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-bold text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+										>
+											{ponds.map((pond) => (
+												<option key={pond.id} value={pond.id}>
+													{pond.name}
+													{!isPondWritable(pond.id) ? ` (${t("calendarPage.readOnlyPond")})` : ""}
+												</option>
+											))}
+											<option value="all">{t("calendar.allPonds")}</option>
+										</select>
+									</label>
 									<button
-										key={type}
 										type="button"
-										onClick={() => toggleType(type)}
-										aria-pressed={types.has(type)}
-										className={`inline-flex min-h-11 items-center rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea] ${
-											types.has(type)
-												? "bg-[#0A3D62] text-white dark:bg-[#1f66a0]"
-												: "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-										}`}
+										onClick={refresh}
+										disabled={loading}
+										className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-[#8fc0ea]"
 									>
-										{t(`filters.${type}`)}
+										<RefreshCw
+											aria-hidden="true"
+											className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+										/>
+										{t("calendar.refresh")}
 									</button>
-								))}
-							</fieldset>
-							<div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
-								<label className="flex min-w-0 items-center gap-1.5 text-[11px] font-bold text-gray-500 dark:text-gray-400">
-									<Fish aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-									<select
-										value={allPonds ? "all" : selectedPondId}
-										aria-label={t("calendar.allPonds")}
-										onChange={(event) => {
-											if (event.target.value === "all") {
-												setAllPonds(true);
-											} else {
-												setSelectedPondId(event.target.value);
-												setAllPonds(false);
-											}
-										}}
-										className="max-w-[11rem] min-w-0 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-bold text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-									>
-										{ponds.map((pond) => (
-											<option key={pond.id} value={pond.id}>
-												{pond.name}
-											</option>
-										))}
-										<option value="all">{t("calendar.allPonds")}</option>
-									</select>
-								</label>
-								<button
-									type="button"
-									onClick={refresh}
-									disabled={loading}
-									className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-[#8fc0ea]"
-								>
-									<RefreshCw
-										aria-hidden="true"
-										className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
-									/>
-									{t("calendar.refresh")}
-								</button>
-								{canManage && !allPonds && (
 									<button
 										type="button"
 										data-help="harvest-add-event"
 										onClick={() => openNewEvent({ start: today, end: null, allDay: true })}
-										className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-[#0A3D62] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#164e7c] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-[#1f66a0] dark:focus-visible:outline-[#8fc0ea]"
+										disabled={!canManage || allPonds || !selectedPondWritable}
+										title={
+											!canManage
+												? t("calendar.readOnlyReason")
+												: allPonds
+													? t("calendar.allPondsEditHint")
+													: !selectedPondWritable
+														? t("calendarPage.readOnlyHint")
+														: undefined
+										}
+										className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-[#0A3D62] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#164e7c] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#1f66a0] dark:focus-visible:outline-[#8fc0ea]"
 									>
 										<Plus aria-hidden="true" className="h-3.5 w-3.5" />
 										{t("calendar.addEvent")}
 									</button>
-								)}
+								</div>
 							</div>
-						</div>
-						{error && (
-							<div className="flex flex-col gap-2 rounded-2xl border border-red-200 bg-red-50 p-2.5 text-xs font-semibold text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300 sm:flex-row sm:items-center">
-								<CloudOff aria-hidden="true" className="h-4 w-4 shrink-0" />
-								<p className="min-w-0 flex-1">{error}</p>
-								<button
-									type="button"
-									onClick={refresh}
-									className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-[11px] font-bold text-red-700 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-red-900/60 dark:bg-gray-900 dark:text-red-300 dark:hover:bg-red-950/30 dark:focus-visible:outline-[#8fc0ea]"
-								>
-									<RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
-									{t("calendar.refresh")}
-								</button>
-							</div>
-						)}
-						{truncated && (
-							<div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-2.5 text-xs font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
-								<CircleAlert aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
-								{t("calendar.truncated")}
-							</div>
-						)}
-						{!loading && !error && events.length === 0 && viewType !== "listMonth" && (
-							<output className="block rounded-2xl border border-dashed border-gray-200 bg-gray-50/60 p-2.5 text-center text-xs font-semibold text-gray-500 dark:border-gray-700/60 dark:bg-gray-800/40 dark:text-gray-400">
-								{t("calendar.noEvents")}
-							</output>
-						)}
-					</div>
-					<div className="relative min-h-0 flex-1 px-3 pb-3 pt-2 sm:px-4" aria-busy={loading}>
-						{loading && (
-							<div className="pointer-events-none absolute inset-x-3 top-0 z-10 h-0.5 overflow-hidden rounded-full bg-[#0A3D62]/10 dark:bg-white/10">
-								<div className="h-full w-1/3 animate-pulse rounded-full bg-[#0A3D62] dark:text-[#5b9bd5]" />
-							</div>
-						)}
-						<div className="h-[62vh] min-h-[420px] xl:h-full xl:min-h-0">
-							<CalendarErrorBoundary
-								title={t("calendar.title")}
-								message={t("calendar.loadError")}
-								retryLabel={t("calendar.refresh")}
-								resetKey={`${range.from}:${range.to}:${typesKey}:${allPonds}:${selectedPondId}`}
-							>
-								<CalendarView
-									events={events}
-									canManage={canManage}
-									allPonds={allPonds}
-									onRangeChange={(from, to) => {
-										setRange((current) =>
-											current.from === from && current.to === to ? current : { from, to },
-										);
-									}}
-									onViewChange={setViewType}
-									onEventClick={handleEventClick}
-									onDateClick={handleDateClick}
-									onSelect={handleSelect}
-									onEventDrop={handleEventDrop}
-									onEventResize={handleEventResize}
-									onToggleTask={toggleTask}
-								/>
-							</CalendarErrorBoundary>
-						</div>
-					</div>
-				</section>
-
-				<aside className="flex w-full flex-col gap-4 xl:w-[300px] xl:min-h-0 xl:flex-none">
-					<section
-						aria-label={t("upcoming.listLabel")}
-						className="flex min-h-0 flex-col rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 xl:flex-1 xl:overflow-hidden"
+							{!allPonds && !selectedPondWritable && (
+								<p className="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-[11px] font-semibold text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-200">
+									{t("calendarPage.readOnlyHint")}
+								</p>
+							)}
+							{error && (
+								<div className="flex flex-col gap-2 rounded-2xl border border-red-200 bg-red-50 p-2.5 text-xs font-semibold text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300 sm:flex-row sm:items-center">
+									<CloudOff aria-hidden="true" className="h-4 w-4 shrink-0" />
+									<p className="min-w-0 flex-1">{error}</p>
+									<button
+										type="button"
+										onClick={refresh}
+										className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-[11px] font-bold text-red-700 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-red-900/60 dark:bg-gray-900 dark:text-red-300 dark:hover:bg-red-950/30 dark:focus-visible:outline-[#8fc0ea]"
+									>
+										<RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
+										{t("calendar.refresh")}
+									</button>
+								</div>
+							)}
+							{truncated && (
+								<div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-2.5 text-xs font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+									<CircleAlert aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+									{t("calendar.truncated")}
+								</div>
+							)}
+							{!loading && !error && events.length === 0 && viewType !== "listMonth" && (
+								<output className="block rounded-2xl border border-dashed border-gray-200 bg-gray-50/60 p-2.5 text-center text-xs font-semibold text-gray-500 dark:border-gray-700/60 dark:bg-gray-800/40 dark:text-gray-400">
+									{t("calendar.noEvents")}
+								</output>
+							)}
+						</>
+					}
+				>
+					<CalendarErrorBoundary
+						title={t("calendar.title")}
+						message={t("calendar.loadError")}
+						retryLabel={t("calendar.refresh")}
+						resetKey={`${range.from}:${range.to}:${typesKey}:${allPonds}:${selectedPondId}`}
 					>
+						<CalendarView
+							events={calendarEvents}
+							canManage={canManage}
+							allPonds={allPonds}
+							onRangeChange={(from, to) => {
+								setRange((current) =>
+									current.from === from && current.to === to ? current : { from, to },
+								);
+							}}
+							onViewChange={setViewType}
+							onEventClick={handleEventClick}
+							onDateClick={handleDateClick}
+							onSelect={handleSelect}
+							onEventDrop={handleEventDrop}
+							onEventResize={handleEventResize}
+							onToggleTask={toggleTask}
+						/>
+					</CalendarErrorBoundary>
+				</CalendarSurface>
+
+				<CalendarSidePane>
+					<CalendarSidePanel label={t("upcoming.listLabel")} className="flex min-h-0 flex-col">
 						<div className="flex flex-none items-center justify-between gap-3">
 							<h2 className="text-base font-black text-[#0A3D62] dark:text-[#5b9bd5]">
 								{t("upcoming.title")}
@@ -1044,12 +1112,17 @@ export function HarvestCalendar({
 								{t("upcoming.next", { count: upcoming.length })}
 							</span>
 						</div>
-						{upcoming.length === 0 ? (
+						{upcomingLoading ? (
+							<p className="mt-3 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+								<Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
+								{t("upcoming.loading")}
+							</p>
+						) : upcoming.length === 0 ? (
 							<p className="mt-3 text-sm text-gray-500 dark:text-gray-400">{t("upcoming.empty")}</p>
 						) : (
 							<ul
 								aria-label={t("upcoming.listLabel")}
-								className="mt-2 min-h-0 divide-y divide-gray-100 dark:divide-gray-800 xl:flex-1 xl:overflow-y-auto"
+								className="mt-2 divide-y divide-gray-100 dark:divide-gray-800"
 							>
 								{upcoming.map((event) => (
 									<li key={event.id}>
@@ -1084,10 +1157,10 @@ export function HarvestCalendar({
 								))}
 							</ul>
 						)}
-					</section>
+					</CalendarSidePanel>
 
 					{hopperLevelPct !== undefined && (
-						<section className="flex-none rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-900">
+						<CalendarSidePanel className="flex-none">
 							<div className="flex items-center justify-between gap-2">
 								<p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-gray-400">
 									<Cpu aria-hidden="true" className="h-3.5 w-3.5 text-[#E85A2A]" />
@@ -1113,16 +1186,16 @@ export function HarvestCalendar({
 									})}
 								</div>
 							)}
-						</section>
+						</CalendarSidePanel>
 					)}
-				</aside>
-			</div>
+				</CalendarSidePane>
+			</CalendarWorkbench>
 
 			<CycleForm
 				open={cycleFormOpen}
 				onClose={() => setCycleFormOpen(false)}
 				onSaved={refresh}
-				ponds={ponds}
+				ponds={writablePonds}
 				initialPondId={selectedPondId}
 				cycle={editingCycle}
 			/>
@@ -1194,7 +1267,7 @@ export function HarvestCalendar({
 								onClick={openEventEditor}
 								className="inline-flex min-h-11 items-center rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-[#8fc0ea]"
 							>
-								{t("eventForm.titleEdit")}
+								{details?.itemKind === "TASK" ? t("eventForm.editTask") : t("eventForm.editEvent")}
 							</button>
 						)}
 						{canRescheduleDetails && (
@@ -1218,6 +1291,13 @@ export function HarvestCalendar({
 			>
 				{details && (
 					<div className="space-y-4 text-sm text-gray-600 dark:text-gray-300">
+						{!isPondWritable(details.pondId) && (
+							<p className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs font-semibold text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-200">
+								{details.itemKind === "TASK"
+									? t("calendarPage.readOnlyTask")
+									: t("calendarPage.readOnlyEvent")}
+							</p>
+						)}
 						<div className="grid gap-2 sm:grid-cols-2">
 							<p className="flex min-w-0 items-center gap-2">
 								<Scale aria-hidden="true" className="h-4 w-4 shrink-0 text-gray-400" />

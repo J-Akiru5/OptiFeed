@@ -17,6 +17,12 @@ export const HELP_RING_CLASS = "help-ring";
 /** How long the ring stays. Long enough to find after the sheet closes. */
 export const HELP_RING_MS = 2600;
 
+/**
+ * Dispatched (bubbling) on the target before it is scrolled to, so a container
+ * that hides it, such as an inactive settings tab, can show it first.
+ */
+export const HELP_REVEAL_EVENT = "optifeed:help-reveal";
+
 const ANCHOR_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 
 /** Elements worth moving the keyboard focus to. A ring around a card should not steal focus. */
@@ -118,6 +124,8 @@ export function highlightHelpTarget(
 ): boolean {
 	const element = findHelpTarget(doc, target);
 	if (!element) return false;
+
+	element.dispatchEvent(new Event(HELP_REVEAL_EVENT, { bubbles: true }));
 
 	// jsdom and very old browsers have no scrollIntoView; the ring still helps.
 	if (typeof element.scrollIntoView === "function") {

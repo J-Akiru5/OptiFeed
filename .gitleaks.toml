@@ -1,0 +1,47 @@
+# gitleaks configuration for the working-tree and history scans in
+# `.github/workflows/sbom.yml`.
+#
+# The built-in default ruleset is used unchanged; this file only allowlists
+# values that were reviewed and confirmed to be placeholders, not credentials.
+# Every entry is an exact literal, scoped to the single rule that flags it, so
+# nothing else in the same file is suppressed.
+#
+# Reviewed 2026-10-29 (worker I-69). A new entry needs the same treatment: the
+# real value, the location, and why it cannot be a live credential.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Fake API key in a test that proves a pasted key where an env-var name belongs is rejected. The assertion only needs a lowercase string (apps/web/lib/__tests__/ai-provider-actions.test.ts)."
+targetRules = ["generic-api-key"]
+regexes = ['''sk-or-v1-abcdef123456''']
+
+[[allowlists]]
+description = "Demo device token in documentation and in the frozen planning document. It was never a production credential, the plan requires zero production rows for it, and real units are provisioned per device (docs/OPTIFEED-INDUSTRY-GRADE-PLAN v3.md, H5)."
+targetRules = ["generic-api-key"]
+regexes = ['''esp32-tok-cict-001''']
+
+[[allowlists]]
+description = "Test fixture for the error scrubber: a 64-hex dummy used to prove a device token is redacted (apps/web/lib/__tests__/error-capture.test.ts, error-scrub.test.ts). Sequential digits, not a credential."
+targetRules = ["generic-api-key"]
+regexes = ['''0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef''']
+
+[[allowlists]]
+description = "JWT fixtures whose signature segment is the literal 'not-a-real-signature'; they exist to prove the scrubber removes bearer tokens (apps/web/lib/__tests__/error-scrub.test.ts:13)."
+targetRules = ["jwt"]
+regexes = ['''eyJhbGciOiJIUzI1NiJ9\.eyJzdWIiOiJhZG1pbiJ9\.not-a-real-signature''']
+
+[[allowlists]]
+description = "JWT fixture with the literal signature segment 'c2lnbmF0dXJl' (base64 of 'signature'), used to prove an anon-role token is scrubbed (apps/web/lib/__tests__/error-scrub.test.ts:62)."
+targetRules = ["jwt"]
+regexes = ['''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJyb2xlIjoiYW5vbiJ9\.c2lnbmF0dXJl''']
+
+[[allowlists]]
+description = "Supabase-secret-shaped fixture for the scrubber assertions (apps/web/lib/__tests__/error-scrub.test.ts:14). The body is an alphabetical sequence, not a key."
+targetRules = ["generic-api-key"]
+regexes = ['''sb_secret_abcdefghijklmnopqrstuvwxyz''']
+
+[[allowlists]]
+description = "This file: it necessarily repeats the placeholder values above."
+paths = ['''gitleaks\.toml''']

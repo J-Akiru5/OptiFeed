@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import type { User, UserRole } from "@prisma/client";
 import { getLocale } from "next-intl/server";
 import { cache } from "react";
+import { ActionDeniedError } from "./action-denial";
 
 /**
  * Session verification is part of this module's public surface: API routes
@@ -142,7 +143,7 @@ export async function getCurrentUserRole(): Promise<UserRole | null> {
  * Require the current user to have one of the specified roles.
  * Redirects to /dashboard if not authorized.
  */
-export async function requireRole(...roles: UserRole[]): Promise<void> {
+async function requireRole(...roles: UserRole[]): Promise<void> {
 	const locale = await getLocale();
 	const userRole = await getCurrentUserRole();
 
@@ -157,14 +158,19 @@ export async function requireRole(...roles: UserRole[]): Promise<void> {
  * VIEWER, unauthenticated callers, and read-only view-as sessions are rejected
  * before any write happens. The view-as guard is `assertNotViewingAs`, the one
  * shared helper also used by `requirePermission`.
+ *
+ * The refusal is an `ActionDeniedError` with a stable reason, so an action's
+ * catch can return the precise authorization outcome instead of flattening it
+ * into a generic failure (#336).
  */
 export async function requireWriteAccess(): Promise<void> {
-	await assertPasswordChanged();
+	const user = await getCurrentUser();
+	if (!user) throw new ActionDeniedError("not_authenticated");
+	if (user.mustChangePassword) throw new ActionDeniedError("password_change_required");
 	const { assertNotViewingAs } = await import("./view-as");
 	await assertNotViewingAs();
-	const userRole = await getCurrentUserRole();
-	if (userRole !== "ADMIN" && userRole !== "OPERATOR") {
-		throw new Error("Write access required (ADMIN or OPERATOR)");
+	if (user.role !== "ADMIN" && user.role !== "OPERATOR") {
+		throw new ActionDeniedError("wrong_role");
 	}
 }
 
@@ -185,7 +191,7 @@ export async function canWrite(): Promise<boolean> {
 /**
  * Get all ponds owned by the current user.
  */
-export async function getCurrentUserPonds() {
+async function getCurrentUserPonds() {
 	const ownerId = await getCurrentPondOwnerId();
 	return prisma.pond.findMany({
 		where: { ownerId },

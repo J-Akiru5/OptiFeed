@@ -1,4 +1,4 @@
-import { MAX_FEED_GRAMS_PER_REQUEST } from "@/lib/limits";
+import { MAX_ACCEPTED_FEED_GRAMS } from "@/lib/limits";
 
 /**
  * The plan is deliberately transparent: a straight line from the stocking
@@ -56,6 +56,17 @@ export interface GrowthPlanSample {
 	sampleCount: number;
 }
 
+/**
+ * The harvest target saved from the feed calculator (issue #304). The planner
+ * only accepts it when it belongs to the cycle being planned, so a target from
+ * a previous grow-out can never drive the next one's feeding.
+ */
+export interface GrowthPlanSavedTarget {
+	targetWeightG: number;
+	cycleId: string | null;
+	population?: number | null;
+}
+
 export interface GrowthPlanPond {
 	areaM2: number | null;
 	averageDepthM: number | null;
@@ -66,7 +77,7 @@ export interface GrowthPlanInput {
 	cycle: GrowthPlanCycle | null;
 	latestSample: GrowthPlanSample | null;
 	previousSample: GrowthPlanSample | null;
-	population: number;
+	population: number | null;
 	feedingRatePct: number;
 	feedsPerDay: number;
 	currentGramsPerFeeding: number | null;
@@ -78,10 +89,13 @@ export interface GrowthPlanInput {
 	today: string;
 	pond: GrowthPlanPond;
 	currency?: string;
+	/** The calculator target saved for this pond, when one exists. */
+	savedTarget?: GrowthPlanSavedTarget | null;
 }
 
 export type GrowthPlanStatus = "noCycle" | "noTarget" | "noWeight" | "ok" | "overdue";
 export type GrowthPlanTrack = "ahead" | "onTrack" | "behind" | "unknown";
+export type GrowthPlanTargetSource = "cycle" | "saved";
 export type GrowthPlanAdjustmentBlock =
 	| "none"
 	| "noSample"
@@ -102,6 +116,8 @@ export interface GrowthPlan {
 	today: string;
 	targetDate: string | null;
 	targetWeightG: number | null;
+	/** Where the effective target came from: the cycle or the calculator. */
+	targetSource: GrowthPlanTargetSource | null;
 	daysToHarvest: number | null;
 	growOutDay: number | null;
 	progressPct: number | null;
@@ -110,6 +126,15 @@ export interface GrowthPlan {
 	sampleAgeDays: number | null;
 	expectedWeightG: number | null;
 	projectedHarvestWeightG: number | null;
+	/** Biomass (kg) implied by each per-fish weight and the survival-adjusted count. */
+	targetBiomassKg: number | null;
+	currentBiomassKg: number | null;
+	expectedBiomassKg: number | null;
+	projectedBiomassKg: number | null;
+	/** Target minus current biomass: what still has to be grown. */
+	biomassGapKg: number | null;
+	/** Target minus projected harvest biomass: negative means the plan is above target. */
+	projectedBiomassGapKg: number | null;
 	track: GrowthPlanTrack;
 	trackDeltaG: number | null;
 	trackDeltaPct: number | null;
@@ -177,6 +202,7 @@ function emptyPlan(input: GrowthPlanInput): GrowthPlan {
 		today: input.today,
 		targetDate: null,
 		targetWeightG: null,
+		targetSource: null,
 		daysToHarvest: null,
 		growOutDay: null,
 		progressPct: null,
@@ -185,6 +211,12 @@ function emptyPlan(input: GrowthPlanInput): GrowthPlan {
 		sampleAgeDays: null,
 		expectedWeightG: null,
 		projectedHarvestWeightG: null,
+		targetBiomassKg: null,
+		currentBiomassKg: null,
+		expectedBiomassKg: null,
+		projectedBiomassKg: null,
+		biomassGapKg: null,
+		projectedBiomassGapKg: null,
 		track: "unknown",
 		trackDeltaG: null,
 		trackDeltaPct: null,
@@ -202,7 +234,7 @@ function emptyPlan(input: GrowthPlanInput): GrowthPlan {
 		hasPriorAdjustment: false,
 		maxChangePct: MAX_ADJUSTMENT_PCT,
 		device: {
-			maxGramsPerFeeding: positive(input.deviceMaxGramsPerFeeding) ?? MAX_FEED_GRAMS_PER_REQUEST,
+			maxGramsPerFeeding: positive(input.deviceMaxGramsPerFeeding) ?? MAX_ACCEPTED_FEED_GRAMS,
 			requiredGramsPerFeeding: null,
 			feasible: true,
 			deficitGrams: null,
@@ -251,6 +283,26 @@ function buildTrajectory(
 }
 
 /**
+ * A calculator target is authoritative only for the cycle it was saved
+ * against. A target from a harvested cycle is ignored instead of leaking into
+ * the next grow-out.
+ */
+function resolveSavedTarget(
+	cycle: GrowthPlanCycle,
+	savedTarget: GrowthPlanSavedTarget | null | undefined,
+): GrowthPlanSavedTarget | null {
+	if (!savedTarget || savedTarget.cycleId !== cycle.id) return null;
+	if (positive(savedTarget.targetWeightG) === null) return null;
+	return savedTarget;
+}
+
+/** Biomass for a per-fish weight across the survival-adjusted population. */
+function biomassKg(weightG: number | null, harvestCount: number): number | null {
+	if (weightG === null || harvestCount <= 0) return null;
+	return round2((weightG * harvestCount) / 1000);
+}
+
+/**
  * Build a target-weight plan from the active cycle, the latest sample and the
  * current device configuration. Pure so the UI, server action and tests share
  * exactly the same maths.
@@ -263,9 +315,17 @@ export function buildGrowthPlan(input: GrowthPlanInput): GrowthPlan {
 		return plan;
 	}
 
-	const targetWeightG = positive(cycle.targetHarvestWeightG);
-	const population = Math.max(1, Math.round(positive(input.population) ?? cycle.stockingCount));
+	const resolvedSavedTarget = resolveSavedTarget(cycle, input.savedTarget);
+	const targetWeightG =
+		positive(resolvedSavedTarget?.targetWeightG) ?? positive(cycle.targetHarvestWeightG);
+	const population = Math.round(
+		positive(input.population) ??
+			positive(resolvedSavedTarget?.population) ??
+			positive(cycle.stockingCount) ??
+			0,
+	);
 	const survivalPct = clamp(cycle.expectedSurvivalPct ?? 100, 1, 100) / 100;
+	const harvestCount = population * survivalPct;
 	const daysToHarvest = daysBetween(input.today, cycle.targetHarvestDate);
 	const growOutDays = Math.max(1, cycle.growOutDays);
 	const elapsedDays = clamp(daysBetween(cycle.stockingDate, input.today), 0, growOutDays);
@@ -276,6 +336,8 @@ export function buildGrowthPlan(input: GrowthPlanInput): GrowthPlan {
 	plan.label = cycle.label;
 	plan.targetDate = cycle.targetHarvestDate;
 	plan.targetWeightG = targetWeightG;
+	plan.targetSource = targetWeightG === null ? null : resolvedSavedTarget ? "saved" : "cycle";
+	plan.targetBiomassKg = biomassKg(targetWeightG, harvestCount);
 	plan.daysToHarvest = daysToHarvest;
 	plan.growOutDay = growOutDay;
 	plan.progressPct = round1(progressPct);
@@ -283,6 +345,10 @@ export function buildGrowthPlan(input: GrowthPlanInput): GrowthPlan {
 	const currentWeightG =
 		positive(input.latestSample?.avgWeightG) ?? positive(cycle.stockingAvgWeightG);
 	plan.currentWeightG = currentWeightG;
+	plan.currentBiomassKg = biomassKg(currentWeightG, harvestCount);
+	if (plan.targetBiomassKg !== null && plan.currentBiomassKg !== null) {
+		plan.biomassGapKg = round2(plan.targetBiomassKg - plan.currentBiomassKg);
+	}
 	plan.currentSampleDate = input.latestSample?.date ?? null;
 	plan.sampleAgeDays = input.latestSample
 		? Math.max(0, daysBetween(input.latestSample.date, input.today))
@@ -330,6 +396,7 @@ export function buildGrowthPlan(input: GrowthPlanInput): GrowthPlan {
 		const expectedWeightG =
 			stockingWeightG + (targetWeightG - stockingWeightG) * (elapsed / totalDays);
 		plan.expectedWeightG = round1(expectedWeightG);
+		plan.expectedBiomassKg = biomassKg(plan.expectedWeightG, harvestCount);
 		plan.trackDeltaG = round1(currentWeightG - expectedWeightG);
 		plan.trackDeltaPct = round1(((currentWeightG - expectedWeightG) / expectedWeightG) * 100);
 		plan.track =
@@ -357,6 +424,10 @@ export function buildGrowthPlan(input: GrowthPlanInput): GrowthPlan {
 			: dailyGainG !== null
 				? round1(Math.max(0, currentWeightG + dailyGainG * daysToHarvest))
 				: null;
+	plan.projectedBiomassKg = biomassKg(plan.projectedHarvestWeightG, harvestCount);
+	if (plan.targetBiomassKg !== null && plan.projectedBiomassKg !== null) {
+		plan.projectedBiomassGapKg = round2(plan.targetBiomassKg - plan.projectedBiomassKg);
+	}
 
 	const targetGapG = Math.max(0, targetWeightG - currentWeightG);
 	const currentBiomassG = currentWeightG * population * survivalPct;
@@ -366,7 +437,7 @@ export function buildGrowthPlan(input: GrowthPlanInput): GrowthPlan {
 			: DEFAULT_TARGET_FCR;
 	plan.feed.fcrAssumption = round2(fcrAssumption);
 
-	if (targetGapG > 0 && daysToHarvest > 0 && input.feedsPerDay > 0) {
+	if (targetGapG > 0 && daysToHarvest > 0 && input.feedsPerDay > 0 && population > 0) {
 		plan.requiredDailyGainG = round1(targetGapG / daysToHarvest);
 		const remainingFeedG = targetGapG * population * survivalPct * fcrAssumption;
 		const dailyFeedG = remainingFeedG / daysToHarvest;
@@ -379,12 +450,12 @@ export function buildGrowthPlan(input: GrowthPlanInput): GrowthPlan {
 		plan.notes.push("Target weight reached or exceeded.");
 	}
 
-	if (stockingWeightG !== null && targetWeightG > stockingWeightG) {
+	if (stockingWeightG !== null && targetWeightG > stockingWeightG && population > 0) {
 		const totalGainG = (targetWeightG - stockingWeightG) * population * survivalPct;
 		plan.feed.totalCycleFeedKg = round2((totalGainG * fcrAssumption) / 1000);
 	}
 
-	const maxGramsPerFeeding = positive(input.deviceMaxGramsPerFeeding) ?? MAX_FEED_GRAMS_PER_REQUEST;
+	const maxGramsPerFeeding = positive(input.deviceMaxGramsPerFeeding) ?? MAX_ACCEPTED_FEED_GRAMS;
 	plan.device.maxGramsPerFeeding = maxGramsPerFeeding;
 	plan.device.requiredGramsPerFeeding = plan.recommendedGramsPerFeeding;
 	plan.device.feasible =

@@ -90,6 +90,19 @@ vi.mock("@/lib/schedule/resolve-current", () => ({
 	resolveCurrentSchedule: vi.fn(async () => null),
 }));
 
+// The low-hopper alert threshold is an org setting (#190); the page reads it
+// through the farm → org chain. Keep the page test off the database.
+vi.mock("@/lib/settings/org", async () => {
+	const { ORG_SETTINGS_DEFAULTS } = await import("@/lib/settings/org-shared");
+	return {
+		ORG_SETTINGS_DEFAULTS,
+		getOrgSettingsForFarm: vi.fn(async () => ({
+			orgId: "org-1",
+			settings: { ...ORG_SETTINGS_DEFAULTS },
+		})),
+	};
+});
+
 vi.mock("@/lib/pond-charts", () => ({
 	getFeedPerDayBySource: vi.fn(async () => ({
 		dayKeys: [],
@@ -150,9 +163,13 @@ describe("dashboard control room page", () => {
 			await DashboardHomePage({ searchParams: Promise.resolve({}) }),
 		);
 
-		// One viewport shell and its independently scrolling rail.
-		expect(html).toContain("xl:h-[calc(100dvh-8rem)]");
+		// One viewport shell and its independently scrolling rail. The height
+		// lives in `ofd-control-room` (globals.css): viewport minus the header
+		// and pane padding, with height-based density tiers (#399).
+		expect(html).toContain("ofd-control-room");
 		expect(html).toContain('aria-label="Pond controls"');
+		expect(html).toContain("ofd-chart-card");
+		expect(html).not.toContain("xl:h-[calc(100dvh-8rem)]");
 
 		// Feeding strip first, with the tour and help anchors.
 		expect(html).toContain('data-onboard="next-feeding"');
@@ -186,12 +203,52 @@ describe("dashboard control room page", () => {
 		expect(html.match(/data-help="feed-now"/g)).toHaveLength(1);
 	});
 
+	it("keeps the Time Calibration controls inside the rail without sideways overflow", async () => {
+		const html = renderToStaticMarkup(
+			await DashboardHomePage({ searchParams: Promise.resolve({}) }),
+		);
+
+		// The rail scrolls on its own, vertically only (#269).
+		expect(html).toContain("xl:overflow-y-auto");
+		expect(html).toContain("xl:overflow-x-hidden");
+
+		// The card's two controls are present and the row follows the card width
+		// instead of the viewport, so it stacks in the 22 rem rail.
+		expect(html).toContain("Time Calibration");
+		expect(html).toContain("Select Date &amp; Time");
+		expect(html).toContain('id="device-time"');
+		expect(html).toContain('type="datetime-local"');
+		expect(html).toContain("Set Device Time");
+		expect(html).toContain("@sm:flex-row");
+		expect(html).not.toContain("flex flex-col sm:flex-row gap-4");
+	});
+
 	it("reads every device on the pond so the canvas can pin each feeder", async () => {
 		await DashboardHomePage({ searchParams: Promise.resolve({}) });
 
 		expect(prisma.energyDevice.findMany).toHaveBeenCalledWith(
 			expect.objectContaining({ where: { pondId: "pond-1" } }),
 		);
+	});
+
+	it("uses the org's low-hopper threshold, not the hard-coded default", async () => {
+		// 82 % is well above the 20 % default, but this farm raises the warning
+		// threshold to 90 %, so the alert must appear.
+		vi.mocked(prisma.energyDevice.findMany).mockResolvedValueOnce([
+			{ id: "dev-1", label: "CICT Feeder", feedLevelPercent: 82 },
+		] as never);
+		const { getOrgSettingsForFarm } = await import("@/lib/settings/org");
+		const { ORG_SETTINGS_DEFAULTS } = await import("@/lib/settings/org-shared");
+		vi.mocked(getOrgSettingsForFarm).mockResolvedValueOnce({
+			orgId: "org-1",
+			settings: { ...ORG_SETTINGS_DEFAULTS, hopperLowPct: 90 },
+		});
+
+		const html = renderToStaticMarkup(
+			await DashboardHomePage({ searchParams: Promise.resolve({}) }),
+		);
+
+		expect(html).toContain("Hopper low: 82%");
 	});
 
 	it("renders the empty state when the pond has no feeder", async () => {

@@ -1,4 +1,3 @@
-export const DEFAULT_FISH_COUNT = 5000;
 export const HOPPER_CAPACITY_KG = 22.19;
 export const EXPORT_ROW_LIMIT = 50_000;
 // A single CSV import is capped far below the export ceiling so one request
@@ -6,13 +5,21 @@ export const EXPORT_ROW_LIMIT = 50_000;
 export const IMPORT_ROW_LIMIT = 5_000;
 export const MAX_PROMPT_LENGTH = 10_000;
 export const PH_TZ = "Asia/Manila";
+/** Asia/Manila has no DST; the device RTC is treated as this offset from UTC. */
+export const PH_UTC_OFFSET_MINUTES = 480;
 
 // §3.1 retrofit: unversioned /api/* paths are dual-served alongside /api/v1/*
 // until this date. New endpoints MUST be created under /api/v1 only.
 export const LEGACY_API_SUNSET = "2027-06-30";
 
 // Devices are considered offline when no heartbeat arrives within this window.
+// #388 adds the platform-configurable weak/offline thresholds on top of this
+// default; display and command checks use `lib/device-status.ts`.
 export const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
+
+// A queued feed/calibration command younger than this counts as "in flight", so
+// the device status never flips to offline while the command is being delivered.
+export const DEVICE_COMMAND_IN_FLIGHT_MS = 2 * 60 * 1000;
 
 // A dispatched/sent schedule command older than this never reached the
 // device (lib/actions/energy.ts and schedule.ts clear the stale rows).
@@ -36,6 +43,11 @@ export const PELLET_ALERT_WINDOW_MS = 6 * 60 * 60 * 1000;
 // WARNING at or below the second, refill detected above the second.
 export const PELLET_CRITICAL_PCT = 5;
 export const PELLET_LOW_PCT = 20;
+
+// #259: every hopper surface turns red and pulses at or below this displayed
+// level. This is a presentation threshold only; pellet alerts keep using the
+// org's `hopperLowPct` (default 20) through lib/settings/org-alerts.ts.
+export const HOPPER_LOW_DISPLAY_PCT = 30;
 
 // Advance warning when projected feed remaining drops below this many days.
 export const FEED_DAYS_WARNING = 2;

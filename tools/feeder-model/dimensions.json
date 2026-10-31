@@ -1,0 +1,169 @@
+{
+	"revision": "tape-2026-10-29-post",
+	"units": "mm",
+	"notes": "Tape measurements supplied by Jeff in feeder-dimensions-2026-10-29.json, with the 2026-10-29 layout amendments. The base top is height 0 and +Z is the front. The hopper is one whole PET jar on its conical shoulder, not three tiers. The jar is shortened by 20 mm from the tape value (400 -> 380) so the pot sits lower; the shelf stays at 200 mm. The black controller panel now sits directly under the sticker with no gap. The vertical post is moved into the 10 mm gap against the jar's right side and the chassis, so it supports the hopper/shelf; its arm runs left-to-right, parallel to the front. A vertical white plank under the left edge of the shelf supports the platform from the base (reference photo). The ultrasonic sensor sits on the jar lid; the post arm is a wire guide. The post top is 105 mm above the hopper/lid top: lid top 510 -> post top 615, not the earlier 750 estimate. Missing from the sheet: separate jar-tier heights (single jar) and hinge spacing (defaulting to 60% of the chassis width).",
+	"base_plate": {
+		"width": 340,
+		"depth": 450,
+		"thickness": 10,
+		"center": [0, -5, 0]
+	},
+	"chassis": {
+		"width": 145,
+		"height": 305,
+		"depth": 450,
+		"lid_thickness": 10,
+		"center": [97.5, 152.5, 0]
+	},
+	"shelf": {
+		"width": 195,
+		"depth": 240,
+		"thickness": 10,
+		"height": 200,
+		"center": [-82.5, 195, 105],
+		"hole_diameter": 155
+	},
+	"shelf_cleat": {
+		"center": [15, 185, 105],
+		"width": 20,
+		"height": 10,
+		"depth": 200
+	},
+	"shelf_support": {
+		"center": [-162.5, 95, 105],
+		"width": 15,
+		"height": 190,
+		"depth": 240
+	},
+	"hopper": {
+		"center": [-82.5, 125, 127.5],
+		"diameter": 195,
+		"height": 380,
+		"wall": 3,
+		"neck_diameter": 45,
+		"shoulder_diameter": 155,
+		"shoulder_height": 75,
+		"body_start_height": 115,
+		"straps": 2,
+		"strap_heights": [225, 310],
+		"strap_width": 25
+	},
+	"lid": {
+		"diameter": 195,
+		"thickness": 5,
+		"center": [-82.5, 507.5, 127.5]
+	},
+	"grain": {
+		"center": [-82.5, 125, 127.5],
+		"max_diameter": 185,
+		"height": 250,
+		"default_fill_pct": 62
+	},
+	"sensor": {
+		"center": [-82.5, 515, 170],
+		"width": 20,
+		"height": 10,
+		"depth": 45,
+		"transducer_diameter": 8,
+		"transducer_height": 3,
+		"transducer_offset": 12
+	},
+	"post": {
+		"center": [20, 307.5, 127.5],
+		"width": 10,
+		"height": 615,
+		"depth": 30
+	},
+	"post_arm": {
+		"center": [-20, 610, 127.5],
+		"width": 80,
+		"height": 10,
+		"depth": 10
+	},
+	"neck": {
+		"center": [-82.5, 120, 127.5],
+		"diameter": 60,
+		"height": 15
+	},
+	"riser": {
+		"center": [-82.5, 93.75, 127.5],
+		"outer_diameter": 50,
+		"inner_diameter": 44,
+		"height": 37.5
+	},
+	"tube": {
+		"start": [-82.5, 50, -150],
+		"yaw_deg": 90,
+		"pitch_deg": 0,
+		"length": 510,
+		"outer_diameter": 50,
+		"wall": 3,
+		"inlet_offset": 277.5
+	},
+	"auger": {
+		"diameter": 42,
+		"wire_diameter": 6,
+		"pitch": 50,
+		"shaft_diameter": 12
+	},
+	"motor": {
+		"body_length": 135,
+		"body_diameter": 60,
+		"offset_from_tube_start": 97.5
+	},
+	"coupling": {
+		"center": [-82.5, 50, -165],
+		"diameter": 45,
+		"length": 30,
+		"clamps": 3,
+		"clamp_diameter": 48,
+		"clamp_width": 6
+	},
+	"motor_mount": {
+		"center": [-82.5, 10, -245],
+		"width": 90,
+		"height": 20,
+		"depth": 150
+	},
+	"outlet": {
+		"plug_center": [-82.5, 50, 375],
+		"plug_diameter": 48,
+		"plug_length": 30,
+		"nozzle_center": [-82.5, 40, 360],
+		"nozzle_diameter": 50,
+		"nozzle_height": 40,
+		"cap_center": [-82.5, 10, 360],
+		"cap_diameter": 35,
+		"cap_height": 20
+	},
+	"cradles": [
+		{
+			"z": -60,
+			"width": 80,
+			"height": 25,
+			"depth": 60
+		},
+		{
+			"z": 270,
+			"width": 80,
+			"height": 25,
+			"depth": 60
+		}
+	],
+	"panel": {
+		"center": [90, 170, 228],
+		"width": 60,
+		"height": 100,
+		"depth": 6,
+		"dial_center": [90, 190, 228],
+		"dial_diameter": 30,
+		"switch_center": [90, 150, 228],
+		"led_centers": [[130, 190, 225], [130, 150, 225]]
+	},
+	"sticker": {
+		"center": [92.5, 252.5, 226],
+		"width": 95,
+		"height": 65,
+		"depth": 2
+	}
+}

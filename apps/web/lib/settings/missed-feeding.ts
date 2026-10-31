@@ -1,3 +1,4 @@
+import { dateToFarmDateOnly } from "@/lib/crop-cycle/dates";
 import { normalizeNotificationPrefs } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import { getOrgAlertRoles, getOrgSettingsForFarm } from "./org";
@@ -26,7 +27,10 @@ const MISSED_FEEDING_LINK = "/dashboard/notifications";
 function dayKey(timestamp: string): string {
 	const parsed = new Date(timestamp);
 	const date = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
-	return date.toISOString().slice(0, 10);
+	// The dedupe window is the farm's calendar day, not the UTC day: at UTC+8 the
+	// UTC date rolls over at 08:00 local, so a UTC key would allow two "daily"
+	// alerts on one local day and merge two calendar days before that.
+	return dateToFarmDateOnly(date);
 }
 
 function isUniqueViolation(error: unknown): boolean {

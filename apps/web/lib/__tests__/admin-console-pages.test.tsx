@@ -86,6 +86,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/actions/admin", () => ({
 	getUsers: vi.fn(),
 	getDevices: vi.fn(),
+	getPendingDevices: vi.fn(async () => []),
 	getPonds: vi.fn(),
 	getAllFarmHierarchies: vi.fn(),
 	getAdminStats: vi.fn(),
@@ -101,6 +102,10 @@ vi.mock("@/lib/actions/admin", () => ({
 	revokeMember: vi.fn(),
 }));
 
+vi.mock("@/lib/actions/admin-overview", () => ({
+	getAdminOverview: vi.fn(),
+}));
+
 import AdminAuditPage from "@/app/[locale]/(admin)/admin/audit/page";
 import AdminDevicesPage from "@/app/[locale]/(admin)/admin/devices/page";
 import AdminHierarchyPage from "@/app/[locale]/(admin)/admin/hierarchy/page";
@@ -113,10 +118,13 @@ import {
 	getAllFarmHierarchies,
 	getAuditLog,
 	getDevices,
+	getPendingDevices,
 	getPonds,
 	getUsers,
 	listTenantMembers,
 } from "@/lib/actions/admin";
+import { getAdminOverview } from "@/lib/actions/admin-overview";
+import { hasPermission } from "@/lib/auth/permissions";
 import { formatDateTimeLocal } from "@/lib/date-local";
 
 const FIXTURE_DATE = new Date("2026-07-08T16:19:00");
@@ -137,6 +145,7 @@ const formatDate = (date: Date) => formatDateTimeLocal(date, dateLabels());
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	vi.mocked(hasPermission).mockResolvedValue(true);
 });
 
 describe("admin users page", () => {
@@ -185,6 +194,36 @@ describe("admin users page", () => {
 		expect(html).toContain("No users in this organization yet.");
 		expect(html).toContain("Register Farmer &amp; Pond");
 		expect(html).not.toContain("<table");
+	});
+
+	it("shows the membership role and hides actions the caller cannot perform", async () => {
+		vi.mocked(hasPermission).mockImplementation(
+			async (permission) => permission !== "manage_members" && permission !== "manage_farms_ponds",
+		);
+		vi.mocked(getUsers).mockResolvedValue({
+			rows: [
+				{
+					id: "user-1",
+					displayName: "Juan Miguel",
+					farmId: "juan-miguel",
+					email: "juan@example.com",
+					role: "OPERATOR",
+					membershipRole: "ADMIN",
+					createdAt: FIXTURE_DATE,
+					farm: { name: "Miguel Farm" },
+				},
+			],
+			total: 1,
+			page: 1,
+			pageSize: 20,
+		} as unknown as Awaited<ReturnType<typeof getUsers>>);
+
+		const html = renderToStaticMarkup(await AdminUsersPage({ searchParams: Promise.resolve({}) }));
+
+		// Membership authority wins over the legacy User.role column.
+		expect(html).toMatch(/>\s*Admin\s*</);
+		expect(html).not.toContain("/admin/settings/members/user-1/permissions");
+		expect(html).not.toContain("/admin/ponds/new");
 	});
 });
 
@@ -249,6 +288,37 @@ describe("admin devices page", () => {
 		expect(html).toContain("No devices registered yet.");
 		expect(html).not.toContain('id="device-label-form"');
 	});
+
+	it("renders pending units in the approval queue, not in the paged table", async () => {
+		vi.mocked(getDevices).mockResolvedValue({
+			rows: [devices[0]],
+			total: 1,
+			page: 1,
+			pageSize: 20,
+		} as unknown as Awaited<ReturnType<typeof getDevices>>);
+		vi.mocked(getPendingDevices).mockResolvedValue([
+			{
+				id: "dev-pending",
+				label: "Feeder Pending",
+				mac: "A4:CF:12:7E:3B:0B",
+				pondId: "pond-1",
+				lastSeenAt: null,
+				feedLevelPercent: null,
+				gramsPerFeeding: 100,
+				approvalStatus: "PENDING",
+				pond: { id: "pond-1", name: "Pond A" },
+			},
+		] as unknown as Awaited<ReturnType<typeof getPendingDevices>>);
+
+		const html = renderToStaticMarkup(
+			await AdminDevicesPage({ searchParams: Promise.resolve({}) }),
+		);
+
+		expect(html).toContain("device awaiting approval");
+		expect(html).toContain("Feeder Pending");
+		// The pager describes the table query only (one approved unit).
+		expect(html).toContain("Showing 1–1 of 1");
+	});
 });
 
 describe("admin audit page", () => {
@@ -287,7 +357,8 @@ describe("admin audit page", () => {
 		const html = renderToStaticMarkup(await AdminAuditPage({ searchParams: Promise.resolve({}) }));
 
 		expect(html).toContain(formatDate(FIXTURE_DATE).full);
-		expect(html).toContain("feed_dispensed");
+		expect(html).toContain("Feed Dispensed");
+		expect(html).toContain("Device");
 		expect(html).toContain("—");
 	});
 });
@@ -309,13 +380,37 @@ describe("admin overview page", () => {
 			],
 		} as unknown as Awaited<ReturnType<typeof getAdminStats>>);
 
+		vi.mocked(getAdminOverview).mockResolvedValue({
+			deviceHealth: { online: 1, offline: 0, pending: 0, paused: 0, total: 1 },
+			feedStack: { sources: [], rows: [], totalsBySource: {} },
+			activityPoints: [{ label: "2026-10-29", value: 1 }],
+			feedDays: 30,
+			activityDays: 14,
+			feedTotalGrams: 0,
+			activityTotal: 1,
+			activityFrom: "2026-10-16",
+			activityTo: "2026-10-29",
+			feedTruncated: false,
+			activityTruncated: false,
+		});
+
 		const html = renderToStaticMarkup(await AdminOverviewPage());
 
 		expect(html).toContain("Admin Overview");
 		expect(html).toContain("System-wide statistics and recent activity.");
+		expect(html).toContain("At a glance");
+		expect(html).toContain("Feed dispensed per day");
+		expect(html).toContain("Fleet health");
+		expect(html).toContain("Device activity");
+		expect(html).toContain("Range:");
+		expect(html).toContain("Oct 16");
 		expect(html).toContain("Recent Activity");
 		expect(html).toContain("Feeder 1");
 		expect(html).toContain(formatDate(FIXTURE_DATE).full);
+		// The overview borrows the audit catalogue instead of printing raw keys.
+		expect(html).toContain("Connected");
+		expect(html).toContain("Device");
+		expect(html).not.toContain(">connected<");
 	});
 });
 
@@ -411,6 +506,34 @@ describe("admin ponds page", () => {
 
 		expect(html).toContain("No ponds registered yet.");
 		expect(html).toContain("Register Farmer &amp; Pond");
+	});
+
+	it("hides create and archive controls when pond management is revoked", async () => {
+		vi.mocked(hasPermission).mockResolvedValue(false);
+		vi.mocked(getPonds).mockResolvedValue({
+			rows: [
+				{
+					id: "pond-1234567890abc",
+					name: "Pond A",
+					status: "ACTIVE",
+					ownerId: "juan-miguel",
+					feedsPerDay: 3,
+					owner: { displayName: "Juan Miguel" },
+					farm: { name: "Miguel Farm" },
+					energyDevices: [{ id: "dev-1" }],
+					_count: { biomassLogs: 4, notifications: 0, ownershipHistory: 1 },
+				},
+			],
+			total: 1,
+			page: 1,
+			pageSize: 20,
+		} as unknown as Awaited<ReturnType<typeof getPonds>>);
+
+		const html = renderToStaticMarkup(await AdminPondsPage({ searchParams: Promise.resolve({}) }));
+
+		expect(html).toContain("Pond A");
+		expect(html).not.toContain("/admin/ponds/new");
+		expect(html).not.toContain("Archive");
 	});
 });
 

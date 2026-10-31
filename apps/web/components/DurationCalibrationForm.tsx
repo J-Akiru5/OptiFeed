@@ -1,6 +1,11 @@
 "use client";
 
 import {
+	CalibrationNumberField,
+	calibrationFieldGrid,
+	parseCalibrationNumber,
+} from "@/components/calibration/CalibrationNumberField";
+import {
 	type TargetCheckDecision,
 	type TargetCheckSubmitResult,
 	getCalibrationTestStatus,
@@ -10,6 +15,11 @@ import {
 	submitTargetCheck,
 } from "@/lib/actions/calibration";
 import { saveDurationCalibration } from "@/lib/actions/energy";
+import {
+	CALIBRATION_ACTUAL_GRAMS_MAX,
+	CALIBRATION_TEST_GRAMS_MAX,
+	CALIBRATION_TEST_SECONDS_MAX,
+} from "@/lib/limits";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, CheckCircle2, FlaskConical, Loader2, Scale, Target } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -18,9 +28,9 @@ import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 const MIN_TEST_SECONDS = 3;
-const MAX_TEST_SECONDS = 30;
+const MAX_TEST_SECONDS = CALIBRATION_TEST_SECONDS_MAX;
 const TEST_PRESETS = [5, 10, 15, 20];
-const MAX_TEST_DOSE_G = 1000;
+const MAX_TEST_DOSE_G = CALIBRATION_TEST_GRAMS_MAX;
 const MIN_RATE = 0.5;
 const MAX_RATE = 50;
 const MIN_TARGET_G = 5;
@@ -29,6 +39,34 @@ const TARGET_TOLERANCE_PCT = 5;
 const MAX_DISPENSE_SECONDS = 300;
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 90_000;
+
+// Field rules shared by the number inputs below. Rates and offsets the server
+// stores with two decimals accept two here as well, so a stored 4.25 g/s does
+// not open the form in an invalid state; the stepper still moves by 0.1.
+const TEST_SECONDS_RULES = {
+	min: MIN_TEST_SECONDS,
+	max: MAX_TEST_SECONDS,
+	decimals: 0,
+	step: 1,
+} as const;
+const ACTUAL_GRAMS_RULES = {
+	min: 0,
+	max: CALIBRATION_ACTUAL_GRAMS_MAX,
+	decimals: 1,
+	step: 0.1,
+} as const;
+const TARGET_GRAMS_RULES = {
+	min: MIN_TARGET_G,
+	max: MAX_TARGET_G,
+	decimals: 1,
+	step: 0.1,
+} as const;
+const MANUAL_RATE_RULES = {
+	min: MIN_RATE,
+	max: MAX_RATE,
+	decimals: 2,
+	step: 0.1,
+} as const;
 
 type CalibrationMode = "guided" | "target" | "manual";
 type TestPhase = "idle" | "queueing" | "polling" | "completed" | "expired" | "timeout" | "error";
@@ -139,46 +177,43 @@ export function DurationCalibrationForm({
 
 	const currentDurationSeconds = durationFor(currentGramsPerFeeding, currentGramsPerSecond);
 
-	const testSeconds = Number(testSecondsInput);
-	const isTestDurationValid =
-		testSecondsInput.trim() !== "" &&
-		Number.isFinite(testSeconds) &&
-		testSeconds >= MIN_TEST_SECONDS &&
-		testSeconds <= MAX_TEST_SECONDS;
+	const testSecondsResult = parseCalibrationNumber(testSecondsInput, TEST_SECONDS_RULES);
+	const testSeconds = testSecondsResult.status === "valid" ? testSecondsResult.value : 0;
+	const isTestDurationValid = testSecondsResult.status === "valid";
 	const expectedTestDoseG = isTestDurationValid ? currentGramsPerSecond * testSeconds : 0;
 	const testLocked = phase === "queueing" || phase === "polling" || phase === "completed";
 	const activeTestSeconds = activeTest?.seconds ?? (isTestDurationValid ? testSeconds : 0);
 
-	const actualGrams = Number(actualGramsInput);
-	const isActualGramsValid =
-		actualGramsInput.trim() !== "" && Number.isFinite(actualGrams) && actualGrams > 0;
+	const actualGramsResult = parseCalibrationNumber(actualGramsInput, ACTUAL_GRAMS_RULES);
+	const actualGrams = actualGramsResult.status === "valid" ? actualGramsResult.value : 0;
+	const isActualGramsValid = actualGramsResult.status === "valid" && actualGrams > 0;
+	const actualGramsError =
+		actualGramsResult.status === "valid" && actualGrams <= 0
+			? t("guided.invalidWeight")
+			: undefined;
 	const newGramsPerSecond =
 		isActualGramsValid && activeTestSeconds > 0 ? actualGrams / activeTestSeconds : 0;
 	const isNewRateInRange = newGramsPerSecond >= MIN_RATE && newGramsPerSecond <= MAX_RATE;
 	const newDurationSeconds = durationFor(currentGramsPerFeeding, newGramsPerSecond);
 
-	const manualRate = Number(manualRateInput);
-	const isManualRateValid =
-		manualRateInput.trim() !== "" &&
-		Number.isFinite(manualRate) &&
-		manualRate >= MIN_RATE &&
-		manualRate <= MAX_RATE;
+	const manualRateResult = parseCalibrationNumber(manualRateInput, MANUAL_RATE_RULES);
+	const manualRate = manualRateResult.status === "valid" ? manualRateResult.value : 0;
+	const isManualRateValid = manualRateResult.status === "valid";
 	const manualDurationSeconds = durationFor(currentGramsPerFeeding, manualRate);
 
-	const targetGrams = Number(targetInput);
-	const isTargetValid =
-		targetInput.trim() !== "" &&
-		Number.isFinite(targetGrams) &&
-		targetGrams >= MIN_TARGET_G &&
-		targetGrams <= MAX_TARGET_G;
+	const targetParse = parseCalibrationNumber(targetInput, TARGET_GRAMS_RULES);
+	const targetGrams = targetParse.status === "valid" ? targetParse.value : 0;
+	const isTargetValid = targetParse.status === "valid";
 	const activeTargetGrams = activeTargetCheck?.targetGrams ?? (isTargetValid ? targetGrams : 0);
 	const targetExpectedSeconds = durationFor(activeTargetGrams, currentGramsPerSecond);
 
-	const targetMeasuredGrams = Number(targetMeasuredInput);
-	const isTargetMeasuredValid =
-		targetMeasuredInput.trim() !== "" &&
-		Number.isFinite(targetMeasuredGrams) &&
-		targetMeasuredGrams > 0;
+	const measuredResult = parseCalibrationNumber(targetMeasuredInput, ACTUAL_GRAMS_RULES);
+	const targetMeasuredGrams = measuredResult.status === "valid" ? measuredResult.value : 0;
+	const isTargetMeasuredValid = measuredResult.status === "valid" && targetMeasuredGrams > 0;
+	const measuredGramsError =
+		measuredResult.status === "valid" && targetMeasuredGrams <= 0
+			? t("guided.invalidWeight")
+			: undefined;
 	const targetErrorPct =
 		isTargetMeasuredValid && activeTargetGrams > 0
 			? Math.round(((targetMeasuredGrams - activeTargetGrams) / activeTargetGrams) * 100 * 100) /
@@ -396,7 +431,7 @@ export function DurationCalibrationForm({
 	const handleRunTest = async () => {
 		if (!canRunTest) return;
 
-		const seconds = Number(testSecondsInput);
+		const seconds = testSeconds;
 		setTestError(null);
 		setSaveError(null);
 		setActualGramsInput("");
@@ -425,7 +460,7 @@ export function DurationCalibrationForm({
 	const handleRunTargetCheck = async () => {
 		if (!canRunTargetCheck) return;
 
-		const target = Number(targetInput);
+		const target = targetGrams;
 		setTargetError(null);
 		setTargetSubmitError(null);
 		setTargetMeasuredInput("");
@@ -539,7 +574,7 @@ export function DurationCalibrationForm({
 	const handleSaveManual = () => {
 		if (!isManualRateValid || !canWrite) return;
 
-		const nextRate = Number(manualRateInput);
+		const nextRate = manualRate;
 		setManualError(null);
 
 		startManualSave(async () => {
@@ -665,33 +700,28 @@ export function DurationCalibrationForm({
 			>
 				<p className="text-sm text-gray-600 dark:text-gray-300">{t("guided.intro")}</p>
 
-				<div className="space-y-2">
-					<div className="flex flex-wrap items-center justify-between gap-2">
-						<label
-							htmlFor="calibration-test-seconds"
-							className="text-sm font-medium text-gray-700 dark:text-gray-200"
-						>
-							{t("guided.durationLabel")}
-						</label>
-						<span className="text-xs text-gray-500 dark:text-gray-400">
-							{t("guided.durationHelp")}
-						</span>
-					</div>
-					<div className="flex flex-wrap items-center gap-2">
-						<input
-							id="calibration-test-seconds"
-							type="number"
-							min={MIN_TEST_SECONDS}
-							max={MAX_TEST_SECONDS}
-							step={1}
-							inputMode="numeric"
-							value={testSecondsInput}
-							onChange={(event) => setTestSecondsInput(event.target.value)}
-							disabled={testLocked}
-							className="min-h-[var(--ofd-touch-min)] w-28 rounded-lg border border-gray-200 bg-white px-4 text-base text-gray-900 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-						/>
-						<fieldset className="m-0 flex min-w-0 flex-wrap gap-2 border-0 p-0">
-							<legend className="sr-only">{t("guided.presetsLabel")}</legend>
+				{testSeconds > 120 && (
+					<p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold leading-relaxed text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-200">
+						{t("guided.longRunWarning", { seconds: testSeconds })}
+					</p>
+				)}
+
+				<div className={calibrationFieldGrid}>
+					<CalibrationNumberField
+						id="calibration-test-seconds"
+						label={t("guided.durationLabel")}
+						unit="s"
+						value={testSecondsInput}
+						onValueChange={setTestSecondsInput}
+						disabled={testLocked}
+						help={t("guided.durationHelp")}
+						{...TEST_SECONDS_RULES}
+					/>
+					<fieldset className="m-0 min-w-0 border-0 p-0 sm:col-span-1 xl:col-span-2">
+						<legend className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[#3D5568] dark:text-gray-300">
+							{t("guided.presetsLabel")}
+						</legend>
+						<div className="flex min-h-11 flex-wrap items-center gap-2">
 							{TEST_PRESETS.map((preset) => (
 								<button
 									key={preset}
@@ -709,8 +739,8 @@ export function DurationCalibrationForm({
 									{t("guided.presetValue", { seconds: preset })}
 								</button>
 							))}
-						</fieldset>
-					</div>
+						</div>
+					</fieldset>
 				</div>
 
 				<div className="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900/50 dark:bg-blue-900/20">
@@ -814,70 +844,60 @@ export function DurationCalibrationForm({
 							</p>
 						</div>
 
-						<div className="space-y-1">
-							<label
-								htmlFor="calibration-actual-grams"
-								className="text-sm font-medium text-gray-700 dark:text-gray-200"
-							>
-								{t("guided.actualGramsLabel")}
-							</label>
-							<input
-								id="calibration-actual-grams"
-								type="number"
-								min={0}
-								step={0.1}
-								inputMode="decimal"
-								placeholder={t("guided.actualGramsPlaceholder")}
-								value={actualGramsInput}
-								onChange={(event) => setActualGramsInput(event.target.value)}
-								className="min-h-[var(--ofd-touch-min)] w-full rounded-lg border border-gray-200 bg-white px-4 text-base text-gray-900 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 sm:w-48"
-							/>
-							{actualGramsInput.trim() !== "" && !isActualGramsValid && (
-								<p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">
-									{t("guided.invalidWeight")}
-								</p>
-							)}
-							{isActualGramsValid && !isNewRateInRange && (
-								<p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">
-									{t("guided.rateOutOfRange", {
-										rate: formatRate(newGramsPerSecond),
-									})}
-								</p>
-							)}
-						</div>
+						<div className={calibrationFieldGrid}>
+							<div className="min-w-0 space-y-1">
+								<CalibrationNumberField
+									id="calibration-actual-grams"
+									label={t("guided.actualGramsLabel")}
+									unit="g"
+									placeholder={t("guided.actualGramsPlaceholder")}
+									value={actualGramsInput}
+									onValueChange={setActualGramsInput}
+									error={actualGramsError}
+									{...ACTUAL_GRAMS_RULES}
+								/>
+								{isActualGramsValid && !isNewRateInRange && (
+									<p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">
+										{t("guided.rateOutOfRange", {
+											rate: formatRate(newGramsPerSecond),
+										})}
+									</p>
+								)}
+							</div>
 
-						<div>
-							<p className="text-xs font-bold uppercase tracking-wide text-[#3D5568] dark:text-gray-400">
-								{t("guided.previewTitle")}
-							</p>
-							<div className="mt-2 grid gap-3 sm:grid-cols-2">
-								<div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-600 dark:bg-gray-900">
-									<p className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-										{t("guided.before")}
-									</p>
-									<p className="text-sm font-bold text-[#0A3D62] dark:text-gray-100">
-										{t("rateValue", {
-											rate: formatRate(currentGramsPerSecond),
-										})}
-									</p>
-									<p className="text-xs text-gray-600 dark:text-gray-400">
-										{t("durationValue", {
-											seconds: formatSeconds(currentDurationSeconds),
-										})}
-									</p>
-								</div>
-								<div className="rounded-lg border border-[#1E7B34]/30 bg-white p-3 dark:border-green-900/50 dark:bg-gray-900">
-									<p className="text-[11px] font-bold uppercase tracking-wide text-[#1E7B34] dark:text-green-300">
-										{t("guided.after")}
-									</p>
-									<p className="text-sm font-bold text-[#0A3D62] dark:text-gray-100">
-										{t("rateValue", { rate: formatRate(newGramsPerSecond) })}
-									</p>
-									<p className="text-xs text-gray-600 dark:text-gray-400">
-										{t("durationValue", {
-											seconds: formatSeconds(newDurationSeconds),
-										})}
-									</p>
+							<div className="min-w-0 sm:col-span-1 xl:col-span-2">
+								<p className="text-xs font-bold uppercase tracking-wide text-[#3D5568] dark:text-gray-400">
+									{t("guided.previewTitle")}
+								</p>
+								<div className="mt-2 grid gap-3 sm:grid-cols-2">
+									<div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-600 dark:bg-gray-900">
+										<p className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+											{t("guided.before")}
+										</p>
+										<p className="text-sm font-bold text-[#0A3D62] dark:text-gray-100">
+											{t("rateValue", {
+												rate: formatRate(currentGramsPerSecond),
+											})}
+										</p>
+										<p className="text-xs text-gray-600 dark:text-gray-400">
+											{t("durationValue", {
+												seconds: formatSeconds(currentDurationSeconds),
+											})}
+										</p>
+									</div>
+									<div className="rounded-lg border border-[#1E7B34]/30 bg-white p-3 dark:border-green-900/50 dark:bg-gray-900">
+										<p className="text-[11px] font-bold uppercase tracking-wide text-[#1E7B34] dark:text-green-300">
+											{t("guided.after")}
+										</p>
+										<p className="text-sm font-bold text-[#0A3D62] dark:text-gray-100">
+											{t("rateValue", { rate: formatRate(newGramsPerSecond) })}
+										</p>
+										<p className="text-xs text-gray-600 dark:text-gray-400">
+											{t("durationValue", {
+												seconds: formatSeconds(newDurationSeconds),
+											})}
+										</p>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -920,51 +940,35 @@ export function DurationCalibrationForm({
 					</p>
 				</div>
 
-				<div className="space-y-1">
-					<label
-						htmlFor="calibration-target-grams"
-						className="text-sm font-medium text-gray-700 dark:text-gray-200"
-					>
-						{t("targetCheck.targetLabel")}
-					</label>
-					<input
+				<div className={calibrationFieldGrid}>
+					<CalibrationNumberField
 						id="calibration-target-grams"
-						type="number"
-						min={MIN_TARGET_G}
-						max={MAX_TARGET_G}
-						step={1}
-						inputMode="decimal"
+						label={t("targetCheck.targetLabel")}
+						unit="g"
 						value={targetInput}
-						onChange={(event) => setTargetInput(event.target.value)}
+						onValueChange={setTargetInput}
 						disabled={targetLocked}
-						className="min-h-[var(--ofd-touch-min)] w-full rounded-lg border border-gray-200 bg-white px-4 text-base text-gray-900 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 sm:w-48"
-					/>
-					<p className="text-xs text-gray-500 dark:text-gray-400">
-						{t("targetCheck.targetHelp", {
+						help={t("targetCheck.targetHelp", {
 							min: MIN_TARGET_G,
 							max: MAX_TARGET_G,
 							seconds: formatSeconds(targetExpectedSeconds),
 						})}
-					</p>
-					{targetInput.trim() !== "" && !isTargetValid && (
-						<p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">
-							{t("targetCheck.invalidTarget", { min: MIN_TARGET_G, max: MAX_TARGET_G })}
-						</p>
-					)}
-				</div>
+						{...TARGET_GRAMS_RULES}
+					/>
 
-				<div className="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900/50 dark:bg-blue-900/20">
-					<div className="flex flex-wrap items-baseline justify-between gap-2">
-						<p className="text-xs font-bold uppercase tracking-wide text-blue-700 dark:text-blue-300">
-							{t("targetCheck.expectedDose")}
-						</p>
-						<p className="text-lg font-bold text-blue-900 dark:text-blue-100">
-							{t("gramsValue", { grams: formatGrams(activeTargetGrams) })}
+					<div className="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900/50 dark:bg-blue-900/20 sm:col-span-1 xl:col-span-2">
+						<div className="flex flex-wrap items-baseline justify-between gap-2">
+							<p className="text-xs font-bold uppercase tracking-wide text-blue-700 dark:text-blue-300">
+								{t("targetCheck.expectedDose")}
+							</p>
+							<p className="text-lg font-bold text-blue-900 dark:text-blue-100">
+								{t("gramsValue", { grams: formatGrams(activeTargetGrams) })}
+							</p>
+						</div>
+						<p className="mt-1 text-xs text-blue-700 dark:text-blue-300">
+							{t("targetCheck.feedWarning")}
 						</p>
 					</div>
-					<p className="mt-1 text-xs text-blue-700 dark:text-blue-300">
-						{t("targetCheck.feedWarning")}
-					</p>
 				</div>
 
 				{targetPhase !== "completed" && (
@@ -1073,86 +1077,76 @@ export function DurationCalibrationForm({
 							})}
 						</p>
 
-						<div className="space-y-1">
-							<label
-								htmlFor="calibration-target-measured"
-								className="text-sm font-medium text-gray-700 dark:text-gray-200"
-							>
-								{t("targetCheck.measuredLabel")}
-							</label>
-							<input
-								id="calibration-target-measured"
-								type="number"
-								min={0}
-								step={0.1}
-								inputMode="decimal"
-								placeholder={t("guided.actualGramsPlaceholder")}
-								value={targetMeasuredInput}
-								onChange={(event) => setTargetMeasuredInput(event.target.value)}
-								className="min-h-[var(--ofd-touch-min)] w-full rounded-lg border border-gray-200 bg-white px-4 text-base text-gray-900 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 sm:w-48"
-							/>
-							{targetMeasuredInput.trim() !== "" && !isTargetMeasuredValid && (
-								<p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">
-									{t("guided.invalidWeight")}
+						<div className={calibrationFieldGrid}>
+							<div className="min-w-0 space-y-1">
+								<CalibrationNumberField
+									id="calibration-target-measured"
+									label={t("targetCheck.measuredLabel")}
+									unit="g"
+									placeholder={t("guided.actualGramsPlaceholder")}
+									value={targetMeasuredInput}
+									onValueChange={setTargetMeasuredInput}
+									error={measuredGramsError}
+									{...ACTUAL_GRAMS_RULES}
+								/>
+								{targetCorrectedOutOfRange && (
+									<p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">
+										{t("targetCheck.rateOutOfRange", {
+											rate: formatRate(targetCorrectedRate),
+										})}
+									</p>
+								)}
+							</div>
+
+							<div className="min-w-0 sm:col-span-1 xl:col-span-2">
+								<p className="text-xs font-bold uppercase tracking-wide text-[#3D5568] dark:text-gray-400">
+									{t("guided.previewTitle")}
 								</p>
-							)}
-							{targetCorrectedOutOfRange && (
-								<p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">
-									{t("targetCheck.rateOutOfRange", {
+								<dl className="mt-2 grid gap-3 sm:grid-cols-3">
+									<div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-600 dark:bg-gray-900">
+										<dt className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+											{t("targetCheck.expectedLabel")}
+										</dt>
+										<dd className="text-sm font-bold text-[#0A3D62] dark:text-gray-100">
+											{t("gramsValue", { grams: formatGrams(activeTargetCheck.targetGrams) })}
+										</dd>
+									</div>
+									<div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-600 dark:bg-gray-900">
+										<dt className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+											{t("targetCheck.measuredLabel")}
+										</dt>
+										<dd className="text-sm font-bold text-[#0A3D62] dark:text-gray-100">
+											{isTargetMeasuredValid
+												? t("gramsValue", { grams: formatGrams(targetMeasuredGrams) })
+												: "—"}
+										</dd>
+									</div>
+									<div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-600 dark:bg-gray-900">
+										<dt className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+											{t("targetCheck.errorLabel")}
+										</dt>
+										<dd
+											className={cn(
+												"text-sm font-bold",
+												!isTargetMeasuredValid
+													? "text-[#0A3D62] dark:text-gray-100"
+													: targetIsAccepted
+														? "text-[#1E7B34] dark:text-green-300"
+														: "text-[#C42B3A] dark:text-red-300",
+											)}
+										>
+											{isTargetMeasuredValid
+												? `${targetErrorPct >= 0 ? "+" : ""}${targetErrorPct.toFixed(1)}%`
+												: "—"}
+										</dd>
+									</div>
+								</dl>
+								<p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+									{t("targetCheck.correctedRate", {
 										rate: formatRate(targetCorrectedRate),
 									})}
 								</p>
-							)}
-						</div>
-
-						<div>
-							<p className="text-xs font-bold uppercase tracking-wide text-[#3D5568] dark:text-gray-400">
-								{t("guided.previewTitle")}
-							</p>
-							<dl className="mt-2 grid gap-3 sm:grid-cols-3">
-								<div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-600 dark:bg-gray-900">
-									<dt className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-										{t("targetCheck.expectedLabel")}
-									</dt>
-									<dd className="text-sm font-bold text-[#0A3D62] dark:text-gray-100">
-										{t("gramsValue", { grams: formatGrams(activeTargetCheck.targetGrams) })}
-									</dd>
-								</div>
-								<div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-600 dark:bg-gray-900">
-									<dt className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-										{t("targetCheck.measuredLabel")}
-									</dt>
-									<dd className="text-sm font-bold text-[#0A3D62] dark:text-gray-100">
-										{isTargetMeasuredValid
-											? t("gramsValue", { grams: formatGrams(targetMeasuredGrams) })
-											: "—"}
-									</dd>
-								</div>
-								<div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-600 dark:bg-gray-900">
-									<dt className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-										{t("targetCheck.errorLabel")}
-									</dt>
-									<dd
-										className={cn(
-											"text-sm font-bold",
-											!isTargetMeasuredValid
-												? "text-[#0A3D62] dark:text-gray-100"
-												: targetIsAccepted
-													? "text-[#1E7B34] dark:text-green-300"
-													: "text-[#C42B3A] dark:text-red-300",
-										)}
-									>
-										{isTargetMeasuredValid
-											? `${targetErrorPct >= 0 ? "+" : ""}${targetErrorPct.toFixed(1)}%`
-											: "—"}
-									</dd>
-								</div>
-							</dl>
-							<p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-								{t("targetCheck.correctedRate", {
-									rate: formatRate(targetCorrectedRate),
-								})}
-							</p>
+							</div>
 						</div>
 
 						{isTargetMeasuredValid && (
@@ -1269,47 +1263,33 @@ export function DurationCalibrationForm({
 			>
 				<p className="text-sm text-gray-600 dark:text-gray-300">{t("manual.intro")}</p>
 
-				<div className="space-y-1">
-					<label
-						htmlFor="calibration-manual-rate"
-						className="text-sm font-medium text-gray-700 dark:text-gray-200"
-					>
-						{t("manual.rateLabel")}
-					</label>
-					<input
+				<div className={calibrationFieldGrid}>
+					<CalibrationNumberField
 						id="calibration-manual-rate"
-						type="number"
-						min={MIN_RATE}
-						max={MAX_RATE}
-						step={0.1}
-						inputMode="decimal"
+						label={t("manual.rateLabel")}
+						unit="g/s"
 						value={manualRateInput}
-						onChange={(event) => setManualRateInput(event.target.value)}
-						className="min-h-[var(--ofd-touch-min)] w-full rounded-lg border border-gray-200 bg-white px-4 text-base text-gray-900 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 sm:w-48"
+						onValueChange={setManualRateInput}
+						help={t("manual.rateHelp")}
+						{...MANUAL_RATE_RULES}
 					/>
-					<p className="text-xs text-gray-500 dark:text-gray-400">{t("manual.rateHelp")}</p>
-					{manualRateInput.trim() !== "" && !isManualRateValid && (
-						<p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">
-							{t("manual.invalidRate")}
-						</p>
-					)}
-				</div>
 
-				<div className="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900/50 dark:bg-blue-900/20">
-					<p className="text-xs font-bold uppercase tracking-wide text-blue-700 dark:text-blue-300">
-						{t("guided.previewTitle")}
-					</p>
-					{isManualRateValid ? (
-						<p className="mt-1 text-sm font-medium text-blue-900 dark:text-blue-100">
-							{t("manual.preview", {
-								rate: formatRate(manualRate),
-								grams: formatGrams(currentGramsPerFeeding),
-								seconds: formatSeconds(manualDurationSeconds),
-							})}
+					<div className="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900/50 dark:bg-blue-900/20 sm:col-span-1 xl:col-span-2">
+						<p className="text-xs font-bold uppercase tracking-wide text-blue-700 dark:text-blue-300">
+							{t("guided.previewTitle")}
 						</p>
-					) : (
-						<p className="mt-1 text-sm text-blue-700 dark:text-blue-300">—</p>
-					)}
+						{isManualRateValid ? (
+							<p className="mt-1 text-sm font-medium text-blue-900 dark:text-blue-100">
+								{t("manual.preview", {
+									rate: formatRate(manualRate),
+									grams: formatGrams(currentGramsPerFeeding),
+									seconds: formatSeconds(manualDurationSeconds),
+								})}
+							</p>
+						) : (
+							<p className="mt-1 text-sm text-blue-700 dark:text-blue-300">—</p>
+						)}
+					</div>
 				</div>
 
 				{manualError && (

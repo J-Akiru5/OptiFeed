@@ -1,6 +1,20 @@
 import prisma from "@/lib/prisma";
 
 /**
+ * Every pond an owner may act on, in the order the owner created them.
+ *
+ * This is the one scoped pond list in the app: the active-pond resolver, the
+ * dashboard pond switcher and any future caller share the same owner + ACTIVE
+ * filter, so a foreign or archived pond can never enter a selection surface.
+ */
+export function listActivePondsForOwner(ownerId: string) {
+	return prisma.pond.findMany({
+		where: { ownerId, status: "ACTIVE" },
+		orderBy: { createdAt: "asc" },
+	});
+}
+
+/**
  * Resolve the pond an authenticated owner should act on.
  *
  * Fails closed: only ACTIVE ponds are considered, ordered by createdAt
@@ -12,10 +26,7 @@ import prisma from "@/lib/prisma";
  * Returns null when the owner has no ACTIVE pond.
  */
 export async function resolveActivePond(ownerId: string, pondId?: string | null) {
-	const ponds = await prisma.pond.findMany({
-		where: { ownerId, status: "ACTIVE" },
-		orderBy: { createdAt: "asc" },
-	});
+	const ponds = await listActivePondsForOwner(ownerId);
 
 	if (ponds.length === 0) return null;
 

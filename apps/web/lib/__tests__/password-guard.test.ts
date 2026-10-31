@@ -93,7 +93,29 @@ describe("requireWriteAccess", () => {
 	it("throws while a password change is pending", async () => {
 		await setUser({ mustChangePassword: true });
 
-		await expect(requireWriteAccess()).rejects.toThrow("Password change required");
+		await expect(requireWriteAccess()).rejects.toMatchObject({
+			code: "action_denied",
+			reason: "password_change_required",
+			message: "Change your temporary password before making changes.",
+		});
+	});
+
+	it("throws a typed wrong-role denial for a VIEWER", async () => {
+		await setUser({ role: "VIEWER" });
+
+		await expect(requireWriteAccess()).rejects.toMatchObject({
+			code: "action_denied",
+			reason: "wrong_role",
+		});
+	});
+
+	it("throws a typed not-authenticated denial without a session", async () => {
+		await signIn(null);
+
+		await expect(requireWriteAccess()).rejects.toMatchObject({
+			code: "action_denied",
+			reason: "not_authenticated",
+		});
 	});
 
 	it("allows an unflagged OPERATOR", async () => {

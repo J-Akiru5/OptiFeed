@@ -120,7 +120,7 @@ export function rateLimited(
 	});
 }
 
-export function timeout(message = "The request exceeded its time budget."): ApiError {
+function timeout(message = "The request exceeded its time budget."): ApiError {
 	return new ApiError(504, "TIMEOUT", message);
 }
 

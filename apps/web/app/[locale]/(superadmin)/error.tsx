@@ -1,7 +1,7 @@
 "use client";
 
+import { Mascot } from "@/components/assistant/mascot";
 import { Card, PRIMARY_BUTTON } from "@/components/superadmin/ui";
-import { AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 
@@ -25,12 +25,7 @@ export default function SuperadminError({
 
 	return (
 		<Card className="mx-auto flex max-w-lg flex-col items-center gap-3 p-8 text-center">
-			<div
-				className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FDE8EA] text-[#C42B3A]"
-				aria-hidden="true"
-			>
-				<AlertTriangle className="h-6 w-6" />
-			</div>
+			<Mascot pose="powerFault" size={96} />
 
 			<div role="alert" className="space-y-2">
 				<h1 className="text-xl font-black text-[#0A3D62]">{t("title")}</h1>

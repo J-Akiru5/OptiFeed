@@ -277,8 +277,6 @@ export async function removeOutboxItem(id: string): Promise<void> {
 	notifyChanged();
 }
 
-export const discardOutboxItem = removeOutboxItem;
-
 async function updateItem(
 	id: string,
 	patch: (item: StoredOutboxRecord) => StoredOutboxRecord,

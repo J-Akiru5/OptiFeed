@@ -1,7 +1,13 @@
 "use client";
 
 import { DialogHeader, DialogShell } from "@/components/superadmin/dialog-shell";
-import { FIELD_LABEL, PRIMARY_BUTTON, SECONDARY_BUTTON } from "@/components/superadmin/ui";
+import {
+	DIALOG_ERROR,
+	DIALOG_FIELD,
+	DIALOG_LABEL,
+	DIALOG_PRIMARY,
+	DIALOG_SECONDARY,
+} from "@/components/superadmin/dialog-theme";
 import { startStepUp } from "@/lib/actions/step-up";
 import { cn } from "@/lib/utils";
 import { KeyRound, Loader2 } from "lucide-react";
@@ -91,7 +97,7 @@ export function StepUpDialog({
 
 			<form onSubmit={submit} className="mt-4 space-y-3">
 				<div className="space-y-1.5">
-					<label htmlFor="stepup-password" className={FIELD_LABEL}>
+					<label htmlFor="stepup-password" className={DIALOG_LABEL}>
 						{t("password")}
 					</label>
 					<input
@@ -104,10 +110,7 @@ export function StepUpDialog({
 						data-autofocus
 						aria-invalid={error ? true : undefined}
 						aria-describedby={error ? "stepup-error" : undefined}
-						className={cn(
-							"w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-3 py-2 text-sm text-[#0A3D62] transition-all focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:opacity-60",
-							error && "border-[#C42B3A]",
-						)}
+						className={cn(DIALOG_FIELD, error && "border-[#C42B3A] dark:border-red-400")}
 					/>
 				</div>
 
@@ -115,7 +118,7 @@ export function StepUpDialog({
 					<p
 						id="stepup-error"
 						role="alert"
-						className="rounded-xl border border-red-200 bg-red-50 p-2 text-[11px] font-bold text-[#C42B3A]"
+						className={cn("rounded-xl border p-2 text-[11px] font-bold", DIALOG_ERROR)}
 					>
 						{error}
 					</p>
@@ -125,7 +128,7 @@ export function StepUpDialog({
 					<button
 						type="submit"
 						disabled={isPending}
-						className={cn(PRIMARY_BUTTON, "flex-1 text-xs font-extrabold")}
+						className={cn(DIALOG_PRIMARY, "flex-1 text-xs font-extrabold")}
 					>
 						{isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
 						{tCommon("continue")}
@@ -134,10 +137,7 @@ export function StepUpDialog({
 						type="button"
 						onClick={close}
 						disabled={isPending}
-						className={cn(
-							SECONDARY_BUTTON,
-							"px-3 py-2.5 text-xs font-bold text-[#3D5568] hover:bg-gray-200",
-						)}
+						className={cn(DIALOG_SECONDARY, "px-3 py-2.5 text-xs font-bold")}
 					>
 						{tCommon("cancel")}
 					</button>

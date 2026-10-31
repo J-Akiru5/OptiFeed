@@ -153,6 +153,26 @@ describe("parsePlatformCalendarQuery", () => {
 		expect(parsed.from).toBe("2026-10-13");
 		expect(parsed.to).toBe("2026-12-11");
 	});
+
+	it("keeps a one-day range instead of replacing it with the default window (#276)", () => {
+		const parsed = parsePlatformCalendarQuery(
+			{ from: "2026-10-27", to: "2026-10-27" },
+			"2026-10-27",
+		);
+
+		expect(parsed.from).toBe("2026-10-27");
+		expect(parsed.to).toBe("2026-10-27");
+	});
+
+	it("keeps 400 inclusive days and clamps a longer range to 400", () => {
+		const max = parsePlatformCalendarQuery({ from: "2026-01-01", to: "2027-02-04" }, "2026-01-01");
+		expect(max.from).toBe("2026-01-01");
+		expect(max.to).toBe("2027-02-04");
+
+		const over = parsePlatformCalendarQuery({ from: "2026-01-01", to: "2027-02-05" }, "2026-01-01");
+		expect(over.from).toBe("2026-01-01");
+		expect(over.to).toBe("2027-02-04");
+	});
 });
 
 describe("loadPlatformCalendarData", () => {

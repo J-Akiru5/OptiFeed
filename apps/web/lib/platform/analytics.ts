@@ -7,8 +7,10 @@ import {
 } from "@/components/charts/chart-data";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { startOfDayInTimeZone } from "@/lib/chart-windows";
-import { OFFLINE_THRESHOLD_MS, PH_TZ } from "@/lib/constants";
+import { PH_TZ } from "@/lib/constants";
+import { MACHINE_FEED_SOURCES, isMachineFeedSource } from "@/lib/feed-figures";
 import prisma from "@/lib/prisma";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 
 /**
  * Cross-tenant analytics for the platform overview (E16.1).
@@ -165,7 +167,12 @@ export async function getPlatformAnalytics(
 	const window = resolveAnalyticsWindow(range, now);
 	const current = { gte: window.start, lt: window.end };
 	const previous = { gte: window.previousStart, lt: window.previousEnd };
-	const onlineCutoff = new Date(window.end.getTime() - OFFLINE_THRESHOLD_MS);
+	const statusPolicy = await getDeviceStatusPolicy();
+	// Weak signal is still reachable, so "online" uses the full display window
+	// (offline threshold + grace) exactly like the device badges (#388).
+	const onlineCutoff = new Date(
+		window.end.getTime() - (statusPolicy.offlineAfterMs + statusPolicy.graceMs),
+	);
 
 	const [
 		userTotal,
@@ -210,12 +217,21 @@ export async function getPlatformAnalytics(
 		prisma.pond.count({ where: { createdAt: current } }),
 		prisma.pond.count({ where: { createdAt: previous } }),
 		prisma.feedEvent.aggregate({
-			where: { eventType: "feed_dispensed", receivedAt: current },
+			where: {
+				eventType: "feed_dispensed",
+				// `hand_fed` rows are imported daily totals, not a device dispense.
+				source: { in: [...MACHINE_FEED_SOURCES] },
+				receivedAt: current,
+			},
 			_count: { _all: true },
 			_sum: { grams: true },
 		}),
 		prisma.feedEvent.aggregate({
-			where: { eventType: "feed_dispensed", receivedAt: previous },
+			where: {
+				eventType: "feed_dispensed",
+				source: { in: [...MACHINE_FEED_SOURCES] },
+				receivedAt: previous,
+			},
 			_count: { _all: true },
 			_sum: { grams: true },
 		}),
@@ -311,6 +327,9 @@ export async function getPlatformAnalytics(
 
 	const gramsByDay = new Map<string, number>();
 	for (const row of feedRows) {
+		// Machine dispenses only: a `hand_fed` row is a whole day entered by
+		// hand, and adding it here would inflate "feed dispensed per day".
+		if (!isMachineFeedSource(row.source)) continue;
 		gramsByDay.set(row.day, (gramsByDay.get(row.day) ?? 0) + (Number(row.grams) || 0));
 	}
 	const kgPerDay = fillDailySeries(

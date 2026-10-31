@@ -1,12 +1,14 @@
 "use client";
 
 import {
-	dashboardButtonPrimary,
-	dashboardField,
-	dashboardHint,
-	dashboardLabel,
-} from "@/components/dashboard/dashboard-classes";
+	CalibrationNumberField,
+	calibrationFieldGrid,
+	parseCalibrationNumber,
+} from "@/components/calibration/CalibrationNumberField";
+import { dashboardButtonPrimary } from "@/components/dashboard/dashboard-classes";
+import { useReportUnsavedChanges } from "@/components/settings/unsaved-changes";
 import { saveHopperCalibration } from "@/lib/actions/energy";
+import { HOPPER_CAPACITY_G_MAX, HOPPER_EMPTY_CM_MAX, HOPPER_FULL_CM_MAX } from "@/lib/limits";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
@@ -20,6 +22,10 @@ interface HopperCalibrationFormProps {
 	canWrite?: boolean;
 }
 
+const DEFAULT_FULL_CM = 5;
+const DEFAULT_EMPTY_CM = 30;
+const DEFAULT_CAPACITY_G = 7000;
+
 export function HopperCalibrationForm({
 	deviceId,
 	hopperFullCm,
@@ -28,23 +34,53 @@ export function HopperCalibrationForm({
 	canWrite = true,
 }: HopperCalibrationFormProps) {
 	const t = useTranslations("dashboard.appSettings");
-	const [fullCm, setFullCm] = useState(hopperFullCm ?? 5);
-	const [emptyCm, setEmptyCm] = useState(hopperEmptyCm ?? 30);
-	const [capacityG, setCapacityG] = useState(hopperCapacityG ?? 7000);
+	// Strings, not numbers: a numeric state cannot be cleared while typing
+	// (`Number("")` is 0, which snaps the zero back into the input). Issue #307.
+	const [fullCm, setFullCm] = useState(() => String(hopperFullCm ?? DEFAULT_FULL_CM));
+	const [emptyCm, setEmptyCm] = useState(() => String(hopperEmptyCm ?? DEFAULT_EMPTY_CM));
+	const [capacityG, setCapacityG] = useState(() => String(hopperCapacityG ?? DEFAULT_CAPACITY_G));
+	const [savedInputs, setSavedInputs] = useState(() => [fullCm, emptyCm, capacityG].join("|"));
+	useReportUnsavedChanges(
+		`hopper-${deviceId}`,
+		[fullCm, emptyCm, capacityG].join("|") !== savedInputs,
+	);
 	const [error, setError] = useState<string | null>(null);
 	const [saved, setSaved] = useState(false);
 	const [isPending, startTransition] = useTransition();
 
+	// Centimetre fields accept one decimal (owner decision, 2026-10-29) so a
+	// stored 12.3 stays 12.3 instead of being rejected, but the steppers still
+	// move a whole centimetre at a time.
+	const fullRules = { min: 0, max: HOPPER_FULL_CM_MAX, decimals: 1, step: 1 } as const;
+	const emptyRules = { min: 0, max: HOPPER_EMPTY_CM_MAX, decimals: 1, step: 1 } as const;
+	const capacityRules = { min: 1, max: HOPPER_CAPACITY_G_MAX, decimals: 0 } as const;
+
+	const full = parseCalibrationNumber(fullCm, fullRules);
+	const empty = parseCalibrationNumber(emptyCm, emptyRules);
+	const capacity = parseCalibrationNumber(capacityG, capacityRules);
+	const inverted = full.status === "valid" && empty.status === "valid" && empty.value <= full.value;
+	const canSave =
+		canWrite &&
+		full.status === "valid" &&
+		empty.status === "valid" &&
+		capacity.status === "valid" &&
+		!inverted;
+
 	const handleSave = () => {
+		if (!canWrite) return;
+		if (full.status !== "valid" || empty.status !== "valid" || capacity.status !== "valid") return;
+		if (empty.value <= full.value) return;
+
 		setError(null);
 		setSaved(false);
 		startTransition(async () => {
 			const result = await saveHopperCalibration(deviceId, {
-				hopperFullCm: Number(fullCm),
-				hopperEmptyCm: Number(emptyCm),
-				hopperCapacityG: Number(capacityG),
+				hopperFullCm: full.value,
+				hopperEmptyCm: empty.value,
+				hopperCapacityG: capacity.value,
 			});
 			if (result.success) {
+				setSavedInputs([fullCm, emptyCm, capacityG].join("|"));
 				setSaved(true);
 				toast.success(t("calibrationSaved"));
 			} else {
@@ -57,59 +93,38 @@ export function HopperCalibrationForm({
 
 	return (
 		<div className="space-y-4" data-help="hopper-calibration">
-			<div>
-				<label htmlFor="hopperFullCm" className={dashboardLabel}>
-					{t("hopperFullCm")}
-				</label>
-				<input
+			<div className={calibrationFieldGrid}>
+				<CalibrationNumberField
 					id="hopperFullCm"
-					type="number"
-					min={0}
-					max={100}
-					step={0.1}
-					inputMode="decimal"
+					label={t("hopperFullCm")}
+					unit="cm"
 					value={fullCm}
-					onChange={(e) => setFullCm(Number(e.target.value))}
+					onValueChange={setFullCm}
 					disabled={!canWrite}
-					className={dashboardField}
+					help={t("hopperFullCmDesc")}
+					{...fullRules}
 				/>
-				<span className={dashboardHint}>{t("hopperFullCmDesc")}</span>
-			</div>
-			<div>
-				<label htmlFor="hopperEmptyCm" className={dashboardLabel}>
-					{t("hopperEmptyCm")}
-				</label>
-				<input
+				<CalibrationNumberField
 					id="hopperEmptyCm"
-					type="number"
-					min={0}
-					max={200}
-					step={0.1}
-					inputMode="decimal"
+					label={t("hopperEmptyCm")}
+					unit="cm"
 					value={emptyCm}
-					onChange={(e) => setEmptyCm(Number(e.target.value))}
+					onValueChange={setEmptyCm}
 					disabled={!canWrite}
-					className={dashboardField}
+					help={t("hopperEmptyCmDesc")}
+					error={inverted ? t("hopperEmptyGreaterThanFull") : undefined}
+					{...emptyRules}
 				/>
-				<span className={dashboardHint}>{t("hopperEmptyCmDesc")}</span>
-			</div>
-			<div>
-				<label htmlFor="hopperCapacityG" className={dashboardLabel}>
-					{t("hopperCapacityG")}
-				</label>
-				<input
+				<CalibrationNumberField
 					id="hopperCapacityG"
-					type="number"
-					min={0}
-					max={50000}
-					step={100}
-					inputMode="numeric"
+					label={t("hopperCapacityG")}
+					unit="g"
 					value={capacityG}
-					onChange={(e) => setCapacityG(Number(e.target.value))}
+					onValueChange={setCapacityG}
 					disabled={!canWrite}
-					className={dashboardField}
+					help={t("hopperCapacityGDesc")}
+					{...capacityRules}
 				/>
-				<span className={dashboardHint}>{t("hopperCapacityGDesc")}</span>
 			</div>
 
 			{error && (
@@ -126,7 +141,7 @@ export function HopperCalibrationForm({
 			<button
 				type="button"
 				onClick={handleSave}
-				disabled={isPending || !canWrite}
+				disabled={isPending || !canSave}
 				className={cn(dashboardButtonPrimary, "w-full sm:w-auto")}
 			>
 				{isPending ? t("saving") : t("saveCalibration")}

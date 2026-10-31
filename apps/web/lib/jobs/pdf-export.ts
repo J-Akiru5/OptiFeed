@@ -1,6 +1,9 @@
 import { notFound } from "@/lib/api/errors";
-import { DEFAULT_FISH_COUNT } from "@/lib/constants";
+import { resolveActivePond } from "@/lib/auth/pond-access";
+import { PH_TZ } from "@/lib/constants";
+import { dateToFarmDateOnly } from "@/lib/crop-cycle/dates";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
+import { formatFeedAmountLabel, isDailyTotalSource } from "@/lib/feed-figures";
 import type { ExportArtifact } from "@/lib/jobs/export-data";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
@@ -11,11 +14,46 @@ interface JsPDFWithAutoTable extends jsPDF {
 	lastAutoTable?: { finalY: number };
 }
 
+/**
+ * The report is generated on the server (UTC), but every date it prints is a
+ * farm-local date. Formatting with the runtime default would shift the
+ * "Generated" date and every feeding time by up to eight hours.
+ */
+export function formatFarmDate(value: Date): string {
+	return new Intl.DateTimeFormat("en-US", {
+		timeZone: PH_TZ,
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+	}).format(value);
+}
+
+function formatFarmDateTime(value: Date): string {
+	return new Intl.DateTimeFormat("en-US", {
+		timeZone: PH_TZ,
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	}).format(value);
+}
+
+/** Tenant-controlled pond name → a filename safe for Content-Disposition. */
+export function safeFilenamePart(value: string): string {
+	const cleaned = value
+		.replace(/[^A-Za-z0-9._-]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.replace(/^\.+/, "")
+		.slice(0, 60);
+	return cleaned || "pond";
+}
+
 export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
-	const pond = await prisma.pond.findFirst({
-		where: { ownerId },
-		include: { devices: true },
-	});
+	// Same pond the dashboard and CSV exports use (first ACTIVE pond). An
+	// unfiltered findFirst could report an archived pond, and the choice was
+	// nondeterministic when a farm had more than one.
+	const pond = await resolveActivePond(ownerId);
 
 	if (!pond) throw notFound("No pond found.");
 
@@ -55,7 +93,7 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 
 	doc.setFontSize(10);
 	doc.setTextColor(100);
-	doc.text(`Pond: ${pond.name}  |  Generated: ${new Date().toLocaleDateString()}`, 14, 30);
+	doc.text(`Pond: ${pond.name}  |  Generated: ${formatFarmDate(new Date())}`, 14, 30);
 
 	doc.setDrawColor(232, 90, 42); // #E85A2A
 	doc.setLineWidth(0.5);
@@ -74,13 +112,14 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 	// Daily Feed (g) = Total Biomass (g) × Feeding Rate (%)
 	// Feed per Meal (g) = Daily Feed (g) ÷ Feeds Per Day  (see lib/feed-calc.ts)
 	const pondPopulation = pond.population;
-	let nextFeedingVolumeG = energyDevice?.gramsPerFeeding ?? 330;
+	let nextFeedingVolumeG: number | null = energyDevice?.gramsPerFeeding ?? null;
 	if (latestBiomass) {
-		nextFeedingVolumeG = feedPerMealG(
+		const recommended = feedPerMealG(
 			totalBiomassG(pondPopulation, latestBiomass.avgWeightKg),
 			feedingRatePct,
 			feedsPerDay,
 		);
+		if (recommended !== null) nextFeedingVolumeG = recommended;
 	}
 
 	autoTable(doc, {
@@ -91,8 +130,8 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 			["Schedule", `${scheduleStart.getUTCHours()}:00 - ${scheduleEnd.getUTCHours()}:00`],
 			["Feeds Per Day", `${feedsPerDay}`],
 			["Feeding Rate", `${feedingRatePct}%`],
-			["Feed Volume", `${nextFeedingVolumeG}g`],
-			["Population", `${pondPopulation ?? DEFAULT_FISH_COUNT}`],
+			["Feed Volume", nextFeedingVolumeG === null ? "Set fish count" : `${nextFeedingVolumeG} g`],
+			["Population", pondPopulation === null ? "Not set" : `${pondPopulation}`],
 			["Sample Interval", `${pond.sampleIntervalDays ?? 14} days`],
 		],
 		theme: "grid",
@@ -111,7 +150,7 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 			head: [["Date", "Avg Weight (g)", "Samples", "Notes"]],
 			body: [
 				[
-					latestBiomass.recordedAt.toLocaleDateString(),
+					formatFarmDate(latestBiomass.recordedAt),
 					`${(latestBiomass.avgWeightKg * 1000).toFixed(1)}`,
 					`${latestBiomass.sampleCount}`,
 					"",
@@ -138,7 +177,7 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 			startY: yPos + 16,
 			head: [["Period", "FCR Value", "Feed Used (kg)", "Biomass Gain (kg)"]],
 			body: fcrReports.map((report) => [
-				`${report.periodStart.toLocaleDateString()} - ${report.periodEnd.toLocaleDateString()}`,
+				`${formatFarmDate(report.periodStart)} - ${formatFarmDate(report.periodEnd)}`,
 				report.fcrValue.toFixed(2),
 				report.totalFeedKg?.toFixed(1) ?? "—",
 				report.biomassGainKg?.toFixed(1) ?? "—",
@@ -162,13 +201,17 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 	if (feedEvents.length > 0) {
 		autoTable(doc, {
 			startY: yPos + 16,
-			head: [["Time", "Grams", "Source"]],
+			head: [["Time", "Amount", "Source"]],
 			body: feedEvents
 				.slice(0, 20)
 				.map((event) => [
-					event.receivedAt.toLocaleString(),
-					`${event.grams ?? 0}g`,
-					event.source ?? "scheduled",
+					formatFarmDateTime(event.receivedAt),
+					formatFeedAmountLabel(event.grams),
+					event.source
+						? isDailyTotalSource(event.source)
+							? "Hand-fed (daily total)"
+							: event.source
+						: "Not reported",
 				]),
 			theme: "grid",
 			headStyles: { fillColor: [10, 61, 98] },
@@ -190,7 +233,7 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 	}
 
 	return {
-		filename: `pakaonai-report-${pond.name}-${new Date().toISOString().split("T")[0]}.pdf`,
+		filename: `pakaonai-report-${safeFilenamePart(pond.name)}-${dateToFarmDateOnly(new Date())}.pdf`,
 		contentType: "application/pdf",
 		body: doc.output("arraybuffer"),
 	};

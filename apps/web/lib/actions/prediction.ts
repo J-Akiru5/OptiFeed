@@ -1,7 +1,7 @@
 "use server";
 
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
-import { feedGramsSchema, formatZodError } from "@/lib/limits";
+import { MAX_ACCEPTED_FEED_GRAMS, feedGramsSchema, formatZodError } from "@/lib/limits";
 import { getActivePond } from "@/lib/pond-selection";
 import {
 	PREDICTION_DEVIATION_THRESHOLD,
@@ -39,7 +39,7 @@ function sanitiseContext(context?: ApplyPredictionContext) {
 		typeof context?.baselineGrams === "number" &&
 		Number.isFinite(context.baselineGrams) &&
 		context.baselineGrams > 0
-			? Math.round(Math.min(context.baselineGrams, 1_000) * 10) / 10
+			? Math.round(Math.min(context.baselineGrams, MAX_ACCEPTED_FEED_GRAMS) * 10) / 10
 			: undefined;
 
 	return { source, confidence, baselineGrams };
@@ -53,8 +53,9 @@ function sanitiseContext(context?: ApplyPredictionContext) {
  * Safety layers (defence in depth — the client is never trusted):
  *  1. ADMIN/OPERATOR write access.
  *  2. The device must belong to the currently selected pond and the caller.
- *  3. feedGramsSchema range (1–1000 g).
- *  4. Device daily cap: per-meal grams cannot exceed dailyCap ÷ feedsPerDay.
+ *  3. feedGramsSchema range (1 g to the 5,000 g sanity bound).
+ *  4. The daily ceiling is the only gram cap: per-meal grams cannot exceed
+ *     dailyCap ÷ feedsPerDay.
  *  5. ±50% deviation veto against the value on the device.
  *  6. Compare-and-swap update so a concurrent schedule change cannot be
  *     overwritten by a stale prediction.
@@ -79,7 +80,13 @@ export async function applyPredictedGrams(
 				pondId: activePond.id,
 				pond: { ownerId },
 			},
-			select: { id: true, pondId: true, gramsPerFeeding: true, hopperCapacityG: true },
+			select: {
+				id: true,
+				pondId: true,
+				gramsPerFeeding: true,
+				hopperCapacityG: true,
+				dailyCapG: true,
+			},
 		});
 
 		if (!device || !device.pondId) {
@@ -95,14 +102,12 @@ export async function applyPredictedGrams(
 		}
 
 		const currentConfig = await resolveCurrentSchedule(device.pondId, device.id);
-		const upperBound = predictionUpperBound(
-			currentConfig?.feedsPerDay ?? 0,
-			device.hopperCapacityG,
-		);
+		const feedsPerDay = currentConfig?.feedsPerDay ?? 0;
+		const upperBound = predictionUpperBound(feedsPerDay, device.hopperCapacityG, device.dailyCapG);
 		if (safeGrams > upperBound + 0.05) {
 			return {
 				success: false,
-				error: `That amount exceeds this device's safe per-meal limit of ${upperBound.toFixed(1)} g.`,
+				error: `That amount exceeds today's daily ceiling divided over ${feedsPerDay || "the"} meals (${upperBound.toFixed(1)} g per meal).`,
 			};
 		}
 

@@ -15,7 +15,7 @@ import { ORG_SETTINGS_DEFAULTS, getOrgSettings } from "@/lib/settings/org";
 import { getListPageSize } from "@/lib/settings/platform";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MemberRole, Prisma, UserRole } from "@prisma/client";
-import { headers } from "next/headers";
+import { requestOrigin } from "./platform/audit";
 
 /**
  * Platform-console actions. Every export is gated by requirePlatformAdmin()
@@ -68,20 +68,6 @@ function auditTargetType(action: string): AuditTargetType {
 	throw new Error(`Unknown platform audit action: ${action}`);
 }
 
-/** Request origin for the audit row (who/what/when/where), same as devices.ts. */
-async function requestOrigin(): Promise<{ ip: string | null; userAgent: string | null }> {
-	try {
-		const h = await headers();
-		const forwarded = h.get("x-forwarded-for")?.split(",")[0]?.trim();
-		return {
-			ip: forwarded || h.get("x-real-ip") || null,
-			userAgent: h.get("user-agent")?.slice(0, 512) ?? null,
-		};
-	} catch {
-		return { ip: null, userAgent: null };
-	}
-}
-
 /** Append an audit row (T5). Every mutation in this file calls it. */
 async function audit(
 	data: {
@@ -123,35 +109,6 @@ async function actorId(): Promise<string> {
 	const user = await getCurrentUser();
 	if (!user) throw new Error("Not authenticated.");
 	return user.id;
-}
-
-// ─── Overview ─────────────────────────────────────────────────────────────────
-
-export type SuperadminStats = {
-	userCount: number;
-	orgCount: number;
-	pondCount: number;
-	platformAdminCount: number;
-	activePlatformAdminCount: number;
-};
-
-export async function getSuperadminStats(): Promise<SuperadminStats> {
-	await requirePlatformAdmin();
-
-	const [userCount, orgCount, pondCount, platformAdmins] = await Promise.all([
-		prisma.user.count(),
-		prisma.organization.count(),
-		prisma.pond.count(),
-		prisma.platformAdmin.findMany({ select: { revokedAt: true, expiresAt: true } }),
-	]);
-
-	return {
-		userCount,
-		orgCount,
-		pondCount,
-		platformAdminCount: platformAdmins.length,
-		activePlatformAdminCount: platformAdmins.filter((r) => isPlatformAdminActive(r)).length,
-	};
 }
 
 // ─── Users ────────────────────────────────────────────────────────────────────
@@ -349,7 +306,9 @@ export async function listAllUsers(
 	};
 }
 
-export type PlatformUserResult = { success: true; userId: string } | { error: string };
+export type PlatformUserResult =
+	| { success: true; userId: string }
+	| { error: string; code?: "step_up_required" };
 
 export type CreatePlatformUserInput = {
 	reason: string;
@@ -526,6 +485,14 @@ export async function createPlatformUser(
 	}
 }
 
+/**
+ * Update a user's display name and/or legacy `User.role`.
+ *
+ * Changing the legacy role can confer authority on paths that still read it,
+ * so it follows the same fresh-step-up rule as grant/revoke and the tenant role
+ * change. A display-name-only edit is not privileged and does not demand one.
+ * The audit row records `stepUpAt` only when the role was checked.
+ */
 export async function updatePlatformUser(
 	userId: string,
 	data: { displayName?: string; role?: UserRole },
@@ -542,23 +509,46 @@ export async function updatePlatformUser(
 		if (!before) return { error: "User not found." };
 
 		const actor = await actorId();
-		await prisma.$transaction(async (tx) => {
-			await tx.user.update({ where: { id: userId }, data });
-			await audit(
-				{
-					action: "platform.user.update",
-					targetId: userId,
-					reason: trimmedReason,
-					actorUserId: actor,
-					before,
-					after: { ...before, ...data },
-				},
-				tx,
-			);
-		});
+		// Same rule as the tenant `updateUser`: blank, whitespace-only or
+		// over-long display names are refused before any write (#335).
+		const displayName = typeof data.displayName === "string" ? data.displayName.trim() : undefined;
+		if (data.displayName !== undefined) {
+			if (!displayName) return { error: "Display name is required." };
+			if (displayName.length > 80) return { error: "Display name is too long." };
+		}
+		const patch = displayName === undefined ? data : { ...data, displayName };
+
+		// A no-op role value is not a change, so it is not treated as privileged.
+		const roleChanged = patch.role !== undefined && patch.role !== before.role;
+
+		const applyUpdate = async (stepUpAt: Date | null) => {
+			await prisma.$transaction(async (tx) => {
+				await tx.user.update({ where: { id: userId }, data: patch });
+				await audit(
+					{
+						action: "platform.user.update",
+						targetId: userId,
+						reason: trimmedReason,
+						actorUserId: actor,
+						...(stepUpAt ? { stepUpAt } : {}),
+						before,
+						after: { ...before, ...patch },
+					},
+					tx,
+				);
+			});
+		};
+
+		if (roleChanged) {
+			await withStepUp((stepUpAt) => applyUpdate(stepUpAt));
+		} else {
+			await applyUpdate(null);
+		}
 
 		return { success: true, userId };
 	} catch (e) {
+		const stepUp = stepUpFailure(e);
+		if (stepUp) return stepUp;
 		console.error("[superadmin] updatePlatformUser error:", e);
 		return { error: "Failed to update the user." };
 	}
@@ -608,9 +598,11 @@ function disabledAuditAfter(after: Prisma.JsonValue | null): {
  * `enablePlatformUser` can restore the exact prior state. A hard purge stays a
  * later M7 job.
  *
- * Requires step-up and a typed farmId confirmation. The auth ban runs inside
- * the step-up-guarded block, and is compensated if the DB transaction fails, so
- * a missing cookie can never ban an account.
+ * Requires step-up and a typed farmId confirmation. The last-admin count, the
+ * Supabase ban and the revoking writes share one transaction holding a row lock
+ * on the active grants, so concurrent disables cannot both pass the guard
+ * (#334). The ban runs inside the step-up-guarded block and is compensated if
+ * the transaction fails, so a missing cookie can never ban an account.
  */
 export async function disablePlatformUser(
 	userId: string,
@@ -633,34 +625,50 @@ export async function disablePlatformUser(
 		return { error: `Type ${user.farmId} exactly to confirm.` };
 	}
 
-	// Last-admin protection: a disable revokes the target's god-mode, so the
-	// platform must keep at least one other active admin.
-	const grant = await prisma.platformAdmin.findUnique({
-		where: { userId },
-		select: { revokedAt: true, expiresAt: true },
-	});
-	if (grant && isPlatformAdminActive(grant)) {
-		const activeAdmins = await prisma.platformAdmin.count({
-			where: activePlatformAdminWhere(),
-		});
-		if (activeAdmins <= 1) return { error: LAST_PLATFORM_ADMIN_MESSAGE };
-	}
-
 	const actor = await actorId();
 	const supabase = createAdminClient();
 	let banned = false;
 
 	try {
-		await withStepUp(async (stepUpAt) => {
-			const { error: authError } = await supabase.auth.admin.updateUserById(user.supabaseId, {
-				ban_duration: DISABLE_BAN_DURATION,
-			});
-			if (authError) {
-				throw new Error(`supabase ban failed: ${authError.message}`);
-			}
-			banned = true;
+		// Last-admin protection: a disable revokes the target's god-mode, so the
+		// platform must keep at least one other active admin. The count, the
+		// conditional refusal and the ban all run in the same transaction, after
+		// locking every active grant row (#334): two concurrent disables cannot
+		// both read "two admins" and leave the platform with zero.
+		const refused = await withStepUp(async (stepUpAt) =>
+			prisma.$transaction(async (tx) => {
+				// `FOR UPDATE` makes the second disable wait for the first to
+				// commit, so its count reflects the revocation it just missed.
+				await tx.$queryRaw<Array<{ userId: string }>>`
+					SELECT "userId" FROM "PlatformAdmin"
+					WHERE "revokedAt" IS NULL
+						AND ("expiresAt" IS NULL OR "expiresAt" > now())
+					ORDER BY "userId"
+					FOR UPDATE
+				`;
 
-			await prisma.$transaction(async (tx) => {
+				const activeGrant = await tx.platformAdmin.findUnique({
+					where: { userId: user.id },
+					select: { revokedAt: true, expiresAt: true },
+				});
+				if (activeGrant && isPlatformAdminActive(activeGrant)) {
+					const activeAdmins = await tx.platformAdmin.count({
+						where: activePlatformAdminWhere(),
+					});
+					if (activeAdmins <= 1) return true;
+				}
+
+				// Ban while still holding the lock: a failure rolls the whole
+				// transaction back before anything is persisted, and the catch
+				// above compensates if the commit itself fails.
+				const { error: authError } = await supabase.auth.admin.updateUserById(user.supabaseId, {
+					ban_duration: DISABLE_BAN_DURATION,
+				});
+				if (authError) {
+					throw new Error(`supabase ban failed: ${authError.message}`);
+				}
+				banned = true;
+
 				const memberships = await tx.membership.findMany({
 					where: { userId: user.id, revokedAt: null },
 					select: { id: true, orgId: true, role: true },
@@ -673,10 +681,6 @@ export async function disablePlatformUser(
 					});
 				}
 
-				const activeGrant = await tx.platformAdmin.findUnique({
-					where: { userId: user.id },
-					select: { revokedAt: true, expiresAt: true },
-				});
 				const platformAdminRevoked = Boolean(activeGrant && isPlatformAdminActive(activeGrant));
 				if (platformAdminRevoked) {
 					await tx.platformAdmin.update({
@@ -715,8 +719,10 @@ export async function disablePlatformUser(
 					},
 					tx,
 				);
-			});
-		});
+				return false;
+			}),
+		);
+		if (refused) return { error: LAST_PLATFORM_ADMIN_MESSAGE };
 	} catch (e) {
 		if (banned) {
 			// Compensate: the DB half failed, so do not leave the login banned.
@@ -1197,41 +1203,6 @@ export async function listAllPonds(
 }
 
 // ─── Platform admin grants ────────────────────────────────────────────────────
-
-export type PlatformAdminRow = {
-	userId: string;
-	farmId: string;
-	displayName: string | null;
-	grantedBy: string | null;
-	grantedAt: Date;
-	expiresAt: Date | null;
-	revokedAt: Date | null;
-	active: boolean;
-};
-
-export async function getPlatformAdmins(): Promise<PlatformAdminRow[]> {
-	await requirePlatformAdmin();
-
-	const [rows, users] = await Promise.all([
-		prisma.platformAdmin.findMany({ orderBy: { createdAt: "desc" } }),
-		prisma.user.findMany({ select: { id: true, farmId: true, displayName: true } }),
-	]);
-	const byId = new Map(users.map((u) => [u.id, u]));
-
-	return rows.map((r) => {
-		const u = byId.get(r.userId);
-		return {
-			userId: r.userId,
-			farmId: u?.farmId ?? "(missing user)",
-			displayName: u?.displayName ?? null,
-			grantedBy: r.grantedBy,
-			grantedAt: r.createdAt,
-			expiresAt: r.expiresAt,
-			revokedAt: r.revokedAt,
-			active: isPlatformAdminActive(r),
-		};
-	});
-}
 
 export type GrantResult = { success: true } | { error: string; code?: "step_up_required" };
 

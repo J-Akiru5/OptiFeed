@@ -5,20 +5,22 @@ import { getCurrentPondOwnerId, getCurrentUser, requireWriteAccess } from "@/lib
 import { isValidRecalibrationIntervalDays } from "@/lib/calibration/recalibration";
 import { isValidCalibrationSessionId } from "@/lib/calibration/session";
 import { STALE_DISPATCHED_MS } from "@/lib/constants";
+import { isDeviceUnreachable } from "@/lib/device-status";
 import {
 	CALIBRATION_ACTUAL_GRAMS_MAX,
+	CALIBRATION_MAX_DISPENSE_MS,
 	CALIBRATION_TEST_GRAMS_MAX,
 	CALIBRATION_TEST_SECONDS_MAX,
 	CALIBRATION_TEST_SECONDS_MIN,
 	GRAMS_PER_SECOND_MAX,
 	GRAMS_PER_SECOND_MIN,
-	OFFLINE_THRESHOLD_MS,
 	TARGET_CHECK_GRAMS_MAX,
 	TARGET_CHECK_GRAMS_MIN,
 	TARGET_CHECK_TOLERANCE_PCT,
-	dailyFeedCapG,
+	resolveDailyCapG,
 } from "@/lib/limits";
 import prisma from "@/lib/prisma";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import { revalidatePath } from "next/cache";
 
@@ -169,6 +171,7 @@ async function queueCalibrationDose(input: {
 		data: {
 			deviceId: input.deviceId,
 			grams: input.grams,
+			kind: "calibration",
 			status: "pending",
 		},
 	});
@@ -222,6 +225,7 @@ export async function runCalibrationTest(
 				gramsPerSecond: true,
 				lastSeenAt: true,
 				hopperCapacityG: true,
+				dailyCapG: true,
 				pond: { select: { isFallow: true } },
 			},
 		});
@@ -248,7 +252,7 @@ export async function runCalibrationTest(
 			data: { status: "expired" },
 		});
 
-		if (!device.lastSeenAt || Date.now() - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS) {
+		if (isDeviceUnreachable(device.lastSeenAt, new Date(), await getDeviceStatusPolicy())) {
 			return {
 				success: false,
 				error: "Device is offline — calibration test rejected. Retry once the device reconnects.",
@@ -273,14 +277,14 @@ export async function runCalibrationTest(
 			return { success: false, error: TEST_DOSE_RANGE_ERROR };
 		}
 
-		// The platform cap may shorten the allowed relay run; the test window is
-		// user-chosen, so refuse a window that no longer fits instead of quietly
-		// queueing a dose the server caps would reject elsewhere.
+		// Calibration has its own relay ceiling: 10 minutes, versus 5 minutes for
+		// an ordinary feed. The platform feeding cap still governs normal doses;
+		// this exception exists so a slow auger can be measured in one run.
 		const limits = await getFeedingLimits();
-		if (testSeconds * 1000 > limits.maxDispenseMs) {
+		if (testSeconds * 1000 > CALIBRATION_MAX_DISPENSE_MS) {
 			return {
 				success: false,
-				error: `The test dose would run longer than the ${limits.maxDispenseMs / 1000} s relay limit. Choose a shorter test.`,
+				error: `The test dose would run longer than the ${CALIBRATION_MAX_DISPENSE_MS / 1000} s calibration relay limit. Choose a shorter test.`,
 			};
 		}
 
@@ -294,7 +298,11 @@ export async function runCalibrationTest(
 			_sum: { grams: true },
 		});
 		const usedTodayG = today._sum.grams ?? 0;
-		const dailyCapG = dailyFeedCapG(device.hopperCapacityG, limits.dailyCapFactor);
+		const dailyCapG = resolveDailyCapG({
+			configuredCapG: device.dailyCapG,
+			hopperCapacityG: device.hopperCapacityG,
+			dailyCapFactor: limits.dailyCapFactor,
+		});
 		if (usedTodayG + testGrams > dailyCapG) {
 			return {
 				success: false,
@@ -361,6 +369,7 @@ export async function runTargetCheck(
 				gramsPerSecond: true,
 				lastSeenAt: true,
 				hopperCapacityG: true,
+				dailyCapG: true,
 				pond: { select: { isFallow: true } },
 			},
 		});
@@ -385,7 +394,7 @@ export async function runTargetCheck(
 			data: { status: "expired" },
 		});
 
-		if (!device.lastSeenAt || Date.now() - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS) {
+		if (isDeviceUnreachable(device.lastSeenAt, new Date(), await getDeviceStatusPolicy())) {
 			return {
 				success: false,
 				error: "Device is offline — target check rejected. Retry once the device reconnects.",
@@ -432,7 +441,11 @@ export async function runTargetCheck(
 			_sum: { grams: true },
 		});
 		const usedTodayG = today._sum.grams ?? 0;
-		const dailyCapG = dailyFeedCapG(device.hopperCapacityG, limits.dailyCapFactor);
+		const dailyCapG = resolveDailyCapG({
+			configuredCapG: device.dailyCapG,
+			hopperCapacityG: device.hopperCapacityG,
+			dailyCapFactor: limits.dailyCapFactor,
+		});
 		if (usedTodayG + checkGrams > dailyCapG) {
 			return {
 				success: false,

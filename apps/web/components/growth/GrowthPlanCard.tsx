@@ -1,9 +1,19 @@
 "use client";
 
-import { Link } from "@/i18n/routing";
+import { TermInfo } from "@/components/dashboard/term-info";
+import { Link, useRouter } from "@/i18n/routing";
 import { applyGrowthPlan } from "@/lib/actions/growth-plan";
+import { clearGrowthTarget } from "@/lib/actions/growth-target";
 import type { GrowthPlan } from "@/lib/growth-plan";
-import { CheckCircle2, Loader2, Scale, Target, TrendingDown, TrendingUp } from "lucide-react";
+import {
+	CheckCircle2,
+	Loader2,
+	Scale,
+	Target,
+	Trash2,
+	TrendingDown,
+	TrendingUp,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -26,11 +36,22 @@ function formatMoney(value: number, currency: string): string {
 	}
 }
 
+function formatKg(value: number | null): string {
+	return value === null ? "—" : `${value.toFixed(1)} kg`;
+}
+
+function signedKg(value: number): string {
+	return `${value > 0 ? "+" : ""}${value.toFixed(1)} kg`;
+}
+
 export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) {
 	const t = useTranslations("dashboard.growth.growthPlan");
+	const tCommon = useTranslations("dashboard.common");
+	const router = useRouter();
 	const [confirming, setConfirming] = useState(false);
 	const [applied, setApplied] = useState(false);
 	const [isPending, startTransition] = useTransition();
+	const [isClearingTarget, startClearTarget] = useTransition();
 
 	if (plan.status === "noCycle") {
 		return (
@@ -48,7 +69,7 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 							{t("noCycle")}
 						</p>
 						<Link
-							href="/dashboard/harvest"
+							href="/dashboard/calendar"
 							className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#164e7c]"
 						>
 							{t("startCycle")}
@@ -75,7 +96,7 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 							{plan.status === "noTarget" ? t("noTarget") : t("noWeight")}
 						</p>
 						<Link
-							href={plan.status === "noTarget" ? "/dashboard/harvest" : "/dashboard/log-sample"}
+							href={plan.status === "noTarget" ? "/dashboard/calendar" : "/dashboard/log-sample"}
 							className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#164e7c]"
 						>
 							{plan.status === "noTarget" ? t("editPlan") : t("logSample")}
@@ -142,6 +163,19 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 		});
 	};
 
+	const clearTarget = () => {
+		if (!canWrite) return;
+		startClearTarget(async () => {
+			const result = await clearGrowthTarget(pondId);
+			if (result.success) {
+				toast.success(t("targetCleared"));
+				router.refresh();
+			} else {
+				toast.error(result.error ?? t("targetClearError"));
+			}
+		});
+	};
+
 	return (
 		<section
 			className="overflow-hidden rounded-[32px] border border-gray-100 bg-white shadow-sm dark:border-gray-700/50 dark:bg-gray-900"
@@ -165,6 +199,12 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 						</div>
 					</div>
 					<div className="flex flex-wrap items-center gap-2">
+						{plan.targetSource === "saved" && (
+							<span className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-bold">
+								<Target aria-hidden="true" className="mr-1 h-3.5 w-3.5" />
+								{t("sourceCalculator")}
+							</span>
+						)}
 						<span
 							className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${trackClass}`}
 						>
@@ -188,7 +228,11 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 				<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
 					<div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800">
 						<p className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400">
-							{t("current")}
+							<TermInfo
+								label={t("current")}
+								hint={tCommon("terminology.aboutAbw")}
+								description={tCommon("terminology.abw")}
+							/>
 						</p>
 						<p className="mt-1 text-xl font-black text-[var(--ofd-base-deep)]">
 							{currentWeight.toFixed(0)} g
@@ -222,6 +266,77 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 								: "—"}
 						</p>
 					</div>
+				</div>
+
+				<div className="rounded-2xl border border-gray-100 p-4 dark:border-gray-700/50">
+					<div className="flex flex-wrap items-center justify-between gap-2">
+						<p className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400">
+							{t("biomassTitle")}
+						</p>
+						{plan.targetSource === "saved" && (
+							<button
+								type="button"
+								onClick={clearTarget}
+								disabled={!canWrite || isClearingTarget}
+								className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-[11px] font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-500/10"
+							>
+								{isClearingTarget ? (
+									<Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
+								) : (
+									<Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
+								)}
+								{isClearingTarget ? t("clearingTarget") : t("clearTarget")}
+							</button>
+						)}
+					</div>
+					<div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+						<div>
+							<p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+								{t("targetBiomass")}
+							</p>
+							<p className="mt-1 text-lg font-black text-[var(--ofd-base-deep)]">
+								{formatKg(plan.targetBiomassKg)}
+							</p>
+						</div>
+						<div>
+							<p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+								{t("currentBiomass")}
+							</p>
+							<p className="mt-1 text-lg font-black text-[var(--ofd-base-deep)]">
+								{formatKg(plan.currentBiomassKg)}
+							</p>
+						</div>
+						<div>
+							<p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+								{t("expectedBiomass")}
+							</p>
+							<p className="mt-1 text-lg font-black text-[var(--ofd-base-deep)]">
+								{formatKg(plan.expectedBiomassKg)}
+							</p>
+						</div>
+						<div>
+							<p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+								{t("biomassGap")}
+							</p>
+							<p className="mt-1 text-lg font-black text-[var(--ofd-base-deep)]">
+								{plan.biomassGapKg !== null ? signedKg(plan.biomassGapKg) : "—"}
+							</p>
+						</div>
+					</div>
+					<p className="mt-3 text-xs font-semibold text-gray-500 dark:text-gray-400">
+						{t("projectedBiomass")}: {formatKg(plan.projectedBiomassKg)}
+						{plan.projectedBiomassGapKg !== null && (
+							<>
+								{" · "}
+								{t("projectedGap")}: {signedKg(plan.projectedBiomassGapKg)}
+							</>
+						)}
+					</p>
+					{plan.targetSource === "saved" && (
+						<p className="mt-1 text-[11px] font-medium text-gray-500 dark:text-gray-400">
+							{t("savedTargetHint")}
+						</p>
+					)}
 				</div>
 
 				<div>
@@ -434,12 +549,16 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 					<span>
 						{t("confidence")}: {t(`confidence_${plan.confidence}`)}
 					</span>
-					<span>{t("fcr", { fcr: plan.feed.fcrAssumption })}</span>
+					<TermInfo
+						label={t("fcr", { fcr: plan.feed.fcrAssumption })}
+						hint={tCommon("terminology.aboutFcr")}
+						description={tCommon("terminology.fcr")}
+					/>
 					{plan.density.fishPerM2 !== null && (
 						<span>{t("density", { density: plan.density.fishPerM2.toFixed(1) })}</span>
 					)}
 					<Link
-						href="/dashboard/harvest"
+						href="/dashboard/calendar"
 						className="font-bold text-[var(--ofd-base)] hover:underline"
 					>
 						{t("editPlan")}

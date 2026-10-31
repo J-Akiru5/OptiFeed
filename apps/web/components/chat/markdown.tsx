@@ -53,10 +53,13 @@ export function Markdown({ text }: { text: string }) {
 				flushList(`list-${lineNo}`);
 				list = { ordered, items: [] };
 			}
+			// A list item must be an `<li>`: a `<span>` inside `<ul>`/`<ol>` is
+			// invalid markup, and screen readers then refuse to announce the
+			// list or its length at all (axe `list`/`listitem`).
 			list.items.push(
-				<span key={`item-${lineNo}`}>
+				<li key={`item-${lineNo}`}>
 					{renderInline((bullet ?? numbered)?.[1] ?? "", `li-${lineNo}`)}
-				</span>,
+				</li>,
 			);
 			lineNo++;
 			continue;

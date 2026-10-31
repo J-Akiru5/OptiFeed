@@ -1,8 +1,11 @@
 import { z } from "zod";
+import {
+	DAILY_CAP_MIN_G,
+	MAX_ACCEPTED_FEED_GRAMS,
+	MAX_FEED_GRAMS_PER_DAY_PER_DEVICE,
+} from "./limits-core";
 
-export const MAX_FEED_GRAMS_PER_REQUEST = 1000;
-export const MAX_FEED_GRAMS_PER_DAY_PER_DEVICE = 5000;
-export const MAX_DISPENSE_MS = 300_000;
+export * from "./limits-core";
 
 export const FEEDING_RATE_PCT_MIN = 0.1;
 export const FEEDING_RATE_PCT_MAX = 10;
@@ -19,17 +22,47 @@ export const GRAMS_PER_SECOND_MAX = 50;
 export const TEMP_OFFSET_C_MIN = -20;
 export const TEMP_OFFSET_C_MAX = 20;
 
+// Hopper shape calibration. The empty distance must be larger than the full
+// distance (the sensor measures downward), and a capacity of zero would make
+// the daily feed cap fall back to the hard maximum, so it is rejected.
+export const HOPPER_FULL_CM_MAX = 200;
+export const HOPPER_EMPTY_CM_MAX = 500;
+export const HOPPER_CAPACITY_G_MAX = 50_000;
+
+export const hopperCalibrationSchema = z
+	.object({
+		hopperFullCm: z
+			.number("Full distance must be a number")
+			.finite("Full distance must be a number")
+			.min(0, "Full distance cannot be negative")
+			.max(HOPPER_FULL_CM_MAX, `Full distance cannot exceed ${HOPPER_FULL_CM_MAX} cm`),
+		hopperEmptyCm: z
+			.number("Empty distance must be a number")
+			.finite("Empty distance must be a number")
+			.min(0, "Empty distance cannot be negative")
+			.max(HOPPER_EMPTY_CM_MAX, `Empty distance cannot exceed ${HOPPER_EMPTY_CM_MAX} cm`),
+		hopperCapacityG: z
+			.number("Hopper capacity must be a number")
+			.finite("Hopper capacity must be a number")
+			.min(1, "Hopper capacity must be greater than 0 g")
+			.max(HOPPER_CAPACITY_G_MAX, `Hopper capacity cannot exceed ${HOPPER_CAPACITY_G_MAX} g`),
+	})
+	.refine((value) => value.hopperEmptyCm > value.hopperFullCm, {
+		message: "The empty distance must be greater than the full distance",
+		path: ["hopperEmptyCm"],
+	});
+
 // Guided motor calibration: run the motor for a bounded test window, weigh the
 // output, then derive grams per second. The upper bounds keep a test dose
-// inside the per-request feed cap and the weighed output physically plausible.
+// inside the calibration ceiling and the weighed output physically plausible.
 export const CALIBRATION_TEST_SECONDS_MIN = 3;
-export const CALIBRATION_TEST_SECONDS_MAX = 30;
-export const CALIBRATION_TEST_GRAMS_MAX = 1000;
-export const CALIBRATION_ACTUAL_GRAMS_MAX = 2000;
+export const CALIBRATION_TEST_SECONDS_MAX = 600;
+export const CALIBRATION_TEST_GRAMS_MAX = 5000;
+export const CALIBRATION_ACTUAL_GRAMS_MAX = 5000;
 
 // Target check (issue #191): dispense an exact target, weigh it, and correct
-// grams per second from the error. The target bounds match the dashboard Feed
-// Now cap; ±5% is the acceptance window.
+// grams per second from the error. The target bounds are the calibration
+// limits; ±5% is the acceptance window.
 export const TARGET_CHECK_GRAMS_MIN = 5;
 export const TARGET_CHECK_GRAMS_MAX = 500;
 export const TARGET_CHECK_TOLERANCE_PCT = 5;
@@ -58,13 +91,12 @@ export const populationSchema = z
 	.min(POPULATION_MIN, `Population must be at least ${POPULATION_MIN}`)
 	.max(POPULATION_MAX, `Population cannot exceed ${POPULATION_MAX.toLocaleString("en-US")}`);
 
+// The daily ceiling is the only gram cap. This upper bound is a sanity guard
+// (the daily hard guard), not a per-request limit: it rejects impossible input.
 export const feedGramsSchema = z
 	.number("Feed amount must be a number")
 	.min(1, "Feed amount must be at least 1 g")
-	.max(
-		MAX_FEED_GRAMS_PER_REQUEST,
-		`Feed amount cannot exceed ${MAX_FEED_GRAMS_PER_REQUEST} g per request`,
-	);
+	.max(MAX_ACCEPTED_FEED_GRAMS, `Feed amount cannot exceed ${MAX_ACCEPTED_FEED_GRAMS} g`);
 
 const hhmm = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -168,29 +200,17 @@ export function formatZodError(error: z.ZodError): string {
 /**
  * The daily feed allowance for one device.
  *
- * `dailyCapFactor` is the platform safety setting: it may only lower the
- * hard-coded maximum (1 = unchanged, 0.5 = half). The factor is clamped again
- * here so a caller that forgets to read the setting still cannot raise the cap.
+ * The farmer/admin ceiling (`EnergyDevice.dailyCapG`) defaults to 2,000 g and
+ * may be raised to the hard guard (5,000 g, matching the firmware's
+ * `MAX_GRAMS_PER_DAY`). The platform setting (`dailyCapFactor`) may only lower
+ * the result, and a calibrated hopper is the final physical limit.
  */
-export function dailyFeedCapG(
-	hopperCapacityG: number | null | undefined,
-	dailyCapFactor = 1,
-): number {
-	const factor =
-		typeof dailyCapFactor === "number" && Number.isFinite(dailyCapFactor)
-			? Math.min(Math.max(dailyCapFactor, 0), 1)
-			: 1;
-	const hardCap = MAX_FEED_GRAMS_PER_DAY_PER_DEVICE * factor;
-	if (
-		typeof hopperCapacityG === "number" &&
-		Number.isFinite(hopperCapacityG) &&
-		hopperCapacityG > 0
-	) {
-		return Math.min(hardCap, hopperCapacityG);
-	}
-	return hardCap;
-}
 
-export function clamp(value: number, min: number, max: number): number {
-	return Math.min(Math.max(value, min), max);
-}
+export const dailyCapSchema = z
+	.number("Daily feed ceiling must be a number")
+	.int("Daily feed ceiling must be a whole number")
+	.min(DAILY_CAP_MIN_G, `Daily feed ceiling must be at least ${DAILY_CAP_MIN_G} g`)
+	.max(
+		MAX_FEED_GRAMS_PER_DAY_PER_DEVICE,
+		`Daily feed ceiling cannot exceed ${MAX_FEED_GRAMS_PER_DAY_PER_DEVICE} g`,
+	);

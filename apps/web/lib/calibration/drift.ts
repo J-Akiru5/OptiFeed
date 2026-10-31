@@ -66,8 +66,19 @@ function isFiniteNumber(value: unknown): value is number {
 
 /**
  * Grams represented by the observed level drop, with each refill starting a new
- * segment. Drops are summed per segment; rises at or below the refill threshold
- * are treated as sensor noise and contribute nothing.
+ * segment.
+ *
+ * Readings are walked in time order against a baseline (the last level that was
+ * actually counted):
+ *
+ * - a fall below the baseline is a real drop: count it and move the baseline
+ *   down;
+ * - a rise at or below `DRIFT_REFILL_JUMP_POINTS` is sensor noise and is
+ *   ignored **without raising the baseline**, so a later fall is measured from
+ *   the true peak instead of counting the same pellets twice (70 → 75 → 60 is
+ *   10 points, not 15);
+ * - a larger rise is a refill: it starts a new segment and the drop measured
+ *   before it is kept (that feed was dispensed and counted by the device).
  */
 export function levelDropGrams(
 	levels: readonly DriftLevelSample[],
@@ -78,18 +89,25 @@ export function levelDropGrams(
 	const sorted = [...levels]
 		.filter((level) => isFiniteNumber(level.levelPercent))
 		.sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime());
+	if (sorted.length < 2) return 0;
 
+	let baseline = sorted[0].levelPercent;
 	let dropPoints = 0;
+
 	for (let index = 1; index < sorted.length; index += 1) {
-		const previous = sorted[index - 1];
-		const current = sorted[index];
-		const delta = current.levelPercent - previous.levelPercent;
+		const current = sorted[index].levelPercent;
+		const delta = current - baseline;
 
-		// Refill: start a new segment. The pre-refill drop is kept because it
-		// was caused by feed that the device also counted as dispensed.
-		if (delta > DRIFT_REFILL_JUMP_POINTS) continue;
+		if (delta > DRIFT_REFILL_JUMP_POINTS) {
+			// Refill: new segment, baseline at the new level.
+			baseline = current;
+			continue;
+		}
 
-		dropPoints += Math.max(0, -delta);
+		if (delta < 0) {
+			dropPoints += -delta;
+			baseline = current;
+		}
 	}
 
 	return round1((dropPoints / 100) * hopperCapacityG);

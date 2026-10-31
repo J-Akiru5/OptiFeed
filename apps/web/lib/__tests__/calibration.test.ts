@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+﻿import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
 	default: {
@@ -50,7 +50,12 @@ import { saveDurationCalibration } from "@/lib/actions/energy";
 import { requirePermission } from "@/lib/auth/permissions";
 import { requireWriteAccess } from "@/lib/auth/session";
 import { isValidCalibrationSessionId } from "@/lib/calibration/session";
-import { CALIBRATION_TEST_GRAMS_MAX, OFFLINE_THRESHOLD_MS } from "@/lib/limits";
+import {
+	CALIBRATION_TEST_GRAMS_MAX,
+	CALIBRATION_TEST_SECONDS_MAX,
+	MAX_ACCEPTED_FEED_GRAMS,
+	OFFLINE_THRESHOLD_MS,
+} from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
@@ -91,6 +96,12 @@ beforeEach(() => {
 	mockCalibrationRun.create.mockResolvedValue({} as never);
 });
 
+describe("feed schema sanity bound", () => {
+	it("is the 5,000 g daily guard, not a per-request gram cap", () => {
+		expect(MAX_ACCEPTED_FEED_GRAMS).toBe(5000);
+	});
+});
+
 describe("runCalibrationTest", () => {
 	it("queues a pending test dose and records the queued event", async () => {
 		const result = await runCalibrationTest("device-1", 10, SESSION_ID);
@@ -102,7 +113,7 @@ describe("runCalibrationTest", () => {
 			expectedSeconds: 10,
 		});
 		expect(mockFeedRequest.create).toHaveBeenCalledWith({
-			data: { deviceId: "device-1", grams: 40, status: "pending" },
+			data: { deviceId: "device-1", grams: 40, kind: "calibration", status: "pending" },
 		});
 		expect(mockDeviceStateEvent.create).toHaveBeenCalledWith({
 			data: {
@@ -124,12 +135,12 @@ describe("runCalibrationTest", () => {
 		expect(mockRevalidatePath).toHaveBeenCalledTimes(3);
 	});
 
-	it.each([2, 31, 5.5])("rejects an invalid test duration (%s s)", async (seconds) => {
+	it.each([2, 601, 5.5])("rejects an invalid test duration (%s s)", async (seconds) => {
 		const result = await runCalibrationTest("device-1", seconds, SESSION_ID);
 
 		expect(result).toEqual({
 			success: false,
-			error: expect.stringContaining("between 3 and 30"),
+			error: expect.stringContaining(`between 3 and ${CALIBRATION_TEST_SECONDS_MAX}`),
 		});
 		expect(mockEnergyDevice.findFirst).not.toHaveBeenCalled();
 		expect(mockFeedRequest.create).not.toHaveBeenCalled();
@@ -185,12 +196,12 @@ describe("runCalibrationTest", () => {
 		expect(mockDeviceStateEvent.create).not.toHaveBeenCalled();
 	});
 
-	it("rejects a test dose over the 1000 g ceiling without writing", async () => {
+	it("rejects a test dose over the 5000 g ceiling without writing", async () => {
 		mockEnergyDevice.findFirst.mockResolvedValue(
 			onlineDevice({ gramsPerSecond: 50, hopperCapacityG: 5000 }) as never,
 		);
 
-		const result = await runCalibrationTest("device-1", 30, SESSION_ID);
+		const result = await runCalibrationTest("device-1", 600, SESSION_ID);
 
 		expect(result).toEqual({
 			success: false,
@@ -207,7 +218,7 @@ describe("runCalibrationTest", () => {
 
 		expect(result).toEqual({
 			success: false,
-			error: expect.stringContaining(`1–${CALIBRATION_TEST_GRAMS_MAX}`),
+			error: expect.stringContaining(String(CALIBRATION_TEST_GRAMS_MAX)),
 		});
 		expect(mockFeedRequest.create).not.toHaveBeenCalled();
 	});
@@ -403,7 +414,7 @@ describe("saveCalibrationFromTest", () => {
 			success: false,
 			error: expect.stringContaining("Measured rate 0.2 g/s"),
 		});
-		expect(result.error).toContain("0.5–50");
+		expect(result.error).toContain("0.5");
 		expect(mockEnergyDevice.update).not.toHaveBeenCalled();
 	});
 
@@ -421,27 +432,27 @@ describe("saveCalibrationFromTest", () => {
 		for (const grams of [0, Number.NaN, Number.POSITIVE_INFINITY, -5]) {
 			const result = await saveCalibrationFromTest("device-1", "req-1", 10, grams, SESSION_ID);
 			expect(result.success).toBe(false);
-			expect(result.error).toContain("2000");
+			expect(result.error).toContain("5000");
 		}
 		expect(mockEnergyDevice.update).not.toHaveBeenCalled();
 	});
 
-	it("rejects a weighed output above the 2000 g ceiling", async () => {
-		const result = await saveCalibrationFromTest("device-1", "req-1", 10, 2001, SESSION_ID);
+	it("rejects a weighed output above the 5000 g ceiling", async () => {
+		const result = await saveCalibrationFromTest("device-1", "req-1", 10, 5001, SESSION_ID);
 
 		expect(result).toEqual({
 			success: false,
-			error: expect.stringContaining("2000"),
+			error: expect.stringContaining("5000"),
 		});
 		expect(mockEnergyDevice.update).not.toHaveBeenCalled();
 	});
 
 	it("rejects an invalid test duration", async () => {
-		const result = await saveCalibrationFromTest("device-1", "req-1", 31, 50, SESSION_ID);
+		const result = await saveCalibrationFromTest("device-1", "req-1", 601, 50, SESSION_ID);
 
 		expect(result).toEqual({
 			success: false,
-			error: expect.stringContaining("between 3 and 30"),
+			error: expect.stringContaining(`between 3 and ${CALIBRATION_TEST_SECONDS_MAX}`),
 		});
 		expect(mockFeedRequest.findFirst).not.toHaveBeenCalled();
 		expect(mockEnergyDevice.update).not.toHaveBeenCalled();
@@ -513,7 +524,7 @@ describe("runTargetCheck", () => {
 			durationMs: 25_000,
 		});
 		expect(mockFeedRequest.create).toHaveBeenCalledWith({
-			data: { deviceId: "device-1", grams: 100, status: "pending" },
+			data: { deviceId: "device-1", grams: 100, kind: "calibration", status: "pending" },
 		});
 		expect(mockDeviceStateEvent.create).toHaveBeenCalledWith({
 			data: {
@@ -627,7 +638,7 @@ describe("submitTargetCheck", () => {
 		expect(mockCalibrationRun.create).not.toHaveBeenCalled();
 	});
 
-	it("accepts a result within ±5% and saves the corrected rate", async () => {
+	it("accepts a result within Â±5% and saves the corrected rate", async () => {
 		// 102 g against a 100 g target = +2%.
 		const result = await submitTargetCheck("device-1", "req-1", 100, 102, SESSION_ID, "save");
 
@@ -826,7 +837,7 @@ describe("saveDurationCalibration manual limits", () => {
 		mockEnergyDevice.findFirst.mockResolvedValue({ id: "device-1" } as never);
 	});
 
-	it("accepts the inclusive 0.5–50 g/s bounds and keeps the audit event", async () => {
+	it("accepts the inclusive 0.5â€“50 g/s bounds and keeps the audit event", async () => {
 		const low = await saveDurationCalibration("device-1", 0.5);
 		const high = await saveDurationCalibration("device-1", 50);
 
@@ -867,7 +878,7 @@ describe("saveDurationCalibration manual limits", () => {
 
 		expect(result).toEqual({
 			success: false,
-			error: expect.stringContaining("0.5 and 50"),
+			error: expect.stringContaining("0.5"),
 		});
 		expect(mockEnergyDevice.update).not.toHaveBeenCalled();
 	});

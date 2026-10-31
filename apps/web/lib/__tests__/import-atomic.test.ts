@@ -119,6 +119,40 @@ describe("import/confirm atomicity (F-003)", () => {
 		expect(txClient.biomassLog.createMany).not.toHaveBeenCalled();
 	});
 
+	it("rejects a CSV whose type is not an exportable type", async () => {
+		const res = await confirmPost(confirmReq("not_a_type", BIOMASS_CSV));
+
+		expect(res.status).toBe(400);
+		expect(mockTransaction).not.toHaveBeenCalled();
+		expect(txClient.deviceStateEvent.create).not.toHaveBeenCalled();
+		expect(rootDeviceStateEventCreate).not.toHaveBeenCalled();
+	});
+
+	it("reports an unparseable optional date as a 400, not a Prisma 500", async () => {
+		// `recordedAt` is optional, so a present-but-invalid value used to reach
+		// Prisma as `Invalid Date` and fail the request with an opaque 500.
+		const res = await confirmPost(
+			confirmReq("biomass_logs", "sampleWeightKg,sampleCount,recordedAt\n10,5,not-a-date"),
+		);
+
+		expect(res.status).toBe(400);
+		expect(txClient.biomassLog.createMany).not.toHaveBeenCalled();
+		expect(rootBiomassLogCreateMany).not.toHaveBeenCalled();
+	});
+
+	it("rejects a non-string csvData before it reaches the parser", async () => {
+		const res = await confirmPost(
+			new Request("http://test.local/api/import/confirm", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ type: "biomass_logs", csvData: { rows: 1 } }),
+			}) as never,
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockTransaction).not.toHaveBeenCalled();
+	});
+
 	it("skips the audit event when the pond has no device (no empty deviceId)", async () => {
 		mockEnergyDeviceFindFirst.mockResolvedValue(null);
 

@@ -30,8 +30,10 @@ import {
 	setFeedingSafetyCaps,
 	setOrgDefaults,
 } from "@/lib/actions/platform/config";
+import { setFirmwareGates } from "@/lib/actions/platform/settings";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
-import { dailyFeedCapG } from "@/lib/limits";
+import { FIRMWARE_GATES_SETTING_KEY, FIRMWARE_GATE_FIELDS } from "@/lib/firmware/config";
+import { resolveDailyCapG } from "@/lib/limits";
 import { DEFAULT_INVITE_FROM, getEmailConfiguration } from "@/lib/settings/email-status";
 import {
 	FEEDING_CAPS_DEFAULTS,
@@ -314,10 +316,15 @@ describe("feeding-cap readers clamp to the hard maximum", () => {
 	});
 
 	it("lowers the daily allowance without ever being able to raise it", () => {
-		expect(dailyFeedCapG(10_000, 0.5)).toBe(2_500);
-		expect(dailyFeedCapG(1_000, 1)).toBe(1_000);
-		expect(dailyFeedCapG(10_000, 5)).toBe(5_000);
-		expect(dailyFeedCapG(10_000)).toBe(5_000);
+		// The default is 2,000 g; the platform factor may only lower it.
+		expect(resolveDailyCapG({ hopperCapacityG: 10_000, dailyCapFactor: 0.5 })).toBe(1_000);
+		// A small hopper is the physical limit.
+		expect(resolveDailyCapG({ hopperCapacityG: 1_000 })).toBe(1_000);
+		// The platform factor is clamped to 1, so it cannot raise the default.
+		expect(resolveDailyCapG({ hopperCapacityG: 10_000, dailyCapFactor: 5 })).toBe(2_000);
+		// A raised ceiling is honoured up to the hard guard.
+		expect(resolveDailyCapG({ configuredCapG: 5_000, hopperCapacityG: 10_000 })).toBe(5_000);
+		expect(resolveDailyCapG({ configuredCapG: 6_000 })).toBe(5_000);
 	});
 });
 
@@ -384,5 +391,84 @@ describe("email configuration never returns a secret", () => {
 		expect(configuration.inviteReady).toBe(false);
 		expect(configuration.reminderReady).toBe(false);
 		expect(configuration.resendConfigured).toBe(false);
+	});
+});
+
+describe("setFirmwareGates (I-100)", () => {
+	const GATES = {
+		min_dispense_gap_s: 30,
+		max_dispenses_per_hour: 3,
+		brownout_hold_s: 120,
+		safe_mode_abnormal_window_s: 900,
+		safe_mode_abnormal_threshold: 4,
+		safe_mode_quiet_s: 2400,
+		safe_mode_healthy_clear_s: 720,
+	};
+
+	it("saves the gates and writes one audit row with the before/after values", async () => {
+		tx.platformSetting.findUnique.mockResolvedValue(null);
+
+		const result = await setFirmwareGates(GATES, REASON);
+
+		expect(result).toEqual({ success: true, value: expect.objectContaining(GATES) });
+		expect(tx.platformSetting.upsert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { key: FIRMWARE_GATES_SETTING_KEY },
+				update: expect.objectContaining({
+					value: expect.objectContaining(GATES),
+				}),
+			}),
+		);
+		expect(tx.platformAuditLog.create).toHaveBeenCalledTimes(1);
+		expect(tx.platformAuditLog.create).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					action: "platform.settings.firmware_gates",
+					targetId: FIRMWARE_GATES_SETTING_KEY,
+					reason: REASON,
+				}),
+			}),
+		);
+	});
+
+	it("preserves non-gate values already stored", async () => {
+		tx.platformSetting.findUnique.mockResolvedValue({
+			value: { ota_check_interval_s: 3600, heartbeat_interval_s: 8 },
+		});
+
+		await setFirmwareGates({ min_dispense_gap_s: 20 }, REASON);
+
+		const saved = (tx.platformSetting.upsert.mock.calls[0][0] as { update: { value: object } })
+			.update.value;
+		expect(saved).toMatchObject({
+			min_dispense_gap_s: 20,
+			ota_check_interval_s: 3600,
+			heartbeat_interval_s: 8,
+		});
+	});
+
+	it("refuses a value outside the envelope", async () => {
+		const result = await setFirmwareGates({ min_dispense_gap_s: 1 }, REASON);
+		expect(result).toEqual({ error: expect.stringContaining("min_dispense_gap_s") });
+		expect(tx.platformSetting.upsert).not.toHaveBeenCalled();
+	});
+
+	it("refuses a fractional value in a whole-number gate", async () => {
+		const result = await setFirmwareGates({ max_dispenses_per_hour: 3.5 }, REASON);
+		expect(result).toEqual({ error: expect.stringContaining("whole number") });
+	});
+
+	it("refuses a field that is not an editable gate", async () => {
+		const result = await setFirmwareGates({ heartbeat_interval_s: 30 }, REASON);
+		expect(result).toEqual({ error: expect.stringContaining("not a configurable") });
+	});
+
+	it("requires a reason of at least ten characters", async () => {
+		const result = await setFirmwareGates({ min_dispense_gap_s: 20 }, "short");
+		expect(result).toEqual({ error: expect.stringContaining("reason") });
+	});
+
+	it("keeps the documented gate list in sync with the form", () => {
+		expect(FIRMWARE_GATE_FIELDS.every((field) => field.editable)).toBe(true);
 	});
 });

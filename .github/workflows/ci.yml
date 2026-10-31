@@ -3,9 +3,15 @@ name: CI
 # Validation only.
 #
 # This workflow never deploys an application and never touches a real
-# database. Every database-backed step runs against dummy credentials, and the
-# Next.js production build is invoked directly (`next build`) instead of
-# `pnpm build`, because the package build script runs `prisma migrate deploy`.
+# database. The `quality` job runs against dummy credentials and invokes the
+# Next.js production build directly (`next build`) instead of `pnpm build`,
+# because the package build script runs `prisma migrate deploy`.
+#
+# The `e2e` job starts a DISPOSABLE local Supabase stack (Postgres + Auth +
+# storage via `supabase start`) on the runner. That stack is the only database
+# it touches: no production or staging credentials exist in this workflow, and
+# every connection value is read from the local stack's own `supabase status`.
+# See docs/e2e.md.
 #
 # Application deployment is handled exclusively by the Vercel Git integration
 # for the two approved branches (`staging` and `main`). See
@@ -32,7 +38,9 @@ jobs:
   quality:
     name: quality
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 20 -> 30 minutes: the unit step now runs with v8 coverage AND enforces the
+    # lib/ thresholds, which is the slowest part of the job.
+    timeout-minutes: 30
     env:
       DATABASE_URL: postgresql://user:pass@localhost:5432/ci_dummy
       DIRECT_URL: postgresql://user:pass@localhost:5432/ci_dummy
@@ -41,13 +49,13 @@ jobs:
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -67,36 +75,168 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Unit tests
-        run: pnpm test
+      - name: Unit tests + lib coverage (threshold enforced)
+        run: pnpm --filter web test:coverage
 
-      - name: API regulation conformance (static)
+      - name: Upload coverage summary
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-summary
+          path: apps/web/coverage/coverage-summary.json
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: API checks (regulation conformance + route auth)
         run: pnpm api:check
-
-      - name: Check API route auth
-        run: |
-          # All API route files must either:
-          # 1. Import from lib/auth/session or lib/auth/with-auth (session auth)
-          # 2. Be in the allowlist (device token-authed routes, no session needed)
-          ALLOWLIST="api/ingest|api/feed-command|api/schedule-sync|api/firmware/check|api/health|api/\[\.\.\.fallback\]"
-
-          FAIL=0
-          for f in $(find apps/web/app/api -name 'route.ts' -o -name 'route.tsx' | grep -v node_modules); do
-            # Skip allowlisted routes
-            if echo "$f" | grep -qE "($ALLOWLIST)"; then
-              continue
-            fi
-            # Check for auth import
-            if ! grep -qE "from ['\"]@/lib/auth/(session|with-auth)['\"]" "$f"; then
-              echo "::error file=$f::Missing auth import. API routes must import from @/lib/auth/session or @/lib/auth/with-auth."
-              FAIL=1
-            fi
-          done
-          if [ "$FAIL" -eq 1 ]; then exit 1; fi
-          echo "All API routes have auth imports."
 
       # next build directly (not pnpm build) so CI never runs
       # `prisma migrate deploy` — dummy DB env, zero production access.
       - name: Build
         run: npx next build
         working-directory: apps/web
+
+  e2e:
+    name: e2e (local supabase stack)
+    # Expensive: the disposable stack, a production build and the serial
+    # Playwright suite. Runs only for `develop` — pull requests that target it
+    # and pushes to it — plus manual dispatches. Never on feature branches.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+      (github.event_name == 'pull_request' && github.base_ref == 'develop')
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # The whole job talks to the throwaway stack started below. These are the
+      # CLI's fixed local ports; nothing here resolves to a hosted project.
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      # Explicit opt-in for the local-stack branch of scripts/e2e/guards.ts.
+      # It authorises loopback hosts only; a remote DATABASE_URL would still
+      # need E2E_ALLOWED_DB_HOST + E2E_CONFIRM_PRODUCTION.
+      E2E_ALLOW_LOCAL_STACK: "yes"
+      # Not a secret: it is created inside the disposable stack, never sent
+      # anywhere, and destroyed with the stack. Secrets are deliberately not
+      # used, so forked pull requests can run this job.
+      E2E_PASSWORD: e2e-local-password-only
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Pinned: the config file in apps/web/supabase is version-sensitive.
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          version: 2.121.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter web prisma:generate
+
+      - name: Start local Supabase stack
+        working-directory: apps/web
+        run: supabase start
+
+      - name: Export local stack credentials
+        working-directory: apps/web
+        run: |
+          set -euo pipefail
+          supabase status -o env > "$RUNNER_TEMP/supabase.env"
+          set -a
+          # shellcheck disable=SC1090
+          . "$RUNNER_TEMP/supabase.env"
+          set +a
+          # Newer CLI builds expose publishable/secret keys alongside the
+          # legacy anon/service-role JWTs. Accept either; both are local-only.
+          anon="${ANON_KEY:-${PUBLISHABLE_KEY:-}}"
+          service="${SERVICE_ROLE_KEY:-${SECRET_KEY:-}}"
+          if [ -z "$anon" ] || [ -z "$service" ]; then
+            echo "::error::supabase status did not expose local anon/service keys"
+            exit 1
+          fi
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${anon}"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${service}"
+          } >> "$GITHUB_ENV"
+
+      # Fail before any DDL if DATABASE_URL is not the disposable stack. The
+      # seed and Playwright guards run later, after `prisma migrate deploy`.
+      - name: Verify the CI e2e target before migrating
+        run: pnpm --filter web exec tsx scripts/e2e/check-ci-target.ts
+
+      - name: Apply migrations to the local database
+        run: pnpm --filter web exec prisma migrate deploy
+
+      - name: Seed the e2e fixture
+        run: pnpm --filter web exec tsx scripts/e2e/seed-e2e.ts
+
+      - name: Install Playwright browser
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      # next build directly (not pnpm build) so CI never runs
+      # `prisma migrate deploy` twice and never reaches a hosted database.
+      - name: Build
+        run: pnpm --filter web exec next build
+
+      - name: Start the app
+        run: |
+          set -euo pipefail
+          nohup pnpm --filter web exec next start -p 3000 \
+            > "$RUNNER_TEMP/next.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/next.pid"
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3000/api/health > /dev/null 2>&1; then
+              echo "app is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Next.js did not become ready in 120s"
+          tail -n 100 "$RUNNER_TEMP/next.log"
+          exit 1
+
+      # workers: 1 and retries: 0 come from playwright.config.ts: the suite is
+      # stateful against the shared fixture and must stay serial.
+      - name: Run Playwright
+        run: pnpm --filter web test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop the app and the local Supabase stack
+        if: always()
+        working-directory: apps/web
+        run: |
+          if [ -f "$RUNNER_TEMP/next.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/next.pid")" 2>/dev/null || true
+          fi
+          pkill -f "next start" 2>/dev/null || true
+          if [ -f "$RUNNER_TEMP/next.log" ]; then
+            tail -n 50 "$RUNNER_TEMP/next.log" || true
+          fi
+          supabase stop --no-backup || true
+

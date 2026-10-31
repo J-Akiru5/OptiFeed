@@ -18,7 +18,7 @@ export function isMemberRole(value: unknown): value is MemberRole {
 }
 
 /** Roles an OWNER/ADMIN membership can hold in the tenant console. */
-export function isTenantAdminRole(role: MemberRole): boolean {
+function isTenantAdminRole(role: MemberRole): boolean {
 	return role === "OWNER" || role === "ADMIN";
 }
 

@@ -1,6 +1,8 @@
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { FIRMWARE_VERSION_EVENT_TYPES, versionFromMetadata } from "@/lib/device-firmware";
+import { evaluateDeviceStatus } from "@/lib/device-status";
 import prisma from "@/lib/prisma";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { type FirmwareStatus, getFirmwareStatus } from "@/lib/settings/firmware-status";
 
 /**
@@ -9,17 +11,18 @@ import { type FirmwareStatus, getFirmwareStatus } from "@/lib/settings/firmware-
  * Read-only, platform-gated and bounded. This page deliberately reports what
  * the platform can actually prove:
  *
- *  - The reported version is the `version` in the metadata of the latest OTA
- *    lifecycle row (`ota_installed` / `ota_valid` / `ota_rolled_back`), written
- *    by `/api/ingest` on a transition. A unit that never reported an OTA state
- *    shows "unknown" — estimating from a build date would be a guess.
+ *  - The reported version is the `version` in the metadata of the latest
+ *    version event: an OTA lifecycle row (`ota_installed` / `ota_valid` /
+ *    `ota_rolled_back`) or a `firmware_reported` row written the first time a
+ *    heartbeat from a USB-flashed unit reports a new version. A unit that has
+ *    never reported a version shows "unknown" — estimating from a build date
+ *    would be a guess.
  *  - The channel version comes from the signed file in the private `firmware`
  *    bucket through the service role, read only.
  *  - Nothing here triggers an update or writes a row.
  */
 
-export const OTA_EVENT_TYPES = ["ota_installed", "ota_valid", "ota_rolled_back"] as const;
-export type OtaEventType = (typeof OTA_EVENT_TYPES)[number];
+export { versionFromMetadata };
 
 /** A large fleet still fits in one screen of OTA history. */
 export const OTA_EVENT_LIMIT = 20;
@@ -75,17 +78,8 @@ export interface FirmwareFleet {
 	generatedAt: Date;
 }
 
-/** Read the reported version from an OTA row's JSON metadata. */
-export function versionFromMetadata(metadata: unknown): string | null {
-	if (typeof metadata !== "object" || metadata === null) return null;
-	const value = (metadata as { version?: unknown }).version;
-	if (typeof value !== "string") return null;
-	const trimmed = value.trim();
-	return trimmed.length > 0 && trimmed.length <= 32 ? trimmed : null;
-}
-
 /**
- * The newest OTA row per device, from a newest-first scan.
+ * The newest version row per device, from a newest-first scan.
  *
  * The first row seen for a device wins, so callers must pass rows ordered by
  * `createdAt desc` (the query does). Rows without a version still establish the
@@ -129,7 +123,7 @@ export async function getFirmwareFleet(now: Date = new Date()): Promise<Firmware
 	// reach Storage through this page.
 	await requirePlatformAdmin();
 
-	const [deviceRows, otaRows, recentRows, channel] = await Promise.all([
+	const [deviceRows, otaRows, recentRows, channel, statusPolicy] = await Promise.all([
 		prisma.energyDevice.findMany({
 			orderBy: { label: "asc" },
 			take: FIRMWARE_DEVICE_LIMIT + 1,
@@ -142,13 +136,13 @@ export async function getFirmwareFleet(now: Date = new Date()): Promise<Firmware
 			},
 		}),
 		prisma.deviceStateEvent.findMany({
-			where: { eventType: { in: [...OTA_EVENT_TYPES] } },
+			where: { eventType: { in: [...FIRMWARE_VERSION_EVENT_TYPES] } },
 			orderBy: { createdAt: "desc" },
 			take: OTA_SCAN_LIMIT,
 			select: { deviceId: true, eventType: true, metadata: true, createdAt: true },
 		}),
 		prisma.deviceStateEvent.findMany({
-			where: { eventType: { in: [...OTA_EVENT_TYPES] } },
+			where: { eventType: { in: [...FIRMWARE_VERSION_EVENT_TYPES] } },
 			orderBy: { createdAt: "desc" },
 			take: OTA_EVENT_LIMIT,
 			select: {
@@ -161,6 +155,7 @@ export async function getFirmwareFleet(now: Date = new Date()): Promise<Firmware
 			},
 		}),
 		getFirmwareStatus(),
+		getDeviceStatusPolicy(),
 	]);
 
 	const latest = latestOtaByDevice(otaRows);
@@ -172,9 +167,11 @@ export async function getFirmwareFleet(now: Date = new Date()): Promise<Firmware
 			mac: row.mac,
 			pondName: row.pond?.name ?? null,
 			lastSeenAt: row.lastSeenAt,
-			online:
-				Boolean(row.lastSeenAt) &&
-				now.getTime() - (row.lastSeenAt as Date).getTime() <= OFFLINE_THRESHOLD_MS,
+			online: !evaluateDeviceStatus({
+				lastSeenAt: row.lastSeenAt,
+				now,
+				policy: statusPolicy,
+			}).isOffline,
 			reportedVersion: version?.version ?? null,
 			versionEvent: version ? { eventType: version.eventType, createdAt: version.createdAt } : null,
 		};

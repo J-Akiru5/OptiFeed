@@ -17,7 +17,14 @@ import {
 	cropCycleInputSchema,
 	harvestInputSchema,
 } from "@/lib/crop-cycle/schema";
+import {
+	cycleTargetForCreate,
+	resolveCycleTargetWrite,
+	writePondGrowthTarget,
+} from "@/lib/crop-cycle/target-write";
+import type { GrowthTargetResolution } from "@/lib/growth-target";
 import { formatZodError } from "@/lib/limits";
+import { parsePondGrowthTarget } from "@/lib/pond-profile";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -26,10 +33,24 @@ export type CropCycleActionResult =
 	| { success: true; cycleId: string }
 	| { success: false; error: string };
 
+export interface UpdateCropCycleOptions {
+	/**
+	 * Set only when the caller has been told a saved calculator target exists
+	 * and chose what to do with it (D-2). Omitting it while the target changed
+	 * is refused rather than silently picking a side.
+	 */
+	growthTargetResolution?: GrowthTargetResolution;
+}
+
 const CYCLE_EXISTS = "This pond already has an active grow-out cycle. Harvest or cancel it first.";
+const GROWTH_TARGET_CONFLICT =
+	"A saved calculator target exists for this cycle. Choose whether to replace it or keep it.";
+const SAVED_TARGET_OUT_OF_RANGE =
+	"The saved calculator target is outside the range the cycle target can store. Replace it with a new cycle value or remove the target.";
+const TARGET_OUT_OF_RANGE = "Target weight is outside the range the cycle target can store.";
 
 function revalidateCropPaths(): void {
-	revalidatePath("/[locale]/(dashboard)/dashboard/harvest", "page");
+	revalidatePath("/[locale]/(dashboard)/dashboard/calendar", "page");
 	revalidatePath("/[locale]/(dashboard)/dashboard", "page");
 	revalidatePath("/[locale]/(dashboard)/dashboard/growth", "page");
 }
@@ -44,6 +65,9 @@ function safeMessage(error: unknown, fallback: string): string {
 		if (error.message === "POND_NOT_FOUND") return "Pond not found.";
 		if (error.message === "CYCLE_NOT_FOUND") return "Grow-out cycle not found.";
 		if (error.message === "CYCLE_NOT_ACTIVE") return "Only an active cycle can be changed.";
+		if (error.message === "GROWTH_TARGET_CONFLICT") return GROWTH_TARGET_CONFLICT;
+		if (error.message === "SAVED_TARGET_OUT_OF_RANGE") return SAVED_TARGET_OUT_OF_RANGE;
+		if (error.message === "TARGET_OUT_OF_RANGE") return TARGET_OUT_OF_RANGE;
 		if (error.message === "Harvest date cannot be before the stocking date.") {
 			return error.message;
 		}
@@ -99,7 +123,7 @@ export async function createCropCycle(input: CropCycleInput): Promise<CropCycleA
 					stockingAvgWeightG: data.stockingAvgWeightG ?? null,
 					growOutDays,
 					targetHarvestDate: dateOnlyToUtcDate(data.targetHarvestDate),
-					targetHarvestWeightG: data.targetHarvestWeightG ?? null,
+					targetHarvestWeightG: cycleTargetForCreate(data.targetHarvestWeightG),
 					expectedSurvivalPct: data.expectedSurvivalPct ?? null,
 					notes: data.notes ?? null,
 					createdBy: ownerId,
@@ -156,6 +180,7 @@ export async function createCropCycle(input: CropCycleInput): Promise<CropCycleA
 export async function updateCropCycle(
 	cycleId: string,
 	input: CropCycleInput,
+	options: UpdateCropCycleOptions = {},
 ): Promise<CropCycleActionResult> {
 	try {
 		await requireWriteAccess();
@@ -176,11 +201,28 @@ export async function updateCropCycle(
 		await prisma.$transaction(async (tx) => {
 			const cycle = await tx.cropCycle.findFirst({
 				where: { id: cycleId, pond: { ownerId } },
-				include: { pond: { select: { id: true, name: true, farmId: true } } },
+				include: {
+					pond: {
+						select: { id: true, name: true, farmId: true, notificationPrefs: true },
+					},
+				},
 			});
 			if (!cycle) throw new Error("CYCLE_NOT_FOUND");
 			if (cycle.status !== "ACTIVE") throw new Error("CYCLE_NOT_ACTIVE");
 			if (cycle.pondId !== data.pondId) throw new Error("CYCLE_NOT_FOUND");
+
+			// D-2: a saved calculator target outranks the cycle target until the
+			// caller explicitly chooses. The single guarded helper decides
+			// Replace/Keep/refuse, so every writer follows the same rule (#318).
+			const savedTarget = parsePondGrowthTarget(cycle.pond.notificationPrefs);
+			const plan = resolveCycleTargetWrite({
+				nextWeightG: data.targetHarvestWeightG ?? null,
+				cycleWeightG: cycle.targetHarvestWeightG,
+				savedTarget,
+				resolution: options.growthTargetResolution,
+				population: data.stockingCount,
+				cycleId: cycle.id,
+			});
 
 			await tx.cropCycle.update({
 				where: { id: cycle.id },
@@ -191,11 +233,20 @@ export async function updateCropCycle(
 					stockingAvgWeightG: data.stockingAvgWeightG ?? null,
 					growOutDays,
 					targetHarvestDate: dateOnlyToUtcDate(data.targetHarvestDate),
-					targetHarvestWeightG: data.targetHarvestWeightG ?? null,
+					targetHarvestWeightG: plan.cycleTargetWeightG,
 					expectedSurvivalPct: data.expectedSurvivalPct ?? null,
 					notes: data.notes ?? null,
 				},
 			});
+
+			if (plan.targetToWrite !== undefined) {
+				await writePondGrowthTarget(tx, {
+					pondId: cycle.pondId,
+					ownerId,
+					currentPrefs: cycle.pond.notificationPrefs,
+					target: plan.targetToWrite,
+				});
+			}
 
 			await tx.pond.update({
 				where: { id: data.pondId },
@@ -336,7 +387,7 @@ export async function markCycleHarvested(input: HarvestInput): Promise<CropCycle
 					tier: "INFO",
 					category: "harvest",
 					message: `Harvest recorded for ${cycle.pond.name}: ${data.actualHarvestWeightKg.toFixed(2)} kg. The feeder is paused until the next cycle.`,
-					linkTo: "/dashboard/harvest",
+					linkTo: "/dashboard/calendar",
 				},
 			});
 
@@ -431,7 +482,7 @@ export async function cancelCropCycle(input: CancelCycleInput): Promise<CropCycl
 					tier: "WARNING",
 					category: "harvest",
 					message: `Grow-out cycle cancelled for ${cycle.pond.name}. The feeder is paused.`,
-					linkTo: "/dashboard/harvest",
+					linkTo: "/dashboard/calendar",
 				},
 			});
 
@@ -451,6 +502,6 @@ export async function cancelCropCycle(input: CancelCycleInput): Promise<CropCycl
  * same operation as starting the first one, including permission, ownership and
  * one-active-cycle checks.
  */
-export async function startNextCycle(input: CropCycleInput): Promise<CropCycleActionResult> {
+async function startNextCycle(input: CropCycleInput): Promise<CropCycleActionResult> {
 	return createCropCycle(input);
 }

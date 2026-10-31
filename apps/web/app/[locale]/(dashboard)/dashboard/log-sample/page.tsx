@@ -1,10 +1,14 @@
 import { LogSampleForm } from "@/components/LogSampleForm";
-import { DashboardEmptyState, DashboardPageHeader } from "@/components/dashboard/dashboard-ui";
+import {
+	DashboardEmptyState,
+	DashboardPageHeader,
+	DashboardPageShell,
+} from "@/components/dashboard/dashboard-ui";
 import { Pagination } from "@/components/ui/pagination";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
 import { getBatchSummaryPage } from "@/lib/batch-logs";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { parsePage } from "@/lib/pagination";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
@@ -70,7 +74,7 @@ export default async function LogSamplePage({
 	const lastRow = Math.min(logRows.page * logRows.pageSize, logRows.total);
 
 	return (
-		<div className="space-y-6 pb-20 animate-in fade-in duration-150 max-w-4xl">
+		<DashboardPageShell className="space-y-6 pb-20 animate-in fade-in duration-150">
 			<DashboardPageHeader
 				icon={Scale}
 				title={t("title")}
@@ -113,7 +117,10 @@ export default async function LogSamplePage({
 						description={t("noBatchesDesc")}
 					/>
 				) : (
-					<ul aria-label={t("batchesLabel")} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+					<ul
+						aria-label={t("batchesLabel")}
+						className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+					>
 						{batches.map((batch) => (
 							<li key={batch.label ?? "__unlabeled__"} className="min-w-0">
 								<Link
@@ -132,7 +139,7 @@ export default async function LogSamplePage({
 											</p>
 											<p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
 												{t("lastSaved", {
-													date: formatDateTimeLocal(batch.lastSavedAt, tDates).full,
+													date: formatFarmDateTime(batch.lastSavedAt, tDates).full,
 												})}
 											</p>
 										</div>
@@ -187,6 +194,6 @@ export default async function LogSamplePage({
 					/>
 				)}
 			</section>
-		</div>
+		</DashboardPageShell>
 	);
 }

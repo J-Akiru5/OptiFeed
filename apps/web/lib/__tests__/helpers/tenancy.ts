@@ -236,6 +236,34 @@ export type TenancyPlatformAuditLog = {
 	createdAt: Date;
 };
 
+export type TenancyBiomassLog = {
+	id: string;
+	pondId: string;
+	batchLabel: string | null;
+	recordedAt: Date;
+	farmId: string | null;
+};
+
+export type TenancyPondEvent = {
+	id: string;
+	pondId: string;
+	title: string;
+	startsAt: Date;
+	type: string;
+	status: string;
+	farmId: string | null;
+};
+
+export type TenancyFeedEvent = {
+	id: string;
+	deviceId: string;
+	eventType: string;
+	receivedAt: Date;
+	grams: number | null;
+	source: string | null;
+	farmId: string | null;
+};
+
 export type TenancyFixture = {
 	organizations: TenancyOrganization[];
 	users: TenancyUser[];
@@ -246,6 +274,9 @@ export type TenancyFixture = {
 	energyDevices: TenancyEnergyDevice[];
 	orgSettings: TenancyOrgSetting[];
 	deviceStateEvents: TenancyDeviceStateEvent[];
+	biomassLogs: TenancyBiomassLog[];
+	pondEvents: TenancyPondEvent[];
+	feedEvents: TenancyFeedEvent[];
 	platformAdmins: TenancyPlatformAdmin[];
 	platformAuditLogs: TenancyPlatformAuditLog[];
 };
@@ -588,6 +619,9 @@ export function createTenancyFixture(): TenancyFixture {
 		ponds,
 		energyDevices,
 		deviceStateEvents,
+		biomassLogs: [],
+		pondEvents: [],
+		feedEvents: [],
 		platformAdmins,
 		platformAuditLogs: [],
 		orgSettings: [],
@@ -606,7 +640,7 @@ export const ORG_A_SCOPE = {
 	pondIds: [POND_A_1, POND_A_2],
 };
 
-export const ORG_B_SCOPE = {
+const ORG_B_SCOPE = {
 	orgIds: [ORG_B_ID],
 	memberUserIds: [ADMIN_B_ID, FARMER_B_ID],
 	farmIds: [FARM_B_ADMIN, FARM_B],
@@ -715,6 +749,9 @@ type ModelName =
 	| "pond"
 	| "energyDevice"
 	| "deviceStateEvent"
+	| "biomassLog"
+	| "pondEvent"
+	| "feedEvent"
 	| "platformAdmin"
 	| "platformAuditLog"
 	| "orgSetting";
@@ -744,6 +781,13 @@ export type TenancyDelegate = {
 
 export type TenancyClient = Record<ModelName, TenancyDelegate> & {
 	$transaction: <T>(fn: (tx: TenancyClient) => Promise<T>) => Promise<T>;
+	/**
+	 * The one raw query the actions take: the `SELECT ... FOR UPDATE` row lock
+	 * around the active `PlatformAdmin` grants (#334). Implemented so the lock
+	 * actually serializes concurrent callers in a test, rather than being a
+	 * no-op that would hide the very race the lock prevents.
+	 */
+	$queryRaw: <T>(strings: TemplateStringsArray, ...values: unknown[]) => Promise<T>;
 };
 
 export type TenancyDb = {
@@ -751,6 +795,15 @@ export type TenancyDb = {
 	tables: TenancyFixture;
 	fixture: TenancyFixture;
 	reset: () => void;
+	/**
+	 * Run a transaction callback and release exactly the row locks it took, the
+	 * way commit or rollback ends a Postgres transaction. `tx` defaults to the
+	 * harness client; the extended test client passes itself so a spy installed
+	 * on its delegates is still observed inside the transaction.
+	 */
+	runTransaction: <T>(fn: (client: TenancyClient) => Promise<T>, tx?: TenancyClient) => Promise<T>;
+	/** Release any row lock acquired outside a `$transaction` callback. */
+	releaseLocks: () => void;
 };
 
 const MODEL_TABLE: Record<ModelName, keyof TenancyFixture> = {
@@ -762,6 +815,9 @@ const MODEL_TABLE: Record<ModelName, keyof TenancyFixture> = {
 	pond: "ponds",
 	energyDevice: "energyDevices",
 	deviceStateEvent: "deviceStateEvents",
+	biomassLog: "biomassLogs",
+	pondEvent: "pondEvents",
+	feedEvent: "feedEvents",
 	platformAdmin: "platformAdmins",
 	platformAuditLog: "platformAuditLogs",
 	orgSetting: "orgSettings",
@@ -955,6 +1011,15 @@ function decorate(model: ModelName, row: Row, fixture: TenancyFixture): Row {
 		case "energyDevice": {
 			return { ...row, pond: ponds.find((pond) => pond.id === row.pondId) ?? null };
 		}
+		case "biomassLog": {
+			return { ...row, pond: ponds.find((pond) => pond.id === row.pondId) ?? null };
+		}
+		case "pondEvent": {
+			return { ...row, pond: ponds.find((pond) => pond.id === row.pondId) ?? null };
+		}
+		case "feedEvent": {
+			return { ...row, device: devices.find((device) => device.id === row.deviceId) ?? null };
+		}
 		case "deviceStateEvent": {
 			return { ...row, device: devices.find((device) => device.id === row.deviceId) ?? null };
 		}
@@ -1061,6 +1126,24 @@ function defaultsFor(model: ModelName, now: Date): Row {
 				createdAt: now,
 				farmId: null,
 			};
+		case "biomassLog":
+			return { batchLabel: null, recordedAt: now, farmId: null };
+		case "pondEvent":
+			return {
+				title: "",
+				startsAt: now,
+				type: "OTHER",
+				status: "PLANNED",
+				farmId: null,
+			};
+		case "feedEvent":
+			return {
+				eventType: "feed_dispensed",
+				receivedAt: now,
+				grams: null,
+				source: null,
+				farmId: null,
+			};
 		case "platformAdmin":
 			return {
 				grantedBy: null,
@@ -1105,6 +1188,34 @@ export function createTenancyDb(base: TenancyFixture = createTenancyFixture()): 
 	const fixture = cloneFixture(base);
 	const state = cloneFixture(base);
 	let sequence = 0;
+
+	// ─── `SELECT ... FOR UPDATE` on the active platform-admin grants (#334) ───
+	//
+	// A Postgres transaction holds the row lock until commit, so a second
+	// disable blocks until the first one's revocation is visible. The double
+	// queues lock holders and releases them when the enclosing `$transaction`
+	// finishes; without that, `Promise.all([disable(a), disable(b)])` would
+	// interleave in a way no real database allows and could not prove anything.
+	let lockQueue: Promise<void> = Promise.resolve();
+	const acquiredLocks: Array<() => void> = [];
+
+	/** Reset-time escape hatch: drop every lock the fixture still holds. */
+	function releaseLocks(): void {
+		while (acquiredLocks.length > 0) acquiredLocks.shift()?.();
+	}
+
+	async function acquireAdminLock(): Promise<void> {
+		const previous = lockQueue;
+		let release!: () => void;
+		const held = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		// Chain before awaiting: two callers that resumed together must not both
+		// observe the same predecessor and both acquire.
+		lockQueue = previous.then(() => held);
+		await previous;
+		acquiredLocks.push(release);
+	}
 
 	const createRow = (model: ModelName, data: Row): Row => {
 		const now = new Date(FIXED_NOW.getTime());
@@ -1205,6 +1316,23 @@ export function createTenancyDb(base: TenancyFixture = createTenancyFixture()): 
 		};
 	};
 
+	/**
+	 * Run the callback and release only the locks it acquired. Scoped release
+	 * matters when a transaction that never took the lock finishes while
+	 * another one is inside its critical section.
+	 */
+	async function runTransaction<T>(
+		fn: (tx: TenancyClient) => Promise<T>,
+		tx: TenancyClient = client,
+	): Promise<T> {
+		const owned = acquiredLocks.length;
+		try {
+			return await fn(tx);
+		} finally {
+			for (const release of acquiredLocks.splice(owned)) release();
+		}
+	}
+
 	const client: TenancyClient = {
 		organization: delegateFor("organization"),
 		user: delegateFor("user"),
@@ -1214,10 +1342,26 @@ export function createTenancyDb(base: TenancyFixture = createTenancyFixture()): 
 		pond: delegateFor("pond"),
 		energyDevice: delegateFor("energyDevice"),
 		deviceStateEvent: delegateFor("deviceStateEvent"),
+		biomassLog: delegateFor("biomassLog"),
+		pondEvent: delegateFor("pondEvent"),
+		feedEvent: delegateFor("feedEvent"),
 		platformAdmin: delegateFor("platformAdmin"),
 		platformAuditLog: delegateFor("platformAuditLog"),
 		orgSetting: delegateFor("orgSetting"),
-		$transaction: async (fn) => fn(client),
+		$queryRaw: async <T>(strings: TemplateStringsArray): Promise<T> => {
+			const sql = strings.join("?");
+			if (/FOR\s+UPDATE/i.test(sql)) await acquireAdminLock();
+			if (!/FROM\s+"PlatformAdmin"/i.test(sql)) return [] as T;
+			const now = Date.now();
+			return rowsOf(state, "platformAdmin")
+				.filter(
+					(row) =>
+						row.revokedAt === null &&
+						(row.expiresAt === null || (row.expiresAt as Date).getTime() > now),
+				)
+				.map((row) => ({ userId: row.userId })) as T;
+		},
+		$transaction: (fn) => runTransaction(fn),
 	};
 
 	return {
@@ -1234,7 +1378,10 @@ export function createTenancyDb(base: TenancyFixture = createTenancyFixture()): 
 				target.splice(0, target.length, ...replacement);
 			}
 			sequence = 0;
+			releaseLocks();
 		},
+		runTransaction,
+		releaseLocks,
 	};
 }
 

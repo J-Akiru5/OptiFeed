@@ -28,7 +28,7 @@ export interface OfflineMeta {
 export interface DashboardSnapshotData {
 	pondName: string;
 	deviceName: string;
-	deviceStatus: "online" | "offline" | "missing";
+	deviceStatus: "online" | "weak" | "offline" | "missing";
 	lastSeenAt: string | null;
 	feedLevelPercent: number | null;
 	feedLevelUpdatedAt: string | null;
@@ -49,7 +49,7 @@ export interface DashboardSnapshotData {
 export interface ScheduleSnapshotData {
 	pondName: string;
 	deviceName: string;
-	deviceStatus: "online" | "offline";
+	deviceStatus: "online" | "weak" | "offline";
 	lastSeenAt: string | null;
 	scheduleStart: string;
 	scheduleEnd: string;
@@ -120,7 +120,8 @@ export interface HistoryEventSnapshot {
 
 export interface HistorySnapshotData {
 	pondName: string;
-	totalDispensedG: number;
+	/** Every source, current Asia/Manila day — never a sum of cached rows. */
+	todayDispensedG: number;
 	feedLevelPercent: number | null;
 	feedLevelUpdatedAt: string | null;
 	events: HistoryEventSnapshot[];

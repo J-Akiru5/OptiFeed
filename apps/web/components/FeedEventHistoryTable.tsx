@@ -1,8 +1,10 @@
 "use client";
 
+import { Mascot } from "@/components/assistant/mascot";
 import { Pagination } from "@/components/ui/pagination";
 import { type FeedEventListItem, getFeedEvents } from "@/lib/actions/history";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
+import { formatFeedAmountLabel } from "@/lib/feed-figures";
 import { feedSourceKey } from "@/lib/feed-sources";
 import { CheckCircle2, Clock } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -88,7 +90,7 @@ export function FeedEventHistoryTable({
 	const lastRow = Math.min(page * pageSize, total);
 
 	const renderRow = (event: FeedEventListItem) => {
-		const formatted = formatDateTimeLocal(event.receivedAt, tDates);
+		const formatted = formatFarmDateTime(event.receivedAt, tDates);
 		const sourceKey = feedSourceKey(event.source);
 		return (
 			<div className="flex items-center justify-between py-4">
@@ -109,7 +111,9 @@ export function FeedEventHistoryTable({
 					</div>
 				</div>
 				<div className="text-right">
-					<p className="font-bold text-gray-900 dark:text-gray-100">{event.grams ?? 0}g</p>
+					<p className="font-bold text-gray-900 dark:text-gray-100">
+						{formatFeedAmountLabel(event.grams)}
+					</p>
 				</div>
 			</div>
 		);
@@ -132,8 +136,9 @@ export function FeedEventHistoryTable({
 					{t("loading")}
 				</div>
 			) : items.length === 0 ? (
-				<div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-					{t("noEvents")}
+				<div className="flex flex-col items-center justify-center gap-1 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+					<Mascot pose="idle" size={72} />
+					<p className="font-black text-[#0A3D62] dark:text-gray-200">{t("noEvents")}</p>
 				</div>
 			) : (
 				<div className="divide-y divide-gray-100 dark:divide-gray-700/50">

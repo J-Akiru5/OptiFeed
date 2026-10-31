@@ -33,25 +33,25 @@ The `legal-config.test.ts` test will fail if `LEGAL_APP_RELEASE` does not match 
 Legal documents have their own semantic version, separate from the app release.
 
 - **Current legal version:** `1.0`
-- **Current app release:** `1.11.0` (root `package.json` + `CHANGELOG`)
+- **Current app release:** `1.31.5` (root `package.json` + `CHANGELOG`)
 - **Version history:** `LEGAL_HISTORY` in `apps/web/lib/legal/config.ts`
-- **Display:** “Policy v1.0 · App release 1.11.0”
+- **Display:** “Policy v1.0 · App release 1.31.5”
 
 Do not reuse the app version as the legal version. If the app changes but the legal text does not, update only the “applies to” release. If the legal text changes, bump the legal version (for example, `1.1`) and update the effective date and history.
 
-### App version metadata issue
+### App version metadata
 
-The repository currently has inconsistent release metadata:
+Version sources, which the release workflow keeps aligned:
 
 | Source | Value |
 | --- | --- |
-| Root `package.json` | 1.11.0 |
-| `apps/web/package.json` | 1.9.0 (stale) |
+| Root `package.json` | 1.31.5 |
+| `apps/web/package.json` | 1.31.5 |
 | `VERSION` file | missing |
-| Git tags | only `v1.0.0` |
-| `CHANGELOG` latest | 1.11.0 |
+| Git tags | `v1.0.0`, `v1.12.0`-`v1.23.0`, and every version promoted to `main` since |
+| `CHANGELOG` latest | 1.31.5 |
 
-The legal pages use the root version, 1.11.0. A separate release task should sync `apps/web/package.json` to 1.11.0, add a `VERSION` file, and tag `v1.11.0`. Tags are owner-created; do not create or move a release tag as part of the legal work.
+The legal pages use the root version, 1.31.5. A separate release task should sync `apps/web/package.json` to 1.31.5, add a `VERSION` file, and tag `v1.31.5`. Tags are owner-created; do not create or move a release tag as part of the legal work.
 
 ## Research package
 
@@ -61,7 +61,7 @@ The legal pages use the root version, 1.11.0. A separate release task should syn
 
 ## Review artifacts
 
-The Vercel develop preview is behind Vercel SSO, so these are the pre-publication review copies for the University Legal Office:
+The Vercel `staging` preview is behind Vercel SSO, so these are the pre-publication review copies for the University Legal Office:
 
 - `privacy-policy-draft.pdf` — 16 pages.
 - `terms-of-service-draft.pdf` — 7 pages.

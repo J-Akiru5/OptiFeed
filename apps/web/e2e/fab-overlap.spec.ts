@@ -25,21 +25,24 @@ function overlaps(
 }
 
 const chatFab = (page: Page) => page.locator('button[class*="ofd-fab-size"][aria-label*="chat" i]');
-const helpFab = (page: Page) => page.getByRole("button", { name: "Open help for this page" });
+// #269: the floating "?" was removed; help lives in the header only.
+const floatingHelp = (page: Page) => page.locator("[data-fab-help]");
+const headerHelp = (page: Page) => page.locator('[data-help="help-button"]:visible').first();
 const bottomNav = (page: Page) => page.locator('nav[class*="bottom-0"]');
 
 test.describe("FAB cluster layout (workbench L1: no overlap)", () => {
 	for (const vp of VIEWPORTS) {
-		test(`chat closed: no FAB overlap at ${vp.width}px`, async ({ page }) => {
+		test(`chat closed: one floating control and no "?" at ${vp.width}px`, async ({ page }) => {
 			await page.setViewportSize({ width: vp.width, height: vp.height });
 			await login(page);
 
 			const chat = chatFab(page);
-			const help = helpFab(page);
 			await expect(chat).toBeVisible();
-			await expect(help).toBeVisible();
 
-			expect(overlaps(await chat.boundingBox(), await help.boundingBox())).toBe(false);
+			// #269: help has one visible entry point (the header's), so no floating
+			// "?" may cover the right rail.
+			await expect(floatingHelp(page)).toHaveCount(0);
+			await expect(headerHelp(page)).toBeVisible();
 
 			// BottomNav is lg:hidden, so it is on screen up to 1023px even where
 			// the desktop chat panel (md:flex) has already taken over.
@@ -47,7 +50,6 @@ test.describe("FAB cluster layout (workbench L1: no overlap)", () => {
 				const nav = bottomNav(page);
 				await expect(nav).toBeVisible();
 				expect(overlaps(await chat.boundingBox(), await nav.boundingBox())).toBe(false);
-				expect(overlaps(await help.boundingBox(), await nav.boundingBox())).toBe(false);
 			}
 		});
 
@@ -61,7 +63,6 @@ test.describe("FAB cluster layout (workbench L1: no overlap)", () => {
 			if (vp.width < 768) {
 				// The sheet owns the screen on mobile; the cluster hides.
 				await expect(chatFab(page)).toBeHidden();
-				await expect(helpFab(page)).toBeHidden();
 			} else {
 				const panel = page
 					.locator("aside")
@@ -70,14 +71,10 @@ test.describe("FAB cluster layout (workbench L1: no overlap)", () => {
 				await expect(panel).toBeVisible();
 
 				const chat = chatFab(page);
-				const help = helpFab(page);
 				await expect(chat).toBeVisible();
-				await expect(help).toBeVisible();
 
 				const panelBox = await panel.boundingBox();
 				expect(overlaps(await chat.boundingBox(), panelBox)).toBe(false);
-				expect(overlaps(await help.boundingBox(), panelBox)).toBe(false);
-				expect(overlaps(await chat.boundingBox(), await help.boundingBox())).toBe(false);
 			}
 		});
 	}

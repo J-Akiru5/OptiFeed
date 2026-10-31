@@ -2,16 +2,18 @@ import { ApiError } from "@/lib/api/errors";
 import type { ExportableType } from "@/lib/csv";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
+import type { PdfReport, SheetType } from "@/lib/xlsx/schema";
 import type { BackgroundJob, Prisma } from "@prisma/client";
-import { buildBatchExport, buildCsvExport } from "./export-data";
+import { buildBatchExport, buildCsvExport, buildXlsxExport } from "./export-data";
 import { confirmImport } from "./import-data";
 import { buildPdfExport } from "./pdf-export";
+import { buildReportPdf } from "./report-pdf";
 
 export const JOB_TTL_MS = 24 * 60 * 60 * 1000;
 const STALE_LOCK_MS = 5 * 60 * 1000;
 
-export type JobType = "export_csv" | "export_zip" | "export_pdf" | "import_confirm";
-export type JobStatus = "queued" | "running" | "succeeded" | "failed";
+export type JobType = "export_csv" | "export_zip" | "export_xlsx" | "export_pdf" | "import_confirm";
+type JobStatus = "queued" | "running" | "succeeded" | "failed";
 
 interface CreateJobInput {
 	ownerId: string;
@@ -114,7 +116,7 @@ export async function runJob(job: BackgroundJob): Promise<void> {
 	try {
 		switch (job.type) {
 			case "export_csv": {
-				const payload = job.payload as { type: ExportableType };
+				const payload = job.payload as { type: SheetType };
 				const artifact = await buildCsvExport(job.ownerId, payload.type);
 				await completeJob(job, artifact, {
 					filename: artifact.filename,
@@ -125,7 +127,7 @@ export async function runJob(job: BackgroundJob): Promise<void> {
 				return;
 			}
 			case "export_zip": {
-				const payload = job.payload as { types?: ExportableType[] };
+				const payload = job.payload as { types?: SheetType[] };
 				const artifact = await buildBatchExport(job.ownerId, payload.types);
 				await completeJob(job, artifact, {
 					filename: artifact.filename,
@@ -135,8 +137,23 @@ export async function runJob(job: BackgroundJob): Promise<void> {
 				});
 				return;
 			}
+			case "export_xlsx": {
+				const payload = job.payload as { types?: SheetType[] };
+				const artifact = await buildXlsxExport(job.ownerId, payload.types);
+				await completeJob(job, artifact, {
+					filename: artifact.filename,
+					content_type: artifact.contentType,
+					size: artifact.body.byteLength,
+					download_url: `/api/v1/jobs/${job.id}/download`,
+				});
+				return;
+			}
 			case "export_pdf": {
-				const artifact = await buildPdfExport(job.ownerId);
+				const payload = (job.payload ?? {}) as { report?: PdfReport };
+				const artifact =
+					payload.report && payload.report !== "summary"
+						? await buildReportPdf(job.ownerId, payload.report)
+						: await buildPdfExport(job.ownerId);
 				await completeJob(job, artifact, {
 					filename: artifact.filename,
 					content_type: artifact.contentType,
@@ -252,18 +269,29 @@ export interface JobMetrics {
  * Queue health for the admin dashboard / alerting. A dead worker shows up as a
  * growing `queued` count and an `oldestQueuedAgeMs` above the schedule interval.
  */
-export async function getJobMetrics(): Promise<JobMetrics> {
+export async function getJobMetrics(ownerId?: string): Promise<JobMetrics> {
 	const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+	// Tenant-scoped by default: every farm admin may read their own queue depth,
+	// never the platform-wide counts (which would disclose other tenants' load).
+	// A platform-wide read stays available by omitting the owner explicitly.
+	const scope = ownerId ? { ownerId } : {};
 	const [grouped, oldestQueued, succeeded24h, failed24h, artifacts] = await Promise.all([
-		prisma.backgroundJob.groupBy({ by: ["status"], _count: { _all: true } }),
+		prisma.backgroundJob.groupBy({ by: ["status"], where: scope, _count: { _all: true } }),
 		prisma.backgroundJob.findFirst({
-			where: { status: "queued" },
+			where: { status: "queued", ...scope },
 			orderBy: { createdAt: "asc" },
 			select: { createdAt: true },
 		}),
-		prisma.backgroundJob.count({ where: { status: "succeeded", finishedAt: { gte: since } } }),
-		prisma.backgroundJob.count({ where: { status: "failed", finishedAt: { gte: since } } }),
-		prisma.jobArtifact.aggregate({ _sum: { size: true } }),
+		prisma.backgroundJob.count({
+			where: { status: "succeeded", finishedAt: { gte: since }, ...scope },
+		}),
+		prisma.backgroundJob.count({
+			where: { status: "failed", finishedAt: { gte: since }, ...scope },
+		}),
+		prisma.jobArtifact.aggregate({
+			_sum: { size: true },
+			...(ownerId ? { where: { job: { ownerId } } } : {}),
+		}),
 	]);
 
 	const byStatus = new Map(grouped.map((row) => [row.status, row._count._all]));

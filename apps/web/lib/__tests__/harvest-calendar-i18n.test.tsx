@@ -69,6 +69,7 @@ function renderCalendar() {
 					population: 1000,
 					areaM2: 500,
 					averageDepthM: 1.5,
+					savedTargetWeightG: null,
 				},
 			]}
 			activeCycle={null}
@@ -80,6 +81,25 @@ function renderCalendar() {
 		/>,
 	);
 }
+
+const activeCycle = {
+	id: "cycle-1",
+	pondId: "pond-1",
+	label: "Cycle 1",
+	status: "ACTIVE" as const,
+	stockingDate: "2026-08-01",
+	stockingCount: 1000,
+	stockingAvgWeightG: 5,
+	growOutDays: 90,
+	targetHarvestDate: "2026-10-30",
+	targetHarvestWeightG: 250,
+	expectedSurvivalPct: 80,
+	actualHarvestDate: null,
+	actualHarvestWeightKg: null,
+	actualHarvestCount: null,
+	actualFcr: null,
+	notes: null,
+};
 
 beforeEach(() => {
 	state.locale = "en";
@@ -108,5 +128,39 @@ describe("HarvestCalendar copy", () => {
 		expect(html).toContain('aria-label="Mga masunod nga hitabo"');
 		expect(html).toContain("Tanan nga punong");
 		expect(html).not.toContain("No active grow-out cycle");
+	});
+
+	it("renders the grow-out and harvest panels for an active cycle (#248)", () => {
+		const html = renderToStaticMarkup(
+			<HarvestCalendar
+				initialPondId="pond-1"
+				initialPondName="Pond 1"
+				initialPondIsFallow={false}
+				ponds={[
+					{
+						id: "pond-1",
+						name: "Pond 1",
+						isFallow: false,
+						population: 1000,
+						areaM2: 500,
+						averageDepthM: 1.5,
+						savedTargetWeightG: null,
+					},
+				]}
+				activeCycle={activeCycle}
+				activeCycles={[activeCycle]}
+				recentCycles={[]}
+				canManage
+				today="2026-10-26"
+				hopperLevelPct={50}
+			/>,
+		);
+
+		// Grow-out start/edit and harvest planning are the Harvest-only controls
+		// the merged page must keep.
+		expect(html).toContain("Edit plan");
+		expect(html).toContain("Mark harvested");
+		expect(html).toContain("Grow-out progress");
+		expect(html).toContain("Harvest in 4 days");
 	});
 });

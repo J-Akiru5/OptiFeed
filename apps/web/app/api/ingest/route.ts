@@ -2,15 +2,23 @@ import { withApi } from "@/lib/api/instrumentation";
 import {
 	FEED_DAYS_WARNING,
 	HEARTBEAT_ROW_INTERVAL_MS,
-	OFFLINE_THRESHOLD_MS,
 	PELLET_ALERT_WINDOW_MS,
 	RECONCILIATION_LOOKBACK_HOURS,
 } from "@/lib/constants";
 import { isDeviceApproved, verifyDeviceToken } from "@/lib/device-auth";
+import { FIRMWARE_REPORTED_EVENT, getDeviceFirmwareVersion } from "@/lib/device-firmware";
+import {
+	DEVICE_RSSI_DBM_MAX,
+	DEVICE_RSSI_DBM_MIN,
+	isDeviceUnreachable,
+	isValidRssiDbm,
+} from "@/lib/device-status";
+import { estimateDaysOfFeedRemaining } from "@/lib/feed-level";
 import { normalizeNotificationPrefs } from "@/lib/limits";
 import { absoluteAppUrl, sendTelegramMessage } from "@/lib/notify/telegram";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { recordMissedFeedingAlert } from "@/lib/settings/missed-feeding";
 import { ORG_SETTINGS_DEFAULTS, getOrgAlertRoles, getOrgSettingsForFarm } from "@/lib/settings/org";
 import { hopperAlertTier, shouldCreatePondAlert } from "@/lib/settings/org-alerts";
@@ -20,8 +28,9 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-// Devices are considered disconnected if no heartbeat for OFFLINE_THRESHOLD_MS
-// (lib/constants.ts) — matches the dashboard's offline threshold.
+// A heartbeat that arrives after a real outage records a reconnect. This uses
+// the strict command-safety window (no display grace) so the event still fires
+// after the configured offline window (#388).
 
 const RATE_LIMIT_MS = 1000;
 
@@ -75,6 +84,22 @@ const heartbeatSchema = baseSchema.extend({
 	// Water temperature (DS18B20 probe) — piggybacked on existing heartbeat
 	water_temp_c: z.number().optional(),
 	water_temp_ok: z.boolean().optional(),
+	// Wi-Fi signal (firmware 1.6.2+). Advisory only: a malformed value is
+	// dropped here instead of failing the whole heartbeat, so one buggy field
+	// can never cost a device its connectivity.
+	wifi_rssi: z.preprocess(
+		(value) => (isValidRssiDbm(value) ? value : undefined),
+		z.number().int().min(DEVICE_RSSI_DBM_MIN).max(DEVICE_RSSI_DBM_MAX).optional(),
+	),
+	// Firmware 1.7.0 echoes the revision of the dashboard config it applied.
+	// Advisory: a malformed value is dropped rather than failing the heartbeat.
+	config_rev: z.preprocess(
+		(value) =>
+			typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 0x7fffffff
+				? value
+				: undefined,
+		z.number().int().min(0).optional(),
+	),
 });
 
 const feedDispensedSchema = baseSchema.extend({
@@ -161,8 +186,17 @@ export const POST = withApi(
 				return new Response("Unprocessable Entity", { status: 422 });
 			}
 
-			const wasOffline =
-				!device.lastSeenAt || Date.now() - device.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+			// I-97: an absent/invalid `wifi_rssi` must not clear the last known
+			// reading, so only a plausible value becomes an update.
+			const rssiDbm = parsed.data.wifi_rssi;
+			const rssiUpdate =
+				rssiDbm === undefined ? {} : { wifiRssiDbm: rssiDbm, wifiRssiUpdatedAt: new Date() };
+
+			const wasOffline = isDeviceUnreachable(
+				device.lastSeenAt,
+				new Date(),
+				await getDeviceStatusPolicy(),
+			);
 
 			// Thinning (N11): look up the last heartbeat row so we only write a new
 			// one when 5 minutes have passed or a stored value changed.
@@ -218,6 +252,24 @@ export const POST = withApi(
 			// Telegram fan-out (3.5) runs once, after the transaction commits.
 			let pelletCriticalAlert = false;
 
+			// #263: a unit that was flashed over USB never reports an OTA
+			// transition, so the hardware card would keep showing the version
+			// baked in at provisioning. Store the reported version once per
+			// change in the existing event stream (no schema change).
+			const reportedVersion = parsed.data.firmware_version ?? null;
+			let firmwareReportedEvent = false;
+			if (reportedVersion && !otaTransitionEvent) {
+				try {
+					const latestVersion = await getDeviceFirmwareVersion(device.id);
+					firmwareReportedEvent = latestVersion?.version !== reportedVersion;
+				} catch (error) {
+					console.warn(
+						"[ingest] firmware version lookup failed",
+						error instanceof Error ? error.message : String(error),
+					);
+				}
+			}
+
 			try {
 				const operations: Prisma.PrismaPromise<unknown>[] = [
 					prisma.energyDevice.update({
@@ -226,6 +278,10 @@ export const POST = withApi(
 							lastSeenAt: new Date(),
 							rtcOk: parsed.data.rtc_ok,
 							feederActive: parsed.data.feeder_active,
+							// I-97: the signal rides the heartbeat write that already
+							// exists, so no extra query per beat. A beat without an RSSI
+							// (old firmware) leaves the last known reading untouched.
+							...rssiUpdate,
 						},
 					}),
 				];
@@ -243,6 +299,49 @@ export const POST = withApi(
 							},
 						}),
 					);
+				}
+
+				// I-100: record the applied firmware config revision once per change,
+				// so ops can confirm a unit really took a dashboard change. The lookup
+				// only runs on a heartbeat that is already being written (changed or
+				// due), which keeps it to one query per device per few minutes.
+				const reportedConfigRev = parsed.data.config_rev;
+				if (typeof reportedConfigRev === "number" && (heartbeatChanged || heartbeatDue)) {
+					try {
+						const lastConfigEvent = await prisma.deviceStateEvent.findFirst({
+							where: { deviceId: device.id, eventType: "config_applied" },
+							orderBy: { createdAt: "desc" },
+							select: { metadata: true },
+						});
+						const lastConfigMetadata = (lastConfigEvent?.metadata ?? null) as {
+							configRev?: unknown;
+						} | null;
+						if (lastConfigMetadata?.configRev !== reportedConfigRev) {
+							operations.push(
+								prisma.deviceStateEvent.create({
+									data: {
+										deviceId: device.id,
+										eventType: "config_applied",
+										source: "device",
+										deviceTime: parsed.data.timestamp,
+										metadata: {
+											configRev: reportedConfigRev,
+											...(parsed.data.firmware_version
+												? { version: parsed.data.firmware_version }
+												: {}),
+										},
+									},
+								}),
+							);
+						}
+					} catch (error) {
+						// A lookup failure must never drop the heartbeat; the change is
+						// recorded on a later beat.
+						console.warn(
+							"[ingest] config revision lookup failed",
+							error instanceof Error ? error.message : String(error),
+						);
+					}
 				}
 
 				// OTA lifecycle transition (ota_installed / ota_valid /
@@ -268,6 +367,22 @@ export const POST = withApi(
 					);
 				}
 
+				// #263: one row per observed version change, so the hardware card
+				// reads the version the unit actually runs after a USB flash.
+				if (firmwareReportedEvent && reportedVersion) {
+					operations.push(
+						prisma.deviceStateEvent.create({
+							data: {
+								deviceId: device.id,
+								eventType: FIRMWARE_REPORTED_EVENT,
+								source: "device",
+								deviceTime: parsed.data.timestamp,
+								metadata: { version: reportedVersion },
+							},
+						}),
+					);
+				}
+
 				// N15: "connected" only on first contact or offline→online, not every beat.
 				if (wasOffline) {
 					operations.push(
@@ -282,14 +397,27 @@ export const POST = withApi(
 					);
 				}
 
-				// Feed level sensor reading piggybacked on heartbeat
-				if (typeof parsed.data.feed_level_percent === "number") {
+				// Feed level sensor reading piggybacked on heartbeat.
+				//
+				// The firmware reports 0 % together with 0 cm when the HC-SR04
+				// pulse times out; a real empty hopper reports its actual distance.
+				// Trusting the sentinel overwrote the last known level with 0 % and
+				// fired a false CRITICAL alert (plus a Telegram message) on every
+				// failed read, so the heartbeat still updates `lastSeenAt` below but
+				// the level, history row and hopper alerts are skipped.
+				const levelPercent = parsed.data.feed_level_percent;
+				const levelCm = parsed.data.feed_level_cm;
+				const isSensorTimeout = levelPercent === 0 && levelCm === 0;
+
+				if (typeof levelPercent === "number" && !isSensorTimeout) {
 					operations.push(
 						prisma.energyDevice.update({
 							where: { id: device.id },
 							data: {
-								feedLevelPercent: parsed.data.feed_level_percent,
-								feedLevelCm: parsed.data.feed_level_cm ?? null,
+								feedLevelPercent: levelPercent,
+								// A heartbeat without a distance keeps the last known
+								// one instead of blanking a real reading.
+								...(typeof levelCm === "number" ? { feedLevelCm: levelCm } : {}),
 								feedLevelUpdatedAt: new Date(),
 							},
 						}),
@@ -330,14 +458,14 @@ export const POST = withApi(
 					const shouldLog =
 						!lastLog ||
 						Date.now() - lastLog.recordedAt.getTime() > 30 * 60 * 1000 ||
-						Math.abs(lastLog.levelPercent - parsed.data.feed_level_percent) > 5;
+						Math.abs(lastLog.levelPercent - levelPercent) > 5;
 					if (shouldLog) {
 						operations.push(
 							prisma.feedLevelLog.create({
 								data: {
 									deviceId: device.id,
-									levelPercent: parsed.data.feed_level_percent,
-									distanceCm: parsed.data.feed_level_cm ?? 0,
+									levelPercent,
+									distanceCm: levelCm ?? 0,
 								},
 							}),
 						);
@@ -346,12 +474,15 @@ export const POST = withApi(
 					// Pellet alert dedup (N11): fire only on a tier transition or at most
 					// once per 6h while still low. Gate uses the most recent
 					// unacknowledged pellet notification for this pond (if any).
-					const pelletLevel = parsed.data.feed_level_percent;
+					const pelletLevel = levelPercent;
 					const pelletTier = hopperAlertTier(pelletLevel, feedSettings.hopperLowPct);
 					const pelletAlertAllowed = pelletTier ? await hopperAlertsAllowed() : false;
 
+					// Resolved whenever the device has a pond, not only when this reading
+					// is low: the days-of-feed-remaining branch below needs the same
+					// dedup state even when the hopper is back above its threshold.
 					let recentPelletAlert: { tier: string; createdAt: Date } | null = null;
-					if (pelletTier && device.pondId) {
+					if (device.pondId) {
 						recentPelletAlert = await prisma.notification.findFirst({
 							where: { pondId: device.pondId, category: "pellet", acknowledgedAt: null },
 							orderBy: { createdAt: "desc" },
@@ -365,6 +496,19 @@ export const POST = withApi(
 							Date.now() - recentPelletAlert.createdAt.getTime() < PELLET_ALERT_WINDOW_MS;
 						return recentPelletAlert.tier !== tier || !withinWindow;
 					};
+					// An unacknowledged pellet alert still inside the window already
+					// tells the farmer the hopper is low. The days-remaining warning is
+					// the same category for the same pond, so stacking it on top makes
+					// the two messages alternate tier on every heartbeat
+					// (CRITICAL → WARNING → CRITICAL …) instead of informing.
+					const pelletAlertOutstanding =
+						recentPelletAlert !== null &&
+						Date.now() - recentPelletAlert.createdAt.getTime() < PELLET_ALERT_WINDOW_MS;
+
+					// Set when this heartbeat already queued a hopper alert, so the
+					// days-of-feed-remaining branch below cannot queue a second, weaker
+					// one from the same (pre-transaction) reading.
+					let pelletAlertQueued = false;
 
 					if (
 						pelletTier &&
@@ -372,6 +516,7 @@ export const POST = withApi(
 						pelletAlertAllowed &&
 						shouldFirePelletAlert(pelletTier)
 					) {
+						pelletAlertQueued = true;
 						if (pelletTier === "CRITICAL") {
 							pelletCriticalAlert = true;
 							operations.push(
@@ -390,7 +535,7 @@ export const POST = withApi(
 										eventType: "pellet_low",
 										source: "device",
 										deviceTime: parsed.data.timestamp,
-										metadata: { levelPercent: parsed.data.feed_level_percent },
+										metadata: { levelPercent },
 									},
 								}),
 							);
@@ -409,21 +554,28 @@ export const POST = withApi(
 						}
 					}
 
-					// 2-days-of-feed-remaining advance warning
+					// 2-days-of-feed-remaining advance warning. The estimate is the
+					// same shared helper the dashboard card uses (lib/feed-level.ts),
+					// so both surfaces agree and a missing capacity or meal size
+					// yields null instead of a `99`-style sentinel.
 					if (device.pondId) {
 						const deviceFull = await prisma.energyDevice.findUnique({
 							where: { id: device.id },
 							select: { hopperCapacityG: true, gramsPerFeeding: true },
 						});
-						if (deviceFull?.hopperCapacityG && deviceFull.gramsPerFeeding && pondContext) {
-							const dailyConsumptionG = deviceFull.gramsPerFeeding * pondContext.feedsPerDay;
-							const remainingG =
-								deviceFull.hopperCapacityG * (parsed.data.feed_level_percent / 100);
-							const daysRemaining = dailyConsumptionG > 0 ? remainingG / dailyConsumptionG : 99;
+						if (deviceFull && pondContext) {
+							const daysRemaining = estimateDaysOfFeedRemaining({
+								levelPercent,
+								hopperCapacityG: deviceFull.hopperCapacityG,
+								gramsPerFeeding: deviceFull.gramsPerFeeding,
+								feedsPerDay: pondContext.feedsPerDay,
+							});
 							if (
+								daysRemaining !== null &&
 								daysRemaining <= FEED_DAYS_WARNING &&
 								daysRemaining > 0 &&
-								shouldFirePelletAlert("WARNING") &&
+								!pelletAlertQueued &&
+								!pelletAlertOutstanding &&
 								(await hopperAlertsAllowed())
 							) {
 								operations.push(
@@ -445,7 +597,7 @@ export const POST = withApi(
 					if (
 						lastLog &&
 						lastLog.levelPercent <= feedSettings.hopperLowPct &&
-						parsed.data.feed_level_percent > feedSettings.hopperLowPct
+						levelPercent > feedSettings.hopperLowPct
 					) {
 						operations.push(
 							prisma.deviceStateEvent.create({
@@ -456,7 +608,7 @@ export const POST = withApi(
 									deviceTime: parsed.data.timestamp,
 									metadata: {
 										previousLevel: lastLog.levelPercent,
-										currentLevel: parsed.data.feed_level_percent,
+										currentLevel: levelPercent,
 									},
 								},
 							}),
@@ -556,7 +708,7 @@ export const POST = withApi(
 				// alert — repeats are already suppressed by the dedup gate above).
 				if (pelletCriticalAlert) {
 					const link = absoluteAppUrl("/dashboard/settings");
-					const message = `CRITICAL — ${device.label}: feed hopper is nearly empty (${parsed.data.feed_level_percent}%). Refill immediately.${link ? `\n${link}` : ""}`;
+					const message = `CRITICAL — ${device.label}: feed hopper is nearly empty (${levelPercent}%). Refill immediately.${link ? `\n${link}` : ""}`;
 					// §8.2 rule 9: the Telegram round-trip is not part of the device's
 					// request. Schedule it after the response instead of awaiting it.
 					runAfterResponse(() => sendTelegramMessage(message));

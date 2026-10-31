@@ -61,6 +61,16 @@
 			"level": "L1",
 			"contract": true,
 			"latency": false
+		},
+		{
+			"id": "device-state",
+			"method": "GET",
+			"path": "/api/v1/devices/{id}/state",
+			"shape": "envelope",
+			"auth": "session",
+			"level": "L2",
+			"contract": false,
+			"latency": false
 		}
 	],
 	"excluded": [
@@ -125,6 +135,14 @@
 			"reason": "Async job creation (POST body); covered by the local job flow and unit tests."
 		},
 		{
+			"path": "/api/v1/import-prepare",
+			"reason": "Multipart upload (POST body); covered by import-prepare route and xlsx-import-export tests."
+		},
+		{
+			"path": "/api/v1/import-template",
+			"reason": "Query-parameter file download of a static template; covered by import-template route tests."
+		},
+		{
 			"path": "/api/v1/jobs/{id}",
 			"reason": "Dynamic job status; covered by the local job flow."
 		},
@@ -143,6 +161,14 @@
 		{
 			"path": "/api/v1/chat/assistant",
 			"reason": "Streaming assistant turn for the signed-in user (withAuth); writes nothing itself, proposals become AssistantAction rows that run only on an explicit Accept. Covered by assistant-* tests."
+		},
+		{
+			"path": "/api/v1/admin/backup/export",
+			"reason": "Streamed tenant SQL download (POST body carries the optional reason); requires an active OWNER/ADMIN membership and uses resolveOrgScope. Covered by backup-* tests."
+		},
+		{
+			"path": "/api/v1/superadmin/backup/export",
+			"reason": "Streamed full-database SQL download (POST body carries the mandatory reason); platform admin, step-up and rate limit. Covered by backup-* tests."
 		}
 	]
 }

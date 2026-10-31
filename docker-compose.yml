@@ -1,0 +1,73 @@
+# Local container stack for the OptiFeed web app.
+#
+# Prerequisites
+#   1. Docker Engine / Docker Desktop with Compose v2.
+#   2. A root-level `.env`:  cp apps/web/.env.example .env  and fill it in.
+#      Compose reads it twice — for `${...}` interpolation below and as the
+#      container's `env_file`.
+#   3. A reachable Supabase project for `NEXT_PUBLIC_SUPABASE_URL` and auth.
+#
+#   docker compose up --build
+#   open http://localhost:3000
+#
+# This stack is *not* a self-contained replacement for Supabase: the app
+# authenticates through Supabase Auth (`auth.users`, `@supabase/ssr` cookies,
+# `SUPABASE_SERVICE_ROLE_KEY` admin calls) and derives RLS-relevant identity
+# from Supabase sessions. A bare Postgres container gives you Prisma the
+# database and nothing else. See docs/operations/deployment.md.
+
+name: optifeed
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Public values are baked into the client bundle here, at build time.
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?set NEXT_PUBLIC_SUPABASE_URL in .env}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:?set NEXT_PUBLIC_SUPABASE_ANON_KEY in .env}
+    image: optifeed-web:local
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    restart: unless-stopped
+
+  # OPTIONAL and deliberately incomplete.
+  #
+  # Use it only to run Prisma migrations and inspect data locally:
+  #
+  #   docker compose --profile db up -d db
+  #   DATABASE_URL=postgresql://optifeed:optifeed@localhost:5432/optifeed \
+  #   DIRECT_URL=postgresql://optifeed:optifeed@localhost:5432/optifeed \
+  #     pnpm --filter web exec prisma migrate deploy
+  #
+  # Signing in still fails against this database: there is no GoTrue/Auth
+  # service, no `auth` schema, no storage and no Admin API, so
+  # `NEXT_PUBLIC_SUPABASE_URL` must still point at Supabase. For a working
+  # local stack use the Supabase CLI (`supabase start`, which needs Docker too)
+  # and point DATABASE_URL/DIRECT_URL at the ports it prints.
+  db:
+    image: postgres:16-alpine
+    profiles: ["db"]
+    environment:
+      POSTGRES_USER: optifeed
+      POSTGRES_PASSWORD: optifeed
+      POSTGRES_DB: optifeed
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - optifeed-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U optifeed -d optifeed"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  optifeed-db:

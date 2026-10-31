@@ -1,6 +1,12 @@
 import { utcDateToFarmDateTime } from "@/lib/calendar/datetime";
 import { expandOccurrences } from "@/lib/calendar/recurrence";
 import {
+	UPCOMING_LIMIT,
+	type UpcomingWindow,
+	selectUpcomingEvents,
+	upcomingWindow,
+} from "@/lib/calendar/upcoming";
+import {
 	CALENDAR_EVENT_TYPES,
 	type CalendarEventDto,
 	type CalendarEventStatus,
@@ -78,6 +84,12 @@ export interface CalendarEventLoadInput {
 	 * farmer API does not need it; the platform calendar resolves names from it.
 	 */
 	includeCreatorIds?: boolean;
+	/**
+	 * Pond ids the caller may edit (E25, #212). Omitted means every supplied
+	 * pond is writable. The farmer org calendar passes only the caller's own
+	 * farm ponds, so org-wide events render read-only.
+	 */
+	editablePondIds?: ReadonlySet<string>;
 }
 
 export interface CalendarEventLoadResult {
@@ -125,6 +137,7 @@ export async function loadCalendarEventSources(
 	const includeFeeding = input.includeFeeding ?? false;
 	const deviceEventTypes = input.deviceEventTypes ?? CALENDAR_DEVICE_EVENT_TYPES;
 	const includeCreatorIds = input.includeCreatorIds ?? false;
+	const editablePondIds = input.editablePondIds;
 
 	if (ponds.length === 0) return { events: [], truncated: false };
 
@@ -190,6 +203,7 @@ export async function loadCalendarEventSources(
 				if (event.kind === "EVENT" && skippedOccurrence) continue;
 
 				const completed = event.status === "DONE" || skippedOccurrence;
+				const writable = !editablePondIds || editablePondIds.has(event.pond.id);
 				events.push({
 					id: recurring ? `pond:${event.id}:${occurrence.occurrenceKey}` : `pond:${event.id}`,
 					pondEventId: event.id,
@@ -212,13 +226,14 @@ export async function loadCalendarEventSources(
 					reminderMinutes: event.reminderMinutes,
 					completed,
 					editable:
-						event.source === "manual" ||
-						(event.type === "HARVEST_PLANNED" && event.status === "PLANNED"),
+						writable &&
+						(event.source === "manual" ||
+							(event.type === "HARVEST_PLANNED" && event.status === "PLANNED")),
 					pondId: event.pond.id,
 					pondName: event.pond.name,
 					cycleLabel: event.cropCycle?.label ?? null,
 					notes: event.notes,
-					href: "/dashboard/harvest",
+					href: "/dashboard/calendar",
 					...(includeCreatorIds ? { createdByUserId: event.createdBy } : {}),
 				});
 			}
@@ -376,4 +391,45 @@ export async function loadCalendarEventSources(
 	}
 
 	return { events, truncated };
+}
+
+export interface UpcomingCalendarInput {
+	/** The selected ponds, after the caller applied its pond/org scope. */
+	ponds: CalendarEventPond[];
+	/** Today in the farm timezone, as `YYYY-MM-DD`. */
+	today: string;
+	/** Defaults to every non-feeding type, the calendar's default set. */
+	types?: ReadonlySet<CalendarEventType>;
+	deviceEventTypes?: readonly string[];
+	editablePondIds?: ReadonlySet<string>;
+}
+
+/**
+ * The single upcoming-events loader (#248).
+ *
+ * The farmer Calendar page uses it for the offline Harvest snapshot and the
+ * component requests the same window from `/api/calendar/events`; both then
+ * select with `selectUpcomingEvents`, so sampling due, harvest, manual and
+ * device events agree for every entry point. Feeding bands are background
+ * decoration and never appear in the upcoming list.
+ */
+export async function loadUpcomingCalendarEvents(
+	input: UpcomingCalendarInput,
+): Promise<CalendarEventLoadResult> {
+	const window: UpcomingWindow = upcomingWindow(input.today);
+	const { events, truncated } = await loadCalendarEventSources({
+		ponds: input.ponds,
+		from: window.from,
+		to: window.to,
+		today: input.today,
+		types: input.types ?? new Set(defaultCalendarEventTypes()),
+		includeFeeding: false,
+		deviceEventTypes: input.deviceEventTypes,
+		editablePondIds: input.editablePondIds,
+	});
+
+	return {
+		events: selectUpcomingEvents(events, input.today, UPCOMING_LIMIT),
+		truncated,
+	};
 }

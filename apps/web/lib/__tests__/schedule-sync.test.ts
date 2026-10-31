@@ -8,6 +8,7 @@ vi.mock("@/lib/prisma", () => ({
 		scheduleCommand: {
 			findFirst: vi.fn(),
 			update: vi.fn(),
+			updateMany: vi.fn(),
 		},
 		deviceStateEvent: {
 			create: vi.fn(),
@@ -63,6 +64,7 @@ describe("GET /api/schedule-sync", () => {
 		mockEnergyDevice.findUnique.mockResolvedValue({ ...DEVICE } as never);
 		mockScheduleCommand.findFirst.mockResolvedValue(null);
 		mockScheduleCommand.update.mockResolvedValue({} as never);
+		mockScheduleCommand.updateMany.mockResolvedValue({ count: 1 } as never);
 		mockDeviceStateEvent.create.mockResolvedValue({} as never);
 		mockDeviceStateEvent.findFirst.mockResolvedValue(null);
 		mockPond.findUnique.mockResolvedValue(null);
@@ -91,12 +93,51 @@ describe("GET /api/schedule-sync", () => {
 		mockRateLimit.mockResolvedValue({ success: false } as never);
 		const res = await GET(syncRequest());
 		expect(res.status).toBe(429);
+		expect(await res.text()).toBe("Too Many Requests");
+		// Consumed only after verification and keyed on the verified mac.
+		expect(mockRateLimit).toHaveBeenCalledTimes(1);
+		expect(mockRateLimit).toHaveBeenCalledWith(DEVICE.mac, "schedule");
+		expect(mockScheduleCommand.findFirst).not.toHaveBeenCalled();
 	});
 
 	it("returns 401 when the token does not resolve to a device", async () => {
 		mockEnergyDevice.findUnique.mockResolvedValue(null as never);
 		const res = await GET(syncRequest(DEVICE.mac, "wrong-token"));
 		expect(res.status).toBe(401);
+		// #330: an unverified token must not touch the named device's budget.
+		expect(mockRateLimit).not.toHaveBeenCalled();
+	});
+
+	it("returns 401 when the token resolves to a different mac than device_id", async () => {
+		const res = await GET(syncRequest("11:22:33:44:55:66"));
+		expect(res.status).toBe(401);
+		// #330: naming another device's MAC with a valid token of your own does
+		// not spend that device's bucket.
+		expect(mockRateLimit).not.toHaveBeenCalled();
+	});
+
+	it("#330: an unauthenticated flood cannot exhaust a verified device's bucket", async () => {
+		// Mirrors the real limiter's 20/min ceiling: before the fix, attacker
+		// traffic keyed on the victim MAC pushed the counter past it and the
+		// real device's next poll came back 429.
+		let consumed = 0;
+		mockRateLimit.mockImplementation(async () => {
+			consumed += 1;
+			return { success: consumed <= 20, remaining: Math.max(0, 20 - consumed) } as never;
+		});
+
+		mockEnergyDevice.findUnique.mockResolvedValue(null as never);
+		for (let i = 0; i < 25; i += 1) {
+			const res = await GET(syncRequest(DEVICE.mac, "attacker-token"));
+			expect(res.status).toBe(401);
+		}
+		expect(mockRateLimit).not.toHaveBeenCalled();
+
+		mockEnergyDevice.findUnique.mockResolvedValue({ ...DEVICE } as never);
+		const res = await GET(syncRequest());
+		expect(res.status).toBe(200);
+		expect(mockRateLimit).toHaveBeenCalledTimes(1);
+		expect(mockRateLimit).toHaveBeenCalledWith(DEVICE.mac, "schedule");
 	});
 
 	it("returns 403 for a PENDING device (org approval policy)", async () => {
@@ -126,6 +167,7 @@ describe("GET /api/schedule-sync", () => {
 				}),
 			}),
 		);
+		expect(mockRateLimit).toHaveBeenCalledWith(DEVICE.mac, "schedule");
 	});
 
 	it("returns a recent manual calibration so the device applies it", async () => {
@@ -171,8 +213,8 @@ describe("GET /api/schedule-sync", () => {
 		expect(body.feeds_per_day).toBe(4);
 		expect(body.feeding_rate_pct).toBe(4.5);
 
-		expect(mockScheduleCommand.update).toHaveBeenCalledWith({
-			where: { id: "cmd-1" },
+		expect(mockScheduleCommand.updateMany).toHaveBeenCalledWith({
+			where: { id: "cmd-1", status: "pending" },
 			data: { status: "sent" },
 		});
 		expect(mockDeviceStateEvent.create).toHaveBeenCalledWith({
@@ -183,6 +225,32 @@ describe("GET /api/schedule-sync", () => {
 				metadata: expect.objectContaining({ commandId: "cmd-1" }),
 			}),
 		});
+	});
+
+	it("re-serves an already-sent command without logging command_sent again", async () => {
+		// The device keeps polling until it acks; the command must stay in the
+		// response, but the audit row is written once per transition.
+		mockScheduleCommand.findFirst.mockResolvedValue({
+			id: "cmd-2",
+			status: "sent",
+			scheduleStart: new Date("2024-01-01T06:00:00Z"),
+			scheduleEnd: new Date("2024-01-01T18:00:00Z"),
+			feedsPerDay: 4,
+			feedingRatePct: 4.5,
+			createdAt: new Date(),
+		} as never);
+		mockScheduleCommand.updateMany.mockResolvedValue({ count: 0 } as never);
+
+		const res = await GET(syncRequest());
+
+		expect(res.status).toBe(200);
+		const body = await res.json();
+		expect(body.schedule_changed).toBe(true);
+		expect(body.command_id).toBe("cmd-2");
+		const sentEvents = mockDeviceStateEvent.create.mock.calls.filter(
+			([arg]) => (arg as { data: { eventType: string } }).data.eventType === "command_sent",
+		);
+		expect(sentEvents).toHaveLength(0);
 	});
 
 	it("returns the current pond settings as baseline when no command is pending", async () => {

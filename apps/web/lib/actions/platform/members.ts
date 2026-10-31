@@ -16,7 +16,7 @@ import type { InviteLinkTransaction } from "@/lib/membership-invite";
 import { deliverMemberInviteEmail } from "@/lib/notify/invite-email";
 import prisma from "@/lib/prisma";
 import type { MemberRole, Prisma } from "@prisma/client";
-import { headers } from "next/headers";
+import { requestOrigin } from "./audit";
 
 /**
  * Platform organization member management (mission D1: god mode).
@@ -70,20 +70,7 @@ async function actorContext(): Promise<{
 	};
 }
 
-/** Request origin for the audit row (who/what/when/where). */
-async function requestOrigin(): Promise<{ ip: string | null; userAgent: string | null }> {
-	try {
-		const h = await headers();
-		const forwarded = h.get("x-forwarded-for")?.split(",")[0]?.trim();
-		return {
-			ip: forwarded || h.get("x-real-ip") || null,
-			userAgent: h.get("user-agent")?.slice(0, 512) ?? null,
-		};
-	} catch {
-		return { ip: null, userAgent: null };
-	}
-}
-
+/** One membership audit row inside the caller's transaction. */
 async function auditMembership(
 	data: {
 		action: string;

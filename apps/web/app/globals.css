@@ -101,6 +101,15 @@
 	--ofd-base-deep: #0a3d62;
 	--ofd-touch-min: 56px;
 
+	/* Mobile app shell (E26): the brand header band and the bottom bar. The band
+	   is the PakaonAI navy gradient, never the reference app's orange. */
+	--ofd-band-from: #0a3d62;
+	--ofd-band-via: #0c4a73;
+	--ofd-band-to: #08324f;
+	--ofd-band-ink: #ffffff;
+	--ofd-band-ink-muted: rgba(255, 255, 255, 0.72);
+	--ofd-bottom-nav-h: 4.5rem;
+
 	/* Layout tokens — bottom-right FAB cluster (help + chat assistant) */
 	--ofd-fab-size: var(--ofd-touch-min);
 	--ofd-fab-gap: 12px;
@@ -163,6 +172,14 @@
 	--ofd-critical: #f87171;
 	--ofd-warning: #fbbf24;
 	--ofd-base-deep: #5b9bd5;
+
+	/* Mobile app shell in dark mode: same band, deeper so the white copy keeps
+	   its contrast against the dark page behind it. */
+	--ofd-band-from: #06263f;
+	--ofd-band-via: #0b3554;
+	--ofd-band-to: #06263f;
+	--ofd-band-ink: #ffffff;
+	--ofd-band-ink-muted: rgba(255, 255, 255, 0.7);
 }
 
 @layer base {
@@ -174,6 +191,29 @@
 	}
 	html {
 		@apply font-sans;
+	}
+
+	/*
+	 * Clickable controls show a hand cursor (#244).
+	 *
+	 * Tailwind v4's preflight stopped setting `cursor: pointer` on buttons
+	 * (v3 did), so every plain `<button>` in the app fell back to the browser
+	 * default arrow — most visibly the login page's "Back to Home" — and users
+	 * could not tell it was clickable. These rules are in the base layer, so
+	 * per-element utilities such as `cursor-default` on a modal backdrop still
+	 * win, and they cover `<summary>` toggles and `<select>`s too.
+	 */
+	button:not(:disabled),
+	[role="button"]:not([aria-disabled="true"]),
+	summary,
+	label[for],
+	select {
+		cursor: pointer;
+	}
+
+	:disabled,
+	[aria-disabled="true"] {
+		cursor: not-allowed;
 	}
 }
 
@@ -226,6 +266,127 @@
 	display: grid;
 }
 
+/*
+ * Mobile app shell (E26).
+ *
+ * The header band uses the PakaonAI navy gradient from the `--ofd-band-*`
+ * tokens (light and dark each define their own), so the band is the same brand
+ * surface as the desktop header instead of the reference app's orange.
+ */
+.ofd-band {
+	background-image: linear-gradient(
+		135deg,
+		var(--ofd-band-from) 0%,
+		var(--ofd-band-via) 55%,
+		var(--ofd-band-to) 100%
+	);
+	color: var(--ofd-band-ink);
+}
+
+/*
+ * Page content clears the fixed bottom bar plus the device safe area, so the
+ * last row is never hidden behind it on a phone with a home indicator.
+ */
+.ofd-main {
+	padding-bottom: calc(var(--ofd-bottom-nav-h) + env(safe-area-inset-bottom) + 1.5rem);
+}
+
+@media (min-width: 64rem) {
+	.ofd-main {
+		padding-bottom: 2rem;
+	}
+}
+
+/*
+ * Farmer control room (issue #399): one viewport, no page scroll.
+ *
+ * The app frame is `100dvh` and the dashboard header is `h-16` (4 rem). The
+ * `main` pane scrolls, and on a wide screen it pads 2 rem top and bottom
+ * (`md:p-8`, `.ofd-main`). The control room must fit exactly that content box:
+ * header, hero strip, pond canvas and charts visible at once, with only the
+ * right-hand rail scrolling internally.
+ *
+ * Both chrome numbers are tokens rather than a literal `8rem`, so this rule
+ * cannot drift away from `layout.tsx`; `dashboard-fit.test.tsx` reads the two
+ * files and fails if the header height or the pane padding changes alone.
+ *
+ * The tiers are keyed to the *viewport height*, not the width, because that is
+ * what runs out on a laptop: 1366x768 leaves 640 px of content, 1440x900 leaves
+ * 772 px and 1920x1080 leaves 952 px. Each tier only shrinks padding and the
+ * chart plot area — nothing is hidden, truncated or clipped — and below `xl`
+ * the same tree keeps the stacked, scrolling mobile layout. The numbers are
+ * also the input to the height budget in `dashboard-fit.test.tsx`.
+ */
+:root {
+	/* Dashboard header (`h-16`) and `main` vertical padding (`md:p-8`). */
+	--ofd-topbar-h: 4rem;
+	--ofd-main-pad-y: 2rem;
+	/* Chart plot area; the chart fills it (`height="100%"`). */
+	--ofd-plot-h: 8.125rem;
+}
+
+/*
+ * The plot area is sized here in every layout, so the height the chart reports
+ * to Recharts is the height the card actually reserves. `flex: none` overrides
+ * `flex-1`: a flexible child would collapse to its basis inside a column flex
+ * container whose height is content-driven.
+ */
+.ofd-plot {
+	flex: none;
+	height: var(--ofd-plot-h);
+	min-height: 0;
+}
+
+@media (min-width: 80rem) {
+	.ofd-control-room {
+		/* 100dvh − header − pane padding: the page itself never scrolls. */
+		height: calc(100dvh - var(--ofd-topbar-h) - (2 * var(--ofd-main-pad-y)));
+		--ofd-room-gap: 1rem;
+		--ofd-hero-pad: 1.25rem;
+		--ofd-hero-time: 3rem;
+		--ofd-chart-pad: 0.75rem;
+		--ofd-legend-size: 0.6875rem;
+		gap: var(--ofd-room-gap);
+	}
+
+	.ofd-control-room .ofd-hero-strip {
+		padding: var(--ofd-hero-pad);
+	}
+
+	.ofd-control-room .ofd-hero-time {
+		font-size: var(--ofd-hero-time);
+		line-height: 1;
+	}
+
+	.ofd-control-room .ofd-chart-card {
+		padding: var(--ofd-chart-pad);
+	}
+
+	.ofd-control-room .ofd-chart-legend {
+		font-size: var(--ofd-legend-size);
+	}
+}
+
+/* 1440x900 and 1536x864 leave 772 px and 736 px of content. */
+@media (min-width: 80rem) and (max-height: 900px) {
+	.ofd-control-room {
+		--ofd-plot-h: 6.5rem;
+		--ofd-room-gap: 0.75rem;
+		--ofd-hero-pad: 1rem;
+		--ofd-hero-time: 2.5rem;
+	}
+}
+
+/* 1366x768 leaves 640 px: the tightest laptop the dashboard supports. */
+@media (min-width: 80rem) and (max-height: 800px) {
+	.ofd-control-room {
+		--ofd-plot-h: 5.5rem;
+		--ofd-hero-time: 2.25rem;
+		--ofd-chart-pad: 0.625rem;
+		--ofd-legend-size: 0.625rem;
+	}
+}
+
 /* The help centre's "show me" ring. Drawn as a separate element positioned over
    the real control (lib/help/highlight.ts), so it never changes the control and
    never takes its click. */
@@ -252,6 +413,49 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.help-ring {
+		animation: none;
+	}
+}
+
+/* The feeder hero's callouts fade in once (task I-29, E29). The hero itself is
+   static, and a reader who asked for less motion gets the final state at once. */
+@keyframes feeder-hero-fade {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.feeder-hero-callout {
+		animation: feeder-hero-fade 520ms ease-out both;
+	}
+}
+
+/* #259: the hopper bar breathes while the level is at or below 30 %. The red
+   accent and the text label carry the meaning without motion. */
+@keyframes hopper-low-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.55;
+	}
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.hopper-low-pulse {
+		animation: hopper-low-pulse 1.8s ease-in-out infinite;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.hopper-low-pulse {
 		animation: none;
 	}
 }

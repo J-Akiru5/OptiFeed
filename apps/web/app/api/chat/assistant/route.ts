@@ -60,7 +60,7 @@ export const POST = withApi(
 			throw badRequest("Invalid assistant request.");
 		}
 		if (!message.trim()) throw badRequest("Message is required.");
-		if (!looksLikeAssistantRequest(message)) {
+		if (!looksLikeAssistantRequest(message, history)) {
 			return ok({ kind: "fallback" });
 		}
 
@@ -111,5 +111,15 @@ export const POST = withApi(
 
 		return ok({ kind: "fallback" });
 	}),
-	{ route: "POST /api/chat/assistant", cacheControl: "no-store", sunset: LEGACY_API_SUNSET },
+	// The planner is a non-streaming model completion, so a valid answer easily
+	// exceeds the 2 s default guard. The budget matches the other AI route
+	// (POST /api/predict-feeding) instead of turning slow answers into a 504.
+	{
+		route: "POST /api/chat/assistant",
+		cacheControl: "no-store",
+		timeoutMs: 12_000,
+		slowMs: 3_000,
+		violationMs: 12_000,
+		sunset: LEGACY_API_SUNSET,
+	},
 );

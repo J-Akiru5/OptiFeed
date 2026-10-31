@@ -1,3 +1,4 @@
+import { DEFAULT_DEVICE_STATUS_POLICY, deviceStatusPolicyFromValue } from "@/lib/device-status";
 import { DEFAULT_NOTIFICATION_PREFS } from "@/lib/limits";
 import { ORG_SETTINGS_DEFAULTS, mergeOrgSettings } from "@/lib/settings/org";
 import {
@@ -163,24 +164,48 @@ describe("hopperAlertTier", () => {
 
 describe("offlineAlertDue", () => {
 	const now = new Date("2026-10-27T12:00:00.000Z");
+	const defaultThresholdMs =
+		DEFAULT_DEVICE_STATUS_POLICY.offlineAfterMs + DEFAULT_DEVICE_STATUS_POLICY.graceMs;
 
-	it("uses the org delay, not the 15-minute badge threshold", () => {
+	it("follows the platform policy, not the org offlineAfterMin (I-97)", () => {
+		// 16 minutes is inside the default 15 + 2 window, whatever the org stores,
+		// but a short platform policy alerts on the same outage.
 		const lastSeenAt = new Date(now.getTime() - 16 * 60 * 1000);
-		expect(offlineAlertDue(lastSeenAt, now, ORG_SETTINGS_DEFAULTS)).toBe(false);
-		expect(offlineAlertDue(lastSeenAt, now, { ...ORG_SETTINGS_DEFAULTS, offlineAfterMin: 5 })).toBe(
-			true,
-		);
+		const shortPolicy = deviceStatusPolicyFromValue({
+			weakAfterMin: 5,
+			offlineAfterMin: 5,
+			graceMin: 0,
+		});
+		expect(offlineAlertDue(lastSeenAt, now, DEFAULT_DEVICE_STATUS_POLICY)).toBe(false);
+		expect(offlineAlertDue(lastSeenAt, now, shortPolicy)).toBe(true);
 	});
 
-	it("is due exactly at the threshold and false with no heartbeat", () => {
-		const lastSeenAt = new Date(now.getTime() - 30 * 60 * 1000);
-		expect(offlineAlertDue(lastSeenAt, now, ORG_SETTINGS_DEFAULTS)).toBe(true);
-		expect(offlineAlertDue(null, now, ORG_SETTINGS_DEFAULTS)).toBe(false);
+	it("is due on the first millisecond past the display window", () => {
+		const atBoundary = new Date(now.getTime() - defaultThresholdMs);
+		const pastBoundary = new Date(now.getTime() - defaultThresholdMs - 1);
+
+		expect(offlineAlertDue(atBoundary, now, DEFAULT_DEVICE_STATUS_POLICY)).toBe(false);
+		expect(offlineAlertDue(pastBoundary, now, DEFAULT_DEVICE_STATUS_POLICY)).toBe(true);
+		expect(offlineAlertDue(null, now, DEFAULT_DEVICE_STATUS_POLICY)).toBe(false);
 	});
 
-	it("converts minutes to milliseconds", () => {
-		expect(offlineAlertThresholdMs({ ...ORG_SETTINGS_DEFAULTS, offlineAfterMin: 90 })).toBe(
-			90 * 60 * 1000,
-		);
+	it("honours a configured platform policy", () => {
+		const policy = deviceStatusPolicyFromValue({
+			weakAfterMin: 10,
+			offlineAfterMin: 60,
+			graceMin: 5,
+		});
+
+		expect(offlineAlertDue(new Date(now.getTime() - 64 * 60 * 1000), now, policy)).toBe(false);
+		expect(offlineAlertDue(new Date(now.getTime() - 66 * 60 * 1000), now, policy)).toBe(true);
+	});
+
+	it("converts the policy to milliseconds, grace included", () => {
+		expect(offlineAlertThresholdMs(DEFAULT_DEVICE_STATUS_POLICY)).toBe(defaultThresholdMs);
+		expect(
+			offlineAlertThresholdMs(
+				deviceStatusPolicyFromValue({ weakAfterMin: 5, offlineAfterMin: 90, graceMin: 3 }),
+			),
+		).toBe(93 * 60 * 1000);
 	});
 });

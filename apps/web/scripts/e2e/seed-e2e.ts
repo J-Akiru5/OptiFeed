@@ -17,10 +17,12 @@ import {
 /**
  * Seed the isolated e2e fixture (mission T-08, decision D5 amended).
  *
- * The integrator runs this against the production Supabase project while
- * PakaonAI is not in operation. Every row this script writes is therefore
- * owned by the reserved "e2e-" prefix; it never updates an existing non-e2e
- * account and never touches demo-farmer-1 or superadmin.
+ * Runs against either the disposable local Supabase stack (CI and local
+ * development) or the production project while PakaonAI is not in operation;
+ * `assertE2eEnvironment` decides which and refuses anything unacknowledged
+ * (see docs/e2e.md). Every row this script writes is therefore owned by the
+ * reserved "e2e-" prefix; it never updates an existing non-e2e account and
+ * never touches demo-farmer-1 or superadmin.
  *
  * Idempotent: re-running it resets the fixture (roles, permissions, device
  * token, grant expiry) instead of creating duplicates.

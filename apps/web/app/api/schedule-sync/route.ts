@@ -1,4 +1,5 @@
 import { withApi } from "@/lib/api/instrumentation";
+import { PH_UTC_OFFSET_MINUTES } from "@/lib/constants";
 import { isDeviceApproved, verifyDeviceToken } from "@/lib/device-auth";
 import {
 	BUTTON_FEED_GRAMS_MAX,
@@ -9,7 +10,7 @@ import {
 	FEEDS_PER_DAY_MIN,
 	GRAMS_PER_SECOND_MAX,
 	GRAMS_PER_SECOND_MIN,
-	MAX_FEED_GRAMS_PER_REQUEST,
+	MAX_ACCEPTED_FEED_GRAMS,
 	TEMP_OFFSET_C_MAX,
 	TEMP_OFFSET_C_MIN,
 	clamp,
@@ -36,12 +37,16 @@ type DeviceConfig = {
 
 function deviceConfig(device: DeviceConfig) {
 	return {
-		grams_per_feeding: clamp(device.gramsPerFeeding, 0, MAX_FEED_GRAMS_PER_REQUEST),
+		grams_per_feeding: clamp(device.gramsPerFeeding, 0, MAX_ACCEPTED_FEED_GRAMS),
 		button_feed_grams: clamp(device.buttonFeedGrams, BUTTON_FEED_GRAMS_MIN, BUTTON_FEED_GRAMS_MAX),
 		hopper_empty_cm: device.hopperEmptyCm,
 		hopper_full_cm: device.hopperFullCm,
 		grams_per_second: clamp(device.gramsPerSecond, GRAMS_PER_SECOND_MIN, GRAMS_PER_SECOND_MAX),
 		temp_offset_c: clamp(device.tempOffsetC, TEMP_OFFSET_C_MIN, TEMP_OFFSET_C_MAX),
+		// The device RTC runs on farm-local time. These two fields let the
+		// firmware link it to UTC and reset the daily counter at farm midnight.
+		server_time_utc: new Date().toISOString(),
+		farm_offset_minutes: PH_UTC_OFFSET_MINUTES,
 	};
 }
 
@@ -103,11 +108,6 @@ export const GET = withApi(
 			return new Response("Unprocessable Entity", { status: 422 });
 		}
 
-		const { success } = await checkDeviceRateLimit(deviceId, "schedule");
-		if (!success) {
-			return new Response("Too Many Requests", { status: 429 });
-		}
-
 		let device: Awaited<ReturnType<typeof verifyDeviceToken>> = null;
 		try {
 			device = await verifyDeviceToken(token);
@@ -118,6 +118,15 @@ export const GET = withApi(
 
 			if (!isDeviceApproved(device)) {
 				return new Response("Forbidden", { status: 403 });
+			}
+
+			// #330: the bucket is keyed on the *verified* MAC. Keying on the raw
+			// `device_id` query param (unauthenticated) let anyone who knows a MAC
+			// spend that device's budget and hold it at 429. A rejected token now
+			// costs one indexed lookup and writes no bucket row.
+			const { success } = await checkDeviceRateLimit(device.mac, "schedule");
+			if (!success) {
+				return new Response("Too Many Requests", { status: 429 });
 			}
 
 			const timeSync = await timeSyncFields(device.id);
@@ -144,26 +153,31 @@ export const GET = withApi(
 			});
 
 			if (pendingCommand) {
-				// Mark as "sent" so we don't return it again until it's acked or failed.
-				await prisma.scheduleCommand.update({
-					where: { id: pendingCommand.id },
+				// The command is re-sent on every poll until the device acks it, so
+				// a lost response is recovered. Only the pending → sent transition
+				// is audited: writing `command_sent` on every 5 s poll would grow
+				// DeviceStateEvent without bound.
+				const marked = await prisma.scheduleCommand.updateMany({
+					where: { id: pendingCommand.id, status: "pending" },
 					data: { status: "sent" },
 				});
 
-				await prisma.deviceStateEvent.create({
-					data: {
-						deviceId: device.id,
-						eventType: "command_sent",
-						source: "system",
-						metadata: {
-							commandId: pendingCommand.id,
-							scheduleStart: formatTime(pendingCommand.scheduleStart),
-							scheduleEnd: formatTime(pendingCommand.scheduleEnd),
-							feedsPerDay: pendingCommand.feedsPerDay,
-							feedingRatePct: pendingCommand.feedingRatePct,
+				if (marked.count > 0) {
+					await prisma.deviceStateEvent.create({
+						data: {
+							deviceId: device.id,
+							eventType: "command_sent",
+							source: "system",
+							metadata: {
+								commandId: pendingCommand.id,
+								scheduleStart: formatTime(pendingCommand.scheduleStart),
+								scheduleEnd: formatTime(pendingCommand.scheduleEnd),
+								feedsPerDay: pendingCommand.feedsPerDay,
+								feedingRatePct: pendingCommand.feedingRatePct,
+							},
 						},
-					},
-				});
+					});
+				}
 
 				return Response.json({
 					...timeSync,

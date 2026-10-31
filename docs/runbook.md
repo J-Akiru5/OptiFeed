@@ -11,7 +11,9 @@ in the dashboard; VIEWER is read-only.
    `MAX_GRAMS_PER_DISPENSE` (1,000 g) or a daily total above
    `MAX_GRAMS_PER_DAY` (5,000 g), and forces the relay off after
    `MAX_DISPENSE_MS` (300 s) even if a command is stuck. A dose larger than
-   the cap is refused and reported, not truncated.
+   the cap is refused and reported, not truncated. The server's only gram cap
+   is the daily ceiling, so a server-accepted dose above 1,000 g is still
+   refused by this firmware guard until the guard itself is changed.
 3. **Last resort: cut relay power** to the feeder (relay is GPIO 25, active
    HIGH; boots in the OFF/CLOSED state).
 4. After the incident: check Admin → Audit and the `DeviceStateEvent` log for
@@ -42,8 +44,13 @@ in the dashboard; VIEWER is read-only.
 
 ## 4. Restore a backup
 
-- **Supabase PITR** (preferred): Database → Backups → point-in-time restore
-  to just before the incident. This creates a new project — repoint
+The full procedure, RPO/RTO, retention and the drill record live in
+`docs/operations/backup-and-recovery.md`. This section is the short incident form.
+PITR availability on this project has **not** been confirmed; check it there before
+relying on it.
+
+- **Supabase PITR** (preferred, if the plan provides it): Database → Backups →
+  point-in-time restore to just before the incident. This creates a new project — repoint
   `DATABASE_URL`/`DIRECT_URL` after the restore.
 - **Logical restore**: `pg_restore` from a scheduled `pg_dump`, or re-run
   migrations on an empty database and restore the dump:

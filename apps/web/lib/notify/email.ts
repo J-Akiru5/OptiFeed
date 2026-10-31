@@ -56,7 +56,7 @@ export async function sendReminderEmail(
 	}
 
 	const baseUrl = (env.NEXT_PUBLIC_BASE_URL ?? "").replace(/\/+$/, "");
-	const link = `${baseUrl}/dashboard/harvest`;
+	const link = `${baseUrl}/dashboard/calendar`;
 
 	try {
 		const resend = new Resend(env.RESEND_API_KEY);
@@ -80,7 +80,13 @@ export async function sendReminderEmail(
 }
 
 function buildSubject(input: ReminderEmailInput): string {
-	return `${input.timingLabel} — ${input.pondName}`;
+	// Pond names are tenant-controlled: strip line breaks so a crafted name
+	// cannot inject a header into the outbound message.
+	return `${singleLine(input.timingLabel)} — ${singleLine(input.pondName)}`;
+}
+
+function singleLine(value: string): string {
+	return value.replace(/[\r\n]+/g, " ").trim();
 }
 
 /**

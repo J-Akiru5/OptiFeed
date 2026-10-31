@@ -1,11 +1,12 @@
 "use client";
 
+import { mobileStickyActions } from "@/components/mobile/form-actions";
 import { useRouter } from "@/i18n/routing";
 import { type FeedCalculationResult, saveBiomassLog } from "@/lib/actions/biomass";
-import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { dailyFeedG, feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { enqueueBiomassSample, newClientEventId } from "@/lib/offline/outbox";
 import { useOnlineStatus } from "@/lib/pwa/use-online-status";
+import { cn } from "@/lib/utils";
 import { AlertTriangle, CheckCircle2, Fish, Loader2, Plus, Ruler, Scale, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
@@ -44,8 +45,8 @@ export function LogSampleForm({
 	const [isPending, startTransition] = useTransition();
 	const [queuedOffline, setQueuedOffline] = useState(false);
 
-	const effectivePopulation = population && population > 0 ? population : DEFAULT_FISH_COUNT;
-	const populationUnset = effectivePopulation !== population;
+	const effectivePopulation = population && population > 0 ? population : null;
+	const populationUnset = effectivePopulation === null;
 	const fmtG2 = (g: number) =>
 		g.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -69,9 +70,9 @@ export function LogSampleForm({
 	const l = Number.parseFloat(lengthCm);
 	const c = Number.parseInt(count, 10);
 
-	let biomassG = 0;
-	let dailyFeed = 0;
-	let nextFeedingG = 0;
+	let biomassG: number | null = null;
+	let dailyFeed: number | null = null;
+	let nextFeedingG: number | null = null;
 	let avgWeightG = 0;
 	let avgLengthCm = 0;
 	let individualCount = 0;
@@ -79,7 +80,7 @@ export function LogSampleForm({
 	if (inputMode === "average") {
 		if (!Number.isNaN(w) && !Number.isNaN(c) && c > 0) {
 			avgWeightG = w;
-			biomassG = totalBiomassG(population, w / 1000);
+			biomassG = totalBiomassG(effectivePopulation, w / 1000);
 			dailyFeed = dailyFeedG(biomassG, feedingRatePct);
 			nextFeedingG = feedPerMealG(biomassG, feedingRatePct, feedsPerDay);
 		}
@@ -104,7 +105,7 @@ export function LogSampleForm({
 				avgLengthCm = totalLength / validLengthFish.length;
 			}
 
-			biomassG = totalBiomassG(population, avgWeightG / 1000);
+			biomassG = totalBiomassG(effectivePopulation, avgWeightG / 1000);
 			dailyFeed = dailyFeedG(biomassG, feedingRatePct);
 			nextFeedingG = feedPerMealG(biomassG, feedingRatePct, feedsPerDay);
 		}
@@ -399,331 +400,374 @@ export function LogSampleForm({
 	}
 
 	return (
-		<form onSubmit={handleSubmit} className="space-y-6">
-			{error && (
-				<div className="p-4 rounded-xl bg-red-50 text-red-600 border border-red-200 text-sm font-medium dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
-					{error}
+		<form
+			onSubmit={handleSubmit}
+			className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start"
+		>
+			{/* Sample form: the fields the farmer fills in. */}
+			<div className="min-w-0 space-y-6 xl:col-start-1 xl:row-start-1">
+				{error && (
+					<div className="p-4 rounded-xl bg-red-50 text-red-600 border border-red-200 text-sm font-medium dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+						{error}
+					</div>
+				)}
+
+				<div className="flex gap-2 p-1 bg-[#F4F7F6] rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800">
+					<button
+						type="button"
+						onClick={() => setInputMode("average")}
+						className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${
+							inputMode === "average"
+								? "bg-[#0A3D62] text-white shadow-md dark:bg-[#1f66a0]"
+								: "text-[#3D5568] hover:text-[#0A3D62] dark:text-gray-400 dark:hover:text-gray-100"
+						}`}
+					>
+						<Scale className="inline-block w-4 h-4 mr-1.5 -mt-0.5" />
+						Average Mode
+					</button>
+					<button
+						type="button"
+						onClick={() => setInputMode("individual")}
+						className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${
+							inputMode === "individual"
+								? "bg-[#0A3D62] text-white shadow-md dark:bg-[#1f66a0]"
+								: "text-[#3D5568] hover:text-[#0A3D62] dark:text-gray-400 dark:hover:text-gray-100"
+						}`}
+					>
+						<Fish className="inline-block w-4 h-4 mr-1.5 -mt-0.5" />
+						Individual Mode
+					</button>
 				</div>
-			)}
 
-			<div className="flex gap-2 p-1 bg-[#F4F7F6] rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800">
-				<button
-					type="button"
-					onClick={() => setInputMode("average")}
-					className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${
-						inputMode === "average"
-							? "bg-[#0A3D62] text-white shadow-md dark:bg-[#1f66a0]"
-							: "text-[#3D5568] hover:text-[#0A3D62] dark:text-gray-400 dark:hover:text-gray-100"
-					}`}
-				>
-					<Scale className="inline-block w-4 h-4 mr-1.5 -mt-0.5" />
-					Average Mode
-				</button>
-				<button
-					type="button"
-					onClick={() => setInputMode("individual")}
-					className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${
-						inputMode === "individual"
-							? "bg-[#0A3D62] text-white shadow-md dark:bg-[#1f66a0]"
-							: "text-[#3D5568] hover:text-[#0A3D62] dark:text-gray-400 dark:hover:text-gray-100"
-					}`}
-				>
-					<Fish className="inline-block w-4 h-4 mr-1.5 -mt-0.5" />
-					Individual Mode
-				</button>
-			</div>
-
-			<div className="space-y-1.5">
-				<label
-					htmlFor="batchLabel"
-					className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400"
-				>
-					Sampling batch (optional)
-				</label>
-				<div className="relative">
-					<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-						<Fish className="h-5 w-5" />
-					</div>
-					<input
-						type="text"
-						id="batchLabel"
-						maxLength={64}
-						list="batchLabelOptions"
-						className={fieldCls}
-						placeholder="e.g. Sampling batch 2026-10 A"
-						value={batchLabel}
-						onChange={(e) => setBatchLabel(e.target.value)}
-					/>
-					<datalist id="batchLabelOptions">
-						{batchLabels.map((label) => (
-							<option key={label} value={label} />
-						))}
-					</datalist>
-				</div>
-			</div>
-
-			{inputMode === "average" ? (
-				<div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-					<div className="space-y-1.5">
-						<label
-							htmlFor="weightGrams"
-							className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400"
-						>
-							Avg. Fish Weight (grams)
-						</label>
-						<div className="relative">
-							<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-								<Scale className="h-5 w-5" />
-							</div>
-							<input
-								type="number"
-								step="0.1"
-								id="weightGrams"
-								required
-								min="0.1"
-								className={fieldCls}
-								placeholder="e.g. 220"
-								value={weightGrams}
-								onChange={(e) => setWeightGrams(e.target.value)}
-							/>
+				<div className="space-y-1.5">
+					<label
+						htmlFor="batchLabel"
+						className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400"
+					>
+						Sampling batch (optional)
+					</label>
+					<div className="relative">
+						<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+							<Fish className="h-5 w-5" />
 						</div>
-					</div>
-
-					<div className="space-y-1.5">
-						<label
-							htmlFor="lengthCm"
-							className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400"
-						>
-							Avg. Fish Length (cm)
-						</label>
-						<div className="relative">
-							<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-								<Ruler className="h-5 w-5" />
-							</div>
-							<input
-								type="number"
-								step="0.1"
-								id="lengthCm"
-								required
-								min="0.1"
-								className={fieldCls}
-								placeholder="e.g. 24"
-								value={lengthCm}
-								onChange={(e) => setLengthCm(e.target.value)}
-							/>
-						</div>
-					</div>
-
-					<div className="space-y-1.5">
-						<label
-							htmlFor="sampleCount"
-							className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400"
-						>
-							Sample Fish Count
-						</label>
-						<div className="relative">
-							<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-								<Fish className="h-5 w-5" />
-							</div>
-							<input
-								type="number"
-								id="sampleCount"
-								required
-								min="1"
-								className={fieldCls}
-								value={count}
-								onChange={(e) => setCount(e.target.value)}
-							/>
-						</div>
+						<input
+							type="text"
+							id="batchLabel"
+							maxLength={64}
+							list="batchLabelOptions"
+							className={fieldCls}
+							placeholder="e.g. Sampling batch 2026-10 A"
+							value={batchLabel}
+							onChange={(e) => setBatchLabel(e.target.value)}
+						/>
+						<datalist id="batchLabelOptions">
+							{batchLabels.map((label) => (
+								<option key={label} value={label} />
+							))}
+						</datalist>
 					</div>
 				</div>
-			) : (
-				<div className="space-y-4">
-					<div className="flex items-center justify-between">
-						<p className="text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400">
-							Individual Fish Measurements
-						</p>
-						<button
-							type="button"
-							onClick={addFishEntry}
-							className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E85A2A] text-white text-xs font-bold rounded-lg hover:bg-[#d04a1f] transition-colors"
-						>
-							<Plus className="w-3.5 h-3.5" />
-							Add Fish
-						</button>
-					</div>
 
-					<div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-						{individualFish.map((fish, index) => (
-							<div
-								key={fish.id}
-								className="p-3 bg-[#F4F7F6] rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800/60"
+				{inputMode === "average" ? (
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+						<div className="space-y-1.5">
+							<label
+								htmlFor="weightGrams"
+								className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400"
 							>
-								<div className="flex flex-wrap items-center gap-2">
-									<span className="text-xs font-bold text-[#3D5568] dark:text-gray-400 w-6 text-center shrink-0">
-										#{index + 1}
-									</span>
-									<div className="flex-1 min-w-[7.5rem] relative">
-										<div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
-											<Scale className="h-3.5 w-3.5" />
-										</div>
-										<input
-											type="number"
-											step="0.1"
-											min="0.1"
-											placeholder="Weight (g)"
-											className={fishFieldCls}
-											value={fish.weightGrams}
-											onChange={(e) => updateFishEntry(index, "weightGrams", e.target.value)}
-										/>
-									</div>
-									<div className="flex-1 min-w-[7.5rem] relative">
-										<div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
-											<Ruler className="h-3.5 w-3.5" />
-										</div>
-										<input
-											type="number"
-											step="0.1"
-											min="0"
-											placeholder="Length (cm)"
-											className={fishFieldCls}
-											value={fish.lengthCm}
-											onChange={(e) => updateFishEntry(index, "lengthCm", e.target.value)}
-										/>
-									</div>
-									<button
-										type="button"
-										onClick={() => removeFishEntry(index)}
-										disabled={individualFish.length <= 1}
-										className="p-1.5 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-30 disabled:pointer-events-none shrink-0 ml-auto sm:ml-0"
-									>
-										<X className="w-4 h-4" />
-									</button>
+								Avg. Fish Weight (grams)
+							</label>
+							<div className="relative">
+								<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+									<Scale className="h-5 w-5" />
 								</div>
-								{rowErrors[index] && (
-									<p className="mt-1.5 pl-8 text-xs font-bold text-red-500 dark:text-red-400">
-										{rowErrors[index]}
-									</p>
-								)}
+								<input
+									type="number"
+									step="0.1"
+									id="weightGrams"
+									required
+									min="0.1"
+									className={fieldCls}
+									placeholder="e.g. 220"
+									value={weightGrams}
+									onChange={(e) => setWeightGrams(e.target.value)}
+								/>
 							</div>
-						))}
-					</div>
-				</div>
-			)}
+						</div>
 
-			<div className="bg-[#0A3D62]/5 border border-[#0A3D62]/10 rounded-2xl p-6 dark:border-white/10 dark:bg-white/5">
-				<h3 className="text-sm font-black text-[#0A3D62] dark:text-[#5b9bd5] mb-1">Live Preview</h3>
-				<p className="text-[#3D5568] dark:text-gray-400 text-xs leading-relaxed">
-					{inputMode === "individual" && (
-						<>
-							Sampled{" "}
-							<strong className="text-[#0A3D62] dark:text-gray-100">{individualCount}</strong>{" "}
-							fish(s).
-							<br />
-						</>
-					)}
-					Calculated Average Body Weight (ABW):{" "}
-					<strong className="text-[#0A3D62] dark:text-gray-100">
-						{avgWeightG > 0 ? avgWeightG.toFixed(1) : "—"}g
-					</strong>
-					.
-					{avgLengthCm > 0 && (
-						<>
-							<br />
-							Average Length:{" "}
-							<strong className="text-[#0A3D62] dark:text-gray-100">
-								{avgLengthCm.toFixed(1)}cm
-							</strong>
-						</>
-					)}
-				</p>
+						<div className="space-y-1.5">
+							<label
+								htmlFor="lengthCm"
+								className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400"
+							>
+								Avg. Fish Length (cm)
+							</label>
+							<div className="relative">
+								<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+									<Ruler className="h-5 w-5" />
+								</div>
+								<input
+									type="number"
+									step="0.1"
+									id="lengthCm"
+									required
+									min="0.1"
+									className={fieldCls}
+									placeholder="e.g. 24"
+									value={lengthCm}
+									onChange={(e) => setLengthCm(e.target.value)}
+								/>
+							</div>
+						</div>
 
-				<div className="mt-3 space-y-1.5 border-t border-[#0A3D62]/10 pt-3 text-xs dark:border-gray-700/50">
-					<div className="flex items-baseline justify-between gap-4">
-						<span className="font-medium text-[#3D5568] dark:text-gray-400">
-							Total Biomass
-							{biomassG === 0 && (
-								<span className="block text-[11px] font-normal text-[#3D5568]/60 dark:text-gray-500">
-									= {populationUnset ? "estimate assuming " : ""}
-									{effectivePopulation.toLocaleString("en-US")} fish × avg weight
-								</span>
-							)}
-						</span>
-						<span className="text-right text-[#3D5568] dark:text-gray-400">
-							<strong className="text-[#0A3D62] dark:text-gray-100">
-								{biomassG > 0 ? Math.round(biomassG).toLocaleString("en-US") : "—"}
-							</strong>
-							{biomassG > 0 && (
-								<>
-									g{" "}
-									<span>
-										({populationUnset ? "estimate: " : ""}
-										{effectivePopulation.toLocaleString("en-US")} fish × {avgWeightG.toFixed(1)}g)
-									</span>
-								</>
-							)}
-						</span>
+						<div className="space-y-1.5">
+							<label
+								htmlFor="sampleCount"
+								className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400"
+							>
+								Sample Fish Count
+							</label>
+							<div className="relative">
+								<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+									<Fish className="h-5 w-5" />
+								</div>
+								<input
+									type="number"
+									id="sampleCount"
+									required
+									min="1"
+									className={fieldCls}
+									value={count}
+									onChange={(e) => setCount(e.target.value)}
+								/>
+							</div>
+						</div>
 					</div>
-					<div className="flex items-baseline justify-between gap-4">
-						<span className="font-medium text-[#3D5568] dark:text-gray-400">
-							Daily Feed
-							{dailyFeed === 0 && (
-								<span className="block text-[11px] font-normal text-[#3D5568]/60 dark:text-gray-500">
-									= biomass × {feedingRatePct}%
-								</span>
-							)}
-						</span>
-						<span className="text-right text-[#3D5568] dark:text-gray-400">
-							<strong className="text-[#0A3D62] dark:text-gray-100">
-								{dailyFeed > 0 ? fmtG2(dailyFeed) : "—"}
-							</strong>
-							{dailyFeed > 0 && (
-								<>
-									g{" "}
-									<span>
-										({Math.round(biomassG).toLocaleString("en-US")}g × {feedingRatePct}%)
-									</span>
-								</>
-							)}
-						</span>
+				) : (
+					<div className="space-y-4">
+						<div className="flex items-center justify-between">
+							<p className="text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400">
+								Individual Fish Measurements
+							</p>
+							<button
+								type="button"
+								onClick={addFishEntry}
+								className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E85A2A] text-white text-xs font-bold rounded-lg hover:bg-[#d04a1f] transition-colors"
+							>
+								<Plus className="w-3.5 h-3.5" />
+								Add Fish
+							</button>
+						</div>
+
+						<div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+							{individualFish.map((fish, index) => (
+								<div
+									key={fish.id}
+									className="p-3 bg-[#F4F7F6] rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800/60"
+								>
+									<div className="flex flex-wrap items-center gap-2">
+										<span className="text-xs font-bold text-[#3D5568] dark:text-gray-400 w-6 text-center shrink-0">
+											#{index + 1}
+										</span>
+										<div className="flex-1 min-w-[7.5rem] relative">
+											<div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
+												<Scale className="h-3.5 w-3.5" />
+											</div>
+											<input
+												type="number"
+												step="0.1"
+												min="0.1"
+												placeholder="Weight (g)"
+												className={fishFieldCls}
+												value={fish.weightGrams}
+												onChange={(e) => updateFishEntry(index, "weightGrams", e.target.value)}
+											/>
+										</div>
+										<div className="flex-1 min-w-[7.5rem] relative">
+											<div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
+												<Ruler className="h-3.5 w-3.5" />
+											</div>
+											<input
+												type="number"
+												step="0.1"
+												min="0"
+												placeholder="Length (cm)"
+												className={fishFieldCls}
+												value={fish.lengthCm}
+												onChange={(e) => updateFishEntry(index, "lengthCm", e.target.value)}
+											/>
+										</div>
+										<button
+											type="button"
+											onClick={() => removeFishEntry(index)}
+											disabled={individualFish.length <= 1}
+											className="p-1.5 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-30 disabled:pointer-events-none shrink-0 ml-auto sm:ml-0"
+										>
+											<X className="w-4 h-4" />
+										</button>
+									</div>
+									{rowErrors[index] && (
+										<p className="mt-1.5 pl-8 text-xs font-bold text-red-500 dark:text-red-400">
+											{rowErrors[index]}
+										</p>
+									)}
+								</div>
+							))}
+						</div>
 					</div>
-					<div className="flex items-baseline justify-between gap-4">
-						<span className="font-medium text-[#3D5568] dark:text-gray-400">
-							Feed per Meal
-							{nextFeedingG === 0 && (
-								<span className="block text-[11px] font-normal text-[#3D5568]/60 dark:text-gray-500">
-									= daily ÷ {feedsPerDay} feeds
-								</span>
-							)}
-						</span>
-						<span className="text-right text-[#3D5568] dark:text-gray-400">
-							<strong className="text-sm text-[#E85A2A]">
-								{nextFeedingG > 0 ? fmtG2(nextFeedingG) : "—"}
-							</strong>
-							{nextFeedingG > 0 && (
-								<>
-									g <span>(÷ {feedsPerDay} feeds)</span>
-								</>
-							)}
-						</span>
-					</div>
-				</div>
+				)}
 			</div>
 
-			{!online && (
-				<p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
-					{tLog("offlineNote")}
-				</p>
-			)}
+			{/* Live Preview and the formulas behind it. Sticky from `xl` up, where
+			    the card sits in the page's right column (#247). */}
+			<aside
+				aria-labelledby="biomass-live-preview"
+				className="min-w-0 space-y-4 xl:sticky xl:top-24 xl:col-start-2 xl:row-span-2 xl:row-start-1"
+			>
+				<div className="bg-[#0A3D62]/5 border border-[#0A3D62]/10 rounded-2xl p-6 dark:border-white/10 dark:bg-white/5">
+					<h3
+						id="biomass-live-preview"
+						className="text-sm font-black text-[#0A3D62] dark:text-[#5b9bd5] mb-1"
+					>
+						{tLog("livePreview")}
+					</h3>
+					<p className="text-[#3D5568] dark:text-gray-400 text-xs leading-relaxed">
+						{inputMode === "individual" && (
+							<>
+								Sampled{" "}
+								<strong className="text-[#0A3D62] dark:text-gray-100">{individualCount}</strong>{" "}
+								fish(s).
+								<br />
+							</>
+						)}
+						Calculated Average Body Weight (ABW):{" "}
+						<strong className="text-[#0A3D62] dark:text-gray-100">
+							{avgWeightG > 0 ? avgWeightG.toFixed(1) : "—"}g
+						</strong>
+						.
+						{avgLengthCm > 0 && (
+							<>
+								<br />
+								Average Length:{" "}
+								<strong className="text-[#0A3D62] dark:text-gray-100">
+									{avgLengthCm.toFixed(1)}cm
+								</strong>
+							</>
+						)}
+					</p>
 
-			<div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700/50">
-				<button
-					type="submit"
-					disabled={isPending || avgWeightG === 0 || !canWrite}
-					className="w-full md:w-auto bg-[#E85A2A] text-white px-8 py-3.5 rounded-2xl font-black shadow-lg hover:bg-[#d04a1f] hover:shadow-xl transition-all transform active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex justify-center items-center gap-2"
+					<div className="mt-3 space-y-1.5 border-t border-[#0A3D62]/10 pt-3 text-xs dark:border-gray-700/50">
+						<div className="flex items-baseline justify-between gap-4">
+							<span className="font-medium text-[#3D5568] dark:text-gray-400">
+								Total Biomass
+								{biomassG === null && (
+									<span className="block text-[11px] font-normal text-[#3D5568]/60 dark:text-gray-500">
+										{populationUnset
+											? "Set the pond's fish count to calculate"
+											: "= fish count × avg weight"}
+									</span>
+								)}
+							</span>
+							<span className="text-right text-[#3D5568] dark:text-gray-400">
+								<strong className="text-[#0A3D62] dark:text-gray-100">
+									{biomassG === null ? "—" : Math.round(biomassG).toLocaleString("en-US")}
+								</strong>
+								{biomassG !== null && effectivePopulation !== null && (
+									<>
+										g{" "}
+										<span>
+											({effectivePopulation.toLocaleString("en-US")} fish × {avgWeightG.toFixed(1)}
+											g)
+										</span>
+									</>
+								)}
+							</span>
+						</div>
+						<div className="flex items-baseline justify-between gap-4">
+							<span className="font-medium text-[#3D5568] dark:text-gray-400">
+								Daily Feed
+								{dailyFeed === null && (
+									<span className="block text-[11px] font-normal text-[#3D5568]/60 dark:text-gray-500">
+										= biomass × {feedingRatePct}%
+									</span>
+								)}
+							</span>
+							<span className="text-right text-[#3D5568] dark:text-gray-400">
+								<strong className="text-[#0A3D62] dark:text-gray-100">
+									{dailyFeed === null ? "—" : fmtG2(dailyFeed)}
+								</strong>
+								{dailyFeed !== null && (
+									<>
+										g{" "}
+										<span>
+											({Math.round(biomassG ?? 0).toLocaleString("en-US")}g × {feedingRatePct}%)
+										</span>
+									</>
+								)}
+							</span>
+						</div>
+						<div className="flex items-baseline justify-between gap-4">
+							<span className="font-medium text-[#3D5568] dark:text-gray-400">
+								Feed per Meal
+								{nextFeedingG === null && (
+									<span className="block text-[11px] font-normal text-[#3D5568]/60 dark:text-gray-500">
+										= daily ÷ {feedsPerDay} feeds
+									</span>
+								)}
+							</span>
+							<span className="text-right text-[#3D5568] dark:text-gray-400">
+								<strong className="text-sm text-[#E85A2A]">
+									{nextFeedingG === null ? "—" : fmtG2(nextFeedingG)}
+								</strong>
+								{nextFeedingG !== null && (
+									<>
+										g <span>(÷ {feedsPerDay} feeds)</span>
+									</>
+								)}
+							</span>
+						</div>
+					</div>
+				</div>
+
+				<section
+					aria-labelledby="biomass-how-calculated"
+					className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-900"
 				>
-					{isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : tBtn("saveSample")}
-				</button>
+					<h3
+						id="biomass-how-calculated"
+						className="text-sm font-black text-[#0A3D62] dark:text-[#5b9bd5]"
+					>
+						{tLog("howCalculatedTitle")}
+					</h3>
+					<ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-[#3D5568] dark:text-gray-400">
+						<li>{tLog("howBiomass")}</li>
+						<li>{tLog("howDailyFeed")}</li>
+						<li>{tLog("howPerMeal")}</li>
+					</ul>
+				</section>
+			</aside>
+
+			<div className="min-w-0 space-y-4 xl:col-start-1 xl:row-start-2">
+				{!online && (
+					<p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+						{tLog("offlineNote")}
+					</p>
+				)}
+
+				<div
+					className={cn(
+						"flex justify-end border-t border-gray-100 pt-4 dark:border-gray-700/50",
+						mobileStickyActions,
+					)}
+				>
+					<button
+						type="submit"
+						disabled={isPending || avgWeightG === 0 || !canWrite}
+						className="w-full md:w-auto bg-[#E85A2A] text-white px-8 py-3.5 rounded-2xl font-black shadow-lg hover:bg-[#d04a1f] hover:shadow-xl transition-all transform active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex justify-center items-center gap-2"
+					>
+						{isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : tBtn("saveSample")}
+					</button>
+				</div>
 			</div>
 		</form>
 	);

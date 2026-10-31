@@ -77,6 +77,7 @@
 		"history": "Kasaysayan",
 		"growth": "Pagtubo",
 		"harvest": "Pag-ani",
+		"calendar": "Kalendaryo kag Pag-ani",
 		"settings": "Mga Setting",
 		"notifications": "Mga Notipikasyon",
 		"audit": "Talaan ng Audit",
@@ -84,8 +85,150 @@
 		"hopperLevel": "Lebel sang hopper",
 		"pondFeedPellet": "Pond Feed Pellet",
 		"hopperRemaining": "Mga {kg}kg ang nabilin. Igo para sa {count} ka scheduled feeding.",
+		"viewHopperLevel": "Tan-awa ang kasaysayan sang lebel sang hopper",
 		"deviceOffline": "Wala sa linya",
-		"navLabel": "Pangunahon nga paglibot"
+		"navLabel": "Pangunahon nga paglibot",
+		"overview": "Overview",
+		"alerts": "Mga alerto",
+		"me": "Ako"
+	},
+	"search": {
+		"trigger": "Pangitaa",
+		"triggerLabel": "Pangitaa ang tanan (Ctrl+K ukon Command+K)",
+		"dialogTitle": "Pangitaa",
+		"placeholder": "Pangitaa ang mga pahina, setting, punong, device, miyembro kag rekord",
+		"resultsLabel": "Mga resulta sang pagpangita",
+		"resultsCount": "{count, plural, one {# resulta} other {# resulta}}",
+		"loading": "Nagapangita…",
+		"unavailable": "Indi magamit ang pagpangita subong.",
+		"close": "Sirad-i ang pagpangita",
+		"suggested": "Ginarekomendar para sa imo",
+		"noResults": "Wala sing nagatugma sa “{query}”.",
+		"hintMove": "para magbalhin",
+		"hintOpen": "para magbukas",
+		"hintClose": "para magsira",
+		"groups": {
+			"pages": "Mga pahina",
+			"settings": "Mga setting",
+			"ponds": "Mga punong",
+			"devices": "Mga device",
+			"members": "Mga miyembro",
+			"records": "Mga rekord"
+		},
+		"status": {
+			"archived": "Naka-archive",
+			"pending": "Nagahulat sang pag-apruba",
+			"unassigned": "Wala sing punong"
+		},
+		"pages": {
+			"members": "Mga miyembro",
+			"createUser": "Maghimo sang user"
+		},
+		"records": {
+			"feedEvent": "Rekord sang pagpakaon"
+		},
+		"settings": {
+			"pondFeedingRate": {
+				"title": "Adlaw-adlaw nga feeding rate",
+				"description": "Porsyento sang biomass sang punong nga ginapakaon kada adlaw."
+			},
+			"pondFeedsPerDay": {
+				"title": "Pila ka beses pagpakaon kada adlaw",
+				"description": "Pila ka lamesa ang ginadispense sang feeder sa isa ka adlaw."
+			},
+			"pondSampleInterval": {
+				"title": "Interval sang sampling",
+				"description": "Pila ka adlaw antes magkuha liwat sang sample sang isda."
+			},
+			"pondPopulation": {
+				"title": "Kadamu sang isda",
+				"description": "Kadamu sang isda nga ginagamit sa biomass kag sa adlaw-adlaw nga lawog."
+			},
+			"pondArea": {
+				"title": "Kalaparon sang punong",
+				"description": "Kalaparon sa metro kwadrado, ginagamit sa stocking density."
+			},
+			"pondDepth": {
+				"title": "Kasangkaron sang tubig",
+				"description": "Kasangkaron sang tubig sa metro."
+			},
+			"pondFeedPrice": {
+				"title": "Presyo sang lawog",
+				"description": "Presyo sang lawog kada kilo, ginagamit sa pagbana-bana sang gasto."
+			},
+			"feedingSchedule": {
+				"title": "Iskedyul sang pagpakaon",
+				"description": "Ang oras nga ginadispense sang feeder ang mga lamesa."
+			},
+			"dailyFeedCeiling": {
+				"title": "Takda sang lawog kada adlaw",
+				"description": "Ang pinakamadamu nga lawog nga pwede idispense sang feeder sa isa ka adlaw."
+			},
+			"perMealCeiling": {
+				"title": "Takda sang lawog kada lamesa",
+				"description": "Ang pinakamadamu nga lawog sa isa ka lamesa, base sa relay window kag calibration."
+			},
+			"calibration": {
+				"title": "Calibration sang feeder",
+				"description": "Gramo kada segundo, ang guided test kag ang target check."
+			},
+			"hopperCalibration": {
+				"title": "Calibration sang hopper",
+				"description": "Distansya sang sensor kon puno kag kon wala sing lawog."
+			},
+			"hopperCapacity": {
+				"title": "Kapasidad sang hopper",
+				"description": "Pila ka lawog ang masulod sa hopper kon puno."
+			},
+			"recalibrationInterval": {
+				"title": "Interval sang recalibration",
+				"description": "Pila ka adlaw antes magpaandar sang recalibration reminder."
+			},
+			"temperatureCalibration": {
+				"title": "Calibration sang temperatura",
+				"description": "Offset sang temperatura sang tubig para sa probe."
+			},
+			"notifications": {
+				"title": "Mga setting sang notification",
+				"description": "Mga alert nga mabaton mo: nalipatan nga pagpakaon, offline, kag ubos nga hopper."
+			},
+			"orgDefaultFeedingRate": {
+				"title": "Default nga feeding rate",
+				"description": "Ang feeding rate para sa mga bag-o nga punong sa organisasyon."
+			},
+			"orgLowHopper": {
+				"title": "Threshold sang ubos nga hopper",
+				"description": "Level sang hopper nga nagapahayag sang low-hopper alert."
+			},
+			"orgOfflineThreshold": {
+				"title": "Delay sang offline alert (deprecated)",
+				"description": "Indi na ini gamiton sa timing. Ang offline alerts kag badges nagasunod na sa platform device connectivity policy."
+			},
+			"orgMissedFeeding": {
+				"title": "Mga alert sa nalipatan nga pagpakaon",
+				"description": "Kon ang nalipatan nga pagpakaon magapahayag sang alert."
+			},
+			"orgDeviceRegistration": {
+				"title": "Pagparehistro sang device",
+				"description": "Kon ang bag-o nga feeder kinahanglan sang apruba sang admin ukon pwede magparehistro mismo."
+			},
+			"platformPageSize": {
+				"title": "Kadak-on sang pahina sang listahan",
+				"description": "Pila ka row kada pahina sa tanan nga listahan."
+			},
+			"platformSafetyCaps": {
+				"title": "Mga safety cap sang pagpakaon",
+				"description": "Takda sang relay time kag adlaw-adlaw nga allowance para sa bilog nga platform."
+			},
+			"platformOrgDefaults": {
+				"title": "Mga default sang organisasyon",
+				"description": "Sugod nga setting para sa mga bag-o nga organisasyon."
+			},
+			"platformFeatureFlags": {
+				"title": "Mga feature flag",
+				"description": "I-on ukon i-off ang mga feature sang platform."
+			}
+		}
 	},
 	"button": {
 		"feedNow": "Pakauna Subong",
@@ -178,6 +321,9 @@
 		"views3": "FCR trend: cumulative feed against biomass gained",
 		"hardwareTitle": "Hardware",
 		"hardwareDesc": "Low-cost, locally replaceable parts.",
+		"feederModelLabel": "Study feeder ? 3D nga modelo",
+		"feederAlt": "Transparent nga studio render sang study feeder: klarong hopper jar, controller enclosure, motor kag auger outlet.",
+		"feederCaption": "Gin-render halin sa 3D nga modelo sang study feeder. Research prototype; indi live nga reading.",
 		"hwColPart": "Component",
 		"hwColRole": "Role",
 		"hw1Part": "ESP32 DevKit V1",
@@ -411,8 +557,40 @@
 			"lastUpdated": "Katapusan nga gin-update",
 			"empty": "Wala na sang feed",
 			"low": "Kulang",
+			"lowRefill": "Kulang: i-refill sa madali",
 			"ok": "Maayo",
 			"noData": "Wala sang data"
+		},
+		"feederHero": {
+			"eyebrow": "Live nga pag-monitor",
+			"label": "Buod sang feeder para sa {pond}",
+			"statusOnline": "Online",
+			"statusOffline": "Wala sa linya",
+			"lastSeen": "Katapusan nga nakita {date}, {time}",
+			"neverConnected": "Wala pa nakakonekta",
+			"calloutsLabel": "Mga pagbasa sang feeder",
+			"hopperLabel": "Lebel sang hopper",
+			"fedTodayLabel": "Feed nga naubos subong",
+			"gramsValue": "{grams} g",
+			"sinceMidnight": "Gikan sa tungang gab-i",
+			"nextFeedLabel": "Sunod nga pagpakaon",
+			"nextFeedPaused": "Iskedyul naka-pause",
+			"nextFeedOn": "Sa {date}",
+			"nextFeedToday": "Subong nga adlaw",
+			"nextFeedTomorrow": "Buwas",
+			"waterLabel": "Temperatura sang tubig",
+			"waterValue": "{temp} °C",
+			"waterUnavailable": "Wala nadetektar ang probe",
+			"connectionLabel": "Status sang device",
+			"firmwareLabel": "Firmware",
+			"firmwareUnknown": "Wala pa nareport",
+			"photoAlt": "Ang automatic feeder sa pilapil",
+			"advisorTitle": "AI Feed Advisor",
+			"advisorGrams": "{grams} g kada pagpakaon",
+			"advisorConfidence": "{level} nga kumpiyansa",
+			"advisorEmpty": "Kulang pa ang data para sa rekomendasyon.",
+			"advisorLink": "Buksan ang completo nga advisor",
+			"statusWeak": "Maluya ang signal"
 		},
 		"home": {
 			"noData": "Wala pa sang punong nga na-assign. Palihog pamangkot ang imo administrator.",
@@ -505,12 +683,23 @@
 				},
 				"charts": {
 					"feedTitle": "Pagpakaon kada adlaw",
-					"feedSummary": "Mga gramo nga nagwa kada adlaw sa nagligad nga 30 ka adlaw, {total} tanan.",
+					"feedSummary": "Mga gramo nga na-rekord kada adlaw sa nagligad nga 30 ka adlaw, {total} tanan. Ang hand-fed nga mga rekord adlaw-adlaw nga total.",
 					"hopperTitle": "Lebel sang hopper",
 					"hopperSummary": "Average nga lebel sang hopper kada adlaw sa nagligad nga 7 ka adlaw, pinakabag-o {latest}.",
 					"hopperEmpty": "Wala pa sang reading sang hopper."
+				},
+				"connection": {
+					"online": "Online",
+					"weak": "Maluya ang signal",
+					"offline": "Wala sa linya"
 				}
-			}
+			},
+			"greetingNextFeeding": "Masunod nga pagpakaon sa {time}",
+			"greetingPaused": "Naka-pause ang pagpakaon — i-resume sa Schedule page.",
+			"lowHopperPopupTitle": "Mababa ang feed level ({percent}%).",
+			"lowHopperPopupBody": "Pun-a antes buas.",
+			"lowHopperPopupGotIt": "Sige",
+			"lowHopperPopupDismiss": "Isara ang pahibalo"
 		},
 		"schedule": {
 			"title": "Iskedyul sang Pagpakaon",
@@ -541,10 +730,14 @@
 			"syncApplied": "Naka-apply sang {time}",
 			"syncFailed": "Wala nagkumpirma ang device",
 			"syncNone": "Wala nagapaabot nga pagbag-o",
+			"syncPendingValues": "Ginapaabot: {start} – {end}, {feeds} ka pagpakaon kada adlaw",
+			"syncPendingSame": "Pareho nga mga value ang ginapaabot para i-resync",
+			"unknownDeviceTime": "wala mahibaluan",
 			"forceResync": "Piliton ang Resync",
 			"saved": "Naka-save!",
 			"error": "Wala naka-save",
 			"feedDurationHint": "Ini nga pagpakaon: {grams}g ≈ {seconds}s",
+			"controlsLabel": "Estado kag mga kontrol sang feeder",
 			"stuckBanner": {
 				"offlineTitle": "Nadiskonekta ang Device",
 				"offlineDesc": "Ang imo device wala nakakonekta halin pa sang {time}. Ang mga request sang pagpakaon ma-reject habang wala nakakonekta; ang pagbag-o sang iskedyul na-save na kag i-apply gihapon kon magkonekta na liwat ini.",
@@ -555,7 +748,8 @@
 				"stuckScheduleTitle": "Wala Nakumpirma nga Pagbag-o sang Iskedyul",
 				"stuckScheduleDesc": "Ang pagbag-o sang iskedyul halin sang {time} ginsugo sa device pero wala nakumpirma nga na-apply.",
 				"retryFeed": "Retry Feed Now",
-				"checkDevice": "Check Device"
+				"checkDevice": "Check Device",
+				"unknownTime": "wala mahibaluan"
 			},
 			"noDeviceTitle": "Wala sang feeder nga naka-pares",
 			"noDeviceDesc": "I-pares ang feeder controller sa sini nga punong antes mag-set sang iskedyul."
@@ -613,15 +807,26 @@
 			"noBatchesTitle": "Wala pa sang na-save nga sampling batch",
 			"noBatchesDesc": "Ang sampling batch nagagrupo sang mga sampol nga gin-log mo sa parehas nga label.",
 			"formLabel": "Mag-log sang biomass sample",
-			"batchesLabel": "Mga na-save nga sampling batch"
+			"batchesLabel": "Mga na-save nga sampling batch",
+			"howCalculatedTitle": "Paano Ginkuenta",
+			"howBiomass": "Total nga biomass = kadamuon sang isda × average nga timbang.",
+			"howDailyFeed": "Adlaw-adlaw nga pagkaon = total nga biomass × feeding rate.",
+			"howPerMeal": "Pagkaon kada pagpakaon = adlaw-adlaw nga pagkaon ÷ kadamuon sang pagpakaon kada adlaw."
 		},
 		"history": {
 			"amount": "KADAM-ON",
 			"date": "{date}",
 			"title": "Kasaysayan sang Pagpakaon",
 			"desc": "Bag-o nga mga panghitabo sa pagpakaon para sa {pond}",
-			"recentDispensed": "Bag-o nga Feed Dispensed",
-			"sourceBreakdown": "Base sa Tinubdan",
+			"lastFeedLabel": "Katapusan nga pagkaon",
+			"lastFeedDetail": "{source} · {date}, {time}",
+			"lastFeedNone": "Wala pa sang dispense halin sa makina",
+			"dispensedTodayLabel": "Gin-dispense subong nga adlaw",
+			"dispensedTodayDetail": "{count, plural, one {# rekord} other {# rekord}} · tanan nga tinubdan · halin kaagahon (Asia/Manila)",
+			"last7DaysLabel": "Nagligad nga 7 ka adlaw",
+			"last7DaysDetail": "{average} kada adlaw nga average · {count, plural, one {# rekord} other {# rekord}} · tanan nga tinubdan",
+			"sourceBreakdown": "Base sa tinubdan · nagligad {days} ka adlaw",
+			"dailyTotals": "(adlaw-adlaw nga total)",
 			"source_scheduled": "Scheduled",
 			"source_dashboard": "Dashboard",
 			"source_button": "Button",
@@ -640,8 +845,8 @@
 			"emptyDesc": "Magaguwa diri ang mga dispense sa gilayon nga kumpirmahon sang feeder.",
 			"charts": {
 				"label": "Mga tsart sang pagpakaon",
-				"feedTitle": "Feed nga gin-dispense kada adlaw",
-				"feedSummary": "Feed nga gin-dispense sa nagligad nga {days} ka adlaw, ginbahin base sa tinubdan: {total} tanan.",
+				"feedTitle": "Feed kada adlaw",
+				"feedSummary": "Feed nga na-rekord kada adlaw sa nagligad nga {days} ka adlaw, ginbahin base sa tinubdan: {total} tanan. Ang hand-fed nga mga rekord adlaw-adlaw nga total.",
 				"feedEmpty": "Wala sang feed nga gin-dispense sa nagligad nga {days} ka adlaw.",
 				"hopperTitle": "Lebel sang hopper",
 				"hopperSummary": "Average nga lebel sang hopper sa nagligad nga {days} ka adlaw: {points} ka adlaw-adlaw nga reading, pinakabag-o {latest}%.",
@@ -650,7 +855,7 @@
 				"range30": "30 ka adlaw",
 				"hopperEmpty": "Wala sang reading sang hopper sa nagligad nga {days} ka adlaw."
 			},
-			"source_hand_fed": "Precision feeding (ginpakaon sang kamot, data sheet)",
+			"source_hand_fed": "Precision feeding (ginpakaon sang kamot, adlaw-adlaw nga total)",
 			"source_other": "Iban pa"
 		},
 		"feedNowModal": {
@@ -658,7 +863,7 @@
 			"triggerDesc": "Mapadala ini sang gilayon nga auger motor manual override request nga <bold>{volume}</bold> direkta sa physical ESP32 automatic feeder controller.",
 			"feederNode": "📍 Node sang Feeder: <bold>{name}</bold>",
 			"connectionLink": "📍 Koneksyon: ",
-			"connected": "Konektado • RSSI −58dB",
+			"connected": "Konektado",
 			"offline": "Offline",
 			"feedPortion": "📍 Bahin sang Pagkaon: <bold>{volume} nga 4mm pellets</bold>",
 			"requestSent": "Ang pangayo sang pagpakaon naipadala — magadispense ang aparato sa sulod sang 5s",
@@ -669,8 +874,15 @@
 			"fallowWarning": "Pahulay ang punong pagkatapos sang ani. Starta ang sunod nga siklo antes magpakaon.",
 			"hopperLow": "Manubo ang hopper level ({level}%). Paminsaron ang pag-refill madali.",
 			"hopperCritical": "Grabe kamanubo ang hopper level ({level}%)! Mag-refill agud malikawan ang wala nga pagpakaon.",
+			"limitHint": "Limit sang Feed Now: {limit} g ({reason}).",
+			"limitInputHint": "Isulod ang pinakamataas {limit} g — natirang daily ceiling sang subong.",
+			"limitReasonDaily": "natirang daily ceiling",
+			"changeInSettings": "Ilisan sa Settings > Pond ukon ang device daily ceiling sa Settings > Hardware.",
+			"limitClamped": "Nagapadala sang {grams}, ginkapon sang natirang daily ceiling sang subong.",
 			"error": "Pagtublag sa manual nga pagpakaon napaslawan.",
-			"durationHint": "≈ {seconds}s dispensa"
+			"durationHint": "≈ {seconds}s dispensa",
+			"weakSignal": "Maluya ang signal",
+			"weakSignalWarning": "Maluya ang signal. Maabot pa ang feeder, pero basi mas mahalawig ini nga command."
 		},
 		"growth": {
 			"title": "Pagdako kag FCR",
@@ -715,6 +927,16 @@
 			"fishCountBadge": "{count} isda",
 			"sampleWeightCol": "Kabug-atan",
 			"sampleLengthCol": "Katas-on",
+			"sgrTitle": "Specific Growth Rate (SGR)",
+			"sgrOverall": "Kabuuan halin sa una nga sampling",
+			"sgrAverageGain": "Average nga pagtubo kada adlaw",
+			"sgrUnit": "%/day",
+			"sgrExplain": "Kon kapaspas ang pagtubo sang timbang sang isda kada adlaw, bilang porsyento sang ila timbang sang lawas.",
+			"sgrReasons": {
+				"insufficientSamples": "Mag-log sang labing menos duha ka sampling para makita ang SGR.",
+				"invalidWeight": "Kinahanglan sang SGR ang positibo nga average nga timbang sang lawas sa duha ka sampling.",
+				"intervalTooShort": "Kinahanglan sang SGR ang sampling nga labing menos isa ka adlaw ang ulot."
+			},
 			"history": {
 				"title": "Kasaysayan sang Pagtubo",
 				"desc": "Bug-os nga feed level, pagtubo kag biomass nga rekord para sa {pond}",
@@ -733,6 +955,7 @@
 				},
 				"columns": {
 					"avgWeight": "Average nga Kabug-atan (g)",
+					"sgr": "SGR (%/day)",
 					"weightGain": "Gin-agnay nga Kabug-atan (g)",
 					"lengthGain": "Gin-agnay nga Katas-on (cm)",
 					"daysSince": "Mga Adlaw Halin sang Ulihi"
@@ -809,7 +1032,20 @@
 				"fcr": "FCR {fcr}",
 				"density": "{density} isda/m²",
 				"densityHigh": "Density {density}/m² — i-check ang aeration.",
-				"densityUnknown": "Idugang ang area sang punong sa Settings para sa density."
+				"densityUnknown": "Idugang ang area sang punong sa Settings para sa density.",
+				"sourceCalculator": "Target halin sa calculator",
+				"biomassTitle": "Biomass sa ani",
+				"targetBiomass": "Target sa ani",
+				"currentBiomass": "Subong nga biomass",
+				"expectedBiomass": "Expected subong",
+				"biomassGap": "Gap sa target",
+				"projectedBiomass": "Projected sa ani",
+				"projectedGap": "Projected nga gap",
+				"savedTargetHint": "Ini nga target halin sa feed calculator kag naka-mirror sa target sang cycle. Tangtanga para malimpyohan ang duha.",
+				"clearTarget": "Tangtanga ang target",
+				"clearingTarget": "Ginatangtang...",
+				"targetCleared": "Natangtang ang growth target. Nalimpyohan man ang target sang cycle.",
+				"targetClearError": "Indi matangtang ang growth target."
 			},
 			"prediction": {
 				"eyebrow": "AI nga Manuglaygay sa Pagpakaon",
@@ -969,14 +1205,27 @@
 				"truncated": "Sobra ang events sa sini nga range. Pabuhina ang petsa ukon tagoa ang feeding events.",
 				"dateRangeError": "Ang petsa sang ani dapat 30 hasta 365 ka adlaw pagkatapos sang pagbutang.",
 				"rescheduled": "Na-reschedule ang event.",
+				"rescheduledTask": "Na-reschedule ang task.",
 				"rescheduleConfirm": "Ibalhin ang petsa sang ani sa sini nga siklo?",
 				"today": "Subong",
 				"month": "Bulan",
 				"week": "Semana",
+				"day": "Adlaw",
 				"list": "Lista",
+				"agenda": "Lista sang mga hitabo",
 				"noEvents": "Wala sang event sa sini nga range.",
 				"eventsLabel": "Kalendaryo sang punong",
+				"readOnlyReason": "Indi ka maka-edit sang mga hitabo sa kalendaryo.",
+				"allPondsEditHint": "Pilia ang isa ka punong para makadugang sang hitabo.",
 				"recurringChangeConfirm": "Bag-uhon ang bug-os nga nagabalik nga serye? Pilia ang Cancel para indi mabag-o."
+			},
+			"calendarPage": {
+				"title": "Kalendaryo kag Pag-ani",
+				"desc": "Ang crop cycle kag ang tanan nga hitabo sa punong, sa isa ka kalendaryo.",
+				"readOnlyPond": "basa lamang",
+				"readOnlyHint": "Ini nga punong iya sang iban nga uma sa imo organisasyon. Makita mo ang mga hitabo pero indi mo ini ma-edit.",
+				"readOnlyEvent": "Ini nga hitabo iya sang iban nga uma kag basa lamang.",
+				"readOnlyTask": "Ini nga task iya sang iban nga uma kag basa lamang."
 			},
 			"filters": {
 				"harvest": "Ani",
@@ -995,6 +1244,7 @@
 			"upcoming": {
 				"title": "Palapit nga events",
 				"next": "Sunod {count}",
+				"loading": "Ginakarga ang palapit nga mga event…",
 				"empty": "Wala sang palapit nga event.",
 				"listLabel": "Mga masunod nga hitabo"
 			},
@@ -1050,7 +1300,16 @@
 				"saving": "Ginasave…",
 				"cancel": "I-cancel",
 				"successCreate": "Na-start ang siklo.",
-				"successUpdate": "Na-update ang plano."
+				"successUpdate": "Na-update ang plano.",
+				"targetConflictTitle": "May naka-save na nga target halin sa calculator",
+				"targetConflictDesc": "Ang plano sa punong nga ni nagagamit sang {saved} g halin sa feed calculator. Ginbaylo mo ang target sang siklo sa {next} g. Pilion kon diin ang tipigan antes mag-save.",
+				"targetConflictDescEmpty": "Ang plano sa punong nga ni nagagamit sang {saved} g halin sa feed calculator. Ginlimpyohan mo ang target sang siklo. Pilion kon diin ang tipigan antes mag-save.",
+				"targetConflictReplace": "Ilisan ang target sang calculator",
+				"targetConflictReplaceHint": "Ilisan sang value sang siklo. Ang calculator kag target sang siklo mangin {next} g.",
+				"targetConflictReplaceClearHint": "Limpyohan ang target sang calculator kag ang target sang siklo.",
+				"targetConflictKeep": "Tipigan ang target sang calculator",
+				"targetConflictKeepHint": "Tipigan ang {saved} g bilang target sang plano. Ibalik ang target sang siklo sa {saved} g.",
+				"targetConflictCancel": "I-cancel"
 			},
 			"harvestForm": {
 				"title": "I-record ang ani",
@@ -1073,8 +1332,13 @@
 			"eventForm": {
 				"titleNew": "Dugang event sa punong",
 				"titleEdit": "I-edit ang event",
+				"titleNewTask": "Dugang task",
+				"titleEditTask": "I-edit ang task",
+				"editEvent": "I-edit ang event",
+				"editTask": "I-edit ang task",
 				"desc": "Maintenance, trabaho sa punong, ukon iban nga may petsa.",
 				"type": "Klase sang event",
+				"typeTask": "Klase sang task",
 				"typeMaintenance": "Maintenance",
 				"typeOther": "Iban",
 				"title": "Titulo",
@@ -1084,14 +1348,20 @@
 				"notes": "Mga nota",
 				"notesPlaceholder": "Opsyonal nga detalye.",
 				"save": "I-save ang event",
+				"saveTask": "I-save ang task",
 				"saving": "Ginasave…",
 				"cancel": "I-cancel",
 				"delete": "I-delete",
 				"deleteConfirm": "I-delete ini nga event?",
+				"deleteConfirmTask": "I-delete ini nga task?",
 				"successCreate": "Nadugang ang event.",
+				"successCreateTask": "Nadugang ang task.",
 				"successUpdate": "Na-update ang event.",
+				"successUpdateTask": "Na-update ang task.",
 				"successDelete": "Na-delete ang event.",
+				"successDeleteTask": "Na-delete ang task.",
 				"descPond": "Event ukon task para sa {pond}.",
+				"descPondTask": "Task para sa {pond}.",
 				"kind": "Klase sang item",
 				"kindEvent": "Event",
 				"kindTask": "Task",
@@ -1185,7 +1455,48 @@
 			"populationPlaceholder": "hal. 200",
 			"areaPlaceholder": "hal. 500",
 			"depthPlaceholder": "hal. 1.5",
-			"feedPricePlaceholder": "hal. 30"
+			"feedPricePlaceholder": "hal. 30",
+			"derivedTitle": "Ginakuha sa mga setting sang punong",
+			"derivedDaily": "Lawog kada adlaw",
+			"derivedPerMeal": "Kada lamesa",
+			"derivedDeviceCeiling": "Takda sang device",
+			"derivedDeviceMaxDose": "Pinakamadamu nga dose kada lamesa",
+			"derivedHint": "Ini nga numero halin sa feeding rate, kadamu sang isda kag pinakaulihi nga sample. Amo ini ang idispense sang feeder.",
+			"derivedNoBiomass": "Magdugang sang sampling batch (average body weight) para makita ang gramo nga mabuhat sang mga setting.",
+			"errorSummaryTitle": "Ayuhon ini antes mag-save",
+			"errorSummaryHint": "Ginatipigan ang imo mga value. Bukasi ang setting para ayuhon.",
+			"restoredDraft": "Ginbalik ang mga value nga wala mo pa na-save.",
+			"restoredDraftAt": "Ginbalik ang mga wala mo pa na-save nga mga pagbag-o ({time}).",
+			"discardDraft": "Ilabay ang draft",
+			"draftDiscarded": "Ginlabay ang wala pa na-save nga mga pagbag-o.",
+			"conflicts": {
+				"dailyTitle": "Ang lawog kada adlaw sobra sa takda sang device",
+				"relayTitle": "Ang isa ka lamesa mas malawig sa relay window",
+				"pondWins": "Ang setting sang punong ang masunod. Dapat tumanon sang feeder ini nga punong, gani bag-oha ang setting sang device sa idalom.",
+				"suggestedFeeds": "Kon dugangan ang pagpakaon kada adlaw sa {count}, masulod na sa window.",
+				"aboveHardMax": "Kinahanglan sang punong sobra sa hard safety maximum nga {max} kada adlaw. Paubson ang feeding rate ukon kadamu sang isda.",
+				"platformCap": "Ang platform safety cap ang nagatakda sini; kinahanglan sang platform admin para ipataas.",
+				"hopperCap": "Ang calibrated nga kapasidad sang hopper ang takda; i-recalibrate ang hopper para masulod ang mas madamu.",
+				"usePondValue": "Gamita ang value sang punong ({value})",
+				"usePondValueDone": "Gin-set ang takda sang device sa {value} kada adlaw.",
+				"openSetting": "Bukasi ang setting sang device"
+			},
+			"errors": {
+				"rateMin": "Ang feeding rate dapat indi magubos sa 0.1%.",
+				"rateMax": "Ang feeding rate indi pwede magsobra sa 10%.",
+				"feedsMin": "Bisan isa ka pagpakaon kada adlaw.",
+				"feedsMax": "Indi magsobra sa 24 ka pagpakaon kada adlaw.",
+				"intervalMin": "Bisan 1 ka adlaw.",
+				"intervalMax": "Indi magsobra sa 90 ka adlaw.",
+				"populationMin": "Ang kadamu sang isda dapat indi magubos sa 1.",
+				"populationMax": "Sobra kadamu ang isda.",
+				"areaInvalid": "Magbutang sang kalaparon sang punong nga sobra sa 0.",
+				"depthInvalid": "Magbutang sang kasangkaron nga sobra sa 0.",
+				"priceInvalid": "Magbutang sang presyo sang lawog nga 0 ukon sobra.",
+				"invalidNumber": "Magbutang sang numero.",
+				"deviceDailyCeiling": "Kinahanglan sang punong ang {pond} kada adlaw, sobra sa takda sang device nga {device} kada adlaw.",
+				"deviceRelayTime": "Ang isa ka lamesa {pond}, mas malawig sa {device} nga kaya sang feeder sa isa ka relay window."
+			}
 		},
 		"profileSettings": {
 			"title": "Mga Setting sang Profile",
@@ -1289,7 +1600,18 @@
 			"markedRead": "{count} ka notipikasyon ang ginmarka nga nabasa",
 			"loadMore": "Ipakita pa",
 			"filtersLabel": "I-filter ang mga hitabo",
-			"timelineLabel": "Talaan sang mga hitabo"
+			"timelineLabel": "Talaan sang mga hitabo",
+			"lastTouch": "Katapusan nga Pagtandog",
+			"lastTouchLabel": "Katapusan nga aksyon sang user nga narekord",
+			"lastTouchSummary": "{actor} — {event}",
+			"details": "Mga Detalye",
+			"metadata": "Metadata sang hitabo",
+			"actor": "Nagbuhat",
+			"actorRole": "Papel",
+			"actorFarmId": "Farm ID",
+			"actorSystem": "System",
+			"actorDevice": "Device",
+			"actorUnknown": "Wala makilala nga nagbuhat"
 		},
 		"adminUsers": {
 			"actionsColumn": "Mga Aksyon",
@@ -1400,7 +1722,54 @@
 				"VIEWER": "Tumatan-aw"
 			}
 		},
+		"feederViewer": {
+			"viewerLabel": "Feeder 3D",
+			"canvasLabel": "Interactive nga 3D nga modelo sang {label}. I-drag para i-orbit kag gamita ang mga preset para magbaylo sang view.",
+			"statusIdle": "Idle",
+			"statusDispensing": "Nagahatag",
+			"statusPaused": "Pahuway",
+			"statusOffline": "Wala sa linya",
+			"hopperLevel": "Lebel sang hopper",
+			"lastFed": "Katapusan nga ginpakaon",
+			"noReading": "Wala pa sing reading",
+			"presetsLabel": "Mga camera preset",
+			"presetIso": "Iso",
+			"presetFront": "Atubang",
+			"presetLeft": "Wala",
+			"presetRight": "Tuo",
+			"presetRear": "Likod",
+			"presetTop": "Taas",
+			"simpleView": "Simple nga view",
+			"modelVersion": "Modelo",
+			"statusAnnouncement": "Estado sang feeder: {status}",
+			"isoLabelsTip": "Ang mga label sang komponente makita lamang kon ang modelo ara sa Isometric view. Naka-lock ang Iso; magpili sang iban nga view para i-orbit.",
+			"back": "Balik sa dashboard",
+			"desc": "Live nga 3D nga view sang feeder sa {pond}.",
+			"detailsLabel": "Detalye sang device",
+			"perFeeding": "Kada pagpakaon",
+			"rtc": "RTC",
+			"rtcOk": "OK",
+			"rtcUnknown": "Wala sing RTC",
+			"deviceMac": "Device ID (MAC)",
+			"openViewer": "Buksan ang 3D view",
+			"componentHopper": "Hopper",
+			"componentSensor": "Ultrasonic sensor",
+			"componentController": "Controller",
+			"componentMotor": "Motor",
+			"componentAuger": "Auger",
+			"componentOutlet": "Outlet",
+			"componentLive": "Live",
+			"componentLastKnown": "Katapusan nga nabasa",
+			"componentOnline": "Online",
+			"componentRunning": "Nagadalagan",
+			"componentReady": "Handa",
+			"componentNoReading": "Wala sing reading",
+			"componentReading": "Nagabasa",
+			"componentsTitle": "Mga komponente",
+			"statusWeak": "Maluya ang signal"
+		},
 		"adminDevices": {
+			"view3d": "3D view",
 			"deviceIdMac": "Device ID (MAC)",
 			"deviceIdMacHint": "Ini ang Device ID nga ginapangayo sang setup portal.",
 			"tokenColumn": "Token sang device",
@@ -1425,6 +1794,7 @@
 			"columnFeedLevel": "Lebel sang feed",
 			"columnLastSeen": "Katapusan nga nakita",
 			"perFeeding": "{grams} g kada feeding",
+			"perFeedingLabel": "Kada pagpakaon",
 			"emptyTitle": "Wala pa sang mga device nga nakarehistro.",
 			"emptyDesc": "Magagwa ang mga device diri pagkatapos ma-provision kag ma-claim ang feeder.",
 			"caption": "Mga device sa imo organisasyon",
@@ -1463,6 +1833,8 @@
 			"back": "Balik sa mga device",
 			"print": "I-print / i-save subong PDF",
 			"count": "{count} ka sticker",
+			"emptyTitle": "Wala pa sang device nga i-print.",
+			"emptyDesc": "Kon may feeder na nga nadugang sa pond, magaguwa diri ang iya sticker sheet.",
 			"verifyTitle": "Tan-awa anay antes mag-print.",
 			"verifyIntro": "Ang kasubong sang blower lamang ang nabasa halin sa label. Ang gear motor, speed controller kag electronics sang 12 V nga adapter estimate lang, kag gin-round up ang kabilugan ({volts} V, {hz} Hz, {amps} A). Wala pa masukat gamit ang meter.",
 			"verifyReadLabels": "Itandi ang estimate nga current sang motor kag electronics sa nabasa sang meter, kag ilisan ang rating kon lain.",
@@ -1506,6 +1878,27 @@
 				"measuredTitle": "Ginsukat nga rating.",
 				"measuredBody": "Ginsukat gamit ang meter sang {date}.",
 				"measuredNoDate": "Ginsukat gamit ang meter."
+			},
+			"sticker": {
+				"subtitle": "Precision Feeder Unit",
+				"tag": "{type} nga input lamang",
+				"tagAc": "AC nga input",
+				"sectionRating": "Rating sang power",
+				"input": "Input",
+				"current": "Current",
+				"power": "Power",
+				"max": "max",
+				"unitId": "Unit ID",
+				"stepScan": "I-scan ang QR kag sumulod sa {ssid}",
+				"stepPortal": "Bukha ang {address} kon indi magaguwa ang pahina",
+				"stepSave": "Isulod ang Wi-Fi sang farm kag detalye sang device, dayon i-save",
+				"noteTitle": "Wala nagapakita ang setup network?",
+				"noteBody": "Hupta ang Wi-Fi reset button sing 5 s agod maablihan liwat ang setup.",
+				"scan": "I-scan agod ma-set up\nang Wi-Fi",
+				"qrLabel": "QR code sang Wi-Fi setup",
+				"footerSupply": "{type} nga supply lamang",
+				"footerUnplug": "Ibton antes serbisyohan",
+				"footerDry": "Indi pabasa"
 			}
 		},
 		"appSettings": {
@@ -1514,6 +1907,7 @@
 			"deviceStatus": "Estado sang Device",
 			"deviceStatusDesc": "Kasamtangan nga estado sang imo ESP32 feeder device.",
 			"deviceRecordId": "ID sang Rekord sang Device",
+			"supportId": "Support ID: {id}",
 			"connectionStatus": "Estado sang Koneksyon",
 			"online": "Online",
 			"offline": "Offline",
@@ -1541,7 +1935,7 @@
 				"step2": "Bukas ang http://192.168.4.1 sa imo browser.",
 				"step3": "Ibutang ang ngalan sang WiFi sang uma kag ang password.",
 				"step4": "Ibutang ang Device ID nga makita sa ibabaw kag ang Device Token.",
-				"step5": "I-save. Mag-restart ang device kag magakonekta ini.",
+				"step5": "Pinduta ang Connect and save. Ginatest anay sang device ang network, tapos mag-restart kag magkonekta ini.",
 				"credentialsNote": "Pangayo-a ang Device Token sa imo farm administrator, ukon buksi ang Admin → Devices kag pinduta ang “Show token” para sa sini nga unit.",
 				"tokenWarning": "Ang Device Token kredensyal ini — ipaambit lamang sa tawo nga naga-provision sini nga unit.",
 				"recoveryTitle": "Kon indi magpakita ang setup network",
@@ -1549,12 +1943,20 @@
 			},
 			"hopperCalibration": "Pag-calibrate sang Hopper",
 			"hopperCalibrationDesc": "I-set ang distansya sang ultrasonic sensor para sa imo hopper. Ginagamit para sa pagkalkula sang lebel kag nabilin nga mga adlaw.",
+			"dailyCeiling": "Limit sang pakaon sa isa ka adlaw",
+			"dailyCeilingDesc": "Ang pinakamadamo nga pakaon nga maibubo sang feeder sa isa ka adlaw (Asia/Manila). 2,000 g ang default; indi puede magsobra sa 5,000 g.",
+			"dailyCeilingLabel": "Limit (g/adlaw)",
+			"dailyCeilingHint": "Default 2000 g. Halin 500 tubtob 5,000 g.",
+			"dailyCeilingSave": "I-save ang limit",
+			"dailyCeilingSaved": "Naisave ang limit sang pakaon.",
+			"dailyCeilingError": "Indi maisave ang limit sang pakaon.",
 			"hopperFullCm": "Distansya kon Puno (cm)",
 			"hopperFullCmDesc": "Pagbasa sang sensor kon puno ang hopper",
 			"hopperEmptyCm": "Distansya kon Wala (cm)",
 			"hopperEmptyCmDesc": "Pagbasa sang sensor kon wala sang feed ang hopper",
 			"hopperCapacityG": "Kapasidad sang Hopper (grams)",
 			"hopperCapacityGDesc": "Kabug-atan sang feed nga kaya sang hopper",
+			"hopperEmptyGreaterThanFull": "Ang distansya kon wala dapat mas dako sa distansya kon puno.",
 			"saveCalibration": "I-save ang Calibration",
 			"calibrationSaved": "Na-save ang calibration!",
 			"calibrationSaveError": "Indi ma-save ang calibration.",
@@ -1578,6 +1980,14 @@
 			"restartDevice": "I-restart ang Device",
 			"actionsUnavailable": "Wala pa available ang mga aksyon sa device.",
 			"calibration": {
+				"numberField": {
+					"decrease": "Buhinan ang {label}",
+					"increase": "Dugangan ang {label}",
+					"format": "Magbutang sang numero.",
+					"range": "Magbutang sang halaga halin {min} tubtob {max}.",
+					"wholeNumber": "Gamita lang ang bug-os nga mga numero.",
+					"decimalPlaces": "Gamita ang indi sobra sa {decimals} ka decimal."
+				},
 				"title": "Pag-calibrate sang Rate sang Pagpakaon",
 				"desc": "Sukda kon kapaspas mag-dispense sang feed ang feeder agud husto ang oras sang pagpakaon sa schedule.",
 				"currentRate": "Karon nga rate",
@@ -1593,7 +2003,8 @@
 				"guided": {
 					"intro": "Padalagan ang feeder sa pila ka segundo, timbanga ang nag-gwa, kag ibutang ang timbang. Kami ang mag-kalkula.",
 					"durationLabel": "Kalabaon sang test (segundo)",
-					"durationHelp": "Gamita ang 3–30 ka segundo. Mas malaba nga test, mas husto.",
+					"durationHelp": "Gamita ang 3-600 ka segundo. Mas malaba nga run, mas husto samtang may lamesa ang hopper.",
+					"longRunWarning": "Malaba nga run: {seconds} ka segundo ang calibration relay exception (max 600). Bantayi ang hopper kag motor; untata kon mauga ukon maginit.",
 					"presetsLabel": "Madali nga presets",
 					"presetValue": "{seconds}s",
 					"expectedDose": "Ginapaabot nga test dose",
@@ -1605,8 +2016,8 @@
 					"blockedFallow": "Pahulay ang punong pagkatapos sang ani. Starta ang sunod nga siklo antes mag-test.",
 					"blockedReadOnly": "Wala ka permiso sa pag-calibrate sini nga device.",
 					"blockedInvalidRate": "Indi balido ang karon nga rate. Gamita ang manual entry sa pagbutang sang bag-o nga rate.",
-					"blockedInvalidDuration": "Ibutang ang kalabaon sang test halin 3 hasta 30 ka segundo.",
-					"blockedTooLarge": "Ang ginapaabot nga dose ({grams} g) sobra sa 1000 g nga limit sang test. Paiklia ang test.",
+					"blockedInvalidDuration": "Ibutang ang kalabaon sang test halin 3 hasta 600 ka segundo.",
+					"blockedTooLarge": "Ang ginapaabot nga dose ({grams} g) sobra sa 5000 g nga limit sang test. Paiklia ang test.",
 					"statusLabel": "Estado sang test",
 					"statusPending": "Nakapila — nagahulat nga kuhaon sang device ang test…",
 					"statusDispatched": "Nagadispense na ang test dose. Indi magpalapit sa feeder.",
@@ -1746,6 +2157,31 @@
 					"title": "Ginarekomendar ang recalibration",
 					"desc": "Sa nagligad nga 7 ka adlaw, nagreport ang device sang {dispensed} nga nadispense, pero nagbaba ang hopper level sang mga {observed} ({diff}). Ang sobra 15% nga diperensya nagapahayag nga nag-drift ang feed rate — mag-target check liwat."
 				}
+			},
+			"weakSignal": "Maluya ang signal",
+			"weakFor": "Maluya ang signal — katapusan nga heartbeat {duration} ang nagligad",
+			"tabs": {
+				"label": "Mga seksyon sang setting sang device",
+				"overview": "Kabilugan",
+				"feeding": "Pagpakaon",
+				"calibration": "Calibration",
+				"network": "Network",
+				"unsaved": "(wala pa na-save nga pagbag-o)",
+				"unsavedTitle": "Wala pa na-save nga pagbag-o",
+				"unsavedDesc": "Kon magbalhin ka sang feeder, madula ang mga pagbag-o nga wala pa na-save.",
+				"unsavedTabs": "Wala pa na-save: {tabs}.",
+				"keepEditing": "Padayon sa pag-edit",
+				"discardAndSwitch": "Isikway kag magbalhin"
+			},
+			"deviceSwitcher": {
+				"label": "Feeder",
+				"noPond": "Wala sang pond",
+				"option": "{label} · {status}",
+				"state": {
+					"online": "Online",
+					"weak": "Maluya ang signal",
+					"offline": "Offline"
+				}
 			}
 		},
 		"notifications": {
@@ -1772,6 +2208,7 @@
 			"categorySystem": "Sistema",
 			"autoCleared": "Ginlimpyo automatiko",
 			"acknowledged": "Gin-acknowledge",
+			"actionError": "Indi ma-update ang notipikasyon. Tilawi liwat.",
 			"alert": "Alerto",
 			"auditLink": "Audit",
 			"receivedAt": "Natanggap",
@@ -1789,7 +2226,8 @@
 			},
 			"filtersTierLabel": "I-filter base sa kahalangan",
 			"filtersCategoryLabel": "I-filter base sa kategorya",
-			"listLabel": "Mga notipikasyon"
+			"listLabel": "Mga notipikasyon",
+			"categoryHopperLow": "Mababa ang hopper"
 		},
 		"timeCalibration": {
 			"title": "Kalibrasyon sang Oras",
@@ -1803,7 +2241,10 @@
 		"fcrCalculator": {
 			"title": "Kalkulador sang Kinahanglanon nga Pagkaon",
 			"desc": "Kalkulahon ang pagkaon nga kinahanglan para mabatunon ang imo target nga timbang.",
-			"currentBiomass": "Kasamtangan nga Biomass (kg)",
+			"currentWeight": "Kasamtangan nga average nga timbang (kg)",
+			"population": "Kadamu sang isda",
+			"fish": "isda",
+			"kg": "kg",
 			"targetWeight": "Target nga Timbang (kg)",
 			"daysToTarget": "Adlaw Padulong sa Target",
 			"days": "ka adlaw",
@@ -1814,7 +2255,17 @@
 			"totalFeed": "Kabug-atan sang Pagkaon Nabilin",
 			"dailyRation": "Adlaw-adlaw nga Bahin sang Pagkaon",
 			"biomassGain": "Kabug-atan sang Biomass Gain",
-			"suggestedRate": "Ginasugyot nga Rate sang Pagpakaon"
+			"suggestedRate": "Ginasugyot nga Rate sang Pagpakaon",
+			"perMeal": "Kada pakaon: {grams} g",
+			"usingFcr": "Ginagamit ang pinakabag-o nga FCR: {fcr}",
+			"noFcr": "Wala pa FCR report - 1.5 nga reference ang ginagamit.",
+			"setAsTarget": "I-set bilang growth target",
+			"settingTarget": "Gina-save ang target...",
+			"targetSaved": "Na-save ang growth target: {weight} kg sa ani.",
+			"targetSavedShort": "Na-save nga target: {weight} kg sa ani.",
+			"targetError": "Indi ma-save ang growth target.",
+			"targetHint": "I-save ini nga timbang bilang harvest target sang active nga cycle. Ang rekomendasyon sa pagpakaon maga-adjust sa sulod sang 10% / 15 ka adlaw nga limit.",
+			"targetNeedsCycle": "Mag-start sang grow-out cycle antes mag-set sang growth target."
 		},
 		"importExport": {
 			"export": "I-export ang Datos",
@@ -1825,7 +2276,7 @@
 			"importDialogLabel": "Mga opsyon sa pag-import sang datos",
 			"close": "Sirad-an",
 			"dataType": "Matang sang Datos",
-			"selectFile": "Pili nga CSV File",
+			"selectFile": "Pili nga CSV ukon XLSX File",
 			"selectAll": "Pili ang Tanan",
 			"deselectAll": "I-deselect ang Tanan",
 			"exporting": "Gina-export...",
@@ -1852,7 +2303,45 @@
 				"fcr_reports": "FCR Reports",
 				"feed_level_logs": "Feed Level Logs",
 				"notifications": "Mga Notipikasyon",
-				"audit_events": "Audit Events"
+				"audit_events": "Audit Events",
+				"feeding_schedule": "Iskedyul sang Pagpakaon"
+			},
+			"format": "Format",
+			"formatCsv": "CSV ukon ZIP",
+			"formatXlsx": "Excel workbook (.xlsx)",
+			"formatPdf": "PDF report",
+			"reportLabel": "Report",
+			"downloadXlsx": "I-download ang XLSX",
+			"downloadPdf": "I-download ang PDF",
+			"pdfNote": "Ang mga PDF report para basahon kag i-print. Indi ni mai-import.",
+			"templateLabel": "Mga Template",
+			"templateCsv": "CSV template",
+			"templateXlsx": "XLSX template",
+			"mappingTitle": "Pagpatigayon sang Column",
+			"mappingHint": "Itigayon ang kada field sa isa ka column sa imo file. Ang mga field nga may * kinahanglan.",
+			"mappingNone": "Wala natigayon",
+			"mappingField": "Field",
+			"mappingColumn": "Column sa imo file",
+			"required": "kinahanglan",
+			"rowsReady": "{valid} sa {total} ka row ang handa na i-import.",
+			"schedulePreview": "{count} ka pagkaon halin {start} tubtob {end}.",
+			"capOk": "Kabilugan {daily} g kada adlaw, sulod sa limitasyon nga {cap} g.",
+			"capOver": "Maggawas ang iskedyul nga ini sang {daily} g kada adlaw, sobra sa limitasyon nga {cap} g. Pamenosi anay ang kadamuon sang pagkaon.",
+			"scheduleNote": "Ang pag-import magabalhin sang oras sang pagpakaon kag kadamuon sang pagkaon. Ang gramo kada pagkaon halin sa settings sang pond.",
+			"scheduleApplied": "Naipadala na ang iskedyul sa feeder.",
+			"reports": {
+				"summary": "Katingbanan sang Pond",
+				"growth": "Report sang Pagtubo",
+				"sgr": "Report sang SGR",
+				"fcr": "Report sang FCR"
+			},
+			"structural": {
+				"noRows": "Wala sing data row ang file.",
+				"missingColumns": "Wala makita ang mga kinahanglan nga column: {fields}. Itigayon sila sa pagpatigayon sang column.",
+				"tooManyRows": "Sobra sa 5,000 ka row ang file. Bahina ini kag i-import nga tinagsa.",
+				"scheduleEmpty": "Wala sing naka-enable nga pagkaon sa iskedyul.",
+				"scheduleTooMany": "Sobra sa 24 ang pagkaon sa iskedyul.",
+				"scheduleUneven": "Pantay ang agwat sang pagkaon sa feeder. Himua nga pantay ang agwat sang mga oras halin sa una tubtob sa ulihi nga pagkaon."
 			}
 		},
 		"dataSettings": {
@@ -1883,7 +2372,8 @@
 				"devices": "Mga Device",
 				"hierarchy": "Hierarkiya",
 				"audit": "Talaan sang Audit",
-				"settings": "Mga Setting"
+				"settings": "Mga Setting",
+				"more": "Dugang"
 			},
 			"panelLabel": "Panel sang Admin",
 			"profile": "Ang imo laray sang profile kag mga setting"
@@ -1916,15 +2406,35 @@
 				"label": "Pili-a ang dagway",
 				"list": "Lista",
 				"cards": "Mga kard"
-			}
+			},
+			"weak": "Maluya ang signal"
 		},
 		"adminOverview": {
 			"title": "Overview sang Admin",
 			"desc": "Estadistika sang bilog nga sistema kag pinakabag-o nga aktibidad.",
 			"recentActivity": "Pinakabag-o nga Aktibidad",
+			"chartsHeading": "Sa isa ka pagtan-aw",
 			"statUsers": "Mga User",
 			"statPonds": "Mga Punong",
 			"statDevices": "Mga Device",
+			"chartFeedTitle": "Pagkaon nga ginhatag kada adlaw",
+			"chartFeedSummary": "Pagkaon nga ginhatag sa nagligad nga {days} ka adlaw: {total} g sa kabuuan.",
+			"chartFeedSummaryTruncated": "Pagkaon nga ginhatag sa nagligad nga {days} ka adlaw: labing menos {total} g (ang pinakabag-o nga 5,000 ka row).",
+			"chartActivityTitle": "Aktibidad sang device",
+			"chartActivitySummary": "Mga panghitabo sang device kada adlaw sa nagligad nga {days} ka adlaw: {total} ka panghitabo.",
+			"chartActivitySummaryTruncated": "Mga panghitabo sang device kada adlaw sa nagligad nga {days} ka adlaw: labing menos {total} ka panghitabo (ang pinakabag-o nga 5,000 ka row).",
+			"chartActivityRange": "Range: {from} – {to} · {days} ka adlaw sa uma (Asia/Manila).",
+			"chartTruncatedNote": "Ang isa ka series naka-cap sa pinakabag-o nga 5,000 ka row, gani ang total sini lower bound kag ang pinakaluma nga adlaw puede partial.",
+			"chartHealthTitle": "Kahimtangan sang mga device",
+			"chartHealthSummary": "{online} online kag {offline} offline sa {total} ka device.",
+			"chartOnline": "Online",
+			"chartOffline": "Offline",
+			"chartPending": "Nagahulat sang pag-apruba",
+			"chartSourceScheduled": "Ginplano",
+			"chartSourceDashboard": "Dashboard",
+			"chartSourceButton": "Button",
+			"chartSourceHandFed": "Precision feeding (ginhatag sang kamot)",
+			"chartSourceUnknown": "Iban pa",
 			"recentEmpty": "Wala pa sang pinakabag-o nga aktibidad.",
 			"columnTime": "Oras",
 			"columnDevice": "Device",
@@ -1987,7 +2497,8 @@
 				"missing_letter": "Kinahanglan nga may isa ka letra ang password.",
 				"missing_number": "Kinahanglan nga may isa ka numero ang password.",
 				"common": "Sobra ka ordinaryo ang password. Pilia ang mas mabaskog."
-			}
+			},
+			"errorGeneric": "May naguba. Tilawi liwat."
 		},
 		"adminPondForm": {
 			"backToList": "Balik sa mga Punong",
@@ -2031,6 +2542,7 @@
 			"statusActive": "Aktibo",
 			"statusArchived": "Gin-archive",
 			"fallowTag": "Fallow",
+			"overviewTitle": "Overview",
 			"fieldId": "ID sang punong",
 			"fieldOwner": "Tag-iya",
 			"fieldFarm": "Farm",
@@ -2137,6 +2649,7 @@
 			"title": "Kalendaryo sang farm",
 			"desc": "Ang tanan {count, plural, one {# ka aktibo nga punong} other {# ka aktibo nga mga punong}} sa imo organisasyon.",
 			"readOnly": "Tan-aw lamang. Abrihi ang Harvest nga pahina sang punong para magsugod, mag-edit ukon mag-ani sang cycle.",
+			"editHint": "Magdugang, mag-edit, magbalhin ukon mag-delete sang mga hitabo para sa tanan nga punong sa imo organisasyon. Ang mga aksyon sang grow-out cycle ara sa Harvest nga pahina sang kada punong.",
 			"emptyTitle": "Wala pa sang mga punong sa sini nga organisasyon",
 			"emptyDesc": "Ginapakita sang kalendaryo ang mga hitabo sang pag-ani, sampling, pagpakaon kag device para sa tagsa ka punong sa imo organisasyon. Magdugang anay sang punong, ukon pangayo sa platform administrator nga mag-assign.",
 			"emptyAction": "Magdugang sang punong"
@@ -2176,8 +2689,9 @@
 			"percentOfBodyWeight": "% sang timbang sang lawas kada adlaw",
 			"hopperLowLabel": "Kahabaan sang hopper (%)",
 			"hopperLowHint": "Magpadala warning kon ini nga lebel ukon kubos pa. Ang critical alerts naga-andar gihapon sa 5 %.",
-			"offlineAfterLabel": "Offline alert pagkatapos sang (minuto)",
-			"offlineAfterHint": "Kon daw ano kalawig ang feeder nga wala tingog antes magpadala alert. Ang status badge offline gihapon sa 15 minutos.",
+			"offlineAfterLabel": "Delay sang offline alert (minuto) — deprecated",
+			"offlineAfterHint": "Indi na ini gamiton sa timing. Ang offline alerts kag badges nagasunod sa platform device connectivity policy (offline window plus grace) sa Superadmin → Settings → Device status. Ginatago ang value para sa compatibility.",
+			"offlineAfterDeprecated": "Deprecated",
 			"missedFeedingLabel": "Mga alert sang nalipatan nga pagpakaon",
 			"missedFeedingHint": "Magpahibalo kon ang naka-schedule nga pagpakaon ginsikway kag wala natabo.",
 			"rolesLabel": "Sin-o ang makabaton sang alert",
@@ -2195,13 +2709,69 @@
 				"VIEWER": "Viewer"
 			}
 		},
+		"adminBackup": {
+			"title": "Backup",
+			"description": "I-download ang SQL export sang data sang imo organisasyon.",
+			"backToSettings": "Balik sa settings",
+			"warningTitle": "Atipanun ini nga file subong sensitibo nga data",
+			"warningBody": "May personal kag farm data ang export — mga ngalan, email address, rekord sang punong kag pagpakaon. Itago ini sa lugar nga may kontrol sa access, indi gid i-padala sa chat ukon email, kag i-delete kon indi na kinahanglan.",
+			"exportTitle": "Bag-o nga export",
+			"exportBody": "Isulat sa isa ka .sql file ang mga row sang imo organisasyon lamang, upod ang identity manifest nga kinahanglan sa pag-restore.",
+			"scopeLabel": "Sakop:",
+			"scopeEmpty": "Wala sing aktibo nga organisasyon",
+			"scopePlatform": "Bug-os nga database",
+			"noScope": "Kinahanglan ka nga owner ukon admin sang aktibo nga organisasyon antes ka makahimo sang export.",
+			"settingsBody": "I-export ang data sang imo organisasyon para sa backup ukon pagbalhin.",
+			"settingsDesc": "Isa ka SQL file sang mga row sang imo organisasyon, nga may audit record kag checksum.",
+			"open": "Bukas ang Backup page",
+			"verifyHint": "I-verify ang file antes mag-restore: node scripts/ops/restore-check.mjs <file>",
+			"lastExportTitle": "Katapusan nga export",
+			"lastExportDesc": "Ang pinakabag-o nga pagtilaw, bisan nanginmatay ukon nahilway.",
+			"noExport": "Wala pa sing export nga nahimo.",
+			"historyTitle": "Kasaysayan sang export",
+			"historyDesc": "Pinakabag-o una. Ang audit trail may pareho nga rekord.",
+			"historyCaption": "Kasaysayan sang database export",
+			"historyEmpty": "Wala pa sing export nga natala.",
+			"columnWhen": "Oras (UTC)",
+			"columnWho": "Sin-o",
+			"columnScope": "Sakop",
+			"columnOutcome": "Resulta",
+			"columnRows": "Mga row",
+			"columnSize": "Kadako",
+			"columnChecksum": "SHA-256",
+			"columnReason": "Rason",
+			"outcomeSucceeded": "Nahuman",
+			"outcomeFailed": "Nabudlayan",
+			"outcomeCancelled": "Gin-untat",
+			"reasonLabel": "Nota (opsyonal)",
+			"reasonHint": "Natala sa audit trail. Indi magbutang sang personal nga data.",
+			"reasonRequired": "Kinahanglan ang rason nga 10 ka character ukon sobra.",
+			"exportButton": "I-download ang SQL export",
+			"exporting": "Ginahanda ang export…",
+			"failed": "Indi mahimo ang export. Tilawi liwat.",
+			"sizeLimitHint": "Tubtob {rows} ka row kag {mb} MB kada export.",
+			"downloadBody": "Na-save ang {filename}. Ang SHA-256 sang payload {sha256}; dapat pareho sa checksum sa kasaysayan.",
+			"incomplete": "Mabasa nga indi kompleto ang download sang {filename} (wala ang checksum marker). Tilawi liwat ang export.",
+			"stepUpAction": "i-download ang database export"
+		},
 		"adminError": {
 			"title": "Nakasumalang sang error ang admin console",
 			"desc": "Wala sang nabag-o. Sulayi liwat ang pahina, ukon balik sa dashboard kon padayon nga nagakapaslawan.",
 			"retry": "Sulayi liwat"
 		},
+		"pondSwitcher": {
+			"labelNamed": "Aktibo nga punong: {name}",
+			"listLabel": "Pili-a ang punong",
+			"switching": "Nagabaylo…",
+			"switchFailed": "Indi mabayluan ang punong. Tilawi liwat."
+		},
 		"common": {
 			"readOnlyTitle": "Tan-aw lang",
+			"capability": {
+				"edit": "Maka-edit",
+				"ownFarm": "Sarili nga uma lamang",
+				"read": "Tan-aw lang"
+			},
 			"readOnlyDesc": "Ang imo papel, ukon ang aktibo nga sesyon nga tan-aw lang, indi makahimo sang pagbag-o diri. Ang mga kontrol naka-disable imbes nga mapaslawan pagkatapos sang pag-tap.",
 			"noPondTitle": "Wala pa sang punong nga na-assign",
 			"noPondDesc": "Palihog pamangkot ang imo administrator nga mag-assign sang punong sa imo umahan, dayon i-reload ini nga pahina.",
@@ -2212,6 +2782,12 @@
 			"deviceOnline": "ESP32 online",
 			"deviceOffline": "ESP32 offline",
 			"deviceMissing": "ESP32 wala pa na-pares",
+			"lastSynced": "Huli nga na-sync: {time}",
+			"lastSyncedNever": "wala pa",
+			"lastSyncedJustNow": "bag-o lang",
+			"lastSyncedMinutesAgo": "{count, plural, one {# ka minuto ang nakaligad} other {# ka minuto ang nakaligad}}",
+			"lastSyncedHoursAgo": "{count, plural, one {# ka oras ang nakaligad} other {# ka oras ang nakaligad}}",
+			"lastSyncedDaysAgo": "{count, plural, one {# ka adlaw ang nakaligad} other {# ka adlaw ang nakaligad}}",
 			"skipToContent": "Lumaktaw sa pangunahon nga sulod",
 			"platformAdmin": "Platform admin",
 			"pagination": {
@@ -2230,6 +2806,54 @@
 				"value": "Bili",
 				"name": "Ngalan",
 				"empty": "Wala sang datos sa sini nga panahon."
+			},
+			"terminology": {
+				"aboutAbw": "Ano ang buot silingon sang ABW?",
+				"abw": "Average Body Weight: ang average nga timbang sang isda sa pinakabag-o nga biomass sample, sa gramo. Ini ang timbang sang sample nga ginbahin sa kadamuon sang isda nga gin-timbang.",
+				"aboutFcr": "Ano ang buot silingon sang FCR?",
+				"fcr": "Feed Conversion Ratio: ang kilo nga patuka nga gingamit sa kada kilo nga pagtubo sang timbang sang isda, halin sa pinakabag-o nga FCR report. Kon mas manubo, mas maayo."
+			},
+			"deviceWeak": "Maluya ang signal sang ESP32",
+			"signalLabel": "Signal sang Wi-Fi",
+			"signalDbm": "{dbm} dBm"
+		},
+		"mobile": {
+			"openMenu": "Madasig nga mga aksyon",
+			"menuLabel": "Madasig nga menu",
+			"moreLabel": "Dugang nga mga seksyon",
+			"close": "Sirad-i ang madasig nga menu",
+			"searchLabel": "Pangitaa ang mga pahina kag aksyon",
+			"searchPlaceholder": "Pangitaa ang mga pahina kag aksyon",
+			"noResults": "Wala sing nagatugma sa “{query}”.",
+			"sections": {
+				"actions": "Mga aksyon",
+				"destinations": "Kadtuan"
+			},
+			"actions": {
+				"addPond": "Dugang punong",
+				"addFeeder": "Dugang feeder",
+				"scanSticker": "I-scan ang sticker QR",
+				"pondLocation": "Lokasyon sang punong",
+				"logSample": "Mag-log sang biomass sample",
+				"registerDevice": "Irehistro ang feeder"
+			},
+			"status": {
+				"label": "Pilia ang kahimtangan sang device",
+				"all": "Tanan",
+				"online": "Online",
+				"alarm": "Alarm",
+				"offline": "Wala sa linya",
+				"emptyTitle": "Wala sing nagatugma sa sini nga filter",
+				"emptyDesc": "Tinluan ang filter para makita ang bug-os nga lista sa sini nga pahina.",
+				"clear": "Tinluan ang filter"
+			},
+			"order": {
+				"label": "Pagkasunodsunod",
+				"newest": "Pinakabag-o",
+				"name": "Ngalan",
+				"status": "Kahimtangan",
+				"attention": "Kinahanglan atensyon",
+				"hint": "Ang pagkasunodsunod kag mga filter para lang sa mga item sa sini nga pahina."
 			}
 		}
 	},
@@ -2270,12 +2894,12 @@
 		"pm": "PM"
 	},
 	"chat": {
-		"title": "Asistant sang PakaonAI",
+		"title": "Pakoy",
 		"placeholder": "Mamangkot sang bisan ano...",
 		"suggestionSchedule": "San-o ang masunod nga pagpakaon?",
 		"suggestionFcr": "Ano ang akon FCR subong?",
 		"suggestionLogSample": "Paano maglista sang sampol?",
-		"intro": "Kamusta! Ako ang imo PakaonAI asistant. Mamangkot ka parte sa imo masunod nga iskedyul sang pagpakaon, kadakuon sang feed, ang FCR subong, mga na-miss nga pagpakaon, ukon paano maglista sang sampol!",
+		"intro": "Kamusta! Ako si Pakoy. Paano ko ikaw mabuligan subong? Mamangkot ka parte sa imo masunod nga iskedyul sang pagpakaon, kadakuon sang feed, ang FCR subong, mga na-miss nga pagpakaon, ukon paano maglista sang sampol!",
 		"error": "Ay, may ara sang deperensya. Palihug sulayi liwat.",
 		"intentScheduleNoPond": "Wala ko makita ang iskedyul sang imo punong. Siguraduha nga nakakonekta ang imo mga gamit.",
 		"intentSchedulePaused": "Ang imo awtomatik nga iskedyul subong naka-**Pause**. Wala sang pagpakaon nga matabo tubtob imo ini padayunon sa pahina sang Iskedyul.",
@@ -2300,9 +2924,9 @@
 		"assistantProposal": "Amo ni ang pwede ko himuon. Repasuhon, dayon pinduton ang Sugtan para dalaganon.",
 		"assistantNavigating": "Ginabukas ko ang {label} — i-highlight ko ang kontrol.",
 		"stepUpHint": "Kinahanglan ini sang bag-o nga password check. Pinduton ang Sugtan liwat pagkatapos mo makumpirma.",
-		"introFarmer": "Kamusta! Ako ang PakaonAI Assistant. Makasabat ako sang mga pamangkot parte sa imo punong kag, kon pinduton mo ang Sugtan, makahimo ako sang mga pagbag-o para sa imo — kadamuon sang feed, iskedyul, sampol, kag mga butang sa kalendaryo. Wala sang madalagan hasta indi ka mag-Sugtan.",
-		"introOwner": "Kamusta! Ako ang PakaonAI Assistant. Makabulig ako sa punong (pagpakaon, sampol, kalendaryo) kag sa imo organisasyon (mga miyembro, papel, permiso). Nagatanyag lang ako sang aksyon: wala sang madalagan hasta indi ka mag-Sugtan, kag ang mga admin nga aksyon nagakinahanglan sang password mo liwat.",
-		"introSuperadmin": "Kamusta! Ako ang PakaonAI Assistant. Makabulig ako sa pagdumala sang platform — i-suspend ukon i-restore ang organisasyon, magbukas sang read-only view-as, kag magdala sa imo sa bisan diin nga screen sang console. Ang tagsa ka platform nga aksyon nagahulat sang imo Sugtan kag bag-o nga password check.",
+		"introFarmer": "Kamusta! Ako si Pakoy. Paano ko ikaw mabuligan subong? Makasabat ako sang mga pamangkot parte sa imo punong kag, kon pinduton mo ang Sugtan, makahimo ako sang mga pagbag-o para sa imo — kadamuon sang feed, iskedyul, sampol, kag mga butang sa kalendaryo. Wala sang madalagan hasta indi ka mag-Sugtan.",
+		"introOwner": "Kamusta! Ako si Pakoy. Paano ko ikaw mabuligan subong? Makabulig ako sa punong (pagpakaon, sampol, kalendaryo) kag sa imo organisasyon (mga miyembro, papel, permiso). Nagatanyag lang ako sang aksyon: wala sang madalagan hasta indi ka mag-Sugtan, kag ang mga admin nga aksyon nagakinahanglan sang password mo liwat.",
+		"introSuperadmin": "Kamusta! Ako si Pakoy. Paano ko ikaw mabuligan subong? Makabulig ako sa pagdumala sang platform — i-suspend ukon i-restore ang organisasyon, magbukas sang read-only view-as, kag magdala sa imo sa bisan diin nga screen sang console. Ang tagsa ka platform nga aksyon nagahulat sang imo Sugtan kag bag-o nga password check.",
 		"chipsFarmer0": "Pila ang akon ipakaon?",
 		"chipsFarmer1": "San-o ang masunod nga pagpakaon?",
 		"chipsFarmer2": "Dalhon ako sa iskedyul sang pagpakaon",
@@ -2316,7 +2940,10 @@
 		"suggestionPredict": "Pila ka gramos ang akon ipakaon?",
 		"intentPredictActive": "Base sa imo pinakabag-o nga biomass sample kag FCR, ang akon tambag nga **{grams}g kada pagpakaon** (ang imo device subong naka-set sa **{current}g**). Tan-awa ang AI Feeding Prediction card sa Growth page para e-review kag i-apply ini.",
 		"intentPredictActiveNoCurrent": "Base sa imo pinakabag-o nga biomass sample kag FCR, ang akon tambag nga **{grams}g kada pagpakaon**. Tan-awa ang AI Feeding Prediction card sa Growth page para e-review kag i-apply ini.",
-		"intentPredictNoData": "Kinahanglan ko sang bag-o nga biomass sample para magpredik sang kadakuon sang imo feed. Maglista sining **Log sang Biomass** kag sulayi liwat — ukon tan-awa ang AI Feeding Prediction card sa Growth page."
+		"intentPredictNoData": "Kinahanglan ko sang bag-o nga biomass sample para magpredik sang kadakuon sang imo feed. Maglista sining **Log sang Biomass** kag sulayi liwat — ukon tan-awa ang AI Feeding Prediction card sa Growth page.",
+		"tagline": "Sakto nga pakaon, sakto nga oras.",
+		"greeting": "Kamusta! Ako si Pakoy. Paano ko ikaw mabuligan subong?",
+		"greetingDismiss": "Isara"
 	},
 	"superadmin": {
 		"common": {
@@ -2375,7 +3002,8 @@
 				"label": "Pili-a ang dagway",
 				"list": "Lista",
 				"cards": "Mga kard"
-			}
+			},
+			"weak": "Maluya ang signal"
 		},
 		"calendar": {
 			"title": "Kalendaryo sang plataporma",
@@ -2482,7 +3110,8 @@
 				"devices": "Mga Device",
 				"aiProviders": "Mga AI Provider",
 				"settings": "Mga Setting",
-				"operations": "Operasyon"
+				"operations": "Operasyon",
+				"more": "Dugang"
 			},
 			"shortNav": {
 				"overview": "Panglantaw",
@@ -2493,7 +3122,8 @@
 				"devices": "Device",
 				"aiProviders": "AI",
 				"settings": "Setting",
-				"operations": "Ops"
+				"operations": "Ops",
+				"more": "Dugang"
 			}
 		},
 		"loading": {
@@ -2854,7 +3484,7 @@
 			"paused": "Ginpause ang iskedyul.",
 			"resumed": "Ginresume ang iskedyul.",
 			"pauseFailed": "Napaslawan ang schedule command.",
-			"note": "Ang mga command nagagamit sang normal nga server caps: max {max} g kada feed kag ang daily limit. Mahimo gihapon magsikway ang unit (wala sang feed, offline).",
+			"note": "Ang mga command nagagamit sang normal nga server rules: ang daily ceiling, ang relay window kag ang kaugalingon nga safety check sang unit. Mahimo gihapon magsikway ang unit (wala sang feed, offline).",
 			"reasonAria": "Rason sa pagkontrol sang {label}",
 			"grams": "Gramos",
 			"feed": "Pakaon",
@@ -2863,7 +3493,8 @@
 			"close": "Isira",
 			"stepUpAction": "kontrolaha ang feeder {label}",
 			"open": "Remote control",
-			"openAria": "Remote control para sa {label}"
+			"openAria": "Remote control para sa {label}",
+			"panelTitle": "Remote control — {label}"
 		},
 		"createOrg": {
 			"title": "Maghimo sang organisasyon",
@@ -3043,8 +3674,8 @@
 				"feedingRateHint": "Halin {min}% hasta {max}%.",
 				"hopperLowLabel": "Threshold sang hopper-low (%)",
 				"hopperLowHint": "Bug-os nga porsyento halin {min} hasta {max}.",
-				"offlineLabel": "Delay sang offline alert (minuto)",
-				"offlineHint": "Bug-os nga minuto halin {min} hasta {max}.",
+				"offlineLabel": "Delay sang offline alert (minuto) — deprecated",
+				"offlineHint": "Indi na ini gamiton sa timing: ang alerts kag badges nagasunod sa platform device connectivity policy. Ginatago ang value para sa compatibility ({min}-{max} minutos).",
 				"missedFeedingLabel": "Maghimo sang missed-feeding alert bilang default",
 				"alertRolesLabel": "Mga role nga alertado",
 				"alertRolesHint": "Kinahanglan bisan isa ka role ang makabaton sang org alerts.",
@@ -3085,7 +3716,111 @@
 						"description": "Ipakita ang help button kag ang guidance sa pahina."
 					}
 				}
+			},
+			"deviceStatus": {
+				"title": "Koneksyon sang device",
+				"description": "Kon san-o maipakita ang feeder nga online, maluya ang signal ukon wala sa linya. Indi dapat magbalhin sa offline ang bug-os nga screen tungod sa isa ka nahuli nga heartbeat.",
+				"weakLabel": "Maluya ang signal pagkatapos sang (minuto)",
+				"weakHint": "Bug-os nga minuto halin {min} hasta {max}. Dapat mas malip-ot sa offline nga window.",
+				"offlineLabel": "Wala sa linya pagkatapos sang (minuto)",
+				"offlineHint": "Bug-os nga minuto halin {min} hasta {max}.",
+				"graceLabel": "Grasya pagkatapos sang offline nga window (minuto)",
+				"graceHint": "Bug-os nga minuto halin {min} hasta {max}. Nagasalo sang isa ka nahuli nga heartbeat.",
+				"reasonLabel": "Rason",
+				"reasonPlaceholder": "hal. Ang CICT feeder nagareport kada lima ka minuto sa maluya nga link",
+				"reasonHint": "Narekord sa platform audit log. Labing diutay 10 ka karakter.",
+				"save": "I-save ang mga threshold",
+				"saving": "Ginasave…",
+				"saved": "Na-save ang device thresholds: maluya ang signal pagkatapos {weak} min, wala sa linya pagkatapos {offline} min plus {grace} min nga grasya.",
+				"invalid": "Gamita ang bug-os nga minuto kag ipabilin nga mas malip-ot ang weak-signal window sa offline nga window.",
+				"failed": "Indi ma-save ang device thresholds.",
+				"summary": "Sa subong, wala sa linya pagkatapos {offline} min plus {grace} min nga grasya ({total} min nga kahilom). Ang safety checks para sa feed commands nagagamit gihapon sang {offline}-minute nga window nga wala sang grasya."
+			},
+			"firmwareGates": {
+				"title": "Mga limitasyon sang firmware para sa kaluwasan",
+				"description": "Ang mga limitasyon nga ginapatuman sang feeder sa uma. Ang tagsa ka balor yara sa sulod sang permanente nga safety envelope: puede mo ini huguton ukon huklason sa sulod sini, pero wala sing setting diri ang makapatay sang guard.",
+				"fields": {
+					"min_dispense_gap_s": {
+						"label": "Pinakamalip-ot nga pagitan sang mga dosis (s)",
+						"hint": "Bug-os nga segundo halin {min} hasta {max}. Indi gid magbaton ang firmware sang kubos sa 10 s."
+					},
+					"max_dispenses_per_hour": {
+						"label": "Pinakamataas nga dosis kada nagaligid nga oras",
+						"hint": "Bug-os nga numero halin {min} hasta {max}. Indi gid magbaton ang firmware sang sobra sa 6."
+					},
+					"brownout_hold_s": {
+						"label": "Hold pagkatapos sang brownout (s)",
+						"hint": "Bug-os nga segundo halin {min} hasta {max}. Wala sing dosis nga magadalagan samtang nagabangon ang unit halin sa brownout."
+					},
+					"safe_mode_abnormal_window_s": {
+						"label": "Window sang abnormal nga pag-restart (s)",
+						"hint": "Bug-os nga segundo halin {min} hasta {max}. Ang mga restart sa guwa sini nga window indi magdugang."
+					},
+					"safe_mode_abnormal_threshold": {
+						"label": "Abnormal nga restart antes mag-safe mode",
+						"hint": "Bug-os nga numero halin {min} hasta {max}. Ginakandado sang unit ang relay pagkatapos sini kadamu nga abnormal nga restart sa sulod sang window."
+					},
+					"safe_mode_quiet_s": {
+						"label": "Tinaw nga tion sang safe mode (s)",
+						"hint": "Bug-os nga segundo halin {min} hasta {max}. Makagwa lang ang unit sa safe mode pagkatapos sini nga kalawig nga wala sing abnormal nga restart."
+					},
+					"safe_mode_healthy_clear_s": {
+						"label": "Maayo nga pagpadagan antes limpyohan ang history (s)",
+						"hint": "Bug-os nga segundo halin {min} hasta {max}. Ginatinluan ang reset history pagkatapos sini nga kalawig nga maayo nga pagpadagan."
+					}
+				},
+				"reasonLabel": "Rason",
+				"reasonPlaceholder": "hal. Huguton ang oras-oras nga limitasyon pagkatapos sang ulat sang doble nga dosis sa CICT",
+				"reasonHint": "Narekord sa platform audit log. Labing diutay 10 ka karakter.",
+				"save": "I-save ang mga limitasyon",
+				"saving": "Ginasave…",
+				"saved": "Na-save ang mga limitasyon sang firmware. Makita ini sang mga device sa ila masunod nga poll.",
+				"invalidField": "{field} dapat yara sa {min} hasta {max}.",
+				"failed": "Indi ma-save ang mga limitasyon sang firmware.",
+				"note": "Ginailapat sang mga device ang pagbag-o sa ila masunod nga poll (mga kada 5 s). Ang permanente nga envelope — relay on-time, ang 5,000 g nga adlaw-adlaw nga hard guard, ang relay overrun trip kag ang mga pin — naka-compile sa firmware kag indi gid madugangan halin diri."
 			}
+		},
+		"backup": {
+			"title": "Backup",
+			"description": "Bug-os nga database export para sa platform administration.",
+			"warningTitle": "Atipanun ini nga file subong sensitibo nga data",
+			"warningBody": "May personal kag farm data ang file para sa tanan nga organisasyon. Ang device token gin-redact, kag wala ang token hash, password material kag session data. Itago ini sa lugar nga may kontrol sa access kag i-delete kon indi na kinahanglan.",
+			"exportTitle": "Bug-os nga database export",
+			"exportBody": "Isulat sa isa ka .sql file ang tanan nga allowed nga table, upod ang identity manifest nga kinahanglan sa pag-restore. Kinahanglan ang bag-o nga password check, rason kag per-user rate limit.",
+			"scopeLabel": "Sakop:",
+			"scopePlatform": "Bug-os nga database (tanan nga organisasyon)",
+			"scopeEmpty": "Wala sing organisasyon",
+			"settingsDesc": "Bug-os nga database export nga may step-up, rason kag audit record.",
+			"open": "Bukas ang Backup page",
+			"verifyHint": "I-verify ang file antes mag-restore: node scripts/ops/restore-check.mjs <file>",
+			"lastExportTitle": "Katapusan nga export",
+			"lastExportDesc": "Ang pinakabag-o nga pagtilaw, bisan nanginmatay ukon nahilway.",
+			"noExport": "Wala pa sing export nga nahimo.",
+			"historyTitle": "Kasaysayan sang export",
+			"historyDesc": "Pinakabag-o una. Tanan nga pagtilaw, tenant kag platform, upod ang naghimo kag ang sakop.",
+			"historyCaption": "Kasaysayan sang database export",
+			"historyEmpty": "Wala pa sing export nga natala.",
+			"columnWhen": "Oras (UTC)",
+			"columnWho": "Sin-o",
+			"columnScope": "Sakop",
+			"columnOutcome": "Resulta",
+			"columnRows": "Mga row",
+			"columnSize": "Kadako",
+			"columnChecksum": "SHA-256",
+			"columnReason": "Rason",
+			"outcomeSucceeded": "Nahuman",
+			"outcomeFailed": "Nabudlayan",
+			"outcomeCancelled": "Gin-untat",
+			"reasonLabel": "Rason",
+			"reasonHint": "Natala sa audit trail. 10 ka character ukon sobra; indi gid magbutang sang personal nga data.",
+			"reasonRequired": "Kinahanglan ang rason nga 10 ka character ukon sobra.",
+			"exportButton": "I-download ang bug-os nga database export",
+			"exporting": "Ginahanda ang export…",
+			"failed": "Indi mahimo ang export. Tilawi liwat.",
+			"sizeLimitHint": "Tubtob {rows} ka row kag {mb} MB kada export.",
+			"downloadBody": "Na-save ang {filename}. Ang SHA-256 sang payload {sha256}; dapat pareho sa checksum sa kasaysayan.",
+			"incomplete": "Mabasa nga indi kompleto ang download sang {filename} (wala ang checksum marker). Tilawi liwat ang export.",
+			"stepUpAction": "i-download ang database export"
 		},
 		"feedPct": "Feed %",
 		"orgDefaultRate": "Default sang org",
@@ -3094,9 +3829,38 @@
 			"tabsLabel": "Mga seksyon sang operasyon",
 			"tabs": {
 				"health": "Kahimsog sang sistema",
+				"errors": "Mga error event",
 				"firmware": "Firmware sang mga device",
 				"audit": "Audit log",
 				"announcements": "Mga abiso"
+			},
+			"errors": {
+				"title": "Mga error event",
+				"description": "First-party nga pagdakop sang error. Ang mensahe, stack, ruta kag konteksto gina-scrub antes tagoan; ang balik-balik nga pagkaparehas sang isa ka error nagadugang sa isa ka row. Ang mga row nga wala sang aktibidad sa {days} ka adlaw gina-prune.",
+				"filtersLabel": "I-filter ang mga error sa status",
+				"status": {
+					"unresolved": "Wala pa naresolba",
+					"resolved": "Naresolba",
+					"all": "Tanan"
+				},
+				"caption": "Mga nadakpan nga error event",
+				"emptyTitle": "Wala sang error event",
+				"emptyDescription": "Wala sang nagatugma sa sini nga filter. Ang mga error nga i-report sang app makita diri.",
+				"severity": {
+					"ERROR": "Error",
+					"WARNING": "Pahibalo",
+					"INFO": "Impormasyon"
+				},
+				"occurrences": "{count, plural, one {# ka beses} other {# ka beses}}",
+				"resolvedAt": "Naresolba {when}",
+				"resolvedBadge": "Naresolba",
+				"firstSeen": "Una nga nakita {when}",
+				"lastSeen": "Katapusan nga nakita {when}",
+				"showStack": "Ipakita ang stack trace",
+				"resolve": "Markahi nga naresolba",
+				"resolving": "Ginaresolba…",
+				"resolveFailed": "Indi maresolba ini nga error. Sulayi liwat.",
+				"resolvedJustNow": "Naresolba. Maga-refresh ang listahan."
 			},
 			"health": {
 				"title": "Kahimsog sang sistema",
@@ -3203,9 +3967,10 @@
 				"eventTypes": {
 					"ota_installed": "Nainstall",
 					"ota_valid": "Na-verify",
-					"ota_rolled_back": "Ginbalik"
+					"ota_rolled_back": "Ginbalik",
+					"firmware_reported": "Ginreport"
 				},
-				"versionSourceNote": "Ang unit nagareport sang version sa heartbeat nga nagabag-o sang iya OTA state. Ang amo nga transition gina-store bilang device event, kag amo ini ang ginapakita sang pahina.",
+				"versionSourceNote": "Ang unit nagareport sang version sa heartbeat, kag ang una nga report pagkatapos sang pagbag-o gina-store bilang device event (OTA transition ukon pinakauna nga heartbeat sang USB-flashed unit). Amo ini ang ginapakita sang pahina.",
 				"unknownNote": "Ang “Wala mahibaluan” nagakahulugan nga wala pa nagreport sang OTA state ang unit. Indi ini error kag indi gina-estimate halin sa build date."
 			},
 			"audit": {
@@ -3343,7 +4108,7 @@
 				"intro": "Average nga timbang sang lawas, feed conversion kag ang plano nga ginasunod sang feeder. Ang history nagatago sang tanan nga sampol."
 			},
 			"harvest": {
-				"title": "Pag-ani kag Kalendaryo",
+				"title": "Kalendaryo kag Pag-ani",
 				"intro": "Ang crop cycle kag ang mga event sa kalendaryo sang punong."
 			},
 			"settings": {
@@ -3422,6 +4187,7 @@
 			"settings-pond": "Ang pond settings may feeding rate, meals per day, sampling interval kag kadako sang punong. Ang pag-save nagapila sang pagbag-o sa feeder.",
 			"settings-calibration": "Ang rate calibration nagapagwa sang sukod nga dosis kag nagacorrect sang grams per second. Ang target check nagapagwa sang dosis nga imo timbangon, kag ginasulit hasta ang error lima ka porsyento lang.",
 			"settings-hopper": "Ang hopper calibration nagakombertir sang distance reading sang sensor sa kilo, gamit ang full kag empty nga kataas kag ang kapasidad sang imo hopper.",
+			"settings-daily-ceiling": "Ang limit sa adlaw amo ang pinakamadamo nga pakaon nga maibubo sang feeder sa isa ka adlaw. Nagasugod sa 2,000 g kag puede mapataas tubtob 5,000 g nga safety guard.",
 			"settings-recalibration": "Ibutang kon ano kasami dapat i-recalibrate ang feeder. Ginamarkahan sang app ang device nga overdue kon malabawan na ang interval.",
 			"settings-password": "Diri ka magbag-o sang password. Magapabilin ka nga naka-sign in sa sini nga device.",
 			"settings-notifications": "Ang notification settings nagapili kon diin nga alerts ang magwa sa app kag kon diin man ang mag-email.",
@@ -3462,5 +4228,9 @@
 			"info": "Impormasyon",
 			"warning": "Importante"
 		}
+	},
+	"sidebar": {
+		"collapse": "Pil-ona ang sidebar",
+		"expand": "Bukasa ang sidebar"
 	}
 }

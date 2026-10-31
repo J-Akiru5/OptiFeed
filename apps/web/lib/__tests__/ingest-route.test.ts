@@ -27,6 +27,7 @@ vi.mock("@/lib/prisma", () => ({
 			updateMany: vi.fn(),
 		},
 		deviceStateEvent: {
+			findFirst: vi.fn(),
 			create: vi.fn(),
 		},
 		notification: {
@@ -171,8 +172,10 @@ function heartbeatBody(
 		rtcOk?: boolean;
 		feederActive?: boolean;
 		feedLevelPercent?: number;
+		feedLevelCm?: number;
 		waterTempC?: number;
 		waterTempOk?: boolean;
+		wifiRssi?: unknown;
 	} = {},
 ) {
 	return {
@@ -183,8 +186,10 @@ function heartbeatBody(
 		rtc_ok: opts.rtcOk ?? true,
 		feeder_active: opts.feederActive ?? false,
 		...(opts.feedLevelPercent !== undefined ? { feed_level_percent: opts.feedLevelPercent } : {}),
+		...(opts.feedLevelCm !== undefined ? { feed_level_cm: opts.feedLevelCm } : {}),
 		...(opts.waterTempC !== undefined ? { water_temp_c: opts.waterTempC } : {}),
 		...(opts.waterTempOk !== undefined ? { water_temp_ok: opts.waterTempOk } : {}),
+		...(opts.wifiRssi !== undefined ? { wifi_rssi: opts.wifiRssi } : {}),
 	};
 }
 
@@ -200,6 +205,7 @@ describe("POST /api/ingest — heartbeat dedup and thinning (1.4)", () => {
 		mockFeedRequest.findMany.mockResolvedValue([] as never);
 		mockFeedRequest.updateMany.mockResolvedValue({ count: 0 } as never);
 		mockDeviceStateEvent.create.mockResolvedValue({} as never);
+		mockDeviceStateEvent.findFirst.mockResolvedValue(null as never);
 		mockNotification.create.mockResolvedValue({} as never);
 		mockNotification.updateMany.mockResolvedValue({ count: 0 } as never);
 		mockPond.findUnique.mockResolvedValue(null as never);
@@ -246,6 +252,73 @@ describe("POST /api/ingest — heartbeat dedup and thinning (1.4)", () => {
 		// notification gates the fan-out (none of the 99 repeats).
 		expect(sendTelegramMessage).toHaveBeenCalledTimes(1);
 		expect(sendTelegramMessage).toHaveBeenCalledWith(expect.stringContaining("nearly empty"));
+	});
+
+	it("queues one hopper alert per heartbeat (no duplicate days-remaining warning)", async () => {
+		// A low reading that also leaves under two days of feed used to satisfy
+		// both the tier alert and the days-remaining alert in the same heartbeat,
+		// creating two pellet notifications from one reading.
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			pondId: "pond-1",
+			lastSeenAt: new Date(Date.now() - 5000),
+			hopperCapacityG: 1000,
+			gramsPerFeeding: 150,
+		} as never);
+		mockFeedEvent.findFirst.mockResolvedValue({
+			receivedAt: new Date(),
+			rtcOk: true,
+			feederActive: false,
+		} as never);
+		mockNotification.findFirst.mockResolvedValue(null as never);
+		mockPond.findUnique.mockResolvedValue({
+			feedsPerDay: 2,
+			ownerId: null,
+			notificationPrefs: null,
+		} as never);
+
+		const res = await POST(ingestRequest(heartbeatBody("hb-dupe-1", { feedLevelPercent: 10 })));
+
+		expect(res.status).toBe(204);
+		const pelletNotifications = mockNotification.create.mock.calls.filter(
+			([arg]) => (arg as { data: { category?: string } }).data.category === "pellet",
+		);
+		expect(pelletNotifications).toHaveLength(1);
+		expect(pelletNotifications[0][0]).toMatchObject({ data: { tier: "WARNING" } });
+	});
+
+	it("does not downgrade an outstanding CRITICAL alert to a days-remaining WARNING", async () => {
+		// With a CRITICAL alert still unacknowledged, the days-remaining branch
+		// used to add a WARNING from the same reading. The next heartbeat then saw
+		// a WARNING as the latest alert and re-fired CRITICAL, so the two
+		// alternated on every heartbeat until someone acknowledged one.
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			pondId: "pond-1",
+			lastSeenAt: new Date(Date.now() - 5000),
+			hopperCapacityG: 1000,
+			gramsPerFeeding: 150,
+		} as never);
+		mockFeedEvent.findFirst.mockResolvedValue({
+			receivedAt: new Date(),
+			rtcOk: true,
+			feederActive: false,
+		} as never);
+		mockNotification.findFirst.mockResolvedValue({
+			tier: "CRITICAL",
+			createdAt: new Date(),
+		} as never);
+		mockPond.findUnique.mockResolvedValue({
+			feedsPerDay: 2,
+			ownerId: null,
+			notificationPrefs: null,
+		} as never);
+
+		const res = await POST(ingestRequest(heartbeatBody("hb-crit-dupe", { feedLevelPercent: 3 })));
+
+		expect(res.status).toBe(204);
+		expect(mockNotification.create).not.toHaveBeenCalled();
+		expect(sendTelegramMessage).not.toHaveBeenCalled();
 	});
 
 	it("fires CRITICAL immediately after WARNING (tier transition, even inside window)", async () => {
@@ -368,6 +441,195 @@ describe("POST /api/ingest — heartbeat dedup and thinning (1.4)", () => {
 		);
 		expect(connectedCalls).toHaveLength(1);
 	});
+
+	it("records a new reported firmware version once, without a schema column", async () => {
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			lastSeenAt: new Date(Date.now() - 5000),
+		} as never);
+		mockFeedEvent.findFirst.mockResolvedValue({
+			receivedAt: new Date(),
+			rtcOk: true,
+			feederActive: false,
+		} as never);
+
+		const res = await POST(
+			ingestRequest({ ...heartbeatBody("hb-fw-0001"), firmware_version: "1.6.0" }),
+		);
+
+		expect(res.status).toBe(204);
+		expect(mockDeviceStateEvent.create).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					eventType: "firmware_reported",
+					source: "device",
+					metadata: { version: "1.6.0" },
+				}),
+			}),
+		);
+	});
+
+	it("does not write another firmware row when the reported version is unchanged", async () => {
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			lastSeenAt: new Date(Date.now() - 5000),
+		} as never);
+		mockFeedEvent.findFirst.mockResolvedValue({
+			receivedAt: new Date(),
+			rtcOk: true,
+			feederActive: false,
+		} as never);
+		mockDeviceStateEvent.findFirst.mockResolvedValue({
+			eventType: "firmware_reported",
+			metadata: { version: "1.6.0" },
+			createdAt: new Date(),
+		} as never);
+
+		const res = await POST(
+			ingestRequest({ ...heartbeatBody("hb-fw-0002"), firmware_version: "1.6.0" }),
+		);
+
+		expect(res.status).toBe(204);
+		const firmwareCalls = mockDeviceStateEvent.create.mock.calls.filter(
+			([arg]) => (arg as { data: { eventType: string } }).data.eventType === "firmware_reported",
+		);
+		expect(firmwareCalls).toHaveLength(0);
+	});
+});
+
+describe("POST /api/ingest — hopper sensor arbitration", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			pondId: "pond-1",
+			lastSeenAt: new Date(Date.now() - 5000),
+			hopperCapacityG: 1000,
+			gramsPerFeeding: 150,
+		} as never);
+		mockEnergyDevice.update.mockResolvedValue({} as never);
+		mockPond.findUnique.mockResolvedValue({
+			feedsPerDay: 2,
+			ownerId: null,
+			notificationPrefs: null,
+		} as never);
+		mockFeedEvent.findFirst.mockResolvedValue({
+			receivedAt: new Date(),
+			rtcOk: true,
+			feederActive: false,
+		} as never);
+		mockFeedEvent.create.mockResolvedValue({} as never);
+		mockFeedLevelLog.findFirst.mockResolvedValue(null as never);
+		mockFeedLevelLog.create.mockResolvedValue({} as never);
+		mockWaterTempLog.findFirst.mockResolvedValue(null as never);
+		mockWaterTempLog.create.mockResolvedValue({} as never);
+		mockFeedRequest.findMany.mockResolvedValue([] as never);
+		mockFeedRequest.updateMany.mockResolvedValue({ count: 0 } as never);
+		mockDeviceStateEvent.create.mockResolvedValue({} as never);
+		mockNotification.create.mockResolvedValue({} as never);
+		mockNotification.findFirst.mockResolvedValue(null as never);
+		mockNotification.updateMany.mockResolvedValue({ count: 0 } as never);
+	});
+
+	function levelUpdateCalls() {
+		return mockEnergyDevice.update.mock.calls.filter(
+			([arg]) => "feedLevelPercent" in (arg as { data: Record<string, unknown> }).data,
+		);
+	}
+
+	it("ignores the firmware's no-echo sentinel (0 % with a 0 cm distance)", async () => {
+		// The HC-SR04 timeout path reports 0 % and 0 cm. Treating that as a real
+		// reading overwrote the level and fired a false CRITICAL refill alert.
+		const res = await POST(
+			ingestRequest(heartbeatBody("hb-sentinel", { feedLevelPercent: 0, feedLevelCm: 0 })),
+		);
+
+		expect(res.status).toBe(204);
+		// The heartbeat itself still lands (lastSeenAt); only the level is skipped.
+		expect(mockEnergyDevice.update).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({ lastSeenAt: expect.any(Date) }),
+			}),
+		);
+		expect(levelUpdateCalls()).toHaveLength(0);
+		expect(mockFeedLevelLog.create).not.toHaveBeenCalled();
+		expect(mockNotification.create).not.toHaveBeenCalled();
+		expect(sendTelegramMessage).not.toHaveBeenCalled();
+	});
+
+	it("accepts a real empty hopper (0 % but a non-zero distance)", async () => {
+		const res = await POST(
+			ingestRequest(heartbeatBody("hb-empty", { feedLevelPercent: 0, feedLevelCm: 28 })),
+		);
+
+		expect(res.status).toBe(204);
+		expect(levelUpdateCalls()).toHaveLength(1);
+		expect(mockNotification.create).toHaveBeenCalledWith(
+			expect.objectContaining({ data: expect.objectContaining({ tier: "CRITICAL" }) }),
+		);
+	});
+
+	it("keeps the last known distance when the heartbeat omits feed_level_cm", async () => {
+		const res = await POST(ingestRequest(heartbeatBody("hb-no-cm", { feedLevelPercent: 45 })));
+
+		expect(res.status).toBe(204);
+		const [update] = levelUpdateCalls();
+		expect((update[0] as { data: Record<string, unknown> }).data).toEqual({
+			feedLevelPercent: 45,
+			feedLevelUpdatedAt: expect.any(Date),
+		});
+	});
+
+	it("stores the distance when the heartbeat reports one", async () => {
+		const res = await POST(
+			ingestRequest(heartbeatBody("hb-with-cm", { feedLevelPercent: 45, feedLevelCm: 9.5 })),
+		);
+
+		expect(res.status).toBe(204);
+		const [update] = levelUpdateCalls();
+		expect((update[0] as { data: Record<string, unknown> }).data).toEqual({
+			feedLevelPercent: 45,
+			feedLevelCm: 9.5,
+			feedLevelUpdatedAt: expect.any(Date),
+		});
+	});
+
+	it("warns two days ahead using the shared days-of-feed estimate", async () => {
+		// 25 % of 1,000 g = 250 g; 150 g × 2 meals = 300 g/day → 0.83 days.
+		// 25 % is above the 20 % low threshold, so only the days alert fires.
+		const res = await POST(
+			ingestRequest(heartbeatBody("hb-days-1", { feedLevelPercent: 25, feedLevelCm: 18 })),
+		);
+
+		expect(res.status).toBe(204);
+		const pellet = mockNotification.create.mock.calls.filter(
+			([arg]) => (arg as { data: { category?: string } }).data.category === "pellet",
+		);
+		expect(pellet).toHaveLength(1);
+		expect(pellet[0][0]).toMatchObject({
+			data: { tier: "WARNING", message: expect.stringContaining("run out") },
+		});
+	});
+
+	it("does not invent a 99-day sentinel when the device has no capacity", async () => {
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			pondId: "pond-1",
+			lastSeenAt: new Date(Date.now() - 5000),
+			hopperCapacityG: 0,
+			gramsPerFeeding: 150,
+		} as never);
+
+		const res = await POST(
+			ingestRequest(heartbeatBody("hb-no-cap", { feedLevelPercent: 25, feedLevelCm: 18 })),
+		);
+
+		expect(res.status).toBe(204);
+		const pellet = mockNotification.create.mock.calls.filter(
+			([arg]) => (arg as { data: { category?: string } }).data.category === "pellet",
+		);
+		expect(pellet).toHaveLength(0);
+	});
 });
 
 describe("POST /api/ingest — water temperature history (I-06)", () => {
@@ -444,5 +706,171 @@ describe("POST /api/ingest — water temperature history (I-06)", () => {
 
 		expect(res.status).toBe(204);
 		expect(mockWaterTempLog.create).not.toHaveBeenCalled();
+	});
+});
+
+describe("POST /api/ingest - firmware 1.6.0 fail-safe diagnostics", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			pondId: "pond-1",
+			lastSeenAt: null,
+		} as never);
+		mockEnergyDevice.update.mockResolvedValue({} as never);
+		mockFeedEvent.findFirst.mockResolvedValue(null as never);
+		mockFeedEvent.create.mockResolvedValue({} as never);
+		mockFeedLevelLog.findFirst.mockResolvedValue(null as never);
+		mockFeedLevelLog.create.mockResolvedValue({} as never);
+		mockWaterTempLog.findFirst.mockResolvedValue(null as never);
+		mockWaterTempLog.create.mockResolvedValue({} as never);
+		mockFeedRequest.findMany.mockResolvedValue([] as never);
+		mockFeedRequest.updateMany.mockResolvedValue({ count: 0 } as never);
+		mockDeviceStateEvent.create.mockResolvedValue({} as never);
+		mockNotification.create.mockResolvedValue({} as never);
+		mockNotification.findFirst.mockResolvedValue(null as never);
+		mockNotification.updateMany.mockResolvedValue({ count: 0 } as never);
+		mockPond.findUnique.mockResolvedValue({ farmId: "farm-1" } as never);
+	});
+
+	it("accepts the extra heartbeat keys and strips them from the persisted row", async () => {
+		// The firmware sends safe_mode, last_reset_reasons and a nested diag
+		// object. The Zod schema strips everything it does not declare, so the
+		// heartbeat must still parse (204) and the FeedEvent row keeps its shape.
+		const res = await POST(
+			ingestRequest({
+				...heartbeatBody("hb-failsafe-1"),
+				firmware_version: "1.6.0",
+				safe_mode: true,
+				last_reset_reasons: "task_wdt,brownout",
+				diag: {
+					fw: "1.6.0",
+					safe_mode: true,
+					relay_overruns: 1,
+					queue_drops: 0,
+					refusals_by_reason: { too_soon: 2 },
+				},
+			}),
+		);
+
+		expect(res.status).toBe(204);
+		const call = mockFeedEvent.create.mock.calls[0];
+		expect(call).toBeDefined();
+		const data = (call?.[0] as { data: Record<string, unknown> }).data;
+		expect(data).not.toHaveProperty("safe_mode");
+		expect(data).not.toHaveProperty("diag");
+		expect(data).toMatchObject({ eventType: "heartbeat", rtcOk: true, feederActive: false });
+	});
+
+	it("accepts every new refusal reason on the unchanged feed_refused contract", async () => {
+		const reasons = ["too_soon", "hourly_limit", "safe_mode", "brownout_hold", "relay_overrun"];
+		for (const reason of reasons) {
+			const res = await POST(
+				ingestRequest({
+					device_id: DEVICE.mac,
+					event_type: "feed_refused",
+					event_id: `evt-${reason}`,
+					timestamp: "2026-10-28T00:00:00+00:00",
+					grams: 80,
+					source: "button",
+					reason,
+				}),
+			);
+			expect(res.status).toBe(204);
+		}
+
+		const recorded = mockDeviceStateEvent.create.mock.calls.map(
+			(call) =>
+				(call[0] as unknown as { data: { metadata: { reason: string } } }).data.metadata.reason,
+		);
+		expect(recorded).toEqual(reasons);
+	});
+});
+
+describe("POST /api/ingest — heartbeat Wi-Fi RSSI (I-97)", () => {
+	function wifiWrites(): Record<string, unknown>[] {
+		return mockEnergyDevice.update.mock.calls
+			.map(([arg]) => (arg as { data: Record<string, unknown> }).data)
+			.filter((data) => "wifiRssiDbm" in data);
+	}
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			lastSeenAt: new Date(Date.now() - 5000),
+		} as never);
+		mockEnergyDevice.update.mockResolvedValue({} as never);
+		mockFeedEvent.findFirst.mockResolvedValue({
+			receivedAt: new Date(),
+			rtcOk: true,
+			feederActive: false,
+		} as never);
+		mockFeedEvent.create.mockResolvedValue({} as never);
+		mockFeedLevelLog.findFirst.mockResolvedValue(null as never);
+		mockFeedLevelLog.create.mockResolvedValue({} as never);
+		mockWaterTempLog.findFirst.mockResolvedValue(null as never);
+		mockWaterTempLog.create.mockResolvedValue({} as never);
+		mockDeviceStateEvent.create.mockResolvedValue({} as never);
+		mockDeviceStateEvent.findFirst.mockResolvedValue(null as never);
+		mockNotification.create.mockResolvedValue({} as never);
+		mockNotification.findFirst.mockResolvedValue(null as never);
+		mockNotification.updateMany.mockResolvedValue({ count: 0 } as never);
+		mockPond.findUnique.mockResolvedValue(null as never);
+	});
+
+	it("stores a plausible RSSI with the heartbeat write already made", async () => {
+		const res = await POST(ingestRequest(heartbeatBody("hb-rssi-1", { wifiRssi: -72 })));
+
+		expect(res.status).toBe(204);
+		const writes = wifiWrites();
+		expect(writes).toHaveLength(1);
+		expect(writes[0]).toMatchObject({
+			lastSeenAt: expect.any(Date),
+			wifiRssiDbm: -72,
+			wifiRssiUpdatedAt: expect.any(Date),
+		});
+	});
+
+	it("accepts both ends of the ESP32 range", async () => {
+		for (const dbm of [-127, 0, -80]) {
+			vi.clearAllMocks();
+			mockEnergyDevice.update.mockResolvedValue({} as never);
+			mockFeedEvent.findFirst.mockResolvedValue(null as never);
+			mockFeedEvent.create.mockResolvedValue({} as never);
+			mockEnergyDevice.findUnique.mockResolvedValue({
+				...DEVICE,
+				lastSeenAt: new Date(Date.now() - 5000),
+			} as never);
+
+			const res = await POST(ingestRequest(heartbeatBody(`hb-rssi-ok-${dbm}`, { wifiRssi: dbm })));
+			expect(res.status).toBe(204);
+			expect(wifiWrites()[0]).toMatchObject({ wifiRssiDbm: dbm });
+		}
+	});
+
+	it.each([
+		["below the range", -128],
+		["above the range", 1],
+		["a non-integer", -72.5],
+		["a string", "-72"],
+		["null", null],
+		["a boolean", true],
+	])("ignores %s without failing the heartbeat", async (_label, value) => {
+		const res = await POST(ingestRequest(heartbeatBody("hb-rssi-bad", { wifiRssi: value })));
+
+		// The heartbeat itself is still accepted and still refreshes lastSeenAt.
+		expect(res.status).toBe(204);
+		expect(wifiWrites()).toHaveLength(0);
+		expect(mockEnergyDevice.update).toHaveBeenCalledWith(
+			expect.objectContaining({ data: expect.objectContaining({ lastSeenAt: expect.any(Date) }) }),
+		);
+	});
+
+	it("leaves the stored signal untouched when old firmware omits the field", async () => {
+		const res = await POST(ingestRequest(heartbeatBody("hb-rssi-old")));
+
+		expect(res.status).toBe(204);
+		expect(wifiWrites()).toHaveLength(0);
 	});
 });

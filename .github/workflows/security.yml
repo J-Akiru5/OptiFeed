@@ -1,0 +1,57 @@
+name: Security
+
+# Supply-chain gate: production dependencies only.
+#
+# Fails on any `critical` or `high` advisory that is not covered by an entry in
+# security/audit-allowlist.json. Allowlist entries need a written reason and an
+# expiry no more than 90 days away; an expired entry fails the gate.
+#
+# Verification only. This workflow never deploys, never runs a migration and
+# never needs application secrets.
+
+on:
+  push:
+    branches: [develop, staging, main]
+  pull_request:
+    branches: [develop, staging, main]
+  schedule:
+    # Advisories are published continuously; a weekly run catches a dependency
+    # that became vulnerable without any commit.
+    - cron: "0 1 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  audit:
+    name: audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # The gate reads the lockfile, but installing first proves the lockfile
+      # still matches the manifests (a frozen-lockfile failure is a supply-chain
+      # problem too, not just a build problem).
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Production audit gate
+        run: node scripts/security/audit-gate.mjs

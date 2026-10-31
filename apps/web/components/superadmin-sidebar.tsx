@@ -1,5 +1,6 @@
 "use client";
 
+import { SidebarCollapseToggle, useSidebarCollapse } from "@/components/sidebar-collapse";
 import { FOCUS_RING_ON_DARK } from "@/components/superadmin/ui";
 import { Link, usePathname, useRouter } from "@/i18n/routing";
 import { clearOfflineData } from "@/lib/offline/db";
@@ -50,8 +51,10 @@ const navItems = [
  */
 export function SuperadminSidebar({ showFarmDashboard = false }: { showFarmDashboard?: boolean }) {
 	const t = useTranslations("superadmin.shell");
+	const tSidebar = useTranslations("sidebar");
 	const pathname = usePathname();
 	const router = useRouter();
+	const { collapsed, animate, toggle } = useSidebarCollapse();
 	const supabase = createClient();
 	const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -66,9 +69,21 @@ export function SuperadminSidebar({ showFarmDashboard = false }: { showFarmDashb
 	};
 
 	return (
-		<aside className="sticky top-[64px] z-20 hidden h-[calc(100vh-64px)] w-64 shrink-0 flex-col overflow-y-auto bg-[#0A3D62] p-6 text-white scrollbar-none lg:flex">
-			<nav aria-label={t("navLabel")} className="space-y-1">
-				<p className="mb-3 px-3 text-[10px] font-extrabold uppercase tracking-widest text-white/80">
+		<aside
+			data-collapsed={collapsed ? "true" : undefined}
+			className={cn(
+				"z-20 hidden h-full shrink-0 flex-col overflow-y-auto bg-[#0A3D62] text-white scrollbar-none lg:flex",
+				collapsed ? "w-[76px] p-3" : "w-64 p-6",
+				animate && "transition-[width,padding] duration-200 ease-out motion-reduce:transition-none",
+			)}
+		>
+			<nav id="superadmin-sidebar-nav" aria-label={t("navLabel")} className="space-y-1">
+				<p
+					className={cn(
+						"mb-3 px-3 text-[10px] font-extrabold uppercase tracking-widest text-white/80",
+						collapsed && "sr-only",
+					)}
+				>
 					{t("console")}
 				</p>
 				{navItems.map((item) => {
@@ -82,8 +97,11 @@ export function SuperadminSidebar({ showFarmDashboard = false }: { showFarmDashb
 							key={item.href}
 							href={item.href}
 							aria-current={isActive ? "page" : undefined}
+							aria-label={collapsed ? t(`nav.${item.key}`) : undefined}
+							title={collapsed ? t(`nav.${item.key}`) : undefined}
 							className={cn(
-								"flex w-full items-center gap-3 rounded-2xl p-3.5 text-[15px] font-bold transition-colors",
+								"flex min-h-11 w-full items-center rounded-2xl text-[15px] font-bold transition-colors",
+								collapsed ? "justify-center p-3" : "gap-3 p-3.5",
 								FOCUS_RING_ON_DARK,
 								isActive
 									? "bg-[#E85A2A] text-white shadow-md ring-1 ring-white/20"
@@ -91,31 +109,37 @@ export function SuperadminSidebar({ showFarmDashboard = false }: { showFarmDashb
 							)}
 						>
 							<item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-							{t(`nav.${item.key}`)}
+							<span className={cn(collapsed && "sr-only")}>{t(`nav.${item.key}`)}</span>
 						</Link>
 					);
 				})}
 			</nav>
 
-			<div className="mt-auto border-t border-white/10 pt-6">
+			<div className="mt-auto space-y-1 border-t border-white/10 pt-6">
 				{showFarmDashboard && (
 					<Link
 						href="/dashboard"
+						aria-label={collapsed ? t("openFarmDashboard") : undefined}
+						title={collapsed ? t("openFarmDashboard") : undefined}
 						className={cn(
-							"flex items-center gap-3 rounded-2xl p-3.5 text-sm font-bold text-white/80 transition-colors hover:bg-white/10 hover:text-white",
+							"flex min-h-11 items-center rounded-2xl text-sm font-bold text-white/80 transition-colors hover:bg-white/10 hover:text-white",
+							collapsed ? "justify-center p-3" : "gap-3 p-3.5",
 							FOCUS_RING_ON_DARK,
 						)}
 					>
 						<BarChart3 className="h-4 w-4 shrink-0" aria-hidden="true" />
-						{t("openFarmDashboard")}
+						<span className={cn(collapsed && "sr-only")}>{t("openFarmDashboard")}</span>
 					</Link>
 				)}
 				<button
 					type="button"
 					onClick={handleSignOut}
 					disabled={isSigningOut}
+					aria-label={collapsed ? t("signOut") : undefined}
+					title={collapsed ? t("signOut") : undefined}
 					className={cn(
-						"flex w-full items-center gap-3 rounded-2xl p-3.5 text-sm font-bold text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50",
+						"flex min-h-11 w-full items-center rounded-2xl text-sm font-bold text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50",
+						collapsed ? "justify-center p-3" : "gap-3 p-3.5",
 						FOCUS_RING_ON_DARK,
 					)}
 				>
@@ -124,8 +148,16 @@ export function SuperadminSidebar({ showFarmDashboard = false }: { showFarmDashb
 					) : (
 						<LogOut className="h-4 w-4 shrink-0" aria-hidden="true" />
 					)}
-					{t("signOut")}
+					<span className={cn(collapsed && "sr-only")}>{t("signOut")}</span>
 				</button>
+				<SidebarCollapseToggle
+					collapsed={collapsed}
+					onToggle={toggle}
+					labelCollapse={tSidebar("collapse")}
+					labelExpand={tSidebar("expand")}
+					controls="superadmin-sidebar-nav"
+					tone="dark"
+				/>
 			</div>
 		</aside>
 	);

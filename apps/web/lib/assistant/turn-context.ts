@@ -1,8 +1,11 @@
 import { getCurrentPondOwnerIdSafe } from "@/lib/auth/session";
-import { OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { utcDateToFarmDateTime } from "@/lib/calendar/datetime";
+import { dateToFarmDateOnly } from "@/lib/crop-cycle/dates";
+import { evaluateDeviceStatus } from "@/lib/device-status";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import type { AssistantCaller } from "./caller";
 import type { AssistantTurnContext } from "./planner";
 import type { AssistantProposalContext } from "./types";
@@ -27,6 +30,7 @@ export async function buildAssistantTurnData(
 	caller: AssistantCaller,
 ): Promise<AssistantTurnData> {
 	const ownerId = await getCurrentPondOwnerIdSafe();
+	const statusPolicy = await getDeviceStatusPolicy();
 
 	let pondId: string | null = null;
 	let pondName: string | null = null;
@@ -38,15 +42,20 @@ export async function buildAssistantTurnData(
 	let currentGrams: number | null = null;
 	let currentFeedsPerDay: number | null = null;
 	let currentRatePct: number | null = null;
+	let pondList: Array<{ id: string; name: string; status: string }> = [];
 
 	if (ownerId) {
 		const ponds = await prisma.pond.findMany({
-			where: { ownerId, status: "ACTIVE" },
+			where: { ownerId, status: { in: ["ACTIVE", "ARCHIVED"] } },
 			orderBy: { createdAt: "asc" },
-			select: { id: true, name: true, feedsPerDay: true, feedingRatePct: true },
+			select: { id: true, name: true, status: true, feedsPerDay: true, feedingRatePct: true },
 		});
+		pondList = ponds.map((row) => ({ id: row.id, name: row.name, status: row.status }));
+		// `status` is always present from the database; treating an absent value
+		// as active keeps older partial fixtures/read models working.
+		const activePonds = ponds.filter((row) => row.status !== "ARCHIVED");
 		const selectedId = await getActivePondId();
-		const pond = ponds.find((row) => row.id === selectedId) ?? ponds[0] ?? null;
+		const pond = activePonds.find((row) => row.id === selectedId) ?? activePonds[0] ?? null;
 		if (pond) {
 			pondId = pond.id;
 			pondName = pond.name;
@@ -71,8 +80,11 @@ export async function buildAssistantTurnData(
 				devicePaused = device.isPaused;
 				hopperLevelPct = device.feedLevelPercent;
 				currentGrams = device.gramsPerFeeding;
-				deviceOnline =
-					!!device.lastSeenAt && Date.now() - device.lastSeenAt.getTime() <= OFFLINE_THRESHOLD_MS;
+				deviceOnline = !evaluateDeviceStatus({
+					lastSeenAt: device.lastSeenAt,
+					now: new Date(),
+					policy: statusPolicy,
+				}).isOffline;
 			}
 
 			const schedule = await resolveCurrentSchedule(pond.id, deviceId);
@@ -114,6 +126,53 @@ export async function buildAssistantTurnData(
 		}
 	}
 
+	let calendarEvents: Array<{
+		id: string;
+		title: string;
+		startsAt: string;
+		kind: string;
+	}> = [];
+	if (pondId) {
+		try {
+			const events = await prisma.pondEvent.findMany({
+				where: { pondId, status: "PLANNED" },
+				orderBy: { startsAt: "asc" },
+				take: 10,
+				select: { id: true, title: true, startsAt: true, kind: true, allDay: true },
+			});
+			calendarEvents = events.map((event) => ({
+				id: event.id,
+				title: event.title,
+				startsAt: event.allDay
+					? dateToFarmDateOnly(event.startsAt)
+					: utcDateToFarmDateTime(event.startsAt),
+				kind: event.kind,
+			}));
+		} catch {
+			calendarEvents = [];
+		}
+	}
+
+	let samples: Array<{ id: string; date: string; avgWeightG: number; sampleCount: number }> = [];
+	if (pondId) {
+		try {
+			const rows = await prisma.biomassLog.findMany({
+				where: { pondId },
+				orderBy: { recordedAt: "desc" },
+				take: 5,
+				select: { id: true, recordedAt: true, avgWeightKg: true, sampleCount: true },
+			});
+			samples = rows.map((row) => ({
+				id: row.id,
+				date: dateToFarmDateOnly(row.recordedAt),
+				avgWeightG: Math.round(row.avgWeightKg * 1000 * 10) / 10,
+				sampleCount: row.sampleCount,
+			}));
+		} catch {
+			samples = [];
+		}
+	}
+
 	let members: Array<{ userId: string; name: string; role: string }> = [];
 	if (caller.isTenantAdmin && orgId) {
 		try {
@@ -138,6 +197,19 @@ export async function buildAssistantTurnData(
 	}
 
 	let organizations: Array<{ id: string; name: string; status: string }> = [];
+	let devices: Array<{
+		id: string;
+		label: string;
+		mac: string;
+		isPaused: boolean;
+		pondName: string | null;
+	}> = [];
+	let platformUsers: Array<{
+		userId: string;
+		farmId: string;
+		name: string;
+		platformAdmin: boolean;
+	}> = [];
 	if (caller.isPlatformAdmin) {
 		try {
 			const rows = await prisma.organization.findMany({
@@ -148,6 +220,59 @@ export async function buildAssistantTurnData(
 			organizations = rows.map((org) => ({ id: org.id, name: org.name, status: org.status }));
 		} catch {
 			organizations = [];
+		}
+
+		try {
+			const rows = await prisma.energyDevice.findMany({
+				orderBy: { createdAt: "desc" },
+				take: 50,
+				select: {
+					id: true,
+					label: true,
+					mac: true,
+					isPaused: true,
+					pond: { select: { name: true } },
+				},
+			});
+			devices = rows.map((device) => ({
+				id: device.id,
+				label: device.label,
+				mac: device.mac,
+				isPaused: device.isPaused,
+				pondName: device.pond?.name ?? null,
+			}));
+		} catch {
+			devices = [];
+		}
+
+		try {
+			const users = await prisma.user.findMany({
+				orderBy: { createdAt: "asc" },
+				take: 50,
+				select: { id: true, farmId: true, displayName: true },
+			});
+			const grants = users.length
+				? await prisma.platformAdmin.findMany({
+						where: { userId: { in: users.map((user) => user.id) } },
+						select: { userId: true, revokedAt: true, expiresAt: true },
+					})
+				: [];
+			const now = Date.now();
+			const activeAdmins = new Set(
+				grants
+					.filter(
+						(grant) => !grant.revokedAt && (!grant.expiresAt || grant.expiresAt.getTime() > now),
+					)
+					.map((grant) => grant.userId),
+			);
+			platformUsers = users.map((user) => ({
+				userId: user.id,
+				farmId: user.farmId,
+				name: user.displayName ?? user.farmId,
+				platformAdmin: activeAdmins.has(user.id),
+			}));
+		} catch {
+			platformUsers = [];
 		}
 	}
 
@@ -164,8 +289,13 @@ export async function buildAssistantTurnData(
 			orgName: caller.orgName,
 			locale,
 			openTasks,
+			ponds: pondList,
+			calendarEvents,
+			samples,
 			members,
 			organizations,
+			devices,
+			platformUsers,
 		},
 		proposal: {
 			pondName,

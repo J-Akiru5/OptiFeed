@@ -1,12 +1,14 @@
 "use client";
 
 import {
-	dashboardButtonPrimary,
-	dashboardField,
-	dashboardHint,
-	dashboardLabel,
-} from "@/components/dashboard/dashboard-classes";
+	CalibrationNumberField,
+	calibrationFieldGrid,
+	parseCalibrationNumber,
+} from "@/components/calibration/CalibrationNumberField";
+import { dashboardButtonPrimary } from "@/components/dashboard/dashboard-classes";
+import { useReportUnsavedChanges } from "@/components/settings/unsaved-changes";
 import { saveTemperatureCalibration } from "@/lib/actions/energy";
+import { TEMP_OFFSET_C_MAX, TEMP_OFFSET_C_MIN } from "@/lib/limits";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { useMemo, useState, useTransition } from "react";
@@ -19,6 +21,13 @@ interface TemperatureCalibrationFormProps {
 	canWrite?: boolean;
 }
 
+const TEMP_OFFSET_RULES = {
+	min: TEMP_OFFSET_C_MIN,
+	max: TEMP_OFFSET_C_MAX,
+	decimals: 2,
+	step: 0.1,
+} as const;
+
 export function TemperatureCalibrationForm({
 	deviceId,
 	currentTempOffsetC,
@@ -26,22 +35,31 @@ export function TemperatureCalibrationForm({
 	canWrite = true,
 }: TemperatureCalibrationFormProps) {
 	const t = useTranslations("dashboard.appSettings");
-	const [offset, setOffset] = useState(currentTempOffsetC);
+	// String state so the field can be emptied while editing (issue #307).
+	const [offsetInput, setOffsetInput] = useState(() => String(currentTempOffsetC));
+	const [savedInput, setSavedInput] = useState(offsetInput);
+	useReportUnsavedChanges(`temperature-${deviceId}`, offsetInput !== savedInput);
 	const [error, setError] = useState<string | null>(null);
 	const [saved, setSaved] = useState(false);
 	const [isPending, startTransition] = useTransition();
 
+	const offset = parseCalibrationNumber(offsetInput, TEMP_OFFSET_RULES);
+	const offsetValue = offset.status === "valid" ? offset.value : null;
+
 	const calibratedTemp = useMemo(() => {
-		if (currentTempC === null) return null;
-		return currentTempC + offset;
-	}, [currentTempC, offset]);
+		if (currentTempC === null || offsetValue === null) return null;
+		return currentTempC + offsetValue;
+	}, [currentTempC, offsetValue]);
 
 	const handleSave = () => {
+		if (!canWrite || offset.status !== "valid") return;
+		const nextOffset = offset.value;
 		setError(null);
 		setSaved(false);
 		startTransition(async () => {
-			const result = await saveTemperatureCalibration(deviceId, Number(offset));
+			const result = await saveTemperatureCalibration(deviceId, nextOffset);
 			if (result.success) {
+				setSavedInput(offsetInput);
 				setSaved(true);
 				toast.success(t("temperatureSaved"));
 			} else {
@@ -54,52 +72,48 @@ export function TemperatureCalibrationForm({
 
 	return (
 		<div className="space-y-4">
-			<div>
-				<label htmlFor="tempOffsetC" className={dashboardLabel}>
-					{t("tempOffsetLabel")}
-				</label>
-				<input
+			<div className={cn(calibrationFieldGrid, "items-start")}>
+				<CalibrationNumberField
 					id="tempOffsetC"
-					type="number"
-					min={-20}
-					max={20}
-					step={0.1}
-					inputMode="decimal"
-					value={offset}
-					onChange={(e) => setOffset(Number(e.target.value))}
+					label={t("tempOffsetLabel")}
+					unit="°C"
+					value={offsetInput}
+					onValueChange={setOffsetInput}
 					disabled={!canWrite}
-					className={dashboardField}
+					help={t("tempOffsetHelp")}
+					{...TEMP_OFFSET_RULES}
 				/>
-				<span className={dashboardHint}>{t("tempOffsetHelp")}</span>
-			</div>
 
-			<div
-				aria-live="polite"
-				aria-atomic="true"
-				className="space-y-2 rounded-xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-900/50 dark:bg-sky-900/20"
-			>
-				<p className="text-xs font-bold uppercase tracking-wide text-sky-800 dark:text-sky-200">
-					{t("temperaturePreviewTitle")}
-				</p>
-				{currentTempC !== null ? (
-					<div className="space-y-1">
-						<p className="text-sm text-sky-900 dark:text-sky-100">
-							{t("rawReading")}: <strong>{currentTempC.toFixed(1)}°C</strong>
-						</p>
-						<p className="text-sm text-sky-900 dark:text-sky-100">
-							{t("offset")}:{" "}
-							<strong>
-								{offset >= 0 ? "+" : ""}
-								{offset.toFixed(1)}°C
-							</strong>
-						</p>
-						<p className="text-sm font-bold text-sky-950 dark:text-white">
-							{t("calibrated")}: <strong>{calibratedTemp?.toFixed(1)}°C</strong>
-						</p>
-					</div>
-				) : (
-					<p className="text-sm text-sky-800 dark:text-sky-200">{t("noTemperatureReading")}</p>
-				)}
+				<div
+					aria-live="polite"
+					aria-atomic="true"
+					className="space-y-2 rounded-xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-900/50 dark:bg-sky-900/20 sm:col-span-1 xl:col-span-2"
+				>
+					<p className="text-xs font-bold uppercase tracking-wide text-sky-800 dark:text-sky-200">
+						{t("temperaturePreviewTitle")}
+					</p>
+					{currentTempC !== null ? (
+						<div className="space-y-1">
+							<p className="text-sm text-sky-900 dark:text-sky-100">
+								{t("rawReading")}: <strong>{currentTempC.toFixed(1)}°C</strong>
+							</p>
+							<p className="text-sm text-sky-900 dark:text-sky-100">
+								{t("offset")}:{" "}
+								<strong>
+									{offsetValue === null
+										? "—"
+										: `${offsetValue >= 0 ? "+" : ""}${offsetValue.toFixed(1)}°C`}
+								</strong>
+							</p>
+							<p className="text-sm font-bold text-sky-950 dark:text-white">
+								{t("calibrated")}:{" "}
+								<strong>{calibratedTemp === null ? "—" : `${calibratedTemp.toFixed(1)}°C`}</strong>
+							</p>
+						</div>
+					) : (
+						<p className="text-sm text-sky-800 dark:text-sky-200">{t("noTemperatureReading")}</p>
+					)}
+				</div>
 			</div>
 
 			{error && (
@@ -116,7 +130,7 @@ export function TemperatureCalibrationForm({
 			<button
 				type="button"
 				onClick={handleSave}
-				disabled={isPending || !canWrite}
+				disabled={isPending || !canWrite || offset.status !== "valid"}
 				className={cn(dashboardButtonPrimary, "w-full sm:w-auto")}
 			>
 				{isPending ? t("saving") : t("saveCalibration")}

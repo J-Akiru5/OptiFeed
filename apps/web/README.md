@@ -5,10 +5,12 @@ biomass/FCR tracking, ESP32 feeder control, and low-pellet / offline alerts.
 
 ## Stack
 
-- **Next.js 16** (App Router, next-intl for en/hil) + **Prisma** + **Supabase** (PostgreSQL + Auth)
+- **Next.js 16** (App Router, next-intl for en/hil/tl) + **Prisma** + **Supabase** (PostgreSQL + Auth)
 - **ESP32** feeder over device-token REST (`/api/ingest`, `/api/feed-command`, `/api/schedule-sync`)
 - **Telegram** alerts for CRITICAL events, **OpenCode Go (DeepSeek V4.1 Flash)** chat assistant
 - pnpm workspaces monorepo (`apps/web`, `packages/config`)
+- **Languages:** English, Hiligaynon and Tagalog. Tagalog is an incremental overlay with English fallback; see [docs/i18n.md](../../docs/i18n.md).
+- **Confirmations:** every mutating action uses a top-right Sonner toast; see [docs/ui-confirmations.md](../../docs/ui-confirmations.md).
 
 ## Setup
 
@@ -31,6 +33,7 @@ Key env vars (full list in `apps/web/.env.example`):
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | CRITICAL alerts (no-op until set) |
 | `RESEND_API_KEY` / `REMINDER_FROM_EMAIL` | Harvest/sampling reminder email (optional; in-app only until all email vars are set) |
 | `NEXT_PUBLIC_BASE_URL` | Absolute links in alerts/exports and reminder emails |
+| `NEXT_PUBLIC_SITE_URL` | Origin advertised by `robots.txt`, `sitemap.xml` and social metadata (defaults to production) |
 | `OPENCODE_GO_API_KEY` / `OPENCODE_GO_MODEL` / `OPENCODE_GO_REASONING_EFFORT` | AI chat + feeding prediction (OpenCode Go) |
 | `GEMINI_API_KEY` | Gemini fallback when the primary provider fails |
 | `E2E_ALLOWED_DB_HOST` | Playwright guard: e2e only runs against this DB host |
@@ -44,6 +47,7 @@ Key env vars (full list in `apps/web/.env.example`):
 | `pnpm typecheck` | `tsc --noEmit` for apps/web |
 | `pnpm test` | Vitest unit tests (apps/web) |
 | `pnpm test:e2e` | Playwright (requires `DATABASE_URL` + `E2E_ALLOWED_DB_HOST`) |
+| `pnpm test:e2e:smoke` | Cross-browser public smoke on Chromium, Firefox and WebKit (no database; see [docs/compatibility.md](../../docs/compatibility.md)) |
 | `pnpm self-check` | Full plan gate incl. build; `--quick` skips build |
 
 ## Crop reminders
@@ -73,9 +77,14 @@ never sent twice.
 
 ## Branch workflow
 
-1. Work on `Karl`. Never push `develop` or `main` directly.
-2. Open a PR `Karl` → `develop`; CI runs lint, typecheck, tests, auth-route gate, and a dummy-env `next build`.
-3. Jeff promotes `develop` → `main` for releases (decision D5). Vercel deploys from Git integration.
+1. Work on a short-lived branch cut from `origin/develop`. Never push `develop`,
+   `staging` or `main` directly.
+2. Open a PR into `develop`; CI runs lint, typecheck, tests, auth-route gate, and a dummy-env `next build`.
+3. Releases are commanded promotions: `develop` -> `staging` (Vercel Preview),
+   then `staging` -> `main` (Vercel Production). `develop` never deploys. Jeff
+   commands each promotion, or the OpenCode lead does under a standing
+   authorization recorded in `docs/missions/`. Vercel deploys from the Git
+   integration; see `docs/deployment-workflow.md` section 5.0.
 
 ## Migration rules
 
@@ -88,6 +97,7 @@ never sent twice.
 
 `firmware/firmware-main/firmware-main.ino` — ESP32-WROOM feeder: polls
 `/api/feed-command` + `/api/schedule-sync`, posts events to `/api/ingest`
-with an `X-Device-Token`. Safety caps live in firmware and mirror
-`lib/limits.ts` (`MAX_DISPENSE_MS`, `MAX_GRAMS_PER_DISPENSE`,
-`MAX_GRAMS_PER_DAY`).
+with an `X-Device-Token`. The server's only gram cap is the device's daily
+ceiling (`resolveDailyCapG`, hard guard 5,000 g); 5,000 g is also the payload
+sanity bound, not a per-dose limit. The firmware keeps its own hardware safety
+caps (`MAX_DISPENSE_MS`, `MAX_GRAMS_PER_DISPENSE`, `MAX_GRAMS_PER_DAY`).

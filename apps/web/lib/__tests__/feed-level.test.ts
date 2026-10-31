@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getFeedLevelDisplay } from "../feed-level";
+import { estimateDaysOfFeedRemaining, getFeedLevelDisplay } from "../feed-level";
 
 const base = {
 	hopperCapacityG: 10_000,
@@ -90,5 +90,59 @@ describe("getFeedLevelDisplay", () => {
 		expect(low.isLow).toBe(true);
 		expect(healthy.isCritical).toBe(false);
 		expect(healthy.isLow).toBe(false);
+	});
+});
+
+describe("estimateDaysOfFeedRemaining", () => {
+	it("returns the fraction of days left", () => {
+		// 10,000 g × 45 % = 4,500 g; 150 g × 2 meals = 300 g/day → 15 days.
+		expect(
+			estimateDaysOfFeedRemaining({
+				levelPercent: 45,
+				hopperCapacityG: 10_000,
+				gramsPerFeeding: 150,
+				feedsPerDay: 2,
+			}),
+		).toBe(15);
+	});
+
+	it("returns null instead of 0/Infinity/NaN for unusable inputs", () => {
+		const valid = {
+			levelPercent: 50,
+			hopperCapacityG: 10_000,
+			gramsPerFeeding: 150,
+			feedsPerDay: 2,
+		};
+
+		expect(estimateDaysOfFeedRemaining({ ...valid, levelPercent: null })).toBeNull();
+		expect(estimateDaysOfFeedRemaining({ ...valid, levelPercent: Number.NaN })).toBeNull();
+		expect(estimateDaysOfFeedRemaining({ ...valid, hopperCapacityG: null })).toBeNull();
+		expect(estimateDaysOfFeedRemaining({ ...valid, hopperCapacityG: 0 })).toBeNull();
+		expect(estimateDaysOfFeedRemaining({ ...valid, hopperCapacityG: -1 })).toBeNull();
+		expect(estimateDaysOfFeedRemaining({ ...valid, gramsPerFeeding: null })).toBeNull();
+		expect(estimateDaysOfFeedRemaining({ ...valid, gramsPerFeeding: 0 })).toBeNull();
+		expect(estimateDaysOfFeedRemaining({ ...valid, gramsPerFeeding: -5 })).toBeNull();
+		expect(estimateDaysOfFeedRemaining({ ...valid, feedsPerDay: null })).toBeNull();
+		expect(estimateDaysOfFeedRemaining({ ...valid, feedsPerDay: 0 })).toBeNull();
+		expect(estimateDaysOfFeedRemaining({ ...valid, feedsPerDay: -2 })).toBeNull();
+	});
+
+	it("clamps the level to 0–100 %", () => {
+		expect(
+			estimateDaysOfFeedRemaining({
+				levelPercent: 250,
+				hopperCapacityG: 1_000,
+				gramsPerFeeding: 100,
+				feedsPerDay: 1,
+			}),
+		).toBe(10);
+		expect(
+			estimateDaysOfFeedRemaining({
+				levelPercent: -20,
+				hopperCapacityG: 1_000,
+				gramsPerFeeding: 100,
+				feedsPerDay: 1,
+			}),
+		).toBe(0);
 	});
 });

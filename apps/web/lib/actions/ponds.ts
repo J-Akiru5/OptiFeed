@@ -11,13 +11,14 @@ import { dateOnlySchema } from "@/lib/crop-cycle/schema";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
 import {
 	MAX_DISPENSE_MS,
-	dailyFeedCapG,
 	feedingRatePctSchema,
 	feedsPerDaySchema,
 	formatZodError,
 	populationSchema,
+	resolveDailyCapG,
 } from "@/lib/limits";
 import prisma from "@/lib/prisma";
+import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import { ORG_SETTINGS_DEFAULTS, getOrgSettings } from "@/lib/settings/org";
 import type { PondStatus, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -436,10 +437,16 @@ export async function updateTenantPond(input: UpdateTenantPondInput): Promise<Po
 			gramsPerFeeding: true,
 			gramsPerSecond: true,
 			hopperCapacityG: true,
+			dailyCapG: true,
 		},
 	});
+	const feedingLimits = await getFeedingLimits();
 	for (const device of devices) {
-		const dailyCapG = dailyFeedCapG(device.hopperCapacityG);
+		const dailyCapG = resolveDailyCapG({
+			configuredCapG: device.dailyCapG,
+			hopperCapacityG: device.hopperCapacityG,
+			dailyCapFactor: feedingLimits.dailyCapFactor,
+		});
 		const scheduledDailyG = data.feedsPerDay * device.gramsPerFeeding;
 		if (scheduledDailyG > dailyCapG) {
 			return {
@@ -451,7 +458,7 @@ export async function updateTenantPond(input: UpdateTenantPondInput): Promise<Po
 			device.gramsPerFeeding / device.gramsPerSecond > MAX_DISPENSE_MS / 1000
 		) {
 			return {
-				error: `Feed amount of ${device.gramsPerFeeding} g would take more than ${MAX_DISPENSE_MS / 1000} s of relay time at ${device.gramsPerSecond} g/s.`,
+				error: `Feed amount of ${device.gramsPerFeeding} g would take more than ${MAX_DISPENSE_MS / 1000} s of relay time at ${device.gramsPerSecond} g/s. Add more meals per day or reduce the feed amount.`,
 			};
 		}
 	}
@@ -597,6 +604,9 @@ export async function getPondDetail(pondId: string) {
 					feedLevelUpdatedAt: true,
 					approvalStatus: true,
 					gramsPerFeeding: true,
+					dailyCapG: true,
+					wifiRssiDbm: true,
+					wifiRssiUpdatedAt: true,
 					createdAt: true,
 				},
 			},
@@ -673,7 +683,7 @@ export async function getPondDetail(pondId: string) {
 	return { pond, movableDevices, feedEventCount };
 }
 
-export type PondDetail = NonNullable<Awaited<ReturnType<typeof getPondDetail>>>;
+type PondDetail = NonNullable<Awaited<ReturnType<typeof getPondDetail>>>;
 
 async function blockersFor(
 	client: Prisma.TransactionClient,
@@ -683,7 +693,8 @@ async function blockersFor(
 		biomassLogs,
 		feedEvents,
 		cropCycles,
-		devices,
+		energyDevices,
+		legacyDevices,
 		fcrReports,
 		scheduleCommands,
 		notifications,
@@ -693,6 +704,10 @@ async function blockersFor(
 		client.feedEvent.count({ where: { device: { pondId } } }),
 		client.cropCycle.count({ where: { pondId } }),
 		client.energyDevice.count({ where: { pondId } }),
+		// The deprecated `Device` table still has rows on older ponds and its
+		// pond relation has no cascade, so a delete would fail on the foreign
+		// key. Count it as hardware: the pond is archived, not deleted.
+		client.device.count({ where: { pondId } }),
 		client.fcrReport.count({ where: { pondId } }),
 		client.scheduleCommand.count({ where: { pondId } }),
 		client.notification.count({ where: { pondId } }),
@@ -703,7 +718,7 @@ async function blockersFor(
 		biomassLogs,
 		feedEvents,
 		cropCycles,
-		devices,
+		devices: energyDevices + legacyDevices,
 		fcrReports,
 		scheduleCommands,
 		notifications,

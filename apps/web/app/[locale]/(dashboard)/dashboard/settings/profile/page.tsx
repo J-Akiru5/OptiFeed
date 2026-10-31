@@ -166,11 +166,16 @@ export default async function ProfileSettingsPage() {
 				</DashboardSection>
 			) : null}
 
-			<NotificationPrefsForm
-				pondId={pond?.id ?? ""}
-				initialPrefs={notificationPrefs}
-				canWrite={writeAccess}
-			/>
+			{pond ? (
+				// Preferences live on the pond row. Without an active pond there is
+				// nothing to save to, and the form used to submit an empty id and fail
+				// with "Pond not found" on every toggle.
+				<NotificationPrefsForm
+					pondId={pond.id}
+					initialPrefs={notificationPrefs}
+					canWrite={writeAccess}
+				/>
+			) : null}
 		</div>
 	);
 }

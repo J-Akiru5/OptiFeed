@@ -66,10 +66,29 @@ vi.mock("@/lib/pond-selection", () => ({
 		devices: [{ id: "dev-1" }],
 		feedingRatePct: 3,
 		feedsPerDay: 3,
+		scheduleStart: new Date(Date.UTC(1970, 0, 1, 8)),
+		scheduleEnd: new Date(Date.UTC(1970, 0, 1, 16)),
 		sampleIntervalDays: 15,
 		population: 1000,
 		notificationPrefs: { areaM2: 500, averageDepthM: 1.5, feedPricePerKg: 30 },
 	})),
+	getActivePondId: vi.fn(async () => "pond-1"),
+	listSelectablePonds: vi.fn(async () => [
+		{
+			id: "pond-1",
+			name: "Pond 1",
+			ownerId: "farm-1",
+			isFallow: false,
+			devices: [{ id: "dev-1" }],
+			feedingRatePct: 3,
+			feedsPerDay: 3,
+			scheduleStart: new Date(Date.UTC(1970, 0, 1, 8)),
+			scheduleEnd: new Date(Date.UTC(1970, 0, 1, 16)),
+			sampleIntervalDays: 15,
+			population: 1000,
+			notificationPrefs: { areaM2: 500, averageDepthM: 1.5, feedPricePerKg: 30 },
+		},
+	]),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -87,18 +106,58 @@ vi.mock("@/lib/prisma", () => ({
 				hopperCapacityG: 7000,
 				gramsPerSecond: 12.5,
 				gramsPerFeeding: 500,
+				isPaused: false,
 				lastCalibratedAt: null,
 				recalibrationIntervalDays: 30,
 				tempOffsetC: -0.5,
 				waterTempC: 28.5,
+				waterTempOk: true,
+				waterTempUpdatedAt: new Date(),
 			})),
+			// #403: the page loads the selected feeder by id.
+			findUnique: vi.fn(async () => ({
+				id: "dev-1",
+				mac: "AA:BB:CC:DD:AB:CD",
+				label: "Feeder 1",
+				lastSeenAt: new Date(),
+				feedLevelPercent: 62,
+				feedLevelUpdatedAt: new Date(),
+				hopperFullCm: 5,
+				hopperEmptyCm: 30,
+				hopperCapacityG: 7000,
+				gramsPerSecond: 12.5,
+				gramsPerFeeding: 500,
+				isPaused: false,
+				lastCalibratedAt: null,
+				recalibrationIntervalDays: 30,
+				tempOffsetC: -0.5,
+				waterTempC: 28.5,
+				waterTempOk: true,
+				waterTempUpdatedAt: new Date(),
+			})),
+			findMany: vi.fn(async () => [
+				{
+					id: "dev-1",
+					label: "Feeder 1",
+					pondId: "pond-1",
+					lastSeenAt: new Date(),
+					wifiRssiDbm: null,
+					wifiRssiUpdatedAt: null,
+				},
+			]),
 		},
 		calibrationRun: {
 			count: vi.fn(async () => 0),
 			groupBy: vi.fn(async () => []),
 			findMany: vi.fn(async () => []),
 		},
-		feedEvent: { findMany: vi.fn(async () => []) },
+		feedEvent: {
+			findMany: vi.fn(async () => []),
+			aggregate: vi.fn(async () => ({ _sum: { grams: 0 } })),
+		},
+		deviceStateEvent: { findFirst: vi.fn(async () => null) },
+		biomassLog: { findFirst: vi.fn(async () => null) },
+		fcrReport: { findFirst: vi.fn(async () => null) },
 		feedLevelLog: { findMany: vi.fn(async () => []) },
 		user: { findMany: vi.fn(async () => []) },
 	},
@@ -113,7 +172,10 @@ vi.mock("@/lib/actions/farm", () => ({
 	renameFarm: vi.fn(),
 }));
 
-vi.mock("@/lib/actions/settings", () => ({ updatePondSettings: vi.fn() }));
+vi.mock("@/lib/actions/settings", () => ({
+	updatePondSettings: vi.fn(),
+	updateDeviceDailyCap: vi.fn(),
+}));
 vi.mock("@/lib/actions/energy", () => ({
 	saveHopperCalibration: vi.fn(),
 	saveTemperatureCalibration: vi.fn(),
@@ -166,6 +228,7 @@ import SettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/page";
 import PondSettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/pond/page";
 import ProfileSettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/profile/page";
 import { canWrite } from "@/lib/auth/session";
+import prisma from "@/lib/prisma";
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -222,6 +285,23 @@ describe("hardware settings page", () => {
 
 		expect(html).toContain("PakaonAI-ABCD");
 		expect(html).toContain("Device ID (MAC)");
+	});
+
+	it("shows the sticker MAC as the Device ID and the heartbeat's firmware version", async () => {
+		vi.mocked(prisma.deviceStateEvent.findFirst).mockResolvedValueOnce({
+			eventType: "firmware_reported",
+			metadata: { version: "1.6.0" },
+			createdAt: new Date(),
+		} as never);
+
+		const html = renderToStaticMarkup(
+			await HardwareSettingsPage({ searchParams: Promise.resolve({}) }),
+		);
+
+		expect(html).toContain("AA:BB:CC:DD:AB:CD");
+		expect(html).toContain("v1.6.0");
+		expect(html).toContain("Support ID: dev-1");
+		expect(html).not.toContain("Device record ID");
 	});
 
 	it("explains read-only mode on the hardware controls", async () => {

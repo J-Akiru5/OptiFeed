@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 	deviceStateEvent: { findMany: vi.fn() },
 	resolveCurrentSchedule: vi.fn(),
 	resolveOrgScope: vi.fn(),
+	resolveMemberOrgScope: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -28,6 +29,7 @@ vi.mock("@/lib/schedule/resolve-current", () => ({
 
 vi.mock("@/lib/auth/org-scope", () => ({
 	resolveOrgScope: mocks.resolveOrgScope,
+	resolveMemberOrgScope: mocks.resolveMemberOrgScope,
 }));
 
 vi.mock("@/lib/auth/with-auth", () => ({
@@ -163,6 +165,18 @@ beforeEach(() => {
 	mocks.energyDevice.findMany.mockResolvedValue([]);
 	mocks.deviceStateEvent.findMany.mockResolvedValue([]);
 	mocks.resolveCurrentSchedule.mockResolvedValue(null);
+	mocks.resolveOrgScope.mockResolvedValue({
+		orgIds: [],
+		memberUserIds: [],
+		farmIds: [],
+		pondIds: [],
+	});
+	mocks.resolveMemberOrgScope.mockResolvedValue({
+		orgIds: [],
+		memberUserIds: [],
+		farmIds: [],
+		pondIds: [],
+	});
 });
 
 afterEach(() => {
@@ -210,7 +224,7 @@ describe("calendar helper types", () => {
 			pondName: "Pond A",
 			cycleLabel: "Batch A",
 			notes: null,
-			href: "/dashboard/harvest",
+			href: "/dashboard/calendar",
 		};
 		expect(dto).toMatchObject({
 			id: expect.stringContaining(":"),
@@ -232,20 +246,33 @@ describe("GET /api/calendar/events validation", () => {
 		expect(missing.response.status).toBe(422);
 	});
 
-	it("rejects an empty or inverted range", async () => {
-		const empty = await callCalendar({ from: TODAY, to: TODAY });
-		expect(empty.response.status).toBe(422);
-		expect(empty.body.error?.message).toContain("between 1 and 400 days");
+	it("accepts a one-day range, which is what the day view sends", async () => {
+		const result = await callCalendar({ from: TODAY, to: TODAY });
 
-		const inverted = await callCalendar({ from: addDays(TODAY, 2), to: TODAY });
-		expect(inverted.response.status).toBe(422);
+		expect(result.response.status).toBe(200);
+		expect(result.body.data).toMatchObject({ from: TODAY, to: TODAY });
 	});
 
-	it("rejects a range longer than 400 days", async () => {
-		const result = await callCalendar({
-			from: addDays(TODAY, -200),
-			to: addDays(TODAY, 201),
-		});
+	it("rejects an inverted range", async () => {
+		const result = await callCalendar({ from: addDays(TODAY, 2), to: TODAY });
+
+		expect(result.response.status).toBe(422);
+		expect(result.body.error?.code).toBe("VALIDATION_FAILED");
+		expect(result.body.error?.message).toContain("between 1 and 400 days");
+	});
+
+	it("accepts the exact maximum of 400 inclusive days", async () => {
+		const from = TODAY;
+		const result = await callCalendar({ from, to: addDays(from, 399) });
+
+		expect(result.response.status).toBe(200);
+		expect(result.body.data).toMatchObject({ from, to: addDays(from, 399) });
+	});
+
+	it("rejects 401 inclusive days", async () => {
+		const from = TODAY;
+		const result = await callCalendar({ from, to: addDays(from, 400) });
+
 		expect(result.response.status).toBe(422);
 		expect(result.body.error?.message).toContain("400");
 	});
@@ -428,7 +455,7 @@ describe("GET /api/calendar/events persisted events", () => {
 			pondName: "Pond A",
 			cycleLabel: "Batch A",
 			notes: null,
-			href: "/dashboard/harvest",
+			href: "/dashboard/calendar",
 		});
 		expect(events[1]).toMatchObject({
 			type: "manual",
@@ -907,5 +934,155 @@ describe("GET /api/calendar/events scope=org", () => {
 		const { response } = await callCalendar({ scope: "org" });
 
 		expect(response.status).toBe(404);
+	});
+
+	it("marks an org admin's events on every organization pond editable", async () => {
+		mocks.resolveOrgScope.mockResolvedValue({
+			orgIds: ["org-1"],
+			memberUserIds: [],
+			farmIds: [],
+			pondIds: [pondA.id, pondB.id],
+		});
+		mocks.pond.findMany.mockResolvedValue([pondA, pondB]);
+		mocks.pondEvent.findMany.mockResolvedValue([
+			persistedEvent({
+				id: "event-org",
+				source: "manual",
+				type: "MAINTENANCE",
+				pond: { id: "pond-b", name: "Pond B" },
+				cropCycle: null,
+			}),
+		]);
+
+		const { events } = await callCalendar({ scope: "org", pondId: "all", types: "manual" });
+
+		expect(events).toHaveLength(1);
+		expect(events[0]).toMatchObject({ pondId: "pond-b", editable: true });
+	});
+});
+
+describe("GET /api/calendar/events scope=member-org", () => {
+	it("shows the whole organization and keeps other farms read-only", async () => {
+		mocks.resolveMemberOrgScope.mockResolvedValue({
+			orgIds: ["org-1"],
+			memberUserIds: [],
+			farmIds: [],
+			pondIds: [pondA.id, pondB.id],
+		});
+		mocks.pond.findMany
+			.mockResolvedValueOnce([pondA, pondB])
+			.mockResolvedValueOnce([{ id: pondA.id }]);
+		mocks.pondEvent.findMany.mockResolvedValue([
+			persistedEvent({
+				id: "own-event",
+				source: "manual",
+				type: "MAINTENANCE",
+				pond: { id: "pond-a", name: "Pond A" },
+				cropCycle: null,
+			}),
+			persistedEvent({
+				id: "other-event",
+				source: "manual",
+				type: "MAINTENANCE",
+				pond: { id: "pond-b", name: "Pond B" },
+				cropCycle: null,
+			}),
+		]);
+
+		const { response, events } = await callCalendar({
+			scope: "member-org",
+			pondId: "all",
+			types: "manual",
+		});
+
+		expect(response.status).toBe(200);
+		expect(events.find((event) => event.pondId === "pond-a")).toMatchObject({ editable: true });
+		expect(events.find((event) => event.pondId === "pond-b")).toMatchObject({ editable: false });
+		expect(mocks.pond.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { id: { in: [pondA.id, pondB.id] }, status: "ACTIVE" },
+			}),
+		);
+		// The second bounded query is the writable set: only the caller's farm.
+		expect(mocks.pond.findMany).toHaveBeenLastCalledWith({
+			where: { ownerId: "owner-1", status: "ACTIVE" },
+			select: { id: true },
+			orderBy: { createdAt: "asc" },
+			take: 100,
+		});
+	});
+
+	it("expands a recurring org event but never makes it editable", async () => {
+		mocks.resolveMemberOrgScope.mockResolvedValue({
+			orgIds: ["org-1"],
+			memberUserIds: [],
+			farmIds: [],
+			pondIds: [pondA.id, pondB.id],
+		});
+		mocks.pond.findMany
+			.mockResolvedValueOnce([pondA, pondB])
+			.mockResolvedValueOnce([{ id: pondA.id }]);
+		mocks.pondEvent.findMany.mockResolvedValue([
+			persistedEvent({
+				id: "series",
+				title: "Weekly service",
+				source: "manual",
+				type: "MAINTENANCE",
+				kind: "TASK",
+				pond: { id: "pond-b", name: "Pond B" },
+				cropCycle: null,
+				recurrenceFreq: "WEEKLY",
+				recurrenceInterval: 1,
+				recurrenceUntil: new Date(`${addDays(FROM, 14)}T00:00:00.000Z`),
+			}),
+		]);
+
+		const { events } = await callCalendar({
+			from: FROM,
+			to: addDays(FROM, 14),
+			scope: "member-org",
+			pondId: "all",
+			types: "manual",
+		});
+
+		expect(events.map((event) => event.start)).toEqual([FROM, addDays(FROM, 7), addDays(FROM, 14)]);
+		expect(events.every((event) => event.editable === false)).toBe(true);
+	});
+
+	it("falls back to the caller's own farm without an org membership", async () => {
+		mocks.resolveMemberOrgScope.mockResolvedValue({
+			orgIds: [],
+			memberUserIds: [],
+			farmIds: [],
+			pondIds: [],
+		});
+		mocks.pond.findMany.mockResolvedValue([pondA]);
+		mocks.pondEvent.findMany.mockResolvedValue([
+			persistedEvent({
+				id: "own-event",
+				source: "manual",
+				type: "MAINTENANCE",
+				cropCycle: null,
+			}),
+		]);
+
+		const { response, events } = await callCalendar({
+			scope: "member-org",
+			pondId: "all",
+			types: "manual",
+		});
+
+		expect(response.status).toBe(200);
+		expect(mocks.pond.findMany).toHaveBeenCalledTimes(1);
+		expect(mocks.pond.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({ where: { ownerId: "owner-1", status: "ACTIVE" } }),
+		);
+		expect(events[0]?.editable).toBe(true);
+	});
+
+	it("does not consult the member scope for the default farmer API", async () => {
+		await callCalendar();
+
+		expect(mocks.resolveMemberOrgScope).not.toHaveBeenCalled();
 	});
 });

@@ -12,6 +12,8 @@ const { db, tx, authAdmin, STEP_UP_AT } = vi.hoisted(() => {
 			count: vi.fn(),
 		},
 		platformAuditLog: { create: vi.fn() },
+		// The `SELECT ... FOR UPDATE` grant lock (#334).
+		$queryRaw: vi.fn(),
 	};
 	const db = {
 		user: { findUnique: vi.fn() },
@@ -41,7 +43,7 @@ vi.mock("next/headers", () => ({
 	headers: vi.fn(
 		async () =>
 			new Headers({
-				"x-forwarded-for": "203.0.113.9, 10.0.0.1",
+				"x-forwarded-for": "10.0.0.99, 203.0.113.9",
 				"user-agent": "vitest-superadmin",
 			}),
 	),
@@ -77,6 +79,7 @@ beforeEach(() => {
 	tx.platformAdmin.update.mockResolvedValue({});
 	tx.platformAdmin.updateMany.mockResolvedValue({ count: 1 });
 	tx.platformAdmin.count.mockResolvedValue(2);
+	tx.$queryRaw.mockResolvedValue([]);
 	tx.membership.updateMany.mockResolvedValue({ count: 1 });
 	tx.platformAuditLog.create.mockResolvedValue({});
 	authAdmin.updateUserById.mockResolvedValue({ data: {}, error: null });
@@ -220,7 +223,7 @@ describe("disablePlatformUser", () => {
 
 	it("refuses to disable the last active platform admin", async () => {
 		allowDisable();
-		db.platformAdmin.count.mockResolvedValue(1);
+		tx.platformAdmin.count.mockResolvedValue(1);
 
 		await expect(disablePlatformUser("u-1", REASON, "farm-a")).resolves.toEqual({
 			error: expect.stringContaining("At least one active platform administrator"),
@@ -228,8 +231,9 @@ describe("disablePlatformUser", () => {
 		expect(authAdmin.updateUserById).not.toHaveBeenCalled();
 	});
 
-	it("does not touch the DB when the Supabase ban fails", async () => {
+	it("bans nothing when the Supabase ban fails inside the transaction", async () => {
 		allowDisable();
+		const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
 		authAdmin.updateUserById.mockResolvedValue({
 			data: {},
 			error: { message: "auth unavailable" },
@@ -238,8 +242,10 @@ describe("disablePlatformUser", () => {
 		await expect(disablePlatformUser("u-1", REASON, "farm-a")).resolves.toEqual({
 			error: "Failed to disable the user.",
 		});
-		expect(db.$transaction).not.toHaveBeenCalled();
+		expect(tx.membership.updateMany).not.toHaveBeenCalled();
+		expect(tx.platformAdmin.update).not.toHaveBeenCalled();
 		expect(mockAuditCreate).not.toHaveBeenCalled();
+		consoleError.mockRestore();
 	});
 
 	it("bans the login, soft-revokes memberships and audits — but deletes nothing", async () => {

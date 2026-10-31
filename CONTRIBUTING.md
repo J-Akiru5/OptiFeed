@@ -5,6 +5,10 @@ production. It applies equally to every developer, on every device. If another
 document disagrees with this one, this one wins — open a PR to fix the other
 document.
 
+The one exception is the deployment matrix: [`docs/deployment-workflow.md`](docs/deployment-workflow.md)
+and [ADR-0001](docs/adr/0001-deployment-model.md) are authoritative for which
+branches deploy. This document points at them rather than restating them.
+
 Repository: <https://github.com/J-Akiru5/OptiFeed>
 
 ---
@@ -27,6 +31,9 @@ feature/* ──PR──▶ develop ──PR──▶ staging ──PR + Jeff's 
 
 > **Only `staging` and `main` deploy** (decision 2026-10-26, to reduce deployment
 > cost). `develop` is validated by CI only; never deploy it by any route.
+> Promotions are commanded by Jeff, or by the OpenCode lead under a standing
+> authorization recorded in `docs/missions/`
+> ([`docs/deployment-workflow.md`](docs/deployment-workflow.md) §5.0).
 >
 > **Warning:** the `staging` deployment runs against the **production** database
 > with the project's production credentials, including the Supabase service-role
@@ -237,16 +244,24 @@ Development → integration:
 feature/* --PR--> develop
 ```
 
+### Promotion authority
+
+An agent's work stops at `develop`. Each promotion — `develop` → `staging`, then
+`staging` → `main` — is a separate reviewed pull request commanded by Jeff, or
+by the OpenCode lead under a standing authorization recorded in
+`docs/missions/`. A merge into `develop` is not a release and never promotes
+itself. See [`docs/deployment-workflow.md`](docs/deployment-workflow.md) §5.0.
+
 Release candidate:
 
 ```
-develop --PR--> staging     (opened by Jeff, or by a developer for Jeff to merge)
+develop --PR--> staging     (commanded by Jeff or an authorized lead; opened for him to merge)
 ```
 
 Production promotion:
 
 ```
-staging --PR--> main        (Jeff only)
+staging --PR--> main        (commanded by Jeff or an authorized lead, per §5.0)
 ```
 
 Before promoting `develop` → `staging`:
@@ -271,6 +286,36 @@ After a production deployment: verify the deployment in Vercel, check the
 health endpoint (`/api/health`), spot-check login and dashboard data, and write
 the deployed SHA plus any follow-up work into the release PR.
 
+### Every version must be a release
+
+A version that reaches `main` must exist as a real Git release, not just a
+number in a file. This is enforced, not advisory:
+
+- The version lives in **both** `package.json` files (root and `apps/web/`), and
+  the two must match.
+- `CHANGELOG.md` must contain `## [x.y.z] - YYYY-MM-DD` for it, written in the
+  release PR. Semver: MAJOR for breaking changes, MINOR for features, PATCH for
+  fixes and docs.
+- On every push to `main`, `.github/workflows/release.yml` creates the annotated
+  `vX.Y.Z` tag and publishes the GitHub Release, with notes taken **verbatim**
+  from that changelog section (`scripts/release-notes.mjs`). Nothing is invented
+  and no notes are edited by hand.
+- The job is **idempotent**. If the tag and release already exist for the
+  current version it publishes nothing, so routine `main` pushes are unaffected.
+  If the changelog section is missing it **fails** rather than publishing an
+  empty release.
+- Published tags and releases are **immutable**. Never move, retag, delete or
+  re-publish one; fix forward with a new PATCH version.
+- A release is not a deployment and a deployment is not a release. A `main` push
+  does both, from the same commit, and neither substitutes for the other.
+
+After a promotion, confirm the release exists:
+
+```sh
+gh release list --limit 5
+gh release view "v$(node -p "require('./package.json').version")"
+```
+
 If production requires an urgent fix, branch from `main`, PR into `main` with
 Jeff's approval, then **reconcile it back into `develop` with a separate PR**.
 Do not merge `main` into `develop` as a routine step and do not assume the
@@ -284,16 +329,22 @@ Only two branches deploy:
 
 | Branch | Environment | Trigger |
 | --- | --- | --- |
-| `staging` | Staging | Push to `staging` |
-| `main` | Production | Push to `main` |
+| `staging` | Vercel **Preview** (shares the production database) | Push to `staging` |
+| `main` | Vercel **Production** | Push to `main` |
 
 `develop` and every work branch run **CI validation only** — no application
-deployment, no database migration, no production credentials.
+deployment, no database migration, no production credentials. The allowlist in
+[`apps/web/vercel.json`](apps/web/vercel.json) is the enforcement (`"*": false`,
+`"**": false`, `"main": true`, `"staging": true`).
 
 Deployment is performed by the Vercel Git integration; there is no GitHub
 Actions deploy workflow. Do not add a second deployment path (CLI deploys,
 deploy hooks, workflow deploys) without an explicit decision recorded in
 `docs/deployment-workflow.md`.
+
+Promotion timing is a separate decision from deployment eligibility: only Jeff,
+or the OpenCode lead under a standing authorization recorded in
+`docs/missions/`, commands a promotion (§9).
 
 ---
 

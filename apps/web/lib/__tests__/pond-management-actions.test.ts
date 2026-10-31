@@ -18,6 +18,7 @@ const { db, tx } = vi.hoisted(() => {
 		biomassLog: { count: vi.fn() },
 		feedEvent: { count: vi.fn() },
 		energyDevice: { count: vi.fn(), update: vi.fn() },
+		device: { count: vi.fn() },
 		fcrReport: { count: vi.fn() },
 		scheduleCommand: { count: vi.fn(), create: vi.fn() },
 		notification: { count: vi.fn() },
@@ -43,6 +44,7 @@ const { db, tx } = vi.hoisted(() => {
 			count: vi.fn(),
 			update: vi.fn(),
 		},
+		device: { count: vi.fn() },
 		fcrReport: { count: vi.fn() },
 		scheduleCommand: { count: vi.fn() },
 		notification: { count: vi.fn() },
@@ -145,6 +147,7 @@ function zeroBlockerCounts(client: typeof db | typeof tx) {
 	client.feedEvent.count.mockResolvedValue(0);
 	client.cropCycle.count.mockResolvedValue(0);
 	client.energyDevice.count.mockResolvedValue(0);
+	client.device.count.mockResolvedValue(0);
 	client.fcrReport.count.mockResolvedValue(0);
 	client.scheduleCommand.count.mockResolvedValue(0);
 	client.notification.count.mockResolvedValue(0);
@@ -221,6 +224,12 @@ describe("createTenantPond", () => {
 				data: expect.objectContaining({ pondId: "pond-new", stockingCount: 800 }),
 			}),
 		);
+		// #318: the admin/tenant pond-create writer never seeds a cycle target,
+		// so it cannot disagree with a saved calculator target.
+		const created = tx.cropCycle.create.mock.calls[0]?.[0] as {
+			data: Record<string, unknown>;
+		};
+		expect(created.data.targetHarvestWeightG).toBeUndefined();
 		expect(tx.pondEvent.createMany).toHaveBeenCalledTimes(1);
 	});
 
@@ -555,6 +564,30 @@ describe("pond deletion", () => {
 			canDelete: false,
 			blockers: { biomassLogs: 3, devices: 1 },
 		});
+	});
+
+	it("counts a legacy Device row as hardware on the delete page", async () => {
+		db.pond.findFirst.mockResolvedValue({ ...POND, status: "ACTIVE" });
+		db.device.count.mockResolvedValue(1);
+
+		const check = await getPondDeletionCheck("pond-a-1");
+
+		// The deprecated Device table has no cascade, so a pond that still has
+		// one cannot be deleted even though every other blocker is zero.
+		expect(check).toMatchObject({ canDelete: false, blockers: { devices: 1 } });
+	});
+
+	it("refuses deletion when only a legacy Device row remains", async () => {
+		db.pond.findFirst.mockResolvedValue(POND);
+		db.device.count.mockResolvedValue(1);
+
+		const result = await deleteTenantPond({ pondId: "pond-a-1", confirmName: "Pond A One" });
+
+		expect(result).toMatchObject({
+			error: "This pond has data or devices. Archive it instead.",
+			blockers: { devices: 1 },
+		});
+		expect(tx.pond.delete).not.toHaveBeenCalled();
 	});
 
 	it("returns null for another organization's pond", async () => {

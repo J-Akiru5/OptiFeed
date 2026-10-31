@@ -1,7 +1,10 @@
 "use client";
 
+import { mobileStickyActions } from "@/components/mobile/form-actions";
 import { updateScheduleCommand } from "@/lib/actions/schedule";
 import type { UpdateScheduleResult } from "@/lib/actions/schedule";
+import { formatFarmDateTime } from "@/lib/date-local";
+import { cn } from "@/lib/utils";
 import { CheckCircle2, Clock, Loader2, RefreshCw, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
@@ -29,10 +32,6 @@ interface ScheduleEditorProps {
 	canWrite?: boolean;
 }
 
-function fmtTimeFromDate(d: Date): string {
-	return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
-}
-
 function fmtTimeDisplay(hhmm: string): string {
 	const [h, m] = hhmm.split(":").map(Number);
 	const ampm = h >= 12 ? "PM" : "AM";
@@ -52,6 +51,7 @@ export function ScheduleEditor({
 	canWrite = true,
 }: ScheduleEditorProps) {
 	const t = useTranslations("dashboard.schedule");
+	const tDates = useTranslations("dates");
 	const [start, setStart] = useState(initialStart);
 	const [end, setEnd] = useState(initialEnd);
 	const [feedsPerDay, setFeedsPerDay] = useState(initialFeedsPerDay.toString());
@@ -61,12 +61,6 @@ export function ScheduleEditor({
 	const [error, setError] = useState<string | null>(null);
 
 	const hasPendingChanges = pendingCommand !== null;
-	const hasPendingFromDifferentValues =
-		pendingCommand &&
-		(pendingCommand.scheduleStart !== start ||
-			pendingCommand.scheduleEnd !== end ||
-			pendingCommand.feedsPerDay !== Number(feedsPerDay) ||
-			pendingCommand.feedingRatePct !== Number(feedingRate));
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
@@ -227,12 +221,14 @@ export function ScheduleEditor({
 									pendingCommand.feedsPerDay !== Number(feedsPerDay) ||
 									pendingCommand.feedingRatePct !== Number(feedingRate) ? (
 										<span>
-											Pending: {fmtTimeDisplay(pendingCommand.scheduleStart)} -{" "}
-											{fmtTimeDisplay(pendingCommand.scheduleEnd)},{pendingCommand.feedsPerDay}{" "}
-											feeds/day
+											{t("syncPendingValues", {
+												start: fmtTimeDisplay(pendingCommand.scheduleStart),
+												end: fmtTimeDisplay(pendingCommand.scheduleEnd),
+												feeds: pendingCommand.feedsPerDay,
+											})}
 										</span>
 									) : (
-										<span>Same values queued for resync</span>
+										<span>{t("syncPendingSame")}</span>
 									)}
 								</div>
 							)}
@@ -244,8 +240,8 @@ export function ScheduleEditor({
 								<span className="text-green-700 font-semibold dark:text-green-400">
 									{t("syncApplied", {
 										time: latestAppliedCommand.appliedAt
-											? new Date(latestAppliedCommand.appliedAt).toLocaleTimeString()
-											: (latestAppliedCommand.deviceTime ?? "unknown"),
+											? formatFarmDateTime(new Date(latestAppliedCommand.appliedAt), tDates).time
+											: (latestAppliedCommand.deviceTime ?? t("unknownDeviceTime")),
 									})}
 								</span>
 							</div>
@@ -273,7 +269,13 @@ export function ScheduleEditor({
 					</button>
 				</div>
 
-				<div className="flex items-center gap-4">
+				{/* #275: the card clips its overflow, so it is the sticky row's
+				    scrollport and the row's bottom offset pulls it up over the
+				    sync card. This mobile-only spacer gives the row empty space
+				    to cover instead, keeping the sync card fully tappable. */}
+				<div aria-hidden="true" className="h-20 sm:hidden" />
+
+				<div className={cn("flex items-center gap-4", mobileStickyActions)}>
 					<button
 						type="submit"
 						disabled={isPending || !canWrite}

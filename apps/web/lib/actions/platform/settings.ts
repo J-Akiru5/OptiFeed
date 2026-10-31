@@ -8,6 +8,25 @@ import {
 	normalizeStickerRating,
 	stickerRatingInputSchema,
 } from "@/lib/constants/sticker-rating";
+import {
+	DEVICE_OFFLINE_AFTER_MIN_MAX,
+	DEVICE_OFFLINE_AFTER_MIN_MIN,
+	DEVICE_OFFLINE_GRACE_MIN_MAX,
+	DEVICE_OFFLINE_GRACE_MIN_MIN,
+	DEVICE_STATUS_SETTING_KEY,
+	DEVICE_WEAK_AFTER_MIN_MAX,
+	DEVICE_WEAK_AFTER_MIN_MIN,
+	type DeviceStatusSettingValue,
+	normalizeDeviceStatusValue,
+} from "@/lib/device-status";
+import {
+	FIRMWARE_GATES_SETTING_KEY,
+	FIRMWARE_GATE_FIELDS,
+	type FirmwareValues,
+	formatFirmwareValue,
+	isWithinFirmwareField,
+	normalizeFirmwareValues,
+} from "@/lib/firmware/config";
 import prisma from "@/lib/prisma";
 import {
 	LIST_PAGE_SIZE_KEY,
@@ -15,6 +34,7 @@ import {
 	LIST_PAGE_SIZE_MIN,
 	normalizeListPageSize,
 } from "@/lib/settings/platform";
+import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -97,6 +117,199 @@ export async function setListPageSize(
 	revalidatePath("/[locale]/(admin)", "layout");
 	revalidatePath("/[locale]/(superadmin)", "layout");
 
+	return { success: true, value: saved };
+}
+
+/**
+ * Device connectivity thresholds (issue #388).
+ *
+ * Three whole-minute values: when a late heartbeat becomes "weak signal", when
+ * the unit becomes offline, and the grace added on top of the offline window so
+ * one missed beat cannot flip the UI. Stored in `PlatformSetting` under
+ * `device.status`; no schema change. `weakAfterMin` must stay below
+ * `offlineAfterMin`, and every value is inside the same bounds the reader
+ * enforces, so a hand-edited row cannot create an impossible policy.
+ */
+
+const deviceStatusSchema = z
+	.object({
+		weakAfterMin: z.number().int().min(DEVICE_WEAK_AFTER_MIN_MIN).max(DEVICE_WEAK_AFTER_MIN_MAX),
+		offlineAfterMin: z
+			.number()
+			.int()
+			.min(DEVICE_OFFLINE_AFTER_MIN_MIN)
+			.max(DEVICE_OFFLINE_AFTER_MIN_MAX),
+		graceMin: z.number().int().min(DEVICE_OFFLINE_GRACE_MIN_MIN).max(DEVICE_OFFLINE_GRACE_MIN_MAX),
+	})
+	.refine((value) => value.weakAfterMin < value.offlineAfterMin, {
+		message: "The weak-signal window must be shorter than the offline window.",
+		path: ["weakAfterMin"],
+	});
+
+export type DeviceStatusActionResult =
+	| { success: true; value: DeviceStatusSettingValue }
+	| { error: string };
+
+export async function setDeviceStatusThresholds(
+	input: DeviceStatusSettingValue,
+	reason: string,
+): Promise<DeviceStatusActionResult> {
+	await requirePlatformAdmin();
+
+	const parsed = deviceStatusSchema.safeParse(input);
+	if (!parsed.success) {
+		const issue = parsed.error.issues[0];
+		const field = issue?.path.join(".");
+		if (field === "weakAfterMin" && issue?.message.includes("shorter")) {
+			return { error: issue.message };
+		}
+		return {
+			error: `Use whole minutes: weak signal ${DEVICE_WEAK_AFTER_MIN_MIN}–${DEVICE_WEAK_AFTER_MIN_MAX}, offline ${DEVICE_OFFLINE_AFTER_MIN_MIN}–${DEVICE_OFFLINE_AFTER_MIN_MAX}, grace ${DEVICE_OFFLINE_GRACE_MIN_MIN}–${DEVICE_OFFLINE_GRACE_MIN_MAX}.`,
+		};
+	}
+
+	const parsedReason = inputSchema.shape.reason.safeParse(reason);
+	if (!parsedReason.success) {
+		return {
+			error: `A reason of at least ${MIN_REASON_LENGTH} characters is required.`,
+		};
+	}
+
+	const next = normalizeDeviceStatusValue(parsed.data);
+	const actor = await actorContext();
+
+	await prisma.$transaction(async (tx) => {
+		const existing = await tx.platformSetting.findUnique({
+			where: { key: DEVICE_STATUS_SETTING_KEY },
+			select: { value: true },
+		});
+		const before = normalizeDeviceStatusValue(existing?.value);
+
+		await tx.platformSetting.upsert({
+			where: { key: DEVICE_STATUS_SETTING_KEY },
+			create: {
+				key: DEVICE_STATUS_SETTING_KEY,
+				value: next as unknown as Prisma.InputJsonValue,
+				updatedById: actor.id,
+			},
+			update: { value: next as unknown as Prisma.InputJsonValue, updatedById: actor.id },
+		});
+
+		await writePlatformAudit(tx, {
+			actorUserId: actor.id,
+			action: "platform.settings.device_status",
+			targetType: "platform_setting",
+			targetId: DEVICE_STATUS_SETTING_KEY,
+			reason: parsedReason.data,
+			temporaryGrant: actor.temporaryGrant,
+			before: { ...before },
+			after: { ...next },
+		});
+	});
+
+	revalidatePath("/[locale]/(superadmin)", "layout");
+	revalidatePath("/[locale]/(admin)", "layout");
+	revalidatePath("/[locale]/(dashboard)", "layout");
+	return { success: true, value: next };
+}
+
+/**
+ * Firmware feed-safety gates (I-100).
+ *
+ * The values a platform admin may move inside the firmware's absolute envelope:
+ * the minimum dispense gap, doses per rolling hour, the safe-mode window /
+ * threshold / quiet period / healthy-clear window and the post-brownout hold.
+ * Stored in `PlatformSetting` under `firmware.gates`; no schema change.
+ *
+ * Only editable gate fields are accepted. Every value must be inside the same
+ * `min`/`max` the firmware enforces (a fractional value in a whole-number field
+ * is refused), the required reason is recorded, and one `PlatformAuditLog` row
+ * carries the before/after values in the same transaction as the upsert.
+ * Non-gate values already stored (OTA, calibration, button guard) are preserved.
+ */
+export type FirmwareGatesInput = Record<string, number>;
+
+export type FirmwareGatesActionResult =
+	| { success: true; value: FirmwareValues }
+	| { error: string };
+
+export async function setFirmwareGates(
+	input: FirmwareGatesInput,
+	reason: string,
+): Promise<FirmwareGatesActionResult> {
+	await requirePlatformAdmin();
+
+	if (typeof input !== "object" || input === null || Array.isArray(input)) {
+		return { error: "The safety gate values are invalid." };
+	}
+
+	const editable = new Map(FIRMWARE_GATE_FIELDS.map((field) => [field.id, field]));
+	for (const [id, value] of Object.entries(input)) {
+		const field = editable.get(id);
+		if (!field) {
+			return { error: `${id} is not a configurable firmware gate.` };
+		}
+		if (!isWithinFirmwareField(field, value)) {
+			return {
+				error: `${field.id} must be ${field.integer ? "a whole number" : "a number"} from ${formatFirmwareValue(field.min)} to ${formatFirmwareValue(field.max)}.`,
+			};
+		}
+	}
+
+	const parsedReason = inputSchema.shape.reason.safeParse(reason);
+	if (!parsedReason.success) {
+		return {
+			error: `A reason of at least ${MIN_REASON_LENGTH} characters is required.`,
+		};
+	}
+
+	const actor = await actorContext();
+
+	const saved = await prisma.$transaction(async (tx) => {
+		const existing = await tx.platformSetting.findUnique({
+			where: { key: FIRMWARE_GATES_SETTING_KEY },
+			select: { value: true },
+		});
+		const before = normalizeFirmwareValues(existing?.value);
+		const after: FirmwareValues = { ...before };
+		for (const [id, value] of Object.entries(input)) {
+			after[id] = value;
+		}
+
+		await tx.platformSetting.upsert({
+			where: { key: FIRMWARE_GATES_SETTING_KEY },
+			create: {
+				key: FIRMWARE_GATES_SETTING_KEY,
+				value: after as unknown as Prisma.InputJsonValue,
+				updatedById: actor.id,
+			},
+			update: {
+				value: after as unknown as Prisma.InputJsonValue,
+				updatedById: actor.id,
+			},
+		});
+
+		const changed = Object.fromEntries(
+			Object.keys(input)
+				.filter((id) => before[id] !== after[id])
+				.map((id) => [id, { before: before[id], after: after[id] }]),
+		);
+
+		await writePlatformAudit(tx, {
+			actorUserId: actor.id,
+			action: "platform.settings.firmware_gates",
+			targetType: "platform_setting",
+			targetId: FIRMWARE_GATES_SETTING_KEY,
+			reason: parsedReason.data,
+			temporaryGrant: actor.temporaryGrant,
+			before: { gates: changed },
+			after: { gates: Object.fromEntries(Object.keys(input).map((id) => [id, after[id]])) },
+		});
+
+		return after;
+	});
+
+	revalidatePath("/[locale]/(superadmin)", "layout");
 	return { success: true, value: saved };
 }
 

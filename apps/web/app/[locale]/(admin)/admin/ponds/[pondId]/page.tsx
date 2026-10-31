@@ -1,16 +1,22 @@
+import { DeviceDailyCapForm } from "@/components/DeviceDailyCapForm";
 import { AddFeederForm } from "@/components/admin/add-feeder-form";
 import { adminButtonSecondary, adminSurface } from "@/components/admin/admin-classes";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { MoveDeviceForm, UnassignDeviceButton } from "@/components/admin/pond-device-actions";
 import { PondStatusToggle } from "@/components/admin/pond-status-toggle";
+import { DeviceSignalReading } from "@/components/device-signal";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
+import { FeederHero } from "@/components/feeder/feeder-hero";
 import { Link } from "@/i18n/routing";
+import { adminUpdateDeviceDailyCap } from "@/lib/actions/admin";
 import { getTenantRegistrationOptions } from "@/lib/actions/device-registration";
 import { getPondDetail } from "@/lib/actions/ponds";
 import { hasPermission } from "@/lib/auth/permissions";
 import { daysBetween, todayDateOnly, utcDateToDateOnly } from "@/lib/crop-cycle/dates";
 import { formatDateTimeLocal } from "@/lib/date-local";
-import { isDeviceOffline } from "@/lib/feed-level-display";
+import { evaluateDeviceStatus, resolveRssiDbm } from "@/lib/device-status";
+import { loadFeederHero } from "@/lib/feeder-hero";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { ArrowLeft, Cpu, Droplets, Pencil, Printer, Trash2 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -53,13 +59,14 @@ export default async function PondDetailPage({
 	params: Promise<{ pondId: string }>;
 }) {
 	const { pondId } = await params;
-	const [detail, canClaim, canManage, t, tCommon, tDates] = await Promise.all([
+	const [detail, canClaim, canManage, t, tCommon, tDates, statusPolicy] = await Promise.all([
 		getPondDetail(pondId),
 		hasPermission("claim_feeder"),
 		hasPermission("manage_farms_ponds"),
 		getTranslations("dashboard.adminPondDetail"),
 		getTranslations("dashboard.adminCommon"),
 		getTranslations("dates"),
+		getDeviceStatusPolicy(),
 	]);
 
 	if (!detail) notFound();
@@ -73,6 +80,24 @@ export default async function PondDetailPage({
 	const labelsPath = "/admin/devices/labels";
 	const cycleDay = cycle
 		? Math.max(0, daysBetween(utcDateToDateOnly(cycle.stockingDate), todayDateOnly()) + 1)
+		: null;
+
+	// The hero summarises the pond's primary feeder (task I-29). Every read is
+	// bounded to this pond and device; without a device there is nothing to show.
+	const primaryDevice = pond.energyDevices[0] ?? null;
+	const feederHero = primaryDevice
+		? await loadFeederHero({
+				pond: {
+					id: pond.id,
+					isFallow: pond.isFallow,
+					population: pond.population,
+					feedingRatePct: pond.feedingRatePct,
+					feedsPerDay: pond.feedsPerDay,
+					scheduleStart: pond.scheduleStart,
+					scheduleEnd: pond.scheduleEnd,
+				},
+				deviceId: primaryDevice.id,
+			})
 		: null;
 
 	return (
@@ -126,6 +151,8 @@ export default async function PondDetailPage({
 					</span>
 				</div>
 			</AdminPageHeader>
+
+			{feederHero && <FeederHero pondName={pond.name} {...feederHero} />}
 
 			<section aria-labelledby="pond-overview" className={`${adminSurface} p-4 sm:p-6`}>
 				<h2 id="pond-overview" className="text-lg font-black text-[#0A3D62] dark:text-[#8fc0ea]">
@@ -253,7 +280,18 @@ export default async function PondDetailPage({
 				) : (
 					<ul className="mt-4 space-y-3">
 						{pond.energyDevices.map((device) => {
-							const offline = isDeviceOffline(device.lastSeenAt);
+							const rssiDbm = resolveRssiDbm({
+								rssiDbm: device.wifiRssiDbm,
+								updatedAt: device.wifiRssiUpdatedAt,
+								policy: statusPolicy,
+							});
+							const connection = evaluateDeviceStatus({
+								lastSeenAt: device.lastSeenAt,
+								policy: statusPolicy,
+								rssiDbm,
+							});
+							const offline = connection.isOffline;
+							const weak = connection.isWeak;
 							return (
 								<li
 									key={device.id}
@@ -268,6 +306,14 @@ export default async function PondDetailPage({
 											<p className="mt-1 text-[11px] font-bold text-[#3D5568] dark:text-gray-400">
 												{t("deviceGrams", { grams: device.gramsPerFeeding })}
 											</p>
+											<div className="mt-3">
+												<DeviceDailyCapForm
+													deviceId={device.id}
+													currentCapG={device.dailyCapG}
+													saveAction={adminUpdateDeviceDailyCap}
+													canWrite={canManage}
+												/>
+											</div>
 											<p className="mt-1 text-[11px] text-[#3D5568] dark:text-gray-400">
 												{t("deviceLastSeen")}:{" "}
 												{device.lastSeenAt
@@ -280,11 +326,17 @@ export default async function PondDetailPage({
 												className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black tracking-wider uppercase ${
 													offline
 														? "bg-red-100 text-[#C42B3A] dark:bg-red-950/50 dark:text-red-300"
-														: "bg-green-100 text-[#1E7B34] dark:bg-green-950/50 dark:text-green-300"
+														: weak
+															? "bg-amber-100 text-[#9A3412] dark:bg-amber-950/50 dark:text-amber-300"
+															: "bg-green-100 text-[#1E7B34] dark:bg-green-950/50 dark:text-green-300"
 												}`}
 											>
-												{offline ? tCommon("offline") : tCommon("online")}
+												{offline ? tCommon("offline") : weak ? tCommon("weak") : tCommon("online")}
 											</span>
+											<DeviceSignalReading
+												rssiDbm={rssiDbm}
+												className="text-[11px] font-bold text-[#3D5568] dark:text-gray-400"
+											/>
 											<span className="inline-flex rounded-full bg-[#0A3D62]/10 px-2.5 py-1 text-[10px] font-black tracking-wider text-[#0A3D62] uppercase dark:bg-white/10 dark:text-[#8fc0ea]">
 												{t(`approval.${device.approvalStatus}`)}
 											</span>

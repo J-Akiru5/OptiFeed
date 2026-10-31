@@ -381,7 +381,7 @@ export function FeedingPredictionCard({
 							</p>
 						</div>
 						<Link
-							href="/dashboard/harvest"
+							href="/dashboard/calendar"
 							className="inline-flex shrink-0 items-center gap-1 text-[10px] font-bold text-[#0A3D62] hover:underline dark:text-[#5b9bd5]"
 						>
 							{t("cycle.openCalendar")} <ArrowRight className="h-3 w-3" />
@@ -389,7 +389,7 @@ export function FeedingPredictionCard({
 					</div>
 				) : hasValue ? (
 					<Link
-						href="/dashboard/harvest"
+						href="/dashboard/calendar"
 						className="inline-flex items-center gap-1.5 self-start rounded-full bg-[#0A3D62]/5 px-3 py-1.5 text-[10px] font-bold text-[#0A3D62] transition-colors hover:bg-[#0A3D62]/10 dark:bg-white/5 dark:text-[#5b9bd5] dark:hover:bg-white/10"
 					>
 						<Wheat className="h-3 w-3" />

@@ -77,6 +77,7 @@
 		"history": "History",
 		"growth": "Growth",
 		"harvest": "Harvest",
+		"calendar": "Calendar & Harvest",
 		"settings": "Settings",
 		"notifications": "Notifications",
 		"audit": "Audit Trail",
@@ -84,8 +85,150 @@
 		"hopperLevel": "Hopper level",
 		"pondFeedPellet": "Pond Feed Pellet",
 		"hopperRemaining": "Approx. {kg}kg remaining. Enough for {count} scheduled feedings.",
+		"viewHopperLevel": "View hopper level history",
 		"deviceOffline": "Offline",
-		"navLabel": "Main navigation"
+		"navLabel": "Main navigation",
+		"overview": "Overview",
+		"alerts": "Alerts",
+		"me": "Me"
+	},
+	"search": {
+		"trigger": "Search",
+		"triggerLabel": "Search everything (Ctrl+K or Command+K)",
+		"dialogTitle": "Search",
+		"placeholder": "Search pages, settings, ponds, devices, members and records",
+		"resultsLabel": "Search results",
+		"resultsCount": "{count, plural, one {# result} other {# results}}",
+		"loading": "Searching…",
+		"unavailable": "Search is unavailable right now.",
+		"close": "Close search",
+		"suggested": "Suggested for you",
+		"noResults": "Nothing matches “{query}”.",
+		"hintMove": "to move",
+		"hintOpen": "to open",
+		"hintClose": "to close",
+		"groups": {
+			"pages": "Pages",
+			"settings": "Settings",
+			"ponds": "Ponds",
+			"devices": "Devices",
+			"members": "Members",
+			"records": "Records"
+		},
+		"status": {
+			"archived": "Archived",
+			"pending": "Awaiting approval",
+			"unassigned": "Unassigned"
+		},
+		"pages": {
+			"members": "Members",
+			"createUser": "Create user"
+		},
+		"records": {
+			"feedEvent": "Feed event"
+		},
+		"settings": {
+			"pondFeedingRate": {
+				"title": "Daily feeding rate",
+				"description": "Percentage of pond biomass fed per day."
+			},
+			"pondFeedsPerDay": {
+				"title": "Feeds per day",
+				"description": "How many meals the feeder dispenses in a day."
+			},
+			"pondSampleInterval": {
+				"title": "Sample interval",
+				"description": "How often fish samples are taken, in days."
+			},
+			"pondPopulation": {
+				"title": "Population",
+				"description": "Fish count used for biomass and the daily feed."
+			},
+			"pondArea": {
+				"title": "Pond area",
+				"description": "Surface area in square metres, used for stocking density."
+			},
+			"pondDepth": {
+				"title": "Average depth",
+				"description": "Average water depth in metres."
+			},
+			"pondFeedPrice": {
+				"title": "Feed price",
+				"description": "Feed price per kilogram, used to estimate feed cost."
+			},
+			"feedingSchedule": {
+				"title": "Feeding schedule",
+				"description": "The window in which the feeder dispenses meals."
+			},
+			"dailyFeedCeiling": {
+				"title": "Daily feed ceiling",
+				"description": "The most feed one feeder may dispense in a day."
+			},
+			"perMealCeiling": {
+				"title": "Per-meal feed ceiling",
+				"description": "The most feed one meal may dispense, set by the relay window and calibration."
+			},
+			"calibration": {
+				"title": "Feeder calibration",
+				"description": "Grams per second, the guided test and the target check."
+			},
+			"hopperCalibration": {
+				"title": "Hopper calibration",
+				"description": "Full and empty sensor distances for the hopper."
+			},
+			"hopperCapacity": {
+				"title": "Hopper capacity",
+				"description": "How much feed the hopper holds when full."
+			},
+			"recalibrationInterval": {
+				"title": "Recalibration interval",
+				"description": "Days between calibration reminders for this feeder."
+			},
+			"temperatureCalibration": {
+				"title": "Temperature calibration",
+				"description": "Water temperature offset for the probe."
+			},
+			"notifications": {
+				"title": "Notification preferences",
+				"description": "Which alerts you receive: missed feeding, offline and low hopper."
+			},
+			"orgDefaultFeedingRate": {
+				"title": "Default feeding rate",
+				"description": "The feeding rate given to new ponds in this organization."
+			},
+			"orgLowHopper": {
+				"title": "Low-hopper threshold",
+				"description": "Hopper level that raises a low-hopper alert."
+			},
+			"orgOfflineThreshold": {
+				"title": "Offline alert delay (deprecated)",
+				"description": "Not used for timing any more. Offline alerts and badges follow the platform device connectivity policy."
+			},
+			"orgMissedFeeding": {
+				"title": "Missed-feeding alerts",
+				"description": "Whether a missed feeding raises an alert for this organization."
+			},
+			"orgDeviceRegistration": {
+				"title": "Device registration",
+				"description": "Whether new feeders need admin approval or may self-register."
+			},
+			"platformPageSize": {
+				"title": "List page size",
+				"description": "Rows per page on every list in the app."
+			},
+			"platformSafetyCaps": {
+				"title": "Feeding safety caps",
+				"description": "Relay-time and daily-allowance ceilings for the whole platform."
+			},
+			"platformOrgDefaults": {
+				"title": "Organization defaults",
+				"description": "Starting settings for new organizations."
+			},
+			"platformFeatureFlags": {
+				"title": "Feature flags",
+				"description": "Turn platform features on or off."
+			}
+		}
 	},
 	"button": {
 		"feedNow": "Feed Now",
@@ -178,6 +321,9 @@
 		"views3": "FCR trend: cumulative feed against biomass gained",
 		"hardwareTitle": "Hardware",
 		"hardwareDesc": "Low-cost, locally replaceable parts.",
+		"feederModelLabel": "Study feeder ? 3D model",
+		"feederAlt": "Transparent studio render of the study feeder with its clear hopper jar, controller enclosure, motor and auger outlet.",
+		"feederCaption": "Rendered from the study feeder's 3D model. Research prototype; not a live reading.",
 		"hwColPart": "Component",
 		"hwColRole": "Role",
 		"hw1Part": "ESP32 DevKit V1",
@@ -411,8 +557,40 @@
 			"lastUpdated": "Last updated",
 			"empty": "Empty",
 			"low": "Low",
+			"lowRefill": "Low: refill soon",
 			"ok": "OK",
 			"noData": "No data"
+		},
+		"feederHero": {
+			"eyebrow": "Live monitoring",
+			"label": "Feeder overview for {pond}",
+			"statusOnline": "Online",
+			"statusOffline": "Offline",
+			"lastSeen": "Last seen {date}, {time}",
+			"neverConnected": "Never connected",
+			"calloutsLabel": "Feeder readings",
+			"hopperLabel": "Hopper level",
+			"fedTodayLabel": "Feed dispensed today",
+			"gramsValue": "{grams} g",
+			"sinceMidnight": "Since midnight",
+			"nextFeedLabel": "Next scheduled feed",
+			"nextFeedPaused": "Schedule paused",
+			"nextFeedOn": "On {date}",
+			"nextFeedToday": "Today",
+			"nextFeedTomorrow": "Tomorrow",
+			"waterLabel": "Water temperature",
+			"waterValue": "{temp} °C",
+			"waterUnavailable": "Probe not detected",
+			"connectionLabel": "Device status",
+			"firmwareLabel": "Firmware",
+			"firmwareUnknown": "Not reported yet",
+			"photoAlt": "The pond-side automatic feeder",
+			"advisorTitle": "AI Feed Advisor",
+			"advisorGrams": "{grams} g per meal",
+			"advisorConfidence": "{level} confidence",
+			"advisorEmpty": "Not enough data for a recommendation yet.",
+			"advisorLink": "Open the full advisor",
+			"statusWeak": "Weak signal"
 		},
 		"home": {
 			"noData": "No pond is assigned yet. Ask your administrator to set one up.",
@@ -505,12 +683,23 @@
 				},
 				"charts": {
 					"feedTitle": "Feed per day",
-					"feedSummary": "Grams dispensed per day over the last 30 days, {total} in total.",
+					"feedSummary": "Grams recorded per day over the last 30 days, {total} in total. Hand-fed rows are daily totals.",
 					"hopperTitle": "Hopper level",
 					"hopperSummary": "Average hopper level per day over the last 7 days, latest {latest}.",
 					"hopperEmpty": "No hopper readings yet."
+				},
+				"connection": {
+					"online": "Online",
+					"weak": "Weak signal",
+					"offline": "Offline"
 				}
-			}
+			},
+			"greetingNextFeeding": "Next feeding at {time}",
+			"greetingPaused": "Feeding is paused — resume it on the Schedule page.",
+			"lowHopperPopupTitle": "Feed level is low ({percent}%).",
+			"lowHopperPopupBody": "Please refill before tomorrow.",
+			"lowHopperPopupGotIt": "Got it",
+			"lowHopperPopupDismiss": "Dismiss reminder"
 		},
 		"schedule": {
 			"title": "Feeding Schedule",
@@ -541,10 +730,14 @@
 			"syncApplied": "Applied at {time}",
 			"syncFailed": "Device did not confirm",
 			"syncNone": "No pending changes",
+			"syncPendingValues": "Pending: {start} – {end}, {feeds} feeds/day",
+			"syncPendingSame": "Same values queued for resync",
+			"unknownDeviceTime": "unknown",
 			"forceResync": "Force Resync",
 			"saved": "Changes saved!",
 			"error": "Failed to save changes",
 			"feedDurationHint": "This feed: {grams}g ≈ {seconds}s",
+			"controlsLabel": "Feeder status and controls",
 			"stuckBanner": {
 				"offlineTitle": "Device Offline",
 				"offlineDesc": "Your device has been offline since {time}. Feed requests are rejected while it is offline; schedule changes are saved and still apply when it reconnects.",
@@ -555,7 +748,8 @@
 				"stuckScheduleTitle": "Unconfirmed Schedule Change",
 				"stuckScheduleDesc": "A schedule change from {time} was sent to your device but never confirmed applied.",
 				"retryFeed": "Retry Feed Now",
-				"checkDevice": "Check Device"
+				"checkDevice": "Check Device",
+				"unknownTime": "unknown"
 			},
 			"noDeviceTitle": "No feeder paired",
 			"noDeviceDesc": "Pair a feeder controller to this pond before setting a schedule."
@@ -613,15 +807,26 @@
 			"noBatchesTitle": "No saved sampling batches yet",
 			"noBatchesDesc": "A sampling batch groups the samples you log under the same label.",
 			"formLabel": "Log a biomass sample",
-			"batchesLabel": "Saved sampling batches"
+			"batchesLabel": "Saved sampling batches",
+			"howCalculatedTitle": "How it's calculated",
+			"howBiomass": "Total biomass = fish count × average body weight.",
+			"howDailyFeed": "Daily feed = total biomass × feeding rate.",
+			"howPerMeal": "Feed per meal = daily feed ÷ feeds per day."
 		},
 		"history": {
 			"amount": "AMOUNT",
 			"date": "{date}",
 			"title": "Feeding History",
 			"desc": "Recent feeding events for {pond}",
-			"recentDispensed": "Recent Feed Dispensed",
-			"sourceBreakdown": "By Source",
+			"lastFeedLabel": "Last feed",
+			"lastFeedDetail": "{source} · {date}, {time}",
+			"lastFeedNone": "No machine dispense yet",
+			"dispensedTodayLabel": "Dispensed today",
+			"dispensedTodayDetail": "{count, plural, one {# record} other {# records}} · all sources · since midnight (Asia/Manila)",
+			"last7DaysLabel": "Last 7 days",
+			"last7DaysDetail": "{average} per day average · {count, plural, one {# record} other {# records}} · all sources",
+			"sourceBreakdown": "By source · last {days} days",
+			"dailyTotals": "(daily totals)",
 			"source_scheduled": "Scheduled",
 			"source_dashboard": "Dashboard",
 			"source_button": "Button",
@@ -640,8 +845,8 @@
 			"emptyDesc": "Dispenses appear here as soon as the feeder confirms them.",
 			"charts": {
 				"label": "Feeding charts",
-				"feedTitle": "Feed dispensed per day",
-				"feedSummary": "Feed dispensed over the last {days} days, split by source: {total} in total.",
+				"feedTitle": "Feed per day",
+				"feedSummary": "Feed recorded per day over the last {days} days, split by source: {total} in total. Hand-fed rows are daily totals.",
 				"feedEmpty": "No feed has been dispensed in the last {days} days.",
 				"hopperTitle": "Hopper level",
 				"hopperSummary": "Average hopper level over the last {days} days: {points} daily readings, latest {latest}%.",
@@ -650,7 +855,7 @@
 				"range30": "30 days",
 				"hopperEmpty": "No hopper readings in the last {days} days."
 			},
-			"source_hand_fed": "Precision feeding (hand-fed, data sheet)",
+			"source_hand_fed": "Precision feeding (hand-fed, daily total)",
 			"source_other": "Other"
 		},
 		"feedNowModal": {
@@ -658,7 +863,7 @@
 			"triggerDesc": "This will send an immediate auger motor manual override request of <bold>{volume}</bold> directly to the physical ESP32 automatic feeder controller.",
 			"feederNode": "📍 Feeder Node: <bold>{name}</bold>",
 			"connectionLink": "📍 Connection Link: ",
-			"connected": "Connected • RSSI −58dB",
+			"connected": "Connected",
 			"offline": "Offline",
 			"feedPortion": "📍 Feed Portion: <bold>{volume} of 4mm pellets</bold>",
 			"requestSent": "Feed request sent — device will dispense within 5s",
@@ -669,8 +874,15 @@
 			"fallowWarning": "This pond is fallow after harvest. Start the next grow-out cycle before feeding.",
 			"hopperLow": "Hopper level is low ({level}%). Consider refilling soon.",
 			"hopperCritical": "Hopper level is critically low ({level}%)! Refill to avoid missed feedings.",
+			"limitHint": "Feed Now limit: {limit} g ({reason}).",
+			"limitInputHint": "Enter at most {limit} g — today's remaining daily ceiling.",
+			"limitReasonDaily": "remaining daily ceiling",
+			"changeInSettings": "Change it in Settings > Pond or the device daily ceiling in Settings > Hardware.",
+			"limitClamped": "Sending {grams}, capped by today's remaining daily ceiling.",
 			"error": "Failed to trigger manual feed.",
-			"durationHint": "≈ {seconds}s dispense"
+			"durationHint": "≈ {seconds}s dispense",
+			"weakSignal": "Weak signal",
+			"weakSignalWarning": "Weak signal. The feeder is still reachable, but this command may take a little longer."
 		},
 		"growth": {
 			"title": "Growth & FCR",
@@ -715,6 +927,16 @@
 			"fishCountBadge": "{count} fish",
 			"sampleWeightCol": "Weight",
 			"sampleLengthCol": "Length",
+			"sgrTitle": "Specific Growth Rate",
+			"sgrOverall": "Overall since first sampling",
+			"sgrAverageGain": "Average daily gain",
+			"sgrUnit": "%/day",
+			"sgrExplain": "How fast the fish gain weight each day, as a percentage of their body weight.",
+			"sgrReasons": {
+				"insufficientSamples": "Log at least two samplings to see SGR.",
+				"invalidWeight": "SGR needs a positive average body weight in both samplings.",
+				"intervalTooShort": "SGR needs samplings at least one day apart."
+			},
 			"history": {
 				"title": "Growth history",
 				"desc": "Full feed level, growth and biomass records for {pond}",
@@ -733,6 +955,7 @@
 				},
 				"columns": {
 					"avgWeight": "Avg Weight (g)",
+					"sgr": "SGR (%/day)",
 					"weightGain": "Weight Gain (g)",
 					"lengthGain": "Length Gain (cm)",
 					"daysSince": "Days Since Last"
@@ -809,7 +1032,20 @@
 				"fcr": "FCR {fcr}",
 				"density": "{density} fish/m²",
 				"densityHigh": "Density {density}/m² — check aeration.",
-				"densityUnknown": "Add pond area in Settings for density."
+				"densityUnknown": "Add pond area in Settings for density.",
+				"sourceCalculator": "Calculator target",
+				"biomassTitle": "Harvest biomass",
+				"targetBiomass": "Target at harvest",
+				"currentBiomass": "Current biomass",
+				"expectedBiomass": "Expected today",
+				"biomassGap": "Gap to target",
+				"projectedBiomass": "Projected at harvest",
+				"projectedGap": "Projected gap",
+				"savedTargetHint": "This target came from the feed calculator and is mirrored into the cycle target. Remove it to clear both.",
+				"clearTarget": "Remove target",
+				"clearingTarget": "Removing...",
+				"targetCleared": "Growth target removed. The cycle target was cleared too.",
+				"targetClearError": "Could not remove the growth target."
 			},
 			"prediction": {
 				"eyebrow": "AI Feed Advisor",
@@ -969,14 +1205,27 @@
 				"truncated": "This range has more events than can be shown. Narrow the dates or hide feeding events.",
 				"dateRangeError": "The harvest date must stay between 30 and 365 days after stocking.",
 				"rescheduled": "Event rescheduled.",
+				"rescheduledTask": "Task rescheduled.",
 				"rescheduleConfirm": "Move this cycle's harvest date?",
 				"today": "Today",
 				"month": "Month",
 				"week": "Week",
+				"day": "Day",
 				"list": "List",
+				"agenda": "Agenda",
 				"noEvents": "No events in this range.",
 				"eventsLabel": "Pond calendar",
+				"readOnlyReason": "Your role cannot edit calendar events.",
+				"allPondsEditHint": "Choose a single pond to add an event.",
 				"recurringChangeConfirm": "Change the whole repeating series? Choose Cancel to keep it as it was."
+			},
+			"calendarPage": {
+				"title": "Calendar & Harvest",
+				"desc": "The grow-out cycle and every pond event, on one calendar.",
+				"readOnlyPond": "read-only",
+				"readOnlyHint": "This pond belongs to another farm in your organization. Its events are visible but read-only.",
+				"readOnlyEvent": "This event belongs to another farm and is read-only.",
+				"readOnlyTask": "This task belongs to another farm and is read-only."
 			},
 			"filters": {
 				"harvest": "Harvest",
@@ -995,6 +1244,7 @@
 			"upcoming": {
 				"title": "Upcoming events",
 				"next": "Next {count}",
+				"loading": "Loading upcoming events…",
 				"empty": "No upcoming events in this range.",
 				"listLabel": "Upcoming events"
 			},
@@ -1050,7 +1300,16 @@
 				"saving": "Saving…",
 				"cancel": "Cancel",
 				"successCreate": "Grow-out cycle started.",
-				"successUpdate": "Grow-out plan updated."
+				"successUpdate": "Grow-out plan updated.",
+				"targetConflictTitle": "A saved calculator target already exists",
+				"targetConflictDesc": "The plan for this pond uses {saved} g from the feed calculator. You changed the cycle target to {next} g. Choose which one to keep before saving.",
+				"targetConflictDescEmpty": "The plan for this pond uses {saved} g from the feed calculator. You cleared the cycle target. Choose which one to keep before saving.",
+				"targetConflictReplace": "Replace calculator target",
+				"targetConflictReplaceHint": "Replace it with the cycle value. The calculator and the cycle target both become {next} g.",
+				"targetConflictReplaceClearHint": "Clear the calculator target and the cycle target.",
+				"targetConflictKeep": "Keep calculator target",
+				"targetConflictKeepHint": "Keep {saved} g as the plan target. The cycle target is set back to {saved} g.",
+				"targetConflictCancel": "Cancel"
 			},
 			"harvestForm": {
 				"title": "Record harvest",
@@ -1073,8 +1332,13 @@
 			"eventForm": {
 				"titleNew": "Add pond event",
 				"titleEdit": "Edit pond event",
+				"titleNewTask": "Add task",
+				"titleEditTask": "Edit task",
+				"editEvent": "Edit event",
+				"editTask": "Edit task",
 				"desc": "Maintenance, pond work, or any other dated note.",
 				"type": "Event type",
+				"typeTask": "Task type",
 				"typeMaintenance": "Maintenance",
 				"typeOther": "Other",
 				"title": "Title",
@@ -1084,14 +1348,20 @@
 				"notes": "Notes",
 				"notesPlaceholder": "Optional details.",
 				"save": "Save event",
+				"saveTask": "Save task",
 				"saving": "Saving…",
 				"cancel": "Cancel",
 				"delete": "Delete",
 				"deleteConfirm": "Delete this pond event?",
+				"deleteConfirmTask": "Delete this task?",
 				"successCreate": "Pond event added.",
+				"successCreateTask": "Task added.",
 				"successUpdate": "Pond event updated.",
+				"successUpdateTask": "Task updated.",
 				"successDelete": "Pond event deleted.",
+				"successDeleteTask": "Task deleted.",
 				"descPond": "Event or task for {pond}.",
+				"descPondTask": "Task for {pond}.",
 				"kind": "Item type",
 				"kindEvent": "Event",
 				"kindTask": "Task",
@@ -1185,7 +1455,48 @@
 			"populationPlaceholder": "e.g. 200",
 			"areaPlaceholder": "e.g. 500",
 			"depthPlaceholder": "e.g. 1.5",
-			"feedPricePlaceholder": "e.g. 30"
+			"feedPricePlaceholder": "e.g. 30",
+			"derivedTitle": "Derived from pond settings",
+			"derivedDaily": "Daily feed",
+			"derivedPerMeal": "Per meal",
+			"derivedDeviceCeiling": "Device ceiling",
+			"derivedDeviceMaxDose": "Max dose per meal",
+			"derivedHint": "These numbers come from the feeding rate, population and your latest sample. They are what the feeder will dispense.",
+			"derivedNoBiomass": "Add a sampling batch (average body weight) to see the grams these settings produce.",
+			"errorSummaryTitle": "Fix these before saving",
+			"errorSummaryHint": "Your values are kept. Open a setting to correct it.",
+			"restoredDraft": "Restored the values you had not saved yet.",
+			"restoredDraftAt": "Restored your unsaved changes ({time}).",
+			"discardDraft": "Discard draft",
+			"draftDiscarded": "Unsaved changes discarded.",
+			"conflicts": {
+				"dailyTitle": "Daily feed is above the device ceiling",
+				"relayTitle": "One meal is longer than the relay window",
+				"pondWins": "Pond settings win. The feeder must follow this pond, so change the device setting below.",
+				"suggestedFeeds": "Increasing feeds per day to {count} would fit the window.",
+				"aboveHardMax": "The pond needs more than the hard safety maximum of {max} per day. Lower the feeding rate or population.",
+				"platformCap": "A platform safety cap sets this ceiling; a platform admin has to raise it.",
+				"hopperCap": "The calibrated hopper capacity is the ceiling; recalibrate the hopper to hold more.",
+				"usePondValue": "Use pond value ({value})",
+				"usePondValueDone": "Device ceiling set to {value} per day.",
+				"openSetting": "Open the device setting"
+			},
+			"errors": {
+				"rateMin": "Feeding rate must be at least 0.1%.",
+				"rateMax": "Feeding rate cannot exceed 10%.",
+				"feedsMin": "At least one feed per day.",
+				"feedsMax": "At most 24 feeds per day.",
+				"intervalMin": "At least 1 day.",
+				"intervalMax": "At most 90 days.",
+				"populationMin": "Population must be at least 1.",
+				"populationMax": "Population is too large.",
+				"areaInvalid": "Enter a pond area greater than 0.",
+				"depthInvalid": "Enter a depth greater than 0.",
+				"priceInvalid": "Enter a feed price of 0 or more.",
+				"invalidNumber": "Enter a number.",
+				"deviceDailyCeiling": "The pond needs {pond}/day, above the device ceiling of {device}/day.",
+				"deviceRelayTime": "One meal is {pond}, longer than the {device} the feeder can run in one relay window."
+			}
 		},
 		"profileSettings": {
 			"title": "Profile Settings",
@@ -1354,7 +1665,54 @@
 				"VIEWER": "Viewer"
 			}
 		},
+		"feederViewer": {
+			"viewerLabel": "Feeder 3D",
+			"canvasLabel": "Interactive 3D model of {label}. Drag to orbit and use the preset buttons to change the view.",
+			"statusIdle": "Idle",
+			"statusDispensing": "Dispensing",
+			"statusPaused": "Paused",
+			"statusOffline": "Offline",
+			"hopperLevel": "Hopper level",
+			"lastFed": "Last fed",
+			"noReading": "No reading yet",
+			"presetsLabel": "Camera presets",
+			"presetIso": "Iso",
+			"presetFront": "Front",
+			"presetLeft": "Left",
+			"presetRight": "Right",
+			"presetRear": "Rear",
+			"presetTop": "Top",
+			"simpleView": "Simple view",
+			"modelVersion": "Model",
+			"statusAnnouncement": "Feeder status: {status}",
+			"isoLabelsTip": "Component labels appear only when the model is in the Isometric view. Iso is locked; choose another view to orbit.",
+			"back": "Back to dashboard",
+			"desc": "Live 3D view of the feeder on {pond}.",
+			"detailsLabel": "Device details",
+			"perFeeding": "Per feeding",
+			"rtc": "RTC",
+			"rtcOk": "OK",
+			"rtcUnknown": "No RTC",
+			"deviceMac": "Device ID (MAC)",
+			"openViewer": "Open 3D view",
+			"componentHopper": "Hopper",
+			"componentSensor": "Ultrasonic sensor",
+			"componentController": "Controller",
+			"componentMotor": "Motor",
+			"componentAuger": "Auger",
+			"componentOutlet": "Outlet",
+			"componentLive": "Live",
+			"componentLastKnown": "Last known",
+			"componentOnline": "Online",
+			"componentRunning": "Running",
+			"componentReady": "Ready",
+			"componentNoReading": "No reading",
+			"componentReading": "Reading",
+			"componentsTitle": "Components",
+			"statusWeak": "Weak signal"
+		},
 		"adminDevices": {
+			"view3d": "3D view",
 			"deviceIdMac": "Device ID (MAC)",
 			"deviceIdMacHint": "The Device ID the setup portal asks for.",
 			"tokenColumn": "Device token",
@@ -1379,6 +1737,7 @@
 			"columnFeedLevel": "Feed level",
 			"columnLastSeen": "Last seen",
 			"perFeeding": "{grams} g per feeding",
+			"perFeedingLabel": "Per feeding",
 			"emptyTitle": "No devices registered yet.",
 			"emptyDesc": "Devices appear here once a feeder is provisioned and claimed.",
 			"caption": "Devices in your organization",
@@ -1417,6 +1776,8 @@
 			"back": "Back to devices",
 			"print": "Print / save as PDF",
 			"count": "{count, plural, one {# sticker} other {# stickers}}",
+			"emptyTitle": "No devices to print yet.",
+			"emptyDesc": "Once a feeder is added to a pond, its sticker sheet appears here.",
 			"verifyTitle": "Check before you print.",
 			"verifyIntro": "Only the blower current is read from a label. The gear motor, speed controller and 12 V adapter electronics are estimated, and the total is rounded up ({volts} V, {hz} Hz, {amps} A). It has not been measured with a meter.",
 			"verifyReadLabels": "Compare the estimated motor and electronics current with a meter reading, and update the rating if it differs.",
@@ -1489,6 +1850,7 @@
 			"deviceStatus": "Device Status",
 			"deviceStatusDesc": "Current status of your ESP32 feeder device.",
 			"deviceRecordId": "Device record ID",
+			"supportId": "Support ID: {id}",
 			"connectionStatus": "Connection Status",
 			"online": "Online",
 			"offline": "Offline",
@@ -1516,7 +1878,7 @@
 				"step2": "Open http://192.168.4.1 in your browser.",
 				"step3": "Enter your farm WiFi name and password.",
 				"step4": "Enter the Device ID shown above and the Device Token.",
-				"step5": "Save. The device restarts and connects on its own.",
+				"step5": "Press Connect and save. The device tests the network first, then restarts and connects on its own.",
 				"credentialsNote": "Ask your farm administrator for the Device Token, or open Admin → Devices and press “Show token” for this unit.",
 				"tokenWarning": "The Device Token is a credential — share it only with the person provisioning this unit.",
 				"recoveryTitle": "If the setup network does not appear",
@@ -1524,12 +1886,20 @@
 			},
 			"hopperCalibration": "Hopper Calibration",
 			"hopperCalibrationDesc": "Set the ultrasonic sensor distances for your hopper. Used to calculate feed level percent and days-remaining estimates.",
+			"dailyCeiling": "Daily feed ceiling",
+			"dailyCeilingDesc": "The most feed this feeder may dispense in one Asia/Manila day. 2,000 g is the default; the 5,000 g guard cannot be exceeded.",
+			"dailyCeilingLabel": "Ceiling (g/day)",
+			"dailyCeilingHint": "Default 2000 g. Range 500-5000 g.",
+			"dailyCeilingSave": "Save ceiling",
+			"dailyCeilingSaved": "Daily ceiling saved.",
+			"dailyCeilingError": "Could not save the daily ceiling.",
 			"hopperFullCm": "Full Distance (cm)",
 			"hopperFullCmDesc": "Sensor reading when hopper is full",
 			"hopperEmptyCm": "Empty Distance (cm)",
 			"hopperEmptyCmDesc": "Sensor reading when hopper is empty",
 			"hopperCapacityG": "Hopper Capacity (grams)",
 			"hopperCapacityGDesc": "Total feed weight the hopper can hold",
+			"hopperEmptyGreaterThanFull": "The empty distance must be greater than the full distance.",
 			"saveCalibration": "Save Calibration",
 			"calibrationSaved": "Calibration saved!",
 			"calibrationSaveError": "Could not save the calibration.",
@@ -1553,6 +1923,14 @@
 			"restartDevice": "Restart Device",
 			"actionsUnavailable": "Device actions are not available yet.",
 			"calibration": {
+				"numberField": {
+					"decrease": "Decrease {label}",
+					"increase": "Increase {label}",
+					"format": "Enter a number.",
+					"range": "Enter a value from {min} to {max}.",
+					"wholeNumber": "Use whole numbers only.",
+					"decimalPlaces": "Use at most {decimals} decimal places."
+				},
 				"title": "Feed Rate Calibration",
 				"desc": "Measure how fast the feeder dispenses feed so scheduled feed times stay accurate.",
 				"currentRate": "Current rate",
@@ -1568,7 +1946,8 @@
 				"guided": {
 					"intro": "Run the feeder for a set time, weigh what comes out, and enter the weight. We do the math.",
 					"durationLabel": "Test duration (seconds)",
-					"durationHelp": "Use 3–30 seconds. Longer tests are more accurate.",
+					"durationHelp": "Use 3-600 seconds. Longer runs are more accurate while the hopper stays loaded.",
+					"longRunWarning": "Long run: {seconds} s uses the calibration relay exception (max 600 s). Watch the hopper and the motor; stop if it runs dry or heats up.",
 					"presetsLabel": "Quick presets",
 					"presetValue": "{seconds}s",
 					"expectedDose": "Expected test dose",
@@ -1580,8 +1959,8 @@
 					"blockedFallow": "This pond is fallow after harvest. Start the next grow-out cycle before running a test dose.",
 					"blockedReadOnly": "You do not have permission to calibrate this device.",
 					"blockedInvalidRate": "The current rate is invalid. Use manual entry to set a new rate.",
-					"blockedInvalidDuration": "Enter a test duration between 3 and 30 seconds.",
-					"blockedTooLarge": "The expected test dose ({grams} g) is above the 1000 g test limit. Shorten the test.",
+					"blockedInvalidDuration": "Enter a test duration between 3 and 600 seconds.",
+					"blockedTooLarge": "The expected test dose ({grams} g) is above the 5000 g test limit. Shorten the test.",
 					"statusLabel": "Test status",
 					"statusPending": "Queued — waiting for the device to pick up the test…",
 					"statusDispatched": "Dispensing the test dose now. Keep clear of the feeder.",
@@ -1721,6 +2100,31 @@
 					"title": "Recalibration suggested",
 					"desc": "Over the last 7 days the device reported {dispensed} dispensed, but the hopper level dropped by about {observed} ({diff}). A difference above 15% suggests the feed rate has drifted — re-run the target check."
 				}
+			},
+			"weakSignal": "Weak signal",
+			"weakFor": "Weak signal — last heartbeat {duration} ago",
+			"tabs": {
+				"label": "Device settings sections",
+				"overview": "Overview",
+				"feeding": "Feeding",
+				"calibration": "Calibration",
+				"network": "Network",
+				"unsaved": "(unsaved changes)",
+				"unsavedTitle": "Unsaved changes",
+				"unsavedDesc": "Switching feeders discards edits you have not saved.",
+				"unsavedTabs": "Not saved yet: {tabs}.",
+				"keepEditing": "Keep editing",
+				"discardAndSwitch": "Discard and switch"
+			},
+			"deviceSwitcher": {
+				"label": "Feeder",
+				"noPond": "No pond",
+				"option": "{label} · {status}",
+				"state": {
+					"online": "Online",
+					"weak": "Weak signal",
+					"offline": "Offline"
+				}
 			}
 		},
 		"audit": {
@@ -1767,7 +2171,18 @@
 			"markedRead": "{count} notification(s) marked as read",
 			"loadMore": "Load more",
 			"filtersLabel": "Filter events",
-			"timelineLabel": "Event timeline"
+			"timelineLabel": "Event timeline",
+			"lastTouch": "Last touch",
+			"lastTouchLabel": "Last recorded user action",
+			"lastTouchSummary": "{actor} — {event}",
+			"details": "Details",
+			"metadata": "Event metadata",
+			"actor": "Actor",
+			"actorRole": "Role",
+			"actorFarmId": "Farm ID",
+			"actorSystem": "System",
+			"actorDevice": "Device",
+			"actorUnknown": "Unknown actor"
 		},
 		"notifications": {
 			"title": "Notifications",
@@ -1793,6 +2208,7 @@
 			"categorySystem": "System",
 			"autoCleared": "Auto-cleared",
 			"acknowledged": "Acknowledged",
+			"actionError": "Could not update the notification. Try again.",
 			"alert": "Alert",
 			"auditLink": "Audit",
 			"receivedAt": "Received",
@@ -1810,7 +2226,8 @@
 			},
 			"filtersTierLabel": "Filter by severity",
 			"filtersCategoryLabel": "Filter by category",
-			"listLabel": "Notifications"
+			"listLabel": "Notifications",
+			"categoryHopperLow": "Low hopper"
 		},
 		"timeCalibration": {
 			"title": "Time Calibration",
@@ -1824,7 +2241,10 @@
 		"fcrCalculator": {
 			"title": "Feed Requirement Calculator",
 			"desc": "Calculate the feed needed to reach your target weight.",
-			"currentBiomass": "Current Biomass (kg)",
+			"currentWeight": "Current average weight (kg)",
+			"population": "Fish count",
+			"fish": "fish",
+			"kg": "kg",
 			"targetWeight": "Target Weight (kg)",
 			"daysToTarget": "Days to Target",
 			"days": "days",
@@ -1835,7 +2255,17 @@
 			"totalFeed": "Total Feed Needed",
 			"dailyRation": "Daily Feed Ration",
 			"biomassGain": "Total Biomass Gain",
-			"suggestedRate": "Suggested Feeding Rate"
+			"suggestedRate": "Suggested Feeding Rate",
+			"perMeal": "Per meal: {grams} g",
+			"usingFcr": "Uses your latest FCR: {fcr}",
+			"noFcr": "No FCR report yet - using the 1.5 reference.",
+			"setAsTarget": "Set as growth target",
+			"settingTarget": "Saving target...",
+			"targetSaved": "Growth target saved: {weight} kg at harvest.",
+			"targetSavedShort": "Saved target: {weight} kg at harvest.",
+			"targetError": "Could not save the growth target.",
+			"targetHint": "Saves this weight as the active cycle's harvest target. The feed recommendation adapts inside the 10% / 15-day limit.",
+			"targetNeedsCycle": "Start a grow-out cycle before setting a growth target."
 		},
 		"importExport": {
 			"export": "Export Data",
@@ -1846,7 +2276,7 @@
 			"importDialogLabel": "Import data options",
 			"close": "Close",
 			"dataType": "Data Type",
-			"selectFile": "Select CSV File",
+			"selectFile": "Select CSV or XLSX File",
 			"selectAll": "Select All",
 			"deselectAll": "Deselect All",
 			"exporting": "Exporting...",
@@ -1873,7 +2303,45 @@
 				"fcr_reports": "FCR Reports",
 				"feed_level_logs": "Feed Level Logs",
 				"notifications": "Notifications",
-				"audit_events": "Audit Events"
+				"audit_events": "Audit Events",
+				"feeding_schedule": "Feeding Schedule"
+			},
+			"format": "Format",
+			"formatCsv": "CSV or ZIP",
+			"formatXlsx": "Excel workbook (.xlsx)",
+			"formatPdf": "PDF report",
+			"reportLabel": "Report",
+			"downloadXlsx": "Download XLSX",
+			"downloadPdf": "Download PDF",
+			"pdfNote": "PDF reports are for reading and printing. They cannot be imported.",
+			"templateLabel": "Templates",
+			"templateCsv": "CSV template",
+			"templateXlsx": "XLSX template",
+			"mappingTitle": "Column mapping",
+			"mappingHint": "Match each field to a column in your file. Fields marked * are required.",
+			"mappingNone": "Not mapped",
+			"mappingField": "Field",
+			"mappingColumn": "Column in your file",
+			"required": "required",
+			"rowsReady": "{valid} of {total} rows are ready to import.",
+			"schedulePreview": "{count} meals from {start} to {end}.",
+			"capOk": "Daily total {daily} g, within the {cap} g daily limit.",
+			"capOver": "This schedule would dispense {daily} g a day, over the {cap} g daily limit. Lower the number of meals first.",
+			"scheduleNote": "Importing replaces the feeding window and the number of meals. Grams per meal come from your pond settings.",
+			"scheduleApplied": "Feeding schedule sent to the feeder.",
+			"reports": {
+				"summary": "Pond summary",
+				"growth": "Growth report",
+				"sgr": "SGR report",
+				"fcr": "FCR report"
+			},
+			"structural": {
+				"noRows": "The file has no data rows.",
+				"missingColumns": "Required columns were not found: {fields}. Match them in the column mapping.",
+				"tooManyRows": "The file has more than 5,000 rows. Split it and import it in parts.",
+				"scheduleEmpty": "The schedule has no enabled meals.",
+				"scheduleTooMany": "The schedule has more than 24 meals.",
+				"scheduleUneven": "The feeder spaces meals evenly. Make the times evenly spaced from the first to the last meal."
 			}
 		},
 		"dataSettings": {
@@ -1904,7 +2372,8 @@
 				"devices": "Devices",
 				"hierarchy": "Hierarchy",
 				"audit": "Audit log",
-				"settings": "Settings"
+				"settings": "Settings",
+				"more": "More"
 			},
 			"panelLabel": "Admin Panel",
 			"profile": "Your profile photo and settings"
@@ -1937,15 +2406,35 @@
 				"label": "Choose layout",
 				"list": "List",
 				"cards": "Cards"
-			}
+			},
+			"weak": "Weak signal"
 		},
 		"adminOverview": {
 			"title": "Admin Overview",
 			"desc": "System-wide statistics and recent activity.",
 			"recentActivity": "Recent Activity",
+			"chartsHeading": "At a glance",
 			"statUsers": "Users",
 			"statPonds": "Ponds",
 			"statDevices": "Devices",
+			"chartFeedTitle": "Feed dispensed per day",
+			"chartFeedSummary": "Feed dispensed over the last {days} days: {total} g in total.",
+			"chartFeedSummaryTruncated": "Feed dispensed over the last {days} days: at least {total} g (the newest 5,000 rows).",
+			"chartActivityTitle": "Device activity",
+			"chartActivitySummary": "Device events per day over the last {days} days: {total} events.",
+			"chartActivitySummaryTruncated": "Device events per day over the last {days} days: at least {total} events (the newest 5,000 rows).",
+			"chartActivityRange": "Range: {from} – {to} · {days} farm days (Asia/Manila).",
+			"chartTruncatedNote": "One series is capped at the newest 5,000 rows, so its total is a lower bound and its oldest day may be partial.",
+			"chartHealthTitle": "Fleet health",
+			"chartHealthSummary": "{online} online and {offline} offline of {total} devices.",
+			"chartOnline": "Online",
+			"chartOffline": "Offline",
+			"chartPending": "Pending approval",
+			"chartSourceScheduled": "Scheduled",
+			"chartSourceDashboard": "Dashboard",
+			"chartSourceButton": "Button",
+			"chartSourceHandFed": "Precision feeding (hand-fed)",
+			"chartSourceUnknown": "Other",
 			"recentEmpty": "No recent activity yet.",
 			"columnTime": "Time",
 			"columnDevice": "Device",
@@ -2008,7 +2497,8 @@
 				"missing_letter": "Password must include at least one letter.",
 				"missing_number": "Password must include at least one number.",
 				"common": "That password is too common. Choose a stronger one."
-			}
+			},
+			"errorGeneric": "Something went wrong. Try again."
 		},
 		"adminPondForm": {
 			"backToList": "Back to Ponds",
@@ -2052,6 +2542,7 @@
 			"statusActive": "Active",
 			"statusArchived": "Archived",
 			"fallowTag": "Fallow",
+			"overviewTitle": "Overview",
 			"fieldId": "Pond ID",
 			"fieldOwner": "Owner",
 			"fieldFarm": "Farm",
@@ -2158,6 +2649,7 @@
 			"title": "Farm calendar",
 			"desc": "All {count, plural, one {# active pond} other {# active ponds}} in your organization.",
 			"readOnly": "Read-only overview. Open the Harvest page of a pond to start, edit or harvest a cycle.",
+			"editHint": "Add, edit, move or delete events for every pond in your organization. Grow-out cycle actions stay on each pond's Harvest page.",
 			"emptyTitle": "No ponds in this organization yet",
 			"emptyDesc": "The calendar shows harvest, sampling, feeding and device events for every pond in your organization. Add a pond first, or ask a platform administrator to assign one.",
 			"emptyAction": "Add a pond"
@@ -2197,8 +2689,9 @@
 			"percentOfBodyWeight": "% of body weight per day",
 			"hopperLowLabel": "Hopper low threshold (%)",
 			"hopperLowHint": "Send a low-feed warning at or below this level. Critical alerts still fire at 5 %.",
-			"offlineAfterLabel": "Offline alert after (minutes)",
-			"offlineAfterHint": "How long a feeder may be silent before an alert is sent. The status badge still shows offline after 15 minutes.",
+			"offlineAfterLabel": "Offline alert delay (minutes) — deprecated",
+			"offlineAfterHint": "Not used for timing any more. Offline alerts and badges follow the platform device connectivity policy (offline window plus grace) in Superadmin → Settings → Device status. The value is kept for compatibility.",
+			"offlineAfterDeprecated": "Deprecated",
 			"missedFeedingLabel": "Missed-feeding alerts",
 			"missedFeedingHint": "Notify when a scheduled feeding is refused and does not happen.",
 			"rolesLabel": "Who receives alerts",
@@ -2216,13 +2709,69 @@
 				"VIEWER": "Viewer"
 			}
 		},
+		"adminBackup": {
+			"title": "Backup",
+			"description": "Download a SQL export of your organization's data.",
+			"backToSettings": "Back to settings",
+			"warningTitle": "Handle this file as sensitive data",
+			"warningBody": "An export contains personal and farm data — names, email addresses, pond and feeding records. Store it somewhere access-controlled, never send it by chat or email, and delete it once it is no longer needed.",
+			"exportTitle": "New export",
+			"exportBody": "Writes one .sql file with your organization's rows only, plus the identity manifest a restore needs.",
+			"scopeLabel": "Scope:",
+			"scopeEmpty": "No active organization",
+			"scopePlatform": "Full database",
+			"noScope": "You must be an owner or admin of an active organization before you can export data.",
+			"settingsBody": "Export your organization's data for a backup or a migration.",
+			"settingsDesc": "One SQL file of your organization's rows, with an audit record and a checksum.",
+			"open": "Open the Backup page",
+			"verifyHint": "Verify the file before restoring: node scripts/ops/restore-check.mjs <file>",
+			"lastExportTitle": "Last export",
+			"lastExportDesc": "The most recent attempt, including one that failed or was cancelled.",
+			"noExport": "No export has been run yet.",
+			"historyTitle": "Export history",
+			"historyDesc": "Newest first. The audit trail records the same events.",
+			"historyCaption": "Database export history",
+			"historyEmpty": "No export has been recorded yet.",
+			"columnWhen": "Time (UTC)",
+			"columnWho": "Who",
+			"columnScope": "Scope",
+			"columnOutcome": "Outcome",
+			"columnRows": "Rows",
+			"columnSize": "Size",
+			"columnChecksum": "SHA-256",
+			"columnReason": "Reason",
+			"outcomeSucceeded": "Completed",
+			"outcomeFailed": "Failed",
+			"outcomeCancelled": "Cancelled",
+			"reasonLabel": "Note (optional)",
+			"reasonHint": "Recorded in the audit trail. Do not include personal data.",
+			"reasonRequired": "Enter a reason of at least 10 characters.",
+			"exportButton": "Download SQL export",
+			"exporting": "Preparing the export…",
+			"failed": "The export could not be created. Try again.",
+			"sizeLimitHint": "Up to {rows} rows and {mb} MB per export.",
+			"downloadBody": "Saved {filename}. The SHA-256 of the payload is {sha256}; it must match the checksum in the history.",
+			"incomplete": "The download of {filename} looks incomplete (the checksum marker is missing). Run the export again.",
+			"stepUpAction": "download the database export"
+		},
 		"adminError": {
 			"title": "The admin console hit an error",
 			"desc": "Nothing was changed. Retry the page, or go back to the dashboard if it keeps failing.",
 			"retry": "Try again"
 		},
+		"pondSwitcher": {
+			"labelNamed": "Active pond: {name}",
+			"listLabel": "Choose a pond",
+			"switching": "Switching…",
+			"switchFailed": "Could not switch pond. Try again."
+		},
 		"common": {
 			"readOnlyTitle": "View only",
+			"capability": {
+				"edit": "Editing enabled",
+				"ownFarm": "Own farm only",
+				"read": "View only"
+			},
 			"readOnlyDesc": "Your role, or the active view-only session, cannot make changes here. Controls are disabled instead of failing after a tap.",
 			"noPondTitle": "No pond assigned yet",
 			"noPondDesc": "Ask your administrator to assign a pond to your farm, then reload this page.",
@@ -2233,6 +2782,12 @@
 			"deviceOnline": "ESP32 online",
 			"deviceOffline": "ESP32 offline",
 			"deviceMissing": "ESP32 not paired",
+			"lastSynced": "Last synced: {time}",
+			"lastSyncedNever": "never",
+			"lastSyncedJustNow": "just now",
+			"lastSyncedMinutesAgo": "{count, plural, one {# minute ago} other {# minutes ago}}",
+			"lastSyncedHoursAgo": "{count, plural, one {# hour ago} other {# hours ago}}",
+			"lastSyncedDaysAgo": "{count, plural, one {# day ago} other {# days ago}}",
 			"skipToContent": "Skip to main content",
 			"platformAdmin": "Platform admin",
 			"pagination": {
@@ -2251,6 +2806,54 @@
 				"value": "Value",
 				"name": "Name",
 				"empty": "No data for this period yet."
+			},
+			"terminology": {
+				"aboutAbw": "What does ABW mean?",
+				"abw": "Average Body Weight: the mean weight of the fish in your latest biomass sample, in grams. It is the sample weight divided by the number of fish weighed.",
+				"aboutFcr": "What does FCR mean?",
+				"fcr": "Feed Conversion Ratio: the kilograms of feed used for every kilogram of fish weight gained, taken from your latest FCR report. Lower is better."
+			},
+			"deviceWeak": "ESP32 weak signal",
+			"signalLabel": "Wi-Fi signal",
+			"signalDbm": "{dbm} dBm"
+		},
+		"mobile": {
+			"openMenu": "Quick actions",
+			"menuLabel": "Quick menu",
+			"moreLabel": "More sections",
+			"close": "Close quick menu",
+			"searchLabel": "Search pages and actions",
+			"searchPlaceholder": "Search pages and actions",
+			"noResults": "Nothing matches “{query}”.",
+			"sections": {
+				"actions": "Actions",
+				"destinations": "Go to"
+			},
+			"actions": {
+				"addPond": "Add pond",
+				"addFeeder": "Add feeder",
+				"scanSticker": "Scan sticker QR",
+				"pondLocation": "Pond location",
+				"logSample": "Log biomass sample",
+				"registerDevice": "Register feeder"
+			},
+			"status": {
+				"label": "Filter by device status",
+				"all": "All",
+				"online": "Online",
+				"alarm": "Alarm",
+				"offline": "Offline",
+				"emptyTitle": "Nothing matches this filter",
+				"emptyDesc": "Clear the filter to see the full list on this page.",
+				"clear": "Clear filter"
+			},
+			"order": {
+				"label": "Order",
+				"newest": "Newest",
+				"name": "Name",
+				"status": "Status",
+				"attention": "Needs attention",
+				"hint": "Ordering and filters apply to the items on this page."
 			}
 		}
 	},
@@ -2291,12 +2894,12 @@
 		"pm": "PM"
 	},
 	"chat": {
-		"title": "PakaonAI Assistant",
+		"title": "Pakoy",
 		"placeholder": "Ask me something...",
 		"suggestionSchedule": "When is the next feeding time?",
 		"suggestionFcr": "What is my current FCR?",
 		"suggestionLogSample": "How do I log a sample?",
-		"intro": "Hi! I'm your PakaonAI assistant. Ask me about your next feeding time, feed amounts, current FCR, missed feedings, or how to log a sample!",
+		"intro": "Hi! I'm Pakoy. How can I help you today? Ask me about your next feeding time, feed amounts, current FCR, missed feedings, or how to log a sample!",
 		"error": "Oops, something went wrong. Please try again.",
 		"intentScheduleNoPond": "I couldn't find your pond schedule. Please ensure your devices are configured.",
 		"intentSchedulePaused": "Your automated schedule is currently **Paused**. No feedings will occur until you resume it on the Schedule page.",
@@ -2321,9 +2924,9 @@
 		"assistantProposal": "Here is what I can do. Review it, then press Accept to run it.",
 		"assistantNavigating": "Opening {label} for you — I'll highlight the control.",
 		"stepUpHint": "This needs a fresh password check. Press Accept again after you confirm.",
-		"introFarmer": "Hi! I'm the PakaonAI Assistant. I can answer questions about your pond and, when you press Accept, make changes for you — feed amount, schedule, samples, and calendar items. Nothing runs until you Accept.",
-		"introOwner": "Hi! I'm the PakaonAI Assistant. I can help with the pond (feeding, samples, calendar) and with your organization (members, roles, permissions). I only propose actions: nothing runs until you press Accept, and admin actions ask you to re-enter your password.",
-		"introSuperadmin": "Hi! I'm the PakaonAI Assistant. I can help you run the platform — suspend or restore an organization, start a read-only view-as, and take you to any console screen. Every platform action waits for your Accept and a fresh password check.",
+		"introFarmer": "Hi! I'm Pakoy. How can I help you today? I can answer questions about your pond and, when you press Accept, make changes for you — feed amount, schedule, samples, and calendar items. Nothing runs until you Accept.",
+		"introOwner": "Hi! I'm Pakoy. How can I help you today? I can help with the pond (feeding, samples, calendar) and with your organization (members, roles, permissions). I only propose actions: nothing runs until you press Accept, and admin actions ask you to re-enter your password.",
+		"introSuperadmin": "Hi! I'm Pakoy. How can I help you today? I can help you run the platform — suspend or restore an organization, start a read-only view-as, and take you to any console screen. Every platform action waits for your Accept and a fresh password check.",
 		"chipsFarmer0": "How much should I feed?",
 		"chipsFarmer1": "When is the next feeding?",
 		"chipsFarmer2": "Take me to the feeding schedule",
@@ -2337,7 +2940,10 @@
 		"suggestionPredict": "How many grams should I feed?",
 		"intentPredictActive": "Based on your latest biomass sample and FCR, I recommend **{grams}g per feeding** (your device is currently set to **{current}g**). Check the AI Feeding Prediction card on the Growth page to review and apply this recommendation.",
 		"intentPredictActiveNoCurrent": "Based on your latest biomass sample and FCR, I recommend **{grams}g per feeding**. Check the AI Feeding Prediction card on the Growth page to review and apply this recommendation.",
-		"intentPredictNoData": "I need a recent biomass sample to predict your feed amount. Log one from the **Log Biomass** form and then try again — or check the AI Feeding Prediction card on the Growth page."
+		"intentPredictNoData": "I need a recent biomass sample to predict your feed amount. Log one from the **Log Biomass** form and then try again — or check the AI Feeding Prediction card on the Growth page.",
+		"tagline": "Your feeding schedule buddy.",
+		"greeting": "Hi! I'm Pakoy. How can I help you today?",
+		"greetingDismiss": "Dismiss"
 	},
 	"superadmin": {
 		"common": {
@@ -2396,7 +3002,8 @@
 				"label": "Choose layout",
 				"list": "List",
 				"cards": "Cards"
-			}
+			},
+			"weak": "Weak signal"
 		},
 		"calendar": {
 			"title": "Platform calendar",
@@ -2503,7 +3110,8 @@
 				"devices": "Devices",
 				"aiProviders": "AI Providers",
 				"settings": "Settings",
-				"operations": "Operations"
+				"operations": "Operations",
+				"more": "More"
 			},
 			"shortNav": {
 				"overview": "Overview",
@@ -2514,7 +3122,8 @@
 				"devices": "Devices",
 				"aiProviders": "AI",
 				"settings": "Settings",
-				"operations": "Ops"
+				"operations": "Ops",
+				"more": "More"
 			}
 		},
 		"loading": {
@@ -2875,7 +3484,7 @@
 			"paused": "Schedule paused.",
 			"resumed": "Schedule resumed.",
 			"pauseFailed": "The schedule command failed.",
-			"note": "Commands use the normal server caps: max {max} g per feed and the daily limit. The unit can still refuse (empty hopper, offline).",
+			"note": "Commands use the normal server rules: the daily ceiling, the relay window and the unit's own safety checks. The unit can still refuse (empty hopper, offline).",
 			"reasonAria": "Reason for controlling {label}",
 			"grams": "Grams",
 			"feed": "Feed",
@@ -2884,7 +3493,8 @@
 			"close": "Close",
 			"stepUpAction": "control feeder {label}",
 			"open": "Remote control",
-			"openAria": "Remote control for {label}"
+			"openAria": "Remote control for {label}",
+			"panelTitle": "Remote control — {label}"
 		},
 		"createOrg": {
 			"title": "Create organization",
@@ -3064,8 +3674,8 @@
 				"feedingRateHint": "From {min}% to {max}%.",
 				"hopperLowLabel": "Hopper-low threshold (%)",
 				"hopperLowHint": "Whole percent from {min} to {max}.",
-				"offlineLabel": "Offline alert delay (minutes)",
-				"offlineHint": "Whole minutes from {min} to {max}.",
+				"offlineLabel": "Offline alert delay (minutes) — deprecated",
+				"offlineHint": "Not used for timing any more: alerts and badges follow the platform device connectivity policy. The value is kept for compatibility ({min}-{max} minutes).",
 				"missedFeedingLabel": "Create missed-feeding alerts by default",
 				"alertRolesLabel": "Alert roles",
 				"alertRolesHint": "At least one role must receive org alerts.",
@@ -3106,7 +3716,111 @@
 						"description": "Show the help button and in-page guidance."
 					}
 				}
+			},
+			"deviceStatus": {
+				"title": "Device connectivity",
+				"description": "When a feeder is shown as online, weak signal or offline. One late heartbeat must never flip the whole screen to offline.",
+				"weakLabel": "Weak signal after (minutes)",
+				"weakHint": "Whole minutes from {min} to {max}. Must be shorter than the offline window.",
+				"offlineLabel": "Offline after (minutes)",
+				"offlineHint": "Whole minutes from {min} to {max}.",
+				"graceLabel": "Grace after the offline window (minutes)",
+				"graceHint": "Whole minutes from {min} to {max}. Absorbs one late heartbeat.",
+				"reasonLabel": "Reason",
+				"reasonPlaceholder": "e.g. The CICT feeder reports every five minutes on a weak link",
+				"reasonHint": "Recorded in the platform audit log. At least 10 characters.",
+				"save": "Save thresholds",
+				"saving": "Saving…",
+				"saved": "Device thresholds saved: weak after {weak} min, offline after {offline} min plus {grace} min grace.",
+				"invalid": "Use whole minutes and keep the weak-signal window shorter than the offline window.",
+				"failed": "The device thresholds could not be saved.",
+				"summary": "Currently offline after {offline} min plus {grace} min grace ({total} min of silence). The safety checks for feed commands still use the {offline}-minute window without the grace."
+			},
+			"firmwareGates": {
+				"title": "Firmware safety gates",
+				"description": "The limits the feeder firmware enforces in the field. Every value stays inside a fixed safety envelope: a value can be tightened or relaxed within it, but no setting here can disable a guard.",
+				"fields": {
+					"min_dispense_gap_s": {
+						"label": "Minimum gap between doses (s)",
+						"hint": "Whole seconds from {min} to {max}. The firmware never accepts less than 10 s."
+					},
+					"max_dispenses_per_hour": {
+						"label": "Maximum doses per rolling hour",
+						"hint": "Whole number from {min} to {max}. The firmware never accepts more than 6."
+					},
+					"brownout_hold_s": {
+						"label": "Hold after a brownout (s)",
+						"hint": "Whole seconds from {min} to {max}. No dose runs while the unit recovers from a brownout."
+					},
+					"safe_mode_abnormal_window_s": {
+						"label": "Abnormal-reset window (s)",
+						"hint": "Whole seconds from {min} to {max}. Resets outside this window do not add up."
+					},
+					"safe_mode_abnormal_threshold": {
+						"label": "Abnormal resets before safe mode",
+						"hint": "Whole number from {min} to {max}. The unit locks the relay off after this many abnormal resets inside the window."
+					},
+					"safe_mode_quiet_s": {
+						"label": "Safe-mode quiet period (s)",
+						"hint": "Whole seconds from {min} to {max}. The unit only leaves safe mode after this long without an abnormal reset."
+					},
+					"safe_mode_healthy_clear_s": {
+						"label": "Healthy running before clearing the history (s)",
+						"hint": "Whole seconds from {min} to {max}. The reset history is cleared after this much healthy running."
+					}
+				},
+				"reasonLabel": "Reason",
+				"reasonPlaceholder": "e.g. Tighten the hourly ceiling after the CICT double-dose report",
+				"reasonHint": "Recorded in the platform audit log. At least 10 characters.",
+				"save": "Save safety gates",
+				"saving": "Saving…",
+				"saved": "Firmware safety gates saved. Devices apply them on their next poll.",
+				"invalidField": "{field} must be between {min} and {max}.",
+				"failed": "The firmware safety gates could not be saved.",
+				"note": "Devices apply a change on their next poll (about every 5 s). The absolute envelope — relay on-time, the 5,000 g daily hard guard, the relay overrun trip and the pins — is compiled into the firmware and can never be raised from here."
 			}
+		},
+		"backup": {
+			"title": "Backup",
+			"description": "Full database export for platform administration.",
+			"warningTitle": "Handle this file as sensitive data",
+			"warningBody": "The file contains personal and farm data for every organization. Device tokens are redacted and token hashes, password material and session data are absent. Store it somewhere access-controlled and delete it once it is no longer needed.",
+			"exportTitle": "Full database export",
+			"exportBody": "Writes one .sql file with every allowed table, plus the identity manifest a restore needs. Requires a fresh password check, a reason and the per-user rate limit.",
+			"scopeLabel": "Scope:",
+			"scopePlatform": "Full database (every organization)",
+			"scopeEmpty": "No organization",
+			"settingsDesc": "Full database export with step-up, a reason and an audit record.",
+			"open": "Open the Backup page",
+			"verifyHint": "Verify the file before restoring: node scripts/ops/restore-check.mjs <file>",
+			"lastExportTitle": "Last export",
+			"lastExportDesc": "The most recent attempt, including one that failed or was cancelled.",
+			"noExport": "No export has been run yet.",
+			"historyTitle": "Export history",
+			"historyDesc": "Newest first. Every attempt, tenant and platform, with who ran it and what it covered.",
+			"historyCaption": "Database export history",
+			"historyEmpty": "No export has been recorded yet.",
+			"columnWhen": "Time (UTC)",
+			"columnWho": "Who",
+			"columnScope": "Scope",
+			"columnOutcome": "Outcome",
+			"columnRows": "Rows",
+			"columnSize": "Size",
+			"columnChecksum": "SHA-256",
+			"columnReason": "Reason",
+			"outcomeSucceeded": "Completed",
+			"outcomeFailed": "Failed",
+			"outcomeCancelled": "Cancelled",
+			"reasonLabel": "Reason",
+			"reasonHint": "Recorded in the audit trail. At least 10 characters; never include personal data.",
+			"reasonRequired": "Enter a reason of at least 10 characters.",
+			"exportButton": "Download full database export",
+			"exporting": "Preparing the export…",
+			"failed": "The export could not be created. Try again.",
+			"sizeLimitHint": "Up to {rows} rows and {mb} MB per export.",
+			"downloadBody": "Saved {filename}. The SHA-256 of the payload is {sha256}; it must match the checksum in the history.",
+			"incomplete": "The download of {filename} looks incomplete (the checksum marker is missing). Run the export again.",
+			"stepUpAction": "download the database export"
 		},
 		"feedPct": "Feed %",
 		"orgDefaultRate": "Org default",
@@ -3115,9 +3829,38 @@
 			"tabsLabel": "Operations sections",
 			"tabs": {
 				"health": "System health",
+				"errors": "Error events",
 				"firmware": "Firmware fleet",
 				"audit": "Audit log",
 				"announcements": "Announcements"
+			},
+			"errors": {
+				"title": "Error events",
+				"description": "First-party error capture. Message, stack, route and context are scrubbed before they are stored; repeated occurrences of one error increment a single row. Rows silent for {days} days are pruned.",
+				"filtersLabel": "Filter errors by status",
+				"status": {
+					"unresolved": "Unresolved",
+					"resolved": "Resolved",
+					"all": "All"
+				},
+				"caption": "Captured error events",
+				"emptyTitle": "No error events",
+				"emptyDescription": "Nothing matches this filter. Errors reported by the app will appear here.",
+				"severity": {
+					"ERROR": "Error",
+					"WARNING": "Warning",
+					"INFO": "Info"
+				},
+				"occurrences": "{count, plural, one {# occurrence} other {# occurrences}}",
+				"resolvedAt": "Resolved {when}",
+				"resolvedBadge": "Resolved",
+				"firstSeen": "First seen {when}",
+				"lastSeen": "Last seen {when}",
+				"showStack": "Show stack trace",
+				"resolve": "Mark resolved",
+				"resolving": "Resolving…",
+				"resolveFailed": "Could not mark this error resolved. Try again.",
+				"resolvedJustNow": "Resolved. The list will refresh."
 			},
 			"health": {
 				"title": "System health",
@@ -3224,9 +3967,10 @@
 				"eventTypes": {
 					"ota_installed": "Installed",
 					"ota_valid": "Verified",
-					"ota_rolled_back": "Rolled back"
+					"ota_rolled_back": "Rolled back",
+					"firmware_reported": "Reported"
 				},
-				"versionSourceNote": "A unit reports its version on the heartbeat that changes its OTA state. That transition is stored as a device event, which is what this page shows.",
+				"versionSourceNote": "A unit reports its version on the heartbeat, and the first report after a change is stored as a device event (OTA transition or a USB-flashed unit's first heartbeat). That is what this page shows.",
 				"unknownNote": "“Unknown” means the unit never reported an OTA state. It is not an error and is never estimated from a build date."
 			},
 			"audit": {
@@ -3364,7 +4108,7 @@
 				"intro": "Average body weight, feed conversion and the plan the feeder follows. History keeps every sample."
 			},
 			"harvest": {
-				"title": "Harvest & calendar",
+				"title": "Calendar & harvest",
 				"intro": "The crop cycle and the events on the pond calendar."
 			},
 			"settings": {
@@ -3443,6 +4187,7 @@
 			"settings-pond": "Pond settings hold the feeding rate, meals per day, sampling interval and pond size. Saving queues the change to the feeder.",
 			"settings-calibration": "Rate calibration dispenses a measured dose and corrects grams per second. A target check dispenses a dose you weigh, and repeats until the error is within five percent.",
 			"settings-hopper": "Hopper calibration converts the sensor's distance reading into kilos, using the full and empty heights and the capacity of your hopper.",
+			"settings-daily-ceiling": "The daily ceiling is the most feed this feeder may dispense in one farm day. It starts at 2,000 g and can be raised to the 5,000 g safety guard.",
 			"settings-recalibration": "Set how often a feeder should be recalibrated. The app flags the device as overdue when the interval passes.",
 			"settings-password": "Change your password here. You will stay signed in on this device.",
 			"settings-notifications": "Notification settings choose which alerts arrive in the app and which also go by email.",
@@ -3483,5 +4228,9 @@
 			"info": "Information",
 			"warning": "Important"
 		}
+	},
+	"sidebar": {
+		"collapse": "Collapse sidebar",
+		"expand": "Expand sidebar"
 	}
 }

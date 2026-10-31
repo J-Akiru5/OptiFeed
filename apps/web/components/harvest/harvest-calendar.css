@@ -15,6 +15,9 @@
 	--fc-classic-button-foreground: #ffffff;
 	--fc-classic-event: #0a3d62;
 	--fc-classic-event-contrast: #ffffff;
+	/* #272: "+N more" and the day-list chrome. The values mirror
+	   CALENDAR_MORE_COLORS in lib/calendar/event-colors.ts. */
+	--ofc-more-fg: #0a3d62;
 	--fc-classic-background-event: #0a3d62;
 	--fc-classic-background-event-opacity: 10%;
 	--fc-classic-background-event-foreground-opacity: 50%;
@@ -44,6 +47,7 @@
 	--fc-classic-button-outline: #ffffff40;
 	--fc-classic-background-event: #5b9bd5;
 	--fc-classic-background-event-opacity: 12%;
+	--ofc-more-fg: #9ec5ea;
 }
 
 .harvest-calendar .ofc-toolbar,
@@ -107,25 +111,46 @@
 	min-width: 0;
 }
 
-.harvest-calendar .ofc-event {
+/* #272: FullCalendar portals the "more" popover to <body>, so the chip rules
+   are keyed by their own hooks rather than the `.harvest-calendar` ancestor.
+   These classes are only produced by this component. */
+.ofc-event {
+	/* The two accessible pairs are written to the element by
+	   `eventDidMount`; the `.dark` block below only switches which pair is
+	   used, so toggling the theme needs no re-render (#272). */
+	--ofc-chip-bg: var(--ofc-chip-bg-light, #0a3d62);
+	--ofc-chip-fg: var(--ofc-chip-fg-light, #ffffff);
+	background-color: var(--ofc-chip-bg);
+	border: 1px solid color-mix(in oklab, var(--ofc-chip-fg) 28%, transparent);
 	border-radius: 0.45rem;
-	border-width: 0;
+	color: var(--ofc-chip-fg);
 	cursor: pointer;
 	max-width: 100%;
 	overflow: hidden;
-	padding: 1px 3px;
+	padding: 0 2px;
 }
 
-.harvest-calendar .ofc-event-inner {
+.dark .ofc-event {
+	--ofc-chip-bg: var(--ofc-chip-bg-dark, #3f3f46);
+	--ofc-chip-fg: var(--ofc-chip-fg-dark, #ffffff);
+}
+
+.ofc-event-inner,
+.ofc-event-title,
+.ofc-event-time,
+.ofc-list-event-title,
+.ofc-list-event-time {
+	/* FullCalendar paints the inner block with its own contrast variable;
+	   this hook has higher specificity and follows the theme switch. */
+	color: var(--ofc-chip-fg, #ffffff);
+}
+
+.ofc-event-inner {
 	min-width: 0;
 	overflow: hidden;
 }
 
-.harvest-calendar .ofc-event-done {
-	opacity: 0.7;
-}
-
-.harvest-calendar .ofc-event-done .ofc-event-title {
+.ofc-event-done .ofc-event-title {
 	text-decoration: line-through;
 }
 
@@ -140,7 +165,6 @@
 
 .harvest-calendar .ofc-event-time {
 	font-size: 0.62rem;
-	opacity: 0.85;
 }
 
 .harvest-calendar .ofc-bg-event {
@@ -149,8 +173,73 @@
 
 .harvest-calendar .ofc-more,
 .harvest-calendar .ofc-more-inner {
+	color: var(--ofc-more-fg);
 	font-size: 0.68rem;
 	font-weight: 700;
+}
+
+/* "…more" opens the day list and an editable day accepts a click to create an
+   event, so both are clickable surfaces (#244). */
+.harvest-calendar .ofc-more {
+	cursor: pointer;
+}
+
+/* #272: the day-list row and the "more" popover reuse the chip pair so the
+   agenda is readable in both themes. */
+.ofc-list-event {
+	background-color: var(--ofc-chip-bg, transparent);
+	color: var(--ofc-chip-fg, inherit);
+}
+
+/* The popover is portaled to <body>, outside `.harvest-calendar`, so it cannot
+   inherit the calendar's dark tokens; restate them here. */
+.ofc-popover {
+	--fc-classic-background: #ffffff;
+	--fc-classic-foreground: #030712;
+	--fc-classic-faint: #0000000a;
+	--fc-classic-muted: #00000014;
+	--fc-classic-strong: #00000024;
+	--fc-classic-faint-foreground: #9ca3af;
+	--fc-classic-muted-foreground: #6b7280;
+	--fc-classic-border: #e5e7eb;
+	--fc-classic-strong-border: #d1d5db;
+	background-color: var(--fc-classic-background);
+	border: 1px solid var(--fc-classic-border);
+	border-radius: 0.75rem;
+	box-shadow: 0 10px 15px -3px #0000001a, 0 4px 6px -4px #0000001a;
+	color: var(--fc-classic-foreground);
+}
+
+.dark .ofc-popover {
+	--fc-classic-background: #111827;
+	--fc-classic-foreground: #f3f4f6;
+	--fc-classic-faint: #ffffff0a;
+	--fc-classic-muted: #ffffff14;
+	--fc-classic-strong: #ffffff24;
+	--fc-classic-faint-foreground: #6b7280;
+	--fc-classic-muted-foreground: #9ca3af;
+	--fc-classic-border: #374151;
+	--fc-classic-strong-border: #4b5563;
+}
+
+.ofc-popover-close {
+	color: #6b7280;
+}
+
+.dark .ofc-popover-close {
+	color: #9ca3af;
+}
+
+.ofc-popover-close:hover {
+	color: #030712;
+}
+
+.dark .ofc-popover-close:hover {
+	color: #f3f4f6;
+}
+
+.harvest-calendar[data-calendar-editable] .ofc-day-cell {
+	cursor: pointer;
 }
 
 .harvest-calendar .ofc-list-event-title {

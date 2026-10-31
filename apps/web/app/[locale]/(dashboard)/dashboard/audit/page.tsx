@@ -1,9 +1,14 @@
 import { DataExportButton } from "@/components/DataImportExport";
-import { DashboardEmptyState, DashboardPageHeader } from "@/components/dashboard/dashboard-ui";
+import {
+	DashboardEmptyState,
+	DashboardPageHeader,
+	DashboardPageShell,
+} from "@/components/dashboard/dashboard-ui";
 import { Pagination } from "@/components/ui/pagination";
 import { Link } from "@/i18n/routing";
 import { getAuditLog } from "@/lib/actions/audit";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { displayActorLabel, formatAuditMetadata } from "@/lib/audit/trail";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { parsePage } from "@/lib/pagination";
 import {
 	AlertCircle,
@@ -177,8 +182,17 @@ export default async function AuditPage({
 	const firstRow = result.total === 0 ? 0 : (result.page - 1) * result.pageSize + 1;
 	const lastRow = Math.min(result.page * result.pageSize, result.total);
 
-	const formatDate = (date: Date) => formatDateTimeLocal(date, tDates);
+	const formatDate = (date: Date) => formatFarmDateTime(date, tDates);
 	const sourceLabel = (s: string) => (t.has(`source_${s}`) ? t(`source_${s}`) : s);
+	const eventTypeLabel = (eventType: string) => {
+		const key = `eventType_${eventType}`;
+		return t.has(key) ? t(key) : eventType;
+	};
+	const actorFallbacks = {
+		system: t("actorSystem"),
+		device: t("actorDevice"),
+		unknown: t("actorUnknown"),
+	};
 
 	const filterGroups = [
 		{ key: "all", label: t("filterAll") },
@@ -189,7 +203,7 @@ export default async function AuditPage({
 	];
 
 	return (
-		<div className="mx-auto max-w-5xl space-y-6 animate-in fade-in duration-150">
+		<DashboardPageShell className="space-y-6 animate-in fade-in duration-150">
 			<section className="rounded-3xl border border-[#0A3D62]/5 bg-white p-4 shadow-md dark:bg-gray-900 sm:p-6 md:p-8">
 				<div className="border-b border-gray-100 pb-6 dark:border-gray-700/50">
 					<DashboardPageHeader
@@ -228,6 +242,37 @@ export default async function AuditPage({
 					})}
 				</nav>
 
+				{result.lastTouch && (
+					<section
+						aria-label={t("lastTouchLabel")}
+						className="mt-6 flex flex-wrap items-start gap-3 rounded-2xl border border-[#0A3D62]/10 bg-[#F4F7F6] p-4 dark:border-gray-700 dark:bg-gray-800/60"
+					>
+						<span
+							aria-hidden="true"
+							className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#0A3D62] shadow-sm dark:bg-gray-900 dark:text-[#8fc0ea]"
+						>
+							<Clock className="h-4 w-4" />
+						</span>
+						<div className="min-w-0 flex-1">
+							<p className="text-[10px] font-black tracking-wider text-[#3D5568]/70 uppercase dark:text-gray-300/70">
+								{t("lastTouch")}
+							</p>
+							<p className="mt-1 text-sm font-semibold text-[#0A3D62] dark:text-gray-100">
+								{t("lastTouchSummary", {
+									actor: displayActorLabel(result.lastTouch, actorFallbacks),
+									event: eventTypeLabel(result.lastTouch.eventType),
+								})}
+							</p>
+						</div>
+						<time
+							dateTime={result.lastTouch.createdAt.toISOString()}
+							className="text-xs font-bold text-[#3D5568] dark:text-gray-300"
+						>
+							{formatDate(result.lastTouch.createdAt).full}
+						</time>
+					</section>
+				)}
+
 				<ol aria-label={t("timelineLabel")} className="mt-6 space-y-3">
 					{result.events.length === 0 ? (
 						<li>
@@ -246,8 +291,8 @@ export default async function AuditPage({
 							const schedEnd = m?.scheduleEnd;
 							const feedsPerDayMeta = m?.feedsPerDay;
 							const count = m?.count;
-							const eventTypeKey = `eventType_${event.eventType}`;
-							const eventTypeLabel = t.has(eventTypeKey) ? t(eventTypeKey) : event.eventType;
+							const actor = displayActorLabel(event, actorFallbacks);
+							const metadataText = formatAuditMetadata(event.metadata);
 
 							return (
 								<li
@@ -260,12 +305,12 @@ export default async function AuditPage({
 									>
 										<Icon className="h-5 w-5" />
 									</span>
-									<span className="min-w-0 flex-1">
+									<div className="min-w-0 flex-1">
 										<span className="flex flex-wrap items-center gap-2">
 											<span
 												className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase ${cfg.className}`}
 											>
-												{eventTypeLabel}
+												{eventTypeLabel(event.eventType)}
 											</span>
 											<span className="text-xs font-bold text-[#3D5568] dark:text-gray-300">
 												{formatted.full}
@@ -276,11 +321,9 @@ export default async function AuditPage({
 										</span>
 										<span className="mt-2 block text-sm font-semibold text-[#3D5568] dark:text-gray-300">
 											{event.device.label}
-											{event.actorId && (
-												<span className="ml-2 text-xs text-[#3D5568]/60 dark:text-gray-300/60">
-													{t("byActor", { actor: event.actorId })}
-												</span>
-											)}
+											<span className="ml-2 text-xs text-[#3D5568]/60 dark:text-gray-300/60">
+												{t("byActor", { actor })}
+											</span>
 										</span>
 										{event.deviceTime && (
 											<span className="mt-1 block text-xs text-[#3D5568]/50 dark:text-gray-300/50">
@@ -312,7 +355,40 @@ export default async function AuditPage({
 												{t("markedRead", { count: String(count) })}
 											</span>
 										)}
-									</span>
+										<details className="mt-3 rounded-xl border border-[#0A3D62]/8 bg-[#F4F7F6] px-3 py-2 dark:border-gray-700 dark:bg-gray-800/60">
+											<summary className="cursor-pointer text-xs font-bold text-[#0A3D62] select-none dark:text-[#8fc0ea]">
+												{t("details")}
+											</summary>
+											<dl className="mt-2 space-y-1 text-xs text-[#3D5568] dark:text-gray-300">
+												<div className="flex flex-wrap gap-x-2">
+													<dt className="font-bold">{t("actor")}</dt>
+													<dd className="min-w-0 break-words">{actor}</dd>
+												</div>
+												{event.actorRole && (
+													<div className="flex flex-wrap gap-x-2">
+														<dt className="font-bold">{t("actorRole")}</dt>
+														<dd>{event.actorRole}</dd>
+													</div>
+												)}
+												{event.actorFarmId && (
+													<div className="flex flex-wrap gap-x-2">
+														<dt className="font-bold">{t("actorFarmId")}</dt>
+														<dd className="break-all">{event.actorFarmId}</dd>
+													</div>
+												)}
+											</dl>
+											{metadataText && (
+												<>
+													<p className="mt-2 text-xs font-bold text-[#3D5568] dark:text-gray-300">
+														{t("metadata")}
+													</p>
+													<pre className="mt-1 max-h-64 overflow-auto rounded-lg bg-white p-3 text-[11px] leading-relaxed break-words whitespace-pre-wrap text-[#3D5568] dark:bg-gray-900 dark:text-gray-300">
+														{metadataText}
+													</pre>
+												</>
+											)}
+										</details>
+									</div>
 								</li>
 							);
 						})
@@ -336,6 +412,6 @@ export default async function AuditPage({
 					/>
 				)}
 			</section>
-		</div>
+		</DashboardPageShell>
 	);
 }

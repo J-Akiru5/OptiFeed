@@ -4,6 +4,7 @@ import { FeedNowButton } from "@/components/FeedNowButton";
 import { FeedingPredictionCard } from "@/components/FeedingPredictionCard";
 import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
 import { WaterTempCard } from "@/components/WaterTempCard";
+import { PakoyLowHopper } from "@/components/assistant/pakoy-low-hopper";
 import { type ChartLabels, LineTrend, StackedBars } from "@/components/charts";
 import { formatChartNumber } from "@/components/charts/chart-data";
 import {
@@ -32,27 +33,35 @@ import {
 	DashboardPageHeader,
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
+import { TermInfo } from "@/components/dashboard/term-info";
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { DashboardSnapshot } from "@/components/pwa/dashboard-snapshot";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
 import { canWrite, getCurrentUser } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
+import { loadCalibrationDriftWindow } from "@/lib/calibration/drift-data";
 import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
 import { DEFAULT_HOPPER_RANGE, WATER_TEMP_RANGES, parseWaterTempRange } from "@/lib/chart-windows";
-import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS, PELLET_LOW_PCT } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime, formatWallClockTime } from "@/lib/date-local";
+import { toHopperSnapshot } from "@/lib/device-hopper";
+import { evaluateDeviceStatus, resolveRssiDbm } from "@/lib/device-status";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
-import { isDeviceOffline } from "@/lib/feed-level-display";
+import { formatFeedAmountLabel } from "@/lib/feed-figures";
 import { feedSourceKey } from "@/lib/feed-sources";
+import { getFeedNowLimitForDevice } from "@/lib/feed/feed-now-limit";
 import type { DashboardSnapshotData } from "@/lib/offline/snapshots";
 import { getFeedPerDayBySource, getHopperLevelSeries, getWaterTempSeries } from "@/lib/pond-charts";
 import { getActivePond } from "@/lib/pond-selection";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
+import { computeNextFeedingSlot } from "@/lib/schedule/next-feeding-slot";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { deviceSettingsHref } from "@/lib/settings/device-settings-tabs";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
+import { getOrgSettingsForFarm } from "@/lib/settings/org";
 import { cn } from "@/lib/utils";
 import {
 	AlertTriangle,
@@ -68,9 +77,6 @@ import {
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0; // Ensure data is always fresh
-
-/** The drift detector compares seven days of dispensed grams with the hopper drop. */
-const DRIFT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface DashboardHomePageProps {
 	searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -120,60 +126,79 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	// One parallel wave for independent reads. Every device on the pond is read
 	// so the pond overview can pin each feeder; the first one stays the primary
 	// device for the schedule, controller and predictions.
-	const [energyDevices, recentBiomassLogs, fcrReports, activeCycle] = await Promise.all([
-		prisma.energyDevice.findMany({
-			where: { pondId: pond.id },
-			orderBy: { createdAt: "asc" },
-			select: {
-				id: true,
-				mac: true,
-				label: true,
-				rtcOk: true,
-				feederActive: true,
-				isPaused: true,
-				gramsPerFeeding: true,
-				gramsPerSecond: true,
-				lastSeenAt: true,
-				feedLevelPercent: true,
-				feedLevelUpdatedAt: true,
-				hopperCapacityG: true,
-				lastCalibratedAt: true,
-				recalibrationIntervalDays: true,
-				waterTempC: true,
-				waterTempOk: true,
-				waterTempUpdatedAt: true,
-			},
-		}),
-		prisma.biomassLog.findMany({
-			where: { pondId: pond.id },
-			orderBy: { recordedAt: "desc" },
-			take: 5,
-			include: { fishSamples: { select: { id: true } } },
-		}),
-		prisma.fcrReport.findMany({
-			where: { pondId: pond.id },
-			orderBy: { periodEnd: "asc" },
-			take: 5,
-		}),
-		prisma.cropCycle.findFirst({
-			where: { pondId: pond.id, status: "ACTIVE" },
-			select: {
-				id: true,
-				label: true,
-				stockingDate: true,
-				stockingCount: true,
-				growOutDays: true,
-				targetHarvestDate: true,
-				targetHarvestWeightG: true,
-				expectedSurvivalPct: true,
-			},
-		}),
-	]);
+	const [energyDevices, recentBiomassLogs, fcrReports, activeCycle, orgSettings, statusPolicy] =
+		await Promise.all([
+			prisma.energyDevice.findMany({
+				where: { pondId: pond.id },
+				orderBy: { createdAt: "asc" },
+				select: {
+					id: true,
+					mac: true,
+					label: true,
+					rtcOk: true,
+					feederActive: true,
+					isPaused: true,
+					gramsPerFeeding: true,
+					gramsPerSecond: true,
+					lastSeenAt: true,
+					feedLevelPercent: true,
+					feedLevelUpdatedAt: true,
+					hopperCapacityG: true,
+					dailyCapG: true,
+					lastCalibratedAt: true,
+					recalibrationIntervalDays: true,
+					waterTempC: true,
+					waterTempOk: true,
+					waterTempUpdatedAt: true,
+					wifiRssiDbm: true,
+					wifiRssiUpdatedAt: true,
+				},
+			}),
+			prisma.biomassLog.findMany({
+				where: { pondId: pond.id },
+				orderBy: { recordedAt: "desc" },
+				take: 5,
+				include: { fishSamples: { select: { id: true } } },
+			}),
+			prisma.fcrReport.findMany({
+				where: { pondId: pond.id },
+				orderBy: { periodEnd: "asc" },
+				take: 5,
+			}),
+			prisma.cropCycle.findFirst({
+				where: { pondId: pond.id, status: "ACTIVE" },
+				select: {
+					id: true,
+					label: true,
+					stockingDate: true,
+					stockingCount: true,
+					growOutDays: true,
+					targetHarvestDate: true,
+					targetHarvestWeightG: true,
+					expectedSurvivalPct: true,
+				},
+			}),
+			// The low-hopper threshold is an org setting (#190); the dashboard alert
+			// must honour it instead of the hard-coded default.
+			getOrgSettingsForFarm(pond.ownerId),
+			getDeviceStatusPolicy(),
+		]);
 
 	const energyDevice = energyDevices[0] ?? null;
 	const deviceIds = energyDevices.map((row) => row.id);
 	const now = new Date();
-	const driftWindowStart = new Date(now.getTime() - DRIFT_WINDOW_MS);
+	const hopper = energyDevice ? toHopperSnapshot(energyDevice, now, statusPolicy) : null;
+	const connection = evaluateDeviceStatus({
+		lastSeenAt: energyDevice?.lastSeenAt ?? null,
+		now,
+		policy: statusPolicy,
+		rssiDbm: resolveRssiDbm({
+			rssiDbm: energyDevice?.wifiRssiDbm ?? null,
+			updatedAt: energyDevice?.wifiRssiUpdatedAt ?? null,
+			now,
+			policy: statusPolicy,
+		}),
+	});
 
 	const latestBiomass = recentBiomassLogs[0] ?? null;
 
@@ -186,8 +211,8 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		waterTempPoints,
 		feedChart,
 		hopperPoints,
-		driftFeeds,
-		driftLevels,
+		driftWindow,
+		feedNowLimit,
 	] = await Promise.all([
 		resolveCurrentSchedule(pond.id, energyDevice?.id ?? null),
 		energyDevice
@@ -200,27 +225,14 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		energyDevice ? getWaterTempSeries([energyDevice.id], waterRange) : Promise.resolve([]),
 		getFeedPerDayBySource(deviceIds),
 		getHopperLevelSeries(deviceIds, DEFAULT_HOPPER_RANGE),
+		// One loader for every surface (#6): device output only, seven days.
 		energyDevice
-			? prisma.feedEvent.findMany({
-					where: {
-						deviceId: energyDevice.id,
-						eventType: "feed_dispensed",
-						receivedAt: { gte: driftWindowStart },
-					},
-					select: { grams: true, receivedAt: true },
-				})
-			: Promise.resolve([]),
-		energyDevice
-			? prisma.feedLevelLog.findMany({
-					where: { deviceId: energyDevice.id, recordedAt: { gte: driftWindowStart } },
-					orderBy: { recordedAt: "asc" },
-					select: { levelPercent: true, recordedAt: true },
-				})
-			: Promise.resolve([]),
+			? loadCalibrationDriftWindow(energyDevice.id, now)
+			: Promise.resolve({ feeds: [], levels: [], start: now }),
+		// The Feed Now ceiling (issue #387 / #398) is what is left of today's
+		// daily allowance; the daily ceiling is the only gram cap.
+		energyDevice ? getFeedNowLimitForDevice(energyDevice) : Promise.resolve(null),
 	]);
-
-	const today = new Date();
-	today.setHours(0, 0, 0, 0);
 
 	const latestFcr = fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : 0.0;
 	const cycleContext = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
@@ -231,53 +243,47 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	const initialPrediction = computeDeterministicPrediction({
 		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
 		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
-		population: pond.population ?? DEFAULT_FISH_COUNT,
+		population: pond.population,
 		avgWeightKg: latestBiomass?.avgWeightKg ?? null,
 		latestFcr: fcrReports.length > 0 ? latestFcr : null,
 		currentGrams: energyDevice?.gramsPerFeeding ?? null,
 		hopperCapacityG: energyDevice?.hopperCapacityG ?? null,
+		dailyCapG: energyDevice?.dailyCapG ?? null,
 		lastSampleAt: latestBiomass?.recordedAt ?? null,
 		isFallow: pond.isFallow,
 		cycle: cycleContext,
 	});
 
-	// Calculate next feeding time
-	const startHour = (currentConfig?.scheduleStart ?? pond.scheduleStart).getUTCHours();
-	const endHour = (currentConfig?.scheduleEnd ?? pond.scheduleEnd).getUTCHours();
+	// Calculate next feeding time. The stored schedule is a farm wall clock
+	// (Asia/Manila), so the comparison must be wall clock against wall clock —
+	// the server renders in UTC and a local-time comparison would be 8 hours off.
 	const feedsPerDay = currentConfig?.feedsPerDay ?? pond.feedsPerDay;
 	const feedingRatePct = currentConfig?.feedingRatePct ?? pond.feedingRatePct;
-	const feedInterval = (endHour - startHour) / Math.max(1, feedsPerDay - 1);
+	const nextFeedingSlot = computeNextFeedingSlot({
+		scheduleStart: currentConfig?.scheduleStart ?? pond.scheduleStart,
+		scheduleEnd: currentConfig?.scheduleEnd ?? pond.scheduleEnd,
+		feedsPerDay,
+		now,
+	});
 
-	let nextFeedTimeObj = null;
-	for (let i = 0; i < feedsPerDay; i++) {
-		const feedTime = new Date();
-		feedTime.setHours(startHour + i * feedInterval, 0, 0, 0);
-		if (feedTime > now) {
-			nextFeedTimeObj = feedTime;
-			break;
-		}
-	}
-	if (!nextFeedTimeObj) {
-		nextFeedTimeObj = new Date();
-		nextFeedTimeObj.setDate(nextFeedTimeObj.getDate() + 1);
-		nextFeedTimeObj.setHours(startHour, 0, 0, 0);
-	}
+	const formatTime = (d: Date) => formatFarmDateTime(d, tDates).time;
+	const formatDate = (d: Date) => formatFarmDateTime(d, tDates).date;
 
-	const formatTime = (d: Date) => formatDateTimeLocal(d, tDates).time;
-	const formatDate = (d: Date) => formatDateTimeLocal(d, tDates).date;
-
-	const nextFeedingTimeStr = formatTime(nextFeedTimeObj);
+	const nextFeedingTimeStr = nextFeedingSlot
+		? formatWallClockTime(nextFeedingSlot.hours, nextFeedingSlot.minutes, tDates)
+		: "—";
 
 	// Daily Feed (g) = Total Biomass (g) × Feeding Rate (%)
 	// Feed per Meal (g) = Daily Feed (g) ÷ Feeds Per Day  (see lib/feed-calc.ts)
 	const pondPopulation = pond.population;
-	let nextFeedingVolumeG = energyDevice?.gramsPerFeeding ?? 330;
+	let nextFeedingVolumeG: number | null = energyDevice?.gramsPerFeeding ?? null;
 	if (latestBiomass) {
-		nextFeedingVolumeG = feedPerMealG(
+		const recommended = feedPerMealG(
 			totalBiomassG(pondPopulation, latestBiomass.avgWeightKg),
 			feedingRatePct,
 			feedsPerDay,
 		);
+		if (recommended !== null) nextFeedingVolumeG = recommended;
 	}
 
 	// Calculate days until next physical weighing (assuming every 14 days)
@@ -287,9 +293,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	const daysUntilSample = Math.max(0, (pond.sampleIntervalDays ?? 14) - daysSinceSample);
 
 	// Determine Critical Alert — lazy offline detection from energyDevice.lastSeenAt
-	const esp32Offline =
-		!energyDevice?.lastSeenAt ||
-		now.getTime() - energyDevice.lastSeenAt.getTime() > OFFLINE_THRESHOLD_MS;
+	const esp32Offline = connection.isOffline;
 	const criticalAlert = esp32Offline && !!energyDevice;
 	const isPaused = energyDevice?.isPaused ?? false;
 	const recalibration = getRecalibrationStatus(
@@ -298,8 +302,8 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		now,
 	);
 	const drift = computeCalibrationDrift({
-		feeds: driftFeeds,
-		levels: driftLevels,
+		feeds: driftWindow.feeds,
+		levels: driftWindow.levels,
 		hopperCapacityG: energyDevice?.hopperCapacityG ?? null,
 	});
 
@@ -344,14 +348,14 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	const dashboardSnapshot: DashboardSnapshotData = {
 		pondName: pond.name,
 		deviceName: energyDevice?.label ?? device.name,
-		deviceStatus: energyDevice ? (esp32Offline ? "offline" : "online") : "missing",
+		deviceStatus: energyDevice ? connection.state : "missing",
 		lastSeenAt: energyDevice?.lastSeenAt?.toISOString() ?? null,
 		feedLevelPercent: energyDevice?.feedLevelPercent ?? null,
 		feedLevelUpdatedAt: energyDevice?.feedLevelUpdatedAt?.toISOString() ?? null,
 		waterTempC: energyDevice?.waterTempC ?? null,
 		waterTempOk: energyDevice?.waterTempOk ?? null,
 		waterTempUpdatedAt: energyDevice?.waterTempUpdatedAt?.toISOString() ?? null,
-		population: pond.population ?? DEFAULT_FISH_COUNT,
+		population: pond.population,
 		avgWeightG: latestBiomass ? latestBiomass.avgWeightKg * 1000 : null,
 		latestFcr: fcrReports.length > 0 ? latestFcr : null,
 		nextFeedingTime: isPaused ? null : nextFeedingTimeStr,
@@ -364,17 +368,31 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		isPaused,
 	};
 
-	const feeders: PondOverviewFeeder[] = energyDevices.map((row) => ({
-		id: row.id,
-		label: row.label,
-		isOffline: isDeviceOffline(row.lastSeenAt, now),
-		isPaused: row.isPaused,
-		levelPercent: row.feedLevelPercent,
-		levelUpdatedAt: row.feedLevelUpdatedAt,
-		nextFeedLabel: row.isPaused ? null : nextFeedingTimeStr,
-		waterTempLabel:
-			row.waterTempOk && row.waterTempC !== null ? `${row.waterTempC.toFixed(1)} °C` : null,
-	}));
+	const feeders: PondOverviewFeeder[] = energyDevices.map((row) => {
+		const rowStatus = evaluateDeviceStatus({
+			lastSeenAt: row.lastSeenAt,
+			now,
+			policy: statusPolicy,
+			rssiDbm: resolveRssiDbm({
+				rssiDbm: row.wifiRssiDbm,
+				updatedAt: row.wifiRssiUpdatedAt,
+				now,
+				policy: statusPolicy,
+			}),
+		});
+		return {
+			id: row.id,
+			label: row.label,
+			status: rowStatus.state,
+			isOffline: rowStatus.isOffline,
+			isPaused: row.isPaused,
+			levelPercent: row.feedLevelPercent,
+			levelUpdatedAt: row.feedLevelUpdatedAt,
+			nextFeedLabel: row.isPaused ? null : nextFeedingTimeStr,
+			waterTempLabel:
+				row.waterTempOk && row.waterTempC !== null ? `${row.waterTempC.toFixed(1)} °C` : null,
+		};
+	});
 
 	// The rail's alerts are derived from the same reads as the cards above; the
 	// offline banner is repeated from the page-level critical alert.
@@ -387,12 +405,12 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 				duration: formatOfflineDuration(energyDevice.lastSeenAt),
 			}),
 			detail: t("controlRoom.alerts.offlineDetail", { device: device.name }),
-			href: "/dashboard/settings/hardware",
+			href: deviceSettingsHref({ deviceId: energyDevice.id, tab: "network", anchor: "wifi-setup" }),
 			linkLabel: t("controlRoom.alerts.openHardware"),
 		});
 	}
 	if (energyDevice?.feedLevelPercent !== null && energyDevice?.feedLevelPercent !== undefined) {
-		if (energyDevice.feedLevelPercent < PELLET_LOW_PCT) {
+		if (energyDevice.feedLevelPercent < orgSettings.settings.hopperLowPct) {
 			alerts.push({
 				id: "hopper-low",
 				tone: "warning",
@@ -400,7 +418,11 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					percent: Math.round(energyDevice.feedLevelPercent),
 				}),
 				detail: t("controlRoom.alerts.lowHopperDetail"),
-				href: "/dashboard/settings/hardware",
+				href: deviceSettingsHref({
+					deviceId: energyDevice.id,
+					tab: "calibration",
+					anchor: "hopper-calibration",
+				}),
 				linkLabel: t("controlRoom.alerts.openHardware"),
 			});
 		}
@@ -413,7 +435,11 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 				days: recalibration.daysOverdue,
 			}),
 			detail: t("controlRoom.alerts.recalibrationDetail"),
-			href: "/dashboard/settings/hardware",
+			href: deviceSettingsHref({
+				deviceId: energyDevice?.id,
+				tab: "calibration",
+				anchor: "recalibration",
+			}),
 			linkLabel: t("controlRoom.alerts.openHardware"),
 		});
 	}
@@ -425,7 +451,11 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 				percent: Math.abs(drift.diffPct).toFixed(1),
 			}),
 			detail: t("controlRoom.alerts.driftDetail"),
-			href: "/dashboard/settings/hardware",
+			href: deviceSettingsHref({
+				deviceId: energyDevice?.id,
+				tab: "calibration",
+				anchor: "recalibration",
+			}),
 			linkLabel: t("controlRoom.alerts.openHardware"),
 		});
 	}
@@ -434,7 +464,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	const pondMeta = [
 		{
 			label: t("populationLabel"),
-			value: t("populationValue", { count: pond.population ?? DEFAULT_FISH_COUNT }),
+			value: pond.population ? t("populationValue", { count: pond.population }) : "—",
 		},
 		{
 			label: t("controlRoom.cycleLabel"),
@@ -446,7 +476,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		time: formatTime(item.receivedAt),
 		date: formatDate(item.receivedAt),
 		sourceLabel: tHist(item.source ? `source_${feedSourceKey(item.source)}` : "confirmedDispense"),
-		grams: `${item.grams ?? 0} g`,
+		grams: formatFeedAmountLabel(item.grams),
 	}));
 
 	return (
@@ -459,6 +489,18 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 				data={dashboardSnapshot}
 			/>
 			<DashboardSnapshot snapshot={dashboardSnapshot} />
+
+			{/* Pakoy's in-context low-hopper reminder (#221). The permanent
+			    record stays in the bell and on the hardware page. */}
+			{energyDevice &&
+				energyDevice.feedLevelPercent !== null &&
+				energyDevice.feedLevelPercent < orgSettings.settings.hopperLowPct && (
+					<PakoyLowHopper
+						pondId={pond.id}
+						levelPercent={Math.round(energyDevice.feedLevelPercent)}
+						low
+					/>
+				)}
 
 			<ControlRoomLayout>
 				{criticalAlert && (
@@ -546,7 +588,8 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 
 					<div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-3">
 						<StackedBars
-							className="min-w-0 xl:p-3"
+							className="ofd-chart-card min-w-0"
+							plotClassName="ofd-plot"
 							title={t("controlRoom.charts.feedTitle")}
 							summary={t("controlRoom.charts.feedSummary", {
 								total: formatChartNumber(feedChartTotal, "g"),
@@ -555,10 +598,11 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							stack={feedChart.stack}
 							seriesLabels={sourceSeriesLabels}
 							unit="g"
-							height={130}
+							height="100%"
 						/>
 						<LineTrend
-							className="min-w-0 xl:p-3"
+							className="ofd-chart-card min-w-0"
+							plotClassName="ofd-plot"
 							title={t("controlRoom.charts.hopperTitle")}
 							summary={t("controlRoom.charts.hopperSummary", {
 								latest: hopperLatest ?? "—",
@@ -567,10 +611,11 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							points={hopperPoints}
 							unit="%"
 							decimals={0}
-							height={130}
+							height="100%"
 						/>
 						<LineTrend
-							className="min-w-0 xl:p-3"
+							className="ofd-chart-card min-w-0"
+							plotClassName="ofd-plot"
 							title={t("waterChartTitle")}
 							summary={t("waterChartSummary", {
 								range: waterRangeLabel,
@@ -581,7 +626,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							points={waterTempPoints}
 							unit="°C"
 							decimals={1}
-							height={130}
+							height="100%"
 						/>
 					</div>
 				</div>
@@ -598,6 +643,14 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 								pond: pond.name,
 								bold: (chunks) => <strong>{chunks}</strong>,
 							})}
+							mascot="idle"
+							summary={
+								isPaused
+									? t("greetingPaused")
+									: nextFeedingSlot
+										? t("greetingNextFeeding", { time: nextFeedingTimeStr })
+										: undefined
+							}
 							actions={<ExportPdfButton />}
 						>
 							{!writeAccess && (
@@ -631,11 +684,13 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							nextFeedingVolume={pond.isFallow ? "0g" : `${nextFeedingVolumeG}g`}
 							label={tBtn("feedNow")}
 							deviceName={energyDevice?.label ?? device.name}
-							connectionStatus={esp32Offline ? "offline" : "online"}
-							hopperLevelPct={energyDevice?.feedLevelPercent ?? 0}
+							connectionStatus={connection.state}
+							rssiDbm={hopper?.rssiDbm ?? null}
+							hopperLevelPct={hopper?.levelPercent ?? null}
 							canWrite={writeAccess}
 							isFallow={pond.isFallow}
 							gramsPerSecond={energyDevice?.gramsPerSecond}
+							feedNowLimit={feedNowLimit}
 							data-onboard="feed-now"
 						/>
 					</div>
@@ -643,12 +698,12 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					{energyDevice && (
 						<div className={CONTROL_ROOM_ORDER.device}>
 							<FeedLevelCard
-								levelPercent={energyDevice.feedLevelPercent}
-								updatedAt={energyDevice.feedLevelUpdatedAt}
-								hopperCapacityG={energyDevice.hopperCapacityG}
+								levelPercent={hopper?.levelPercent ?? null}
+								updatedAt={hopper?.levelUpdatedAt ?? null}
+								hopperCapacityG={hopper?.hopperCapacityG ?? null}
 								gramsPerFeeding={energyDevice.gramsPerFeeding}
-								feedsPerDay={pond.feedsPerDay}
-								isDeviceOffline={esp32Offline}
+								feedsPerDay={feedsPerDay}
+								isDeviceOffline={hopper?.isOffline ?? esp32Offline}
 							/>
 						</div>
 					)}
@@ -710,7 +765,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 									</div>
 								</div>
 								<Link
-									href="/dashboard/harvest"
+									href="/dashboard/calendar"
 									className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-[#1f66a0]"
 								>
 									{tHarvest("startCycle")}
@@ -750,7 +805,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 												: ""}
 										</>
 									}
-									href="/dashboard/harvest"
+									href="/dashboard/calendar"
 									linkLabel={t("controlRoom.growOutLink")}
 								/>
 							</ControlPanel>
@@ -809,7 +864,13 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							<div className="grid grid-cols-2 gap-2">
 								<div data-help="fcr" data-onboard="fcr">
 									<StatTile
-										label={t("currentFcrLabel")}
+										label={
+											<TermInfo
+												label={t("currentFcrLabel")}
+												hint={tCommon("terminology.aboutFcr")}
+												description={tCommon("terminology.fcr")}
+											/>
+										}
 										value={fcrReports.length > 0 ? latestFcr.toFixed(2) : "—"}
 										detail={t("fcrTag")}
 										icon={Sparkles}
@@ -823,7 +884,13 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 									href="/dashboard/log-sample"
 								/>
 								<StatTile
-									label={t("lastBiomassLabel")}
+									label={
+										<TermInfo
+											label={t("lastBiomassLabel")}
+											hint={tCommon("terminology.aboutAbw")}
+											description={tCommon("terminology.abw")}
+										/>
+									}
 									value={
 										latestBiomass ? `${(latestBiomass.avgWeightKg * 1000).toFixed(1)} g` : t("na")
 									}
@@ -837,9 +904,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 								/>
 								<StatTile
 									label={t("populationLabel")}
-									value={t("populationValue", {
-										count: pond.population ?? DEFAULT_FISH_COUNT,
-									})}
+									value={pond.population ? t("populationValue", { count: pond.population }) : "—"}
 									detail={t("populationStable")}
 									icon={Layers}
 								/>
@@ -848,7 +913,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					</div>
 
 					{energyDevice && (
-						<div className={cn(CONTROL_ROOM_ORDER.controller, "space-y-3")}>
+						<div className={cn(CONTROL_ROOM_ORDER.controller, "min-w-0 space-y-3")}>
 							<ControlPanel title={t("controlRoom.controlsPanel")} icon={Sliders}>
 								<EnergyControllerCard
 									deviceId={energyDevice.id}
@@ -863,6 +928,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 									canWrite={writeAccess}
 									recalibrationDue={recalibration.isOverdue}
 									recalibrationDaysOverdue={recalibration.daysOverdue}
+									feedNowLimit={feedNowLimit}
 								/>
 							</ControlPanel>
 							<TimeCalibrationForm deviceId={energyDevice.id} canWrite={writeAccess} />

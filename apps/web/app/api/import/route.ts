@@ -5,6 +5,7 @@ import { requireWriteAccess } from "@/lib/auth/session";
 import { withAuth } from "@/lib/auth/with-auth";
 import { LEGACY_API_SUNSET } from "@/lib/constants";
 import { type ExportableType, parseCsvString } from "@/lib/csv";
+import { MAX_CSV_IMPORT_BYTES } from "@/lib/jobs/import-data";
 import { checkApiRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -51,8 +52,14 @@ export const POST = withApi(
 		}
 
 		const { type, csvData } = body;
-		if (!type || !csvData) {
+		if (!type || !Object.hasOwn(REQUIRED_FIELDS, type)) {
+			return Response.json({ error: "Invalid type" }, { status: 400 });
+		}
+		if (typeof csvData !== "string" || csvData.length === 0) {
 			return Response.json({ error: "Missing type or csvData" }, { status: 400 });
+		}
+		if (csvData.length > MAX_CSV_IMPORT_BYTES) {
+			return Response.json({ error: "CSV payload exceeds 5 MB" }, { status: 413 });
 		}
 
 		const { data, errors: parseErrors } = parseCsvString(csvData);

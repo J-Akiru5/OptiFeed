@@ -1,0 +1,21 @@
+flowchart TB
+  subgraph Row1["Sample and plan"]
+    direction LR
+    S["1 · Sample<br/>weight + count"] --> B["2 · Biomass<br/>avg weight × population"] --> R["3 · Ration<br/>biomass × feeding rate"]
+  end
+
+  subgraph Row2["Schedule and dispense"]
+    direction LR
+    SCH["4 · Schedule<br/>meals · window · cap"] --> CMD["5 · Command<br/>remote or RTC plan"] --> DISP["6 · Dispense<br/>auger time from calibration"]
+  end
+
+  subgraph Row3["Record and review"]
+    direction LR
+    EVT["7 · Feed event<br/>dose · trigger · timestamp"] --> FCR["8 · FCR + history<br/>feed in vs. biomass gained"]
+  end
+
+  Row1 --> Row2 --> Row3
+  FCR -.->|"next sampling cycle"| Row1
+
+  classDef accent fill:#fff1ea,stroke:#e85a2a,color:#0a2e47,stroke-width:1.5px;
+  class FCR accent;

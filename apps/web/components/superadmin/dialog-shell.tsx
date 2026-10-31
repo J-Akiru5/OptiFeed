@@ -1,5 +1,13 @@
 "use client";
 
+import {
+	DIALOG_BACKDROP,
+	DIALOG_CLOSE,
+	DIALOG_DESCRIPTION,
+	DIALOG_ICON_TILE,
+	DIALOG_PANEL,
+	DIALOG_TITLE,
+} from "@/components/superadmin/dialog-theme";
 import { FOCUS_RING } from "@/components/superadmin/ui";
 import { cn } from "@/lib/utils";
 import { type LucideIcon, X } from "lucide-react";
@@ -110,7 +118,12 @@ export function DialogShell({
 	if (!open) return null;
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#0A3D62]/40 p-4">
+		<div
+			className={cn(
+				"fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4",
+				DIALOG_BACKDROP,
+			)}
+		>
 			<dialog
 				ref={panelRef}
 				open
@@ -120,8 +133,9 @@ export function DialogShell({
 				aria-busy={pending || undefined}
 				tabIndex={-1}
 				className={cn(
-					"relative m-0 w-full rounded-2xl border border-gray-200 bg-white p-5 text-[#0A3D62] shadow-2xl",
+					"relative m-0 w-full rounded-2xl border p-5 shadow-2xl",
 					"max-h-[calc(100dvh-2rem)] overflow-y-auto",
+					DIALOG_PANEL,
 					FOCUS_RING,
 					SIZES[size],
 				)}
@@ -157,16 +171,24 @@ export function DialogHeader({
 		<div className="flex items-start justify-between gap-3">
 			<div className="flex items-start gap-2">
 				{Icon && (
-					<div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#F4F7F6] text-[#0A3D62]">
+					<div
+						className={cn(
+							"mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
+							DIALOG_ICON_TILE,
+						)}
+					>
 						<Icon className="h-4 w-4" aria-hidden="true" />
 					</div>
 				)}
 				<div className="min-w-0">
-					<h2 id={titleId} className="text-sm font-black text-[#0A3D62]">
+					<h2 id={titleId} className={cn("text-sm font-black", DIALOG_TITLE)}>
 						{title}
 					</h2>
 					{description && (
-						<p id={descriptionId} className="mt-1 text-[11px] leading-snug text-[#3D5568]">
+						<p
+							id={descriptionId}
+							className={cn("mt-1 text-[11px] leading-snug", DIALOG_DESCRIPTION)}
+						>
 							{description}
 						</p>
 					)}
@@ -179,7 +201,8 @@ export function DialogHeader({
 					disabled={closeDisabled}
 					aria-label={closeLabel}
 					className={cn(
-						"shrink-0 rounded-lg p-1 text-[#3D5568] transition-colors hover:bg-[#F4F7F6] disabled:opacity-50",
+						"shrink-0 rounded-lg p-1 transition-colors disabled:opacity-50",
+						DIALOG_CLOSE,
 						FOCUS_RING,
 					)}
 				>

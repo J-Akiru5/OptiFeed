@@ -1,19 +1,24 @@
 import { type CalibrationDriftResult, computeCalibrationDrift } from "@/lib/calibration/drift";
-import { DEFAULT_FISH_COUNT, OFFLINE_THRESHOLD_MS } from "@/lib/constants";
+import { loadCalibrationDriftWindow } from "@/lib/calibration/drift-data";
+import { startOfDayInTimeZone } from "@/lib/chart-windows";
+import { PH_TZ } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
+import { evaluateDeviceStatus } from "@/lib/device-status";
 import { totalBiomassG } from "@/lib/feed-calc";
+import { MACHINE_FEED_SOURCES } from "@/lib/feed-figures";
 import type { GrowthPlan } from "@/lib/growth-plan";
 import { loadGrowthPlanForPond } from "@/lib/growth-plan-loader";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 
 export interface ChatContext {
 	pondName: string;
 	feedsPerDay: number;
 	feedingRatePct: number;
-	population: number;
+	population: number | null;
 	totalBiomassG: number | null;
 	scheduleStart: Date;
 	scheduleEnd: Date;
@@ -71,86 +76,74 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 
 	const currentConfig = await resolveCurrentSchedule(pond.id, energyDevice?.id ?? null);
 
-	const startOfToday = new Date();
-	startOfToday.setHours(0, 0, 0, 0);
-	const driftWindowStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+	// "Today" is the farm day (Asia/Manila), not the server runtime's day. On a
+	// UTC host the local midnight is 08:00 in Manila, which dropped every
+	// early-morning feeding from the count the assistant reports.
+	const startOfToday = startOfDayInTimeZone(new Date(), PH_TZ);
 
-	const [
-		todayFeedEvents,
-		latestFcr,
-		latestBiomass,
-		latestCommand,
-		activeCycle,
-		driftFeeds,
-		driftLevels,
-	] = await Promise.all([
-		energyDevice
-			? prisma.feedEvent.findMany({
-					where: {
-						deviceId: energyDevice.id,
-						eventType: "feed_dispensed",
-						receivedAt: { gte: startOfToday },
-					},
-					orderBy: { receivedAt: "desc" },
-					select: { receivedAt: true },
-				})
-			: Promise.resolve([] as { receivedAt: Date }[]),
-		prisma.fcrReport.findFirst({
-			where: { pondId: pond.id },
-			orderBy: { periodEnd: "desc" },
-		}),
-		prisma.biomassLog.findFirst({
-			where: { pondId: pond.id },
-			orderBy: { recordedAt: "desc" },
-		}),
-		energyDevice
-			? prisma.scheduleCommand.findFirst({
-					where: { deviceId: energyDevice.id },
-					orderBy: { createdAt: "desc" },
-					select: { status: true },
-				})
-			: Promise.resolve(null),
-		prisma.cropCycle.findFirst({
-			where: { pondId: pond.id, status: "ACTIVE" },
-			select: {
-				id: true,
-				label: true,
-				stockingDate: true,
-				stockingCount: true,
-				growOutDays: true,
-				targetHarvestDate: true,
-				targetHarvestWeightG: true,
-				expectedSurvivalPct: true,
-			},
-		}),
-		energyDevice
-			? prisma.feedEvent.findMany({
-					where: {
-						deviceId: energyDevice.id,
-						eventType: "feed_dispensed",
-						receivedAt: { gte: driftWindowStart },
-					},
-					select: { grams: true, receivedAt: true },
-				})
-			: Promise.resolve([] as { grams: number | null; receivedAt: Date }[]),
-		energyDevice
-			? prisma.feedLevelLog.findMany({
-					where: { deviceId: energyDevice.id, recordedAt: { gte: driftWindowStart } },
-					orderBy: { recordedAt: "asc" },
-					select: { levelPercent: true, recordedAt: true },
-				})
-			: Promise.resolve([] as { levelPercent: number; recordedAt: Date }[]),
-	]);
+	const [todayFeedEvents, latestFcr, latestBiomass, latestCommand, activeCycle, driftWindow] =
+		await Promise.all([
+			energyDevice
+				? prisma.feedEvent.findMany({
+						where: {
+							deviceId: energyDevice.id,
+							eventType: "feed_dispensed",
+							// "Feedings today" counts device feedings; an imported
+							// hand-fed daily total is one record, not a feeding slot.
+							source: { in: [...MACHINE_FEED_SOURCES] },
+							receivedAt: { gte: startOfToday },
+						},
+						orderBy: { receivedAt: "desc" },
+						select: { receivedAt: true },
+					})
+				: Promise.resolve([] as { receivedAt: Date }[]),
+			prisma.fcrReport.findFirst({
+				where: { pondId: pond.id },
+				orderBy: { periodEnd: "desc" },
+			}),
+			prisma.biomassLog.findFirst({
+				where: { pondId: pond.id },
+				orderBy: { recordedAt: "desc" },
+			}),
+			energyDevice
+				? prisma.scheduleCommand.findFirst({
+						where: { deviceId: energyDevice.id },
+						orderBy: { createdAt: "desc" },
+						select: { status: true },
+					})
+				: Promise.resolve(null),
+			prisma.cropCycle.findFirst({
+				where: { pondId: pond.id, status: "ACTIVE" },
+				select: {
+					id: true,
+					label: true,
+					stockingDate: true,
+					stockingCount: true,
+					growOutDays: true,
+					targetHarvestDate: true,
+					targetHarvestWeightG: true,
+					expectedSurvivalPct: true,
+				},
+			}),
+			// One loader for every drift surface (#6): device output only.
+			energyDevice
+				? loadCalibrationDriftWindow(energyDevice.id)
+				: Promise.resolve({ feeds: [], levels: [], start: new Date() }),
+		]);
 
 	const calibrationDrift = computeCalibrationDrift({
-		feeds: driftFeeds,
-		levels: driftLevels,
+		feeds: driftWindow.feeds,
+		levels: driftWindow.levels,
 		hopperCapacityG: energyDevice?.hopperCapacityG ?? null,
 	});
 
 	const now = Date.now();
-	const deviceOnline =
-		!!energyDevice?.lastSeenAt && now - energyDevice.lastSeenAt.getTime() <= OFFLINE_THRESHOLD_MS;
+	const statusPolicy = await getDeviceStatusPolicy();
+	const deviceOnline = !evaluateDeviceStatus({
+		lastSeenAt: energyDevice?.lastSeenAt ?? null,
+		now: new Date(now),
+		policy: statusPolicy,
+	}).isOffline;
 
 	// Deterministic feeding prediction (no AI call — keeps chat fast and free).
 	const latestFcrValue = latestFcr?.fcrValue ?? null;
@@ -158,7 +151,7 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 	const prediction = computeDeterministicPrediction({
 		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
 		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
-		population: pond.population ?? DEFAULT_FISH_COUNT,
+		population: pond.population,
 		avgWeightKg: latestBiomass?.avgWeightKg ?? null,
 		latestFcr: latestFcrValue,
 		currentGrams: energyDevice?.gramsPerFeeding ?? null,
@@ -177,7 +170,7 @@ export async function buildChatContext(ownerId: string): Promise<ChatContext | n
 			.slice(0, 100),
 		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
 		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
-		population: pond.population ?? DEFAULT_FISH_COUNT,
+		population: pond.population,
 		totalBiomassG: latestBiomass ? totalBiomassG(pond.population, latestBiomass.avgWeightKg) : null,
 		scheduleStart: currentConfig?.scheduleStart ?? pond.scheduleStart,
 		scheduleEnd: currentConfig?.scheduleEnd ?? pond.scheduleEnd,

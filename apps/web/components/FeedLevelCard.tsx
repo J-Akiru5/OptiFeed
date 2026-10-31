@@ -1,7 +1,9 @@
 "use client";
 
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { getFeedLevelDisplay } from "@/lib/feed-level";
+import { isHopperLowDisplay } from "@/lib/feed-level-display";
+import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 
 interface FeedLevelCardProps {
@@ -34,14 +36,18 @@ export function FeedLevelCard({
 		});
 
 	const isStale = state === "stale";
-	const readingTime = readingAt ? formatDateTimeLocal(readingAt, tDates) : null;
+	// #259: the display threshold is 30 %, independent of the org's alert
+	// threshold (`hopperLowPct`, default 20). Only a live reading can blink:
+	// an offline device keeps its greyed last-known treatment.
+	const isLowDisplay = state === "live" && isHopperLowDisplay(levelPercent);
+	const readingTime = readingAt ? formatFarmDateTime(readingAt, tDates) : null;
 	const readingLabel = readingTime
 		? t("readingTime", { date: readingTime.date, time: readingTime.time })
 		: t("unknownTime");
 
 	const barColor = isStale
 		? "bg-gray-400"
-		: isCritical
+		: isCritical || isLowDisplay
 			? "bg-red-500"
 			: isLow
 				? "bg-amber-500"
@@ -49,7 +55,7 @@ export function FeedLevelCard({
 
 	const badgeTone = isStale
 		? "bg-gray-100 text-[#3D5568] dark:bg-gray-800 dark:text-gray-300"
-		: isCritical
+		: isCritical || isLowDisplay
 			? "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300"
 			: isLow
 				? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
@@ -58,7 +64,7 @@ export function FeedLevelCard({
 					: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300";
 	const dotTone = isStale
 		? "bg-gray-400"
-		: isCritical
+		: isCritical || isLowDisplay
 			? "bg-red-500"
 			: isLow
 				? "bg-amber-500"
@@ -69,16 +75,24 @@ export function FeedLevelCard({
 		? t("offline")
 		: isCritical
 			? t("empty")
-			: isLow
-				? t("low")
-				: hasReading
-					? t("ok")
-					: t("noData");
+			: isLowDisplay
+				? t("lowRefill")
+				: isLow
+					? t("low")
+					: hasReading
+						? t("ok")
+						: t("noData");
 
 	return (
 		<div
-			className="rounded-3xl bg-white dark:bg-gray-900 p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 transition-shadow hover:shadow-md"
+			className={cn(
+				"rounded-3xl bg-white dark:bg-gray-900 p-6 shadow-sm border transition-shadow hover:shadow-md",
+				isLowDisplay
+					? "border-red-300 dark:border-red-900/60"
+					: "border-gray-100 dark:border-gray-700/50",
+			)}
 			data-help="dashboard-hopper"
+			data-hopper-low={isLowDisplay ? "true" : undefined}
 		>
 			<div className="flex items-center justify-between mb-4">
 				<div className="flex items-center gap-3">
@@ -104,7 +118,12 @@ export function FeedLevelCard({
 						<p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 							{t("title")}
 						</p>
-						<h3 className="text-lg font-bold text-[var(--ofd-base-deep)]">
+						<h3
+							className={cn(
+								"text-lg font-bold",
+								isLowDisplay ? "text-red-700 dark:text-red-300" : "text-[var(--ofd-base-deep)]",
+							)}
+						>
 							{isStale
 								? t("lastKnown", { percent: percent ?? 0 })
 								: percent !== null
@@ -126,7 +145,11 @@ export function FeedLevelCard({
 					<div className="mb-3">
 						<div className="h-3 w-full rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
 							<div
-								className={`h-full ${barColor} transition-all rounded-full`}
+								className={cn(
+									"h-full rounded-full transition-all",
+									barColor,
+									isLowDisplay && "hopper-low-pulse",
+								)}
 								style={{ width: `${Math.max(percent ?? 0, 4)}%` }}
 							/>
 						</div>

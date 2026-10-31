@@ -14,24 +14,27 @@ import {
 import {
 	DashboardEmptyState,
 	DashboardPageHeader,
+	DashboardPageShell,
 	DashboardSection,
 	ReadOnlyNotice,
 	dashboardSectionLink,
 } from "@/components/dashboard/dashboard-ui";
+import { TermInfo } from "@/components/dashboard/term-info";
 import { GrowthPlanCard } from "@/components/growth/GrowthPlanCard";
+import { SgrKpi, type SgrKpiLabels } from "@/components/growth/SgrKpi";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
-import { DEFAULT_FISH_COUNT } from "@/lib/constants";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { loadGrowthPlanForPond } from "@/lib/growth-plan-loader";
 import type { GrowthSnapshotData } from "@/lib/offline/snapshots";
 import { getActivePond } from "@/lib/pond-selection";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { averageDailyGain, overallSgr, sgrSeries, sgrUnavailableReason } from "@/lib/sgr";
 import { Activity, ChevronRight, Fish, Package, Scale, TrendingUp, Wheat } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -55,6 +58,7 @@ export default async function GrowthPage() {
 			<div className="mx-auto max-w-2xl py-10">
 				<DashboardEmptyState
 					icon={Fish}
+					mascot="idle"
 					title={tSch("noPondData")}
 					description={tSch("noDeviceDesc")}
 				/>
@@ -64,42 +68,56 @@ export default async function GrowthPage() {
 
 	// Bound the chart/table payloads: a decade of logs must not be serialized on
 	// every visit. The history page remains the unbounded, paginated view.
-	const [writeAccess, biomassDesc, fcrDesc, energyDevice, activeCycle, loadedPlan] =
-		await Promise.all([
-			canWrite(),
-			prisma.biomassLog.findMany({
-				where: { pondId: pond.id },
-				orderBy: { recordedAt: "desc" },
-				take: 60,
-				include: {
-					fishSamples: { select: { id: true, weightGrams: true, lengthCm: true } },
-				},
-			}),
-			prisma.fcrReport.findMany({
-				where: { pondId: pond.id },
-				orderBy: { periodEnd: "desc" },
-				take: 12,
-			}),
-			prisma.energyDevice.findFirst({
-				where: { pondId: pond.id },
-				orderBy: { createdAt: "asc" },
-				select: { id: true, gramsPerFeeding: true, hopperCapacityG: true },
-			}),
-			prisma.cropCycle.findFirst({
-				where: { pondId: pond.id, status: "ACTIVE" },
-				select: {
-					id: true,
-					label: true,
-					stockingDate: true,
-					stockingCount: true,
-					growOutDays: true,
-					targetHarvestDate: true,
-					targetHarvestWeightG: true,
-					expectedSurvivalPct: true,
-				},
-			}),
-			loadGrowthPlanForPond(pond.id, { ownerId: pond.ownerId }),
-		]);
+	const [
+		writeAccess,
+		biomassDesc,
+		earliestBiomass,
+		fcrDesc,
+		energyDevice,
+		activeCycle,
+		loadedPlan,
+	] = await Promise.all([
+		canWrite(),
+		prisma.biomassLog.findMany({
+			where: { pondId: pond.id },
+			orderBy: { recordedAt: "desc" },
+			take: 60,
+			include: {
+				fishSamples: { select: { id: true, weightGrams: true, lengthCm: true } },
+			},
+		}),
+		// "Overall since the first sampling" must not be limited to the 60-row
+		// chart window, so fetch only the oldest sample (bounded, pond-scoped).
+		prisma.biomassLog.findFirst({
+			where: { pondId: pond.id },
+			orderBy: [{ recordedAt: "asc" }, { id: "asc" }],
+			select: { recordedAt: true, avgWeightKg: true },
+		}),
+		prisma.fcrReport.findMany({
+			where: { pondId: pond.id },
+			orderBy: { periodEnd: "desc" },
+			take: 12,
+		}),
+		prisma.energyDevice.findFirst({
+			where: { pondId: pond.id },
+			orderBy: { createdAt: "asc" },
+			select: { id: true, gramsPerFeeding: true, hopperCapacityG: true },
+		}),
+		prisma.cropCycle.findFirst({
+			where: { pondId: pond.id, status: "ACTIVE" },
+			select: {
+				id: true,
+				label: true,
+				stockingDate: true,
+				stockingCount: true,
+				growOutDays: true,
+				targetHarvestDate: true,
+				targetHarvestWeightG: true,
+				expectedSurvivalPct: true,
+			},
+		}),
+		loadGrowthPlanForPond(pond.id, { ownerId: pond.ownerId }),
+	]);
 
 	const biomassLogs = biomassDesc.slice().reverse();
 	const fcrReports = fcrDesc.slice().reverse();
@@ -116,7 +134,40 @@ export default async function GrowthPage() {
 		return { log, weightGain, lengthGain, daysSinceLast };
 	});
 
-	const cycleContext = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
+	// SGR (capstone objective). Biomass logs are already ascending for the chart,
+	// so the series is oldest interval first and the last point is the latest one.
+	const sgrSamples = biomassLogs.map((log) => ({
+		recordedAt: log.recordedAt,
+		avgWeightKg: log.avgWeightKg,
+	}));
+	const sgrPoints = sgrSeries(sgrSamples);
+	const latestSgrPctPerDay = sgrPoints.at(-1)?.sgrPctPerDay ?? null;
+	// Prefer the real first sampling for "overall"; fall back to the loaded set
+	// (correct whenever the pond has 60 samples or fewer, which is the common case).
+	const firstSgrSample = earliestBiomass
+		? { recordedAt: earliestBiomass.recordedAt, avgWeightKg: earliestBiomass.avgWeightKg }
+		: (sgrSamples[0] ?? null);
+	const latestSgrSample = sgrSamples.at(-1) ?? null;
+	const overallSgrSamples =
+		sgrSamples.length >= 2 && firstSgrSample && latestSgrSample
+			? [firstSgrSample, latestSgrSample]
+			: sgrSamples;
+	const overallSgrPctPerDay = overallSgr(overallSgrSamples);
+	const sgrAverageDailyGainG = averageDailyGain(overallSgrSamples);
+	const sgrReason = sgrUnavailableReason(overallSgrSamples);
+
+	const effectiveTargetWeightG =
+		loadedPlan?.plan.targetWeightG ?? activeCycle?.targetHarvestWeightG ?? null;
+	// The Growth page shows the plan's effective target, which may come from
+	// the calculator rather than the cycle (issue #304). Passing it into the
+	// context keeps the prediction card's target and projected biomass in step
+	// with the plan.
+	const cycleContext = activeCycle
+		? toPredictionCycleContext(
+				{ ...activeCycle, targetHarvestWeightG: effectiveTargetWeightG },
+				todayDateOnly(),
+			)
+		: null;
 
 	// Deterministic prediction shown instantly; the client card refines it
 	// with the AI provider in the background.
@@ -124,7 +175,7 @@ export default async function GrowthPage() {
 	const initialPrediction = computeDeterministicPrediction({
 		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
 		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
-		population: pond.population ?? DEFAULT_FISH_COUNT,
+		population: pond.population,
 		avgWeightKg: biomassLogs.length > 0 ? biomassLogs[biomassLogs.length - 1].avgWeightKg : null,
 		latestFcr: fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : null,
 		currentGrams: energyDevice?.gramsPerFeeding ?? null,
@@ -168,7 +219,7 @@ export default async function GrowthPage() {
 	const biomassGrowthPct =
 		previousBiomass > 0 ? ((latestBiomass - previousBiomass) / previousBiomass) * 100 : 0;
 
-	const formatDate = (d: Date) => formatDateTimeLocal(d, tDates).date;
+	const formatDate = (d: Date) => formatFarmDateTime(d, tDates).date;
 
 	// Custom SVG Line Chart generator for Biomass
 	const maxBiomass = Math.max(...biomassLogs.map((l) => l.avgWeightKg), 0.01) * 1.1; // Add 10% padding top
@@ -227,8 +278,21 @@ export default async function GrowthPage() {
 		})),
 	};
 
+	const sgrLabels: SgrKpiLabels = {
+		title: t("sgrTitle"),
+		overall: t("sgrOverall"),
+		averageGain: t("sgrAverageGain"),
+		unit: t("sgrUnit"),
+		explanation: t("sgrExplain"),
+		reasons: {
+			insufficientSamples: t("sgrReasons.insufficientSamples"),
+			invalidWeight: t("sgrReasons.invalidWeight"),
+			intervalTooShort: t("sgrReasons.intervalTooShort"),
+		},
+	};
+
 	return (
-		<div className="space-y-8 pb-20 animate-in fade-in duration-150 max-w-7xl mx-auto">
+		<DashboardPageShell className="space-y-8 pb-20 animate-in fade-in duration-150">
 			<SnapshotWriter
 				page="growth"
 				scope={pond.ownerId}
@@ -307,14 +371,12 @@ export default async function GrowthPage() {
 											days: Math.abs(cycleContext.daysToHarvest),
 										})
 									: tHarvest("harvestIn", { days: cycleContext.daysToHarvest })}
-								{activeCycle.targetHarvestWeightG
-									? ` · ${activeCycle.targetHarvestWeightG} g target`
-									: ""}
+								{effectiveTargetWeightG ? ` · ${effectiveTargetWeightG} g target` : ""}
 							</p>
 						</div>
 					</div>
 					<Link
-						href="/dashboard/harvest"
+						href="/dashboard/calendar"
 						className="inline-flex min-h-11 items-center gap-1 rounded-lg text-xs font-bold text-[#0A3D62] hover:underline focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:text-[#5b9bd5] dark:focus-visible:outline-[#8fc0ea]"
 					>
 						{tHarvest("progress")} <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
@@ -343,7 +405,7 @@ export default async function GrowthPage() {
 						</div>
 					</div>
 					<Link
-						href="/dashboard/harvest"
+						href="/dashboard/calendar"
 						className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:bg-[#1f66a0] dark:focus-visible:outline-[#8fc0ea]"
 					>
 						{tHarvest("startCycle")} <ChevronRight aria-hidden="true" className="h-4 w-4" />
@@ -361,15 +423,28 @@ export default async function GrowthPage() {
 			)}
 
 			{/* FCR Calculator */}
-			<FcrCalculator latestFcr={latestFcr} />
+			<FcrCalculator
+				latestFcr={latestFcr}
+				pondId={pond.id}
+				population={pond.population}
+				feedsPerDay={currentConfig?.feedsPerDay ?? pond.feedsPerDay}
+				canSetTarget={Boolean(activeCycle)}
+			/>
 
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-6" data-help="growth-charts">
+			<div
+				className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
+				data-help="growth-charts"
+			>
 				{/* Latest ABW Card */}
 				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 flex flex-col justify-between relative overflow-hidden">
 					<div className="flex justify-between items-start mb-4 relative z-10">
 						<div>
 							<p className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-								{t("latestAbw")}
+								<TermInfo
+									label={t("latestAbw")}
+									hint={tCommon("terminology.aboutAbw")}
+									description={tCommon("terminology.abw")}
+								/>
 							</p>
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
 								{(latestBiomass * 1000).toFixed(1)}{" "}
@@ -445,7 +520,11 @@ export default async function GrowthPage() {
 					<div className="flex justify-between items-start mb-4">
 						<div>
 							<p className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-								{t("currentFcr")}
+								<TermInfo
+									label={t("currentFcr")}
+									hint={tCommon("terminology.aboutFcr")}
+									description={tCommon("terminology.fcr")}
+								/>
 							</p>
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
 								{latestFcr.toFixed(2)}
@@ -496,6 +575,15 @@ export default async function GrowthPage() {
 						})}
 					</span>
 				</div>
+
+				{/* Specific Growth Rate (capstone objective) */}
+				<SgrKpi
+					latestSgrPctPerDay={latestSgrPctPerDay}
+					overallSgrPctPerDay={overallSgrPctPerDay}
+					averageDailyGainG={sgrAverageDailyGainG}
+					reason={sgrReason}
+					labels={sgrLabels}
+				/>
 			</div>
 
 			{/* Feed Level Trend Card */}
@@ -588,7 +676,7 @@ export default async function GrowthPage() {
 							{feedLevelPreview.map((log) => (
 								<li key={log.id} className="flex items-center justify-between gap-3 py-3.5">
 									<div className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
-										{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+										{formatFarmDateTime(log.recordedAt, tDates).fullDate}
 									</div>
 									<div>
 										<span
@@ -644,7 +732,7 @@ export default async function GrowthPage() {
 									.map(({ log, weightGain, lengthGain, daysSinceLast }) => (
 										<DashboardTr key={log.id}>
 											<DashboardTd className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
-												{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+												{formatFarmDateTime(log.recordedAt, tDates).fullDate}
 											</DashboardTd>
 											<DashboardTd className="text-right">
 												{(log.avgWeightKg * 1000).toFixed(1)} g
@@ -703,7 +791,7 @@ export default async function GrowthPage() {
 							{growthRows.slice(0, GROWTH_PREVIEW_ROWS).map(({ log, weightGain, lengthGain }) => (
 								<DashboardCard key={log.id}>
 									<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-										{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+										{formatFarmDateTime(log.recordedAt, tDates).fullDate}
 									</p>
 									<div className="mt-2">
 										<DashboardCardRow label={t("history.columns.avgWeight")}>
@@ -745,6 +833,7 @@ export default async function GrowthPage() {
 						<div className="p-4 sm:p-6">
 							<DashboardEmptyState
 								icon={Scale}
+								mascot="idle"
 								title={t("noSamplesTitle")}
 								description={t("noSamplesDesc")}
 								action={
@@ -763,14 +852,20 @@ export default async function GrowthPage() {
 									<DashboardTh>{t("totalWeightCol")}</DashboardTh>
 									<DashboardTh>{t("fishCountCol")}</DashboardTh>
 									<DashboardTh>{t("avgLengthCol")}</DashboardTh>
-									<DashboardTh align="right">{t("abwCol")}</DashboardTh>
+									<DashboardTh align="right">
+										<TermInfo
+											label={t("abwCol")}
+											hint={tCommon("terminology.aboutAbw")}
+											description={tCommon("terminology.abw")}
+										/>
+									</DashboardTh>
 									<DashboardTh align="right">{t("typeCol")}</DashboardTh>
 								</DashboardTHead>
 								<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
 									{biomassDesc.slice(0, PREVIEW_ROWS).map((log) => (
 										<DashboardTr key={log.id}>
 											<DashboardTd className="whitespace-nowrap font-medium text-gray-900 dark:text-gray-100">
-												{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+												{formatFarmDateTime(log.recordedAt, tDates).fullDate}
 											</DashboardTd>
 											<DashboardTd className="whitespace-nowrap">
 												{log.batchLabel ?? <span className="text-gray-400">—</span>}
@@ -794,7 +889,7 @@ export default async function GrowthPage() {
 																	{log.batchLabel ?? t("unlabeledBatch")}
 																</span>
 																<span className="shrink-0 font-medium normal-case text-teal-600 dark:text-teal-300">
-																	{formatDateTimeLocal(log.recordedAt, tDates).date}
+																	{formatFarmDateTime(log.recordedAt, tDates).date}
 																</span>
 															</div>
 															<table className="w-full text-xs text-gray-600 dark:text-gray-300">
@@ -849,7 +944,7 @@ export default async function GrowthPage() {
 									<DashboardCard key={log.id}>
 										<div className="flex items-baseline justify-between gap-3">
 											<p className="text-xs font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-												{formatDateTimeLocal(log.recordedAt, tDates).fullDate}
+												{formatFarmDateTime(log.recordedAt, tDates).fullDate}
 											</p>
 											<p className="text-sm font-black text-[var(--ofd-base-deep)]">
 												{(log.avgWeightKg * 1000).toFixed(1)} g
@@ -876,6 +971,6 @@ export default async function GrowthPage() {
 					)}
 				</DashboardSection>
 			</div>
-		</div>
+		</DashboardPageShell>
 	);
 }

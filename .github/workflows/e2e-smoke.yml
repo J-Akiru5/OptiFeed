@@ -1,0 +1,81 @@
+name: E2E smoke (cross-browser)
+
+# Cross-browser rendering gate (ISO 25010 compatibility).
+#
+# This workflow is deliberately narrow: it builds the app with dummy env and
+# runs only the unauthenticated smoke suite on Chromium, Firefox and WebKit
+# (apps/web/e2e/smoke). It needs no database, no Supabase project and no
+# `e2e-` fixture, so it is safe on every push and pull request.
+#
+# The authenticated Playwright suite is owned by the E2E job in ci.yml and
+# stays Chromium-only; see docs/compatibility.md for the split and the
+# supported-browser matrix.
+#
+# Nothing here deploys. The build uses `npx next build` instead of
+# `pnpm build`, because the package build script runs `prisma migrate deploy`.
+
+on:
+  push:
+    branches: [develop, staging, main]
+  pull_request:
+    branches: [develop, staging, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  smoke:
+    name: public smoke (chromium, firefox, webkit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: postgresql://user:pass@localhost:5432/ci_dummy
+      DIRECT_URL: postgresql://user:pass@localhost:5432/ci_dummy
+      NEXT_PUBLIC_SUPABASE_URL: https://ci-dummy.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-dummy-anon-key
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter web prisma:generate
+
+      # Direct `next build` so CI never runs `prisma migrate deploy`.
+      - name: Build
+        run: npx next build
+        working-directory: apps/web
+
+      - name: Install Playwright browsers
+        run: pnpm --filter web exec playwright install --with-deps chromium firefox webkit
+
+      # playwright.smoke.config.ts starts `next start` itself when no
+      # PLAYWRIGHT_BASE_URL is supplied.
+      - name: Run the public smoke on all three engines
+        run: pnpm --filter web test:e2e:smoke
+
+      - name: Upload traces and screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-smoke-results
+          path: apps/web/test-results
+          retention-days: 7
+          if-no-files-found: ignore

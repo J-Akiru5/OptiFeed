@@ -6,11 +6,13 @@ import {
 } from "@/components/dashboard/dashboard-classes";
 import { Modal } from "@/components/harvest/modal";
 import { useRouter } from "@/i18n/routing";
+import { HELP_REVEAL_EVENT } from "@/lib/help/highlight";
 import {
 	DEFAULT_DEVICE_SETTINGS_TAB,
 	DEVICE_SETTINGS_TABS,
 	type DeviceSettingsTab,
 	deviceSettingsHref,
+	isDeviceSettingsTab,
 	tabForAnchor,
 } from "@/lib/settings/device-settings-tabs";
 import { cn } from "@/lib/utils";
@@ -25,6 +27,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { flushSync } from "react-dom";
 import { DeviceSwitcher, type DeviceSwitcherOption } from "./device-switcher";
 import { type DirtyRegistry, SettingsPanelContext, UnsavedChangesContext } from "./unsaved-changes";
 
@@ -39,7 +42,7 @@ interface DeviceSettingsTabsProps {
  * The tabbed device settings page (issue #403).
  *
  * Every panel stays mounted and inactive ones are only `hidden`, so an edit
- * survives a tab switch. The tab is kept
+ * survives a tab switch and help targets can still be found. The tab is kept
  * in `?tab=` with `history.replaceState` (no server round trip); the device is
  * a real navigation because the server loads its data.
  */
@@ -97,6 +100,21 @@ export function DeviceSettingsTabs({
 			document.getElementById(anchor)?.scrollIntoView({ block: "start" });
 		});
 		return () => window.cancelAnimationFrame(frame);
+	}, []);
+
+	// The help sheet asks for a control that may sit in a hidden panel.
+	useEffect(() => {
+		const root = rootRef.current;
+		if (!root) return;
+		const onReveal = (event: Event) => {
+			const panel = (event.target as HTMLElement | null)?.closest<HTMLElement>(
+				"[data-settings-panel]",
+			);
+			const tab = panel?.dataset.settingsPanel;
+			if (isDeviceSettingsTab(tab)) flushSync(() => setActiveTab(tab));
+		};
+		root.addEventListener(HELP_REVEAL_EVENT, onReveal);
+		return () => root.removeEventListener(HELP_REVEAL_EVENT, onReveal);
 	}, []);
 
 	// Reload and closing the tab. In-app links have no App Router event to hook.

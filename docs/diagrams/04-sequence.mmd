@@ -1,0 +1,87 @@
+---
+title: "Figure 3.4 - Sequence Diagram: tenant command, device dispense, event ingest and platform audit"
+---
+sequenceDiagram
+  autonumber
+
+  actor OP as Operator
+  actor PA as Platform Admin
+  participant APP as Next.js App<br/>pages + server actions + API
+  participant AUTH as Supabase Auth
+  participant DB as PostgreSQL<br/>via Prisma
+  participant ESP as ESP32 Controller
+  participant REL as Relay / Auger Motor
+  participant CRON as pg_cron / pg_net
+
+  rect rgb(238, 243, 241)
+    Note over OP,APP: Phase 1 - Operator requests a manual feed
+    OP->>APP: requestFeed action - "Feed now"
+    APP->>AUTH: verify session cookie
+    AUTH-->>APP: { sub, email }
+    APP->>DB: resolve User by pond email farmId@pond.optifeed.local
+    DB-->>APP: User { id, farmId, role }
+    Note over APP: requireWriteAccess, then requirePermission("control_feeder")<br/>both call assertNotViewingAs
+    APP->>DB: create FeedRequest { deviceId, grams, status: pending, kind: feed }
+    DB-->>APP: FeedRequest id
+    APP-->>OP: Feed queued
+  end
+
+  rect rgb(255, 241, 234)
+    Note over ESP,DB: Phase 2 - Device polls the command and dispenses
+    ESP->>APP: GET /api/feed-command?device_id=...<br/>Header: X-Device-Token
+    APP->>DB: findUnique EnergyDevice where tokenHash = sha256(token)
+    DB-->>APP: device + approvalStatus
+    alt approvalStatus is PENDING or REJECTED
+      APP-->>ESP: 403 Forbidden
+    else approved
+      APP->>DB: update FeedRequest status = dispatched
+      APP-->>ESP: 200 { feed_requested: true, feed_request_id, grams, config { rev } }
+      ESP->>ESP: dispenseFeed - run all safety gates
+      ESP->>REL: Relay ON - GPIO 25 active HIGH
+      Note over ESP,REL: duration = grams / gramsPerSecond
+      REL-->>ESP: auger turns the calibrated dose
+      ESP->>REL: Relay OFF - after duration plus 2 s overrun grace
+      ESP->>APP: POST /api/ingest { event_type: feed_dispensed, grams, source: dashboard, event_id }
+      APP->>DB: idempotent FeedEvent + DeviceStateEvent(feed_dispensed)
+      DB-->>APP: committed
+      APP-->>ESP: 204 No Content
+    end
+  end
+
+  rect rgb(245, 245, 245)
+    Note over OP,DB: Phase 3 - Schedule change becomes a queued command
+    OP->>APP: Update schedule window or feeding rate
+    APP->>DB: create ScheduleCommand { deviceId, status: pending }
+    DB-->>APP: command id
+    ESP->>APP: GET /api/schedule-sync?device_id=...
+    APP->>DB: findFirst ScheduleCommand where status in (pending, sent)
+    DB-->>APP: command
+    APP->>DB: status = sent + DeviceStateEvent(command_sent)
+    APP-->>ESP: { command_id, schedule_start, schedule_end, feeds_per_day, feeding_rate_pct, config }
+    ESP->>ESP: applyServerConfig - validate, persist to NVS, applyConfigToRuntime
+    ESP->>APP: POST /api/ingest { event_type: schedule_acked }
+    APP->>DB: ScheduleCommand status = acked + DeviceStateEvent(schedule_applied)
+  end
+
+  rect rgb(238, 243, 241)
+    Note over CRON,APP: Phase 4 - Telemetry, low-feed alerts and offline detection
+    ESP->>APP: POST /api/ingest { event_type: heartbeat, feed_level_percent, water_temp_c, rtc_ok, config_rev }
+    APP->>DB: FeedEvent(heartbeat) + FeedLevelLog + WaterTempLog
+    alt feed level below OrgSetting.hopperLowPct
+      APP->>DB: Notification(pellet_low) + DeviceStateEvent(pellet_low)
+    end
+    CRON->>APP: GET /api/cron/device-watch - every 5 min<br/>Header: Authorization Bearer CRON_SECRET
+    APP->>DB: find EnergyDevice where lastSeenAt is stale
+    DB-->>APP: stale devices
+    APP->>DB: Notification(device_offline) + DeviceStateEvent(disconnected)
+    APP-->>CRON: 200 processed
+  end
+
+  rect rgb(255, 241, 234)
+    Note over PA,DB: Phase 5 - Platform admin performs a destructive action
+    PA->>APP: Suspend organization or revoke membership
+    Note over APP: requirePlatformAdmin + requireStepUp - fresh re-authentication
+    APP->>DB: write PlatformAuditLog { action, targetType, targetId, reason, stepUpAt, before, after, ip }
+    DB-->>APP: committed
+    APP-->>PA: Action applied and audited
+  end

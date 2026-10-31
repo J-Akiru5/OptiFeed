@@ -1,0 +1,116 @@
+---
+title: "Figure 3.3 - Activity Diagram of System Hardware: ESP32 firmware loop, dispense gates and telemetry"
+---
+flowchart TB
+
+  classDef act fill:#ffffff,stroke:#0a3d62,color:#0a2e47;
+  classDef gate fill:#fff1ea,stroke:#e85a2a,color:#0a2e47;
+  classDef refuse fill:#fde8e8,stroke:#b91c1c,color:#7f1d1d;
+  classDef io fill:#eef3f1,stroke:#7a8c85,color:#0a2e47;
+
+  PWR([Power on]):::act
+
+  subgraph BOOT["Boot sequence  -  setup"]
+    direction TB
+    B1["Enable watchdog<br/>force relay OFF"]:::act
+    B2["Init DS3231 RTC, DS18B20, HC-SR04"]:::act
+    B3["Load identity from NVS<br/>device_id, device_token"]:::act
+    B4{"Device identity<br/>provisioned?"}:::gate
+    B5["Raise captive-DNS setup AP<br/>PakaonAI-XXXX"]:::act
+    B6["Capture Wi-Fi, Device ID, Device Token"]:::io
+    B7["Write NVS and restart"]:::act
+    B1 --> B2 --> B3 --> B4
+    B4 -- "No" --> B5 --> B6 --> B7
+  end
+
+  PWR --> B1
+
+  subgraph LOOP["Main loop  -  firmware-main.ino loop()"]
+    direction TB
+    L1["serviceDispenseSafety<br/>stop dose at expected end"]:::act
+    L2{"Dose overran by<br/>more than 2 s?"}:::gate
+    L3["Stop relay and report<br/>relay_overrun"]:::refuse
+    L4["serviceSafeMode<br/>serviceOtaHealthCheck"]:::act
+    L5["maintainWiFi"]:::act
+    L6["handleButton<br/>falling-edge candidate"]:::act
+    L7{"Press confirmed LOW<br/>for 50 ms, quiet window<br/>clear, 30 s cooldown?"}:::gate
+    L8["handleSchedule<br/>RTC time matches feed time"]:::act
+    L9{"RTC time equals<br/>feed time, not fired today?"}:::gate
+    L10["maybeCheckForUpdate<br/>signed OTA manifest"]:::act
+    L11{"Identity present and<br/>poll interval elapsed?"}:::gate
+    L12["sendTelemetry<br/>level, temp, health, diag"]:::io
+    L13["pollDashboardFeedCommand<br/>GET /api/feed-command"]:::io
+    L14["pollScheduleCommand<br/>GET /api/schedule-sync"]:::io
+    L15["flushQueuedEvents<br/>POST /api/ingest"]:::io
+    L16[Return to loop]:::act
+
+    L1 --> L2
+    L2 -- "Yes" --> L3 --> L4
+    L2 -- "No" --> L4
+    L4 --> L5 --> L6 --> L7
+    L7 -- "Yes" --> GATE
+    L7 -- "No" --> L8
+    L8 --> L9
+    L9 -- "Yes" --> GATE
+    L9 -- "No" --> L10
+    L10 --> L11
+    L11 -- "Yes" --> L12 --> L13 --> L14 --> L15 --> L16
+    L11 -- "No" --> L16
+    L16 --> L1
+  end
+
+  B4 -- "Yes" --> L1
+
+  subgraph GATE["dispenseFeed safety gates  -  all must pass"]
+    direction TB
+    G1{"safe mode active?"}:::gate
+    G2{"Inside brownout<br/>hold window?"}:::gate
+    G3{"OTA image<br/>downloading?"}:::gate
+    G4{"OTA image<br/>pending verify?"}:::gate
+    G5{"Feeder already<br/>running?"}:::gate
+    G6{"grams greater than 0<br/>and within dose ceiling?"}:::gate
+    G7{"Dose time within<br/>relay-time envelope?"}:::gate
+    G8{"Daily gram ceiling<br/>not exceeded?"}:::gate
+    G9{"Minimum gap since<br/>last dispense met?"}:::gate
+    G10{"Hourly dispense<br/>ceiling not reached?"}:::gate
+    G11["Energize relay<br/>GPIO 25 active HIGH"]:::act
+    G12["Wait duration = grams / gramsPerSecond"]:::act
+    G13["De-energize relay<br/>open the 2 s overrun grace"]:::act
+    G14["Enqueue feed_dispensed event"]:::act
+    G15["Flush event to server<br/>POST /api/ingest"]:::io
+
+    G1 -- "Yes" --> R1["Report refusal<br/>safe_mode"]:::refuse
+    G2 -- "Yes" --> R2["Report refusal<br/>brownout_hold"]:::refuse
+    G3 -- "Yes" --> R3["Report refusal<br/>ota_in_progress"]:::refuse
+    G4 -- "Yes" --> R4["Refuse without reporting<br/>ota_pending_verify"]:::refuse
+    G5 -- "Yes" --> R5["Report refusal<br/>busy"]:::refuse
+    G6 -- "No" --> R6["Report refusal<br/>grams_out_of_range"]:::refuse
+    G7 -- "No" --> R7["Report refusal<br/>dose_time_exceeds_cap"]:::refuse
+    G8 -- "No" --> R8["Report refusal<br/>daily_gram_cap_exceeded"]:::refuse
+    G9 -- "No" --> R9["Report refusal<br/>too_soon"]:::refuse
+    G10 -- "No" --> R10["Report refusal<br/>hourly_limit"]:::refuse
+
+    G1 -- "No" --> G2
+    G2 -- "No" --> G3
+    G3 -- "No" --> G4
+    G4 -- "No" --> G5
+    G5 -- "No" --> G6
+    G6 -- "Yes" --> G7
+    G7 -- "Yes" --> G8
+    G8 -- "Yes" --> G9
+    G9 -- "Yes" --> G10
+    G10 -- "Yes" --> G11
+    G11 --> G12 --> G13 --> G14 --> G15
+  end
+
+  G15 --> L16
+  R1 --> L16
+  R2 --> L16
+  R3 --> L16
+  R4 --> L16
+  R5 --> L16
+  R6 --> L16
+  R7 --> L16
+  R8 --> L16
+  R9 --> L16
+  R10 --> L16

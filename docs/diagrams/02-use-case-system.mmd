@@ -1,0 +1,120 @@
+---
+title: "Figure 3.2 - Use Case Diagram (System): automated actors and the services they drive"
+---
+flowchart LR
+
+  classDef actor fill:#0a3d62,stroke:#0a2e47,color:#ffffff,stroke-width:1.5px;
+  classDef uc fill:#ffffff,stroke:#0a3d62,color:#0a2e47;
+  classDef svc fill:#fff1ea,stroke:#e85a2a,color:#0a2e47;
+  classDef ext fill:#f4f4f5,stroke:#71717a,color:#27272a,stroke-dasharray:4 3;
+
+  RTC(["DS3231 RTC<br/>I2C real-time clock"]):::actor
+  SON(["HC-SR04<br/>hopper feed level"]):::actor
+  TMP(["DS18B20<br/>water temperature"]):::actor
+  BTN(["Feed Button<br/>GPIO 23"]):::actor
+  RB1(["Wi-Fi Reset<br/>GPIO 17"]):::actor
+  RB2(["Factory Reset<br/>GPIO 16"]):::actor
+  ESP(["ESP32 Controller<br/>firmware-main.ino"]):::actor
+  REL(["Relay and Auger Motor"]):::actor
+  CRON(["pg_cron / pg_net<br/>scheduler"]):::actor
+  JOB(["Background Job Worker"]):::actor
+  AI(["AI Provider Chain"]):::actor
+  MSG(["Telegram and Email"]):::actor
+  OTA(["OTA Release Manifest"]):::actor
+  AUTH(["Supabase Auth"]):::actor
+
+  subgraph SYS["OptiFeed Platform - automated behaviours"]
+
+    subgraph EDGE["Edge Controller Firmware"]
+      direction TB
+      E1["Execute autonomous schedule trigger"]:::svc
+      E2["Dispense calculated feed portion"]:::svc
+      E3["Perform manual button feed"]:::svc
+      E4["Measure hopper feed level"]:::svc
+      E5["Measure water temperature"]:::svc
+      E6["Enforce dispense safety gates"]:::svc
+      E7["Apply versioned server config"]:::svc
+      E8["Apply schedule command and ack"]:::svc
+      E9["Emit heartbeat and telemetry"]:::svc
+      E10["Report feed dispensed or refused"]:::svc
+      E11["Queue events offline and flush"]:::svc
+      E12["Enter safe mode after abnormal resets"]:::svc
+    end
+
+    subgraph SERVER["Server and Data Plane"]
+      direction TB
+      V1["Authenticate device token"]:::svc
+      V2["Authenticate human session"]:::svc
+      V3["Resolve tenant scope"]:::svc
+      V4["Resolve effective permissions"]:::svc
+      V5["Persist feed event and state event"]:::svc
+      V6["Queue feed request and schedule command"]:::svc
+      V7["Detect offline device"]:::svc
+      V8["Raise and acknowledge notifications"]:::svc
+      V9["Enforce tenant and platform boundaries"]:::svc
+    end
+
+    subgraph PLATFORM["Platform Automation"]
+      direction TB
+      P1["Run export and import jobs"]:::svc
+      P2["Send harvest and sampling reminders"]:::svc
+      P3["Publish announcement"]:::svc
+      P4["Write platform audit trail"]:::svc
+      P5["Apply signed firmware update"]:::svc
+    end
+  end
+
+  %% ---------------- edge actors drive edge behaviour ----------------
+  RTC --> E1
+  SON --> E4
+  TMP --> E5
+  BTN --> E3
+  RB1 --> E11
+  RB2 --> E11
+  ESP --> E1
+  ESP --> E2
+  ESP --> E3
+  ESP --> E4
+  ESP --> E5
+  ESP --> E6
+  ESP --> E7
+  ESP --> E8
+  ESP --> E9
+  ESP --> E10
+  ESP --> E11
+  ESP --> E12
+  E2 --> REL
+  E3 --> REL
+  REL --> E10
+  OTA --> P5
+  P5 --> E12
+
+  %% ---------------- server plane ----------------
+  E9 --> V1
+  E10 --> V1
+  E7 --> V1
+  E8 --> V1
+  V1 --> V5
+  V1 --> V7
+  V2 --> V3
+  V3 --> V4
+  V4 --> V9
+  V6 --> E7
+  V6 --> E8
+  V5 --> V8
+  V7 --> V8
+  V8 --> MSG
+  E1 --> E2
+  E2 --> E6
+  E3 --> E6
+  E6 --> E2
+
+  %% ---------------- platform automation ----------------
+  CRON --> P1
+  CRON --> P2
+  CRON --> V7
+  JOB --> P1
+  AI --> V8
+  AUTH --> V2
+  MSG --> P2
+  P2 --> MSG

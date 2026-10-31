@@ -1,0 +1,93 @@
+---
+title: "Figure 3.5 - Circuit Diagram: ESP32 DevKit V1 feeder controller wiring"
+---
+flowchart LR
+
+  classDef psu fill:#f4f4f5,stroke:#71717a,color:#27272a;
+  classDef mcu fill:#0a3d62,stroke:#0a2e47,color:#ffffff,stroke-width:2px;
+  classDef sens fill:#ffffff,stroke:#0a3d62,color:#0a2e47;
+  classDef act fill:#fff1ea,stroke:#e85a2a,color:#0a2e47;
+  classDef pass fill:#eef3f1,stroke:#7a8c85,color:#0a2e47;
+  classDef note fill:#fffbeb,stroke:#b45309,color:#78350f,stroke-dasharray:4 3;
+
+  subgraph POWER["Power tree"]
+    direction TB
+    AC["12 V DC adapter"]:::psu
+    BUCK["Buck converter<br/>12 V to 5 V"]:::psu
+    V5(("5 V rail")):::psu
+    V3(("3V3 rail<br/>ESP32 regulator")):::psu
+    GND(("GND")):::psu
+    AC --> BUCK --> V5
+    AC --> MOTOR["Auger motor<br/>12 V"]:::act
+  end
+
+  MCU["ESP32 DevKit V1<br/>ESP32-WROOM-32U"]:::mcu
+
+  %% ---------------- RTC ----------------
+  subgraph RTCS["DS3231 real-time clock"]
+    direction TB
+    RTC["DS3231 RTC<br/>VCC, SDA, SCL, GND"]:::sens
+  end
+  V3 -->|"3V3"| RTC
+  GND -->|"GND"| RTC
+  MCU -->|"GPIO 21 - SDA (I2C)"| RTC
+  MCU -->|"GPIO 22 - SCL (I2C)"| RTC
+
+  %% ---------------- ultrasonic ----------------
+  subgraph SONIC["HC-SR04 hopper feed level"]
+    direction TB
+    SON["HC-SR04<br/>VCC, TRIG, ECHO, GND"]:::sens
+    PD["10 kOhm pull-down<br/>TRIG to GND<br/>strapping pin must sit LOW at boot"]:::pass
+    DIV["1 kOhm / 2 kOhm divider<br/>ECHO 5 V to 3.3 V"]:::pass
+  end
+  V5 -->|"5 V"| SON
+  GND -->|"GND"| SON
+  MCU -->|"GPIO 12 - TRIG"| SON
+  MCU -->|"GPIO 14 - ECHO"| SON
+  SON --> PD
+  SON --> DIV
+
+  %% ---------------- temperature ----------------
+  subgraph TEMPS["DS18B20 water temperature"]
+    direction TB
+    TMP["DS18B20 probe<br/>VCC, DATA, GND"]:::sens
+    PU["4.7 kOhm pull-up<br/>DATA to 3V3"]:::pass
+  end
+  V3 -->|"3V3"| TMP
+  GND -->|"GND"| TMP
+  MCU -->|"GPIO 32 - DATA (1-Wire)"| TMP
+  TMP --> PU
+
+  %% ---------------- relay and motor ----------------
+  subgraph RELAYS["Relay and auger drive"]
+    direction TB
+    REL["Relay module<br/>IN, VCC, GND<br/>NO contact"]:::act
+    FLY["Flyback diode<br/>across motor, stripe to motor +"]:::pass
+  end
+  V5 -->|"5 V"| REL
+  GND -->|"GND"| REL
+  MCU -->|"GPIO 25 - IN, active HIGH<br/>GPIO 5 on the esp32dev-relay5 build"| REL
+  REL -->|"NO contact switches 12 V"| MOTOR
+  MOTOR --> FLY
+
+  %% ---------------- buttons ----------------
+  subgraph BTNS["Push buttons - all active LOW to GND, internal INPUT_PULLUP"]
+    direction TB
+    FB["Feed button"]:::sens
+    WB["Wi-Fi reset button<br/>hold 5 s"]:::sens
+    FRB["Factory reset button<br/>hold 10 s"]:::sens
+    DEC["100 nF at the pin<br/>470-1000 uF on the 5 V rail"]:::pass
+  end
+  MCU -->|"GPIO 23"| FB
+  FB -->|"to GND"| GND
+  MCU -->|"GPIO 17"| WB
+  WB -->|"to GND"| GND
+  MCU -->|"GPIO 16"| FRB
+  FRB -->|"to GND"| GND
+  FB --> DEC
+  WB --> DEC
+  FRB --> DEC
+
+  %% ---------------- notes ----------------
+  NOTE1["Reserved and unsafe pins<br/>GPIO 0 floats for boot mode<br/>GPIO 1 / 3 are USB serial<br/>GPIO 6-11 are flash<br/>GPIO 34-39 are input only, no pull-up"]:::note
+  MCU -.- NOTE1

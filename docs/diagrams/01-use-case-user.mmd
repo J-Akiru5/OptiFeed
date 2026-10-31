@@ -1,0 +1,119 @@
+---
+title: "Figure 3.1 - Use Case Diagram (User): human actors against the multi-tenant OptiFeed platform"
+---
+flowchart LR
+
+  classDef actor fill:#0a3d62,stroke:#0a2e47,color:#ffffff,stroke-width:1.5px;
+  classDef uc fill:#ffffff,stroke:#0a3d62,color:#0a2e47;
+  classDef helper fill:#eef3f1,stroke:#7a8c85,color:#0a2e47,stroke-dasharray:4 3;
+  classDef ext fill:#f4f4f5,stroke:#71717a,color:#27272a,stroke-dasharray:4 3;
+
+  PA(["Platform Admin<br/>cross-tenant god mode"]):::actor
+  OA(["Tenant OWNER / ADMIN<br/>tenant admin console"]):::actor
+  OP(["OPERATOR<br/>farm operator"]):::actor
+  VW(["VIEWER<br/>read-only"]):::actor
+  DV(["Feed Controller<br/>ESP32 device actor"]):::actor
+
+  subgraph PLATFORM["OptiFeed Multi-Tenant Precision Feeding Platform"]
+
+    subgraph TCON["Tenant Console  /dashboard  -  own-farm scope"]
+      direction TB
+      U1["View control-room dashboard<br/>feeder, hopper, water temp, prediction"]
+      U2["Log biomass samples<br/>weight, length, population"]
+      U3["Log and review feeding history"]
+      U4["View growth and FCR reports"]
+      U5["View merged feed and harvest calendar"]
+      U6["Request manual feed now"]
+      U7["Manage schedule window and feeding rate"]
+      U8["Run calibration<br/>hopper, duration, temperature"]
+      U9["Acknowledge notifications"]
+      U10["Export and import pond data"]
+      U11["Read own-farm device audit trail"]
+      H1["Recalculate next feeding amount"]:::helper
+      H2["Persist grams-per-second calibration"]:::helper
+    end
+
+    subgraph ACON["Tenant Admin Console  /admin  -  organization scope"]
+      direction TB
+      A1["Invite, re-role and revoke members"]
+      A2["Grant and revoke per-member permissions"]
+      A3["Create, edit, move and delete ponds"]
+      A4["Register, approve and claim feeders"]
+      A5["Reveal device token and rotate it"]
+      A6["Update organization settings<br/>feeding rate, hopper low, alert roles"]
+      A7["Read organization audit trail"]
+      A8["Export tenant-scoped data backup"]
+    end
+
+    subgraph SCON["Platform Console  /superadmin  -  all tenants"]
+      direction TB
+      S1["Create and manage organizations"]
+      S2["Suspend, schedule deletion, purge tenant"]
+      S3["Create users and grant platform admin"]
+      S4["Register device and rotate device token"]
+      S5["Remote feed or pause any device"]
+      S6["View-as a tenant (read-only impersonation)"]
+      S7["Publish announcements, feature flags, AI providers"]
+      S8["Read platform audit log and error events"]
+      S9["Full-database backup export"]
+    end
+
+    subgraph EDGE["Device Edge  -  poll and push, device-token authenticated"]
+      direction TB
+      D1["Send heartbeat telemetry"]
+      D2["Report feed dispensed or refused"]
+      D3["Poll pending feed command"]
+      D4["Poll pending schedule command"]
+      D5["Check for signed firmware update"]
+    end
+  end
+
+  %% ---------------- farmer / operator ----------------
+  OP --> U1
+  OP --> U2
+  OP --> U3
+  OP --> U4
+  OP --> U5
+  OP --> U6
+  OP --> U7
+  OP --> U8
+  OP --> U9
+  OP --> U10
+  OP --> U11
+  U2 -.->|"<<include>>"| H1
+  U8 -.->|"<<include>>"| H2
+
+  %% ---------------- viewer ----------------
+  VW --> U1
+  VW --> U4
+  VW --> U5
+
+  %% ---------------- tenant admin ----------------
+  OA --> A1
+  OA --> A2
+  OA --> A3
+  OA --> A4
+  OA --> A5
+  OA --> A6
+  OA --> A7
+  OA --> A8
+  OA --> U1
+  A1 -.->|"<<extend>>"| A2
+
+  %% ---------------- platform admin ----------------
+  PA --> S1
+  PA --> S2
+  PA --> S3
+  PA --> S4
+  PA --> S5
+  PA --> S6
+  PA --> S7
+  PA --> S8
+  PA --> S9
+
+  %% ---------------- device ----------------
+  DV --> D1
+  DV --> D2
+  DV --> D3
+  DV --> D4
+  DV --> D5

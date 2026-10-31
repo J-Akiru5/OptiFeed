@@ -49,7 +49,7 @@ export function NextFeedingStrip({
 			data-onboard="next-feeding"
 			data-help="next-feeding"
 			className={cn(
-				"relative overflow-hidden rounded-3xl border border-[#0A3D62]/5 bg-white p-4 shadow-md dark:border-gray-700/50 dark:bg-gray-900 md:p-5",
+				"ofd-hero-strip relative overflow-hidden rounded-3xl border border-[#0A3D62]/5 bg-white p-4 shadow-md dark:border-gray-700/50 dark:bg-gray-900 md:p-5",
 				className,
 			)}
 		>
@@ -73,7 +73,7 @@ export function NextFeedingStrip({
 				</div>
 
 				<div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-					<p className="text-4xl font-black leading-none tracking-tighter text-[#0A3D62] dark:text-[#5b9bd5] md:text-5xl">
+					<p className="ofd-hero-time text-4xl font-black leading-none tracking-tighter text-[#0A3D62] dark:text-[#5b9bd5] md:text-5xl">
 						<span className="sr-only">{timeSrLabel}: </span>
 						{isPaused ? "—:—" : time}
 					</p>

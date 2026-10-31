@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 const cwd = process.cwd();
 const repoRoot = existsSync(join(cwd, "firmware")) ? cwd : join(cwd, "..", "..");
 const firmware = readFileSync(join(repoRoot, "firmware/firmware-main/firmware-main.ino"), "utf8");
+const config = readFileSync(join(repoRoot, "firmware/firmware-main/config.h"), "utf8");
 
 function bodyOf(signature: string) {
 	const start = firmware.indexOf(signature);
@@ -42,13 +43,25 @@ describe("feed-button press guard constants", () => {
 	});
 
 	it("keeps the 250 ms debounce, the 5 s boot grace and the 2 s quiet window", () => {
-		expect(defineOf("BUTTON_DEBOUNCE_MS")).toBe("250");
-		expect(defineOf("BUTTON_STARTUP_GRACE_MS")).toBe("5000");
-		expect(defineOf("BUTTON_QUIET_AFTER_DISPENSE_MS")).toBe("2000UL");
+		// 1.7.0 (I-100): these are operational values in the firmware config,
+		// dashboard-driven within the envelope, with the 1.5.3 values as defaults.
+		expect(config).toContain('X(buttonDebounceMs, "button_debounce_ms"');
+		expect(config).toContain("250.0f)");
+		expect(config).toContain('X(buttonStartupGraceMs, "button_startup_grace_ms"');
+		expect(config).toContain("5000.0f)");
+		expect(config).toContain('X(buttonQuietAfterDispenseMs, "button_quiet_after_dispense_ms"');
+		expect(config).toContain("2000.0f)");
+
+		// The device uses the dashboard value, never a literal.
+		expect(firmware).toContain("deviceConfig.buttonDebounceMs");
+		expect(firmware).toContain("deviceConfig.buttonStartupGraceMs");
+		expect(firmware).toContain("deviceConfig.buttonQuietAfterDispenseMs");
 	});
 
-	it("allows one button dispense per 30 s", () => {
-		expect(defineOf("BUTTON_COOLDOWN_MS")).toBe("30000UL");
+	it("allows one button dispense per 30 s by default", () => {
+		expect(config).toContain('X(buttonCooldownMs, "button_cooldown_ms"');
+		expect(config).toContain("30000.0f)");
+		expect(firmware).toContain("deviceConfig.buttonCooldownMs");
 	});
 });
 
@@ -60,8 +73,8 @@ describe("the interrupt only records a candidate", () => {
 		expect(isr).not.toContain("requestButtonDispense(");
 		expect(isr).toContain("feedButtonPressQueued = true;");
 		// The existing guards stay in place inside the interrupt.
-		expect(isr).toContain("BUTTON_STARTUP_GRACE_MS");
-		expect(isr).toContain("BUTTON_DEBOUNCE_MS");
+		expect(isr).toContain("deviceConfig.buttonStartupGraceMs");
+		expect(isr).toContain("deviceConfig.buttonDebounceMs");
 	});
 });
 
@@ -100,12 +113,14 @@ describe("loop() decides whether a falling edge is a real press", () => {
 		// the dispense.
 		const stop = bodyOf("void stopFeedCycle() {");
 		expect(stop).toContain("digitalWrite(RELAY_PIN, RELAY_OFF);");
-		expect(stop).toContain("dispenseQuietUntilMs = millis() + BUTTON_QUIET_AFTER_DISPENSE_MS;");
+		expect(stop).toContain(
+			"dispenseQuietUntilMs = millis() + (unsigned long)deviceConfig.buttonQuietAfterDispenseMs;",
+		);
 	});
 
 	it("refuses a second confirmed press inside the cooldown", () => {
 		const request = bodyOf("bool requestButtonDispense() {");
-		expect(request).toContain("BUTTON_COOLDOWN_MS");
+		expect(request).toContain("deviceConfig.buttonCooldownMs");
 		expect(request).toContain("lastButtonDispenseMs");
 		expect(request).toContain("[BUTTON] cooldown");
 		expect(request).toContain('dispenseFeed(cachedButtonFeedGrams, "button")');
@@ -139,7 +154,7 @@ describe("telemetry and the existing paths keep working", () => {
 		expect(download).not.toContain('dispenseFeed(cachedButtonFeedGrams, "button", String())');
 	});
 
-	it("is firmware 1.6.2", () => {
-		expect(firmware).toContain('#define FW_VERSION "1.6.2"');
+	it("is firmware 1.7.0", () => {
+		expect(firmware).toContain('#define FW_VERSION "1.7.0"');
 	});
 });

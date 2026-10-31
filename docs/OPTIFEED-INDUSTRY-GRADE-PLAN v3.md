@@ -13,7 +13,7 @@ Paste this together with `system-context.html`. The briefing says how the system
 
 **Hard rules (from briefing section 2, repeated because they matter most):**
 - Work on a short-lived branch (`docs/*`, `fix/*`, `feat/*`, `chore/*`, `audit/*`) cut from the latest `develop`: `git fetch origin && git switch -c <branch> origin/develop`. One phase task = one commit or one small PR.
-- Never commit directly to `develop`, `staging`, or `main`, and never push `staging` or `main` yourself. Open your PR into `develop`; releases then flow `develop → staging → staging → main` (only Jeff merges `staging → main`). `CONTRIBUTING.md` is the source of truth for this flow; `docs/deployment-workflow.md` covers the pipeline itself. Note: merges to `develop` publish a preview deployment that runs with production credentials — treat `develop` as production-visible.
+- Never commit directly to `develop`, `staging`, or `main`, and never push `staging` or `main` yourself. Open your PR into `develop`; releases then flow `develop → staging → main` (only a commanded promotion advances `staging`/`main`). `CONTRIBUTING.md` is the source of truth for this flow; `docs/deployment-workflow.md` covers the pipeline itself. Note: `develop` never deploys; an agent's work stops at `develop`. The `staging` preview runs with production credentials, so treat staging as production-visible.
 - Never run `prisma migrate reset`. Production uses `migrate deploy`. Local dev uses `migrate dev` only on a throwaway database.
 - Every new migration must be additive (new columns, tables, indexes, policies). Never write `DROP TABLE`, `DROP COLUMN`, or `TRUNCATE` without an explicit human OK in the chat.
 - Next.js here is 16. The file is `proxy.ts`, not `middleware.ts`. Read the relevant guide in `apps/web/node_modules/next/dist/docs/` before touching routing, route handlers, or caching.
@@ -285,7 +285,7 @@ Acceptance: the label round-trips (form → DB → Growth table → CSV export);
 
 ### Phase 6: Release (Jeff only)
 
-The AI does not do this. It prepares a release note listing the migrations in order (so `migrate deploy` is predictable), the new env vars, and a rollback note. Releases now flow `develop → staging → staging → main` per `docs/deployment-workflow.md` section 5: a release PR to `staging`, then Jeff merges the `staging` → `main` PR, which deploys production and runs `prisma migrate deploy`. This flow is live — promotion PRs #117, #123 and #124 were merged on 2026-10-24 and `main` sits at `b5ca877` with a tree identical to `develop`. Decision D5 (promotion cadence) is still open, and the H1-H8 human gates still apply to the hardening work.
+The AI does not do this. It prepares a release note listing the migrations in order (so `migrate deploy` is predictable), the new env vars, and a rollback note. Releases flow `develop → staging → main` per `docs/deployment-workflow.md` section 5: a release PR to `staging`, then a commanded promotion of `staging` → `main`, which deploys production and runs `prisma migrate deploy`. `develop` never deploys. Promotions are commanded by Jeff, or by the OpenCode lead under a standing authorization recorded in `docs/missions/` (section 5.0). This flow is live: promotion PRs #117, #123 and #124 were merged on 2026-10-24 and `main` moved to `b5ca877` with a tree identical to `develop`. Decision D5 (promotion cadence) is still open, and the H1-H8 human gates still apply to the hardening work.
 
 ## 3. Per-task test commands
 
@@ -352,10 +352,10 @@ docs/* | fix/* | feat/* | chore/* ──PR──▶ develop ──release PR─�
 ```
 
 - Cut the branch from `origin/develop`, keep it to one reviewable task, open the PR into `develop`; CI job `quality` must be green (required check).
-- Work branches and their PRs create no deployment: the allowlist in `apps/web/vercel.json` permits only `main` and `develop`, and PR previews are intentionally disabled (they would inherit production credentials).
-- Every merge to `develop` publishes a preview deployment that runs with production credentials (`docs/deployment-workflow.md` section 6) — treat merges as production-visible.
-- `staging` does not deploy; validation is the `develop` deployment of the candidate SHA plus review of the promotion diff.
-- Only Jeff merges the `staging` → `main` PR; that push deploys production and runs `prisma migrate deploy` (via `migrate-if-production.mjs`).
+- Work branches and their PRs create no deployment: the allowlist in `apps/web/vercel.json` permits only `staging` and `main`, and PR previews are intentionally disabled (they would inherit production credentials).
+- `develop` never deploys (`docs/deployment-workflow.md` §1). Merging a task into `develop` is not a release and creates no deployment; an agent's work stops there.
+- `staging` deploys the preview with production credentials; validate the candidate SHA against that deployment plus review of the promotion diff.
+- `staging` → `main` is a commanded promotion by Jeff, or by the OpenCode lead under a standing authorization recorded in `docs/missions/`; that merge deploys production and runs `prisma migrate deploy` (via `migrate-if-production.mjs`).
 
 Evidence the flow is live: feature/plan PRs #70 (identity firmware), #74 (provisioning portal), #87 (identity UI), #99 (reset buttons), #105 (PlatformIO build), #109 (seed identity + proxy guard), #115 (crop-cycle plan), #119 (crop cycle), #120 (page latency), #122 (feed calibration) all merged into `develop`; releases promoted by #117, #123 (`develop` → `staging`) and #124 (`staging` → `main`, merged 2026-10-24 — `main` at `b5ca877`).
 
@@ -380,7 +380,7 @@ Preserved decision (2026-10-13, from the old ordering): tasks 10a and 11 shipped
 
 Conflicts and decisions recorded rather than silently rewritten:
 
-1. **Deployment-matrix conflict between the two workflow documents.** `CONTRIBUTING.md` section 10 says only `staging` and `main` deploy and that `develop` runs "CI validation only", while `CONTRIBUTING.md`'s own section 1 table (and `docs/deployment-workflow.md` sections 1-2, verified 2026-10-22) say the opposite: `staging` does **not** deploy, and `develop` and `main` do, per the `apps/web/vercel.json` allowlist (`"develop": true`, `"main": true`). This plan follows `docs/deployment-workflow.md`, which is backed by the checked-in `vercel.json`. **Needs confirmation** from whoever can see the Vercel dashboard; `CONTRIBUTING.md` section 10 should be fixed by a separate docs PR (it also claims `develop` uses production credentials in §1's warning while denying a `develop` deployment in §10 — the document contradicts itself).
+1. **Deployment-matrix conflict between the two workflow documents — resolved 2026-10-31 (#323).** The repository now states one policy everywhere: only `staging` (Preview) and `main` (Production) deploy, `develop` is CI-only, and the allowlist in `apps/web/vercel.json` enforces it (`"*": false`, `"**": false`, `"staging": true`, `"main": true`). `docs/deployment-workflow.md` and ADR-0001 are authoritative; `CONTRIBUTING.md`, this plan, the Vercel checklist and the incident-response runbook point at them. Promotions are commanded (see `docs/deployment-workflow.md` §5.0).
 2. **H3 — Jeff's written confirmation.** Task 0.3 no longer depends on Vercel's Build Command running `migrate deploy`, because `migrate-if-production.mjs` runs migrations only when `VERCEL_ENV=production`. Is Jeff's written confirmation of the old Build Command still required, or can H3 be closed as superseded? **Needs confirmation.**
 3. **PIN length (task 2.7) — resolved 2026-10-26.** PINs are replaced by passwords under task 2.10. All 5 existing accounts get temporary `password123` and must set a permanent password on first login; permanent passwords are 8+ characters with a letter and number and must not be common. No further PIN-length decision is needed. Contract: `docs/password-auth-plan.md`.
 4. **`.env.example` leftovers (task 3.2).** Sentry is deliberately absent (reverted 2026-10-13), but `GEMINI_MODEL` — which the self-check still asserts — is also absent. Re-add `GEMINI_MODEL`, or drop both the plan line and the self-check assertion? **Team decision.**

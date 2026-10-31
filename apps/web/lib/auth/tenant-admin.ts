@@ -1,6 +1,7 @@
 import { redirect } from "@/i18n/routing";
 import prisma from "@/lib/prisma";
 import { getLocale } from "next-intl/server";
+import { type ActionDenialReason, ActionDeniedError } from "./action-denial";
 import { assertPasswordChanged, getCurrentUser } from "./session";
 
 /**
@@ -73,10 +74,52 @@ export async function isCurrentTenantAdmin(): Promise<boolean> {
  *
  * Use this instead of `requireRole("ADMIN")` for every /admin page, layout and
  * server action. `User.role` is not tenant authority.
+ *
+ * A server action that must report *why* it refused passes
+ * `{ onDenied: "throw" }`: the redirect becomes a typed `ActionDeniedError`
+ * carrying the specific reason (not signed in, password change, wrong role,
+ * suspended organization) that `actionDenialResult()` turns into the action's
+ * result. Pages never pass the option and keep the redirect.
  */
-export async function requireTenantAdmin(): Promise<void> {
+export async function requireTenantAdmin(
+	options: { onDenied?: "redirect" | "throw" } = {},
+): Promise<void> {
+	if (options.onDenied === "throw") {
+		const denial = await tenantAdminDenialReason();
+		if (denial) throw new ActionDeniedError(denial);
+		return;
+	}
+
 	await assertPasswordChanged();
 	if (await isCurrentTenantAdmin()) return;
 	const locale = await getLocale();
 	redirect({ href: "/dashboard", locale });
+}
+
+/**
+ * Why `isCurrentTenantAdmin()` is false, in the same order the state resolver
+ * checks: no session, a forced password change, no OWNER/ADMIN membership, or
+ * memberships only in organizations that are not ACTIVE. Returns null when the
+ * caller is allowed. Only evaluated on the refusal path.
+ */
+async function tenantAdminDenialReason(): Promise<ActionDenialReason | null> {
+	const user = await getCurrentUser();
+	if (!user) return "not_authenticated";
+	if (user.mustChangePassword) return "password_change_required";
+
+	const memberships = await prisma.membership.findMany({
+		where: {
+			userId: user.id,
+			revokedAt: null,
+			role: { in: [...TENANT_ADMIN_ROLES] },
+		},
+		select: { orgId: true },
+	});
+	if (memberships.length === 0) return "wrong_role";
+
+	const orgIds = [...new Set(memberships.map((membership) => membership.orgId))];
+	const activeOrgs = await prisma.organization.count({
+		where: { id: { in: orgIds }, status: "ACTIVE" },
+	});
+	return activeOrgs === 0 ? "org_suspended" : null;
 }

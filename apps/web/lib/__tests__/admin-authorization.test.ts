@@ -108,9 +108,9 @@ type AdminActionCase = {
 	/** The extra permission the action asserts, or null for tenant-admin only. */
 	permission: "manage_members" | "manage_farms_ponds" | null;
 	/**
-	 * How a guard refusal surfaces. `adminUpdateDeviceDailyCap` wraps its whole
-	 * body in a catch-all, so its redirect is reported as the action's generic
-	 * error instead of a thrown redirect.
+	 * How a guard refusal surfaces. Every action rethrows a redirect except
+	 * `adminUpdateDeviceDailyCap`, which opts into the guard's typed denial so
+	 * the reason reaches the UI (#336).
 	 */
 	guardFailure?: "redirect" | "error";
 	run: () => Promise<unknown>;
@@ -267,7 +267,11 @@ describe("tenant console authorization matrix", () => {
 			signInAs(FARMER_A_ID);
 
 			if (entry.guardFailure === "error") {
-				await expect(entry.run()).resolves.toMatchObject({ success: false });
+				await expect(entry.run()).resolves.toMatchObject({
+					success: false,
+					code: "wrong_role",
+					error: "You do not have permission to make this change.",
+				});
 			} else {
 				await expect(entry.run()).rejects.toThrow("NEXT_REDIRECT");
 			}
@@ -338,5 +342,62 @@ describe("guard ordering keeps the tenant boundary intact", () => {
 		expect(holder.invite).toHaveBeenCalledWith(
 			expect.objectContaining({ orgId: ORG_A_ID, invitedBy: ADMIN_A_ID }),
 		);
+	});
+});
+
+describe("adminUpdateDeviceDailyCap authorization reasons (#336)", () => {
+	const WRONG_ROLE = {
+		success: false,
+		error: "You do not have permission to make this change.",
+		code: "wrong_role",
+	};
+
+	it("returns wrong_role for an OPERATOR instead of a generic failure", async () => {
+		signInAs(FARMER_A_ID);
+
+		await expect(adminUpdateDeviceDailyCap(DEVICE_A_1, 2500)).resolves.toEqual(WRONG_ROLE);
+	});
+
+	it("returns not_authenticated when there is no session", async () => {
+		mockUser.mockResolvedValue(null);
+
+		await expect(adminUpdateDeviceDailyCap(DEVICE_A_1, 2500)).resolves.toEqual({
+			success: false,
+			error: "Your session has ended. Sign in again to continue.",
+			code: "not_authenticated",
+		});
+	});
+
+	it("returns password_change_required for a flagged user", async () => {
+		userById(tenancy(), ADMIN_A_ID).mustChangePassword = true;
+		signInAs(ADMIN_A_ID);
+
+		await expect(adminUpdateDeviceDailyCap(DEVICE_A_1, 2500)).resolves.toEqual({
+			success: false,
+			error: "Change your temporary password before making changes.",
+			code: "password_change_required",
+		});
+	});
+
+	it("returns org_suspended when the only admin organization is not active", async () => {
+		const org = tenancy().tables.organizations.find((row) => row.id === ORG_A_ID);
+		if (!org) throw new Error("org A missing");
+		org.status = "SUSPENDED";
+		signInAs(ADMIN_A_ID);
+
+		await expect(adminUpdateDeviceDailyCap(DEVICE_A_1, 2500)).resolves.toEqual({
+			success: false,
+			error: "Your organization is suspended, so changes are paused.",
+			code: "org_suspended",
+		});
+	});
+
+	it("still lets an OWNER change the ceiling", async () => {
+		signInAs(ADMIN_A_ID);
+
+		await expect(adminUpdateDeviceDailyCap(DEVICE_A_1, 2500)).resolves.toEqual({
+			success: true,
+			dailyCapG: 2500,
+		});
 	});
 });

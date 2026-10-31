@@ -3,6 +3,11 @@
 import { redirect } from "@/i18n/routing";
 import { deleteUserSubtree } from "@/lib/actions/admin-internal";
 import {
+	type ActionDenialReason,
+	actionDenialResult,
+	rethrowIfNavigationError,
+} from "@/lib/auth/action-denial";
+import {
 	inviteRoleError,
 	isMemberRole,
 	revokeMemberError,
@@ -1419,13 +1424,17 @@ export async function getPendingDevices(): Promise<AdminDeviceRow[]> {
 /**
  * Admin-side daily ceiling change. Scoped to the caller's org, audited the same
  * way as the farmer action so both surfaces produce one event type.
+ *
+ * The tenant-admin guard runs in throw mode so a refusal reaches the UI as its
+ * own reason (role, session, suspended org) instead of the generic failure
+ * sentence that the catch-all used to produce for every outcome (#336).
  */
 export async function adminUpdateDeviceDailyCap(
 	deviceId: string,
 	dailyCapG: number,
-): Promise<{ success: boolean; error?: string; dailyCapG?: number }> {
+): Promise<{ success: boolean; error?: string; dailyCapG?: number; code?: ActionDenialReason }> {
 	try {
-		await requireTenantAdmin();
+		await requireTenantAdmin({ onDenied: "throw" });
 		const parsed = dailyCapSchema.safeParse(dailyCapG);
 		if (!parsed.success) {
 			return { success: false, error: formatZodError(parsed.error) };
@@ -1465,6 +1474,9 @@ export async function adminUpdateDeviceDailyCap(
 		revalidatePath("/[locale]/(dashboard)", "layout");
 		return { success: true, dailyCapG: parsed.data };
 	} catch (error) {
+		rethrowIfNavigationError(error);
+		const denied = actionDenialResult(error);
+		if (denied) return denied;
 		console.error("[admin] updateDeviceDailyCap error:", error);
 		return { success: false, error: "Failed to update the daily feed ceiling" };
 	}

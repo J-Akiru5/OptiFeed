@@ -232,6 +232,41 @@ describe("per-type row mapping", () => {
 		]);
 	});
 
+	it("reads FALSE as false, not as the truthy string", async () => {
+		await confirmImport(
+			"farm-a",
+			"notifications",
+			"tier,message,read,autoCleared\nwarning,Hopper low,FALSE,0",
+		);
+		await confirmImport(
+			"farm-a",
+			"feed_events",
+			"eventType,timestamp,rtcOk,feederActive\nfeed_dispensed,2026-03-02T04:00:00Z,false,TRUE",
+		);
+
+		expect(tx.notification.createMany.mock.calls[0][0].data[0]).toMatchObject({
+			read: false,
+			autoCleared: false,
+		});
+		expect(tx.feedEvent.createMany.mock.calls[0][0].data[0]).toMatchObject({
+			rtcOk: false,
+			feederActive: true,
+		});
+	});
+
+	it("keeps an empty flag cell as null on feed events and rejects an unreadable one", async () => {
+		await confirmImport(
+			"farm-a",
+			"feed_events",
+			"eventType,timestamp,rtcOk\nfeed_dispensed,2026-03-02T04:00:00Z,",
+		);
+		expect(tx.feedEvent.createMany.mock.calls[0][0].data[0].rtcOk).toBeNull();
+
+		await expect(
+			confirmImport("farm-a", "notifications", "tier,message,read\nwarning,Hopper low,maybe"),
+		).rejects.toMatchObject({ status: 400, message: "Row 1: read must be TRUE or FALSE." });
+	});
+
 	it("parses audit metadata JSON", async () => {
 		await confirmImport("farm-a", "audit_events", CSV.audit_events);
 

@@ -1,11 +1,9 @@
-import { daysBetween, isValidDateOnly, todayDateOnly } from "@/lib/crop-cycle/dates";
-import prisma from "@/lib/prisma";
+import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import type { AssistantActionDefinition, AssistantToolId } from "../types";
 import { adminActions } from "./admin";
 import { feedingActions } from "./feeding";
 import { pondsActions } from "./ponds";
 import { recordsActions } from "./records";
-import { pondSettings } from "./shared";
 import { superadminActions } from "./superadmin";
 
 /**
@@ -43,28 +41,4 @@ export function getAssistantActionDefinition(id: string): AssistantActionDefinit
 /** Today in farm time, exported for the planner prompt. */
 export function assistantToday(): string {
 	return todayDateOnly();
-}
-
-/** Used by the proposal context for the current pond settings. */
-export async function loadPondProposalSettings(): Promise<{
-	pondName: string | null;
-	feedsPerDay: number | null;
-	feedingRatePct: number | null;
-	currentGrams: number | null;
-}> {
-	const pondSettingsResult = await pondSettings();
-	const pond = pondSettingsResult.pond;
-	if (!pond) {
-		return { pondName: null, feedsPerDay: null, feedingRatePct: null, currentGrams: null };
-	}
-	const device = await prisma.energyDevice.findFirst({
-		where: { pondId: pond.id },
-		select: { gramsPerFeeding: true },
-	});
-	return {
-		pondName: pond.name,
-		feedsPerDay: pondSettingsResult.feedsPerDay,
-		feedingRatePct: pondSettingsResult.feedingRatePct,
-		currentGrams: device?.gramsPerFeeding ?? null,
-	};
 }

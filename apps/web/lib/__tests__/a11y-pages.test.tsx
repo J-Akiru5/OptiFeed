@@ -181,7 +181,19 @@ vi.mock("@/lib/pond-selection", () => ({
 		notificationPrefs: { areaM2: 500, averageDepthM: 1.5, feedPricePerKg: 30 },
 	})),
 	getActivePondId: vi.fn(async () => "pond-1"),
-	listSelectablePonds: vi.fn(async () => [{ id: "pond-1", name: "Pond A" }]),
+	listSelectablePonds: vi.fn(async () => [
+		{
+			id: "pond-1",
+			name: "Pond A",
+			ownerId: "farm-1",
+			population: 1200,
+			feedsPerDay: 3,
+			feedingRatePct: 3,
+			scheduleStart: new Date("2026-10-27T06:00:00Z"),
+			scheduleEnd: new Date("2026-10-27T18:00:00Z"),
+			isFallow: false,
+		},
+	]),
 }));
 
 vi.mock("@/lib/schedule/resolve-current", () => ({
@@ -192,6 +204,27 @@ vi.mock("@/lib/prisma", () => ({
 	default: {
 		energyDevice: {
 			findFirst: vi.fn(async () => ({
+				id: "dev-1",
+				mac: "AA:BB:CC:DD:AB:CD",
+				label: "Feeder 1",
+				lastSeenAt: new Date(),
+				feedLevelPercent: 62,
+				feedLevelUpdatedAt: new Date(),
+				hopperFullCm: 5,
+				hopperEmptyCm: 30,
+				hopperCapacityG: 7000,
+				gramsPerSecond: 12.5,
+				gramsPerFeeding: 500,
+				isPaused: false,
+				lastCalibratedAt: null,
+				recalibrationIntervalDays: 30,
+				tempOffsetC: -0.5,
+				waterTempC: 28.5,
+				waterTempOk: true,
+				waterTempUpdatedAt: new Date(),
+			})),
+			// #403: the page loads the selected feeder by id.
+			findUnique: vi.fn(async () => ({
 				id: "dev-1",
 				mac: "AA:BB:CC:DD:AB:CD",
 				label: "Feeder 1",

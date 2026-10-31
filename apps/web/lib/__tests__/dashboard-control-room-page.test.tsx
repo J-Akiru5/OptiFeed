@@ -163,9 +163,13 @@ describe("dashboard control room page", () => {
 			await DashboardHomePage({ searchParams: Promise.resolve({}) }),
 		);
 
-		// One viewport shell and its independently scrolling rail.
-		expect(html).toContain("xl:h-[calc(100dvh-8rem)]");
+		// One viewport shell and its independently scrolling rail. The height
+		// lives in `ofd-control-room` (globals.css): viewport minus the header
+		// and pane padding, with height-based density tiers (#399).
+		expect(html).toContain("ofd-control-room");
 		expect(html).toContain('aria-label="Pond controls"');
+		expect(html).toContain("ofd-chart-card");
+		expect(html).not.toContain("xl:h-[calc(100dvh-8rem)]");
 
 		// Feeding strip first, with the tour and help anchors.
 		expect(html).toContain('data-onboard="next-feeding"');

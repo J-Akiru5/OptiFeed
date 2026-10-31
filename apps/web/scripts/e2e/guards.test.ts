@@ -3,6 +3,7 @@ import {
 	E2E_CONFIRM_VALUE,
 	E2E_LOCAL_HOSTS,
 	E2E_LOCAL_STACK_VALUE,
+	assertCiLocalStackTarget,
 	assertE2eEnvironment,
 	isLocalE2eHost,
 	requireE2ePassword,
@@ -141,6 +142,57 @@ describe("assertE2eEnvironment — malformed input", () => {
 
 	it("refuses an empty DATABASE_URL", () => {
 		expect(() => assertE2eEnvironment({ DATABASE_URL: "   " })).toThrow(/DATABASE_URL is not set/);
+	});
+});
+
+describe("assertCiLocalStackTarget (issue #317)", () => {
+	const ciEnv = (overrides: Record<string, string> = {}) => ({
+		CI: "true",
+		...localEnv(),
+		...overrides,
+	});
+
+	it("accepts a loopback stack in CI", () => {
+		expect(assertCiLocalStackTarget(ciEnv())).toEqual({ host: "127.0.0.1", mode: "local" });
+	});
+
+	it("refuses the preflight outside CI, even with a loopback stack", () => {
+		expect(() => assertCiLocalStackTarget(localEnv())).toThrow(/CI must be "true"/);
+		expect(() => assertCiLocalStackTarget(ciEnv({ CI: "false" }))).toThrow(/CI must be "true"/);
+	});
+
+	it("refuses a CI run without the local-stack opt-in", () => {
+		expect(() => assertCiLocalStackTarget(ciEnv({ E2E_ALLOW_LOCAL_STACK: "" }))).toThrow(
+			/E2E_ALLOW_LOCAL_STACK must be "yes"/,
+		);
+	});
+
+	it("refuses a misconfigured DATABASE_URL pointing at a real project", () => {
+		// A stray hosted URL in CI must fail before `prisma migrate deploy`.
+		expect(() => assertCiLocalStackTarget(ciEnv({ DATABASE_URL: REMOTE_URL }))).toThrow(
+			/not a loopback host/,
+		);
+	});
+
+	it("never lets the production acknowledgement make a remote host eligible in CI", () => {
+		expect(() =>
+			assertCiLocalStackTarget(
+				ciEnv({
+					DATABASE_URL: REMOTE_URL,
+					E2E_ALLOWED_DB_HOST: REMOTE_HOST,
+					E2E_CONFIRM_PRODUCTION: E2E_CONFIRM_VALUE,
+				}),
+			),
+		).toThrow(/CI only runs against the disposable local stack/);
+	});
+
+	it("refuses a missing or malformed DATABASE_URL", () => {
+		expect(() => assertCiLocalStackTarget(ciEnv({ DATABASE_URL: "" }))).toThrow(
+			/DATABASE_URL is not set/,
+		);
+		expect(() => assertCiLocalStackTarget(ciEnv({ DATABASE_URL: "not-a-url" }))).toThrow(
+			/not a valid URL/,
+		);
 	});
 });
 

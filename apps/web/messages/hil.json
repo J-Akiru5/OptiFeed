@@ -2135,7 +2135,30 @@
 				}
 			},
 			"weakSignal": "Maluya ang signal",
-			"weakFor": "Maluya ang signal — katapusan nga heartbeat {duration} ang nagligad"
+			"weakFor": "Maluya ang signal — katapusan nga heartbeat {duration} ang nagligad",
+			"tabs": {
+				"label": "Mga seksyon sang setting sang device",
+				"overview": "Kabilugan",
+				"feeding": "Pagpakaon",
+				"calibration": "Calibration",
+				"network": "Network",
+				"unsaved": "(wala pa na-save nga pagbag-o)",
+				"unsavedTitle": "Wala pa na-save nga pagbag-o",
+				"unsavedDesc": "Kon magbalhin ka sang feeder, madula ang mga pagbag-o nga wala pa na-save.",
+				"unsavedTabs": "Wala pa na-save: {tabs}.",
+				"keepEditing": "Padayon sa pag-edit",
+				"discardAndSwitch": "Isikway kag magbalhin"
+			},
+			"deviceSwitcher": {
+				"label": "Feeder",
+				"noPond": "Wala sang pond",
+				"option": "{label} · {status}",
+				"state": {
+					"online": "Online",
+					"weak": "Maluya ang signal",
+					"offline": "Offline"
+				}
+			}
 		},
 		"notifications": {
 			"title": "Mga Notipikasyon",
@@ -2229,7 +2252,7 @@
 			"importDialogLabel": "Mga opsyon sa pag-import sang datos",
 			"close": "Sirad-an",
 			"dataType": "Matang sang Datos",
-			"selectFile": "Pili nga CSV File",
+			"selectFile": "Pili nga CSV ukon XLSX File",
 			"selectAll": "Pili ang Tanan",
 			"deselectAll": "I-deselect ang Tanan",
 			"exporting": "Gina-export...",
@@ -2256,7 +2279,45 @@
 				"fcr_reports": "FCR Reports",
 				"feed_level_logs": "Feed Level Logs",
 				"notifications": "Mga Notipikasyon",
-				"audit_events": "Audit Events"
+				"audit_events": "Audit Events",
+				"feeding_schedule": "Iskedyul sang Pagpakaon"
+			},
+			"format": "Format",
+			"formatCsv": "CSV ukon ZIP",
+			"formatXlsx": "Excel workbook (.xlsx)",
+			"formatPdf": "PDF report",
+			"reportLabel": "Report",
+			"downloadXlsx": "I-download ang XLSX",
+			"downloadPdf": "I-download ang PDF",
+			"pdfNote": "Ang mga PDF report para basahon kag i-print. Indi ni mai-import.",
+			"templateLabel": "Mga Template",
+			"templateCsv": "CSV template",
+			"templateXlsx": "XLSX template",
+			"mappingTitle": "Pagpatigayon sang Column",
+			"mappingHint": "Itigayon ang kada field sa isa ka column sa imo file. Ang mga field nga may * kinahanglan.",
+			"mappingNone": "Wala natigayon",
+			"mappingField": "Field",
+			"mappingColumn": "Column sa imo file",
+			"required": "kinahanglan",
+			"rowsReady": "{valid} sa {total} ka row ang handa na i-import.",
+			"schedulePreview": "{count} ka pagkaon halin {start} tubtob {end}.",
+			"capOk": "Kabilugan {daily} g kada adlaw, sulod sa limitasyon nga {cap} g.",
+			"capOver": "Maggawas ang iskedyul nga ini sang {daily} g kada adlaw, sobra sa limitasyon nga {cap} g. Pamenosi anay ang kadamuon sang pagkaon.",
+			"scheduleNote": "Ang pag-import magabalhin sang oras sang pagpakaon kag kadamuon sang pagkaon. Ang gramo kada pagkaon halin sa settings sang pond.",
+			"scheduleApplied": "Naipadala na ang iskedyul sa feeder.",
+			"reports": {
+				"summary": "Katingbanan sang Pond",
+				"growth": "Report sang Pagtubo",
+				"sgr": "Report sang SGR",
+				"fcr": "Report sang FCR"
+			},
+			"structural": {
+				"noRows": "Wala sing data row ang file.",
+				"missingColumns": "Wala makita ang mga kinahanglan nga column: {fields}. Itigayon sila sa pagpatigayon sang column.",
+				"tooManyRows": "Sobra sa 5,000 ka row ang file. Bahina ini kag i-import nga tinagsa.",
+				"scheduleEmpty": "Wala sing naka-enable nga pagkaon sa iskedyul.",
+				"scheduleTooMany": "Sobra sa 24 ang pagkaon sa iskedyul.",
+				"scheduleUneven": "Pantay ang agwat sang pagkaon sa feeder. Himua nga pantay ang agwat sang mga oras halin sa una tubtob sa ulihi nga pagkaon."
 			}
 		},
 		"dataSettings": {
@@ -2623,6 +2684,51 @@
 				"OPERATOR": "Operator",
 				"VIEWER": "Viewer"
 			}
+		},
+		"adminBackup": {
+			"title": "Backup",
+			"description": "I-download ang SQL export sang data sang imo organisasyon.",
+			"backToSettings": "Balik sa settings",
+			"warningTitle": "Atipanun ini nga file subong sensitibo nga data",
+			"warningBody": "May personal kag farm data ang export — mga ngalan, email address, rekord sang punong kag pagpakaon. Itago ini sa lugar nga may kontrol sa access, indi gid i-padala sa chat ukon email, kag i-delete kon indi na kinahanglan.",
+			"exportTitle": "Bag-o nga export",
+			"exportBody": "Isulat sa isa ka .sql file ang mga row sang imo organisasyon lamang, upod ang identity manifest nga kinahanglan sa pag-restore.",
+			"scopeLabel": "Sakop:",
+			"scopeEmpty": "Wala sing aktibo nga organisasyon",
+			"scopePlatform": "Bug-os nga database",
+			"noScope": "Kinahanglan ka nga owner ukon admin sang aktibo nga organisasyon antes ka makahimo sang export.",
+			"settingsBody": "I-export ang data sang imo organisasyon para sa backup ukon pagbalhin.",
+			"settingsDesc": "Isa ka SQL file sang mga row sang imo organisasyon, nga may audit record kag checksum.",
+			"open": "Bukas ang Backup page",
+			"verifyHint": "I-verify ang file antes mag-restore: node scripts/ops/restore-check.mjs <file>",
+			"lastExportTitle": "Katapusan nga export",
+			"lastExportDesc": "Ang pinakabag-o nga pagtilaw, bisan nanginmatay ukon nahilway.",
+			"noExport": "Wala pa sing export nga nahimo.",
+			"historyTitle": "Kasaysayan sang export",
+			"historyDesc": "Pinakabag-o una. Ang audit trail may pareho nga rekord.",
+			"historyCaption": "Kasaysayan sang database export",
+			"historyEmpty": "Wala pa sing export nga natala.",
+			"columnWhen": "Oras (UTC)",
+			"columnWho": "Sin-o",
+			"columnScope": "Sakop",
+			"columnOutcome": "Resulta",
+			"columnRows": "Mga row",
+			"columnSize": "Kadako",
+			"columnChecksum": "SHA-256",
+			"columnReason": "Rason",
+			"outcomeSucceeded": "Nahuman",
+			"outcomeFailed": "Nabudlayan",
+			"outcomeCancelled": "Gin-untat",
+			"reasonLabel": "Nota (opsyonal)",
+			"reasonHint": "Natala sa audit trail. Indi magbutang sang personal nga data.",
+			"reasonRequired": "Kinahanglan ang rason nga 10 ka character ukon sobra.",
+			"exportButton": "I-download ang SQL export",
+			"exporting": "Ginahanda ang export…",
+			"failed": "Indi mahimo ang export. Tilawi liwat.",
+			"sizeLimitHint": "Tubtob {rows} ka row kag {mb} MB kada export.",
+			"downloadBody": "Na-save ang {filename}. Ang SHA-256 sang payload {sha256}; dapat pareho sa checksum sa kasaysayan.",
+			"incomplete": "Mabasa nga indi kompleto ang download sang {filename} (wala ang checksum marker). Tilawi liwat ang export.",
+			"stepUpAction": "i-download ang database export"
 		},
 		"adminError": {
 			"title": "Nakasumalang sang error ang admin console",
@@ -3592,7 +3698,92 @@
 				"invalid": "Gamita ang bug-os nga minuto kag ipabilin nga mas malip-ot ang weak-signal window sa offline nga window.",
 				"failed": "Indi ma-save ang device thresholds.",
 				"summary": "Sa subong, wala sa linya pagkatapos {offline} min plus {grace} min nga grasya ({total} min nga kahilom). Ang safety checks para sa feed commands nagagamit gihapon sang {offline}-minute nga window nga wala sang grasya."
+			},
+			"firmwareGates": {
+				"title": "Mga limitasyon sang firmware para sa kaluwasan",
+				"description": "Ang mga limitasyon nga ginapatuman sang feeder sa uma. Ang tagsa ka balor yara sa sulod sang permanente nga safety envelope: puede mo ini huguton ukon huklason sa sulod sini, pero wala sing setting diri ang makapatay sang guard.",
+				"fields": {
+					"min_dispense_gap_s": {
+						"label": "Pinakamalip-ot nga pagitan sang mga dosis (s)",
+						"hint": "Bug-os nga segundo halin {min} hasta {max}. Indi gid magbaton ang firmware sang kubos sa 10 s."
+					},
+					"max_dispenses_per_hour": {
+						"label": "Pinakamataas nga dosis kada nagaligid nga oras",
+						"hint": "Bug-os nga numero halin {min} hasta {max}. Indi gid magbaton ang firmware sang sobra sa 6."
+					},
+					"brownout_hold_s": {
+						"label": "Hold pagkatapos sang brownout (s)",
+						"hint": "Bug-os nga segundo halin {min} hasta {max}. Wala sing dosis nga magadalagan samtang nagabangon ang unit halin sa brownout."
+					},
+					"safe_mode_abnormal_window_s": {
+						"label": "Window sang abnormal nga pag-restart (s)",
+						"hint": "Bug-os nga segundo halin {min} hasta {max}. Ang mga restart sa guwa sini nga window indi magdugang."
+					},
+					"safe_mode_abnormal_threshold": {
+						"label": "Abnormal nga restart antes mag-safe mode",
+						"hint": "Bug-os nga numero halin {min} hasta {max}. Ginakandado sang unit ang relay pagkatapos sini kadamu nga abnormal nga restart sa sulod sang window."
+					},
+					"safe_mode_quiet_s": {
+						"label": "Tinaw nga tion sang safe mode (s)",
+						"hint": "Bug-os nga segundo halin {min} hasta {max}. Makagwa lang ang unit sa safe mode pagkatapos sini nga kalawig nga wala sing abnormal nga restart."
+					},
+					"safe_mode_healthy_clear_s": {
+						"label": "Maayo nga pagpadagan antes limpyohan ang history (s)",
+						"hint": "Bug-os nga segundo halin {min} hasta {max}. Ginatinluan ang reset history pagkatapos sini nga kalawig nga maayo nga pagpadagan."
+					}
+				},
+				"reasonLabel": "Rason",
+				"reasonPlaceholder": "hal. Huguton ang oras-oras nga limitasyon pagkatapos sang ulat sang doble nga dosis sa CICT",
+				"reasonHint": "Narekord sa platform audit log. Labing diutay 10 ka karakter.",
+				"save": "I-save ang mga limitasyon",
+				"saving": "Ginasave…",
+				"saved": "Na-save ang mga limitasyon sang firmware. Makita ini sang mga device sa ila masunod nga poll.",
+				"invalidField": "{field} dapat yara sa {min} hasta {max}.",
+				"failed": "Indi ma-save ang mga limitasyon sang firmware.",
+				"note": "Ginailapat sang mga device ang pagbag-o sa ila masunod nga poll (mga kada 5 s). Ang permanente nga envelope — relay on-time, ang 5,000 g nga adlaw-adlaw nga hard guard, ang relay overrun trip kag ang mga pin — naka-compile sa firmware kag indi gid madugangan halin diri."
 			}
+		},
+		"backup": {
+			"title": "Backup",
+			"description": "Bug-os nga database export para sa platform administration.",
+			"warningTitle": "Atipanun ini nga file subong sensitibo nga data",
+			"warningBody": "May personal kag farm data ang file para sa tanan nga organisasyon. Ang device token gin-redact, kag wala ang token hash, password material kag session data. Itago ini sa lugar nga may kontrol sa access kag i-delete kon indi na kinahanglan.",
+			"exportTitle": "Bug-os nga database export",
+			"exportBody": "Isulat sa isa ka .sql file ang tanan nga allowed nga table, upod ang identity manifest nga kinahanglan sa pag-restore. Kinahanglan ang bag-o nga password check, rason kag per-user rate limit.",
+			"scopeLabel": "Sakop:",
+			"scopePlatform": "Bug-os nga database (tanan nga organisasyon)",
+			"scopeEmpty": "Wala sing organisasyon",
+			"settingsDesc": "Bug-os nga database export nga may step-up, rason kag audit record.",
+			"open": "Bukas ang Backup page",
+			"verifyHint": "I-verify ang file antes mag-restore: node scripts/ops/restore-check.mjs <file>",
+			"lastExportTitle": "Katapusan nga export",
+			"lastExportDesc": "Ang pinakabag-o nga pagtilaw, bisan nanginmatay ukon nahilway.",
+			"noExport": "Wala pa sing export nga nahimo.",
+			"historyTitle": "Kasaysayan sang export",
+			"historyDesc": "Pinakabag-o una. Tanan nga pagtilaw, tenant kag platform, upod ang naghimo kag ang sakop.",
+			"historyCaption": "Kasaysayan sang database export",
+			"historyEmpty": "Wala pa sing export nga natala.",
+			"columnWhen": "Oras (UTC)",
+			"columnWho": "Sin-o",
+			"columnScope": "Sakop",
+			"columnOutcome": "Resulta",
+			"columnRows": "Mga row",
+			"columnSize": "Kadako",
+			"columnChecksum": "SHA-256",
+			"columnReason": "Rason",
+			"outcomeSucceeded": "Nahuman",
+			"outcomeFailed": "Nabudlayan",
+			"outcomeCancelled": "Gin-untat",
+			"reasonLabel": "Rason",
+			"reasonHint": "Natala sa audit trail. 10 ka character ukon sobra; indi gid magbutang sang personal nga data.",
+			"reasonRequired": "Kinahanglan ang rason nga 10 ka character ukon sobra.",
+			"exportButton": "I-download ang bug-os nga database export",
+			"exporting": "Ginahanda ang export…",
+			"failed": "Indi mahimo ang export. Tilawi liwat.",
+			"sizeLimitHint": "Tubtob {rows} ka row kag {mb} MB kada export.",
+			"downloadBody": "Na-save ang {filename}. Ang SHA-256 sang payload {sha256}; dapat pareho sa checksum sa kasaysayan.",
+			"incomplete": "Mabasa nga indi kompleto ang download sang {filename} (wala ang checksum marker). Tilawi liwat ang export.",
+			"stepUpAction": "i-download ang database export"
 		},
 		"feedPct": "Feed %",
 		"orgDefaultRate": "Default sang org",

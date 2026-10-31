@@ -2,17 +2,18 @@ import { accepted } from "@/lib/api/envelope";
 import { withApi } from "@/lib/api/instrumentation";
 import { withAuth } from "@/lib/auth/with-auth";
 import { LEGACY_API_SUNSET } from "@/lib/constants";
-import type { ExportableType } from "@/lib/csv";
-import { BATCH_EXPORT_TYPES, CSV_EXPORT_TYPES } from "@/lib/jobs/export-data";
+import { BATCH_EXPORT_TYPES, SHEET_EXPORT_TYPES } from "@/lib/jobs/export-data";
 import { createJob } from "@/lib/jobs/service";
 import { checkApiRateLimit } from "@/lib/rate-limit";
+import { PDF_REPORTS, type PdfReport, type SheetType } from "@/lib/xlsx/schema";
 
 export const dynamic = "force-dynamic";
 
 interface ExportJobRequest {
-	kind?: "csv" | "zip" | "pdf";
-	type?: ExportableType;
-	types?: ExportableType[];
+	kind?: "csv" | "zip" | "xlsx" | "pdf";
+	type?: SheetType;
+	types?: SheetType[];
+	report?: PdfReport;
 }
 
 export const POST = withApi(
@@ -29,27 +30,40 @@ export const POST = withApi(
 			return Response.json({ error: "Invalid JSON body" }, { status: 400 });
 		}
 
-		const kind = body.kind === "zip" || body.kind === "pdf" ? body.kind : "csv";
+		const kind =
+			body.kind === "zip" || body.kind === "xlsx" || body.kind === "pdf" ? body.kind : "csv";
 
 		if (kind === "csv") {
-			if (!body.type || !CSV_EXPORT_TYPES.includes(body.type)) {
+			if (!body.type || !SHEET_EXPORT_TYPES.includes(body.type)) {
 				return Response.json(
-					{ error: `Invalid type. Must be one of: ${CSV_EXPORT_TYPES.join(", ")}` },
+					{ error: `Invalid type. Must be one of: ${SHEET_EXPORT_TYPES.join(", ")}` },
 					{ status: 400 },
 				);
 			}
 		}
 
+		if (kind === "pdf" && body.report !== undefined && !PDF_REPORTS.includes(body.report)) {
+			return Response.json(
+				{ error: `Invalid report. Must be one of: ${PDF_REPORTS.join(", ")}` },
+				{ status: 400 },
+			);
+		}
+
+		const allowedTypes = kind === "xlsx" ? SHEET_EXPORT_TYPES : BATCH_EXPORT_TYPES;
 		const requestedTypes = Array.isArray(body.types)
-			? body.types.filter((type) => BATCH_EXPORT_TYPES.includes(type))
+			? body.types.filter((type) => allowedTypes.includes(type))
 			: [];
 
 		// `types` was supplied but none of them is exportable — including a
 		// non-array value, which used to fall through and silently export every
 		// type instead of rejecting the request.
-		if (kind === "zip" && body.types !== undefined && requestedTypes.length === 0) {
+		if (
+			(kind === "zip" || kind === "xlsx") &&
+			body.types !== undefined &&
+			requestedTypes.length === 0
+		) {
 			return Response.json(
-				{ error: `Invalid types. Must be one of: ${BATCH_EXPORT_TYPES.join(", ")}` },
+				{ error: `Invalid types. Must be one of: ${allowedTypes.join(", ")}` },
 				{ status: 400 },
 			);
 		}
@@ -69,12 +83,19 @@ export const POST = withApi(
 							type: "export_zip",
 							payload: { types: requestedTypes.length > 0 ? requestedTypes : BATCH_EXPORT_TYPES },
 						})
-					: await createJob({
-							ownerId,
-							requestedBy: user.id,
-							type: "export_pdf",
-							payload: {},
-						});
+					: kind === "xlsx"
+						? await createJob({
+								ownerId,
+								requestedBy: user.id,
+								type: "export_xlsx",
+								payload: { types: requestedTypes.length > 0 ? requestedTypes : SHEET_EXPORT_TYPES },
+							})
+						: await createJob({
+								ownerId,
+								requestedBy: user.id,
+								type: "export_pdf",
+								payload: { report: body.report ?? "summary" },
+							});
 
 		return accepted(
 			{

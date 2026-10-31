@@ -1,13 +1,18 @@
 "use server";
 
 import { requirePermission } from "@/lib/auth/permissions";
+import { resolveActivePond } from "@/lib/auth/pond-access";
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { STALE_SENT_MS } from "@/lib/constants";
+import { parseCsvTable } from "@/lib/csv";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
 import { setSchedulePause } from "@/lib/feed/commands";
+import { MAX_CSV_IMPORT_BYTES } from "@/lib/jobs/import-data";
 import { formatZodError, resolveDailyCapG, scheduleInputSchema } from "@/lib/limits";
 import prisma from "@/lib/prisma";
+import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
+import { prepareImport } from "@/lib/xlsx/prepare";
 import { revalidatePath } from "next/cache";
 
 export async function toggleDevicePause(deviceId: string, isPaused: boolean) {
@@ -191,4 +196,50 @@ export async function updateScheduleCommand(
 		console.error("Failed to create schedule command:", error);
 		return { success: false, error: "Failed to create schedule command" };
 	}
+}
+
+/**
+ * Apply a feeding schedule imported from a sheet (I-107). The canonical CSV the
+ * preview produced is validated again here, never trusted, and the window and
+ * meal count it describes go through `updateScheduleCommand`, so the daily cap,
+ * the relay-time guard, the fallow check and the audit event all apply. The
+ * feeding rate and the button feed amount are kept as they are.
+ */
+export async function importFeedingSchedule(csvData: string): Promise<UpdateScheduleResult> {
+	await requireWriteAccess();
+	await requirePermission("manage_schedule");
+
+	if (
+		typeof csvData !== "string" ||
+		csvData.length === 0 ||
+		csvData.length > MAX_CSV_IMPORT_BYTES
+	) {
+		return { success: false, error: "The schedule file is empty or too large." };
+	}
+
+	const { headers, rows } = parseCsvTable(csvData);
+	const prepared = prepareImport({ type: "feeding_schedule", headers, rows });
+	if (prepared.structural || prepared.issueCount > 0 || !prepared.schedule) {
+		return {
+			success: false,
+			error: "The schedule file is not valid. Check the preview and try again.",
+		};
+	}
+
+	const ownerId = await getCurrentPondOwnerId();
+	const pond = await resolveActivePond(ownerId);
+	if (!pond) return { success: false, error: "No pond found." };
+	const device = await prisma.energyDevice.findFirst({
+		where: { pondId: pond.id },
+		orderBy: { createdAt: "asc" },
+		select: { id: true, buttonFeedGrams: true },
+	});
+	if (!device) return { success: false, error: "No feeder is paired to this pond." };
+
+	const current = await resolveCurrentSchedule(pond.id, device.id);
+	return updateScheduleCommand(pond.id, device.id, {
+		...prepared.schedule,
+		feedingRatePct: current?.feedingRatePct ?? pond.feedingRatePct,
+		buttonFeedGrams: device.buttonFeedGrams,
+	});
 }

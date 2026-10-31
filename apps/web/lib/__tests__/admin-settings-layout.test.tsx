@@ -156,7 +156,7 @@ afterEach(() => {
 });
 
 describe("admin settings page structure", () => {
-	it("renders one page title, two labelled sections and three card headings", async () => {
+	it("renders one page title, three labelled sections and three card headings", async () => {
 		const host = parseHtml(
 			renderToStaticMarkup(await AdminSettingsPage({ searchParams: Promise.resolve({}) })),
 		);
@@ -164,6 +164,7 @@ describe("admin settings page structure", () => {
 		expect(host.querySelectorAll("h1")).toHaveLength(1);
 		expect([...host.querySelectorAll("h2")].map((heading) => heading.textContent?.trim())).toEqual([
 			"General Settings",
+			"Backup",
 			"Members",
 		]);
 		expect([...host.querySelectorAll("h3")].map((heading) => heading.textContent?.trim())).toEqual([

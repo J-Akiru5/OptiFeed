@@ -294,3 +294,53 @@ describe("POST /api/ingest — OTA diagnostics (T-12b)", () => {
 		]);
 	});
 });
+
+describe("POST /api/ingest — firmware config revision (I-100)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockEnergyDevice.findUnique.mockResolvedValue({ ...DEVICE } as never);
+		mockEnergyDevice.update.mockResolvedValue({} as never);
+		mockFeedEvent.findFirst.mockResolvedValue(null as never);
+		mockFeedEvent.create.mockResolvedValue({} as never);
+		mockDeviceStateEvent.findFirst.mockResolvedValue(null as never);
+		mockDeviceStateEvent.create.mockResolvedValue({} as never);
+	});
+
+	function configEvents() {
+		return mockDeviceStateEvent.create.mock.calls
+			.map(
+				([arg]) =>
+					(arg as { data: { eventType: string; metadata?: Record<string, unknown> } }).data,
+			)
+			.filter((data) => data.eventType === "config_applied");
+	}
+
+	it("records the applied config revision once per change", async () => {
+		const res = await POST(
+			ingestRequest(heartbeatBody({ firmware_version: "1.7.0", config_rev: 12345 })),
+		);
+		expect(res.status).toBe(204);
+		expect(configEvents()).toEqual([
+			expect.objectContaining({
+				eventType: "config_applied",
+				source: "device",
+				metadata: { configRev: 12345, version: "1.7.0" },
+			}),
+		]);
+	});
+
+	it("does not repeat the row when the device reports the same revision", async () => {
+		mockDeviceStateEvent.findFirst.mockResolvedValue({
+			eventType: "config_applied",
+			metadata: { configRev: 12345 },
+		} as never);
+		await POST(ingestRequest(heartbeatBody({ config_rev: 12345 })));
+		expect(configEvents()).toHaveLength(0);
+	});
+
+	it("drops a malformed config_rev instead of failing the heartbeat", async () => {
+		const res = await POST(ingestRequest(heartbeatBody({ config_rev: "not-a-number" })));
+		expect(res.status).toBe(204);
+		expect(configEvents()).toHaveLength(0);
+	});
+});

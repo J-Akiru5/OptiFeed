@@ -67,6 +67,12 @@ implementation that a parallel branch might still be writing is riskier than
 removing the keyword, and a follow-up can delete the function once the branch
 lands.
 
+Follow-up (#337, I-102): `getSuperadminStats`, `getPlatformAdmins`,
+`loadPondProposalSettings`, `createDemoNotification` and their internal
+`pondSettings` helper were deleted with the tests that were their only callers,
+because no production code ever called them. `pnpm dead-code` reports zero
+unused exports with no new exemptions.
+
 Four exported types were narrowed the same way (`AnnouncementInput`,
 `MachineFeedSource`, `JobStatus`, `PondDetail`), and two re-exports were trimmed
 (`OtaEventType`, `CalendarCapability`).

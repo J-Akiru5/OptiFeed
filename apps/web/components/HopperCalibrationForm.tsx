@@ -6,6 +6,7 @@ import {
 	parseCalibrationNumber,
 } from "@/components/calibration/CalibrationNumberField";
 import { dashboardButtonPrimary } from "@/components/dashboard/dashboard-classes";
+import { useReportUnsavedChanges } from "@/components/settings/unsaved-changes";
 import { saveHopperCalibration } from "@/lib/actions/energy";
 import { HOPPER_CAPACITY_G_MAX, HOPPER_EMPTY_CM_MAX, HOPPER_FULL_CM_MAX } from "@/lib/limits";
 import { cn } from "@/lib/utils";
@@ -38,6 +39,11 @@ export function HopperCalibrationForm({
 	const [fullCm, setFullCm] = useState(() => String(hopperFullCm ?? DEFAULT_FULL_CM));
 	const [emptyCm, setEmptyCm] = useState(() => String(hopperEmptyCm ?? DEFAULT_EMPTY_CM));
 	const [capacityG, setCapacityG] = useState(() => String(hopperCapacityG ?? DEFAULT_CAPACITY_G));
+	const [savedInputs, setSavedInputs] = useState(() => [fullCm, emptyCm, capacityG].join("|"));
+	useReportUnsavedChanges(
+		`hopper-${deviceId}`,
+		[fullCm, emptyCm, capacityG].join("|") !== savedInputs,
+	);
 	const [error, setError] = useState<string | null>(null);
 	const [saved, setSaved] = useState(false);
 	const [isPending, startTransition] = useTransition();
@@ -74,6 +80,7 @@ export function HopperCalibrationForm({
 				hopperCapacityG: capacity.value,
 			});
 			if (result.success) {
+				setSavedInputs([fullCm, emptyCm, capacityG].join("|"));
 				setSaved(true);
 				toast.success(t("calibrationSaved"));
 			} else {

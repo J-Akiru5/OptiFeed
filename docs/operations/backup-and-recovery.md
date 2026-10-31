@@ -51,7 +51,7 @@ table has been verified end to end; the repository has no backup automation and 
 | --- | --- | --- | --- | --- |
 | Postgres data: all Prisma tables in the `public` schema (farms, ponds, cycles, biomass logs, feed events, devices, memberships, audit rows, and the rest) | Supabase project `xjjnkikgkraixlfhhvoh` | Supabase provider backups, if the project's plan includes them | Assumed daily; **plan not confirmed** | **No** |
 | Postgres schema history | Same database, `_prisma_migrations` | Carried inside the same database backup; migrations themselves are in `apps/web/prisma/migrations/` (38 at v1.29.0) | Continuous in Git | Yes in Git; backup coverage follows the row above |
-| Supabase Auth identities (`auth.users`, password hashes, provider links) | Supabase Auth schema | Only if the provider backup includes the auth schema. The project's earlier JSON table exports **did not include `auth.users`** (`docs/login-domain-rename-plan.md`, rollback row) | Follows the provider backup | **No — known gap** |
+| Supabase Auth identities (`auth.users`, password hashes, provider links) | Supabase Auth schema | Only if the provider backup includes the auth schema. The application's own SQL export (Backup page, issue #353) now carries a **minimal identity manifest** — `id`, `supabaseId`, `email`, `farmId`, role and organization links — so a logical restore can recreate the identities and re-link them (§7.5). It never carries credentials. Earlier JSON table exports **did not include `auth.users`** (`docs/login-domain-rename-plan.md`, rollback row) | Follows the provider backup | **No for provider backups; the manifest is the app-level mitigation** |
 | Pre-migration snapshot | Taken by the owner before a migration | Manual `pg_dump`, or JSON table exports. Historical exports were written to `C:/Users/Lenovo/Documents/PakaonAI/db-backups/` outside the repository | Event-driven, not scheduled | Partly: exports are recorded in mission logs; no full `pg_dump` is recorded |
 | Storage: `avatars` bucket (optional profile photos) | Supabase Storage | Provider backup coverage unconfirmed; the objects themselves are the only guaranteed copy | Unknown | **No** |
 | Storage: `firmware` bucket (OTA binaries) | Supabase Storage | No archival copy recorded; binaries are rebuildable from source and the offline signing key | On release | **No** |
@@ -398,6 +398,80 @@ most likely to fail on a logical dump, and the reason section 2 flags it.
 Write it down. "Auth sign-in not verified: no disposable account with a known password exists in
 the restored data" is a useful finding. Silence is not.
 
+### 7.5 Restoring an SQL export from the Backup page (issue #353)
+
+An operator downloads an export from **Admin → Settings → Backup** (their own organization's
+rows) or **Superadmin → Settings → Backup** (every allowed table, behind step-up and a reason).
+The file is one `.sql` document plus an identity manifest. It is **not** a `pg_dump`
+replacement: it carries data, not DDL, and it deliberately omits credentials and transient state.
+
+**What the file contains**
+
+- `BEGIN;` … `COMMIT;` around one `INSERT` per row, in foreign-key-safe table order.
+- Only allow-listed tables and columns (`apps/web/lib/backup/tables.ts`). Device tokens are
+  written as the placeholder `redacted:<device id>`, token hashes are absent, and
+  session/queue/limiter tables are excluded.
+- A `-- === AUTH IDENTITY MANIFEST (issue #322) ===` block: one JSON object per exported user
+  with `id`, `supabaseId`, `email`, `farmId`, `role`, `displayName` and organization links. No
+  password, hash, token or session.
+- A trailer with the SHA-256 of every byte before it and the payload byte count.
+
+**Dry run before touching a database (read-only)**
+
+```bash
+node scripts/ops/restore-check.mjs ./pakaonai-backup-tenant-YYYYMMDD-HHMM.sql
+```
+
+It opens no connection and writes nothing. It fails when the checksum or byte count does not
+match (a truncated download), when a table or column is outside the allow-list, when a
+credential column appears, when a foreign key does not resolve inside the file, when a `User`
+row has no identity entry (or an identity has no `User` row), or when a primary key is
+duplicated. It warns — but does not fail — when a per-table header count differs from the rows
+in the file, because the header is a pre-flight snapshot and a concurrent write can change it.
+
+**Restore order** (order matters; do not skip step 2)
+
+1. **Schema** — restore to a database at the matching migration state:
+   `pnpm --filter web exec prisma migrate deploy`.
+2. **Auth identities** — for every manifest line, create the Supabase Auth user with the
+   **same UUID** as `supabaseId` and the listed email. The `User` rows re-link by `supabaseId`;
+   creating a different UUID leaves the account unable to sign in. This is the step #322 was
+   filed about. Set/reset passwords through the normal password flow; the manifest has no
+   credential.
+3. **Data** — `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f ./pakaonai-backup-….sql`. The
+   `COMMIT;` is inside the file, so a failed insert rolls the whole load back.
+4. **Device tokens** — every restored feeder has `redacted:<id>` as its token and no hash.
+   Rotate each device token from the console before the unit can authenticate.
+5. **Storage** — avatar objects (`User.avatarPath`) and firmware binaries are not in the
+   export; restore them separately or accept missing avatars.
+6. **Verify** — run §7.1–§7.3, then the identity link check in §7.2.
+
+**Known re-fire: Pond ownership history**
+
+`Pond` has an `AFTER INSERT` trigger that writes a `PondOwnershipHistory` row. Restoring the
+exported `PondOwnershipHistory` therefore adds one extra `CREATED` row per pond. Either restore
+with `SET LOCAL session_replication_role = replica;` in the same transaction (only when the
+restoring role may set it), or run the dedupe after the load:
+
+```sql
+DELETE FROM "PondOwnershipHistory" h
+WHERE h."eventType" = 'CREATED'
+  AND h."id" <> (
+    SELECT min(k."id")
+    FROM "PondOwnershipHistory" k
+    WHERE k."pondId" = h."pondId" AND k."eventType" = 'CREATED'
+  );
+```
+
+**Tenant vs platform exports**
+
+A tenant export contains only the caller's organizations' rows (the same `resolveOrgScope()`
+chain as the console) and is filed in the audit trail under that organization. It excludes
+platform tables (platform admins, platform settings, the platform audit log, error events, AI
+provider configuration). A platform export contains those too. A tenant export is for
+portability and verification within an existing database; the platform export is the
+disaster-recovery artifact.
+
 ---
 
 ## 8. Production restore (incident only)
@@ -482,19 +556,27 @@ These are real and current. None of them is fixed by writing this document.
 4. **No scheduled `pg_dump`.** Backups before migrations are manual, event-driven, and depend on
    someone remembering. Nothing alerts if they stop happening.
 5. **The historical JSON exports exclude `auth.users`.** A restore from them leaves `User` rows
-   pointing at identities that do not exist, so no one can sign in.
-6. **Storage coverage is unknown.** The `avatars` and `firmware` buckets have no confirmed backup
+   pointing at identities that do not exist, so no one can sign in. The SQL export from the
+   Backup page (#353) mitigates this with a minimal identity manifest (§7.5), but it is a manual
+   download: the operator still has to create the Auth identities with the same UUIDs, and no
+   part of that is automated yet.
+6. **The SQL export is manual and not scheduled.** There is no recurring export, no server-side
+   file retention and no alert when an operator stops taking one. Issue #353 lists scheduling as
+   optional and it is not built; the download also replaces a stored file, so verification
+   depends on the operator keeping the checksum record.
+7. **Storage coverage is unknown.** The `avatars` and `firmware` buckets have no confirmed backup
    path and no archival copy.
-7. **No RPO/RTO exists for Storage or configuration**, only for the database.
-8. **A restore may require creating a new Supabase project and repointing Vercel**, which is
+8. **No RPO/RTO exists for Storage or configuration**, only for the database.
+9. **A restore may require creating a new Supabase project and repointing Vercel**, which is
    unmeasured and depends on dashboard access that only the owner holds.
-9. **One person holds every recovery credential.** The RTO assumes the owner is reachable; there
-   is no deputy and no break-glass procedure.
-10. **No backup-failure monitoring and no restore test in CI.** A silent backup failure would be
-    discovered only during an incident.
-11. **`ErrorEvent` retention (30 days) has no enforcement yet.** The model and the purge job are
+10. **One person holds every recovery credential.** The RTO assumes the owner is reachable; there
+    is no deputy and no break-glass procedure.
+11. **No backup-failure monitoring and no restore test in CI.** A silent backup failure would be
+    discovered only during an incident. (The export restore check itself runs in CI as a
+    self-test; that is a format check, not a backup test.)
+12. **`ErrorEvent` retention (30 days) has no enforcement yet.** The model and the purge job are
     both unlanded; see section 5.1.
-12. **The published 30-day backup retention has not been reconciled with the provider's actual
+13. **The published 30-day backup retention has not been reconciled with the provider's actual
     setting.** If the provider keeps backups longer, the Privacy Policy is inaccurate and must be
     corrected before the next legal version.
 
@@ -502,6 +584,10 @@ These are real and current. None of them is fixed by writing this document.
 
 ## 11. References
 
+- [`docs/operations/restore-drill.md`](./restore-drill.md) — the dump/restore drill CI automates,
+  including `scripts/ops/restore-check.mjs` for an application SQL export.
+- Issue **#353** — the Backup page, the SQL export, the audit trail and the allow-list.
+- Issue **#322** — the auth identity manifest in exports (§7.5).
 - [`docs/runbook.md`](../runbook.md) §3–4 — incident triage and the short restore procedure.
 - [`docs/deployment-workflow.md`](../deployment-workflow.md) §6 (shared staging/production
   database) and §8 (rollback).

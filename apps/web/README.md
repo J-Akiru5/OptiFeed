@@ -77,9 +77,14 @@ never sent twice.
 
 ## Branch workflow
 
-1. Work on `Karl`. Never push `develop` or `main` directly.
-2. Open a PR `Karl` → `develop`; CI runs lint, typecheck, tests, auth-route gate, and a dummy-env `next build`.
-3. Jeff promotes `develop` → `main` for releases (decision D5). Vercel deploys from Git integration.
+1. Work on a short-lived branch cut from `origin/develop`. Never push `develop`,
+   `staging` or `main` directly.
+2. Open a PR into `develop`; CI runs lint, typecheck, tests, auth-route gate, and a dummy-env `next build`.
+3. Releases are commanded promotions: `develop` -> `staging` (Vercel Preview),
+   then `staging` -> `main` (Vercel Production). `develop` never deploys. Jeff
+   commands each promotion, or the OpenCode lead does under a standing
+   authorization recorded in `docs/missions/`. Vercel deploys from the Git
+   integration; see `docs/deployment-workflow.md` section 5.0.
 
 ## Migration rules
 

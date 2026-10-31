@@ -6,8 +6,8 @@ import { useEffect, useState } from "react";
 
 /**
  * Header clock. Time is formatted through `lib/date-local` so it follows the
- * selected locale (English or Hiligaynon) instead of the browser's own locale
- * rendering.
+ * selected locale (English, Hiligaynon or Tagalog) instead of the browser's
+ * own locale rendering.
  */
 export function LiveClock() {
 	const tDates = useTranslations("dates");

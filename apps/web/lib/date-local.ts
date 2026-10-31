@@ -72,7 +72,7 @@ export function formatDateTimeLocal(date: Date, tDates: (key: string) => string)
  * server component and in shared components that render on the server.
  *
  * The farm wall-clock parts are rebuilt as a local `Date` so the existing
- * formatter can render them with the translated day and month names in either
+ * formatter can render them with the translated day and month names in any
  * locale.
  */
 export function formatFarmDateTime(date: Date, tDates: (key: string) => string) {

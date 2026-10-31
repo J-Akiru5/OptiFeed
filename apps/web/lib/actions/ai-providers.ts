@@ -25,6 +25,7 @@ import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { getCurrentUser } from "@/lib/auth/session";
 import { isStepUpRequiredError, withStepUp } from "@/lib/auth/step-up";
 import prisma from "@/lib/prisma";
+import { checkAiProviderTestRateLimit } from "@/lib/rate-limit";
 import type { Prisma } from "@prisma/client";
 
 /**
@@ -691,6 +692,13 @@ export async function setAiProviderKey(input: SetAiProviderKeyInput): Promise<Se
 					error:
 						"AI_SECRET_KEY is not configured, so the key cannot be stored. Add it to the environment, then try again.",
 				};
+			}
+
+			// Each test spends the provider account's quota with a live outbound
+			// call, so it is rate limited per platform admin (fail-closed).
+			const limit = await checkAiProviderTestRateLimit(actor);
+			if (!limit.success) {
+				return { error: "Too many key tests. Wait a minute and try again." };
 			}
 
 			const test = await testProviderKey(

@@ -45,3 +45,8 @@ regexes = ['''sb_secret_abcdefghijklmnopqrstuvwxyz''']
 [[allowlists]]
 description = "This file: it necessarily repeats the placeholder values above."
 paths = ['''gitleaks\.toml''']
+
+[[allowlists]]
+description = "Sentinel provider keys in the AI provider key test (apps/web/lib/__tests__/ai-provider-key-actions.test.ts, commit ec231f2). They are fixed dummy strings the test pushes through the encrypt, resolve and audit paths to prove no key material leaks; the current tree builds them at runtime. None was ever a credential (reviewed 2026-10-31, #432)."
+targetRules = ["generic-api-key"]
+regexes = ['''sk-live-abcdefgh1234''', '''sk-bad-key-0000''']

@@ -105,6 +105,14 @@ export function checkBackupExportRateLimit(actorId: string) {
 	return checkRateLimit(`rl:backup-export:${actorId}`, 5, 60 * 60 * 1000, true);
 }
 
+// AI provider key test: 5 live provider calls per minute per platform admin
+// (issue #432). The bucket is keyed on the actor because each test spends the
+// provider account's quota. Fail-closed — an outage must not turn a costly
+// outbound call into an unlimited one.
+export function checkAiProviderTestRateLimit(actorId: string) {
+	return checkRateLimit(`rl:ai-provider-test:${actorId}`, 5, 60_000, false);
+}
+
 // F-014: the client address comes from `lib/client-ip.ts` — the one
 // trusted-hop derivation shared with the audit trail (issue #329). Login
 // limiting re-exports it here because `lib/actions/auth.ts` imports it from

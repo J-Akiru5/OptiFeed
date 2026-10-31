@@ -57,6 +57,11 @@ async function auth() {
 	};
 }
 
+const POND_ADDRESS = "demo-farmer-1@pond.optifeed.local";
+const ACCOUNT_SELECT = { id: true, email: true, farmId: true, contactEmail: true };
+const accountWith = (contactEmail: string | null) =>
+	({ id: "user-1", email: POND_ADDRESS, farmId: "demo-farmer-1", contactEmail }) as never;
+
 describe("requestPasswordReset", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -69,6 +74,21 @@ describe("requestPasswordReset", () => {
 		auditCreate.mockResolvedValue({} as never);
 	});
 
+	it("answers an unknown email exactly like a known one (no enumeration)", async () => {
+		user.findUnique.mockResolvedValue(null);
+
+		const result = await requestPasswordReset("nobody@example.com");
+
+		expect(result).toEqual({ success: true });
+		expect(user.findUnique).toHaveBeenCalledWith({
+			where: { contactEmail: "nobody@example.com" },
+			select: ACCOUNT_SELECT,
+		});
+		expect(generateLink).not.toHaveBeenCalled();
+		expect(deliverEmail).not.toHaveBeenCalled();
+		expect(auditCreate).not.toHaveBeenCalled();
+	});
+
 	it("answers an unknown farm ID exactly like a known one (no enumeration)", async () => {
 		user.findUnique.mockResolvedValue(null);
 
@@ -77,33 +97,32 @@ describe("requestPasswordReset", () => {
 		expect(result).toEqual({ success: true });
 		expect(user.findUnique).toHaveBeenCalledWith({
 			where: { farmId: "no-such-farm" },
-			select: { id: true, email: true },
+			select: ACCOUNT_SELECT,
 		});
 		expect(generateLink).not.toHaveBeenCalled();
 		expect(deliverEmail).not.toHaveBeenCalled();
 		expect(auditCreate).not.toHaveBeenCalled();
 	});
 
-	it("mints a recovery link for a known farm ID, emails it and audits the request", async () => {
-		user.findUnique.mockResolvedValue({
-			id: "user-1",
-			email: "demo-farmer-1@pond.optifeed.local",
-		} as never);
+	it("finds the account by contact email, mints the link for the login address and mails the contact email", async () => {
+		user.findUnique.mockResolvedValue(accountWith("farmer@example.com"));
 
-		const result = await requestPasswordReset("  Demo-Farmer-1  ");
+		const result = await requestPasswordReset("  Farmer@Example.COM  ");
 
 		expect(result).toEqual({ success: true });
 		expect(user.findUnique).toHaveBeenCalledWith({
-			where: { farmId: "demo-farmer-1" },
-			select: { id: true, email: true },
+			where: { contactEmail: "farmer@example.com" },
+			select: ACCOUNT_SELECT,
 		});
+		// The link is minted for the Supabase login address, which never changes...
 		expect(generateLink).toHaveBeenCalledWith({
 			type: "recovery",
-			email: "demo-farmer-1@pond.optifeed.local",
+			email: POND_ADDRESS,
 			options: { redirectTo: expect.stringMatching(/\/en\/reset-password$/) },
 		});
+		// ...but it is mailed to the real mailbox, not the synthetic pond address.
 		expect(deliverEmail).toHaveBeenCalledWith({
-			to: "demo-farmer-1@pond.optifeed.local",
+			to: "farmer@example.com",
 			farmId: "demo-farmer-1",
 			resetUrl: RESET_URL,
 		});
@@ -116,45 +135,111 @@ describe("requestPasswordReset", () => {
 		expect(auditPayload?.data.targetId).toBe("user-1");
 		expect(auditPayload?.data.after).toEqual({
 			farmId: "demo-farmer-1",
+			via: "email",
 			emailSent: true,
 		});
-		// The recovery link is a credential: it must never reach the audit row.
+		// The recovery link is a credential and the typed email is personal data:
+		// neither may reach the audit row.
 		expect(JSON.stringify(auditPayload)).not.toContain(RESET_URL);
+		expect(JSON.stringify(auditPayload)).not.toContain("farmer@example.com");
 	});
 
-	it("still reports success when Supabase refuses to mint the link", async () => {
-		user.findUnique.mockResolvedValue({
-			id: "user-1",
-			email: "demo-farmer-1@pond.optifeed.local",
-		} as never);
-		generateLink.mockResolvedValue({ data: null, error: { message: "SMTP not configured" } });
+	it("still accepts a farm ID and mails the account's contact email", async () => {
+		user.findUnique.mockResolvedValue(accountWith("farmer@example.com"));
+
+		const result = await requestPasswordReset("  Demo-Farmer-1  ");
+
+		expect(result).toEqual({ success: true });
+		expect(user.findUnique).toHaveBeenCalledWith({
+			where: { farmId: "demo-farmer-1" },
+			select: ACCOUNT_SELECT,
+		});
+		expect(deliverEmail).toHaveBeenCalledWith({
+			to: "farmer@example.com",
+			farmId: "demo-farmer-1",
+			resetUrl: RESET_URL,
+		});
+		const auditPayload = auditCreate.mock.calls[0]?.[0] as { data: { after: unknown } } | undefined;
+		expect(auditPayload?.data.after).toEqual({
+			farmId: "demo-farmer-1",
+			via: "farmId",
+			emailSent: true,
+		});
+	});
+
+	it("reads the pond address the profile page used to show as a farm ID", async () => {
+		user.findUnique.mockResolvedValue(accountWith("farmer@example.com"));
+
+		await requestPasswordReset(POND_ADDRESS);
+
+		expect(user.findUnique).toHaveBeenCalledWith({
+			where: { farmId: "demo-farmer-1" },
+			select: ACCOUNT_SELECT,
+		});
+	});
+
+	it("mints and sends nothing for an account with no contact email, and says why in the audit row", async () => {
+		user.findUnique.mockResolvedValue(accountWith(null));
 
 		const result = await requestPasswordReset("demo-farmer-1");
 
-		// The pond address is synthetic: "sent" would be a claim we cannot make.
+		// Same answer as any other request: the caller learns nothing.
+		expect(result).toEqual({ success: true });
+		expect(generateLink).not.toHaveBeenCalled();
+		expect(deliverEmail).not.toHaveBeenCalled();
+		const auditPayload = auditCreate.mock.calls[0]?.[0] as { data: { after: unknown } } | undefined;
+		expect(auditPayload?.data.after).toEqual({
+			farmId: "demo-farmer-1",
+			via: "farmId",
+			emailSent: false,
+			reason: "no_contact_email",
+		});
+	});
+
+	it("still reports success when Supabase refuses to mint the link", async () => {
+		user.findUnique.mockResolvedValue(accountWith("farmer@example.com"));
+		generateLink.mockResolvedValue({ data: null, error: { message: "SMTP not configured" } });
+
+		const result = await requestPasswordReset("farmer@example.com");
+
+		// "Sent" would be a claim we cannot make.
 		expect(result).toEqual({ success: true });
 		expect(reportError).toHaveBeenCalled();
 		expect(deliverEmail).not.toHaveBeenCalled();
 		const auditPayload = auditCreate.mock.calls[0]?.[0] as { data: { after: unknown } } | undefined;
-		expect(auditPayload?.data.after).toEqual({ farmId: "demo-farmer-1", emailSent: false });
+		expect(auditPayload?.data.after).toEqual({
+			farmId: "demo-farmer-1",
+			via: "email",
+			emailSent: false,
+		});
 	});
 
 	it("is rate limited per IP", async () => {
 		rateLimit.mockResolvedValue({ success: false, remaining: 0 });
 
-		const result = await requestPasswordReset("demo-farmer-1");
+		const result = await requestPasswordReset("farmer@example.com");
 
 		expect(result).toEqual({ error: "rate_limited" });
 		expect(user.findUnique).not.toHaveBeenCalled();
 	});
 
-	it("rejects an empty farm ID before touching the store", async () => {
+	it("rejects an empty identifier before touching the store", async () => {
 		const result = await requestPasswordReset("   ");
 
 		expect(result).toEqual({ error: "invalid" });
 		expect(user.findUnique).not.toHaveBeenCalled();
 	});
+
+	it("does not put the typed email into the error report", async () => {
+		user.findUnique.mockRejectedValue(new Error("db down"));
+
+		const result = await requestPasswordReset("farmer@example.com");
+
+		expect(result).toEqual({ error: "service" });
+		expect(reportError).toHaveBeenCalledWith(expect.any(Error), { action: "requestPasswordReset" });
+	});
 });
+
 describe("completePasswordReset", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();

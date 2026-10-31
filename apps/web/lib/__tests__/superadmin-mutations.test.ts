@@ -60,6 +60,11 @@ import { createOrg, createPlatformUser, updatePlatformUser } from "@/lib/actions
 import { getCurrentUser } from "@/lib/auth/session";
 import { withStepUp } from "@/lib/auth/step-up";
 import {
+	CONTACT_EMAIL_INVALID,
+	CONTACT_EMAIL_POND,
+	CONTACT_EMAIL_TAKEN,
+} from "@/lib/contact-email";
+import {
 	ADMIN_A_ID,
 	FARMER_B_ID,
 	ORG_A_ID,
@@ -265,6 +270,107 @@ describe("updatePlatformUser", () => {
 			role: "OPERATOR",
 		});
 		expect(tenancy().tables.platformAuditLogs).toHaveLength(1);
+	});
+
+	describe("contact email (#449)", () => {
+		function farmerB() {
+			const row = tenancy().tables.users.find((candidate) => candidate.id === FARMER_B_ID);
+			if (!row) throw new Error("fixture user missing");
+			return row;
+		}
+
+		beforeEach(() => {
+			// The column is nullable, so a real row reads null, not undefined.
+			farmerB().contactEmail = null;
+		});
+
+		it("stores the lower-cased address behind a step-up and records before/after", async () => {
+			const result = await updatePlatformUser(
+				FARMER_B_ID,
+				{ contactEmail: "  Farmer.B@Example.COM " },
+				REASON,
+			);
+
+			expect(result).toEqual({ success: true, userId: FARMER_B_ID });
+			expect(mockWithStepUp).toHaveBeenCalledTimes(1);
+			expect(farmerB().contactEmail).toBe("farmer.b@example.com");
+			expect(tenancy().tables.platformAuditLogs[0]).toMatchObject({
+				action: "platform.user.update",
+				targetId: FARMER_B_ID,
+				stepUpAt: STEP_UP_AT,
+				before: { contactEmail: null },
+				after: { contactEmail: "farmer.b@example.com" },
+			});
+		});
+
+		it("writes nothing when the step-up is not satisfied", async () => {
+			mockWithStepUp.mockRejectedValueOnce(
+				Object.assign(new Error("Re-enter your password to continue."), {
+					code: "step_up_required",
+				}),
+			);
+
+			const result = await updatePlatformUser(
+				FARMER_B_ID,
+				{ contactEmail: "a@example.com" },
+				REASON,
+			);
+
+			expect(result).toMatchObject({ code: "step_up_required" });
+			expect(farmerB().contactEmail).toBeNull();
+			expect(tenancy().tables.platformAuditLogs).toHaveLength(0);
+		});
+
+		it("clears the address when given a blank value", async () => {
+			farmerB().contactEmail = "old@example.com";
+
+			await updatePlatformUser(FARMER_B_ID, { contactEmail: "  " }, REASON);
+
+			expect(farmerB().contactEmail).toBeNull();
+			expect(tenancy().tables.platformAuditLogs[0]).toMatchObject({
+				before: { contactEmail: "old@example.com" },
+				after: { contactEmail: null },
+			});
+		});
+
+		it("does not demand a step-up when the address is unchanged", async () => {
+			farmerB().contactEmail = "same@example.com";
+
+			const result = await updatePlatformUser(
+				FARMER_B_ID,
+				{ contactEmail: " SAME@example.com " },
+				REASON,
+			);
+
+			expect(result).toEqual({ success: true, userId: FARMER_B_ID });
+			expect(mockWithStepUp).not.toHaveBeenCalled();
+		});
+
+		it("refuses an invalid address and the pond login address without writing", async () => {
+			await expect(
+				updatePlatformUser(FARMER_B_ID, { contactEmail: "not-an-email" }, REASON),
+			).resolves.toEqual({ error: CONTACT_EMAIL_INVALID });
+			await expect(
+				updatePlatformUser(FARMER_B_ID, { contactEmail: "farm-b@pond.optifeed.local" }, REASON),
+			).resolves.toEqual({ error: CONTACT_EMAIL_POND });
+
+			expect(farmerB().contactEmail).toBeNull();
+			expect(tenancy().tables.platformAuditLogs).toHaveLength(0);
+		});
+
+		it("reports an address another account already holds", async () => {
+			const conflict = Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
+			vi.spyOn(tenancy().client.user, "update").mockRejectedValueOnce(conflict);
+
+			const result = await updatePlatformUser(
+				FARMER_B_ID,
+				{ contactEmail: "taken@example.com" },
+				REASON,
+			);
+
+			expect(result).toEqual({ error: CONTACT_EMAIL_TAKEN });
+			expect(tenancy().tables.platformAuditLogs).toHaveLength(0);
+		});
 	});
 
 	it("answers not found for an unknown user without an audit row", async () => {

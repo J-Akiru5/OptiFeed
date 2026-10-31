@@ -523,16 +523,16 @@
 	},
 	"forgotPassword": {
 		"title": "Forgot your password?",
-		"desc": "Enter your farm ID and we'll send a password reset link to the mailbox registered for it.",
-		"farmIdLabel": "Farm ID",
-		"farmIdPlaceholder": "your-farm-id",
-		"farmIdDesc": "The same farm ID you use to sign in.",
+		"desc": "Enter the email address registered for your account and we'll send a password reset link to it.",
+		"identifierLabel": "Email",
+		"identifierPlaceholder": "you@example.com",
+		"identifierDesc": "The email your administrator registered for you. Your farm ID also works.",
 		"submit": "Send reset link",
 		"submitting": "Sending…",
-		"successDesc": "If {farmId} exists, a reset link has been sent to its mailbox. The link opens a page where a new password can be set.",
-		"fallbackNote": "Login addresses are internal pond addresses. If you can't open that mailbox — or no mail arrives — ask a platform administrator to reset your password from the platform console. Reset links are single-use and expire.",
+		"successDesc": "If an account matches {identifier}, a reset link has been sent to its registered email. The link opens a page where a new password can be set.",
+		"fallbackNote": "Reset links go to the email address your administrator registered for your account. If none is registered, or no mail arrives, ask an administrator to add or correct it, or to reset your password from the console. Reset links are single-use and expire.",
 		"backToLogin": "Back to sign in",
-		"errorEmpty": "Enter your farm ID.",
+		"errorEmpty": "Enter your email address.",
 		"errorRateLimited": "Too many reset requests in a short time. Wait a few minutes and try again.",
 		"errorService": "We can't start the password reset right now. Try again in a moment."
 	},
@@ -1558,7 +1558,8 @@
 					"uploadFailed": "Could not upload the picture. Try again.",
 					"saveFailed": "Could not save the picture. Try again."
 				}
-			}
+			},
+			"emailNone": "No email on file. Ask your administrator to add one so you can reset your password."
 		},
 		"adminUsers": {
 			"actionsColumn": "Actions",
@@ -1667,7 +1668,18 @@
 				"ADMIN": "Admin",
 				"OPERATOR": "Operator",
 				"VIEWER": "Viewer"
-			}
+			},
+			"contactEmailNone": "No email on file",
+			"contactEmailEdit": "Edit email",
+			"contactEmailEditFor": "Edit email for {name}",
+			"contactEmailInputLabel": "Email for {name}",
+			"contactEmailPlaceholder": "name@example.com",
+			"contactEmailHint": "Password-reset links are sent here. Leave it blank to remove the address.",
+			"contactEmailSave": "Save email",
+			"contactEmailSaving": "Saving…",
+			"contactEmailSaved": "Email saved.",
+			"contactEmailRemoved": "Email removed.",
+			"contactEmailError": "Could not save the email. Try again."
 		},
 		"feederViewer": {
 			"viewerLabel": "Feeder 3D",
@@ -3257,7 +3269,8 @@
 			"columnOrgs": "Organizations",
 			"columnPonds": "Ponds",
 			"columnAccess": "Access",
-			"columnActions": "Actions"
+			"columnActions": "Actions",
+			"noContactEmail": "No email on file"
 		},
 		"userActions": {
 			"actionFailed": "Action failed.",
@@ -3270,21 +3283,24 @@
 				"revoke": "Revoke platform access",
 				"disable": "Disable account",
 				"enable": "Enable account",
-				"reset": "Reset password"
+				"reset": "Reset password",
+				"email": "Change contact email"
 			},
 			"stepUpActions": {
 				"grant": "grant platform access",
 				"revoke": "revoke platform access",
 				"disable": "disable this account",
 				"enable": "enable this account",
-				"reset": "reset this password"
+				"reset": "reset this password",
+				"email": "change this contact email"
 			},
 			"buttons": {
 				"grant": "Grant",
 				"revoke": "Revoke",
 				"disable": "Disable",
 				"enable": "Enable",
-				"reset": "Reset"
+				"reset": "Reset",
+				"email": "Email"
 			},
 			"disableWarning": "This bans the login and revokes every membership. No data is deleted; Enable restores access later.",
 			"enableWarning": "Restores the login and the memberships recorded by the last disable.",
@@ -3300,7 +3316,11 @@
 			},
 			"reasonPlaceholder": "e.g. Initial platform setup for deployment",
 			"confirmLabel": "Type {farmId} to confirm *",
-			"descriptionPrefix": "Platform account"
+			"descriptionPrefix": "Platform account",
+			"emailLabel": "Contact email",
+			"emailPlaceholder": "name@example.com",
+			"emailHint": "Password-reset links go to this address. Leave blank to remove it. The login ID never changes.",
+			"emailWarning": "Whoever controls this address can reset the account password, so changing it needs your password again."
 		},
 		"stepUp": {
 			"title": "Confirm your password",

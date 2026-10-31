@@ -8,6 +8,11 @@ import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { invalidateFarm } from "@/lib/auth/session-cache";
 import { isStepUpRequiredError, withStepUp } from "@/lib/auth/step-up";
 import { getSignedAvatarUrls } from "@/lib/avatars";
+import {
+	CONTACT_EMAIL_TAKEN,
+	isContactEmailConflict,
+	normalizeContactEmail,
+} from "@/lib/contact-email";
 import { feedingRatePctSchema, formatZodError } from "@/lib/limits";
 import { resolvePagination } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
@@ -116,7 +121,10 @@ async function actorId(): Promise<string> {
 export type PlatformUserRow = {
 	id: string;
 	farmId: string;
+	/** Synthetic login address; never deliverable. */
 	email: string;
+	/** Deliverable address password-reset mail goes to; null until recorded (#449). */
+	contactEmail: string | null;
 	displayName: string | null;
 	role: UserRole;
 	createdAt: Date;
@@ -176,6 +184,7 @@ export async function listAllUsers(
 				OR: [
 					{ farmId: { contains: query, mode: "insensitive" } },
 					{ email: { contains: query, mode: "insensitive" } },
+					{ contactEmail: { contains: query, mode: "insensitive" } },
 					{ displayName: { contains: query, mode: "insensitive" } },
 				],
 			}
@@ -192,6 +201,7 @@ export async function listAllUsers(
 				id: true,
 				farmId: true,
 				email: true,
+				contactEmail: true,
 				displayName: true,
 				avatarPath: true,
 				role: true,
@@ -212,6 +222,7 @@ export async function listAllUsers(
 				id: true,
 				farmId: true,
 				email: true,
+				contactEmail: true,
 				displayName: true,
 				avatarPath: true,
 				role: true,
@@ -279,6 +290,7 @@ export async function listAllUsers(
 			id: u.id,
 			farmId: u.farmId,
 			email: u.email,
+			contactEmail: u.contactEmail,
 			displayName: u.displayName,
 			role: u.role,
 			createdAt: u.createdAt,
@@ -486,16 +498,21 @@ export async function createPlatformUser(
 }
 
 /**
- * Update a user's display name and/or legacy `User.role`.
+ * Update a user's display name, legacy `User.role` and/or contact email.
  *
  * Changing the legacy role can confer authority on paths that still read it,
  * so it follows the same fresh-step-up rule as grant/revoke and the tenant role
- * change. A display-name-only edit is not privileged and does not demand one.
- * The audit row records `stepUpAt` only when the role was checked.
+ * change. So does changing the contact email (#449): it decides where a
+ * password-reset link goes, which is a way to take the account over. A
+ * display-name-only edit is not privileged and does not demand one. The audit
+ * row records `stepUpAt` only when a privileged field was checked.
+ *
+ * `contactEmail` is the deliverable address; blank clears it. The login address
+ * (`User.email`) is never editable: sign-in derives it from the farm ID.
  */
 export async function updatePlatformUser(
 	userId: string,
-	data: { displayName?: string; role?: UserRole },
+	data: { displayName?: string; role?: UserRole; contactEmail?: string | null },
 	reason: string,
 ): Promise<PlatformUserResult> {
 	await requirePlatformAdmin();
@@ -504,7 +521,7 @@ export async function updatePlatformUser(
 	try {
 		const before = await prisma.user.findUnique({
 			where: { id: userId },
-			select: { displayName: true, role: true },
+			select: { displayName: true, role: true, contactEmail: true },
 		});
 		if (!before) return { error: "User not found." };
 
@@ -516,10 +533,21 @@ export async function updatePlatformUser(
 			if (!displayName) return { error: "Display name is required." };
 			if (displayName.length > 80) return { error: "Display name is too long." };
 		}
-		const patch = displayName === undefined ? data : { ...data, displayName };
+		let contactEmail: string | null | undefined;
+		if (data.contactEmail !== undefined) {
+			const normalized = normalizeContactEmail(data.contactEmail);
+			if (!normalized.ok) return { error: normalized.error };
+			contactEmail = normalized.value;
+		}
+		const patch = {
+			...data,
+			...(displayName === undefined ? {} : { displayName }),
+			...(contactEmail === undefined ? {} : { contactEmail }),
+		};
 
-		// A no-op role value is not a change, so it is not treated as privileged.
+		// A no-op role or email value is not a change, so it is not treated as privileged.
 		const roleChanged = patch.role !== undefined && patch.role !== before.role;
+		const contactEmailChanged = contactEmail !== undefined && contactEmail !== before.contactEmail;
 
 		const applyUpdate = async (stepUpAt: Date | null) => {
 			await prisma.$transaction(async (tx) => {
@@ -539,7 +567,7 @@ export async function updatePlatformUser(
 			});
 		};
 
-		if (roleChanged) {
+		if (roleChanged || contactEmailChanged) {
 			await withStepUp((stepUpAt) => applyUpdate(stepUpAt));
 		} else {
 			await applyUpdate(null);
@@ -549,6 +577,8 @@ export async function updatePlatformUser(
 	} catch (e) {
 		const stepUp = stepUpFailure(e);
 		if (stepUp) return stepUp;
+		// Only the contact email carries a unique index in this update.
+		if (isContactEmailConflict(e)) return { error: CONTACT_EMAIL_TAKEN };
 		console.error("[superadmin] updatePlatformUser error:", e);
 		return { error: "Failed to update the user." };
 	}

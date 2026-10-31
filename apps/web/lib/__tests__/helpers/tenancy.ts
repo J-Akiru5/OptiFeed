@@ -106,6 +106,8 @@ export type TenancyUser = {
 	supabaseId: string;
 	farmId: string;
 	email: string;
+	/** Deliverable reset-mail address (#449); absent in most fixtures. */
+	contactEmail?: string | null;
 	displayName: string | null;
 	role: UserRole;
 	mustChangePassword: boolean;

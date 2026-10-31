@@ -150,6 +150,7 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 			"supabaseId",
 			"farmId",
 			"email",
+			"contactEmail",
 			"displayName",
 			"role",
 			"mustChangePassword",

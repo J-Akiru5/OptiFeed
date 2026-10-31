@@ -4167,7 +4167,7 @@
 			"settings-farm-name": "Ang pangalan ng bukid ang nakikita ng mga miyembro. Hindi binabago ng pagpapalit ng pangalan ang farm id.",
 			"settings-pond": "Naglalaman ang mga setting ng pond ng rate ng pagpapakain, bilang ng pagpapakain kada araw, agwat ng sampling at laki ng pond. Ang pag-save ay nagpapa-queue ng pagbabago sa feeder.",
 			"settings-calibration": "Ang rate calibration ay naglalabas ng may sukat na dose at nagwawasto ng gram kada segundo. Ang target check ay naglalabas ng dose na iyong titimbangin, at inuulit hanggang ang error ay nasa loob ng limang porsyento.",
-			"settings-hopper": "Ginagawang kilo ng hopper calibration ang reading ng distansya ng sensor, gamit ang taas kapag puno at walang laman at ang kapasidad ng iyong hopper.",
+			"settings-hopper": "Ginagawang gramo ng hopper calibration ang reading ng distansya ng sensor, gamit ang taas kapag puno at walang laman, diyametro ng tangke at densidad ng feed. Ilagay ang diyametro ng tangke nang isang beses at ang app na ang magkuwenta ng kapasidad.",
 			"settings-daily-ceiling": "Ang pang-araw-araw na hangganan ang pinakamaraming pakain na maaaring ilabas ng feeder na ito sa isang araw ng bukid. Nagsisimula ito sa 2,000 g at maaaring itaas hanggang sa 5,000 g na safety guard.",
 			"settings-recalibration": "Itakda kung gaano kadalas dapat i-recalibrate ang feeder. Minamarkahan ng app ang device bilang overdue kapag lumampas ang agwat.",
 			"settings-password": "Palitan ang iyong password dito. Mananatili kang naka-sign in sa device na ito.",

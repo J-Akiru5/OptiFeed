@@ -4159,7 +4159,7 @@
 			"settings-farm-name": "The farm name is what members see. Renaming it does not change the farm id.",
 			"settings-pond": "Pond settings hold the feeding rate, meals per day, sampling interval and pond size. Saving queues the change to the feeder.",
 			"settings-calibration": "Rate calibration dispenses a measured dose and corrects grams per second. A target check dispenses a dose you weigh, and repeats until the error is within five percent.",
-			"settings-hopper": "Hopper calibration converts the sensor's distance reading into kilos, using the full and empty heights and the capacity of your hopper.",
+			"settings-hopper": "Hopper calibration turns the sensor's distance reading into grams, using the full and empty heights, the tank diameter and the feed density. Enter the tank diameter once and the app computes the capacity.",
 			"settings-daily-ceiling": "The daily ceiling is the most feed this feeder may dispense in one farm day. It starts at 2,000 g and can be raised to the 5,000 g safety guard.",
 			"settings-recalibration": "Set how often a feeder should be recalibrated. The app flags the device as overdue when the interval passes.",
 			"settings-password": "Change your password here. You will stay signed in on this device.",

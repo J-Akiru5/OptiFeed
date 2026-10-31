@@ -67,7 +67,7 @@
 		"@types/react": "^19",
 		"@types/react-dom": "^19",
 		"@types/three": "^0.186.0",
-		"@vitest/coverage-v8": "3.2.7",
+		"@vitest/coverage-v8": "4.1.12",
 		"axe-core": "^4.14.0",
 		"jsdom": "^30.0.1",
 		"prisma": "^6.6.0",
@@ -75,7 +75,7 @@
 		"tailwindcss": "^4",
 		"tsx": "^4.19.0",
 		"typescript": "^5",
-		"vitest": "^3.2.7"
+		"vitest": "^4.1.12"
 	},
 	"prisma": {
 		"seed": "tsx prisma/seed.ts"

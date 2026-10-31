@@ -200,3 +200,34 @@ queued.
 - Hiligaynon strings are drafts.
 - Firmware `MAX_GRAMS_PER_DISPENSE` removal (E38) ships with this reflash; the
   installed 1.6.2 units keep the 1,000 g per-dose refusal until then.
+
+## Device health (faults and safe mode)
+
+The firmware has reported `safe_mode`, `last_reset_reasons` and `diag.faults_*` on every heartbeat since
+1.6.0/1.8.0, but the ingest schema used to strip them, so a feeder whose relay was locked off after
+repeated brownouts looked online and healthy.
+
+- **Why safe mode starts.** Only repeated abnormal resets (brownout, panic, watchdog; 3 inside 10 minutes
+  by default). A missing sensor raises a different fault (`hopper_sensor`, `rtc`), never safe mode.
+- **How it clears.** After `safe_mode_quiet_s` (30 minutes) without another abnormal reset, or a 5 s hold
+  on the Wi-Fi reset button (GPIO 17), or a 10 s hold on the factory reset button (GPIO 16). If it keeps
+  coming back, the resets are continuing: look at the 5 V supply, not the wiring.
+- **What the server stores.** One `device_health` row in `DeviceStateEvent` per change of
+  (`safe_mode`, `faults_present`, `faults_latched`), with the fault names, `last_fault`,
+  `reset_abnormal_count` and `last_reset_reasons` (text capped at 64 characters). No schema change. The
+  newest row is the current state; a row that clears the state is written too. A unit on older firmware
+  reports nothing and writes nothing, which is not "all clear". `lib/device-health-model.ts` is the pure
+  model; `lib/device-health.ts` holds the reads.
+- **Where it shows.** The feeder hero (dashboard and admin pond page) shows a safe-mode alert, the active
+  faults with what to check, and the last refused dose with its reason (24 hours). A new safe mode raises a
+  CRITICAL in-app notification, a new fault a WARNING; both follow the pond's *device offline* switches.
+- **Manual feeds.** `createManualFeedRequest` refuses with code `safe_mode` while the newest health row says
+  the unit is in safe mode, instead of queueing a dose the unit will refuse. A dashboard dose the unit
+  refuses closes its request as `refused` (the refusal carries no request id, and at most one feed request
+  is dispatched per device), so it no longer blocks the next attempt as "a feed is already in progress".
+- **Not covered.** The remaining `diag` keys (#454), a firmware `safety_trip` event (#455, needs a flash),
+  and a request id on the refusal payload (firmware). Calibration requests that are refused keep their own
+  handling.
+
+Bit order of `faults_present` (`firmware/firmware-main/status.h`): 1 `hopper_sensor`, 2 `rtc`,
+3 `relay_overrun`, 4 `safe_mode`.

@@ -20,7 +20,7 @@ import type {
 	AiProviderRuntimeConfig,
 	ReasoningEffort,
 } from "@/lib/ai-providers/types";
-import { checkProviderBaseUrl } from "@/lib/ai-providers/url-safety";
+import { checkProviderBaseUrlResolved } from "@/lib/ai-providers/url-safety";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { getCurrentUser } from "@/lib/auth/session";
 import { isStepUpRequiredError, withStepUp } from "@/lib/auth/step-up";
@@ -339,7 +339,7 @@ export async function saveAiProviderConfig(
 	// A custom instance needs a valid base URL; built-in adapters ignore it.
 	let baseUrl: string | null = existing?.baseUrl ?? null;
 	if (kind === CUSTOM_PROVIDER_KIND) {
-		const checked = checkProviderBaseUrl(input.baseUrl ?? existing?.baseUrl ?? "");
+		const checked = await checkProviderBaseUrlResolved(input.baseUrl ?? existing?.baseUrl ?? "");
 		if (!checked.ok) return { error: checked.error };
 		baseUrl = checked.url;
 	} else if (input.baseUrl !== undefined) {
@@ -460,7 +460,7 @@ export async function createAiProvider(
 		return { error: `Label must be between 2 and ${MAX_LABEL_LENGTH} characters.` };
 	}
 
-	const checked = checkProviderBaseUrl(input.baseUrl);
+	const checked = await checkProviderBaseUrlResolved(input.baseUrl);
 	if (!checked.ok) return { error: checked.error };
 
 	const model = input.model?.trim() ?? "";

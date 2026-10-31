@@ -289,6 +289,9 @@ export async function updatePondSettings(
 				scheduleEnd: fmt(pond.scheduleEnd),
 				feedsPerDay: input.feedsPerDay,
 				feedingRatePct: input.feedingRatePct,
+				// The pond row still holds the old fish count here, so the command
+				// has to be told which count the dose is derived from (#430).
+				population: pondUpdateData.population ?? undefined,
 			});
 			if (!commandResult.success) {
 				return {

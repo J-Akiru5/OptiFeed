@@ -1477,6 +1477,7 @@
 				"relayTitle": "One meal is longer than the relay window",
 				"pondWins": "Pond settings win. The feeder must follow this pond, so change the device setting below.",
 				"suggestedFeeds": "Increasing feeds per day to {count} would fit the window.",
+				"preExisting": "The saved pond settings already ask for {saved} per meal — more than the {max} this feeder can run in one relay window. Your change did not cause this.",
 				"aboveHardMax": "The pond needs more than the hard safety maximum of {max} per day. Lower the feeding rate or population.",
 				"platformCap": "A platform safety cap sets this ceiling; a platform admin has to raise it.",
 				"hopperCap": "The calibrated hopper capacity is the ceiling; recalibrate the hopper to hold more.",

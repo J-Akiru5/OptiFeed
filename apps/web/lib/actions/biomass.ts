@@ -14,6 +14,7 @@ import {
 import prisma from "@/lib/prisma";
 import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
+import { maxDosePerMealG } from "@/lib/settings/pond-conflicts";
 import { calculateNextFeeding } from "@/lib/volumeCalc";
 import { revalidatePath } from "next/cache";
 
@@ -307,6 +308,35 @@ export async function saveBiomassLog(formData: FormData): Promise<SaveBiomassRes
 							gramsCurrent: energyDevice.gramsPerFeeding,
 							scheduledDailyG,
 							dailyCapG,
+						},
+					},
+				});
+				return finish("rejected_out_of_range", newGrams, previousGrams);
+			}
+
+			// The relay-time window (#430): a meal the feeder cannot finish is
+			// refused here too, so the auto-adjust can never push a dose the
+			// hardware cannot run in one relay window.
+			const maxDoseG = maxDosePerMealG({
+				gramsPerSecond: energyDevice.gramsPerSecond,
+				maxDispenseMs: feedingLimits.maxDispenseMs,
+			});
+			if (maxDoseG !== null && newGrams > maxDoseG + 0.05) {
+				await tx.deviceStateEvent.create({
+					data: {
+						deviceId: energyDevice.id,
+						eventType: "biomass_logged",
+						source: "user",
+						actorId: ownerId,
+						metadata: {
+							biomassLogId: log.id,
+							avgWeightKg,
+							sampleCount,
+							autoAdjustRejected: true,
+							reason: "recommendation would need more relay time than the feeder can run",
+							gramsProposed: newGrams,
+							gramsCurrent: energyDevice.gramsPerFeeding,
+							maxDoseG,
 						},
 					},
 				});

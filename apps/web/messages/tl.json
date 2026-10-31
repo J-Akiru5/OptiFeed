@@ -52,6 +52,7 @@
 		"passwordDesc": "Ibinigay ng administrator ng iyong pond. Gagana nang isang beses ang kasalukuyang PIN.",
 		"showPassword": "Ipakita ang password",
 		"hidePassword": "Itago ang password",
+		"forgotPassword": "Nakalimut ang password?",
 		"rememberFarmId": "Tandaan ang Farm ID na ito sa device",
 		"submit": "Mag-sign in",
 		"submitting": "Nagsi-sign in…",
@@ -107,6 +108,29 @@
 		"desc": "I-update ang password ng iyong account.",
 		"temporaryWarning": "Mahina ang pansamantalang password na ito. Kailangang palitan ng user sa unang pag-log in.",
 		"service": "Hindi ma-update ang password ngayon. Subukan muli mamaya."
+	},
+	"forgotPassword": {
+		"title": "Nakalimut ang iyong password?",
+		"desc": "Ilagay ang iyong Farm ID at magpapadala kami ng link sa pag-reset ng password sa mailbox na nakatalaga rito.",
+		"farmIdLabel": "Farm ID",
+		"farmIdPlaceholder": "iyong-farm-id",
+		"farmIdDesc": "Ito ang parehong Farm ID na ginagamit mo sa pag-sign in.",
+		"submit": "Magpadala ng reset link",
+		"submitting": "Ipinapadala…",
+		"successDesc": "Kung may account na {farmId}, naipadala na ang reset link sa kanyang mailbox. Ang link ay magbubukas ng pahina kung saan ka maaaring magtakda ng bagong password.",
+		"fallbackNote": "Mga internal na pond address ang mga login address. Kung hindi mo mabuksan ang kahon ng surat — o kung walang dumating na email — humiling sa platform administrator na i-reset ang iyong password mula sa platform console. Isang beses lang ang paggamit ng mga reset link at may expiring din ito.",
+		"backToLogin": "Bumalik sa pag-sign in",
+		"errorEmpty": "Ilagay ang iyong Farm ID.",
+		"errorRateLimited": "Masyadong maraming kahiling ng reset sa maikling panahon. Maghintay ng ilang minuto at subukan muli.",
+		"errorService": "Hindi maumpisahan ngayon ang pag-reset ng password. Subukan muli mamaya."
+	},
+	"resetPassword": {
+		"title": "Magtakda ng bagong password",
+		"desc": "Pumili ng bagong password para sa iyong account. Diretso ka na sa dashboard pagkatapos nito.",
+		"expiredTitle": "Hindi wasto ang reset link na ito",
+		"expiredDesc": "Hindi wasto ang link, nagamit na, o nag-expire na. Humiling ng bago mula sa sign-in page.",
+		"requestNew": "Humiling ng bagong reset link",
+		"sessionExpired": "Nag-expire na ang iyong reset session. Humiling ng bagong link at subukan muli."
 	},
 	"errors": {
 		"title": "May naging problema!",
@@ -3184,22 +3208,35 @@
 				"grant": "Bigyan ng access sa platform",
 				"revoke": "Bawiin ang access sa platform",
 				"disable": "I-disable ang account",
-				"enable": "I-enable ang account"
+				"enable": "I-enable ang account",
+				"reset": "I-reset ang password"
 			},
 			"stepUpActions": {
 				"grant": "bigyan ng access sa platform",
 				"revoke": "bawiin ang access sa platform",
 				"disable": "i-disable ang account na ito",
-				"enable": "i-enable ang account na ito"
+				"enable": "i-enable ang account na ito",
+				"reset": "i-reset ang password na ito"
 			},
 			"buttons": {
 				"grant": "Ibigay",
 				"revoke": "Bawiin",
 				"disable": "I-disable",
-				"enable": "I-enable"
+				"enable": "I-enable",
+				"reset": "I-reset"
 			},
 			"disableWarning": "Nagba-ban ito ng login at nagbabawi sa lahat ng membership. Walang data na nabubura; ibinabalik ng I-enable ang access mamaya.",
 			"enableWarning": "Ibinabalik ang login at ang mga membership na naitala noong huling pag-disable.",
+			"resetWarning": "Pinapalitan ang password ng account ng isang beses na temporary password, na ipapakita sa ibaba. Kailangang palitan ito ng user sa susunod na pag-sign in.",
+			"issued": {
+				"title": "Temporary password",
+				"descriptionPrefix": "Ibahagi nang direkta sa",
+				"descriptionSuffix": "at isara ang dialog na ito. Hindi ito nase-save at hindi na makikita muli.",
+				"copy": "Kopyahin",
+				"copied": "Nakopya",
+				"warning": "Kopyahin na: isang beses lang ang pagpapakita ng password na ito at hindi ito nakasulat sa audit log.",
+				"done": "Tapos na"
+			},
 			"reasonPlaceholder": "hal. Paunang setup ng platform para sa deployment",
 			"confirmLabel": "I-type ang {farmId} para kumpirmahin *",
 			"descriptionPrefix": "Account ng platform"

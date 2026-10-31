@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Tabbed device settings with a feeder switcher.** The hardware settings page is now four tabs synced to `?tab=` (Overview, Feeding, Calibration, Network) with WAI-ARIA keyboard support; panels stay mounted, so an edit survives a tab switch. A `?device=` switcher grouped by pond lets a second feeder on the same pond be configured and is hidden when the farm has only one feeder. An unsaved-changes guard marks a tab with pending edits, asks before switching feeder and covers reload, and dashboard alerts plus the old `#anchor` links open the tab that holds the section. The design comes from the settings benchmark in `docs/settings-benchmark.md` (#403, #405, #407).
+
 ## [1.39.0] - 2026-10-31
 
 ### Added

@@ -135,6 +135,14 @@
 			"reason": "Async job creation (POST body); covered by the local job flow and unit tests."
 		},
 		{
+			"path": "/api/v1/import-prepare",
+			"reason": "Multipart upload (POST body); covered by import-prepare route and xlsx-import-export tests."
+		},
+		{
+			"path": "/api/v1/import-template",
+			"reason": "Query-parameter file download of a static template; covered by import-template route tests."
+		},
+		{
 			"path": "/api/v1/jobs/{id}",
 			"reason": "Dynamic job status; covered by the local job flow."
 		},

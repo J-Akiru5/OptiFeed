@@ -2,15 +2,17 @@ import { ApiError } from "@/lib/api/errors";
 import type { ExportableType } from "@/lib/csv";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
+import type { PdfReport, SheetType } from "@/lib/xlsx/schema";
 import type { BackgroundJob, Prisma } from "@prisma/client";
-import { buildBatchExport, buildCsvExport } from "./export-data";
+import { buildBatchExport, buildCsvExport, buildXlsxExport } from "./export-data";
 import { confirmImport } from "./import-data";
 import { buildPdfExport } from "./pdf-export";
+import { buildReportPdf } from "./report-pdf";
 
 export const JOB_TTL_MS = 24 * 60 * 60 * 1000;
 const STALE_LOCK_MS = 5 * 60 * 1000;
 
-export type JobType = "export_csv" | "export_zip" | "export_pdf" | "import_confirm";
+export type JobType = "export_csv" | "export_zip" | "export_xlsx" | "export_pdf" | "import_confirm";
 type JobStatus = "queued" | "running" | "succeeded" | "failed";
 
 interface CreateJobInput {
@@ -114,7 +116,7 @@ export async function runJob(job: BackgroundJob): Promise<void> {
 	try {
 		switch (job.type) {
 			case "export_csv": {
-				const payload = job.payload as { type: ExportableType };
+				const payload = job.payload as { type: SheetType };
 				const artifact = await buildCsvExport(job.ownerId, payload.type);
 				await completeJob(job, artifact, {
 					filename: artifact.filename,
@@ -125,7 +127,7 @@ export async function runJob(job: BackgroundJob): Promise<void> {
 				return;
 			}
 			case "export_zip": {
-				const payload = job.payload as { types?: ExportableType[] };
+				const payload = job.payload as { types?: SheetType[] };
 				const artifact = await buildBatchExport(job.ownerId, payload.types);
 				await completeJob(job, artifact, {
 					filename: artifact.filename,
@@ -135,8 +137,23 @@ export async function runJob(job: BackgroundJob): Promise<void> {
 				});
 				return;
 			}
+			case "export_xlsx": {
+				const payload = job.payload as { types?: SheetType[] };
+				const artifact = await buildXlsxExport(job.ownerId, payload.types);
+				await completeJob(job, artifact, {
+					filename: artifact.filename,
+					content_type: artifact.contentType,
+					size: artifact.body.byteLength,
+					download_url: `/api/v1/jobs/${job.id}/download`,
+				});
+				return;
+			}
 			case "export_pdf": {
-				const artifact = await buildPdfExport(job.ownerId);
+				const payload = (job.payload ?? {}) as { report?: PdfReport };
+				const artifact =
+					payload.report && payload.report !== "summary"
+						? await buildReportPdf(job.ownerId, payload.report)
+						: await buildPdfExport(job.ownerId);
 				await completeJob(job, artifact, {
 					filename: artifact.filename,
 					content_type: artifact.contentType,

@@ -21,6 +21,17 @@ vi.mock("@/lib/auth/permissions", () => ({
 	requirePermission: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/lib/feed-grams", () => ({ syncDeviceGramsForPond: vi.fn() }));
+vi.mock("@/lib/feeding/derive", () => ({
+	// The dose guard is covered in pond-dose-guards.test.ts; here the import
+	// only has to get past it. The dose matches the device's stored one.
+	resolveDeviceDose: vi.fn(async () => ({
+		status: "ready",
+		grams: 150,
+		dailyG: 450,
+		maxDoseG: 300,
+		dailyCapG: 2000,
+	})),
+}));
 vi.mock("@/lib/settings/feeding-caps", () => ({
 	getFeedingLimits: vi.fn(async () => ({ dailyCapFactor: 1, maxDispenseMs: 30_000 })),
 }));

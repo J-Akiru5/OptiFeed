@@ -1477,6 +1477,7 @@
 				"relayTitle": "Ang isa ka lamesa mas malawig sa relay window",
 				"pondWins": "Ang setting sang punong ang masunod. Dapat tumanon sang feeder ini nga punong, gani bag-oha ang setting sang device sa idalom.",
 				"suggestedFeeds": "Kon dugangan ang pagpakaon kada adlaw sa {count}, masulod na sa window.",
+				"preExisting": "Ang na-save nga setting sang punong nga asks sang {saved} kada lamesa — labaw pa sa {max} nga mahimog i-dispense ang feeder sa usa ka relay window. Wala nga ginawang imong pagbag-o.",
 				"aboveHardMax": "Kinahanglan sang punong sobra sa hard safety maximum nga {max} kada adlaw. Paubson ang feeding rate ukon kadamu sang isda.",
 				"platformCap": "Ang platform safety cap ang nagatakda sini; kinahanglan sang platform admin para ipataas.",
 				"hopperCap": "Ang calibrated nga kapasidad sang hopper ang takda; i-recalibrate ang hopper para masulod ang mas madamu.",

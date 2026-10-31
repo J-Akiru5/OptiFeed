@@ -83,6 +83,17 @@ vi.mock("@/lib/settings/org", async (importOriginal) => {
 	return { ...actual, getOrgSettings: vi.fn(async () => actual.ORG_SETTINGS_DEFAULTS) };
 });
 vi.mock("@/lib/feed-grams", () => ({ syncDeviceGramsForPond: vi.fn(async () => null) }));
+vi.mock("@/lib/feeding/derive", () => ({
+	// The dose guard is covered in pond-dose-guards.test.ts; here the pond edit
+	// only has to get past it.
+	resolveDeviceDose: vi.fn(async () => ({
+		status: "ready",
+		grams: 100,
+		dailyG: 200,
+		maxDoseG: 120,
+		dailyCapG: 5000,
+	})),
+}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { writePlatformAudit } from "@/lib/actions/platform/audit";

@@ -1433,6 +1433,7 @@
 				"relayTitle": "Mas mahaba ang isang pagpapakain kaysa sa relay window",
 				"pondWins": "Ang mga setting ng pond ang masusunod. Dapat sumunod ang feeder sa pond na ito, kaya baguhin ang setting ng device sa ibaba.",
 				"suggestedFeeds": "Kung itataas ang pagpapakain bawat araw sa {count}, kasya ito sa window.",
+				"preExisting": "Ang na-save na setting ng pond ay humihingi ng {saved} bawat pagpapakain — higit pa sa {max} na kaya ng feeder na ito sa isang relay window. Hindi ang iyong pagbabago ang sanhi.",
 				"aboveHardMax": "Kailangan ng pond ang higit sa hard safety maximum na {max} bawat araw. Bawasan ang rate ng pagpapakain o populasyon.",
 				"platformCap": "Ang platform safety cap ang nagtatakda ng hangganang ito; kailangang itaas ito ng platform admin.",
 				"hopperCap": "Ang naka-calibrate na kapasidad ng hopper ang hangganan; i-recalibrate ang hopper para makahawak ng mas marami.",

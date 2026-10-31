@@ -7,11 +7,13 @@ import { STALE_SENT_MS } from "@/lib/constants";
 import { parseCsvTable } from "@/lib/csv";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
 import { setSchedulePause } from "@/lib/feed/commands";
+import { resolveDeviceDose } from "@/lib/feeding/derive";
 import { MAX_CSV_IMPORT_BYTES } from "@/lib/jobs/import-data";
 import { formatZodError, resolveDailyCapG, scheduleInputSchema } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
+import { detectDoseViolation } from "@/lib/settings/pond-conflicts";
 import { prepareImport } from "@/lib/xlsx/prepare";
 import { revalidatePath } from "next/cache";
 
@@ -64,6 +66,11 @@ export async function updateScheduleCommand(
 		feedsPerDay: number;
 		feedingRatePct: number;
 		buttonFeedGrams?: number;
+		/**
+		 * The fish count the dose is derived from, when the caller has already
+		 * changed it and the pond row still holds the old one (#430).
+		 */
+		population?: number | null;
 	},
 ): Promise<UpdateScheduleResult> {
 	// Guard outside try: the catch below returns a generic message and would
@@ -98,21 +105,39 @@ export async function updateScheduleCommand(
 			hopperCapacityG: device.hopperCapacityG,
 			dailyCapFactor: limits.dailyCapFactor,
 		});
-		const scheduledDailyG = input.feedsPerDay * device.gramsPerFeeding;
-		if (scheduledDailyG > dailyCapG) {
+
+		// The dose the feeder will run after this change (#430): the derived one
+		// when the pond has a sample, otherwise the dose it runs today. Checking
+		// the stored dose alone let this path write a dose the feeder cannot run
+		// in one relay window, which then blocked every later pond edit.
+		const derived = await resolveDeviceDose(pondId, {
+			feedingRatePct: input.feedingRatePct,
+			feedsPerDay: input.feedsPerDay,
+			// A caller that already changed the fish count passes it here, so the
+			// dose that is checked is the dose it is about to write (#430).
+			...(typeof input.population === "number" ? { population: input.population } : {}),
+		});
+		const effectiveGrams = derived.grams ?? device.gramsPerFeeding;
+		const violation = detectDoseViolation({
+			grams: effectiveGrams,
+			feedsPerDay: input.feedsPerDay,
+			constraints: {
+				gramsPerSecond: device.gramsPerSecond,
+				maxDispenseMs: limits.maxDispenseMs,
+				effectiveDailyCapG: dailyCapG,
+			},
+		});
+		if (violation === "relay-time") {
+			return {
+				success: false,
+				error: `Feed amount of ${Math.round(effectiveGrams)} g would take more than ${limits.maxDispenseMs / 1000} s of relay time at ${device.gramsPerSecond} g/s. Add more meals per day or reduce the feed amount.`,
+			};
+		}
+		if (violation === "daily-ceiling") {
+			const scheduledDailyG = effectiveGrams * input.feedsPerDay;
 			return {
 				success: false,
 				error: `Schedule would dispense ${Math.round(scheduledDailyG)} g/day — over the ${Math.round(dailyCapG)} g/day limit. Lower feeds per day or the feed amount.`,
-			};
-		}
-
-		if (
-			device.gramsPerSecond > 0 &&
-			device.gramsPerFeeding / device.gramsPerSecond > limits.maxDispenseMs / 1000
-		) {
-			return {
-				success: false,
-				error: `Feed amount of ${device.gramsPerFeeding} g would take more than ${limits.maxDispenseMs / 1000} s of relay time at ${device.gramsPerSecond} g/s. Add more meals per day or reduce the feed amount.`,
 			};
 		}
 

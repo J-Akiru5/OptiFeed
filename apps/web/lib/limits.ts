@@ -158,6 +158,12 @@ export const scheduleInputSchema = z.object({
 	feedsPerDay: feedsPerDaySchema,
 	feedingRatePct: feedingRatePctSchema,
 	buttonFeedGrams: buttonFeedGramsSchema.optional(),
+	/**
+	 * The fish count the dose is derived from, when the caller already changed
+	 * it (#430). The command itself does not store it; it is here so the dose
+	 * that is checked is the dose the caller is about to write.
+	 */
+	population: populationSchema.nullish(),
 });
 
 export const pondSettingsSchema = z.object({

@@ -1865,6 +1865,7 @@
 		"dashboard.settings.conflicts.openSetting",
 		"dashboard.settings.conflicts.platformCap",
 		"dashboard.settings.conflicts.pondWins",
+		"dashboard.settings.conflicts.preExisting",
 		"dashboard.settings.conflicts.relayTitle",
 		"dashboard.settings.conflicts.suggestedFeeds",
 		"dashboard.settings.conflicts.usePondValue",

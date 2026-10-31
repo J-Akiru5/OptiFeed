@@ -6,13 +6,20 @@
  *  - **online** — a heartbeat arrived inside the weak-signal window;
  *  - **weak** — the last heartbeat is late (a missed beat) or the reported RSSI
  *    is low, but the unit is still considered reachable;
- *  - **offline** — silence passed the configured offline window **plus** a
+ *  - **offline** — silence passed the configured offline window **plus** the
  *    grace, so one late heartbeat never flips the whole UI to offline.
  *
  * The thresholds are platform settings (`PlatformSetting` key `device.status`),
  * editable by a platform admin in Superadmin → Settings. Readers always fall
  * back to the defaults below when the row is missing, unreadable or invalid, so
  * a bad setting can never break a device screen.
+ *
+ * #419 ships the tight defaults: a feeder that has been silent for **five
+ * minutes** is offline, and the weak-signal band sits just below that window.
+ * The firmware reports every five seconds, so five minutes of silence is sixty
+ * missed beats — long past "one late heartbeat". The grace therefore defaults
+ * to zero (the hysteresis below already stops the badge from flapping), and a
+ * platform admin can still add one back if a site has slow links.
  *
  * A heartbeat may also carry the Wi-Fi RSSI (firmware 1.6.2+). `resolveRssiDbm`
  * keeps only a plausible, recent reading (older than the display offline window
@@ -36,15 +43,15 @@ export const DEVICE_STATUS_SETTING_KEY = "device.status";
 
 export const DEVICE_WEAK_AFTER_MIN_MIN = 1;
 export const DEVICE_WEAK_AFTER_MIN_MAX = 60;
-export const DEVICE_WEAK_AFTER_MIN_DEFAULT = 5;
+export const DEVICE_WEAK_AFTER_MIN_DEFAULT = 4;
 
 export const DEVICE_OFFLINE_AFTER_MIN_MIN = 5;
 export const DEVICE_OFFLINE_AFTER_MIN_MAX = 180;
-export const DEVICE_OFFLINE_AFTER_MIN_DEFAULT = 15;
+export const DEVICE_OFFLINE_AFTER_MIN_DEFAULT = 5;
 
 export const DEVICE_OFFLINE_GRACE_MIN_MIN = 0;
 export const DEVICE_OFFLINE_GRACE_MIN_MAX = 30;
-export const DEVICE_OFFLINE_GRACE_MIN_DEFAULT = 2;
+export const DEVICE_OFFLINE_GRACE_MIN_DEFAULT = 0;
 
 /** At or below this RSSI a reachable unit is shown as "weak signal". */
 export const DEVICE_WEAK_RSSI_DBM = -80;

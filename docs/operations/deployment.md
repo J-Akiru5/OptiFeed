@@ -56,7 +56,7 @@ docker build \
 | `NEXT_PUBLIC_SITE_URL` | No | Baked into `robots.txt`, `sitemap.xml` and the Open Graph/Twitter metadata. Defaults to `https://pakaonai.syntaxure.dev`. |
 
 Everything else is runtime configuration. **Never** pass `DATABASE_URL`, `DIRECT_URL`,
-`SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `RESEND_API_KEY`, `TELEGRAM_BOT_TOKEN`,
+`SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `RESEND_API_KEY`,
 `OPENCODE_GO_API_KEY` or `GEMINI_API_KEY` as build arguments: a build argument is recorded in the
 image history and its value persists in the layer that used it.
 
@@ -91,7 +91,7 @@ in.
 | `SUPABASE_SERVICE_ROLE_KEY` | For admin features | Invitations and user administration throw; ordinary sign-in still works. |
 | `CRON_SECRET` | If cron is scheduled | Cron endpoints answer 403 and never run. |
 | `NEXT_PUBLIC_BASE_URL` | For links and e-mail | Alert/export links lose their host; reminder and invite e-mail are skipped. |
-| Provider keys (`RESEND_API_KEY`, `TELEGRAM_*`, `OPENCODE_GO_API_KEY`, `GEMINI_API_KEY`) | No | The matching feature degrades as described in [the environment matrix](./environment-matrix.md). |
+| Provider keys (`RESEND_API_KEY`, `OPENCODE_GO_API_KEY`, `GEMINI_API_KEY`) | No | The matching feature degrades as described in [the environment matrix](./environment-matrix.md). |
 
 Apply migrations once against the target database before starting a new image. The image's working
 directory is `/app/apps/web`, which is where the Prisma schema and the local CLI live:
@@ -126,7 +126,8 @@ schema-level work such as `prisma migrate diff` or `prisma validate`.
    and `/api/cron/jobs`. Inside Vercel these are scheduled by the platform; a container needs its own
    scheduler. Until one exists, dead-device alerts, reminders and the `ErrorEvent` retention sweep do
    not run.
-6. `TELEGRAM_*` and the AI provider keys if those features are expected to work.
+6. The AI provider keys if those features are expected to work. There is no
+   Telegram configuration — the platform does not use Telegram (ADR-0007).
 
 ## 5. What this does not change
 

@@ -4,6 +4,7 @@ import { ORG_SETTINGS_DEFAULTS, mergeOrgSettings } from "@/lib/settings/org";
 import {
 	alertCategoryEnabled,
 	hopperAlertTier,
+	hopperIsLow,
 	offlineAlertDue,
 	offlineAlertThresholdMs,
 	personalPrefAllowsAlert,
@@ -162,22 +163,49 @@ describe("hopperAlertTier", () => {
 	});
 });
 
+describe("hopperIsLow (dashboard rail + Pakoy popup, #412)", () => {
+	it("is inclusive at the org threshold, like the server", () => {
+		// The server warns at `level <= hopperLowPct`; the rail and the popup
+		// used a strict `<` and stayed silent at exactly the threshold.
+		expect(hopperIsLow(19, 20)).toBe(true);
+		expect(hopperIsLow(20, 20)).toBe(true);
+		expect(hopperIsLow(21, 20)).toBe(false);
+	});
+
+	it("follows a non-default org threshold", () => {
+		expect(hopperIsLow(34, 35)).toBe(true);
+		expect(hopperIsLow(35, 35)).toBe(true);
+		expect(hopperIsLow(36, 35)).toBe(false);
+	});
+
+	it("falls back to 20 % for a malformed threshold", () => {
+		expect(hopperIsLow(20, Number.NaN)).toBe(true);
+		expect(hopperIsLow(21, Number.NaN)).toBe(false);
+	});
+
+	it("never treats a missing or non-finite reading as low", () => {
+		expect(hopperIsLow(null, 20)).toBe(false);
+		expect(hopperIsLow(undefined, 20)).toBe(false);
+		expect(hopperIsLow(Number.NaN, 20)).toBe(false);
+	});
+});
+
 describe("offlineAlertDue", () => {
 	const now = new Date("2026-10-27T12:00:00.000Z");
 	const defaultThresholdMs =
 		DEFAULT_DEVICE_STATUS_POLICY.offlineAfterMs + DEFAULT_DEVICE_STATUS_POLICY.graceMs;
 
 	it("follows the platform policy, not the org offlineAfterMin (I-97)", () => {
-		// 16 minutes is inside the default 15 + 2 window, whatever the org stores,
-		// but a short platform policy alerts on the same outage.
-		const lastSeenAt = new Date(now.getTime() - 16 * 60 * 1000);
-		const shortPolicy = deviceStatusPolicyFromValue({
-			weakAfterMin: 5,
-			offlineAfterMin: 5,
-			graceMin: 0,
+		// Six minutes of silence is past the shipped five-minute window but
+		// inside a longer platform policy, so the alert follows the policy.
+		const lastSeenAt = new Date(now.getTime() - 6 * 60 * 1000);
+		const longPolicy = deviceStatusPolicyFromValue({
+			weakAfterMin: 10,
+			offlineAfterMin: 60,
+			graceMin: 5,
 		});
-		expect(offlineAlertDue(lastSeenAt, now, DEFAULT_DEVICE_STATUS_POLICY)).toBe(false);
-		expect(offlineAlertDue(lastSeenAt, now, shortPolicy)).toBe(true);
+		expect(offlineAlertDue(lastSeenAt, now, DEFAULT_DEVICE_STATUS_POLICY)).toBe(true);
+		expect(offlineAlertDue(lastSeenAt, now, longPolicy)).toBe(false);
 	});
 
 	it("is due on the first millisecond past the display window", () => {

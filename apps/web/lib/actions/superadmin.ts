@@ -1,5 +1,6 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { passwordErrorMessage, validatePassword } from "@/lib/auth/password";
 import { isPlatformAdminActive } from "@/lib/auth/platform-admin";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
@@ -835,6 +836,83 @@ export async function enablePlatformUser(
 
 	invalidateFarm(user.supabaseId);
 	return { success: true };
+}
+
+// ─── Password recovery ────────────────────────────────────────────────────────
+
+export type ResetPlatformUserPasswordResult =
+	| { success: true; temporaryPassword: string }
+	| { error: string; code?: "step_up_required" };
+
+/**
+ * Rotate a user's password to a one-time temporary credential (plan M8.2,
+ * console half of "secure recovery"). This is the reliable reset path when
+ * the account's pond mailbox cannot receive the self-service link.
+ *
+ * The temporary password is generated here, returned once to the caller and
+ * never persisted, logged or written to an audit row; the audit records only
+ * that the reset happened. The target must change it at the next sign-in
+ * (`mustChangePassword`), exactly like an admin-provisioned account.
+ *
+ * Requires step-up: handing out a working credential for another account is
+ * as dangerous as disabling one.
+ */
+export async function resetPlatformUserPassword(
+	userId: string,
+	reason: string,
+): Promise<ResetPlatformUserPasswordResult> {
+	await requirePlatformAdmin();
+	const trimmedReason = requireReason(reason);
+
+	const user = await prisma.user.findUnique({
+		where: { id: userId },
+		select: { id: true, farmId: true, supabaseId: true },
+	});
+	if (!user) return { error: "User not found." };
+
+	const temporaryPassword = randomBytes(12).toString("base64url");
+	const actor = await actorId();
+	const supabase = createAdminClient();
+
+	try {
+		await withStepUp(async (stepUpAt) => {
+			const { error: authError } = await supabase.auth.admin.updateUserById(user.supabaseId, {
+				password: temporaryPassword,
+			});
+			if (authError) {
+				throw new Error(`supabase password reset failed: ${authError.message}`);
+			}
+
+			await prisma.$transaction(async (tx) => {
+				await tx.user.update({
+					where: { id: user.id },
+					data: { mustChangePassword: true },
+				});
+
+				await audit(
+					{
+						action: "platform.user.reset_password",
+						targetId: user.id,
+						reason: trimmedReason,
+						actorUserId: actor,
+						stepUpAt,
+						before: { farmId: user.farmId },
+						after: { mustChangePassword: true },
+					},
+					tx,
+				);
+			});
+		});
+	} catch (e) {
+		const stepUp = stepUpFailure(e);
+		if (stepUp) return stepUp;
+		console.error("[superadmin] resetPlatformUserPassword error:", e);
+		return { error: "Failed to reset the password." };
+	}
+
+	// The old credential is dead; the cached farm binding must not outlive it.
+	invalidateFarm(user.supabaseId);
+	return { success: true, temporaryPassword };
 }
 
 // ─── Organizations ────────────────────────────────────────────────────────────

@@ -10,6 +10,12 @@
 
 export const MINUTES_PER_DAY = 24 * 60;
 
+// Mirrors FEEDS_PER_DAY_MIN / FEEDS_PER_DAY_MAX in lib/limits. Not imported from
+// there on purpose: that module pulls in zod, and this file is bundled into the
+// schedule page's client code. A test keeps the two in step.
+export const SLOT_FEEDS_MIN = 1;
+export const SLOT_FEEDS_MAX = 24;
+
 /** One meal's start, in minutes after midnight (0-1439), in feeding order. */
 export function feedingSlotMinutes(startMin: number, endMin: number, feeds: number): number[] {
 	const count = Math.max(1, Math.round(feeds));
@@ -25,6 +31,28 @@ export function formatClock(minutes: number): string {
 	const wrapped = ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
 	const hours = Math.floor(wrapped / 60);
 	return `${String(hours).padStart(2, "0")}:${String(wrapped % 60).padStart(2, "0")}`;
+}
+
+/**
+ * The clock times of every meal in a schedule window, as `HH:MM` strings.
+ *
+ * The dashboard preview calls this on each render, so the list always follows
+ * the current window and frequency instead of the last command the device
+ * applied (#431). Invalid draft input yields an empty list rather than a
+ * misleading partial schedule.
+ */
+export function scheduleSlotTimes(
+	scheduleStart: string,
+	scheduleEnd: string,
+	feedsPerDay: number,
+): string[] {
+	const start = parseClock(scheduleStart);
+	const end = parseClock(scheduleEnd);
+	if (start === null || end === null) return [];
+	if (!Number.isFinite(feedsPerDay) || feedsPerDay < SLOT_FEEDS_MIN) return [];
+
+	const feeds = Math.min(SLOT_FEEDS_MAX, Math.round(feedsPerDay));
+	return feedingSlotMinutes(start, end, feeds).map(formatClock);
 }
 
 /** `H:MM`, `HH:MM` or `HH:MM:SS` on a 24-hour clock; null for anything else. */

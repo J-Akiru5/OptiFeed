@@ -13,6 +13,7 @@
 
 #include "../../firmware-main/filters.h"
 #include "../../firmware-main/safety.h"
+#include "../../firmware-main/status.h"
 
 using namespace fw;
 
@@ -454,6 +455,134 @@ void test_net_retry_jitter_stays_inside_twenty_percent(void) {
   TEST_ASSERT_TRUE(retry.ready(24000));
 }
 
+// ---------------------------------------------------------------- farm-local time
+
+void test_farm_local_minute_of_day_handles_positive_and_negative_offsets(void) {
+  // 22:00 UTC + 480 min = 06:00 the next farm-local day (the #409 symptom).
+  TEST_ASSERT_EQUAL_INT(360, farmLocalMinuteOfDay(22 * 60, 480));
+  // 00:00 UTC - 60 min = 23:00 on the previous farm-local day.
+  TEST_ASSERT_EQUAL_INT(1380, farmLocalMinuteOfDay(0, -60));
+  // 23:00 UTC + 120 min = 01:00 the next farm-local day.
+  TEST_ASSERT_EQUAL_INT(60, farmLocalMinuteOfDay(23 * 60, 120));
+  TEST_ASSERT_EQUAL_INT(0, farmLocalMinuteOfDay(0, 0));
+  TEST_ASSERT_EQUAL_INT(0, farmLocalMinuteOfDay(0, 1440));
+  TEST_ASSERT_EQUAL_INT(0, farmLocalMinuteOfDay(0, -1440));
+}
+
+void test_farm_local_date_rolls_forward_over_month_and_year(void) {
+  const FarmLocalTime local = farmLocalTime(2026, 10, 31, 22 * 60, 480);
+  TEST_ASSERT_EQUAL_INT(2026, local.year);
+  TEST_ASSERT_EQUAL_INT(11, local.month);
+  TEST_ASSERT_EQUAL_INT(1, local.day);
+  TEST_ASSERT_EQUAL_INT(360, local.minuteOfDay);
+  TEST_ASSERT_EQUAL_UINT32(20261101UL, farmDateKey(local));
+}
+
+void test_farm_local_date_rolls_back_and_handles_leap_day(void) {
+  // 01:00 UTC - 120 min = 23:00 on 2025-12-31.
+  const FarmLocalTime back = farmLocalTime(2026, 1, 1, 1 * 60, -120);
+  TEST_ASSERT_EQUAL_INT(2025, back.year);
+  TEST_ASSERT_EQUAL_INT(12, back.month);
+  TEST_ASSERT_EQUAL_INT(31, back.day);
+  TEST_ASSERT_EQUAL_INT(23 * 60, back.minuteOfDay);
+
+  // A leap year keeps 29 February.
+  const FarmLocalTime leap = farmLocalTime(2028, 2, 28, 23 * 60, 60);
+  TEST_ASSERT_EQUAL_INT(2028, leap.year);
+  TEST_ASSERT_EQUAL_INT(2, leap.month);
+  TEST_ASSERT_EQUAL_INT(29, leap.day);
+  TEST_ASSERT_EQUAL_INT(0, leap.minuteOfDay);
+
+  // A non-leap year goes straight to 1 March.
+  const FarmLocalTime plain = farmLocalTime(2027, 2, 28, 23 * 60, 60);
+  TEST_ASSERT_EQUAL_INT(2027, plain.year);
+  TEST_ASSERT_EQUAL_INT(3, plain.month);
+  TEST_ASSERT_EQUAL_INT(1, plain.day);
+}
+
+// ---------------------------------------------------------------- status (1.8.0)
+
+void test_fault_debounce_needs_consecutive_failures(void) {
+  FaultDebounce d;
+  d.configure(3);
+  TEST_ASSERT_FALSE(d.update(false));
+  TEST_ASSERT_FALSE(d.update(false));
+  TEST_ASSERT_FALSE(d.update(true));   // one good check resets the run
+  TEST_ASSERT_FALSE(d.update(false));
+  TEST_ASSERT_FALSE(d.update(false));
+  TEST_ASSERT_TRUE(d.update(false));
+  TEST_ASSERT_TRUE(d.update(false));
+  TEST_ASSERT_FALSE(d.update(true));   // recovers on the first pass
+}
+
+void test_fault_latches_until_cause_gone_and_acknowledged(void) {
+  FaultManager f;
+  TEST_ASSERT_FALSE(f.indicatorOn());
+  TEST_ASSERT_TRUE(f.report(Fault::RTC, true, 1000, 10));
+  TEST_ASSERT_FALSE(f.report(Fault::RTC, true, 1001, 20));   // already latched
+  TEST_ASSERT_TRUE(f.indicatorOn());
+
+  // Acknowledging while the cause is present clears nothing.
+  TEST_ASSERT_EQUAL_UINT8(0, f.acknowledge());
+  TEST_ASSERT_TRUE(f.indicatorOn());
+
+  // Cause gone: still latched until the operator acknowledges.
+  f.report(Fault::RTC, false, 1002, 30);
+  TEST_ASSERT_TRUE(f.indicatorOn());
+  TEST_ASSERT_EQUAL_UINT8(faultBit(Fault::RTC), f.acknowledge());
+  TEST_ASSERT_FALSE(f.indicatorOn());
+  TEST_ASSERT_EQUAL_UINT16(1, f.count(Fault::RTC));
+  TEST_ASSERT_EQUAL_UINT32(1000, f.lastEpoch());
+}
+
+void test_fault_acknowledge_keeps_faults_still_present(void) {
+  FaultManager f;
+  f.report(Fault::HOPPER_SENSOR, true, 0, 1);
+  f.raiseEvent(Fault::RELAY_OVERRUN, 0, 2);
+  TEST_ASSERT_TRUE(f.latched(Fault::RELAY_OVERRUN));
+  TEST_ASSERT_FALSE(f.present(Fault::RELAY_OVERRUN));
+  TEST_ASSERT_EQUAL_UINT8(faultBit(Fault::RELAY_OVERRUN), f.acknowledge());
+  TEST_ASSERT_TRUE(f.latched(Fault::HOPPER_SENSOR));
+  TEST_ASSERT_TRUE(f.indicatorOn());
+  TEST_ASSERT_EQUAL(Fault::RELAY_OVERRUN, f.lastFault());
+}
+
+void test_fault_counts_each_new_occurrence(void) {
+  FaultManager f;
+  f.raiseEvent(Fault::RELAY_OVERRUN, 0, 1);
+  f.raiseEvent(Fault::RELAY_OVERRUN, 0, 2);   // re-trips while latched
+  TEST_ASSERT_EQUAL_UINT16(2, f.count(Fault::RELAY_OVERRUN));
+  TEST_ASSERT_FALSE(f.report(Fault::NONE, true, 0, 3));
+  TEST_ASSERT_EQUAL_STRING("hopper_sensor", faultName(Fault::HOPPER_SENSOR));
+  TEST_ASSERT_EQUAL_STRING("safe_mode", faultName(Fault::SAFE_MODE));
+}
+
+void test_indicators_follow_the_status_rules(void) {
+  IndicatorInputs in = { false, false, false, false };
+  IndicatorLevels out = indicatorLevels(in, 0, 1000);
+  TEST_ASSERT_TRUE(out.power);
+  TEST_ASSERT_FALSE(out.feeding);
+  TEST_ASSERT_FALSE(out.wifi);   // disconnected: blue off, not a fault
+  TEST_ASSERT_FALSE(out.fault);
+
+  in.feeding = true;
+  in.wifiConnected = true;
+  in.fault = true;
+  out = indicatorLevels(in, 0, 1000);
+  TEST_ASSERT_TRUE(out.feeding);
+  TEST_ASSERT_TRUE(out.wifi);    // solid only once joined
+  TEST_ASSERT_TRUE(out.fault);
+}
+
+void test_wifi_indicator_blinks_while_provisioning(void) {
+  IndicatorInputs in = { false, true, true, false };   // join test connected
+  TEST_ASSERT_TRUE(indicatorLevels(in, 0, 1000).wifi);
+  TEST_ASSERT_TRUE(indicatorLevels(in, 499, 1000).wifi);
+  TEST_ASSERT_FALSE(indicatorLevels(in, 500, 1000).wifi);
+  TEST_ASSERT_FALSE(indicatorLevels(in, 999, 1000).wifi);
+  TEST_ASSERT_TRUE(indicatorLevels(in, 1000, 1000).wifi);
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
 
@@ -489,6 +618,16 @@ int main(int, char **) {
   RUN_TEST(test_token_bucket_refills_and_caps);
   RUN_TEST(test_net_retry_backs_off_exponentially_and_caps);
   RUN_TEST(test_net_retry_jitter_stays_inside_twenty_percent);
+
+  RUN_TEST(test_farm_local_minute_of_day_handles_positive_and_negative_offsets);
+  RUN_TEST(test_farm_local_date_rolls_forward_over_month_and_year);
+  RUN_TEST(test_farm_local_date_rolls_back_and_handles_leap_day);
+  RUN_TEST(test_fault_debounce_needs_consecutive_failures);
+  RUN_TEST(test_fault_latches_until_cause_gone_and_acknowledged);
+  RUN_TEST(test_fault_acknowledge_keeps_faults_still_present);
+  RUN_TEST(test_fault_counts_each_new_occurrence);
+  RUN_TEST(test_indicators_follow_the_status_rules);
+  RUN_TEST(test_wifi_indicator_blinks_while_provisioning);
 
   return UNITY_END();
 }

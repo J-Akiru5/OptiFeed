@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The HC-SR04 TRIG moves from GPIO 12 to GPIO 27 (firmware, needs a reflash).** GPIO 12 is the ESP32 flash-voltage strapping pin, so a trigger wired there needed a 10 kΩ pull-down just to boot reliably. GPIO 27 is not a strapping pin and is quiet at boot, so the pull-down is now optional. ECHO stays on GPIO 14 behind its 1 kΩ / 2 kΩ divider. Move the TRIG wire to GPIO 27 and reflash together: a unit flashed with this build but still wired to GPIO 12, or the reverse, reads no echo and reports 0 % / 0 cm. The firmware README pin table and the CICT pin-map note are updated to match.
+
 ## [1.40.0] - 2026-10-31
 
 ### Added

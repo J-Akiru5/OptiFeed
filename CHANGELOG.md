@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Tabbed device settings with a feeder switcher.** The hardware settings page is now four tabs synced to `?tab=` (Overview, Feeding, Calibration, Network) with WAI-ARIA keyboard support; panels stay mounted, so an edit survives a tab switch. A `?device=` switcher grouped by pond lets a second feeder on the same pond be configured and is hidden when the farm has only one feeder. An unsaved-changes guard marks a tab with pending edits, asks before switching feeder and covers reload, and dashboard alerts plus the old `#anchor` links open the tab that holds the section. The design comes from the settings benchmark in `docs/settings-benchmark.md` (#403, #405, #407).
+- **Hopper capacity from the tank diameter.** Calibration now takes the tank's inner diameter and the feed bulk density, so the capacity in grams is computed from the cylinder between the full and empty marks (πr²h × density) instead of typed in as a guess. The form previews the volume and the resulting grams, the server recomputes them on save, and devices calibrated before this keep their stored capacity until a diameter is entered (#415).
 
 ## [1.39.0] - 2026-10-31
 

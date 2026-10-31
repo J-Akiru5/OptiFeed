@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.39.0] - 2026-10-31
+
+### Added
+
+- **XLSX export and import, PDF reports.** The export dialog now offers CSV/ZIP, an Excel workbook (one sheet per data type, header row kept for an empty type so the sheet doubles as a template) or a PDF report. The feeding schedule joins the seven dataset types as a derived sheet (one row per meal: time, grams, enabled). PDF reports are export only: the existing pond summary plus growth, SGR and FCR reports that draw a line chart and the table behind it from the same helpers the dashboard uses (`lib/sgr.ts`, the stored FCR reports).
+- **Import by upload with column mapping.** `POST /api/v1/import-prepare` reads a `.csv` or `.xlsx` upload, maps its headers onto the schema (case, spaces and unit hints such as "(kg)" never matter), coerces every cell to its type and returns a typed preview, the per-row issues and the canonical CSV the existing import job reads, so CSV and workbook share one validation path and one writer. A header that did not match can be mapped by hand in the dialog and the preview re-runs. `GET /api/v1/import-template` serves a CSV or XLSX template per type with note lines and an example row.
+- **Feeding schedule import.** A schedule sheet is accepted only when its times are the even spacing of some window (the feeder spaces meals evenly); the window and meal count are applied through `updateScheduleCommand`, so the daily gram cap, the relay-time guard, the fallow check and the audit event all apply, and the feeding rate and button feed amount are kept. The preview shows the daily total against the cap before the user confirms.
+- 35 new keys in English, Hiligaynon and Tagalog (the Hiligaynon and Tagalog strings are drafts for native review; the Tagalog keys are in `tl.draft-keys.json`).
+
+### Security
+
+- Workbook uploads are guarded before any XML is parsed: `.xlsx` only (macro, ActiveX and external-link parts and `.xls`/`.xlsm`/`.xlsb` are refused), encrypted workbooks are refused by magic bytes, the upload is capped at 5 MB, and the ZIP central directory is read by hand to cap entry count, unpacked size and expansion ratio, so a zip bomb never reaches the parser. Formulas are never evaluated (a formula cell contributes its cached value). Exports prefix a text cell that starts with `=`, `+`, `-` or `@` so it cannot run as a formula when the file is opened, and the import strips that prefix again.
+
+### Fixed
+
+- The CSV import read the text `false` as `true` for `read`, `autoCleared`, `rtcOk` and `feederActive` (`Boolean("false")`); flags now read TRUE/FALSE, 1/0 and yes/no, an empty cell stays empty and an unreadable value is a 400 naming the row.
+
 ## [1.38.0] - 2026-10-31
 
 ### Added

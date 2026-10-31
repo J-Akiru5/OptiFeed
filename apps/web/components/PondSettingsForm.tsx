@@ -47,7 +47,7 @@ import {
 	SlidersHorizontal,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 interface PondSettingsFormProps {
@@ -179,16 +179,14 @@ export function PondSettingsForm({
 	const [appliedCeilingG, setAppliedCeilingG] = useState<number | null>(null);
 	const [isPending, startTransition] = useTransition();
 	const [success, setSuccess] = useState(false);
-	const successTimer = useRef<number | null>(null);
 
-	// The "saved" banner clears itself; a timer left running past unmount would
-	// set state on a form that is already gone.
-	useEffect(
-		() => () => {
-			if (successTimer.current !== null) window.clearTimeout(successTimer.current);
-		},
-		[],
-	);
+	// The "saved" banner clears itself; the cleanup cancels the timer on unmount
+	// so it never sets state on a form that is already gone.
+	useEffect(() => {
+		if (!success) return;
+		const timer = window.setTimeout(() => setSuccess(false), 3000);
+		return () => window.clearTimeout(timer);
+	}, [success]);
 
 	// Bring back an unsaved draft once per mount (I-99). The database copy is
 	// the real one — it survives a closed browser and is scoped to this pond and
@@ -383,8 +381,6 @@ export function PondSettingsForm({
 				setRestoredAt(null);
 				setFieldErrors([]);
 				setSuccess(true);
-				if (successTimer.current !== null) window.clearTimeout(successTimer.current);
-				successTimer.current = window.setTimeout(() => setSuccess(false), 3000);
 				return;
 			}
 			// The action echoes nothing to re-apply: the draft is the reader's, and

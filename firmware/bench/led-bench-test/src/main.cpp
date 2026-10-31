@@ -1,102 +1,112 @@
 /*
   PakaonAI indicator LEDs — bench test
   ------------------------------------
-  Flashes the three firmware-driven indicator LEDs in a fixed sequence so the
-  wiring, polarity and brightness can be checked before anything is soldered
-  into the enclosure. No WiFi, no NVS, no relay, no feed logic.
+  Checks the four indicator LEDs before anything is soldered into the enclosure.
+  No WiFi, no NVS, no feed logic.
 
-  Pin map matches the pin map in firmware/README.md on staging (firmware 1.6.0).
-  All three GPIOs are unused by the production sketch:
+  Amended wiring: the green FEEDING LED is no longer a firmware output. It is a
+  parallel tap on the relay control line, so it lights whenever the relay is
+  energised. Only the blue and yellow LEDs are driven by firmware.
 
-    FEEDING  green   GPIO 27   active HIGH
-    WIFI     blue    GPIO 26   active HIGH
-    FAULT    yellow  GPIO 18   active HIGH
-    POWER    white   3.3 V     hardwired, no firmware control
+    POWER    white   5 V rail            hardwired, always on
+    FEEDING  green   relay control line  parallel tap (GPIO 5 on the CICT unit)
+    WIFI     blue    GPIO 26             active HIGH
+    FAULT    yellow  GPIO 18             active HIGH
 
-  Sequence per LED: 2 s ON, 1 s OFF, with a serial line naming the LED.
-  After the sweep all three light together for 3 s so the colours can be
-  compared side by side at the same drive current.
+  Sequence:
+    1. Relay line HIGH for 2 s -> relay should click and the green LED light.
+    2. Blue on 2 s.
+    3. Yellow on 2 s.
+    4. Relay + blue + yellow together for 3 s so all four can be compared.
 
+  The relay is pulsed, so DISCONNECT THE PUMP FROM MAINS before running this.
   This is a throwaway bench artifact, not production firmware.
 */
 
 #include <Arduino.h>
 
+// The CICT Building A unit uses the `esp32dev-relay5` build (relay on GPIO 5).
+// The reference wiring uses GPIO 25; build with -DBENCH_RELAY_PIN=25 for that.
+#ifndef BENCH_RELAY_PIN
+#define BENCH_RELAY_PIN 5
+#endif
+
 namespace {
 
-constexpr uint8_t kFeedLedPin = 27;
+constexpr uint8_t kRelayPin = BENCH_RELAY_PIN;
+// Hold the other candidate inactive too, so a floating input cannot chatter a
+// coil on a board wired the other way.
+constexpr uint8_t kOtherRelayPin = (kRelayPin == 5) ? 25 : 5;
+
 constexpr uint8_t kWifiLedPin = 26;
 constexpr uint8_t kFaultLedPin = 18;
-
-// The production board drives a relay from GPIO 25 (or GPIO 5 on the CICT
-// build). A test sketch that leaves those pins floating can let the coil
-// chatter, so both candidates are driven to the inactive level first. This
-// assumes the active-HIGH field board documented in firmware/README.md.
-// Disconnect the pump from mains before running any bench sketch.
-constexpr uint8_t kRelayPins[] = {25, 5};
 
 constexpr uint32_t kOnMs = 2000;
 constexpr uint32_t kOffMs = 1000;
 constexpr uint32_t kCompareMs = 3000;
 
-struct Step {
-  uint8_t pin;
-  const char *label;
-};
-
-const Step kSteps[] = {
-    {kFeedLedPin, "FEEDING  green   GPIO 27"},
-    {kWifiLedPin, "WIFI     blue    GPIO 26"},
-    {kFaultLedPin, "FAULT    yellow  GPIO 18"},
-};
-
-constexpr size_t kStepCount = sizeof(kSteps) / sizeof(kSteps[0]);
-
 void allOff() {
-  digitalWrite(kFeedLedPin, LOW);
+  digitalWrite(kRelayPin, LOW);
   digitalWrite(kWifiLedPin, LOW);
   digitalWrite(kFaultLedPin, LOW);
+}
+
+void relayOn(const char *note) {
+  Serial.printf("[ON ] RELAY/GREEN  GPIO %u  %s\n", kRelayPin, note);
+  digitalWrite(kRelayPin, HIGH);
+}
+
+void relayOff() {
+  digitalWrite(kRelayPin, LOW);
+  Serial.printf("[OFF] RELAY/GREEN  GPIO %u\n", kRelayPin);
 }
 
 }  // namespace
 
 void setup() {
-  // Before anything else: hold the relay control line inactive.
-  for (size_t i = 0; i < sizeof(kRelayPins); i++) {
-    pinMode(kRelayPins[i], OUTPUT);
-    digitalWrite(kRelayPins[i], LOW);
-  }
+  // Before anything else: hold every relay candidate inactive.
+  pinMode(kRelayPin, OUTPUT);
+  digitalWrite(kRelayPin, LOW);
+  pinMode(kOtherRelayPin, OUTPUT);
+  digitalWrite(kOtherRelayPin, LOW);
 
-  Serial.begin(115200);
-  delay(200);
-
-  pinMode(kFeedLedPin, OUTPUT);
   pinMode(kWifiLedPin, OUTPUT);
   pinMode(kFaultLedPin, OUTPUT);
   allOff();
 
+  Serial.begin(115200);
+  delay(200);
+
   Serial.println();
-  Serial.println("PakaonAI indicator bench test");
-  Serial.println("Relay control pins held LOW (inactive) for the whole run.");
-  Serial.println("POWER (white) must be lit continuously: it is hardwired to 3.3 V.");
-  Serial.println("If it is dark, stop and check the 3.3 V rail and its resistor.");
-  Serial.println("Expected per LED: 2 s on, 1 s off. Watch colour and brightness.");
+  Serial.println("PakaonAI indicator bench test (relay-tap FEEDING LED)");
+  Serial.printf("Relay line: GPIO %u. Pump must be disconnected from mains.\n", kRelayPin);
+  Serial.println("POWER (white) must be lit continuously: hardwired to 5 V.");
+  Serial.println("If it is dark, stop and check the rail and its resistor.");
   Serial.println();
 }
 
 void loop() {
-  for (size_t i = 0; i < kStepCount; i++) {
-    Serial.printf("[ON ] %s\n", kSteps[i].label);
-    digitalWrite(kSteps[i].pin, HIGH);
-    delay(kOnMs);
-    digitalWrite(kSteps[i].pin, LOW);
+  relayOn("relay should click, green LED on");
+  delay(kOnMs);
+  relayOff();
+  delay(kOffMs);
 
-    Serial.printf("[OFF] %s\n", kSteps[i].label);
-    delay(kOffMs);
-  }
+  Serial.println("[ON ] WIFI    blue   GPIO 26");
+  digitalWrite(kWifiLedPin, HIGH);
+  delay(kOnMs);
+  digitalWrite(kWifiLedPin, LOW);
+  Serial.println("[OFF] WIFI    blue   GPIO 26");
+  delay(kOffMs);
 
-  Serial.println("[ALL] all three on for 3 s - compare brightness");
-  digitalWrite(kFeedLedPin, HIGH);
+  Serial.println("[ON ] FAULT   yellow GPIO 18");
+  digitalWrite(kFaultLedPin, HIGH);
+  delay(kOnMs);
+  digitalWrite(kFaultLedPin, LOW);
+  Serial.println("[OFF] FAULT   yellow GPIO 18");
+  delay(kOffMs);
+
+  Serial.println("[ALL] relay + blue + yellow for 3 s - compare brightness");
+  relayOn("compare phase");
   digitalWrite(kWifiLedPin, HIGH);
   digitalWrite(kFaultLedPin, HIGH);
   delay(kCompareMs);

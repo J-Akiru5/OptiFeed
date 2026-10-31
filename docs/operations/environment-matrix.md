@@ -31,8 +31,10 @@ arguments, because they would be recorded in an image layer.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **Yes** | build, browser, runtime | Supabase → Project Settings → API → anon/public key | Same failure as above (`lib/supabase/client.ts`, `lib/supabase/server.ts`). |
 | `SUPABASE_SERVICE_ROLE_KEY` | **Yes for admin features** | runtime (server only) | Supabase → Project Settings → API → service_role key | `createAdminClient()` throws, so invitations, member provisioning, platform user administration and the e2e seed fail. Ordinary sign-in and normal pages still work. Bypasses RLS — never expose it to the browser. |
 | `NEXT_PUBLIC_BASE_URL` | **Yes for outbound links** | runtime | Deployment origin, e.g. `https://pakaonai.syntaxure.dev` | Telegram alert links and export links lose their host (`lib/notify/telegram.ts` returns `null`), and reminder **and** invite e-mail are skipped entirely: both require `RESEND_API_KEY` + sender + `NEXT_PUBLIC_BASE_URL`. In-app notifications still run. |
-| `OPENCODE_GO_API_KEY` | No | runtime | OpenCode Go dashboard | The OpenCode Go provider is inactive (`lib/ai-providers/config.ts` skips a provider with no key). AI chat falls through to Gemini, then to "AI unavailable". |
-| `GEMINI_API_KEY` | No | runtime | Google AI Studio | The fallback provider is inactive. Nothing else degrades. |
+| `OPENCODE_GO_API_KEY` | No | runtime | OpenCode Go dashboard | The OpenCode Go provider is inactive unless a key is stored in the console (`lib/ai-providers/config.ts` resolves the encrypted DB key first, then this variable). AI chat falls through to Gemini, then to "AI unavailable". |
+| `GEMINI_API_KEY` | No | runtime | Google AI Studio | The fallback provider is inactive unless a stored DB key exists. Nothing else degrades. |
+| `AI_SECRET_KEY` | No | runtime (server only) | `openssl rand -base64 32` | Provider keys stored from `/superadmin` cannot be decrypted or written: the console shows "DB keys disabled: set AI_SECRET_KEY" and the chain falls back to `OPENCODE_GO_API_KEY` / `GEMINI_API_KEY`. Never expose it to the browser. |
+| `AI_SECRET_KEY_PREVIOUS` | No | runtime (server only) | Previous `AI_SECRET_KEY` value | Rows encrypted with the previous key (`keyVersion` 0) become unreadable after a rotation until they are re-encrypted. Set it only for the rotation window. |
 | `OPENCODE_GO_REASONING_EFFORT` | No | runtime | — | Defaults to `high` (`lib/ai-providers/reasoning.ts`). |
 | `OPENCODE_GO_MODEL` | **Unused** — see §4 | — | — | Nothing. No code reads it. |
 | `CRON_SECRET` | **Yes if cron is scheduled** | runtime | Generated secret, also stored in Supabase Vault by `docs/sql/cron-*.sql` | `withCronAuth` answers 403 `Cron secret is not configured`, so `device-watch`, `crop-watch` and `jobs` never run: no dead-device alerts, no reminders, no `ErrorEvent` retention sweep. Fails closed, never open. |
@@ -48,6 +50,20 @@ arguments, because they would be recorded in an image layer.
 | `E2E_CONFIRM_PRODUCTION` | No | tooling | Literal `yes` | Same refusal. This is an acknowledgement guard, not a credential. |
 | `E2E_PASSWORD` | No | tooling | Chosen locally | Same refusal; the three `e2e-` logins share it. |
 | `NEXT_PUBLIC_SITE_URL` | No | build | Deployment origin | Defaults to `https://pakaonai.syntaxure.dev` (`apps/web/lib/site-url.ts`). Set it for any deployment that must advertise a different host in `robots.txt`, `sitemap.xml` and the Open Graph/Twitter metadata. Added by I-70. |
+
+### AI provider key storage (issue #432)
+
+`/superadmin/ai-providers` can store a provider key encrypted in `AiProviderConfig`
+(AES-256-GCM, 12-byte IV, 16-byte tag, AAD = `provider:keyVersion`). Resolution order is:
+
+1. an authenticated DB ciphertext (`keyVersion` 1 = `AI_SECRET_KEY`, 0 = `AI_SECRET_KEY_PREVIOUS`);
+2. the row's `apiKeyEnv`, or the adapter default (`OPENCODE_GO_API_KEY`, `GEMINI_API_KEY`);
+3. nothing — the provider is inactive.
+
+A key write requires a fresh step-up check and one live completion with the submitted key; a failed
+test leaves the previous key active. Missing or malformed `AI_SECRET_KEY` disables DB keys only: the
+environment fallback still works, so CI and cold environments behave as before. Backups never export
+the `key*` columns (`lib/backup/tables.ts`); re-enter keys after a restore.
 
 ## 3. Platform and container variables (not in `.env.example`)
 
@@ -94,7 +110,7 @@ arguments, because they would be recorded in an image layer.
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — inlined into the browser bundle | `DATABASE_URL`, `DIRECT_URL` |
 | `NEXT_PUBLIC_SITE_URL` — baked into `robots.txt`, `sitemap.xml` and the metadata | `SUPABASE_SERVICE_ROLE_KEY` |
 | `NEXT_TELEMETRY_DISABLED` | `CRON_SECRET`, `RESEND_API_KEY`, `REMINDER_FROM_EMAIL`, `INVITE_FROM_EMAIL`, `RESET_FROM_EMAIL`, `TELEGRAM_*`, `NEXT_PUBLIC_BASE_URL` |
-| — | `OPENCODE_GO_API_KEY`, `GEMINI_API_KEY`, `OPENCODE_GO_REASONING_EFFORT` |
+| — | `OPENCODE_GO_API_KEY`, `GEMINI_API_KEY`, `AI_SECRET_KEY`, `AI_SECRET_KEY_PREVIOUS`, `OPENCODE_GO_REASONING_EFFORT` |
 
 A server secret passed with `--build-arg` is written into the build history and the layer it was used
 in. Do not do it. See `docs/operations/deployment.md` for the exact commands.

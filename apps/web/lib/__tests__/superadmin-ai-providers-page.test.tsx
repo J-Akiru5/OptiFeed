@@ -28,6 +28,9 @@ vi.mock("next/navigation", () => ({
 	useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
 }));
 
+// The dialog pulls in the routing helper, which is not part of this page test.
+vi.mock("@/components/superadmin/step-up-dialog", () => ({ StepUpDialog: () => null }));
+
 import SuperadminAiProvidersPage from "@/app/[locale]/(superadmin)/superadmin/ai-providers/page";
 import type { AiProviderView } from "@/lib/actions/ai-providers";
 
@@ -41,6 +44,12 @@ const providers: AiProviderView[] = [
 		model: "deepseek-v4.1-flash",
 		apiKeyEnv: "OPENCODE_GO_API_KEY",
 		apiKeyPresent: true,
+		key: {
+			source: "db",
+			last4: "1234",
+			updatedAt: "2026-10-31T12:00:00.000Z",
+			updatedBy: "admin-1",
+		},
 		reasoningEffort: "high",
 	},
 	{
@@ -52,6 +61,7 @@ const providers: AiProviderView[] = [
 		model: "gemini-2.5-flash",
 		apiKeyEnv: "GEMINI_API_KEY",
 		apiKeyPresent: false,
+		key: { source: "none", last4: null, updatedAt: null, updatedBy: null },
 		reasoningEffort: "high",
 	},
 ];
@@ -63,6 +73,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	vi.clearAllMocks();
+	vi.unstubAllEnvs();
 });
 
 describe("/superadmin/ai-providers page", () => {
@@ -80,10 +91,30 @@ describe("/superadmin/ai-providers page", () => {
 		expect(html.indexOf("OpenCode Go")).toBeLessThan(html.indexOf("Google Gemini"));
 	});
 
+	it("shows the source, masked last four and update metadata without any ciphertext", async () => {
+		const html = renderToStaticMarkup(await SuperadminAiProvidersPage());
+
+		expect(html).toContain("Stored (encrypted)");
+		expect(html).toContain("••••1234");
+		expect(html).toContain("2026-10-31 12:00 UTC");
+		expect(html).toContain("admin-1");
+		expect(html).not.toContain("keyCiphertext");
+	});
+
+	it("shows a banner and disables Set/Rotate when AI_SECRET_KEY is missing", async () => {
+		vi.stubEnv("AI_SECRET_KEY", "");
+
+		const html = renderToStaticMarkup(await SuperadminAiProvidersPage());
+
+		expect(html).toContain("DB keys disabled: set AI_SECRET_KEY");
+		// The key submit button is disabled while the master key is absent.
+		expect(html).toMatch(/disabled=""[^>]*>[\s\S]*?(Rotate key|Set key)/);
+	});
+
 	it("distinguishes a provider with a key from one without", async () => {
 		const html = renderToStaticMarkup(await SuperadminAiProvidersPage());
-		expect(html).toContain("Key detected");
-		expect(html).toContain("No key");
+		expect(html).toContain("Stored (encrypted)");
+		expect(html).toContain("No key — inactive");
 	});
 
 	it("labels providers that fall back to built-in defaults", async () => {

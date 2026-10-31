@@ -56,7 +56,7 @@ export const opencodeGoProvider: AiProvider = {
 			method: "POST",
 			headers: requestHeaders(request.config, request.sessionId),
 			body: JSON.stringify(buildBody(request, true)),
-			signal: AbortSignal.timeout(120_000),
+			signal: AbortSignal.timeout(request.timeoutMs ?? 120_000),
 		});
 
 		if (!response.ok || !response.body) throw httpError(response);
@@ -100,7 +100,7 @@ export const opencodeGoProvider: AiProvider = {
 			method: "POST",
 			headers: requestHeaders(request.config, request.sessionId),
 			body: JSON.stringify(buildBody(request, false)),
-			signal: AbortSignal.timeout(60_000),
+			signal: AbortSignal.timeout(request.timeoutMs ?? 60_000),
 		});
 
 		if (!response.ok) throw httpError(response);

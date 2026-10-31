@@ -18,6 +18,7 @@ function cfg(
 		provider,
 		model: `model-${provider}`,
 		apiKey: `key-${provider}`,
+		keySource: "env",
 		reasoningEffort: "high",
 		params: {},
 		...overrides,
@@ -98,8 +99,8 @@ describe("isAiEnabled / aiDebugInfo", () => {
 		expect(info.hasKey).toBe(true);
 		expect(info.primary).toBe("opencode-go");
 		expect(info.providers).toEqual([
-			{ provider: "opencode-go", model: "model-opencode-go" },
-			{ provider: "gemini", model: "model-gemini" },
+			{ provider: "opencode-go", model: "model-opencode-go", keySource: "env", hasKey: true },
+			{ provider: "gemini", model: "model-gemini", keySource: "env", hasKey: true },
 		]);
 		expect(JSON.stringify(info)).not.toContain("key-opencode-go");
 		expect(JSON.stringify(info)).not.toContain("key-gemini");

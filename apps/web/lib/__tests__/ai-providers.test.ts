@@ -215,6 +215,29 @@ describe("gemini adapter", () => {
 			geminiProvider.complete({ ...baseRequest, config: runtime("gemini") as never }),
 		).rejects.toMatchObject({ status: 429 });
 	});
+
+	it("scrubs and bounds an upstream error body before it can reach a log", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(
+				async () =>
+					new Response(`Authorization: Bearer sk-leaked-123456 ${"x".repeat(400)}`, {
+						status: 401,
+						statusText: "Unauthorized",
+					}),
+			),
+		);
+
+		try {
+			await geminiProvider.complete({ ...baseRequest, config: runtime("gemini") as never });
+			throw new Error("complete should have thrown");
+		} catch (error) {
+			const message = (error as Error).message;
+			expect(message).toContain("Gemini HTTP 401");
+			expect(message).not.toContain("sk-leaked-123456");
+			expect(message.length).toBeLessThan(250);
+		}
+	});
 });
 
 describe("provider config resolution", () => {

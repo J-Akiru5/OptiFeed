@@ -22,6 +22,8 @@ export interface AiProviderRuntimeConfig {
 	model: string;
 	/** Resolved secret value. Never logged. */
 	apiKey: string;
+	/** Where the key came from; reported by diagnostics, never the value. */
+	keySource: "db" | "env" | "none";
 	reasoningEffort: ReasoningEffort;
 	/** Free-form provider-specific extras from the config row. */
 	params: Record<string, unknown>;
@@ -33,6 +35,8 @@ export interface ProviderRequest {
 	/** Stable per-conversation id; used where the provider needs affinity. */
 	sessionId: string;
 	config: AiProviderRuntimeConfig;
+	/** Optional per-call timeout for short validation calls (defaults per adapter). */
+	timeoutMs?: number;
 }
 
 export interface AiProvider {

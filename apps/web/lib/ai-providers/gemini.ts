@@ -7,9 +7,11 @@
 // Gemini is not OpenAI-compatible: it uses `systemInstruction` and `contents`
 // (role "user" | "model"), and returns `candidates[].content.parts[].text`.
 
+import { scrubText } from "@/lib/error-scrub";
 import type { AiHttpError, AiProvider, CompletionResult, ProviderRequest } from "./types";
 
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+const MAX_ERROR_DETAIL = 200;
 
 function endpoint(
 	model: string,
@@ -39,8 +41,11 @@ function requestHeaders(apiKey: string) {
 }
 
 function httpError(response: Response, detail: string): AiHttpError {
+	// The adapter error reaches console/error capture. Bound the upstream body
+	// and scrub credentials: an upstream message must never carry a key value.
+	const safeDetail = scrubText(detail).slice(0, MAX_ERROR_DETAIL);
 	const error = new Error(
-		`Gemini HTTP ${response.status}: ${detail || response.statusText}`,
+		`Gemini HTTP ${response.status}: ${safeDetail || response.statusText}`,
 	) as AiHttpError;
 	error.status = response.status;
 	return error;
@@ -69,7 +74,7 @@ export const geminiProvider: AiProvider = {
 			method: "POST",
 			headers: requestHeaders(request.config.apiKey),
 			body: JSON.stringify(buildBody(request)),
-			signal: AbortSignal.timeout(120_000),
+			signal: AbortSignal.timeout(request.timeoutMs ?? 120_000),
 		});
 
 		if (!response.ok || !response.body) {
@@ -112,7 +117,7 @@ export const geminiProvider: AiProvider = {
 			method: "POST",
 			headers: requestHeaders(request.config.apiKey),
 			body: JSON.stringify(buildBody(request)),
-			signal: AbortSignal.timeout(60_000),
+			signal: AbortSignal.timeout(request.timeoutMs ?? 60_000),
 		});
 
 		if (!response.ok) {

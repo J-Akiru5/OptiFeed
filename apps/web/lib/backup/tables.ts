@@ -617,6 +617,8 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 		key: "id",
 		model: prisma.aiProviderConfig,
 		// apiKeyEnv names an environment variable; it is not a credential.
+		// Encrypted key material is never exported: a restored copy must have
+		// its keys re-entered through the console under the target master key.
 		columns: [
 			"id",
 			"provider",
@@ -625,10 +627,43 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 			"model",
 			"apiKeyEnv",
 			"params",
+			"kind",
+			"label",
+			"baseUrl",
 			"createdAt",
 			"updatedAt",
 		],
 		jsonColumns: ["params"],
+		omitted: [
+			{
+				column: "keyCiphertext",
+				reason: "Encrypted provider key. Never exported; re-enter keys after a restore.",
+			},
+			{
+				column: "keyIv",
+				reason: "Nonce for the encrypted provider key. Useless without the rest of the record.",
+			},
+			{
+				column: "keyTag",
+				reason: "Authentication tag for the encrypted provider key. Never exported.",
+			},
+			{
+				column: "keyVersion",
+				reason: "Master-key version for an exported key record, which is not exported.",
+			},
+			{
+				column: "keyLast4",
+				reason: "Masked key metadata stays out of exports, alongside the key it describes.",
+			},
+			{
+				column: "keyUpdatedAt",
+				reason: "Key-write metadata is console state, not restorable provider configuration.",
+			},
+			{
+				column: "keyUpdatedBy",
+				reason: "Actor id for a key write; the audit log, not this table, is the record.",
+			},
+		],
 		tenantWhere: noneById,
 	},
 	{

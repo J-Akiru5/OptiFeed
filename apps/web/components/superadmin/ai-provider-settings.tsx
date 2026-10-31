@@ -1,5 +1,6 @@
 "use client";
 
+import { StepUpDialog } from "@/components/superadmin/step-up-dialog";
 import {
 	Alert,
 	Badge,
@@ -9,17 +10,47 @@ import {
 	FIELD_LABEL,
 	PRIMARY_BUTTON,
 } from "@/components/superadmin/ui";
-import type { AiProviderView } from "@/lib/actions/ai-providers";
-import { resetAiProviderConfig, saveAiProviderConfig } from "@/lib/actions/ai-providers";
+import type { AiProviderActionResult, AiProviderView } from "@/lib/actions/ai-providers";
+import {
+	clearProviderKey,
+	resetAiProviderConfig,
+	saveAiProviderConfig,
+	setProviderKey,
+	testProviderKey,
+} from "@/lib/actions/ai-providers";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, Loader2, RotateCcw, Save, XCircle } from "lucide-react";
+import {
+	CheckCircle2,
+	Database,
+	KeyRound,
+	Loader2,
+	RotateCcw,
+	Save,
+	Trash2,
+	XCircle,
+	Zap,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState, useTransition } from "react";
+import { type FormEvent, useRef, useState, useTransition } from "react";
 
 const EFFORT_OPTIONS = ["none", "low", "medium", "high"] as const;
 
-function ProviderCard({ provider }: { provider: AiProviderView }) {
+const SECONDARY_BUTTON =
+	"inline-flex items-center gap-2 rounded-xl border border-[#0A3D62]/20 bg-white px-4 py-2.5 text-sm font-bold text-[#0A3D62] shadow-sm transition-colors hover:bg-[#F4F7F6] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] focus-visible:ring-offset-2 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10";
+
+/** Deterministic date text: rendering must not differ between server and client. */
+function formatUpdated(iso: string): string {
+	return `${iso.slice(0, 16).replace("T", " ")} UTC`;
+}
+
+function ProviderCard({
+	provider,
+	dbKeysEnabled,
+}: {
+	provider: AiProviderView;
+	dbKeysEnabled: boolean;
+}) {
 	const t = useTranslations("superadmin.aiProviders");
 	const tCommon = useTranslations("superadmin.common");
 	const router = useRouter();
@@ -32,6 +63,25 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 	const [reason, setReason] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [saved, setSaved] = useState(false);
+
+	const [keyPending, startKeyTransition] = useTransition();
+	const [keyValue, setKeyValue] = useState("");
+	const [keyReason, setKeyReason] = useState("");
+	const [keyError, setKeyError] = useState<string | null>(null);
+	const [keySaved, setKeySaved] = useState<string | null>(null);
+	const [stepUpOpen, setStepUpOpen] = useState(false);
+	const retryRef = useRef<(() => void) | null>(null);
+
+	const sourceLabel =
+		provider.key.source === "db"
+			? t("sourceDb")
+			: provider.key.source === "env"
+				? t("sourceEnv")
+				: t("sourceNone");
+	const sourceTone =
+		provider.key.source === "db" ? "success" : provider.key.source === "env" ? "brand" : "warning";
+	const SourceIcon =
+		provider.key.source === "db" ? Database : provider.key.source === "env" ? KeyRound : XCircle;
 
 	const handleSubmit = (e: FormEvent) => {
 		e.preventDefault();
@@ -64,8 +114,96 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 		});
 	};
 
+	const runKeyAction = (
+		stepUpLabel: string,
+		action: () => Promise<AiProviderActionResult>,
+		onSuccess: (result: AiProviderActionResult) => void,
+		clearError = true,
+	) => {
+		if (clearError) setKeyError(null);
+		setKeySaved(null);
+		startKeyTransition(async () => {
+			try {
+				const result = await action();
+				if (result.code === "step_up_required") {
+					retryRef.current = () => runKeyAction(stepUpLabel, action, onSuccess, false);
+					setStepUpOpen(true);
+					return;
+				}
+				if (result.error) {
+					setKeyError(result.error);
+					return;
+				}
+				onSuccess(result);
+				router.refresh();
+			} catch (err) {
+				setKeyError(err instanceof Error ? err.message : t("keyTestFailed", { error: "unknown" }));
+			}
+		});
+	};
+
+	const submitKey = (e: FormEvent) => {
+		e.preventDefault();
+		setKeyError(null);
+		setKeySaved(null);
+
+		if (keyReason.trim().length < 10) {
+			setKeyError(tCommon("reasonMinLength", { count: 10 }));
+			return;
+		}
+
+		const value = keyValue.trim();
+		if (!value) {
+			setKeyError(t("keyInput"));
+			return;
+		}
+
+		// The value is taken from the form state into this closure and the field
+		// is cleared immediately. A step-up retry reuses the closure, so the
+		// secret never sits in a persisted value or a second render.
+		setKeyValue("");
+		const reason = keyReason.trim();
+		runKeyAction(
+			t("keyStepUpAction", { provider: provider.label }),
+			() => setProviderKey({ provider: provider.provider, key: value, reason }),
+			() => {
+				setKeyReason("");
+				setKeySaved(t("keySetDone"));
+			},
+		);
+	};
+
+	const clearKey = () => {
+		if (keyReason.trim().length < 10) {
+			setKeyError(tCommon("reasonMinLength", { count: 10 }));
+			return;
+		}
+		const reason = keyReason.trim();
+		runKeyAction(
+			t("keyStepUpAction", { provider: provider.label }),
+			() => clearProviderKey({ provider: provider.provider, reason }),
+			() => {
+				setKeyReason("");
+				setKeySaved(t("keyClearedDone"));
+			},
+		);
+	};
+
+	const testKey = () => {
+		if (keyReason.trim().length < 10) {
+			setKeyError(tCommon("reasonMinLength", { count: 10 }));
+			return;
+		}
+		const reason = keyReason.trim();
+		runKeyAction(
+			t("testKey"),
+			() => testProviderKey({ provider: provider.provider, reason }),
+			(result) => setKeySaved(t("keyTestOk", { latency: result.latencyMs ?? 0 })),
+		);
+	};
+
 	return (
-		<form onSubmit={handleSubmit} className={cn(CARD, "space-y-4 p-6")} aria-busy={isPending}>
+		<div className={cn(CARD, "space-y-4 p-6")}>
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<div>
 					<h2 className="text-lg font-black text-[#0A3D62]">{provider.label}</h2>
@@ -74,134 +212,272 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 						{provider.configured ? "" : t("usingDefault")}
 					</p>
 				</div>
-				<Badge
-					tone={provider.apiKeyPresent ? "success" : "warning"}
-					icon={provider.apiKeyPresent ? CheckCircle2 : XCircle}
-				>
-					{provider.apiKeyPresent ? t("keyDetected") : t("noKey")}
+				<Badge tone={sourceTone} icon={SourceIcon}>
+					{sourceLabel}
 				</Badge>
 			</div>
 
-			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-				<div className="space-y-1.5">
-					<label htmlFor={`${provider.provider}-model`} className={FIELD_LABEL}>
-						{t("model")}
-					</label>
-					<input
-						id={`${provider.provider}-model`}
-						type="text"
-						value={model}
-						onChange={(e) => setModel(e.target.value)}
-						disabled={isPending}
-						placeholder={provider.model}
-						className={FIELD_INPUT}
-					/>
+			<form onSubmit={handleSubmit} className="space-y-4" aria-busy={isPending}>
+				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+					<div className="space-y-1.5">
+						<label htmlFor={`${provider.provider}-model`} className={FIELD_LABEL}>
+							{t("model")}
+						</label>
+						<input
+							id={`${provider.provider}-model`}
+							type="text"
+							value={model}
+							onChange={(e) => setModel(e.target.value)}
+							disabled={isPending}
+							placeholder={provider.model}
+							className={FIELD_INPUT}
+						/>
+					</div>
+
+					<div className="space-y-1.5">
+						<label htmlFor={`${provider.provider}-priority`} className={FIELD_LABEL}>
+							{t("priority")}
+						</label>
+						<input
+							id={`${provider.provider}-priority`}
+							type="number"
+							min={0}
+							max={1000}
+							value={priority}
+							onChange={(e) => setPriority(e.target.value)}
+							disabled={isPending}
+							className={FIELD_INPUT}
+						/>
+					</div>
+
+					<div className="space-y-1.5">
+						<label htmlFor={`${provider.provider}-env`} className={FIELD_LABEL}>
+							{t("apiKeyEnv")}
+						</label>
+						<input
+							id={`${provider.provider}-env`}
+							type="text"
+							value={apiKeyEnv}
+							onChange={(e) => setApiKeyEnv(e.target.value)}
+							disabled={isPending}
+							placeholder={provider.apiKeyEnv}
+							aria-describedby={`${provider.provider}-env-hint`}
+							className={FIELD_INPUT}
+						/>
+						<p id={`${provider.provider}-env-hint`} className={FIELD_HINT}>
+							{t("envHintBefore")} <code>{provider.apiKeyEnv}</code>
+							{t("envHintAfter")}
+						</p>
+					</div>
+
+					<div className="space-y-1.5">
+						<label htmlFor={`${provider.provider}-effort`} className={FIELD_LABEL}>
+							{t("effort")}
+						</label>
+						<select
+							id={`${provider.provider}-effort`}
+							value={reasoningEffort}
+							onChange={(e) => setReasoningEffort(e.target.value as typeof reasoningEffort)}
+							disabled={isPending}
+							className={FIELD_INPUT}
+						>
+							{EFFORT_OPTIONS.map((option) => (
+								<option key={option} value={option}>
+									{t(`effortOptions.${option}`)}
+								</option>
+							))}
+						</select>
+						<p className={FIELD_HINT}>{t("effortHint")}</p>
+					</div>
 				</div>
 
-				<div className="space-y-1.5">
-					<label htmlFor={`${provider.provider}-priority`} className={FIELD_LABEL}>
-						{t("priority")}
-					</label>
+				<label className="flex items-center gap-2.5 text-sm font-bold text-[#0A3D62]">
 					<input
-						id={`${provider.provider}-priority`}
-						type="number"
-						min={0}
-						max={1000}
-						value={priority}
-						onChange={(e) => setPriority(e.target.value)}
+						type="checkbox"
+						checked={enabled}
+						onChange={(e) => setEnabled(e.target.checked)}
 						disabled={isPending}
-						className={FIELD_INPUT}
+						className="h-4 w-4 rounded border-gray-300 text-[#E85A2A] focus:ring-[#E85A2A]"
 					/>
-				</div>
+					{t("enabled")}
+				</label>
 
 				<div className="space-y-1.5">
-					<label htmlFor={`${provider.provider}-env`} className={FIELD_LABEL}>
-						{t("apiKeyEnv")}
+					<label htmlFor={`${provider.provider}-reason`} className={FIELD_LABEL}>
+						{tCommon("reasonRequired")}
 					</label>
 					<input
-						id={`${provider.provider}-env`}
+						id={`${provider.provider}-reason`}
 						type="text"
-						value={apiKeyEnv}
-						onChange={(e) => setApiKeyEnv(e.target.value)}
+						value={reason}
+						onChange={(e) => setReason(e.target.value)}
 						disabled={isPending}
-						placeholder={provider.apiKeyEnv}
-						aria-describedby={`${provider.provider}-env-hint`}
+						placeholder={t("reasonPlaceholder")}
+						aria-describedby={`${provider.provider}-reason-hint`}
 						className={FIELD_INPUT}
 					/>
-					<p id={`${provider.provider}-env-hint`} className={FIELD_HINT}>
-						{t("envHintBefore")} <code>{provider.apiKeyEnv}</code>
-						{t("envHintAfter")}
+					<p id={`${provider.provider}-reason-hint`} className={FIELD_HINT}>
+						{t("reasonHint")}
+					</p>
+				</div>
+
+				{error && <Alert tone="error">{error}</Alert>}
+
+				{saved && <Alert tone="success">{t("saved")}</Alert>}
+
+				<button type="submit" disabled={isPending} className={PRIMARY_BUTTON}>
+					{isPending ? (
+						<Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+					) : (
+						<Save className="h-4 w-4" aria-hidden="true" />
+					)}
+					{t("save", { label: provider.label })}
+				</button>
+			</form>
+
+			<form
+				onSubmit={submitKey}
+				className="space-y-3 rounded-2xl border border-[#0A3D62]/15 bg-[#F4F7F6] p-4"
+				aria-busy={keyPending}
+			>
+				<div className="flex flex-wrap items-center justify-between gap-2">
+					<h3 className="text-xs font-extrabold uppercase tracking-wider text-[#3D5568]">
+						{t("keySource")}
+					</h3>
+					<Badge tone={sourceTone} icon={SourceIcon}>
+						{sourceLabel}
+					</Badge>
+				</div>
+
+				{provider.key.source === "db" && (
+					<div className="space-y-1 text-sm text-[#3D5568]">
+						{provider.key.last4 && (
+							<p className="font-mono text-base font-black tracking-widest text-[#0A3D62]">
+								{t("keyLast4", { last4: provider.key.last4 })}
+							</p>
+						)}
+						{provider.key.updatedAt ? (
+							<p className="text-xs">
+								{t("keyUpdated", { date: formatUpdated(provider.key.updatedAt) })}
+								{provider.key.updatedBy
+									? ` ${t("keyUpdatedBy", { user: provider.key.updatedBy })}`
+									: ""}
+							</p>
+						) : (
+							<p className="text-xs">{t("keyNeverUpdated")}</p>
+						)}
+					</div>
+				)}
+
+				{!dbKeysEnabled && (
+					<Alert tone="warning">
+						<p className="font-bold">{t("dbKeysDisabled")}</p>
+						<p className="text-xs">{t("dbKeysDisabledHint")}</p>
+					</Alert>
+				)}
+
+				<div className="space-y-1.5">
+					<label htmlFor={`${provider.provider}-key`} className={FIELD_LABEL}>
+						{t("keyInput")}
+					</label>
+					<input
+						id={`${provider.provider}-key`}
+						type="password"
+						value={keyValue}
+						onChange={(e) => setKeyValue(e.target.value)}
+						disabled={keyPending || !dbKeysEnabled}
+						autoComplete="off"
+						placeholder={t("keyPlaceholder")}
+						aria-describedby={`${provider.provider}-key-hint`}
+						className={FIELD_INPUT}
+					/>
+					<p id={`${provider.provider}-key-hint`} className={FIELD_HINT}>
+						{t("keyInputHint")}
 					</p>
 				</div>
 
 				<div className="space-y-1.5">
-					<label htmlFor={`${provider.provider}-effort`} className={FIELD_LABEL}>
-						{t("effort")}
+					<label htmlFor={`${provider.provider}-key-reason`} className={FIELD_LABEL}>
+						{tCommon("reasonRequired")}
 					</label>
-					<select
-						id={`${provider.provider}-effort`}
-						value={reasoningEffort}
-						onChange={(e) => setReasoningEffort(e.target.value as typeof reasoningEffort)}
-						disabled={isPending}
+					<input
+						id={`${provider.provider}-key-reason`}
+						type="text"
+						value={keyReason}
+						onChange={(e) => setKeyReason(e.target.value)}
+						disabled={keyPending}
+						placeholder={t("reasonPlaceholder")}
+						aria-describedby={`${provider.provider}-key-reason-hint`}
 						className={FIELD_INPUT}
-					>
-						{EFFORT_OPTIONS.map((option) => (
-							<option key={option} value={option}>
-								{t(`effortOptions.${option}`)}
-							</option>
-						))}
-					</select>
-					<p className={FIELD_HINT}>{t("effortHint")}</p>
+					/>
+					<p id={`${provider.provider}-key-reason-hint`} className={FIELD_HINT}>
+						{t("keyReasonHint")}
+					</p>
 				</div>
-			</div>
 
-			<label className="flex items-center gap-2.5 text-sm font-bold text-[#0A3D62]">
-				<input
-					type="checkbox"
-					checked={enabled}
-					onChange={(e) => setEnabled(e.target.checked)}
-					disabled={isPending}
-					className="h-4 w-4 rounded border-gray-300 text-[#E85A2A] focus:ring-[#E85A2A]"
-				/>
-				{t("enabled")}
-			</label>
+				<p className={FIELD_HINT}>{t("keySetHint")}</p>
 
-			<div className="space-y-1.5">
-				<label htmlFor={`${provider.provider}-reason`} className={FIELD_LABEL}>
-					{tCommon("reasonRequired")}
-				</label>
-				<input
-					id={`${provider.provider}-reason`}
-					type="text"
-					value={reason}
-					onChange={(e) => setReason(e.target.value)}
-					disabled={isPending}
-					placeholder={t("reasonPlaceholder")}
-					aria-describedby={`${provider.provider}-reason-hint`}
-					className={FIELD_INPUT}
-				/>
-				<p id={`${provider.provider}-reason-hint`} className={FIELD_HINT}>
-					{t("reasonHint")}
-				</p>
-			</div>
+				{keyError && <Alert tone="error">{keyError}</Alert>}
+				{keySaved && <Alert tone="success">{keySaved}</Alert>}
 
-			{error && <Alert tone="error">{error}</Alert>}
+				<div className="flex flex-wrap gap-2">
+					<button type="submit" disabled={keyPending || !dbKeysEnabled} className={PRIMARY_BUTTON}>
+						{keyPending ? (
+							<Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+						) : (
+							<KeyRound className="h-4 w-4" aria-hidden="true" />
+						)}
+						{provider.key.source === "db" ? t("rotateKey") : t("setKey")}
+					</button>
 
-			{saved && <Alert tone="success">{t("saved")}</Alert>}
+					<button
+						type="button"
+						onClick={clearKey}
+						disabled={keyPending || provider.key.source !== "db"}
+						className={SECONDARY_BUTTON}
+					>
+						<Trash2 className="h-4 w-4" aria-hidden="true" />
+						{t("clearKey")}
+					</button>
 
-			<button type="submit" disabled={isPending} className={PRIMARY_BUTTON}>
-				{isPending ? (
-					<Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-				) : (
-					<Save className="h-4 w-4" aria-hidden="true" />
-				)}
-				{t("save", { label: provider.label })}
-			</button>
-		</form>
+					<button
+						type="button"
+						onClick={testKey}
+						disabled={keyPending || provider.key.source === "none"}
+						className={SECONDARY_BUTTON}
+					>
+						<Zap className="h-4 w-4" aria-hidden="true" />
+						{t("testKey")}
+					</button>
+				</div>
+				<p className={FIELD_HINT}>{t("keyTestHint")}</p>
+			</form>
+
+			<StepUpDialog
+				open={stepUpOpen}
+				actionLabel={t("keyStepUpAction", { provider: provider.label })}
+				onClose={() => {
+					setStepUpOpen(false);
+					retryRef.current = null;
+				}}
+				onVerified={() => {
+					setStepUpOpen(false);
+					const retry = retryRef.current;
+					retryRef.current = null;
+					retry?.();
+				}}
+			/>
+		</div>
 	);
 }
 
-export function AiProviderSettings({ providers }: { providers: AiProviderView[] }) {
+export function AiProviderSettings({
+	providers,
+	dbKeysEnabled,
+}: {
+	providers: AiProviderView[];
+	dbKeysEnabled: boolean;
+}) {
 	const t = useTranslations("superadmin.aiProviders");
 	const tCommon = useTranslations("superadmin.common");
 	const router = useRouter();
@@ -235,7 +511,7 @@ export function AiProviderSettings({ providers }: { providers: AiProviderView[] 
 	return (
 		<div className="space-y-6">
 			{providers.map((provider) => (
-				<ProviderCard key={provider.provider} provider={provider} />
+				<ProviderCard key={provider.provider} provider={provider} dbKeysEnabled={dbKeysEnabled} />
 			))}
 
 			<form onSubmit={handleReset} className={cn(CARD, "space-y-4 p-6")} aria-busy={isPending}>
@@ -263,11 +539,7 @@ export function AiProviderSettings({ providers }: { providers: AiProviderView[] 
 
 				{reset && <Alert tone="success">{t("resetDone")}</Alert>}
 
-				<button
-					type="submit"
-					disabled={isPending}
-					className="inline-flex items-center gap-2 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#082f4d] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] focus-visible:ring-offset-2"
-				>
+				<button type="submit" disabled={isPending} className={SECONDARY_BUTTON}>
 					{isPending ? (
 						<Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
 					) : (

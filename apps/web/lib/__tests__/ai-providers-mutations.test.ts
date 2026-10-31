@@ -102,6 +102,14 @@ describe("saveAiProviderConfig", () => {
 				apiKeyEnv: "CUSTOM_KEY",
 				params: { reasoningEffort: "low" },
 			},
+			select: {
+				provider: true,
+				enabled: true,
+				priority: true,
+				model: true,
+				apiKeyEnv: true,
+				params: true,
+			},
 		});
 
 		const row = tx.platformAuditLog.create.mock.calls[0][0].data;

@@ -1,6 +1,7 @@
 import { AiProviderSettings } from "@/components/superadmin/ai-provider-settings";
-import { Card, PageHeader } from "@/components/superadmin/ui";
+import { Alert, Card, PageHeader } from "@/components/superadmin/ui";
 import { listAiProviderConfig } from "@/lib/actions/ai-providers";
+import { hasUsableMasterKey } from "@/lib/ai-providers/secret";
 import { getTranslations } from "next-intl/server";
 
 export default async function SuperadminAiProvidersPage() {
@@ -8,10 +9,18 @@ export default async function SuperadminAiProvidersPage() {
 		listAiProviderConfig(),
 		getTranslations("superadmin.aiProviders"),
 	]);
+	const dbKeysEnabled = hasUsableMasterKey();
 
 	return (
 		<div className="space-y-6">
 			<PageHeader title={t("title")} description={t("description")} />
+
+			{!dbKeysEnabled && (
+				<Alert tone="warning">
+					<p className="font-bold">{t("dbKeysDisabled")}</p>
+					<p className="text-xs">{t("dbKeysDisabledHint")}</p>
+				</Alert>
+			)}
 
 			<Card className="border-[#0A3D62]/15 bg-[#F4F7F6] p-4">
 				<p className="text-xs text-[#3D5568]">
@@ -23,7 +32,7 @@ export default async function SuperadminAiProvidersPage() {
 			</Card>
 
 			<div data-help="superadmin-ai-providers">
-				<AiProviderSettings providers={providers} />
+				<AiProviderSettings providers={providers} dbKeysEnabled={dbKeysEnabled} />
 			</div>
 		</div>
 	);

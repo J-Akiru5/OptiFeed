@@ -58,12 +58,17 @@ export async function isAiEnabled(options: AiCallOptions = {}): Promise<boolean>
 
 /**
  * Diagnostics for route logging. Reports the resolved chain and never exposes a
- * key — only provider ids, models and key presence.
+ * key — only provider ids, models, key source and presence.
  */
 export async function aiDebugInfo(options: AiCallOptions = {}) {
 	const configs = options.configs ?? (await loadProviderConfigs());
 	return {
-		providers: configs.map((c) => ({ provider: c.provider, model: c.model })),
+		providers: configs.map((c) => ({
+			provider: c.provider,
+			model: c.model,
+			keySource: c.keySource,
+			hasKey: Boolean(c.apiKey),
+		})),
 		primary: configs[0]?.provider ?? "none",
 		model: configs[0]?.model ?? "none",
 		hasKey: configs.length > 0,

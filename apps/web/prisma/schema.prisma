@@ -633,8 +633,9 @@ model ImpersonationSession {
 }
 
 /// Platform-global AI provider chain, managed from /superadmin.
-/// Secrets are never stored here: apiKeyEnv names an environment variable that
-/// holds the key, resolved at call time by lib/ai-providers/config.ts.
+/// A key is either encrypted here (AES-256-GCM, master key AI_SECRET_KEY) or
+/// named indirectly by apiKeyEnv; lib/ai-providers/config.ts resolves DB first,
+/// then the environment variable.
 model AiProviderConfig {
   id        String   @id @default(cuid())
   /// Registry id from lib/ai-providers/registry.ts, e.g. "opencode-go".
@@ -648,6 +649,25 @@ model AiProviderConfig {
   apiKeyEnv String?
   /// Provider-specific extras (e.g. { "reasoningEffort": "high" }).
   params    Json?
+  /// AES-256-GCM ciphertext of the API key. Null when the key comes from env.
+  keyCiphertext Bytes?
+  /// 12-byte random nonce for keyCiphertext.
+  keyIv         Bytes?
+  /// 16-byte GCM authentication tag for keyCiphertext.
+  keyTag        Bytes?
+  /// Master key that encrypted this row: 1 = AI_SECRET_KEY, 0 = previous.
+  keyVersion    Int?
+  /// Last four characters, shown in the console; never enough to use the key.
+  keyLast4      String?
+  keyUpdatedAt  DateTime?
+  /// Platform user id that last set the key.
+  keyUpdatedBy  String?
+  /// Phase B: adapter id for a provider instance (e.g. "openai-compatible").
+  kind    String?
+  /// Phase B: console label for a provider instance.
+  label   String?
+  /// Phase B: base URL for an OpenAI-compatible provider instance.
+  baseUrl String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -46,12 +46,69 @@
 | GPIO 12 | HC-SR04 TRIG (output). Strapping pin: a 10 kOhm pull-down to GND holds it LOW at boot |
 | GPIO 14 | HC-SR04 ECHO (input, 5 V logic — level-shift or divide before the pin) |
 | GPIO 16 | Factory reset button (INPUT_PULLUP, press = LOW). Hold >= 10 s to clear WiFi, Device ID, Device Token and the `provisioned` marker |
-| GPIO 17 | Wi-Fi reset button (INPUT_PULLUP, press = LOW). Hold >= 5 s to clear WiFi only — the Device ID/Token are kept |
+| GPIO 17 | Wi-Fi reset button (INPUT_PULLUP, press = LOW). Hold >= 5 s to clear WiFi only — the Device ID/Token are kept. A tap (< 5 s) acknowledges latched faults (1.8.0) |
+| GPIO 13 | POWER lamp, white (via NPN driver; HIGH = on). Solid once the controller runs (1.8.0) |
+| GPIO 18 | FEEDING lamp, green (via NPN driver). Solid while the relay is energized |
+| GPIO 19 | WI-FI lamp, blue (via NPN driver). Solid once joined to the saved network; 1 Hz blink in the setup portal; off otherwise |
+| GPIO 33 | FAULT lamp, yellow (via NPN driver). Solid while a fault is latched |
 | GPIO 21 | DS3231 SDA (I²C) — RTC                 |
 | GPIO 22 | DS3231 SCL (I²C) — RTC                 |
 | GPIO 1  | TX0 (USB debug serial)                  |
 | GPIO 3  | RX0 (USB debug serial)                  |
 | GPIO 0  | Must float during boot (boot mode)      |
+
+### Machine status interface (firmware 1.8.0)
+
+Four 12 V DC pilot lamps form one status panel. Logic lives in `status.h`
+(`fw::FaultManager`, `fw::indicatorLevels`) and is covered by the native tests.
+
+| Lamp | GPIO | Solid | Blinking | Off |
+|---|---|---|---|---|
+| POWER (white) | 13 | Control power available | — | No control power |
+| FEEDING (green) | 18 | Relay energized (actual feeding) | — | Idle |
+| WI-FI (blue) | 19 | Joined the configured network | Setup portal (provisioning) | Not connected (not a fault) |
+| FAULT (yellow) | 33 | A fault is latched | — | No active fault |
+
+Each lamp is switched by an NPN transistor (2N2222 or similar, rated for the
+lamp current), never directly by the GPIO:
+
+| Connection | Wiring |
+|---|---|
+| Lamp + | +12 V |
+| Lamp − | NPN collector |
+| NPN emitter | GND |
+| ESP32 GPIO | 1 kΩ → NPN base |
+| NPN base | 10 kΩ pull-down → GND (lamp stays dark while the pin floats at reset) |
+| ESP32 GND | Common with the 12 V supply GND (non-isolated supplies only) |
+
+Confirm each lamp is rated 12 V DC and check its current. An AC lamp or another
+voltage needs a different driver. A unit missing a lamp builds with
+`-D<NAME>_LED_PIN=-1` (`POWER_LED_PIN`, `FEEDING_LED_PIN`, `WIFI_LED_PIN`,
+`FAULT_LED_PIN`).
+
+**Faults the current hardware can detect**
+
+| Fault | Detection | Raised | Clears when |
+|---|---|---|---|
+| `hopper_sensor` | HC-SR04 returns no echo on any sample, 3 checks in a row (each heartbeat, or a single ping every 60 s when offline) | ~15 s online, ~3 min offline | An echo returns, then the operator acknowledges |
+| `rtc` | DS3231 not found at boot, or no I2C ACK at 0x68 (probed every 60 s) | At boot / within 60 s | It answers again, then acknowledgement |
+| `relay_overrun` | A dose ran past its expected end + 2 s (timing trip; the relay is already forced off) | At the trip | Acknowledgement |
+| `safe_mode` | Repeated abnormal resets locked the relay off | On entry | Safe mode ends, then acknowledgement |
+
+Faults latch: the yellow lamp stays on until the cause is gone **and** the
+operator taps the Wi-Fi reset button (GPIO 17, released before 5 s). A tap while
+the cause is still present is refused and logged. Acknowledging never resumes an
+interrupted dose. Each fault is logged as `[FAULT] <code> raised (epoch <n>)`
+(epoch 0 without a trusted clock) and the heartbeat carries
+`diag.faults_latched`, `diag.faults_present` (bit n = `fw::Fault` n) and
+`diag.last_fault`. Ingest strips these today, as with the other `diag` keys.
+
+Not faults: Wi-Fi loss (the unit feeds offline from the RTC; blue just goes
+off) and a low hopper (a server-side pellet alert). Not detectable without new
+parts: a jammed auger or motor overload (needs a current sensor) and a relay
+that fails to switch (needs relay feedback). The FAULT lamp is an operator
+notice, not a safety interlock: the relay gates and safe mode remain the only
+interlock, and no fault adds a new feeding refusal.
 
 ### Dedicated reset buttons
 
@@ -526,7 +583,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 #define FEED_POLL_URL_BASE     "https://pakaonai.syntaxure.dev/api/feed-command"
 #define SCHEDULE_SYNC_URL_BASE "https://pakaonai.syntaxure.dev/api/schedule-sync"
 #define OTA_CHECK_URL          "https://pakaonai.syntaxure.dev/api/firmware/check"
-#define FW_VERSION             "1.7.0"
+#define FW_VERSION             "1.8.0"
 #define FW_BOARD               "wroom32u"
 ```
 
@@ -559,7 +616,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 > 4. Confirm the five embedded certificates match the fingerprints in the
 >    source comment (`openssl x509 -fingerprint -sha256 -in <pem>`).
 
-> `FW_VERSION` is printed at boot (`[FIRMWARE] v1.7.0`, under the
+> `FW_VERSION` is printed at boot (`[FIRMWARE] v1.8.0`, under the
 > `[DEVICE MAC]` line) and sent as `firmware_version` in every heartbeat. It is
 > also the version the OTA check reports and compares against the signed
 > manifest.

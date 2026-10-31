@@ -144,6 +144,28 @@ describe("NotificationList read state", () => {
 		expect(refresh).not.toHaveBeenCalled();
 	});
 
+	// #416: the action belongs above the feed so the reader does not scroll past
+	// every notification to reach it, and it must still mark everything read.
+	it("renders Mark as Read once, above the feed, and still marks everything read", async () => {
+		renderNotifications();
+
+		const markAll = markAllButton();
+		expect(screen.getAllByRole("button", { name: "Mark as Read" })).toHaveLength(1);
+
+		const feeds = [screen.getByRole("table"), screen.getByRole("list", { name: "Notifications" })];
+		for (const feed of feeds) {
+			// The button precedes the feed in document order and lives outside it.
+			const position = markAll.compareDocumentPosition(feed);
+			expect(position & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+			expect(feed.contains(markAll)).toBe(false);
+		}
+
+		fireEvent.click(markAll);
+
+		await waitFor(() => expect(mockMarkAll).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(screen.getByTestId("badge")).toHaveTextContent("0"));
+	});
+
 	it("marks one row and drops the badge by one on Acknowledge", async () => {
 		renderNotifications();
 

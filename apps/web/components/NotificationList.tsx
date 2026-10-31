@@ -241,6 +241,19 @@ export function NotificationList({ initialNotifications, canWrite = true }: Noti
 				/>
 			</div>
 
+			{/* #416: the action sits above the feed so the reader does not scroll
+			past every notification to reach it. */}
+			<div className="flex flex-wrap justify-end">
+				<button
+					type="button"
+					onClick={handleMarkAllRead}
+					disabled={isPendingMarkAll || !canWrite}
+					className="inline-flex min-h-11 items-center rounded-lg bg-[#F4F7F6] px-4 py-2 text-sm font-bold text-[#0A3D62] transition-colors hover:bg-[#E8EDED] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-800 dark:text-[#5b9bd5] dark:hover:bg-gray-700 dark:focus-visible:outline-[#8fc0ea]"
+				>
+					{t("markRead")}
+				</button>
+			</div>
+
 			<div className="data-list-table hidden overflow-hidden rounded-2xl border border-[#0A3D62]/10 bg-white shadow-sm md:block dark:border-gray-700/50 dark:bg-gray-900">
 				<div className="overflow-x-auto">
 					<table className="w-full min-w-[40rem] text-sm">
@@ -362,17 +375,6 @@ export function NotificationList({ initialNotifications, canWrite = true }: Noti
 					);
 				})}
 			</ItemCardGrid>
-
-			<div className="flex justify-end pt-2">
-				<button
-					type="button"
-					onClick={handleMarkAllRead}
-					disabled={isPendingMarkAll || !canWrite}
-					className="inline-flex min-h-11 items-center rounded-lg bg-[#F4F7F6] px-4 py-2 text-sm font-bold text-[#0A3D62] transition-colors hover:bg-[#E8EDED] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-800 dark:text-[#5b9bd5] dark:hover:bg-gray-700 dark:focus-visible:outline-[#8fc0ea]"
-				>
-					{t("markRead")}
-				</button>
-			</div>
 		</div>
 	);
 }

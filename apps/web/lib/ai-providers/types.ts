@@ -16,8 +16,10 @@ export interface CompletionResult {
 
 /** Resolved, ready-to-call configuration for one provider. */
 export interface AiProviderRuntimeConfig {
-	/** Registry id, e.g. "opencode-go". */
+	/** Instance slug: the built-in id or a console-created provider (#432). */
 	provider: string;
+	/** Adapter id. Defaults to `provider` when absent. */
+	kind?: string;
 	/** Provider-specific model id. */
 	model: string;
 	/** Resolved secret value. Never logged. */
@@ -25,6 +27,8 @@ export interface AiProviderRuntimeConfig {
 	reasoningEffort: ReasoningEffort;
 	/** Free-form provider-specific extras from the config row. */
 	params: Record<string, unknown>;
+	/** Base URL for the generic OpenAI-compatible adapter (#432). */
+	baseUrl?: string;
 }
 
 export interface ProviderRequest {

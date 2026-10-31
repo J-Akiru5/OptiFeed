@@ -111,7 +111,7 @@ describe("saveAiProviderConfig before the migration is applied", () => {
 			reason: "adjusting the primary model",
 		});
 
-		expect(result.error).toContain("20261022000000_add_ai_provider_config");
+		expect(result.error).toContain("behind this build");
 	});
 });
 

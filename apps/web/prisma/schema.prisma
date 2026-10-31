@@ -648,6 +648,24 @@ model AiProviderConfig {
   apiKeyEnv String?
   /// Provider-specific extras (e.g. { "reasoningEffort": "high" }).
   params    Json?
+  /// Issue #432: adapter id for a console-created instance; null means the
+  /// row is a built-in and `provider` doubles as the adapter id.
+  kind      String?
+  /// Display label for a custom instance; null means the adapter label.
+  label     String?
+  /// OpenAI-compatible base URL (https only). Required for kind "openai-compatible".
+  baseUrl   String?
+  /// AES-256-GCM key material. Never selected into a view model, never logged,
+  /// never exported by the backup writer.
+  keyCiphertext Bytes?
+  keyIv         Bytes?
+  keyTag        Bytes?
+  /// Master-key generation that encrypted this row (AI_SECRET_KEY_VERSION).
+  keyVersion    Int?
+  /// Last four characters, shown in the console as the only key hint.
+  keyLast4      String?
+  keyUpdatedAt  DateTime?
+  keyUpdatedBy  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

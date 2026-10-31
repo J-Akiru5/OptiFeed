@@ -10,6 +10,10 @@ import type { ReactNode } from "react";
  * and only the right rail scrolls. Below 1280 px the same blocks stack into the
  * ordinary scrolling dashboard, so a phone keeps the familiar layout.
  *
+ * The height comes from `ofd-control-room` (globals.css), which subtracts the
+ * header and the pane padding from `100dvh` and steps the density down on short
+ * laptop viewports, so the whole room fits at 1366x768 and above (#399).
+ *
  * `ControlRoomRail` is `display: contents` under `xl`. That lets the rail's
  * children take part in the page's mobile column — where their `order` classes
  * place them next to the blocks they belong with — while the same children sit
@@ -23,15 +27,15 @@ interface ControlRoomLayoutProps {
 }
 
 /**
- * The page shell. Height is the viewport minus the 4 rem header and the
- * dashboard `main` padding (2 rem top and bottom at `xl`).
+ * The page shell. Height comes from `ofd-control-room`: the viewport minus the
+ * dashboard header and the `main` pane padding, with height-based density tiers.
  */
 export function ControlRoomLayout({ children, className }: ControlRoomLayoutProps) {
 	return (
 		<div
 			className={cn(
-				"flex w-full min-w-0 flex-col gap-6 animate-in fade-in duration-150",
-				"xl:grid xl:h-[calc(100dvh-8rem)] xl:grid-cols-[minmax(0,1fr)_22rem] xl:grid-rows-[auto_minmax(0,1fr)_auto] xl:gap-4 xl:overflow-hidden",
+				"ofd-control-room flex w-full min-w-0 flex-col gap-6 animate-in fade-in duration-150",
+				"xl:grid xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_22rem] xl:grid-rows-[auto_minmax(0,1fr)_auto] xl:overflow-hidden",
 				className,
 			)}
 		>

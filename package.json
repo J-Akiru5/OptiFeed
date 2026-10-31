@@ -15,7 +15,7 @@
 		"prepare": "husky",
 		"typecheck": "pnpm -r typecheck",
 		"test": "pnpm --filter web test",
-		"api:check": "node scripts/api/conformance-check.mjs",
+		"api:check": "node scripts/api/conformance-check.mjs && node scripts/api/auth-check.mjs",
 		"api:live": "node scripts/api/live-check.mjs",
 		"self-check": "node scripts/self-check.mjs",
 		"audit:gate": "node scripts/security/audit-gate.mjs",

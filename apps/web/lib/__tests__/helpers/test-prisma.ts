@@ -56,7 +56,12 @@ export function createTestPrisma(db: TenancyDb): TestPrismaClient {
 	const client = { ...base, membership } as unknown as TestPrismaClient;
 	client.$transaction = (<T>(arg: unknown): Promise<T> => {
 		if (Array.isArray(arg)) return Promise.all(arg) as unknown as Promise<T>;
-		return (arg as (tx: TestPrismaClient) => Promise<T>)(client);
+		// Release the row lock the action took inside the callback, the way a
+		// committed or rolled-back Postgres transaction would.
+		return db.runTransaction(
+			(tx) => (arg as (client: TestPrismaClient) => Promise<T>)(tx as TestPrismaClient),
+			client,
+		);
 	}) as TestPrismaClient["$transaction"];
 	return client;
 }

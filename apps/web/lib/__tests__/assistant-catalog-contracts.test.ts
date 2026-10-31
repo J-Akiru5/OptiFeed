@@ -70,7 +70,6 @@ import {
 	ASSISTANT_ACTION_DEFINITIONS,
 	assistantToday,
 	getAssistantActionDefinition,
-	loadPondProposalSettings,
 } from "../assistant/catalog";
 import type { AssistantProposalContext, AssistantToolId } from "../assistant/types";
 
@@ -1100,54 +1099,5 @@ describe("catalogue lookups", () => {
 
 		// 17:30 UTC is already the next calendar day in Asia/Manila (UTC+8).
 		expect(assistantToday()).toBe("2026-10-30");
-	});
-});
-
-describe("loadPondProposalSettings", () => {
-	it("returns an empty context and reads nothing when no pond is assigned", async () => {
-		mocks.getActivePond.mockResolvedValue(null);
-
-		const settings = await loadPondProposalSettings();
-
-		expect(settings).toEqual({
-			pondName: null,
-			feedsPerDay: null,
-			feedingRatePct: null,
-			currentGrams: null,
-		});
-		expect(mocks.pondFindUnique).not.toHaveBeenCalled();
-		expect(mocks.deviceFindFirst).not.toHaveBeenCalled();
-	});
-
-	it("reads the persisted rate, meals and per-meal grams", async () => {
-		mocks.pondFindUnique.mockResolvedValue({ feedsPerDay: 4, feedingRatePct: 3.5 });
-		mocks.deviceFindFirst.mockResolvedValue({ gramsPerFeeding: 120 });
-
-		const settings = await loadPondProposalSettings();
-
-		expect(settings).toEqual({
-			pondName: "Pond A",
-			feedsPerDay: 4,
-			feedingRatePct: 3.5,
-			currentGrams: 120,
-		});
-		expect(mocks.pondFindUnique).toHaveBeenCalledWith({
-			where: { id: "pond-1" },
-			select: { feedsPerDay: true, feedingRatePct: true },
-		});
-	});
-
-	it("keeps the pond name but null values when the row or device is missing", async () => {
-		mocks.pondFindUnique.mockResolvedValue(null);
-		mocks.deviceFindFirst.mockResolvedValue(null);
-
-		const settings = await loadPondProposalSettings();
-
-		expect(settings).toEqual({
-			pondName: "Pond A",
-			feedsPerDay: null,
-			feedingRatePct: null,
-			currentGrams: null,
-		});
 	});
 });

@@ -32,6 +32,7 @@ Key env vars (full list in `apps/web/.env.example`):
 | `CRON_SECRET` | Bearer secret for `/api/cron/device-watch` and `/api/cron/crop-watch` (the pg_cron SQL files) |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | CRITICAL alerts (no-op until set) |
 | `RESEND_API_KEY` / `REMINDER_FROM_EMAIL` | Harvest/sampling reminder email (optional; in-app only until all email vars are set) |
+| `RESET_FROM_EMAIL` | Sender for the password-reset email (optional; falls back to `INVITE_FROM_EMAIL`) |
 | `NEXT_PUBLIC_BASE_URL` | Absolute links in alerts/exports and reminder emails |
 | `NEXT_PUBLIC_SITE_URL` | Origin advertised by `robots.txt`, `sitemap.xml` and social metadata (defaults to production) |
 | `OPENCODE_GO_API_KEY` / `OPENCODE_GO_MODEL` / `OPENCODE_GO_REASONING_EFFORT` | AI chat + feeding prediction (OpenCode Go) |
@@ -74,6 +75,32 @@ never sent twice.
 - **Preferences:** `Pond.notificationPrefs` supports `harvestReminders`,
   `samplingReminders` and `emailReminders` (all default `true`). Legacy rows that
   only contain the feeding/device flags are merged with `true` at read time.
+
+## Password recovery
+
+Three routes, in order of preference:
+
+1. **Self-service** — Sign in → *Forgot password?* → `/forgot-password` asks for
+   the farm ID, mints the recovery link in code
+   (`admin.auth.admin.generateLink`, type `recovery`) and emails it through
+   Resend; `/reset-password` sets the new password from that link's session.
+   Requests are rate limited (3 per 10 minutes per IP, fail-closed) and never
+   reveal whether a farm ID exists. Every request for a real account is written
+   to the platform audit log as `platform.user.password_reset_requested`
+   (actor `self-service`, `after = { farmId, emailSent }`) — the link itself is
+   never recorded.
+2. **Platform console** — Superadmin → Users → account → *Reset password*
+   issues a one-time temporary password (reason + step-up + audit row
+   `platform.user.reset_password`), shown once and forced to change at the next
+   sign-in. This is the reliable route: login addresses are internal pond
+   mailboxes and cannot receive mail.
+3. **CLI** — `pnpm --filter web manage-user reset-password --farm-id <id>
+   --password <value>` (temporary + forced change by default).
+
+Reset email needs `RESEND_API_KEY`, `NEXT_PUBLIC_BASE_URL` and a sender:
+`RESET_FROM_EMAIL`, falling back to `INVITE_FROM_EMAIL`. If one is missing the
+email is skipped with a single warning, the request still succeeds, and the
+audit row records `emailSent: false`.
 
 ## Branch workflow
 

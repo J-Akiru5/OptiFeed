@@ -4,6 +4,7 @@ import { ORG_SETTINGS_DEFAULTS, mergeOrgSettings } from "@/lib/settings/org";
 import {
 	alertCategoryEnabled,
 	hopperAlertTier,
+	hopperIsLow,
 	offlineAlertDue,
 	offlineAlertThresholdMs,
 	personalPrefAllowsAlert,
@@ -159,6 +160,33 @@ describe("hopperAlertTier", () => {
 
 	it("ignores a non-numeric reading", () => {
 		expect(hopperAlertTier(Number.NaN, 20)).toBeNull();
+	});
+});
+
+describe("hopperIsLow (dashboard rail + Pakoy popup, #412)", () => {
+	it("is inclusive at the org threshold, like the server", () => {
+		// The server warns at `level <= hopperLowPct`; the rail and the popup
+		// used a strict `<` and stayed silent at exactly the threshold.
+		expect(hopperIsLow(19, 20)).toBe(true);
+		expect(hopperIsLow(20, 20)).toBe(true);
+		expect(hopperIsLow(21, 20)).toBe(false);
+	});
+
+	it("follows a non-default org threshold", () => {
+		expect(hopperIsLow(34, 35)).toBe(true);
+		expect(hopperIsLow(35, 35)).toBe(true);
+		expect(hopperIsLow(36, 35)).toBe(false);
+	});
+
+	it("falls back to 20 % for a malformed threshold", () => {
+		expect(hopperIsLow(20, Number.NaN)).toBe(true);
+		expect(hopperIsLow(21, Number.NaN)).toBe(false);
+	});
+
+	it("never treats a missing or non-finite reading as low", () => {
+		expect(hopperIsLow(null, 20)).toBe(false);
+		expect(hopperIsLow(undefined, 20)).toBe(false);
+		expect(hopperIsLow(Number.NaN, 20)).toBe(false);
 	});
 });
 

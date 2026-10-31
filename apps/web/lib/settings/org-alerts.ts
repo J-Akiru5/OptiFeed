@@ -85,6 +85,25 @@ export function hopperAlertTier(
 }
 
 /**
+ * Whether a reading counts as "low hopper" for the surfaces that mirror the
+ * server warning (the dashboard rail and Pakoy's reminder).
+ *
+ * The server warns at `levelPercent <= hopperLowPct`, so the UI must use the
+ * same inclusive boundary: a strict `<` left the rail and the popup silent at
+ * exactly the threshold the bell had just warned about (#412). A malformed
+ * threshold falls back to the legacy 20 %, never to "never low", matching
+ * `hopperAlertTier`. A missing or non-finite reading is never low.
+ */
+export function hopperIsLow(
+	levelPercent: number | null | undefined,
+	hopperLowPct: number,
+): boolean {
+	if (typeof levelPercent !== "number" || !Number.isFinite(levelPercent)) return false;
+	const low = Number.isFinite(hopperLowPct) ? hopperLowPct : PELLET_LOW_PCT;
+	return levelPercent <= low;
+}
+
+/**
  * The delay before an offline alert, in milliseconds.
  *
  * I-97: alerts follow the platform connectivity policy (Superadmin → Settings →

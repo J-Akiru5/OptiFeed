@@ -14,6 +14,8 @@
  *  - cron routes: `withApi(withCronAuth(handler))`;
  *  - platform-admin routes: the handler itself calls `getVerifiedSession()` and
  *    `isCurrentPlatformAdmin()`;
+ *  - tenant-admin routes: the handler itself calls `getVerifiedSession()` and
+ *    `isCurrentTenantAdmin()`;
  *  - device-token routes: the handler itself calls `verifyDeviceToken(...)`.
  *
  * The public allow-list is explicit and carries a reason. Anything not listed
@@ -60,12 +62,19 @@ export const DEVICE_TOKEN_ROUTES = new Map([
 /** Platform-admin routes (no tenant binding, so `withAuth` cannot resolve one). */
 export const PLATFORM_ADMIN_ROUTES = new Map([
 	["platform/audit/export/route.ts", "platform audit CSV"],
+	["superadmin/backup/export/route.ts", "platform SQL export (step-up, reason, rate limit)"],
+]);
+
+/** Tenant-admin routes (OWNER/ADMIN membership in an active organization, not a farm binding). */
+export const TENANT_ADMIN_ROUTES = new Map([
+	["admin/backup/export/route.ts", "tenant-scoped SQL export (rate limit, audit)"],
 ]);
 
 const SESSION_IMPORT = "@/lib/auth/with-auth";
 const DEVICE_IMPORT = "@/lib/device-auth";
 const PLATFORM_SESSION_IMPORTS = ["@/lib/auth/verify-session", "@/lib/auth/session"];
 const PLATFORM_ADMIN_IMPORT = "@/lib/auth/require-platform-admin";
+const TENANT_ADMIN_IMPORT = "@/lib/auth/tenant-admin";
 
 function posix(path) {
 	return path.split(sep).join("/");
@@ -285,6 +294,7 @@ export function analyzeRoute(path, source) {
 
 	const deviceReason = DEVICE_TOKEN_ROUTES.get(path);
 	const platformReason = PLATFORM_ADMIN_ROUTES.get(path);
+	const tenantAdminReason = TENANT_ADMIN_ROUTES.get(path);
 	const cron = /cron[\\/]/.test(path);
 
 	for (const [method, expression] of handlers) {
@@ -316,6 +326,24 @@ export function analyzeRoute(path, source) {
 			continue;
 		}
 
+		if (tenantAdminReason) {
+			if (!callsInHandler(expression, "getVerifiedSession")) {
+				failures.push(`${method}: handler does not call getVerifiedSession()`);
+			}
+			if (!callsInHandler(expression, "isCurrentTenantAdmin")) {
+				failures.push(`${method}: handler does not call isCurrentTenantAdmin()`);
+			}
+			if (!importsFrom(source, "getVerifiedSession", PLATFORM_SESSION_IMPORTS)) {
+				failures.push(`${method}: getVerifiedSession is not imported from a session module`);
+			}
+			if (!importsFrom(source, "isCurrentTenantAdmin", [TENANT_ADMIN_IMPORT])) {
+				failures.push(
+					`${method}: isCurrentTenantAdmin is not imported from ${TENANT_ADMIN_IMPORT}`,
+				);
+			}
+			continue;
+		}
+
 		const guard = cron ? "withCronAuth" : "withAuth";
 		if (!wrappedBy(expression, guard)) {
 			failures.push(`${method}: handler is not wrapped in ${guard}()`);
@@ -330,9 +358,11 @@ export function analyzeRoute(path, source) {
 			? `device token: ${deviceReason}`
 			: platformReason
 				? `platform admin: ${platformReason}`
-				: cron
-					? "cron secret"
-					: "session",
+				: tenantAdminReason
+					? `tenant admin: ${tenantAdminReason}`
+					: cron
+						? "cron secret"
+						: "session",
 	);
 	return { path, failures, notes };
 }

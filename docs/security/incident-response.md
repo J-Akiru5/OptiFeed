@@ -122,7 +122,7 @@ the dashboard.
 | Goal | Action | Notes |
 | --- | --- | --- |
 | Serve the last known-good build | Deployments → previous production deployment → **Instant Rollback** | Changes the served build only; it does not revert a migration or a data change (`deployment-workflow.md` §8) |
-| Stop a bad deployment from recurring | Remove the branch from `git.deploymentEnabled` in the app's `vercel.json`, or disconnect the Git integration | Only `main` and `develop` are approved to deploy; `vercel.json` still enables `staging` (#323) |
+| Stop a bad deployment from recurring | Remove the branch from `git.deploymentEnabled` in the app's `vercel.json`, or disconnect the Git integration | Only `main` and `staging` are approved to deploy (`docs/deployment-workflow.md` §1) |
 | Remove a leaked secret | Rotate at the provider, update the Vercel environment variable, redeploy | Rotating in Vercel without a redeploy leaves the old value in the running function |
 | Stop a deployment hook or token | Revoke the token/hook in Vercel settings | Deploy hooks are deployment pathways; unauthorised ones are removed, not rotated |
 

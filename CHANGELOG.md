@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.36.0] - 2026-10-31
+
 ### Fixed
 
 - #399 the farmer dashboard now fits one screen at 100 % zoom on laptop viewports (1366x768, 1440x900, 1536x864, 1920x1080): the control room takes its height from `100dvh` minus the header and the `main` pane padding, both held as tokens (`--ofd-topbar-h`, `--ofd-main-pad-y`), and steps down its density on short screens (chart plot area, gaps, hero padding/time, legend size). Only the right-hand rail scrolls internally; nothing is hidden or clipped, and below `lg` the stacked scrolling dashboard is unchanged. The chart plot area is now sized in CSS (`ofd-plot`), so a chart can no longer report a taller height than its card reserves. The page also stopped carrying a phantom scroll range: the shell and the rail are now positioned, so their 1 px `.sr-only` helpers are clipped by the room instead of being positioned against `main`.

@@ -47,10 +47,9 @@
 | GPIO 14 | HC-SR04 ECHO (input, 5 V logic — level-shift or divide before the pin) |
 | GPIO 16 | Factory reset button (INPUT_PULLUP, press = LOW). Hold >= 10 s to clear WiFi, Device ID, Device Token and the `provisioned` marker |
 | GPIO 17 | Wi-Fi reset button (INPUT_PULLUP, press = LOW). Hold >= 5 s to clear WiFi only — the Device ID/Token are kept. A tap (< 5 s) acknowledges latched faults (1.8.0) |
-| GPIO 13 | POWER lamp, white (via NPN driver; HIGH = on). Solid once the controller runs (1.8.0) |
-| GPIO 18 | FEEDING lamp, green (via NPN driver). Solid while the relay is energized |
-| GPIO 19 | WI-FI lamp, blue (via NPN driver). Solid once joined to the saved network; 1 Hz blink in the setup portal; off otherwise |
-| GPIO 33 | FAULT lamp, yellow (via NPN driver). Solid while a fault is latched |
+| GPIO 18 | FAULT lamp, yellow (LED + 200 Ω to GND; HIGH = on). Solid while a fault is latched (1.8.0) |
+| GPIO 26 | WI-FI lamp, blue (LED + 100 Ω to GND). Solid once joined to the saved network; 1 Hz blink in the setup portal; off otherwise (1.8.0) |
+| — | POWER lamp, white: 5 V rail + 330 Ω in hardware, no GPIO. FEEDING lamp, green: parallel tap on the relay control line (GPIO 25, or 5 on `esp32dev-relay5`), no GPIO |
 | GPIO 21 | DS3231 SDA (I²C) — RTC                 |
 | GPIO 22 | DS3231 SCL (I²C) — RTC                 |
 | GPIO 1  | TX0 (USB debug serial)                  |
@@ -59,18 +58,28 @@
 
 ### Machine status interface (firmware 1.8.0)
 
-Four 12 V DC pilot lamps form one status panel. Logic lives in `status.h`
-(`fw::FaultManager`, `fw::indicatorLevels`) and is covered by the native tests.
+Four LEDs form one status panel. Logic lives in `status.h` (`fw::FaultManager`,
+`fw::indicatorLevels`) and is covered by the native tests. The wiring below is the
+amended bench wiring (`firmware/bench/led-bench-test`, Jeff 2026-10-31): only the blue
+and yellow LEDs are firmware outputs.
 
-| Lamp | GPIO | Solid | Blinking | Off |
+| Lamp | Wiring | Solid | Blinking | Off |
 |---|---|---|---|---|
-| POWER (white) | 13 | Control power available | — | No control power |
-| FEEDING (green) | 18 | Relay energized (actual feeding) | — | Idle |
-| WI-FI (blue) | 19 | Joined the configured network | Setup portal (provisioning) | Not connected (not a fault) |
-| FAULT (yellow) | 33 | A fault is latched | — | No active fault |
+| POWER (white) | 5 V rail → 330 Ω → LED → GND; hardware, no GPIO | Control power available | — | No control power |
+| FEEDING (green) | Relay control line (GPIO 25, or 5 on `esp32dev-relay5`) → 200 Ω → LED → GND; a parallel tap, no GPIO | Relay energized (actual feeding) | — | Idle |
+| WI-FI (blue) | GPIO 26 → 100 Ω → LED → GND | Joined the configured network | Setup portal (provisioning) | Not connected (not a fault) |
+| FAULT (yellow) | GPIO 18 → 200 Ω → LED → GND | A fault is latched | — | No active fault |
 
-Each lamp is switched by an NPN transistor (2N2222 or similar, rated for the
-lamp current), never directly by the GPIO:
+Polarity: longer leg (anode) toward the resistor and GPIO, shorter leg (cathode) to
+GND. Tap the relay line at the ESP32 pin or module input, not at a point pulled up
+to 5 V. The green LED reflects *relay energized*, so it also blips with the GPIO 5
+boot glitch and stays lit if the relay sticks on; label it FEED or RELAY on the
+enclosure, not "FEEDING OK". Blue sits close to the 3.3 V rail and is dim even at
+100 Ω; a brighter blue needs a 5 V supply and a small low-side switch.
+
+A panel of 12 V DC pilot lamps instead (each switched by an NPN, never directly by
+a GPIO) builds with `-DPOWER_LED_PIN=13 -DFEEDING_LED_PIN=18 -DWIFI_LED_PIN=19
+-DFAULT_LED_PIN=33`:
 
 | Connection | Wiring |
 |---|---|
@@ -81,10 +90,8 @@ lamp current), never directly by the GPIO:
 | NPN base | 10 kΩ pull-down → GND (lamp stays dark while the pin floats at reset) |
 | ESP32 GND | Common with the 12 V supply GND (non-isolated supplies only) |
 
-Confirm each lamp is rated 12 V DC and check its current. An AC lamp or another
-voltage needs a different driver. A unit missing a lamp builds with
-`-D<NAME>_LED_PIN=-1` (`POWER_LED_PIN`, `FEEDING_LED_PIN`, `WIFI_LED_PIN`,
-`FAULT_LED_PIN`).
+A lamp that is not fitted builds with `-D<NAME>_LED_PIN=-1` (`POWER_LED_PIN`,
+`FEEDING_LED_PIN`, `WIFI_LED_PIN`, `FAULT_LED_PIN`).
 
 **Faults the current hardware can detect**
 
@@ -128,9 +135,9 @@ cannot reboot into the portal at 5 s: the factory reset wins at 10 s. The
 existing feed-button hold (GPIO 23, 5 s at boot) remains a WiFi-only reset.
 
 GPIO 16 and 17 are free on the ESP32-WROOM-32U, are not strapping pins, and
-support the internal pull-up. They are held by these two buttons. The other
-four pins that used to be listed free (13, 18, 19, 33) are the status lamps since
-1.8.0 (see *Machine status interface*); no spare pin is left on this pin map.
+support the internal pull-up. They are held by these two buttons. GPIO 18 and 26
+are the FAULT and WI-FI lamps since 1.8.0 (see *Machine status interface*). GPIO 27 is
+still free; so are 13, 19 and 33 unless a 12 V lamp panel is built (see that section).
 
 Do **not** use: 25 (relay), 23 (feed button), 32 (DS18B20), 12/14 (HC-SR04),
 21/22 (RTC I2C), 0/2/15 (strapping), 34-39 (input-only, no internal pull-up),

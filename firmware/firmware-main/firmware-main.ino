@@ -398,22 +398,28 @@ ResetButtonState wifiResetButton = { false, 0, 0 };
 ResetButtonState factoryResetButton = { false, 0, 0 };
 bool resetButtonsArmed = false;
 // ---- Machine status lamps (1.8.0) ---------------------------------------
-// The four GPIOs left free by the pin map above. Each drives an NPN transistor
-// (1 kOhm to the base, 10 kOhm base pull-down) that switches a 12 V DC pilot
-// lamp; never wire a lamp to the pin directly. HIGH = lamp on. A unit without
-// a given lamp builds with -D<NAME>_LED_PIN=-1. GPIO 33 is a full I/O pin (only
-// 34-39 are input-only).
+// Panel as wired on the bench (firmware/bench/led-bench-test, Jeff 2026-10-31):
+// 5 mm LEDs, each with a series resistor from the GPIO to GND, HIGH = on.
+//   POWER   white  5 V rail + 330 ohm, always on in hardware: no GPIO (-1)
+//   FEEDING green  parallel tap on the relay control line, so it follows the
+//                  relay without firmware: no GPIO (-1)
+//   WI-FI   blue   GPIO 26 (100 ohm)
+//   FAULT   yellow GPIO 18 (200 ohm)
+// A panel of NPN-driven 12 V lamps with firmware-driven POWER and FEEDING builds
+// with -DPOWER_LED_PIN=13 -DFEEDING_LED_PIN=18 -DWIFI_LED_PIN=19 -DFAULT_LED_PIN=33
+// (1 kOhm to the base, 10 kOhm base pull-down); never wire a 12 V lamp to a pin
+// directly. Any lamp can be dropped with -D<NAME>_LED_PIN=-1.
 #ifndef POWER_LED_PIN
-#define POWER_LED_PIN    13   // white
+#define POWER_LED_PIN    -1   // white: 5 V rail in hardware
 #endif
 #ifndef FEEDING_LED_PIN
-#define FEEDING_LED_PIN  18   // green
+#define FEEDING_LED_PIN  -1   // green: tap on the relay control line
 #endif
 #ifndef WIFI_LED_PIN
-#define WIFI_LED_PIN     19   // blue
+#define WIFI_LED_PIN     26   // blue
 #endif
 #ifndef FAULT_LED_PIN
-#define FAULT_LED_PIN    33   // yellow
+#define FAULT_LED_PIN    18   // yellow
 #endif
 #define WIFI_LED_BLINK_PERIOD_MS      1000UL   // provisioning: 0.5 s on, 0.5 s off
 #define FAULT_CHECK_INTERVAL_MS      60000UL   // RTC I2C probe + offline echo check

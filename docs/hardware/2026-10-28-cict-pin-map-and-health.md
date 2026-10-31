@@ -6,8 +6,9 @@ Visual wiring map: https://claude.ai/artifact/RghPSrLuspqU7heBFHqpdy
 
 ## Pin map (firmware 1.7.0 on develop; lamps are firmware 1.8.0)
 
-The four status-lamp rows (GPIO 13, 18, 19, 33) and the acknowledge tap on GPIO 17 exist
-only from firmware **1.8.0** (PR #422). A unit still on 1.7.0 ignores those pins. The full
+The status-lamp rows (GPIO 18 and 26) and the acknowledge tap on GPIO 17 exist only from
+firmware **1.8.0** (PR #422). A unit still on 1.7.0 ignores those pins, so the blue and
+yellow LEDs stay dark (the white and green ones work in hardware). The full
 lamp behaviour, driver wiring and fault list are in `firmware/README.md` → **Machine
 status interface (firmware 1.8.0)**; this table is the one place the pins of this unit are
 listed together.
@@ -22,15 +23,19 @@ listed together.
 | 32 | DS18B20 DATA | 4.7 kΩ pull-up to 3V3 |
 | 12 | HC-SR04 TRIG | 10 kΩ pull-down (strapping pin) |
 | 14 | HC-SR04 ECHO | 1 kΩ / 2 kΩ divider (5 V → 3.3 V) |
-| 13 | POWER lamp (white), NPN driver | 1.8.0. HIGH = on. Solid while the controller runs |
-| 18 | FEEDING lamp (green), NPN driver | 1.8.0. Solid while the relay is energized |
-| 19 | WI-FI lamp (blue), NPN driver | 1.8.0. Solid = joined the saved network, 1 Hz blink = setup portal, off = not connected |
-| 33 | FAULT lamp (yellow), NPN driver | 1.8.0. Solid while a fault is latched; a tap on GPIO 17 acknowledges once the cause is gone |
+| 18 | FAULT lamp (yellow): LED + 200 Ω to GND | 1.8.0. HIGH = on. Solid while a fault is latched; a tap on GPIO 17 acknowledges once the cause is gone |
+| 26 | WI-FI lamp (blue): LED + 100 Ω to GND | 1.8.0. Solid = joined the saved network, 1 Hz blink = setup portal, off = not connected |
+| — | POWER lamp (white) | No GPIO: 5 V rail + 330 Ω, always on in hardware |
+| — | FEEDING lamp (green) | No GPIO: LED + 200 Ω tapped onto the relay control line (GPIO 5 here), so it follows the relay |
 | 5V / GND | Buck converter (12 V → 5 V) | 12 V adapter also feeds the relay and the motor |
 
-Each lamp: +12 V → lamp → NPN collector, emitter → GND, GPIO → 1 kΩ → base, base →
-10 kΩ → GND. Never drive a lamp straight from a GPIO. Lamps are a notice, not an
-interlock. Wiring status of the lamps on this unit: not yet bench-verified (2026-10-31).
+Wiring as proven on the bench (`firmware/bench/led-bench-test`, 2026-10-31): each LED has
+a series resistor to GND, longer leg (anode) toward the resistor. The green LED is a
+parallel tap on the relay line at the ESP32 pin, so it reflects *relay energized* and blips
+with the GPIO 5 boot glitch; label it FEED or RELAY. Blue is dim on 3.3 V even at 100 Ω.
+Keep the LED leads away from the GPIO 23 button line and the motor/relay wiring. Lamps are a
+notice, not an interlock. Status on this unit: bench-verified with the bench sketch only;
+not yet seen running 1.8.0 (2026-10-31).
 
 ## Component health
 

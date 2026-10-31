@@ -86,10 +86,14 @@ ORDER BY 1, 2
 - **Severity:** the highest in this document. `FeedEvent` receives a heartbeat row per device every
   few minutes; `apps/web/lib/retention.ts` prunes heartbeats after seven days, which bounds the table
   but does not make the scan cheap.
-- **Recommendation (not applied - no schema change in this workstream):** `CREATE INDEX
-  "FeedEvent_eventType_receivedAt_idx" ON "FeedEvent"("eventType", "receivedAt")`. That single index
-  also serves 2.5 and 2.6 below. A partial index `WHERE "eventType" = 'feed_dispensed'` would be
-  smaller still.
+- **Applied in I-103 (#338):** migration `20261031010000_add_feed_event_event_type_received_at_index`
+  adds `"FeedEvent_eventType_receivedAt_idx"` on `("eventType", "receivedAt")`, and
+  `schema.prisma` declares the matching `@@index`. That single index also serves 2.2 and 2.5 below.
+  A partial index `WHERE "eventType" = 'feed_dispensed'` would be smaller still, but would not serve
+  the heartbeat sweep, so the composite index is the correct trade-off.
+- **Before/after plan `[not measured]`:** no database is reachable from the worker that applied the
+  migration, and the brief forbids database access. The expected change is Seq Scan -> Index Scan on
+  the predicates in section 7; record the EXPLAIN output there when a database is available.
 
 Note the contrast with `DeviceStateEvent`, which does have `(eventType, createdAt)` - the same query
 shape was already solved there and not on `FeedEvent`.
@@ -115,9 +119,10 @@ first 5,000 matching rows `[inferred]`.
 The cron that calls this (`apps/web/app/api/cron/*`) runs on a schedule, so this is a repeated full
 scan, not a one-off.
 
-- **Recommendation:** the `(eventType, receivedAt)` index in 2.1 makes this an index range scan with
-  no further change. This is the strongest argument for that one index: it fixes a hot write-path
-  sweep and a platform dashboard read at the same time.
+- **Applied in I-103 (#338):** the `(eventType, receivedAt)` index from 2.1 makes this an index range
+  scan with no further change, and the misleading code comment in `lib/retention.ts` now names that
+  index instead of `(deviceId, receivedAt)`. This was the strongest argument for the one index: it
+  fixes a hot write-path sweep and a platform dashboard read at the same time.
 
 ### 2.3 Farmer audit trail - sorts by an unindexed ordering `[inferred]`
 
@@ -238,7 +243,9 @@ Call sites that matter:
 access path, it is on the dashboard's critical path, and `energyDevice.findFirst` inside the
 notification loop is an N+1 with a scan per iteration.
 
-- **Recommendation:** `@@index([pondId])` on `EnergyDevice`.
+- **Applied in I-103 (#339):** migration `20261031020000_add_energy_device_pond_id_index` adds
+  `"EnergyDevice_pondId_idx"`, with the matching `@@index([pondId])` in `schema.prisma`. The N+1 in
+  4.1 is rewritten to one batched device lookup (see 4.1); no per-pond query remains.
 
 ### 3.2 `EnergyDevice` platform scans `[static]`
 
@@ -327,8 +334,10 @@ serves it; `eventType` is a residual filter. Correctly indexed, mentioned only f
 
 Not index problems, but they show up in the same reads:
 
-1. **`pod` N+1 with a scan** - `lib/actions/notifications.ts` runs `energyDevice.findFirst` inside a
-   `for (const group of groups)` loop, and `pondId` is unindexed (3.1). Two defects in one line.
+1. **~~N+1 with a scan~~ fixed in I-103** - `lib/actions/notifications.ts` used to run
+   `energyDevice.findFirst` inside a `for (const group of groups)` loop, and `pondId` was unindexed
+   (3.1). The action now issues one `energyDevice.findMany` for the whole batch and one
+   `deviceStateEvent.createMany`, with the `(pondId)` index from 3.1 serving the lookup.
 2. **Counting a fetched array** - `batch-logs.ts:68` and `search.ts` derive counts from materialised
    rows instead of a `count()`.
 3. **`getActivePond` over-fetches** - it loads every pond of the farm with all devices attached
@@ -342,13 +351,13 @@ Not index problems, but they show up in the same reads:
 
 ## 5. Recommended index changes, ranked
 
-None of these were applied: this workstream makes no schema change. They are the reviewed shortlist
-for a follow-up migration.
+Rows 1 and 2 were applied by I-103. Rows 3-8 remain proposals for a follow-up migration; this
+workstream makes no other schema change.
 
 | # | Index | Fixes | Risk |
 |---|---|---|---|
-| 1 | `FeedEvent(eventType, receivedAt)` | 2.1 platform dashboard (full scan), 2.2 retention sweep (full scan), also 2.5 | Write cost on the highest-write table; consider a partial index on `feed_dispensed` + `heartbeat` |
-| 2 | `EnergyDevice(pondId)` | 3.1 dashboard first read, notification N+1, calendar | Negligible |
+| 1 | `FeedEvent(eventType, receivedAt)` - **applied**, `20261031010000` | 2.1 platform dashboard (full scan), 2.2 retention sweep (full scan), also 2.5 | Write cost on the highest-write table; plain CREATE INDEX blocks writes while it builds on a large table |
+| 2 | `EnergyDevice(pondId)` - **applied**, `20261031020000` | 3.1 dashboard first read, notification N+1, calendar | Negligible |
 | 3 | `DeviceStateEvent(farmId, createdAt)` | 2.3 farmer audit sort + deep offset | `farmId` nullable; verify backfill or use a partial index |
 | 4 | `PlatformAuditLog(createdAt)` | 2.4 unfiltered explorer sort | Negligible; append-only table |
 | 5 | `Notification(read, createdAt)` (or partial on pending) | 3.3 unread counts on every dashboard render | Negligible |

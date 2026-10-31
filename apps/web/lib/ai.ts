@@ -117,7 +117,7 @@ export async function* streamAi(
 	let lastError: unknown = null;
 
 	for (const config of configs) {
-		const provider = getProvider(config.provider);
+		const provider = getProvider(config.kind ?? config.provider);
 		if (!provider) continue;
 
 		let yielded = false;
@@ -159,7 +159,7 @@ export async function completeAi(
 	let lastError: unknown = null;
 
 	for (const config of configs) {
-		const provider = getProvider(config.provider);
+		const provider = getProvider(config.kind ?? config.provider);
 		if (!provider) continue;
 
 		try {

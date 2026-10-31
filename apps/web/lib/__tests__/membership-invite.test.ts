@@ -417,6 +417,53 @@ describe("provisioning a new account", () => {
 		expect(linked.mock.calls[0]?.[1]).toMatchObject({ createdUser: true });
 	});
 
+	it("keeps the typed address as the contact email of a new account (#449)", async () => {
+		allowNewAuthAccount("sb-contact");
+
+		const result = await invite({
+			email: "  New.Member@Example.TEST ",
+			displayName: "New Member",
+			role: "OPERATOR",
+		});
+		if (!result.success) throw new Error("expected provisioning to succeed");
+
+		const user = tenancy().tables.users.find((row) => row.id === result.userId);
+		expect(user?.contactEmail).toBe("new.member@example.test");
+		expect(user?.email).toBe("new-member@pond.optifeed.local");
+	});
+
+	it("still provisions the account, with no contact email, when another account holds that address", async () => {
+		const holderRow = tenancy().tables.users.find((row) => row.id === FARMER_A_ID);
+		if (!holderRow) throw new Error("fixture user missing");
+		holderRow.contactEmail = "taken@example.test";
+		allowNewAuthAccount("sb-clash");
+
+		const result = await invite({
+			email: "taken@example.test",
+			displayName: "Taken Address",
+			role: "VIEWER",
+		});
+		if (!result.success) throw new Error("expected provisioning to succeed");
+
+		const user = tenancy().tables.users.find((row) => row.id === result.userId);
+		expect(user?.contactEmail).toBeNull();
+		expect(holderRow.contactEmail).toBe("taken@example.test");
+	});
+
+	it("stores no contact email when the typed address is a pond login address", async () => {
+		allowNewAuthAccount("sb-pond");
+
+		const result = await invite({
+			email: "typed@pond.optifeed.local",
+			displayName: "Typed Pond",
+			role: "VIEWER",
+		});
+		if (!result.success) throw new Error("expected provisioning to succeed");
+
+		const user = tenancy().tables.users.find((row) => row.id === result.userId);
+		expect(user?.contactEmail).toBeNull();
+	});
+
 	it.each([
 		["OWNER", "ADMIN"],
 		["ADMIN", "ADMIN"],

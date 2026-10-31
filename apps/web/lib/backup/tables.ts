@@ -150,6 +150,7 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 			"supabaseId",
 			"farmId",
 			"email",
+			"contactEmail",
 			"displayName",
 			"role",
 			"mustChangePassword",
@@ -617,18 +618,37 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 		key: "id",
 		model: prisma.aiProviderConfig,
 		// apiKeyEnv names an environment variable; it is not a credential.
+		// #432: encrypted key material (keyCiphertext/keyIv/keyTag/keyVersion)
+		// is deliberately excluded. A restore re-uses the environment variable
+		// until an operator re-enters the key in the console.
 		columns: [
 			"id",
 			"provider",
+			"kind",
+			"label",
+			"baseUrl",
 			"enabled",
 			"priority",
 			"model",
 			"apiKeyEnv",
 			"params",
+			"keyLast4",
+			"keyUpdatedAt",
+			"keyUpdatedBy",
 			"createdAt",
 			"updatedAt",
 		],
 		jsonColumns: ["params"],
+		omitted: [
+			{
+				column: "keyCiphertext",
+				reason:
+					"Encrypted provider credential (#432). Never exported; a restore re-uses the environment variable until an operator re-enters the key.",
+			},
+			{ column: "keyIv", reason: "AES-GCM nonce for keyCiphertext; part of the credential." },
+			{ column: "keyTag", reason: "AES-GCM authentication tag for keyCiphertext." },
+			{ column: "keyVersion", reason: "Master-key generation for keyCiphertext." },
+		],
 		tenantWhere: noneById,
 	},
 	{

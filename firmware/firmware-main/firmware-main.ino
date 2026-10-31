@@ -374,10 +374,10 @@ VC2U+UkjnsS9bS7guFXvY41PNeEVH4lp5iEcgtjQc6E+IgFO8QHwfPoRgg==
 // reset (10 s, WiFi and identity wiped). Both are free on the ESP32-WROOM-32U
 // used here (not used by this sketch) and neither is a strapping pin. Still
 // free: 13, 18, 19, 33. Do NOT use 25 (relay), 23 (feed button), 32 (DS18B20),
-// 12/14 (HC-SR04), 21/22 (RTC I2C), 0/2/15 (strapping), 34-39 (input-only, no
-// internal pull-up), 1/3 (USB serial) or 6-11 (flash). GPIO 12 is a strapping
-// pin that selects the flash voltage at boot, so it must sit LOW then: the
-// HC-SR04 echo idles low and an external 10k pull-down holds it there.
+// 27/14 (HC-SR04), 21/22 (RTC I2C), 0/2/12/15 (strapping), 34-39 (input-only,
+// no internal pull-up), 1/3 (USB serial) or 6-11 (flash). GPIO 12 is a
+// strapping pin that selects the flash voltage at boot and must sit LOW then,
+// so leave it unconnected (the HC-SR04 TRIG used to sit there; it moved to 27).
 #define WIFI_RESET_BUTTON_PIN       17   // hold to clear WiFi only
 #define FACTORY_RESET_BUTTON_PIN    16   // hold to clear WiFi + identity
 #define WIFI_RESET_HOLD_MS        5000   // continuous hold: WiFi reset
@@ -427,11 +427,13 @@ bool resetButtonsArmed = false;
 #define DS3231_I2C_ADDRESS             0x68
 #define RTC_SDA         21
 #define RTC_SCL         22
-// TRIG sits on GPIO 12 and ECHO on GPIO 14 deliberately: GPIO 14 emits a PWM
+// TRIG sits on GPIO 27 and ECHO on GPIO 14 deliberately: GPIO 14 emits a PWM
 // glitch at boot, which as an input is harmless but as a trigger would fire a
-// spurious ping and drive GPIO 12 high during the flash-voltage strapping
-// window. Swapping them risks a boot failure.
-#define TRIG_PIN        12          // HC-SR04 ultrasonic trigger (needs 10k pull-down)
+// spurious ping. TRIG was on GPIO 12 until 2026-10-31, but that is the
+// flash-voltage strapping pin and a driven or pulled-up level there can stop
+// the board booting; GPIO 27 is neither a strapping pin nor glitchy at boot.
+// Swapping TRIG and ECHO is not safe for the GPIO 14 reason above.
+#define TRIG_PIN        27          // HC-SR04 ultrasonic trigger (a 10k pull-down is optional)
 #define ECHO_PIN        14          // HC-SR04 ultrasonic echo (5 V - use a divider)
 #define DS18B20_PIN     32          // DS18B20 water temperature probe (4.7k pull-up)
 

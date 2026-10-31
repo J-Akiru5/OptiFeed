@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.41.0] - 2026-11-01
+
+### Added
+
+- **Provider keys and OpenAI-compatible providers from the console.** `/superadmin/ai-providers` can set, rotate and clear a provider API key. Keys are tested with a live call before they are accepted, encrypted at rest with AES-256-GCM (`AI_SECRET_KEY`, versioned for rotation), shown only as a masked last four, and every mutation requires a password step-up plus a reason in the platform audit log. A new "Add provider" form creates any OpenAI-compatible endpoint (Groq, OpenAI, DeepSeek, Kimi, GLM, OpenRouter…) with an https-only, SSRF-guarded base URL. Environment variables remain the fallback when no key is stored (#432).
+- **Password reset by email, and admins can edit an account's contact email (#449).** The forgot-password page now asks for an email address; a Farm ID still works in the same box, so accounts with no email recorded yet are not locked out. A new nullable, unique `User.contactEmail` holds the deliverable address, and the synthetic login address (`<farmId>@pond.optifeed.local`) is never edited, because sign-in derives it from the Farm ID. Tenant admins edit the contact email inline in the Members table (an ADMIN cannot change an OWNER's address, and an account that also belongs to an organization the caller does not administer is refused); platform admins edit it from the user dialog, which needs a reason and a fresh step-up and audits the before and after values. Addresses are validated as a single mailbox, and reset stays anti-enumeration. Additive migration `20261101010000_add_user_contact_email`.
+
+### Changed
+
+- **The HC-SR04 TRIG moves from GPIO 12 to GPIO 27 (firmware, needs a reflash).** GPIO 12 is the ESP32 flash-voltage strapping pin, so a trigger wired there needed a 10 kΩ pull-down just to boot reliably. GPIO 27 is not a strapping pin and is quiet at boot, so the pull-down is now optional. ECHO stays on GPIO 14 behind its 1 kΩ / 2 kΩ divider. Move the TRIG wire to GPIO 27 and reflash together: a unit flashed with this build but still wired to GPIO 12, or the reverse, reads no echo and reports 0 % / 0 cm. The firmware README pin table and the CICT pin-map note are updated to match.
+
+### Fixed
+
+- **A feeder is never told to dispense a dose it cannot run (#430).** The dose per meal is derived from the pond settings, the fish count and the latest biomass sample, and the write paths checked the dose that was *stored* before writing the newly *derived* one — so a meal the ESP32 cannot finish in one relay window still reached it. On the Demo Pond that left the feeder holding 2,110 g per meal against a 1,200 g window (4 g/s for 300 s), and every later pond-settings edit was refused because the saved plan was already impossible: the form reported "one meal is longer than the relay window" for the reader's own edit, while the dashboard kept the old fish count. The schedule save, the admin pond edit, the biomass auto-adjust and the growth-plan apply now all check the dose they are about to write, and the single writer (`lib/feeding/derive.ts`) refuses to store one that breaks the relay window or the daily ceiling. The pond settings form also says when the *saved* plan was already over the limit, so a stale plan no longer looks like the reader's mistake.
+
 ## [1.40.0] - 2026-10-31
 
 ### Added
@@ -109,7 +124,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - #339 `markAllNotificationsRead` is no longer an N+1: it issues one `updateMany`, one batched `EnergyDevice` lookup and one `deviceStateEvent.createMany`, keeping one audit row per pond and the same owner scoping.
 - #318 every writer of `CropCycle.targetHarvestWeightG` now goes through `lib/crop-cycle/target-write.ts`: the cycle edit uses the Replace/Keep decision, new cycles use the range guard, and the calculator save/clear use the same count-guarded writers. A static guard test fails if another module writes the mirror directly, and `cycleTargetDrift` reports drift from scripted data.
 
-
 ## [1.34.1] - 2026-10-31
 
 ### Fixed
@@ -127,7 +141,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - I-97 feeders now report their Wi-Fi signal (`wifi_rssi`, firmware 1.6.2) and the app stores it in two additive, nullable columns (`EnergyDevice.wifiRssiDbm`, `wifiRssiUpdatedAt`, no backfill). A plausible, fresh low reading turns a reachable unit into "weak signal" and the device screens show the dBm value with a bars icon and text, never colour alone. Old firmware that reports no signal keeps the timing-only rule.
 - #371 unsaved pond settings drafts are now stored in the database (`PondSettingsDraft`, one row per pond and user) instead of only `sessionStorage`, so typed values survive a closed browser and are never visible to another member of the farm. The form restores a draft only when it is newer than the saved settings and actually differs from them, shows the restore time with a Discard button, clears the draft after a successful save, and keeps `sessionStorage` only as the offline fallback. The device-watch cron prunes drafts untouched for 30 days. Additive migration `20261030120000_add_pond_settings_draft` (new table only).
-
 
 ## [1.33.0] - 2026-10-30
 
@@ -152,7 +165,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - #371 a failed pond settings save keeps every value the reader typed and restores an unsaved draft after leaving the page; errors render under their field and in a summary whose links move focus to the field. Device conflicts are resolved in the pond's favour: the daily ceiling can be set from the pond value (still bounded by the 500-5,000 g window and never above a platform or hopper ceiling), and a meal the relay window cannot run links to calibration with the fewest feeds that would fit. The per-meal dose is derived from the typed values before the schedule command validates it, so a save is no longer refused by a stale dose.
-
 
 ## [1.31.8] - 2026-10-30
 
@@ -940,7 +952,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wired up notification bell to navigate to the notifications page and mark unread items as read in the database
 - Built out the notifications page with real data fetching, status badges, and timestamps
 
-
 ## [1.7.0] - 2026-07-09
 
 ### Added
@@ -949,13 +960,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wired up LocaleSwitcher to seamlessly toggle between English and Hiligaynon using `next-intl`
 - Added secure Sign Out functionality via Supabase Auth
 
-
 ## [1.6.0] - 2026-07-08
 
 ### Added
 - Implemented rule-based Chat Bubble assistant UI
 - Added `submitChatMessage` Server Action to parse intents (Next Feed, Log Sample, FCR, Missed Feedings) and return live database data
-
 
 ## [1.5.0] - 2026-07-08
 
@@ -963,7 +972,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implemented global Realtime Notifications via Supabase WebSocket subscriptions
 - Added sticky banners for `CRITICAL` alerts and toast notifications for `WARNING`/`SUCCESS` alerts
 - Wired up the navigation bell to instantly reflect live unread counts
-
 
 ## [1.4.0] - 2026-07-08
 

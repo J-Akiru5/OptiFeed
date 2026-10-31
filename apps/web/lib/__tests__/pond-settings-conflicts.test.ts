@@ -1,7 +1,9 @@
 import {
 	buildPondDeviceConstraints,
 	buildPondFeedPreview,
+	detectDoseViolation,
 	detectPondDeviceConflicts,
+	maxDosePerMealG,
 } from "@/lib/settings/pond-conflicts";
 import { parsePondSettingsDraft } from "@/lib/settings/pond-input";
 import { describe, expect, it } from "vitest";
@@ -164,6 +166,41 @@ describe("detectPondDeviceConflicts", () => {
 
 	it("reports nothing when the plan cannot be computed", () => {
 		expect(detectPondDeviceConflicts(preview({ population: null }), constraints())).toEqual([]);
+	});
+});
+
+describe("maxDosePerMealG and detectDoseViolation (#430)", () => {
+	const window = { gramsPerSecond: 4, maxDispenseMs: 300_000 };
+	const limits = { ...window, effectiveDailyCapG: 5000 };
+
+	it("computes the biggest dose the feeder can run in one meal", () => {
+		expect(maxDosePerMealG(window)).toBe(1200);
+	});
+
+	it("has no window when the feeder has no rate", () => {
+		expect(maxDosePerMealG({ gramsPerSecond: 0, maxDispenseMs: 300_000 })).toBeNull();
+		expect(maxDosePerMealG({ gramsPerSecond: 4, maxDispenseMs: 0 })).toBeNull();
+	});
+
+	it("allows a dose exactly at the relay window", () => {
+		expect(detectDoseViolation({ grams: 1200, feedsPerDay: 2, constraints: limits })).toBeNull();
+	});
+
+	it("reports the relay window before the daily ceiling", () => {
+		// 2,110 g per meal is over both limits; the window is the harder one.
+		expect(detectDoseViolation({ grams: 2110, feedsPerDay: 2, constraints: limits })).toBe(
+			"relay-time",
+		);
+	});
+
+	it("reports the daily ceiling for a dose the feeder can run but cannot afford", () => {
+		expect(detectDoseViolation({ grams: 1000, feedsPerDay: 6, constraints: limits })).toBe(
+			"daily-ceiling",
+		);
+	});
+
+	it("reports nothing for a dose that fits both limits", () => {
+		expect(detectDoseViolation({ grams: 923, feedsPerDay: 4, constraints: limits })).toBeNull();
 	});
 });
 

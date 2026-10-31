@@ -33,6 +33,9 @@ export default async function ProfileSettingsPage() {
 
 	const currentUser = await getCurrentUser();
 	const farmId = currentUser?.farmId ?? "\u2014";
+	// The session email is the synthetic pond login address, which can never
+	// receive mail; the contact email an administrator recorded is the real one.
+	const contactEmail = currentUser?.contactEmail ?? "";
 	const writeAccess = await canWrite();
 
 	const avatarUrls = currentUser
@@ -104,7 +107,8 @@ export default async function ProfileSettingsPage() {
 						<input
 							id="email"
 							type="email"
-							defaultValue={email}
+							defaultValue={contactEmail}
+							placeholder={t("emailNone")}
 							disabled
 							className={`${disabledField} break-all`}
 						/>

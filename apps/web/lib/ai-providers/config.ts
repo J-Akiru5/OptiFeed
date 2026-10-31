@@ -11,6 +11,7 @@
 import prisma from "@/lib/prisma";
 import { parseReasoningEffort } from "./reasoning";
 import { getProvider } from "./registry";
+import { decryptProviderKey, isSecretStorageConfigured } from "./secrets";
 import type { AiProviderRuntimeConfig, ReasoningEffort } from "./types";
 
 export interface AiProviderRow {
@@ -20,6 +21,15 @@ export interface AiProviderRow {
 	model: string | null;
 	apiKeyEnv: string | null;
 	params: unknown;
+	/** Adapter id for a console-created instance; null for built-ins (#432). */
+	kind?: string | null;
+	label?: string | null;
+	baseUrl?: string | null;
+	/** Encrypted key material; decrypted lazily, never returned (#432). */
+	keyCiphertext?: Uint8Array | null;
+	keyIv?: Uint8Array | null;
+	keyTag?: Uint8Array | null;
+	keyVersion?: number | null;
 }
 
 /** Chain used when the database has no rows yet. */
@@ -53,24 +63,52 @@ function resolveReasoningEffort(params: unknown): ReasoningEffort {
 }
 
 function toRuntimeConfig(row: AiProviderRow): AiProviderRuntimeConfig | null {
-	const provider = getProvider(row.provider);
+	const kind = row.kind?.trim() || row.provider;
+	const provider = getProvider(kind);
 	if (!provider) {
-		console.warn(`[ai] unknown provider "${row.provider}" in configuration; skipping`);
+		console.warn(`[ai] unknown provider "${kind}" in configuration; skipping`);
 		return null;
 	}
+
+	const baseUrl = row.baseUrl?.trim() || undefined;
+	if (kind === "openai-compatible" && !baseUrl) {
+		console.warn(`[ai] provider "${row.provider}" has no base URL; skipping`);
+		return null;
+	}
+
 	const envName = row.apiKeyEnv?.trim() || provider.defaultApiKeyEnv;
-	const apiKey = process.env[envName]?.trim();
+	// #432: a key saved from the console wins; the environment variable stays a
+	// fallback so CI/e2e and deployments without AI_SECRET_KEY keep working.
+	const storedKey =
+		row.keyCiphertext && row.keyIv && row.keyTag && typeof row.keyVersion === "number"
+			? decryptProviderKey({
+					provider: row.provider,
+					keyCiphertext: row.keyCiphertext,
+					keyIv: row.keyIv,
+					keyTag: row.keyTag,
+					keyVersion: row.keyVersion,
+				})
+			: null;
+	if (row.keyCiphertext && !storedKey && isSecretStorageConfigured()) {
+		// The row has a key but this process cannot read it: wrong/missing
+		// master-key generation or a tampered ciphertext. Never fatal; the env
+		// fallback (if any) keeps the provider usable.
+		console.warn(`[ai] stored key for "${row.provider}" could not be decrypted; using fallback`);
+	}
+	const apiKey = storedKey ?? process.env[envName]?.trim();
 	if (!apiKey) {
 		// Not an error: a provider with no key configured is simply inactive.
 		return null;
 	}
 	return {
-		provider: provider.id,
+		provider: row.provider,
+		kind,
 		model: row.model?.trim() || provider.defaultModel,
 		apiKey,
 		reasoningEffort: resolveReasoningEffort(row.params),
 		params:
 			row.params && typeof row.params === "object" ? (row.params as Record<string, unknown>) : {},
+		...(baseUrl ? { baseUrl } : {}),
 	};
 }
 

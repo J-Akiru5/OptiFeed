@@ -523,16 +523,16 @@
 	},
 	"forgotPassword": {
 		"title": "Nakalimot sang imo password?",
-		"desc": "Isulod ang imo farm ID kag magpadala kami sang password reset link sa mailbox nga naka-register dira.",
-		"farmIdLabel": "Farm ID",
-		"farmIdPlaceholder": "imong-farm-id",
-		"farmIdDesc": "Amo ini ang farm ID nga ginagamit mo sa pag-log in.",
+		"desc": "Isulod ang email address nga naka-register sa imo account kag magpadala kami sang password reset link sa sini.",
+		"identifierLabel": "Email",
+		"identifierPlaceholder": "ikaw@example.com",
+		"identifierDesc": "Ang email nga ginrehistro sang imo administrator para sa imo. Mapuslanon man ang imo farm ID.",
 		"submit": "Magpadala sang reset link",
 		"submitting": "Nagapadala…",
-		"successDesc": "Kon may {farmId} nga account, ginpadala na ang reset link sa iya mailbox. Ang link magabukas sang isa ka page diin makaset sang bag-o nga password.",
-		"fallbackNote": "Mga internal nga pond address ang mga login address. Kon indi mo mabuksan ang mailbox — ukon kon wala gid sang mail — pangayo sang platform administrator nga bag-uhon ang imo password sa platform console. Isa ka beses lang magamit ang mga reset link kag may expiration ini.",
+		"successDesc": "Kon may account nga nagapares sa {identifier}, ginpadala na ang reset link sa iya naka-register nga email. Ang link magabukas sang isa ka page diin makaset sang bag-o nga password.",
+		"fallbackNote": "Ang mga reset link ginapadala sa email address nga ginrehistro sang imo administrator para sa imo account. Kon wala sing naka-register, ukon wala gid sang mail nga nag-abot, pangayo sa administrator nga dugangan ukon ayuhon ini, ukon bag-uhon ang imo password sa console. Isa ka beses lang magamit ang mga reset link kag may expiration ini.",
 		"backToLogin": "Balik sa pag-log in",
-		"errorEmpty": "Isulod ang imo farm ID.",
+		"errorEmpty": "Isulod ang imo email address.",
 		"errorRateLimited": "Sobra nga reset request sang madali. Maghulat sang pila ka minuto kag i-try liwat.",
 		"errorService": "Indi namon masugdan ang password reset subong. I-try liwat sang madali."
 	},
@@ -1477,6 +1477,7 @@
 				"relayTitle": "Ang isa ka lamesa mas malawig sa relay window",
 				"pondWins": "Ang setting sang punong ang masunod. Dapat tumanon sang feeder ini nga punong, gani bag-oha ang setting sang device sa idalom.",
 				"suggestedFeeds": "Kon dugangan ang pagpakaon kada adlaw sa {count}, masulod na sa window.",
+				"preExisting": "Ang na-save nga setting sang punong nga asks sang {saved} kada lamesa — labaw pa sa {max} nga mahimog i-dispense ang feeder sa usa ka relay window. Wala nga ginawang imong pagbag-o.",
 				"aboveHardMax": "Kinahanglan sang punong sobra sa hard safety maximum nga {max} kada adlaw. Paubson ang feeding rate ukon kadamu sang isda.",
 				"platformCap": "Ang platform safety cap ang nagatakda sini; kinahanglan sang platform admin para ipataas.",
 				"hopperCap": "Ang calibrated nga kapasidad sang hopper ang takda; i-recalibrate ang hopper para masulod ang mas madamu.",
@@ -1557,7 +1558,8 @@
 					"uploadFailed": "Indi ma-upload ang laray. Tilawi liwat.",
 					"saveFailed": "Indi ma-save ang laray. Tilawi liwat."
 				}
-			}
+			},
+			"emailNone": "Wala sing email nga naka-save. Pangayo sa imo administrator nga magdugang sang isa agod makareset ka sang password."
 		},
 		"audit": {
 			"title": "Talaan ng Audit",
@@ -1723,7 +1725,18 @@
 				"ADMIN": "Admin",
 				"OPERATOR": "Operator",
 				"VIEWER": "Tumatan-aw"
-			}
+			},
+			"contactEmailNone": "Wala sing email nga naka-save",
+			"contactEmailEdit": "Usbon ang email",
+			"contactEmailEditFor": "Usbon ang email ni {name}",
+			"contactEmailInputLabel": "Email ni {name}",
+			"contactEmailPlaceholder": "pangalan@example.com",
+			"contactEmailHint": "Diri ginapadala ang mga password reset link. Biyaan nga blangko para tangtangon ang address.",
+			"contactEmailSave": "I-save ang email",
+			"contactEmailSaving": "Ginasave…",
+			"contactEmailSaved": "Naka-save na ang email.",
+			"contactEmailRemoved": "Natanggal na ang email.",
+			"contactEmailError": "Indi mai-save ang email. Pamatii liwat."
 		},
 		"feederViewer": {
 			"viewerLabel": "Feeder 3D",
@@ -3256,7 +3269,8 @@
 			"columnOrgs": "Mga Organisasyon",
 			"columnPonds": "Mga Punong",
 			"columnAccess": "Access",
-			"columnActions": "Mga Aksyon"
+			"columnActions": "Mga Aksyon",
+			"noContactEmail": "Wala sing email nga naka-save"
 		},
 		"userActions": {
 			"actionFailed": "Napaslawan ang aksyon.",
@@ -3269,21 +3283,24 @@
 				"revoke": "Bawion ang platform access",
 				"disable": "I-disable ang account",
 				"enable": "I-enable ang account",
-				"reset": "Bag-oha ang password"
+				"reset": "Bag-oha ang password",
+				"email": "Usbon ang contact email"
 			},
 			"stepUpActions": {
 				"grant": "hatagan sang platform access",
 				"revoke": "bawion ang platform access",
 				"disable": "i-disable ini nga account",
 				"enable": "i-enable ini nga account",
-				"reset": "bag-uhon ang password"
+				"reset": "bag-uhon ang password",
+				"email": "usbon ang contact email sini"
 			},
 			"buttons": {
 				"grant": "Hatag",
 				"revoke": "Bawi",
 				"disable": "Disable",
 				"enable": "Enable",
-				"reset": "Bag-oha"
+				"reset": "Bag-oha",
+				"email": "Email"
 			},
 			"disableWarning": "Ginadilian sini ang pag-login kag ginabawi ang tanan nga membership. Wala sing data nga ginatangtang; ang Enable nagabalik sang access sa ulihi.",
 			"enableWarning": "Ginabalik ang pag-login kag ang mga membership nga ginrekord sang katapusan nga pag-disable.",
@@ -3299,7 +3316,11 @@
 			},
 			"reasonPlaceholder": "halimbawa: Una nga platform setup para sa deployment",
 			"confirmLabel": "Isulat ang {farmId} para makumpirma *",
-			"descriptionPrefix": "Platform account"
+			"descriptionPrefix": "Platform account",
+			"emailLabel": "Contact email",
+			"emailPlaceholder": "pangalan@example.com",
+			"emailHint": "Diri ginapadala ang mga password reset link. Biyaan nga blangko para tangtangon. Indi gid mag-usab ang login ID.",
+			"emailWarning": "Ang may kontrol sini nga address makareset sang password sang account, gani kinahanglan mag-enter liwat sang imo password sa pag-usab sini."
 		},
 		"stepUp": {
 			"title": "Kumpirmaha ang imo password",
@@ -3575,12 +3596,50 @@
 			"submit": "Himoa ang Account"
 		},
 		"aiProviders": {
+			"baseUrlPlaceholder": "https://api.example.com/v1",
+			"providerIdPlaceholder": "groq",
+			"labelPlaceholder": "Groq",
+			"custom": "Custom",
+			"keyUnreadable": "Indi mabasa ang key",
+			"keyUnreadableHelp": "May naka-store nga key pero indi ini mabasa sang build. Check ang AI_SECRET_KEY (kag ang version), ukon i-rotate ang key.",
+			"keyInDb": "Naka-store ang key ••••{last4}",
+			"keyFromEnv": "Key halin sa environment",
+			"label": "Label nga ginapakita",
+			"baseUrl": "Base URL",
+			"baseUrlHint": "https lang; ang chat completions ang idugang. Halimbawa: https://api.groq.com/openai/v1",
+			"rotateKeyLabel": "I-rotate ang API key para sa {label}",
+			"clearKeyLabel": "Kuhaon ang API key para sa {label}",
+			"removeLabel": "Tangtangon ang {label}",
+			"keyTooShort": "Isulod ang key nga bisan 8 ka character.",
+			"keySavedTested": "Na-test kag na-save ang key ({ms} ms). Magamit ini sa mga bag-o nga request sa sulod sang 30 ka segundo.",
+			"keyCleared": "Nakuha ang naka-store nga key. Magamit liwat ang environment variable kon naka-set.",
+			"remove": "Tangtangon",
+			"apiKey": "API key",
+			"keyMeta": "••••{last4} · gin-update {when} ni {who}",
+			"envKeyMeta": "Ginagamit ang {env} halin sa environment",
+			"noKeyMeta": "Wala sang key",
+			"unknownActor": "wala mahibalo",
+			"rotateKey": "I-rotate ang key",
+			"setKey": "I-set ang key",
+			"keyPlaceholder": "I-paste ang key sang provider",
+			"keyHint": "Gina-test anay ang key sa live call antes i-encrypt kag i-store. Indi na ini ipakita liwat.",
+			"saveKey": "I-save ang key",
+			"clearKey": "Kuhaon",
+			"addTitle": "Magdugang sang provider",
+			"addDesc": "Magdugang sang bisan diin nga OpenAI-compatible endpoint (Groq, OpenAI, DeepSeek, Kimi, GLM, OpenRouter…). Automatic ang adapter.",
+			"addToggle": "Magdugang sang provider",
+			"providerId": "Provider id",
+			"providerIdHint": "Lower-case slug nga gamiton sa chain, halimbawa groq.",
+			"modelPlaceholder": "halimbawa llama-3.3-70b-versatile",
+			"addSubmit": "Idugang ang provider",
+			"addDone": "Nadugang ang provider. I-set ang API key sa idalom.",
+			"resetLabel": "I-reset ang provider chain",
 			"title": "Mga AI Provider",
 			"description": "Ang platform-wide nga model chain nga ginagamit sang chat assistant kag feeding predictions. Ang kada request nagatilaw sang mga provider sa priority order kag nagabalik sa iban kon may failure antes maproduce ang una nga token.",
-			"keysStay": "Ang mga key nagapabilin sa environment.",
-			"storesBefore": "Ginatago sang console nga ini ang ",
-			"storesName": "ngalan",
-			"storesAfter": " sang variable nga nagahupot sang key sang kada provider, indi ang key mismo. Ang provider nga wala sing populated nga variable ginalaktawan sing awtomatiko, gani ang chain nagakadto sa bisan ano pa nga naka-configure — kag sa katapusan sa keyword answers kag deterministic predictions.",
+			"keysStay": "Ang mga key pwede i-store nga naka-encrypt ukon halin sa environment.",
+			"storesBefore": "Ang key nga gina-save diri naka-encrypt gamit ang AES-256-GCM kag ang last four characters lang ang ginapakita. Indi ini ibalik sang console. Kon wala sang naka-store nga key, ang ",
+			"storesName": "environment variable",
+			"storesAfter": " nga gintudlo sa kada card ang gamiton, kag ang provider nga wala sing key sa duha gina-skip.",
 			"usingDefault": " · ginagamit ang built-in default",
 			"keyDetected": "May nakita nga key",
 			"noKey": "Wala sing key — inactive",

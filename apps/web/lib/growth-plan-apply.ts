@@ -2,6 +2,8 @@ import { ADJUSTMENT_INTERVAL_DAYS, MAX_ADJUSTMENT_PCT } from "@/lib/growth-plan"
 import { loadGrowthPlanForPond } from "@/lib/growth-plan-loader";
 import { FEEDING_RATE_PCT_MAX, FEEDING_RATE_PCT_MIN, feedGramsSchema } from "@/lib/limits";
 import prisma from "@/lib/prisma";
+import { getFeedingLimits } from "@/lib/settings/feeding-caps";
+import { maxDosePerMealG } from "@/lib/settings/pond-conflicts";
 import { calculateNextFeeding } from "@/lib/volumeCalc";
 import { revalidatePath } from "next/cache";
 
@@ -110,7 +112,7 @@ export async function applyGrowthPlanForPond(params: {
 					pondId: params.pondId,
 					pond: { ownerId: params.ownerId },
 				},
-				select: { id: true, gramsPerFeeding: true },
+				select: { id: true, gramsPerFeeding: true, gramsPerSecond: true },
 			});
 			if (!device) return { kind: "error" as const, message: "Feeder not found." };
 
@@ -230,6 +232,21 @@ export async function applyGrowthPlanForPond(params: {
 				return {
 					kind: "error" as const,
 					message: "The feeding plan produced a dose outside the feeder limits.",
+				};
+			}
+
+			// The relay-time window (#430): the plan's device ceiling is the daily
+			// share, so the plan also has to fit the dose the feeder can run in one
+			// relay window.
+			const feedingLimits = await getFeedingLimits();
+			const maxDoseG = maxDosePerMealG({
+				gramsPerSecond: device.gramsPerSecond,
+				maxDispenseMs: feedingLimits.maxDispenseMs,
+			});
+			if (maxDoseG !== null && derivedGrams > maxDoseG + 0.05) {
+				return {
+					kind: "error" as const,
+					message: `The feeding plan needs ${Math.round(derivedGrams)} g per meal, more than the ${Math.round(maxDoseG)} g the feeder can run in one relay window. Add meals or use a faster feeder.`,
 				};
 			}
 

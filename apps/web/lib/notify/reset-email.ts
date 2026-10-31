@@ -19,7 +19,7 @@ const MAX_ERROR_LENGTH = 300;
 let warnedMissingConfig = false;
 
 export interface ResetEmailInput {
-	/** The account's login address (pond domain). */
+	/** The account's contact email: the pond login address can never receive mail. */
 	to: string;
 	/** Login ID (the part before @ in the account's pond address). */
 	farmId: string;

@@ -370,4 +370,37 @@ describe("device conflicts", () => {
 			"/dashboard/settings/hardware",
 		);
 	});
+
+	it("says the saved plan was already over the relay window (#430)", async () => {
+		// One meal of 2,000 g is over the 1,200 g window, and the saved plan
+		// asked for 2,500 g — so the conflict is not the reader's doing.
+		render(
+			<PondSettingsForm
+				pond={{ ...POND, population: 200 }}
+				avgWeightKg={1}
+				device={DEVICE}
+				savedPerMealG={2500}
+			/>,
+		);
+
+		expect(
+			await screen.findByText(
+				"The saved pond settings already ask for 2,500 g per meal — more than the 1,200 g this feeder can run in one relay window. Your change did not cause this.",
+			),
+		).toBeTruthy();
+	});
+
+	it("does not blame the reader when the saved plan still fitted", async () => {
+		render(
+			<PondSettingsForm
+				pond={{ ...POND, population: 200 }}
+				avgWeightKg={1}
+				device={DEVICE}
+				savedPerMealG={900}
+			/>,
+		);
+
+		await screen.findAllByText(/One meal is longer than the relay window/);
+		expect(screen.queryByText(/The saved pond settings already ask for/)).toBeNull();
+	});
 });

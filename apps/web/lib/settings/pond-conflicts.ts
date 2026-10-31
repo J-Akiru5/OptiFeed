@@ -182,6 +182,59 @@ export function buildPondDeviceConstraints(
 
 export type PondConflictCode = "daily-ceiling" | "relay-time";
 
+/**
+ * The biggest dose the feeder can run in one meal: the relay-time window.
+ *
+ * `gramsPerSecond × maxDispenseMs` is a hardware limit, not a gram cap — it
+ * says how long the relay may stay closed. `null` when the device has no rate
+ * at all, so no window exists and no check applies.
+ *
+ * Issue #430: the write paths used to check the dose that was *stored* and then
+ * write a newly *derived* one, so a dose the feeder could not run still reached
+ * it. Every check and every write now uses this one number.
+ */
+export function maxDosePerMealG(constraints: {
+	gramsPerSecond: number;
+	maxDispenseMs: number;
+}): number | null {
+	if (!Number.isFinite(constraints.gramsPerSecond) || constraints.gramsPerSecond <= 0) return null;
+	if (!Number.isFinite(constraints.maxDispenseMs) || constraints.maxDispenseMs <= 0) return null;
+	return constraints.gramsPerSecond * (constraints.maxDispenseMs / 1000);
+}
+
+/**
+ * Which limit a candidate per-meal dose breaks.
+ *
+ * The relay window comes first: a meal the feeder cannot finish is worse than a
+ * day that is a little over the gram cap, and the daily ceiling is the only
+ * gram cap. This is the same arithmetic the conflict cards use, so the server
+ * writers and the form can never disagree about what the feeder can run.
+ */
+export function detectDoseViolation({
+	grams,
+	feedsPerDay,
+	constraints,
+}: {
+	grams: number;
+	feedsPerDay: number;
+	constraints: {
+		gramsPerSecond: number;
+		maxDispenseMs: number;
+		effectiveDailyCapG: number;
+	};
+}): PondConflictCode | null {
+	if (!Number.isFinite(grams) || grams <= 0) return null;
+
+	const maxDoseG = maxDosePerMealG(constraints);
+	if (maxDoseG !== null && grams > maxDoseG + EPSILON_G) return "relay-time";
+
+	const dailyG = grams * feedsPerDay;
+	if (Number.isFinite(dailyG) && dailyG > constraints.effectiveDailyCapG + EPSILON_G) {
+		return "daily-ceiling";
+	}
+	return null;
+}
+
 export interface PondDeviceConflict {
 	code: PondConflictCode;
 	/** The pond field whose value produces this conflict. */
@@ -262,11 +315,8 @@ export function detectPondDeviceConflicts(
 		});
 	}
 
-	const maxDoseG =
-		constraints.gramsPerSecond > 0
-			? constraints.gramsPerSecond * (constraints.maxDispenseMs / 1000)
-			: 0;
-	if (maxDoseG > 0 && perMealG > maxDoseG + EPSILON_G) {
+	const maxDoseG = maxDosePerMealG(constraints);
+	if (maxDoseG !== null && maxDoseG > 0 && perMealG > maxDoseG + EPSILON_G) {
 		// More meals is the pond-side fix; a calibration is a measurement, so it
 		// is never "applied" from here. The card links to the calibration control.
 		const suggested = Math.ceil(dailyG / maxDoseG);

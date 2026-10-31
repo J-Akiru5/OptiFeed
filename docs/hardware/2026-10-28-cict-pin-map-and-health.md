@@ -21,7 +21,7 @@ listed together.
 | 16 | Factory reset button → GND | Hold 10 s; clears Wi-Fi, Device ID and token |
 | 21 / 22 | DS3231 SDA / SCL | RTC for offline schedules |
 | 32 | DS18B20 DATA | 4.7 kΩ pull-up to 3V3 |
-| 12 | HC-SR04 TRIG | 10 kΩ pull-down (strapping pin) |
+| 27 | HC-SR04 TRIG | Moved from GPIO 12 (strapping pin) on 2026-10-31; needs the matching firmware reflash. 10 kΩ pull-down optional |
 | 14 | HC-SR04 ECHO | 1 kΩ / 2 kΩ divider (5 V → 3.3 V) |
 | 18 | FAULT lamp (yellow): LED + 200 Ω to GND | 1.8.0. HIGH = on. Solid while a fault is latched; a tap on GPIO 17 acknowledges once the cause is gone |
 | 26 | WI-FI lamp (blue): LED + 100 Ω to GND | 1.8.0. Solid = joined the saved network, 1 Hz blink = setup portal, off = not connected |
@@ -44,7 +44,7 @@ Boot log (other session) plus server-side telemetry (this check, 12:05 Manila):
 | Component | Pin | Status | Evidence |
 |---|---|---|---|
 | DS18B20 water temp | 32 | OK | `[INIT] DS18B20 temperature probe initialized`; server reads **30.6 °C**, `waterTempOk = true`, updated 12:05 |
-| HC-SR04 hopper level | 12 / 14 | **OK (confirmed from the server)** | Serial prints no values, but ingest stored distance **25.6 cm → 17.5 %** (empty 30 cm, full 5 cm: (30 − 25.6) / 25 = 17.5 %), updated 12:05; a `pellet_refilled` event at 11:46 (17.5 % → 21.1 %) shows the reading follows the hopper |
+| HC-SR04 hopper level | 12 / 14 (27 / 14 after the 2026-10-31 move) | **OK (confirmed from the server)** | Serial prints no values, but ingest stored distance **25.6 cm → 17.5 %** (empty 30 cm, full 5 cm: (30 − 25.6) / 25 = 17.5 %), updated 12:05; a `pellet_refilled` event at 11:46 (17.5 % → 21.1 %) shows the reading follows the hopper |
 | DS3231 RTC | 21 / 22 | OK | No `[WARN] RTC not found`; `[NTP] RTC synced` |
 | Feed button | 23 | OK, but **phantom presses** | `[INIT] Feed button GPIO23: falling-edge interrupt…`; see below |
 | Reset buttons | 16 / 17 | OK | `[RESET] Buttons ready`; Wi-Fi reset confirmed by Jeff |

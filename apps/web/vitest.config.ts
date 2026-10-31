@@ -30,11 +30,23 @@ export default defineConfig({
 			// statements carry ~0.4pp of headroom, branches and functions ~0.3pp,
 			// because branch totals move by a handful between runs (module-init order
 			// in mocked tests). Raise the floors as the numbers rise; never lower them.
+			//
+			// ONE-TIME RE-BASELINE 2026-11-01 (Jeff's decision on #328): the upgrade to
+			// vitest 4.1.12 + @vitest/coverage-v8 4.1.12 measures the same code lower
+			// than 3.2.7 does, so statements, functions and branches fall under the
+			// floors above with no test removed (4,260 tests before, 4,314 after).
+			// Measured on develop @ 483980d with vitest 4.1.12:
+			//   lines      91.54%  (floor unchanged at 90)
+			//   statements 89.49%  (was 90)
+			//   functions  91.94%  (was 94.5)
+			//   branches   81.98%  (was 84.5)
+			// The three failing floors now sit ~0.5pp under that measurement. The
+			// ratchet rule applies again from here: raise them, never lower them.
 			thresholds: {
 				lines: 90,
-				statements: 90,
-				functions: 94.5,
-				branches: 84.5,
+				statements: 89,
+				functions: 91.5,
+				branches: 81.5,
 			},
 		},
 	},

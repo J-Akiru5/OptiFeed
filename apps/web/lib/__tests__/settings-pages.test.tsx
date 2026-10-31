@@ -54,7 +54,11 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 vi.mock("@/lib/auth/session", () => ({
 	canWrite: vi.fn(async () => true),
-	getCurrentUser: vi.fn(async () => ({ farmId: "farm-1", role: "ADMIN" })),
+	getCurrentUser: vi.fn(async () => ({
+		farmId: "farm-1",
+		role: "ADMIN",
+		contactEmail: "juan.farmer@example.com",
+	})),
 }));
 
 vi.mock("@/lib/pond-selection", () => ({
@@ -227,7 +231,7 @@ import HardwareSettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/
 import SettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/page";
 import PondSettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/pond/page";
 import ProfileSettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/profile/page";
-import { canWrite } from "@/lib/auth/session";
+import { canWrite, getCurrentUser } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 
 beforeEach(() => {
@@ -344,7 +348,23 @@ describe("profile settings page", () => {
 		expect(html).toContain("Profile Information");
 		expect(html).toContain("Security");
 		expect(html).toContain("Notification Preferences");
-		expect(html).toContain("juan@example.com");
+		// The contact email is shown; the session email is the synthetic login
+		// address, which cannot receive mail (#449).
+		expect(html).toContain("juan.farmer@example.com");
+		expect(html).not.toContain('value="juan@example.com"');
+	});
+
+	it("says there is no email on file instead of showing the login address", async () => {
+		vi.mocked(getCurrentUser).mockResolvedValueOnce({
+			farmId: "farm-1",
+			role: "ADMIN",
+			contactEmail: null,
+		} as never);
+
+		const html = renderToStaticMarkup(await ProfileSettingsPage());
+
+		expect(html).toContain("No email on file. Ask your administrator");
+		expect(html).not.toContain('value="juan@example.com"');
 	});
 
 	it("explains read-only mode for view-as and viewers", async () => {

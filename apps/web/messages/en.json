@@ -523,16 +523,16 @@
 	},
 	"forgotPassword": {
 		"title": "Forgot your password?",
-		"desc": "Enter your farm ID and we'll send a password reset link to the mailbox registered for it.",
-		"farmIdLabel": "Farm ID",
-		"farmIdPlaceholder": "your-farm-id",
-		"farmIdDesc": "The same farm ID you use to sign in.",
+		"desc": "Enter the email address registered for your account and we'll send a password reset link to it.",
+		"identifierLabel": "Email",
+		"identifierPlaceholder": "you@example.com",
+		"identifierDesc": "The email your administrator registered for you. Your farm ID also works.",
 		"submit": "Send reset link",
 		"submitting": "Sending…",
-		"successDesc": "If {farmId} exists, a reset link has been sent to its mailbox. The link opens a page where a new password can be set.",
-		"fallbackNote": "Login addresses are internal pond addresses. If you can't open that mailbox — or no mail arrives — ask a platform administrator to reset your password from the platform console. Reset links are single-use and expire.",
+		"successDesc": "If an account matches {identifier}, a reset link has been sent to its registered email. The link opens a page where a new password can be set.",
+		"fallbackNote": "Reset links go to the email address your administrator registered for your account. If none is registered, or no mail arrives, ask an administrator to add or correct it, or to reset your password from the console. Reset links are single-use and expire.",
 		"backToLogin": "Back to sign in",
-		"errorEmpty": "Enter your farm ID.",
+		"errorEmpty": "Enter your email address.",
 		"errorRateLimited": "Too many reset requests in a short time. Wait a few minutes and try again.",
 		"errorService": "We can't start the password reset right now. Try again in a moment."
 	},
@@ -1477,6 +1477,7 @@
 				"relayTitle": "One meal is longer than the relay window",
 				"pondWins": "Pond settings win. The feeder must follow this pond, so change the device setting below.",
 				"suggestedFeeds": "Increasing feeds per day to {count} would fit the window.",
+				"preExisting": "The saved pond settings already ask for {saved} per meal — more than the {max} this feeder can run in one relay window. Your change did not cause this.",
 				"aboveHardMax": "The pond needs more than the hard safety maximum of {max} per day. Lower the feeding rate or population.",
 				"platformCap": "A platform safety cap sets this ceiling; a platform admin has to raise it.",
 				"hopperCap": "The calibrated hopper capacity is the ceiling; recalibrate the hopper to hold more.",
@@ -1557,7 +1558,8 @@
 					"uploadFailed": "Could not upload the picture. Try again.",
 					"saveFailed": "Could not save the picture. Try again."
 				}
-			}
+			},
+			"emailNone": "No email on file. Ask your administrator to add one so you can reset your password."
 		},
 		"adminUsers": {
 			"actionsColumn": "Actions",
@@ -1666,7 +1668,18 @@
 				"ADMIN": "Admin",
 				"OPERATOR": "Operator",
 				"VIEWER": "Viewer"
-			}
+			},
+			"contactEmailNone": "No email on file",
+			"contactEmailEdit": "Edit email",
+			"contactEmailEditFor": "Edit email for {name}",
+			"contactEmailInputLabel": "Email for {name}",
+			"contactEmailPlaceholder": "name@example.com",
+			"contactEmailHint": "Password-reset links are sent here. Leave it blank to remove the address.",
+			"contactEmailSave": "Save email",
+			"contactEmailSaving": "Saving…",
+			"contactEmailSaved": "Email saved.",
+			"contactEmailRemoved": "Email removed.",
+			"contactEmailError": "Could not save the email. Try again."
 		},
 		"feederViewer": {
 			"viewerLabel": "Feeder 3D",
@@ -3256,7 +3269,8 @@
 			"columnOrgs": "Organizations",
 			"columnPonds": "Ponds",
 			"columnAccess": "Access",
-			"columnActions": "Actions"
+			"columnActions": "Actions",
+			"noContactEmail": "No email on file"
 		},
 		"userActions": {
 			"actionFailed": "Action failed.",
@@ -3269,21 +3283,24 @@
 				"revoke": "Revoke platform access",
 				"disable": "Disable account",
 				"enable": "Enable account",
-				"reset": "Reset password"
+				"reset": "Reset password",
+				"email": "Change contact email"
 			},
 			"stepUpActions": {
 				"grant": "grant platform access",
 				"revoke": "revoke platform access",
 				"disable": "disable this account",
 				"enable": "enable this account",
-				"reset": "reset this password"
+				"reset": "reset this password",
+				"email": "change this contact email"
 			},
 			"buttons": {
 				"grant": "Grant",
 				"revoke": "Revoke",
 				"disable": "Disable",
 				"enable": "Enable",
-				"reset": "Reset"
+				"reset": "Reset",
+				"email": "Email"
 			},
 			"disableWarning": "This bans the login and revokes every membership. No data is deleted; Enable restores access later.",
 			"enableWarning": "Restores the login and the memberships recorded by the last disable.",
@@ -3299,7 +3316,11 @@
 			},
 			"reasonPlaceholder": "e.g. Initial platform setup for deployment",
 			"confirmLabel": "Type {farmId} to confirm *",
-			"descriptionPrefix": "Platform account"
+			"descriptionPrefix": "Platform account",
+			"emailLabel": "Contact email",
+			"emailPlaceholder": "name@example.com",
+			"emailHint": "Password-reset links go to this address. Leave blank to remove it. The login ID never changes.",
+			"emailWarning": "Whoever controls this address can reset the account password, so changing it needs your password again."
 		},
 		"stepUp": {
 			"title": "Confirm your password",
@@ -3575,12 +3596,50 @@
 			"submit": "Create Account"
 		},
 		"aiProviders": {
+			"baseUrlPlaceholder": "https://api.example.com/v1",
+			"providerIdPlaceholder": "groq",
+			"labelPlaceholder": "Groq",
+			"custom": "Custom",
+			"keyUnreadable": "Key unreadable",
+			"keyUnreadableHelp": "A stored key exists but this build cannot decrypt it. Check AI_SECRET_KEY (and its version), or rotate the key.",
+			"keyInDb": "Key stored ••••{last4}",
+			"keyFromEnv": "Key from environment",
+			"label": "Display label",
+			"baseUrl": "Base URL",
+			"baseUrlHint": "https only; chat completions are appended. Example: https://api.groq.com/openai/v1",
+			"rotateKeyLabel": "Rotate the API key for {label}",
+			"clearKeyLabel": "Clear the API key for {label}",
+			"removeLabel": "Remove {label}",
+			"keyTooShort": "Enter a key of at least 8 characters.",
+			"keySavedTested": "Key tested and saved ({ms} ms). New requests use it within 30 seconds.",
+			"keyCleared": "Stored key cleared. The environment variable is used again if it is set.",
+			"remove": "Remove",
+			"apiKey": "API key",
+			"keyMeta": "••••{last4} · updated {when} by {who}",
+			"envKeyMeta": "Using {env} from the environment",
+			"noKeyMeta": "No key configured",
+			"unknownActor": "unknown",
+			"rotateKey": "Rotate key",
+			"setKey": "Set key",
+			"keyPlaceholder": "Paste the provider key",
+			"keyHint": "The key is tested with a live call before it is encrypted and stored. It is never shown again.",
+			"saveKey": "Save key",
+			"clearKey": "Clear",
+			"addTitle": "Add a provider",
+			"addDesc": "Add any OpenAI-compatible endpoint (Groq, OpenAI, DeepSeek, Kimi, GLM, OpenRouter…). The adapter is chosen automatically.",
+			"addToggle": "Add provider",
+			"providerId": "Provider id",
+			"providerIdHint": "Lower-case slug used in the chain, e.g. groq.",
+			"modelPlaceholder": "e.g. llama-3.3-70b-versatile",
+			"addSubmit": "Add provider",
+			"addDone": "Provider added. Set its API key below.",
+			"resetLabel": "Reset the provider chain",
 			"title": "AI Providers",
 			"description": "The platform-wide model chain used by the chat assistant and feeding predictions. Each request tries providers in priority order and falls back on any failure before the first token is produced.",
-			"keysStay": "Keys stay in the environment.",
-			"storesBefore": "This console stores the ",
-			"storesName": "name",
-			"storesAfter": " of the variable that holds each provider's key, never the key itself. A provider with no populated variable is skipped automatically, so the chain degrades to whatever else is configured — and finally to keyword answers and deterministic predictions.",
+			"keysStay": "Keys can be stored encrypted or supplied by the environment.",
+			"storesBefore": "A key saved here is encrypted with AES-256-GCM and only its last four characters are shown. The console never returns the value. When no stored key exists, the ",
+			"storesName": "environment variable",
+			"storesAfter": " named in each card is used instead, and a provider with neither is skipped automatically.",
 			"usingDefault": " · using built-in default",
 			"keyDetected": "Key detected",
 			"noKey": "No key — inactive",

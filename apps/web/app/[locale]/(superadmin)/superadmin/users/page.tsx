@@ -128,7 +128,9 @@ export default async function SuperadminUsersPage({
 												<p className="truncate font-black text-[#0A3D62]">
 													{user.displayName || user.farmId}
 												</p>
-												<p className="truncate text-[11px] text-[#3D5568]">{user.email}</p>
+												<p className="truncate text-[11px] text-[#3D5568]">
+													{user.contactEmail ?? t("noContactEmail")}
+												</p>
 												<p className="truncate font-mono text-[11px] text-[#3D5568]">
 													{user.farmId}
 												</p>
@@ -139,6 +141,7 @@ export default async function SuperadminUsersPage({
 											farmId={user.farmId}
 											isPlatformAdmin={user.isPlatformAdmin}
 											disabled={user.disabled}
+											contactEmail={user.contactEmail}
 										/>
 									</div>
 
@@ -221,7 +224,9 @@ export default async function SuperadminUsersPage({
 												<p className="font-black text-[#0A3D62]">
 													{user.displayName || user.farmId}
 												</p>
-												<p className="text-[11px] text-[#3D5568]">{user.email}</p>
+												<p className="text-[11px] text-[#3D5568]">
+													{user.contactEmail ?? t("noContactEmail")}
+												</p>
 												<p className="font-mono text-[11px] text-[#3D5568]">{user.farmId}</p>
 											</div>
 										</div>
@@ -282,6 +287,7 @@ export default async function SuperadminUsersPage({
 												farmId={user.farmId}
 												isPlatformAdmin={user.isPlatformAdmin}
 												disabled={user.disabled}
+												contactEmail={user.contactEmail}
 											/>
 										</div>
 									</td>

@@ -95,6 +95,7 @@ describe("listAllUsers", () => {
 				id: "user-1",
 				farmId: "farm-a",
 				email: "ana@example.test",
+				contactEmail: "ana.real@example.test",
 				displayName: "Ana",
 				role: "OPERATOR",
 				createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -116,6 +117,7 @@ describe("listAllUsers", () => {
 			OR: [
 				{ farmId: { contains: "ana", mode: "insensitive" } },
 				{ email: { contains: "ana", mode: "insensitive" } },
+				{ contactEmail: { contains: "ana", mode: "insensitive" } },
 				{ displayName: { contains: "ana", mode: "insensitive" } },
 			],
 		});
@@ -123,6 +125,7 @@ describe("listAllUsers", () => {
 		expect(result.rows[0]).toMatchObject({
 			id: "user-1",
 			farmId: "farm-a",
+			contactEmail: "ana.real@example.test",
 			pondCount: 2,
 			orgs: [{ id: "org-a", name: "Org A", role: "OWNER", memberCount: 3 }],
 		});

@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.35.0] - 2026-10-31
+
+### Added
+
+- I-100 firmware 1.7.0 takes a versioned `config` object from the existing feed-command poll, so the daily ceiling, dose amounts, calibration, hopper geometry/thresholds, safe-mode thresholds, button guard, poll interval, OTA pre-flight and calibration limits are dashboard-driven instead of compile-time. Every field is validated against an absolute safety envelope in `firmware/firmware-main/config.h`: a missing, malformed, out-of-range or impossible object is ignored whole and the last-good copy (NVS `cfg_json` / `cfg_rev`, new keys only) or the compile-time defaults stay in force, so a bad config can never raise a bound or disable a guard. The firmware echoes `config_rev` in the heartbeat and the ingest route records one `config_applied` state event per change (no schema change). Old firmware ignores the unknown field and new firmware drives from defaults against an old server. The superadmin configuration centre gains "Firmware safety gates" (min dispense gap, doses per hour, brownout hold, safe-mode window/threshold/quiet/healthy-clear) with min/max validation, a required reason, an audit row and an English/Hiligaynon UI. Contract and inventory: `firmware/README.md` and `docs/firmware-dashboard-config.md`.
+- I-100 E38: the firmware no longer refuses a dose above 1,000 g. The per-dose ceiling is derived as `min(daily ceiling, relay envelope seconds × grams per second)`; the relay-time guard still refuses an over-long dose. Needs a reflash (1.6.2 units keep the 1,000 g refusal until then).
+
 ## [1.34.1] - 2026-10-31
 
 ### Fixed

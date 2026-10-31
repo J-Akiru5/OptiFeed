@@ -8,8 +8,10 @@ import {
 	DashboardPageShell,
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
+import { HealthNotice } from "@/components/feeder/feeder-hero";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { canWrite } from "@/lib/auth/session";
+import { getDeviceHealthSafe } from "@/lib/device-health";
 import { evaluateDeviceStatus, resolveRssiDbm } from "@/lib/device-status";
 import { getFeedNowLimitForDevice } from "@/lib/feed/feed-now-limit";
 import type { ScheduleSnapshotData } from "@/lib/offline/snapshots";
@@ -120,6 +122,7 @@ export default async function SchedulePage() {
 	// (#388). Only a recent command counts; a stale pending row is handled by the
 	// stuck-request banner instead of masking a genuinely silent device.
 	const statusPolicy = await getDeviceStatusPolicy();
+	const deviceHealth = await getDeviceHealthSafe(energyDevice.id);
 	const commandInFlight =
 		!!pendingCommand && Date.now() - pendingCommand.updatedAt.getTime() <= STALE_THRESHOLD_MS;
 	const connection = evaluateDeviceStatus({
@@ -179,6 +182,8 @@ export default async function SchedulePage() {
 				data={scheduleSnapshot}
 			/>
 			<DashboardPageHeader icon={CalendarClock} title={t("title")} description={t("desc")} />
+
+			<HealthNotice health={deviceHealth} tone="themed" />
 
 			{!writeAccess && (
 				<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />

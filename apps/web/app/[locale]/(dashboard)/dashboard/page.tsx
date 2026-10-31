@@ -35,6 +35,7 @@ import {
 } from "@/components/dashboard/dashboard-ui";
 import { TermInfo } from "@/components/dashboard/term-info";
 import { ExportPdfButton } from "@/components/export-pdf-button";
+import { HealthNotice } from "@/components/feeder/feeder-hero";
 import { DashboardSnapshot } from "@/components/pwa/dashboard-snapshot";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
@@ -46,6 +47,8 @@ import { DEFAULT_HOPPER_RANGE, WATER_TEMP_RANGES, parseWaterTempRange } from "@/
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatFarmDateTime, formatWallClockTime } from "@/lib/date-local";
+import { getDeviceHealthSafe } from "@/lib/device-health";
+import { HEALTHY_VIEW } from "@/lib/device-health-model";
 import { toHopperSnapshot } from "@/lib/device-hopper";
 import { evaluateDeviceStatus, resolveRssiDbm } from "@/lib/device-status";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
@@ -214,6 +217,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		hopperPoints,
 		driftWindow,
 		feedNowLimit,
+		deviceHealth,
 	] = await Promise.all([
 		resolveCurrentSchedule(pond.id, energyDevice?.id ?? null),
 		energyDevice
@@ -233,6 +237,8 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		// The Feed Now ceiling (issue #387 / #398) is what is left of today's
 		// daily allowance; the daily ceiling is the only gram cap.
 		energyDevice ? getFeedNowLimitForDevice(energyDevice) : Promise.resolve(null),
+		// What the unit reports about itself (safe mode, faults); advisory here.
+		energyDevice ? getDeviceHealthSafe(energyDevice.id, now) : Promise.resolve(HEALTHY_VIEW),
 	]);
 
 	const latestFcr = fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : 0.0;
@@ -499,6 +505,12 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 			    record stays in the bell and on the hardware page. */}
 			{energyDevice && hopperLevelPercent !== null && hopperLow && (
 				<PakoyLowHopper pondId={pond.id} levelPercent={Math.round(hopperLevelPercent)} low />
+			)}
+
+			{energyDevice && (
+				<div className="px-1">
+					<HealthNotice health={deviceHealth} tone="themed" />
+				</div>
 			)}
 
 			<ControlRoomLayout>

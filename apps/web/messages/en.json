@@ -464,6 +464,7 @@
 		"passwordDesc": "Issued by your pond administrator. A current PIN will work once.",
 		"showPassword": "Show password",
 		"hidePassword": "Hide password",
+		"forgotPassword": "Forgot password?",
 		"rememberFarmId": "Remember this farm ID on this device",
 		"submit": "Sign in",
 		"submitting": "Signing in…",
@@ -519,6 +520,29 @@
 		"desc": "Update the password for your account.",
 		"temporaryWarning": "This is a weak temporary password. The user must change it on first login.",
 		"service": "We can't update your password right now. Try again in a moment."
+	},
+	"forgotPassword": {
+		"title": "Forgot your password?",
+		"desc": "Enter your farm ID and we'll send a password reset link to the mailbox registered for it.",
+		"farmIdLabel": "Farm ID",
+		"farmIdPlaceholder": "your-farm-id",
+		"farmIdDesc": "The same farm ID you use to sign in.",
+		"submit": "Send reset link",
+		"submitting": "Sending…",
+		"successDesc": "If {farmId} exists, a reset link has been sent to its mailbox. The link opens a page where a new password can be set.",
+		"fallbackNote": "Login addresses are internal pond addresses. If you can't open that mailbox — or no mail arrives — ask a platform administrator to reset your password from the platform console. Reset links are single-use and expire.",
+		"backToLogin": "Back to sign in",
+		"errorEmpty": "Enter your farm ID.",
+		"errorRateLimited": "Too many reset requests in a short time. Wait a few minutes and try again.",
+		"errorService": "We can't start the password reset right now. Try again in a moment."
+	},
+	"resetPassword": {
+		"title": "Set a new password",
+		"desc": "Choose a new password for your account. You'll continue to the dashboard with it right away.",
+		"expiredTitle": "This reset link isn't valid",
+		"expiredDesc": "The link is invalid, already used, or expired. Request a new one from the sign-in page.",
+		"requestNew": "Request a new reset link",
+		"sessionExpired": "Your reset session has expired. Request a new link and try again."
 	},
 	"dashboard": {
 		"feedLevel": {
@@ -3241,22 +3265,35 @@
 				"grant": "Grant platform access",
 				"revoke": "Revoke platform access",
 				"disable": "Disable account",
-				"enable": "Enable account"
+				"enable": "Enable account",
+				"reset": "Reset password"
 			},
 			"stepUpActions": {
 				"grant": "grant platform access",
 				"revoke": "revoke platform access",
 				"disable": "disable this account",
-				"enable": "enable this account"
+				"enable": "enable this account",
+				"reset": "reset this password"
 			},
 			"buttons": {
 				"grant": "Grant",
 				"revoke": "Revoke",
 				"disable": "Disable",
-				"enable": "Enable"
+				"enable": "Enable",
+				"reset": "Reset"
 			},
 			"disableWarning": "This bans the login and revokes every membership. No data is deleted; Enable restores access later.",
 			"enableWarning": "Restores the login and the memberships recorded by the last disable.",
+			"resetWarning": "Replaces the account's password with a one-time temporary password, shown once below. The person must change it at the next sign-in.",
+			"issued": {
+				"title": "Temporary password",
+				"descriptionPrefix": "Share it directly with",
+				"descriptionSuffix": "and close this dialog. It is not stored and cannot be shown again.",
+				"copy": "Copy",
+				"copied": "Copied",
+				"warning": "Copy it now: this password is shown only once and is never written to the audit log.",
+				"done": "Done"
+			},
 			"reasonPlaceholder": "e.g. Initial platform setup for deployment",
 			"confirmLabel": "Type {farmId} to confirm *",
 			"descriptionPrefix": "Platform account"
@@ -3886,7 +3923,7 @@
 			},
 			"devices": {
 				"title": "Last ingest per device",
-				"description": "Last contact ({count} of the newest {limit} devices). A device is offline when it has not been heard from in 15 minutes.",
+				"description": "Last contact ({count} of the newest {limit} devices). A device is offline when it has not been heard from in 5 minutes.",
 				"sortLabel": "Sort devices",
 				"sortBy": "Sort by",
 				"sort": {

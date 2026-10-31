@@ -573,6 +573,54 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
         bevel_mm=2,
     )
 
+    # --- Water-temperature probe (issue #400) -----------------------------
+    # The DS18B20 clips to the front edge of the base plate and hangs below it.
+    # Silver, blue and dark grey keep it legible against the white chassis and
+    # the dark water/backdrop; it is deliberately a solid part with no leader
+    # line or label anchor.
+    probe = dims["water_probe"]
+    add_box(
+        "Water_Probe_Clip",
+        tuple(probe["clip_size"]),
+        tuple(probe["clip_center"]),
+        mats["rubber"],
+        collection,
+        bevel_mm=2,
+    )
+    add_cylinder(
+        "Water_Probe_Cable",
+        probe["cable_diameter"] / 2.0,
+        probe["cable_length"],
+        tuple(probe["cable_center"]),
+        mats["cable_gray"],
+        collection,
+        axis="Y",
+        verts=24,
+        bevel_mm=0.6,
+    )
+    add_cylinder(
+        "Water_Probe_Connector",
+        probe["connector_diameter"] / 2.0,
+        probe["connector_length"],
+        tuple(probe["connector_center"]),
+        mats["blue"],
+        collection,
+        axis="Y",
+        verts=32,
+        bevel_mm=1.5,
+    )
+    add_cylinder(
+        "Water_Probe_Body",
+        probe["body_diameter"] / 2.0,
+        probe["body_length"],
+        tuple(probe["body_center"]),
+        mats["silver"],
+        collection,
+        axis="Y",
+        verts=32,
+        bevel_mm=2.0,
+    )
+
     # --- Chassis ----------------------------------------------------------
     chassis = dims["chassis"]
     chassis_center = chassis["center"]

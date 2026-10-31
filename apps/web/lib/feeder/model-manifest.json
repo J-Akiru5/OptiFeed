@@ -1,12 +1,12 @@
 {
 	"name": "optifeed-feeder",
-	"version": "1.1.2",
+	"version": "1.2.0",
 	"contract": 1,
-	"file": "/models/feeder-v1.1.2.glb",
-	"sha256": "b50a4baddddc0be192dee22cb213462c066af0441c071c8568df17115e68aaf5",
-	"bytes": 1165172,
-	"triangles": 38284,
-	"builtAt": "2026-10-29T15:50:09+00:00",
+	"file": "/models/feeder-v1.2.0.glb",
+	"sha256": "1fc89bcccb69dfb5edecefe8a79365c5d2c16d5f812082a75b237953868e6bc4",
+	"bytes": 1198164,
+	"triangles": 39436,
+	"builtAt": "2026-10-31T12:15:50+00:00",
 	"generator": "Blender 5.2.3 LTS",
 	"dimensionsRevision": "tape-2026-10-29-post",
 	"nodes": [
@@ -116,6 +116,10 @@
 		"Tube_Strap_1",
 		"Tube_Strap_2",
 		"Tube_Strap_Buckle_1",
-		"Tube_Strap_Buckle_2"
+		"Tube_Strap_Buckle_2",
+		"Water_Probe_Body",
+		"Water_Probe_Cable",
+		"Water_Probe_Clip",
+		"Water_Probe_Connector"
 	]
 }

@@ -6,7 +6,7 @@ import { isDeviceOffline, resolveFeedLevelDisplay } from "../feed-level-display"
 const readingAt = new Date("2026-08-28T09:32:00+08:00");
 
 describe("isDeviceOffline", () => {
-	it("keeps the grace window online and flips one millisecond after it", () => {
+	it("flips to offline one millisecond after the offline window", () => {
 		const now = new Date("2026-10-27T12:00:00Z");
 		const graceMs = DEVICE_OFFLINE_GRACE_MIN_DEFAULT * 60 * 1000;
 

@@ -437,7 +437,7 @@ old server (no `config` object) changes nothing.
 | `OTA_NO_DATA_TIMEOUT_MS` | `ota_no_data_timeout_ms` | 60,000 ms (envelope 10,000–600,000) | B |
 | `OTA_DOWNLOAD_TIMEOUT_MS` | `ota_download_timeout_ms` | 900,000 ms (envelope 60,000–3,600,000) | B |
 | `OTA_HEALTH_CHECK_TIMEOUT_MS` | `ota_health_check_timeout_ms` | 300,000 ms (envelope 60,000–1,800,000) | B |
-| `OrgSetting.offlineAfterMin` / I-95 policy | `weak_after_min`, `offline_after_min` | 5 / 15 min (envelope 1–60 / 5–180) | B (diagnostic) |
+| `OrgSetting.offlineAfterMin` / I-95 policy | `weak_after_min`, `offline_after_min` | 4 / 5 min (envelope 1–60 / 5–180) | B (diagnostic) |
 | `RELAY_OVERRUN_GRACE_MS` | — | 2,000 ms | A |
 | `MAX_GRAMS_PER_DAY` (hard guard) / `MAX_DISPENSE_MS` (envelope) | envelope rows above | 5,000 g / 300,000 ms | A |
 | `RELAY_PIN`, `BUTTON_PIN`, reset pins, RTC/ultrasonic/DS18B20 pins | — | build flag / compile-time | A |

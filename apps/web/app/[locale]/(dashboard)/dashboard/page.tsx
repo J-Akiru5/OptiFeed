@@ -62,6 +62,7 @@ import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 import { deviceSettingsHref } from "@/lib/settings/device-settings-tabs";
 import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { getOrgSettingsForFarm } from "@/lib/settings/org";
+import { hopperIsLow } from "@/lib/settings/org-alerts";
 import { cn } from "@/lib/utils";
 import {
 	AlertTriangle,
@@ -394,6 +395,12 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		};
 	});
 
+	// One decision, two surfaces (#412): the rail alert and Pakoy's reminder use
+	// the same inclusive threshold as the server's `hopperAlertTier`, so at
+	// exactly `hopperLowPct` the bell and the dashboard no longer disagree.
+	const hopperLevelPercent = energyDevice?.feedLevelPercent ?? null;
+	const hopperLow = hopperIsLow(hopperLevelPercent, orgSettings.settings.hopperLowPct);
+
 	// The rail's alerts are derived from the same reads as the cards above; the
 	// offline banner is repeated from the page-level critical alert.
 	const alerts: ControlRoomAlert[] = [];
@@ -409,23 +416,21 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 			linkLabel: t("controlRoom.alerts.openHardware"),
 		});
 	}
-	if (energyDevice?.feedLevelPercent !== null && energyDevice?.feedLevelPercent !== undefined) {
-		if (energyDevice.feedLevelPercent < orgSettings.settings.hopperLowPct) {
-			alerts.push({
-				id: "hopper-low",
-				tone: "warning",
-				title: t("controlRoom.alerts.lowHopperTitle", {
-					percent: Math.round(energyDevice.feedLevelPercent),
-				}),
-				detail: t("controlRoom.alerts.lowHopperDetail"),
-				href: deviceSettingsHref({
-					deviceId: energyDevice.id,
-					tab: "calibration",
-					anchor: "hopper-calibration",
-				}),
-				linkLabel: t("controlRoom.alerts.openHardware"),
-			});
-		}
+	if (energyDevice && hopperLevelPercent !== null && hopperLow) {
+		alerts.push({
+			id: "hopper-low",
+			tone: "warning",
+			title: t("controlRoom.alerts.lowHopperTitle", {
+				percent: Math.round(hopperLevelPercent),
+			}),
+			detail: t("controlRoom.alerts.lowHopperDetail"),
+			href: deviceSettingsHref({
+				deviceId: energyDevice.id,
+				tab: "calibration",
+				anchor: "hopper-calibration",
+			}),
+			linkLabel: t("controlRoom.alerts.openHardware"),
+		});
 	}
 	if (recalibration.isOverdue) {
 		alerts.push({
@@ -492,15 +497,9 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 
 			{/* Pakoy's in-context low-hopper reminder (#221). The permanent
 			    record stays in the bell and on the hardware page. */}
-			{energyDevice &&
-				energyDevice.feedLevelPercent !== null &&
-				energyDevice.feedLevelPercent < orgSettings.settings.hopperLowPct && (
-					<PakoyLowHopper
-						pondId={pond.id}
-						levelPercent={Math.round(energyDevice.feedLevelPercent)}
-						low
-					/>
-				)}
+			{energyDevice && hopperLevelPercent !== null && hopperLow && (
+				<PakoyLowHopper pondId={pond.id} levelPercent={Math.round(hopperLevelPercent)} low />
+			)}
 
 			<ControlRoomLayout>
 				{criticalAlert && (

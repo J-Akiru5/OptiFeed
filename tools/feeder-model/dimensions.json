@@ -165,5 +165,20 @@
 		"width": 95,
 		"height": 65,
 		"depth": 2
+	},
+	"water_probe": {
+		"notes": "DS18B20 water-temperature probe (issue #400). It clips to the front edge of the base plate and hangs below it, crossing the assumed pond surface at water_level_y. Dimensions are the real probe: a 6 mm cable, an 18 mm blue heat-shrink connector and a 14 x 46 mm stainless body.",
+		"clip_center": [-80, -5, 228],
+		"clip_size": [24, 16, 10],
+		"cable_center": [-80, -25.5, 233],
+		"cable_diameter": 6,
+		"cable_length": 45,
+		"connector_center": [-80, -58, 233],
+		"connector_diameter": 18,
+		"connector_length": 20,
+		"body_center": [-80, -91, 233],
+		"body_diameter": 14,
+		"body_length": 46,
+		"water_level_y": -90
 	}
 }

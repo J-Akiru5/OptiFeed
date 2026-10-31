@@ -97,14 +97,37 @@ describe("evaluateDeviceStatus", () => {
 		expect(evaluateDeviceStatus({ lastSeenAt: ago(64), now, policy }).state).toBe("weak");
 		expect(evaluateDeviceStatus({ lastSeenAt: ago(66), now, policy }).state).toBe("offline");
 	});
+
+	it("marks a silent feeder offline after five minutes (#419)", () => {
+		// The shipped default: five minutes of silence is offline, not weak.
+		expect(evaluateDeviceStatus({ lastSeenAt: ago(4), now }).state).toBe("online");
+		expect(evaluateDeviceStatus({ lastSeenAt: ago(4.01), now }).state).toBe("weak");
+		expect(evaluateDeviceStatus({ lastSeenAt: ago(5), now }).state).toBe("weak");
+		expect(evaluateDeviceStatus({ lastSeenAt: ago(5.01), now }).state).toBe("offline");
+	});
 });
 
 describe("isDeviceUnreachable (command safety)", () => {
 	it("is stricter than the display rule: no grace for command acceptance", () => {
+		// A policy with a grace: the display keeps the unit reachable inside the
+		// grace band, the safety rule already refuses the command.
+		const policy = deviceStatusPolicyFromValue({
+			weakAfterMin: DEVICE_WEAK_AFTER_MIN_DEFAULT,
+			offlineAfterMin: DEVICE_OFFLINE_AFTER_MIN_DEFAULT,
+			graceMin: 2,
+		});
 		const justInsideGrace = ago(DEVICE_OFFLINE_AFTER_MIN_DEFAULT + 1);
 
-		expect(isDeviceOffline(justInsideGrace, now)).toBe(false);
-		expect(isDeviceUnreachable(justInsideGrace, now)).toBe(true);
+		expect(isDeviceOffline(justInsideGrace, now, policy)).toBe(false);
+		expect(isDeviceUnreachable(justInsideGrace, now, policy)).toBe(true);
+	});
+
+	it("matches the display rule with the shipped zero grace (#419)", () => {
+		const justInsideWindow = ago(DEVICE_OFFLINE_AFTER_MIN_DEFAULT);
+
+		expect(isDeviceOffline(justInsideWindow, now)).toBe(false);
+		expect(isDeviceUnreachable(justInsideWindow, now)).toBe(false);
+		expect(isDeviceUnreachable(ago(DEVICE_OFFLINE_AFTER_MIN_DEFAULT + 0.01), now)).toBe(true);
 	});
 
 	it("rejects at the offline boundary and for a device that never reported", () => {
@@ -161,11 +184,11 @@ describe("normalizeDeviceStatusValue", () => {
 });
 
 describe("defaults", () => {
-	it("matches the documented 5 / 15 / 2 minute policy", () => {
+	it("matches the documented 4 / 5 / 0 minute policy (#419)", () => {
 		expect(DEFAULT_DEVICE_STATUS_POLICY).toEqual({
-			weakAfterMs: 5 * MINUTE,
-			offlineAfterMs: 15 * MINUTE,
-			graceMs: 2 * MINUTE,
+			weakAfterMs: 4 * MINUTE,
+			offlineAfterMs: 5 * MINUTE,
+			graceMs: 0,
 		});
 	});
 });

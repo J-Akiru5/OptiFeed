@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.37.0] - 2026-10-31
+
 ### Fixed
 
 - #334 `disablePlatformUser` now locks the active platform-admin grants (`SELECT … FOR UPDATE`) and performs the last-admin count, the Supabase ban and the revoking writes in one transaction. Two concurrent disables (A disables B while B disables A) can no longer both pass the check and leave the platform with zero active admins; the refusal happens before its ban.

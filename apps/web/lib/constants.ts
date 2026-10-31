@@ -1,3 +1,5 @@
+import { DEVICE_OFFLINE_AFTER_MIN_DEFAULT } from "./device-status";
+
 export const HOPPER_CAPACITY_KG = 22.19;
 export const EXPORT_ROW_LIMIT = 50_000;
 // A single CSV import is capped far below the export ceiling so one request
@@ -12,10 +14,11 @@ export const PH_UTC_OFFSET_MINUTES = 480;
 // until this date. New endpoints MUST be created under /api/v1 only.
 export const LEGACY_API_SUNSET = "2027-06-30";
 
-// Devices are considered offline when no heartbeat arrives within this window.
-// #388 adds the platform-configurable weak/offline thresholds on top of this
-// default; display and command checks use `lib/device-status.ts`.
-export const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
+// Legacy alias of the default offline window (#419: 15 min → 5 min).
+// The one connectivity rule lives in `lib/device-status.ts`; every reader uses
+// the platform policy, so this constant only keeps the historical name in
+// sync with the shipped default.
+export const OFFLINE_THRESHOLD_MS = DEVICE_OFFLINE_AFTER_MIN_DEFAULT * 60 * 1000;
 
 // A queued feed/calibration command younger than this counts as "in flight", so
 // the device status never flips to offline while the command is being delivered.
@@ -36,7 +39,10 @@ export const RECONCILIATION_LOOKBACK_HOURS = 4;
 // unless a stored value changed (N11 — was 17,280 rows/device/day).
 export const HEARTBEAT_ROW_INTERVAL_MS = 5 * 60 * 1000;
 
-// Pellet alerts fire on a tier transition or at most this often while still low.
+// Pellet alerts fire on a tier transition or at most this often while still
+// low, measured from the latest pellet notification regardless of
+// acknowledgement (#412): acknowledging silences the stream, the reminder
+// returns at most this long after the last warning.
 export const PELLET_ALERT_WINDOW_MS = 6 * 60 * 60 * 1000;
 
 // Hopper fill thresholds (percent full): CRITICAL at or below the first,

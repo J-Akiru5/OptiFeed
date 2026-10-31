@@ -21,11 +21,14 @@ in the dashboard; VIEWER is read-only.
 
 ## 2. Device shows offline
 
-- "Offline" = no heartbeat within `OFFLINE_THRESHOLD_MS` (see
-  `lib/constants.ts`). The dashboard badge and Admin → Devices reflect this.
+- "Offline" = no heartbeat within the platform device-connectivity window
+  (default: 5 minutes of silence, no grace; see `lib/device-status.ts` and
+  Superadmin → Settings → Device connectivity). The dashboard badge and
+  Admin → Devices reflect this.
 - The `/api/cron/device-watch` endpoint (pg_cron every 5 min, H10) raises one
-  CRITICAL connectivity notification per outage and (if H11 tokens are set)
-  sends a Telegram message.
+  CRITICAL connectivity notification per outage. Alerts are in-app only —
+  there is no Telegram channel (ADR-0007), so nobody is paged: check the
+  dashboard alert panel and the notifications page.
 - Checklist: power/LED on the ESP32, WiFi credentials in range, device token
   still matches the `EnergyDevice.tokenHash` row (rotate via Admin if
   suspect), and the device's `mac` matches what the firmware reports.
@@ -60,3 +63,28 @@ relying on it.
   biomass logs and the most recent `FeedEvent` rows.
 - Backups are a human responsibility (H7): take one before any batch that
   includes migrations (the `batchLabel` migration rides the current PR).
+
+## 5. An account cannot sign in
+
+Work down this list; the first route that fits is the one to use.
+
+1. **Read the error.** "Too many failed attempts" means the account is
+   temporarily locked out (per farm + IP). The lockout clears on its own — wait
+   it out instead of resetting the password, because a reset does not shorten it.
+2. **Self-service** — the user opens the sign-in page → *Forgot password?* and
+   enters their farm ID. If their login address can receive mail, the link sets a
+   new password on `/reset-password`. Login addresses are internal pond
+   mailboxes, so in practice this mail cannot arrive.
+3. **Platform console** (recommended) — Superadmin → Users → the account →
+   *Reset password*. A reason and a step-up password check are required; a
+   one-time temporary password is shown once, and the account must change it at
+   the next sign-in. Copy it to the user before closing the dialog — it is not
+   stored and cannot be shown again.
+4. **CLI** — `pnpm --filter web manage-user reset-password --farm-id <id>
+   --password <value>`. Temporary and forced-change by default.
+
+Every route leaves a trace in Superadmin → Audit: `platform.user.reset_password`
+for the console reset, `platform.user.password_reset_requested` for a
+self-service request. If the reset seems to have had no effect, check that row
+first, then the account's state (`pnpm --filter web manage-user list` shows the
+`[must change password]` flag).

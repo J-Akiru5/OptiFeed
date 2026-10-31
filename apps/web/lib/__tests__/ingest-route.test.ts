@@ -42,14 +42,9 @@ vi.mock("@/lib/prisma", () => ({
 	},
 }));
 
-vi.mock("@/lib/notify/telegram", () => ({
-	sendTelegramMessage: vi.fn().mockResolvedValue(true),
-	absoluteAppUrl: vi.fn().mockReturnValue(null),
-}));
-
 import { POST } from "@/app/api/ingest/route";
+import { PELLET_ALERT_WINDOW_MS } from "@/lib/constants";
 import { hashToken } from "@/lib/device-auth";
-import { sendTelegramMessage } from "@/lib/notify/telegram";
 import prisma from "@/lib/prisma";
 
 const mockEnergyDevice = vi.mocked(prisma.energyDevice);
@@ -248,10 +243,10 @@ describe("POST /api/ingest — heartbeat dedup and thinning (1.4)", () => {
 		);
 		expect(connectedCalls).toHaveLength(0);
 
-		// 3.5: exactly one Telegram message — the same dedup that gates the
-		// notification gates the fan-out (none of the 99 repeats).
-		expect(sendTelegramMessage).toHaveBeenCalledTimes(1);
-		expect(sendTelegramMessage).toHaveBeenCalledWith(expect.stringContaining("nearly empty"));
+		// The alert is in-app only (ADR-0007): exactly one Notification row — the
+		// same dedup that gates the notification gates every repeat (none of the
+		// 99).
+		expect(mockNotification.create).toHaveBeenCalledTimes(1);
 	});
 
 	it("queues one hopper alert per heartbeat (no duplicate days-remaining warning)", async () => {
@@ -318,7 +313,6 @@ describe("POST /api/ingest — heartbeat dedup and thinning (1.4)", () => {
 
 		expect(res.status).toBe(204);
 		expect(mockNotification.create).not.toHaveBeenCalled();
-		expect(sendTelegramMessage).not.toHaveBeenCalled();
 	});
 
 	it("fires CRITICAL immediately after WARNING (tier transition, even inside window)", async () => {
@@ -345,7 +339,7 @@ describe("POST /api/ingest — heartbeat dedup and thinning (1.4)", () => {
 		);
 	});
 
-	it("does not Telegram-blast on WARNING-level pellet alerts (3.5: CRITICAL only)", async () => {
+	it("keeps a WARNING-level pellet alert at WARNING (CRITICAL only escalates)", async () => {
 		mockEnergyDevice.findUnique.mockResolvedValue({
 			...DEVICE,
 			pondId: "pond-1",
@@ -363,26 +357,6 @@ describe("POST /api/ingest — heartbeat dedup and thinning (1.4)", () => {
 		expect(mockNotification.create).toHaveBeenCalledWith(
 			expect.objectContaining({ data: expect.objectContaining({ tier: "WARNING" }) }),
 		);
-		expect(sendTelegramMessage).not.toHaveBeenCalled();
-	});
-
-	it("a failing Telegram sender never breaks ingest (3.5)", async () => {
-		vi.mocked(sendTelegramMessage).mockResolvedValueOnce(false as never);
-		mockEnergyDevice.findUnique.mockResolvedValue({
-			...DEVICE,
-			pondId: "pond-1",
-			lastSeenAt: new Date(Date.now() - 5000),
-		} as never);
-		mockFeedEvent.findFirst.mockResolvedValue({
-			receivedAt: new Date(),
-			rtcOk: true,
-			feederActive: false,
-		} as never);
-		mockNotification.findFirst.mockResolvedValue(null as never);
-
-		const res = await POST(ingestRequest(heartbeatBody("hb-tg-down", { feedLevelPercent: 3 })));
-		expect(res.status).toBe(204);
-		expect(sendTelegramMessage).toHaveBeenCalledTimes(1);
 	});
 
 	it("thins heartbeat FeedEvents: 100 beats with unchanged values write one row", async () => {
@@ -554,7 +528,6 @@ describe("POST /api/ingest — hopper sensor arbitration", () => {
 		expect(levelUpdateCalls()).toHaveLength(0);
 		expect(mockFeedLevelLog.create).not.toHaveBeenCalled();
 		expect(mockNotification.create).not.toHaveBeenCalled();
-		expect(sendTelegramMessage).not.toHaveBeenCalled();
 	});
 
 	it("accepts a real empty hopper (0 % but a non-zero distance)", async () => {
@@ -629,6 +602,166 @@ describe("POST /api/ingest — hopper sensor arbitration", () => {
 			([arg]) => (arg as { data: { category?: string } }).data.category === "pellet",
 		);
 		expect(pellet).toHaveLength(0);
+	});
+});
+
+describe("POST /api/ingest — pellet alert window survives acknowledgement (#412)", () => {
+	// Option A: the 6 h window is measured from the latest pellet notification
+	// regardless of acknowledgement. Acknowledging silences the bell; the
+	// reminder returns at most 6 h after the last warning and a tier transition
+	// still fires immediately.
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			pondId: "pond-1",
+			lastSeenAt: new Date(Date.now() - 5000),
+			hopperCapacityG: 1000,
+			gramsPerFeeding: 150,
+		} as never);
+		mockEnergyDevice.update.mockResolvedValue({} as never);
+		mockPond.findUnique.mockResolvedValue({
+			feedsPerDay: 2,
+			ownerId: null,
+			notificationPrefs: null,
+		} as never);
+		mockFeedEvent.findFirst.mockResolvedValue({
+			receivedAt: new Date(),
+			rtcOk: true,
+			feederActive: false,
+		} as never);
+		mockFeedEvent.create.mockResolvedValue({} as never);
+		mockFeedLevelLog.findFirst.mockResolvedValue(null as never);
+		mockFeedLevelLog.create.mockResolvedValue({} as never);
+		mockWaterTempLog.findFirst.mockResolvedValue(null as never);
+		mockWaterTempLog.create.mockResolvedValue({} as never);
+		mockFeedRequest.findMany.mockResolvedValue([] as never);
+		mockFeedRequest.updateMany.mockResolvedValue({ count: 0 } as never);
+		mockDeviceStateEvent.create.mockResolvedValue({} as never);
+		mockNotification.create.mockResolvedValue({} as never);
+		mockNotification.updateMany.mockResolvedValue({ count: 0 } as never);
+	});
+
+	function pelletCreates() {
+		return mockNotification.create.mock.calls.filter(
+			([arg]) => (arg as { data: { category?: string } }).data.category === "pellet",
+		);
+	}
+
+	/**
+	 * A pellet notification the farmer has already acknowledged, with the
+	 * lookup behaving like the database: a query that filters
+	 * `acknowledgedAt: null` cannot see it. That filter is the bug (#412), so
+	 * these tests fail against the old gate instead of passing on a mock that
+	 * ignores its `where` clause.
+	 */
+	function acknowledgedPelletAlert(createdAt: Date) {
+		const row = {
+			tier: "WARNING",
+			createdAt,
+			acknowledgedAt: new Date(createdAt.getTime() + 30_000),
+		};
+		mockNotification.findFirst.mockImplementation((async (args: {
+			where?: Record<string, unknown>;
+		}) => (args?.where && "acknowledgedAt" in args.where ? null : row)) as never);
+		return row;
+	}
+
+	it("does not re-arm the warning when the latest alert was acknowledged inside the window", async () => {
+		// The farmer tapped Acknowledge 30 s ago; the next 5 s heartbeat must not
+		// create an identical warning (the pre-#412 gate only looked at
+		// unacknowledged rows, so it found nothing and fired again).
+		acknowledgedPelletAlert(new Date(Date.now() - 60_000));
+
+		const res = await POST(ingestRequest(heartbeatBody("hb-ack-1", { feedLevelPercent: 10 })));
+
+		expect(res.status).toBe(204);
+		expect(pelletCreates()).toHaveLength(0);
+		// The gate reads the latest pellet row whatever its acknowledgement; the
+		// `acknowledgedAt: null` filter is what re-armed the cooldown.
+		expect(mockNotification.findFirst).toHaveBeenCalledWith(
+			expect.objectContaining({ where: { pondId: "pond-1", category: "pellet" } }),
+		);
+	});
+
+	it("creates the reminder once the window has passed, acknowledged or not", async () => {
+		mockNotification.findFirst.mockResolvedValue({
+			tier: "WARNING",
+			createdAt: new Date(Date.now() - PELLET_ALERT_WINDOW_MS - 60_000),
+			acknowledgedAt: new Date(Date.now() - PELLET_ALERT_WINDOW_MS - 30_000),
+		} as never);
+
+		const res = await POST(ingestRequest(heartbeatBody("hb-ack-2", { feedLevelPercent: 10 })));
+
+		expect(res.status).toBe(204);
+		const pellet = pelletCreates();
+		expect(pellet).toHaveLength(1);
+		expect(pellet[0][0]).toMatchObject({ data: { tier: "WARNING", category: "pellet" } });
+	});
+
+	it("still fires a tier transition inside the window", async () => {
+		// WARNING → CRITICAL is new information, so the acknowledgement of the
+		// WARNING does not suppress it.
+		mockNotification.findFirst.mockResolvedValue({
+			tier: "WARNING",
+			createdAt: new Date(Date.now() - 60_000),
+			acknowledgedAt: new Date(Date.now() - 30_000),
+		} as never);
+
+		const res = await POST(ingestRequest(heartbeatBody("hb-ack-3", { feedLevelPercent: 3 })));
+
+		expect(res.status).toBe(204);
+		const pellet = pelletCreates();
+		expect(pellet).toHaveLength(1);
+		expect(pellet[0][0]).toMatchObject({ data: { tier: "CRITICAL", category: "pellet" } });
+	});
+
+	it("fires the reverse transition (CRITICAL → WARNING) inside the window", async () => {
+		mockNotification.findFirst.mockResolvedValue({
+			tier: "CRITICAL",
+			createdAt: new Date(Date.now() - 60_000),
+			acknowledgedAt: new Date(Date.now() - 30_000),
+		} as never);
+
+		const res = await POST(ingestRequest(heartbeatBody("hb-ack-4", { feedLevelPercent: 10 })));
+
+		expect(res.status).toBe(204);
+		const pellet = pelletCreates();
+		expect(pellet).toHaveLength(1);
+		expect(pellet[0][0]).toMatchObject({ data: { tier: "WARNING", category: "pellet" } });
+	});
+
+	it("does not re-fire the days-remaining warning right after it was acknowledged", async () => {
+		// 25 % of 1,000 g = 250 g at 300 g/day ≈ 0.83 days: above the 20 % low
+		// threshold, so only the days-remaining branch is in play. It shares the
+		// same dedup state, which had the same acknowledged-row flaw.
+		acknowledgedPelletAlert(new Date(Date.now() - 60_000));
+
+		const res = await POST(
+			ingestRequest(heartbeatBody("hb-ack-days-1", { feedLevelPercent: 25, feedLevelCm: 18 })),
+		);
+
+		expect(res.status).toBe(204);
+		expect(pelletCreates()).toHaveLength(0);
+	});
+
+	it("re-fires the days-remaining warning once the window has passed", async () => {
+		mockNotification.findFirst.mockResolvedValue({
+			tier: "WARNING",
+			createdAt: new Date(Date.now() - PELLET_ALERT_WINDOW_MS - 60_000),
+			acknowledgedAt: new Date(Date.now() - PELLET_ALERT_WINDOW_MS - 30_000),
+		} as never);
+
+		const res = await POST(
+			ingestRequest(heartbeatBody("hb-ack-days-2", { feedLevelPercent: 25, feedLevelCm: 18 })),
+		);
+
+		expect(res.status).toBe(204);
+		const pellet = pelletCreates();
+		expect(pellet).toHaveLength(1);
+		expect(pellet[0][0]).toMatchObject({
+			data: { tier: "WARNING", category: "pellet", message: expect.stringContaining("run out") },
+		});
 	});
 });
 

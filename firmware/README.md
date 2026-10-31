@@ -46,12 +46,76 @@
 | GPIO 12 | HC-SR04 TRIG (output). Strapping pin: a 10 kOhm pull-down to GND holds it LOW at boot |
 | GPIO 14 | HC-SR04 ECHO (input, 5 V logic — level-shift or divide before the pin) |
 | GPIO 16 | Factory reset button (INPUT_PULLUP, press = LOW). Hold >= 10 s to clear WiFi, Device ID, Device Token and the `provisioned` marker |
-| GPIO 17 | Wi-Fi reset button (INPUT_PULLUP, press = LOW). Hold >= 5 s to clear WiFi only — the Device ID/Token are kept |
+| GPIO 17 | Wi-Fi reset button (INPUT_PULLUP, press = LOW). Hold >= 5 s to clear WiFi only — the Device ID/Token are kept. A tap (< 5 s) acknowledges latched faults (1.8.0) |
+| GPIO 18 | FAULT lamp, yellow (LED + 200 Ω to GND; HIGH = on). Solid while a fault is latched (1.8.0) |
+| GPIO 26 | WI-FI lamp, blue (LED + 100 Ω to GND). Solid once joined to the saved network; 1 Hz blink in the setup portal; off otherwise (1.8.0) |
+| — | POWER lamp, white: 5 V rail + 330 Ω in hardware, no GPIO. FEEDING lamp, green: parallel tap on the relay control line (GPIO 25, or 5 on `esp32dev-relay5`), no GPIO |
 | GPIO 21 | DS3231 SDA (I²C) — RTC                 |
 | GPIO 22 | DS3231 SCL (I²C) — RTC                 |
 | GPIO 1  | TX0 (USB debug serial)                  |
 | GPIO 3  | RX0 (USB debug serial)                  |
 | GPIO 0  | Must float during boot (boot mode)      |
+
+### Machine status interface (firmware 1.8.0)
+
+Four LEDs form one status panel. Logic lives in `status.h` (`fw::FaultManager`,
+`fw::indicatorLevels`) and is covered by the native tests. The wiring below is the
+amended bench wiring (`firmware/bench/led-bench-test`, Jeff 2026-10-31): only the blue
+and yellow LEDs are firmware outputs.
+
+| Lamp | Wiring | Solid | Blinking | Off |
+|---|---|---|---|---|
+| POWER (white) | 5 V rail → 330 Ω → LED → GND; hardware, no GPIO | Control power available | — | No control power |
+| FEEDING (green) | Relay control line (GPIO 25, or 5 on `esp32dev-relay5`) → 200 Ω → LED → GND; a parallel tap, no GPIO | Relay energized (actual feeding) | — | Idle |
+| WI-FI (blue) | GPIO 26 → 100 Ω → LED → GND | Joined the configured network | Setup portal (provisioning) | Not connected (not a fault) |
+| FAULT (yellow) | GPIO 18 → 200 Ω → LED → GND | A fault is latched | — | No active fault |
+
+Polarity: longer leg (anode) toward the resistor and GPIO, shorter leg (cathode) to
+GND. Tap the relay line at the ESP32 pin or module input, not at a point pulled up
+to 5 V. The green LED reflects *relay energized*, so it also blips with the GPIO 5
+boot glitch and stays lit if the relay sticks on; label it FEED or RELAY on the
+enclosure, not "FEEDING OK". Blue sits close to the 3.3 V rail and is dim even at
+100 Ω; a brighter blue needs a 5 V supply and a small low-side switch.
+
+A panel of 12 V DC pilot lamps instead (each switched by an NPN, never directly by
+a GPIO) builds with `-DPOWER_LED_PIN=13 -DFEEDING_LED_PIN=18 -DWIFI_LED_PIN=19
+-DFAULT_LED_PIN=33`:
+
+| Connection | Wiring |
+|---|---|
+| Lamp + | +12 V |
+| Lamp − | NPN collector |
+| NPN emitter | GND |
+| ESP32 GPIO | 1 kΩ → NPN base |
+| NPN base | 10 kΩ pull-down → GND (lamp stays dark while the pin floats at reset) |
+| ESP32 GND | Common with the 12 V supply GND (non-isolated supplies only) |
+
+A lamp that is not fitted builds with `-D<NAME>_LED_PIN=-1` (`POWER_LED_PIN`,
+`FEEDING_LED_PIN`, `WIFI_LED_PIN`, `FAULT_LED_PIN`).
+
+**Faults the current hardware can detect**
+
+| Fault | Detection | Raised | Clears when |
+|---|---|---|---|
+| `hopper_sensor` | HC-SR04 returns no echo on any sample, 3 checks in a row (each heartbeat, or a single ping every 60 s when offline) | ~15 s online, ~3 min offline | An echo returns, then the operator acknowledges |
+| `rtc` | DS3231 not found at boot, or no I2C ACK at 0x68 (probed every 60 s) | At boot / within 60 s | It answers again, then acknowledgement |
+| `relay_overrun` | A dose ran past its expected end + 2 s (timing trip; the relay is already forced off) | At the trip | Acknowledgement |
+| `safe_mode` | Repeated abnormal resets locked the relay off | On entry | Safe mode ends, then acknowledgement |
+
+Faults latch: the yellow lamp stays on until the cause is gone **and** the
+operator taps the Wi-Fi reset button (GPIO 17, released before 5 s). A tap while
+the cause is still present is refused and logged. Acknowledging never resumes an
+interrupted dose. Each fault is logged as `[FAULT] <code> raised (epoch <n>)`
+(epoch 0 without a trusted clock) and the heartbeat carries
+`diag.faults_latched`, `diag.faults_present` (bit n = `fw::Fault` n) and
+`diag.last_fault`. Ingest strips these today, as with the other `diag` keys.
+
+Not faults: Wi-Fi loss (the unit feeds offline from the RTC; blue just goes
+off) and a low hopper (a server-side pellet alert). Not detectable without new
+parts: a jammed auger or motor overload (needs a current sensor) and a relay
+that fails to switch (needs relay feedback). The FAULT lamp is an operator
+notice, not a safety interlock: the relay gates and safe mode remain the only
+interlock, and no fault adds a new feeding refusal.
 
 ### Dedicated reset buttons
 
@@ -71,12 +135,9 @@ cannot reboot into the portal at 5 s: the factory reset wins at 10 s. The
 existing feed-button hold (GPIO 23, 5 s at boot) remains a WiFi-only reset.
 
 GPIO 16 and 17 are free on the ESP32-WROOM-32U, are not strapping pins, and
-support the internal pull-up. They are held by these two buttons; other free,
-safe GPIO candidates are:
-
-```
-13, 18, 19, 33
-```
+support the internal pull-up. They are held by these two buttons. GPIO 18 and 26
+are the FAULT and WI-FI lamps since 1.8.0 (see *Machine status interface*). GPIO 27 is
+still free; so are 13, 19 and 33 unless a 12 V lamp panel is built (see that section).
 
 Do **not** use: 25 (relay), 23 (feed button), 32 (DS18B20), 12/14 (HC-SR04),
 21/22 (RTC I2C), 0/2/15 (strapping), 34-39 (input-only, no internal pull-up),
@@ -437,7 +498,7 @@ old server (no `config` object) changes nothing.
 | `OTA_NO_DATA_TIMEOUT_MS` | `ota_no_data_timeout_ms` | 60,000 ms (envelope 10,000–600,000) | B |
 | `OTA_DOWNLOAD_TIMEOUT_MS` | `ota_download_timeout_ms` | 900,000 ms (envelope 60,000–3,600,000) | B |
 | `OTA_HEALTH_CHECK_TIMEOUT_MS` | `ota_health_check_timeout_ms` | 300,000 ms (envelope 60,000–1,800,000) | B |
-| `OrgSetting.offlineAfterMin` / I-95 policy | `weak_after_min`, `offline_after_min` | 5 / 15 min (envelope 1–60 / 5–180) | B (diagnostic) |
+| `OrgSetting.offlineAfterMin` / I-95 policy | `weak_after_min`, `offline_after_min` | 4 / 5 min (envelope 1–60 / 5–180) | B (diagnostic) |
 | `RELAY_OVERRUN_GRACE_MS` | — | 2,000 ms | A |
 | `MAX_GRAMS_PER_DAY` (hard guard) / `MAX_DISPENSE_MS` (envelope) | envelope rows above | 5,000 g / 300,000 ms | A |
 | `RELAY_PIN`, `BUTTON_PIN`, reset pins, RTC/ultrasonic/DS18B20 pins | — | build flag / compile-time | A |
@@ -451,7 +512,7 @@ old server (no `config` object) changes nothing.
 | `PROVISIONING_*` (scan, join, restart) | — | 20 networks, 300 ms/channel, 12 s scan, 2 s retry, 20 s join, 6 s quick fail, 5 s restart | C |
 | `EVENT_QUEUE_SIZE` | — | 50 | C |
 | `MAX_FEED_TIMES` | — | 24 | C |
-| `OTA_MAX_CHECK_RESPONSE_BYTES`, `OTA_LOCAL_UTC_OFFSET_MINUTES` | — | 8,192 B / 480 min | C (time zone is a fleet constant) |
+| `OTA_MAX_CHECK_RESPONSE_BYTES`, `OTA_LOCAL_UTC_OFFSET_MINUTES` | `farm_offset_minutes` (server, persisted in NVS) | 8,192 B / 480 min fallback | C (the constant is only the boot fallback; the server owns the offset) |
 | `OTA_CHECK_URL`, `INGEST_URL`, `FEED_POLL_URL_BASE`, `SCHEDULE_SYNC_URL_BASE` | — | production URLs | C |
 | TLS roots, OTA public keys, `PROVISIONING_AP_PREFIX` | — | compile-time | A |
 
@@ -526,7 +587,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 #define FEED_POLL_URL_BASE     "https://pakaonai.syntaxure.dev/api/feed-command"
 #define SCHEDULE_SYNC_URL_BASE "https://pakaonai.syntaxure.dev/api/schedule-sync"
 #define OTA_CHECK_URL          "https://pakaonai.syntaxure.dev/api/firmware/check"
-#define FW_VERSION             "1.7.0"
+#define FW_VERSION             "1.8.1"
 #define FW_BOARD               "wroom32u"
 ```
 
@@ -559,7 +620,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 > 4. Confirm the five embedded certificates match the fingerprints in the
 >    source comment (`openssl x509 -fingerprint -sha256 -in <pem>`).
 
-> `FW_VERSION` is printed at boot (`[FIRMWARE] v1.7.0`, under the
+> `FW_VERSION` is printed at boot (`[FIRMWARE] v1.8.1`, under the
 > `[DEVICE MAC]` line) and sent as `firmware_version` in every heartbeat. It is
 > also the version the OTA check reports and compares against the signed
 > manifest.
@@ -840,11 +901,13 @@ The check and the download only happen while **all** of these hold
 | Local time 10:00–15:00 | `OTA_WINDOW_START_MINUTE` / `OTA_WINDOW_END_MINUTE` |
 | Enough free heap | `OTA_MIN_FREE_HEAP_BYTES` (60 KB) |
 
-`OTA_LOCAL_UTC_OFFSET_MINUTES` (480 = UTC+8, Philippines) converts the
-UTC RTC to local time **for the maintenance window only**. The schedule guard
-uses the same RTC clock `handleSchedule()` fires on, so it reflects when this
-unit would really dispense. A brownout reset postpones updates until the next
-clean reboot (power safety, by decision).
+The same `farm_offset_minutes` value that the server sends on every
+`feed-command` and `schedule-sync` converts the UTC RTC to farm-local time for
+the **schedule comparison**, this maintenance window and the schedule guard
+(the compile-time fallback is `OTA_LOCAL_UTC_OFFSET_MINUTES` = 480 = UTC+8 until
+the first response). The schedule guard therefore reflects when this unit would
+really dispense. A brownout reset postpones updates until the next clean reboot
+(power safety, by decision).
 
 Backoff after any postponement or failure: **1 h → 6 h → 24 h**, then held at
 24 h. A check that answers `{update:false}` resets the ladder and the next check
@@ -871,11 +934,56 @@ is 30 minutes later. Every decision is logged on serial as `[OTA] ...`.
   | `ota_feed_count` | number of active schedule slots |
   | `ota_feed_times` | 48 bytes, hour/minute pairs for all 24 slots |
 
-  At boot the schedule is restored every time; `dailyGramsDispensed` and the
-  `firedToday` flags are restored only when `ota_day` matches the RTC date. The
+  At boot the OTA checkpoint is restored: the schedule every time;
+  `dailyGramsDispensed` and the `firedToday` flags only when `ota_day` matches
+  the RTC date. `ota_day` keeps its 1.6.x UTC meaning; a farm-local match is also
+  accepted so a checkpoint written across UTC midnight is not lost. The
   checkpoint is then consumed, so a later power cycle cannot resurrect stale
   numbers. If the RTC is missing, the schedule is restored and the daily
   counters are not.
+
+### Schedule, dose and daily-counter persistence (I-109)
+
+The RTC holds **UTC**; schedule slots are the farmer's wall-clock times. Every
+`feed-command` and `schedule-sync` response carries `farm_offset_minutes`. The
+firmware converts at every comparison:
+
+```
+local minute of day = (utc hour * 60 + utc minute + farm_offset_minutes) mod 1440
+```
+
+Negative offsets and midnight/month/year rollover are handled by
+`fw::farmLocalTime()` in `safety.h` (host-tested with `pio test -e native`). The
+offset starts at the compile-time fallback `OTA_LOCAL_UTC_OFFSET_MINUTES`
+(480 = UTC+8) until the first response, then follows the server and is
+persisted.
+
+A plain power cycle no longer resets the schedule, the dose sizes or the daily
+cap. The last values are kept in NVS (namespace `optifeed`, new keys) and
+restored at boot after `buildDefaultSchedule()`:
+
+| Key | Contents |
+|---|---|
+| `sch_sched` | one blob: slot count + 24 hour/minute pairs |
+| `sch_grams` | `gramsPerFeeding` (scheduled dose) |
+| `sch_button` | `buttonFeedGrams` (button dose) |
+| `sch_daily` | `dailyGramsDispensed` |
+| `sch_day` | farm-local `YYYYMMDD` that `sch_daily` belongs to |
+| `sch_offset` | last `farm_offset_minutes` |
+
+Each key is written only when its value changes (a poll, a schedule change, a
+completed dispense, a farm-local day rollover, or an offset change), never once
+per loop. `dailyGramsDispensed` is restored only when `sch_day` equals today's
+farm-local date; a new day starts at 0. A restored value is clamped to the
+configured daily cap, so unplugging can never hand the day its headroom back.
+
+The daily cap and the `firedToday` flags now roll over at **farm-local**
+midnight; they previously used the UTC day (08:00 local for UTC+8). The cap
+amount, the relay-time envelope and every other gate are unchanged. Hopper
+calibration (`hopper_full_cm`, `hopper_empty_cm`) and `temp_offset_c` were not
+changed by this work: when a 1.7.0 `config` object has been applied they are
+already part of the existing `cfg_json` last-good copy, and otherwise they keep
+their compile-time defaults until the next poll.
 
 ### LAN OTA (bench only)
 
@@ -988,7 +1096,7 @@ them identical to the PEMs embedded in `firmware-main.ino`.
   "timestamp": "2026-07-11T12:00:00+00:00",
   "rtc_ok": true,
   "feeder_active": false,
-  "firmware_version": "1.7.0",
+  "firmware_version": "1.8.1",
   "wifi_rssi": -58,
   "ota_state": "valid",
   "reset_reason": "poweron",
@@ -1190,7 +1298,7 @@ Portal checks (no backend needed):
 12. Confirm the serial log never prints the WiFi password or the Device Token, and that
     the setup page never renders a stored token. `/status` and `/scan` must not contain
     either.
-13. Confirm the boot log prints `[FIRMWARE] v1.7.0` under the `[DEVICE MAC]` line and
+13. Confirm the boot log prints `[FIRMWARE] v1.8.1` under the `[DEVICE MAC]` line and
     `[IDENTITY] Setup AP name`, and that a heartbeat carries the same version in
     `firmware_version`.
 14. Confirm the boot log prints `[INIT] Reset reason: ...`, `[OTA] state -> valid` and

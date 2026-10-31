@@ -38,11 +38,6 @@ vi.mock("@/lib/prisma", () => ({
 	},
 }));
 
-vi.mock("@/lib/notify/telegram", () => ({
-	sendTelegramMessage: vi.fn().mockResolvedValue(true),
-	absoluteAppUrl: vi.fn().mockReturnValue(null),
-}));
-
 import { POST } from "@/app/api/ingest/route";
 import { hashToken } from "@/lib/device-auth";
 import prisma from "@/lib/prisma";

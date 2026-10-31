@@ -251,6 +251,21 @@ describe("dashboard control room page", () => {
 		expect(html).toContain("Hopper low: 82%");
 	});
 
+	it("raises the rail alert at exactly the threshold, like the server (#412)", async () => {
+		// The server warns at `level <= hopperLowPct`; the rail used a strict `<`
+		// and stayed silent at exactly the threshold. One boundary either side.
+		const renderAt = async (levelPercent: number) => {
+			vi.mocked(prisma.energyDevice.findMany).mockResolvedValueOnce([
+				{ id: "dev-1", label: "CICT Feeder", feedLevelPercent: levelPercent },
+			] as never);
+			return renderToStaticMarkup(await DashboardHomePage({ searchParams: Promise.resolve({}) }));
+		};
+
+		expect(await renderAt(19)).toContain("Hopper low: 19%");
+		expect(await renderAt(20)).toContain("Hopper low: 20%");
+		expect(await renderAt(21)).not.toContain("Hopper low");
+	});
+
 	it("renders the empty state when the pond has no feeder", async () => {
 		const pondSelection = await import("@/lib/pond-selection");
 		vi.mocked(pondSelection.getActivePond).mockResolvedValueOnce({

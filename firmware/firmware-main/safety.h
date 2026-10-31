@@ -484,4 +484,77 @@ class NetRetry {
   unsigned long nextAttemptMs_;
 };
 
+// ---------------------------------------------------------------------------
+// Farm-local time (I-109). The DS3231 holds UTC while the schedule stores the
+// farmer's wall-clock slot times, so every comparison converts first. The
+// offset may be negative and both the minute and the calendar date roll over.
+// ---------------------------------------------------------------------------
+struct FarmLocalTime {
+  int year;
+  int month;
+  int day;
+  int minuteOfDay;  // 0..1439
+};
+
+inline int farmLocalMinuteOfDay(int utcMinuteOfDay, int offsetMinutes) {
+  int local = (utcMinuteOfDay + offsetMinutes) % 1440;
+  if (local < 0) local += 1440;
+  return local;
+}
+
+inline bool farmIsLeapYear(int year) {
+  return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+}
+
+inline int farmDaysInMonth(int year, int month) {
+  static const uint8_t kDays[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  if (month < 1 || month > 12) return 0;
+  if (month == 2 && farmIsLeapYear(year)) return 29;
+  return kDays[month - 1];
+}
+
+inline FarmLocalTime farmLocalTime(int year, int month, int day, int utcMinuteOfDay,
+                                   int offsetMinutes) {
+  int shifted = utcMinuteOfDay + offsetMinutes;
+  int dayDelta = shifted / 1440;
+  int localMinute = shifted % 1440;
+  if (localMinute < 0) {
+    localMinute += 1440;
+    dayDelta -= 1;
+  }
+  while (dayDelta > 0) {
+    day++;
+    if (day > farmDaysInMonth(year, month)) {
+      day = 1;
+      if (++month > 12) {
+        month = 1;
+        year++;
+      }
+    }
+    dayDelta--;
+  }
+  while (dayDelta < 0) {
+    day--;
+    if (day < 1) {
+      if (--month < 1) {
+        month = 12;
+        year--;
+      }
+      day = farmDaysInMonth(year, month);
+    }
+    dayDelta++;
+  }
+  FarmLocalTime out;
+  out.year = year;
+  out.month = month;
+  out.day = day;
+  out.minuteOfDay = localMinute;
+  return out;
+}
+
+inline uint32_t farmDateKey(const FarmLocalTime &local) {
+  return (uint32_t)local.year * 10000UL + (uint32_t)local.month * 100UL +
+         (uint32_t)local.day;
+}
+
 }  // namespace fw

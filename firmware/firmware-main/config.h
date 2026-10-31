@@ -94,8 +94,8 @@ static const int kConfigContractVersion = 1;
   /* Polling (class B) */                                                            \
   X(heartbeatIntervalS, "heartbeat_interval_s", 2.0f, 300.0f, true, 5.0f)            \
   /* Connectivity diagnostic (I-95 policy, informational: the server classifies) */  \
-  X(weakAfterMin, "weak_after_min", 1.0f, 60.0f, true, 5.0f)                         \
-  X(offlineAfterMin, "offline_after_min", 5.0f, 180.0f, true, 15.0f)                 \
+  X(weakAfterMin, "weak_after_min", 1.0f, 60.0f, true, 4.0f)                         \
+  X(offlineAfterMin, "offline_after_min", 5.0f, 180.0f, true, 5.0f)                  \
   /* OTA pre-flight and timeouts (class B, guards stay mandatory) */                 \
   X(otaCheckIntervalS, "ota_check_interval_s", 300.0f, 86400.0f, true, 1800.0f)      \
   X(otaMinUptimeS, "ota_min_uptime_s", 60.0f, 86400.0f, true, 600.0f)                \

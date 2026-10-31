@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- #338 the additive migration `20261031010000_add_feed_event_event_type_received_at_index` adds `FeedEvent(eventType, receivedAt)`, serving the platform feed aggregate and the heartbeat retention sweep. The misleading `(deviceId, receivedAt)` comment in `lib/retention.ts` now names the correct index, and `docs/performance/query-audit.md` records the change. No `CONCURRENTLY`: the table-size lock risk is documented because no database was available to measure it.
+- #339 the additive migration `20261031020000_add_energy_device_pond_id_index` adds `EnergyDevice(pondId)`, which the dashboard's first read, the calendar lookup, global search and notification acknowledgement all filter on.
+- #317 a CI-only e2e preflight (`scripts/e2e/check-ci-target.ts`) runs before `prisma migrate deploy`. With `CI=true` it accepts only the disposable local Supabase stack, so a misconfigured `DATABASE_URL` pointing at a real project fails before any DDL; the production acknowledgement still never makes a remote host eligible in CI.
+
+### Changed
+
+- #339 `markAllNotificationsRead` is no longer an N+1: it issues one `updateMany`, one batched `EnergyDevice` lookup and one `deviceStateEvent.createMany`, keeping one audit row per pond and the same owner scoping.
+- #318 every writer of `CropCycle.targetHarvestWeightG` now goes through `lib/crop-cycle/target-write.ts`: the cycle edit uses the Replace/Keep decision, new cycles use the range guard, and the calculator save/clear use the same count-guarded writers. A static guard test fails if another module writes the mirror directly, and `cycleTargetDrift` reports drift from scripted data.
+
 ## [1.34.1] - 2026-10-31
 
 ### Fixed

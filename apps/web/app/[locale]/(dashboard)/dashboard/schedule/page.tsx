@@ -8,7 +8,7 @@ import {
 	DashboardPageShell,
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
-import { HealthNotice } from "@/components/feeder/feeder-hero";
+import { HealthNotice } from "@/components/feeder/health-notice";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { canWrite } from "@/lib/auth/session";
 import { getDeviceHealthSafe } from "@/lib/device-health";

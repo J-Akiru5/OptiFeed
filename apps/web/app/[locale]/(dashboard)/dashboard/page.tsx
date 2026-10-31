@@ -35,7 +35,7 @@ import {
 } from "@/components/dashboard/dashboard-ui";
 import { TermInfo } from "@/components/dashboard/term-info";
 import { ExportPdfButton } from "@/components/export-pdf-button";
-import { HealthNotice } from "@/components/feeder/feeder-hero";
+import { HealthNotice } from "@/components/feeder/health-notice";
 import { DashboardSnapshot } from "@/components/pwa/dashboard-snapshot";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";

@@ -45,3 +45,8 @@ regexes = ['''sb_secret_abcdefghijklmnopqrstuvwxyz''']
 [[allowlists]]
 description = "This file: it necessarily repeats the placeholder values above."
 paths = ['''gitleaks\.toml''']
+
+[[allowlists]]
+description = "Sentinel keys in the AI provider key tests (apps/web/lib/__tests__/ai-provider-key-resolution.test.ts and ai-provider-key-actions.test.ts). They are fixed dummy strings that the tests push through the encrypt, resolve and audit paths to prove no key material leaks; none was ever a credential (reviewed 2026-10-31, #432)."
+targetRules = ["generic-api-key"]
+regexes = ['''sk-db-SENTINEL-9876''', '''sk-env-SENTINEL-5432''', '''sk-PREVIOUS-SENTINEL-0000''']

@@ -1,25 +1,6 @@
 import { getRequestConfig } from "next-intl/server";
+import { type Messages, mergeMessages } from "./merge-messages";
 import { routing } from "./routing";
-
-type Messages = { [key: string]: string | Messages };
-
-/**
- * Tagalog starts as an overlay on top of English. Every key that is not in
- * `tl.json` falls back to English, so the locale is usable immediately and
- * translations can be filled in incrementally without a missing-message crash.
- */
-function mergeMessages(base: Messages, overlay: Messages): Messages {
-	const merged: Messages = { ...base };
-	for (const [key, value] of Object.entries(overlay)) {
-		const current = merged[key];
-		if (typeof value === "object" && typeof current === "object") {
-			merged[key] = mergeMessages(current, value);
-		} else {
-			merged[key] = value;
-		}
-	}
-	return merged;
-}
 
 export default getRequestConfig(async ({ requestLocale }) => {
 	let locale = await requestLocale;
@@ -28,6 +9,7 @@ export default getRequestConfig(async ({ requestLocale }) => {
 	}
 
 	if (locale === "tl") {
+		// Tagalog is an overlay: a key missing from tl.json falls back to English.
 		const [english, tagalog] = await Promise.all([
 			import("../messages/en.json"),
 			import("../messages/tl.json"),

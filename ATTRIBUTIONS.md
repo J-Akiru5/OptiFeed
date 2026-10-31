@@ -3,3 +3,5 @@ This Figma Make file includes components from [shadcn/ui](https://ui.shadcn.com/
 This Figma Make file includes photos from [Unsplash](https://unsplash.com) used under [license](https://unsplash.com/license).
 
 The landing hero photo (`apps/web/public/landing/hero-pond.jpg`) is a resized copy of an [Unsplash photo](https://images.unsplash.com/photo-1541441056316-443fff347c40), used under the same license.
+
+Third-party terminology, locale data and their licences (Mozilla Firefox Tagalog/Filipino localisation, Unicode CLDR) are recorded in [`THIRD_PARTY.md`](THIRD_PARTY.md).

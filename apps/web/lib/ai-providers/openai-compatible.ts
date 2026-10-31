@@ -11,7 +11,7 @@
 // a strict OpenAI server rejects unknown fields.
 
 import type { AiHttpError, AiProvider, CompletionResult, ProviderRequest } from "./types";
-import { chatCompletionsUrl } from "./url-safety";
+import { assertHostResolvesPublic, chatCompletionsUrl } from "./url-safety";
 
 const USER_AGENT = "optifeed/1.0";
 
@@ -61,11 +61,15 @@ export const openAiCompatibleProvider: AiProvider = {
 	async *stream(request: ProviderRequest): AsyncGenerator<string> {
 		if (!request.config.apiKey) return;
 
-		const response = await fetch(requireBaseUrl(request), {
+		const endpoint = requireBaseUrl(request);
+		await assertHostResolvesPublic(new URL(endpoint).hostname);
+		const response = await fetch(endpoint, {
 			method: "POST",
 			headers: requestHeaders(request.config.apiKey),
 			body: JSON.stringify(buildBody(request, true)),
 			signal: AbortSignal.timeout(120_000),
+			// A redirect would carry the API key to a host nobody checked.
+			redirect: "error",
 		});
 
 		if (!response.ok || !response.body) throw httpError(response);
@@ -105,11 +109,15 @@ export const openAiCompatibleProvider: AiProvider = {
 	async complete(request: ProviderRequest): Promise<CompletionResult | null> {
 		if (!request.config.apiKey) return null;
 
-		const response = await fetch(requireBaseUrl(request), {
+		const endpoint = requireBaseUrl(request);
+		await assertHostResolvesPublic(new URL(endpoint).hostname);
+		const response = await fetch(endpoint, {
 			method: "POST",
 			headers: requestHeaders(request.config.apiKey),
 			body: JSON.stringify(buildBody(request, false)),
 			signal: AbortSignal.timeout(60_000),
+			// A redirect would carry the API key to a host nobody checked.
+			redirect: "error",
 		});
 
 		if (!response.ok) throw httpError(response);

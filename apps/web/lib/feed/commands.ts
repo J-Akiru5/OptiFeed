@@ -1,4 +1,5 @@
 import { STALE_DISPATCHED_MS } from "@/lib/constants";
+import { DEVICE_HEALTH_EVENT, healthFromMetadata } from "@/lib/device-health-model";
 import { isDeviceUnreachable } from "@/lib/device-status";
 import { manilaDayRange } from "@/lib/feed/day";
 import {
@@ -31,6 +32,7 @@ export type ManualFeedFailureCode =
 	| "device_not_found"
 	| "pond_fallow"
 	| "offline"
+	| "safe_mode"
 	| "invalid_grams"
 	| "dispense_too_long"
 	| "in_progress"
@@ -110,6 +112,24 @@ export async function createManualFeedRequest(
 			ok: false,
 			code: "offline",
 			error: "Device is offline — feed request rejected. Retry once the device reconnects.",
+		};
+	}
+
+	// A unit in safe mode has its relay locked off and refuses every dose, so
+	// queueing one only strands it as "in progress". The state comes from the
+	// newest `device_health` row (see lib/device-health.ts); a unit that never
+	// reported one is treated as healthy.
+	const latestHealth = await db.deviceStateEvent.findFirst({
+		where: { deviceId: input.deviceId, eventType: DEVICE_HEALTH_EVENT },
+		orderBy: { createdAt: "desc" },
+		select: { metadata: true },
+	});
+	if (latestHealth && healthFromMetadata(latestHealth.metadata).safeMode) {
+		return {
+			ok: false,
+			code: "safe_mode",
+			error:
+				"The feeder is in safe mode after repeated resets and refuses every dose. Check its power supply; it clears after 30 quiet minutes, or hold the Wi-Fi reset button for 5 seconds.",
 		};
 	}
 

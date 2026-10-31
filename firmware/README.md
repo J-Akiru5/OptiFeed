@@ -108,7 +108,11 @@ the cause is still present is refused and logged. Acknowledging never resumes an
 interrupted dose. Each fault is logged as `[FAULT] <code> raised (epoch <n>)`
 (epoch 0 without a trusted clock) and the heartbeat carries
 `diag.faults_latched`, `diag.faults_present` (bit n = `fw::Fault` n) and
-`diag.last_fault`. Ingest strips these today, as with the other `diag` keys.
+`diag.last_fault`. Ingest reads `safe_mode`, `last_reset_reasons` and
+`diag.{faults_present, faults_latched, last_fault, reset_abnormal_count}` and records a
+`device_health` event whenever that state changes (see
+`docs/firmware-dashboard-config.md`, *Device health*); the feeder panel shows it. The rest of
+`diag` is still stripped.
 
 Not faults: Wi-Fi loss (the unit feeds offline from the RTC; blue just goes
 off) and a low hopper (a server-side pellet alert). Not detectable without new

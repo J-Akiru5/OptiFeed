@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.42.0] - 2026-11-01
+
+### Added
+
+- **The dashboard now shows a feeder's faults and safe mode (#454, #455 server side).** The firmware has reported `safe_mode`, the reset reasons and the fault masks on every heartbeat since 1.6.0, but ingest stripped them, so a feeder whose relay was locked off after repeated brownouts looked online and healthy. Ingest now records one `device_health` event per change (including the clear), the feeder panel shows safe mode in words, the active faults with what to check and the last refused dose with its reason, and a new safe mode raises a CRITICAL in-app alert (a new fault a WARNING) that follows the pond's device-offline switches. No migration. A unit on older firmware reports nothing and writes nothing.
+
+### Changed
+
+- **Feed now is refused up front while the feeder is in safe mode,** with a message that says why and how it clears (30 quiet minutes, or a 5 s Wi-Fi reset hold), instead of queueing a dose the unit will refuse.
+
+### Fixed
+
+- **A dashboard feed the unit refused no longer blocks the next attempt.** The request sat at `dispatched` for ten minutes and the next try was refused as "a feed is already in progress". The refusal now closes it as `refused`.
+- **The AI provider base-URL guard is stricter (#432 follow-up).** A host whose DNS record points at a private or metadata address is refused when the provider is saved and again before every call, a redirect from the provider is refused so the API key cannot follow it, and the hex form of an IPv4-mapped IPv6 address (`[::ffff:127.0.0.1]`, which `new URL` rewrites) is read by the private-address check. A DNS answer that changes between the check and the call is a documented remaining window.
+
 ## [1.41.0] - 2026-11-01
 
 ### Added

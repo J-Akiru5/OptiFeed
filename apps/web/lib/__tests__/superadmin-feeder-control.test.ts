@@ -9,7 +9,7 @@ const { db, tx } = vi.hoisted(() => {
 			aggregate: vi.fn(),
 			create: vi.fn(),
 		},
-		deviceStateEvent: { create: vi.fn() },
+		deviceStateEvent: { create: vi.fn(), findFirst: vi.fn() },
 		platformAuditLog: { create: vi.fn() },
 	};
 	const db = {
@@ -81,6 +81,7 @@ function allowDevice(overrides: { isPaused?: boolean; isFallow?: boolean } = {})
 	tx.feedRequest.aggregate.mockResolvedValue({ _sum: { grams: 0 } });
 	tx.feedRequest.create.mockResolvedValue({ id: "req-1" });
 	tx.deviceStateEvent.create.mockResolvedValue({});
+	tx.deviceStateEvent.findFirst.mockResolvedValue(null);
 	tx.energyDevice.update.mockResolvedValue({});
 	tx.platformAuditLog.create.mockResolvedValue({});
 }

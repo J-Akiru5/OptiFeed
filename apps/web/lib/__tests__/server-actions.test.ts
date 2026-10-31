@@ -16,6 +16,7 @@ vi.mock("@/lib/prisma", () => ({
 		},
 		deviceStateEvent: {
 			create: vi.fn(),
+			findFirst: vi.fn(),
 		},
 		scheduleCommand: {
 			create: vi.fn(),
@@ -115,6 +116,7 @@ describe("requestFeed", () => {
 		mockFeedRequest.create.mockResolvedValue({ id: "req-1" } as any);
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		mockDeviceStateEvent.create.mockResolvedValue({} as any);
+		mockDeviceStateEvent.findFirst.mockResolvedValue(null);
 
 		const { requestFeed } = await import("@/lib/actions/energy");
 		const result = await requestFeed("device-1");
@@ -152,6 +154,7 @@ describe("requestFeed", () => {
 		mockFeedRequest.create.mockResolvedValue({ id: "req-1" } as any);
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		mockDeviceStateEvent.create.mockResolvedValue({} as any);
+		mockDeviceStateEvent.findFirst.mockResolvedValue(null);
 
 		const { requestFeed } = await import("@/lib/actions/energy");
 		const result = await requestFeed("device-1", 200);
@@ -223,6 +226,7 @@ describe("requestFeed", () => {
 		mockFeedRequest.create.mockResolvedValue({ id: "req-1" } as any);
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		mockDeviceStateEvent.create.mockResolvedValue({} as any);
+		mockDeviceStateEvent.findFirst.mockResolvedValue(null);
 
 		const { requestFeed } = await import("@/lib/actions/energy");
 		const result = await requestFeed("device-1", 1500);
@@ -244,6 +248,7 @@ describe("requestFeed", () => {
 		mockFeedRequest.create.mockResolvedValue({ id: "req-1" } as any);
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		mockDeviceStateEvent.create.mockResolvedValue({} as any);
+		mockDeviceStateEvent.findFirst.mockResolvedValue(null);
 
 		const { requestFeed } = await import("@/lib/actions/energy");
 		const result = await requestFeed("device-1", 100);
@@ -267,6 +272,7 @@ describe("requestFeed", () => {
 		mockFeedRequest.create.mockResolvedValue({ id: "req-1" } as any);
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		mockDeviceStateEvent.create.mockResolvedValue({} as any);
+		mockDeviceStateEvent.findFirst.mockResolvedValue(null);
 
 		const { requestFeed } = await import("@/lib/actions/energy");
 		const result = await requestFeed("device-1");
@@ -382,6 +388,7 @@ describe("updateScheduleCommand", () => {
 		mockScheduleCommand.create.mockResolvedValue({ id: "cmd-1" } as any);
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		mockDeviceStateEvent.create.mockResolvedValue({} as any);
+		mockDeviceStateEvent.findFirst.mockResolvedValue(null);
 
 		const { updateScheduleCommand } = await import("@/lib/actions/schedule");
 		const result = await updateScheduleCommand("pond-1", "device-1", {
@@ -409,6 +416,7 @@ describe("updateScheduleCommand", () => {
 		mockScheduleCommand.create.mockResolvedValue({ id: "cmd-2" } as any);
 		// biome-ignore lint/suspicious/noExplicitAny: test mock
 		mockDeviceStateEvent.create.mockResolvedValue({} as any);
+		mockDeviceStateEvent.findFirst.mockResolvedValue(null);
 
 		const { updateScheduleCommand } = await import("@/lib/actions/schedule");
 		const result = await updateScheduleCommand("pond-1", "device-1", {

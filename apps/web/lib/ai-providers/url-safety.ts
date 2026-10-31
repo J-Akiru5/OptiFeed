@@ -11,13 +11,16 @@
  * address or a local-only suffix.
  */
 
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
+
 const MAX_URL_LENGTH = 300;
 const BLOCKED_SUFFIXES = [".localhost", ".local", ".internal", ".home.arpa"];
 const BLOCKED_HOSTNAMES = new Set(["localhost", "0.0.0.0", "[::]", "::", "::1", "[::1]"]);
 
 export type BaseUrlCheck = { ok: true; url: string } | { ok: false; error: string };
 
-function isPrivateIpv4(host: string): boolean {
+export function isPrivateIpv4(host: string): boolean {
 	const parts = host.split(".");
 	if (parts.length !== 4 || parts.some((part) => !/^\d{1,3}$/.test(part))) return false;
 	const octets = parts.map(Number);
@@ -32,14 +35,23 @@ function isPrivateIpv4(host: string): boolean {
 	return false;
 }
 
-function isPrivateIpv6(host: string): boolean {
+export function isPrivateIpv6(host: string): boolean {
 	const bare = host.replace(/^\[/, "").replace(/\]$/, "").toLowerCase();
 	if (bare === "::" || bare === "::1") return true;
 	if (bare.startsWith("fe80:")) return true; // link-local
 	if (bare.startsWith("fc") || bare.startsWith("fd")) return true; // unique local
-	// IPv4-mapped addresses keep the IPv4 rules.
+	if (bare.startsWith("fec0:")) return true; // deprecated site-local
+	// IPv4-mapped addresses keep the IPv4 rules. `new URL` rewrites
+	// `[::ffff:127.0.0.1]` to the hex form `[::ffff:7f00:1]`, so both forms
+	// are read here, or the guard would pass loopback and metadata addresses.
 	const mapped = bare.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
 	if (mapped) return isPrivateIpv4(mapped[1]);
+	const mappedHex = bare.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+	if (mappedHex) {
+		const high = Number.parseInt(mappedHex[1], 16);
+		const low = Number.parseInt(mappedHex[2], 16);
+		return isPrivateIpv4(`${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`);
+	}
 	return false;
 }
 
@@ -84,4 +96,47 @@ export function checkProviderBaseUrl(raw: string): BaseUrlCheck {
 /** Chat-completions endpoint for an OpenAI-compatible base URL. */
 export function chatCompletionsUrl(baseUrl: string): string {
 	return `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
+}
+
+/**
+ * Resolve a hostname and refuse it when any address it points at is private.
+ *
+ * `checkProviderBaseUrl` only reads the typed hostname, so a public-looking
+ * name whose DNS record points at `169.254.169.254` or `10.x` would pass it.
+ * This runs when the URL is saved and again before every provider call. A
+ * short-lived DNS rebind between this lookup and the fetch is a remaining
+ * window; the provider fetch also refuses redirects, so a public host cannot
+ * bounce the request, with its API key, to an internal address.
+ */
+export async function assertHostResolvesPublic(hostname: string): Promise<void> {
+	const host = hostname.replace(/^\[/, "").replace(/\]$/, "");
+	const literal = isIP(host);
+	if (literal === 4 && isPrivateIpv4(host)) throw new Error("Provider host is a private address.");
+	if (literal === 6 && isPrivateIpv6(host)) throw new Error("Provider host is a private address.");
+	if (literal !== 0) return;
+
+	let addresses: { address: string; family: number }[];
+	try {
+		addresses = await lookup(host, { all: true });
+	} catch {
+		throw new Error("Provider host could not be resolved.");
+	}
+	if (addresses.length === 0) throw new Error("Provider host could not be resolved.");
+	for (const { address, family } of addresses) {
+		if (family === 6 ? isPrivateIpv6(address) : isPrivateIpv4(address)) {
+			throw new Error("Provider host resolves to a private address.");
+		}
+	}
+}
+
+/** `checkProviderBaseUrl` plus the DNS check, for the places that save a URL. */
+export async function checkProviderBaseUrlResolved(raw: string): Promise<BaseUrlCheck> {
+	const checked = checkProviderBaseUrl(raw);
+	if (!checked.ok) return checked;
+	try {
+		await assertHostResolvesPublic(new URL(checked.url).hostname);
+	} catch (error) {
+		return { ok: false, error: error instanceof Error ? error.message : "Invalid host." };
+	}
+	return checked;
 }

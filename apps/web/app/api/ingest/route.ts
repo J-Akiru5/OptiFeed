@@ -8,6 +8,14 @@ import {
 import { isDeviceApproved, verifyDeviceToken } from "@/lib/device-auth";
 import { FIRMWARE_REPORTED_EVENT, getDeviceFirmwareVersion } from "@/lib/device-firmware";
 import {
+	DEVICE_HEALTH_EVENT,
+	getLatestHealthKey,
+	healthAlertFor,
+	healthChanged,
+	healthEventMetadata,
+	parseDeviceHealthReport,
+} from "@/lib/device-health";
+import {
 	DEVICE_RSSI_DBM_MAX,
 	DEVICE_RSSI_DBM_MIN,
 	isDeviceUnreachable,
@@ -251,6 +259,63 @@ export const POST = withApi(
 				}
 			}
 
+			// Faults and safe mode (firmware 1.6.0+). One `device_health` row per
+			// change, so the dashboard reads the unit's real state instead of an
+			// "online" badge on a feeder whose relay is locked off. The lookup runs
+			// on every beat that carries health fields: a clear must show within
+			// seconds, and a unit on older firmware sends none and costs nothing.
+			// A lookup failure never drops the heartbeat; the change is recorded
+			// on the next beat.
+			const healthReport = parseDeviceHealthReport(body);
+			let healthChangedNow = false;
+			let healthAlert: ReturnType<typeof healthAlertFor> = null;
+			if (healthReport) {
+				let previousHealth: Awaited<ReturnType<typeof getLatestHealthKey>> = null;
+				try {
+					previousHealth = await getLatestHealthKey(device.id);
+					healthChangedNow = healthChanged(previousHealth, healthReport);
+				} catch (error) {
+					console.warn(
+						"[ingest] device health lookup failed",
+						error instanceof Error ? error.message : String(error),
+					);
+				}
+
+				// The alert is separate from the record: if the org lookups fail the
+				// state change is still stored, only the notification is skipped.
+				const alert =
+					healthChangedNow && device.pondId
+						? healthAlertFor(device.label, previousHealth, healthReport)
+						: null;
+				if (alert && device.pondId) {
+					try {
+						const pond = await prisma.pond.findUnique({
+							where: { id: device.pondId },
+							select: { ownerId: true, notificationPrefs: true },
+						});
+						const org = pond ? await getOrgSettingsForFarm(pond.ownerId) : null;
+						const roles = await getOrgAlertRoles(org?.orgId ?? null);
+						// Device alerts share the "device offline" switches: an owner who
+						// turned those off does not want a second kind of device noise.
+						if (
+							shouldCreatePondAlert({
+								settings: org?.settings ?? ORG_SETTINGS_DEFAULTS,
+								category: "device_offline",
+								prefs: normalizeNotificationPrefs(pond?.notificationPrefs),
+								roles,
+							})
+						) {
+							healthAlert = alert;
+						}
+					} catch (error) {
+						console.warn(
+							"[ingest] device health alert lookup failed",
+							error instanceof Error ? error.message : String(error),
+						);
+					}
+				}
+			}
+
 			try {
 				const operations: Prisma.PrismaPromise<unknown>[] = [
 					prisma.energyDevice.update({
@@ -362,6 +427,33 @@ export const POST = withApi(
 							},
 						}),
 					);
+				}
+
+				if (healthReport && healthChangedNow) {
+					operations.push(
+						prisma.deviceStateEvent.create({
+							data: {
+								deviceId: device.id,
+								eventType: DEVICE_HEALTH_EVENT,
+								source: "device",
+								deviceTime: parsed.data.timestamp,
+								metadata: healthEventMetadata(healthReport) as Prisma.InputJsonObject,
+							},
+						}),
+					);
+					if (healthAlert && device.pondId) {
+						operations.push(
+							prisma.notification.create({
+								data: {
+									pondId: device.pondId,
+									tier: healthAlert.tier,
+									category: "system",
+									message: healthAlert.message,
+									linkTo: "/dashboard/settings/hardware",
+								},
+							}),
+						);
+					}
 				}
 
 				// N15: "connected" only on first contact or offline→online, not every beat.
@@ -952,6 +1044,20 @@ export const POST = withApi(
 						where: { id: device.id },
 						data: { lastSeenAt: new Date() },
 					}),
+					// A dashboard dose the unit refused was picked up by the poll, so it
+					// sits at "dispatched" and would block the next attempt as "a feed is
+					// already in progress" for ten minutes. The refusal closes it. The
+					// refusal payload carries no request id (a firmware change), but at
+					// most one feed request is ever dispatched per device. Calibration
+					// requests keep their own handling.
+					...(parsed.data.source === "dashboard"
+						? [
+								prisma.feedRequest.updateMany({
+									where: { deviceId: device.id, status: "dispatched", kind: "feed" },
+									data: { status: "refused" },
+								}),
+							]
+						: []),
 					prisma.deviceStateEvent.create({
 						data: {
 							deviceId: device.id,

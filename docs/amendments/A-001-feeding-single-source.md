@@ -89,3 +89,21 @@ Revert the implementation commits; the additive column can remain unused. Restor
 - Updated on the implementation branch: `package.json`, `apps/web/package.json`, `lib/legal/config.ts` (`LEGAL_APP_RELEASE`), and `CHANGELOG.md` (new `## [1.21.0] - 2026-10-28`, fresh empty `## [Unreleased]`).
 - Not done, and must stay with a human: annotated tag, GitHub Release, npm publication, and production promotion.
 - The merge to `develop` is the single automatic deployment trigger; no deployment was created or triggered while preparing this amendment.
+
+## 10. Audit follow-up (issue #409, 2026-10-31)
+
+A dispense audit on `origin/staging` `e11f762` (firmware 1.6.0) was filed as **issue #409**.
+It changes no acceptance criterion in this amendment; it supplies evidence for the phase-2
+line the contract already carries (section 6) and adds two firmware items.
+
+| Finding | Relationship to this amendment |
+|---|---|
+| Scheduled feeds fire on UTC against local slot times — a 06:00 setting dispenses at 14:00 PHT (`handleSchedule` `firmware-main.ino:3519-3521` vs the UTC RTC) | Evidence for the existing phase-2 item "evaluate the schedule in farm-local time"; the fix lever is the `farm_offset_minutes` field F-07 already sends |
+| A plain power cycle resets the schedule, the dose sizes (150 g / 80 g) and `dailyGramsDispensed`, so the daily cap restarts at zero | **New**, phase 2: persist those values in NVS — today only `cal_gps`, WiFi and identity survive a power cut; `firmware/README.md:718` contradicts the code comment at `:3123` |
+| Dead `ratePct` with a grams-as-percent fallback (`:3686`) | Trivial cleanup for the same firmware pass |
+
+Counter-check recorded in the issue: 109 issues (open and closed) searched; #149 / PR #156
+fixed clock sync only and never touched the schedule comparison; #227 cannot be verified as
+covering this. Issue #409 carries the checklist and the one-minute bench check (set a 06:00
+slot, watch `[FEED] dispensing` on serial and confirm 06:00, not 14:00). The firmware items
+stay in phase 2 — a reflash is required, exactly as section 6 states.

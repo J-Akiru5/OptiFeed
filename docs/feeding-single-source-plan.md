@@ -187,6 +187,20 @@ operator set their own value.
 - Enforce the per-device `dailyCapG` on the device in addition to the 5,000 g guard.
 - Until then the firmware keeps `MAX_GRAMS_PER_DAY 5000.0` and the server enforces the
   configured cap.
+- Audit evidence and tracking — **issue #409** (2026-10-31, `origin/staging` `e11f762`,
+  firmware 1.6.0). The farm-local time item above is confirmed by the code chain: the RTC
+  is UTC (`configTime(0, 0)` `firmware-main.ino:4236`, `getRTCiso8601()` stamps `+00:00`,
+  `firmware/README.md:687`) while the slots carry the farmer's wall clock (`schedule-sync`
+  `formatTime()` returns `getUTCHours()` of the stored time), and the comparison at
+  `firmware-main.ino:3519-3521` applies no offset — the only `+480` in the firmware is the
+  OTA maintenance window (`:2226`). A 06:00 slot therefore fires at 14:00 PHT.
+- Also new from #409, phase 2: persist the schedule, the dose sizes and
+  `dailyGramsDispensed` on the device. A plain power cycle restores none of them — the
+  checkpoint is written only at OTA (`:2655`) and consumed once (`:2449-2453`), so a power
+  cut resets the schedule to 06:00/19:00, the doses to 150 g / 80 g and the daily-cap
+  counter to zero. `firmware/README.md:718` ("restored every time") contradicts the code
+  comment at `:3123` ("After a plain power cycle there is nothing to restore"); only
+  `cal_gps`, WiFi and identity survive. Dead code found alongside: `ratePct` at `:3686`.
 
 ## 7. Open items for the owner
 

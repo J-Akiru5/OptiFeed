@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.0] - 2026-10-31
+
 ### Added
 
 - Firmware 1.8.0 machine status interface: four panel LEDs as wired on the bench (blue WI-FI on GPIO 26 and yellow FAULT on GPIO 18 with series resistors; white POWER on the 5 V rail and green FEEDING as a tap on the relay control line, neither a firmware output). A 12 V NPN-driven lamp panel stays possible with `-D<NAME>_LED_PIN` overrides. Blue is solid only once the unit has joined its saved network and blinks in the setup portal; Wi-Fi loss is not a fault. A central `fw::FaultManager` (`firmware/firmware-main/status.h`, native-tested) latches HC-SR04 no-echo, DS3231 missing/silent on I2C, relay overrun and safe mode; a tap on the Wi-Fi reset button (GPIO 17, under 5 s) acknowledges faults whose cause is gone. No fault adds a feeding refusal and acknowledgement never resumes a dose. The heartbeat adds diagnostic `diag.faults_latched`, `diag.faults_present` and `diag.last_fault` (stripped by ingest; no server change).

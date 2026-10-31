@@ -5,6 +5,7 @@ import {
 	DEVICE_TOKEN_ROUTES,
 	PLATFORM_ADMIN_ROUTES,
 	PUBLIC_ROUTES,
+	TENANT_ADMIN_ROUTES,
 	analyzeRoute,
 	exportedHandlers,
 } from "../../../scripts/api/auth-check.mjs";
@@ -146,6 +147,30 @@ describe("cron and device-token routes", () => {
 	});
 });
 
+describe("tenant-admin routes", () => {
+	const TENANT_IMPORTS = [
+		'import { getVerifiedSession } from "@/lib/auth/session";',
+		'import { isCurrentTenantAdmin } from "@/lib/auth/tenant-admin";',
+	].join("\n");
+
+	it("requires the session and the tenant-admin check inside the handler", () => {
+		const guarded = `${TENANT_IMPORTS}
+			export const POST = withApi(async () => {
+				const session = await getVerifiedSession();
+				if (!session || !(await isCurrentTenantAdmin())) return new Response(null, { status: 403 });
+				return new Response("ok");
+			});`;
+		expect(failures("admin/backup/export/route.ts", guarded)).toEqual([]);
+
+		const unguarded = `${TENANT_IMPORTS}
+			export const POST = withApi(async () => new Response("ok"));`;
+		expect(failures("admin/backup/export/route.ts", unguarded)).toEqual([
+			"POST: handler does not call getVerifiedSession()",
+			"POST: handler does not call isCurrentTenantAdmin()",
+		]);
+	});
+});
+
 describe("platform-admin and public routes", () => {
 	it("requires both platform checks inside the handler", () => {
 		const guarded = `${PLATFORM_IMPORTS}
@@ -216,6 +241,7 @@ describe("the real route tree", () => {
 			...PUBLIC_ROUTES.keys(),
 			...DEVICE_TOKEN_ROUTES.keys(),
 			...PLATFORM_ADMIN_ROUTES.keys(),
+			...TENANT_ADMIN_ROUTES.keys(),
 		]) {
 			expect(existsSync(join(API_DIR, path)), `${path} is allow-listed but missing`).toBe(true);
 			expect(paths.has(path), `${path} is allow-listed but not a route file`).toBe(true);

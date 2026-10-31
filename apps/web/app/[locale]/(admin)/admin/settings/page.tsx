@@ -8,12 +8,13 @@ import {
 	NotificationSettingsForm,
 } from "@/components/admin/org-settings-forms";
 import { Pagination } from "@/components/ui/pagination";
+import { Link } from "@/i18n/routing";
 import { listTenantMembers } from "@/lib/actions/admin";
 import { resolveOrgScope } from "@/lib/auth/org-scope";
 import { hasPermission } from "@/lib/auth/permissions";
 import { parsePage } from "@/lib/pagination";
 import { ORG_SETTINGS_DEFAULTS, getOrgSettings } from "@/lib/settings/org";
-import { Settings } from "lucide-react";
+import { DatabaseBackup, Settings } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export default async function AdminSettingsPage({
@@ -23,7 +24,7 @@ export default async function AdminSettingsPage({
 }) {
 	const params = await searchParams;
 	const page = parsePage(params.page);
-	const [membersPage, canManageMembers, canManageSettings, scope, t, tCommon, tMembers] =
+	const [membersPage, canManageMembers, canManageSettings, scope, t, tCommon, tMembers, tBackup] =
 		await Promise.all([
 			listTenantMembers({ page }),
 			hasPermission("manage_members"),
@@ -32,6 +33,7 @@ export default async function AdminSettingsPage({
 			getTranslations("dashboard.adminSettings"),
 			getTranslations("dashboard.adminCommon"),
 			getTranslations("dashboard.adminMembers"),
+			getTranslations("dashboard.adminBackup"),
 		]);
 	const members = membersPage.rows;
 	const pageCount = Math.max(1, Math.ceil(membersPage.total / membersPage.pageSize));
@@ -60,6 +62,28 @@ export default async function AdminSettingsPage({
 					<DefaultFeedingRateForm orgId={orgId ?? ""} settings={settings} canManage={canEdit} />
 					<NotificationSettingsForm orgId={orgId ?? ""} settings={settings} canManage={canEdit} />
 					<DeviceRegistrationForm orgId={orgId ?? ""} settings={settings} canManage={canEdit} />
+				</div>
+			</AdminSection>
+
+			<AdminSection id="backup" title={tBackup("title")} description={tBackup("settingsBody")}>
+				<div
+					className={`${adminSurface} flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6`}
+				>
+					<div className="flex min-w-0 items-start gap-3">
+						<DatabaseBackup
+							aria-hidden="true"
+							className="mt-0.5 h-5 w-5 shrink-0 text-[#0A3D62] dark:text-[#8fc0ea]"
+						/>
+						<p className="min-w-0 text-sm text-[#3D5568] dark:text-gray-300">
+							{tBackup("settingsDesc")}
+						</p>
+					</div>
+					<Link
+						href="/admin/settings/backup"
+						className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-[#C2410C] px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-[#9A3412] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62]"
+					>
+						{tBackup("open")}
+					</Link>
 				</div>
 			</AdminSection>
 

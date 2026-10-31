@@ -31,7 +31,7 @@ the issues; the branches were created and pushed from `origin/develop` before wo
 |---|---|
 | B1 | **Release `v1.24.0` (MINOR).** Both issues are filed and implemented as user-facing features; SemVer MINOR is the conservative, correct bump from v1.23.0. |
 | B2 | **No schema change, no migration, no dependency install.** Both changes are presentation/navigation. |
-| B3 | **No `main`/`staging` promotion and no tag.** The owner releases and promotes; merging this batch into `develop` is the normal automatic development deployment. |
+| B3 | **No `main`/`staging` promotion and no tag.** The owner releases and promotes; a merge into `develop` is not a deployment. *(Corrected 2026-10-31: `develop` never deploys — [`docs/deployment-workflow.md`](../deployment-workflow.md) §1. The original wording called it an "automatic development deployment"; that was wrong.)* |
 | B4 | **No Claude work touched.** Claude's integration branch and worktrees remain out of scope. |
 | B5 | **One batch PR into `develop`.** Worker branches merge into `integration/batch-2026-10-29a`, the release prep (version files + changelog) is committed there, and one PR carries the batch. |
 | B6 | **Accessibility is part of done.** The hopper card gets a focus-visible ring and a real accessible name; the chat face is decorative inside a named button. |

@@ -180,6 +180,14 @@ export function PondSettingsForm({
 	const [isPending, startTransition] = useTransition();
 	const [success, setSuccess] = useState(false);
 
+	// The "saved" banner clears itself; the cleanup cancels the timer on unmount
+	// so it never sets state on a form that is already gone.
+	useEffect(() => {
+		if (!success) return;
+		const timer = window.setTimeout(() => setSuccess(false), 3000);
+		return () => window.clearTimeout(timer);
+	}, [success]);
+
 	// Bring back an unsaved draft once per mount (I-99). The database copy is
 	// the real one — it survives a closed browser and is scoped to this pond and
 	// this user. `sessionStorage` is only the offline fallback: it is used when
@@ -373,7 +381,6 @@ export function PondSettingsForm({
 				setRestoredAt(null);
 				setFieldErrors([]);
 				setSuccess(true);
-				window.setTimeout(() => setSuccess(false), 3000);
 				return;
 			}
 			// The action echoes nothing to re-apply: the draft is the reader's, and

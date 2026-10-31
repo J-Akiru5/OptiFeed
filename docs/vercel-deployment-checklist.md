@@ -51,15 +51,19 @@ explicit target:
 DIRECT_URL=<target direct url> pnpm --filter web exec prisma migrate deploy
 ```
 
-## 3. Git integration (revised 2026-10-21)
+## 3. Git integration (revised 2026-10-21; branches reconciled 2026-10-31, #323)
 
 - Deployments are restricted by `apps/web/vercel.json`
-  (`git.deploymentEnabled`): only `develop` and `main` may create deployments.
-  `staging` and all work branches are validation-only.
-- `develop` and `main` both deploy to the Preview environment; `main` is the
-  production branch. `develop` therefore runs with production credentials.
+  (`git.deploymentEnabled`): only `staging` (Preview) and `main` (Production)
+  may create deployments. `develop` and all work branches are validation-only.
+  [`docs/deployment-workflow.md`](deployment-workflow.md) §1-2 and
+  [ADR-0001](adr/0001-deployment-model.md) are authoritative.
+- `staging` therefore runs with production credentials (below); it is a
+  production-visible preview, not a sandbox. `develop` never deploys.
 - There is **no** GitHub Actions deploy workflow (`deploy.yml` deleted,
   decision D4). Do not add one, and do not run `vercel deploy` by hand.
+- Promotions (`develop` → `staging` → `main`) are commanded by Jeff, or by the
+  OpenCode lead under a standing authorization recorded in `docs/missions/`.
 - CI (`.github/workflows/ci.yml`) runs lint/typecheck/tests/auth-gate/Prisma
   validation and a dummy-env `next build` on `develop`, `staging`, and `main`
   — it never touches a database and never deploys.

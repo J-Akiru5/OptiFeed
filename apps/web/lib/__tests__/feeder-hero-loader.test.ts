@@ -13,6 +13,17 @@ vi.mock("@/lib/device-firmware", () => ({
 	getDeviceFirmwareVersion: vi.fn(),
 }));
 
+vi.mock("@/lib/device-health", () => ({
+	getDeviceHealth: vi.fn(async () => ({
+		safeMode: false,
+		faults: [],
+		abnormalResets: 0,
+		resetReasons: null,
+		since: null,
+		lastRefusal: null,
+	})),
+}));
+
 vi.mock("@/lib/schedule/resolve-current", () => ({
 	resolveCurrentSchedule: vi.fn(),
 }));

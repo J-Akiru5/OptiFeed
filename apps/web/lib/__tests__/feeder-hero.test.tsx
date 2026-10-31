@@ -24,6 +24,7 @@ vi.mock("@/i18n/routing", async () => {
 });
 
 import { FeederHero } from "@/components/feeder/feeder-hero";
+import { HEALTHY_VIEW } from "@/lib/device-health-model";
 import { FEEDER_HERO_PHOTO_SESSION_KEY, type FeederHeroData } from "@/lib/feeder-hero-types";
 
 function heroData(overrides: Partial<FeederHeroData> = {}): FeederHeroData {
@@ -42,6 +43,7 @@ function heroData(overrides: Partial<FeederHeroData> = {}): FeederHeroData {
 		waterTempOk: true,
 		waterTempUpdatedAt: new Date(2026, 9, 27, 9, 5),
 		firmwareVersion: "1.5.0",
+		health: HEALTHY_VIEW,
 		advisor: { grams: 330, confidence: "medium", reasoning: "Fresh sample, stable FCR." },
 		...overrides,
 	};

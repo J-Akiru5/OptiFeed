@@ -7,6 +7,7 @@ import {
 	Building2,
 	ChevronDown,
 	Cpu,
+	DatabaseBackup,
 	Gauge,
 	ListChecks,
 	Mail,
@@ -37,7 +38,8 @@ export type ConfigSectionIcon =
 	| "safety"
 	| "defaults"
 	| "firmware"
-	| "flags";
+	| "flags"
+	| "backup";
 
 const ICONS = {
 	lists: ListChecks,
@@ -49,6 +51,7 @@ const ICONS = {
 	defaults: Building2,
 	firmware: Cpu,
 	flags: ToggleLeft,
+	backup: DatabaseBackup,
 } as const;
 
 const FALLBACK_ICON = Settings2;

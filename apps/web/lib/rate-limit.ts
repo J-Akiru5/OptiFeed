@@ -86,6 +86,16 @@ export function checkDeviceTokenRevealRateLimit(actorId: string) {
 	return checkRateLimit(`rl:token-reveal:${actorId}`, 10, 60 * 60 * 1000, true);
 }
 
+// Database export limit: 5 exports per hour per user (issue #353).
+//
+// A full database export is the largest read the app offers and leaves the
+// system as a file, so the bucket is keyed on the actor: rotating sessions must
+// not buy a fresh allowance. Fail-open like the other authenticated limits —
+// the role gate and tenant scope, not the limiter, are what keep data in reach.
+export function checkBackupExportRateLimit(actorId: string) {
+	return checkRateLimit(`rl:backup-export:${actorId}`, 5, 60 * 60 * 1000, true);
+}
+
 // F-014: the client address comes from `lib/client-ip.ts` — the one
 // trusted-hop derivation shared with the audit trail (issue #329). Login
 // limiting re-exports it here because `lib/actions/auth.ts` imports it from

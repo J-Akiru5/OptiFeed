@@ -151,6 +151,9 @@ export DRILL_DUMP_FILE="$artifacts/restore-drill.dump"
 export DRILL_DUMP_BYTES="$(stat -c%s "$DRILL_DUMP_FILE" 2>/dev/null || stat -f%z "$DRILL_DUMP_FILE")"
 export DRILL_DUMP_SHA256="$(sha256sum "$DRILL_DUMP_FILE" | awk '{print $1}')"
 
+# 3b. the application export check (read-only, no database access)
+node scripts/ops/restore-check.mjs --self-test
+
 # 4. the disaster
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q \
   -c 'DROP SCHEMA IF EXISTS public CASCADE;' -c 'CREATE SCHEMA public;'
@@ -183,6 +186,26 @@ docker rm -f optifeed-drill
 variables (`DRILL_RUN_URL`, `DRILL_REF`, `DRILL_SHA`, `DRILL_POSTGRES_VERSION`,
 `DRILL_PSQL_VERSION`, `DRILL_TS_*`, `DRILL_MIGRATE_STATUS`, ...). Unset values
 render as `not recorded`, so a manual run can still produce a usable report.
+
+## Checking an application SQL export
+
+The drill above exercises a `pg_dump`/`pg_restore` round trip. The application also offers
+its own SQL export from **Admin → Settings → Backup** and **Superadmin → Settings → Backup**
+(issue #353); before that file is restored, `scripts/ops/restore-check.mjs` checks it **without
+any database connection**:
+
+```bash
+node scripts/ops/restore-check.mjs ./pakaonai-backup-tenant-YYYYMMDD-HHMM.sql
+node scripts/ops/restore-check.mjs --self-test   # proves the checker itself
+```
+
+It verifies the SHA-256 trailer and byte count (a truncated download fails), the table and
+column allow-list, that no credential column is present, that every foreign key resolves inside
+the file, that every exported user has an auth identity entry and vice versa, and that primary
+keys are unique. The restore order, including creating the Auth identities, is in
+[`backup-and-recovery.md`](./backup-and-recovery.md) §7.5. The CI workflow runs `--self-test`
+so the checker cannot rot silently; the check does **not** prove a real export restores, and it
+is not a substitute for the drill.
 
 ## The safety guard
 
@@ -301,5 +324,6 @@ artefacts are still uploaded because those steps run with `if: always()`.
 
 - [`docs/runbook.md`](../runbook.md) §4, "Restore a backup" — incident-time
   recovery, including Supabase PITR.
-- Issue **#322** — `auth.users` coverage.
+- Issue **#322** — `auth.users` coverage; the SQL export now carries a minimal identity manifest.
+- Issue **#353** — the Backup page, the SQL export and `scripts/ops/restore-check.mjs`.
 - Issue **#325** — Supabase provider backup / PITR verification.

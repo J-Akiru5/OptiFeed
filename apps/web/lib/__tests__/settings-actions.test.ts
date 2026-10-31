@@ -369,6 +369,9 @@ describe("updatePondSettings", () => {
 			scheduleEnd: "18:30",
 			feedsPerDay: 4,
 			feedingRatePct: 5,
+			// The pond row still holds the old count, so the command is told which
+			// count the dose is derived from (#430).
+			population: 900,
 		});
 		expect(db.deviceStateEvent.create).toHaveBeenCalledWith({
 			data: {

@@ -115,7 +115,16 @@ describe("fishSampleRowSchema", () => {
 describe("saveBiomassLog result shape", () => {
 	interface TxMocks {
 		pondConfig: { feedingRatePct: number; feedsPerDay: number; population: number | null };
-		device: { gramsPerFeeding: number; lastSeenAt: Date | null } | null;
+		device:
+			| ({
+					gramsPerFeeding: number;
+					lastSeenAt: Date | null;
+			  } & Partial<{
+					gramsPerSecond: number;
+					dailyCapG: number | null;
+					hopperCapacityG: number | null;
+			  }>)
+			| null;
 	}
 
 	async function runTransaction({ pondConfig, device }: TxMocks) {
@@ -362,6 +371,45 @@ describe("saveBiomassLog result shape", () => {
 		}
 		expect(mockTx.biomassLog.create).toHaveBeenCalled();
 		expect(mockTx.energyDevice.update).not.toHaveBeenCalled();
+	});
+
+	it("rejects a recommendation the feeder cannot run in one relay window (#430)", async () => {
+		// 100 fish x 1 kg x 4.5% = 4,500 g/day, 1,500 g per meal: under the
+		// 5,000 g daily ceiling, but over the 1,200 g the feeder can run
+		// (4 g/s for 300 s).
+		const mockTx = await runTransaction({
+			pondConfig: validPond,
+			device: {
+				gramsPerFeeding: 300,
+				lastSeenAt: new Date(),
+				gramsPerSecond: 4,
+				dailyCapG: 5000,
+				hopperCapacityG: null,
+			},
+		});
+
+		const result = await saveBiomassLog(buildFormData({ sampleWeightKg: "2", sampleCount: "2" }));
+
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.feed).toMatchObject({
+				status: "rejected_out_of_range",
+				calculatedGrams: 1500,
+				previousGrams: 300,
+				effectiveGrams: 300,
+			});
+		}
+		expect(mockTx.biomassLog.create).toHaveBeenCalled();
+		expect(mockTx.energyDevice.update).not.toHaveBeenCalled();
+		expect(mockTx.deviceStateEvent.create).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					metadata: expect.objectContaining({
+						reason: expect.stringContaining("relay time"),
+					}),
+				}),
+			}),
+		);
 	});
 
 	it("flags an offline device in the calculation result", async () => {

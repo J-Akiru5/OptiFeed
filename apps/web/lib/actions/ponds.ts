@@ -9,8 +9,8 @@ import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import { addDays, dateOnlyToUtcDate, daysBetween, todayDateOnly } from "@/lib/crop-cycle/dates";
 import { dateOnlySchema } from "@/lib/crop-cycle/schema";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
+import { resolveDeviceDose } from "@/lib/feeding/derive";
 import {
-	MAX_DISPENSE_MS,
 	feedingRatePctSchema,
 	feedsPerDaySchema,
 	formatZodError,
@@ -20,6 +20,7 @@ import {
 import prisma from "@/lib/prisma";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import { ORG_SETTINGS_DEFAULTS, getOrgSettings } from "@/lib/settings/org";
+import { detectDoseViolation } from "@/lib/settings/pond-conflicts";
 import type { PondStatus, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -441,24 +442,39 @@ export async function updateTenantPond(input: UpdateTenantPondInput): Promise<Po
 		},
 	});
 	const feedingLimits = await getFeedingLimits();
+	// The dose the feeders will run after this edit (#430): the derived one when
+	// the pond has a sample, otherwise the dose they run today. Checking the
+	// stored dose alone let this path write a dose the feeder cannot run.
+	const derived = await resolveDeviceDose(before.id, {
+		feedingRatePct: data.feedingRatePct,
+		feedsPerDay: data.feedsPerDay,
+		population: data.population ?? null,
+	});
 	for (const device of devices) {
 		const dailyCapG = resolveDailyCapG({
 			configuredCapG: device.dailyCapG,
 			hopperCapacityG: device.hopperCapacityG,
 			dailyCapFactor: feedingLimits.dailyCapFactor,
 		});
-		const scheduledDailyG = data.feedsPerDay * device.gramsPerFeeding;
-		if (scheduledDailyG > dailyCapG) {
+		const effectiveGrams = derived.grams ?? device.gramsPerFeeding;
+		const violation = detectDoseViolation({
+			grams: effectiveGrams,
+			feedsPerDay: data.feedsPerDay,
+			constraints: {
+				gramsPerSecond: device.gramsPerSecond,
+				maxDispenseMs: feedingLimits.maxDispenseMs,
+				effectiveDailyCapG: dailyCapG,
+			},
+		});
+		if (violation === "daily-ceiling") {
+			const scheduledDailyG = effectiveGrams * data.feedsPerDay;
 			return {
 				error: `Schedule would dispense ${Math.round(scheduledDailyG)} g/day — over the ${Math.round(dailyCapG)} g/day limit. Lower feeds per day or the feed amount.`,
 			};
 		}
-		if (
-			device.gramsPerSecond > 0 &&
-			device.gramsPerFeeding / device.gramsPerSecond > MAX_DISPENSE_MS / 1000
-		) {
+		if (violation === "relay-time") {
 			return {
-				error: `Feed amount of ${device.gramsPerFeeding} g would take more than ${MAX_DISPENSE_MS / 1000} s of relay time at ${device.gramsPerSecond} g/s. Add more meals per day or reduce the feed amount.`,
+				error: `Feed amount of ${Math.round(effectiveGrams)} g would take more than ${feedingLimits.maxDispenseMs / 1000} s of relay time at ${device.gramsPerSecond} g/s. Add more meals per day or reduce the feed amount.`,
 			};
 		}
 	}

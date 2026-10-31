@@ -66,6 +66,14 @@ interface PondSettingsFormProps {
 	avgWeightKg?: number | null;
 	/** The active feeder's effective limits, for the live derived preview. */
 	device?: PondDeviceConstraints | null;
+	/**
+	 * The per-meal dose the *saved* pond settings already ask for (#430).
+	 *
+	 * When that dose is already over the feeder's relay window, the conflict is
+	 * not the reader's doing, and the card has to say so — otherwise a plan that
+	 * went stale looks like the reader's mistake.
+	 */
+	savedPerMealG?: number | null;
 }
 
 const FIELD_KEYS: Record<PondSettingsField, keyof PondSettingsDraft> = {
@@ -163,6 +171,7 @@ export function PondSettingsForm({
 	canWrite = true,
 	avgWeightKg = null,
 	device = null,
+	savedPerMealG = null,
 }: PondSettingsFormProps) {
 	const t = useTranslations("dashboard.settings");
 	const tDates = useTranslations("dates");
@@ -294,6 +303,16 @@ export function PondSettingsForm({
 		Number.isFinite(population) && population > 0 && Number.isFinite(area) && area > 0
 			? densityFormat.format(population / area)
 			: null;
+
+	// The biggest dose this feeder can run in one relay window (#430).
+	const deviceMaxDoseG =
+		device && device.gramsPerSecond > 0
+			? device.gramsPerSecond * (device.maxDispenseMs / 1000)
+			: null;
+	// True when the *saved* plan already asked for more than the feeder can run,
+	// so the conflict on screen is not the reader's doing.
+	const savedPlanAlreadyOver =
+		savedPerMealG !== null && deviceMaxDoseG !== null && savedPerMealG > deviceMaxDoseG;
 
 	const conflictTitle = (conflict: PondDeviceConflict) => {
 		switch (conflict.code) {
@@ -489,9 +508,7 @@ export function PondSettingsForm({
 							{t("derivedDeviceMaxDose")}
 						</dt>
 						<dd className="mt-0.5 text-sm font-bold text-[#3D5568] dark:text-gray-300">
-							{device && device.gramsPerSecond > 0
-								? grams(device.gramsPerSecond * (device.maxDispenseMs / 1000))
-								: "—"}
+							{deviceMaxDoseG !== null ? grams(deviceMaxDoseG) : "—"}
 						</dd>
 					</div>
 				</dl>
@@ -629,6 +646,16 @@ export function PondSettingsForm({
 							<p className="mt-2 text-xs font-bold text-amber-900 dark:text-amber-100">
 								{conflictMessage(conflict)}
 							</p>
+							{conflict.code === "relay-time" &&
+								savedPlanAlreadyOver &&
+								deviceMaxDoseG !== null && (
+									<p className="mt-1 text-xs font-medium text-amber-900 dark:text-amber-200">
+										{t("conflicts.preExisting", {
+											saved: grams(savedPerMealG ?? 0),
+											max: grams(deviceMaxDoseG),
+										})}
+									</p>
+								)}
 							{conflict.code === "relay-time" && conflict.suggestedFeedsPerDay !== null && (
 								<p className="mt-1 text-xs font-medium text-amber-900 dark:text-amber-200">
 									{t("conflicts.suggestedFeeds", { count: conflict.suggestedFeedsPerDay })}

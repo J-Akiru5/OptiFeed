@@ -15,7 +15,6 @@ import {
 } from "@/lib/device-status";
 import { estimateDaysOfFeedRemaining } from "@/lib/feed-level";
 import { normalizeNotificationPrefs } from "@/lib/limits";
-import { absoluteAppUrl, sendTelegramMessage } from "@/lib/notify/telegram";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
 import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
@@ -23,7 +22,6 @@ import { recordMissedFeedingAlert } from "@/lib/settings/missed-feeding";
 import { ORG_SETTINGS_DEFAULTS, getOrgAlertRoles, getOrgSettingsForFarm } from "@/lib/settings/org";
 import { hopperAlertTier, shouldCreatePondAlert } from "@/lib/settings/org-alerts";
 import { Prisma } from "@prisma/client";
-import { after } from "next/server";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -124,19 +122,6 @@ function isUniqueConstraintError(error: unknown): boolean {
 
 function now(): Date {
 	return new Date();
-}
-
-/**
- * Schedule work after the response (§8.2 rule 9). `after()` throws when called
- * outside a request scope (unit tests, scripts), so fall back to fire-and-forget
- * there; the helper itself already swallows delivery failures.
- */
-function runAfterResponse(task: () => Promise<unknown>): void {
-	try {
-		after(task);
-	} catch {
-		void task();
-	}
 }
 
 export const POST = withApi(
@@ -247,10 +232,6 @@ export const POST = withApi(
 					);
 				}
 			}
-
-			// Set when this request queues a CRITICAL pellet notification, so the
-			// Telegram fan-out (3.5) runs once, after the transaction commits.
-			let pelletCriticalAlert = false;
 
 			// #263: a unit that was flashed over USB never reports an OTA
 			// transition, so the hardware card would keep showing the version
@@ -402,7 +383,7 @@ export const POST = withApi(
 				// The firmware reports 0 % together with 0 cm when the HC-SR04
 				// pulse times out; a real empty hopper reports its actual distance.
 				// Trusting the sentinel overwrote the last known level with 0 % and
-				// fired a false CRITICAL alert (plus a Telegram message) on every
+				// fired a false CRITICAL alert on every
 				// failed read, so the heartbeat still updates `lastSeenAt` below but
 				// the level, history row and hopper alerts are skipped.
 				const levelPercent = parsed.data.feed_level_percent;
@@ -523,7 +504,6 @@ export const POST = withApi(
 					) {
 						pelletAlertQueued = true;
 						if (pelletTier === "CRITICAL") {
-							pelletCriticalAlert = true;
 							operations.push(
 								prisma.notification.create({
 									data: {
@@ -708,16 +688,6 @@ export const POST = withApi(
 				}
 
 				await prisma.$transaction(operations);
-
-				// 3.5: Telegram fan-out only after the row exists (one message per
-				// alert — repeats are already suppressed by the dedup gate above).
-				if (pelletCriticalAlert) {
-					const link = absoluteAppUrl("/dashboard/settings");
-					const message = `CRITICAL — ${device.label}: feed hopper is nearly empty (${levelPercent}%). Refill immediately.${link ? `\n${link}` : ""}`;
-					// §8.2 rule 9: the Telegram round-trip is not part of the device's
-					// request. Schedule it after the response instead of awaiting it.
-					runAfterResponse(() => sendTelegramMessage(message));
-				}
 			} catch (error) {
 				if (isUniqueConstraintError(error)) {
 					return new Response(null, { status: 204 });

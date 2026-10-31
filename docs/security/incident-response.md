@@ -149,7 +149,6 @@ production credentials.
 | Device token (per unit) | Telemetry and command retrieval for one unit | Platform console → rotate (audited, step-up) | Immediately, for that unit |
 | AI provider keys (`OPENCODE_GO_API_KEY`, `GEMINI_API_KEY`) | Spend and data sent to the provider under our account | Provider console → revoke → Vercel → redeploy | N/A |
 | `RESEND_API_KEY` | Send mail as the verified domain | Resend dashboard → revoke → Vercel → redeploy | N/A |
-| `TELEGRAM_BOT_TOKEN` | Post to the alert chat | BotFather → revoke → Vercel → redeploy | N/A |
 | OTA private signing key | Arbitrary firmware on the fleet | Offline key ceremony; see §5.3 | N/A |
 | GitHub / Vercel / Supabase account credentials | Everything above | Provider account recovery, then rotate every secret in this table | Depends |
 

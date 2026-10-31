@@ -17,7 +17,7 @@ flowchart TB
   end
 
   API --> AI["AI provider chain"]
-  API --> NOTIFY["Telegram · email"]
+  API --> NOTIFY["In-app alerts · email"]
   JOB["Cron + background jobs"] --> PG
   API <-->|"heartbeat · commands · events"| ESP
   ESP["ESP32 controller<br/>RTC · relay · sensors"] --> FEED["Feeder auger"]

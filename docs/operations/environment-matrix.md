@@ -30,7 +30,7 @@ arguments, because they would be recorded in an image layer.
 | `NEXT_PUBLIC_SUPABASE_URL` | **Yes** | build, browser, runtime | Supabase → Project Settings → API → Project URL | Auth throws `Missing environment variable: NEXT_PUBLIC_SUPABASE_URL` on the first request that touches a Supabase client. Sign-in is impossible. |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **Yes** | build, browser, runtime | Supabase → Project Settings → API → anon/public key | Same failure as above (`lib/supabase/client.ts`, `lib/supabase/server.ts`). |
 | `SUPABASE_SERVICE_ROLE_KEY` | **Yes for admin features** | runtime (server only) | Supabase → Project Settings → API → service_role key | `createAdminClient()` throws, so invitations, member provisioning, platform user administration and the e2e seed fail. Ordinary sign-in and normal pages still work. Bypasses RLS — never expose it to the browser. |
-| `NEXT_PUBLIC_BASE_URL` | **Yes for outbound links** | runtime | Deployment origin, e.g. `https://pakaonai.syntaxure.dev` | Telegram alert links and export links lose their host (`lib/notify/telegram.ts` returns `null`), and reminder **and** invite e-mail are skipped entirely: both require `RESEND_API_KEY` + sender + `NEXT_PUBLIC_BASE_URL`. In-app notifications still run. |
+| `NEXT_PUBLIC_BASE_URL` | **Yes for outbound links** | runtime | Deployment origin, e.g. `https://pakaonai.syntaxure.dev` | Absolute links in alerts and exports lose their host (`lib/notify/app-url.ts` returns `null`), and reminder **and** invite e-mail are skipped entirely: both require `RESEND_API_KEY` + sender + `NEXT_PUBLIC_BASE_URL`. In-app notifications still run. |
 | `OPENCODE_GO_API_KEY` | No | runtime | OpenCode Go dashboard | The OpenCode Go provider is inactive (`lib/ai-providers/config.ts` skips a provider with no key). AI chat falls through to Gemini, then to "AI unavailable". |
 | `GEMINI_API_KEY` | No | runtime | Google AI Studio | The fallback provider is inactive. Nothing else degrades. |
 | `OPENCODE_GO_REASONING_EFFORT` | No | runtime | — | Defaults to `high` (`lib/ai-providers/reasoning.ts`). |
@@ -40,8 +40,6 @@ arguments, because they would be recorded in an image layer.
 | `REMINDER_FROM_EMAIL` | No | runtime | Verified Resend sending domain | Harvest/sampling reminder e-mail is skipped. |
 | `INVITE_FROM_EMAIL` | No | runtime | Verified Resend sending domain | Invite e-mail is skipped. The UI shows the documented default sender (`PakaonAI <invite@syntaxure.dev>`) but does not send with it — the variable must be set for `inviteReady`. |
 | `RESET_FROM_EMAIL` | No | runtime | Verified Resend sending domain | Password-reset e-mail is skipped; `INVITE_FROM_EMAIL` is used when this is unset. The request still succeeds and is audited with `emailSent: false`. |
-| `TELEGRAM_BOT_TOKEN` | No | runtime | BotFather | CRITICAL alerts stay in-app only (`sendTelegramMessage` returns `false`). |
-| `TELEGRAM_CHAT_ID` | No | runtime | Telegram chat id | Same as above; both are required. |
 | `DEMO_PASSWORD` | No | tooling | Chosen locally | `apps/web/scripts/provision-demo-user.ts` cannot provision the demo login. Not part of production configuration. |
 | `DEVICE_TOKEN` | No | tooling | Chosen locally | `prisma/seed.ts` cannot seed devices. |
 | `E2E_ALLOWED_DB_HOST` | No | tooling | The e2e database host | Playwright's global setup refuses to run; no e2e test executes. |
@@ -93,7 +91,7 @@ arguments, because they would be recorded in an image layer.
 | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — inlined into the browser bundle | `DATABASE_URL`, `DIRECT_URL` |
 | `NEXT_PUBLIC_SITE_URL` — baked into `robots.txt`, `sitemap.xml` and the metadata | `SUPABASE_SERVICE_ROLE_KEY` |
-| `NEXT_TELEMETRY_DISABLED` | `CRON_SECRET`, `RESEND_API_KEY`, `REMINDER_FROM_EMAIL`, `INVITE_FROM_EMAIL`, `RESET_FROM_EMAIL`, `TELEGRAM_*`, `NEXT_PUBLIC_BASE_URL` |
+| `NEXT_TELEMETRY_DISABLED` | `CRON_SECRET`, `RESEND_API_KEY`, `REMINDER_FROM_EMAIL`, `INVITE_FROM_EMAIL`, `RESET_FROM_EMAIL`, `NEXT_PUBLIC_BASE_URL` |
 | — | `OPENCODE_GO_API_KEY`, `GEMINI_API_KEY`, `OPENCODE_GO_REASONING_EFFORT` |
 
 A server secret passed with `--build-arg` is written into the build history and the layer it was used

@@ -17,7 +17,6 @@
 | `NEXT_PUBLIC_BASE_URL` | Canonical origin for absolute links (also the reminder email link base) |
 | `CRON_SECRET` | Bearer secret for `/api/cron/device-watch` and `/api/cron/crop-watch` |
 | `RESEND_API_KEY` / `REMINDER_FROM_EMAIL` | Harvest/sampling reminder email (optional; in-app only until set) |
-| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | CRITICAL alerts (optional; no-op until set) |
 | `OPENCODE_GO_API_KEY` / `OPENCODE_GO_MODEL` | Chat assistant + feeding prediction (OpenCode Go; model defaults to `deepseek-v4.1-flash`) |
 | `DEMO_PASSWORD` | Seed/e2e scripts only |
 

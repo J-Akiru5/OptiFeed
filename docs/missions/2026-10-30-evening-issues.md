@@ -62,7 +62,7 @@ Waves in between (I-101 to I-104, v1.35.0 to v1.37.0) are recorded in `CHANGELOG
 | v1.34.1 | #396 | knip duplicate export fix (`MAX_ACCEPTED_FEED_GRAMS` literal) | Found after v1.34.0: the non-required `dead-code` check failed on the develop push; the first staging promotion attempt also stalled on pending checks (nothing promoted). |
 
 | v1.38.0 | #406 | I-105, I-106: SQL backup export with audit trail and identity manifest, restore dry run, deployment policy docs | All 10 checks green (including e2e). Merged as `75a8a27`. #323, #353, #322 closed; #328 commented and left open. No migration. |
-| v1.39.0 | pending | I-107: XLSX export and import, PDF growth/SGR/FCR reports, import by upload with column mapping, feeding schedule import, CSV boolean fix | Adds exceljs (server only, dynamic import). No migration. Not yet on staging or main. |
+| v1.39.0 | #408 | I-107: XLSX export and import, PDF growth/SGR/FCR reports, import by upload with column mapping, feeding schedule import, CSV boolean fix | All checks green. Merged as `132c6d9`. Adds exceljs (server only, dynamic import). No migration. |
 
 ## Promotion (Jeff, 2026-10-31: "promote all to staging and production")
 
@@ -75,12 +75,23 @@ Production verified: `/api/health` ok, `/en/privacy` shows 1.34.1, `/en`, `/en/t
 
 Issues #387, #371, #370, #388 closed with version and SHA. #365 verified (see above), left open for Jeff to confirm.
 
+### Second promotion (Jeff, 2026-10-31: "I approve the promotion now since I reviewed")
+
+| Step | PR | Result |
+|---|---|---|
+| develop to staging | #410 (`cdf2044`, merged by Jeff 16:38) | v1.39.0; no failed checks (`e2e` skipped on both promotion PRs); preview Ready. Carried Jeff's #405 and #407 (tabbed device settings, #403), merged to develop before it. |
+| staging to main | #414 (`bdc4539`, merged by Jeff 17:49) | v1.39.0; production deploy Ready |
+
+The production build ran `prisma migrate deploy` and succeeded. The FeedEvent and EnergyDevice index migrations were already in the database before the promotion (`prisma migrate status` run by Claude beforehand: 44 migrations, schema up to date), after the full JSON backup `full-before-v1.36.0-indexes.json`.
+
+Production verified through the Vercel connector on deployment `dpl_F6QoMnUupsseAmigDNfefxmkqRNh`: `/api/health` returns `{"status":"ok"}`, `/en/privacy` shows 1.39.0, `/en/login` returns 200. Not exercised on production: the XLSX/PDF export and import flows, which need a signed-in session.
+
 ## Open for Jeff
 
 1. Hiligaynon strings from I-94 to I-99 are drafts for native review.
 2. DONE (Jeff 10-30): `bundle budget + latency` is now a required check on develop, staging and main (branch protection: quality + bundle budget + latency).
-3. (Done 10-31) Production is on v1.34.1.
-4. **Firmware per-dose limit.** The app no longer caps a single dose (E38), but `firmware-main.ino` still has `MAX_GRAMS_PER_DISPENSE 1000.0` and refuses larger doses (`feed_refused`). Lifting it is a safety change and a flash: Jeff's explicit yes needed. Units on firmware 1.6.0/1.6.1 already send `wifi_rssi`; 1.6.2 is a version bump.
+3. (Done 10-31) Production is on v1.39.0.
+4. **Firmware per-dose limit.** The app no longer caps a single dose (E38), but `firmware-main.ino` still has `MAX_GRAMS_PER_DISPENSE 1000.0` and refuses larger doses (`feed_refused`). Lifting it is a safety change and a flash: Jeff's explicit yes needed. Units on firmware 1.6.0/1.6.1 already send `wifi_rssi`; 1.6.2 is a version bump. Since v1.35.0 (I-100) firmware 1.7.0 no longer refuses a dose above 1,000 g and takes its tunable constants from the dashboard; that applies only to a unit Jeff flashes with 1.7.0, and production already serves the matching config.
 5. OpenCode: DeepSeek models were blocked by the workspace Privacy region ("requires Global regions"; set it to Global), then the Go plan usage limit was exceeded. I-107 was built directly by Claude. Launching a worker with `--auto` was blocked by the permission classifier on 10-31, so the `mimo-v2.6-flash-free` workers (E41) have not run yet.
-6. v1.38.0 and v1.39.0 are on develop only. Promoting them to staging and then main waits for your word; E40 only lifts the migration restriction on the production database.
+6. (Done 10-31) v1.38.0 and v1.39.0 reached staging (#410) and main (#414), both merged by Jeff. E40 only lifted the migration restriction on the production database.
 7. (Applied) Firmware 1.6.2 (adds wifi_rssi) must be flashed by you, with your yes; applying the two migrations (EnergyDevice RSSI columns, PondSettingsDraft table) is done by Claude after a full JSON backup.

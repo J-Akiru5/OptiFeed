@@ -451,7 +451,7 @@ old server (no `config` object) changes nothing.
 | `PROVISIONING_*` (scan, join, restart) | — | 20 networks, 300 ms/channel, 12 s scan, 2 s retry, 20 s join, 6 s quick fail, 5 s restart | C |
 | `EVENT_QUEUE_SIZE` | — | 50 | C |
 | `MAX_FEED_TIMES` | — | 24 | C |
-| `OTA_MAX_CHECK_RESPONSE_BYTES`, `OTA_LOCAL_UTC_OFFSET_MINUTES` | — | 8,192 B / 480 min | C (time zone is a fleet constant) |
+| `OTA_MAX_CHECK_RESPONSE_BYTES`, `OTA_LOCAL_UTC_OFFSET_MINUTES` | `farm_offset_minutes` (server, persisted in NVS) | 8,192 B / 480 min fallback | C (the constant is only the boot fallback; the server owns the offset) |
 | `OTA_CHECK_URL`, `INGEST_URL`, `FEED_POLL_URL_BASE`, `SCHEDULE_SYNC_URL_BASE` | — | production URLs | C |
 | TLS roots, OTA public keys, `PROVISIONING_AP_PREFIX` | — | compile-time | A |
 
@@ -840,11 +840,13 @@ The check and the download only happen while **all** of these hold
 | Local time 10:00–15:00 | `OTA_WINDOW_START_MINUTE` / `OTA_WINDOW_END_MINUTE` |
 | Enough free heap | `OTA_MIN_FREE_HEAP_BYTES` (60 KB) |
 
-`OTA_LOCAL_UTC_OFFSET_MINUTES` (480 = UTC+8, Philippines) converts the
-UTC RTC to local time **for the maintenance window only**. The schedule guard
-uses the same RTC clock `handleSchedule()` fires on, so it reflects when this
-unit would really dispense. A brownout reset postpones updates until the next
-clean reboot (power safety, by decision).
+The same `farm_offset_minutes` value that the server sends on every
+`feed-command` and `schedule-sync` converts the UTC RTC to farm-local time for
+the **schedule comparison**, this maintenance window and the schedule guard
+(the compile-time fallback is `OTA_LOCAL_UTC_OFFSET_MINUTES` = 480 = UTC+8 until
+the first response). The schedule guard therefore reflects when this unit would
+really dispense. A brownout reset postpones updates until the next clean reboot
+(power safety, by decision).
 
 Backoff after any postponement or failure: **1 h → 6 h → 24 h**, then held at
 24 h. A check that answers `{update:false}` resets the ladder and the next check
@@ -871,11 +873,56 @@ is 30 minutes later. Every decision is logged on serial as `[OTA] ...`.
   | `ota_feed_count` | number of active schedule slots |
   | `ota_feed_times` | 48 bytes, hour/minute pairs for all 24 slots |
 
-  At boot the schedule is restored every time; `dailyGramsDispensed` and the
-  `firedToday` flags are restored only when `ota_day` matches the RTC date. The
+  At boot the OTA checkpoint is restored: the schedule every time;
+  `dailyGramsDispensed` and the `firedToday` flags only when `ota_day` matches
+  the RTC date. `ota_day` keeps its 1.6.x UTC meaning; a farm-local match is also
+  accepted so a checkpoint written across UTC midnight is not lost. The
   checkpoint is then consumed, so a later power cycle cannot resurrect stale
   numbers. If the RTC is missing, the schedule is restored and the daily
   counters are not.
+
+### Schedule, dose and daily-counter persistence (I-109)
+
+The RTC holds **UTC**; schedule slots are the farmer's wall-clock times. Every
+`feed-command` and `schedule-sync` response carries `farm_offset_minutes`. The
+firmware converts at every comparison:
+
+```
+local minute of day = (utc hour * 60 + utc minute + farm_offset_minutes) mod 1440
+```
+
+Negative offsets and midnight/month/year rollover are handled by
+`fw::farmLocalTime()` in `safety.h` (host-tested with `pio test -e native`). The
+offset starts at the compile-time fallback `OTA_LOCAL_UTC_OFFSET_MINUTES`
+(480 = UTC+8) until the first response, then follows the server and is
+persisted.
+
+A plain power cycle no longer resets the schedule, the dose sizes or the daily
+cap. The last values are kept in NVS (namespace `optifeed`, new keys) and
+restored at boot after `buildDefaultSchedule()`:
+
+| Key | Contents |
+|---|---|
+| `sch_sched` | one blob: slot count + 24 hour/minute pairs |
+| `sch_grams` | `gramsPerFeeding` (scheduled dose) |
+| `sch_button` | `buttonFeedGrams` (button dose) |
+| `sch_daily` | `dailyGramsDispensed` |
+| `sch_day` | farm-local `YYYYMMDD` that `sch_daily` belongs to |
+| `sch_offset` | last `farm_offset_minutes` |
+
+Each key is written only when its value changes (a poll, a schedule change, a
+completed dispense, a farm-local day rollover, or an offset change), never once
+per loop. `dailyGramsDispensed` is restored only when `sch_day` equals today's
+farm-local date; a new day starts at 0. A restored value is clamped to the
+configured daily cap, so unplugging can never hand the day its headroom back.
+
+The daily cap and the `firedToday` flags now roll over at **farm-local**
+midnight; they previously used the UTC day (08:00 local for UTC+8). The cap
+amount, the relay-time envelope and every other gate are unchanged. Hopper
+calibration (`hopper_full_cm`, `hopper_empty_cm`) and `temp_offset_c` were not
+changed by this work: when a 1.7.0 `config` object has been applied they are
+already part of the existing `cfg_json` last-good copy, and otherwise they keep
+their compile-time defaults until the next poll.
 
 ### LAN OTA (bench only)
 

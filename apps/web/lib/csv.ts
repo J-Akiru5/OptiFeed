@@ -7,8 +7,7 @@ export type ExportableType =
 	| "fcr_reports"
 	| "feed_level_logs"
 	| "notifications"
-	| "audit_events"
-	| "feeding_schedule";
+	| "audit_events";
 
 export const EXPORT_LABELS: Record<ExportableType, string> = {
 	biomass_logs: "Biomass Logs",
@@ -18,7 +17,6 @@ export const EXPORT_LABELS: Record<ExportableType, string> = {
 	feed_level_logs: "Feed Level Logs",
 	notifications: "Notifications",
 	audit_events: "Audit Events",
-	feeding_schedule: "Feeding Schedule",
 };
 
 interface CsvRow {

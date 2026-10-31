@@ -71,7 +71,8 @@ describe("parseCsvString", () => {
 	});
 
 	it("skips leading # note lines from the downloadable template", () => {
-		const csv = "# Notes: sampleWeightKg is required\n# sampleCount must be a whole number\nsampleWeightKg,sampleCount\n10,5";
+		const csv =
+			"# Notes: sampleWeightKg is required\n# sampleCount must be a whole number\nsampleWeightKg,sampleCount\n10,5";
 		const result = parseCsvString(csv);
 		expect(result.data).toEqual([{ sampleWeightKg: "10", sampleCount: "5" }]);
 		expect(result.errors).toHaveLength(0);
@@ -100,8 +101,7 @@ describe("buildFilename", () => {
 });
 
 describe("EXPORT_LABELS", () => {
-	it("has labels for all 8 types including the feeding schedule", () => {
-		expect(Object.keys(EXPORT_LABELS)).toHaveLength(8);
-		expect(EXPORT_LABELS.feeding_schedule).toBe("Feeding Schedule");
+	it("has a label for each of the 7 dataset types", () => {
+		expect(Object.keys(EXPORT_LABELS)).toHaveLength(7);
 	});
 });

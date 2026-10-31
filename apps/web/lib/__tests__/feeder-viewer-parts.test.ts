@@ -11,14 +11,14 @@ import { describe, expect, it } from "vitest";
 describe("feeder viewer status", () => {
 	const now = new Date("2026-10-29T10:00:00+08:00");
 
-	it("is offline when there has never been a heartbeat or silence passes the grace window", () => {
+	it("is offline when there has never been a heartbeat or silence passes the offline window", () => {
 		expect(feederStatus({ isPaused: false, lastSeenAt: null, lastFedAt: null, now })).toBe(
 			"offline",
 		);
 		expect(
 			feederStatus({
 				isPaused: false,
-				lastSeenAt: "2026-10-29T09:42:59+08:00",
+				lastSeenAt: "2026-10-29T09:54:59+08:00",
 				lastFedAt: null,
 				now,
 			}),
@@ -29,7 +29,7 @@ describe("feeder viewer status", () => {
 		expect(
 			feederStatus({
 				isPaused: false,
-				lastSeenAt: "2026-10-29T09:45:00+08:00",
+				lastSeenAt: "2026-10-29T09:55:30+08:00",
 				lastFedAt: null,
 				now,
 			}),
@@ -37,7 +37,7 @@ describe("feeder viewer status", () => {
 		expect(
 			feederStatus({
 				isPaused: false,
-				lastSeenAt: "2026-10-29T09:43:00+08:00",
+				lastSeenAt: "2026-10-29T09:55:00+08:00",
 				lastFedAt: null,
 				now,
 			}),

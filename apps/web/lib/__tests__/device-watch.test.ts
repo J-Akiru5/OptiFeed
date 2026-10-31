@@ -216,9 +216,9 @@ describe("api/cron/device-watch", () => {
 		);
 	});
 
-	it("waits for the platform offline window plus grace before alerting (default 17 minutes)", async () => {
+	it("waits for the platform offline window before alerting (default five minutes)", async () => {
 		mockEnergyDevice.findMany.mockResolvedValue([
-			{ ...STALE_DEVICE, lastSeenAt: new Date(Date.now() - 16 * 60 * 1000) },
+			{ ...STALE_DEVICE, lastSeenAt: new Date(Date.now() - 4 * 60 * 1000) },
 		] as never);
 
 		const res = await GET(cronRequest("Bearer test-cron-secret"));
@@ -266,7 +266,12 @@ describe("api/cron/device-watch", () => {
 		expect(mockNotification.create).toHaveBeenCalledTimes(1);
 	});
 
-	it("ignores a short org delay: 16 minutes is still inside the default policy", async () => {
+	it("ignores a short org delay: the platform policy alone decides", async () => {
+		// The org wants an alert after five minutes, the platform policy waits
+		// thirty, so six minutes of silence is not due yet (I-97).
+		vi.mocked(getDeviceStatusPolicy).mockResolvedValue(
+			deviceStatusPolicyFromValue({ weakAfterMin: 10, offlineAfterMin: 30, graceMin: 0 }),
+		);
 		vi.mocked(prisma.pond.findMany).mockResolvedValue([{ ...POND, ownerId: "farm-user" }] as never);
 		vi.mocked(prisma.user.findMany).mockResolvedValue([
 			{ id: "user-1", farmId: "farm-user" },
@@ -279,7 +284,7 @@ describe("api/cron/device-watch", () => {
 			{ orgId: "org-1", offlineAfterMin: 5 },
 		] as never);
 		mockEnergyDevice.findMany.mockResolvedValue([
-			{ ...STALE_DEVICE, lastSeenAt: new Date(Date.now() - 16 * 60 * 1000) },
+			{ ...STALE_DEVICE, lastSeenAt: new Date(Date.now() - 6 * 60 * 1000) },
 		] as never);
 
 		const res = await GET(cronRequest("Bearer test-cron-secret"));

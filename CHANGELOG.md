@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Tabbed device settings with a feeder switcher.** The hardware settings page is now four tabs synced to `?tab=` (Overview, Feeding, Calibration, Network) with WAI-ARIA keyboard support; panels stay mounted, so an edit survives a tab switch. A `?device=` switcher grouped by pond lets a second feeder on the same pond be configured and is hidden when the farm has only one feeder. An unsaved-changes guard marks a tab with pending edits, asks before switching feeder and covers reload, and dashboard alerts plus the old `#anchor` links open the tab that holds the section. The design comes from the settings benchmark in `docs/settings-benchmark.md` (#403, #405, #407).
 
+### Fixed
+
+- **A disconnected feeder is now marked offline after five minutes (#419).** The platform device-connectivity policy shipped with 15 minutes of silence plus a 2-minute grace, so an unplugged ESP32 stayed on "weak signal" for 17 minutes before the badge flipped. The defaults are now 4 minutes of weak signal, 5 minutes to offline and no grace — five minutes of silence is sixty missed heartbeats at the firmware's five-second beat, and the hysteresis already stops the badge from flapping, so the grace is no longer needed to absorb a single late beat. Every surface (header badge, sidebar, dashboard, feeder hero, admin and superadmin device lists, the offline-alert cron, the assistant context and the PWA snapshot) reads the one shared rule in `lib/device-status.ts`, so the new default applies everywhere at once. A platform admin can still move the windows in Superadmin → Settings → Device connectivity, and a stored `PlatformSetting` row always wins over the default. The firmware's connectivity diagnostic (`weak_after_min` / `offline_after_min`) now reports the same 4 / 5 minutes.
+
 ## [1.39.0] - 2026-10-31
 
 ### Added

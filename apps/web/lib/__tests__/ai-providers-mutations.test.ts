@@ -22,6 +22,12 @@ const { db, tx } = vi.hoisted(() => {
 vi.mock("@/lib/prisma", () => ({ default: db }));
 vi.mock("@/lib/auth/require-platform-admin", () => ({ requirePlatformAdmin: vi.fn() }));
 vi.mock("@/lib/auth/session", () => ({ getCurrentUser: vi.fn() }));
+// Key/chain mutations run inside withStepUp; the password check itself is
+// covered by the step-up tests, so here it always succeeds.
+vi.mock("@/lib/auth/step-up", () => ({
+	withStepUp: (fn: (at: Date) => Promise<unknown>) => fn(new Date()),
+	isStepUpRequiredError: () => false,
+}));
 
 import { resetAiProviderConfig, saveAiProviderConfig } from "@/lib/actions/ai-providers";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
@@ -89,10 +95,13 @@ describe("saveAiProviderConfig", () => {
 			where: { provider: "opencode-go" },
 			create: {
 				provider: "opencode-go",
+				kind: null,
 				enabled: false,
 				priority: 20,
 				model: "custom-model",
 				apiKeyEnv: "CUSTOM_KEY",
+				label: null,
+				baseUrl: null,
 				params: { reasoningEffort: "low" },
 			},
 			update: {
@@ -100,6 +109,8 @@ describe("saveAiProviderConfig", () => {
 				priority: 20,
 				model: "custom-model",
 				apiKeyEnv: "CUSTOM_KEY",
+				label: null,
+				baseUrl: null,
 				params: { reasoningEffort: "low" },
 			},
 		});
@@ -197,6 +208,7 @@ describe("resetAiProviderConfig", () => {
 				priority: 10,
 				model: "deepseek-v4.1-flash",
 				apiKeyEnv: "OPENCODE_GO_API_KEY",
+				keyPresent: false,
 			},
 		]);
 	});

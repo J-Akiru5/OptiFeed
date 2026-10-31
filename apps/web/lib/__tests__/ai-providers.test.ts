@@ -12,8 +12,10 @@ import {
 	loadProviderConfigs,
 } from "@/lib/ai-providers/config";
 import { geminiProvider } from "@/lib/ai-providers/gemini";
+import { openAiCompatibleProvider } from "@/lib/ai-providers/openai-compatible";
 import { opencodeGoProvider } from "@/lib/ai-providers/opencode-go";
-import { getProvider, listProviders } from "@/lib/ai-providers/registry";
+import { getProvider, listBuiltInProviders, listProviders } from "@/lib/ai-providers/registry";
+import { encryptProviderKey, keyMaterialToColumns } from "@/lib/ai-providers/secrets";
 
 function runtime(provider: string, overrides: Record<string, unknown> = {}) {
 	return {
@@ -39,13 +41,19 @@ afterEach(() => {
 });
 
 describe("registry", () => {
-	it("exposes both providers", () => {
+	it("exposes every adapter and keeps the generic one out of the built-in cards", () => {
 		expect(
 			listProviders()
 				.map((p) => p.id)
 				.sort(),
+		).toEqual(["gemini", "openai-compatible", "opencode-go"]);
+		expect(
+			listBuiltInProviders()
+				.map((p) => p.id)
+				.sort(),
 		).toEqual(["gemini", "opencode-go"]);
 		expect(getProvider("opencode-go")).toBe(opencodeGoProvider);
+		expect(getProvider("openai-compatible")).toBe(openAiCompatibleProvider);
 		expect(getProvider("nope")).toBeUndefined();
 	});
 
@@ -304,5 +312,150 @@ describe("provider config resolution", () => {
 
 		const configs = await loadProviderConfigs();
 		expect(configs[0].reasoningEffort).toBe("low");
+	});
+
+	it("prefers a key stored in the database over the environment variable (#432)", async () => {
+		vi.stubEnv("AI_SECRET_KEY", Buffer.alloc(32, 3).toString("base64"));
+		const encrypted = encryptProviderKey("opencode-go", "db-key");
+		if (!encrypted) throw new Error("encryption failed");
+		findMany.mockResolvedValue([
+			{ ...DEFAULT_PROVIDER_ROWS[0], priority: 1, ...keyMaterialToColumns(encrypted) },
+		]);
+		vi.stubEnv("OPENCODE_GO_API_KEY", "env-key");
+
+		const configs = await loadProviderConfigs();
+		expect(configs[0]).toMatchObject({ provider: "opencode-go", apiKey: "db-key" });
+	});
+
+	it("falls back to the environment when the stored key cannot be decrypted (#432)", async () => {
+		vi.stubEnv("AI_SECRET_KEY", Buffer.alloc(32, 3).toString("base64"));
+		const encrypted = encryptProviderKey("opencode-go", "db-key");
+		if (!encrypted) throw new Error("encryption failed");
+		const columns = keyMaterialToColumns(encrypted);
+		findMany.mockResolvedValue([
+			{
+				...DEFAULT_PROVIDER_ROWS[0],
+				priority: 1,
+				...columns,
+				keyCiphertext: new Uint8Array([1, 2, 3]), // tampered
+			},
+		]);
+		vi.stubEnv("OPENCODE_GO_API_KEY", "env-key");
+
+		const configs = await loadProviderConfigs();
+		expect(configs[0]).toMatchObject({ provider: "opencode-go", apiKey: "env-key" });
+	});
+
+	it("resolves a console-created OpenAI-compatible instance (#432)", async () => {
+		findMany.mockResolvedValue([
+			{
+				provider: "groq",
+				kind: "openai-compatible",
+				label: "Groq",
+				baseUrl: "https://api.groq.com/openai/v1",
+				enabled: true,
+				priority: 15,
+				model: "llama-3.3-70b-versatile",
+				apiKeyEnv: null,
+				params: null,
+			},
+		]);
+		vi.stubEnv("OPENAI_API_KEY", "groq-key");
+		vi.stubEnv("OPENCODE_GO_API_KEY", "");
+
+		const configs = await loadProviderConfigs();
+		const groq = configs.find((config) => config.provider === "groq");
+		expect(groq).toMatchObject({
+			provider: "groq",
+			kind: "openai-compatible",
+			model: "llama-3.3-70b-versatile",
+			apiKey: "groq-key",
+			baseUrl: "https://api.groq.com/openai/v1",
+		});
+	});
+
+	it("skips a custom provider with no base URL (#432)", async () => {
+		findMany.mockResolvedValue([
+			{
+				provider: "broken",
+				kind: "openai-compatible",
+				enabled: true,
+				priority: 1,
+				model: null,
+				apiKeyEnv: "OPENAI_API_KEY",
+				params: null,
+			},
+		]);
+		vi.stubEnv("OPENAI_API_KEY", "some-key");
+
+		const configs = await loadProviderConfigs();
+		expect(configs.some((config) => config.provider === "broken")).toBe(false);
+	});
+});
+
+describe("openai-compatible adapter (#432)", () => {
+	const config = runtime("openai-compatible", {
+		baseUrl: "https://api.groq.com/openai/v1",
+		model: "llama-3.3-70b-versatile",
+	}) as never;
+
+	it("posts to the configured base URL with the bearer key and streams deltas", async () => {
+		const fetchMock = vi.fn(
+			async (_url: string, _init: RequestInit) =>
+				new Response(
+					[
+						'data: {"choices":[{"delta":{"content":"Hel"}}]}',
+						'data: {"choices":[{"delta":{"content":"lo"}}]}',
+						"data: [DONE]",
+						"",
+					].join("\n"),
+					{ status: 200, headers: { "Content-Type": "text/event-stream" } },
+				),
+		);
+		vi.stubGlobal("fetch", fetchMock);
+
+		let out = "";
+		for await (const chunk of openAiCompatibleProvider.stream({
+			...baseRequest,
+			config,
+		})) {
+			out += chunk;
+		}
+
+		expect(out).toBe("Hello");
+		expect(fetchMock.mock.calls[0][0]).toBe("https://api.groq.com/openai/v1/chat/completions");
+		const init = fetchMock.mock.calls[0][1] as RequestInit;
+		expect((init.headers as Record<string, string>).Authorization).toBe(
+			"Bearer key-openai-compatible",
+		);
+		const body = JSON.parse(String(init.body)) as { model: string; stream: boolean };
+		expect(body.model).toBe("llama-3.3-70b-versatile");
+		expect(body.stream).toBe(true);
+	});
+
+	it("completes with the provider's message", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(
+				async () =>
+					new Response(JSON.stringify({ choices: [{ message: { content: "OK" } }] }), {
+						status: 200,
+						headers: { "Content-Type": "application/json" },
+					}),
+			),
+		);
+
+		await expect(
+			openAiCompatibleProvider.complete({ ...baseRequest, config }),
+		).resolves.toMatchObject({ content: "OK" });
+	});
+
+	it("refuses to call a provider with no base URL", async () => {
+		await expect(
+			openAiCompatibleProvider.complete({
+				...baseRequest,
+				config: runtime("openai-compatible") as never,
+			}),
+		).rejects.toThrow("no base URL");
 	});
 });

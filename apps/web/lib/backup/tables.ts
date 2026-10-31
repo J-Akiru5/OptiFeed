@@ -422,6 +422,8 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 			"hopperEmptyCm",
 			"hopperFullCm",
 			"hopperCapacityG",
+			"hopperDiameterCm",
+			"hopperBulkDensityGCm3",
 			"dailyCapG",
 			"gramsPerSecond",
 			"tempOffsetC",

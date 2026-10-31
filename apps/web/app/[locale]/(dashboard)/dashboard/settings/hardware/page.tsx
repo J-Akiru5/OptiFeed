@@ -230,6 +230,8 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 					hopperFullCm: true,
 					hopperEmptyCm: true,
 					hopperCapacityG: true,
+					hopperDiameterCm: true,
+					hopperBulkDensityGCm3: true,
 					gramsPerSecond: true,
 					gramsPerFeeding: true,
 					dailyCapG: true,
@@ -583,6 +585,8 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 										hopperFullCm={energyDevice.hopperFullCm}
 										hopperEmptyCm={energyDevice.hopperEmptyCm}
 										hopperCapacityG={energyDevice.hopperCapacityG}
+										hopperDiameterCm={energyDevice.hopperDiameterCm}
+										hopperBulkDensityGCm3={energyDevice.hopperBulkDensityGCm3}
 										canWrite={writeAccess}
 									/>
 								</DashboardSection>

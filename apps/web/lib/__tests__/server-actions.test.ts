@@ -646,6 +646,76 @@ describe("write access enforcement — VIEWER denied, nothing written (1.5)", ()
 		);
 	});
 
+	it("saveHopperCalibration computes the capacity from the tank geometry (issue #415)", async () => {
+		mockRequireWriteAccess.mockResolvedValue(undefined);
+		mockEnergyDevice.findFirst.mockResolvedValue(onlineDevice({ hopperCapacityG: 4750 }));
+		const { saveHopperCalibration } = await import("@/lib/actions/energy");
+
+		const result = await saveHopperCalibration("device-1", {
+			hopperFullCm: 5,
+			hopperEmptyCm: 30,
+			hopperDiameterCm: 20,
+			hopperBulkDensityGCm3: 0.6,
+		});
+
+		expect(result.success).toBe(true);
+		// 20 cm tank, 25 cm usable height, 0.6 g/cm³: 4,712 g, not the stored
+		// 4,750 and not a number the client sent.
+		expect(mockEnergyDevice.update).toHaveBeenCalledWith({
+			where: { id: "device-1" },
+			data: expect.objectContaining({
+				hopperFullCm: 5,
+				hopperEmptyCm: 30,
+				hopperCapacityG: 4712,
+				hopperDiameterCm: 20,
+				hopperBulkDensityGCm3: 0.6,
+			}),
+		});
+		expect(mockDeviceStateEvent.create).toHaveBeenCalledWith({
+			data: expect.objectContaining({
+				metadata: expect.objectContaining({
+					hopperCapacityG: 4712,
+					hopperDiameterCm: 20,
+					hopperBulkDensityGCm3: 0.6,
+					computed: true,
+				}),
+			}),
+		});
+	});
+
+	it("saveHopperCalibration keeps the stored capacity when no diameter is given", async () => {
+		mockRequireWriteAccess.mockResolvedValue(undefined);
+		mockEnergyDevice.findFirst.mockResolvedValue(onlineDevice({ hopperCapacityG: 4750 }));
+		const { saveHopperCalibration } = await import("@/lib/actions/energy");
+
+		const result = await saveHopperCalibration("device-1", {
+			hopperFullCm: 6,
+			hopperEmptyCm: 30,
+		});
+
+		expect(result.success).toBe(true);
+		expect(mockEnergyDevice.update).toHaveBeenCalledWith({
+			where: { id: "device-1" },
+			data: expect.objectContaining({ hopperCapacityG: 4750 }),
+		});
+	});
+
+	it("saveHopperCalibration refuses a save with neither a diameter nor a capacity", async () => {
+		mockRequireWriteAccess.mockResolvedValue(undefined);
+		mockEnergyDevice.findFirst.mockResolvedValue(onlineDevice());
+		const { saveHopperCalibration } = await import("@/lib/actions/energy");
+
+		const result = await saveHopperCalibration("device-1", {
+			hopperFullCm: 5,
+			hopperEmptyCm: 30,
+		});
+
+		expect(result.success).toBe(false);
+		expect(result.error).toMatch(/diameter/i);
+		expect(mockEnergyDevice.update).not.toHaveBeenCalled();
+		expect(mockDeviceStateEvent.create).not.toHaveBeenCalled();
+	});
+
 	it("saveDurationCalibration returns an error and writes nothing", async () => {
 		denyWrite();
 		const { saveDurationCalibration } = await import("@/lib/actions/energy");

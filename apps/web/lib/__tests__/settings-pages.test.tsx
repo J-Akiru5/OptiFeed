@@ -272,7 +272,7 @@ describe("hardware settings page", () => {
 		expect(html.match(/<h1/g)).toHaveLength(1);
 		expect(html).toContain("Full Distance (cm)");
 		expect(html).toContain("Empty Distance (cm)");
-		expect(html).toContain("Hopper Capacity (grams)");
+		expect(html).toContain("Tank Diameter (cm)");
 		expect(html).toContain("Temperature Offset (°C)");
 		expect(html).toContain("Current level");
 		expect(html).toContain("62%");

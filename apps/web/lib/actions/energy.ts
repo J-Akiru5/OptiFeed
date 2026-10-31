@@ -4,10 +4,12 @@ import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { createManualFeedRequest } from "@/lib/feed/commands";
 import {
+	DEFAULT_HOPPER_BULK_DENSITY_G_CM3,
 	GRAMS_PER_SECOND_MAX,
 	GRAMS_PER_SECOND_MIN,
 	formatZodError,
 	hopperCalibrationSchema,
+	hopperCapacityFromGeometry,
 } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -50,7 +52,15 @@ export async function requestFeed(deviceId: string, grams?: number) {
 
 export async function saveHopperCalibration(
 	deviceId: string,
-	data: { hopperFullCm: number; hopperEmptyCm: number; hopperCapacityG: number },
+	data: {
+		hopperFullCm: number;
+		hopperEmptyCm: number;
+		/** Legacy/manual capacity; used only when no diameter is supplied. */
+		hopperCapacityG?: number;
+		/** Issue #415: geometry that lets the server compute the capacity. */
+		hopperDiameterCm?: number;
+		hopperBulkDensityGCm3?: number;
+	},
 ) {
 	try {
 		await requireWriteAccess();
@@ -68,11 +78,33 @@ export async function saveHopperCalibration(
 		const ownerId = await getCurrentPondOwnerId();
 		const device = await prisma.energyDevice.findFirst({
 			where: { id: deviceId, pond: { ownerId } },
-			select: { id: true },
+			select: { id: true, hopperCapacityG: true, hopperDiameterCm: true },
 		});
 
 		if (!device) {
 			return { success: false, error: "Device not found" };
+		}
+
+		// The capacity is derived here, never trusted from the client: the
+		// stored number feeds the daily-cap ceiling and the days-of-feed
+		// estimate, so the server recomputes it from the same pure helper the
+		// form previews. A save without a diameter keeps the capacity the
+		// device already had (rows calibrated before #415).
+		const density = parsed.data.hopperBulkDensityGCm3 ?? DEFAULT_HOPPER_BULK_DENSITY_G_CM3;
+		const computedCapacity =
+			parsed.data.hopperDiameterCm === undefined
+				? null
+				: hopperCapacityFromGeometry(
+						{
+							diameterCm: parsed.data.hopperDiameterCm,
+							fullCm: parsed.data.hopperFullCm,
+							emptyCm: parsed.data.hopperEmptyCm,
+						},
+						density,
+					);
+		const capacityG = computedCapacity ?? parsed.data.hopperCapacityG ?? device.hopperCapacityG;
+		if (capacityG === null || capacityG === undefined) {
+			return { success: false, error: "Enter the tank diameter or a capacity in grams" };
 		}
 
 		await prisma.energyDevice.update({
@@ -80,7 +112,15 @@ export async function saveHopperCalibration(
 			data: {
 				hopperFullCm: parsed.data.hopperFullCm,
 				hopperEmptyCm: parsed.data.hopperEmptyCm,
-				hopperCapacityG: parsed.data.hopperCapacityG,
+				hopperCapacityG: capacityG,
+				// Clearing the diameter in the form falls back to the stored
+				// capacity; the previous geometry stays available for the size
+				// the tank actually has.
+				hopperDiameterCm: parsed.data.hopperDiameterCm ?? device.hopperDiameterCm,
+				hopperBulkDensityGCm3:
+					parsed.data.hopperDiameterCm === undefined
+						? undefined
+						: (parsed.data.hopperBulkDensityGCm3 ?? DEFAULT_HOPPER_BULK_DENSITY_G_CM3),
 			},
 		});
 
@@ -93,7 +133,14 @@ export async function saveHopperCalibration(
 				metadata: {
 					hopperFullCm: parsed.data.hopperFullCm,
 					hopperEmptyCm: parsed.data.hopperEmptyCm,
-					hopperCapacityG: parsed.data.hopperCapacityG,
+					hopperCapacityG: capacityG,
+					...(parsed.data.hopperDiameterCm === undefined
+						? {}
+						: {
+								hopperDiameterCm: parsed.data.hopperDiameterCm,
+								hopperBulkDensityGCm3: density,
+								computed: true,
+							}),
 				},
 			},
 		});

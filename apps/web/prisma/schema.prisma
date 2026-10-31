@@ -357,6 +357,12 @@ model EnergyDevice {
   hopperEmptyCm             Float? // sensor distance when hopper is empty (~30cm for 10L bottle)
   hopperFullCm              Float? // sensor distance when hopper is full (~5cm)
   hopperCapacityG           Float? // total hopper capacity in grams (e.g. 7000 for 10L)
+  // Issue #415: the tank diameter turns the measured distance span into a
+  // volume, and the feed bulk density turns that volume into grams, so the
+  // capacity is computed instead of guessed. Both stay null on devices
+  // calibrated before this field existed; hopperCapacityG is kept as-is there.
+  hopperDiameterCm          Float? // inner tank diameter in cm
+  hopperBulkDensityGCm3     Float? // feed bulk density in g/cm³ (floating pellet ~0.6-0.7)
   dailyCapG                 Int? // pond's daily feed ceiling; null → DEFAULT_DAILY_CAP_G (2000)
   gramsPerSecond            Float     @default(4.0) // motor dispense rate — pushed via poll response
   tempOffsetC               Float     @default(0) // DS18B20 calibration offset in °C

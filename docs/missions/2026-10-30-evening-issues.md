@@ -33,6 +33,12 @@ No open PRs. Older issues #316-#339 are handled by other sessions in the `iso-*`
 | E44 | Jeff 10-31 night: resolve #432 (AI provider keys) first. After it is merged and deployed, Jeff signs in as superadmin and tests whether Pakoy can really act on the system. #365 is closed only after that test. |
 | E45 | Claude 10-31 night (finding, decision open): Pakoy's `records.add_calendar_item` takes only a start time. The calendar stores `endsAt` and `color` (`schema.prisma`), but the action never passes them, so the request in the #365 screenshot ("1pm to 5pm", "color it blue") cannot be done as asked. See the register below. |
 | E46 | Jeff 10-31 night: PR #435 (#432 phase A) is bound to the orchestrator session so its state is visible. Auto-fix stays off for it: it is an OpenCode worker's PR, and Auto-fix is only for PRs this session opened. |
+| E47 | Claude 10-31 night (verified, answering Jeff): PR #425 (#409, firmware 1.8.1) contains the lamp logic. It is built on the merged #422 (`status.h`, `FaultManager`, the bench pins blue GPIO 26 and yellow GPIO 18 are all in its tree), its diff touches no lamp or fault line, and it merges cleanly into the current develop. 1.8.1 is 1.8.0 plus the farm-local schedule, persisted schedule and daily cap, and `safety.h` helpers. |
+| E48 | Jeff 10-31 night: advance #419 and #418 on staging. Both are on develop (#423 and #434, `95b4453`). The batched promotion is prepared but held, see the register: develop CI on `95b4453` was still running, the release prep (version bump) is not merged, and the #417 migration `20261031130000_add_hopper_diameter_density` is not yet in the shared database while staging builds skip migrations. Applying it needs a backup and production database access; the session's auto-mode classifier denied that access, so Jeff either allows it or applies it. |
+| E49 | Jeff 10-31 night: #430 stays with Karl. |
+| E50 | Jeff 10-31 night: why does #328 need a schedule, and what if we upgrade now? No technical reason to wait. Tried now on `chore/328-vitest-4` (vitest and `@vitest/coverage-v8` 4.1.12). `pnpm audit` goes from 116 findings (2 critical, 40 high) to 109 (0 critical, 40 high): the criticals are gone, the highs remain (shadcn and its tree). Result of the full suite: see the #328 row. |
+| E51 | Jeff 10-31 night: #319 must not conflict with or regress anything on the plan. Findings and the rules the backfill must follow are in the #319 row. Nothing was run against production. |
+| E52 | Jeff 10-31 night: #365 is decided when #432 has landed (reaffirms E44). |
 
 ## #365 verification (Claude)
 
@@ -125,11 +131,36 @@ Branch heads: main and staging are both v1.39.0 with the same content (`main` sh
 |---|---|---|---|---|
 | #365 Pakoy access level | Fix live on production since v1.31.5 | Never tested in the app after the fix (E44); calendar action has no end time or colour (E45) | After #432: run the test plan in the #365 section. Then: extend `records.add_calendar_item` with `endsAt` and `color` (no migration), or leave as is | Claude can build the calendar extension on request; Jeff tests and closes |
 | #432 AI provider keys | PR #435 (phase A) open; 9 checks passed, 1 pending at last look; mergeable | Needs a merge, then deploy; phase B (I-115) not started | Merge #435; set `AI_SECRET_KEY` (base64, 32 bytes) in Vercel for the environment under test, never in the repo or chat; approve the additive migration after a full JSON backup (E40); say when phase B starts | Jeff merges; Claude takes the backup and checks the migration before the promotion |
-| #409 feeder schedule on UTC | PR #425 open, firmware 1.8.1, mergeable, checks green | Firmware: needs review, reflash and a bench check. Until then a flashed 1.8.0 still fires slots on UTC (06:00 clicks at 14:00) | Approve and merge #425; accept that the daily cap and `firedToday` roll over at farm-local midnight instead of UTC; flash and run the bench check | Jeff; Claude has re-verified `pio run` and `pio test -e native` |
-| #419 offline indicator | Fix merged to develop (#423, Karl): weak after 4 min, offline after 5 min, grace 0 | Not in production. Production has no `device.status` row, so only the new defaults can fix it | Promote, or set the windows now in Superadmin, Settings, Device connectivity (no deploy). Close after a silent unit flips to Offline within 5 minutes | Karl owns it; Jeff decides promote or set now |
-| #418 Tenant B demo data | PR #434 open, checks green | Not merged; the seed has not been run anywhere | Merge #434; allow `pnpm --filter web seed:tenant-b` against the shared production database (deletes are scoped to the demo pond ids and feeder MACs; `--unlock` only if Jeff asks) | Karl owns it |
-| #430 pond settings do not sync | Open, assigned to Karl | No comment, branch or PR. Report: pond setting says 525 fish, dashboard shows 600. Not investigated here | Keep with Karl or hand it to a worker | Needs a repro first: which field, which page |
+| #409 feeder schedule on UTC | PR #425 open, firmware 1.8.1, mergeable, checks green | Firmware: needs review, reflash and a bench check. Until then a flashed 1.8.0 still fires slots on UTC (06:00 clicks at 14:00) | Approve and merge #425; accept that the daily cap and `firedToday` roll over at farm-local midnight instead of UTC; flash and run the bench check | Jeff; Claude has re-verified `pio run` and `pio test -e native`. It already includes the lamp logic (E47) |
+| #419 offline indicator | Fix merged to develop (#423, Karl): weak after 4 min, offline after 5 min, grace 0 | Not on staging or production yet (E48). Production has no `device.status` row, so only the new defaults can fix it | Allow the production database step in E48; or set the windows now in Superadmin, Settings, Device connectivity (no deploy). Close after a silent unit flips to Offline within 5 minutes | Karl owns it; Claude promotes to staging once E48 is cleared |
+| #418 Tenant B demo data | PR #434 merged to develop (`95b4453`); not on staging yet | The seed has not been run anywhere; staging promotion held (E48) | Allow `pnpm --filter web seed:tenant-b` against the shared production database (deletes are scoped to the demo pond ids and feeder MACs; `--unlock` only if Jeff asks) | Karl owns it |
+| #430 pond settings do not sync | Open, assigned to Karl (E49) | No comment, branch or PR. Report: pond setting says 525 fish, dashboard shows 600. Not investigated here | None: Karl owns it | Karl needs a repro first: which field, which page |
 | #328 vitest 3 dev-only criticals | Open on purpose | Policy merged in v1.38.0 (I-105); the vitest 4 major upgrade was left for its own wave | Schedule the vitest 4 wave (own branch, full suite), or accept the dev-only risk in `docs/security/supply-chain.md` section 7 and close | Jeff |
-| #319 growth-target backfill | Open, no comment | Production data decision, not code | Approve a read-only count of cycles whose value differs from `notificationPrefs.profile.growthTarget`; if any drift, approve a one-off additive backfill after a backup | Jeff |
+| #319 growth-target backfill | Open; checked against the plan (E51), nothing run on production | Production data decision, not code. Claude cannot read the production database in this session (E48) | Run the read-only count below (or allow Claude to), then approve the rules below for any drift | Jeff, then Claude builds a dry-run-first script |
+
+**#319: what the backfill must respect.** The growth plan engine reads `CropCycle.targetHarvestWeightG`, not the pond-saved target, and the code already treats "one number everywhere" as the rule (`lib/crop-cycle/target-write.ts`). A backfill is safe only if it follows these rules:
+
+1. Only ACTIVE cycles whose id equals the saved target's `cycleId`; never harvested or archived cycles, harvest dates, feeding configs or biomass samples.
+2. Auto-fill only where the cycle value is empty. Where both values exist and differ, change nothing: the farmer may have set the cycle value on purpose after #304, and the code makes every such conflict an explicit Replace or Keep (`GROWTH_TARGET_CONFLICT`). Report those rows for a human choice.
+3. Skip a saved value outside the range (`isCycleTargetWeightInRange`).
+4. Write only through `writeCycleTargetMirror`. The static guard test `crop-cycle-target-writers.test.ts` scans `lib`, `app`, `components` and `scripts` and fails on any other writer of `targetHarvestWeightG`.
+5. Dry run by default, an explicit `--apply`, and a full JSON backup first (E40). No migration.
+6. The plan's rules stay intact: a changed target only changes the recommendation. The 10 percent per 15 days envelope and the explicit Apply step are untouched, no harvest date moves, and the device grams per feeding do not change by themselves.
+
+Read-only count (Supabase SQL editor; it changes nothing):
+
+```sql
+SELECT p.id AS pond_id, c.id AS cycle_id, c."targetHarvestWeightG" AS cycle_g,
+       (p."notificationPrefs"->'profile'->'growthTarget'->>'targetWeightG')::numeric AS saved_g,
+       p."notificationPrefs"->'profile'->'growthTarget'->>'cycleId' AS saved_cycle
+FROM "Pond" p
+JOIN "CropCycle" c ON c."pondId" = p.id AND c.status = 'ACTIVE'
+WHERE p."notificationPrefs"->'profile'->'growthTarget' IS NOT NULL
+  AND (c."targetHarvestWeightG" IS NULL
+       OR round(c."targetHarvestWeightG"::numeric, 1)
+          <> round((p."notificationPrefs"->'profile'->'growthTarget'->>'targetWeightG')::numeric, 1));
+```
+
+No rows means the drift does not exist and #319 can be closed with that proof.
 
 Closed since 10-30 and not repeated here: #431, #416, #415, #412, #411, #403, #400, #399.

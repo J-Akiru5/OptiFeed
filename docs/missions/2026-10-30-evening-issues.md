@@ -30,10 +30,15 @@ No open PRs. Older issues #316-#339 are handled by other sessions in the `iso-*`
 | E41 | Jeff 10-31: OpenCode workers use `opencode/mimo-v2.6-flash-free` while the Go plan is rate limited (about 3 hours); the earlier agreement was `deepseek-v4.1-flash`. SUPERSEDED by E43. |
 | E42 | Claude 10-31, Jeff away: #412 Finding 1 (acknowledge re-arms the alert) decided as Option A. The 6 h window applies to the latest pellet notification regardless of acknowledgement; a tier change still fires at once. Finding 2 unifies on `<=`. Jeff can switch to Option B (shorter post-acknowledge cooldown). |
 | E43 | Jeff 10-31 evening: OpenCode workers use `opencode-go/deepseek-v4.1-flash` only (max 2 at a time); on a rate limit the only fallback is `opencode/deepseek-v4.1-flash-free`. Karl owns #411, #418 and #419: untouched. The firmware PR for #409 stays open for Jeff's review (needs reflash and bench check). Jeff added the Bash permission rule that lets `opencode run --auto` launch. |
+| E44 | Jeff 10-31 night: resolve #432 (AI provider keys) first. After it is merged and deployed, Jeff signs in as superadmin and tests whether Pakoy can really act on the system. #365 is closed only after that test. |
+| E45 | Claude 10-31 night (finding, decision open): Pakoy's `records.add_calendar_item` takes only a start time. The calendar stores `endsAt` and `color` (`schema.prisma`), but the action never passes them, so the request in the #365 screenshot ("1pm to 5pm", "color it blue") cannot be done as asked. See the register below. |
+| E46 | Jeff 10-31 night: PR #435 (#432 phase A) is bound to the orchestrator session so its state is visible. Auto-fix stays off for it: it is an OpenCode worker's PR, and Auto-fix is only for PRs this session opened. |
 
 ## #365 verification (Claude)
 
 Pakoy's full write surface (#344) shipped in v1.31.2 (`5ad31c9`, `5b8a54e`, merged by #357) and is in develop, staging and main. Issue #365 was filed at 01:32 on 30 Oct, when production still ran v1.23.0; main reached v1.31.5 at 12:23. Expected to be resolved on production; Jeff to confirm in the app, then close.
+
+Update 10-31 night: production serves v1.39.0 (`bdc4539`, Vercel deployment 10-31 09:51 UTC), which contains #344. The issue stayed open only because nobody tested it in the app. The screenshot reply ("I don't have calendar access") predates the fix. One real gap remains (E45): no end time and no colour on the calendar action. Test plan after #432 lands: sign in as superadmin, ask Pakoy to add a calendar event, add or edit a biomass sample, and propose a member or role change (needs the step-up password), then press Accept on each and confirm the result in the app. Record what worked and what did not here, then close or split the gap into a new issue.
 
 ## Tasks
 
@@ -50,9 +55,12 @@ Pakoy's full write surface (#344) shipped in v1.31.2 (`5ad31c9`, `5b8a54e`, merg
 | I-106 | #353 and #322 SQL backup export, #323 deployment policy docs | `mission/I-106-backup-export` | merged (v1.38.0, `75a8a27`) |
 | I-107 | XLSX export/import, PDF reports, schedule import (Jeff 10-31) | `mission/I-107-xlsx-pdf` | built by Claude (OpenCode workers unavailable); merged (v1.39.0, `132c6d9`) |
 | I-108 | #412 low-hopper acknowledge cooldown + `<=` boundary (E42) | `mission/I-108-hopper-ack-cooldown` | merged to develop (#424, `35011e5`) |
-| I-109 | #409 firmware: schedule on farm-local time, persist schedule and daily cap | `mission/I-109-firmware-tz-nvs` | PR #425 open for Jeff: needs human OK, reflash and bench check |
+| I-109 | #409 firmware: schedule on farm-local time, persist schedule and daily cap | `mission/I-109-firmware-tz-nvs` | PR #425 open (firmware 1.8.1, mergeable, checks green): needs Jeff's OK, reflash and bench check |
 | I-110 | #416 mark as read above the list | `mission/I-110-mark-read-top` | merged to develop (#426, `00e2378`) |
-| I-111 | #400 water temperature probe in the 3D model (v1.2.0) | `mission/I-111-3d-water-temp` | PR #427 open; needs a visual check in the app |
+| I-111 | #400 water temperature probe in the 3D model (v1.2.0) | `mission/I-111-3d-water-temp` | merged to develop (#427); still needs a visual check in the app |
+| I-112 | #431 feeding schedule slots follow the frequency | `mission/I-112-schedule-slots-frequency` | merged to develop (#433); #431 closed |
+| I-114 | #432 phase A: encrypted AI provider keys, step-up, live test | `mission/I-114-ai-provider-keys` | PR #435 open; gitleaks failure fixed by the worker (allowlist for the sentinel test keys) |
+| I-115 | #432 phase B: OpenAI-compatible adapter and add/remove provider UI | not started | waits for #435 |
 
 Waves in between (I-101 to I-104, v1.35.0 to v1.37.0) are recorded in `CHANGELOG.md`.
 
@@ -106,5 +114,22 @@ Production verified through the Vercel connector on deployment `dpl_F6QoMnUupsse
 7. (Applied) Firmware 1.6.2 (adds wifi_rssi) must be flashed by you, with your yes; applying the two migrations (EnergyDevice RSSI columns, PondSettingsDraft table) is done by Claude after a full JSON backup.
 8. **#425 (#409 firmware)**: review, flash and run the bench check from the issue (a 06:00 slot must click at 06:00, not 14:00). One behaviour change: the daily cap and `firedToday` now roll over at farm-local midnight instead of UTC midnight (08:00 in the Philippines). Not merged by Claude.
 9. **#412**: confirm Option A (E42) or ask for Option B. **#400 / #427**: look at the probe in the browser (ISO preset, 390 px, FRONT/LEFT/RIGHT); the preview PNGs under `docs/feeder/` and `docs/feeder-3d-viewer-plan.md` still describe model 1.1.2.
-10. **Next promotion** carries what is on develop beyond production v1.39.0: #417 (additive hopper-diameter migration, so take a full JSON backup before the production build applies it), Karl's #420 password recovery (its PR title says it mails through Resend: confirm the configuration), #413, #424, #426 and #427 once merged. `main` waits for your word.
-11. Still open and not Claude's to decide: #365 (confirm), #319 (production data backfill), #328 (vitest 4 policy), #411, #418 and #419 (Karl).
+10. **Next promotion** carries what is on develop beyond production v1.39.0 (36 commits, checked 10-31 night): #413, #417 (additive hopper-diameter migration `20261031130000_add_hopper_diameter_density`, so take a full JSON backup before the production build applies it), Karl's #420 password recovery (its PR title says it mails through Resend: confirm the configuration), #422 lamp firmware 1.8.0 (a flash needs Jeff's yes), #423 (#419 offline defaults), #424, #426, #427, #433, and the docs PRs #421, #428 and #429, plus #425, #434 and #435 for whichever Jeff merges first. #435 adds the additive migration `20261031140000_ai_provider_secret_columns`, which the production build applies. `main` waits for your word.
+11. Open issues, why each is still open and what only Jeff can decide: see the register below.
+
+## Open issue register (Claude, 2026-10-31 night)
+
+Branch heads: main and staging are both v1.39.0 with the same content (`main` shows 13 extra merge commits from earlier promotions only); develop is 36 commits ahead and nothing is queued to promote it. Nothing below is blocked by CI or by a conflict: each item waits for a person or for an earlier step.
+
+| Issue | State | Why it is still open | Decision needed (Jeff) | Next step |
+|---|---|---|---|---|
+| #365 Pakoy access level | Fix live on production since v1.31.5 | Never tested in the app after the fix (E44); calendar action has no end time or colour (E45) | After #432: run the test plan in the #365 section. Then: extend `records.add_calendar_item` with `endsAt` and `color` (no migration), or leave as is | Claude can build the calendar extension on request; Jeff tests and closes |
+| #432 AI provider keys | PR #435 (phase A) open; 9 checks passed, 1 pending at last look; mergeable | Needs a merge, then deploy; phase B (I-115) not started | Merge #435; set `AI_SECRET_KEY` (base64, 32 bytes) in Vercel for the environment under test, never in the repo or chat; approve the additive migration after a full JSON backup (E40); say when phase B starts | Jeff merges; Claude takes the backup and checks the migration before the promotion |
+| #409 feeder schedule on UTC | PR #425 open, firmware 1.8.1, mergeable, checks green | Firmware: needs review, reflash and a bench check. Until then a flashed 1.8.0 still fires slots on UTC (06:00 clicks at 14:00) | Approve and merge #425; accept that the daily cap and `firedToday` roll over at farm-local midnight instead of UTC; flash and run the bench check | Jeff; Claude has re-verified `pio run` and `pio test -e native` |
+| #419 offline indicator | Fix merged to develop (#423, Karl): weak after 4 min, offline after 5 min, grace 0 | Not in production. Production has no `device.status` row, so only the new defaults can fix it | Promote, or set the windows now in Superadmin, Settings, Device connectivity (no deploy). Close after a silent unit flips to Offline within 5 minutes | Karl owns it; Jeff decides promote or set now |
+| #418 Tenant B demo data | PR #434 open, checks green | Not merged; the seed has not been run anywhere | Merge #434; allow `pnpm --filter web seed:tenant-b` against the shared production database (deletes are scoped to the demo pond ids and feeder MACs; `--unlock` only if Jeff asks) | Karl owns it |
+| #430 pond settings do not sync | Open, assigned to Karl | No comment, branch or PR. Report: pond setting says 525 fish, dashboard shows 600. Not investigated here | Keep with Karl or hand it to a worker | Needs a repro first: which field, which page |
+| #328 vitest 3 dev-only criticals | Open on purpose | Policy merged in v1.38.0 (I-105); the vitest 4 major upgrade was left for its own wave | Schedule the vitest 4 wave (own branch, full suite), or accept the dev-only risk in `docs/security/supply-chain.md` section 7 and close | Jeff |
+| #319 growth-target backfill | Open, no comment | Production data decision, not code | Approve a read-only count of cycles whose value differs from `notificationPrefs.profile.growthTarget`; if any drift, approve a one-off additive backfill after a backup | Jeff |
+
+Closed since 10-30 and not repeated here: #431, #416, #415, #412, #411, #403, #400, #399.

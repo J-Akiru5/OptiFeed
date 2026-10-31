@@ -17,6 +17,7 @@ export interface FeederHeroAdvisor {
 }
 
 /** Everything the hero renders. Assembled by `loadFeederHero` on the server. */
+import type { DeviceHealthView } from "@/lib/device-health-model";
 import type { DeviceConnectionState } from "@/lib/device-status";
 import type { NextFeedingSlot } from "@/lib/schedule/next-feeding-slot";
 
@@ -40,6 +41,8 @@ export interface FeederHeroData {
 	waterTempOk: boolean;
 	waterTempUpdatedAt: Date | null;
 	firmwareVersion: string | null;
+	/** Faults, safe mode and the last refused dose, from the unit's own report. */
+	health: DeviceHealthView;
 	advisor: FeederHeroAdvisor | null;
 }
 

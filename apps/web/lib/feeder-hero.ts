@@ -1,5 +1,6 @@
 import { startOfDayInTimeZone } from "@/lib/chart-windows";
 import { getDeviceFirmwareVersion } from "@/lib/device-firmware";
+import { getDeviceHealth } from "@/lib/device-health";
 import { evaluateDeviceStatus, resolveRssiDbm } from "@/lib/device-status";
 import { MACHINE_FEED_SOURCES } from "@/lib/feed-figures";
 import type { FeederHeroData } from "@/lib/feeder-hero-types";
@@ -68,8 +69,8 @@ export async function loadFeederHero({
 
 	const todayStart = startOfDayInTimeZone(now);
 
-	const [schedule, feedToday, firmware, latestBiomass, latestFcr, statusPolicy] = await Promise.all(
-		[
+	const [schedule, feedToday, firmware, latestBiomass, latestFcr, statusPolicy, health] =
+		await Promise.all([
 			resolveCurrentSchedule(pond.id, device.id),
 			prisma.feedEvent.aggregate({
 				where: {
@@ -94,8 +95,8 @@ export async function loadFeederHero({
 				select: { fcrValue: true },
 			}),
 			getDeviceStatusPolicy(),
-		],
-	);
+			getDeviceHealth(device.id, now),
+		]);
 
 	const effective = schedule ?? {
 		scheduleStart: pond.scheduleStart,
@@ -154,6 +155,7 @@ export async function loadFeederHero({
 		waterTempOk: device.waterTempOk,
 		waterTempUpdatedAt: device.waterTempUpdatedAt,
 		firmwareVersion: firmware?.version ?? null,
+		health,
 		advisor: {
 			grams: prediction.grams,
 			confidence: prediction.confidence,

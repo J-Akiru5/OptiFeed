@@ -412,7 +412,7 @@ model FeedRequest {
   id        String   @id @default(cuid())
   deviceId  String
   grams     Float    @default(100)
-  status    String   @default("pending") // "pending" | "dispatched" | "completed" | "expired" | "fulfilled_by_other_trigger"
+  status    String   @default("pending") // "pending" | "dispatched" | "completed" | "expired" | "fulfilled_by_other_trigger" | "refused"
   kind      String   @default("feed") // "feed" | "calibration"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -38,8 +38,10 @@ describe("tenant admin actions", () => {
 		expect(names.length).toBeGreaterThan(10);
 		names.forEach((name, index) => {
 			const block = exportedFunctionBlock(adminActions, name, names[index + 1]);
-			expect(block, `${name} must call requireTenantAdmin()`).toContain(
-				"await requireTenantAdmin();",
+			// The typed-denial form still calls the same guard (#336); the
+			// invariant is that every action runs it before doing any work.
+			expect(block, `${name} must call requireTenantAdmin()`).toMatch(
+				/await requireTenantAdmin\([^)]*\);/,
 			);
 		});
 	});
@@ -198,7 +200,11 @@ describe("password-change guard composition", () => {
 
 		expect(tenantGuard).toContain("await assertPasswordChanged();");
 		expect(platformGuard).toContain("await assertPasswordChanged();");
-		expect(session).toMatch(/requireWriteAccess[\s\S]*await assertPasswordChanged\(\)/);
+		// requireWriteAccess now checks the same flag inline and throws a typed
+		// denial (#336), so the invariant is the check itself, not the helper.
+		expect(session).toMatch(
+			/requireWriteAccess[\s\S]*mustChangePassword\) throw new ActionDeniedError\("password_change_required"\)/,
+		);
 		expect(permissions).toMatch(/requirePermission[\s\S]*await assertPasswordChanged\(\)/);
 	});
 });

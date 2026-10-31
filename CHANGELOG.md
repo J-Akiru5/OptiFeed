@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- #334 `disablePlatformUser` now locks the active platform-admin grants (`SELECT … FOR UPDATE`) and performs the last-admin count, the Supabase ban and the revoking writes in one transaction. Two concurrent disables (A disables B while B disables A) can no longer both pass the check and leave the platform with zero active admins; the refusal happens before its ban.
+- #336 the four guarded writes that wrap their body in a catch (`adminUpdateDeviceDailyCap` and `updateNotificationPrefs` / `updatePondSettings` / `updateDeviceDailyCap` in `lib/actions/settings.ts`) now return the specific authorization outcome — not signed in, password change pending, wrong role, suspended organization, read-only view-as or step-up required — with a stable `code` in the action result. A guard `redirect()` is rethrown instead of being flattened into the generic failure sentence, and no reason exposes a role list, id or org name.
+
+### Changed
+
+- #332 `pnpm api:check` now also runs `scripts/api/auth-check.mjs`, which asserts that every non-public API route calls its guard inside the exported handler (`withAuth`, `withCronAuth`, `verifyDeviceToken`, or the platform session plus `isCurrentPlatformAdmin`) rather than merely importing one. The public, device-token and platform-admin allow-lists are explicit, reason-carrying and tested; the old import-only "Check API route auth" CI step is removed.
+
+### Removed
+
+- #337 removed `getSuperadminStats`, `getPlatformAdmins`, `loadPondProposalSettings`, `createDemoNotification` and their now-unused `pondSettings` helper, together with the tests that were their only callers. None had a production call site; `pnpm dead-code` stays green with no new suppressions.
+
 ## [1.36.0] - 2026-10-31
 
 ### Fixed

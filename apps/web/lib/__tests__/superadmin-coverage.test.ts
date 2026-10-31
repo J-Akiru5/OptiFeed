@@ -37,22 +37,12 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
 vi.mock("@/lib/avatars", () => ({ getSignedAvatarUrls: avatarUrls }));
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
 
-import {
-	getPlatformAdmins,
-	getSuperadminStats,
-	listAllPonds,
-	listAllUsers,
-	listOrgOptions,
-	listOrgs,
-} from "@/lib/actions/superadmin";
+import { listAllPonds, listAllUsers, listOrgOptions, listOrgs } from "@/lib/actions/superadmin";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 
 const mockGate = vi.mocked(requirePlatformAdmin);
 
 const NOW = new Date("2026-10-29T08:00:00.000Z");
-const PAST = new Date(Date.now() - 24 * 60 * 60 * 1000);
-const FUTURE = new Date(Date.now() + 24 * 60 * 60 * 1000);
-const NEW_ORIGIN = new Date("2026-10-01T00:00:00.000Z");
 
 function userRow(id: string, overrides: Record<string, unknown> = {}) {
 	return {
@@ -77,35 +67,6 @@ beforeEach(() => {
 	db.platformAdmin.findMany.mockResolvedValue([]);
 	db.platformAuditLog.findMany.mockResolvedValue([]);
 	db.organization.findMany.mockResolvedValue([]);
-});
-
-describe("getSuperadminStats", () => {
-	it("counts every row but only unrevoked, unexpired grants as active", async () => {
-		db.user.count.mockResolvedValue(7);
-		db.organization.count.mockResolvedValue(3);
-		db.pond.count.mockResolvedValue(5);
-		db.platformAdmin.findMany.mockResolvedValue([
-			{ revokedAt: null, expiresAt: null },
-			{ revokedAt: NEW_ORIGIN, expiresAt: null },
-			{ revokedAt: null, expiresAt: PAST },
-			{ revokedAt: null, expiresAt: FUTURE },
-		]);
-
-		await expect(getSuperadminStats()).resolves.toEqual({
-			userCount: 7,
-			orgCount: 3,
-			pondCount: 5,
-			platformAdminCount: 4,
-			activePlatformAdminCount: 2,
-		});
-	});
-
-	it("denies a caller without a platform-admin grant", async () => {
-		mockGate.mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
-
-		await expect(getSuperadminStats()).rejects.toThrow("NEXT_REDIRECT");
-		expect(db.user.count).not.toHaveBeenCalled();
-	});
 });
 
 describe("listAllUsers", () => {
@@ -353,66 +314,5 @@ describe("listAllPonds", () => {
 
 		await expect(listAllPonds()).rejects.toThrow("NEXT_REDIRECT");
 		expect(db.pond.count).not.toHaveBeenCalled();
-	});
-});
-
-describe("getPlatformAdmins", () => {
-	it("marks active grants and labels a grant whose user no longer exists", async () => {
-		db.platformAdmin.findMany.mockResolvedValue([
-			{
-				userId: "u1",
-				grantedBy: "admin-1",
-				createdAt: NOW,
-				expiresAt: null,
-				revokedAt: null,
-			},
-			{
-				userId: "u2",
-				grantedBy: null,
-				createdAt: NOW,
-				expiresAt: PAST,
-				revokedAt: null,
-			},
-			{
-				userId: "u-ghost",
-				grantedBy: "admin-1",
-				createdAt: NOW,
-				expiresAt: null,
-				revokedAt: null,
-			},
-		]);
-		db.user.findMany.mockResolvedValue([
-			{ id: "u1", farmId: "farm-one", displayName: "One" },
-			{ id: "u2", farmId: "farm-two", displayName: "Two" },
-		]);
-
-		const rows = await getPlatformAdmins();
-
-		expect(rows[0]).toMatchObject({
-			userId: "u1",
-			farmId: "farm-one",
-			displayName: "One",
-			grantedBy: "admin-1",
-			grantedAt: NOW,
-			active: true,
-		});
-		expect(rows[1]).toMatchObject({ userId: "u2", active: false });
-		expect(rows[2]).toEqual({
-			userId: "u-ghost",
-			farmId: "(missing user)",
-			displayName: null,
-			grantedBy: "admin-1",
-			grantedAt: NOW,
-			expiresAt: null,
-			revokedAt: null,
-			active: true,
-		});
-	});
-
-	it("denies a caller without a platform-admin grant", async () => {
-		mockGate.mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
-
-		await expect(getPlatformAdmins()).rejects.toThrow("NEXT_REDIRECT");
-		expect(db.platformAdmin.findMany).not.toHaveBeenCalled();
 	});
 });

@@ -1,5 +1,10 @@
 "use server";
 
+import {
+	type ActionDenialReason,
+	actionDenialResult,
+	rethrowIfNavigationError,
+} from "@/lib/auth/action-denial";
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
 import {
@@ -33,6 +38,10 @@ import { updateScheduleCommand } from "./schedule";
  * can link to the exact setting and offer the pond value) and no writes. The
  * form keeps the reader's typed values either way; this shape is what makes
  * that possible to test.
+ *
+ * A guard refusal keeps its own reason (`code`, and the sentence for it) even
+ * though the guard is inside the try (#336): an authorization failure must not
+ * be reported as "Failed to update pond settings".
  */
 export type PondSettingsActionResult =
 	| { success: true }
@@ -41,6 +50,7 @@ export type PondSettingsActionResult =
 			error: string;
 			fieldErrors: PondSettingsFieldError[];
 			conflicts: PondDeviceConflict[];
+			code?: ActionDenialReason;
 	  };
 
 const POND_FIELD_CODES: Record<
@@ -90,7 +100,7 @@ export interface NotificationPrefs {
 export async function updateNotificationPrefs(
 	pondId: string,
 	prefs: NotificationPrefs,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; code?: ActionDenialReason }> {
 	try {
 		await requireWriteAccess();
 		const parsed = notificationPrefsSchema.safeParse(prefs);
@@ -128,6 +138,9 @@ export async function updateNotificationPrefs(
 		revalidatePath("/[locale]/(dashboard)/dashboard/settings/profile", "page");
 		return { success: true };
 	} catch (error) {
+		rethrowIfNavigationError(error);
+		const denied = actionDenialResult(error);
+		if (denied) return denied;
 		console.error("Failed to update notification prefs:", error);
 		return { success: false, error: "Failed to update notification preferences" };
 	}
@@ -325,6 +338,9 @@ export async function updatePondSettings(
 		revalidatePath("/[locale]/(dashboard)", "layout");
 		return { success: true };
 	} catch (error) {
+		rethrowIfNavigationError(error);
+		const denied = actionDenialResult(error);
+		if (denied) return { ...denied, fieldErrors: [], conflicts: [] };
 		console.error("Failed to update pond settings:", error);
 		return {
 			success: false,
@@ -345,7 +361,7 @@ export async function updatePondSettings(
 export async function updateDeviceDailyCap(
 	deviceId: string,
 	dailyCapG: number,
-): Promise<{ success: boolean; error?: string; dailyCapG?: number }> {
+): Promise<{ success: boolean; error?: string; dailyCapG?: number; code?: ActionDenialReason }> {
 	try {
 		await requireWriteAccess();
 		const parsed = dailyCapSchema.safeParse(dailyCapG);
@@ -384,6 +400,9 @@ export async function updateDeviceDailyCap(
 		revalidatePath("/[locale]/(dashboard)", "layout");
 		return { success: true, dailyCapG: parsed.data };
 	} catch (error) {
+		rethrowIfNavigationError(error);
+		const denied = actionDenialResult(error);
+		if (denied) return denied;
 		console.error("Failed to update daily feed ceiling:", error);
 		return { success: false, error: "Failed to update the daily feed ceiling" };
 	}

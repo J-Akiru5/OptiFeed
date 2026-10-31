@@ -12,8 +12,8 @@ let errorSpy: ReturnType<typeof vi.spyOn>;
  */
 function duplicateKeyWarnings(): string[] {
 	return errorSpy.mock.calls
-		.map((args) => args.map(String).join(" "))
-		.filter((msg) => msg.includes("same key") || msg.includes("Keys should be unique"));
+		.map((args: unknown[]) => args.map(String).join(" "))
+		.filter((msg: string) => msg.includes("same key") || msg.includes("Keys should be unique"));
 }
 
 function renderMarkdown(text: string) {

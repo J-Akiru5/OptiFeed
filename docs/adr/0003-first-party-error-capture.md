@@ -27,7 +27,8 @@ E1 (recorded in
 [`docs/missions/2026-10-29-iso-readiness.md`](../missions/2026-10-29-iso-readiness.md))
 chose a first-party implementation: persist errors in our own database, surface
 them in an admin view, and add alerting later over the channel that already
-exists (Telegram for critical device outages).
+exists (Telegram for critical device outages — superseded on that point by
+[ADR-0007](./0007-no-telegram.md): critical device outages are in-app only).
 
 The implementation had to respect three existing constraints: no external
 service or credential, an **additive-only** migration (the production database
@@ -80,7 +81,7 @@ table.
 - **The row is a dedupe bucket, not an occurrence log.** Per-occurrence detail is
   intentionally not stored; the count is the history.
 - **No alerting yet.** The console is pull-based. A new `ERROR` severity does not
-  wake anyone; critical device outages still use Telegram.
+  wake anyone; critical device outages are in-app only (ADR-0007).
 - **Capture depends on the database.** If Postgres is down, only the console line
   remains, which is the same place errors went before this decision.
 - **Platform-admin visibility only.** Tenant administrators cannot see platform
@@ -92,8 +93,9 @@ table.
 
 ### Follow-ups
 
-- Add alerting on a new `ERROR` fingerprint (Telegram channel exists) without
-  turning every repeat into a message.
+- Add alerting on a new `ERROR` fingerprint without turning every repeat into a
+  message. There is no Telegram channel to reuse — see ADR-0007 — so this needs
+  a new channel (an e-mail alert to a real mailbox) and its own decision.
 - Correlate an event with the request that produced it (request id) if tracing is
   added later.
 - Confirm the 30-day sweep actually runs in production (it depends on

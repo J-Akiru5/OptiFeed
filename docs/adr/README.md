@@ -22,6 +22,7 @@ operational index).
 | [0004](./0004-supply-chain-policy.md) | Production-dependency audit gated at high with an expiring allowlist and range-safe overrides | Accepted | 2026-10-29 |
 | [0005](./0005-release-automation.md) | Every version that reaches `main` is tagged and published from `CHANGELOG.md`, automatically | Accepted | 2026-10-29 |
 | [0006](./0006-multi-tenant-rbac.md) | Tenant = Organization with membership roles plus per-membership permission overrides; platform admin is a separate authority | Accepted | 2026-10-17 |
+| [0007](./0007-no-telegram.md) | Alerts are in-app only; the platform does not use Telegram | Accepted | 2026-10-31 |
 
 ## Status vocabulary
 

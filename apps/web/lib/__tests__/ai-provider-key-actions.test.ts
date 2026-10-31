@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+﻿import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * Issue #432: console key management.
@@ -31,7 +31,7 @@ const { db, tx, withStepUpMock, gateMock, userMock } = vi.hoisted(() => {
 		},
 		// The key test spends a live provider call, so the action asks the
 		// Postgres rate limiter first (5 per minute per admin, fail-closed).
-		$queryRaw: vi.fn(async () => [{ count: 1n }]),
+		$queryRaw: vi.fn(async () => [{ count: BigInt(1) }]),
 		$transaction: vi.fn(),
 	};
 	return {
@@ -187,7 +187,7 @@ describe("setAiProviderKey", () => {
 	it("refuses the live key test when the provider-call limit is spent", async () => {
 		// Each test spends the provider account's quota, so the action asks the
 		// Postgres limiter first (5 live calls per minute per platform admin).
-		db.$queryRaw.mockResolvedValueOnce([{ count: 99n }] as never);
+		db.$queryRaw.mockResolvedValueOnce([{ count: BigInt(99) }] as never);
 
 		const result = await setAiProviderKey({
 			provider: "opencode-go",

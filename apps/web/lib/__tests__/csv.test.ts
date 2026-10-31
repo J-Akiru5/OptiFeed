@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { EXPORT_LABELS, buildFilename, parseCsvString, toCsvString } from "../csv";
+import {
+	EXPORT_LABELS,
+	buildFilename,
+	escapeFormulaInjection,
+	parseCsvString,
+	toCsvString,
+} from "../csv";
 
 describe("toCsvString", () => {
 	it("returns empty string for empty array", () => {
@@ -19,6 +25,27 @@ describe("toCsvString", () => {
 		]);
 		const lines = csv.split("\n");
 		expect(lines).toHaveLength(3); // header + 2 rows
+	});
+
+	it.each(["=1+1", "+SUM(A1)", "-cmd/evil", "@import", "\tjd", "\rjd"])(
+		"escapes formula-like value %s (I-107)",
+		(value) => {
+			const csv = toCsvString([{ v: value }]);
+			expect(csv).toContain(`'${value}`);
+		},
+	);
+
+	it("does not escape harmless text", () => {
+		const csv = toCsvString([{ v: "total weight 5kg" }]);
+		expect(csv).toContain("total weight 5kg");
+	});
+});
+
+describe("escapeFormulaInjection", () => {
+	it("prefixes a leading apostrophe for formula and control prefixes", () => {
+		expect(escapeFormulaInjection("=cmd")).toBe("'=cmd");
+		expect(escapeFormulaInjection("-3")).toBe("'-3");
+		expect(escapeFormulaInjection("hello")).toBe("hello");
 	});
 });
 
@@ -42,6 +69,19 @@ describe("parseCsvString", () => {
 		// Empty string "" is still a string, so the row passes the type filter
 		expect(result.data).toHaveLength(2);
 	});
+
+	it("skips leading # note lines from the downloadable template", () => {
+		const csv = "# Notes: sampleWeightKg is required\n# sampleCount must be a whole number\nsampleWeightKg,sampleCount\n10,5";
+		const result = parseCsvString(csv);
+		expect(result.data).toEqual([{ sampleWeightKg: "10", sampleCount: "5" }]);
+		expect(result.errors).toHaveLength(0);
+	});
+
+	it("does not treat a # line inside the data as a comment", () => {
+		const csv = "eventType,message\n#ping,hello";
+		const result = parseCsvString(csv);
+		expect(result.data).toHaveLength(1);
+	});
 });
 
 describe("buildFilename", () => {
@@ -60,7 +100,8 @@ describe("buildFilename", () => {
 });
 
 describe("EXPORT_LABELS", () => {
-	it("has labels for all 7 types", () => {
-		expect(Object.keys(EXPORT_LABELS)).toHaveLength(7);
+	it("has labels for all 8 types including the feeding schedule", () => {
+		expect(Object.keys(EXPORT_LABELS)).toHaveLength(8);
+		expect(EXPORT_LABELS.feeding_schedule).toBe("Feeding Schedule");
 	});
 });

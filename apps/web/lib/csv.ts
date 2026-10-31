@@ -7,7 +7,8 @@ export type ExportableType =
 	| "fcr_reports"
 	| "feed_level_logs"
 	| "notifications"
-	| "audit_events";
+	| "audit_events"
+	| "feeding_schedule";
 
 export const EXPORT_LABELS: Record<ExportableType, string> = {
 	biomass_logs: "Biomass Logs",
@@ -17,19 +18,44 @@ export const EXPORT_LABELS: Record<ExportableType, string> = {
 	feed_level_logs: "Feed Level Logs",
 	notifications: "Notifications",
 	audit_events: "Audit Events",
+	feeding_schedule: "Feeding Schedule",
 };
 
 interface CsvRow {
 	[key: string]: string | number | boolean | null;
 }
 
+/**
+ * Spreadsheet formula injection (I-107): a text cell starting with = + - @,
+ * tab or CR could execute as a formula when the file is opened in Excel.
+ * The leading apostrophe is Excel's own safe-escape convention.
+ */
+export function escapeFormulaInjection(value: string): string {
+	return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+}
+
 export function toCsvString(rows: CsvRow[]): string {
 	if (rows.length === 0) return "";
-	return Papa.unparse(rows);
+	const escaped = rows.map((row) => {
+		const next: CsvRow = {};
+		for (const [key, value] of Object.entries(row)) {
+			next[key] = typeof value === "string" ? escapeFormulaInjection(value) : value;
+		}
+		return next;
+	});
+	return Papa.unparse(escaped);
 }
 
 export function parseCsvString(csv: string): { data: CsvRow[]; errors: Papa.ParseError[] } {
-	const result = Papa.parse(csv, {
+	// The downloadable CSV template adds its notes as leading `#` comment
+	// lines; they are not data. Skipped only while the file has not reached
+	// its first real line yet, so a note inside the data still imports.
+	const lines = csv.split(/\r?\n/);
+	let index = 0;
+	while (index < lines.length && lines[index].startsWith("#")) index += 1;
+	const body = index > 0 ? lines.slice(index).join("\n") : csv;
+
+	const result = Papa.parse(body, {
 		header: true,
 		skipEmptyLines: true,
 		dynamicTyping: false,

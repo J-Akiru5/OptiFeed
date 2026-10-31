@@ -20,6 +20,7 @@ cp apps/web/.env.example apps/web/.env   # fill in every key
 pnpm --filter web prisma:generate
 pnpm --filter web exec prisma migrate deploy   # or migrate dev on a throwaway DB
 pnpm --filter web seed:dev                     # demo data (dev only)
+pnpm --filter web seed:tenant-b                # second tenant demo data (#418)
 pnpm dev
 ```
 
@@ -50,6 +51,31 @@ Key env vars (full list in `apps/web/.env.example`):
 | `pnpm test:e2e` | Playwright (requires `DATABASE_URL` + `E2E_ALLOWED_DB_HOST`) |
 | `pnpm test:e2e:smoke` | Cross-browser public smoke on Chromium, Firefox and WebKit (no database; see [docs/compatibility.md](../../docs/compatibility.md)) |
 | `pnpm self-check` | Full plan gate incl. build; `--quick` skips build |
+
+## Tenant B demo seed
+
+`pnpm --filter web seed:tenant-b` fills the second tenant with a presentable
+dataset (issue #418): the `tenant2-admin` account gets its own farm, two ponds
+with active grow-out cycles and calendar events, three feeders, and enough
+history — feeding, feed level, water temperature, biomass, FCR, device activity,
+schedule commands, calibration runs and notifications — for every chart on the
+dashboard and in the tenant console to have data. A second member
+(`tenant2-operator`) makes the members list and the per-member permission
+override visible.
+
+The script is idempotent and scoped: it only writes rows owned by the demo
+accounts, ponds and feeders, and never issues an unscoped delete. The existing
+admin keeps its Supabase identity and its password; pass `--unlock` to also
+clear a pending forced password change so the demo can go straight to the
+console.
+
+Because the staging deployment runs against the production database, the script
+refuses to write to any host other than loopback until the target is
+acknowledged:
+
+```bash
+SEED_TENANT_B_CONFIRM=yes pnpm --filter web seed:tenant-b
+```
 
 ## Crop reminders
 

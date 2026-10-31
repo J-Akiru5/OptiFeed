@@ -57,7 +57,8 @@ model User {
   id                 String   @id @default(cuid())
   supabaseId         String   @unique // references Supabase Auth user.id
   farmId             String   @unique // login slug, e.g. "demo-farmer-1" — used as Pond.ownerId
-  email              String   @unique
+  email              String   @unique // synthetic login address <farmId>@pond.optifeed.local; never deliverable, never edited
+  contactEmail       String?  @unique // deliverable address an administrator records (#449); used for password-reset mail
   displayName        String?
   role               UserRole @default(OPERATOR)
   mustChangePassword Boolean  @default(false)

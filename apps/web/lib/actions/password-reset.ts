@@ -1,6 +1,7 @@
 "use server";
 
 import { validatePassword } from "@/lib/auth/password";
+import { parseResetIdentifier } from "@/lib/contact-email";
 import { deliverPasswordResetEmail } from "@/lib/notify/reset-email";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
@@ -18,13 +19,17 @@ import { headers } from "next/headers";
  *
  * The constraint that shapes this file: every login address is a synthetic
  * `<login-id>@pond.optifeed.local` and is never a deliverable mailbox
- * (see `lib/membership-invite.ts`). The flow therefore:
+ * (see `lib/membership-invite.ts`). A recovery link therefore goes to the
+ * account's separate `contactEmail` (#449): the address an administrator
+ * records and the person types on the forgot-password page. A farm ID is still
+ * accepted as the lookup key. An account with no contact email is not mailed
+ * (no link is minted) and the answer stays the same. The flow:
  *
- *  - generates the recovery link in code (Supabase admin `generateLink`) and
- *    sends it through Resend from the verified domain (issue #411) rather than
- *    relying on Supabase's own SMTP;
- *  - never discloses whether a farm ID exists (anti-enumeration: unknown ids
- *    answer exactly like known ones);
+ *  - generates the recovery link in code (Supabase admin `generateLink`, for
+ *    the login address) and sends it through Resend from the verified domain
+ *    (issue #411) rather than relying on Supabase's own SMTP;
+ *  - never discloses whether an account exists (anti-enumeration: unknown
+ *    emails and farm IDs answer exactly like known ones);
  *  - never claims the email was delivered — the page tells the user to ask a
  *    platform administrator when the mailbox cannot be opened;
  *  - writes a PlatformAuditLog row for every request, so the superadmin audit
@@ -34,7 +39,7 @@ import { headers } from "next/headers";
  *    console reset as the reliable, audited path.
  *
  * The admin client is used for one narrow purpose — minting a recovery link
- * for the single address the farm ID resolves to. Authorization here is the
+ * for the single login address the typed identifier resolves to. Authorization here is the
  * rate limiter plus the anti-enumeration contract, not RLS.
  */
 
@@ -69,47 +74,56 @@ export type RequestPasswordResetResult =
 	| { success: true }
 	| { error: "invalid" | "rate_limited" | "service" };
 
-export async function requestPasswordReset(farmId: string): Promise<RequestPasswordResetResult> {
+/**
+ * `identifier` is what the person typed: their contact email, or a login ID (a
+ * bare farm ID, or the pond address the profile page used to show).
+ */
+export async function requestPasswordReset(
+	identifier: string,
+): Promise<RequestPasswordResetResult> {
 	try {
-		const normalizedFarmId = typeof farmId === "string" ? farmId.trim().toLowerCase() : "";
-		// Same shape as login: reject obvious garbage before touching the store.
-		if (!normalizedFarmId || normalizedFarmId.length > 64) return { error: "invalid" };
+		const parsed = parseResetIdentifier(identifier);
+		// Reject obvious garbage before touching the store.
+		if (!parsed) return { error: "invalid" };
 
 		const ip = await getClientIp();
 		const { success } = await checkPasswordResetRateLimit(ip);
 		if (!success) return { error: "rate_limited" };
 
 		const user = await prisma.user.findUnique({
-			where: { farmId: normalizedFarmId },
-			select: { id: true, email: true },
+			where: parsed.kind === "email" ? { contactEmail: parsed.value } : { farmId: parsed.value },
+			select: { id: true, email: true, farmId: true, contactEmail: true },
 		});
-		// Identical answer for an unknown farm ID: the caller learns nothing.
+		// Identical answer for an unknown account: the caller learns nothing.
 		if (!user) return { success: true };
 
 		const locale = await getLocale();
 		const redirectTo = `${BASE_URL}/${locale}/reset-password`;
 
-		// Mint the recovery link in code, then hand delivery to Resend.
+		// Mint the recovery link in code, then hand delivery to Resend. An account
+		// with no contact email has nowhere to send it, so nothing is minted.
 		let emailSent = false;
-		const admin = createAdminClient();
-		const { data, error } = await admin.auth.admin.generateLink({
-			type: "recovery",
-			email: user.email,
-			options: { redirectTo },
-		});
-		// supabase-js returns the link under `properties` (GenerateLinkResponse).
-		const actionLink = data?.properties?.action_link;
-		if (error || !actionLink) {
-			reportError(error ?? new Error("no action_link returned"), {
-				action: "requestPasswordReset.generateLink",
-				farmId: normalizedFarmId,
+		if (user.contactEmail) {
+			const admin = createAdminClient();
+			const { data, error } = await admin.auth.admin.generateLink({
+				type: "recovery",
+				email: user.email,
+				options: { redirectTo },
 			});
-		} else {
-			emailSent = await deliverPasswordResetEmail({
-				to: user.email,
-				farmId: normalizedFarmId,
-				resetUrl: actionLink,
-			});
+			// supabase-js returns the link under `properties` (GenerateLinkResponse).
+			const actionLink = data?.properties?.action_link;
+			if (error || !actionLink) {
+				reportError(error ?? new Error("no action_link returned"), {
+					action: "requestPasswordReset.generateLink",
+					farmId: user.farmId,
+				});
+			} else {
+				emailSent = await deliverPasswordResetEmail({
+					to: user.contactEmail,
+					farmId: user.farmId,
+					resetUrl: actionLink,
+				});
+			}
 		}
 
 		// The superadmin audit log records the request itself — actor, target,
@@ -124,7 +138,12 @@ export async function requestPasswordReset(farmId: string): Promise<RequestPassw
 			reason: REQUEST_REASON,
 			ip: origin.ip,
 			userAgent: origin.userAgent,
-			after: { farmId: normalizedFarmId, emailSent },
+			after: {
+				farmId: user.farmId,
+				via: parsed.kind,
+				emailSent,
+				...(user.contactEmail ? {} : { reason: "no_contact_email" }),
+			},
 		};
 		await prisma.platformAuditLog
 			.create({ data: auditRow })
@@ -134,7 +153,8 @@ export async function requestPasswordReset(farmId: string): Promise<RequestPassw
 
 		return { success: true };
 	} catch (error) {
-		reportError(error, { action: "requestPasswordReset", farmId });
+		// The typed identifier may be an email address, so it is not logged.
+		reportError(error, { action: "requestPasswordReset" });
 		return { error: "service" };
 	}
 }

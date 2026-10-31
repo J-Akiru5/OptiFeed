@@ -523,16 +523,16 @@
 	},
 	"forgotPassword": {
 		"title": "Nakalimot sang imo password?",
-		"desc": "Isulod ang imo farm ID kag magpadala kami sang password reset link sa mailbox nga naka-register dira.",
-		"farmIdLabel": "Farm ID",
-		"farmIdPlaceholder": "imong-farm-id",
-		"farmIdDesc": "Amo ini ang farm ID nga ginagamit mo sa pag-log in.",
+		"desc": "Isulod ang email address nga naka-register sa imo account kag magpadala kami sang password reset link sa sini.",
+		"identifierLabel": "Email",
+		"identifierPlaceholder": "ikaw@example.com",
+		"identifierDesc": "Ang email nga ginrehistro sang imo administrator para sa imo. Mapuslanon man ang imo farm ID.",
 		"submit": "Magpadala sang reset link",
 		"submitting": "Nagapadala…",
-		"successDesc": "Kon may {farmId} nga account, ginpadala na ang reset link sa iya mailbox. Ang link magabukas sang isa ka page diin makaset sang bag-o nga password.",
-		"fallbackNote": "Mga internal nga pond address ang mga login address. Kon indi mo mabuksan ang mailbox — ukon kon wala gid sang mail — pangayo sang platform administrator nga bag-uhon ang imo password sa platform console. Isa ka beses lang magamit ang mga reset link kag may expiration ini.",
+		"successDesc": "Kon may account nga nagapares sa {identifier}, ginpadala na ang reset link sa iya naka-register nga email. Ang link magabukas sang isa ka page diin makaset sang bag-o nga password.",
+		"fallbackNote": "Ang mga reset link ginapadala sa email address nga ginrehistro sang imo administrator para sa imo account. Kon wala sing naka-register, ukon wala gid sang mail nga nag-abot, pangayo sa administrator nga dugangan ukon ayuhon ini, ukon bag-uhon ang imo password sa console. Isa ka beses lang magamit ang mga reset link kag may expiration ini.",
 		"backToLogin": "Balik sa pag-log in",
-		"errorEmpty": "Isulod ang imo farm ID.",
+		"errorEmpty": "Isulod ang imo email address.",
 		"errorRateLimited": "Sobra nga reset request sang madali. Maghulat sang pila ka minuto kag i-try liwat.",
 		"errorService": "Indi namon masugdan ang password reset subong. I-try liwat sang madali."
 	},
@@ -1558,7 +1558,8 @@
 					"uploadFailed": "Indi ma-upload ang laray. Tilawi liwat.",
 					"saveFailed": "Indi ma-save ang laray. Tilawi liwat."
 				}
-			}
+			},
+			"emailNone": "Wala sing email nga naka-save. Pangayo sa imo administrator nga magdugang sang isa agod makareset ka sang password."
 		},
 		"audit": {
 			"title": "Talaan ng Audit",
@@ -1724,7 +1725,18 @@
 				"ADMIN": "Admin",
 				"OPERATOR": "Operator",
 				"VIEWER": "Tumatan-aw"
-			}
+			},
+			"contactEmailNone": "Wala sing email nga naka-save",
+			"contactEmailEdit": "Usbon ang email",
+			"contactEmailEditFor": "Usbon ang email ni {name}",
+			"contactEmailInputLabel": "Email ni {name}",
+			"contactEmailPlaceholder": "pangalan@example.com",
+			"contactEmailHint": "Diri ginapadala ang mga password reset link. Biyaan nga blangko para tangtangon ang address.",
+			"contactEmailSave": "I-save ang email",
+			"contactEmailSaving": "Ginasave…",
+			"contactEmailSaved": "Naka-save na ang email.",
+			"contactEmailRemoved": "Natanggal na ang email.",
+			"contactEmailError": "Indi mai-save ang email. Pamatii liwat."
 		},
 		"feederViewer": {
 			"viewerLabel": "Feeder 3D",
@@ -3257,7 +3269,8 @@
 			"columnOrgs": "Mga Organisasyon",
 			"columnPonds": "Mga Punong",
 			"columnAccess": "Access",
-			"columnActions": "Mga Aksyon"
+			"columnActions": "Mga Aksyon",
+			"noContactEmail": "Wala sing email nga naka-save"
 		},
 		"userActions": {
 			"actionFailed": "Napaslawan ang aksyon.",
@@ -3270,21 +3283,24 @@
 				"revoke": "Bawion ang platform access",
 				"disable": "I-disable ang account",
 				"enable": "I-enable ang account",
-				"reset": "Bag-oha ang password"
+				"reset": "Bag-oha ang password",
+				"email": "Usbon ang contact email"
 			},
 			"stepUpActions": {
 				"grant": "hatagan sang platform access",
 				"revoke": "bawion ang platform access",
 				"disable": "i-disable ini nga account",
 				"enable": "i-enable ini nga account",
-				"reset": "bag-uhon ang password"
+				"reset": "bag-uhon ang password",
+				"email": "usbon ang contact email sini"
 			},
 			"buttons": {
 				"grant": "Hatag",
 				"revoke": "Bawi",
 				"disable": "Disable",
 				"enable": "Enable",
-				"reset": "Bag-oha"
+				"reset": "Bag-oha",
+				"email": "Email"
 			},
 			"disableWarning": "Ginadilian sini ang pag-login kag ginabawi ang tanan nga membership. Wala sing data nga ginatangtang; ang Enable nagabalik sang access sa ulihi.",
 			"enableWarning": "Ginabalik ang pag-login kag ang mga membership nga ginrekord sang katapusan nga pag-disable.",
@@ -3300,7 +3316,11 @@
 			},
 			"reasonPlaceholder": "halimbawa: Una nga platform setup para sa deployment",
 			"confirmLabel": "Isulat ang {farmId} para makumpirma *",
-			"descriptionPrefix": "Platform account"
+			"descriptionPrefix": "Platform account",
+			"emailLabel": "Contact email",
+			"emailPlaceholder": "pangalan@example.com",
+			"emailHint": "Diri ginapadala ang mga password reset link. Biyaan nga blangko para tangtangon. Indi gid mag-usab ang login ID.",
+			"emailWarning": "Ang may kontrol sini nga address makareset sang password sang account, gani kinahanglan mag-enter liwat sang imo password sa pag-usab sini."
 		},
 		"stepUp": {
 			"title": "Kumpirmaha ang imo password",

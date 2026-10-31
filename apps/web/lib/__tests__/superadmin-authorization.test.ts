@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	ADMIN_A_ID,
 	ADMIN_B_ID,
@@ -79,8 +79,6 @@ import {
 	createPlatformUser,
 	disablePlatformUser,
 	enablePlatformUser,
-	getPlatformAdmins,
-	getSuperadminStats,
 	grantPlatformAdmin,
 	listAllPonds,
 	listAllUsers,
@@ -134,12 +132,10 @@ function seedSecondAdmin() {
 }
 
 const allExports = [
-	["getSuperadminStats", () => getSuperadminStats()],
 	["listAllUsers", () => listAllUsers()],
 	["listOrgs", () => listOrgs()],
 	["listOrgOptions", () => listOrgOptions()],
 	["listAllPonds", () => listAllPonds()],
-	["getPlatformAdmins", () => getPlatformAdmins()],
 	[
 		"createPlatformUser",
 		() =>
@@ -174,6 +170,12 @@ beforeEach(() => {
 	holder.auth.updateUserById.mockResolvedValue({ data: {}, error: null });
 	seedSecondAdmin();
 	signInAs(PLATFORM_ADMIN_A_ID);
+});
+
+afterEach(() => {
+	// Spies installed per test (the count/ban ordering and the failure
+	// injections) must not leak into the next test's concurrency assertions.
+	vi.restoreAllMocks();
 });
 
 describe("platform admin gate", () => {
@@ -580,13 +582,16 @@ describe("disablePlatformUser", () => {
 		});
 	});
 
-	it("reads the active-admin count before the ban, outside the transaction", async () => {
-		// `revokePlatformAdmin` counts inside its transaction on purpose; this
-		// action counts before it. The order is asserted because it is what makes
-		// two concurrent disables able to pass the last-admin guard (reported by
-		// I-75 as a TOCTOU concern, not fixed here).
+	it("takes the grant row lock before counting, inside the transaction", async () => {
+		// The lock is what makes the count meaningful: without it a concurrent
+		// disable could commit between the count and the ban (#334).
 		grantTo(FARMER_B_ID);
 		const order: string[] = [];
+		const rawQuery = prisma.$queryRaw;
+		vi.spyOn(prisma, "$queryRaw").mockImplementation((async (...args: unknown[]) => {
+			order.push("lock");
+			return (rawQuery as (...rest: unknown[]) => unknown)(...args);
+		}) as never);
 		vi.spyOn(prisma.platformAdmin, "count").mockImplementation((async () => {
 			order.push("count");
 			return 2;
@@ -599,7 +604,35 @@ describe("disablePlatformUser", () => {
 		await expect(disablePlatformUser(FARMER_B_ID, REASON, "farm-b")).resolves.toEqual({
 			success: true,
 		});
-		expect(order).toEqual(["count", "ban"]);
+		expect(order).toEqual(["lock", "count", "ban"]);
+	});
+
+	it("cannot let two concurrent disables leave the platform with no active admin", async () => {
+		// The fixture seeds exactly two active admins (A and B). A disables B
+		// while B disables A. Both pre-checks pass because they run before either
+		// transaction, so the grant row lock is the only thing that stops both
+		// from revoking a grant and banning a login.
+		const results = await Promise.all([
+			disablePlatformUser(ADMIN_B_ID, REASON, "farm-b-admin"),
+			disablePlatformUser(PLATFORM_ADMIN_A_ID, REASON, "farm-platform-a"),
+		]);
+
+		expect(results.filter((result) => "success" in result)).toHaveLength(1);
+		expect(results.filter((result) => "error" in result)).toEqual([
+			{
+				error: "At least one active platform administrator must remain. Grant another admin first.",
+			},
+		]);
+
+		const activeAdmins = tenancy().tables.platformAdmins.filter(
+			(row) => row.revokedAt === null && (row.expiresAt === null || row.expiresAt > new Date()),
+		);
+		expect(activeAdmins).toHaveLength(1);
+		// Exactly one login was banned: the refusal happens before its ban.
+		expect(holder.auth.updateUserById).toHaveBeenCalledTimes(1);
+		expect(
+			tenancy().tables.platformAuditLogs.filter((row) => row.action === "platform.user.disable"),
+		).toHaveLength(1);
 	});
 });
 

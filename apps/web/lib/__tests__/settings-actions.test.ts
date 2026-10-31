@@ -40,6 +40,11 @@ import {
 	updateNotificationPrefs,
 	updatePondSettings,
 } from "@/lib/actions/settings";
+import {
+	type ActionDenialReason,
+	ActionDeniedError,
+	denialMessage,
+} from "@/lib/auth/action-denial";
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
 import { revalidatePath } from "next/cache";
@@ -78,6 +83,11 @@ function denyWrites() {
 	mockRequireWriteAccess.mockRejectedValue(new Error("Write access required (ADMIN or OPERATOR)"));
 }
 
+/** Refuse with the typed guard error the real requireWriteAccess now throws. */
+function denyWritesWith(reason: ActionDenialReason) {
+	mockRequireWriteAccess.mockRejectedValue(new ActionDeniedError(reason));
+}
+
 beforeEach(() => {
 	vi.clearAllMocks();
 	consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -107,9 +117,42 @@ describe("updateNotificationPrefs", () => {
 
 		const result = await updateNotificationPrefs("pond-1", prefs);
 
-		expect(result.success).toBe(false);
+		expect(result).toEqual({
+			success: false,
+			error: "You do not have permission to make this change.",
+			code: "wrong_role",
+		});
 		expect(db.pond.findFirst).not.toHaveBeenCalled();
 		expect(db.pond.update).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		["not_authenticated"],
+		["password_change_required"],
+		["wrong_role"],
+		["org_suspended"],
+		["view_as_read_only"],
+		["step_up_required"],
+	] as const)("returns the %s reason instead of the generic failure", async (reason) => {
+		denyWritesWith(reason);
+
+		const result = await updateNotificationPrefs("pond-1", prefs);
+
+		expect(result).toEqual({
+			success: false,
+			error: denialMessage(reason),
+			code: reason,
+		});
+		expect(db.pond.findFirst).not.toHaveBeenCalled();
+	});
+
+	it("rethrows a guard redirect instead of flattening it", async () => {
+		const redirect = Object.assign(new Error("NEXT_REDIRECT"), {
+			digest: "NEXT_REDIRECT;replace;/dashboard;307;",
+		});
+		mockRequireWriteAccess.mockRejectedValueOnce(redirect);
+
+		await expect(updateNotificationPrefs("pond-1", prefs)).rejects.toBe(redirect);
 	});
 
 	it("returns the validation error for a non-boolean preference", async () => {
@@ -193,10 +236,47 @@ describe("updatePondSettings", () => {
 
 		const result = await updatePondSettings("pond-1", 3, 2);
 
-		expect(result.success).toBe(false);
+		expect(result).toEqual({
+			success: false,
+			error: "You do not have permission to make this change.",
+			code: "wrong_role",
+			fieldErrors: [],
+			conflicts: [],
+		});
 		expect(db.pond.findFirst).not.toHaveBeenCalled();
 		expect(db.pond.update).not.toHaveBeenCalled();
 		expect(mockSyncGrams).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		["not_authenticated"],
+		["password_change_required"],
+		["wrong_role"],
+		["org_suspended"],
+		["view_as_read_only"],
+		["step_up_required"],
+	] as const)("returns the %s reason with no field errors", async (reason) => {
+		denyWritesWith(reason);
+
+		const result = await updatePondSettings("pond-1", 3, 2);
+
+		expect(result).toEqual({
+			success: false,
+			error: denialMessage(reason),
+			code: reason,
+			fieldErrors: [],
+			conflicts: [],
+		});
+		expect(db.pond.findFirst).not.toHaveBeenCalled();
+	});
+
+	it("rethrows a guard redirect instead of turning it into a save failure", async () => {
+		const redirect = Object.assign(new Error("NEXT_REDIRECT"), {
+			digest: "NEXT_REDIRECT;replace;/dashboard;307;",
+		});
+		mockRequireWriteAccess.mockRejectedValueOnce(redirect);
+
+		await expect(updatePondSettings("pond-1", 3, 2)).rejects.toBe(redirect);
 	});
 
 	it.each([
@@ -351,9 +431,42 @@ describe("updateDeviceDailyCap", () => {
 
 		const result = await updateDeviceDailyCap("device-1", 2500);
 
-		expect(result.success).toBe(false);
+		expect(result).toEqual({
+			success: false,
+			error: "You do not have permission to make this change.",
+			code: "wrong_role",
+		});
 		expect(db.energyDevice.findFirst).not.toHaveBeenCalled();
 		expect(db.$transaction).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		["not_authenticated"],
+		["password_change_required"],
+		["wrong_role"],
+		["org_suspended"],
+		["view_as_read_only"],
+		["step_up_required"],
+	] as const)("returns the %s reason instead of the generic failure", async (reason) => {
+		denyWritesWith(reason);
+
+		const result = await updateDeviceDailyCap("device-1", 2500);
+
+		expect(result).toEqual({
+			success: false,
+			error: denialMessage(reason),
+			code: reason,
+		});
+		expect(db.energyDevice.findFirst).not.toHaveBeenCalled();
+	});
+
+	it("rethrows a guard redirect instead of reporting a failed save", async () => {
+		const redirect = Object.assign(new Error("NEXT_REDIRECT"), {
+			digest: "NEXT_REDIRECT;replace;/dashboard;307;",
+		});
+		mockRequireWriteAccess.mockRejectedValueOnce(redirect);
+
+		await expect(updateDeviceDailyCap("device-1", 2500)).rejects.toBe(redirect);
 	});
 
 	it.each([

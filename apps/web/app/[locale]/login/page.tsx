@@ -29,6 +29,17 @@ import { type FormEvent, useEffect, useRef, useState, useTransition } from "reac
 
 const FARM_ID_STORAGE_KEY = "optifeed:last-farm-id";
 
+/**
+ * Compact locale toggle in the login footer. Language names are exonyms and
+ * stay untranslated; Tagalog is marked as a draft until the review queue in
+ * `messages/tl.draft-keys.json` is cleared (#327).
+ */
+const LOCALE_OPTIONS = [
+	{ code: "en", label: "EN", title: "English" },
+	{ code: "hil", label: "HIL", title: "Hiligaynon" },
+	{ code: "tl", label: "TL", title: "Tagalog (draft)" },
+] as const;
+
 const inputBase =
 	"h-11 w-full rounded-lg border bg-white px-3.5 text-sm text-[#0A2E47] shadow-[0_1px_2px_rgba(10,46,71,0.03)] outline-none transition-colors placeholder:text-slate-400 hover:border-[#BCC9C4] focus:border-[#E85A2A] focus:ring-4 focus:ring-[#E85A2A]/15 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-slate-500 dark:hover:border-white/20 dark:focus:border-[#FF8A5C] dark:focus:ring-[#FF8A5C]/15";
 
@@ -137,7 +148,7 @@ export default function LoginPage() {
 		});
 	};
 
-	const switchLocale = (nextLocale: "en" | "hil") => {
+	const switchLocale = (nextLocale: (typeof LOCALE_OPTIONS)[number]["code"]) => {
 		if (nextLocale === locale) return;
 		startLocaleTransition(() => {
 			router.replace({ pathname }, { locale: nextLocale });
@@ -478,22 +489,22 @@ export default function LoginPage() {
 
 						<fieldset className="m-0 ml-auto flex min-w-0 items-center rounded-md border border-[#DCE5E1] p-0.5 dark:border-white/10">
 							<legend className="sr-only">{t("languageLabel")}</legend>
-							{(["en", "hil"] as const).map((option) => (
+							{LOCALE_OPTIONS.map((option) => (
 								<button
-									key={option}
+									key={option.code}
 									type="button"
-									onClick={() => switchLocale(option)}
-									disabled={option === locale || isLocalePending}
-									aria-current={option === locale ? "true" : undefined}
-									title={option === "en" ? "English" : "Hiligaynon"}
+									onClick={() => switchLocale(option.code)}
+									disabled={option.code === locale || isLocalePending}
+									aria-current={option.code === locale ? "true" : undefined}
+									title={option.title}
 									className={cn(
 										"rounded px-2 py-1 text-[10px] font-semibold tracking-wider uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]/40 disabled:cursor-default",
-										option === locale
+										option.code === locale
 											? "bg-[#0A3D62] text-white dark:bg-white/15"
 											: "text-slate-500 hover:text-[#0A3D62] dark:text-slate-400 dark:hover:text-white",
 									)}
 								>
-									{option === "en" ? "EN" : "HIL"}
+									{option.label}
 								</button>
 							))}
 						</fieldset>

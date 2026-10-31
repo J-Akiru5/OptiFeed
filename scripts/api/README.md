@@ -4,7 +4,8 @@ Implements §11 of [`API_REGULATION.md`](../../API_REGULATION.md). Two layers:
 
 | Script | Needs a server? | Runs in CI | Purpose |
 |---|---|---|---|
-| `conformance-check.mjs` (`pnpm api:check`) | no | yes | Static: instrumentation, bounded lists, versioned rewrite, endpoint declarations |
+| `conformance-check.mjs` (part of `pnpm api:check`) | no | yes | Static: instrumentation, bounded lists, versioned rewrite, endpoint declarations |
+| `auth-check.mjs` (part of `pnpm api:check`) | no | yes | Static: every non-public route calls its guard inside the exported handler (session, cron, device token, platform admin or tenant admin) |
 | `live-check.mjs` (`pnpm api:live`) | yes | optional (scheduled/manual) | Contract (§11.2) + latency (§11.1) with coverage accounting |
 
 The live suite needs a running app and a **test credential**. Without one, every session endpoint is

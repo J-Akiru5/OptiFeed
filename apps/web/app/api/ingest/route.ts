@@ -91,6 +91,15 @@ const heartbeatSchema = baseSchema.extend({
 		(value) => (isValidRssiDbm(value) ? value : undefined),
 		z.number().int().min(DEVICE_RSSI_DBM_MIN).max(DEVICE_RSSI_DBM_MAX).optional(),
 	),
+	// Firmware 1.7.0 echoes the revision of the dashboard config it applied.
+	// Advisory: a malformed value is dropped rather than failing the heartbeat.
+	config_rev: z.preprocess(
+		(value) =>
+			typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 0x7fffffff
+				? value
+				: undefined,
+		z.number().int().min(0).optional(),
+	),
 });
 
 const feedDispensedSchema = baseSchema.extend({
@@ -290,6 +299,49 @@ export const POST = withApi(
 							},
 						}),
 					);
+				}
+
+				// I-100: record the applied firmware config revision once per change,
+				// so ops can confirm a unit really took a dashboard change. The lookup
+				// only runs on a heartbeat that is already being written (changed or
+				// due), which keeps it to one query per device per few minutes.
+				const reportedConfigRev = parsed.data.config_rev;
+				if (typeof reportedConfigRev === "number" && (heartbeatChanged || heartbeatDue)) {
+					try {
+						const lastConfigEvent = await prisma.deviceStateEvent.findFirst({
+							where: { deviceId: device.id, eventType: "config_applied" },
+							orderBy: { createdAt: "desc" },
+							select: { metadata: true },
+						});
+						const lastConfigMetadata = (lastConfigEvent?.metadata ?? null) as {
+							configRev?: unknown;
+						} | null;
+						if (lastConfigMetadata?.configRev !== reportedConfigRev) {
+							operations.push(
+								prisma.deviceStateEvent.create({
+									data: {
+										deviceId: device.id,
+										eventType: "config_applied",
+										source: "device",
+										deviceTime: parsed.data.timestamp,
+										metadata: {
+											configRev: reportedConfigRev,
+											...(parsed.data.firmware_version
+												? { version: parsed.data.firmware_version }
+												: {}),
+										},
+									},
+								}),
+							);
+						}
+					} catch (error) {
+						// A lookup failure must never drop the heartbeat; the change is
+						// recorded on a later beat.
+						console.warn(
+							"[ingest] config revision lookup failed",
+							error instanceof Error ? error.message : String(error),
+						);
+					}
 				}
 
 				// OTA lifecycle transition (ota_installed / ota_valid /

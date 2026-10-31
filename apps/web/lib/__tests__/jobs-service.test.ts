@@ -30,6 +30,8 @@ const mocks = vi.hoisted(() => {
 		buildCsvExport: vi.fn(),
 		buildBatchExport: vi.fn(),
 		buildPdfExport: vi.fn(),
+		buildReportPdf: vi.fn(),
+		buildXlsxExport: vi.fn(),
 		confirmImport: vi.fn(),
 		reportError: vi.fn(),
 	};
@@ -57,8 +59,10 @@ vi.mock("@/lib/observability", () => ({ reportError: mocks.reportError }));
 vi.mock("@/lib/jobs/export-data", () => ({
 	buildCsvExport: mocks.buildCsvExport,
 	buildBatchExport: mocks.buildBatchExport,
+	buildXlsxExport: mocks.buildXlsxExport,
 }));
 vi.mock("@/lib/jobs/pdf-export", () => ({ buildPdfExport: mocks.buildPdfExport }));
+vi.mock("@/lib/jobs/report-pdf", () => ({ buildReportPdf: mocks.buildReportPdf }));
 vi.mock("@/lib/jobs/import-data", () => ({ confirmImport: mocks.confirmImport }));
 
 import { ApiError } from "@/lib/api/errors";
@@ -108,6 +112,8 @@ beforeEach(() => {
 	mocks.buildCsvExport.mockResolvedValue(ARTIFACT);
 	mocks.buildBatchExport.mockResolvedValue(ARTIFACT);
 	mocks.buildPdfExport.mockResolvedValue(ARTIFACT);
+	mocks.buildReportPdf.mockResolvedValue(ARTIFACT);
+	mocks.buildXlsxExport.mockResolvedValue(ARTIFACT);
 	mocks.confirmImport.mockResolvedValue({ importedCount: 7 });
 	mocks.deleteMany.mockResolvedValue({ count: 3 });
 	mocks.updateMany.mockResolvedValue({ count: 1 });
@@ -263,6 +269,43 @@ describe("runJob exports", () => {
 		await runJob({ ...JOB, type: "export_pdf", payload: {} } as unknown as BackgroundJob);
 
 		expect(mocks.buildPdfExport).toHaveBeenCalledWith("farm-a");
+		expect(mocks.buildReportPdf).not.toHaveBeenCalled();
+	});
+
+	it("builds the summary PDF when the payload names the summary report", async () => {
+		await runJob({
+			...JOB,
+			type: "export_pdf",
+			payload: { report: "summary" },
+		} as unknown as BackgroundJob);
+
+		expect(mocks.buildPdfExport).toHaveBeenCalledWith("farm-a");
+		expect(mocks.buildReportPdf).not.toHaveBeenCalled();
+	});
+
+	it("builds a growth, SGR or FCR report PDF", async () => {
+		await runJob({
+			...JOB,
+			type: "export_pdf",
+			payload: { report: "sgr" },
+		} as unknown as BackgroundJob);
+
+		expect(mocks.buildReportPdf).toHaveBeenCalledWith("farm-a", "sgr");
+		expect(mocks.buildPdfExport).not.toHaveBeenCalled();
+	});
+
+	it("passes the requested sheet types to the workbook builder", async () => {
+		await runJob({
+			...JOB,
+			type: "export_xlsx",
+			payload: { types: ["biomass_logs", "feeding_schedule"] },
+		} as unknown as BackgroundJob);
+
+		expect(mocks.buildXlsxExport).toHaveBeenCalledWith("farm-a", [
+			"biomass_logs",
+			"feeding_schedule",
+		]);
+		expect(mocks.upsert).toHaveBeenCalled();
 	});
 });
 
@@ -289,11 +332,11 @@ describe("runJob imports", () => {
 
 describe("runJob failures", () => {
 	it("fails an unknown job type without a generic stack", async () => {
-		await runJob({ ...JOB, type: "export_xlsx" } as unknown as BackgroundJob);
+		await runJob({ ...JOB, type: "export_docx" } as unknown as BackgroundJob);
 
 		expect(mocks.reportError).toHaveBeenCalledWith(
-			expect.objectContaining({ message: "Unknown job type: export_xlsx" }),
-			{ route: "jobs/worker", jobId: "job_1", type: "export_xlsx" },
+			expect.objectContaining({ message: "Unknown job type: export_docx" }),
+			{ route: "jobs/worker", jobId: "job_1", type: "export_docx" },
 		);
 		expect(mocks.update).toHaveBeenCalledWith({
 			where: { id: "job_1" },

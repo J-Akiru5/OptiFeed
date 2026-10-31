@@ -183,7 +183,15 @@ const ALLOWLIST = new Set([
 // PlatformAdmin row instead of a tenant binding, because a platform admin does
 // not have to be a tenant member (E18). Both checks are required here, so
 // dropping either one fails this sweep rather than silently opening the route.
-const PLATFORM_ADMIN_ROUTES = new Set(["platform/audit/export/route.ts"]);
+const PLATFORM_ADMIN_ROUTES = new Set([
+	"platform/audit/export/route.ts",
+	"superadmin/backup/export/route.ts",
+]);
+
+// Tenant-admin routes authenticate with the verified session plus an active
+// OWNER/ADMIN membership in an active organization (the /admin console gate).
+// The export route resolves its row scope from the same membership chain.
+const TENANT_ADMIN_ROUTES = new Set(["admin/backup/export/route.ts"]);
 
 describe("every API route is authenticated or explicitly allowlisted (static)", () => {
 	const routes = routeFiles(API_DIR).map((file) => ({
@@ -207,6 +215,12 @@ describe("every API route is authenticated or explicitly allowlisted (static)", 
 					return !(
 						route.source.includes("getVerifiedSession") &&
 						route.source.includes("isCurrentPlatformAdmin")
+					);
+				}
+				if (TENANT_ADMIN_ROUTES.has(route.path)) {
+					return !(
+						route.source.includes("getVerifiedSession") &&
+						route.source.includes("isCurrentTenantAdmin")
 					);
 				}
 				return true;

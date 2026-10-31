@@ -87,30 +87,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-      - name: API regulation conformance (static)
+      - name: API checks (regulation conformance + route auth)
         run: pnpm api:check
-
-      - name: Check API route auth
-        run: |
-          # All API route files must either:
-          # 1. Import from lib/auth/session or lib/auth/with-auth (session auth)
-          # 2. Be in the allowlist (device token-authed routes, no session needed)
-          ALLOWLIST="api/ingest|api/feed-command|api/schedule-sync|api/firmware/check|api/health|api/\[\.\.\.fallback\]"
-
-          FAIL=0
-          for f in $(find apps/web/app/api -name 'route.ts' -o -name 'route.tsx' | grep -v node_modules); do
-            # Skip allowlisted routes
-            if echo "$f" | grep -qE "($ALLOWLIST)"; then
-              continue
-            fi
-            # Check for auth import
-            if ! grep -qE "from ['\"]@/lib/auth/(session|with-auth)['\"]" "$f"; then
-              echo "::error file=$f::Missing auth import. API routes must import from @/lib/auth/session or @/lib/auth/with-auth."
-              FAIL=1
-            fi
-          done
-          if [ "$FAIL" -eq 1 ]; then exit 1; fi
-          echo "All API routes have auth imports."
 
       # next build directly (not pnpm build) so CI never runs
       # `prisma migrate deploy` — dummy DB env, zero production access.
@@ -196,6 +174,11 @@ jobs:
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${anon}"
             echo "SUPABASE_SERVICE_ROLE_KEY=${service}"
           } >> "$GITHUB_ENV"
+
+      # Fail before any DDL if DATABASE_URL is not the disposable stack. The
+      # seed and Playwright guards run later, after `prisma migrate deploy`.
+      - name: Verify the CI e2e target before migrating
+        run: pnpm --filter web exec tsx scripts/e2e/check-ci-target.ts
 
       - name: Apply migrations to the local database
         run: pnpm --filter web exec prisma migrate deploy

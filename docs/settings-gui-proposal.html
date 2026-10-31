@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Device Settings Proposal</title>
+<style>
+:root{--navy:#0A3D62;--orange:#E85A2A;--mist:#F4F7F6;--ink:#3D5568;--line:#E5E7EB;--card:#fff;--bg:#EEF2F1;--ok:#1F8A4C;--warn:#B7791F;--red:#C42B3A}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--navy:#5b9bd5;--mist:#1f2937;--ink:#cbd5e1;--line:#374151;--card:#111827;--bg:#0b1220}}
+:root[data-theme="dark"]{--navy:#5b9bd5;--mist:#1f2937;--ink:#cbd5e1;--line:#374151;--card:#111827;--bg:#0b1220}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:24px 16px 80px}
+h1{color:var(--navy);font-size:22px;margin:0 0 4px}.lead{margin:0 0 16px}
+.tldr{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--orange);border-radius:12px;padding:12px 16px;margin-bottom:16px}
+.tldr ol{margin:6px 0 0;padding-left:20px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--navy);border-radius:999px;padding:6px 14px;font-weight:700;cursor:pointer;min-height:36px}
+.chip[aria-pressed="true"]{background:var(--navy);color:#fff;border-color:var(--navy)}
+.stage{display:flex;justify-content:center}
+.frame{width:100%;background:var(--mist);border:1px solid var(--line);border-radius:16px;overflow:hidden;transition:max-width .25s}
+.frame.mobile{max-width:375px}
+.app{display:flex;min-height:620px}
+.side{width:76px;background:var(--card);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px 0}
+.side i{width:44px;height:44px;border-radius:12px;background:var(--mist);display:block}.side i.on{background:var(--navy)}
+.mobile .side{display:none}
+.main{flex:1;min-width:0;padding:20px}
+.mobile .main{padding:14px}
+.head{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.head h2{margin:0;color:var(--navy);font-size:20px;font-weight:900}.head p{margin:2px 0 0;font-size:13px}
+.switcher{position:relative}
+.sw-btn{display:flex;align-items:center;gap:10px;min-height:44px;padding:6px 12px;border:1px solid var(--line);background:var(--card);border-radius:12px;color:var(--navy);font-weight:800;cursor:pointer;min-width:230px;text-align:left}
+.mobile .switcher,.mobile .sw-btn{width:100%}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}.dot.ok{background:var(--ok)}.dot.weak{background:var(--warn)}.dot.off{background:#9CA3AF}
+.sw-btn small{display:block;font-weight:500;color:var(--ink);font-size:12px}
+.menu{position:absolute;right:0;top:calc(100% + 6px);z-index:5;width:280px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.12);padding:6px;display:none}
+.mobile .menu{width:100%}
+.menu.open{display:block}.menu h6{margin:8px 10px 4px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink)}
+.menu button{width:100%;display:flex;gap:10px;align-items:center;min-height:44px;border:0;background:none;border-radius:8px;padding:6px 10px;color:var(--navy);font-weight:700;cursor:pointer;text-align:left}
+.menu button:hover,.menu button[aria-checked="true"]{background:var(--mist)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:18px 0 16px;overflow-x:auto;scrollbar-width:none}
+.tab{position:relative;min-height:44px;padding:0 14px;border:0;background:none;color:var(--ink);font-weight:800;cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent}
+.tab[aria-selected="true"]{color:var(--navy);border-bottom-color:var(--orange)}
+.tab .dirty{display:none;position:absolute;top:10px;right:4px;width:7px;height:7px;border-radius:50%;background:var(--orange)}
+.tab.is-dirty .dirty{display:block}
+.url{font:12px ui-monospace,Consolas,monospace;background:var(--card);border:1px dashed var(--line);border-radius:8px;padding:6px 10px;margin-bottom:12px;overflow-wrap:anywhere}
+.grid{display:grid;gap:14px;grid-template-columns:1fr 1fr}.mobile .grid{grid-template-columns:1fr}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+.card h3{margin:0;color:var(--navy);font-size:15px;font-weight:900}.card p.d{margin:2px 0 12px;font-size:12px}
+.span2{grid-column:1/-1}
+.hero{height:150px;border-radius:12px;background:linear-gradient(135deg,var(--mist),var(--card));display:grid;place-items:center;color:var(--ink);font-weight:700;border:1px dashed var(--line)}
+dl{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0}.mobile dl{grid-template-columns:1fr 1fr}
+dl div{background:var(--mist);border-radius:10px;padding:10px}dt{font-size:11px}dd{margin:2px 0 0;color:var(--navy);font-weight:800}
+label{display:block;font-size:12px;font-weight:700;margin:8px 0 4px}
+input,select{width:100%;min-height:44px;border:1px solid var(--line);border-radius:10px;padding:0 12px;background:var(--mist);color:var(--navy);font:inherit}
+.row{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:12px}
+.btn{min-height:40px;padding:0 16px;border-radius:10px;border:0;font-weight:800;cursor:pointer}
+.btn.p{background:var(--navy);color:#fff}.btn.s{background:var(--mist);color:var(--navy)}.btn.o{background:var(--orange);color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.saved{color:var(--ok);font-weight:800;font-size:12px;display:none}.saved.on{display:inline}
+details{background:var(--mist);border-radius:10px;padding:10px 12px}summary{cursor:pointer;font-weight:800;color:var(--navy)}
+.panel[hidden]{display:none}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 16px;border-radius:10px;font-weight:700;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;place-items:center;padding:16px;z-index:10}.modal.on{display:grid}
+.modal .card{max-width:380px}
+.notes{margin-top:20px;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.note{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}.note b{color:var(--navy)}
+.badge{display:inline-block;background:var(--orange);color:#fff;border-radius:6px;font-size:11px;font-weight:800;padding:1px 6px;margin-right:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Device Settings — proposal for #403</h1>
+  <p class="lead">Clickable mockup. Nothing here is wired to the app. Try: switch the device, switch tabs, edit a field and then switch tabs, save.</p>
+  <div class="tldr"><b>TL;DR</b>
+    <ol>
+      <li><b>Tabs</b> replace the 9-section scroll: Overview · Feeding · Calibration · Network, synced to <code>?tab=</code>.</li>
+      <li><b>Device switcher</b> in the header lists every feeder (grouped by pond, online dot); <code>?device=</code> in the URL.</li>
+      <li><b>Save stays on the page</b>: toast + inline "Saved", no redirect. Unsaved edits mark the tab and are guarded on tab/device switch.</li>
+    </ol>
+  </div>
+
+  <div class="controls" role="group" aria-label="Preview size">
+    <button class="chip" aria-pressed="true" data-view="desktop">Desktop</button>
+    <button class="chip" aria-pressed="false" data-view="mobile">Mobile (375 px)</button>
+  </div>
+
+  <div class="stage"><div class="frame" id="frame">
+    <div class="app">
+      <nav class="side" aria-hidden="true"><i></i><i></i><i class="on"></i><i></i><i></i></nav>
+      <main class="main">
+        <div class="url" id="url"></div>
+        <div class="head">
+          <div><h2>Device Settings</h2><p>Configure one feeder at a time. Changes save per card.</p></div>
+          <div class="switcher">
+            <button class="sw-btn" id="swBtn" aria-haspopup="menu" aria-expanded="false">
+              <span class="dot ok" id="swDot"></span>
+              <span style="flex:1"><span id="swName">Feeder A</span><small id="swPond">Pond 1 · Online</small></span>
+              <span aria-hidden="true">▾</span>
+            </button>
+            <div class="menu" id="menu" role="menu"></div>
+          </div>
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="Settings sections" id="tabs"></div>
+
+        <section class="panel" data-panel="overview">
+          <div class="grid">
+            <div class="card span2"><div class="hero">3D feeder viewer (existing FeederViewerLazy)</div></div>
+            <div class="card span2"><h3>Device status</h3><p class="d">Live readings for this feeder.</p>
+              <dl><div><dt>Status</dt><dd id="stStatus">Online</dd></div><div><dt>Hopper</dt><dd>72%</dd></div><div><dt>Water temp</dt><dd>28.4 °C</dd></div><div><dt>Signal</dt><dd>-61 dBm</dd></div></dl></div>
+            <div class="card span2"><h3>Device actions</h3><p class="d">Sync and restart (still unavailable, as today).</p>
+              <div class="row" style="justify-content:flex-start"><button class="btn s" disabled>Sync now</button><button class="btn s" disabled>Restart device</button></div></div>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="feeding" hidden>
+          <div class="grid">
+            <div class="card span2 form" data-tab="feeding"><h3>Daily feed ceiling</h3><p class="d">The most grams this feeder may dispense per day.</p>
+              <label for="cap">Daily cap (g)</label><input id="cap" type="number" value="1200">
+              <div class="row"><span class="saved">Saved</span><button class="btn p save" disabled>Save</button></div></div>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="calibration" hidden>
+          <div class="grid">
+            <div class="card form" data-tab="calibration"><h3>Hopper calibration</h3><p class="d">Full and empty distances.</p>
+              <label>Full (cm)</label><input type="number" value="4"><label>Empty (cm)</label><input type="number" value="38">
+              <div class="row"><span class="saved">Saved</span><button class="btn p save" disabled>Save</button></div></div>
+            <div class="card form" data-tab="calibration"><h3>Feed rate calibration</h3><p class="d">Grams per second from a timed run.</p>
+              <label>Grams per second</label><input type="number" value="12.5"><div class="row"><button class="btn s">Run test dispense</button><span class="saved">Saved</span><button class="btn p save" disabled>Save</button></div></div>
+            <div class="card form" data-tab="calibration"><h3>Temperature calibration</h3><p class="d">Offset against a reference thermometer.</p>
+              <label>Offset (°C)</label><input type="number" value="-0.3"><div class="row"><span class="saved">Saved</span><button class="btn p save" disabled>Save</button></div></div>
+            <div class="card form" data-tab="calibration"><h3>Recalibration schedule</h3><p class="d">Reminder interval.</p>
+              <label>Every</label><select><option>14 days</option><option selected>30 days</option><option>60 days</option></select><div class="row"><span class="saved">Saved</span><button class="btn p save" disabled>Save</button></div></div>
+            <div class="card span2"><details><summary>Calibration history (collapsed)</summary><p>Paginated list, as today.</p></details></div>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="network" hidden>
+          <div class="grid">
+            <div class="card span2 form" data-tab="network"><h3>WiFi setup</h3><p class="d">Network the feeder joins. Signal: <b>-61 dBm (good)</b>.</p>
+              <label>SSID</label><input value="FarmNet-2G"><label>Password</label><input type="password" value="placeholder">
+              <div class="row"><span class="saved">Saved</span><button class="btn p save" disabled>Save</button></div></div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div></div>
+
+  <div class="notes">
+    <div class="note"><span class="badge">1</span><b>Why 4 tabs.</b> Material caps fixed tabs at 4 and NN/g says keep tabs few with 1–2 word labels; the four labels fit a 375 px screen without scrolling.</div>
+    <div class="note"><span class="badge">2</span><b>Why the switcher sits in the header.</b> Vercel and GitHub fix the entity in header + URL and put settings beneath it. Hidden when you own one feeder.</div>
+    <div class="note"><span class="badge">3</span><b>Why per-card Save.</b> Primer: one Save per form, never mix autosave and Save. Actuator settings (cap, calibration) stay explicit.</div>
+    <div class="note"><span class="badge">4</span><b>Deep links.</b> Low-hopper alert → <code>?tab=calibration</code>; weak-signal alert → <code>?tab=network</code>.</div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="card"><h3 id="mTitle">Unsaved changes</h3><p class="d">You edited this tab but didn't save. What should happen?</p>
+    <div class="row"><button class="btn s" id="mCancel">Cancel</button><button class="btn s" id="mDiscard">Discard</button><button class="btn p" id="mSave">Save</button></div></div>
+</div>
+
+<script>
+const devices=[{id:"fa",name:"Feeder A",pond:"Pond 1",st:"ok",label:"Online"},{id:"fb",name:"Feeder B",pond:"Pond 1",st:"weak",label:"Weak signal"},{id:"fc",name:"Feeder C",pond:"Pond 2",st:"off",label:"Offline"}];
+const tabs=[["overview","Overview"],["feeding","Feeding"],["calibration","Calibration"],["network","Network"]];
+let state={device:"fa",tab:"overview"},pending=null;
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const tabsEl=$("#tabs");
+tabs.forEach(([id,label])=>{const b=document.createElement("button");b.className="tab";b.role="tab";b.dataset.tab=id;b.innerHTML=label+'<span class="dirty" aria-hidden="true"></span>';b.onclick=()=>guard(()=>setTab(id));tabsEl.append(b)});
+function render(){
+  $$(".tab").forEach(t=>t.setAttribute("aria-selected",t.dataset.tab===state.tab));
+  $$(".panel").forEach(p=>p.hidden=p.dataset.panel!==state.tab);
+  const d=devices.find(x=>x.id===state.device);
+  $("#swName").textContent=d.name;$("#swPond").textContent=d.pond+" · "+d.label;$("#swDot").className="dot "+d.st;$("#stStatus").textContent=d.label;
+  $("#url").textContent="/dashboard/settings/hardware?device="+d.id+"&tab="+state.tab;
+  const m=$("#menu");m.innerHTML="";
+  [...new Set(devices.map(x=>x.pond))].forEach(p=>{const h=document.createElement("h6");h.textContent=p;m.append(h);
+    devices.filter(x=>x.pond===p).forEach(x=>{const b=document.createElement("button");b.role="menuitemradio";b.setAttribute("aria-checked",x.id===state.device);b.innerHTML='<span class="dot '+x.st+'"></span><span>'+x.name+'<br><small style="font-weight:500">'+x.label+'</small></span>';b.onclick=()=>{toggleMenu(false);guard(()=>{state.device=x.id;resetForms();render();toast("Showing "+x.name+" — still on "+state.tab)})};m.append(b)})});
+}
+function setTab(id){state.tab=id;render()}
+function dirtyTabs(){return [...new Set($$(".form.dirty").map(f=>f.dataset.tab))]}
+function markTabs(){const d=dirtyTabs();$$(".tab").forEach(t=>t.classList.toggle("is-dirty",d.includes(t.dataset.tab)))}
+function guard(next){const d=$$(".form.dirty").filter(f=>f.dataset.tab===state.tab);if(!d.length)return next();pending=next;$("#modal").classList.add("on")}
+function resetForms(){$$(".form").forEach(f=>{f.classList.remove("dirty");f.querySelector(".save").disabled=true});markTabs()}
+function saveForm(f){f.classList.remove("dirty");f.querySelector(".save").disabled=true;const s=f.querySelector(".saved");s.classList.add("on");setTimeout(()=>s.classList.remove("on"),2500);markTabs();toast(f.querySelector("h3").textContent+" saved — you're still here")}
+$$(".form").forEach(f=>{f.querySelectorAll("input,select").forEach(i=>i.addEventListener("input",()=>{f.classList.add("dirty");f.querySelector(".save").disabled=false;markTabs()}));f.querySelector(".save").onclick=()=>saveForm(f)});
+$("#mCancel").onclick=()=>{pending=null;$("#modal").classList.remove("on")};
+$("#mDiscard").onclick=()=>{$$(".form.dirty").filter(f=>f.dataset.tab===state.tab).forEach(f=>{f.classList.remove("dirty");f.querySelector(".save").disabled=true});markTabs();$("#modal").classList.remove("on");pending&&pending();pending=null};
+$("#mSave").onclick=()=>{$$(".form.dirty").filter(f=>f.dataset.tab===state.tab).forEach(saveForm);$("#modal").classList.remove("on");pending&&pending();pending=null};
+function toggleMenu(o){$("#menu").classList.toggle("open",o);$("#swBtn").setAttribute("aria-expanded",o)}
+$("#swBtn").onclick=e=>{e.stopPropagation();toggleMenu(!$("#menu").classList.contains("open"))};
+document.addEventListener("click",e=>{if(!e.target.closest(".switcher"))toggleMenu(false)});
+let tt;function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("on"),2200)}
+$$(".chip").forEach(c=>c.onclick=()=>{$$(".chip").forEach(x=>x.setAttribute("aria-pressed",x===c));$("#frame").classList.toggle("mobile",c.dataset.view==="mobile")});
+render();
+</script>
+</body>
+</html>

@@ -16,6 +16,10 @@ import {
 import { DeviceSignalReading } from "@/components/device-signal";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { FeederViewerLazy } from "@/components/feeder/feeder-viewer-lazy";
+import {
+	DeviceSettingsTabs,
+	type DeviceSwitcherOption,
+} from "@/components/settings/device-settings-tabs";
 import { updateDeviceDailyCap } from "@/lib/actions/settings";
 import { canWrite } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
@@ -27,9 +31,14 @@ import { toHopperSnapshot } from "@/lib/device-hopper";
 import { evaluateDeviceStatus, resolveRssiDbm } from "@/lib/device-status";
 import { type FeederHeroPond, loadFeederHero } from "@/lib/feeder-hero";
 import { getPageCount, parsePage } from "@/lib/pagination";
-import { getActivePond } from "@/lib/pond-selection";
+import { getActivePondId, listSelectablePonds } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { AP_PREFIX } from "@/lib/provisioning-ap";
+import {
+	deviceSettingsQuery,
+	parseDeviceSettingsTab,
+	resolveSelectedDevice,
+} from "@/lib/settings/device-settings-tabs";
 import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import {
 	Activity,
@@ -141,15 +150,63 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 	const writeAccess = await canWrite();
 	const rawParams = await searchParams;
 	let historyPage = parsePage(first(rawParams.page));
+	const activeTab = parseDeviceSettingsTab(first(rawParams.tab));
+	const now = new Date();
+	const statusPolicy = await getDeviceStatusPolicy();
 	let energyDevice = null;
 	let pondIsFallow = false;
 	let pondName: string | null = null;
 	let heroPond: FeederHeroPond | null = null;
+	let switcherOptions: DeviceSwitcherOption[] = [];
 	try {
-		const pond = await getActivePond();
+		// #403: every feeder on the caller's ACTIVE ponds can be configured here,
+		// chosen with `?device=`. The list is owner-scoped, so a foreign or stale
+		// id simply does not match and the active pond's first feeder wins.
+		const [ponds, activePondCookie] = await Promise.all([listSelectablePonds(), getActivePondId()]);
+		const activePondId = ponds.some((p) => p.id === activePondCookie)
+			? activePondCookie
+			: (ponds[0]?.id ?? null);
+		const devices =
+			ponds.length > 0
+				? await prisma.energyDevice.findMany({
+						where: { pondId: { in: ponds.map((p) => p.id) } },
+						orderBy: { createdAt: "asc" },
+						select: {
+							id: true,
+							label: true,
+							pondId: true,
+							lastSeenAt: true,
+							wifiRssiDbm: true,
+							wifiRssiUpdatedAt: true,
+						},
+					})
+				: [];
+		const pondNameById = new Map(ponds.map((p) => [p.id, p.name]));
+		switcherOptions = devices.map((device) => {
+			const status = evaluateDeviceStatus({
+				lastSeenAt: device.lastSeenAt,
+				now,
+				policy: statusPolicy,
+				rssiDbm: resolveRssiDbm({
+					rssiDbm: device.wifiRssiDbm,
+					updatedAt: device.wifiRssiUpdatedAt,
+					now,
+					policy: statusPolicy,
+				}),
+			});
+			return {
+				id: device.id,
+				label: device.label,
+				pondName: (device.pondId && pondNameById.get(device.pondId)) || "",
+				state: status.isOffline ? "offline" : status.isWeak ? "weak" : "online",
+			};
+		});
+
+		const selected = resolveSelectedDevice(devices, first(rawParams.device), activePondId);
+		const pond = ponds.find((p) => p.id === (selected?.pondId ?? activePondId));
 		if (pond) {
 			pondIsFallow = Boolean(pond.isFallow);
-			pondName = typeof pond.name === "string" ? pond.name : null;
+			pondName = pond.name;
 			heroPond = {
 				id: pond.id,
 				isFallow: Boolean(pond.isFallow),
@@ -159,9 +216,10 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 				scheduleStart: pond.scheduleStart,
 				scheduleEnd: pond.scheduleEnd,
 			};
-			energyDevice = await prisma.energyDevice.findFirst({
-				where: { pondId: pond.id },
-				orderBy: { createdAt: "asc" },
+		}
+		if (selected) {
+			energyDevice = await prisma.energyDevice.findUnique({
+				where: { id: selected.id },
 				select: {
 					id: true,
 					mac: true,
@@ -188,11 +246,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 		console.error("[HardwareSettingsPage] Prisma error:", err);
 	}
 
-	const now = new Date();
-	const [statusPolicy, activeFeedRequest] = await Promise.all([
-		getDeviceStatusPolicy(),
-		energyDevice ? loadActiveFeedRequest(energyDevice.id) : Promise.resolve(null),
-	]);
+	const activeFeedRequest = energyDevice ? await loadActiveFeedRequest(energyDevice.id) : null;
 	// #388: a dose being delivered keeps the status out of offline. Only a recent
 	// request counts; an abandoned pending row must not mask a silent device.
 	const commandInFlight =
@@ -340,386 +394,434 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 	const statTile = "rounded-xl bg-[#F4F7F6] p-4 dark:bg-gray-800/60";
 	const statValue = "mt-1 text-sm font-bold text-[#0A3D62] dark:text-gray-100";
 
+	const noDeviceState = (
+		<DashboardEmptyState icon={Cpu} title={t("noDevice")} description={t("noDeviceDesc")} />
+	);
+
 	return (
 		<div className="w-full space-y-6 pb-20">
 			<DashboardPageHeader title={t("title")} description={t("desc")} icon={Settings} />
-
-			{feederHero && pondName && energyDevice && (
-				<FeederViewerLazy
-					deviceId={energyDevice.id}
-					label={feederHero.deviceLabel}
-					initialStatus={
-						feederHero.connectionState === "offline"
-							? "offline"
-							: feederHero.connectionState === "weak"
-								? "weak"
-								: feederHero.isPaused
-									? "paused"
-									: "idle"
-					}
-					initialLevel={feederHero.hopperLevelPercent}
-					initialLastFedAt={null}
-				/>
-			)}
 
 			{!writeAccess && (
 				<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
 			)}
 
-			{/* Device Status */}
-			<DashboardSection title={t("deviceStatus")} description={t("deviceStatusDesc")} icon={Cpu}>
-				{energyDevice ? (
-					<dl className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-						<div className={statTile}>
-							<dt className={statLabel}>{t("wifiSetup.deviceId")}</dt>
-							<dd className={`${statValue} break-all font-mono`}>
-								{energyDevice.mac}
-								<span className="mt-1 block font-mono text-[10px] font-medium text-[#3D5568] dark:text-gray-500">
-									{t("supportId", { id: energyDevice.id })}
-								</span>
-							</dd>
-						</div>
-						<div className={statTile}>
-							<dt className={statLabel}>{t("connectionStatus")}</dt>
-							<dd
-								className={`mt-1 text-sm font-bold ${
-									isDeviceOffline
-										? "text-[#C42B3A] dark:text-red-300"
-										: connection.isWeak
-											? "text-[#9A3412] dark:text-amber-300"
-											: "text-[#1E7B34] dark:text-green-300"
-								}`}
+			<DeviceSettingsTabs
+				initialTab={activeTab}
+				deviceId={energyDevice?.id ?? null}
+				devices={switcherOptions}
+				panels={{
+					overview: (
+						<>
+							{feederHero && pondName && energyDevice && (
+								<FeederViewerLazy
+									deviceId={energyDevice.id}
+									label={feederHero.deviceLabel}
+									initialStatus={
+										feederHero.connectionState === "offline"
+											? "offline"
+											: feederHero.connectionState === "weak"
+												? "weak"
+												: feederHero.isPaused
+													? "paused"
+													: "idle"
+									}
+									initialLevel={feederHero.hopperLevelPercent}
+									initialLastFedAt={null}
+								/>
+							)}
+
+							{/* Device Status */}
+							<DashboardSection
+								id="device-status"
+								title={t("deviceStatus")}
+								description={t("deviceStatusDesc")}
+								icon={Cpu}
 							>
-								{connectionLabel}
-								<DeviceSignalReading
-									rssiDbm={rssiDbm}
-									className="mt-1 block text-xs font-bold text-[#3D5568] dark:text-gray-400"
-								/>
-							</dd>
-						</div>
-						<div className={statTile}>
-							<dt className={statLabel}>{t("hopperLevel")}</dt>
-							<dd className={statValue}>
-								<FeedLevelDisplay
-									levelPercent={hopper?.levelPercent ?? null}
-									updatedAt={hopper?.levelUpdatedAt ?? null}
-									isOffline={hopperOffline}
-									showBar={false}
-								/>
-							</dd>
-						</div>
-						<div className={statTile}>
-							<dt className={statLabel}>{t("firmware")}</dt>
-							<dd className={`${statValue} font-mono`}>
-								{feederHero?.firmwareVersion ? `v${feederHero.firmwareVersion}` : "—"}
-							</dd>
-						</div>
-					</dl>
-				) : (
-					<DashboardEmptyState icon={Cpu} title={t("noDevice")} description={t("noDeviceDesc")} />
-				)}
-			</DashboardSection>
+								{energyDevice ? (
+									<dl className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+										<div className={statTile}>
+											<dt className={statLabel}>{t("wifiSetup.deviceId")}</dt>
+											<dd className={`${statValue} break-all font-mono`}>
+												{energyDevice.mac}
+												<span className="mt-1 block font-mono text-[10px] font-medium text-[#3D5568] dark:text-gray-500">
+													{t("supportId", { id: energyDevice.id })}
+												</span>
+											</dd>
+										</div>
+										<div className={statTile}>
+											<dt className={statLabel}>{t("connectionStatus")}</dt>
+											<dd
+												className={`mt-1 text-sm font-bold ${
+													isDeviceOffline
+														? "text-[#C42B3A] dark:text-red-300"
+														: connection.isWeak
+															? "text-[#9A3412] dark:text-amber-300"
+															: "text-[#1E7B34] dark:text-green-300"
+												}`}
+											>
+												{connectionLabel}
+												<DeviceSignalReading
+													rssiDbm={rssiDbm}
+													className="mt-1 block text-xs font-bold text-[#3D5568] dark:text-gray-400"
+												/>
+											</dd>
+										</div>
+										<div className={statTile}>
+											<dt className={statLabel}>{t("hopperLevel")}</dt>
+											<dd className={statValue}>
+												<FeedLevelDisplay
+													levelPercent={hopper?.levelPercent ?? null}
+													updatedAt={hopper?.levelUpdatedAt ?? null}
+													isOffline={hopperOffline}
+													showBar={false}
+												/>
+											</dd>
+										</div>
+										<div className={statTile}>
+											<dt className={statLabel}>{t("firmware")}</dt>
+											<dd className={`${statValue} font-mono`}>
+												{feederHero?.firmwareVersion ? `v${feederHero.firmwareVersion}` : "—"}
+											</dd>
+										</div>
+									</dl>
+								) : (
+									<DashboardEmptyState
+										icon={Cpu}
+										title={t("noDevice")}
+										description={t("noDeviceDesc")}
+									/>
+								)}
+							</DashboardSection>
 
-			{/* WiFi Setup */}
-			<DashboardSection title={t("wifiSetup.title")} description={t("wifiSetup.desc")} icon={Wifi}>
-				<div className="rounded-xl bg-[#F4F7F6] p-4 dark:bg-gray-800/60">
-					<div className="flex flex-wrap items-start justify-between gap-4">
-						<div className="min-w-0">
-							<p className={statLabel}>{t("wifiSetup.apName")}</p>
-							{setupApName ? (
-								<p className="mt-1 break-all font-mono text-lg font-bold text-[#0A3D62] dark:text-gray-100">
-									{setupApName}
+							{/* Device Actions */}
+							<DashboardSection
+								title={t("deviceActions")}
+								description={t("deviceActionsDesc")}
+								icon={RefreshCw}
+							>
+								<p
+									id="device-actions-unavailable"
+									className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300"
+								>
+									{t("actionsUnavailable")}
 								</p>
-							) : (
-								<p className="mt-1 text-sm font-medium text-[#3D5568] dark:text-gray-300">
-									{energyDevice ? t("wifiSetup.apUnknown") : t("wifiSetup.noDevice")}
-								</p>
-							)}
+
+								<div className="space-y-3">
+									<button
+										type="button"
+										disabled
+										aria-describedby="device-actions-unavailable"
+										className="flex min-h-11 w-full cursor-not-allowed items-center justify-between rounded-xl border border-[#0A3D62]/10 bg-white px-4 font-bold text-[#0A3D62] opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+									>
+										<span className="flex items-center gap-3">
+											<RefreshCw aria-hidden="true" className="h-5 w-5 text-[#E85A2A]" />
+											{t("syncNow")}
+										</span>
+									</button>
+									<button
+										type="button"
+										disabled
+										aria-describedby="device-actions-unavailable"
+										className="flex min-h-11 w-full cursor-not-allowed items-center justify-between rounded-xl border border-red-100 bg-red-50 px-4 font-bold text-[#C42B3A] opacity-50 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300"
+									>
+										<span className="flex items-center gap-3">
+											<Cpu aria-hidden="true" className="h-5 w-5" />
+											{t("restartDevice")}
+										</span>
+									</button>
+								</div>
+							</DashboardSection>
+						</>
+					),
+					feeding: (
+						<>
+							{!energyDevice && noDeviceState}
+							{/* Daily feed ceiling */}
 							{energyDevice && (
-								<p className="mt-1 text-xs text-[#3D5568] dark:text-gray-400">
-									{energyDevice.label}
-								</p>
+								<DashboardSection
+									id="daily-ceiling"
+									title={t("dailyCeiling")}
+									description={t("dailyCeilingDesc")}
+									icon={Gauge}
+								>
+									<DeviceDailyCapForm
+										deviceId={energyDevice.id}
+										currentCapG={energyDevice.dailyCapG}
+										saveAction={updateDeviceDailyCap}
+										canWrite={writeAccess}
+									/>
+								</DashboardSection>
 							)}
-						</div>
-						{energyDevice && (
-							<div className="min-w-0">
-								<p className={statLabel}>{t("wifiSetup.deviceId")}</p>
-								<p className="mt-1 break-all font-mono text-lg font-bold text-[#0A3D62] dark:text-gray-100">
-									{energyDevice.mac}
-								</p>
-								<p className="mt-1 text-xs text-[#3D5568] dark:text-gray-400">
-									{t("wifiSetup.deviceIdHint")}
-								</p>
-							</div>
-						)}
-					</div>
-				</div>
+						</>
+					),
+					calibration: (
+						<>
+							{!energyDevice && noDeviceState}
+							{/* Hopper Calibration */}
+							{energyDevice && (
+								<DashboardSection
+									id="hopper-calibration"
+									title={t("hopperCalibration")}
+									description={t("hopperCalibrationDesc")}
+									icon={Ruler}
+								>
+									<div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-900/50 dark:bg-blue-900/20">
+										<p className="text-xs font-medium text-blue-800 dark:text-blue-200">
+											{t("currentLevelLabel")}
+										</p>
+										<FeedLevelDisplay
+											levelPercent={hopper?.levelPercent ?? null}
+											updatedAt={hopper?.levelUpdatedAt ?? null}
+											isOffline={hopperOffline}
+											showBar={false}
+										/>
+									</div>
 
-				{energyDevice &&
-					(isWifiConfigured ? (
-						<div className="mt-4 space-y-1 rounded-xl border border-[#1E7B34]/20 bg-[#1E7B34]/5 p-4 dark:border-green-900/50 dark:bg-green-900/20">
-							<p className="text-sm font-bold text-[#1E7B34] dark:text-green-300">
-								{t("wifiSetup.connected")}
-							</p>
-							<p className="text-xs text-[#3D5568] dark:text-gray-300">{t("wifiSetup.apOff")}</p>
-						</div>
-					) : (
-						<div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/50 dark:bg-amber-900/20">
-							<p className="text-xs font-medium text-amber-800 dark:text-amber-300">
-								{t("wifiSetup.needsSetup")}
-							</p>
-						</div>
-					))}
-
-				{energyDevice && (
-					<div className="mt-6">
-						<p className="text-sm font-bold text-[#0A3D62] dark:text-gray-200">
-							{t("wifiSetup.steps")}
-						</p>
-						<ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-[#3D5568] dark:text-gray-300">
-							<li>{t("wifiSetup.step1")}</li>
-							<li>{t("wifiSetup.step2")}</li>
-							<li>{t("wifiSetup.step3")}</li>
-							<li>{t("wifiSetup.step4")}</li>
-							<li>{t("wifiSetup.step5")}</li>
-						</ol>
-						<p className="mt-3 text-xs text-[#3D5568] dark:text-gray-400">
-							{t("wifiSetup.credentialsNote")}
-						</p>
-						<p className="mt-1 text-xs text-[#3D5568] dark:text-gray-400">
-							{t("wifiSetup.tokenWarning")}
-						</p>
-					</div>
-				)}
-
-				{energyDevice && !isWifiConfigured && (
-					<div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/60">
-						<p className="text-sm font-bold text-[#0A3D62] dark:text-gray-200">
-							{t("wifiSetup.recoveryTitle")}
-						</p>
-						<p className="mt-1 text-xs text-[#3D5568] dark:text-gray-400">
-							{t("wifiSetup.recovery")}
-						</p>
-					</div>
-				)}
-			</DashboardSection>
-
-			{/* Daily feed ceiling */}
-			{energyDevice && (
-				<DashboardSection
-					id="daily-ceiling"
-					title={t("dailyCeiling")}
-					description={t("dailyCeilingDesc")}
-					icon={Gauge}
-				>
-					<DeviceDailyCapForm
-						deviceId={energyDevice.id}
-						currentCapG={energyDevice.dailyCapG}
-						saveAction={updateDeviceDailyCap}
-						canWrite={writeAccess}
-					/>
-				</DashboardSection>
-			)}
-
-			{/* Hopper Calibration */}
-			{energyDevice && (
-				<DashboardSection
-					id="hopper-calibration"
-					title={t("hopperCalibration")}
-					description={t("hopperCalibrationDesc")}
-					icon={Ruler}
-				>
-					<div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-900/50 dark:bg-blue-900/20">
-						<p className="text-xs font-medium text-blue-800 dark:text-blue-200">
-							{t("currentLevelLabel")}
-						</p>
-						<FeedLevelDisplay
-							levelPercent={hopper?.levelPercent ?? null}
-							updatedAt={hopper?.levelUpdatedAt ?? null}
-							isOffline={hopperOffline}
-							showBar={false}
-						/>
-					</div>
-
-					<HopperCalibrationForm
-						deviceId={energyDevice.id}
-						hopperFullCm={energyDevice.hopperFullCm}
-						hopperEmptyCm={energyDevice.hopperEmptyCm}
-						hopperCapacityG={energyDevice.hopperCapacityG}
-						canWrite={writeAccess}
-					/>
-				</DashboardSection>
-			)}
-
-			{/* Duration Calibration */}
-			{energyDevice && (
-				<DashboardSection
-					id="calibration"
-					title={t("calibration.title")}
-					description={t("calibration.desc")}
-					icon={Timer}
-				>
-					<DurationCalibrationForm
-						deviceId={energyDevice.id}
-						currentGramsPerSecond={energyDevice.gramsPerSecond}
-						currentGramsPerFeeding={energyDevice.gramsPerFeeding}
-						canWrite={writeAccess}
-						isOffline={isDeviceOffline}
-						isFallow={pondIsFallow}
-					/>
-				</DashboardSection>
-			)}
-
-			{/* Recalibration schedule + drift detector */}
-			{energyDevice && (
-				<DashboardSection
-					id="recalibration"
-					title={t("calibration.recalibration.title")}
-					description={t("calibration.recalibration.desc")}
-					icon={CalendarClock}
-				>
-					{recalibration.isOverdue && dueLabel && (
-						<output className="mb-4 block rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-900/20">
-							<p className="text-sm font-bold text-amber-800 dark:text-amber-300">
-								{t("calibration.recalibration.overdueTitle")}
-							</p>
-							<p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
-								{t("calibration.recalibration.overdueDesc", {
-									days: recalibration.daysOverdue,
-									due: dueLabel,
-								})}
-							</p>
-						</output>
-					)}
-					{!recalibration.isOverdue && dueLabel && (
-						<p className="mb-4 text-xs font-medium text-gray-600 dark:text-gray-400">
-							{t("calibration.recalibration.nextDue", { due: dueLabel })}
-						</p>
-					)}
-					{!dueLabel && (
-						<p className="mb-4 text-xs font-medium text-gray-600 dark:text-gray-400">
-							{t("calibration.recalibration.never")}
-						</p>
-					)}
-
-					<RecalibrationIntervalForm
-						deviceId={energyDevice.id}
-						currentIntervalDays={energyDevice.recalibrationIntervalDays}
-						canWrite={writeAccess}
-					/>
-
-					{drift.status === "drift" && drift.diffPct !== null && (
-						<div
-							role="alert"
-							className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-900/20"
-						>
-							<p className="flex items-center gap-2 text-sm font-bold text-amber-800 dark:text-amber-300">
-								<Activity className="h-4 w-4 shrink-0" aria-hidden="true" />
-								{t("calibration.drift.title")}
-							</p>
-							<p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
-								{t("calibration.drift.desc", {
-									dispensed: formatGrams(drift.dispensedG),
-									observed: formatGrams(drift.observedG),
-									diff: `${drift.diffPct >= 0 ? "+" : ""}${drift.diffPct.toFixed(1)}%`,
-								})}
-							</p>
-						</div>
-					)}
-				</DashboardSection>
-			)}
-
-			{/* Temperature sensor calibration */}
-			{energyDevice && (
-				<DashboardSection
-					id="temperature-calibration"
-					title={t("temperatureCalibration")}
-					description={t("temperatureCalibrationDesc")}
-					icon={Thermometer}
-				>
-					<div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-3 dark:border-sky-900/50 dark:bg-sky-900/20">
-						<p className="text-xs font-medium text-sky-800 dark:text-sky-200">
-							{t("currentOffset")}:{" "}
-							<strong>
-								{energyDevice.tempOffsetC >= 0 ? "+" : ""}
-								{energyDevice.tempOffsetC}°C
-							</strong>
-							{energyDevice.waterTempC !== null && (
-								<>
-									{" · "}
-									{t("lastReading")}: <strong>{energyDevice.waterTempC.toFixed(1)}°C</strong>
-								</>
+									<HopperCalibrationForm
+										deviceId={energyDevice.id}
+										hopperFullCm={energyDevice.hopperFullCm}
+										hopperEmptyCm={energyDevice.hopperEmptyCm}
+										hopperCapacityG={energyDevice.hopperCapacityG}
+										canWrite={writeAccess}
+									/>
+								</DashboardSection>
 							)}
-						</p>
-					</div>
 
-					<div data-help="setting-temperature-calibration">
-						<TemperatureCalibrationForm
-							deviceId={energyDevice.id}
-							currentTempOffsetC={energyDevice.tempOffsetC}
-							currentTempC={energyDevice.waterTempC}
-							canWrite={writeAccess}
-						/>
-					</div>
-				</DashboardSection>
-			)}
+							{/* Duration Calibration */}
+							{energyDevice && (
+								<DashboardSection
+									id="calibration"
+									title={t("calibration.title")}
+									description={t("calibration.desc")}
+									icon={Timer}
+								>
+									<DurationCalibrationForm
+										deviceId={energyDevice.id}
+										currentGramsPerSecond={energyDevice.gramsPerSecond}
+										currentGramsPerFeeding={energyDevice.gramsPerFeeding}
+										canWrite={writeAccess}
+										isOffline={isDeviceOffline}
+										isFallow={pondIsFallow}
+									/>
+								</DashboardSection>
+							)}
 
-			{/* Calibration history */}
-			{energyDevice && (
-				<DashboardSection
-					title={t("calibration.history.title")}
-					description={t("calibration.history.desc")}
-					icon={History}
-				>
-					<CalibrationHistory
-						rows={historyRows}
-						sessions={historySessions}
-						total={historyTotal}
-						page={historyPage}
-						pageCount={historyPageCount}
-						pageSize={CALIBRATION_HISTORY_PAGE_SIZE}
-					/>
-				</DashboardSection>
-			)}
+							{/* Recalibration schedule + drift detector */}
+							{energyDevice && (
+								<DashboardSection
+									id="recalibration"
+									title={t("calibration.recalibration.title")}
+									description={t("calibration.recalibration.desc")}
+									icon={CalendarClock}
+								>
+									{recalibration.isOverdue && dueLabel && (
+										<output className="mb-4 block rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-900/20">
+											<p className="text-sm font-bold text-amber-800 dark:text-amber-300">
+												{t("calibration.recalibration.overdueTitle")}
+											</p>
+											<p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+												{t("calibration.recalibration.overdueDesc", {
+													days: recalibration.daysOverdue,
+													due: dueLabel,
+												})}
+											</p>
+										</output>
+									)}
+									{!recalibration.isOverdue && dueLabel && (
+										<p className="mb-4 text-xs font-medium text-gray-600 dark:text-gray-400">
+											{t("calibration.recalibration.nextDue", { due: dueLabel })}
+										</p>
+									)}
+									{!dueLabel && (
+										<p className="mb-4 text-xs font-medium text-gray-600 dark:text-gray-400">
+											{t("calibration.recalibration.never")}
+										</p>
+									)}
 
-			{/* Device Actions */}
-			<DashboardSection
-				title={t("deviceActions")}
-				description={t("deviceActionsDesc")}
-				icon={RefreshCw}
-			>
-				<p
-					id="device-actions-unavailable"
-					className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300"
-				>
-					{t("actionsUnavailable")}
-				</p>
+									<RecalibrationIntervalForm
+										deviceId={energyDevice.id}
+										currentIntervalDays={energyDevice.recalibrationIntervalDays}
+										canWrite={writeAccess}
+									/>
 
-				<div className="space-y-3">
-					<button
-						type="button"
-						disabled
-						aria-describedby="device-actions-unavailable"
-						className="flex min-h-11 w-full cursor-not-allowed items-center justify-between rounded-xl border border-[#0A3D62]/10 bg-white px-4 font-bold text-[#0A3D62] opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-					>
-						<span className="flex items-center gap-3">
-							<RefreshCw aria-hidden="true" className="h-5 w-5 text-[#E85A2A]" />
-							{t("syncNow")}
-						</span>
-					</button>
-					<button
-						type="button"
-						disabled
-						aria-describedby="device-actions-unavailable"
-						className="flex min-h-11 w-full cursor-not-allowed items-center justify-between rounded-xl border border-red-100 bg-red-50 px-4 font-bold text-[#C42B3A] opacity-50 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300"
-					>
-						<span className="flex items-center gap-3">
-							<Cpu aria-hidden="true" className="h-5 w-5" />
-							{t("restartDevice")}
-						</span>
-					</button>
-				</div>
-			</DashboardSection>
+									{drift.status === "drift" && drift.diffPct !== null && (
+										<div
+											role="alert"
+											className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-900/20"
+										>
+											<p className="flex items-center gap-2 text-sm font-bold text-amber-800 dark:text-amber-300">
+												<Activity className="h-4 w-4 shrink-0" aria-hidden="true" />
+												{t("calibration.drift.title")}
+											</p>
+											<p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+												{t("calibration.drift.desc", {
+													dispensed: formatGrams(drift.dispensedG),
+													observed: formatGrams(drift.observedG),
+													diff: `${drift.diffPct >= 0 ? "+" : ""}${drift.diffPct.toFixed(1)}%`,
+												})}
+											</p>
+										</div>
+									)}
+								</DashboardSection>
+							)}
+
+							{/* Temperature sensor calibration */}
+							{energyDevice && (
+								<DashboardSection
+									id="temperature-calibration"
+									title={t("temperatureCalibration")}
+									description={t("temperatureCalibrationDesc")}
+									icon={Thermometer}
+								>
+									<div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-3 dark:border-sky-900/50 dark:bg-sky-900/20">
+										<p className="text-xs font-medium text-sky-800 dark:text-sky-200">
+											{t("currentOffset")}:{" "}
+											<strong>
+												{energyDevice.tempOffsetC >= 0 ? "+" : ""}
+												{energyDevice.tempOffsetC}°C
+											</strong>
+											{energyDevice.waterTempC !== null && (
+												<>
+													{" · "}
+													{t("lastReading")}:{" "}
+													<strong>{energyDevice.waterTempC.toFixed(1)}°C</strong>
+												</>
+											)}
+										</p>
+									</div>
+
+									<div data-help="setting-temperature-calibration">
+										<TemperatureCalibrationForm
+											deviceId={energyDevice.id}
+											currentTempOffsetC={energyDevice.tempOffsetC}
+											currentTempC={energyDevice.waterTempC}
+											canWrite={writeAccess}
+										/>
+									</div>
+								</DashboardSection>
+							)}
+
+							{/* Calibration history */}
+							{energyDevice && (
+								<DashboardSection
+									id="calibration-history"
+									title={t("calibration.history.title")}
+									description={t("calibration.history.desc")}
+									icon={History}
+								>
+									<CalibrationHistory
+										rows={historyRows}
+										sessions={historySessions}
+										total={historyTotal}
+										page={historyPage}
+										pageCount={historyPageCount}
+										pageSize={CALIBRATION_HISTORY_PAGE_SIZE}
+										paginationParams={deviceSettingsQuery({
+											deviceId: energyDevice.id,
+											tab: "calibration",
+										})}
+									/>
+								</DashboardSection>
+							)}
+						</>
+					),
+					network: (
+						<>
+							{/* WiFi Setup */}
+							<DashboardSection
+								id="wifi-setup"
+								title={t("wifiSetup.title")}
+								description={t("wifiSetup.desc")}
+								icon={Wifi}
+							>
+								<div className="rounded-xl bg-[#F4F7F6] p-4 dark:bg-gray-800/60">
+									<div className="flex flex-wrap items-start justify-between gap-4">
+										<div className="min-w-0">
+											<p className={statLabel}>{t("wifiSetup.apName")}</p>
+											{setupApName ? (
+												<p className="mt-1 break-all font-mono text-lg font-bold text-[#0A3D62] dark:text-gray-100">
+													{setupApName}
+												</p>
+											) : (
+												<p className="mt-1 text-sm font-medium text-[#3D5568] dark:text-gray-300">
+													{energyDevice ? t("wifiSetup.apUnknown") : t("wifiSetup.noDevice")}
+												</p>
+											)}
+											{energyDevice && (
+												<p className="mt-1 text-xs text-[#3D5568] dark:text-gray-400">
+													{energyDevice.label}
+												</p>
+											)}
+										</div>
+										{energyDevice && (
+											<div className="min-w-0">
+												<p className={statLabel}>{t("wifiSetup.deviceId")}</p>
+												<p className="mt-1 break-all font-mono text-lg font-bold text-[#0A3D62] dark:text-gray-100">
+													{energyDevice.mac}
+												</p>
+												<p className="mt-1 text-xs text-[#3D5568] dark:text-gray-400">
+													{t("wifiSetup.deviceIdHint")}
+												</p>
+											</div>
+										)}
+									</div>
+								</div>
+
+								{energyDevice &&
+									(isWifiConfigured ? (
+										<div className="mt-4 space-y-1 rounded-xl border border-[#1E7B34]/20 bg-[#1E7B34]/5 p-4 dark:border-green-900/50 dark:bg-green-900/20">
+											<p className="text-sm font-bold text-[#1E7B34] dark:text-green-300">
+												{t("wifiSetup.connected")}
+											</p>
+											<p className="text-xs text-[#3D5568] dark:text-gray-300">
+												{t("wifiSetup.apOff")}
+											</p>
+										</div>
+									) : (
+										<div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/50 dark:bg-amber-900/20">
+											<p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+												{t("wifiSetup.needsSetup")}
+											</p>
+										</div>
+									))}
+
+								{energyDevice && (
+									<div className="mt-6">
+										<p className="text-sm font-bold text-[#0A3D62] dark:text-gray-200">
+											{t("wifiSetup.steps")}
+										</p>
+										<ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-[#3D5568] dark:text-gray-300">
+											<li>{t("wifiSetup.step1")}</li>
+											<li>{t("wifiSetup.step2")}</li>
+											<li>{t("wifiSetup.step3")}</li>
+											<li>{t("wifiSetup.step4")}</li>
+											<li>{t("wifiSetup.step5")}</li>
+										</ol>
+										<p className="mt-3 text-xs text-[#3D5568] dark:text-gray-400">
+											{t("wifiSetup.credentialsNote")}
+										</p>
+										<p className="mt-1 text-xs text-[#3D5568] dark:text-gray-400">
+											{t("wifiSetup.tokenWarning")}
+										</p>
+									</div>
+								)}
+
+								{energyDevice && !isWifiConfigured && (
+									<div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/60">
+										<p className="text-sm font-bold text-[#0A3D62] dark:text-gray-200">
+											{t("wifiSetup.recoveryTitle")}
+										</p>
+										<p className="mt-1 text-xs text-[#3D5568] dark:text-gray-400">
+											{t("wifiSetup.recovery")}
+										</p>
+									</div>
+								)}
+							</DashboardSection>
+						</>
+					),
+				}}
+			/>
 		</div>
 	);
 }

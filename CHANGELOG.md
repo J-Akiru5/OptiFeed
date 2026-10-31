@@ -9,6 +9,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.39.0] - 2026-10-31
+
+### Added
+
+- **XLSX export and import, PDF reports.** The export dialog now offers CSV/ZIP, an Excel workbook (one sheet per data type, header row kept for an empty type so the sheet doubles as a template) or a PDF report. The feeding schedule joins the seven dataset types as a derived sheet (one row per meal: time, grams, enabled). PDF reports are export only: the existing pond summary plus growth, SGR and FCR reports that draw a line chart and the table behind it from the same helpers the dashboard uses (`lib/sgr.ts`, the stored FCR reports).
+- **Import by upload with column mapping.** `POST /api/v1/import-prepare` reads a `.csv` or `.xlsx` upload, maps its headers onto the schema (case, spaces and unit hints such as "(kg)" never matter), coerces every cell to its type and returns a typed preview, the per-row issues and the canonical CSV the existing import job reads, so CSV and workbook share one validation path and one writer. A header that did not match can be mapped by hand in the dialog and the preview re-runs. `GET /api/v1/import-template` serves a CSV or XLSX template per type with note lines and an example row.
+- **Feeding schedule import.** A schedule sheet is accepted only when its times are the even spacing of some window (the feeder spaces meals evenly); the window and meal count are applied through `updateScheduleCommand`, so the daily gram cap, the relay-time guard, the fallow check and the audit event all apply, and the feeding rate and button feed amount are kept. The preview shows the daily total against the cap before the user confirms.
+- 35 new keys in English, Hiligaynon and Tagalog (the Hiligaynon and Tagalog strings are drafts for native review; the Tagalog keys are in `tl.draft-keys.json`).
+
+### Security
+
+- Workbook uploads are guarded before any XML is parsed: `.xlsx` only (macro, ActiveX and external-link parts and `.xls`/`.xlsm`/`.xlsb` are refused), encrypted workbooks are refused by magic bytes, the upload is capped at 5 MB, and the ZIP central directory is read by hand to cap entry count, unpacked size and expansion ratio, so a zip bomb never reaches the parser. Formulas are never evaluated (a formula cell contributes its cached value). Exports prefix a text cell that starts with `=`, `+`, `-` or `@` so it cannot run as a formula when the file is opened, and the import strips that prefix again.
+
+### Fixed
+
+- The CSV import read the text `false` as `true` for `read`, `autoCleared`, `rtcOk` and `feederActive` (`Boolean("false")`); flags now read TRUE/FALSE, 1/0 and yes/no, an empty cell stays empty and an unreadable value is a 400 naming the row.
+
+## [1.38.0] - 2026-10-31
+
+### Added
+
+- #353 the admin and superadmin consoles gain a **Backup page** that downloads a SQL export of the database with a recorded audit entry. A tenant admin gets only their own organizations' rows (the same `resolveOrgScope()` chain as the rest of the console); a platform admin gets every allowed table behind a fresh step-up check and a mandatory reason. Each export is rate limited (5 per hour per user), streamed server-side with a 250,000-row pre-flight cap, a 64 MB streaming cap and a 120 s budget, and writes one `PlatformAuditLog` row — who, scope, row counts, size, SHA-256 and outcome, never row data — that also feeds the Backup page history and the audit trail. The file is standard `INSERT` SQL in foreign-key-safe order, has no schema DDL, and its trailer carries the SHA-256 of the payload. A per-table, per-column allow-list (`lib/backup/tables.ts`) is the only thing that can leave the database, and a test compares it with the Prisma data model so a new column fails until someone exports, redacts, omits or excludes it. Device tokens are written as a non-usable `redacted:<id>` placeholder (so a restored row satisfies its unique NOT NULL column) and token hashes, session data, limiter state and job artefacts are excluded.
+- #322 the SQL export carries an **auth identity manifest**: one JSON comment line per exported user with `id`, `supabaseId`, `email`, `farmId`, role and organization links — the minimum a restore needs to recreate the Supabase Auth identities and re-link `User` rows. It never carries a credential. The restore order and the known `PondOwnershipHistory` trigger re-fire are documented in `docs/operations/backup-and-recovery.md` §7.5.
+- `scripts/ops/restore-check.mjs` is a read-only dry run for an exported file: it verifies the checksum and byte count, the allow-list, the absence of credential columns, foreign-key integrity inside the file, identity-manifest coverage and primary-key uniqueness, and it has a `--self-test` that the restore-drill workflow runs. The restore drill and backup docs link it.
+- The Backup page and the settings entry points are translated in English, Hiligaynon and Tagalog (the Hiligaynon and Tagalog strings are drafts for native review; the 83 Tagalog keys are listed in `tl.draft-keys.json`), with a sensitive-data warning on both pages, an accessible history table in UTC and a checksum an operator can compare with the downloaded file.
+
+### Fixed
+
+- The Pond Settings form clears its "saved" banner timer on unmount, so a test or a fast navigation no longer sets state on a form that is gone (an uncaught `window is not defined` in a loaded run).
+- #323 the deployment policy is stated once and pointed at from everywhere: only `staging` (Vercel Preview) and `main` (Production) deploy, `develop` never deploys by any route, and each `develop` -> `staging` -> `main` promotion is a separate reviewed command from Jeff or from the OpenCode lead under a standing authorization recorded in `docs/missions/`. No deployment behaviour, workflow or branch protection changed; `scripts/self-check.mjs` now asserts the actual `vercel.json` allowlist (`staging` + `main`, never `develop`).
+
+## [1.37.0] - 2026-10-31
+
+### Fixed
+
+- #334 `disablePlatformUser` now locks the active platform-admin grants (`SELECT … FOR UPDATE`) and performs the last-admin count, the Supabase ban and the revoking writes in one transaction. Two concurrent disables (A disables B while B disables A) can no longer both pass the check and leave the platform with zero active admins; the refusal happens before its ban.
+- #336 the four guarded writes that wrap their body in a catch (`adminUpdateDeviceDailyCap` and `updateNotificationPrefs` / `updatePondSettings` / `updateDeviceDailyCap` in `lib/actions/settings.ts`) now return the specific authorization outcome — not signed in, password change pending, wrong role, suspended organization, read-only view-as or step-up required — with a stable `code` in the action result. A guard `redirect()` is rethrown instead of being flattened into the generic failure sentence, and no reason exposes a role list, id or org name.
+- #399 the farmer dashboard now fits one screen at 100 % zoom on laptop viewports (1366x768, 1440x900, 1536x864, 1920x1080): the control room takes its height from `100dvh` minus the header and the `main` pane padding, both held as tokens (`--ofd-topbar-h`, `--ofd-main-pad-y`), and steps down its density on short screens (chart plot area, gaps, hero padding/time, legend size). Only the right-hand rail scrolls internally; nothing is hidden or clipped, and below `lg` the stacked scrolling dashboard is unchanged. The chart plot area is now sized in CSS (`ofd-plot`), so a chart can no longer report a taller height than its card reserves. The page also stopped carrying a phantom scroll range: the shell and the rail are now positioned, so their 1 px `.sr-only` helpers are clipped by the room instead of being positioned against `main`.
+- #321 the superadmin step-up dialog now follows the theme: the shared console dialog shell, header, password field, validation message and both actions carry dark tokens from the design system, with every documented colour pair at WCAG AA (4.5:1) in light and dark. The confirm action uses the AA-safe `#C2410C` (white on the brand orange was 3.54:1).
+
+### Changed
+
+- #332 `pnpm api:check` now also runs `scripts/api/auth-check.mjs`, which asserts that every non-public API route calls its guard inside the exported handler (`withAuth`, `withCronAuth`, `verifyDeviceToken`, or the platform session plus `isCurrentPlatformAdmin`) rather than merely importing one. The public, device-token and platform-admin allow-lists are explicit, reason-carrying and tested; the old import-only "Check API route auth" CI step is removed.
+
+### Removed
+
+- #337 removed `getSuperadminStats`, `getPlatformAdmins`, `loadPondProposalSettings`, `createDemoNotification` and their now-unused `pondSettings` helper, together with the tests that were their only callers. None had a production call site; `pnpm dead-code` stays green with no new suppressions.
+## [1.36.0] - 2026-10-31
+
+### Added
+
+- #327 the Tagalog catalogue (`apps/web/messages/tl.json`) is complete: all 3,511 keys carry a Tagalog string, with the same ICU placeholders, plural branches and rich-text tags as English. The strings are machine-drafted, so `apps/web/messages/tl.draft-keys.json` lists the 3,180 keys still awaiting human review, and the language menu labels the locale "Tagalog (draft)". The 331 strings that existed before the pass are human-reviewed and unchanged. Domain terms and style live in `docs/i18n/tagalog-glossary.md`; Mozilla Firefox Tagalog terminology (MPL-2.0) and Unicode CLDR locale data are attributed in `THIRD_PARTY.md`.
+- #327 the English↔Hiligaynon parity test now also gates Tagalog for key parity, placeholders, plural branches, rich-text tags and blank values. New tests cover the Tagalog overlay fallback (`i18n/merge-messages.ts`) and CLDR `fil` formatting: month/day labels, number grouping, relative time and the `one`/`other` plural categories.
+
+## [1.35.0] - 2026-10-31
+
+### Added
+
+- I-100 firmware 1.7.0 takes a versioned `config` object from the existing feed-command poll, so the daily ceiling, dose amounts, calibration, hopper geometry/thresholds, safe-mode thresholds, button guard, poll interval, OTA pre-flight and calibration limits are dashboard-driven instead of compile-time. Every field is validated against an absolute safety envelope in `firmware/firmware-main/config.h`: a missing, malformed, out-of-range or impossible object is ignored whole and the last-good copy (NVS `cfg_json` / `cfg_rev`, new keys only) or the compile-time defaults stay in force, so a bad config can never raise a bound or disable a guard. The firmware echoes `config_rev` in the heartbeat and the ingest route records one `config_applied` state event per change (no schema change). Old firmware ignores the unknown field and new firmware drives from defaults against an old server. The superadmin configuration centre gains "Firmware safety gates" (min dispense gap, doses per hour, brownout hold, safe-mode window/threshold/quiet/healthy-clear) with min/max validation, a required reason, an audit row and an English/Hiligaynon UI. Contract and inventory: `firmware/README.md` and `docs/firmware-dashboard-config.md`.
+- I-100 E38: the firmware no longer refuses a dose above 1,000 g. The per-dose ceiling is derived as `min(daily ceiling, relay envelope seconds × grams per second)`; the relay-time guard still refuses an over-long dose. Needs a reflash (1.6.2 units keep the 1,000 g refusal until then).
+- #338 the additive migration `20261031010000_add_feed_event_event_type_received_at_index` adds `FeedEvent(eventType, receivedAt)`, serving the platform feed aggregate and the heartbeat retention sweep. The misleading `(deviceId, receivedAt)` comment in `lib/retention.ts` now names the correct index, and `docs/performance/query-audit.md` records the change. No `CONCURRENTLY`: the table-size lock risk is documented because no database was available to measure it.
+- #339 the additive migration `20261031020000_add_energy_device_pond_id_index` adds `EnergyDevice(pondId)`, which the dashboard's first read, the calendar lookup, global search and notification acknowledgement all filter on.
+- #317 a CI-only e2e preflight (`scripts/e2e/check-ci-target.ts`) runs before `prisma migrate deploy`. With `CI=true` it accepts only the disposable local Supabase stack, so a misconfigured `DATABASE_URL` pointing at a real project fails before any DDL; the production acknowledgement still never makes a remote host eligible in CI.
+
+### Changed
+
+- #339 `markAllNotificationsRead` is no longer an N+1: it issues one `updateMany`, one batched `EnergyDevice` lookup and one `deviceStateEvent.createMany`, keeping one audit row per pond and the same owner scoping.
+- #318 every writer of `CropCycle.targetHarvestWeightG` now goes through `lib/crop-cycle/target-write.ts`: the cycle edit uses the Replace/Keep decision, new cycles use the range guard, and the calculator save/clear use the same count-guarded writers. A static guard test fails if another module writes the mirror directly, and `cycleTargetDrift` reports drift from scripted data.
+
+
 ## [1.34.1] - 2026-10-31
 
 ### Fixed

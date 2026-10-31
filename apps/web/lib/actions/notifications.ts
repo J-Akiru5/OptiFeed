@@ -6,18 +6,6 @@ import prisma from "@/lib/prisma";
 import type { InputJsonValue } from "@prisma/client/runtime/library";
 import { revalidatePath } from "next/cache";
 
-const DEMO_NOTIFICATION_TIERS = ["CRITICAL", "WARNING", "INFO", "SUCCESS"] as const;
-const DEMO_MESSAGE_MAX_LENGTH = 500;
-
-/** Collapse control characters and cap length — notification text is data, never markup. */
-function sanitizeNotificationMessage(message: string, maxLen = DEMO_MESSAGE_MAX_LENGTH): string {
-	return message
-		.replace(/[\r\n]+/g, " ")
-		.replace(/[^\S ]+/g, "")
-		.trim()
-		.slice(0, maxLen);
-}
-
 export type NotificationActionResult =
 	| { success: true; count: number }
 	| { success: false; error: string };
@@ -47,6 +35,8 @@ export async function markAllNotificationsRead(): Promise<NotificationActionResu
 	try {
 		const ownerId = await getCurrentPondOwnerId();
 
+		// Per-pond counts for the audit trail, read once. This is a bounded
+		// aggregate, not one query per pond.
 		const groups = await prisma.notification.groupBy({
 			by: ["pondId"],
 			where: {
@@ -61,6 +51,8 @@ export async function markAllNotificationsRead(): Promise<NotificationActionResu
 		}
 
 		const acknowledgedAt = new Date();
+		// One statement for the whole farm. The owner relation is the scope, so
+		// another tenant's rows can never match (issue #339).
 		const result = await prisma.notification.updateMany({
 			where: {
 				...PENDING_NOTIFICATION_WHERE,
@@ -73,24 +65,40 @@ export async function markAllNotificationsRead(): Promise<NotificationActionResu
 			},
 		});
 
-		// One audit row per pond that actually had pending alerts, so the
-		// per-device audit trail matches what the reader cleared.
-		for (const group of groups) {
-			const energyDevice = await prisma.energyDevice.findFirst({
-				where: { pondId: group.pondId },
-				select: { id: true },
+		// One batched device lookup for every pond in the batch, then one
+		// createMany. This replaces the old findFirst-inside-a-loop N+1 while
+		// keeping one audit row per pond that had pending alerts.
+		if (result.count > 0) {
+			const pondIds = groups.map((group) => group.pondId);
+			const devices = await prisma.energyDevice.findMany({
+				where: { pondId: { in: pondIds } },
+				select: { id: true, pondId: true },
+				orderBy: { createdAt: "asc" },
 			});
 
-			if (energyDevice) {
-				await prisma.deviceStateEvent.create({
-					data: {
-						deviceId: energyDevice.id,
+			const deviceByPond = new Map<string, string>();
+			for (const device of devices) {
+				if (device.pondId && !deviceByPond.has(device.pondId)) {
+					deviceByPond.set(device.pondId, device.id);
+				}
+			}
+
+			const events = groups.flatMap((group) => {
+				const deviceId = deviceByPond.get(group.pondId);
+				if (!deviceId) return [];
+				return [
+					{
+						deviceId,
 						eventType: "notification_acknowledged",
 						source: "user",
 						actorId: ownerId,
 						metadata: { scope: "all", count: group._count._all },
 					},
-				});
+				];
+			});
+
+			if (events.length > 0) {
+				await prisma.deviceStateEvent.createMany({ data: events });
 			}
 		}
 
@@ -220,45 +228,5 @@ export async function updateNotificationPrefs(
 	} catch (error) {
 		console.error("Failed to update notification prefs:", error);
 		return { success: false, error: "Failed to update notification preferences" };
-	}
-}
-
-export async function createDemoNotification(
-	pondId: string,
-	tier: string,
-	message: string,
-	category?: string,
-): Promise<{ success: true } | { success: false; error: string }> {
-	await requireWriteAccess();
-
-	if (!DEMO_NOTIFICATION_TIERS.includes(tier as (typeof DEMO_NOTIFICATION_TIERS)[number])) {
-		return { success: false, error: "Invalid notification tier." };
-	}
-	const safeMessage = sanitizeNotificationMessage(message);
-	if (!safeMessage) return { success: false, error: "Message is required." };
-
-	try {
-		const ownerId = await getCurrentPondOwnerId();
-		const pond = await prisma.pond.findFirst({
-			where: { id: pondId, ownerId },
-			select: { id: true },
-		});
-
-		if (!pond) return { success: false, error: "Pond not found." };
-
-		await prisma.notification.create({
-			data: {
-				pondId,
-				tier,
-				category: category ?? null,
-				message: safeMessage,
-				linkTo: "/dashboard",
-			},
-		});
-
-		return { success: true };
-	} catch (error) {
-		console.error("Failed to create demo notification:", error);
-		return { success: false, error: "Failed to create demo notification." };
 	}
 }

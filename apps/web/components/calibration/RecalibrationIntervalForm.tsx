@@ -5,6 +5,7 @@ import {
 	calibrationFieldGrid,
 	parseCalibrationNumber,
 } from "@/components/calibration/CalibrationNumberField";
+import { useReportUnsavedChanges } from "@/components/settings/unsaved-changes";
 import { saveRecalibrationInterval } from "@/lib/actions/calibration";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
@@ -32,6 +33,8 @@ export function RecalibrationIntervalForm({
 	const router = useRouter();
 	// String state so the field can be cleared and retyped (issue #307).
 	const [value, setValue] = useState(() => String(currentIntervalDays));
+	const [savedValue, setSavedValue] = useState(value);
+	useReportUnsavedChanges(`recalibration-${deviceId}`, value !== savedValue);
 	const [error, setError] = useState<string | null>(null);
 	const [isSaving, startSaving] = useTransition();
 
@@ -49,6 +52,7 @@ export function RecalibrationIntervalForm({
 					setError(result.error ?? t("saveError"));
 					return;
 				}
+				setSavedValue(value);
 				toast.success(t("saved"));
 				router.refresh();
 			} catch {

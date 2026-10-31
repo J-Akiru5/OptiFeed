@@ -137,22 +137,3 @@ export async function changeSchedule(patch: {
 		? { success: true, message: `Saved: ${feeds} meals/day at ${rate}% of body weight.` }
 		: fail(result.error ?? "Could not save the feeding schedule.");
 }
-
-/** The rate/feeds value is persisted on the pond; read it for the card. */
-export async function pondSettings(): Promise<{
-	pond: { id: string; name: string } | null;
-	feedsPerDay: number | null;
-	feedingRatePct: number | null;
-}> {
-	const pond = await getActivePond();
-	if (!pond) return { pond: null, feedsPerDay: null, feedingRatePct: null };
-	const row = await prisma.pond.findUnique({
-		where: { id: pond.id },
-		select: { feedsPerDay: true, feedingRatePct: true },
-	});
-	return {
-		pond: { id: pond.id as string, name: pond.name as string },
-		feedsPerDay: row?.feedsPerDay ?? null,
-		feedingRatePct: row?.feedingRatePct ?? null,
-	};
-}

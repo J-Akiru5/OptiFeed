@@ -1,5 +1,7 @@
 import {
 	CAMERA_PRESETS,
+	FEEDER_MODEL_FILE,
+	FEEDER_MODEL_VERSION,
 	type FeederStatus,
 	chooseViewerTier,
 	feederComponentStatus,
@@ -83,6 +85,11 @@ describe("feeder viewer geometry", () => {
 	it("points the ISO preset at the front-left angle", () => {
 		expect(CAMERA_PRESETS.iso[0]).toBeLessThan(0);
 		expect(CAMERA_PRESETS.iso[2]).toBeGreaterThan(0);
+	});
+
+	it("loads the model version that carries the water-temperature probe", () => {
+		expect(FEEDER_MODEL_VERSION).toBe("1.2.0");
+		expect(FEEDER_MODEL_FILE).toBe("/models/feeder-v1.2.0.glb");
 	});
 });
 

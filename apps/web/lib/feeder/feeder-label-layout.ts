@@ -3,7 +3,7 @@ import { PerspectiveCamera, Vector3 } from "three";
 
 /**
  * Pure camera projection and fixed-slot layout for the six ISO component
- * labels (model v1.1.2).
+ * labels (model v1.2.0).
  *
  * The slots are art direction: they never move with the orbit. Only the ISO
  * preset shows the overlay, and the leader lines connect these fixed cards to
@@ -70,19 +70,21 @@ function hiddenAnchor(): FeederLabelAnchor {
 }
 
 /**
- * Project the six model anchors through the ISO camera onto a stage of
- * `width` × `height` CSS pixels. An anchor is visible only when it is in
- * front of the camera and inside the stage (with a small edge tolerance).
+ * Project one model-space point through the ISO camera onto a stage of
+ * `width` × `height` CSS pixels. A point is visible only when it is in front
+ * of the camera and inside the stage (with a small edge tolerance).
+ *
+ * Exported separately from the six label anchors so any model part — such as
+ * the water-temperature probe — can be checked against the default camera
+ * without duplicating the projection maths.
  */
-export function projectFeederAnchors(
+export function projectModelPoint(
 	width: number,
 	height: number,
-): Record<FeederComponentId, FeederLabelAnchor> {
-	const projected = {} as Record<FeederComponentId, FeederLabelAnchor>;
-
+	position: readonly [number, number, number],
+): FeederLabelAnchor {
 	if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
-		for (const id of FEEDER_LABEL_IDS) projected[id] = hiddenAnchor();
-		return projected;
+		return hiddenAnchor();
 	}
 
 	const camera = new PerspectiveCamera(
@@ -95,22 +97,27 @@ export function projectFeederAnchors(
 	camera.lookAt(...ISO_CAMERA.target);
 	camera.updateMatrixWorld();
 
-	const point = new Vector3();
+	const point = new Vector3(...position).project(camera);
+	const x = ((point.x + 1) / 2) * width;
+	const y = ((1 - point.y) / 2) * height;
+	const inFront = point.z > -1 && point.z < 1;
+	const insideStage =
+		x >= -STAGE_TOLERANCE_PX &&
+		x <= width + STAGE_TOLERANCE_PX &&
+		y >= -STAGE_TOLERANCE_PX &&
+		y <= height + STAGE_TOLERANCE_PX;
+
+	return { x, y, visible: inFront && insideStage };
+}
+
+/** Project the six model anchors through the ISO camera. */
+export function projectFeederAnchors(
+	width: number,
+	height: number,
+): Record<FeederComponentId, FeederLabelAnchor> {
+	const projected = {} as Record<FeederComponentId, FeederLabelAnchor>;
 	for (const id of FEEDER_LABEL_IDS) {
-		const [x, y, z] = FEEDER_LABEL_ANCHORS[id];
-		point.set(x, y, z).project(camera);
-
-		const px = ((point.x + 1) / 2) * width;
-		const py = ((1 - point.y) / 2) * height;
-		const inFront = point.z > -1 && point.z < 1;
-		const insideStage =
-			px >= -STAGE_TOLERANCE_PX &&
-			px <= width + STAGE_TOLERANCE_PX &&
-			py >= -STAGE_TOLERANCE_PX &&
-			py <= height + STAGE_TOLERANCE_PX;
-
-		projected[id] = { x: px, y: py, visible: inFront && insideStage };
+		projected[id] = projectModelPoint(width, height, FEEDER_LABEL_ANCHORS[id]);
 	}
-
 	return projected;
 }

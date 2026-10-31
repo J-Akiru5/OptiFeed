@@ -19,6 +19,14 @@ import {
 	type DeviceStatusSettingValue,
 	normalizeDeviceStatusValue,
 } from "@/lib/device-status";
+import {
+	FIRMWARE_GATES_SETTING_KEY,
+	FIRMWARE_GATE_FIELDS,
+	type FirmwareValues,
+	formatFirmwareValue,
+	isWithinFirmwareField,
+	normalizeFirmwareValues,
+} from "@/lib/firmware/config";
 import prisma from "@/lib/prisma";
 import {
 	LIST_PAGE_SIZE_KEY,
@@ -203,6 +211,106 @@ export async function setDeviceStatusThresholds(
 	revalidatePath("/[locale]/(admin)", "layout");
 	revalidatePath("/[locale]/(dashboard)", "layout");
 	return { success: true, value: next };
+}
+
+/**
+ * Firmware feed-safety gates (I-100).
+ *
+ * The values a platform admin may move inside the firmware's absolute envelope:
+ * the minimum dispense gap, doses per rolling hour, the safe-mode window /
+ * threshold / quiet period / healthy-clear window and the post-brownout hold.
+ * Stored in `PlatformSetting` under `firmware.gates`; no schema change.
+ *
+ * Only editable gate fields are accepted. Every value must be inside the same
+ * `min`/`max` the firmware enforces (a fractional value in a whole-number field
+ * is refused), the required reason is recorded, and one `PlatformAuditLog` row
+ * carries the before/after values in the same transaction as the upsert.
+ * Non-gate values already stored (OTA, calibration, button guard) are preserved.
+ */
+export type FirmwareGatesInput = Record<string, number>;
+
+export type FirmwareGatesActionResult =
+	| { success: true; value: FirmwareValues }
+	| { error: string };
+
+export async function setFirmwareGates(
+	input: FirmwareGatesInput,
+	reason: string,
+): Promise<FirmwareGatesActionResult> {
+	await requirePlatformAdmin();
+
+	if (typeof input !== "object" || input === null || Array.isArray(input)) {
+		return { error: "The safety gate values are invalid." };
+	}
+
+	const editable = new Map(FIRMWARE_GATE_FIELDS.map((field) => [field.id, field]));
+	for (const [id, value] of Object.entries(input)) {
+		const field = editable.get(id);
+		if (!field) {
+			return { error: `${id} is not a configurable firmware gate.` };
+		}
+		if (!isWithinFirmwareField(field, value)) {
+			return {
+				error: `${field.id} must be ${field.integer ? "a whole number" : "a number"} from ${formatFirmwareValue(field.min)} to ${formatFirmwareValue(field.max)}.`,
+			};
+		}
+	}
+
+	const parsedReason = inputSchema.shape.reason.safeParse(reason);
+	if (!parsedReason.success) {
+		return {
+			error: `A reason of at least ${MIN_REASON_LENGTH} characters is required.`,
+		};
+	}
+
+	const actor = await actorContext();
+
+	const saved = await prisma.$transaction(async (tx) => {
+		const existing = await tx.platformSetting.findUnique({
+			where: { key: FIRMWARE_GATES_SETTING_KEY },
+			select: { value: true },
+		});
+		const before = normalizeFirmwareValues(existing?.value);
+		const after: FirmwareValues = { ...before };
+		for (const [id, value] of Object.entries(input)) {
+			after[id] = value;
+		}
+
+		await tx.platformSetting.upsert({
+			where: { key: FIRMWARE_GATES_SETTING_KEY },
+			create: {
+				key: FIRMWARE_GATES_SETTING_KEY,
+				value: after as unknown as Prisma.InputJsonValue,
+				updatedById: actor.id,
+			},
+			update: {
+				value: after as unknown as Prisma.InputJsonValue,
+				updatedById: actor.id,
+			},
+		});
+
+		const changed = Object.fromEntries(
+			Object.keys(input)
+				.filter((id) => before[id] !== after[id])
+				.map((id) => [id, { before: before[id], after: after[id] }]),
+		);
+
+		await writePlatformAudit(tx, {
+			actorUserId: actor.id,
+			action: "platform.settings.firmware_gates",
+			targetType: "platform_setting",
+			targetId: FIRMWARE_GATES_SETTING_KEY,
+			reason: parsedReason.data,
+			temporaryGrant: actor.temporaryGrant,
+			before: { gates: changed },
+			after: { gates: Object.fromEntries(Object.keys(input).map((id) => [id, after[id]])) },
+		});
+
+		return after;
+	});
+
+	revalidatePath("/[locale]/(superadmin)", "layout");
+	return { success: true, value: saved };
 }
 
 /**

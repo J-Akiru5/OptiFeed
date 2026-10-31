@@ -11,6 +11,7 @@ import {
 	StickerDefaultCard,
 } from "@/components/superadmin/config-status";
 import { DeviceStatusSettings } from "@/components/superadmin/device-status-settings";
+import { FirmwareGatesSettings } from "@/components/superadmin/firmware-gates-settings";
 import { PlatformListSettings } from "@/components/superadmin/platform-settings";
 import { PageHeader } from "@/components/superadmin/ui";
 import { listAiProviderConfig } from "@/lib/actions/ai-providers";
@@ -22,6 +23,7 @@ import {
 	FEEDING_CAPS_MIN,
 	getFeedingLimits,
 } from "@/lib/settings/feeding-caps";
+import { getFirmwareGates } from "@/lib/settings/firmware-gates";
 import { getFirmwareStatus } from "@/lib/settings/firmware-status";
 import { FEATURE_FLAGS, getFeatureFlags } from "@/lib/settings/flags";
 import {
@@ -52,7 +54,7 @@ import { getTranslations } from "next-intl/server";
  * every one of them is a platform action with a reason and an audit row.
  */
 export default async function SuperadminSettingsPage() {
-	const [pageSize, caps, orgDefaults, flags, stickerRating, aiProviders, deviceStatus, t] =
+	const [pageSize, caps, orgDefaults, flags, stickerRating, aiProviders, deviceStatus, gates, t] =
 		await Promise.all([
 			getListPageSize(),
 			getFeedingLimits(),
@@ -61,6 +63,7 @@ export default async function SuperadminSettingsPage() {
 			getStickerRatingDefault(),
 			listAiProviderConfig(),
 			getDeviceStatusSetting(),
+			getFirmwareGates(),
 			getTranslations("superadmin.settings"),
 		]);
 
@@ -81,6 +84,13 @@ export default async function SuperadminSettingsPage() {
 					fallback={LIST_PAGE_SIZE_DEFAULT}
 				/>
 			),
+		},
+		{
+			id: "firmware-gates",
+			icon: "safety",
+			title: t("firmwareGates.title"),
+			description: t("firmwareGates.description"),
+			content: <FirmwareGatesSettings initial={gates} />,
 		},
 		{
 			id: "device-status",

@@ -359,6 +359,162 @@ is on `PATH`, and `scripts/native_runtime.py` copies its runtime DLLs beside the
 test binary. On Linux/macOS both scripts are no-ops and the host compiler is
 used directly.
 
+## Firmware 1.7.0 — dashboard-driven configuration (I-100)
+
+Jeff's 2026-10-31 instruction: *"make sure that all the code on the firmware is
+variable based on the dashboard, do that on our next reflash."* Firmware 1.7.0
+moves every **operational** value out of compile-time constants and into a
+versioned `config` object that rides the existing 5-second feed-command poll
+response, validated against an absolute safety envelope that a dashboard value
+can never leave.
+
+> **Do not flash from this branch.** 1.7.0 needs Jeff's explicit yes and a
+> reflash (USB bootstrap or signed OTA). The contract, the native tests and the
+> three board builds are the deliverable of I-100.
+
+### Three classes
+
+| Class | Meaning | Where it lives |
+|---|---|---|
+| **A — absolute safety envelope** | Outer bounds the dashboard can never exceed, and guards that are never configurable: relay on-time envelope (300 s), calibration envelope (600 s / 5,000 g), the 5,000 g/day hard guard, the 2 s relay overrun trip, GPIO pins, NVS namespace `optifeed`, TLS roots, device auth | `config.h` (`min`/`max` per field) and `firmware-main.ino` |
+| **B — operational** | Every feeding, safe-mode, hopper, button, poll, OTA and calibration value; server-driven within (A) | `deviceConfig` (this header), sent by `GET /api/feed-command` |
+| **C — transport / implementation** | HTTP timeouts, WiFi retry ladder, event token buckets, offline queue size, scan limits, OTA response size, provisioning timeouts | compile-time in `firmware-main.ino` (no dashboard home, no feeding effect) |
+
+The daily ceiling is the **only** gram cap (decision E38). The firmware no
+longer refuses a dose above 1,000 g: `max_grams_per_dose` is derived as
+`min(max_grams_per_day, max_dispense_ms / 1000 × grams_per_second)`. The
+relay-time guard and the firmware gate still apply, so a dose that would run
+past the relay envelope is refused with `dose_time_exceeds_cap`.
+
+### Inventory (firmware 1.6.2 → 1.7.0)
+
+`Value` is the 1.6.2 compile-time value, which is also the 1.7.0 default, so an
+old server (no `config` object) changes nothing.
+
+| 1.6.2 constant | 1.7.0 JSON key | Value | Class |
+|---|---|---|---|
+| `MIN_DISPENSE_GAP_MS` | `min_dispense_gap_s` | 10 s (envelope 10–3,600) | B |
+| `MAX_DISPENSES_PER_HOUR` | `max_dispenses_per_hour` | 6 (envelope 1–6) | B |
+| `MAX_GRAMS_PER_DAY` | `max_grams_per_day` | 5,000 g (envelope 0–5,000) | B |
+| `MAX_DISPENSE_MS` | `max_dispense_ms` | 300,000 ms (envelope 5,000–300,000) | B |
+| `MAX_CALIBRATION_GRAMS` | `calibration_max_grams` | 5,000 g (envelope 100–5,000) | B |
+| `MAX_CALIBRATION_DISPENSE_MS` | `calibration_max_dispense_ms` | 600,000 ms (envelope 10,000–600,000) | B |
+| `BROWNOUT_HOLD_MS` | `brownout_hold_s` | 60 s (envelope 10–3,600) | B |
+| `SAFE_MODE_ABNORMAL_WINDOW_MS` | `safe_mode_abnormal_window_s` | 600 s (envelope 60–86,400) | B |
+| `SAFE_MODE_ABNORMAL_THRESHOLD` | `safe_mode_abnormal_threshold` | 3 (envelope 2–10) | B |
+| `SAFE_MODE_QUIET_MS` | `safe_mode_quiet_s` | 1,800 s (envelope 60–86,400) | B |
+| `SAFE_MODE_HEALTHY_CLEAR_MS` | `safe_mode_healthy_clear_s` | 600 s (envelope 60–86,400) | B |
+| `DEFAULT_SCHEDULED_GRAMS` (via `grams_per_feeding`) | `grams_per_feeding` | 150 g (envelope 1–5,000) | B |
+| `DEFAULT_BUTTON_FEED_GRAMS` | `button_feed_grams` | 80 g (envelope 1–500) | B |
+| `DEFAULT_GRAMS_PER_SECOND` | `grams_per_second` | 4 g/s (envelope 0.5–50) | B |
+| `TEMP_OFFSET_C` (backend) | `temp_offset_c` | 0 °C (envelope -20–20) | B |
+| `HOPPER_FULL_CM` (backend) | `hopper_full_cm` | 5 cm (envelope 0.1–200) | B |
+| `HOPPER_EMPTY_CM` (backend) | `hopper_empty_cm` | 30 cm (envelope 0.1–500) | B |
+| `HOPPER_LOW_PCT` | `hopper_low_pct` | 20 % (envelope 1–90) | B |
+| `HOPPER_REFILL_MARGIN_PCT` | `hopper_refill_margin_pct` | 10 % (envelope 0–50) | B |
+| `HOPPER_REJECT_BELOW_CM` | `hopper_reject_below_cm` | 2 cm (envelope 0–50) | B |
+| `HOPPER_REJECT_ABOVE_MARGIN_CM` | `hopper_reject_above_margin_cm` | 10 cm (envelope 0–100) | B |
+| `HOPPER_EMA_ALPHA` | `hopper_ema_alpha` | 0.35 (envelope 0.05–1) | B |
+| `HOPPER_JUMP_PCT` | `hopper_jump_pct` | 15 % (envelope 1–100) | B |
+| `HOPPER_PERSIST_CYCLES` | `hopper_persist_cycles` | 3 (envelope 1–20) | B |
+| `HOPPER_STATE_HOLD_MS` | `hopper_state_hold_s` | 600 s (envelope 0–86,400) | B |
+| `BUTTON_DEBOUNCE_MS` | `button_debounce_ms` | 250 ms (envelope 10–2,000) | B |
+| `BUTTON_STARTUP_GRACE_MS` | `button_startup_grace_ms` | 5,000 ms (envelope 0–60,000) | B |
+| `BUTTON_QUIET_AFTER_DISPENSE_MS` | `button_quiet_after_dispense_ms` | 2,000 ms (envelope 0–60,000) | B |
+| `BUTTON_COOLDOWN_MS` | `button_cooldown_ms` | 30,000 ms (envelope 0–3,600,000) | B |
+| `BUTTON_LOG_INTERVAL_MS` | `button_log_interval_ms` | 10,000 ms (envelope 1,000–600,000) | B |
+| `BUTTON_NOISE_WINDOW_MS` | `button_noise_window_ms` | 60,000 ms (envelope 1,000–3,600,000) | B |
+| `BUTTON_NOISE_MAX` | `button_noise_max` | 5 (envelope 1–50) | B |
+| `BUTTON_DISABLE_MS` | `button_disable_ms` | 600,000 ms (envelope 1,000–86,400,000) | B |
+| `POST_INTERVAL_MS` | `heartbeat_interval_s` | 5 s (envelope 2–300) | B |
+| `OTA_CHECK_INTERVAL_MS` | `ota_check_interval_s` | 1,800 s (envelope 300–86,400) | B |
+| `OTA_MIN_UPTIME_MS` | `ota_min_uptime_s` | 600 s (envelope 60–86,400) | B |
+| `OTA_MIN_RSSI_DBM` | `ota_min_rssi_dbm` | -75 dBm (envelope -100 to -30) | B |
+| `OTA_FEED_GUARD_MINUTES` | `ota_feed_guard_min` | 20 min (envelope 5–240) | B |
+| `OTA_WINDOW_START_MINUTE` | `ota_window_start_min` | 600 min (envelope 0–1,440) | B |
+| `OTA_WINDOW_END_MINUTE` | `ota_window_end_min` | 900 min (envelope 0–1,440) | B |
+| `OTA_MIN_FREE_HEAP_BYTES` | `ota_min_free_heap_bytes` | 60,000 B (envelope 20,000–200,000) | B |
+| `OTA_NO_DATA_TIMEOUT_MS` | `ota_no_data_timeout_ms` | 60,000 ms (envelope 10,000–600,000) | B |
+| `OTA_DOWNLOAD_TIMEOUT_MS` | `ota_download_timeout_ms` | 900,000 ms (envelope 60,000–3,600,000) | B |
+| `OTA_HEALTH_CHECK_TIMEOUT_MS` | `ota_health_check_timeout_ms` | 300,000 ms (envelope 60,000–1,800,000) | B |
+| `OrgSetting.offlineAfterMin` / I-95 policy | `weak_after_min`, `offline_after_min` | 5 / 15 min (envelope 1–60 / 5–180) | B (diagnostic) |
+| `RELAY_OVERRUN_GRACE_MS` | — | 2,000 ms | A |
+| `MAX_GRAMS_PER_DAY` (hard guard) / `MAX_DISPENSE_MS` (envelope) | envelope rows above | 5,000 g / 300,000 ms | A |
+| `RELAY_PIN`, `BUTTON_PIN`, reset pins, RTC/ultrasonic/DS18B20 pins | — | build flag / compile-time | A |
+| NVS namespace `optifeed` and existing keys | — | never renamed | A |
+| `BUTTON_CONFIRM_SAMPLES` / `_SAMPLE_MS` / `_MIN_LOW_SAMPLES` | — | 10 / 5 ms / 9 | A (anti-spike guard) |
+| `FEED_EVENT_*`, `REFUSAL_*`, `ACK_*` token buckets | — | 12/5 min, 6/10 min, 6/1 min | C |
+| `HTTP_RETRY_BASE_MS` / `HTTP_RETRY_CAP_MS` | — | 5 s / 300 s | C |
+| `HTTP_CONNECT_TIMEOUT_MS` / `HTTP_READ_TIMEOUT_MS` | — | 8 s / 8 s | C |
+| `WIFI_RETRY_INTERVAL_MS`, `WIFI_INITIAL_RETRY_MS`, `WIFI_MAX_RETRY_MS` | — | 10 s / 10 s / 60 s | C |
+| `WIFI_JOIN_WINDOW_MS`, `WIFI_FAILURES_BEFORE_PORTAL` | — | 15 s / 5 | C |
+| `PROVISIONING_*` (scan, join, restart) | — | 20 networks, 300 ms/channel, 12 s scan, 2 s retry, 20 s join, 6 s quick fail, 5 s restart | C |
+| `EVENT_QUEUE_SIZE` | — | 50 | C |
+| `MAX_FEED_TIMES` | — | 24 | C |
+| `OTA_MAX_CHECK_RESPONSE_BYTES`, `OTA_LOCAL_UTC_OFFSET_MINUTES` | — | 8,192 B / 480 min | C (time zone is a fleet constant) |
+| `OTA_CHECK_URL`, `INGEST_URL`, `FEED_POLL_URL_BASE`, `SCHEDULE_SYNC_URL_BASE` | — | production URLs | C |
+| TLS roots, OTA public keys, `PROVISIONING_AP_PREFIX` | — | compile-time | A |
+
+Values with no dashboard home stay class B **defaults** on the server and are
+still sent (so a later UI or a future setting can move them without a reflash):
+the OTA guards, calibration ceiling, hopper filter tuning, button guard and
+heartbeat interval.
+
+### The `config` contract
+
+```json
+"config": {
+  "version": 1,
+  "rev": 1543210987,
+  "min_dispense_gap_s": 10,
+  "max_dispenses_per_hour": 6,
+  "...": "every field in the table above"
+}
+```
+
+Rules, all covered by `pio test -d firmware -e native`:
+
+1. `version` must equal `1`; any other value is ignored (`unsupported`) so a
+   future contract never half-applies on an old unit.
+2. `rev` is required. The server hashes the whole object (FNV-1a over the fixed
+   field order) and the firmware echoes it as `config_rev` in the heartbeat. A
+   change therefore has a verifiable acknowledgement.
+3. Missing object → keep the last-good copy (an old server never breaks a
+   device). A present field that is absent keeps the last-good value.
+4. Wrong type, NaN/Infinity, a fractional value in a whole-number field, any
+   value outside its envelope, or an impossible pair (`hopper_full_cm >=
+   hopper_empty_cm`, `ota_window_start_min >= ota_window_end_min`) → the **whole**
+   object is ignored and the last-good copy stays. Nothing is clamped on the
+   device: a bad config can never half-apply.
+5. Last-good storage: NVS namespace `optifeed`, keys `cfg_json` (the operational
+   fields only) and `cfg_rev`. New keys only; `cal_gps` and every existing key
+   are untouched. A corrupt or hand-edited blob falls back to the compile-time
+   defaults (a bad field rejects the whole blob).
+6. Old firmware ignores the unknown `config` key; the server keeps the flat
+   1.6.x fields, so a mixed fleet keeps working.
+7. A refused feed still reports the existing `feed_refused` reasons with no
+   contract change (`grams_out_of_range`, `dose_time_exceeds_cap`,
+   `daily_gram_cap_exceeded`, `too_soon`, `hourly_limit`, ...).
+
+### Server side
+
+- `apps/web/lib/firmware/config.ts` — the field table, envelope, defaults,
+  normalization and `buildFirmwareConfig()` (pure; also imported by the form).
+- `apps/web/lib/settings/firmware-gates.ts` — reads `PlatformSetting`
+  `firmware.gates` (no schema change).
+- `apps/web/app/api/feed-command/route.ts` — overlays the device row
+  (`gramsPerFeeding`, `buttonFeedGrams`, `gramsPerSecond`, `tempOffsetC`, hopper
+  geometry), the resolved daily ceiling (`resolveDailyCapG`, which already
+  applies the platform daily factor and the hopper capacity) and the platform
+  relay cap (`feeding.limits`), plus the I-95 connectivity policy as
+  diagnostics.
+- Superadmin → Settings → **Firmware safety gates** edits the seven gate values
+  (min gap, doses/hour, brownout hold, safe-mode window/threshold/quiet/
+  healthy-clear) with min/max validation, a required reason and one audit row
+  (`platform.settings.firmware_gates`) per save.
+- `apps/web/lib/__tests__/firmware-config.test.ts` parses `config.h` and fails
+  if the server table and the firmware table drift.
+
 ## Configuration
 
 Open `firmware-main.ino` and fill in the `Config` section before flashing:
@@ -370,7 +526,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 #define FEED_POLL_URL_BASE     "https://pakaonai.syntaxure.dev/api/feed-command"
 #define SCHEDULE_SYNC_URL_BASE "https://pakaonai.syntaxure.dev/api/schedule-sync"
 #define OTA_CHECK_URL          "https://pakaonai.syntaxure.dev/api/firmware/check"
-#define FW_VERSION             "1.6.2"
+#define FW_VERSION             "1.7.0"
 #define FW_BOARD               "wroom32u"
 ```
 
@@ -403,7 +559,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 > 4. Confirm the five embedded certificates match the fingerprints in the
 >    source comment (`openssl x509 -fingerprint -sha256 -in <pem>`).
 
-> `FW_VERSION` is printed at boot (`[FIRMWARE] v1.6.2`, under the
+> `FW_VERSION` is printed at boot (`[FIRMWARE] v1.7.0`, under the
 > `[DEVICE MAC]` line) and sent as `firmware_version` in every heartbeat. It is
 > also the version the OTA check reports and compares against the signed
 > manifest.
@@ -832,7 +988,7 @@ them identical to the PEMs embedded in `firmware-main.ino`.
   "timestamp": "2026-07-11T12:00:00+00:00",
   "rtc_ok": true,
   "feeder_active": false,
-  "firmware_version": "1.6.2",
+  "firmware_version": "1.7.0",
   "wifi_rssi": -58,
   "ota_state": "valid",
   "reset_reason": "poweron",
@@ -902,8 +1058,8 @@ alert:
 |---|---|
 | `safe_mode` | the unit is in safe mode after repeated abnormal resets |
 | `brownout_hold` | inside the 60 s hold after a brownout reset |
-| `too_soon` | another dose started less than 10 s ago (any source) |
-| `hourly_limit` | six doses already started in the rolling hour |
+| `too_soon` | another dose started less than the configured minimum gap ago (any source) |
+| `hourly_limit` | the configured doses-per-rolling-hour ceiling is reached |
 | `relay_overrun` | the relay ran past its expected end + 2 s and was force-opened |
 | `ota_in_progress` | a signed update is downloading (existing) |
 | `grams_out_of_range`, `dose_time_exceeds_cap`, `daily_gram_cap_exceeded` | existing caps |
@@ -914,15 +1070,39 @@ alert:
 
 ### `GET /api/feed-command?device_id=...` — Dashboard Feed Request
 
-Response when no pending request:
+Response when no pending request (1.7.0; the `config` object is new and flat
+fields remain for firmware <= 1.6.x):
 ```json
 {
   "feed_requested": false,
   "feed_request_id": null,
   "grams": 0,
-  "grams_per_feeding": 150
+  "grams_per_feeding": 150,
+  "button_feed_grams": 80,
+  "hopper_full_cm": 5,
+  "hopper_empty_cm": 30,
+  "grams_per_second": 4,
+  "temp_offset_c": 0,
+  "server_time_utc": "2026-10-31T02:00:00.000Z",
+  "farm_offset_minutes": 480,
+  "config": {
+    "version": 1,
+    "rev": 1543210987,
+    "min_dispense_gap_s": 10,
+    "max_dispenses_per_hour": 6,
+    "brownout_hold_s": 60,
+    "safe_mode_abnormal_threshold": 3,
+    "max_grams_per_day": 2000,
+    "max_dispense_ms": 300000,
+    "grams_per_feeding": 150,
+    "heartbeat_interval_s": 5
+  }
 }
 ```
+
+The full field list, the envelope and the fallback rules are in
+[`docs/firmware-dashboard-config.md`](../docs/firmware-dashboard-config.md) and
+`firmware-main/config.h`.
 
 Response when farmer taps "Feed Now":
 ```json
@@ -930,7 +1110,9 @@ Response when farmer taps "Feed Now":
   "feed_requested": true,
   "feed_request_id": "b3f1...uuid",
   "grams": 100,
-  "grams_per_feeding": 150
+  "calibration": false,
+  "grams_per_feeding": 150,
+  "config": { "version": 1, "rev": 1543210987 }
 }
 ```
 
@@ -1008,7 +1190,7 @@ Portal checks (no backend needed):
 12. Confirm the serial log never prints the WiFi password or the Device Token, and that
     the setup page never renders a stored token. `/status` and `/scan` must not contain
     either.
-13. Confirm the boot log prints `[FIRMWARE] v1.6.2` under the `[DEVICE MAC]` line and
+13. Confirm the boot log prints `[FIRMWARE] v1.7.0` under the `[DEVICE MAC]` line and
     `[IDENTITY] Setup AP name`, and that a heartbeat carries the same version in
     `firmware_version`.
 14. Confirm the boot log prints `[INIT] Reset reason: ...`, `[OTA] state -> valid` and

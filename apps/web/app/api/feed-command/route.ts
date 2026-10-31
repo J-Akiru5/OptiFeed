@@ -1,6 +1,7 @@
 import { withApi } from "@/lib/api/instrumentation";
 import { PH_UTC_OFFSET_MINUTES, REQUEST_EXPIRY_MS } from "@/lib/constants";
 import { isDeviceApproved, verifyDeviceToken } from "@/lib/device-auth";
+import { buildFirmwareConfig } from "@/lib/firmware/config";
 import {
 	BUTTON_FEED_GRAMS_MAX,
 	BUTTON_FEED_GRAMS_MIN,
@@ -10,10 +11,14 @@ import {
 	TEMP_OFFSET_C_MAX,
 	TEMP_OFFSET_C_MIN,
 	clamp,
+	resolveDailyCapG,
 } from "@/lib/limits";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
 import { checkDeviceRateLimit } from "@/lib/rate-limit";
+import { getDeviceStatusSetting } from "@/lib/settings/device-status";
+import { getFeedingLimits } from "@/lib/settings/feeding-caps";
+import { getFirmwareGates } from "@/lib/settings/firmware-gates";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +29,8 @@ type DeviceConfig = {
 	hopperFullCm: number | null;
 	gramsPerSecond: number;
 	tempOffsetC: number;
+	hopperCapacityG: number | null;
+	dailyCapG: number | null;
 };
 
 function deviceConfig(device: DeviceConfig) {
@@ -39,6 +46,44 @@ function deviceConfig(device: DeviceConfig) {
 		server_time_utc: new Date().toISOString(),
 		farm_offset_minutes: PH_UTC_OFFSET_MINUTES,
 	};
+}
+
+/**
+ * The 1.7.0 `config` object (I-100). Device values and the resolved daily
+ * ceiling overlay the stored platform gates, then every value is clamped into
+ * the envelope the firmware enforces. `rev` is a hash of the whole object, so
+ * the heartbeat echo tells ops whether the unit applied this exact config.
+ */
+async function firmwareConfigFor(device: DeviceConfig) {
+	const [feedingLimits, gates, deviceStatus] = await Promise.all([
+		getFeedingLimits(),
+		getFirmwareGates(),
+		getDeviceStatusSetting(),
+	]);
+
+	const dailyCapG = resolveDailyCapG({
+		configuredCapG: device.dailyCapG,
+		hopperCapacityG: device.hopperCapacityG,
+		dailyCapFactor: feedingLimits.dailyCapFactor,
+	});
+
+	return buildFirmwareConfig({
+		device: {
+			gramsPerFeeding: device.gramsPerFeeding,
+			buttonFeedGrams: device.buttonFeedGrams,
+			gramsPerSecond: device.gramsPerSecond,
+			tempOffsetC: device.tempOffsetC,
+			hopperFullCm: device.hopperFullCm,
+			hopperEmptyCm: device.hopperEmptyCm,
+			dailyCapG,
+			maxDispenseMs: feedingLimits.maxDispenseMs,
+		},
+		gates,
+		deviceStatus: {
+			weakAfterMin: deviceStatus.weakAfterMin,
+			offlineAfterMin: deviceStatus.offlineAfterMin,
+		},
+	});
 }
 
 export const GET = withApi(
@@ -110,6 +155,7 @@ export const GET = withApi(
 					grams: clamp(pendingRequest.grams, 0, MAX_ACCEPTED_FEED_GRAMS),
 					calibration,
 					...deviceConfig(device),
+					config: await firmwareConfigFor(device),
 				});
 			}
 
@@ -119,6 +165,7 @@ export const GET = withApi(
 				grams: 0,
 				calibration: false,
 				...deviceConfig(device),
+				config: await firmwareConfigFor(device),
 			});
 		} catch (error) {
 			reportError(error, { route: "feed-command", deviceId: device?.id ?? deviceId });

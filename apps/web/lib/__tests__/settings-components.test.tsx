@@ -71,9 +71,63 @@ describe("hopper calibration form", () => {
 
 		expect(html).toContain("Full Distance (cm)");
 		expect(html).toContain("Empty Distance (cm)");
-		expect(html).toContain("Hopper Capacity (grams)");
+		expect(html).toContain("Tank Diameter (cm)");
+		expect(html).toContain("Feed Density (g/cm³)");
 		expect(html).toContain("Sensor reading when hopper is full");
 		expect(html).toContain("min-h-11");
+	});
+
+	it("computes the capacity from the tank diameter (issue #415)", () => {
+		render(
+			<HopperCalibrationForm
+				deviceId="dev-1"
+				hopperFullCm={5}
+				hopperEmptyCm={30}
+				hopperCapacityG={4750}
+			/>,
+		);
+
+		// Before a diameter is known the stored capacity is kept and shown.
+		expect(screen.getByTestId("hopper-capacity-summary")).toHaveTextContent("4,750 g");
+
+		fireEvent.change(screen.getByLabelText("Tank Diameter (cm)"), { target: { value: "20" } });
+
+		// 20 cm tank, 25 cm usable height, 0.65 g/cm³ default: 5,105 g.
+		const summary = screen.getByTestId("hopper-capacity-summary");
+		expect(summary).toHaveTextContent("5,105 g");
+		expect(summary).toHaveTextContent("7.85 L");
+		expect(summary).toHaveTextContent("0.65 g/cm³");
+	});
+
+	it("sends the geometry so the server recomputes the capacity", async () => {
+		vi.mocked(saveHopperCalibration).mockResolvedValue({ success: true });
+
+		render(
+			<HopperCalibrationForm
+				deviceId="dev-1"
+				hopperFullCm={5}
+				hopperEmptyCm={30}
+				hopperCapacityG={4750}
+			/>,
+		);
+
+		fireEvent.change(screen.getByLabelText("Tank Diameter (cm)"), { target: { value: "20" } });
+		// A measured feed density overrides the default.
+		fireEvent.change(screen.getByLabelText("Feed Density (g/cm³)"), {
+			target: { value: "0.6" },
+		});
+		expect(screen.getByTestId("hopper-capacity-summary")).toHaveTextContent("4,712 g");
+
+		fireEvent.click(screen.getByRole("button", { name: "Save Calibration" }));
+
+		await waitFor(() =>
+			expect(saveHopperCalibration).toHaveBeenCalledWith("dev-1", {
+				hopperFullCm: 5,
+				hopperEmptyCm: 30,
+				hopperDiameterCm: 20,
+				hopperBulkDensityGCm3: 0.6,
+			}),
+		);
 	});
 
 	it("announces a save failure with role=alert", async () => {

@@ -29,6 +29,14 @@ export function isSheetType(value: unknown): value is SheetType {
 	return typeof value === "string" && (SHEET_TYPES as string[]).includes(value);
 }
 
+/** PDF exports: the existing pond summary plus the growth, SGR and FCR reports (export only). */
+export const PDF_REPORTS = ["summary", "growth", "sgr", "fcr"] as const;
+export type PdfReport = (typeof PDF_REPORTS)[number];
+
+export function isPdfReport(value: unknown): value is PdfReport {
+	return typeof value === "string" && (PDF_REPORTS as readonly string[]).includes(value);
+}
+
 export type FieldKind = "string" | "number" | "date" | "boolean" | "json";
 
 export type CellValue = string | number | boolean | null;

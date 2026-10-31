@@ -1,11 +1,15 @@
-import { notFound } from "@/lib/api/errors";
+import { ApiError, notFound } from "@/lib/api/errors";
 import { resolveActivePond } from "@/lib/auth/pond-access";
 import { EXPORT_ROW_LIMIT } from "@/lib/constants";
 import { dateToFarmDateOnly } from "@/lib/crop-cycle/dates";
 import { type ExportableType, toCsvString } from "@/lib/csv";
 import prisma from "@/lib/prisma";
+import { buildScheduleRows } from "@/lib/schedule/sheet";
+import type { SheetType } from "@/lib/xlsx/schema";
+import type { SheetData } from "@/lib/xlsx/writer";
 import JSZip from "jszip";
 
+/** The datasets the importer can also read back. */
 export const CSV_EXPORT_TYPES: ExportableType[] = [
 	"biomass_logs",
 	"fish_samples",
@@ -16,13 +20,17 @@ export const CSV_EXPORT_TYPES: ExportableType[] = [
 	"audit_events",
 ];
 
-export const BATCH_EXPORT_TYPES: ExportableType[] = [
+/** Everything a single CSV or a workbook can export: the datasets plus the feeding schedule. */
+export const SHEET_EXPORT_TYPES: SheetType[] = [...CSV_EXPORT_TYPES, "feeding_schedule"];
+
+export const BATCH_EXPORT_TYPES: SheetType[] = [
 	"biomass_logs",
 	"feed_events",
 	"fcr_reports",
 	"feed_level_logs",
 	"notifications",
 	"audit_events",
+	"feeding_schedule",
 ];
 
 export type ExportRow = Record<string, string | number | boolean | null>;
@@ -191,12 +199,19 @@ export async function buildExportRows(
 	}
 }
 
-export async function buildCsvExport(
-	ownerId: string,
-	type: ExportableType,
-): Promise<ExportArtifact> {
+/** The rows of one sheet: a dataset, or the feeding schedule derived from the pond settings. */
+export async function buildSheetRows(
+	context: ExportContext,
+	type: SheetType,
+): Promise<ExportRow[]> {
+	return type === "feeding_schedule"
+		? buildScheduleRows(context.pondId)
+		: buildExportRows(context, type);
+}
+
+export async function buildCsvExport(ownerId: string, type: SheetType): Promise<ExportArtifact> {
 	const context = await loadExportContext(ownerId);
-	const rows = await buildExportRows(context, type);
+	const rows = await buildSheetRows(context, type);
 	const csv = toCsvString(rows);
 	return {
 		// Farm-local date, like the PDF report: the UTC date rolls over at 08:00 in
@@ -209,13 +224,13 @@ export async function buildCsvExport(
 
 export async function buildBatchExport(
 	ownerId: string,
-	types: ExportableType[] = BATCH_EXPORT_TYPES,
+	types: SheetType[] = BATCH_EXPORT_TYPES,
 ): Promise<ExportArtifact> {
 	const context = await loadExportContext(ownerId);
 	const zip = new JSZip();
 
 	for (const type of types) {
-		const rows = await buildExportRows(context, type);
+		const rows = await buildSheetRows(context, type);
 		if (rows.length > 0) zip.file(`${type}.csv`, toCsvString(rows));
 	}
 
@@ -225,5 +240,34 @@ export async function buildBatchExport(
 		filename: `pakaonai_export_${dateToFarmDateOnly(new Date())}.zip`,
 		contentType: "application/zip",
 		body: buffer,
+	};
+}
+
+/**
+ * One workbook with one sheet per requested type. A type with nothing to
+ * export (or no feeder to read) still gets its header row, so the sheet doubles
+ * as a template for that type.
+ */
+export async function buildXlsxExport(
+	ownerId: string,
+	types: SheetType[] = SHEET_EXPORT_TYPES,
+): Promise<ExportArtifact> {
+	const context = await loadExportContext(ownerId);
+	const sheets: SheetData[] = [];
+	for (const type of types) {
+		let rows: ExportRow[] = [];
+		try {
+			rows = await buildSheetRows(context, type);
+		} catch (error) {
+			if (!(error instanceof ApiError) || error.status !== 404) throw error;
+		}
+		sheets.push({ type, rows });
+	}
+
+	const { buildWorkbookBuffer } = await import("@/lib/xlsx/writer");
+	return {
+		filename: `pakaonai_export_${dateToFarmDateOnly(new Date())}.xlsx`,
+		contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		body: await buildWorkbookBuffer(sheets),
 	};
 }

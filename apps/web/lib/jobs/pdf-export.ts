@@ -19,7 +19,7 @@ interface JsPDFWithAutoTable extends jsPDF {
  * farm-local date. Formatting with the runtime default would shift the
  * "Generated" date and every feeding time by up to eight hours.
  */
-function formatFarmDate(value: Date): string {
+export function formatFarmDate(value: Date): string {
 	return new Intl.DateTimeFormat("en-US", {
 		timeZone: PH_TZ,
 		year: "numeric",
@@ -40,7 +40,7 @@ function formatFarmDateTime(value: Date): string {
 }
 
 /** Tenant-controlled pond name → a filename safe for Content-Disposition. */
-function safeFilenamePart(value: string): string {
+export function safeFilenamePart(value: string): string {
 	const cleaned = value
 		.replace(/[^A-Za-z0-9._-]+/g, "-")
 		.replace(/^-+|-+$/g, "")

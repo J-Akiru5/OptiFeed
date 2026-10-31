@@ -60,4 +60,53 @@ describe("POST /api/export-jobs", () => {
 			}),
 		);
 	});
+
+	it("queues a workbook with every sheet by default, feeding schedule included", async () => {
+		const res = await POST(exportRequest({ kind: "xlsx" }));
+
+		expect(res.status).toBe(202);
+		expect(createJob).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: "export_xlsx",
+				payload: {
+					types: expect.arrayContaining(["biomass_logs", "fish_samples", "feeding_schedule"]),
+				},
+			}),
+		);
+	});
+
+	it("rejects a workbook request with no exportable type", async () => {
+		const res = await POST(exportRequest({ kind: "xlsx", types: ["not_a_type"] }));
+
+		expect(res.status).toBe(400);
+		expect(createJob).not.toHaveBeenCalled();
+	});
+
+	it("accepts the feeding schedule as a single CSV", async () => {
+		const res = await POST(exportRequest({ kind: "csv", type: "feeding_schedule" }));
+
+		expect(res.status).toBe(202);
+		expect(createJob).toHaveBeenCalledWith(
+			expect.objectContaining({ type: "export_csv", payload: { type: "feeding_schedule" } }),
+		);
+	});
+
+	it("defaults the PDF to the pond summary and passes a named report through", async () => {
+		await POST(exportRequest({ kind: "pdf" }));
+		expect(createJob).toHaveBeenLastCalledWith(
+			expect.objectContaining({ type: "export_pdf", payload: { report: "summary" } }),
+		);
+
+		await POST(exportRequest({ kind: "pdf", report: "fcr" }));
+		expect(createJob).toHaveBeenLastCalledWith(
+			expect.objectContaining({ type: "export_pdf", payload: { report: "fcr" } }),
+		);
+	});
+
+	it("rejects an unknown PDF report", async () => {
+		const res = await POST(exportRequest({ kind: "pdf", report: "everything" }));
+
+		expect(res.status).toBe(400);
+		expect(createJob).not.toHaveBeenCalled();
+	});
 });

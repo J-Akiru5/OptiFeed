@@ -26,15 +26,24 @@ export default defineConfig({
 			//   functions  94.85%
 			//   branches   84.94%
 			//
-			// The A-level target of 90% lines is met and enforced below. Lines and
-			// statements carry ~0.4pp of headroom, branches and functions ~0.3pp,
-			// because branch totals move by a handful between runs (module-init order
-			// in mocked tests). Raise the floors as the numbers rise; never lower them.
+			// RE-BASELINED 2026-11-01 (Jeff's decision, #328) for vitest 4.1.12. Vitest 4
+			// uses AST-aware v8 remapping, so the same tests now measure lower. This is a
+			// change of measuring tool, not lost coverage: no test was removed. Measured
+			// with vitest 4.1.12 + @vitest/coverage-v8 4.1.12:
+			//   lines      91.54%
+			//   statements 89.49%
+			//   functions  91.94%
+			//   branches   81.98%
+			//
+			// The A-level target of 90% lines is met and enforced below. The other floors
+			// carry ~0.45pp of headroom, because branch totals move by a handful between
+			// runs (module-init order in mocked tests). From here the ratchet applies
+			// again: raise the floors as the numbers rise; never lower them.
 			thresholds: {
 				lines: 90,
-				statements: 90,
-				functions: 94.5,
-				branches: 84.5,
+				statements: 89,
+				functions: 91.5,
+				branches: 81.5,
 			},
 		},
 	},

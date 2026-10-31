@@ -3923,7 +3923,7 @@
 			},
 			"devices": {
 				"title": "Last ingest per device",
-				"description": "Last contact ({count} of the newest {limit} devices). A device is offline when it has not been heard from in 15 minutes.",
+				"description": "Last contact ({count} of the newest {limit} devices). A device is offline when it has not been heard from in 5 minutes.",
 				"sortLabel": "Sort devices",
 				"sortBy": "Sort by",
 				"sort": {

@@ -1,3 +1,5 @@
+import { DEVICE_OFFLINE_AFTER_MIN_DEFAULT } from "./device-status";
+
 export const HOPPER_CAPACITY_KG = 22.19;
 export const EXPORT_ROW_LIMIT = 50_000;
 // A single CSV import is capped far below the export ceiling so one request
@@ -12,10 +14,11 @@ export const PH_UTC_OFFSET_MINUTES = 480;
 // until this date. New endpoints MUST be created under /api/v1 only.
 export const LEGACY_API_SUNSET = "2027-06-30";
 
-// Devices are considered offline when no heartbeat arrives within this window.
-// #388 adds the platform-configurable weak/offline thresholds on top of this
-// default; display and command checks use `lib/device-status.ts`.
-export const OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
+// Legacy alias of the default offline window (#419: 15 min → 5 min).
+// The one connectivity rule lives in `lib/device-status.ts`; every reader uses
+// the platform policy, so this constant only keeps the historical name in
+// sync with the shipped default.
+export const OFFLINE_THRESHOLD_MS = DEVICE_OFFLINE_AFTER_MIN_DEFAULT * 60 * 1000;
 
 // A queued feed/calibration command younger than this counts as "in flight", so
 // the device status never flips to offline while the command is being delivered.

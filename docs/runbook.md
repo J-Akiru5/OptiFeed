@@ -21,8 +21,10 @@ in the dashboard; VIEWER is read-only.
 
 ## 2. Device shows offline
 
-- "Offline" = no heartbeat within `OFFLINE_THRESHOLD_MS` (see
-  `lib/constants.ts`). The dashboard badge and Admin → Devices reflect this.
+- "Offline" = no heartbeat within the platform device-connectivity window
+  (default: 5 minutes of silence, no grace; see `lib/device-status.ts` and
+  Superadmin → Settings → Device connectivity). The dashboard badge and
+  Admin → Devices reflect this.
 - The `/api/cron/device-watch` endpoint (pg_cron every 5 min, H10) raises one
   CRITICAL connectivity notification per outage and (if H11 tokens are set)
   sends a Telegram message.

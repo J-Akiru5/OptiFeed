@@ -196,16 +196,16 @@ describe("offlineAlertDue", () => {
 		DEFAULT_DEVICE_STATUS_POLICY.offlineAfterMs + DEFAULT_DEVICE_STATUS_POLICY.graceMs;
 
 	it("follows the platform policy, not the org offlineAfterMin (I-97)", () => {
-		// 16 minutes is inside the default 15 + 2 window, whatever the org stores,
-		// but a short platform policy alerts on the same outage.
-		const lastSeenAt = new Date(now.getTime() - 16 * 60 * 1000);
-		const shortPolicy = deviceStatusPolicyFromValue({
-			weakAfterMin: 5,
-			offlineAfterMin: 5,
-			graceMin: 0,
+		// Six minutes of silence is past the shipped five-minute window but
+		// inside a longer platform policy, so the alert follows the policy.
+		const lastSeenAt = new Date(now.getTime() - 6 * 60 * 1000);
+		const longPolicy = deviceStatusPolicyFromValue({
+			weakAfterMin: 10,
+			offlineAfterMin: 60,
+			graceMin: 5,
 		});
-		expect(offlineAlertDue(lastSeenAt, now, DEFAULT_DEVICE_STATUS_POLICY)).toBe(false);
-		expect(offlineAlertDue(lastSeenAt, now, shortPolicy)).toBe(true);
+		expect(offlineAlertDue(lastSeenAt, now, DEFAULT_DEVICE_STATUS_POLICY)).toBe(true);
+		expect(offlineAlertDue(lastSeenAt, now, longPolicy)).toBe(false);
 	});
 
 	it("is due on the first millisecond past the display window", () => {

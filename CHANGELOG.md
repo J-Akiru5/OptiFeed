@@ -16,9 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Hopper capacity from the tank diameter.** Calibration now takes the tank's inner diameter and the feed bulk density, so the capacity in grams is computed from the cylinder between the full and empty marks (πr²h × density) instead of typed in as a guess. The form previews the volume and the resulting grams, the server recomputes them on save, and devices calibrated before this keep their stored capacity until a diameter is entered (#415).
 
+### Fixed
+
+- **A disconnected feeder is now marked offline after five minutes (#419).** The platform device-connectivity policy shipped with 15 minutes of silence plus a 2-minute grace, so an unplugged ESP32 stayed on "weak signal" for 17 minutes before the badge flipped. The defaults are now 4 minutes of weak signal, 5 minutes to offline and no grace — five minutes of silence is sixty missed heartbeats at the firmware's five-second beat, and the hysteresis already stops the badge from flapping, so the grace is no longer needed to absorb a single late beat. Every surface (header badge, sidebar, dashboard, feeder hero, admin and superadmin device lists, the offline-alert cron, the assistant context and the PWA snapshot) reads the one shared rule in `lib/device-status.ts`, so the new default applies everywhere at once. A platform admin can still move the windows in Superadmin → Settings → Device connectivity, and a stored `PlatformSetting` row always wins over the default. The firmware's connectivity diagnostic (`weak_after_min` / `offline_after_min`) now reports the same 4 / 5 minutes.
+
 ### Security
 
 - The recovery-link flow discloses nothing about account existence (an unknown farm ID answers exactly like a known one) and never claims an email was delivered; the recovery link appears only in the email payload and the one-time admin-issued password is returned to the console once — neither is persisted, logged or written to a platform audit row.
+
 ## [1.39.0] - 2026-10-31
 
 ### Added

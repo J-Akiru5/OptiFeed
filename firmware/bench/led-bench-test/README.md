@@ -12,7 +12,7 @@ leave all three of these LEDs dark. That is why this sketch exists.
 
 | Indicator | Colour | Connection                          | Resistor |
 | --------- | ------ | ----------------------------------- | -------- |
-| POWER     | White  | 3.3 V rail (always on)              | 200 Ω    |
+| POWER     | White  | 5 V rail (always on)                | 330 Ω    |
 | FEEDING   | Green  | GPIO 27 → resistor → anode → GND    | 200 Ω    |
 | WI-FI     | Blue   | GPIO 26 → resistor → anode → GND    | 100 Ω    |
 | FAULT     | Yellow | GPIO 18 → resistor → anode → GND    | 200 Ω    |
@@ -33,6 +33,11 @@ All three GPIOs are unused by the production sketch on `staging`:
 Do **not** take the pin map from `docs/gpio-button-map.html` in an old `main`
 checkout: that page still describes the pre-1.5 board (button 27, DS18B20 26,
 TRIG 32, ECHO 33). Staging's `firmware/README.md` is the current map.
+
+The CICT Building A unit is flashed with the `esp32dev-relay5` build (relay on
+GPIO 5), so the sketch holds both 25 and 5 LOW. Keep the LED leads away from the
+feed-button line and the motor/relay wiring: that unit has a documented
+phantom-press issue from switching noise on GPIO 23.
 
 ## Resistor maths at 3.3 V
 
@@ -58,7 +63,8 @@ Options, in order of preference:
 1. Use **100 Ω** on blue (and white, if it is firmware-driven). Still dim, but
    usable indoors.
 2. Move the white POWER LED to the **5 V rail** with **330 Ω** (≈5 mA). It is not
-   firmware-controlled, so 5 V is fine. Measure the rail first.
+   firmware-controlled, so 5 V is fine, and the CICT unit already has a 5 V buck
+   output. Measure the rail first.
 3. If blue must be bright, it needs a 5 V supply and a small low-side switch
    (2N2222 + 1 kΩ base resistor), or a blue LED rated for 3.3 V drive. A GPIO
    cannot make a 3.4 V LED emit from a 3.3 V rail.

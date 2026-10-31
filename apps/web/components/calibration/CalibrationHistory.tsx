@@ -42,6 +42,8 @@ interface CalibrationHistoryProps {
 	page: number;
 	pageCount: number;
 	pageSize: number;
+	/** Query kept on the page links, e.g. the selected device and tab (#403). */
+	paginationParams?: Record<string, string>;
 }
 
 function formatRate(rate: number | null): string {
@@ -66,6 +68,7 @@ export function CalibrationHistory({
 	page,
 	pageCount,
 	pageSize,
+	paginationParams = {},
 }: CalibrationHistoryProps) {
 	const t = useTranslations("dashboard.appSettings.calibration.history");
 	const tDates = useTranslations("dates");
@@ -218,7 +221,7 @@ export function CalibrationHistory({
 
 					<Pagination
 						basePath="/dashboard/settings/hardware"
-						params={{}}
+						params={paginationParams}
 						page={page}
 						pageCount={pageCount}
 						showing={t("showing", { from: firstRow, to: lastRow, total })}

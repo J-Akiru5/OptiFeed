@@ -376,7 +376,30 @@
 			"restartDevice": "I-restart ang Device",
 			"actionsUnavailable": "Wala pang available na aksyon sa device.",
 			"weakSignal": "Mahinang signal",
-			"weakFor": "Mahinang signal — huling heartbeat {duration} ang nakalipas"
+			"weakFor": "Mahinang signal — huling heartbeat {duration} ang nakalipas",
+			"tabs": {
+				"label": "Mga seksyon ng setting ng device",
+				"overview": "Pangkalahatan",
+				"feeding": "Pagpapakain",
+				"calibration": "Calibration",
+				"network": "Network",
+				"unsaved": "(may hindi pa nase-save)",
+				"unsavedTitle": "May hindi pa nase-save",
+				"unsavedDesc": "Kapag lumipat ka ng feeder, mawawala ang mga pagbabagong hindi pa nase-save.",
+				"unsavedTabs": "Hindi pa nase-save: {tabs}.",
+				"keepEditing": "Ituloy ang pag-edit",
+				"discardAndSwitch": "Itapon at lumipat"
+			},
+			"deviceSwitcher": {
+				"label": "Feeder",
+				"noPond": "Walang pond",
+				"option": "{label} · {status}",
+				"state": {
+					"online": "Online",
+					"weak": "Mahinang signal",
+					"offline": "Offline"
+				}
+			}
 		},
 		"feederViewer": {
 			"viewerLabel": "Feeder 3D",

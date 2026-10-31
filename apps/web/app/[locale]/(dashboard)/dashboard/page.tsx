@@ -59,6 +59,7 @@ import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
 import { computeNextFeedingSlot } from "@/lib/schedule/next-feeding-slot";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
+import { deviceSettingsHref } from "@/lib/settings/device-settings-tabs";
 import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { getOrgSettingsForFarm } from "@/lib/settings/org";
 import { cn } from "@/lib/utils";
@@ -404,7 +405,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 				duration: formatOfflineDuration(energyDevice.lastSeenAt),
 			}),
 			detail: t("controlRoom.alerts.offlineDetail", { device: device.name }),
-			href: "/dashboard/settings/hardware",
+			href: deviceSettingsHref({ deviceId: energyDevice.id, tab: "network", anchor: "wifi-setup" }),
 			linkLabel: t("controlRoom.alerts.openHardware"),
 		});
 	}
@@ -417,7 +418,11 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					percent: Math.round(energyDevice.feedLevelPercent),
 				}),
 				detail: t("controlRoom.alerts.lowHopperDetail"),
-				href: "/dashboard/settings/hardware",
+				href: deviceSettingsHref({
+					deviceId: energyDevice.id,
+					tab: "calibration",
+					anchor: "hopper-calibration",
+				}),
 				linkLabel: t("controlRoom.alerts.openHardware"),
 			});
 		}
@@ -430,7 +435,11 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 				days: recalibration.daysOverdue,
 			}),
 			detail: t("controlRoom.alerts.recalibrationDetail"),
-			href: "/dashboard/settings/hardware",
+			href: deviceSettingsHref({
+				deviceId: energyDevice?.id,
+				tab: "calibration",
+				anchor: "recalibration",
+			}),
 			linkLabel: t("controlRoom.alerts.openHardware"),
 		});
 	}
@@ -442,7 +451,11 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 				percent: Math.abs(drift.diffPct).toFixed(1),
 			}),
 			detail: t("controlRoom.alerts.driftDetail"),
-			href: "/dashboard/settings/hardware",
+			href: deviceSettingsHref({
+				deviceId: energyDevice?.id,
+				tab: "calibration",
+				anchor: "recalibration",
+			}),
 			linkLabel: t("controlRoom.alerts.openHardware"),
 		});
 	}

@@ -2135,7 +2135,30 @@
 				}
 			},
 			"weakSignal": "Maluya ang signal",
-			"weakFor": "Maluya ang signal — katapusan nga heartbeat {duration} ang nagligad"
+			"weakFor": "Maluya ang signal — katapusan nga heartbeat {duration} ang nagligad",
+			"tabs": {
+				"label": "Mga seksyon sang setting sang device",
+				"overview": "Kabilugan",
+				"feeding": "Pagpakaon",
+				"calibration": "Calibration",
+				"network": "Network",
+				"unsaved": "(wala pa na-save nga pagbag-o)",
+				"unsavedTitle": "Wala pa na-save nga pagbag-o",
+				"unsavedDesc": "Kon magbalhin ka sang feeder, madula ang mga pagbag-o nga wala pa na-save.",
+				"unsavedTabs": "Wala pa na-save: {tabs}.",
+				"keepEditing": "Padayon sa pag-edit",
+				"discardAndSwitch": "Isikway kag magbalhin"
+			},
+			"deviceSwitcher": {
+				"label": "Feeder",
+				"noPond": "Wala sang pond",
+				"option": "{label} · {status}",
+				"state": {
+					"online": "Online",
+					"weak": "Maluya ang signal",
+					"offline": "Offline"
+				}
+			}
 		},
 		"notifications": {
 			"title": "Mga Notipikasyon",

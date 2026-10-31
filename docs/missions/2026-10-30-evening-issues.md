@@ -27,7 +27,9 @@ No open PRs. Older issues #316-#339 are handled by other sessions in the `iso-*`
 | E38 | SUPERSEDES E30: the only gram cap is the daily cap. No per-dispensation cap; the relay-time guard and firmware gate stay. |
 | E39 | The org default feeding rate stays a default, not a ceiling; ponds may override. |
 | E40 | Jeff 10-31: migrations are allowed on the production database. Additive and nullable only; full JSON backup first, `prisma migrate deploy`, never `migrate reset`. Promoting `main` still needs Jeff's explicit word. |
-| E41 | Jeff 10-31: OpenCode workers use `opencode/mimo-v2.6-flash-free` while the Go plan is rate limited (about 3 hours); the earlier agreement was `deepseek-v4.1-flash`. |
+| E41 | Jeff 10-31: OpenCode workers use `opencode/mimo-v2.6-flash-free` while the Go plan is rate limited (about 3 hours); the earlier agreement was `deepseek-v4.1-flash`. SUPERSEDED by E43. |
+| E42 | Claude 10-31, Jeff away: #412 Finding 1 (acknowledge re-arms the alert) decided as Option A. The 6 h window applies to the latest pellet notification regardless of acknowledgement; a tier change still fires at once. Finding 2 unifies on `<=`. Jeff can switch to Option B (shorter post-acknowledge cooldown). |
+| E43 | Jeff 10-31 evening: OpenCode workers use `opencode-go/deepseek-v4.1-flash` only (max 2 at a time); on a rate limit the only fallback is `opencode/deepseek-v4.1-flash-free`. Karl owns #411, #418 and #419: untouched. The firmware PR for #409 stays open for Jeff's review (needs reflash and bench check). Jeff added the Bash permission rule that lets `opencode run --auto` launch. |
 
 ## #365 verification (Claude)
 
@@ -46,7 +48,11 @@ Pakoy's full write surface (#344) shipped in v1.31.2 (`5ad31c9`, `5b8a54e`, merg
 | I-100 | Firmware 1.7.0: tunable constants driven by the dashboard (Jeff 10-31) | `mission/I-100-firmware-dashboard-config` | running |
 | I-105 | Vitest 4 policy (#328 stays open) | `mission/I-105-vitest4-policy` | merged (v1.38.0, `75a8a27`) |
 | I-106 | #353 and #322 SQL backup export, #323 deployment policy docs | `mission/I-106-backup-export` | merged (v1.38.0, `75a8a27`) |
-| I-107 | XLSX export/import, PDF reports, schedule import (Jeff 10-31) | `mission/I-107-xlsx-pdf` | built by Claude (OpenCode workers unavailable); v1.39.0 PR open |
+| I-107 | XLSX export/import, PDF reports, schedule import (Jeff 10-31) | `mission/I-107-xlsx-pdf` | built by Claude (OpenCode workers unavailable); merged (v1.39.0, `132c6d9`) |
+| I-108 | #412 low-hopper acknowledge cooldown + `<=` boundary (E42) | `mission/I-108-hopper-ack-cooldown` | merged to develop (#424, `35011e5`) |
+| I-109 | #409 firmware: schedule on farm-local time, persist schedule and daily cap | `mission/I-109-firmware-tz-nvs` | PR #425 open for Jeff: needs human OK, reflash and bench check |
+| I-110 | #416 mark as read above the list | `mission/I-110-mark-read-top` | merged to develop (#426, `00e2378`) |
+| I-111 | #400 water temperature probe in the 3D model (v1.2.0) | `mission/I-111-3d-water-temp` | PR #427 open; needs a visual check in the app |
 
 Waves in between (I-101 to I-104, v1.35.0 to v1.37.0) are recorded in `CHANGELOG.md`.
 
@@ -63,6 +69,9 @@ Waves in between (I-101 to I-104, v1.35.0 to v1.37.0) are recorded in `CHANGELOG
 
 | v1.38.0 | #406 | I-105, I-106: SQL backup export with audit trail and identity manifest, restore dry run, deployment policy docs | All 10 checks green (including e2e). Merged as `75a8a27`. #323, #353, #322 closed; #328 commented and left open. No migration. |
 | v1.39.0 | #408 | I-107: XLSX export and import, PDF growth/SGR/FCR reports, import by upload with column mapping, feeding schedule import, CSV boolean fix | All checks green. Merged as `132c6d9`. Adds exceljs (server only, dynamic import). No migration. |
+| develop only | #424 | I-108 (#412) | Workers: `opencode-go/deepseek-v4.1-flash`. Reviewed by Claude (diff, lint, typecheck, 74 targeted tests); all required checks green, merged `35011e5`. No migration. |
+| develop only | #426 | I-110 (#416) | Worker full suite 332 files / 4,197 tests; all checks green, merged `00e2378`. No migration. |
+| open | #425, #427 | I-109 (#409), I-111 (#400) | #425 re-verified by Claude: `pio run` SUCCESS (RAM 16.5 %, flash 56.5 %), `pio test -e native` 51/51. #427: GLB checksum matches the manifest, feeder tests green, a headless Blender render shows the probe under the base plate. |
 
 ## Promotion (Jeff, 2026-10-31: "promote all to staging and production")
 
@@ -92,6 +101,10 @@ Production verified through the Vercel connector on deployment `dpl_F6QoMnUupsse
 2. DONE (Jeff 10-30): `bundle budget + latency` is now a required check on develop, staging and main (branch protection: quality + bundle budget + latency).
 3. (Done 10-31) Production is on v1.39.0.
 4. **Firmware per-dose limit.** The app no longer caps a single dose (E38), but `firmware-main.ino` still has `MAX_GRAMS_PER_DISPENSE 1000.0` and refuses larger doses (`feed_refused`). Lifting it is a safety change and a flash: Jeff's explicit yes needed. Units on firmware 1.6.0/1.6.1 already send `wifi_rssi`; 1.6.2 is a version bump. Since v1.35.0 (I-100) firmware 1.7.0 no longer refuses a dose above 1,000 g and takes its tunable constants from the dashboard; that applies only to a unit Jeff flashes with 1.7.0, and production already serves the matching config.
-5. OpenCode: DeepSeek models were blocked by the workspace Privacy region ("requires Global regions"; set it to Global), then the Go plan usage limit was exceeded. I-107 was built directly by Claude. Launching a worker with `--auto` was blocked by the permission classifier on 10-31, so the `mimo-v2.6-flash-free` workers (E41) have not run yet.
+5. OpenCode: DeepSeek models were blocked by the workspace Privacy region ("requires Global regions"; set it to Global), then the Go plan usage limit was exceeded. I-107 was built directly by Claude. Launching a worker with `--auto` was blocked by the permission classifier on 10-31, so the `mimo-v2.6-flash-free` workers (E41) have not run yet. (Resolved 10-31 evening: Jeff added the permission rule; I-108 to I-111 ran on `opencode-go/deepseek-v4.1-flash`, E43.)
 6. (Done 10-31) v1.38.0 and v1.39.0 reached staging (#410) and main (#414), both merged by Jeff. E40 only lifted the migration restriction on the production database.
 7. (Applied) Firmware 1.6.2 (adds wifi_rssi) must be flashed by you, with your yes; applying the two migrations (EnergyDevice RSSI columns, PondSettingsDraft table) is done by Claude after a full JSON backup.
+8. **#425 (#409 firmware)**: review, flash and run the bench check from the issue (a 06:00 slot must click at 06:00, not 14:00). One behaviour change: the daily cap and `firedToday` now roll over at farm-local midnight instead of UTC midnight (08:00 in the Philippines). Not merged by Claude.
+9. **#412**: confirm Option A (E42) or ask for Option B. **#400 / #427**: look at the probe in the browser (ISO preset, 390 px, FRONT/LEFT/RIGHT); the preview PNGs under `docs/feeder/` and `docs/feeder-3d-viewer-plan.md` still describe model 1.1.2.
+10. **Next promotion** carries what is on develop beyond production v1.39.0: #417 (additive hopper-diameter migration, so take a full JSON backup before the production build applies it), Karl's #420 password recovery (its PR title says it mails through Resend: confirm the configuration), #413, #424, #426 and #427 once merged. `main` waits for your word.
+11. Still open and not Claude's to decide: #365 (confirm), #319 (production data backfill), #328 (vitest 4 policy), #411, #418 and #419 (Karl).

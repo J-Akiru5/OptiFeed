@@ -12,7 +12,17 @@ vi.mock("@/lib/actions/ai-providers", () => ({
 	listAiProviderConfig: listMock,
 	saveAiProviderConfig: vi.fn(),
 	resetAiProviderConfig: vi.fn(),
+	setAiProviderKey: vi.fn(),
+	clearAiProviderKey: vi.fn(),
+	createAiProvider: vi.fn(),
+	removeAiProvider: vi.fn(),
 }));
+
+// Step-up pulls in the session module, which imports the i18n routing helper;
+// this test only renders the page, so the dialog's action is stubbed at the
+// module boundary.
+vi.mock("@/lib/actions/step-up", () => ({ startStepUp: vi.fn() }));
+vi.mock("@/i18n/routing", () => ({ redirect: vi.fn() }));
 
 vi.mock("next-intl/server", async () => {
 	const { createTranslator } = await import("./helpers/messages");
@@ -21,7 +31,10 @@ vi.mock("next-intl/server", async () => {
 
 vi.mock("next-intl", async () => {
 	const { createTranslator } = await import("./helpers/messages");
-	return { useTranslations: (namespace: string) => createTranslator(namespace) };
+	return {
+		useTranslations: (namespace: string) => createTranslator(namespace),
+		useLocale: () => "en",
+	};
 });
 
 vi.mock("next/navigation", () => ({
@@ -34,24 +47,40 @@ import type { AiProviderView } from "@/lib/actions/ai-providers";
 const providers: AiProviderView[] = [
 	{
 		provider: "opencode-go",
+		kind: "opencode-go",
 		label: "OpenCode Go",
+		builtIn: true,
 		configured: false,
 		enabled: true,
 		priority: 10,
 		model: "deepseek-v4.1-flash",
 		apiKeyEnv: "OPENCODE_GO_API_KEY",
 		apiKeyPresent: true,
+		keySource: "env",
+		keyLast4: null,
+		keyUpdatedAt: null,
+		keyUpdatedBy: null,
+		keyUnreadable: false,
+		baseUrl: null,
 		reasoningEffort: "high",
 	},
 	{
 		provider: "gemini",
+		kind: "gemini",
 		label: "Google Gemini",
+		builtIn: true,
 		configured: false,
 		enabled: true,
 		priority: 20,
 		model: "gemini-2.5-flash",
 		apiKeyEnv: "GEMINI_API_KEY",
 		apiKeyPresent: false,
+		keySource: "none",
+		keyLast4: null,
+		keyUpdatedAt: null,
+		keyUpdatedBy: null,
+		keyUnreadable: false,
+		baseUrl: null,
 		reasoningEffort: "high",
 	},
 ];
@@ -82,7 +111,7 @@ describe("/superadmin/ai-providers page", () => {
 
 	it("distinguishes a provider with a key from one without", async () => {
 		const html = renderToStaticMarkup(await SuperadminAiProvidersPage());
-		expect(html).toContain("Key detected");
+		expect(html).toContain("Key from environment");
 		expect(html).toContain("No key");
 	});
 

@@ -17,6 +17,7 @@ import {
 	grantPlatformAdmin,
 	resetPlatformUserPassword,
 	revokePlatformAdmin,
+	updatePlatformUser,
 } from "@/lib/actions/superadmin";
 import { cn } from "@/lib/utils";
 import {
@@ -24,6 +25,7 @@ import {
 	Copy,
 	KeyRound,
 	Loader2,
+	Mail,
 	MoreHorizontal,
 	ShieldCheck,
 	ShieldOff,
@@ -33,7 +35,7 @@ import {
 import { useTranslations } from "next-intl";
 import { type FormEvent, useRef, useState, useTransition } from "react";
 
-type Mode = "grant" | "revoke" | "disable" | "enable" | "reset" | null;
+type Mode = "grant" | "revoke" | "disable" | "enable" | "reset" | "email" | null;
 
 const MIN_REASON = 10;
 
@@ -57,11 +59,14 @@ export function UserActions({
 	farmId,
 	isPlatformAdmin,
 	disabled,
+	contactEmail,
 }: {
 	userId: string;
 	farmId: string;
 	isPlatformAdmin: boolean;
 	disabled: boolean;
+	/** The deliverable reset-mail address on file, or null (#449). */
+	contactEmail: string | null;
 }) {
 	const t = useTranslations("superadmin.userActions");
 	const tCommon = useTranslations("superadmin.common");
@@ -69,6 +74,7 @@ export function UserActions({
 	const [mode, setMode] = useState<Mode>(null);
 	const [reason, setReason] = useState("");
 	const [confirmFarmId, setConfirmFarmId] = useState("");
+	const [emailDraft, setEmailDraft] = useState(contactEmail ?? "");
 	const [issuedPassword, setIssuedPassword] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -80,6 +86,7 @@ export function UserActions({
 		setMode(next);
 		setReason("");
 		setConfirmFarmId("");
+		setEmailDraft(contactEmail ?? "");
 		setIssuedPassword(null);
 		setCopied(false);
 		setError(null);
@@ -97,6 +104,27 @@ export function UserActions({
 	const perform = (targetMode: Exclude<Mode, null>, trimmedReason: string) => {
 		startTransition(async () => {
 			try {
+				if (targetMode === "email") {
+					const result = await updatePlatformUser(
+						userId,
+						{ contactEmail: emailDraft },
+						trimmedReason,
+					);
+					if ("error" in result) {
+						if (result.code === "step_up_required") {
+							retryRef.current = () => perform(targetMode, trimmedReason);
+							setStepUpOpen(true);
+							return;
+						}
+						setError(result.error);
+						return;
+					}
+					setMode(null);
+					setReason("");
+					router.refresh();
+					return;
+				}
+
 				if (targetMode === "reset") {
 					const result = await resetPlatformUserPassword(userId, trimmedReason);
 					if ("error" in result) {
@@ -297,6 +325,12 @@ export function UserActions({
 										label={t("buttons.grant")}
 									/>
 									<ActionButton
+										active={mode === "email"}
+										onClick={() => open("email")}
+										icon={<Mail className="h-3.5 w-3.5" aria-hidden="true" />}
+										label={t("buttons.email")}
+									/>
+									<ActionButton
 										active={mode === "reset"}
 										onClick={() => open("reset")}
 										icon={<KeyRound className="h-3.5 w-3.5" aria-hidden="true" />}
@@ -334,6 +368,11 @@ export function UserActions({
 								{t("resetWarning")}
 							</p>
 						)}
+						{mode === "email" && (
+							<p className="mt-3 text-[11px] font-bold leading-snug text-[#8A3B12] dark:text-[#FFB38F]">
+								{t("emailWarning")}
+							</p>
+						)}
 
 						<form onSubmit={submit} className="mt-3 space-y-3">
 							<div className="space-y-1.5">
@@ -354,6 +393,30 @@ export function UserActions({
 									{tCommon("reasonHelp")}
 								</p>
 							</div>
+
+							{mode === "email" && (
+								<div className="space-y-1.5">
+									<label htmlFor={`contact-email-${farmId}`} className={FIELD_LABEL}>
+										{t("emailLabel")}
+									</label>
+									<input
+										id={`contact-email-${farmId}`}
+										type="email"
+										inputMode="email"
+										value={emailDraft}
+										onChange={(e) => setEmailDraft(e.target.value)}
+										autoComplete="off"
+										spellCheck={false}
+										maxLength={254}
+										placeholder={t("emailPlaceholder")}
+										aria-describedby={`contact-email-help-${farmId}`}
+										className="w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-3 py-2 text-xs text-[#0A3D62] transition-all focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+									/>
+									<p id={`contact-email-help-${farmId}`} className={FIELD_HINT}>
+										{t("emailHint")}
+									</p>
+								</div>
+							)}
 
 							{mode === "disable" && (
 								<div className="space-y-1.5">

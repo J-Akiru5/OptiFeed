@@ -43,7 +43,7 @@
 | GPIO 25 | Relay OUT (active HIGH by default; `-DRELAY_ACTIVE_LOW=1` for an active-LOW module). GPIO 5 also works via `-DRELAY_PIN=5` (see Relay pin) |
 | GPIO 23 | Physical button (INPUT_PULLUP, press = LOW). A press must stay LOW for 50 ms before it dispenses the button dose (1.5.3); edges during and 2 s after a dispense are ignored, and button doses are limited to one per 30 s. Hold >= 5 s at boot to reset WiFi credentials (device identity is kept) |
 | GPIO 32 | DS18B20 water temperature probe (1-Wire; 4.7 kOhm pull-up to 3.3 V) |
-| GPIO 12 | HC-SR04 TRIG (output). Strapping pin: a 10 kOhm pull-down to GND holds it LOW at boot |
+| GPIO 27 | HC-SR04 TRIG (output). Moved from GPIO 12 (strapping pin) on 2026-10-31; a 10 kOhm pull-down is optional |
 | GPIO 14 | HC-SR04 ECHO (input, 5 V logic — level-shift or divide before the pin) |
 | GPIO 16 | Factory reset button (INPUT_PULLUP, press = LOW). Hold >= 10 s to clear WiFi, Device ID, Device Token and the `provisioned` marker |
 | GPIO 17 | Wi-Fi reset button (INPUT_PULLUP, press = LOW). Hold >= 5 s to clear WiFi only — the Device ID/Token are kept. A tap (< 5 s) acknowledges latched faults (1.8.0) |
@@ -136,14 +136,15 @@ existing feed-button hold (GPIO 23, 5 s at boot) remains a WiFi-only reset.
 
 GPIO 16 and 17 are free on the ESP32-WROOM-32U, are not strapping pins, and
 support the internal pull-up. They are held by these two buttons. GPIO 18 and 26
-are the FAULT and WI-FI lamps since 1.8.0 (see *Machine status interface*). GPIO 27 is
-still free; so are 13, 19 and 33 unless a 12 V lamp panel is built (see that section).
+are the FAULT and WI-FI lamps since 1.8.0 (see *Machine status interface*). GPIO 27 now
+carries the HC-SR04 TRIG; 13, 19 and 33 are still free unless a 12 V lamp panel is built
+(see that section).
 
-Do **not** use: 25 (relay), 23 (feed button), 32 (DS18B20), 12/14 (HC-SR04),
-21/22 (RTC I2C), 0/2/15 (strapping), 34-39 (input-only, no internal pull-up),
+Do **not** use: 25 (relay), 23 (feed button), 32 (DS18B20), 27/14 (HC-SR04),
+21/22 (RTC I2C), 0/2/12/15 (strapping), 34-39 (input-only, no internal pull-up),
 1/3 (USB serial), 6-11 (flash). GPIO 12 is a strapping pin that selects the
-flash voltage at boot; the HC-SR04 echo idles LOW and the 10 kOhm pull-down
-keeps it there. GPIO 5 stays usable for the relay: strapping only selects SDIO
+flash voltage at boot and must be LOW then, so leave it unconnected (TRIG moved
+off it to GPIO 27). GPIO 5 stays usable for the relay: strapping only selects SDIO
 slave timing, which this sketch never configures, and it is sampled at reset
 only. Just confirm the weak reset pull-up does not click the module at power-up.
 

@@ -6,6 +6,7 @@ vi.mock("@/lib/prisma", () => ({
 
 import prisma from "@/lib/prisma";
 import {
+	checkAiProviderTestRateLimit,
 	checkApiRateLimit,
 	checkDeviceRateLimit,
 	checkDeviceTokenRevealRateLimit,
@@ -96,5 +97,22 @@ describe("Postgres rate limiter", () => {
 		returnsCount(1);
 		await checkDeviceRateLimit("device-b", "feed");
 		expect((queryRaw.mock.calls[2] as unknown[])[1]).toBe("rl:device:feed:device-b");
+	});
+
+	it("allows five AI provider key tests per minute per actor", async () => {
+		returnsCount(5);
+		expect((await checkAiProviderTestRateLimit("admin-1")).success).toBe(true);
+		returnsCount(6);
+		expect((await checkAiProviderTestRateLimit("admin-1")).success).toBe(false);
+
+		const first = queryRaw.mock.calls[0] as unknown as [string, string, Date];
+		expect(first[1]).toBe("rl:ai-provider-test:admin-1");
+		expect(first[2].getTime() % 60_000).toBe(0);
+	});
+
+	it("AI key tests fail CLOSED when the store is unavailable", async () => {
+		queryRaw.mockRejectedValueOnce(new Error("db down"));
+		const result = await checkAiProviderTestRateLimit("admin-1");
+		expect(result.success).toBe(false);
 	});
 });

@@ -13,6 +13,10 @@
 --   3. Run this file.
 --
 -- This file must never contain a real URL or secret.
+--
+-- Fixed 2026-11-01: the routes export GET only, so the call is net.http_get (not http_post)
+-- and Supabase Vault has no vault.decrypted_secret(name) function, so the
+-- header reads the secret from the vault.decrypted_secrets view instead.
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS pg_cron;
@@ -29,7 +33,7 @@ SELECT cron.schedule(
     url     := 'https://YOUR_APP_URL/api/cron/jobs?max=5',
     headers := jsonb_build_object(
       'Authorization',
-      'Bearer ' || vault.decrypted_secret('jobs_worker_secret')
+      'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'jobs_worker_secret')
     ),
     timeout_milliseconds := 15000
   ) AS request_id;

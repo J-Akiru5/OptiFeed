@@ -28,6 +28,7 @@ import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { invalidateFarm } from "@/lib/auth/session-cache";
 import { TENANT_ADMIN_ROLES, requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import { getSignedAvatarUrls } from "@/lib/avatars";
+import { contactEmailRuleError, setContactEmail } from "@/lib/contact-email-update";
 import { parseDeviceLabelIds } from "@/lib/device-label-selection";
 import {
 	dailyCapSchema,
@@ -506,7 +507,10 @@ export type TenantMemberRow = {
 	orgName: string;
 	userId: string;
 	farmId: string;
+	/** Synthetic login address; never deliverable. */
 	email: string;
+	/** Deliverable address password-reset mail goes to; null until an admin records one (#449). */
+	contactEmail: string | null;
 	displayName: string | null;
 	role: MemberRole;
 	joinedAt: Date;
@@ -628,7 +632,14 @@ export async function listTenantMembers(
 	const [users, permissionRows, platformAdmins, ownerCounts] = await Promise.all([
 		prisma.user.findMany({
 			where: { id: { in: userIds } },
-			select: { id: true, farmId: true, email: true, displayName: true, avatarPath: true },
+			select: {
+				id: true,
+				farmId: true,
+				email: true,
+				contactEmail: true,
+				displayName: true,
+				avatarPath: true,
+			},
 		}),
 		prisma.membershipPermission.findMany({
 			where: { membershipId: { in: membershipIds } },
@@ -677,6 +688,7 @@ export async function listTenantMembers(
 			userId: user.id,
 			farmId: user.farmId,
 			email: user.email,
+			contactEmail: user.contactEmail,
 			displayName: user.displayName,
 			role: membership.role,
 			joinedAt: membership.createdAt,
@@ -967,6 +979,61 @@ export async function revokeMember(userId: string): Promise<MemberActionState> {
 	} catch (e) {
 		console.error("[admin] revokeMember error:", e instanceof Error ? e.message : "unknown error");
 		return { error: "Failed to revoke the membership." };
+	}
+}
+
+/**
+ * Record the deliverable email an account's password-reset link is sent to
+ * (#449). Blank clears it.
+ *
+ * This is the one account field a tenant admin edits that decides who can take
+ * the account over, so on top of the usual chain (tenant admin -> `manage_members`
+ * -> target inside the caller's scope -> not a platform admin) it applies:
+ *
+ *  - the hierarchy rule: an ADMIN may not change an OWNER's address;
+ *  - an account that also belongs to an organization the caller does not
+ *    administer is refused, because the address would redirect resets for a
+ *    login another tenant relies on (the platform console handles those);
+ *  - one audit row, written in the same transaction as the change.
+ *
+ * `User.email` (the login address) is never touched: sign-in derives it from the
+ * farm ID, so changing it would lock the farmer out.
+ */
+export async function updateMemberContactEmail(
+	userId: string,
+	contactEmail: string | null,
+): Promise<MemberActionState> {
+	await requireTenantAdmin();
+	await requirePermission("manage_members");
+
+	const resolved = await resolveManagedMember(userId);
+	if (!resolved.success) return { error: resolved.error };
+	const { actorUserId, membership: managed } = resolved.target;
+
+	// Every active membership the target holds must sit in an organization the
+	// caller administers, and the hierarchy rule applies in each of them.
+	const scope = await resolveOrgScope();
+	const ruleError = await contactEmailRuleError({
+		userId,
+		actorUserId,
+		orgIds: scope.orgIds,
+	});
+	if (ruleError) return { error: ruleError };
+
+	try {
+		return await setContactEmail({
+			userId,
+			value: contactEmail,
+			actorUserId,
+			orgId: managed.orgId,
+			reason: "Changed by a tenant administrator.",
+		});
+	} catch (e) {
+		console.error(
+			"[admin] updateMemberContactEmail error:",
+			e instanceof Error ? e.message : "unknown error",
+		);
+		return { error: "Failed to update the email." };
 	}
 }
 

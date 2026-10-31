@@ -12,6 +12,10 @@
 --   3. Schedule it (every 5 minutes; Hobby-safe, handler is batched).
 --
 -- This file must never contain a real URL or secret. (H10, H4)
+--
+-- Fixed 2026-11-01: the routes export GET only, so the call is net.http_get (not http_post)
+-- and Supabase Vault has no vault.decrypted_secret(name) function, so the
+-- header reads the secret from the vault.decrypted_secrets view instead.
 -- ============================================================
 
 -- One-time: extensions (Supabase projects usually have pg_cron available;
@@ -26,11 +30,11 @@ SELECT cron.schedule(
   'device-watch',
   '*/5 * * * *',
   $$
-  SELECT net.http_post(
+  SELECT net.http_get(
     url     := 'https://YOUR_APP_URL/api/cron/device-watch',
     headers := jsonb_build_object(
       'Authorization',
-      'Bearer ' || vault.decrypted_secret('device_watch_secret')
+      'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'device_watch_secret')
     ),
     timeout_milliseconds := 8000
   ) AS request_id;

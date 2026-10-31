@@ -23,7 +23,8 @@ vi.mock("@/i18n/routing", async () => {
 	};
 });
 
-import { FeederHero, HealthNotice } from "@/components/feeder/feeder-hero";
+import { FeederHero } from "@/components/feeder/feeder-hero";
+import { HealthNotice } from "@/components/feeder/health-notice";
 import { HEALTHY_VIEW } from "@/lib/device-health-model";
 import type { DeviceHealthView } from "@/lib/device-health-model";
 import type { FeederHeroData } from "@/lib/feeder-hero-types";

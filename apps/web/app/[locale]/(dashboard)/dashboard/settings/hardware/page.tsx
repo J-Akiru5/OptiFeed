@@ -15,8 +15,8 @@ import {
 } from "@/components/dashboard/dashboard-ui";
 import { DeviceSignalReading } from "@/components/device-signal";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
-import { HealthNotice } from "@/components/feeder/feeder-hero";
 import { FeederViewerLazy } from "@/components/feeder/feeder-viewer-lazy";
+import { HealthNotice } from "@/components/feeder/health-notice";
 import {
 	DeviceSettingsTabs,
 	type DeviceSwitcherOption,

@@ -46,12 +46,76 @@
 | GPIO 12 | HC-SR04 TRIG (output). Strapping pin: a 10 kOhm pull-down to GND holds it LOW at boot |
 | GPIO 14 | HC-SR04 ECHO (input, 5 V logic — level-shift or divide before the pin) |
 | GPIO 16 | Factory reset button (INPUT_PULLUP, press = LOW). Hold >= 10 s to clear WiFi, Device ID, Device Token and the `provisioned` marker |
-| GPIO 17 | Wi-Fi reset button (INPUT_PULLUP, press = LOW). Hold >= 5 s to clear WiFi only — the Device ID/Token are kept |
+| GPIO 17 | Wi-Fi reset button (INPUT_PULLUP, press = LOW). Hold >= 5 s to clear WiFi only — the Device ID/Token are kept. A tap (< 5 s) acknowledges latched faults (1.8.0) |
+| GPIO 18 | FAULT lamp, yellow (LED + 200 Ω to GND; HIGH = on). Solid while a fault is latched (1.8.0) |
+| GPIO 26 | WI-FI lamp, blue (LED + 100 Ω to GND). Solid once joined to the saved network; 1 Hz blink in the setup portal; off otherwise (1.8.0) |
+| — | POWER lamp, white: 5 V rail + 330 Ω in hardware, no GPIO. FEEDING lamp, green: parallel tap on the relay control line (GPIO 25, or 5 on `esp32dev-relay5`), no GPIO |
 | GPIO 21 | DS3231 SDA (I²C) — RTC                 |
 | GPIO 22 | DS3231 SCL (I²C) — RTC                 |
 | GPIO 1  | TX0 (USB debug serial)                  |
 | GPIO 3  | RX0 (USB debug serial)                  |
 | GPIO 0  | Must float during boot (boot mode)      |
+
+### Machine status interface (firmware 1.8.0)
+
+Four LEDs form one status panel. Logic lives in `status.h` (`fw::FaultManager`,
+`fw::indicatorLevels`) and is covered by the native tests. The wiring below is the
+amended bench wiring (`firmware/bench/led-bench-test`, Jeff 2026-10-31): only the blue
+and yellow LEDs are firmware outputs.
+
+| Lamp | Wiring | Solid | Blinking | Off |
+|---|---|---|---|---|
+| POWER (white) | 5 V rail → 330 Ω → LED → GND; hardware, no GPIO | Control power available | — | No control power |
+| FEEDING (green) | Relay control line (GPIO 25, or 5 on `esp32dev-relay5`) → 200 Ω → LED → GND; a parallel tap, no GPIO | Relay energized (actual feeding) | — | Idle |
+| WI-FI (blue) | GPIO 26 → 100 Ω → LED → GND | Joined the configured network | Setup portal (provisioning) | Not connected (not a fault) |
+| FAULT (yellow) | GPIO 18 → 200 Ω → LED → GND | A fault is latched | — | No active fault |
+
+Polarity: longer leg (anode) toward the resistor and GPIO, shorter leg (cathode) to
+GND. Tap the relay line at the ESP32 pin or module input, not at a point pulled up
+to 5 V. The green LED reflects *relay energized*, so it also blips with the GPIO 5
+boot glitch and stays lit if the relay sticks on; label it FEED or RELAY on the
+enclosure, not "FEEDING OK". Blue sits close to the 3.3 V rail and is dim even at
+100 Ω; a brighter blue needs a 5 V supply and a small low-side switch.
+
+A panel of 12 V DC pilot lamps instead (each switched by an NPN, never directly by
+a GPIO) builds with `-DPOWER_LED_PIN=13 -DFEEDING_LED_PIN=18 -DWIFI_LED_PIN=19
+-DFAULT_LED_PIN=33`:
+
+| Connection | Wiring |
+|---|---|
+| Lamp + | +12 V |
+| Lamp − | NPN collector |
+| NPN emitter | GND |
+| ESP32 GPIO | 1 kΩ → NPN base |
+| NPN base | 10 kΩ pull-down → GND (lamp stays dark while the pin floats at reset) |
+| ESP32 GND | Common with the 12 V supply GND (non-isolated supplies only) |
+
+A lamp that is not fitted builds with `-D<NAME>_LED_PIN=-1` (`POWER_LED_PIN`,
+`FEEDING_LED_PIN`, `WIFI_LED_PIN`, `FAULT_LED_PIN`).
+
+**Faults the current hardware can detect**
+
+| Fault | Detection | Raised | Clears when |
+|---|---|---|---|
+| `hopper_sensor` | HC-SR04 returns no echo on any sample, 3 checks in a row (each heartbeat, or a single ping every 60 s when offline) | ~15 s online, ~3 min offline | An echo returns, then the operator acknowledges |
+| `rtc` | DS3231 not found at boot, or no I2C ACK at 0x68 (probed every 60 s) | At boot / within 60 s | It answers again, then acknowledgement |
+| `relay_overrun` | A dose ran past its expected end + 2 s (timing trip; the relay is already forced off) | At the trip | Acknowledgement |
+| `safe_mode` | Repeated abnormal resets locked the relay off | On entry | Safe mode ends, then acknowledgement |
+
+Faults latch: the yellow lamp stays on until the cause is gone **and** the
+operator taps the Wi-Fi reset button (GPIO 17, released before 5 s). A tap while
+the cause is still present is refused and logged. Acknowledging never resumes an
+interrupted dose. Each fault is logged as `[FAULT] <code> raised (epoch <n>)`
+(epoch 0 without a trusted clock) and the heartbeat carries
+`diag.faults_latched`, `diag.faults_present` (bit n = `fw::Fault` n) and
+`diag.last_fault`. Ingest strips these today, as with the other `diag` keys.
+
+Not faults: Wi-Fi loss (the unit feeds offline from the RTC; blue just goes
+off) and a low hopper (a server-side pellet alert). Not detectable without new
+parts: a jammed auger or motor overload (needs a current sensor) and a relay
+that fails to switch (needs relay feedback). The FAULT lamp is an operator
+notice, not a safety interlock: the relay gates and safe mode remain the only
+interlock, and no fault adds a new feeding refusal.
 
 ### Dedicated reset buttons
 
@@ -71,12 +135,9 @@ cannot reboot into the portal at 5 s: the factory reset wins at 10 s. The
 existing feed-button hold (GPIO 23, 5 s at boot) remains a WiFi-only reset.
 
 GPIO 16 and 17 are free on the ESP32-WROOM-32U, are not strapping pins, and
-support the internal pull-up. They are held by these two buttons; other free,
-safe GPIO candidates are:
-
-```
-13, 18, 19, 33
-```
+support the internal pull-up. They are held by these two buttons. GPIO 18 and 26
+are the FAULT and WI-FI lamps since 1.8.0 (see *Machine status interface*). GPIO 27 is
+still free; so are 13, 19 and 33 unless a 12 V lamp panel is built (see that section).
 
 Do **not** use: 25 (relay), 23 (feed button), 32 (DS18B20), 12/14 (HC-SR04),
 21/22 (RTC I2C), 0/2/15 (strapping), 34-39 (input-only, no internal pull-up),
@@ -526,7 +587,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 #define FEED_POLL_URL_BASE     "https://pakaonai.syntaxure.dev/api/feed-command"
 #define SCHEDULE_SYNC_URL_BASE "https://pakaonai.syntaxure.dev/api/schedule-sync"
 #define OTA_CHECK_URL          "https://pakaonai.syntaxure.dev/api/firmware/check"
-#define FW_VERSION             "1.7.0"
+#define FW_VERSION             "1.8.1"
 #define FW_BOARD               "wroom32u"
 ```
 
@@ -559,7 +620,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 > 4. Confirm the five embedded certificates match the fingerprints in the
 >    source comment (`openssl x509 -fingerprint -sha256 -in <pem>`).
 
-> `FW_VERSION` is printed at boot (`[FIRMWARE] v1.7.0`, under the
+> `FW_VERSION` is printed at boot (`[FIRMWARE] v1.8.1`, under the
 > `[DEVICE MAC]` line) and sent as `firmware_version` in every heartbeat. It is
 > also the version the OTA check reports and compares against the signed
 > manifest.
@@ -1035,7 +1096,7 @@ them identical to the PEMs embedded in `firmware-main.ino`.
   "timestamp": "2026-07-11T12:00:00+00:00",
   "rtc_ok": true,
   "feeder_active": false,
-  "firmware_version": "1.7.0",
+  "firmware_version": "1.8.1",
   "wifi_rssi": -58,
   "ota_state": "valid",
   "reset_reason": "poweron",
@@ -1237,7 +1298,7 @@ Portal checks (no backend needed):
 12. Confirm the serial log never prints the WiFi password or the Device Token, and that
     the setup page never renders a stored token. `/status` and `/scan` must not contain
     either.
-13. Confirm the boot log prints `[FIRMWARE] v1.7.0` under the `[DEVICE MAC]` line and
+13. Confirm the boot log prints `[FIRMWARE] v1.8.1` under the `[DEVICE MAC]` line and
     `[IDENTITY] Setup AP name`, and that a heartbeat carries the same version in
     `firmware_version`.
 14. Confirm the boot log prints `[INIT] Reset reason: ...`, `[OTA] state -> valid` and

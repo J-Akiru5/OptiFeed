@@ -43,6 +43,19 @@
       and jitter, capped at 5 minutes. Pure logic lives in safety.h/filters.h
       and is covered by `pio test -d firmware -e native`.
 
+  MACHINE STATUS INTERFACE (1.8.0, status.h):
+    - Four panel lamps, each switched by an NPN transistor from its GPIO:
+      POWER white (solid once control power is up), FEEDING green (solid while
+      the relay is energized), WI-FI blue (solid only once joined to the saved
+      network, blinking while the setup portal runs), FAULT yellow (solid while
+      any fault is latched).
+    - One FaultManager owns every fault: HC-SR04 no echo (3 checks in a row),
+      DS3231 missing or silent on I2C, a relay overrun trip, and safe mode. A
+      fault stays latched until its cause is gone AND the operator taps the
+      Wi-Fi reset button (GPIO 17, under 5 s). No fault ever resumes a dose.
+    - Wi-Fi loss and a low hopper are not faults. The lamp is a notice, not an
+      interlock: the relay gates above remain the only interlock.
+
   REMOTE UPDATES (OTA, T-12a):
     - A/B app slots from min_spiffs.csv; the bootloader only switches slots in
       Update.end(true), so power loss mid-download is harmless.
@@ -88,6 +101,7 @@
 #include "safety.h"
 // Dashboard-driven configuration and its absolute safety envelope (1.7.0).
 #include "config.h"
+#include "status.h"
 #ifdef ENABLE_LAN_OTA
 #include <ArduinoOTA.h>
 #endif
@@ -111,7 +125,7 @@
 
 // Reported at boot and in the heartbeat body so the fleet and the OTA rollout
 // can tell builds apart. Bump on every firmware change.
-#define FW_VERSION "1.7.0"
+#define FW_VERSION "1.8.1"
 // Board string the signed manifest must carry. One value for every unit this
 // firmware runs on (ESP32-WROOM-32U); a manifest for another board is refused.
 #define FW_BOARD "wroom32u"
@@ -383,6 +397,34 @@ struct ResetButtonState {
 ResetButtonState wifiResetButton = { false, 0, 0 };
 ResetButtonState factoryResetButton = { false, 0, 0 };
 bool resetButtonsArmed = false;
+// ---- Machine status lamps (1.8.0) ---------------------------------------
+// Panel as wired on the bench (firmware/bench/led-bench-test, Jeff 2026-10-31):
+// 5 mm LEDs, each with a series resistor from the GPIO to GND, HIGH = on.
+//   POWER   white  5 V rail + 330 ohm, always on in hardware: no GPIO (-1)
+//   FEEDING green  parallel tap on the relay control line, so it follows the
+//                  relay without firmware: no GPIO (-1)
+//   WI-FI   blue   GPIO 26 (100 ohm)
+//   FAULT   yellow GPIO 18 (200 ohm)
+// A panel of NPN-driven 12 V lamps with firmware-driven POWER and FEEDING builds
+// with -DPOWER_LED_PIN=13 -DFEEDING_LED_PIN=18 -DWIFI_LED_PIN=19 -DFAULT_LED_PIN=33
+// (1 kOhm to the base, 10 kOhm base pull-down); never wire a 12 V lamp to a pin
+// directly. Any lamp can be dropped with -D<NAME>_LED_PIN=-1.
+#ifndef POWER_LED_PIN
+#define POWER_LED_PIN    -1   // white: 5 V rail in hardware
+#endif
+#ifndef FEEDING_LED_PIN
+#define FEEDING_LED_PIN  -1   // green: tap on the relay control line
+#endif
+#ifndef WIFI_LED_PIN
+#define WIFI_LED_PIN     26   // blue
+#endif
+#ifndef FAULT_LED_PIN
+#define FAULT_LED_PIN    18   // yellow
+#endif
+#define WIFI_LED_BLINK_PERIOD_MS      1000UL   // provisioning: 0.5 s on, 0.5 s off
+#define FAULT_CHECK_INTERVAL_MS      60000UL   // RTC I2C probe + offline echo check
+#define HOPPER_SENSOR_FAULT_CHECKS        3    // consecutive no-echo checks
+#define DS3231_I2C_ADDRESS             0x68
 #define RTC_SDA         21
 #define RTC_SCL         22
 // TRIG sits on GPIO 12 and ECHO on GPIO 14 deliberately: GPIO 14 emits a PWM
@@ -754,6 +796,14 @@ bool pendingRelayOverrunReport = false;
 float overrunGrams = 0.0f;
 const char *overrunSource = "";
 
+// Machine status interface (1.8.0).
+fw::FaultManager faultManager;
+fw::FaultDebounce hopperSensorHealth;
+unsigned long lastFaultCheckMs = 0;
+unsigned long lastHopperEchoCheckMs = 0;
+bool faultChecksStarted = false;
+bool wifiAckButtonWasDown = false;
+
 bool buttonWasDisabled = false;
 unsigned long lastDisabledLogMs = 0;
 bool safetyHealthyCleared = false;
@@ -765,6 +815,11 @@ void stopFeedCycle();
 void serviceDispenseSafety();
 void serviceSafetyReports();
 void serviceSafeMode();
+void serviceIndicators();
+void serviceFaults();
+void recordFault(fw::Fault fault, bool present);
+void raiseFaultEvent(fw::Fault fault);
+void recordHopperEcho(bool echoSeen);
 void configureSafety();
 void configureHopperFilter();
 void clearSafetyStateForReset();
@@ -778,6 +833,7 @@ void kickWatchdog() {
   // relay is switched off here, at every network boundary, instead of waiting
   // for the next pass.
   serviceDispenseSafety();
+  serviceIndicators();
 }
 
 // Event ID counter — combined with esp_random() for uniqueness across reboots
@@ -1198,6 +1254,19 @@ void handleResetButtons() {
   }
 
   bool wifiDown = readResetButton(WIFI_RESET_BUTTON_PIN, wifiResetButton, now);
+  // 1.8.0: a tap (released before the 5 s hold) acknowledges latched faults.
+  // A hold still resets Wi-Fi and reboots before it is ever released.
+  if (wifiAckButtonWasDown && !wifiDown && !factoryDown) {
+    const uint8_t cleared = faultManager.acknowledge();
+    if (cleared) {
+      Serial.printf("[FAULT] operator acknowledged (cleared mask 0x%02X)\n", cleared);
+    } else if (faultManager.indicatorOn()) {
+      Serial.printf("[FAULT] acknowledge refused: cause still present (mask 0x%02X)\n",
+                    faultManager.presentMask());
+    }
+    serviceIndicators();
+  }
+  wifiAckButtonWasDown = wifiDown;
   if (wifiDown && !factoryDown && (now - wifiResetButton.pressStartMs) >= WIFI_RESET_HOLD_MS) {
     Serial.println("[RESET] WiFi reset button held - clearing WiFi, keeping device identity");
     clearWiFiStackCredentials();
@@ -3314,6 +3383,96 @@ void serviceSafeMode() {
   }
 }
 
+// ==================== Machine status interface (1.8.0) ====================
+
+void writeLamp(int pin, bool on) {
+  if (pin >= 0) digitalWrite(pin, on ? HIGH : LOW);
+}
+
+// Lamps start dark (level before mode, like the relay); POWER lights once the
+// controller is running. Called right after the relay is forced OFF.
+void setupIndicators() {
+  const int pins[] = { POWER_LED_PIN, FEEDING_LED_PIN, WIFI_LED_PIN, FAULT_LED_PIN };
+  for (int pin : pins) {
+    if (pin < 0) continue;
+    digitalWrite(pin, LOW);
+    pinMode(pin, OUTPUT);
+    digitalWrite(pin, LOW);
+  }
+  hopperSensorHealth.configure(HOPPER_SENSOR_FAULT_CHECKS);
+  writeLamp(POWER_LED_PIN, true);
+}
+
+// GPIO writes only, no I/O, so it runs every loop pass and at every
+// kickWatchdog() boundary: the green lamp goes out with the relay even in the
+// middle of a blocking HTTPS call.
+void serviceIndicators() {
+  fw::IndicatorInputs in;
+  in.feeding = feederActive;
+  in.wifiConnected = WiFi.status() == WL_CONNECTED;
+  in.provisioning = provisioningActive;
+  in.fault = faultManager.indicatorOn();
+  const fw::IndicatorLevels out = fw::indicatorLevels(in, millis(), WIFI_LED_BLINK_PERIOD_MS);
+  writeLamp(POWER_LED_PIN, out.power);
+  writeLamp(FEEDING_LED_PIN, out.feeding);
+  writeLamp(WIFI_LED_PIN, out.wifi);
+  writeLamp(FAULT_LED_PIN, out.fault);
+}
+
+// Fault log entry: code + timestamp. Epoch 0 when the clock is not trusted.
+// An already-present fault returns early, so safe mode costs no I2C per pass.
+void recordFault(fw::Fault fault, bool present) {
+  if (present && faultManager.present(fault)) return;
+  const uint32_t epoch = (present && clockValidNow()) ? (uint32_t)rtc.now().unixtime() : 0;
+  if (faultManager.report(fault, present, epoch, millis())) {
+    Serial.printf("[FAULT] %s raised (epoch %lu)\n", fw::faultName(fault), (unsigned long)epoch);
+  }
+}
+
+void raiseFaultEvent(fw::Fault fault) {
+  const uint32_t epoch = clockValidNow() ? (uint32_t)rtc.now().unixtime() : 0;
+  faultManager.raiseEvent(fault, epoch, millis());
+  Serial.printf("[FAULT] %s raised (epoch %lu)\n", fw::faultName(fault), (unsigned long)epoch);
+}
+
+void recordHopperEcho(bool echoSeen) {
+  lastHopperEchoCheckMs = millis();
+  recordFault(fw::Fault::HOPPER_SENSOR, hopperSensorHealth.update(echoSeen));
+}
+
+// One HC-SR04 ping, used only when no heartbeat has read the hopper recently
+// (an offline unit). It does not feed the hopper filter.
+bool hopperEchoPing() {
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+  return pulseIn(ECHO_PIN, HIGH, 30000) > 0;
+}
+
+// Safe mode is a RAM flag, checked every pass. The DS3231 I2C probe and the
+// offline echo check run once a minute (and once at the first pass).
+void serviceFaults() {
+  recordFault(fw::Fault::SAFE_MODE, safeModeActive);
+
+  const unsigned long now = millis();
+  if (faultChecksStarted && now - lastFaultCheckMs < FAULT_CHECK_INTERVAL_MS) return;
+  faultChecksStarted = true;
+  lastFaultCheckMs = now;
+
+  bool rtcResponds = false;
+  if (rtcAvailable) {
+    Wire.beginTransmission(DS3231_I2C_ADDRESS);
+    rtcResponds = (Wire.endTransmission() == 0);
+  }
+  recordFault(fw::Fault::RTC, !rtcResponds);
+
+  if (now - lastHopperEchoCheckMs >= FAULT_CHECK_INTERVAL_MS) {
+    recordHopperEcho(hopperEchoPing());
+  }
+}
+
 void configureHopperFilter() {
   fw::HopperFilter::Config config;
   config.emptyCm = deviceConfig.hopperEmptyCm;
@@ -3355,6 +3514,7 @@ void setup() {
   digitalWrite(RELAY_PIN, RELAY_OFF);
   pinMode(RELAY_PIN, OUTPUT);
   digitalWrite(RELAY_PIN, RELAY_OFF);   // feeder must NEVER default to dispensing at boot
+  setupIndicators();                     // lamps dark, then POWER on
 
   Serial.begin(115200);
   bootTime = millis();
@@ -3540,6 +3700,8 @@ void loop() {
   serviceSafetyReports();
   serviceSafeMode();
   serviceOtaHealthCheck();  // pending-verify deadline; relay stays OFF until valid
+  serviceFaults();          // FaultManager: safe mode, RTC probe, offline echo check
+  serviceIndicators();      // POWER / FEEDING / WI-FI / FAULT lamps
 
   if (provisioningActive) {
     serviceProvisioningPortal();  // captive DNS + setup page; never deep-sleeps
@@ -3821,6 +3983,7 @@ void serviceDispenseSafety() {
     Serial.printf("[SAFETY] relay overrun: %lums for a %lums dose (%s)\n", elapsed,
                   feedDurationMs, currentFeedSource);
     stopFeedCycle();
+    raiseFaultEvent(fw::Fault::RELAY_OVERRUN);
     return;
   }
   if (elapsed >= feedDurationMs) {
@@ -4275,6 +4438,7 @@ bool readHopperLevel(float &percent, float &cm) {
   // Five samples per reading: an engineering constant, not a dashboard value
   // (the plausibility rules around them are configurable).
   float samples[5];
+  bool anyEcho = false;
   for (int i = 0; i < 5; i++) {
     digitalWrite(TRIG_PIN, LOW);
     delayMicroseconds(2);
@@ -4283,8 +4447,10 @@ bool readHopperLevel(float &percent, float &cm) {
     digitalWrite(TRIG_PIN, LOW);
     long duration = pulseIn(ECHO_PIN, HIGH, 30000);  // 30 ms timeout (~5 m)
     samples[i] = (duration == 0) ? -1.0f : (float)duration * 0.034f / 2.0f;
+    if (duration != 0) anyEcho = true;
     delay(10);
   }
+  recordHopperEcho(anyEcho);   // FAULT only when no sample echoes at all
 
   const fw::HopperFilter::Result result = hopperFilter.update(samples, 5, millis());
   if (!result.valid) {
@@ -4448,6 +4614,10 @@ void sendTelemetry() {
   diag["relay_overruns"] = relayOverruns;
   diag["sensor_invalid_count"] = sensorInvalidCount;
   diag["queue_drops"] = queueDropCount;
+  // 1.8.0 FaultManager (bit n = fw::Fault n). Diagnostic only, like the rest.
+  diag["faults_latched"] = faultManager.latchedMask();
+  diag["faults_present"] = faultManager.presentMask();
+  diag["last_fault"] = fw::faultName(faultManager.lastFault());
   diag["uptime_s"] = (millis() - bootTime) / 1000UL;
   diag["min_dispense_gap_s"] = (unsigned long)deviceConfig.minDispenseGapS;
   diag["max_dispenses_per_hour"] = (unsigned)deviceConfig.maxDispensesPerHour;

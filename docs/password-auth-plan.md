@@ -641,7 +641,11 @@ pnpm --filter web test:e2e   # only with the e2e DB guard configured
 - **Security of `password123`:** known breached password; temporary-only and forced change mitigate but do not eliminate the takeover window.
 - **Demo/e2e state:** the setup step changes `demo-farmer-1` to `DEMO_PASSWORD`; it will no longer be on `password123` after the suite runs.
 - **Supabase dashboard policy:** app-level enforcement is authoritative; dashboard alignment is an owner action.
-- **No email-based reset:** resets remain admin/CLI-driven. Do not add a public reset flow in this task.
+- **Email-based reset (superseded by #411):** this plan originally ruled that
+  resets stay admin/CLI-driven. The owner changed that decision in issue #411:
+  a self-service flow now exists (section 17). The original rule below is kept
+  only as the history of that decision.
+- ~~**No email-based reset:** resets remain admin/CLI-driven. Do not add a public reset flow in this task.~~ (superseded by #411)
 
 ---
 
@@ -663,3 +667,53 @@ pnpm --filter web test:e2e   # only with the e2e DB guard configured
 14. Run tests, typecheck, lint, and focused e2e.
 15. Apply the migration and perform the 5-account rollout.
 16. Verify the forced-change flow with one account before declaring done.
+
+---
+
+## 17. Self-service password recovery (issue #411)
+
+Added after this plan, by the owner's decision in issue #411. It does not change
+the password model above: the permanent password policy, the forced-change flag
+and the CLI all stay as they are.
+
+**Routes**
+
+| Route | Who | What it does |
+| --- | --- | --- |
+| `/login` → `/forgot-password` | anyone with a farm ID | Requests a recovery link. The link is minted in code with `admin.auth.admin.generateLink({ type: "recovery" })` and delivered by **Resend** (`lib/notify/reset-email.ts`) — not by Supabase's SMTP, because login addresses are internal pond mailboxes that cannot receive mail. |
+| `/reset-password` | the holder of the recovery link | Sets the new password from the link's session, clears `mustChangePassword` and revokes the account's other sessions. Without a recovery session it shows the "link invalid or expired" state. |
+| Superadmin → Users → *Reset password* | a platform admin | Issues a one-time temporary password (reason ≥ 10 characters, step-up re-authentication, audited as `platform.user.reset_password`). Shown once in the console, never persisted or logged, and the target must change it at the next sign-in. |
+| `pnpm --filter web manage-user reset-password --farm-id <id> --password <value>` | an operator with shell access | The CLI path, unchanged. |
+
+**Rules that matter**
+
+- **Anti-enumeration:** an unknown farm ID answers exactly like a known one —
+  no link is minted, no mail is sent, nothing is audited. The page never claims
+  an email was delivered.
+- **Rate limit:** 3 requests per 10 minutes per IP, fail-closed
+  (`checkPasswordResetRateLimit` in `lib/rate-limit.ts`).
+- **Audit:** every request for a real account writes one `PlatformAuditLog` row
+  — action `platform.user.password_reset_requested`, actor `self-service`,
+  `after = { farmId, emailSent }`, plus the request IP and user agent. The
+  recovery link is a credential and never reaches a row, a log line or the
+  console; the one-time temporary password likewise never leaves the response
+  that shows it.
+- **Delivery is best-effort:** without `RESEND_API_KEY`, `NEXT_PUBLIC_BASE_URL`
+  and a sender (`RESET_FROM_EMAIL`, falling back to `INVITE_FROM_EMAIL`) the
+  mail is skipped with a single warning, the request still succeeds, and the
+  audit row records `emailSent: false`.
+
+**Why the console reset stays the primary route:** the pond mailboxes are
+synthetic addresses, so a self-service mail cannot arrive. The forgot-password
+page says so and points the user to an administrator, and the console reset is
+the path that always works.
+
+**Files:** `apps/web/app/[locale]/forgot-password/`,
+`apps/web/app/[locale]/reset-password/`,
+`apps/web/components/forgot-password-form.tsx`,
+`apps/web/components/reset-password-form.tsx`,
+`apps/web/lib/actions/password-reset.ts`, `apps/web/lib/notify/reset-email.ts`,
+`apps/web/lib/rate-limit.ts`, `apps/web/lib/actions/superadmin.ts`
+(`resetPlatformUserPassword`), `apps/web/components/superadmin/user-actions.tsx`,
+and the `forgotPassword` / `resetPassword` message namespaces in
+`apps/web/messages/{en,hil,tl}.json`.

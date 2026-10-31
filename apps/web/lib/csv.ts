@@ -106,7 +106,7 @@ export function downloadCsv(filename: string, csvString: string) {
 	URL.revokeObjectURL(url);
 }
 
-export function buildFilename(type: ExportableType, date?: Date): string {
+export function buildFilename(type: string, date?: Date): string {
 	const d = date ?? new Date();
 	const ts = d.toISOString().slice(0, 10);
 	return `optifeed_${type}_${ts}.csv`;

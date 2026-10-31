@@ -26,8 +26,9 @@ in the dashboard; VIEWER is read-only.
   Superadmin → Settings → Device connectivity). The dashboard badge and
   Admin → Devices reflect this.
 - The `/api/cron/device-watch` endpoint (pg_cron every 5 min, H10) raises one
-  CRITICAL connectivity notification per outage and (if H11 tokens are set)
-  sends a Telegram message.
+  CRITICAL connectivity notification per outage. Alerts are in-app only —
+  there is no Telegram channel (ADR-0007), so nobody is paged: check the
+  dashboard alert panel and the notifications page.
 - Checklist: power/LED on the ESP32, WiFi credentials in range, device token
   still matches the `EnergyDevice.tokenHash` row (rotate via Admin if
   suspect), and the device's `mac` matches what the firmware reports.

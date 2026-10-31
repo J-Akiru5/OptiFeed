@@ -39,6 +39,7 @@ arguments, because they would be recorded in an image layer.
 | `RESEND_API_KEY` | No | runtime | Resend dashboard | E-mail is skipped and logged once per process; in-app notifications still run. |
 | `REMINDER_FROM_EMAIL` | No | runtime | Verified Resend sending domain | Harvest/sampling reminder e-mail is skipped. |
 | `INVITE_FROM_EMAIL` | No | runtime | Verified Resend sending domain | Invite e-mail is skipped. The UI shows the documented default sender (`PakaonAI <invite@syntaxure.dev>`) but does not send with it — the variable must be set for `inviteReady`. |
+| `RESET_FROM_EMAIL` | No | runtime | Verified Resend sending domain | Password-reset e-mail is skipped; `INVITE_FROM_EMAIL` is used when this is unset. The request still succeeds and is audited with `emailSent: false`. |
 | `TELEGRAM_BOT_TOKEN` | No | runtime | BotFather | CRITICAL alerts stay in-app only (`sendTelegramMessage` returns `false`). |
 | `TELEGRAM_CHAT_ID` | No | runtime | Telegram chat id | Same as above; both are required. |
 | `DEMO_PASSWORD` | No | tooling | Chosen locally | `apps/web/scripts/provision-demo-user.ts` cannot provision the demo login. Not part of production configuration. |
@@ -92,7 +93,7 @@ arguments, because they would be recorded in an image layer.
 | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — inlined into the browser bundle | `DATABASE_URL`, `DIRECT_URL` |
 | `NEXT_PUBLIC_SITE_URL` — baked into `robots.txt`, `sitemap.xml` and the metadata | `SUPABASE_SERVICE_ROLE_KEY` |
-| `NEXT_TELEMETRY_DISABLED` | `CRON_SECRET`, `RESEND_API_KEY`, `REMINDER_FROM_EMAIL`, `INVITE_FROM_EMAIL`, `TELEGRAM_*`, `NEXT_PUBLIC_BASE_URL` |
+| `NEXT_TELEMETRY_DISABLED` | `CRON_SECRET`, `RESEND_API_KEY`, `REMINDER_FROM_EMAIL`, `INVITE_FROM_EMAIL`, `RESET_FROM_EMAIL`, `TELEGRAM_*`, `NEXT_PUBLIC_BASE_URL` |
 | — | `OPENCODE_GO_API_KEY`, `GEMINI_API_KEY`, `OPENCODE_GO_REASONING_EFFORT` |
 
 A server secret passed with `--build-arg` is written into the build history and the layer it was used

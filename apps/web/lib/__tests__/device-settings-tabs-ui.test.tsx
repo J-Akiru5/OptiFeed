@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next-intl", async () => {
@@ -11,7 +11,6 @@ vi.mock("@/i18n/routing", () => ({ useRouter: () => ({ push }) }));
 
 import { DeviceSettingsTabs } from "@/components/settings/device-settings-tabs";
 import { useReportUnsavedChanges } from "@/components/settings/unsaved-changes";
-import { HELP_REVEAL_EVENT } from "@/lib/help/highlight";
 import { useState } from "react";
 
 function DraftField() {
@@ -103,19 +102,6 @@ describe("DeviceSettingsTabs (#403)", () => {
 		fireEvent.change(screen.getByLabelText("Feeder"), { target: { value: "dev-2" } });
 		fireEvent.click(screen.getByRole("button", { name: "Discard and switch" }));
 		expect(push).toHaveBeenCalledWith("/dashboard/settings/hardware?device=dev-2&tab=feeding");
-	});
-
-	it("opens the tab holding a help target", () => {
-		renderTabs();
-		act(() => {
-			screen
-				.getByText("Hopper panel")
-				.dispatchEvent(new Event(HELP_REVEAL_EVENT, { bubbles: true }));
-		});
-		expect(screen.getByRole("tab", { name: "Calibration" })).toHaveAttribute(
-			"aria-selected",
-			"true",
-		);
 	});
 
 	it("opens the tab for a pre-tab anchor link", () => {

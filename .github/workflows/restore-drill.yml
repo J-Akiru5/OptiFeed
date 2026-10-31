@@ -91,6 +91,11 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter web prisma:generate
 
+      - name: Self-test the export restore check
+        # Read-only and database-free: proves the checker accepts a complete
+        # export and rejects a truncated or tampered one (issue #353).
+        run: node scripts/ops/restore-check.mjs --self-test
+
       - name: Install PostgreSQL 16 client
         # The restore needs a client whose major version is not older than the
         # server's. Prefer 16; fall back to the image's default client, then

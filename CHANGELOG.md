@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- #353 the admin and superadmin consoles gain a **Backup page** that downloads a SQL export of the database with a recorded audit entry. A tenant admin gets only their own organizations' rows (the same `resolveOrgScope()` chain as the rest of the console); a platform admin gets every allowed table behind a fresh step-up check and a mandatory reason. Each export is rate limited (5 per hour per user), streamed server-side with a 250,000-row pre-flight cap, a 64 MB streaming cap and a 120 s budget, and writes one `PlatformAuditLog` row — who, scope, row counts, size, SHA-256 and outcome, never row data — that also feeds the Backup page history and the audit trail. The file is standard `INSERT` SQL in foreign-key-safe order, has no schema DDL, and its trailer carries the SHA-256 of the payload. A per-table, per-column allow-list (`lib/backup/tables.ts`) is the only thing that can leave the database, and a test compares it with the Prisma data model so a new column fails until someone exports, redacts, omits or excludes it. Device tokens are written as a non-usable `redacted:<id>` placeholder (so a restored row satisfies its unique NOT NULL column) and token hashes, session data, limiter state and job artefacts are excluded.
+- #322 the SQL export carries an **auth identity manifest**: one JSON comment line per exported user with `id`, `supabaseId`, `email`, `farmId`, role and organization links — the minimum a restore needs to recreate the Supabase Auth identities and re-link `User` rows. It never carries a credential. The restore order and the known `PondOwnershipHistory` trigger re-fire are documented in `docs/operations/backup-and-recovery.md` §7.5.
+- `scripts/ops/restore-check.mjs` is a read-only dry run for an exported file: it verifies the checksum and byte count, the allow-list, the absence of credential columns, foreign-key integrity inside the file, identity-manifest coverage and primary-key uniqueness, and it has a `--self-test` that the restore-drill workflow runs. The restore drill and backup docs link it.
+- The Backup page and the settings entry points are translated in English and Hiligaynon (the Hiligaynon strings are drafts for native review), with a sensitive-data warning on both pages, an accessible history table in UTC and a checksum an operator can compare with the downloaded file.
+
 ## [1.35.0] - 2026-10-31
 
 ### Added

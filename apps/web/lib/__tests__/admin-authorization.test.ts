@@ -63,7 +63,9 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 vi.mock("@/lib/avatars", () => ({ getSignedAvatarUrls: vi.fn(async () => ({})) }));
 vi.mock("@/lib/membership-invite", () => ({ inviteOrAttachMember: holder.invite }));
-vi.mock("@/lib/notify/invite-email", () => ({
+vi.mock("@/lib/notify/invite-email", async (importOriginal) => ({
+	// `isDeliverableEmail` is real: the contact-email action validates with it.
+	...(await importOriginal<typeof import("@/lib/notify/invite-email")>()),
 	deliverMemberInviteEmail: holder.deliverInvite,
 }));
 vi.mock("@/i18n/routing", () => ({
@@ -95,6 +97,7 @@ import {
 	revokeMember,
 	setPondStatus,
 	setUserPermission,
+	updateMemberContactEmail,
 	updatePondOwner,
 	updateUser,
 } from "@/lib/actions/admin";
@@ -166,6 +169,11 @@ const adminActions: readonly AdminActionCase[] = [
 		run: () => changeMemberRole(FARMER_A_ID, "ADMIN"),
 	},
 	{ name: "revokeMember", permission: "manage_members", run: () => revokeMember(FARMER_A_ID) },
+	{
+		name: "updateMemberContactEmail",
+		permission: "manage_members",
+		run: () => updateMemberContactEmail(FARMER_A_ID, "farmer@example.test"),
+	},
 	{ name: "getPonds", permission: null, run: () => getPonds() },
 	{
 		name: "createPondWithFarmer",

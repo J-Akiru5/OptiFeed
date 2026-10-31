@@ -111,16 +111,16 @@
 	},
 	"forgotPassword": {
 		"title": "Nakalimut ang iyong password?",
-		"desc": "Ilagay ang iyong Farm ID at magpapadala kami ng link sa pag-reset ng password sa mailbox na nakatalaga rito.",
-		"farmIdLabel": "Farm ID",
-		"farmIdPlaceholder": "iyong-farm-id",
-		"farmIdDesc": "Ito ang parehong Farm ID na ginagamit mo sa pag-sign in.",
+		"desc": "Ilagay ang email address na nakatala sa iyong account at magpapadala kami ng link sa pag-reset ng password dito.",
+		"identifierLabel": "Email",
+		"identifierPlaceholder": "ikaw@example.com",
+		"identifierDesc": "Ang email na itinala ng iyong administrator para sa iyo. Gumagana rin ang iyong Farm ID.",
 		"submit": "Magpadala ng reset link",
 		"submitting": "Ipinapadala…",
-		"successDesc": "Kung may account na {farmId}, naipadala na ang reset link sa kanyang mailbox. Ang link ay magbubukas ng pahina kung saan ka maaaring magtakda ng bagong password.",
-		"fallbackNote": "Mga internal na pond address ang mga login address. Kung hindi mo mabuksan ang kahon ng surat — o kung walang dumating na email — humiling sa platform administrator na i-reset ang iyong password mula sa platform console. Isang beses lang ang paggamit ng mga reset link at may expiring din ito.",
+		"successDesc": "Kung may account na tumutugma sa {identifier}, naipadala na ang reset link sa nakatalang email nito. Ang link ay magbubukas ng pahina kung saan ka maaaring magtakda ng bagong password.",
+		"fallbackNote": "Ang mga reset link ay ipinapadala sa email address na itinala ng iyong administrator para sa iyong account. Kung walang nakatala, o kung walang dumating na email, humiling sa administrator na idagdag o ayusin ito, o i-reset ang iyong password mula sa console. Isang beses lang ang paggamit ng mga reset link at may expiring din ito.",
 		"backToLogin": "Bumalik sa pag-sign in",
-		"errorEmpty": "Ilagay ang iyong Farm ID.",
+		"errorEmpty": "Ilagay ang iyong email address.",
 		"errorRateLimited": "Masyadong maraming kahiling ng reset sa maikling panahon. Maghintay ng ilang minuto at subukan muli.",
 		"errorService": "Hindi maumpisahan ngayon ang pag-reset ng password. Subukan muli mamaya."
 	},
@@ -687,7 +687,8 @@
 					"uploadFailed": "Hindi ma-upload ang larawan. Subukan muli.",
 					"saveFailed": "Hindi ma-save ang larawan. Subukan muli."
 				}
-			}
+			},
+			"emailNone": "Walang email na nakatala. Humiling sa iyong administrator na magdagdag nito para makapag-reset ka ng password."
 		},
 		"fcrCalculator": {
 			"setAsTarget": "Gawing growth target",
@@ -1771,7 +1772,18 @@
 				"ADMIN": "Admin",
 				"OPERATOR": "Operator",
 				"VIEWER": "Viewer"
-			}
+			},
+			"contactEmailNone": "Walang email na nakatala",
+			"contactEmailEdit": "I-edit ang email",
+			"contactEmailEditFor": "I-edit ang email ni {name}",
+			"contactEmailInputLabel": "Email ni {name}",
+			"contactEmailPlaceholder": "pangalan@example.com",
+			"contactEmailHint": "Dito ipinapadala ang mga link sa pag-reset ng password. Iwanang blangko para alisin ang address.",
+			"contactEmailSave": "I-save ang email",
+			"contactEmailSaving": "Sine-save…",
+			"contactEmailSaved": "Na-save na ang email.",
+			"contactEmailRemoved": "Naalis na ang email.",
+			"contactEmailError": "Hindi ma-save ang email. Subukan muli."
 		},
 		"adminDeviceLabels": {
 			"title": "I-print ang mga label ng device",
@@ -3210,7 +3222,8 @@
 			"columnOrgs": "Mga Organisasyon",
 			"columnPonds": "Mga Pond",
 			"columnAccess": "Access",
-			"columnActions": "Mga Aksyon"
+			"columnActions": "Mga Aksyon",
+			"noContactEmail": "Walang email na nakatala"
 		},
 		"userActions": {
 			"actionFailed": "Nabigo ang aksyon.",
@@ -3223,21 +3236,24 @@
 				"revoke": "Bawiin ang access sa platform",
 				"disable": "I-disable ang account",
 				"enable": "I-enable ang account",
-				"reset": "I-reset ang password"
+				"reset": "I-reset ang password",
+				"email": "Baguhin ang contact email"
 			},
 			"stepUpActions": {
 				"grant": "bigyan ng access sa platform",
 				"revoke": "bawiin ang access sa platform",
 				"disable": "i-disable ang account na ito",
 				"enable": "i-enable ang account na ito",
-				"reset": "i-reset ang password na ito"
+				"reset": "i-reset ang password na ito",
+				"email": "baguhin ang contact email na ito"
 			},
 			"buttons": {
 				"grant": "Ibigay",
 				"revoke": "Bawiin",
 				"disable": "I-disable",
 				"enable": "I-enable",
-				"reset": "I-reset"
+				"reset": "I-reset",
+				"email": "Email"
 			},
 			"disableWarning": "Nagba-ban ito ng login at nagbabawi sa lahat ng membership. Walang data na nabubura; ibinabalik ng I-enable ang access mamaya.",
 			"enableWarning": "Ibinabalik ang login at ang mga membership na naitala noong huling pag-disable.",
@@ -3253,7 +3269,11 @@
 			},
 			"reasonPlaceholder": "hal. Paunang setup ng platform para sa deployment",
 			"confirmLabel": "I-type ang {farmId} para kumpirmahin *",
-			"descriptionPrefix": "Account ng platform"
+			"descriptionPrefix": "Account ng platform",
+			"emailLabel": "Contact email",
+			"emailPlaceholder": "pangalan@example.com",
+			"emailHint": "Dito ipinapadala ang mga link sa pag-reset ng password. Iwanang blangko para alisin. Hindi kailanman nagbabago ang login ID.",
+			"emailWarning": "Ang sinumang may kontrol sa address na ito ay makakapag-reset ng password ng account, kaya hihingin muli ang iyong password para baguhin ito."
 		},
 		"stepUp": {
 			"title": "Kumpirmahin ang password mo",

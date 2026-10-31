@@ -4,12 +4,17 @@ import { ItemCardGrid } from "@/components/ui/item-card";
 import { ListView } from "@/components/ui/view-toggle";
 import { UserAvatar } from "@/components/user-avatar";
 import { Link, useRouter } from "@/i18n/routing";
-import { changeMemberRole, inviteMember, revokeMember } from "@/lib/actions/admin";
+import {
+	changeMemberRole,
+	inviteMember,
+	revokeMember,
+	updateMemberContactEmail,
+} from "@/lib/actions/admin";
 import type { TenantMemberOrgOption, TenantMemberRow } from "@/lib/actions/admin";
 import { MEMBER_ROLES, isMemberRole } from "@/lib/auth/member-rules";
 import { formatDateTimeLocal } from "@/lib/date-local";
 import type { MemberRole } from "@prisma/client";
-import { Check, Copy, KeyRound, Loader2, ShieldCheck, UserPlus, X } from "lucide-react";
+import { Check, Copy, KeyRound, Loader2, Pencil, ShieldCheck, UserPlus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -63,6 +68,11 @@ export function MembersSettings({
 	const [pending, setPending] = useState<string | null>(null);
 	const [revokeConfirm, setRevokeConfirm] = useState<string | null>(null);
 	const [actionError, setActionError] = useState<string | null>(null);
+
+	// One member's contact email is edited at a time (#449).
+	const [emailEditing, setEmailEditing] = useState<string | null>(null);
+	const [emailDraft, setEmailDraft] = useState("");
+	const [emailError, setEmailError] = useState<string | null>(null);
 
 	const showOrgColumn = orgOptions.length > 1;
 
@@ -160,6 +170,32 @@ export function MembersSettings({
 		}
 	}
 
+	function startEmailEdit(member: TenantMemberRow) {
+		setEmailEditing(member.userId);
+		setEmailDraft(member.contactEmail ?? "");
+		setEmailError(null);
+	}
+
+	async function handleEmailSave(member: TenantMemberRow) {
+		setPending(`email:${member.userId}`);
+		setEmailError(null);
+		try {
+			const result = await updateMemberContactEmail(member.userId, emailDraft);
+			if ("error" in result) {
+				setEmailError(result.error);
+				return;
+			}
+			setEmailEditing(null);
+			toast.success(emailDraft.trim() ? t("contactEmailSaved") : t("contactEmailRemoved"));
+			router.refresh();
+		} catch (e) {
+			if (isRedirectError(e)) throw e;
+			setEmailError(t("contactEmailError"));
+		} finally {
+			setPending(null);
+		}
+	}
+
 	async function copyPassword() {
 		const password = inviteResult?.temporaryPassword;
 		if (!password) return;
@@ -178,6 +214,9 @@ export function MembersSettings({
 			ownerLocked,
 			canEditRole: canManage && !member.isSelf && !member.isPlatformAdmin && !ownerLocked,
 			canEditPermissions: canManage && !member.isPlatformAdmin && !ownerLocked,
+			// Same lock as the role: an ADMIN may not touch an OWNER, and the
+			// platform console owns platform admins. The server enforces both.
+			canEditEmail: canManage && !member.isPlatformAdmin && !ownerLocked,
 			canRevoke:
 				canManage &&
 				!member.isSelf &&
@@ -191,6 +230,8 @@ export function MembersSettings({
 
 	/** Name, e-mail, farm id and the self/platform/last-owner badges (both views). */
 	function renderIdentity(member: TenantMemberRow) {
+		const { canEditEmail } = memberAccess(member);
+		const emailSaving = pending === `email:${member.userId}`;
 		return (
 			<div className="flex items-start gap-3">
 				<UserAvatar
@@ -218,7 +259,76 @@ export function MembersSettings({
 							</span>
 						)}
 					</div>
-					<p className="text-[11px] text-[#3D5568] dark:text-gray-400">{member.email}</p>
+					{emailEditing === member.userId ? (
+						<form
+							onSubmit={(event) => {
+								event.preventDefault();
+								void handleEmailSave(member);
+							}}
+							className="mt-1 space-y-1.5"
+						>
+							<label className="block">
+								<span className="sr-only">
+									{t("contactEmailInputLabel", { name: memberName(member) })}
+								</span>
+								<input
+									type="email"
+									inputMode="email"
+									autoComplete="off"
+									spellCheck={false}
+									maxLength={254}
+									value={emailDraft}
+									onChange={(event) => setEmailDraft(event.target.value)}
+									placeholder={t("contactEmailPlaceholder")}
+									className={`${fieldClass} mt-0 max-w-xs`}
+								/>
+							</label>
+							<p className="text-[10px] font-medium text-[#3D5568] dark:text-gray-400">
+								{t("contactEmailHint")}
+							</p>
+							{emailError && (
+								<p role="alert" className="text-[11px] font-bold text-[#C42B3A] dark:text-red-300">
+									{emailError}
+								</p>
+							)}
+							<div className="flex flex-wrap gap-1.5">
+								<button
+									type="submit"
+									disabled={emailSaving}
+									aria-busy={emailSaving}
+									className={`inline-flex min-h-11 items-center justify-center gap-1 rounded-xl bg-[#0A3D62] px-3 text-xs font-black text-white hover:bg-[#082f4c] disabled:opacity-60 ${focusRing}`}
+								>
+									{emailSaving && <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" />}
+									{emailSaving ? t("contactEmailSaving") : t("contactEmailSave")}
+								</button>
+								<button
+									type="button"
+									onClick={() => setEmailEditing(null)}
+									disabled={emailSaving}
+									className={`inline-flex min-h-11 items-center justify-center rounded-xl bg-white px-3 text-xs font-black text-[#3D5568] ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-60 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-800 ${focusRing}`}
+								>
+									{t("cancel")}
+								</button>
+							</div>
+						</form>
+					) : (
+						<div className="flex flex-wrap items-center gap-x-2">
+							<p className="break-all text-[11px] text-[#3D5568] dark:text-gray-400">
+								{member.contactEmail ?? <span className="italic">{t("contactEmailNone")}</span>}
+							</p>
+							{canEditEmail && (
+								<button
+									type="button"
+									onClick={() => startEmailEdit(member)}
+									aria-label={t("contactEmailEditFor", { name: memberName(member) })}
+									className={`inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-[11px] font-black text-[#0A3D62] underline-offset-2 hover:underline dark:text-[#8fc0ea] ${focusRing}`}
+								>
+									<Pencil aria-hidden="true" className="h-3 w-3" />
+									{t("contactEmailEdit")}
+								</button>
+							)}
+						</div>
+					)}
 					<p className="font-mono text-[10px] text-[#3D5568] dark:text-gray-400">{member.farmId}</p>
 				</div>
 			</div>

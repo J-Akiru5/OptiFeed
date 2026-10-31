@@ -17,11 +17,12 @@ vi.mock("@/lib/actions/superadmin", () => ({
 	revokePlatformAdmin: vi.fn(),
 	disablePlatformUser: vi.fn(),
 	enablePlatformUser: vi.fn(),
+	updatePlatformUser: vi.fn(),
 }));
 
 import { StepUpDialog } from "@/components/superadmin/step-up-dialog";
 import { UserActions } from "@/components/superadmin/user-actions";
-import { grantPlatformAdmin } from "@/lib/actions/superadmin";
+import { grantPlatformAdmin, updatePlatformUser } from "@/lib/actions/superadmin";
 
 afterEach(() => {
 	vi.clearAllMocks();
@@ -29,7 +30,15 @@ afterEach(() => {
 
 describe("platform console dialogs (T-09c)", () => {
 	it("opens the account actions in a labelled modal instead of a clipped popover", async () => {
-		render(<UserActions userId="u1" farmId="farm-01" isPlatformAdmin={false} disabled={false} />);
+		render(
+			<UserActions
+				userId="u1"
+				farmId="farm-01"
+				isPlatformAdmin={false}
+				disabled={false}
+				contactEmail={null}
+			/>,
+		);
 
 		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 		fireEvent.click(screen.getByRole("button", { name: "Actions for farm-01" }));
@@ -45,7 +54,15 @@ describe("platform console dialogs (T-09c)", () => {
 	});
 
 	it("closes on Escape and returns focus to the trigger", async () => {
-		render(<UserActions userId="u1" farmId="farm-01" isPlatformAdmin={false} disabled={false} />);
+		render(
+			<UserActions
+				userId="u1"
+				farmId="farm-01"
+				isPlatformAdmin={false}
+				disabled={false}
+				contactEmail={null}
+			/>,
+		);
 		const trigger = screen.getByRole("button", { name: "Actions for farm-01" });
 		trigger.focus();
 		fireEvent.click(trigger);
@@ -58,7 +75,15 @@ describe("platform console dialogs (T-09c)", () => {
 	});
 
 	it("offers Enable, not grant/revoke/disable, for a disabled account", () => {
-		render(<UserActions userId="u1" farmId="farm-01" isPlatformAdmin={false} disabled />);
+		render(
+			<UserActions
+				userId="u1"
+				farmId="farm-01"
+				isPlatformAdmin={false}
+				disabled
+				contactEmail={null}
+			/>,
+		);
 		fireEvent.click(screen.getByRole("button", { name: "Actions for farm-01" }));
 
 		expect(screen.getByRole("dialog")).toHaveAccessibleName("Enable account");
@@ -67,12 +92,110 @@ describe("platform console dialogs (T-09c)", () => {
 	});
 
 	it("asks the admin to type the farm ID before a disable", () => {
-		render(<UserActions userId="u1" farmId="farm-01" isPlatformAdmin={false} disabled={false} />);
+		render(
+			<UserActions
+				userId="u1"
+				farmId="farm-01"
+				isPlatformAdmin={false}
+				disabled={false}
+				contactEmail={null}
+			/>,
+		);
 		fireEvent.click(screen.getByRole("button", { name: "Actions for farm-01" }));
 		fireEvent.click(screen.getByRole("button", { name: "Disable" }));
 
 		expect(screen.getByRole("dialog")).toHaveAccessibleName("Disable account");
 		expect(screen.getByLabelText("Type farm-01 to confirm *")).toBeInTheDocument();
+	});
+
+	describe("contact email (#449)", () => {
+		function openEmailMode(contactEmail: string | null) {
+			render(
+				<UserActions
+					userId="u1"
+					farmId="farm-01"
+					isPlatformAdmin={false}
+					disabled={false}
+					contactEmail={contactEmail}
+				/>,
+			);
+			fireEvent.click(screen.getByRole("button", { name: "Actions for farm-01" }));
+			fireEvent.click(screen.getByRole("button", { name: "Email" }));
+		}
+
+		it("opens a labelled email field prefilled with the address on file", () => {
+			openEmailMode("farmer@example.com");
+
+			expect(screen.getByRole("dialog")).toHaveAccessibleName("Change contact email");
+			expect(screen.getByLabelText("Contact email")).toHaveValue("farmer@example.com");
+			expect(screen.getByRole("button", { name: "Email" })).toHaveAttribute("aria-pressed", "true");
+		});
+
+		it("starts blank when no address is on file", () => {
+			openEmailMode(null);
+
+			expect(screen.getByLabelText("Contact email")).toHaveValue("");
+		});
+
+		it("sends the typed address with the reason and refreshes on success", async () => {
+			vi.mocked(updatePlatformUser).mockResolvedValue({ success: true, userId: "u1" });
+			openEmailMode(null);
+
+			fireEvent.change(screen.getByLabelText("Contact email"), {
+				target: { value: "new@example.com" },
+			});
+			fireEvent.change(screen.getByLabelText("Reason *"), {
+				target: { value: "Farmer asked for a new address" },
+			});
+			fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+			await waitFor(() =>
+				expect(updatePlatformUser).toHaveBeenCalledWith(
+					"u1",
+					{ contactEmail: "new@example.com" },
+					"Farmer asked for a new address",
+				),
+			);
+			await waitFor(() => expect(refresh).toHaveBeenCalled());
+			await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+		});
+
+		it("shows the server refusal and keeps the dialog open", async () => {
+			vi.mocked(updatePlatformUser).mockResolvedValue({
+				error: "That email is already registered to another account.",
+			});
+			openEmailMode(null);
+
+			fireEvent.change(screen.getByLabelText("Contact email"), {
+				target: { value: "taken@example.com" },
+			});
+			fireEvent.change(screen.getByLabelText("Reason *"), {
+				target: { value: "Farmer asked for a new address" },
+			});
+			fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+			expect(await screen.findByRole("alert")).toHaveTextContent(
+				"That email is already registered to another account.",
+			);
+			expect(screen.getByRole("dialog")).toHaveAccessibleName("Change contact email");
+			expect(refresh).not.toHaveBeenCalled();
+		});
+
+		it("asks for the password again when the change needs a step-up", async () => {
+			vi.mocked(updatePlatformUser).mockResolvedValue({
+				error: "Confirm your password to continue.",
+				code: "step_up_required",
+			});
+			openEmailMode("farmer@example.com");
+
+			fireEvent.change(screen.getByLabelText("Reason *"), {
+				target: { value: "Farmer asked for a new address" },
+			});
+			fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+			await waitFor(() => expect(screen.getAllByRole("dialog")).toHaveLength(2));
+			expect(screen.getByLabelText("Password *")).toBeInTheDocument();
+		});
 	});
 
 	it("names and describes the step-up dialog, and Escape cancels it", async () => {
@@ -103,7 +226,15 @@ describe("platform console dialogs (T-09c)", () => {
 			code: "step_up_required",
 		});
 
-		render(<UserActions userId="u1" farmId="farm-01" isPlatformAdmin={false} disabled={false} />);
+		render(
+			<UserActions
+				userId="u1"
+				farmId="farm-01"
+				isPlatformAdmin={false}
+				disabled={false}
+				contactEmail={null}
+			/>,
+		);
 		fireEvent.click(screen.getByRole("button", { name: "Actions for farm-01" }));
 		fireEvent.change(screen.getByLabelText("Reason *"), {
 			target: { value: "A perfectly valid audit reason" },

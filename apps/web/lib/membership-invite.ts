@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { buildPondEmail } from "@/lib/auth/session";
+import { normalizeContactEmail } from "@/lib/contact-email";
 import { isDeliverableEmail } from "@/lib/notify/invite-email";
 import prisma from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -24,7 +25,9 @@ import type { MemberRole, Prisma } from "@prisma/client";
  * This module does not send mail. The caller sends the invitation through
  * `lib/notify/invite-email.ts` to the real address the inviter typed, and the
  * member is forced to change the one-time password on first login. The pond
- * address itself is never a deliverable mailbox.
+ * address itself is never a deliverable mailbox, so a new account keeps the
+ * typed address as its `contactEmail` (#449), which is where a password-reset
+ * link goes later.
  */
 
 export type InviteLinkTransaction = Pick<Prisma.TransactionClient, "platformAuditLog">;
@@ -217,6 +220,19 @@ export async function inviteOrAttachMember(input: InviteMemberInput): Promise<In
 		}
 	}
 
+	// Keep the typed address as the contact email unless another account already
+	// holds it: the column is unique, and a clash must not fail the invite.
+	const typed = normalizeContactEmail(input.email);
+	const contactEmail =
+		typed.ok && typed.value
+			? (await prisma.user.findFirst({
+					where: { contactEmail: typed.value },
+					select: { id: true },
+				}))
+				? null
+				: typed.value
+			: null;
+
 	const temporaryPassword = generateTemporaryPassword();
 	const supabase = createAdminClient();
 	const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
@@ -240,6 +256,7 @@ export async function inviteOrAttachMember(input: InviteMemberInput): Promise<In
 					supabaseId: authUserId,
 					farmId: identity.loginId,
 					email: identity.loginEmail,
+					contactEmail,
 					displayName,
 					role: globalRoleFor(input.role),
 					mustChangePassword: true,

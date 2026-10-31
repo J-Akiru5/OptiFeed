@@ -6,32 +6,34 @@ import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, Mail } from "lucide-reac
 import { useTranslations } from "next-intl";
 import { type FormEvent, useRef, useState, useTransition } from "react";
 
-const FARM_ID_MAX_LENGTH = 64;
+const IDENTIFIER_MAX_LENGTH = 254;
 
 /**
- * "Forgot password?" panel: ask for the farm ID, request a Supabase recovery
- * link, then explain honestly what happened.
+ * "Forgot password?" panel: ask for the account's email, request a Supabase
+ * recovery link, then explain honestly what happened. A farm ID is still
+ * accepted in the same box for accounts whose administrator has not recorded
+ * an email yet (#449).
  *
- * The success message never claims the email was delivered — login addresses
- * are internal pond addresses, and an unknown farm ID must answer exactly
- * like a known one (anti-enumeration, see lib/actions/password-reset.ts).
+ * The success message never claims the email was delivered, and an unknown
+ * email or farm ID must answer exactly like a known one (anti-enumeration, see
+ * lib/actions/password-reset.ts).
  */
 export function ForgotPasswordForm() {
 	const t = useTranslations("forgotPassword");
-	const [farmId, setFarmId] = useState("");
+	const [identifier, setIdentifier] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [sentTo, setSentTo] = useState<string | null>(null);
 	const [isPending, startTransition] = useTransition();
-	const farmIdRef = useRef<HTMLInputElement>(null);
+	const identifierRef = useRef<HTMLInputElement>(null);
 
 	const handleSubmit = (event: FormEvent) => {
 		event.preventDefault();
 		setError(null);
 
-		const normalized = farmId.trim();
+		const normalized = identifier.trim();
 		if (!normalized) {
 			setError(t("errorEmpty"));
-			farmIdRef.current?.focus();
+			identifierRef.current?.focus();
 			return;
 		}
 
@@ -55,7 +57,7 @@ export function ForgotPasswordForm() {
 					className="flex items-start gap-2.5 rounded-xl border border-green-200 bg-green-50 p-3.5 text-xs leading-5 font-bold text-green-700 dark:border-green-500/25 dark:bg-green-500/10 dark:text-green-300"
 				>
 					<CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-					<span>{t("successDesc", { farmId: sentTo })}</span>
+					<span>{t("successDesc", { identifier: sentTo })}</span>
 				</output>
 
 				<p className="rounded-xl border border-[#E1E8E5] bg-[#F6F8F7] p-3.5 text-xs leading-5 text-[#3D5568] dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400">
@@ -77,33 +79,36 @@ export function ForgotPasswordForm() {
 		<form noValidate onSubmit={handleSubmit} className="space-y-4">
 			<div className="space-y-1.5">
 				<label
-					htmlFor="farmId"
+					htmlFor="identifier"
 					className="block text-xs font-extrabold tracking-wider text-[#3D5568] uppercase dark:text-slate-400"
 				>
-					{t("farmIdLabel")}
+					{t("identifierLabel")}
 				</label>
 				<input
-					ref={farmIdRef}
-					id="farmId"
-					name="farmId"
+					ref={identifierRef}
+					id="identifier"
+					name="identifier"
 					type="text"
+					inputMode="email"
 					autoComplete="username"
 					autoCapitalize="none"
 					autoCorrect="off"
 					spellCheck={false}
-					maxLength={FARM_ID_MAX_LENGTH}
+					maxLength={IDENTIFIER_MAX_LENGTH}
 					enterKeyHint="go"
-					value={farmId}
+					value={identifier}
 					onChange={(event) => {
-						setFarmId(event.target.value);
+						setIdentifier(event.target.value);
 						if (error) setError(null);
 					}}
 					aria-invalid={Boolean(error)}
 					disabled={isPending}
-					placeholder={t("farmIdPlaceholder")}
+					placeholder={t("identifierPlaceholder")}
 					className="h-11 w-full rounded-lg border border-[#D6DFDB] bg-white px-3.5 text-sm text-[#0A2E47] shadow-[0_1px_2px_rgba(10,46,71,0.03)] outline-none transition-colors placeholder:text-slate-400 hover:border-[#BCC9C4] focus:border-[#E85A2A] focus:ring-4 focus:ring-[#E85A2A]/15 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-slate-500 dark:focus:border-[#FF8A5C] dark:focus:ring-[#FF8A5C]/15"
 				/>
-				<p className="text-xs leading-5 text-slate-500 dark:text-slate-400">{t("farmIdDesc")}</p>
+				<p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
+					{t("identifierDesc")}
+				</p>
 			</div>
 
 			{error && (

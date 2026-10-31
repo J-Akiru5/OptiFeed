@@ -61,6 +61,7 @@ arguments, because they would be recorded in an image layer.
 | `NEXT_PUBLIC_PWA_DEV` | Developer | build, browser | `1` registers the service worker outside production. Development convenience only; undocumented before this audit. |
 | `PLAYWRIGHT_BASE_URL` | Developer / CI | tooling | Playwright base URL; defaults to `http://localhost:3000`. |
 | `DEMO_SUPABASE_ID` | Developer | tooling | Pins the demo user's Supabase id in `prisma/seed*.ts`. |
+| `SEED_TENANT_B_CONFIRM` | Developer | tooling | Literal `yes`. Acknowledges that the Tenant B demo seed (`pnpm --filter web seed:tenant-b`, issue #418) writes demo data to a shared database. A loopback host (the disposable local stack) needs no acknowledgement; any other host is refused until this is set. This is an acknowledgement guard, not a credential. |
 | `API_BASE_URL`, `API_GATE_MODE`, `API_TEST_BEARER`, `API_TEST_COOKIE` | Developer | tooling | Repository-root live API checks (`scripts/api/*`). Not part of the app. |
 
 ## 4. Deltas found in this audit

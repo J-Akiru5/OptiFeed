@@ -46,6 +46,7 @@ vi.mock("@/lib/actions/notifications", () => ({
 import { NotificationList } from "@/components/NotificationList";
 import { PakoyLowHopper } from "@/components/assistant/pakoy-low-hopper";
 import { NotificationProvider } from "@/components/notification-provider";
+import { hopperIsLow } from "@/lib/settings/org-alerts";
 
 afterEach(cleanup);
 
@@ -114,5 +115,27 @@ describe("Pakoy's low-hopper reminder", () => {
 	it("stays out of the way when the hopper is fine", () => {
 		render(<PakoyLowHopper pondId="pond-1" levelPercent={80} low={false} />);
 		expect(screen.queryByTestId("pakoy-low-hopper")).toBeNull();
+	});
+
+	it("follows the shared inclusive threshold at the boundary (#412)", () => {
+		// The page decides `low` with `hopperIsLow`, the same helper the rail
+		// uses, so Pakoy appears at exactly the threshold and not one point above.
+		for (const level of [19, 20]) {
+			const { unmount } = render(
+				<PakoyLowHopper
+					pondId={`pond-${level}`}
+					levelPercent={level}
+					low={hopperIsLow(level, 20)}
+				/>,
+			);
+			expect(screen.getByTestId("pakoy-low-hopper")).toBeVisible();
+			unmount();
+		}
+
+		const { unmount } = render(
+			<PakoyLowHopper pondId="pond-21" levelPercent={21} low={hopperIsLow(21, 20)} />,
+		);
+		expect(screen.queryByTestId("pakoy-low-hopper")).toBeNull();
+		unmount();
 	});
 });

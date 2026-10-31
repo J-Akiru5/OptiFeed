@@ -471,9 +471,13 @@ export const POST = withApi(
 						);
 					}
 
-					// Pellet alert dedup (N11): fire only on a tier transition or at most
-					// once per 6h while still low. Gate uses the most recent
-					// unacknowledged pellet notification for this pond (if any).
+					// Pellet alert dedup (N11, #412 Option A): fire only on a tier
+					// transition, or at most once per 6h from the last warning while
+					// still low. The 6h window is measured from the latest pellet
+					// notification for this pond, whatever its acknowledgement: an
+					// Acknowledge / Mark-all-read silences the bell instead of re-arming
+					// it on the next 5s heartbeat, and the reminder returns at most 6h
+					// after the last warning. A tier transition still fires immediately.
 					const pelletLevel = levelPercent;
 					const pelletTier = hopperAlertTier(pelletLevel, feedSettings.hopperLowPct);
 					const pelletAlertAllowed = pelletTier ? await hopperAlertsAllowed() : false;
@@ -484,7 +488,7 @@ export const POST = withApi(
 					let recentPelletAlert: { tier: string; createdAt: Date } | null = null;
 					if (device.pondId) {
 						recentPelletAlert = await prisma.notification.findFirst({
-							where: { pondId: device.pondId, category: "pellet", acknowledgedAt: null },
+							where: { pondId: device.pondId, category: "pellet" },
 							orderBy: { createdAt: "desc" },
 							select: { tier: true, createdAt: true },
 						});
@@ -496,10 +500,11 @@ export const POST = withApi(
 							Date.now() - recentPelletAlert.createdAt.getTime() < PELLET_ALERT_WINDOW_MS;
 						return recentPelletAlert.tier !== tier || !withinWindow;
 					};
-					// An unacknowledged pellet alert still inside the window already
-					// tells the farmer the hopper is low. The days-remaining warning is
-					// the same category for the same pond, so stacking it on top makes
-					// the two messages alternate tier on every heartbeat
+					// A pellet alert inside the window already tells the farmer the
+					// hopper is low, acknowledged or not (#412: acknowledging must not
+					// re-arm the days-remaining warning either). The days-remaining
+					// warning is the same category for the same pond, so stacking it on
+					// top makes the two messages alternate tier on every heartbeat
 					// (CRITICAL → WARNING → CRITICAL …) instead of informing.
 					const pelletAlertOutstanding =
 						recentPelletAlert !== null &&

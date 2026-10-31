@@ -98,8 +98,8 @@ need to confirm the sweep is alive. Configuration details are in
 
 ## 7. What is not covered
 
-- **No alerting.** The console is pull-based. A new error does not page anyone;
-  critical device outages use the Telegram channel instead.
+- **No alerting.** The console is pull-based. A new error does not page anyone,
+  and critical device outages are in-app only (ADR-0007) — nobody is paged.
 - **No request correlation.** There is no request id linking a row to a specific
   request; the route and timestamp are the correlation you have.
 - **No tenant-visible errors.** Only platform administrators can see the console.

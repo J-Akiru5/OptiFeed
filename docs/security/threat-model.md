@@ -26,7 +26,7 @@ Related: [`SECURITY.md`](../../SECURITY.md) (disclosure policy and scope),
 | Supabase Storage | Private `avatars` bucket, private `firmware` bucket (OTA channel + images) | `apps/web/lib/avatars.ts`, `apps/web/lib/firmware/ota.ts` |
 | ESP32 fleet | Relay control, RTC schedule, safety caps, device token, OTA verifier | `firmware/firmware-main/firmware-main.ino` |
 | Vercel | Edge/CDN, Next.js runtime, environment variables, deployment history | `apps/web/vercel.json`, deploy config |
-| Outbound integrations | OpenCode Go / Gemini (chat, prediction), Resend (email), Telegram (critical alerts) | `apps/web/lib/ai.ts`, `apps/web/lib/notify/*` |
+| Outbound integrations | OpenCode Go / Gemini (chat, prediction), Resend (email); alerts are in-app only — no Telegram (ADR-0007) | `apps/web/lib/ai.ts`, `apps/web/lib/notify/*` |
 | CI/CD | `quality`, `security`, `sbom`, `firmware`, `release` workflows | `.github/workflows/` |
 
 Deployment fact that changes the risk picture: **`staging` shares the production database and
@@ -41,7 +41,7 @@ staging compromise is a production incident.
 | --- | --- | --- | --- |
 | A1 | Tenant farm data (ponds, biomass, feed history, schedules, harvests) | Commercially sensitive to the farm; the product's reason to exist. Cross-tenant disclosure is the worst outcome. | Postgres |
 | A2 | Feeder command integrity and physical safety | A forged or replayed command can over-feed a pond. The firmware's caps bound the damage but do not eliminate it. | `FeedRequest`, device API, firmware |
-| A3 | Production credentials — Supabase service-role key, database password, `CRON_SECRET`, AI keys, Resend key, Telegram bot token | Service role bypasses RLS and can mint sessions; DB password is total data access. | Vercel environment variables, Supabase Vault |
+| A3 | Production credentials - Supabase service-role key, database password, `CRON_SECRET`, AI keys, Resend key | Service role bypasses RLS and can mint sessions; DB password is total data access. | Vercel environment variables, Supabase Vault |
 | A4 | Personal data — names, e-mail addresses, phone/contact fields, profile pictures, audit trails | RA 10173 obligations; a breach triggers the 72-hour process in `SECURITY.md` §2. | Postgres, `avatars` bucket |
 | A5 | Device tokens | Bearer credentials for telemetry and feed-command retrieval. | `EnergyDevice.tokenHash` (SHA-256) |
 | A6 | OTA signing private key (ECDSA P-256) | Signs firmware manifests. Compromise means arbitrary firmware on the fleet. | Offline, outside the repository |

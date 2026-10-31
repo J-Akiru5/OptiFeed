@@ -7,7 +7,7 @@ biomass/FCR tracking, ESP32 feeder control, and low-pellet / offline alerts.
 
 - **Next.js 16** (App Router, next-intl for en/hil/tl) + **Prisma** + **Supabase** (PostgreSQL + Auth)
 - **ESP32** feeder over device-token REST (`/api/ingest`, `/api/feed-command`, `/api/schedule-sync`)
-- **Telegram** alerts for CRITICAL events, **OpenCode Go (DeepSeek V4.1 Flash)** chat assistant
+- **In-app** alerts for CRITICAL events (no Telegram — ADR-0007), **OpenCode Go (DeepSeek V4.1 Flash)** chat assistant
 - pnpm workspaces monorepo (`apps/web`, `packages/config`)
 - **Languages:** English, Hiligaynon and Tagalog. Tagalog is an incremental overlay with English fallback; see [docs/i18n.md](../../docs/i18n.md).
 - **Confirmations:** every mutating action uses a top-right Sonner toast; see [docs/ui-confirmations.md](../../docs/ui-confirmations.md).
@@ -31,7 +31,6 @@ Key env vars (full list in `apps/web/.env.example`):
 | `DATABASE_URL` / `DIRECT_URL` | Supabase Postgres (direct URL for migrations) |
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | Supabase Auth |
 | `CRON_SECRET` | Bearer secret for `/api/cron/device-watch` and `/api/cron/crop-watch` (the pg_cron SQL files) |
-| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | CRITICAL alerts (no-op until set) |
 | `RESEND_API_KEY` / `REMINDER_FROM_EMAIL` | Harvest/sampling reminder email (optional; in-app only until all email vars are set) |
 | `RESET_FROM_EMAIL` | Sender for the password-reset email (optional; falls back to `INVITE_FROM_EMAIL`) |
 | `NEXT_PUBLIC_BASE_URL` | Absolute links in alerts/exports and reminder emails |
@@ -39,6 +38,11 @@ Key env vars (full list in `apps/web/.env.example`):
 | `OPENCODE_GO_API_KEY` / `OPENCODE_GO_MODEL` / `OPENCODE_GO_REASONING_EFFORT` | AI chat + feeding prediction (OpenCode Go) |
 | `GEMINI_API_KEY` | Gemini fallback when the primary provider fails |
 | `E2E_ALLOWED_DB_HOST` | Playwright guard: e2e only runs against this DB host |
+
+Alerts are **in-app only** — a `Notification` row is the source of truth. E-mail
+is a best-effort extra (Resend) for crop reminders, invitations and password
+resets. There is no Telegram variable and no Telegram client: the platform does
+not use Telegram ([ADR-0007](../../docs/adr/0007-no-telegram.md)).
 
 ## Commands (repo root)
 

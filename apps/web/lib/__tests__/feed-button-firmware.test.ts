@@ -154,7 +154,7 @@ describe("telemetry and the existing paths keep working", () => {
 		expect(download).not.toContain('dispenseFeed(cachedButtonFeedGrams, "button", String())');
 	});
 
-	it("is firmware 1.7.0", () => {
-		expect(firmware).toContain('#define FW_VERSION "1.7.0"');
+	it("is firmware 1.8.0", () => {
+		expect(firmware).toContain('#define FW_VERSION "1.8.0"');
 	});
 });

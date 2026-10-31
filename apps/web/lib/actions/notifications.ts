@@ -47,6 +47,8 @@ export async function markAllNotificationsRead(): Promise<NotificationActionResu
 	try {
 		const ownerId = await getCurrentPondOwnerId();
 
+		// Per-pond counts for the audit trail, read once. This is a bounded
+		// aggregate, not one query per pond.
 		const groups = await prisma.notification.groupBy({
 			by: ["pondId"],
 			where: {
@@ -61,6 +63,8 @@ export async function markAllNotificationsRead(): Promise<NotificationActionResu
 		}
 
 		const acknowledgedAt = new Date();
+		// One statement for the whole farm. The owner relation is the scope, so
+		// another tenant's rows can never match (issue #339).
 		const result = await prisma.notification.updateMany({
 			where: {
 				...PENDING_NOTIFICATION_WHERE,
@@ -73,24 +77,40 @@ export async function markAllNotificationsRead(): Promise<NotificationActionResu
 			},
 		});
 
-		// One audit row per pond that actually had pending alerts, so the
-		// per-device audit trail matches what the reader cleared.
-		for (const group of groups) {
-			const energyDevice = await prisma.energyDevice.findFirst({
-				where: { pondId: group.pondId },
-				select: { id: true },
+		// One batched device lookup for every pond in the batch, then one
+		// createMany. This replaces the old findFirst-inside-a-loop N+1 while
+		// keeping one audit row per pond that had pending alerts.
+		if (result.count > 0) {
+			const pondIds = groups.map((group) => group.pondId);
+			const devices = await prisma.energyDevice.findMany({
+				where: { pondId: { in: pondIds } },
+				select: { id: true, pondId: true },
+				orderBy: { createdAt: "asc" },
 			});
 
-			if (energyDevice) {
-				await prisma.deviceStateEvent.create({
-					data: {
-						deviceId: energyDevice.id,
+			const deviceByPond = new Map<string, string>();
+			for (const device of devices) {
+				if (device.pondId && !deviceByPond.has(device.pondId)) {
+					deviceByPond.set(device.pondId, device.id);
+				}
+			}
+
+			const events = groups.flatMap((group) => {
+				const deviceId = deviceByPond.get(group.pondId);
+				if (!deviceId) return [];
+				return [
+					{
+						deviceId,
 						eventType: "notification_acknowledged",
 						source: "user",
 						actorId: ownerId,
 						metadata: { scope: "all", count: group._count._all },
 					},
-				});
+				];
+			});
+
+			if (events.length > 0) {
+				await prisma.deviceStateEvent.createMany({ data: events });
 			}
 		}
 

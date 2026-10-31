@@ -197,6 +197,11 @@ jobs:
             echo "SUPABASE_SERVICE_ROLE_KEY=${service}"
           } >> "$GITHUB_ENV"
 
+      # Fail before any DDL if DATABASE_URL is not the disposable stack. The
+      # seed and Playwright guards run later, after `prisma migrate deploy`.
+      - name: Verify the CI e2e target before migrating
+        run: pnpm --filter web exec tsx scripts/e2e/check-ci-target.ts
+
       - name: Apply migrations to the local database
         run: pnpm --filter web exec prisma migrate deploy
 

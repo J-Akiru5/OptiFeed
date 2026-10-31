@@ -15,7 +15,9 @@ const DEFAULT_BATCH_SIZE = 5000;
 export async function deleteOldHeartbeatEvents(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
 	const cutoff = new Date(Date.now() - HEARTBEAT_RETENTION_DAYS * 24 * 60 * 60 * 1000);
 
-	// (deviceId, receivedAt) index makes this range scan cheap.
+	// The (eventType, receivedAt) index (migration 20261031010000) serves this
+	// predicate: eventType is the equality prefix and receivedAt the range.
+	// (deviceId, receivedAt) cannot serve it because the query has no deviceId.
 	const stale = await prisma.feedEvent.findMany({
 		where: { eventType: "heartbeat", receivedAt: { lt: cutoff } },
 		select: { id: true },

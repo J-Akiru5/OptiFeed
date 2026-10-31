@@ -22,6 +22,8 @@
 				"e2e/global-setup.ts",
 				// Run by name from CI and docs/e2e-on-production.md, never imported.
 				"scripts/e2e/seed-e2e.ts",
+				// CI preflight (#317): run by name before `prisma migrate deploy`.
+				"scripts/e2e/check-ci-target.ts",
 				// Run by hand from docs/password-auth-plan.md; a one-off admin CLI.
 				"scripts/provision-demo-user.ts"
 			],

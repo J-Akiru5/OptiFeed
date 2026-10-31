@@ -25,6 +25,8 @@ export const E2E_PREFIX = "e2e-";
 export const E2E_CONFIRM_VALUE = "yes";
 /** Opt-in for the disposable local Supabase stack (`supabase start`). */
 export const E2E_LOCAL_STACK_VALUE = "yes";
+/** The value GitHub Actions exports for `CI`; any other value means "not CI". */
+export const E2E_CI_VALUE = "true";
 
 /**
  * Hostnames a disposable local stack may bind to. Matched exactly after
@@ -145,6 +147,63 @@ export function assertE2eEnvironment(
 	}
 
 	return { host, mode: "remote" };
+}
+
+/**
+ * CI-only preflight for the disposable local Supabase stack (issue #317).
+ *
+ * The regular guard runs inside the seed and the Playwright global setup, which
+ * is *after* `prisma migrate deploy` in the CI job. A misconfigured
+ * DATABASE_URL therefore used to be able to apply migrations to a real project
+ * before anything refused. This check runs before the migration step and is
+ * deliberately stricter than local mode:
+ *
+ * - `CI` must be the literal "true" (GitHub Actions sets it), so the check
+ *   cannot be used as a general-purpose relaxation;
+ * - `E2E_ALLOW_LOCAL_STACK` must still be "yes";
+ * - the DATABASE_URL host must be loopback. A remote host is refused even when
+ *   `E2E_ALLOWED_DB_HOST` and `E2E_CONFIRM_PRODUCTION` are also set: CI never
+ *   runs against a hosted project.
+ *
+ * Returns the verified host so the caller can print it without echoing the
+ * connection string.
+ */
+export function assertCiLocalStackTarget(
+	env: Record<string, string | undefined> = process.env,
+): E2eDatabaseTarget {
+	if (envValue(env, "CI") !== E2E_CI_VALUE) {
+		throw new Error(
+			`e2e ci blocked: CI must be "${E2E_CI_VALUE}". This preflight is only for the CI job; use the normal local or remote path elsewhere.`,
+		);
+	}
+
+	if (envValue(env, "E2E_ALLOW_LOCAL_STACK") !== E2E_LOCAL_STACK_VALUE) {
+		throw new Error(
+			`e2e ci blocked: E2E_ALLOW_LOCAL_STACK must be "${E2E_LOCAL_STACK_VALUE}" for the CI e2e job.`,
+		);
+	}
+
+	const databaseUrl = envValue(env, "DATABASE_URL");
+	if (!databaseUrl) {
+		throw new Error("e2e ci blocked: DATABASE_URL is not set.");
+	}
+
+	let host: string;
+	try {
+		host = new URL(databaseUrl).hostname;
+	} catch {
+		throw new Error("e2e ci blocked: DATABASE_URL is not a valid URL.");
+	}
+
+	if (!isLocalE2eHost(host)) {
+		throw new Error(
+			`e2e ci blocked: DATABASE_URL host "${host}" is not a loopback host (${E2E_LOCAL_HOSTS.join(
+				", ",
+			)}). CI only runs against the disposable local stack; refusing before any migration.`,
+		);
+	}
+
+	return { host, mode: "local" };
 }
 
 /** The one password shared by the three e2e logins. Required, never logged. */

@@ -15,14 +15,25 @@ import {
 	disablePlatformUser,
 	enablePlatformUser,
 	grantPlatformAdmin,
+	resetPlatformUserPassword,
 	revokePlatformAdmin,
 } from "@/lib/actions/superadmin";
 import { cn } from "@/lib/utils";
-import { Loader2, MoreHorizontal, ShieldCheck, ShieldOff, Trash2, Undo2 } from "lucide-react";
+import {
+	Check,
+	Copy,
+	KeyRound,
+	Loader2,
+	MoreHorizontal,
+	ShieldCheck,
+	ShieldOff,
+	Trash2,
+	Undo2,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type FormEvent, useRef, useState, useTransition } from "react";
 
-type Mode = "grant" | "revoke" | "disable" | "enable" | null;
+type Mode = "grant" | "revoke" | "disable" | "enable" | "reset" | null;
 
 const MIN_REASON = 10;
 
@@ -58,6 +69,8 @@ export function UserActions({
 	const [mode, setMode] = useState<Mode>(null);
 	const [reason, setReason] = useState("");
 	const [confirmFarmId, setConfirmFarmId] = useState("");
+	const [issuedPassword, setIssuedPassword] = useState<string | null>(null);
+	const [copied, setCopied] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [stepUpOpen, setStepUpOpen] = useState(false);
 	const retryRef = useRef<(() => void) | null>(null);
@@ -67,6 +80,8 @@ export function UserActions({
 		setMode(next);
 		setReason("");
 		setConfirmFarmId("");
+		setIssuedPassword(null);
+		setCopied(false);
 		setError(null);
 	};
 	const close = () => {
@@ -74,12 +89,34 @@ export function UserActions({
 		setMode(null);
 		setReason("");
 		setConfirmFarmId("");
+		setIssuedPassword(null);
+		setCopied(false);
 		setError(null);
 	};
 
 	const perform = (targetMode: Exclude<Mode, null>, trimmedReason: string) => {
 		startTransition(async () => {
 			try {
+				if (targetMode === "reset") {
+					const result = await resetPlatformUserPassword(userId, trimmedReason);
+					if ("error" in result) {
+						if (result.code === "step_up_required") {
+							retryRef.current = () => perform(targetMode, trimmedReason);
+							setStepUpOpen(true);
+							return;
+						}
+						setError(result.error);
+						return;
+					}
+					// Keep the dialog open on the one-time credential panel: the
+					// value exists only in this browser state, never in a reload.
+					setIssuedPassword(result.temporaryPassword);
+					setReason("");
+					setMode(null);
+					router.refresh();
+					return;
+				}
+
 				const result: PlatformUserActionResult =
 					targetMode === "grant"
 						? await grantPlatformAdmin(userId, trimmedReason)
@@ -154,12 +191,76 @@ export function UserActions({
 			</button>
 
 			<DialogShell
-				open={mode !== null}
+				open={mode !== null || issuedPassword !== null}
 				onClose={close}
 				labelledBy="user-actions-title"
 				describedBy="user-actions-description"
 				pending={isPending}
 			>
+				{issuedPassword && (
+					<>
+						<DialogHeader
+							titleId="user-actions-title"
+							descriptionId="user-actions-description"
+							icon={KeyRound}
+							title={t("issued.title")}
+							description={
+								<>
+									{t("issued.descriptionPrefix")}{" "}
+									<span className="font-mono font-bold text-[#0A3D62]">{farmId}</span>{" "}
+									{t("issued.descriptionSuffix")}
+								</>
+							}
+							onClose={close}
+							closeDisabled={isPending}
+							closeLabel={t("closeLabel")}
+						/>
+
+						<div className="mt-4 flex items-center gap-2 rounded-xl border border-[#E8C9A8] bg-[#FDF3E7] px-3 py-2.5 dark:border-[#FF8A5C]/30 dark:bg-[#FF8A5C]/10">
+							<code className="min-w-0 flex-1 break-all font-mono text-sm font-black text-[#8A3B12] dark:text-[#FFB38F]">
+								{issuedPassword}
+							</code>
+							<button
+								type="button"
+								onClick={() => {
+									void navigator.clipboard
+										?.writeText(issuedPassword)
+										.then(() => setCopied(true))
+										.catch(() => setCopied(false));
+								}}
+								aria-label={t("issued.copy")}
+								className={cn(
+									"inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#E8C9A8] px-2.5 py-1.5 text-[10px] font-black tracking-wider text-[#8A3B12] uppercase transition-colors hover:bg-white dark:border-[#FF8A5C]/30 dark:text-[#FFB38F] dark:hover:bg-white/10",
+									FOCUS_RING,
+								)}
+							>
+								{copied ? (
+									<Check className="h-3.5 w-3.5" aria-hidden="true" />
+								) : (
+									<Copy className="h-3.5 w-3.5" aria-hidden="true" />
+								)}
+								{copied ? t("issued.copied") : t("issued.copy")}
+							</button>
+						</div>
+
+						<p className="mt-3 text-[11px] font-bold leading-snug text-[#C42B3A]">
+							{t("issued.warning")}
+						</p>
+
+						<div className="mt-4">
+							<button
+								type="button"
+								onClick={close}
+								className={cn(
+									SECONDARY_BUTTON,
+									"w-full px-3 py-2.5 text-xs font-bold text-[#3D5568] hover:bg-gray-200",
+								)}
+							>
+								{t("issued.done")}
+							</button>
+						</div>
+					</>
+				)}
 				{mode && (
 					<>
 						<DialogHeader
@@ -196,6 +297,12 @@ export function UserActions({
 										label={t("buttons.grant")}
 									/>
 									<ActionButton
+										active={mode === "reset"}
+										onClick={() => open("reset")}
+										icon={<KeyRound className="h-3.5 w-3.5" aria-hidden="true" />}
+										label={t("buttons.reset")}
+									/>
+									<ActionButton
 										active={mode === "revoke"}
 										onClick={() => open("revoke")}
 										icon={<ShieldOff className="h-3.5 w-3.5" aria-hidden="true" />}
@@ -220,6 +327,11 @@ export function UserActions({
 						{mode === "enable" && (
 							<p className="mt-3 text-[11px] font-bold leading-snug text-[#1E7B34]">
 								{t("enableWarning")}
+							</p>
+						)}
+						{mode === "reset" && (
+							<p className="mt-3 text-[11px] font-bold leading-snug text-[#8A3B12] dark:text-[#FFB38F]">
+								{t("resetWarning")}
 							</p>
 						)}
 

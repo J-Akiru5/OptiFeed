@@ -455,6 +455,51 @@ void test_net_retry_jitter_stays_inside_twenty_percent(void) {
   TEST_ASSERT_TRUE(retry.ready(24000));
 }
 
+// ---------------------------------------------------------------- farm-local time
+
+void test_farm_local_minute_of_day_handles_positive_and_negative_offsets(void) {
+  // 22:00 UTC + 480 min = 06:00 the next farm-local day (the #409 symptom).
+  TEST_ASSERT_EQUAL_INT(360, farmLocalMinuteOfDay(22 * 60, 480));
+  // 00:00 UTC - 60 min = 23:00 on the previous farm-local day.
+  TEST_ASSERT_EQUAL_INT(1380, farmLocalMinuteOfDay(0, -60));
+  // 23:00 UTC + 120 min = 01:00 the next farm-local day.
+  TEST_ASSERT_EQUAL_INT(60, farmLocalMinuteOfDay(23 * 60, 120));
+  TEST_ASSERT_EQUAL_INT(0, farmLocalMinuteOfDay(0, 0));
+  TEST_ASSERT_EQUAL_INT(0, farmLocalMinuteOfDay(0, 1440));
+  TEST_ASSERT_EQUAL_INT(0, farmLocalMinuteOfDay(0, -1440));
+}
+
+void test_farm_local_date_rolls_forward_over_month_and_year(void) {
+  const FarmLocalTime local = farmLocalTime(2026, 10, 31, 22 * 60, 480);
+  TEST_ASSERT_EQUAL_INT(2026, local.year);
+  TEST_ASSERT_EQUAL_INT(11, local.month);
+  TEST_ASSERT_EQUAL_INT(1, local.day);
+  TEST_ASSERT_EQUAL_INT(360, local.minuteOfDay);
+  TEST_ASSERT_EQUAL_UINT32(20261101UL, farmDateKey(local));
+}
+
+void test_farm_local_date_rolls_back_and_handles_leap_day(void) {
+  // 01:00 UTC - 120 min = 23:00 on 2025-12-31.
+  const FarmLocalTime back = farmLocalTime(2026, 1, 1, 1 * 60, -120);
+  TEST_ASSERT_EQUAL_INT(2025, back.year);
+  TEST_ASSERT_EQUAL_INT(12, back.month);
+  TEST_ASSERT_EQUAL_INT(31, back.day);
+  TEST_ASSERT_EQUAL_INT(23 * 60, back.minuteOfDay);
+
+  // A leap year keeps 29 February.
+  const FarmLocalTime leap = farmLocalTime(2028, 2, 28, 23 * 60, 60);
+  TEST_ASSERT_EQUAL_INT(2028, leap.year);
+  TEST_ASSERT_EQUAL_INT(2, leap.month);
+  TEST_ASSERT_EQUAL_INT(29, leap.day);
+  TEST_ASSERT_EQUAL_INT(0, leap.minuteOfDay);
+
+  // A non-leap year goes straight to 1 March.
+  const FarmLocalTime plain = farmLocalTime(2027, 2, 28, 23 * 60, 60);
+  TEST_ASSERT_EQUAL_INT(2027, plain.year);
+  TEST_ASSERT_EQUAL_INT(3, plain.month);
+  TEST_ASSERT_EQUAL_INT(1, plain.day);
+}
+
 // ---------------------------------------------------------------- status (1.8.0)
 
 void test_fault_debounce_needs_consecutive_failures(void) {
@@ -574,6 +619,9 @@ int main(int, char **) {
   RUN_TEST(test_net_retry_backs_off_exponentially_and_caps);
   RUN_TEST(test_net_retry_jitter_stays_inside_twenty_percent);
 
+  RUN_TEST(test_farm_local_minute_of_day_handles_positive_and_negative_offsets);
+  RUN_TEST(test_farm_local_date_rolls_forward_over_month_and_year);
+  RUN_TEST(test_farm_local_date_rolls_back_and_handles_leap_day);
   RUN_TEST(test_fault_debounce_needs_consecutive_failures);
   RUN_TEST(test_fault_latches_until_cause_gone_and_acknowledged);
   RUN_TEST(test_fault_acknowledge_keeps_faults_still_present);

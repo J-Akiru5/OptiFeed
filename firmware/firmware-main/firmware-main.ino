@@ -125,7 +125,7 @@
 
 // Reported at boot and in the heartbeat body so the fleet and the OTA rollout
 // can tell builds apart. Bump on every firmware change.
-#define FW_VERSION "1.8.0"
+#define FW_VERSION "1.8.1"
 // Board string the signed manifest must carry. One value for every unit this
 // firmware runs on (ESP32-WROOM-32U); a manifest for another board is refused.
 #define FW_BOARD "wroom32u"
@@ -555,6 +555,15 @@ struct ScheduledFeed {
 ScheduledFeed feedTimes[MAX_FEED_TIMES];
 int feedTimesCount = 0;
 
+// ---- Farm-local time (I-109) ----
+// The RTC runs UTC (NTP and the server clock are UTC) and the schedule stores
+// the farmer's wall-clock slot times, so every comparison converts first.
+// `farm_offset_minutes` from every feed-command and schedule-sync response
+// replaces this value, which is persisted in NVS. The compile-time fallback is
+// the existing maintenance-window constant (Philippines, UTC+8), so behaviour
+// is unchanged until the server sends a value.
+int farmOffsetMinutes = OTA_LOCAL_UTC_OFFSET_MINUTES;
+
 // ---- Offline event queue (so button/manual feeds during a WiFi outage
 //      still make it into Feeding History once connectivity returns) ----
 struct QueuedEvent {
@@ -597,27 +606,65 @@ float cachedButtonFeedGrams = DEFAULT_BUTTON_FEED_GRAMS;  // mutable — set fro
 // Hopper geometry and the temperature offset live in deviceConfig (1.7.0);
 // these two caches are only kept in step for the schedule/feeding paths.
 
-// ---- Daily dispense budget (RAM; reset at local midnight from the RTC) ----
+// ---- Daily dispense budget (RAM; reset at farm-local midnight from the RTC) ----
 float dailyGramsDispensed = 0.0;
-int lastDailyResetDay = -1;
+// Farm-local date key (YYYYMMDD) the counter and the firedToday flags belong to.
+// 0 means "not evaluated yet this boot"; restoreScheduleState() sets it before
+// the first dispense or schedule pass.
+uint32_t lastFarmDateKey = 0;
 unsigned long lastDailyResetMs = 0;
-// Calendar day the schedule flags belong to. -1 means "first run" so
-// handleSchedule clears firedToday once, exactly as the old function-static
-// did. An OTA checkpoint restore sets it so the flags survive the reboot.
-int lastScheduleDay = -1;
 
-void maybeResetDailyBudget() {
-  if (rtcAvailable) {
-    DateTime now = rtc.now();
-    if ((int)now.day() != lastDailyResetDay) {
-      lastDailyResetDay = now.day();
-      dailyGramsDispensed = 0.0;
+// Forward declarations: these live with the OTA checkpoint helpers below, but
+// the day rollover and setup() call them earlier.
+void persistScheduleState();
+void restoreScheduleState();
+
+// Farm-local date key for an RTC instant. The RTC holds UTC, so the offset (and
+// its midnight rollover) is applied here, never at the comparison sites.
+uint32_t farmDateKeyFor(const DateTime &now) {
+  const fw::FarmLocalTime local =
+      fw::farmLocalTime(now.year(), now.month(), now.day(),
+                        now.hour() * 60 + now.minute(), farmOffsetMinutes);
+  return fw::farmDateKey(local);
+}
+
+// Today's farm-local date key, or 0 when the RTC is unavailable.
+uint32_t currentFarmDateKey() {
+  if (!rtcAvailable) return 0;
+  return farmDateKeyFor(rtc.now());
+}
+
+// Roll the daily counter and the firedToday flags over at farm-local midnight.
+// `today` is 0 when there is no clock (the 24 h uptime window still applies).
+// A reset persists 0 g with the new day, so a later power cycle restores it.
+void maybeResetDailyBudgetFor(uint32_t today) {
+  if (today == 0) {
+    if (millis() - lastDailyResetMs >= 24UL * 3600UL * 1000UL) {
+      dailyGramsDispensed = 0.0;   // RTC unavailable: 24h window from boot
       lastDailyResetMs = millis();
     }
-  } else if (millis() - lastDailyResetMs >= 24UL * 3600UL * 1000UL) {
-    dailyGramsDispensed = 0.0;   // RTC unavailable: 24h window from boot
-    lastDailyResetMs = millis();
+    return;
   }
+
+  if (lastFarmDateKey == 0) {
+    // First evaluation this boot: restoreScheduleState() already set the date
+    // (and restored the counter when it belonged to today). Nothing to reset.
+    lastFarmDateKey = today;
+    lastDailyResetMs = millis();
+    return;
+  }
+  if (today == lastFarmDateKey) return;
+
+  lastFarmDateKey = today;
+  dailyGramsDispensed = 0.0;
+  lastDailyResetMs = millis();
+  for (int i = 0; i < feedTimesCount; i++) feedTimes[i].firedToday = false;
+  Serial.printf("[CAP] farm-local day %lu - daily grams reset\n", (unsigned long)today);
+  persistScheduleState();
+}
+
+void maybeResetDailyBudget() {
+  maybeResetDailyBudgetFor(currentFarmDateKey());
 }
 
 // DS18B20 water temperature probe
@@ -1068,6 +1115,10 @@ fw::ConfigStatus applyServerConfig(const JsonDocument &doc, const char *source) 
   appliedConfigRev = patch.rev;
   configFromServer = true;
   applyConfigToRuntime();
+  // Mirror the two dose sizes into the schedule blob before cfg_json, so the
+  // schedule copy is never older than the config copy if power is lost between
+  // the two writes.
+  persistScheduleState();
   persistConfig();
   Serial.printf("[CONFIG] applied rev %lu from %s (dose<=%.0fg day<=%.0fg gap=%lus "
                 "hourly=%u relay=%lums)\n",
@@ -2336,8 +2387,9 @@ bool verifyManifestSignature(const String &manifest, const String &signatureBase
 }
 
 // ---- Pre-flight gate (docs/firmware-ota-plan.md §4.4) ----
-// Local wall-clock minute of day. The RTC runs UTC, so this applies the fixed
-// fleet offset (Philippines, UTC+8, no DST) for the maintenance window only.
+// Farm-local minute of day. The RTC runs UTC, so this applies the offset the
+// server last sent (`farm_offset_minutes`), with the compile-time fleet
+// fallback (Philippines, UTC+8, no DST) until the first response.
 bool otaLocalMinuteOfDay(int &minuteOfDay) {
   int hour = 0;
   int minute = 0;
@@ -2353,10 +2405,7 @@ bool otaLocalMinuteOfDay(int &minuteOfDay) {
     hour = utc.tm_hour;
     minute = utc.tm_min;
   }
-  int local = hour * 60 + minute + OTA_LOCAL_UTC_OFFSET_MINUTES;
-  local %= 1440;
-  if (local < 0) local += 1440;
-  minuteOfDay = local;
+  minuteOfDay = fw::farmLocalMinuteOfDay(hour * 60 + minute, farmOffsetMinutes);
   return true;
 }
 
@@ -2367,12 +2416,13 @@ bool otaWithinWindow() {
          localMinute < (int)deviceConfig.otaWindowEndMin;
 }
 
-// Uses the same RTC clock handleSchedule() fires on, so the guard matches when
-// this unit would actually dispense.
+// Uses the same RTC clock and farm offset handleSchedule() fires on, so the
+// guard matches when this unit would actually dispense.
 bool otaScheduledFeedNearby() {
   if (!rtcAvailable) return false;   // no RTC means the scheduler is off
   DateTime now = rtc.now();
-  const int nowMinute = now.hour() * 60 + now.minute();
+  const int nowMinute =
+      fw::farmLocalMinuteOfDay(now.hour() * 60 + now.minute(), farmOffsetMinutes);
   for (int i = 0; i < feedTimesCount; i++) {
     const int feedMinute = feedTimes[i].hour * 60 + feedTimes[i].minute;
     int delta = feedMinute - nowMinute;
@@ -2387,9 +2437,13 @@ bool otaScheduledFeedNearby() {
 bool scheduledFeedDueNow() {
   if (!rtcAvailable) return false;
   DateTime now = rtc.now();
+  const int localMinute =
+      fw::farmLocalMinuteOfDay(now.hour() * 60 + now.minute(), farmOffsetMinutes);
+  const int localHour = localMinute / 60;
+  const int localMinuteOfHour = localMinute % 60;
   for (int i = 0; i < feedTimesCount; i++) {
     if (!feedTimes[i].firedToday &&
-        feedTimes[i].hour == now.hour() && feedTimes[i].minute == now.minute()) {
+        feedTimes[i].hour == localHour && feedTimes[i].minute == localMinuteOfHour) {
       return true;
     }
   }
@@ -2497,6 +2551,205 @@ void serviceOtaHealthCheck() {
   }
 }
 
+// ---- Persisted schedule, dose sizes, farm offset and daily counter (I-109) ----
+// New, additive keys in the existing "optifeed" namespace (15-char NVS limit).
+// Every value is written only when it actually differs from what NVS already
+// holds: a 5 s poll, a day rollover and each completed dispense are the only
+// callers, so the flash is not rewritten in a loop.
+#define SCHED_NVS_SCHEDULE_KEY "sch_sched"    // count + hour/minute pairs, one blob
+#define SCHED_NVS_GRAMS_KEY    "sch_grams"    // deviceConfig.gramsPerFeeding
+#define SCHED_NVS_BUTTON_KEY   "sch_button"   // deviceConfig.buttonFeedGrams
+#define SCHED_NVS_DAILY_KEY    "sch_daily"    // dailyGramsDispensed
+#define SCHED_NVS_DAY_KEY      "sch_day"      // farm-local YYYYMMDD it belongs to
+#define SCHED_NVS_OFFSET_KEY   "sch_offset"   // farm_offset_minutes (signed)
+
+// One NVS blob for the schedule so a power loss cannot leave a new time array
+// next to an old count.
+struct PersistedSchedule {
+  uint8_t count;
+  uint8_t times[MAX_FEED_TIMES * 2];
+};
+
+void persistScheduleState() {
+  int count = feedTimesCount;
+  if (count < 0) count = 0;
+  if (count > MAX_FEED_TIMES) count = MAX_FEED_TIMES;
+
+  PersistedSchedule schedule;
+  schedule.count = (uint8_t)count;
+  for (int i = 0; i < MAX_FEED_TIMES; i++) {
+    schedule.times[i * 2] = (i < count) ? feedTimes[i].hour : 0;
+    schedule.times[i * 2 + 1] = (i < count) ? feedTimes[i].minute : 0;
+  }
+
+  PersistedSchedule stored;
+  const bool scheduleChanged =
+      prefs.getBytes(SCHED_NVS_SCHEDULE_KEY, &stored, sizeof(stored)) != sizeof(stored) ||
+      memcmp(&stored, &schedule, sizeof(schedule)) != 0;
+  if (scheduleChanged) {
+    prefs.putBytes(SCHED_NVS_SCHEDULE_KEY, &schedule, sizeof(schedule));
+    Serial.printf("[NVS] schedule saved (%d feed(s))\n", count);
+  }
+
+  // Dose sizes. The 1.7.0 cfg_json blob already carries both when a `config`
+  // object has been applied; this copy also keeps the legacy flat contract and
+  // the offline boot path persistent.
+  if (!prefs.isKey(SCHED_NVS_GRAMS_KEY) ||
+      fabsf(prefs.getFloat(SCHED_NVS_GRAMS_KEY, 0.0f) - deviceConfig.gramsPerFeeding) >
+          0.001f) {
+    prefs.putFloat(SCHED_NVS_GRAMS_KEY, deviceConfig.gramsPerFeeding);
+  }
+  if (!prefs.isKey(SCHED_NVS_BUTTON_KEY) ||
+      fabsf(prefs.getFloat(SCHED_NVS_BUTTON_KEY, 0.0f) - deviceConfig.buttonFeedGrams) >
+          0.001f) {
+    prefs.putFloat(SCHED_NVS_BUTTON_KEY, deviceConfig.buttonFeedGrams);
+  }
+
+  if (!prefs.isKey(SCHED_NVS_OFFSET_KEY) ||
+      prefs.getInt(SCHED_NVS_OFFSET_KEY, 0) != farmOffsetMinutes) {
+    prefs.putInt(SCHED_NVS_OFFSET_KEY, farmOffsetMinutes);
+    Serial.printf("[NVS] farm offset saved (%+d min)\n", farmOffsetMinutes);
+  }
+
+  // The daily counter needs a calendar day to be meaningful. Without an RTC
+  // there is no farm-local day, so it stays RAM-only (the 24 h window above).
+  if (rtcAvailable) {
+    const uint32_t today = currentFarmDateKey();
+    if (today != 0) {
+      if (!prefs.isKey(SCHED_NVS_DAILY_KEY) ||
+          fabsf(prefs.getFloat(SCHED_NVS_DAILY_KEY, -1.0f) - dailyGramsDispensed) > 0.001f) {
+        prefs.putFloat(SCHED_NVS_DAILY_KEY, dailyGramsDispensed);
+      }
+      if (!prefs.isKey(SCHED_NVS_DAY_KEY) ||
+          prefs.getUInt(SCHED_NVS_DAY_KEY, 0) != today) {
+        prefs.putUInt(SCHED_NVS_DAY_KEY, today);
+      }
+    }
+  }
+}
+
+// Restore what a plain power cycle would otherwise lose: the schedule, the two
+// dose sizes, the last farm offset and (only when it belongs to today) the
+// daily counter. Runs after buildDefaultSchedule() and the RTC init, before the
+// OTA checkpoint below, which still wins because it is written immediately
+// before an install reboot.
+void restoreScheduleState() {
+  PersistedSchedule stored;
+  if (prefs.getBytes(SCHED_NVS_SCHEDULE_KEY, &stored, sizeof(stored)) == sizeof(stored) &&
+      stored.count >= 1 && stored.count <= MAX_FEED_TIMES) {
+    bool valid = true;
+    for (int i = 0; i < stored.count; i++) {
+      if (stored.times[i * 2] > 23 || stored.times[i * 2 + 1] > 59) {
+        valid = false;
+        break;
+      }
+    }
+    if (valid) {
+      for (int i = 0; i < stored.count; i++) {
+        feedTimes[i].hour = stored.times[i * 2];
+        feedTimes[i].minute = stored.times[i * 2 + 1];
+        feedTimes[i].firedToday = false;
+      }
+      feedTimesCount = stored.count;
+      Serial.printf("[SCHEDULE] restored %d feed(s) from NVS\n", stored.count);
+    } else {
+      Serial.println("[SCHEDULE] persisted schedule invalid - keeping the default");
+    }
+  }
+
+  // The two dose sizes are mirrored here by every path that applies them, so
+  // this copy is at least as fresh as cfg_json (which is written by the 1.7.0
+  // `config` object path only). A first boot after this firmware has no
+  // sch_* keys yet and simply keeps the cfg_json/default values above.
+  {
+    const fw::ConfigFieldSpec *gramsSpec = fw::findConfigSpec("grams_per_feeding");
+    const fw::ConfigFieldSpec *buttonSpec = fw::findConfigSpec("button_feed_grams");
+    if (prefs.isKey(SCHED_NVS_GRAMS_KEY)) {
+      const float grams = prefs.getFloat(SCHED_NVS_GRAMS_KEY, 0.0f);
+      const float minGrams = gramsSpec ? gramsSpec->minValue : 1.0f;
+      const float maxGrams = gramsSpec ? gramsSpec->maxValue : 5000.0f;
+      if (grams >= minGrams && grams <= maxGrams) {
+        deviceConfig.gramsPerFeeding = grams;
+      }
+    }
+    if (prefs.isKey(SCHED_NVS_BUTTON_KEY)) {
+      const float grams = prefs.getFloat(SCHED_NVS_BUTTON_KEY, 0.0f);
+      const float minGrams = buttonSpec ? buttonSpec->minValue : 1.0f;
+      const float maxGrams = buttonSpec ? buttonSpec->maxValue : 500.0f;
+      if (grams >= minGrams && grams <= maxGrams) {
+        deviceConfig.buttonFeedGrams = grams;
+      }
+    }
+  }
+  // The schedule and button paths read the caches, not deviceConfig directly.
+  cachedScheduledGrams = deviceConfig.gramsPerFeeding;
+  cachedButtonFeedGrams = deviceConfig.buttonFeedGrams;
+
+  if (prefs.isKey(SCHED_NVS_OFFSET_KEY)) {
+    const int offset = prefs.getInt(SCHED_NVS_OFFSET_KEY, farmOffsetMinutes);
+    if (offset >= -720 && offset <= 840) {
+      farmOffsetMinutes = offset;
+      Serial.printf("[TIME] farm offset restored from NVS (%+d min)\n", offset);
+    }
+  }
+
+  if (!rtcAvailable) return;
+
+  const uint32_t today = currentFarmDateKey();
+  lastFarmDateKey = today;
+  lastDailyResetMs = millis();
+
+  const uint32_t storedDay = prefs.getUInt(SCHED_NVS_DAY_KEY, 0);
+  if (storedDay != today) {
+    if (storedDay != 0) {
+      Serial.printf("[CAP] persisted day %lu != today %lu - daily grams start at 0\n",
+                    (unsigned long)storedDay, (unsigned long)today);
+    }
+    return;
+  }
+
+  const float grams = prefs.getFloat(SCHED_NVS_DAILY_KEY, 0.0f);
+  if (!isfinite(grams) || grams < 0.0f) {
+    Serial.println("[CAP] persisted daily grams invalid - starting at 0");
+  } else if (grams > deviceConfig.maxGramsPerDay) {
+    // Never restore more headroom than the cap allows: an over-cap copy means
+    // the day is already spent, not that it is free again.
+    dailyGramsDispensed = deviceConfig.maxGramsPerDay;
+    Serial.printf("[CAP] persisted daily grams %.0f over the cap - holding at %.0f g\n",
+                  grams, dailyGramsDispensed);
+  } else {
+    dailyGramsDispensed = grams;
+    Serial.printf("[CAP] daily grams restored: %.0f g (day %lu)\n",
+                  dailyGramsDispensed, (unsigned long)today);
+  }
+}
+
+// Apply farm_offset_minutes from a poll response. A malformed or implausible
+// value is ignored (the compile-time fallback or the last good value stays).
+void applyFarmOffset(JsonVariantConst value, const char *source) {
+  int offset = 0;
+  if (value.is<int>()) {
+    offset = value.as<int>();
+  } else if (value.is<float>()) {
+    offset = (int)lroundf(value.as<float>());
+  } else {
+    return;
+  }
+  if (offset < -720 || offset > 840) {
+    static int lastRejected = 0;
+    if (offset != lastRejected) {
+      lastRejected = offset;
+      Serial.printf("[TIME] refused farm offset %+d min from %s (out of range)\n", offset,
+                    source);
+    }
+    return;
+  }
+  if (offset == farmOffsetMinutes) return;
+  farmOffsetMinutes = offset;
+  Serial.printf("[TIME] farm offset %+d min from %s\n", offset, source);
+  persistScheduleState();
+}
+
 // ---- Feeding-state checkpoint across the install reboot ----
 // New, additive keys in the existing "optifeed" namespace (15-char NVS limit).
 #define OTA_NVS_DAY_KEY        "ota_day"
@@ -2563,15 +2816,19 @@ void restoreFeedingStateAfterOta() {
 
   if (rtcAvailable) {
     DateTime now = rtc.now();
-    if (dateKeyFromDateTime(now) == storedDay) {
+    const uint32_t utcDay = dateKeyFromDateTime(now);
+    const uint32_t localDay = currentFarmDateKey();
+    // The checkpoint keeps its 1.6.x UTC date. The counter now belongs to the
+    // farm-local date, so accept either match: an older image's checkpoint is
+    // still restored, and a local-day match across UTC midnight is not lost.
+    if (utcDay == storedDay || localDay == storedDay) {
       dailyGramsDispensed = prefs.getFloat(OTA_NVS_GRAMS_KEY, 0.0f);
-      lastDailyResetDay = now.day();
+      lastFarmDateKey = localDay;
       lastDailyResetMs = millis();
       const uint32_t firedMask = prefs.getUInt(OTA_NVS_FIRED_KEY, 0);
       for (int i = 0; i < feedTimesCount && i < 32; i++) {
         feedTimes[i].firedToday = (firedMask & (1UL << i)) != 0;
       }
-      lastScheduleDay = now.day();
       Serial.printf("[OTA] daily state restored: %.0f g dispensed today\n",
                     dailyGramsDispensed);
     } else {
@@ -3347,10 +3604,16 @@ void setup() {
     }
   }
 
+  // Restore what a plain power cycle used to lose: the last schedule, dose
+  // sizes, farm offset and (only when it belongs to today) the daily counter.
+  // This runs after buildDefaultSchedule() and the RTC init, so an offline unit
+  // boots with its last schedule instead of 06:00/19:00.
+  restoreScheduleState();
+
   // Restore the feeding-state checkpoint a just-installed OTA image wrote
   // before its reboot (schedule every boot; daily grams and firedToday only
-  // when the checkpoint is from today). After a plain power cycle there is
-  // nothing to restore.
+  // when the checkpoint is from today). It runs after restoreScheduleState()
+  // and therefore still wins: it is the freshest state and is consumed here.
   restoreFeedingStateAfterOta();
 
   // Fail-safe state (1.6.0). The RTC is up, so this boot can be placed in the
@@ -3698,6 +3961,9 @@ void stopFeedCycle() {
   Serial.printf("[FEED] complete — %.0fg via %s\n", currentFeedGrams, currentFeedSource);
   enqueueEvent(currentFeedGrams, currentFeedSource, currentFeedRequestId);
   currentFeedRequestId = "";
+  // The daily counter was incremented when the relay closed; persist the
+  // completed dose so a power cycle cannot give the day its headroom back.
+  persistScheduleState();
   kickWatchdog();
 }
 
@@ -3739,18 +4005,23 @@ void handleSchedule() {
   // is seconds to minutes and the exact-minute match still fires afterwards if
   // the image becomes valid within the same minute.
   if (otaHealthCheckActive) return;
+  if (!rtcAvailable) return;   // loop() already guards; keep the path safe
 
   DateTime now = rtc.now();
+  // Farm-local midnight rolls both the daily cap and the firedToday flags.
+  maybeResetDailyBudgetFor(farmDateKeyFor(now));
 
-  if (now.day() != lastScheduleDay) {
-    for (int i = 0; i < feedTimesCount; i++) feedTimes[i].firedToday = false;
-    lastScheduleDay = now.day();
-  }
+  // The RTC holds UTC; the slot times are the farmer's wall clock. Convert
+  // once, then compare like with like (I-109).
+  const int localMinute =
+      fw::farmLocalMinuteOfDay(now.hour() * 60 + now.minute(), farmOffsetMinutes);
+  const int localHour = localMinute / 60;
+  const int localMinuteOfHour = localMinute % 60;
 
   for (int i = 0; i < feedTimesCount; i++) {
     if (!feedTimes[i].firedToday &&
-        now.hour() == feedTimes[i].hour &&
-        now.minute() == feedTimes[i].minute) {
+        feedTimes[i].hour == localHour &&
+        feedTimes[i].minute == localMinuteOfHour) {
       feedTimes[i].firedToday = true;
       dispenseFeed(cachedScheduledGrams, "scheduled");
     }
@@ -3813,6 +4084,9 @@ void pollDashboardFeedCommand() {
     otaHealthSawPoll = true;
     JsonDocument doc;
     if (!deserializeJson(doc, https.getString())) {
+      // The farm offset is top-level in every response, independent of the
+      // versioned `config` object below.
+      applyFarmOffset(doc["farm_offset_minutes"], "feed-command");
       if (!validateServerConfig(doc)) {
         // N9: ignore the whole config when any pushed value is out of range.
         Serial.println("[POLL] invalid config from server — ignoring whole response");
@@ -3830,6 +4104,8 @@ void pollDashboardFeedCommand() {
         // The caches mirror the applied configuration, whichever path was used.
         cachedScheduledGrams = deviceConfig.gramsPerFeeding;
         cachedButtonFeedGrams = deviceConfig.buttonFeedGrams;
+        // Writes only when a value differs, so a 5 s poll costs no flash.
+        persistScheduleState();
         bool requested = doc["feed_requested"] | false;
         if (requested) {
           float grams = doc["grams"] | DEFAULT_MANUAL_GRAMS;
@@ -3903,6 +4179,9 @@ void pollScheduleCommand() {
     // rates); JsonDocument grows on demand, so no capacity constant is needed.
     JsonDocument doc;
     if (!deserializeJson(doc, https.getString())) {
+      // The farm offset is top-level in every response (the maintenance window
+      // and the schedule comparison both use it).
+      applyFarmOffset(doc["farm_offset_minutes"], "schedule-sync");
       // Clock sync (#149): a manual calibration wins for 10 minutes; otherwise
       // correct RTC drift from the server clock. Both are UTC instants.
       const char* manualTime = doc["time_sync"] | "";
@@ -3923,7 +4202,6 @@ void pollScheduleCommand() {
         const char* startStr = doc["schedule_start"] | "";
         const char* endStr = doc["schedule_end"] | "";
         int feedsPerDay = doc["feeds_per_day"] | 2;
-        float ratePct = doc["feeding_rate_pct"] | cachedScheduledGrams;
 
         if (strlen(startStr) > 0 && strlen(endStr) > 0 && feedsPerDay > 0 && feedsPerDay <= MAX_FEED_TIMES) {
           // Parse schedule_start and schedule_end into hour/minute
@@ -3954,6 +4232,9 @@ void pollScheduleCommand() {
           if (!configFromServer) applyLegacyDeviceValues(doc, "schedule-sync");
           cachedScheduledGrams = deviceConfig.gramsPerFeeding;
           cachedButtonFeedGrams = deviceConfig.buttonFeedGrams;
+          // Persist the new schedule and any dose change (writes only on
+          // difference), so the next power cycle keeps them.
+          persistScheduleState();
 
           // Ack the schedule change
           String commandId = doc["command_id"] | "";

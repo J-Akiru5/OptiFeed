@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Password recovery from the sign-in page: a **Forgot password?** link opens `/forgot-password` (farm ID), which requests a Supabase recovery link, and `/reset-password` sets a new password from that link's session — clearing the forced-change flag and revoking other sessions. Requests are rate limited (3 per 10 minutes per IP, fail-closed) and never reveal whether a farm ID exists; the confirmation states honestly that login addresses are internal pond addresses and directs the user to an administrator when the mailbox cannot be opened. Because those mailboxes are not deliverable, the reliable path is also included: the superadmin console's new per-account **Reset password** action (reason + step-up + audit, one-time temporary password shown once, change forced at the next sign-in), alongside the unchanged `pnpm manage-user reset-password` CLI.
+
+### Security
+
+- The recovery-link flow discloses nothing about account existence (an unknown farm ID answers exactly like a known one) and never claims an email was delivered; the one-time admin-issued password is returned to the console once and is never persisted, logged or written to a platform audit row.
+
 ## [1.14.0] - 2026-10-27
 
 ### Added

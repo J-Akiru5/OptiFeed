@@ -26,7 +26,11 @@ const GUARDS = [
 const WRITE = /\.(create|update|upsert|delete|createMany|updateMany|deleteMany)\(|\$transaction/;
 
 const ALLOWED: Record<string, string> = {
+	"password-reset.ts::requestPasswordReset":
+		"public by design: reached from the signed-out login page, rate-limited by IP, and writes only an audit row (anti-enumeration answer for unknown farm ids)",
 	"password.ts::changeOwnPassword": "changes only the signed-in caller's own password",
+	"password-reset.ts::completePasswordReset":
+		"changes only the recovery session's own password; supabase.auth.getUser() is the guard and no id is caller-supplied",
 	"platform/impersonation.ts::stopViewAs": "only ends the caller's own view-as session",
 };
 

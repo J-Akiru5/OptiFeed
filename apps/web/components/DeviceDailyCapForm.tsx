@@ -6,6 +6,7 @@ import {
 	parseCalibrationNumber,
 } from "@/components/calibration/CalibrationNumberField";
 import { dashboardButtonPrimary } from "@/components/dashboard/dashboard-classes";
+import { useReportUnsavedChanges } from "@/components/settings/unsaved-changes";
 import {
 	DAILY_CAP_MIN_G,
 	DEFAULT_DAILY_CAP_G,
@@ -55,6 +56,9 @@ export function DeviceDailyCapForm({
 	// String, not number: a numeric state cannot be cleared while typing
 	// (`Number("")` is 0, which snaps the zero straight back). Issue #307.
 	const [capInput, setCapInput] = useState(() => String(currentCapG ?? DEFAULT_DAILY_CAP_G));
+	// The last saved value, so the settings page can tell an edit from a save (#403).
+	const [savedInput, setSavedInput] = useState(capInput);
+	useReportUnsavedChanges(`daily-cap-${deviceId}`, capInput !== savedInput);
 	const [error, setError] = useState<string | null>(null);
 	const [saved, setSaved] = useState(false);
 	const [isPending, startTransition] = useTransition();
@@ -72,6 +76,7 @@ export function DeviceDailyCapForm({
 		startTransition(async () => {
 			const result = await saveAction(deviceId, nextCapG);
 			if (result.success) {
+				setSavedInput(capInput);
 				setSaved(true);
 				toast.success(t("dailyCeilingSaved"));
 			} else {

@@ -2078,7 +2078,30 @@
 				}
 			},
 			"weakSignal": "Weak signal",
-			"weakFor": "Weak signal — last heartbeat {duration} ago"
+			"weakFor": "Weak signal — last heartbeat {duration} ago",
+			"tabs": {
+				"label": "Device settings sections",
+				"overview": "Overview",
+				"feeding": "Feeding",
+				"calibration": "Calibration",
+				"network": "Network",
+				"unsaved": "(unsaved changes)",
+				"unsavedTitle": "Unsaved changes",
+				"unsavedDesc": "Switching feeders discards edits you have not saved.",
+				"unsavedTabs": "Not saved yet: {tabs}.",
+				"keepEditing": "Keep editing",
+				"discardAndSwitch": "Discard and switch"
+			},
+			"deviceSwitcher": {
+				"label": "Feeder",
+				"noPond": "No pond",
+				"option": "{label} · {status}",
+				"state": {
+					"online": "Online",
+					"weak": "Weak signal",
+					"offline": "Offline"
+				}
+			}
 		},
 		"audit": {
 			"title": "Audit Trail",

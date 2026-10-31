@@ -72,6 +72,23 @@ vi.mock("@/lib/pond-selection", () => ({
 		population: 1000,
 		notificationPrefs: { areaM2: 500, averageDepthM: 1.5, feedPricePerKg: 30 },
 	})),
+	getActivePondId: vi.fn(async () => "pond-1"),
+	listSelectablePonds: vi.fn(async () => [
+		{
+			id: "pond-1",
+			name: "Pond 1",
+			ownerId: "farm-1",
+			isFallow: false,
+			devices: [{ id: "dev-1" }],
+			feedingRatePct: 3,
+			feedsPerDay: 3,
+			scheduleStart: new Date(Date.UTC(1970, 0, 1, 8)),
+			scheduleEnd: new Date(Date.UTC(1970, 0, 1, 16)),
+			sampleIntervalDays: 15,
+			population: 1000,
+			notificationPrefs: { areaM2: 500, averageDepthM: 1.5, feedPricePerKg: 30 },
+		},
+	]),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -97,6 +114,37 @@ vi.mock("@/lib/prisma", () => ({
 				waterTempOk: true,
 				waterTempUpdatedAt: new Date(),
 			})),
+			// #403: the page loads the selected feeder by id.
+			findUnique: vi.fn(async () => ({
+				id: "dev-1",
+				mac: "AA:BB:CC:DD:AB:CD",
+				label: "Feeder 1",
+				lastSeenAt: new Date(),
+				feedLevelPercent: 62,
+				feedLevelUpdatedAt: new Date(),
+				hopperFullCm: 5,
+				hopperEmptyCm: 30,
+				hopperCapacityG: 7000,
+				gramsPerSecond: 12.5,
+				gramsPerFeeding: 500,
+				isPaused: false,
+				lastCalibratedAt: null,
+				recalibrationIntervalDays: 30,
+				tempOffsetC: -0.5,
+				waterTempC: 28.5,
+				waterTempOk: true,
+				waterTempUpdatedAt: new Date(),
+			})),
+			findMany: vi.fn(async () => [
+				{
+					id: "dev-1",
+					label: "Feeder 1",
+					pondId: "pond-1",
+					lastSeenAt: new Date(),
+					wifiRssiDbm: null,
+					wifiRssiUpdatedAt: null,
+				},
+			]),
 		},
 		calibrationRun: {
 			count: vi.fn(async () => 0),

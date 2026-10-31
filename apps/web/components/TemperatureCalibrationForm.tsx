@@ -6,6 +6,7 @@ import {
 	parseCalibrationNumber,
 } from "@/components/calibration/CalibrationNumberField";
 import { dashboardButtonPrimary } from "@/components/dashboard/dashboard-classes";
+import { useReportUnsavedChanges } from "@/components/settings/unsaved-changes";
 import { saveTemperatureCalibration } from "@/lib/actions/energy";
 import { TEMP_OFFSET_C_MAX, TEMP_OFFSET_C_MIN } from "@/lib/limits";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,8 @@ export function TemperatureCalibrationForm({
 	const t = useTranslations("dashboard.appSettings");
 	// String state so the field can be emptied while editing (issue #307).
 	const [offsetInput, setOffsetInput] = useState(() => String(currentTempOffsetC));
+	const [savedInput, setSavedInput] = useState(offsetInput);
+	useReportUnsavedChanges(`temperature-${deviceId}`, offsetInput !== savedInput);
 	const [error, setError] = useState<string | null>(null);
 	const [saved, setSaved] = useState(false);
 	const [isPending, startTransition] = useTransition();
@@ -56,6 +59,7 @@ export function TemperatureCalibrationForm({
 		startTransition(async () => {
 			const result = await saveTemperatureCalibration(deviceId, nextOffset);
 			if (result.success) {
+				setSavedInput(offsetInput);
 				setSaved(true);
 				toast.success(t("temperatureSaved"));
 			} else {

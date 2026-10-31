@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- #323 the deployment policy is stated once and pointed at from everywhere: only `staging` (Vercel Preview) and `main` (Production) deploy, `develop` never deploys by any route, and each `develop` -> `staging` -> `main` promotion is a separate reviewed command from Jeff or from the OpenCode lead under a standing authorization recorded in `docs/missions/`. No deployment behaviour, workflow or branch protection changed; `scripts/self-check.mjs` now asserts the actual `vercel.json` allowlist (`staging` + `main`, never `develop`).
+
 ## [1.35.0] - 2026-10-31
 
 ### Added

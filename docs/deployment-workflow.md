@@ -1,11 +1,21 @@
 # OptiFeed — Branch, CI and Deployment Workflow
 
-Last verified: 2026-10-22. Deployment policy changed 2026-10-26 (section 1).
+Last verified: 2026-10-31. Deployment policy changed 2026-10-26 (section 1) and
+was reconciled across the repository on 2026-10-31 (#323).
 
 This document is the operational contract for how code reaches staging and
 production. `CONTRIBUTING.md` covers the day-to-day developer workflow; this
 document covers the pipeline itself, what is verified, and what is still
 blocked on manual action.
+
+**Policy authority.** This document, together with
+[ADR-0001](./adr/0001-deployment-model.md), is the single authoritative
+statement of which branches deploy. `CONTRIBUTING.md`, `README.md`,
+`HANDOFF.md`, `docs/vercel-deployment-checklist.md` and the agent mission rules
+in `docs/missions/` point here instead of restating the matrix. If another
+document disagrees, this one wins: fix the other document, do not fork the
+policy. Repository policy also overrides the global agent rule that `develop`
+deployments are pre-authorized; mission decision D7 records that override.
 
 Container deployment (`Dockerfile`, `docker-compose.yml`, environment matrix) is
 documented separately in [`docs/operations/deployment.md`](./operations/deployment.md);
@@ -86,10 +96,10 @@ Two honest caveats:
 1. Vercel applies this configuration from the repository content, so it only
    takes effect for commits that contain `apps/web/vercel.json`. A long-lived
    branch that never merges this change remains deployable.
-2. Enforcement is configured statically. `develop` stops deploying once this
-   change is merged into `develop`; `staging` starts deploying once it reaches
-   `staging` through a promotion. The proof is the first `develop` push with
-   no deployment and the first `staging` push with one. See section 10.
+2. Enforcement is configured statically. The allowlist took effect when this
+   change reached `develop`; `staging` started deploying when it first reached
+   `staging` through a promotion. The proof is the absence of a deployment for
+   `develop` pushes and a deployment for `staging` pushes (section 10).
 
 ## 3. CI validation
 
@@ -153,6 +163,22 @@ unmigrated schema.
 
 ## 5. Release procedure
 
+### 5.0 Promotion authority
+
+Agents implement, push their task branch and stop at `develop`. A promotion is
+always a reviewed pull request, and it happens only when **commanded**:
+
+- **Jeff** commands every promotion by default.
+- The **OpenCode lead** may command a promotion only under Jeff's explicit
+  standing authorization for that mission, recorded in a document under
+  `docs/missions/`. Without that recorded authorization the lead merges into
+  `develop` and stops.
+
+Nothing promotes itself. A merge into `develop` is not a release, not a
+promotion and not a deployment. Each promotion is a separate command:
+`develop` → `staging`, then `staging` → `main`. The merge commits are the
+evidence of who commanded which step.
+
 ### 5.1 Feature → `develop`
 
 1. Branch from the latest `develop`: `git switch -c feature/<task>`.
@@ -180,10 +206,10 @@ gh pr create --base staging --head develop \
   --body "Candidate: <sha> ..."
 ```
 
-Merge only after the PR's `quality` check passes. The merge deploys `staging`
-(the preview environment). Validate against that `staging` deployment plus
-review of this promotion diff. Record the validated SHA, then run the smoke
-test in section 7.
+Merge only after the PR's `quality` check passes and the promotion is commanded
+(section 5.0). The merge deploys `staging` (the preview environment). Validate
+against that `staging` deployment plus review of this promotion diff. Record the
+validated SHA, then run the smoke test in section 7.
 
 ### 5.3 `staging` → `main` (production)
 
@@ -193,10 +219,11 @@ Preconditions:
 - Smoke tests pass against the `staging` deployment of that SHA.
 - `git diff origin/main...origin/staging` contains only the intended release.
 - A database backup exists if the release contains migrations.
-- Jeff approves.
+- Jeff commands the promotion (section 5.0).
 
-Only Jeff merges this PR. The merge triggers the production deployment and, for
-`main` only, `prisma migrate deploy`.
+The promotion is merged by Jeff, or by the OpenCode lead under a standing
+authorization recorded in `docs/missions/`. The merge triggers the production
+deployment and, for `main` only, `prisma migrate deploy`.
 
 ### 5.4 Release pull request
 
@@ -317,35 +344,38 @@ Configured after the branch reconciliation, on `develop`, `staging`, and
 | No deletions | Yes | Yes | Yes |
 | Enforce for admins | Yes | Yes | Yes |
 
-`main` additionally requires one approval and is merged only by Jeff. GitHub
-cannot express "Jeff specifically must approve" without a second reviewer, so
-the human rule stands: only Jeff merges `main`.
+`main` additionally requires one approval. Jeff merges it, or the OpenCode lead
+does under a standing authorization recorded in `docs/missions/` (section 5.0).
+GitHub cannot express "Jeff specifically must approve" without a second reviewer,
+so the human rule stands: no agent promotes `main` without that authorization.
 
 ## 10. Verification record
 
 | Claim | Status | Evidence |
 | --- | --- | --- |
 | Default branch is `staging` | Verified on GitHub | API `default_branch = staging`; `ls-remote --symref origin HEAD` → `refs/heads/staging` |
-| `develop` does not deploy | **Superseded** — no longer true | Merge `527b599` produced no deployment under the old allowlist |
-| `staging` deploys | **Superseded** — no longer true | Deployment for `6d858d6` (PR #78) in the Vercel `Preview` environment |
-| `develop` deploys | **Superseded 2026-10-26** — `develop` no longer deploys (cost decision, section 1) | `apps/web/vercel.json` has no `develop` entry, so `**: false` applies |
-| `staging` deploys (preview) | Configured 2026-10-26, pending first observation | `apps/web/vercel.json` `deploymentEnabled.staging = true` |
+| `develop` does not deploy | **Verified 2026-10-31** | `apps/web/vercel.json` has no `develop` entry, so `**: false` applies; no deployment was created for the `develop` pushes of the v1.34.0/v1.34.1 integrations |
+| `staging` deploys (preview) | **Verified 2026-10-31** | `apps/web/vercel.json` `deploymentEnabled.staging = true`; promote #395 (`e11f762`, v1.34.1) built a Ready preview |
+| `main` deploys (production) | **Verified 2026-10-31** | Production promote #397 (`cc876e1`, v1.34.1) built a Ready production deployment; `/api/health` ok, `/en/privacy` read 1.34.1 |
 | `staging` build skips migrations | Verified | Deployment log: `[migrate] skipped (VERCEL_ENV=preview)` |
-| `main` deploys | Configured and previously observed | Vercel production branch `main`; production deployment for `2795bef` exists |
 | Production approval gate | Configured on GitHub | `main` protection: PR required, 1 approval, `quality`, admins enforced |
 | CI validates PRs into `develop`/`staging`/`main` | Verified | PR #50 `quality` pass; PR #51 `quality` pass |
-| CI validates pushes to `develop`/`staging` | Verified | Runs 39537076187 and 39538117781, both pass |
+| CI validates pushes to `develop`/`staging`/`main` | Verified | Runs 39537076187 and 39538117781, both pass |
 | Firmware compiles | Verified | `Firmware` workflow `compile` success on `aa88ef2` and `6d858d6` |
 | Release PR is bot-authored | Verified | PR #79 author `app/github-actions`, `REVIEW_REQUIRED`, `quality` + `Firmware` + Vercel green |
-| `staging` matches `develop` | Verified | `git diff origin/staging origin/develop` empty; `staging@6d858d6`, `develop@aa88ef2` |
 | Database migrations | Verified | `prisma migrate status`: 28/28 applied and schema up to date; production `migrate deploy` is a no-op |
 | `develop`/`staging` protection | Configured on GitHub | PR + `quality`, no force push, no deletion, admins enforced |
-| Staging database | Shared with production **by decision** (section 6) |
-| Production deploy executed | **Not performed** | `main` is at `2795bef`; release PR #79 awaits Jeff's approval |
+| Staging database | Shared with production **by decision** (section 6) | — |
+| Production deploy executed | **Verified 2026-10-31** | v1.34.1 is live on `main` (PR #397) |
+
+Rows that described the pre-2026-10-26 configuration (`develop` deployed,
+`staging` did not) were removed on 2026-10-31 because the allowlist and the
+promotion record contradict them; the history remains in Git.
 
 ## 11. Manual actions that remain with Jeff
 
-1. Review and merge release PR #79 into `main`; agents must not do this.
+1. Command each promotion (section 5.0). An agent may only promote under a
+   standing authorization recorded in `docs/missions/`.
 2. Confirm GitHub plan/permissions for required reviewers, if enforcement of a
    second human approval on `main` is required beyond the current settings.
 3. Revisit the shared staging/production database decision when real customer

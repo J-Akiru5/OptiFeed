@@ -1,5 +1,9 @@
 # Mission: target-weight growth plan + permissioned agent (pre-defense)
 
+> **Historical record (2026-10-25).** Deployment lines below predate the
+> 2026-10-26 policy: `develop` no longer deploys. Current policy:
+> [`docs/deployment-workflow.md`](../deployment-workflow.md) §1.
+
 ## Objective
 
 Make OptiFeed able to run a grow-out cycle against a target harvest weight and date, adjust feeding automatically within a strict safety envelope, and let the assistant create/edit the records needed to do it.

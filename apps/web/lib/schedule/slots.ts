@@ -8,6 +8,8 @@
  * only when it is the even spacing of some window.
  */
 
+import { FEEDS_PER_DAY_MAX, FEEDS_PER_DAY_MIN } from "@/lib/limits";
+
 export const MINUTES_PER_DAY = 24 * 60;
 
 /** One meal's start, in minutes after midnight (0-1439), in feeding order. */
@@ -25,6 +27,28 @@ export function formatClock(minutes: number): string {
 	const wrapped = ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
 	const hours = Math.floor(wrapped / 60);
 	return `${String(hours).padStart(2, "0")}:${String(wrapped % 60).padStart(2, "0")}`;
+}
+
+/**
+ * The clock times of every meal in a schedule window, as `HH:MM` strings.
+ *
+ * The dashboard preview calls this on each render, so the list always follows
+ * the current window and frequency instead of the last command the device
+ * applied (#431). Invalid draft input yields an empty list rather than a
+ * misleading partial schedule.
+ */
+export function scheduleSlotTimes(
+	scheduleStart: string,
+	scheduleEnd: string,
+	feedsPerDay: number,
+): string[] {
+	const start = parseClock(scheduleStart);
+	const end = parseClock(scheduleEnd);
+	if (start === null || end === null) return [];
+	if (!Number.isFinite(feedsPerDay) || feedsPerDay < FEEDS_PER_DAY_MIN) return [];
+
+	const feeds = Math.min(FEEDS_PER_DAY_MAX, Math.round(feedsPerDay));
+	return feedingSlotMinutes(start, end, feeds).map(formatClock);
 }
 
 /** `H:MM`, `HH:MM` or `HH:MM:SS` on a 24-hour clock; null for anything else. */

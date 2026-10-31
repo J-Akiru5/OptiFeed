@@ -29,6 +29,14 @@ Playwright global setup. It throws before a single row is read or written.
      exactly, and
    - `E2E_CONFIRM_PRODUCTION` must be the literal string `yes`.
 
+A separate **CI preflight** (`assertCiLocalStackTarget`, run by
+`scripts/e2e/check-ci-target.ts`) runs before `prisma migrate deploy`. It is
+stricter than local mode: `CI` must be `true`, the local opt-in must still be
+set, and the host must be loopback. A hosted `DATABASE_URL` is refused at that
+point even if it is allow-listed and acknowledged, so a misconfigured CI run
+cannot apply a migration to a real project before the seed/Playwright guard
+would have caught it. The preflight never runs outside CI.
+
 Enabling local mode does **not** weaken the remote path. A non-loopback host
 falls through to the full allow-list and acknowledgement checks, so a stray
 `E2E_ALLOW_LOCAL_STACK=yes` in a shell that also exports a production
@@ -117,7 +125,9 @@ The job:
 
 1. installs the Supabase CLI at the pinned version and starts the local stack;
 2. exports the local stack's URL/keys from `supabase status` into the job env;
-3. runs `prisma migrate deploy` and seeds `scripts/e2e/seed-e2e.ts`;
+3. runs the CI preflight (`scripts/e2e/check-ci-target.ts`) so a misconfigured
+   `DATABASE_URL` fails before any DDL, then runs `prisma migrate deploy` and
+   seeds `scripts/e2e/seed-e2e.ts`;
 4. installs the Chromium Playwright browser and builds the app with
    `next build`;
 5. starts `next start` and waits on `GET /api/health` (which probes the

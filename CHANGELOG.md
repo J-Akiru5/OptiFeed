@@ -9,12 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.36.0] - 2026-10-31
+## [1.37.0] - 2026-10-31
 
 ### Fixed
 
+- #334 `disablePlatformUser` now locks the active platform-admin grants (`SELECT … FOR UPDATE`) and performs the last-admin count, the Supabase ban and the revoking writes in one transaction. Two concurrent disables (A disables B while B disables A) can no longer both pass the check and leave the platform with zero active admins; the refusal happens before its ban.
+- #336 the four guarded writes that wrap their body in a catch (`adminUpdateDeviceDailyCap` and `updateNotificationPrefs` / `updatePondSettings` / `updateDeviceDailyCap` in `lib/actions/settings.ts`) now return the specific authorization outcome — not signed in, password change pending, wrong role, suspended organization, read-only view-as or step-up required — with a stable `code` in the action result. A guard `redirect()` is rethrown instead of being flattened into the generic failure sentence, and no reason exposes a role list, id or org name.
 - #399 the farmer dashboard now fits one screen at 100 % zoom on laptop viewports (1366x768, 1440x900, 1536x864, 1920x1080): the control room takes its height from `100dvh` minus the header and the `main` pane padding, both held as tokens (`--ofd-topbar-h`, `--ofd-main-pad-y`), and steps down its density on short screens (chart plot area, gaps, hero padding/time, legend size). Only the right-hand rail scrolls internally; nothing is hidden or clipped, and below `lg` the stacked scrolling dashboard is unchanged. The chart plot area is now sized in CSS (`ofd-plot`), so a chart can no longer report a taller height than its card reserves. The page also stopped carrying a phantom scroll range: the shell and the rail are now positioned, so their 1 px `.sr-only` helpers are clipped by the room instead of being positioned against `main`.
 - #321 the superadmin step-up dialog now follows the theme: the shared console dialog shell, header, password field, validation message and both actions carry dark tokens from the design system, with every documented colour pair at WCAG AA (4.5:1) in light and dark. The confirm action uses the AA-safe `#C2410C` (white on the brand orange was 3.54:1).
+
+### Changed
+
+- #332 `pnpm api:check` now also runs `scripts/api/auth-check.mjs`, which asserts that every non-public API route calls its guard inside the exported handler (`withAuth`, `withCronAuth`, `verifyDeviceToken`, or the platform session plus `isCurrentPlatformAdmin`) rather than merely importing one. The public, device-token and platform-admin allow-lists are explicit, reason-carrying and tested; the old import-only "Check API route auth" CI step is removed.
+
+### Removed
+
+- #337 removed `getSuperadminStats`, `getPlatformAdmins`, `loadPondProposalSettings`, `createDemoNotification` and their now-unused `pondSettings` helper, together with the tests that were their only callers. None had a production call site; `pnpm dead-code` stays green with no new suppressions.
+## [1.36.0] - 2026-10-31
+
+### Added
+
+- #327 the Tagalog catalogue (`apps/web/messages/tl.json`) is complete: all 3,511 keys carry a Tagalog string, with the same ICU placeholders, plural branches and rich-text tags as English. The strings are machine-drafted, so `apps/web/messages/tl.draft-keys.json` lists the 3,180 keys still awaiting human review, and the language menu labels the locale "Tagalog (draft)". The 331 strings that existed before the pass are human-reviewed and unchanged. Domain terms and style live in `docs/i18n/tagalog-glossary.md`; Mozilla Firefox Tagalog terminology (MPL-2.0) and Unicode CLDR locale data are attributed in `THIRD_PARTY.md`.
+- #327 the English↔Hiligaynon parity test now also gates Tagalog for key parity, placeholders, plural branches, rich-text tags and blank values. New tests cover the Tagalog overlay fallback (`i18n/merge-messages.ts`) and CLDR `fil` formatting: month/day labels, number grouping, relative time and the `one`/`other` plural categories.
+
 ## [1.35.0] - 2026-10-31
 
 ### Added

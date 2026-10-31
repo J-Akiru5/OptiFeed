@@ -9,10 +9,16 @@ import { createPortal } from "react-dom";
 
 type Locale = (typeof routing.locales)[number];
 
+/**
+ * Language names are exonyms: they stay in their own language in every locale,
+ * so they are not catalogue keys. Tagalog is marked "draft" until the
+ * machine-drafted strings in `messages/tl.draft-keys.json` have been reviewed
+ * and the list is empty (#327).
+ */
 const LOCALE_LABELS: Record<Locale, string> = {
 	en: "English",
 	hil: "Hiligaynon",
-	tl: "Tagalog",
+	tl: "Tagalog (draft)",
 };
 
 type MenuPosition = {

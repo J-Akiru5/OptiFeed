@@ -253,8 +253,8 @@ test.describe("language switch", () => {
 
 		await expect(page).toHaveURL(/\/tl$/);
 		await expect(page.locator("html")).toHaveAttribute("lang", "tl");
-		// Tagalog landing copy falls back to English by design; the heading must
-		// still render instead of a raw message key.
+		// The Tagalog catalogue is machine-drafted (#327) but complete, so the
+		// heading renders from tl.json instead of a raw message key.
 		await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
 		expect(problems, `runtime errors during the switch:\n${problems.join("\n")}`).toEqual([]);

@@ -781,6 +781,13 @@ export type TenancyDelegate = {
 
 export type TenancyClient = Record<ModelName, TenancyDelegate> & {
 	$transaction: <T>(fn: (tx: TenancyClient) => Promise<T>) => Promise<T>;
+	/**
+	 * The one raw query the actions take: the `SELECT ... FOR UPDATE` row lock
+	 * around the active `PlatformAdmin` grants (#334). Implemented so the lock
+	 * actually serializes concurrent callers in a test, rather than being a
+	 * no-op that would hide the very race the lock prevents.
+	 */
+	$queryRaw: <T>(strings: TemplateStringsArray, ...values: unknown[]) => Promise<T>;
 };
 
 export type TenancyDb = {
@@ -788,6 +795,15 @@ export type TenancyDb = {
 	tables: TenancyFixture;
 	fixture: TenancyFixture;
 	reset: () => void;
+	/**
+	 * Run a transaction callback and release exactly the row locks it took, the
+	 * way commit or rollback ends a Postgres transaction. `tx` defaults to the
+	 * harness client; the extended test client passes itself so a spy installed
+	 * on its delegates is still observed inside the transaction.
+	 */
+	runTransaction: <T>(fn: (client: TenancyClient) => Promise<T>, tx?: TenancyClient) => Promise<T>;
+	/** Release any row lock acquired outside a `$transaction` callback. */
+	releaseLocks: () => void;
 };
 
 const MODEL_TABLE: Record<ModelName, keyof TenancyFixture> = {
@@ -1173,6 +1189,34 @@ export function createTenancyDb(base: TenancyFixture = createTenancyFixture()): 
 	const state = cloneFixture(base);
 	let sequence = 0;
 
+	// ─── `SELECT ... FOR UPDATE` on the active platform-admin grants (#334) ───
+	//
+	// A Postgres transaction holds the row lock until commit, so a second
+	// disable blocks until the first one's revocation is visible. The double
+	// queues lock holders and releases them when the enclosing `$transaction`
+	// finishes; without that, `Promise.all([disable(a), disable(b)])` would
+	// interleave in a way no real database allows and could not prove anything.
+	let lockQueue: Promise<void> = Promise.resolve();
+	const acquiredLocks: Array<() => void> = [];
+
+	/** Reset-time escape hatch: drop every lock the fixture still holds. */
+	function releaseLocks(): void {
+		while (acquiredLocks.length > 0) acquiredLocks.shift()?.();
+	}
+
+	async function acquireAdminLock(): Promise<void> {
+		const previous = lockQueue;
+		let release!: () => void;
+		const held = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		// Chain before awaiting: two callers that resumed together must not both
+		// observe the same predecessor and both acquire.
+		lockQueue = previous.then(() => held);
+		await previous;
+		acquiredLocks.push(release);
+	}
+
 	const createRow = (model: ModelName, data: Row): Row => {
 		const now = new Date(FIXED_NOW.getTime());
 		const generatedId = `${model}-${++sequence}`;
@@ -1272,6 +1316,23 @@ export function createTenancyDb(base: TenancyFixture = createTenancyFixture()): 
 		};
 	};
 
+	/**
+	 * Run the callback and release only the locks it acquired. Scoped release
+	 * matters when a transaction that never took the lock finishes while
+	 * another one is inside its critical section.
+	 */
+	async function runTransaction<T>(
+		fn: (tx: TenancyClient) => Promise<T>,
+		tx: TenancyClient = client,
+	): Promise<T> {
+		const owned = acquiredLocks.length;
+		try {
+			return await fn(tx);
+		} finally {
+			for (const release of acquiredLocks.splice(owned)) release();
+		}
+	}
+
 	const client: TenancyClient = {
 		organization: delegateFor("organization"),
 		user: delegateFor("user"),
@@ -1287,7 +1348,20 @@ export function createTenancyDb(base: TenancyFixture = createTenancyFixture()): 
 		platformAdmin: delegateFor("platformAdmin"),
 		platformAuditLog: delegateFor("platformAuditLog"),
 		orgSetting: delegateFor("orgSetting"),
-		$transaction: async (fn) => fn(client),
+		$queryRaw: async <T>(strings: TemplateStringsArray): Promise<T> => {
+			const sql = strings.join("?");
+			if (/FOR\s+UPDATE/i.test(sql)) await acquireAdminLock();
+			if (!/FROM\s+"PlatformAdmin"/i.test(sql)) return [] as T;
+			const now = Date.now();
+			return rowsOf(state, "platformAdmin")
+				.filter(
+					(row) =>
+						row.revokedAt === null &&
+						(row.expiresAt === null || (row.expiresAt as Date).getTime() > now),
+				)
+				.map((row) => ({ userId: row.userId })) as T;
+		},
+		$transaction: (fn) => runTransaction(fn),
 	};
 
 	return {
@@ -1304,7 +1378,10 @@ export function createTenancyDb(base: TenancyFixture = createTenancyFixture()): 
 				target.splice(0, target.length, ...replacement);
 			}
 			sequence = 0;
+			releaseLocks();
 		},
+		runTransaction,
+		releaseLocks,
 	};
 }
 

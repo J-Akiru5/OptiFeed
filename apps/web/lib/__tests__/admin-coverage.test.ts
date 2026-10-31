@@ -339,11 +339,12 @@ describe("adminUpdateDeviceDailyCap", () => {
 		signInAs(FARMER_A_ID);
 		const findFirst = vi.spyOn(client().energyDevice, "findFirst");
 
-		// The action's catch-all turns the guard redirect into its generic
-		// failure, but the guard still runs first and nothing is read.
+		// The tenant-admin guard runs first and the action returns its own
+		// reason (#336), not the generic database failure.
 		await expect(adminUpdateDeviceDailyCap(DEVICE_A_1, 2500)).resolves.toEqual({
 			success: false,
-			error: "Failed to update the daily feed ceiling",
+			error: "You do not have permission to make this change.",
+			code: "wrong_role",
 		});
 		expect(findFirst).not.toHaveBeenCalled();
 	});

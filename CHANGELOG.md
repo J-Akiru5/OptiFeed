@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- #327 the Tagalog catalogue (`apps/web/messages/tl.json`) is complete: all 3,486 keys carry a Tagalog string, with the same ICU placeholders, plural branches and rich-text tags as English. The strings are machine-drafted, so `apps/web/messages/tl.draft-keys.json` lists the 3,155 keys still awaiting human review, and the language menu labels the locale "Tagalog (draft)". The 331 strings that existed before the pass are human-reviewed and unchanged. Domain terms and style live in `docs/i18n/tagalog-glossary.md`; Mozilla Firefox Tagalog terminology (MPL-2.0) and Unicode CLDR locale data are attributed in `THIRD_PARTY.md`.
+- #327 the Tagalog catalogue (`apps/web/messages/tl.json`) is complete: all 3,511 keys carry a Tagalog string, with the same ICU placeholders, plural branches and rich-text tags as English. The strings are machine-drafted, so `apps/web/messages/tl.draft-keys.json` lists the 3,180 keys still awaiting human review, and the language menu labels the locale "Tagalog (draft)". The 331 strings that existed before the pass are human-reviewed and unchanged. Domain terms and style live in `docs/i18n/tagalog-glossary.md`; Mozilla Firefox Tagalog terminology (MPL-2.0) and Unicode CLDR locale data are attributed in `THIRD_PARTY.md`.
 - #327 the English↔Hiligaynon parity test now also gates Tagalog for key parity, placeholders, plural branches, rich-text tags and blank values. New tests cover the Tagalog overlay fallback (`i18n/merge-messages.ts`) and CLDR `fil` formatting: month/day labels, number grouping, relative time and the `one`/`other` plural categories.
 
 ## [1.35.0] - 2026-10-31

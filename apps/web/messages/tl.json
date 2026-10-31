@@ -3440,6 +3440,49 @@
 				"invalid": "Gumamit ng buong minuto at panatilihing mas maikli ang weak-signal window kaysa sa offline window.",
 				"failed": "Hindi ma-save ang mga threshold ng device.",
 				"summary": "Kasalukuyang offline pagkatapos ng {offline} min at {grace} min grace ({total} min na katahimikan). Gumagamit pa rin ang mga safety check para sa feed command ng {offline}-minutong window nang walang grace."
+			},
+			"firmwareGates": {
+				"title": "Mga safety gate ng firmware",
+				"description": "Ang mga limit na ipinapatupad ng firmware ng feeder sa field. Nananatili ang bawat value sa loob ng fixed na safety envelope: maaaring higpitan o luwagan ang isang value sa loob nito, pero walang setting dito na makakapag-disable ng guard.",
+				"fields": {
+					"min_dispense_gap_s": {
+						"label": "Pinakamababang agwat sa pagitan ng mga dose (s)",
+						"hint": "Buong segundo mula {min} hanggang {max}. Hindi kailanman tumatanggap ang firmware ng mas mababa sa 10 s."
+					},
+					"max_dispenses_per_hour": {
+						"label": "Pinakamataas na bilang ng dose bawat rolling hour",
+						"hint": "Buong numero mula {min} hanggang {max}. Hindi kailanman tumatanggap ang firmware ng higit sa 6."
+					},
+					"brownout_hold_s": {
+						"label": "Paghinto pagkatapos ng brownout (s)",
+						"hint": "Buong segundo mula {min} hanggang {max}. Walang dose na tumatakbo habang nagre-recover ang unit mula sa brownout."
+					},
+					"safe_mode_abnormal_window_s": {
+						"label": "Window ng abnormal na reset (s)",
+						"hint": "Buong segundo mula {min} hanggang {max}. Hindi nagdadagdag ang mga reset sa labas ng window na ito."
+					},
+					"safe_mode_abnormal_threshold": {
+						"label": "Mga abnormal na reset bago ang safe mode",
+						"hint": "Buong numero mula {min} hanggang {max}. Naka-lock ang relay ng unit pagkatapos ng ganitong bilang ng abnormal na reset sa loob ng window."
+					},
+					"safe_mode_quiet_s": {
+						"label": "Panahon ng katahimikan sa safe mode (s)",
+						"hint": "Buong segundo mula {min} hanggang {max}. Lumabas lang ang unit sa safe mode pagkatapos ng ganito katagal na walang abnormal na reset."
+					},
+					"safe_mode_healthy_clear_s": {
+						"label": "Matagumpay na pagtakbo bago i-clear ang kasaysayan (s)",
+						"hint": "Buong segundo mula {min} hanggang {max}. Naki-clear ang kasaysayan ng reset pagkatapos ng ganito katagal na matagumpay na pagtakbo."
+					}
+				},
+				"reasonLabel": "Dahilan",
+				"reasonPlaceholder": "hal. Higpitan ang hourly ceiling pagkatapos ng ulat ng dobleng dose sa CICT",
+				"reasonHint": "Nakatala sa audit log ng platform. Hindi bababa sa 10 karakter.",
+				"save": "I-save ang mga safety gate",
+				"saving": "Nagse-save…",
+				"saved": "Na-save ang mga safety gate ng firmware. Ipapataw ng mga device sa susunod nilang poll.",
+				"invalidField": "Dapat nasa pagitan ng {min} at {max} ang {field}.",
+				"failed": "Hindi ma-save ang mga safety gate ng firmware.",
+				"note": "Ipapataw ng mga device ang pagbabago sa susunod nilang poll (mga kada 5 s). Ang absolute envelope — relay on-time, ang 5,000 g daily hard guard, ang relay overrun trip at ang mga pin — ay naka-compile sa firmware at hindi kailanman maaaring itaas mula rito."
 			}
 		},
 		"feedPct": "Pakain %",

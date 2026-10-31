@@ -28,7 +28,17 @@ Session: Claude (Opus 5.5), branch `claude/pakaon-indicator-system-af4f1f`.
 2. Are the pilot lamps 12 V DC LED types? Not answered; determines the driver.
 3. Motor-current sensing: none on current hardware. Answered.
 
+## Release and versioning (Jeff, 2026-10-31)
+
+| ID | Decision |
+|---|---|
+| S11 | Jeff chose to flash this lamp build (PR #422) as **1.8.0**. 1.8.0 is a minor step: new lamp feature, no change to feeding behaviour. |
+| S12 | The farm-local schedule and persisted daily cap (#409, PR #425) are a fix on top of it and ship as **1.8.1** once #425 is rebased on this branch. Until then 1.8.0 still fires slots on UTC; do not rely on the 06:00 slot. |
+| S13 | Version strings live in `FW_VERSION` (`firmware-main.ino`), asserted by `feed-button-firmware.test.ts` and `provisioning-ap-firmware.test.ts`, and echoed in the heartbeat `firmware_version`. The README sample payload and the bench checklist now say 1.8.0. |
+| S14 | The unit's pin map is `docs/hardware/2026-10-28-cict-pin-map-and-health.md`; it now lists the lamp pins and the acknowledge tap. `firmware/README.md` holds the behaviour and driver wiring. |
+
 ## State
 
 - Native tests: 34/34 pass (`pio test -d firmware -e native`), including 6 new status tests.
-- Not flashed. Flashing needs Jeff's yes. Not bench-verified on lamps.
+- Flash: Jeff approved flashing 1.8.0 on 2026-10-31. At that time no ESP32 was enumerated as a serial port on the build machine (`pio device list` empty), so it was not flashed by Claude. The unit is on a breadboard for lamp tests; build `esp32dev-relay5` for this unit (relay on GPIO 5), `esp32dev` for the default relay on GPIO 25.
+- Not bench-verified on lamps.

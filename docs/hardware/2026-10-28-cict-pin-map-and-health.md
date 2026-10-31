@@ -4,19 +4,33 @@ Unit: Device ID `68:09:47:25:E1:80`, chip MAC `70:4B:CA:45:FB:54`, AP `PakaonAI-
 reflashed 2026-10-28 from `develop` with the `esp32dev-relay5` build (relay on GPIO 5).
 Visual wiring map: https://claude.ai/artifact/RghPSrLuspqU7heBFHqpdy
 
-## Pin map (firmware on develop)
+## Pin map (firmware 1.7.0 on develop; lamps are firmware 1.8.0)
+
+The four status-lamp rows (GPIO 13, 18, 19, 33) and the acknowledge tap on GPIO 17 exist
+only from firmware **1.8.0** (PR #422). A unit still on 1.7.0 ignores those pins. The full
+lamp behaviour, driver wiring and fault list are in `firmware/README.md` → **Machine
+status interface (firmware 1.8.0)**; this table is the one place the pins of this unit are
+listed together.
 
 | GPIO | Connects to | Notes |
 |---|---|---|
 | 5 | Relay IN | This unit only (`esp32dev-relay5`). Default build uses 25. HIGH = ON |
 | 23 | Feed button → GND | Press = LOW; dispenses the button dose; hold 5 s at boot = Wi-Fi reset |
-| 17 | Wi-Fi reset button → GND | Hold 5 s; keeps Device ID and token |
+| 17 | Wi-Fi reset button → GND | Hold 5 s; keeps Device ID and token. 1.8.0: a tap (< 5 s) acknowledges a latched fault |
 | 16 | Factory reset button → GND | Hold 10 s; clears Wi-Fi, Device ID and token |
 | 21 / 22 | DS3231 SDA / SCL | RTC for offline schedules |
 | 32 | DS18B20 DATA | 4.7 kΩ pull-up to 3V3 |
 | 12 | HC-SR04 TRIG | 10 kΩ pull-down (strapping pin) |
 | 14 | HC-SR04 ECHO | 1 kΩ / 2 kΩ divider (5 V → 3.3 V) |
+| 13 | POWER lamp (white), NPN driver | 1.8.0. HIGH = on. Solid while the controller runs |
+| 18 | FEEDING lamp (green), NPN driver | 1.8.0. Solid while the relay is energized |
+| 19 | WI-FI lamp (blue), NPN driver | 1.8.0. Solid = joined the saved network, 1 Hz blink = setup portal, off = not connected |
+| 33 | FAULT lamp (yellow), NPN driver | 1.8.0. Solid while a fault is latched; a tap on GPIO 17 acknowledges once the cause is gone |
 | 5V / GND | Buck converter (12 V → 5 V) | 12 V adapter also feeds the relay and the motor |
+
+Each lamp: +12 V → lamp → NPN collector, emitter → GND, GPIO → 1 kΩ → base, base →
+10 kΩ → GND. Never drive a lamp straight from a GPIO. Lamps are a notice, not an
+interlock. Wiring status of the lamps on this unit: not yet bench-verified (2026-10-31).
 
 ## Component health
 

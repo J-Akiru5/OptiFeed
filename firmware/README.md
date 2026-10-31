@@ -128,12 +128,9 @@ cannot reboot into the portal at 5 s: the factory reset wins at 10 s. The
 existing feed-button hold (GPIO 23, 5 s at boot) remains a WiFi-only reset.
 
 GPIO 16 and 17 are free on the ESP32-WROOM-32U, are not strapping pins, and
-support the internal pull-up. They are held by these two buttons; other free,
-safe GPIO candidates are:
-
-```
-13, 18, 19, 33
-```
+support the internal pull-up. They are held by these two buttons. The other
+four pins that used to be listed free (13, 18, 19, 33) are the status lamps since
+1.8.0 (see *Machine status interface*); no spare pin is left on this pin map.
 
 Do **not** use: 25 (relay), 23 (feed button), 32 (DS18B20), 12/14 (HC-SR04),
 21/22 (RTC I2C), 0/2/15 (strapping), 34-39 (input-only, no internal pull-up),
@@ -1045,7 +1042,7 @@ them identical to the PEMs embedded in `firmware-main.ino`.
   "timestamp": "2026-07-11T12:00:00+00:00",
   "rtc_ok": true,
   "feeder_active": false,
-  "firmware_version": "1.7.0",
+  "firmware_version": "1.8.0",
   "wifi_rssi": -58,
   "ota_state": "valid",
   "reset_reason": "poweron",
@@ -1247,7 +1244,7 @@ Portal checks (no backend needed):
 12. Confirm the serial log never prints the WiFi password or the Device Token, and that
     the setup page never renders a stored token. `/status` and `/scan` must not contain
     either.
-13. Confirm the boot log prints `[FIRMWARE] v1.7.0` under the `[DEVICE MAC]` line and
+13. Confirm the boot log prints `[FIRMWARE] v1.8.0` under the `[DEVICE MAC]` line and
     `[IDENTITY] Setup AP name`, and that a heartbeat carries the same version in
     `firmware_version`.
 14. Confirm the boot log prints `[INIT] Reset reason: ...`, `[OTA] state -> valid` and

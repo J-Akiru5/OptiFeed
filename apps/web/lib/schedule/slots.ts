@@ -8,9 +8,13 @@
  * only when it is the even spacing of some window.
  */
 
-import { FEEDS_PER_DAY_MAX, FEEDS_PER_DAY_MIN } from "@/lib/limits";
-
 export const MINUTES_PER_DAY = 24 * 60;
+
+// Mirrors FEEDS_PER_DAY_MIN / FEEDS_PER_DAY_MAX in lib/limits. Not imported from
+// there on purpose: that module pulls in zod, and this file is bundled into the
+// schedule page's client code. A test keeps the two in step.
+export const SLOT_FEEDS_MIN = 1;
+export const SLOT_FEEDS_MAX = 24;
 
 /** One meal's start, in minutes after midnight (0-1439), in feeding order. */
 export function feedingSlotMinutes(startMin: number, endMin: number, feeds: number): number[] {
@@ -45,9 +49,9 @@ export function scheduleSlotTimes(
 	const start = parseClock(scheduleStart);
 	const end = parseClock(scheduleEnd);
 	if (start === null || end === null) return [];
-	if (!Number.isFinite(feedsPerDay) || feedsPerDay < FEEDS_PER_DAY_MIN) return [];
+	if (!Number.isFinite(feedsPerDay) || feedsPerDay < SLOT_FEEDS_MIN) return [];
 
-	const feeds = Math.min(FEEDS_PER_DAY_MAX, Math.round(feedsPerDay));
+	const feeds = Math.min(SLOT_FEEDS_MAX, Math.round(feedsPerDay));
 	return feedingSlotMinutes(start, end, feeds).map(formatClock);
 }
 

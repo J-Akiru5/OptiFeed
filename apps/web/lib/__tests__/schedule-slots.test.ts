@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { scheduleSlotTimes } from "../schedule/slots";
+import { FEEDS_PER_DAY_MAX, FEEDS_PER_DAY_MIN } from "../limits";
+import { SLOT_FEEDS_MAX, SLOT_FEEDS_MIN, scheduleSlotTimes } from "../schedule/slots";
 
 /**
  * Guards #431: the dashboard must show one feeding time per requested feed.
@@ -49,5 +50,13 @@ describe("scheduleSlotTimes", () => {
 
 	it("caps the preview at the stored maximum of 24 feeds per day", () => {
 		expect(scheduleSlotTimes("00:00", "23:00", 100)).toHaveLength(24);
+	});
+});
+
+describe("slot bounds", () => {
+	it("stay in step with the server-side feeds-per-day limits", () => {
+		// slots.ts keeps its own copy so the client bundle does not pull in zod.
+		expect(SLOT_FEEDS_MIN).toBe(FEEDS_PER_DAY_MIN);
+		expect(SLOT_FEEDS_MAX).toBe(FEEDS_PER_DAY_MAX);
 	});
 });

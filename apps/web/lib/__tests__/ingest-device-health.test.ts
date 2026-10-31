@@ -233,6 +233,17 @@ describe("POST /api/ingest - refused dashboard feeds", () => {
 		});
 	});
 
+	it("accepts a refused calibration dose and closes only the calibration request", async () => {
+		const res = await POST(refused("calibration", "evt-refused-cal"));
+
+		expect(res.status).toBe(204);
+		expect(mockFeedRequest.updateMany).toHaveBeenCalledTimes(1);
+		expect(mockFeedRequest.updateMany).toHaveBeenCalledWith({
+			where: { deviceId: DEVICE.id, status: "dispatched", kind: "calibration" },
+			data: { status: "refused" },
+		});
+	});
+
 	it("leaves feed requests alone when a button or scheduled dose is refused", async () => {
 		for (const source of ["button", "scheduled"]) {
 			const res = await POST(refused(source, `evt-refused-${source}`));

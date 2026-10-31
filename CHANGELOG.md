@@ -9,12 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.36.0] - 2026-10-31
+
+### Fixed
+
+- #399 the farmer dashboard now fits one screen at 100 % zoom on laptop viewports (1366x768, 1440x900, 1536x864, 1920x1080): the control room takes its height from `100dvh` minus the header and the `main` pane padding, both held as tokens (`--ofd-topbar-h`, `--ofd-main-pad-y`), and steps down its density on short screens (chart plot area, gaps, hero padding/time, legend size). Only the right-hand rail scrolls internally; nothing is hidden or clipped, and below `lg` the stacked scrolling dashboard is unchanged. The chart plot area is now sized in CSS (`ofd-plot`), so a chart can no longer report a taller height than its card reserves. The page also stopped carrying a phantom scroll range: the shell and the rail are now positioned, so their 1 px `.sr-only` helpers are clipped by the room instead of being positioned against `main`.
+- #321 the superadmin step-up dialog now follows the theme: the shared console dialog shell, header, password field, validation message and both actions carry dark tokens from the design system, with every documented colour pair at WCAG AA (4.5:1) in light and dark. The confirm action uses the AA-safe `#C2410C` (white on the brand orange was 3.54:1).
 ## [1.35.0] - 2026-10-31
 
 ### Added
 
 - I-100 firmware 1.7.0 takes a versioned `config` object from the existing feed-command poll, so the daily ceiling, dose amounts, calibration, hopper geometry/thresholds, safe-mode thresholds, button guard, poll interval, OTA pre-flight and calibration limits are dashboard-driven instead of compile-time. Every field is validated against an absolute safety envelope in `firmware/firmware-main/config.h`: a missing, malformed, out-of-range or impossible object is ignored whole and the last-good copy (NVS `cfg_json` / `cfg_rev`, new keys only) or the compile-time defaults stay in force, so a bad config can never raise a bound or disable a guard. The firmware echoes `config_rev` in the heartbeat and the ingest route records one `config_applied` state event per change (no schema change). Old firmware ignores the unknown field and new firmware drives from defaults against an old server. The superadmin configuration centre gains "Firmware safety gates" (min dispense gap, doses per hour, brownout hold, safe-mode window/threshold/quiet/healthy-clear) with min/max validation, a required reason, an audit row and an English/Hiligaynon UI. Contract and inventory: `firmware/README.md` and `docs/firmware-dashboard-config.md`.
 - I-100 E38: the firmware no longer refuses a dose above 1,000 g. The per-dose ceiling is derived as `min(daily ceiling, relay envelope seconds × grams per second)`; the relay-time guard still refuses an over-long dose. Needs a reflash (1.6.2 units keep the 1,000 g refusal until then).
+- #338 the additive migration `20261031010000_add_feed_event_event_type_received_at_index` adds `FeedEvent(eventType, receivedAt)`, serving the platform feed aggregate and the heartbeat retention sweep. The misleading `(deviceId, receivedAt)` comment in `lib/retention.ts` now names the correct index, and `docs/performance/query-audit.md` records the change. No `CONCURRENTLY`: the table-size lock risk is documented because no database was available to measure it.
+- #339 the additive migration `20261031020000_add_energy_device_pond_id_index` adds `EnergyDevice(pondId)`, which the dashboard's first read, the calendar lookup, global search and notification acknowledgement all filter on.
+- #317 a CI-only e2e preflight (`scripts/e2e/check-ci-target.ts`) runs before `prisma migrate deploy`. With `CI=true` it accepts only the disposable local Supabase stack, so a misconfigured `DATABASE_URL` pointing at a real project fails before any DDL; the production acknowledgement still never makes a remote host eligible in CI.
+
+### Changed
+
+- #339 `markAllNotificationsRead` is no longer an N+1: it issues one `updateMany`, one batched `EnergyDevice` lookup and one `deviceStateEvent.createMany`, keeping one audit row per pond and the same owner scoping.
+- #318 every writer of `CropCycle.targetHarvestWeightG` now goes through `lib/crop-cycle/target-write.ts`: the cycle edit uses the Replace/Keep decision, new cycles use the range guard, and the calculator save/clear use the same count-guarded writers. A static guard test fails if another module writes the mirror directly, and `cycleTargetDrift` reports drift from scripted data.
+
 
 ## [1.34.1] - 2026-10-31
 

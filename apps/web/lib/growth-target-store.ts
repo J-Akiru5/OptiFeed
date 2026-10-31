@@ -1,16 +1,12 @@
+import { writeCycleTargetMirror, writePondGrowthTarget } from "@/lib/crop-cycle/target-write";
 import {
 	growthTargetInputSchema,
 	isCycleTargetWeightInRange,
 	targetWeightGrams,
 } from "@/lib/growth-target";
 import { formatZodError } from "@/lib/limits";
-import {
-	type PondGrowthTarget,
-	mergePondGrowthTarget,
-	parsePondGrowthTarget,
-} from "@/lib/pond-profile";
+import { type PondGrowthTarget, parsePondGrowthTarget } from "@/lib/pond-profile";
 import prisma from "@/lib/prisma";
-import type { InputJsonValue } from "@prisma/client/runtime/library";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -44,10 +40,6 @@ function knownError(error: unknown): string | null {
 	if (error.message === "NO_CYCLE") return NO_CYCLE;
 	if (error.message === "TARGET_OUT_OF_RANGE") return TARGET_OUT_OF_RANGE;
 	return null;
-}
-
-function prefsWithTarget(prefs: unknown, target: PondGrowthTarget | null): InputJsonValue {
-	return mergePondGrowthTarget(prefs, target) as unknown as InputJsonValue;
 }
 
 /**
@@ -104,17 +96,19 @@ export async function saveGrowthTargetForPond(params: {
 				setAt: (params.now ?? new Date()).toISOString(),
 			};
 
-			const updated = await tx.pond.updateMany({
-				where: { id: pond.id, ownerId: params.ownerId },
-				data: { notificationPrefs: prefsWithTarget(pond.notificationPrefs, target) },
+			// Both stores go through the one guarded writer (#318). The
+			// calculator is authoritative here, so this is always a replace.
+			await writePondGrowthTarget(tx, {
+				pondId: pond.id,
+				ownerId: params.ownerId,
+				currentPrefs: pond.notificationPrefs,
+				target,
 			});
-			if (updated.count !== 1) throw new Error("POND_NOT_FOUND");
-
-			const mirrored = await tx.cropCycle.updateMany({
-				where: { id: cycle.id, pondId: pond.id, status: "ACTIVE" },
-				data: { targetHarvestWeightG: target.targetWeightG },
+			await writeCycleTargetMirror(tx, {
+				cycleId: cycle.id,
+				pondId: pond.id,
+				weightG: target.targetWeightG,
 			});
-			if (mirrored.count !== 1) throw new Error("NO_CYCLE");
 
 			return target;
 		});
@@ -150,18 +144,21 @@ export async function clearGrowthTargetForPond(params: {
 
 			const saved = parsePondGrowthTarget(pond.notificationPrefs);
 
-			const updated = await tx.pond.updateMany({
-				where: { id: pond.id, ownerId: params.ownerId },
-				data: { notificationPrefs: prefsWithTarget(pond.notificationPrefs, null) },
+			await writePondGrowthTarget(tx, {
+				pondId: pond.id,
+				ownerId: params.ownerId,
+				currentPrefs: pond.notificationPrefs,
+				target: null,
 			});
-			if (updated.count !== 1) throw new Error("POND_NOT_FOUND");
 
 			if (saved) {
 				// A missing or harvested cycle is not an error: there is no
 				// active mirror left to clear and history is left intact.
-				await tx.cropCycle.updateMany({
-					where: { id: saved.cycleId, pondId: pond.id, status: "ACTIVE" },
-					data: { targetHarvestWeightG: null },
+				await writeCycleTargetMirror(tx, {
+					cycleId: saved.cycleId,
+					pondId: pond.id,
+					weightG: null,
+					onMissing: "ignore",
 				});
 			}
 		});

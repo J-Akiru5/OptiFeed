@@ -62,8 +62,8 @@ vi.mock("@/lib/prisma", () => ({
 			findFirst: vi.fn(),
 			count: vi.fn(),
 		},
-		energyDevice: { findFirst: vi.fn() },
-		deviceStateEvent: { create: vi.fn() },
+		energyDevice: { findFirst: vi.fn(), findMany: vi.fn() },
+		deviceStateEvent: { create: vi.fn(), createMany: vi.fn() },
 	},
 }));
 
@@ -151,11 +151,26 @@ beforeEach(() => {
 		where,
 	}: { where: { pondId: string } }) =>
 		where.pondId === "pond-x" ? null : { id: `dev-${where.pondId}` }) as never);
+	mockEnergyDevice.findMany.mockImplementation((async ({
+		where,
+	}: { where: { pondId: { in: string[] } } }) =>
+		where.pondId.in
+			.filter((pondId) => pondId !== "pond-x")
+			.sort()
+			.map((pondId) => ({ id: `dev-${pondId}`, pondId }))) as never);
 	mockDeviceStateEvent.create.mockImplementation((async ({
 		data,
 	}: { data: Record<string, unknown> }) => {
 		state.events.push(data);
 		return data;
+	}) as never);
+	mockDeviceStateEvent.createMany.mockImplementation((async ({
+		data,
+	}: {
+		data: Record<string, unknown>[];
+	}) => {
+		state.events.push(...data);
+		return { count: data.length };
 	}) as never);
 
 	mockRequireWriteAccess.mockResolvedValue(undefined);
@@ -207,6 +222,35 @@ describe("markAllNotificationsRead", () => {
 				acknowledgedBy: "farm-1",
 			},
 		});
+	});
+
+	it("issues one update statement and one batched device lookup, never a per-pond query", async () => {
+		await markAllNotificationsRead();
+
+		// The N+1 being fixed: the update is one statement, and every pond is
+		// resolved by one findMany + one createMany instead of a loop.
+		expect(mockNotification.updateMany).toHaveBeenCalledTimes(1);
+		expect(mockNotification.groupBy).toHaveBeenCalledTimes(1);
+		expect(mockEnergyDevice.findMany).toHaveBeenCalledTimes(1);
+		expect(mockEnergyDevice.findMany).toHaveBeenCalledWith({
+			where: { pondId: { in: ["pond-a", "pond-b"] } },
+			select: { id: true, pondId: true },
+			orderBy: { createdAt: "asc" },
+		});
+		expect(mockEnergyDevice.findFirst).not.toHaveBeenCalled();
+		expect(mockDeviceStateEvent.createMany).toHaveBeenCalledTimes(1);
+		expect(mockDeviceStateEvent.create).not.toHaveBeenCalled();
+	});
+
+	it("still clears notifications when a pond has no device, without an empty audit write", async () => {
+		// A pond can hold alerts before a feeder is paired. The batch update
+		// must still succeed; there is simply no device to audit against.
+		mockEnergyDevice.findMany.mockResolvedValueOnce([]);
+
+		const result = await markAllNotificationsRead();
+
+		expect(result).toEqual({ success: true, count: 2 });
+		expect(mockDeviceStateEvent.createMany).not.toHaveBeenCalled();
 	});
 
 	it("writes one audit event per pond that had pending alerts", async () => {

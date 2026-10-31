@@ -38,6 +38,7 @@ export function LineTrend({
 	color,
 	aux,
 	className,
+	plotClassName,
 }: LineTrendProps) {
 	const theme = useChartTheme();
 	const stroke = color ?? theme.primary;
@@ -49,6 +50,7 @@ export function LineTrend({
 			emptyLabel={labels.empty}
 			isEmpty={points.length === 0}
 			className={className}
+			plotClassName={plotClassName}
 			aux={aux}
 			table={<SingleSeriesTable points={points} labels={labels} caption={summary} />}
 		>

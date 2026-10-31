@@ -224,6 +224,12 @@ describe("createTenantPond", () => {
 				data: expect.objectContaining({ pondId: "pond-new", stockingCount: 800 }),
 			}),
 		);
+		// #318: the admin/tenant pond-create writer never seeds a cycle target,
+		// so it cannot disagree with a saved calculator target.
+		const created = tx.cropCycle.create.mock.calls[0]?.[0] as {
+			data: Record<string, unknown>;
+		};
+		expect(created.data.targetHarvestWeightG).toBeUndefined();
 		expect(tx.pondEvent.createMany).toHaveBeenCalledTimes(1);
 	});
 

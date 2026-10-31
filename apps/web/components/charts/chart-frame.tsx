@@ -15,10 +15,19 @@ export interface ChartProps {
 	/** Localized text alternative, used as the chart's accessible name. */
 	summary: string;
 	labels: ChartLabels;
-	/** Card height in pixels for the plotting area. */
-	height?: number;
+	/**
+	 * Card height for the plotting area: a pixel number, or a percentage such as
+	 * `"100%"` when the caller sizes the plot area itself (the dashboard does,
+	 * through the `ofd-plot` class and the height-based density tiers).
+	 */
+	height?: ChartHeight;
 	className?: string;
+	/** Extra classes for the plot area, e.g. the dashboard's `ofd-plot`. */
+	plotClassName?: string;
 }
+
+/** A pixel height, or a percentage of the (CSS-sized) plot area. */
+export type ChartHeight = number | `${number}%`;
 
 /**
  * The frame every chart shares (E15):
@@ -39,6 +48,7 @@ export function ChartFrame({
 	aux,
 	table,
 	className,
+	plotClassName,
 }: {
 	title: string;
 	summary: string;
@@ -48,6 +58,7 @@ export function ChartFrame({
 	aux?: ReactNode;
 	table: ReactNode;
 	className?: string;
+	plotClassName?: string;
 }) {
 	return (
 		<figure
@@ -66,7 +77,7 @@ export function ChartFrame({
 				</output>
 			) : (
 				<>
-					<div role="img" aria-label={summary} className="mt-4 w-full flex-1">
+					<div role="img" aria-label={summary} className={cn("mt-4 w-full flex-1", plotClassName)}>
 						{children}
 					</div>
 					{aux}

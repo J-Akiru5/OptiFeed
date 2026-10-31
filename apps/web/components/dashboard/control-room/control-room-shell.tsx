@@ -10,6 +10,10 @@ import type { ReactNode } from "react";
  * and only the right rail scrolls. Below 1280 px the same blocks stack into the
  * ordinary scrolling dashboard, so a phone keeps the familiar layout.
  *
+ * The height comes from `ofd-control-room` (globals.css), which subtracts the
+ * header and the pane padding from `100dvh` and steps the density down on short
+ * laptop viewports, so the whole room fits at 1366x768 and above (#399).
+ *
  * `ControlRoomRail` is `display: contents` under `xl`. That lets the rail's
  * children take part in the page's mobile column — where their `order` classes
  * place them next to the blocks they belong with — while the same children sit
@@ -23,15 +27,21 @@ interface ControlRoomLayoutProps {
 }
 
 /**
- * The page shell. Height is the viewport minus the 4 rem header and the
- * dashboard `main` padding (2 rem top and bottom at `xl`).
+ * The page shell. Height comes from `ofd-control-room`: the viewport minus the
+ * dashboard header and the `main` pane padding, with height-based density tiers.
+ *
+ * `relative` is load-bearing (#399): the blocks below carry absolutely
+ * positioned helpers (the `.sr-only` text alternatives and the charts' hidden
+ * tables). Without a positioned ancestor inside the shell, those 1 px boxes are
+ * positioned against `main` and escape the room's `overflow-hidden`, which
+ * leaves the page with a phantom scroll range even when everything fits.
  */
 export function ControlRoomLayout({ children, className }: ControlRoomLayoutProps) {
 	return (
 		<div
 			className={cn(
-				"flex w-full min-w-0 flex-col gap-6 animate-in fade-in duration-150",
-				"xl:grid xl:h-[calc(100dvh-8rem)] xl:grid-cols-[minmax(0,1fr)_22rem] xl:grid-rows-[auto_minmax(0,1fr)_auto] xl:gap-4 xl:overflow-hidden",
+				"ofd-control-room relative flex w-full min-w-0 flex-col gap-6 animate-in fade-in duration-150",
+				"xl:grid xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_22rem] xl:grid-rows-[auto_minmax(0,1fr)_auto] xl:overflow-hidden",
 				className,
 			)}
 		>
@@ -56,7 +66,10 @@ export function ControlRoomRail({ label, children, className }: ControlRoomRailP
 				// #269: the rail scrolls vertically only. A wide child used to turn
 				// the implicit `overflow-x` into a horizontal scrollbar; the rail
 				// must never scroll sideways, so it is pinned to x-hidden as well.
-				"xl:col-start-2 xl:row-span-3 xl:row-start-1 xl:flex xl:min-h-0 xl:min-w-0 xl:flex-col xl:gap-3 xl:overflow-x-hidden xl:overflow-y-auto xl:pr-1 xl:pb-2",
+				// `xl:relative` keeps the rail's own absolutely positioned helpers
+				// (`.sr-only` text) inside its scroll box, so they cannot add a
+				// phantom scroll range to the page (#399).
+				"xl:relative xl:col-start-2 xl:row-span-3 xl:row-start-1 xl:flex xl:min-h-0 xl:min-w-0 xl:flex-col xl:gap-3 xl:overflow-x-hidden xl:overflow-y-auto xl:pr-1 xl:pb-2",
 				className,
 			)}
 		>

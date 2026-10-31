@@ -575,7 +575,8 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 
 					<div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-3">
 						<StackedBars
-							className="min-w-0 xl:p-3"
+							className="ofd-chart-card min-w-0"
+							plotClassName="ofd-plot"
 							title={t("controlRoom.charts.feedTitle")}
 							summary={t("controlRoom.charts.feedSummary", {
 								total: formatChartNumber(feedChartTotal, "g"),
@@ -584,10 +585,11 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							stack={feedChart.stack}
 							seriesLabels={sourceSeriesLabels}
 							unit="g"
-							height={130}
+							height="100%"
 						/>
 						<LineTrend
-							className="min-w-0 xl:p-3"
+							className="ofd-chart-card min-w-0"
+							plotClassName="ofd-plot"
 							title={t("controlRoom.charts.hopperTitle")}
 							summary={t("controlRoom.charts.hopperSummary", {
 								latest: hopperLatest ?? "—",
@@ -596,10 +598,11 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							points={hopperPoints}
 							unit="%"
 							decimals={0}
-							height={130}
+							height="100%"
 						/>
 						<LineTrend
-							className="min-w-0 xl:p-3"
+							className="ofd-chart-card min-w-0"
+							plotClassName="ofd-plot"
 							title={t("waterChartTitle")}
 							summary={t("waterChartSummary", {
 								range: waterRangeLabel,
@@ -610,7 +613,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							points={waterTempPoints}
 							unit="°C"
 							decimals={1}
-							height={130}
+							height="100%"
 						/>
 					</div>
 				</div>

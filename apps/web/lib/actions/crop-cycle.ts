@@ -18,17 +18,13 @@ import {
 	harvestInputSchema,
 } from "@/lib/crop-cycle/schema";
 import {
-	type GrowthTargetResolution,
-	cycleTargetConflict,
-	isCycleTargetWeightInRange,
-	roundTargetWeightG,
-} from "@/lib/growth-target";
+	cycleTargetForCreate,
+	resolveCycleTargetWrite,
+	writePondGrowthTarget,
+} from "@/lib/crop-cycle/target-write";
+import type { GrowthTargetResolution } from "@/lib/growth-target";
 import { formatZodError } from "@/lib/limits";
-import {
-	type PondGrowthTarget,
-	mergePondGrowthTarget,
-	parsePondGrowthTarget,
-} from "@/lib/pond-profile";
+import { parsePondGrowthTarget } from "@/lib/pond-profile";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -127,7 +123,7 @@ export async function createCropCycle(input: CropCycleInput): Promise<CropCycleA
 					stockingAvgWeightG: data.stockingAvgWeightG ?? null,
 					growOutDays,
 					targetHarvestDate: dateOnlyToUtcDate(data.targetHarvestDate),
-					targetHarvestWeightG: data.targetHarvestWeightG ?? null,
+					targetHarvestWeightG: cycleTargetForCreate(data.targetHarvestWeightG),
 					expectedSurvivalPct: data.expectedSurvivalPct ?? null,
 					notes: data.notes ?? null,
 					createdBy: ownerId,
@@ -216,54 +212,17 @@ export async function updateCropCycle(
 			if (cycle.pondId !== data.pondId) throw new Error("CYCLE_NOT_FOUND");
 
 			// D-2: a saved calculator target outranks the cycle target until the
-			// caller explicitly chooses. `null` means the pond target was removed,
-			// and `undefined` means the pond profile must not be written.
+			// caller explicitly chooses. The single guarded helper decides
+			// Replace/Keep/refuse, so every writer follows the same rule (#318).
 			const savedTarget = parsePondGrowthTarget(cycle.pond.notificationPrefs);
-			const nextWeightG = data.targetHarvestWeightG ?? null;
-			const conflict = savedTarget
-				? cycleTargetConflict({
-						savedWeightG: savedTarget.targetWeightG,
-						cycleWeightG: cycle.targetHarvestWeightG,
-						nextWeightG,
-					})
-				: null;
-
-			let cycleTargetWeightG = nextWeightG;
-			let targetToWrite: PondGrowthTarget | null | undefined;
-
-			if (conflict) {
-				if (options.growthTargetResolution === "replace") {
-					if (nextWeightG === null) {
-						// Replacing with an empty cycle target removes the saved
-						// target too; the choice was explicit, not silent.
-						cycleTargetWeightG = null;
-						targetToWrite = null;
-					} else {
-						const weightG = roundTargetWeightG(nextWeightG);
-						if (!isCycleTargetWeightInRange(weightG)) {
-							throw new Error("TARGET_OUT_OF_RANGE");
-						}
-						cycleTargetWeightG = weightG;
-						targetToWrite = {
-							targetWeightG: weightG,
-							population: data.stockingCount,
-							cycleId: cycle.id,
-							setAt: new Date().toISOString(),
-						};
-					}
-				} else if (options.growthTargetResolution === "keep") {
-					if (!isCycleTargetWeightInRange(conflict.savedWeightG)) {
-						// Keeping an unmovable value would leave two numbers; refuse
-						// and let the caller replace or remove it instead.
-						throw new Error("SAVED_TARGET_OUT_OF_RANGE");
-					}
-					// Keep the calculator target authoritative and restore the
-					// mirror, so every page still shows the same number.
-					cycleTargetWeightG = conflict.savedWeightG;
-				} else {
-					throw new Error("GROWTH_TARGET_CONFLICT");
-				}
-			}
+			const plan = resolveCycleTargetWrite({
+				nextWeightG: data.targetHarvestWeightG ?? null,
+				cycleWeightG: cycle.targetHarvestWeightG,
+				savedTarget,
+				resolution: options.growthTargetResolution,
+				population: data.stockingCount,
+				cycleId: cycle.id,
+			});
 
 			await tx.cropCycle.update({
 				where: { id: cycle.id },
@@ -274,23 +233,19 @@ export async function updateCropCycle(
 					stockingAvgWeightG: data.stockingAvgWeightG ?? null,
 					growOutDays,
 					targetHarvestDate: dateOnlyToUtcDate(data.targetHarvestDate),
-					targetHarvestWeightG: cycleTargetWeightG,
+					targetHarvestWeightG: plan.cycleTargetWeightG,
 					expectedSurvivalPct: data.expectedSurvivalPct ?? null,
 					notes: data.notes ?? null,
 				},
 			});
 
-			if (targetToWrite !== undefined) {
-				const pondUpdated = await tx.pond.updateMany({
-					where: { id: cycle.pondId, ownerId },
-					data: {
-						notificationPrefs: mergePondGrowthTarget(
-							cycle.pond.notificationPrefs,
-							targetToWrite,
-						) as unknown as Prisma.InputJsonValue,
-					},
+			if (plan.targetToWrite !== undefined) {
+				await writePondGrowthTarget(tx, {
+					pondId: cycle.pondId,
+					ownerId,
+					currentPrefs: cycle.pond.notificationPrefs,
+					target: plan.targetToWrite,
 				});
-				if (pondUpdated.count !== 1) throw new Error("POND_NOT_FOUND");
 			}
 
 			await tx.pond.update({

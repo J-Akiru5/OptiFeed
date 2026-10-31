@@ -6,7 +6,12 @@ import {
 	formatChartNumber,
 	stackedValue,
 } from "@/components/charts/chart-data";
-import { ChartFrame, type ChartProps, MultiSeriesTable } from "@/components/charts/chart-frame";
+import {
+	ChartFrame,
+	type ChartHeight,
+	type ChartProps,
+	MultiSeriesTable,
+} from "@/components/charts/chart-frame";
 import { seriesColor, tooltipStyle, useChartTheme } from "@/components/charts/chart-theme";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
@@ -16,7 +21,7 @@ export interface StackedBarsProps extends ChartProps {
 	seriesLabels: Record<string, string>;
 	unit?: string;
 	decimals?: number;
-	height?: number;
+	height?: ChartHeight;
 }
 
 /** Bars per day, split by source (scheduled / dashboard / button). */
@@ -30,6 +35,7 @@ export function StackedBars({
 	decimals = 0,
 	height = 220,
 	className,
+	plotClassName,
 }: StackedBarsProps) {
 	const theme = useChartTheme();
 	const series = stack.sources.map((key, index) => ({
@@ -45,12 +51,13 @@ export function StackedBars({
 			emptyLabel={labels.empty}
 			isEmpty={stack.rows.length === 0}
 			className={className}
+			plotClassName={plotClassName}
 			table={
 				<MultiSeriesTable rows={stack.rows} series={series} labels={labels} caption={summary} />
 			}
 			aux={
 				series.length > 0 ? (
-					<ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
+					<ul className="ofd-chart-legend mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
 						{series.map((entry) => (
 							<li
 								key={entry.key}

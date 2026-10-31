@@ -44,14 +44,34 @@ export function toCsvString(rows: CsvRow[]): string {
 	return Papa.unparse(escaped);
 }
 
-export function parseCsvString(csv: string): { data: CsvRow[]; errors: Papa.ParseError[] } {
-	// The downloadable CSV template adds its notes as leading `#` comment
-	// lines; they are not data. Skipped only while the file has not reached
-	// its first real line yet, so a note inside the data still imports.
-	const lines = csv.split(/\r?\n/);
+/**
+ * The downloadable CSV template adds its notes as leading `#` comment lines;
+ * they are not data. Skipped only while the file has not reached its first real
+ * line yet, so a note inside the data still imports.
+ */
+function stripLeadingComments(csv: string): string {
+	const text = csv.replace(/^﻿/, "");
+	const lines = text.split(/\r?\n/);
 	let index = 0;
 	while (index < lines.length && lines[index].startsWith("#")) index += 1;
-	const body = index > 0 ? lines.slice(index).join("\n") : csv;
+	return index > 0 ? lines.slice(index).join("\n") : text;
+}
+
+/** A CSV as the header row plus raw string rows, for the import's column mapping. */
+export function parseCsvTable(csv: string): { headers: string[]; rows: Record<string, string>[] } {
+	const result = Papa.parse<Record<string, string>>(stripLeadingComments(csv), {
+		header: true,
+		skipEmptyLines: true,
+		dynamicTyping: false,
+	});
+	return {
+		headers: (result.meta.fields ?? []).filter((field) => field.trim() !== ""),
+		rows: result.data,
+	};
+}
+
+export function parseCsvString(csv: string): { data: CsvRow[]; errors: Papa.ParseError[] } {
+	const body = stripLeadingComments(csv);
 
 	const result = Papa.parse(body, {
 		header: true,

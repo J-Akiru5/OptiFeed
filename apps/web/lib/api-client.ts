@@ -72,6 +72,22 @@ export function apiPost<T>(
 	);
 }
 
+/** A file upload parses a workbook server-side, so it gets a longer budget than a JSON write. */
+export const UPLOAD_TIMEOUT_MS = 30_000;
+
+/** Multipart upload (import files). The browser sets the multipart boundary header itself. */
+export function apiPostForm<T>(
+	path: string,
+	body: FormData,
+	options: Omit<RequestOptions, "raw"> = {},
+): Promise<T> {
+	return request<T>(
+		path,
+		{ method: "POST", body },
+		{ ...options, timeoutMs: options.timeoutMs ?? UPLOAD_TIMEOUT_MS },
+	);
+}
+
 /** For SSE and file downloads: no JSON parsing, no envelope unwrapping. */
 export function rawFetch(path: string, init: RequestInit = {}): Promise<Response> {
 	return fetch(path, { ...init, credentials: "same-origin" });

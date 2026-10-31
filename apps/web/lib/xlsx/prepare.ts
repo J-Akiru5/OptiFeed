@@ -116,9 +116,17 @@ export interface PrepareInput {
 	rows: Record<string, unknown>[];
 	/** Canonical field → exact file header the user picked in the mapping step. */
 	overrides?: Record<string, string>;
+	/** The reader stopped at the row limit, so `rows` is only the start of a longer sheet. */
+	truncated?: boolean;
 }
 
-export function prepareImport({ type, headers, rows, overrides }: PrepareInput): PreparedImport {
+export function prepareImport({
+	type,
+	headers,
+	rows,
+	overrides,
+	truncated = false,
+}: PrepareInput): PreparedImport {
 	const resolved = resolveHeaderMapping(type, headers, overrides);
 	const base: PreparedImport = {
 		type,
@@ -137,7 +145,7 @@ export function prepareImport({ type, headers, rows, overrides }: PrepareInput):
 
 	if (resolved.unmatched.length > 0) return { ...base, structural: "missingColumns" };
 	if (rows.length === 0) return { ...base, structural: "noRows" };
-	if (rows.length > IMPORT_ROW_LIMIT) return { ...base, structural: "tooManyRows" };
+	if (truncated || rows.length > IMPORT_ROW_LIMIT) return { ...base, structural: "tooManyRows" };
 
 	const fields = TYPE_FIELDS[type].filter((field) => resolved.mapping[field.name] !== undefined);
 	const issues: RowIssue[] = [];

@@ -3,6 +3,7 @@ import { resolveActivePond } from "@/lib/auth/pond-access";
 import { IMPORT_ROW_LIMIT } from "@/lib/constants";
 import { type ExportableType, parseCsvString } from "@/lib/csv";
 import prisma from "@/lib/prisma";
+import { coerceCell } from "@/lib/xlsx/schema";
 import { CSV_EXPORT_TYPES } from "./export-data";
 
 export interface ImportResult {
@@ -33,6 +34,17 @@ function dateField(row: Record<string, unknown>, field: string, index: number): 
 	if (Number.isNaN(value.getTime()))
 		throw badRequest(`Row ${index + 1}: ${field} is not a valid date.`);
 	return value;
+}
+
+/**
+ * A flag column. The CSV reader keeps every cell as text, and `Boolean("false")`
+ * is `true`, so the value is read the way the preview reads it (TRUE/FALSE, 1/0,
+ * yes/no). An empty cell is `null`; anything else is a 400 naming the row.
+ */
+function booleanField(row: Record<string, unknown>, field: string, index: number): boolean | null {
+	const result = coerceCell(row[field], "boolean");
+	if (!result.ok) throw badRequest(`Row ${index + 1}: ${field} ${result.message}.`);
+	return result.value as boolean | null;
 }
 
 /**
@@ -149,8 +161,8 @@ export async function confirmImport(
 						source: row.source ? String(row.source) : null,
 						feedRequestId: row.feedRequestId ? String(row.feedRequestId) : null,
 						commandId: row.commandId ? String(row.commandId) : null,
-						rtcOk: row.rtcOk != null ? Boolean(row.rtcOk) : null,
-						feederActive: row.feederActive != null ? Boolean(row.feederActive) : null,
+						rtcOk: booleanField(row, "rtcOk", index),
+						feederActive: booleanField(row, "feederActive", index),
 						receivedAt: optionalDateField(row, "receivedAt", index) ?? new Date(),
 					}));
 					count = (await tx.feedEvent.createMany({ data: rows })).count;
@@ -185,9 +197,9 @@ export async function confirmImport(
 						tier: String(row.tier),
 						message: String(row.message),
 						linkTo: row.linkTo ? String(row.linkTo) : null,
-						read: Boolean(row.read ?? false),
+						read: booleanField(row, "read", index) ?? false,
 						category: row.category ? String(row.category) : null,
-						autoCleared: Boolean(row.autoCleared ?? false),
+						autoCleared: booleanField(row, "autoCleared", index) ?? false,
 						createdAt: optionalDateField(row, "createdAt", index) ?? new Date(),
 					}));
 					count = (await tx.notification.createMany({ data: rows })).count;

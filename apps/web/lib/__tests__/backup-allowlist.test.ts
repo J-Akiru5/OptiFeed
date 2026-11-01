@@ -75,6 +75,10 @@ const FOREIGN_KEYS: Record<string, { column: string; table: string; nullable?: b
 	],
 	PondOwnershipHistory: [{ column: "pondId", table: "Pond" }],
 	BiomassLog: [{ column: "pondId", table: "Pond" }],
+	MortalityLog: [
+		{ column: "pondId", table: "Pond" },
+		{ column: "cropCycleId", table: "CropCycle", nullable: true },
+	],
 	FishSample: [{ column: "biomassLogId", table: "BiomassLog" }],
 	FcrReport: [{ column: "pondId", table: "Pond" }],
 	Notification: [{ column: "pondId", table: "Pond" }],

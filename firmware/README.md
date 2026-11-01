@@ -1140,11 +1140,14 @@ them identical to the PEMs embedded in `firmware-main.ino`.
 > for the "weak signal" state and the dBm text; units without it keep the timing-only rule.
 >
 > **1.6.0 diagnostics.** `safe_mode`, `last_reset_reasons` and the nested `diag` object are
-> additive and currently **stripped** by the ingest schema (verified by
-> `apps/web/lib/__tests__/ingest-route.test.ts`, which posts a heartbeat with all of them and
-> asserts the stored row keeps its shape). They are therefore visible on the serial log and
-> in the heartbeat body, not yet in the database. No server change is required for 1.6.0;
-> storing them is a separate, additive follow-up. The analog fields the server does persist
+> additive. The ingest schema stays strict for everything else, but since #454 the server
+> stores the latest sanitised `diag` object per device: `diag` is dropped if malformed or
+> oversized (flat primitives, 24 keys, strings ≤ 120 chars, arrays ≤ 8 rows, ≤ 2 KB; see
+> `apps/web/lib/device-diag.ts`), and the view on the device panel (`/dashboard/devices/[id]`)
+> reads that stored object. Diagnostics are advisory evidence — **never an authority for
+> dosing**, which keeps using the dose path's own verified inputs. `safe_mode` and
+> `last_reset_reasons` remain stripped from the row (`safe_mode` is already shown from the
+> diff through the refusal/refusal-reason telemetry fields). The analog fields the server does persist
 > (`feed_level_percent`, `feed_level_cm`, `water_temp_c`, `water_temp_ok`) keep exactly the
 > old contract; an implausible hopper cycle now **omits** the level instead of sending 0 %,
 > and an implausible probe sends `water_temp_ok: false` with no `water_temp_c`.

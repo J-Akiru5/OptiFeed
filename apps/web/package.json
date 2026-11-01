@@ -18,6 +18,7 @@
 		"test:watch": "vitest",
 		"test:e2e": "playwright test",
 		"complexity": "node scripts/check-complexity.mjs",
+		"i18n:tl-coverage": "node scripts/i18n-tagalog-coverage.mjs",
 		"test:e2e:smoke": "playwright test --config=playwright.smoke.config.ts",
 		"seed:dev": "tsx prisma/seed-dev.ts",
 		"seed:tenant-b": "tsx scripts/seed-tenant-b.ts",

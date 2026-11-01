@@ -157,13 +157,15 @@ describe("Tagalog uses the Filipino (fil) CLDR locale", () => {
 });
 
 describe("Tagalog draft labelling (#327)", () => {
-	it("marks the language menu entry as a draft", () => {
+	it("marks the language menu entry as Beta while drafts remain (#457)", () => {
 		const switcher = readFileSync(join(webRoot, "components/locale-switcher.tsx"), "utf8");
-		expect(switcher).toMatch(/tl: "Tagalog \(draft\)"/);
+		expect(switcher).toMatch(/tl: "Tagalog"/);
+		expect(switcher).toMatch(/BETA_LOCALES: ReadonlySet<Locale> = new Set<Locale>\(\["tl"\]\)/);
+		expect(switcher).toMatch(/Beta/);
 	});
 
-	it("offers Tagalog on the login page's compact locale toggle, labelled draft", () => {
+	it("offers Tagalog on the login page's compact locale toggle, labelled Beta", () => {
 		const login = readFileSync(join(webRoot, "app/[locale]/login/page.tsx"), "utf8");
-		expect(login).toMatch(/code: "tl", label: "TL", title: "Tagalog \(draft\)"/);
+		expect(login).toMatch(/code: "tl", label: "TL", title: "Tagalog \(Beta\)"/);
 	});
 });

@@ -868,8 +868,9 @@ describe("POST /api/ingest - firmware 1.6.0 fail-safe diagnostics", () => {
 
 	it("accepts the extra heartbeat keys and strips them from the persisted row", async () => {
 		// The firmware sends safe_mode, last_reset_reasons and a nested diag
-		// object. The Zod schema strips everything it does not declare, so the
-		// heartbeat must still parse (204) and the FeedEvent row keeps its shape.
+		// object. The heartbeat must still parse (204) and the FeedEvent row
+		// keeps its shape: since #454 the diag object is stored on the device
+		// row instead, and safe_mode / last_reset_reasons stay stripped.
 		const res = await POST(
 			ingestRequest({
 				...heartbeatBody("hb-failsafe-1"),

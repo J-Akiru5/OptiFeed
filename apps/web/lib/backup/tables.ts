@@ -342,6 +342,23 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 		tenantWhere: byPondFk,
 	},
 	{
+		name: "MortalityLog",
+		scope: "tenant",
+		key: "id",
+		model: prisma.mortalityLog,
+		columns: [
+			"id",
+			"pondId",
+			"cropCycleId",
+			"farmId",
+			"count",
+			"reason",
+			"recordedAt",
+			"createdBy",
+		],
+		tenantWhere: byPondFk,
+	},
+	{
 		name: "FishSample",
 		scope: "tenant",
 		key: "id",
@@ -431,7 +448,9 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 			"lastCalibratedAt",
 			"recalibrationIntervalDays",
 			"approvalStatus",
+			"diag",
 		],
+		jsonColumns: ["diag"],
 		placeholders: [REDACTED_DEVICE_TOKEN],
 		omitted: [
 			{

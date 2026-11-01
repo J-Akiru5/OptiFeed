@@ -90,6 +90,29 @@ export default async function DeviceDetailPage({
 								{lastFed}
 							</dd>
 						</div>
+						<div className="py-3">
+							<dt className="text-[10px] font-black uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
+								{t("diagTitle")}
+							</dt>
+							<dd className="mt-1">
+								{detail.diag === null ? (
+									<span className="text-sm text-[#3D5568] dark:text-gray-400">
+										{t("diagEmpty")}
+									</span>
+								) : (
+									<dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+										{Object.entries(detail.diag).map(([key, value]) => (
+											<div key={key} className="contents">
+												<dt className="font-semibold text-[#3D5568] dark:text-gray-400">{key}</dt>
+												<dd className="break-all font-bold text-[#0A3D62] dark:text-gray-100">
+													{Array.isArray(value) ? value.join(", ") : String(value)}
+												</dd>
+											</div>
+										))}
+									</dl>
+								)}
+							</dd>
+						</div>
 					</dl>
 				</aside>
 			</div>

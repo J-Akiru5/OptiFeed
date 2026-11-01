@@ -31,13 +31,13 @@ const FARM_ID_STORAGE_KEY = "optifeed:last-farm-id";
 
 /**
  * Compact locale toggle in the login footer. Language names are exonyms and
- * stay untranslated; Tagalog is marked as a draft until the review queue in
- * `messages/tl.draft-keys.json` is cleared (#327).
+ * stay untranslated; Tagalog is marked Beta until the machine-draft review
+ * queue in `messages/tl.draft-keys.json` is cleared (#457).
  */
 const LOCALE_OPTIONS = [
 	{ code: "en", label: "EN", title: "English" },
 	{ code: "hil", label: "HIL", title: "Hiligaynon" },
-	{ code: "tl", label: "TL", title: "Tagalog (draft)" },
+	{ code: "tl", label: "TL", title: "Tagalog (Beta)" },
 ] as const;
 
 const inputBase =

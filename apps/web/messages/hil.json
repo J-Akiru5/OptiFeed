@@ -3409,7 +3409,8 @@
 			"columnMembers": "Mga Miyembro",
 			"columnPonds": "Mga Punong",
 			"columnCreated": "Gin-himo",
-			"columnActions": "Mga Aksyon"
+			"columnActions": "Mga Aksyon",
+			"tenantHealth": "Kahimtangan sang tenant"
 		},
 		"orgDetail": {
 			"back": "Balik sa mga organisasyon",
@@ -4297,6 +4298,43 @@
 			"notReported": "Wala ginreport",
 			"viewFleet": "Monitor sang mga device",
 			"viewErrors": "Console sang error"
+		},
+		"tenants": {
+			"title": "Kahimtangan sang mga Tenant",
+			"description": "Ang tanan nga tenant kag ang kahimtangan sang ila fleet, pinakagrabe ang una — {count} ka tenant.",
+			"descriptionFailed": "Ang tanan nga tenant kag ang kahimtangan sang ila fleet, pinakagrabe ang una. Wala nagreport ang source sang tenant.",
+			"summaryLabel": "Kabug-usan sang mga tenant",
+			"platformState": "Plataporma sa tanan nga tenant",
+			"checkedAt": "Ginsusi sang {time}",
+			"unknownRule": "Ang tenant nga wala sing pond, ukon wala gid nagreport ang mga unit, Wala Mahibaluan, indi Maayo.",
+			"tenantsByState": "Mga tenant suno sa kahimtangan",
+			"worstRule": "Ang kahimtangan sang plataporma amo ang pinakagrabe nga tenant, indi average.",
+			"policyTitle": "Polisiya sang device",
+			"policyApplied": "Ginagamit sa tanan nga unit, upod ang threshold sang status bands.",
+			"policyUnavailable": "Wala ginreport: wala mabasa ang polisiya sang device, gani wala sing kahimtangan nga masaligan.",
+			"policySource": "Ginbasa halin sa device.status nga setting sang plataporma.",
+			"sourceErrorTitle": "Wala nagreport ang source sang tenant.",
+			"sourceErrorBody": "Wala sing tenant nga masiling nga maayo sa sini nga kahimtangan. I-reload para sulayan liwat.",
+			"truncated": "Ginapakita ang {count} ka tenant; may pagbasa nga nakaabot sa limit, gani minimum lang ang numero sang fleet.",
+			"emptyTitle": "Wala pa sing tenant",
+			"emptyDescription": "Maghimo sang organisasyon kag magagwa ang mga tenant diri pag-aktibo sini.",
+			"tableLabel": "Mga tenant suno sa kahimtangan",
+			"columnTenant": "Tenant",
+			"columnMembers": "Mga miyembro",
+			"columnPonds": "Mga pond",
+			"columnDevices": "Mga device",
+			"columnReporting": "Nagareport",
+			"columnOffline": "Offline",
+			"columnHeartbeat": "Katapusan nga heartbeat",
+			"columnAlerts": "Bukas nga alert",
+			"columnState": "Kahimtangan",
+			"noDevices": "Wala",
+			"neverReported": "Wala pa heartbeat",
+			"never": "Wala gid",
+			"notReported": "Wala ginreport",
+			"viewFleet": "Monitor sang mga device",
+			"viewOrgs": "Mga organisasyon",
+			"paginationLabel": "Mga pahina sang tenant"
 		}
 	},
 	"help": {

@@ -448,7 +448,9 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 			"lastCalibratedAt",
 			"recalibrationIntervalDays",
 			"approvalStatus",
+			"diag",
 		],
+		jsonColumns: ["diag"],
 		placeholders: [REDACTED_DEVICE_TOKEN],
 		omitted: [
 			{

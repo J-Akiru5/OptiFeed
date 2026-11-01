@@ -218,8 +218,25 @@ describe("scope path (M3C.1)", () => {
 		expect(levels).toEqual(["global", "organization", "resource"]);
 		expect(html.split('aria-current="location"').length - 1).toBe(1);
 		expect(html).toMatch(/aria-current="location"[^>]*>Feeder 3B09</);
-		// Every level carries an icon, so scope never rests on colour alone.
-		expect(html.split("<svg").length - 1).toBe(5);
+		// Each crumb is written out and the path reads with text arrows, so scope
+		// never rests on colour or an icon alone. Icons mark the three levels that
+		// name a thing; a section crumb is plain text.
+		expect(html.split("<svg").length - 1).toBe(3);
+		expect(html.split(">→<").length - 1).toBe(2);
+	});
+
+	it("draws a section crumb as text only", () => {
+		const html = renderToStaticMarkup(
+			<ScopeBanner
+				label="Console scope"
+				crumbs={[
+					{ level: "global", label: "Global superadmin" },
+					{ level: "section", label: "Devices" },
+				]}
+			/>,
+		);
+		expect(html.split("<svg").length - 1).toBe(1);
+		expect(html).toMatch(/data-scope-level="section"[^>]*>Devices</);
 	});
 
 	it("keeps red, amber and green out of the banner, which are reserved for status", () => {

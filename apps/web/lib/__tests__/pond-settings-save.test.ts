@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/prisma", () => ({
 	default: {
 		pond: { findFirst: vi.fn(), update: vi.fn() },
+		cropCycle: { updateMany: vi.fn(async () => ({ count: 0 })), create: vi.fn() },
 		energyDevice: { findFirst: vi.fn() },
 		biomassLog: { findFirst: vi.fn() },
 		deviceStateEvent: { create: vi.fn() },

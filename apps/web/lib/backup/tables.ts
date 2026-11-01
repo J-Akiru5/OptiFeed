@@ -342,6 +342,23 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 		tenantWhere: byPondFk,
 	},
 	{
+		name: "MortalityLog",
+		scope: "tenant",
+		key: "id",
+		model: prisma.mortalityLog,
+		columns: [
+			"id",
+			"pondId",
+			"cropCycleId",
+			"farmId",
+			"count",
+			"reason",
+			"recordedAt",
+			"createdBy",
+		],
+		tenantWhere: byPondFk,
+	},
+	{
 		name: "FishSample",
 		scope: "tenant",
 		key: "id",

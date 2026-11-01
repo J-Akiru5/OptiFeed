@@ -3409,7 +3409,8 @@
 			"columnMembers": "Members",
 			"columnPonds": "Ponds",
 			"columnCreated": "Created",
-			"columnActions": "Actions"
+			"columnActions": "Actions",
+			"tenantHealth": "Tenant health"
 		},
 		"orgDetail": {
 			"back": "Back to organizations",
@@ -4297,6 +4298,43 @@
 			"notReported": "Not reported",
 			"viewFleet": "Fleet monitor",
 			"viewErrors": "Error console"
+		},
+		"tenants": {
+			"title": "Tenant health",
+			"description": "Every tenant with its fleet state, worst first — {count} tenants.",
+			"descriptionFailed": "Every tenant with its fleet state, worst first. The tenant source did not report.",
+			"summaryLabel": "Tenant summary",
+			"platformState": "Platform across tenants",
+			"checkedAt": "Checked at {time}",
+			"unknownRule": "A tenant with no ponds, or whose units never reported, is Unknown, never OK.",
+			"tenantsByState": "Tenants by state",
+			"worstRule": "The platform state is the worst tenant, never an average.",
+			"policyTitle": "Device policy",
+			"policyApplied": "Applied to every unit, with the status bands' thresholds.",
+			"policyUnavailable": "Not reported: the device policy could not be read, so no tenant state can be trusted.",
+			"policySource": "Read from the platform device.status setting.",
+			"sourceErrorTitle": "The tenant source did not report.",
+			"sourceErrorBody": "No tenant can be called healthy in this state. Reload to try again.",
+			"truncated": "Showing {count} tenants; a read hit its limit, so fleet numbers are a floor.",
+			"emptyTitle": "No tenants yet",
+			"emptyDescription": "Create an organization and its tenants appear here once it is active.",
+			"tableLabel": "Tenants by health",
+			"columnTenant": "Tenant",
+			"columnMembers": "Members",
+			"columnPonds": "Ponds",
+			"columnDevices": "Devices",
+			"columnReporting": "Reporting",
+			"columnOffline": "Offline",
+			"columnHeartbeat": "Last heartbeat",
+			"columnAlerts": "Open alerts",
+			"columnState": "State",
+			"noDevices": "None",
+			"neverReported": "No heartbeat yet",
+			"never": "Never",
+			"notReported": "Not reported",
+			"viewFleet": "Fleet monitor",
+			"viewOrgs": "Organizations",
+			"paginationLabel": "Tenant pages"
 		}
 	},
 	"help": {

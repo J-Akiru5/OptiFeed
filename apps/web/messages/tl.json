@@ -3363,7 +3363,8 @@
 			"columnMembers": "Mga Miyembro",
 			"columnPonds": "Mga Pond",
 			"columnCreated": "Ginawa",
-			"columnActions": "Mga Aksyon"
+			"columnActions": "Mga Aksyon",
+			"tenantHealth": "Kalagayan ng tenant"
 		},
 		"orgDetail": {
 			"back": "Bumalik sa mga organisasyon",
@@ -3894,6 +3895,43 @@
 			"notReported": "Hindi iniulat",
 			"viewFleet": "Monitor ng device",
 			"viewErrors": "Console ng error"
+		},
+		"tenants": {
+			"title": "Kalagayan ng mga Tenant",
+			"description": "Lahat ng tenant at ang kalagayan ng kanilang fleet, pinakamalala muna — {count} tenant.",
+			"descriptionFailed": "Lahat ng tenant at ang kalagayan ng kanilang fleet, pinakamalala muna. Hindi nag-ulat ang source ng tenant.",
+			"summaryLabel": "Buod ng mga tenant",
+			"platformState": "Plataporma sa lahat ng tenant",
+			"checkedAt": "Sinuri noong {time}",
+			"unknownRule": "Ang tenant na walang pond, o walang unit na nag-ulat, ay Hindi Alam, hindi Maayos.",
+			"tenantsByState": "Mga tenant ayon sa kalagayan",
+			"worstRule": "Ang kalagayan ng plataporma ay ang pinakamalala na tenant, hindi average.",
+			"policyTitle": "Patakaran ng device",
+			"policyApplied": "Ginagamit sa lahat ng unit, kasama ang threshold ng status bands.",
+			"policyUnavailable": "Hindi iniulat: hindi mabasa ang patakaran ng device, kaya walang kalagayang mapagkakatiwalaan.",
+			"policySource": "Binabasa mula sa device.status na setting ng plataporma.",
+			"sourceErrorTitle": "Hindi nag-ulat ang source ng tenant.",
+			"sourceErrorBody": "Walang tenant na masasabing maayos sa ganitong kalagayan. I-reload para subukan muli.",
+			"truncated": "Ipinapakita ang {count} tenant; may pagbasa na umabot sa limit, kaya minimum lang ang numero ng fleet.",
+			"emptyTitle": "Wala pang tenant",
+			"emptyDescription": "Gumawa ng organisasyon at lalabas ang mga tenant dito kapag aktibo na.",
+			"tableLabel": "Mga tenant ayon sa kalagayan",
+			"columnTenant": "Tenant",
+			"columnMembers": "Mga miyembro",
+			"columnPonds": "Mga pond",
+			"columnDevices": "Mga device",
+			"columnReporting": "Nag-uulat",
+			"columnOffline": "Offline",
+			"columnHeartbeat": "Huling heartbeat",
+			"columnAlerts": "Bukas na alert",
+			"columnState": "Kalagayan",
+			"noDevices": "Wala",
+			"neverReported": "Wala pang heartbeat",
+			"never": "Wala kailanman",
+			"notReported": "Hindi iniulat",
+			"viewFleet": "Monitor ng device",
+			"viewOrgs": "Mga organisasyon",
+			"paginationLabel": "Mga pahina ng tenant"
 		}
 	},
 	"landing": {

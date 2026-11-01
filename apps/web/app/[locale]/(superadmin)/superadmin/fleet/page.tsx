@@ -89,9 +89,14 @@ export default async function SuperadminFleetPage() {
 				title={t("title")}
 				description={t("description", { count: fleet.totalDevices })}
 				actions={
-					<Link href="/superadmin/devices" className={SECONDARY_BUTTON}>
-						{t("viewDevices")}
-					</Link>
+					<>
+						<Link href="/superadmin/incidents" className={SECONDARY_BUTTON}>
+							{t("viewIncidents")}
+						</Link>
+						<Link href="/superadmin/devices" className={SECONDARY_BUTTON}>
+							{t("viewDevices")}
+						</Link>
+					</>
 				}
 			/>
 

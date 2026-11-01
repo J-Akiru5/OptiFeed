@@ -169,7 +169,15 @@ export default async function SuperadminDevicesPage({
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title={t("title")} description={t("description", { count: devices.total })} />
+			<PageHeader
+				title={t("title")}
+				description={t("description", { count: devices.total })}
+				actions={
+					<Link href="/superadmin/fleet" className={SECONDARY_BUTTON}>
+						{t("fleetMonitor")}
+					</Link>
+				}
+			/>
 
 			<RegisterDeviceForm options={options} />
 

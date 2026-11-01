@@ -2788,7 +2788,8 @@
 			"columnPond": "Pond",
 			"columnFeedLevel": "Antas ng pakain",
 			"columnSeen": "Huling nakita",
-			"columnActions": "Mga aksyon"
+			"columnActions": "Mga aksyon",
+			"fleetMonitor": "Monitor ng Device"
 		},
 		"registerDevice": {
 			"title": "Magrehistro ng device",
@@ -3820,6 +3821,36 @@
 				"adminsWithoutMfa": "Mga platform admin na walang MFA: {value} (hindi pa naipapatupad ang MFA)",
 				"source": "Hindi nag-ulat ang source na ito, kaya hindi masasabing maayos ang band"
 			}
+		},
+		"fleet": {
+			"title": "Monitor ng Device",
+			"description": "Lahat ng feeder sa lahat ng tenant, {count} unit, sinusukat gamit ang patakaran ng plataporma.",
+			"summaryLabel": "Buod ng mga Device",
+			"fleetState": "Kalagayan ng Device",
+			"checkedAt": "Sinuri noong {time}",
+			"unknownRule": "Ang tenant na walang unit na nag-ulat ay Hindi Alam, hindi Maayos.",
+			"tenantsByState": "Mga tenant ayon sa kalagayan",
+			"policyTitle": "Patakaran ng device",
+			"policyLine": "Offline pagkatapos ng {offline} min · mahina pagkatapos ng {weak} min · grasya {grace} min",
+			"policySource": "Binabasa mula sa device.status na setting ng plataporma; parehong patakaran ng status bands.",
+			"policyUnavailable": "Hindi iniulat: hindi mabasa ang patakaran ng device, kaya Hindi Alam ang lahat ng kalagayan.",
+			"sourceErrorTitle": "Hindi nag-ulat ang source ng mga device.",
+			"sourceErrorBody": "Walang tenant na masasabing maayos sa ganitong kalagayan. I-reload para subukan muli.",
+			"truncated": "Ipinapakita ang unang {count} device.",
+			"emptyTitle": "Walang nakarehistrong device",
+			"emptyDescription": "Magrehistro ng feeder at lalabas ito dito sa unang heartbeat.",
+			"tableLabel": "Mga device ayon sa tenant",
+			"columnTenant": "Tenant",
+			"columnDevices": "Mga Device",
+			"columnReporting": "Nag-uulat",
+			"columnOffline": "Offline",
+			"columnHeartbeat": "Huling heartbeat",
+			"columnState": "Kalagayan",
+			"unassigned": "Walang Tenant",
+			"neverReported": "Wala pang heartbeat",
+			"never": "Wala kailanman",
+			"notReported": "Hindi iniulat",
+			"viewDevices": "Buksan ang listahan ng device"
 		}
 	},
 	"landing": {

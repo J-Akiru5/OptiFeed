@@ -1,6 +1,6 @@
 # PakaonAI: Superadmin and Multi-Tenancy Plan (v2)
 
-> Status: **partly built.** v1 written 2026-10-17 against `origin/develop` @ `be77a18`. **v2 amended 2026-10-26** against `origin/develop` @ `3089c65`: new decisions T15–T18 (§1), progress and new findings (§2a), the device registry phase M3F (§8), a revised PR order (§9) and a production-grade benchmark (Appendix A). What changed is listed in the change log at the end.
+> Status: **partly built.** v1 written 2026-10-17 against `origin/develop` @ `be77a18`. **v2 amended 2026-10-26** against `origin/develop` @ `3089c65`: new decisions T15–T18 (§1), progress and new findings (§2a), the device registry phase M3F (§8), a revised PR order (§9) and a production-grade benchmark (Appendix A). **v2.2 amended 2026-11-01** against `origin/develop` @ `fc727bb`: the Platform Command Center (decisions T24–T26, phase M3C, open questions O19–O24, issue #479). What changed is listed in the change log at the end.
 > Pattern source: Syntaxure EMS Architecture v3 (WVSU energy monitoring), mapped onto PakaonAI.
 > Human-readable version with diagrams and charts: `docs/superadmin-multitenancy-portal.html` (**still v1**; this file wins where they differ).
 > This file is written for the executing AI agent. It follows the same conventions as `docs/OPTIFEED-INDUSTRY-GRADE-PLAN v3.md`.
@@ -62,6 +62,9 @@ These are decided. Do not reopen them.
 | T21 | *(2026-10-26)* **Remote firmware updates (OTA)** are required, because units sit on farms with no IT help. Design follows the ESP32 OTA research (mission T-12). | — |
 | T22 | *(2026-10-26)* **Firmware reset buttons on GPIO 17 (Wi-Fi, 5 s) and GPIO 16 (factory, 10 s)** (swapped the same day to match the soldered board), replacing the §5.3 proposal of 18/19. | — |
 | T18 | *(2026-10-26)* **Check the platform tables' exposure now.** Jeff checks whether RLS is off on the platform tables (§2a, N1) and whether the Data API exposes them. If they are exposed, ship an additive `ENABLE ROW LEVEL SECURITY` hotfix migration as its own PR with Jeff's explicit OK, despite the migration freeze. | — |
+| T24 | *(2026-11-01)* **The Superadmin landing page becomes a Platform Command Center** (issue #479). It answers, in order: what is happening, what is wrong, what should I do. Direction proposed by Jeff in chat; the build slices are Phase M3C and every threshold is still open (O19 to O24). A third-party dashboard screenshot was a layout reference only; nothing from it is reused, and the numbers in the proposal are illustrative placeholders. | — |
+| T25 | *(2026-11-01)* **Three scopes, always visible:** global (the console), tenant (one organization) and resource (one device, pond or user). A banner shows the path, for example `GLOBAL SUPERADMIN → ORGANIZATION ALPHA`. The red view-as banner stays the tenant-scope case for a live session. | — |
+| T26 | *(2026-11-01)* **Red, amber and green are reserved for status.** The dark blue sidebar and the orange accent stay; the Superadmin page is light by default with dark monitoring panels; Inter and an 8 px spacing scale. | — |
 
 ---
 
@@ -487,6 +490,59 @@ Runs on today's `EnergyDevice` model, before M1.2. Branch `feature/superadmin-de
 | M3F.6 | **Rotate token** (superadmin, reason, audit): new token and hash, old token gets 401 immediately. | Test: old token rejected, new accepted. |
 | M3F.7 | Docs: the registration → flash identity → print → AP-name check procedure in `firmware/README.md` and `HANDOFF.md`. | Reviewed by Jeff. |
 
+### Phase M3C: Platform Command Center (v2.2, T24 to T26)
+
+Tracked as issue #479. Source: Jeff's redesign proposal in chat, 2026-11-01. The landing page of `/superadmin` stops being an analytics overview and becomes the page that answers, in order: **what is happening, what is wrong, what should I do.** A third-party MSP dashboard screenshot was shared as a layout reference only; nothing from it (name, logo, copy, data) is reused. The numbers in the original proposal are illustrative placeholders, so every figure on the page comes from a query.
+
+Runs on today's data: only M3C.6 changes the schema. Verified on `origin/develop` @ `fc727bb` (v1.42.1), 2026-11-01.
+
+**Today versus target**
+
+| Section | Exists today **(verified)** | Gap |
+|---|---|---|
+| A. Global platform status | Overview has eight KPI cards (`getPlatformAnalytics`). Operations > Health has job counts, the oldest queued job, cron activity and a device list (`getSystemHealth`). | No single verdict. Platform, tenant, device and security health are not separated. No "checked at". |
+| B. Tenant health | Organizations list and detail page; suspend and restore control with step-up and audit (`setOrganizationStatus`). | No per-organization row: members, ponds, feeders, online %, last activity, open alerts. |
+| C. Device fleet | `/superadmin/devices` registry (org, pond, feed level, last seen, sticker). `EnergyDevice` holds `lastSeenAt`, `wifiRssiDbm` and the feed-level and water-temperature timestamps. Firmware version comes from `firmware_reported` events (`lib/device-firmware.ts`). Faults and safe mode come from `device_health` events (`lib/device-health-model.ts`). | No superadmin page reads the `device_health` events (checked: no import under `(superadmin)`). Uptime is not stored. No "last successful feed" or per-reading freshness column. Numeric error codes do not exist; fault names do. |
+| D. Incident center | Per-pond `Notification` (tier, category, acknowledge, auto-clear), `ErrorEvent` (resolved flag), failed `BackgroundJob` rows, offline devices computed on the fly (`evaluateDeviceStatus`). | None of these is an incident: no owner, no timeline, no lifecycle, no dedupe across sources. |
+| E. Analytics | Signups, feeds by source, kg dispensed, device split, alerts by type, top FCR, over 7, 30 or 90 days. | No per-organization comparison. No registered versus active view. No connectivity trend, because no heartbeat history is stored. |
+| F. Security and oversight | Audit explorer (action, actor and org filters), step-up dialog, view-as sessions, AI provider keys with step-up, device approval counts. | No single oversight panel. No test proving every destructive action needs step-up. No MFA enrolment anywhere (N2, verified 2026-10-26, not re-checked). |
+| Scopes | The red view-as banner covers the tenant scope. | No global or resource banner. |
+
+**Navigation (proposal).** The sidebar has nine flat items today. It regroups into three, with existing URLs unchanged:
+
+| Group | Items |
+|---|---|
+| Command Center | Overview, Incidents (new), Fleet monitor (new), Analytics (new, P2) |
+| Ecosystem Management | Organizations, Users, Ponds, Devices (registry and provisioning), Calendar |
+| Platform Control | Operations (jobs, errors, firmware, announcements), Audit, AI providers, Settings |
+
+The Fleet monitor and the Devices registry share one data layer and link to each other; they are two views, not two copies. Operations > Health becomes the detail page behind the Platform status band.
+
+**Tasks**
+
+| ID | Task | Acceptance | Priority |
+|---|---|---|---|
+| M3C.1 | **Scope banner and nav regroup.** A banner shows the path, e.g. `GLOBAL SUPERADMIN → ORGANIZATION ALPHA → FEEDER 3B09`, on console, org and device pages. The view-as banner keeps its meaning (a live session). Strings in `en`, `hil` and `tl`. | Nav test lists the three groups. Locale parity test passes. Every existing URL still resolves. The banner path is correct on an org page and a device page. | P0 |
+| M3C.2 | **Status bands:** Platform, Tenants, Devices, Security, each OK, Degraded, Critical or Unknown, with its rule table shown and a "checked at" time. Inputs: platform = failed jobs, oldest queued job, cron freshness, unresolved errors; tenants = organizations by status; devices = the configured `device.status` policy buckets; security = active lockouts, temporary grants near expiry, platform admins without MFA. | Unit test per rule. A source that fails or is stale gives Unknown, never OK. The thresholds shown are the configured ones, not copies. | P0 |
+| M3C.3 | **Tenant health table**, worst first, sortable, paginated: status, members, ponds, feeders, online %, last activity, open alerts, active incidents. | Numbers match direct SQL on seeded data. Needs the org-to-pond mapping fix (M3.9, N5). | P0 |
+| M3C.4 | **Fleet monitor:** last heartbeat, RSSI with bars, firmware version, last successful feed, freshness of feed level, water temperature and RSSI, state, faults and safe mode. | A missing value reads "Not reported", never 0 and never green. Uptime and numeric error codes stay "Not reported" until #454 lands. No token field is selected. | P0 |
+| M3C.5 | **Incident read model**, no schema change: one queue over offline devices, failed jobs, unresolved errors, un-acknowledged critical notifications and safe-mode faults, with severity and age, deduplicated by (type, subject). | The same condition is never listed twice. Each row links to its source. | P0 |
+| M3C.6 | **Incident lifecycle:** additive tables `PlatformIncident` and `PlatformIncidentEvent`; states New, Acknowledged, Investigating, Resolved, Escalated; auto-open and auto-resolve from the device watch; every transition audited with a reason. **Blocked on O19 and O20.** | A repeating condition does not open a second incident. Auto-resolve writes a timeline note. RLS enabled on both tables (the N1 lesson). Backup taken before the migration. | P0 |
+| M3C.7 | **Security and oversight panel:** latest audit rows, org suspend and restore, device approval queue, AI provider key source, platform admins with expiry and MFA state. | A test lists every destructive action reachable from the command center and asserts step-up on each. MFA shows "not enrolled" while N2 stands. | P1 |
+| M3C.8 | **Visual system:** Inter, 8 px spacing scale, dark monitoring panels on a light page, the brand orange as the accent, red, amber and green reserved for status, AA contrast (O17). Depends on #477 and O23. | Contrast check on every status colour in both themes. Status is never colour alone (icon and text). | P1 |
+| M3C.9 | **Per-organization comparison:** feed volume, FCR and online % side by side. Global configuration is M5.3 and is not re-planned here. | Same numbers as the tenant table for the same window. | P1 |
+| M3C.10 | **Registered versus active** entities and connectivity trends. **Blocked on O22 and O24.** | Trend query reads stored history only; nothing is estimated. | P2 |
+
+**Guardrails for this phase**
+- No firmware change here. Uptime, numeric error codes and `safety_trip` incidents wait for #454 and #455. Flashing needs Jeff's explicit yes each time.
+- Reuse the existing data layers (`getPlatformAnalytics`, `getSystemHealth`, `evaluateDeviceStatus`, `listPlatformDevices`, `getDeviceHealth`); do not add a second copy of the offline thresholds.
+- No state is shown green without a fresh reading. Unknown and Not reported are first-class states *(proposed rule, Claude)*.
+- Every page sits behind `requirePlatformAdmin` in the layout and in the page. Mutations keep reason, audit row and step-up where §4.4 requires it. Never expose `token` or `tokenHash`.
+- Only M3C.6 migrates: additive, full backup first, `migrate deploy` only.
+- Stay inside the bundle budget and latency CI checks; no client polling in P0. A server-side cache of up to 60 s per section is an **(assumption)** to measure before relying on it.
+
+**Dependencies:** #454 (heartbeat `diag`), #455 (`safety_trip`), #456 (hopper threshold push), #477 (theme toggle), M3.9 (org mapping and pagination; the audit explorer already filters by org, so part of it has landed **(inference)**, re-check when M3C.3 starts), M5.3 (global configuration).
+
 ### Phase M4F: Remote firmware updates (v2.1, T21)
 
 Design: `docs/firmware-ota-plan.md`. It builds on our own stack: a private Supabase Storage bucket, a `/api/firmware/check` endpoint using device-token auth, signed manifests (offline ECDSA P-256 key), A/B slots with rollback, and staged rollouts from superadmin.
@@ -562,6 +618,8 @@ Open decisions OTA-1…OTA-7 are listed in the design doc §8. Tasks: T-12a firm
 
 Then continue with the v1 order below, skipping what §2a lists as built.
 
+**v2.2 Command Center queue (2026-11-01, issue #479), alongside the queue above:** (a) `feat(superadmin): theme toggle on the top bar` (#477, independent, unblocks M3C.8); (b) M3.9 if it has not fully landed (prerequisite for M3C.3); (c) M3C.1 scope banner and nav; (d) M3C.2 and M3C.4 together (read only); (e) M3C.3; (f) M3C.5; (g) M3C.6 as its own migration PR, only after O19 and O20 are answered and a backup is taken; (h) M3C.7, M3C.8, M3C.9; (i) M3C.10 last. Each is a small PR into `develop`.
+
 **v1 order:**
 
 
@@ -631,6 +689,12 @@ Then continue with the v1 order below, skipping what §2a lists as built.
 | O17 | *(v2.1, from T-09a)* White text on the brand orange `#E85A2A` is 3.54:1 (fails WCAG AA for small text); the admin console now uses `#C2410C` for text-bearing actions. Adopt one AA-safe orange app-wide? | T-09 follow-up |
 | O18 | *(v2.1, from T-10)* Server actions return English error strings without stable codes (superadmin, platform devices/members/impersonation, step-up, ai-providers, password), so they show untranslated. Add stable error codes in a follow-up? | i18n follow-up |
 | O12 | *(v2)* The benchmark rates missing MFA as High; T13 defers it to the commercial gate. Keep T13 as is, or pull MFA forward? (Not reopened here; Jeff's call.) | M8.1 timing |
+| O19 | *(v2.2)* Incident storage: derive only, or add `PlatformIncident` and `PlatformIncidentEvent`? Recommendation: derive first (M3C.5), add the tables in M3C.6 with a backup first. | M3C.6 |
+| O20 | *(v2.2)* What does "Escalated" do: who is told, and through which channel (email through Resend, a push, both)? | M3C.6 |
+| O21 | *(v2.2)* Which conditions make a tenant Degraded and which Critical? M3C.2 proposes rules from the existing device policy; no composite health score is invented. | M3C.2, M3C.3 |
+| O22 | *(v2.2)* What counts as "active" for registered versus active (proposed: one feed command or heartbeat in 30 days, **assumption**)? | M3C.10 |
+| O23 | *(v2.2)* Superadmin theme: ship the #477 toggle first (recommended), or fix the console to light. | M3C.8 |
+| O24 | *(v2.2)* Heartbeat history for uptime and connectivity trends: store it, for how long, and in what shape (shares the design of #454). | M3C.10 |
 
 ---
 
@@ -670,6 +734,7 @@ Read-only research comparing the console against multi-tenant SaaS and IoT fleet
 
 ## Change log
 
+- **v2.2 (2026-11-01):** decisions T24–T26 (Platform Command Center, three scopes, reserved status colours); phase M3C with tasks M3C.1–M3C.10 and a today-versus-target table verified on `origin/develop` @ `fc727bb`; a Command Center queue in §9; open questions O19–O24. Tracked as issue #479. `docs/superadmin-multitenancy-portal.html` is still not updated.
 - **v2.1 (2026-10-26):** decisions T19–T22 (god mode, staging/main-only deploys, OTA, reset buttons on GPIO 16/17), O9 resolved. Execution is tracked in `docs/missions/2026-10-26-autonomous-mission.md`.
 - **v2 (2026-10-26):** decisions T15–T18 and the T7 amendment from Jeff in chat; §2a progress and findings N1–N11; branch rule updated to `CONTRIBUTING.md`; phase M3F (device registry v1) and tasks M0.4, M0.5, M3.9–M3.11; v2 near-term PR queue in §9; four new risks; open questions O9–O12; Appendix A benchmark. `docs/superadmin-multitenancy-portal.html` is not yet updated.
 - **v1 (2026-10-17):** initial plan.

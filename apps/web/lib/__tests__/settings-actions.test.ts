@@ -16,6 +16,7 @@ const { db } = vi.hoisted(() => {
 		pond: { findFirst: vi.fn(), update: vi.fn() },
 		energyDevice: { findFirst: vi.fn(), update: vi.fn() },
 		biomassLog: { findFirst: vi.fn() },
+		cropCycle: { updateMany: vi.fn() },
 		deviceStateEvent: { create: vi.fn() },
 		$transaction: vi.fn(),
 	};

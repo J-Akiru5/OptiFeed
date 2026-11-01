@@ -73,6 +73,7 @@ export default async function SuperadminBackupPage() {
 					<BackupExportForm
 						endpoint="/api/superadmin/backup/export"
 						namespace="superadmin.backup"
+						appearance="light"
 						requiresReason
 						requiresStepUp
 						rowLimit={BACKUP_EXPORT_MAX_ROWS}

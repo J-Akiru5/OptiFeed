@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Operations → Security lists every destructive platform action with the credential it demands (#479).** The panel renders one catalog of the command-center actions that can reach a tenant's fleet, people or data, marks the ones that require step-up and states why the others only need a written reason and an audit entry, then shows the last 20 audit rows for those actions with whether a step-up credential was present. A test asserts the catalog against the server-action source in both directions, so an action cannot be gated without being listed and cannot be listed without its guard. No schema change.
+
 ## [1.42.1] - 2026-11-01
 
 ### Added

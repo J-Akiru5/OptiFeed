@@ -4190,6 +4190,39 @@
 				"cleared": "Natinluan ang abiso.",
 				"failed": "Indi ma-save ang abiso."
 			}
+		},
+		"statusBands": {
+			"sectionLabel": "Kahimtangan sang Plataporma",
+			"checkedAt": "Ginsusi sang {time}",
+			"notReported": "Wala ginreport",
+			"states": {
+				"ok": "Maayo",
+				"degraded": "Naglubha",
+				"critical": "Grabe",
+				"unknown": "Wala Mahibaluan"
+			},
+			"bands": {
+				"platform": "Plataporma",
+				"tenants": "Mga Tenant",
+				"devices": "Mga Device",
+				"security": "Seguridad"
+			},
+			"facts": {
+				"failedJobs": "Mga napaslawan nga job: {value} ({threshold} ukon sobra, grabe na)",
+				"oldestQueued": "Pinakalawig nga nagapila nga job: {value} min (nalimtan pagkatapos sang {threshold} min)",
+				"cronFreshness": "Aktibidad sang cron: {value} min ang nakaligad (wala mahibaluan pagkatapos sang {threshold} min)",
+				"unresolvedErrors": "Wala pa nasolbar nga error: {value} ({threshold} ukon sobra, grabe na)",
+				"organizations": "Mga organisasyon: {value}",
+				"suspended": "Ginsuspende: {value} (bisan isa, naglubha)",
+				"pendingDeletion": "Nagaabot nga pagpanas: {value} (bisan isa, naglubha)",
+				"offlineDevices": "Mga device nga offline: {value}% sang nagareport (grabe sa {threshold}%)",
+				"offlineWindow": "Window sang offline: {value} min nga kahilom (halin sa device.status nga polisiya)",
+				"lockouts": "Aktibo nga lockout sa paglogin: {value} (bisan isa, naglubha)",
+				"grantsNearExpiry": "Pansamantal nga grant sa plataporma nga malapit na matapos: {value} (bisan isa, naglubha)",
+				"pendingApprovals": "Mga device nga nagahulat sang pag-apruba: {value} (bisan isa, naglubha)",
+				"adminsWithoutMfa": "Mga platform admin nga wala sang MFA: {value} (wala pa naipatuman ang MFA)",
+				"source": "Wala nagreport ang ini nga source, gani indi masiling nga maayo ang band"
+			}
 		}
 	},
 	"help": {

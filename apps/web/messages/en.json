@@ -4190,6 +4190,39 @@
 				"cleared": "Announcement cleared.",
 				"failed": "The announcement could not be saved."
 			}
+		},
+		"statusBands": {
+			"sectionLabel": "Platform status",
+			"checkedAt": "Checked at {time}",
+			"notReported": "Not reported",
+			"states": {
+				"ok": "OK",
+				"degraded": "Degraded",
+				"critical": "Critical",
+				"unknown": "Unknown"
+			},
+			"bands": {
+				"platform": "Platform",
+				"tenants": "Tenants",
+				"devices": "Devices",
+				"security": "Security"
+			},
+			"facts": {
+				"failedJobs": "Failed jobs: {value} ({threshold} or more is critical)",
+				"oldestQueued": "Oldest queued job: {value} min (late after {threshold} min)",
+				"cronFreshness": "Cron activity: {value} min ago (unknown after {threshold} min)",
+				"unresolvedErrors": "Unresolved errors: {value} ({threshold} or more is critical)",
+				"organizations": "Organizations: {value}",
+				"suspended": "Suspended: {value} (any suspension is degraded)",
+				"pendingDeletion": "Pending deletion: {value} (any is degraded)",
+				"offlineDevices": "Devices offline: {value}% of those that report (critical at {threshold}%)",
+				"offlineWindow": "Offline window: {value} min of silence (from the device.status policy)",
+				"lockouts": "Active login lockouts: {value} (any is degraded)",
+				"grantsNearExpiry": "Temporary platform grants near expiry: {value} (any is degraded)",
+				"pendingApprovals": "Devices awaiting approval: {value} (any is degraded)",
+				"adminsWithoutMfa": "Platform admins without MFA: {value} (enrolment is not shipped yet)",
+				"source": "This source did not report, so the band cannot be called healthy"
+			}
 		}
 	},
 	"help": {

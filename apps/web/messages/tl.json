@@ -3787,6 +3787,39 @@
 			"downloadBody": "Na-save ang {filename}. Ang SHA-256 ng payload ay {sha256}; dapat itong tumugma sa checksum sa kasaysayan.",
 			"incomplete": "Mukhang hindi kumpleto ang pag-download ng {filename} (nawawala ang checksum marker). Patakbuhin muli ang export.",
 			"stepUpAction": "i-download ang export ng database"
+		},
+		"statusBands": {
+			"sectionLabel": "Kalagayan ng Plataporma",
+			"checkedAt": "Sinuri noong {time}",
+			"notReported": "Hindi iniulat",
+			"states": {
+				"ok": "Maayos",
+				"degraded": "Lumalala",
+				"critical": "Kritikal",
+				"unknown": "Hindi Alam"
+			},
+			"bands": {
+				"platform": "Plataporma",
+				"tenants": "Mga Tenant",
+				"devices": "Mga Device",
+				"security": "Seguridad"
+			},
+			"facts": {
+				"failedJobs": "Mga bigong job: {value} ({threshold} o higit pa, kritikal na)",
+				"oldestQueued": "Pinakamatagal na nakapila na job: {value} min (huli na pagkatapos ng {threshold} min)",
+				"cronFreshness": "Aktibidad ng cron: {value} min ang nakalipas (hindi alam pagkatapos ng {threshold} min)",
+				"unresolvedErrors": "Hindi pa naresolbang error: {value} ({threshold} o higit pa, kritikal na)",
+				"organizations": "Mga organisasyon: {value}",
+				"suspended": "Nasuspinde: {value} (kahit isa, lumalala)",
+				"pendingDeletion": "Nakabinbing pagbura: {value} (kahit isa, lumalala)",
+				"offlineDevices": "Mga device na offline: {value}% ng nag-uulat (kritikal sa {threshold}%)",
+				"offlineWindow": "Window ng offline: {value} min na katahimikan (mula sa device.status na patakaran)",
+				"lockouts": "Aktibong lockout sa pag-login: {value} (kahit isa, lumalala)",
+				"grantsNearExpiry": "Pansamantalang grant sa plataporma na malapit nang matapos: {value} (kahit isa, lumalala)",
+				"pendingApprovals": "Mga device na naghihintay ng apruba: {value} (kahit isa, lumalala)",
+				"adminsWithoutMfa": "Mga platform admin na walang MFA: {value} (hindi pa naipapatupad ang MFA)",
+				"source": "Hindi nag-ulat ang source na ito, kaya hindi masasabing maayos ang band"
+			}
 		}
 	},
 	"landing": {

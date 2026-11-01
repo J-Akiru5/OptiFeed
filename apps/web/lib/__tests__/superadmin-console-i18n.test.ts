@@ -155,7 +155,13 @@ function walk(dir: string, out: string[] = []): string[] {
  * classes and design tokens. `dialog-theme.ts` has no copy of its own (#321);
  * it is still scanned for retired literals and hard-coded attributes.
  */
-const PROPS_ONLY = new Set(["ui.tsx", "dialog-shell.tsx", "list-chrome.tsx", "dialog-theme.ts"]);
+const PROPS_ONLY = new Set([
+	"ui.tsx",
+	"dialog-shell.tsx",
+	"list-chrome.tsx",
+	"dialog-theme.ts",
+	"status-bands.tsx",
+]);
 
 const consoleFiles = [
 	...walk(join(webRoot, "app/[locale]/(superadmin)")),

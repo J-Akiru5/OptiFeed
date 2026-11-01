@@ -298,6 +298,7 @@ model FeedLevelLog {
   levelPercent Float
   distanceCm   Float
   recordedAt   DateTime     @default(now())
+  dataSource   String       @default("device") // "device" for real readings; anything else marks rows written by hand (kept out of every screen)
   farmId       String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
 
   @@index([deviceId, recordedAt])
@@ -399,6 +400,7 @@ model FeedEvent {
   rtcOk         Boolean?
   feederActive  Boolean?
   receivedAt    DateTime @default(now()) // server receipt time
+  dataSource    String   @default("device") // "device" for real events; anything else marks rows written or adjusted by hand
   farmId        String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
 
   device EnergyDevice @relation(fields: [deviceId], references: [id])
@@ -785,6 +787,7 @@ model WaterTempLog {
   deviceId   String
   tempC      Float
   recordedAt DateTime     @default(now())
+  dataSource String       @default("device") // "device" for real readings; anything else marks rows written by hand
   farmId     String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
   device     EnergyDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 

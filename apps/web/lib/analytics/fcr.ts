@@ -35,13 +35,6 @@ export interface FcrComputation {
 	fcr: number | null;
 }
 
-export interface StockSource {
-	/** Fish stocked (cycle stock count or the legacy hand-typed population). */
-	stocked: number;
-	/** Fish alive now (derived live count clamped at zero). */
-	live: number;
-}
-
 /**
  * Pure calculation for the fixed-data tests: the first/last average weights are
  * passed in so the caller controls what "first" means (cycle window or overall

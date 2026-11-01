@@ -167,6 +167,7 @@ const PROPS_ONLY = new Set([
 	"list-chrome.tsx",
 	"dialog-theme.ts",
 	"scope-banner.tsx",
+	"status-bands.tsx",
 ]);
 
 const consoleFiles = [

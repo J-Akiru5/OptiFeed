@@ -20,6 +20,8 @@ export interface FeederDeviceDetail {
 	mac: string;
 	lastSeenAt: Date | null;
 	rtcOk: boolean;
+	/** Latest sanitised firmware diagnostics object (issue #454); null until a heartbeat carries one. */
+	diag: Record<string, unknown> | null;
 	isPaused: boolean;
 	feedLevelPercent: number | null;
 	hopperCapacityG: number | null;
@@ -61,6 +63,7 @@ export async function getDeviceDetail(
 			mac: true,
 			lastSeenAt: true,
 			rtcOk: true,
+			diag: true,
 			isPaused: true,
 			feedLevelPercent: true,
 			hopperCapacityG: true,
@@ -84,6 +87,9 @@ export async function getDeviceDetail(
 
 	return {
 		...device,
+		// Prisma types the Json column as a loose JsonValue; the sanitizer at
+		// ingest guarantees the object shape, so this cast stays safe.
+		diag: (device.diag as Record<string, unknown> | null) ?? null,
 		pond: device.pond,
 		lastFedAt: latestFeed?.receivedAt ?? null,
 		lastFedGrams: latestFeed?.grams ?? null,

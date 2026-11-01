@@ -78,6 +78,13 @@ jobs:
       - name: Unit tests + lib coverage (threshold enforced)
         run: pnpm --filter web test:coverage
 
+      # Report-only (#457): prints Tagalog review progress to the job log.
+      # The script always exits 0; translation parity is enforced by tests,
+      # not by this progress number.
+      - name: Tagalog coverage report
+        if: always()
+        run: pnpm --filter web i18n:tl-coverage
+
       - name: Upload coverage summary
         if: always()
         uses: actions/upload-artifact@v7

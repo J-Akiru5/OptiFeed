@@ -1232,7 +1232,23 @@
 			"fishSamplesLabel": "Mga indibidwal na sample ng isda",
 			"tableCaption": "Buod ng paglaki, pinakabago muna",
 			"biomassTableCaption": "Mga biomass sample, pinakabago muna",
-			"feedLevelTableCaption": "Mga kamakailang reading ng antas ng hopper"
+			"feedLevelTableCaption": "Mga kamakailang reading ng antas ng hopper",
+			"mortality": {
+				"title": "Mortalidad ng isda",
+				"explain": "Itala ang mga isdang namatay kada pond. Ang live count na ipinapakita ay derived: bilang ng bitaw simula ng inilagay na isda minus ang mortality log.",
+				"open": "I-record ang mortalidad",
+				"cancel": "Kanselahin",
+				"countLabel": "Isdang namatay",
+				"reasonLabel": "Dahilan",
+				"reasonPlaceholder": "hal. kulang na oxygen, predation",
+				"save": "I-save ang record",
+				"saving": "Ibinabago…",
+				"saved": "Na-save. Sinalimbang kabutihang bilang: {live}.",
+				"invalidCount": "Maglagay ng buong bilang ng isdang namatay (bababa sa 1).",
+				"saveFailed": "Hindi na-save ang mortality record. Subukan muli.",
+				"pondNotFound": "Hindi nahanap ang pond.",
+				"currentPopulation": "Listahan: {population} isda (lumang bilang; kabawasan sa mortality ang naipapakita sa itaas)."
+			}
 		},
 		"feedLevel": {
 			"title": "Antas ng Pakain",

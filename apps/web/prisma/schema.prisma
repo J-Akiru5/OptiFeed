@@ -115,6 +115,7 @@ model Pond {
   cropCycles       CropCycle[]
   pondEvents       PondEvent[]
   settingsDrafts   PondSettingsDraft[]
+  mortalityLogs    MortalityLog[]
 
   @@index([ownerId])
   @@index([farmId])
@@ -148,10 +149,33 @@ model CropCycle {
 
   pond   Pond        @relation(fields: [pondId], references: [id], onDelete: Cascade)
   events PondEvent[]
+  mortalityLogs MortalityLog[]
   // One ACTIVE cycle per pond is enforced by a partial unique index in the
   // migration; Prisma cannot express partial indexes in the schema.
 
   @@index([pondId, status])
+  @@index([farmId])
+}
+
+// Fish mortality record (issue #452). Each write is a count of fish lost in one
+// pond on one date, with an optional farmer-typed reason and the actor recorded.
+// The write also appends a `mortality_recorded` DeviceStateEvent so the audit
+// trail shows every change the same way biomass samples do.
+model MortalityLog {
+  id          String   @id @default(cuid())
+  pondId      String
+  cropCycleId String?
+  farmId      String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
+  count       Int // number of fish lost (whole, positive)
+  reason      String? // free text, e.g. "oxygen drop" or "predation"; null allowed
+  recordedAt  DateTime @default(now())
+  createdBy   String // farmId of the user who recorded it (actor)
+
+  pond      Pond       @relation(fields: [pondId], references: [id], onDelete: Cascade)
+  cropCycle CropCycle? @relation(fields: [cropCycleId], references: [id], onDelete: SetNull)
+
+  @@index([pondId, recordedAt])
+  @@index([cropCycleId])
   @@index([farmId])
 }
 

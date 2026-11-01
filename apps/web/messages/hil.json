@@ -1183,7 +1183,23 @@
 			"fishSamplesLabel": "Indibidwal nga sampol sang isda",
 			"tableCaption": "Growth summary, pinakabag-o una",
 			"biomassTableCaption": "Biomass samples, pinakabag-o una",
-			"feedLevelTableCaption": "Pinakabag-o nga pagbasa sang lebel sang hopper"
+			"feedLevelTableCaption": "Pinakabag-o nga pagbasa sang lebel sang hopper",
+			"mortality": {
+				"title": "Pagkabuga-buga nga tili",
+				"explain": "Isulat ka tili nga napatay matag pisu. Ang live count nga ginapakita makuha sa stocking count minus ang mortality log.",
+				"open": "Rekord mortali",
+				"cancel": "Kanselado",
+				"countLabel": "Tili nga napatay",
+				"reasonLabel": "Rason",
+				"reasonPlaceholder": "a. mabug-ot nga tubig, isda nga nangin manapson",
+				"save": "Isebrekord",
+				"saving": "Ginaseber…",
+				"saved": "Naimbak na. Derived live count: {live}.",
+				"invalidCount": "Ibuwat bilog nga numero ka tili (sagunso 1).",
+				"saveFailed": "Wala mahimo mortali rekord. Pakisubong liwat.",
+				"pondNotFound": "Wala nakita ang pisu.",
+				"currentPopulation": "Lista isda: {population} tili (daan count; mortality ginabentes batou)."
+			}
 		},
 		"harvest": {
 			"title": "Pag-ani kag Pagpatubo",

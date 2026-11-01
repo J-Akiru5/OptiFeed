@@ -30,6 +30,16 @@ export interface BackupExportFormProps {
 	requiresStepUp: boolean;
 	rowLimit: number;
 	sizeLimitMb: number;
+	/**
+	 * `theme` follows the app colour scheme (the tenant dashboards, which are
+	 * dark-mode aware). `light` pins every control to the light palette.
+	 *
+	 * The platform console is light-only by design — its shell paints #F4F7F6
+	 * and white cards whatever the OS scheme is — so a `dark:` control there
+	 * produced a dark navy field with gray-300/400 helper text on a white card
+	 * (#480, and the "dark cards on a light layout" half of #477).
+	 */
+	appearance?: "theme" | "light";
 }
 
 function filenameFrom(disposition: string | null): string | null {
@@ -91,6 +101,7 @@ export function BackupExportForm({
 	requiresStepUp,
 	rowLimit,
 	sizeLimitMb,
+	appearance = "theme",
 }: BackupExportFormProps) {
 	const t = useTranslations(namespace);
 	const router = useRouter();
@@ -100,6 +111,7 @@ export function BackupExportForm({
 	const [result, setResult] = useState<Result | null>(null);
 	const [stepUpOpen, setStepUpOpen] = useState(false);
 	const [isPending, startTransition] = useTransition();
+	const themed = appearance === "theme";
 
 	const runExport = async (submittedReason: string) => {
 		setError(null);
@@ -152,7 +164,10 @@ export function BackupExportForm({
 					<div>
 						<label
 							htmlFor={fieldId}
-							className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[#3D5568] dark:text-gray-300"
+							className={cn(
+								"mb-1.5 block text-xs font-bold uppercase tracking-wider text-[#3D5568]",
+								themed && "dark:text-gray-300",
+							)}
 						>
 							{t("reasonLabel")}
 						</label>
@@ -164,11 +179,14 @@ export function BackupExportForm({
 							rows={2}
 							maxLength={500}
 							aria-describedby={`${fieldId}-hint`}
-							className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-[#0A3D62] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] focus-visible:ring-offset-1 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+							className={cn(
+								"w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-[#0A3D62] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] focus-visible:ring-offset-1 disabled:opacity-60",
+								themed && "dark:border-gray-600 dark:bg-gray-800 dark:text-white",
+							)}
 						/>
 						<p
 							id={`${fieldId}-hint`}
-							className="mt-1 text-[11px] text-[#3D5568] dark:text-gray-400"
+							className={cn("mt-1 text-[11px] text-[#3D5568]", themed && "dark:text-gray-400")}
 						>
 							{t("reasonHint")}
 						</p>
@@ -179,7 +197,10 @@ export function BackupExportForm({
 					type="submit"
 					disabled={isPending}
 					aria-busy={isPending}
-					className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#C2410C] px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-[#9A3412] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:cursor-not-allowed disabled:opacity-60 dark:focus-visible:outline-[#8fc0ea]"
+					className={cn(
+						"inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#C2410C] px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-[#9A3412] focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:cursor-not-allowed disabled:opacity-60",
+						themed && "dark:focus-visible:outline-[#8fc0ea]",
+					)}
 				>
 					{isPending ? (
 						<Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -189,7 +210,7 @@ export function BackupExportForm({
 					{isPending ? t("exporting") : t("exportButton")}
 				</button>
 
-				<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
+				<p className={cn("text-[11px] text-[#3D5568]", themed && "dark:text-gray-400")}>
 					{t("sizeLimitHint", { rows: rowLimit, mb: sizeLimitMb })}
 				</p>
 			</form>
@@ -197,7 +218,10 @@ export function BackupExportForm({
 			{error && (
 				<p
 					role="alert"
-					className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-[#C42B3A] dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
+					className={cn(
+						"rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-[#C42B3A]",
+						themed && "dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300",
+					)}
 				>
 					{error}
 				</p>
@@ -208,8 +232,12 @@ export function BackupExportForm({
 					className={cn(
 						"block rounded-xl border px-4 py-3 text-xs font-bold",
 						result.sha256
-							? "border-green-200 bg-green-50 text-[#1E7B34] dark:border-green-900/50 dark:bg-green-950/30 dark:text-green-300"
-							: "border-amber-300 bg-amber-50 text-[#B54708] dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300",
+							? "border-green-200 bg-green-50 text-[#1E7B34]"
+							: "border-amber-300 bg-amber-50 text-[#B54708]",
+						themed &&
+							(result.sha256
+								? "dark:border-green-900/50 dark:bg-green-950/30 dark:text-green-300"
+								: "dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"),
 					)}
 				>
 					{result.sha256

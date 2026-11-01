@@ -1183,7 +1183,24 @@
 			"fishSamplesLabel": "Individual fish samples",
 			"tableCaption": "Growth summary, newest first",
 			"biomassTableCaption": "Biomass samples, newest first",
-			"feedLevelTableCaption": "Recent hopper level readings"
+			"feedLevelTableCaption": "Recent hopper level readings",
+			"mortality": {
+				"title": "Fish mortality",
+				"explain": "Record fish lost per pond. The live count shown elsewhere stays derived from the stocking count minus the mortality log.",
+				"open": "Record mortality",
+				"cancel": "Cancel",
+				"countLabel": "Fish lost",
+				"reasonLabel": "Reason",
+				"reasonPlaceholder": "e.g. oxygen drop, predation",
+				"save": "Save record",
+				"saving": "Saving…",
+				"saved": "Saved. Derived live count: {live}.",
+				"invalidCount": "Enter a whole number of fish lost (at least 1).",
+				"saveFailed": "Could not save the mortality record. Try again.",
+				"pondNotFound": "Pond not found.",
+				"currentPopulation": "Stock list: {population} fish (legacy count; mortality is subtracted on top)."
+			},
+			"fcrInputs": "Computed from: {feed} kg of feed given for {gain} kg of live biomass gained (live {live} fish)."
 		},
 		"harvest": {
 			"title": "Harvest & Grow-out",
@@ -1750,7 +1767,9 @@
 			"componentNoReading": "No reading",
 			"componentReading": "Reading",
 			"componentsTitle": "Components",
-			"statusWeak": "Weak signal"
+			"statusWeak": "Weak signal",
+			"diagTitle": "Firmware diagnostics",
+			"diagEmpty": "No diagnostics reported yet (first heartbeat with a diag object fills this in)."
 		},
 		"adminDevices": {
 			"view3d": "3D view",
@@ -3489,7 +3508,8 @@
 			"columnPond": "Pond",
 			"columnFeedLevel": "Feed level",
 			"columnSeen": "Last seen",
-			"columnActions": "Actions"
+			"columnActions": "Actions",
+			"fleetMonitor": "Fleet monitor"
 		},
 		"registerDevice": {
 			"title": "Register device",
@@ -4171,6 +4191,69 @@
 				"cleared": "Announcement cleared.",
 				"failed": "The announcement could not be saved."
 			}
+		},
+		"statusBands": {
+			"sectionLabel": "Platform status",
+			"checkedAt": "Checked at {time}",
+			"notReported": "Not reported",
+			"states": {
+				"ok": "OK",
+				"degraded": "Degraded",
+				"critical": "Critical",
+				"unknown": "Unknown"
+			},
+			"bands": {
+				"platform": "Platform",
+				"tenants": "Tenants",
+				"devices": "Devices",
+				"security": "Security"
+			},
+			"facts": {
+				"failedJobs": "Failed jobs: {value} ({threshold} or more is critical)",
+				"oldestQueued": "Oldest queued job: {value} min (late after {threshold} min)",
+				"cronFreshness": "Cron activity: {value} min ago (unknown after {threshold} min)",
+				"unresolvedErrors": "Unresolved errors: {value} ({threshold} or more is critical)",
+				"organizations": "Organizations: {value}",
+				"suspended": "Suspended: {value} (any suspension is degraded)",
+				"pendingDeletion": "Pending deletion: {value} (any is degraded)",
+				"offlineDevices": "Devices offline: {value}% of those that report (critical at {threshold}%)",
+				"offlineWindow": "Offline window: {value} min of silence (from the device.status policy)",
+				"lockouts": "Active login lockouts: {value} (any is degraded)",
+				"grantsNearExpiry": "Temporary platform grants near expiry: {value} (any is degraded)",
+				"pendingApprovals": "Devices awaiting approval: {value} (any is degraded)",
+				"adminsWithoutMfa": "Platform admins without MFA: {value} (enrolment is not shipped yet)",
+				"source": "This source did not report, so the band cannot be called healthy"
+			}
+		},
+		"fleet": {
+			"title": "Fleet monitor",
+			"description": "Every feeder across every tenant, {count} units, measured with the platform device policy.",
+			"summaryLabel": "Fleet summary",
+			"fleetState": "Fleet status",
+			"checkedAt": "Checked at {time}",
+			"unknownRule": "A tenant whose units have never reported is Unknown, never OK.",
+			"tenantsByState": "Tenants by state",
+			"policyTitle": "Device policy",
+			"policyLine": "Offline after {offline} min · weak after {weak} min · grace {grace} min",
+			"policySource": "Read from the platform device.status setting; the same rule the status bands use.",
+			"policyUnavailable": "Not reported: the device policy could not be read, so every fleet state is Unknown.",
+			"sourceErrorTitle": "The fleet source did not report.",
+			"sourceErrorBody": "No tenant can be called healthy in this state. Reload to try again.",
+			"truncated": "Showing the first {count} devices.",
+			"emptyTitle": "No devices registered",
+			"emptyDescription": "Register a feeder and it appears here as soon as it sends its first heartbeat.",
+			"tableLabel": "Fleet by tenant",
+			"columnTenant": "Tenant",
+			"columnDevices": "Devices",
+			"columnReporting": "Reporting",
+			"columnOffline": "Offline",
+			"columnHeartbeat": "Last heartbeat",
+			"columnState": "State",
+			"unassigned": "Unassigned",
+			"neverReported": "No heartbeat yet",
+			"never": "Never",
+			"notReported": "Not reported",
+			"viewDevices": "Open device registry"
 		}
 	},
 	"help": {

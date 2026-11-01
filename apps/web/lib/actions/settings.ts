@@ -146,6 +146,28 @@ export async function updateNotificationPrefs(
 	}
 }
 
+/**
+ * Calibration is one number, not two (#430).
+ *
+ * `Pond.population` is what the farmer types and what the dose path uses, but
+ * every live-count surface reads the ACTIVE crop cycle's `stockingCount` when
+ * one exists. Saving the typed count without the cycle left the dashboard at
+ * 525 while growth kept reporting the old 600. Mirrors the admin create path.
+ *
+ * Never creates a cycle: a pond with no active cycle (or with population
+ * cleared) keeps its legacy `Pond.population`-only behaviour.
+ */
+async function syncActiveCycleStockingCount(
+	pondId: string,
+	population: number | null | undefined,
+): Promise<void> {
+	if (typeof population !== "number") return;
+	await prisma.cropCycle.updateMany({
+		where: { pondId, status: "ACTIVE" },
+		data: { stockingCount: population },
+	});
+}
+
 export async function updatePondSettings(
 	pondId: string,
 	feedingRatePct: number,
@@ -322,6 +344,7 @@ export async function updatePondSettings(
 				where: { id: pondId },
 				data: pondUpdateData,
 			});
+			await syncActiveCycleStockingCount(pondId, pondUpdateData.population);
 
 			revalidatePath("/[locale]/(dashboard)", "layout");
 			return { success: true };
@@ -331,6 +354,7 @@ export async function updatePondSettings(
 			where: { id: pondId },
 			data: pondUpdateData,
 		});
+		await syncActiveCycleStockingCount(pondId, pondUpdateData.population);
 
 		await syncDeviceGramsForPond(pondId, {
 			feedingRatePct: input.feedingRatePct,

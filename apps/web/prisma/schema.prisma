@@ -115,6 +115,7 @@ model Pond {
   cropCycles       CropCycle[]
   pondEvents       PondEvent[]
   settingsDrafts   PondSettingsDraft[]
+  mortalityLogs    MortalityLog[]
 
   @@index([ownerId])
   @@index([farmId])
@@ -148,10 +149,33 @@ model CropCycle {
 
   pond   Pond        @relation(fields: [pondId], references: [id], onDelete: Cascade)
   events PondEvent[]
+  mortalityLogs MortalityLog[]
   // One ACTIVE cycle per pond is enforced by a partial unique index in the
   // migration; Prisma cannot express partial indexes in the schema.
 
   @@index([pondId, status])
+  @@index([farmId])
+}
+
+// Fish mortality record (issue #452). Each write is a count of fish lost in one
+// pond on one date, with an optional farmer-typed reason and the actor recorded.
+// The write also appends a `mortality_recorded` DeviceStateEvent so the audit
+// trail shows every change the same way biomass samples do.
+model MortalityLog {
+  id          String   @id @default(cuid())
+  pondId      String
+  cropCycleId String?
+  farmId      String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
+  count       Int // number of fish lost (whole, positive)
+  reason      String? // free text, e.g. "oxygen drop" or "predation"; null allowed
+  recordedAt  DateTime @default(now())
+  createdBy   String // farmId of the user who recorded it (actor)
+
+  pond      Pond       @relation(fields: [pondId], references: [id], onDelete: Cascade)
+  cropCycle CropCycle? @relation(fields: [cropCycleId], references: [id], onDelete: SetNull)
+
+  @@index([pondId, recordedAt])
+  @@index([cropCycleId])
   @@index([farmId])
 }
 
@@ -298,6 +322,7 @@ model FeedLevelLog {
   levelPercent Float
   distanceCm   Float
   recordedAt   DateTime     @default(now())
+  dataSource   String       @default("device") // "device" for real readings; anything else marks rows written by hand (kept out of every screen)
   farmId       String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
 
   @@index([deviceId, recordedAt])
@@ -354,6 +379,12 @@ model EnergyDevice {
   wifiRssiDbm       Int? // last RSSI in dBm (-127..0), null until reported
   wifiRssiUpdatedAt DateTime? // last time an RSSI was ingested
 
+  // Firmware diagnostics echoed on the heartbeat (firmware 1.6.0+ sends the
+  // `diag` object, issue #454). Sanitised and size-capped at ingest; display
+  // only — never an authority for dosing, which stays on the dose path's own
+  // verified inputs.
+  diag Json?
+
   // Per-device calibration
   hopperEmptyCm             Float? // sensor distance when hopper is empty (~30cm for 10L bottle)
   hopperFullCm              Float? // sensor distance when hopper is full (~5cm)
@@ -399,6 +430,7 @@ model FeedEvent {
   rtcOk         Boolean?
   feederActive  Boolean?
   receivedAt    DateTime @default(now()) // server receipt time
+  dataSource    String   @default("device") // "device" for real events; anything else marks rows written or adjusted by hand
   farmId        String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
 
   device EnergyDevice @relation(fields: [deviceId], references: [id])
@@ -785,6 +817,7 @@ model WaterTempLog {
   deviceId   String
   tempC      Float
   recordedAt DateTime     @default(now())
+  dataSource String       @default("device") // "device" for real readings; anything else marks rows written by hand
   farmId     String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
   device     EnergyDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 

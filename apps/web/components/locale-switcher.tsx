@@ -11,15 +11,19 @@ type Locale = (typeof routing.locales)[number];
 
 /**
  * Language names are exonyms: they stay in their own language in every locale,
- * so they are not catalogue keys. Tagalog is marked "draft" until the
- * machine-drafted strings in `messages/tl.draft-keys.json` have been reviewed
- * and the list is empty (#327).
+ * so they are not catalogue keys. Tagalog ships key-complete but most strings
+ * are still machine drafts awaiting human review (`messages/tl.draft-keys.json`),
+ * so it carries a visible "Beta" badge (#457). The badge comes off, and the
+ * locale is treated as stable, once that review queue is empty.
  */
 const LOCALE_LABELS: Record<Locale, string> = {
 	en: "English",
 	hil: "Hiligaynon",
-	tl: "Tagalog (draft)",
+	tl: "Tagalog",
 };
+
+/** Locales whose catalogue is not yet human-reviewed, shown as a Beta badge. */
+const BETA_LOCALES: ReadonlySet<Locale> = new Set<Locale>(["tl"]);
 
 type MenuPosition = {
 	top?: number;
@@ -154,7 +158,21 @@ export function LocaleSwitcher({ variant = "dark" }: { variant?: "light" | "dark
 										active && (variant === "dark" ? "bg-white/10" : "bg-[#F4F7F6]"),
 									)}
 								>
-									<span>{LOCALE_LABELS[code]}</span>
+									<span className="flex items-center gap-1.5">
+										{LOCALE_LABELS[code]}
+										{BETA_LOCALES.has(code) && (
+											<span
+												className={cn(
+													"rounded-full px-1.5 py-px text-[9px] font-black uppercase tracking-wide",
+													variant === "dark"
+														? "bg-[#FF8A5C]/20 text-[#FFB088]"
+														: "bg-[#E85A2A]/10 text-[#C2410C]",
+												)}
+											>
+												Beta
+											</span>
+										)}
+									</span>
 									{active && <Check className="size-3.5" aria-hidden="true" />}
 								</button>
 							);

@@ -479,7 +479,9 @@
 			"componentNoReading": "Walang reading",
 			"componentReading": "Nagbabasa",
 			"componentsTitle": "Mga komponente",
-			"statusWeak": "Mahinang signal"
+			"statusWeak": "Mahinang signal",
+			"diagTitle": "Diagnostics ng firmware",
+			"diagEmpty": "Wala pang diagnostics na naiulat (pupunan ito ng unang heartbeat na may diag object)."
 		},
 		"adminOverview": {
 			"chartActivityRange": "Saklaw: {from} – {to} · {days} araw sa bukid (Asia/Manila).",
@@ -1232,7 +1234,24 @@
 			"fishSamplesLabel": "Mga indibidwal na sample ng isda",
 			"tableCaption": "Buod ng paglaki, pinakabago muna",
 			"biomassTableCaption": "Mga biomass sample, pinakabago muna",
-			"feedLevelTableCaption": "Mga kamakailang reading ng antas ng hopper"
+			"feedLevelTableCaption": "Mga kamakailang reading ng antas ng hopper",
+			"mortality": {
+				"title": "Mortalidad ng isda",
+				"explain": "Itala ang mga isdang namatay kada pond. Ang live count na ipinapakita ay derived: bilang ng bitaw simula ng inilagay na isda minus ang mortality log.",
+				"open": "I-record ang mortalidad",
+				"cancel": "Kanselahin",
+				"countLabel": "Isdang namatay",
+				"reasonLabel": "Dahilan",
+				"reasonPlaceholder": "hal. kulang na oxygen, predation",
+				"save": "I-save ang record",
+				"saving": "Ibinabago…",
+				"saved": "Na-save. Sinalimbang kabutihang bilang: {live}.",
+				"invalidCount": "Maglagay ng buong bilang ng isdang namatay (bababa sa 1).",
+				"saveFailed": "Hindi na-save ang mortality record. Subukan muli.",
+				"pondNotFound": "Hindi nahanap ang pond.",
+				"currentPopulation": "Listahan: {population} isda (lumang bilang; kabawasan sa mortality ang naipapakita sa itaas)."
+			},
+			"fcrInputs": "Kinosyuva mula sa: {feed} kg na binigay na feed para sa {gain} kg na naging live biomass (live {live} isda)."
 		},
 		"feedLevel": {
 			"title": "Antas ng Pakain",
@@ -2769,7 +2788,8 @@
 			"columnPond": "Pond",
 			"columnFeedLevel": "Antas ng pakain",
 			"columnSeen": "Huling nakita",
-			"columnActions": "Mga aksyon"
+			"columnActions": "Mga aksyon",
+			"fleetMonitor": "Monitor ng Device"
 		},
 		"registerDevice": {
 			"title": "Magrehistro ng device",
@@ -3768,6 +3788,69 @@
 			"downloadBody": "Na-save ang {filename}. Ang SHA-256 ng payload ay {sha256}; dapat itong tumugma sa checksum sa kasaysayan.",
 			"incomplete": "Mukhang hindi kumpleto ang pag-download ng {filename} (nawawala ang checksum marker). Patakbuhin muli ang export.",
 			"stepUpAction": "i-download ang export ng database"
+		},
+		"statusBands": {
+			"sectionLabel": "Kalagayan ng Plataporma",
+			"checkedAt": "Sinuri noong {time}",
+			"notReported": "Hindi iniulat",
+			"states": {
+				"ok": "Maayos",
+				"degraded": "Lumalala",
+				"critical": "Kritikal",
+				"unknown": "Hindi Alam"
+			},
+			"bands": {
+				"platform": "Plataporma",
+				"tenants": "Mga Tenant",
+				"devices": "Mga Device",
+				"security": "Seguridad"
+			},
+			"facts": {
+				"failedJobs": "Mga bigong job: {value} ({threshold} o higit pa, kritikal na)",
+				"oldestQueued": "Pinakamatagal na nakapila na job: {value} min (huli na pagkatapos ng {threshold} min)",
+				"cronFreshness": "Aktibidad ng cron: {value} min ang nakalipas (hindi alam pagkatapos ng {threshold} min)",
+				"unresolvedErrors": "Hindi pa naresolbang error: {value} ({threshold} o higit pa, kritikal na)",
+				"organizations": "Mga organisasyon: {value}",
+				"suspended": "Nasuspinde: {value} (kahit isa, lumalala)",
+				"pendingDeletion": "Nakabinbing pagbura: {value} (kahit isa, lumalala)",
+				"offlineDevices": "Mga device na offline: {value}% ng nag-uulat (kritikal sa {threshold}%)",
+				"offlineWindow": "Window ng offline: {value} min na katahimikan (mula sa device.status na patakaran)",
+				"lockouts": "Aktibong lockout sa pag-login: {value} (kahit isa, lumalala)",
+				"grantsNearExpiry": "Pansamantalang grant sa plataporma na malapit nang matapos: {value} (kahit isa, lumalala)",
+				"pendingApprovals": "Mga device na naghihintay ng apruba: {value} (kahit isa, lumalala)",
+				"adminsWithoutMfa": "Mga platform admin na walang MFA: {value} (hindi pa naipapatupad ang MFA)",
+				"source": "Hindi nag-ulat ang source na ito, kaya hindi masasabing maayos ang band"
+			}
+		},
+		"fleet": {
+			"title": "Monitor ng Device",
+			"description": "Lahat ng feeder sa lahat ng tenant, {count} unit, sinusukat gamit ang patakaran ng plataporma.",
+			"summaryLabel": "Buod ng mga Device",
+			"fleetState": "Kalagayan ng Device",
+			"checkedAt": "Sinuri noong {time}",
+			"unknownRule": "Ang tenant na walang unit na nag-ulat ay Hindi Alam, hindi Maayos.",
+			"tenantsByState": "Mga tenant ayon sa kalagayan",
+			"policyTitle": "Patakaran ng device",
+			"policyLine": "Offline pagkatapos ng {offline} min · mahina pagkatapos ng {weak} min · grasya {grace} min",
+			"policySource": "Binabasa mula sa device.status na setting ng plataporma; parehong patakaran ng status bands.",
+			"policyUnavailable": "Hindi iniulat: hindi mabasa ang patakaran ng device, kaya Hindi Alam ang lahat ng kalagayan.",
+			"sourceErrorTitle": "Hindi nag-ulat ang source ng mga device.",
+			"sourceErrorBody": "Walang tenant na masasabing maayos sa ganitong kalagayan. I-reload para subukan muli.",
+			"truncated": "Ipinapakita ang unang {count} device.",
+			"emptyTitle": "Walang nakarehistrong device",
+			"emptyDescription": "Magrehistro ng feeder at lalabas ito dito sa unang heartbeat.",
+			"tableLabel": "Mga device ayon sa tenant",
+			"columnTenant": "Tenant",
+			"columnDevices": "Mga Device",
+			"columnReporting": "Nag-uulat",
+			"columnOffline": "Offline",
+			"columnHeartbeat": "Huling heartbeat",
+			"columnState": "Kalagayan",
+			"unassigned": "Walang Tenant",
+			"neverReported": "Wala pang heartbeat",
+			"never": "Wala kailanman",
+			"notReported": "Hindi iniulat",
+			"viewDevices": "Buksan ang listahan ng device"
 		}
 	},
 	"landing": {

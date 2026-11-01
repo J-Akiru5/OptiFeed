@@ -22,13 +22,21 @@ import {
 import { TermInfo } from "@/components/dashboard/term-info";
 import { GrowthPlanCard } from "@/components/growth/GrowthPlanCard";
 import { SgrKpi, type SgrKpiLabels } from "@/components/growth/SgrKpi";
+import { MortalityForm } from "@/components/growth/mortality-form";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
+import {
+	activeWindowForPond,
+	biomassSamplesInWindow,
+	computeFcr,
+	feedGivenKgInWindow,
+} from "@/lib/analytics/fcr";
 import { canWrite } from "@/lib/auth/session";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatFarmDateTime } from "@/lib/date-local";
 import { loadGrowthPlanForPond } from "@/lib/growth-plan-loader";
+import { getLiveCountForPond } from "@/lib/growth/live-count";
 import type { GrowthSnapshotData } from "@/lib/offline/snapshots";
 import { getActivePond } from "@/lib/pond-selection";
 import { computeDeterministicPrediction } from "@/lib/prediction";
@@ -65,6 +73,32 @@ export default async function GrowthPage() {
 			</div>
 		);
 	}
+
+	// Live count derived from the mortality log (issue #452): stocking count
+	// (active cycle) minus mortalities recorded; falls back to the legacy
+	// hand-typed Pond.population when no cycle exists. The dose path still
+	// reads Pond.population — this only changes what this page displays/
+	// predicts.
+	const liveCount = await getLiveCountForPond(pond.id);
+	const livePopulation = liveCount.live ?? pond.population;
+
+	// In-app FCR (issue #453): feed given / biomass gained inside the active
+	// cycle window; read-only — never writes FcrReport. When the cycle inputs
+	// are missing the page keeps the stored-report fallback.
+	const fcrWindow = await activeWindowForPond(pond.id);
+	const [feedGivenKg, fcrSamples] = await Promise.all([
+		feedGivenKgInWindow(pond.id, fcrWindow),
+		biomassSamplesInWindow(pond.id, fcrWindow),
+	]);
+	const derivedFcr = computeFcr(
+		feedGivenKg,
+		fcrSamples[0] && liveCount.stocked !== null
+			? { avgWeightKg: fcrSamples[0].avgWeightKg, count: liveCount.stocked }
+			: null,
+		fcrSamples.length > 0 && liveCount.live !== null
+			? { avgWeightKg: fcrSamples[fcrSamples.length - 1].avgWeightKg, count: liveCount.live }
+			: null,
+	);
 
 	// Bound the chart/table payloads: a decade of logs must not be serialized on
 	// every visit. The history page remains the unbounded, paginated view.
@@ -175,9 +209,10 @@ export default async function GrowthPage() {
 	const initialPrediction = computeDeterministicPrediction({
 		feedingRatePct: currentConfig?.feedingRatePct ?? pond.feedingRatePct,
 		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
-		population: pond.population,
+		population: livePopulation,
 		avgWeightKg: biomassLogs.length > 0 ? biomassLogs[biomassLogs.length - 1].avgWeightKg : null,
-		latestFcr: fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : null,
+		latestFcr:
+			derivedFcr.fcr ?? (fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : null),
 		currentGrams: energyDevice?.gramsPerFeeding ?? null,
 		hopperCapacityG: energyDevice?.hopperCapacityG ?? null,
 		lastSampleAt: biomassLogs.length > 0 ? biomassLogs[biomassLogs.length - 1].recordedAt : null,
@@ -210,7 +245,11 @@ export default async function GrowthPage() {
 		feedLevelPreview = preview;
 	}
 
-	const latestFcr = fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : 0;
+	// Computed in-app from feed + biomass (issue #453); stored reports remain
+	// the fallback when the cycle inputs are missing, and the history chart
+	// below still renders the stored report rows.
+	const latestFcr =
+		derivedFcr.fcr ?? (fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : 0);
 	const latestBiomass =
 		biomassLogs.length > 0 ? biomassLogs[biomassLogs.length - 1].avgWeightKg : 0;
 	const previousBiomass =
@@ -337,6 +376,15 @@ export default async function GrowthPage() {
 								bold: (chunks) => <strong>{chunks}</strong>,
 							})}
 						</p>
+						{derivedFcr.fcr !== null && (
+							<p className="text-[11px] text-blue-200/80 mt-1.5 max-w-md">
+								{t("fcrInputs", {
+									feed: derivedFcr.feedGivenKg.toFixed(2),
+									gain: derivedFcr.biomassGainKg.toFixed(2),
+									live: liveCount.live ?? "—",
+								})}
+							</p>
+						)}
 					</div>
 					<div className="bg-white/10 px-4 py-3 rounded-2xl border border-white/10 shrink-0">
 						<p className="text-[10px] text-gray-300 uppercase tracking-widest font-mono">
@@ -426,10 +474,13 @@ export default async function GrowthPage() {
 			<FcrCalculator
 				latestFcr={latestFcr}
 				pondId={pond.id}
-				population={pond.population}
+				population={livePopulation}
 				feedsPerDay={currentConfig?.feedsPerDay ?? pond.feedsPerDay}
 				canSetTarget={Boolean(activeCycle)}
 			/>
+
+			{/* Fish mortality recorder (issue #452) */}
+			<MortalityForm pondId={pond.id} canWrite={writeAccess} population={livePopulation} />
 
 			<div
 				className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"

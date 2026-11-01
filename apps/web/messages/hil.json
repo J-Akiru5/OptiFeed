@@ -1183,7 +1183,24 @@
 			"fishSamplesLabel": "Indibidwal nga sampol sang isda",
 			"tableCaption": "Growth summary, pinakabag-o una",
 			"biomassTableCaption": "Biomass samples, pinakabag-o una",
-			"feedLevelTableCaption": "Pinakabag-o nga pagbasa sang lebel sang hopper"
+			"feedLevelTableCaption": "Pinakabag-o nga pagbasa sang lebel sang hopper",
+			"mortality": {
+				"title": "Pagkabuga-buga nga tili",
+				"explain": "Isulat ka tili nga napatay matag pisu. Ang live count nga ginapakita makuha sa stocking count minus ang mortality log.",
+				"open": "Rekord mortali",
+				"cancel": "Kanselado",
+				"countLabel": "Tili nga napatay",
+				"reasonLabel": "Rason",
+				"reasonPlaceholder": "a. mabug-ot nga tubig, isda nga nangin manapson",
+				"save": "Isebrekord",
+				"saving": "Ginaseber…",
+				"saved": "Naimbak na. Derived live count: {live}.",
+				"invalidCount": "Ibuwat bilog nga numero ka tili (sagunso 1).",
+				"saveFailed": "Wala mahimo mortali rekord. Pakisubong liwat.",
+				"pondNotFound": "Wala nakita ang pisu.",
+				"currentPopulation": "Lista isda: {population} tili (daan count; mortality ginabentes batou)."
+			},
+			"fcrInputs": "Ginkalkulsa halin sa: {feed} kg maog nga ginhatag para sa {gain} kg live biomass nga nakuha (live {live} tili)."
 		},
 		"harvest": {
 			"title": "Pag-ani kag Pagpatubo",
@@ -1807,7 +1824,9 @@
 			"componentNoReading": "Wala sing reading",
 			"componentReading": "Nagabasa",
 			"componentsTitle": "Mga komponente",
-			"statusWeak": "Maluya ang signal"
+			"statusWeak": "Maluya ang signal",
+			"diagTitle": "Diyagnostik sang firmware",
+			"diagEmpty": "Wala pay diyagnostik (ang Una nga heartbeat nga nagdala diag, madula ini)."
 		},
 		"adminDevices": {
 			"view3d": "3D view",
@@ -3489,7 +3508,8 @@
 			"columnPond": "Punong",
 			"columnFeedLevel": "Lebel sang feed",
 			"columnSeen": "Katapusan nga nakita",
-			"columnActions": "Mga Aksyon"
+			"columnActions": "Mga Aksyon",
+			"fleetMonitor": "Monitor sang mga Device"
 		},
 		"registerDevice": {
 			"title": "Irehistro ang device",
@@ -4171,6 +4191,69 @@
 				"cleared": "Natinluan ang abiso.",
 				"failed": "Indi ma-save ang abiso."
 			}
+		},
+		"statusBands": {
+			"sectionLabel": "Kahimtangan sang Plataporma",
+			"checkedAt": "Ginsusi sang {time}",
+			"notReported": "Wala ginreport",
+			"states": {
+				"ok": "Maayo",
+				"degraded": "Naglubha",
+				"critical": "Grabe",
+				"unknown": "Wala Mahibaluan"
+			},
+			"bands": {
+				"platform": "Plataporma",
+				"tenants": "Mga Tenant",
+				"devices": "Mga Device",
+				"security": "Seguridad"
+			},
+			"facts": {
+				"failedJobs": "Mga napaslawan nga job: {value} ({threshold} ukon sobra, grabe na)",
+				"oldestQueued": "Pinakalawig nga nagapila nga job: {value} min (nalimtan pagkatapos sang {threshold} min)",
+				"cronFreshness": "Aktibidad sang cron: {value} min ang nakaligad (wala mahibaluan pagkatapos sang {threshold} min)",
+				"unresolvedErrors": "Wala pa nasolbar nga error: {value} ({threshold} ukon sobra, grabe na)",
+				"organizations": "Mga organisasyon: {value}",
+				"suspended": "Ginsuspende: {value} (bisan isa, naglubha)",
+				"pendingDeletion": "Nagaabot nga pagpanas: {value} (bisan isa, naglubha)",
+				"offlineDevices": "Mga device nga offline: {value}% sang nagareport (grabe sa {threshold}%)",
+				"offlineWindow": "Window sang offline: {value} min nga kahilom (halin sa device.status nga polisiya)",
+				"lockouts": "Aktibo nga lockout sa paglogin: {value} (bisan isa, naglubha)",
+				"grantsNearExpiry": "Pansamantal nga grant sa plataporma nga malapit na matapos: {value} (bisan isa, naglubha)",
+				"pendingApprovals": "Mga device nga nagahulat sang pag-apruba: {value} (bisan isa, naglubha)",
+				"adminsWithoutMfa": "Mga platform admin nga wala sang MFA: {value} (wala pa naipatuman ang MFA)",
+				"source": "Wala nagreport ang ini nga source, gani indi masiling nga maayo ang band"
+			}
+		},
+		"fleet": {
+			"title": "Monitor sang mga Device",
+			"description": "Ang tanan nga feeder sa tanan nga tenant, {count} ka unit, ginsukod sa polisiya sang plataporma.",
+			"summaryLabel": "Kabug-usan sang mga Device",
+			"fleetState": "Kahimtangan sang mga Device",
+			"checkedAt": "Ginsusi sang {time}",
+			"unknownRule": "Ang tenant nga wala pa gid nagreport nga unit, Wala Mahibaluan, indi Maayo.",
+			"tenantsByState": "Mga tenant suno sa kahimtangan",
+			"policyTitle": "Polisiya sang device",
+			"policyLine": "Offline pagkatapos sang {offline} min · mahina pagkatapos sang {weak} min · grasya {grace} min",
+			"policySource": "Ginbasa halin sa device.status nga setting sang plataporma; amo man nga patakaran sang status bands.",
+			"policyUnavailable": "Wala ginreport: wala mabasa ang polisiya sang device, gani Wala Mahibaluan ang tanan nga kahimtangan.",
+			"sourceErrorTitle": "Wala nagreport ang source sang mga device.",
+			"sourceErrorBody": "Wala sing tenant nga masiling nga maayo sa sini nga kahimtangan. I-reload para sulayan liwat.",
+			"truncated": "Ginapakita ang una nga {count} ka device.",
+			"emptyTitle": "Wala sing nakarehistro nga device",
+			"emptyDescription": "Magrehistro sang feeder kag magagwa ini diri pag-abot sang una nga heartbeat.",
+			"tableLabel": "Mga device suno sa tenant",
+			"columnTenant": "Tenant",
+			"columnDevices": "Mga Device",
+			"columnReporting": "Nagareport",
+			"columnOffline": "Offline",
+			"columnHeartbeat": "Katapusan nga heartbeat",
+			"columnState": "Kahimtangan",
+			"unassigned": "Wala sang Tenant",
+			"neverReported": "Wala pa heartbeat",
+			"never": "Wala gid",
+			"notReported": "Wala ginreport",
+			"viewDevices": "Buksan ang listahan sang device"
 		}
 	},
 	"help": {

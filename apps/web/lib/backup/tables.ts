@@ -342,6 +342,23 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 		tenantWhere: byPondFk,
 	},
 	{
+		name: "MortalityLog",
+		scope: "tenant",
+		key: "id",
+		model: prisma.mortalityLog,
+		columns: [
+			"id",
+			"pondId",
+			"cropCycleId",
+			"farmId",
+			"count",
+			"reason",
+			"recordedAt",
+			"createdBy",
+		],
+		tenantWhere: byPondFk,
+	},
+	{
 		name: "FishSample",
 		scope: "tenant",
 		key: "id",
@@ -431,7 +448,9 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 			"lastCalibratedAt",
 			"recalibrationIntervalDays",
 			"approvalStatus",
+			"diag",
 		],
+		jsonColumns: ["diag"],
 		placeholders: [REDACTED_DEVICE_TOKEN],
 		omitted: [
 			{
@@ -477,6 +496,7 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 			"rtcOk",
 			"feederActive",
 			"receivedAt",
+			"dataSource",
 			"farmId",
 		],
 		tenantWhere: byDevicePond,
@@ -538,7 +558,7 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 		scope: "tenant",
 		key: "id",
 		model: prisma.feedLevelLog,
-		columns: ["id", "deviceId", "levelPercent", "distanceCm", "recordedAt", "farmId"],
+		columns: ["id", "deviceId", "levelPercent", "distanceCm", "recordedAt", "dataSource", "farmId"],
 		tenantWhere: byDevicePond,
 	},
 	{
@@ -546,7 +566,7 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 		scope: "tenant",
 		key: "id",
 		model: prisma.waterTempLog,
-		columns: ["id", "deviceId", "tempC", "recordedAt", "farmId"],
+		columns: ["id", "deviceId", "tempC", "recordedAt", "dataSource", "farmId"],
 		tenantWhere: byDevicePond,
 	},
 	{

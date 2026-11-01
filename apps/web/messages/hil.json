@@ -3508,7 +3508,8 @@
 			"columnPond": "Punong",
 			"columnFeedLevel": "Lebel sang feed",
 			"columnSeen": "Katapusan nga nakita",
-			"columnActions": "Mga Aksyon"
+			"columnActions": "Mga Aksyon",
+			"fleetMonitor": "Monitor sang mga Device"
 		},
 		"registerDevice": {
 			"title": "Irehistro ang device",
@@ -4223,6 +4224,36 @@
 				"adminsWithoutMfa": "Mga platform admin nga wala sang MFA: {value} (wala pa naipatuman ang MFA)",
 				"source": "Wala nagreport ang ini nga source, gani indi masiling nga maayo ang band"
 			}
+		},
+		"fleet": {
+			"title": "Monitor sang mga Device",
+			"description": "Ang tanan nga feeder sa tanan nga tenant, {count} ka unit, ginsukod sa polisiya sang plataporma.",
+			"summaryLabel": "Kabug-usan sang mga Device",
+			"fleetState": "Kahimtangan sang mga Device",
+			"checkedAt": "Ginsusi sang {time}",
+			"unknownRule": "Ang tenant nga wala pa gid nagreport nga unit, Wala Mahibaluan, indi Maayo.",
+			"tenantsByState": "Mga tenant suno sa kahimtangan",
+			"policyTitle": "Polisiya sang device",
+			"policyLine": "Offline pagkatapos sang {offline} min · mahina pagkatapos sang {weak} min · grasya {grace} min",
+			"policySource": "Ginbasa halin sa device.status nga setting sang plataporma; amo man nga patakaran sang status bands.",
+			"policyUnavailable": "Wala ginreport: wala mabasa ang polisiya sang device, gani Wala Mahibaluan ang tanan nga kahimtangan.",
+			"sourceErrorTitle": "Wala nagreport ang source sang mga device.",
+			"sourceErrorBody": "Wala sing tenant nga masiling nga maayo sa sini nga kahimtangan. I-reload para sulayan liwat.",
+			"truncated": "Ginapakita ang una nga {count} ka device.",
+			"emptyTitle": "Wala sing nakarehistro nga device",
+			"emptyDescription": "Magrehistro sang feeder kag magagwa ini diri pag-abot sang una nga heartbeat.",
+			"tableLabel": "Mga device suno sa tenant",
+			"columnTenant": "Tenant",
+			"columnDevices": "Mga Device",
+			"columnReporting": "Nagareport",
+			"columnOffline": "Offline",
+			"columnHeartbeat": "Katapusan nga heartbeat",
+			"columnState": "Kahimtangan",
+			"unassigned": "Wala sang Tenant",
+			"neverReported": "Wala pa heartbeat",
+			"never": "Wala gid",
+			"notReported": "Wala ginreport",
+			"viewDevices": "Buksan ang listahan sang device"
 		}
 	},
 	"help": {

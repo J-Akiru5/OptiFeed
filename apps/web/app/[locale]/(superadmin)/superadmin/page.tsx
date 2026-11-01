@@ -7,6 +7,7 @@ import {
 	StackedBars,
 } from "@/components/charts";
 import { formatChartNumber, summarize } from "@/components/charts/chart-data";
+import { StatusBands } from "@/components/superadmin/status-bands";
 import {
 	Badge,
 	CARD,
@@ -23,6 +24,7 @@ import {
 	getPlatformAnalytics,
 	parseAnalyticsRange,
 } from "@/lib/platform/analytics";
+import { getStatusBands } from "@/lib/platform/status-bands";
 import { cn } from "@/lib/utils";
 import {
 	Activity,
@@ -64,9 +66,11 @@ export default async function SuperadminOverviewPage({
 	// module can never be rendered by a future route that forgets the layout.
 	await requirePlatformAdmin();
 
-	const [analytics, t, tCommon, tDates, locale] = await Promise.all([
+	const [analytics, statusBands, t, tBands, tCommon, tDates, locale] = await Promise.all([
 		getPlatformAnalytics(range),
+		getStatusBands(),
 		getTranslations("superadmin.overview"),
+		getTranslations("superadmin.statusBands"),
 		getTranslations("superadmin.common"),
 		getTranslations("dates"),
 		getLocale(),
@@ -222,6 +226,15 @@ export default async function SuperadminOverviewPage({
 						))}
 					</nav>
 				}
+			/>
+
+			{/* M3C.2: what is happening and what is wrong, before the "how much" KPI row. */}
+			<StatusBands
+				bands={statusBands.bands}
+				checkedAtLabel={tBands("checkedAt", {
+					time: formatDateTimeLocal(statusBands.checkedAt, tDates).full,
+				})}
+				t={tBands}
 			/>
 
 			<section

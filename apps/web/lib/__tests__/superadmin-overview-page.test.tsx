@@ -1,12 +1,18 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { analyticsMock } = vi.hoisted(() => ({ analyticsMock: vi.fn() }));
+const { analyticsMock, statusBandsMock } = vi.hoisted(() => ({
+	analyticsMock: vi.fn(),
+	statusBandsMock: vi.fn(),
+}));
 
 vi.mock("@/lib/platform/analytics", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("@/lib/platform/analytics")>();
 	return { ...actual, getPlatformAnalytics: analyticsMock };
 });
+// The status bands own database queries and are covered by
+// lib/__tests__/status-bands.test.ts; this file only renders the page.
+vi.mock("@/lib/platform/status-bands", () => ({ getStatusBands: statusBandsMock }));
 vi.mock("@/lib/auth/require-platform-admin", () => ({ requirePlatformAdmin: vi.fn() }));
 vi.mock("next-intl/server", async () => {
 	const { createTranslator } = await import("./helpers/messages");
@@ -105,9 +111,36 @@ function page(range = "7") {
 	return SuperadminOverviewPage({ searchParams: Promise.resolve({ range }) });
 }
 
+const statusBands = {
+	checkedAt: new Date("2026-10-27T12:00:00.000Z"),
+	bands: [
+		{
+			key: "platform" as const,
+			state: "degraded" as const,
+			facts: [{ key: "failedJobs", state: "degraded" as const, value: 1, threshold: 10 }],
+		},
+		{
+			key: "tenants" as const,
+			state: "ok" as const,
+			facts: [{ key: "organizations", state: "ok" as const, value: 12, threshold: null }],
+		},
+		{
+			key: "devices" as const,
+			state: "unknown" as const,
+			facts: [{ key: "offlineDevices", state: "unknown" as const, value: null, threshold: 50 }],
+		},
+		{
+			key: "security" as const,
+			state: "ok" as const,
+			facts: [{ key: "lockouts", state: "ok" as const, value: 0, threshold: 1 }],
+		},
+	],
+};
+
 beforeEach(() => {
 	vi.clearAllMocks();
 	analyticsMock.mockResolvedValue(analytics);
+	statusBandsMock.mockResolvedValue(statusBands);
 });
 
 describe("/superadmin analytics overview (E16.1)", () => {
@@ -116,6 +149,10 @@ describe("/superadmin analytics overview (E16.1)", () => {
 
 		expect(html.split("<h1").length - 1).toBe(1);
 		expect(html).toContain("Platform Overview");
+		// M3C.2: the four status bands render above the KPI row.
+		expect(html).toContain("Platform status");
+		expect(html).toContain("Degraded");
+		expect(html).toContain("Unknown");
 		expect(html).toContain("last 7 days");
 		for (const label of [
 			"Users",

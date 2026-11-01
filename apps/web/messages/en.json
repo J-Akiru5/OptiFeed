@@ -1183,7 +1183,23 @@
 			"fishSamplesLabel": "Individual fish samples",
 			"tableCaption": "Growth summary, newest first",
 			"biomassTableCaption": "Biomass samples, newest first",
-			"feedLevelTableCaption": "Recent hopper level readings"
+			"feedLevelTableCaption": "Recent hopper level readings",
+			"mortality": {
+				"title": "Fish mortality",
+				"explain": "Record fish lost per pond. The live count shown elsewhere stays derived from the stocking count minus the mortality log.",
+				"open": "Record mortality",
+				"cancel": "Cancel",
+				"countLabel": "Fish lost",
+				"reasonLabel": "Reason",
+				"reasonPlaceholder": "e.g. oxygen drop, predation",
+				"save": "Save record",
+				"saving": "Saving…",
+				"saved": "Saved. Derived live count: {live}.",
+				"invalidCount": "Enter a whole number of fish lost (at least 1).",
+				"saveFailed": "Could not save the mortality record. Try again.",
+				"pondNotFound": "Pond not found.",
+				"currentPopulation": "Stock list: {population} fish (legacy count; mortality is subtracted on top)."
+			}
 		},
 		"harvest": {
 			"title": "Harvest & Grow-out",

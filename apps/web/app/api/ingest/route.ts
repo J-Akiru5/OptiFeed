@@ -6,6 +6,7 @@ import {
 	RECONCILIATION_LOOKBACK_HOURS,
 } from "@/lib/constants";
 import { isDeviceApproved, verifyDeviceToken } from "@/lib/device-auth";
+import { sanitizeDiag } from "@/lib/device-diag";
 import { FIRMWARE_REPORTED_EVENT, getDeviceFirmwareVersion } from "@/lib/device-firmware";
 import {
 	DEVICE_HEALTH_EVENT,
@@ -106,6 +107,10 @@ const heartbeatSchema = baseSchema.extend({
 				: undefined,
 		z.number().int().min(0).optional(),
 	),
+	// Firmware 1.6.0+ echoes a diagnostics object (issue #454). Advisory:
+	// whatever it contains is sanitised downstream; a malformed payload is
+	// dropped instead of failing the heartbeat, exactly like wifi_rssi.
+	diag: z.unknown().optional(),
 });
 
 const feedDispensedSchema = baseSchema.extend({
@@ -184,6 +189,13 @@ export const POST = withApi(
 			const rssiDbm = parsed.data.wifi_rssi;
 			const rssiUpdate =
 				rssiDbm === undefined ? {} : { wifiRssiDbm: rssiDbm, wifiRssiUpdatedAt: new Date() };
+
+			// #454: keep the latest diagnostics per device. Advisory only — never
+			// an authority for dosing; sanitised by lib/device-diag. A malformed
+			// or empty payload is dropped and the previous diag stays untouched.
+			const sanitizedDiag = parsed.data.diag === undefined ? null : sanitizeDiag(parsed.data.diag);
+			const diagUpdate =
+				sanitizedDiag && Object.keys(sanitizedDiag).length > 0 ? { diag: sanitizedDiag } : {};
 
 			const wasOffline = isDeviceUnreachable(
 				device.lastSeenAt,
@@ -328,6 +340,7 @@ export const POST = withApi(
 							// exists, so no extra query per beat. A beat without an RSSI
 							// (old firmware) leaves the last known reading untouched.
 							...rssiUpdate,
+							...diagUpdate,
 						},
 					}),
 				];

@@ -1750,7 +1750,9 @@
 			"componentNoReading": "No reading",
 			"componentReading": "Reading",
 			"componentsTitle": "Components",
-			"statusWeak": "Weak signal"
+			"statusWeak": "Weak signal",
+			"diagTitle": "Firmware diagnostics",
+			"diagEmpty": "No diagnostics reported yet (first heartbeat with a diag object fills this in)."
 		},
 		"adminDevices": {
 			"view3d": "3D view",

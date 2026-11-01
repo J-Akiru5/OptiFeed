@@ -1807,7 +1807,9 @@
 			"componentNoReading": "Wala sing reading",
 			"componentReading": "Nagabasa",
 			"componentsTitle": "Mga komponente",
-			"statusWeak": "Maluya ang signal"
+			"statusWeak": "Maluya ang signal",
+			"diagTitle": "Diyagnostik sang firmware",
+			"diagEmpty": "Wala pay diyagnostik (ang Una nga heartbeat nga nagdala diag, madula ini)."
 		},
 		"adminDevices": {
 			"view3d": "3D view",

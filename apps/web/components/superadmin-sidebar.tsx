@@ -6,37 +6,16 @@ import { Link, usePathname, useRouter } from "@/i18n/routing";
 import { clearOfflineData } from "@/lib/offline/db";
 import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
 import { createClient } from "@/lib/supabase/client";
+import { SUPERADMIN_NAV_GROUPS, isNavItemActive } from "@/lib/superadmin-nav";
 import { cn } from "@/lib/utils";
-import {
-	Activity,
-	BarChart3,
-	CalendarDays,
-	Cpu,
-	Droplets,
-	FolderTree,
-	Loader2,
-	LogOut,
-	Settings,
-	Sparkles,
-	Users,
-} from "lucide-react";
+import { BarChart3, Loader2, LogOut } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
-const navItems = [
-	{ href: "/superadmin", key: "overview", icon: BarChart3 },
-	{ href: "/superadmin/calendar", key: "calendar", icon: CalendarDays },
-	{ href: "/superadmin/users", key: "users", icon: Users },
-	{ href: "/superadmin/orgs", key: "organizations", icon: FolderTree },
-	{ href: "/superadmin/ponds", key: "ponds", icon: Droplets },
-	{ href: "/superadmin/devices", key: "devices", icon: Cpu },
-	{ href: "/superadmin/operations", key: "operations", icon: Activity },
-	{ href: "/superadmin/ai-providers", key: "aiProviders", icon: Sparkles },
-	{ href: "/superadmin/settings", key: "settings", icon: Settings },
-] as const;
-
 /**
- * Platform console navigation.
+ * Platform console navigation, in three groups (plan M3C.1): Command Center,
+ * Ecosystem Management and Platform Control. The groups and their URLs live in
+ * `lib/superadmin-nav.ts`.
  *
  * Devices is the hardware registry (plan v2, M3F) and, since M5.2, the remote
  * feeder control surface: every remote command goes through the tenant command
@@ -77,40 +56,52 @@ export function SuperadminSidebar({ showFarmDashboard = false }: { showFarmDashb
 				animate && "transition-[width,padding] duration-200 ease-out motion-reduce:transition-none",
 			)}
 		>
-			<nav id="superadmin-sidebar-nav" aria-label={t("navLabel")} className="space-y-1">
-				<p
-					className={cn(
-						"mb-3 px-3 text-[10px] font-extrabold uppercase tracking-widest text-white/80",
-						collapsed && "sr-only",
-					)}
-				>
-					{t("console")}
-				</p>
-				{navItems.map((item) => {
-					const isActive =
-						item.href === "/superadmin"
-							? pathname === "/superadmin" || pathname === "/superadmin/"
-							: pathname.startsWith(item.href);
+			<nav id="superadmin-sidebar-nav" aria-label={t("navLabel")} className="space-y-4">
+				{SUPERADMIN_NAV_GROUPS.map((group, index) => {
+					const headingId = `superadmin-nav-group-${group.key}`;
 
 					return (
-						<Link
-							key={item.href}
-							href={item.href}
-							aria-current={isActive ? "page" : undefined}
-							aria-label={collapsed ? t(`nav.${item.key}`) : undefined}
-							title={collapsed ? t(`nav.${item.key}`) : undefined}
-							className={cn(
-								"flex min-h-11 w-full items-center rounded-2xl text-[15px] font-bold transition-colors",
-								collapsed ? "justify-center p-3" : "gap-3 p-3.5",
-								FOCUS_RING_ON_DARK,
-								isActive
-									? "bg-[#E85A2A] text-white shadow-md ring-1 ring-white/20"
-									: "text-white/80 hover:bg-white/10 hover:text-white",
-							)}
+						<div
+							key={group.key}
+							className={cn(collapsed && index > 0 && "border-t border-white/10 pt-4")}
 						>
-							<item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-							<span className={cn(collapsed && "sr-only")}>{t(`nav.${item.key}`)}</span>
-						</Link>
+							<p
+								id={headingId}
+								className={cn(
+									"mb-2 px-3 text-[10px] font-extrabold uppercase tracking-widest text-white/80",
+									collapsed && "sr-only",
+								)}
+							>
+								{t(`groups.${group.key}`)}
+							</p>
+							<ul aria-labelledby={headingId} className="space-y-1">
+								{group.items.map((item) => {
+									const isActive = isNavItemActive(item.href, pathname);
+
+									return (
+										<li key={item.href}>
+											<Link
+												href={item.href}
+												aria-current={isActive ? "page" : undefined}
+												aria-label={collapsed ? t(`nav.${item.key}`) : undefined}
+												title={collapsed ? t(`nav.${item.key}`) : undefined}
+												className={cn(
+													"flex min-h-11 w-full items-center rounded-2xl text-[15px] font-bold transition-colors",
+													collapsed ? "justify-center p-3" : "gap-3 p-3.5",
+													FOCUS_RING_ON_DARK,
+													isActive
+														? "bg-[#E85A2A] text-white shadow-md ring-1 ring-white/20"
+														: "text-white/80 hover:bg-white/10 hover:text-white",
+												)}
+											>
+												<item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+												<span className={cn(collapsed && "sr-only")}>{t(`nav.${item.key}`)}</span>
+											</Link>
+										</li>
+									);
+								})}
+							</ul>
+						</div>
 					);
 				})}
 			</nav>

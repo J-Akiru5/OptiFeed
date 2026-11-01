@@ -477,6 +477,7 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 			"rtcOk",
 			"feederActive",
 			"receivedAt",
+			"dataSource",
 			"farmId",
 		],
 		tenantWhere: byDevicePond,
@@ -538,7 +539,7 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 		scope: "tenant",
 		key: "id",
 		model: prisma.feedLevelLog,
-		columns: ["id", "deviceId", "levelPercent", "distanceCm", "recordedAt", "farmId"],
+		columns: ["id", "deviceId", "levelPercent", "distanceCm", "recordedAt", "dataSource", "farmId"],
 		tenantWhere: byDevicePond,
 	},
 	{
@@ -546,7 +547,7 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 		scope: "tenant",
 		key: "id",
 		model: prisma.waterTempLog,
-		columns: ["id", "deviceId", "tempC", "recordedAt", "farmId"],
+		columns: ["id", "deviceId", "tempC", "recordedAt", "dataSource", "farmId"],
 		tenantWhere: byDevicePond,
 	},
 	{

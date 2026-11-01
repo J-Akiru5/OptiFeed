@@ -4,6 +4,7 @@ import { MobileHeader } from "@/components/mobile/mobile-header";
 import { GlobalSearch, SearchTrigger } from "@/components/search/global-search";
 import { SuperadminBottomNav } from "@/components/superadmin-bottom-nav";
 import { SuperadminSidebar } from "@/components/superadmin-sidebar";
+import { ConsoleScopeBanner } from "@/components/superadmin/console-scope-banner";
 import { FOCUS_RING_ON_DARK } from "@/components/superadmin/ui";
 import { UserAvatar } from "@/components/user-avatar";
 import { Link } from "@/i18n/routing";
@@ -135,12 +136,14 @@ export default async function SuperadminLayout({
 			<div className="flex min-h-0 w-full flex-1 overflow-hidden">
 				<SuperadminSidebar showFarmDashboard={hasFarmDashboard} />
 				{/* min-w-0 lets a wide table scroll inside its own card instead of
-				    widening the page. */}
+				    widening the page. The scope banner is the pane's first child so its
+				    negative margins cancel the pane's padding (see ScopeBanner). */}
 				<main
 					id="main-content"
 					tabIndex={-1}
 					className="ofd-main relative z-10 min-h-0 min-w-0 flex-1 overflow-y-auto p-4 md:p-8"
 				>
+					<ConsoleScopeBanner />
 					{children}
 				</main>
 			</div>

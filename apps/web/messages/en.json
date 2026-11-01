@@ -3175,6 +3175,16 @@
 				"settings": "Settings",
 				"operations": "Ops",
 				"more": "More"
+			},
+			"groups": {
+				"commandCenter": "Command Center",
+				"ecosystem": "Ecosystem Management",
+				"platformControl": "Platform Control"
+			},
+			"scope": {
+				"label": "Console scope",
+				"global": "Global superadmin",
+				"organization": "Organization {name}"
 			}
 		},
 		"loading": {

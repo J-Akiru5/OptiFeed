@@ -97,6 +97,10 @@ const REQUIRED = [
 	"superadmin.aiProviders.reset",
 	"superadmin.shell.nav.organizations",
 	"superadmin.shell.shortNav.organizations",
+	"superadmin.shell.groups.commandCenter",
+	"superadmin.shell.groups.platformControl",
+	"superadmin.shell.scope.global",
+	"superadmin.shell.scope.organization",
 	"superadmin.shell.nav.operations",
 	"superadmin.shell.shortNav.operations",
 	"superadmin.operations.health.title",
@@ -154,8 +158,16 @@ function walk(dir: string, out: string[] = []): string[] {
  * Presentational files that receive every string as a prop, or that hold only
  * classes and design tokens. `dialog-theme.ts` has no copy of its own (#321);
  * it is still scanned for retired literals and hard-coded attributes.
+ * `scope-banner.tsx` takes its crumb labels and its accessible name as props
+ * from the layout banner and the organization page, which translate them.
  */
-const PROPS_ONLY = new Set(["ui.tsx", "dialog-shell.tsx", "list-chrome.tsx", "dialog-theme.ts"]);
+const PROPS_ONLY = new Set([
+	"ui.tsx",
+	"dialog-shell.tsx",
+	"list-chrome.tsx",
+	"dialog-theme.ts",
+	"scope-banner.tsx",
+]);
 
 const consoleFiles = [
 	...walk(join(webRoot, "app/[locale]/(superadmin)")),

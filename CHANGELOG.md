@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The platform console says where you are, and its sidebar is in three groups.** A scope banner under the top bar shows the path (`GLOBAL SUPERADMIN → DEVICES`, or `GLOBAL SUPERADMIN → ORGANIZATION ALPHA` on an organization page) and stays in view while the page scrolls. It uses the brand navy and orange with an icon per level, so it never reads as a status colour and stays distinct from the red view-as banner. The sidebar now groups the same nine links under Command Center, Ecosystem Management and Platform Control; no URL changed. Strings are in English, Hiligaynon and Tagalog (the Tagalog is a machine draft, queued for review). First slice of the Platform Command Center (#479, plan M3C.1).
+
 ## [1.42.1] - 2026-11-01
 
 ### Added

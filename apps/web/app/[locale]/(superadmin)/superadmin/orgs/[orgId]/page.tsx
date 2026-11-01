@@ -1,5 +1,6 @@
 import { OrgMembersPanel } from "@/components/superadmin/org-members";
 import { OrgStatusControl } from "@/components/superadmin/org-status-control";
+import { ScopeBanner } from "@/components/superadmin/scope-banner";
 import { Badge, type BadgeTone, Card } from "@/components/superadmin/ui";
 import { Link } from "@/i18n/routing";
 import { getOrgDetail } from "@/lib/actions/platform/members";
@@ -35,12 +36,13 @@ export default async function SuperadminOrgDetailPage({
 	params: Promise<{ orgId: string }>;
 }) {
 	const { orgId } = await params;
-	const [detail, t, tCommon, tRoot, tDates] = await Promise.all([
+	const [detail, t, tCommon, tRoot, tDates, tShell] = await Promise.all([
 		getOrgDetail(orgId),
 		getTranslations("superadmin.orgDetail"),
 		getTranslations("superadmin.common"),
 		getTranslations("superadmin"),
 		getTranslations("dates"),
+		getTranslations("superadmin.shell"),
 	]);
 	if (!detail) notFound();
 
@@ -60,6 +62,16 @@ export default async function SuperadminOrgDetailPage({
 
 	return (
 		<div className="space-y-6">
+			{/* This page names a record, so it draws its own scope path; the layout's
+			    banner steps aside for it (pageOwnsScope). */}
+			<ScopeBanner
+				label={tShell("scope.label")}
+				crumbs={[
+					{ level: "global", label: tShell("scope.global") },
+					{ level: "organization", label: tShell("scope.organization", { name: org.name }) },
+				]}
+			/>
+
 			<Link
 				href="/superadmin/orgs"
 				className="inline-flex items-center gap-1.5 rounded text-xs font-black text-[#0A3D62] hover:underline focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"

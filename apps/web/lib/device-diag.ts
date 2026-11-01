@@ -21,7 +21,7 @@ export const DIAG_KEYS_MAX = 24;
 export const DIAG_STRING_MAX = 120;
 export const DIAG_ARRAY_MAX = 8;
 export const DIAG_BYTES_MAX = 2048;
-export const DIAG_DEPTH_MAX = 1; // top-level object; nested objects replaced
+const DIAG_DEPTH_MAX = 1; // top-level object; nested objects replaced
 
 type Primitive = string | number | boolean | null;
 

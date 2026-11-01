@@ -150,7 +150,14 @@ vi.mock("@/lib/prisma", () => ({
 	},
 }));
 
+vi.mock("@/lib/device-health", async () => {
+	const model = await import("@/lib/device-health-model");
+	return { ...model, getDeviceHealthSafe: vi.fn(async () => model.HEALTHY_VIEW) };
+});
+
 import DashboardHomePage from "@/app/[locale]/(dashboard)/dashboard/page";
+import { getDeviceHealthSafe } from "@/lib/device-health";
+import { HEALTHY_VIEW } from "@/lib/device-health-model";
 import prisma from "@/lib/prisma";
 
 beforeEach(() => {
@@ -221,6 +228,31 @@ describe("dashboard control room page", () => {
 		expect(html).toContain("Set Device Time");
 		expect(html).toContain("@sm:flex-row");
 		expect(html).not.toContain("flex flex-col sm:flex-row gap-4");
+	});
+
+	it("says nothing about device health while the feeder is healthy", async () => {
+		const html = renderToStaticMarkup(
+			await DashboardHomePage({ searchParams: Promise.resolve({}) }),
+		);
+
+		expect(html).not.toContain("feeder-hero-health");
+	});
+
+	it("puts the unit's safe mode at the top of the dashboard", async () => {
+		vi.mocked(getDeviceHealthSafe).mockResolvedValueOnce({
+			...HEALTHY_VIEW,
+			safeMode: true,
+			resetReasons: "brownout",
+			abnormalResets: 3,
+			since: new Date(),
+		});
+
+		const html = renderToStaticMarkup(
+			await DashboardHomePage({ searchParams: Promise.resolve({}) }),
+		);
+
+		expect(html).toContain("Safe mode: doses are refused");
+		expect(html).toContain('role="alert"');
 	});
 
 	it("reads every device on the pond so the canvas can pin each feeder", async () => {

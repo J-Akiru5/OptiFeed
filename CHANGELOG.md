@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The platform console says where you are, and its sidebar is in three groups.** A scope banner under the top bar shows the path (`GLOBAL SUPERADMIN → DEVICES`, or `GLOBAL SUPERADMIN → ORGANIZATION ALPHA` on an organization page) and stays in view while the page scrolls. It uses the brand navy and orange with an icon per level, so it never reads as a status colour and stays distinct from the red view-as banner. The sidebar now groups the same nine links under Command Center, Ecosystem Management and Platform Control; no URL changed. Strings are in English, Hiligaynon and Tagalog (the Tagalog is a machine draft, queued for review). First slice of the Platform Command Center (#479, plan M3C.1).
+
+## [1.42.1] - 2026-11-01
+
+### Added
+
+- **A feeder in safe mode or reporting a fault now says so where the farmer works.** The safe-mode and fault panel from 1.42.0 only appeared on the admin pond page, while the in-app alert links to the hardware page, so a farmer who followed the alert saw nothing. The panel now sits at the top of the hardware overview, the dashboard and the schedule page, in the page's own light or dark palette. It renders nothing while the unit is healthy. On the dashboard and schedule it is an extra: a failed health read is logged and reads as healthy instead of taking the page down.
+
+### Fixed
+
+- **A calibration test dose the unit refused no longer blocks the next test.** The firmware reports it as a refusal with source `calibration`, which ingest rejected with a 422, so nothing was recorded and the calibration request stayed `dispatched`. Ingest now accepts the source and closes the dispatched calibration request as `refused`; the calibration screen treats that as ended, so the test can be retried.
+
 ## [1.42.0] - 2026-11-01
 
 ### Added

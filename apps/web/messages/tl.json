@@ -3232,6 +3232,16 @@
 				"settings": "Mga Setting",
 				"operations": "Ops",
 				"more": "Higit pa"
+			},
+			"groups": {
+				"commandCenter": "Command Center",
+				"ecosystem": "Pamamahala ng Ecosystem",
+				"platformControl": "Kontrol ng Platform"
+			},
+			"scope": {
+				"label": "Saklaw ng console",
+				"global": "Global na superadmin",
+				"organization": "Organisasyon {name}"
 			}
 		},
 		"loading": {

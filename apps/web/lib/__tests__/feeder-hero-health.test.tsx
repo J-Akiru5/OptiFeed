@@ -24,6 +24,7 @@ vi.mock("@/i18n/routing", async () => {
 });
 
 import { FeederHero } from "@/components/feeder/feeder-hero";
+import { HealthNotice } from "@/components/feeder/health-notice";
 import { HEALTHY_VIEW } from "@/lib/device-health-model";
 import type { DeviceHealthView } from "@/lib/device-health-model";
 import type { FeederHeroData } from "@/lib/feeder-hero-types";
@@ -109,5 +110,30 @@ describe("FeederHero health notice", () => {
 		});
 
 		expect(screen.getByTestId("feeder-hero-health").textContent).toContain("future_reason");
+	});
+});
+
+describe("HealthNotice on the settings page", () => {
+	const safe: DeviceHealthView = {
+		...HEALTHY_VIEW,
+		safeMode: true,
+		resetReasons: "brownout",
+		abnormalResets: 3,
+		since: new Date(2026, 10, 1, 9, 0),
+	};
+
+	it("uses the themed palette, not the hero's light-on-dark colours", () => {
+		render(<HealthNotice health={safe} tone="themed" />);
+
+		const alert = screen.getByRole("alert");
+		expect(screen.getByTestId("feeder-hero-health").getAttribute("data-tone")).toBe("themed");
+		expect(alert.className).toContain("bg-red-50");
+		expect(alert.className).not.toContain("#ffc0c7");
+	});
+
+	it("stays silent for a healthy feeder", () => {
+		const { container } = render(<HealthNotice health={HEALTHY_VIEW} tone="themed" />);
+
+		expect(container.firstChild).toBeNull();
 	});
 });

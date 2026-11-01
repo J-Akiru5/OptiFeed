@@ -98,8 +98,15 @@ vi.mock("@/lib/prisma", () => ({
 	},
 }));
 
+vi.mock("@/lib/device-health", async () => {
+	const model = await import("@/lib/device-health-model");
+	return { ...model, getDeviceHealthSafe: vi.fn(async () => model.HEALTHY_VIEW) };
+});
+
 import LogSamplePage from "@/app/[locale]/(dashboard)/dashboard/log-sample/page";
 import SchedulePage from "@/app/[locale]/(dashboard)/dashboard/schedule/page";
+import { getDeviceHealthSafe } from "@/lib/device-health";
+import { HEALTHY_VIEW } from "@/lib/device-health-model";
 import prisma from "@/lib/prisma";
 
 const TWO_COLUMN_GRID = "xl:grid-cols-[minmax(0,1fr)_22rem]";
@@ -195,6 +202,26 @@ describe("feeding schedule page (#247)", () => {
 		expect(html).toContain("Feed Now");
 		// The only gram cap is the daily ceiling; the helper names it.
 		expect(html).toContain("remaining daily ceiling");
+	});
+
+	it("warns on the schedule page when the unit is in safe mode", async () => {
+		vi.mocked(getDeviceHealthSafe).mockResolvedValueOnce({
+			...HEALTHY_VIEW,
+			safeMode: true,
+			resetReasons: "brownout",
+			abnormalResets: 3,
+			since: new Date(),
+		});
+
+		const html = renderToStaticMarkup(await SchedulePage());
+
+		expect(html).toContain("Safe mode: doses are refused");
+	});
+
+	it("shows no health notice for a healthy unit", async () => {
+		const html = renderToStaticMarkup(await SchedulePage());
+
+		expect(html).not.toContain("feeder-hero-health");
 	});
 
 	it("keeps the mobile stacking order below xl", async () => {

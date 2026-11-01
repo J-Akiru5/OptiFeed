@@ -1199,7 +1199,8 @@
 				"saveFailed": "Wala mahimo mortali rekord. Pakisubong liwat.",
 				"pondNotFound": "Wala nakita ang pisu.",
 				"currentPopulation": "Lista isda: {population} tili (daan count; mortality ginabentes batou)."
-			}
+			},
+			"fcrInputs": "Ginkalkulsa halin sa: {feed} kg maog nga ginhatag para sa {gain} kg live biomass nga nakuha (live {live} tili)."
 		},
 		"harvest": {
 			"title": "Pag-ani kag Pagpatubo",

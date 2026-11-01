@@ -1248,7 +1248,8 @@
 				"saveFailed": "Hindi na-save ang mortality record. Subukan muli.",
 				"pondNotFound": "Hindi nahanap ang pond.",
 				"currentPopulation": "Listahan: {population} isda (lumang bilang; kabawasan sa mortality ang naipapakita sa itaas)."
-			}
+			},
+			"fcrInputs": "Kinosyuva mula sa: {feed} kg na binigay na feed para sa {gain} kg na naging live biomass (live {live} isda)."
 		},
 		"feedLevel": {
 			"title": "Antas ng Pakain",

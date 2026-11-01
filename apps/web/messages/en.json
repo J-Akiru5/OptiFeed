@@ -1199,7 +1199,8 @@
 				"saveFailed": "Could not save the mortality record. Try again.",
 				"pondNotFound": "Pond not found.",
 				"currentPopulation": "Stock list: {population} fish (legacy count; mortality is subtracted on top)."
-			}
+			},
+			"fcrInputs": "Computed from: {feed} kg of feed given for {gain} kg of live biomass gained (live {live} fish)."
 		},
 		"harvest": {
 			"title": "Harvest & Grow-out",

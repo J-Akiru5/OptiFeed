@@ -379,6 +379,12 @@ model EnergyDevice {
   wifiRssiDbm       Int? // last RSSI in dBm (-127..0), null until reported
   wifiRssiUpdatedAt DateTime? // last time an RSSI was ingested
 
+  // Firmware diagnostics echoed on the heartbeat (firmware 1.6.0+ sends the
+  // `diag` object, issue #454). Sanitised and size-capped at ingest; display
+  // only — never an authority for dosing, which stays on the dose path's own
+  // verified inputs.
+  diag Json?
+
   // Per-device calibration
   hopperEmptyCm             Float? // sensor distance when hopper is empty (~30cm for 10L bottle)
   hopperFullCm              Float? // sensor distance when hopper is full (~5cm)

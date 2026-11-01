@@ -1,5 +1,10 @@
 import { type DeviceStatusPolicy, evaluateDeviceStatus } from "@/lib/device-status";
-import { type BandState, deviceFleetState, worstState } from "@/lib/platform/status-band-rules";
+import {
+	BAND_STATE_ORDER,
+	type BandState,
+	deviceFleetState,
+	worstState,
+} from "@/lib/platform/status-band-rules";
 
 /**
  * Fleet monitor rules (issue #479, M3C.4).
@@ -48,13 +53,8 @@ export interface TenantFleetRow {
 	state: BandState;
 }
 
-/** Worst first: a commander reads the top of the list, not the middle. */
-export const FLEET_STATE_ORDER: Record<BandState, number> = {
-	critical: 0,
-	degraded: 1,
-	unknown: 2,
-	ok: 3,
-};
+/** Worst first: the shared band order, so every console list ranks alike. */
+export const FLEET_STATE_ORDER: Record<BandState, number> = BAND_STATE_ORDER;
 
 function groupKey(device: FleetDeviceInput): string {
 	return device.tenantId ?? "__unassigned__";

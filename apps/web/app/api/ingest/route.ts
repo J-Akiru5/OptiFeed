@@ -120,7 +120,8 @@ const scheduleAckedSchema = baseSchema.extend({
 
 const feedRefusedSchema = baseSchema.extend({
 	grams: z.number().positive(),
-	source: z.enum(["scheduled", "dashboard", "button"]),
+	// The firmware reports a refused calibration dose with source "calibration".
+	source: z.enum(["scheduled", "dashboard", "button", "calibration"]),
 	reason: z.string().min(1),
 });
 
@@ -1048,12 +1049,17 @@ export const POST = withApi(
 					// sits at "dispatched" and would block the next attempt as "a feed is
 					// already in progress" for ten minutes. The refusal closes it. The
 					// refusal payload carries no request id (a firmware change), but at
-					// most one feed request is ever dispatched per device. Calibration
-					// requests keep their own handling.
-					...(parsed.data.source === "dashboard"
+					// most one request of each kind is ever dispatched per device. A
+					// refused calibration dose (source "calibration") closes the
+					// calibration request the same way, so the test can be retried.
+					...(parsed.data.source === "dashboard" || parsed.data.source === "calibration"
 						? [
 								prisma.feedRequest.updateMany({
-									where: { deviceId: device.id, status: "dispatched", kind: "feed" },
+									where: {
+										deviceId: device.id,
+										status: "dispatched",
+										kind: parsed.data.source === "calibration" ? "calibration" : "feed",
+									},
 									data: { status: "refused" },
 								}),
 							]

@@ -2,6 +2,7 @@ import {
 	DEVICE_HEALTH_EVENT,
 	type DeviceHealthKey,
 	type DeviceHealthView,
+	HEALTHY_VIEW,
 	REFUSAL_LOOKBACK_MS,
 	buildHealthView,
 	healthFromMetadata,
@@ -48,4 +49,25 @@ export async function getDeviceHealth(
 		}),
 	]);
 	return buildHealthView({ health, refusal, now });
+}
+
+/**
+ * Health is advisory on pages that are about something else (the dashboard, the
+ * schedule). A failed read must not take such a page down, so it reads as
+ * healthy and the failure is logged. Surfaces whose whole point is device health
+ * use `getDeviceHealth` and let the error surface.
+ */
+export async function getDeviceHealthSafe(
+	deviceId: string,
+	now = new Date(),
+): Promise<DeviceHealthView> {
+	try {
+		return await getDeviceHealth(deviceId, now);
+	} catch (error) {
+		console.warn(
+			"[device-health] read failed",
+			error instanceof Error ? error.message : String(error),
+		);
+		return HEALTHY_VIEW;
+	}
 }

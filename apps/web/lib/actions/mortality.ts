@@ -1,6 +1,7 @@
 "use server";
 
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
+import { deriveLiveCount } from "@/lib/growth/live-count";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
@@ -74,7 +75,7 @@ export async function saveMortalityLog(formData: FormData): Promise<SaveMortalit
 
 			const cycle = await tx.cropCycle.findFirst({
 				where: { pondId: pond.id, status: "ACTIVE" },
-				select: { id: true },
+				select: { id: true, stockingCount: true, stockingDate: true },
 			});
 
 			const log = await tx.mortalityLog.create({
@@ -94,20 +95,16 @@ export async function saveMortalityLog(formData: FormData): Promise<SaveMortalit
 				select: { id: true },
 			});
 
+			// Only mortality on/after the current stocking date belongs to this
+			// cycle; older logs belong to a previous cycle (#430).
 			const deadTotal = await tx.mortalityLog.aggregate({
-				where: { pondId: pond.id },
+				where: cycle
+					? { pondId: pond.id, recordedAt: { gte: cycle.stockingDate } }
+					: { pondId: pond.id },
 				_sum: { count: true },
 			});
-			const dead = Math.max(0, Math.floor(deadTotal._sum.count ?? 0));
-			const stocked = cycle
-				? ((
-						await tx.cropCycle.findUnique({
-							where: { id: cycle.id },
-							select: { stockingCount: true },
-						})
-					)?.stockingCount ?? null)
-				: (pond.population ?? null);
-			const live = stocked === null ? null : Math.max(0, stocked - dead);
+			const stocked = cycle ? cycle.stockingCount : (pond.population ?? null);
+			const { dead, live } = deriveLiveCount(stocked, deadTotal._sum.count ?? 0);
 
 			if (device) {
 				await tx.deviceStateEvent.create({
@@ -126,11 +123,8 @@ export async function saveMortalityLog(formData: FormData): Promise<SaveMortalit
 				});
 			}
 
-			const source: LiveSource = cycle
-				? "crop_cycle"
-				: stocked !== null
-					? "legacy_population"
-					: "none";
+			const source: LiveSource =
+				stocked === null ? "none" : cycle ? "crop_cycle" : "legacy_population";
 			return { stocked, dead, live, source };
 		});
 

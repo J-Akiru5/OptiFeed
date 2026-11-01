@@ -40,6 +40,7 @@ const OWNER = "owner-1";
 const POND = "pond-1";
 const DEVICE = "dev-1";
 const CYCLE = "cycle-1";
+const STOCKING_DATE = new Date("2026-10-01T00:00:00.000Z");
 
 function form(overrides: Record<string, string> = {}): FormData {
 	const formData = new FormData();
@@ -58,12 +59,19 @@ function setup(
 		cycle?: Record<string, unknown> | null;
 		device?: Record<string, unknown> | null;
 		deadSoFar?: number;
+		stockingDate?: Date;
 	} = {},
 ) {
 	const pond = { id: POND, ownerId: OWNER, farmId: "farm-1", population: 300, ...overrides.pond };
 	mocks.tx.pond.findUnique.mockResolvedValue(pond);
 	mocks.tx.cropCycle.findFirst.mockResolvedValue(
-		overrides.cycle === undefined ? { id: CYCLE } : overrides.cycle,
+		overrides.cycle === undefined
+			? {
+					id: CYCLE,
+					stockingCount: 300,
+					stockingDate: overrides.stockingDate ?? STOCKING_DATE,
+				}
+			: overrides.cycle,
 	);
 	mocks.tx.cropCycle.findUnique.mockResolvedValue({ stockingCount: 300 });
 	mocks.tx.mortalityLog.create.mockResolvedValue({ id: "m-1" });
@@ -156,5 +164,37 @@ describe("saveMortalityLog", () => {
 		expect(result.success).toBe(true);
 		const data = mocks.tx.mortalityLog.create.mock.calls[0][0].data;
 		expect((data.reason as string).length).toBe(200);
+	});
+});
+
+describe("saveMortalityLog mortality window (#430)", () => {
+	it("counts only mortality on/after the current stocking date", async () => {
+		setup({
+			deadSoFar: 15,
+			stockingDate: STOCKING_DATE,
+		});
+
+		await saveMortalityLog(form());
+
+		const where = mocks.tx.mortalityLog.aggregate.mock.calls[0][0].where;
+		expect(where).toEqual({ pondId: POND, recordedAt: { gte: STOCKING_DATE } });
+	});
+
+	it("does not bound the window for a pond with no active cycle", async () => {
+		setup({ cycle: null, deadSoFar: 40 });
+
+		await saveMortalityLog(form());
+
+		const where = mocks.tx.mortalityLog.aggregate.mock.calls[0][0].where;
+		expect(where).toEqual({ pondId: POND });
+	});
+
+	it("derives live from the cycle stocking count, not a second query", async () => {
+		setup({ deadSoFar: 5 });
+
+		const result = await saveMortalityLog(form());
+
+		expect(mocks.tx.cropCycle.findUnique).not.toHaveBeenCalled();
+		expect(result.live).toEqual({ stocked: 300, dead: 5, live: 295, source: "crop_cycle" });
 	});
 });

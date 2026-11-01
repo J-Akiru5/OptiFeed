@@ -33,18 +33,17 @@ export interface LiveCount {
  * source) in which case the live count is also null — a mortality log without
  * a known stock cannot invent a count.
  */
-export function deriveLiveCount(stocked: number | null, mortalityTotal: number): LiveCount {
+export function deriveLiveCount(
+	stocked: number | null,
+	mortalityTotal: number,
+	source: LiveCount["source"] = "crop_cycle",
+): LiveCount {
 	const dead = Math.max(0, Math.floor(mortalityTotal));
 	if (stocked === null) {
 		return { stocked: null, dead, live: null, source: "none" };
 	}
 	const live = Math.max(0, stocked - dead);
-	return {
-		stocked,
-		dead,
-		live,
-		source: "crop_cycle" as const,
-	};
+	return { stocked, dead, live, source };
 }
 
 /**
@@ -58,17 +57,17 @@ export async function getLiveCountForPond(
 ): Promise<LiveCount> {
 	const pond_ =
 		pond ?? (await prisma.pond.findUnique({ where: { id: pondId }, select: { population: true } }));
-	const [cycle, logs] = await Promise.all([
-		prisma.cropCycle.findFirst({
-			where: { pondId, status: "ACTIVE" },
-			select: { stockingCount: true, stockingDate: true },
-		}),
-		prisma.mortalityLog.aggregate({
-			where: { pondId },
-			_count: { count: true },
-			_sum: { count: true },
-		}),
-	]);
+	// The stocking date bounds the mortality that belongs to *this* cycle.
+	// Without it a second cycle inherits the first cycle's deaths (#430).
+	const cycle = await prisma.cropCycle.findFirst({
+		where: { pondId, status: "ACTIVE" },
+		select: { stockingCount: true, stockingDate: true },
+	});
+
+	const logs = await prisma.mortalityLog.aggregate({
+		where: cycle ? { pondId, recordedAt: { gte: cycle.stockingDate } } : { pondId },
+		_sum: { count: true },
+	});
 
 	const stocked = cycle ? cycle.stockingCount : (pond_?.population ?? null);
 	const source: LiveCount["source"] = cycle
@@ -76,7 +75,5 @@ export async function getLiveCountForPond(
 		: stocked !== null
 			? "legacy_population"
 			: "none";
-	const dead = Math.max(0, Math.floor(logs._sum.count ?? 0));
-	const live = stocked === null ? null : Math.max(0, stocked - dead);
-	return { stocked, dead, live, source };
+	return deriveLiveCount(stocked, logs._sum.count ?? 0, source);
 }

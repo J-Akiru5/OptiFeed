@@ -1642,6 +1642,7 @@
 			"eventType_set_time": "Ginset ang Oras sang Device",
 			"eventType_data_imported": "Na-import ang Datos",
 			"eventType_data_exported": "Na-export ang Datos",
+			"eventType_safety_trip": "Nag-lock sa safe mode",
 			"source_system": "System",
 			"source_user": "User",
 			"source_device": "Device",

@@ -2244,6 +2244,7 @@
 			"eventType_set_time": "Device Time Set",
 			"eventType_data_imported": "Data Imported",
 			"eventType_data_exported": "Data Exported",
+			"eventType_safety_trip": "Safety Trip (safe mode)",
 			"source_system": "System",
 			"source_user": "User",
 			"source_device": "Device",

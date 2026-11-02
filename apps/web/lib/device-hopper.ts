@@ -1,5 +1,5 @@
 import { getLatestHealthKey } from "@/lib/device-health";
-import { faultsFromMask } from "@/lib/device-health-model";
+import { type DeviceSensorFault, faultsFromMask } from "@/lib/device-health-model";
 import {
 	DEFAULT_DEVICE_STATUS_POLICY,
 	type DeviceConnectionState,
@@ -66,10 +66,18 @@ export interface HopperSnapshot {
 	 * The reading keeps its last known value and is presented as stale.
 	 */
 	sensorOffline: boolean;
+	/** Safe mode and active faults as last reported, or null when never reported. */
+	health: HopperHealth | null;
 	/** Fresh, plausible RSSI in dBm, or null when none/old firmware/stale. */
 	rssiDbm: number | null;
 	hopperCapacityG: number | null;
 	gramsPerFeeding: number | null;
+}
+
+/** The health fields the dashboard chrome reads (#575). */
+export interface HopperHealth {
+	safeMode: boolean;
+	faults: DeviceSensorFault[];
 }
 
 /** Firmware fault name for the HC-SR04 hopper sensor (`firmware-main/status.h`). */
@@ -114,6 +122,7 @@ export function toHopperSnapshot(
 	now: Date = new Date(),
 	policy: DeviceStatusPolicy = DEFAULT_DEVICE_STATUS_POLICY,
 	sensorFault = false,
+	health: HopperHealth | null = null,
 ): HopperSnapshot {
 	// I-97: the stored signal feeds the same rule; a stale reading is dropped so
 	// a silent unit is not shown as a current "weak signal".
@@ -139,6 +148,7 @@ export function toHopperSnapshot(
 			now,
 			policy,
 		}),
+		health,
 		rssiDbm,
 		hopperCapacityG: row.hopperCapacityG ?? null,
 		gramsPerFeeding: row.gramsPerFeeding ?? null,
@@ -146,19 +156,26 @@ export function toHopperSnapshot(
 }
 
 /**
- * The newest `device_health` row names the fault; a failed read is advisory and
- * must not take the hopper surface down (same rule as `getDeviceHealthSafe`).
+ * The newest `device_health` row carries both the sensor fault and the state the
+ * dashboard chrome shows (#575). A failed read is advisory and must not take the
+ * hopper surface down (same rule as `getDeviceHealthSafe`).
  */
-async function readHopperSensorFault(deviceId: string): Promise<boolean> {
+async function readHopperHealth(deviceId: string): Promise<HopperHealth | null> {
 	try {
-		const health = await getLatestHealthKey(deviceId);
-		return health ? faultsFromMask(health.faultsPresent).includes(HOPPER_SENSOR_FAULT) : false;
+		const key = await getLatestHealthKey(deviceId);
+		if (!key) return null;
+		return {
+			safeMode: key.safeMode,
+			faults: faultsFromMask(key.faultsPresent).filter(
+				(fault): fault is DeviceSensorFault => fault !== "safe_mode",
+			),
+		};
 	} catch (error) {
 		console.warn(
 			"[device-hopper] health read failed",
 			error instanceof Error ? error.message : String(error),
 		);
-		return false;
+		return null;
 	}
 }
 
@@ -176,5 +193,8 @@ export async function loadPondHopper(
 		getDeviceStatusPolicy(),
 	]);
 	if (!row) return null;
-	return toHopperSnapshot(row, now, policy, await readHopperSensorFault(row.id));
+	// One health read feeds both the sensor state (#574) and the sidebar badge (#575).
+	const health = await readHopperHealth(row.id);
+	const sensorFault = health?.faults.includes(HOPPER_SENSOR_FAULT) ?? false;
+	return toHopperSnapshot(row, now, policy, sensorFault, health);
 }

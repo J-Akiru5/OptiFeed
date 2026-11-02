@@ -585,6 +585,20 @@
 			"ok": "OK",
 			"noData": "No data"
 		},
+		"monitoring": {
+			"title": "Monitoring",
+			"statusOnline": "Online",
+			"statusWeak": "Weak signal",
+			"statusOffline": "Offline",
+			"statusSafeMode": "Safe mode",
+			"statusFault": "{count, plural, one {# fault} other {# faults}}",
+			"statusNoDevice": "No feeder paired",
+			"healthSafeMode": "Safe mode: doses are refused",
+			"healthFaults": "{count, plural, one {# active fault} other {# active faults}}",
+			"healthClear": "No faults reported",
+			"lastKnownShort": "Last known",
+			"summaryLabel": "{status}. Hopper level {percent}."
+		},
 		"feederHero": {
 			"eyebrow": "Live monitoring",
 			"label": "Feeder overview for {pond}",

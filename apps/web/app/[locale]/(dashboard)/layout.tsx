@@ -10,12 +10,14 @@ import { DashboardLiveRefresh } from "@/components/dashboard-live-refresh";
 import { FabStack } from "@/components/fab-stack";
 import { CompactHeaderActions, HeaderActions } from "@/components/header-actions";
 import { MobileHeader } from "@/components/mobile/mobile-header";
+import { MobileMonitoringHud } from "@/components/mobile/monitoring-hud";
 import { NotificationProvider } from "@/components/notification-provider";
 import { OnboardingProvider } from "@/components/onboarding-provider";
 import { PondSelector } from "@/components/pond-selector";
 import { OfflineSync } from "@/components/pwa/offline-sync";
 import { GlobalSearch } from "@/components/search/global-search";
 import { Sidebar } from "@/components/sidebar";
+import type { MonitoringHealth } from "@/components/status/monitoring-status";
 import { ViewAsBanner } from "@/components/superadmin/view-as-banner";
 import { Link } from "@/i18n/routing";
 import { getViewAsBanner } from "@/lib/actions/platform/impersonation";
@@ -85,6 +87,7 @@ export default async function DashboardLayout({
 	let hopperFeedsPerDay: number | null = null;
 	let hopperSensorOffline = false;
 	let esp32Status: "online" | "weak" | "offline" | "missing" = "missing";
+	let monitoringHealth: MonitoringHealth | null = null;
 	let pondName = "";
 	let lastSeenAtStr: string | null = null;
 	let ponds: { id: string; name: string }[] = [];
@@ -119,6 +122,10 @@ export default async function DashboardLayout({
 				esp32Status = hopper.status;
 				hopperSensorOffline = hopper.sensorOffline;
 				lastSeenAtStr = hopper.lastSeenAt ? hopper.lastSeenAt.toISOString() : null;
+				// The snapshot already carries one bounded health read (#574/#575);
+				// safe mode and active faults are advisory here, so a failed read
+				// never breaks the dashboard.
+				monitoringHealth = hopper.health;
 			}
 		}
 	} catch (err) {
@@ -259,6 +266,8 @@ export default async function DashboardLayout({
 								feedsPerDay={hopperFeedsPerDay}
 								isOffline={esp32Status === "offline"}
 								isSensorOffline={hopperSensorOffline}
+								connection={esp32Status}
+								health={monitoringHealth}
 								showHopperWidget={showPondChrome}
 							/>
 							<main
@@ -283,6 +292,14 @@ export default async function DashboardLayout({
 					</NotificationProvider>
 
 					<ChatWidget />
+					<MobileMonitoringHud
+						levelPercent={hopperLevelPct}
+						levelUpdatedAt={hopperLevelUpdatedAt}
+						sensorOffline={hopperSensorOffline}
+						connection={esp32Status}
+						health={monitoringHealth}
+						show={showPondChrome}
+					/>
 					<BottomNav />
 					<FabStack />
 				</div>

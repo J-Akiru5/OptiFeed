@@ -27,6 +27,7 @@ const LAPTOPS = [
 	{ name: "1366x768", width: 1366, height: 768 },
 	{ name: "1440x900", width: 1440, height: 900 },
 	{ name: "1536x864", width: 1536, height: 864 },
+	{ name: "1903x873 (1920x1080 at 100 %)", width: 1903, height: 873 },
 	{ name: "1920x1080", width: 1920, height: 1080 },
 ] as const;
 
@@ -153,4 +154,83 @@ test("the dashboard fits one laptop screen and only the rail scrolls (#399)", as
 			60,
 		);
 	}
+});
+
+/**
+ * Issue #475, second report: at 1903x873 the vertical squeeze is gone but the
+ * *horizontal* labels were still being cut. The hero printed the pond as
+ * "Demo P…", the volume orphaned its unit onto a second line, and the rail's
+ * cycle row ellipsized "Wala sang aktibo nga siklo". Truncation that hides a
+ * word is a layout failure, not a content problem, so pin it in a browser.
+ */
+test("the control room never truncates its labels at the reported viewport (#475)", async ({
+	page,
+}) => {
+	await page.setViewportSize({ width: 1903, height: 873 });
+	await login(page);
+	await expect(page).toHaveURL(/\/dashboard/);
+	const room = page.locator(".ofd-control-room");
+	await expect(room).toBeVisible();
+	await page.waitForTimeout(150);
+
+	const state = await page.evaluate(() => {
+		const metrics = (selector: string) =>
+			Array.from(document.querySelectorAll<HTMLElement>(selector)).map((element) => ({
+				text: (element.textContent ?? "").trim(),
+				clientWidth: element.clientWidth,
+				clientHeight: element.clientHeight,
+				scrollWidth: element.scrollWidth,
+				scrollHeight: element.scrollHeight,
+				lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight) || 0,
+			}));
+
+		const root = document.querySelector(".ofd-control-room");
+		const canvas = root?.querySelector("figure") ?? null;
+		const title = canvas?.querySelector<HTMLElement>("[data-fit='pond-title']") ?? null;
+
+		return {
+			pond: metrics("[data-fit='hero-pond']"),
+			volume: metrics("[data-fit='hero-volume']"),
+			rate: metrics("[data-fit='hero-rate']"),
+			meta: metrics("[data-fit='pond-meta']"),
+			canvasBottom: canvas ? canvas.getBoundingClientRect().bottom : 0,
+			titleBottom: title ? title.getBoundingClientRect().bottom : 0,
+		};
+	});
+
+	// The pond name must be readable, not ellipsized to "Demo P…".
+	for (const pond of state.pond) {
+		expect(pond.text, "the hero pond name is empty").not.toBe("");
+		expect(
+			pond.clientWidth,
+			`hero pond column is crushed to ${pond.clientWidth}px`,
+		).toBeGreaterThan(88);
+		expect(
+			pond.scrollHeight,
+			`hero pond name is clamped: ${pond.scrollHeight} > ${pond.clientHeight}`,
+		).toBeLessThanOrEqual(pond.clientHeight + 1);
+	}
+
+	// Number and unit share one line ("2110.06 g", never a lone "g" below).
+	for (const stat of [...state.volume, ...state.rate]) {
+		const oneLine = Math.max(stat.lineHeight * 1.6, stat.clientHeight);
+		expect(
+			stat.scrollHeight,
+			`hero stat wraps: ${stat.scrollHeight} > ${oneLine}`,
+		).toBeLessThanOrEqual(oneLine + 1);
+	}
+
+	// The rail's summary values wrap instead of ellipsizing.
+	for (const entry of state.meta) {
+		expect(
+			entry.scrollWidth,
+			`rail value is ellipsized: ${entry.scrollWidth} > ${entry.clientWidth}`,
+		).toBeLessThanOrEqual(entry.clientWidth + 1);
+	}
+
+	// The pond overlay sits inside the canvas instead of being clipped by it.
+	expect(state.canvasBottom, "pond canvas missing").toBeGreaterThan(0);
+	expect(state.titleBottom, "pond title is clipped by the canvas").toBeLessThanOrEqual(
+		state.canvasBottom + 1,
+	);
 });

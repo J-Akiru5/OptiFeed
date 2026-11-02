@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
 	const update = vi.fn();
+	const updateMany = vi.fn();
 	const upsert = vi.fn();
 	return {
 		create: vi.fn(),
@@ -20,14 +21,14 @@ const mocks = vi.hoisted(() => {
 		count: vi.fn(),
 		findUnique: vi.fn(),
 		deleteMany: vi.fn(),
-		updateMany: vi.fn(),
+		updateMany,
 		update,
 		upsert,
 		aggregate: vi.fn(),
 		queryRaw: vi.fn(),
 		executeRaw: vi.fn(),
 		transaction: vi.fn(),
-		tx: { backgroundJob: { update }, jobArtifact: { upsert } },
+		tx: { backgroundJob: { updateMany }, jobArtifact: { upsert } },
 		buildCsvExport: vi.fn(),
 		buildBatchExport: vi.fn(),
 		buildPdfExport: vi.fn(),
@@ -112,7 +113,7 @@ beforeEach(() => {
 	mocks.transaction.mockImplementation(async (run: (tx: unknown) => Promise<unknown>) =>
 		run(mocks.tx),
 	);
-	mocks.update.mockResolvedValue(JOB);
+	mocks.updateMany.mockResolvedValue(JOB);
 	mocks.upsert.mockResolvedValue({});
 	mocks.buildCsvExport.mockResolvedValue(ARTIFACT);
 	mocks.buildBatchExport.mockResolvedValue(ARTIFACT);
@@ -224,9 +225,7 @@ describe("claimNextJob", () => {
 		expect(sql).toContain(
 			`"nextAttemptAt" IS NULL OR "nextAttemptAt" <= (NOW() AT TIME ZONE 'UTC')`,
 		);
-		expect(sql).toContain(
-			`ORDER BY "attempts" ASC, COALESCE("nextAttemptAt", "createdAt") ASC, "createdAt" ASC`,
-		);
+		expect(sql).toContain(`ORDER BY COALESCE("nextAttemptAt", "createdAt") ASC, "createdAt" ASC`);
 		expect(sql).toContain("FOR UPDATE SKIP LOCKED");
 	});
 });
@@ -236,8 +235,8 @@ describe("runJob exports", () => {
 		await runJob(JOB);
 
 		expect(mocks.buildCsvExport).toHaveBeenCalledWith("farm-a", "feed_events");
-		expect(mocks.update).toHaveBeenCalledWith({
-			where: { id: "job_1" },
+		expect(mocks.updateMany).toHaveBeenCalledWith({
+			where: { id: "job_1", lockedBy: "worker-1", status: "running" },
 			data: {
 				status: "succeeded",
 				result: {
@@ -247,6 +246,7 @@ describe("runJob exports", () => {
 					download_url: "/api/v1/jobs/job_1/download",
 				},
 				error: null,
+				lastError: null,
 				finishedAt: expect.any(Date),
 				nextAttemptAt: null,
 				lockedAt: null,
@@ -331,7 +331,7 @@ describe("runJob imports", () => {
 		} as unknown as BackgroundJob);
 
 		expect(mocks.confirmImport).toHaveBeenCalledWith("farm-a", "feed_events", "a,b\n1,2\n");
-		expect(mocks.update).toHaveBeenCalledWith(
+		expect(mocks.updateMany).toHaveBeenCalledWith(
 			expect.objectContaining({
 				data: expect.objectContaining({
 					status: "succeeded",
@@ -344,21 +344,21 @@ describe("runJob imports", () => {
 });
 
 describe("runJob failures", () => {
-	it("retries an unknown job type with backoff instead of dead-lettering at once", async () => {
+	it("dead-letters an unknown job type on the first attempt", async () => {
 		await runJob({ ...JOB, type: "export_docx", attempts: 1 } as unknown as BackgroundJob);
 
 		expect(mocks.reportError).toHaveBeenCalledWith(
 			expect.objectContaining({ message: "Unknown job type: export_docx" }),
 			{ route: "jobs/worker", jobId: "job_1", type: "export_docx" },
 		);
-		expect(mocks.update).toHaveBeenCalledWith({
-			where: { id: "job_1" },
+		expect(mocks.updateMany).toHaveBeenCalledWith({
+			where: { id: "job_1", lockedBy: "worker-1", status: "running" },
 			data: {
-				status: "queued",
-				error: null,
+				status: "failed",
+				error: "The job failed. Try again.",
 				lastError: "Unknown job type: export_docx",
-				nextAttemptAt: expect.any(Date),
-				finishedAt: null,
+				finishedAt: expect.any(Date),
+				nextAttemptAt: null,
 				lockedAt: null,
 				lockedBy: null,
 			},
@@ -366,19 +366,18 @@ describe("runJob failures", () => {
 		expect(mocks.transaction).not.toHaveBeenCalled();
 	});
 
-	it("dead-letters the final attempt with a finish time and no next attempt", async () => {
-		await runJob({
-			...JOB,
-			type: "export_docx",
-			attempts: JOB_MAX_ATTEMPTS,
-		} as unknown as BackgroundJob);
+	it("dead-letters the final attempt of a transient failure", async () => {
+		mocks.buildCsvExport.mockRejectedValue(new Error("connection reset"));
 
-		expect(mocks.update).toHaveBeenCalledWith(
+		await runJob({ ...JOB, attempts: JOB_MAX_ATTEMPTS });
+
+		expect(mocks.updateMany).toHaveBeenCalledWith(
 			expect.objectContaining({
+				where: { id: "job_1", lockedBy: "worker-1", status: "running" },
 				data: expect.objectContaining({
 					status: "failed",
 					error: "The job failed. Try again.",
-					lastError: "Unknown job type: export_docx",
+					lastError: "connection reset",
 					finishedAt: expect.any(Date),
 					nextAttemptAt: null,
 				}),
@@ -393,7 +392,7 @@ describe("runJob failures", () => {
 
 		await runJob({ ...JOB, attempts: JOB_MAX_ATTEMPTS });
 
-		expect(mocks.update).toHaveBeenCalledWith(
+		expect(mocks.updateMany).toHaveBeenCalledWith(
 			expect.objectContaining({
 				data: expect.objectContaining({
 					status: "failed",
@@ -411,7 +410,7 @@ describe("runJob failures", () => {
 
 		await runJob({ ...JOB, attempts: JOB_MAX_ATTEMPTS });
 
-		expect(mocks.update).toHaveBeenCalledWith(
+		expect(mocks.updateMany).toHaveBeenCalledWith(
 			expect.objectContaining({
 				data: expect.objectContaining({
 					error: "The job failed. Try again.",
@@ -426,8 +425,23 @@ describe("runJob failures", () => {
 
 		await runJob({ ...JOB, attempts: JOB_MAX_ATTEMPTS });
 
-		const data = mocks.update.mock.calls[0]?.[0].data as { error: string };
+		const data = mocks.updateMany.mock.calls[0]?.[0].data as { error: string };
 		expect(data.error).toHaveLength(500);
+	});
+
+	it("dead-letters a 4xx on the first attempt instead of retrying it", async () => {
+		mocks.buildCsvExport.mockRejectedValue(
+			new ApiError(400, "BAD_REQUEST", "There is nothing to export yet."),
+		);
+
+		await runJob({ ...JOB, attempts: 1 });
+
+		const data = mocks.updateMany.mock.calls[0]?.[0].data as {
+			status: string;
+			error: string;
+		};
+		expect(data.status).toBe("failed");
+		expect(data.error).toBe("There is nothing to export yet.");
 	});
 
 	it("retries when the completion transaction rejects", async () => {
@@ -439,7 +453,7 @@ describe("runJob failures", () => {
 			expect.objectContaining({ message: "connection reset" }),
 			{ route: "jobs/worker", jobId: "job_1", type: "export_csv" },
 		);
-		expect(mocks.update).toHaveBeenCalledWith(
+		expect(mocks.updateMany).toHaveBeenCalledWith(
 			expect.objectContaining({
 				data: expect.objectContaining({ status: "queued", lastError: "connection reset" }),
 			}),
@@ -461,22 +475,28 @@ describe("maintenance", () => {
 		expect(where.expiresAt.lt.getTime()).toBeLessThanOrEqual(Date.now());
 	});
 
-	it("caps stale leases and schedules the next attempt with backoff", async () => {
-		mocks.executeRaw.mockResolvedValue(2);
+	it("dead-letters exhausted and import leases, and backs off the rest", async () => {
+		mocks.executeRaw.mockResolvedValueOnce(1).mockResolvedValueOnce(1);
 		const before = Date.now() - 5 * 60 * 1000;
 
 		const requeued = await requeueStaleJobs();
 
 		expect(requeued).toBe(2);
-		const sql = (mocks.executeRaw.mock.calls[0]?.[0] as TemplateStringsArray).join("?");
-		expect(sql).toContain(`"status" = CASE WHEN "attempts" >= ? THEN 'failed' ELSE 'queued' END`);
-		expect(sql).toContain(`"nextAttemptAt"`);
-		expect(sql).toContain(`POWER(2, GREATEST("attempts" - 1, 0))`);
-		expect(sql).toContain(`"lockedAt" < ?`);
+		expect(mocks.executeRaw).toHaveBeenCalledTimes(2);
 
-		const params = mocks.executeRaw.mock.calls[0]?.slice(1) as unknown[];
+		const failedSql = (mocks.executeRaw.mock.calls[0]?.[0] as TemplateStringsArray).join("?");
+		expect(failedSql).toContain(`"status" = 'failed'`);
+		expect(failedSql).toContain(`"attempts" >= ? OR "type" = 'import_confirm'`);
+
+		const requeueSql = (mocks.executeRaw.mock.calls[1]?.[0] as TemplateStringsArray).join("?");
+		expect(requeueSql).toContain(`"status" = 'queued'`);
+		expect(requeueSql).toContain(`"nextAttemptAt"`);
+		expect(requeueSql).toContain(`POWER(2, GREATEST("attempts" - 1, 0))`);
+		expect(requeueSql).toContain(`"type" <> 'import_confirm'`);
+
+		const params = mocks.executeRaw.mock.calls[1]?.slice(1) as unknown[];
 		expect(params).toContain(JOB_MAX_ATTEMPTS);
-		const cutoff = params[params.length - 1] as Date;
+		const cutoff = params.find((value) => value instanceof Date) as Date;
 		expect(cutoff).toBeInstanceOf(Date);
 		expect(cutoff.getTime()).toBeGreaterThanOrEqual(before - 1_000);
 		expect(cutoff.getTime()).toBeLessThanOrEqual(before + 1_000);
@@ -497,7 +517,7 @@ describe("retry policy", () => {
 
 		await runJob({ ...JOB, attempts: 2 });
 
-		const data = mocks.update.mock.calls[0]?.[0].data as {
+		const data = mocks.updateMany.mock.calls[0]?.[0].data as {
 			status: string;
 			error: string | null;
 			lastError: string;
@@ -510,6 +530,24 @@ describe("retry policy", () => {
 		expect(delay).toBeGreaterThan(55_000);
 		expect(delay).toBeLessThanOrEqual(60_000);
 	});
+
+	it("does not retry an import failure, because the write may have committed", async () => {
+		mocks.confirmImport.mockRejectedValue(new Error("connection reset"));
+
+		await runJob({
+			...JOB,
+			type: "import_confirm",
+			payload: { type: "feed_events", csvData: "a,b\n1,2\n" },
+			attempts: 1,
+		} as unknown as BackgroundJob);
+
+		const data = mocks.updateMany.mock.calls[0]?.[0].data as {
+			status: string;
+			error: string;
+		};
+		expect(data.status).toBe("failed");
+		expect(data.error).toBe("The import may have been applied. Check the data before retrying.");
+	});
 });
 
 describe("per-job time limit", () => {
@@ -518,7 +556,7 @@ describe("per-job time limit", () => {
 
 		await runJob(JOB, { timeLimitMs: 5 });
 
-		const data = mocks.update.mock.calls[0]?.[0].data as {
+		const data = mocks.updateMany.mock.calls[0]?.[0].data as {
 			status: string;
 			lastError: string;
 		};
@@ -538,7 +576,7 @@ describe("per-job time limit", () => {
 			{ timeLimitMs: 5 },
 		);
 
-		const data = mocks.update.mock.calls[0]?.[0].data as {
+		const data = mocks.updateMany.mock.calls[0]?.[0].data as {
 			status: string;
 			lastError: string;
 			nextAttemptAt: null;
@@ -565,10 +603,10 @@ describe("poison job", () => {
 			const row = queue[next++];
 			return Promise.resolve(row ? [row] : []);
 		});
-		mocks.update.mockImplementation(
+		mocks.updateMany.mockImplementation(
 			async ({ where, data }: { where: { id: string }; data: { status: string } }) => {
 				status.set(where.id, data.status);
-				return { ...JOB, id: where.id, status: data.status };
+				return { count: 1 };
 			},
 		);
 		mocks.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) => ({
@@ -626,7 +664,7 @@ describe("processJobs", () => {
 			succeeded: 2,
 			failed: 0,
 			purged: 3,
-			requeued: 1,
+			requeued: 2,
 		});
 		// The loop stops at `max` instead of asking for a third job.
 		expect(mocks.queryRaw).toHaveBeenCalledTimes(2);
@@ -674,7 +712,25 @@ describe("processJobs", () => {
 		expect(result).toMatchObject({ claimed: 0, succeeded: 0, failed: 0 });
 		// Maintenance still runs before the budget is checked.
 		expect(mocks.deleteMany).toHaveBeenCalledTimes(1);
-		expect(mocks.executeRaw).toHaveBeenCalledTimes(1);
+		expect(mocks.executeRaw).toHaveBeenCalledTimes(2);
 		expect(mocks.queryRaw).not.toHaveBeenCalled();
+	});
+
+	it("gives a claim back instead of starting a job past the deadline", async () => {
+		mocks.queryRaw.mockResolvedValueOnce([{ ...JOB, id: "job_1" }]);
+
+		const result = await processJobs({
+			workerId: "worker-1",
+			max: 5,
+			budgetMs: 60_000,
+			deadlineMs: 5_000,
+		});
+
+		expect(result.claimed).toBe(0);
+		expect(mocks.buildCsvExport).not.toHaveBeenCalled();
+		expect(mocks.updateMany).toHaveBeenCalledWith({
+			where: { id: "job_1", lockedBy: "worker-1", status: "running" },
+			data: { status: "queued", lockedAt: null, lockedBy: null, attempts: { decrement: 1 } },
+		});
 	});
 });

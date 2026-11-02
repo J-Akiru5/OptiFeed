@@ -79,7 +79,10 @@ export default async function OperationsJobsPage() {
 								</Badge>
 							</td>
 							<td className="px-6 py-3">
-								<p className="line-clamp-2 max-w-[32rem] text-xs font-bold break-words text-[#0A3D62] dark:text-slate-100">
+								<p
+									title={job.lastError ?? undefined}
+									className="line-clamp-2 max-w-[32rem] text-xs font-bold break-words text-[#0A3D62] dark:text-slate-100"
+								>
 									{job.lastError ?? t("columnError")}
 								</p>
 							</td>

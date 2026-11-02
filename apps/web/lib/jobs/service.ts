@@ -1,5 +1,6 @@
 import { ApiError } from "@/lib/api/errors";
 import type { ExportableType } from "@/lib/csv";
+import { scrubText } from "@/lib/error-scrub";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
 import type { PdfReport, SheetType } from "@/lib/xlsx/schema";
@@ -137,10 +138,11 @@ export function jobDto(
  * The attempt cap is part of the claim predicate, not only application code:
  * a job that reached `JOB_MAX_ATTEMPTS` is never picked up again.
  *
- * Ordering is fair, not oldest-first (issue #590): jobs that have never been
- * tried beat retries, and a retry waits for its backoff before it is eligible.
- * A poison job therefore cannot sit at the head of the queue; it backs off and
- * eventually leaves the queue as `failed`.
+ * Ordering is fair, not oldest-first (issue #590): a job becomes eligible at
+ * `nextAttemptAt` (its backoff) or `createdAt` when it has never failed, and
+ * eligible jobs are taken oldest-first. A poison job therefore cannot sit at
+ * the head of the queue — its own backoff moves it behind fresh work — and a
+ * retry is never starved by newer jobs either.
  */
 export async function claimNextJob(workerId: string): Promise<BackgroundJob | null> {
 	const rows = await prisma.$queryRaw<BackgroundJob[]>`
@@ -156,7 +158,7 @@ export async function claimNextJob(workerId: string): Promise<BackgroundJob | nu
 				AND "expiresAt" > (NOW() AT TIME ZONE 'UTC')
 				AND "attempts" < ${JOB_MAX_ATTEMPTS}
 				AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= (NOW() AT TIME ZONE 'UTC'))
-			ORDER BY "attempts" ASC, COALESCE("nextAttemptAt", "createdAt") ASC, "createdAt" ASC
+			ORDER BY COALESCE("nextAttemptAt", "createdAt") ASC, "createdAt" ASC
 			FOR UPDATE SKIP LOCKED
 			LIMIT 1
 		)
@@ -261,18 +263,23 @@ async function completeJob(
 	result: Prisma.InputJsonValue,
 ): Promise<void> {
 	await prisma.$transaction(async (tx) => {
-		await tx.backgroundJob.update({
-			where: { id: job.id },
+		// Fence the write to the attempt that still owns the lease. A timed-out
+		// attempt may finish after the job was requeued or picked up again; its
+		// late completion must not overwrite the newer attempt or the dead letter.
+		const updated = await tx.backgroundJob.updateMany({
+			where: { id: job.id, lockedBy: job.lockedBy, status: "running" },
 			data: {
 				status: "succeeded",
 				result,
 				error: null,
+				lastError: null,
 				finishedAt: new Date(),
 				nextAttemptAt: null,
 				lockedAt: null,
 				lockedBy: null,
 			},
 		});
+		if (updated.count === 0) return;
 
 		if (artifact) {
 			const data = {
@@ -299,18 +306,26 @@ async function failJob(job: BackgroundJob, error: unknown): Promise<void> {
 
 	const attempts = Math.max(1, job.attempts);
 	const timedOut = error instanceof JobTimeoutError;
-	// The import writes in one transaction and can commit after we stop waiting,
-	// so a timeout there is terminal: retrying could duplicate rows. Exports are
-	// read-only and retry safely.
-	const retryable = !(timedOut && job.type === "import_confirm");
+	// An import owns a transaction that can commit before the job row is
+	// updated, so retrying after ANY import failure can duplicate rows. A 4xx
+	// ApiError and an unknown type will fail the same way again. Only transport
+	// failures on read-only exports are worth another attempt.
+	const permanent = error instanceof ApiError && error.status < 500;
+	const unknownType = error instanceof Error && error.message.startsWith("Unknown job type:");
+	const retryable = job.type !== "import_confirm" && !permanent && !unknownType;
 	const terminal = !retryable || attempts >= JOB_MAX_ATTEMPTS;
-	const detail = error instanceof Error ? error.message : String(error);
+	const detail = scrubText(error instanceof Error ? error.message : String(error));
 	const message =
-		error instanceof ApiError && error.expose ? error.message : "The job failed. Try again.";
+		job.type === "import_confirm"
+			? "The import may have been applied. Check the data before retrying."
+			: error instanceof ApiError && error.expose
+				? error.message
+				: "The job failed. Try again.";
 	const lastError = (timedOut ? "Timed out. " : "") + detail.slice(0, 1_980);
 
-	await prisma.backgroundJob.update({
-		where: { id: job.id },
+	const updated = await prisma.backgroundJob.updateMany({
+		// Fence to the attempt that still owns the lease, like completeJob.
+		where: { id: job.id, lockedBy: job.lockedBy, status: "running" },
 		data: terminal
 			? {
 					status: "failed",
@@ -331,6 +346,7 @@ async function failJob(job: BackgroundJob, error: unknown): Promise<void> {
 					lockedBy: null,
 				},
 	});
+	if (updated.count === 0) return;
 }
 
 export async function purgeExpiredJobs(): Promise<number> {
@@ -342,39 +358,56 @@ export async function purgeExpiredJobs(): Promise<number> {
 
 export async function requeueStaleJobs(): Promise<number> {
 	// A crashed worker's lease is recovered, but the attempt cap and the
-	// backoff apply here too: a job that has exhausted its attempts is
-	// dead-lettered instead of being requeued forever (issue #590).
+	// backoff apply here too (issue #590). An expired import lease is treated
+	// like any import failure: the transaction may have committed, so it is
+	// dead-lettered instead of retried.
 	const staleBefore = new Date(Date.now() - STALE_LOCK_MS);
+
+	const failed = await prisma.$executeRaw`
+		UPDATE "BackgroundJob"
+		SET
+			"status" = 'failed',
+			"error" = CASE
+				WHEN "type" = 'import_confirm'
+					THEN 'The import may have been applied. Check the data before retrying.'
+				ELSE 'The job did not finish. Try again.'
+			END,
+			"lastError" = CASE
+				WHEN "type" = 'import_confirm'
+					THEN 'Worker lease expired during an import; the write may have been applied.'
+				ELSE 'Worker lease expired after the final attempt.'
+			END,
+			"finishedAt" = (NOW() AT TIME ZONE 'UTC'),
+			"nextAttemptAt" = NULL,
+			"lockedAt" = NULL,
+			"lockedBy" = NULL
+		WHERE "status" = 'running'
+			AND "lockedAt" < ${staleBefore}
+			AND ("attempts" >= ${JOB_MAX_ATTEMPTS} OR "type" = 'import_confirm');
+	`;
+
 	const requeued = await prisma.$executeRaw`
 		UPDATE "BackgroundJob"
 		SET
-			"status" = CASE WHEN "attempts" >= ${JOB_MAX_ATTEMPTS} THEN 'failed' ELSE 'queued' END,
-			"error" = CASE
-				WHEN "attempts" >= ${JOB_MAX_ATTEMPTS} THEN 'The job did not finish. Try again.'
-				ELSE NULL
-			END,
-			"lastError" = CASE
-				WHEN "attempts" >= ${JOB_MAX_ATTEMPTS} THEN 'Worker lease expired after the final attempt.'
-				ELSE 'Worker lease expired; the job was requeued.'
-			END,
-			"finishedAt" = CASE
-				WHEN "attempts" >= ${JOB_MAX_ATTEMPTS} THEN (NOW() AT TIME ZONE 'UTC')
-				ELSE NULL
-			END,
-			"nextAttemptAt" = CASE
-				WHEN "attempts" >= ${JOB_MAX_ATTEMPTS} THEN NULL
-				ELSE (NOW() AT TIME ZONE 'UTC') + (
-					LEAST(
-						POWER(2, GREATEST("attempts" - 1, 0)) * ${JOB_BACKOFF_BASE_MS},
-						${JOB_BACKOFF_MAX_MS}
-					) * INTERVAL '1 millisecond'
-				)
-			END,
+			"status" = 'queued',
+			"error" = NULL,
+			"lastError" = 'Worker lease expired; the job was requeued.',
+			"finishedAt" = NULL,
+			"nextAttemptAt" = (NOW() AT TIME ZONE 'UTC') + (
+				LEAST(
+					POWER(2, GREATEST("attempts" - 1, 0)) * ${JOB_BACKOFF_BASE_MS},
+					${JOB_BACKOFF_MAX_MS}
+				) * INTERVAL '1 millisecond'
+			),
 			"lockedAt" = NULL,
 			"lockedBy" = NULL
-		WHERE "status" = 'running' AND "lockedAt" < ${staleBefore};
+		WHERE "status" = 'running'
+			AND "lockedAt" < ${staleBefore}
+			AND "attempts" < ${JOB_MAX_ATTEMPTS}
+			AND "type" <> 'import_confirm';
 	`;
-	return requeued;
+
+	return failed + requeued;
 }
 
 export interface ProcessJobsResult {
@@ -382,6 +415,7 @@ export interface ProcessJobsResult {
 	succeeded: number;
 	failed: number;
 	purged: number;
+	/** Stale leases handled: requeued with backoff or dead-lettered. */
 	requeued: number;
 }
 
@@ -455,16 +489,22 @@ export async function processJobs(options: {
 
 	while (claimed < options.max && Date.now() - startedAt < options.budgetMs) {
 		const remaining = deadlineMs - (Date.now() - startedAt);
-		// The claim increments the attempt, so do not start a job there is no
-		// time to finish: the route would kill it with the lock held.
+		// Do not claim when the route envelope leaves no room for any job.
 		if (remaining <= JOB_MIN_START_MS) break;
 
 		const job = await claimNextJob(options.workerId);
 		if (!job) break;
-		claimed += 1;
 
 		const typeLimit = JOB_TIME_LIMITS_MS[job.type as JobType] ?? JOB_TIME_LIMIT_MS;
-		await runJob(job, { timeLimitMs: Math.min(typeLimit, Math.max(250, remaining - 500)) });
+		if (remaining < typeLimit + 500) {
+			// A shorter limit would time out a healthy job; give the claim back
+			// without spending an attempt and let the next tick run it.
+			await releaseClaimedJob(job, options.workerId);
+			break;
+		}
+		claimed += 1;
+
+		await runJob(job, { timeLimitMs: Math.min(typeLimit, remaining - 500) });
 
 		const after = await prisma.backgroundJob.findUnique({
 			where: { id: job.id },
@@ -475,4 +515,12 @@ export async function processJobs(options: {
 	}
 
 	return { claimed, succeeded, failed, purged, requeued };
+}
+
+/** Undo a claim we decided not to run (deadline), without spending an attempt. */
+async function releaseClaimedJob(job: BackgroundJob, workerId: string): Promise<void> {
+	await prisma.backgroundJob.updateMany({
+		where: { id: job.id, lockedBy: workerId, status: "running" },
+		data: { status: "queued", lockedAt: null, lockedBy: null, attempts: { decrement: 1 } },
+	});
 }

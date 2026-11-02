@@ -2,6 +2,13 @@
 
 Smart shrimp feeding management.
 
+## Documentation
+
+Start at [`docs/README.md`](./docs/README.md) — the map of the plan, the
+decisions, the workflow and the runbooks. It is the entry point for humans and
+agents; the rules themselves live in [`CONTRIBUTING.md`](./CONTRIBUTING.md),
+[`HANDOFF.md`](./HANDOFF.md) and [`docs/deployment-workflow.md`](./docs/deployment-workflow.md).
+
 ## Tech Stack
 
 - **Framework:** Next.js 16 (App Router)

@@ -11,6 +11,9 @@ vi.mock("@/lib/prisma", () => ({
 		},
 		notification: {
 			create: vi.fn(),
+			findFirst: vi.fn(),
+			update: vi.fn(),
+			updateMany: vi.fn(),
 		},
 		pond: {
 			findMany: vi.fn(),
@@ -100,7 +103,10 @@ describe("api/cron/device-watch", () => {
 		mockEnergyDevice.findMany.mockResolvedValue([STALE_DEVICE] as never);
 		mockDeviceStateEvent.findFirst.mockResolvedValue(null as never);
 		mockDeviceStateEvent.create.mockResolvedValue({} as never);
-		mockNotification.create.mockResolvedValue({} as never);
+		mockNotification.create.mockResolvedValue({ id: "notif-offline" } as never);
+		mockNotification.findFirst.mockResolvedValue(null as never);
+		mockNotification.update.mockResolvedValue({} as never);
+		mockNotification.updateMany.mockResolvedValue({ count: 0 } as never);
 		vi.mocked(prisma.pond.findMany).mockResolvedValue([{ ...POND }] as never);
 		vi.mocked(prisma.user.findMany).mockResolvedValue([] as never);
 		vi.mocked(prisma.membership.findMany).mockResolvedValue([] as never);
@@ -154,13 +160,16 @@ describe("api/cron/device-watch", () => {
 
 		expect(mockDeviceStateEvent.create).toHaveBeenCalledTimes(1);
 		expect(mockNotification.create).toHaveBeenCalledTimes(1);
-		expect(mockNotification.create).toHaveBeenCalledWith({
-			data: expect.objectContaining({
-				pondId: "pond-1",
-				tier: "CRITICAL",
-				category: "connectivity",
+		expect(mockNotification.create).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					pondId: "pond-1",
+					tier: "CRITICAL",
+					category: "connectivity",
+					episodeKey: "offline:dev-1",
+				}),
 			}),
-		});
+		);
 
 		// The alert is in-app only (ADR-0007): one Notification row on the first
 		// detection, none on the repeat.

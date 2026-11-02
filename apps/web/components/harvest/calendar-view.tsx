@@ -13,7 +13,7 @@ import {
 } from "@/lib/calendar/event-colors";
 import { CALENDAR_TOOLBAR_VIEWS, initialCalendarView } from "@/lib/calendar/views";
 import type { CalendarEventDto } from "@/lib/crop-cycle/calendar";
-import { FARM_TIME_ZONE, addDays } from "@/lib/crop-cycle/dates";
+import { FARM_TIME_ZONE, addDays, formatDateOnly } from "@/lib/crop-cycle/dates";
 import FullCalendar from "@fullcalendar/react";
 import type {
 	DateSelectInfo,
@@ -45,6 +45,8 @@ interface CalendarViewProps {
 	onViewChange: (viewType: string) => void;
 	onEventClick: (event: CalendarEventDto) => void;
 	onDateClick: (date: string) => void;
+	/** The "+N more" link, so a busy day opens the day pane (#534). */
+	onMoreClick?: (date: string) => void;
 	onSelect: (selection: { start: string; end: string | null; allDay: boolean }) => void;
 	onEventDrop: (event: CalendarEventDto, start: string, end: string | null) => Promise<boolean>;
 	onEventResize: (event: CalendarEventDto, start: string, end: string | null) => Promise<boolean>;
@@ -97,6 +99,7 @@ export function CalendarView({
 	onViewChange,
 	onEventClick,
 	onDateClick,
+	onMoreClick,
 	onSelect,
 	onEventDrop,
 	onEventResize,
@@ -194,6 +197,13 @@ export function CalendarView({
 	const handleEventClick = (arg: EventClickInfo) => {
 		const dto = arg.event.extendedProps.dto as CalendarEventDto | undefined;
 		if (dto) onEventClick(dto);
+	};
+
+	// Returning "none" keeps FullCalendar's own popover closed and hands the day
+	// to the pane, which has room for 150 alerts (#534).
+	const handleMoreClick = (arg: { date: Date }) => {
+		onMoreClick?.(formatDateOnly(arg.date));
+		return "none" as const;
 	};
 
 	const handleDateClick = (arg: { dateStr: string }) => {
@@ -331,6 +341,7 @@ export function CalendarView({
 				events={calendarEvents}
 				eventClick={handleEventClick}
 				dateClick={handleDateClick}
+				moreLinkClick={handleMoreClick}
 				select={handleSelect}
 				eventDrop={handleEventDrop}
 				eventResize={handleEventResize}

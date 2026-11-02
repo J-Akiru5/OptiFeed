@@ -27,6 +27,7 @@ import { HOPPER_CAPACITY_KG } from "@/lib/constants";
 import type { CalendarEventDto, CalendarEventType } from "@/lib/crop-cycle/calendar";
 import { CALENDAR_EVENT_TYPES, isCalendarEventType } from "@/lib/crop-cycle/calendar";
 import { FARM_TIME_ZONE, addDays, daysBetween, todayDateOnly } from "@/lib/crop-cycle/dates";
+import { countDayEvents } from "@/lib/crop-cycle/day-groups";
 import { computeCropCycleMetrics } from "@/lib/crop-cycle/metrics";
 import type { CropCycleDto, PondOption } from "@/lib/crop-cycle/types";
 import { resolveFeedLevelDisplay } from "@/lib/feed-level-display";
@@ -55,6 +56,7 @@ import { toast } from "sonner";
 import { CalendarTypeFilters } from "./calendar-controls";
 import { CalendarErrorBoundary } from "./calendar-error-boundary";
 import { CycleForm } from "./cycle-form";
+import { DayEventsPanel } from "./day-events-panel";
 import { EventEditor, type EventEditorSelection } from "./event-editor";
 import { HarvestForm } from "./harvest-form";
 import { Modal } from "./modal";
@@ -73,6 +75,15 @@ const CalendarView = dynamic(
 		),
 	},
 );
+
+/** Day-pane heading — a date only, never a time. */
+function formatDayHeading(day: string, locale: string): string {
+	const instant = new Date(`${day}T00:00:00+08:00`);
+	return new Intl.DateTimeFormat(locale, {
+		dateStyle: "medium",
+		timeZone: FARM_TIME_ZONE,
+	}).format(instant);
+}
 
 interface HarvestCalendarProps {
 	initialPondId: string;
@@ -188,6 +199,8 @@ export function HarvestCalendar({
 	const [editorSelection, setEditorSelection] = useState<EventEditorSelection | null>(null);
 	const [editingEvent, setEditingEvent] = useState<CalendarEventDto | null>(null);
 	const [details, setDetails] = useState<CalendarEventDto | null>(null);
+	// Calendar day whose events are shown in the retracting day pane (#534).
+	const [dayPanel, setDayPanel] = useState<string | null>(null);
 	const [cycleDetailsOpen, setCycleDetailsOpen] = useState(false);
 	const [isCancelling, startCancel] = useTransition();
 	const [isCompleting, startComplete] = useTransition();
@@ -488,7 +501,19 @@ export function HarvestCalendar({
 	};
 
 	const handleDateClick = (date: string) => {
-		openNewEvent({ start: date, end: null, allDay: true });
+		// A day click opens the day pane instead of the editor: the pane lists that
+		// day's alerts and events, and adding one is a button inside it (#534).
+		setDayPanel(date);
+	};
+
+	const addEventForDay = (day: string) => {
+		setDayPanel(null);
+		openNewEvent({ start: day, end: null, allDay: true });
+	};
+
+	const openDayEvent = (event: CalendarEventDto) => {
+		setDayPanel(null);
+		handleEventClick(event);
 	};
 
 	const handleSelect = (selection: EventEditorSelection) => {
@@ -1094,6 +1119,7 @@ export function HarvestCalendar({
 							onViewChange={setViewType}
 							onEventClick={handleEventClick}
 							onDateClick={handleDateClick}
+							onMoreClick={setDayPanel}
 							onSelect={handleSelect}
 							onEventDrop={handleEventDrop}
 							onEventResize={handleEventResize}
@@ -1214,6 +1240,40 @@ export function HarvestCalendar({
 				selection={editorSelection}
 				event={editingEvent}
 			/>
+
+			<Modal
+				open={Boolean(dayPanel)}
+				side="right"
+				size="md"
+				onClose={() => setDayPanel(null)}
+				title={dayPanel ? t("dayEvents.title", { date: formatDayHeading(dayPanel, locale) }) : ""}
+				description={
+					dayPanel
+						? t("dayEvents.subtitle", { count: countDayEvents(events, dayPanel) })
+						: undefined
+				}
+				footer={
+					canManage && !allPonds && dayPanel ? (
+						<button
+							type="button"
+							onClick={() => addEventForDay(dayPanel)}
+							className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A3D62] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#164e7c] dark:bg-[#1f66a0]"
+						>
+							<Plus className="h-4 w-4" />
+							{t("dayEvents.addEvent")}
+						</button>
+					) : undefined
+				}
+			>
+				{dayPanel && (
+					<DayEventsPanel
+						day={dayPanel}
+						events={events}
+						labelFor={labelFor}
+						onOpenEvent={openDayEvent}
+					/>
+				)}
+			</Modal>
 
 			<Modal
 				open={Boolean(details)}

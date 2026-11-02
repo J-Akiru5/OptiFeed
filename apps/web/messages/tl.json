@@ -1422,6 +1422,8 @@
 			"farmIdLabel": "Farm ID",
 			"farmNameLabel": "Pangalan ng Bukid",
 			"pondsLabel": "Mga Pond",
+			"pondsCount": "Mga Pond ({count})",
+			"managePonds": "Pamahalaan ang mga pond",
 			"noPonds": "Wala pang pond.",
 			"archived": "Naka-archive",
 			"accountTitle": "Account",

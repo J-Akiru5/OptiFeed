@@ -89,9 +89,12 @@ export function DashboardPageHeader({
 					{/* The mobile header band already shows this title; the real h1
 					    stays in the markup for assistive tech and from `sm` up. A
 					    greeting header is the exception: it wants the warm line. */}
+					{/* Long translated greetings (Tagalog is longer than English) must
+					    wrap inside the column instead of clipping or squeezing the
+					    actions beside them. */}
 					<h1
 						className={cn(
-							"font-black tracking-tight text-[#0A3D62] dark:text-[#5b9bd5]",
+							"font-black tracking-tight break-words text-balance text-[#0A3D62] dark:text-[#5b9bd5]",
 							mascot
 								? "text-xl sm:text-2xl lg:text-3xl"
 								: "sr-only text-2xl lg:not-sr-only lg:text-3xl",
@@ -100,19 +103,25 @@ export function DashboardPageHeader({
 						{title}
 					</h1>
 					{description && (
-						<p className="mt-1 max-w-2xl text-sm text-[#3D5568] dark:text-gray-300">
+						<p className="mt-1 max-w-2xl text-sm break-words text-[#3D5568] dark:text-gray-300">
 							{description}
 						</p>
 					)}
 					{summary && (
-						<p className="mt-1 text-xs font-bold text-[#C2410C] dark:text-[#ff8a5c]">{summary}</p>
+						<p className="mt-1 text-xs font-bold break-words text-[#C2410C] dark:text-[#ff8a5c]">
+							{summary}
+						</p>
 					)}
 					{children}
 				</div>
 			</div>
 
+			{/* Full-width row under the text below `sm` so the action can never
+			    overlap the greeting; right-aligned beside it from `sm` up. */}
 			{actions && (
-				<div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">{actions}</div>
+				<div className="flex w-full shrink-0 flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end">
+					{actions}
+				</div>
 			)}
 		</header>
 	);

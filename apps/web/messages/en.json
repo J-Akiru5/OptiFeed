@@ -1484,6 +1484,8 @@
 			"farmIdLabel": "Farm ID",
 			"farmNameLabel": "Farm Name",
 			"pondsLabel": "Ponds",
+			"pondsCount": "Ponds ({count})",
+			"managePonds": "Manage ponds",
 			"noPonds": "No ponds yet.",
 			"archived": "Archived",
 			"accountTitle": "Account",

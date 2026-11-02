@@ -1484,6 +1484,8 @@
 			"farmIdLabel": "Farm ID",
 			"farmNameLabel": "Ngaran sang Farm",
 			"pondsLabel": "Mga Punong",
+			"pondsCount": "Mga Punong ({count})",
+			"managePonds": "I-manage ang mga punong",
 			"noPonds": "Wala pa nga punong.",
 			"archived": "Naka-Archive",
 			"accountTitle": "Account",

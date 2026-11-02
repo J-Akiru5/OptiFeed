@@ -40,7 +40,7 @@
 
 | Pin   | Usage                                    |
 |-------|------------------------------------------|
-| GPIO 25 | Relay OUT (active HIGH by default; `-DRELAY_ACTIVE_LOW=1` for an active-LOW module). GPIO 5 also works via `-DRELAY_PIN=5` (see Relay pin) |
+| GPIO 25 | Relay OUT on the reference board (`esp32dev-gpio25`); GPIO 5 on the CICT field unit (`esp32dev-gpio5`). Active HIGH by default; `-DRELAY_ACTIVE_LOW=1` for an active-LOW module. The pin is never implied: see Relay pin |
 | GPIO 23 | Physical button (INPUT_PULLUP, press = LOW). A press must stay LOW for 50 ms before it dispenses the button dose (1.5.3); edges during and 2 s after a dispense are ignored, and button doses are limited to one per 30 s. Hold >= 5 s at boot to reset WiFi credentials (device identity is kept) |
 | GPIO 32 | DS18B20 water temperature probe (1-Wire; 4.7 kOhm pull-up to 3.3 V) |
 | GPIO 27 | HC-SR04 TRIG (output). Moved from GPIO 12 (strapping pin) on 2026-10-31; a 10 kOhm pull-down is optional |
@@ -49,7 +49,7 @@
 | GPIO 17 | Wi-Fi reset button (INPUT_PULLUP, press = LOW). Hold >= 5 s to clear WiFi only — the Device ID/Token are kept. A tap (< 5 s) acknowledges latched faults (1.8.0) |
 | GPIO 18 | FAULT lamp, yellow (LED + 200 Ω to GND; HIGH = on). Solid while a fault is latched (1.8.0) |
 | GPIO 26 | WI-FI lamp, blue (LED + 100 Ω to GND). Solid once joined to the saved network; 1 Hz blink in the setup portal; off otherwise (1.8.0) |
-| — | POWER lamp, white: 5 V rail + 330 Ω in hardware, no GPIO. FEEDING lamp, green: parallel tap on the relay control line (GPIO 25, or 5 on `esp32dev-relay5`), no GPIO |
+| — | POWER lamp, white: 5 V rail + 330 Ω in hardware, no GPIO. FEEDING lamp, green: parallel tap on the relay control line (GPIO 25 on `esp32dev-gpio25`, GPIO 5 on `esp32dev-gpio5`), no GPIO |
 | GPIO 21 | DS3231 SDA (I²C) — RTC                 |
 | GPIO 22 | DS3231 SCL (I²C) — RTC                 |
 | GPIO 1  | TX0 (USB debug serial)                  |
@@ -66,7 +66,7 @@ and yellow LEDs are firmware outputs.
 | Lamp | Wiring | Solid | Blinking | Off |
 |---|---|---|---|---|
 | POWER (white) | 5 V rail → 330 Ω → LED → GND; hardware, no GPIO | Control power available | — | No control power |
-| FEEDING (green) | Relay control line (GPIO 25, or 5 on `esp32dev-relay5`) → 200 Ω → LED → GND; a parallel tap, no GPIO | Relay energized (actual feeding) | — | Idle |
+| FEEDING (green) | Relay control line (GPIO 25 on `esp32dev-gpio25`, GPIO 5 on `esp32dev-gpio5`) → 200 Ω → LED → GND; a parallel tap, no GPIO | Relay energized (actual feeding) | — | Idle |
 | WI-FI (blue) | GPIO 26 → 100 Ω → LED → GND | Joined the configured network | Setup portal (provisioning) | Not connected (not a fault) |
 | FAULT (yellow) | GPIO 18 → 200 Ω → LED → GND | A fault is latched | — | No active fault |
 
@@ -130,7 +130,7 @@ needed.
 | Button | Define | GPIO | Hold | Effect |
 |--------|--------|------|------|--------|
 | Wi-Fi reset | `WIFI_RESET_BUTTON_PIN` | `17` | 5 s (`WIFI_RESET_HOLD_MS`) | Clears WiFi SSID/password **and the WiFi stack cache**, keeps Device ID/Token, reboots into the setup portal |
-| Factory reset | `FACTORY_RESET_BUTTON_PIN` | `16` | 10 s (`FACTORY_RESET_HOLD_MS`) | Clears WiFi, Device ID, Device Token and the `provisioned` marker, reboots into the setup portal |
+| Factory reset | `FACTORY_RESET_BUTTON_PIN` | `16` | 10 s (`FACTORY_RESET_HOLD_MS`) | Clears WiFi, Device ID, Device Token, the `provisioned` marker and `hw_variant`, reboots into the setup portal |
 
 Safety rules: buttons are ignored for the first 5 s after boot and must be
 released once before they arm, so a stuck button cannot wipe a unit. While the
@@ -160,23 +160,45 @@ toolchain as the energy-monitoring project: `espressif32@7.1.2`, board
 declared and resolved by PlatformIO — no Arduino Library Manager step.
 
 ```bash
-pip install platformio        # or use the PlatformIO IDE extension
-pio run -d firmware            # compile (field build)
-pio run -d firmware -t upload  # flash over USB
-pio device monitor -b 115200   # serial log
+pip install platformio            # or use the PlatformIO IDE extension
+pio run -d firmware -e esp32dev-gpio25           # reference board, relay GPIO 25
+pio run -d firmware -e esp32dev-gpio5            # CICT field unit, relay GPIO 5
+pio run -d firmware -e esp32dev-gpio5 -t upload  # flash over USB (owner-gated)
+pio device monitor -b 115200
 ```
 
 CI runs the host native tests and `pio run -d firmware` for every firmware
-change; it never flashes or deploys.
+change; the named default is `esp32dev-gpio25`, so CI still compiles the
+reference image. CI never flashes or deploys.
 
-### Relay pin (build flag)
+### Relay pin and hardware variant (issue #582)
 
-`RELAY_PIN` defaults to GPIO 25. The CICT Building A feeder is wired to
-**GPIO 5**, so it is built and flashed with its own environment:
+There is **no unqualified `esp32dev` environment and no implicit pin**. A relay
+pin belongs to the physical unit, so every build names its wiring:
+
+| Unit | PlatformIO environment | Relay GPIO | OTA variant |
+|---|---|---|---|
+| CICT Building A field unit | `esp32dev-gpio5` | 5 | `gpio5` |
+| Reference / bench board | `esp32dev-gpio25` | 25 | `gpio25` |
+
+Build the CICT unit with its own environment:
 
 ```sh
-pio run -d firmware -e esp32dev-relay5 -t upload
+pio run -d firmware -e esp32dev-gpio5
 ```
+
+`firmware/platformio.ini` sets `-DRELAY_PIN` and `-DFW_HW_VARIANT` together.
+`firmware-main.ino` `#error`s when either is missing and `static_assert`s that
+the variant maps to the compiled pin, so a build can never name `gpio5` and
+drive GPIO 25. `firmware-main/hardware.h` is the shared variant <-> pin map and
+is covered by `pio test -d firmware -e native`.
+
+If a unit is ever flashed with the other variant, it does not overwrite the
+provisioned variant: `diag.hw_variant_ok` becomes false, the relay is locked
+off, every dose is refused with `hardware_variant_mismatch`, and OTA checks are
+blocked. Flash the correct image to recover. A **factory reset** (GPIO 16,
+10 s) clears `hw_variant` so a deliberately rewired unit can provision the new
+variant from the image it is then flashed with; a Wi-Fi reset keeps it.
 
 GPIO 5 is a strapping pin, but only for SDIO slave timing, which this firmware
 never configures; strapping is sampled at reset and the pin is an ordinary GPIO
@@ -184,18 +206,19 @@ afterwards. Its reset state is a weak internal pull-up, so it sits weakly HIGH
 until `setup()` drives it LOW. That is normally far too little current to trip
 an opto-isolated relay input, but confirm it on the bench: power-cycle a few
 times and watch the module LED. If it blips, add a 10 kΩ resistor from the relay
-IN pin to GND, or move the wire to GPIO 25. Boot prints `[INIT] Relay on GPIO <n>`.
+IN pin to GND, or move the wire to GPIO 25. Boot prints
+`[INIT] Relay on GPIO <n> (active HIGH, variant <name>)`.
 
 ### Relay polarity (build flag)
 
 `RELAY_ACTIVE_LOW` defaults to `0`, the field board's active-HIGH wiring: the
-relay coil energizes when GPIO 25 is HIGH. For an active-LOW relay module, add
-the flag to `build_flags` in `firmware/platformio.ini` and rebuild — no logic
-edit is needed:
+relay coil energizes when the relay pin is HIGH. For an active-LOW relay module,
+append the flag to the chosen variant's `build_flags` in
+`firmware/platformio.ini` and rebuild — no logic edit is needed:
 
 ```ini
-[env:esp32dev]
-build_flags = -std=gnu++17 -DRELAY_ACTIVE_LOW=1
+[env:esp32dev-gpio5]
+build_flags = ${env:esp32-base.build_flags} -DRELAY_PIN=5 -DFW_HW_VARIANT=\"gpio5\" -DRELAY_ACTIVE_LOW=1
 ```
 
 Boot always forces `RELAY_OFF` in both modes, and every safety cap is unchanged.
@@ -250,23 +273,31 @@ library code this repository does not patch. Any other warning is a regression.
 | `app1` (OTA) | `0x1F0000` | 1,966,080 B (1.875 MB) |
 | `spiffs` | — | unused (the firmware stores nothing in SPIFFS) |
 
-The image that ships with this build uses **54.7 %** of a slot (1,075,653 B),
-leaving room for future signed updates. A partition table can never be changed
+The image that ships with this build uses **56.9 %** of a slot (1,118,369 B on
+the reference `esp32dev-gpio25` build), leaving room for future signed updates.
+A partition table can never be changed
 over the air, which is why T-12a needs one last USB flash (decision OTA-1,
 `docs/firmware-ota-plan.md` §6).
 
 ### Bootstrap USB flash (one per unit, the last manual flash)
 
 1. Back up nothing on the device; the flash below preserves NVS.
-2. Connect the unit over USB and run:
+2. Connect the unit over USB and run the environment that matches its wiring
+   (**never** the other variant):
 
    ```bash
-   pio run -d firmware -t upload
+   # CICT Building A field unit, relay GPIO 5
+   pio run -d firmware -e esp32dev-gpio5 -t upload
+
+   # reference / bench board, relay GPIO 25
+   pio run -d firmware -e esp32dev-gpio25 -t upload
    ```
 
    This writes the bootloader, the **new partition table** and the app, and
-   records the chip identity. Read the `[DEVICE MAC]` line in the serial log (it
-   is also what Superadmin → Devices registers).
+   records the chip identity. Read the `[DEVICE MAC]` line and the
+   `[INIT] Relay on GPIO <n> (... variant <name>)` line in the serial log (the
+   MAC is also what Superadmin → Devices registers). The first boot stores the
+   variant in NVS as `hw_variant` and reports it in the heartbeat.
 3. **Do not run `pio run -t erase` / `esptool erase_flash`.** A normal upload
    keeps the NVS partition at `0x9000`, so `wifi_ssid`, `wifi_pass`,
    `device_id`, `device_token` and `provisioned` keep working and the unit comes
@@ -276,18 +307,21 @@ over the air, which is why T-12a needs one last USB flash (decision OTA-1,
 4. Optional while the unit is on the bench:
 
    ```bash
-   pio run -d firmware -t upload --upload-port COM5
+   pio run -d firmware -e esp32dev-gpio5 -t upload --upload-port COM5
    pio device monitor -b 115200
    ```
 
    Serial should show the reset reason, `[FIRMWARE] v1.5.0`, the OTA state
    (`valid`) and `[READY] OptiFeed controller online.`
 
-`pio run -d firmware` builds the **field** image, with the LAN updater compiled
-out. For bench work that needs LAN ArduinoOTA:
+`pio run -d firmware -e esp32dev-gpio5` builds the field image for the CICT
+unit, with the LAN updater compiled out. `pio run -d firmware` alone builds the
+named reference default (`esp32dev-gpio25`), not the field unit. For bench work
+that needs LAN ArduinoOTA, use the matching variant suffix:
 
 ```bash
-pio run -d firmware -e esp32dev-lan -t upload
+pio run -d firmware -e esp32dev-lan -t upload          # GPIO 25 bench board
+pio run -d firmware -e esp32dev-gpio5-lan -t upload    # GPIO 5 bench board
 ```
 
 ### Arduino IDE fallback
@@ -839,9 +873,13 @@ refused and the thermostat-free relay stays OFF.
 Every `OTA_CHECK_INTERVAL_MS` (default 30 minutes) the unit sends:
 
 ```http
-GET /api/firmware/check?device_id=<device_id>&version=1.5.0
+GET /api/firmware/check?device_id=<device_id>&version=1.5.0&variant=gpio5&relay_gpio=5
 X-Device-Token: <provisioned token>
 ```
+
+`variant` and `relay_gpio` are the unit's provisioned wiring (issue #582). The
+server answers `{update:false}` without them, so a pre-#582 unit receives no
+hardware-specific image until it is bootstrapped over USB.
 
 Response, no update:
 
@@ -858,9 +896,11 @@ Response with an update:
   "url": "https://<storage-host>/firmware/1.5.1.bin?<signed>",
   "size": 1070200,
   "sha256": "0123...cdef",
-  "manifest": "{\"board\":\"wroom32u\",\"key_id\":\"primary\",\"min_from_version\":\"1.5.0\",\"sha256\":\"0123...cdef\",\"size\":1070200,\"version\":\"1.5.1\"}",
+  "manifest": "{\"board\":\"wroom32u\",\"variant\":\"gpio5\",\"relay_gpio\":5,\"key_id\":\"primary\",\"min_from_version\":\"1.5.0\",\"sha256\":\"0123...cdef\",\"size\":1070200,\"version\":\"1.5.1\"}",
   "signature": "MEUCIQ...",
-  "key_id": "primary"
+  "key_id": "primary",
+  "variant": "gpio5",
+  "relay_gpio": 5
 }
 ```
 
@@ -880,16 +920,24 @@ Server requirements (implemented by T-12b in `apps/web/lib/firmware/ota.ts` and
   **not** send its device token to that host.
 - The response must declare `Content-Length` (the firmware refuses an unknown
   length) and be at most 8 KB.
-- `manifest` must contain `board` (`wroom32u`), `version`, `size`, `sha256`,
-  `key_id` and optionally `min_from_version`. The device refuses the whole
-  update if any value disagrees with the envelope.
+- `manifest` must contain `board` (`wroom32u`), `variant` (`gpio5` or
+  `gpio25`), `relay_gpio` (`5` or `25`), `version`, `size`, `sha256`, `key_id`
+  and optionally `min_from_version`. `variant` and `relay_gpio` must agree with
+  each other and with the unit's provisioned variant; the device refuses the
+  whole update if any value disagrees with the envelope.
 
 The device refuses, and postpones, when: the signature is invalid, the
-`key_id` is unknown, the board is not `wroom32u`, the manifest and envelope
+`key_id` is unknown, the board is not `wroom32u`, the **variant or relay GPIO
+does not match the unit's provisioned wiring**, the manifest and envelope
 disagree, the version is not newer (semantic compare), the current version is
 below the signed `min_from_version`, the image does not fit the OTA slot, the
 URL is not HTTPS, or the SHA-256 of the downloaded bytes does not match. There
-is **no downgrade path**.
+is **no downgrade path**. A variant refusal sets `ota_state=refused_variant`,
+`diag.ota_refusal=variant_mismatch`, and `diag.ota_refused_version`, which the
+device page shows; the relay is never touched. An image that itself disagrees
+with the provisioned variant never reaches the check: it reports
+`diag.ota_refusal=provisioned_variant_mismatch`, locks the relay off and
+refuses doses with `hardware_variant_mismatch`.
 
 ### Pre-flight gate
 
@@ -997,10 +1045,12 @@ their compile-time defaults until the next poll.
 
 Decision OTA-7: **field builds contain no LAN updater**. `ArduinoOTA` (shared
 static password, no signature) is compiled only with `-DENABLE_LAN_OTA`, which
-the `esp32dev-lan` environment in `platformio.ini` adds:
+the `esp32dev-lan` (GPIO 25) and `esp32dev-gpio5-lan` (GPIO 5) environments in
+`platformio.ini` add:
 
 ```bash
-pio run -d firmware -e esp32dev-lan -t upload
+pio run -d firmware -e esp32dev-lan -t upload         # GPIO 25 bench board
+pio run -d firmware -e esp32dev-gpio5-lan -t upload   # GPIO 5 bench board
 ```
 
 Never flash that build in the field.
@@ -1021,36 +1071,44 @@ UI is T-12c). One channel can target every unit or a MAC allowlist (canary).
   "storage_path": "releases/1.5.1/firmware.bin",
   "size": 1070200,
   "sha256": "0123...cdef",
-  "manifest": "{\"board\":\"wroom32u\",\"key_id\":\"primary\",\"min_from_version\":\"1.5.0\",\"sha256\":\"0123...cdef\",\"size\":1070200,\"version\":\"1.5.1\"}",
+  "manifest": "{\"board\":\"wroom32u\",\"variant\":\"gpio5\",\"relay_gpio\":5,\"key_id\":\"primary\",\"min_from_version\":\"1.5.0\",\"sha256\":\"0123...cdef\",\"size\":1070200,\"version\":\"1.5.1\"}",
   "signature": "MEUCIQ...",
   "key_id": "primary",
+  "variant": "gpio5",
   "targets": "*"
 }
 ```
 
-`targets` is `"*"` or an array of MACs. Every value except `size` is a string;
-`manifest` is the exact signed string (the signature is over those bytes, not a
-re-serialized copy). The check endpoint answers `{update:false}` for a missing
-channel, an unparseable/inconsistent channel, an untargeted device, a device
-version at or above the release, a device below the signed
-`min_from_version`, or unavailable Storage — the unit simply retries on its
-next 30-minute check.
+`targets` is `"*"` or an array of MACs. Every value except `size` and
+`relay_gpio` is a string; `manifest` is the exact signed string (the signature
+is over those bytes, not a re-serialized copy). The check endpoint answers
+`{update:false}` for a missing channel, a missing/mismatched device variant, an
+unparseable/inconsistent channel, an untargeted device, a device version at or
+above the release, a device below the signed `min_from_version`, or unavailable
+Storage — the unit simply retries on its next 30-minute check.
 
 **Steps** (Jeff's machine, never CI or Vercel):
 
-1. Bump `FW_VERSION` in `firmware-main.ino`, then build the field image:
+1. Bump `FW_VERSION` in `firmware-main.ino`, then build the unit's named
+   environment. The CICT field unit is **`esp32dev-gpio5`**; the reference
+   board is `esp32dev-gpio25`:
 
    ```bash
-   pio run -d firmware
+   pio run -d firmware -e esp32dev-gpio5
    ```
 
-2. Sign it with the offline private key. The public PEM must be the matching
-   committed file in `firmware/keys/`; the script verifies the signature
-   against it before writing anything.
+2. Sign it with the offline private key. `--variant` is required; the script
+   reads `firmware/platformio.ini`, refuses unless the named environment
+   declares the same variant and relay GPIO, and writes both into the signed
+   manifest. The public PEM must be the matching committed file in
+   `firmware/keys/`; the script verifies the signature against it before
+   writing anything.
 
    ```bash
    node scripts/ota/sign-release.mjs \
-     --bin firmware/.pio/build/esp32dev/firmware.bin \
+     --bin firmware/.pio/build/esp32dev-gpio5/firmware.bin \
+     --variant gpio5 \
+     --env esp32dev-gpio5 \
      --version 1.5.1 \
      --key ../ota-signing-keys/pakaonai-ota-primary-private.pem \
      --key-id primary \
@@ -1069,7 +1127,7 @@ next 30-minute check.
 
    | Local file | Storage object |
    |---|---|
-   | `firmware/.pio/build/esp32dev/firmware.bin` | `releases/1.5.1/firmware.bin` |
+   | `firmware/.pio/build/esp32dev-gpio5/firmware.bin` | `releases/1.5.1/firmware.bin` |
    | `ota-out/channels/stable.json` | `channels/stable.json` |
 
 4. Devices pick the release up on their next check (30 minutes by default)
@@ -1112,6 +1170,11 @@ them identical to the PEMs embedded in `firmware-main.ino`.
   "last_reset_reasons": "none",
   "diag": {
     "fw": "1.6.0",
+    "hw_variant": "gpio5",
+    "relay_gpio": 5,
+    "provisioned_hw_variant": "gpio5",
+    "hw_variant_ok": true,
+    "ota_refusal": "none",
     "safe_mode": false,
     "reset_abnormal_count": 0,
     "reset_reason_mask": 0,
@@ -1132,9 +1195,20 @@ them identical to the PEMs embedded in `firmware-main.ino`.
 > route parses the body with a Zod object schema (`apps/web/app/api/ingest/route.ts`), which
 > strips keys it does not declare, so older and newer units both keep working. T-12b adds the
 > three fields to the schema and persists them. `ota_state` is one of `idle`, `checking`,
-> `pending_verify`, `valid`, `downloading`, `installed`, `aborted`, `failed`, `rolled_back`;
-> `reset_reason` is one of `poweron`, `external`, `software`, `panic`, `interrupt_wdt`,
-> `task_wdt`, `wdt`, `deepsleep`, `brownout`, `sdio`, `unknown`.
+> `pending_verify`, `valid`, `downloading`, `installed`, `aborted`, `failed`, `rolled_back`,
+> `refused_variant`; `reset_reason` is one of `poweron`, `external`, `software`, `panic`,
+> `interrupt_wdt`, `task_wdt`, `wdt`, `deepsleep`, `brownout`, `sdio`, `unknown`.
+>
+> **Hardware variant (#582).** `diag.hw_variant` and `diag.relay_gpio` are the wiring the
+> running image was built for. `diag.provisioned_hw_variant` is the NVS value written on
+> first boot and is authoritative after that: `diag.hw_variant_ok` is false when they differ.
+> A false value locks the relay off, refuses every dose with `feed_refused` /
+> `hardware_variant_mismatch`, and blocks OTA checks. `diag.ota_refusal` is `none`,
+> `variant_mismatch` (a signed manifest named another wiring) or
+> `provisioned_variant_mismatch` (the running image itself disagrees with NVS), and
+> `diag.ota_refused_version` names the declined release. The device page renders every
+> `diag` key, so an operator can confirm the pin before a dose is attempted. None of these
+> is an input to dosing except the boolean interlock above.
 >
 > **Wi-Fi signal (1.6.2, I-97).** `wifi_rssi` is `WiFi.RSSI()` in dBm. The heartbeat has
 > carried it since 1.6.0, but the server only started accepting and storing it in 1.6.2:
@@ -1145,7 +1219,7 @@ them identical to the PEMs embedded in `firmware-main.ino`.
 > **1.6.0 diagnostics.** `safe_mode`, `last_reset_reasons` and the nested `diag` object are
 > additive. The ingest schema stays strict for everything else, but since #454 the server
 > stores the latest sanitised `diag` object per device: `diag` is dropped if malformed or
-> oversized (flat primitives, 24 keys, strings ≤ 120 chars, arrays ≤ 8 rows, ≤ 2 KB; see
+> oversized (flat primitives, 32 keys, strings ≤ 120 chars, arrays ≤ 8 rows, ≤ 2 KB; see
 > `apps/web/lib/device-diag.ts`), and the view on the device panel (`/dashboard/devices/[id]`)
 > reads that stored object. Diagnostics are advisory evidence — **never an authority for
 > dosing**, which keeps using the dose path's own verified inputs. `safe_mode` and
@@ -1181,6 +1255,7 @@ alert:
 | `hourly_limit` | the configured doses-per-rolling-hour ceiling is reached |
 | `relay_overrun` | the relay ran past its expected end + 2 s and was force-opened |
 | `ota_in_progress` | a signed update is downloading (existing) |
+| `hardware_variant_mismatch` | the running image was built for a different relay pin than the unit's provisioned variant; the relay is locked off (#582) |
 | `grams_out_of_range`, `dose_time_exceeds_cap`, `daily_gram_cap_exceeded` | existing caps |
 | `ota_pending_verify`, `busy` | counted in `diag.refusals_by_reason`, not posted |
 

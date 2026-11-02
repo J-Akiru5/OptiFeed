@@ -104,6 +104,8 @@
 #include "safety.h"
 // Dashboard-driven configuration and its absolute safety envelope (1.7.0).
 #include "config.h"
+// Hardware variant <-> relay pin map; shared with the host tests (#582).
+#include "hardware.h"
 #include "status.h"
 #ifdef ENABLE_LAN_OTA
 #include <ArduinoOTA.h>
@@ -358,17 +360,23 @@ VC2U+UkjnsS9bS7guFXvY41PNeEVH4lp5iEcgtjQc6E+IgFO8QHwfPoRgg==
 #define DEFAULT_WIFI_SSID "YOUR_WIFI_SSID"
 #define DEFAULT_WIFI_PASS "YOUR_WIFI_PASSWORD"
 
-// Relay signal pin. 25 is the reference wiring; a unit wired to another GPIO is
-// built with -DRELAY_PIN=<n> (see [env:esp32dev-relay5] in platformio.ini).
-// GPIO 25 is the reference wiring. GPIO 5 also works and is what the CICT unit
-// uses (-DRELAY_PIN=5, env esp32dev-relay5): it is a strapping pin, but only for
-// SDIO slave timing, which this sketch never configures, and strapping is only
-// sampled at reset. Its reset state is a weak internal pull-up, so it sits
-// weakly HIGH until setup() drives it LOW; confirm on the bench that this does
-// not click the relay at power-up.
+// Relay signal pin. There is deliberately no default: a relay pin is a property
+// of the physical unit, so [env:esp32dev-gpio5] and [env:esp32dev-gpio25] in
+// platformio.ini set RELAY_PIN and FW_HW_VARIANT together (issue #582). The
+// static_assert below refuses a pair that names one wiring but drives another.
+// GPIO 25 is the reference wiring. GPIO 5 is the CICT Building A field unit: it
+// is a strapping pin, but only for SDIO slave timing, which this sketch never
+// configures, and strapping is only sampled at reset. Its reset state is a weak
+// internal pull-up, so it sits weakly HIGH until setup() drives it LOW; confirm
+// on the bench that this does not click the relay at power-up.
 #ifndef RELAY_PIN
-#define RELAY_PIN       25
+#error "RELAY_PIN is required: build -e esp32dev-gpio5 or -e esp32dev-gpio25"
 #endif
+#ifndef FW_HW_VARIANT
+#error "FW_HW_VARIANT is required: build -e esp32dev-gpio5 or -e esp32dev-gpio25"
+#endif
+static_assert(fw::relayPinForVariant(FW_HW_VARIANT) == RELAY_PIN,
+              "FW_HW_VARIANT must match RELAY_PIN (gpio5=5, gpio25=25)");
 #define BUTTON_PIN      23          // hardwired feed button; wired to GND via INPUT_PULLUP
 
 // ---- Dedicated reset buttons (both active-low) --------------------------
@@ -543,6 +551,10 @@ float gramsPerSecond = DEFAULT_GRAMS_PER_SECOND;
 // is applied.
 #define NVS_CONFIG_REV_KEY  "cfg_rev"
 #define NVS_CONFIG_JSON_KEY "cfg_json"
+// #582: the hardware variant this unit was provisioned with. Reported in the
+// heartbeat; the OTA contract is enforced against the running image's
+// FW_HW_VARIANT (a wrong-variant USB flash replaces this value at boot).
+#define NVS_HW_VARIANT_KEY  "hw_variant"
 
 fw::DeviceConfig deviceConfig = fw::defaultDeviceConfig();
 uint32_t appliedConfigRev = 0;         // echoed as `config_rev` in the heartbeat
@@ -601,6 +613,12 @@ Preferences prefs;  // NVS storage for WiFi credentials and device state
 String provisionedDeviceId;
 String provisionedDeviceToken;
 bool provisionedFlag = false;  // NVS "provisioned" marker written on a full save
+// #582: hardware variant stored at first boot and reported in the heartbeat.
+// Once set, it is authoritative: an image built for another relay pin cannot
+// dispense and cannot install an OTA update until the correct image is flashed
+// (or a factory reset re-provisions the unit after a deliberate rewire).
+String provisionedHwVariant;
+bool hardwareVariantOk = true;
 
 bool rtcAvailable = false;
 bool feederActive = false;
@@ -876,8 +894,13 @@ static const OtaPublicKey OTA_PUBLIC_KEYS[] = {
 static const size_t OTA_PUBLIC_KEY_COUNT = sizeof(OTA_PUBLIC_KEYS) / sizeof(OTA_PUBLIC_KEYS[0]);
 
 // Reported in every heartbeat. One of: idle, checking, pending_verify, valid,
-// downloading, installed, aborted, failed, rolled_back.
+// downloading, installed, aborted, failed, rolled_back, refused_variant.
+// `refused_variant` is #582: the signed manifest did not name this unit's relay
+// variant. `otaRefusalReason` keeps the machine reason for diagnostics so the
+// app can show why the unit declined an image instead of failing silently.
 const char *otaState = "idle";
+const char *otaRefusalReason = "none";
+String otaRefusedVersion;
 
 // True from the moment the download starts until it ends. dispenseFeed()
 // refuses every trigger while it is set and reports feed_refused with reason
@@ -991,6 +1014,42 @@ void loadDeviceIdentity() {
   if (!apiIdentityAvailable()) {
     Serial.println("[IDENTITY] not provisioned - API disabled");
   }
+}
+
+// Load (or first-time provision) the hardware variant. The NVS value is the
+// unit's provisioned variant and, once written, it is authoritative: an image
+// built for a different relay pin never overwrites it. That mismatch means the
+// wrong binary was flashed, so the relay stays locked off, every dose is
+// refused (and reported), and OTA is blocked until the correct image is flashed.
+// A factory reset (GPIO 16, 10 s) clears the key so a deliberately rewired unit
+// can provision the new variant from the image it is then flashed with.
+void loadHardwareVariant() {
+  provisionedHwVariant = prefs.getString(NVS_HW_VARIANT_KEY, "");
+  provisionedHwVariant.trim();
+
+  if (provisionedHwVariant.length() == 0) {
+    provisionedHwVariant = FW_HW_VARIANT;
+    prefs.putString(NVS_HW_VARIANT_KEY, provisionedHwVariant);
+    hardwareVariantOk = true;
+    Serial.printf("[HW] provisioned variant %s (relay GPIO %d)\n",
+                  provisionedHwVariant.c_str(), RELAY_PIN);
+    return;
+  }
+  if (provisionedHwVariant != FW_HW_VARIANT) {
+    hardwareVariantOk = false;
+    digitalWrite(RELAY_PIN, RELAY_OFF);
+    Serial.printf("[HW] ERROR: this image is built for '%s' (relay GPIO %d) but the unit "
+                  "is provisioned as '%s' (relay GPIO %d) - relay locked off, doses "
+                  "refused, OTA blocked. Flash the correct image; use a factory reset "
+                  "(GPIO %d, 10 s) only after a deliberate rewire.\n",
+                  FW_HW_VARIANT, RELAY_PIN, provisionedHwVariant.c_str(),
+                  fw::relayPinForVariant(provisionedHwVariant.c_str()),
+                  FACTORY_RESET_BUTTON_PIN);
+    return;
+  }
+  hardwareVariantOk = true;
+  Serial.printf("[HW] variant %s (relay GPIO %d)\n",
+                provisionedHwVariant.c_str(), RELAY_PIN);
 }
 
 // ---- Dispense calibration (grams per second) -----------------------------
@@ -1211,10 +1270,15 @@ void clearDeviceIdentity() {
   prefs.remove("device_id");
   prefs.remove("device_token");
   prefs.remove("provisioned");
+  // #582: a deliberate rewire is the only reason to forget the provisioned
+  // variant. The next boot writes the variant of the image being flashed.
+  prefs.remove(NVS_HW_VARIANT_KEY);
   provisionedDeviceId = "";
   provisionedDeviceToken = "";
+  provisionedHwVariant = "";
+  hardwareVariantOk = true;
   provisionedFlag = false;
-  Serial.println("[RESET] Stored device identity cleared");
+  Serial.println("[RESET] Stored device identity and hardware variant cleared");
 }
 
 void initResetButtons() {
@@ -3091,9 +3155,14 @@ bool performFirmwareUpdate(const String &url, size_t expectedSize, const String 
 // ---- Signed update check ----
 bool checkForUpdate() {
   otaSetState("checking");
+  // #582: declare the relay variant so the server never offers an image for
+  // the other wiring. The device still enforces the same rule against the
+  // signed manifest below - this only avoids a pointless download.
   const String url = String(OTA_CHECK_URL) + "?device_id=" +
                      urlEncodeValue(provisionedDeviceId) + "&version=" +
-                     urlEncodeValue(FW_VERSION);
+                     urlEncodeValue(FW_VERSION) + "&variant=" +
+                     urlEncodeValue(FW_HW_VARIANT) + "&relay_gpio=" +
+                     String(RELAY_PIN);
 
   HTTPClient https;
   kickWatchdog();
@@ -3174,6 +3243,8 @@ bool checkForUpdate() {
     return false;
   }
   const String manifestBoard = manifestDoc["board"] | "";
+  const String manifestVariant = manifestDoc["variant"] | "";
+  const int manifestRelayGpio = manifestDoc["relay_gpio"] | -1;
   const String manifestVersion = manifestDoc["version"] | "";
   const size_t manifestSize = (size_t)(manifestDoc["size"] | 0);
   const String manifestSha = manifestDoc["sha256"] | "";
@@ -3193,6 +3264,27 @@ bool checkForUpdate() {
     otaPostpone("manifest_mismatch");
     return false;
   }
+  // #582: a signed image is only installable on the exact wiring it was built
+  // for. Both the variant name and the relay GPIO must agree with this unit's
+  // provisioned variant, and the pair must be internally consistent. This is
+  // the refusal that stops a GPIO 25 image from silently leaving the GPIO 5
+  // field unit unable to dispense.
+  if (!fw::otaMatchesHardware(manifestVariant.c_str(), manifestRelayGpio,
+                              provisionedHwVariant.c_str(), RELAY_PIN)) {
+    Serial.printf("[OTA] manifest variant '%s' (relay GPIO %d) does not match "
+                  "provisioned '%s' (relay GPIO %d) - refusing\n",
+                  manifestVariant.length() ? manifestVariant.c_str() : "(missing)",
+                  manifestRelayGpio, provisionedHwVariant.c_str(), RELAY_PIN);
+    otaRefusalReason = "variant_mismatch";
+    otaRefusedVersion = version;
+    otaSetState("refused_variant");
+    otaPostpone("variant_mismatch");
+    return false;
+  }
+  // A matching signed release clears a previous variant refusal so the app
+  // stops showing a stale reason once the channel is corrected.
+  otaRefusalReason = "none";
+  otaRefusedVersion = "";
   if (compareSemver(version.c_str(), FW_VERSION) <= 0) {
     Serial.printf("[OTA] signed version %s is not newer than %s - refusing\n",
                   version.c_str(), FW_VERSION);
@@ -3246,6 +3338,17 @@ void maybeCheckForUpdate() {
   if (!apiIdentityAvailable()) return;
   if (provisioningActive || otaInProgress) return;
   if ((long)(millis() - nextOtaCheckMs) < 0) return;
+
+  // #582: an image built for another relay pin must not download an update
+  // either. The unit is already misflashed; keep it offline from OTA until the
+  // correct image is flashed and report the reason in the heartbeat.
+  if (!hardwareVariantOk) {
+    otaRefusalReason = "provisioned_variant_mismatch";
+    otaSetState("refused_variant");
+    Serial.println("[OTA] check refused: running image does not match the provisioned variant");
+    otaPostpone("provisioned_variant_mismatch");
+    return;
+  }
 
   const char *gate = otaPreflightFailure();
   if (gate != nullptr) {
@@ -3592,7 +3695,8 @@ void setup() {
   resetReasonName = resetReasonLabel(resetReason);
   lastResetWasBrownout = (resetReason == ESP_RST_BROWNOUT);
   Serial.printf("[INIT] Reset reason: %s\n", resetReasonName);
-  Serial.printf("[INIT] Relay on GPIO %d (active %s)\n", RELAY_PIN, RELAY_ACTIVE_LOW ? "LOW" : "HIGH");
+  Serial.printf("[INIT] Relay on GPIO %d (active %s, variant %s)\n", RELAY_PIN,
+                RELAY_ACTIVE_LOW ? "LOW" : "HIGH", FW_HW_VARIANT);
 
   // The relay is also switched off before every software reset, panic reboot,
   // OTA install reboot and ESP.restart(). Registered before anything can restart.
@@ -3632,6 +3736,8 @@ void setup() {
   prefs.putUInt("rebootCount", rebootCount);
   Serial.printf("[INIT] Boot #%lu\n", rebootCount);
   loadDeviceIdentity();
+  // #582: the relay variant is part of the unit's identity for OTA purposes.
+  loadHardwareVariant();
   // The dashboard-driven last-good configuration (1.7.0) must be in force
   // before the safety state, the hopper filter and the boot summary are built.
   loadPersistedConfig();
@@ -3741,10 +3847,11 @@ void setup() {
 
   // One concise boot summary: what the unit is, how it last died, and the
   // limits it is now enforcing (dashboard config, envelope-bounded).
-  Serial.printf("[BOOT] summary: fw=%s reset=%s safe_mode=%d brownout_hold=%lus relay=GPIO%d "
+  Serial.printf("[BOOT] summary: fw=%s variant=%s reset=%s safe_mode=%d "
+                "brownout_hold=%lus relay=GPIO%d "
                 "identity=%s wifi=%s feeds=%d limits=%lus-gap/%u-per-hour/%.0fg-per-day/"
                 "dose<=%.0fg/hold=%lus/config_rev=%lu\n",
-                FW_VERSION, resetReasonName, safeModeActive ? 1 : 0,
+                FW_VERSION, FW_HW_VARIANT, resetReasonName, safeModeActive ? 1 : 0,
                 (unsigned long)deviceConfig.brownoutHoldS, RELAY_PIN,
                 apiIdentityAvailable() ? "yes" : "no",
                 WiFi.status() == WL_CONNECTED ? "online" : "offline", feedTimesCount,
@@ -3942,6 +4049,15 @@ void dispenseFeed(float grams, const char* source, const String &requestId, bool
   // The relay write itself is instant, but a refusal report below is a network
   // call: feed the watchdog around the whole dispense decision.
   kickWatchdog();
+
+  // #582: a binary built for another relay pin cannot be trusted to close this
+  // unit's relay. Refuse every source instead of reporting a feed that cannot
+  // physically happen (the server records the refusal reason).
+  if (!hardwareVariantOk) {
+    digitalWrite(RELAY_PIN, RELAY_OFF);
+    reportFeedError(fw::Refusal::HARDWARE_VARIANT, grams, source);
+    return;
+  }
 
   // Fail-safe order: a unit in safe mode or inside its post-brownout hold must
   // not energize the relay for anything, including a schedule that was already
@@ -4755,6 +4871,14 @@ void sendTelemetry() {
   doc["last_reset_reasons"] = lastResetReasons;
   JsonObject diag = doc["diag"].to<JsonObject>();
   diag["fw"] = FW_VERSION;
+  // #582: the relay wiring identity, visible on the device page before a dose
+  // is attempted. `ota_refusal` is why the last signed image was declined.
+  diag["hw_variant"] = FW_HW_VARIANT;
+  diag["relay_gpio"] = RELAY_PIN;
+  diag["provisioned_hw_variant"] = provisionedHwVariant;
+  diag["hw_variant_ok"] = hardwareVariantOk;
+  diag["ota_refusal"] = otaRefusalReason;
+  if (otaRefusedVersion.length() > 0) diag["ota_refused_version"] = otaRefusedVersion;
   diag["safe_mode"] = safeModeActive;
   diag["reset_abnormal_count"] = resetHistory.count();
   diag["reset_reason_mask"] = resetHistory.mask();

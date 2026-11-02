@@ -76,6 +76,8 @@ describe("scripts/ota/sign-release.mjs", () => {
 		const result = runScript([
 			"--bin",
 			binPath,
+			"--variant",
+			"gpio5",
 			"--version",
 			"1.4.1",
 			"--key",
@@ -108,6 +110,7 @@ describe("scripts/ota/sign-release.mjs", () => {
 			manifest: string;
 			signature: string;
 			key_id: string;
+			variant: string;
 			targets: string[] | "*";
 		};
 
@@ -117,6 +120,7 @@ describe("scripts/ota/sign-release.mjs", () => {
 		expect(channel.size).toBe(image.length);
 		expect(channel.sha256).toBe(createHash("sha256").update(image).digest("hex"));
 		expect(channel.key_id).toBe("primary");
+		expect(channel.variant).toBe("gpio5");
 		expect(channel.targets).toEqual([MAC_A, MAC_B]);
 
 		// The firmware parses `manifest` as JSON and verifies the signature over
@@ -124,6 +128,8 @@ describe("scripts/ota/sign-release.mjs", () => {
 		const manifest = JSON.parse(channel.manifest) as Record<string, unknown>;
 		expect(manifest).toEqual({
 			board: "wroom32u",
+			variant: "gpio5",
+			relay_gpio: 5,
 			key_id: "primary",
 			min_from_version: "1.4.0",
 			sha256: channel.sha256,
@@ -148,6 +154,8 @@ describe("scripts/ota/sign-release.mjs", () => {
 		const result = runScript([
 			"--bin",
 			binPath,
+			"--variant",
+			"gpio5",
 			"--version",
 			"1.4.1",
 			"--key",
@@ -179,6 +187,8 @@ describe("scripts/ota/sign-release.mjs", () => {
 		const result = runScript([
 			"--bin",
 			binPath,
+			"--variant",
+			"gpio5",
 			"--version",
 			"1.4.1",
 			"--key",
@@ -204,6 +214,8 @@ describe("scripts/ota/sign-release.mjs", () => {
 		const result = runScript([
 			"--bin",
 			binPath,
+			"--variant",
+			"gpio5",
 			"--version",
 			"1.4.1",
 			"--key",
@@ -228,6 +240,8 @@ describe("scripts/ota/sign-release.mjs", () => {
 		const result = runScript([
 			"--bin",
 			binPath,
+			"--variant",
+			"gpio5",
 			"--version",
 			"1.4.1",
 			"--key",
@@ -254,6 +268,8 @@ describe("scripts/ota/sign-release.mjs", () => {
 		const result = runScript([
 			"--bin",
 			hugePath,
+			"--variant",
+			"gpio5",
 			"--version",
 			"1.4.1",
 			"--key",
@@ -267,6 +283,79 @@ describe("scripts/ota/sign-release.mjs", () => {
 		]);
 		expect(result.status).not.toBe(0);
 		expect(result.stderr).toContain("1966080");
+	});
+
+	it("requires --variant so a release always names its relay wiring", () => {
+		const outDir = join(workDir, "out-no-variant");
+		const result = runScript([
+			"--bin",
+			binPath,
+			"--version",
+			"1.4.1",
+			"--key",
+			join(workDir, "missing-key.pem"),
+			"--out",
+			outDir,
+		]);
+		expect(result.status).not.toBe(0);
+		expect(result.stderr).toContain("--variant is required");
+		expect(existsSync(join(outDir, "channels", "stable.json"))).toBe(false);
+	});
+
+	it("refuses an environment that declares another hardware variant", () => {
+		const keys = writeKeyPair("env-mismatch");
+		const outDir = join(workDir, "out-env-mismatch");
+		const result = runScript([
+			"--bin",
+			binPath,
+			"--variant",
+			"gpio5",
+			"--env",
+			"esp32dev-gpio25",
+			"--version",
+			"1.4.1",
+			"--key",
+			keys.privPath,
+			"--key-id",
+			"primary",
+			"--public-key",
+			keys.pubPath,
+			"--out",
+			outDir,
+		]);
+		expect(result.status).not.toBe(0);
+		expect(result.stderr).toContain('declares variant "gpio25", not "gpio5"');
+		expect(existsSync(join(outDir, "channels", "stable.json"))).toBe(false);
+	});
+
+	it("signs the pin declared by the named environment", () => {
+		const keys = writeKeyPair("env-gpio25");
+		const outDir = join(workDir, "out-env-gpio25");
+		const result = runScript([
+			"--bin",
+			binPath,
+			"--variant",
+			"gpio25",
+			"--env",
+			"esp32dev-gpio25",
+			"--version",
+			"1.4.1",
+			"--key",
+			keys.privPath,
+			"--key-id",
+			"primary",
+			"--public-key",
+			keys.pubPath,
+			"--out",
+			outDir,
+		]);
+		expect(result.status, result.stderr).toBe(0);
+		const channel = JSON.parse(readFileSync(join(outDir, "channels", "stable.json"), "utf8")) as {
+			variant: string;
+			manifest: string;
+		};
+		expect(channel.variant).toBe("gpio25");
+		expect(JSON.parse(channel.manifest)).toMatchObject({ variant: "gpio25", relay_gpio: 25 });
 	});
 
 	it("committed public PEMs match the keys embedded in the firmware", () => {

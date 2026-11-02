@@ -32,6 +32,7 @@ enum class Refusal : uint8_t {
   TOO_SOON,
   HOURLY_LIMIT,
   RELAY_OVERRUN,
+  HARDWARE_VARIANT,
   COUNT,
 };
 
@@ -48,6 +49,7 @@ inline const char *refusalReason(Refusal reason) {
     case Refusal::TOO_SOON: return "too_soon";
     case Refusal::HOURLY_LIMIT: return "hourly_limit";
     case Refusal::RELAY_OVERRUN: return "relay_overrun";
+    case Refusal::HARDWARE_VARIANT: return "hardware_variant_mismatch";
     default: return "none";
   }
 }

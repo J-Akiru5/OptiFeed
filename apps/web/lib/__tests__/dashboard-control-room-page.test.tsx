@@ -64,6 +64,20 @@ vi.mock("@/i18n/routing", () => ({
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
+// The page now reads the derived live count (#430/#452). This test is about the
+// control-room composition, so stub the count rather than teaching the Prisma
+// mock about CropCycle and MortalityLog.
+vi.mock("@/lib/growth/live-count", () => ({
+	getLiveCountForPond: vi.fn(async () => ({
+		stocked: 1200,
+		dead: 0,
+		live: 1200,
+		source: "legacy_population",
+	})),
+	mortalityRatePct: (dead: number, stocked: number | null) =>
+		stocked !== null && stocked > 0 ? Math.min(100, (dead / stocked) * 100) : null,
+}));
+
 vi.mock("@/lib/auth/session", () => ({
 	canWrite: vi.fn(async () => true),
 	getCurrentUser: vi.fn(async () => ({ displayName: "Nong Juan" })),

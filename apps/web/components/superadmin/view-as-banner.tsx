@@ -80,7 +80,7 @@ export function ViewAsBanner({
 						onClick={exit}
 						disabled={isPending}
 						className={cn(
-							"inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-black text-[#C42B3A] hover:bg-white/90 disabled:opacity-60",
+							"inline-flex items-center gap-1.5 rounded-xl bg-white dark:bg-[#111A2C] px-3 py-2 text-xs font-black text-[#C42B3A] dark:text-red-300 hover:bg-white/90 disabled:opacity-60",
 							FOCUS_RING,
 							"focus-visible:ring-white focus-visible:ring-offset-[#C42B3A]",
 						)}

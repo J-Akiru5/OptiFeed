@@ -53,7 +53,7 @@ export function PondOverview({ pondName, feeders, className }: PondOverviewProps
 	return (
 		<figure
 			className={cn(
-				"relative h-full min-h-[220px] overflow-hidden rounded-3xl border border-[#0A3D62]/10 bg-[#EAF3EA] shadow-sm dark:border-gray-700/60 dark:bg-[#0b1a24] max-xl:relative max-xl:h-auto max-xl:min-h-0 max-xl:overflow-visible max-xl:rounded-none max-xl:border-0 max-xl:bg-transparent max-xl:p-0 max-xl:shadow-none dark:max-xl:bg-gray-900 xl:min-h-0",
+				"relative h-full min-h-[220px] min-w-0 overflow-hidden rounded-3xl border border-[#0A3D62]/10 bg-[#EAF3EA] shadow-sm dark:border-gray-700/60 dark:bg-[#0b1a24] max-xl:relative max-xl:h-auto max-xl:min-h-0 max-xl:overflow-visible max-xl:rounded-none max-xl:border-0 max-xl:bg-transparent max-xl:p-0 max-xl:shadow-none dark:max-xl:bg-gray-900 xl:min-h-0",
 				// Below xl the canvas is a plain, full-bleed section: no card chrome,
 				// no clipping, and the pin list flows underneath the title.
 				"max-xl:relative max-xl:h-auto max-xl:min-h-0 max-xl:overflow-visible max-xl:rounded-none max-xl:border-0 max-xl:bg-transparent max-xl:p-0 max-xl:shadow-none",

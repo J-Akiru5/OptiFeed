@@ -63,7 +63,7 @@ export function PlatformListSettings({
 	};
 
 	return (
-		<div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+		<div className="rounded-2xl border border-gray-200 dark:border-[#24304A] bg-white dark:bg-[#111A2C] p-5 shadow-sm">
 			<form
 				onSubmit={handleSubmit}
 				className="grid gap-4 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] sm:items-end"

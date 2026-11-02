@@ -173,8 +173,8 @@ export function AnnouncementComposer({ current }: { current: Announcement | null
 						className={cn(
 							"mt-2 flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm",
 							warning
-								? "border-[#F0C36D] bg-[#FFF7E6] text-[#7A4B00]"
-								: "border-[#9CC3E0] bg-[#EDF6FC] text-[#0A3D62]",
+								? "border-[#F0C36D] bg-[#FFF7E6] text-[#7A4B00] dark:border-amber-500/40 dark:bg-amber-950/50 dark:text-amber-300"
+								: "border-[#9CC3E0] bg-[#EDF6FC] text-[#0A3D62] dark:border-sky-500/40 dark:bg-sky-950/40 dark:text-slate-100",
 						)}
 					>
 						<PreviewIcon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
@@ -197,10 +197,10 @@ export function AnnouncementComposer({ current }: { current: Announcement | null
 			{current && (
 				<form
 					onSubmit={handleClear}
-					className="space-y-3 rounded-2xl border border-[#C42B3A]/20 bg-[#FDE8EA]/30 p-4"
+					className="space-y-3 rounded-2xl border border-[#C42B3A]/20 bg-[#FDE8EA]/30 p-4 dark:border-red-500/30 dark:bg-red-950/30"
 				>
-					<p className="text-sm font-black text-[#0A3D62]">{t("clearTitle")}</p>
-					<p className="text-xs text-[#3D5568]">{t("clearDescription")}</p>
+					<p className="text-sm font-black text-[#0A3D62] dark:text-slate-100">{t("clearTitle")}</p>
+					<p className="text-xs text-[#3D5568] dark:text-slate-400">{t("clearDescription")}</p>
 					<label className="block">
 						<span className={FIELD_LABEL}>{t("reasonLabel")}</span>
 						<input

@@ -16,6 +16,8 @@ describe("FeederFallback", () => {
 				status="dispensing"
 				feedLevelPercent={30}
 				lastFedLabel="Oct 29, 10:00 AM"
+				waterTempOk={true}
+				rtcOk={false}
 			/>,
 		);
 
@@ -24,6 +26,10 @@ describe("FeederFallback", () => {
 		expect(html).toContain("30%");
 		expect(html).toContain("Oct 29, 10:00 AM");
 		expect(html).toContain("feeder-viewer-fallback");
+		expect(html).toContain("Water temp sensor");
+		expect(html).toContain("Healthy");
+		expect(html).toContain("RTC");
+		expect(html).toContain("Fault");
 	});
 
 	it("says no reading when the level is null", () => {
@@ -33,11 +39,14 @@ describe("FeederFallback", () => {
 				status="offline"
 				feedLevelPercent={null}
 				lastFedLabel={null}
+				waterTempOk={null}
+				rtcOk={null}
 			/>,
 		);
 
 		expect(html).toContain("Offline");
 		expect(html).toContain("—");
 		expect(html).toContain("No reading yet");
+		expect(html).toContain("Not reported");
 	});
 });

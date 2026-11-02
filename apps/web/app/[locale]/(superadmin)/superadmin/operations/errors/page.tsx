@@ -79,7 +79,7 @@ export default async function OperationsErrorsPage({
 									className={
 										isActive
 											? "inline-flex min-h-11 items-center rounded-xl bg-[#0A3D62] px-3.5 py-2 text-sm font-bold text-white shadow-sm"
-											: "inline-flex min-h-11 items-center rounded-xl px-3.5 py-2 text-sm font-bold text-[#3D5568] transition-colors hover:bg-white hover:text-[#0A3D62]"
+											: "inline-flex min-h-11 items-center rounded-xl px-3.5 py-2 text-sm font-bold text-[#3D5568] dark:text-slate-400 transition-colors hover:bg-white dark:hover:bg-[#162238] hover:text-[#0A3D62]"
 									}
 								>
 									{t(`status.${status}`)}
@@ -107,10 +107,10 @@ export default async function OperationsErrorsPage({
 									<Badge tone={SEVERITY_TONE[row.severity] ?? "neutral"}>
 										{t(`severity.${row.severity}`)}
 									</Badge>
-									<span className="font-mono text-xs font-bold break-all text-[#3D5568]">
+									<span className="font-mono text-xs font-bold break-all text-[#3D5568] dark:text-slate-400">
 										{row.route}
 									</span>
-									<span className="text-xs text-[#3D5568]">
+									<span className="text-xs text-[#3D5568] dark:text-slate-400">
 										{t("occurrences", { count: row.count })}
 									</span>
 									{row.resolved && (
@@ -122,19 +122,21 @@ export default async function OperationsErrorsPage({
 									)}
 								</div>
 
-								<p className="mt-2 text-sm font-bold break-words text-[#0A3D62]">{row.message}</p>
+								<p className="mt-2 text-sm font-bold break-words text-[#0A3D62] dark:text-slate-100">
+									{row.message}
+								</p>
 
-								<p className="mt-1 text-xs text-[#3D5568]">
+								<p className="mt-1 text-xs text-[#3D5568] dark:text-slate-400">
 									{t("firstSeen", { when: formatted(row.firstSeenAt) })} ·{" "}
 									{t("lastSeen", { when: formatted(row.lastSeenAt) })}
 								</p>
 
 								{row.stack && (
 									<details className="mt-2">
-										<summary className="inline-flex cursor-pointer items-center text-xs font-bold text-[#0A3D62]">
+										<summary className="inline-flex cursor-pointer items-center text-xs font-bold text-[#0A3D62] dark:text-slate-100">
 											{t("showStack")}
 										</summary>
-										<pre className="mt-2 max-h-64 overflow-auto rounded-xl bg-[#F4F7F6] p-3 text-[11px] leading-relaxed whitespace-pre-wrap break-words text-[#3D5568]">
+										<pre className="mt-2 max-h-64 overflow-auto rounded-xl bg-[#F4F7F6] dark:bg-[#0B1220] p-3 text-[11px] leading-relaxed whitespace-pre-wrap break-words text-[#3D5568] dark:text-slate-400">
 											{row.stack}
 										</pre>
 									</details>

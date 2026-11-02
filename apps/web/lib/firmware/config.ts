@@ -611,6 +611,12 @@ export interface BuildFirmwareConfigInput {
 	gates: FirmwareValues;
 	/** I-95 device connectivity policy (informational, echoed in `diag`). */
 	deviceStatus?: { weakAfterMin?: number | null; offlineAfterMin?: number | null };
+	/**
+	 * #456 organization settings. `hopperLowPct` is the threshold the org set
+	 * (5-50), sent to 1.7.0+ firmware as `hopper_low_pct`. Absent or null keeps
+	 * the stored gate/default value instead of resetting it.
+	 */
+	org?: { hopperLowPct?: number | null };
 }
 
 /**
@@ -640,6 +646,14 @@ export function buildFirmwareConfig(input: BuildFirmwareConfigInput): FirmwareCo
 	set("max_dispense_ms", input.device.maxDispenseMs);
 	set("weak_after_min", input.deviceStatus?.weakAfterMin);
 	set("offline_after_min", input.deviceStatus?.offlineAfterMin);
+
+	// #456: the organization's hopper threshold overrides the stored gate value.
+	// Unlike `set`, a missing value leaves the gate/default alone: the org row is
+	// optional, and "no value" must not push the unit back to 20 %.
+	const orgHopperLowPct = input.org?.hopperLowPct;
+	if (typeof orgHopperLowPct === "number" && Number.isFinite(orgHopperLowPct)) {
+		values.hopper_low_pct = orgHopperLowPct;
+	}
 
 	if (!(values.hopper_full_cm < values.hopper_empty_cm)) {
 		values.hopper_full_cm = firmwareField("hopper_full_cm")?.defaultValue ?? 5;

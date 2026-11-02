@@ -75,7 +75,7 @@ export function FirmwareGatesSettings({ initial }: { initial: FirmwareValues }) 
 	};
 
 	return (
-		<div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+		<div className="rounded-2xl border border-gray-200 dark:border-[#24304A] bg-white dark:bg-[#111A2C] p-5 shadow-sm">
 			<form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
 				{FIRMWARE_GATE_FIELDS.map((field) => (
 					<label key={field.id} className="block">

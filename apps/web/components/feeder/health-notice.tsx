@@ -3,7 +3,7 @@
 import { formatDateTimeLocal } from "@/lib/date-local";
 import { type DeviceHealthView, deviceNeedsAttention } from "@/lib/device-health-model";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, ShieldAlert } from "lucide-react";
+import { AlertTriangle, HelpCircle, ShieldAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 const REFUSAL_REASON_KEYS: Record<string, string> = {
@@ -37,11 +37,14 @@ const HEALTH_TONES = {
 	dark: {
 		safe: "border-[#C42B3A]/45 bg-[#C42B3A]/20 text-[#ffc0c7]",
 		fault: "border-[#B45309]/50 bg-[#B45309]/25 text-[#ffd8a8]",
+		unknown: "border-amber-300/35 bg-amber-300/10 text-amber-100",
 		refusal: "text-white/70",
 	},
 	themed: {
 		safe: "border-red-200 bg-red-50 text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300",
 		fault:
+			"border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300",
+		unknown:
 			"border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300",
 		refusal: "text-muted-foreground",
 	},
@@ -62,6 +65,37 @@ export function HealthNotice({
 	const colours = HEALTH_TONES[tone];
 	const t = useTranslations("dashboard.feederHero");
 	const tDates = useTranslations("dates");
+
+	// #624: a failed health read is not a healthy feeder. Say so, and say when
+	// the last successful read was when this process knows.
+	if (health.unavailable) {
+		const checked = formatDateTimeLocal(health.unavailable.checkedAt, tDates);
+		const last = health.unavailable.lastSuccessAt
+			? formatDateTimeLocal(health.unavailable.lastSuccessAt, tDates)
+			: null;
+
+		return (
+			<div
+				className="relative mt-3"
+				data-testid="feeder-hero-health"
+				data-tone={tone}
+				data-unavailable="true"
+			>
+				<div className={cn("rounded-2xl border p-3", colours.unknown)}>
+					<p className="flex items-center gap-1.5 text-xs font-black">
+						<HelpCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
+						{t("healthUnknownTitle")}
+					</p>
+					<p className="mt-1 text-[11px] font-semibold leading-snug">{t("healthUnknownBody")}</p>
+					<p className="mt-1 text-[10px] font-semibold opacity-80">
+						{last
+							? t("healthUnknownLast", { date: last.date, time: last.time })
+							: t("healthUnknownChecked", { date: checked.date, time: checked.time })}
+					</p>
+				</div>
+			</div>
+		);
+	}
 
 	const attention = deviceNeedsAttention(health);
 	const refusal = health.lastRefusal;

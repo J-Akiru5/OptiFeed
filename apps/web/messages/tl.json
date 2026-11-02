@@ -2343,7 +2343,11 @@
 			"refusalReasonTooSoon": "masyadong maaga mula sa huling dose",
 			"refusalReasonHourlyLimit": "naabot na ang limitasyon kada oras",
 			"refusalReasonRelayOverrun": "lumampas ang relay",
-			"refusalReasonOther": "{code}"
+			"refusalReasonOther": "{code}",
+			"healthUnknownTitle": "Hindi ma-verify ang kalusugan ng feeder",
+			"healthUnknownBody": "Nabigo ang pagbasa ng kalusugan, kaya hindi masasabi ng page na ito kung ligtas ang feeder. Hindi ito iniuulat na healthy.",
+			"healthUnknownLast": "Huling na-verify {date}, {time}",
+			"healthUnknownChecked": "Nabigo ang pagbasa {date}, {time}"
 		},
 		"audit": {
 			"title": "Talaan ng Audit",

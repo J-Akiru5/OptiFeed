@@ -653,7 +653,11 @@
 			"refusalReasonTooSoon": "too soon after the last dose",
 			"refusalReasonHourlyLimit": "hourly limit reached",
 			"refusalReasonRelayOverrun": "relay ran too long",
-			"refusalReasonOther": "{code}"
+			"refusalReasonOther": "{code}",
+			"healthUnknownTitle": "Cannot verify feeder health",
+			"healthUnknownBody": "The health read failed, so this page cannot say whether the feeder is safe. It is not being reported as healthy.",
+			"healthUnknownLast": "Last verified {date}, {time}",
+			"healthUnknownChecked": "Read failed {date}, {time}"
 		},
 		"home": {
 			"noData": "No pond is assigned yet. Ask your administrator to set one up.",

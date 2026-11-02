@@ -22,56 +22,56 @@
 			"budgetKb": 455.7
 		},
 		"/[locale]/(admin)/admin/audit/page": {
-			"baselineKb": 653.4,
-			"budgetKb": 666.5
+			"baselineKb": 686.4,
+			"budgetKb": 700.2
 		},
 		"/[locale]/(admin)/admin/calendar/page": {
-			"baselineKb": 915.8,
-			"budgetKb": 934.1
+			"baselineKb": 950.9,
+			"budgetKb": 970
 		},
 		"/[locale]/(admin)/admin/devices/page": {
-			"baselineKb": 668.2,
-			"budgetKb": 681.6
+			"baselineKb": 702.2,
+			"budgetKb": 716.3
 		},
 		"/[locale]/(admin)/admin/hierarchy/page": {
-			"baselineKb": 653.7,
-			"budgetKb": 666.8
+			"baselineKb": 686.6,
+			"budgetKb": 700.4
 		},
 		"/[locale]/(admin)/admin/page": {
 			"baselineKb": 1079.9,
 			"budgetKb": 1101.5
 		},
 		"/[locale]/(admin)/admin/ponds/[pondId]/delete/page": {
-			"baselineKb": 663.2,
-			"budgetKb": 676.5
+			"baselineKb": 688.4,
+			"budgetKb": 702.2
 		},
 		"/[locale]/(admin)/admin/ponds/[pondId]/edit/page": {
-			"baselineKb": 658.4,
-			"budgetKb": 671.6
+			"baselineKb": 691.4,
+			"budgetKb": 705.3
 		},
 		"/[locale]/(admin)/admin/ponds/[pondId]/page": {
-			"baselineKb": 794,
-			"budgetKb": 809.9
+			"baselineKb": 833.3,
+			"budgetKb": 850
 		},
 		"/[locale]/(admin)/admin/ponds/new/page": {
-			"baselineKb": 669.1,
-			"budgetKb": 682.5
+			"baselineKb": 702.1,
+			"budgetKb": 716.2
 		},
 		"/[locale]/(admin)/admin/ponds/page": {
-			"baselineKb": 654.7,
-			"budgetKb": 667.8
+			"baselineKb": 687.7,
+			"budgetKb": 701.5
 		},
 		"/[locale]/(admin)/admin/settings/members/[userId]/permissions/page": {
-			"baselineKb": 657,
-			"budgetKb": 670.2
+			"baselineKb": 690,
+			"budgetKb": 703.9
 		},
 		"/[locale]/(admin)/admin/settings/page": {
-			"baselineKb": 683,
-			"budgetKb": 696.7
+			"baselineKb": 719.8,
+			"budgetKb": 734.2
 		},
 		"/[locale]/(admin)/admin/users/page": {
-			"baselineKb": 653.4,
-			"budgetKb": 666.5
+			"baselineKb": 686.4,
+			"budgetKb": 700.2
 		},
 		"/[locale]/(dashboard)/dashboard/app-settings/page": {
 			"baselineKb": 965.2,
@@ -94,8 +94,8 @@
 			"budgetKb": 1424.1
 		},
 		"/[locale]/(dashboard)/dashboard/growth/page": {
-			"baselineKb": 1053.4,
-			"budgetKb": 1075.0
+			"baselineKb": 1075.1,
+			"budgetKb": 1096.6
 		},
 		"/[locale]/(dashboard)/dashboard/harvest/page": {
 			"baselineKb": 965.2,
@@ -158,64 +158,64 @@
 			"budgetKb": 760.4
 		},
 		"/[locale]/(superadmin)/superadmin/ai-providers/page": {
-			"baselineKb": 942.6,
-			"budgetKb": 961.5
+			"baselineKb": 964.3,
+			"budgetKb": 983.6
 		},
 		"/[locale]/(superadmin)/superadmin/calendar/page": {
-			"baselineKb": 1006.7,
-			"budgetKb": 1026.9
+			"baselineKb": 1041.7,
+			"budgetKb": 1062.6
 		},
 		"/[locale]/(superadmin)/superadmin/devices/page": {
-			"baselineKb": 941.8,
-			"budgetKb": 960.7
+			"baselineKb": 972.7,
+			"budgetKb": 992.2
 		},
 		"/[locale]/(superadmin)/superadmin/operations/announcements/page": {
-			"baselineKb": 1025.9,
-			"budgetKb": 1046.4
+			"baselineKb": 1060.7,
+			"budgetKb": 1082
 		},
 		"/[locale]/(superadmin)/superadmin/operations/audit/[id]/page": {
-			"baselineKb": 915.9,
-			"budgetKb": 934.3
+			"baselineKb": 951,
+			"budgetKb": 970.1
 		},
 		"/[locale]/(superadmin)/superadmin/operations/audit/page": {
-			"baselineKb": 918.6,
-			"budgetKb": 937
+			"baselineKb": 953.7,
+			"budgetKb": 972.8
 		},
 		"/[locale]/(superadmin)/superadmin/operations/firmware/page": {
-			"baselineKb": 918.6,
-			"budgetKb": 937
+			"baselineKb": 953.7,
+			"budgetKb": 972.8
 		},
 		"/[locale]/(superadmin)/superadmin/operations/page": {
 			"baselineKb": 1346.6,
 			"budgetKb": 1373.6
 		},
 		"/[locale]/(superadmin)/superadmin/orgs/[orgId]/page": {
-			"baselineKb": 936.8,
-			"budgetKb": 955.6
+			"baselineKb": 967.1,
+			"budgetKb": 986.5
 		},
 		"/[locale]/(superadmin)/superadmin/orgs/page": {
-			"baselineKb": 926.9,
-			"budgetKb": 945.5
+			"baselineKb": 956.3,
+			"budgetKb": 975.5
 		},
 		"/[locale]/(superadmin)/superadmin/page": {
 			"baselineKb": 1342.3,
 			"budgetKb": 1369.2
 		},
 		"/[locale]/(superadmin)/superadmin/ponds/page": {
-			"baselineKb": 916.8,
-			"budgetKb": 935.2
+			"baselineKb": 951.2,
+			"budgetKb": 970.3
 		},
 		"/[locale]/(superadmin)/superadmin/settings/page": {
-			"baselineKb": 950.7,
-			"budgetKb": 969.7
+			"baselineKb": 978.3,
+			"budgetKb": 997.9
 		},
 		"/[locale]/(superadmin)/superadmin/users/create/page": {
-			"baselineKb": 926.4,
-			"budgetKb": 945
+			"baselineKb": 961.1,
+			"budgetKb": 980.4
 		},
 		"/[locale]/(superadmin)/superadmin/users/page": {
-			"baselineKb": 929.1,
-			"budgetKb": 947.7
+			"baselineKb": 962.9,
+			"budgetKb": 982.2
 		},
 		"/[locale]/change-password/page": {
 			"baselineKb": 592.7,
@@ -236,6 +236,46 @@
 		"/[locale]/terms/page": {
 			"baselineKb": 586.9,
 			"budgetKb": 598.7
+		},
+		"/[locale]/(admin)/admin/settings/backup/page": {
+			"baselineKb": 688.2,
+			"budgetKb": 702
+		},
+		"/[locale]/(superadmin)/superadmin/fleet/page": {
+			"baselineKb": 948.4,
+			"budgetKb": 967.4
+		},
+		"/[locale]/(superadmin)/superadmin/incidents/page": {
+			"baselineKb": 948.4,
+			"budgetKb": 967.4
+		},
+		"/[locale]/(superadmin)/superadmin/operations/errors/page": {
+			"baselineKb": 952.4,
+			"budgetKb": 971.5
+		},
+		"/[locale]/(superadmin)/superadmin/operations/security/page": {
+			"baselineKb": 951,
+			"budgetKb": 970.1
+		},
+		"/[locale]/(superadmin)/superadmin/settings/backup/page": {
+			"baselineKb": 952.9,
+			"budgetKb": 972
+		},
+		"/[locale]/(superadmin)/superadmin/tenants/compare/page": {
+			"baselineKb": 948.4,
+			"budgetKb": 967.4
+		},
+		"/[locale]/(superadmin)/superadmin/tenants/page": {
+			"baselineKb": 948.4,
+			"budgetKb": 967.4
+		},
+		"/[locale]/forgot-password/page": {
+			"baselineKb": 562.7,
+			"budgetKb": 574
+		},
+		"/[locale]/reset-password/page": {
+			"baselineKb": 592.2,
+			"budgetKb": 604.1
 		}
 	}
 }

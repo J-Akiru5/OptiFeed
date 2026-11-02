@@ -1,4 +1,4 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to this project will be documented in this file.
 
@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.0] - 2026-11-03
+
 ### Added
+
+- **The 3D feeder view now uses real camera controls (#623).** `OrbitControls` is replaced with drei `CameraControls`: right-drag pans instead of orbiting, a lock button keeps the camera fixed by default and remembers the choice, touch devices get pinch and two-finger pan, movement is bounded so the camera cannot leave the scene, and a reset returns to the default view. No dependency was added.
 
 - **The superadmin console's chart layer gains the six visualizations the command center needs, on one shared date range (#629).** `components/charts/` now has a heatmap (activity by day Ã— hour), a timeline (incidents and device events on a time rail), a treemap (org â†’ ponds â†’ devices), a radial gauge (bounded health and utilisation percentages), a stacked area (cumulative consumption by source) and the KPI sparkline, which moved out of `superadmin/monitor/primitives` so there is one implementation rather than two. Every primitive handles both themes, an empty dataset, a single point, a loading skeleton and an error state, and keeps the visually hidden data table the existing charts already publish. A `ChartRangeProvider` and `ChartRangeControl` give a page 7d/30d/90d/custom and filter the temporal charts on the client: `LineTrend`, `MultiLineTrend`, `StackedBars` and `StackedArea` opt in with `temporal`, and a filtered stack recomputes its legend totals so the legend describes what is plotted. Legends are native buttons with `aria-pressed`, the cartesian charts set Recharts' `accessibilityLayer`, and `charts/lazy.tsx` splits every Recharts-backed chart into its own chunk so chart code stays out of the initial health-panel bundle. No new dependency, no schema change.
 ## [1.44.1] - 2026-11-03

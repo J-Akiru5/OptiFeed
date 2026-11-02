@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => {
 		upsert,
 		aggregate: vi.fn(),
 		queryRaw: vi.fn(),
+		executeRaw: vi.fn(),
 		transaction: vi.fn(),
 		tx: { backgroundJob: { update }, jobArtifact: { upsert } },
 		buildCsvExport: vi.fn(),
@@ -51,6 +52,7 @@ vi.mock("@/lib/prisma", () => ({
 		},
 		jobArtifact: { aggregate: mocks.aggregate, upsert: mocks.upsert },
 		$queryRaw: mocks.queryRaw,
+		$executeRaw: mocks.executeRaw,
 		$transaction: mocks.transaction,
 	},
 }));
@@ -67,10 +69,13 @@ vi.mock("@/lib/jobs/import-data", () => ({ confirmImport: mocks.confirmImport })
 
 import { ApiError } from "@/lib/api/errors";
 import {
+	JOB_BACKOFF_MAX_MS,
+	JOB_MAX_ATTEMPTS,
 	JOB_TTL_MS,
 	claimNextJob,
 	createJob,
 	getJobMetrics,
+	jobBackoffMs,
 	jobDto,
 	processJobs,
 	purgeExpiredJobs,
@@ -117,6 +122,7 @@ beforeEach(() => {
 	mocks.confirmImport.mockResolvedValue({ importedCount: 7 });
 	mocks.deleteMany.mockResolvedValue({ count: 3 });
 	mocks.updateMany.mockResolvedValue({ count: 1 });
+	mocks.executeRaw.mockResolvedValue(1);
 	mocks.queryRaw.mockResolvedValue([]);
 	mocks.findUnique.mockResolvedValue({ status: "succeeded" });
 });
@@ -202,11 +208,11 @@ describe("claimNextJob", () => {
 
 		expect(claimed).toBe(JOB);
 		expect(mocks.queryRaw).toHaveBeenCalledTimes(1);
-		// The only interpolation is the worker id; the SQL itself is static.
-		expect(mocks.queryRaw.mock.calls[0]?.slice(1)).toEqual(["worker-1"]);
+		// The interpolations are the worker id and the attempt cap.
+		expect(mocks.queryRaw.mock.calls[0]?.slice(1)).toEqual(["worker-1", JOB_MAX_ATTEMPTS]);
 	});
 
-	it("only considers queued, unexpired jobs, oldest first", async () => {
+	it("only claims queued, ready, unexpired jobs below the attempt cap, fairest first", async () => {
 		mocks.queryRaw.mockResolvedValue([JOB]);
 
 		await claimNextJob("worker-1");
@@ -214,7 +220,13 @@ describe("claimNextJob", () => {
 		const sql = (mocks.queryRaw.mock.calls[0]?.[0] as TemplateStringsArray).join("?");
 		expect(sql).toContain(`WHERE "status" = 'queued'`);
 		expect(sql).toContain(`"expiresAt" > (NOW() AT TIME ZONE 'UTC')`);
-		expect(sql).toContain(`ORDER BY "createdAt" ASC`);
+		expect(sql).toContain(`"attempts" < ?`);
+		expect(sql).toContain(
+			`"nextAttemptAt" IS NULL OR "nextAttemptAt" <= (NOW() AT TIME ZONE 'UTC')`,
+		);
+		expect(sql).toContain(
+			`ORDER BY "attempts" ASC, COALESCE("nextAttemptAt", "createdAt") ASC, "createdAt" ASC`,
+		);
 		expect(sql).toContain("FOR UPDATE SKIP LOCKED");
 	});
 });
@@ -236,6 +248,7 @@ describe("runJob exports", () => {
 				},
 				error: null,
 				finishedAt: expect.any(Date),
+				nextAttemptAt: null,
 				lockedAt: null,
 				lockedBy: null,
 			},
@@ -331,8 +344,8 @@ describe("runJob imports", () => {
 });
 
 describe("runJob failures", () => {
-	it("fails an unknown job type without a generic stack", async () => {
-		await runJob({ ...JOB, type: "export_docx" } as unknown as BackgroundJob);
+	it("retries an unknown job type with backoff instead of dead-lettering at once", async () => {
+		await runJob({ ...JOB, type: "export_docx", attempts: 1 } as unknown as BackgroundJob);
 
 		expect(mocks.reportError).toHaveBeenCalledWith(
 			expect.objectContaining({ message: "Unknown job type: export_docx" }),
@@ -341,9 +354,11 @@ describe("runJob failures", () => {
 		expect(mocks.update).toHaveBeenCalledWith({
 			where: { id: "job_1" },
 			data: {
-				status: "failed",
-				error: "The job failed. Try again.",
-				finishedAt: expect.any(Date),
+				status: "queued",
+				error: null,
+				lastError: "Unknown job type: export_docx",
+				nextAttemptAt: expect.any(Date),
+				finishedAt: null,
 				lockedAt: null,
 				lockedBy: null,
 			},
@@ -351,33 +366,57 @@ describe("runJob failures", () => {
 		expect(mocks.transaction).not.toHaveBeenCalled();
 	});
 
-	it("shows an explicitly exposed ApiError message", async () => {
+	it("dead-letters the final attempt with a finish time and no next attempt", async () => {
+		await runJob({
+			...JOB,
+			type: "export_docx",
+			attempts: JOB_MAX_ATTEMPTS,
+		} as unknown as BackgroundJob);
+
+		expect(mocks.update).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					status: "failed",
+					error: "The job failed. Try again.",
+					lastError: "Unknown job type: export_docx",
+					finishedAt: expect.any(Date),
+					nextAttemptAt: null,
+				}),
+			}),
+		);
+	});
+
+	it("shows an explicitly exposed ApiError message on the terminal attempt", async () => {
 		mocks.buildCsvExport.mockRejectedValue(
 			new ApiError(400, "BAD_REQUEST", "There is nothing to export yet."),
 		);
 
-		await runJob(JOB);
+		await runJob({ ...JOB, attempts: JOB_MAX_ATTEMPTS });
 
 		expect(mocks.update).toHaveBeenCalledWith(
 			expect.objectContaining({
 				data: expect.objectContaining({
 					status: "failed",
 					error: "There is nothing to export yet.",
+					lastError: "There is nothing to export yet.",
 				}),
 			}),
 		);
 	});
 
-	it("hides a 5xx ApiError behind the generic message", async () => {
+	it("hides a 5xx ApiError behind the generic message on the terminal attempt", async () => {
 		mocks.buildCsvExport.mockRejectedValue(
 			new ApiError(500, "INTERNAL_ERROR", 'relation "Pond" does not exist'),
 		);
 
-		await runJob(JOB);
+		await runJob({ ...JOB, attempts: JOB_MAX_ATTEMPTS });
 
 		expect(mocks.update).toHaveBeenCalledWith(
 			expect.objectContaining({
-				data: expect.objectContaining({ error: "The job failed. Try again." }),
+				data: expect.objectContaining({
+					error: "The job failed. Try again.",
+					lastError: 'relation "Pond" does not exist',
+				}),
 			}),
 		);
 	});
@@ -385,16 +424,16 @@ describe("runJob failures", () => {
 	it("truncates a long exposed message to 500 characters", async () => {
 		mocks.buildCsvExport.mockRejectedValue(new ApiError(400, "BAD_REQUEST", "x".repeat(600)));
 
-		await runJob(JOB);
+		await runJob({ ...JOB, attempts: JOB_MAX_ATTEMPTS });
 
 		const data = mocks.update.mock.calls[0]?.[0].data as { error: string };
 		expect(data.error).toHaveLength(500);
 	});
 
-	it("fails the job when the completion transaction rejects", async () => {
+	it("retries when the completion transaction rejects", async () => {
 		mocks.transaction.mockRejectedValueOnce(new Error("connection reset"));
 
-		await runJob(JOB);
+		await runJob({ ...JOB, attempts: 1 });
 
 		expect(mocks.reportError).toHaveBeenCalledWith(
 			expect.objectContaining({ message: "connection reset" }),
@@ -402,7 +441,7 @@ describe("runJob failures", () => {
 		);
 		expect(mocks.update).toHaveBeenCalledWith(
 			expect.objectContaining({
-				data: expect.objectContaining({ status: "failed" }),
+				data: expect.objectContaining({ status: "queued", lastError: "connection reset" }),
 			}),
 		);
 	});
@@ -422,20 +461,134 @@ describe("maintenance", () => {
 		expect(where.expiresAt.lt.getTime()).toBeLessThanOrEqual(Date.now());
 	});
 
-	it("requeues jobs whose worker lease is older than five minutes", async () => {
+	it("caps stale leases and schedules the next attempt with backoff", async () => {
+		mocks.executeRaw.mockResolvedValue(2);
 		const before = Date.now() - 5 * 60 * 1000;
 
 		const requeued = await requeueStaleJobs();
 
-		expect(requeued).toBe(1);
-		const args = mocks.updateMany.mock.calls[0]?.[0] as unknown as {
-			where: { status: string; lockedAt: { lt: Date } };
-			data: { status: string; lockedAt: null; lockedBy: null };
+		expect(requeued).toBe(2);
+		const sql = (mocks.executeRaw.mock.calls[0]?.[0] as TemplateStringsArray).join("?");
+		expect(sql).toContain(`"status" = CASE WHEN "attempts" >= ? THEN 'failed' ELSE 'queued' END`);
+		expect(sql).toContain(`"nextAttemptAt"`);
+		expect(sql).toContain(`POWER(2, GREATEST("attempts" - 1, 0))`);
+		expect(sql).toContain(`"lockedAt" < ?`);
+
+		const params = mocks.executeRaw.mock.calls[0]?.slice(1) as unknown[];
+		expect(params).toContain(JOB_MAX_ATTEMPTS);
+		const cutoff = params[params.length - 1] as Date;
+		expect(cutoff).toBeInstanceOf(Date);
+		expect(cutoff.getTime()).toBeGreaterThanOrEqual(before - 1_000);
+		expect(cutoff.getTime()).toBeLessThanOrEqual(before + 1_000);
+	});
+});
+
+describe("retry policy", () => {
+	it("backs off exponentially up to the cap", () => {
+		expect(jobBackoffMs(1)).toBe(30_000);
+		expect(jobBackoffMs(2)).toBe(60_000);
+		expect(jobBackoffMs(3)).toBe(120_000);
+		expect(jobBackoffMs(4)).toBe(240_000);
+		expect(jobBackoffMs(30)).toBe(JOB_BACKOFF_MAX_MS);
+	});
+
+	it("requeues a failure below the cap with the next attempt scheduled", async () => {
+		mocks.buildCsvExport.mockRejectedValue(new Error("boom"));
+
+		await runJob({ ...JOB, attempts: 2 });
+
+		const data = mocks.update.mock.calls[0]?.[0].data as {
+			status: string;
+			error: string | null;
+			lastError: string;
+			nextAttemptAt: Date;
 		};
-		expect(args.where.status).toBe("running");
-		expect(args.where.lockedAt.lt.getTime()).toBeGreaterThanOrEqual(before - 1_000);
-		expect(args.where.lockedAt.lt.getTime()).toBeLessThanOrEqual(before + 1_000);
-		expect(args.data).toEqual({ status: "queued", lockedAt: null, lockedBy: null });
+		expect(data.status).toBe("queued");
+		expect(data.error).toBeNull();
+		expect(data.lastError).toBe("boom");
+		const delay = data.nextAttemptAt.getTime() - Date.now();
+		expect(delay).toBeGreaterThan(55_000);
+		expect(delay).toBeLessThanOrEqual(60_000);
+	});
+});
+
+describe("per-job time limit", () => {
+	it("records an export timeout as a retryable failure instead of hanging", async () => {
+		mocks.buildCsvExport.mockImplementation(() => new Promise(() => undefined));
+
+		await runJob(JOB, { timeLimitMs: 5 });
+
+		const data = mocks.update.mock.calls[0]?.[0].data as {
+			status: string;
+			lastError: string;
+		};
+		expect(data.status).toBe("queued");
+		expect(data.lastError).toContain("Timed out.");
+	});
+
+	it("dead-letters an import timeout because the write may have committed", async () => {
+		mocks.confirmImport.mockImplementation(() => new Promise(() => undefined));
+
+		await runJob(
+			{
+				...JOB,
+				type: "import_confirm",
+				payload: { type: "feed_events", csvData: "a,b\n1,2\n" },
+			} as unknown as BackgroundJob,
+			{ timeLimitMs: 5 },
+		);
+
+		const data = mocks.update.mock.calls[0]?.[0].data as {
+			status: string;
+			lastError: string;
+			nextAttemptAt: null;
+		};
+		expect(data.status).toBe("failed");
+		expect(data.lastError).toContain("Timed out.");
+		expect(data.nextAttemptAt).toBeNull();
+	});
+});
+
+describe("poison job", () => {
+	it("reaches failed after maxAttempts and lets a healthy job behind it run", async () => {
+		const poisonRows = [1, 2, 3, 4, 5].map((attempt) => ({
+			...JOB,
+			id: "poison",
+			attempts: attempt,
+		}));
+		const healthy = { ...JOB, id: "healthy", attempts: 1 };
+		const queue = [...poisonRows, healthy];
+		const status = new Map<string, string>();
+		let next = 0;
+
+		mocks.queryRaw.mockImplementation(() => {
+			const row = queue[next++];
+			return Promise.resolve(row ? [row] : []);
+		});
+		mocks.update.mockImplementation(
+			async ({ where, data }: { where: { id: string }; data: { status: string } }) => {
+				status.set(where.id, data.status);
+				return { ...JOB, id: where.id, status: data.status };
+			},
+		);
+		mocks.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) => ({
+			status: status.get(where.id) ?? "queued",
+		}));
+		let executions = 0;
+		mocks.buildCsvExport.mockImplementation(async () => {
+			executions += 1;
+			if (executions <= JOB_MAX_ATTEMPTS) throw new Error("poison payload");
+			return ARTIFACT;
+		});
+
+		const result = await processJobs({ workerId: "worker-1", max: 10, budgetMs: 60_000 });
+
+		expect(result.claimed).toBe(6);
+		expect(result.succeeded).toBe(1);
+		expect(result.failed).toBe(5);
+		expect(executions).toBe(6);
+		expect(status.get("poison")).toBe("failed");
+		expect(status.get("healthy")).toBe("succeeded");
 	});
 });
 
@@ -521,7 +674,7 @@ describe("processJobs", () => {
 		expect(result).toMatchObject({ claimed: 0, succeeded: 0, failed: 0 });
 		// Maintenance still runs before the budget is checked.
 		expect(mocks.deleteMany).toHaveBeenCalledTimes(1);
-		expect(mocks.updateMany).toHaveBeenCalledTimes(1);
+		expect(mocks.executeRaw).toHaveBeenCalledTimes(1);
 		expect(mocks.queryRaw).not.toHaveBeenCalled();
 	});
 });

@@ -4116,7 +4116,8 @@
 				"audit": "Audit log",
 				"announcements": "Announcements",
 				"reports": "Reports",
-				"security": "Security and oversight"
+				"security": "Security and oversight",
+				"jobs": "Background jobs"
 			},
 			"errors": {
 				"title": "Error events",
@@ -4168,7 +4169,10 @@
 				"columnFinished": "Finished",
 				"columnType": "Type",
 				"columnAttempts": "Attempts",
-				"columnError": "Error"
+				"columnError": "Error",
+				"description": "Queue health and the dead-letter list. A job stops retrying at the attempt cap and stays here with its last error.",
+				"summary": "{queued} queued · {running} running · {failed} failed in the last 24 hours.",
+				"columnOwner": "Farm"
 			},
 			"charts": {
 				"period": "Day",

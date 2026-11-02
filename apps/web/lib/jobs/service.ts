@@ -12,8 +12,50 @@ import { buildReportPdf } from "./report-pdf";
 export const JOB_TTL_MS = 24 * 60 * 60 * 1000;
 const STALE_LOCK_MS = 5 * 60 * 1000;
 
+/**
+ * Retry policy (issue #590).
+ *
+ * `attempts` is incremented when a worker claims a job, so `job.attempts` is
+ * the number of the attempt that is running. Five attempts with an exponential
+ * backoff (30 s, 1 min, 2 min, 4 min) and a dead letter on the fifth.
+ */
+export const JOB_MAX_ATTEMPTS = 5;
+export const JOB_BACKOFF_BASE_MS = 30 * 1000;
+export const JOB_BACKOFF_MAX_MS = 15 * 60 * 1000;
+
 export type JobType = "export_csv" | "export_zip" | "export_xlsx" | "export_pdf" | "import_confirm";
 type JobStatus = "queued" | "running" | "succeeded" | "failed";
+
+/**
+ * Per-job wall-clock limit. Exports are read-only and retry safely; the import
+ * writes in one transaction, so it gets the largest budget that still fits the
+ * route's 15 s envelope. Anything larger must be chunked (a follow-up), not
+ * run silently inside the 8 s cron budget.
+ */
+export const JOB_TIME_LIMIT_MS = 10 * 1000;
+export const JOB_TIME_LIMITS_MS: Record<JobType, number> = {
+	export_csv: JOB_TIME_LIMIT_MS,
+	export_zip: JOB_TIME_LIMIT_MS,
+	export_xlsx: JOB_TIME_LIMIT_MS,
+	export_pdf: 15 * 1000,
+	import_confirm: 12 * 1000,
+};
+
+export class JobTimeoutError extends Error {
+	readonly limitMs: number;
+
+	constructor(limitMs: number) {
+		super(`The job exceeded its ${Math.round(limitMs / 1000)} s time limit.`);
+		this.name = "JobTimeoutError";
+		this.limitMs = limitMs;
+	}
+}
+
+/** Exponential backoff for the attempt that just failed. */
+export function jobBackoffMs(attempts: number): number {
+	const exponent = Math.max(0, attempts - 1);
+	return Math.min(JOB_BACKOFF_BASE_MS * 2 ** exponent, JOB_BACKOFF_MAX_MS);
+}
 
 interface CreateJobInput {
 	ownerId: string;
@@ -91,6 +133,14 @@ export function jobDto(
  * Atomically claim one queued job. `FOR UPDATE SKIP LOCKED` lets several
  * workers run without double-processing; a crashed worker's lease is recovered
  * by `requeueStaleJobs`.
+ *
+ * The attempt cap is part of the claim predicate, not only application code:
+ * a job that reached `JOB_MAX_ATTEMPTS` is never picked up again.
+ *
+ * Ordering is fair, not oldest-first (issue #590): jobs that have never been
+ * tried beat retries, and a retry waits for its backoff before it is eligible.
+ * A poison job therefore cannot sit at the head of the queue; it backs off and
+ * eventually leaves the queue as `failed`.
  */
 export async function claimNextJob(workerId: string): Promise<BackgroundJob | null> {
 	const rows = await prisma.$queryRaw<BackgroundJob[]>`
@@ -102,8 +152,11 @@ export async function claimNextJob(workerId: string): Promise<BackgroundJob | nu
 			"attempts" = "attempts" + 1
 		WHERE "id" = (
 			SELECT "id" FROM "BackgroundJob"
-			WHERE "status" = 'queued' AND "expiresAt" > (NOW() AT TIME ZONE 'UTC')
-			ORDER BY "createdAt" ASC
+			WHERE "status" = 'queued'
+				AND "expiresAt" > (NOW() AT TIME ZONE 'UTC')
+				AND "attempts" < ${JOB_MAX_ATTEMPTS}
+				AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= (NOW() AT TIME ZONE 'UTC'))
+			ORDER BY "attempts" ASC, COALESCE("nextAttemptAt", "createdAt") ASC, "createdAt" ASC
 			FOR UPDATE SKIP LOCKED
 			LIMIT 1
 		)
@@ -112,67 +165,93 @@ export async function claimNextJob(workerId: string): Promise<BackgroundJob | nu
 	return rows[0] ?? null;
 }
 
-export async function runJob(job: BackgroundJob): Promise<void> {
+export async function runJob(
+	job: BackgroundJob,
+	options: { timeLimitMs?: number } = {},
+): Promise<void> {
+	const limitMs =
+		options.timeLimitMs ?? JOB_TIME_LIMITS_MS[job.type as JobType] ?? JOB_TIME_LIMIT_MS;
 	try {
-		switch (job.type) {
-			case "export_csv": {
-				const payload = job.payload as { type: SheetType };
-				const artifact = await buildCsvExport(job.ownerId, payload.type);
-				await completeJob(job, artifact, {
-					filename: artifact.filename,
-					content_type: artifact.contentType,
-					size: artifact.body.byteLength,
-					download_url: `/api/v1/jobs/${job.id}/download`,
-				});
-				return;
-			}
-			case "export_zip": {
-				const payload = job.payload as { types?: SheetType[] };
-				const artifact = await buildBatchExport(job.ownerId, payload.types);
-				await completeJob(job, artifact, {
-					filename: artifact.filename,
-					content_type: artifact.contentType,
-					size: artifact.body.byteLength,
-					download_url: `/api/v1/jobs/${job.id}/download`,
-				});
-				return;
-			}
-			case "export_xlsx": {
-				const payload = job.payload as { types?: SheetType[] };
-				const artifact = await buildXlsxExport(job.ownerId, payload.types);
-				await completeJob(job, artifact, {
-					filename: artifact.filename,
-					content_type: artifact.contentType,
-					size: artifact.body.byteLength,
-					download_url: `/api/v1/jobs/${job.id}/download`,
-				});
-				return;
-			}
-			case "export_pdf": {
-				const payload = (job.payload ?? {}) as { report?: PdfReport };
-				const artifact =
-					payload.report && payload.report !== "summary"
-						? await buildReportPdf(job.ownerId, payload.report)
-						: await buildPdfExport(job.ownerId);
-				await completeJob(job, artifact, {
-					filename: artifact.filename,
-					content_type: artifact.contentType,
-					size: artifact.body.byteLength,
-					download_url: `/api/v1/jobs/${job.id}/download`,
-				});
-				return;
-			}
-			case "import_confirm": {
-				const payload = job.payload as { type: ExportableType; csvData: string };
-				const result = await confirmImport(job.ownerId, payload.type, payload.csvData);
-				await completeJob(job, null, { importedCount: result.importedCount });
-				return;
-			}
-			default:
-				throw new Error(`Unknown job type: ${job.type}`);
-		}
+		await withTimeLimit(executeJob(job), limitMs);
 	} catch (error) {
 		await failJob(job, error);
+	}
+}
+
+async function executeJob(job: BackgroundJob): Promise<void> {
+	switch (job.type) {
+		case "export_csv": {
+			const payload = job.payload as { type: SheetType };
+			const artifact = await buildCsvExport(job.ownerId, payload.type);
+			await completeJob(job, artifact, {
+				filename: artifact.filename,
+				content_type: artifact.contentType,
+				size: artifact.body.byteLength,
+				download_url: `/api/v1/jobs/${job.id}/download`,
+			});
+			return;
+		}
+		case "export_zip": {
+			const payload = job.payload as { types?: SheetType[] };
+			const artifact = await buildBatchExport(job.ownerId, payload.types);
+			await completeJob(job, artifact, {
+				filename: artifact.filename,
+				content_type: artifact.contentType,
+				size: artifact.body.byteLength,
+				download_url: `/api/v1/jobs/${job.id}/download`,
+			});
+			return;
+		}
+		case "export_xlsx": {
+			const payload = job.payload as { types?: SheetType[] };
+			const artifact = await buildXlsxExport(job.ownerId, payload.types);
+			await completeJob(job, artifact, {
+				filename: artifact.filename,
+				content_type: artifact.contentType,
+				size: artifact.body.byteLength,
+				download_url: `/api/v1/jobs/${job.id}/download`,
+			});
+			return;
+		}
+		case "export_pdf": {
+			const payload = (job.payload ?? {}) as { report?: PdfReport };
+			const artifact =
+				payload.report && payload.report !== "summary"
+					? await buildReportPdf(job.ownerId, payload.report)
+					: await buildPdfExport(job.ownerId);
+			await completeJob(job, artifact, {
+				filename: artifact.filename,
+				content_type: artifact.contentType,
+				size: artifact.body.byteLength,
+				download_url: `/api/v1/jobs/${job.id}/download`,
+			});
+			return;
+		}
+		case "import_confirm": {
+			const payload = job.payload as { type: ExportableType; csvData: string };
+			const result = await confirmImport(job.ownerId, payload.type, payload.csvData);
+			await completeJob(job, null, { importedCount: result.importedCount });
+			return;
+		}
+		default:
+			throw new Error(`Unknown job type: ${job.type}`);
+	}
+}
+
+/**
+ * Bound one job's wall-clock time. The route has its own 15 s envelope; this
+ * limit is smaller, so an overrun is recorded as a failed attempt instead of
+ * the process being killed with the lock still held.
+ */
+async function withTimeLimit<T>(work: Promise<T>, limitMs: number): Promise<T> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const timeout = new Promise<never>((_, reject) => {
+		timer = setTimeout(() => reject(new JobTimeoutError(limitMs)), limitMs);
+	});
+	try {
+		return await Promise.race([work, timeout]);
+	} finally {
+		if (timer) clearTimeout(timer);
 	}
 }
 
@@ -189,6 +268,7 @@ async function completeJob(
 				result,
 				error: null,
 				finishedAt: new Date(),
+				nextAttemptAt: null,
 				lockedAt: null,
 				lockedBy: null,
 			},
@@ -216,17 +296,40 @@ async function failJob(job: BackgroundJob, error: unknown): Promise<void> {
 	// explicitly exposed ApiError message is safe to show; everything else is
 	// logged server-side and reported generically.
 	reportError(error, { route: "jobs/worker", jobId: job.id, type: job.type });
+
+	const attempts = Math.max(1, job.attempts);
+	const timedOut = error instanceof JobTimeoutError;
+	// The import writes in one transaction and can commit after we stop waiting,
+	// so a timeout there is terminal: retrying could duplicate rows. Exports are
+	// read-only and retry safely.
+	const retryable = !(timedOut && job.type === "import_confirm");
+	const terminal = !retryable || attempts >= JOB_MAX_ATTEMPTS;
+	const detail = error instanceof Error ? error.message : String(error);
 	const message =
 		error instanceof ApiError && error.expose ? error.message : "The job failed. Try again.";
+	const lastError = (timedOut ? "Timed out. " : "") + detail.slice(0, 1_980);
+
 	await prisma.backgroundJob.update({
 		where: { id: job.id },
-		data: {
-			status: "failed",
-			error: message.slice(0, 500),
-			finishedAt: new Date(),
-			lockedAt: null,
-			lockedBy: null,
-		},
+		data: terminal
+			? {
+					status: "failed",
+					error: message.slice(0, 500),
+					lastError,
+					finishedAt: new Date(),
+					nextAttemptAt: null,
+					lockedAt: null,
+					lockedBy: null,
+				}
+			: {
+					status: "queued",
+					error: null,
+					lastError,
+					nextAttemptAt: new Date(Date.now() + jobBackoffMs(attempts)),
+					finishedAt: null,
+					lockedAt: null,
+					lockedBy: null,
+				},
 	});
 }
 
@@ -238,14 +341,40 @@ export async function purgeExpiredJobs(): Promise<number> {
 }
 
 export async function requeueStaleJobs(): Promise<number> {
-	const result = await prisma.backgroundJob.updateMany({
-		where: {
-			status: "running",
-			lockedAt: { lt: new Date(Date.now() - STALE_LOCK_MS) },
-		},
-		data: { status: "queued", lockedAt: null, lockedBy: null },
-	});
-	return result.count;
+	// A crashed worker's lease is recovered, but the attempt cap and the
+	// backoff apply here too: a job that has exhausted its attempts is
+	// dead-lettered instead of being requeued forever (issue #590).
+	const staleBefore = new Date(Date.now() - STALE_LOCK_MS);
+	const requeued = await prisma.$executeRaw`
+		UPDATE "BackgroundJob"
+		SET
+			"status" = CASE WHEN "attempts" >= ${JOB_MAX_ATTEMPTS} THEN 'failed' ELSE 'queued' END,
+			"error" = CASE
+				WHEN "attempts" >= ${JOB_MAX_ATTEMPTS} THEN 'The job did not finish. Try again.'
+				ELSE NULL
+			END,
+			"lastError" = CASE
+				WHEN "attempts" >= ${JOB_MAX_ATTEMPTS} THEN 'Worker lease expired after the final attempt.'
+				ELSE 'Worker lease expired; the job was requeued.'
+			END,
+			"finishedAt" = CASE
+				WHEN "attempts" >= ${JOB_MAX_ATTEMPTS} THEN (NOW() AT TIME ZONE 'UTC')
+				ELSE NULL
+			END,
+			"nextAttemptAt" = CASE
+				WHEN "attempts" >= ${JOB_MAX_ATTEMPTS} THEN NULL
+				ELSE (NOW() AT TIME ZONE 'UTC') + (
+					LEAST(
+						POWER(2, GREATEST("attempts" - 1, 0)) * ${JOB_BACKOFF_BASE_MS},
+						${JOB_BACKOFF_MAX_MS}
+					) * INTERVAL '1 millisecond'
+				)
+			END,
+			"lockedAt" = NULL,
+			"lockedBy" = NULL
+		WHERE "status" = 'running' AND "lockedAt" < ${staleBefore};
+	`;
+	return requeued;
 }
 
 export interface ProcessJobsResult {
@@ -306,12 +435,18 @@ export async function getJobMetrics(ownerId?: string): Promise<JobMetrics> {
 	};
 }
 
+export const JOB_ROUTE_DEADLINE_MS = 15 * 1000;
+const JOB_MIN_START_MS = 1000;
+
 export async function processJobs(options: {
 	workerId: string;
 	max: number;
 	budgetMs: number;
+	/** Hard envelope this worker must stay inside (the route's own timeout). */
+	deadlineMs?: number;
 }): Promise<ProcessJobsResult> {
 	const startedAt = Date.now();
+	const deadlineMs = options.deadlineMs ?? JOB_ROUTE_DEADLINE_MS;
 	const purged = await purgeExpiredJobs();
 	const requeued = await requeueStaleJobs();
 	let claimed = 0;
@@ -319,10 +454,17 @@ export async function processJobs(options: {
 	let failed = 0;
 
 	while (claimed < options.max && Date.now() - startedAt < options.budgetMs) {
+		const remaining = deadlineMs - (Date.now() - startedAt);
+		// The claim increments the attempt, so do not start a job there is no
+		// time to finish: the route would kill it with the lock held.
+		if (remaining <= JOB_MIN_START_MS) break;
+
 		const job = await claimNextJob(options.workerId);
 		if (!job) break;
 		claimed += 1;
-		await runJob(job);
+
+		const typeLimit = JOB_TIME_LIMITS_MS[job.type as JobType] ?? JOB_TIME_LIMIT_MS;
+		await runJob(job, { timeLimitMs: Math.min(typeLimit, Math.max(250, remaining - 500)) });
 
 		const after = await prisma.backgroundJob.findUnique({
 			where: { id: job.id },

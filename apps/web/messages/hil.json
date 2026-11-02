@@ -4116,7 +4116,8 @@
 				"audit": "Audit log",
 				"announcements": "Mga abiso",
 				"reports": "Mga report",
-				"security": "Seguridad kag pagbantay"
+				"security": "Seguridad kag pagbantay",
+				"jobs": "Mga background job"
 			},
 			"errors": {
 				"title": "Mga error event",
@@ -4168,7 +4169,10 @@
 				"columnFinished": "Natapos",
 				"columnType": "Klase",
 				"columnAttempts": "Mga pagtilaw",
-				"columnError": "Error"
+				"columnError": "Error",
+				"description": "Kahimsog sang queue kag ang dead-letter nga listahan. Ang isa ka job nagahulat sang retry tubtob maabot ang attempt cap kag nagapabilin diri upod ang katapusan nga error.",
+				"summary": "{queued} naka-queue · {running} nagadalagan · {failed} napaslawan sa nagligad nga 24 oras.",
+				"columnOwner": "Farm"
 			},
 			"charts": {
 				"period": "Adlaw",

@@ -365,6 +365,7 @@ describe("change password form", () => {
 
 		const toggles = screen.getAllByRole("button", { name: "Show password" });
 		expect(toggles).toHaveLength(2);
+		expect(screen.getByLabelText("New password")).toHaveAttribute("data-revealable", "true");
 
 		fireEvent.click(toggles[0]);
 

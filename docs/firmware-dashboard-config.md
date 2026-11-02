@@ -258,10 +258,12 @@ repeated brownouts looked online and healthy.
   A different `trip_id` is a new incident. The row writes **no notification and no `FeedEvent`**: the
   `device_health` state row above already raised the CRITICAL safe-mode alert, and a second one would
   double-alert one lockout. History shows it as **Safety Trip (safe mode)** under the Feeding filter.
-  `lib/device-safety-trip.ts` is the pure model. The firmware emitter is **not shipped**: the unit still
-  reports safe mode on the heartbeat and refuses doses with `feed_refused` / `safe_mode`, so nothing
-  produces this event yet. Sending it needs `enterSafeMode()` to emit once per trip after Wi-Fi comes up
-  (it runs during `setup()`, before the radio), which requires the owner's flash approval.
+  `lib/device-safety-trip.ts` is the pure model. Firmware **1.9.0** emits it once per trip: the id is
+  created in `enterSafeMode()` and persisted in NVS (`safe_trip_id`, `safe_trip_sent`, `safe_trip_at`),
+  then `serviceSafetyTripReport()` sends it from `loop()` once identity and Wi-Fi exist, because the
+  lockout runs during `setup()` before the radio. A 2xx marks it sent; a 422 from an older server is
+  permanent; 429, 5xx and transport failures retry with the existing 5 s→5 min backoff, so a trip that
+  happens offline lands exactly once after reconnect. The relay path is unchanged.
 - **Not covered.** The remaining `diag` keys (#454) and a request id on the refusal payload (firmware).
   Calibration requests that are refused keep their own handling.
 

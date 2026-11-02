@@ -166,8 +166,8 @@ pio run -d firmware -t upload  # flash over USB
 pio device monitor -b 115200   # serial log
 ```
 
-CI runs `pio run -d firmware` for every firmware change; it never flashes or
-deploys.
+CI runs the host native tests and `pio run -d firmware` for every firmware
+change; it never flashes or deploys.
 
 ### Relay pin (build flag)
 
@@ -425,6 +425,9 @@ is on `PATH`, and `scripts/native_runtime.py` copies its runtime DLLs beside the
 test binary. On Linux/macOS both scripts are no-ops and the host compiler is
 used directly.
 
+CI runs this same command for every firmware change, so a failing native test
+fails the pull request before it can merge.
+
 ## Firmware 1.7.0 — dashboard-driven configuration (I-100)
 
 Jeff's 2026-10-31 instruction: *"make sure that all the code on the firmware is
@@ -592,7 +595,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 #define FEED_POLL_URL_BASE     "https://pakaonai.syntaxure.dev/api/feed-command"
 #define SCHEDULE_SYNC_URL_BASE "https://pakaonai.syntaxure.dev/api/schedule-sync"
 #define OTA_CHECK_URL          "https://pakaonai.syntaxure.dev/api/firmware/check"
-#define FW_VERSION             "1.8.1"
+#define FW_VERSION             "1.9.0"
 #define FW_BOARD               "wroom32u"
 ```
 
@@ -625,7 +628,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 > 4. Confirm the five embedded certificates match the fingerprints in the
 >    source comment (`openssl x509 -fingerprint -sha256 -in <pem>`).
 
-> `FW_VERSION` is printed at boot (`[FIRMWARE] v1.8.1`, under the
+> `FW_VERSION` is printed at boot (`[FIRMWARE] v1.9.0`, under the
 > `[DEVICE MAC]` line) and sent as `firmware_version` in every heartbeat. It is
 > also the version the OTA check reports and compares against the signed
 > manifest.
@@ -1101,7 +1104,7 @@ them identical to the PEMs embedded in `firmware-main.ino`.
   "timestamp": "2026-07-11T12:00:00+00:00",
   "rtc_ok": true,
   "feeder_active": false,
-  "firmware_version": "1.8.1",
+  "firmware_version": "1.9.0",
   "wifi_rssi": -58,
   "ota_state": "valid",
   "reset_reason": "poweron",
@@ -1184,10 +1187,14 @@ alert:
 > A relay overrun is reported as the existing `feed_refused` with reason `relay_overrun` rather than by
 > changing the server.
 
-**Safety trip** (`event_type: "safety_trip"`, once per trip). The server accepts and stores this event,
-but **no firmware code emits it yet**: shipping the emitter needs the owner's flash approval (see
-below). Until then a unit reports safe mode on the heartbeat and refuses doses with `feed_refused` /
-`safe_mode`, which is enough for the dashboard panel and the CRITICAL alert.
+**Safety trip** (`event_type: "safety_trip"`, once per trip). Firmware **1.9.0** emits this event. The
+id is created in `enterSafeMode()` and persisted in NVS (`safe_trip_id`, `safe_trip_sent`,
+`safe_trip_at`); because the lockout runs during `setup()` before Wi-Fi associates, the deferred
+`serviceSafetyTripReport()` sends it from `loop()` once identity and the network exist. A 2xx marks it
+sent; a 422 from an older server is permanent; 429, 5xx and transport failures retry with the existing
+5 s→5 min backoff, so a trip that happens offline lands exactly once after reconnect. The relay path is
+unchanged. Until the report lands, the heartbeat still carries `safe_mode` and the unit refuses doses
+with `feed_refused` / `safe_mode`.
 
 ```json
 {
@@ -1201,7 +1208,7 @@ below). Until then a unit reports safe mode on the heartbeat and refuses doses w
   "entry": "boot",
   "quiet_s": 0,
   "uptime_s": 12,
-  "firmware_version": "1.8.1"
+  "firmware_version": "1.9.0"
 }
 ```
 
@@ -1222,6 +1229,15 @@ with the same `trip_id` returns 204 and writes no second row. It creates **no no
 gets a 204 alone, exactly like the other ingest events. Because `enterSafeMode()` runs during
 `setup()` before Wi-Fi associates, the report has to be deferred and sent after the first successful
 connection; the server accepts it whenever it arrives.
+
+Bench checks for the emitter:
+
+1. Three abnormal resets inside the window → the boot log shows one trip id and the server has
+   exactly one `safety_trip` row.
+2. Reboot while the trip is still unreported → the same `trip_id` is resumed; no duplicate row.
+3. Trip while offline → exactly one row after reconnect (the id and sent flag are in NVS).
+4. Point the unit at an older server (422) → the log says `trip … refused`, and it does not retry in
+   a loop. 429 is retried, never treated as permanent.
 
 ### `GET /api/feed-command?device_id=...` — Dashboard Feed Request
 
@@ -1345,7 +1361,7 @@ Portal checks (no backend needed):
 12. Confirm the serial log never prints the WiFi password or the Device Token, and that
     the setup page never renders a stored token. `/status` and `/scan` must not contain
     either.
-13. Confirm the boot log prints `[FIRMWARE] v1.8.1` under the `[DEVICE MAC]` line and
+13. Confirm the boot log prints `[FIRMWARE] v1.9.0` under the `[DEVICE MAC]` line and
     `[IDENTITY] Setup AP name`, and that a heartbeat carries the same version in
     `firmware_version`.
 14. Confirm the boot log prints `[INIT] Reset reason: ...`, `[OTA] state -> valid` and

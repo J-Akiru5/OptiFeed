@@ -3,7 +3,9 @@
 import type { MultiSeries } from "@/components/charts/chart-data";
 import { formatAxisDay, formatChartNumber } from "@/components/charts/chart-data";
 import { ChartFrame, type ChartProps, MultiSeriesTable } from "@/components/charts/chart-frame";
+import { filterByRange, useChartRange } from "@/components/charts/chart-range";
 import { seriesColor, tooltipStyle, useChartTheme } from "@/components/charts/chart-theme";
+import { useMemo } from "react";
 import {
 	CartesianGrid,
 	Line,
@@ -22,6 +24,8 @@ export interface MultiLineTrendProps extends ChartProps {
 	unit?: string;
 	decimals?: number;
 	height?: number;
+	/** Treat the row labels as dates and apply the page's shared range (#629). */
+	temporal?: boolean;
 }
 
 /**
@@ -38,25 +42,36 @@ export function MultiLineTrend({
 	unit,
 	decimals = 1,
 	height = 240,
+	temporal = false,
 	className,
+	isLoading = false,
+	loadingLabel,
+	error = null,
 }: MultiLineTrendProps) {
 	const theme = useChartTheme();
+	const range = useChartRange();
 	const lines = series.series.map((key, index) => ({
 		key,
 		label: seriesLabels[key] ?? key,
 		color: seriesColor(index),
 	}));
 
+	const rows = useMemo(() => {
+		if (!temporal || !range) return series.rows;
+		return filterByRange(series.rows, (row) => String(row.label), range.range);
+	}, [series.rows, temporal, range]);
+
 	return (
 		<ChartFrame
 			title={title}
 			summary={summary}
 			emptyLabel={labels.empty}
-			isEmpty={lines.length === 0}
+			isEmpty={lines.length === 0 || rows.length === 0}
 			className={className}
-			table={
-				<MultiSeriesTable rows={series.rows} series={lines} labels={labels} caption={summary} />
-			}
+			isLoading={isLoading}
+			loadingLabel={loadingLabel}
+			error={error}
+			table={<MultiSeriesTable rows={rows} series={lines} labels={labels} caption={summary} />}
 			aux={
 				lines.length > 0 ? (
 					<ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
@@ -78,7 +93,7 @@ export function MultiLineTrend({
 			}
 		>
 			<ResponsiveContainer width="100%" height={height}>
-				<LineChart data={series.rows} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+				<LineChart data={rows} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
 					<CartesianGrid strokeDasharray="3 3" stroke={theme.grid} vertical={false} />
 					<XAxis
 						dataKey="label"

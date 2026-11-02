@@ -38,8 +38,8 @@
 			"budgetKb": 700.4
 		},
 		"/[locale]/(admin)/admin/page": {
-			"baselineKb": 1079.9,
-			"budgetKb": 1101.5
+			"baselineKb": 1103.7,
+			"budgetKb": 1125.8
 		},
 		"/[locale]/(admin)/admin/ponds/[pondId]/delete/page": {
 			"baselineKb": 688.4,
@@ -198,8 +198,8 @@
 			"budgetKb": 975.5
 		},
 		"/[locale]/(superadmin)/superadmin/page": {
-			"baselineKb": 1342.3,
-			"budgetKb": 1369.2
+			"baselineKb": 1371.9,
+			"budgetKb": 1399.3
 		},
 		"/[locale]/(superadmin)/superadmin/ponds/page": {
 			"baselineKb": 951.2,

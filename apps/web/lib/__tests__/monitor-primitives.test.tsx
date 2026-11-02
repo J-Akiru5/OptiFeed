@@ -4,11 +4,11 @@ import { Activity } from "lucide-react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { Sparkline } from "@/components/charts/sparkline";
 import { ActivityFeed } from "@/components/superadmin/monitor/primitives/activity-feed";
 import { AttentionList } from "@/components/superadmin/monitor/primitives/attention-list";
 import { KpiTile } from "@/components/superadmin/monitor/primitives/kpi-tile";
 import { MonitorPanel, PanelGrid } from "@/components/superadmin/monitor/primitives/monitor-panel";
-import { Sparkline } from "@/components/superadmin/monitor/primitives/sparkline";
 import { StatusMix } from "@/components/superadmin/monitor/primitives/status-mix";
 
 /**
@@ -24,7 +24,6 @@ import { StatusMix } from "@/components/superadmin/monitor/primitives/status-mix
 
 const PRIMITIVES = [
 	"monitor-panel.tsx",
-	"sparkline.tsx",
 	"kpi-tile.tsx",
 	"status-mix.tsx",
 	"activity-feed.tsx",
@@ -326,5 +325,13 @@ describe("theme guard", () => {
 			);
 			expect(source, `${file} has no dark: utility`).toContain("dark:");
 		}
+
+		// #629: the KPI sparkline moved to the shared chart layer; the guard
+		// follows it there rather than losing the file.
+		const sparkline = readFileSync(
+			join(__dirname, "../../components/charts/sparkline.tsx"),
+			"utf8",
+		);
+		expect(sparkline, "charts/sparkline.tsx has no dark: utility").toContain("dark:");
 	});
 });

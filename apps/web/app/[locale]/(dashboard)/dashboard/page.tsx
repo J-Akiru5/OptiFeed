@@ -759,17 +759,21 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 
 					{energyDevice && (
 						<div className={cn(CONTROL_ROOM_ORDER.water, CONTROL_ROOM_MOBILE_BAND)}>
-							<WaterTempCard
-								tempC={
-									energyDevice.waterTempC === null
-										? null
-										: energyDevice.waterTempC + (energyDevice.tempOffsetC ?? 0)
-								}
-								tempOk={energyDevice.waterTempOk}
-								updatedAt={energyDevice.waterTempUpdatedAt}
-								isDeviceOffline={esp32Offline}
-								minFeedTempC={energyDevice.minFeedTempC}
-							/>
+							{
+								// Resolved here rather than as JSX: the card translates on the
+								// server, and a static render has no Suspense boundary to catch a
+								// suspended async component.
+								await WaterTempCard({
+									tempC:
+										energyDevice.waterTempC === null
+											? null
+											: energyDevice.waterTempC + (energyDevice.tempOffsetC ?? 0),
+									tempOk: energyDevice.waterTempOk,
+									updatedAt: energyDevice.waterTempUpdatedAt,
+									isDeviceOffline: esp32Offline,
+									minFeedTempC: energyDevice.minFeedTempC,
+								})
+							}
 						</div>
 					)}
 

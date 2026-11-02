@@ -865,7 +865,56 @@
 			"howCalculatedTitle": "Paano Ginkuenta",
 			"howBiomass": "Total nga biomass = kadamuon sang isda × average nga timbang.",
 			"howDailyFeed": "Adlaw-adlaw nga pagkaon = total nga biomass × feeding rate.",
-			"howPerMeal": "Pagkaon kada pagpakaon = adlaw-adlaw nga pagkaon ÷ kadamuon sang pagpakaon kada adlaw."
+			"howPerMeal": "Pagkaon kada pagpakaon = adlaw-adlaw nga pagkaon ÷ kadamuon sang pagpakaon kada adlaw.",
+			"feedPerFeeding": "Pagkaon nga ihatag kada pagpakaon",
+			"dailyTotal": "Kabilugan kada adlaw {grams}g · {feeds} ka pagpakaon kada adlaw",
+			"savedTo": "Gin-save sa sampling batch <bold>{label}</bold>",
+			"savedToUnlabeled": "Gin-save nga wala sang sampling batch",
+			"deviceOfflineNote": "Offline ang device — ma-apply ang bag-o nga schedule pag-reconnect sini.",
+			"statusUpdated": "Na-update ang schedule sang device: {previous}g → {current}g kada pagpakaon.",
+			"statusUnchanged": "Ang schedule sang device {current}g na kada pagpakaon — wala nabag-o.",
+			"statusRejectedDeviation": "Ginpabilin ang schedule sa {previous}g — ang nakalkula nga {calculated}g lahi sang sobra sa 50% sa kasamtangan nga kantidad. Repasuhon ini antes i-apply.",
+			"statusRejectedOutOfRange": "Ginpabilin ang schedule sa {previous}g — ang nakalkula nga {calculated}g indi sulod sa ginatugot nga range.",
+			"statusSkippedConfig": "Wala nabag-o ang schedule sang device — i-set anay ang feeding rate sang punong kag ang pagpakaon kada adlaw.",
+			"statusSkippedNoDevice": "Wala nabag-o ang schedule sang device — wala sang device nga naka-link sa sini nga punong.",
+			"statusSkippedNoPopulation": "Wala nabag-o ang schedule sang device — i-set ang populasyon sang isda sa punong agud makalkula ang biomass.",
+			"statusSkippedTargetPlan": "Na-save ang sample. Indi pa takos ang target growth plan para sa isa pa ka adjustment — buksi ang Growth para makita ang sunod nga petsa.",
+			"logAnother": "Mag-log sang Isa Pa nga Sample",
+			"backToDashboard": "Balik sa Dashboard",
+			"averageMode": "Average nga Mode",
+			"individualMode": "Indibidwal nga Mode",
+			"batchOptionalLabel": "Sampling batch (opsyonal)",
+			"batchPlaceholder": "hal. Sampling batch 2026-10 A",
+			"weightInputLabel": "Average nga Timbang sang Isda (gramos)",
+			"weightPlaceholder": "hal. 220",
+			"lengthInputPlaceholder": "hal. 24",
+			"sampleCountInputLabel": "Kadamuon sang Sample nga Isda",
+			"individualHeading": "Kada Isa nga Sukot sang Isda",
+			"addFish": "Magdugang Isda",
+			"fishWeightPlaceholder": "Timbang (g)",
+			"fishLengthPlaceholder": "Kalabaon (cm)",
+			"fishWeightLabel": "Timbang sang isda {index} sa gramos",
+			"fishLengthLabel": "Kalabaon sang isda {index} sa sentimetro",
+			"removeFish": "Kuhaon ang isda {index}",
+			"errorMeasurements": "Palihog susiha ang mga sukot. Ang tanan nga kantidad dapat sobra sa 0.",
+			"errorRowWeight": "Ang timbang dapat sobra sa 0",
+			"errorRowLength": "Ang kalabaon dapat 0 ukon sobra",
+			"errorFixRows": "Palihog ayuha ang mga gin-highlight nga linya sang isda.",
+			"errorNoValidFish": "Palihog magdugang sang bisan isa ka isda nga may balido nga timbang.",
+			"errorSaveFailed": "Indi ma-save ang biomass log. Palihog tilawi liwat.",
+			"sampledCount": "Gin-sample <bold>{count}</bold> ka isda.",
+			"calcAbw": "Nakalkula nga Average Body Weight (ABW): <bold>{weight}g</bold>.",
+			"avgLengthLine": "Average nga Kalabaon: <bold>{length}cm</bold>",
+			"totalBiomass": "Kabilugan nga Biomass",
+			"hintSetFishCount": "I-set ang kadamuon sang isda sa punong agud makalkula",
+			"formulaBiomass": "= kadamuon sang isda × average nga timbang",
+			"dailyFeed": "Pagkaon kada Adlaw",
+			"formulaDailyFeed": "= biomass × {rate}%",
+			"feedPerMeal": "Pagkaon kada Pagpakaon",
+			"formulaPerMeal": "= kada adlaw ÷ {feeds} ka pagpakaon",
+			"biomassBreakdown": "({fish} ka isda × {weight} g)",
+			"dailyBreakdown": "({biomass}g × {rate}%)",
+			"perMealBreakdown": "(÷ {feeds} ka pagpakaon)"
 		},
 		"history": {
 			"amount": "KADAM-ON",
@@ -2970,6 +3019,22 @@
 				"attention": "Kinahanglan atensyon",
 				"hint": "Ang pagkasunodsunod kag mga filter para lang sa mga item sa sini nga pahina."
 			}
+		},
+		"waterTemp": {
+			"title": "Temperatura sang Tubig",
+			"iconLabel": "Temperatura sang tubig",
+			"statusOk": "OK",
+			"statusStale": "Luma na",
+			"statusBelowMinimum": "Ubos sa minimum",
+			"statusOffline": "Offline ang Sensor",
+			"lastUpdated": "Huli nga na-update",
+			"feedingMinimum": "Minimum sa pagpakaon: {temp}°C",
+			"belowMinimumNote": "Malamig pa sa minimum nga {temp}°C sang sini nga punong para sa pagpakaon. Indi ginadumilian ang pagpakaon — susiha anay ang reaksyon sang isda antes sang naka-iskedyul nga pagpakaon.",
+			"sensorOffline": "Offline ang sensor",
+			"secondsAgo": "{count}s ang nakaligad",
+			"minutesAgo": "{count}m ang nakaligad",
+			"hoursAgo": "{count}h ang nakaligad",
+			"daysAgo": "{count}d ang nakaligad"
 		}
 	},
 	"errors": {
@@ -4900,5 +4965,20 @@
 	"sidebar": {
 		"collapse": "Pil-ona ang sidebar",
 		"expand": "Bukasa ang sidebar"
+	},
+	"account": {
+		"menu": {
+			"pondOperator": "Operador sang Punong",
+			"language": "Lengguwahe",
+			"device": "Device",
+			"close": "Sirad-an ang menu sang profile",
+			"open": "Buksi ang menu sang profile kag settings",
+			"adminPanel": "Admin Panel",
+			"platformConsole": "Platform Console",
+			"accountSettings": "Mga setting sang account",
+			"switchLanguage": "Ilisan ang lengguwahe",
+			"signOut": "Mag-sign out",
+			"userFallback": "Manugamit"
+		}
 	}
 }

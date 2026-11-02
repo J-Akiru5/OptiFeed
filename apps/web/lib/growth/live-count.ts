@@ -47,6 +47,17 @@ export function deriveLiveCount(
 }
 
 /**
+ * Mortality as a percentage of the stocked count, clamped to 0–100. Null when
+ * there is no stock source, so the UI can say "not set" instead of inventing a
+ * rate.
+ */
+export function mortalityRatePct(dead: number, stocked: number | null): number | null {
+	if (stocked === null || stocked <= 0) return null;
+	const pct = (Math.max(0, dead) / stocked) * 100;
+	return Math.min(100, Math.max(0, pct));
+}
+
+/**
  * Live count for one pond, derived at read time. Also tolerates read paths
  * that already hold the pond row (avoids a second query in page components):
  * pass `pond` when you have it.

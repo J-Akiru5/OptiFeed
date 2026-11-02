@@ -32,7 +32,7 @@ const db = vi.hoisted(() => {
 
 vi.mock("@/lib/prisma", () => ({ default: db.prisma }));
 
-import { deriveLiveCount, getLiveCountForPond } from "@/lib/growth/live-count";
+import { deriveLiveCount, getLiveCountForPond, mortalityRatePct } from "@/lib/growth/live-count";
 
 const POND = "pond-1";
 const STOCKED_AT = new Date("2026-10-01T00:00:00.000Z");
@@ -95,6 +95,19 @@ describe("deriveLiveCount", () => {
 			source: "legacy_population",
 		});
 		expect(deriveLiveCount(525, 0, "crop_cycle").source).toBe("crop_cycle");
+	});
+});
+
+describe("mortalityRatePct", () => {
+	it("reports the dead share of the stocked count", () => {
+		expect(mortalityRatePct(75, 600)).toBeCloseTo(12.5);
+		expect(mortalityRatePct(0, 600)).toBe(0);
+	});
+
+	it("clamps to 100 and refuses to invent a rate without a stock source", () => {
+		expect(mortalityRatePct(700, 600)).toBe(100);
+		expect(mortalityRatePct(10, null)).toBeNull();
+		expect(mortalityRatePct(10, 0)).toBeNull();
 	});
 });
 

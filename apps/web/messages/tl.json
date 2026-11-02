@@ -1249,7 +1249,8 @@
 				"invalidCount": "Maglagay ng buong bilang ng isdang namatay (bababa sa 1).",
 				"saveFailed": "Hindi na-save ang mortality record. Subukan muli.",
 				"pondNotFound": "Hindi nahanap ang pond.",
-				"currentPopulation": "Listahan: {population} isda (lumang bilang; kabawasan sa mortality ang naipapakita sa itaas)."
+				"currentPopulation": "Listahan: {population} isda (lumang bilang; kabawasan sa mortality ang naipapakita sa itaas).",
+				"currentPopulationWithRate": "{population} buhay · {dead} patay sa {stocked} naka-stock ({pct}% kamatayan)"
 			},
 			"fcrInputs": "Kinosyuva mula sa: {feed} kg na binigay na feed para sa {gain} kg na naging live biomass (live {live} isda)."
 		},
@@ -1288,9 +1289,12 @@
 			"days": "{count} Araw",
 			"lastBiomassLabel": "Huling ABW ng Biomass",
 			"lastBiomassBased": "Batay sa {count} sample na isdang tinimbang.",
-			"populationLabel": "POPULASYON NG POND",
+			"populationLabel": "BUHAY NA ISDA",
 			"populationValue": "{count} Catfish",
 			"populationStable": "Stable ang dami ng naka-stock",
+			"populationDetail": "{stocked} naka-stock · {dead} patay ({pct}%)",
+			"mortalityLabel": "KAMATAYAN",
+			"mortalityValue": "{dead} patay · {pct}",
 			"feedingLogsTitle": "MGA TALAAN NG PAGPAPAKAIN — HUB NG KANLURANG VISAYAS",
 			"feedingLogsDesc": "Mga talaang naa-audit ayon sa pagkakasunod-sunod ng oras, mula sa iyong automatic dispenser.",
 			"feedLevelLabel": "Antas ng Pakain",
@@ -1445,6 +1449,7 @@
 			"errorSummaryTitle": "Ayusin muna ang mga ito bago mag-save",
 			"errorSummaryHint": "Naitabi ang mga value mo. Buksan ang isang setting para itama ito.",
 			"restoredDraft": "Naibalik ang mga value na hindi mo pa na-save.",
+			"unsavedChanges": "May mga hindi pa na-save na pagbabago — pindutin ang Save settings.",
 			"restoredDraftAt": "Naibalik ang mga hindi pa na-save na pagbabago mo ({time}).",
 			"discardDraft": "Itapon ang draft",
 			"draftDiscarded": "Itinapon ang mga hindi pa na-save na pagbabago.",

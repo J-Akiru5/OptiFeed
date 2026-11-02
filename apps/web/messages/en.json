@@ -636,9 +636,12 @@
 			"days": "{count} Days",
 			"lastBiomassLabel": "Last Biomass ABW",
 			"lastBiomassBased": "Based on {count} sample fish measured.",
-			"populationLabel": "POND POPULATION",
+			"populationLabel": "LIVE FISH",
 			"populationValue": "{count} Catfish",
 			"populationStable": "Stable stocked quantity",
+			"populationDetail": "{stocked} stocked · {dead} dead ({pct}%)",
+			"mortalityLabel": "MORTALITY",
+			"mortalityValue": "{dead} dead · {pct}",
 			"feedingLogsTitle": "FEEDING LOGS — WESTERN VISAYAS HUB",
 			"feedingLogsDesc": "Auditable chronological logs fetched from your automatic dispenser.",
 			"feedLevelLabel": "Feed Level",
@@ -1198,7 +1201,8 @@
 				"invalidCount": "Enter a whole number of fish lost (at least 1).",
 				"saveFailed": "Could not save the mortality record. Try again.",
 				"pondNotFound": "Pond not found.",
-				"currentPopulation": "Stock list: {population} fish (legacy count; mortality is subtracted on top)."
+				"currentPopulation": "Stock list: {population} fish (legacy count; mortality is subtracted on top).",
+				"currentPopulationWithRate": "{population} live · {dead} dead of {stocked} stocked ({pct}% mortality)"
 			},
 			"fcrInputs": "Computed from: {feed} kg of feed given for {gain} kg of live biomass gained (live {live} fish)."
 		},
@@ -1495,8 +1499,8 @@
 			"saveError": "Could not save the settings. Try again.",
 			"sampleIntervalLabel": "Sample Interval (days)",
 			"sampleIntervalDesc": "How often fish samples are taken (e.g. 15 or 30 days).",
-			"populationLabel": "Population (fish)",
-			"populationDesc": "Number of fish — used for total biomass and daily feed.",
+			"populationLabel": "Stocked fish count",
+			"populationDesc": "Fish stocked at the start of the cycle. Mortality is recorded on Growth and subtracted from the live count.",
 			"populationPlaceholder": "e.g. 200",
 			"areaPlaceholder": "e.g. 500",
 			"depthPlaceholder": "e.g. 1.5",
@@ -1512,6 +1516,7 @@
 			"errorSummaryHint": "Your values are kept. Open a setting to correct it.",
 			"restoredDraft": "Restored the values you had not saved yet.",
 			"restoredDraftAt": "Restored your unsaved changes ({time}).",
+			"unsavedChanges": "Unsaved changes — press Save settings to apply them.",
 			"discardDraft": "Discard draft",
 			"draftDiscarded": "Unsaved changes discarded.",
 			"conflicts": {

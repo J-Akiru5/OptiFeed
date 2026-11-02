@@ -83,6 +83,15 @@ export function checkPasswordResetRateLimit(ip: string) {
 	return checkRateLimit(`rl:pw-reset:${ip}`, 3, 10 * 60_000, false);
 }
 
+// Public issue-report limit: 5 reports per hour per IP (issue #487).
+//
+// The form is unauthenticated and writes free text that the superadmin reads,
+// so the bucket is deliberately small and keyed on the IP. Fail-closed: a
+// limiter outage must not turn the report box into an unthrottled write path.
+export function checkIssueReportRateLimit(ip: string) {
+	return checkRateLimit(`rl:issue-report:${ip}`, 5, 60 * 60 * 1000, false);
+}
+
 // Device-token reveal limit: 10 reveals per hour per admin.
 //
 // A reveal hands out a long-lived device credential, so the bucket is keyed on

@@ -451,7 +451,30 @@
 		"iso6": "Maintainability",
 		"iso7": "Efficiency",
 		"iso8": "Portability",
-		"ctaEyebrow": "Access sa study"
+		"ctaEyebrow": "Access sa study",
+		"reportIssue": {
+			"trigger": "Ireport ang isyu",
+			"title": "Ireport ang isyu",
+			"description": "Isugid sa amon ang natabo. Makalab-ot ang mga report sa platform team kag ginabinagbinag sunod sa pag-abot.",
+			"close": "Isira",
+			"category": "Kategorya",
+			"categories": {
+				"bug": "Bug",
+				"accessibility": "Accessibility",
+				"content": "Kaundan",
+				"other": "Iban pa"
+			},
+			"message": "Ano ang natabo?",
+			"messageHint": "Isaysay ang ginalauman mo kag ang nakita mo. Indi magbutang sang password ukon personal nga impormasyon.",
+			"email": "Email",
+			"emailHint": "Opsyonal, kon gusto mo nga sabton ka namon.",
+			"optional": "Opsyonal",
+			"submit": "Ipadala ang report",
+			"sending": "Ginapadala…",
+			"success": "Salamat — nabaton na ang report mo.",
+			"error": "Wala maipadala ang report. Tilawi liwat.",
+			"rateLimited": "Sobra ka damo nga report halin sa device nga ini. Tilawi sa ulihi."
+		}
 	},
 	"login": {
 		"eyebrow": "Pagsulod sa farm",
@@ -1267,6 +1290,12 @@
 				"readOnlyReason": "Indi ka maka-edit sang mga hitabo sa kalendaryo.",
 				"allPondsEditHint": "Pilia ang isa ka punong para makadugang sang hitabo.",
 				"recurringChangeConfirm": "Bag-uhon ang bug-os nga nagabalik nga serye? Pilia ang Cancel para indi mabag-o."
+			},
+			"dayEvents": {
+				"title": "Mga panghitabo sa {date}",
+				"subtitle": "{count, plural, one {# panghitabo} other {# ka panghitabo}}",
+				"empty": "Wala sang naka-iskedyul sini nga adlaw.",
+				"addEvent": "Dugang event"
 			},
 			"calendarPage": {
 				"title": "Kalendaryo kag Pag-ani",
@@ -3977,6 +4006,7 @@
 				"firmware": "Firmware sang mga device",
 				"audit": "Audit log",
 				"announcements": "Mga abiso",
+				"reports": "Mga report",
 				"security": "Seguridad kag pagbantay"
 			},
 			"errors": {
@@ -4218,6 +4248,39 @@
 				"clearing": "Ginatinluan…",
 				"cleared": "Natinluan ang abiso.",
 				"failed": "Indi ma-save ang abiso."
+			},
+			"reports": {
+				"title": "Mga report sang isyu",
+				"description": "Mga report parte sa accessibility, bug, kaundan kag iban pa halin sa public site ukon kay Pakoy.",
+				"summary": "{open} bukas sa {total} ka report",
+				"caption": "Mga report sang isyu",
+				"columns": {
+					"received": "Nabaton",
+					"category": "Kategorya",
+					"report": "Report",
+					"source": "Ginhalinan",
+					"status": "Estado"
+				},
+				"categories": {
+					"BUG": "Bug",
+					"ACCESSIBILITY": "Accessibility",
+					"CONTENT": "Kaundan",
+					"OTHER": "Iban pa"
+				},
+				"statuses": {
+					"OPEN": "Bukas",
+					"RESOLVED": "Nasulbar"
+				},
+				"sources": {
+					"PUBLIC": "Public site",
+					"ASSISTANT": "Pakoy"
+				},
+				"emptyTitle": "Wala pa sing report.",
+				"resolvedAt": "Nasulbar {when}",
+				"resolve": "Sulbara",
+				"resolving": "Ginasulbar…",
+				"resolvedJustNow": "Nasulbar",
+				"resolveFailed": "Wala masulbar. Tilawi liwat."
 			}
 		},
 		"statusBands": {
@@ -4281,6 +4344,33 @@
 			"neverReported": "Wala pa heartbeat",
 			"never": "Wala gid",
 			"notReported": "Wala ginreport",
+			"devicesTitle": "Mga unit, pinakaproblema anay",
+			"devicesHint": "Isa ka row kada feeder: heartbeat, signal, firmware, katapusan nga pagkaon, kag kon bag-o pa ang kada reading. Ang wala gid ginreport nagasiling sini; indi gid ini ipakita nga zero ukon maayo.",
+			"devicesLabel": "Mga unit suno sa device",
+			"devicesTruncated": "Ginapakita ang {shown} ka pinakaproblema sa {total} ka unit. Ang listahan sang device may bug-os nga listahan.",
+			"columnDevice": "Device",
+			"columnSignal": "Signal",
+			"columnFirmware": "Firmware",
+			"columnLastFeed": "Katapusan nga pagkaon",
+			"columnFeedLevel": "Level sang hopper",
+			"columnWaterTemp": "Temperatura sang tubig",
+			"columnHealth": "Safe mode kag mga fault",
+			"unknown": "Wala Mahibaluan",
+			"firmwareNone": "Wala ginreport nga version",
+			"reportedAt": "Ginreport sang {time}",
+			"freshAt": "Bag-o, ginbasa sang {time}",
+			"staleAt": "Luma, katapusan nga ginbasa sang {time}",
+			"stateSince": "Kahimtangan halin sang {time}",
+			"safeModeOn": "Safe mode",
+			"safeModeOff": "Indi sa safe mode",
+			"noFaults": "Wala ginreport nga fault",
+			"faultsLabel": "Mga fault: {faults}",
+			"probeNotDetected": "Wala madetectar ang probe",
+			"faults": {
+				"hopper_sensor": "sensor sang hopper",
+				"rtc": "orasan",
+				"relay_overrun": "sobra nga dose"
+			},
 			"viewDevices": "Buksan ang listahan sang device",
 			"viewIncidents": "Pila sang mga insidente"
 		},

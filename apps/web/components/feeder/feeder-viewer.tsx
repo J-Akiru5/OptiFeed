@@ -29,6 +29,10 @@ interface FeederViewerProps {
 	status: FeederStatus;
 	feedLevelPercent: number | null;
 	lastFedLabel: string | null;
+	/** Water-temperature probe health; null when the firmware never reported it. */
+	waterTempOk: boolean | null;
+	/** RTC health as last reported on the heartbeat. */
+	rtcOk: boolean | null;
 	onSimpleView?: () => void;
 }
 
@@ -96,12 +100,23 @@ export function FeederViewer({
 	status,
 	feedLevelPercent,
 	lastFedLabel,
+	waterTempOk,
+	rtcOk,
 	onSimpleView,
 }: FeederViewerProps) {
 	const t = useTranslations("dashboard.feederViewer");
 	const [preset, setPreset] = useState<CameraPreset>("iso");
 	const statusLabel = t(`status${status.charAt(0).toUpperCase()}${status.slice(1)}`);
 	const level = feedLevelPercent === null ? null : Math.min(100, Math.max(0, feedLevelPercent));
+
+	const healthOf = (health: boolean | null) =>
+		health === null
+			? { label: t("healthUnknown"), tone: "text-white/55", dot: "bg-white/40" }
+			: health
+				? { label: t("healthOk"), tone: "text-emerald-200", dot: "bg-emerald-300" }
+				: { label: t("healthFault"), tone: "text-rose-200", dot: "bg-rose-400" };
+	const waterHealth = healthOf(waterTempOk);
+	const rtcHealth = healthOf(rtcOk);
 
 	return (
 		<div className="overflow-hidden rounded-3xl border border-[#0A3D62]/10 bg-[radial-gradient(circle_at_50%_42%,rgba(125,211,252,0.16),transparent_38%),radial-gradient(ellipse_at_50%_40%,#143c5e_0%,#0B2336_58%,#071a2a_100%)] text-white shadow-sm dark:border-white/10">
@@ -202,7 +217,7 @@ export function FeederViewer({
 				)}
 			</div>
 
-			<div className="grid grid-cols-3 gap-2 border-t border-white/10 px-4 py-3 text-xs">
+			<div className="grid grid-cols-2 gap-2 border-t border-white/10 px-4 py-3 text-xs sm:grid-cols-3 lg:grid-cols-5">
 				<div>
 					<p className="text-[10px] font-black uppercase tracking-wider text-white/45">
 						{t("hopperLevel")}
@@ -214,6 +229,30 @@ export function FeederViewer({
 						{t("lastFed")}
 					</p>
 					<p className="mt-0.5 font-bold">{lastFedLabel ?? t("noReading")}</p>
+				</div>
+				<div>
+					<p className="text-[10px] font-black uppercase tracking-wider text-white/45">
+						{t("waterTempSensor")}
+					</p>
+					<p className={cn("mt-0.5 inline-flex items-center gap-1.5 font-bold", waterHealth.tone)}>
+						<span
+							className={cn("size-1.5 shrink-0 rounded-full", waterHealth.dot)}
+							aria-hidden="true"
+						/>
+						{waterHealth.label}
+					</p>
+				</div>
+				<div>
+					<p className="text-[10px] font-black uppercase tracking-wider text-white/45">
+						{t("rtc")}
+					</p>
+					<p className={cn("mt-0.5 inline-flex items-center gap-1.5 font-bold", rtcHealth.tone)}>
+						<span
+							className={cn("size-1.5 shrink-0 rounded-full", rtcHealth.dot)}
+							aria-hidden="true"
+						/>
+						{rtcHealth.label}
+					</p>
 				</div>
 				<div>
 					<p className="text-[10px] font-black uppercase tracking-wider text-white/45">

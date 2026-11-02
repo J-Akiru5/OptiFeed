@@ -25,6 +25,10 @@ interface FeederViewerLazyProps {
 	initialStatus: FeederStatus;
 	initialLevel: number | null;
 	initialLastFedAt: string | null;
+	/** Water-temperature probe health; null when never reported. */
+	initialWaterTempOk: boolean | null;
+	/** RTC health as last reported. */
+	initialRtcOk: boolean | null;
 }
 
 interface StatePayload {
@@ -93,6 +97,8 @@ export function FeederViewerLazy({
 	initialStatus,
 	initialLevel,
 	initialLastFedAt,
+	initialWaterTempOk,
+	initialRtcOk,
 }: FeederViewerLazyProps) {
 	const t = useTranslations("dashboard.feederViewer");
 	const locale = useLocale();
@@ -170,6 +176,8 @@ export function FeederViewerLazy({
 			status={state.status}
 			feedLevelPercent={state.feedLevelPercent}
 			lastFedLabel={lastFedLabel}
+			waterTempOk={initialWaterTempOk}
+			rtcOk={initialRtcOk}
 		/>
 	);
 
@@ -186,6 +194,8 @@ export function FeederViewerLazy({
 						status={state.status}
 						feedLevelPercent={state.feedLevelPercent}
 						lastFedLabel={lastFedLabel}
+						waterTempOk={initialWaterTempOk}
+						rtcOk={initialRtcOk}
 						onSimpleView={() => setSimple(true)}
 					/>
 				</ViewerBoundary>

@@ -1781,6 +1781,10 @@
 			"contactEmailError": "Indi mai-save ang email. Pamatii liwat."
 		},
 		"feederViewer": {
+			"waterTempSensor": "Sensor sang temperatura sang tubig",
+			"healthOk": "Maayo",
+			"healthFault": "May problema",
+			"healthUnknown": "Wala ginreport",
 			"viewerLabel": "Feeder 3D",
 			"canvasLabel": "Interactive nga 3D nga modelo sang {label}. I-drag para i-orbit kag gamita ang mga preset para magbaylo sang view.",
 			"statusIdle": "Idle",

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.44.1] - 2026-11-03
+
+### Security
+
+- **Row-level security is now on for every remaining public table (#593).** Nineteen tables that still had it disabled - `BackgroundJob`, `Membership`, `PlatformAdmin`, `PlatformAuditLog`, `IssueReport` and the rest - now enable it with no permissive policy, so the Supabase `anon` and `authenticated` roles are denied by default. The Prisma app connects as `postgres`, which owns the tables and has `BYPASSRLS`, so application queries are unchanged. `PondOwnershipHistory` - the only table those public roles could read - loses its grants outright. The migration also adds the missing list indexes (`Notification (pondId, createdAt)`, `Notification (farmId, createdAt)`, `PlatformAuditLog (createdAt)`) and a batched `DeviceStateEvent` retention sweep that rides the existing device-watch housekeeping pass. The service-role-only boundary is documented in `docs/database-rls-retention.md`.
+
 ## [1.44.0] - 2026-11-02
 
 ### Added

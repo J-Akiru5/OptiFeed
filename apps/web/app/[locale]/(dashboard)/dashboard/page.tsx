@@ -56,6 +56,7 @@ import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { formatFeedAmountLabel } from "@/lib/feed-figures";
 import { feedSourceKey } from "@/lib/feed-sources";
 import { getFeedNowLimitForDevice } from "@/lib/feed/feed-now-limit";
+import { getLiveCountForPond, mortalityRatePct } from "@/lib/growth/live-count";
 import type { DashboardSnapshotData } from "@/lib/offline/snapshots";
 import { getFeedPerDayBySource, getHopperLevelSeries, getWaterTempSeries } from "@/lib/pond-charts";
 import { getActivePond } from "@/lib/pond-selection";
@@ -221,6 +222,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		driftWindow,
 		feedNowLimit,
 		deviceHealth,
+		liveCount,
 	] = await Promise.all([
 		resolveCurrentSchedule(pond.id, energyDevice?.id ?? null),
 		energyDevice
@@ -242,7 +244,16 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		energyDevice ? getFeedNowLimitForDevice(energyDevice) : Promise.resolve(null),
 		// What the unit reports about itself (safe mode, faults); advisory here.
 		energyDevice ? getDeviceHealthSafe(energyDevice.id, now) : Promise.resolve(HEALTHY_VIEW),
+		// The same live-count source the growth page uses (#430/#452): stocked
+		// minus mortality, so the dashboard cannot disagree with growth.
+		getLiveCountForPond(pond.id, { population: pond.population }),
 	]);
+
+	// Display the live count, not the stocked count (#430): the pond card and
+	// the growth page must agree. The dose path still reads Pond.population.
+	const livePopulation = liveCount.live ?? pond.population;
+	const mortalityPct = mortalityRatePct(liveCount.dead, liveCount.stocked);
+	const mortalityPctLabel = mortalityPct === null ? "—" : `${mortalityPct.toFixed(1)}%`;
 
 	const latestFcr = fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : 0.0;
 	const cycleContext = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
@@ -365,7 +376,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		waterTempC: energyDevice?.waterTempC ?? null,
 		waterTempOk: energyDevice?.waterTempOk ?? null,
 		waterTempUpdatedAt: energyDevice?.waterTempUpdatedAt?.toISOString() ?? null,
-		population: pond.population,
+		population: livePopulation ?? 0,
 		avgWeightG: latestBiomass ? latestBiomass.avgWeightKg * 1000 : null,
 		latestFcr: fcrReports.length > 0 ? latestFcr : null,
 		nextFeedingTime: isPaused ? null : nextFeedingTimeStr,
@@ -478,7 +489,14 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	const pondMeta = [
 		{
 			label: t("populationLabel"),
-			value: pond.population ? t("populationValue", { count: pond.population }) : "—",
+			value: livePopulation !== null ? t("populationValue", { count: livePopulation }) : "—",
+		},
+		{
+			label: t("mortalityLabel"),
+			value:
+				mortalityPct !== null
+					? t("mortalityValue", { dead: liveCount.dead, pct: mortalityPctLabel })
+					: "—",
 		},
 		{
 			label: t("controlRoom.cycleLabel"),
@@ -948,9 +966,20 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 								/>
 								<StatTile
 									label={t("populationLabel")}
-									value={pond.population ? t("populationValue", { count: pond.population }) : "—"}
-									detail={t("populationStable")}
+									value={
+										livePopulation !== null ? t("populationValue", { count: livePopulation }) : "—"
+									}
+									detail={
+										mortalityPct !== null
+											? t("populationDetail", {
+													stocked: liveCount.stocked ?? 0,
+													dead: liveCount.dead,
+													pct: mortalityPct.toFixed(1),
+												})
+											: t("populationStable")
+									}
 									icon={Layers}
+									href="/dashboard/growth"
 								/>
 							</div>
 						</ControlPanel>

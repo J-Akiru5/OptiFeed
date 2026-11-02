@@ -241,6 +241,9 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 					tempOffsetC: true,
 					minFeedTempC: true,
 					waterTempC: true,
+					waterTempOk: true,
+					waterTempUpdatedAt: true,
+					rtcOk: true,
 					wifiRssiDbm: true,
 					wifiRssiUpdatedAt: true,
 				},
@@ -433,6 +436,10 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 									}
 									initialLevel={feederHero.hopperLevelPercent}
 									initialLastFedAt={null}
+									initialWaterTempOk={
+										energyDevice.waterTempUpdatedAt ? energyDevice.waterTempOk : null
+									}
+									initialRtcOk={energyDevice.rtcOk}
 								/>
 							)}
 

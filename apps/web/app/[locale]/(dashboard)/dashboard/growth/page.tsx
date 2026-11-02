@@ -36,7 +36,7 @@ import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatFarmDateTime } from "@/lib/date-local";
 import { loadGrowthPlanForPond } from "@/lib/growth-plan-loader";
-import { getLiveCountForPond } from "@/lib/growth/live-count";
+import { getLiveCountForPond, mortalityRatePct } from "@/lib/growth/live-count";
 import type { GrowthSnapshotData } from "@/lib/offline/snapshots";
 import { getActivePond } from "@/lib/pond-selection";
 import { computeDeterministicPrediction } from "@/lib/prediction";
@@ -81,6 +81,7 @@ export default async function GrowthPage() {
 	// predicts.
 	const liveCount = await getLiveCountForPond(pond.id);
 	const livePopulation = liveCount.live ?? pond.population;
+	const mortalityPct = mortalityRatePct(liveCount.dead, liveCount.stocked);
 
 	// In-app FCR (issue #453): feed given / biomass gained inside the active
 	// cycle window; read-only — never writes FcrReport. When the cycle inputs
@@ -480,7 +481,14 @@ export default async function GrowthPage() {
 			/>
 
 			{/* Fish mortality recorder (issue #452) */}
-			<MortalityForm pondId={pond.id} canWrite={writeAccess} population={livePopulation} />
+			<MortalityForm
+				pondId={pond.id}
+				canWrite={writeAccess}
+				population={livePopulation}
+				dead={liveCount.dead}
+				stocked={liveCount.stocked}
+				mortalityPct={mortalityPct}
+			/>
 
 			<div
 				className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"

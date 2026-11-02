@@ -20,6 +20,10 @@ export interface FeederDeviceDetail {
 	mac: string;
 	lastSeenAt: Date | null;
 	rtcOk: boolean;
+	/** Water-temperature probe health as last reported. */
+	waterTempOk: boolean;
+	/** Last time the probe reported; null when the firmware never sent one. */
+	waterTempUpdatedAt: Date | null;
 	/** Latest sanitised firmware diagnostics object (issue #454); null until a heartbeat carries one. */
 	diag: Record<string, unknown> | null;
 	isPaused: boolean;
@@ -63,6 +67,8 @@ export async function getDeviceDetail(
 			mac: true,
 			lastSeenAt: true,
 			rtcOk: true,
+			waterTempOk: true,
+			waterTempUpdatedAt: true,
 			diag: true,
 			isPaused: true,
 			feedLevelPercent: true,

@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The release workflow now fails when `main` moves past the tag for its current version (#586).** `Release` compares `HEAD` with `v<package.json version>`, validates the root and `apps/web` versions, `LEGAL_APP_RELEASE`, the `CHANGELOG.md` section and the tag as one set, and reports the exact range (for example `v1.43.0..HEAD`, 19 commits) with the bump-and-release fix. Only a `chore(release): x.y.z` commit, a revert of a failed release, or a release-preparation merge is exempt, and every exemption is printed. The check is a step inside the existing `release` job, so the required check name is unchanged; it does not tag, deploy or publish anything by itself. `node --test scripts/ops/__tests__/release-drift.test.mjs` proves both directions.
 - **An unreported safety trip survives leaving safe mode and a reboot (#455).** The trip id is resumed from NVS whenever it is still pending, not only while `safe_mode` is active, so the 30-minute quiet window or a reset hold can no longer make the incident unreportable. The rare report path now logs whether it is waiting on Wi-Fi, heartbeat spacing or retry backoff, and whether the connection failed, instead of failing silently.
 
 ## [1.43.0] - 2026-11-02

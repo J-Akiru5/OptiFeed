@@ -44,6 +44,10 @@ function fakeDb(healthMetadata: unknown | null) {
 			findFirst: vi.fn(async () => (healthMetadata === null ? null : { metadata: healthMetadata })),
 			create: vi.fn(async () => ({})),
 		},
+		// The command takes the device row lock before every decision. This fake
+		// has no transaction wrapper, so it exercises the caller-owned path; the
+		// lock itself is proven by feed-command-atomic.test.ts.
+		$queryRaw: vi.fn(async () => []),
 	};
 	return { db: db as unknown as CommandDb, feedRequestCreate };
 }

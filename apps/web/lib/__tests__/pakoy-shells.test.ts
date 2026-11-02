@@ -27,6 +27,7 @@ describe("Pakoy availability across shells", () => {
 		expect(adminLayout).toContain('const assistantRole = "owner" as const;');
 		expect(adminLayout).toContain("<ChatWidgetProvider role={assistantRole}>");
 		expect(adminLayout).toContain("<ChatWidget />");
+		expect(adminLayout).toContain("<FabStack />");
 	});
 
 	it("mounts the widget with the superadmin role on /superadmin", () => {
@@ -34,6 +35,7 @@ describe("Pakoy availability across shells", () => {
 		expect(superadminLayout).toContain('const assistantRole = "superadmin" as const;');
 		expect(superadminLayout).toContain("<ChatWidgetProvider role={assistantRole}>");
 		expect(superadminLayout).toContain("<ChatWidget />");
+		expect(superadminLayout).toContain("<FabStack />");
 	});
 
 	it("keeps the role resolution server-side on the farmer dashboard", () => {

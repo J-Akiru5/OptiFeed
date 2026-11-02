@@ -4,6 +4,7 @@ import { AdminSidebar } from "@/components/admin-sidebar";
 import { AnnouncementBanner } from "@/components/announcements/announcement-banner";
 import { ChatWidget } from "@/components/chat/chat-widget";
 import { ChatWidgetProvider } from "@/components/chat/chat-widget-provider";
+import { FabStack } from "@/components/fab-stack";
 import { HelpButton } from "@/components/help/help-button";
 import { MobileHeader } from "@/components/mobile/mobile-header";
 import { GlobalSearch, SearchTrigger } from "@/components/search/global-search";
@@ -131,6 +132,7 @@ export default async function AdminLayout({
 
 				<AdminBottomNav />
 				<ChatWidget />
+				<FabStack />
 			</div>
 		</ChatWidgetProvider>
 	);

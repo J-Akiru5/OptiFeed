@@ -7,6 +7,7 @@ import { deleteExpiredErrorEvents } from "@/lib/error-capture";
 import { normalizeNotificationPrefs } from "@/lib/limits";
 import { offlineEpisodeKey, openEpisode } from "@/lib/notifications/episodes";
 import { reportError } from "@/lib/observability";
+import { syncPlatformIncidents } from "@/lib/platform/incident-sync";
 import prisma from "@/lib/prisma";
 import { cleanupExpiredRateLimitBuckets } from "@/lib/rate-limit";
 import { deleteExpiredPondSettingsDrafts, deleteOldHeartbeatEvents } from "@/lib/retention";
@@ -139,6 +140,13 @@ export const GET = withApi(
 			//    period, deduped through ReminderLog. Re-runs are no-ops.
 			const recalibration = await processRecalibrationReminders();
 
+			// 2b. Platform incident lifecycle (#479, M3C.6): open one incident per
+			//     observed condition and close it when the condition clears. This
+			//     is separate from the tenant notifications above, so it never
+			//     produces a second alert. Bounded and isolated: a failure is
+			//     reported in the response, not by taking the cron run down.
+			const incidents = await syncPlatformIncidents(now);
+
 			// 3. Batched housekeeping so each run stays under the Vercel Hobby
 			//    10-second limit: one small batch per job per run.
 			const heartbeatsDeleted = await deleteOldHeartbeatEvents();
@@ -153,6 +161,7 @@ export const GET = withApi(
 			return ok({
 				offlineAlerts,
 				recalibration,
+				incidents,
 				heartbeatsDeleted,
 				bucketsDeleted,
 				errorEventsDeleted,

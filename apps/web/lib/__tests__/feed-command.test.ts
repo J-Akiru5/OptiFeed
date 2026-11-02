@@ -74,7 +74,11 @@ describe("GET /api/feed-command", () => {
 		vi.clearAllMocks();
 		mockRateLimit.mockResolvedValue({ success: true } as never);
 		mockEnergyDevice.findUnique.mockResolvedValue({ ...DEVICE } as never);
-		mockFeedRequest.updateMany.mockResolvedValue({ count: 0 } as never);
+		// The first `updateMany` is the lazy-expiry sweep (no `id`); the second is
+		// the claim (#670), which does carry the request id and must win here.
+		mockFeedRequest.updateMany.mockImplementation((async (args: { where?: { id?: string } }) => ({
+			count: args?.where?.id ? 1 : 0,
+		})) as never);
 		mockFeedRequest.findFirst.mockResolvedValue(null);
 		mockFeedRequest.update.mockResolvedValue({} as never);
 		// Reset the platform reads too: `clearAllMocks` keeps implementations, and
@@ -325,8 +329,9 @@ describe("GET /api/feed-command", () => {
 		expect(body.feed_request_id).toBe("req-1");
 		// Clamped to the 5,000 g payload sanity bound, not a feed cap.
 		expect(body.grams).toBe(5000);
-		expect(mockFeedRequest.update).toHaveBeenCalledWith({
-			where: { id: "req-1" },
+		// #670: the claim is a status-guarded update, not an update by id alone.
+		expect(mockFeedRequest.updateMany).toHaveBeenCalledWith({
+			where: { id: "req-1", status: "pending" },
 			data: { status: "dispatched" },
 		});
 	});

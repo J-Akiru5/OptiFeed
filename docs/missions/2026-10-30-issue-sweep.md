@@ -64,6 +64,7 @@ decision, and what remains open.
 | #318 | Other `targetHarvestWeightG` writers bypass the Replace/Keep guard |
 | #321 | Step-up dialog has no dark palette |
 | #353 | Admin/superadmin SQL export (feature) |
+| #518 | Pakoy is not mounted in the admin/superadmin shells; the platform-only chat context is deferred. Plan: `docs/missions/2026-11-02-pakoy-consoles.md` |
 | #327 / #328 / #319 / #322 / #323 | Decisions recorded above; work is either deferred by decision or tracked downstream |
 | #365 / #370 / #371 | Filed after the sweep began; not yet triaged |
 

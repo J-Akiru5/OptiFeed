@@ -1,4 +1,4 @@
-import { BackToDashboard } from "@/components/BackToDashboard";
+﻿import { BackToDashboard } from "@/components/BackToDashboard";
 import { LiveClock } from "@/components/LiveClock";
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { AnnouncementBanner } from "@/components/announcements/announcement-banner";
@@ -133,7 +133,9 @@ export default async function DashboardLayout({
 					: tCommon("deviceMissing");
 
 	return (
-		<ChatWidgetProvider role={isPlatformAdmin ? "superadmin" : isTenantAdmin ? "owner" : "farmer"}>
+		<ChatWidgetProvider
+			assistantRole={isPlatformAdmin ? "superadmin" : isTenantAdmin ? "owner" : "farmer"}
+		>
 			<OfflineSync scope={ownerId} />
 			<DashboardLiveRefresh enabled={Boolean(pondId)} />
 			<OnboardingProvider>
@@ -163,7 +165,7 @@ export default async function DashboardLayout({
 											<PondSelector ponds={ponds} activePondId={activePondId} />
 											{esp32Status !== "missing" && (
 												<>
-													<span aria-hidden="true">·</span>
+													<span aria-hidden="true">Â·</span>
 													<span className="shrink-0">{deviceStatusLabel}</span>
 												</>
 											)}

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A full-bleed large-screen view, with every live sensor on the 3D strip (#616).** `/large-screen/{deviceId}` renders the feeder outside the dashboard chrome - no sidebar, header or bottom bar - with the scene at `min(70dvh, 780px)`, larger readings and a back link. It uses the same guarded `getDeviceDetail` read, so a device outside the caller's scope is a 404 rather than a blank display. The strip now also carries the fresh Wi-Fi signal (dropped by the existing freshness rule when it is older than the offline window) and the firmware version reported in the heartbeat diagnostics, and the hopper level is labelled stale with its age when that reading is old. The device page links to it with "Open large screen", and the chosen simple view now reads live health state again rather than the initial props it was left on after the #620/#626 merge. Copy is in English, Hiligaynon and Tagalog; no schema change, no new dependency.
+
 ## [1.45.1] - 2026-11-03
 
 ### Fixed

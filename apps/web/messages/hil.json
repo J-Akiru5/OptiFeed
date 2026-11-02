@@ -572,6 +572,7 @@
 			"title": "Lebel sang Hopper",
 			"lastKnown": "Katapusan nga nahibaluan {percent}%",
 			"offline": "Wala sa linya",
+			"sensorOffline": "Wala sa linya ang ultrasonic",
 			"noReadingYet": "Wala pa sang pagbasa",
 			"readingTime": "{date}, {time}",
 			"unknownTime": "Wala mahibaluan ang oras sang pagbasa",

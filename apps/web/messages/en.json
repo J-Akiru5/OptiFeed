@@ -572,6 +572,7 @@
 			"title": "Feed Level",
 			"lastKnown": "Last known {percent}%",
 			"offline": "Offline",
+			"sensorOffline": "Ultrasonic offline",
 			"noReadingYet": "No reading yet",
 			"readingTime": "{date}, {time}",
 			"unknownTime": "Reading time unavailable",

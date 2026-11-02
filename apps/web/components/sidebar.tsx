@@ -30,6 +30,8 @@ interface SidebarProps {
 	feedsPerDay?: number | null;
 	/** True when the ESP32 has not checked in within OFFLINE_THRESHOLD_MS. */
 	isOffline?: boolean;
+	/** True when the unit is online but the hopper sensor is not answering (#574). */
+	isSensorOffline?: boolean;
 	/**
 	 * False for a platform admin outside view-as (E18, #199): the hopper widget
 	 * is farm hardware chrome a platform admin does not have.
@@ -44,6 +46,7 @@ export function Sidebar({
 	gramsPerFeeding = null,
 	feedsPerDay = null,
 	isOffline = false,
+	isSensorOffline = false,
 	showHopperWidget = true,
 }: SidebarProps) {
 	const t = useTranslations("nav");
@@ -68,6 +71,7 @@ export function Sidebar({
 		levelPercent: hopperLevelPct,
 		updatedAt: hopperLevelUpdatedAt,
 		isDeviceOffline: isOffline,
+		isSensorOffline,
 		hopperCapacityG,
 		gramsPerFeeding: gramsPerFeeding ?? 0,
 		feedsPerDay: feedsPerDay ?? 0,
@@ -162,6 +166,7 @@ export function Sidebar({
 								levelPercent={hopperLevelPct}
 								updatedAt={hopperLevelUpdatedAt}
 								isOffline={isOffline}
+								sensorOffline={isSensorOffline}
 								size="sm"
 							/>
 							{remainingKg !== null && (

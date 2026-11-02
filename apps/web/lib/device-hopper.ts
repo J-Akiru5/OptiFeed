@@ -1,3 +1,5 @@
+import { getLatestHealthKey } from "@/lib/device-health";
+import { faultsFromMask } from "@/lib/device-health-model";
 import {
 	DEFAULT_DEVICE_STATUS_POLICY,
 	type DeviceConnectionState,
@@ -59,10 +61,51 @@ export interface HopperSnapshot {
 	status: DeviceConnectionState;
 	/** True only for the full offline state; weak signal keeps its reading live. */
 	isOffline: boolean;
+	/**
+	 * True when the unit is online but its hopper sensor is not answering (#574).
+	 * The reading keeps its last known value and is presented as stale.
+	 */
+	sensorOffline: boolean;
 	/** Fresh, plausible RSSI in dBm, or null when none/old firmware/stale. */
 	rssiDbm: number | null;
 	hopperCapacityG: number | null;
 	gramsPerFeeding: number | null;
+}
+
+/** Firmware fault name for the HC-SR04 hopper sensor (`firmware-main/status.h`). */
+export const HOPPER_SENSOR_FAULT = "hopper_sensor";
+
+/**
+ * #574: decide whether the hopper sensor, rather than the whole unit, is down.
+ *
+ * Two independent signals:
+ *  - the firmware's `hopper_sensor` fault, set after three consecutive no-echo
+ *    checks (~15 s while online, ~3 min while offline);
+ *  - a level that has not been refreshed for twice the offline window while the
+ *    unit itself is online. That is the fallback for firmware older than 1.6.0
+ *    (no `diag` block) and for a heartbeat whose feed-level fields were omitted.
+ *
+ * A device that is fully offline is deliberately not "sensor offline": the
+ * reader already says Offline, and naming the sensor would blame the wrong part.
+ */
+export function resolveHopperSensorOffline(input: {
+	deviceOffline: boolean;
+	levelUpdatedAt: Date | null;
+	sensorFault?: boolean;
+	now?: Date;
+	policy?: DeviceStatusPolicy;
+}): boolean {
+	const {
+		deviceOffline,
+		levelUpdatedAt,
+		sensorFault = false,
+		now = new Date(),
+		policy = DEFAULT_DEVICE_STATUS_POLICY,
+	} = input;
+	if (deviceOffline) return false;
+	if (sensorFault) return true;
+	if (levelUpdatedAt === null) return false;
+	return now.getTime() - levelUpdatedAt.getTime() > policy.offlineAfterMs * 2;
 }
 
 /** Normalise a device row into the snapshot every hopper surface renders. */
@@ -70,6 +113,7 @@ export function toHopperSnapshot(
 	row: HopperSourceRow,
 	now: Date = new Date(),
 	policy: DeviceStatusPolicy = DEFAULT_DEVICE_STATUS_POLICY,
+	sensorFault = false,
 ): HopperSnapshot {
 	// I-97: the stored signal feeds the same rule; a stale reading is dropped so
 	// a silent unit is not shown as a current "weak signal".
@@ -80,17 +124,42 @@ export function toHopperSnapshot(
 		policy,
 	});
 	const status = evaluateDeviceStatus({ lastSeenAt: row.lastSeenAt, now, policy, rssiDbm }).state;
+	const isOffline = status === "offline";
 	return {
 		deviceId: row.id,
 		levelPercent: row.feedLevelPercent,
 		levelUpdatedAt: row.feedLevelUpdatedAt,
 		lastSeenAt: row.lastSeenAt,
 		status,
-		isOffline: status === "offline",
+		isOffline,
+		sensorOffline: resolveHopperSensorOffline({
+			deviceOffline: isOffline,
+			levelUpdatedAt: row.feedLevelUpdatedAt,
+			sensorFault,
+			now,
+			policy,
+		}),
 		rssiDbm,
 		hopperCapacityG: row.hopperCapacityG ?? null,
 		gramsPerFeeding: row.gramsPerFeeding ?? null,
 	};
+}
+
+/**
+ * The newest `device_health` row names the fault; a failed read is advisory and
+ * must not take the hopper surface down (same rule as `getDeviceHealthSafe`).
+ */
+async function readHopperSensorFault(deviceId: string): Promise<boolean> {
+	try {
+		const health = await getLatestHealthKey(deviceId);
+		return health ? faultsFromMask(health.faultsPresent).includes(HOPPER_SENSOR_FAULT) : false;
+	} catch (error) {
+		console.warn(
+			"[device-hopper] health read failed",
+			error instanceof Error ? error.message : String(error),
+		);
+		return false;
+	}
 }
 
 /** Read the primary device's hopper snapshot for a pond. */
@@ -106,5 +175,6 @@ export async function loadPondHopper(
 		}),
 		getDeviceStatusPolicy(),
 	]);
-	return row ? toHopperSnapshot(row, now, policy) : null;
+	if (!row) return null;
+	return toHopperSnapshot(row, now, policy, await readHopperSensorFault(row.id));
 }

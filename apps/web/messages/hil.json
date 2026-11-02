@@ -585,6 +585,20 @@
 			"ok": "Maayo",
 			"noData": "Wala sang data"
 		},
+		"monitoring": {
+			"title": "Pagmonitor",
+			"statusOnline": "Online",
+			"statusWeak": "Maluya ang signal",
+			"statusOffline": "Wala sa linya",
+			"statusSafeMode": "Safe mode",
+			"statusFault": "{count, plural, one {# fault} other {# fault}}",
+			"statusNoDevice": "Wala sing naka-pares nga feeder",
+			"healthSafeMode": "Safe mode: ginarefuse ang pagpakaon",
+			"healthFaults": "{count, plural, one {# aktibo nga fault} other {# aktibo nga fault}}",
+			"healthClear": "Wala sing na-report nga fault",
+			"lastKnownShort": "Huli nga nahibal-an",
+			"summaryLabel": "{status}. Lebel sang hopper {percent}."
+		},
 		"feederHero": {
 			"eyebrow": "Live nga pag-monitor",
 			"label": "Buod sang feeder para sa {pond}",

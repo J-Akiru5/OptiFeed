@@ -12,6 +12,7 @@ import {
 	__resetResetEmailWarningForTests,
 	deliverPasswordResetEmail,
 	isResetEmailConfigured,
+	resetBaseUrl,
 	resetFromAddress,
 	sendPasswordResetEmail,
 } from "@/lib/notify/reset-email";
@@ -39,11 +40,26 @@ afterEach(() => {
 });
 
 describe("reset email configuration", () => {
-	it("requires the API key, a from address and the base URL", () => {
+	it("requires the API key and a from address", () => {
 		expect(isResetEmailConfigured(CONFIGURED)).toBe(true);
 		expect(isResetEmailConfigured({})).toBe(false);
 		expect(isResetEmailConfigured({ ...CONFIGURED, RESEND_API_KEY: "" })).toBe(false);
-		expect(isResetEmailConfigured({ ...CONFIGURED, NEXT_PUBLIC_BASE_URL: "" })).toBe(false);
+		expect(isResetEmailConfigured({ ...CONFIGURED, INVITE_FROM_EMAIL: "" })).toBe(false);
+	});
+
+	it("does not require NEXT_PUBLIC_BASE_URL: the link target always resolves", () => {
+		// Production scoped NEXT_PUBLIC_BASE_URL to Preview/staging, so requiring
+		// it silently skipped every reset email while the key and sender were set.
+		expect(isResetEmailConfigured({ ...CONFIGURED, NEXT_PUBLIC_BASE_URL: "" })).toBe(true);
+		expect(isResetEmailConfigured({ ...CONFIGURED, NEXT_PUBLIC_BASE_URL: undefined })).toBe(true);
+
+		expect(resetBaseUrl({})).toBe("https://pakaonai.syntaxure.dev");
+		expect(resetBaseUrl({ NEXT_PUBLIC_SITE_URL: "https://staging.example/" })).toBe(
+			"https://staging.example",
+		);
+		expect(resetBaseUrl({ NEXT_PUBLIC_BASE_URL: "https://preview.example/" })).toBe(
+			"https://preview.example",
+		);
 	});
 
 	it("falls back to the invite sender when no reset sender is set", () => {
@@ -78,6 +94,16 @@ describe("reset email delivery", () => {
 		expect(payload.from).toBe("PakaonAI <invite@syntaxure.dev>");
 		expect(payload.html).toContain(INPUT.resetUrl);
 		expect(payload.text).toContain(INPUT.resetUrl);
+	});
+
+	it("uses the canonical login URL when NEXT_PUBLIC_BASE_URL is unset", async () => {
+		const env = { ...CONFIGURED, NEXT_PUBLIC_BASE_URL: undefined };
+
+		await expect(sendPasswordResetEmail(INPUT, env)).resolves.toEqual({ ok: true });
+
+		const payload = sendMock.mock.calls[0][0];
+		expect(payload.html).toContain("https://pakaonai.syntaxure.dev/login");
+		expect(payload.html).not.toContain('href="/login"');
 	});
 
 	it("reports a provider failure without throwing", async () => {

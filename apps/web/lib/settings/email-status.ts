@@ -7,6 +7,8 @@
  * and the base URL are never returned.
  */
 
+import { resetFromAddress } from "@/lib/notify/reset-email";
+
 /** The documented fallback sender (`apps/web/.env.example`). */
 export const DEFAULT_INVITE_FROM = "PakaonAI <invite@syntaxure.dev>";
 
@@ -16,14 +18,24 @@ export type EmailConfiguration = {
 	inviteFromConfigured: boolean;
 	reminderFromConfigured: boolean;
 	baseUrlConfigured: boolean;
+	/** True when RESET_FROM_EMAIL or the INVITE_FROM_EMAIL fallback is set. */
+	resetFromConfigured: boolean;
 	/** The sender address in use; the documented default when unset. */
 	inviteFrom: string;
 	/** The reminder sender, or null when reminders have no sender. */
 	reminderFrom: string | null;
+	/** The password-reset sender, or null when neither variable is set. */
+	resetFrom: string | null;
 	/** Invites are sent only when all three required values are present. */
 	inviteReady: boolean;
 	/** Reminder email is skipped unless all three required values are present. */
 	reminderReady: boolean;
+	/**
+	 * Password reset needs the key and a sender. The link target always resolves
+	 * (canonical URL or `NEXT_PUBLIC_BASE_URL`), so a missing base URL no longer
+	 * blocks delivery.
+	 */
+	resetReady: boolean;
 };
 
 type Env = Record<string, string | undefined>;
@@ -42,15 +54,19 @@ export function getEmailConfiguration(env: Env = process.env): EmailConfiguratio
 		? (env.INVITE_FROM_EMAIL as string).trim()
 		: DEFAULT_INVITE_FROM;
 	const reminderFrom = reminderFromConfigured ? (env.REMINDER_FROM_EMAIL as string).trim() : null;
+	const resetFrom = resetFromAddress(env);
 
 	return {
 		resendConfigured,
 		inviteFromConfigured,
 		reminderFromConfigured,
 		baseUrlConfigured,
+		resetFromConfigured: resetFrom !== null,
 		inviteFrom,
 		reminderFrom,
+		resetFrom,
 		inviteReady: resendConfigured && inviteFromConfigured && baseUrlConfigured,
 		reminderReady: resendConfigured && reminderFromConfigured && baseUrlConfigured,
+		resetReady: resendConfigured && resetFrom !== null,
 	};
 }

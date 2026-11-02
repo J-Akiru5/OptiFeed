@@ -17,6 +17,7 @@ import {
 	grantPlatformAdmin,
 	resetPlatformUserPassword,
 	revokePlatformAdmin,
+	sendPlatformUserResetLink,
 	updatePlatformUser,
 } from "@/lib/actions/superadmin";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ import {
 	Loader2,
 	Mail,
 	MoreHorizontal,
+	Send,
 	ShieldCheck,
 	ShieldOff,
 	Trash2,
@@ -35,7 +37,7 @@ import {
 import { useTranslations } from "next-intl";
 import { type FormEvent, useRef, useState, useTransition } from "react";
 
-type Mode = "grant" | "revoke" | "disable" | "enable" | "reset" | "email" | null;
+type Mode = "grant" | "revoke" | "disable" | "enable" | "reset" | "resetLink" | "email" | null;
 
 const MIN_REASON = 10;
 
@@ -76,6 +78,7 @@ export function UserActions({
 	const [confirmFarmId, setConfirmFarmId] = useState("");
 	const [emailDraft, setEmailDraft] = useState(contactEmail ?? "");
 	const [issuedPassword, setIssuedPassword] = useState<string | null>(null);
+	const [resetSentTo, setResetSentTo] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [stepUpOpen, setStepUpOpen] = useState(false);
@@ -88,6 +91,7 @@ export function UserActions({
 		setConfirmFarmId("");
 		setEmailDraft(contactEmail ?? "");
 		setIssuedPassword(null);
+		setResetSentTo(null);
 		setCopied(false);
 		setError(null);
 	};
@@ -97,6 +101,7 @@ export function UserActions({
 		setReason("");
 		setConfirmFarmId("");
 		setIssuedPassword(null);
+		setResetSentTo(null);
 		setCopied(false);
 		setError(null);
 	};
@@ -139,6 +144,26 @@ export function UserActions({
 					// Keep the dialog open on the one-time credential panel: the
 					// value exists only in this browser state, never in a reload.
 					setIssuedPassword(result.temporaryPassword);
+					setReason("");
+					setMode(null);
+					router.refresh();
+					return;
+				}
+
+				if (targetMode === "resetLink") {
+					const result = await sendPlatformUserResetLink(userId, trimmedReason);
+					if ("error" in result) {
+						if (result.code === "step_up_required") {
+							retryRef.current = () => perform(targetMode, trimmedReason);
+							setStepUpOpen(true);
+							return;
+						}
+						setError(result.error);
+						return;
+					}
+					// The reset link is a credential and is never shown here; only
+					// the address it went to is.
+					setResetSentTo(result.sentTo);
 					setReason("");
 					setMode(null);
 					router.refresh();
@@ -219,12 +244,48 @@ export function UserActions({
 			</button>
 
 			<DialogShell
-				open={mode !== null || issuedPassword !== null}
+				open={mode !== null || issuedPassword !== null || resetSentTo !== null}
 				onClose={close}
 				labelledBy="user-actions-title"
 				describedBy="user-actions-description"
 				pending={isPending}
 			>
+				{resetSentTo && (
+					<>
+						<DialogHeader
+							titleId="user-actions-title"
+							descriptionId="user-actions-description"
+							icon={Send}
+							title={t("resetLinkSent.title")}
+							description={t("resetLinkSent.description")}
+							onClose={close}
+							closeDisabled={isPending}
+							closeLabel={t("closeLabel")}
+						/>
+
+						<div className="mt-4 rounded-xl border border-[#BFDCC6] bg-[#EEF7F0] px-3 py-3 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+							<p className="break-all text-sm font-bold text-[#1E7B34] dark:text-emerald-300">
+								{t("resetLinkSent.sentTo", { email: resetSentTo })}
+							</p>
+							<p className="mt-2 text-[11px] font-bold leading-snug text-[#3D5568] dark:text-slate-300">
+								{t("resetLinkSent.fallback")}
+							</p>
+						</div>
+
+						<div className="mt-4">
+							<button
+								type="button"
+								onClick={close}
+								className={cn(
+									SECONDARY_BUTTON,
+									"w-full px-3 py-2.5 text-xs font-bold text-[#3D5568] dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-[#1B2740]",
+								)}
+							>
+								{t("resetLinkSent.done")}
+							</button>
+						</div>
+					</>
+				)}
 				{issuedPassword && (
 					<>
 						<DialogHeader
@@ -335,6 +396,12 @@ export function UserActions({
 										label={t("buttons.email")}
 									/>
 									<ActionButton
+										active={mode === "resetLink"}
+										onClick={() => open("resetLink")}
+										icon={<Send className="h-3.5 w-3.5" aria-hidden="true" />}
+										label={t("buttons.resetLink")}
+									/>
+									<ActionButton
 										active={mode === "reset"}
 										onClick={() => open("reset")}
 										icon={<KeyRound className="h-3.5 w-3.5" aria-hidden="true" />}
@@ -370,6 +437,11 @@ export function UserActions({
 						{mode === "reset" && (
 							<p className="mt-3 text-[11px] font-bold leading-snug text-[#8A3B12] dark:text-[#FFB38F]">
 								{t("resetWarning")}
+							</p>
+						)}
+						{mode === "resetLink" && (
+							<p className="mt-3 text-[11px] font-bold leading-snug text-[#8A3B12] dark:text-[#FFB38F]">
+								{contactEmail ? t("resetLinkWarning") : t("resetLinkNoEmailWarning")}
 							</p>
 						)}
 						{mode === "email" && (

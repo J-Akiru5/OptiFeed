@@ -698,7 +698,9 @@
 					"saveFailed": "Hindi ma-save ang larawan. Subukan muli."
 				}
 			},
-			"emailNone": "Walang email na nakatala. Humiling sa iyong administrator na magdagdag nito para makapag-reset ka ng password."
+			"emailNone": "Walang email na nakatala. Humiling sa iyong administrator na magdagdag nito para makapag-reset ka ng password.",
+			"emailMissingTitle": "Walang email sa rekord",
+			"emailMissingDesc": "Hindi available ang pag-reset ng password sa email hangga't walang contact email na idinagdag ng administrator. Hilingin sa may-ari ng organisasyon o platform administrator na magdagdag."
 		},
 		"fcrCalculator": {
 			"setAsTarget": "Gawing growth target",
@@ -3443,6 +3445,7 @@
 				"disable": "I-disable ang account",
 				"enable": "I-enable ang account",
 				"reset": "I-reset ang password",
+				"resetLink": "Ipadala ang link",
 				"email": "Baguhin ang contact email"
 			},
 			"stepUpActions": {
@@ -3451,6 +3454,7 @@
 				"disable": "i-disable ang account na ito",
 				"enable": "i-enable ang account na ito",
 				"reset": "i-reset ang password na ito",
+				"resetLink": "magpadala ng password reset link",
 				"email": "baguhin ang contact email na ito"
 			},
 			"buttons": {
@@ -3459,11 +3463,21 @@
 				"disable": "I-disable",
 				"enable": "I-enable",
 				"reset": "I-reset",
+				"resetLink": "Ipadala ang link",
 				"email": "Email"
 			},
 			"disableWarning": "Nagba-ban ito ng login at nagbabawi sa lahat ng membership. Walang data na nabubura; ibinabalik ng I-enable ang access mamaya.",
 			"enableWarning": "Ibinabalik ang login at ang mga membership na naitala noong huling pag-disable.",
 			"resetWarning": "Pinapalitan ang password ng account ng isang beses na temporary password, na ipapakita sa ibaba. Kailangang palitan ito ng user sa susunod na pag-sign in.",
+			"resetLinkWarning": "Mag-email ng one-time reset link sa contact address na nasa rekord. Hindi ipinapakita ang link dito.",
+			"resetLinkNoEmailWarning": "Walang contact email ang account na ito. Magdagdag muna, o gamitin ang I-reset para magbigay ng temporary password.",
+			"resetLinkSent": {
+				"title": "Naipadala ang reset link",
+				"description": "Makakapili ang tao ng bagong password mula sa link sa email.",
+				"sentTo": "Naipadala sa {email}",
+				"fallback": "Kung hindi dumating ang email, magbigay ng temporary password.",
+				"done": "Tapos"
+			},
 			"issued": {
 				"title": "Temporary password",
 				"descriptionPrefix": "Ibahagi nang direkta sa",
@@ -3780,7 +3794,10 @@
 				"inviteReady": "Handa ang mga imbitasyon",
 				"inviteNotReady": "Nilalaktawan ang mga imbitasyon",
 				"reminderReady": "Handa ang mga paalala",
-				"reminderNotReady": "Nilalaktawan ang mga paalala"
+				"reminderNotReady": "Nilalaktawan ang mga paalala",
+				"resetFromLabel": "Password-reset sender variable",
+				"resetReady": "Handa ang reset email",
+				"resetNotReady": "Nilaktawan ang reset email"
 			},
 			"safety": {
 				"title": "Mga safety cap sa pagpapakain",
@@ -4274,6 +4291,7 @@
 				"disablePlatformUser": "I-disable ang user ng platform",
 				"enablePlatformUser": "I-enable ang user ng platform",
 				"resetPlatformUserPassword": "I-reset ang password ng user",
+				"sendPlatformUserResetLink": "Magpadala ng password reset link",
 				"grantPlatformAdmin": "Bigyan ng platform admin",
 				"revokePlatformAdmin": "Alisin ang platform admin",
 				"startViewAs": "Simulan ang view-as (impersonation)",

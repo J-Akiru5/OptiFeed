@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The feeder model has a real underside, so the bottom view shows a chassis pan instead of one flat cap (#623).** The change is additive in `tools/feeder-model/dimensions.json`: the base plate keeps its 340 × 450 × 10 mm slab and every tape value above it is untouched. Four 44 mm feet stand the unit **18 mm off the deck** and each carries a 7 mm deck-screw hole counterbored 16 × 6 mm through the plate; two more 16 mm counterbored mounting holes sit on the front/rear centre line. Five ribs stiffen the pan, one recessed raceway with two rails and four straps carries the DS18B20 cable from the front clip, and the probe cable and motor leads meet at a 22 × 14 mm rubber grommet through the plate into the chassis, with a strain-relief boot at the clip and a clamp on the motor leads. The plate's downward normals are recomputed after every boolean cut and the build log reports the underside area. Model asset **`feeder-v1.3.0.glb`** (1,585,320 bytes / 48,000 triangles, dimensions revision `tape-2026-10-29-post-underside`); `feeder-v1.2.0.glb` is untouched, the manifest points at the new file, `FEEDER_MODEL_VERSION` follows it, and the build script's preview set now includes a `bottom` view. The preview images under `docs/feeder/` still show the previous model.
+
 ## [1.44.0] - 2026-11-02
 
 ### Added

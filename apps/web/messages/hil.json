@@ -3218,6 +3218,9 @@
 			"bottomNavLabel": "Nabigasyon sang plataporma",
 			"nav": {
 				"overview": "Pangkalahatan",
+				"tenants": "Mga Tenant",
+				"fleet": "Fleet",
+				"incidents": "Mga Insidente",
 				"calendar": "Kalendaryo",
 				"users": "Mga User",
 				"organizations": "Mga Organisasyon",
@@ -3226,7 +3229,8 @@
 				"aiProviders": "Mga AI Provider",
 				"settings": "Mga Setting",
 				"operations": "Operasyon",
-				"more": "Dugang"
+				"more": "Dugang",
+				"account": "Account"
 			},
 			"shortNav": {
 				"overview": "Panglantaw",
@@ -4590,6 +4594,26 @@
 				"PENDING_DELETION": "Pahinayon sa pagpanas",
 				"PURGED": "Ginpanas na"
 			}
+		},
+		"account": {
+			"title": "Imo account",
+			"description": "Ang imo pagkakilala sa platform kag ang session sa device nga ini.",
+			"identity": "Pagkakilala",
+			"identityDesc": "Ang account sa likod sang platform console.",
+			"displayName": "Ngalan",
+			"role": "Katungdanan",
+			"farmId": "Farm ID",
+			"email": "Email",
+			"avatar": "Larawan sang profile",
+			"avatarDesc": "Ginapakita sa header sang console.",
+			"password": "Password",
+			"passwordDesc": "Ilisan ang password nga ginagamit mo sa pag-sign in.",
+			"session": "Session",
+			"sessionDesc": "Ang pag-sign out nagatapos sang session nga ini sa device kag ginatinluan ang naka-cache nga farm data.",
+			"menuLabel": "Menu sang account",
+			"menuProfile": "Imo profile",
+			"menuSettings": "Mga setting sang platform",
+			"menuFarm": "Farm dashboard"
 		}
 	},
 	"help": {

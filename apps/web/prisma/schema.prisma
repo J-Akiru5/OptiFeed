@@ -342,11 +342,20 @@ model Notification {
   autoCleared    Boolean   @default(false)
   createdAt      DateTime  @default(now())
   farmId         String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
+  // Alert episodes (#534): one open row per active condition instead of one row
+  // per reading. `episodeKey` is the stable condition key, `resolvedAt` records
+  // when the condition cleared, and `supersededById` points at the row a folded
+  // historical duplicate was merged into (kept for audit, hidden from lists).
+  episodeKey     String?
+  resolvedAt     DateTime?
+  supersededById String?
 
   pond Pond @relation(fields: [pondId], references: [id])
 
   @@index([pondId, read])
   @@index([farmId])
+  @@index([episodeKey])
+  @@index([pondId, supersededById])
 }
 
 model EnergyDevice {

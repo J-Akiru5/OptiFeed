@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Concurrent ingest can no longer open duplicate alert episodes (#585).** `openEpisode()` now has a partial unique index behind its insert and a loser of the race re-reads the winner and updates that row instead of throwing or opening a second episode. Migration `20261102200000_alert_episode_dedup` first folds the existing duplicate open rows per `episodeKey` — keeping the newest live row, recording `Notification.resolutionReason`, and never deleting history — then creates `Notification_one_open_per_episode` on `episodeKey` where `resolvedAt IS NULL AND autoCleared = FALSE AND supersededById IS NULL`. The cleanup/verification SQL is in `docs/sql/alert-episode-dedup-verify.sql`; applying the migration to a hosted database still requires the usual backup and is an owner-run step.
 - **An unreported safety trip survives leaving safe mode and a reboot (#455).** The trip id is resumed from NVS whenever it is still pending, not only while `safe_mode` is active, so the 30-minute quiet window or a reset hold can no longer make the incident unreportable. The rare report path now logs whether it is waiting on Wi-Fi, heartbeat spacing or retry backoff, and whether the connection failed, instead of failing silently.
 
 ## [1.43.0] - 2026-11-02

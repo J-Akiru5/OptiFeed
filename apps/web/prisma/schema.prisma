@@ -330,25 +330,39 @@ model FeedLevelLog {
 }
 
 model Notification {
-  id             String    @id @default(cuid())
-  pondId         String
-  tier           String
-  message        String
-  linkTo         String?
-  read           Boolean   @default(false)
-  category       String? // "connectivity" | "feeding" | "pellet" | "pge" | "schedule" | "system"
-  acknowledgedAt DateTime?
-  acknowledgedBy String?
-  autoCleared    Boolean   @default(false)
-  createdAt      DateTime  @default(now())
-  farmId         String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
+  id               String    @id @default(cuid())
+  pondId           String
+  tier             String
+  message          String
+  linkTo           String?
+  read             Boolean   @default(false)
+  category         String? // "connectivity" | "feeding" | "pellet" | "pge" | "schedule" | "system"
+  acknowledgedAt   DateTime?
+  acknowledgedBy   String?
+  autoCleared      Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  farmId           String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
   // Alert episodes (#534): one open row per active condition instead of one row
   // per reading. `episodeKey` is the stable condition key, `resolvedAt` records
   // when the condition cleared, and `supersededById` points at the row a folded
   // historical duplicate was merged into (kept for audit, hidden from lists).
-  episodeKey     String?
-  resolvedAt     DateTime?
-  supersededById String?
+  //
+  // The race-safe guarantee behind `openEpisode()` is the partial unique index
+  // `Notification_one_open_per_episode`, created by migration
+  // 20261102200000_alert_episode_dedup:
+  //   UNIQUE ("episodeKey")
+  //   WHERE "resolvedAt" IS NULL
+  //     AND "autoCleared" = false
+  //     AND "supersededById" IS NULL
+  // Prisma's schema language cannot express a partial index, so it exists only
+  // in that migration. Do not delete the migration's index as schema drift.
+  episodeKey       String?
+  resolvedAt       DateTime?
+  supersededById   String?
+  /// Why a system process closed the episode: "condition_recovered",
+  /// "duplicate_open_episode" or "superseded_historical_duplicate". Kept for
+  /// audit; user acknowledgements do not set it.
+  resolutionReason String?
 
   pond Pond @relation(fields: [pondId], references: [id])
 

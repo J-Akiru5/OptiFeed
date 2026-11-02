@@ -3932,7 +3932,8 @@
 			"notReported": "Hindi iniulat",
 			"viewFleet": "Monitor ng device",
 			"viewOrgs": "Mga organisasyon",
-			"paginationLabel": "Mga pahina ng tenant"
+			"paginationLabel": "Mga pahina ng tenant",
+			"compare": "Ihambing ang mga organisasyon"
 		},
 		"security": {
 			"title": "Seguridad at pagmamatyag",
@@ -4024,6 +4025,52 @@
 			"columnOrg": "Tenant",
 			"columnStepUp": "Step-up",
 			"columnReason": "Dahilan"
+		},
+		"compare": {
+			"title": "Ihambing ang mga organisasyon",
+			"description": "May {count} organisasyon na maaaring ihambing sa sariling sukat ng listahan ng tenant.",
+			"descriptionFailed": "Hindi mabasa ang mga organisasyon, kaya walang maihahambing.",
+			"viewTenants": "Bumalik sa health ng tenant",
+			"viewFleet": "Buksan ang fleet monitor",
+			"sourceErrorTitle": "Hindi mabasa ang paghahambing",
+			"sourceErrorBody": "May pinagmumulang nabigo sa paghahambing na ito, kaya ang walang laman na listahan dito ay hindi ibig sabihin na maayos ang mga tenant. I-reload, pagkatapos tingnan ang listahan ng tenant.",
+			"pickerTitle": "Pumili ng dalawa hanggang apat na organisasyon",
+			"pickerHint": "Pumili ng {min} hanggang {max}. Nakaayos ang listahan mula sa pinakamalala.",
+			"compare": "Ihambing ang napili",
+			"selectionTruncated": "Ang unang {max} organisasyon lamang ang ihinahambing.",
+			"selectionDropped": "{count} napiling organisasyon ang wala na, kaya hindi isinama.",
+			"noOrgsTitle": "Walang organisasyong maihahambing",
+			"noOrgsDescription": "Lalabas dito ang mga organisasyon kapag mayroon na.",
+			"emptyTitle": "Wala pang napili",
+			"emptyDescription": "Markahan ang dalawang organisasyon sa itaas at ihambing sila nang tabi-tabi.",
+			"needTwoTitle": "Ang isang organisasyon ay hindi paghahambing",
+			"needTwoDescription": "Pumili ng hindi bababa sa {min} organisasyon upang makita sila nang tabi-tabi.",
+			"unknownBody": "{count} napiling organisasyon ang walang masukat na fleet. Unknown ang kalagayan, hindi maayos.",
+			"missingOrgIds": "{count} napiling id ang hindi na tumutugma sa organisasyon.",
+			"truncatedBody": "May mga organisasyong labas sa hangganan ng pagbasa, kaya hindi kumpleto ang mapipilian.",
+			"comparisonTitle": "Tabi-tabi",
+			"tableLabel": "Paghahambing ng organisasyon",
+			"legend": "Pinakamalala muna. Ang Best ay tumutukoy sa pinakamahusay na masukat na halaga para sa sukat na iyon; ang numerong hindi kailanman iniulat ay hindi sero at hindi kailanman nananalo.",
+			"checkedAt": "Binasa noong {time}",
+			"columnTenant": "Organisasyon",
+			"columnState": "Kalagayan",
+			"columnOrgStatus": "Account",
+			"columnMembers": "Mga miyembro",
+			"columnPonds": "Mga pond",
+			"columnDevices": "Mga device",
+			"columnReporting": "Nag-uulat na unit",
+			"columnOffline": "Offline",
+			"columnHeartbeat": "Huling heartbeat",
+			"columnAlerts": "Bukas na alerto",
+			"notReported": "Walang iniulat",
+			"never": "Kailanman",
+			"best": "Pinakamahusay",
+			"orgStatus": {
+				"ACTIVE": "Aktibo",
+				"SUSPENDED": "Nasuspinde",
+				"PENDING_DELETION": "Naghihintay ng pagbura",
+				"PURGED": "Nabura na"
+			}
 		}
 	},
 	"landing": {

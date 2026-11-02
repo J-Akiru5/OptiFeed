@@ -49,43 +49,66 @@ export interface TenantHealthPage {
 	policyAvailable: boolean;
 }
 
-function failedPage(now: Date, page: number, pageSize: number): TenantHealthPage {
-	const pagination = resolvePagination(page, pageSize, 0);
-	return {
-		checkedAt: now,
-		rows: [],
-		summary: summarizeTenants([]),
-		pagination,
-		totalTenants: 0,
-		truncated: false,
-		sourceError: true,
-		policyAvailable: false,
-	};
+export interface TenantHealthDataset {
+	checkedAt: Date;
+	/** Every organization, already ranked worst first. */
+	rows: TenantHealthRow[];
+	summary: TenantHealthSummary;
+	totalTenants: number;
+	truncated: boolean;
+	sourceError: boolean;
+	/** False when the policy could not be read; every device state is then unknown. */
+	policyAvailable: boolean;
 }
 
-export async function getTenantHealth(page = 1, now: Date = new Date()): Promise<TenantHealthPage> {
+/**
+ * The unpaginated tenant rows. The tenant table pages these and the
+ * organization comparison picks from the same list, so both pages read one
+ * code path and one set of caps.
+ */
+export async function getTenantHealthDataset(now: Date = new Date()): Promise<TenantHealthDataset> {
 	await requirePlatformAdmin();
-
-	const pageSize = await getListPageSize();
 
 	try {
 		const [policy, organizations] = await Promise.all([getDeviceStatusPolicy(), buildInputs()]);
-		const built = buildTenantHealthRows(organizations.inputs, now, policy);
-		const { rows, pagination } = paginateTenantRows(built, page, pageSize);
+		const rows = buildTenantHealthRows(organizations.inputs, now, policy);
 
 		return {
 			checkedAt: now,
 			rows,
-			summary: summarizeTenants(built),
-			pagination,
-			totalTenants: built.length,
+			summary: summarizeTenants(rows),
+			totalTenants: rows.length,
 			truncated: organizations.truncated,
 			sourceError: false,
 			policyAvailable: true,
 		};
 	} catch {
-		return failedPage(now, page, pageSize);
+		return {
+			checkedAt: now,
+			rows: [],
+			summary: summarizeTenants([]),
+			totalTenants: 0,
+			truncated: false,
+			sourceError: true,
+			policyAvailable: false,
+		};
 	}
+}
+
+export async function getTenantHealth(page = 1, now: Date = new Date()): Promise<TenantHealthPage> {
+	const [dataset, pageSize] = await Promise.all([getTenantHealthDataset(now), getListPageSize()]);
+	const { rows, pagination } = paginateTenantRows(dataset.rows, page, pageSize);
+
+	return {
+		checkedAt: dataset.checkedAt,
+		rows,
+		summary: dataset.summary,
+		pagination,
+		totalTenants: dataset.totalTenants,
+		truncated: dataset.truncated,
+		sourceError: dataset.sourceError,
+		policyAvailable: dataset.policyAvailable,
+	};
 }
 
 interface BuildInputsResult {

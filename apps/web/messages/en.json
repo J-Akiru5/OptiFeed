@@ -4335,7 +4335,8 @@
 			"notReported": "Not reported",
 			"viewFleet": "Fleet monitor",
 			"viewOrgs": "Organizations",
-			"paginationLabel": "Tenant pages"
+			"paginationLabel": "Tenant pages",
+			"compare": "Compare organizations"
 		},
 		"security": {
 			"title": "Security and oversight",
@@ -4427,6 +4428,52 @@
 			"columnOrg": "Tenant",
 			"columnStepUp": "Step-up",
 			"columnReason": "Reason"
+		},
+		"compare": {
+			"title": "Compare organizations",
+			"description": "{count} organizations can be compared on the tenant table's own scale.",
+			"descriptionFailed": "Organizations could not be read, so there is nothing to compare.",
+			"viewTenants": "Back to tenant health",
+			"viewFleet": "Open the fleet monitor",
+			"sourceErrorTitle": "The comparison could not be read",
+			"sourceErrorBody": "A source behind this comparison failed, so an empty table here would not mean the tenants are fine. Reload, then check the tenant table.",
+			"pickerTitle": "Choose two to four organizations",
+			"pickerHint": "Pick at least {min} and at most {max}. The list is ordered worst first.",
+			"compare": "Compare selected",
+			"selectionTruncated": "Only the first {max} organizations are compared.",
+			"selectionDropped": "{count} selected organization(s) no longer exist and were ignored.",
+			"noOrgsTitle": "No organizations to compare",
+			"noOrgsDescription": "Organizations appear here once they exist.",
+			"emptyTitle": "Nothing selected yet",
+			"emptyDescription": "Tick two organizations above and compare them side by side.",
+			"needTwoTitle": "One organization is not a comparison",
+			"needTwoDescription": "Select at least {min} organizations to see them side by side.",
+			"unknownBody": "{count} selected organization(s) have no measured fleet. They read Unknown, not healthy.",
+			"missingOrgIds": "{count} selected id(s) no longer match an organization.",
+			"truncatedBody": "Some organizations are outside the read cap, so the picker is incomplete.",
+			"comparisonTitle": "Side by side",
+			"tableLabel": "Organization comparison",
+			"legend": "Worst first. Best marks the best measured value for that metric; a number that was never reported is not a zero and never wins.",
+			"checkedAt": "Read at {time}",
+			"columnTenant": "Organization",
+			"columnState": "State",
+			"columnOrgStatus": "Account",
+			"columnMembers": "Members",
+			"columnPonds": "Ponds",
+			"columnDevices": "Devices",
+			"columnReporting": "Reporting units",
+			"columnOffline": "Offline",
+			"columnHeartbeat": "Last heartbeat",
+			"columnAlerts": "Open alerts",
+			"notReported": "Not reported",
+			"never": "Never",
+			"best": "Best",
+			"orgStatus": {
+				"ACTIVE": "Active",
+				"SUSPENDED": "Suspended",
+				"PENDING_DELETION": "Pending deletion",
+				"PURGED": "Purged"
+			}
 		}
 	},
 	"help": {

@@ -258,7 +258,7 @@ vi.mock("@/lib/prisma", () => ({
 			findMany: vi.fn(async () => []),
 			aggregate: vi.fn(async () => ({ _sum: { grams: 0 } })),
 		},
-		deviceStateEvent: { findFirst: vi.fn(async () => null) },
+		deviceStateEvent: { findFirst: vi.fn(async () => null), findMany: vi.fn(async () => []) },
 		biomassLog: { findFirst: vi.fn(async () => null) },
 		fcrReport: { findFirst: vi.fn(async () => null) },
 		feedLevelLog: { findMany: vi.fn(async () => []) },

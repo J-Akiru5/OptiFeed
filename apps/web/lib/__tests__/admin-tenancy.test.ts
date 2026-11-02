@@ -37,6 +37,7 @@ vi.mock("@/lib/actions/admin-internal", () => ({
 	deleteUserSubtree: vi.fn(async () => undefined),
 }));
 
+vi.mock("@/lib/notify/invite-email", () => ({ deliverMemberInviteEmail: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({
 	createAdminClient: () => ({ auth: { admin: auth } }),
 }));
@@ -300,6 +301,44 @@ describe("tenant writes refuse an org B target and change nothing", () => {
 
 		expect(result).toEqual({ error: "You cannot delete your own account." });
 		expect(auth.deleteUser).not.toHaveBeenCalled();
+	});
+
+	it("deleteUser refuses an ADMIN deleting the OWNER (#584)", async () => {
+		const membership = membershipFor(tenancy(), FARMER_A_ID)[0];
+		membership.role = "ADMIN";
+		signInAs(FARMER_A_ID);
+
+		try {
+			const result = await deleteUser(ADMIN_A_ID);
+
+			expect(result).toEqual({ error: "Only an owner can remove another owner." });
+			expect(auth.deleteUser).not.toHaveBeenCalled();
+			expect(mockDeleteSubtree).not.toHaveBeenCalled();
+		} finally {
+			membership.role = "OPERATOR";
+			signInAs(ADMIN_A_ID);
+		}
+	});
+
+	it("deleteUser refuses an account that also belongs to another organization (#584)", async () => {
+		const source = membershipFor(tenancy(), FARMER_A_ID)[0];
+		tenancy().tables.memberships.push({
+			...source,
+			id: "m-farmer-a-org-b",
+			orgId: ORG_B_ID,
+			role: "OWNER",
+		});
+
+		try {
+			const result = await deleteUser(FARMER_A_ID);
+
+			expect(result.error).toContain("platform console");
+			expect(auth.deleteUser).not.toHaveBeenCalled();
+		} finally {
+			tenancy().tables.memberships = tenancy().tables.memberships.filter(
+				(row) => row.id !== "m-farmer-a-org-b",
+			);
+		}
 	});
 
 	it("deleteUser deletes an org A farmer only, in the Supabase-first order", async () => {

@@ -10,6 +10,7 @@ import {
 import {
 	inviteRoleError,
 	isMemberRole,
+	permissionEditError,
 	revokeMemberError,
 	roleChangeError,
 } from "@/lib/auth/member-rules";
@@ -172,6 +173,37 @@ export async function deleteUser(userId: string): Promise<DeleteUserResult> {
 	// A platform admin's account (and its grant) is the superadmin's to remove.
 	if (await hasPlatformAdminGrant(userId)) {
 		return { error: PLATFORM_ADMIN_MANAGED_ELSEWHERE };
+	}
+
+	// A tenant ADMIN must not delete an OWNER (#584), and the last OWNER must
+	// remain. `resolveManagedMember` also proves the caller administers the
+	// target's organization.
+	const target = await resolveManagedMember(userId);
+	if (!target.success) return { error: target.error };
+
+	const removalError = revokeMemberError({
+		actorRole: target.target.actorRole,
+		targetRole: target.target.membership.role,
+		isSelf: false,
+		activeOwnerCount:
+			target.target.membership.role === "OWNER"
+				? await countActiveOwners(target.target.membership.orgId)
+				: 0,
+	});
+	if (removalError) return { error: removalError };
+
+	// `scope.memberUserIds` only needs one membership in an administered org;
+	// the account may also OWN another organization, and deleting it here would
+	// erase that membership too.
+	const otherOrg = await prisma.membership.findFirst({
+		where: { userId, revokedAt: null, orgId: { notIn: scope.orgIds } },
+		select: { id: true },
+	});
+	if (otherOrg) {
+		return {
+			error:
+				"This account also belongs to an organization you do not administer, so it can only be deleted from the platform console.",
+		};
 	}
 
 	try {
@@ -461,11 +493,16 @@ export async function setUserPermission(
 		return { success: false, error: "Unknown permission." };
 	}
 
-	const [target, actor] = await Promise.all([resolveManagedMembership(userId), getCurrentUser()]);
-	if (!target.success) return target;
-	if (!actor) return { success: false, error: "Not authenticated." };
+	const target = await resolveManagedMember(userId);
+	if (!target.success) return { success: false, error: target.error };
 
-	if (actor.id === userId && permission === "manage_members" && !granted) {
+	const hierarchyError = permissionEditError({
+		actorRole: target.target.actorRole,
+		targetRole: target.target.membership.role,
+	});
+	if (hierarchyError) return { success: false, error: hierarchyError };
+
+	if (target.target.actorUserId === userId && permission === "manage_members" && !granted) {
 		return {
 			success: false,
 			error: "You cannot remove your own permission to manage members.",
@@ -474,16 +511,21 @@ export async function setUserPermission(
 
 	try {
 		await prisma.membershipPermission.upsert({
-			where: { membershipId_permission: { membershipId: target.membership.id, permission } },
+			where: {
+				membershipId_permission: {
+					membershipId: target.target.membership.id,
+					permission,
+				},
+			},
 			update: { revokedAt: granted ? null : new Date() },
 			create: {
-				membershipId: target.membership.id,
+				membershipId: target.target.membership.id,
 				permission,
 				revokedAt: granted ? null : new Date(),
 			},
 		});
 
-		return await permissionStateFor(target.membership);
+		return await permissionStateFor(target.target.membership);
 	} catch (e) {
 		console.error("[admin] setUserPermission error:", e);
 		return { success: false, error: "Failed to update the permission." };

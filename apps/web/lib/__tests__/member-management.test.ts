@@ -9,7 +9,7 @@ const { db, tx } = vi.hoisted(() => {
 		membership: { findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn(), update: vi.fn() },
 		user: { findMany: vi.fn() },
 		organization: { findMany: vi.fn(), findUnique: vi.fn() },
-		membershipPermission: { findMany: vi.fn() },
+		membershipPermission: { findMany: vi.fn(), upsert: vi.fn() },
 		platformAdmin: { findFirst: vi.fn(), findMany: vi.fn() },
 		$transaction: vi.fn(),
 	};
@@ -45,7 +45,12 @@ vi.mock("@/lib/rate-limit", () => ({ checkDeviceTokenRevealRateLimit: vi.fn() })
 vi.mock("@/i18n/routing", () => ({ redirect: vi.fn() }));
 vi.mock("next-intl/server", () => ({ getLocale: vi.fn().mockResolvedValue("en") }));
 
-import { changeMemberRole, inviteMember, revokeMember } from "@/lib/actions/admin";
+import {
+	changeMemberRole,
+	inviteMember,
+	revokeMember,
+	setUserPermission,
+} from "@/lib/actions/admin";
 import { resolveOrgScope } from "@/lib/auth/org-scope";
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -96,6 +101,7 @@ beforeEach(() => {
 	mockGetCurrentUser.mockResolvedValue(ADMIN);
 	db.membership.findFirst.mockResolvedValue(null);
 	db.membership.count.mockResolvedValue(2);
+	db.membershipPermission.findMany.mockResolvedValue([]);
 	db.platformAdmin.findFirst.mockResolvedValue(null);
 	db.organization.findUnique.mockResolvedValue({ name: "Org A" });
 	mockDeliverInviteEmail.mockResolvedValue(true);
@@ -352,5 +358,26 @@ describe("tenant invites", () => {
 			inviteMember({ email: "new@example.com", displayName: "New Member", role: "OPERATOR" }),
 		).resolves.toEqual({ error: "That account is already a member." });
 		expect(mockDeliverInviteEmail).not.toHaveBeenCalled();
+	});
+});
+
+describe("permission overrides respect the owner hierarchy", () => {
+	it("refuses an ADMIN changing an OWNER's permissions", async () => {
+		allowTarget("OWNER", "ADMIN");
+
+		await expect(setUserPermission("u-target", "manage_members", false)).resolves.toEqual({
+			success: false,
+			error: "Only an owner can change another owner's permissions.",
+		});
+		expect(db.membershipPermission.upsert).not.toHaveBeenCalled();
+	});
+
+	it("lets an OWNER change another OWNER's permissions", async () => {
+		allowTarget("OWNER", "OWNER");
+
+		await expect(setUserPermission("u-target", "view_reports", true)).resolves.toMatchObject({
+			success: true,
+		});
+		expect(db.membershipPermission.upsert).toHaveBeenCalled();
 	});
 });

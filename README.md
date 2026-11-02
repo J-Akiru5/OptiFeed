@@ -1,6 +1,7 @@
 # OptiFeed
 
-Smart shrimp feeding management.
+Precision feeding and pond management for African catfish farms. Built as
+PakaonAI, a capstone project for ISUFST Dingle Campus.
 
 ## Documentation
 
@@ -14,7 +15,7 @@ agents; the rules themselves live in [`CONTRIBUTING.md`](./CONTRIBUTING.md),
 - **Framework:** Next.js 16 (App Router)
 - **Database & Auth:** Supabase (Postgres + Auth)
 - **ORM:** Prisma
-- **i18n:** next-intl (English + Hiligaynon)
+- **i18n:** next-intl (English, Hiligaynon, Tagalog)
 - **Styling:** Tailwind CSS 4
 - **UI Components:** shadcn/ui
 - **Monorepo:** pnpm workspaces

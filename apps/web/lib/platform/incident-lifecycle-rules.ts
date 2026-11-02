@@ -175,11 +175,6 @@ export function notificationIncidentKey(pondId: string | null, category: string 
 	return `notification:${pondId ?? "__unassigned__"}:${category ?? "general"}`;
 }
 
-/** Reserved for a future manual incident form. */
-export function manualIncidentKey(id: string): string {
-	return `manual:${id}`;
-}
-
 // ---------------------------------------------------------------------------
 // Acknowledgement target (O20).
 // ---------------------------------------------------------------------------

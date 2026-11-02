@@ -3226,7 +3226,8 @@
 				"aiProviders": "AI Providers",
 				"settings": "Settings",
 				"operations": "Operations",
-				"more": "More"
+				"more": "More",
+				"account": "Account"
 			},
 			"shortNav": {
 				"overview": "Overview",

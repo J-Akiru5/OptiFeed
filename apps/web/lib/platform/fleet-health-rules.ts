@@ -401,3 +401,78 @@ export function summarizeFleet(rows: readonly TenantFleetRow[]): FleetSummary {
 export function isUnmeasured(row: TenantFleetRow): boolean {
 	return row.reporting === 0;
 }
+
+/** Counts by reading freshness for one telemetry metric. */
+export interface FreshnessHistogram {
+	fresh: number;
+	stale: number;
+	none: number;
+	total: number;
+}
+
+/**
+ * The fleet's telemetry freshness at a glance (epic #627, section C).
+ *
+ * Derived from the same per-device rows the monitor already built, so it costs
+ * no extra query. `waterTemp.none` includes both "no probe" and "probe never
+ * reported"; the stored data cannot tell those apart, so the histogram does not
+ * pretend to.
+ */
+export interface FleetTelemetryFreshness {
+	devices: number;
+	rssi: FreshnessHistogram;
+	feedLevel: FreshnessHistogram;
+	waterTemp: FreshnessHistogram;
+}
+
+function emptyHistogram(): FreshnessHistogram {
+	return { fresh: 0, stale: 0, none: 0, total: 0 };
+}
+
+function addFreshness(histogram: FreshnessHistogram, freshness: ReadingFreshness): void {
+	histogram[freshness] += 1;
+	histogram.total += 1;
+}
+
+export function summarizeTelemetryFreshness(
+	rows: readonly DeviceTelemetryRow[],
+): FleetTelemetryFreshness {
+	const rssi = emptyHistogram();
+	const feedLevel = emptyHistogram();
+	const waterTemp = emptyHistogram();
+
+	for (const row of rows) {
+		addFreshness(rssi, row.rssiFreshness);
+		addFreshness(feedLevel, row.feedLevel.freshness);
+		// A null waterTemp means the unit never reported a probe reading.
+		addFreshness(waterTemp, row.waterTemp?.freshness ?? "none");
+	}
+
+	return { devices: rows.length, rssi, feedLevel, waterTemp };
+}
+
+/** One current sensor fault and how many units report it. */
+export interface FleetFaultCount {
+	fault: DeviceSensorFault;
+	devices: number;
+}
+
+/**
+ * Current fault distribution across the fleet (epic #627, section C).
+ *
+ * Counts the newest `device_health` row only, which is what `DeviceTelemetryRow`
+ * already carries. It is a current-state distribution, not a historical error
+ * count: a fault that cleared yesterday is not in this list. Zero queries.
+ */
+export function summarizeFleetFaults(rows: readonly DeviceTelemetryRow[]): FleetFaultCount[] {
+	const counts = new Map<DeviceSensorFault, number>();
+	for (const row of rows) {
+		for (const fault of row.health?.faults ?? []) {
+			counts.set(fault, (counts.get(fault) ?? 0) + 1);
+		}
+	}
+
+	return [...counts.entries()]
+		.map(([fault, devices]) => ({ fault, devices }))
+		.sort((a, b) => b.devices - a.devices || a.fault.localeCompare(b.fault));
+}

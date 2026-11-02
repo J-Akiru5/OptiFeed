@@ -66,6 +66,9 @@ function renderViewer() {
 			initialLastFedAt={null}
 			initialWaterTempOk={true}
 			initialRtcOk={true}
+			initialWaterTempC={null}
+			initialWaterTempUpdatedAt={null}
+			initialLastSeenAt={null}
 		/>,
 	);
 }

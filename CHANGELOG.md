@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.47.0] - 2026-11-03
+
 ### Added
 
 - **The PDF reports now carry the PakaonAI mark and a headline card row (#625).** Every growth, SGR and FCR report opens with the brand mark beside the title, the three headline figures as labelled cards, a rule above the footer, and the remaining figures in the compact table underneath. The mark is embedded as a 6 KB PNG instead of being read from `public/` at runtime: public assets are served by the CDN and are not traced into a serverless function, so the logo would work locally and disappear in production. No schema change, no new dependency.

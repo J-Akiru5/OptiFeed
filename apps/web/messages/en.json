@@ -1264,6 +1264,12 @@
 				"allPondsEditHint": "Choose a single pond to add an event.",
 				"recurringChangeConfirm": "Change the whole repeating series? Choose Cancel to keep it as it was."
 			},
+			"dayEvents": {
+				"title": "Events on {date}",
+				"subtitle": "{count, plural, one {# event} other {# events}}",
+				"empty": "Nothing scheduled this day.",
+				"addEvent": "Add event"
+			},
 			"calendarPage": {
 				"title": "Calendar & Harvest",
 				"desc": "The grow-out cycle and every pond event, on one calendar.",

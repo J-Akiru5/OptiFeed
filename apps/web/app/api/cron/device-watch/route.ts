@@ -5,6 +5,7 @@ import { processRecalibrationReminders } from "@/lib/calibration/recalibration-r
 import { DEVICE_OFFLINE_AFTER_MIN_MIN } from "@/lib/device-status";
 import { deleteExpiredErrorEvents } from "@/lib/error-capture";
 import { normalizeNotificationPrefs } from "@/lib/limits";
+import { offlineEpisodeKey, openEpisode } from "@/lib/notifications/episodes";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
 import { cleanupExpiredRateLimitBuckets } from "@/lib/rate-limit";
@@ -111,26 +112,26 @@ export const GET = withApi(
 				const offlineMs = Date.now() - device.lastSeenAt.getTime();
 				const offlineHours = Math.max(1, Math.round(offlineMs / (60 * 60 * 1000)));
 
-				await prisma.$transaction([
-					prisma.deviceStateEvent.create({
-						data: {
-							deviceId: device.id,
-							eventType: "disconnected",
-							source: "system",
-							deviceTime: device.lastSeenAt.toISOString(),
-							metadata: { durationMs: offlineMs, detectedBy: "device-watch cron" },
-						},
-					}),
-					prisma.notification.create({
-						data: {
-							pondId: device.pondId,
-							tier: "CRITICAL",
-							category: "connectivity",
-							message: `${device.label} is offline — no heartbeat for ~${offlineHours}h`,
-							linkTo: "/dashboard/notifications",
-						},
-					}),
-				]);
+				await prisma.deviceStateEvent.create({
+					data: {
+						deviceId: device.id,
+						eventType: "disconnected",
+						source: "system",
+						deviceTime: device.lastSeenAt.toISOString(),
+						metadata: { durationMs: offlineMs, detectedBy: "device-watch cron" },
+					},
+				});
+				// Episode (#534): an outage opens exactly one row. A later run against
+				// the same outage updates it instead of appending another, and the
+				// reconnect path in /api/ingest closes it.
+				await openEpisode(prisma, {
+					pondId: device.pondId,
+					category: "connectivity",
+					episodeKey: offlineEpisodeKey(device.id),
+					tier: "CRITICAL",
+					message: `${device.label} is offline — no heartbeat for ~${offlineHours}h`,
+					linkTo: "/dashboard/notifications",
+				});
 				offlineAlerts++;
 			}
 

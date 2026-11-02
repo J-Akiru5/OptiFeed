@@ -2,7 +2,6 @@ import { withApi } from "@/lib/api/instrumentation";
 import {
 	FEED_DAYS_WARNING,
 	HEARTBEAT_ROW_INTERVAL_MS,
-	PELLET_ALERT_WINDOW_MS,
 	RECONCILIATION_LOOKBACK_HOURS,
 } from "@/lib/constants";
 import { isDeviceApproved, verifyDeviceToken } from "@/lib/device-auth";
@@ -24,6 +23,14 @@ import {
 } from "@/lib/device-status";
 import { estimateDaysOfFeedRemaining } from "@/lib/feed-level";
 import { normalizeNotificationPrefs } from "@/lib/limits";
+import {
+	closeEpisode,
+	coldWaterEpisodeKey,
+	feedDaysEpisodeKey,
+	offlineEpisodeKey,
+	openEpisode,
+	pelletEpisodeKey,
+} from "@/lib/notifications/episodes";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
 import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
@@ -558,68 +565,36 @@ export const POST = withApi(
 						);
 					}
 
-					// Pellet alert dedup (N11, #412 Option A): fire only on a tier
-					// transition, or at most once per 6h from the last warning while
-					// still low. The 6h window is measured from the latest pellet
-					// notification for this pond, whatever its acknowledgement: an
-					// Acknowledge / Mark-all-read silences the bell instead of re-arming
-					// it on the next 5s heartbeat, and the reminder returns at most 6h
-					// after the last warning. A tier transition still fires immediately.
+					// Hopper alerts are episodes (#534). One row opens when the level
+					// first drops below the org threshold, is updated in place when it
+					// escalates to CRITICAL, and closes when the level recovers.
+					// Acknowledge / mark-all-read silences the bell without re-arming
+					// the next heartbeat, and the old 6 h repeat is gone.
 					const pelletLevel = levelPercent;
 					const pelletTier = hopperAlertTier(pelletLevel, feedSettings.hopperLowPct);
 					const pelletAlertAllowed = pelletTier ? await hopperAlertsAllowed() : false;
 
-					// Resolved whenever the device has a pond, not only when this reading
-					// is low: the days-of-feed-remaining branch below needs the same
-					// dedup state even when the hopper is back above its threshold.
-					let recentPelletAlert: { tier: string; createdAt: Date } | null = null;
-					if (device.pondId) {
-						recentPelletAlert = await prisma.notification.findFirst({
-							where: { pondId: device.pondId, category: "pellet" },
-							orderBy: { createdAt: "desc" },
-							select: { tier: true, createdAt: true },
-						});
-					}
-					const shouldFirePelletAlert = (tier: "WARNING" | "CRITICAL"): boolean => {
-						if (!device.pondId) return false;
-						if (!recentPelletAlert) return true;
-						const withinWindow =
-							Date.now() - recentPelletAlert.createdAt.getTime() < PELLET_ALERT_WINDOW_MS;
-						return recentPelletAlert.tier !== tier || !withinWindow;
-					};
-					// A pellet alert inside the window already tells the farmer the
-					// hopper is low, acknowledged or not (#412: acknowledging must not
-					// re-arm the days-remaining warning either). The days-remaining
-					// warning is the same category for the same pond, so stacking it on
-					// top makes the two messages alternate tier on every heartbeat
-					// (CRITICAL → WARNING → CRITICAL …) instead of informing.
-					const pelletAlertOutstanding =
-						recentPelletAlert !== null &&
-						Date.now() - recentPelletAlert.createdAt.getTime() < PELLET_ALERT_WINDOW_MS;
-
-					// Set when this heartbeat already queued a hopper alert, so the
-					// days-of-feed-remaining branch below cannot queue a second, weaker
-					// one from the same (pre-transaction) reading.
 					let pelletAlertQueued = false;
-
-					if (
-						pelletTier &&
-						device.pondId &&
-						pelletAlertAllowed &&
-						shouldFirePelletAlert(pelletTier)
-					) {
+					if (pelletTier && device.pondId && pelletAlertAllowed) {
+						const episode = await openEpisode(prisma, {
+							pondId: device.pondId,
+							category: "pellet",
+							episodeKey: pelletEpisodeKey(device.id),
+							tier: pelletTier,
+							message:
+								pelletTier === "CRITICAL"
+									? "Feed hopper is nearly empty — refill immediately"
+									: "Feed hopper is running low — schedule a refill soon",
+							linkTo: "/dashboard/settings",
+						});
 						pelletAlertQueued = true;
-						if (pelletTier === "CRITICAL") {
+						// A calendar marker only for a fresh or escalated CRITICAL: the state
+						// event is what the harvest calendar renders, so repeats of the same
+						// episode must not add chips (#534).
+						const criticalEscalation =
+							pelletTier === "CRITICAL" && (episode.created || episode.updated);
+						if (criticalEscalation) {
 							operations.push(
-								prisma.notification.create({
-									data: {
-										pondId: device.pondId,
-										tier: "CRITICAL",
-										category: "pellet",
-										message: "Feed hopper is nearly empty — refill immediately",
-										linkTo: "/dashboard/settings",
-									},
-								}),
 								prisma.deviceStateEvent.create({
 									data: {
 										deviceId: device.id,
@@ -630,25 +605,21 @@ export const POST = withApi(
 									},
 								}),
 							);
-						} else {
-							operations.push(
-								prisma.notification.create({
-									data: {
-										pondId: device.pondId,
-										tier: "WARNING",
-										category: "pellet",
-										message: "Feed hopper is running low — schedule a refill soon",
-										linkTo: "/dashboard/settings",
-									},
-								}),
-							);
 						}
 					}
 
+					// Recovery closes both hopper episodes, so the next dip opens a fresh
+					// one instead of resurrecting a resolved row.
+					if (device.pondId && !pelletTier) {
+						await closeEpisode(prisma, pelletEpisodeKey(device.id));
+						await closeEpisode(prisma, feedDaysEpisodeKey(device.id));
+					}
+
 					// 2-days-of-feed-remaining advance warning. The estimate is the
-					// same shared helper the dashboard card uses (lib/feed-level.ts),
-					// so both surfaces agree and a missing capacity or meal size
-					// yields null instead of a `99`-style sentinel.
+					// same shared helper the dashboard card uses (lib/feed-level.ts), so
+					// both surfaces agree and a missing capacity or meal size yields null
+					// instead of a `99`-style sentinel. It runs its own episode so it
+					// cannot stack on top of the low-hopper alert (#534).
 					if (device.pondId) {
 						const deviceFull = await prisma.energyDevice.findUnique({
 							where: { id: device.id },
@@ -666,20 +637,16 @@ export const POST = withApi(
 								daysRemaining <= FEED_DAYS_WARNING &&
 								daysRemaining > 0 &&
 								!pelletAlertQueued &&
-								!pelletAlertOutstanding &&
 								(await hopperAlertsAllowed())
 							) {
-								operations.push(
-									prisma.notification.create({
-										data: {
-											pondId: device.pondId,
-											tier: "WARNING",
-											category: "pellet",
-											message: `Feed will run out in ~${Math.ceil(daysRemaining)} day(s) — refill hopper soon`,
-											linkTo: "/dashboard/settings",
-										},
-									}),
-								);
+								await openEpisode(prisma, {
+									pondId: device.pondId,
+									category: "pellet",
+									episodeKey: feedDaysEpisodeKey(device.id),
+									tier: "WARNING",
+									message: `Feed will run out in ~${Math.ceil(daysRemaining)} day(s) — refill hopper soon`,
+									linkTo: "/dashboard/settings",
+								});
 							}
 						}
 					}
@@ -761,6 +728,30 @@ export const POST = withApi(
 					);
 				}
 
+				// Cold-water episode (#486, #534): one warning per dip below the
+				// device's configured feeding minimum, closed once the water warms back
+				// above it. Feeding itself is never blocked.
+				if (
+					device.pondId &&
+					typeof device.minFeedTempC === "number" &&
+					typeof parsed.data.water_temp_c === "number" &&
+					parsed.data.water_temp_ok === true
+				) {
+					if (parsed.data.water_temp_c < device.minFeedTempC) {
+						await openEpisode(prisma, {
+							pondId: device.pondId,
+							category: "feeding",
+							episodeKey: coldWaterEpisodeKey(device.id),
+							tier: "WARNING",
+							message:
+								"Water temperature is below this pond's feeding minimum — check the fish before the next feed",
+							linkTo: "/dashboard",
+						});
+					} else {
+						await closeEpisode(prisma, coldWaterEpisodeKey(device.id));
+					}
+				}
+
 				if (wasOffline && device.lastSeenAt) {
 					operations.push(
 						prisma.deviceStateEvent.create({
@@ -775,8 +766,10 @@ export const POST = withApi(
 					);
 				}
 
-				// Phase 3: auto-clear disconnected notifications on reconnect.
+				// Phase 3: close the offline episode and auto-clear any legacy
+				// disconnected rows on reconnect.
 				if (wasOffline && device.pondId) {
+					await closeEpisode(prisma, offlineEpisodeKey(device.id));
 					operations.push(
 						prisma.notification.updateMany({
 							where: {
@@ -788,6 +781,7 @@ export const POST = withApi(
 							data: {
 								autoCleared: true,
 								read: true,
+								resolvedAt: new Date(),
 							},
 						}),
 					);

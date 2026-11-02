@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **A firmware change can no longer merge with a failing host test suite (#455).** The `Firmware` workflow now runs `pio test -d firmware -e native` after the PlatformIO setup and before it compiles the ESP32 targets, so the Unity safety and config tests gate every pull request and push that touches `firmware/**` or the workflow itself. The step is host-only: no board, no network, no secrets. Triggers, path filters, the compile matrix and the `compile` check name are unchanged.
+
 ## [1.43.0] - 2026-11-02
 
 

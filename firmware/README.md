@@ -166,8 +166,8 @@ pio run -d firmware -t upload  # flash over USB
 pio device monitor -b 115200   # serial log
 ```
 
-CI runs `pio run -d firmware` for every firmware change; it never flashes or
-deploys.
+CI runs the host native tests and `pio run -d firmware` for every firmware
+change; it never flashes or deploys.
 
 ### Relay pin (build flag)
 
@@ -424,6 +424,9 @@ PlatformIO keeps in `~/.platformio/packages/toolchain-gccmingw32` when no `gcc`
 is on `PATH`, and `scripts/native_runtime.py` copies its runtime DLLs beside the
 test binary. On Linux/macOS both scripts are no-ops and the host compiler is
 used directly.
+
+CI runs this same command for every firmware change, so a failing native test
+fails the pull request before it can merge.
 
 ## Firmware 1.7.0 — dashboard-driven configuration (I-100)
 

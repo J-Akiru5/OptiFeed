@@ -397,7 +397,10 @@ describe("dashboard anchors", () => {
 			"FeedingPredictionCard",
 			"ExportPdfButton",
 		]) {
-			expect(pageSource, `${component} is no longer rendered`).toContain(`<${component}`);
+			// A server component that translates is resolved with `await` before it
+			// reaches JSX (#591), so it shows up as `<Name` or `Name(`.
+			const rendered = pageSource.includes(`<${component}`) || pageSource.includes(`${component}(`);
+			expect(rendered, `${component} is no longer rendered`).toBe(true);
 		}
 	});
 });

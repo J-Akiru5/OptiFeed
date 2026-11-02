@@ -44,6 +44,19 @@ function requireReason(reason: string | undefined): string {
 	return trimmed;
 }
 
+/**
+ * The feed command was handed this action's transaction, so the #581 unique
+ * violation aborted the whole transaction. The catch below rolls it back and
+ * re-reads the winning request on a fresh connection.
+ */
+function isFeedAlreadyPendingError(error: unknown): boolean {
+	return (
+		typeof error === "object" &&
+		error !== null &&
+		(error as { code?: unknown }).code === "feed_already_pending"
+	);
+}
+
 /** One energy-device audit row (targetType is always energy_device). */
 async function auditDevice(
 	data: {
@@ -597,31 +610,69 @@ export async function remoteFeedDevice(input: {
 		const actor = await actorContext();
 
 		return await withStepUp(async (stepUpAt) => {
-			return prisma.$transaction(async (tx) => {
-				const outcome = await createManualFeedRequest(tx, {
-					deviceId: device.id,
-					grams: input.grams,
-					actorId: actor.id,
-					triggerSource: "platform_remote",
-				});
+			try {
+				return await prisma.$transaction(async (tx) => {
+					const outcome = await createManualFeedRequest(tx, {
+						deviceId: device.id,
+						grams: input.grams,
+						actorId: actor.id,
+						triggerSource: "platform_remote",
+					});
 
-				if (!outcome.ok) {
+					if (!outcome.ok) {
+						await auditDevice(
+							{
+								action: "platform.device.feed_refused",
+								deviceId: device.id,
+								orgId,
+								reason,
+								actorUserId: actor.id,
+								temporaryGrant: actor.temporaryGrant,
+								stepUpAt,
+								after: { grams: input.grams, code: outcome.code, error: outcome.error },
+							},
+							tx,
+						);
+						return {
+							success: false as const,
+							code: "feed_refused" as const,
+							error: outcome.error,
+						};
+					}
+
 					await auditDevice(
 						{
-							action: "platform.device.feed_refused",
+							action: "platform.device.feed",
 							deviceId: device.id,
 							orgId,
 							reason,
 							actorUserId: actor.id,
 							temporaryGrant: actor.temporaryGrant,
 							stepUpAt,
-							after: { grams: input.grams, code: outcome.code, error: outcome.error },
+							after: {
+								grams: input.grams,
+								requestId: outcome.requestId,
+								alreadyPending: outcome.alreadyPending,
+							},
 						},
 						tx,
 					);
-					return { success: false as const, code: "feed_refused" as const, error: outcome.error };
-				}
 
+					return outcome.alreadyPending
+						? { success: true as const, message: "Feed already pending" }
+						: { success: true as const };
+				});
+			} catch (e) {
+				if (!isFeedAlreadyPendingError(e)) throw e;
+
+				// The command's transaction rolled back on the partial unique index,
+				// so the pending row belongs to a concurrent caller. Re-read it on a
+				// fresh connection and audit this attempt as a success, exactly like
+				// the in-transaction alreadyPending path above.
+				const existing = await prisma.feedRequest.findFirst({
+					where: { deviceId: device.id, status: "pending" },
+					select: { id: true },
+				});
 				await auditDevice(
 					{
 						action: "platform.device.feed",
@@ -633,17 +684,14 @@ export async function remoteFeedDevice(input: {
 						stepUpAt,
 						after: {
 							grams: input.grams,
-							requestId: outcome.requestId,
-							alreadyPending: outcome.alreadyPending,
+							requestId: existing?.id ?? null,
+							alreadyPending: true,
 						},
 					},
-					tx,
+					prisma,
 				);
-
-				return outcome.alreadyPending
-					? { success: true as const, message: "Feed already pending" }
-					: { success: true as const };
-			});
+				return { success: true as const, message: "Feed already pending" };
+			}
 		});
 	} catch (e) {
 		if (isStepUpRequiredError(e)) {

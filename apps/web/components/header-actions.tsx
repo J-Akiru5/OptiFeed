@@ -124,6 +124,7 @@ function ProfileMenu({
 	const router = useRouter();
 	const locale = useLocale();
 	const tCommon = useTranslations("dashboard.common");
+	const tAccount = useTranslations("account.menu");
 	const deviceStatusLabel =
 		esp32Status === "online"
 			? tCommon("deviceOnline")
@@ -161,9 +162,11 @@ function ProfileMenu({
 						/>
 					</div>
 					<div>
-						<p className="text-base font-black">{userEmail ? userEmail.split("@")[0] : "User"}</p>
+						<p className="text-base font-black">
+							{userEmail ? userEmail.split("@")[0] : tAccount("userFallback")}
+						</p>
 						<p className={`text-xs font-bold ${accountMenuMutedText}`}>
-							{showPlatformIdentity ? tCommon("platformAdmin") : "Pond Operator"}
+							{showPlatformIdentity ? tCommon("platformAdmin") : tAccount("pondOperator")}
 						</p>
 						{!showPlatformIdentity && (
 							<p
@@ -182,7 +185,7 @@ function ProfileMenu({
 						triggerRef.current?.focus();
 					}}
 					className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-[#E85A2A] focus-visible:outline-none dark:focus-visible:ring-[#ff8a5c] ${accountMenuCloseButton}`}
-					aria-label="Close profile menu"
+					aria-label={tAccount("close")}
 				>
 					<X className="h-4 w-4" />
 				</button>
@@ -190,13 +193,17 @@ function ProfileMenu({
 
 			<div className="mt-4 grid grid-cols-2 gap-2 text-xs">
 				<div className={`rounded-2xl p-3 ${accountMenuTile}`}>
-					<p className={`font-black tracking-wide uppercase ${accountMenuMutedText}`}>Language</p>
+					<p className={`font-black tracking-wide uppercase ${accountMenuMutedText}`}>
+						{tAccount("language")}
+					</p>
 					<p className="mt-1 text-lg font-black text-[#0A3D62] uppercase dark:text-[#5b9bd5]">
 						{locale}
 					</p>
 				</div>
 				<div className={`rounded-2xl p-3 ${accountMenuTile}`}>
-					<p className={`font-black tracking-wide uppercase ${accountMenuMutedText}`}>Device</p>
+					<p className={`font-black tracking-wide uppercase ${accountMenuMutedText}`}>
+						{tAccount("device")}
+					</p>
 					<p
 						className={`mt-1 text-sm font-black uppercase ${ACCOUNT_MENU_DEVICE_STATUS[esp32Status]}`}
 					>
@@ -216,7 +223,7 @@ function ProfileMenu({
 						className={`flex min-h-14 w-full items-center justify-between rounded-2xl px-4 font-black transition focus-visible:ring-2 focus-visible:ring-[#E85A2A] focus-visible:outline-none ${accountMenuAdminAction}`}
 					>
 						<span className="flex items-center gap-3">
-							<Shield className="h-5 w-5" /> Admin Panel
+							<Shield className="h-5 w-5" /> {tAccount("adminPanel")}
 						</span>
 						<svg
 							className="h-5 w-5"
@@ -239,7 +246,7 @@ function ProfileMenu({
 						className={`flex min-h-14 w-full items-center justify-between rounded-2xl px-4 font-black transition focus-visible:ring-2 focus-visible:ring-[#0A3D62] focus-visible:outline-none dark:focus-visible:ring-[#8ec5ef] ${accountMenuPlatformAction}`}
 					>
 						<span className="flex items-center gap-3">
-							<ShieldAlert className="h-5 w-5" /> Platform Console
+							<ShieldAlert className="h-5 w-5" /> {tAccount("platformConsole")}
 						</span>
 						<svg
 							className="h-5 w-5"
@@ -261,7 +268,8 @@ function ProfileMenu({
 					className={`flex min-h-14 w-full items-center justify-between rounded-2xl px-4 font-black transition focus-visible:ring-2 focus-visible:ring-[#E85A2A] focus-visible:outline-none ${accountMenuNavigationItem}`}
 				>
 					<span className="flex items-center gap-3">
-						<Settings className="h-5 w-5 text-[#E85A2A] dark:text-[#ff8a5c]" /> Account settings
+						<Settings className="h-5 w-5 text-[#E85A2A] dark:text-[#ff8a5c]" />{" "}
+						{tAccount("accountSettings")}
 					</span>
 					<svg
 						className="h-5 w-5"
@@ -282,7 +290,8 @@ function ProfileMenu({
 					className={`flex min-h-14 w-full items-center justify-between rounded-2xl px-4 font-black transition focus-visible:ring-2 focus-visible:ring-[#E85A2A] focus-visible:outline-none ${accountMenuNavigationItem}`}
 				>
 					<span className="flex items-center gap-3">
-						<Globe className="h-5 w-5 text-[#E85A2A] dark:text-[#ff8a5c]" /> Switch language
+						<Globe className="h-5 w-5 text-[#E85A2A] dark:text-[#ff8a5c]" />{" "}
+						{tAccount("switchLanguage")}
 					</span>
 					<span className={`rounded-lg px-2 py-1 text-xs uppercase ${accountMenuBadge}`}>
 						{locale}
@@ -294,7 +303,7 @@ function ProfileMenu({
 					className={`flex min-h-14 w-full items-center justify-between rounded-2xl px-4 font-black transition focus-visible:ring-2 focus-visible:ring-[#C42B3A] focus-visible:outline-none ${accountMenuSignOut}`}
 				>
 					<span className="flex items-center gap-3">
-						<LogOut className="h-5 w-5" /> Sign out
+						<LogOut className="h-5 w-5" /> {tAccount("signOut")}
 					</span>
 					<svg
 						className="h-5 w-5"
@@ -323,8 +332,10 @@ export function HeaderActions({
 }: HeaderActionsProps) {
 	const [showProfileMenu, setShowProfileMenu] = useState(false);
 	const profileButtonRef = useRef<HTMLButtonElement>(null);
+	const tAccount = useTranslations("account.menu");
 	const userEmail = initialUser?.email ?? null;
-	const userDisplayName = initialUser?.displayName || userEmail?.split("@")[0] || "User";
+	const userDisplayName =
+		initialUser?.displayName || userEmail?.split("@")[0] || tAccount("userFallback");
 	const avatarUrl = initialUser?.avatarUrl ?? null;
 	const isTenantAdmin = initialUser?.isTenantAdmin ?? false;
 	const isPlatformAdmin = initialUser?.isPlatformAdmin ?? false;
@@ -380,7 +391,7 @@ export function HeaderActions({
 				type="button"
 				onClick={() => setShowProfileMenu((v) => !v)}
 				className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-[#E85A2A] text-sm font-extrabold text-white shadow-sm transition hover:bg-[#f06d42] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
-				aria-label="Open profile and settings menu"
+				aria-label={tAccount("open")}
 				aria-expanded={showProfileMenu}
 			>
 				<UserAvatar
@@ -427,8 +438,10 @@ export function CompactHeaderActions({
 }: Pick<HeaderActionsProps, "initialUser" | "isViewingAs" | "helpEnabled">) {
 	const [showProfileMenu, setShowProfileMenu] = useState(false);
 	const profileButtonRef = useRef<HTMLButtonElement>(null);
+	const tAccount = useTranslations("account.menu");
 	const userEmail = initialUser?.email ?? null;
-	const userDisplayName = initialUser?.displayName || userEmail?.split("@")[0] || "User";
+	const userDisplayName =
+		initialUser?.displayName || userEmail?.split("@")[0] || tAccount("userFallback");
 	const avatarUrl = initialUser?.avatarUrl ?? null;
 	const isTenantAdmin = initialUser?.isTenantAdmin ?? false;
 	const isPlatformAdmin = initialUser?.isPlatformAdmin ?? false;
@@ -461,7 +474,7 @@ export function CompactHeaderActions({
 				type="button"
 				onClick={() => setShowProfileMenu((v) => !v)}
 				className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-[#E85A2A] text-sm font-extrabold text-white shadow-sm transition hover:bg-[#f06d42] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
-				aria-label="Open profile and settings menu"
+				aria-label={tAccount("open")}
 				aria-expanded={showProfileMenu}
 			>
 				<UserAvatar

@@ -166,6 +166,15 @@ const PROPS_ONLY = new Set([
 	"dialog-shell.tsx",
 	"list-chrome.tsx",
 	"dialog-theme.ts",
+	// #479 M3C.8 monitor components: presentational, every visible string is a
+	// prop from the page's translator.
+	"monitor-panel.tsx",
+	"sparkline.tsx",
+	"kpi-tile.tsx",
+	"status-mix.tsx",
+	"activity-feed.tsx",
+	"attention-list.tsx",
+	"command-center-layout.tsx",
 	"scope-banner.tsx",
 	"status-bands.tsx",
 ]);

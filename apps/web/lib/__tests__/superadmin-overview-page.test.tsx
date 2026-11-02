@@ -33,6 +33,11 @@ vi.mock("@/i18n/routing", async () => {
 import SuperadminOverviewPage from "@/app/[locale]/(superadmin)/superadmin/page";
 import type { PlatformAnalytics } from "@/lib/platform/analytics";
 
+/** The 90 completed UTC days the panel expects, oldest first. */
+const WINDOW_DAYS = Array.from({ length: 90 }, (_, index) =>
+	new Date(Date.UTC(2026, 7, 4 + index)).toISOString().slice(0, 10),
+);
+
 const analytics: PlatformAnalytics = {
 	range: 7,
 	window: {
@@ -105,6 +110,36 @@ const analytics: PlatformAnalytics = {
 			at: new Date("2026-10-27T01:00:00.000Z"),
 		},
 	],
+	connectivity: {
+		registered: 12,
+		active30d: 9,
+		activePct: 75,
+		activeWindowDays: 30,
+		activeCutoff: new Date("2026-09-27T12:00:00.000Z"),
+		windowDays: WINDOW_DAYS,
+		// Two stored days out of 90; 2026-10-28 is deliberately absent.
+		trend: [
+			{
+				day: "2026-10-27",
+				devicesReporting: 4,
+				onlineMinutes: 900,
+				observedMinutes: 1200,
+				gapCount: 1,
+				heartbeatCount: 900,
+				onlineSharePct: 75,
+			},
+			{
+				day: "2026-10-30",
+				devicesReporting: 5,
+				onlineMinutes: 600,
+				observedMinutes: 1000,
+				gapCount: 2,
+				heartbeatCount: 1200,
+				onlineSharePct: 60,
+			},
+		],
+		daysWithoutData: 88,
+	},
 };
 
 function page(range = "7") {
@@ -202,6 +237,41 @@ describe("/superadmin analytics overview (E16.1)", () => {
 		expect(html).toContain("timeout");
 		expect(html).toContain("Pond One");
 		expect(html).toContain("FCR 2.10");
+	});
+
+	it("renders registered versus active and the stored connectivity trend", async () => {
+		const html = renderToStaticMarkup(await page());
+
+		expect(html).toContain("Registered versus active devices");
+		expect(html).toContain("Registered devices");
+		expect(html).toContain("Active (30 days)");
+		expect(html).toContain("9 of 12 registered devices");
+		expect(html).toContain("2 of 90 days have stored history");
+		expect(html).toContain("average online share");
+		// Only stored days reach the accessible table; the quiet day is absent.
+		expect(html).toContain('<th scope="row">2026-10-30</th>');
+		expect(html).not.toContain('<th scope="row">2026-10-28</th>');
+		expect(html).toContain("Days are UTC calendar days");
+	});
+
+	it("says there is no connectivity history instead of drawing a zero line", async () => {
+		analyticsMock.mockResolvedValueOnce({
+			...analytics,
+			connectivity: {
+				...analytics.connectivity,
+				registered: 0,
+				activePct: null,
+				active30d: 0,
+				trend: [],
+				daysWithoutData: 90,
+			},
+		});
+
+		const html = renderToStaticMarkup(await page());
+
+		expect(html).toContain("No stored connectivity history yet.");
+		expect(html).toContain("No device is registered yet");
+		expect(html).not.toContain("average online share");
 	});
 
 	it("keeps an empty range readable instead of rendering a blank chart", async () => {

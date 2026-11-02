@@ -51,6 +51,17 @@ vi.mock("@/lib/rate-limit", () => ({
 	cleanupExpiredRateLimitBuckets: vi.fn().mockResolvedValue(7),
 }));
 
+// O24: the daily connectivity rollup rides this cron before the heartbeat sweep.
+vi.mock("@/lib/platform/connectivity", () => ({
+	rollupDeviceConnectivity: vi.fn().mockResolvedValue({
+		processedDays: ["2026-11-01"],
+		emptyDays: [],
+		devices: 2,
+		pruned: 0,
+		alreadyRolledUp: false,
+	}),
+}));
+
 vi.mock("@/i18n/routing", () => ({ redirect: vi.fn() }));
 vi.mock("next-intl/server", () => ({ getLocale: vi.fn(async () => "en") }));
 
@@ -65,6 +76,7 @@ import {
 	deviceStatusPolicyFromValue,
 } from "@/lib/device-status";
 import { deleteExpiredErrorEvents } from "@/lib/error-capture";
+import { rollupDeviceConnectivity } from "@/lib/platform/connectivity";
 import prisma from "@/lib/prisma";
 import { cleanupExpiredRateLimitBuckets } from "@/lib/rate-limit";
 import { deleteExpiredPondSettingsDrafts, deleteOldHeartbeatEvents } from "@/lib/retention";
@@ -201,6 +213,22 @@ describe("api/cron/device-watch", () => {
 		expect(deleteExpiredErrorEvents).toHaveBeenCalledTimes(1);
 		// I-99: expired pond-settings drafts are pruned in the same pass.
 		expect(deleteExpiredPondSettingsDrafts).toHaveBeenCalledTimes(1);
+	});
+
+	it("stores the previous day's connectivity before deleting the heartbeat rows it reads", async () => {
+		const res = await GET(cronRequest("Bearer test-cron-secret"));
+
+		await expect(res.json()).resolves.toMatchObject({
+			data: {
+				connectivity: { processedDays: ["2026-11-01"], devices: 2 },
+				heartbeatsDeleted: 3,
+			},
+		});
+		expect(rollupDeviceConnectivity).toHaveBeenCalledTimes(1);
+		// 7-day heartbeat retention deletes the source; the rollup must win.
+		expect(vi.mocked(rollupDeviceConnectivity).mock.invocationCallOrder[0]).toBeLessThan(
+			vi.mocked(deleteOldHeartbeatEvents).mock.invocationCallOrder[0],
+		);
 	});
 
 	it("scans the most recently stale devices first, so an already-alerted device cannot starve new outages", async () => {

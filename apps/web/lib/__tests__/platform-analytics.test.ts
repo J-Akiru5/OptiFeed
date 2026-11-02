@@ -42,7 +42,8 @@ function primeQueries() {
 		.mockResolvedValueOnce(3) // online
 		.mockResolvedValueOnce(1) // pending total
 		.mockResolvedValueOnce(1) // pending new
-		.mockResolvedValueOnce(0); // pending previous
+		.mockResolvedValueOnce(0) // pending previous
+		.mockResolvedValueOnce(2); // active in the last 30 days (O22)
 
 	db.notification.count.mockResolvedValueOnce(3).mockResolvedValueOnce(2).mockResolvedValueOnce(1);
 
@@ -66,6 +67,27 @@ function primeQueries() {
 				// An imported hand-fed daily total is charted by source but is
 				// never counted as a machine dispense (#236).
 				{ day: TODAY, source: "hand_fed", total: 1, grams: 1800 },
+			];
+		}
+		if (sql.includes('FROM "DeviceConnectivityDaily"')) {
+			// Stored history only: 2026-10-24 is deliberately absent.
+			return [
+				{
+					day: "2026-10-26",
+					devicesReporting: 2,
+					onlineMinutes: 120,
+					observedMinutes: 200,
+					gapCount: 1,
+					heartbeatCount: 40,
+				},
+				{
+					day: "2026-10-27",
+					devicesReporting: 3,
+					onlineMinutes: 90,
+					observedMinutes: 120,
+					gapCount: 0,
+					heartbeatCount: 60,
+				},
 			];
 		}
 		return [];
@@ -303,6 +325,35 @@ describe("getPlatformAnalytics", () => {
 			const where = (args as { where: { source?: { in: string[] } } }).where;
 			expect(where.source?.in).toEqual(["scheduled", "dashboard", "button"]);
 		}
+	});
+
+	it("reports registered versus active and the stored connectivity trend", async () => {
+		const result = await getPlatformAnalytics(7, NOW);
+
+		expect(result.connectivity.registered).toBe(4);
+		expect(result.connectivity.active30d).toBe(2);
+		expect(result.connectivity.activePct).toBe(50);
+		expect(result.connectivity.activeCutoff.toISOString()).toBe("2026-09-27T12:00:00.000Z");
+		expect(result.connectivity.trend.map((point) => point.day)).toEqual([
+			"2026-10-26",
+			"2026-10-27",
+		]);
+		expect(result.connectivity.trend.map((point) => point.onlineSharePct)).toEqual([60, 75]);
+		// The quiet day is absent, never a zero: 90-day window, 2 stored days.
+		expect(result.connectivity.windowDays).toHaveLength(90);
+		expect(result.connectivity.daysWithoutData).toBe(88);
+	});
+
+	it("reads the trend only from the stored rollup table", async () => {
+		await getPlatformAnalytics(30, NOW);
+
+		const trendCall = db.$queryRaw.mock.calls.find((call) =>
+			(call[0] as unknown as TemplateStringsArray).join(" ").includes("DeviceConnectivityDaily"),
+		);
+		expect(trendCall, "the trend must read DeviceConnectivityDaily").toBeDefined();
+		const sql = (trendCall?.[0] as unknown as TemplateStringsArray).join(" ");
+		expect(sql).toContain("EXTRACT(EPOCH");
+		expect(sql).not.toContain("generate_series");
 	});
 
 	it("only asks DeviceStateEvent for real alert types", async () => {

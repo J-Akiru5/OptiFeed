@@ -261,7 +261,7 @@ export default async function DashboardLayout({
 							<main
 								id="main-content"
 								tabIndex={-1}
-								className="ofd-main relative z-10 min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-clip p-4 focus:outline-none md:p-8"
+								className="ofd-main ofd-main-room relative z-10 min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-clip p-4 focus:outline-none md:p-8"
 							>
 								<BackToDashboard />
 								{announcement && (

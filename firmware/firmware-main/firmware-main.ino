@@ -3381,19 +3381,25 @@ void initSafetyState(esp_reset_reason_t reason) {
 
   const bool safeModeNvs = prefs.getBool(NVS_SAFE_MODE_KEY, false);
   const uint32_t until = prefs.getUInt(NVS_SAFE_UNTIL_KEY, 0);
+
+  // #455: a trip is an incident, not a state. Resume a pending trip even when
+  // safe mode has already been left (quiet window elapsed or reset hold), so a
+  // reboot before the report cannot lose it.
+  uint32_t tripId = prefs.getUInt(NVS_SAFE_TRIP_ID_KEY, 0);
+  bool tripReported = prefs.getBool(NVS_SAFE_TRIP_SENT_KEY, false);
   if (safeModeNvs) {
     safeModeActive = true;
     safeModeWindow.resume(until, millis(), (unsigned long)deviceConfig.safeModeQuietS * 1000UL);
-    // #455: a trip recorded before the reboot stays pending until the server
-    // accepts it. Upgrading from <1.9.0 mid-trip has no id yet, so adopt this
-    // boot as the trip; the original lockout time is not in NVS.
-    uint32_t tripId = prefs.getUInt(NVS_SAFE_TRIP_ID_KEY, 0);
-    const bool tripReported = prefs.getBool(NVS_SAFE_TRIP_SENT_KEY, false);
+    // Upgrading from <1.9.0 mid-trip has no id yet, so adopt this boot as the
+    // trip; the original lockout time is not in NVS.
     if (tripId == 0) {
       tripId = fw::SafetyTrip::newId(esp_random());
+      tripReported = false;
       prefs.putUInt(NVS_SAFE_TRIP_ID_KEY, tripId);
       prefs.putBool(NVS_SAFE_TRIP_SENT_KEY, false);
     }
+  }
+  if (tripId != 0) {
     safeTripAtRuntime = false;
     safeTrip.resume(tripId, tripReported);
     const String tripAt = prefs.isKey(NVS_SAFE_TRIP_AT_KEY)
@@ -3401,11 +3407,15 @@ void initSafetyState(esp_reset_reason_t reason) {
                               : String("unknown");
     strncpy(safeTripIso, tripAt.c_str(), sizeof(safeTripIso) - 1);
     safeTripIso[sizeof(safeTripIso) - 1] = '\0';
+    Serial.printf("[SAFETY] trip %08lx resumed (%s)\n", (unsigned long)tripId,
+                  tripReported ? "reported" : "pending");
+  }
+  if (safeModeNvs) {
     if (safeModeWindow.elapsed(clockValid, epoch, millis())) {
       leaveSafeMode("quiet period elapsed while off");
     } else {
-      Serial.printf("[SAFETY] SAFE MODE persists: %s (trip %08lx)\n", lastResetReasons,
-                    (unsigned long)tripId);
+      Serial.printf("[SAFETY] SAFE MODE persists: %s (trip %08lx, %s)\n", lastResetReasons,
+                    (unsigned long)tripId, tripReported ? "reported" : "pending");
     }
   }
 
@@ -4062,6 +4072,16 @@ void serviceSafetyReports() {
 // the CRITICAL alert; this row is the History event, not a second notification.
 void serviceSafetyTripReport() {
   if (!safeTrip.pending()) return;
+  // Rare-path diagnostics: a pending trip is an incident that must not be lost
+  // silently. At most one line every 30 s, only while a trip is pending.
+  static unsigned long lastWaitLogMs = 0;
+  if (millis() - lastWaitLogMs >= 30000UL) {
+    lastWaitLogMs = millis();
+    Serial.printf("[SAFETY] trip %08lx wait: wifi=%d hb_age=%lu ready=%d\n",
+                  (unsigned long)safeTrip.id(), WiFi.status() == WL_CONNECTED ? 1 : 0,
+                  lastHeartbeatOkMs ? (millis() - lastHeartbeatOkMs) : 999999UL,
+                  safetyTripRetry.ready(millis()) ? 1 : 0);
+  }
   if (!apiIdentityAvailable() || WiFi.status() != WL_CONNECTED) return;
   // Every ingest event shares the device's 1 s lastSeenAt rate limit. A
   // heartbeat just updated it, so wait before posting the trip.
@@ -4069,9 +4089,14 @@ void serviceSafetyTripReport() {
   const unsigned long now = millis();
   if (!safetyTripRetry.ready(now)) return;
 
+  char tripId[16];
+  snprintf(tripId, sizeof(tripId), "%08lx", (unsigned long)safeTrip.id());
+  Serial.printf("[SAFETY] trip %s posting (failures=%u)\n", tripId, safetyTripRetry.failures());
+
   HTTPClient https;
   kickWatchdog();
   if (!beginHttps(https, INGEST_URL)) {
+    Serial.printf("[SAFETY] trip %s connect failed\n", tripId);
     safetyTripRetry.recordFailure(millis(), netJitter());
     return;
   }
@@ -4080,8 +4105,6 @@ void serviceSafetyTripReport() {
 
   char eventId[24];
   fw::SafetyTrip::eventId(safeTrip.id(), eventId, sizeof(eventId));
-  char tripId[16];
-  snprintf(tripId, sizeof(tripId), "%08lx", (unsigned long)safeTrip.id());
 
   JsonDocument doc;
   doc["device_id"]        = provisionedDeviceId;

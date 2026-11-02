@@ -492,7 +492,8 @@
 			"componentsTitle": "Mga komponente",
 			"statusWeak": "Mahinang signal",
 			"diagTitle": "Diagnostics ng firmware",
-			"diagEmpty": "Wala pang diagnostics na naiulat (pupunan ito ng unang heartbeat na may diag object)."
+			"diagEmpty": "Wala pang diagnostics na naiulat (pupunan ito ng unang heartbeat na may diag object).",
+			"backTo3d": "Bumalik sa 3D view"
 		},
 		"adminOverview": {
 			"chartActivityRange": "Saklaw: {from} – {to} · {days} araw sa bukid (Asia/Manila).",

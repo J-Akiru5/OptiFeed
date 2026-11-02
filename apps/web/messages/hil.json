@@ -1938,7 +1938,8 @@
 			"componentsTitle": "Mga komponente",
 			"statusWeak": "Maluya ang signal",
 			"diagTitle": "Diyagnostik sang firmware",
-			"diagEmpty": "Wala pay diyagnostik (ang Una nga heartbeat nga nagdala diag, madula ini)."
+			"diagEmpty": "Wala pay diyagnostik (ang Una nga heartbeat nga nagdala diag, madula ini).",
+			"backTo3d": "Magbalik sa 3D view"
 		},
 		"adminDevices": {
 			"view3d": "3D view",

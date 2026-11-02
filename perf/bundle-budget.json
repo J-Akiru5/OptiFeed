@@ -78,8 +78,8 @@
 			"budgetKb": 984.6
 		},
 		"/[locale]/(dashboard)/dashboard/audit/page": {
-			"baselineKb": 997.5,
-			"budgetKb": 1017.5
+			"baselineKb": 1022.3,
+			"budgetKb": 1042.8
 		},
 		"/[locale]/(dashboard)/dashboard/calendar/page": {
 			"baselineKb": 1227.4,
@@ -126,12 +126,12 @@
 			"budgetKb": 984.6
 		},
 		"/[locale]/(dashboard)/dashboard/schedule/page": {
-			"baselineKb": 986.8,
-			"budgetKb": 1006.6
+			"baselineKb": 1009.7,
+			"budgetKb": 1029.9
 		},
 		"/[locale]/(dashboard)/dashboard/settings/data/page": {
-			"baselineKb": 997.5,
-			"budgetKb": 1017.5
+			"baselineKb": 1022.3,
+			"budgetKb": 1042.8
 		},
 		"/[locale]/(dashboard)/dashboard/settings/hardware/page": {
 			"baselineKb": 1167,

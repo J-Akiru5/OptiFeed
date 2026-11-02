@@ -10,9 +10,9 @@ vi.mock("@/lib/prisma", () => ({
 		feedRequest: { findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
 		deviceStateEvent: { findFirst: vi.fn(), create: vi.fn() },
 		notification: { create: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
-		$transaction: vi.fn(async (input: unknown) => {
+		$transaction: vi.fn(async function (this: unknown, input: unknown) {
 			if (Array.isArray(input)) return Promise.all(input);
-			return (input as () => Promise<unknown>)();
+			return (input as (tx: unknown) => Promise<unknown>)(this);
 		}),
 	},
 }));

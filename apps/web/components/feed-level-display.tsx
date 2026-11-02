@@ -9,6 +9,8 @@ interface FeedLevelDisplayProps {
 	levelPercent: number | null;
 	updatedAt: Date | null;
 	isOffline: boolean;
+	/** The unit is online but the hopper sensor is not answering (#574). */
+	sensorOffline?: boolean;
 	/** Draw the level bar next to the value. Off by default inside stat tiles. */
 	showBar?: boolean;
 	size?: "sm" | "md" | "lg";
@@ -19,21 +21,27 @@ interface FeedLevelDisplayProps {
  * One hopper-level surface for every screen (decision E4, #192).
  *
  * - live (online): the coloured bar and the current percentage.
- * - stale (offline): a greyed bar, "Last known 82%", the reading time and an
- *   Offline tag.
+ * - stale (offline or sensor not answering): a greyed bar, "Last known 82%",
+ *   the reading time and an Offline / Ultrasonic offline tag.
  * - none: "—" and "No reading yet".
  */
 export function FeedLevelDisplay({
 	levelPercent,
 	updatedAt,
 	isOffline,
+	sensorOffline = false,
 	showBar = true,
 	size = "md",
 	className,
 }: FeedLevelDisplayProps) {
 	const t = useTranslations("dashboard.feedLevel");
 	const tDates = useTranslations("dates");
-	const display = resolveFeedLevelDisplay({ levelPercent, updatedAt, isOffline });
+	const readingStale = isOffline || sensorOffline;
+	const display = resolveFeedLevelDisplay({
+		levelPercent,
+		updatedAt,
+		isOffline: readingStale,
+	});
 	// #259: a live reading at or below 30 % turns red and pulses. Offline keeps
 	// the greyed last-known treatment, so the blink never implies fresh data.
 	const isLowDisplay = display.state === "live" && isHopperLowDisplay(levelPercent);
@@ -93,7 +101,7 @@ export function FeedLevelDisplay({
 				</span>
 				{display.state === "stale" && (
 					<span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:bg-gray-800 dark:text-gray-300">
-						{t("offline")}
+						{sensorOffline ? t("sensorOffline") : t("offline")}
 					</span>
 				)}
 			</div>

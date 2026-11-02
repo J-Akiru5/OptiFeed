@@ -56,6 +56,17 @@ describe("Pakoy in the chat (#221)", () => {
 		render(conversation());
 		expect(screen.getByText("Your feeding schedule buddy.")).toBeVisible();
 	});
+
+	it("paints the panel header with the chat token, not the system navy (#602)", () => {
+		render(conversation());
+
+		const heading = screen.getByRole("heading", { name: "Pakoy" });
+		const header = heading.closest("div.items-center.justify-between");
+
+		expect(header).not.toBeNull();
+		expect(header).toHaveClass("bg-[#C2410C]");
+		expect(header).not.toHaveClass("bg-[#0A3D62]");
+	});
 });
 
 describe("Pakoy's floating greeting", () => {

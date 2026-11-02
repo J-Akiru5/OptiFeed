@@ -300,7 +300,14 @@
 					"showing": "Ipinapakita ang {from}–{to} ng {total}",
 					"previous": "Nakaraan",
 					"next": "Susunod",
-					"label": "Pagination ng kasaysayan ng kalibrasyon"
+					"label": "Pagination ng kasaysayan ng kalibrasyon",
+					"temperature": {
+						"title": "Calibration ng temperatura",
+						"empty": "Wala pang naka-save na calibration ng temperatura.",
+						"date": "Petsa",
+						"offset": "Offset",
+						"minimum": "Minimum sa pagpapakain"
+					}
 				},
 				"recalibration": {
 					"title": "Iskedyul ng recalibration",
@@ -492,7 +499,8 @@
 			"componentsTitle": "Mga komponente",
 			"statusWeak": "Mahinang signal",
 			"diagTitle": "Diagnostics ng firmware",
-			"diagEmpty": "Wala pang diagnostics na naiulat (pupunan ito ng unang heartbeat na may diag object)."
+			"diagEmpty": "Wala pang diagnostics na naiulat (pupunan ito ng unang heartbeat na may diag object).",
+			"backTo3d": "Bumalik sa 3D view"
 		},
 		"adminOverview": {
 			"chartActivityRange": "Saklaw: {from} – {to} · {days} araw sa bukid (Asia/Manila).",
@@ -3746,7 +3754,8 @@
 				"low": "mababa",
 				"medium": "katamtaman",
 				"high": "mataas"
-			}
+			},
+			"removeDone": "Naalis ang provider."
 		},
 		"settings": {
 			"title": "Mga Setting ng Platform",

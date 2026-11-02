@@ -152,6 +152,8 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					dailyCapG: true,
 					lastCalibratedAt: true,
 					recalibrationIntervalDays: true,
+					tempOffsetC: true,
+					minFeedTempC: true,
 					waterTempC: true,
 					waterTempOk: true,
 					waterTempUpdatedAt: true,
@@ -740,10 +742,15 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					{energyDevice && (
 						<div className={cn(CONTROL_ROOM_ORDER.water, CONTROL_ROOM_MOBILE_BAND)}>
 							<WaterTempCard
-								tempC={energyDevice.waterTempC}
+								tempC={
+									energyDevice.waterTempC === null
+										? null
+										: energyDevice.waterTempC + (energyDevice.tempOffsetC ?? 0)
+								}
 								tempOk={energyDevice.waterTempOk}
 								updatedAt={energyDevice.waterTempUpdatedAt}
 								isDeviceOffline={esp32Offline}
+								minFeedTempC={energyDevice.minFeedTempC}
 							/>
 						</div>
 					)}

@@ -398,6 +398,7 @@ model EnergyDevice {
   dailyCapG                 Int? // pond's daily feed ceiling; null → DEFAULT_DAILY_CAP_G (2000)
   gramsPerSecond            Float     @default(4.0) // motor dispense rate — pushed via poll response
   tempOffsetC               Float     @default(0) // DS18B20 calibration offset in °C
+  minFeedTempC              Float?    // warn-only: flag feeding below this calibrated water temp (°C)
   lastCalibratedAt          DateTime? // last saved rate test or passing target check
   recalibrationIntervalDays Int       @default(30) // remind the operator to re-test after this many days
 

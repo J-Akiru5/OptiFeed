@@ -4,6 +4,7 @@ import { withApi } from "@/lib/api/instrumentation";
 import { withAuth } from "@/lib/auth/with-auth";
 import { LEGACY_API_SUNSET } from "@/lib/constants";
 import { getDeviceDetail } from "@/lib/feeder/detail";
+import { toStatePayload } from "@/lib/feeder/state-payload";
 
 export const dynamic = "force-dynamic";
 
@@ -23,21 +24,7 @@ export const GET = withApi(
 		const detail = await getDeviceDetail(id);
 		if (!detail) throw notFound("Device not found.");
 
-		return ok(
-			{
-				deviceId: detail.id,
-				status: detail.status,
-				lastSeenAt: detail.lastSeenAt,
-				lastFedAt: detail.lastFedAt,
-				lastFedGrams: detail.lastFedGrams,
-				feedLevelPercent: detail.feedLevelPercent,
-				hopperCapacityG: detail.hopperCapacityG,
-				gramsPerFeeding: detail.gramsPerFeeding,
-				rtcOk: detail.rtcOk,
-				isPaused: detail.isPaused,
-			},
-			{ headers: { "Cache-Control": "no-store" } },
-		);
+		return ok(toStatePayload(detail), { headers: { "Cache-Control": "no-store" } });
 	}),
 	{ route: "GET /api/devices/{id}/state", timeoutMs: 5_000, sunset: LEGACY_API_SUNSET },
 );

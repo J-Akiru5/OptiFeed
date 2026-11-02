@@ -12,7 +12,9 @@ import {
 	type ChartProps,
 	MultiSeriesTable,
 } from "@/components/charts/chart-frame";
+import { filterByRange, useChartRange } from "@/components/charts/chart-range";
 import { seriesColor, tooltipStyle, useChartTheme } from "@/components/charts/chart-theme";
+import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 export interface StackedBarsProps extends ChartProps {
@@ -22,6 +24,8 @@ export interface StackedBarsProps extends ChartProps {
 	unit?: string;
 	decimals?: number;
 	height?: ChartHeight;
+	/** Treat the row labels as dates and apply the page's shared range (#629). */
+	temporal?: boolean;
 }
 
 /** Bars per day, split by source (scheduled / dashboard / button). */
@@ -34,27 +38,47 @@ export function StackedBars({
 	unit,
 	decimals = 0,
 	height = 220,
+	temporal = false,
 	className,
 	plotClassName,
+	isLoading = false,
+	loadingLabel,
+	error = null,
 }: StackedBarsProps) {
 	const theme = useChartTheme();
+	const range = useChartRange();
 	const series = stack.sources.map((key, index) => ({
 		key,
 		label: seriesLabels[key] ?? key,
 		color: seriesColor(index),
 	}));
 
+	const rows = useMemo(() => {
+		if (!temporal || !range) return stack.rows;
+		return filterByRange(stack.rows, (row) => String(row.label), range.range);
+	}, [stack.rows, temporal, range]);
+
+	// Totals follow the plotted rows, not the unfiltered series.
+	const totals = useMemo(() => {
+		const result: Record<string, number> = {};
+		for (const entry of series) {
+			result[entry.key] = rows.reduce((sum, row) => sum + Number(row[entry.key] ?? 0), 0);
+		}
+		return result;
+	}, [rows, series]);
+
 	return (
 		<ChartFrame
 			title={title}
 			summary={summary}
 			emptyLabel={labels.empty}
-			isEmpty={stack.rows.length === 0}
+			isEmpty={rows.length === 0}
 			className={className}
 			plotClassName={plotClassName}
-			table={
-				<MultiSeriesTable rows={stack.rows} series={series} labels={labels} caption={summary} />
-			}
+			isLoading={isLoading}
+			loadingLabel={loadingLabel}
+			error={error}
+			table={<MultiSeriesTable rows={rows} series={series} labels={labels} caption={summary} />}
 			aux={
 				series.length > 0 ? (
 					<ul className="ofd-chart-legend mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
@@ -70,7 +94,7 @@ export function StackedBars({
 								/>
 								<span>{entry.label}</span>
 								<span className="tabular-nums text-[#0A3D62] dark:text-gray-100">
-									{formatChartNumber(stack.totalsBySource[entry.key] ?? 0, unit)}
+									{formatChartNumber(totals[entry.key] ?? 0, unit)}
 								</span>
 							</li>
 						))}
@@ -79,7 +103,7 @@ export function StackedBars({
 			}
 		>
 			<ResponsiveContainer width="100%" height={height}>
-				<BarChart data={stack.rows} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+				<BarChart data={rows} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
 					<CartesianGrid strokeDasharray="3 3" stroke={theme.grid} vertical={false} />
 					<XAxis
 						dataKey="label"

@@ -1,3 +1,4 @@
+import { ChartSkeleton } from "@/components/charts/chart-skeleton";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
@@ -7,6 +8,9 @@ export interface ChartLabels {
 	value: string;
 	name: string;
 	empty: string;
+	/** Optional extra headings for charts that are not period × value. */
+	event?: string;
+	detail?: string;
 }
 
 export interface ChartProps {
@@ -24,6 +28,12 @@ export interface ChartProps {
 	className?: string;
 	/** Extra classes for the plot area, e.g. the dashboard's `ofd-plot`. */
 	plotClassName?: string;
+	/** Show the loading skeleton instead of the plot (#629). */
+	isLoading?: boolean;
+	/** Localized loading label; falls back to the chart title. */
+	loadingLabel?: string;
+	/** Localized error message; shown instead of the plot (#629). */
+	error?: string | null;
 }
 
 /** A pixel height, or a percentage of the (CSS-sized) plot area. */
@@ -49,6 +59,9 @@ export function ChartFrame({
 	table,
 	className,
 	plotClassName,
+	isLoading = false,
+	loadingLabel,
+	error = null,
 }: {
 	title: string;
 	summary: string;
@@ -59,16 +72,48 @@ export function ChartFrame({
 	table: ReactNode;
 	className?: string;
 	plotClassName?: string;
+	isLoading?: boolean;
+	loadingLabel?: string;
+	error?: string | null;
 }) {
+	const figureClass = cn(
+		"flex min-w-0 flex-col rounded-2xl border border-gray-200 bg-white p-5 shadow-sm max-xl:rounded-none max-xl:border-0 max-xl:bg-transparent max-xl:p-0 max-xl:shadow-none max-xl:border-b max-xl:border-[#E6ECE9] max-xl:pb-4 max-xl:last:border-b-0 dark:border-gray-700 dark:bg-gray-900 dark:max-xl:border-gray-800",
+		className,
+	);
+
+	if (isLoading) {
+		return (
+			<figure className={figureClass}>
+				<figcaption className="text-sm font-black text-[#0A3D62] dark:text-gray-100">
+					{title}
+				</figcaption>
+				<ChartSkeleton label={loadingLabel ?? title} />
+			</figure>
+		);
+	}
+
+	if (error) {
+		return (
+			<figure className={figureClass}>
+				<figcaption className="text-sm font-black text-[#0A3D62] dark:text-gray-100">
+					{title}
+				</figcaption>
+				<div
+					role="alert"
+					className="mt-4 rounded-xl border border-[#C42B3A]/30 bg-[#FDE8EA] px-4 py-3 text-xs font-bold text-[#C42B3A] dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300"
+				>
+					{error}
+				</div>
+			</figure>
+		);
+	}
+
 	return (
 		<figure
 			// #476: below `xl` the frame is a flat section, and the hairline plus
 			// bottom padding separate it from the next stacked chart. `last:` drops
 			// the trailing rule on the final figure.
-			className={cn(
-				"flex min-w-0 flex-col rounded-2xl border border-gray-200 bg-white p-5 shadow-sm max-xl:rounded-none max-xl:border-0 max-xl:bg-transparent max-xl:p-0 max-xl:shadow-none max-xl:border-b max-xl:border-[#E6ECE9] max-xl:pb-4 max-xl:last:border-b-0 dark:border-gray-700 dark:bg-gray-900 dark:max-xl:border-gray-800",
-				className,
-			)}
+			className={figureClass}
 		>
 			<figcaption className="text-sm font-black text-[#0A3D62] dark:text-gray-100">
 				{title}

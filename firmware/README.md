@@ -629,7 +629,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 #define FEED_POLL_URL_BASE     "https://pakaonai.syntaxure.dev/api/feed-command"
 #define SCHEDULE_SYNC_URL_BASE "https://pakaonai.syntaxure.dev/api/schedule-sync"
 #define OTA_CHECK_URL          "https://pakaonai.syntaxure.dev/api/firmware/check"
-#define FW_VERSION             "1.9.0"
+#define FW_VERSION             "1.10.0"
 #define FW_BOARD               "wroom32u"
 ```
 
@@ -662,7 +662,7 @@ Open `firmware-main.ino` and fill in the `Config` section before flashing:
 > 4. Confirm the five embedded certificates match the fingerprints in the
 >    source comment (`openssl x509 -fingerprint -sha256 -in <pem>`).
 
-> `FW_VERSION` is printed at boot (`[FIRMWARE] v1.9.0`, under the
+> `FW_VERSION` is printed at boot (`[FIRMWARE] v1.10.0`, under the
 > `[DEVICE MAC]` line) and sent as `firmware_version` in every heartbeat. It is
 > also the version the OTA check reports and compares against the signed
 > manifest.
@@ -1162,7 +1162,7 @@ them identical to the PEMs embedded in `firmware-main.ino`.
   "timestamp": "2026-07-11T12:00:00+00:00",
   "rtc_ok": true,
   "feeder_active": false,
-  "firmware_version": "1.9.0",
+  "firmware_version": "1.10.0",
   "wifi_rssi": -58,
   "ota_state": "valid",
   "reset_reason": "poweron",
@@ -1284,7 +1284,7 @@ mode has been left, so the 30-minute quiet window or a reset hold cannot drop it
   "entry": "boot",
   "quiet_s": 0,
   "uptime_s": 12,
-  "firmware_version": "1.9.0"
+  "firmware_version": "1.10.0"
 }
 ```
 
@@ -1437,7 +1437,7 @@ Portal checks (no backend needed):
 12. Confirm the serial log never prints the WiFi password or the Device Token, and that
     the setup page never renders a stored token. `/status` and `/scan` must not contain
     either.
-13. Confirm the boot log prints `[FIRMWARE] v1.9.0` under the `[DEVICE MAC]` line and
+13. Confirm the boot log prints `[FIRMWARE] v1.10.0` under the `[DEVICE MAC]` line and
     `[IDENTITY] Setup AP name`, and that a heartbeat carries the same version in
     `firmware_version`.
 14. Confirm the boot log prints `[INIT] Reset reason: ...`, `[OTA] state -> valid` and

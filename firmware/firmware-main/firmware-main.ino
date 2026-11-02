@@ -45,6 +45,10 @@
     - 1.9.0: the safe-mode entry is also a one-off `safety_trip` audit event.
       One id per lockout is persisted in NVS and reported after identity and
       Wi-Fi exist; a retry reuses it, and 429/5xx/transport failures back off.
+    - 1.10.0: an OTA image is bound to the unit's relay wiring. The build
+      declares RELAY_PIN and FW_HW_VARIANT, the signed manifest carries variant
+      and relay_gpio, and a mismatch is refused before any dose (hardware.h).
+      Heartbeats report the variant, pin, provisioned variant and refusal.
 
   MACHINE STATUS INTERFACE (1.8.0, status.h):
     - Four panel lamps, each switched by an NPN transistor from its GPIO:
@@ -130,7 +134,7 @@
 
 // Reported at boot and in the heartbeat body so the fleet and the OTA rollout
 // can tell builds apart. Bump on every firmware change.
-#define FW_VERSION "1.9.0"
+#define FW_VERSION "1.10.0"
 // Board string the signed manifest must carry. One value for every unit this
 // firmware runs on (ESP32-WROOM-32U); a manifest for another board is refused.
 #define FW_BOARD "wroom32u"

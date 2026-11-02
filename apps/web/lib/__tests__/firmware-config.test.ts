@@ -37,11 +37,16 @@ const DEVICE = {
 	maxDispenseMs: 300_000,
 };
 
-function build(overrides: Partial<typeof DEVICE> = {}, gates = FIRMWARE_DEFAULTS) {
+function build(
+	overrides: Partial<typeof DEVICE> = {},
+	gates = FIRMWARE_DEFAULTS,
+	org?: { hopperLowPct?: number | null },
+) {
 	return buildFirmwareConfig({
 		device: { ...DEVICE, ...overrides },
 		gates,
 		deviceStatus: { weakAfterMin: 5, offlineAfterMin: 15 },
+		org,
 	});
 }
 
@@ -172,6 +177,32 @@ describe("buildFirmwareConfig", () => {
 			[...FIRMWARE_FIELDS].reverse().map((field) => [field.id, FIRMWARE_DEFAULTS[field.id]]),
 		);
 		expect(firmwareConfigRev(shuffled)).toBe(firmwareConfigRev(FIRMWARE_DEFAULTS));
+	});
+});
+
+describe("buildFirmwareConfig: organization hopper threshold (#456)", () => {
+	it("sends the org value and changes the config revision", () => {
+		const base = build();
+		const config = build({}, FIRMWARE_DEFAULTS, { hopperLowPct: 35 });
+		expect(config.hopper_low_pct).toBe(35);
+		expect(config.rev).not.toBe(base.rev);
+	});
+
+	it("keeps the gate/default value when the org is absent or null", () => {
+		const gates = { ...FIRMWARE_DEFAULTS, hopper_low_pct: 42 };
+		expect(build({}, gates).hopper_low_pct).toBe(42);
+		expect(build({}, gates, {}).hopper_low_pct).toBe(42);
+		expect(build({}, gates, { hopperLowPct: null }).hopper_low_pct).toBe(42);
+	});
+
+	it("ignores a non-finite org value instead of resetting the field", () => {
+		const gates = { ...FIRMWARE_DEFAULTS, hopper_low_pct: 42 };
+		expect(build({}, gates, { hopperLowPct: Number.NaN }).hopper_low_pct).toBe(42);
+	});
+
+	it("clamps an out-of-envelope org value to the firmware envelope", () => {
+		expect(build({}, FIRMWARE_DEFAULTS, { hopperLowPct: 0 }).hopper_low_pct).toBe(1);
+		expect(build({}, FIRMWARE_DEFAULTS, { hopperLowPct: 99 }).hopper_low_pct).toBe(90);
 	});
 });
 

@@ -3,7 +3,15 @@
 import { FOCUS_RING } from "@/components/superadmin/ui";
 import { Link, usePathname } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
-import { Activity, Cpu, Megaphone, ScrollText, ShieldCheck, TriangleAlert } from "lucide-react";
+import {
+	Activity,
+	Cpu,
+	Megaphone,
+	MessageSquareWarning,
+	ScrollText,
+	ShieldCheck,
+	TriangleAlert,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 
 /**
@@ -16,6 +24,7 @@ import { useTranslations } from "next-intl";
 const tabs = [
 	{ href: "/superadmin/operations", key: "health", icon: Activity },
 	{ href: "/superadmin/operations/errors", key: "errors", icon: TriangleAlert },
+	{ href: "/superadmin/operations/reports", key: "reports", icon: MessageSquareWarning },
 	{ href: "/superadmin/operations/firmware", key: "firmware", icon: Cpu },
 	{ href: "/superadmin/operations/audit", key: "audit", icon: ScrollText },
 	{ href: "/superadmin/operations/security", key: "security", icon: ShieldCheck },

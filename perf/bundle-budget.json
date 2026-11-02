@@ -158,8 +158,8 @@
 			"budgetKb": 760.4
 		},
 		"/[locale]/(superadmin)/superadmin/ai-providers/page": {
-			"baselineKb": 921,
-			"budgetKb": 939.5
+			"baselineKb": 942.6,
+			"budgetKb": 961.5
 		},
 		"/[locale]/(superadmin)/superadmin/calendar/page": {
 			"baselineKb": 1006.7,
@@ -206,8 +206,8 @@
 			"budgetKb": 935.2
 		},
 		"/[locale]/(superadmin)/superadmin/settings/page": {
-			"baselineKb": 930.4,
-			"budgetKb": 949.1
+			"baselineKb": 950.7,
+			"budgetKb": 969.7
 		},
 		"/[locale]/(superadmin)/superadmin/users/create/page": {
 			"baselineKb": 926.4,

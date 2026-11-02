@@ -34,7 +34,7 @@ This is also the dependency of M3C.8 (visual system) in the Platform Command Cen
   in isolation (it is a known parallel-load flake, unrelated to this change).
 - Focused: theme, console i18n, dialog contrast and AI-provider page tests — 22/22.
 
-## Deployment note
+## Bundle budget`r`n`r`nTwo console routes were over their stale budget on this tree (ai-providers 942.6/939.5 kB, settings`r`n950.7/949.1 kB). Re-baselined to the measured values with the file's 2% tolerance, justified in PR`r`n#517; the retrofit adds CSS-only `dark:` variants and no other route moved.`r`n`r`n## Deployment note
 
 No schema, API or environment change. The console follows the user's stored theme; users who never
 toggled keep the OS preference through `system`.

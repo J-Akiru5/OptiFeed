@@ -109,7 +109,7 @@ export function EnergyControllerCard({
 	};
 
 	return (
-		<div className="@container rounded-3xl bg-white dark:bg-gray-900 p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 transition-shadow hover:shadow-md min-w-0">
+		<div className="@container rounded-3xl bg-white dark:bg-gray-900 p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 transition-shadow hover:shadow-md max-xl:rounded-none max-xl:border-0 max-xl:bg-transparent max-xl:p-0 max-xl:shadow-none min-w-0">
 			<div className="flex items-center justify-between mb-5">
 				<div className="flex items-center gap-3">
 					<div className="h-11 w-11 rounded-xl bg-[var(--ofd-base)]/10 text-[var(--ofd-base)] flex items-center justify-center">

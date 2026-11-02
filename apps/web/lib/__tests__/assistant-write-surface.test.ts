@@ -122,7 +122,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import type { AssistantCaller } from "../assistant/caller";
 import { ASSISTANT_ACTION_DEFINITIONS } from "../assistant/catalog";
-import { availableToolIds } from "../assistant/tools";
+import { availableToolIds, describeUnavailableToolsForPrompt } from "../assistant/tools";
 import { ASSISTANT_TOOL_IDS, type AssistantToolId } from "../assistant/types";
 
 const ctx = { userId: "user-1" };
@@ -132,6 +132,8 @@ function caller(overrides: Partial<AssistantCaller> = {}): AssistantCaller {
 	return {
 		userId: "user-1",
 		role: "owner",
+		membershipRole: "OPERATOR",
+		isOwner: false,
 		permissions: new Set(),
 		canWrite: true,
 		isPlatformAdmin: false,
@@ -140,6 +142,49 @@ function caller(overrides: Partial<AssistantCaller> = {}): AssistantCaller {
 		...overrides,
 	};
 }
+
+describe("owner-only admin tools (RBAC settings plan)", () => {
+	it("keeps role and permission changes away from an ADMIN", () => {
+		const admin = caller({
+			membershipRole: "ADMIN",
+			isOwner: false,
+			isTenantAdmin: true,
+			permissions: new Set(["manage_members"]),
+		});
+		const ids = availableToolIds(admin);
+
+		expect(ids).toContain("admin.invite_member");
+		expect(ids).not.toContain("admin.change_role");
+		expect(ids).not.toContain("admin.set_permission");
+	});
+
+	it("offers them to an OWNER", () => {
+		const owner = caller({
+			membershipRole: "OWNER",
+			isOwner: true,
+			isTenantAdmin: true,
+			permissions: new Set(["manage_members"]),
+		});
+		const ids = availableToolIds(owner);
+
+		expect(ids).toContain("admin.change_role");
+		expect(ids).toContain("admin.set_permission");
+	});
+
+	it("names the required role in the unavailable list", () => {
+		const admin = caller({
+			membershipRole: "ADMIN",
+			isOwner: false,
+			isTenantAdmin: true,
+			permissions: new Set(["manage_members"]),
+		});
+		const text = describeUnavailableToolsForPrompt(admin);
+
+		expect(text).toContain(
+			"admin.change_role — Only an organization owner can change a member role.",
+		);
+	});
+});
 
 function allowWrite() {
 	mocks.getActivePond.mockResolvedValue({ id: "pond-1", name: "Pond A" });
@@ -583,6 +628,8 @@ describe("the proposal card names the change for the newly exposed writes", () =
 		currentGrams: 120,
 		currentFeedsPerDay: 3,
 		currentRatePct: 2.5,
+		currentDailyCapG: 4000,
+		deviceOnline: true,
 	};
 	const NO_POND = {
 		pondName: null,
@@ -591,6 +638,8 @@ describe("the proposal card names the change for the newly exposed writes", () =
 		currentGrams: null,
 		currentFeedsPerDay: null,
 		currentRatePct: null,
+		currentDailyCapG: null,
+		deviceOnline: null,
 	};
 
 	it("records.update_biomass states the corrected average and sample size", () => {

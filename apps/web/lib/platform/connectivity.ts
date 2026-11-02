@@ -148,6 +148,9 @@ export async function rollupDeviceConnectivity(now = new Date()): Promise<Connec
 		const nextDay = addUtcDays(day, 1);
 		const key = utcDayKey(day);
 
+		// One bounded read per day: the ingest thins heartbeat rows to at most one
+		// per device per five minutes, so this is roughly fleet size × 288 rows,
+		// and it runs once per completed day rather than on every cron pass.
 		const samples = await prisma.feedEvent.findMany({
 			where: { eventType: "heartbeat", receivedAt: { gte: day, lt: nextDay } },
 			select: { deviceId: true, receivedAt: true },

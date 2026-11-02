@@ -82,9 +82,14 @@ describe("countActiveDevices (O22)", () => {
 		};
 		const cutoff = new Date("2026-10-03T12:00:00.000Z");
 		expect(args.where.OR).toEqual([
+			// `gte` is inclusive: a heartbeat exactly at the boundary is active.
 			{ lastSeenAt: { gte: cutoff } },
 			{ feedEvents: { some: { receivedAt: { gte: cutoff } } } },
 		]);
+		// One count over the device table, never two counts added together, so a
+		// device with both a heartbeat and a feed row (or stale plus fresh) is
+		// counted once.
+		expect(db.energyDevice.count).toHaveBeenCalledTimes(1);
 		// No event-type or source filter: an imported hand_fed row also counts.
 		expect(JSON.stringify(args)).not.toContain("eventType");
 		expect(JSON.stringify(args)).not.toContain("source");

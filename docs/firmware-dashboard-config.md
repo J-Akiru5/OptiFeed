@@ -153,11 +153,34 @@ change.
 | `hopper_full_cm`, `hopper_empty_cm` | `EnergyDevice` columns (null → default geometry) |
 | `min_dispense_gap_s`, `max_dispenses_per_hour`, `brownout_hold_s`, `safe_mode_*` | `PlatformSetting` `firmware.gates`, edited in Superadmin → Settings → Firmware safety gates |
 | `weak_after_min`, `offline_after_min` | `PlatformSetting` `device.status` (I-95), diagnostics only: the server still classifies connectivity and E36 keeps alerts on the platform policy |
+| `hopper_low_pct` | `OrgSetting.hopperLowPct` — device pond → pond owner (farm) → active organization → row (the same chain ingest alerts use). Cached per device for 60 s; a missing/unreadable org returns 20 % |
 | OTA guards, calibration ceiling, hopper filter tuning, button guard, heartbeat interval | `firmware.gates` defaults (server-driven; stored and sent so a future UI or setting can move them without a reflash) |
 
 No schema change is required: `PlatformSetting` is the existing key/value JSON
 store. **No item needed an additive migration**, so nothing was stopped for
 schema reasons.
+
+### Organization hopper threshold (#456)
+
+`OrgSetting.hopperLowPct` (bounds 5–50 %, schema default 20) is set per
+organization in Settings, and the ingest low-hopper alert already reads it. The
+poll now sends the same value as `hopper_low_pct` so the unit's local hopper
+filter warns at the organization's threshold instead of the compile-time 20 %.
+
+- **Resolution**: `EnergyDevice.pondId` → `Pond.ownerId` (farm slug) →
+  `getOrgSettingsForFarm` → `settings.hopperLowPct`. Only the farm slug is
+  selected; no token or auth column is read.
+- **Cache**: per device, `ORG_HOPPER_CACHE_TTL_MS` = 60 s, bounded by
+  `ORG_HOPPER_CACHE_MAX_ENTRIES` (least recently used evicted). A 5 s poll
+  therefore runs the org chain about once a minute, not on every request. A
+  threshold change reaches a unit within about a minute.
+- **Fallbacks**: no pond / no device owner / no org → 20 % (schema default). A
+  failed read or a malformed value → 20 % plus one warning. The helper never
+  throws, because a throw would hit the route's catch, which drops the whole
+  `config` object and leaves every 1.7.0 unit unanswered.
+- **Envelope**: the org row is 5–50, inside the firmware's 1–90; the server
+  still clamps through `normalizeFirmwareValues`, and 1.6.x firmware ignores the
+  field entirely.
 
 ## Superadmin UI
 

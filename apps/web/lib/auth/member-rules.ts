@@ -31,6 +31,8 @@ export const LAST_OWNER_MESSAGE =
 	"The last owner cannot be demoted or removed. Promote another owner first.";
 export const OWNER_INVITE_MESSAGE = "Only an owner can invite another owner.";
 export const ADMIN_EDIT_OWNER_EMAIL_MESSAGE = "Only an owner can change another owner's email.";
+export const ADMIN_EDIT_OWNER_PERMISSION_MESSAGE =
+	"Only an owner can change another owner's permissions.";
 export const MEMBER_OTHER_ORG_EMAIL_MESSAGE =
 	"This account also belongs to an organization you do not administer, so its email can only be changed from the platform console.";
 
@@ -83,6 +85,25 @@ export function revokeMemberError(input: {
 /** Why the tenant caller may not invite at `role`, or null when they may. */
 export function inviteRoleError(actorRole: MemberRole, role: MemberRole): string | null {
 	if (role === "OWNER" && actorRole !== "OWNER") return OWNER_INVITE_MESSAGE;
+	return null;
+}
+
+/**
+ * Why a tenant caller may not change this member's permissions, or null when
+ * they may (#584).
+ *
+ * Same hierarchy boundary as role changes, revocation and the contact email: an
+ * ADMIN may not reach an OWNER. Stripping `manage_members` or `control_feeder`
+ * from an OWNER's membership is a demotion in effect, so it takes an OWNER
+ * caller rather than being allowed because the row it writes is not `role`.
+ */
+export function permissionEditError(input: {
+	actorRole: MemberRole;
+	targetRole: MemberRole;
+}): string | null {
+	if (input.actorRole === "ADMIN" && input.targetRole === "OWNER") {
+		return ADMIN_EDIT_OWNER_PERMISSION_MESSAGE;
+	}
 	return null;
 }
 

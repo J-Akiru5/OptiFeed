@@ -476,7 +476,7 @@ old server (no `config` object) changes nothing.
 | `TEMP_OFFSET_C` (backend) | `temp_offset_c` | 0 °C (envelope -20–20) | B |
 | `HOPPER_FULL_CM` (backend) | `hopper_full_cm` | 5 cm (envelope 0.1–200) | B |
 | `HOPPER_EMPTY_CM` (backend) | `hopper_empty_cm` | 30 cm (envelope 0.1–500) | B |
-| `HOPPER_LOW_PCT` | `hopper_low_pct` | 20 % (envelope 1–90) | B |
+| `HOPPER_LOW_PCT` | `hopper_low_pct` | 20 % (envelope 1–90). Default only: the server now sends the organization's `OrgSetting.hopperLowPct` (5–50), and 20 % when it cannot resolve one | B |
 | `HOPPER_REFILL_MARGIN_PCT` | `hopper_refill_margin_pct` | 10 % (envelope 0–50) | B |
 | `HOPPER_REJECT_BELOW_CM` | `hopper_reject_below_cm` | 2 cm (envelope 0–50) | B |
 | `HOPPER_REJECT_ABOVE_MARGIN_CM` | `hopper_reject_above_margin_cm` | 10 cm (envelope 0–100) | B |

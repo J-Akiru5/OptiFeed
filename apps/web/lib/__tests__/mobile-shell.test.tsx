@@ -109,7 +109,9 @@ describe("dashboard never scrolls sideways", () => {
 		// A phone must only scroll vertically. The shell is a fixed-height app
 		// frame: the document itself never scrolls, the main pane does (#382).
 		expect(layout).toContain("flex h-dvh flex-col overflow-hidden");
-		expect(layout).toContain("ofd-main relative z-10 min-h-0 min-w-0 flex-1 overflow-y-auto");
+		expect(layout).toContain(
+			"ofd-main ofd-main-room relative z-10 min-h-0 min-w-0 flex-1 overflow-y-auto",
+		);
 	});
 
 	it("locks the sidebar while the content pane scrolls (#382)", () => {

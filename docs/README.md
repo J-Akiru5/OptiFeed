@@ -39,7 +39,7 @@ there is a single place to change each rule and nothing here can drift from it.
 | Performance | [`docs/performance/`](./performance/) |
 | Testing | [`docs/e2e.md`](./e2e.md), [`docs/e2e-on-production.md`](./e2e-on-production.md) |
 | Internationalisation | [`docs/i18n.md`](./i18n.md), [`docs/i18n/tagalog-glossary.md`](./i18n/tagalog-glossary.md) |
-| Data and tenancy | [`docs/rbac-permissions.md`](./rbac-permissions.md), [`docs/superadmin-multitenancy-plan.md`](./SUPERADMIN-MULTITENANCY-PLAN.md) |
+| Data and tenancy | [`docs/rbac-permissions.md`](./rbac-permissions.md), [`docs/superadmin-multitenancy-plan.md`](./SUPERADMIN-MULTITENANCY-PLAN.md), [`docs/superadmin-data-contracts.md`](./superadmin-data-contracts.md) |
 | Offline and PWA | [`docs/pwa-offline.md`](./pwa-offline.md) |
 | Legal and privacy | [`docs/legal/`](./legal/) |
 | Audits | [`docs/audits/`](./audits/) |

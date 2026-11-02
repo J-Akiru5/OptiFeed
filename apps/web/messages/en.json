@@ -1881,7 +1881,11 @@
 			"statusWeak": "Weak signal",
 			"diagTitle": "Firmware diagnostics",
 			"diagEmpty": "No diagnostics reported yet (first heartbeat with a diag object fills this in).",
-			"backTo3d": "Back to 3D view"
+			"backTo3d": "Back to 3D view",
+			"signal": "Signal",
+			"firmware": "Firmware",
+			"openLargeScreen": "Open large screen",
+			"largeScreenDesc": "Full-screen live view for a wall display."
 		},
 		"adminDevices": {
 			"view3d": "3D view",

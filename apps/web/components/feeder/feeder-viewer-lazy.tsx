@@ -36,19 +36,30 @@ interface FeederViewerLazyProps {
 	initialRtcOk: boolean | null;
 	/** When the unit last checked in; the freshness basis for the RTC bit. */
 	initialLastSeenAt: string | null;
+	/** Fresh Wi-Fi signal at render time, or null when the stored reading is stale. */
+	initialSignalDbm?: number | null;
+	/** Firmware version reported by the heartbeat, when present. */
+	initialFirmwareVersion?: string | null;
+	/** When the hopper level was measured. */
+	initialFeedLevelUpdatedAt?: string | null;
 	/** Reading freshness window, from the device status policy. */
 	staleAfterMs?: number;
+	/** Large-screen treatment: bigger readings, full-height scene, no chrome. */
+	kiosk?: boolean;
 }
 
 interface StatePayload {
 	status: FeederStatus;
 	feedLevelPercent: number | null;
+	feedLevelUpdatedAt: string | null;
 	lastFedAt: string | null;
 	waterTempOk: boolean;
 	waterTempC: number | null;
 	waterTempUpdatedAt: string | null;
 	rtcOk: boolean;
 	lastSeenAt: string | null;
+	signalDbm: number | null;
+	firmwareVersion: string | null;
 }
 
 /** The client copy: health stays nullable because "not reported" is a state. */
@@ -62,10 +73,13 @@ type NavigatorWithHints = Navigator & {
 	connection?: { saveData?: boolean };
 };
 
-function ViewerSkeleton() {
+function ViewerSkeleton({ kiosk = false }: { kiosk?: boolean }) {
 	return (
 		<div
-			className="h-[420px] animate-pulse rounded-3xl border border-[#0A3D62]/10 bg-[#0B2336]"
+			className={cn(
+				"animate-pulse rounded-3xl border border-[#0A3D62]/10 bg-[#0B2336]",
+				kiosk ? "h-[min(72dvh,760px)] min-h-[420px]" : "h-[420px]",
+			)}
 			aria-hidden="true"
 			data-testid="feeder-viewer-skeleton"
 		/>
@@ -122,7 +136,11 @@ export function FeederViewerLazy({
 	initialWaterTempUpdatedAt,
 	initialRtcOk,
 	initialLastSeenAt,
+	initialSignalDbm = null,
+	initialFirmwareVersion = null,
+	initialFeedLevelUpdatedAt = null,
 	staleAfterMs = DEFAULT_DEVICE_STATUS_POLICY.offlineAfterMs,
+	kiosk = false,
 }: FeederViewerLazyProps) {
 	const t = useTranslations("dashboard.feederViewer");
 	const locale = useLocale();
@@ -133,12 +151,15 @@ export function FeederViewerLazy({
 	const [state, setState] = useState<ViewerState>({
 		status: initialStatus,
 		feedLevelPercent: initialLevel,
+		feedLevelUpdatedAt: initialFeedLevelUpdatedAt,
 		lastFedAt: initialLastFedAt,
 		waterTempOk: initialWaterTempOk,
 		waterTempC: initialWaterTempC,
 		waterTempUpdatedAt: initialWaterTempUpdatedAt,
 		rtcOk: initialRtcOk,
 		lastSeenAt: initialLastSeenAt,
+		signalDbm: initialSignalDbm,
+		firmwareVersion: initialFirmwareVersion,
 	});
 
 	useEffect(() => {
@@ -177,6 +198,7 @@ export function FeederViewerLazy({
 				setState({
 					status: next.status,
 					feedLevelPercent: next.feedLevelPercent,
+					feedLevelUpdatedAt: next.feedLevelUpdatedAt ?? null,
 					lastFedAt: next.lastFedAt,
 					// `waterTempOk` is only meaningful once the probe has reported;
 					// the column defaults to false, so a never-reported probe stays
@@ -186,6 +208,8 @@ export function FeederViewerLazy({
 					waterTempUpdatedAt: next.waterTempUpdatedAt,
 					rtcOk: next.rtcOk,
 					lastSeenAt: next.lastSeenAt,
+					signalDbm: next.signalDbm ?? null,
+					firmwareVersion: next.firmwareVersion ?? null,
 				});
 			} catch {
 				// Keep the last known reading; the next tick retries.
@@ -213,13 +237,17 @@ export function FeederViewerLazy({
 			label={label}
 			status={state.status}
 			feedLevelPercent={state.feedLevelPercent}
+			feedLevelUpdatedAt={state.feedLevelUpdatedAt}
 			lastFedLabel={lastFedLabel}
 			waterTempOk={state.waterTempOk}
 			waterTempC={state.waterTempC}
 			waterTempUpdatedAt={state.waterTempUpdatedAt}
 			rtcOk={state.rtcOk}
 			lastSeenAt={state.lastSeenAt}
+			signalDbm={state.signalDbm}
+			firmwareVersion={state.firmwareVersion}
 			staleAfterMs={staleAfterMs}
+			kiosk={kiosk}
 		/>
 	);
 
@@ -231,9 +259,17 @@ export function FeederViewerLazy({
 			label={label}
 			status={state.status}
 			feedLevelPercent={state.feedLevelPercent}
+			feedLevelUpdatedAt={state.feedLevelUpdatedAt}
 			lastFedLabel={lastFedLabel}
-			waterTempOk={initialWaterTempOk}
-			rtcOk={initialRtcOk}
+			waterTempOk={state.waterTempOk}
+			waterTempC={state.waterTempC}
+			waterTempUpdatedAt={state.waterTempUpdatedAt}
+			rtcOk={state.rtcOk}
+			lastSeenAt={state.lastSeenAt}
+			signalDbm={state.signalDbm}
+			firmwareVersion={state.firmwareVersion}
+			staleAfterMs={staleAfterMs}
+			kiosk={kiosk}
 			onBackToViewer={() => setSimple(false)}
 		/>
 	);
@@ -241,7 +277,7 @@ export function FeederViewerLazy({
 	return (
 		<div ref={hostRef} className="min-w-0">
 			{tier === null || !visible ? (
-				<ViewerSkeleton />
+				<ViewerSkeleton kiosk={kiosk} />
 			) : tier === "low" ? (
 				fallback
 			) : simple ? (
@@ -252,13 +288,17 @@ export function FeederViewerLazy({
 						label={label}
 						status={state.status}
 						feedLevelPercent={state.feedLevelPercent}
+						feedLevelUpdatedAt={state.feedLevelUpdatedAt}
 						lastFedLabel={lastFedLabel}
 						waterTempOk={state.waterTempOk}
 						waterTempC={state.waterTempC}
 						waterTempUpdatedAt={state.waterTempUpdatedAt}
 						rtcOk={state.rtcOk}
 						lastSeenAt={state.lastSeenAt}
+						signalDbm={state.signalDbm}
+						firmwareVersion={state.firmwareVersion}
 						staleAfterMs={staleAfterMs}
+						kiosk={kiosk}
 						onSimpleView={() => setSimple(true)}
 					/>
 				</ViewerBoundary>

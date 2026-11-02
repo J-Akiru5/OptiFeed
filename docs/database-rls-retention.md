@@ -1,12 +1,14 @@
 # Database containment: RLS, list indexes and DeviceStateEvent retention
 
-Last verified: 2026-11-02. Implements issue **#593** (Lane D). Migration:
-`apps/web/prisma/migrations/20261103100000_db_rls_index_retention`.
+Last verified: 2026-11-03 (post-apply). Implements issue **#593** (Lane D).
+Migration: `apps/web/prisma/migrations/20261103100000_db_rls_index_retention`.
 
 This document records the pre-flight that makes RLS safe for the app, the
 tables that are intentionally service-role-only, the `DeviceStateEvent`
-retention rule, and the query-plan evidence for the new indexes. It does not
-authorise a production apply; that remains an owner decision with a backup.
+retention rule, the query-plan evidence for the new indexes, and the post-apply
+verification. The migration was applied to the shared hosted database by OP3 on
+2026-11-03; backup evidence and the post-apply smoke test are owned by OP3. Any
+rollback or further production change remains an owner decision.
 
 ---
 
@@ -196,70 +198,66 @@ Limit
 The index finds the pond's rows; the separate `Sort` orders them, so the cost
 grows with the pond's notification count.
 
-### After (expected, not yet verified)
+### After (observed 2026-11-03, post-apply)
 
-With `(pondId, createdAt)` the planner can return rows already ordered and drop
-the `Sort`:
+The migration is applied. `EXPLAIN (ANALYZE, BUFFERS)` on the same pond and query
+returns the **same shape** at the current data size:
 
 ```
-Limit
-  -> Index Scan using Notification_pondId_createdAt_idx (Backward)
+Limit  (cost 10.60..10.65, actual rows 16, actual time 5.597 ms)
+  -> Sort  (Sort Key: "createdAt" DESC, quicksort, 16 rows)
+       -> Index Scan using Notification_pondId_supersededById_idx (Forward, 16 rows)
 ```
 
-An ascending composite index serves a `DESC` scan by scanning backward. This is
-an expectation from the index shape, **not a measured plan**: the migration has
-not been applied to any database in this task, so the after-plan could not be
-captured. Record it during the production apply / restored-copy dry run and
-replace this paragraph with the observed plan.
+Execution time was 5.639 ms (planning 18.464 ms, cold). The new
+`Notification_pondId_createdAt_idx` exists and is valid, but the planner did not
+choose it for this 194-row pond: the `supersededById IS NULL` index is more
+selective and the sort covers only 16 rows, so both paths cost the same
+(10.60..10.65). The index is available for the pond list as the table grows and
+for the farm-scoped query; re-run this plan after the notification table grows
+or after statistics are refreshed. **Do not claim the sort was removed** — it
+was not on the current data.
 
 ---
 
 ## 6. Apply, verification and rollback
 
-### What was verified here
+### Post-apply verification (2026-11-03)
 
-- `prisma validate` — schema valid.
-- `prisma migrate status` against the hosted database — **4 migrations pending**:
-  `20261102190000_feed_request_pending_unique`,
-  `20261102200000_alert_episode_dedup`,
-  `20261103090000_add_feed_event_request_unique`, and this migration. There are
-  no checksum or drift errors; the hosted database is simply behind `develop`
-  because `apps/web/scripts/migrate-if-production.mjs` only runs
-  `prisma migrate deploy` when `VERCEL_ENV === "production"`. `develop` and
-  `staging` builds skip migrations by design.
-- Migration guard tests pin the 19 tables, the revoke, the three indexes and the
-  absence of destructive SQL.
-- Retention tests cover both protection rules, the empty-work path and batching.
+The migration was applied to the shared hosted database by OP3. Read-only checks
+afterwards:
 
-`prisma migrate status` cannot be "clean" before the production apply: three
-previously merged migrations are also still pending. It becomes clean only when
-the promotion applies the whole queue, not by applying this migration alone.
+- `prisma migrate status` — **60 migrations found, database schema is up to
+  date**. No pending or failed migrations.
+- RLS catalog check — the only public table with `relrowsecurity = false` is
+  `_prisma_migrations`, the expected internal. All 19 application tables are
+  enabled.
+- `information_schema.role_table_grants` for `anon`/`authenticated` — **0 rows**.
+- `pg_indexes` — `Notification_pondId_createdAt_idx`,
+  `Notification_farmId_createdAt_idx` and `PlatformAuditLog_createdAt_idx` all
+  exist.
+- `EXPLAIN (ANALYZE, BUFFERS)` — recorded in section 5; the plan is unchanged at
+  the current table size.
+
+Backup evidence and the post-apply smoke test are owned by OP3; this session
+does not have that evidence and does not claim it.
 
 ### What was not verified
 
 - **No dry run against a restored copy.** No restored copy exists in this
-  environment, and the task explicitly forbids applying migrations to the
-  hosted database. Lock behaviour is therefore reasoned, not measured:
-  `ENABLE ROW LEVEL SECURITY` takes a brief `ACCESS EXCLUSIVE` lock and does not
-  rewrite rows; each `CREATE INDEX` takes a `SHARE` lock and blocks writes while
-  it builds. On a 20 MB database with 203 notifications (194 in the hottest
-  pond) this is expected to be sub-second, but that is an expectation, not
-  evidence.
-- **No after-plan.** See section 5.
-- **No RLS behaviour test as `anon`/`authenticated`.** The audit shows no table
-  grants for those roles, and the migration does not create any, so there is no
-  row-read path to exercise.
+  environment. Lock behaviour during the apply was not measured by this session.
+- **No row-level `SET ROLE anon` read test.** The catalog state (RLS enabled, no
+  grants) was verified, but no query was executed as `anon`/`authenticated`.
+  There is no grant, so there is no row-read path to exercise.
 
-### Before the production apply
+### Apply record and follow-ups
 
-1. Take a full logical backup of the hosted database (owner/OP3).
-2. Apply the full pending queue, not just this migration, during a low-traffic
-   window.
-3. Capture `EXPLAIN (ANALYZE, BUFFERS)` for the notification list and the global
-   audit list; record the after-plans here.
-4. Confirm `prisma migrate status` is clean.
-5. Smoke-test the notification page, the platform audit page, and one device
-   command/acknowledgement cycle.
+1. The full queue was applied; it is clean (above).
+2. The notification-list plan is recorded, including the honest unchanged result.
+3. Re-check the plan when `Notification` grows or after statistics refresh; the
+   new index is present but not selected today.
+4. Smoke-test the notification page, the platform audit page, and one device
+   command/acknowledgement cycle if that was not part of OP3's apply check.
 
 ### Rollback
 

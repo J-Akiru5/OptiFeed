@@ -25,6 +25,14 @@ interface FeederFallbackProps {
 	lastSeenAt?: string | null;
 	/** Reading freshness window, from the device status policy. */
 	staleAfterMs?: number;
+	/** When the hopper level was measured; stale levels say so with their age. */
+	feedLevelUpdatedAt?: string | null;
+	/** Fresh Wi-Fi signal in dBm, or null when it is absent/stale. */
+	signalDbm?: number | null;
+	/** Firmware version reported by the heartbeat. */
+	firmwareVersion?: string | null;
+	/** Large-screen treatment: bigger readings. */
+	kiosk?: boolean;
 	/**
 	 * Present only when the operator chose the simple view on a capable device
 	 * (#626). It returns to the 3D scene; a device without WebGL never gets it,
@@ -52,6 +60,10 @@ export function FeederFallback({
 	rtcOk,
 	lastSeenAt = null,
 	staleAfterMs = DEFAULT_DEVICE_STATUS_POLICY.offlineAfterMs,
+	feedLevelUpdatedAt = null,
+	signalDbm = null,
+	firmwareVersion = null,
+	kiosk = false,
 	onBackToViewer,
 	className,
 }: FeederFallbackProps) {
@@ -93,6 +105,21 @@ export function FeederFallback({
 	const rtcHealth = staleHealth(lastSeenAt) ?? healthOf(rtcOk);
 	const waterValue = waterTempC === null ? null : `${waterTempC.toFixed(1)} °C`;
 	const rtcValue = rtcHealth.label;
+	const levelAge = readingAge(feedLevelUpdatedAt);
+	const levelStale = isReadingStale(feedLevelUpdatedAt, staleAfterMs);
+	const levelValue =
+		[
+			level === null ? null : `${level}%`,
+			levelStale ? [tWater("statusStale"), ageLabel(levelAge)].filter(Boolean).join(" · ") : null,
+		]
+			.filter(Boolean)
+			.join(" · ") || "—";
+	const signalLabel = signalDbm === null ? t("healthUnknown") : `${signalDbm} dBm`;
+	const stripLabel = cn(
+		"font-black uppercase tracking-wider text-white/50",
+		kiosk ? "text-xs" : "text-[10px]",
+	);
+	const stripValue = cn("mt-0.5 font-bold", kiosk && "text-lg");
 
 	return (
 		<div
@@ -149,24 +176,23 @@ export function FeederFallback({
 				</div>
 			</div>
 
-			<div className="grid grid-cols-2 gap-3 border-t border-white/10 pt-3 text-xs">
+			<div
+				className={cn(
+					"grid grid-cols-2 gap-3 border-t border-white/10 pt-3 sm:grid-cols-3",
+					kiosk ? "text-base" : "text-xs",
+				)}
+			>
 				<div>
-					<p className="text-[10px] font-black uppercase tracking-wider text-white/50">
-						{t("hopperLevel")}
-					</p>
-					<p className="mt-0.5 font-bold">{level === null ? "—" : `${level}%`}</p>
+					<p className={stripLabel}>{t("hopperLevel")}</p>
+					<p className={stripValue}>{levelValue}</p>
 				</div>
 				<div>
-					<p className="text-[10px] font-black uppercase tracking-wider text-white/50">
-						{t("lastFed")}
-					</p>
-					<p className="mt-0.5 font-bold">{lastFedLabel ?? t("noReading")}</p>
+					<p className={stripLabel}>{t("lastFed")}</p>
+					<p className={stripValue}>{lastFedLabel ?? t("noReading")}</p>
 				</div>
 				<div>
-					<p className="text-[10px] font-black uppercase tracking-wider text-white/50">
-						{t("waterTempSensor")}
-					</p>
-					<p className={cn("mt-0.5 inline-flex items-center gap-1.5 font-bold", waterHealth.tone)}>
+					<p className={stripLabel}>{t("waterTempSensor")}</p>
+					<p className={cn(stripValue, "inline-flex items-center gap-1.5", waterHealth.tone)}>
 						<span
 							className={cn("size-1.5 shrink-0 rounded-full", waterHealth.dot)}
 							aria-hidden="true"
@@ -175,16 +201,22 @@ export function FeederFallback({
 					</p>
 				</div>
 				<div>
-					<p className="text-[10px] font-black uppercase tracking-wider text-white/50">
-						{t("rtc")}
-					</p>
-					<p className={cn("mt-0.5 inline-flex items-center gap-1.5 font-bold", rtcHealth.tone)}>
+					<p className={stripLabel}>{t("rtc")}</p>
+					<p className={cn(stripValue, "inline-flex items-center gap-1.5", rtcHealth.tone)}>
 						<span
 							className={cn("size-1.5 shrink-0 rounded-full", rtcHealth.dot)}
 							aria-hidden="true"
 						/>
 						{rtcValue}
 					</p>
+				</div>
+				<div>
+					<p className={stripLabel}>{t("signal")}</p>
+					<p className={cn(stripValue, signalDbm === null && "text-white/60")}>{signalLabel}</p>
+				</div>
+				<div>
+					<p className={stripLabel}>{t("firmware")}</p>
+					<p className={stripValue}>{firmwareVersion ? `v${firmwareVersion}` : "—"}</p>
 				</div>
 			</div>
 		</div>

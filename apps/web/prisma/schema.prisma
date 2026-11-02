@@ -450,6 +450,8 @@ model FeedEvent {
   timestamp     String // device RTC time — may be "unknown" if RTC unavailable
   grams         Float?
   source        String? // "scheduled" | "dashboard" | "button"
+  // Unique for feed_dispensed rows with a request id (partial index in
+  // migration 20261103090000; Prisma cannot express partial indexes).
   feedRequestId String?
   commandId     String? // links to ScheduleCommand id for schedule_acked events
   rtcOk         Boolean?

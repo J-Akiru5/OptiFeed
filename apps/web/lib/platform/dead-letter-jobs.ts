@@ -10,10 +10,10 @@ import prisma from "@/lib/prisma";
  * serving the sanitized `error` column.
  */
 
-export const DEAD_LETTER_DEFAULT_LIMIT = 20;
-export const DEAD_LETTER_MAX_LIMIT = 100;
+const DEAD_LETTER_DEFAULT_LIMIT = 20;
+const DEAD_LETTER_MAX_LIMIT = 100;
 
-export type DeadLetterJobRow = {
+type DeadLetterJobRow = {
 	id: string;
 	type: string;
 	ownerId: string;

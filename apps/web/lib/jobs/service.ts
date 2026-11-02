@@ -32,8 +32,8 @@ type JobStatus = "queued" | "running" | "succeeded" | "failed";
  * route's 15 s envelope. Anything larger must be chunked (a follow-up), not
  * run silently inside the 8 s cron budget.
  */
-export const JOB_TIME_LIMIT_MS = 10 * 1000;
-export const JOB_TIME_LIMITS_MS: Record<JobType, number> = {
+const JOB_TIME_LIMIT_MS = 10 * 1000;
+const JOB_TIME_LIMITS_MS: Record<JobType, number> = {
 	export_csv: JOB_TIME_LIMIT_MS,
 	export_zip: JOB_TIME_LIMIT_MS,
 	export_xlsx: JOB_TIME_LIMIT_MS,
@@ -41,7 +41,7 @@ export const JOB_TIME_LIMITS_MS: Record<JobType, number> = {
 	import_confirm: 12 * 1000,
 };
 
-export class JobTimeoutError extends Error {
+class JobTimeoutError extends Error {
 	readonly limitMs: number;
 
 	constructor(limitMs: number) {
@@ -435,7 +435,7 @@ export async function getJobMetrics(ownerId?: string): Promise<JobMetrics> {
 	};
 }
 
-export const JOB_ROUTE_DEADLINE_MS = 15 * 1000;
+const JOB_ROUTE_DEADLINE_MS = 15 * 1000;
 const JOB_MIN_START_MS = 1000;
 
 export async function processJobs(options: {

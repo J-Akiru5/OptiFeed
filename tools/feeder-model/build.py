@@ -13,6 +13,7 @@ Run headless:
     --dims tools/feeder-model/dimensions.json ^
     --glb apps/web/public/models/feeder-v1.0.0.glb ^
     --manifest apps/web/lib/feeder/model-manifest.json ^
+    --build-info tools/feeder-model/model-build.json ^
     --preview docs/feeder
 """
 
@@ -46,6 +47,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dims", required=True)
     parser.add_argument("--glb", required=True)
     parser.add_argument("--manifest", required=True)
+    parser.add_argument(
+        "--build-info",
+        default="",
+        help="Write the full build record (sha256, triangles, node names) here. "
+        "Kept out of --manifest because the app bundles that file.",
+    )
     parser.add_argument("--preview", default="")
     parser.add_argument("--poster", default="")
     parser.add_argument("--version", default="1.0.0")
@@ -1967,23 +1974,42 @@ def main() -> int:
             print(f"[warn] poster render failed: {exc}")
 
     triangles = count_triangles(objects)
+    digest = sha256_file(glb_path)
+    built_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    # The app imports this file from a "use client" module, so every key here
+    # lands in the device-detail first-load bundle. Keep only what the viewer
+    # reads (feeder-parts.ts: version, file, contract); a richer manifest has
+    # already pushed that route 0.1 kB over its 999.5 kB budget.
     manifest = {
-        "name": "optifeed-feeder",
         "version": args.version,
         "contract": args.contract,
         "file": f"/models/{glb_path.name}",
-        "sha256": sha256_file(glb_path),
-        "bytes": glb_path.stat().st_size,
-        "triangles": triangles,
-        "builtAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "generator": f"Blender {bpy.app.version_string}",
-        "dimensionsRevision": dims.get("revision", "unknown"),
-        "nodes": sorted(obj.name for obj in objects),
     }
     manifest_path = Path(args.manifest)
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(json.dumps(manifest, indent="\t") + "\n", encoding="utf-8", newline="\n")
-    print(f"[manifest] {manifest_path} triangles={triangles}")
+    print(f"[manifest] {manifest_path} bytes={manifest_path.stat().st_size}")
+
+    # Build provenance is not read at runtime, so it belongs outside the bundle.
+    build_record = {
+        "name": "optifeed-feeder",
+        **manifest,
+        "sha256": digest,
+        "bytes": glb_path.stat().st_size,
+        "triangles": triangles,
+        "builtAt": built_at,
+        "generator": f"Blender {bpy.app.version_string}",
+        "dimensionsRevision": dims.get("revision", "unknown"),
+        "nodes": sorted(obj.name for obj in objects),
+    }
+    if args.build_info:
+        info_path = Path(args.build_info)
+        info_path.parent.mkdir(parents=True, exist_ok=True)
+        info_path.write_text(json.dumps(build_record, indent="\t") + "\n", encoding="utf-8", newline="\n")
+        print(f"[build-info] {info_path} triangles={triangles}")
+    else:
+        print(f"[build-info] not written; sha256={digest} triangles={triangles}")
     return 0
 
 

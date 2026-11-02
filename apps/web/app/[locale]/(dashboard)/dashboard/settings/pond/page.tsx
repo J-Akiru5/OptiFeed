@@ -6,7 +6,7 @@ import {
 	DashboardSection,
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
-import { canWrite } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/permissions";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { parsePondProfile } from "@/lib/pond-profile";
 import { getActivePond } from "@/lib/pond-selection";
@@ -50,7 +50,7 @@ export default async function PondSettingsPage() {
 	// prefer the newest pending/sent command, then the last applied one.
 	const [currentConfig, writeAccess, latestBiomass, feedingLimits] = await Promise.all([
 		resolveCurrentSchedule(pond.id, energyDevice?.id ?? null),
-		canWrite(),
+		hasPermission("manage_farms_ponds"),
 		prisma.biomassLog.findFirst({
 			where: { pondId: pond.id },
 			orderBy: { recordedAt: "desc" },

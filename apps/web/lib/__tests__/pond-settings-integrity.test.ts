@@ -45,8 +45,10 @@ const db = vi.hoisted(() => {
 
 vi.mock("@/lib/prisma", () => ({ default: db.prisma }));
 vi.mock("@/lib/auth/session", () => ({
-	requireWriteAccess: vi.fn(async () => undefined),
 	getCurrentPondOwnerId: vi.fn(async () => "owner-1"),
+}));
+vi.mock("@/lib/auth/permissions", () => ({
+	requirePermission: vi.fn(async () => undefined),
 }));
 vi.mock("@/lib/feed-grams", () => ({ syncDeviceGramsForPond: vi.fn(async () => undefined) }));
 vi.mock("@/lib/actions/schedule", () => ({

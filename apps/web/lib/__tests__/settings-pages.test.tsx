@@ -61,6 +61,11 @@ vi.mock("@/lib/auth/session", () => ({
 	})),
 }));
 
+vi.mock("@/lib/auth/permissions", () => ({
+	hasPermission: vi.fn(async () => true),
+	requirePermission: vi.fn(async () => undefined),
+}));
+
 vi.mock("@/lib/pond-selection", () => ({
 	getActivePond: vi.fn(async () => ({
 		id: "pond-1",
@@ -231,12 +236,14 @@ import HardwareSettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/
 import SettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/page";
 import PondSettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/pond/page";
 import ProfileSettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/profile/page";
+import { hasPermission } from "@/lib/auth/permissions";
 import { canWrite, getCurrentUser } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 
 beforeEach(() => {
 	vi.clearAllMocks();
 	vi.mocked(canWrite).mockResolvedValue(true);
+	vi.mocked(hasPermission).mockResolvedValue(true);
 });
 
 function expectReadOnlyNote(html: string) {
@@ -332,7 +339,7 @@ describe("pond settings page", () => {
 	});
 
 	it("explains read-only mode on the pond form", async () => {
-		vi.mocked(canWrite).mockResolvedValueOnce(false);
+		vi.mocked(hasPermission).mockResolvedValueOnce(false);
 
 		const html = renderToStaticMarkup(await PondSettingsPage());
 

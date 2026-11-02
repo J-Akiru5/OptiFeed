@@ -5,7 +5,8 @@ import {
 	actionDenialResult,
 	rethrowIfNavigationError,
 } from "@/lib/auth/action-denial";
-import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/permissions";
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
 import {
 	dailyCapSchema,
@@ -102,7 +103,10 @@ export async function updateNotificationPrefs(
 	prefs: NotificationPrefs,
 ): Promise<{ success: boolean; error?: string; code?: ActionDenialReason }> {
 	try {
-		await requireWriteAccess();
+		// Personal preference: any active membership may change its own. There is
+		// no dedicated preference permission, so `view_dashboard` is the
+		// membership-presence gate every role holds.
+		await requirePermission("view_dashboard");
 		const parsed = notificationPrefsSchema.safeParse(prefs);
 		if (!parsed.success) {
 			return { success: false, error: formatZodError(parsed.error) };
@@ -177,7 +181,9 @@ export async function updatePondSettings(
 	profile?: PondProfileInput,
 ): Promise<PondSettingsActionResult> {
 	try {
-		await requireWriteAccess();
+		// Pond profile and population are organization-admin data; schedule-only
+		// edits continue through `updateScheduleCommand` (`manage_schedule`).
+		await requirePermission("manage_farms_ponds");
 		const parsed = pondSettingsSchema.safeParse({ feedingRatePct, feedsPerDay, population });
 		if (!parsed.success) {
 			return {
@@ -390,7 +396,9 @@ export async function updateDeviceDailyCap(
 	dailyCapG: number,
 ): Promise<{ success: boolean; error?: string; dailyCapG?: number; code?: ActionDenialReason }> {
 	try {
-		await requireWriteAccess();
+		// The daily ceiling is a feeding control: an operator may set it unless
+		// the membership's `control_feeder` permission was revoked.
+		await requirePermission("control_feeder");
 		const parsed = dailyCapSchema.safeParse(dailyCapG);
 		if (!parsed.success) {
 			return { success: false, error: formatZodError(parsed.error) };

@@ -10,7 +10,7 @@ import {
 import {
 	inviteRoleError,
 	isMemberRole,
-	permissionEditError,
+	permissionChangeError,
 	revokeMemberError,
 	roleChangeError,
 } from "@/lib/auth/member-rules";
@@ -519,20 +519,16 @@ export async function setUserPermission(
 		return { success: false, error: "Unknown permission." };
 	}
 
-	const [target, actor] = await Promise.all([resolveManagedMembership(userId), getCurrentUser()]);
-	if (!target.success) return target;
-	if (!actor) return { success: false, error: "Not authenticated." };
+	const resolved = await resolveManagedMember(userId);
+	if (!resolved.success) return { success: false, error: resolved.error };
+	const target = resolved.target;
 
-	// #584: an ADMIN may not reach an OWNER. Revoking `manage_members` or
-	// `control_feeder` from an owner's membership is a demotion in effect, so the
-	// same hierarchy rule that guards a role change applies to the permission row.
-	const ruleError = permissionEditError({
-		actorRole: target.actorRole,
-		targetRole: target.membership.role,
-	});
+	// Role and permission changes are owner-only. An ADMIN can still invite and
+	// revoke a non-owner, but it cannot edit this membership's permissions.
+	const ruleError = permissionChangeError(target.actorRole);
 	if (ruleError) return { success: false, error: ruleError };
 
-	if (actor.id === userId && permission === "manage_members" && !granted) {
+	if (target.actorUserId === userId && permission === "manage_members" && !granted) {
 		return {
 			success: false,
 			error: "You cannot remove your own permission to manage members.",
@@ -559,11 +555,6 @@ export async function setUserPermission(
 						error: "That user has no active membership in your organization.",
 					};
 				}
-				const denied = permissionEditError({
-					actorRole: target.actorRole,
-					targetRole: live.role,
-				});
-				if (denied) return { success: false as const, error: denied };
 
 				await tx.membershipPermission.upsert({
 					where: {
@@ -1602,6 +1593,7 @@ export async function adminUpdateDeviceDailyCap(
 ): Promise<{ success: boolean; error?: string; dailyCapG?: number; code?: ActionDenialReason }> {
 	try {
 		await requireTenantAdmin({ onDenied: "throw" });
+		await requirePermission("control_feeder");
 		const parsed = dailyCapSchema.safeParse(dailyCapG);
 		if (!parsed.success) {
 			return { success: false, error: formatZodError(parsed.error) };

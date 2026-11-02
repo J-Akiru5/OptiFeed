@@ -25,8 +25,10 @@ const { db } = vi.hoisted(() => {
 
 vi.mock("@/lib/prisma", () => ({ default: db }));
 vi.mock("@/lib/auth/session", () => ({
-	requireWriteAccess: vi.fn(),
 	getCurrentPondOwnerId: vi.fn(),
+}));
+vi.mock("@/lib/auth/permissions", () => ({
+	requirePermission: vi.fn(),
 }));
 vi.mock("@/lib/feed-grams", () => ({ syncDeviceGramsForPond: vi.fn() }));
 vi.mock("@/lib/actions/schedule", () => ({ updateScheduleCommand: vi.fn() }));
@@ -46,11 +48,12 @@ import {
 	ActionDeniedError,
 	denialMessage,
 } from "@/lib/auth/action-denial";
-import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/permissions";
+import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
 import { revalidatePath } from "next/cache";
 
-const mockRequireWriteAccess = vi.mocked(requireWriteAccess);
+const mockRequireWriteAccess = vi.mocked(requirePermission);
 const mockOwnerId = vi.mocked(getCurrentPondOwnerId);
 const mockSchedule = vi.mocked(updateScheduleCommand);
 const mockSyncGrams = vi.mocked(syncDeviceGramsForPond);
@@ -81,10 +84,10 @@ function allowWrites() {
 }
 
 function denyWrites() {
-	mockRequireWriteAccess.mockRejectedValue(new Error("Write access required (ADMIN or OPERATOR)"));
+	mockRequireWriteAccess.mockRejectedValue(new ActionDeniedError("wrong_role"));
 }
 
-/** Refuse with the typed guard error the real requireWriteAccess now throws. */
+/** Refuse with the typed guard error the real requirePermission check raises. */
 function denyWritesWith(reason: ActionDenialReason) {
 	mockRequireWriteAccess.mockRejectedValue(new ActionDeniedError(reason));
 }

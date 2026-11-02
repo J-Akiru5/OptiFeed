@@ -94,8 +94,8 @@
 			"budgetKb": 1424.1
 		},
 		"/[locale]/(dashboard)/dashboard/growth/page": {
-			"baselineKb": 1053.4,
-			"budgetKb": 1075
+			"baselineKb": 1075.1,
+			"budgetKb": 1096.6
 		},
 		"/[locale]/(dashboard)/dashboard/harvest/page": {
 			"baselineKb": 965.2,

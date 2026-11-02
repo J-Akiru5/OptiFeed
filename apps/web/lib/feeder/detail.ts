@@ -22,8 +22,12 @@ export interface FeederDeviceDetail {
 	rtcOk: boolean;
 	/** Water-temperature probe health as last reported. */
 	waterTempOk: boolean;
+	/** Last calibrated temperature the probe reported; null when it never did. */
+	waterTempC: number | null;
 	/** Last time the probe reported; null when the firmware never sent one. */
 	waterTempUpdatedAt: Date | null;
+	/** Freshness window for a reported reading, from the device status policy. */
+	staleAfterMs: number;
 	/** Latest sanitised firmware diagnostics object (issue #454); null until a heartbeat carries one. */
 	diag: Record<string, unknown> | null;
 	isPaused: boolean;
@@ -68,6 +72,7 @@ export async function getDeviceDetail(
 			lastSeenAt: true,
 			rtcOk: true,
 			waterTempOk: true,
+			waterTempC: true,
 			waterTempUpdatedAt: true,
 			diag: true,
 			isPaused: true,
@@ -97,6 +102,7 @@ export async function getDeviceDetail(
 		// ingest guarantees the object shape, so this cast stays safe.
 		diag: (device.diag as Record<string, unknown> | null) ?? null,
 		pond: device.pond,
+		staleAfterMs: policy.offlineAfterMs,
 		lastFedAt: latestFeed?.receivedAt ?? null,
 		lastFedGrams: latestFeed?.grams ?? null,
 		status: feederStatus({

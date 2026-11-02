@@ -1,7 +1,9 @@
 "use client";
 
 import { FeederIllustration } from "@/components/feeder/feeder-illustration";
+import { DEFAULT_DEVICE_STATUS_POLICY } from "@/lib/device-status";
 import type { FeederStatus } from "@/lib/feeder/feeder-parts";
+import { type ReadingAge, isReadingStale, readingAge } from "@/lib/feeder/reading-freshness";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 
@@ -12,8 +14,16 @@ interface FeederFallbackProps {
 	lastFedLabel: string | null;
 	/** Water-temperature probe health; null when never reported. */
 	waterTempOk: boolean | null;
+	/** Last calibrated temperature the probe reported. */
+	waterTempC?: number | null;
+	/** When the probe last reported; null when it never did. */
+	waterTempUpdatedAt?: string | null;
 	/** RTC health as last reported. */
 	rtcOk: boolean | null;
+	/** When the unit last checked in; the freshness basis for the RTC bit. */
+	lastSeenAt?: string | null;
+	/** Reading freshness window, from the device status policy. */
+	staleAfterMs?: number;
 	className?: string;
 }
 
@@ -30,10 +40,15 @@ export function FeederFallback({
 	feedLevelPercent,
 	lastFedLabel,
 	waterTempOk,
+	waterTempC = null,
+	waterTempUpdatedAt = null,
 	rtcOk,
+	lastSeenAt = null,
+	staleAfterMs = DEFAULT_DEVICE_STATUS_POLICY.offlineAfterMs,
 	className,
 }: FeederFallbackProps) {
 	const t = useTranslations("dashboard.feederViewer");
+	const tWater = useTranslations("dashboard.waterTemp");
 	const level = feedLevelPercent === null ? null : Math.min(100, Math.max(0, feedLevelPercent));
 	const healthOf = (health: boolean | null) =>
 		health === null
@@ -41,8 +56,35 @@ export function FeederFallback({
 			: health
 				? { label: t("healthOk"), tone: "text-emerald-200", dot: "bg-emerald-300" }
 				: { label: t("healthFault"), tone: "text-rose-200", dot: "bg-rose-400" };
-	const waterHealth = healthOf(waterTempOk);
-	const rtcHealth = healthOf(rtcOk);
+	// #620: an old reading is not evidence about now, so it is labelled stale
+	// with its age instead of being repeated as current.
+	const ageLabel = (age: ReadingAge | null): string | null => {
+		if (!age) return null;
+		switch (age.unit) {
+			case "seconds":
+				return tWater("secondsAgo", { count: age.count });
+			case "minutes":
+				return tWater("minutesAgo", { count: age.count });
+			case "hours":
+				return tWater("hoursAgo", { count: age.count });
+			case "days":
+				return tWater("daysAgo", { count: age.count });
+		}
+	};
+	const staleHealth = (updatedAt: string | null) =>
+		isReadingStale(updatedAt, staleAfterMs)
+			? {
+					label: [tWater("statusStale"), ageLabel(readingAge(updatedAt))]
+						.filter(Boolean)
+						.join(" · "),
+					tone: "text-amber-200",
+					dot: "bg-amber-300",
+				}
+			: null;
+	const waterHealth = staleHealth(waterTempUpdatedAt) ?? healthOf(waterTempOk);
+	const rtcHealth = staleHealth(lastSeenAt) ?? healthOf(rtcOk);
+	const waterValue = waterTempC === null ? null : `${waterTempC.toFixed(1)} °C`;
+	const rtcValue = rtcHealth.label;
 
 	return (
 		<div
@@ -109,7 +151,7 @@ export function FeederFallback({
 							className={cn("size-1.5 shrink-0 rounded-full", waterHealth.dot)}
 							aria-hidden="true"
 						/>
-						{waterHealth.label}
+						{[waterValue, waterHealth.label].filter(Boolean).join(" · ")}
 					</p>
 				</div>
 				<div>
@@ -121,7 +163,7 @@ export function FeederFallback({
 							className={cn("size-1.5 shrink-0 rounded-full", rtcHealth.dot)}
 							aria-hidden="true"
 						/>
-						{rtcHealth.label}
+						{rtcValue}
 					</p>
 				</div>
 			</div>

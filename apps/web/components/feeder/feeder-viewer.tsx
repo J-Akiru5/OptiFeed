@@ -1,5 +1,6 @@
 "use client";
 
+import { DEFAULT_DEVICE_STATUS_POLICY } from "@/lib/device-status";
 import {
 	CAMERA_PRESETS,
 	CAMERA_PRESET_LABELS,
@@ -10,6 +11,7 @@ import {
 	type FeederStatus,
 	grainFillScale,
 } from "@/lib/feeder/feeder-parts";
+import { type ReadingAge, isReadingStale, readingAge } from "@/lib/feeder/reading-freshness";
 import { cn } from "@/lib/utils";
 import { CameraControls, CameraControlsImpl, useGLTF } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
@@ -31,8 +33,16 @@ interface FeederViewerProps {
 	lastFedLabel: string | null;
 	/** Water-temperature probe health; null when the firmware never reported it. */
 	waterTempOk: boolean | null;
+	/** Last calibrated temperature the probe reported. */
+	waterTempC?: number | null;
+	/** When the probe last reported; null when it never did. */
+	waterTempUpdatedAt?: string | null;
 	/** RTC health as last reported on the heartbeat. */
 	rtcOk: boolean | null;
+	/** When the unit last checked in; the freshness basis for the RTC bit. */
+	lastSeenAt?: string | null;
+	/** Reading freshness window, from the device status policy. */
+	staleAfterMs?: number;
 	onSimpleView?: () => void;
 }
 
@@ -192,10 +202,15 @@ export function FeederViewer({
 	feedLevelPercent,
 	lastFedLabel,
 	waterTempOk,
+	waterTempC = null,
+	waterTempUpdatedAt = null,
 	rtcOk,
+	lastSeenAt = null,
+	staleAfterMs = DEFAULT_DEVICE_STATUS_POLICY.offlineAfterMs,
 	onSimpleView,
 }: FeederViewerProps) {
 	const t = useTranslations("dashboard.feederViewer");
+	const tWater = useTranslations("dashboard.waterTemp");
 	const [preset, setPreset] = useState<CameraPreset>("iso");
 	const [resetToken, setResetToken] = useState(0);
 	const [locked, setLocked] = useState<boolean>(() => {
@@ -230,8 +245,33 @@ export function FeederViewer({
 			: health
 				? { label: t("healthOk"), tone: "text-emerald-200", dot: "bg-emerald-300" }
 				: { label: t("healthFault"), tone: "text-rose-200", dot: "bg-rose-400" };
-	const waterHealth = healthOf(waterTempOk);
-	const rtcHealth = healthOf(rtcOk);
+	// #620: a reading older than the freshness window is stale, not current.
+	const ageLabel = (age: ReadingAge | null): string | null => {
+		if (!age) return null;
+		switch (age.unit) {
+			case "seconds":
+				return tWater("secondsAgo", { count: age.count });
+			case "minutes":
+				return tWater("minutesAgo", { count: age.count });
+			case "hours":
+				return tWater("hoursAgo", { count: age.count });
+			case "days":
+				return tWater("daysAgo", { count: age.count });
+		}
+	};
+	const staleHealth = (updatedAt: string | null) =>
+		isReadingStale(updatedAt, staleAfterMs)
+			? {
+					label: [tWater("statusStale"), ageLabel(readingAge(updatedAt))]
+						.filter(Boolean)
+						.join(" · "),
+					tone: "text-amber-200",
+					dot: "bg-amber-300",
+				}
+			: null;
+	const waterHealth = staleHealth(waterTempUpdatedAt) ?? healthOf(waterTempOk);
+	const rtcHealth = staleHealth(lastSeenAt) ?? healthOf(rtcOk);
+	const waterValue = waterTempC === null ? null : `${waterTempC.toFixed(1)} °C`;
 
 	return (
 		<div className="overflow-hidden rounded-3xl border border-[#0A3D62]/10 bg-[radial-gradient(circle_at_50%_42%,rgba(125,211,252,0.16),transparent_38%),radial-gradient(ellipse_at_50%_40%,#143c5e_0%,#0B2336_58%,#071a2a_100%)] text-white shadow-sm dark:border-white/10">
@@ -380,7 +420,7 @@ export function FeederViewer({
 							className={cn("size-1.5 shrink-0 rounded-full", waterHealth.dot)}
 							aria-hidden="true"
 						/>
-						{waterHealth.label}
+						{[waterValue, waterHealth.label].filter(Boolean).join(" · ")}
 					</p>
 				</div>
 				<div>

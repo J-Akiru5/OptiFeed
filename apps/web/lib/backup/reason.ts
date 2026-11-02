@@ -11,11 +11,16 @@
 export const MIN_BACKUP_REASON_LENGTH = 10;
 export const MAX_BACKUP_REASON_LENGTH = 500;
 
-const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
+const CONTROL_CHARACTER_LIMIT = 0x1f;
+const DELETE_CHARACTER = 0x7f;
 
 /** True when the value contains a character that can break a `--` comment. */
 export function hasControlCharacters(value: string): boolean {
-	return CONTROL_CHARACTERS.test(value);
+	for (const character of value) {
+		const code = character.codePointAt(0) ?? 0;
+		if (code <= CONTROL_CHARACTER_LIMIT || code === DELETE_CHARACTER) return true;
+	}
+	return false;
 }
 
 export type OptionalBackupReason = { ok: true; value: string | null } | { ok: false };

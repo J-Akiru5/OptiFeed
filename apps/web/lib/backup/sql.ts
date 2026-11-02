@@ -118,10 +118,12 @@ export interface ExportHeaderInput {
 
 /** One comment line: control characters (including newlines) become spaces. */
 export function sqlCommentText(value: string): string {
-	return value
-		.replace(/[\u0000-\u001f\u007f]+/g, " ")
-		.replace(/\s+/g, " ")
-		.trim();
+	let oneLine = "";
+	for (const character of value) {
+		const code = character.codePointAt(0) ?? 0;
+		oneLine += code <= 0x1f || code === 0x7f ? " " : character;
+	}
+	return oneLine.replace(/\s+/g, " ").trim();
 }
 
 /** The file header. It names the scope and carries no row data. */

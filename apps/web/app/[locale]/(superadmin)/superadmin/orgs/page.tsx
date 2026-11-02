@@ -68,7 +68,15 @@ export default async function SuperadminOrgsPage({
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title={t("title")} description={t("description", { count: orgs.total })} />
+			<PageHeader
+				title={t("title")}
+				description={t("description", { count: orgs.total })}
+				actions={
+					<Link href="/superadmin/tenants" className={SECONDARY_BUTTON}>
+						{t("tenantHealth")}
+					</Link>
+				}
+			/>
 
 			<CreateOrgForm />
 

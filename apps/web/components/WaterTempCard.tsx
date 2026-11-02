@@ -26,7 +26,7 @@ export function WaterTempCard({
 
 	return (
 		<div
-			className="rounded-3xl bg-white dark:bg-gray-900 p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 transition-shadow hover:shadow-md"
+			className="rounded-3xl bg-white dark:bg-gray-900 p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 transition-shadow hover:shadow-md max-xl:rounded-none max-xl:border-0 max-xl:bg-transparent max-xl:p-0 max-xl:shadow-none"
 			data-help="dashboard-water-temp"
 		>
 			<div className="flex items-center justify-between mb-4">
@@ -75,7 +75,7 @@ export function WaterTempCard({
 			</div>
 
 			{hasReading ? (
-				<div className="rounded-xl bg-gray-50 dark:bg-gray-800 p-3">
+				<div className="rounded-xl bg-gray-50 dark:bg-gray-800 p-3 max-xl:flex max-xl:min-h-11 max-xl:items-center max-xl:justify-between max-xl:gap-3 max-xl:border-b max-xl:border-[#E6ECE9] max-xl:p-0 max-xl:py-3 max-xl:rounded-none max-xl:bg-transparent max-xl:last:border-b-0">
 					<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Last updated</p>
 					<p className="text-sm font-medium text-gray-700 dark:text-gray-200">
 						{updatedAt ? formatTimeAgo(updatedAt) : "—"}

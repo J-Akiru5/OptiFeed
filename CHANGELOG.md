@@ -1,4 +1,4 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to this project will be documented in this file.
 
@@ -11,9 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **The platform console says where you are, and its sidebar is in three groups.** A scope banner under the top bar shows the path (`GLOBAL SUPERADMIN → DEVICES`, or `GLOBAL SUPERADMIN → ORGANIZATION ALPHA` on an organization page) and stays in view while the page scrolls. It uses the brand navy and orange with an icon per level, so it never reads as a status colour and stays distinct from the red view-as banner. The sidebar now groups the same nine links under Command Center, Ecosystem Management and Platform Control; no URL changed. Strings are in English, Hiligaynon and Tagalog (the Tagalog is a machine draft, queued for review). First slice of the Platform Command Center (#479, plan M3C.1).
+- **The platform console says where you are, and its sidebar is in three groups.** A scope banner under the top bar shows the path (`GLOBAL SUPERADMIN â†’ DEVICES`, or `GLOBAL SUPERADMIN â†’ ORGANIZATION ALPHA` on an organization page) and stays in view while the page scrolls. It uses the brand navy and orange with an icon per level, so it never reads as a status colour and stays distinct from the red view-as banner. The sidebar now groups the same nine links under Command Center, Ecosystem Management and Platform Control; no URL changed. Strings are in English, Hiligaynon and Tagalog (the Tagalog is a machine draft, queued for review). First slice of the Platform Command Center (#479, plan M3C.1).
 - **A light/dark toggle for the platform console, with a dark palette on every surface.** The superadmin top bar now carries the same theme toggle as the farmer dashboard (desktop and mobile), and the console honours the shared `optifeed:theme` preference instead of staying light-only. Cards, fields, tables, tabs, dialogs, badges and the empty/loading/error states all have dark counterparts on the page (#0B1220), surface (#111A2C) and raised (#162238) palette, with #24304A borders. Status colours stay reserved for status and the console action orange moves to the AA-safe #C2410C; a contrast test asserts every text pair against WCAG AA (4.5:1) in both themes, and a source guard keeps a light-only utility from returning without its `dark:` variant. This is the visual-system dependency of the Platform Command Center (#477, plan M3C.8).
 - **The platform overview is now a monitor board.** A reusable set of console components (`MonitorPanel`, `PanelGrid`, `KpiTile`, `Sparkline`, `StatusMix`, `ActivityFeed`, `AttentionList`) composes the Command Center: the status bands lead, eight KPI tiles follow with direction pills, accessible delta labels and a signups sparkline, then the signups trend and the fleet status mix sit side by side, with the remaining charts and the attention queues below. Everything is server-rendered from the existing `getPlatformAnalytics` and `getStatusBands` data, every string still comes from the catalogue, and the layout degrades to one column on phones. No new dependency, no schema change (#479, plan M3C.8).
+- **Superadmins can compare two to four organizations side by side (#479).** Picking organizations on `/superadmin/tenants/compare` ranks them worst first on the tenant table's own scale and marks the best measured value per metric, with fleet counts, offline share, last heartbeat, open alerts and account status in one row. A metric with no defensible direction (ponds, members, device count) carries no winner, a value that was never reported is not a zero and never wins, and an organization with nothing to measure reads Unknown rather than healthy. A failed read renders an explicit error instead of an empty comparison. No schema change.
+- **Operations â†’ Security lists every destructive platform action with the credential it demands (#479).** The panel renders one catalog of the command-center actions that can reach a tenant's fleet, people or data, marks the ones that require step-up and states why the others only need a written reason and an audit entry, then shows the last 20 audit rows for those actions with whether a step-up credential was present. A test asserts the catalog against the server-action source in both directions, so an action cannot be gated without being listed and cannot be listed without its guard. No schema change.
 
 ## [1.42.1] - 2026-11-01
 
@@ -44,16 +46,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Provider keys and OpenAI-compatible providers from the console.** `/superadmin/ai-providers` can set, rotate and clear a provider API key. Keys are tested with a live call before they are accepted, encrypted at rest with AES-256-GCM (`AI_SECRET_KEY`, versioned for rotation), shown only as a masked last four, and every mutation requires a password step-up plus a reason in the platform audit log. A new "Add provider" form creates any OpenAI-compatible endpoint (Groq, OpenAI, DeepSeek, Kimi, GLM, OpenRouter…) with an https-only, SSRF-guarded base URL. Environment variables remain the fallback when no key is stored (#432).
+- **Provider keys and OpenAI-compatible providers from the console.** `/superadmin/ai-providers` can set, rotate and clear a provider API key. Keys are tested with a live call before they are accepted, encrypted at rest with AES-256-GCM (`AI_SECRET_KEY`, versioned for rotation), shown only as a masked last four, and every mutation requires a password step-up plus a reason in the platform audit log. A new "Add provider" form creates any OpenAI-compatible endpoint (Groq, OpenAI, DeepSeek, Kimi, GLM, OpenRouterâ€¦) with an https-only, SSRF-guarded base URL. Environment variables remain the fallback when no key is stored (#432).
 - **Password reset by email, and admins can edit an account's contact email (#449).** The forgot-password page now asks for an email address; a Farm ID still works in the same box, so accounts with no email recorded yet are not locked out. A new nullable, unique `User.contactEmail` holds the deliverable address, and the synthetic login address (`<farmId>@pond.optifeed.local`) is never edited, because sign-in derives it from the Farm ID. Tenant admins edit the contact email inline in the Members table (an ADMIN cannot change an OWNER's address, and an account that also belongs to an organization the caller does not administer is refused); platform admins edit it from the user dialog, which needs a reason and a fresh step-up and audits the before and after values. Addresses are validated as a single mailbox, and reset stays anti-enumeration. Additive migration `20261101010000_add_user_contact_email`.
 
 ### Changed
 
-- **The HC-SR04 TRIG moves from GPIO 12 to GPIO 27 (firmware, needs a reflash).** GPIO 12 is the ESP32 flash-voltage strapping pin, so a trigger wired there needed a 10 kΩ pull-down just to boot reliably. GPIO 27 is not a strapping pin and is quiet at boot, so the pull-down is now optional. ECHO stays on GPIO 14 behind its 1 kΩ / 2 kΩ divider. Move the TRIG wire to GPIO 27 and reflash together: a unit flashed with this build but still wired to GPIO 12, or the reverse, reads no echo and reports 0 % / 0 cm. The firmware README pin table and the CICT pin-map note are updated to match.
+- **The HC-SR04 TRIG moves from GPIO 12 to GPIO 27 (firmware, needs a reflash).** GPIO 12 is the ESP32 flash-voltage strapping pin, so a trigger wired there needed a 10 kÎ© pull-down just to boot reliably. GPIO 27 is not a strapping pin and is quiet at boot, so the pull-down is now optional. ECHO stays on GPIO 14 behind its 1 kÎ© / 2 kÎ© divider. Move the TRIG wire to GPIO 27 and reflash together: a unit flashed with this build but still wired to GPIO 12, or the reverse, reads no echo and reports 0 % / 0 cm. The firmware README pin table and the CICT pin-map note are updated to match.
 
 ### Fixed
 
-- **A feeder is never told to dispense a dose it cannot run (#430).** The dose per meal is derived from the pond settings, the fish count and the latest biomass sample, and the write paths checked the dose that was *stored* before writing the newly *derived* one — so a meal the ESP32 cannot finish in one relay window still reached it. On the Demo Pond that left the feeder holding 2,110 g per meal against a 1,200 g window (4 g/s for 300 s), and every later pond-settings edit was refused because the saved plan was already impossible: the form reported "one meal is longer than the relay window" for the reader's own edit, while the dashboard kept the old fish count. The schedule save, the admin pond edit, the biomass auto-adjust and the growth-plan apply now all check the dose they are about to write, and the single writer (`lib/feeding/derive.ts`) refuses to store one that breaks the relay window or the daily ceiling. The pond settings form also says when the *saved* plan was already over the limit, so a stale plan no longer looks like the reader's mistake.
+- **A feeder is never told to dispense a dose it cannot run (#430).** The dose per meal is derived from the pond settings, the fish count and the latest biomass sample, and the write paths checked the dose that was *stored* before writing the newly *derived* one â€” so a meal the ESP32 cannot finish in one relay window still reached it. On the Demo Pond that left the feeder holding 2,110 g per meal against a 1,200 g window (4 g/s for 300 s), and every later pond-settings edit was refused because the saved plan was already impossible: the form reported "one meal is longer than the relay window" for the reader's own edit, while the dashboard kept the old fish count. The schedule save, the admin pond edit, the biomass auto-adjust and the growth-plan apply now all check the dose they are about to write, and the single writer (`lib/feeding/derive.ts`) refuses to store one that breaks the relay window or the daily ceiling. The pond settings form also says when the *saved* plan was already over the limit, so a stale plan no longer looks like the reader's mistake.
 
 ## [1.40.0] - 2026-10-31
 
@@ -61,11 +63,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Firmware 1.8.0 machine status interface: four panel LEDs as wired on the bench (blue WI-FI on GPIO 26 and yellow FAULT on GPIO 18 with series resistors; white POWER on the 5 V rail and green FEEDING as a tap on the relay control line, neither a firmware output). A 12 V NPN-driven lamp panel stays possible with `-D<NAME>_LED_PIN` overrides. Blue is solid only once the unit has joined its saved network and blinks in the setup portal; Wi-Fi loss is not a fault. A central `fw::FaultManager` (`firmware/firmware-main/status.h`, native-tested) latches HC-SR04 no-echo, DS3231 missing/silent on I2C, relay overrun and safe mode; a tap on the Wi-Fi reset button (GPIO 17, under 5 s) acknowledges faults whose cause is gone. No fault adds a feeding refusal and acknowledgement never resumes a dose. The heartbeat adds diagnostic `diag.faults_latched`, `diag.faults_present` and `diag.last_fault` (stripped by ingest; no server change).
 - **Tabbed device settings with a feeder switcher.** The hardware settings page is now four tabs synced to `?tab=` (Overview, Feeding, Calibration, Network) with WAI-ARIA keyboard support; panels stay mounted, so an edit survives a tab switch. A `?device=` switcher grouped by pond lets a second feeder on the same pond be configured and is hidden when the farm has only one feeder. An unsaved-changes guard marks a tab with pending edits, asks before switching feeder and covers reload, and dashboard alerts plus the old `#anchor` links open the tab that holds the section. The design comes from the settings benchmark in `docs/settings-benchmark.md` (#403, #405, #407).
-- Password recovery from the sign-in page: a **Forgot password?** link opens `/forgot-password` (farm ID), which mints a Supabase recovery link in code (`auth.admin.generateLink`, type `recovery`) and emails it through **Resend** from the verified domain — Supabase's own SMTP is not used, because login addresses are internal pond mailboxes — and `/reset-password` sets a new password from that link's session, clearing the forced-change flag and revoking other sessions. Requests are rate limited (3 per 10 minutes per IP, fail-closed) and never reveal whether a farm ID exists; every request for a real account is recorded in the platform audit log (`platform.user.password_reset_requested`, actor `self-service`, with `emailSent` and no link in the row), and the confirmation tells the user to ask an administrator when the mailbox cannot be opened. The reliable path is also included: the superadmin console's new per-account **Reset password** action (reason + step-up + audit, one-time temporary password shown once, change forced at the next sign-in), alongside the unchanged `pnpm manage-user reset-password` CLI.
+- Password recovery from the sign-in page: a **Forgot password?** link opens `/forgot-password` (farm ID), which mints a Supabase recovery link in code (`auth.admin.generateLink`, type `recovery`) and emails it through **Resend** from the verified domain â€” Supabase's own SMTP is not used, because login addresses are internal pond mailboxes â€” and `/reset-password` sets a new password from that link's session, clearing the forced-change flag and revoking other sessions. Requests are rate limited (3 per 10 minutes per IP, fail-closed) and never reveal whether a farm ID exists; every request for a real account is recorded in the platform audit log (`platform.user.password_reset_requested`, actor `self-service`, with `emailSent` and no link in the row), and the confirmation tells the user to ask an administrator when the mailbox cannot be opened. The reliable path is also included: the superadmin console's new per-account **Reset password** action (reason + step-up + audit, one-time temporary password shown once, change forced at the next sign-in), alongside the unchanged `pnpm manage-user reset-password` CLI.
 
-- **Hopper capacity from the tank diameter.** Calibration now takes the tank's inner diameter and the feed bulk density, so the capacity in grams is computed from the cylinder between the full and empty marks (πr²h × density) instead of typed in as a guess. The form previews the volume and the resulting grams, the server recomputes them on save, and devices calibrated before this keep their stored capacity until a diameter is entered (#415).
+- **Hopper capacity from the tank diameter.** Calibration now takes the tank's inner diameter and the feed bulk density, so the capacity in grams is computed from the cylinder between the full and empty marks (Ï€rÂ²h Ã— density) instead of typed in as a guess. The form previews the volume and the resulting grams, the server recomputes them on save, and devices calibrated before this keep their stored capacity until a diameter is entered (#415).
 - **The water temperature probe is part of the 3D feeder model (v1.2.0, #400).** The probe now clips to the front edge of the base plate and hangs below it (a thin cable, a blue connector and a stainless body with the real DS18B20 proportions), crossing the assumed pond surface, with no anchor line. The `1.1.2` model file is kept; the manifest points at `feeder-v1.2.0.glb`, and a test reads the exported GLB to check the nodes, bounds, materials and that the probe sits inside the default camera frame. The preview images under `docs/feeder/` still show the previous model.
-- #418 **Tenant B demo seed.** `pnpm --filter web seed:tenant-b` fills the second tenant with a presentable dataset so the organization model can be shown in a demo. The `tenant2-admin` account (owner of the "Tenant B Fisheries" organization) gets its own farm, two ponds with active grow-out cycles and calendar events, three feeders, and enough history — feeding, feed level, water temperature, biomass, FCR, device activity, schedule commands, calibration runs and notifications — for every chart on the dashboard and in the tenant console to have data. A second member (`tenant2-operator`) makes the members list and the per-member permission override visible. The script is idempotent, only ever writes rows owned by the demo accounts, ponds and feeders (never an unscoped delete), reuses the existing admin's Supabase identity, and refuses to write to a non-loopback database unless `SEED_TENANT_B_CONFIRM=yes` is set.
+- #418 **Tenant B demo seed.** `pnpm --filter web seed:tenant-b` fills the second tenant with a presentable dataset so the organization model can be shown in a demo. The `tenant2-admin` account (owner of the "Tenant B Fisheries" organization) gets its own farm, two ponds with active grow-out cycles and calendar events, three feeders, and enough history â€” feeding, feed level, water temperature, biomass, FCR, device activity, schedule commands, calibration runs and notifications â€” for every chart on the dashboard and in the tenant console to have data. A second member (`tenant2-operator`) makes the members list and the per-member permission override visible. The script is idempotent, only ever writes rows owned by the demo accounts, ponds and feeders (never an unscoped delete), reuses the existing admin's Supabase identity, and refuses to write to a non-loopback database unless `SEED_TENANT_B_CONFIRM=yes` is set.
 
 ### Changed
 
@@ -73,18 +75,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- **The Telegram channel is gone (ADR-0007).** The platform does not use Telegram: the bot-token helper (`lib/notify/telegram.ts`), the CRITICAL-alert fan-out in the device ingest route and the device-watch cron, and the `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` variables in `.env.example`, the environment matrix and the deployment checklist are all removed. No bot token was ever configured, so alerts were already in-app only — this makes the code match what the privacy policy has always said. The link helper that only existed to build Telegram message links went with it. A CI test fails the build if a Telegram reference or variable reappears. The cost is explicit: nobody is paged — a CRITICAL alert waits in the dashboard until someone opens it, which remains the most consequential operational gap (an e-mail alert channel would be a new decision, not an extension of this one).
+- **The Telegram channel is gone (ADR-0007).** The platform does not use Telegram: the bot-token helper (`lib/notify/telegram.ts`), the CRITICAL-alert fan-out in the device ingest route and the device-watch cron, and the `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` variables in `.env.example`, the environment matrix and the deployment checklist are all removed. No bot token was ever configured, so alerts were already in-app only â€” this makes the code match what the privacy policy has always said. The link helper that only existed to build Telegram message links went with it. A CI test fails the build if a Telegram reference or variable reappears. The cost is explicit: nobody is paged â€” a CRITICAL alert waits in the dashboard until someone opens it, which remains the most consequential operational gap (an e-mail alert channel would be a new decision, not an extension of this one).
 
 ### Fixed
 
-- **A disconnected feeder is now marked offline after five minutes (#419).** The platform device-connectivity policy shipped with 15 minutes of silence plus a 2-minute grace, so an unplugged ESP32 stayed on "weak signal" for 17 minutes before the badge flipped. The defaults are now 4 minutes of weak signal, 5 minutes to offline and no grace — five minutes of silence is sixty missed heartbeats at the firmware's five-second beat, and the hysteresis already stops the badge from flapping, so the grace is no longer needed to absorb a single late beat. Every surface (header badge, sidebar, dashboard, feeder hero, admin and superadmin device lists, the offline-alert cron, the assistant context and the PWA snapshot) reads the one shared rule in `lib/device-status.ts`, so the new default applies everywhere at once. A platform admin can still move the windows in Superadmin → Settings → Device connectivity, and a stored `PlatformSetting` row always wins over the default. The firmware's connectivity diagnostic (`weak_after_min` / `offline_after_min`) now reports the same 4 / 5 minutes.
+- **A disconnected feeder is now marked offline after five minutes (#419).** The platform device-connectivity policy shipped with 15 minutes of silence plus a 2-minute grace, so an unplugged ESP32 stayed on "weak signal" for 17 minutes before the badge flipped. The defaults are now 4 minutes of weak signal, 5 minutes to offline and no grace â€” five minutes of silence is sixty missed heartbeats at the firmware's five-second beat, and the hysteresis already stops the badge from flapping, so the grace is no longer needed to absorb a single late beat. Every surface (header badge, sidebar, dashboard, feeder hero, admin and superadmin device lists, the offline-alert cron, the assistant context and the PWA snapshot) reads the one shared rule in `lib/device-status.ts`, so the new default applies everywhere at once. A platform admin can still move the windows in Superadmin â†’ Settings â†’ Device connectivity, and a stored `PlatformSetting` row always wins over the default. The firmware's connectivity diagnostic (`weak_after_min` / `offline_after_min`) now reports the same 4 / 5 minutes.
 - **The schedule page now lists the feeding times for the frequency you choose (#431).** The only summary was the last command the device had applied, so raising feeds per day from 2 to 3 still read "2 feeds/day" until the device reconnected and no list of times existed to show the third meal. A "Feeding times" card now derives the slots from the window and frequency on every change, and the pending and applied commands each list their own times.
 - **Feeding schedules now run on the farm's own clock, and the daily cap survives a reboot (#409).** The firmware compared schedule slots against UTC and reset the daily budget at UTC midnight, so a 06:00 slot fired at the wrong local hour and a restart could hand the feeder a fresh cap mid-day. Slots, the daily-cap reset and the OTA quiet-hours guards now use the farm's UTC offset, and the schedule position and daily total are saved to flash and restored on boot (firmware 1.8.1, needs a reflash; it is a patch on the 1.8.0 status-lamp build).
 - **Acknowledging a low-hopper warning no longer brings it straight back (#412).** The 6-hour window between pellet warnings was only checked against unacknowledged notifications, so tapping Acknowledge or Mark all as read let the next heartbeat (at most five seconds later) create an identical warning, and every further acknowledgement re-armed it. The window is now measured from the latest pellet notification whatever its acknowledgement: acknowledging silences the stream, the reminder returns at most six hours after the last warning, and a WARNING/CRITICAL tier change still fires at once. The days-remaining warning shared the same gate and is fixed with it. The dashboard rail and Pakoy's reminder also used a strict `<` against the low-hopper threshold while the server warns at `<=`; both now use one inclusive `hopperIsLow()` helper, so at exactly the threshold the bell and the dashboard agree.
 
 ### Security
 
-- The recovery-link flow discloses nothing about account existence (an unknown farm ID answers exactly like a known one) and never claims an email was delivered; the recovery link appears only in the email payload and the one-time admin-issued password is returned to the console once — neither is persisted, logged or written to a platform audit row.
+- The recovery-link flow discloses nothing about account existence (an unknown farm ID answers exactly like a known one) and never claims an email was delivered; the recovery link appears only in the email payload and the one-time admin-issued password is returned to the console once â€” neither is persisted, logged or written to a platform audit row.
 
 ## [1.39.0] - 2026-10-31
 
@@ -107,8 +109,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- #353 the admin and superadmin consoles gain a **Backup page** that downloads a SQL export of the database with a recorded audit entry. A tenant admin gets only their own organizations' rows (the same `resolveOrgScope()` chain as the rest of the console); a platform admin gets every allowed table behind a fresh step-up check and a mandatory reason. Each export is rate limited (5 per hour per user), streamed server-side with a 250,000-row pre-flight cap, a 64 MB streaming cap and a 120 s budget, and writes one `PlatformAuditLog` row — who, scope, row counts, size, SHA-256 and outcome, never row data — that also feeds the Backup page history and the audit trail. The file is standard `INSERT` SQL in foreign-key-safe order, has no schema DDL, and its trailer carries the SHA-256 of the payload. A per-table, per-column allow-list (`lib/backup/tables.ts`) is the only thing that can leave the database, and a test compares it with the Prisma data model so a new column fails until someone exports, redacts, omits or excludes it. Device tokens are written as a non-usable `redacted:<id>` placeholder (so a restored row satisfies its unique NOT NULL column) and token hashes, session data, limiter state and job artefacts are excluded.
-- #322 the SQL export carries an **auth identity manifest**: one JSON comment line per exported user with `id`, `supabaseId`, `email`, `farmId`, role and organization links — the minimum a restore needs to recreate the Supabase Auth identities and re-link `User` rows. It never carries a credential. The restore order and the known `PondOwnershipHistory` trigger re-fire are documented in `docs/operations/backup-and-recovery.md` §7.5.
+- #353 the admin and superadmin consoles gain a **Backup page** that downloads a SQL export of the database with a recorded audit entry. A tenant admin gets only their own organizations' rows (the same `resolveOrgScope()` chain as the rest of the console); a platform admin gets every allowed table behind a fresh step-up check and a mandatory reason. Each export is rate limited (5 per hour per user), streamed server-side with a 250,000-row pre-flight cap, a 64 MB streaming cap and a 120 s budget, and writes one `PlatformAuditLog` row â€” who, scope, row counts, size, SHA-256 and outcome, never row data â€” that also feeds the Backup page history and the audit trail. The file is standard `INSERT` SQL in foreign-key-safe order, has no schema DDL, and its trailer carries the SHA-256 of the payload. A per-table, per-column allow-list (`lib/backup/tables.ts`) is the only thing that can leave the database, and a test compares it with the Prisma data model so a new column fails until someone exports, redacts, omits or excludes it. Device tokens are written as a non-usable `redacted:<id>` placeholder (so a restored row satisfies its unique NOT NULL column) and token hashes, session data, limiter state and job artefacts are excluded.
+- #322 the SQL export carries an **auth identity manifest**: one JSON comment line per exported user with `id`, `supabaseId`, `email`, `farmId`, role and organization links â€” the minimum a restore needs to recreate the Supabase Auth identities and re-link `User` rows. It never carries a credential. The restore order and the known `PondOwnershipHistory` trigger re-fire are documented in `docs/operations/backup-and-recovery.md` Â§7.5.
 - `scripts/ops/restore-check.mjs` is a read-only dry run for an exported file: it verifies the checksum and byte count, the allow-list, the absence of credential columns, foreign-key integrity inside the file, identity-manifest coverage and primary-key uniqueness, and it has a `--self-test` that the restore-drill workflow runs. The restore drill and backup docs link it.
 - The Backup page and the settings entry points are translated in English, Hiligaynon and Tagalog (the Hiligaynon and Tagalog strings are drafts for native review; the 83 Tagalog keys are listed in `tl.draft-keys.json`), with a sensitive-data warning on both pages, an accessible history table in UTC and a checksum an operator can compare with the downloaded file.
 
@@ -121,8 +123,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- #334 `disablePlatformUser` now locks the active platform-admin grants (`SELECT … FOR UPDATE`) and performs the last-admin count, the Supabase ban and the revoking writes in one transaction. Two concurrent disables (A disables B while B disables A) can no longer both pass the check and leave the platform with zero active admins; the refusal happens before its ban.
-- #336 the four guarded writes that wrap their body in a catch (`adminUpdateDeviceDailyCap` and `updateNotificationPrefs` / `updatePondSettings` / `updateDeviceDailyCap` in `lib/actions/settings.ts`) now return the specific authorization outcome — not signed in, password change pending, wrong role, suspended organization, read-only view-as or step-up required — with a stable `code` in the action result. A guard `redirect()` is rethrown instead of being flattened into the generic failure sentence, and no reason exposes a role list, id or org name.
+- #334 `disablePlatformUser` now locks the active platform-admin grants (`SELECT â€¦ FOR UPDATE`) and performs the last-admin count, the Supabase ban and the revoking writes in one transaction. Two concurrent disables (A disables B while B disables A) can no longer both pass the check and leave the platform with zero active admins; the refusal happens before its ban.
+- #336 the four guarded writes that wrap their body in a catch (`adminUpdateDeviceDailyCap` and `updateNotificationPrefs` / `updatePondSettings` / `updateDeviceDailyCap` in `lib/actions/settings.ts`) now return the specific authorization outcome â€” not signed in, password change pending, wrong role, suspended organization, read-only view-as or step-up required â€” with a stable `code` in the action result. A guard `redirect()` is rethrown instead of being flattened into the generic failure sentence, and no reason exposes a role list, id or org name.
 - #399 the farmer dashboard now fits one screen at 100 % zoom on laptop viewports (1366x768, 1440x900, 1536x864, 1920x1080): the control room takes its height from `100dvh` minus the header and the `main` pane padding, both held as tokens (`--ofd-topbar-h`, `--ofd-main-pad-y`), and steps down its density on short screens (chart plot area, gaps, hero padding/time, legend size). Only the right-hand rail scrolls internally; nothing is hidden or clipped, and below `lg` the stacked scrolling dashboard is unchanged. The chart plot area is now sized in CSS (`ofd-plot`), so a chart can no longer report a taller height than its card reserves. The page also stopped carrying a phantom scroll range: the shell and the rail are now positioned, so their 1 px `.sr-only` helpers are clipped by the room instead of being positioned against `main`.
 - #321 the superadmin step-up dialog now follows the theme: the shared console dialog shell, header, password field, validation message and both actions carry dark tokens from the design system, with every documented colour pair at WCAG AA (4.5:1) in light and dark. The confirm action uses the AA-safe `#C2410C` (white on the brand orange was 3.54:1).
 
@@ -138,14 +140,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - #327 the Tagalog catalogue (`apps/web/messages/tl.json`) is complete: all 3,511 keys carry a Tagalog string, with the same ICU placeholders, plural branches and rich-text tags as English. The strings are machine-drafted, so `apps/web/messages/tl.draft-keys.json` lists the 3,180 keys still awaiting human review, and the language menu labels the locale "Tagalog (draft)". The 331 strings that existed before the pass are human-reviewed and unchanged. Domain terms and style live in `docs/i18n/tagalog-glossary.md`; Mozilla Firefox Tagalog terminology (MPL-2.0) and Unicode CLDR locale data are attributed in `THIRD_PARTY.md`.
-- #327 the English↔Hiligaynon parity test now also gates Tagalog for key parity, placeholders, plural branches, rich-text tags and blank values. New tests cover the Tagalog overlay fallback (`i18n/merge-messages.ts`) and CLDR `fil` formatting: month/day labels, number grouping, relative time and the `one`/`other` plural categories.
+- #327 the Englishâ†”Hiligaynon parity test now also gates Tagalog for key parity, placeholders, plural branches, rich-text tags and blank values. New tests cover the Tagalog overlay fallback (`i18n/merge-messages.ts`) and CLDR `fil` formatting: month/day labels, number grouping, relative time and the `one`/`other` plural categories.
 
 ## [1.35.0] - 2026-10-31
 
 ### Added
 
 - I-100 firmware 1.7.0 takes a versioned `config` object from the existing feed-command poll, so the daily ceiling, dose amounts, calibration, hopper geometry/thresholds, safe-mode thresholds, button guard, poll interval, OTA pre-flight and calibration limits are dashboard-driven instead of compile-time. Every field is validated against an absolute safety envelope in `firmware/firmware-main/config.h`: a missing, malformed, out-of-range or impossible object is ignored whole and the last-good copy (NVS `cfg_json` / `cfg_rev`, new keys only) or the compile-time defaults stay in force, so a bad config can never raise a bound or disable a guard. The firmware echoes `config_rev` in the heartbeat and the ingest route records one `config_applied` state event per change (no schema change). Old firmware ignores the unknown field and new firmware drives from defaults against an old server. The superadmin configuration centre gains "Firmware safety gates" (min dispense gap, doses per hour, brownout hold, safe-mode window/threshold/quiet/healthy-clear) with min/max validation, a required reason, an audit row and an English/Hiligaynon UI. Contract and inventory: `firmware/README.md` and `docs/firmware-dashboard-config.md`.
-- I-100 E38: the firmware no longer refuses a dose above 1,000 g. The per-dose ceiling is derived as `min(daily ceiling, relay envelope seconds × grams per second)`; the relay-time guard still refuses an over-long dose. Needs a reflash (1.6.2 units keep the 1,000 g refusal until then).
+- I-100 E38: the firmware no longer refuses a dose above 1,000 g. The per-dose ceiling is derived as `min(daily ceiling, relay envelope seconds Ã— grams per second)`; the relay-time guard still refuses an over-long dose. Needs a reflash (1.6.2 units keep the 1,000 g refusal until then).
 - #338 the additive migration `20261031010000_add_feed_event_event_type_received_at_index` adds `FeedEvent(eventType, receivedAt)`, serving the platform feed aggregate and the heartbeat retention sweep. The misleading `(deviceId, receivedAt)` comment in `lib/retention.ts` now names the correct index, and `docs/performance/query-audit.md` records the change. No `CONCURRENTLY`: the table-size lock risk is documented because no database was available to measure it.
 - #339 the additive migration `20261031020000_add_energy_device_pond_id_index` adds `EnergyDevice(pondId)`, which the dashboard's first read, the calendar lookup, global search and notification acknowledgement all filter on.
 - #317 a CI-only e2e preflight (`scripts/e2e/check-ci-target.ts`) runs before `prisma migrate deploy`. With `CI=true` it accepts only the disposable local Supabase stack, so a misconfigured `DATABASE_URL` pointing at a real project fails before any DDL; the production acknowledgement still never makes a remote host eligible in CI.
@@ -181,13 +183,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- #388 device connectivity is now one three-state rule (online / weak signal / offline) shared by the header indicator, sidebar, dashboard, feeder hero, admin and superadmin lists, alerts, assistant context and PWA snapshot. A late heartbeat shows "weak signal" instead of flipping the screen to offline; offline starts only after the platform-configured window plus a grace, with hysteresis so it cannot flap. The weak-signal window, offline window and grace are editable by a platform admin in Settings → Device connectivity (stored in `PlatformSetting` key `device.status`; no schema change), and feed/calibration commands keep the stricter no-grace safety check. A command that is being delivered keeps the device out of the offline state, and the service worker retries a navigation twice before showing the offline shell so a slow link no longer lands readers on the offline dashboard after a single failed request.
+- #388 device connectivity is now one three-state rule (online / weak signal / offline) shared by the header indicator, sidebar, dashboard, feeder hero, admin and superadmin lists, alerts, assistant context and PWA snapshot. A late heartbeat shows "weak signal" instead of flipping the screen to offline; offline starts only after the platform-configured window plus a grace, with hysteresis so it cannot flap. The weak-signal window, offline window and grace are editable by a platform admin in Settings â†’ Device connectivity (stored in `PlatformSetting` key `device.status`; no schema change), and feed/calibration commands keep the stricter no-grace safety check. A command that is being delivered keeps the device out of the offline state, and the service worker retries a navigation twice before showing the offline shell so a slow link no longer lands readers on the offline dashboard after a single failed request.
 
 ## [1.32.0] - 2026-10-30
 
 ### Added
 
-- #370 global search (⌘K / Ctrl+K) finds settings (daily feed ceiling, per-meal ceiling, calibration, hopper capacity and thresholds, schedule) in English and Hiligaynon, only for roles allowed to open them, and jumps to and highlights the field.
+- #370 global search (âŒ˜K / Ctrl+K) finds settings (daily feed ceiling, per-meal ceiling, calibration, hopper capacity and thresholds, schedule) in English and Hiligaynon, only for roles allowed to open them, and jumps to and highlights the field.
 
 ### Fixed
 
@@ -277,8 +279,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - #316 the dashboard header's `LAST SYNCED` label and its relative time are translated (`en`/`hil`/`tl`) with ICU plurals instead of hard-coded English, and the profile menu's device status uses the catalogue rather than the raw enum. A gate entry stops the literal from coming back.
 - #320 `DeviceDailyCapForm` now uses the shared calibration field, so the daily ceiling is clearable, steps in 50 g units, reports range errors accessibly and lines up with the other calibration cards.
-- #345 the account dropdown is readable in dark mode (Admin Panel 3.34:1 → 4.89:1, device offline 2.62 → 5.08, missing 3.03 → 9.96) and finally links to Account settings at `/dashboard/settings/profile`.
-- The feeder 3D model is rebuilt from the tape measurements: a 340 × 450 mm base, a 145 × 450 × 315 mm chassis, one 400 mm PET jar on a 200 mm shelf, and a 50 mm auger tube with a 60 mm motor. The ultrasonic sensor now sits on the jar lid, the 750 mm post and short arm are a wire guide, and the model includes the red rubber motor coupling, the brown tube-end plug, the blue outlet with the red cap, and the two wood tube cradles. Model asset `feeder-v1.1.0.glb` (1.1 MB, 37,800 triangles); the service-worker cache moves to **v6** for the new URL.
+- #345 the account dropdown is readable in dark mode (Admin Panel 3.34:1 â†’ 4.89:1, device offline 2.62 â†’ 5.08, missing 3.03 â†’ 9.96) and finally links to Account settings at `/dashboard/settings/profile`.
+- The feeder 3D model is rebuilt from the tape measurements: a 340 Ã— 450 mm base, a 145 Ã— 450 Ã— 315 mm chassis, one 400 mm PET jar on a 200 mm shelf, and a 50 mm auger tube with a 60 mm motor. The ultrasonic sensor now sits on the jar lid, the 750 mm post and short arm are a wire guide, and the model includes the red rubber motor coupling, the brown tube-end plug, the blue outlet with the red cap, and the two wood tube cradles. Model asset `feeder-v1.1.0.glb` (1.1 MB, 37,800 triangles); the service-worker cache moves to **v6** for the new URL.
 - The viewer camera presets and orbit target are reframed for the smaller machine, and the dispensing auger/coupling now rotate around the tube axis instead of the vertical axis.
 
 ## [1.30.1] - 2026-10-29
@@ -291,15 +293,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- Production dependency audit: `critical` 2 → 0 and `high` 37 → 1 (one allowlisted build/CLI finding, expiring 2027-01-27). `dompurify`, `proxy-addr`, `browserslist`, `source-map-js` and `baseline-browser-mapping` are pinned to patched versions through `pnpm.overrides`; `zod` moves to `^4.6.6`. `shadcn` is a code-generation CLI and now lives in `devDependencies`, so the server stack it drags in is no longer counted as shipped. See `docs/security/supply-chain.md`.
+- Production dependency audit: `critical` 2 â†’ 0 and `high` 37 â†’ 1 (one allowlisted build/CLI finding, expiring 2027-01-27). `dompurify`, `proxy-addr`, `browserslist`, `source-map-js` and `baseline-browser-mapping` are pinned to patched versions through `pnpm.overrides`; `zod` moves to `^4.6.6`. `shadcn` is a code-generation CLI and now lives in `devDependencies`, so the server stack it drags in is no longer counted as shipped. See `docs/security/supply-chain.md`.
 - `pnpm audit --prod` now runs in CI as `.github/workflows/security.yml`: an unallowlisted `critical`/`high` fails the build, and every allowlist entry in `security/audit-allowlist.json` needs a written reason and an expiry of at most 90 days.
 - `.github/dependabot.yml` adds weekly, grouped npm and GitHub Actions update pull requests. No auto-merge.
 
 ### Added
 
-- Automated accessibility gate (ISO 25010 usability, W9): axe-core runs over the login page, the dashboard page shell, the growth plan card, the hardware calibration page, the chat widget and the admin devices console, and fails on any serious or critical violation. Keyboard flows — pond switcher, chat composer, calibration steppers and the harvest modal — are driven with real key presses and assert focus movement, not only that a handler ran.
+- Automated accessibility gate (ISO 25010 usability, W9): axe-core runs over the login page, the dashboard page shell, the growth plan card, the hardware calibration page, the chat widget and the admin devices console, and fails on any serious or critical violation. Keyboard flows â€” pond switcher, chat composer, calibration steppers and the harvest modal â€” are driven with real key presses and assert focus movement, not only that a handler ran.
 - The chat closes on **Escape** from anywhere inside it, including the composer, and returns focus to the floating chat control.
-- `en` ↔ `hil` message-catalogue parity is enforced by a test, and the 19 missing sticker strings are translated. Tagalog stays an English overlay at 9.3% complete and is reported, not gated, pending the owner's decision in #327.
+- `en` â†” `hil` message-catalogue parity is enforced by a test, and the 19 missing sticker strings are translated. Tagalog stays an English overlay at 9.3% complete and is reported, not gated, pending the owner's decision in #327.
 
 - First-party error capture (ISO 25010 reliability): an additive `ErrorEvent` model stores failures with a sha256 fingerprint, increments instead of duplicating, scrubs tokens/JWTs/Supabase keys/e-mails **before** truncation, and never throws into the request path. Visible and resolvable at `/superadmin/operations/errors`, swept after 30 days by the existing `device-watch` cron.
 - Automated tests now cover **92.42% of `apps/web/lib` lines** (from 80.92%), enforced by a coverage threshold that fails CI on regression.
@@ -343,13 +345,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- #307 calibration number fields could not be cleared once they held `0`, so a full distance of zero could not be replaced with a real measurement. Every numeric calibration field now keeps the raw text and parses on submit, so a field can be emptied and re-typed. Hopper centimetre fields step 1 → 2 → 3 → 4 instead of 0.1, and all numeric calibration controls share one field pattern — label, steppers, unit, help text and an announced error — laid out in a responsive three-column grid (one column on phones, two on tablets, three on desktop).
+- #307 calibration number fields could not be cleared once they held `0`, so a full distance of zero could not be replaced with a real measurement. Every numeric calibration field now keeps the raw text and parses on submit, so a field can be emptied and re-typed. Hopper centimetre fields step 1 â†’ 2 â†’ 3 â†’ 4 instead of 0.1, and all numeric calibration controls share one field pattern â€” label, steppers, unit, help text and an announced error â€” laid out in a responsive three-column grid (one column on phones, two on tablets, three on desktop).
 
 ## [1.27.1] - 2026-10-29
 
 ### Fixed
 
-- The hardware **Settings → Live Monitoring** hero now renders the interactive 3D feeder viewer instead of the legacy SVG illustration, and the live status poll runs immediately on load.
+- The hardware **Settings â†’ Live Monitoring** hero now renders the interactive 3D feeder viewer instead of the legacy SVG illustration, and the live status poll runs immediately on load.
 
 ## [1.27.0] - 2026-10-29
 
@@ -386,14 +388,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- #270 global search in the top navbar (⌘K / Ctrl+K) across pages, ponds, devices, members and records, scoped to what the caller can read.
+- #270 global search in the top navbar (âŒ˜K / Ctrl+K) across pages, ponds, devices, members and records, scoped to what the caller can read.
 
 ### Fixed
 
 - #269 dashboard right rail no longer scrolls horizontally; the redundant floating help button is gone. The Time Calibration input/button row now follows the card's own width (container query) instead of the 640 px viewport breakpoint, so both controls fit in the 22 rem rail and the "Set Device Time" button is no longer clipped; the device/controller card no longer splits into two columns inside the rail. Help keeps one entry point: the header control is now on the mobile band too.
-- `docs/audits/2026-10-28-calc-device.md` #1: a failed ultrasonic read (the firmware's `0 %` + `0 cm` timeout sentinel) is no longer stored as an empty hopper — the heartbeat still updates `lastSeenAt`, but the level, history row and low/critical alerts are skipped; a real empty hopper still alerts, and a heartbeat without `feed_level_cm` keeps the last known distance.
+- `docs/audits/2026-10-28-calc-device.md` #1: a failed ultrasonic read (the firmware's `0 %` + `0 cm` timeout sentinel) is no longer stored as an empty hopper â€” the heartbeat still updates `lastSeenAt`, but the level, history row and low/critical alerts are skipped; a real empty hopper still alerts, and a heartbeat without `feed_level_cm` keeps the last known distance.
 - `docs/audits/2026-10-28-calc-device.md` #3: days of feed remaining is computed by one helper with guards (`estimateDaysOfFeedRemaining`); a missing, zero or negative capacity, meal size or meals/day returns null instead of the old `99`-day sentinel, the card floors it for display and the ingest two-day warning compares the fraction.
-- `docs/audits/2026-10-28-calc-device.md` #5: the drift detector walks the level against a baseline, so a rise of ≤ 5 points is ignored without raising it (70 → 75 → 60 now counts 10 points, not 15) while a larger rise starts a refill segment and keeps the earlier drop.
+- `docs/audits/2026-10-28-calc-device.md` #5: the drift detector walks the level against a baseline, so a rise of â‰¤ 5 points is ignored without raising it (70 â†’ 75 â†’ 60 now counts 10 points, not 15) while a larger rise starts a refill segment and keeps the earlier drop.
 - `docs/audits/2026-10-28-calc-device.md` #6: the dashboard, hardware page and assistant load the drift inputs through one query that counts device output only, so imported `hand_fed` daily totals are no longer compared with the hopper drop.
 - `docs/audits/2026-10-28-calc-device.md` #7: recalibration reminders page through every eligible device instead of silently stopping at 200.
 - `docs/audits/2026-10-28-calc-device.md` #8: the feeder hero's next-feed time is covered by a regression test proving it resolves in Asia/Manila on a UTC host; current `develop` already uses the wall-clock helper, so no runtime change was needed.
@@ -407,7 +409,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- #274 Admin → Devices: "Print selected labels" submits no `id` when no device is ticked, so `/admin/devices/labels` called `notFound()` and showed a 404. A label sheet opened without `?id=` now prints every device in the caller's tenant scope (bounded by 40, newest first), an explicit selection still returns 404 when nothing in it is in scope, and an empty device registry renders an empty state instead of a not-found page. The Superadmin → Devices label sheet behaves the same way, behind the unchanged platform-admin gate.
+- #274 Admin â†’ Devices: "Print selected labels" submits no `id` when no device is ticked, so `/admin/devices/labels` called `notFound()` and showed a 404. A label sheet opened without `?id=` now prints every device in the caller's tenant scope (bounded by 40, newest first), an explicit selection still returns 404 when nothing in it is in scope, and an empty device registry renders an empty state instead of a not-found page. The Superadmin â†’ Devices label sheet behaves the same way, behind the unchanged platform-admin gate.
 - #275 the phone Schedule page no longer lets the sticky Save Changes bar cover the Sync Status card; a mobile-only spacer keeps the applied-at line, the schedule summary and Force Resync fully visible and tappable above the bar.
 - #276 the admin, farmer and platform calendars accept a one-day range again: date-range validation counts inclusive days, so the Day view no longer fails with "Choose a date range between 1 and 400 days", and the 400-day limit is exact (400 accepted, 401 rejected).
 - #272 calendar event chips, the "+N more" link, agenda rows and the more popover meet WCAG AA contrast in dark mode while keeping each event's colour identity, instead of saturated red-on-navy with white text.
@@ -437,7 +439,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Firmware 1.6.0 (I-41) fail-safe model: a shutdown handler that opens the relay on every software reset, panic, OTA reboot and `ESP.restart()`; an independent relay-overrun trip (expected dose + 2 s) checked at every network boundary; one dispense gate for every source (10 s minimum gap, six doses per rolling hour, daily gram cap, `MAX_DISPENSE_MS`); a 60 s no-dispense hold after a brownout reset; and reset-reason accounting in NVS.
 - Firmware 1.6.0 safe mode: three brownout/panic/watchdog resets within ten minutes lock the relay OFF, refuse every trigger with reason `safe_mode`, report `safe_mode` and `last_reset_reasons` in the heartbeat, postpone OTA, and clear after 30 quiet minutes or on a Wi-Fi/factory reset hold. A normal power-on clears the history.
 - Firmware 1.6.0 hopper and probe plausibility: five samples with range rejection, median, EMA, a three-cycle persistence rule, hysteresis (low at 20 %, refill above 30 %) and a ten-minute state hold; an invalid cycle omits the level instead of reporting 0 %. The DS18B20 rejects its -127/85 sentinels and anything outside 0..50 C.
-- Firmware 1.6.0 network hygiene: per-event-type token buckets, a bounded offline queue that drops its oldest entry and counts it, and non-blocking HTTP retries with exponential backoff and ±20 % jitter capped at five minutes.
+- Firmware 1.6.0 network hygiene: per-event-type token buckets, a bounded offline queue that drops its oldest entry and counts it, and non-blocking HTTP retries with exponential backoff and Â±20 % jitter capped at five minutes.
 - Firmware 1.6.0 noisy-button guard: more than five rejected glitches in a minute disable the feed button for ten minutes and report `button_disabled`; 1.5.3's 50 ms confirmation, quiet window and 30 s cooldown are unchanged.
 - `firmware/firmware-main/safety.h` and `filters.h`: Arduino-free, header-only safety/filter logic, plus a PlatformIO `[env:native]` Unity suite (`pio test -d firmware -e native`, 27 tests) covering spike rejection, persistence, hysteresis, the gap/hourly/daily caps, safe-mode entry and exit, the button disable, token buckets and retry backoff.
 - A web test proving the ingest schema still accepts a 1.6.0 heartbeat with the new diagnostic keys and every new `feed_refused` reason (no server change).
@@ -483,7 +485,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Firmware 1.5.2 (#252): the setup portal is branded (PakaonAI fish mark, wordmark, tagline "Sakto nga pakaon, sakto nga oras.") and fills its network list with an asynchronous 2.4 GHz scan with a **Rescan** button, signal bars, a lock icon for secured networks and deduplication by SSID. The footer shows the unit's Device ID and AP name.
-- Firmware 1.5.2 (#252): submitting the portal form now tests the network first. The setup AP stays up, the status page shows `Connecting…` and then `Connected to <SSID> · IP · signal` or a failure reason, and only a working link is saved (restart after 5 s).
+- Firmware 1.5.2 (#252): submitting the portal form now tests the network first. The setup AP stays up, the status page shows `Connectingâ€¦` and then `Connected to <SSID> Â· IP Â· signal` or a failure reason, and only a working link is saved (restart after 5 s).
 
 ### Fixed
 
@@ -494,7 +496,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Firmware pin map now matches the hardwired CICT Building A board: feed button GPIO 27 → 23, DS18B20 GPIO 26 → 32, HC-SR04 TRIG GPIO 32 → 12, ECHO GPIO 33 → 14. The relay default stays on GPIO 25 and the CICT unit stays on GPIO 5, built with `-e esp32dev-relay5`: GPIO 5 straps only SDIO slave timing, so it does not need rewiring. Units still on the old map need the matching build flags or a rewire.
+- Firmware pin map now matches the hardwired CICT Building A board: feed button GPIO 27 â†’ 23, DS18B20 GPIO 26 â†’ 32, HC-SR04 TRIG GPIO 32 â†’ 12, ECHO GPIO 33 â†’ 14. The relay default stays on GPIO 25 and the CICT unit stays on GPIO 5, built with `-e esp32dev-relay5`: GPIO 5 straps only SDIO slave timing, so it does not need rewiring. Units still on the old map need the matching build flags or a rewire.
 - The firmware README's reset-button table had the Wi-Fi and factory reset pins swapped (16/17) relative to the code; corrected.
 
 ### Fixed
@@ -511,7 +513,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Day buckets in the pond charts (feed per day, water temperature, hopper) put readings from 00:00–08:00 Manila on the previous day: the `timestamp` columns hold UTC and were converted with a single `AT TIME ZONE`. Every bucket query now converts UTC → Asia/Manila (verified against the database).
+- Day buckets in the pond charts (feed per day, water temperature, hopper) put readings from 00:00â€“08:00 Manila on the previous day: the `timestamp` columns hold UTC and were converted with a single `AT TIME ZONE`. Every bucket query now converts UTC â†’ Asia/Manila (verified against the database).
 - #236 feed figures: the History page's "Recent Feed Dispensed" card added up whatever happened to be on the first page of the event log, mixing machine dispenses (at most 1,000 g each) with imported `hand_fed` daily totals, so 20 rows could read as one 19 kg dispense. It is replaced by "Last feed" (newest machine dispense, with its source and time), "Dispensed today" (every source, current Asia/Manila farm day) and "Last 7 days" (every source, with a daily average), each state its window and uses grams below 1,000 g and kilograms with two decimals at or above it. "By source" now counts the chart's 30-day window and marks hand-fed entries as daily totals, the feed chart is titled "Feed per day" and says hand-fed rows are daily totals, the event log, dashboard, PDF report and feeder hero use the same unit rule,  and the calibration drift check no longer treats hand-fed daily totals as device output.
 
 ## [1.18.1] - 2026-10-28
@@ -540,10 +542,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Admin → Ponds no longer loads each device's plaintext provisioning token (or token hash) and the owner's full account row with the pond list; the page now selects only the fields it renders.
-- Admin → Users now shows the member's organization role and updates it immediately after a role change, instead of the legacy account role.
-- Admin → Users, Ponds and the member-permissions page hide create/archive/edit actions the caller's permissions do not allow, and a direct URL renders a not-found or "view only" notice instead of an error page.
-- Admin → Devices lists pending feeders in the approval queue only, so the numbered pager and the table describe the same rows and pending units on later pages are no longer unreachable.
+- Admin â†’ Ponds no longer loads each device's plaintext provisioning token (or token hash) and the owner's full account row with the pond list; the page now selects only the fields it renders.
+- Admin â†’ Users now shows the member's organization role and updates it immediately after a role change, instead of the legacy account role.
+- Admin â†’ Users, Ponds and the member-permissions page hide create/archive/edit actions the caller's permissions do not allow, and a direct URL renders a not-found or "view only" notice instead of an error page.
+- Admin â†’ Devices lists pending feeders in the approval queue only, so the numbered pager and the table describe the same rows and pending units on later pages are no longer unreachable.
 - The admin audit log and the overview's Recent Activity table translate device event types and sources instead of printing raw keys; the pond detail "Overview" heading is translated.
 - The sticker print page uses the farm's Asia/Manila calendar date for "measured on" instead of the browser's UTC date.
 - The admin calendar keeps every active grow-out cycle in the all-ponds view; only completed/historical cycles keep the 30-row cap.
@@ -553,13 +555,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- Admin → Ponds no longer returns device credentials in bulk through the list action; credentials stay behind the audited, rate-limited single-device reveal.
+- Admin â†’ Ponds no longer returns device credentials in bulk through the list action; credentials stay behind the audited, rate-limited single-device reveal.
 
 ## [1.17.0] - 2026-10-28
 
 ### Added
 
-- Feeder hero on the pond detail and feeder (hardware settings) pages (E29): a dark device-style panel with the feeder drawn in the middle, glassy callouts with thin leader lines to the hopper, spout, housing and water line (hopper level with the shared offline "Last known N%" treatment, grams dispensed today, next scheduled feed with its day or "Schedule paused", water temperature, online/offline with last seen, reported firmware), a status pill and the AI Feed Advisor's one-line summary linking to the full card. Jeff's photo loads from `public/images/feeder/feeder-hero.webp` over a drawn illustration; a missing photo costs at most one request per browser session, and adding the file needs no code change (see the folder's README). Below 768 px the image comes first and the callouts become a 2×3 grid without leader lines. Presentation only — no guards, actions or schema touched.
+- Feeder hero on the pond detail and feeder (hardware settings) pages (E29): a dark device-style panel with the feeder drawn in the middle, glassy callouts with thin leader lines to the hopper, spout, housing and water line (hopper level with the shared offline "Last known N%" treatment, grams dispensed today, next scheduled feed with its day or "Schedule paused", water temperature, online/offline with last seen, reported firmware), a status pill and the AI Feed Advisor's one-line summary linking to the full card. Jeff's photo loads from `public/images/feeder/feeder-hero.webp` over a drawn illustration; a missing photo costs at most one request per browser session, and adding the file needs no code change (see the folder's README). Below 768 px the image comes first and the callouts become a 2Ã—3 grid without leader lines. Presentation only â€” no guards, actions or schema touched.
 
 ### Fixed
 
@@ -575,7 +577,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Farm-facing dates and times render in the farm's timezone (Asia/Manila) instead of the server runtime's, so the dashboard, history, growth, sampling-batch, hardware and farmer audit screens no longer read eight hours behind (or a day early) on a UTC host.
 - The dashboard's next feeding time is computed from the farm wall clock, so an overnight schedule and an evening visit no longer report a feed that already happened.
-- A feeder that has never reported a hopper level shows "—" instead of a made-up 0 %, and Feed Now no longer raises a critical-hopper warning for it.
+- A feeder that has never reported a hopper level shows "â€”" instead of a made-up 0 %, and Feed Now no longer raises a critical-hopper warning for it.
 - The dashboard's low-hopper alert uses the org's configured threshold instead of the built-in 20 % default.
 - Saving the hopper shape calibration refreshes the Hardware settings page that shows the result (it refreshed a legacy redirect stub instead).
 - Hard-deleting a pond whose only remaining record is a legacy `Device` row now reports the device as a blocker instead of failing on the foreign key.
@@ -598,7 +600,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Mobile app shell (E26): every console now has a PakaonAI-branded header band below `lg` (page title, search, "+" quick menu), the farmer bottom bar is a five-tab bar (Overview, Schedule, Biomass log, Alerts, Me) with the active tab in the brand colour, and the tenant admin and platform consoles are five tabs too (four primary sections plus "More"): the platform console had grown to nine sections, which leaves under 44 px per target at 375 px. "More" opens the same quick menu as the header band, so every page that left a bar — the farmer calendar, history, growth, harvest, audit and settings, and every role-aware quick action (add pond/feeder, scan sticker, pond location, log a sample, register a feeder) — is one tap away.
+- Mobile app shell (E26): every console now has a PakaonAI-branded header band below `lg` (page title, search, "+" quick menu), the farmer bottom bar is a five-tab bar (Overview, Schedule, Biomass log, Alerts, Me) with the active tab in the brand colour, and the tenant admin and platform consoles are five tabs too (four primary sections plus "More"): the platform console had grown to nine sections, which leaves under 44 px per target at 375 px. "More" opens the same quick menu as the header band, so every page that left a bar â€” the farmer calendar, history, growth, harvest, audit and settings, and every role-aware quick action (add pond/feeder, scan sticker, pond location, log a sample, register a feeder) â€” is one tap away.
 - Mobile lists (E26): the tenant Ponds and Devices lists gained a tappable All / Online / Alarm / Offline summary strip, an "order by" and "needs attention" chips row, and large cards with a status dot and three key metrics; the strip, chips and the ordering are URL parameters, so they survive navigation and the numbered pagination.
 - Mobile layout pass (E26): user-facing page titles move into the header band below `lg` (the `h1` stays in the markup for assistive tech), farmer and console mains use `dvh` with bottom padding that clears the fixed bar and the device safe area, and the biomass, schedule, pond-settings and pond create/edit forms pin their primary action above the bar on a phone.
 
@@ -676,17 +678,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Browser API client `lib/api-client.ts`: one call path, envelope unwrapping, error mapping, 1 s read timeout, bounded retries for idempotent requests, raw mode for SSE/files.
 - `docs/API_REGULATION_v1.2_PROPOSAL.md` (22 amendments) and `docs/api-regulation-backlog.md` (ranked burn-down with evidence).
 - A read-only `nextjs-supabase-benchmark` subagent and `nextjs-supabase-audit.mjs` harness for auditing other Next.js + Supabase apps.
-- Auth fast path: `auth.getClaims()` verifies the JWT locally when the project uses asymmetric signing keys, with a 30 s verified-session cache and a 60 s `supabaseId → farmId` binding. A cache hit makes no Supabase call and no DB lookup.
+- Auth fast path: `auth.getClaims()` verifies the JWT locally when the project uses asymmetric signing keys, with a 30 s verified-session cache and a 60 s `supabaseId â†’ farmId` binding. A cache hit makes no Supabase call and no DB lookup.
 - Background jobs: `BackgroundJob`/`JobArtifact` tables, `POST /api/v1/export-jobs` (CSV/ZIP/PDF) and `POST /api/v1/import-jobs` returning `202` + `Location`, owner-scoped status/download endpoints, a `GET /api/v1/jobs/metrics` queue-health endpoint, and a `GET /api/v1/cron/jobs` worker that claims with `FOR UPDATE SKIP LOCKED`. The dashboard export, PDF and import flows poll the job and download the artifact; none of them run in the request path. `docs/sql/cron-jobs.sql` schedules the worker.
 - Grow-out cycles (`CropCycle`): one active cycle per pond with stocking date/count, grow-out days, auto-calculated editable harvest date, target weight, expected survival, and actual harvest weight/count/final FCR. A partial unique index enforces the one-active-cycle invariant.
 - Harvest calendar (`PondEvent` + FullCalendar v7): month/week/list views, harvest/stocking/sampling/manual/feeding/device events, filters, all-ponds toggle, drag-to-reschedule for planned events, and a Harvest page in the sidebar and mobile nav.
 - Fallow-pond safety: harvesting or cancelling a cycle pauses the paired feeder and sets `Pond.isFallow`; feed, resume, and schedule changes are blocked until the next cycle starts.
 - Cycle-aware AI advice: the feed advisor and chat prompt receive grow-out day, days to harvest, target weight, projected biomass, and fallow state. The formula and safety clamps remain authoritative.
-- Open Graph and Twitter card metadata now serve a 1200×630 PakaonAI preview image at `/og.png`, using the current logo kit and updated capstone credits.
+- Open Graph and Twitter card metadata now serve a 1200Ã—630 PakaonAI preview image at `/og.png`, using the current logo kit and updated capstone credits.
 - DPA/IRR-aligned Privacy Policy and Terms of Service at `/privacy` and `/terms`, with data-category, cookie/local-storage, subprocessor and retention tables; a research information and informed consent package for the 20 farmer and 10 IT professional respondents; and legal footer/login/profile links. The documents are published as version 1.0, effective 26 October 2026, with sitemap entries and indexable pages.
 - Pre-publication review PDFs for the University Legal Office: Privacy Policy, Terms of Service, and the research information and consent form.
-- Feed-rate calibration target check (#191): dispense a target dose through the normal feed path (daily cap, offline block, `MAX_DISPENSE_MS`), weigh it, and correct g/s from the error; pass at ±5 %, re-test otherwise. Every rate test and target check is a `CalibrationRun` with a session and attempt number, shown as a history table. Per-device recalibration interval with an overdue banner and a deduped reminder, and a rule-based drift detector (dispensed grams vs hopper drop, >15 %) surfaced on Hardware and in the AI chat context.
-- Numbered pagination on every list (#187), with one app-wide page size (default 20) set by the superadmin under Settings → Lists (audited). "Load more" is removed.
+- Feed-rate calibration target check (#191): dispense a target dose through the normal feed path (daily cap, offline block, `MAX_DISPENSE_MS`), weigh it, and correct g/s from the error; pass at Â±5 %, re-test otherwise. Every rate test and target check is a `CalibrationRun` with a session and attempt number, shown as a history table. Per-device recalibration interval with an overdue banner and a deduped reminder, and a rule-based drift detector (dispensed grams vs hopper drop, >15 %) surfaced on Hardware and in the AI chat context.
+- Numbered pagination on every list (#187), with one app-wide page size (default 20) set by the superadmin under Settings â†’ Lists (audited). "Load more" is removed.
 - Org settings (#190): default feeding rate for new ponds; notification settings (hopper-low %, offline-alert delay, missed-feeding alerts, alert roles); and device registration (admin approval or self-register) with an "Add feeder" flow and a pending-approval queue. Device API routes refuse non-approved feeders with 403.
 - Google-Calendar-style calendar (#195, #196): drag to create/move/resize, Event vs Task, colours, daily/weekly/monthly recurrence, and 1 h / 1 day reminders (in-app + email).
 - Sticker rating override on the print page (#197): V/Hz/A/VA with live preview, per-print override in the URL, and a platform-admin default (`PlatformSetting` `sticker.rating`, audited).
@@ -697,12 +699,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Superadmin configuration centre (I-14): the sectioned `/superadmin/settings` page now covers lists, sticker rating, AI providers, email/invite readiness (presence only, never a secret), feeding safety caps, defaults for new organizations, firmware/OTA status and feature flags. Every write is a platform action with a required reason and a `PlatformAuditLog` row stored in `PlatformSetting` (no schema change). Feeding caps can only be lowered below the hard-coded maxima and readers clamp with `min(setting, hardMax)`; organization defaults apply when an org has no settings row.
 - Assistant actions with Accept/Reject (#194): the model can only propose, through a server-defined tool catalogue, feeding changes (grams, meals/day, rate, pause/resume), Feed Now, records (biomass sample, calendar event/task, grow-out cycle, mark a task done), member invitations/roles/permissions, and platform suspend/restore or view-as. Every proposal is a 10-minute `AssistantAction` row with a zod-validated payload; Accept re-checks the caller, permissions and step-up, then runs the same server action the UI button uses (same caps, offline/fallow blocks and audit). Nothing runs without Accept. The tool list is filtered by role and permission.
 - Assistant guidance (#194): "take me to X" resolves only from the caller's help-centre destinations and highlights the real control with the help "Show me" engine, and the first message introduces the assistant by role (farmer, farm owner, platform admin). The mascot lives in one `components/assistant/mascot.tsx` slot with a placeholder pending Jeff's art (#193).
-- Power-rating sticker for every feeder (#174): 95 × 66 mm, 8 per A4, English only, with an SSID-only Wi-Fi QR (`PakaonAI-XXXX` from the chip eFuse MAC). It never contains a device token.
+- Power-rating sticker for every feeder (#174): 95 Ã— 66 mm, 8 per A4, English only, with an SSID-only Wi-Fi QR (`PakaonAI-XXXX` from the chip eFuse MAC). It never contains a device token.
 - Superadmin device registry (#179, #183): register a feeder onto an org pond, rotate its token, print labels, and remote feed within the safety caps.
 - Superadmin god mode (#183): read-only view-as with a signed session and red banner; manage any org's members and permissions; step-up re-authentication for dangerous actions; reversible user disable.
-- Tenant RBAC in Admin → Settings (#183): invite members, change roles, grant or revoke per-member permissions, with last-owner protection.
+- Tenant RBAC in Admin â†’ Settings (#183): invite members, change roles, grant or revoke per-member permissions, with last-owner protection.
 - Email invites through Resend from `invite@syntaxure.dev` (#183).
-- Remote firmware updates (#183): `/api/firmware/check` with ECDSA P-256 signed manifests in a private `firmware` bucket, `scripts/ota/sign-release.mjs`, and a firmware OTA client with rollback health check, a 10:00–15:00 window at least 20 min from feeds, and feed-button abort.
+- Remote firmware updates (#183): `/api/firmware/check` with ECDSA P-256 signed manifests in a private `firmware` bucket, `scripts/ota/sign-release.mjs`, and a firmware OTA client with rollback health check, a 10:00â€“15:00 window at least 20 min from feeds, and feed-button abort.
 - Firmware 1.4.0: Wi-Fi reset on GPIO 17 (5 s) and factory reset on GPIO 16 (10 s); server URLs on `pakaonai.syntaxure.dev`; `FW_VERSION` reported; zero sketch warnings on Arduino core 2.0.17.
 - Production E2E suite with isolated `e2e-` fixtures, guarded seed/cleanup scripts, and specs for auth, sticker print, registry, RBAC, view-as, remote-feed caps and offline PWA.
 
@@ -754,9 +756,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Device-hosted WiFi provisioning: the ESP32 exposes `OptiFeed-XXXX` with a setup page at `192.168.4.1`, stores credentials in NVS, and reopens the portal after a 5-second button hold at boot. The hardware settings page now explains this flow instead of showing fake fields.
-- Device identity provisioning in the same portal: Device ID (MAC) and Device Token are written to NVS, so one firmware image works for every unit. Admins can reveal a device token on demand from Admin → Devices; it is never included in list responses.
+- Device identity provisioning in the same portal: Device ID (MAC) and Device Token are written to NVS, so one firmware image works for every unit. Admins can reveal a device token on demand from Admin â†’ Devices; it is never included in list responses.
 - `MembershipPermission` enforcement: tenant actions now check the permission table, with role defaults as a compatibility bridge. `control_feeder` is revocable per membership, including for an owner.
-- AI feeding prediction on the Growth page: deterministic baseline refined by the AI provider, explicit "apply" action, and the same ±50% deviation veto as biomass auto-adjust.
+- AI feeding prediction on the Growth page: deterministic baseline refined by the AI provider, explicit "apply" action, and the same Â±50% deviation veto as biomass auto-adjust.
 - Growth history page with feed-level, growth and biomass tabs; server-side pagination, date-range filters, search and shareable URLs. The Growth page cards are now compact previews.
 - Biomass log provenance (`source`) with import and seed badges.
 - A static test that every API route uses `withAuth`/`withCronAuth`, is a device-token route, or is the allowlisted health route.
@@ -765,7 +767,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - AI provider is now OpenCode Go: `OPENCODE_GO_API_KEY`, `OPENCODE_GO_MODEL` and `OPENCODE_GO_REASONING_EFFORT`. Gemini and OpenRouter variables are retired.
-- Tablets (768–1023 px) now use the bottom navigation instead of having no navigation at all; the admin and platform consoles gained a mobile bottom bar too.
+- Tablets (768â€“1023 px) now use the bottom navigation instead of having no navigation at all; the admin and platform consoles gained a mobile bottom bar too.
 - Profile and hardware settings no longer show fake values or dead buttons; unavailable actions are disabled with an explanation.
 - The Growth page now routes its remaining strings through next-intl (English + Hiligaynon).
 
@@ -773,7 +775,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Dark-mode contrast on the dashboard, growth, history, notifications, audit and error/404 surfaces.
 - Locale is preserved when navigating notification filters, audit "load more", growth links and history pagination.
-- Empty states for the dashboard's recent feedings and the admin users table; the FCR tile shows "—" instead of claiming an optimal trend when no report exists.
+- Empty states for the dashboard's recent feedings and the admin users table; the FCR tile shows "â€”" instead of claiming an optimal trend when no report exists.
 - Duplicate `acknowledge` key in `hil.json` that failed the lint gate.
 - `/api/health` now returns only `{status}` (200/503) without database error detail.
 - Platform-admin users are excluded from tenant admin counts and hierarchies consistently.
@@ -796,8 +798,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Feed Level Monitoring (HC-SR04 Ultrasonic Sensor)**
   - Added `FeedLevelLog` model and 6 new fields to `EnergyDevice` (`feedLevelPercent`, `feedLevelCm`, `feedLevelUpdatedAt`, `hopperEmptyCm`, `hopperFullCm`, `hopperCapacityG`) for hopper level tracking.
   - Extended ESP32 firmware with HC-SR04 support: median-of-3 ultrasonic readings, linear distance-to-level conversion for cylindrical 10L bottle, and piggyback on existing heartbeat payload.
-  - Extended `POST /api/ingest` heartbeat handler to ingest `feed_level_percent` and `feed_level_cm`, update `EnergyDevice`, log to `FeedLevelLog` (30-min or >5% delta), and create tiered notifications (≤5% CRITICAL, ≤20% WARNING, ≤2 days remaining WARNING) reusing the "pellet" category.
-  - Extended `GET /api/feed-command` and `GET /api/schedule-sync` to return `hopper_empty_cm` and `hopper_full_cm` calibration values — ESP32 receives dynamic calibration on every poll cycle.
+  - Extended `POST /api/ingest` heartbeat handler to ingest `feed_level_percent` and `feed_level_cm`, update `EnergyDevice`, log to `FeedLevelLog` (30-min or >5% delta), and create tiered notifications (â‰¤5% CRITICAL, â‰¤20% WARNING, â‰¤2 days remaining WARNING) reusing the "pellet" category.
+  - Extended `GET /api/feed-command` and `GET /api/schedule-sync` to return `hopper_empty_cm` and `hopper_full_cm` calibration values â€” ESP32 receives dynamic calibration on every poll cycle.
   - Added `FeedLevelCard` dashboard component showing level percent, color-coded progress bar, days-remaining estimate, and last-updated timestamp.
   - Added `HopperCalibrationForm` client component and `saveHopperCalibration()` server action for per-device empty/full distance and capacity settings in App & Hardware Settings.
   - Added feed level trend sparkline (SVG) and history table to Growth & FCR page.
@@ -814,91 +816,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.9.0] - 2026-07-12
 
 ### Added
-- **Phase 0 — Device state & command event model foundation.**
-  - Added `DeviceStateEvent` model — unified event log recording every device write (commands) and every device read (state events). Single source of truth for audit trail, notifications, and schedule sync.
-  - Added `ScheduleCommand` model — schedule edits are queued commands with status lifecycle (`pending` → `sent` → `acked` → `applied` / `failed`), never written directly to `Pond`.
-  - Added `buttonFeedGrams` field to `EnergyDevice` — configurable remote button dose, pushed via poll response. No OTA needed to change.
+- **Phase 0 â€” Device state & command event model foundation.**
+  - Added `DeviceStateEvent` model â€” unified event log recording every device write (commands) and every device read (state events). Single source of truth for audit trail, notifications, and schedule sync.
+  - Added `ScheduleCommand` model â€” schedule edits are queued commands with status lifecycle (`pending` â†’ `sent` â†’ `acked` â†’ `applied` / `failed`), never written directly to `Pond`.
+  - Added `buttonFeedGrams` field to `EnergyDevice` â€” configurable remote button dose, pushed via poll response. No OTA needed to change.
   - Extended `Notification` with `category`, `acknowledgedAt`, `acknowledgedBy`, `autoCleared` fields.
   - Extended `FeedEvent` to accept `schedule_acked` event type with `commandId` link.
-  - Extended `FeedRequest.status` with `fulfilled_by_other_trigger` — used by reconciliation when a late-arriving button/scheduled event fulfills a previously-expired dashboard request.
-  - Deprecated `FeedingEvent` and `Device` models — kept for backward-compat seed data; all new code uses `DeviceStateEvent` and `EnergyDevice`.
-- **Phase 0b — Backend reconciliation + schedule sync.**
-  - Gap 1 fix: `POST /api/ingest` runs reconciliation on late `feed_dispensed` events — finds orphaned expired/pending FeedRequests within 4-hour lookback, updates status to `fulfilled_by_other_trigger`, creates `feed_reconciled` DeviceStateEvent.
-  - Added `GET /api/schedule-sync` endpoint — ESP32 polls for pending schedule commands. Returns `schedule_start`, `schedule_end`, `feeds_per_day`, `grams_per_feeding`, `button_feed_grams`.
+  - Extended `FeedRequest.status` with `fulfilled_by_other_trigger` â€” used by reconciliation when a late-arriving button/scheduled event fulfills a previously-expired dashboard request.
+  - Deprecated `FeedingEvent` and `Device` models â€” kept for backward-compat seed data; all new code uses `DeviceStateEvent` and `EnergyDevice`.
+- **Phase 0b â€” Backend reconciliation + schedule sync.**
+  - Gap 1 fix: `POST /api/ingest` runs reconciliation on late `feed_dispensed` events â€” finds orphaned expired/pending FeedRequests within 4-hour lookback, updates status to `fulfilled_by_other_trigger`, creates `feed_reconciled` DeviceStateEvent.
+  - Added `GET /api/schedule-sync` endpoint â€” ESP32 polls for pending schedule commands. Returns `schedule_start`, `schedule_end`, `feeds_per_day`, `grams_per_feeding`, `button_feed_grams`.
   - `GET /api/feed-command` response extended with `button_feed_grams`.
   - Heartbeat handling auto-creates `connected` / `disconnected` DeviceStateEvents on state transitions. Offline threshold: 15 minutes.
   - Device reconnection auto-clears stale `connectivity` notifications (`autoCleared = true`, `read = true`).
-- **Phase 0c — Firmware (ESP32) updates.**
+- **Phase 0c â€” Firmware (ESP32) updates.**
   - `pollScheduleCommand()` fetches schedule from backend, dynamically rebuilds `feedTimes[]` (up to 24 slots) from `schedule_start`, `schedule_end`, `feeds_per_day`.
   - Button dose (`cachedButtonFeedGrams`) read from backend poll response instead of compile-time `#define`.
   - `postScheduleAck()` sends `schedule_acked` event back to confirm application.
   - Default schedule (06:00, 19:00) on boot if backend unreachable.
-- **Phase 1 — Audit trail.**
+- **Phase 1 â€” Audit trail.**
   - New `/dashboard/audit` page with filterable timeline of all `DeviceStateEvent` entries. Filter tabs: All / Feeding / Connectivity / Schedule / Commands.
   - Dual-timestamp display: device RTC time + server receipt time.
   - Shows reconciliation events (`feed_reconciled`) with link to original expired request.
   - Paginated with "Load more" cursor.
-- **Phase 2 — Notification accuracy.**
+- **Phase 2 â€” Notification accuracy.**
   - Notification center `/dashboard/notifications` reworked: tier filter tabs (All / Critical / Warning / Info / Success), category filter tabs, per-row Acknowledge button, "Mark all read" button.
-  - Removed the "intentionally static" disclaimer — live data from Phase 0 state events.
-- **Phase 4 — Editable schedule.**
+  - Removed the "intentionally static" disclaimer â€” live data from Phase 0 state events.
+- **Phase 4 â€” Editable schedule.**
   - Schedule page `/dashboard/schedule` converted from read-only to editable via `ScheduleEditor` component.
   - Time picker inputs for schedule start/end, plus feeds-per-day and feeding rate.
   - Sync status card showing "Pending device sync" vs. "Applied at [time]" per field, reusing the dual-timestamp pattern from Phase 0.
   - "Force Resync" button re-queues current values as a new ScheduleCommand.
   - `PondSettingsForm` routes through `updateScheduleCommand()` instead of direct `Pond.update()`.
 - **Session-end hardening (Gap 4 + Gap 2 repeat detection).**
-  - `requestFeed()` now expires stale `dispatched` FeedRequests >10min before creating new ones. Fallback uses `gramsPerFeeding` (150g) instead of `buttonFeedGrams` (80g) — remote farmers get the real dose.
+  - `requestFeed()` now expires stale `dispatched` FeedRequests >10min before creating new ones. Fallback uses `gramsPerFeeding` (150g) instead of `buttonFeedGrams` (80g) â€” remote farmers get the real dose.
   - `updateScheduleCommand()` expires stale `sent` ScheduleCommands >10min before creating new ones.
   - New `StuckRequestBanner` component on the schedule page with 4 states:
-    1. **Device offline** — collapses feed + schedule into one root-cause message.
-    2. **Single stuck feed** — dispatched but never confirmed. Retry button.
-    3. **Repeat feed failure (≥2)** — escalated message showing count + earliest timestamp. Indicates likely hardware (relay) problem, not network.
-    4. **Stuck schedule** — sent but never acked. Force Resync button.
+    1. **Device offline** â€” collapses feed + schedule into one root-cause message.
+    2. **Single stuck feed** â€” dispatched but never confirmed. Retry button.
+    3. **Repeat feed failure (â‰¥2)** â€” escalated message showing count + earliest timestamp. Indicates likely hardware (relay) problem, not network.
+    4. **Stuck schedule** â€” sent but never acked. Force Resync button.
   - Feed + schedule banners stack vertically when both exist offline trumps all.
 - Added Hiligaynon translations for all new i18n keys (audit trail, schedule editor, stuck banner, notification center).
 - Added "Audit Trail" link sidebar navigation.
 
 ### Changed
-- `requestFeed()` fallback dose: `buttonFeedGrams` → `gramsPerFeeding` (80g → 150g). Remote "Feed Now" carries the real scheduled dose.
-- Schedule data flow: farmer edits → `ScheduleCommand` (pending) → device polls `/api/schedule-sync` → status `sent` → device acks → status `applied`. No direct `Pond` writes.
+- `requestFeed()` fallback dose: `buttonFeedGrams` â†’ `gramsPerFeeding` (80g â†’ 150g). Remote "Feed Now" carries the real scheduled dose.
+- Schedule data flow: farmer edits â†’ `ScheduleCommand` (pending) â†’ device polls `/api/schedule-sync` â†’ status `sent` â†’ device acks â†’ status `applied`. No direct `Pond` writes.
 - Ingest route now creates `DeviceStateEvent` entries for all event types, enabling the unified audit trail.
 - Notification center no longer declares itself "intentionally static."
 
 ### Fixed
 - Gap 1 (reconciliation on late button events): orphaned expired FeedRequests are corrected to `fulfilled_by_other_trigger` when the late event arrives, with a `feed_reconciled` audit entry.
-- Gap 4 (stuck dispatched/sent states on dead devices): lazy expiry in server actions marks them expired/failed after 10 minutes, triggered on next user action — no cron needed.
-- Gap 2 repeat detection: ≥2 consecutive stuck dispatched feeds escalates the banner from "retry" to "hardware problem — inspect."
+- Gap 4 (stuck dispatched/sent states on dead devices): lazy expiry in server actions marks them expired/failed after 10 minutes, triggered on next user action â€” no cron needed.
+- Gap 2 repeat detection: â‰¥2 consecutive stuck dispatched feeds escalates the banner from "retry" to "hardware problem â€” inspect."
 
 ### Added
-- Added `hopperLevelPct` prop to `FeedNowButton` — the confirm modal now shows a red critical warning when hopper is below 10% and an amber warning below 25%.
-- Added offline awareness to `FeedNowButton` — a red `AlertTriangle` banner appears in the confirm modal when the ESP32 has not sent a heartbeat within the offline threshold.
-- Added `"Awaiting device…"` label state to `FeedNowButton` while the feed request is in-flight, replacing the static button label during `dispensing`.
-- Added distinct `toast.info("Feed already queued — awaiting device")` when a duplicate "Feed Now" click is detected (suppressed silently before).
-- Added live `Notification` row creation in `/api/ingest` on every `feed_dispensed` event — the Notification Center now receives real data, not only seeded rows.
-- Added `requestFeed` duplicate-request guard in `lib/actions/energy.ts` — returns `{ success: true, message: "Feed already pending" }` instead of creating duplicate `FeedRequest` rows.
+- Added `hopperLevelPct` prop to `FeedNowButton` â€” the confirm modal now shows a red critical warning when hopper is below 10% and an amber warning below 25%.
+- Added offline awareness to `FeedNowButton` â€” a red `AlertTriangle` banner appears in the confirm modal when the ESP32 has not sent a heartbeat within the offline threshold.
+- Added `"Awaiting deviceâ€¦"` label state to `FeedNowButton` while the feed request is in-flight, replacing the static button label during `dispensing`.
+- Added distinct `toast.info("Feed already queued â€” awaiting device")` when a duplicate "Feed Now" click is detected (suppressed silently before).
+- Added live `Notification` row creation in `/api/ingest` on every `feed_dispensed` event â€” the Notification Center now receives real data, not only seeded rows.
+- Added `requestFeed` duplicate-request guard in `lib/actions/energy.ts` â€” returns `{ success: true, message: "Feed already pending" }` instead of creating duplicate `FeedRequest` rows.
 - Added `EnergyControllerCard` offline banner prop (`isOffline`) with red `AlertTriangle` alert and updated status badge to show `"Offline"` state in red.
-- Added `event_id` deduplication to `/api/ingest` — firmware retries with the same `event_id` are safely ignored via `FeedEvent.eventId @unique` and `P2002` error handling.
-- Added lazy-expiry logic to `/api/feed-command` — pending `FeedRequest` rows older than 60 seconds are marked `"expired"` before dispatching, preventing an offline device from firing a backlog of stale commands on reconnect.
+- Added `event_id` deduplication to `/api/ingest` â€” firmware retries with the same `event_id` are safely ignored via `FeedEvent.eventId @unique` and `P2002` error handling.
+- Added lazy-expiry logic to `/api/feed-command` â€” pending `FeedRequest` rows older than 60 seconds are marked `"expired"` before dispatching, preventing an offline device from firing a backlog of stale commands on reconnect.
 - Added `@@index([pondId, recordedAt])` to `BiomassLog` to speed up the latest-sample query on every dashboard load.
-- Added `docs/audit-report.html` and `optifeed-feed-request-roadmap.html` — visual audit report and interactive roadmap tracking the feed request flow implementation status.
+- Added `docs/audit-report.html` and `optifeed-feed-request-roadmap.html` â€” visual audit report and interactive roadmap tracking the feed request flow implementation status.
 
 ### Fixed
-- Fixed success toast wording in `FeedNowButton` from an implied "done" message to `"Feed request sent — device will dispense within 5s"` to accurately reflect that the DB write succeeded, not the physical dispense.
-- Fixed `EnergyControllerCard` status badge — now correctly renders `"Offline"` with a red dot (previously only showed `"Feeding..."` or `"Idle"`).
+- Fixed success toast wording in `FeedNowButton` from an implied "done" message to `"Feed request sent â€” device will dispense within 5s"` to accurately reflect that the DB write succeeded, not the physical dispense.
+- Fixed `EnergyControllerCard` status badge â€” now correctly renders `"Offline"` with a red dot (previously only showed `"Feeding..."` or `"Idle"`).
 - Fixed `FeedEvent.createdAt` renamed to `receivedAt` for semantic clarity (server receipt time, not device event time).
 
 ### Changed
-- Renamed `apps/web/middleware.ts` → `proxy.ts` to avoid conflict with Next.js middleware conventions.
+- Renamed `apps/web/middleware.ts` â†’ `proxy.ts` to avoid conflict with Next.js middleware conventions.
 - `FeedNowButton` and `ScheduleControls` now call `requestFeed` from `lib/actions/energy.ts` (the `FeedRequest` polling path the ESP32 reads) instead of the legacy `triggerManualFeed` from `lib/actions/schedule.ts` (which only wrote a `FeedingEvent` log row and never reached the hardware).
-- Updated migration `20260711000001_audit_fixes` — adds `FeedEvent.eventId` unique column, `BiomassLog` index, and `FeedRequest.status` expiry support.
+- Updated migration `20260711000001_audit_fixes` â€” adds `FeedEvent.eventId` unique column, `BiomassLog` index, and `FeedRequest.status` expiry support.
 
 ## [1.8.7] - 2026-07-11
 
 ### Added
 - Integrated Google Gemini API (`gemini-2.0-flash`) into the OptiFeed Assistant chatbot for AI-powered responses.
 - Created `lib/gemini.ts` service module with `askGemini()` and `isGeminiEnabled()` helpers.
-- Added `GEMINI_API_KEY` environment variable — just paste your key in `.env` to enable the AI assistant.
+- Added `GEMINI_API_KEY` environment variable â€” just paste your key in `.env` to enable the AI assistant.
 - Chat now fetches real pond context (schedule, FCR, device status, biomass, feeding events) and passes it to Gemini as a system prompt.
 - Gemini responds in the user's selected locale (English or Hiligaynon) with data-aware answers.
 

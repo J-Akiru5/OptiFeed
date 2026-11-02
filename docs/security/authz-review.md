@@ -50,7 +50,7 @@ deny path is the default on missing data or an error.
 | `getCurrentUser()` (`session.ts`) | Session + `User` row + e-mail/farm binding | `null` | Every server-side read |
 | `requirePasswordChanged()` / `assertPasswordChanged()` | Authenticated and no forced password change pending | Redirect / throws | Every layout; write guards; API-adjacent actions |
 | `requireRole(...roles)` | Legacy `User.role` is in the list | Redirect to `/dashboard` | No call site left in `apps/web/app`; tenant gates use `requireTenantAdmin()`. Kept for compatibility |
-| `requireWriteAccess()` | ADMIN/OPERATOR + password changed + not view-as | Throws | Tenant write actions |
+| `requireWriteAccess()` | A writing membership (OWNER/ADMIN/OPERATOR) in an ACTIVE org + password changed + not view-as; `User.role` is consulted only for accounts with no membership row | Throws | Tenant write actions |
 | `getTenantAdminState()` / `isCurrentTenantAdmin()` / `requireTenantAdmin()` (`tenant-admin.ts`) | Active OWNER/ADMIN membership in an ACTIVE org | Redirect | `/admin` layout; admin actions; print labels |
 | `requirePermission(name)` (`permissions.ts`) | Role defaults + explicit grants − revocations | Throws `Forbidden` | Admin actions (members, schedule, ponds, calibration, …) |
 | `isCurrentPlatformAdmin()` / `requirePlatformAdmin()` (`require-platform-admin.ts`, `platform-admin.ts`) | Active PlatformAdmin row | Redirect / used as a boolean | `/superadmin` layout; every `lib/actions/platform/*` and `superadmin.ts` export |
@@ -89,6 +89,19 @@ from the request body.
 Additional role checks inside session routes: `jobs/metrics` requires `User.role === "ADMIN"`;
 `platform/audit/export` and `platform/calendar/events` require an active platform admin. Import and
 import-job creation call `requireWriteAccess()` inside the handler, so a VIEWER cannot write.
+
+### Legacy `User.role` reads (audited for #583)
+
+The write gate no longer reads the column. These are the remaining reads, each intentional:
+
+| Site | Why it stays on the legacy column |
+| --- | --- |
+| `/api/jobs/metrics` (`app/api/jobs/metrics/route.ts`) | Read-only, owner-scoped, sunset legacy API. Tightening it to a membership gate is a separate change; it cannot write. |
+| `/api/user-role` (`app/api/user-role/route.ts`) | Returns the caller's own row to the client for display. No internal consumer and no write decision; sunset legacy API. |
+| `updatePlatformUser` (`lib/actions/superadmin.ts`) | The platform console is the only place allowed to change the column, behind platform admin, a reason and an audit row. |
+| Backup identity export (`lib/backup/identity.ts`) | A backup must round-trip the column, so it is exported verbatim. |
+| Audit rows (`lib/actions/audit.ts`) | Records what the actor's flag was at the time; history must not be rewritten. |
+| `getCurrentUserRole()` / private `requireRole()` (`lib/auth/session.ts`) | Kept for the legacy API above and compatibility; no `apps/web/app` call site gates a tenant write on it. |
 
 ---
 

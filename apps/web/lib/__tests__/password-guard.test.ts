@@ -8,7 +8,14 @@ vi.mock("@/lib/supabase/server", () => {
 });
 
 vi.mock("@/lib/prisma", () => ({
-	default: { user: { findUnique: vi.fn() } },
+	default: {
+		user: { findUnique: vi.fn() },
+		// #583: the write gate resolves the membership before the legacy role.
+		// No rows here models a pre-membership account, which is what the legacy
+		// fallback cases below exercise.
+		membership: { findMany: vi.fn(), count: vi.fn() },
+		organization: { findMany: vi.fn() },
+	},
 }));
 
 vi.mock("@/i18n/routing", () => ({ redirect: vi.fn() }));
@@ -47,6 +54,9 @@ async function setUser(overrides: Partial<typeof USER> = {}) {
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	// No membership rows: these cases are the pre-membership legacy accounts.
+	vi.mocked(prisma.membership.findMany).mockResolvedValue([]);
+	vi.mocked(prisma.membership.count).mockResolvedValue(0);
 });
 
 describe("assertPasswordChanged", () => {

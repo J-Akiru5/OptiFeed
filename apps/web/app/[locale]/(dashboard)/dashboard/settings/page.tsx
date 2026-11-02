@@ -10,11 +10,12 @@ import {
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
 import { FarmRenameForm } from "@/components/farm-rename-form";
+import { PondList } from "@/components/settings/pond-list";
 import { Link } from "@/i18n/routing";
 import { getFarmOverview } from "@/lib/actions/farm";
 import { canWrite } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
-import { Cpu, Database, Droplets, Settings, Sprout, User } from "lucide-react";
+import { Cpu, Database, Settings, Sprout, User } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export default async function SettingsPage() {
@@ -71,32 +72,15 @@ export default async function SettingsPage() {
 							<FarmRenameForm initialName={farm.name} canWrite={writeAccess} />
 						</div>
 
-						<div className="min-w-0 space-y-2">
-							<p className={dashboardLabel}>{t("pondsLabel")}</p>
-							{farm.ponds.length === 0 ? (
-								<DashboardEmptyState
-									icon={Droplets}
-									title={t("noPonds")}
-									description={t("noPondsHint")}
-									className="px-4 py-8"
-								/>
-							) : (
-								<ul className="space-y-2">
-									{farm.ponds.map((pond) => (
-										<li
-											key={pond.id}
-											className="flex min-h-11 items-center gap-2 rounded-xl border border-gray-200 bg-[#F4F7F6] px-4 py-2 text-sm font-bold text-[#0A3D62] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-										>
-											<Droplets
-												aria-hidden="true"
-												className="h-4 w-4 shrink-0 text-[#0A3D62] dark:text-[#5b9bd5]"
-											/>
-											{pond.name}
-										</li>
-									))}
-								</ul>
-							)}
-						</div>
+						<PondList
+							ponds={farm.ponds}
+							label={t("pondsLabel")}
+							countLabel={t("pondsCount", { count: farm.ponds.length })}
+							emptyTitle={t("noPonds")}
+							emptyHint={t("noPondsHint")}
+							manageLabel={t("managePonds")}
+							manageHref="/dashboard/settings/pond"
+						/>
 					</div>
 				</DashboardSection>
 			) : (

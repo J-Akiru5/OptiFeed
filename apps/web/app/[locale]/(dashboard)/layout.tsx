@@ -104,7 +104,7 @@ export default async function DashboardLayout({
 
 			const [unreadCount, hopper] = await Promise.all([
 				prisma.notification.count({
-					where: { pondId: pond.id, read: false },
+					where: { pondId: pond.id, read: false, supersededById: null },
 				}),
 				loadPondHopper(pond.id),
 			]);

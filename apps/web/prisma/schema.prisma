@@ -463,6 +463,11 @@ model FeedRequest {
 
   device EnergyDevice @relation(fields: [deviceId], references: [id])
 
+  // #581: at most one pending row per device is enforced by the partial unique
+  // index "FeedRequest_deviceId_pending_key" created in migration
+  // 20261102190000_feed_request_pending_unique. Prisma cannot express a partial
+  // index, so do not replace it with a plain @@unique([deviceId]) or a full
+  // index: either would also forbid the historical rows a device accumulates.
   @@index([deviceId, status])
   @@index([farmId])
 }

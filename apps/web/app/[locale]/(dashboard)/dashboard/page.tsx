@@ -775,10 +775,9 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 								// server, and a static render has no Suspense boundary to catch a
 								// suspended async component.
 								await WaterTempCard({
-									tempC:
-										energyDevice.waterTempC === null
-											? null
-											: energyDevice.waterTempC + (energyDevice.tempOffsetC ?? 0),
+									// #622: ingest stores the firmware's already-offset
+									// reading; adding the offset here showed it twice.
+									tempC: energyDevice.waterTempC,
 									tempOk: energyDevice.waterTempOk,
 									updatedAt: energyDevice.waterTempUpdatedAt,
 									isDeviceOffline: esp32Offline,

@@ -1,7 +1,11 @@
+import { DeviceSignalReading } from "@/components/device-signal";
+import { FeedLevelDisplay } from "@/components/feed-level-display";
 import {
 	Badge,
+	type BadgeTone,
 	Card,
 	EmptyState,
+	MetaPair,
 	PageHeader,
 	SECONDARY_BUTTON,
 	TableFrame,
@@ -9,7 +13,10 @@ import {
 import { Link } from "@/i18n/routing";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import type { DeviceConnectionState } from "@/lib/device-status";
 import { getFleetMonitor } from "@/lib/platform/fleet-health";
+import type { DeviceTelemetryRow, ReadingFreshness } from "@/lib/platform/fleet-health-rules";
+import { worstDevices } from "@/lib/platform/fleet-health-rules";
 import type { BandState } from "@/lib/platform/status-band-rules";
 import { cn } from "@/lib/utils";
 import {
@@ -19,11 +26,16 @@ import {
 	type LucideIcon,
 	OctagonAlert,
 	Radio,
+	ShieldAlert,
+	ShieldCheck,
+	Signal,
+	Wifi,
+	WifiOff,
 } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 
 /**
- * Fleet monitor (issue #479, M3C.4).
+ * Fleet monitor (issue #479, M3C.4 and M3C.4b).
  *
  * The device registry lists units; this page answers the operator's question
  * across tenants: whose fleet is degraded or unmeasured, and why. Every state
@@ -31,8 +43,17 @@ import { getLocale, getTranslations } from "next-intl/server";
  * and thresholds used by the status bands — this page owns no threshold and no
  * health score of its own.
  *
- * Server-rendered with no client JavaScript and no polling, so a screenshot
- * carries the "checked at" time and reads as stale when it is stale.
+ * M3C.4b adds the per-unit evidence: heartbeat, signal, firmware, last feed and
+ * the freshness of the hopper and water readings, plus faults and safe mode.
+ * Missing telemetry keeps its own word (`Not reported`, `Unknown`, `Never`) and
+ * never becomes a zero or a green value; a reading is only shown while the
+ * configured `device.status` window still covers it.
+ *
+ * Server-rendered with no client state and no polling, so a screenshot carries
+ * the "checked at" time and reads as stale when it is stale. The only client
+ * components below are the two shared reading surfaces the tenant pages already
+ * use (`DeviceSignalReading`, `FeedLevelDisplay`), so the signal ladder and the
+ * hopper treatment cannot drift between consoles.
  */
 
 const TONE: Record<BandState, "success" | "warning" | "danger" | "neutral"> = {
@@ -56,15 +77,39 @@ const ICON_TONE: Record<BandState, string> = {
 	unknown: "text-[#3D5568] dark:text-gray-400",
 };
 
+/** The connectivity state is a status, so it owns the status colours. */
+const CONNECTION_TONE: Record<DeviceConnectionState, BadgeTone> = {
+	online: "success",
+	weak: "warning",
+	offline: "danger",
+};
+
+const CONNECTION_ICON: Record<DeviceConnectionState, LucideIcon> = {
+	online: Wifi,
+	weak: Signal,
+	offline: WifiOff,
+};
+
+const MUTED = "text-[#3D5568] dark:text-slate-400";
+const STRONG = "text-[#0A3D62] dark:text-slate-100";
+
 const MINUTE_MS = 60 * 1000;
+
+/**
+ * Units rendered on one screen. The loader already bounds the fleet at
+ * `FLEET_DEVICE_LIMIT`; this bounds the HTML a single render can produce, and
+ * because the list is worst-first the cut only ever drops the healthiest units.
+ */
+const TELEMETRY_ROW_LIMIT = 200;
 
 export default async function SuperadminFleetPage() {
 	await requirePlatformAdmin();
 
-	const [fleet, t, tBands, tDates, locale] = await Promise.all([
+	const [fleet, t, tBands, tCommon, tDates, locale] = await Promise.all([
 		getFleetMonitor(),
 		getTranslations("superadmin.fleet"),
 		getTranslations("superadmin.statusBands"),
+		getTranslations("superadmin.common"),
 		getTranslations("dates"),
 		getLocale(),
 	]);
@@ -82,6 +127,99 @@ export default async function SuperadminFleetPage() {
 		{ key: "heartbeat", label: t("columnHeartbeat") },
 		{ key: "state", label: t("columnState") },
 	];
+
+	const deviceColumns = [
+		{ key: "device", label: t("columnDevice") },
+		{ key: "state", label: t("columnState") },
+		{ key: "heartbeat", label: t("columnHeartbeat") },
+		{ key: "signal", label: t("columnSignal") },
+		{ key: "firmware", label: t("columnFirmware") },
+		{ key: "lastFeed", label: t("columnLastFeed") },
+		{ key: "feedLevel", label: t("columnFeedLevel") },
+		{ key: "waterTemp", label: t("columnWaterTemp") },
+		{ key: "health", label: t("columnHealth") },
+	];
+
+	const time = (value: Date) => formatDateTimeLocal(value, tDates).time;
+	const full = (value: Date) => formatDateTimeLocal(value, tDates).full;
+
+	/** One freshness line: when the reading was taken, or that it is stale. */
+	const freshnessNote = (freshness: ReadingFreshness, at: Date | null) => {
+		if (freshness === "fresh" && at) return t("freshAt", { time: time(at) });
+		if (freshness === "stale" && at) return t("staleAt", { time: time(at) });
+		return t("notReported");
+	};
+
+	const units = worstDevices(fleet.rows);
+	const shownUnits = units.slice(0, TELEMETRY_ROW_LIMIT);
+
+	/**
+	 * The health cell: icon plus words, never colour alone, and never "clear"
+	 * for a unit that has not reported health at all.
+	 */
+	const healthCell = (row: DeviceTelemetryRow) => {
+		if (row.health === null) {
+			return <span className={cn("text-[11px] font-bold", MUTED)}>{t("notReported")}</span>;
+		}
+
+		const { safeMode, faults, since } = row.health;
+		return (
+			<div className="space-y-1">
+				{safeMode ? (
+					<Badge tone="danger" icon={ShieldAlert}>
+						{t("safeModeOn")}
+					</Badge>
+				) : (
+					<span className={cn("inline-flex items-center gap-1.5 text-[11px] font-bold", MUTED)}>
+						<ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+						{t("safeModeOff")}
+					</span>
+				)}
+				{faults.length === 0 ? (
+					<span className={cn("flex items-start gap-1.5 text-[11px] font-bold", MUTED)}>
+						<CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+						{t("noFaults")}
+					</span>
+				) : (
+					<span className="flex items-start gap-1.5 text-[11px] font-bold text-[#B45309] dark:text-amber-300">
+						<AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+						{t("faultsLabel", {
+							faults: faults.map((fault) => t(`faults.${fault}`)).join(", "),
+						})}
+					</span>
+				)}
+				<p className={cn("text-[10px]", MUTED)}>{t("stateSince", { time: time(since) })}</p>
+			</div>
+		);
+	};
+
+	/** Water temperature: the number only while the reading is still current. */
+	const waterCell = (row: DeviceTelemetryRow) => {
+		if (row.waterTemp === null) {
+			return <span className={cn("text-[11px] font-bold", MUTED)}>{t("notReported")}</span>;
+		}
+
+		const { celsius, at, freshness, probeOk } = row.waterTemp;
+		return (
+			<div className="space-y-1">
+				{probeOk === false ? (
+					<span className={cn("flex items-start gap-1.5 text-[11px] font-bold", MUTED)}>
+						<AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+						{t("probeNotDetected")}
+					</span>
+				) : (
+					<span className={cn("text-sm font-bold tabular-nums", STRONG)}>
+						{`${number(celsius)} °C`}
+					</span>
+				)}
+				<p className={cn("text-[10px]", MUTED)}>{freshnessNote(freshness, at)}</p>
+			</div>
+		);
+	};
+
+	/** The one line every unit row shares: what the unit is and where it lives. */
+	const whereLine = (row: DeviceTelemetryRow) =>
+		[row.pondName ?? tCommon("unassigned"), row.tenantName ?? t("unassigned")].join(" · ");
 
 	return (
 		<div className="space-y-6">
@@ -284,6 +422,156 @@ export default async function SuperadminFleetPage() {
 						})}
 					</ul>
 				</>
+			)}
+
+			{/* M3C.4b: the evidence behind the tenant verdict, one row per unit. */}
+			{shownUnits.length > 0 && (
+				<section aria-label={t("devicesLabel")} className="space-y-3">
+					<div>
+						<h2 className="font-black text-[#0A3D62] dark:text-slate-100">{t("devicesTitle")}</h2>
+						<p className={cn("mt-1 max-w-3xl text-xs", MUTED)}>{t("devicesHint")}</p>
+					</div>
+
+					{units.length > shownUnits.length && (
+						<p className={cn("text-[11px] font-bold", MUTED)}>
+							{t("devicesTruncated", { shown: shownUnits.length, total: units.length })}
+						</p>
+					)}
+
+					<TableFrame label={t("devicesLabel")} columns={deviceColumns} minWidth="min-w-[76rem]">
+						{shownUnits.map((row) => {
+							const ConnectionIcon = CONNECTION_ICON[row.connection];
+							return (
+								<tr key={row.id} className="border-b border-gray-100 align-top last:border-0">
+									<th
+										scope="row"
+										className="px-6 py-3 text-left text-sm font-bold text-[#0A3D62] dark:text-slate-100"
+									>
+										<span className="block">{row.label}</span>
+										<span className={cn("mt-0.5 block font-mono text-[11px] font-bold", MUTED)}>
+											{row.mac}
+										</span>
+										<span className={cn("mt-0.5 block text-[11px] font-normal", MUTED)}>
+											{whereLine(row)}
+										</span>
+									</th>
+									<td className="px-6 py-3">
+										<Badge tone={CONNECTION_TONE[row.connection]} icon={ConnectionIcon}>
+											{tCommon(row.connection)}
+										</Badge>
+									</td>
+									<td className={cn("px-6 py-3 text-sm", MUTED)}>
+										{row.lastHeartbeatAt ? full(row.lastHeartbeatAt) : t("never")}
+									</td>
+									<td className={cn("px-6 py-3 text-sm font-bold", MUTED)}>
+										{row.rssiDbm === null ? (
+											<div className="space-y-1">
+												<span>{t("notReported")}</span>
+												{row.rssiFreshness === "stale" && row.rssiAt && (
+													<p className="text-[10px] font-normal">
+														{t("staleAt", { time: time(row.rssiAt) })}
+													</p>
+												)}
+											</div>
+										) : (
+											<DeviceSignalReading rssiDbm={row.rssiDbm} />
+										)}
+									</td>
+									<td className={cn("px-6 py-3 text-sm", MUTED)}>
+										<span className={cn("block font-bold", STRONG)}>
+											{row.firmware.version ?? t("unknown")}
+										</span>
+										<span className="block text-[10px]">
+											{row.firmware.at
+												? t("reportedAt", { time: time(row.firmware.at) })
+												: t("firmwareNone")}
+										</span>
+									</td>
+									<td className={cn("px-6 py-3 text-sm", MUTED)}>
+										{row.lastFeedAt ? full(row.lastFeedAt) : t("never")}
+									</td>
+									<td className="px-6 py-3">
+										<FeedLevelDisplay
+											levelPercent={row.feedLevel.percent}
+											updatedAt={row.feedLevel.at}
+											isOffline={row.feedLevel.freshness !== "fresh"}
+											size="sm"
+										/>
+									</td>
+									<td className="px-6 py-3 text-[#3D5568] dark:text-slate-400">{waterCell(row)}</td>
+									<td className="px-6 py-3">{healthCell(row)}</td>
+								</tr>
+							);
+						})}
+					</TableFrame>
+
+					{/* Mobile: one card per unit, worst first, with the same values. */}
+					<ul className="space-y-3 md:hidden">
+						{shownUnits.map((row) => {
+							const ConnectionIcon = CONNECTION_ICON[row.connection];
+							return (
+								<li
+									key={row.id}
+									className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[#24304A] dark:bg-[#111A2C]"
+								>
+									<div className="flex items-start justify-between gap-2">
+										<div className="min-w-0">
+											<p className={cn("text-sm font-bold", STRONG)}>{row.label}</p>
+											<p className={cn("font-mono text-[11px]", MUTED)}>{row.mac}</p>
+											<p className={cn("text-[11px]", MUTED)}>{whereLine(row)}</p>
+										</div>
+										<Badge tone={CONNECTION_TONE[row.connection]} icon={ConnectionIcon}>
+											{tCommon(row.connection)}
+										</Badge>
+									</div>
+									<dl className="mt-3 grid grid-cols-2 gap-2">
+										<MetaPair label={t("columnHeartbeat")}>
+											{row.lastHeartbeatAt ? full(row.lastHeartbeatAt) : t("never")}
+										</MetaPair>
+										<MetaPair label={t("columnLastFeed")}>
+											{row.lastFeedAt ? full(row.lastFeedAt) : t("never")}
+										</MetaPair>
+										<MetaPair label={t("columnSignal")}>
+											{row.rssiDbm === null ? (
+												t("notReported")
+											) : (
+												<DeviceSignalReading rssiDbm={row.rssiDbm} />
+											)}
+										</MetaPair>
+										<MetaPair label={t("columnFirmware")}>
+											{row.firmware.version ?? t("unknown")}
+										</MetaPair>
+										<div className="min-w-0">
+											<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
+												{t("columnFeedLevel")}
+											</dt>
+											<dd className="mt-0.5">
+												<FeedLevelDisplay
+													levelPercent={row.feedLevel.percent}
+													updatedAt={row.feedLevel.at}
+													isOffline={row.feedLevel.freshness !== "fresh"}
+													size="sm"
+												/>
+											</dd>
+										</div>
+										<div className="min-w-0">
+											<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
+												{t("columnWaterTemp")}
+											</dt>
+											<dd className="mt-0.5">{waterCell(row)}</dd>
+										</div>
+										<div className="col-span-2">
+											<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
+												{t("columnHealth")}
+											</dt>
+											<dd className="mt-1">{healthCell(row)}</dd>
+										</div>
+									</dl>
+								</li>
+							);
+						})}
+					</ul>
+				</section>
 			)}
 		</div>
 	);

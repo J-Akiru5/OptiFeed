@@ -40,6 +40,9 @@ const ADMIN_ROUTES: Route[] = [
 ];
 
 const PLATFORM_ROUTES: Route[] = [
+	{ prefix: "/superadmin/tenants", key: "tenants" },
+	{ prefix: "/superadmin/fleet", key: "fleet" },
+	{ prefix: "/superadmin/incidents", key: "incidents" },
 	{ prefix: "/superadmin/account", key: "account" },
 	{ prefix: "/superadmin/ai-providers", key: "aiProviders" },
 	{ prefix: "/superadmin/operations", key: "operations" },

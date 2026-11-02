@@ -3218,6 +3218,9 @@
 			"bottomNavLabel": "Nabigasyon sang plataporma",
 			"nav": {
 				"overview": "Pangkalahatan",
+				"tenants": "Mga Tenant",
+				"fleet": "Fleet",
+				"incidents": "Mga Insidente",
 				"calendar": "Kalendaryo",
 				"users": "Mga User",
 				"organizations": "Mga Organisasyon",

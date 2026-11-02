@@ -6,6 +6,7 @@ import {
 	Activity,
 	BarChart3,
 	Bell,
+	Building2,
 	CalendarDays,
 	CalendarRange,
 	Clock,
@@ -20,7 +21,9 @@ import {
 	type LucideIcon,
 	MapPin,
 	Menu,
+	OctagonAlert,
 	Plus,
+	Radio,
 	ScanLine,
 	Search,
 	Settings,
@@ -125,6 +128,19 @@ export function quickMenuSections(input: {
 				title: t("sections.destinations"),
 				items: [
 					{ id: "overview", label: nav("overview"), href: "/superadmin", icon: BarChart3 },
+					{
+						id: "tenants",
+						label: nav("tenants"),
+						href: "/superadmin/tenants",
+						icon: Building2,
+					},
+					{ id: "fleet", label: nav("fleet"), href: "/superadmin/fleet", icon: Radio },
+					{
+						id: "incidents",
+						label: nav("incidents"),
+						href: "/superadmin/incidents",
+						icon: OctagonAlert,
+					},
 					{
 						id: "calendar",
 						label: nav("calendar"),

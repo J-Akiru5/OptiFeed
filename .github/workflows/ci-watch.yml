@@ -6,6 +6,9 @@ name: CI watch
 #
 # `workflow_run` only fires for a workflow file that exists on the default
 # branch (`staging`), which is why this file has to be merged there.
+#
+# The tracker stores one comment per unique failure marker (run id, or
+# PR + head SHA for a sweep), so a daily sweep does not repeat yesterday's row.
 
 on:
   workflow_run:
@@ -37,12 +40,13 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Comment on the PR and update the tracker
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const run = context.payload.workflow_run;
             const { owner, repo } = context.repo;
             const shortSha = run.head_sha.slice(0, 7);
+
             const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
               owner,
               repo,
@@ -55,7 +59,8 @@ jobs:
             const failedList = failed.length
               ? failed.map((job) => `- **${job.name}** - ${job.html_url}`).join("\n")
               : "- The run failed before a job reported a conclusion.";
-            const marker = `<!-- ci-watch:${run.id} -->`;
+
+            const marker = `<!-- ci-watch:run:${run.id} -->`;
             const body = [
               marker,
               `**${run.name}** failed on \`${run.head_branch}\` at \`${shortSha}\`.`,
@@ -67,7 +72,7 @@ jobs:
 
             for (const pr of run.pull_requests ?? []) {
               try {
-                const { data: comments } = await github.rest.issues.listComments({
+                const comments = await github.paginate(github.rest.issues.listComments, {
                   owner,
                   repo,
                   issue_number: pr.number,
@@ -94,31 +99,41 @@ jobs:
               }
             }
 
-            const title = "CI watch: failing workflows";
-            const header =
-              "| When (UTC) | Workflow | Branch | SHA | Failed jobs | Run |\n|---|---|---|---|---|---|";
-            const row = `| ${new Date().toISOString()} | ${run.name} | \`${run.head_branch}\` | \`${shortSha}\` | ${failed.map((job) => job.name).join(", ") || "unknown"} | [run](${run.html_url}) |`;
-            const { data: openIssues } = await github.rest.issues.listForRepo({
+            const tracker = await ensureTracker();
+            const trackerComments = await github.paginate(github.rest.issues.listComments, {
               owner,
               repo,
-              state: "open",
+              issue_number: tracker.number,
               per_page: 100,
             });
-            const tracker = openIssues.find((issue) => issue.title === title && !issue.pull_request);
-            if (tracker) {
-              await github.rest.issues.update({
+            if (!trackerComments.some((comment) => comment.body?.includes(marker))) {
+              await github.rest.issues.createComment({
                 owner,
                 repo,
                 issue_number: tracker.number,
-                body: `${tracker.body}\n${row}`,
+                body,
               });
-            } else {
-              await github.rest.issues.create({
+            }
+
+            async function ensureTracker() {
+              const title = "CI watch: failing workflows";
+              const { data: openIssues } = await github.rest.issues.listForRepo({
+                owner,
+                repo,
+                state: "open",
+                per_page: 100,
+              });
+              const existing = openIssues.find(
+                (issue) => issue.title === title && !issue.pull_request,
+              );
+              if (existing) return existing;
+              const { data: created } = await github.rest.issues.create({
                 owner,
                 repo,
                 title,
-                body: `Failures recorded by the CI watcher. Newest last.\n\n${header}\n${row}`,
+                body: "Failures recorded by the CI watcher. One comment per unique failure; oldest first.",
               });
+              return created;
             }
 
   sweep:
@@ -127,7 +142,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Check open PRs for failing required checks
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -138,7 +153,8 @@ jobs:
               state: "open",
               per_page: 100,
             });
-            const rows = [];
+
+            const failures = [];
             for (const pr of prs) {
               const { data: checks } = await github.rest.checks.listForRef({
                 owner,
@@ -150,38 +166,56 @@ jobs:
                 (check) => required.includes(check.name) && check.conclusion === "failure",
               );
               if (failing.length === 0) continue;
-              rows.push(
-                `| ${new Date().toISOString()} | required checks | \`${pr.head.ref}\` | \`${pr.head.sha.slice(0, 7)}\` | ${failing.map((check) => check.name).join(", ")} | [PR #${pr.number}](${pr.html_url}) |`,
-              );
+              failures.push({
+                marker: `<!-- ci-watch:sweep:${pr.number}:${pr.head.sha} -->`,
+                body: [
+                  `**Required checks failed** on \`${pr.head.ref}\` at \`${pr.head.sha.slice(0, 7)}\`.`,
+                  "",
+                  ...failing.map((check) => `- **${check.name}** - ${check.html_url}`),
+                  "",
+                  `PR: ${pr.html_url}`,
+                ].join("\n"),
+              });
             }
-            if (rows.length === 0) {
+
+            if (failures.length === 0) {
               core.info("No open PR is red on a required check.");
               return;
             }
 
             const title = "CI watch: failing workflows";
-            const header =
-              "| When (UTC) | Workflow | Branch | SHA | Failed jobs | Run |\n|---|---|---|---|---|---|";
             const { data: openIssues } = await github.rest.issues.listForRepo({
               owner,
               repo,
               state: "open",
               per_page: 100,
             });
-            const tracker = openIssues.find((issue) => issue.title === title && !issue.pull_request);
-            const body = rows.join("\n");
-            if (tracker) {
-              await github.rest.issues.update({
-                owner,
-                repo,
-                issue_number: tracker.number,
-                body: `${tracker.body}\n${body}`,
-              });
-            } else {
-              await github.rest.issues.create({
+            let tracker = openIssues.find(
+              (issue) => issue.title === title && !issue.pull_request,
+            );
+            if (!tracker) {
+              const { data: created } = await github.rest.issues.create({
                 owner,
                 repo,
                 title,
-                body: `Failures recorded by the CI watcher. Newest last.\n\n${header}\n${body}`,
+                body: "Failures recorded by the CI watcher. One comment per unique failure; oldest first.",
               });
+              tracker = created;
+            }
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: tracker.number,
+              per_page: 100,
+            });
+            for (const failure of failures) {
+              if (comments.some((comment) => comment.body?.includes(failure.marker))) continue;
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: tracker.number,
+                body: `${failure.marker}\n${failure.body}`,
+              });
+              comments.push({ body: failure.marker });
             }

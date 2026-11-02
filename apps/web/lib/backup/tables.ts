@@ -466,6 +466,29 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 		tenantWhere: byPondFk,
 	},
 	{
+		// Derived daily connectivity history (#479, M3C.10). It belongs to the
+		// device, so a tenant export carries the rows for its own ponds; the
+		// platform export carries all of them. `day` is a DATE.
+		name: "DeviceConnectivityDaily",
+		scope: "tenant",
+		key: "id",
+		model: prisma.deviceConnectivityDaily,
+		columns: [
+			"id",
+			"deviceId",
+			"day",
+			"firstSeenAt",
+			"lastSeenAt",
+			"onlineMinutes",
+			"heartbeatCount",
+			"gapCount",
+			"createdAt",
+			"updatedAt",
+		],
+		dateColumns: ["day"],
+		tenantWhere: byDevicePond,
+	},
+	{
 		name: "PondSettingsDraft",
 		scope: "tenant",
 		key: "id",

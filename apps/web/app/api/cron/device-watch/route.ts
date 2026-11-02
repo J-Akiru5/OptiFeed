@@ -7,6 +7,7 @@ import { deleteExpiredErrorEvents } from "@/lib/error-capture";
 import { normalizeNotificationPrefs } from "@/lib/limits";
 import { offlineEpisodeKey, openEpisode } from "@/lib/notifications/episodes";
 import { reportError } from "@/lib/observability";
+import { rollupDeviceConnectivity } from "@/lib/platform/connectivity";
 import prisma from "@/lib/prisma";
 import { cleanupExpiredRateLimitBuckets } from "@/lib/rate-limit";
 import { deleteExpiredPondSettingsDrafts, deleteOldHeartbeatEvents } from "@/lib/retention";
@@ -139,7 +140,15 @@ export const GET = withApi(
 			//    period, deduped through ReminderLog. Re-runs are no-ops.
 			const recalibration = await processRecalibrationReminders();
 
-			// 3. Batched housekeeping so each run stays under the Vercel Hobby
+			// 3. Connectivity history (#479, M3C.10; O24). The previous completed
+			//    UTC day is aggregated from the stored heartbeat rows. This MUST run
+			//    before the sweep below, which deletes those rows after 7 days.
+			//    The `connectivity.rollup` marker makes it a one-per-day no-op on
+			//    later runs, so the extra work is a single lookup unless a day is
+			//    actually waiting to be stored.
+			const connectivity = await rollupDeviceConnectivity();
+
+			// 4. Batched housekeeping so each run stays under the Vercel Hobby
 			//    10-second limit: one small batch per job per run.
 			const heartbeatsDeleted = await deleteOldHeartbeatEvents();
 			const bucketsDeleted = await cleanupExpiredRateLimitBuckets();
@@ -153,6 +162,7 @@ export const GET = withApi(
 			return ok({
 				offlineAlerts,
 				recalibration,
+				connectivity,
 				heartbeatsDeleted,
 				bucketsDeleted,
 				errorEventsDeleted,

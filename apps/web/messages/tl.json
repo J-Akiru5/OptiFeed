@@ -2992,7 +2992,8 @@
 				"audit": "Talaan ng audit",
 				"announcements": "Mga anunsyo",
 				"reports": "Mga ulat",
-				"security": "Seguridad at pagmamatyag"
+				"security": "Seguridad at pagmamatyag",
+				"jobs": "Mga background job"
 			},
 			"errors": {
 				"title": "Mga event ng error",
@@ -3044,7 +3045,10 @@
 				"columnFinished": "Natapos",
 				"columnType": "Uri",
 				"columnAttempts": "Mga pagsubok",
-				"columnError": "Error"
+				"columnError": "Error",
+				"description": "Kalusugan ng queue at ang dead-letter na listahan. Humihinto ang retry ng isang job kapag naabot ang attempt cap at nananatili ito rito kasama ang huling error.",
+				"summary": "{queued} naka-queue · {running} tumatakbo · {failed} nabigo sa nakalipas na 24 oras.",
+				"columnOwner": "Farm"
 			},
 			"charts": {
 				"period": "Araw",

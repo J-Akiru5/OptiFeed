@@ -110,7 +110,10 @@ export function PondOverview({ pondName, feeders, className }: PondOverviewProps
 				/>
 			</svg>
 
-			<div className="absolute left-4 top-3 flex max-w-[calc(100%-2rem)] items-center gap-2 max-xl:static max-xl:max-w-none max-xl:p-0">
+			<div
+				className="absolute left-4 top-3 flex max-w-[calc(100%-2rem)] items-center gap-2 max-xl:static max-xl:max-w-none max-xl:p-0"
+				data-fit="pond-title"
+			>
 				<span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/80 text-[#0A3D62] shadow-sm dark:bg-gray-900/80 dark:text-[#8fc0ea]">
 					<Wheat aria-hidden="true" className="h-4 w-4" />
 				</span>

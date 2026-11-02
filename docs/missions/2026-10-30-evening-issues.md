@@ -6,28 +6,26 @@ Orchestrator: Claude (Sonnet 5.5). Workers: OpenCode `deepseek-v4.1-flash`, one 
 
 | Branch | Head | Note |
 |---|---|---|
-| main (production) | `753db9d` | last promotion (#516) |
-| staging | `cc3b1c8` | #520, #511, #512, #523 and #521 |
-| develop | `36c06ab` | #503 merged; the back-merge below brings staging in |
+| main (production) | `de76080` | #529 promoted staging (#521, #523, #530) |
+| staging | `4a1c954` | #520, #511, #512, #523, #521, #530, #532 |
+| develop | `bd56a90` | #503, #524, #525; #522 back-merge open |
 
-Open PRs: two, both held — #510 (production minor-patch group; `bundle budget + latency` red), #514 (Prisma 7; quality, smoke, bundle and Lighthouse red). #513 is closed, superseded by #523.
+Open PRs: #510 (production group; bundle red), #514 (Prisma 7; four red), #528 (coverage-v8 5 without vitest 5; quality red), #535/#536 (approved CI speedups; checks running), #522 (this back-merge).
 
-Merged today: #520 (#476 mobile dashboard, `83cb3de`, issue closed), #503 (E73 docs, `36c06ab`), #511 (development minor-patch group, `80a5e0b`), #512 (lint-staged 17, `f7edac7`) and #523 (Node 22 pin, `adaa01b`; #513 closed) and #521 (minimum feed temperature, `cc3b1c8`). #520/#511/#512 went to `staging` because that was their PR base, which repeated the E73 split; the correction is this back-merge PR into `develop`, which also picks up #521 that landed while it was open. One conflict, in the `CHANGELOG.md` Unreleased block, both sides kept. The first `quality` run also caught a semantic conflict: 114 light-only lines across five staging-only superadmin pages against develop's #517 theme guard; all five are themed now, and #523 was merged in. Checks are running again.
+Merged today: #520 (#476 mobile, `83cb3de`), #503 (E73 docs, `36c06ab`), #511 (`80a5e0b`), #512 (`f7edac7`), #523 (Node 22 pin, `adaa01b`), #521 (min feed temp, `cc3b1c8`), #524/#525 (develop fixes, `bd56a90`), #529 (staging to main promotion, `de76080`), #530/#532 (CI watcher, `4a1c954`). #513 is closed by #523; #528 is held.
 
-Every staging merge produced the repo's normal Vercel Preview deployment (`f7edac7` succeeded); no manual deployment was created.
-
-Node rule: CI and the supported runtime are Node 22 (`>=22.5`). `@types/node` tracks the runtime; a future major (26.x) is not merged even when the typecheck is green; #523 pins `^22` and Dependabot ignores >=23.
+**Incident 2026-11-02 (resolved):** #521's code reached staging at 02:47 UTC, but migration `20261102000000_add_min_feed_temp` was applied at **02:53:57**. For about six minutes the dashboard selected a column that did not exist; the generic error boundary said "database connection issue" and showed React #441. Not an env problem: `/api/health` was 200, the layout's queries worked, and `prisma migrate status` now reads up to date (51 migrations); `EnergyDevice.minFeedTempC` exists (double precision). Rule: apply an additive migration **before** the code that selects the new column reaches staging; staging shares the production database. The 10:51 Manila screenshot was inside the window; "Try again" now works.
 
 ## CI/CD orchestration (2026-11-02)
 
-The global CI/CD efficiency rule and the OptiFeed facts are now in `AGENTS.md` ("CI/CD efficiency"). Recorded from the 2026-11-02 measured run `41374968165` (develop push); re-check before changing gates:
+The global CI/CD efficiency rule and the OptiFeed facts are in the owner's local `AGENTS.md` ("CI/CD efficiency"; not tracked in the repo). Recorded from the 2026-11-02 measured run `41374968165` (develop push); re-check before changing gates:
 
 - Default branch `staging`; required checks on `develop`, `staging` and `main`: `quality`, `bundle budget + latency` (`enforce_admins: true`). `e2e` is not required, but its check name must stay stable. `public smoke (chromium, firefox, webkit)` is the separate `e2e-smoke.yml` check.
-- Measured develop CI (run `41374968165`): `quality` 363s, `e2e` 604s. `e2e` has `needs: quality` with no output or artifact dependency, so it can run in parallel (967s to 604s). **Not implemented: explicit owner approval required (rule 9).**
+- Measured develop CI (run `41374968165`): `quality` 363s, `e2e` 604s. `e2e` has `needs: quality` with no output or artifact dependency, so it can run in parallel (967s to 604s). **Implemented in #535/#536 (owner-approved 2026-11-02), pending merge.**
 - pnpm install is already cached (~4s); Playwright is serial by design; no sharding, no browser-cache work.
-- Promotions staging to main are content-identical (12/12 first-parent merges). A tree-hash "already green" marker for staging to main is proposed, not implemented (approval required; fail-safe on a miss).
-- Watcher: event-driven on workflow completion (CI, Performance, e2e-smoke). It comments on the PR and updates one tracking issue on a new failure; it does not poll and does not change any gate. A scheduled daily sweep is the fail-safe. Separate PR.
-- Open blockers: #510 (bundle budget red), #514 (Prisma 7 red). #513 fixed by #523.
+- Promotions staging to main are content-identical (12/12 first-parent merges). The tree-hash "already green" marker is implemented in #535/#536: key `ci-green-<tree>`, saved only by a successful `staging` push, lookup-only on push and pull request, step-level skips, and a full run on any miss or cache error. It is never restored on `workflow_dispatch`.
+- Watcher live: #530/#532 merged; issue #531 keeps one comment per unique failure. The first sweep found #528, #514 and #510; a second sweep added nothing (dedupe verified). Event-driven on workflow completion, plus a daily 06:00 Manila sweep.
+- Open blockers: #510 (bundle budget red), #514 (Prisma 7 red), #528 (coverage-v8 5 without vitest 5). #513 fixed by #523.
 
 ## State at 19:30 (verified)
 

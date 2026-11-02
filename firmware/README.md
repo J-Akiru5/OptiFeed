@@ -476,7 +476,7 @@ old server (no `config` object) changes nothing.
 | `TEMP_OFFSET_C` (backend) | `temp_offset_c` | 0 °C (envelope -20–20) | B |
 | `HOPPER_FULL_CM` (backend) | `hopper_full_cm` | 5 cm (envelope 0.1–200) | B |
 | `HOPPER_EMPTY_CM` (backend) | `hopper_empty_cm` | 30 cm (envelope 0.1–500) | B |
-| `HOPPER_LOW_PCT` | `hopper_low_pct` | 20 % (envelope 1–90) | B |
+| `HOPPER_LOW_PCT` | `hopper_low_pct` | 20 % (envelope 1–90). Default only: the server now sends the organization's `OrgSetting.hopperLowPct` (5–50), and 20 % when it cannot resolve one | B |
 | `HOPPER_REFILL_MARGIN_PCT` | `hopper_refill_margin_pct` | 10 % (envelope 0–50) | B |
 | `HOPPER_REJECT_BELOW_CM` | `hopper_reject_below_cm` | 2 cm (envelope 0–50) | B |
 | `HOPPER_REJECT_ABOVE_MARGIN_CM` | `hopper_reject_above_margin_cm` | 10 cm (envelope 0–100) | B |
@@ -1181,8 +1181,47 @@ alert:
 | `grams_out_of_range`, `dose_time_exceeds_cap`, `daily_gram_cap_exceeded` | existing caps |
 | `ota_pending_verify`, `busy` | counted in `diag.refusals_by_reason`, not posted |
 
-> The ingest enum has no `safety_trip` event type, so a relay overrun is reported as the
-> existing `feed_refused` with reason `relay_overrun` rather than by changing the server.
+> A relay overrun is reported as the existing `feed_refused` with reason `relay_overrun` rather than by
+> changing the server.
+
+**Safety trip** (`event_type: "safety_trip"`, once per trip). The server accepts and stores this event,
+but **no firmware code emits it yet**: shipping the emitter needs the owner's flash approval (see
+below). Until then a unit reports safe mode on the heartbeat and refuses doses with `feed_refused` /
+`safe_mode`, which is enough for the dashboard panel and the CRITICAL alert.
+
+```json
+{
+  "device_id": "A4:CF:12:7E:3B:09",
+  "event_type": "safety_trip",
+  "timestamp": "2026-11-02T03:04:05+00:00",
+  "trip_id": "8f21c4",
+  "abnormal_resets": 3,
+  "reset_reasons": "brownout,panic",
+  "reset_reason": "brownout",
+  "entry": "boot",
+  "quiet_s": 0,
+  "uptime_s": 12,
+  "firmware_version": "1.8.1"
+}
+```
+
+| Field | Required | Meaning |
+|---|---|---|
+| `trip_id` | yes | 1–64 chars, generated once per lockout. A retried report must reuse it; a new trip gets a new id. |
+| `abnormal_resets` | no | 0–255, the count that tripped safe mode |
+| `reset_reasons` | no | 1–120 chars, comma-separated reasons (e.g. `brownout,panic`) |
+| `reset_reason` | no | 1–32 chars, the reset that tripped it |
+| `entry` | no | `boot` (trip found while starting) or `runtime` (tripped while feeding) |
+| `quiet_s` | no | seconds without an abnormal reset when safe mode was entered |
+| `uptime_s` | no | seconds since boot when the trip was reported |
+
+Server behaviour: one `safety_trip` row in `DeviceStateEvent` per `trip_id`, with
+`metadata.tripId`, `metadata.eventId = "trip-<trip_id>"` and the reported evidence. A re-sent report
+with the same `trip_id` returns 204 and writes no second row. It creates **no notification** — the
+`device_health` state row already raises the CRITICAL safe-mode alert — and no `FeedEvent`. The unit
+gets a 204 alone, exactly like the other ingest events. Because `enterSafeMode()` runs during
+`setup()` before Wi-Fi associates, the report has to be deferred and sent after the first successful
+connection; the server accepts it whenever it arrives.
 
 ### `GET /api/feed-command?device_id=...` — Dashboard Feed Request
 

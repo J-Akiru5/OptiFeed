@@ -17,8 +17,16 @@ export function availableToolIds(caller: AssistantCaller): AssistantToolId[] {
 		if (definition.platformAdminOnly && !caller.isPlatformAdmin) continue;
 		if (definition.tenantAdminOnly && !caller.isTenantAdmin) continue;
 		if (definition.permission && !caller.permissions.has(definition.permission)) continue;
-		// Kinds with no permission gate (logging a sample) still need a writer.
-		if (!definition.permission && !definition.platformAdminOnly && !caller.canWrite) continue;
+		// Kinds with no permission gate (logging a sample) still need a writer,
+		// unless the kind is explicitly safe for a read-only account (a report
+		// about the app itself, #487).
+		if (
+			!definition.permission &&
+			!definition.platformAdminOnly &&
+			definition.requiresWrite !== false &&
+			!caller.canWrite
+		)
+			continue;
 		ids.push(definition.id);
 	}
 	return ids;

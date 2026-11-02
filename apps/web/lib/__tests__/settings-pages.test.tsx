@@ -325,7 +325,7 @@ describe("pond settings page", () => {
 
 		expect(html.match(/<h1/g)).toHaveLength(1);
 		expect(html).toContain("Sample Interval (days)");
-		expect(html).toContain("Population (fish)");
+		expect(html).toContain("Stocked fish count");
 		expect(html).toContain("Pond Area (m²)");
 		expect(html).toContain("Sign Out");
 		expect(html).toContain("min-h-11");

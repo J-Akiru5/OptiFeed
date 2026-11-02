@@ -10,6 +10,10 @@ interface FeederFallbackProps {
 	status: FeederStatus;
 	feedLevelPercent: number | null;
 	lastFedLabel: string | null;
+	/** Water-temperature probe health; null when never reported. */
+	waterTempOk: boolean | null;
+	/** RTC health as last reported. */
+	rtcOk: boolean | null;
 	className?: string;
 }
 
@@ -25,10 +29,20 @@ export function FeederFallback({
 	status,
 	feedLevelPercent,
 	lastFedLabel,
+	waterTempOk,
+	rtcOk,
 	className,
 }: FeederFallbackProps) {
 	const t = useTranslations("dashboard.feederViewer");
 	const level = feedLevelPercent === null ? null : Math.min(100, Math.max(0, feedLevelPercent));
+	const healthOf = (health: boolean | null) =>
+		health === null
+			? { label: t("healthUnknown"), tone: "text-white/60", dot: "bg-white/40" }
+			: health
+				? { label: t("healthOk"), tone: "text-emerald-200", dot: "bg-emerald-300" }
+				: { label: t("healthFault"), tone: "text-rose-200", dot: "bg-rose-400" };
+	const waterHealth = healthOf(waterTempOk);
+	const rtcHealth = healthOf(rtcOk);
 
 	return (
 		<div
@@ -85,6 +99,30 @@ export function FeederFallback({
 						{t("lastFed")}
 					</p>
 					<p className="mt-0.5 font-bold">{lastFedLabel ?? t("noReading")}</p>
+				</div>
+				<div>
+					<p className="text-[10px] font-black uppercase tracking-wider text-white/50">
+						{t("waterTempSensor")}
+					</p>
+					<p className={cn("mt-0.5 inline-flex items-center gap-1.5 font-bold", waterHealth.tone)}>
+						<span
+							className={cn("size-1.5 shrink-0 rounded-full", waterHealth.dot)}
+							aria-hidden="true"
+						/>
+						{waterHealth.label}
+					</p>
+				</div>
+				<div>
+					<p className="text-[10px] font-black uppercase tracking-wider text-white/50">
+						{t("rtc")}
+					</p>
+					<p className={cn("mt-0.5 inline-flex items-center gap-1.5 font-bold", rtcHealth.tone)}>
+						<span
+							className={cn("size-1.5 shrink-0 rounded-full", rtcHealth.dot)}
+							aria-hidden="true"
+						/>
+						{rtcHealth.label}
+					</p>
 				</div>
 			</div>
 		</div>

@@ -5,6 +5,7 @@ import { feedingActions } from "./feeding";
 import { pondsActions } from "./ponds";
 import { recordsActions } from "./records";
 import { superadminActions } from "./superadmin";
+import { supportActions } from "./support";
 
 /**
  * The server-side tool catalogue for the assistant (issue #194, E10).
@@ -26,6 +27,7 @@ export const ASSISTANT_ACTION_DEFINITIONS: Record<AssistantToolId, AssistantActi
 	...pondsActions,
 	...adminActions,
 	...superadminActions,
+	...supportActions,
 };
 
 export type { AssistantActionDefinition, AssistantToolId } from "../types";

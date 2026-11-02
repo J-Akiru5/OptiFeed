@@ -30,8 +30,11 @@ const CalendarView = dynamic(
 	{
 		ssr: false,
 		loading: () => (
-			<div className="flex h-80 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-				<Loader2 aria-hidden="true" className="h-6 w-6 animate-spin text-[#0A3D62]" />
+			<div className="flex h-80 items-center justify-center rounded-2xl border border-gray-200 dark:border-[#24304A] bg-white dark:bg-[#111A2C]">
+				<Loader2
+					aria-hidden="true"
+					className="h-6 w-6 animate-spin text-[#0A3D62] dark:text-slate-100"
+				/>
 			</div>
 		),
 	},
@@ -278,7 +281,7 @@ export function PlatformCalendar({ initialData }: PlatformCalendarProps) {
 								aria-label={t("filters.orgsLabel")}
 								className="m-0 flex min-w-0 flex-wrap items-center gap-1.5 border-0 p-0"
 							>
-								<span className="mr-1 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
+								<span className="mr-1 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-[#3D5568] dark:text-slate-400 dark:text-gray-400">
 									<Filter aria-hidden="true" className="h-3 w-3" />
 									{t("filters.orgsLabel")}
 								</span>
@@ -319,13 +322,13 @@ export function PlatformCalendar({ initialData }: PlatformCalendarProps) {
 									hideIcon
 								/>
 
-								<label className="flex min-w-0 items-center gap-1.5 text-[11px] font-bold text-[#3D5568]">
+								<label className="flex min-w-0 items-center gap-1.5 text-[11px] font-bold text-[#3D5568] dark:text-slate-400">
 									<Fish aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
 									<span className="sr-only">{t("filters.pondLabel")}</span>
 									<select
 										value={pondId}
 										onChange={(event) => setPondId(event.target.value)}
-										className="max-w-[16rem] min-w-0 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-bold text-[#0A3D62]"
+										className="max-w-[16rem] min-w-0 rounded-lg border border-gray-200 dark:border-[#24304A] bg-white dark:bg-[#111A2C] px-2 py-1.5 text-xs font-bold text-[#0A3D62] dark:text-slate-100"
 									>
 										<option value="all">{t("filters.allPonds")}</option>
 										{availablePonds.map((pond) => (
@@ -337,7 +340,7 @@ export function PlatformCalendar({ initialData }: PlatformCalendarProps) {
 								</label>
 
 								<div className="flex items-center gap-2 sm:ml-auto">
-									<span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
+									<span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#3D5568] dark:text-slate-400 dark:text-gray-400">
 										<span aria-hidden="true" className="h-2 w-4 rounded-sm bg-slate-400/40" />
 										{t("ota.legend")}
 									</span>
@@ -359,7 +362,7 @@ export function PlatformCalendar({ initialData }: PlatformCalendarProps) {
 							{error && (
 								<div
 									role="alert"
-									className="flex flex-col gap-2 rounded-2xl border border-[#C42B3A]/30 bg-[#FDE8EA] p-3 text-xs font-bold text-[#C42B3A] sm:flex-row sm:items-center dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
+									className="flex flex-col gap-2 rounded-2xl border border-[#C42B3A]/30 bg-[#FDE8EA] dark:bg-red-950/50 p-3 text-xs font-bold text-[#C42B3A] sm:flex-row sm:items-center dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
 								>
 									<CircleAlert aria-hidden="true" className="h-4 w-4 shrink-0" />
 									<p className="min-w-0 flex-1">{error}</p>
@@ -374,7 +377,7 @@ export function PlatformCalendar({ initialData }: PlatformCalendarProps) {
 							)}
 
 							{truncated && (
-								<div className="flex items-start gap-2 rounded-2xl border border-[#E85A2A]/30 bg-[#FFF3E8] p-3 text-xs font-bold text-[#B45309] dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+								<div className="flex items-start gap-2 rounded-2xl border border-[#E85A2A]/30 bg-[#FFF3E8] dark:bg-amber-950/50 p-3 text-xs font-bold text-[#B45309] dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
 									<CircleAlert aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
 									{t("truncated")}
 								</div>
@@ -404,15 +407,15 @@ export function PlatformCalendar({ initialData }: PlatformCalendarProps) {
 				<CalendarSidePane>
 					<CalendarSidePanel className="flex min-h-0 flex-col">
 						<div className="flex flex-none items-center justify-between gap-3">
-							<h2 className="text-base font-black text-[#0A3D62] dark:text-[#5b9bd5]">
+							<h2 className="text-base font-black text-[#0A3D62] dark:text-slate-100 dark:text-[#5b9bd5]">
 								{tHarvest("upcoming.title")}
 							</h2>
-							<span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+							<span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500">
 								{tHarvest("upcoming.next", { count: upcoming.length })}
 							</span>
 						</div>
 						{upcoming.length === 0 ? (
-							<p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+							<p className="mt-3 text-sm text-gray-500 dark:text-slate-400 dark:text-gray-400">
 								{tHarvest("upcoming.empty")}
 							</p>
 						) : (
@@ -435,7 +438,7 @@ export function PlatformCalendar({ initialData }: PlatformCalendarProps) {
 												<span className="block truncate text-sm font-bold text-gray-800 dark:text-gray-100">
 													{translatedTitle(event)}
 												</span>
-												<span className="block truncate text-[11px] text-gray-400">
+												<span className="block truncate text-[11px] text-gray-400 dark:text-slate-500">
 													{formatMoment(event, locale)}
 												</span>
 											</span>
@@ -485,23 +488,23 @@ export function PlatformCalendar({ initialData }: PlatformCalendarProps) {
 				}
 			>
 				{details && (
-					<div className="space-y-4 text-sm text-[#3D5568]">
+					<div className="space-y-4 text-sm text-[#3D5568] dark:text-slate-400">
 						<div className="flex flex-wrap items-center gap-2">
 							<span
 								aria-hidden="true"
 								className={cn("h-2.5 w-2.5 rounded-full", TYPE_DOT[details.type])}
 							/>
-							<span className="rounded-full bg-[#F4F7F6] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[#3D5568]">
+							<span className="rounded-full bg-[#F4F7F6] dark:bg-[#0B1220] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 								{details.kind === "OTA_WINDOW" ? t("ota.title") : typeLabel(details.type)}
 							</span>
 						</div>
 
 						<dl className="grid gap-3 sm:grid-cols-2">
 							<div>
-								<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568]">
+								<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 									{t("detail.org")}
 								</dt>
-								<dd className="mt-0.5 text-xs font-bold text-[#0A3D62]">
+								<dd className="mt-0.5 text-xs font-bold text-[#0A3D62] dark:text-slate-100">
 									{details.orgNames.length === 0 ? (
 										t("detail.noOrg")
 									) : details.orgIds.length === 1 ? (
@@ -517,10 +520,10 @@ export function PlatformCalendar({ initialData }: PlatformCalendarProps) {
 								</dd>
 							</div>
 							<div>
-								<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568]">
+								<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 									{t("detail.pond")}
 								</dt>
-								<dd className="mt-0.5 text-xs font-bold text-[#0A3D62]">
+								<dd className="mt-0.5 text-xs font-bold text-[#0A3D62] dark:text-slate-100">
 									{details.pondName ? (
 										<Link
 											href={{
@@ -537,35 +540,37 @@ export function PlatformCalendar({ initialData }: PlatformCalendarProps) {
 								</dd>
 							</div>
 							<div>
-								<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568]">
+								<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 									{t("detail.when")}
 								</dt>
-								<dd className="mt-0.5 text-xs font-bold text-[#0A3D62]">
+								<dd className="mt-0.5 text-xs font-bold text-[#0A3D62] dark:text-slate-100">
 									{formatMoment(details, locale)}
 								</dd>
 							</div>
 							<div>
-								<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568]">
+								<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 									{t("detail.who")}
 								</dt>
-								<dd className="mt-0.5 text-xs font-bold text-[#0A3D62]">
+								<dd className="mt-0.5 text-xs font-bold text-[#0A3D62] dark:text-slate-100">
 									{details.createdByName ?? t("detail.unknownWho")}
 								</dd>
 							</div>
 							{details.cycleLabel && (
 								<div>
-									<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568]">
+									<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 										{t("detail.cycle")}
 									</dt>
-									<dd className="mt-0.5 text-xs font-bold text-[#0A3D62]">{details.cycleLabel}</dd>
+									<dd className="mt-0.5 text-xs font-bold text-[#0A3D62] dark:text-slate-100">
+										{details.cycleLabel}
+									</dd>
 								</div>
 							)}
 							{details.notes && (
 								<div className="sm:col-span-2">
-									<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568]">
+									<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 										{t("detail.notes")}
 									</dt>
-									<dd className="mt-0.5 whitespace-pre-wrap break-words text-xs text-[#3D5568]">
+									<dd className="mt-0.5 whitespace-pre-wrap break-words text-xs text-[#3D5568] dark:text-slate-400">
 										{details.notes}
 									</dd>
 								</div>
@@ -573,12 +578,14 @@ export function PlatformCalendar({ initialData }: PlatformCalendarProps) {
 						</dl>
 
 						{details.kind === "OTA_WINDOW" && (
-							<p className="rounded-xl bg-[#F4F7F6] p-3 text-xs text-[#3D5568]">
+							<p className="rounded-xl bg-[#F4F7F6] dark:bg-[#0B1220] p-3 text-xs text-[#3D5568] dark:text-slate-400">
 								{t("ota.description")}
 							</p>
 						)}
 
-						<p className="text-[11px] text-[#3D5568]">{t("detail.writeHint")}</p>
+						<p className="text-[11px] text-[#3D5568] dark:text-slate-400">
+							{t("detail.writeHint")}
+						</p>
 					</div>
 				)}
 			</Modal>

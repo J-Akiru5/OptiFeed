@@ -250,6 +250,10 @@ describe("the real route tree", () => {
 
 	it("keeps the public allow-list explicit and small", () => {
 		// A reviewer sees exactly which routes may skip a guard.
-		expect([...PUBLIC_ROUTES.keys()].sort()).toEqual(["[...fallback]/route.ts", "health/route.ts"]);
+		expect([...PUBLIC_ROUTES.keys()].sort()).toEqual([
+			"[...fallback]/route.ts",
+			"health/route.ts",
+			"reports/route.ts",
+		]);
 	});
 });

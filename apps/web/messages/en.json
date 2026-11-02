@@ -451,7 +451,30 @@
 		"iso6": "Maintainability",
 		"iso7": "Efficiency",
 		"iso8": "Portability",
-		"ctaEyebrow": "Study access"
+		"ctaEyebrow": "Study access",
+		"reportIssue": {
+			"trigger": "Report an issue",
+			"title": "Report an issue",
+			"description": "Tell us what went wrong. Reports reach the platform team and are reviewed in the order they arrive.",
+			"close": "Close",
+			"category": "Category",
+			"categories": {
+				"bug": "Bug",
+				"accessibility": "Accessibility",
+				"content": "Content",
+				"other": "Other"
+			},
+			"message": "What happened?",
+			"messageHint": "Describe what you expected and what you saw. Do not include passwords or personal data.",
+			"email": "Email",
+			"emailHint": "Optional, only if you want a reply.",
+			"optional": "Optional",
+			"submit": "Send report",
+			"sending": "Sending…",
+			"success": "Thank you — your report was received.",
+			"error": "Could not send the report. Please try again.",
+			"rateLimited": "Too many reports from this device. Please try again later."
+		}
 	},
 	"login": {
 		"eyebrow": "Farm access",
@@ -636,9 +659,12 @@
 			"days": "{count} Days",
 			"lastBiomassLabel": "Last Biomass ABW",
 			"lastBiomassBased": "Based on {count} sample fish measured.",
-			"populationLabel": "POND POPULATION",
+			"populationLabel": "LIVE FISH",
 			"populationValue": "{count} Catfish",
 			"populationStable": "Stable stocked quantity",
+			"populationDetail": "{stocked} stocked · {dead} dead ({pct}%)",
+			"mortalityLabel": "MORTALITY",
+			"mortalityValue": "{dead} dead · {pct}",
 			"feedingLogsTitle": "FEEDING LOGS — WESTERN VISAYAS HUB",
 			"feedingLogsDesc": "Auditable chronological logs fetched from your automatic dispenser.",
 			"feedLevelLabel": "Feed Level",
@@ -737,7 +763,7 @@
 			"activeWindow": "Active Window",
 			"activeWindowDesc": "When the device is allowed to feed",
 			"frequency": "Frequency",
-			"frequencyDesc": "Distributed evenly across the window",
+			"frequencyDesc": "Meals are spaced evenly between the first and last feed",
 			"timesPerDay": "{count} times per day",
 			"feedingTimesTitle": "Feeding times",
 			"feedingTimesLabel": "Scheduled feeding times",
@@ -747,8 +773,8 @@
 			"noPondData": "No pond or device data found. Please run the seed script.",
 			"dispensePrompt": "Dispense 500g right now?",
 			"editTitle": "Edit Schedule",
-			"startTime": "Window Start",
-			"endTime": "Window End",
+			"startTime": "First feed time",
+			"endTime": "Last feed time",
 			"feedsPerDay": "Feeds Per Day",
 			"feedingRate": "Feeding Rate (%)",
 			"saveChanges": "Save Changes",
@@ -1198,7 +1224,8 @@
 				"invalidCount": "Enter a whole number of fish lost (at least 1).",
 				"saveFailed": "Could not save the mortality record. Try again.",
 				"pondNotFound": "Pond not found.",
-				"currentPopulation": "Stock list: {population} fish (legacy count; mortality is subtracted on top)."
+				"currentPopulation": "Stock list: {population} fish (legacy count; mortality is subtracted on top).",
+				"currentPopulationWithRate": "{population} live · {dead} dead of {stocked} stocked ({pct}% mortality)"
 			},
 			"fcrInputs": "Computed from: {feed} kg of feed given for {gain} kg of live biomass gained (live {live} fish)."
 		},
@@ -1263,6 +1290,12 @@
 				"readOnlyReason": "Your role cannot edit calendar events.",
 				"allPondsEditHint": "Choose a single pond to add an event.",
 				"recurringChangeConfirm": "Change the whole repeating series? Choose Cancel to keep it as it was."
+			},
+			"dayEvents": {
+				"title": "Events on {date}",
+				"subtitle": "{count, plural, one {# event} other {# events}}",
+				"empty": "Nothing scheduled this day.",
+				"addEvent": "Add event"
 			},
 			"calendarPage": {
 				"title": "Calendar & Harvest",
@@ -1480,6 +1513,8 @@
 			"farmIdLabel": "Farm ID",
 			"farmNameLabel": "Farm Name",
 			"pondsLabel": "Ponds",
+			"pondsCount": "Ponds ({count})",
+			"managePonds": "Manage ponds",
 			"noPonds": "No ponds yet.",
 			"archived": "Archived",
 			"accountTitle": "Account",
@@ -1495,8 +1530,8 @@
 			"saveError": "Could not save the settings. Try again.",
 			"sampleIntervalLabel": "Sample Interval (days)",
 			"sampleIntervalDesc": "How often fish samples are taken (e.g. 15 or 30 days).",
-			"populationLabel": "Population (fish)",
-			"populationDesc": "Number of fish — used for total biomass and daily feed.",
+			"populationLabel": "Stocked fish count",
+			"populationDesc": "Fish stocked at the start of the cycle. Mortality is recorded on Growth and subtracted from the live count.",
 			"populationPlaceholder": "e.g. 200",
 			"areaPlaceholder": "e.g. 500",
 			"depthPlaceholder": "e.g. 1.5",
@@ -1512,6 +1547,7 @@
 			"errorSummaryHint": "Your values are kept. Open a setting to correct it.",
 			"restoredDraft": "Restored the values you had not saved yet.",
 			"restoredDraftAt": "Restored your unsaved changes ({time}).",
+			"unsavedChanges": "Unsaved changes — press Save settings to apply them.",
 			"discardDraft": "Discard draft",
 			"draftDiscarded": "Unsaved changes discarded.",
 			"conflicts": {
@@ -1724,6 +1760,10 @@
 			"contactEmailError": "Could not save the email. Try again."
 		},
 		"feederViewer": {
+			"waterTempSensor": "Water temp sensor",
+			"healthOk": "Healthy",
+			"healthFault": "Fault",
+			"healthUnknown": "Not reported",
 			"viewerLabel": "Feeder 3D",
 			"canvasLabel": "Interactive 3D model of {label}. Drag to orbit and use the preset buttons to change the view.",
 			"statusIdle": "Idle",
@@ -2233,6 +2273,7 @@
 			"eventType_set_time": "Device Time Set",
 			"eventType_data_imported": "Data Imported",
 			"eventType_data_exported": "Data Exported",
+			"eventType_safety_trip": "Safety Trip (safe mode)",
 			"source_system": "System",
 			"source_user": "User",
 			"source_device": "Device",
@@ -3198,6 +3239,16 @@
 				"settings": "Settings",
 				"operations": "Ops",
 				"more": "More"
+			},
+			"groups": {
+				"commandCenter": "Command Center",
+				"ecosystem": "Ecosystem Management",
+				"platformControl": "Platform Control"
+			},
+			"scope": {
+				"label": "Console scope",
+				"global": "Global superadmin",
+				"organization": "Organization {name}"
 			}
 		},
 		"loading": {
@@ -3955,6 +4006,7 @@
 				"firmware": "Firmware fleet",
 				"audit": "Audit log",
 				"announcements": "Announcements",
+				"reports": "Reports",
 				"security": "Security and oversight"
 			},
 			"errors": {
@@ -4196,6 +4248,39 @@
 				"clearing": "Clearing…",
 				"cleared": "Announcement cleared.",
 				"failed": "The announcement could not be saved."
+			},
+			"reports": {
+				"title": "Issue reports",
+				"description": "Accessibility, bug, content and other reports submitted from the public site or by Pakoy.",
+				"summary": "{open} open of {total} reports",
+				"caption": "Issue reports",
+				"columns": {
+					"received": "Received",
+					"category": "Category",
+					"report": "Report",
+					"source": "Source",
+					"status": "Status"
+				},
+				"categories": {
+					"BUG": "Bug",
+					"ACCESSIBILITY": "Accessibility",
+					"CONTENT": "Content",
+					"OTHER": "Other"
+				},
+				"statuses": {
+					"OPEN": "Open",
+					"RESOLVED": "Resolved"
+				},
+				"sources": {
+					"PUBLIC": "Public site",
+					"ASSISTANT": "Pakoy"
+				},
+				"emptyTitle": "No reports yet.",
+				"resolvedAt": "Resolved {when}",
+				"resolve": "Resolve",
+				"resolving": "Resolving…",
+				"resolvedJustNow": "Resolved",
+				"resolveFailed": "Could not resolve. Try again."
 			}
 		},
 		"statusBands": {
@@ -4259,6 +4344,33 @@
 			"neverReported": "No heartbeat yet",
 			"never": "Never",
 			"notReported": "Not reported",
+			"devicesTitle": "Units, worst first",
+			"devicesHint": "One row per feeder: heartbeat, signal, firmware, last feed, and how current each reading is. A value that was never reported says so; it is never shown as zero or as healthy.",
+			"devicesLabel": "Units by device",
+			"devicesTruncated": "Showing the {shown} worst of {total} units. The device registry has the full list.",
+			"columnDevice": "Device",
+			"columnSignal": "Signal",
+			"columnFirmware": "Firmware",
+			"columnLastFeed": "Last feed",
+			"columnFeedLevel": "Hopper level",
+			"columnWaterTemp": "Water temp",
+			"columnHealth": "Safe mode and faults",
+			"unknown": "Unknown",
+			"firmwareNone": "No version reported",
+			"reportedAt": "Reported {time}",
+			"freshAt": "Fresh, read {time}",
+			"staleAt": "Stale, last read {time}",
+			"stateSince": "State since {time}",
+			"safeModeOn": "Safe mode",
+			"safeModeOff": "Not in safe mode",
+			"noFaults": "No faults reported",
+			"faultsLabel": "Faults: {faults}",
+			"probeNotDetected": "Probe not detected",
+			"faults": {
+				"hopper_sensor": "hopper sensor",
+				"rtc": "clock",
+				"relay_overrun": "dose overrun"
+			},
 			"viewDevices": "Open device registry",
 			"viewIncidents": "Incident queue"
 		},

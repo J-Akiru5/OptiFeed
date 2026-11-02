@@ -1,5 +1,6 @@
 import { OrgMembersPanel } from "@/components/superadmin/org-members";
 import { OrgStatusControl } from "@/components/superadmin/org-status-control";
+import { ScopeBanner } from "@/components/superadmin/scope-banner";
 import { Badge, type BadgeTone, Card } from "@/components/superadmin/ui";
 import { Link } from "@/i18n/routing";
 import { getOrgDetail } from "@/lib/actions/platform/members";
@@ -35,12 +36,13 @@ export default async function SuperadminOrgDetailPage({
 	params: Promise<{ orgId: string }>;
 }) {
 	const { orgId } = await params;
-	const [detail, t, tCommon, tRoot, tDates] = await Promise.all([
+	const [detail, t, tCommon, tRoot, tDates, tShell] = await Promise.all([
 		getOrgDetail(orgId),
 		getTranslations("superadmin.orgDetail"),
 		getTranslations("superadmin.common"),
 		getTranslations("superadmin"),
 		getTranslations("dates"),
+		getTranslations("superadmin.shell"),
 	]);
 	if (!detail) notFound();
 
@@ -60,9 +62,19 @@ export default async function SuperadminOrgDetailPage({
 
 	return (
 		<div className="space-y-6">
+			{/* This page names a record, so it draws its own scope path; the layout's
+			    banner steps aside for it (pageOwnsScope). */}
+			<ScopeBanner
+				label={tShell("scope.label")}
+				crumbs={[
+					{ level: "global", label: tShell("scope.global") },
+					{ level: "organization", label: tShell("scope.organization", { name: org.name }) },
+				]}
+			/>
+
 			<Link
 				href="/superadmin/orgs"
-				className="inline-flex items-center gap-1.5 rounded text-xs font-black text-[#0A3D62] hover:underline focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+				className="inline-flex items-center gap-1.5 rounded text-xs font-black text-[#0A3D62] dark:text-slate-100 hover:underline focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
 			>
 				<ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
 				{t("back")}
@@ -75,7 +87,7 @@ export default async function SuperadminOrgDetailPage({
 					</div>
 					<div className="min-w-0">
 						<div className="flex flex-wrap items-center gap-2">
-							<h1 className="text-2xl font-black text-[#0A3D62]">{org.name}</h1>
+							<h1 className="text-2xl font-black text-[#0A3D62] dark:text-slate-100">{org.name}</h1>
 							<Badge tone={typeBadge[org.type] ?? "neutral"}>
 								{labelFor("orgTypes", org.type)}
 							</Badge>
@@ -83,33 +95,49 @@ export default async function SuperadminOrgDetailPage({
 								{labelFor("orgStatuses", org.status)}
 							</Badge>
 						</div>
-						<p className="mt-1 max-w-2xl text-sm text-[#3D5568]">{t("description")}</p>
+						<p className="mt-1 max-w-2xl text-sm text-[#3D5568] dark:text-slate-400">
+							{t("description")}
+						</p>
 					</div>
 				</div>
 
 				<dl className="grid w-full grid-cols-3 gap-3 text-center lg:w-auto">
-					<div className="rounded-xl border border-gray-200 bg-white px-4 py-2">
-						<Users className="mx-auto h-4 w-4 text-[#0A3D62]" aria-hidden="true" />
-						<dt className="mt-1 text-[9px] font-black uppercase tracking-wider text-[#3D5568]">
+					<div className="rounded-xl border border-gray-200 dark:border-[#24304A] bg-white dark:bg-[#111A2C] px-4 py-2">
+						<Users
+							className="mx-auto h-4 w-4 text-[#0A3D62] dark:text-slate-100"
+							aria-hidden="true"
+						/>
+						<dt className="mt-1 text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 							{tCommon("members")}
 						</dt>
-						<dd className="text-lg font-black tabular-nums text-[#0A3D62]">{members.length}</dd>
+						<dd className="text-lg font-black tabular-nums text-[#0A3D62] dark:text-slate-100">
+							{members.length}
+						</dd>
 					</div>
-					<div className="rounded-xl border border-gray-200 bg-white px-4 py-2">
-						<CalendarClock className="mx-auto h-4 w-4 text-[#0A3D62]" aria-hidden="true" />
-						<dt className="mt-1 text-[9px] font-black uppercase tracking-wider text-[#3D5568]">
+					<div className="rounded-xl border border-gray-200 dark:border-[#24304A] bg-white dark:bg-[#111A2C] px-4 py-2">
+						<CalendarClock
+							className="mx-auto h-4 w-4 text-[#0A3D62] dark:text-slate-100"
+							aria-hidden="true"
+						/>
+						<dt className="mt-1 text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 							{tCommon("created")}
 						</dt>
-						<dd className="text-xs font-black text-[#0A3D62]">
+						<dd className="text-xs font-black text-[#0A3D62] dark:text-slate-100">
 							{formatDateTimeLocal(org.createdAt, tDates).date}
 						</dd>
 					</div>
-					<div className="rounded-xl border border-gray-200 bg-white px-4 py-2">
-						<Hash className="mx-auto h-4 w-4 text-[#0A3D62]" aria-hidden="true" />
-						<dt className="mt-1 text-[9px] font-black uppercase tracking-wider text-[#3D5568]">
+					<div className="rounded-xl border border-gray-200 dark:border-[#24304A] bg-white dark:bg-[#111A2C] px-4 py-2">
+						<Hash
+							className="mx-auto h-4 w-4 text-[#0A3D62] dark:text-slate-100"
+							aria-hidden="true"
+						/>
+						<dt className="mt-1 text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 							{t("orgId")}
 						</dt>
-						<dd className="truncate font-mono text-[10px] text-[#3D5568]" title={org.id}>
+						<dd
+							className="truncate font-mono text-[10px] text-[#3D5568] dark:text-slate-400"
+							title={org.id}
+						>
 							{org.id}
 						</dd>
 					</div>

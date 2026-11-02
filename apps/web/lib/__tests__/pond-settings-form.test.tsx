@@ -113,7 +113,7 @@ describe("typed values survive a failed save", () => {
 		renderForm();
 
 		fireEvent.change(screen.getByLabelText("Feeds Per Day"), { target: { value: "3" } });
-		fireEvent.change(screen.getByLabelText("Population (fish)"), { target: { value: "120" } });
+		fireEvent.change(screen.getByLabelText("Stocked fish count"), { target: { value: "120" } });
 		fireEvent.change(screen.getByLabelText("Pond Area (m²)"), { target: { value: "600" } });
 		submit();
 
@@ -125,7 +125,7 @@ describe("typed values survive a failed save", () => {
 		});
 
 		expect(screen.getByLabelText("Feeds Per Day")).toHaveValue(3);
-		expect(screen.getByLabelText("Population (fish)")).toHaveValue(120);
+		expect(screen.getByLabelText("Stocked fish count")).toHaveValue(120);
 		expect(screen.getByLabelText("Pond Area (m²)")).toHaveValue(600);
 		// The draft is kept for the next visit, not discarded on failure: it is
 		// written to the database (I-99) after the debounce.
@@ -286,7 +286,7 @@ describe("the database draft (I-99)", () => {
 		});
 		renderForm();
 
-		await waitFor(() => expect(screen.getByLabelText("Population (fish)")).toHaveValue(150));
+		await waitFor(() => expect(screen.getByLabelText("Stocked fish count")).toHaveValue(150));
 		expect(window.sessionStorage.getItem(pondDraftKey("pond-1"))).toBeNull();
 	});
 

@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 const SKELETON_CARDS = ["c1", "c2", "c3", "c4"];
 
 const block =
-	"animate-pulse rounded-2xl border border-gray-200 bg-white motion-reduce:animate-none";
+	"animate-pulse rounded-2xl border border-gray-200 dark:border-[#24304A] bg-white dark:bg-[#111A2C] motion-reduce:animate-none";
 
 /**
  * Route-level skeleton for the platform console. It mirrors the real overview

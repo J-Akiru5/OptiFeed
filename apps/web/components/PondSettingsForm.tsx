@@ -400,6 +400,9 @@ export function PondSettingsForm({
 				setRestoredAt(null);
 				setFieldErrors([]);
 				setSuccess(true);
+				// The dashboard and growth pages read the pond row; refresh the
+				// client router so a navigation immediately shows the saved count.
+				router.refresh();
 				return;
 			}
 			// The action echoes nothing to re-apply: the draft is the reader's, and
@@ -463,6 +466,13 @@ export function PondSettingsForm({
 					>
 						{t("discardDraft")}
 					</button>
+				</output>
+			)}
+
+			{dirty && !success && (
+				<output className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+					<AlertTriangle aria-hidden="true" className="h-4 w-4 shrink-0" />
+					{t("unsavedChanges")}
 				</output>
 			)}
 

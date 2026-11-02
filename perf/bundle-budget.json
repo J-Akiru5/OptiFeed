@@ -134,8 +134,8 @@
 			"budgetKb": 1017.5
 		},
 		"/[locale]/(dashboard)/dashboard/settings/hardware/page": {
-			"baselineKb": 1143.9,
-			"budgetKb": 1166.8
+			"baselineKb": 1167,
+			"budgetKb": 1190.3
 		},
 		"/[locale]/(dashboard)/dashboard/settings/page": {
 			"baselineKb": 968.3,

@@ -1264,6 +1264,12 @@
 				"allPondsEditHint": "Pilia ang isa ka punong para makadugang sang hitabo.",
 				"recurringChangeConfirm": "Bag-uhon ang bug-os nga nagabalik nga serye? Pilia ang Cancel para indi mabag-o."
 			},
+			"dayEvents": {
+				"title": "Mga panghitabo sa {date}",
+				"subtitle": "{count, plural, one {# panghitabo} other {# ka panghitabo}}",
+				"empty": "Wala sang naka-iskedyul sini nga adlaw.",
+				"addEvent": "Dugang event"
+			},
 			"calendarPage": {
 				"title": "Kalendaryo kag Pag-ani",
 				"desc": "Ang crop cycle kag ang tanan nga hitabo sa punong, sa isa ka kalendaryo.",

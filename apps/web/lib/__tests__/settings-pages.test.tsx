@@ -291,6 +291,18 @@ describe("hardware settings page", () => {
 		expect(html).toContain("Device ID (MAC)");
 	});
 
+	it("shows the stored water temperature verbatim, with the offset applied once (#622)", async () => {
+		// The mock device stores 28.5 °C with a -0.5 offset, i.e. the firmware
+		// already sent 29.0 - 0.5. The page must not subtract it a second time.
+		const html = renderToStaticMarkup(
+			await HardwareSettingsPage({ searchParams: Promise.resolve({}) }),
+		);
+
+		expect(html).toContain("Last reading: <strong>28.5°C</strong>");
+		expect(html).toContain("29.0°C");
+		expect(html).not.toContain("27.5°C");
+	});
+
 	it("shows the sticker MAC as the Device ID and the heartbeat's firmware version", async () => {
 		vi.mocked(prisma.deviceStateEvent.findFirst).mockResolvedValueOnce({
 			eventType: "firmware_reported",

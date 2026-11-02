@@ -1,4 +1,4 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to this project will be documented in this file.
 
@@ -9,12 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.0] - 2026-11-03
+
 ### Added
+
+- **The 3D feeder view now uses real camera controls (#623).** `OrbitControls` is replaced with drei `CameraControls`: right-drag pans instead of orbiting, a lock button keeps the camera fixed by default and remembers the choice, touch devices get pinch and two-finger pan, movement is bounded so the camera cannot leave the scene, and a reset returns to the default view. No dependency was added.
 
 - **The superadmin console's chart layer gains the six visualizations the command center needs, on one shared date range (#629).** `components/charts/` now has a heatmap (activity by day Ã— hour), a timeline (incidents and device events on a time rail), a treemap (org â†’ ponds â†’ devices), a radial gauge (bounded health and utilisation percentages), a stacked area (cumulative consumption by source) and the KPI sparkline, which moved out of `superadmin/monitor/primitives` so there is one implementation rather than two. Every primitive handles both themes, an empty dataset, a single point, a loading skeleton and an error state, and keeps the visually hidden data table the existing charts already publish. A `ChartRangeProvider` and `ChartRangeControl` give a page 7d/30d/90d/custom and filter the temporal charts on the client: `LineTrend`, `MultiLineTrend`, `StackedBars` and `StackedArea` opt in with `temporal`, and a filtered stack recomputes its legend totals so the legend describes what is plotted. Legends are native buttons with `aria-pressed`, the cartesian charts set Recharts' `accessibilityLayer`, and `charts/lazy.tsx` splits every Recharts-backed chart into its own chunk so chart code stays out of the initial health-panel bundle. No new dependency, no schema change.
 ### Fixed
 
 - **The 3D viewer's water-probe and RTC health now refresh with the 15-second poll (#620).** The poll DTO omitted the water probe entirely and carried the RTC bit only on the server render, so both stayed frozen for as long as the tab was open: a probe that failed at 02:00 still read healthy at 08:00, with nothing on screen saying the value was static. `toStatePayload` now projects every health field (`waterTempOk`, `waterTempC`, `waterTempUpdatedAt`, `rtcOk`, `lastSeenAt`) from the same `getDeviceDetail` read the page uses, and the viewer merges them into its state on each poll. A reading older than the device's offline window - the platform `device.status` setting, five minutes by default - renders as "Stale" with its age instead of being repeated as current, and a never-reported probe stays "Not reported" rather than turning into a fault. `lib/feeder/reading-freshness.ts` holds the age and staleness rules with boundary tests, and a live test drives the poll and asserts the rendered health changes.
+- **The water-temperature offset is applied once, on the device, so every surface shows the same number (#622).** The firmware adds the stored offset before it transmits and ingest stores that value verbatim, but the hardware page, the dashboard card and the calibration form each added `tempOffsetC` again: a -0.7 °C offset displayed 26.4 °C for water the device had already calibrated to 27.1 °C, and the under-temperature warning (evaluated against the once-applied value) disagreed with the number beside it. The dashboard card and the hardware page now render `waterTempC` as stored, and the calibration form derives the sensor's true raw value by removing the stored offset and previews the next reading by adding the draft one, so an operator's correction takes effect once per cycle instead of compounding. `lib/calibration/water-temp.ts` holds the single definition, with tests for negative, positive and missing readings; the form's "Raw reading" is now genuinely raw.
 
 ## [1.44.1] - 2026-11-03
 

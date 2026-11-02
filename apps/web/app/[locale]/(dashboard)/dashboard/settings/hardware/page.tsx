@@ -726,11 +726,9 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 											deviceId={energyDevice.id}
 											currentTempOffsetC={energyDevice.tempOffsetC}
 											currentMinFeedTempC={energyDevice.minFeedTempC}
-											currentTempC={
-												energyDevice.waterTempC === null
-													? null
-													: energyDevice.waterTempC + (energyDevice.tempOffsetC ?? 0)
-											}
+											// The firmware already applied the stored offset (#622);
+											// the form derives the raw value from this one.
+											currentTempC={energyDevice.waterTempC}
 											canWrite={writeAccess}
 										/>
 									</div>

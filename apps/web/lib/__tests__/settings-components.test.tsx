@@ -268,14 +268,18 @@ describe("hopper calibration form", () => {
 
 describe("temperature calibration form", () => {
 	it("labels the offset with °C and previews the raw and calibrated reading", () => {
+		// #622: `currentTempC` is the device's already-calibrated reading. With a
+		// stored -0.7 offset the sensor itself saw 29.2, and keeping -0.7 leaves
+		// the device reporting 28.5.
 		const html = renderToStaticMarkup(
 			<TemperatureCalibrationForm deviceId="dev-1" currentTempOffsetC={-0.7} currentTempC={28.5} />,
 		);
 
 		expect(html).toContain("Temperature Offset (°C)");
 		expect(html).toContain("Raw reading");
+		expect(html).toContain("29.2°C");
 		expect(html).toContain("28.5°C");
-		expect(html).toContain("27.8°C");
+		expect(html).not.toContain("27.8°C");
 		expect(html).toContain('aria-live="polite"');
 	});
 

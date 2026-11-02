@@ -51,6 +51,8 @@ export default async function DeviceDetailPage({
 					initialStatus={detail.status}
 					initialLevel={detail.feedLevelPercent}
 					initialLastFedAt={detail.lastFedAt?.toISOString() ?? null}
+					initialWaterTempOk={detail.waterTempUpdatedAt ? detail.waterTempOk : null}
+					initialRtcOk={detail.rtcOk}
 				/>
 
 				<aside

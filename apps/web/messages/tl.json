@@ -436,6 +436,10 @@
 			}
 		},
 		"feederViewer": {
+			"waterTempSensor": "Sensor ng temperatura ng tubig",
+			"healthOk": "Maayos",
+			"healthFault": "May sira",
+			"healthUnknown": "Hindi iniulat",
 			"viewerLabel": "Feeder 3D",
 			"canvasLabel": "Interactive na 3D na modelo ng {label}. I-drag upang i-orbit at gamitin ang mga preset upang palitan ang view.",
 			"statusIdle": "Idle",

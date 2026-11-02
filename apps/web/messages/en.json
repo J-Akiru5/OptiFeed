@@ -1729,6 +1729,10 @@
 			"contactEmailError": "Could not save the email. Try again."
 		},
 		"feederViewer": {
+			"waterTempSensor": "Water temp sensor",
+			"healthOk": "Healthy",
+			"healthFault": "Fault",
+			"healthUnknown": "Not reported",
 			"viewerLabel": "Feeder 3D",
 			"canvasLabel": "Interactive 3D model of {label}. Drag to orbit and use the preset buttons to change the view.",
 			"statusIdle": "Idle",

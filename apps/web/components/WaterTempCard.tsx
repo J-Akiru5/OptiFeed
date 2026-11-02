@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server";
+
 interface WaterTempCardProps {
 	/** Calibrated temperature (°C) — the raw probe reading plus the saved offset. */
 	tempC: number | null;
@@ -13,13 +15,16 @@ interface WaterTempCardProps {
 	minFeedTempC?: number | null;
 }
 
-export function WaterTempCard({
+export async function WaterTempCard({
 	tempC,
 	tempOk,
 	updatedAt,
 	isDeviceOffline = false,
 	minFeedTempC = null,
 }: WaterTempCardProps) {
+	// A server component: the card ships no interactivity, so the catalogue is
+	// read on the server and the card arrives already translated.
+	const t = await getTranslations("dashboard.waterTemp");
 	const hasReading = tempOk && tempC !== null;
 	const isStale = hasReading && isDeviceOffline;
 	const belowMinimum =
@@ -27,21 +32,21 @@ export function WaterTempCard({
 
 	const formatTimeAgo = (date: Date) => {
 		const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-		if (seconds < 60) return `${seconds}s ago`;
+		if (seconds < 60) return t("secondsAgo", { count: seconds });
 		const minutes = Math.floor(seconds / 60);
-		if (minutes < 60) return `${minutes}m ago`;
+		if (minutes < 60) return t("minutesAgo", { count: minutes });
 		const hours = Math.floor(minutes / 60);
-		if (hours < 24) return `${hours}h ago`;
-		return `${Math.floor(hours / 24)}d ago`;
+		if (hours < 24) return t("hoursAgo", { count: hours });
+		return t("daysAgo", { count: Math.floor(hours / 24) });
 	};
 
 	const statusLabel = isStale
-		? "Stale"
+		? t("statusStale")
 		: belowMinimum
-			? "Below minimum"
+			? t("statusBelowMinimum")
 			: hasReading
-				? "OK"
-				: "Sensor Offline";
+				? t("statusOk")
+				: t("statusOffline");
 	const statusClass = isStale
 		? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200"
 		: belowMinimum
@@ -72,9 +77,9 @@ export function WaterTempCard({
 							stroke="currentColor"
 							strokeWidth={2}
 							role="img"
-							aria-label="Water temperature"
+							aria-label={t("iconLabel")}
 						>
-							<title>Water temperature</title>
+							<title>{t("iconLabel")}</title>
 							<path
 								strokeLinecap="round"
 								strokeLinejoin="round"
@@ -84,7 +89,7 @@ export function WaterTempCard({
 					</div>
 					<div>
 						<p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-							Water Temperature
+							{t("title")}
 						</p>
 						<h3 className="text-lg font-bold text-[var(--ofd-base-deep)]">
 							{hasReading ? `${(tempC as number).toFixed(1)}°C` : "—"}
@@ -102,26 +107,29 @@ export function WaterTempCard({
 			{hasReading ? (
 				<div className="space-y-2">
 					<div className="rounded-xl bg-gray-50 dark:bg-gray-800 p-3 max-xl:flex max-xl:min-h-11 max-xl:items-center max-xl:justify-between max-xl:gap-3 max-xl:border-b max-xl:border-[#E6ECE9] max-xl:p-0 max-xl:py-3 max-xl:rounded-none max-xl:bg-transparent max-xl:last:border-b-0">
-						<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Last updated</p>
+						<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+							{t("lastUpdated")}
+						</p>
 						<p className="text-sm font-medium text-gray-700 dark:text-gray-200">
 							{updatedAt ? formatTimeAgo(updatedAt) : "—"}
 						</p>
 					</div>
 					{belowMinimum ? (
 						<p className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs font-semibold text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/30 dark:text-amber-200 max-xl:border-x-0">
-							Colder than this pond&apos;s feeding minimum of {(minFeedTempC as number).toFixed(1)}
-							°C. Feeding is not blocked — check the fish response before a scheduled feed.
+							{t("belowMinimumNote", { temp: (minFeedTempC as number).toFixed(1) })}
 						</p>
 					) : (
 						minFeedTempC !== null && (
 							<p className="px-1 text-xs text-gray-500 dark:text-gray-400">
-								Feeding minimum: {minFeedTempC.toFixed(1)}°C
+								{t("feedingMinimum", { temp: minFeedTempC.toFixed(1) })}
 							</p>
 						)
 					)}
 				</div>
 			) : (
-				<p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">Sensor offline</p>
+				<p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
+					{t("sensorOffline")}
+				</p>
 			)}
 		</div>
 	);

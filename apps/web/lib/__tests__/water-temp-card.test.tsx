@@ -1,5 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("next-intl/server", async () => {
+	const { createTranslator } = await import("./helpers/messages");
+	return { getTranslations: async (namespace: string) => createTranslator(namespace) };
+});
 
 import { WaterTempCard } from "@/components/WaterTempCard";
 
@@ -13,13 +18,13 @@ import { WaterTempCard } from "@/components/WaterTempCard";
 
 const RECENT = new Date("2026-11-02T08:00:00.000Z");
 
-function html(props: Parameters<typeof WaterTempCard>[0]) {
-	return renderToStaticMarkup(<WaterTempCard {...props} />);
+async function html(props: Parameters<typeof WaterTempCard>[0]) {
+	return renderToStaticMarkup(await WaterTempCard(props));
 }
 
 describe("WaterTempCard", () => {
-	it("shows no minimum at all when the pond has not set one", () => {
-		const output = html({ tempC: 21.5, tempOk: true, updatedAt: RECENT });
+	it("shows no minimum at all when the pond has not set one", async () => {
+		const output = await html({ tempC: 21.5, tempOk: true, updatedAt: RECENT });
 
 		expect(output).toContain("21.5°C");
 		expect(output).toContain("OK");
@@ -27,8 +32,8 @@ describe("WaterTempCard", () => {
 		expect(output).not.toContain("Colder than");
 	});
 
-	it("warns, without claiming a feed was blocked, when the water is below the minimum", () => {
-		const output = html({ tempC: 21.5, tempOk: true, updatedAt: RECENT, minFeedTempC: 24 });
+	it("warns, without claiming a feed was blocked, when the water is below the minimum", async () => {
+		const output = await html({ tempC: 21.5, tempOk: true, updatedAt: RECENT, minFeedTempC: 24 });
 
 		expect(output).toContain("Below minimum");
 		expect(output).toContain("Colder than this pond&#x27;s feeding minimum of 24.0°C");
@@ -36,23 +41,23 @@ describe("WaterTempCard", () => {
 		expect(output).not.toContain(">OK<");
 	});
 
-	it("shows the minimum as context once the water is warm enough", () => {
-		const output = html({ tempC: 27.2, tempOk: true, updatedAt: RECENT, minFeedTempC: 24 });
+	it("shows the minimum as context once the water is warm enough", async () => {
+		const output = await html({ tempC: 27.2, tempOk: true, updatedAt: RECENT, minFeedTempC: 24 });
 
 		expect(output).toContain(">OK<");
 		expect(output).toContain("Feeding minimum: 24.0°C");
 		expect(output).not.toContain("Below minimum");
 	});
 
-	it("treats exactly the minimum as warm enough", () => {
-		const output = html({ tempC: 24, tempOk: true, updatedAt: RECENT, minFeedTempC: 24 });
+	it("treats exactly the minimum as warm enough", async () => {
+		const output = await html({ tempC: 24, tempOk: true, updatedAt: RECENT, minFeedTempC: 24 });
 
 		expect(output).toContain(">OK<");
 		expect(output).not.toContain("Below minimum");
 	});
 
-	it("keeps a stale reading stale instead of re-labeling it as too cold", () => {
-		const output = html({
+	it("keeps a stale reading stale instead of re-labeling it as too cold", async () => {
+		const output = await html({
 			tempC: 18,
 			tempOk: true,
 			updatedAt: RECENT,
@@ -64,8 +69,8 @@ describe("WaterTempCard", () => {
 		expect(output).not.toContain("Below minimum");
 	});
 
-	it("stays offline, not cold, when the probe reports nothing", () => {
-		const output = html({ tempC: null, tempOk: false, updatedAt: null, minFeedTempC: 24 });
+	it("stays offline, not cold, when the probe reports nothing", async () => {
+		const output = await html({ tempC: null, tempOk: false, updatedAt: null, minFeedTempC: 24 });
 
 		expect(output).toContain("Sensor Offline");
 		expect(output).toContain("Sensor offline");

@@ -610,7 +610,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					className={cn(
 						CONTROL_ROOM_ORDER.charts,
 						CONTROL_ROOM_MAIN.charts,
-						"min-w-0",
+						"min-h-0 min-w-0",
 						CONTROL_ROOM_MOBILE_BAND,
 					)}
 				>
@@ -634,7 +634,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 						</nav>
 					</div>
 
-					<div className="grid min-w-0 grid-cols-1 gap-3 max-xl:gap-0 lg:grid-cols-3">
+					<div className="grid min-h-0 min-w-0 grid-cols-1 gap-3 max-xl:gap-0 lg:grid-cols-3">
 						<StackedBars
 							className="ofd-chart-card min-w-0"
 							plotClassName="ofd-plot"

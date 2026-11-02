@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.1] - 2026-11-03
+
 ### Fixed
 
 - **The chat panel no longer camouflages in the system header (#602).** The Pakoy panel header used the same navy as the app chrome and opened directly beneath it, so the two bars read as one surface and the panel looked headerless. It now uses the chat layer's own brand-orange token (`chatHeader`), with the tagline and close control raised to solid white so the smaller text still clears WCAG AA on the new background. The pair is recorded in `CHAT_CONTRAST`, so the existing contrast test covers the header too.

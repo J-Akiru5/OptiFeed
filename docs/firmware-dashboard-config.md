@@ -240,7 +240,8 @@ repeated brownouts looked online and healthy.
   `reset_abnormal_count` and `last_reset_reasons` (text capped at 64 characters). No schema change. The
   newest row is the current state; a row that clears the state is written too. A unit on older firmware
   reports nothing and writes nothing, which is not "all clear". `lib/device-health-model.ts` is the pure
-  model; `lib/device-health.ts` holds the reads.
+  model; `lib/device-health.ts` holds the reads. The safe-mode *entry* is additionally stored once per trip
+  as a `safety_trip` row (see the last bullet in this section), which is what History lists.
 - **Where it shows.** The feeder hero (dashboard and admin pond page) shows a safe-mode alert, the active
   faults with what to check, and the last refused dose with its reason (24 hours). A new safe mode raises a
   CRITICAL in-app notification, a new fault a WARNING; both follow the pond's *device offline* switches.
@@ -248,9 +249,21 @@ repeated brownouts looked online and healthy.
   the unit is in safe mode, instead of queueing a dose the unit will refuse. A dashboard dose the unit
   refuses closes its request as `refused` (the refusal carries no request id, and at most one feed request
   is dispatched per device), so it no longer blocks the next attempt as "a feed is already in progress".
-- **Not covered.** The remaining `diag` keys (#454), a firmware `safety_trip` event (#455, needs a flash),
-  and a request id on the refusal payload (firmware). Calibration requests that are refused keep their own
-  handling.
+- **The trip itself is an audit event (#455, server side).** `POST /api/ingest` accepts
+  `event_type: "safety_trip"` with `trip_id` (1–64 chars) plus optional `abnormal_resets` (0–255),
+  `reset_reasons`, `reset_reason`, `entry` (`boot`/`runtime`), `quiet_s` and `uptime_s`, and stores one
+  `safety_trip` row in `DeviceStateEvent` per trip (`metadata.tripId`, `metadata.eventId =
+  "trip-<trip_id>"`, and the reported evidence). `DeviceStateEvent` has no unique event id, so ingest reads
+  the newest `safety_trip` row for that device and treats a matching `tripId` as a retry: 204, no new row.
+  A different `trip_id` is a new incident. The row writes **no notification and no `FeedEvent`**: the
+  `device_health` state row above already raised the CRITICAL safe-mode alert, and a second one would
+  double-alert one lockout. History shows it as **Safety Trip (safe mode)** under the Feeding filter.
+  `lib/device-safety-trip.ts` is the pure model. The firmware emitter is **not shipped**: the unit still
+  reports safe mode on the heartbeat and refuses doses with `feed_refused` / `safe_mode`, so nothing
+  produces this event yet. Sending it needs `enterSafeMode()` to emit once per trip after Wi-Fi comes up
+  (it runs during `setup()`, before the radio), which requires the owner's flash approval.
+- **Not covered.** The remaining `diag` keys (#454) and a request id on the refusal payload (firmware).
+  Calibration requests that are refused keep their own handling.
 
 Bit order of `faults_present` (`firmware/firmware-main/status.h`): 1 `hopper_sensor`, 2 `rtc`,
 3 `relay_overrun`, 4 `safe_mode`.

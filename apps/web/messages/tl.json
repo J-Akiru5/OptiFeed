@@ -2313,6 +2313,7 @@
 			"eventType_set_time": "Naitakda ang Oras ng Device",
 			"eventType_data_imported": "Na-import ang Data",
 			"eventType_data_exported": "Na-export ang Data",
+			"eventType_safety_trip": "Naka-lock sa safe mode",
 			"source_system": "System",
 			"source_user": "User",
 			"source_device": "Device",

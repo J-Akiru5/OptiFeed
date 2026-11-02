@@ -16,6 +16,13 @@ import {
 	parseDeviceHealthReport,
 } from "@/lib/device-health";
 import {
+	SAFETY_TRIP_EVENT,
+	type SafetyTripReport,
+	isSameSafetyTrip,
+	safetyTripFromMetadata,
+	safetyTripMetadata,
+} from "@/lib/device-safety-trip";
+import {
 	DEVICE_RSSI_DBM_MAX,
 	DEVICE_RSSI_DBM_MIN,
 	isDeviceUnreachable,
@@ -78,7 +85,13 @@ function otaLifecycleEventType(state: string | undefined): string | null {
 
 const baseSchema = z.object({
 	device_id: z.string().min(1),
-	event_type: z.enum(["heartbeat", "feed_dispensed", "schedule_acked", "feed_refused"]),
+	event_type: z.enum([
+		"heartbeat",
+		"feed_dispensed",
+		"schedule_acked",
+		"feed_refused",
+		"safety_trip",
+	]),
 	timestamp: z.string().min(1),
 	event_id: z.string().min(8).optional(),
 	// Present on heartbeats since 1.4.0 and optionally on other events.
@@ -135,6 +148,21 @@ const feedRefusedSchema = baseSchema.extend({
 	// The firmware reports a refused calibration dose with source "calibration".
 	source: z.enum(["scheduled", "dashboard", "button", "calibration"]),
 	reason: z.string().min(1),
+});
+
+// A once-per-trip incident from the safety layer (#455). `trip_id` is generated
+// on the unit and stays stable across a retried report, which is what makes the
+// dedupe below possible without a unique column on DeviceStateEvent. The rest is
+// evidence about the trip: how many abnormal resets, which reasons, whether the
+// unit tripped during boot or while running, and how long it had been quiet.
+const safetyTripSchema = baseSchema.extend({
+	trip_id: z.string().min(1).max(64),
+	abnormal_resets: z.number().int().min(0).max(255).optional(),
+	reset_reasons: z.string().min(1).max(120).optional(),
+	reset_reason: z.string().min(1).max(32).optional(),
+	entry: z.enum(["boot", "runtime"]).optional(),
+	quiet_s: z.number().int().min(0).optional(),
+	uptime_s: z.number().int().min(0).optional(),
 });
 
 function isUniqueConstraintError(error: unknown): boolean {
@@ -1108,6 +1136,65 @@ export const POST = withApi(
 						);
 					}
 				}
+			} catch (error) {
+				if (isUniqueConstraintError(error)) {
+					return new Response(null, { status: 204 });
+				}
+				reportError(error, { route: "ingest", deviceId: device.id });
+				throw error;
+			}
+		} else if (eventType === "safety_trip") {
+			// The safety layer locked the relay into safe mode for this trip.
+			// Audit-only: the `device_health` state row already raised the CRITICAL
+			// safe-mode alert, so a second notification here would double-alert the
+			// farmer for one lockout. No notification, no FeedEvent — History is the
+			// only surface that gains a row.
+			const parsed = safetyTripSchema.safeParse(body);
+			if (!parsed.success) {
+				return new Response("Unprocessable Entity", { status: 422 });
+			}
+
+			const report: SafetyTripReport = {
+				tripId: parsed.data.trip_id,
+				abnormalResets: parsed.data.abnormal_resets ?? null,
+				resetReasons: parsed.data.reset_reasons ?? null,
+				resetReason: parsed.data.reset_reason ?? null,
+				entry: parsed.data.entry ?? null,
+				quietS: parsed.data.quiet_s ?? null,
+				uptimeS: parsed.data.uptime_s ?? null,
+				version: parsed.data.firmware_version ?? null,
+			};
+
+			try {
+				// Once per trip. `DeviceStateEvent` has no unique event id, so the
+				// guarantee is this read: a re-sent report (the unit reports after the
+				// deferred boot trip too) matches the newest trip row and writes
+				// nothing. The read is inside the try so a database failure is reported
+				// once and the unit retries, rather than silently writing a duplicate.
+				const lastTrip = await prisma.deviceStateEvent.findFirst({
+					where: { deviceId: device.id, eventType: SAFETY_TRIP_EVENT },
+					orderBy: { createdAt: "desc" },
+					select: { metadata: true },
+				});
+				if (isSameSafetyTrip(safetyTripFromMetadata(lastTrip?.metadata ?? null), report.tripId)) {
+					return new Response(null, { status: 204 });
+				}
+
+				await prisma.$transaction([
+					prisma.energyDevice.update({
+						where: { id: device.id },
+						data: { lastSeenAt: new Date() },
+					}),
+					prisma.deviceStateEvent.create({
+						data: {
+							deviceId: device.id,
+							eventType: SAFETY_TRIP_EVENT,
+							source: "device",
+							deviceTime: parsed.data.timestamp,
+							metadata: safetyTripMetadata(report) as Prisma.InputJsonObject,
+						},
+					}),
+				]);
 			} catch (error) {
 				if (isUniqueConstraintError(error)) {
 					return new Response(null, { status: 204 });

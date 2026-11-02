@@ -52,7 +52,7 @@ interface ProbeDimensions {
 
 // Vitest runs with `apps/web` as its root, and jsdom gives `import.meta.url`
 // an http scheme, so resolve the repository files from the working directory.
-const MODEL_PATH = path.resolve(process.cwd(), "public/models/feeder-v1.2.0.glb");
+const MODEL_PATH = path.resolve(process.cwd(), "public/models/feeder-v1.3.0.glb");
 const DIMENSIONS_PATH = path.resolve(process.cwd(), "../../tools/feeder-model/dimensions.json");
 
 const PROBE_NODES = [
@@ -91,8 +91,8 @@ const waterLevelY = dimensions.water_probe.water_level_y / 1000;
 
 describe("feeder water-temperature probe", () => {
 	it("ships in the current model asset", () => {
-		expect(FEEDER_MODEL_VERSION).toBe("1.2.0");
-		expect(FEEDER_MODEL_FILE).toBe("/models/feeder-v1.2.0.glb");
+		expect(FEEDER_MODEL_VERSION).toBe("1.3.0");
+		expect(FEEDER_MODEL_FILE).toBe("/models/feeder-v1.3.0.glb");
 
 		const names = gltf.nodes.map((node) => node.name);
 		for (const name of PROBE_NODES) expect(names, name).toContain(name);

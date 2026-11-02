@@ -1,5 +1,5 @@
 {
-	"revision": "tape-2026-10-29-post",
+	"revision": "tape-2026-10-29-post-underside",
 	"units": "mm",
 	"notes": "Tape measurements supplied by Jeff in feeder-dimensions-2026-10-29.json, with the 2026-10-29 layout amendments. The base top is height 0 and +Z is the front. The hopper is one whole PET jar on its conical shoulder, not three tiers. The jar is shortened by 20 mm from the tape value (400 -> 380) so the pot sits lower; the shelf stays at 200 mm. The black controller panel now sits directly under the sticker with no gap. The vertical post is moved into the 10 mm gap against the jar's right side and the chassis, so it supports the hopper/shelf; its arm runs left-to-right, parallel to the front. A vertical white plank under the left edge of the shelf supports the platform from the base (reference photo). The ultrasonic sensor sits on the jar lid; the post arm is a wire guide. The post top is 105 mm above the hopper/lid top: lid top 510 -> post top 615, not the earlier 750 estimate. Missing from the sheet: separate jar-tier heights (single jar) and hinge spacing (defaulting to 60% of the chassis width).",
 	"base_plate": {
@@ -180,5 +180,97 @@
 		"body_diameter": 14,
 		"body_length": 46,
 		"water_level_y": -90
+	},
+	"underside": {
+		"notes": "Issue #623. Additive only: the plate stays a 340 x 450 x 10 mm slab with its underside at y = -10, and every tape value above it is unchanged. Four feet give an 18 mm stand-off from the deck (deck plane y = -28); each foot is counterbored from the deck side and the deck screw passes through a 7 mm hole in the plate. Two more counterbored mounting holes sit on the front/rear centre line. Five ribs stiffen the pan. One recessed raceway with four straps carries the probe cable from the front edge to the rear; the probe cable and the motor leads meet at a rubber grommet through the plate into the chassis (chassis footprint x 25..170, z -225..225). The DS18B20 cable keeps its tape position; only the routing below the plate is new. Nothing here changes the plate, the cradles or the motor mount.",
+		"deck_y": -28,
+		"feet": {
+			"centers": [[-140, -190], [140, -190], [-140, 190], [140, 190]],
+			"diameter": 44,
+			"height": 18,
+			"screw_hole_diameter": 7,
+			"counterbore_diameter": 16,
+			"counterbore_depth": 6
+		},
+		"mounting_holes": {
+			"centers": [[0, 205], [0, -205]],
+			"diameter": 7,
+			"counterbore_diameter": 16,
+			"counterbore_depth": 3
+		},
+		"ribs": {
+			"centers_x": [-150, -50, 15, 100, 150],
+			"thickness": 8,
+			"depth": 14,
+			"start_z": -160,
+			"end_z": 160
+		},
+		"raceway": {
+			"center_x": -96,
+			"inner_width": 18,
+			"wall": 6,
+			"depth": 14,
+			"start_z": -205,
+			"end_z": 210,
+			"strap_width": 10,
+			"strap_thickness": 3,
+			"strap_centers_z": [160, 40, -80, -180]
+		},
+		"grommet": {
+			"center": [60, -9, -212],
+			"outer_diameter": 22,
+			"inner_diameter": 14,
+			"height": 20
+		},
+		"strain_relief": {
+			"probe": {
+				"center": [-82, -14, 217],
+				"size": [14, 10, 16]
+			},
+			"motor": {
+				"center": [-84, -15, -219],
+				"size": [22, 12, 10]
+			}
+		},
+		"cables": {
+			"probe": {
+				"notes": "Leaves the DS18B20 clip at the front edge, drops under the plate, runs the raceway rearwards and turns right to the chassis grommet.",
+				"diameter": 6,
+				"points": [
+					[-80, -15, 231],
+					[-80, -17, 222],
+					[-86, -17, 215],
+					[-96, -17, 206],
+					[-96, -17, 120],
+					[-96, -17, 20],
+					[-96, -17, -80],
+					[-96, -17, -170],
+					[-94, -17, -200],
+					[-80, -17, -208],
+					[-40, -16, -209],
+					[0, -14, -210],
+					[40, -11, -211],
+					[56, -6, -212],
+					[60, -2, -212]
+				]
+			},
+			"motor": {
+				"notes": "Leaves the motor behind the rear edge of the plate, comes forward underneath it through the strain-relief clamp and joins the probe cable at the grommet.",
+				"diameter": 6,
+				"points": [
+					[-82.5, -2, -302],
+					[-82.5, -9, -284],
+					[-83, -15, -262],
+					[-84, -17, -240],
+					[-84, -17, -226],
+					[-84, -17, -216],
+					[-60, -16, -214],
+					[-20, -15, -213],
+					[20, -13, -212],
+					[48, -9, -212],
+					[60, -2, -212]
+				]
+			}
+		}
 	}
 }

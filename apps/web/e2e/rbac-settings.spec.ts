@@ -30,7 +30,7 @@ test.describe("Tenant RBAC settings", () => {
 		await expect(
 			page.getByRole("heading", { name: `Permissions for ${E2E.farmerLogin}` }),
 		).toBeVisible({ timeout: 20_000 });
-		const billingRow = page.locator("li").filter({ hasText: "View billing" });
+		const billingRow = page.getByRole("listitem").filter({ hasText: "View billing" });
 		await expect(billingRow.getByRole("checkbox")).not.toBeChecked();
 		await billingRow.getByRole("checkbox").check();
 		await page.getByRole("button", { name: "Save changes" }).click();
@@ -38,7 +38,11 @@ test.describe("Tenant RBAC settings", () => {
 
 		// Reload and prove the override was stored, not just shown locally.
 		await page.reload();
-		const reloadedBilling = page.locator("li").filter({ hasText: "View billing" });
+		const reloadedBilling = page
+			.locator("li")
+			.filter({ hasText: "View billing" })
+			.filter({ has: page.getByRole("checkbox") })
+			.first();
 		await expect(reloadedBilling.getByRole("checkbox")).toBeChecked({ timeout: 20_000 });
 		await expect(reloadedBilling.getByTestId("permission-status-view_billing")).toHaveText(
 			"Granted",

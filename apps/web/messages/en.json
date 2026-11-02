@@ -1880,7 +1880,8 @@
 			"componentsTitle": "Components",
 			"statusWeak": "Weak signal",
 			"diagTitle": "Firmware diagnostics",
-			"diagEmpty": "No diagnostics reported yet (first heartbeat with a diag object fills this in)."
+			"diagEmpty": "No diagnostics reported yet (first heartbeat with a diag object fills this in).",
+			"backTo3d": "Back to 3D view"
 		},
 		"adminDevices": {
 			"view3d": "3D view",

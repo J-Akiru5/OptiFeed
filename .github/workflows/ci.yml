@@ -13,6 +13,12 @@ name: CI
 # every connection value is read from the local stack's own `supabase status`.
 # See docs/e2e.md.
 #
+# Green-tree marker (2026-11-02, owner-approved). A tree that already passed
+# this gate on the default branch (`staging`) is not re-tested on a promotion
+# to `main`. The marker is saved only by a successful push to `staging`; a
+# cache miss, eviction or API error falls back to a full run. Step-level skips
+# keep the required check name `quality` stable. Measured 2026-11-02:
+# quality 363s, e2e 604s (run 41374968165).
 # Application deployment is handled exclusively by the Vercel Git integration
 # for the two approved branches (`staging` and `main`). See
 # docs/deployment-workflow.md.
@@ -51,42 +57,73 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Resolve the tree hash
+        id: tree
+        shell: bash
+        run: echo "tree=$(git rev-parse HEAD^{tree})" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the green-tree marker
+        id: green
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/cache/restore@v4
+        with:
+          path: .ci-green
+          key: ci-green-${{ steps.tree.outputs.tree }}
+          lookup-only: true
+
+      - name: Report the skip decision
+        run: |
+          if [ "${{ steps.green.outputs.cache-hit }}" = "true" ]; then
+            echo "Tree ${{ steps.tree.outputs.tree }} already passed this gate; heavy steps skipped." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Tree ${{ steps.tree.outputs.tree }} has no green marker; full run." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Install pnpm
+        if: steps.green.outputs.cache-hit != 'true'
         uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
+        if: steps.green.outputs.cache-hit != 'true'
         uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
 
       - name: Install dependencies
+        if: steps.green.outputs.cache-hit != 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
+        if: steps.green.outputs.cache-hit != 'true'
         run: pnpm --filter web prisma:generate
 
       - name: Validate Prisma schema
+        if: steps.green.outputs.cache-hit != 'true'
         run: pnpm --filter web exec prisma validate
 
       - name: Lint
+        if: steps.green.outputs.cache-hit != 'true'
         run: pnpm lint
 
       - name: Typecheck
+        if: steps.green.outputs.cache-hit != 'true'
         run: pnpm typecheck
 
       - name: Unit tests + lib coverage (threshold enforced)
+        if: steps.green.outputs.cache-hit != 'true'
         run: pnpm --filter web test:coverage
 
       # Report-only (#457): prints Tagalog review progress to the job log.
       # The script always exits 0; translation parity is enforced by tests,
       # not by this progress number.
       - name: Tagalog coverage report
-        if: always()
+        if: always() && steps.green.outputs.cache-hit != 'true'
         run: pnpm --filter web i18n:tl-coverage
 
       - name: Upload coverage summary
-        if: always()
+        if: always() && steps.green.outputs.cache-hit != 'true'
         uses: actions/upload-artifact@v7
         with:
           name: coverage-summary
@@ -95,13 +132,28 @@ jobs:
           retention-days: 7
 
       - name: API checks (regulation conformance + route auth)
+        if: steps.green.outputs.cache-hit != 'true'
         run: pnpm api:check
 
       # next build directly (not pnpm build) so CI never runs
       # `prisma migrate deploy` — dummy DB env, zero production access.
       - name: Build
+        if: steps.green.outputs.cache-hit != 'true'
         run: npx next build
         working-directory: apps/web
+
+      - name: Create the green-tree marker
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/staging' && steps.green.outputs.cache-hit != 'true'
+        run: echo "${{ steps.tree.outputs.tree }}" > .ci-green
+
+      - name: Persist the green-tree marker
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/staging' && steps.green.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: .ci-green
+          key: ci-green-${{ steps.tree.outputs.tree }}
+
 
   e2e:
     name: e2e (local supabase stack)
@@ -112,7 +164,6 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
       (github.event_name == 'pull_request' && github.base_ref == 'develop')
-    needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:

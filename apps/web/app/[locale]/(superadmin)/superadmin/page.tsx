@@ -1,5 +1,6 @@
 import { CHART_COLORS, type ChartLabels, Donut, LineTrend, StackedBars } from "@/components/charts";
 import { formatChartNumber, summarize } from "@/components/charts/chart-data";
+import { ConnectivityPanel } from "@/components/superadmin/connectivity-panel";
 import {
 	type CommandCenterKpi,
 	CommandCenterLayout,
@@ -58,15 +59,17 @@ export default async function SuperadminOverviewPage({
 	// module can never be rendered by a future route that forgets the layout.
 	await requirePlatformAdmin();
 
-	const [analytics, statusBands, t, tBands, tCommon, tDates, locale] = await Promise.all([
-		getPlatformAnalytics(range),
-		getStatusBands(),
-		getTranslations("superadmin.overview"),
-		getTranslations("superadmin.statusBands"),
-		getTranslations("superadmin.common"),
-		getTranslations("dates"),
-		getLocale(),
-	]);
+	const [analytics, statusBands, t, tBands, tConnectivity, tCommon, tDates, locale] =
+		await Promise.all([
+			getPlatformAnalytics(range),
+			getStatusBands(),
+			getTranslations("superadmin.overview"),
+			getTranslations("superadmin.statusBands"),
+			getTranslations("superadmin.connectivity"),
+			getTranslations("superadmin.common"),
+			getTranslations("dates"),
+			getLocale(),
+		]);
 
 	const formatValue = (value: number, decimals = 0) =>
 		new Intl.NumberFormat(locale, { maximumFractionDigits: decimals }).format(value);
@@ -320,127 +323,131 @@ export default async function SuperadminOverviewPage({
 				</section>
 			}
 			footer={
-				<section aria-label={t("needsAttention")} className="space-y-3">
-					<div className="flex items-center gap-2">
-						<Activity className="h-4 w-4 text-[#E85A2A] dark:text-[#FF8A5C]" aria-hidden="true" />
-						<h2 className="text-lg font-black text-[#0A3D62] dark:text-slate-100">
-							{t("needsAttention")}
-						</h2>
-					</div>
+				<div className="space-y-6">
+					<ConnectivityPanel data={analytics.connectivity} t={tConnectivity} locale={locale} />
 
-					<div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-						<AttentionCard
-							title={t("offlineFeeders")}
-							empty={analytics.mostOfflineFeeders.length === 0}
-							action={
-								<Link href="/superadmin/devices" className={SECONDARY_BUTTON}>
-									{t("viewDevices")}
-								</Link>
-							}
-						>
-							{analytics.mostOfflineFeeders.length === 0
-								? t("offlineFeedersEmpty")
-								: analytics.mostOfflineFeeders.map((device) => (
-										<li key={device.id} className="px-5 py-3">
-											<div className="flex items-start justify-between gap-2">
-												<div className="min-w-0">
-													<p className="truncate text-sm font-bold text-[#0A3D62] dark:text-slate-100">
-														{device.label}
-													</p>
-													<p className="truncate text-[11px] text-[#3D5568] dark:text-slate-400">
-														{device.pondName ?? t("noPond")} · {device.mac}
-													</p>
+					<section aria-label={t("needsAttention")} className="space-y-3">
+						<div className="flex items-center gap-2">
+							<Activity className="h-4 w-4 text-[#E85A2A] dark:text-[#FF8A5C]" aria-hidden="true" />
+							<h2 className="text-lg font-black text-[#0A3D62] dark:text-slate-100">
+								{t("needsAttention")}
+							</h2>
+						</div>
+
+						<div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+							<AttentionCard
+								title={t("offlineFeeders")}
+								empty={analytics.mostOfflineFeeders.length === 0}
+								action={
+									<Link href="/superadmin/devices" className={SECONDARY_BUTTON}>
+										{t("viewDevices")}
+									</Link>
+								}
+							>
+								{analytics.mostOfflineFeeders.length === 0
+									? t("offlineFeedersEmpty")
+									: analytics.mostOfflineFeeders.map((device) => (
+											<li key={device.id} className="px-5 py-3">
+												<div className="flex items-start justify-between gap-2">
+													<div className="min-w-0">
+														<p className="truncate text-sm font-bold text-[#0A3D62] dark:text-slate-100">
+															{device.label}
+														</p>
+														<p className="truncate text-[11px] text-[#3D5568] dark:text-slate-400">
+															{device.pondName ?? t("noPond")} · {device.mac}
+														</p>
+													</div>
+													<Badge tone="danger">{tCommon("offline")}</Badge>
 												</div>
-												<Badge tone="danger">{tCommon("offline")}</Badge>
-											</div>
-											<p className="mt-1 text-[10px] font-bold text-[#3D5568] dark:text-slate-400">
-												{device.lastSeenAt
-													? t("lastSeen", {
-															date: formatDateTimeLocal(device.lastSeenAt, tDates).full,
-														})
-													: t("neverSeen")}
-											</p>
-										</li>
-									))}
-						</AttentionCard>
-
-						<AttentionCard
-							title={t("pendingDevices")}
-							empty={analytics.pendingApprovalDevices.length === 0}
-							action={
-								<Link href="/superadmin/devices" className={SECONDARY_BUTTON}>
-									{t("viewDevices")}
-								</Link>
-							}
-						>
-							{analytics.pendingApprovalDevices.length === 0
-								? t("pendingDevicesEmpty")
-								: analytics.pendingApprovalDevices.map((device) => (
-										<li key={device.id} className="px-5 py-3">
-											<p className="truncate text-sm font-bold text-[#0A3D62] dark:text-slate-100">
-												{device.label}
-											</p>
-											<p className="truncate text-[11px] text-[#3D5568] dark:text-slate-400">
-												{device.mac}
-											</p>
-											<p className="mt-1 text-[10px] font-bold text-[#3D5568] dark:text-slate-400">
-												{t("requested", {
-													date: formatDateTimeLocal(device.createdAt, tDates).full,
-												})}
-											</p>
-										</li>
-									))}
-						</AttentionCard>
-
-						<AttentionCard title={t("failedJobs")} empty={analytics.failedJobs.length === 0}>
-							{analytics.failedJobs.length === 0
-								? t("failedJobsEmpty")
-								: analytics.failedJobs.map((job) => (
-										<li key={job.id} className="px-5 py-3">
-											<p className="truncate text-sm font-bold text-[#0A3D62] dark:text-slate-100">
-												{job.type}
-											</p>
-											{job.error && (
-												<p className="line-clamp-2 text-[11px] text-[#C42B3A] dark:text-red-300">
-													{job.error}
+												<p className="mt-1 text-[10px] font-bold text-[#3D5568] dark:text-slate-400">
+													{device.lastSeenAt
+														? t("lastSeen", {
+																date: formatDateTimeLocal(device.lastSeenAt, tDates).full,
+															})
+														: t("neverSeen")}
 												</p>
-											)}
-											<p className="mt-1 text-[10px] font-bold text-[#3D5568] dark:text-slate-400">
-												{formatDateTimeLocal(job.at, tDates).full}
-											</p>
-										</li>
-									))}
-						</AttentionCard>
+											</li>
+										))}
+							</AttentionCard>
 
-						<AttentionCard
-							title={t("topFcr")}
-							empty={analytics.topFcrPonds.length === 0}
-							action={
-								<Link href="/superadmin/ponds" className={SECONDARY_BUTTON}>
-									{t("ponds")}
-								</Link>
-							}
-						>
-							{analytics.topFcrPonds.length === 0
-								? t("topFcrEmpty")
-								: analytics.topFcrPonds.map((report) => (
-										<li key={report.pondId} className="px-5 py-3">
-											<p className="truncate text-sm font-bold text-[#0A3D62] dark:text-slate-100">
-												{report.pondName}
-											</p>
-											<p className="text-[11px] text-[#3D5568] dark:text-slate-400">
-												{t("fcrValue", { value: report.fcrValue.toFixed(2) })}
-											</p>
-											<p className="mt-1 text-[10px] font-bold text-[#3D5568] dark:text-slate-400">
-												{t("periodEnding", {
-													date: formatDateTimeLocal(report.periodEnd, tDates).date,
-												})}
-											</p>
-										</li>
-									))}
-						</AttentionCard>
-					</div>
-				</section>
+							<AttentionCard
+								title={t("pendingDevices")}
+								empty={analytics.pendingApprovalDevices.length === 0}
+								action={
+									<Link href="/superadmin/devices" className={SECONDARY_BUTTON}>
+										{t("viewDevices")}
+									</Link>
+								}
+							>
+								{analytics.pendingApprovalDevices.length === 0
+									? t("pendingDevicesEmpty")
+									: analytics.pendingApprovalDevices.map((device) => (
+											<li key={device.id} className="px-5 py-3">
+												<p className="truncate text-sm font-bold text-[#0A3D62] dark:text-slate-100">
+													{device.label}
+												</p>
+												<p className="truncate text-[11px] text-[#3D5568] dark:text-slate-400">
+													{device.mac}
+												</p>
+												<p className="mt-1 text-[10px] font-bold text-[#3D5568] dark:text-slate-400">
+													{t("requested", {
+														date: formatDateTimeLocal(device.createdAt, tDates).full,
+													})}
+												</p>
+											</li>
+										))}
+							</AttentionCard>
+
+							<AttentionCard title={t("failedJobs")} empty={analytics.failedJobs.length === 0}>
+								{analytics.failedJobs.length === 0
+									? t("failedJobsEmpty")
+									: analytics.failedJobs.map((job) => (
+											<li key={job.id} className="px-5 py-3">
+												<p className="truncate text-sm font-bold text-[#0A3D62] dark:text-slate-100">
+													{job.type}
+												</p>
+												{job.error && (
+													<p className="line-clamp-2 text-[11px] text-[#C42B3A] dark:text-red-300">
+														{job.error}
+													</p>
+												)}
+												<p className="mt-1 text-[10px] font-bold text-[#3D5568] dark:text-slate-400">
+													{formatDateTimeLocal(job.at, tDates).full}
+												</p>
+											</li>
+										))}
+							</AttentionCard>
+
+							<AttentionCard
+								title={t("topFcr")}
+								empty={analytics.topFcrPonds.length === 0}
+								action={
+									<Link href="/superadmin/ponds" className={SECONDARY_BUTTON}>
+										{t("ponds")}
+									</Link>
+								}
+							>
+								{analytics.topFcrPonds.length === 0
+									? t("topFcrEmpty")
+									: analytics.topFcrPonds.map((report) => (
+											<li key={report.pondId} className="px-5 py-3">
+												<p className="truncate text-sm font-bold text-[#0A3D62] dark:text-slate-100">
+													{report.pondName}
+												</p>
+												<p className="text-[11px] text-[#3D5568] dark:text-slate-400">
+													{t("fcrValue", { value: report.fcrValue.toFixed(2) })}
+												</p>
+												<p className="mt-1 text-[10px] font-bold text-[#3D5568] dark:text-slate-400">
+													{t("periodEnding", {
+														date: formatDateTimeLocal(report.periodEnd, tDates).date,
+													})}
+												</p>
+											</li>
+										))}
+							</AttentionCard>
+						</div>
+					</section>
+				</div>
 			}
 		/>
 	);

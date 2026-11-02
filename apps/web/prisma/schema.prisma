@@ -423,6 +423,7 @@ model EnergyDevice {
   feedLevelLogs    FeedLevelLog[]
   waterTempLogs    WaterTempLog[]
   settingsDrafts   PondSettingsDraft[]
+  connectivity     DeviceConnectivityDaily[]
 
   @@index([pondId])
 }
@@ -484,6 +485,34 @@ model DeviceStateEvent {
   @@index([deviceId, createdAt])
   @@index([eventType, createdAt])
   @@index([farmId])
+}
+
+/// Per-device daily connectivity rollup (issue #479, M3C.10; decision O24).
+///
+/// One row per (device, UTC calendar day), aggregated from the stored
+/// `FeedEvent` heartbeat rows by the `device-watch` cron before the 7-day
+/// heartbeat sweep. It is the only source for the 90-day trend: a day with no
+/// row is reported as "no data" and is never estimated from neighbouring days.
+/// Rows older than 90 days are pruned by the same cron.
+model DeviceConnectivityDaily {
+  id             String   @id @default(cuid())
+  deviceId       String
+  /// UTC calendar day. A DATE, so the unique key cannot shift with a time zone.
+  day            DateTime @db.Date
+  firstSeenAt    DateTime
+  lastSeenAt     DateTime
+  /// Measured online time: the heartbeat span minus the silence beyond the
+  /// configured gap threshold (see `lib/platform/connectivity-rules.ts`).
+  onlineMinutes  Int
+  heartbeatCount Int
+  gapCount       Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  device EnergyDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, day])
+  @@index([day])
 }
 
 // Schedule edits as queued commands — never write directly to Pond.

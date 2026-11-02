@@ -40,7 +40,7 @@ export function MobileHeader({
 		shell === "admin" ? tAdmin("badge") : shell === "platform" ? tShell("platform") : "PakaonAI";
 
 	return (
-		<div className={cn("ofd-band lg:hidden", className)}>
+		<div className={cn("ofd-band pt-[env(safe-area-inset-top)] lg:hidden", className)}>
 			<div className="flex items-start gap-2 px-4 pt-3">
 				<div className="min-w-0 flex-1">
 					<p

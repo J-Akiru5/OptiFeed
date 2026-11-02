@@ -5,6 +5,11 @@ export default defineConfig({
 	test: {
 		environment: "jsdom",
 		globals: true,
+		// 30s, not the 5s default: a few suites build and parse real XLSX workbooks
+		// (exceljs in jsdom). They take ~1s alone but exceeded 5s once every coverage
+		// worker was busy, failing the gate on wall-clock contention rather than on
+		// behaviour. Assertions are untouched; a genuinely hung test still fails.
+		testTimeout: 30_000,
 		setupFiles: ["./test/setup.ts"],
 		// lib/ is the measured application surface (see `coverage.include`);
 		// scripts/e2e/ holds the fixture guards, whose unit tests live next to

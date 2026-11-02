@@ -445,6 +445,7 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 			"dailyCapG",
 			"gramsPerSecond",
 			"tempOffsetC",
+			"minFeedTempC",
 			"lastCalibratedAt",
 			"recalibrationIntervalDays",
 			"approvalStatus",

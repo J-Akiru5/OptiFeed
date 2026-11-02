@@ -239,6 +239,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 					lastCalibratedAt: true,
 					recalibrationIntervalDays: true,
 					tempOffsetC: true,
+					minFeedTempC: true,
 					waterTempC: true,
 					waterTempOk: true,
 					waterTempUpdatedAt: true,
@@ -708,7 +709,12 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 										<TemperatureCalibrationForm
 											deviceId={energyDevice.id}
 											currentTempOffsetC={energyDevice.tempOffsetC}
-											currentTempC={energyDevice.waterTempC}
+											currentMinFeedTempC={energyDevice.minFeedTempC}
+											currentTempC={
+												energyDevice.waterTempC === null
+													? null
+													: energyDevice.waterTempC + (energyDevice.tempOffsetC ?? 0)
+											}
 											canWrite={writeAccess}
 										/>
 									</div>

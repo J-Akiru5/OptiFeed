@@ -9,6 +9,7 @@ import {
 	Megaphone,
 	MessageSquareWarning,
 	ScrollText,
+	ShieldCheck,
 	TriangleAlert,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -17,7 +18,7 @@ import { useTranslations } from "next-intl";
  * Section tabs for the platform Operations area (E16.4, task I-15).
  *
  * The platform sidebar has one "Operations" entry; these tabs switch between
- * the pages without adding a top-level console item per page.
+ * the pages without adding a top-level item to the console for each one.
  */
 
 const tabs = [
@@ -26,6 +27,7 @@ const tabs = [
 	{ href: "/superadmin/operations/reports", key: "reports", icon: MessageSquareWarning },
 	{ href: "/superadmin/operations/firmware", key: "firmware", icon: Cpu },
 	{ href: "/superadmin/operations/audit", key: "audit", icon: ScrollText },
+	{ href: "/superadmin/operations/security", key: "security", icon: ShieldCheck },
 	{ href: "/superadmin/operations/announcements", key: "announcements", icon: Megaphone },
 ] as const;
 

@@ -53,13 +53,16 @@ export function PondOverview({ pondName, feeders, className }: PondOverviewProps
 	return (
 		<figure
 			className={cn(
-				"relative h-full min-h-[220px] overflow-hidden rounded-3xl border border-[#0A3D62]/10 bg-[#EAF3EA] shadow-sm dark:border-gray-700/60 dark:bg-[#0b1a24] xl:min-h-0",
+				"relative h-full min-h-[220px] overflow-hidden rounded-3xl border border-[#0A3D62]/10 bg-[#EAF3EA] shadow-sm dark:border-gray-700/60 dark:bg-[#0b1a24] max-xl:relative max-xl:h-auto max-xl:min-h-0 max-xl:overflow-visible max-xl:rounded-none max-xl:border-0 max-xl:bg-transparent max-xl:p-0 max-xl:shadow-none dark:max-xl:bg-gray-900 xl:min-h-0",
+				// Below xl the canvas is a plain, full-bleed section: no card chrome,
+				// no clipping, and the pin list flows underneath the title.
+				"max-xl:relative max-xl:h-auto max-xl:min-h-0 max-xl:overflow-visible max-xl:rounded-none max-xl:border-0 max-xl:bg-transparent max-xl:p-0 max-xl:shadow-none",
 				className,
 			)}
 		>
 			<svg
 				aria-hidden="true"
-				className="absolute inset-0 h-full w-full"
+				className="absolute inset-0 h-full w-full max-xl:hidden"
 				viewBox="0 0 800 400"
 				preserveAspectRatio="xMidYMid slice"
 			>
@@ -107,7 +110,7 @@ export function PondOverview({ pondName, feeders, className }: PondOverviewProps
 				/>
 			</svg>
 
-			<div className="absolute left-4 top-3 flex max-w-[calc(100%-2rem)] items-center gap-2">
+			<div className="absolute left-4 top-3 flex max-w-[calc(100%-2rem)] items-center gap-2 max-xl:static max-xl:max-w-none max-xl:p-0">
 				<span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/80 text-[#0A3D62] shadow-sm dark:bg-gray-900/80 dark:text-[#8fc0ea]">
 					<Wheat aria-hidden="true" className="h-4 w-4" />
 				</span>
@@ -122,23 +125,26 @@ export function PondOverview({ pondName, feeders, className }: PondOverviewProps
 			</div>
 
 			{feeders.length === 0 ? (
-				<p className="absolute inset-x-6 bottom-4 rounded-xl bg-white/85 px-3 py-2 text-xs font-bold text-[#3D5568] dark:bg-gray-900/85 dark:text-gray-300">
+				<p className="absolute inset-x-6 bottom-4 rounded-xl bg-white/85 px-3 py-2 text-xs font-bold text-[#3D5568] dark:bg-gray-900/85 dark:text-gray-300 max-xl:static max-xl:mt-3 max-xl:rounded-none max-xl:bg-transparent max-xl:p-0">
 					{t("noFeeders")}
 				</p>
 			) : (
-				<ul aria-label={t("feedersLabel")} className="absolute inset-0">
+				<ul
+					aria-label={t("feedersLabel")}
+					className="absolute inset-0 max-xl:static max-xl:mt-3 max-xl:flex max-xl:flex-col max-xl:gap-0"
+				>
 					{feeders.map((feeder, index) => {
 						const spot =
 							POND_PIN_POSITIONS[index % POND_PIN_POSITIONS.length] ?? POND_PIN_POSITIONS[0];
 						return (
 							<li
 								key={feeder.id}
-								className="absolute -translate-x-1/2 -translate-y-1/2"
+								className="absolute -translate-x-1/2 -translate-y-1/2 max-xl:static max-xl:translate-x-0 max-xl:translate-y-0"
 								style={{ left: `${spot.left}%`, top: `${spot.top}%` }}
 							>
 								<Link
 									href="/dashboard/settings/hardware"
-									className="flex w-[10.5rem] flex-col gap-1 rounded-2xl border border-white/70 bg-white/95 p-2 shadow-md backdrop-blur transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-gray-600/70 dark:bg-gray-900/95 dark:focus-visible:outline-[#8fc0ea]"
+									className="flex w-[10.5rem] flex-col gap-1 rounded-2xl border border-white/70 bg-white/95 p-2 shadow-md backdrop-blur transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-gray-600/70 dark:bg-gray-900/95 dark:focus-visible:outline-[#8fc0ea] max-xl:w-full max-xl:rounded-none max-xl:border-0 max-xl:border-b max-xl:border-[#E6ECE9] max-xl:bg-transparent max-xl:px-0 max-xl:py-3 max-xl:shadow-none max-xl:backdrop-blur-none dark:max-xl:border-gray-800"
 								>
 									<span className="flex min-w-0 items-center gap-1.5">
 										<span

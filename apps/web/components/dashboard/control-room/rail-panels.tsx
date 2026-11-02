@@ -63,11 +63,16 @@ export function AlertsPanel({
 	}
 
 	return (
-		<ul className={cn("space-y-2.5", className)}>
+		<ul
+			className={cn(
+				"space-y-2.5 max-xl:space-y-0 max-xl:divide-y max-xl:divide-[#E6ECE9] dark:max-xl:divide-gray-800",
+				className,
+			)}
+		>
 			{items.map((item) => {
 				const Icon = ALERT_ICON[item.tone];
 				return (
-					<li key={item.id} className="flex items-start gap-2.5">
+					<li key={item.id} className="flex items-start gap-2.5 max-xl:py-3">
 						<Icon
 							aria-hidden="true"
 							className={cn("mt-0.5 h-4 w-4 shrink-0", ALERT_TONE[item.tone])}
@@ -113,9 +118,12 @@ export function PondSummary({
 	return (
 		<div className={cn("min-w-0", className)}>
 			<p className="truncate text-sm font-black text-[#0A3D62] dark:text-gray-100">{name}</p>
-			<dl className="mt-2 grid grid-cols-2 gap-2">
+			<dl className="mt-2 grid grid-cols-2 gap-2 max-xl:grid-cols-1 max-xl:gap-0 max-xl:divide-y max-xl:divide-[#E6ECE9] dark:max-xl:divide-gray-800">
 				{meta.map((entry) => (
-					<div key={entry.label}>
+					<div
+						key={entry.label}
+						className="max-xl:flex max-xl:min-h-11 max-xl:items-center max-xl:justify-between max-xl:gap-3 max-xl:py-2"
+					>
 						<dt className="text-[10px] font-bold uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 							{entry.label}
 						</dt>
@@ -211,9 +219,15 @@ export function StatTile({
 	href?: string;
 	className?: string;
 }) {
+	/**
+	 * One DOM tree for both layouts (#476). Below `xl` the root becomes a flex
+	 * row, so the label row grows on the left and the value (with its detail)
+	 * sits right-aligned. The wrappers are plain blocks, which leaves the
+	 * desktop stacking order label → value → detail untouched.
+	 */
 	const body = (
 		<>
-			<div className="flex items-center justify-between gap-2">
+			<div className="flex items-center justify-between gap-2 max-xl:min-w-0 max-xl:flex-1 max-xl:justify-start">
 				<span className="text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 					{label}
 				</span>
@@ -224,19 +238,21 @@ export function StatTile({
 					/>
 				)}
 			</div>
-			<p className="mt-0.5 truncate text-sm font-black text-[#0A3D62] dark:text-gray-100">
-				{value}
-			</p>
-			{detail && (
-				<p className="truncate text-[9px] font-semibold text-[#3D5568] dark:text-gray-500">
-					{detail}
+			<div className="max-xl:min-w-0 max-xl:text-right">
+				<p className="mt-0.5 truncate text-sm font-black text-[#0A3D62] dark:text-gray-100">
+					{value}
 				</p>
-			)}
+				{detail && (
+					<p className="truncate text-[9px] font-semibold text-[#3D5568] dark:text-gray-500">
+						{detail}
+					</p>
+				)}
+			</div>
 		</>
 	);
 
 	const classes = cn(
-		"block min-w-0 rounded-xl border border-gray-100 bg-[#F7F9F8] p-2.5 transition-colors dark:border-gray-700/60 dark:bg-gray-800/60",
+		"block min-w-0 rounded-xl border border-gray-100 bg-[#F7F9F8] p-2.5 transition-colors max-xl:flex max-xl:min-h-11 max-xl:items-center max-xl:justify-between max-xl:gap-3 max-xl:rounded-none max-xl:border-0 max-xl:border-b max-xl:border-[#E6ECE9] max-xl:bg-transparent max-xl:p-0 max-xl:py-3 dark:border-gray-700/60 dark:bg-gray-800/60 dark:max-xl:border-gray-800 dark:max-xl:bg-transparent",
 		href &&
 			"hover:border-[#0A3D62]/20 hover:bg-white focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:hover:bg-gray-800 dark:focus-visible:outline-[#8fc0ea]",
 		className,
@@ -285,11 +301,11 @@ export function RecentFeedings({
 
 	return (
 		<div>
-			<ul className="space-y-1.5">
+			<ul className="space-y-1.5 max-xl:space-y-0 max-xl:divide-y max-xl:divide-[#E6ECE9] dark:max-xl:divide-gray-800">
 				{rows.map((row) => (
 					<li
 						key={row.id}
-						className="flex items-center justify-between gap-2 rounded-xl bg-[#F7F9F8] px-2.5 py-1.5 dark:bg-gray-800/60"
+						className="flex items-center justify-between gap-2 rounded-xl bg-[#F7F9F8] px-2.5 py-1.5 max-xl:min-h-11 max-xl:rounded-none max-xl:bg-transparent max-xl:px-0 max-xl:py-3 dark:bg-gray-800/60 dark:max-xl:bg-transparent"
 					>
 						<div className="min-w-0">
 							<p className="text-xs font-black text-[#0A3D62] dark:text-gray-100">{row.time}</p>

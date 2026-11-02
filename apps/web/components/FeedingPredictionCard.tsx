@@ -269,7 +269,7 @@ export function FeedingPredictionCard({
 		<section
 			aria-labelledby="ai-feed-advisor-title"
 			data-help="ai-advisor"
-			className="overflow-hidden rounded-[32px] border border-gray-100 bg-white shadow-sm dark:border-gray-700/60 dark:bg-gray-900"
+			className="overflow-hidden rounded-[32px] border border-gray-100 bg-white shadow-sm dark:border-gray-700/60 dark:bg-gray-900 max-xl:rounded-none max-xl:border-0 max-xl:shadow-none max-xl:bg-transparent max-xl:p-0"
 		>
 			<header className="relative overflow-hidden bg-gradient-to-br from-[#0A3D62] via-[#0c4a73] to-[#08324f] px-5 py-5 text-white sm:px-6">
 				<div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/5" />

@@ -52,6 +52,17 @@ const RANK: Record<BandState, number> = {
 	critical: 3,
 };
 
+/**
+ * Worst first. Shared by every worst-first list (fleet monitor, tenant health)
+ * so "most urgent at the top" cannot drift between pages.
+ */
+export const BAND_STATE_ORDER: Record<BandState, number> = {
+	critical: 0,
+	degraded: 1,
+	unknown: 2,
+	ok: 3,
+};
+
 export function worstState(states: readonly BandState[]): BandState {
 	return states.reduce<BandState>(
 		(worst, state) => (RANK[state] > RANK[worst] ? state : worst),

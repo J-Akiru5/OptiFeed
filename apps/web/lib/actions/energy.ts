@@ -7,6 +7,8 @@ import {
 	DEFAULT_HOPPER_BULK_DENSITY_G_CM3,
 	GRAMS_PER_SECOND_MAX,
 	GRAMS_PER_SECOND_MIN,
+	MIN_FEED_TEMP_C_MAX,
+	MIN_FEED_TEMP_C_MIN,
 	formatZodError,
 	hopperCalibrationSchema,
 	hopperCapacityFromGeometry,
@@ -202,7 +204,24 @@ export async function saveDurationCalibration(deviceId: string, gramsPerSecond: 
 	}
 }
 
-export async function saveTemperatureCalibration(deviceId: string, tempOffsetC: number) {
+/**
+ * Saves the DS18B20 calibration offset and, when given, the warn-only minimum
+ * feeding temperature (issue #486).
+ *
+ * `minFeedTempC` is three-valued on purpose:
+ *  - omitted  → leave the stored threshold alone (older callers keep working);
+ *  - `null`   → clear it, so the dashboard stops warning on this device;
+ *  - a number → replace it.
+ *
+ * The threshold never blocks a feed. It only lets the dashboard say the water is
+ * colder than the pond's own limit, which is why the bounds are a sanity range
+ * rather than a recommendation.
+ */
+export async function saveTemperatureCalibration(
+	deviceId: string,
+	tempOffsetC: number,
+	minFeedTempC?: number | null,
+) {
 	try {
 		await requireWriteAccess();
 		await requirePermission("manage_schedule");
@@ -220,9 +239,22 @@ export async function saveTemperatureCalibration(deviceId: string, tempOffsetC: 
 			return { success: false, error: "Temperature offset must be between -20 and 20 °C" };
 		}
 
+		if (
+			minFeedTempC !== undefined &&
+			minFeedTempC !== null &&
+			(!Number.isFinite(minFeedTempC) ||
+				minFeedTempC < MIN_FEED_TEMP_C_MIN ||
+				minFeedTempC > MIN_FEED_TEMP_C_MAX)
+		) {
+			return {
+				success: false,
+				error: `Minimum feeding temperature must be between ${MIN_FEED_TEMP_C_MIN} and ${MIN_FEED_TEMP_C_MAX} °C`,
+			};
+		}
+
 		await prisma.energyDevice.update({
 			where: { id: deviceId },
-			data: { tempOffsetC },
+			data: { tempOffsetC, ...(minFeedTempC === undefined ? {} : { minFeedTempC }) },
 		});
 
 		await prisma.deviceStateEvent.create({
@@ -231,11 +263,13 @@ export async function saveTemperatureCalibration(deviceId: string, tempOffsetC: 
 				eventType: "temperature_calibrated",
 				source: "user",
 				actorId: ownerId,
-				metadata: { tempOffsetC },
+				metadata: { tempOffsetC, ...(minFeedTempC === undefined ? {} : { minFeedTempC }) },
 			},
 		});
 
 		revalidatePath("/[locale]/(dashboard)/dashboard/settings/hardware", "page");
+		// The dashboard card shows the warning, so it must re-read the threshold.
+		revalidatePath("/[locale]/(dashboard)/dashboard", "page");
 		return { success: true };
 	} catch (error) {
 		console.error("Failed to save temperature calibration:", error);

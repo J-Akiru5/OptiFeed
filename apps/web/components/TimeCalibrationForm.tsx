@@ -62,7 +62,7 @@ export function TimeCalibrationForm({
 	// horizontally. `min-w-0` lets the flex item shrink with the card.
 	return (
 		<div
-			className="@container min-w-0 bg-white rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 dark:bg-gray-900"
+			className="@container min-w-0 bg-white rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 dark:bg-gray-900 max-xl:rounded-none max-xl:border-0 max-xl:bg-transparent max-xl:p-0 max-xl:shadow-none"
 			data-help="schedule-calibration"
 		>
 			<div className="flex items-center gap-3 mb-6">

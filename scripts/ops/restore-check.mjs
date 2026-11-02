@@ -168,9 +168,7 @@ export const FOREIGN_KEYS = {
 	FeedLevelLog: [{ column: "deviceId", table: "EnergyDevice", target: "id" }],
 	WaterTempLog: [{ column: "deviceId", table: "EnergyDevice", target: "id" }],
 	CalibrationRun: [{ column: "deviceId", table: "EnergyDevice", target: "id" }],
-	PlatformIncidentEvent: [
-		{ column: "incidentId", table: "PlatformIncident", target: "id" },
-	],
+	PlatformIncidentEvent: [{ column: "incidentId", table: "PlatformIncident", target: "id" }],
 };
 
 export const TRAILER_MARKER = "-- === END OF EXPORT ===";

@@ -237,6 +237,9 @@ describe("quick menu (E26)", () => {
 		const hrefs = sections[1].items.map((item) => item.href);
 		for (const href of [
 			"/superadmin",
+			"/superadmin/tenants",
+			"/superadmin/fleet",
+			"/superadmin/incidents",
 			"/superadmin/calendar",
 			"/superadmin/users",
 			"/superadmin/orgs",

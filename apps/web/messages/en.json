@@ -3218,6 +3218,9 @@
 			"bottomNavLabel": "Platform navigation",
 			"nav": {
 				"overview": "Overview",
+				"tenants": "Tenants",
+				"fleet": "Fleet",
+				"incidents": "Incidents",
 				"calendar": "Calendar",
 				"users": "Users",
 				"organizations": "Organizations",

@@ -1,7 +1,7 @@
 {
 	"locale": "tl",
 	"method": "machine-drafted from en.json with the glossary in docs/i18n/tagalog-glossary.md; human review pending",
-	"generatedAt": "2026-11-01",
+	"generatedAt": "2026-11-02",
 	"reviewedBaseline": 331,
 	"draftKeys": [
 		"chat.chipsFarmer0",
@@ -824,6 +824,10 @@
 		"dashboard.appSettings.hopperFullCmDesc",
 		"dashboard.appSettings.hopperLevel",
 		"dashboard.appSettings.lastReading",
+		"dashboard.appSettings.minFeedTempBelow",
+		"dashboard.appSettings.minFeedTempHelp",
+		"dashboard.appSettings.minFeedTempLabel",
+		"dashboard.appSettings.minFeedTempPlaceholder",
 		"dashboard.appSettings.noDevice",
 		"dashboard.appSettings.noDeviceDesc",
 		"dashboard.appSettings.noTemperatureReading",

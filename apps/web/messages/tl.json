@@ -300,7 +300,14 @@
 					"showing": "Ipinapakita ang {from}–{to} ng {total}",
 					"previous": "Nakaraan",
 					"next": "Susunod",
-					"label": "Pagination ng kasaysayan ng kalibrasyon"
+					"label": "Pagination ng kasaysayan ng kalibrasyon",
+					"temperature": {
+						"title": "Calibration ng temperatura",
+						"empty": "Wala pang naka-save na calibration ng temperatura.",
+						"date": "Petsa",
+						"offset": "Offset",
+						"minimum": "Minimum sa pagpapakain"
+					}
 				},
 				"recalibration": {
 					"title": "Iskedyul ng recalibration",
@@ -445,7 +452,7 @@
 			"healthFault": "May sira",
 			"healthUnknown": "Hindi iniulat",
 			"viewerLabel": "Feeder 3D",
-			"canvasLabel": "Interactive na 3D na modelo ng {label}. I-drag upang i-orbit at gamitin ang mga preset upang palitan ang view.",
+			"canvasLabel": "Interactive na 3D na modelo ng {label}. I-drag upang i-orbit, i-right-drag upang i-pan, i-scroll upang i-zoom, at gamitin ang mga preset upang palitan ang view.",
 			"statusIdle": "Idle",
 			"statusDispensing": "Nagpapakain",
 			"statusPaused": "Naka-pause",
@@ -461,9 +468,12 @@
 			"presetRear": "Likod",
 			"presetTop": "Taas",
 			"simpleView": "Simpleng view",
+			"resetView": "I-reset ang view",
+			"lockCamera": "I-lock ang camera",
+			"unlockCamera": "I-unlock ang camera",
 			"modelVersion": "Modelo",
 			"statusAnnouncement": "Kalagayan ng feeder: {status}",
-			"isoLabelsTip": "Lumalabas lang ang mga label ng komponent kapag nasa Isometric view ang modelo. Naka-lock ang Iso; pumili ng ibang view para mag-orbit.",
+			"isoLabelsTip": "Lumalabas lang ang mga label ng komponent kapag nasa Isometric view ang modelo.",
 			"back": "Bumalik sa dashboard",
 			"desc": "Live na 3D na view ng feeder sa {pond}.",
 			"detailsLabel": "Mga detalye ng device",
@@ -489,7 +499,12 @@
 			"componentsTitle": "Mga komponente",
 			"statusWeak": "Mahinang signal",
 			"diagTitle": "Diagnostics ng firmware",
-			"diagEmpty": "Wala pang diagnostics na naiulat (pupunan ito ng unang heartbeat na may diag object)."
+			"diagEmpty": "Wala pang diagnostics na naiulat (pupunan ito ng unang heartbeat na may diag object).",
+			"backTo3d": "Bumalik sa 3D view",
+			"signal": "Signal",
+			"firmware": "Firmware",
+			"openLargeScreen": "Buksan ang malaking screen",
+			"largeScreenDesc": "Full-screen na live view para sa wall display."
 		},
 		"adminOverview": {
 			"chartActivityRange": "Saklaw: {from} – {to} · {days} araw sa bukid (Asia/Manila).",
@@ -2343,7 +2358,11 @@
 			"refusalReasonTooSoon": "masyadong maaga mula sa huling dose",
 			"refusalReasonHourlyLimit": "naabot na ang limitasyon kada oras",
 			"refusalReasonRelayOverrun": "lumampas ang relay",
-			"refusalReasonOther": "{code}"
+			"refusalReasonOther": "{code}",
+			"healthUnknownTitle": "Hindi ma-verify ang kalusugan ng feeder",
+			"healthUnknownBody": "Nabigo ang pagbasa ng kalusugan, kaya hindi masasabi ng page na ito kung ligtas ang feeder. Hindi ito iniuulat na healthy.",
+			"healthUnknownLast": "Huling na-verify {date}, {time}",
+			"healthUnknownChecked": "Nabigo ang pagbasa {date}, {time}"
 		},
 		"audit": {
 			"title": "Talaan ng Audit",
@@ -3739,7 +3758,8 @@
 				"low": "mababa",
 				"medium": "katamtaman",
 				"high": "mataas"
-			}
+			},
+			"removeDone": "Naalis ang provider."
 		},
 		"settings": {
 			"title": "Mga Setting ng Platform",

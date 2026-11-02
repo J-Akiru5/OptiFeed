@@ -171,6 +171,17 @@ export interface DeviceHealthView {
 	since: Date | null;
 	/** The newest refused dose inside the lookback, if any. */
 	lastRefusal: DeviceRefusal | null;
+	/**
+	 * Present only when the health read itself failed (#624). The other fields
+	 * are then not evidence of health: the surfaces must render "cannot verify"
+	 * rather than a healthy feeder.
+	 */
+	unavailable?: {
+		/** When the read was attempted. */
+		checkedAt: Date;
+		/** When this process last read this device successfully, if ever. */
+		lastSuccessAt: Date | null;
+	};
 }
 
 /** How far back a refused dose still counts as news. */
@@ -184,6 +195,18 @@ export const HEALTHY_VIEW: DeviceHealthView = {
 	since: null,
 	lastRefusal: null,
 };
+
+/**
+ * The state shown when the health read failed (#624). It is deliberately not
+ * `HEALTHY_VIEW`: a page that cannot read the device must say so instead of
+ * presenting a healthy feeder.
+ */
+export function unavailableHealthView(
+	checkedAt: Date,
+	lastSuccessAt: Date | null,
+): DeviceHealthView {
+	return { ...HEALTHY_VIEW, unavailable: { checkedAt, lastSuccessAt } };
+}
 
 export function deviceNeedsAttention(view: DeviceHealthView): boolean {
 	return view.safeMode || view.faults.length > 0;

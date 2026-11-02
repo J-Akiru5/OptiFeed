@@ -11,7 +11,11 @@ import { rollupDeviceConnectivity } from "@/lib/platform/connectivity";
 import { syncPlatformIncidents } from "@/lib/platform/incident-sync";
 import prisma from "@/lib/prisma";
 import { cleanupExpiredRateLimitBuckets } from "@/lib/rate-limit";
-import { deleteExpiredPondSettingsDrafts, deleteOldHeartbeatEvents } from "@/lib/retention";
+import {
+	deleteExpiredPondSettingsDrafts,
+	deleteOldDeviceStateEvents,
+	deleteOldHeartbeatEvents,
+} from "@/lib/retention";
 import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import {
 	ORG_SETTINGS_DEFAULTS,
@@ -166,6 +170,9 @@ export const GET = withApi(
 			// Unsaved pond-settings drafts nobody returned to (I-99), one batch
 			// per run like the other housekeeping jobs.
 			const draftsDeleted = await deleteExpiredPondSettingsDrafts();
+			// DeviceStateEvent audit trail: 180 days, one batch per run, and never
+			// a row for a pond with an open alert or a reconciliation in progress.
+			const deviceStateEventsDeleted = await deleteOldDeviceStateEvents();
 
 			return ok({
 				offlineAlerts,
@@ -176,6 +183,7 @@ export const GET = withApi(
 				bucketsDeleted,
 				errorEventsDeleted,
 				draftsDeleted,
+				deviceStateEventsDeleted,
 			});
 		} catch (error) {
 			reportError(error, { route: "cron/device-watch" });

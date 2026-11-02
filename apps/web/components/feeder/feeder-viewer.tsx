@@ -1,5 +1,6 @@
 "use client";
 
+import { DEFAULT_DEVICE_STATUS_POLICY } from "@/lib/device-status";
 import {
 	CAMERA_PRESETS,
 	CAMERA_PRESET_LABELS,
@@ -10,13 +11,14 @@ import {
 	type FeederStatus,
 	grainFillScale,
 } from "@/lib/feeder/feeder-parts";
+import { type ReadingAge, isReadingStale, readingAge } from "@/lib/feeder/reading-freshness";
 import { cn } from "@/lib/utils";
-import { OrbitControls, useGLTF } from "@react-three/drei";
+import { CameraControls, CameraControlsImpl, useGLTF } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { RotateCcw, Sparkles } from "lucide-react";
+import { LayoutGrid, Lock, RotateCcw, Sparkles, Unlock } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Suspense, useEffect, useMemo, useState } from "react";
-import { type Object3D, PMREMGenerator } from "three";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Box3, type Object3D, PMREMGenerator, Vector3 } from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import {
 	FEEDER_COMPONENT_STATUS_ID,
@@ -31,8 +33,24 @@ interface FeederViewerProps {
 	lastFedLabel: string | null;
 	/** Water-temperature probe health; null when the firmware never reported it. */
 	waterTempOk: boolean | null;
+	/** Last calibrated temperature the probe reported. */
+	waterTempC?: number | null;
+	/** When the probe last reported; null when it never did. */
+	waterTempUpdatedAt?: string | null;
 	/** RTC health as last reported on the heartbeat. */
 	rtcOk: boolean | null;
+	/** When the unit last checked in; the freshness basis for the RTC bit. */
+	lastSeenAt?: string | null;
+	/** Reading freshness window, from the device status policy. */
+	staleAfterMs?: number;
+	/** When the hopper level was measured; stale levels say so with their age. */
+	feedLevelUpdatedAt?: string | null;
+	/** Fresh Wi-Fi signal in dBm, or null when it is absent/stale. */
+	signalDbm?: number | null;
+	/** Firmware version reported by the heartbeat. */
+	firmwareVersion?: string | null;
+	/** Large-screen treatment: bigger readings and a full-height scene. */
+	kiosk?: boolean;
 	onSimpleView?: () => void;
 }
 
@@ -56,13 +74,104 @@ function StudioEnvironment() {
 	return null;
 }
 
-function CameraRig({ preset }: { preset: CameraPreset }) {
-	const { camera } = useThree();
+/**
+ * The orbit target every preset frames: the feeder's mid-height, front third.
+ */
+export const CAMERA_TARGET = [0, 0.31, 0.03] as const;
+
+/** Distance of the ISO preset from the target. This is the fitted distance. */
+export const FITTED_CAMERA_DISTANCE = Math.hypot(
+	CAMERA_PRESETS.iso[0] - CAMERA_TARGET[0],
+	CAMERA_PRESETS.iso[1] - CAMERA_TARGET[1],
+	CAMERA_PRESETS.iso[2] - CAMERA_TARGET[2],
+);
+
+/**
+ * Dolly range around the fitted distance. Every preset sits inside it, so a
+ * preset switch is never clamped by the zoom limit.
+ */
+export const CAMERA_MIN_DISTANCE = FITTED_CAMERA_DISTANCE * 0.55;
+export const CAMERA_MAX_DISTANCE = FITTED_CAMERA_DISTANCE * 1.65;
+
+/**
+ * Truck/pan limit around the model. The orbit target may never leave this box,
+ * so panning cannot take the feeder out of frame.
+ */
+export const CAMERA_PAN_BOUNDS = {
+	min: [-0.34, 0.11, -0.34],
+	max: [0.34, 0.51, 0.34],
+} as const;
+
+/** Persisted camera lock. Locked is the default until the user unlocks. */
+export const FEEDER_CAMERA_LOCK_KEY = "feeder-viewer:locked";
+
+/** Only an explicit stored `"false"` unlocks the camera. */
+export function parseCameraLocked(stored: string | null | undefined): boolean {
+	return stored !== "false";
+}
+
+const ACTIONS = CameraControlsImpl.ACTION;
+
+/** Left-drag orbits, right-drag pans, wheel and middle-drag dolly. */
+const CAMERA_MOUSE_BUTTONS = {
+	left: ACTIONS.ROTATE,
+	middle: ACTIONS.DOLLY,
+	right: ACTIONS.TRUCK,
+	wheel: ACTIONS.DOLLY,
+} as const;
+
+/** One finger orbits; two fingers dolly and truck together. */
+const CAMERA_TOUCHES = {
+	one: ACTIONS.TOUCH_ROTATE,
+	two: ACTIONS.TOUCH_DOLLY_TRUCK,
+	three: ACTIONS.TOUCH_TRUCK,
+} as const;
+
+function usePrefersReducedMotion(): boolean {
+	const [reduced, setReduced] = useState(false);
+
 	useEffect(() => {
+		if (typeof window.matchMedia !== "function") return;
+		const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+		setReduced(query.matches);
+		const onChange = (event: MediaQueryListEvent) => setReduced(event.matches);
+		query.addEventListener("change", onChange);
+		return () => query.removeEventListener("change", onChange);
+	}, []);
+
+	return reduced;
+}
+
+/**
+ * Drives the CameraControls rig. Preset changes use CameraControls' own
+ * transition; the first frame and reduced-motion users snap instead. A reset
+ * token re-applies the ISO preset even when ISO is already selected.
+ */
+function CameraRig({ preset, resetToken }: { preset: CameraPreset; resetToken: number }) {
+	const controls = useThree((state) => state.controls) as CameraControlsImpl | null;
+	const reducedMotion = usePrefersReducedMotion();
+	const reducedMotionRef = useRef(reducedMotion);
+	const firstRun = useRef(true);
+	reducedMotionRef.current = reducedMotion;
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: resetToken is the trigger that re-applies the preset after a Reset view.
+	useEffect(() => {
+		if (!controls) return;
 		const [x, y, z] = CAMERA_PRESETS[preset];
-		camera.position.set(x, y, z);
-		camera.lookAt(0, 0.31, 0.03);
-	}, [camera, preset]);
+		const [targetX, targetY, targetZ] = CAMERA_TARGET;
+		const animate = !firstRun.current && !reducedMotionRef.current;
+		firstRun.current = false;
+		void controls.setLookAt(x, y, z, targetX, targetY, targetZ, animate);
+	}, [controls, preset, resetToken]);
+
+	useEffect(() => {
+		if (!controls) return;
+		const [minX, minY, minZ] = CAMERA_PAN_BOUNDS.min;
+		const [maxX, maxY, maxZ] = CAMERA_PAN_BOUNDS.max;
+		controls.setBoundary(new Box3(new Vector3(minX, minY, minZ), new Vector3(maxX, maxY, maxZ)));
+		return () => controls.setBoundary(undefined);
+	}, [controls]);
+
 	return null;
 }
 
@@ -101,13 +210,46 @@ export function FeederViewer({
 	feedLevelPercent,
 	lastFedLabel,
 	waterTempOk,
+	waterTempC = null,
+	waterTempUpdatedAt = null,
 	rtcOk,
+	lastSeenAt = null,
+	staleAfterMs = DEFAULT_DEVICE_STATUS_POLICY.offlineAfterMs,
+	feedLevelUpdatedAt = null,
+	signalDbm = null,
+	firmwareVersion = null,
+	kiosk = false,
 	onSimpleView,
 }: FeederViewerProps) {
 	const t = useTranslations("dashboard.feederViewer");
+	const tWater = useTranslations("dashboard.waterTemp");
 	const [preset, setPreset] = useState<CameraPreset>("iso");
+	const [resetToken, setResetToken] = useState(0);
+	const [locked, setLocked] = useState<boolean>(() => {
+		if (typeof window === "undefined") return true;
+		try {
+			return parseCameraLocked(window.localStorage.getItem(FEEDER_CAMERA_LOCK_KEY));
+		} catch {
+			return true;
+		}
+	});
 	const statusLabel = t(`status${status.charAt(0).toUpperCase()}${status.slice(1)}`);
 	const level = feedLevelPercent === null ? null : Math.min(100, Math.max(0, feedLevelPercent));
+
+	const toggleLock = () => {
+		const next = !locked;
+		setLocked(next);
+		try {
+			window.localStorage.setItem(FEEDER_CAMERA_LOCK_KEY, String(next));
+		} catch {
+			// Private browsing may refuse the write; the lock still applies now.
+		}
+	};
+
+	const resetView = () => {
+		setPreset("iso");
+		setResetToken((token) => token + 1);
+	};
 
 	const healthOf = (health: boolean | null) =>
 		health === null
@@ -115,8 +257,48 @@ export function FeederViewer({
 			: health
 				? { label: t("healthOk"), tone: "text-emerald-200", dot: "bg-emerald-300" }
 				: { label: t("healthFault"), tone: "text-rose-200", dot: "bg-rose-400" };
-	const waterHealth = healthOf(waterTempOk);
-	const rtcHealth = healthOf(rtcOk);
+	// #620: a reading older than the freshness window is stale, not current.
+	const ageLabel = (age: ReadingAge | null): string | null => {
+		if (!age) return null;
+		switch (age.unit) {
+			case "seconds":
+				return tWater("secondsAgo", { count: age.count });
+			case "minutes":
+				return tWater("minutesAgo", { count: age.count });
+			case "hours":
+				return tWater("hoursAgo", { count: age.count });
+			case "days":
+				return tWater("daysAgo", { count: age.count });
+		}
+	};
+	const staleHealth = (updatedAt: string | null) =>
+		isReadingStale(updatedAt, staleAfterMs)
+			? {
+					label: [tWater("statusStale"), ageLabel(readingAge(updatedAt))]
+						.filter(Boolean)
+						.join(" · "),
+					tone: "text-amber-200",
+					dot: "bg-amber-300",
+				}
+			: null;
+	const waterHealth = staleHealth(waterTempUpdatedAt) ?? healthOf(waterTempOk);
+	const rtcHealth = staleHealth(lastSeenAt) ?? healthOf(rtcOk);
+	const waterValue = waterTempC === null ? null : `${waterTempC.toFixed(1)} °C`;
+	// The hopper is a sensor too: a level measured an hour ago is not a level.
+	const levelAge = readingAge(feedLevelUpdatedAt);
+	const levelStale = isReadingStale(feedLevelUpdatedAt, staleAfterMs);
+	const levelValue = [
+		level === null ? null : `${level}%`,
+		levelStale ? [tWater("statusStale"), ageLabel(levelAge)].filter(Boolean).join(" · ") : null,
+	]
+		.filter(Boolean)
+		.join(" · ");
+	const signalLabel = signalDbm === null ? t("healthUnknown") : `${signalDbm} dBm`;
+	const stripLabel = cn(
+		"font-black uppercase tracking-wider text-white/45",
+		kiosk ? "text-xs" : "text-[10px]",
+	);
+	const stripValue = cn("mt-0.5 font-bold", kiosk && "text-lg");
 
 	return (
 		<div className="overflow-hidden rounded-3xl border border-[#0A3D62]/10 bg-[radial-gradient(circle_at_50%_42%,rgba(125,211,252,0.16),transparent_38%),radial-gradient(ellipse_at_50%_40%,#143c5e_0%,#0B2336_58%,#071a2a_100%)] text-white shadow-sm dark:border-white/10">
@@ -146,11 +328,15 @@ export function FeederViewer({
 			</div>
 
 			<div
-				className="relative h-[300px] w-full md:h-[400px] lg:h-[440px]"
+				className={cn(
+					"relative w-full",
+					kiosk ? "h-[min(70dvh,780px)] min-h-[420px]" : "h-[300px] md:h-[400px] lg:h-[440px]",
+				)}
 				role="img"
 				aria-label={t("canvasLabel", { label })}
 				aria-describedby={preset === "iso" ? FEEDER_COMPONENT_STATUS_ID : undefined}
 				data-camera-preset={preset}
+				data-camera-locked={locked ? "true" : "false"}
 			>
 				<Canvas
 					camera={{ position: [...CAMERA_PRESETS.iso], fov: 34 }}
@@ -167,19 +353,16 @@ export function FeederViewer({
 					<Suspense fallback={null}>
 						<FeederModel level={level} status={status} />
 					</Suspense>
-					<CameraRig preset={preset} />
-					<OrbitControls
+					<CameraRig preset={preset} resetToken={resetToken} />
+					<CameraControls
 						makeDefault
-						enablePan={false}
-						enableRotate={preset !== "iso"}
-						enableZoom={preset !== "iso"}
-						enableDamping
-						dampingFactor={0.08}
-						minDistance={0.8}
-						maxDistance={2.8}
-						minPolarAngle={0.25}
-						maxPolarAngle={Math.PI / 2.02}
-						target={[0, 0.31, 0.03]}
+						enabled={!locked}
+						minDistance={CAMERA_MIN_DISTANCE}
+						maxDistance={CAMERA_MAX_DISTANCE}
+						mouseButtons={CAMERA_MOUSE_BUTTONS}
+						touches={CAMERA_TOUCHES}
+						smoothTime={0.35}
+						draggingSmoothTime={0.12}
 					/>
 				</Canvas>
 				<FeederLabels status={status} level={level} active={preset === "iso"} />
@@ -205,48 +388,73 @@ export function FeederViewer({
 						</button>
 					))}
 				</div>
-				{onSimpleView && (
+				<div className="flex flex-wrap items-center gap-1">
 					<button
 						type="button"
-						onClick={onSimpleView}
+						onClick={resetView}
 						className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white/70 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
 					>
 						<RotateCcw className="size-3" aria-hidden="true" />
-						{t("simpleView")}
+						{t("resetView")}
 					</button>
-				)}
+					<button
+						type="button"
+						onClick={toggleLock}
+						data-camera-lock-toggle={locked ? "locked" : "unlocked"}
+						className={cn(
+							"inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
+							locked
+								? "border-[#ff9a70]/45 bg-[#ff9a70]/15 text-[#ffd2c0] hover:bg-[#ff9a70]/25"
+								: "border-white/15 text-white/70 hover:bg-white/10",
+						)}
+					>
+						{locked ? (
+							<Unlock className="size-3" aria-hidden="true" />
+						) : (
+							<Lock className="size-3" aria-hidden="true" />
+						)}
+						{locked ? t("unlockCamera") : t("lockCamera")}
+					</button>
+					{onSimpleView && (
+						<button
+							type="button"
+							onClick={onSimpleView}
+							className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white/70 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+						>
+							<LayoutGrid className="size-3" aria-hidden="true" />
+							{t("simpleView")}
+						</button>
+					)}
+				</div>
 			</div>
 
-			<div className="grid grid-cols-2 gap-2 border-t border-white/10 px-4 py-3 text-xs sm:grid-cols-3 lg:grid-cols-5">
+			<div
+				className={cn(
+					"grid grid-cols-2 gap-2 border-t border-white/10 px-4 py-3 sm:grid-cols-3 lg:grid-cols-7",
+					kiosk ? "text-base" : "text-xs",
+				)}
+			>
 				<div>
-					<p className="text-[10px] font-black uppercase tracking-wider text-white/45">
-						{t("hopperLevel")}
-					</p>
-					<p className="mt-0.5 font-bold">{level === null ? "—" : `${level}%`}</p>
+					<p className={stripLabel}>{t("hopperLevel")}</p>
+					<p className={stripValue}>{levelValue || "—"}</p>
 				</div>
 				<div>
-					<p className="text-[10px] font-black uppercase tracking-wider text-white/45">
-						{t("lastFed")}
-					</p>
-					<p className="mt-0.5 font-bold">{lastFedLabel ?? t("noReading")}</p>
+					<p className={stripLabel}>{t("lastFed")}</p>
+					<p className={stripValue}>{lastFedLabel ?? t("noReading")}</p>
 				</div>
 				<div>
-					<p className="text-[10px] font-black uppercase tracking-wider text-white/45">
-						{t("waterTempSensor")}
-					</p>
-					<p className={cn("mt-0.5 inline-flex items-center gap-1.5 font-bold", waterHealth.tone)}>
+					<p className={stripLabel}>{t("waterTempSensor")}</p>
+					<p className={cn(stripValue, "inline-flex items-center gap-1.5", waterHealth.tone)}>
 						<span
 							className={cn("size-1.5 shrink-0 rounded-full", waterHealth.dot)}
 							aria-hidden="true"
 						/>
-						{waterHealth.label}
+						{[waterValue, waterHealth.label].filter(Boolean).join(" · ")}
 					</p>
 				</div>
 				<div>
-					<p className="text-[10px] font-black uppercase tracking-wider text-white/45">
-						{t("rtc")}
-					</p>
-					<p className={cn("mt-0.5 inline-flex items-center gap-1.5 font-bold", rtcHealth.tone)}>
+					<p className={stripLabel}>{t("rtc")}</p>
+					<p className={cn(stripValue, "inline-flex items-center gap-1.5", rtcHealth.tone)}>
 						<span
 							className={cn("size-1.5 shrink-0 rounded-full", rtcHealth.dot)}
 							aria-hidden="true"
@@ -255,10 +463,16 @@ export function FeederViewer({
 					</p>
 				</div>
 				<div>
-					<p className="text-[10px] font-black uppercase tracking-wider text-white/45">
-						{t("modelVersion")}
-					</p>
-					<p className="mt-0.5 inline-flex items-center gap-1 font-bold">
+					<p className={stripLabel}>{t("signal")}</p>
+					<p className={cn(stripValue, signalDbm === null && "text-white/55")}>{signalLabel}</p>
+				</div>
+				<div>
+					<p className={stripLabel}>{t("firmware")}</p>
+					<p className={stripValue}>{firmwareVersion ? `v${firmwareVersion}` : "—"}</p>
+				</div>
+				<div>
+					<p className={stripLabel}>{t("modelVersion")}</p>
+					<p className={cn(stripValue, "inline-flex items-center gap-1")}>
 						<Sparkles className="size-3 text-[#ff9a70]" aria-hidden="true" />v{FEEDER_MODEL_VERSION}
 					</p>
 				</div>

@@ -53,7 +53,7 @@ const ICON_TONE: Record<BandState, string> = {
 	ok: "text-[#1E7B34]",
 	degraded: "text-[#B45309]",
 	critical: "text-[#C42B3A]",
-	unknown: "text-[#3D5568]",
+	unknown: "text-[#3D5568] dark:text-gray-400",
 };
 
 const MINUTE_MS = 60 * 1000;
@@ -102,7 +102,7 @@ export default async function SuperadminFleetPage() {
 
 			<section aria-label={t("summaryLabel")} className="grid grid-cols-1 gap-4 lg:grid-cols-3">
 				<Card className="flex flex-col gap-2 p-5">
-					<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568]">
+					<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 						{t("fleetState")}
 					</span>
 					<div className="flex items-center gap-2">
@@ -110,24 +110,24 @@ export default async function SuperadminFleetPage() {
 							className={cn("h-5 w-5 shrink-0", ICON_TONE[fleet.summary.state])}
 							aria-hidden="true"
 						/>
-						<span className="text-2xl font-black text-[#0A3D62]">
+						<span className="text-2xl font-black text-[#0A3D62] dark:text-gray-100">
 							{tBands(`states.${fleet.summary.state}`)}
 						</span>
 						<Badge tone={TONE[fleet.summary.state]} icon={States}>
 							{tBands(`states.${fleet.summary.state}`)}
 						</Badge>
 					</div>
-					<p className="text-[11px] text-[#3D5568]">
+					<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
 						{t("checkedAt", { time: formatDateTimeLocal(fleet.checkedAt, tDates).full })}
 					</p>
-					<p className="text-[11px] text-[#3D5568]">{t("unknownRule")}</p>
+					<p className="text-[11px] text-[#3D5568] dark:text-gray-400">{t("unknownRule")}</p>
 				</Card>
 
 				<Card className="flex flex-col gap-2 p-5">
-					<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568]">
+					<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 						{t("tenantsByState")}
 					</span>
-					<ul className="space-y-1 text-[11px] font-bold text-[#3D5568]">
+					<ul className="space-y-1 text-[11px] font-bold text-[#3D5568] dark:text-gray-400">
 						{(["critical", "degraded", "unknown", "ok"] as const).map((state) => (
 							<li key={state} className="flex items-center justify-between gap-2">
 								<span className="flex items-center gap-1.5">
@@ -142,7 +142,7 @@ export default async function SuperadminFleetPage() {
 									})()}
 									{tBands(`states.${state}`)}
 								</span>
-								<span className="tabular-nums text-[#0A3D62]">
+								<span className="tabular-nums text-[#0A3D62] dark:text-gray-100">
 									{number(fleet.summary.counts[state])}
 								</span>
 							</li>
@@ -151,11 +151,11 @@ export default async function SuperadminFleetPage() {
 				</Card>
 
 				<Card className="flex flex-col gap-2 p-5">
-					<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568]">
+					<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 						{t("policyTitle")}
 					</span>
 					{fleet.policy ? (
-						<p className="text-[11px] font-bold text-[#0A3D62]">
+						<p className="text-[11px] font-bold text-[#0A3D62] dark:text-gray-100">
 							{t("policyLine", {
 								offline: number(Math.round(fleet.policy.offlineAfterMs / MINUTE_MS)),
 								weak: number(Math.round(fleet.policy.weakAfterMs / MINUTE_MS)),
@@ -163,9 +163,11 @@ export default async function SuperadminFleetPage() {
 							})}
 						</p>
 					) : (
-						<p className="text-[11px] font-bold text-[#3D5568]">{t("policyUnavailable")}</p>
+						<p className="text-[11px] font-bold text-[#3D5568] dark:text-gray-400">
+							{t("policyUnavailable")}
+						</p>
 					)}
-					<p className="text-[11px] text-[#3D5568]">{t("policySource")}</p>
+					<p className="text-[11px] text-[#3D5568] dark:text-gray-400">{t("policySource")}</p>
 				</Card>
 			</section>
 
@@ -183,7 +185,7 @@ export default async function SuperadminFleetPage() {
 			)}
 
 			{fleet.truncated && (
-				<p className="text-[11px] font-bold text-[#3D5568]">
+				<p className="text-[11px] font-bold text-[#3D5568] dark:text-gray-400">
 					{t("truncated", { count: fleet.totalDevices })}
 				</p>
 			)}
@@ -202,19 +204,22 @@ export default async function SuperadminFleetPage() {
 									key={row.tenantId ?? "__unassigned__"}
 									className="border-b border-gray-100 last:border-0"
 								>
-									<th scope="row" className="px-6 py-3 text-left text-sm font-bold text-[#0A3D62]">
+									<th
+										scope="row"
+										className="px-6 py-3 text-left text-sm font-bold text-[#0A3D62] dark:text-gray-100"
+									>
 										{row.tenantName ?? t("unassigned")}
 									</th>
-									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568]">
+									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568] dark:text-gray-400">
 										{number(row.total)}
 									</td>
-									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568]">
+									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568] dark:text-gray-400">
 										{row.reporting === 0 ? t("neverReported") : number(row.reporting)}
 									</td>
-									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568]">
+									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568] dark:text-gray-400">
 										{row.offlinePct === null ? t("notReported") : `${number(row.offlinePct)}%`}
 									</td>
-									<td className="px-6 py-3 text-sm text-[#3D5568]">
+									<td className="px-6 py-3 text-sm text-[#3D5568] dark:text-gray-400">
 										{row.lastHeartbeatAt
 											? formatDateTimeLocal(row.lastHeartbeatAt, tDates).full
 											: t("never")}
@@ -236,10 +241,10 @@ export default async function SuperadminFleetPage() {
 							return (
 								<li
 									key={row.tenantId ?? "__unassigned__"}
-									className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+									className="rounded-2xl border border-gray-200 dark:border-[#24304A] bg-white dark:bg-[#111A2C] p-4 shadow-sm"
 								>
 									<div className="flex items-start justify-between gap-2">
-										<p className="text-sm font-bold text-[#0A3D62]">
+										<p className="text-sm font-bold text-[#0A3D62] dark:text-gray-100">
 											{row.tenantName ?? t("unassigned")}
 										</p>
 										<Badge tone={TONE[row.state]} icon={RowIcon}>
@@ -248,24 +253,26 @@ export default async function SuperadminFleetPage() {
 									</div>
 									<dl className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
 										<div>
-											<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568]">
+											<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 												{t("columnDevices")}
 											</dt>
-											<dd className="font-bold text-[#0A3D62]">{number(row.total)}</dd>
+											<dd className="font-bold text-[#0A3D62] dark:text-gray-100">
+												{number(row.total)}
+											</dd>
 										</div>
 										<div>
-											<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568]">
+											<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 												{t("columnOffline")}
 											</dt>
-											<dd className="font-bold text-[#0A3D62]">
+											<dd className="font-bold text-[#0A3D62] dark:text-gray-100">
 												{row.offlinePct === null ? t("notReported") : `${number(row.offlinePct)}%`}
 											</dd>
 										</div>
 										<div className="col-span-2">
-											<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568]">
+											<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 												{t("columnHeartbeat")}
 											</dt>
-											<dd className="font-bold text-[#0A3D62]">
+											<dd className="font-bold text-[#0A3D62] dark:text-gray-100">
 												{row.lastHeartbeatAt
 													? formatDateTimeLocal(row.lastHeartbeatAt, tDates).full
 													: t("never")}

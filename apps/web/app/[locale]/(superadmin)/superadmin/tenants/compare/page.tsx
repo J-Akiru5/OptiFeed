@@ -61,7 +61,7 @@ const ICON: Record<BandState, LucideIcon> = {
 };
 
 const CHECKBOX_CLASS =
-	"h-4 w-4 shrink-0 rounded border-gray-300 text-[#0A3D62] focus:ring-2 focus:ring-[#E85A2A]";
+	"h-4 w-4 shrink-0 rounded border-gray-300 text-[#0A3D62] dark:text-gray-100 focus:ring-2 focus:ring-[#E85A2A]";
 
 export default async function TenantComparisonPage({
 	searchParams,
@@ -147,10 +147,10 @@ export default async function TenantComparisonPage({
 				<>
 					<Card className="space-y-3 p-5">
 						<div className="space-y-1">
-							<h2 className="text-sm font-black uppercase tracking-wider text-[#3D5568]">
+							<h2 className="text-sm font-black uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 								{t("pickerTitle")}
 							</h2>
-							<p className="text-[11px] text-[#3D5568]">
+							<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
 								{t("pickerHint", { min: COMPARISON_MIN_ORGS, max: COMPARISON_MAX_ORGS })}
 							</p>
 						</div>
@@ -168,7 +168,7 @@ export default async function TenantComparisonPage({
 										const Icon = ICON[option.state];
 										return (
 											<li key={option.orgId}>
-												<label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 py-1.5 text-sm text-[#0A3D62] hover:bg-[#F4F7F6]">
+												<label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 py-1.5 text-sm text-[#0A3D62] dark:text-gray-100 hover:bg-[#F4F7F6] dark:bg-[#0B1220]">
 													<input
 														type="checkbox"
 														name="org"
@@ -231,10 +231,10 @@ export default async function TenantComparisonPage({
 							{page.truncated ? <Alert tone="warning">{t("truncatedBody")}</Alert> : null}
 
 							<section aria-label={t("tableLabel")} className="space-y-3">
-								<h2 className="text-sm font-black uppercase tracking-wider text-[#3D5568]">
+								<h2 className="text-sm font-black uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 									{t("comparisonTitle")}
 								</h2>
-								<p className="text-[11px] text-[#3D5568]">{t("legend")}</p>
+								<p className="text-[11px] text-[#3D5568] dark:text-gray-400">{t("legend")}</p>
 
 								<TableFrame label={t("tableLabel")} columns={columns} minWidth="min-w-[64rem]">
 									{comparison.rows.map((row) => {
@@ -243,7 +243,7 @@ export default async function TenantComparisonPage({
 											<tr key={row.orgId} className="border-b border-gray-100 last:border-0">
 												<th
 													scope="row"
-													className="px-6 py-3 text-left text-sm font-bold text-[#0A3D62]"
+													className="px-6 py-3 text-left text-sm font-bold text-[#0A3D62] dark:text-gray-100"
 												>
 													{row.orgName}
 												</th>
@@ -252,36 +252,36 @@ export default async function TenantComparisonPage({
 														{tBands(`states.${row.state}`)}
 													</Badge>
 												</td>
-												<td className="px-6 py-3 text-sm text-[#3D5568]">
+												<td className="px-6 py-3 text-sm text-[#3D5568] dark:text-gray-400">
 													{t(`orgStatus.${row.orgStatus}`)}
 												</td>
-												<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568]">
+												<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568] dark:text-gray-400">
 													{valueText(row, "members")}
 												</td>
-												<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568]">
+												<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568] dark:text-gray-400">
 													{valueText(row, "ponds")}
 												</td>
-												<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568]">
+												<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568] dark:text-gray-400">
 													{valueText(row, "devices")}
 												</td>
-												<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568]">
+												<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568] dark:text-gray-400">
 													<BestValue best={isBest("reporting", row.orgId)} label={t("best")}>
 														{valueText(row, "reporting")}
 													</BestValue>
 												</td>
-												<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568]">
+												<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568] dark:text-gray-400">
 													<BestValue best={isBest("offlinePct", row.orgId)} label={t("best")}>
 														{percentText(row)}
 													</BestValue>
 												</td>
-												<td className="px-6 py-3 text-sm text-[#3D5568]">
+												<td className="px-6 py-3 text-sm text-[#3D5568] dark:text-gray-400">
 													<BestValue best={isBest("lastHeartbeatAt", row.orgId)} label={t("best")}>
 														{row.lastHeartbeatAt
 															? formatDateTimeLocal(row.lastHeartbeatAt, tDates).full
 															: t("never")}
 													</BestValue>
 												</td>
-												<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568]">
+												<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568] dark:text-gray-400">
 													<BestValue best={isBest("openAlerts", row.orgId)} label={t("best")}>
 														{valueText(row, "openAlerts")}
 													</BestValue>
@@ -298,12 +298,14 @@ export default async function TenantComparisonPage({
 										return (
 											<MobileCard key={row.orgId}>
 												<div className="flex items-start justify-between gap-2">
-													<p className="min-w-0 text-sm font-bold text-[#0A3D62]">{row.orgName}</p>
+													<p className="min-w-0 text-sm font-bold text-[#0A3D62] dark:text-gray-100">
+														{row.orgName}
+													</p>
 													<Badge tone={TONE[row.state]} icon={RowIcon}>
 														{tBands(`states.${row.state}`)}
 													</Badge>
 												</div>
-												<dl className="grid grid-cols-2 gap-2 text-[11px] text-[#3D5568]">
+												<dl className="grid grid-cols-2 gap-2 text-[11px] text-[#3D5568] dark:text-gray-400">
 													<div>
 														<dt className="font-bold">{t("columnReporting")}</dt>
 														<dd>{valueText(row, "reporting")}</dd>
@@ -330,7 +332,7 @@ export default async function TenantComparisonPage({
 									})}
 								</ul>
 
-								<p className="text-[11px] text-[#3D5568]">
+								<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
 									{t("checkedAt", { time: formatDateTimeLocal(page.checkedAt, tDates).full })}
 								</p>
 							</section>

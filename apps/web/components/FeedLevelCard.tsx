@@ -13,6 +13,8 @@ interface FeedLevelCardProps {
 	gramsPerFeeding: number;
 	feedsPerDay: number;
 	isDeviceOffline?: boolean;
+	/** The unit is online but its hopper sensor is not answering (#574). */
+	isSensorOffline?: boolean;
 }
 
 export function FeedLevelCard({
@@ -22,6 +24,7 @@ export function FeedLevelCard({
 	gramsPerFeeding,
 	feedsPerDay,
 	isDeviceOffline = false,
+	isSensorOffline = false,
 }: FeedLevelCardProps) {
 	const t = useTranslations("dashboard.feedLevel");
 	const tDates = useTranslations("dates");
@@ -30,6 +33,7 @@ export function FeedLevelCard({
 			levelPercent,
 			updatedAt,
 			isDeviceOffline,
+			isSensorOffline,
 			hopperCapacityG,
 			gramsPerFeeding,
 			feedsPerDay,
@@ -72,7 +76,9 @@ export function FeedLevelCard({
 					? "bg-green-500"
 					: "bg-gray-400";
 	const badgeLabel = isStale
-		? t("offline")
+		? isSensorOffline
+			? t("sensorOffline")
+			: t("offline")
 		: isCritical
 			? t("empty")
 			: isLowDisplay

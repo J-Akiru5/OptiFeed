@@ -1272,6 +1272,7 @@
 			"title": "Antas ng Pakain",
 			"lastKnown": "Huling alam: {percent}%",
 			"offline": "Offline",
+			"sensorOffline": "Offline ang ultrasonic",
 			"noReadingYet": "Wala pang reading",
 			"readingTime": "{date}, {time}",
 			"unknownTime": "Hindi available ang oras ng reading",
@@ -1283,6 +1284,20 @@
 			"lowRefill": "Mababa: mag-refill agad",
 			"ok": "OK",
 			"noData": "Walang data"
+		},
+		"monitoring": {
+			"title": "Pagsubaybay",
+			"statusOnline": "Online",
+			"statusWeak": "Mahinang signal",
+			"statusOffline": "Offline",
+			"statusSafeMode": "Safe mode",
+			"statusFault": "{count, plural, one {# fault} other {# fault}}",
+			"statusNoDevice": "Walang naka-pares na feeder",
+			"healthSafeMode": "Safe mode: tinatanggihan ang pagpapakain",
+			"healthFaults": "{count, plural, one {# aktibong fault} other {# aktibong fault}}",
+			"healthClear": "Walang naiulat na fault",
+			"lastKnownShort": "Huling alam",
+			"summaryLabel": "{status}. Antas ng hopper {percent}."
 		},
 		"home": {
 			"noData": "Wala pang pond na nakatalaga. Hilingin sa administrator na magtalaga ng isa.",

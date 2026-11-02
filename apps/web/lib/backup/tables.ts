@@ -404,6 +404,7 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 			"episodeKey",
 			"resolvedAt",
 			"supersededById",
+			"resolutionReason",
 		],
 		tenantWhere: byPondFk,
 	},

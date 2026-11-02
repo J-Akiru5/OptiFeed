@@ -1,14 +1,13 @@
 "use client";
 
-import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { SidebarCollapseToggle, useSidebarCollapse } from "@/components/sidebar-collapse";
+import { MonitoringCard } from "@/components/status/monitoring-card";
+import type { MonitoringConnection, MonitoringHealth } from "@/components/status/monitoring-status";
 import { Link, usePathname } from "@/i18n/routing";
-import { getFeedLevelDisplay } from "@/lib/feed-level";
 import { cn } from "@/lib/utils";
 import {
 	CalendarRange,
 	Clock,
-	Cpu,
 	FileText,
 	History,
 	Home,
@@ -30,6 +29,12 @@ interface SidebarProps {
 	feedsPerDay?: number | null;
 	/** True when the ESP32 has not checked in within OFFLINE_THRESHOLD_MS. */
 	isOffline?: boolean;
+	/** True when the unit is online but the hopper sensor is not answering (#574). */
+	isSensorOffline?: boolean;
+	/** The resolved three-state connection, including "missing" (#575). */
+	connection?: MonitoringConnection;
+	/** Safe mode / active faults for the consolidated monitoring card (#575). */
+	health?: MonitoringHealth | null;
 	/**
 	 * False for a platform admin outside view-as (E18, #199): the hopper widget
 	 * is farm hardware chrome a platform admin does not have.
@@ -44,12 +49,19 @@ export function Sidebar({
 	gramsPerFeeding = null,
 	feedsPerDay = null,
 	isOffline = false,
+	isSensorOffline = false,
+	connection,
+	health = null,
 	showHopperWidget = true,
 }: SidebarProps) {
 	const t = useTranslations("nav");
 	const tSidebar = useTranslations("sidebar");
 	const pathname = usePathname();
 	const { collapsed, animate, toggle } = useSidebarCollapse();
+
+	// Callers that only know the two-state prop keep the old behaviour; the
+	// dashboard layout passes the full three-state result from loadPondHopper.
+	const resolvedConnection = connection ?? (isOffline ? "offline" : "online");
 
 	const navItems = [
 		{ href: "/dashboard", label: t("dashboard"), icon: Home },
@@ -61,25 +73,6 @@ export function Sidebar({
 		{ href: "/dashboard/audit", label: t("audit"), icon: FileText },
 		{ href: "/dashboard/settings", label: t("settings"), icon: Settings, onboard: "settings" },
 	];
-
-	// An offline device keeps its last known reading (decision E4, #192), but the
-	// remaining-feed estimate is only meaningful while the device is online.
-	const level = getFeedLevelDisplay({
-		levelPercent: hopperLevelPct,
-		updatedAt: hopperLevelUpdatedAt,
-		isDeviceOffline: isOffline,
-		hopperCapacityG,
-		gramsPerFeeding: gramsPerFeeding ?? 0,
-		feedsPerDay: feedsPerDay ?? 0,
-	});
-
-	// Same estimate as the dashboard card (#263): level × the device's capacity,
-	// divided by the device's grams per feeding. No hard-coded capacity or dose.
-	const remainingKg =
-		level.state === "live" && level.remainingGrams !== null
-			? (level.remainingGrams / 1000).toFixed(1)
-			: null;
-	const scheduledFeedings = remainingKg !== null ? (level.feedingsRemaining ?? 0) : 0;
 
 	return (
 		<aside
@@ -128,49 +121,22 @@ export function Sidebar({
 			</nav>
 
 			<div className="mt-auto space-y-4">
-				{/* Hopper level widget: the whole card opens the hopper chart (#286). */}
-				{showHopperWidget &&
-					(collapsed ? (
-						<Link
-							href="/dashboard/history#hopper-level"
-							aria-label={t("viewHopperLevel")}
-							title={t("viewHopperLevel")}
-							className="flex min-h-11 w-full flex-col items-center justify-center gap-1 rounded-2xl border border-[#0A3D62]/10 bg-[#0A3D62]/5 p-2 transition-colors hover:border-[#0A3D62]/25 hover:bg-[#0A3D62]/10 dark:border-gray-700/50 dark:bg-gray-800/60 dark:hover:border-gray-600 dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea]"
-						>
-							<Cpu aria-hidden="true" className="w-4 h-4 text-[#C2410C] dark:text-[#ff8a5c]" />
-							<span className="font-mono text-[10px] font-bold tabular-nums text-[#0A3D62] dark:text-gray-200">
-								{level.percent !== null ? `${level.percent}%` : "—"}
-							</span>
-						</Link>
-					) : (
-						<Link
-							href="/dashboard/history#hopper-level"
-							aria-label={t("viewHopperLevel")}
-							className="block bg-[#0A3D62]/5 dark:bg-gray-800/60 rounded-2xl p-4 border border-[#0A3D62]/10 dark:border-gray-700/50 space-y-3 transition-colors hover:border-[#0A3D62]/25 hover:bg-[#0A3D62]/10 dark:hover:border-gray-600 dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea]"
-						>
-							<p className="text-[10px] uppercase font-extrabold text-[#3D5568] dark:text-gray-400 tracking-widest flex items-center gap-1.5">
-								<Cpu
-									aria-hidden="true"
-									className="w-3.5 h-3.5 text-[#C2410C] dark:text-[#ff8a5c]"
-								/>{" "}
-								{t("hopperLevel")}
-							</p>
-							<div className="flex items-center justify-between text-xs font-extrabold text-[#0A3D62] dark:text-[#5b9bd5]">
-								<span>{t("pondFeedPellet")}</span>
-							</div>
-							<FeedLevelDisplay
-								levelPercent={hopperLevelPct}
-								updatedAt={hopperLevelUpdatedAt}
-								isOffline={isOffline}
-								size="sm"
-							/>
-							{remainingKg !== null && (
-								<div className="text-[10px] text-[#3D5568] dark:text-gray-400 leading-tight font-mono">
-									{t("hopperRemaining", { kg: remainingKg, count: scheduledFeedings })}
-								</div>
-							)}
-						</Link>
-					))}
+				{/* #575: one card for the hopper reading, connection state and
+				    fault/safe-mode line. The whole card opens the hopper chart (#286). */}
+				{showHopperWidget && (
+					<MonitoringCard
+						hopperLevelPct={hopperLevelPct}
+						hopperLevelUpdatedAt={hopperLevelUpdatedAt}
+						hopperCapacityG={hopperCapacityG}
+						gramsPerFeeding={gramsPerFeeding}
+						feedsPerDay={feedsPerDay}
+						isOffline={isOffline}
+						sensorOffline={isSensorOffline}
+						connection={resolvedConnection}
+						health={health}
+						collapsed={collapsed}
+					/>
+				)}
 
 				<div className="border-t border-[#0A3D62]/10 pt-4 dark:border-gray-700/50">
 					<SidebarCollapseToggle

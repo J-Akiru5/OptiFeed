@@ -27,6 +27,15 @@ interface ControlRoomLayoutProps {
 }
 
 /**
+ * Full-bleed band for the stacked dashboard below `xl` (#476).
+ *
+ * The dashboard page applies this to each order wrapper, so every stacked
+ * section carries its own hairline and padding while the room itself has none.
+ */
+export const CONTROL_ROOM_MOBILE_BAND =
+	"max-xl:border-b max-xl:border-[#E6ECE9] max-xl:bg-white max-xl:px-4 max-xl:py-4 dark:max-xl:border-gray-800 dark:max-xl:bg-gray-900";
+
+/**
  * The page shell. Height comes from `ofd-control-room`: the viewport minus the
  * dashboard header and the `main` pane padding, with height-based density tiers.
  *
@@ -35,12 +44,16 @@ interface ControlRoomLayoutProps {
  * tables). Without a positioned ancestor inside the shell, those 1 px boxes are
  * positioned against `main` and escape the room's `overflow-hidden`, which
  * leaves the page with a phantom scroll range even when everything fits.
+ *
+ * Below `xl` the shell cancels the `main` pane padding (`-mx-4 -mt-4`) and drops
+ * its stacking gap, so the page-owned bands run edge to edge and sit flush
+ * (#476). Desktop geometry is untouched.
  */
 export function ControlRoomLayout({ children, className }: ControlRoomLayoutProps) {
 	return (
 		<div
 			className={cn(
-				"ofd-control-room relative flex w-full min-w-0 flex-col gap-6 animate-in fade-in duration-150",
+				"ofd-control-room relative flex w-full min-w-0 flex-col gap-6 max-xl:-mx-4 max-xl:-mt-4 max-xl:gap-0 animate-in fade-in duration-150",
 				"xl:grid xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_22rem] xl:grid-rows-[auto_minmax(0,1fr)_auto] xl:overflow-hidden",
 				className,
 			)}
@@ -86,7 +99,13 @@ interface ControlPanelProps {
 	className?: string;
 }
 
-/** A titled card in the rail (or a stacked block below `xl`). */
+/**
+ * A titled card in the rail (or a stacked block below `xl`).
+ *
+ * Below `xl` the card chrome is flattened into a flat section: the page's band
+ * supplies the background and hairline, so radius, border, fill and shadow are
+ * removed and the inner padding goes to zero (#476).
+ */
 export function ControlPanel({
 	title,
 	icon: Icon,
@@ -97,7 +116,7 @@ export function ControlPanel({
 	return (
 		<section
 			className={cn(
-				"min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-900",
+				"min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm max-xl:rounded-none max-xl:border-0 max-xl:bg-transparent max-xl:p-0 max-xl:shadow-none dark:border-gray-700/60 dark:bg-gray-900",
 				className,
 			)}
 		>

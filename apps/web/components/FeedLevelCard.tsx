@@ -86,7 +86,7 @@ export function FeedLevelCard({
 	return (
 		<div
 			className={cn(
-				"rounded-3xl bg-white dark:bg-gray-900 p-6 shadow-sm border transition-shadow hover:shadow-md",
+				"rounded-3xl bg-white dark:bg-gray-900 p-6 shadow-sm border transition-shadow hover:shadow-md max-xl:rounded-none max-xl:border-0 max-xl:border-l-4 max-xl:bg-transparent max-xl:p-0 max-xl:shadow-none",
 				isLowDisplay
 					? "border-red-300 dark:border-red-900/60"
 					: "border-gray-100 dark:border-gray-700/50",
@@ -155,8 +155,8 @@ export function FeedLevelCard({
 						</div>
 					</div>
 
-					<div className="grid grid-cols-2 gap-3">
-						<div className="rounded-xl bg-gray-50 dark:bg-gray-800 p-3">
+					<div className="grid grid-cols-2 gap-3 max-xl:grid-cols-1 max-xl:gap-0 max-xl:divide-y-0">
+						<div className="rounded-xl bg-gray-50 dark:bg-gray-800 p-3 max-xl:flex max-xl:min-h-11 max-xl:items-center max-xl:justify-between max-xl:gap-3 max-xl:border-b max-xl:border-[#E6ECE9] max-xl:p-0 max-xl:py-3 max-xl:rounded-none max-xl:bg-transparent max-xl:last:border-b-0">
 							<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
 								{t("daysRemaining")}
 							</p>
@@ -164,7 +164,7 @@ export function FeedLevelCard({
 								{daysRemaining !== null ? t("daysValue", { count: daysRemaining }) : "—"}
 							</p>
 						</div>
-						<div className="rounded-xl bg-gray-50 dark:bg-gray-800 p-3">
+						<div className="rounded-xl bg-gray-50 dark:bg-gray-800 p-3 max-xl:flex max-xl:min-h-11 max-xl:items-center max-xl:justify-between max-xl:gap-3 max-xl:border-b max-xl:border-[#E6ECE9] max-xl:p-0 max-xl:py-3 max-xl:rounded-none max-xl:bg-transparent max-xl:last:border-b-0">
 							<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
 								{t("lastUpdated")}
 							</p>

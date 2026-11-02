@@ -31,11 +31,54 @@ updates:
     ignore:
       - dependency-name: "@types/node"
         versions: [">=23"]
+      # Held until the coordinated upgrades in #538 land. Remove each entry in
+      # the PR that lands that upgrade.
+      - dependency-name: "prisma"
+        versions: [">=7"]
+      - dependency-name: "@prisma/client"
+        versions: [">=7"]
+      - dependency-name: "typescript"
+        versions: [">=7"]
+      - dependency-name: "vitest"
+        versions: [">=5"]
+      - dependency-name: "@vitest/coverage-v8"
+        versions: [">=5"]
+    # Smaller groups: the 14-package production group regressed first-load JS
+    # by up to 20.7 kB (#510). Each group gets its own measured PR.
     groups:
-      production-minor-patch:
+      production-supabase:
+        dependency-type: "production"
+        patterns:
+          - "@supabase/*"
+        update-types:
+          - "minor"
+          - "patch"
+      production-framework:
+        dependency-type: "production"
+        patterns:
+          - "next"
+          - "next-intl"
+          - "react"
+          - "react-dom"
+          - "motion"
+          - "lucide-react"
+          - "tailwind-merge"
+        update-types:
+          - "minor"
+          - "patch"
+      production-utilities:
         dependency-type: "production"
         patterns:
           - "*"
+        exclude-patterns:
+          - "@supabase/*"
+          - "next"
+          - "next-intl"
+          - "react"
+          - "react-dom"
+          - "motion"
+          - "lucide-react"
+          - "tailwind-merge"
         update-types:
           - "minor"
           - "patch"

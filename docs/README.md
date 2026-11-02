@@ -15,6 +15,7 @@ there is a single place to change each rule and nothing here can drift from it.
 | picking up a task | [`docs/missions/`](./missions/) — the dated record, newest first |
 | changing an API route | [`docs/api-regulation-backlog.md`](./api-regulation-backlog.md) and `pnpm api:check` |
 | touching the firmware contract | [`docs/firmware-dashboard-config.md`](./firmware-dashboard-config.md) and [`docs/hardware/`](./hardware/) |
+| calibrating a device, or asking what a technician can adjust | [`docs/audits/2026-11-03-calibration-coverage.md`](./audits/2026-11-03-calibration-coverage.md) |
 | adding copy or a locale | [`docs/i18n.md`](./i18n.md) |
 
 ## The plan and the record

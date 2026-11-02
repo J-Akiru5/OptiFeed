@@ -330,7 +330,7 @@ export function FeederViewer({
 			<div
 				className={cn(
 					"relative w-full",
-					kiosk ? "h-[min(70dvh,780px)] min-h-[420px]" : "h-[300px] md:h-[400px] lg:h-[440px]",
+					kiosk ? "h-[calc(100dvh-11rem)] min-h-[420px]" : "h-[300px] md:h-[400px] lg:h-[440px]",
 				)}
 				role="img"
 				aria-label={t("canvasLabel", { label })}

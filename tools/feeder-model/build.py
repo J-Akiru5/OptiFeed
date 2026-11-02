@@ -13,6 +13,7 @@ Run headless:
     --dims tools/feeder-model/dimensions.json ^
     --glb apps/web/public/models/feeder-v1.0.0.glb ^
     --manifest apps/web/lib/feeder/model-manifest.json ^
+    --build-info tools/feeder-model/model-build.json ^
     --preview docs/feeder
 """
 
@@ -46,6 +47,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dims", required=True)
     parser.add_argument("--glb", required=True)
     parser.add_argument("--manifest", required=True)
+    parser.add_argument(
+        "--build-info",
+        default="",
+        help="Write the full build record (sha256, triangles, node names) here. "
+        "Kept out of --manifest because the app bundles that file.",
+    )
     parser.add_argument("--preview", default="")
     parser.add_argument("--poster", default="")
     parser.add_argument("--version", default="1.0.0")
@@ -206,6 +213,37 @@ def bevel_object(obj: bpy.types.Object, width_mm: float = 2.0, segments: int = 2
     apply_modifier(obj, mod)
 
 
+def recalc_normals(obj: bpy.types.Object) -> None:
+    """Point every face outward again after a boolean cut.
+
+    A difference boolean can leave the cutter's winding on the new faces. The
+    base plate underside is the face the bottom view looks at, so the winding is
+    repaired rather than assumed.
+    """
+    mesh = obj.data
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    bm.to_mesh(mesh)
+    bm.free()
+    mesh.update()
+
+
+def report_normals(obj: bpy.types.Object) -> None:
+    """Log horizontal face areas so a flipped cap is visible in the build log.
+
+    Blender -Z is machine -Y, so downward faces are the ones a bottom view sees.
+    """
+    polygons = obj.data.polygons
+    down = [polygon for polygon in polygons if polygon.normal.z < -0.99]
+    up = [polygon for polygon in polygons if polygon.normal.z > 0.99]
+    print(
+        f"[normals] {obj.name}: faces={len(polygons)} "
+        f"down={len(down)} ({sum(p.area for p in down) * 1e6:.0f} mm2) "
+        f"up={len(up)} ({sum(p.area for p in up) * 1e6:.0f} mm2)"
+    )
+
+
 def cut_cylinder_hole(
     obj: bpy.types.Object,
     center: tuple[float, float, float],
@@ -304,6 +342,7 @@ def add_tube(
     *,
     axis: str = "Y",
     verts: int = 64,
+    solidify_offset: float = 1.0,
 ) -> bpy.types.Object:
     rotation = {
         "X": (0.0, math.pi / 2.0, 0.0),
@@ -328,7 +367,9 @@ def add_tube(
 
     solidify = obj.modifiers.new("Solidify", "SOLIDIFY")
     solidify.thickness = (outer_radius - inner_radius) * M
-    solidify.offset = 1.0
+    # 1.0 puts the shell outside `outer_radius` (riser, straps); -1.0 keeps the
+    # named outer/inner diameters exact, which is what a measured part needs.
+    solidify.offset = solidify_offset
     solidify.use_rim = True
     apply_modifier(obj, solidify)
     bpy.ops.object.shade_smooth()
@@ -564,7 +605,7 @@ def add_tube_part_open(
 def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types.Collection) -> None:
     # --- Base plate -------------------------------------------------------
     base = dims["base_plate"]
-    add_box(
+    base_plate = add_box(
         "Base_Plate",
         (base["width"], base["thickness"], base["depth"]),
         tuple(base["center"]),
@@ -572,6 +613,171 @@ def build(dims: dict, mats: dict[str, bpy.types.Material], collection: bpy.types
         collection,
         bevel_mm=2,
     )
+
+    # --- Underside (issue #623) ------------------------------------------
+    # Everything below the plate underside is additive: no tape value above it
+    # moves. The plate keeps its 10 mm slab and gains real deck hardware, so the
+    # bottom camera has a chassis pan to look at instead of one flat cap.
+    underside = dims.get("underside")
+    if underside:
+        # Underside parts bite 0.5 mm into the plate so no face is coplanar with
+        # the plate underside; the stand-off itself is exact.
+        embed = 0.5
+        base_bottom = base["center"][1] - base["thickness"] / 2.0
+        base_center_y = base["center"][1]
+        feet = underside["feet"]
+        hole_radius = feet["screw_hole_diameter"] / 2.0
+        counterbore_radius = feet["counterbore_diameter"] / 2.0
+        foot_bottom = base_bottom - feet["height"]
+        foot_height = feet["height"] + embed
+        foot_center_y = foot_bottom + foot_height / 2.0
+        plate_hole_depth = base["thickness"] + 20.0
+
+        for index, (foot_x, foot_z) in enumerate(feet["centers"], start=1):
+            foot = add_cylinder(
+                f"Foot_{index}",
+                feet["diameter"] / 2.0,
+                foot_height,
+                (foot_x, foot_center_y, foot_z),
+                mats["paint_white_dim"],
+                collection,
+                axis="Y",
+                verts=48,
+                bevel_mm=1.5,
+            )
+            # Deck screw: counterbored from the deck side, then through the foot.
+            cut_cylinder_hole(
+                foot,
+                (foot_x, foot_center_y, foot_z),
+                hole_radius,
+                foot_height + 4.0,
+            )
+            bore_bottom = foot_bottom - 1.0
+            bore_depth = feet["counterbore_depth"] + 1.0
+            cut_cylinder_hole(
+                foot,
+                (foot_x, bore_bottom + bore_depth / 2.0, foot_z),
+                counterbore_radius,
+                bore_depth,
+            )
+            recalc_normals(foot)
+
+            # The same screw continues through the plate.
+            cut_cylinder_hole(
+                base_plate,
+                (foot_x, base_center_y, foot_z),
+                hole_radius,
+                plate_hole_depth,
+            )
+
+        mounting = underside["mounting_holes"]
+        for hole_x, hole_z in mounting["centers"]:
+            cut_cylinder_hole(
+                base_plate,
+                (hole_x, base_center_y, hole_z),
+                mounting["diameter"] / 2.0,
+                plate_hole_depth,
+            )
+            bore_bottom = base_bottom - 1.0
+            bore_depth = mounting["counterbore_depth"] + 1.0
+            cut_cylinder_hole(
+                base_plate,
+                (hole_x, bore_bottom + bore_depth / 2.0, hole_z),
+                mounting["counterbore_diameter"] / 2.0,
+                bore_depth,
+            )
+
+        recalc_normals(base_plate)
+        report_normals(base_plate)
+
+        ribs = underside["ribs"]
+        rib_length = ribs["end_z"] - ribs["start_z"]
+        rib_center_z = (ribs["end_z"] + ribs["start_z"]) / 2.0
+        rib_center_y = base_bottom - ribs["depth"] / 2.0 + embed / 2.0
+        for index, rib_x in enumerate(ribs["centers_x"], start=1):
+            add_box(
+                f"Base_Rib_{index}",
+                (ribs["thickness"], ribs["depth"] + embed, rib_length),
+                (rib_x, rib_center_y, rib_center_z),
+                mats["paint_white_dim"],
+                collection,
+                bevel_mm=1.0,
+            )
+
+        raceway = underside["raceway"]
+        rail_offset = raceway["inner_width"] / 2.0 + raceway["wall"] / 2.0
+        rail_length = raceway["end_z"] - raceway["start_z"]
+        rail_center_z = (raceway["end_z"] + raceway["start_z"]) / 2.0
+        rail_center_y = base_bottom - raceway["depth"] / 2.0 + embed / 2.0
+        for index, sign in enumerate((-1, 1), start=1):
+            add_box(
+                f"Cable_Raceway_Rail_{index}",
+                (raceway["wall"], raceway["depth"] + embed, rail_length),
+                (raceway["center_x"] + sign * rail_offset, rail_center_y, rail_center_z),
+                mats["paint_white_dim"],
+                collection,
+                bevel_mm=0.8,
+            )
+
+        # Straps sit just under the cable so they read as ties from below.
+        cable_radius = underside["cables"]["probe"]["diameter"] / 2.0
+        cable_y = -17.0
+        strap_span = raceway["inner_width"] + 2.0 * raceway["wall"] + 2.0
+        strap_center_y = (cable_y - cable_radius) - raceway["strap_thickness"] / 2.0
+        for index, strap_z in enumerate(raceway["strap_centers_z"], start=1):
+            add_box(
+                f"Cable_Strap_{index}",
+                (strap_span, raceway["strap_thickness"], raceway["strap_width"]),
+                (raceway["center_x"], strap_center_y, strap_z),
+                mats["rubber"],
+                collection,
+                bevel_mm=0.6,
+            )
+
+        grommet = underside["grommet"]
+        add_tube(
+            "Cable_Grommet",
+            grommet["outer_diameter"] / 2.0,
+            grommet["inner_diameter"] / 2.0,
+            grommet["height"],
+            tuple(grommet["center"]),
+            mats["rubber"],
+            collection,
+            axis="Y",
+            verts=40,
+            solidify_offset=-1.0,
+        )
+
+        relief = underside["strain_relief"]
+        add_box(
+            "Probe_Strain_Relief",
+            tuple(relief["probe"]["size"]),
+            tuple(relief["probe"]["center"]),
+            mats["rubber"],
+            collection,
+            bevel_mm=1.5,
+        )
+        add_box(
+            "Motor_Cable_Clamp",
+            tuple(relief["motor"]["size"]),
+            tuple(relief["motor"]["center"]),
+            mats["rubber"],
+            collection,
+            bevel_mm=1.0,
+        )
+
+        for node_name, spec_key, material in (
+            ("Cable_Probe_Underside", "probe", "cable_gray"),
+            ("Cable_Motor_Underside", "motor", "cable_red"),
+        ):
+            spec = underside["cables"][spec_key]
+            add_poly_curve(
+                node_name,
+                [tuple(point) for point in spec["points"]],
+                spec["diameter"] / 2.0,
+                mats[material],
+                collection,
+            )
 
     # --- Water-temperature probe (issue #400) -----------------------------
     # The DS18B20 clips to the front edge of the base plate and hangs below it.
@@ -1499,11 +1705,25 @@ def world_bounds(objects: list[bpy.types.Object]) -> tuple[Vector, Vector]:
     return minimum, maximum
 
 
-def add_preview(scene: bpy.types.Scene, collection: bpy.types.Collection, mats: dict[str, bpy.types.Material]) -> bpy.types.Object:
+def deck_level(dims: dict) -> float:
+    """Machine Y of the surface the unit stands on."""
+    underside = dims.get("underside") or {}
+    if "deck_y" in underside:
+        return float(underside["deck_y"])
+    base = dims["base_plate"]
+    return base["center"][1] - base["thickness"] / 2.0
+
+
+def add_preview(
+    scene: bpy.types.Scene,
+    collection: bpy.types.Collection,
+    mats: dict[str, bpy.types.Material],
+    deck_y: float,
+) -> bpy.types.Object:
     ground = add_box(
         "Preview_Ground",
         (1200, 2, 1200),
-        (0, -11, 0),
+        (0, deck_y - 1.0, 0),
         mats["ground"],
         collection,
         bevel_mm=0,
@@ -1585,15 +1805,25 @@ def render_previews(
         "side": Vector((1.0, 0.02, 0.05)),
         "rear": Vector((-0.02, 1.0, 0.05)),
         "top": Vector((0.02, 0.08, 1.0)),
+        # Issue #623: the underside is a real view now, so document it. Blender
+        # is Z-up, so a bottom camera needs a negative Z component.
+        "bottom": Vector((-0.34, -0.75, -1.15)),
     }
     output_dir.mkdir(parents=True, exist_ok=True)
+    ground = bpy.data.objects.get("Preview_Ground")
 
     for name, direction in views.items():
+        # The ground plane sits between a bottom camera and the unit.
+        if ground is not None:
+            ground.hide_render = name == "bottom"
         camera.location = center + direction.normalized() * distance
         look_at(camera, center)
         scene.render.filepath = str(output_dir / f"preview-{name}.png")
-        bpy.ops.render.render(write_still=True)
-        print(f"[preview] {scene.render.filepath}")
+        try:
+            bpy.ops.render.render(write_still=True)
+            print(f"[preview] {scene.render.filepath}")
+        except Exception as exc:
+            print(f"[warn] preview '{name}' failed: {exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -1727,8 +1957,9 @@ def main() -> int:
     print(f"[export] {glb_path} ({glb_path.stat().st_size / 1024 / 1024:.2f} MB)")
 
     camera = None
+    deck_y = deck_level(dims)
     if args.preview and not args.skip_preview:
-        camera = add_preview(scene, preview_collection, mats)
+        camera = add_preview(scene, preview_collection, mats, deck_y)
         try:
             render_previews(scene, camera, feeder, Path(args.preview))
         except Exception as exc:
@@ -1736,30 +1967,49 @@ def main() -> int:
 
     if args.poster:
         if camera is None:
-            camera = add_preview(scene, preview_collection, mats)
+            camera = add_preview(scene, preview_collection, mats, deck_y)
         try:
             render_poster(scene, camera, feeder, Path(args.poster))
         except Exception as exc:
             print(f"[warn] poster render failed: {exc}")
 
     triangles = count_triangles(objects)
+    digest = sha256_file(glb_path)
+    built_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    # The app imports this file from a "use client" module, so every key here
+    # lands in the device-detail first-load bundle. Keep only what the viewer
+    # reads (feeder-parts.ts: version, file, contract); a richer manifest has
+    # already pushed that route 0.1 kB over its 999.5 kB budget.
     manifest = {
-        "name": "optifeed-feeder",
         "version": args.version,
         "contract": args.contract,
         "file": f"/models/{glb_path.name}",
-        "sha256": sha256_file(glb_path),
-        "bytes": glb_path.stat().st_size,
-        "triangles": triangles,
-        "builtAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "generator": f"Blender {bpy.app.version_string}",
-        "dimensionsRevision": dims.get("revision", "unknown"),
-        "nodes": sorted(obj.name for obj in objects),
     }
     manifest_path = Path(args.manifest)
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(json.dumps(manifest, indent="\t") + "\n", encoding="utf-8", newline="\n")
-    print(f"[manifest] {manifest_path} triangles={triangles}")
+    print(f"[manifest] {manifest_path} bytes={manifest_path.stat().st_size}")
+
+    # Build provenance is not read at runtime, so it belongs outside the bundle.
+    build_record = {
+        "name": "optifeed-feeder",
+        **manifest,
+        "sha256": digest,
+        "bytes": glb_path.stat().st_size,
+        "triangles": triangles,
+        "builtAt": built_at,
+        "generator": f"Blender {bpy.app.version_string}",
+        "dimensionsRevision": dims.get("revision", "unknown"),
+        "nodes": sorted(obj.name for obj in objects),
+    }
+    if args.build_info:
+        info_path = Path(args.build_info)
+        info_path.parent.mkdir(parents=True, exist_ok=True)
+        info_path.write_text(json.dumps(build_record, indent="\t") + "\n", encoding="utf-8", newline="\n")
+        print(f"[build-info] {info_path} triangles={triangles}")
+    else:
+        print(f"[build-info] not written; sha256={digest} triangles={triangles}")
     return 0
 
 

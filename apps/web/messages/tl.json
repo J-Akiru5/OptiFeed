@@ -500,7 +500,11 @@
 			"statusWeak": "Mahinang signal",
 			"diagTitle": "Diagnostics ng firmware",
 			"diagEmpty": "Wala pang diagnostics na naiulat (pupunan ito ng unang heartbeat na may diag object).",
-			"backTo3d": "Bumalik sa 3D view"
+			"backTo3d": "Bumalik sa 3D view",
+			"signal": "Signal",
+			"firmware": "Firmware",
+			"openLargeScreen": "Buksan ang malaking screen",
+			"largeScreenDesc": "Full-screen na live view para sa wall display."
 		},
 		"adminOverview": {
 			"chartActivityRange": "Saklaw: {from} – {to} · {days} araw sa bukid (Asia/Manila).",

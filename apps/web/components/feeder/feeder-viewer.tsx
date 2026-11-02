@@ -43,6 +43,14 @@ interface FeederViewerProps {
 	lastSeenAt?: string | null;
 	/** Reading freshness window, from the device status policy. */
 	staleAfterMs?: number;
+	/** When the hopper level was measured; stale levels say so with their age. */
+	feedLevelUpdatedAt?: string | null;
+	/** Fresh Wi-Fi signal in dBm, or null when it is absent/stale. */
+	signalDbm?: number | null;
+	/** Firmware version reported by the heartbeat. */
+	firmwareVersion?: string | null;
+	/** Large-screen treatment: bigger readings and a full-height scene. */
+	kiosk?: boolean;
 	onSimpleView?: () => void;
 }
 
@@ -207,6 +215,10 @@ export function FeederViewer({
 	rtcOk,
 	lastSeenAt = null,
 	staleAfterMs = DEFAULT_DEVICE_STATUS_POLICY.offlineAfterMs,
+	feedLevelUpdatedAt = null,
+	signalDbm = null,
+	firmwareVersion = null,
+	kiosk = false,
 	onSimpleView,
 }: FeederViewerProps) {
 	const t = useTranslations("dashboard.feederViewer");
@@ -272,6 +284,21 @@ export function FeederViewer({
 	const waterHealth = staleHealth(waterTempUpdatedAt) ?? healthOf(waterTempOk);
 	const rtcHealth = staleHealth(lastSeenAt) ?? healthOf(rtcOk);
 	const waterValue = waterTempC === null ? null : `${waterTempC.toFixed(1)} °C`;
+	// The hopper is a sensor too: a level measured an hour ago is not a level.
+	const levelAge = readingAge(feedLevelUpdatedAt);
+	const levelStale = isReadingStale(feedLevelUpdatedAt, staleAfterMs);
+	const levelValue = [
+		level === null ? null : `${level}%`,
+		levelStale ? [tWater("statusStale"), ageLabel(levelAge)].filter(Boolean).join(" · ") : null,
+	]
+		.filter(Boolean)
+		.join(" · ");
+	const signalLabel = signalDbm === null ? t("healthUnknown") : `${signalDbm} dBm`;
+	const stripLabel = cn(
+		"font-black uppercase tracking-wider text-white/45",
+		kiosk ? "text-xs" : "text-[10px]",
+	);
+	const stripValue = cn("mt-0.5 font-bold", kiosk && "text-lg");
 
 	return (
 		<div className="overflow-hidden rounded-3xl border border-[#0A3D62]/10 bg-[radial-gradient(circle_at_50%_42%,rgba(125,211,252,0.16),transparent_38%),radial-gradient(ellipse_at_50%_40%,#143c5e_0%,#0B2336_58%,#071a2a_100%)] text-white shadow-sm dark:border-white/10">
@@ -301,7 +328,10 @@ export function FeederViewer({
 			</div>
 
 			<div
-				className="relative h-[300px] w-full md:h-[400px] lg:h-[440px]"
+				className={cn(
+					"relative w-full",
+					kiosk ? "h-[min(70dvh,780px)] min-h-[420px]" : "h-[300px] md:h-[400px] lg:h-[440px]",
+				)}
 				role="img"
 				aria-label={t("canvasLabel", { label })}
 				aria-describedby={preset === "iso" ? FEEDER_COMPONENT_STATUS_ID : undefined}
@@ -398,24 +428,23 @@ export function FeederViewer({
 				</div>
 			</div>
 
-			<div className="grid grid-cols-2 gap-2 border-t border-white/10 px-4 py-3 text-xs sm:grid-cols-3 lg:grid-cols-5">
+			<div
+				className={cn(
+					"grid grid-cols-2 gap-2 border-t border-white/10 px-4 py-3 sm:grid-cols-3 lg:grid-cols-7",
+					kiosk ? "text-base" : "text-xs",
+				)}
+			>
 				<div>
-					<p className="text-[10px] font-black uppercase tracking-wider text-white/45">
-						{t("hopperLevel")}
-					</p>
-					<p className="mt-0.5 font-bold">{level === null ? "—" : `${level}%`}</p>
+					<p className={stripLabel}>{t("hopperLevel")}</p>
+					<p className={stripValue}>{levelValue || "—"}</p>
 				</div>
 				<div>
-					<p className="text-[10px] font-black uppercase tracking-wider text-white/45">
-						{t("lastFed")}
-					</p>
-					<p className="mt-0.5 font-bold">{lastFedLabel ?? t("noReading")}</p>
+					<p className={stripLabel}>{t("lastFed")}</p>
+					<p className={stripValue}>{lastFedLabel ?? t("noReading")}</p>
 				</div>
 				<div>
-					<p className="text-[10px] font-black uppercase tracking-wider text-white/45">
-						{t("waterTempSensor")}
-					</p>
-					<p className={cn("mt-0.5 inline-flex items-center gap-1.5 font-bold", waterHealth.tone)}>
+					<p className={stripLabel}>{t("waterTempSensor")}</p>
+					<p className={cn(stripValue, "inline-flex items-center gap-1.5", waterHealth.tone)}>
 						<span
 							className={cn("size-1.5 shrink-0 rounded-full", waterHealth.dot)}
 							aria-hidden="true"
@@ -424,10 +453,8 @@ export function FeederViewer({
 					</p>
 				</div>
 				<div>
-					<p className="text-[10px] font-black uppercase tracking-wider text-white/45">
-						{t("rtc")}
-					</p>
-					<p className={cn("mt-0.5 inline-flex items-center gap-1.5 font-bold", rtcHealth.tone)}>
+					<p className={stripLabel}>{t("rtc")}</p>
+					<p className={cn(stripValue, "inline-flex items-center gap-1.5", rtcHealth.tone)}>
 						<span
 							className={cn("size-1.5 shrink-0 rounded-full", rtcHealth.dot)}
 							aria-hidden="true"
@@ -436,10 +463,16 @@ export function FeederViewer({
 					</p>
 				</div>
 				<div>
-					<p className="text-[10px] font-black uppercase tracking-wider text-white/45">
-						{t("modelVersion")}
-					</p>
-					<p className="mt-0.5 inline-flex items-center gap-1 font-bold">
+					<p className={stripLabel}>{t("signal")}</p>
+					<p className={cn(stripValue, signalDbm === null && "text-white/55")}>{signalLabel}</p>
+				</div>
+				<div>
+					<p className={stripLabel}>{t("firmware")}</p>
+					<p className={stripValue}>{firmwareVersion ? `v${firmwareVersion}` : "—"}</p>
+				</div>
+				<div>
+					<p className={stripLabel}>{t("modelVersion")}</p>
+					<p className={cn(stripValue, "inline-flex items-center gap-1")}>
 						<Sparkles className="size-3 text-[#ff9a70]" aria-hidden="true" />v{FEEDER_MODEL_VERSION}
 					</p>
 				</div>

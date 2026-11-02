@@ -16,8 +16,13 @@ export interface FeederStatePayload {
 	lastFedAt: string | null;
 	lastFedGrams: number | null;
 	feedLevelPercent: number | null;
+	/** When the hopper level was measured, for the stale/age treatment. */
+	feedLevelUpdatedAt: string | null;
 	hopperCapacityG: number | null;
 	gramsPerFeeding: number;
+	/** Fresh Wi-Fi signal, or null when the stored reading is stale/absent. */
+	signalDbm: number | null;
+	firmwareVersion: string | null;
 	rtcOk: boolean;
 	waterTempOk: boolean;
 	waterTempC: number | null;
@@ -39,8 +44,11 @@ export function toStatePayload(detail: FeederDeviceDetail): FeederStatePayload {
 		lastFedAt: iso(detail.lastFedAt),
 		lastFedGrams: detail.lastFedGrams,
 		feedLevelPercent: detail.feedLevelPercent,
+		feedLevelUpdatedAt: iso(detail.feedLevelUpdatedAt),
 		hopperCapacityG: detail.hopperCapacityG,
 		gramsPerFeeding: detail.gramsPerFeeding,
+		signalDbm: detail.signalDbm,
+		firmwareVersion: detail.firmwareVersion,
 		rtcOk: detail.rtcOk,
 		waterTempOk: detail.waterTempOk,
 		waterTempC: detail.waterTempC,

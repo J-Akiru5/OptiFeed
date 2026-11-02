@@ -748,7 +748,24 @@ describe("records.add_calendar_item derives all-day from the timestamp", () => {
 			allDay: true,
 			startsAt: "2026-10-30T06:00",
 			notes: "Bring the truck",
+			color: null,
 		});
+	});
+
+	it("forwards an explicit calendar colour", async () => {
+		await ASSISTANT_ACTION_DEFINITIONS["records.add_calendar_item"].execute(
+			{
+				kind: "EVENT",
+				title: "Capstone papers",
+				startsAt: "2026-11-02T13:00",
+				color: "#2563EB",
+			},
+			ctx,
+		);
+
+		expect(mocks.createPondEvent).toHaveBeenCalledWith(
+			expect.objectContaining({ color: "#2563EB" }),
+		);
 	});
 
 	it("sends null notes when none were given", async () => {

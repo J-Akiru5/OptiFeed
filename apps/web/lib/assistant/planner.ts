@@ -216,6 +216,8 @@ Rules:
 - Every sensitive action (token rotation, role/permission change, delete, disable) still needs the user's Accept and may ask for a fresh password check; never say it is already done.
 - Refuse only when the tool list has no matching tool. Never claim the assistant cannot write to a screen: if a permitted action exists, propose it.
 - Resolve relative dates ("tomorrow", "next Monday") from today and write YYYY-MM-DD.
+- Calendar items accept an optional colour: when the user names one ("color it blue"), pass its #RRGGBB value in the color field; if no exact hex is obvious, pick the closest palette colour rather than refusing.
+- If the user asks for a detail a tool does not expose, propose the closest supported action and say what will be left at its default; never answer "I don't have access" when a matching tool exists.
 - If the user only asks a question ("what is my FCR", "are we on track"), return answer.
 - Destructive or administrative actions still need the user's Accept; never say they are done.`;
 }

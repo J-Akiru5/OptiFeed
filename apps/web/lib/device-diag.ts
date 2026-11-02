@@ -17,7 +17,10 @@
  * device its connectivity).
  */
 
-export const DIAG_KEYS_MAX = 24;
+// #582 adds the hardware variant and OTA-refusal fields; keep room for them
+// without dropping older diagnostics. The byte cap below is still the real
+// size bound.
+export const DIAG_KEYS_MAX = 32;
 export const DIAG_STRING_MAX = 120;
 export const DIAG_ARRAY_MAX = 8;
 export const DIAG_BYTES_MAX = 2048;

@@ -272,7 +272,6 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 		rssiDbm,
 		inFlight: commandInFlight,
 	});
-	const hopper = energyDevice ? toHopperSnapshot(energyDevice, now, statusPolicy) : null;
 
 	// The hero reads its own bounded slice (daily grams, effective schedule,
 	// reported firmware, the deterministic advisor) for the device the page has
@@ -281,6 +280,17 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 		energyDevice && heroPond && pondName
 			? await loadFeederHero({ pond: heroPond, deviceId: energyDevice.id, now })
 			: null;
+
+	// #574: the health view already arrives with the hero, so the hopper card can
+	// mark the sensor offline without another query.
+	const hopper = energyDevice
+		? toHopperSnapshot(
+				energyDevice,
+				now,
+				statusPolicy,
+				feederHero?.health.faults.includes("hopper_sensor") ?? false,
+			)
+		: null;
 
 	// Calibration history, session summaries and the rule-based drift check.
 	// Every query is scoped to the active pond's device.
@@ -374,6 +384,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 
 	const isDeviceOffline = connection.isOffline;
 	const hopperOffline = hopper?.isOffline ?? isDeviceOffline;
+	const hopperSensorOffline = hopper?.sensorOffline ?? false;
 	const isWifiConfigured =
 		!!energyDevice?.lastSeenAt &&
 		now.getTime() - energyDevice.lastSeenAt.getTime() <= WIFI_ONLINE_WINDOW_MS;
@@ -486,6 +497,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 													levelPercent={hopper?.levelPercent ?? null}
 													updatedAt={hopper?.levelUpdatedAt ?? null}
 													isOffline={hopperOffline}
+													sensorOffline={hopperSensorOffline}
 													showBar={false}
 												/>
 											</dd>
@@ -586,6 +598,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 											levelPercent={hopper?.levelPercent ?? null}
 											updatedAt={hopper?.levelUpdatedAt ?? null}
 											isOffline={hopperOffline}
+											sensorOffline={hopperSensorOffline}
 											showBar={false}
 										/>
 									</div>

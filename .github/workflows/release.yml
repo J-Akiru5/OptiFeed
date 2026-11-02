@@ -6,6 +6,10 @@ name: Release
 # Idempotent by design - an ordinary push to `main` whose version is already
 # tagged publishes nothing - so this can run on every promotion without
 # creating duplicates. It only creates artefacts; it never deploys.
+#
+# It also refuses to treat an already-tagged version as released when newer
+# commits landed on `main` without a version bump (#586). That check is a step
+# inside the existing job, so the required check name does not change.
 
 on:
   push:
@@ -32,6 +36,12 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+
+      - name: Test the release-drift check
+        # Pure Node, no dependencies: the harness builds throwaway git
+        # repositories and proves both the pass and fail directions before the
+        # real check runs.
+        run: node --test scripts/ops/__tests__/release-drift.test.mjs
 
       - name: Resolve version and existing artefacts
         id: version
@@ -64,6 +74,14 @@ jobs:
           else
             echo "release_exists=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Check main has not drifted past its release tag
+        # Step-level inside the existing `release` job: the required check name
+        # (`tag and publish`) is unchanged. This runs before any tag or release
+        # is created, so an unreleased `main` fails instead of reporting green.
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: node scripts/ops/release-drift.mjs --version "$VERSION"
 
       - name: Require a changelog section
         if: steps.version.outputs.release_exists == 'false'

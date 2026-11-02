@@ -572,6 +572,7 @@
 			"title": "Feed Level",
 			"lastKnown": "Last known {percent}%",
 			"offline": "Offline",
+			"sensorOffline": "Ultrasonic offline",
 			"noReadingYet": "No reading yet",
 			"readingTime": "{date}, {time}",
 			"unknownTime": "Reading time unavailable",
@@ -583,6 +584,20 @@
 			"lowRefill": "Low: refill soon",
 			"ok": "OK",
 			"noData": "No data"
+		},
+		"monitoring": {
+			"title": "Monitoring",
+			"statusOnline": "Online",
+			"statusWeak": "Weak signal",
+			"statusOffline": "Offline",
+			"statusSafeMode": "Safe mode",
+			"statusFault": "{count, plural, one {# fault} other {# faults}}",
+			"statusNoDevice": "No feeder paired",
+			"healthSafeMode": "Safe mode: doses are refused",
+			"healthFaults": "{count, plural, one {# active fault} other {# active faults}}",
+			"healthClear": "No faults reported",
+			"lastKnownShort": "Last known",
+			"summaryLabel": "{status}. Hopper level {percent}."
 		},
 		"feederHero": {
 			"eyebrow": "Live monitoring",
@@ -865,7 +880,56 @@
 			"howCalculatedTitle": "How it's calculated",
 			"howBiomass": "Total biomass = fish count × average body weight.",
 			"howDailyFeed": "Daily feed = total biomass × feeding rate.",
-			"howPerMeal": "Feed per meal = daily feed ÷ feeds per day."
+			"howPerMeal": "Feed per meal = daily feed ÷ feeds per day.",
+			"feedPerFeeding": "Feed to dispense per feeding",
+			"dailyTotal": "Daily total {grams}g · {feeds} feeds per day",
+			"savedTo": "Saved to sampling batch <bold>{label}</bold>",
+			"savedToUnlabeled": "Saved without a sampling batch",
+			"deviceOfflineNote": "Device is offline — the new schedule applies once it reconnects.",
+			"statusUpdated": "Device schedule updated: {previous}g → {current}g per feeding.",
+			"statusUnchanged": "Device schedule already at {current}g per feeding — unchanged.",
+			"statusRejectedDeviation": "Schedule kept at {previous}g — the calculated {calculated}g differs by more than 50% from the current amount. Review it before applying.",
+			"statusRejectedOutOfRange": "Schedule kept at {previous}g — the calculated {calculated}g is outside the allowed range.",
+			"statusSkippedConfig": "Device schedule unchanged — set the pond feeding rate and feeds per day first.",
+			"statusSkippedNoDevice": "Device schedule unchanged — no device is linked to this pond.",
+			"statusSkippedNoPopulation": "Device schedule unchanged — set the pond fish population so biomass can be computed.",
+			"statusSkippedTargetPlan": "Sample saved. The target growth plan is not due for another adjustment — open Growth to review the next date.",
+			"logAnother": "Log Another Sample",
+			"backToDashboard": "Back to Dashboard",
+			"averageMode": "Average Mode",
+			"individualMode": "Individual Mode",
+			"batchOptionalLabel": "Sampling batch (optional)",
+			"batchPlaceholder": "e.g. Sampling batch 2026-10 A",
+			"weightInputLabel": "Avg. Fish Weight (grams)",
+			"weightPlaceholder": "e.g. 220",
+			"lengthInputPlaceholder": "e.g. 24",
+			"sampleCountInputLabel": "Sample Fish Count",
+			"individualHeading": "Individual Fish Measurements",
+			"addFish": "Add Fish",
+			"fishWeightPlaceholder": "Weight (g)",
+			"fishLengthPlaceholder": "Length (cm)",
+			"fishWeightLabel": "Fish {index} weight in grams",
+			"fishLengthLabel": "Fish {index} length in centimetres",
+			"removeFish": "Remove fish {index}",
+			"errorMeasurements": "Please check measurements. All values must be greater than 0.",
+			"errorRowWeight": "Weight must be greater than 0",
+			"errorRowLength": "Length must be 0 or greater",
+			"errorFixRows": "Please fix the highlighted fish rows.",
+			"errorNoValidFish": "Please add at least one fish with a valid weight.",
+			"errorSaveFailed": "Failed to save biomass log. Please try again.",
+			"sampledCount": "Sampled <bold>{count}</bold> fish.",
+			"calcAbw": "Calculated Average Body Weight (ABW): <bold>{weight}g</bold>.",
+			"avgLengthLine": "Average Length: <bold>{length}cm</bold>",
+			"totalBiomass": "Total Biomass",
+			"hintSetFishCount": "Set the pond's fish count to calculate",
+			"formulaBiomass": "= fish count × avg weight",
+			"dailyFeed": "Daily Feed",
+			"formulaDailyFeed": "= biomass × {rate}%",
+			"feedPerMeal": "Feed per Meal",
+			"formulaPerMeal": "= daily ÷ {feeds} feeds",
+			"biomassBreakdown": "({fish} fish × {weight} g)",
+			"dailyBreakdown": "({biomass}g × {rate}%)",
+			"perMealBreakdown": "(÷ {feeds} feeds)"
 		},
 		"history": {
 			"amount": "AMOUNT",
@@ -2970,6 +3034,22 @@
 				"attention": "Needs attention",
 				"hint": "Ordering and filters apply to the items on this page."
 			}
+		},
+		"waterTemp": {
+			"title": "Water Temperature",
+			"iconLabel": "Water temperature",
+			"statusOk": "OK",
+			"statusStale": "Stale",
+			"statusBelowMinimum": "Below minimum",
+			"statusOffline": "Sensor Offline",
+			"lastUpdated": "Last updated",
+			"feedingMinimum": "Feeding minimum: {temp}°C",
+			"belowMinimumNote": "Colder than this pond's feeding minimum of {temp}°C. Feeding is not blocked — check the fish response before a scheduled feed.",
+			"sensorOffline": "Sensor offline",
+			"secondsAgo": "{count}s ago",
+			"minutesAgo": "{count}m ago",
+			"hoursAgo": "{count}h ago",
+			"daysAgo": "{count}d ago"
 		}
 	},
 	"errors": {
@@ -4036,7 +4116,8 @@
 				"audit": "Audit log",
 				"announcements": "Announcements",
 				"reports": "Reports",
-				"security": "Security and oversight"
+				"security": "Security and oversight",
+				"jobs": "Background jobs"
 			},
 			"errors": {
 				"title": "Error events",
@@ -4088,7 +4169,10 @@
 				"columnFinished": "Finished",
 				"columnType": "Type",
 				"columnAttempts": "Attempts",
-				"columnError": "Error"
+				"columnError": "Error",
+				"description": "Queue health and the dead-letter list. A job stops retrying at the attempt cap and stays here with its last error.",
+				"summary": "{queued} queued · {running} running · {failed} failed in the last 24 hours.",
+				"columnOwner": "Farm"
 			},
 			"charts": {
 				"period": "Day",
@@ -4900,5 +4984,20 @@
 	"sidebar": {
 		"collapse": "Collapse sidebar",
 		"expand": "Expand sidebar"
+	},
+	"account": {
+		"menu": {
+			"pondOperator": "Pond Operator",
+			"language": "Language",
+			"device": "Device",
+			"close": "Close profile menu",
+			"open": "Open profile and settings menu",
+			"adminPanel": "Admin Panel",
+			"platformConsole": "Platform Console",
+			"accountSettings": "Account settings",
+			"switchLanguage": "Switch language",
+			"signOut": "Sign out",
+			"userFallback": "User"
+		}
 	}
 }

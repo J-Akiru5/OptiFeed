@@ -145,7 +145,7 @@ export function LogSampleForm({
 
 		if (inputMode === "average") {
 			if (Number.isNaN(w) || Number.isNaN(l) || Number.isNaN(c) || w <= 0 || l <= 0 || c <= 0) {
-				setError("Please check measurements. All values must be greater than 0.");
+				setError(tLog("errorMeasurements"));
 				return;
 			}
 			sampleWeightKg = (w / 1000) * c;
@@ -162,12 +162,12 @@ export function LogSampleForm({
 
 				const weightValue = Number.parseFloat(weightRaw);
 				if (weightRaw === "" || Number.isNaN(weightValue) || weightValue <= 0) {
-					errors[index] = "Weight must be greater than 0";
+					errors[index] = tLog("errorRowWeight");
 					return;
 				}
 				const lengthValue = lengthRaw === "" ? 0 : Number.parseFloat(lengthRaw);
 				if (Number.isNaN(lengthValue) || lengthValue < 0) {
-					errors[index] = "Length must be 0 or greater";
+					errors[index] = tLog("errorRowLength");
 					return;
 				}
 				validRows.push({ weightGrams: weightValue, lengthCm: lengthValue });
@@ -175,11 +175,11 @@ export function LogSampleForm({
 
 			if (Object.keys(errors).length > 0) {
 				setRowErrors(errors);
-				setError("Please fix the highlighted fish rows.");
+				setError(tLog("errorFixRows"));
 				return;
 			}
 			if (validRows.length === 0) {
-				setError("Please add at least one fish with a valid weight.");
+				setError(tLog("errorNoValidFish"));
 				return;
 			}
 
@@ -245,7 +245,7 @@ export function LogSampleForm({
 				if (queued) {
 					setQueuedOffline(true);
 				} else {
-					setError("Failed to save biomass log. Please try again.");
+					setError(tLog("errorSaveFailed"));
 				}
 			}
 		});
@@ -294,7 +294,7 @@ export function LogSampleForm({
 					onClick={resetForAnother}
 					className="rounded-xl bg-[var(--ofd-base)] px-5 py-2.5 text-sm font-bold text-white transition hover:brightness-110"
 				>
-					Log Another Sample
+					{tLog("logAnother")}
 				</button>
 			</div>
 		);
@@ -302,41 +302,46 @@ export function LogSampleForm({
 
 	if (feedResult) {
 		const headlineGrams = feedResult.calculatedGrams ?? feedResult.effectiveGrams;
-		const statusInfo: Record<FeedCalculationResult["status"], { text: string; cls: string }> = {
-			updated: {
-				text: `Device schedule updated: ${feedResult.previousGrams ?? "—"}g → ${feedResult.effectiveGrams}g per feeding.`,
-				cls: "border-green-200 bg-green-50 text-green-700 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-300",
-			},
-			unchanged: {
-				text: `Device schedule already at ${feedResult.effectiveGrams}g per feeding — unchanged.`,
-				cls: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300",
-			},
-			rejected_deviation: {
-				text: `Schedule kept at ${feedResult.previousGrams}g — the calculated ${feedResult.calculatedGrams}g differs by more than 50% from the current amount. Review it before applying.`,
-				cls: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
-			},
-			rejected_out_of_range: {
-				text: `Schedule kept at ${feedResult.previousGrams}g — the calculated ${feedResult.calculatedGrams}g is outside the allowed range.`,
-				cls: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
-			},
-			skipped_config: {
-				text: "Device schedule unchanged — set the pond feeding rate and feeds per day first.",
-				cls: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
-			},
-			skipped_no_device: {
-				text: "Device schedule unchanged — no device is linked to this pond.",
-				cls: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
-			},
-			skipped_no_population: {
-				text: "Device schedule unchanged — set the pond fish population so biomass can be computed.",
-				cls: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
-			},
-			skipped_target_plan: {
-				text: "Sample saved. The target growth plan is not due for another adjustment — open Growth to review the next date.",
-				cls: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300",
-			},
+		const statusCls: Record<FeedCalculationResult["status"], string> = {
+			updated:
+				"border-green-200 bg-green-50 text-green-700 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-300",
+			unchanged:
+				"border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300",
+			rejected_deviation:
+				"border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
+			rejected_out_of_range:
+				"border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
+			skipped_config:
+				"border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
+			skipped_no_device:
+				"border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
+			skipped_no_population:
+				"border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
+			skipped_target_plan:
+				"border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300",
 		};
-		const status = statusInfo[feedResult.status];
+		// Literal keys rather than a computed one: the status is a closed union, and
+		// each message stays greppable from the key that renders it.
+		const statusText: Record<FeedCalculationResult["status"], string> = {
+			updated: tLog("statusUpdated", {
+				previous: feedResult.previousGrams ?? "—",
+				current: feedResult.effectiveGrams ?? "—",
+			}),
+			unchanged: tLog("statusUnchanged", { current: feedResult.effectiveGrams ?? "—" }),
+			rejected_deviation: tLog("statusRejectedDeviation", {
+				previous: feedResult.previousGrams ?? "—",
+				calculated: feedResult.calculatedGrams ?? "—",
+			}),
+			rejected_out_of_range: tLog("statusRejectedOutOfRange", {
+				previous: feedResult.previousGrams ?? "—",
+				calculated: feedResult.calculatedGrams ?? "—",
+			}),
+			skipped_config: tLog("statusSkippedConfig"),
+			skipped_no_device: tLog("statusSkippedNoDevice"),
+			skipped_no_population: tLog("statusSkippedNoPopulation"),
+			skipped_target_plan: tLog("statusSkippedTargetPlan"),
+		};
+		const status = feedResult.status;
 
 		return (
 			<div className="space-y-6 py-4 text-center">
@@ -348,7 +353,7 @@ export function LogSampleForm({
 
 				<div>
 					<p className="text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400">
-						Feed to dispense per feeding
+						{tLog("feedPerFeeding")}
 					</p>
 					<p className="mt-1 text-5xl font-black text-[#E85A2A]">
 						{headlineGrams !== null ? headlineGrams.toFixed(2) : "—"}
@@ -356,25 +361,30 @@ export function LogSampleForm({
 					</p>
 					{feedResult.dailyFeedG !== null && (
 						<p className="mt-1 text-sm font-medium text-[#3D5568] dark:text-gray-400">
-							Daily total {feedResult.dailyFeedG.toFixed(2)}g · {feedResult.feedsPerDay} feed
-							{feedResult.feedsPerDay === 1 ? "" : "s"} per day
+							{tLog("dailyTotal", {
+								grams: feedResult.dailyFeedG.toFixed(2),
+								feeds: feedResult.feedsPerDay,
+							})}
 						</p>
 					)}
 					<p className="mt-2 text-sm text-[#3D5568] dark:text-gray-400">
-						Saved to{" "}
-						<strong className="text-[#0A3D62] dark:text-gray-100">
-							{feedResult.batchLabel || "Unlabeled"}
-						</strong>
-						{feedResult.batchLabel ? "" : " (no sampling batch)"}
+						{feedResult.batchLabel
+							? tLog.rich("savedTo", {
+									label: feedResult.batchLabel,
+									bold: (chunks) => (
+										<strong className="text-[#0A3D62] dark:text-gray-100">{chunks}</strong>
+									),
+								})
+							: tLog("savedToUnlabeled")}
 					</p>
 				</div>
 
-				<div className={`rounded-xl border p-4 text-sm font-medium text-left ${status.cls}`}>
-					{status.text}
+				<div className={`rounded-xl border p-4 text-sm font-medium text-left ${statusCls[status]}`}>
+					{statusText[status]}
 					{feedResult.deviceOffline && (
 						<span className="mt-1.5 block font-normal">
-							<AlertTriangle className="mr-1 inline h-3.5 w-3.5 -mt-0.5" />
-							Device is offline — the new schedule applies once it reconnects.
+							<AlertTriangle aria-hidden="true" className="mr-1 inline h-3.5 w-3.5 -mt-0.5" />
+							{tLog("deviceOfflineNote")}
 						</span>
 					)}
 				</div>
@@ -385,14 +395,14 @@ export function LogSampleForm({
 						onClick={resetForAnother}
 						className="bg-[#E85A2A] text-white px-8 py-3.5 rounded-2xl font-black shadow-lg hover:bg-[#d04a1f] transition-all"
 					>
-						Log Another Sample
+						{tLog("logAnother")}
 					</button>
 					<button
 						type="button"
 						onClick={() => router.push("/dashboard")}
 						className="border border-[#0A3D62] text-[#0A3D62] px-8 py-3.5 rounded-2xl font-black hover:bg-[#0A3D62]/5 transition-all dark:border-[#5b9bd5] dark:text-[#5b9bd5] dark:hover:bg-white/5"
 					>
-						Back to Dashboard
+						{tLog("backToDashboard")}
 					</button>
 				</div>
 			</div>
@@ -416,26 +426,28 @@ export function LogSampleForm({
 					<button
 						type="button"
 						onClick={() => setInputMode("average")}
+						aria-pressed={inputMode === "average"}
 						className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${
 							inputMode === "average"
 								? "bg-[#0A3D62] text-white shadow-md dark:bg-[#1f66a0]"
 								: "text-[#3D5568] hover:text-[#0A3D62] dark:text-gray-400 dark:hover:text-gray-100"
 						}`}
 					>
-						<Scale className="inline-block w-4 h-4 mr-1.5 -mt-0.5" />
-						Average Mode
+						<Scale aria-hidden="true" className="inline-block w-4 h-4 mr-1.5 -mt-0.5" />
+						{tLog("averageMode")}
 					</button>
 					<button
 						type="button"
 						onClick={() => setInputMode("individual")}
+						aria-pressed={inputMode === "individual"}
 						className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${
 							inputMode === "individual"
 								? "bg-[#0A3D62] text-white shadow-md dark:bg-[#1f66a0]"
 								: "text-[#3D5568] hover:text-[#0A3D62] dark:text-gray-400 dark:hover:text-gray-100"
 						}`}
 					>
-						<Fish className="inline-block w-4 h-4 mr-1.5 -mt-0.5" />
-						Individual Mode
+						<Fish aria-hidden="true" className="inline-block w-4 h-4 mr-1.5 -mt-0.5" />
+						{tLog("individualMode")}
 					</button>
 				</div>
 
@@ -444,11 +456,11 @@ export function LogSampleForm({
 						htmlFor="batchLabel"
 						className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400"
 					>
-						Sampling batch (optional)
+						{tLog("batchOptionalLabel")}
 					</label>
 					<div className="relative">
 						<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-							<Fish className="h-5 w-5" />
+							<Fish aria-hidden="true" className="h-5 w-5" />
 						</div>
 						<input
 							type="text"
@@ -456,7 +468,7 @@ export function LogSampleForm({
 							maxLength={64}
 							list="batchLabelOptions"
 							className={fieldCls}
-							placeholder="e.g. Sampling batch 2026-10 A"
+							placeholder={tLog("batchPlaceholder")}
 							value={batchLabel}
 							onChange={(e) => setBatchLabel(e.target.value)}
 						/>
@@ -475,11 +487,11 @@ export function LogSampleForm({
 								htmlFor="weightGrams"
 								className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400"
 							>
-								Avg. Fish Weight (grams)
+								{tLog("weightInputLabel")}
 							</label>
 							<div className="relative">
 								<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-									<Scale className="h-5 w-5" />
+									<Scale aria-hidden="true" className="h-5 w-5" />
 								</div>
 								<input
 									type="number"
@@ -488,7 +500,7 @@ export function LogSampleForm({
 									required
 									min="0.1"
 									className={fieldCls}
-									placeholder="e.g. 220"
+									placeholder={tLog("weightPlaceholder")}
 									value={weightGrams}
 									onChange={(e) => setWeightGrams(e.target.value)}
 								/>
@@ -500,11 +512,11 @@ export function LogSampleForm({
 								htmlFor="lengthCm"
 								className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400"
 							>
-								Avg. Fish Length (cm)
+								{tLog("lengthLabel")}
 							</label>
 							<div className="relative">
 								<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-									<Ruler className="h-5 w-5" />
+									<Ruler aria-hidden="true" className="h-5 w-5" />
 								</div>
 								<input
 									type="number"
@@ -513,7 +525,7 @@ export function LogSampleForm({
 									required
 									min="0.1"
 									className={fieldCls}
-									placeholder="e.g. 24"
+									placeholder={tLog("lengthInputPlaceholder")}
 									value={lengthCm}
 									onChange={(e) => setLengthCm(e.target.value)}
 								/>
@@ -525,11 +537,11 @@ export function LogSampleForm({
 								htmlFor="sampleCount"
 								className="block text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400"
 							>
-								Sample Fish Count
+								{tLog("sampleCountInputLabel")}
 							</label>
 							<div className="relative">
 								<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-									<Fish className="h-5 w-5" />
+									<Fish aria-hidden="true" className="h-5 w-5" />
 								</div>
 								<input
 									type="number"
@@ -547,15 +559,15 @@ export function LogSampleForm({
 					<div className="space-y-4">
 						<div className="flex items-center justify-between">
 							<p className="text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400">
-								Individual Fish Measurements
+								{tLog("individualHeading")}
 							</p>
 							<button
 								type="button"
 								onClick={addFishEntry}
 								className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E85A2A] text-white text-xs font-bold rounded-lg hover:bg-[#d04a1f] transition-colors"
 							>
-								<Plus className="w-3.5 h-3.5" />
-								Add Fish
+								<Plus aria-hidden="true" className="w-3.5 h-3.5" />
+								{tLog("addFish")}
 							</button>
 						</div>
 
@@ -571,13 +583,14 @@ export function LogSampleForm({
 										</span>
 										<div className="flex-1 min-w-[7.5rem] relative">
 											<div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
-												<Scale className="h-3.5 w-3.5" />
+												<Scale aria-hidden="true" className="h-3.5 w-3.5" />
 											</div>
 											<input
 												type="number"
 												step="0.1"
 												min="0.1"
-												placeholder="Weight (g)"
+												aria-label={tLog("fishWeightLabel", { index: index + 1 })}
+												placeholder={tLog("fishWeightPlaceholder")}
 												className={fishFieldCls}
 												value={fish.weightGrams}
 												onChange={(e) => updateFishEntry(index, "weightGrams", e.target.value)}
@@ -585,13 +598,14 @@ export function LogSampleForm({
 										</div>
 										<div className="flex-1 min-w-[7.5rem] relative">
 											<div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
-												<Ruler className="h-3.5 w-3.5" />
+												<Ruler aria-hidden="true" className="h-3.5 w-3.5" />
 											</div>
 											<input
 												type="number"
 												step="0.1"
 												min="0"
-												placeholder="Length (cm)"
+												aria-label={tLog("fishLengthLabel", { index: index + 1 })}
+												placeholder={tLog("fishLengthPlaceholder")}
 												className={fishFieldCls}
 												value={fish.lengthCm}
 												onChange={(e) => updateFishEntry(index, "lengthCm", e.target.value)}
@@ -601,9 +615,10 @@ export function LogSampleForm({
 											type="button"
 											onClick={() => removeFishEntry(index)}
 											disabled={individualFish.length <= 1}
+											aria-label={tLog("removeFish", { index: index + 1 })}
 											className="p-1.5 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-30 disabled:pointer-events-none shrink-0 ml-auto sm:ml-0"
 										>
-											<X className="w-4 h-4" />
+											<X aria-hidden="true" className="w-4 h-4" />
 										</button>
 									</div>
 									{rowErrors[index] && (
@@ -634,24 +649,30 @@ export function LogSampleForm({
 					<p className="text-[#3D5568] dark:text-gray-400 text-xs leading-relaxed">
 						{inputMode === "individual" && (
 							<>
-								Sampled{" "}
-								<strong className="text-[#0A3D62] dark:text-gray-100">{individualCount}</strong>{" "}
-								fish(s).
+								{tLog.rich("sampledCount", {
+									count: individualCount,
+									bold: (chunks) => (
+										<strong className="text-[#0A3D62] dark:text-gray-100">{chunks}</strong>
+									),
+								})}
 								<br />
 							</>
 						)}
-						Calculated Average Body Weight (ABW):{" "}
-						<strong className="text-[#0A3D62] dark:text-gray-100">
-							{avgWeightG > 0 ? avgWeightG.toFixed(1) : "—"}g
-						</strong>
-						.
+						{tLog.rich("calcAbw", {
+							weight: avgWeightG > 0 ? avgWeightG.toFixed(1) : "—",
+							bold: (chunks) => (
+								<strong className="text-[#0A3D62] dark:text-gray-100">{chunks}</strong>
+							),
+						})}
 						{avgLengthCm > 0 && (
 							<>
 								<br />
-								Average Length:{" "}
-								<strong className="text-[#0A3D62] dark:text-gray-100">
-									{avgLengthCm.toFixed(1)}cm
-								</strong>
+								{tLog.rich("avgLengthLine", {
+									length: avgLengthCm.toFixed(1),
+									bold: (chunks) => (
+										<strong className="text-[#0A3D62] dark:text-gray-100">{chunks}</strong>
+									),
+								})}
 							</>
 						)}
 					</p>
@@ -659,12 +680,10 @@ export function LogSampleForm({
 					<div className="mt-3 space-y-1.5 border-t border-[#0A3D62]/10 pt-3 text-xs dark:border-gray-700/50">
 						<div className="flex items-baseline justify-between gap-4">
 							<span className="font-medium text-[#3D5568] dark:text-gray-400">
-								Total Biomass
+								{tLog("totalBiomass")}
 								{biomassG === null && (
 									<span className="block text-[11px] font-normal text-[#3D5568]/60 dark:text-gray-500">
-										{populationUnset
-											? "Set the pond's fish count to calculate"
-											: "= fish count × avg weight"}
+										{populationUnset ? tLog("hintSetFishCount") : tLog("formulaBiomass")}
 									</span>
 								)}
 							</span>
@@ -676,8 +695,10 @@ export function LogSampleForm({
 									<>
 										g{" "}
 										<span>
-											({effectivePopulation.toLocaleString("en-US")} fish × {avgWeightG.toFixed(1)}
-											g)
+											{tLog("biomassBreakdown", {
+												fish: effectivePopulation.toLocaleString("en-US"),
+												weight: avgWeightG.toFixed(1),
+											})}
 										</span>
 									</>
 								)}
@@ -685,10 +706,10 @@ export function LogSampleForm({
 						</div>
 						<div className="flex items-baseline justify-between gap-4">
 							<span className="font-medium text-[#3D5568] dark:text-gray-400">
-								Daily Feed
+								{tLog("dailyFeed")}
 								{dailyFeed === null && (
 									<span className="block text-[11px] font-normal text-[#3D5568]/60 dark:text-gray-500">
-										= biomass × {feedingRatePct}%
+										{tLog("formulaDailyFeed", { rate: feedingRatePct })}
 									</span>
 								)}
 							</span>
@@ -700,7 +721,10 @@ export function LogSampleForm({
 									<>
 										g{" "}
 										<span>
-											({Math.round(biomassG ?? 0).toLocaleString("en-US")}g × {feedingRatePct}%)
+											{tLog("dailyBreakdown", {
+												biomass: Math.round(biomassG ?? 0).toLocaleString("en-US"),
+												rate: feedingRatePct,
+											})}
 										</span>
 									</>
 								)}
@@ -708,10 +732,10 @@ export function LogSampleForm({
 						</div>
 						<div className="flex items-baseline justify-between gap-4">
 							<span className="font-medium text-[#3D5568] dark:text-gray-400">
-								Feed per Meal
+								{tLog("feedPerMeal")}
 								{nextFeedingG === null && (
 									<span className="block text-[11px] font-normal text-[#3D5568]/60 dark:text-gray-500">
-										= daily ÷ {feedsPerDay} feeds
+										{tLog("formulaPerMeal", { feeds: feedsPerDay })}
 									</span>
 								)}
 							</span>
@@ -721,7 +745,7 @@ export function LogSampleForm({
 								</strong>
 								{nextFeedingG !== null && (
 									<>
-										g <span>(÷ {feedsPerDay} feeds)</span>
+										g <span>{tLog("perMealBreakdown", { feeds: feedsPerDay })}</span>
 									</>
 								)}
 							</span>

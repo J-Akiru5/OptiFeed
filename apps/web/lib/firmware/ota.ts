@@ -29,6 +29,30 @@ export const OTA_MAX_IMAGE_BYTES = 1_966_080;
 /** `FW_BOARD` in firmware-main.ino. */
 export const OTA_BOARD = "wroom32u";
 
+/**
+ * Hardware variants a signed image may target (issue #582). The relay GPIO is
+ * part of the physical unit, so an image built for the other pin boots and
+ * heartbeats normally while never closing the relay. `firmware/platformio.ini`
+ * defines one environment per variant and the sketch static_asserts that the
+ * variant name and relay pin agree.
+ */
+export const OTA_HW_VARIANTS = ["gpio5", "gpio25"] as const;
+export type OtaHwVariant = (typeof OTA_HW_VARIANTS)[number];
+export const OTA_VARIANT_RELAY_GPIO: Readonly<Record<OtaHwVariant, number>> = {
+	gpio5: 5,
+	gpio25: 25,
+};
+
+/** Type guard for a `?variant=` query value. */
+export function isOtaHwVariant(value: string | null | undefined): value is OtaHwVariant {
+	return typeof value === "string" && (OTA_HW_VARIANTS as readonly string[]).includes(value);
+}
+
+/** Relay GPIO that must accompany a variant in the signed manifest. */
+export function relayGpioForVariant(variant: OtaHwVariant): number {
+	return OTA_VARIANT_RELAY_GPIO[variant];
+}
+
 const SEMVER_PATTERN = /^(\d{1,6})\.(\d{1,6})\.(\d{1,6})(?:[-+][0-9A-Za-z.-]+)?$/;
 const MAC_PATTERN = /^[0-9A-F]{2}(?::[0-9A-F]{2}){5}$/i;
 const SHA256_PATTERN = /^[0-9a-fA-F]{64}$/;
@@ -89,17 +113,34 @@ const channelSchema = z.object({
 	manifest: z.string().min(2).max(4096),
 	signature: z.string().min(1).max(1024).regex(BASE64_PATTERN),
 	key_id: z.enum(["primary", "spare"]),
+	// Optional unsigned copy of the signed variant, for operators listing the
+	// channel. When present it must agree with the signed manifest.
+	variant: z.enum(OTA_HW_VARIANTS).optional(),
 	targets: z.union([z.literal("*"), z.array(z.string().regex(MAC_PATTERN)).max(10_000)]),
 });
 
-const manifestSchema = z.object({
-	board: z.literal(OTA_BOARD),
-	version: z.string().regex(SEMVER_PATTERN),
-	size: z.number().int().positive(),
-	sha256: z.string().regex(SHA256_PATTERN),
-	key_id: z.enum(["primary", "spare"]),
-	min_from_version: z.string().regex(SEMVER_PATTERN).optional(),
-});
+const manifestSchema = z
+	.object({
+		board: z.literal(OTA_BOARD),
+		// #582: the signed manifest names the exact relay wiring. The device
+		// refuses a release whose variant or relay GPIO does not match its own
+		// provisioned variant.
+		variant: z.enum(OTA_HW_VARIANTS),
+		relay_gpio: z.number().int().positive(),
+		version: z.string().regex(SEMVER_PATTERN),
+		size: z.number().int().positive(),
+		sha256: z.string().regex(SHA256_PATTERN),
+		key_id: z.enum(["primary", "spare"]),
+		min_from_version: z.string().regex(SEMVER_PATTERN).optional(),
+	})
+	.superRefine((manifest, ctx) => {
+		if (OTA_VARIANT_RELAY_GPIO[manifest.variant] !== manifest.relay_gpio) {
+			ctx.addIssue({
+				code: "custom",
+				message: "manifest variant and relay_gpio disagree",
+			});
+		}
+	});
 
 export type FirmwareChannel = z.infer<typeof channelSchema> & {
 	manifestValues: z.infer<typeof manifestSchema>;
@@ -110,9 +151,9 @@ export type FirmwareChannel = z.infer<typeof channelSchema> & {
  * would refuse, so a corrupted or half-uploaded release is simply not offered.
  *
  * The channel envelope must agree with the signed manifest: the firmware
- * rejects the whole update when `version`, `size`, `sha256`, `key_id` or
- * `board` disagree, so offering a mismatched file only buys a pointless
- * download and a 24 h backoff.
+ * rejects the whole update when `version`, `size`, `sha256`, `key_id`,
+ * `board`, `variant` or `relay_gpio` disagree, so offering a mismatched file
+ * only buys a pointless download and a 24 h backoff.
  */
 export function parseChannel(raw: unknown): FirmwareChannel | null {
 	const parsed = channelSchema.safeParse(raw);
@@ -127,6 +168,10 @@ export function parseChannel(raw: unknown): FirmwareChannel | null {
 
 	const manifest = manifestSchema.safeParse(manifestRaw);
 	if (!manifest.success) return null;
+
+	if (parsed.data.variant !== undefined && parsed.data.variant !== manifest.data.variant) {
+		return null;
+	}
 
 	if (
 		manifest.data.version !== parsed.data.version ||
@@ -143,14 +188,22 @@ export function parseChannel(raw: unknown): FirmwareChannel | null {
 /**
  * Decide whether this device may be offered this release. Mirrors the device
  * gates the server can evaluate: targeting, a strictly newer semantic version,
- * and (when signed) a satisfied `min_from_version`.
+ * a satisfied `min_from_version`, and the hardware variant (#582).
+ *
+ * The variant gate is fail-closed: a device that does not declare a variant
+ * (firmware before this change) is never offered a hardware-specific image,
+ * because the server cannot prove the relay pin matches. A wrong-pin image is
+ * a silent physical failure, not an inconvenience.
  */
 export function shouldOfferUpdate(
 	channel: FirmwareChannel,
 	deviceVersion: string,
 	mac: string,
+	deviceVariant: OtaHwVariant | null,
 ): boolean {
 	if (!isReleaseTargeted(channel.targets, mac)) return false;
+	if (deviceVariant === null) return false;
+	if (channel.manifestValues.variant !== deviceVariant) return false;
 
 	const order = compareSemver(deviceVersion, channel.version);
 	if (order === null || order >= 0) return false;
@@ -175,6 +228,9 @@ export type OtaCheckResponse =
 			manifest: string;
 			signature: string;
 			key_id: string;
+			/** Hardware the signed image targets (#582); also inside `manifest`. */
+			variant: OtaHwVariant;
+			relay_gpio: number;
 	  };
 
 function jsonWithLength(body: string): Response {

@@ -46,6 +46,8 @@ const SIGNED_URL =
 function releaseManifest(overrides: Record<string, unknown> = {}): string {
 	return JSON.stringify({
 		board: "wroom32u",
+		variant: "gpio25",
+		relay_gpio: 25,
 		key_id: "primary",
 		min_from_version: "1.4.0",
 		sha256: SHA,
@@ -64,6 +66,7 @@ function channel(overrides: Record<string, unknown> = {}) {
 		manifest: releaseManifest(),
 		signature: SIGNATURE,
 		key_id: "primary",
+		variant: "gpio25",
 		targets: "*",
 		...overrides,
 	};
@@ -87,13 +90,23 @@ type RequestOptions = {
 	token?: string | null;
 	deviceId?: string | null;
 	version?: string | null;
+	variant?: string | null;
+	relayGpio?: string | null;
 };
 
 function checkRequest(options: RequestOptions = {}): Request {
-	const { token = "test-token", deviceId = DEVICE.mac, version = "1.4.0" } = options;
+	const {
+		token = "test-token",
+		deviceId = DEVICE.mac,
+		version = "1.4.0",
+		variant = "gpio25",
+		relayGpio = "25",
+	} = options;
 	const params = new URLSearchParams();
 	if (deviceId !== null) params.set("device_id", deviceId);
 	if (version !== null) params.set("version", version);
+	if (variant !== null) params.set("variant", variant);
+	if (relayGpio !== null) params.set("relay_gpio", relayGpio);
 	const headers: Record<string, string> = {};
 	if (token !== null) headers["x-device-token"] = token;
 	return new Request(`http://test.local/api/firmware/check?${params.toString()}`, {
@@ -123,8 +136,8 @@ describe("GET /api/firmware/check — auth and rate limit", () => {
 		} as never);
 	});
 
-	it("rejects a missing device token", async () => {
-		const res = await GET(checkRequest({ token: null }));
+	it("rejects a missing device token before any variant check", async () => {
+		const res = await GET(checkRequest({ token: null, variant: null }));
 		expect(res.status).toBe(401);
 	});
 
@@ -227,6 +240,45 @@ describe("GET /api/firmware/check — release decision", () => {
 		expect((await bodyOf(res)).update).toBe(true);
 	});
 
+	it("answers {update:false} when the device does not declare a hardware variant", async () => {
+		serveChannel(channel());
+		const res = await GET(checkRequest({ variant: null }));
+		expect(await bodyOf(res)).toEqual({ update: false });
+		expect(storage.createSignedUrl).not.toHaveBeenCalled();
+	});
+
+	it("answers {update:false} when the device variant differs from the signed manifest", async () => {
+		serveChannel(channel());
+		const res = await GET(checkRequest({ variant: "gpio5", relayGpio: "5" }));
+		expect(await bodyOf(res)).toEqual({ update: false });
+		expect(storage.createSignedUrl).not.toHaveBeenCalled();
+	});
+
+	it("answers {update:false} when relay_gpio disagrees with the declared variant", async () => {
+		serveChannel(channel());
+		const res = await GET(checkRequest({ variant: "gpio25", relayGpio: "5" }));
+		expect(await bodyOf(res)).toEqual({ update: false });
+		expect(storage.createSignedUrl).not.toHaveBeenCalled();
+	});
+
+	it("answers {update:false} when the signed variant and relay pin disagree", async () => {
+		serveChannel(
+			channel({
+				manifest: releaseManifest({ variant: "gpio5", relay_gpio: 25 }),
+			}),
+		);
+		const res = await GET(checkRequest());
+		expect(await bodyOf(res)).toEqual({ update: false });
+		expect(storage.createSignedUrl).not.toHaveBeenCalled();
+	});
+
+	it("answers {update:false} when the channel variant disagrees with its signed manifest", async () => {
+		serveChannel(channel({ variant: "gpio5" }));
+		const res = await GET(checkRequest());
+		expect(await bodyOf(res)).toEqual({ update: false });
+		expect(storage.createSignedUrl).not.toHaveBeenCalled();
+	});
+
 	it("answers {update:false} when the release is the same semantic version", async () => {
 		serveChannel(channel());
 		const res = await GET(checkRequest({ version: "1.4.1" }));
@@ -296,6 +348,8 @@ describe("GET /api/firmware/check — release decision", () => {
 			manifest: payload.manifest,
 			signature: SIGNATURE,
 			key_id: "primary",
+			variant: "gpio25",
+			relay_gpio: 25,
 		});
 
 		expect(storage.createSignedUrl).toHaveBeenCalledWith(
@@ -327,6 +381,15 @@ describe("GET /api/firmware/check — firmware contract", () => {
 		);
 		expect(firmware).toMatch(/#define FW_BOARD\s+"wroom32u"/);
 		expect(firmware).toContain('https.addHeader("X-Device-Token", provisionedDeviceToken);');
+	});
+
+	it("declares its hardware variant and relay pin on every check (#582)", () => {
+		expect(firmware).toContain('"&variant="');
+		expect(firmware).toContain("urlEncodeValue(FW_HW_VARIANT)");
+		expect(firmware).toContain('"&relay_gpio="');
+		expect(firmware).toContain("String(RELAY_PIN)");
+		expect(firmware).toContain('otaRefusalReason = "variant_mismatch"');
+		expect(firmware).toContain("fw::otaMatchesHardware(");
 	});
 
 	it("declares the same 8 KB response bound", () => {

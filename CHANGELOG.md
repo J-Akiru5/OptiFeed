@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **The chat panel no longer camouflages in the system header (#602).** The Pakoy panel header used the same navy as the app chrome and opened directly beneath it, so the two bars read as one surface and the panel looked headerless. It now uses the chat layer's own brand-orange token (`chatHeader`), with the tagline and close control raised to solid white so the smaller text still clears WCAG AA on the new background. The pair is recorded in `CHAT_CONTRAST`, so the existing contrast test covers the header too.
+- **Saving an AI provider key or its settings now confirms with a toast (#568).** The console only updated an inline notice inside the provider card, which is easy to miss after a long form - the reported "the key change is silent" case. Every action on the AI Providers page (config save, key save, key clear, provider add, provider removal, chain reset) now raises a success toast, and a validation or server failure raises an error toast, while the inline notices keep their detail (test latency, key last-4). Copy for the new "provider removed" line is in English, Hiligaynon and Tagalog.
 
 ## [1.45.0] - 2026-11-03
 

@@ -3890,7 +3890,8 @@
 				"low": "low",
 				"medium": "medium",
 				"high": "high"
-			}
+			},
+			"removeDone": "Provider removed."
 		},
 		"settings": {
 			"title": "Platform Settings",

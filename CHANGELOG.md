@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.43.0] - 2026-11-02
+
+
 ### Fixed
 
 - **The farmer dashboard fits a 1366x768 laptop at 100% browser zoom again.** Browser chrome leaves that screen about 657 CSS px of viewport, which the old tiers did not cover; the chart legend could also grow with a long translated label and push the pond row into a clipped strip. A new short-viewport tier steps the pane padding and plot height down, the room's height now subtracts the same padding token the pane applies, and the legend is one single-line row per source, so its height no longer depends on the language (#475).

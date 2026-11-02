@@ -1,8 +1,9 @@
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-ui";
 import { FeederViewerLazy } from "@/components/feeder/feeder-viewer-lazy";
+import { Link } from "@/i18n/routing";
 import { formatFarmDateTime } from "@/lib/date-local";
 import { getDeviceDetail } from "@/lib/feeder/detail";
-import { Cpu, Gauge, Radio, Ruler, Wheat } from "lucide-react";
+import { Cpu, Gauge, Maximize2, Radio, Ruler, Wheat } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 
@@ -42,6 +43,16 @@ export default async function DeviceDetailPage({
 				icon={Cpu}
 				title={detail.label}
 				description={t("desc", { pond: detail.pond.name })}
+				actions={
+					<Link
+						href={`/large-screen/${detail.id}`}
+						className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[#0A3D62]/15 px-4 text-sm font-bold text-[#0A3D62] transition-colors hover:bg-[#0A3D62]/5 focus-visible:ring-2 focus-visible:ring-[#0A3D62]/40 focus-visible:outline-none dark:border-white/20 dark:text-[#8fc0ea] dark:hover:bg-white/10"
+						title={t("largeScreenDesc")}
+					>
+						<Maximize2 className="size-4" aria-hidden="true" />
+						{t("openLargeScreen")}
+					</Link>
+				}
 			/>
 
 			<div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -56,6 +67,9 @@ export default async function DeviceDetailPage({
 					initialWaterTempUpdatedAt={detail.waterTempUpdatedAt?.toISOString() ?? null}
 					initialRtcOk={detail.rtcOk}
 					initialLastSeenAt={detail.lastSeenAt?.toISOString() ?? null}
+					initialSignalDbm={detail.signalDbm}
+					initialFirmwareVersion={detail.firmwareVersion}
+					initialFeedLevelUpdatedAt={detail.feedLevelUpdatedAt?.toISOString() ?? null}
 					staleAfterMs={detail.staleAfterMs}
 				/>
 

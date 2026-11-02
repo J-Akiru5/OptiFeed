@@ -1939,7 +1939,11 @@
 			"statusWeak": "Maluya ang signal",
 			"diagTitle": "Diyagnostik sang firmware",
 			"diagEmpty": "Wala pay diyagnostik (ang Una nga heartbeat nga nagdala diag, madula ini).",
-			"backTo3d": "Magbalik sa 3D view"
+			"backTo3d": "Magbalik sa 3D view",
+			"signal": "Signal",
+			"firmware": "Firmware",
+			"openLargeScreen": "Buksan ang dako nga screen",
+			"largeScreenDesc": "Full-screen nga live view para sa wall display."
 		},
 		"adminDevices": {
 			"view3d": "3D view",

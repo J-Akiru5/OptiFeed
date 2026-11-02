@@ -18,9 +18,12 @@ const DETAIL: FeederDeviceDetail = {
 	waterTempC: 27.1,
 	waterTempUpdatedAt: new Date("2026-11-03T07:58:00.000Z"),
 	staleAfterMs: 300_000,
-	diag: null,
+	diag: { version: "1.6.0" },
+	firmwareVersion: "1.6.0",
+	signalDbm: -62,
 	isPaused: false,
 	feedLevelPercent: 62,
+	feedLevelUpdatedAt: new Date("2026-11-03T07:57:00.000Z"),
 	hopperCapacityG: 25_000,
 	gramsPerFeeding: 330,
 	pond: { id: "pond-1", name: "Pond 1" },
@@ -37,6 +40,14 @@ describe("toStatePayload", () => {
 		expect(payload.waterTempC).toBe(27.1);
 		expect(payload.rtcOk).toBe(true);
 		expect(payload.staleAfterMs).toBe(300_000);
+	});
+
+	it("carries the signal, firmware and hopper timestamp for the large screen (#616)", () => {
+		const payload = toStatePayload(DETAIL);
+
+		expect(payload.signalDbm).toBe(-62);
+		expect(payload.firmwareVersion).toBe("1.6.0");
+		expect(payload.feedLevelUpdatedAt).toBe("2026-11-03T07:57:00.000Z");
 	});
 
 	it("serialises dates as ISO strings and keeps missing readings null", () => {

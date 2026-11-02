@@ -8,6 +8,7 @@ import { averageDailyGain, elapsedFarmDays, overallSgr, sgrSeries } from "@/lib/
 import type { PdfReport } from "@/lib/xlsx/schema";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import { PAKAONAI_MARK_PNG } from "./brand-mark";
 
 /**
  * Growth, SGR and FCR summary reports (I-107): a header, the headline figures,
@@ -131,6 +132,40 @@ function sectionTitle(doc: JsPDFWithAutoTable, text: string, y: number): void {
 	doc.text(text, 14, y);
 }
 
+/**
+ * The three headline figures as cards (#625), in the spirit of the report
+ * sample: the number is the thing an operator reads first, the label is context.
+ * The remaining figures keep their compact table underneath.
+ */
+function drawSummaryKpis(
+	doc: JsPDFWithAutoTable,
+	summary: ReadonlyArray<[string, string]>,
+	y: number,
+): { nextY: number; rest: Array<[string, string]> } {
+	const pageWidth = doc.internal.pageSize.getWidth();
+	const items = summary.slice(0, 3);
+	const rest = summary.slice(items.length);
+	if (items.length === 0) return { nextY: y, rest };
+
+	const gap = 4;
+	const width = (pageWidth - 28 - gap * (items.length - 1)) / items.length;
+	for (const [index, [label, value]] of items.entries()) {
+		const x = 14 + index * (width + gap);
+		doc.setFillColor(244, 247, 246);
+		doc.setDrawColor(...GRID);
+		doc.setLineWidth(0.2);
+		doc.roundedRect(x, y, width, 24, 2.5, 2.5, "FD");
+		doc.setFontSize(7);
+		doc.setTextColor(61, 85, 104);
+		doc.text(label.toUpperCase(), x + 4, y + 8, { maxWidth: width - 8 });
+		doc.setFontSize(15);
+		doc.setTextColor(...NAVY);
+		doc.text(value, x + 4, y + 19, { maxWidth: width - 8 });
+	}
+
+	return { nextY: y + 30, rest };
+}
+
 export async function buildReportPdf(ownerId: string, kind: ReportKind): Promise<ExportArtifact> {
 	const pond = await resolveActivePond(ownerId);
 	if (!pond) throw notFound("No pond found.");
@@ -138,15 +173,23 @@ export async function buildReportPdf(ownerId: string, kind: ReportKind): Promise
 	const doc = new jsPDF() as JsPDFWithAutoTable;
 	const pageWidth = doc.internal.pageSize.getWidth();
 
+	// Brand mark, then the report title beside it. The mark is the same asset
+	// the app uses as its icon, embedded so it survives a serverless bundle.
+	const markSize = 13;
+	doc.addImage(PAKAONAI_MARK_PNG, "PNG", 14, 10, markSize, markSize);
 	doc.setFontSize(20);
 	doc.setTextColor(...NAVY);
-	doc.text(`PakaonAI ${REPORT_TITLE[kind]}`, 14, 22);
+	doc.text(`PakaonAI ${REPORT_TITLE[kind]}`, 14 + markSize + 5, 20);
 	doc.setFontSize(10);
 	doc.setTextColor(100);
-	doc.text(`Pond: ${pond.name}  |  Generated: ${formatFarmDate(new Date())} (Asia/Manila)`, 14, 30);
+	doc.text(
+		`Pond: ${pond.name}  |  Generated: ${formatFarmDate(new Date())} (Asia/Manila)`,
+		14 + markSize + 5,
+		28,
+	);
 	doc.setDrawColor(...ORANGE);
 	doc.setLineWidth(0.5);
-	doc.line(14, 34, pageWidth - 14, 34);
+	doc.line(14, 33, pageWidth - 14, 33);
 
 	let summary: [string, string][] = [];
 	let chart: { title: string; unit: string; points: ChartPoint[] } = {
@@ -284,15 +327,18 @@ export async function buildReportPdf(ownerId: string, kind: ReportKind): Promise
 	}
 
 	sectionTitle(doc, "Summary", 44);
-	autoTable(doc, {
-		startY: 48,
-		head: [["Figure", "Value"]],
-		body: summary,
-		theme: "grid",
-		headStyles: { fillColor: NAVY },
-	});
+	const kpis = drawSummaryKpis(doc, summary, 48);
+	if (kpis.rest.length > 0) {
+		autoTable(doc, {
+			startY: kpis.nextY,
+			head: [["Figure", "Value"]],
+			body: kpis.rest,
+			theme: "grid",
+			headStyles: { fillColor: NAVY },
+		});
+	}
 
-	let y = (doc.lastAutoTable?.finalY ?? 48) + 14;
+	let y = (doc.lastAutoTable?.finalY ?? kpis.nextY) + 14;
 	if (y + 70 > doc.internal.pageSize.getHeight() - 20) {
 		doc.addPage();
 		y = 24;
@@ -322,15 +368,19 @@ export async function buildReportPdf(ownerId: string, kind: ReportKind): Promise
 	const pageCount = doc.getNumberOfPages();
 	for (let page = 1; page <= pageCount; page += 1) {
 		doc.setPage(page);
+		const pageHeight = doc.internal.pageSize.getHeight();
+		doc.setDrawColor(...GRID);
+		doc.setLineWidth(0.2);
+		doc.line(14, pageHeight - 22, pageWidth - 14, pageHeight - 22);
 		doc.setFontSize(8);
 		doc.setTextColor(150);
-		doc.text(REPORT_FORMULA[kind], 14, doc.internal.pageSize.getHeight() - 16, {
+		doc.text(REPORT_FORMULA[kind], 14, pageHeight - 16, {
 			maxWidth: pageWidth - 28,
 		});
 		doc.text(
 			`PakaonAI ${REPORT_TITLE[kind]} - Page ${page} of ${pageCount}`,
 			pageWidth / 2,
-			doc.internal.pageSize.getHeight() - 8,
+			pageHeight - 8,
 			{ align: "center" },
 		);
 	}

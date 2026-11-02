@@ -9,6 +9,7 @@ import { type ChartLabels, LineTrend, StackedBars } from "@/components/charts";
 import { formatChartNumber } from "@/components/charts/chart-data";
 import {
 	CONTROL_ROOM_MAIN,
+	CONTROL_ROOM_MOBILE_BAND,
 	CONTROL_ROOM_ORDER,
 	ControlPanel,
 	ControlRoomLayout,
@@ -151,6 +152,8 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					dailyCapG: true,
 					lastCalibratedAt: true,
 					recalibrationIntervalDays: true,
+					tempOffsetC: true,
+					minFeedTempC: true,
 					waterTempC: true,
 					waterTempOk: true,
 					waterTempUpdatedAt: true,
@@ -519,7 +522,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 						role="alert"
 						className={cn(
 							CONTROL_ROOM_ORDER.alert,
-							"xl:hidden rounded-2xl bg-[#C42B3A] px-4 py-3 text-white shadow-lg",
+							"xl:hidden rounded-2xl bg-[#C42B3A] px-4 py-3 text-white shadow-lg max-xl:rounded-none max-xl:shadow-none",
 						)}
 					>
 						<div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -552,7 +555,12 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 				)}
 
 				<NextFeedingStrip
-					className={cn(CONTROL_ROOM_ORDER.hero, CONTROL_ROOM_MAIN.hero)}
+					className={cn(
+						CONTROL_ROOM_ORDER.hero,
+						CONTROL_ROOM_MAIN.hero,
+						CONTROL_ROOM_MOBILE_BAND,
+						"max-xl:bg-[#EAF1F6] max-xl:pt-5 dark:max-xl:bg-[#0b1a24]",
+					)}
 					pondName={pond.name}
 					label={t("nextFeedingLabel")}
 					time={nextFeedingTimeStr}
@@ -571,12 +579,23 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 				/>
 
 				<PondOverview
-					className={cn(CONTROL_ROOM_ORDER.canvas, CONTROL_ROOM_MAIN.canvas)}
+					className={cn(
+						CONTROL_ROOM_ORDER.canvas,
+						CONTROL_ROOM_MAIN.canvas,
+						CONTROL_ROOM_MOBILE_BAND,
+					)}
 					pondName={pond.name}
 					feeders={feeders}
 				/>
 
-				<div className={cn(CONTROL_ROOM_ORDER.charts, CONTROL_ROOM_MAIN.charts, "min-w-0")}>
+				<div
+					className={cn(
+						CONTROL_ROOM_ORDER.charts,
+						CONTROL_ROOM_MAIN.charts,
+						"min-w-0",
+						CONTROL_ROOM_MOBILE_BAND,
+					)}
+				>
 					<div className="mb-2 flex items-center justify-end">
 						<nav aria-label={t("waterRangeLabel")} className="flex flex-wrap items-center gap-1.5">
 							{WATER_TEMP_RANGES.map((option) => (
@@ -597,7 +616,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 						</nav>
 					</div>
 
-					<div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-3">
+					<div className="grid min-w-0 grid-cols-1 gap-3 max-xl:gap-0 lg:grid-cols-3">
 						<StackedBars
 							className="ofd-chart-card min-w-0"
 							plotClassName="ofd-plot"
@@ -643,7 +662,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 				</div>
 
 				<ControlRoomRail label={t("controlRoom.railLabel")}>
-					<div className={CONTROL_ROOM_ORDER.header}>
+					<div className={cn(CONTROL_ROOM_ORDER.header, CONTROL_ROOM_MOBILE_BAND)}>
 						<DashboardPageHeader
 							title={
 								currentUser?.displayName
@@ -673,7 +692,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 						</DashboardPageHeader>
 					</div>
 
-					<div className={CONTROL_ROOM_ORDER.pond}>
+					<div className={cn(CONTROL_ROOM_ORDER.pond, CONTROL_ROOM_MOBILE_BAND)}>
 						<ControlPanel title={t("controlRoom.pondPanel")} icon={Wheat}>
 							<PondSummary
 								name={pond.name}
@@ -687,7 +706,8 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					<div
 						className={cn(
 							CONTROL_ROOM_ORDER.feedNow,
-							"rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700/60 dark:bg-gray-900",
+							"xl:rounded-2xl xl:border xl:border-gray-200 xl:bg-white xl:p-4 xl:shadow-sm dark:xl:border-gray-700/60 dark:xl:bg-gray-900",
+							CONTROL_ROOM_MOBILE_BAND,
 						)}
 					>
 						<FeedNowButton
@@ -707,7 +727,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					</div>
 
 					{energyDevice && (
-						<div className={CONTROL_ROOM_ORDER.device}>
+						<div className={cn(CONTROL_ROOM_ORDER.device, CONTROL_ROOM_MOBILE_BAND)}>
 							<FeedLevelCard
 								levelPercent={hopper?.levelPercent ?? null}
 								updatedAt={hopper?.levelUpdatedAt ?? null}
@@ -720,17 +740,22 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					)}
 
 					{energyDevice && (
-						<div className={CONTROL_ROOM_ORDER.water}>
+						<div className={cn(CONTROL_ROOM_ORDER.water, CONTROL_ROOM_MOBILE_BAND)}>
 							<WaterTempCard
-								tempC={energyDevice.waterTempC}
+								tempC={
+									energyDevice.waterTempC === null
+										? null
+										: energyDevice.waterTempC + (energyDevice.tempOffsetC ?? 0)
+								}
 								tempOk={energyDevice.waterTempOk}
 								updatedAt={energyDevice.waterTempUpdatedAt}
 								isDeviceOffline={esp32Offline}
+								minFeedTempC={energyDevice.minFeedTempC}
 							/>
 						</div>
 					)}
 
-					<div className={CONTROL_ROOM_ORDER.alerts}>
+					<div className={cn(CONTROL_ROOM_ORDER.alerts, CONTROL_ROOM_MOBILE_BAND)}>
 						<ControlPanel title={t("controlRoom.alertsPanel")} icon={AlertTriangle}>
 							<AlertsPanel
 								items={alerts}
@@ -759,9 +784,11 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					)}
 
 					{/* The full advisor card stays for phones; the rail shows a summary. */}
-					<div className={cn(CONTROL_ROOM_ORDER.advisorFull, "xl:hidden")}>
+					<div
+						className={cn(CONTROL_ROOM_ORDER.advisorFull, "xl:hidden", CONTROL_ROOM_MOBILE_BAND)}
+					>
 						{pond.isFallow ? (
-							<div className="flex flex-col gap-4 rounded-3xl border border-dashed border-[#0A3D62]/20 bg-white p-6 dark:border-white/10 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
+							<div className="flex flex-col gap-4 rounded-3xl border border-dashed border-[#0A3D62]/20 bg-white p-6 dark:border-white/10 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between max-xl:rounded-none max-xl:border-0 max-xl:bg-transparent max-xl:p-0">
 								<div className="flex items-start gap-3">
 									<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#5b9bd5]">
 										<Wheat aria-hidden="true" className="h-6 w-6" />
@@ -795,7 +822,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					</div>
 
 					{activeCycle && cycleContext && (
-						<div className={CONTROL_ROOM_ORDER.growOut}>
+						<div className={cn(CONTROL_ROOM_ORDER.growOut, CONTROL_ROOM_MOBILE_BAND)}>
 							<ControlPanel title={t("controlRoom.growOutPanel")} icon={Calendar}>
 								<GrowOutPanel
 									title={activeCycle.label || tHarvest("cycle")}
@@ -823,7 +850,10 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 						</div>
 					)}
 
-					<div data-help="dashboard-feed-log" className={CONTROL_ROOM_ORDER.feedings}>
+					<div
+						data-help="dashboard-feed-log"
+						className={cn(CONTROL_ROOM_ORDER.feedings, CONTROL_ROOM_MOBILE_BAND)}
+					>
 						<ControlPanel title={t("controlRoom.feedingsPanel")} icon={Clock}>
 							<RecentFeedings
 								rows={feedingRows}
@@ -836,13 +866,16 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					</div>
 
 					{recentBiomassLogs.length > 0 && (
-						<div data-help="dashboard-biomass-log" className={CONTROL_ROOM_ORDER.biomass}>
+						<div
+							data-help="dashboard-biomass-log"
+							className={cn(CONTROL_ROOM_ORDER.biomass, CONTROL_ROOM_MOBILE_BAND)}
+						>
 							<ControlPanel title={t("biomassLogsTitle")} icon={Layers}>
-								<ul className="space-y-1.5">
+								<ul className="space-y-1.5 max-xl:space-y-0">
 									{recentBiomassLogs.slice(0, 3).map((log) => (
 										<li
 											key={log.id}
-											className="flex items-center justify-between gap-2 rounded-xl bg-[#F7F9F8] px-2.5 py-1.5 dark:bg-gray-800/60"
+											className="flex items-center justify-between gap-2 rounded-xl bg-[#F7F9F8] px-2.5 py-1.5 dark:bg-gray-800/60 max-xl:min-h-11 max-xl:rounded-none max-xl:border-b max-xl:border-[#E6ECE9] max-xl:bg-transparent max-xl:px-0 max-xl:py-3 dark:max-xl:border-gray-800"
 										>
 											<div className="min-w-0">
 												<p className="text-xs font-black text-[#0A3D62] dark:text-gray-100">
@@ -870,9 +903,9 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 						</div>
 					)}
 
-					<div className={CONTROL_ROOM_ORDER.stats}>
+					<div className={cn(CONTROL_ROOM_ORDER.stats, CONTROL_ROOM_MOBILE_BAND)}>
 						<ControlPanel title={t("controlRoom.statsPanel")} icon={TrendingUp}>
-							<div className="grid grid-cols-2 gap-2">
+							<div className="grid grid-cols-2 gap-2 max-xl:grid-cols-1 max-xl:gap-0">
 								<div data-help="fcr" data-onboard="fcr">
 									<StatTile
 										label={
@@ -924,7 +957,14 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					</div>
 
 					{energyDevice && (
-						<div className={cn(CONTROL_ROOM_ORDER.controller, "min-w-0 space-y-3")}>
+						<div
+							className={cn(
+								CONTROL_ROOM_ORDER.controller,
+								"min-w-0 space-y-3",
+								CONTROL_ROOM_MOBILE_BAND,
+								"max-xl:space-y-4",
+							)}
+						>
 							<ControlPanel title={t("controlRoom.controlsPanel")} icon={Sliders}>
 								<EnergyControllerCard
 									deviceId={energyDevice.id}

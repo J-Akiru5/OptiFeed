@@ -62,8 +62,11 @@ export function ChartFrame({
 }) {
 	return (
 		<figure
+			// #476: below `xl` the frame is a flat section, and the hairline plus
+			// bottom padding separate it from the next stacked chart. `last:` drops
+			// the trailing rule on the final figure.
 			className={cn(
-				"flex min-w-0 flex-col rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900",
+				"flex min-w-0 flex-col rounded-2xl border border-gray-200 bg-white p-5 shadow-sm max-xl:rounded-none max-xl:border-0 max-xl:bg-transparent max-xl:p-0 max-xl:shadow-none max-xl:border-b max-xl:border-[#E6ECE9] max-xl:pb-4 max-xl:last:border-b-0 dark:border-gray-700 dark:bg-gray-900 dark:max-xl:border-gray-800",
 				className,
 			)}
 		>

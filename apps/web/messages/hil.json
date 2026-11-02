@@ -451,7 +451,30 @@
 		"iso6": "Maintainability",
 		"iso7": "Efficiency",
 		"iso8": "Portability",
-		"ctaEyebrow": "Access sa study"
+		"ctaEyebrow": "Access sa study",
+		"reportIssue": {
+			"trigger": "Ireport ang isyu",
+			"title": "Ireport ang isyu",
+			"description": "Isugid sa amon ang natabo. Makalab-ot ang mga report sa platform team kag ginabinagbinag sunod sa pag-abot.",
+			"close": "Isira",
+			"category": "Kategorya",
+			"categories": {
+				"bug": "Bug",
+				"accessibility": "Accessibility",
+				"content": "Kaundan",
+				"other": "Iban pa"
+			},
+			"message": "Ano ang natabo?",
+			"messageHint": "Isaysay ang ginalauman mo kag ang nakita mo. Indi magbutang sang password ukon personal nga impormasyon.",
+			"email": "Email",
+			"emailHint": "Opsyonal, kon gusto mo nga sabton ka namon.",
+			"optional": "Opsyonal",
+			"submit": "Ipadala ang report",
+			"sending": "Ginapadala…",
+			"success": "Salamat — nabaton na ang report mo.",
+			"error": "Wala maipadala ang report. Tilawi liwat.",
+			"rateLimited": "Sobra ka damo nga report halin sa device nga ini. Tilawi sa ulihi."
+		}
 	},
 	"login": {
 		"eyebrow": "Pagsulod sa farm",
@@ -636,9 +659,12 @@
 			"days": "{count} Ka Adlaw",
 			"lastBiomassLabel": "Katapusan nga Biomass ABW",
 			"lastBiomassBased": "Base sa {count} ka sampol nga isda nga gintimbang.",
-			"populationLabel": "POPULASYON SA PUNONG",
+			"populationLabel": "BUHI NGA ISDA",
 			"populationValue": "{count} ka Katpis",
 			"populationStable": "Estable nga kadamuon",
+			"populationDetail": "{stocked} ginbutang · {dead} patay ({pct}%)",
+			"mortalityLabel": "KAMATAYON",
+			"mortalityValue": "{dead} patay · {pct}",
 			"feedingLogsTitle": "MGA LOG SANG PAGPAKAON",
 			"feedingLogsDesc": "Makita kag ma-audit nga log halin sa awtomatik nga dispenser.",
 			"feedLevelLabel": "Lebel sang Feed",
@@ -737,7 +763,7 @@
 			"activeWindow": "Aktibo nga Oras",
 			"activeWindowDesc": "Kon san-o ginatugutan ang device nga magpakaon",
 			"frequency": "Kadasigon",
-			"frequencyDesc": "Ginapanagtag sing palareho sa sulod sang aktibo nga oras",
+			"frequencyDesc": "Pantay ang agwat sang mga pagkaon halin sa una tubtob katapusan nga pagpakaon",
 			"timesPerDay": "{count} ka beses kada adlaw",
 			"feedingTimesTitle": "Mga oras sang pagpakaon",
 			"feedingTimesLabel": "Naka-iskedyul nga mga oras sang pagpakaon",
@@ -747,8 +773,8 @@
 			"noPondData": "Wala sing data sang punong ukon device. Palihog padagana ang seed script.",
 			"dispensePrompt": "Ipagwa ang 500g subong mismo?",
 			"editTitle": "Bag-uhon ang Iskedyul",
-			"startTime": "Oras sang Pagsugod",
-			"endTime": "Oras sang Pagtatap",
+			"startTime": "Oras sang una nga pagpakaon",
+			"endTime": "Oras sang katapusan nga pagpakaon",
 			"feedsPerDay": "Pagpakaon sa Isadlaw",
 			"feedingRate": "Rate sang Pagpakaon (%)",
 			"saveChanges": "I-save ang Pagbag-o",
@@ -1198,7 +1224,8 @@
 				"invalidCount": "Ibuwat bilog nga numero ka tili (sagunso 1).",
 				"saveFailed": "Wala mahimo mortali rekord. Pakisubong liwat.",
 				"pondNotFound": "Wala nakita ang pisu.",
-				"currentPopulation": "Lista isda: {population} tili (daan count; mortality ginabentes batou)."
+				"currentPopulation": "Lista isda: {population} tili (daan count; mortality ginabentes batou).",
+				"currentPopulationWithRate": "{population} buhi · {dead} patay sa {stocked} ginbutang ({pct}% kamatayon)"
 			},
 			"fcrInputs": "Ginkalkulsa halin sa: {feed} kg maog nga ginhatag para sa {gain} kg live biomass nga nakuha (live {live} tili)."
 		},
@@ -1263,6 +1290,12 @@
 				"readOnlyReason": "Indi ka maka-edit sang mga hitabo sa kalendaryo.",
 				"allPondsEditHint": "Pilia ang isa ka punong para makadugang sang hitabo.",
 				"recurringChangeConfirm": "Bag-uhon ang bug-os nga nagabalik nga serye? Pilia ang Cancel para indi mabag-o."
+			},
+			"dayEvents": {
+				"title": "Mga panghitabo sa {date}",
+				"subtitle": "{count, plural, one {# panghitabo} other {# ka panghitabo}}",
+				"empty": "Wala sang naka-iskedyul sini nga adlaw.",
+				"addEvent": "Dugang event"
 			},
 			"calendarPage": {
 				"title": "Kalendaryo kag Pag-ani",
@@ -1480,6 +1513,8 @@
 			"farmIdLabel": "Farm ID",
 			"farmNameLabel": "Ngaran sang Farm",
 			"pondsLabel": "Mga Punong",
+			"pondsCount": "Mga Punong ({count})",
+			"managePonds": "I-manage ang mga punong",
 			"noPonds": "Wala pa nga punong.",
 			"archived": "Naka-Archive",
 			"accountTitle": "Account",
@@ -1495,7 +1530,7 @@
 			"saveError": "Indi ma-save ang mga setting. Tilawi liwat.",
 			"sampleIntervalLabel": "Agwat sang Sampling (mga adlaw)",
 			"sampleIntervalDesc": "Pila ka beses gina-sample ang isda (hal. 15 ukon 30 ka adlaw).",
-			"populationLabel": "Kadamuon (isda)",
+			"populationLabel": "Ginbutang nga isda",
 			"populationDesc": "Kadamuon sang isda — ginagamit sa kabilugan nga biomass kag adlaw-adlaw nga feed.",
 			"populationPlaceholder": "hal. 200",
 			"areaPlaceholder": "hal. 500",
@@ -1511,6 +1546,7 @@
 			"errorSummaryTitle": "Ayuhon ini antes mag-save",
 			"errorSummaryHint": "Ginatipigan ang imo mga value. Bukasi ang setting para ayuhon.",
 			"restoredDraft": "Ginbalik ang mga value nga wala mo pa na-save.",
+			"unsavedChanges": "May wala pa na-save nga pagbag-o — pinduta ang Save settings.",
 			"restoredDraftAt": "Ginbalik ang mga wala mo pa na-save nga mga pagbag-o ({time}).",
 			"discardDraft": "Ilabay ang draft",
 			"draftDiscarded": "Ginlabay ang wala pa na-save nga mga pagbag-o.",
@@ -1635,6 +1671,7 @@
 			"eventType_set_time": "Ginset ang Oras sang Device",
 			"eventType_data_imported": "Na-import ang Datos",
 			"eventType_data_exported": "Na-export ang Datos",
+			"eventType_safety_trip": "Nag-lock sa safe mode",
 			"source_system": "System",
 			"source_user": "User",
 			"source_device": "Device",
@@ -1781,6 +1818,10 @@
 			"contactEmailError": "Indi mai-save ang email. Pamatii liwat."
 		},
 		"feederViewer": {
+			"waterTempSensor": "Sensor sang temperatura sang tubig",
+			"healthOk": "Maayo",
+			"healthFault": "May problema",
+			"healthUnknown": "Wala ginreport",
 			"viewerLabel": "Feeder 3D",
 			"canvasLabel": "Interactive nga 3D nga modelo sang {label}. I-drag para i-orbit kag gamita ang mga preset para magbaylo sang view.",
 			"statusIdle": "Idle",
@@ -3198,6 +3239,16 @@
 				"settings": "Setting",
 				"operations": "Ops",
 				"more": "Dugang"
+			},
+			"groups": {
+				"commandCenter": "Command Center",
+				"ecosystem": "Pagdumala sang Ekosistema",
+				"platformControl": "Pagkontrol sang Plataporma"
+			},
+			"scope": {
+				"label": "Sakop sang console",
+				"global": "Global nga superadmin",
+				"organization": "Organisasyon {name}"
 			}
 		},
 		"loading": {
@@ -3955,6 +4006,7 @@
 				"firmware": "Firmware sang mga device",
 				"audit": "Audit log",
 				"announcements": "Mga abiso",
+				"reports": "Mga report",
 				"security": "Seguridad kag pagbantay"
 			},
 			"errors": {
@@ -4196,6 +4248,39 @@
 				"clearing": "Ginatinluan…",
 				"cleared": "Natinluan ang abiso.",
 				"failed": "Indi ma-save ang abiso."
+			},
+			"reports": {
+				"title": "Mga report sang isyu",
+				"description": "Mga report parte sa accessibility, bug, kaundan kag iban pa halin sa public site ukon kay Pakoy.",
+				"summary": "{open} bukas sa {total} ka report",
+				"caption": "Mga report sang isyu",
+				"columns": {
+					"received": "Nabaton",
+					"category": "Kategorya",
+					"report": "Report",
+					"source": "Ginhalinan",
+					"status": "Estado"
+				},
+				"categories": {
+					"BUG": "Bug",
+					"ACCESSIBILITY": "Accessibility",
+					"CONTENT": "Kaundan",
+					"OTHER": "Iban pa"
+				},
+				"statuses": {
+					"OPEN": "Bukas",
+					"RESOLVED": "Nasulbar"
+				},
+				"sources": {
+					"PUBLIC": "Public site",
+					"ASSISTANT": "Pakoy"
+				},
+				"emptyTitle": "Wala pa sing report.",
+				"resolvedAt": "Nasulbar {when}",
+				"resolve": "Sulbara",
+				"resolving": "Ginasulbar…",
+				"resolvedJustNow": "Nasulbar",
+				"resolveFailed": "Wala masulbar. Tilawi liwat."
 			}
 		},
 		"statusBands": {
@@ -4259,6 +4344,33 @@
 			"neverReported": "Wala pa heartbeat",
 			"never": "Wala gid",
 			"notReported": "Wala ginreport",
+			"devicesTitle": "Mga unit, pinakaproblema anay",
+			"devicesHint": "Isa ka row kada feeder: heartbeat, signal, firmware, katapusan nga pagkaon, kag kon bag-o pa ang kada reading. Ang wala gid ginreport nagasiling sini; indi gid ini ipakita nga zero ukon maayo.",
+			"devicesLabel": "Mga unit suno sa device",
+			"devicesTruncated": "Ginapakita ang {shown} ka pinakaproblema sa {total} ka unit. Ang listahan sang device may bug-os nga listahan.",
+			"columnDevice": "Device",
+			"columnSignal": "Signal",
+			"columnFirmware": "Firmware",
+			"columnLastFeed": "Katapusan nga pagkaon",
+			"columnFeedLevel": "Level sang hopper",
+			"columnWaterTemp": "Temperatura sang tubig",
+			"columnHealth": "Safe mode kag mga fault",
+			"unknown": "Wala Mahibaluan",
+			"firmwareNone": "Wala ginreport nga version",
+			"reportedAt": "Ginreport sang {time}",
+			"freshAt": "Bag-o, ginbasa sang {time}",
+			"staleAt": "Luma, katapusan nga ginbasa sang {time}",
+			"stateSince": "Kahimtangan halin sang {time}",
+			"safeModeOn": "Safe mode",
+			"safeModeOff": "Indi sa safe mode",
+			"noFaults": "Wala ginreport nga fault",
+			"faultsLabel": "Mga fault: {faults}",
+			"probeNotDetected": "Wala madetectar ang probe",
+			"faults": {
+				"hopper_sensor": "sensor sang hopper",
+				"rtc": "orasan",
+				"relay_overrun": "sobra nga dose"
+			},
 			"viewDevices": "Buksan ang listahan sang device",
 			"viewIncidents": "Pila sang mga insidente"
 		},

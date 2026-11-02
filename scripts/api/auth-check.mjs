@@ -49,6 +49,14 @@ export const PUBLIC_ROUTES = new Map([
 			reason: "single 404 handler owned by the error envelope; no tenant data",
 		},
 	],
+	[
+		"reports/route.ts",
+		{
+			kind: "public",
+			reason:
+				"public issue reports (#487): unauthenticated by design, rate-limited per IP, honeypot-guarded, writes no tenant data",
+		},
+	],
 ]);
 
 /** Device-token routes: the firmware authenticates with a provisioning token. */

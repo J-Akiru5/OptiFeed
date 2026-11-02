@@ -293,7 +293,14 @@
 
 @media (min-width: 64rem) {
 	.ofd-main {
-		padding-bottom: 2rem;
+		/*
+		 * Both vertical paddings come from the same token the control room's
+		 * height subtracts, so the pane and the room cannot disagree. Above a
+		 * short-viewport tier the token can step down (see #475 below) and the
+		 * room's `calc()` follows automatically.
+		 */
+		padding-top: var(--ofd-main-pad-y);
+		padding-bottom: var(--ofd-main-pad-y);
 	}
 }
 
@@ -301,24 +308,30 @@
  * Farmer control room (issue #399): one viewport, no page scroll.
  *
  * The app frame is `100dvh` and the dashboard header is `h-16` (4 rem). The
- * `main` pane scrolls, and on a wide screen it pads 2 rem top and bottom
- * (`md:p-8`, `.ofd-main`). The control room must fit exactly that content box:
- * header, hero strip, pond canvas and charts visible at once, with only the
- * right-hand rail scrolling internally.
+ * `main` pane scrolls, and on a wide screen it pads from `--ofd-main-pad-y`
+ * (2 rem by default, 1 rem on the shortest tier). The control room must fit
+ * exactly that content box: header, hero strip, pond canvas and charts visible
+ * at once, with only the right-hand rail scrolling internally.
  *
  * Both chrome numbers are tokens rather than a literal `8rem`, so this rule
  * cannot drift away from `layout.tsx`; `dashboard-fit.test.tsx` reads the two
  * files and fails if the header height or the pane padding changes alone.
  *
  * The tiers are keyed to the *viewport height*, not the width, because that is
- * what runs out on a laptop: 1366x768 leaves 640 px of content, 1440x900 leaves
- * 772 px and 1920x1080 leaves 952 px. Each tier only shrinks padding and the
- * chart plot area — nothing is hidden, truncated or clipped — and below `xl`
- * the same tree keeps the stacked, scrolling mobile layout. The numbers are
- * also the input to the height budget in `dashboard-fit.test.tsx`.
+ * what runs out on a laptop. They are written for the viewport, not the screen:
+ * a 1366x768 laptop at 100 % browser zoom only has ~657 px of CSS viewport after
+ * the browser chrome, and a 1920x1080 laptop at 125 % Windows scaling leaves
+ * ~700 px. So 768 px is *not* the smallest case a 768 px screen produces, and
+ * the <= 760 px tier below exists for exactly that gap.
+ *
+ * Each tier only shrinks padding and the chart plot area — no panel is hidden or
+ * clipped (the one-line legend label ellipsizes, and its full text stays in the
+ * sr-only table) — and below `xl` the same tree keeps the stacked, scrolling
+ * mobile layout. The numbers are also the input to the height budget in
+ * `dashboard-fit.test.tsx`.
  */
 :root {
-	/* Dashboard header (`h-16`) and `main` vertical padding (`md:p-8`). */
+	/* Dashboard header (`h-16`) and the pane's vertical padding (`.ofd-main`). */
 	--ofd-topbar-h: 4rem;
 	--ofd-main-pad-y: 2rem;
 	/* Chart plot area; the chart fills it (`height="100%"`). */
@@ -362,8 +375,42 @@
 		padding: var(--ofd-chart-pad);
 	}
 
+	/*
+	 * One legend row per source, one line each. The `flex-wrap` legend put a
+	 * long localized label on three lines and measured 141 px in the report,
+	 * which is more than half of a chart card at 1366 px. `auto-fit` keeps the
+	 * 2-up legend on a wide card but guarantees one line per entry; the budget
+	 * in `dashboard-fit.test.tsx` uses the narrowest card (one column, four
+	 * rows), so a wide screen is never taller than the budget. The full labels
+	 * stay in the sr-only data table; only the redundant visual label ellipsizes.
+	 */
 	.ofd-control-room .ofd-chart-legend {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+		row-gap: 0.25rem;
+		column-gap: 1rem;
 		font-size: var(--ofd-legend-size);
+	}
+
+	.ofd-control-room .ofd-chart-legend > li {
+		min-width: 0;
+		/* The `<li>` carries `text-[11px]`, so the density token has to land on
+		   the item itself: a font-size on the list is inherited, and inheritance
+		   loses to the item's own utility class. */
+		font-size: var(--ofd-legend-size);
+		line-height: 1.25;
+	}
+
+	.ofd-control-room .ofd-chart-legend > li > span:nth-of-type(2) {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.ofd-control-room .ofd-chart-legend > li > span:last-of-type {
+		margin-left: auto;
+		white-space: nowrap;
 	}
 }
 
@@ -377,13 +424,49 @@
 	}
 }
 
-/* 1366x768 leaves 640 px: the tightest laptop the dashboard supports. */
+/* 1366x768 leaves 640 px if the browser had no chrome; it needs this tier
+   when the viewport is actually 768-800 px tall. */
 @media (min-width: 80rem) and (max-height: 800px) {
 	.ofd-control-room {
 		--ofd-plot-h: 5.5rem;
 		--ofd-hero-time: 2.25rem;
 		--ofd-chart-pad: 0.625rem;
 		--ofd-legend-size: 0.625rem;
+	}
+}
+
+/*
+ * The 100 %-zoom laptop: 1366x768 with browser chrome leaves ~657 px, and
+ * 1920x1080 at 125 % Windows scaling leaves ~700 px. The <= 800 px tier above
+ * was tuned for a 768 px-tall *viewport*, so its fixed rows (hero + chart row)
+ * plus the pond floor did not fit the ~529-572 px of content those cases
+ * actually have: the flexible pond row collapsed to a clipped strip and the
+ * chart row spilled below the fixed-height room (#475).
+ *
+ * Two things give the room its content back here: the pane padding steps down to
+ * 16 px (32 px more), and the chart row shrinks one more step (24 px more). The
+ * legend cap above removes the rest, taking the chart card back from a
+ * language-dependent 286 px to the measured worst case in
+ * `dashboard-fit.test.tsx`.
+ */
+@media (min-width: 80rem) and (max-height: 760px) {
+	.ofd-main-room {
+		/*
+		 * Farmer dashboard only. The 32 px pane padding is generous for a
+		 * 657 px viewport; taking it to 16 px gives the control room 32 px back.
+		 * Because the room's height is
+		 * `100dvh - topbar - 2 * var(--ofd-main-pad-y)` it follows the pane
+		 * exactly instead of overflowing it. The admin consoles keep their
+		 * padding.
+		 */
+		--ofd-main-pad-y: 1rem;
+	}
+
+	.ofd-control-room {
+		--ofd-plot-h: 4rem;
+		--ofd-room-gap: 0.5rem;
+		--ofd-hero-pad: 0.75rem;
+		--ofd-chart-pad: 0.5rem;
 	}
 }
 

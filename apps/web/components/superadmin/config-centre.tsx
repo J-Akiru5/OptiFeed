@@ -84,7 +84,7 @@ export function ConfigCentre({ sections }: { sections: ConfigSection[] }) {
 	return (
 		<div className="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-8">
 			<nav aria-label={t("tocLabel")} className="hidden lg:sticky lg:top-24 lg:block">
-				<p className="mb-3 px-3 text-[10px] font-extrabold uppercase tracking-widest text-[#3D5568]">
+				<p className="mb-3 px-3 text-[10px] font-extrabold uppercase tracking-widest text-[#3D5568] dark:text-slate-400">
 					{t("tocTitle")}
 				</p>
 				<ul className="space-y-1">
@@ -95,7 +95,7 @@ export function ConfigCentre({ sections }: { sections: ConfigSection[] }) {
 								<a
 									href={`#${section.id}`}
 									className={cn(
-										"flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-[#3D5568] transition-colors hover:bg-white hover:text-[#0A3D62]",
+										"flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-sm font-bold text-[#3D5568] dark:text-slate-400 transition-colors hover:bg-white dark:hover:bg-[#162238] hover:text-[#0A3D62]",
 										FOCUS_RING,
 									)}
 								>
@@ -117,7 +117,7 @@ export function ConfigCentre({ sections }: { sections: ConfigSection[] }) {
 							key={section.id}
 							id={section.id}
 							aria-label={section.title}
-							className="scroll-mt-24 rounded-2xl border border-gray-200 bg-white shadow-sm lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none"
+							className="scroll-mt-24 rounded-2xl border border-gray-200 dark:border-[#24304A] bg-white dark:bg-[#111A2C] shadow-sm lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none"
 						>
 							<button
 								type="button"
@@ -131,28 +131,34 @@ export function ConfigCentre({ sections }: { sections: ConfigSection[] }) {
 							>
 								<Icon className="h-5 w-5 shrink-0 text-[#E85A2A]" aria-hidden="true" />
 								<span className="min-w-0 flex-1">
-									<span className="block text-base font-black text-[#0A3D62]">{section.title}</span>
-									<span className="mt-0.5 block text-xs text-[#3D5568]">{section.description}</span>
+									<span className="block text-base font-black text-[#0A3D62] dark:text-slate-100">
+										{section.title}
+									</span>
+									<span className="mt-0.5 block text-xs text-[#3D5568] dark:text-slate-400">
+										{section.description}
+									</span>
 								</span>
 								<ChevronDown
 									className={cn(
-										"h-5 w-5 shrink-0 text-[#3D5568] transition-transform",
+										"h-5 w-5 shrink-0 text-[#3D5568] dark:text-slate-400 transition-transform",
 										open && "rotate-180",
 									)}
 									aria-hidden="true"
 								/>
 							</button>
 
-							<div className="mb-4 hidden items-start gap-3 border-b border-gray-200 pb-3 lg:flex">
+							<div className="mb-4 hidden items-start gap-3 border-b border-gray-200 dark:border-[#24304A] pb-3 lg:flex">
 								<Icon className="mt-1 h-5 w-5 shrink-0 text-[#E85A2A]" aria-hidden="true" />
 								<div className="min-w-0">
 									<h2
 										id={`${section.id}-heading-desktop`}
-										className="text-lg font-black text-[#0A3D62]"
+										className="text-lg font-black text-[#0A3D62] dark:text-slate-100"
 									>
 										{section.title}
 									</h2>
-									<p className="mt-1 max-w-3xl text-sm text-[#3D5568]">{section.description}</p>
+									<p className="mt-1 max-w-3xl text-sm text-[#3D5568] dark:text-slate-400">
+										{section.description}
+									</p>
 								</div>
 							</div>
 

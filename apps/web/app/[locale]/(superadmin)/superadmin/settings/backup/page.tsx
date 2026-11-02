@@ -51,7 +51,7 @@ export default async function SuperadminBackupPage() {
 			<div>
 				<Link
 					href="/superadmin/settings"
-					className="-ml-1 mb-3 inline-flex min-h-11 items-center gap-1 px-1 text-xs font-bold text-[#0A3D62] hover:underline"
+					className="-ml-1 mb-3 inline-flex min-h-11 items-center gap-1 px-1 text-xs font-bold text-[#0A3D62] dark:text-slate-100 hover:underline"
 				>
 					<ChevronLeft aria-hidden="true" className="h-4 w-4" /> {tSettings("title")}
 				</Link>
@@ -66,8 +66,8 @@ export default async function SuperadminBackupPage() {
 			<Card>
 				<SectionTitle title={t("exportTitle")} description={t("exportBody")} />
 				<div className="space-y-4 p-5">
-					<p className="text-sm text-[#3D5568]">
-						<span className="font-black text-[#0A3D62]">{t("scopeLabel")}</span>{" "}
+					<p className="text-sm text-[#3D5568] dark:text-slate-400">
+						<span className="font-black text-[#0A3D62] dark:text-slate-100">{t("scopeLabel")}</span>{" "}
 						{t("scopePlatform")}
 					</p>
 					<BackupExportForm
@@ -79,7 +79,7 @@ export default async function SuperadminBackupPage() {
 						rowLimit={BACKUP_EXPORT_MAX_ROWS}
 						sizeLimitMb={Math.floor(BACKUP_EXPORT_MAX_BYTES / (1024 * 1024))}
 					/>
-					<p className="text-[11px] text-[#3D5568]">{t("verifyHint")}</p>
+					<p className="text-[11px] text-[#3D5568] dark:text-slate-400">{t("verifyHint")}</p>
 				</div>
 			</Card>
 
@@ -101,10 +101,13 @@ export default async function SuperadminBackupPage() {
 
 			<section aria-labelledby="backup-history-title" className="space-y-3">
 				<div className="min-w-0">
-					<h2 id="backup-history-title" className="text-lg font-black text-[#0A3D62]">
+					<h2
+						id="backup-history-title"
+						className="text-lg font-black text-[#0A3D62] dark:text-slate-100"
+					>
 						{t("historyTitle")}
 					</h2>
-					<p className="mt-1 text-sm text-[#3D5568]">{t("historyDesc")}</p>
+					<p className="mt-1 text-sm text-[#3D5568] dark:text-slate-400">{t("historyDesc")}</p>
 				</div>
 				<BackupHistory records={records} labels={labels} />
 			</section>

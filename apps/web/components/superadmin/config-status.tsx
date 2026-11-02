@@ -15,7 +15,8 @@ import { getTranslations } from "next-intl/server";
  * addresses — never a secret value.
  */
 
-const CARD = "rounded-2xl border border-gray-200 bg-white p-5 shadow-sm";
+const CARD =
+	"rounded-2xl border border-gray-200 dark:border-[#24304A] bg-white dark:bg-[#111A2C] p-5 shadow-sm";
 
 function Row({
 	label,
@@ -29,9 +30,9 @@ function Row({
 	notConfiguredLabel?: string;
 }) {
 	return (
-		<div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 py-2.5 last:border-0">
-			<span className="text-sm font-bold text-[#0A3D62]">{label}</span>
-			<span className="flex items-center gap-2 text-sm text-[#3D5568]">
+		<div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 dark:border-[#1B2740] py-2.5 last:border-0">
+			<span className="text-sm font-bold text-[#0A3D62] dark:text-slate-100">{label}</span>
+			<span className="flex items-center gap-2 text-sm text-[#3D5568] dark:text-slate-400">
 				{typeof configured === "boolean" && (
 					<Badge tone={configured ? "success" : "warning"}>
 						{configured ? "✓" : "—"} {configured ? value : notConfiguredLabel}
@@ -48,13 +49,13 @@ export async function StickerDefaultCard({ rating }: { rating: StickerRatingValu
 
 	return (
 		<div className={`${CARD} space-y-4`}>
-			<div className="rounded-xl bg-[#F4F7F6] p-3">
-				<p className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568]">
+			<div className="rounded-xl bg-[#F4F7F6] dark:bg-[#0B1220] p-3">
+				<p className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 					{t("stickers.currentTitle")}
 				</p>
 				{rating ? (
 					<>
-						<p className="mt-1 text-lg font-black text-[#0A3D62]">
+						<p className="mt-1 text-lg font-black text-[#0A3D62] dark:text-slate-100">
 							{t("stickers.ratingSummary", {
 								voltage: rating.voltageV,
 								hz: rating.frequencyHz,
@@ -62,21 +63,21 @@ export async function StickerDefaultCard({ rating }: { rating: StickerRatingValu
 								va: rating.powerVA,
 							})}
 						</p>
-						<p className="mt-1 text-xs text-[#3D5568]">
+						<p className="mt-1 text-xs text-[#3D5568] dark:text-slate-400">
 							{rating.measured && rating.measuredAt
 								? t("stickers.measuredOn", { date: rating.measuredAt })
 								: t("stickers.estimated")}
 						</p>
 					</>
 				) : (
-					<p className="mt-1 text-sm text-[#3D5568]">{t("stickers.none")}</p>
+					<p className="mt-1 text-sm text-[#3D5568] dark:text-slate-400">{t("stickers.none")}</p>
 				)}
 			</div>
 
-			<p className="text-sm text-[#3D5568]">{t("stickers.manageHint")}</p>
+			<p className="text-sm text-[#3D5568] dark:text-slate-400">{t("stickers.manageHint")}</p>
 			<Link
 				href="/superadmin/devices"
-				className="inline-flex items-center gap-1.5 rounded-xl border border-[#0A3D62]/20 bg-white px-3 py-2 text-xs font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6]"
+				className="inline-flex items-center gap-1.5 rounded-xl border border-[#0A3D62]/20 bg-white dark:bg-[#111A2C] px-3 py-2 text-xs font-black text-[#0A3D62] dark:text-slate-100 transition-colors hover:bg-[#F4F7F6] dark:hover:bg-[#162238]"
 			>
 				{t("stickers.manage")}
 				<ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -96,11 +97,13 @@ export async function AiProvidersCard({
 
 	return (
 		<div className={`${CARD} space-y-4`}>
-			<p className="text-sm text-[#3D5568]">{t("ai.summary", { enabled, total })}</p>
-			<p className="text-sm text-[#3D5568]">{t("ai.openHint")}</p>
+			<p className="text-sm text-[#3D5568] dark:text-slate-400">
+				{t("ai.summary", { enabled, total })}
+			</p>
+			<p className="text-sm text-[#3D5568] dark:text-slate-400">{t("ai.openHint")}</p>
 			<Link
 				href="/superadmin/ai-providers"
-				className="inline-flex items-center gap-1.5 rounded-xl border border-[#0A3D62]/20 bg-white px-3 py-2 text-xs font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6]"
+				className="inline-flex items-center gap-1.5 rounded-xl border border-[#0A3D62]/20 bg-white dark:bg-[#111A2C] px-3 py-2 text-xs font-black text-[#0A3D62] dark:text-slate-100 transition-colors hover:bg-[#F4F7F6] dark:hover:bg-[#162238]"
 			>
 				{t("ai.open")}
 				<ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -151,25 +154,25 @@ export async function EmailStatusCard({ configuration }: { configuration: EmailC
 			</div>
 
 			<div className="grid gap-3 sm:grid-cols-2">
-				<div className="rounded-xl bg-[#F4F7F6] p-3">
-					<p className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568]">
+				<div className="rounded-xl bg-[#F4F7F6] dark:bg-[#0B1220] p-3">
+					<p className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 						{t("email.inviteSenderLabel")}
 					</p>
-					<p className="mt-1 break-words text-sm font-bold text-[#0A3D62]">
+					<p className="mt-1 break-words text-sm font-bold text-[#0A3D62] dark:text-slate-100">
 						{configuration.inviteFrom}
 					</p>
 				</div>
-				<div className="rounded-xl bg-[#F4F7F6] p-3">
-					<p className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568]">
+				<div className="rounded-xl bg-[#F4F7F6] dark:bg-[#0B1220] p-3">
+					<p className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 						{t("email.reminderSenderLabel")}
 					</p>
-					<p className="mt-1 break-words text-sm font-bold text-[#0A3D62]">
+					<p className="mt-1 break-words text-sm font-bold text-[#0A3D62] dark:text-slate-100">
 						{configuration.reminderFrom ?? t("email.noReminderSender")}
 					</p>
 				</div>
 			</div>
 
-			<p className="text-xs text-[#3D5568]">{t("email.defaultSenderNote")}</p>
+			<p className="text-xs text-[#3D5568] dark:text-slate-400">{t("email.defaultSenderNote")}</p>
 		</div>
 	);
 }
@@ -195,16 +198,24 @@ export async function FirmwareStatusCard({ status }: { status: FirmwareStatus })
 
 			<dl className="space-y-2 text-sm">
 				<div className="flex flex-wrap items-center justify-between gap-2">
-					<dt className="font-bold text-[#0A3D62]">{t("firmware.channelPathLabel")}</dt>
-					<dd className="font-mono text-xs text-[#3D5568]">{status.channelPath}</dd>
+					<dt className="font-bold text-[#0A3D62] dark:text-slate-100">
+						{t("firmware.channelPathLabel")}
+					</dt>
+					<dd className="font-mono text-xs text-[#3D5568] dark:text-slate-400">
+						{status.channelPath}
+					</dd>
 				</div>
 				<div className="flex flex-wrap items-center justify-between gap-2">
-					<dt className="font-bold text-[#0A3D62]">{t("firmware.versionLabel")}</dt>
-					<dd className="text-[#3D5568]">{status.channelVersion ?? t("firmware.noRelease")}</dd>
+					<dt className="font-bold text-[#0A3D62] dark:text-slate-100">
+						{t("firmware.versionLabel")}
+					</dt>
+					<dd className="text-[#3D5568] dark:text-slate-400">
+						{status.channelVersion ?? t("firmware.noRelease")}
+					</dd>
 				</div>
 			</dl>
 
-			<p className="text-xs text-[#3D5568]">{t("firmware.readOnlyNote")}</p>
+			<p className="text-xs text-[#3D5568] dark:text-slate-400">{t("firmware.readOnlyNote")}</p>
 		</div>
 	);
 }

@@ -73,7 +73,9 @@ function SaveButton({ pending, label }: { pending: boolean; label: string }) {
 
 function FormCard({ children }: { children: ReactNode }) {
 	return (
-		<div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">{children}</div>
+		<div className="rounded-2xl border border-gray-200 dark:border-[#24304A] bg-white dark:bg-[#111A2C] p-5 shadow-sm">
+			{children}
+		</div>
 	);
 }
 
@@ -183,7 +185,7 @@ export function FeedingCapsForm({
 					</label>
 				</div>
 
-				<p className="rounded-xl bg-[#F4F7F6] p-3 text-xs text-[#3D5568]">
+				<p className="rounded-xl bg-[#F4F7F6] dark:bg-[#0B1220] p-3 text-xs text-[#3D5568] dark:text-slate-400">
 					{t("safety.hardMaxNote", {
 						ms: hardMax.maxDispenseMs,
 						factor: hardMax.dailyCapFactor,
@@ -383,7 +385,7 @@ export function OrgDefaultsForm({
 					</label>
 				</div>
 
-				<label className="flex items-start gap-2 text-sm text-[#0A3D62]">
+				<label className="flex items-start gap-2 text-sm text-[#0A3D62] dark:text-slate-100">
 					<input
 						type="checkbox"
 						checked={missedFeeding}
@@ -404,8 +406,8 @@ export function OrgDefaultsForm({
 									className={cn(
 										"flex min-h-9 cursor-pointer items-center gap-2 rounded-xl border px-3 py-1.5 text-sm font-bold",
 										checked
-											? "border-[#E85A2A] bg-[#FFF3E8] text-[#0A3D62]"
-											: "border-gray-200 bg-white text-[#3D5568]",
+											? "border-[#E85A2A] bg-[#FFF3E8] dark:bg-amber-950/50 text-[#0A3D62] dark:text-slate-100"
+											: "border-gray-200 dark:border-[#24304A] bg-white dark:bg-[#111A2C] text-[#3D5568] dark:text-slate-400",
 									)}
 								>
 									<input
@@ -487,12 +489,14 @@ function FeatureFlagRowForm({ flag }: { flag: FeatureFlagRow }) {
 			<form onSubmit={handleSubmit} className="space-y-3">
 				<div className="flex flex-wrap items-start justify-between gap-3">
 					<div className="min-w-0">
-						<p className="text-sm font-black text-[#0A3D62]">{t(`flags.items.${flag.id}.title`)}</p>
+						<p className="text-sm font-black text-[#0A3D62] dark:text-slate-100">
+							{t(`flags.items.${flag.id}.title`)}
+						</p>
 						<p className={`${FIELD_HINT} mt-0.5 max-w-2xl`}>
 							{t(`flags.items.${flag.id}.description`)}
 						</p>
 					</div>
-					<label className="flex min-h-9 shrink-0 items-center gap-2 rounded-xl border border-gray-200 bg-[#F4F7F6] px-3 py-1.5 text-xs font-black text-[#0A3D62]">
+					<label className="flex min-h-9 shrink-0 items-center gap-2 rounded-xl border border-gray-200 dark:border-[#24304A] bg-[#F4F7F6] dark:bg-[#0B1220] px-3 py-1.5 text-xs font-black text-[#0A3D62] dark:text-slate-100">
 						<input
 							type="checkbox"
 							checked={enabled}

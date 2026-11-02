@@ -30,6 +30,12 @@ export const GRAMS_PER_SECOND_MAX = 50;
 export const TEMP_OFFSET_C_MIN = -20;
 export const TEMP_OFFSET_C_MAX = 20;
 
+// Issue #486: the warn-only "too cold to feed" threshold. The bounds exist so a
+// typo (0.5°C, 90°C) cannot silence or permanently trip the warning; they are a
+// sanity range, not a claim about the right temperature for catfish.
+export const MIN_FEED_TEMP_C_MIN = 5;
+export const MIN_FEED_TEMP_C_MAX = 40;
+
 // Hopper shape calibration. The empty distance must be larger than the full
 // distance (the sensor measures downward), and a capacity of zero would make
 // the daily feed cap fall back to the hard maximum, so it is rejected.

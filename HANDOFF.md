@@ -53,6 +53,12 @@ git switch -c fix/device-sync
 
 Open every PR **into `develop`**.
 
+### Runtime and types
+
+CI runs **Node 22**; the package supports Node `>=22.5`. Keep `@types/node` on the
+runtime's major (`^22`, or `^24` only after CI moves). A future major (`26.x`) is
+held even when the typecheck is green (#513).
+
 ## 3. Definition of done
 
 A change is done when:

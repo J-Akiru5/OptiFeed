@@ -50,6 +50,7 @@ export function NextFeedingStrip({
 			data-help="next-feeding"
 			className={cn(
 				"ofd-hero-strip relative overflow-hidden rounded-3xl border border-[#0A3D62]/5 bg-white p-4 shadow-md dark:border-gray-700/50 dark:bg-gray-900 md:p-5",
+				"max-xl:rounded-none max-xl:border-0 max-xl:bg-[#EAF1F6] max-xl:p-4 max-xl:pt-5 max-xl:shadow-none dark:max-xl:bg-[#0b1a24]",
 				className,
 			)}
 		>

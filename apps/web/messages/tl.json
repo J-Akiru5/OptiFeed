@@ -440,6 +440,10 @@
 			}
 		},
 		"feederViewer": {
+			"waterTempSensor": "Sensor ng temperatura ng tubig",
+			"healthOk": "Maayos",
+			"healthFault": "May sira",
+			"healthUnknown": "Hindi iniulat",
 			"viewerLabel": "Feeder 3D",
 			"canvasLabel": "Interactive na 3D na modelo ng {label}. I-drag upang i-orbit at gamitin ang mga preset upang palitan ang view.",
 			"statusIdle": "Idle",
@@ -1259,7 +1263,8 @@
 				"invalidCount": "Maglagay ng buong bilang ng isdang namatay (bababa sa 1).",
 				"saveFailed": "Hindi na-save ang mortality record. Subukan muli.",
 				"pondNotFound": "Hindi nahanap ang pond.",
-				"currentPopulation": "Listahan: {population} isda (lumang bilang; kabawasan sa mortality ang naipapakita sa itaas)."
+				"currentPopulation": "Listahan: {population} isda (lumang bilang; kabawasan sa mortality ang naipapakita sa itaas).",
+				"currentPopulationWithRate": "{population} buhay · {dead} patay sa {stocked} naka-stock ({pct}% kamatayan)"
 			},
 			"fcrInputs": "Kinosyuva mula sa: {feed} kg na binigay na feed para sa {gain} kg na naging live biomass (live {live} isda)."
 		},
@@ -1298,9 +1303,12 @@
 			"days": "{count} Araw",
 			"lastBiomassLabel": "Huling ABW ng Biomass",
 			"lastBiomassBased": "Batay sa {count} sample na isdang tinimbang.",
-			"populationLabel": "POPULASYON NG POND",
+			"populationLabel": "BUHAY NA ISDA",
 			"populationValue": "{count} Catfish",
 			"populationStable": "Stable ang dami ng naka-stock",
+			"populationDetail": "{stocked} naka-stock · {dead} patay ({pct}%)",
+			"mortalityLabel": "KAMATAYAN",
+			"mortalityValue": "{dead} patay · {pct}",
 			"feedingLogsTitle": "MGA TALAAN NG PAGPAPAKAIN — HUB NG KANLURANG VISAYAS",
 			"feedingLogsDesc": "Mga talaang naa-audit ayon sa pagkakasunod-sunod ng oras, mula sa iyong automatic dispenser.",
 			"feedLevelLabel": "Antas ng Pakain",
@@ -1424,6 +1432,8 @@
 			"farmIdLabel": "Farm ID",
 			"farmNameLabel": "Pangalan ng Bukid",
 			"pondsLabel": "Mga Pond",
+			"pondsCount": "Mga Pond ({count})",
+			"managePonds": "Pamahalaan ang mga pond",
 			"noPonds": "Wala pang pond.",
 			"archived": "Naka-archive",
 			"accountTitle": "Account",
@@ -1455,6 +1465,7 @@
 			"errorSummaryTitle": "Ayusin muna ang mga ito bago mag-save",
 			"errorSummaryHint": "Naitabi ang mga value mo. Buksan ang isang setting para itama ito.",
 			"restoredDraft": "Naibalik ang mga value na hindi mo pa na-save.",
+			"unsavedChanges": "May mga hindi pa na-save na pagbabago — pindutin ang Save settings.",
 			"restoredDraftAt": "Naibalik ang mga hindi pa na-save na pagbabago mo ({time}).",
 			"discardDraft": "Itapon ang draft",
 			"draftDiscarded": "Itinapon ang mga hindi pa na-save na pagbabago.",
@@ -1519,7 +1530,7 @@
 			"activeWindow": "Aktibong Window",
 			"activeWindowDesc": "Kung kailan pinapayagang magpakain ang device",
 			"frequency": "Dalas",
-			"frequencyDesc": "Pantay na hinahati sa buong window",
+			"frequencyDesc": "Pantay ang pagitan ng mga pagkain mula sa unang hanggang huling pagpapakain",
 			"timesPerDay": "{count} beses bawat araw",
 			"feedingTimesTitle": "Mga oras ng pagpapakain",
 			"feedingTimesLabel": "Naka-iskedyul na mga oras ng pagpapakain",
@@ -1529,8 +1540,8 @@
 			"noPondData": "Walang nahanap na data ng pond o device. Pakipatakbo ang seed script.",
 			"dispensePrompt": "Maglabas ng 500g ngayon?",
 			"editTitle": "I-edit ang Iskedyul",
-			"startTime": "Simula ng Window",
-			"endTime": "Katapusan ng Window",
+			"startTime": "Oras ng unang pagpapakain",
+			"endTime": "Oras ng huling pagpapakain",
 			"feedsPerDay": "Pagpapakain Bawat Araw",
 			"feedingRate": "Rate ng Pagpapakain (%)",
 			"saveChanges": "I-save ang Mga Pagbabago",
@@ -2302,6 +2313,7 @@
 			"eventType_set_time": "Naitakda ang Oras ng Device",
 			"eventType_data_imported": "Na-import ang Data",
 			"eventType_data_exported": "Na-export ang Data",
+			"eventType_safety_trip": "Naka-lock sa safe mode",
 			"source_system": "System",
 			"source_user": "User",
 			"source_device": "Device",
@@ -2874,6 +2886,7 @@
 				"firmware": "Fleet ng firmware",
 				"audit": "Talaan ng audit",
 				"announcements": "Mga anunsyo",
+				"reports": "Mga ulat",
 				"security": "Seguridad at pagmamatyag"
 			},
 			"errors": {
@@ -3115,6 +3128,39 @@
 				"clearing": "Nag-i-clear…",
 				"cleared": "Na-clear ang anunsyo.",
 				"failed": "Hindi ma-save ang anunsyo."
+			},
+			"reports": {
+				"title": "Mga ulat ng isyu",
+				"description": "Mga ulat tungkol sa accessibility, bug, nilalaman at iba pa mula sa public site o kay Pakoy.",
+				"summary": "{open} bukas sa {total} ulat",
+				"caption": "Mga ulat ng isyu",
+				"columns": {
+					"received": "Natanggap",
+					"category": "Kategorya",
+					"report": "Ulat",
+					"source": "Pinagmulan",
+					"status": "Katayuan"
+				},
+				"categories": {
+					"BUG": "Bug",
+					"ACCESSIBILITY": "Accessibility",
+					"CONTENT": "Nilalaman",
+					"OTHER": "Iba pa"
+				},
+				"statuses": {
+					"OPEN": "Bukas",
+					"RESOLVED": "Nalutas"
+				},
+				"sources": {
+					"PUBLIC": "Public site",
+					"ASSISTANT": "Pakoy"
+				},
+				"emptyTitle": "Wala pang ulat.",
+				"resolvedAt": "Nalutas {when}",
+				"resolve": "Lutasin",
+				"resolving": "Nilulutas…",
+				"resolvedJustNow": "Nalutas",
+				"resolveFailed": "Hindi nalutas. Subukan muli."
 			}
 		},
 		"common": {
@@ -3247,6 +3293,16 @@
 				"settings": "Mga Setting",
 				"operations": "Ops",
 				"more": "Higit pa"
+			},
+			"groups": {
+				"commandCenter": "Command Center",
+				"ecosystem": "Pamamahala ng Ecosystem",
+				"platformControl": "Kontrol ng Platform"
+			},
+			"scope": {
+				"label": "Saklaw ng console",
+				"global": "Global na superadmin",
+				"organization": "Organisasyon {name}"
 			}
 		},
 		"loading": {
@@ -3862,6 +3918,33 @@
 			"neverReported": "Wala pang heartbeat",
 			"never": "Wala kailanman",
 			"notReported": "Hindi iniulat",
+			"devicesTitle": "Mga unit, pinakamalala muna",
+			"devicesHint": "Isang row bawat feeder: heartbeat, signal, firmware, huling pagpakain, at kung gaano kabago ang bawat reading. Ang hindi kailanman iniulat ay sinasabi ito; hindi ito ipinapakita bilang zero o maayos.",
+			"devicesLabel": "Mga unit ayon sa device",
+			"devicesTruncated": "Ipinapakita ang {shown} pinakamalala sa {total} unit. Nasa listahan ng device ang buong listahan.",
+			"columnDevice": "Device",
+			"columnSignal": "Signal",
+			"columnFirmware": "Firmware",
+			"columnLastFeed": "Huling pagpakain",
+			"columnFeedLevel": "Antas ng hopper",
+			"columnWaterTemp": "Temperatura ng tubig",
+			"columnHealth": "Safe mode at mga fault",
+			"unknown": "Hindi Alam",
+			"firmwareNone": "Walang iniulat na version",
+			"reportedAt": "Iniulat noong {time}",
+			"freshAt": "Sariwa, binasa noong {time}",
+			"staleAt": "Luma, huling binasa noong {time}",
+			"stateSince": "Kalagayan mula noong {time}",
+			"safeModeOn": "Safe mode",
+			"safeModeOff": "Wala sa safe mode",
+			"noFaults": "Walang iniulat na fault",
+			"faultsLabel": "Mga fault: {faults}",
+			"probeNotDetected": "Hindi natukoy ang probe",
+			"faults": {
+				"hopper_sensor": "sensor ng hopper",
+				"rtc": "orasan",
+				"relay_overrun": "sobrang dose"
+			},
 			"viewDevices": "Buksan ang listahan ng device",
 			"viewIncidents": "Pila ng mga insidente"
 		},
@@ -4284,7 +4367,30 @@
 		"iso6": "Maintainability",
 		"iso7": "Efficiency",
 		"iso8": "Portability",
-		"ctaEyebrow": "Access sa pag-aaral"
+		"ctaEyebrow": "Access sa pag-aaral",
+		"reportIssue": {
+			"trigger": "I-report ang isyu",
+			"title": "I-report ang isyu",
+			"description": "Sabihin sa amin ang naging problema. Dumarating ang mga ulat sa platform team at sinusuri ayon sa pagkakasunod-sunod.",
+			"close": "Isara",
+			"category": "Kategorya",
+			"categories": {
+				"bug": "Bug",
+				"accessibility": "Accessibility",
+				"content": "Nilalaman",
+				"other": "Iba pa"
+			},
+			"message": "Ano ang nangyari?",
+			"messageHint": "Ilarawan ang inaasahan mo at ang nakita mo. Huwag maglagay ng password o personal na impormasyon.",
+			"email": "Email",
+			"emailHint": "Opsyonal, kung gusto mong sagutin ka namin.",
+			"optional": "Opsyonal",
+			"submit": "Ipadala ang ulat",
+			"sending": "Ipinapadala…",
+			"success": "Salamat — natanggap na ang ulat mo.",
+			"error": "Hindi naipadala ang ulat. Subukan muli.",
+			"rateLimited": "Masyadong maraming ulat mula sa device na ito. Subukan mamaya."
+		}
 	},
 	"legal": {
 		"eyebrow": "Legal",

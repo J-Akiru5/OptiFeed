@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "@/i18n/routing";
 import { saveMortalityLog } from "@/lib/actions/mortality";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, Skull, TrendingDown } from "lucide-react";
@@ -15,12 +16,19 @@ export function MortalityForm({
 	pondId,
 	canWrite,
 	population,
+	dead,
+	stocked,
+	mortalityPct,
 }: {
 	pondId: string;
 	canWrite: boolean;
 	population: number | null;
+	dead: number;
+	stocked: number | null;
+	mortalityPct: number | null;
 }) {
 	const t = useTranslations("dashboard.growth");
+	const router = useRouter();
 	const [open, setOpen] = useState(false);
 	const [pending, startTransition] = useTransition();
 	const [error, setError] = useState<string | null>(null);
@@ -42,6 +50,7 @@ export function MortalityForm({
 			}
 			setLiveAfter(result.live?.live ?? null);
 			formRef.current?.reset();
+			router.refresh();
 		});
 	}
 
@@ -125,7 +134,14 @@ export function MortalityForm({
 			)}
 			{population !== null && liveAfter === null && (
 				<p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-					{t("mortality.currentPopulation", { population })}
+					{mortalityPct !== null
+						? t("mortality.currentPopulationWithRate", {
+								population,
+								dead,
+								stocked: stocked ?? population,
+								pct: mortalityPct.toFixed(1),
+							})
+						: t("mortality.currentPopulation", { population })}
 				</p>
 			)}
 		</div>

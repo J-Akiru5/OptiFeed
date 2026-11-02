@@ -106,11 +106,13 @@ export default async function SuperadminPondsPage({
 							<MobileCard key={pond.id}>
 								<div className="flex items-start justify-between gap-3">
 									<div className="min-w-0">
-										<p className="truncate font-black text-[#0A3D62]">{pond.name}</p>
-										<p className="mt-0.5 truncate text-xs font-bold text-[#0A3D62]">
+										<p className="truncate font-black text-[#0A3D62] dark:text-slate-100">
+											{pond.name}
+										</p>
+										<p className="mt-0.5 truncate text-xs font-bold text-[#0A3D62] dark:text-slate-100">
 											{pond.ownerName ?? tCommon("unknown")}
 										</p>
-										<p className="truncate font-mono text-[11px] text-[#3D5568]">
+										<p className="truncate font-mono text-[11px] text-[#3D5568] dark:text-slate-400">
 											{pond.ownerFarmId}
 										</p>
 									</div>
@@ -120,17 +122,19 @@ export default async function SuperadminPondsPage({
 								</div>
 
 								<div>
-									<p className="text-[9px] font-black uppercase tracking-wider text-[#3D5568]">
+									<p className="text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 										{t("columnOrgs")}
 									</p>
 									{pond.orgs.length === 0 ? (
-										<p className="mt-1 text-[11px] italic text-[#3D5568]">{tCommon("none")}</p>
+										<p className="mt-1 text-[11px] italic text-[#3D5568] dark:text-slate-400">
+											{tCommon("none")}
+										</p>
 									) : (
 										<div className="mt-1 flex flex-wrap gap-1.5">
 											{pond.orgs.map((name) => (
 												<span
 													key={name}
-													className="inline-flex rounded-lg border border-gray-200 bg-[#F4F7F6] px-2 py-0.5 text-[10px] font-bold text-[#0A3D62]"
+													className="inline-flex rounded-lg border border-gray-200 dark:border-[#24304A] bg-[#F4F7F6] dark:bg-[#0B1220] px-2 py-0.5 text-[10px] font-bold text-[#0A3D62] dark:text-slate-100"
 												>
 													{name}
 												</span>
@@ -156,24 +160,30 @@ export default async function SuperadminPondsPage({
 						{ponds.rows.map((pond) => (
 							<tr
 								key={pond.id}
-								className="border-b border-gray-50 transition-colors last:border-0 hover:bg-[#F4F7F6]/50"
+								className="border-b border-gray-50 dark:border-[#1B2740] transition-colors last:border-0 hover:bg-[#F4F7F6] dark:hover:bg-[#162238]/50 dark:hover:bg-[#162238]/60"
 							>
 								<td className="px-6 py-4">
-									<p className="font-black text-[#0A3D62]">{pond.name}</p>
+									<p className="font-black text-[#0A3D62] dark:text-slate-100">{pond.name}</p>
 								</td>
 								<td className="px-6 py-4">
-									<p className="font-bold text-[#0A3D62]">{pond.ownerName ?? tCommon("unknown")}</p>
-									<p className="font-mono text-[11px] text-[#3D5568]">{pond.ownerFarmId}</p>
+									<p className="font-bold text-[#0A3D62] dark:text-slate-100">
+										{pond.ownerName ?? tCommon("unknown")}
+									</p>
+									<p className="font-mono text-[11px] text-[#3D5568] dark:text-slate-400">
+										{pond.ownerFarmId}
+									</p>
 								</td>
 								<td className="px-6 py-4">
 									{pond.orgs.length === 0 ? (
-										<span className="text-[11px] italic text-[#3D5568]">{tCommon("none")}</span>
+										<span className="text-[11px] italic text-[#3D5568] dark:text-slate-400">
+											{tCommon("none")}
+										</span>
 									) : (
 										<div className="flex flex-wrap gap-1.5">
 											{pond.orgs.map((name) => (
 												<span
 													key={name}
-													className="inline-flex rounded-lg border border-gray-200 bg-[#F4F7F6] px-2 py-0.5 text-[10px] font-bold text-[#0A3D62]"
+													className="inline-flex rounded-lg border border-gray-200 dark:border-[#24304A] bg-[#F4F7F6] dark:bg-[#0B1220] px-2 py-0.5 text-[10px] font-bold text-[#0A3D62] dark:text-slate-100"
 												>
 													{name}
 												</span>
@@ -207,7 +217,7 @@ export default async function SuperadminPondsPage({
 				label={tCommon("pagination.label")}
 			/>
 
-			<p className="text-[11px] text-[#3D5568]">{t("footer")}</p>
+			<p className="text-[11px] text-[#3D5568] dark:text-slate-400">{t("footer")}</p>
 		</div>
 	);
 }

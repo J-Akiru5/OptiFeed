@@ -3,7 +3,15 @@
 import { FOCUS_RING } from "@/components/superadmin/ui";
 import { Link, usePathname } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
-import { Activity, Cpu, Megaphone, ScrollText, ShieldCheck, TriangleAlert } from "lucide-react";
+import {
+	Activity,
+	Cpu,
+	Megaphone,
+	MessageSquareWarning,
+	ScrollText,
+	ShieldCheck,
+	TriangleAlert,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 
 /**
@@ -16,6 +24,7 @@ import { useTranslations } from "next-intl";
 const tabs = [
 	{ href: "/superadmin/operations", key: "health", icon: Activity },
 	{ href: "/superadmin/operations/errors", key: "errors", icon: TriangleAlert },
+	{ href: "/superadmin/operations/reports", key: "reports", icon: MessageSquareWarning },
 	{ href: "/superadmin/operations/firmware", key: "firmware", icon: Cpu },
 	{ href: "/superadmin/operations/audit", key: "audit", icon: ScrollText },
 	{ href: "/superadmin/operations/security", key: "security", icon: ShieldCheck },
@@ -45,7 +54,7 @@ export function OpsNav() {
 									FOCUS_RING,
 									isActive
 										? "bg-[#0A3D62] text-white shadow-sm"
-										: "text-[#3D5568] hover:bg-white hover:text-[#0A3D62]",
+										: "text-[#3D5568] dark:text-slate-400 hover:bg-white dark:hover:bg-[#162238] hover:text-[#0A3D62]",
 								)}
 							>
 								<tab.icon className="h-4 w-4 shrink-0" aria-hidden="true" />

@@ -57,7 +57,7 @@ export function CreateOrgForm() {
 			className={cn(CARD, "space-y-4 p-6")}
 			aria-busy={isPending}
 		>
-			<h2 className="text-xs font-extrabold uppercase tracking-wider text-[#3D5568]">
+			<h2 className="text-xs font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 				{t("title")}
 			</h2>
 

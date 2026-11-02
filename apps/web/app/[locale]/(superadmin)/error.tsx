@@ -28,12 +28,12 @@ export default function SuperadminError({
 			<Mascot pose="powerFault" size={96} />
 
 			<div role="alert" className="space-y-2">
-				<h1 className="text-xl font-black text-[#0A3D62]">{t("title")}</h1>
-				<p className="text-sm text-[#3D5568]">{t("description")}</p>
+				<h1 className="text-xl font-black text-[#0A3D62] dark:text-slate-100">{t("title")}</h1>
+				<p className="text-sm text-[#3D5568] dark:text-slate-400">{t("description")}</p>
 			</div>
 
 			{error.digest && (
-				<p className="rounded-lg bg-[#F4F7F6] px-2.5 py-1 font-mono text-[10px] text-[#3D5568]">
+				<p className="rounded-lg bg-[#F4F7F6] dark:bg-[#0B1220] px-2.5 py-1 font-mono text-[10px] text-[#3D5568] dark:text-slate-400">
 					{t("reference", { digest: error.digest })}
 				</p>
 			)}

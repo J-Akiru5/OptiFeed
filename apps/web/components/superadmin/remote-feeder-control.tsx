@@ -175,14 +175,16 @@ function RemoteFeedForm({
 			<form onSubmit={submitFeed} className="w-full min-w-0 space-y-2" aria-busy={isPending}>
 				{/* The rules sentence is long and unbroken words can be wider than a
 				    phone column: wrap anywhere instead of pushing the panel wide. */}
-				<p className="text-[11px] leading-snug font-bold break-words text-[#3D5568]">{t("note")}</p>
+				<p className="text-[11px] leading-snug font-bold break-words text-[#3D5568] dark:text-slate-400">
+					{t("note")}
+				</p>
 				<input
 					value={reason}
 					onChange={(e) => setReason(e.target.value)}
 					disabled={isPending}
 					placeholder={tCommon("reasonPlaceholderShort")}
 					aria-label={t("reasonAria", { label })}
-					className="w-full min-w-0 rounded-lg border border-gray-200 bg-[#F4F7F6] px-3 py-2 text-xs text-[#0A3D62] focus:ring-2 focus:ring-[#E85A2A] focus:outline-none disabled:opacity-60"
+					className="w-full min-w-0 rounded-lg border border-gray-200 dark:border-[#24304A] bg-[#F4F7F6] dark:bg-[#0B1220] px-3 py-2 text-xs text-[#0A3D62] dark:text-slate-100 focus:ring-2 focus:ring-[#E85A2A] focus:outline-none disabled:opacity-60"
 				/>
 				{/* Stacked on narrow widths (#213): the grams box and Feed button
 				    never sit side by side in a column too narrow for both. */}
@@ -200,7 +202,7 @@ function RemoteFeedForm({
 							value={grams}
 							onChange={(e) => setGrams(e.target.value)}
 							disabled={isPending}
-							className="mt-1 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-[#0A3D62] focus:ring-2 focus:ring-[#E85A2A] focus:outline-none disabled:opacity-60"
+							className="mt-1 w-full min-w-0 rounded-lg border border-gray-200 dark:border-[#24304A] bg-white dark:bg-[#111A2C] px-3 py-2 text-xs font-bold text-[#0A3D62] dark:text-slate-100 focus:ring-2 focus:ring-[#E85A2A] focus:outline-none disabled:opacity-60"
 						/>
 					</div>
 					<button
@@ -396,7 +398,9 @@ export function RemoteFeederRow({
 		>
 			<td colSpan={colSpan} className="px-6 py-4">
 				<div className="w-full min-w-0 max-w-2xl">
-					<p className="mb-2 text-sm font-black text-[#0A3D62]">{t("panelTitle", { label })}</p>
+					<p className="mb-2 text-sm font-black text-[#0A3D62] dark:text-slate-100">
+						{t("panelTitle", { label })}
+					</p>
 					<RemoteFeedForm deviceId={deviceId} label={label} isPaused={isPaused} onClose={close} />
 				</div>
 			</td>

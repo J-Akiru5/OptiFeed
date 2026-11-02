@@ -57,7 +57,7 @@ const SEVERITY_ICON: Record<IncidentSeverity, LucideIcon> = {
 const SEVERITY_TEXT: Record<IncidentSeverity, string> = {
 	critical: "text-[#C42B3A]",
 	warning: "text-[#B45309]",
-	info: "text-[#3D5568]",
+	info: "text-[#3D5568] dark:text-gray-400",
 };
 
 const BAND_ICON: Record<BandState, LucideIcon> = {
@@ -78,7 +78,7 @@ const BAND_TEXT: Record<BandState, string> = {
 	ok: "text-[#1E7B34]",
 	degraded: "text-[#B45309]",
 	critical: "text-[#C42B3A]",
-	unknown: "text-[#3D5568]",
+	unknown: "text-[#3D5568] dark:text-gray-400",
 };
 
 const SOURCE_META: Record<keyof SourceState, { icon: LucideIcon; key: string }> = {
@@ -167,7 +167,7 @@ export default async function SuperadminIncidentsPage() {
 
 			<section aria-label={t("summaryLabel")} className="grid grid-cols-1 gap-4 lg:grid-cols-3">
 				<Card className="flex flex-col gap-2 p-5">
-					<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568]">
+					<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 						{t("queueState")}
 					</span>
 					<div className="flex items-center gap-2">
@@ -175,24 +175,24 @@ export default async function SuperadminIncidentsPage() {
 							className={cn("h-5 w-5 shrink-0", BAND_TEXT[queue.summary.state])}
 							aria-hidden="true"
 						/>
-						<span className="text-2xl font-black text-[#0A3D62]">
+						<span className="text-2xl font-black text-[#0A3D62] dark:text-gray-100">
 							{tBands(`states.${queue.summary.state}`)}
 						</span>
 						<Badge tone={BAND_TONE[queue.summary.state]} icon={StateIcon}>
 							{tBands(`states.${queue.summary.state}`)}
 						</Badge>
 					</div>
-					<p className="text-[11px] text-[#3D5568]">
+					<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
 						{t("checkedAt", { time: formatDateTimeLocal(queue.checkedAt, tDates).full })}
 					</p>
-					<p className="text-[11px] text-[#3D5568]">{t("rankRule")}</p>
+					<p className="text-[11px] text-[#3D5568] dark:text-gray-400">{t("rankRule")}</p>
 				</Card>
 
 				<Card className="flex flex-col gap-2 p-5">
-					<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568]">
+					<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 						{t("bySeverity")}
 					</span>
-					<ul className="space-y-1 text-[11px] font-bold text-[#3D5568]">
+					<ul className="space-y-1 text-[11px] font-bold text-[#3D5568] dark:text-gray-400">
 						{SEVERITY_KEYS.map((severity) => {
 							const Icon = SEVERITY_ICON[severity];
 							return (
@@ -204,7 +204,7 @@ export default async function SuperadminIncidentsPage() {
 										/>
 										{t(`severity.${severity}`)}
 									</span>
-									<span className="tabular-nums text-[#0A3D62]">
+									<span className="tabular-nums text-[#0A3D62] dark:text-gray-100">
 										{number(queue.summary.counts[severity])}
 									</span>
 								</li>
@@ -214,10 +214,10 @@ export default async function SuperadminIncidentsPage() {
 				</Card>
 
 				<Card className="flex flex-col gap-2 p-5">
-					<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568]">
+					<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 						{t("sourcesTitle")}
 					</span>
-					<ul className="space-y-1 text-[11px] font-bold text-[#3D5568]">
+					<ul className="space-y-1 text-[11px] font-bold text-[#3D5568] dark:text-gray-400">
 						{SOURCE_KEYS.map((source) => {
 							const meta = SOURCE_META[source];
 							const reported = queue.sourceStates[source];
@@ -225,7 +225,10 @@ export default async function SuperadminIncidentsPage() {
 							return (
 								<li key={source} className="flex items-center justify-between gap-2">
 									<span className="flex items-center gap-1.5">
-										<meta.icon className="h-3 w-3 shrink-0 text-[#3D5568]" aria-hidden="true" />
+										<meta.icon
+											className="h-3 w-3 shrink-0 text-[#3D5568] dark:text-gray-400"
+											aria-hidden="true"
+										/>
 										{t(meta.key)}
 									</span>
 									<span
@@ -241,7 +244,7 @@ export default async function SuperadminIncidentsPage() {
 							);
 						})}
 					</ul>
-					<p className="text-[11px] text-[#3D5568]">{t("sourcesNote")}</p>
+					<p className="text-[11px] text-[#3D5568] dark:text-gray-400">{t("sourcesNote")}</p>
 				</Card>
 			</section>
 
@@ -262,7 +265,7 @@ export default async function SuperadminIncidentsPage() {
 			)}
 
 			{queue.truncated && (
-				<p className="text-[11px] font-bold text-[#3D5568]">
+				<p className="text-[11px] font-bold text-[#3D5568] dark:text-gray-400">
 					{t("truncated", { count: number(queue.incidents.length) })}
 				</p>
 			)}
@@ -289,7 +292,10 @@ export default async function SuperadminIncidentsPage() {
 											{t(`severity.${incident.severity}`)}
 										</Badge>
 									</td>
-									<th scope="row" className="px-6 py-3 text-left text-sm font-bold text-[#0A3D62]">
+									<th
+										scope="row"
+										className="px-6 py-3 text-left text-sm font-bold text-[#0A3D62] dark:text-gray-100"
+									>
 										{incident.href ? (
 											<Link href={incident.href} className="underline decoration-dotted">
 												{what(incident)}
@@ -298,19 +304,21 @@ export default async function SuperadminIncidentsPage() {
 											what(incident)
 										)}
 									</th>
-									<td className="px-6 py-3 text-sm text-[#3D5568]">{where(incident)}</td>
-									<td className="px-6 py-3 text-[11px] font-bold uppercase tracking-wide text-[#3D5568]">
+									<td className="px-6 py-3 text-sm text-[#3D5568] dark:text-gray-400">
+										{where(incident)}
+									</td>
+									<td className="px-6 py-3 text-[11px] font-bold uppercase tracking-wide text-[#3D5568] dark:text-gray-400">
 										{incident.sources.map((source) => t(SOURCE_META[source].key)).join(" · ")}
 									</td>
-									<td className="px-6 py-3 text-sm text-[#3D5568]">
+									<td className="px-6 py-3 text-sm text-[#3D5568] dark:text-gray-400">
 										{incident.since
 											? formatDateTimeLocal(incident.since, tDates).full
 											: t("notReported")}
 									</td>
-									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568]">
+									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568] dark:text-gray-400">
 										{formatAge(incident.since)}
 									</td>
-									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568]">
+									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568] dark:text-gray-400">
 										{number(incident.count)}
 									</td>
 								</tr>
@@ -325,12 +333,16 @@ export default async function SuperadminIncidentsPage() {
 							return (
 								<MobileCard key={incident.key}>
 									<div className="flex items-start justify-between gap-2">
-										<p className="min-w-0 text-sm font-bold text-[#0A3D62]">{what(incident)}</p>
+										<p className="min-w-0 text-sm font-bold text-[#0A3D62] dark:text-gray-100">
+											{what(incident)}
+										</p>
 										<Badge tone={SEVERITY_TONE[incident.severity]} icon={Icon}>
 											{t(`severity.${incident.severity}`)}
 										</Badge>
 									</div>
-									<p className="text-[11px] font-bold text-[#3D5568]">{where(incident)}</p>
+									<p className="text-[11px] font-bold text-[#3D5568] dark:text-gray-400">
+										{where(incident)}
+									</p>
 									<dl className="grid grid-cols-2 gap-2 text-[11px]">
 										<MetaPair label={t("columnAge")}>{formatAge(incident.since)}</MetaPair>
 										<MetaPair label={t("columnCount")}>{number(incident.count)}</MetaPair>

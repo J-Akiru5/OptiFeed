@@ -10,6 +10,7 @@ import {
 	checkApiRateLimit,
 	checkDeviceRateLimit,
 	checkDeviceTokenRevealRateLimit,
+	checkIssueReportRateLimit,
 	checkLoginRateLimit,
 } from "../rate-limit";
 
@@ -61,6 +62,25 @@ describe("Postgres rate limiter", () => {
 		queryRaw.mockRejectedValueOnce(new Error("db down"));
 		const result = await checkDeviceRateLimit("esp32-device-1", "feed");
 		expect(result.success).toBe(true);
+	});
+
+	it("public issue reports allow five per hour per IP, keyed on the IP", async () => {
+		returnsCount(5);
+		expect((await checkIssueReportRateLimit("203.0.113.9")).success).toBe(true);
+		returnsCount(6);
+		expect((await checkIssueReportRateLimit("203.0.113.9")).success).toBe(false);
+
+		const [sql, key] = queryRaw.mock.calls[0] as unknown as [string, string];
+		expect(String(sql)).toContain("ON CONFLICT");
+		expect(key).toBe("rl:issue-report:203.0.113.9");
+	});
+
+	it("issue reports fail CLOSED when the store is unavailable", async () => {
+		// The form is unauthenticated free text, so a limiter outage must not
+		// reopen it as an unthrottled write path.
+		queryRaw.mockRejectedValueOnce(new Error("db down"));
+		const result = await checkIssueReportRateLimit("203.0.113.9");
+		expect(result.success).toBe(false);
 	});
 
 	it("token reveals are keyed per actor and allow ten per hour", async () => {

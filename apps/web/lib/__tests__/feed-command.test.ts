@@ -16,6 +16,13 @@ vi.mock("@/lib/prisma", () => ({
 		platformSetting: {
 			findUnique: vi.fn().mockResolvedValue(null),
 		},
+		// #456: the poll resolves the org hopper threshold through the same chain
+		// as ingest — device pond -> farm owner -> active organization -> row.
+		pond: { findUnique: vi.fn() },
+		user: { findMany: vi.fn() },
+		membership: { findMany: vi.fn() },
+		organization: { findMany: vi.fn() },
+		orgSetting: { findMany: vi.fn() },
 	},
 }));
 
@@ -27,10 +34,17 @@ import { GET } from "@/app/api/feed-command/route";
 import { hashToken } from "@/lib/device-auth";
 import prisma from "@/lib/prisma";
 import { checkDeviceRateLimit } from "@/lib/rate-limit";
+import { clearOrgHopperCache } from "@/lib/settings/org-hopper";
 
 const mockEnergyDevice = vi.mocked(prisma.energyDevice);
 const mockFeedRequest = vi.mocked(prisma.feedRequest);
 const mockRateLimit = vi.mocked(checkDeviceRateLimit);
+const mockPlatformSetting = vi.mocked(prisma.platformSetting);
+const mockPond = vi.mocked(prisma.pond);
+const mockUser = vi.mocked(prisma.user);
+const mockMembership = vi.mocked(prisma.membership);
+const mockOrganization = vi.mocked(prisma.organization);
+const mockOrgSetting = vi.mocked(prisma.orgSetting);
 
 const DEVICE = {
 	id: "dev-1",
@@ -56,12 +70,23 @@ function pollRequest(token?: string): Request {
 
 describe("GET /api/feed-command", () => {
 	beforeEach(() => {
+		clearOrgHopperCache();
 		vi.clearAllMocks();
 		mockRateLimit.mockResolvedValue({ success: true } as never);
 		mockEnergyDevice.findUnique.mockResolvedValue({ ...DEVICE } as never);
 		mockFeedRequest.updateMany.mockResolvedValue({ count: 0 } as never);
 		mockFeedRequest.findFirst.mockResolvedValue(null);
 		mockFeedRequest.update.mockResolvedValue({} as never);
+		// Reset the platform reads too: `clearAllMocks` keeps implementations, and
+		// one test below overrides them.
+		mockPlatformSetting.findUnique.mockResolvedValue(null);
+		// A resolvable pond -> farmer -> active org with no OrgSetting row, i.e.
+		// the schema default of 20 % applies.
+		mockPond.findUnique.mockResolvedValue({ ownerId: "farm-1" } as never);
+		mockUser.findMany.mockResolvedValue([{ id: "user-1", farmId: "farm-1" }] as never);
+		mockMembership.findMany.mockResolvedValue([{ userId: "user-1", orgId: "org-1" }] as never);
+		mockOrganization.findMany.mockResolvedValue([{ id: "org-1" }] as never);
+		mockOrgSetting.findMany.mockResolvedValue([] as never);
 	});
 
 	it("returns 401 when the device token header is missing", async () => {
@@ -186,6 +211,78 @@ describe("GET /api/feed-command", () => {
 		expect(body.config.max_grams_per_day).toBe(1000);
 		expect(body.config.min_dispense_gap_s).toBe(30);
 		expect(body.config.max_dispenses_per_hour).toBe(3);
+	});
+
+	it("#456: sends the organization hopper threshold in the idle poll", async () => {
+		mockOrgSetting.findMany.mockResolvedValue([{ orgId: "org-1", hopperLowPct: 30 }] as never);
+
+		const body = await (await GET(pollRequest("test-token"))).json();
+		expect(body.config.hopper_low_pct).toBe(30);
+		// Device -> pond -> farm owner, the same chain ingest uses.
+		expect(mockPond.findUnique).toHaveBeenCalledWith({
+			where: { id: DEVICE.pondId },
+			select: { ownerId: true },
+		});
+	});
+
+	it("#456: sends the organization hopper threshold with a dispatched feed", async () => {
+		mockOrgSetting.findMany.mockResolvedValue([{ orgId: "org-1", hopperLowPct: 30 }] as never);
+		mockFeedRequest.findFirst.mockResolvedValue({
+			id: "req-1",
+			grams: 120,
+			kind: "feed",
+			status: "pending",
+			createdAt: new Date(),
+		} as never);
+
+		const body = await (await GET(pollRequest("test-token"))).json();
+		expect(body.feed_requested).toBe(true);
+		expect(body.config.hopper_low_pct).toBe(30);
+	});
+
+	it("#456: an unreadable org row still returns 200 with a full config at 20", async () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		mockOrgSetting.findMany.mockRejectedValue(new Error("db down") as never);
+
+		const res = await GET(pollRequest("test-token"));
+		expect(res.status).toBe(200);
+		const body = await res.json();
+		// The route catch drops `config` entirely; the helper's own fallback must
+		// keep the poll answering with the full object at the schema default.
+		expect(body.feed_requested).toBe(false);
+		expect(body.config).toMatchObject({
+			version: 1,
+			hopper_low_pct: 20,
+			grams_per_feeding: 150,
+			max_grams_per_day: 2000,
+		});
+		expect(typeof body.config.rev).toBe("number");
+		expect(warn).toHaveBeenCalledWith(expect.stringContaining("[org-hopper]"), expect.any(Error));
+		warn.mockRestore();
+	});
+
+	it("#456: a device with no pond gets the default threshold", async () => {
+		mockEnergyDevice.findUnique.mockResolvedValue({ ...DEVICE, pondId: null } as never);
+
+		const res = await GET(pollRequest("test-token"));
+		expect(res.status).toBe(200);
+		const body = await res.json();
+		expect(body.config.hopper_low_pct).toBe(20);
+		// No pond means no org query at all.
+		expect(mockPond.findUnique).not.toHaveBeenCalled();
+	});
+
+	it("#456: caches the resolved threshold per device within the 60 s TTL", async () => {
+		clearOrgHopperCache();
+		mockOrgSetting.findMany.mockResolvedValue([{ orgId: "org-1", hopperLowPct: 30 }] as never);
+		const first = await (await GET(pollRequest("test-token"))).json();
+		expect(first.config.hopper_low_pct).toBe(30);
+
+		// The row changes, but the memoized value answers until the TTL expires.
+		mockOrgSetting.findMany.mockResolvedValue([{ orgId: "org-1", hopperLowPct: 45 }] as never);
+		const second = await (await GET(pollRequest("test-token"))).json();
+		expect(second.config.hopper_low_pct).toBe(30);
+		expect(mockPond.findUnique).toHaveBeenCalledTimes(1);
 	});
 
 	it("returns 403 for a PENDING device (org approval policy)", async () => {

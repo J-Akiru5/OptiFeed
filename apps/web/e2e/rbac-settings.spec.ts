@@ -40,7 +40,9 @@ test.describe("Tenant RBAC settings", () => {
 		await page.reload();
 		const reloadedBilling = page.locator("li").filter({ hasText: "View billing" });
 		await expect(reloadedBilling.getByRole("checkbox")).toBeChecked({ timeout: 20_000 });
-		await expect(reloadedBilling.getByText("Granted", { exact: true })).toBeVisible();
+		await expect(reloadedBilling.getByTestId("permission-status-view_billing")).toHaveText(
+			"Granted",
+		);
 		await page.getByRole("link", { name: "Back to Settings" }).click();
 		await expect(farmerRow).toBeVisible({ timeout: 20_000 });
 

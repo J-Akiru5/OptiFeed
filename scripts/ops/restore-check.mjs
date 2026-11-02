@@ -63,6 +63,8 @@ export const EXPORT_TABLES = [
 	"AiProviderConfig",
 	"PlatformAuditLog",
 	"ErrorEvent",
+	"PlatformIncident",
+	"PlatformIncidentEvent",
 ];
 
 /** A credential column must never appear in an export at all. */
@@ -119,6 +121,8 @@ export const PRIMARY_KEYS = {
 	AiProviderConfig: "id",
 	PlatformAuditLog: "id",
 	ErrorEvent: "id",
+	PlatformIncident: "id",
+	PlatformIncidentEvent: "id",
 };
 
 /**
@@ -164,6 +168,9 @@ export const FOREIGN_KEYS = {
 	FeedLevelLog: [{ column: "deviceId", table: "EnergyDevice", target: "id" }],
 	WaterTempLog: [{ column: "deviceId", table: "EnergyDevice", target: "id" }],
 	CalibrationRun: [{ column: "deviceId", table: "EnergyDevice", target: "id" }],
+	PlatformIncidentEvent: [
+		{ column: "incidentId", table: "PlatformIncident", target: "id" },
+	],
 };
 
 export const TRAILER_MARKER = "-- === END OF EXPORT ===";

@@ -1,5 +1,5 @@
 import prisma from "@/lib/prisma";
-import type { MemberRole } from "@prisma/client";
+import type { MemberRole, PrismaClient } from "@prisma/client";
 import { cache } from "react";
 import {
 	ALL_MEMBER_ROLES,
@@ -15,12 +15,18 @@ import {
 export * from "./org-shared";
 
 /**
- * The platform-wide defaults for a new organization. A missing table/row or a
- * transient read failure falls back to the schema defaults.
+ * The delegates this chain reads. Both the singleton client and a
+ * `Prisma.TransactionClient` satisfy it, so a caller inside an interactive
+ * transaction can keep every read on the transaction's connection.
  */
-export const getOrgDefaultSettings = cache(async (): Promise<OrgSettings> => {
+type OrgSettingsClient = Pick<
+	PrismaClient,
+	"user" | "membership" | "organization" | "orgSetting" | "platformSetting"
+>;
+
+async function readOrgDefaultSettings(client: OrgSettingsClient): Promise<OrgSettings> {
 	try {
-		const row = await prisma.platformSetting.findUnique({
+		const row = await client.platformSetting.findUnique({
 			where: { key: ORG_DEFAULTS_KEY },
 			select: { value: true },
 		});
@@ -28,7 +34,13 @@ export const getOrgDefaultSettings = cache(async (): Promise<OrgSettings> => {
 	} catch {
 		return { ...ORG_SETTINGS_DEFAULTS };
 	}
-});
+}
+
+/**
+ * The platform-wide defaults for a new organization. A missing table/row or a
+ * transient read failure falls back to the schema defaults.
+ */
+export const getOrgDefaultSettings = cache(async () => readOrgDefaultSettings(prisma));
 
 export type OrgSettingsContext = {
 	orgId: string | null;
@@ -50,15 +62,17 @@ export async function getOrgSettings(orgId: string): Promise<OrgSettings> {
 /** Rows for several orgs at once; orgs without a row fall back to the platform defaults. */
 export async function getOrgSettingsByOrgId(
 	orgIds: readonly string[],
+	client: OrgSettingsClient = prisma,
 ): Promise<Map<string, OrgSettings>> {
 	const unique = [...new Set(orgIds.filter((id) => typeof id === "string" && id.length > 0))];
 	if (unique.length === 0) return new Map();
 
-	const rows = await prisma.orgSetting.findMany({ where: { orgId: { in: unique } } });
+	const rows = await client.orgSetting.findMany({ where: { orgId: { in: unique } } });
 	const byOrg = new Map(rows.map((row) => [row.orgId, mergeOrgSettings(row)]));
 	const missing = unique.filter((orgId) => !byOrg.has(orgId));
 	if (missing.length > 0) {
-		const defaults = await getOrgDefaultSettings();
+		const defaults =
+			client === prisma ? await getOrgDefaultSettings() : await readOrgDefaultSettings(client);
 		for (const orgId of missing) byOrg.set(orgId, { ...defaults });
 	}
 	return byOrg;
@@ -75,15 +89,17 @@ export async function getOrgSettingsByOrgId(
  */
 export async function getOrgSettingsForFarm(
 	farmId: string | null | undefined,
+	client: OrgSettingsClient = prisma,
 ): Promise<OrgSettingsContext> {
 	if (!farmId) return DEFAULT_CONTEXT;
-	const map = await getOrgSettingsForFarms([farmId]);
+	const map = await getOrgSettingsForFarms([farmId], client);
 	return map.get(farmId) ?? DEFAULT_CONTEXT;
 }
 
 /** Batched form of `getOrgSettingsForFarm`, keyed by farm slug. */
 export async function getOrgSettingsForFarms(
 	farmIds: readonly (string | null | undefined)[],
+	client: OrgSettingsClient = prisma,
 ): Promise<Map<string, OrgSettingsContext>> {
 	const result = new Map<string, OrgSettingsContext>();
 	const unique = [
@@ -93,14 +109,14 @@ export async function getOrgSettingsForFarms(
 	];
 	if (unique.length === 0) return result;
 
-	const users = await prisma.user.findMany({
+	const users = await client.user.findMany({
 		where: { farmId: { in: unique } },
 		select: { id: true, farmId: true },
 		orderBy: { createdAt: "asc" },
 	});
 	if (users.length === 0) return result;
 
-	const memberships = await prisma.membership.findMany({
+	const memberships = await client.membership.findMany({
 		where: { userId: { in: users.map((user) => user.id) }, revokedAt: null },
 		select: { userId: true, orgId: true },
 		orderBy: { createdAt: "asc" },
@@ -108,14 +124,14 @@ export async function getOrgSettingsForFarms(
 	if (memberships.length === 0) return result;
 
 	const orgIds = [...new Set(memberships.map((membership) => membership.orgId))];
-	const activeOrgs = await prisma.organization.findMany({
+	const activeOrgs = await client.organization.findMany({
 		where: { id: { in: orgIds }, status: "ACTIVE" },
 		select: { id: true },
 	});
 	const activeOrgIds = new Set(activeOrgs.map((org) => org.id));
 	if (activeOrgIds.size === 0) return result;
 
-	const settingsByOrg = await getOrgSettingsByOrgId([...activeOrgIds]);
+	const settingsByOrg = await getOrgSettingsByOrgId([...activeOrgIds], client);
 
 	const farmByUser = new Map(users.map((user) => [user.id, user.farmId]));
 	for (const membership of memberships) {
@@ -137,10 +153,13 @@ export async function getOrgSettingsForFarms(
  * role, which keeps legacy behaviour for a pond that cannot be linked to an
  * organization.
  */
-export async function getOrgAlertRoles(orgId: string | null): Promise<MemberRole[]> {
+export async function getOrgAlertRoles(
+	orgId: string | null,
+	client: OrgSettingsClient = prisma,
+): Promise<MemberRole[]> {
 	if (!orgId) return [...ALL_MEMBER_ROLES];
 
-	const memberships = await prisma.membership.findMany({
+	const memberships = await client.membership.findMany({
 		where: { orgId, revokedAt: null },
 		select: { role: true },
 	});

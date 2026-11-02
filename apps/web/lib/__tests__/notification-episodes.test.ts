@@ -20,6 +20,7 @@ function episodeStore() {
 			update: vi.fn(),
 			updateMany: vi.fn(),
 		},
+		$queryRaw: vi.fn(),
 	};
 }
 
@@ -28,7 +29,7 @@ describe("notification episodes (#534)", () => {
 
 	beforeEach(() => {
 		store = episodeStore();
-		store.notification.create.mockResolvedValue({ id: "notif-1" });
+		store.$queryRaw.mockResolvedValue([{ id: "notif-1" }]);
 		store.notification.update.mockResolvedValue({});
 		store.notification.updateMany.mockResolvedValue({ count: 1 });
 	});
@@ -53,16 +54,18 @@ describe("notification episodes (#534)", () => {
 		});
 
 		expect(result).toEqual({ created: true, updated: false, id: "notif-1" });
-		expect(store.notification.create).toHaveBeenCalledWith(
-			expect.objectContaining({
-				data: expect.objectContaining({
-					pondId: "pond-1",
-					category: "pellet",
-					tier: "WARNING",
-					episodeKey: "pellet:dev-1",
-				}),
-			}),
-		);
+		expect(store.$queryRaw).toHaveBeenCalledTimes(1);
+		const [, id, pondId, tier, category, message, linkTo, episodeKey] =
+			store.$queryRaw.mock.calls[0];
+		expect(typeof id).toBe("string");
+		expect([pondId, tier, category, message, linkTo, episodeKey]).toEqual([
+			"pond-1",
+			"WARNING",
+			"pellet",
+			WARNING_MESSAGE,
+			"/dashboard/settings",
+			"pellet:dev-1",
+		]);
 	});
 
 	it("does not write when the same condition reports again", async () => {
@@ -81,7 +84,7 @@ describe("notification episodes (#534)", () => {
 		});
 
 		expect(result).toEqual({ created: false, updated: false, id: "notif-1" });
-		expect(store.notification.create).not.toHaveBeenCalled();
+		expect(store.$queryRaw).not.toHaveBeenCalled();
 		expect(store.notification.update).not.toHaveBeenCalled();
 	});
 
@@ -111,6 +114,7 @@ describe("notification episodes (#534)", () => {
 			},
 		});
 		expect(store.notification.create).not.toHaveBeenCalled();
+		expect(store.$queryRaw).not.toHaveBeenCalled();
 	});
 
 	it("only looks at rows that are still open", async () => {
@@ -143,5 +147,56 @@ describe("notification episodes (#534)", () => {
 			data: { autoCleared: true, read: true },
 		});
 		expect(call[0].data.resolvedAt).toBeInstanceOf(Date);
+	});
+
+	it("converges concurrent openEpisode calls on one row when the unique index rejects the loser", async () => {
+		let openRow: { id: string; tier: string; message: string } | null = null;
+		let inserts = 0;
+		const concurrent = {
+			notification: {
+				findFirst: vi.fn(async () => openRow),
+				update: vi.fn(async () => ({})),
+				updateMany: vi.fn(),
+			},
+			$queryRaw: vi.fn(async () => {
+				if (openRow) return [];
+				openRow = { id: "notif-1", tier: "WARNING", message: WARNING_MESSAGE };
+				inserts += 1;
+				return [{ id: "notif-1" }];
+			}),
+		};
+
+		const input = {
+			pondId: "pond-1",
+			category: "pellet" as const,
+			episodeKey: pelletEpisodeKey("dev-1"),
+			tier: "WARNING",
+			message: WARNING_MESSAGE,
+		};
+		const [first, second] = await Promise.all([
+			openEpisode(concurrent as never, input),
+			openEpisode(concurrent as never, input),
+		]);
+
+		expect(inserts).toBe(1);
+		expect([first.id, second.id]).toEqual(["notif-1", "notif-1"]);
+		expect([first.created, second.created].filter(Boolean)).toHaveLength(1);
+		expect(concurrent.$queryRaw).toHaveBeenCalledTimes(2);
+		expect(concurrent.notification.update).not.toHaveBeenCalled();
+	});
+
+	it("rethrows an insert failure that is not a unique conflict", async () => {
+		store.notification.findFirst.mockResolvedValue(null);
+		store.$queryRaw.mockRejectedValue(new Error("db down"));
+
+		await expect(
+			openEpisode(store as never, {
+				pondId: "pond-1",
+				category: "pellet",
+				episodeKey: pelletEpisodeKey("dev-1"),
+				tier: "WARNING",
+				message: WARNING_MESSAGE,
+			}),
+		).rejects.toThrow("db down");
 	});
 });

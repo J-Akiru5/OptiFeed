@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 
 /**
@@ -27,10 +28,7 @@ export function coldWaterEpisodeKey(deviceId: string): string {
 	return `cold-water:${deviceId}`;
 }
 
-type EpisodeStore = Pick<
-	PrismaClient["notification"],
-	"findFirst" | "create" | "update" | "updateMany"
->;
+type EpisodeStore = Pick<PrismaClient, "notification" | "$queryRaw">;
 
 export interface EpisodeInput {
 	pondId: string;
@@ -49,37 +47,28 @@ export interface EpisodeResult {
 	id: string | null;
 }
 
-/**
- * Open the episode for `episodeKey`, or bring the open one up to date.
- *
- * Writes only when the signature (tier + message) changes, so a heartbeat every
- * few seconds against an already-reported condition costs one read and no write.
- */
-export async function openEpisode(
+type OpenEpisode = {
+	id: string;
+	tier: string;
+	message: string;
+};
+
+async function findOpenEpisode(
 	store: Pick<PrismaClient, "notification">,
-	input: EpisodeInput,
-): Promise<EpisodeResult> {
-	const open = await store.notification.findFirst({
-		where: { episodeKey: input.episodeKey, resolvedAt: null, autoCleared: false },
+	episodeKey: string,
+): Promise<OpenEpisode | null> {
+	return store.notification.findFirst({
+		where: { episodeKey, resolvedAt: null, autoCleared: false },
 		orderBy: { createdAt: "desc" },
 		select: { id: true, tier: true, message: true },
 	});
+}
 
-	if (!open) {
-		const created = await store.notification.create({
-			data: {
-				pondId: input.pondId,
-				tier: input.tier,
-				category: input.category,
-				message: input.message,
-				linkTo: input.linkTo ?? null,
-				episodeKey: input.episodeKey,
-			},
-			select: { id: true },
-		});
-		return { created: true, updated: false, id: created.id };
-	}
-
+async function reconcileOpenEpisode(
+	store: Pick<PrismaClient, "notification">,
+	open: OpenEpisode,
+	input: EpisodeInput,
+): Promise<EpisodeResult> {
 	if (open.tier === input.tier && open.message === input.message) {
 		return { created: false, updated: false, id: open.id };
 	}
@@ -94,6 +83,43 @@ export async function openEpisode(
 		},
 	});
 	return { created: false, updated: true, id: open.id };
+}
+
+/**
+ * Open the episode for `episodeKey`, or bring the open one up to date.
+ *
+ * Writes only when the signature (tier + message) changes, so a heartbeat every
+ * few seconds against an already-reported condition costs one read and no write.
+ *
+ * The partial unique index on open `episodeKey` rows is the concurrency
+ * authority. The insert uses `ON CONFLICT DO NOTHING` rather than catching
+ * P2002: a P2002 aborts the caller's PostgreSQL transaction (the ingest path
+ * passes `tx`), so a benign race must not raise. A conflict leaves the winner
+ * for the next pass to re-read and update (#585).
+ */
+export async function openEpisode(
+	store: EpisodeStore,
+	input: EpisodeInput,
+): Promise<EpisodeResult> {
+	for (let attempt = 0; attempt < 2; attempt++) {
+		const open = await findOpenEpisode(store, input.episodeKey);
+		if (open) return reconcileOpenEpisode(store, open, input);
+
+		const inserted = await store.$queryRaw<{ id: string }[]>`
+			INSERT INTO "Notification" ("id", "pondId", "tier", "category", "message", "linkTo", "episodeKey")
+			VALUES (${randomUUID()}, ${input.pondId}, ${input.tier}, ${input.category}, ${input.message}, ${input.linkTo ?? null}, ${input.episodeKey})
+			ON CONFLICT ("episodeKey") WHERE "resolvedAt" IS NULL AND "autoCleared" = false
+			DO NOTHING
+			RETURNING "id"
+		`;
+		if (inserted.length > 0) {
+			return { created: true, updated: false, id: inserted[0].id };
+		}
+		// A concurrent caller won the unique index. The next pass re-reads it
+		// and updates it; if it is already resolved, the insert is retried once.
+	}
+
+	throw new Error(`Could not open episode ${input.episodeKey}`);
 }
 
 /**

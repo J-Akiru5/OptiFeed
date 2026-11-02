@@ -346,6 +346,9 @@ model Notification {
   // per reading. `episodeKey` is the stable condition key, `resolvedAt` records
   // when the condition cleared, and `supersededById` points at the row a folded
   // historical duplicate was merged into (kept for audit, hidden from lists).
+  // Open episodes are unique by `episodeKey` through a partial unique index in
+  // migration 20261103080000; Prisma cannot express partial indexes, so do not
+  // drop it from the schema.
   episodeKey     String?
   resolvedAt     DateTime?
   supersededById String?

@@ -7,10 +7,10 @@ Orchestrator: Claude (Sonnet 5.5). Workers: OpenCode `deepseek-v4.1-flash`, one 
 | Branch | Head | Note |
 |---|---|---|
 | main (production) | `de76080` | last promotion (#529); no further promotion for now |
-| staging | `17ea306` | #520, #511, #512, #523, #521, #530, #532, #535, #526; #539 pending |
+| staging | `9117353` | #520, #511, #512, #523, #521, #530, #532, #535, #526, #539 |
 | develop | `dc40da1` | #503, #524, #525, #536, #537, #522 |
 
-Open PRs: #533 (Pakoy shells; owner feature) and #539 (Dependabot policy; pending).
+Open PRs: #533 (Pakoy shells; owner feature) and #540 (this plan update).
 
 Merged today: #520 (#476 mobile, `83cb3de`), #503 (E73 docs, `36c06ab`), #511 (`80a5e0b`), #512 (`f7edac7`), #523 (Node 22 pin, `adaa01b`), #521 (min feed temp, `cc3b1c8`), #524/#525 (develop fixes, `bd56a90`), #529 (staging to main promotion, `de76080`), #530/#532 (CI watcher, `4a1c954`), #535 (CI speedups, `4b63983`), #536 (same on develop, `1177af8`), #526 (commitlint 21, `17ea306`), #537 (mobile header and pond list, `ec56e1b`), #522 (back-merge and plan, `dc40da1`). #513 closed by #523; #474/#484 closed by #537; #482 closed by #524.
 
@@ -29,11 +29,11 @@ The global CI/CD efficiency rule and the OptiFeed facts are in the owner's local
 
 ## Promotion ceiling (owner, 2026-11-02)
 
-**Only `staging` until further notice.** Do not open or merge a `staging -> main` promotion. The owner is limiting deployments because today's small and large merges risk the Vercel/CI quota; they accept the cost but want the ceiling. Batch `develop -> staging` changes into a single promotion instead of merging each small PR to `staging` separately.
+**Only `staging`, and only on the owner's signal.** Do not open or merge a `staging -> main` promotion. For `develop -> staging`, wait for the owner's word; the exception is a versioning/release-critical change that must reach `staging`, which may be promoted after telling the owner. Batch everything else into one promotion instead of merging each small PR to `staging` separately.
 
 ## Dependency decisions (2026-11-02)
 
-#538 tracks the upgrades that cannot be bot-merged. Closed with a comment and held by `.github/dependabot.yml` (#539): Prisma 7 (#514), TypeScript 7 (#527), vitest 5 + coverage-v8 5 (#528). #510 was closed and the production group split into `production-supabase`, `production-framework` and `production-utilities`; each batch is measured on its own PR. #526 (commitlint 21) merged. The next Dependabot run is the first observation of the new grouping.
+#538 tracks the upgrades that cannot be bot-merged. Closed with a comment and held by `.github/dependabot.yml` (#539, merged): Prisma 7 (#514), TypeScript 7 (#527), vitest 5 + coverage-v8 5 (#528). #510 was closed and the production group split into `production-supabase`, `production-framework` and `production-utilities`; each batch is measured on its own PR. #526 (commitlint 21) merged. The next Dependabot run is the first observation of the new grouping.
 
 ## State at 19:30 (verified)
 

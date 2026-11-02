@@ -181,6 +181,7 @@ export type TenancyEnergyDevice = {
 	hopperEmptyCm: number | null;
 	hopperFullCm: number | null;
 	hopperCapacityG: number | null;
+	dailyCapG: number | null;
 	gramsPerSecond: number;
 	tempOffsetC: number;
 	approvalStatus: "PENDING" | "APPROVED" | "REJECTED";
@@ -266,6 +267,17 @@ export type TenancyFeedEvent = {
 	farmId: string | null;
 };
 
+export type TenancyFeedRequest = {
+	id: string;
+	deviceId: string;
+	grams: number;
+	status: string;
+	kind: string;
+	createdAt: Date;
+	updatedAt: Date;
+	farmId: string | null;
+};
+
 export type TenancyFixture = {
 	organizations: TenancyOrganization[];
 	users: TenancyUser[];
@@ -279,6 +291,7 @@ export type TenancyFixture = {
 	biomassLogs: TenancyBiomassLog[];
 	pondEvents: TenancyPondEvent[];
 	feedEvents: TenancyFeedEvent[];
+	feedRequests: TenancyFeedRequest[];
 	platformAdmins: TenancyPlatformAdmin[];
 	platformAuditLogs: TenancyPlatformAuditLog[];
 };
@@ -526,6 +539,7 @@ export function createTenancyFixture(): TenancyFixture {
 		hopperEmptyCm: null,
 		hopperFullCm: null,
 		hopperCapacityG: null,
+		dailyCapG: null,
 		gramsPerSecond: 4,
 		tempOffsetC: 0,
 		approvalStatus: "APPROVED" as const,
@@ -624,6 +638,7 @@ export function createTenancyFixture(): TenancyFixture {
 		biomassLogs: [],
 		pondEvents: [],
 		feedEvents: [],
+		feedRequests: [],
 		platformAdmins,
 		platformAuditLogs: [],
 		orgSettings: [],
@@ -754,6 +769,7 @@ type ModelName =
 	| "biomassLog"
 	| "pondEvent"
 	| "feedEvent"
+	| "feedRequest"
 	| "platformAdmin"
 	| "platformAuditLog"
 	| "orgSetting";
@@ -768,11 +784,17 @@ export type QueryArgs = {
 	take?: number;
 };
 
+export type AggregateArgs = {
+	where?: Where;
+	_sum?: Record<string, true>;
+};
+
 export type TenancyDelegate = {
 	findMany: (args?: QueryArgs) => Promise<Row[]>;
 	findFirst: (args?: QueryArgs) => Promise<Row | null>;
 	findUnique: (args?: QueryArgs) => Promise<Row | null>;
 	count: (args?: QueryArgs) => Promise<number>;
+	aggregate: (args?: AggregateArgs) => Promise<Row>;
 	create: (args: { data: Row; select?: Projection }) => Promise<Row>;
 	update: (args: { where: Where; data: Row }) => Promise<Row>;
 	updateMany: (args?: { where?: Where; data?: Row }) => Promise<{ count: number }>;
@@ -784,8 +806,9 @@ export type TenancyDelegate = {
 export type TenancyClient = Record<ModelName, TenancyDelegate> & {
 	$transaction: <T>(fn: (tx: TenancyClient) => Promise<T>) => Promise<T>;
 	/**
-	 * The one raw query the actions take: the `SELECT ... FOR UPDATE` row lock
-	 * around the active `PlatformAdmin` grants (#334). Implemented so the lock
+	 * The raw queries the actions take: the `SELECT ... FOR UPDATE` row lock
+	 * around the active `PlatformAdmin` grants (#334) and the owning
+	 * `EnergyDevice` row for a manual feed (#581). Implemented so the lock
 	 * actually serializes concurrent callers in a test, rather than being a
 	 * no-op that would hide the very race the lock prevents.
 	 */
@@ -820,6 +843,7 @@ const MODEL_TABLE: Record<ModelName, keyof TenancyFixture> = {
 	biomassLog: "biomassLogs",
 	pondEvent: "pondEvents",
 	feedEvent: "feedEvents",
+	feedRequest: "feedRequests",
 	platformAdmin: "platformAdmins",
 	platformAuditLog: "platformAuditLogs",
 	orgSetting: "orgSettings",
@@ -1146,6 +1170,15 @@ function defaultsFor(model: ModelName, now: Date): Row {
 				source: null,
 				farmId: null,
 			};
+		case "feedRequest":
+			return {
+				grams: 100,
+				status: "pending",
+				kind: "feed",
+				createdAt: now,
+				updatedAt: now,
+				farmId: null,
+			};
 		case "platformAdmin":
 			return {
 				grantedBy: null,
@@ -1191,13 +1224,14 @@ export function createTenancyDb(base: TenancyFixture = createTenancyFixture()): 
 	const state = cloneFixture(base);
 	let sequence = 0;
 
-	// ─── `SELECT ... FOR UPDATE` on the active platform-admin grants (#334) ───
+	// ─── `SELECT ... FOR UPDATE` row locks ───
 	//
-	// A Postgres transaction holds the row lock until commit, so a second
-	// disable blocks until the first one's revocation is visible. The double
+	// A Postgres transaction holds the row lock until commit, so a second caller
+	// blocks until the first one's change is visible. This serves the platform-
+	// admin grant lock (#334) and the manual-feed device lock (#581). The double
 	// queues lock holders and releases them when the enclosing `$transaction`
-	// finishes; without that, `Promise.all([disable(a), disable(b)])` would
-	// interleave in a way no real database allows and could not prove anything.
+	// finishes; without that, two callers inside `Promise.all` would interleave
+	// in a way no real database allows and could not prove anything.
 	let lockQueue: Promise<void> = Promise.resolve();
 	const acquiredLocks: Array<() => void> = [];
 
@@ -1206,7 +1240,7 @@ export function createTenancyDb(base: TenancyFixture = createTenancyFixture()): 
 		while (acquiredLocks.length > 0) acquiredLocks.shift()?.();
 	}
 
-	async function acquireAdminLock(): Promise<void> {
+	async function acquireRowLock(): Promise<void> {
 		const previous = lockQueue;
 		let release!: () => void;
 		const held = new Promise<void>((resolve) => {
@@ -1257,7 +1291,44 @@ export function createTenancyDb(base: TenancyFixture = createTenancyFixture()): 
 			async count(args = {}) {
 				return rows().filter((row) => matches(row, args.where)).length;
 			},
+			async aggregate(args = {}) {
+				const matched = rows().filter((row) => matches(row, args.where));
+				const sum: Row = {};
+				for (const field of Object.keys(args._sum ?? {})) {
+					// Prisma returns null, not 0, when a `_sum` has no rows.
+					sum[field] =
+						matched.length === 0
+							? null
+							: matched.reduce((total, row) => {
+									const value = row[field];
+									return total + (typeof value === "number" ? value : 0);
+								}, 0);
+				}
+				return { _sum: sum };
+			},
 			async create(args) {
+				// #581: the real database has a partial unique index on
+				// FeedRequest(deviceId) WHERE status = 'pending'. Enforce it here so
+				// the command's P2002 path is exercised, rather than letting the
+				// double accept a duplicate the database would reject.
+				if (model === "feedRequest" && args.data.status === "pending") {
+					const duplicate = rows().find(
+						(row) => row.deviceId === args.data.deviceId && row.status === "pending",
+					);
+					if (duplicate) {
+						throw Object.assign(
+							new Error(
+								'Unique constraint failed on the fields: (`deviceId`) — partial index "FeedRequest_deviceId_pending_key"',
+							),
+							{
+								name: "PrismaClientKnownRequestError",
+								code: "P2002",
+								clientVersion: "test-double",
+								meta: { modelName: "FeedRequest", target: ["deviceId"] },
+							},
+						);
+					}
+				}
 				const row = createRow(model, args.data);
 				return materialise(row, { select: args.select });
 			},
@@ -1347,12 +1418,13 @@ export function createTenancyDb(base: TenancyFixture = createTenancyFixture()): 
 		biomassLog: delegateFor("biomassLog"),
 		pondEvent: delegateFor("pondEvent"),
 		feedEvent: delegateFor("feedEvent"),
+		feedRequest: delegateFor("feedRequest"),
 		platformAdmin: delegateFor("platformAdmin"),
 		platformAuditLog: delegateFor("platformAuditLog"),
 		orgSetting: delegateFor("orgSetting"),
 		$queryRaw: async <T>(strings: TemplateStringsArray): Promise<T> => {
 			const sql = strings.join("?");
-			if (/FOR\s+UPDATE/i.test(sql)) await acquireAdminLock();
+			if (/FOR\s+UPDATE/i.test(sql)) await acquireRowLock();
 			if (!/FROM\s+"PlatformAdmin"/i.test(sql)) return [] as T;
 			const now = Date.now();
 			return rowsOf(state, "platformAdmin")

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/prisma", () => ({
-	default: {
+vi.mock("@/lib/prisma", () => {
+	const prismaMock: Record<string, unknown> = {
 		energyDevice: {
 			findFirst: vi.fn(),
 			findMany: vi.fn(),
@@ -38,11 +38,22 @@ vi.mock("@/lib/prisma", () => ({
 			findUnique: vi.fn(),
 			update: vi.fn(),
 		},
-		$transaction: vi.fn((fns: (() => Promise<unknown>)[]) =>
-			fns.reduce<Promise<unknown>>((prev, fn) => prev.then(() => fn()), Promise.resolve()),
-		),
-	},
-}));
+		// #581: manual-feed creation is transactional. The callback form runs the
+		// command against this same double; the array form stays for the other
+		// actions. `$queryRaw` is the device row lock, a no-op in this fixture.
+		$transaction: vi.fn((arg: unknown) => {
+			if (Array.isArray(arg)) {
+				return arg.reduce<Promise<unknown>>(
+					(prev, fn) => prev.then(() => (fn as () => Promise<unknown>)()),
+					Promise.resolve(),
+				);
+			}
+			return (arg as (tx: Record<string, unknown>) => Promise<unknown>)(prismaMock);
+		}),
+		$queryRaw: vi.fn(async () => []),
+	};
+	return { default: prismaMock };
+});
 
 vi.mock("@/lib/auth/session", () => ({
 	getCurrentPondOwnerId: vi.fn().mockResolvedValue("test-farm"),

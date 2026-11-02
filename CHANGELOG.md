@@ -29,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Choosing the simple view on the feeder no longer strands the operator (#626).** The 3D viewer's "Simple view" replaced the scene with the illustrated fallback and never rendered a way back, so the only exit was a page reload. The fallback now carries a "Back to 3D view" control when - and only when - the simple view was the operator's own choice on a WebGL-capable device; the forced fallbacks (no WebGL, or a scene that crashed) stay button-free because there is nothing to return to. Copy is in English, Hiligaynon and Tagalog.
 
+### Fixed
+
+- **A saved temperature calibration now appears in the hardware page's calibration history (#613).** `saveTemperatureCalibration` already wrote a `temperature_calibrated` device event, but the history read only `CalibrationRun` (the hopper rate tests), so the save was invisible afterwards. The history now lists the ten most recent temperature calibrations - date, signed offset and the pond's feeding minimum - from that event stream, reading the JSON metadata defensively so an older or malformed row renders an em dash instead of breaking the page. The rate-test table, its sessions and its pagination are unchanged; no schema change.
+
 ## [1.44.1] - 2026-11-03
 
 ### Security

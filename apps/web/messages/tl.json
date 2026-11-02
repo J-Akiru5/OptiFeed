@@ -300,7 +300,14 @@
 					"showing": "Ipinapakita ang {from}–{to} ng {total}",
 					"previous": "Nakaraan",
 					"next": "Susunod",
-					"label": "Pagination ng kasaysayan ng kalibrasyon"
+					"label": "Pagination ng kasaysayan ng kalibrasyon",
+					"temperature": {
+						"title": "Calibration ng temperatura",
+						"empty": "Wala pang naka-save na calibration ng temperatura.",
+						"date": "Petsa",
+						"offset": "Offset",
+						"minimum": "Minimum sa pagpapakain"
+					}
 				},
 				"recalibration": {
 					"title": "Iskedyul ng recalibration",

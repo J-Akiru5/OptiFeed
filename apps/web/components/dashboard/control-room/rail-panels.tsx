@@ -127,7 +127,10 @@ export function PondSummary({
 						<dt className="text-[10px] font-bold uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 							{entry.label}
 						</dt>
-						<dd className="truncate text-xs font-black text-[#0A3D62] dark:text-gray-100">
+						<dd
+							className="break-words text-xs font-black leading-snug text-[#0A3D62] dark:text-gray-100"
+							data-fit="pond-meta"
+						>
 							{entry.value}
 						</dd>
 					</div>

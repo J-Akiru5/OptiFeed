@@ -413,6 +413,7 @@ describe("header band titles", () => {
 		expect(pageTitleKey("admin", "/admin/ponds/new")).toBe("ponds");
 		expect(pageTitleKey("admin", "/admin/settings/members/u1/permissions")).toBe("settings");
 		expect(pageTitleKey("platform", "/superadmin/ai-providers")).toBe("aiProviders");
+		expect(pageTitleKey("platform", "/superadmin/account")).toBe("account");
 		expect(pageTitleKey("platform", "/superadmin")).toBe("overview");
 		expect(pageTitleKey("farmer", "/elsewhere")).toBe("");
 	});

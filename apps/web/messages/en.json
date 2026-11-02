@@ -3226,7 +3226,8 @@
 				"aiProviders": "AI Providers",
 				"settings": "Settings",
 				"operations": "Operations",
-				"more": "More"
+				"more": "More",
+				"account": "Account"
 			},
 			"shortNav": {
 				"overview": "Overview",
@@ -4590,6 +4591,26 @@
 				"PENDING_DELETION": "Pending deletion",
 				"PURGED": "Purged"
 			}
+		},
+		"account": {
+			"title": "Your account",
+			"description": "Your platform identity and the session on this device.",
+			"identity": "Identity",
+			"identityDesc": "The account behind the platform console.",
+			"displayName": "Name",
+			"role": "Role",
+			"farmId": "Farm ID",
+			"email": "Email",
+			"avatar": "Profile picture",
+			"avatarDesc": "Shown in the console header.",
+			"password": "Password",
+			"passwordDesc": "Change the password you sign in with.",
+			"session": "Session",
+			"sessionDesc": "Signing out ends this session on this device and clears cached farm data.",
+			"menuLabel": "Account menu",
+			"menuProfile": "Your profile",
+			"menuSettings": "Platform settings",
+			"menuFarm": "Farm dashboard"
 		}
 	},
 	"help": {

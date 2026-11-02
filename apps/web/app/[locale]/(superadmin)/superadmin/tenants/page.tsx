@@ -122,6 +122,9 @@ export default async function SuperadminTenantsPage({
 						<Link href="/superadmin/orgs" className={SECONDARY_BUTTON}>
 							{t("viewOrgs")}
 						</Link>
+						<Link href="/superadmin/tenants/compare" className={SECONDARY_BUTTON}>
+							{t("compare")}
+						</Link>
 					</>
 				}
 			/>

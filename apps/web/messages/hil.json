@@ -653,7 +653,11 @@
 			"refusalReasonTooSoon": "sayo pa sang naulihi nga dose",
 			"refusalReasonHourlyLimit": "naabot na ang limit kada oras",
 			"refusalReasonRelayOverrun": "naglapas ang relay",
-			"refusalReasonOther": "{code}"
+			"refusalReasonOther": "{code}",
+			"healthUnknownTitle": "Indi ma-verify ang kahimsog sang feeder",
+			"healthUnknownBody": "Napaslawan ang pagbasa sang kahimsog, gani indi masiling sang pahina nga ini kon luwas ang feeder. Indi ini ginareport nga healthy.",
+			"healthUnknownLast": "Katapusan nga na-verify {date}, {time}",
+			"healthUnknownChecked": "Napaslawan ang pagbasa {date}, {time}"
 		},
 		"home": {
 			"noData": "Wala pa sang punong nga na-assign. Palihog pamangkot ang imo administrator.",

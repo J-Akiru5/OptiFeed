@@ -25,7 +25,7 @@ vi.mock("@/i18n/routing", async () => {
 
 import { FeederHero } from "@/components/feeder/feeder-hero";
 import { HealthNotice } from "@/components/feeder/health-notice";
-import { HEALTHY_VIEW } from "@/lib/device-health-model";
+import { HEALTHY_VIEW, unavailableHealthView } from "@/lib/device-health-model";
 import type { DeviceHealthView } from "@/lib/device-health-model";
 import type { FeederHeroData } from "@/lib/feeder-hero-types";
 
@@ -135,5 +135,16 @@ describe("HealthNotice on the settings page", () => {
 		const { container } = render(<HealthNotice health={HEALTHY_VIEW} tone="themed" />);
 
 		expect(container.firstChild).toBeNull();
+	});
+
+	it("renders cannot-verify instead of a healthy feeder when the read failed (#624)", () => {
+		const health = unavailableHealthView(new Date(2026, 10, 1, 9, 12), null);
+
+		render(<HealthNotice health={health} tone="themed" />);
+
+		const notice = screen.getByTestId("feeder-hero-health");
+		expect(notice.getAttribute("data-unavailable")).toBe("true");
+		expect(notice.textContent).toContain("Cannot verify feeder health");
+		expect(notice.textContent).toContain("Read failed");
 	});
 });

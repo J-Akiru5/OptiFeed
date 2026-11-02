@@ -28,9 +28,9 @@ export function ScopeBanner({ crumbs, label }: { crumbs: ScopeCrumb[]; label: st
 	return (
 		<nav
 			aria-label={label}
-			className="sticky top-0 z-20 -mx-4 -mt-4 mb-4 border-b border-[#0A3D62]/15 bg-white px-4 py-2 md:-mx-8 md:-mt-8 md:mb-6 md:px-8"
+			className="sticky top-0 z-20 -mx-4 -mt-4 mb-4 border-b border-[#0A3D62]/15 bg-white dark:border-[#24304A] dark:bg-[#111A2C] px-4 py-2 md:-mx-8 md:-mt-8 md:mb-6 md:px-8"
 		>
-			<ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-black uppercase tracking-wider text-[#0A3D62]">
+			<ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-black uppercase tracking-wider text-[#0A3D62] dark:text-slate-100 dark:text-slate-200">
 				{crumbs.map((crumb, index) => {
 					const Icon = ICONS[crumb.level];
 					const isLast = index === crumbs.length - 1;
@@ -38,7 +38,10 @@ export function ScopeBanner({ crumbs, label }: { crumbs: ScopeCrumb[]; label: st
 					return (
 						<li key={`${crumb.level}:${crumb.label}`} className="flex min-w-0 items-center gap-2">
 							{index > 0 && (
-								<span className="shrink-0 text-[#3D5568]" aria-hidden="true">
+								<span
+									className="shrink-0 text-[#3D5568] dark:text-slate-400 dark:text-slate-500"
+									aria-hidden="true"
+								>
 									→
 								</span>
 							)}

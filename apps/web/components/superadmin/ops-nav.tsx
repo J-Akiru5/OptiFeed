@@ -44,7 +44,7 @@ export function OpsNav() {
 									FOCUS_RING,
 									isActive
 										? "bg-[#0A3D62] text-white shadow-sm"
-										: "text-[#3D5568] hover:bg-white hover:text-[#0A3D62]",
+										: "text-[#3D5568] dark:text-slate-400 hover:bg-white dark:hover:bg-[#162238] hover:text-[#0A3D62]",
 								)}
 							>
 								<tab.icon className="h-4 w-4 shrink-0" aria-hidden="true" />

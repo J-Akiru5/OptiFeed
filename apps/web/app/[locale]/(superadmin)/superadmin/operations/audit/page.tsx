@@ -36,7 +36,7 @@ function auditQueryString(filters: AuditFilters): string {
 }
 
 const FIELD_CLASS =
-	"w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#0A3D62] transition-all focus:outline-none focus:ring-2 focus:ring-[#E85A2A]";
+	"w-full rounded-xl border border-gray-200 dark:border-[#24304A] bg-white dark:bg-[#111A2C] px-3 py-2 text-sm text-[#0A3D62] dark:text-slate-100 transition-all focus:outline-none focus:ring-2 focus:ring-[#E85A2A]";
 
 /**
  * Operations → platform audit explorer (E16.4, task I-15).
@@ -84,7 +84,7 @@ export default async function OperationsAuditPage({
 				<form action={formAction} method="get" className="space-y-4">
 					<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 						<label className="block">
-							<span className="text-[10px] font-extrabold tracking-wider text-[#3D5568] uppercase">
+							<span className="text-[10px] font-extrabold tracking-wider text-[#3D5568] dark:text-slate-400 uppercase">
 								{t("audit.filters.action")}
 							</span>
 							<input
@@ -103,7 +103,7 @@ export default async function OperationsAuditPage({
 						</label>
 
 						<label className="block">
-							<span className="text-[10px] font-extrabold tracking-wider text-[#3D5568] uppercase">
+							<span className="text-[10px] font-extrabold tracking-wider text-[#3D5568] dark:text-slate-400 uppercase">
 								{t("audit.filters.actor")}
 							</span>
 							<input
@@ -116,7 +116,7 @@ export default async function OperationsAuditPage({
 						</label>
 
 						<label className="block">
-							<span className="text-[10px] font-extrabold tracking-wider text-[#3D5568] uppercase">
+							<span className="text-[10px] font-extrabold tracking-wider text-[#3D5568] dark:text-slate-400 uppercase">
 								{t("audit.filters.org")}
 							</span>
 							<select
@@ -134,7 +134,7 @@ export default async function OperationsAuditPage({
 						</label>
 
 						<label className="block">
-							<span className="text-[10px] font-extrabold tracking-wider text-[#3D5568] uppercase">
+							<span className="text-[10px] font-extrabold tracking-wider text-[#3D5568] dark:text-slate-400 uppercase">
 								{t("audit.filters.targetType")}
 							</span>
 							<select
@@ -152,7 +152,7 @@ export default async function OperationsAuditPage({
 						</label>
 
 						<label className="block">
-							<span className="text-[10px] font-extrabold tracking-wider text-[#3D5568] uppercase">
+							<span className="text-[10px] font-extrabold tracking-wider text-[#3D5568] dark:text-slate-400 uppercase">
 								{t("audit.filters.target")}
 							</span>
 							<input
@@ -166,7 +166,7 @@ export default async function OperationsAuditPage({
 
 						<div className="grid grid-cols-2 gap-3">
 							<label className="block">
-								<span className="text-[10px] font-extrabold tracking-wider text-[#3D5568] uppercase">
+								<span className="text-[10px] font-extrabold tracking-wider text-[#3D5568] dark:text-slate-400 uppercase">
 									{t("audit.filters.from")}
 								</span>
 								<input
@@ -177,7 +177,7 @@ export default async function OperationsAuditPage({
 								/>
 							</label>
 							<label className="block">
-								<span className="text-[10px] font-extrabold tracking-wider text-[#3D5568] uppercase">
+								<span className="text-[10px] font-extrabold tracking-wider text-[#3D5568] dark:text-slate-400 uppercase">
 									{t("audit.filters.to")}
 								</span>
 								<input
@@ -205,7 +205,7 @@ export default async function OperationsAuditPage({
 							{t("audit.export")}
 						</a>
 					</div>
-					<p className="text-[11px] text-[#3D5568]">{t("audit.exportNote")}</p>
+					<p className="text-[11px] text-[#3D5568] dark:text-slate-400">{t("audit.exportNote")}</p>
 				</form>
 			</Card>
 
@@ -228,24 +228,30 @@ export default async function OperationsAuditPage({
 						{result.rows.map((row) => (
 							<MobileCard key={row.id}>
 								<div className="flex items-start justify-between gap-2">
-									<p className="text-xs text-[#3D5568]">{formatted(row.createdAt)}</p>
+									<p className="text-xs text-[#3D5568] dark:text-slate-400">
+										{formatted(row.createdAt)}
+									</p>
 									<Badge tone={row.stepUpAt ? "brand" : "neutral"} icon={ShieldCheck}>
 										{row.stepUpAt ? t("audit.stepUp") : t("audit.noStepUp")}
 									</Badge>
 								</div>
-								<p className="font-mono text-sm font-black break-words text-[#0A3D62]">
+								<p className="font-mono text-sm font-black break-words text-[#0A3D62] dark:text-slate-100">
 									{row.action}
 								</p>
-								<p className="text-xs font-bold text-[#3D5568]">
+								<p className="text-xs font-bold text-[#3D5568] dark:text-slate-400">
 									{t("audit.by", { actor: row.actorLabel })}
 									{row.actorFarmId ? ` · ${row.actorFarmId}` : ""}
 								</p>
-								<p className="text-xs text-[#3D5568]">
+								<p className="text-xs text-[#3D5568] dark:text-slate-400">
 									{row.targetType}
 									{row.targetId ? ` · ${row.targetId}` : ""}
 								</p>
-								<p className="text-xs text-[#3D5568]">{row.orgName ?? t("audit.noOrg")}</p>
-								<p className="line-clamp-3 text-xs text-[#3D5568]">{row.reason}</p>
+								<p className="text-xs text-[#3D5568] dark:text-slate-400">
+									{row.orgName ?? t("audit.noOrg")}
+								</p>
+								<p className="line-clamp-3 text-xs text-[#3D5568] dark:text-slate-400">
+									{row.reason}
+								</p>
 								<Link href={`/superadmin/operations/audit/${row.id}`} className={SECONDARY_BUTTON}>
 									{t("audit.openDetail")}
 								</Link>
@@ -270,28 +276,28 @@ export default async function OperationsAuditPage({
 						{result.rows.map((row) => (
 							<tr
 								key={row.id}
-								className="border-b border-gray-50 align-top last:border-0 hover:bg-[#F4F7F6]/50"
+								className="border-b border-gray-50 dark:border-[#1B2740] align-top last:border-0 hover:bg-[#F4F7F6] dark:hover:bg-[#162238]/50 dark:hover:bg-[#162238]/60"
 							>
-								<td className="px-6 py-3 text-xs whitespace-nowrap text-[#3D5568]">
+								<td className="px-6 py-3 text-xs whitespace-nowrap text-[#3D5568] dark:text-slate-400">
 									{formatted(row.createdAt)}
 								</td>
-								<td className="px-6 py-3 text-xs text-[#3D5568]">
-									<p className="font-bold text-[#0A3D62]">{row.actorLabel}</p>
+								<td className="px-6 py-3 text-xs text-[#3D5568] dark:text-slate-400">
+									<p className="font-bold text-[#0A3D62] dark:text-slate-100">{row.actorLabel}</p>
 									{row.actorFarmId && <p className="text-[11px]">{row.actorFarmId}</p>}
 								</td>
-								<td className="px-6 py-3 font-mono text-xs font-black break-words text-[#0A3D62]">
+								<td className="px-6 py-3 font-mono text-xs font-black break-words text-[#0A3D62] dark:text-slate-100">
 									{row.action}
 								</td>
-								<td className="px-6 py-3 text-xs text-[#3D5568]">
+								<td className="px-6 py-3 text-xs text-[#3D5568] dark:text-slate-400">
 									<p className="font-bold">{row.targetType}</p>
 									{row.targetId && (
 										<p className="font-mono text-[11px] break-all">{row.targetId}</p>
 									)}
 								</td>
-								<td className="px-6 py-3 text-xs font-bold text-[#3D5568]">
+								<td className="px-6 py-3 text-xs font-bold text-[#3D5568] dark:text-slate-400">
 									{row.orgName ?? t("audit.noOrg")}
 								</td>
-								<td className="max-w-[18rem] px-6 py-3 text-xs break-words text-[#3D5568]">
+								<td className="max-w-[18rem] px-6 py-3 text-xs break-words text-[#3D5568] dark:text-slate-400">
 									{row.reason}
 								</td>
 								<td className="px-6 py-3">

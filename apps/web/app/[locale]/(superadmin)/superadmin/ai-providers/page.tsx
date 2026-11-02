@@ -13,9 +13,9 @@ export default async function SuperadminAiProvidersPage() {
 		<div className="space-y-6">
 			<PageHeader title={t("title")} description={t("description")} />
 
-			<Card className="border-[#0A3D62]/15 bg-[#F4F7F6] p-4">
-				<p className="text-xs text-[#3D5568]">
-					<strong className="text-[#0A3D62]">{t("keysStay")}</strong>
+			<Card className="border-[#0A3D62]/15 bg-[#F4F7F6] dark:bg-[#0B1220] p-4">
+				<p className="text-xs text-[#3D5568] dark:text-slate-400">
+					<strong className="text-[#0A3D62] dark:text-slate-100">{t("keysStay")}</strong>
 					{t("storesBefore")}
 					<em>{t("storesName")}</em>
 					{t("storesAfter")}

@@ -113,7 +113,7 @@ export default async function SuperadminOrgsPage({
 									<div className="min-w-0">
 										<Link
 											href={`/superadmin/orgs/${org.id}`}
-											className="font-black text-[#0A3D62] hover:underline"
+											className="font-black text-[#0A3D62] dark:text-slate-100 hover:underline"
 										>
 											{org.name}
 										</Link>
@@ -167,14 +167,14 @@ export default async function SuperadminOrgsPage({
 						{orgs.rows.map((org) => (
 							<tr
 								key={org.id}
-								className="border-b border-gray-50 transition-colors last:border-0 hover:bg-[#F4F7F6]/50"
+								className="border-b border-gray-50 dark:border-[#1B2740] transition-colors last:border-0 hover:bg-[#F4F7F6] dark:hover:bg-[#162238]/50 dark:hover:bg-[#162238]/60"
 							>
 								<td className="px-6 py-4">
 									<div className="flex items-center gap-3">
 										<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0A3D62] text-white">
 											<FolderTree className="h-4 w-4" aria-hidden="true" />
 										</div>
-										<p className="font-black text-[#0A3D62]">
+										<p className="font-black text-[#0A3D62] dark:text-slate-100">
 											<Link
 												href={`/superadmin/orgs/${org.id}`}
 												className="rounded hover:underline focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
@@ -194,13 +194,13 @@ export default async function SuperadminOrgsPage({
 										{labelFor("orgStatuses", org.status)}
 									</Badge>
 								</td>
-								<td className="px-6 py-4 font-black tabular-nums text-[#0A3D62]">
+								<td className="px-6 py-4 font-black tabular-nums text-[#0A3D62] dark:text-slate-100">
 									{org.memberCount}
 								</td>
-								<td className="px-6 py-4 font-black tabular-nums text-[#0A3D62]">
+								<td className="px-6 py-4 font-black tabular-nums text-[#0A3D62] dark:text-slate-100">
 									{org.pondCount}
 								</td>
-								<td className="px-6 py-4 text-xs text-[#3D5568]">
+								<td className="px-6 py-4 text-xs text-[#3D5568] dark:text-slate-400">
 									{formatDateTimeLocal(org.createdAt, tDates).date}
 								</td>
 								<td className="px-6 py-4">

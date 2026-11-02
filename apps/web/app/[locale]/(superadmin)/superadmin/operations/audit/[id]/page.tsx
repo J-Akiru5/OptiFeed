@@ -89,17 +89,19 @@ export default async function OperationsAuditDetailPage({
 					<Badge tone="brand" icon={ShieldCheck}>
 						{entry.action}
 					</Badge>
-					<span className="font-mono text-xs text-[#3D5568]">{entry.id}</span>
+					<span className="font-mono text-xs text-[#3D5568] dark:text-slate-400">{entry.id}</span>
 				</div>
-				<p className="mt-3 text-sm font-bold text-[#0A3D62]">{entry.reason}</p>
+				<p className="mt-3 text-sm font-bold text-[#0A3D62] dark:text-slate-100">{entry.reason}</p>
 
 				<dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 					{facts.map((fact) => (
 						<div key={fact.label} className="min-w-0">
-							<dt className="text-[10px] font-extrabold tracking-wider text-[#3D5568] uppercase">
+							<dt className="text-[10px] font-extrabold tracking-wider text-[#3D5568] dark:text-slate-400 uppercase">
 								{fact.label}
 							</dt>
-							<dd className="mt-1 text-xs font-bold break-words text-[#0A3D62]">{fact.value}</dd>
+							<dd className="mt-1 text-xs font-bold break-words text-[#0A3D62] dark:text-slate-100">
+								{fact.value}
+							</dd>
 						</div>
 					))}
 				</dl>
@@ -108,13 +110,13 @@ export default async function OperationsAuditDetailPage({
 			<div className="grid gap-4 lg:grid-cols-2">
 				<Card>
 					<SectionTitle title={t("audit.detail.before")} />
-					<pre className="overflow-x-auto px-5 py-4 font-mono text-xs whitespace-pre-wrap text-[#3D5568]">
+					<pre className="overflow-x-auto px-5 py-4 font-mono text-xs whitespace-pre-wrap text-[#3D5568] dark:text-slate-400">
 						{jsonBlock(entry.before)}
 					</pre>
 				</Card>
 				<Card>
 					<SectionTitle title={t("audit.detail.after")} />
-					<pre className="overflow-x-auto px-5 py-4 font-mono text-xs whitespace-pre-wrap text-[#3D5568]">
+					<pre className="overflow-x-auto px-5 py-4 font-mono text-xs whitespace-pre-wrap text-[#3D5568] dark:text-slate-400">
 						{jsonBlock(entry.after)}
 					</pre>
 				</Card>

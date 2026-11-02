@@ -37,10 +37,10 @@ const ICON: Record<BandState, LucideIcon> = {
 };
 
 const ICON_TONE: Record<BandState, string> = {
-	ok: "text-[#1E7B34]",
-	degraded: "text-[#B45309]",
-	critical: "text-[#C42B3A]",
-	unknown: "text-[#3D5568]",
+	ok: "text-[#1E7B34] dark:text-emerald-300",
+	degraded: "text-[#B45309] dark:text-amber-300",
+	critical: "text-[#C42B3A] dark:text-red-300",
+	unknown: "text-[#3D5568] dark:text-slate-400",
 };
 
 export function StatusBands({
@@ -61,8 +61,10 @@ export function StatusBands({
 	return (
 		<section aria-label={t("sectionLabel")} className="space-y-3">
 			<div className="flex flex-wrap items-center justify-between gap-2">
-				<h2 className="text-lg font-black text-[#0A3D62]">{t("sectionLabel")}</h2>
-				<p className="text-[11px] font-bold text-[#3D5568]">{checkedAtLabel}</p>
+				<h2 className="text-lg font-black text-[#0A3D62] dark:text-slate-100">
+					{t("sectionLabel")}
+				</h2>
+				<p className="text-[11px] font-bold text-[#3D5568] dark:text-slate-400">{checkedAtLabel}</p>
 			</div>
 
 			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -71,7 +73,7 @@ export function StatusBands({
 					return (
 						<article key={band.key} className={cn(CARD, "flex flex-col gap-3 p-5")}>
 							<div className="flex items-start justify-between gap-2">
-								<h3 className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568]">
+								<h3 className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-slate-400 dark:text-slate-300">
 									{t(`bands.${band.key}`)}
 								</h3>
 								<Badge tone={TONE[band.state]} icon={Icon}>
@@ -85,7 +87,7 @@ export function StatusBands({
 									return (
 										<li
 											key={fact.key}
-											className="flex items-start gap-1.5 text-[11px] leading-snug text-[#3D5568]"
+											className="flex items-start gap-1.5 text-[11px] leading-snug text-[#3D5568] dark:text-slate-400"
 										>
 											<FactIcon
 												className={cn("mt-0.5 h-3 w-3 shrink-0", ICON_TONE[fact.state])}

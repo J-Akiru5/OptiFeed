@@ -92,7 +92,7 @@ export function ViewAsControl({ orgId, orgName }: { orgId: string; orgName: stri
 	return (
 		<>
 			<form onSubmit={submit} className="min-w-[15rem] space-y-2" aria-busy={isPending}>
-				<p className="text-[11px] font-bold leading-snug text-[#C42B3A]">
+				<p className="text-[11px] font-bold leading-snug text-[#C42B3A] dark:text-red-300">
 					{t("warning", { orgName })}
 				</p>
 				<input
@@ -101,7 +101,7 @@ export function ViewAsControl({ orgId, orgName }: { orgId: string; orgName: stri
 					disabled={isPending}
 					placeholder={tCommon("reasonPlaceholderShort")}
 					aria-label={t("reasonAria", { orgName })}
-					className="w-full rounded-lg border border-gray-200 bg-[#F4F7F6] px-3 py-2 text-xs text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:opacity-60"
+					className="w-full rounded-lg border border-gray-200 dark:border-[#24304A] bg-[#F4F7F6] dark:bg-[#0B1220] px-3 py-2 text-xs text-[#0A3D62] dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:opacity-60"
 				/>
 				{error && <Alert tone="error">{error}</Alert>}
 				<div className="flex gap-2">

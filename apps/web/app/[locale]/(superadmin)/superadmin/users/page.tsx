@@ -125,13 +125,13 @@ export default async function SuperadminUsersPage({
 												className="rounded-xl bg-[#0A3D62]"
 											/>
 											<div className="min-w-0">
-												<p className="truncate font-black text-[#0A3D62]">
+												<p className="truncate font-black text-[#0A3D62] dark:text-slate-100">
 													{user.displayName || user.farmId}
 												</p>
-												<p className="truncate text-[11px] text-[#3D5568]">
+												<p className="truncate text-[11px] text-[#3D5568] dark:text-slate-400">
 													{user.contactEmail ?? t("noContactEmail")}
 												</p>
-												<p className="truncate font-mono text-[11px] text-[#3D5568]">
+												<p className="truncate font-mono text-[11px] text-[#3D5568] dark:text-slate-400">
 													{user.farmId}
 												</p>
 											</div>
@@ -162,11 +162,11 @@ export default async function SuperadminUsersPage({
 									</div>
 
 									<div>
-										<p className="text-[9px] font-black uppercase tracking-wider text-[#3D5568]">
+										<p className="text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 											{t("organizationsLabel")}
 										</p>
 										{user.orgs.length === 0 ? (
-											<p className="mt-1 text-[11px] italic text-[#3D5568]">
+											<p className="mt-1 text-[11px] italic text-[#3D5568] dark:text-slate-400">
 												{tCommon("noOrganization")}
 											</p>
 										) : (
@@ -174,7 +174,7 @@ export default async function SuperadminUsersPage({
 												{user.orgs.map((org) => (
 													<span
 														key={org.id}
-														className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-[#F4F7F6] px-2 py-0.5 text-[10px] font-bold text-[#0A3D62]"
+														className="inline-flex items-center gap-1 rounded-lg border border-gray-200 dark:border-[#24304A] bg-[#F4F7F6] dark:bg-[#0B1220] px-2 py-0.5 text-[10px] font-bold text-[#0A3D62] dark:text-slate-100"
 													>
 														{org.name}
 														<span className="text-[#8A4A00]">{org.role}</span>
@@ -184,7 +184,7 @@ export default async function SuperadminUsersPage({
 										)}
 									</div>
 
-									<p className="text-xs font-bold text-[#3D5568]">
+									<p className="text-xs font-bold text-[#3D5568] dark:text-slate-400">
 										{t("pondCount", { count: user.pondCount })}
 									</p>
 								</MobileCard>
@@ -210,7 +210,7 @@ export default async function SuperadminUsersPage({
 							return (
 								<tr
 									key={user.id}
-									className="border-b border-gray-50 transition-colors last:border-0 hover:bg-[#F4F7F6]/50"
+									className="border-b border-gray-50 dark:border-[#1B2740] transition-colors last:border-0 hover:bg-[#F4F7F6] dark:hover:bg-[#162238]/50 dark:hover:bg-[#162238]/60"
 								>
 									<td className="px-6 py-4">
 										<div className="flex items-center gap-3">
@@ -221,13 +221,15 @@ export default async function SuperadminUsersPage({
 												className="rounded-xl bg-[#0A3D62]"
 											/>
 											<div className="min-w-0">
-												<p className="font-black text-[#0A3D62]">
+												<p className="font-black text-[#0A3D62] dark:text-slate-100">
 													{user.displayName || user.farmId}
 												</p>
-												<p className="text-[11px] text-[#3D5568]">
+												<p className="text-[11px] text-[#3D5568] dark:text-slate-400">
 													{user.contactEmail ?? t("noContactEmail")}
 												</p>
-												<p className="font-mono text-[11px] text-[#3D5568]">{user.farmId}</p>
+												<p className="font-mono text-[11px] text-[#3D5568] dark:text-slate-400">
+													{user.farmId}
+												</p>
 											</div>
 										</div>
 									</td>
@@ -240,7 +242,7 @@ export default async function SuperadminUsersPage({
 
 									<td className="px-6 py-4">
 										{user.orgs.length === 0 ? (
-											<span className="text-[11px] italic text-[#3D5568]">
+											<span className="text-[11px] italic text-[#3D5568] dark:text-slate-400">
 												{tCommon("noOrganization")}
 											</span>
 										) : (
@@ -249,7 +251,7 @@ export default async function SuperadminUsersPage({
 													<span
 														key={org.id}
 														title={t("memberCount", { count: org.memberCount })}
-														className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-[#F4F7F6] px-2 py-0.5 text-[10px] font-bold text-[#0A3D62]"
+														className="inline-flex items-center gap-1 rounded-lg border border-gray-200 dark:border-[#24304A] bg-[#F4F7F6] dark:bg-[#0B1220] px-2 py-0.5 text-[10px] font-bold text-[#0A3D62] dark:text-slate-100"
 													>
 														{org.name}
 														<span className="text-[#8A4A00]">{org.role}</span>
@@ -259,7 +261,7 @@ export default async function SuperadminUsersPage({
 										)}
 									</td>
 
-									<td className="px-6 py-4 font-black tabular-nums text-[#0A3D62]">
+									<td className="px-6 py-4 font-black tabular-nums text-[#0A3D62] dark:text-slate-100">
 										{user.pondCount}
 									</td>
 
@@ -270,7 +272,9 @@ export default async function SuperadminUsersPage({
 													{tCommon("platform")}
 												</Badge>
 											) : (
-												<span className="text-[11px] text-[#3D5568]">{tCommon("none")}</span>
+												<span className="text-[11px] text-[#3D5568] dark:text-slate-400">
+													{tCommon("none")}
+												</span>
 											)}
 											{user.disabled && (
 												<Badge tone="neutral" icon={UserX}>

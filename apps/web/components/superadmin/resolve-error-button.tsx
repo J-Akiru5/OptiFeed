@@ -41,7 +41,7 @@ export function ResolveErrorButton({ id }: { id: string }) {
 
 	if (done) {
 		return (
-			<p className="inline-flex items-center gap-1.5 text-xs font-bold text-[#1E7B34]">
+			<p className="inline-flex items-center gap-1.5 text-xs font-bold text-[#1E7B34] dark:text-emerald-300">
 				<Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
 				{t("resolvedJustNow")}
 			</p>
@@ -64,7 +64,7 @@ export function ResolveErrorButton({ id }: { id: string }) {
 				{pending ? t("resolving") : t("resolve")}
 			</button>
 			{failed && (
-				<p role="alert" className="text-xs font-bold text-[#C42B3A]">
+				<p role="alert" className="text-xs font-bold text-[#C42B3A] dark:text-red-300">
 					{t("resolveFailed")}
 				</p>
 			)}

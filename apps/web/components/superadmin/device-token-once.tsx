@@ -39,15 +39,15 @@ export function DeviceTokenOnce({
 	};
 
 	return (
-		<div className="space-y-3 rounded-xl border border-[#F5B87A] bg-[#FFF4E8] p-4">
-			<p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#8A4A00]">
+		<div className="space-y-3 rounded-xl border border-[#F5B87A] bg-[#FFF4E8] p-4 dark:border-amber-500/40 dark:bg-amber-950/50">
+			<p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#8A4A00] dark:text-amber-300">
 				<KeyRound className="h-4 w-4" aria-hidden="true" />
 				{t("title", { mac })}
 			</p>
-			<code className="block break-all rounded-lg border border-[#F5B87A] bg-white px-3 py-2 font-mono text-xs font-bold text-[#0A3D62]">
+			<code className="block break-all rounded-lg border border-[#F5B87A] bg-white dark:bg-[#111A2C] px-3 py-2 font-mono text-xs font-bold text-[#0A3D62] dark:text-slate-100">
 				{token}
 			</code>
-			<p className="text-[11px] leading-snug text-[#3D5568]">
+			<p className="text-[11px] leading-snug text-[#3D5568] dark:text-slate-400">
 				{t("hintBefore")}
 				<b>{t("deviceToken")}</b>
 				{t("hintMiddle")}
@@ -55,7 +55,7 @@ export function DeviceTokenOnce({
 				{t("hintAfter")}
 			</p>
 			{copyFailed && (
-				<p role="alert" className="text-[11px] font-bold text-[#C42B3A]">
+				<p role="alert" className="text-[11px] font-bold text-[#C42B3A] dark:text-red-300">
 					{t("copyFailed")}
 				</p>
 			)}
@@ -64,7 +64,7 @@ export function DeviceTokenOnce({
 					type="button"
 					onClick={copy}
 					className={cn(
-						"inline-flex items-center gap-1.5 rounded-lg border border-[#0A3D62]/20 bg-white px-3 py-1.5 text-xs font-black text-[#0A3D62] hover:bg-[#F4F7F6]",
+						"inline-flex items-center gap-1.5 rounded-lg border border-[#0A3D62]/20 bg-white dark:bg-[#111A2C] px-3 py-1.5 text-xs font-black text-[#0A3D62] dark:text-slate-100 hover:bg-[#F4F7F6] dark:hover:bg-[#162238]",
 						FOCUS_RING,
 					)}
 				>

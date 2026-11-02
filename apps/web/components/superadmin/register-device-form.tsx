@@ -101,7 +101,7 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 
 	return (
 		<div className={cn(CARD, "space-y-4 p-6")} data-help="superadmin-register-device">
-			<h2 className="text-xs font-extrabold uppercase tracking-wider text-[#3D5568]">
+			<h2 className="text-xs font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 				{t("title")}
 			</h2>
 
@@ -127,7 +127,7 @@ export function RegisterDeviceForm({ options }: { options: OrgPondOption[] }) {
 			)}
 
 			{assignable.length === 0 ? (
-				<p className="text-sm text-[#3D5568]">{t("noPonds")}</p>
+				<p className="text-sm text-[#3D5568] dark:text-slate-400">{t("noPonds")}</p>
 			) : (
 				<form onSubmit={submit} className="space-y-4" aria-busy={isPending}>
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

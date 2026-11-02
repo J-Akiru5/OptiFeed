@@ -1,4 +1,5 @@
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
+import { DarkModeToggle } from "@/components/dark-mode-toggle";
 import { HelpButton } from "@/components/help/help-button";
 import { MobileHeader } from "@/components/mobile/mobile-header";
 import { GlobalSearch, SearchTrigger } from "@/components/search/global-search";
@@ -22,9 +23,10 @@ import Image from "next/image";
  * an account can hold role=ADMIN and still be denied here, and a role=VIEWER
  * superadmin is allowed here. Mirrors (admin)/layout.tsx.
  *
- * Copy comes from the `superadmin.shell` catalogue (T-10) and the shell paints
- * the light brand surface regardless of the OS colour scheme, so the shell, the
- * pages, `loading.tsx` and `error.tsx` stay on the same palette.
+ * Copy comes from the `superadmin.shell` catalogue (T-10). The shell chrome is
+ * branded navy in both themes; the content surface follows the shared
+ * `optifeed:theme` preference through the top-bar toggle (#477), so the pages,
+ * `loading.tsx` and `error.tsx` paint from the same `dark:` palette.
  *
  * The farm-dashboard link is offered only to a platform admin who is also an
  * active tenant member (E18, #199): everyone else has no tenant dashboard to
@@ -53,17 +55,18 @@ export default async function SuperadminLayout({
 	);
 
 	return (
-		<div className="flex h-dvh flex-col overflow-hidden bg-[#F4F7F6]">
+		<div className="flex h-dvh flex-col overflow-hidden bg-[#F4F7F6] dark:bg-[#0B1220]">
 			<a
 				href="#main-content"
-				className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-black focus:text-[#0A3D62] focus:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
+				className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-black focus:text-[#0A3D62] focus:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] dark:focus:bg-[#111A2C] dark:focus:text-slate-100"
 			>
 				{t("skipToContent")}
 			</a>
 
-			<header className="sticky top-0 z-30 w-full shrink-0 bg-[#0A3D62] shadow-md">
+			<header className="sticky top-0 z-30 w-full shrink-0 bg-[#0A3D62] shadow-md dark:bg-[#08111D] dark:shadow-black/40">
 				<GlobalSearch shell="platform" />
 				<MobileHeader shell="platform" isTenantAdmin={hasFarmDashboard} subtitle={t("console")}>
+					<DarkModeToggle />
 					{helpEnabled && <HelpButton audience="superadmin" className="h-11 w-11" />}
 					{hasFarmDashboard ? (
 						<Link
@@ -104,6 +107,7 @@ export default async function SuperadminLayout({
 
 					<div className="flex shrink-0 items-center gap-3">
 						<SearchTrigger />
+						<DarkModeToggle />
 						{helpEnabled && <HelpButton audience="superadmin" />}
 						{hasFarmDashboard && (
 							<Link

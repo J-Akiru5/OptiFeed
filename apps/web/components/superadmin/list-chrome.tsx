@@ -46,7 +46,7 @@ export function ListToolbar({
 						placeholder={placeholder}
 						autoComplete="off"
 						enterKeyHint="search"
-						className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-[#0A3D62] transition-all placeholder:text-[#3D5568]/70 focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+						className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white dark:bg-[#111A2C] px-3 py-2 text-sm text-[#0A3D62] transition-all placeholder:text-[#3D5568]/70 focus:outline-none focus:ring-2 focus:ring-[#E85A2A] dark:border-[#24304A] dark:bg-[#0B1220] dark:text-slate-100 dark:placeholder:text-slate-500"
 					/>
 					<button type="submit" className={SECONDARY_BUTTON}>
 						<Search className="h-3.5 w-3.5" aria-hidden="true" />

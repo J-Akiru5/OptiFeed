@@ -888,6 +888,10 @@ model BackgroundJob {
   result      Json?
   error       String?
   attempts    Int          @default(0)
+  /// When the next attempt may run. NULL means "as soon as a worker reaches it".
+  nextAttemptAt DateTime?
+  /// Operator-facing detail from the last attempt. Never returned to tenants.
+  lastError   String?
   lockedAt    DateTime?
   lockedBy    String?
   createdAt   DateTime     @default(now())
@@ -897,6 +901,7 @@ model BackgroundJob {
   artifact    JobArtifact?
 
   @@index([status, createdAt])
+  @@index([status, nextAttemptAt])
   @@index([ownerId, createdAt])
   @@index([expiresAt])
 }

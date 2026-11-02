@@ -13,7 +13,7 @@
  *
  * Usage:
  *   node scripts/ota/sign-release.mjs \
- *     --bin .pio/build/esp32dev/firmware.bin \
+ *     --variant gpio5 \
  *     --version 1.4.1 \
  *     --key ../ota-signing-keys/pakaonai-ota-primary-private.pem \
  *     --key-id primary \
@@ -21,8 +21,14 @@
  *     --targets all \
  *     --out ota-out
  *
- * `--public-key FILE` overrides the committed public PEM (tests and rotation
- * rehearsals only).
+ * `--variant` is required and names the relay wiring (gpio5 or gpio25). The
+ * script reads `firmware/platformio.ini` and refuses to sign unless the
+ * matching environment declares both that variant and the same relay GPIO, so
+ * a manifest can never claim a pin the image was not built for (#582).
+ *
+ * `--bin` defaults to `firmware/.pio/build/<env>/firmware.bin`; `--env`
+ * defaults to `esp32dev-<variant>`. `--public-key FILE` overrides the committed
+ * public PEM (tests and rotation rehearsals only).
  */
 
 import { createHash, createPrivateKey, createPublicKey, sign, verify } from "node:crypto";
@@ -31,6 +37,12 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const BOARD = "wroom32u";
+// Hardware variant -> relay GPIO. Mirrors firmware-main/hardware.h and the
+// OTA_VARIANT_RELAY_GPIO map in apps/web/lib/firmware/ota.ts.
+const VARIANT_RELAY_GPIO = {
+	gpio5: 5,
+	gpio25: 25,
+};
 // min_spiffs.csv app slot (firmware/README.md "Partition table (OTA bootstrap)").
 const MAX_IMAGE_BYTES = 1_966_080;
 const SEMVER = /^(\d{1,6})\.(\d{1,6})\.(\d{1,6})(?:[-+][0-9A-Za-z.-]+)?$/;
@@ -56,9 +68,11 @@ function fail(message) {
 }
 
 function parseArgs(argv) {
-	const options = { keyId: "primary", targets: "all", out: "ota-out" };
+	const options = { keyId: "primary", targets: "all", out: "ota-out", env: null };
 	const flags = {
 		"--bin": "bin",
+		"--variant": "variant",
+		"--env": "env",
 		"--version": "version",
 		"--key": "key",
 		"--key-id": "keyId",
@@ -79,8 +93,11 @@ function parseArgs(argv) {
 		index++;
 	}
 
-	for (const required of ["bin", "version", "key"]) {
+	for (const required of ["variant", "version", "key"]) {
 		if (!options[required]) fail(`--${required} is required (see the header of this script)`);
+	}
+	if (!Object.hasOwn(VARIANT_RELAY_GPIO, options.variant)) {
+		fail(`--variant must be gpio5 or gpio25, got "${options.variant}"`);
 	}
 	if (!SEMVER.test(options.version)) fail(`--version must be X.Y.Z, got "${options.version}"`);
 	if (options.minFrom && !SEMVER.test(options.minFrom)) {
@@ -114,12 +131,85 @@ function readPem(path, label) {
 	return pem;
 }
 
+/** Very small INI reader: sections -> raw lines (the file has no includes). */
+function readIniSections(text) {
+	const sections = new Map();
+	let current = null;
+	for (const line of text.split(/\r?\n/)) {
+		const header = /^\s*\[([^\]]+)\]\s*$/.exec(line);
+		if (header) {
+			current = header[1].trim();
+			sections.set(current, []);
+			continue;
+		}
+		if (current) sections.get(current).push(line);
+	}
+	return sections;
+}
+
+/** Effective build_flags for an environment, following `extends` parents. */
+function buildFlagsFor(sections, name, seen = new Set()) {
+	if (seen.has(name)) fail(`circular extends for environment "${name}"`);
+	seen.add(name);
+	const lines = sections.get(`env:${name}`);
+	if (!lines) fail(`build environment "${name}" not found in firmware/platformio.ini`);
+
+	const flags = [];
+	const parents = [];
+	for (const raw of lines) {
+		const line = raw.trim();
+		if (!line || line.startsWith(";") || line.startsWith("#")) continue;
+		const assignment = /^([A-Za-z0-9_.-]+)\s*=\s*(.*)$/.exec(line);
+		if (!assignment) continue;
+		if (assignment[1] === "build_flags") flags.push(assignment[2]);
+		if (assignment[1] === "extends") {
+			for (const parent of assignment[2].split(",")) {
+				parents.push(parent.trim().replace(/^env:/, ""));
+			}
+		}
+	}
+	for (const parent of parents) flags.push(buildFlagsFor(sections, parent, new Set(seen)));
+	return flags.join(" ");
+}
+
+/**
+ * Refuse to sign unless the named PlatformIO environment declares this exact
+ * variant and relay GPIO. This is the release-time half of #582: the manifest
+ * cannot claim a wiring the built image was not compiled for.
+ */
+function assertBuildMatchesVariant(options) {
+	const envName = options.env ?? `esp32dev-${options.variant}`;
+	const iniPath = join(repoRoot, "firmware", "platformio.ini");
+	if (!existsSync(iniPath)) fail(`platformio.ini not found: ${iniPath}`);
+
+	const flags = buildFlagsFor(readIniSections(readFileSync(iniPath, "utf8")), envName);
+	const pinMatch = /-DRELAY_PIN=(\d+)/.exec(flags);
+	const variantMatch = /-DFW_HW_VARIANT=\\?"([^"\\]+)\\?"/.exec(flags);
+	if (!pinMatch) fail(`environment "${envName}" does not declare -DRELAY_PIN`);
+	if (!variantMatch) fail(`environment "${envName}" does not declare -DFW_HW_VARIANT`);
+
+	const pin = Number(pinMatch[1]);
+	const variant = variantMatch[1];
+	if (variant !== options.variant) {
+		fail(`environment "${envName}" declares variant "${variant}", not "${options.variant}"`);
+	}
+	if (pin !== VARIANT_RELAY_GPIO[options.variant]) {
+		fail(
+			`environment "${envName}" declares relay GPIO ${pin}, but ${options.variant} requires GPIO ${VARIANT_RELAY_GPIO[options.variant]}`,
+		);
+	}
+	return { envName, pin };
+}
+
 function main() {
 	const options = parseArgs(process.argv.slice(2));
 	const { targets } = options;
+	const { envName, pin: relayGpio } = assertBuildMatchesVariant(options);
+	const binPath =
+		options.bin ?? join(repoRoot, "firmware", ".pio", "build", envName, "firmware.bin");
 
-	if (!existsSync(options.bin)) fail(`firmware binary not found: ${options.bin}`);
-	const image = readFileSync(options.bin);
+	if (!existsSync(binPath)) fail(`firmware binary not found: ${binPath}`);
+	const image = readFileSync(binPath);
 	if (image.length === 0) fail("the firmware binary is empty");
 	if (image.length > MAX_IMAGE_BYTES) {
 		fail(`image is ${image.length} bytes; the OTA slot fits ${MAX_IMAGE_BYTES}`);
@@ -132,6 +222,8 @@ function main() {
 	// firmware hashes, and `JSON.stringify` here is the only serializer.
 	const manifestObject = {
 		board: BOARD,
+		variant: options.variant,
+		relay_gpio: relayGpio,
 		key_id: options.keyId,
 		...(options.minFrom ? { min_from_version: options.minFrom } : {}),
 		sha256,
@@ -178,6 +270,7 @@ function main() {
 		manifest,
 		signature: signature.toString("base64"),
 		key_id: options.keyId,
+		variant: options.variant,
 		targets,
 	};
 
@@ -186,12 +279,13 @@ function main() {
 	writeFileSync(outPath, `${JSON.stringify(channel, null, 2)}\n`, "utf8");
 
 	console.log(`[ota] signed ${options.version} with key "${options.keyId}"`);
+	console.log(`[ota] hardware: ${options.variant} (relay GPIO ${relayGpio}, env ${envName})`);
 	console.log(`[ota] image ${size} bytes, sha256 ${sha256}`);
 	console.log(`[ota] targets: ${targets === "*" ? "all units" : `${targets.length} MAC(s)`}`);
 	console.log(`[ota] wrote ${outPath}`);
 	console.log("");
 	console.log('Upload these two objects to the PRIVATE Supabase Storage bucket "firmware":');
-	console.log(`  1. ${options.bin} -> ${channel.storage_path}`);
+	console.log(`  1. ${binPath} -> ${channel.storage_path}`);
 	console.log(`  2. ${outPath} -> channels/stable.json`);
 	console.log("Devices pick the release up on their next check (30 min by default).");
 }

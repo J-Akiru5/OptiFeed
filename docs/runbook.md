@@ -14,8 +14,13 @@ in the dashboard; VIEWER is read-only.
    the cap is refused and reported, not truncated. The server's only gram cap
    is the daily ceiling, so a server-accepted dose above 1,000 g is still
    refused by this firmware guard until the guard itself is changed.
-3. **Last resort: cut relay power** to the feeder (relay is GPIO 25, active
-   HIGH; boots in the OFF/CLOSED state).
+3. **Last resort: cut relay power** to the feeder. The relay is active HIGH and
+   boots OFF (contacts open). The GPIO depends on the unit: **GPIO 5** on the
+   CICT Building A field unit (`esp32dev-gpio5`, variant `gpio5`) and **GPIO 25**
+   on the reference build (`esp32dev-gpio25`, variant `gpio25`). Check
+   `diag.hw_variant` / `diag.relay_gpio` on the device page before assuming a
+   pin. The authoritative pin map and build table are in
+   `docs/hardware/2026-10-28-cict-pin-map-and-health.md`.
 4. After the incident: check Admin → Audit and the `DeviceStateEvent` log for
    the offending `feed_request_id`, then re-enable the device.
 
@@ -88,3 +93,33 @@ for the console reset, `platform.user.password_reset_requested` for a
 self-service request. If the reset seems to have had no effect, check that row
 first, then the account's state (`pnpm --filter web manage-user list` shows the
 `[must change password]` flag).
+
+## 6. Build or release a firmware image
+
+The relay GPIO is per unit, so **never build or sign a firmware image without
+naming its hardware variant**. The full release procedure is in
+`firmware/README.md` → **Release procedure (signed OTA)**; the pin map is
+`docs/hardware/2026-10-28-cict-pin-map-and-health.md`.
+
+- CICT Building A field unit (relay GPIO 5):
+
+  ```bash
+  pio run -d firmware -e esp32dev-gpio5
+  node scripts/ota/sign-release.mjs \
+    --bin firmware/.pio/build/esp32dev-gpio5/firmware.bin \
+    --variant gpio5 --version <X.Y.Z> \
+    --key <offline-private.pem> --key-id primary --targets all --out ota-out
+  ```
+
+- Reference / bench board (relay GPIO 25): use `esp32dev-gpio25` and
+  `--variant gpio25`.
+
+The signer refuses unless the PlatformIO environment declares the same variant
+and relay pin. The signed manifest carries `variant` and `relay_gpio`; a unit
+declines the other wiring, reports `ota_refusal = variant_mismatch` in its
+heartbeat diagnostics, and shows it on the device page. A unit flashed over USB
+with the other variant keeps `hw_variant_ok = false`, locks the relay off and
+refuses doses with `hardware_variant_mismatch`; flash the correct image to
+recover. A factory reset (GPIO 16, 10 s) clears the provisioned variant only
+when the wiring was deliberately changed. **Flashing and OTA are owner-gated**
+— do not upload until the physical wiring matches the variant.

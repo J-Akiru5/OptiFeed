@@ -345,6 +345,34 @@ describe("change password form", () => {
 
 		expect(screen.getByRole("alert")).toHaveTextContent("Current password is incorrect.");
 	});
+
+	it("never reveals the current password, even after it is filled (#607)", () => {
+		render(<ChangePasswordForm />);
+
+		const current = screen.getByLabelText("Current password");
+		expect(current).toHaveAttribute("type", "password");
+		expect(current).toHaveAttribute("data-revealable", "false");
+		expect(current).toHaveValue("");
+
+		// Simulates a password manager autofilling the saved credential.
+		fireEvent.change(current, { target: { value: "2L97qnE5umTAQbv" } });
+		expect(current).toHaveAttribute("type", "password");
+		expect(screen.queryByRole("button", { name: "Hide password" })).not.toBeInTheDocument();
+	});
+
+	it("keeps the reveal toggle on the new and confirmation fields", () => {
+		render(<ChangePasswordForm />);
+
+		const toggles = screen.getAllByRole("button", { name: "Show password" });
+		expect(toggles).toHaveLength(2);
+		expect(screen.getByLabelText("New password")).toHaveAttribute("data-revealable", "true");
+
+		fireEvent.click(toggles[0]);
+
+		expect(screen.getByLabelText("New password")).toHaveAttribute("type", "text");
+		expect(screen.getByLabelText("Confirm new password")).toHaveAttribute("type", "password");
+		expect(screen.getByLabelText("Current password")).toHaveAttribute("type", "password");
+	});
 });
 
 describe("LiveClock", () => {

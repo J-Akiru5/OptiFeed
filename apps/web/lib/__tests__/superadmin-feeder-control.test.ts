@@ -11,6 +11,8 @@ const { db, tx } = vi.hoisted(() => {
 		},
 		deviceStateEvent: { create: vi.fn(), findFirst: vi.fn() },
 		platformAuditLog: { create: vi.fn() },
+		// #581: the command locks the device row before deciding.
+		$queryRaw: vi.fn(async () => []),
 	};
 	const db = {
 		energyDevice: { findUnique: vi.fn() },
@@ -18,6 +20,9 @@ const { db, tx } = vi.hoisted(() => {
 		membership: { findMany: vi.fn() },
 		user: { findMany: vi.fn() },
 		platformAdmin: { findUnique: vi.fn() },
+		// Read outside the aborted transaction when the partial unique index wins.
+		feedRequest: { findFirst: vi.fn() },
+		platformAuditLog: { create: vi.fn() },
 		$transaction: vi.fn(async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx)),
 	};
 	return { db, tx };
@@ -240,6 +245,41 @@ describe("remoteFeedDevice", () => {
 		expect(result).toEqual({ success: true, message: "Feed already pending" });
 		expect(tx.feedRequest.create).not.toHaveBeenCalled();
 		expect(auditRows()).toHaveLength(1);
+	});
+
+	it("recovers the winning request when the unique index rejects a concurrent insert", async () => {
+		allowDevice();
+		db.feedRequest.findFirst.mockResolvedValue({ id: "winner" });
+		db.platformAuditLog.create.mockResolvedValue({});
+		tx.feedRequest.create.mockRejectedValueOnce(
+			Object.assign(new Error("Unique constraint failed"), {
+				code: "P2002",
+				meta: { target: ["deviceId"] },
+			}),
+		);
+
+		const result = await remoteFeedDevice({ deviceId: DEVICE_ID, grams: 200, reason: REASON });
+
+		expect(result).toEqual({ success: true, message: "Feed already pending" });
+		// The failed transaction is abandoned; the winner is read on a fresh client.
+		expect(db.feedRequest.findFirst).toHaveBeenCalledWith({
+			where: { deviceId: DEVICE_ID, status: "pending" },
+			select: { id: true },
+		});
+		expect(db.platformAuditLog.create).toHaveBeenCalledTimes(1);
+		const row = db.platformAuditLog.create.mock.calls[0][0].data;
+		expect(row).toMatchObject({
+			action: "platform.device.feed",
+			targetType: "energy_device",
+			targetId: DEVICE_ID,
+			orgId: "org-a",
+			reason: REASON,
+		});
+		expect(row.after).toMatchObject({
+			grams: 200,
+			requestId: "winner",
+			alreadyPending: true,
+		});
 	});
 });
 

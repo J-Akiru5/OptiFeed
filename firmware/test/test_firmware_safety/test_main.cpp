@@ -295,6 +295,7 @@ void test_refusal_reasons_match_the_server_contract(void) {
   TEST_ASSERT_EQUAL_STRING("relay_overrun", refusalReason(Refusal::RELAY_OVERRUN));
   TEST_ASSERT_EQUAL_STRING("daily_gram_cap_exceeded", refusalReason(Refusal::DAILY_CAP));
   TEST_ASSERT_EQUAL_STRING("dose_time_exceeds_cap", refusalReason(Refusal::DOSE_TOO_LONG));
+  TEST_ASSERT_EQUAL_STRING("hardware_variant_mismatch", refusalReason(Refusal::HARDWARE_VARIANT));
 }
 
 // ---------------------------------------------------------------- safe mode

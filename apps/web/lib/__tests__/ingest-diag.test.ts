@@ -31,9 +31,9 @@ vi.mock("@/lib/prisma", () => ({
 			findFirst: vi.fn(),
 			updateMany: vi.fn(),
 		},
-		$transaction: vi.fn(async (input: unknown) => {
+		$transaction: vi.fn(async function (this: unknown, input: unknown) {
 			if (Array.isArray(input)) return Promise.all(input);
-			return (input as () => Promise<unknown>)();
+			return (input as (tx: unknown) => Promise<unknown>)(this);
 		}),
 	},
 }));

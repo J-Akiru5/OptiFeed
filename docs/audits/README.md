@@ -49,6 +49,12 @@ titled "Defects fixed" describe the held branches, not `develop`.
 
 ## Related audit (not a calculation audit)
 
+- [2026-11-03-production-readiness.md](2026-11-03-production-readiness.md) — the #618
+  production-readiness register: **1 P0, 6 P1, 36 P2 and 8 P3** findings with `file:line`
+  evidence, the earlier register's fixed items, the critical paths with no test, and the
+  seven issues filed from it (#665, #666, #668-#672). Read-only; no fixes inside the
+  audit.
+
 - [2026-11-03-calibration-coverage.md](2026-11-03-calibration-coverage.md) — the #617
   calibration coverage matrix: every firmware config key and device column, which
   surface changes it, the one genuinely guided flow (auger rate), and the five gaps

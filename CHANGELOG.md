@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The tenant health, fleet monitor and incident queue pages are reachable from the console navigation (#479).** `/superadmin/tenants`, `/superadmin/fleet` and `/superadmin/incidents` shipped but the sidebar's Command Center group still held only Overview and the platform quick menu stopped at the nine older sections. Command Center now lists Overview, Tenants, Fleet and Incidents in that order, the mobile quick menu carries the same three destinations, and each page marks its own link current (the tenants compare page highlights Tenants). The mobile header band and the console scope banner now name the section too (`Fleet`, not the fallback `Overview`), with `/superadmin/tenants/compare` staying under Tenants. No existing URL changed. Strings are in English, Hiligaynon and Tagalog (the Tagalog is a machine draft, queued for review).
 - **A firmware change can no longer merge with a failing host test suite (#455).** The `Firmware` workflow now runs `pio test -d firmware -e native` after the PlatformIO setup and before it compiles the ESP32 targets, so the Unity safety and config tests gate every pull request and push that touches `firmware/**` or the workflow itself. The step is host-only: no board, no network, no secrets. Triggers, path filters, the compile matrix and the `compile` check name are unchanged.
 
+### Fixed
+
+- **An unreported safety trip survives leaving safe mode and a reboot (#455).** The trip id is resumed from NVS whenever it is still pending, not only while `safe_mode` is active, so the 30-minute quiet window or a reset hold can no longer make the incident unreportable. The rare report path now logs whether it is waiting on Wi-Fi, heartbeat spacing or retry backoff, and whether the connection failed, instead of failing silently.
+
 ## [1.43.0] - 2026-11-02
 
 

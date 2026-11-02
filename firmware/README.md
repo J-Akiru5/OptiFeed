@@ -1194,7 +1194,8 @@ id is created in `enterSafeMode()` and persisted in NVS (`safe_trip_id`, `safe_t
 sent; a 422 from an older server is permanent; 429, 5xx and transport failures retry with the existing
 5 s→5 min backoff, so a trip that happens offline lands exactly once after reconnect. The relay path is
 unchanged. Until the report lands, the heartbeat still carries `safe_mode` and the unit refuses doses
-with `feed_refused` / `safe_mode`.
+with `feed_refused` / `safe_mode`. A pending trip is resumed from NVS on any boot, even after safe
+mode has been left, so the 30-minute quiet window or a reset hold cannot drop it.
 
 ```json
 {

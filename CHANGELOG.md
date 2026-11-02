@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The dashboard now shows the live fish count and the mortality rate, not the stocked count.** It reads the same derived count as Growth (stocked minus mortality), so the pond card cannot disagree with the growth page again. The pond summary shows dead and percentage; the population tile links to Growth. Pond settings now labels the field "Stocked fish count", explains that mortality is subtracted, and shows an "Unsaved changes" banner so a restored draft is not mistaken for a save. The form also refreshes after a successful save (#430, #452).
+
 ### Added
 
 - **The platform console says where you are, and its sidebar is in three groups.** A scope banner under the top bar shows the path (`GLOBAL SUPERADMIN → DEVICES`, or `GLOBAL SUPERADMIN → ORGANIZATION ALPHA` on an organization page) and stays in view while the page scrolls. It uses the brand navy and orange with an icon per level, so it never reads as a status colour and stays distinct from the red view-as banner. The sidebar now groups the same nine links under Command Center, Ecosystem Management and Platform Control; no URL changed. Strings are in English, Hiligaynon and Tagalog (the Tagalog is a machine draft, queued for review). First slice of the Platform Command Center (#479, plan M3C.1).

@@ -169,6 +169,10 @@
 		{
 			"path": "/api/v1/superadmin/backup/export",
 			"reason": "Streamed full-database SQL download (POST body carries the mandatory reason); platform admin, step-up and rate limit. Covered by backup-* tests."
+		},
+		{
+			"path": "/api/v1/reports",
+			"reason": "Public issue-report write (#487); a synthetic POST would create a real report, and the route is covered by its unit tests plus the rate-limit tests."
 		}
 	]
 }

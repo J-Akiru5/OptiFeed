@@ -830,6 +830,12 @@
 				"allPondsEditHint": "Pumili ng isang pond para makapagdagdag ng pangyayari.",
 				"recurringChangeConfirm": "Palitan ang buong paulit-ulit na serye? Piliin ang Kanselahin para manatili ito sa dati."
 			},
+			"dayEvents": {
+				"title": "Mga kaganapan sa {date}",
+				"subtitle": "{count, plural, one {# kaganapan} other {# mga kaganapan}}",
+				"empty": "Walang naka-iskedyul sa araw na ito.",
+				"addEvent": "Magdagdag ng pangyayari"
+			},
 			"calendarPage": {
 				"title": "Kalendaryo at Ani",
 				"desc": "Ang grow-out cycle at bawat pangyayari sa pond, sa isang kalendaryo.",

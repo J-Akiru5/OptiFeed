@@ -39,12 +39,6 @@ export const RECONCILIATION_LOOKBACK_HOURS = 4;
 // unless a stored value changed (N11 — was 17,280 rows/device/day).
 export const HEARTBEAT_ROW_INTERVAL_MS = 5 * 60 * 1000;
 
-// Pellet alerts fire on a tier transition or at most this often while still
-// low, measured from the latest pellet notification regardless of
-// acknowledgement (#412): acknowledging silences the stream, the reminder
-// returns at most this long after the last warning.
-export const PELLET_ALERT_WINDOW_MS = 6 * 60 * 60 * 1000;
-
 // Hopper fill thresholds (percent full): CRITICAL at or below the first,
 // WARNING at or below the second, refill detected above the second.
 export const PELLET_CRITICAL_PCT = 5;

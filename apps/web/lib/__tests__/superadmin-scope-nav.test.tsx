@@ -4,13 +4,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * Guards the platform console's scope banner and three-group sidebar (plan
- * M3C.1, decisions T24 and T25).
+ * Guards the platform console's scope banner, three-group sidebar and the
+ * platform quick menu (plan M3C.1, decisions T24 and T25).
  *
- * Four things must not regress: the sidebar lists exactly three groups in the
+ * Five things must not regress: the sidebar lists exactly three groups in the
  * planned order, every URL the flat nine-item list had is still linked and
- * still has a page behind it, the banner path is right on a console page and
- * on an organization page, and the new copy exists in all three locales.
+ * still has a page behind it, the command-center pages (#479) are reachable
+ * from both the sidebar and the quick menu with an active state, the banner
+ * path is right on a console page and on an organization page, and the new
+ * copy exists in all three locales.
  */
 
 const { pathname } = vi.hoisted(() => ({ pathname: { current: "/superadmin" } }));
@@ -60,14 +62,18 @@ vi.mock("@/components/superadmin/org-members", () => ({ OrgMembersPanel: () => n
 vi.mock("@/components/superadmin/org-status-control", () => ({ OrgStatusControl: () => null }));
 
 import SuperadminOrgDetailPage from "@/app/[locale]/(superadmin)/superadmin/orgs/[orgId]/page";
+import { quickMenuSections } from "@/components/mobile/quick-menu";
 import { SuperadminSidebar } from "@/components/superadmin-sidebar";
 import { ConsoleScopeBanner } from "@/components/superadmin/console-scope-banner";
 import { ScopeBanner } from "@/components/superadmin/scope-banner";
 import { SUPERADMIN_NAV_GROUPS, isNavItemActive } from "@/lib/superadmin-nav";
 import { consoleScopeCrumbs, pageOwnsScope } from "@/lib/superadmin-scope";
-import { loadMessages } from "./helpers/messages";
+import { createTranslator, loadMessages } from "./helpers/messages";
 
 const webRoot = join(__dirname, "../..");
+
+const tMobile = createTranslator("dashboard.mobile") as unknown as (key: string) => string;
+const tPlatformNav = createTranslator("superadmin.shell.nav") as unknown as (key: string) => string;
 
 /** The nine URLs the flat sidebar linked before the regroup. */
 const EXISTING_URLS = [
@@ -81,6 +87,9 @@ const EXISTING_URLS = [
 	"/superadmin/ai-providers",
 	"/superadmin/settings",
 ];
+
+/** The command-center pages that shipped after the regroup (#479). */
+const COMMAND_CENTER_URLS = ["/superadmin/tenants", "/superadmin/fleet", "/superadmin/incidents"];
 
 const labels = {
 	global: "Global superadmin",
@@ -100,19 +109,23 @@ describe("sidebar groups (M3C.1)", () => {
 			"platformControl",
 		]);
 		expect(SUPERADMIN_NAV_GROUPS.map((group) => group.items.map((item) => item.key))).toEqual([
-			["overview"],
+			["overview", "tenants", "fleet", "incidents"],
 			["organizations", "users", "ponds", "devices", "calendar"],
 			["operations", "aiProviders", "settings"],
 		]);
 	});
 
-	it("keeps every URL the flat list had, each exactly once", () => {
+	it("keeps every URL the flat list had and each command-center page, exactly once", () => {
 		const hrefs = SUPERADMIN_NAV_GROUPS.flatMap((group) => group.items.map((item) => item.href));
-		expect([...hrefs].sort()).toEqual([...EXISTING_URLS].sort());
+
+		expect([...hrefs].sort()).toEqual([...EXISTING_URLS, ...COMMAND_CENTER_URLS].sort());
+		expect(new Set(hrefs).size).toBe(hrefs.length);
 	});
 
 	it("keeps a page behind every linked URL", () => {
-		for (const href of EXISTING_URLS) {
+		const hrefs = SUPERADMIN_NAV_GROUPS.flatMap((group) => group.items.map((item) => item.href));
+
+		for (const href of hrefs) {
 			const segments = href.split("/").filter(Boolean);
 			const page = join(webRoot, "app/[locale]/(superadmin)", ...segments, "page.tsx");
 			expect(existsSync(page), `${href} has no page at ${page}`).toBe(true);
@@ -147,6 +160,44 @@ describe("sidebar groups (M3C.1)", () => {
 
 		expect(current).toHaveLength(1);
 		expect(current[0]).toContain('href="/superadmin/operations"');
+	});
+
+	it("marks a command-center page current, including the tenants compare page", () => {
+		for (const [current, expected] of [
+			["/superadmin/tenants", "/superadmin/tenants"],
+			["/superadmin/tenants/compare", "/superadmin/tenants"],
+			["/superadmin/fleet", "/superadmin/fleet"],
+			["/superadmin/incidents", "/superadmin/incidents"],
+		] as const) {
+			pathname.current = current;
+			const html = renderToStaticMarkup(<SuperadminSidebar />);
+			const active = [...html.matchAll(/<a [^>]*aria-current="page"[^>]*>/g)].map((m) => m[0]);
+
+			expect(active, current).toHaveLength(1);
+			expect(active[0]).toContain(`href="${expected}"`);
+		}
+	});
+});
+
+describe("platform quick menu (M3C.1, #479)", () => {
+	it("links the command-center pages with their sidebar labels", () => {
+		const sections = quickMenuSections({
+			shell: "platform",
+			isTenantAdmin: false,
+			t: tMobile,
+			nav: tPlatformNav,
+		});
+		const destinations = sections.flatMap((section) => section.items);
+
+		for (const [href, label] of [
+			["/superadmin/tenants", "Tenants"],
+			["/superadmin/fleet", "Fleet"],
+			["/superadmin/incidents", "Incidents"],
+		] as const) {
+			const item = destinations.find((entry) => entry.href === href);
+			expect(item, `${href} is missing from the platform quick menu`).toBeTruthy();
+			expect(item?.label).toBe(label);
+		}
 	});
 });
 
@@ -292,6 +343,24 @@ describe("scope and group copy (M3C.1)", () => {
 	it("keeps the organization name placeholder in every locale", () => {
 		for (const locale of ["en", "hil", "tl"] as const) {
 			expect(loadMessages(locale)["superadmin.shell.scope.organization"]).toContain("{name}");
+		}
+	});
+
+	it("names the three command-center pages in every locale", () => {
+		const NAV_LABELS = {
+			"superadmin.shell.nav.tenants": "Tenants",
+			"superadmin.shell.nav.fleet": "Fleet",
+			"superadmin.shell.nav.incidents": "Incidents",
+		};
+
+		for (const locale of ["en", "hil", "tl"] as const) {
+			const messages = loadMessages(locale);
+			for (const key of Object.keys(NAV_LABELS)) {
+				expect(messages[key]?.trim(), `${locale} is missing ${key}`).toBeTruthy();
+			}
+		}
+		for (const [key, english] of Object.entries(NAV_LABELS)) {
+			expect(loadMessages("en")[key]).toBe(english);
 		}
 	});
 });

@@ -1,7 +1,8 @@
 name: Firmware
 
-# Compiles the ESP32 sketch with PlatformIO, the same toolchain used on the
-# energy-monitoring project. Validation only — never flashes or deploys.
+# Runs the host native test suite and compiles the ESP32 sketch with PlatformIO,
+# the same toolchain used on the energy-monitoring project. Validation only —
+# never flashes or deploys.
 
 on:
   pull_request:
@@ -43,6 +44,12 @@ jobs:
 
       - name: Install PlatformIO
         run: pip install platformio
+
+      # Host-only: builds firmware/test against Unity and the local compiler.
+      # No board, no network, no secrets. Runs before the ESP32 compile so a
+      # broken safety/config test fails fast.
+      - name: Native tests (safety + config)
+        run: pio test -d firmware -e native
 
       - name: Compile
         run: pio run -d firmware

@@ -740,6 +740,8 @@ export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
 		"Operational queue state for long-running exports/imports; the work is not reproducible from a restored row.",
 	JobArtifact:
 		"Generated file bytes, including previous tenant exports. Re-exporting is safer than restoring or copying them.",
+	IssueReport:
+		"Platform triage inbox for free-text public reports (#487). Not tenant data, and the text is personal data that an export would spread beyond the reporter's consent.",
 };
 
 /** Tables the given scope must include, in restore order. */

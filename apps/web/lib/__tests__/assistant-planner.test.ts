@@ -84,7 +84,7 @@ describe("availableToolIds", () => {
 		expect(ids).not.toContain("superadmin.start_view_as");
 	});
 
-	it("offers a read-only viewer nothing", () => {
+	it("offers a read-only viewer only the support report", () => {
 		expect(
 			availableToolIds(
 				caller({
@@ -94,7 +94,7 @@ describe("availableToolIds", () => {
 					permissions: new Set(["view_dashboard", "view_reports"]),
 				}),
 			),
-		).toEqual([]);
+		).toEqual(["support.file_report"]);
 	});
 
 	it("offers a platform admin the platform kinds only", () => {
@@ -120,6 +120,7 @@ describe("availableToolIds", () => {
 			"superadmin.grant_platform_admin",
 			"superadmin.revoke_platform_admin",
 			"superadmin.create_org",
+			"support.file_report",
 		]);
 	});
 });

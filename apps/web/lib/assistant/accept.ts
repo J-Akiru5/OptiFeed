@@ -120,8 +120,10 @@ export async function acceptAssistantActionWith(
 	// the underlying action re-checks this, but failing early keeps the card
 	// honest and avoids a pointless write attempt.
 	if (!definition.permission && !definition.platformAdminOnly && !(await deps.canWrite())) {
-		await deps.markFailed(row.id, "Write access required.");
-		return { success: false, error: writeRefusal(definition) };
+		if (definition.requiresWrite !== false) {
+			await deps.markFailed(row.id, "Write access required.");
+			return { success: false, error: writeRefusal(definition) };
+		}
 	}
 
 	if (definition.requiresStepUp) {

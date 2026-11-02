@@ -62,11 +62,11 @@ interface AssistantActionPayload {
 
 export function ChatWidgetProvider({
 	children,
-	role = "farmer",
+	assistantRole = "farmer",
 }: {
 	children: ReactNode;
 	/** Resolved on the server; only drives the intro and chips. Actions are gated server-side. */
-	role?: AssistantRole;
+	assistantRole?: AssistantRole;
 }) {
 	const t = useTranslations("chat");
 	const locale = useLocale();
@@ -74,10 +74,13 @@ export function ChatWidgetProvider({
 	const router = useRouter();
 
 	const intro = useCallback(
-		() => ({ role: "assistant" as const, content: t(introKey(role)) }),
-		[t, role],
+		() => ({ role: "assistant" as const, content: t(introKey(assistantRole)) }),
+		[t, assistantRole],
 	);
-	const chips = useMemo(() => suggestionKeys(role).map((key) => t(key)), [t, role]);
+	const chips = useMemo(
+		() => suggestionKeys(assistantRole).map((key) => t(key)),
+		[t, assistantRole],
+	);
 
 	const [isOpen, setIsOpen] = useState(false);
 	const [isStreaming, setIsStreaming] = useState(false);

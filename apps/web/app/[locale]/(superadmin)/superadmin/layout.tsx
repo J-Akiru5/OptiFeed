@@ -1,5 +1,8 @@
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
+import { ChatWidget } from "@/components/chat/chat-widget";
+import { ChatWidgetProvider } from "@/components/chat/chat-widget-provider";
 import { DarkModeToggle } from "@/components/dark-mode-toggle";
+import { FabStack } from "@/components/fab-stack";
 import { HelpButton } from "@/components/help/help-button";
 import { MobileHeader } from "@/components/mobile/mobile-header";
 import { GlobalSearch, SearchTrigger } from "@/components/search/global-search";
@@ -153,6 +156,12 @@ export default async function SuperadminLayout({
 			</div>
 
 			<SuperadminBottomNav />
+			{hasFarmDashboard && (
+				<ChatWidgetProvider assistantRole="superadmin">
+					<FabStack />
+					<ChatWidget />
+				</ChatWidgetProvider>
+			)}
 		</div>
 	);
 }

@@ -28,6 +28,18 @@ export interface CalibrationHistoryRow {
 	createdByName: string | null;
 }
 
+/**
+ * One saved temperature calibration (#613). It comes from the
+ * `temperature_calibrated` device event, not from `CalibrationRun`, which is
+ * shaped for hopper rate tests.
+ */
+export interface TemperatureCalibrationRow {
+	id: string;
+	createdAt: Date;
+	offsetC: number | null;
+	minFeedTempC: number | null;
+}
+
 export interface CalibrationSessionSummary {
 	sessionId: string;
 	attempts: number;
@@ -42,6 +54,8 @@ interface CalibrationHistoryProps {
 	page: number;
 	pageCount: number;
 	pageSize: number;
+	/** Saved temperature calibrations, newest first (#613). */
+	temperatureRows?: TemperatureCalibrationRow[];
 	/** Query kept on the page links, e.g. the selected device and tab (#403). */
 	paginationParams?: Record<string, string>;
 }
@@ -61,6 +75,16 @@ function formatGrams(value: number | null): string {
 	return `${String(Number(value.toFixed(1)))} g`;
 }
 
+function formatOffsetC(value: number | null): string {
+	if (value === null || !Number.isFinite(value)) return "—";
+	return `${value >= 0 ? "+" : ""}${value.toFixed(1)} °C`;
+}
+
+function formatTempC(value: number | null): string {
+	if (value === null || !Number.isFinite(value)) return "—";
+	return `${value.toFixed(1)} °C`;
+}
+
 export function CalibrationHistory({
 	rows,
 	sessions,
@@ -68,6 +92,7 @@ export function CalibrationHistory({
 	page,
 	pageCount,
 	pageSize,
+	temperatureRows = [],
 	paginationParams = {},
 }: CalibrationHistoryProps) {
 	const t = useTranslations("dashboard.appSettings.calibration.history");
@@ -231,6 +256,46 @@ export function CalibrationHistory({
 					/>
 				</>
 			)}
+
+			<section
+				aria-labelledby="temperature-calibration-history"
+				className="space-y-2 border-t border-gray-200 pt-4 dark:border-gray-700"
+			>
+				<h4
+					id="temperature-calibration-history"
+					className="text-xs font-black uppercase tracking-wider text-[#3D5568] dark:text-gray-400"
+				>
+					{t("temperature.title")}
+				</h4>
+				{temperatureRows.length === 0 ? (
+					<p className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+						{t("temperature.empty")}
+					</p>
+				) : (
+					<DashboardTable caption={t("temperature.title")} minWidth="min-w-[30rem]">
+						<DashboardTHead>
+							<DashboardTh>{t("temperature.date")}</DashboardTh>
+							<DashboardTh align="right">{t("temperature.offset")}</DashboardTh>
+							<DashboardTh align="right">{t("temperature.minimum")}</DashboardTh>
+						</DashboardTHead>
+						<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+							{temperatureRows.map((row) => (
+								<DashboardTr key={row.id}>
+									<DashboardTd className="whitespace-nowrap">
+										{formatFarmDateTime(row.createdAt, tDates).fullDate}
+									</DashboardTd>
+									<DashboardTd className="text-right font-mono">
+										{formatOffsetC(row.offsetC)}
+									</DashboardTd>
+									<DashboardTd className="text-right font-mono">
+										{formatTempC(row.minFeedTempC)}
+									</DashboardTd>
+								</DashboardTr>
+							))}
+						</tbody>
+					</DashboardTable>
+				)}
+			</section>
 		</div>
 	);
 }

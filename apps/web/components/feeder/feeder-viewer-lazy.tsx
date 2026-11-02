@@ -223,12 +223,29 @@ export function FeederViewerLazy({
 		/>
 	);
 
+	// #626: the simple view is a choice on a capable device, so it needs a way
+	// back. The forced fallbacks (no WebGL, or the 3D scene crashed) do not get
+	// the button, because there is nothing for them to return to.
+	const simpleFallback = (
+		<FeederFallback
+			label={label}
+			status={state.status}
+			feedLevelPercent={state.feedLevelPercent}
+			lastFedLabel={lastFedLabel}
+			waterTempOk={initialWaterTempOk}
+			rtcOk={initialRtcOk}
+			onBackToViewer={() => setSimple(false)}
+		/>
+	);
+
 	return (
 		<div ref={hostRef} className="min-w-0">
 			{tier === null || !visible ? (
 				<ViewerSkeleton />
-			) : tier === "low" || simple ? (
+			) : tier === "low" ? (
 				fallback
+			) : simple ? (
+				simpleFallback
 			) : (
 				<ViewerBoundary fallback={fallback}>
 					<FeederViewer

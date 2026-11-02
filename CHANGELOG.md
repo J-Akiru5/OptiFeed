@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **The chat panel no longer camouflages in the system header (#602).** The Pakoy panel header used the same navy as the app chrome and opened directly beneath it, so the two bars read as one surface and the panel looked headerless. It now uses the chat layer's own brand-orange token (`chatHeader`), with the tagline and close control raised to solid white so the smaller text still clears WCAG AA on the new background. The pair is recorded in `CHAT_CONTRAST`, so the existing contrast test covers the header too.
+- **Saving an AI provider key or its settings now confirms with a toast (#568).** The console only updated an inline notice inside the provider card, which is easy to miss after a long form - the reported "the key change is silent" case. Every action on the AI Providers page (config save, key save, key clear, provider add, provider removal, chain reset) now raises a success toast, and a validation or server failure raises an error toast, while the inline notices keep their detail (test latency, key last-4). Copy for the new "provider removed" line is in English, Hiligaynon and Tagalog.
 
 ## [1.45.0] - 2026-11-03
 
@@ -24,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The 3D viewer's water-probe and RTC health now refresh with the 15-second poll (#620).** The poll DTO omitted the water probe entirely and carried the RTC bit only on the server render, so both stayed frozen for as long as the tab was open: a probe that failed at 02:00 still read healthy at 08:00, with nothing on screen saying the value was static. `toStatePayload` now projects every health field (`waterTempOk`, `waterTempC`, `waterTempUpdatedAt`, `rtcOk`, `lastSeenAt`) from the same `getDeviceDetail` read the page uses, and the viewer merges them into its state on each poll. A reading older than the device's offline window - the platform `device.status` setting, five minutes by default - renders as "Stale" with its age instead of being repeated as current, and a never-reported probe stays "Not reported" rather than turning into a fault. `lib/feeder/reading-freshness.ts` holds the age and staleness rules with boundary tests, and a live test drives the poll and asserts the rendered health changes.
 - **The water-temperature offset is applied once, on the device, so every surface shows the same number (#622).** The firmware adds the stored offset before it transmits and ingest stores that value verbatim, but the hardware page, the dashboard card and the calibration form each added `tempOffsetC` again: a -0.7 °C offset displayed 26.4 °C for water the device had already calibrated to 27.1 °C, and the under-temperature warning (evaluated against the once-applied value) disagreed with the number beside it. The dashboard card and the hardware page now render `waterTempC` as stored, and the calibration form derives the sensor's true raw value by removing the stored offset and previews the next reading by adding the draft one, so an operator's correction takes effect once per cycle instead of compounding. `lib/calibration/water-temp.ts` holds the single definition, with tests for negative, positive and missing readings; the form's "Raw reading" is now genuinely raw.
+
+### Fixed
+
+- **Choosing the simple view on the feeder no longer strands the operator (#626).** The 3D viewer's "Simple view" replaced the scene with the illustrated fallback and never rendered a way back, so the only exit was a page reload. The fallback now carries a "Back to 3D view" control when - and only when - the simple view was the operator's own choice on a WebGL-capable device; the forced fallbacks (no WebGL, or a scene that crashed) stay button-free because there is nothing to return to. Copy is in English, Hiligaynon and Tagalog.
+
+### Fixed
+
+- **A saved temperature calibration now appears in the hardware page's calibration history (#613).** `saveTemperatureCalibration` already wrote a `temperature_calibrated` device event, but the history read only `CalibrationRun` (the hopper rate tests), so the save was invisible afterwards. The history now lists the ten most recent temperature calibrations - date, signed offset and the pond's feeding minimum - from that event stream, reading the JSON metadata defensively so an older or malformed row renders an em dash instead of breaking the page. The rate-test table, its sessions and its pagination are unchanged; no schema change.
 
 ## [1.44.1] - 2026-11-03
 

@@ -5,6 +5,7 @@ import { DEFAULT_DEVICE_STATUS_POLICY } from "@/lib/device-status";
 import type { FeederStatus } from "@/lib/feeder/feeder-parts";
 import { type ReadingAge, isReadingStale, readingAge } from "@/lib/feeder/reading-freshness";
 import { cn } from "@/lib/utils";
+import { RotateCcw } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface FeederFallbackProps {
@@ -24,6 +25,12 @@ interface FeederFallbackProps {
 	lastSeenAt?: string | null;
 	/** Reading freshness window, from the device status policy. */
 	staleAfterMs?: number;
+	/**
+	 * Present only when the operator chose the simple view on a capable device
+	 * (#626). It returns to the 3D scene; a device without WebGL never gets it,
+	 * because there is nothing to go back to.
+	 */
+	onBackToViewer?: () => void;
 	className?: string;
 }
 
@@ -45,6 +52,7 @@ export function FeederFallback({
 	rtcOk,
 	lastSeenAt = null,
 	staleAfterMs = DEFAULT_DEVICE_STATUS_POLICY.offlineAfterMs,
+	onBackToViewer,
 	className,
 }: FeederFallbackProps) {
 	const t = useTranslations("dashboard.feederViewer");
@@ -101,22 +109,34 @@ export function FeederFallback({
 					</p>
 					<p className="mt-1 text-lg font-black">{label}</p>
 				</div>
-				<span
-					className={cn(
-						"rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider",
-						status === "offline"
-							? "bg-white/10 text-white/70"
-							: status === "dispensing"
-								? "bg-emerald-400/15 text-emerald-200"
-								: status === "paused"
-									? "bg-amber-300/15 text-amber-200"
-									: status === "weak"
-										? "bg-amber-400/15 text-amber-200"
-										: "bg-sky-300/15 text-sky-200",
-					)}
-				>
-					{t(`status${status.charAt(0).toUpperCase()}${status.slice(1)}`)}
-				</span>
+				<div className="flex flex-col items-end gap-2">
+					<span
+						className={cn(
+							"rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider",
+							status === "offline"
+								? "bg-white/10 text-white/70"
+								: status === "dispensing"
+									? "bg-emerald-400/15 text-emerald-200"
+									: status === "paused"
+										? "bg-amber-300/15 text-amber-200"
+										: status === "weak"
+											? "bg-amber-400/15 text-amber-200"
+											: "bg-sky-300/15 text-sky-200",
+						)}
+					>
+						{t(`status${status.charAt(0).toUpperCase()}${status.slice(1)}`)}
+					</span>
+					{onBackToViewer ? (
+						<button
+							type="button"
+							onClick={onBackToViewer}
+							className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white/70 transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:outline-none"
+						>
+							<RotateCcw className="size-3" aria-hidden="true" />
+							{t("backTo3d")}
+						</button>
+					) : null}
+				</div>
 			</div>
 
 			<div className="relative mx-auto my-3 w-full max-w-[420px] flex-1">

@@ -114,7 +114,7 @@ export function NewAccountForm({
 				type="button"
 				onClick={() => router.push("/superadmin/users")}
 				className={cn(
-					"flex items-center gap-2 rounded text-sm font-bold text-[#3D5568] transition-colors hover:text-[#0A3D62]",
+					"flex items-center gap-2 rounded text-sm font-bold text-[#3D5568] dark:text-slate-400 transition-colors hover:text-[#0A3D62]",
 					FOCUS_RING,
 				)}
 			>
@@ -123,13 +123,13 @@ export function NewAccountForm({
 			</button>
 
 			<div>
-				<h1 className="text-2xl font-black text-[#0A3D62]">{t("title")}</h1>
-				<p className="mt-1 text-sm text-[#3D5568]">{t("description")}</p>
+				<h1 className="text-2xl font-black text-[#0A3D62] dark:text-slate-100">{t("title")}</h1>
+				<p className="mt-1 text-sm text-[#3D5568] dark:text-slate-400">{t("description")}</p>
 			</div>
 
 			<form onSubmit={handleSubmit} className="space-y-6" aria-busy={isPending}>
 				<fieldset className={cn(CARD, "space-y-4 p-6")}>
-					<legend className="text-[10px] uppercase font-extrabold tracking-wider text-[#3D5568]">
+					<legend className="text-[10px] uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-slate-400">
 						{t("kindLegend")}
 					</legend>
 					{/* Real radios: arrow keys move between kinds and the checked state
@@ -142,7 +142,7 @@ export function NewAccountForm({
 									"cursor-pointer rounded-xl border p-3 text-left transition-all has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#E85A2A] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60",
 									kind === k
 										? "border-[#E85A2A] bg-[#E85A2A]/5 shadow-sm"
-										: "border-gray-200 bg-[#F4F7F6] hover:border-gray-300",
+										: "border-gray-200 dark:border-[#24304A] bg-[#F4F7F6] dark:bg-[#0B1220] hover:border-gray-300",
 								)}
 							>
 								<input
@@ -154,13 +154,15 @@ export function NewAccountForm({
 									disabled={isPending}
 									className="sr-only"
 								/>
-								<span className="block text-xs font-black text-[#0A3D62]">
+								<span className="block text-xs font-black text-[#0A3D62] dark:text-slate-100">
 									{t(`kinds.${k}.title`)}
 								</span>
 							</label>
 						))}
 					</div>
-					<p className="text-[11px] leading-relaxed text-[#3D5568]">{kindBlurb}</p>
+					<p className="text-[11px] leading-relaxed text-[#3D5568] dark:text-slate-400">
+						{kindBlurb}
+					</p>
 				</fieldset>
 
 				<div className={cn(CARD, "space-y-5 p-6")}>
@@ -196,7 +198,9 @@ export function NewAccountForm({
 							/>
 							<PasswordStrength password={password} />
 							{password && getPasswordStrength(password) === "weak" && (
-								<p className="text-[11px] font-bold text-[#B45309]">{t("weak")}</p>
+								<p className="text-[11px] font-bold text-[#B45309] dark:text-amber-300">
+									{t("weak")}
+								</p>
 							)}
 						</div>
 						<div className="space-y-1.5">
@@ -212,7 +216,10 @@ export function NewAccountForm({
 								required
 							/>
 							{confirmPassword && !passwordsMatch && (
-								<p id="confirm-mismatch" className="text-[11px] font-bold text-[#C42B3A]">
+								<p
+									id="confirm-mismatch"
+									className="text-[11px] font-bold text-[#C42B3A] dark:text-red-300"
+								>
 									{t("passwordMismatch")}
 								</p>
 							)}
@@ -225,7 +232,7 @@ export function NewAccountForm({
 								{t("organization")}
 							</label>
 							{orgs.length === 0 ? (
-								<p className="text-xs font-bold text-[#C42B3A]">{t("noOrgs")}</p>
+								<p className="text-xs font-bold text-[#C42B3A] dark:text-red-300">{t("noOrgs")}</p>
 							) : (
 								<select
 									id="orgId"
@@ -247,10 +254,12 @@ export function NewAccountForm({
 
 				{isFarmer && (
 					<fieldset className={cn(CARD, "space-y-5 p-6")}>
-						<legend className="text-[10px] uppercase font-extrabold tracking-wider text-[#3D5568]">
+						<legend className="text-[10px] uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-slate-400">
 							{t("initialPond")}
 						</legend>
-						<p className="-mt-1 text-[11px] text-[#3D5568]">{t("initialPondDesc")}</p>
+						<p className="-mt-1 text-[11px] text-[#3D5568] dark:text-slate-400">
+							{t("initialPondDesc")}
+						</p>
 						<TextField
 							id="pondName"
 							label={t("pondName")}
@@ -299,7 +308,7 @@ export function NewAccountForm({
 						disabled={isPending}
 						placeholder={t("reasonPlaceholder")}
 						aria-describedby="reason-hint"
-						className="w-full resize-none rounded-xl border border-gray-200 bg-[#F4F7F6] px-4 py-3 text-sm text-[#0A3D62] transition-all focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:opacity-60"
+						className="w-full resize-none rounded-xl border border-gray-200 dark:border-[#24304A] bg-[#F4F7F6] dark:bg-[#0B1220] px-4 py-3 text-sm text-[#0A3D62] dark:text-slate-100 transition-all focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:opacity-60"
 					/>
 					<p id="reason-hint" className={FIELD_HINT}>
 						{t("reasonHint")}

@@ -114,7 +114,7 @@ export default async function OperationsHealthPage({
 			<OpsNav />
 
 			<section aria-labelledby="ops-jobs" className="space-y-3">
-				<h2 id="ops-jobs" className="text-lg font-black text-[#0A3D62]">
+				<h2 id="ops-jobs" className="text-lg font-black text-[#0A3D62] dark:text-slate-100">
 					{t("jobs.title")}
 				</h2>
 				<div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -126,7 +126,7 @@ export default async function OperationsHealthPage({
 				</div>
 
 				<Card className="p-5">
-					<p className="text-sm text-[#3D5568]">
+					<p className="text-sm text-[#3D5568] dark:text-slate-400">
 						{health.jobs.oldestQueued
 							? t("jobs.oldestQueued", {
 									time: lastSeen(health.jobs.oldestQueued.createdAt),
@@ -170,28 +170,28 @@ export default async function OperationsHealthPage({
 							<table className="w-full min-w-[40rem] text-sm">
 								<caption className="sr-only">{t("jobs.failuresCaption")}</caption>
 								<thead>
-									<tr className="border-b border-gray-100 bg-[#F4F7F6]">
+									<tr className="border-b border-gray-100 dark:border-[#1B2740] bg-[#F4F7F6] dark:bg-[#0B1220]">
 										<th
 											scope="col"
-											className="px-5 py-3 text-left text-[10px] font-black tracking-wider text-[#3D5568] uppercase"
+											className="px-5 py-3 text-left text-[10px] font-black tracking-wider text-[#3D5568] dark:text-slate-400 uppercase"
 										>
 											{t("jobs.columnFinished")}
 										</th>
 										<th
 											scope="col"
-											className="px-5 py-3 text-left text-[10px] font-black tracking-wider text-[#3D5568] uppercase"
+											className="px-5 py-3 text-left text-[10px] font-black tracking-wider text-[#3D5568] dark:text-slate-400 uppercase"
 										>
 											{t("jobs.columnType")}
 										</th>
 										<th
 											scope="col"
-											className="px-5 py-3 text-left text-[10px] font-black tracking-wider text-[#3D5568] uppercase"
+											className="px-5 py-3 text-left text-[10px] font-black tracking-wider text-[#3D5568] dark:text-slate-400 uppercase"
 										>
 											{t("jobs.columnAttempts")}
 										</th>
 										<th
 											scope="col"
-											className="px-5 py-3 text-left text-[10px] font-black tracking-wider text-[#3D5568] uppercase"
+											className="px-5 py-3 text-left text-[10px] font-black tracking-wider text-[#3D5568] dark:text-slate-400 uppercase"
 										>
 											{t("jobs.columnError")}
 										</th>
@@ -199,15 +199,20 @@ export default async function OperationsHealthPage({
 								</thead>
 								<tbody>
 									{health.jobs.recentFailures.map((job) => (
-										<tr key={job.id} className="border-b border-gray-50 align-top last:border-0">
-											<td className="px-5 py-3 text-xs whitespace-nowrap text-[#3D5568]">
+										<tr
+											key={job.id}
+											className="border-b border-gray-50 dark:border-[#1B2740] align-top last:border-0"
+										>
+											<td className="px-5 py-3 text-xs whitespace-nowrap text-[#3D5568] dark:text-slate-400">
 												{lastSeen(job.finishedAt ?? job.createdAt)}
 											</td>
-											<td className="px-5 py-3 text-xs font-bold text-[#0A3D62]">{job.type}</td>
-											<td className="px-5 py-3 text-xs tabular-nums text-[#3D5568]">
+											<td className="px-5 py-3 text-xs font-bold text-[#0A3D62] dark:text-slate-100">
+												{job.type}
+											</td>
+											<td className="px-5 py-3 text-xs tabular-nums text-[#3D5568] dark:text-slate-400">
 												{job.attempts}
 											</td>
-											<td className="px-5 py-3 text-xs break-words text-[#C42B3A]">
+											<td className="px-5 py-3 text-xs break-words text-[#C42B3A] dark:text-red-300">
 												{job.error ?? tCommon("none")}
 											</td>
 										</tr>
@@ -220,20 +225,22 @@ export default async function OperationsHealthPage({
 			</section>
 
 			<section aria-labelledby="ops-cron" className="space-y-3">
-				<h2 id="ops-cron" className="text-lg font-black text-[#0A3D62]">
+				<h2 id="ops-cron" className="text-lg font-black text-[#0A3D62] dark:text-slate-100">
 					{t("cron.title")}
 				</h2>
 				<Card className="p-5">
-					<p className="text-xs text-[#3D5568]">{t("cron.description")}</p>
+					<p className="text-xs text-[#3D5568] dark:text-slate-400">{t("cron.description")}</p>
 					<ul className="mt-4 space-y-4">
 						{cronJobs.map((row) => (
 							<li
 								key={row.job}
-								className="flex flex-col gap-1 border-b border-gray-100 pb-3 last:border-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+								className="flex flex-col gap-1 border-b border-gray-100 dark:border-[#1B2740] pb-3 last:border-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
 							>
 								<div className="min-w-0">
-									<p className="text-sm font-black text-[#0A3D62]">{t(`cron.jobs.${row.job}`)}</p>
-									<p className="mt-0.5 text-[11px] text-[#3D5568]">
+									<p className="text-sm font-black text-[#0A3D62] dark:text-slate-100">
+										{t(`cron.jobs.${row.job}`)}
+									</p>
+									<p className="mt-0.5 text-[11px] text-[#3D5568] dark:text-slate-400">
 										{t(`cron.inferred.${row.job}`)}
 										{row.eventType ? ` · ${row.eventType}` : ""}
 									</p>
@@ -250,10 +257,10 @@ export default async function OperationsHealthPage({
 			<section aria-labelledby="ops-devices" className="space-y-3">
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
 					<div>
-						<h2 id="ops-devices" className="text-lg font-black text-[#0A3D62]">
+						<h2 id="ops-devices" className="text-lg font-black text-[#0A3D62] dark:text-slate-100">
 							{t("devices.title")}
 						</h2>
-						<p className="mt-1 text-xs text-[#3D5568]">
+						<p className="mt-1 text-xs text-[#3D5568] dark:text-slate-400">
 							{t("devices.description", {
 								count: health.devices.length,
 								limit: HEALTH_DEVICE_LIMIT,
@@ -261,7 +268,7 @@ export default async function OperationsHealthPage({
 						</p>
 					</div>
 					<nav aria-label={t("devices.sortLabel")} className="flex flex-wrap items-center gap-1">
-						<span className="text-[10px] font-black tracking-wider text-[#3D5568] uppercase">
+						<span className="text-[10px] font-black tracking-wider text-[#3D5568] dark:text-slate-400 uppercase">
 							{t("devices.sortBy")}
 						</span>
 						{SORT_FIELDS.map((candidate) => (
@@ -271,7 +278,7 @@ export default async function OperationsHealthPage({
 								aria-current={sortField === candidate ? "true" : undefined}
 								className={cn(
 									SECONDARY_BUTTON,
-									sortField === candidate && "border-[#0A3D62] bg-[#F4F7F6]",
+									sortField === candidate && "border-[#0A3D62] bg-[#F4F7F6] dark:bg-[#0B1220]",
 								)}
 							>
 								{t(`devices.sort.${candidate}`)}
@@ -283,7 +290,7 @@ export default async function OperationsHealthPage({
 
 				{health.devicesTruncated && (
 					<Card className="p-4">
-						<p className="text-xs font-bold text-[#B45309]">
+						<p className="text-xs font-bold text-[#B45309] dark:text-amber-300">
 							{t("devices.truncated", { limit: HEALTH_DEVICE_LIMIT })}
 						</p>
 					</Card>
@@ -311,8 +318,10 @@ export default async function OperationsHealthPage({
 									<MobileCard key={device.id}>
 										<div className="flex items-start justify-between gap-2">
 											<div className="min-w-0">
-												<p className="truncate font-black text-[#0A3D62]">{device.label}</p>
-												<p className="truncate font-mono text-[11px] font-bold text-[#3D5568]">
+												<p className="truncate font-black text-[#0A3D62] dark:text-slate-100">
+													{device.label}
+												</p>
+												<p className="truncate font-mono text-[11px] font-bold text-[#3D5568] dark:text-slate-400">
 													{device.mac}
 												</p>
 											</div>
@@ -351,18 +360,22 @@ export default async function OperationsHealthPage({
 									<tr
 										key={device.id}
 										className={cn(
-											"border-b border-gray-50 align-middle last:border-0",
-											offline ? "bg-[#FDE8EA]/40" : "hover:bg-[#F4F7F6]/50",
+											"border-b border-gray-50 dark:border-[#1B2740] align-middle last:border-0",
+											offline
+												? "bg-[#FDE8EA]/40 dark:bg-red-950/40"
+												: "hover:bg-[#F4F7F6] dark:hover:bg-[#162238]/50 dark:hover:bg-[#162238]/60",
 										)}
 									>
-										<td className="px-6 py-3 font-black text-[#0A3D62]">{device.label}</td>
-										<td className="px-6 py-3 font-mono text-xs font-bold text-[#3D5568]">
+										<td className="px-6 py-3 font-black text-[#0A3D62] dark:text-slate-100">
+											{device.label}
+										</td>
+										<td className="px-6 py-3 font-mono text-xs font-bold text-[#3D5568] dark:text-slate-400">
 											{device.mac}
 										</td>
-										<td className="px-6 py-3 text-xs font-bold text-[#3D5568]">
+										<td className="px-6 py-3 text-xs font-bold text-[#3D5568] dark:text-slate-400">
 											{device.pondName ?? tCommon("unassigned")}
 										</td>
-										<td className="px-6 py-3 text-xs text-[#3D5568]">
+										<td className="px-6 py-3 text-xs text-[#3D5568] dark:text-slate-400">
 											{lastSeen(device.lastSeenAt)}
 										</td>
 										<td className="px-6 py-3">
@@ -379,8 +392,11 @@ export default async function OperationsHealthPage({
 			</section>
 
 			<Card className={cn(CARD, "flex items-start gap-3 p-5")}>
-				<AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#B45309]" aria-hidden="true" />
-				<p className="text-xs text-[#3D5568]">{t("health.note")}</p>
+				<AlertTriangle
+					className="mt-0.5 h-4 w-4 shrink-0 text-[#B45309] dark:text-amber-300"
+					aria-hidden="true"
+				/>
+				<p className="text-xs text-[#3D5568] dark:text-slate-400">{t("health.note")}</p>
 			</Card>
 		</div>
 	);

@@ -77,28 +77,36 @@ export function OrgStatusControl({
 
 	if (purged) {
 		return (
-			<section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
-				<h2 className="text-sm font-black text-[#0A3D62]">{t("statusTitle")}</h2>
-				<p className="mt-2 text-xs text-[#3D5568]">{t("statusPurged")}</p>
+			<section className="rounded-2xl border border-gray-200 dark:border-[#24304A] bg-white dark:bg-[#111A2C] p-4 sm:p-6">
+				<h2 className="text-sm font-black text-[#0A3D62] dark:text-slate-100">
+					{t("statusTitle")}
+				</h2>
+				<p className="mt-2 text-xs text-[#3D5568] dark:text-slate-400">{t("statusPurged")}</p>
 			</section>
 		);
 	}
 
 	return (
-		<section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+		<section className="rounded-2xl border border-gray-200 dark:border-[#24304A] bg-white dark:bg-[#111A2C] p-4 sm:p-6">
 			<div className="flex items-start gap-3">
 				<span
 					className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl ${
-						suspended ? "bg-red-50 text-[#C42B3A]" : "bg-[#F4F7F6] text-[#0A3D62]"
+						suspended
+							? "bg-red-50 text-[#C42B3A] dark:text-red-300"
+							: "bg-[#F4F7F6] dark:bg-[#0B1220] text-[#0A3D62] dark:text-slate-100"
 					}`}
 					aria-hidden="true"
 				>
 					{suspended ? <ShieldOff className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
 				</span>
 				<div className="min-w-0">
-					<h2 className="text-sm font-black text-[#0A3D62]">{t("statusTitle")}</h2>
-					<p className="mt-1 text-xs leading-snug text-[#3D5568]">{t("statusBody")}</p>
-					<p className="mt-1 text-[11px] font-bold text-[#3D5568]">
+					<h2 className="text-sm font-black text-[#0A3D62] dark:text-slate-100">
+						{t("statusTitle")}
+					</h2>
+					<p className="mt-1 text-xs leading-snug text-[#3D5568] dark:text-slate-400">
+						{t("statusBody")}
+					</p>
+					<p className="mt-1 text-[11px] font-bold text-[#3D5568] dark:text-slate-400">
 						{t("statusCurrent", { status: suspended ? t("statusSuspended") : t("statusActive") })}
 					</p>
 				</div>
@@ -124,7 +132,7 @@ export function OrgStatusControl({
 				{error && (
 					<p
 						role="alert"
-						className="rounded-xl border border-red-200 bg-red-50 p-2 text-[11px] font-bold text-[#C42B3A]"
+						className="rounded-xl border border-red-200 bg-red-50 p-2 text-[11px] font-bold text-[#C42B3A] dark:text-red-300"
 					>
 						{error}
 					</p>

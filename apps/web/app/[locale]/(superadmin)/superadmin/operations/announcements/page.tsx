@@ -47,31 +47,37 @@ export default async function OperationsAnnouncementsPage() {
 					{current ? (
 						<div className="space-y-3 p-5">
 							<div>
-								<p className="text-[10px] font-black tracking-wider text-[#3D5568] uppercase">
+								<p className="text-[10px] font-black tracking-wider text-[#3D5568] dark:text-slate-400 uppercase">
 									{t(`announcements.severity.${current.severity}`)}
 								</p>
-								<p className="font-black text-[#0A3D62]">{current.title}</p>
-								<p className="mt-1 whitespace-pre-line text-sm text-[#3D5568]">{current.body}</p>
+								<p className="font-black text-[#0A3D62] dark:text-slate-100">{current.title}</p>
+								<p className="mt-1 whitespace-pre-line text-sm text-[#3D5568] dark:text-slate-400">
+									{current.body}
+								</p>
 							</div>
 							<dl className="grid gap-2 text-xs sm:grid-cols-2">
 								<div>
-									<dt className="text-[10px] font-extrabold tracking-wider text-[#3D5568] uppercase">
+									<dt className="text-[10px] font-extrabold tracking-wider text-[#3D5568] dark:text-slate-400 uppercase">
 										{t("announcements.publishedAt")}
 									</dt>
-									<dd className="font-bold text-[#0A3D62]">{formatted(current.publishedAt)}</dd>
+									<dd className="font-bold text-[#0A3D62] dark:text-slate-100">
+										{formatted(current.publishedAt)}
+									</dd>
 								</div>
 								<div>
-									<dt className="text-[10px] font-extrabold tracking-wider text-[#3D5568] uppercase">
+									<dt className="text-[10px] font-extrabold tracking-wider text-[#3D5568] dark:text-slate-400 uppercase">
 										{t("announcements.endsAt")}
 									</dt>
-									<dd className="font-bold text-[#0A3D62]">
+									<dd className="font-bold text-[#0A3D62] dark:text-slate-100">
 										{current.endsAt ? formatted(current.endsAt) : t("announcements.noEnd")}
 									</dd>
 								</div>
 							</dl>
 						</div>
 					) : (
-						<p className="p-5 text-sm text-[#3D5568]">{t("announcements.none")}</p>
+						<p className="p-5 text-sm text-[#3D5568] dark:text-slate-400">
+							{t("announcements.none")}
+						</p>
 					)}
 				</Card>
 
@@ -87,7 +93,7 @@ export default async function OperationsAnnouncementsPage() {
 			</div>
 
 			<Card className="p-5">
-				<p className="text-xs text-[#3D5568]">{t("announcements.note")}</p>
+				<p className="text-xs text-[#3D5568] dark:text-slate-400">{t("announcements.note")}</p>
 			</Card>
 		</div>
 	);

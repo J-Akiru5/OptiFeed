@@ -211,7 +211,7 @@ export function UserActions({
 				aria-haspopup="dialog"
 				aria-expanded={mode !== null}
 				className={cn(
-					"rounded-xl p-2 text-[#3D5568] transition-colors hover:bg-[#F4F7F6] hover:text-[#0A3D62] disabled:opacity-50",
+					"rounded-xl p-2 text-[#3D5568] dark:text-slate-400 transition-colors hover:bg-[#F4F7F6] dark:hover:bg-[#162238] hover:text-[#0A3D62] disabled:opacity-50",
 					FOCUS_RING,
 				)}
 			>
@@ -235,7 +235,9 @@ export function UserActions({
 							description={
 								<>
 									{t("issued.descriptionPrefix")}{" "}
-									<span className="font-mono font-bold text-[#0A3D62]">{farmId}</span>{" "}
+									<span className="font-mono font-bold text-[#0A3D62] dark:text-slate-100">
+										{farmId}
+									</span>{" "}
 									{t("issued.descriptionSuffix")}
 								</>
 							}
@@ -258,7 +260,7 @@ export function UserActions({
 								}}
 								aria-label={t("issued.copy")}
 								className={cn(
-									"inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#E8C9A8] px-2.5 py-1.5 text-[10px] font-black tracking-wider text-[#8A3B12] uppercase transition-colors hover:bg-white dark:border-[#FF8A5C]/30 dark:text-[#FFB38F] dark:hover:bg-white/10",
+									"inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#E8C9A8] px-2.5 py-1.5 text-[10px] font-black tracking-wider text-[#8A3B12] uppercase transition-colors hover:bg-white dark:hover:bg-[#162238] dark:border-[#FF8A5C]/30 dark:text-[#FFB38F] dark:hover:bg-white/10",
 									FOCUS_RING,
 								)}
 							>
@@ -271,7 +273,7 @@ export function UserActions({
 							</button>
 						</div>
 
-						<p className="mt-3 text-[11px] font-bold leading-snug text-[#C42B3A]">
+						<p className="mt-3 text-[11px] font-bold leading-snug text-[#C42B3A] dark:text-red-300">
 							{t("issued.warning")}
 						</p>
 
@@ -281,7 +283,7 @@ export function UserActions({
 								onClick={close}
 								className={cn(
 									SECONDARY_BUTTON,
-									"w-full px-3 py-2.5 text-xs font-bold text-[#3D5568] hover:bg-gray-200",
+									"w-full px-3 py-2.5 text-xs font-bold text-[#3D5568] dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-[#1B2740]",
 								)}
 							>
 								{t("issued.done")}
@@ -299,7 +301,9 @@ export function UserActions({
 							description={
 								<>
 									{t("descriptionPrefix")}{" "}
-									<span className="font-mono font-bold text-[#0A3D62]">{farmId}</span>
+									<span className="font-mono font-bold text-[#0A3D62] dark:text-slate-100">
+										{farmId}
+									</span>
 									{isPlatformAdmin && mode !== "revoke" ? t("currentAdminSuffix") : ""}
 								</>
 							}
@@ -354,12 +358,12 @@ export function UserActions({
 						</div>
 
 						{mode === "disable" && (
-							<p className="mt-3 text-[11px] font-bold leading-snug text-[#C42B3A]">
+							<p className="mt-3 text-[11px] font-bold leading-snug text-[#C42B3A] dark:text-red-300">
 								{t("disableWarning")}
 							</p>
 						)}
 						{mode === "enable" && (
-							<p className="mt-3 text-[11px] font-bold leading-snug text-[#1E7B34]">
+							<p className="mt-3 text-[11px] font-bold leading-snug text-[#1E7B34] dark:text-emerald-300">
 								{t("enableWarning")}
 							</p>
 						)}
@@ -387,7 +391,7 @@ export function UserActions({
 									placeholder={t("reasonPlaceholder")}
 									data-autofocus
 									aria-describedby={`reason-help-${farmId}`}
-									className="w-full resize-none rounded-xl border border-gray-200 bg-[#F4F7F6] px-3 py-2 text-xs text-[#0A3D62] transition-all focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+									className="w-full resize-none rounded-xl border border-gray-200 dark:border-[#24304A] bg-[#F4F7F6] dark:bg-[#0B1220] px-3 py-2 text-xs text-[#0A3D62] dark:text-slate-100 transition-all focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
 								/>
 								<p id={`reason-help-${farmId}`} className={FIELD_HINT}>
 									{tCommon("reasonHelp")}
@@ -410,7 +414,7 @@ export function UserActions({
 										maxLength={254}
 										placeholder={t("emailPlaceholder")}
 										aria-describedby={`contact-email-help-${farmId}`}
-										className="w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-3 py-2 text-xs text-[#0A3D62] transition-all focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+										className="w-full rounded-xl border border-gray-200 dark:border-[#24304A] bg-[#F4F7F6] dark:bg-[#0B1220] px-3 py-2 text-xs text-[#0A3D62] dark:text-slate-100 transition-all focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
 									/>
 									<p id={`contact-email-help-${farmId}`} className={FIELD_HINT}>
 										{t("emailHint")}
@@ -429,7 +433,7 @@ export function UserActions({
 										onChange={(e) => setConfirmFarmId(e.target.value)}
 										autoComplete="off"
 										spellCheck={false}
-										className="w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-3 py-2 font-mono text-xs text-[#0A3D62] transition-all focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+										className="w-full rounded-xl border border-gray-200 dark:border-[#24304A] bg-[#F4F7F6] dark:bg-[#0B1220] px-3 py-2 font-mono text-xs text-[#0A3D62] dark:text-slate-100 transition-all focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
 									/>
 								</div>
 							)}
@@ -437,7 +441,7 @@ export function UserActions({
 							{error && (
 								<p
 									role="alert"
-									className="rounded-xl border border-red-200 bg-red-50 p-2 text-[11px] font-bold text-[#C42B3A]"
+									className="rounded-xl border border-red-200 bg-red-50 p-2 text-[11px] font-bold text-[#C42B3A] dark:text-red-300"
 								>
 									{error}
 								</p>
@@ -462,7 +466,7 @@ export function UserActions({
 									disabled={isPending}
 									className={cn(
 										SECONDARY_BUTTON,
-										"px-3 py-2.5 text-xs font-bold text-[#3D5568] hover:bg-gray-200",
+										"px-3 py-2.5 text-xs font-bold text-[#3D5568] dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-[#1B2740]",
 									)}
 								>
 									{tCommon("cancel")}
@@ -507,10 +511,10 @@ function ActionButton({
 				danger
 					? active
 						? "border-[#C42B3A] bg-[#C42B3A] text-white"
-						: "border-red-200 bg-red-50 text-[#C42B3A] hover:bg-red-100"
+						: "border-red-200 bg-red-50 text-[#C42B3A] dark:text-red-300 hover:bg-red-100"
 					: active
 						? "border-[#E85A2A] bg-[#E85A2A] text-white"
-						: "border-gray-200 bg-[#F4F7F6] text-[#3D5568] hover:bg-gray-200",
+						: "border-gray-200 dark:border-[#24304A] bg-[#F4F7F6] dark:bg-[#0B1220] text-[#3D5568] dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-[#1B2740]",
 			)}
 		>
 			{icon}

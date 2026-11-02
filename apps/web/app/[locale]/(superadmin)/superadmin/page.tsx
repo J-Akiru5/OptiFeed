@@ -118,9 +118,12 @@ export default async function SuperadminOverviewPage({
 	};
 
 	const trendTone = (direction: Direction, invert: boolean) => {
-		if (direction === "flat") return "bg-[#F4F7F6] text-[#3D5568]";
+		if (direction === "flat")
+			return "bg-[#F4F7F6] dark:bg-[#0B1220] text-[#3D5568] dark:text-slate-400";
 		const positive = invert ? direction === "down" : direction === "up";
-		return positive ? "bg-[#E8F5EC] text-[#1E7B34]" : "bg-[#FDE8EA] text-[#C42B3A]";
+		return positive
+			? "bg-[#E8F5EC] dark:bg-emerald-950/50 text-[#1E7B34] dark:text-emerald-300"
+			: "bg-[#FDE8EA] dark:bg-red-950/50 text-[#C42B3A] dark:text-red-300";
 	};
 
 	const TrendBadge = ({
@@ -167,13 +170,18 @@ export default async function SuperadminOverviewPage({
 	}) => (
 		<div className={cn(CARD, "flex flex-col gap-1.5 p-5")}>
 			<div className="flex items-center justify-between gap-2">
-				<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568]">
+				<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 					{label}
 				</span>
-				<Icon className="h-4 w-4 shrink-0 text-[#0A3D62]/70" aria-hidden="true" />
+				<Icon
+					className="h-4 w-4 shrink-0 text-[#0A3D62]/70 dark:text-slate-400"
+					aria-hidden="true"
+				/>
 			</div>
-			<span className="text-2xl font-black tabular-nums text-[#0A3D62] sm:text-3xl">{value}</span>
-			<span className="text-[11px] text-[#3D5568]">{hint}</span>
+			<span className="text-2xl font-black tabular-nums text-[#0A3D62] dark:text-slate-100 sm:text-3xl">
+				{value}
+			</span>
+			<span className="text-[11px] text-[#3D5568] dark:text-slate-400">{hint}</span>
 			<div className="mt-1 flex flex-wrap items-center gap-2">
 				{trend}
 				{children}
@@ -195,7 +203,7 @@ export default async function SuperadminOverviewPage({
 		<Card className="flex h-full flex-col">
 			<SectionTitle title={title} actions={action} />
 			{empty ? (
-				<p className="px-5 py-6 text-sm text-[#3D5568]">{children}</p>
+				<p className="px-5 py-6 text-sm text-[#3D5568] dark:text-slate-400">{children}</p>
 			) : (
 				<ul className="divide-y divide-gray-100">{children}</ul>
 			)}
@@ -218,7 +226,7 @@ export default async function SuperadminOverviewPage({
 									"rounded-xl px-3 py-2 text-xs font-black transition-colors",
 									option === range
 										? "bg-[#0A3D62] text-white shadow-sm"
-										: "border border-[#0A3D62]/20 bg-white text-[#0A3D62] hover:bg-[#F4F7F6]",
+										: "border border-[#0A3D62]/20 bg-white dark:bg-[#111A2C] text-[#0A3D62] dark:text-slate-100 hover:bg-[#F4F7F6] dark:hover:bg-[#162238]",
 								)}
 							>
 								{t(`range${option}`)}
@@ -429,7 +437,9 @@ export default async function SuperadminOverviewPage({
 			<section aria-label={t("needsAttention")} className="space-y-3">
 				<div className="flex items-center gap-2">
 					<Activity className="h-4 w-4 text-[#E85A2A]" aria-hidden="true" />
-					<h2 className="text-lg font-black text-[#0A3D62]">{t("needsAttention")}</h2>
+					<h2 className="text-lg font-black text-[#0A3D62] dark:text-slate-100">
+						{t("needsAttention")}
+					</h2>
 				</div>
 
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -448,14 +458,16 @@ export default async function SuperadminOverviewPage({
 									<li key={device.id} className="px-5 py-3">
 										<div className="flex items-start justify-between gap-2">
 											<div className="min-w-0">
-												<p className="truncate text-sm font-bold text-[#0A3D62]">{device.label}</p>
-												<p className="truncate text-[11px] text-[#3D5568]">
+												<p className="truncate text-sm font-bold text-[#0A3D62] dark:text-slate-100">
+													{device.label}
+												</p>
+												<p className="truncate text-[11px] text-[#3D5568] dark:text-slate-400">
 													{device.pondName ?? t("noPond")} · {device.mac}
 												</p>
 											</div>
 											<Badge tone="danger">{tCommon("offline")}</Badge>
 										</div>
-										<p className="mt-1 text-[10px] font-bold text-[#3D5568]">
+										<p className="mt-1 text-[10px] font-bold text-[#3D5568] dark:text-slate-400">
 											{device.lastSeenAt
 												? t("lastSeen", {
 														date: formatDateTimeLocal(device.lastSeenAt, tDates).full,
@@ -479,9 +491,13 @@ export default async function SuperadminOverviewPage({
 							? t("pendingDevicesEmpty")
 							: analytics.pendingApprovalDevices.map((device) => (
 									<li key={device.id} className="px-5 py-3">
-										<p className="truncate text-sm font-bold text-[#0A3D62]">{device.label}</p>
-										<p className="truncate text-[11px] text-[#3D5568]">{device.mac}</p>
-										<p className="mt-1 text-[10px] font-bold text-[#3D5568]">
+										<p className="truncate text-sm font-bold text-[#0A3D62] dark:text-slate-100">
+											{device.label}
+										</p>
+										<p className="truncate text-[11px] text-[#3D5568] dark:text-slate-400">
+											{device.mac}
+										</p>
+										<p className="mt-1 text-[10px] font-bold text-[#3D5568] dark:text-slate-400">
 											{t("requested", {
 												date: formatDateTimeLocal(device.createdAt, tDates).full,
 											})}
@@ -495,11 +511,15 @@ export default async function SuperadminOverviewPage({
 							? t("failedJobsEmpty")
 							: analytics.failedJobs.map((job) => (
 									<li key={job.id} className="px-5 py-3">
-										<p className="truncate text-sm font-bold text-[#0A3D62]">{job.type}</p>
+										<p className="truncate text-sm font-bold text-[#0A3D62] dark:text-slate-100">
+											{job.type}
+										</p>
 										{job.error && (
-											<p className="line-clamp-2 text-[11px] text-[#C42B3A]">{job.error}</p>
+											<p className="line-clamp-2 text-[11px] text-[#C42B3A] dark:text-red-300">
+												{job.error}
+											</p>
 										)}
-										<p className="mt-1 text-[10px] font-bold text-[#3D5568]">
+										<p className="mt-1 text-[10px] font-bold text-[#3D5568] dark:text-slate-400">
 											{formatDateTimeLocal(job.at, tDates).full}
 										</p>
 									</li>
@@ -519,11 +539,13 @@ export default async function SuperadminOverviewPage({
 							? t("topFcrEmpty")
 							: analytics.topFcrPonds.map((report) => (
 									<li key={report.pondId} className="px-5 py-3">
-										<p className="truncate text-sm font-bold text-[#0A3D62]">{report.pondName}</p>
-										<p className="text-[11px] text-[#3D5568]">
+										<p className="truncate text-sm font-bold text-[#0A3D62] dark:text-slate-100">
+											{report.pondName}
+										</p>
+										<p className="text-[11px] text-[#3D5568] dark:text-slate-400">
 											{t("fcrValue", { value: report.fcrValue.toFixed(2) })}
 										</p>
-										<p className="mt-1 text-[10px] font-bold text-[#3D5568]">
+										<p className="mt-1 text-[10px] font-bold text-[#3D5568] dark:text-slate-400">
 											{t("periodEnding", {
 												date: formatDateTimeLocal(report.periodEnd, tDates).date,
 											})}

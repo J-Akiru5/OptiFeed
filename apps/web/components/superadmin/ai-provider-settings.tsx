@@ -206,8 +206,10 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<div className="min-w-0">
-					<h2 className="text-lg font-black text-[#0A3D62]">{provider.label}</h2>
-					<p className="text-[11px] font-extrabold uppercase tracking-wider text-[#3D5568]">
+					<h2 className="text-lg font-black text-[#0A3D62] dark:text-slate-100">
+						{provider.label}
+					</h2>
+					<p className="text-[11px] font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 						{provider.provider} · {provider.kind}
 						{provider.builtIn ? "" : ` · ${t("custom")}`}
 						{provider.configured ? "" : t("usingDefault")}
@@ -345,7 +347,7 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 				</div>
 			</div>
 
-			<label className="flex items-center gap-2.5 text-sm font-bold text-[#0A3D62]">
+			<label className="flex items-center gap-2.5 text-sm font-bold text-[#0A3D62] dark:text-slate-100">
 				<input
 					type="checkbox"
 					checked={enabled}
@@ -392,13 +394,13 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 
 			{/* Key material is managed separately from the chain settings: it has
 			    its own step-up and its own audit action. */}
-			<div className="space-y-3 rounded-xl border border-[#0A3D62]/15 bg-[#F4F7F6] p-4">
+			<div className="space-y-3 rounded-xl border border-[#0A3D62]/15 bg-[#F4F7F6] dark:bg-[#0B1220] p-4">
 				<div className="flex flex-wrap items-center justify-between gap-2">
-					<p className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#0A3D62]">
+					<p className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#0A3D62] dark:text-slate-100">
 						<KeyRound className="h-4 w-4" aria-hidden="true" />
 						{t("apiKey")}
 					</p>
-					<p className="text-[11px] text-[#3D5568]">
+					<p className="text-[11px] text-[#3D5568] dark:text-slate-400">
 						{provider.keySource === "db"
 							? t("keyMeta", {
 									last4: provider.keyLast4 ?? "****",
@@ -515,10 +517,10 @@ function AddProviderForm() {
 		<form onSubmit={submit} className={cn(CARD, "space-y-4 p-6")} aria-busy={isPending}>
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<div>
-					<h2 className="text-xs font-extrabold uppercase tracking-wider text-[#3D5568]">
+					<h2 className="text-xs font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 						{t("addTitle")}
 					</h2>
-					<p className="mt-1 text-sm text-[#3D5568]">{t("addDesc")}</p>
+					<p className="mt-1 text-sm text-[#3D5568] dark:text-slate-400">{t("addDesc")}</p>
 				</div>
 				<button
 					type="button"
@@ -701,10 +703,10 @@ export function AiProviderSettings({ providers }: { providers: AiProviderView[] 
 			<AddProviderForm />
 
 			<form onSubmit={handleReset} className={cn(CARD, "space-y-4 p-6")} aria-busy={isPending}>
-				<h2 className="text-xs font-extrabold uppercase tracking-wider text-[#3D5568]">
+				<h2 className="text-xs font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
 					{t("resetTitle")}
 				</h2>
-				<p className="text-sm text-[#3D5568]">{t("resetDesc")}</p>
+				<p className="text-sm text-[#3D5568] dark:text-slate-400">{t("resetDesc")}</p>
 
 				<div className="space-y-1.5">
 					<label htmlFor="ai-provider-reset-reason" className={FIELD_LABEL}>

@@ -235,8 +235,8 @@ export function OrgMembersPanel({
 		<div className="space-y-5">
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div>
-					<h2 className="font-black text-[#0A3D62]">{tCommon("members")}</h2>
-					<p className="mt-1 text-xs text-[#3D5568]">
+					<h2 className="font-black text-[#0A3D62] dark:text-slate-100">{tCommon("members")}</h2>
+					<p className="mt-1 text-xs text-[#3D5568] dark:text-slate-400">
 						{t("description", { count: members.length })}
 					</p>
 				</div>
@@ -255,10 +255,10 @@ export function OrgMembersPanel({
 				</button>
 			</div>
 
-			<div className="rounded-xl border border-[#E85A2A]/30 bg-[#FFF3E8] p-4">
+			<div className="rounded-xl border border-[#E85A2A]/30 bg-[#FFF3E8] dark:bg-amber-950/50 p-4">
 				<label
 					htmlFor="platform-member-reason"
-					className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-[#B45309]"
+					className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-[#B45309] dark:text-amber-300"
 				>
 					<ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
 					{t("reasonLabel")}
@@ -270,9 +270,12 @@ export function OrgMembersPanel({
 					rows={2}
 					placeholder={t("reasonPlaceholder")}
 					aria-describedby="platform-member-reason-hint"
-					className="mt-1.5 w-full rounded-xl border border-[#E85A2A]/30 bg-white px-3 py-2 text-sm text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
+					className="mt-1.5 w-full rounded-xl border border-[#E85A2A]/30 bg-white dark:bg-[#111A2C] px-3 py-2 text-sm text-[#0A3D62] dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#E85A2A]"
 				/>
-				<p id="platform-member-reason-hint" className="mt-1 text-[10px] font-medium text-[#B45309]">
+				<p
+					id="platform-member-reason-hint"
+					className="mt-1 text-[10px] font-medium text-[#B45309] dark:text-amber-300"
+				>
 					{t("charCount", { count: reason.trim().length })}
 				</p>
 			</div>
@@ -296,10 +299,14 @@ export function OrgMembersPanel({
 			{inviteOpen && (
 				<div
 					id="platform-invite-panel"
-					className="rounded-xl border border-gray-200 bg-[#F4F7F6] p-4"
+					className="rounded-xl border border-gray-200 dark:border-[#24304A] bg-[#F4F7F6] dark:bg-[#0B1220] p-4"
 				>
-					<p className="text-sm font-black text-[#0A3D62]">{t("inviteTitle")}</p>
-					<p className="mt-1 text-[11px] leading-relaxed text-[#3D5568]">{t("inviteDesc")}</p>
+					<p className="text-sm font-black text-[#0A3D62] dark:text-slate-100">
+						{t("inviteTitle")}
+					</p>
+					<p className="mt-1 text-[11px] leading-relaxed text-[#3D5568] dark:text-slate-400">
+						{t("inviteDesc")}
+					</p>
 					<div className="mt-3 grid gap-3 sm:grid-cols-3">
 						<div className="space-y-1">
 							<label htmlFor="invite-email" className={FIELD_LABEL}>
@@ -376,28 +383,28 @@ export function OrgMembersPanel({
 			)}
 
 			{inviteResult && (
-				<div className="rounded-xl border border-[#1E7B34]/30 bg-[#E8F5EC] p-4">
+				<div className="rounded-xl border border-[#1E7B34]/30 bg-[#E8F5EC] dark:bg-emerald-950/50 p-4">
 					<div className="flex items-start justify-between gap-3">
 						<div className="min-w-0">
-							<p className="text-sm font-black text-[#1E7B34]">
+							<p className="text-sm font-black text-[#1E7B34] dark:text-emerald-300">
 								{inviteResult.createdUser ? t("loginCreated") : t("existingAttached")}
 							</p>
-							<p className="mt-1 text-[11px] text-[#1E7B34]">
+							<p className="mt-1 text-[11px] text-[#1E7B34] dark:text-emerald-300">
 								{t("login", { email: inviteResult.loginEmail })}
 							</p>
 							{inviteResult.temporaryPassword && (
 								<>
-									<p className="mt-1 text-[11px] font-bold text-[#1E7B34]">
+									<p className="mt-1 text-[11px] font-bold text-[#1E7B34] dark:text-emerald-300">
 										{inviteResult.emailSent ? t("emailSent") : t("emailNotSent")}
 									</p>
 									<div className="mt-2 flex flex-wrap items-center gap-2">
-										<code className="break-all rounded-lg bg-white px-3 py-1.5 font-mono text-sm font-bold text-[#0A3D62] ring-1 ring-[#1E7B34]/20">
+										<code className="break-all rounded-lg bg-white dark:bg-[#111A2C] px-3 py-1.5 font-mono text-sm font-bold text-[#0A3D62] dark:text-slate-100 ring-1 ring-[#1E7B34]/20">
 											{inviteResult.temporaryPassword}
 										</code>
 										<button
 											type="button"
 											onClick={copyPassword}
-											className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-black text-[#1E7B34] ring-1 ring-[#1E7B34]/20 hover:bg-[#f3fbf5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E7B34]"
+											className="inline-flex items-center gap-1 rounded-lg bg-white dark:bg-[#111A2C] px-2.5 py-1.5 text-[11px] font-black text-[#1E7B34] dark:text-emerald-300 ring-1 ring-[#1E7B34]/20 hover:bg-[#f3fbf5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E7B34]"
 										>
 											{copied ? (
 												<Check className="h-3.5 w-3.5" aria-hidden="true" />
@@ -414,7 +421,10 @@ export function OrgMembersPanel({
 							type="button"
 							onClick={() => setInviteResult(null)}
 							aria-label={t("dismissInvite")}
-							className={cn("rounded-lg p-1 text-[#1E7B34] hover:bg-white/70", FOCUS_RING)}
+							className={cn(
+								"rounded-lg p-1 text-[#1E7B34] dark:text-emerald-300 hover:bg-white/70 dark:hover:bg-[#1B2740]",
+								FOCUS_RING,
+							)}
 						>
 							<X className="h-4 w-4" aria-hidden="true" />
 						</button>
@@ -422,12 +432,12 @@ export function OrgMembersPanel({
 				</div>
 			)}
 
-			<div className="overflow-hidden rounded-xl border border-gray-200">
+			<div className="overflow-hidden rounded-xl border border-gray-200 dark:border-[#24304A]">
 				<div className="overflow-x-auto">
 					<table className="w-full min-w-[44rem] text-sm">
 						<caption className="sr-only">{t("caption")}</caption>
 						<thead>
-							<tr className="border-b border-gray-100 bg-[#F4F7F6]">
+							<tr className="border-b border-gray-100 dark:border-[#1B2740] bg-[#F4F7F6] dark:bg-[#0B1220]">
 								{[
 									t("columnMember"),
 									t("columnRole"),
@@ -438,7 +448,7 @@ export function OrgMembersPanel({
 									<th
 										key={heading}
 										scope="col"
-										className="px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-wider text-[#3D5568]"
+										className="px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-wider text-[#3D5568] dark:text-slate-400"
 									>
 										{heading}
 									</th>
@@ -456,7 +466,7 @@ export function OrgMembersPanel({
 								return (
 									<tr
 										key={member.membershipId}
-										className="border-b border-gray-50 align-top last:border-0"
+										className="border-b border-gray-50 dark:border-[#1B2740] align-top last:border-0"
 									>
 										<td className="px-4 py-3">
 											<div className="flex items-start gap-3">
@@ -468,13 +478,17 @@ export function OrgMembersPanel({
 												/>
 												<div className="min-w-0">
 													<div className="flex flex-wrap items-center gap-1.5">
-														<p className="font-black text-[#0A3D62]">{name}</p>
+														<p className="font-black text-[#0A3D62] dark:text-slate-100">{name}</p>
 														{member.isPlatformAdmin && (
 															<Badge tone="accent">{tCommon("platformAdmin")}</Badge>
 														)}
 													</div>
-													<p className="text-[11px] text-[#3D5568]">{member.email}</p>
-													<p className="font-mono text-[10px] text-[#3D5568]">{member.farmId}</p>
+													<p className="text-[11px] text-[#3D5568] dark:text-slate-400">
+														{member.email}
+													</p>
+													<p className="font-mono text-[10px] text-[#3D5568] dark:text-slate-400">
+														{member.farmId}
+													</p>
 												</div>
 											</div>
 										</td>
@@ -485,7 +499,7 @@ export function OrgMembersPanel({
 												onChange={(event) => handleRoleChange(member, event.target.value)}
 												disabled={pendingRole || pendingInvite || pendingRevoke}
 												aria-label={t("roleAria", { name })}
-												className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-bold text-[#0A3D62] focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:opacity-60"
+												className="rounded-lg border border-gray-200 dark:border-[#24304A] bg-white dark:bg-[#111A2C] px-2 py-1.5 text-xs font-bold text-[#0A3D62] dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:opacity-60"
 											>
 												{MEMBER_ROLES.map((role) => (
 													<option key={role} value={role}>
@@ -523,7 +537,7 @@ export function OrgMembersPanel({
 														const key = `perm:${member.membershipId}:${permission}`;
 														return (
 															<li key={permission}>
-																<label className="flex cursor-pointer items-start gap-2 rounded-lg px-1 py-1 hover:bg-[#F4F7F6]">
+																<label className="flex cursor-pointer items-start gap-2 rounded-lg px-1 py-1 hover:bg-[#F4F7F6] dark:hover:bg-[#162238]">
 																	<input
 																		type="checkbox"
 																		checked={checked}
@@ -533,9 +547,9 @@ export function OrgMembersPanel({
 																		}
 																		className="mt-0.5 h-3.5 w-3.5 accent-[#E85A2A]"
 																	/>
-																	<span className="text-[11px] font-bold text-[#0A3D62]">
+																	<span className="text-[11px] font-bold text-[#0A3D62] dark:text-slate-100">
 																		{tRoot(`permissions.${permission}`)}
-																		<span className="block font-mono text-[9px] font-medium text-[#3D5568]">
+																		<span className="block font-mono text-[9px] font-medium text-[#3D5568] dark:text-slate-400">
 																			{permission}
 																		</span>
 																	</span>
@@ -547,7 +561,7 @@ export function OrgMembersPanel({
 											)}
 										</td>
 
-										<td className="px-4 py-3 text-xs text-[#3D5568]">
+										<td className="px-4 py-3 text-xs text-[#3D5568] dark:text-slate-400">
 											{joinedLabels[member.membershipId] ?? "—"}
 										</td>
 
@@ -583,7 +597,7 @@ export function OrgMembersPanel({
 													onClick={() => setRevokeConfirm(member.membershipId)}
 													disabled={!reasonReady}
 													className={cn(
-														"rounded-lg border border-[#C42B3A]/30 px-2.5 py-1.5 text-[10px] font-black text-[#C42B3A] transition-colors hover:bg-[#FDE8EA] disabled:cursor-not-allowed disabled:opacity-50",
+														"rounded-lg border border-[#C42B3A]/30 px-2.5 py-1.5 text-[10px] font-black text-[#C42B3A] dark:text-red-300 transition-colors hover:bg-[#FDE8EA] disabled:cursor-not-allowed disabled:opacity-50",
 														FOCUS_RING,
 													)}
 												>
@@ -599,7 +613,7 @@ export function OrgMembersPanel({
 				</div>
 
 				{members.length === 0 && (
-					<p className="p-6 text-center text-sm text-[#3D5568]">{t("empty")}</p>
+					<p className="p-6 text-center text-sm text-[#3D5568] dark:text-slate-400">{t("empty")}</p>
 				)}
 			</div>
 

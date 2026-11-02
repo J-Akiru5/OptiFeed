@@ -294,7 +294,7 @@ export default async function SuperadminDevicesPage({
 										},
 									]}
 								>
-									<label className="inline-flex items-center gap-2 text-[11px] font-bold text-[#3D5568]">
+									<label className="inline-flex items-center gap-2 text-[11px] font-bold text-[#3D5568] dark:text-slate-400">
 										<input
 											type="checkbox"
 											form={LABEL_FORM_ID}
@@ -346,7 +346,7 @@ export default async function SuperadminDevicesPage({
 								const weak = hopper.status === "weak";
 								return (
 									<Fragment key={device.id}>
-										<tr className="border-b border-gray-50 align-top transition-colors last:border-0 hover:bg-[#F4F7F6]/50">
+										<tr className="border-b border-gray-50 dark:border-[#1B2740] align-top transition-colors last:border-0 hover:bg-[#F4F7F6] dark:hover:bg-[#162238]/50 dark:hover:bg-[#162238]/60">
 											<td className="px-6 py-4">
 												<input
 													type="checkbox"
@@ -362,18 +362,20 @@ export default async function SuperadminDevicesPage({
 													<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0A3D62] text-white">
 														<Cpu className="h-4 w-4" aria-hidden="true" />
 													</div>
-													<p className="font-black text-[#0A3D62]">{device.label}</p>
+													<p className="font-black text-[#0A3D62] dark:text-slate-100">
+														{device.label}
+													</p>
 												</div>
 											</td>
-											<td className="px-6 py-4 font-mono text-xs font-bold text-[#3D5568]">
+											<td className="px-6 py-4 font-mono text-xs font-bold text-[#3D5568] dark:text-slate-400">
 												{device.mac}
 											</td>
-											<td className="px-6 py-4 text-xs font-bold text-[#3D5568]">
+											<td className="px-6 py-4 text-xs font-bold text-[#3D5568] dark:text-slate-400">
 												{device.orgs.length > 0
 													? device.orgs.map((o) => o.name).join(", ")
 													: tCommon("none")}
 											</td>
-											<td className="px-6 py-4 text-xs font-bold text-[#3D5568]">
+											<td className="px-6 py-4 text-xs font-bold text-[#3D5568] dark:text-slate-400">
 												{device.pond?.name ?? tCommon("unassigned")}
 											</td>
 											<td className="px-6 py-4">
@@ -398,9 +400,9 @@ export default async function SuperadminDevicesPage({
 													</Badge>
 													<DeviceSignalReading
 														rssiDbm={hopper.rssiDbm}
-														className="text-[11px] font-bold text-[#3D5568]"
+														className="text-[11px] font-bold text-[#3D5568] dark:text-slate-400"
 													/>
-													<p className="text-[11px] text-[#3D5568]">
+													<p className="text-[11px] text-[#3D5568] dark:text-slate-400">
 														{lastSeen(device.lastSeenAt)}
 													</p>
 												</div>

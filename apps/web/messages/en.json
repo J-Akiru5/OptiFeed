@@ -1880,7 +1880,8 @@
 			"componentsTitle": "Components",
 			"statusWeak": "Weak signal",
 			"diagTitle": "Firmware diagnostics",
-			"diagEmpty": "No diagnostics reported yet (first heartbeat with a diag object fills this in)."
+			"diagEmpty": "No diagnostics reported yet (first heartbeat with a diag object fills this in).",
+			"backTo3d": "Back to 3D view"
 		},
 		"adminDevices": {
 			"view3d": "3D view",
@@ -2263,7 +2264,14 @@
 					"showing": "Showing {from}–{to} of {total}",
 					"previous": "Previous",
 					"next": "Next",
-					"label": "Calibration history pagination"
+					"label": "Calibration history pagination",
+					"temperature": {
+						"title": "Temperature calibration",
+						"empty": "No temperature calibration saved yet.",
+						"date": "Date",
+						"offset": "Offset",
+						"minimum": "Feeding minimum"
+					}
 				},
 				"recalibration": {
 					"title": "Recalibration schedule",
@@ -3882,7 +3890,8 @@
 				"low": "low",
 				"medium": "medium",
 				"high": "high"
-			}
+			},
+			"removeDone": "Provider removed."
 		},
 		"settings": {
 			"title": "Platform Settings",

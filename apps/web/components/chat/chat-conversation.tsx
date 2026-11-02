@@ -14,6 +14,7 @@ import {
 	chatChip,
 	chatComposer,
 	chatFooter,
+	chatHeader,
 	chatMessageList,
 	chatSendButton,
 	chatSurface,
@@ -99,19 +100,19 @@ export function ChatConversation({
 			className={cn("flex min-h-0 flex-col overflow-hidden", chatSurface, className)}
 		>
 			{/* Header: Pakoy's head and name replace the old bot glyph (#221). */}
-			<div className="flex items-center justify-between bg-[#0A3D62] px-4 py-3 text-white shrink-0">
+			<div className={cn("flex shrink-0 items-center justify-between px-4 py-3", chatHeader)}>
 				<div className="flex min-w-0 items-center gap-2.5">
-					<Mascot size={32} className="ring-1 ring-white/25" />
+					<Mascot size={32} className="ring-1 ring-white/40" />
 					<div className="min-w-0">
 						<h3 className="truncate text-sm font-semibold leading-tight">{ASSISTANT_NAME}</h3>
-						<p className="truncate text-[10px] font-medium text-white/70">{t("tagline")}</p>
+						<p className="truncate text-[10px] font-medium text-white">{t("tagline")}</p>
 					</div>
 				</div>
 				<button
 					type="button"
 					onClick={onClose}
 					aria-label="Close chat"
-					className="flex h-8 w-8 items-center justify-center rounded-full text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+					className="flex h-8 w-8 items-center justify-center rounded-full text-white transition-colors hover:bg-white/20"
 				>
 					<ChevronDown size={20} className="md:hidden" />
 					<X size={18} className="hidden md:block" />

@@ -1,6 +1,7 @@
 "use client";
 
 import { FeederFallback } from "@/components/feeder/feeder-fallback";
+import { DEFAULT_DEVICE_STATUS_POLICY } from "@/lib/device-status";
 import {
 	type FeederStatus,
 	type FeederViewerTier,
@@ -27,15 +28,34 @@ interface FeederViewerLazyProps {
 	initialLastFedAt: string | null;
 	/** Water-temperature probe health; null when never reported. */
 	initialWaterTempOk: boolean | null;
+	/** Last calibrated temperature the probe reported. */
+	initialWaterTempC: number | null;
+	/** When the probe last reported; null when it never did. */
+	initialWaterTempUpdatedAt: string | null;
 	/** RTC health as last reported. */
 	initialRtcOk: boolean | null;
+	/** When the unit last checked in; the freshness basis for the RTC bit. */
+	initialLastSeenAt: string | null;
+	/** Reading freshness window, from the device status policy. */
+	staleAfterMs?: number;
 }
 
 interface StatePayload {
 	status: FeederStatus;
 	feedLevelPercent: number | null;
 	lastFedAt: string | null;
+	waterTempOk: boolean;
+	waterTempC: number | null;
+	waterTempUpdatedAt: string | null;
+	rtcOk: boolean;
+	lastSeenAt: string | null;
 }
+
+/** The client copy: health stays nullable because "not reported" is a state. */
+type ViewerState = Omit<StatePayload, "waterTempOk" | "rtcOk"> & {
+	waterTempOk: boolean | null;
+	rtcOk: boolean | null;
+};
 
 type NavigatorWithHints = Navigator & {
 	deviceMemory?: number;
@@ -98,7 +118,11 @@ export function FeederViewerLazy({
 	initialLevel,
 	initialLastFedAt,
 	initialWaterTempOk,
+	initialWaterTempC,
+	initialWaterTempUpdatedAt,
 	initialRtcOk,
+	initialLastSeenAt,
+	staleAfterMs = DEFAULT_DEVICE_STATUS_POLICY.offlineAfterMs,
 }: FeederViewerLazyProps) {
 	const t = useTranslations("dashboard.feederViewer");
 	const locale = useLocale();
@@ -106,10 +130,15 @@ export function FeederViewerLazy({
 	const [visible, setVisible] = useState(false);
 	const [tier, setTier] = useState<FeederViewerTier | null>(null);
 	const [simple, setSimple] = useState(false);
-	const [state, setState] = useState<StatePayload>({
+	const [state, setState] = useState<ViewerState>({
 		status: initialStatus,
 		feedLevelPercent: initialLevel,
 		lastFedAt: initialLastFedAt,
+		waterTempOk: initialWaterTempOk,
+		waterTempC: initialWaterTempC,
+		waterTempUpdatedAt: initialWaterTempUpdatedAt,
+		rtcOk: initialRtcOk,
+		lastSeenAt: initialLastSeenAt,
 	});
 
 	useEffect(() => {
@@ -144,10 +173,19 @@ export function FeederViewerLazy({
 				if (!response.ok) return;
 				const body = (await response.json()) as { data?: StatePayload };
 				if (!active || !body.data) return;
+				const next = body.data;
 				setState({
-					status: body.data.status,
-					feedLevelPercent: body.data.feedLevelPercent,
-					lastFedAt: body.data.lastFedAt,
+					status: next.status,
+					feedLevelPercent: next.feedLevelPercent,
+					lastFedAt: next.lastFedAt,
+					// `waterTempOk` is only meaningful once the probe has reported;
+					// the column defaults to false, so a never-reported probe stays
+					// "unknown" instead of turning into a fault on the first poll.
+					waterTempOk: next.waterTempUpdatedAt ? next.waterTempOk : null,
+					waterTempC: next.waterTempC,
+					waterTempUpdatedAt: next.waterTempUpdatedAt,
+					rtcOk: next.rtcOk,
+					lastSeenAt: next.lastSeenAt,
 				});
 			} catch {
 				// Keep the last known reading; the next tick retries.
@@ -176,8 +214,27 @@ export function FeederViewerLazy({
 			status={state.status}
 			feedLevelPercent={state.feedLevelPercent}
 			lastFedLabel={lastFedLabel}
+			waterTempOk={state.waterTempOk}
+			waterTempC={state.waterTempC}
+			waterTempUpdatedAt={state.waterTempUpdatedAt}
+			rtcOk={state.rtcOk}
+			lastSeenAt={state.lastSeenAt}
+			staleAfterMs={staleAfterMs}
+		/>
+	);
+
+	// #626: the simple view is a choice on a capable device, so it needs a way
+	// back. The forced fallbacks (no WebGL, or the 3D scene crashed) do not get
+	// the button, because there is nothing for them to return to.
+	const simpleFallback = (
+		<FeederFallback
+			label={label}
+			status={state.status}
+			feedLevelPercent={state.feedLevelPercent}
+			lastFedLabel={lastFedLabel}
 			waterTempOk={initialWaterTempOk}
 			rtcOk={initialRtcOk}
+			onBackToViewer={() => setSimple(false)}
 		/>
 	);
 
@@ -185,8 +242,10 @@ export function FeederViewerLazy({
 		<div ref={hostRef} className="min-w-0">
 			{tier === null || !visible ? (
 				<ViewerSkeleton />
-			) : tier === "low" || simple ? (
+			) : tier === "low" ? (
 				fallback
+			) : simple ? (
+				simpleFallback
 			) : (
 				<ViewerBoundary fallback={fallback}>
 					<FeederViewer
@@ -194,8 +253,12 @@ export function FeederViewerLazy({
 						status={state.status}
 						feedLevelPercent={state.feedLevelPercent}
 						lastFedLabel={lastFedLabel}
-						waterTempOk={initialWaterTempOk}
-						rtcOk={initialRtcOk}
+						waterTempOk={state.waterTempOk}
+						waterTempC={state.waterTempC}
+						waterTempUpdatedAt={state.waterTempUpdatedAt}
+						rtcOk={state.rtcOk}
+						lastSeenAt={state.lastSeenAt}
+						staleAfterMs={staleAfterMs}
 						onSimpleView={() => setSimple(true)}
 					/>
 				</ViewerBoundary>

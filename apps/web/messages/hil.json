@@ -1938,7 +1938,8 @@
 			"componentsTitle": "Mga komponente",
 			"statusWeak": "Maluya ang signal",
 			"diagTitle": "Diyagnostik sang firmware",
-			"diagEmpty": "Wala pay diyagnostik (ang Una nga heartbeat nga nagdala diag, madula ini)."
+			"diagEmpty": "Wala pay diyagnostik (ang Una nga heartbeat nga nagdala diag, madula ini).",
+			"backTo3d": "Magbalik sa 3D view"
 		},
 		"adminDevices": {
 			"view3d": "3D view",
@@ -2321,7 +2322,14 @@
 					"showing": "Ginapakita {from}–{to} sang {total}",
 					"previous": "Una",
 					"next": "Sunod",
-					"label": "Pagination sang kasaysayan sang calibration"
+					"label": "Pagination sang kasaysayan sang calibration",
+					"temperature": {
+						"title": "Kalibrasyon sang temperatura",
+						"empty": "Wala pa na-save nga kalibrasyon sang temperatura.",
+						"date": "Petsa",
+						"offset": "Offset",
+						"minimum": "Minimum sa pagpakaon"
+					}
 				},
 				"recalibration": {
 					"title": "Iskedyul sang Recalibration",
@@ -3882,7 +3890,8 @@
 				"low": "ubos",
 				"medium": "medium",
 				"high": "mataas"
-			}
+			},
+			"removeDone": "Gin-remove ang provider."
 		},
 		"settings": {
 			"title": "Mga Setting sang Plataporma",

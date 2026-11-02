@@ -4,6 +4,8 @@ export interface FeedLevelDisplayInput {
 	levelPercent: number | null;
 	updatedAt?: Date | null;
 	isDeviceOffline: boolean;
+	/** The unit is online but its hopper sensor is not answering (#574). */
+	isSensorOffline?: boolean;
 	hopperCapacityG: number | null;
 	gramsPerFeeding: number;
 	feedsPerDay: number;
@@ -25,6 +27,8 @@ export interface FeedLevelDisplay extends FeedLevelRemaining {
 	readingAt: Date | null;
 	hasReading: boolean;
 	isOffline: boolean;
+	/** True when only the sensor is down; the unit itself is still online. */
+	isSensorOffline: boolean;
 	isCritical: boolean;
 	isLow: boolean;
 }
@@ -127,6 +131,7 @@ export function getFeedLevelDisplay({
 	levelPercent,
 	updatedAt = null,
 	isDeviceOffline,
+	isSensorOffline = false,
 	hopperCapacityG,
 	gramsPerFeeding,
 	feedsPerDay,
@@ -134,7 +139,9 @@ export function getFeedLevelDisplay({
 	const display = resolveFeedLevelDisplay({
 		levelPercent,
 		updatedAt,
-		isOffline: isDeviceOffline,
+		// A sensor-only outage keeps the unit online but the reading is no longer
+		// current, so it gets the same last-known treatment as a full outage.
+		isOffline: isDeviceOffline || isSensorOffline,
 	});
 	const livePercent = display.state === "live" ? display.percent : null;
 	const remaining = estimateFeedRemaining({
@@ -150,6 +157,7 @@ export function getFeedLevelDisplay({
 		readingAt: display.readingAt,
 		hasReading: display.state !== "none",
 		isOffline: isDeviceOffline,
+		isSensorOffline,
 		isCritical: livePercent !== null && livePercent <= 5,
 		isLow: livePercent !== null && livePercent <= 20,
 		...remaining,

@@ -83,6 +83,7 @@ export default async function DashboardLayout({
 	let hopperCapacityG: number | null = null;
 	let hopperGramsPerFeeding: number | null = null;
 	let hopperFeedsPerDay: number | null = null;
+	let hopperSensorOffline = false;
 	let esp32Status: "online" | "weak" | "offline" | "missing" = "missing";
 	let pondName = "";
 	let lastSeenAtStr: string | null = null;
@@ -116,6 +117,7 @@ export default async function DashboardLayout({
 				hopperCapacityG = hopper.hopperCapacityG;
 				hopperGramsPerFeeding = hopper.gramsPerFeeding;
 				esp32Status = hopper.status;
+				hopperSensorOffline = hopper.sensorOffline;
 				lastSeenAtStr = hopper.lastSeenAt ? hopper.lastSeenAt.toISOString() : null;
 			}
 		}
@@ -256,6 +258,7 @@ export default async function DashboardLayout({
 								gramsPerFeeding={hopperGramsPerFeeding}
 								feedsPerDay={hopperFeedsPerDay}
 								isOffline={esp32Status === "offline"}
+								isSensorOffline={hopperSensorOffline}
 								showHopperWidget={showPondChrome}
 							/>
 							<main

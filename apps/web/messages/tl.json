@@ -1272,6 +1272,7 @@
 			"title": "Antas ng Pakain",
 			"lastKnown": "Huling alam: {percent}%",
 			"offline": "Offline",
+			"sensorOffline": "Offline ang ultrasonic",
 			"noReadingYet": "Wala pang reading",
 			"readingTime": "{date}, {time}",
 			"unknownTime": "Hindi available ang oras ng reading",

@@ -991,6 +991,7 @@
 		"dashboard.feedLevel.offline",
 		"dashboard.feedLevel.ok",
 		"dashboard.feedLevel.readingTime",
+		"dashboard.feedLevel.sensorOffline",
 		"dashboard.feedLevel.title",
 		"dashboard.feedLevel.unknownTime",
 		"dashboard.feedNowModal.alreadyQueued",

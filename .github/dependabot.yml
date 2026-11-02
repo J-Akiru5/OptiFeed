@@ -25,6 +25,12 @@ updates:
       prefix-development: "chore(deps-dev)"
     labels:
       - "dependencies"
+    # CI runs Node 22 and the package supports >=22.5. Types must track the
+    # runtime: a future major lets code typecheck against APIs Node 22 does not
+    # have. Remove this once CI moves (then pin the matching major).
+    ignore:
+      - dependency-name: "@types/node"
+        versions: [">=23"]
     groups:
       production-minor-patch:
         dependency-type: "production"

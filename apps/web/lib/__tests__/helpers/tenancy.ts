@@ -278,6 +278,25 @@ export type TenancyFeedRequest = {
 	farmId: string | null;
 };
 
+export type TenancyNotification = {
+	id: string;
+	pondId: string;
+	tier: string;
+	message: string;
+	linkTo: string | null;
+	read: boolean;
+	category: string | null;
+	acknowledgedAt: Date | null;
+	acknowledgedBy: string | null;
+	autoCleared: boolean;
+	createdAt: Date;
+	farmId: string | null;
+	episodeKey: string | null;
+	resolvedAt: Date | null;
+	supersededById: string | null;
+	resolutionReason: string | null;
+};
+
 export type TenancyFixture = {
 	organizations: TenancyOrganization[];
 	users: TenancyUser[];
@@ -292,6 +311,7 @@ export type TenancyFixture = {
 	pondEvents: TenancyPondEvent[];
 	feedEvents: TenancyFeedEvent[];
 	feedRequests: TenancyFeedRequest[];
+	notifications: TenancyNotification[];
 	platformAdmins: TenancyPlatformAdmin[];
 	platformAuditLogs: TenancyPlatformAuditLog[];
 };
@@ -639,6 +659,7 @@ export function createTenancyFixture(): TenancyFixture {
 		pondEvents: [],
 		feedEvents: [],
 		feedRequests: [],
+		notifications: [],
 		platformAdmins,
 		platformAuditLogs: [],
 		orgSettings: [],
@@ -770,6 +791,7 @@ type ModelName =
 	| "pondEvent"
 	| "feedEvent"
 	| "feedRequest"
+	| "notification"
 	| "platformAdmin"
 	| "platformAuditLog"
 	| "orgSetting";
@@ -796,6 +818,7 @@ export type TenancyDelegate = {
 	count: (args?: QueryArgs) => Promise<number>;
 	aggregate: (args?: AggregateArgs) => Promise<Row>;
 	create: (args: { data: Row; select?: Projection }) => Promise<Row>;
+	createMany: (args: { data: Row[]; skipDuplicates?: boolean }) => Promise<{ count: number }>;
 	update: (args: { where: Where; data: Row }) => Promise<Row>;
 	updateMany: (args?: { where?: Where; data?: Row }) => Promise<{ count: number }>;
 	upsert: (args: { where: Where; update: Row; create: Row }) => Promise<Row>;
@@ -844,6 +867,7 @@ const MODEL_TABLE: Record<ModelName, keyof TenancyFixture> = {
 	pondEvent: "pondEvents",
 	feedEvent: "feedEvents",
 	feedRequest: "feedRequests",
+	notification: "notifications",
 	platformAdmin: "platformAdmins",
 	platformAuditLog: "platformAuditLogs",
 	orgSetting: "orgSettings",
@@ -1179,6 +1203,21 @@ function defaultsFor(model: ModelName, now: Date): Row {
 				updatedAt: now,
 				farmId: null,
 			};
+		case "notification":
+			return {
+				linkTo: null,
+				read: false,
+				category: null,
+				acknowledgedAt: null,
+				acknowledgedBy: null,
+				autoCleared: false,
+				createdAt: now,
+				farmId: null,
+				episodeKey: null,
+				resolvedAt: null,
+				supersededById: null,
+				resolutionReason: null,
+			};
 		case "platformAdmin":
 			return {
 				grantedBy: null,
@@ -1269,6 +1308,30 @@ export function createTenancyDb(base: TenancyFixture = createTenancyFixture()): 
 		// the raw row only holds the foreign key.
 		const matches = (row: Row, where: Where = {}) => matchWhere(decorate(model, row, state), where);
 
+		// The partial unique index from migration 20261102200000. Enforcing it
+		// here (rather than in the episode test) is what makes Promise.all of
+		// concurrent openEpisode() calls a real race: one create wins, the rest
+		// receive P2002 and must re-read the winner.
+		const isOpenEpisode = (row: Row) =>
+			row.episodeKey !== null &&
+			row.episodeKey !== undefined &&
+			row.resolvedAt === null &&
+			row.autoCleared === false &&
+			row.supersededById === null;
+
+		const hasEpisodeConflict = (data: Row): boolean => {
+			if (model !== "notification") return false;
+			const candidate = { ...defaultsFor(model, new Date(FIXED_NOW.getTime())), ...data };
+			if (!isOpenEpisode(candidate)) return false;
+			return rows().some((row) => isOpenEpisode(row) && row.episodeKey === candidate.episodeKey);
+		};
+
+		const episodeConflict = (data: Row): Error =>
+			Object.assign(new Error("Unique constraint failed on the fields: (`episodeKey`)"), {
+				code: "P2002",
+				meta: { target: ["episodeKey"], data },
+			});
+
 		return {
 			async findMany(args = {}) {
 				const matched = rows().filter((row) => matches(row, args.where));
@@ -1329,8 +1392,22 @@ export function createTenancyDb(base: TenancyFixture = createTenancyFixture()): 
 						);
 					}
 				}
+				// #585: the partial unique index on the live episode predicate.
+				if (hasEpisodeConflict(args.data)) throw episodeConflict(args.data);
 				const row = createRow(model, args.data);
 				return materialise(row, { select: args.select });
+			},
+			async createMany(args) {
+				let count = 0;
+				for (const data of args.data) {
+					if (hasEpisodeConflict(data)) {
+						if (args.skipDuplicates) continue;
+						throw episodeConflict(data);
+					}
+					createRow(model, data);
+					count += 1;
+				}
+				return { count };
 			},
 			async update(args) {
 				const table = rows();
@@ -1419,6 +1496,7 @@ export function createTenancyDb(base: TenancyFixture = createTenancyFixture()): 
 		pondEvent: delegateFor("pondEvent"),
 		feedEvent: delegateFor("feedEvent"),
 		feedRequest: delegateFor("feedRequest"),
+		notification: delegateFor("notification"),
 		platformAdmin: delegateFor("platformAdmin"),
 		platformAuditLog: delegateFor("platformAuditLog"),
 		orgSetting: delegateFor("orgSetting"),

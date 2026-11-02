@@ -681,6 +681,7 @@ describe("POST /api/ingest — hopper alerts are episodes (#534, supersedes #412
 					episodeKey: "pellet:dev-1",
 					resolvedAt: null,
 					autoCleared: false,
+					supersededById: null,
 				},
 			}),
 		);

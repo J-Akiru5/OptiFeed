@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **The superadmin console's chart layer gains the six visualizations the command center needs, on one shared date range (#629).** `components/charts/` now has a heatmap (activity by day Ã— hour), a timeline (incidents and device events on a time rail), a treemap (org â†’ ponds â†’ devices), a radial gauge (bounded health and utilisation percentages), a stacked area (cumulative consumption by source) and the KPI sparkline, which moved out of `superadmin/monitor/primitives` so there is one implementation rather than two. Every primitive handles both themes, an empty dataset, a single point, a loading skeleton and an error state, and keeps the visually hidden data table the existing charts already publish. A `ChartRangeProvider` and `ChartRangeControl` give a page 7d/30d/90d/custom and filter the temporal charts on the client: `LineTrend`, `MultiLineTrend`, `StackedBars` and `StackedArea` opt in with `temporal`, and a filtered stack recomputes its legend totals so the legend describes what is plotted. Legends are native buttons with `aria-pressed`, the cartesian charts set Recharts' `accessibilityLayer`, and `charts/lazy.tsx` splits every Recharts-backed chart into its own chunk so chart code stays out of the initial health-panel bundle. No new dependency, no schema change.
+
+### Fixed
+
+- **A saved temperature calibration now appears in the hardware page's calibration history (#613).** `saveTemperatureCalibration` already wrote a `temperature_calibrated` device event, but the history read only `CalibrationRun` (the hopper rate tests), so the save was invisible afterwards. The history now lists the ten most recent temperature calibrations - date, signed offset and the pond's feeding minimum - from that event stream, reading the JSON metadata defensively so an older or malformed row renders an em dash instead of breaking the page. The rate-test table, its sessions and its pagination are unchanged; no schema change.
+
 ## [1.44.1] - 2026-11-03
 
 ### Security

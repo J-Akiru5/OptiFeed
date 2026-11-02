@@ -159,7 +159,7 @@ vi.mock("@/lib/prisma", () => ({
 			findMany: vi.fn(async () => []),
 			aggregate: vi.fn(async () => ({ _sum: { grams: 0 } })),
 		},
-		deviceStateEvent: { findFirst: vi.fn(async () => null) },
+		deviceStateEvent: { findFirst: vi.fn(async () => null), findMany: vi.fn(async () => []) },
 		biomassLog: { findFirst: vi.fn(async () => null) },
 		fcrReport: { findFirst: vi.fn(async () => null) },
 		feedLevelLog: { findMany: vi.fn(async () => []) },
@@ -289,6 +289,24 @@ describe("hardware settings page", () => {
 
 		expect(html).toContain("PakaonAI-ABCD");
 		expect(html).toContain("Device ID (MAC)");
+	});
+
+	it("lists saved temperature calibrations in the calibration history (#613)", async () => {
+		vi.mocked(prisma.deviceStateEvent.findMany).mockResolvedValueOnce([
+			{
+				id: "tce-1",
+				createdAt: new Date("2026-11-02T08:00:00.000Z"),
+				metadata: { tempOffsetC: -0.5, minFeedTempC: 24 },
+			},
+		] as never);
+
+		const html = renderToStaticMarkup(
+			await HardwareSettingsPage({ searchParams: Promise.resolve({}) }),
+		);
+
+		expect(html).toContain("temperature-calibration-history");
+		expect(html).toContain("-0.5 °C");
+		expect(html).toContain("24.0 °C");
 	});
 
 	it("shows the sticker MAC as the Device ID and the heartbeat's firmware version", async () => {

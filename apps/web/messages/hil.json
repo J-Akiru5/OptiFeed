@@ -2321,7 +2321,14 @@
 					"showing": "Ginapakita {from}–{to} sang {total}",
 					"previous": "Una",
 					"next": "Sunod",
-					"label": "Pagination sang kasaysayan sang calibration"
+					"label": "Pagination sang kasaysayan sang calibration",
+					"temperature": {
+						"title": "Kalibrasyon sang temperatura",
+						"empty": "Wala pa na-save nga kalibrasyon sang temperatura.",
+						"date": "Petsa",
+						"offset": "Offset",
+						"minimum": "Minimum sa pagpakaon"
+					}
 				},
 				"recalibration": {
 					"title": "Iskedyul sang Recalibration",

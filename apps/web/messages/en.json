@@ -2263,7 +2263,14 @@
 					"showing": "Showing {from}–{to} of {total}",
 					"previous": "Previous",
 					"next": "Next",
-					"label": "Calibration history pagination"
+					"label": "Calibration history pagination",
+					"temperature": {
+						"title": "Temperature calibration",
+						"empty": "No temperature calibration saved yet.",
+						"date": "Date",
+						"offset": "Offset",
+						"minimum": "Feeding minimum"
+					}
 				},
 				"recalibration": {
 					"title": "Recalibration schedule",

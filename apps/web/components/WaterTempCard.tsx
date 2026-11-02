@@ -1,8 +1,16 @@
 interface WaterTempCardProps {
+	/** Calibrated temperature (°C) — the raw probe reading plus the saved offset. */
 	tempC: number | null;
 	tempOk: boolean;
 	updatedAt: Date | null;
 	isDeviceOffline?: boolean;
+	/**
+	 * The pond's warn-only feeding minimum (issue #486). Null or undefined means
+	 * no limit is set, and the card stays silent rather than guessing one. This
+	 * never blocks a feed: it only says the water is colder than the limit the
+	 * pond itself chose.
+	 */
+	minFeedTempC?: number | null;
 }
 
 export function WaterTempCard({
@@ -10,9 +18,12 @@ export function WaterTempCard({
 	tempOk,
 	updatedAt,
 	isDeviceOffline = false,
+	minFeedTempC = null,
 }: WaterTempCardProps) {
 	const hasReading = tempOk && tempC !== null;
 	const isStale = hasReading && isDeviceOffline;
+	const belowMinimum =
+		hasReading && minFeedTempC !== null && !isStale && (tempC as number) < minFeedTempC;
 
 	const formatTimeAgo = (date: Date) => {
 		const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -24,14 +35,36 @@ export function WaterTempCard({
 		return `${Math.floor(hours / 24)}d ago`;
 	};
 
+	const statusLabel = isStale
+		? "Stale"
+		: belowMinimum
+			? "Below minimum"
+			: hasReading
+				? "OK"
+				: "Sensor Offline";
+	const statusClass = isStale
+		? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200"
+		: belowMinimum
+			? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+			: hasReading
+				? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-200"
+				: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300";
+	const dotClass = isStale
+		? "bg-amber-500"
+		: belowMinimum
+			? "bg-amber-500"
+			: hasReading
+				? "bg-green-500"
+				: "bg-gray-400";
+
 	return (
 		<div
-			className="rounded-3xl bg-white dark:bg-gray-900 p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 transition-shadow hover:shadow-md max-xl:rounded-none max-xl:border-0 max-xl:bg-transparent max-xl:p-0 max-xl:shadow-none"
 			data-help="dashboard-water-temp"
+			className="rounded-3xl bg-white dark:bg-gray-900 p-6 shadow-sm border border-gray-100 dark:border-gray-700/50 transition-shadow hover:shadow-md max-xl:rounded-none max-xl:border-0 max-xl:bg-transparent max-xl:p-0 max-xl:shadow-none"
 		>
 			<div className="flex items-center justify-between mb-4">
 				<div className="flex items-center gap-3">
-					<div className="h-11 w-11 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+					<div className="h-11 w-11 rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-900/40 dark:text-sky-300 flex items-center justify-center">
 						<svg
 							className="h-6 w-6"
 							fill="none"
@@ -59,27 +92,33 @@ export function WaterTempCard({
 					</div>
 				</div>
 				<span
-					className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
-						isStale
-							? "bg-amber-100 text-amber-700"
-							: hasReading
-								? "bg-green-100 text-green-700"
-								: "bg-gray-100 text-gray-600"
-					}`}
+					className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${statusClass}`}
 				>
-					<span
-						className={`h-2 w-2 rounded-full ${isStale ? "bg-amber-500" : hasReading ? "bg-green-500" : "bg-gray-400"}`}
-					/>
-					{isStale ? "Stale" : hasReading ? "OK" : "Sensor Offline"}
+					<span className={`h-2 w-2 rounded-full ${dotClass}`} />
+					{statusLabel}
 				</span>
 			</div>
 
 			{hasReading ? (
-				<div className="rounded-xl bg-gray-50 dark:bg-gray-800 p-3 max-xl:flex max-xl:min-h-11 max-xl:items-center max-xl:justify-between max-xl:gap-3 max-xl:border-b max-xl:border-[#E6ECE9] max-xl:p-0 max-xl:py-3 max-xl:rounded-none max-xl:bg-transparent max-xl:last:border-b-0">
-					<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Last updated</p>
-					<p className="text-sm font-medium text-gray-700 dark:text-gray-200">
-						{updatedAt ? formatTimeAgo(updatedAt) : "—"}
-					</p>
+				<div className="space-y-2">
+					<div className="rounded-xl bg-gray-50 dark:bg-gray-800 p-3 max-xl:flex max-xl:min-h-11 max-xl:items-center max-xl:justify-between max-xl:gap-3 max-xl:border-b max-xl:border-[#E6ECE9] max-xl:p-0 max-xl:py-3 max-xl:rounded-none max-xl:bg-transparent max-xl:last:border-b-0">
+						<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Last updated</p>
+						<p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+							{updatedAt ? formatTimeAgo(updatedAt) : "—"}
+						</p>
+					</div>
+					{belowMinimum ? (
+						<p className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs font-semibold text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/30 dark:text-amber-200 max-xl:border-x-0">
+							Colder than this pond&apos;s feeding minimum of {(minFeedTempC as number).toFixed(1)}
+							°C. Feeding is not blocked — check the fish response before a scheduled feed.
+						</p>
+					) : (
+						minFeedTempC !== null && (
+							<p className="px-1 text-xs text-gray-500 dark:text-gray-400">
+								Feeding minimum: {minFeedTempC.toFixed(1)}°C
+							</p>
+						)
+					)}
 				</div>
 			) : (
 				<p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">Sensor offline</p>

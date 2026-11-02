@@ -6,15 +6,15 @@ Orchestrator: Claude (Sonnet 5.5). Workers: OpenCode `deepseek-v4.1-flash`, one 
 
 | Branch | Head | Note |
 |---|---|---|
-| main (production) | `de76080` | #529 promoted staging (#521, #523, #530) |
-| staging | `4b63983` | #520, #511, #512, #523, #521, #530, #532, #535 |
-| develop | `1177af8` | #503, #524, #525, #536; #522 back-merge open |
+| main (production) | `de76080` | last promotion (#529); no further promotion for now |
+| staging | `9117353` | #520, #511, #512, #523, #521, #530, #532, #535, #526, #539 |
+| develop | `dc40da1` | #503, #524, #525, #536, #537, #522 |
 
-Open PRs: #510 (production group; bundle red), #514 (Prisma 7; four red), #528 (coverage-v8 5 without vitest 5; quality red), #522 (this back-merge).
+Open PRs: #533 (Pakoy shells; owner feature) and #540 (this plan update).
 
-Merged today: #520 (#476 mobile, `83cb3de`), #503 (E73 docs, `36c06ab`), #511 (`80a5e0b`), #512 (`f7edac7`), #523 (Node 22 pin, `adaa01b`), #521 (min feed temp, `cc3b1c8`), #524/#525 (develop fixes, `bd56a90`), #529 (staging to main promotion, `de76080`), #530/#532 (CI watcher, `4a1c954`), #535 (CI speedups, `4b63983`), #536 (same on develop, `1177af8`). #513 is closed by #523; #528 is held.
+Merged today: #520 (#476 mobile, `83cb3de`), #503 (E73 docs, `36c06ab`), #511 (`80a5e0b`), #512 (`f7edac7`), #523 (Node 22 pin, `adaa01b`), #521 (min feed temp, `cc3b1c8`), #524/#525 (develop fixes, `bd56a90`), #529 (staging to main promotion, `de76080`), #530/#532 (CI watcher, `4a1c954`), #535 (CI speedups, `4b63983`), #536 (same on develop, `1177af8`), #526 (commitlint 21, `17ea306`), #537 (mobile header and pond list, `ec56e1b`), #522 (back-merge and plan, `dc40da1`). #513 closed by #523; #474/#484 closed by #537; #482 closed by #524.
 
-**Incident 2026-11-02 (resolved):** #521's code reached staging at 02:47 UTC, but migration `20261102000000_add_min_feed_temp` was applied at **02:53:57**. For about six minutes the dashboard selected a column that did not exist; the generic error boundary said "database connection issue" and showed React #441. Not an env problem: `/api/health` was 200, the layout's queries worked, and `prisma migrate status` now reads up to date (51 migrations); `EnergyDevice.minFeedTempC` exists (double precision). Rule: apply an additive migration **before** the code that selects the new column reaches staging; staging shares the production database. The 10:51 Manila screenshot was inside the window; "Try again" now works.
+**Incident 2026-11-02 (resolved):** #521's code reached staging at 02:47 UTC, but migration `20261102000000_add_min_feed_temp` was applied at **02:53:57**. For about six minutes the dashboard selected a column that did not exist; the generic error boundary said "database connection issue" and showed React #441. Not an env problem: `/api/health` was 200, the layout's queries worked, and `prisma migrate status` read up to date (51 migrations); `EnergyDevice.minFeedTempC` exists (double precision). Rule: apply an additive migration **before** the code that selects the new column reaches staging; staging shares the production database. The 10:51 Manila screenshot was inside the window; "Try again" works.
 
 ## CI/CD orchestration (2026-11-02)
 
@@ -25,7 +25,15 @@ The global CI/CD efficiency rule and the OptiFeed facts are in the owner's local
 - pnpm install is already cached (~4s); Playwright is serial by design; no sharding, no browser-cache work.
 - Promotions staging to main are content-identical (12/12 first-parent merges). The tree-hash "already green" marker is merged in #535/#536: key `ci-green-<tree>`, saved only by a successful `staging` push, lookup-only on push and pull request, step-level skips, and a full run on any miss or cache error. It is never restored on `workflow_dispatch`. The first staging push saved `ci-green-64bf2a54730d69234333426b5066c1f597d30118`.
 - Watcher live: #530/#532 merged; issue #531 keeps one comment per unique failure. The first sweep found #528, #514 and #510; a second sweep added nothing (dedupe verified). Event-driven on workflow completion, plus a daily 06:00 Manila sweep.
-- Open blockers: #510 (bundle budget red), #514 (Prisma 7 red), #528 (coverage-v8 5 without vitest 5). #513 fixed by #523. This back-merge raised only the growth route budget by 0.5 kB (1074.5 to 1075.0) because the combined tree measured 1074.7 kB; baseline stayed 1053.4.
+- Upgrade queue: #538 (Prisma 7, TypeScript 7, vitest 5, production split); see Dependency decisions. #513 fixed by #523. The back-merge raised only the growth route budget by 0.5 kB (1074.5 to 1075.0) because the combined tree measured 1074.7 kB; baseline stayed 1053.4.
+
+## Promotion ceiling (owner, 2026-11-02)
+
+**Only `staging`, and only on the owner's signal.** Do not open or merge a `staging -> main` promotion. For `develop -> staging`, wait for the owner's word; the exception is a versioning/release-critical change that must reach `staging`, which may be promoted after telling the owner. Batch everything else into one promotion instead of merging each small PR to `staging` separately.
+
+## Dependency decisions (2026-11-02)
+
+#538 tracks the upgrades that cannot be bot-merged. Closed with a comment and held by `.github/dependabot.yml` (#539, merged): Prisma 7 (#514), TypeScript 7 (#527), vitest 5 + coverage-v8 5 (#528). #510 was closed and the production group split into `production-supabase`, `production-framework` and `production-utilities`; each batch is measured on its own PR. #526 (commitlint 21) merged. The next Dependabot run is the first observation of the new grouping.
 
 ## State at 19:30 (verified)
 
